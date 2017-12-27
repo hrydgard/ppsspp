@@ -243,7 +243,7 @@ bool WindowsGLContext::Init(HINSTANCE hInst, HWND window, std::string *error_mes
 
 		if (yes) {
 			// Change the config to D3D and restart.
-			g_Config.iGPUBackend = GPU_BACKEND_DIRECT3D9;
+			g_Config.iGPUBackend = (int)GPUBackend::DIRECT3D9;
 			g_Config.Save();
 
 			W32Util::ExitAndRestart();
@@ -362,6 +362,7 @@ bool WindowsGLContext::Init(HINSTANCE hInst, HWND window, std::string *error_mes
 
 	CheckGLExtensions();
 	draw_ = Draw::T3DCreateGLContext();
+	SetGPUBackend(GPUBackend::OPENGL);
 	bool success = draw_->CreatePresets();  // if we get this far, there will always be a GLSL compiler capable of compiling these.
 	assert(success);
 	CHECK_GL_ERROR_IF_DEBUG();

@@ -114,16 +114,16 @@ void WindowsHost::UpdateConsolePosition() {
 bool WindowsHost::InitGraphics(std::string *error_message, GraphicsContext **ctx) {
 	WindowsGraphicsContext *graphicsContext = nullptr;
 	switch (g_Config.iGPUBackend) {
-	case GPU_BACKEND_OPENGL:
+	case (int)GPUBackend::OPENGL:
 		graphicsContext = new WindowsGLContext();
 		break;
-	case GPU_BACKEND_DIRECT3D9:
+	case (int)GPUBackend::DIRECT3D9:
 		graphicsContext = new D3D9Context();
 		break;
-	case GPU_BACKEND_DIRECT3D11:
+	case (int)GPUBackend::DIRECT3D11:
 		graphicsContext = new D3D11Context();
 		break;
-	case GPU_BACKEND_VULKAN:
+	case (int)GPUBackend::VULKAN:
 		graphicsContext = new WindowsVulkanContext();
 		break;
 	default:

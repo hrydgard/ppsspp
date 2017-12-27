@@ -391,7 +391,7 @@ void SystemInfoScreen::CreateViews() {
 		deviceSpecs->Add(new InfoItem(si->T("Vendor (detected)"), vendor));
 	deviceSpecs->Add(new InfoItem(si->T("Driver Version"), draw->GetInfoString(InfoField::DRIVER)));
 #ifdef _WIN32
-	if (g_Config.iGPUBackend != GPU_BACKEND_VULKAN)
+	if (GetGPUBackend() != GPUBackend::VULKAN)
 		deviceSpecs->Add(new InfoItem(si->T("Driver Version"), System_GetProperty(SYSPROP_GPUDRIVER_VERSION)));
 #if !PPSSPP_PLATFORM(UWP)
 	if (GetGPUBackend() == GPUBackend::DIRECT3D9) {
@@ -399,7 +399,7 @@ void SystemInfoScreen::CreateViews() {
 	}
 #endif
 #endif
-	if (g_Config.iGPUBackend == GPU_BACKEND_OPENGL) {
+	if (GetGPUBackend() == GPUBackend::OPENGL) {
 		deviceSpecs->Add(new InfoItem(si->T("Core Context"), gl_extensions.IsCoreContext ? si->T("Yes") : si->T("No")));
 	}
 	deviceSpecs->Add(new ItemHeader(si->T("OS Information")));
@@ -510,7 +510,7 @@ void SystemInfoScreen::CreateViews() {
 	gpuExtensions->SetSpacing(0);
 	gpuExtensionsScroll->Add(gpuExtensions);
 
-	if (g_Config.iGPUBackend == GPU_BACKEND_OPENGL) {
+	if (GetGPUBackend() == GPUBackend::OPENGL) {
 		tabHolder->AddTab(si->T("OGL Extensions"), gpuExtensionsScroll);
 
 		if (!gl_extensions.IsGLES) {
@@ -547,7 +547,7 @@ void SystemInfoScreen::CreateViews() {
 				eglExtensions->Add(new TextView(extension, new LayoutParams(FILL_PARENT, WRAP_CONTENT)))->SetFocusable(true);
 			}
 		}
-	} else if (g_Config.iGPUBackend == GPU_BACKEND_VULKAN) {
+	} else if (GetGPUBackend() == GPUBackend::VULKAN) {
 		tabHolder->AddTab(si->T("Vulkan Features"), gpuExtensionsScroll);
 
 		gpuExtensions->Add(new ItemHeader(si->T("Vulkan Features")));

@@ -340,6 +340,7 @@ int SDLGLGraphicsContext::Init(SDL_Window *&window, int x, int y, int mode, std:
 	// Finally we can do the regular initialization.
 	CheckGLExtensions();
 	draw_ = Draw::T3DCreateGLContext();
+	SetGPUBackend(GPUBackend::OPENGL);
 	bool success = draw_->CreatePresets();
 	assert(success);
 	window_ = window;
@@ -468,6 +469,7 @@ bool SDLVulkanGraphicsContext::Init(SDL_Window *&window, int x, int y, int mode,
 	}
 
 	draw_ = Draw::T3DCreateVulkanContext(vulkan_, false);
+	SetGPUBackend(GPUBackend::VULKAN);
 	bool success = draw_->CreatePresets();
 	assert(success);
 	draw_->HandleEvent(Draw::Event::GOT_BACKBUFFER, vulkan_->GetBackbufferWidth(), vulkan_->GetBackbufferHeight());
@@ -865,17 +867,18 @@ int main(int argc, char *argv[]) {
 	GraphicsContext *graphicsContext = nullptr;
 	SDL_Window *window = nullptr;
 	std::string error_message;
-	if (g_Config.iGPUBackend == GPU_BACKEND_OPENGL) {
+	if (g_Config.iGPUBackend == (int)GPUBackend::OPENGL) {
 		SDLGLGraphicsContext *ctx = new SDLGLGraphicsContext();
 		if (ctx->Init(window, x, y, mode, &error_message) != 0) {
 			printf("GL init error '%s'\n", error_message.c_str());
 		}
 		graphicsContext = ctx;
-	} else if (g_Config.iGPUBackend == GPU_BACKEND_VULKAN) {
+	} else if (g_Config.iGPUBackend == (int)GPUBackend::VULKAN) {
 		SDLVulkanGraphicsContext *ctx = new SDLVulkanGraphicsContext();
 		if (!ctx->Init(window, x, y, mode, &error_message)) {
 			printf("Vulkan init error '%s' - falling back to GL\n", error_message.c_str());
-			g_Config.iGPUBackend = GPU_BACKEND_OPENGL;
+			g_Config.iGPUBackend = (int)GPUBackend::OPENGL;
+			SetGPUBackend((GPUBackend)g_Config.iGPUBackend);
 			delete ctx;
 			SDLGLGraphicsContext *glctx = new SDLGLGraphicsContext();
 			glctx->Init(window, x, y, mode, &error_message);
