@@ -279,10 +279,6 @@ namespace MainWindow
 			NativeMessageReceived("gpu_resized", "");
 		}
 
-		if (screenManager) {
-			screenManager->RecreateAllViews();
-		}
-
 		// Don't save the window state if fullscreen.
 		if (!g_Config.bFullScreen) {
 			g_WindowState = newSizingType;
