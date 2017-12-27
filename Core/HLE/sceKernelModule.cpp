@@ -295,9 +295,7 @@ public:
 			// On load state, we re-examine in case our syscall ids changed.
 			if (libstub != 0) {
 				importedFuncs.clear();
-				if (!KernelImportModuleFuncs(this, nullptr, true)) {
-					ERROR_LOG(LOADER, "Something went wrong loading imports on load state");
-				}
+				// Imports reloaded in KernelModuleDoState.
 			} else {
 				// Older save state.  Let's still reload, but this may not pick up new flags, etc.
 				bool foundBroken = false;
@@ -499,6 +497,19 @@ void __KernelModuleDoState(PointerWrap &p)
 		p.Do(loadedModules);
 	}
 
+	if (p.mode == p.MODE_READ) {
+		u32 error;
+		// We process these late, since they depend on loadedModules for interlinking.
+		for (SceUID moduleId : loadedModules) {
+			Module *module = kernelObjects.Get<Module>(moduleId, error);
+			if (module && module->libstub != 0) {
+				if (!KernelImportModuleFuncs(module, nullptr, true)) {
+					ERROR_LOG(LOADER, "Something went wrong loading imports on load state");
+				}
+			}
+		}
+	}
+
 	if (g_Config.bFuncReplacements) {
 		MIPSAnalyst::ReplaceFunctions();
 	}
@@ -637,8 +648,8 @@ void ImportVarSymbol(const VarSymbolImport &var) {
 	}
 
 	u32 error;
-	for (auto mod = loadedModules.begin(), modend = loadedModules.end(); mod != modend; ++mod) {
-		Module *module = kernelObjects.Get<Module>(*mod, error);
+	for (SceUID moduleId : loadedModules) {
+		Module *module = kernelObjects.Get<Module>(moduleId, error);
 		if (!module || !module->ImportsOrExportsModuleName(var.moduleName)) {
 			continue;
 		}
@@ -658,8 +669,8 @@ void ImportVarSymbol(const VarSymbolImport &var) {
 
 void ExportVarSymbol(const VarSymbolExport &var) {
 	u32 error;
-	for (auto mod = loadedModules.begin(), modend = loadedModules.end(); mod != modend; ++mod) {
-		Module *module = kernelObjects.Get<Module>(*mod, error);
+	for (SceUID moduleId : loadedModules) {
+		Module *module = kernelObjects.Get<Module>(moduleId, error);
 		if (!module || !module->ImportsOrExportsModuleName(var.moduleName)) {
 			continue;
 		}
@@ -676,8 +687,8 @@ void ExportVarSymbol(const VarSymbolExport &var) {
 
 void UnexportVarSymbol(const VarSymbolExport &var) {
 	u32 error;
-	for (auto mod = loadedModules.begin(), modend = loadedModules.end(); mod != modend; ++mod) {
-		Module *module = kernelObjects.Get<Module>(*mod, error);
+	for (SceUID moduleId : loadedModules) {
+		Module *module = kernelObjects.Get<Module>(moduleId, error);
 		if (!module || !module->ImportsOrExportsModuleName(var.moduleName)) {
 			continue;
 		}
@@ -705,8 +716,8 @@ void ImportFuncSymbol(const FuncSymbolImport &func, bool reimporting) {
 	}
 
 	u32 error;
-	for (auto mod = loadedModules.begin(), modend = loadedModules.end(); mod != modend; ++mod) {
-		Module *module = kernelObjects.Get<Module>(*mod, error);
+	for (SceUID moduleId : loadedModules) {
+		Module *module = kernelObjects.Get<Module>(moduleId, error);
 		if (!module || !module->ImportsOrExportsModuleName(func.moduleName)) {
 			continue;
 		}
@@ -745,8 +756,8 @@ void ExportFuncSymbol(const FuncSymbolExport &func) {
 	}
 
 	u32 error;
-	for (auto mod = loadedModules.begin(), modend = loadedModules.end(); mod != modend; ++mod) {
-		Module *module = kernelObjects.Get<Module>(*mod, error);
+	for (SceUID moduleId : loadedModules) {
+		Module *module = kernelObjects.Get<Module>(moduleId, error);
 		if (!module || !module->ImportsOrExportsModuleName(func.moduleName)) {
 			continue;
 		}
@@ -769,8 +780,8 @@ void UnexportFuncSymbol(const FuncSymbolExport &func) {
 	}
 
 	u32 error;
-	for (auto mod = loadedModules.begin(), modend = loadedModules.end(); mod != modend; ++mod) {
-		Module *module = kernelObjects.Get<Module>(*mod, error);
+	for (SceUID moduleId : loadedModules) {
+		Module *module = kernelObjects.Get<Module>(moduleId, error);
 		if (!module || !module->ImportsOrExportsModuleName(func.moduleName)) {
 			continue;
 		}
@@ -2390,8 +2401,8 @@ static u32 sceKernelGetModuleIdList(u32 resultBuffer, u32 resultBufferSize, u32 
 	u32 resultBufferOffset = 0;
 
 	u32 error;
-	for (auto mod = loadedModules.begin(), modend = loadedModules.end(); mod != modend; ++mod) {		
-		Module *module = kernelObjects.Get<Module>(*mod, error);
+	for (SceUID moduleId : loadedModules) {
+		Module *module = kernelObjects.Get<Module>(moduleId, error);
 		if (!module->isFake) {
 			if (resultBufferOffset < resultBufferSize) {
 				Memory::Write_U32(module->GetUID(), resultBuffer + resultBufferOffset);
