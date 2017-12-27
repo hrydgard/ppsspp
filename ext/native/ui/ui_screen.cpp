@@ -309,6 +309,10 @@ void PopupScreen::TriggerFinish(DialogResult result) {
 	OnCompleted(result);
 }
 
+void PopupScreen::resized() {
+	RecreateViews();
+}
+
 void PopupScreen::CreateViews() {
 	using namespace UI;
 	UIContext &dc = *screenManager()->getUIContext();

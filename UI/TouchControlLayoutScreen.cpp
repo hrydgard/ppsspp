@@ -279,7 +279,11 @@ bool TouchControlLayoutScreen::touch(const TouchInput &touch) {
 		pickedControl_ = 0;
 	}
 	return true;
-};
+}
+
+void TouchControlLayoutScreen::resized() {
+	RecreateViews();
+}
 
 void TouchControlLayoutScreen::onFinish(DialogResult reason) {
 	g_Config.Save();
