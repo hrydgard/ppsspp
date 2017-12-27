@@ -9,6 +9,10 @@
 
 #define TEXCACHE_NAME_CACHE_SIZE 16
 
+#ifdef IOS
+extern void bindDefaultFBO();
+#endif
+
 // Workaround for Retroarch. Simply declare
 //   extern GLuint g_defaultFBO;
 // and set is as appropriate. Can adjust the variables in ext/native/base/display.h as
