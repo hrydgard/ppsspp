@@ -409,8 +409,8 @@ void GLQueueRunner::PerformRenderPass(const GLRStep &step) {
 
 	GLRFramebuffer *fb = step.render.framebuffer;
 	GLRProgram *curProgram = nullptr;
-	int activeTexture = 0;
-	glActiveTexture(GL_TEXTURE0 + activeTexture);
+	int activeSlot = 0;
+	glActiveTexture(GL_TEXTURE0 + activeSlot);
 
 	// State filtering tracking.
 	int attrMask = 0;
@@ -425,6 +425,8 @@ void GLQueueRunner::PerformRenderPass(const GLRStep &step) {
 	bool ditherEnabled = false;
 	GLuint blendEqColor = (GLuint)-1;
 	GLuint blendEqAlpha = (GLuint)-1;
+
+	GLRTexture *curTex[8]{};
 
 	auto &commands = step.commands;
 	for (const auto &c : commands) {
@@ -604,23 +606,27 @@ void GLQueueRunner::PerformRenderPass(const GLRStep &step) {
 		case GLRRenderCommand::BINDTEXTURE:
 		{
 			GLint slot = c.texture.slot;
-			if (slot != activeTexture) {
+			if (slot != activeSlot) {
 				glActiveTexture(GL_TEXTURE0 + slot);
-				activeTexture = slot;
+				activeSlot = slot;
 			}
 			if (c.texture.texture) {
-				glBindTexture(c.texture.texture->target, c.texture.texture->texture);
+				if (curTex[slot] != c.texture.texture) {
+					glBindTexture(c.texture.texture->target, c.texture.texture->texture);
+					curTex[slot] = c.texture.texture;
+				}
 			} else {
 				glBindTexture(GL_TEXTURE_2D, 0);  // Which target? Well we only use this one anyway...
+				curTex[slot] = nullptr;
 			}
 			break;
 		}
 		case GLRRenderCommand::BIND_FB_TEXTURE:
 		{
 			GLint slot = c.bind_fb_texture.slot;
-			if (slot != activeTexture) {
+			if (slot != activeSlot) {
 				glActiveTexture(GL_TEXTURE0 + slot);
-				activeTexture = slot;
+				activeSlot = slot;
 			}
 			if (c.bind_fb_texture.aspect == GL_COLOR_BUFFER_BIT) {
 				glBindTexture(GL_TEXTURE_2D, c.bind_fb_texture.framebuffer->color_texture);
@@ -695,21 +701,55 @@ void GLQueueRunner::PerformRenderPass(const GLRStep &step) {
 			}
 			break;
 		case GLRRenderCommand::TEXTURESAMPLER:
-			glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, c.textureSampler.wrapS);
-			glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, c.textureSampler.wrapT);
-			glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, c.textureSampler.magFilter);
-			glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, c.textureSampler.minFilter);
-			if (c.textureSampler.anisotropy != 0.0f) {
+		{
+			GLRTexture *tex = curTex[activeSlot];
+			if (!tex) {
+				break;
+			}
+			if (tex->wrapS != c.textureSampler.wrapS) {
+				glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, c.textureSampler.wrapS);
+				tex->wrapS = c.textureSampler.wrapS;
+			}
+			if (tex->wrapT != c.textureSampler.wrapT) {
+				glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, c.textureSampler.wrapT);
+				tex->wrapT = c.textureSampler.wrapT;
+			}
+			if (tex->magFilter != c.textureSampler.magFilter) {
+				glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, c.textureSampler.magFilter);
+				tex->magFilter = c.textureSampler.magFilter;
+			}
+			if (tex->minFilter != c.textureSampler.minFilter) {
+				glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, c.textureSampler.minFilter);
+				tex->minFilter = c.textureSampler.minFilter;
+			}
+			if (tex->anisotropy != c.textureSampler.anisotropy) {
 				glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAX_ANISOTROPY_EXT, c.textureSampler.anisotropy);
+				tex->anisotropy = c.textureSampler.anisotropy;
 			}
 			break;
+		}
 		case GLRRenderCommand::TEXTURELOD:
-			glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MIN_LOD, c.textureLod.minLod);
-			glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAX_LOD, c.textureLod.maxLod);
+		{
+			GLRTexture *tex = curTex[activeSlot];
+			if (!tex) {
+				break;
+			}
 #ifndef USING_GLES2
-			glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_LOD_BIAS, c.textureLod.lodBias);
+			if (tex->lodBias != c.textureLod.lodBias) {
+				glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_LOD_BIAS, c.textureLod.lodBias);
+				tex->lodBias = c.textureLod.lodBias;
+			}
 #endif
+			if (tex->minLod != c.textureLod.minLod) {
+				glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MIN_LOD, c.textureLod.minLod);
+				tex->minLod = c.textureLod.minLod;
+			}
+			if (tex->maxLod != c.textureLod.maxLod) {
+				glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAX_LOD, c.textureLod.maxLod);
+				tex->maxLod = c.textureLod.maxLod;
+			}
 			break;
+		}
 		case GLRRenderCommand::RASTER:
 			if (c.raster.cullEnable) {
 				if (!cullEnabled) {
@@ -744,7 +784,7 @@ void GLQueueRunner::PerformRenderPass(const GLRStep &step) {
 		}
 	}
 
-	if (activeTexture != 0)
+	if (activeSlot != 0)
 		glActiveTexture(GL_TEXTURE0);
 
 	// Wipe out the current state.

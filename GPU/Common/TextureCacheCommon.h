@@ -148,15 +148,7 @@ struct TexCacheEntry {
 	u32 framesUntilNextFullHash;
 	u32 fullhash;
 	u32 cluthash;
-	float lodBias;
 	u16 maxSeenV;
-
-	// Cache the current filter settings so we can avoid setting it again.
-	// (OpenGL ES 2.0 madness where filter settings are attached to each texture. Unused in other backends).
-	u8 magFilt;
-	u8 minFilt;
-	bool sClamp;
-	bool tClamp;
 
 	TexStatus GetHashStatus() {
 		return TexStatus(status & STATUS_MASK);
