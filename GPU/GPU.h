@@ -68,6 +68,7 @@ struct GPUStatistics {
 		numFlushes = 0;
 		numTexturesDecoded = 0;
 		numReadbacks = 0;
+		numClears = 0;
 		msProcessingDisplayLists = 0;
 		vertexGPUCycles = 0;
 		otherGPUCycles = 0;
@@ -87,6 +88,7 @@ struct GPUStatistics {
 	int numShaderSwitches;
 	int numTexturesDecoded;
 	int numReadbacks;
+	int numClears;
 	double msProcessingDisplayLists;
 	int vertexGPUCycles;
 	int otherGPUCycles;
