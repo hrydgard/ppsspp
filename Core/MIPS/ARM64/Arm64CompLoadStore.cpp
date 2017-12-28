@@ -171,8 +171,6 @@ namespace MIPSComp {
 			return;
 		}
 
-		DISABLE;
-
 		_dbg_assert_msg_(JIT, !gpr.IsImm(rs), "Invalid immediate address?  CPU bug?");
 		if (load) {
 			gpr.MapDirtyIn(rt, rs, false);
@@ -186,14 +184,10 @@ namespace MIPSComp {
 			SetScratch1ToEffectiveAddress(rs, offset);
 		}
 
-		// Need temp regs.  TODO: Get from the regcache?
-		static const ARM64Reg LR_SCRATCH3 = W9;
-		static const ARM64Reg LR_SCRATCH4 = W10;
-		if (false && load) {
-			PUSH(EncodeRegTo64(LR_SCRATCH3));
-		} else {
-			PUSH2(EncodeRegTo64(LR_SCRATCH3), EncodeRegTo64(LR_SCRATCH4));
-		}
+		// We can lose rs now, since we have it in SCRATCH1.
+		gpr.SpillLock(rt);
+		ARM64Reg LR_SCRATCH3 = gpr.GetAndLockTempR();
+		ARM64Reg LR_SCRATCH4 = gpr.GetAndLockTempR();
 
 		// Here's our shift amount.
 		ANDI2R(SCRATCH2, SCRATCH1, 3);
@@ -205,7 +199,7 @@ namespace MIPSComp {
 		switch (o) {
 		case 34: // lwl
 			MOVI2R(LR_SCRATCH3, 0x00ffffff);
-			LDR(SCRATCH1, MEMBASEREG, SCRATCH1);
+			LDR(SCRATCH1, MEMBASEREG, ArithOption(SCRATCH1));
 			LSRV(LR_SCRATCH3, LR_SCRATCH3, SCRATCH2);
 			AND(gpr.R(rt), gpr.R(rt), LR_SCRATCH3);
 			NEG(SCRATCH2, SCRATCH2);
@@ -216,7 +210,7 @@ namespace MIPSComp {
 
 		case 38: // lwr
 			MOVI2R(LR_SCRATCH3, 0xffffff00);
-			LDR(SCRATCH1, MEMBASEREG, SCRATCH1);
+			LDR(SCRATCH1, MEMBASEREG, ArithOption(SCRATCH1));
 			LSRV(SCRATCH1, SCRATCH1, SCRATCH2);
 			NEG(SCRATCH2, SCRATCH2);
 			ADDI2R(SCRATCH2, SCRATCH2, 24);
@@ -227,19 +221,20 @@ namespace MIPSComp {
 
 		case 42: // swl
 			MOVI2R(LR_SCRATCH3, 0xffffff00);
-			LDR(LR_SCRATCH4, MEMBASEREG, SCRATCH1);
+			LDR(LR_SCRATCH4, MEMBASEREG, ArithOption(SCRATCH1));
 			LSLV(LR_SCRATCH3, LR_SCRATCH3, SCRATCH2);
 			AND(LR_SCRATCH4, LR_SCRATCH4, LR_SCRATCH3);
 			NEG(SCRATCH2, SCRATCH2);
 			ADDI2R(SCRATCH2, SCRATCH2, 24);
+
 			LSRV(LR_SCRATCH3, gpr.R(rt), SCRATCH2);
 			ORR(LR_SCRATCH4, LR_SCRATCH4, LR_SCRATCH3);
-			STR(LR_SCRATCH4, MEMBASEREG, SCRATCH1);
+			STR(LR_SCRATCH4, MEMBASEREG, ArithOption(SCRATCH1));
 			break;
 
 		case 46: // swr
 			MOVI2R(LR_SCRATCH3, 0x00ffffff);
-			LDR(LR_SCRATCH4, MEMBASEREG, SCRATCH1);
+			LDR(LR_SCRATCH4, MEMBASEREG, ArithOption(SCRATCH1));
 			NEG(SCRATCH2, SCRATCH2);
 			ADDI2R(SCRATCH2, SCRATCH2, 24);
 			LSRV(LR_SCRATCH3, LR_SCRATCH3, SCRATCH2);
@@ -248,19 +243,15 @@ namespace MIPSComp {
 			ADDI2R(SCRATCH2, SCRATCH2, 24);
 			LSLV(LR_SCRATCH3, gpr.R(rt), SCRATCH2);
 			ORR(LR_SCRATCH4, LR_SCRATCH4, LR_SCRATCH3);
-			STR(LR_SCRATCH4, MEMBASEREG, SCRATCH1);
+			STR(LR_SCRATCH4, MEMBASEREG, ArithOption(SCRATCH1));
 			break;
-		}
-
-		if (false && load) {
-			POP(EncodeRegTo64(LR_SCRATCH3));
-		} else {
-			POP2(EncodeRegTo64(LR_SCRATCH3), EncodeRegTo64(LR_SCRATCH4));
 		}
 
 		for (auto skip : skips) {
 			SetJumpTarget(skip);
 		}
+
+		gpr.ReleaseSpillLocks();
 	}
 
 	void Arm64Jit::Comp_ITypeMem(MIPSOpcode op) {

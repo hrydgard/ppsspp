@@ -226,6 +226,43 @@ void Arm64RegCache::MapRegTo(ARM64Reg reg, MIPSGPReg mipsReg, int mapFlags) {
 	mr[mipsReg].reg = reg;
 }
 
+ARM64Reg Arm64RegCache::AllocateReg() {
+	int allocCount;
+	const ARM64Reg *allocOrder = GetMIPSAllocationOrder(allocCount);
+
+allocate:
+	for (int i = 0; i < allocCount; i++) {
+		ARM64Reg reg = allocOrder[i];
+
+		if (ar[reg].mipsReg == MIPS_REG_INVALID && !ar[reg].tempLocked) {
+			return reg;
+		}
+	}
+
+	// Still nothing. Let's spill a reg and goto 10.
+	// TODO: Use age or something to choose which register to spill?
+	// TODO: Spill dirty regs first? or opposite?
+	bool clobbered;
+	ARM64Reg bestToSpill = FindBestToSpill(true, &clobbered);
+	if (bestToSpill == INVALID_REG) {
+		bestToSpill = FindBestToSpill(false, &clobbered);
+	}
+
+	if (bestToSpill != INVALID_REG) {
+		if (clobbered) {
+			DiscardR(ar[bestToSpill].mipsReg);
+		} else {
+			FlushArmReg(bestToSpill);
+		}
+		// Now one must be free.
+		goto allocate;
+	}
+
+	// Uh oh, we have all of them spilllocked....
+	ERROR_LOG_REPORT(JIT, "Out of spillable registers at PC %08x!!!", mips_->pc);
+	return INVALID_REG;
+}
+
 ARM64Reg Arm64RegCache::FindBestToSpill(bool unusedOnly, bool *clobbered) {
 	int allocCount;
 	const ARM64Reg *allocOrder = GetMIPSAllocationOrder(allocCount);
@@ -285,6 +322,14 @@ ARM64Reg Arm64RegCache::MapTempImm(MIPSGPReg r) {
 	}
 
 	return INVALID_REG;
+}
+
+ARM64Reg Arm64RegCache::GetAndLockTempR() {
+	ARM64Reg reg = AllocateReg();
+	if (reg != INVALID_REG) {
+		ar[reg].tempLocked = true;
+	}
+	return reg;
 }
 
 // TODO: Somewhat smarter spilling - currently simply spills the first available, should do
@@ -362,43 +407,13 @@ ARM64Reg Arm64RegCache::MapReg(MIPSGPReg mipsReg, int mapFlags) {
 	}
 
 	// Okay, not mapped, so we need to allocate an ARM register.
-
-	int allocCount;
-	const ARM64Reg *allocOrder = GetMIPSAllocationOrder(allocCount);
-
-allocate:
-	for (int i = 0; i < allocCount; i++) {
-		ARM64Reg reg = allocOrder[i];
-
-		if (ar[reg].mipsReg == MIPS_REG_INVALID) {
-			// That means it's free. Grab it, and load the value into it (if requested).
-			MapRegTo(reg, mipsReg, mapFlags);
-			return reg;
-		}
+	ARM64Reg reg = AllocateReg();
+	if (reg != INVALID_REG) {
+		// Grab it, and load the value into it (if requested).
+		MapRegTo(reg, mipsReg, mapFlags);
 	}
 
-	// Still nothing. Let's spill a reg and goto 10.
-	// TODO: Use age or something to choose which register to spill?
-	// TODO: Spill dirty regs first? or opposite?
-	bool clobbered;
-	ARM64Reg bestToSpill = FindBestToSpill(true, &clobbered);
-	if (bestToSpill == INVALID_REG) {
-		bestToSpill = FindBestToSpill(false, &clobbered);
-	}
-
-	if (bestToSpill != INVALID_REG) {
-		if (clobbered) {
-			DiscardR(ar[bestToSpill].mipsReg);
-		} else {
-			FlushArmReg(bestToSpill);
-		}
-		// Now one must be free.
-		goto allocate;
-	}
-
-	// Uh oh, we have all of them spilllocked....
-	ERROR_LOG_REPORT(JIT, "Out of spillable registers at PC %08x!!!", mips_->pc);
-	return INVALID_REG;
+	return reg;
 }
 
 Arm64Gen::ARM64Reg Arm64RegCache::MapRegAsPointer(MIPSGPReg reg) {
@@ -863,6 +878,9 @@ void Arm64RegCache::ReleaseSpillLocks() {
 	for (int i = 0; i < NUM_MIPSREG; i++) {
 		if (!mr[i].isStatic)
 			mr[i].spillLock = false;
+	}
+	for (int i = 0; i < NUM_ARMREG; i++) {
+		ar[i].tempLocked = false;
 	}
 }
 
