@@ -731,7 +731,7 @@ void Arm64RegCache::FlushAll() {
 				if (mipsReg == MIPS_REG_LO) {
 					loadReg = EncodeRegTo64(loadReg);
 				}
-				emit_->LDR(INDEX_UNSIGNED, loadReg, CTXREG, GetMipsRegOffset(i));
+				emit_->LDR(INDEX_UNSIGNED, loadReg, CTXREG, GetMipsRegOffset(MIPSGPReg(i)));
 				mr[i].loc = ML_ARMREG;
 			}
 			if (i != MIPS_REG_ZERO && mr[i].reg == INVALID_REG) {

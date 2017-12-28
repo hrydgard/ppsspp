@@ -111,7 +111,11 @@ void Arm64Jit::Comp_FPULS(MIPSOpcode op)
 			} else {
 				skips = SetScratch1ForSafeAddress(rs, offset, SCRATCH2);
 			}
-			MOVK(SCRATCH1_64, ((uint64_t)Memory::base) >> 32, SHIFT_32);
+			if (jo.enablePointerify) {
+				MOVK(SCRATCH1_64, ((uint64_t)Memory::base) >> 32, SHIFT_32);
+			} else {
+				ADD(SCRATCH1_64, SCRATCH1_64, MEMBASEREG);
+			}
 		}
 		fp.LDR(32, INDEX_UNSIGNED, fpr.R(ft), SCRATCH1_64, 0);
 		for (auto skip : skips) {
@@ -139,7 +143,11 @@ void Arm64Jit::Comp_FPULS(MIPSOpcode op)
 			} else {
 				skips = SetScratch1ForSafeAddress(rs, offset, SCRATCH2);
 			}
-			MOVK(SCRATCH1_64, ((uint64_t)Memory::base) >> 32, SHIFT_32);
+			if (jo.enablePointerify) {
+				MOVK(SCRATCH1_64, ((uint64_t)Memory::base) >> 32, SHIFT_32);
+			} else {
+				ADD(SCRATCH1_64, SCRATCH1_64, MEMBASEREG);
+			}
 		}
 		fp.STR(32, INDEX_UNSIGNED, fpr.R(ft), SCRATCH1_64, 0);
 		for (auto skip : skips) {
