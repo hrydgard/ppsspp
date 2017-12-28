@@ -129,6 +129,7 @@ void Arm64Jit::ClearCache() {
 	ILOG("ARM64Jit: Clearing the cache!");
 	blocks.Clear();
 	ClearCodeSpace(jitStartOffset);
+	FlushIcacheSection(region + jitStartOffset, region + region_size - jitStartOffset);
 }
 
 void Arm64Jit::InvalidateCacheAt(u32 em_address, int length) {
