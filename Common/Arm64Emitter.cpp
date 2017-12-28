@@ -2073,7 +2073,7 @@ void ARM64FloatEmitter::EmitLoadStoreImmediate(u8 size, u32 opc, IndexType type,
 	}
 	else
 	{
-		_assert_msg_(DYNA_REC, !(imm < -256 || imm > 255), "%s immediate offset must be within range of -256 to 256!", __FUNCTION__);
+		_assert_msg_(DYNA_REC, !(imm < -256 || imm > 255), "%s immediate offset must be within range of -256 to 255!", __FUNCTION__);
 		encoded_imm = (imm & 0x1FF) << 2;
 		if (type == INDEX_POST)
 			encoded_imm |= 1;

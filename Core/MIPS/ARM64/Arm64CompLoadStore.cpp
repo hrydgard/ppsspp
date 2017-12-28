@@ -135,7 +135,7 @@ namespace MIPSComp {
 		std::vector<FixupBranch> skips;
 
 		if (gpr.IsImm(rs) && Memory::IsValidAddress(iaddr)) {
-			u32 addr = iaddr;
+			u32 addr = iaddr & 0x3FFFFFFF;
 			// Need to initialize since this only loads part of the register.
 			// But rs no longer matters (even if rs == rt) since we have the address.
 			gpr.MapReg(rt, load ? MAP_DIRTY : 0);

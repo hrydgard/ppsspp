@@ -221,8 +221,8 @@ namespace MIPSComp {
 			// CC might be set by slow path below, so load regs first.
 			fpr.MapRegV(vt, MAP_DIRTY | MAP_NOINIT);
 			if (gpr.IsImm(rs)) {
-				u32 addr = offset + gpr.GetImm(rs);
-				gpr.SetRegImm(SCRATCH1_64, addr + (uintptr_t)Memory::base);
+				u32 addr = (offset + gpr.GetImm(rs)) & 0x3FFFFFFF;
+				gpr.SetRegImm(SCRATCH1, addr);
 			} else {
 				gpr.MapReg(rs);
 				if (g_Config.bFastMemory) {
@@ -230,14 +230,8 @@ namespace MIPSComp {
 				} else {
 					skips = SetScratch1ForSafeAddress(rs, offset, SCRATCH2);
 				}
-				// Pointerify
-				if (jo.enablePointerify) {
-					MOVK(SCRATCH1_64, ((uint64_t)Memory::base) >> 32, SHIFT_32);
-				} else {
-					ADD(SCRATCH1_64, SCRATCH1_64, MEMBASEREG);
-				}
 			}
-			fp.LDR(32, INDEX_UNSIGNED, fpr.V(vt), SCRATCH1_64, 0);
+			fp.LDR(32, fpr.V(vt), SCRATCH1_64, ArithOption(MEMBASEREG));
 			for (auto skip : skips) {
 				SetJumpTarget(skip);
 			}
@@ -256,8 +250,8 @@ namespace MIPSComp {
 			// CC might be set by slow path below, so load regs first.
 			fpr.MapRegV(vt);
 			if (gpr.IsImm(rs)) {
-				u32 addr = offset + gpr.GetImm(rs);
-				gpr.SetRegImm(SCRATCH1_64, addr + (uintptr_t)Memory::base);
+				u32 addr = (offset + gpr.GetImm(rs)) & 0x3FFFFFFF;
+				gpr.SetRegImm(SCRATCH1, addr);
 			} else {
 				gpr.MapReg(rs);
 				if (g_Config.bFastMemory) {
@@ -265,13 +259,8 @@ namespace MIPSComp {
 				} else {
 					skips = SetScratch1ForSafeAddress(rs, offset, SCRATCH2);
 				}
-				if (jo.enablePointerify) {
-					MOVK(SCRATCH1_64, ((uint64_t)Memory::base) >> 32, SHIFT_32);
-				} else {
-					ADD(SCRATCH1_64, SCRATCH1_64, MEMBASEREG);
-				}
 			}
-			fp.STR(32, INDEX_UNSIGNED, fpr.V(vt), SCRATCH1_64, 0);
+			fp.STR(32, fpr.V(vt), SCRATCH1_64, ArithOption(MEMBASEREG));
 			for (auto skip : skips) {
 				SetJumpTarget(skip);
 			}
@@ -302,7 +291,7 @@ namespace MIPSComp {
 				fpr.MapRegsAndSpillLockV(vregs, V_Quad, MAP_DIRTY | MAP_NOINIT);
 
 				if (gpr.IsImm(rs)) {
-					u32 addr = imm + gpr.GetImm(rs);
+					u32 addr = (imm + gpr.GetImm(rs)) & 0x3FFFFFFF;
 					gpr.SetRegImm(SCRATCH1_64, addr + (uintptr_t)Memory::base);
 				} else {
 					gpr.MapReg(rs);
@@ -335,7 +324,7 @@ namespace MIPSComp {
 				fpr.MapRegsAndSpillLockV(vregs, V_Quad, 0);
 
 				if (gpr.IsImm(rs)) {
-					u32 addr = imm + gpr.GetImm(rs);
+					u32 addr = (imm + gpr.GetImm(rs)) & 0x3FFFFFFF;
 					gpr.SetRegImm(SCRATCH1_64, addr + (uintptr_t)Memory::base);
 				} else {
 					gpr.MapReg(rs);

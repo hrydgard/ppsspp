@@ -103,7 +103,7 @@ void Arm64Jit::Comp_FPULS(MIPSOpcode op)
 		fpr.MapReg(ft, MAP_NOINIT | MAP_DIRTY);
 		if (gpr.IsImm(rs)) {
 			u32 addr = (offset + gpr.GetImm(rs)) & 0x3FFFFFFF;
-			gpr.SetRegImm(SCRATCH1_64, (uintptr_t)(Memory::base + addr));
+			gpr.SetRegImm(SCRATCH1, addr);
 		} else {
 			gpr.MapReg(rs);
 			if (g_Config.bFastMemory) {
@@ -111,13 +111,8 @@ void Arm64Jit::Comp_FPULS(MIPSOpcode op)
 			} else {
 				skips = SetScratch1ForSafeAddress(rs, offset, SCRATCH2);
 			}
-			if (jo.enablePointerify) {
-				MOVK(SCRATCH1_64, ((uint64_t)Memory::base) >> 32, SHIFT_32);
-			} else {
-				ADD(SCRATCH1_64, SCRATCH1_64, MEMBASEREG);
-			}
 		}
-		fp.LDR(32, INDEX_UNSIGNED, fpr.R(ft), SCRATCH1_64, 0);
+		fp.LDR(32, fpr.R(ft), SCRATCH1_64, ArithOption(MEMBASEREG));
 		for (auto skip : skips) {
 			SetJumpTarget(skip);
 		}
@@ -135,7 +130,7 @@ void Arm64Jit::Comp_FPULS(MIPSOpcode op)
 		fpr.MapReg(ft);
 		if (gpr.IsImm(rs)) {
 			u32 addr = (offset + gpr.GetImm(rs)) & 0x3FFFFFFF;
-			gpr.SetRegImm(SCRATCH1_64, addr + (uintptr_t)(Memory::base));
+			gpr.SetRegImm(SCRATCH1, addr);
 		} else {
 			gpr.MapReg(rs);
 			if (g_Config.bFastMemory) {
@@ -143,13 +138,8 @@ void Arm64Jit::Comp_FPULS(MIPSOpcode op)
 			} else {
 				skips = SetScratch1ForSafeAddress(rs, offset, SCRATCH2);
 			}
-			if (jo.enablePointerify) {
-				MOVK(SCRATCH1_64, ((uint64_t)Memory::base) >> 32, SHIFT_32);
-			} else {
-				ADD(SCRATCH1_64, SCRATCH1_64, MEMBASEREG);
-			}
 		}
-		fp.STR(32, INDEX_UNSIGNED, fpr.R(ft), SCRATCH1_64, 0);
+		fp.STR(32, fpr.R(ft), SCRATCH1_64, ArithOption(MEMBASEREG));
 		for (auto skip : skips) {
 			SetJumpTarget(skip);
 		}
