@@ -129,8 +129,6 @@ namespace MIPSComp {
 			}
 		}
 
-		DISABLE;
-
 		u32 iaddr = gpr.IsImm(rs) ? offset + gpr.GetImm(rs) : 0xFFFFFFFF;
 		std::vector<FixupBranch> skips;
 
@@ -159,35 +157,21 @@ namespace MIPSComp {
 			case 42: // swl
 				LDR(SCRATCH2, MEMBASEREG, SCRATCH1);
 				ANDI2R(SCRATCH2, SCRATCH2, 0xffffff00 << shift, INVALID_REG);
-				ORR(SCRATCH2, SCRATCH2, SCRATCH2, ArithOption(gpr.R(rt), ST_LSR, 24 - shift));
+				ORR(SCRATCH2, SCRATCH2, gpr.R(rt), ArithOption(gpr.R(rt), ST_LSR, 24 - shift));
 				STR(SCRATCH2, MEMBASEREG, SCRATCH1);
 				break;
 
 			case 46: // swr
 				LDR(SCRATCH2, MEMBASEREG, SCRATCH1);
 				ANDI2R(SCRATCH2, SCRATCH2, 0x00ffffff >> (24 - shift), INVALID_REG);
-				ORR(SCRATCH2, SCRATCH2, SCRATCH2, ArithOption(gpr.R(rt), ST_LSL, shift));
+				ORR(SCRATCH2, SCRATCH2, gpr.R(rt), ArithOption(gpr.R(rt), ST_LSL, shift));
 				STR(SCRATCH2, MEMBASEREG, SCRATCH1);
 				break;
 			}
 			return;
 		}
 
-		switch (o) {
-		case 34: // lwl
-			DISABLE;
-			break;
-
-		case 38: // lwr
-			DISABLE;
-			break;
-
-		case 42: // swl
-			break;
-
-		case 46: // swr
-			break;
-		}
+		DISABLE;
 
 		_dbg_assert_msg_(JIT, !gpr.IsImm(rs), "Invalid immediate address?  CPU bug?");
 		if (load) {
