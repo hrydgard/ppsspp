@@ -213,7 +213,7 @@ namespace MainWindow {
 		const char *translatedShaderName = nullptr;
 
 		availableShaders.clear();
-		if (g_Config.iGPUBackend == GPU_BACKEND_DIRECT3D9) {
+		if (GetGPUBackend() == GPUBackend::DIRECT3D9) {
 			translatedShaderName = ps->T("Not available in Direct3D9 backend");
 			AppendMenu(shaderMenu, MF_STRING | MF_BYPOSITION | MF_GRAYED, item++, ConvertUTF8ToWString(translatedShaderName).c_str());
 		} else {
@@ -787,22 +787,22 @@ namespace MainWindow {
 			break;
 
 		case ID_OPTIONS_DIRECT3D9:
-			g_Config.iGPUBackend = GPU_BACKEND_DIRECT3D9;
+			g_Config.iGPUBackend = (int)GPUBackend::DIRECT3D9;
 			RestartApp();
 			break;
 
 		case ID_OPTIONS_DIRECT3D11:
-			g_Config.iGPUBackend = GPU_BACKEND_DIRECT3D11;
+			g_Config.iGPUBackend = (int)GPUBackend::DIRECT3D11;
 			RestartApp();
 			break;
 
 		case ID_OPTIONS_OPENGL:
-			g_Config.iGPUBackend = GPU_BACKEND_OPENGL;
+			g_Config.iGPUBackend = (int)GPUBackend::OPENGL;
 			RestartApp();
 			break;
 
 		case ID_OPTIONS_VULKAN:
-			g_Config.iGPUBackend = GPU_BACKEND_VULKAN;
+			g_Config.iGPUBackend = (int)GPUBackend::VULKAN;
 			RestartApp();
 			break;
 
@@ -1275,8 +1275,8 @@ namespace MainWindow {
 			CheckMenuItem(menu, savestateSlot[i], MF_BYCOMMAND | ((i == g_Config.iCurrentStateSlot) ? MF_CHECKED : MF_UNCHECKED));
 		}
 
-		switch (g_Config.iGPUBackend) {
-		case GPU_BACKEND_DIRECT3D9:
+		switch (GetGPUBackend()) {
+		case GPUBackend::DIRECT3D9:
 			EnableMenuItem(menu, ID_OPTIONS_DIRECT3D9, MF_GRAYED);
 			EnableMenuItem(menu, ID_OPTIONS_DIRECT3D11, MF_ENABLED);
 			EnableMenuItem(menu, ID_OPTIONS_OPENGL, MF_ENABLED);
@@ -1286,7 +1286,7 @@ namespace MainWindow {
 			CheckMenuItem(menu, ID_OPTIONS_OPENGL, MF_UNCHECKED);
 			CheckMenuItem(menu, ID_OPTIONS_VULKAN, MF_UNCHECKED);
 			break;
-		case GPU_BACKEND_OPENGL:
+		case GPUBackend::OPENGL:
 			EnableMenuItem(menu, ID_OPTIONS_DIRECT3D9, MF_ENABLED);
 			EnableMenuItem(menu, ID_OPTIONS_DIRECT3D11, MF_ENABLED);
 			EnableMenuItem(menu, ID_OPTIONS_OPENGL, MF_GRAYED);
@@ -1296,7 +1296,7 @@ namespace MainWindow {
 			CheckMenuItem(menu, ID_OPTIONS_OPENGL, MF_CHECKED);
 			CheckMenuItem(menu, ID_OPTIONS_VULKAN, MF_UNCHECKED);
 			break;
-		case GPU_BACKEND_VULKAN:
+		case GPUBackend::VULKAN:
 			EnableMenuItem(menu, ID_OPTIONS_DIRECT3D9, MF_ENABLED);
 			EnableMenuItem(menu, ID_OPTIONS_DIRECT3D11, MF_ENABLED);
 			EnableMenuItem(menu, ID_OPTIONS_OPENGL, MF_ENABLED);
@@ -1306,7 +1306,7 @@ namespace MainWindow {
 			CheckMenuItem(menu, ID_OPTIONS_OPENGL, MF_UNCHECKED);
 			CheckMenuItem(menu, ID_OPTIONS_VULKAN, MF_CHECKED);
 			break;
-		case GPU_BACKEND_DIRECT3D11:
+		case GPUBackend::DIRECT3D11:
 			EnableMenuItem(menu, ID_OPTIONS_DIRECT3D9, MF_ENABLED);
 			EnableMenuItem(menu, ID_OPTIONS_DIRECT3D11, MF_GRAYED);
 			EnableMenuItem(menu, ID_OPTIONS_OPENGL, MF_ENABLED);

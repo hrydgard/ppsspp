@@ -65,7 +65,7 @@ typedef struct HWND__ *HWND;
 
 class SymbolMap {
 public:
-	SymbolMap() : sawUnknownModule(false) {}
+	SymbolMap() {}
 	void Clear();
 	void SortSymbols();
 
@@ -74,46 +74,46 @@ public:
 	bool LoadNocashSym(const char *ilename);
 	void SaveNocashSym(const char *filename) const;
 
-	SymbolType GetSymbolType(u32 address) const;
-	bool GetSymbolInfo(SymbolInfo *info, u32 address, SymbolType symmask = ST_FUNCTION) const;
+	SymbolType GetSymbolType(u32 address);
+	bool GetSymbolInfo(SymbolInfo *info, u32 address, SymbolType symmask = ST_FUNCTION);
 	u32 GetNextSymbolAddress(u32 address, SymbolType symmask);
-	std::string GetDescription(unsigned int address) const;
+	std::string GetDescription(unsigned int address);
 	std::vector<SymbolEntry> GetAllSymbols(SymbolType symmask);
 
 #ifdef _WIN32
-	void FillSymbolListBox(HWND listbox, SymbolType symType) const;
+	void FillSymbolListBox(HWND listbox, SymbolType symType);
 #endif
-	void GetLabels(std::vector<LabelDefinition> &dest) const;
+	void GetLabels(std::vector<LabelDefinition> &dest);
 
 	void AddModule(const char *name, u32 address, u32 size);
 	void UnloadModule(u32 address, u32 size);
 	u32 GetModuleRelativeAddr(u32 address, int moduleIndex = -1) const;
 	u32 GetModuleAbsoluteAddr(u32 relative, int moduleIndex) const;
 	int GetModuleIndex(u32 address) const;
-	bool IsModuleActive(int moduleIndex) const;
+	bool IsModuleActive(int moduleIndex);
 	std::vector<LoadedModuleInfo> getAllModules() const;
 
 	void AddFunction(const char* name, u32 address, u32 size, int moduleIndex = -1);
-	u32 GetFunctionStart(u32 address) const;
-	int GetFunctionNum(u32 address) const;
-	u32 GetFunctionSize(u32 startAddress) const;
-	u32 GetFunctionModuleAddress(u32 startAddress) const;
+	u32 GetFunctionStart(u32 address);
+	int GetFunctionNum(u32 address);
+	u32 GetFunctionSize(u32 startAddress);
+	u32 GetFunctionModuleAddress(u32 startAddress);
 	bool SetFunctionSize(u32 startAddress, u32 newSize);
 	bool RemoveFunction(u32 startAddress, bool removeName);
 	// Search for the first address their may be a function after address.
 	// Only valid for currently loaded modules.  Not guaranteed there will be a function.
-	u32 FindPossibleFunctionAtAfter(u32 address) const;
+	u32 FindPossibleFunctionAtAfter(u32 address);
 
 	void AddLabel(const char* name, u32 address, int moduleIndex = -1);
-	std::string GetLabelString(u32 address) const;
+	std::string GetLabelString(u32 address);
 	void SetLabelName(const char* name, u32 address);
 	bool GetLabelValue(const char* name, u32& dest);
 
 	void AddData(u32 address, u32 size, DataType type, int moduleIndex = -1);
-	u32 GetDataStart(u32 address) const;
-	u32 GetDataSize(u32 startAddress) const;
-	u32 GetDataModuleAddress(u32 startAddress) const;
-	DataType GetDataType(u32 startAddress) const;
+	u32 GetDataStart(u32 address);
+	u32 GetDataSize(u32 startAddress);
+	u32 GetDataModuleAddress(u32 startAddress);
+	DataType GetDataType(u32 startAddress);
 
 	static const u32 INVALID_ADDRESS = (u32)-1;
 
@@ -121,7 +121,7 @@ public:
 
 private:
 	void AssignFunctionIndices();
-	const char *GetLabelName(u32 address) const;
+	const char *GetLabelName(u32 address);
 	const char *GetLabelNameRel(u32 relAddress, int moduleIndex) const;
 
 	struct FunctionEntry {
@@ -156,6 +156,7 @@ private:
 	std::map<u32, const FunctionEntry> activeFunctions;
 	std::map<u32, const LabelEntry> activeLabels;
 	std::map<u32, const DataEntry> activeData;
+	bool activeNeedUpdate_ = false;
 
 	// This is indexed by the end address of the module.
 	std::map<u32, const ModuleEntry> activeModuleEnds;
@@ -169,7 +170,7 @@ private:
 	std::vector<ModuleEntry> modules;
 
 	mutable std::recursive_mutex lock_;
-	bool sawUnknownModule;
+	bool sawUnknownModule = false;
 };
 
 extern SymbolMap *g_symbolMap;

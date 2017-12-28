@@ -340,6 +340,7 @@ int SDLGLGraphicsContext::Init(SDL_Window *&window, int x, int y, int mode, std:
 	// Finally we can do the regular initialization.
 	CheckGLExtensions();
 	draw_ = Draw::T3DCreateGLContext();
+	SetGPUBackend(GPUBackend::OPENGL);
 	bool success = draw_->CreatePresets();
 	assert(success);
 	window_ = window;
@@ -438,27 +439,27 @@ bool SDLVulkanGraphicsContext::Init(SDL_Window *&window, int x, int y, int mode,
 		fprintf(stderr, "Error getting SDL window wm info: %s\n", SDL_GetError());
 		exit(1);
 	}
-	Display *display = sys_info.info.x11.display;
-	Window x11_window = sys_info.info.x11.window;
 	switch (sys_info.subsystem) {
 	case SDL_SYSWM_X11:
+#if defined(VK_USE_PLATFORM_XLIB_KHR)
+		vulkan_->InitSurface(WINDOWSYSTEM_XLIB, (void*)sys_info.info.x11.display,
+				(void *)(intptr_t)sys_info.info.x11.window, pixel_xres, pixel_yres);
+#elif defined(VK_USE_PLATFORM_XCB_KHR)
+		vulkan_->InitSurface(WINDOWSYSTEM_XCB, (void*)XGetXCBConnection(sys_info.info.x11.display),
+				(void *)(intptr_t)sys_info.info.x11.window, pixel_xres, pixel_yres);
+#endif
 		break;
+#if defined(VK_USE_PLATFORM_WAYLAND_KHR)
+	case SDL_SYSWM_WAYLAND:
+		vulkan_->InitSurface(WINDOWSYSTEM_WAYLAND, (void*)sys_info.info.wl.display,
+				(void *)sys_info.info.wl.surface, pixel_xres, pixel_yres);
+		break;
+#endif
 	default:
 		fprintf(stderr, "Vulkan subsystem %d not supported\n", sys_info.subsystem);
 		exit(1);
 		break;
 	}
-#else
-	// Fake to make it build on Apple. This code won't run there though.
-	void *display = nullptr;
-	int x11_window = 0;
-#endif
-	ILOG("Display: %p", display);
-
-#if defined(VK_USE_PLATFORM_XLIB_KHR)
-	vulkan_->InitSurface(WINDOWSYSTEM_XLIB, (void*)display, (void *)(intptr_t)x11_window, pixel_xres, pixel_yres);
-#elif defined(VK_USE_PLATFORM_XCB_KHR)
-	vulkan_->InitSurface(WINDOWSYSTEM_XCB, (void*)XGetXCBConnection(display), (void *)(intptr_t)x11_window, pixel_xres, pixel_yres);
 #endif
 
 	if (!vulkan_->InitObjects()) {
@@ -468,6 +469,7 @@ bool SDLVulkanGraphicsContext::Init(SDL_Window *&window, int x, int y, int mode,
 	}
 
 	draw_ = Draw::T3DCreateVulkanContext(vulkan_, false);
+	SetGPUBackend(GPUBackend::VULKAN);
 	bool success = draw_->CreatePresets();
 	assert(success);
 	draw_->HandleEvent(Draw::Event::GOT_BACKBUFFER, vulkan_->GetBackbufferWidth(), vulkan_->GetBackbufferHeight());
@@ -865,17 +867,18 @@ int main(int argc, char *argv[]) {
 	GraphicsContext *graphicsContext = nullptr;
 	SDL_Window *window = nullptr;
 	std::string error_message;
-	if (g_Config.iGPUBackend == GPU_BACKEND_OPENGL) {
+	if (g_Config.iGPUBackend == (int)GPUBackend::OPENGL) {
 		SDLGLGraphicsContext *ctx = new SDLGLGraphicsContext();
 		if (ctx->Init(window, x, y, mode, &error_message) != 0) {
 			printf("GL init error '%s'\n", error_message.c_str());
 		}
 		graphicsContext = ctx;
-	} else if (g_Config.iGPUBackend == GPU_BACKEND_VULKAN) {
+	} else if (g_Config.iGPUBackend == (int)GPUBackend::VULKAN) {
 		SDLVulkanGraphicsContext *ctx = new SDLVulkanGraphicsContext();
 		if (!ctx->Init(window, x, y, mode, &error_message)) {
 			printf("Vulkan init error '%s' - falling back to GL\n", error_message.c_str());
-			g_Config.iGPUBackend = GPU_BACKEND_OPENGL;
+			g_Config.iGPUBackend = (int)GPUBackend::OPENGL;
+			SetGPUBackend((GPUBackend)g_Config.iGPUBackend);
 			delete ctx;
 			SDLGLGraphicsContext *glctx = new SDLGLGraphicsContext();
 			glctx->Init(window, x, y, mode, &error_message);

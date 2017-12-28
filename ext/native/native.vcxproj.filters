@@ -329,6 +329,9 @@
     <ClInclude Include="ui\ui_tween.h">
       <Filter>ui</Filter>
     </ClInclude>
+    <ClInclude Include="..\..\Qt\QtMain.h">
+      <Filter>base</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="gfx\gl_debug_log.cpp">

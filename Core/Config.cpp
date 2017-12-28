@@ -489,20 +489,20 @@ static int DefaultGPUBackend() {
 #if PPSSPP_PLATFORM(WINDOWS) || PPSSPP_PLATFORM(ANDROID)
 	// Where supported, let's use Vulkan.
 	if (VulkanMayBeAvailable()) {
-		return GPU_BACKEND_VULKAN;
+		return (int)GPUBackend::VULKAN;
 	}
 #endif
 #if PPSSPP_PLATFORM(WINDOWS)
 	// If no Vulkan, use Direct3D 11 on Windows 8+ (most importantly 10.)
 	if (DoesVersionMatchWindows(6, 2, 0, 0, true)) {
-		return GPU_BACKEND_DIRECT3D11;
+		return (int)GPUBackend::DIRECT3D11;
 	}
 #endif
-	return GPU_BACKEND_OPENGL;
+	return (int)GPUBackend::OPENGL;
 }
 
 static bool DefaultVertexCache() {
-	return DefaultGPUBackend() == GPU_BACKEND_OPENGL;
+	return DefaultGPUBackend() == (int)GPUBackend::OPENGL;
 }
 
 static ConfigSetting graphicsSettings[] = {

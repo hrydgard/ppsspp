@@ -37,6 +37,9 @@ alignas(16) GPUgstate gstate;
 // Let's align this one too for good measure.
 alignas(16) GPUStateCache gstate_c;
 
+// For save state compatibility.
+static int savedContextVersion = 1;
+
 struct CmdRange {
 	u8 start;
 	u8 end;
@@ -77,6 +80,25 @@ static const CmdRange contextCmdRanges[] = {
 	// Skip: {0xFA, 0xFF},
 };
 
+static u32_le *SaveMatrix(u32_le *cmds, const float *mtx, int sz, int numcmd, int datacmd) {
+	*cmds++ = numcmd << 24;
+	for (int i = 0; i < sz; ++i) {
+		*cmds++ = (datacmd << 24) | toFloat24(mtx[i]);
+	}
+
+	return cmds;
+}
+
+static const u32_le *LoadMatrix(const u32_le *cmds, float *mtx, int sz) {
+	// Skip the reset.
+	cmds++;
+	for (int i = 0; i < sz; ++i) {
+		mtx[i] = getFloat24(*cmds++);
+	}
+
+	return cmds;
+}
+
 void GPUgstate::Reset() {
 	memset(gstate.cmdmem, 0, sizeof(gstate.cmdmem));
 	for (int i = 0; i < 256; i++) {
@@ -89,6 +111,8 @@ void GPUgstate::Reset() {
 	memset(gstate.projMatrix, 0, sizeof(gstate.projMatrix));
 	memset(gstate.tgenMatrix, 0, sizeof(gstate.tgenMatrix));
 	memset(gstate.boneMatrix, 0, sizeof(gstate.boneMatrix));
+
+	savedContextVersion = 1;
 }
 
 void GPUgstate::Save(u32_le *ptr) {
@@ -105,22 +129,37 @@ void GPUgstate::Save(u32_le *ptr) {
 		}
 	}
 
-	if (Memory::IsValidAddress(getClutAddress()))
-		*cmds++ = loadclut;
+	if (savedContextVersion == 0) {
+		if (Memory::IsValidAddress(getClutAddress()))
+			*cmds++ = loadclut;
 
-	// Seems like it actually writes commands to load the matrices and then reset the counts.
-	*cmds++ = boneMatrixNumber;
-	*cmds++ = worldmtxnum;
-	*cmds++ = viewmtxnum;
-	*cmds++ = projmtxnum;
-	*cmds++ = texmtxnum;
+		// Seems like it actually writes commands to load the matrices and then reset the counts.
+		*cmds++ = boneMatrixNumber;
+		*cmds++ = worldmtxnum;
+		*cmds++ = viewmtxnum;
+		*cmds++ = projmtxnum;
+		*cmds++ = texmtxnum;
 
-	u8 *matrices = (u8 *)cmds;
-	memcpy(matrices, boneMatrix, sizeof(boneMatrix)); matrices += sizeof(boneMatrix);
-	memcpy(matrices, worldMatrix, sizeof(worldMatrix)); matrices += sizeof(worldMatrix);
-	memcpy(matrices, viewMatrix, sizeof(viewMatrix)); matrices += sizeof(viewMatrix);
-	memcpy(matrices, projMatrix, sizeof(projMatrix)); matrices += sizeof(projMatrix);
-	memcpy(matrices, tgenMatrix, sizeof(tgenMatrix)); matrices += sizeof(tgenMatrix);
+		u8 *matrices = (u8 *)cmds;
+		memcpy(matrices, boneMatrix, sizeof(boneMatrix)); matrices += sizeof(boneMatrix);
+		memcpy(matrices, worldMatrix, sizeof(worldMatrix)); matrices += sizeof(worldMatrix);
+		memcpy(matrices, viewMatrix, sizeof(viewMatrix)); matrices += sizeof(viewMatrix);
+		memcpy(matrices, projMatrix, sizeof(projMatrix)); matrices += sizeof(projMatrix);
+		memcpy(matrices, tgenMatrix, sizeof(tgenMatrix)); matrices += sizeof(tgenMatrix);
+	} else {
+		cmds = SaveMatrix(cmds, boneMatrix, ARRAY_SIZE(boneMatrix), GE_CMD_BONEMATRIXNUMBER, GE_CMD_BONEMATRIXDATA);
+		cmds = SaveMatrix(cmds, worldMatrix, ARRAY_SIZE(worldMatrix), GE_CMD_WORLDMATRIXNUMBER, GE_CMD_WORLDMATRIXDATA);
+		cmds = SaveMatrix(cmds, viewMatrix, ARRAY_SIZE(viewMatrix), GE_CMD_VIEWMATRIXNUMBER, GE_CMD_VIEWMATRIXDATA);
+		cmds = SaveMatrix(cmds, projMatrix, ARRAY_SIZE(projMatrix), GE_CMD_PROJMATRIXNUMBER, GE_CMD_PROJMATRIXDATA);
+		cmds = SaveMatrix(cmds, tgenMatrix, ARRAY_SIZE(tgenMatrix), GE_CMD_TGENMATRIXNUMBER, GE_CMD_TGENMATRIXDATA);
+
+		*cmds++ = boneMatrixNumber;
+		*cmds++ = worldmtxnum;
+		*cmds++ = viewmtxnum;
+		*cmds++ = projmtxnum;
+		*cmds++ = texmtxnum;
+		*cmds++ = GE_CMD_END << 24;
+	}
 }
 
 void GPUgstate::FastLoadBoneMatrix(u32 addr) {
@@ -165,27 +204,41 @@ void GPUgstate::Restore(u32_le *ptr) {
 	gstate_c.offsetAddr = ptr[7];
 
 	// Command values start 17 ints in.
-	u32_le *cmds = ptr + 17;
+	const u32_le *cmds = ptr + 17;
 	for (size_t i = 0; i < ARRAY_SIZE(contextCmdRanges); ++i) {
 		for (int n = contextCmdRanges[i].start; n <= contextCmdRanges[i].end; ++n) {
 			cmdmem[n] = *cmds++;
 		}
 	}
 
-	if (Memory::IsValidAddress(getClutAddress()))
-		loadclut = *cmds++;
-	boneMatrixNumber = *cmds++;
-	worldmtxnum = *cmds++;
-	viewmtxnum = *cmds++;
-	projmtxnum = *cmds++;
-	texmtxnum = *cmds++;
+	if (savedContextVersion == 0) {
+		if (Memory::IsValidAddress(getClutAddress()))
+			loadclut = *cmds++;
+		boneMatrixNumber = *cmds++;
+		worldmtxnum = *cmds++;
+		viewmtxnum = *cmds++;
+		projmtxnum = *cmds++;
+		texmtxnum = *cmds++;
 
-	u8 *matrices = (u8 *)cmds;
-	memcpy(boneMatrix, matrices, sizeof(boneMatrix)); matrices += sizeof(boneMatrix);
-	memcpy(worldMatrix, matrices, sizeof(worldMatrix)); matrices += sizeof(worldMatrix);
-	memcpy(viewMatrix, matrices, sizeof(viewMatrix)); matrices += sizeof(viewMatrix);
-	memcpy(projMatrix, matrices, sizeof(projMatrix)); matrices += sizeof(projMatrix);
-	memcpy(tgenMatrix, matrices, sizeof(tgenMatrix)); matrices += sizeof(tgenMatrix);
+		u8 *matrices = (u8 *)cmds;
+		memcpy(boneMatrix, matrices, sizeof(boneMatrix)); matrices += sizeof(boneMatrix);
+		memcpy(worldMatrix, matrices, sizeof(worldMatrix)); matrices += sizeof(worldMatrix);
+		memcpy(viewMatrix, matrices, sizeof(viewMatrix)); matrices += sizeof(viewMatrix);
+		memcpy(projMatrix, matrices, sizeof(projMatrix)); matrices += sizeof(projMatrix);
+		memcpy(tgenMatrix, matrices, sizeof(tgenMatrix)); matrices += sizeof(tgenMatrix);
+	} else {
+		cmds = LoadMatrix(cmds, boneMatrix, ARRAY_SIZE(boneMatrix));
+		cmds = LoadMatrix(cmds, worldMatrix, ARRAY_SIZE(worldMatrix));
+		cmds = LoadMatrix(cmds, viewMatrix, ARRAY_SIZE(viewMatrix));
+		cmds = LoadMatrix(cmds, projMatrix, ARRAY_SIZE(projMatrix));
+		cmds = LoadMatrix(cmds, tgenMatrix, ARRAY_SIZE(tgenMatrix));
+
+		boneMatrixNumber = *cmds++;
+		worldmtxnum = *cmds++;
+		viewmtxnum = *cmds++;
+		projmtxnum = *cmds++;
+		texmtxnum = *cmds++;
+	}
 }
 
 bool vertTypeIsSkinningEnabled(u32 vertType) {
@@ -217,7 +270,7 @@ void GPUStateCache::Reset() {
 }
 
 void GPUStateCache::DoState(PointerWrap &p) {
-	auto s = p.Section("GPUStateCache", 0, 4);
+	auto s = p.Section("GPUStateCache", 0, 5);
 	if (!s) {
 		// Old state, this was not versioned.
 		GPUStateCache_v0 old;
@@ -231,6 +284,8 @@ void GPUStateCache::DoState(PointerWrap &p) {
 		vertexFullAlpha = old.vertexFullAlpha;
 		skipDrawReason = old.skipDrawReason;
 		uv = old.uv;
+
+		savedContextVersion = 0;
 	} else {
 		p.Do(vertexAddr);
 		p.Do(indexAddr);
@@ -290,4 +345,9 @@ void GPUStateCache::DoState(PointerWrap &p) {
 	p.Do(curRTHeight);
 
 	// curRTBufferWidth, curRTBufferHeight, and cutRTOffsetX don't need to be saved.
+	if (s < 5) {
+		savedContextVersion = 0;
+	} else {
+		p.Do(savedContextVersion);
+	}
 }

@@ -104,8 +104,8 @@ static inline ScreenCoords ClipToScreenInternal(const ClipCoords& coords, bool *
 	float y = coords.y * yScale / coords.w + yCenter;
 	float z = coords.z * zScale / coords.w + zCenter;
 
-	// Is this really right?
-	if (gstate.clipEnable & 0x1) {
+	// This matches hardware tests - depth is clamped when this flag is on.
+	if (gstate.isClippingEnabled()) {
 		if (z < 0.f)
 			z = 0.f;
 		if (z > 65535.f)

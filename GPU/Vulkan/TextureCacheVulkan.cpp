@@ -797,7 +797,7 @@ bool TextureCacheVulkan::GetCurrentTextureDebug(GPUDebugBuffer &buffer, int leve
 	// TODO: Centralize?
 	if (nextTexture_->framebuffer) {
 		VirtualFramebuffer *vfb = nextTexture_->framebuffer;
-		bool flipY = g_Config.iGPUBackend == GPU_BACKEND_OPENGL && g_Config.iRenderingMode != FB_NON_BUFFERED_MODE;
+		bool flipY = GetGPUBackend() == GPUBackend::OPENGL && g_Config.iRenderingMode != FB_NON_BUFFERED_MODE;
 		buffer.Allocate(vfb->bufferWidth, vfb->bufferHeight, GPU_DBG_FORMAT_8888, flipY);
 		bool retval = draw_->CopyFramebufferToMemorySync(vfb->fbo, Draw::FB_COLOR_BIT, 0, 0, vfb->bufferWidth, vfb->bufferHeight, Draw::DataFormat::R8G8B8A8_UNORM, buffer.GetData(), vfb->bufferWidth);
 		// Vulkan requires us to re-apply all dynamic state for each command buffer, and the above will cause us to start a new cmdbuf.

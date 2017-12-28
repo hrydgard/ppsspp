@@ -69,30 +69,11 @@ if(${CMAKE_SYSTEM_NAME} MATCHES "Android")
 	set(ANDROID ON)
 endif()
 
-# Of the CMake platforms, we only support Vulkan on Android and Windows.
-if(ANDROID OR WIN32 OR LINUX)
+# We only support Vulkan on Unix, Android and Windows.
+if(ANDROID OR WIN32 OR (UNIX AND NOT APPLE))
   set(VULKAN ON)
 else()
   add_definitions(-DNO_VULKAN)
-endif()
-
-if(NOT ANDROID)
-	# Use FindVulkan module added with CMAKE 3.7
-	if (NOT CMAKE_VERSION VERSION_LESS 3.7.0)
-		message(STATUS "Using module to find Vulkan")
-		find_package(Vulkan)
-	endif()
-endif()
-
-if(VULKAN AND NOT WIN32 AND NOT ANDROID)
-	IF (NOT Vulkan_FOUND)
-		find_library(Vulkan_LIBRARY NAMES vulkan HINTS "$ENV{VULKAN_SDK}/lib" "${CMAKE_SOURCE_DIR}/ext/vulkan" REQUIRED)
-		IF (Vulkan_LIBRARY)
-			set(Vulkan_FOUND ON)
-			MESSAGE("Using bundled Vulkan library version")
-			add_definitions(-DVULKAN_STATIC)
-		ENDIF()
-	ENDIF()
 endif()
 
 if(NOT DEFINED HEADLESS)
@@ -104,12 +85,6 @@ if(GOLD)
 	message("Gold Build")
 else()
 	message("Normal Build")
-endif()
-
-if(LINUX AND VULKAN)
-	message("Using XCB extension...")
-	add_definitions(-DVK_USE_PLATFORM_XLIB_KHR)
-	# add_definitions(-DVK_USE_PLATFORM_XCB_KHR)
 endif()
 
 # Doesn't link on some platforms
@@ -138,10 +113,20 @@ option(SIMULATOR "Set to ON when targeting an x86 simulator of an ARM platform" 
 # :: Options
 option(USE_FFMPEG "Build with FFMPEG support" ${USE_FFMPEG})
 option(USE_SYSTEM_FFMPEG "Dynamically link against system FFMPEG" ${USE_SYSTEM_FFMPEG})
+option(USE_WAYLAND_WSI "Set to ON to require Wayland support for Vulkan" ${USE_WAYLAND_WSI})
 
-# Vulkan on Linux options. If none of these are set, X11 is assumed.
-OPTION(USE_D2D_WSI "Build the project using Direct to Display swapchain" OFF)
-OPTION(USE_WAYLAND_WSI "Build the project using Wayland swapchain" OFF)
+if(UNIX AND NOT (APPLE OR ANDROID) AND VULKAN)
+	add_definitions(-DVK_USE_PLATFORM_XLIB_KHR)
+	# add_definitions(-DVK_USE_PLATFORM_XCB_KHR)
+	find_package(Wayland)
+	if (USE_WAYLAND_WSI AND NOT WAYLAND_FOUND)
+		message(FATAL_ERROR "Could not find libwayland, but USE_WAYLAND_WSI was enabled. Failing.")
+	endif()
+	if (WAYLAND_FOUND)
+		include_directories(${WAYLAND_INCLUDE_DIR})
+		add_definitions(-DVK_USE_PLATFORM_WAYLAND_KHR)
+	endif()
+endif()
 
 if(ANDROID)
 	set(CoreLibName ppsspp_jni)
@@ -1675,10 +1660,6 @@ set(GlslangLibs glslang OGLCompiler OSDependent SPIRV SPVRemapper spirv-cross-gl
 
 target_link_libraries(${CoreLibName} Common native kirk cityhash sfmt19937 xbrz xxhash ${GlslangLibs}
 	${CoreExtraLibs} ${OPENGL_LIBRARIES} ${X11_LIBRARIES} ${CMAKE_DL_LIBS})
-
-if(VULKAN AND NOT ANDROID AND NOT WIN32)
-	target_link_libraries(${CoreLibName} ${Vulkan_LIBRARY})
-endif()
 
 if(FFmpeg_FOUND)
   target_compile_definitions(${CoreLibName} PRIVATE USE_FFMPEG=1)

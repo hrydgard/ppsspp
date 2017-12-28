@@ -72,6 +72,7 @@ public:
 	virtual bool isTransparent() const override { return true; }
 	virtual bool touch(const TouchInput &touch) override;
 	virtual bool key(const KeyInput &key) override;
+	virtual void resized() override;
 
 	virtual void TriggerFinish(DialogResult result) override;
 

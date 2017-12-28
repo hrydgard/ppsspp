@@ -509,6 +509,9 @@ float DepthSliceFactor() {
 	if (gstate_c.Supports(GPU_SCALE_DEPTH_FROM_24BIT_TO_16BIT)) {
 		return DEPTH_SLICE_FACTOR_16BIT;
 	}
+	if (gstate_c.Supports(GPU_SUPPORTS_DEPTH_CLAMP)) {
+		return 1.0f;
+	}
 	return DEPTH_SLICE_FACTOR_HIGH;
 }
 
@@ -682,6 +685,7 @@ void ConvertViewportAndScissor(bool useBufferedRendering, float renderWidth, flo
 		// So, we apply the depth range as minz/maxz, and transform for the viewport.
 		float vpZScale = gstate.getViewportZScale();
 		float vpZCenter = gstate.getViewportZCenter();
+		// TODO: This clip the entire draw if minz > maxz.
 		float minz = gstate.getDepthRangeMin();
 		float maxz = gstate.getDepthRangeMax();
 

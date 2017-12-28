@@ -165,7 +165,11 @@ bool DisplayLayoutScreen::touch(const TouchInput &touch) {
 		picked_ = 0;
 	}
 	return true;
-};
+}
+
+void DisplayLayoutScreen::resized() {
+	RecreateViews();
+}
 
 void DisplayLayoutScreen::onFinish(DialogResult reason) {
 	g_Config.Save();

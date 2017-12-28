@@ -255,7 +255,7 @@ void ProcessLine(VertexData& v0, VertexData& v1)
 		return;
 	}
 
-	if (mask && (gstate.clipEnable & 0x1)) {
+	if (mask && gstate.isClippingEnabled()) {
 		// discard if any vertex is outside the near clipping plane
 		if (mask & CLIP_NEG_Z_BIT)
 			return;
@@ -303,7 +303,7 @@ void ProcessTriangle(VertexData& v0, VertexData& v1, VertexData& v2)
 	mask |= CalcClipMask(v1.clippos);
 	mask |= CalcClipMask(v2.clippos);
 
-	if (mask && (gstate.clipEnable & 0x1)) {
+	if (mask && gstate.isClippingEnabled()) {
 		// discard if any vertex is outside the near clipping plane
 		if (mask & CLIP_NEG_Z_BIT)
 			return;

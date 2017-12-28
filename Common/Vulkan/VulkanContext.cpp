@@ -109,16 +109,19 @@ VkResult VulkanContext::CreateInstance(const CreateInfo &info) {
 	instance_extensions_enabled_.push_back(VK_KHR_WIN32_SURFACE_EXTENSION_NAME);
 #elif defined(__ANDROID__)
 	instance_extensions_enabled_.push_back(VK_KHR_ANDROID_SURFACE_EXTENSION_NAME);
-#elif defined(VK_USE_PLATFORM_XLIB_KHR)
-	instance_extensions_enabled_.push_back(VK_KHR_XLIB_SURFACE_EXTENSION_NAME);
-#elif defined(VK_USE_PLATFORM_XCB_KHR)
-	instance_extensions_enabled_.push_back(VK_KHR_XCB_SURFACE_EXTENSION_NAME);
-#elif defined(VK_USE_PLATFORM_MIR_KHR)
-	instance_extensions_enabled_.push_back(VK_KHR_MIR_SURFACE_EXTENSION_NAME);
-#elif defined(VK_USE_PLATFORM_WAYLAND_KHR)
-	instance_extensions.enabled_.push_back(VK_KHR_WAYLAND_SURFACE_EXTENSION_NAME);
 #else
-	//...
+#if defined(VK_USE_PLATFORM_XLIB_KHR)
+	instance_extensions_enabled_.push_back(VK_KHR_XLIB_SURFACE_EXTENSION_NAME);
+#endif
+//#if defined(VK_USE_PLATFORM_XCB_KHR)
+//	instance_extensions_enabled_.push_back(VK_KHR_XCB_SURFACE_EXTENSION_NAME);
+//#endif
+//#if defined(VK_USE_PLATFORM_MIR_KHR)
+//	instance_extensions_enabled_.push_back(VK_KHR_MIR_SURFACE_EXTENSION_NAME);
+//#endif
+#if defined(VK_USE_PLATFORM_WAYLAND_KHR)
+	instance_extensions_enabled_.push_back(VK_KHR_WAYLAND_SURFACE_EXTENSION_NAME);
+#endif
 #endif
 
 	if (flags_ & VULKAN_FLAG_VALIDATE) {
@@ -663,6 +666,18 @@ void VulkanContext::ReinitSurface(int width, int height) {
 		xcb.connection = (Connection *)winsysData1_;
 		xcb.window = (Window)(uintptr_t)winsysData2_;
 		VkResult res = vkCreateXcbSurfaceKHR(instance_, &xcb, nullptr, &surface_);
+		assert(res == VK_SUCCESS);
+		break;
+	}
+#endif
+#if defined(VK_USE_PLATFORM_WAYLAND_KHR)
+	case WINDOWSYSTEM_WAYLAND:
+	{
+		VkWaylandSurfaceCreateInfoKHR wayland = { VK_STRUCTURE_TYPE_WAYLAND_SURFACE_CREATE_INFO_KHR };
+		wayland.flags = 0;
+		wayland.display = (wl_display *)winsysData1_;
+		wayland.surface = (wl_surface *)winsysData2_;
+		VkResult res = vkCreateWaylandSurfaceKHR(instance_, &wayland, nullptr, &surface_);
 		assert(res == VK_SUCCESS);
 		break;
 	}

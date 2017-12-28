@@ -106,11 +106,11 @@ bool CheckSupportInstancedTessellationGLES() {
 }
 
 bool IsBackendSupportHWTess() {
-	switch (g_Config.iGPUBackend) {
-	case GPU_BACKEND_OPENGL:
+	switch (GetGPUBackend()) {
+	case GPUBackend::OPENGL:
 		return CheckSupportInstancedTessellationGLES();
-	case GPU_BACKEND_VULKAN:
-	case GPU_BACKEND_DIRECT3D11:
+	case GPUBackend::VULKAN:
+	case GPUBackend::DIRECT3D11:
 		return true;
 	}
 	return false;
@@ -181,7 +181,7 @@ void GameSettingsScreen::CreateViews() {
 	if (!g_Config.bSimpleUI) {
 		graphicsSettings->Add(new ItemHeader(gr->T("Rendering Mode")));
 		static const char *renderingBackend[] = { "OpenGL", "Direct3D 9", "Direct3D 11", "Vulkan" };
-		PopupMultiChoice *renderingBackendChoice = graphicsSettings->Add(new PopupMultiChoice(&g_Config.iGPUBackend, gr->T("Backend"), renderingBackend, GPU_BACKEND_OPENGL, ARRAY_SIZE(renderingBackend), gr->GetName(), screenManager()));
+		PopupMultiChoice *renderingBackendChoice = graphicsSettings->Add(new PopupMultiChoice(&g_Config.iGPUBackend, gr->T("Backend"), renderingBackend, (int)GPUBackend::OPENGL, ARRAY_SIZE(renderingBackend), gr->GetName(), screenManager()));
 		renderingBackendChoice->OnChoice.Handle(this, &GameSettingsScreen::OnRenderingBackend);
 #if !PPSSPP_PLATFORM(WINDOWS)
 		renderingBackendChoice->HideChoice(1);  // D3D9
@@ -254,7 +254,7 @@ void GameSettingsScreen::CreateViews() {
 	}
 	graphicsSettings->Add(new ItemHeader(gr->T("Features")));
 	// Hide postprocess option on unsupported backends to avoid confusion.
-	if (g_Config.iGPUBackend != GPU_BACKEND_DIRECT3D9) {
+	if (GetGPUBackend() != GPUBackend::DIRECT3D9) {
 		I18NCategory *ps = GetI18NCategory("PostShaders");
 		postProcChoice_ = graphicsSettings->Add(new ChoiceWithValueDisplay(&g_Config.sPostShaderName, gr->T("Postprocessing Shader"), ps->GetName()));
 		postProcChoice_->OnClick.Handle(this, &GameSettingsScreen::OnPostProcShader);
