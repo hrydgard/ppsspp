@@ -3906,7 +3906,6 @@ void ARM64CodeBlock::PoisonMemory(int offset) {
 	// AArch64: 0xD4200000 = BRK 0
 	while (ptr < maxptr)
 		*ptr++ = 0xD4200000;
-	FlushIcacheSection((u8 *)ptr, (u8 *)maxptr);
 }
 
 }  // namespace
