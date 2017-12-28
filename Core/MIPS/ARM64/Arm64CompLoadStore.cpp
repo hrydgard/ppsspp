@@ -294,7 +294,8 @@ namespace MIPSComp {
 
 		u32 iaddr = gpr.IsImm(rs) ? offset + gpr.GetImm(rs) : 0xFFFFFFFF;
 		std::vector<FixupBranch> skips;
-		ARM64Reg addrReg = SCRATCH1;
+		ARM64Reg targetReg = INVALID_REG;
+		ARM64Reg addrReg = INVALID_REG;
 
 		int dataSize = 4;
 		switch (o) {
@@ -335,51 +336,66 @@ namespace MIPSComp {
 					gpr.SpillLock(rs, rt);
 					gpr.MapRegAsPointer(rs);
 
-					Arm64Gen::ARM64Reg ar;
-					if (!load && gpr.IsImm(rt) && gpr.GetImm(rt) == 0) {
-						// Can just store from the zero register directly.
-						ar = WZR;
-					} else {
+					// For a store, try to avoid mapping a reg if not needed.
+					targetReg = load ? INVALID_REG : gpr.MapTempImm(rt);
+					if (targetReg == INVALID_REG) {
 						gpr.MapReg(rt, load ? MAP_NOINIT : 0);
-						ar = gpr.R(rt);
+						targetReg = gpr.R(rt);
 					}
 					switch (o) {
-					case 35: LDR(INDEX_UNSIGNED, ar, gpr.RPtr(rs), offset); break;
-					case 37: LDRH(INDEX_UNSIGNED, ar, gpr.RPtr(rs), offset); break;
-					case 33: LDRSH(INDEX_UNSIGNED, ar, gpr.RPtr(rs), offset); break;
-					case 36: LDRB(INDEX_UNSIGNED, ar, gpr.RPtr(rs), offset); break;
-					case 32: LDRSB(INDEX_UNSIGNED, ar, gpr.RPtr(rs), offset); break;
+					case 35: LDR(INDEX_UNSIGNED, targetReg, gpr.RPtr(rs), offset); break;
+					case 37: LDRH(INDEX_UNSIGNED, targetReg, gpr.RPtr(rs), offset); break;
+					case 33: LDRSH(INDEX_UNSIGNED, targetReg, gpr.RPtr(rs), offset); break;
+					case 36: LDRB(INDEX_UNSIGNED, targetReg, gpr.RPtr(rs), offset); break;
+					case 32: LDRSB(INDEX_UNSIGNED, targetReg, gpr.RPtr(rs), offset); break;
 						// Store
-					case 43: STR(INDEX_UNSIGNED, ar, gpr.RPtr(rs), offset); break;
-					case 41: STRH(INDEX_UNSIGNED, ar, gpr.RPtr(rs), offset); break;
-					case 40: STRB(INDEX_UNSIGNED, ar, gpr.RPtr(rs), offset); break;
+					case 43: STR(INDEX_UNSIGNED, targetReg, gpr.RPtr(rs), offset); break;
+					case 41: STRH(INDEX_UNSIGNED, targetReg, gpr.RPtr(rs), offset); break;
+					case 40: STRB(INDEX_UNSIGNED, targetReg, gpr.RPtr(rs), offset); break;
 					}
 					gpr.ReleaseSpillLocks();
 					break;
 				}
 			}
 
+			if (!load && gpr.IsImm(rt) && gpr.MapTempImm(rt) != INVALID_REG) {
+				// We're storing an immediate value, let's see if we can optimize rt.
+				if (!gpr.IsImm(rs) || offset == 0) {
+					// In this case, we're always going to need rs mapped, which may flush the temp imm.
+					// We handle that in the cases below since targetReg is INVALID_REG.
+					gpr.MapIn(rs);
+				}
+
+				targetReg = gpr.MapTempImm(rt);
+			}
+
 			if (gpr.IsImm(rs) && Memory::IsValidAddress(iaddr)) {
-				// TODO: Avoid mapping a register for the "zero" register, use R0 instead.
-
-				// We can compute the full address at compile time. Kickass.
-				u32 addr = iaddr & 0x3FFFFFFF;
-
-				if (addr == iaddr && offset == 0) {
+				if (offset == 0) {
 					// It was already safe.  Let's shove it into a reg and use it directly.
-					load ? gpr.MapDirtyIn(rt, rs) : gpr.MapInIn(rt, rs);
+					if (targetReg == INVALID_REG) {
+						load ? gpr.MapDirtyIn(rt, rs) : gpr.MapInIn(rt, rs);
+						targetReg = gpr.R(rt);
+					}
 					addrReg = gpr.R(rs);
 				} else {
-					// In this case, only map rt. rs+offset will be in R0.
-					gpr.MapReg(rt, load ? MAP_NOINIT : 0);
-					gpr.SetRegImm(SCRATCH1, addr);
+					// In this case, only map rt. rs+offset will be in SCRATCH1.
+					if (targetReg == INVALID_REG) {
+						gpr.MapReg(rt, load ? MAP_NOINIT : 0);
+						targetReg = gpr.R(rt);
+					}
+					gpr.SetRegImm(SCRATCH1, iaddr);
 					addrReg = SCRATCH1;
 				}
 			} else {
 				// This actually gets hit in micro machines! rs = ZR rt = ZR. Probably a bug.
 				// Leaving this a debug assert for future investigation.
 				_dbg_assert_msg_(JIT, !gpr.IsImm(rs), "Invalid immediate address?  CPU bug?");
-				load ? gpr.MapDirtyIn(rt, rs) : gpr.MapInIn(rt, rs);
+
+				// If we already have a targetReg, we optimized an imm, and rs is already mapped.
+				if (targetReg == INVALID_REG) {
+					load ? gpr.MapDirtyIn(rt, rs) : gpr.MapInIn(rt, rs);
+					targetReg = gpr.R(rt);
+				}
 
 				if (!g_Config.bFastMemory && rs != MIPS_REG_SP) {
 					skips = SetScratch1ForSafeAddress(rs, offset, SCRATCH2);
@@ -391,15 +407,15 @@ namespace MIPSComp {
 
 			switch (o) {
 				// Load
-			case 35: LDR(gpr.R(rt), MEMBASEREG, addrReg); break;
-			case 37: LDRH(gpr.R(rt), MEMBASEREG, addrReg); break;
-			case 33: LDRSH(gpr.R(rt), MEMBASEREG, addrReg); break;
-			case 36: LDRB(gpr.R(rt), MEMBASEREG, addrReg); break;
-			case 32: LDRSB(gpr.R(rt), MEMBASEREG, addrReg); break;
+			case 35: LDR(targetReg, MEMBASEREG, addrReg); break;
+			case 37: LDRH(targetReg, MEMBASEREG, addrReg); break;
+			case 33: LDRSH(targetReg, MEMBASEREG, addrReg); break;
+			case 36: LDRB(targetReg, MEMBASEREG, addrReg); break;
+			case 32: LDRSB(targetReg, MEMBASEREG, addrReg); break;
 				// Store
-			case 43: STR(gpr.R(rt), MEMBASEREG, addrReg); break;
-			case 41: STRH(gpr.R(rt), MEMBASEREG, addrReg); break;
-			case 40: STRB(gpr.R(rt), MEMBASEREG, addrReg); break;
+			case 43: STR(targetReg, MEMBASEREG, addrReg); break;
+			case 41: STRH(targetReg, MEMBASEREG, addrReg); break;
+			case 40: STRB(targetReg, MEMBASEREG, addrReg); break;
 			}
 			for (auto skip : skips) {
 				SetJumpTarget(skip);

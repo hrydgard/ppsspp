@@ -264,6 +264,29 @@ ARM64Reg Arm64RegCache::FindBestToSpill(bool unusedOnly, bool *clobbered) {
 	return INVALID_REG;
 }
 
+ARM64Reg Arm64RegCache::MapTempImm(MIPSGPReg r) {
+	// If already mapped, no need for a temporary.
+	if (IsMapped(r)) {
+		return R(r);
+	}
+
+	if (mr[r].loc == ML_IMM) {
+		if (mr[r].imm == 0) {
+			return WZR;
+		}
+
+		// Try our luck - check for an exact match in another armreg.
+		for (int i = 0; i < NUM_MIPSREG; ++i) {
+			if (mr[i].loc == ML_ARMREG_IMM && mr[i].imm == mr[r].imm) {
+				// Awesome, let's just use this reg.
+				return mr[i].reg;
+			}
+		}
+	}
+
+	return INVALID_REG;
+}
+
 // TODO: Somewhat smarter spilling - currently simply spills the first available, should do
 // round robin or FIFO or something.
 ARM64Reg Arm64RegCache::MapReg(MIPSGPReg mipsReg, int mapFlags) {
