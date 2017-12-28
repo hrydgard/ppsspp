@@ -231,7 +231,11 @@ namespace MIPSComp {
 					skips = SetScratch1ForSafeAddress(rs, offset, SCRATCH2);
 				}
 				// Pointerify
-				MOVK(SCRATCH1_64, ((uint64_t)Memory::base) >> 32, SHIFT_32);
+				if (jo.enablePointerify) {
+					MOVK(SCRATCH1_64, ((uint64_t)Memory::base) >> 32, SHIFT_32);
+				} else {
+					ADD(SCRATCH1_64, SCRATCH1_64, MEMBASEREG);
+				}
 			}
 			fp.LDR(32, INDEX_UNSIGNED, fpr.V(vt), SCRATCH1_64, 0);
 			for (auto skip : skips) {
@@ -261,7 +265,11 @@ namespace MIPSComp {
 				} else {
 					skips = SetScratch1ForSafeAddress(rs, offset, SCRATCH2);
 				}
-				MOVK(SCRATCH1_64, ((uint64_t)Memory::base) >> 32, SHIFT_32);
+				if (jo.enablePointerify) {
+					MOVK(SCRATCH1_64, ((uint64_t)Memory::base) >> 32, SHIFT_32);
+				} else {
+					ADD(SCRATCH1_64, SCRATCH1_64, MEMBASEREG);
+				}
 			}
 			fp.STR(32, INDEX_UNSIGNED, fpr.V(vt), SCRATCH1_64, 0);
 			for (auto skip : skips) {
@@ -303,7 +311,11 @@ namespace MIPSComp {
 					} else {
 						skips = SetScratch1ForSafeAddress(rs, imm, SCRATCH2);
 					}
-					MOVK(SCRATCH1_64, ((uint64_t)Memory::base) >> 32, SHIFT_32);
+					if (jo.enablePointerify) {
+						MOVK(SCRATCH1_64, ((uint64_t)Memory::base) >> 32, SHIFT_32);
+					} else {
+						ADD(SCRATCH1_64, SCRATCH1_64, MEMBASEREG);
+					}
 				}
 
 				fp.LDP(32, INDEX_SIGNED, fpr.V(vregs[0]), fpr.V(vregs[1]), SCRATCH1_64, 0);
@@ -332,7 +344,11 @@ namespace MIPSComp {
 					} else {
 						skips = SetScratch1ForSafeAddress(rs, imm, SCRATCH2);
 					}
-					MOVK(SCRATCH1_64, ((uint64_t)Memory::base) >> 32, SHIFT_32);
+					if (jo.enablePointerify) {
+						MOVK(SCRATCH1_64, ((uint64_t)Memory::base) >> 32, SHIFT_32);
+					} else {
+						ADD(SCRATCH1_64, SCRATCH1_64, MEMBASEREG);
+					}
 				}
 
 				fp.STP(32, INDEX_SIGNED, fpr.V(vregs[0]), fpr.V(vregs[1]), SCRATCH1_64, 0);

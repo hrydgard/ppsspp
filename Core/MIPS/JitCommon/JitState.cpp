@@ -51,8 +51,14 @@ namespace MIPSComp {
 		continueMaxInstructions = 300;
 
 		useStaticAlloc = false;
+		enablePointerify = false;
 #if PPSSPP_ARCH(ARM64)
 		useStaticAlloc = true;
+		enablePointerify = true;
+#endif
+#if PPSSPP_PLATFORM(IOS)
+		useStaticAlloc = false;
+		enablePointerify = false;
 #endif
 	}
 }

@@ -57,7 +57,7 @@ void Arm64RegCache::Start(MIPSAnalyst::AnalysisResults &stats) {
 	const StaticAllocation *statics = GetStaticAllocations(numStatics);
 	for (int i = 0; i < numStatics; i++) {
 		ar[statics[i].ar].mipsReg = statics[i].mr;
-		ar[statics[i].ar].pointerified = statics[i].pointerified;
+		ar[statics[i].ar].pointerified = statics[i].pointerified && jo_->enablePointerify;
 		mr[statics[i].mr].loc = ML_ARMREG;
 		mr[statics[i].mr].reg = statics[i].ar;
 		mr[statics[i].mr].isStatic = true;
@@ -110,7 +110,7 @@ void Arm64RegCache::EmitLoadStaticRegisters() {
 	for (int i = 0; i < count; i++) {
 		int offset = GetMipsRegOffset(allocs[i].mr);
 		emit_->LDR(INDEX_UNSIGNED, allocs[i].ar, CTXREG, offset);
-		if (allocs[i].pointerified) {
+		if (allocs[i].pointerified && jo_->enablePointerify) {
 			emit_->MOVK(EncodeRegTo64(allocs[i].ar), ((uint64_t)Memory::base) >> 32, SHIFT_32);
 		}
 	}
@@ -150,6 +150,8 @@ bool Arm64RegCache::IsMappedAsPointer(MIPSGPReg mipsReg) {
 		if (ar[mr[mipsReg].reg].pointerified) {
 			ELOG("Really shouldn't be pointerified here");
 		}
+	} else if (mr[mipsReg].loc == ML_ARMREG_AS_PTR) {
+		return true;
 	}
 	return false;
 }
@@ -288,6 +290,17 @@ ARM64Reg Arm64RegCache::MapReg(MIPSGPReg mipsReg, int mapFlags) {
 				mr[mipsReg].loc = ML_ARMREG_IMM;
 				ar[armReg].pointerified = false;
 			}
+		} else if (mr[mipsReg].loc == ML_ARMREG_AS_PTR) {
+			// Was mapped as pointer, now we want it mapped as a value, presumably to
+			// add or subtract stuff to it.
+			if ((mapFlags & MAP_NOINIT) != MAP_NOINIT) {
+				ARM64Reg loadReg = armReg;
+				if (mipsReg == MIPS_REG_LO) {
+					loadReg = EncodeRegTo64(loadReg);
+				}
+				emit_->LDR(INDEX_UNSIGNED, loadReg, CTXREG, GetMipsRegOffset(mipsReg));
+			}
+			mr[mipsReg].loc = ML_ARMREG;
 		}
 		// Erasing the imm on dirty (necessary since otherwise we will still think it's ML_ARMREG_IMM and return
 		// true for IsImm and calculate crazily wrong things).  /unknown
@@ -315,6 +328,21 @@ ARM64Reg Arm64RegCache::MapReg(MIPSGPReg mipsReg, int mapFlags) {
 		}
 
 		return mr[mipsReg].reg;
+	} else if (mr[mipsReg].loc == ML_ARMREG_AS_PTR) {
+		// Was mapped as pointer, now we want it mapped as a value, presumably to
+		// add or subtract stuff to it.
+		if ((mapFlags & MAP_NOINIT) != MAP_NOINIT) {
+			ARM64Reg loadReg = armReg;
+			if (mipsReg == MIPS_REG_LO) {
+				loadReg = EncodeRegTo64(loadReg);
+			}
+			emit_->LDR(INDEX_UNSIGNED, loadReg, CTXREG, GetMipsRegOffset(mipsReg));
+		}
+		mr[mipsReg].loc = ML_ARMREG;
+		if (mapFlags & MAP_DIRTY) {
+			ar[armReg].isDirty = true;
+		}
+		return (ARM64Reg)mr[mipsReg].reg;
 	}
 
 	// Okay, not mapped, so we need to allocate an ARM register.
@@ -358,6 +386,11 @@ allocate:
 }
 
 Arm64Gen::ARM64Reg Arm64RegCache::MapRegAsPointer(MIPSGPReg reg) {
+	// Already mapped.
+	if (mr[reg].loc == ML_ARMREG_AS_PTR) {
+		return mr[reg].reg;
+	}
+
 	ARM64Reg retval = INVALID_REG;
 	if (mr[reg].loc != ML_ARMREG && mr[reg].loc != ML_ARMREG_IMM) {
 		retval = MapReg(reg);
@@ -368,9 +401,23 @@ Arm64Gen::ARM64Reg Arm64RegCache::MapRegAsPointer(MIPSGPReg reg) {
 	if (mr[reg].loc == ML_ARMREG || mr[reg].loc == ML_ARMREG_IMM) {
 		// If there was an imm attached, discard it.
 		mr[reg].loc = ML_ARMREG;
-		int a = DecodeReg(mr[reg].reg);
-		if (!ar[a].pointerified) {
-			emit_->MOVK(ARM64Reg(X0 + a), ((uint64_t)Memory::base) >> 32, SHIFT_32);
+		ARM64Reg a = DecodeReg(mr[reg].reg);
+		if (!jo_->enablePointerify) {
+			// First, flush the value.
+			if (ar[a].isDirty) {
+				ARM64Reg storeReg = ARM64RegForFlush(ar[a].mipsReg);
+				if (storeReg != INVALID_REG)
+					emit_->STR(INDEX_UNSIGNED, storeReg, CTXREG, GetMipsRegOffset(ar[a].mipsReg));
+				ar[a].isDirty = false;
+			}
+
+			// Convert to a pointer by adding the base and clearing off the top bits.
+			// If SP, we can probably avoid the top bit clear, let's play with that later.
+			emit_->ANDI2R(a, a, 0x3FFFFFFF, INVALID_REG);
+			emit_->ADD(ARM64Reg(X0 + (int)a), ARM64Reg(X0 + (int)a), MEMBASEREG);
+			mr[reg].loc = ML_ARMREG_AS_PTR;
+		} else if (!ar[a].pointerified) {
+			emit_->MOVK(ARM64Reg(X0 + (int)a), ((uint64_t)Memory::base) >> 32, SHIFT_32);
 			ar[a].pointerified = true;
 		}
 	} else {
@@ -450,10 +497,13 @@ void Arm64RegCache::FlushArmReg(ARM64Reg r) {
 		mreg.loc = ML_IMM;
 		mreg.reg = INVALID_REG;
 	} else {
-		// Note: may be a 64-bit reg.
-		ARM64Reg storeReg = ARM64RegForFlush(ar[r].mipsReg);
-		if (storeReg != INVALID_REG)
-			emit_->STR(INDEX_UNSIGNED, storeReg, CTXREG, GetMipsRegOffset(ar[r].mipsReg));
+		if (mreg.loc == ML_IMM || ar[r].isDirty) {
+			_assert_msg_(JIT, mreg.loc != ML_ARMREG_AS_PTR, "Cannot flush reg as pointer");
+			// Note: may be a 64-bit reg.
+			ARM64Reg storeReg = ARM64RegForFlush(ar[r].mipsReg);
+			if (storeReg != INVALID_REG)
+				emit_->STR(INDEX_UNSIGNED, storeReg, CTXREG, GetMipsRegOffset(ar[r].mipsReg));
+		}
 		mreg.loc = ML_MEM;
 		mreg.reg = INVALID_REG;
 		mreg.imm = 0;
@@ -465,10 +515,20 @@ void Arm64RegCache::FlushArmReg(ARM64Reg r) {
 
 void Arm64RegCache::DiscardR(MIPSGPReg mipsReg) {
 	if (mr[mipsReg].isStatic) {
-		// Simply do nothing unless it's an IMM or ARMREG_IMM, in case we just switch it over to ARMREG, losing the value.
+		// Simply do nothing unless it's an IMM/ARMREG_IMM/ARMREG_AS_PTR, in case we just switch it over to ARMREG, losing the value.
+		ARM64Reg armReg = mr[mipsReg].reg;
 		if (mr[mipsReg].loc == ML_ARMREG_IMM || mr[mipsReg].loc == ML_IMM) {
-			ARM64Reg armReg = mr[mipsReg].reg;
 			// Ignore the imm value, restore sanity
+			mr[mipsReg].loc = ML_ARMREG;
+			ar[armReg].pointerified = false;
+			ar[armReg].isDirty = false;
+		}
+		if (mr[mipsReg].loc == ML_ARMREG_AS_PTR) {
+			ARM64Reg loadReg = armReg;
+			if (mipsReg == MIPS_REG_LO) {
+				loadReg = EncodeRegTo64(loadReg);
+			}
+			emit_->LDR(INDEX_UNSIGNED, loadReg, CTXREG, GetMipsRegOffset(mipsReg));
 			mr[mipsReg].loc = ML_ARMREG;
 			ar[armReg].pointerified = false;
 			ar[armReg].isDirty = false;
@@ -476,7 +536,7 @@ void Arm64RegCache::DiscardR(MIPSGPReg mipsReg) {
 		return;
 	}
 	const RegMIPSLoc prevLoc = mr[mipsReg].loc;
-	if (prevLoc == ML_ARMREG || prevLoc == ML_ARMREG_IMM) {
+	if (prevLoc == ML_ARMREG || prevLoc == ML_ARMREG_IMM || prevLoc == ML_ARMREG_AS_PTR) {
 		ARM64Reg armReg = mr[mipsReg].reg;
 		ar[armReg].isDirty = false;
 		ar[armReg].mipsReg = MIPS_REG_INVALID;
@@ -532,6 +592,9 @@ ARM64Reg Arm64RegCache::ARM64RegForFlush(MIPSGPReg r) {
 		}
 		return mr[r].reg;
 
+	case ML_ARMREG_AS_PTR:
+		return INVALID_REG;
+
 	case ML_MEM:
 		return INVALID_REG;
 
@@ -576,6 +639,14 @@ void Arm64RegCache::FlushR(MIPSGPReg r) {
 		}
 		ar[mr[r].reg].mipsReg = MIPS_REG_INVALID;
 		ar[mr[r].reg].pointerified = false;
+		break;
+
+	case ML_ARMREG_AS_PTR:
+		// Never dirty.
+		if (ar[mr[r].reg].isDirty) {
+			ERROR_LOG_REPORT(JIT, "ARMREG_AS_PTR cannot be dirty (yet)");
+		}
+		ar[mr[r].reg].mipsReg = MIPS_REG_INVALID;
 		break;
 
 	case ML_MEM:
@@ -654,6 +725,14 @@ void Arm64RegCache::FlushAll() {
 					ar[armReg].pointerified = false;
 				}
 				mr[i].loc = ML_ARMREG;
+			} else if (mr[i].loc == ML_ARMREG_AS_PTR) {
+				// Need to reload the register (could also subtract, TODO...)
+				ARM64Reg loadReg = armReg;
+				if (mipsReg == MIPS_REG_LO) {
+					loadReg = EncodeRegTo64(loadReg);
+				}
+				emit_->LDR(INDEX_UNSIGNED, loadReg, CTXREG, GetMipsRegOffset(MIPSGPReg(i)));
+				mr[i].loc = ML_ARMREG;
 			}
 			if (i != MIPS_REG_ZERO && mr[i].reg == INVALID_REG) {
 				ELOG("ARM reg of static %i is invalid", i);
@@ -667,7 +746,7 @@ void Arm64RegCache::FlushAll() {
 	int count = 0;
 	const StaticAllocation *allocs = GetStaticAllocations(count);
 	for (int i = 0; i < count; i++) {
-		if (allocs[i].pointerified && !ar[allocs[i].ar].pointerified) {
+		if (allocs[i].pointerified && !ar[allocs[i].ar].pointerified && jo_->enablePointerify) {
 			// Re-pointerify
 			emit_->MOVK(EncodeRegTo64(allocs[i].ar), ((uint64_t)Memory::base) >> 32, SHIFT_32);
 			ar[allocs[i].ar].pointerified = true;
@@ -792,7 +871,9 @@ ARM64Reg Arm64RegCache::R(MIPSGPReg mipsReg) {
 }
 
 ARM64Reg Arm64RegCache::RPtr(MIPSGPReg mipsReg) {
-	if (mr[mipsReg].loc == ML_ARMREG || mr[mipsReg].loc == ML_ARMREG_IMM) {
+	if (mr[mipsReg].loc == ML_ARMREG_AS_PTR) {
+		return (ARM64Reg)mr[mipsReg].reg;
+	} else if (mr[mipsReg].loc == ML_ARMREG || mr[mipsReg].loc == ML_ARMREG_IMM) {
 		int a = mr[mipsReg].reg;
 		if (ar[a].pointerified) {
 			return (ARM64Reg)mr[mipsReg].reg;

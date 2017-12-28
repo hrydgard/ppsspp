@@ -86,7 +86,7 @@ void Arm64Jit::Comp_IType(MIPSOpcode op) {
 	case 8:	// same as addiu?
 	case 9:	// R(rt) = R(rs) + simm; break;	//addiu
 		// Special-case for small adjustments of pointerified registers. Commonly for SP but happens for others.
-		if (rs == rt && gpr.IsMappedAsPointer(rs) && IsImmArithmetic(simm < 0 ? -simm : simm, nullptr, nullptr)) {
+		if (rs == rt && jo.enablePointerify && gpr.IsMappedAsPointer(rs) && IsImmArithmetic(simm < 0 ? -simm : simm, nullptr, nullptr)) {
 			ARM64Reg r32 = gpr.R(rs);
 			gpr.MarkDirty(r32);
 			ARM64Reg r = EncodeRegTo64(r32);
