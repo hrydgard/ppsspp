@@ -486,11 +486,13 @@ void Arm64RegCache::FlushArmReg(ARM64Reg r) {
 		mreg.loc = ML_IMM;
 		mreg.reg = INVALID_REG;
 	} else {
-		_assert_msg_(JIT, mreg.loc != ML_ARMREG_AS_PTR, "Cannot flush reg as pointer");
-		// Note: may be a 64-bit reg.
-		ARM64Reg storeReg = ARM64RegForFlush(ar[r].mipsReg);
-		if (storeReg != INVALID_REG)
-			emit_->STR(INDEX_UNSIGNED, storeReg, CTXREG, GetMipsRegOffset(ar[r].mipsReg));
+		if (mreg.loc == ML_IMM || ar[r].isDirty) {
+			_assert_msg_(JIT, mreg.loc != ML_ARMREG_AS_PTR, "Cannot flush reg as pointer");
+			// Note: may be a 64-bit reg.
+			ARM64Reg storeReg = ARM64RegForFlush(ar[r].mipsReg);
+			if (storeReg != INVALID_REG)
+				emit_->STR(INDEX_UNSIGNED, storeReg, CTXREG, GetMipsRegOffset(ar[r].mipsReg));
+		}
 		mreg.loc = ML_MEM;
 		mreg.reg = INVALID_REG;
 		mreg.imm = 0;
