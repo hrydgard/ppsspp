@@ -357,7 +357,8 @@ void Arm64Jit::Comp_mxc1(MIPSOpcode op)
 
 	case 4: //FI(fs) = R(rt);	break; //mtc1
 		if (gpr.IsImm(rt)) {
-			uint32_t ival = gpr.GetImm(rt);
+			// This can't be run on LO/HI.
+			uint32_t ival = (uint32_t)gpr.GetImm(rt);
 			float floatval;
 			memcpy(&floatval, &ival, sizeof(floatval));
 			uint8_t imm8;
