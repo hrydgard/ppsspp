@@ -41,6 +41,8 @@ enum {
 enum RegMIPSLoc {
 	ML_IMM,
 	ML_ARMREG,
+	// In an arm reg, but an adjusted pointer (not pointerified - unaligned.)
+	ML_ARMREG_AS_PTR,
 	// In an arm reg, but also has a known immediate value.
 	ML_ARMREG_IMM,
 	ML_MEM,

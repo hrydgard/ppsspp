@@ -198,6 +198,7 @@ namespace MIPSComp {
 		// ARM64 only
 		bool useASIMDVFPU;
 		bool useStaticAlloc;
+		bool enablePointerify;
 
 		// Common
 		bool enableBlocklink;
