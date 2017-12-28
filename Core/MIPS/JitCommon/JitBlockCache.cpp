@@ -105,7 +105,7 @@ void JitBlockCache::Clear() {
 	block_map_.clear();
 	proxyBlockMap_.clear();
 	for (int i = 0; i < num_blocks_; i++)
-		DestroyBlock(i, false);
+		DestroyBlock(i, DestroyType::CLEAR);
 	links_to_.clear();
 	num_blocks_ = 0;
 
@@ -474,7 +474,7 @@ void JitBlockCache::RestoreSavedEmuHackOps(std::vector<u32> saved) {
 	}
 }
 
-void JitBlockCache::DestroyBlock(int block_num, bool invalidate) {
+void JitBlockCache::DestroyBlock(int block_num, DestroyType type) {
 	if (block_num < 0 || block_num >= num_blocks_) {
 		ERROR_LOG_REPORT(JIT, "DestroyBlock: Invalid block number %d", block_num);
 		return;
@@ -493,7 +493,7 @@ void JitBlockCache::DestroyBlock(int block_num, bool invalidate) {
 			int proxied_blocknum = GetBlockNumberFromStartAddress((*b->proxyFor)[i], false);
 			// If it was already cleared, we don't know which to destroy.
 			if (proxied_blocknum != -1) {
-				DestroyBlock(proxied_blocknum, invalidate);
+				DestroyBlock(proxied_blocknum, type);
 			}
 		}
 		b->proxyFor->clear();
@@ -513,7 +513,7 @@ void JitBlockCache::DestroyBlock(int block_num, bool invalidate) {
 	// In this case we probably "leak" the proxy block currently (no memory leak but it'll stay enabled).
 
 	if (b->invalid) {
-		if (invalidate)
+		if (type == DestroyType::INVALIDATE)
 			ERROR_LOG(JIT, "Invalidating invalid block %d", block_num);
 		return;
 	}
@@ -535,7 +535,10 @@ void JitBlockCache::DestroyBlock(int block_num, bool invalidate) {
 	}
 
 	if (b->checkedEntry) {
-		MIPSComp::jit->UnlinkBlock(b->checkedEntry, b->originalAddress);
+		// We can skip this if we're clearing anyway, which cuts down on protect back and forth on WX exclusive.
+		if (type != DestroyType::CLEAR) {
+			MIPSComp::jit->UnlinkBlock(b->checkedEntry, b->originalAddress);
+		}
 	} else {
 		ERROR_LOG(JIT, "Unlinking block with no entry: %08x (%d)", b->originalAddress, block_num);
 	}
@@ -567,7 +570,7 @@ void JitBlockCache::InvalidateICache(u32 address, const u32 length) {
 			const u32 blockStart = next->first.second;
 			const u32 blockEnd = next->first.first;
 			if (blockStart < pEnd && blockEnd > pAddr) {
-				DestroyBlock(next->second, true);
+				DestroyBlock(next->second, DestroyType::INVALIDATE);
 				// Our iterator is now invalid.  Break and search again.
 				// Most of the time there shouldn't be a bunch of matching blocks.
 				goto restart;
@@ -587,7 +590,7 @@ void JitBlockCache::InvalidateChangedBlocks() {
 		const u32 emuhack = GetEmuHackOpForBlock(block_num).encoding;
 		if (Memory::ReadUnchecked_U32(b.originalAddress) != emuhack) {
 			DEBUG_LOG(JIT, "Invalidating changed block at %08x", b.originalAddress);
-			DestroyBlock(block_num, true);
+			DestroyBlock(block_num, DestroyType::INVALIDATE);
 		}
 	}
 }

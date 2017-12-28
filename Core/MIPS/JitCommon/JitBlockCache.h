@@ -43,6 +43,13 @@ struct BlockCacheStats {
 	std::map<float, u32> bloatMap;
 };
 
+enum class DestroyType {
+	DESTROY,
+	INVALIDATE,
+	// Skips jit unlink, since it'll be poisoned anyway.
+	CLEAR,
+};
+
 // Define this in order to get VTune profile support for the Jit generated code.
 // Add the VTune include/lib directories to the project directories to get this to build.
 // #define USE_VTUNE
@@ -126,7 +133,7 @@ public:
 	// DOES NOT WORK CORRECTLY WITH JIT INLINING
 	void InvalidateICache(u32 address, const u32 length);
 	void InvalidateChangedBlocks();
-	void DestroyBlock(int block_num, bool invalidate);
+	void DestroyBlock(int block_num, DestroyType type);
 
 	// No jit operations may be run between these calls.
 	// Meant to be used to make memory safe for savestates, memcpy, etc.
