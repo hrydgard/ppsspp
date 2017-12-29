@@ -45,6 +45,7 @@ void Arm64RegCache::Start(MIPSAnalyst::AnalysisResults &stats) {
 		ar[i].mipsReg = MIPS_REG_INVALID;
 		ar[i].isDirty = false;
 		ar[i].pointerified = false;
+		ar[i].tempLocked = false;
 	}
 	for (int i = 0; i < NUM_MIPSREG; i++) {
 		mr[i].loc = ML_MEM;
