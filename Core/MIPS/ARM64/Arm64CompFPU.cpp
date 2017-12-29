@@ -102,7 +102,7 @@ void Arm64Jit::Comp_FPULS(MIPSOpcode op)
 		fpr.SpillLock(ft);
 		fpr.MapReg(ft, MAP_NOINIT | MAP_DIRTY);
 		if (gpr.IsImm(rs)) {
-			u32 addr = (offset + gpr.GetImm(rs)) & 0x3FFFFFFF;
+			u32 addr = offset + gpr.GetImm(rs);
 			gpr.SetRegImm(SCRATCH1, addr);
 		} else {
 			gpr.MapReg(rs);
@@ -129,7 +129,7 @@ void Arm64Jit::Comp_FPULS(MIPSOpcode op)
 
 		fpr.MapReg(ft);
 		if (gpr.IsImm(rs)) {
-			u32 addr = (offset + gpr.GetImm(rs)) & 0x3FFFFFFF;
+			u32 addr = offset + gpr.GetImm(rs);
 			gpr.SetRegImm(SCRATCH1, addr);
 		} else {
 			gpr.MapReg(rs);
