@@ -245,14 +245,7 @@ void GPU_GLES::CheckGPUFeatures() {
 				features |= GPU_SUPPORTS_DUALSOURCE_BLEND;
 			}
 		} else {
-#ifdef __ANDROID__
-			// This appears to be broken on nVidia Shield TV.
-			if (gl_extensions.gpuVendor != GPU_VENDOR_NVIDIA) {
-				features |= GPU_SUPPORTS_DUALSOURCE_BLEND;
-			}
-#else
 			features |= GPU_SUPPORTS_DUALSOURCE_BLEND;
-#endif
 		}
 	}
 

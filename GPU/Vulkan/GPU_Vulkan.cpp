@@ -214,12 +214,8 @@ void GPU_Vulkan::CheckGPUFeatures() {
 	}
 	if (vulkan_->GetFeaturesEnabled().dualSrcBlend) {
 		switch (vulkan_->GetPhysicalDeviceProperties().vendorID) {
-		case VULKAN_VENDOR_NVIDIA:
-			// Workaround for Shield TV and Shield Tablet driver bug.
-			if (strcmp(vulkan_->GetPhysicalDeviceProperties().deviceName, "NVIDIA Tegra X1") != 0 &&
-				  strcmp(vulkan_->GetPhysicalDeviceProperties().deviceName, "NVIDIA Tegra K1") != 0)
-				features |= GPU_SUPPORTS_DUALSOURCE_BLEND;
-			break;
+		// We thought we had a bug here on nVidia but turns out we accidentally #ifdef-ed out crucial
+		// code on Android.
 		case VULKAN_VENDOR_INTEL:
 			// Workaround for Intel driver bug.
 			break;
