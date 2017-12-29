@@ -228,7 +228,7 @@ bool GameInfo::LoadFromPath(const std::string &gamePath) {
 		title = File::GetFilename(filePath_);
 	}
 
-	return fileLoader ? fileLoader->Exists() : true;
+	return true;
 }
 
 std::shared_ptr<FileLoader> GameInfo::GetFileLoader() {
@@ -358,6 +358,11 @@ public:
 	void run() override {
 		if (!info_->LoadFromPath(gamePath_))
 			return;
+		// In case of a remote file, check if it actually exists before locking.
+		if (!info_->GetFileLoader()->Exists()) {
+			info_->pending = false;
+			return;
+		}
 
 		info_->working = true;
 		info_->fileType = Identify_File(info_->GetFileLoader().get());
