@@ -527,7 +527,7 @@ void GPU_D3D11::GetStats(char *buffer, size_t bufsize) {
 		"Cached, Uncached Vertices Drawn: %i, %i\n"
 		"FBOs active: %i\n"
 		"Textures active: %i, decoded: %i  invalidated: %i\n"
-		"Readbacks: %d\n"
+		"Readbacks: %d, uploads: %d\n"
 		"Vertex, Fragment shaders loaded: %i, %i\n",
 		gpuStats.msProcessingDisplayLists * 1000.0f,
 		gpuStats.numDrawCalls,
@@ -546,6 +546,7 @@ void GPU_D3D11::GetStats(char *buffer, size_t bufsize) {
 		gpuStats.numTexturesDecoded,
 		gpuStats.numTextureInvalidations,
 		gpuStats.numReadbacks,
+		gpuStats.numUploads,
 		shaderManagerD3D11_->GetNumVertexShaders(),
 		shaderManagerD3D11_->GetNumFragmentShaders()
 	);

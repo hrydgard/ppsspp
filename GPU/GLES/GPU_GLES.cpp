@@ -733,7 +733,7 @@ void GPU_GLES::GetStats(char *buffer, size_t bufsize) {
 		"Cached, Uncached Vertices Drawn: %i, %i\n"
 		"FBOs active: %i\n"
 		"Textures active: %i, decoded: %i  invalidated: %i\n"
-		"Readbacks: %d\n"
+		"Readbacks: %d, uploads: %d\n"
 		"Vertex, Fragment, Programs loaded: %i, %i, %i\n",
 		gpuStats.msProcessingDisplayLists * 1000.0f,
 		gpuStats.numDrawCalls,
@@ -752,6 +752,7 @@ void GPU_GLES::GetStats(char *buffer, size_t bufsize) {
 		gpuStats.numTexturesDecoded,
 		gpuStats.numTextureInvalidations,
 		gpuStats.numReadbacks,
+		gpuStats.numUploads,
 		shaderManagerGL_->GetNumVertexShaders(),
 		shaderManagerGL_->GetNumFragmentShaders(),
 		shaderManagerGL_->GetNumPrograms());
