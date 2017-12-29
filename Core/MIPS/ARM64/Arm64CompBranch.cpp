@@ -129,10 +129,20 @@ void Arm64Jit::BranchRSRTComp(MIPSOpcode op, CCFlags cc, bool likely)
 		// We might be able to flip the condition (EQ/NEQ are easy.)
 		const bool canFlip = cc == CC_EQ || cc == CC_NEQ;
 
-		// TODO ARM64: Optimize for immediates other than zero
-		if (rt == 0) {
-			gpr.MapIn(rs);
-			CMP(gpr.R(rs), 0);
+		u32 val;
+		bool shift;
+		if (gpr.IsImm(rt) && IsImmArithmetic(gpr.GetImm(rt), &val, &shift)) {
+			gpr.MapReg(rs);
+			CMP(gpr.R(rs), val, shift);
+		} else if (gpr.IsImm(rt) && IsImmArithmetic((u64)(s64)-(s32)gpr.GetImm(rt), &val, &shift)) {
+			gpr.MapReg(rs);
+			CMN(gpr.R(rs), val, shift);
+		} else if (gpr.IsImm(rs) && IsImmArithmetic(gpr.GetImm(rs), &val, &shift) && canFlip) {
+			gpr.MapReg(rt);
+			CMP(gpr.R(rt), val, shift);
+		} else if (gpr.IsImm(rs) && IsImmArithmetic((u64)(s64)-(s32)gpr.GetImm(rs), &val, &shift) && canFlip) {
+			gpr.MapReg(rt);
+			CMN(gpr.R(rt), val, shift);
 		} else {
 			gpr.MapInIn(rs, rt);
 			CMP(gpr.R(rs), gpr.R(rt));
