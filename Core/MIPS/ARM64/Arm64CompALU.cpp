@@ -57,7 +57,7 @@ static u32 EvalAnd(u32 a, u32 b) { return a & b; }
 static u32 EvalAdd(u32 a, u32 b) { return a + b; }
 static u32 EvalSub(u32 a, u32 b) { return a - b; }
 
-void Arm64Jit::CompImmLogic(MIPSGPReg rs, MIPSGPReg rt, u32 uimm, void (ARM64XEmitter::*arith)(ARM64Reg dst, ARM64Reg src, ARM64Reg src2), bool (ARM64XEmitter::*tryArithI2R)(ARM64Reg dst, ARM64Reg src, u32 val), u32 (*eval)(u32 a, u32 b)) {
+void Arm64Jit::CompImmLogic(MIPSGPReg rs, MIPSGPReg rt, u32 uimm, void (ARM64XEmitter::*arith)(ARM64Reg dst, ARM64Reg src, ARM64Reg src2), bool (ARM64XEmitter::*tryArithI2R)(ARM64Reg dst, ARM64Reg src, u64 val), u32 (*eval)(u32 a, u32 b)) {
 	if (gpr.IsImm(rs)) {
 		gpr.SetImm(rt, (*eval)(gpr.GetImm(rs), uimm));
 	} else {
@@ -119,7 +119,7 @@ void Arm64Jit::Comp_IType(MIPSOpcode op) {
 			break;
 		}
 		gpr.MapDirtyIn(rt, rs);
-		if (!TryCMPI2R(gpr.R(rs), simm)) {
+		if (!TryCMPI2R(gpr.R(rs), (u32)simm)) {
 			gpr.SetRegImm(SCRATCH1, simm);
 			CMP(gpr.R(rs), SCRATCH1);
 		}
@@ -196,7 +196,7 @@ void Arm64Jit::Comp_RType2(MIPSOpcode op) {
 	}
 }
 
-void Arm64Jit::CompType3(MIPSGPReg rd, MIPSGPReg rs, MIPSGPReg rt, void (ARM64XEmitter::*arith)(ARM64Reg dst, ARM64Reg rm, ARM64Reg rn), bool (ARM64XEmitter::*tryArithI2R)(ARM64Reg dst, ARM64Reg rm, u32 val), u32(*eval)(u32 a, u32 b), bool symmetric) {
+void Arm64Jit::CompType3(MIPSGPReg rd, MIPSGPReg rs, MIPSGPReg rt, void (ARM64XEmitter::*arith)(ARM64Reg dst, ARM64Reg rm, ARM64Reg rn), bool (ARM64XEmitter::*tryArithI2R)(ARM64Reg dst, ARM64Reg rm, u64 val), u32(*eval)(u32 a, u32 b), bool symmetric) {
 	if (gpr.IsImm(rs) && gpr.IsImm(rt)) {
 		gpr.SetImm(rd, (*eval)(gpr.GetImm(rs), gpr.GetImm(rt)));
 		return;

@@ -3664,14 +3664,10 @@ void ARM64FloatEmitter::ABI_PopRegisters(uint32_t registers, uint32_t fp_registe
 }
 
 void ARM64XEmitter::ANDI2R(ARM64Reg Rd, ARM64Reg Rn, u64 imm, ARM64Reg scratch) {
-	unsigned int n, imm_s, imm_r;
+	// It's probably okay to AND by extra bits.
 	if (!Is64Bit(Rn))
 		imm &= 0xFFFFFFFF;
-	if (IsImmLogical(imm, Is64Bit(Rn) ? 64 : 32, &n, &imm_s, &imm_r)) {
-		AND(Rd, Rn, imm_r, imm_s, n != 0);
-	} else if (imm == 0) {
-		MOVI2R(Rd, 0);
-	} else {
+	if (!TryANDI2R(Rd, Rn, imm)) {
 		_assert_msg_(JIT, scratch != INVALID_REG, "ANDI2R - failed to construct logical immediate value from %08x, need scratch", (u32)imm);
 		MOVI2R(scratch, imm);
 		AND(Rd, Rn, scratch);
@@ -3679,14 +3675,8 @@ void ARM64XEmitter::ANDI2R(ARM64Reg Rd, ARM64Reg Rn, u64 imm, ARM64Reg scratch) 
 }
 
 void ARM64XEmitter::ORRI2R(ARM64Reg Rd, ARM64Reg Rn, u64 imm, ARM64Reg scratch) {
-	unsigned int n, imm_s, imm_r;
-	if (IsImmLogical(imm, Is64Bit(Rn) ? 64 : 32, &n, &imm_s, &imm_r)) {
-		ORR(Rd, Rn, imm_r, imm_s, n != 0);
-	} else if (imm == 0) {
-		if (Rd != Rn) {
-			MOV(Rd, Rn);
-		}
-	} else {
+	_assert_msg_(JIT, Is64Bit(Rn) || (imm & 0xFFFFFFFF00000000UL) == 0, "ORRI2R - more bits in imm than Rn");
+	if (!TryORRI2R(Rd, Rn, imm)) {
 		_assert_msg_(JIT, scratch != INVALID_REG, "ORRI2R - failed to construct logical immediate value from %08x, need scratch", (u32)imm);
 		MOVI2R(scratch, imm);
 		ORR(Rd, Rn, scratch);
@@ -3694,14 +3684,8 @@ void ARM64XEmitter::ORRI2R(ARM64Reg Rd, ARM64Reg Rn, u64 imm, ARM64Reg scratch) 
 }
 
 void ARM64XEmitter::EORI2R(ARM64Reg Rd, ARM64Reg Rn, u64 imm, ARM64Reg scratch) {
-	unsigned int n, imm_s, imm_r;
-	if (IsImmLogical(imm, Is64Bit(Rn) ? 64 : 32, &n, &imm_s, &imm_r)) {
-		EOR(Rd, Rn, imm_r, imm_s, n != 0);
-	} else if (imm == 0) {
-		if (Rd != Rn) {
-			MOV(Rd, Rn);
-		}
-	} else {
+	_assert_msg_(JIT, Is64Bit(Rn) || (imm & 0xFFFFFFFF00000000UL) == 0, "EORI2R - more bits in imm than Rn");
+	if (!TryEORI2R(Rd, Rn, imm)) {
 		_assert_msg_(JIT, scratch != INVALID_REG, "EORI2R - failed to construct logical immediate value from %08x, need scratch", (u32)imm);
 		MOVI2R(scratch, imm);
 		EOR(Rd, Rn, scratch);
@@ -3709,11 +3693,13 @@ void ARM64XEmitter::EORI2R(ARM64Reg Rd, ARM64Reg Rn, u64 imm, ARM64Reg scratch) 
 }
 
 void ARM64XEmitter::ANDSI2R(ARM64Reg Rd, ARM64Reg Rn, u64 imm, ARM64Reg scratch) {
+	if (!Is64Bit(Rn))
+		imm &= 0xFFFFFFFF;
 	unsigned int n, imm_s, imm_r;
 	if (IsImmLogical(imm, Is64Bit(Rn) ? 64 : 32, &n, &imm_s, &imm_r)) {
 		ANDS(Rd, Rn, imm_r, imm_s, n != 0);
 	} else if (imm == 0) {
-		ANDS(Rd, Rn, Is64Bit(Rn) ? ZR : WZR, ArithOption(Rd, ST_LSL, 0));
+		ANDS(Rd, Rn, Is64Bit(Rn) ? ZR : WZR);
 	} else {
 		_assert_msg_(JIT, scratch != INVALID_REG, "ANDSI2R - failed to construct logical immediate value from %08x, need scratch", (u32)imm);
 		MOVI2R(scratch, imm);
@@ -3722,11 +3708,7 @@ void ARM64XEmitter::ANDSI2R(ARM64Reg Rd, ARM64Reg Rn, u64 imm, ARM64Reg scratch)
 }
 
 void ARM64XEmitter::ADDI2R(ARM64Reg Rd, ARM64Reg Rn, u64 imm, ARM64Reg scratch) {
-	u32 val;
-	bool shift;
-	if (IsImmArithmetic(imm, &val, &shift)) {
-		ADD(Rd, Rn, val, shift);
-	} else {
+	if (!TryADDI2R(Rd, Rn, imm)) {
 		_assert_msg_(JIT, scratch != INVALID_REG, "ADDI2R - failed to construct arithmetic immediate value from %08x, need scratch", (u32)imm);
 		MOVI2R(scratch, imm);
 		ADD(Rd, Rn, scratch);
@@ -3734,11 +3716,7 @@ void ARM64XEmitter::ADDI2R(ARM64Reg Rd, ARM64Reg Rn, u64 imm, ARM64Reg scratch) 
 }
 
 void ARM64XEmitter::SUBI2R(ARM64Reg Rd, ARM64Reg Rn, u64 imm, ARM64Reg scratch) {
-	u32 val;
-	bool shift;
-	if (IsImmArithmetic(imm, &val, &shift)) {
-		SUB(Rd, Rn, val, shift);
-	} else {
+	if (!TrySUBI2R(Rd, Rn, imm)) {
 		_assert_msg_(JIT, scratch != INVALID_REG, "SUBI2R - failed to construct arithmetic immediate value from %08x, need scratch", (u32)imm);
 		MOVI2R(scratch, imm);
 		SUB(Rd, Rn, scratch);
@@ -3746,18 +3724,14 @@ void ARM64XEmitter::SUBI2R(ARM64Reg Rd, ARM64Reg Rn, u64 imm, ARM64Reg scratch) 
 }
 
 void ARM64XEmitter::CMPI2R(ARM64Reg Rn, u64 imm, ARM64Reg scratch) {
-	u32 val;
-	bool shift;
-	if (IsImmArithmetic(imm, &val, &shift)) {
-		CMP(Rn, val, shift);
-	} else {
+	if (!TryCMPI2R(Rn, imm)) {
 		_assert_msg_(JIT, scratch != INVALID_REG, "CMPI2R - failed to construct arithmetic immediate value from %08x, need scratch", (u32)imm);
 		MOVI2R(scratch, imm);
 		CMP(Rn, scratch);
 	}
 }
 
-bool ARM64XEmitter::TryADDI2R(ARM64Reg Rd, ARM64Reg Rn, u32 imm) {
+bool ARM64XEmitter::TryADDI2R(ARM64Reg Rd, ARM64Reg Rn, u64 imm) {
 	u32 val;
 	bool shift;
 	if (IsImmArithmetic(imm, &val, &shift)) {
@@ -3768,7 +3742,7 @@ bool ARM64XEmitter::TryADDI2R(ARM64Reg Rd, ARM64Reg Rn, u32 imm) {
 	}
 }
 
-bool ARM64XEmitter::TrySUBI2R(ARM64Reg Rd, ARM64Reg Rn, u32 imm) {
+bool ARM64XEmitter::TrySUBI2R(ARM64Reg Rd, ARM64Reg Rn, u64 imm) {
 	u32 val;
 	bool shift;
 	if (IsImmArithmetic(imm, &val, &shift)) {
@@ -3779,7 +3753,7 @@ bool ARM64XEmitter::TrySUBI2R(ARM64Reg Rd, ARM64Reg Rn, u32 imm) {
 	}
 }
 
-bool ARM64XEmitter::TryCMPI2R(ARM64Reg Rn, u32 imm) {
+bool ARM64XEmitter::TryCMPI2R(ARM64Reg Rn, u64 imm) {
 	u32 val;
 	bool shift;
 	if (IsImmArithmetic(imm, &val, &shift)) {
@@ -3790,9 +3764,11 @@ bool ARM64XEmitter::TryCMPI2R(ARM64Reg Rn, u32 imm) {
 	}
 }
 
-bool ARM64XEmitter::TryANDI2R(ARM64Reg Rd, ARM64Reg Rn, u32 imm) {
+bool ARM64XEmitter::TryANDI2R(ARM64Reg Rd, ARM64Reg Rn, u64 imm) {
+	if (!Is64Bit(Rn))
+		imm &= 0xFFFFFFFF;
 	u32 n, imm_r, imm_s;
-	if (IsImmLogical(imm, 32, &n, &imm_s, &imm_r)) {
+	if (IsImmLogical(imm, Is64Bit(Rn) ? 64 : 32, &n, &imm_s, &imm_r)) {
 		AND(Rd, Rn, imm_r, imm_s, n != 0);
 		return true;
 	} else if (imm == 0) {
@@ -3802,9 +3778,10 @@ bool ARM64XEmitter::TryANDI2R(ARM64Reg Rd, ARM64Reg Rn, u32 imm) {
 		return false;
 	}
 }
-bool ARM64XEmitter::TryORRI2R(ARM64Reg Rd, ARM64Reg Rn, u32 imm) {
+bool ARM64XEmitter::TryORRI2R(ARM64Reg Rd, ARM64Reg Rn, u64 imm) {
+	_assert_msg_(JIT, Is64Bit(Rn) || (imm & 0xFFFFFFFF00000000UL) == 0, "TryORRI2R - more bits in imm than Rn");
 	u32 n, imm_r, imm_s;
-	if (IsImmLogical(imm, 32, &n, &imm_s, &imm_r)) {
+	if (IsImmLogical(imm, Is64Bit(Rn) ? 64 : 32, &n, &imm_s, &imm_r)) {
 		ORR(Rd, Rn, imm_r, imm_s, n != 0);
 		return true;
 	} else if (imm == 0) {
@@ -3816,9 +3793,10 @@ bool ARM64XEmitter::TryORRI2R(ARM64Reg Rd, ARM64Reg Rn, u32 imm) {
 		return false;
 	}
 }
-bool ARM64XEmitter::TryEORI2R(ARM64Reg Rd, ARM64Reg Rn, u32 imm) {
+bool ARM64XEmitter::TryEORI2R(ARM64Reg Rd, ARM64Reg Rn, u64 imm) {
+	_assert_msg_(JIT, Is64Bit(Rn) || (imm & 0xFFFFFFFF00000000UL) == 0, "TryEORI2R - more bits in imm than Rn");
 	u32 n, imm_r, imm_s;
-	if (IsImmLogical(imm, 32, &n, &imm_s, &imm_r)) {
+	if (IsImmLogical(imm, Is64Bit(Rn) ? 64 : 32, &n, &imm_s, &imm_r)) {
 		EOR(Rd, Rn, imm_r, imm_s, n != 0);
 		return true;
 	} else if (imm == 0) {
