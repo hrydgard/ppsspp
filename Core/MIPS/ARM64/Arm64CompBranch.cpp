@@ -128,36 +128,56 @@ void Arm64Jit::BranchRSRTComp(MIPSOpcode op, CCFlags cc, bool likely)
 
 		// We might be able to flip the condition (EQ/NEQ are easy.)
 		const bool canFlip = cc == CC_EQ || cc == CC_NEQ;
-
-		u32 val;
-		bool shift;
-		if (gpr.IsImm(rt) && IsImmArithmetic(gpr.GetImm(rt), &val, &shift)) {
-			gpr.MapReg(rs);
-			CMP(gpr.R(rs), val, shift);
-		} else if (gpr.IsImm(rt) && IsImmArithmetic((u64)(s64)-(s32)gpr.GetImm(rt), &val, &shift)) {
-			gpr.MapReg(rs);
-			CMN(gpr.R(rs), val, shift);
-		} else if (gpr.IsImm(rs) && IsImmArithmetic(gpr.GetImm(rs), &val, &shift) && canFlip) {
-			gpr.MapReg(rt);
-			CMP(gpr.R(rt), val, shift);
-		} else if (gpr.IsImm(rs) && IsImmArithmetic((u64)(s64)-(s32)gpr.GetImm(rs), &val, &shift) && canFlip) {
-			gpr.MapReg(rt);
-			CMN(gpr.R(rt), val, shift);
-		} else {
-			gpr.MapInIn(rs, rt);
-			CMP(gpr.R(rs), gpr.R(rt));
-		}
+		const bool rsIsZero = gpr.IsImm(rs) && gpr.GetImm(rs) == 0;
+		const bool rtIsZero = gpr.IsImm(rt) && gpr.GetImm(rt) == 0;
 
 		Arm64Gen::FixupBranch ptr;
-		if (!likely) {
-			if (!delaySlotIsNice)
-				CompileDelaySlot(DELAYSLOT_SAFE_FLUSH);
-			else
-				FlushAll();
-			ptr = B(cc);
-		} else {
+		if ((likely || delaySlotIsNice) && (rsIsZero || rtIsZero) && canFlip) {
+			// Special case, we can just use CBZ/CBNZ directly.
+			MIPSGPReg r = rsIsZero ? rt : rs;
+			gpr.MapReg(r);
+			// Flush should keep r in the same armreg.
+			ARM64Reg ar = gpr.R(r);
 			FlushAll();
-			ptr = B(cc);
+			if (cc == CC_EQ) {
+				ptr = CBZ(ar);
+			} else {
+				ptr = CBNZ(ar);
+			}
+		} else {
+			u32 val;
+			bool shift;
+			if (gpr.IsImm(rt) && IsImmArithmetic(gpr.GetImm(rt), &val, &shift)) {
+				gpr.MapReg(rs);
+				CMP(gpr.R(rs), val, shift);
+			} else if (gpr.IsImm(rt) && IsImmArithmetic((u64)(s64)-(s32)gpr.GetImm(rt), &val, &shift)) {
+				gpr.MapReg(rs);
+				CMN(gpr.R(rs), val, shift);
+			} else if (gpr.IsImm(rs) && IsImmArithmetic(gpr.GetImm(rs), &val, &shift) && canFlip) {
+				gpr.MapReg(rt);
+				CMP(gpr.R(rt), val, shift);
+			} else if (gpr.IsImm(rs) && IsImmArithmetic((u64)(s64)-(s32)gpr.GetImm(rs), &val, &shift) && canFlip) {
+				gpr.MapReg(rt);
+				CMN(gpr.R(rt), val, shift);
+			} else {
+				gpr.MapInIn(rs, rt);
+				CMP(gpr.R(rs), gpr.R(rt));
+			}
+
+			if (!likely) {
+				if (!delaySlotIsNice)
+					CompileDelaySlot(DELAYSLOT_SAFE_FLUSH);
+				else
+					FlushAll();
+				ptr = B(cc);
+			} else {
+				FlushAll();
+				ptr = B(cc);
+			}
+		}
+
+		if (likely) {
+			// Only executed when taking the branch.
 			CompileDelaySlot(DELAYSLOT_FLUSH);
 		}
 
@@ -244,7 +264,6 @@ void Arm64Jit::BranchRSZeroComp(MIPSOpcode op, CCFlags cc, bool andLink, bool li
 		if (!likely && delaySlotIsNice)
 			CompileDelaySlot(DELAYSLOT_NICE);
 
-		// TODO: Maybe we could use BZ here?
 		gpr.MapReg(rs);
 		CMP(gpr.R(rs), 0);
 

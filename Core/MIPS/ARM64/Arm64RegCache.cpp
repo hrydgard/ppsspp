@@ -690,6 +690,9 @@ void Arm64RegCache::FlushR(MIPSGPReg r) {
 }
 
 void Arm64RegCache::FlushAll() {
+	// Note: make sure not to change the registers when flushing:
+	// Branching code expects the armreg to retain its value.
+
 	// LO can't be included in a 32-bit pair, since it's 64 bit.
 	// Flush it first so we don't get it confused.
 	FlushR(MIPS_REG_LO);
