@@ -46,6 +46,7 @@
 GameInfoCache *g_gameInfoCache;
 
 GameInfo::GameInfo() : fileType(IdentifiedFileType::UNKNOWN) {
+	pending = true;
 }
 
 GameInfo::~GameInfo() {
@@ -227,7 +228,7 @@ bool GameInfo::LoadFromPath(const std::string &gamePath) {
 		title = File::GetFilename(filePath_);
 	}
 
-	return fileLoader ? fileLoader->Exists() : true;
+	return true;
 }
 
 std::shared_ptr<FileLoader> GameInfo::GetFileLoader() {
@@ -300,16 +301,6 @@ std::string GameInfo::GetTitle() {
 	return title;
 }
 
-bool GameInfo::IsPending() {
-	std::lock_guard<std::mutex> guard(lock);
-	return pending;
-}
-
-bool GameInfo::IsWorking() {
-	std::lock_guard<std::mutex> guard(lock);
-	return working;
-}
-
 void GameInfo::SetTitle(const std::string &newTitle) {
 	std::lock_guard<std::mutex> guard(lock);
 	title = newTitle;
@@ -367,13 +358,14 @@ public:
 	void run() override {
 		if (!info_->LoadFromPath(gamePath_))
 			return;
-
-		{
-			std::lock_guard<std::mutex> lock(info_->lock);
-			info_->working = true;
-			info_->fileType = Identify_File(info_->GetFileLoader().get());
+		// In case of a remote file, check if it actually exists before locking.
+		if (!info_->GetFileLoader()->Exists()) {
+			info_->pending = false;
+			return;
 		}
 
+		info_->working = true;
+		info_->fileType = Identify_File(info_->GetFileLoader().get());
 		switch (info_->fileType) {
 		case IdentifiedFileType::PSP_PBP:
 		case IdentifiedFileType::PSP_PBP_DIRECTORY:
@@ -392,6 +384,7 @@ public:
 						goto handleELF;
 					}
 					ERROR_LOG(LOADER, "invalid pbp %s\n", pbpLoader->Path().c_str());
+					info_->working = false;
 					return;
 				}
 
@@ -556,11 +549,15 @@ handleELF:
 				// TODO: This will currently read in the whole directory tree. Not really necessary for just a
 				// few files.
 				auto fl = info_->GetFileLoader();
-				if (!fl)
+				if (!fl) {
+					info_->working = false;
 					return;  // Happens with UWP currently, TODO...
+				}
 				BlockDevice *bd = constructBlockDevice(info_->GetFileLoader().get());
-				if (!bd)
+				if (!bd) {
+					info_->working = false;
 					return;  // nothing to do here..
+				}
 				ISOFileSystem umd(&handles, bd);
 
 				// Alright, let's fetch the PARAM.SFO.
@@ -639,7 +636,6 @@ handleELF:
 			info_->installDataSize = info_->GetInstallDataSizeInBytes();
 		}
 
-		std::lock_guard<std::mutex> lock(info_->lock);
 		info_->pending = false;
 		info_->working = false;
 		// ILOG("Completed writing info for %s", info_->GetTitle().c_str());
@@ -721,7 +717,8 @@ void GameInfoCache::PurgeType(IdentifiedFileType fileType) {
 		gameInfoWQ_->Flush();
 	restart:
 	for (auto iter = info_.begin(); iter != info_.end(); iter++) {
-		if (iter->second->fileType == fileType) {
+		auto &info = iter->second;
+		if (!info->working && info->fileType == fileType) {
 			info_.erase(iter);
 			goto restart;
 		}
@@ -729,7 +726,7 @@ void GameInfoCache::PurgeType(IdentifiedFileType fileType) {
 }
 
 void GameInfoCache::WaitUntilDone(std::shared_ptr<GameInfo> &info) {
-	while (info->IsPending()) {
+	while (info->pending) {
 		if (gameInfoWQ_->WaitUntilDone(false)) {
 			// A true return means everything finished, so bail out.
 			// This way even if something gets stuck, we won't hang.
@@ -769,7 +766,7 @@ std::shared_ptr<GameInfo> GameInfoCache::GetInfo(Draw::DrawContext *draw, const 
 		info = std::make_shared<GameInfo>();
 	}
 
-	if (info->IsWorking()) {
+	if (info->working) {
 		// Uh oh, it's currently in process.  It could mark pending = false with the wrong wantFlags.
 		// Let's wait it out, then queue.
 		// NOTE: This is bad because we're likely on the UI thread....
