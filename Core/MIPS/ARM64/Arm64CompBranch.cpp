@@ -419,28 +419,26 @@ void Arm64Jit::BranchVFPUFlag(MIPSOpcode op, CCFlags cc, bool likely) {
 
 	int imm3 = (op >> 18) & 7;
 
-	// TODO: Maybe could use TBZ?
 	gpr.MapReg(MIPS_REG_VFPUCC);
-	TSTI2R(gpr.R(MIPS_REG_VFPUCC), 1 << imm3, SCRATCH1);
-
 	Arm64Gen::FixupBranch ptr;
-	js.inDelaySlot = true;
-	if (!likely)
-	{
-		if (!delaySlotIsNice && !delaySlotIsBranch)
-			CompileDelaySlot(DELAYSLOT_SAFE_FLUSH);
-		else
-			FlushAll();
-		ptr = B(cc);
-	}
-	else
-	{
+	if (likely || delaySlotIsNice || delaySlotIsBranch) {
+		// FlushAll() won't actually change the reg.
+		ARM64Reg ar = gpr.R(MIPS_REG_VFPUCC);
 		FlushAll();
+		if (cc == CC_EQ) {
+			ptr = TBZ(ar, imm3);
+		} else {
+			ptr = TBNZ(ar, imm3);
+		}
+	} else {
+		TSTI2R(gpr.R(MIPS_REG_VFPUCC), 1 << imm3, SCRATCH1);
+		CompileDelaySlot(DELAYSLOT_SAFE_FLUSH);
 		ptr = B(cc);
-		if (!delaySlotIsBranch)
-			CompileDelaySlot(DELAYSLOT_FLUSH);
 	}
-	js.inDelaySlot = false;
+
+	if (likely && !delaySlotIsBranch) {
+		CompileDelaySlot(DELAYSLOT_FLUSH);
+	}
 
 	// Take the branch
 	WriteExit(targetAddr, js.nextExit++);
