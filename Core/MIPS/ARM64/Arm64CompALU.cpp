@@ -392,13 +392,11 @@ void Arm64Jit::CompShiftVar(MIPSOpcode op, Arm64Gen::ShiftType shiftType) {
 		return;
 	}
 	gpr.MapDirtyInIn(rd, rs, rt);
-	// Not sure if ARM64 wraps like this so let's do it for it.  (TODO: According to the ARM ARM, it will indeed mask for us so this is not necessary)
-	ANDI2R(SCRATCH1, gpr.R(rs), 0x1F, INVALID_REG);
 	switch (shiftType) {
-	case ST_LSL: LSLV(gpr.R(rd), gpr.R(rt), SCRATCH1); break;
-	case ST_LSR: LSRV(gpr.R(rd), gpr.R(rt), SCRATCH1); break;
-	case ST_ASR: ASRV(gpr.R(rd), gpr.R(rt), SCRATCH1); break;
-	case ST_ROR: RORV(gpr.R(rd), gpr.R(rt), SCRATCH1); break;
+	case ST_LSL: LSLV(gpr.R(rd), gpr.R(rt), gpr.R(rs)); break;
+	case ST_LSR: LSRV(gpr.R(rd), gpr.R(rt), gpr.R(rs)); break;
+	case ST_ASR: ASRV(gpr.R(rd), gpr.R(rt), gpr.R(rs)); break;
+	case ST_ROR: RORV(gpr.R(rd), gpr.R(rt), gpr.R(rs)); break;
 	}
 }
 
