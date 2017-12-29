@@ -434,14 +434,6 @@ Arm64Gen::ARM64Reg Arm64RegCache::MapRegAsPointer(MIPSGPReg reg) {
 		mr[reg].loc = ML_ARMREG;
 		ARM64Reg a = DecodeReg(mr[reg].reg);
 		if (!jo_->enablePointerify) {
-			// First, flush the value.
-			if (ar[a].isDirty) {
-				ARM64Reg storeReg = ARM64RegForFlush(ar[a].mipsReg);
-				if (storeReg != INVALID_REG)
-					emit_->STR(INDEX_UNSIGNED, storeReg, CTXREG, GetMipsRegOffset(ar[a].mipsReg));
-				ar[a].isDirty = false;
-			}
-
 			// Convert to a pointer by adding the base and clearing off the top bits.
 			// If SP, we can probably avoid the top bit clear, let's play with that later.
 			emit_->ADD(EncodeRegTo64(a), EncodeRegTo64(a), MEMBASEREG);
