@@ -353,19 +353,24 @@ void Arm64Jit::BranchFPFlag(MIPSOpcode op, CCFlags cc, bool likely) {
 	if (!likely && delaySlotIsNice)
 		CompileDelaySlot(DELAYSLOT_NICE);
 
-	// TODO: Maybe we could use TBZ here?
 	gpr.MapReg(MIPS_REG_FPCOND);
-	TSTI2R(gpr.R(MIPS_REG_FPCOND), 1, SCRATCH1);
 	Arm64Gen::FixupBranch ptr;
-	if (!likely) {
-		if (!delaySlotIsNice)
-			CompileDelaySlot(DELAYSLOT_SAFE_FLUSH);
-		else
-			FlushAll();
-		ptr = B(cc);
-	} else {
+	if (likely || delaySlotIsNice) {
+		// FlushAll() won't actually change the reg.
+		ARM64Reg ar = gpr.R(MIPS_REG_FPCOND);
 		FlushAll();
+		if (cc == CC_EQ) {
+			ptr = TBZ(ar, 0);
+		} else {
+			ptr = TBNZ(ar, 0);
+		}
+	} else {
+		TSTI2R(gpr.R(MIPS_REG_FPCOND), 1, SCRATCH1);
+		CompileDelaySlot(DELAYSLOT_SAFE_FLUSH);
 		ptr = B(cc);
+	}
+
+	if (likely) {
 		CompileDelaySlot(DELAYSLOT_FLUSH);
 	}
 
