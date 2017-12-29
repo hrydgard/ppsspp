@@ -123,7 +123,7 @@ void GameScreen::CreateViews() {
 	rightColumnItems->Add(btnDeleteSaveData_)->OnClick.Handle(this, &GameScreen::OnDeleteSaveData);
 	btnDeleteSaveData_->SetVisibility(V_GONE);
 
-	if (info && !info->IsPending()) {
+	if (info && !info->pending) {
 		otherChoices_.clear();
 	}
 
@@ -252,7 +252,7 @@ void GameScreen::update() {
 			btnSetBackground_->SetVisibility(UI::V_VISIBLE);
 		}
 	}
-	if (!info->IsPending()) {
+	if (!info->pending) {
 		// At this point, the above buttons won't become visible.  We can show these now.
 		for (UI::Choice *choice : otherChoices_) {
 			choice->SetVisibility(UI::V_VISIBLE);
@@ -419,7 +419,7 @@ void SetBackgroundPopupScreen::update() {
 	PopupScreen::update();
 
 	std::shared_ptr<GameInfo> info = g_gameInfoCache->GetInfo(nullptr, gamePath_, GAMEINFO_WANTBG | GAMEINFO_WANTBGDATA);
-	if (status_ == Status::PENDING && info && !info->IsPending()) {
+	if (status_ == Status::PENDING && info && !info->pending) {
 		GameInfoTex *pic = nullptr;
 		if (info->pic1.dataLoaded && info->pic1.data.size()) {
 			pic = &info->pic1;

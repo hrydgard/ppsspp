@@ -108,9 +108,6 @@ public:
 	std::string GetTitle();
 	void SetTitle(const std::string &newTitle);
 
-	bool IsPending();
-	bool IsWorking();
-
 	// Hold this when reading or writing from the GameInfo.
 	// Don't need to hold it when just passing around the pointer,
 	// and obviously also not when creating it and holding the only pointer
@@ -142,8 +139,8 @@ public:
 	u64 gameSize = 0;
 	u64 saveDataSize = 0;
 	u64 installDataSize = 0;
-	bool pending = true;
-	bool working = false;
+	std::atomic<bool> pending{};
+	std::atomic<bool> working{};
 
 protected:
 	// Note: this can change while loading, use GetTitle().
