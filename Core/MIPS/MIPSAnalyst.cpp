@@ -382,6 +382,7 @@ static const HardHashTableEntry hardcodedHashes[] = {
 	{ 0xb0ef265e87899f0a, 32, "vector_divide_t_s", },
 	{ 0xb183a37baa12607b, 32, "vscl_t", },
 	{ 0xb1a3e60a89af9857, 20, "fabs", },
+	{ 0xb25670ff47b4843d, 232, "starocean_clear_framebuf" },
 	{ 0xb3fef47fb27d57c9, 44, "vector_scale_t", },
 	{ 0xb43fd5078ae78029, 84, "send_commandi_stall", },
 	{ 0xb43ffbd4dc446dd2, 324, "atan2f", },

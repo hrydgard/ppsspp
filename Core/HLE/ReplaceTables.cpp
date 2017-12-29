@@ -41,6 +41,14 @@
 #include <emmintrin.h>
 #endif
 
+enum class GPUReplacementSkip {
+	MEMSET = 1,
+	MEMCPY = 2,
+	MEMMOVE = 4,
+};
+
+static int skipGPUReplacements = 0;
+
 // I think these have to be pretty accurate as these are libc replacements,
 // but we can probably get away with approximating the VFPU vsin/vcos and vrot
 // pretty roughly.
@@ -119,8 +127,10 @@ static int Replace_memcpy() {
 
 	// Some games use memcpy on executable code.  We need to flush emuhack ops.
 	currentMIPS->InvalidateICache(srcPtr, bytes);
-	if (Memory::IsVRAMAddress(destPtr) || Memory::IsVRAMAddress(srcPtr)) {
-		skip = gpu->PerformMemoryCopy(destPtr, srcPtr, bytes);
+	if ((skipGPUReplacements & (int)GPUReplacementSkip::MEMCPY) == 0) {
+		if (Memory::IsVRAMAddress(destPtr) || Memory::IsVRAMAddress(srcPtr)) {
+			skip = gpu->PerformMemoryCopy(destPtr, srcPtr, bytes);
+		}
 	}
 	if (!skip && bytes != 0) {
 		u8 *dst = Memory::GetPointer(destPtr);
@@ -159,8 +169,10 @@ static int Replace_memcpy_jak() {
 		return 5;
 	}
 	currentMIPS->InvalidateICache(srcPtr, bytes);
-	if (Memory::IsVRAMAddress(destPtr) || Memory::IsVRAMAddress(srcPtr)) {
-		skip = gpu->PerformMemoryCopy(destPtr, srcPtr, bytes);
+	if ((skipGPUReplacements & (int)GPUReplacementSkip::MEMCPY) == 0) {
+		if (Memory::IsVRAMAddress(destPtr) || Memory::IsVRAMAddress(srcPtr)) {
+			skip = gpu->PerformMemoryCopy(destPtr, srcPtr, bytes);
+		}
 	}
 	if (!skip && bytes != 0) {
 		u8 *dst = Memory::GetPointer(destPtr);
@@ -197,8 +209,10 @@ static int Replace_memcpy16() {
 
 	// Some games use memcpy on executable code.  We need to flush emuhack ops.
 	currentMIPS->InvalidateICache(srcPtr, bytes);
-	if (Memory::IsVRAMAddress(destPtr) || Memory::IsVRAMAddress(srcPtr)) {
-		skip = gpu->PerformMemoryCopy(destPtr, srcPtr, bytes);
+	if ((skipGPUReplacements & (int)GPUReplacementSkip::MEMCPY) == 0) {
+		if (Memory::IsVRAMAddress(destPtr) || Memory::IsVRAMAddress(srcPtr)) {
+			skip = gpu->PerformMemoryCopy(destPtr, srcPtr, bytes);
+		}
 	}
 	if (!skip && bytes != 0) {
 		u8 *dst = Memory::GetPointer(destPtr);
@@ -220,8 +234,10 @@ static int Replace_memcpy_swizzled() {
 	u32 srcPtr = PARAM(1);
 	u32 pitch = PARAM(2);
 	u32 h = PARAM(4);
-	if (Memory::IsVRAMAddress(srcPtr)) {
-		gpu->PerformMemoryDownload(srcPtr, pitch * h);
+	if ((skipGPUReplacements & (int)GPUReplacementSkip::MEMCPY) == 0) {
+		if (Memory::IsVRAMAddress(srcPtr)) {
+			gpu->PerformMemoryDownload(srcPtr, pitch * h);
+		}
 	}
 	u8 *dstp = Memory::GetPointer(destPtr);
 	const u8 *srcp = Memory::GetPointer(srcPtr);
@@ -258,9 +274,11 @@ static int Replace_memmove() {
 	bool skip = false;
 
 	// Some games use memcpy on executable code.  We need to flush emuhack ops.
-	currentMIPS->InvalidateICache(srcPtr, bytes);
-	if (Memory::IsVRAMAddress(destPtr) || Memory::IsVRAMAddress(srcPtr)) {
-		skip = gpu->PerformMemoryCopy(destPtr, srcPtr, bytes);
+	if ((skipGPUReplacements & (int)GPUReplacementSkip::MEMMOVE) == 0) {
+		currentMIPS->InvalidateICache(srcPtr, bytes);
+		if (Memory::IsVRAMAddress(destPtr) || Memory::IsVRAMAddress(srcPtr)) {
+			skip = gpu->PerformMemoryCopy(destPtr, srcPtr, bytes);
+		}
 	}
 	if (!skip && bytes != 0) {
 		u8 *dst = Memory::GetPointer(destPtr);
@@ -282,7 +300,7 @@ static int Replace_memset() {
 	u8 value = PARAM(1);
 	u32 bytes = PARAM(2);
 	bool skip = false;
-	if (Memory::IsVRAMAddress(destPtr)) {
+	if (Memory::IsVRAMAddress(destPtr) && (skipGPUReplacements & (int)GPUReplacementSkip::MEMSET) == 0) {
 		skip = gpu->PerformMemorySet(destPtr, value, bytes);
 	}
 	if (!skip && bytes != 0) {
@@ -309,7 +327,7 @@ static int Replace_memset_jak() {
 	}
 
 	bool skip = false;
-	if (Memory::IsVRAMAddress(destPtr)) {
+	if (Memory::IsVRAMAddress(destPtr) && (skipGPUReplacements & (int)GPUReplacementSkip::MEMSET) == 0) {
 		skip = gpu->PerformMemorySet(destPtr, value, bytes);
 	}
 	if (!skip && bytes != 0) {
@@ -597,6 +615,17 @@ static bool GetMIPSStaticAddress(u32 &addr, s32 lui_offset, s32 lw_offset) {
 	}
 	addr = ((upper & 0xffff) << 16) + (s16)(lower & 0xffff);
 	return true;
+}
+
+static bool GetMIPSGPAddress(u32 &addr, s32 offset) {
+	const MIPSOpcode loadOp = Memory::Read_Instruction(currentMIPS->pc + offset, true);
+	if (MIPS_GET_RS(loadOp) == MIPS_REG_GP) {
+		s16 gpoff = (s16)(u16)(loadOp & 0x0000FFFF);
+		addr = currentMIPS->r[MIPS_REG_GP] + gpoff;
+		return true;
+	}
+
+	return false;
 }
 
 static int Hook_godseaterburst_blit_texture() {
@@ -1032,7 +1061,6 @@ static int Hook_tonyhawkp8_upload_tutorial_frame() {
 	const u32 fb_address = currentMIPS->r[MIPS_REG_A0];
 	if (Memory::IsVRAMAddress(fb_address)) {
 		gpu->PerformMemoryUpload(fb_address, 0x00088000);
-		CBreakPoints::ExecMemCheck(fb_address, true, 0x00088000, currentMIPS->pc);
 	}
 	return 0;
 }
@@ -1145,7 +1173,6 @@ static int Hook_mytranwars_upload_frame() {
 	u32 fb_address = currentMIPS->r[MIPS_REG_S0];
 	if (Memory::IsVRAMAddress(fb_address)) {
 		gpu->PerformMemoryUpload(fb_address, 0x00088000);
-		CBreakPoints::ExecMemCheck(fb_address, true, 0x00088000, currentMIPS->pc);
 	}
 	return 0;
 }
@@ -1180,6 +1207,29 @@ static int Hook_marvelalliance1_copy_after() {
 	gpu->PerformMemoryUpload(marvelalliance1_copy_dst, marvelalliance1_copy_size);
 	CBreakPoints::ExecMemCheck(marvelalliance1_copy_dst, false, marvelalliance1_copy_size, currentMIPS->pc);
 
+	return 0;
+}
+
+static int Hook_starocean_clear_framebuf_before() {
+	skipGPUReplacements |= (int)GPUReplacementSkip::MEMSET;
+	return 0;
+}
+
+static int Hook_starocean_clear_framebuf_after() {
+	skipGPUReplacements &= ~(int)GPUReplacementSkip::MEMSET;
+
+	// This hook runs after the copy, this is the final memcpy destination.
+	u32 framebuf = currentMIPS->r[MIPS_REG_V0] - 512 * 4 * 271;
+	u32 y_address, h_address;
+
+	if (GetMIPSGPAddress(y_address, -204) && GetMIPSGPAddress(h_address, -200)) {
+		int y = (s16)Memory::Read_U16(y_address);
+		int h = (s16)Memory::Read_U16(h_address);
+
+		DEBUG_LOG(HLE, "starocean_clear_framebuf() - %08x y=%d-%d", framebuf, y, h);
+		// TODO: This is always clearing to 0, actually, which could be faster than an upload.
+		gpu->PerformMemoryUpload(framebuf + 512 * y * 4, 512 * h * 4);
+	}
 	return 0;
 }
 
@@ -1292,6 +1342,8 @@ static const ReplacementTableEntry entries[] = {
 	{ "marvelalliance1_copy", &Hook_marvelalliance1_copy_after, 0, REPFLAG_HOOKENTER, 0x638 },
 	{ "marvelalliance1_copy", &Hook_marvelalliance1_copy_a1_before, 0, REPFLAG_HOOKENTER, 0x664 },
 	{ "marvelalliance1_copy", &Hook_marvelalliance1_copy_after, 0, REPFLAG_HOOKENTER, 0x69c },
+	{ "starocean_clear_framebuf", &Hook_starocean_clear_framebuf_before, 0, REPFLAG_HOOKENTER, 0 },
+	{ "starocean_clear_framebuf", &Hook_starocean_clear_framebuf_after, 0, REPFLAG_HOOKEXIT, 0 },
 	{}
 };
 
@@ -1306,14 +1358,14 @@ void Replacement_Init() {
 			continue;
 		replacementNameLookup[entry->name].push_back(i);
 	}
+
+	skipGPUReplacements = 0;
 }
 
 void Replacement_Shutdown() {
 	replacedInstructions.clear();
 	replacementNameLookup.clear();
 }
-
-// TODO: Do something on load state?
 
 int GetNumReplacementFuncs() {
 	return ARRAY_SIZE(entries);
