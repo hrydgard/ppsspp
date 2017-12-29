@@ -1547,6 +1547,10 @@ void ARM64XEmitter::CMP(ARM64Reg Rn, u32 imm, bool shift)
 {
 	EncodeAddSubImmInst(1, true, shift, imm, Rn, Is64Bit(Rn) ? SP : WSP);
 }
+void ARM64XEmitter::CMN(ARM64Reg Rn, u32 imm, bool shift)
+{
+	EncodeAddSubImmInst(0, true, shift, imm, Rn, Is64Bit(Rn) ? SP : WSP);
+}
 
 // Data Processing (Immediate)
 void ARM64XEmitter::MOVZ(ARM64Reg Rd, u32 imm, ShiftAmount pos)
@@ -3754,10 +3758,14 @@ bool ARM64XEmitter::TrySUBI2R(ARM64Reg Rd, ARM64Reg Rn, u64 imm) {
 }
 
 bool ARM64XEmitter::TryCMPI2R(ARM64Reg Rn, u64 imm) {
+	s64 negated = Is64Bit(Rn) ? -(s64)imm : -(s32)(u32)imm;
 	u32 val;
 	bool shift;
 	if (IsImmArithmetic(imm, &val, &shift)) {
 		CMP(Rn, val, shift);
+		return true;
+	} else if (IsImmArithmetic((u64)negated, &val, &shift)) {
+		CMN(Rn, val, shift);
 		return true;
 	} else {
 		return false;

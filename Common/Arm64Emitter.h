@@ -591,6 +591,7 @@ public:
 	void SUB(ARM64Reg Rd, ARM64Reg Rn, u32 imm, bool shift = false);
 	void SUBS(ARM64Reg Rd, ARM64Reg Rn, u32 imm, bool shift = false);
 	void CMP(ARM64Reg Rn, u32 imm, bool shift = false);
+	void CMN(ARM64Reg Rn, u32 imm, bool shift = false);
 
 	// Data Processing (Immediate)
 	void MOVZ(ARM64Reg Rd, u32 imm, ShiftAmount pos = SHIFT_0);
