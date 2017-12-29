@@ -66,6 +66,11 @@ using namespace Arm64Gen;
 using namespace Arm64JitConstants;
 
 Arm64Jit::Arm64Jit(MIPSState *mips) : blocks(mips, this), gpr(mips, &js, &jo), fpr(mips, &js, &jo), mips_(mips), fp(this) { 
+	// Automatically disable incompatible options.
+	if (((intptr_t)Memory::base & 0x00000000FFFFFFFFUL) != 0) {
+		jo.enablePointerify = false;
+	}
+
 	logBlocks = 0;
 	dontLogBlocks = 0;
 	blocks.Init();

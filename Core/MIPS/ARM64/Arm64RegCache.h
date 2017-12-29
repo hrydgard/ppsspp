@@ -62,6 +62,7 @@ struct RegARM64 {
 	MIPSGPReg mipsReg;  // if -1, no mipsreg attached.
 	bool isDirty;  // Should the register be written back?
 	bool pointerified;  // Has used movk to move the memory base into the top part of the reg. Note - still usable as 32-bit reg!
+	bool tempLocked; // Reserved for a temp register.
 };
 
 struct RegMIPS {
@@ -101,6 +102,8 @@ public:
 	// Optimally set a register to an imm value (possibly using another register.)
 	void SetRegImm(Arm64Gen::ARM64Reg reg, u64 imm);
 
+	Arm64Gen::ARM64Reg MapTempImm(MIPSGPReg);
+
 	// Returns an ARM register containing the requested MIPS register.
 	Arm64Gen::ARM64Reg MapReg(MIPSGPReg reg, int mapFlags = 0);
 	Arm64Gen::ARM64Reg MapRegAsPointer(MIPSGPReg reg);
@@ -121,6 +124,8 @@ public:
 	void FlushAll();
 	void FlushR(MIPSGPReg r);
 	void DiscardR(MIPSGPReg r);
+
+	Arm64Gen::ARM64Reg GetAndLockTempR();
 
 	Arm64Gen::ARM64Reg R(MIPSGPReg preg); // Returns a cached register, while checking that it's NOT mapped as a pointer
 	Arm64Gen::ARM64Reg RPtr(MIPSGPReg preg); // Returns a cached register, if it has been mapped as a pointer
@@ -145,6 +150,7 @@ private:
 	const StaticAllocation *GetStaticAllocations(int &count);
 	const Arm64Gen::ARM64Reg *GetMIPSAllocationOrder(int &count);
 	void MapRegTo(Arm64Gen::ARM64Reg reg, MIPSGPReg mipsReg, int mapFlags);
+	Arm64Gen::ARM64Reg AllocateReg();
 	Arm64Gen::ARM64Reg FindBestToSpill(bool unusedOnly, bool *clobbered);
 	Arm64Gen::ARM64Reg ARM64RegForFlush(MIPSGPReg r);
 
