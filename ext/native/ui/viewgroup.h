@@ -24,7 +24,7 @@ struct NeighborResult {
 
 class ViewGroup : public View {
 public:
-	ViewGroup(LayoutParams *layoutParams = 0) : View(layoutParams), defaultFocusView_(0), hasDropShadow_(false), clip_(false) {}
+	ViewGroup(LayoutParams *layoutParams = 0) : View(layoutParams) {}
 	virtual ~ViewGroup();
 
 	// Pass through external events to children.
@@ -83,11 +83,11 @@ public:
 protected:
 	std::mutex modifyLock_;  // Hold this when changing the subviews.
 	std::vector<View *> views_;
-	View *defaultFocusView_;
+	View *defaultFocusView_ = nullptr;
 	Drawable bg_;
 	float dropShadowExpand_ = 0.0f;
-	bool hasDropShadow_;
-	bool clip_;
+	bool hasDropShadow_ = false;
+	bool clip_ = false;
 };
 
 // A frame layout contains a single child view (normally).
