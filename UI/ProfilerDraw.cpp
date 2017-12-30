@@ -94,6 +94,10 @@ void DrawProfile(UIContext &ui) {
 	}
 	legendWidth += 20.0f;
 
+	if (legendHeight > ui.GetBounds().h) {
+		legendHeight = ui.GetBounds().h;
+	}
+
 	float legendStartY = legendHeight > ui.GetBounds().centerY() ? ui.GetBounds().y2() - legendHeight : ui.GetBounds().centerY();
 	float legendStartX = ui.GetBounds().x2() - std::min(legendWidth, 200.0f);
 
