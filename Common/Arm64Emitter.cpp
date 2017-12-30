@@ -3736,6 +3736,7 @@ void ARM64XEmitter::CMPI2R(ARM64Reg Rn, u64 imm, ARM64Reg scratch) {
 }
 
 bool ARM64XEmitter::TryADDI2R(ARM64Reg Rd, ARM64Reg Rn, u64 imm) {
+	s64 negated = Is64Bit(Rn) ? -(s64)imm : -(s32)(u32)imm;
 	u32 val;
 	bool shift;
 	if (imm == 0) {
@@ -3745,12 +3746,16 @@ bool ARM64XEmitter::TryADDI2R(ARM64Reg Rd, ARM64Reg Rn, u64 imm) {
 	} else if (IsImmArithmetic(imm, &val, &shift)) {
 		ADD(Rd, Rn, val, shift);
 		return true;
+	} else if (IsImmArithmetic((u64)negated, &val, &shift)) {
+		SUB(Rd, Rn, val, shift);
+		return true;
 	} else {
 		return false;
 	}
 }
 
 bool ARM64XEmitter::TrySUBI2R(ARM64Reg Rd, ARM64Reg Rn, u64 imm) {
+	s64 negated = Is64Bit(Rn) ? -(s64)imm : -(s32)(u32)imm;
 	u32 val;
 	bool shift;
 	if (imm == 0) {
@@ -3759,6 +3764,9 @@ bool ARM64XEmitter::TrySUBI2R(ARM64Reg Rd, ARM64Reg Rn, u64 imm) {
 		return true;
 	} else if (IsImmArithmetic(imm, &val, &shift)) {
 		SUB(Rd, Rn, val, shift);
+		return true;
+	} else if (IsImmArithmetic((u64)negated, &val, &shift)) {
+		ADD(Rd, Rn, val, shift);
 		return true;
 	} else {
 		return false;

@@ -90,11 +90,7 @@ void Arm64Jit::Comp_IType(MIPSOpcode op) {
 			ARM64Reg r32 = gpr.RPtr(rs);
 			gpr.MarkDirty(r32);
 			ARM64Reg r = EncodeRegTo64(r32);
-			if (simm > 0) {
-				ADDI2R(r, r, simm);
-			} else {
-				SUBI2R(r, r, -simm);
-			}
+			ADDI2R(r, r, simm);
 		} else {
 			if (simm >= 0) {
 				CompImmLogic(rs, rt, simm, &ARM64XEmitter::ADD, &ARM64XEmitter::TryADDI2R, &EvalAdd);
