@@ -762,6 +762,7 @@ void MainScreen::CreateViews() {
 		tabRecentGames->OnHighlight.Handle(this, &MainScreen::OnGameHighlight);
 	}
 
+	Button *grantStorageButton = nullptr;
 	if (hasStorageAccess) {
 		ScrollView *scrollAllGames = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT));
 		scrollAllGames->SetTag("MainScreenAllGames");
@@ -819,7 +820,8 @@ void MainScreen::CreateViews() {
 
 		LinearLayout *buttonHolder = new LinearLayout(ORIENT_HORIZONTAL, new LinearLayoutParams(WRAP_CONTENT, WRAP_CONTENT));
 		buttonHolder->Add(new Spacer(new LinearLayoutParams(1.0f)));
-		buttonHolder->Add(new Button(mm->T("Give PPSSPP permission to access storage"), new LinearLayoutParams(WRAP_CONTENT, WRAP_CONTENT)))->OnClick.Handle(this, &MainScreen::OnAllowStorage);
+		grantStorageButton = new Button(mm->T("Give PPSSPP permission to access storage"), new LinearLayoutParams(WRAP_CONTENT, WRAP_CONTENT));
+		buttonHolder->Add(grantStorageButton)->OnClick.Handle(this, &MainScreen::OnAllowStorage);
 		buttonHolder->Add(new Spacer(new LinearLayoutParams(1.0f)));
 
 		leftColumn->Add(new Spacer(new LinearLayoutParams(0.1f)));
@@ -878,7 +880,11 @@ void MainScreen::CreateViews() {
 		root_->Add(rightColumn);
 	}
 
-	root_->SetDefaultFocusView(tabHolder_);
+	if (grantStorageButton) {
+		root_->SetDefaultFocusView(grantStorageButton);
+	} else if (tabHolder_->GetVisibility() != V_GONE) {
+		root_->SetDefaultFocusView(tabHolder_);
+	}
 
 	I18NCategory *u = GetI18NCategory("Upgrade");
 
