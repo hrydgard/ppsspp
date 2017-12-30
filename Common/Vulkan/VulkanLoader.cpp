@@ -420,7 +420,7 @@ void VulkanLoadInstanceFunctions(VkInstance instance) {
 	LOAD_INSTANCE_FUNC(instance, vkDestroySurfaceKHR);
 
 	dyn_vkCreateDebugReportCallbackEXT = (PFN_vkCreateDebugReportCallbackEXT)vkGetInstanceProcAddr(instance, "vkCreateDebugReportCallbackEXT");
-	dyn_vkDestroyDebugReportCallbackEXT = (PFN_vkDestroyDebugReportCallbackEXT)vkGetInstanceProcAddr(instance, "vkCreateDebugReportCallbackEXT");
+	dyn_vkDestroyDebugReportCallbackEXT = (PFN_vkDestroyDebugReportCallbackEXT)vkGetInstanceProcAddr(instance, "vkDestroyDebugReportCallbackEXT");
 
 	WLOG("Vulkan instance functions loaded.");
 }
