@@ -574,7 +574,7 @@ void Arm64Jit::Comp_JumpReg(MIPSOpcode op)
 		destReg = gpr.R(rs);  // Safe because FlushAll doesn't change any regs
 		FlushAll();
 	} else {
-		// Delay slot - this case is very rare, might be able to free up R8.
+		// Delay slot - this case is very rare, might be able to free up W24.
 		gpr.MapReg(rs);
 		MOV(destReg, gpr.R(rs));
 		if (andLink)

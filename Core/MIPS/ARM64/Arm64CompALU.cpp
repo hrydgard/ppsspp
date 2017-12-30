@@ -262,7 +262,16 @@ void Arm64Jit::Comp_RType3(MIPSOpcode op) {
 
 	case 32: //R(rd) = R(rs) + R(rt);           break; //add
 	case 33: //R(rd) = R(rs) + R(rt);           break; //addu
-		CompType3(rd, rs, rt, &ARM64XEmitter::ADD, &ARM64XEmitter::TryADDI2R, &EvalAdd, true);
+		if (gpr.IsImm(rs) && gpr.GetImm(rs) == 0 && !gpr.IsImm(rt)) {
+			// Special case: actually a mov, avoid arithmetic.
+			gpr.MapDirtyIn(rd, rt);
+			MOV(gpr.R(rd), gpr.R(rt));
+		} else if (gpr.IsImm(rt) && gpr.GetImm(rt) == 0 && !gpr.IsImm(rs)) {
+			gpr.MapDirtyIn(rd, rs);
+			MOV(gpr.R(rd), gpr.R(rs));
+		} else {
+			CompType3(rd, rs, rt, &ARM64XEmitter::ADD, &ARM64XEmitter::TryADDI2R, &EvalAdd, true);
+		}
 		break;
 
 	case 34: //R(rd) = R(rs) - R(rt);           break; //sub
