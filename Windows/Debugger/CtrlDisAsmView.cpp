@@ -228,7 +228,8 @@ bool CtrlDisAsmView::getDisasmAddressText(u32 address, char* dest, bool abbrevia
 		}
 	} else {
 		if (showData) {
-			sprintf(dest, "%08X %08X", address, Memory::Read_Instruction(address, true).encoding);
+			u32 encoding = Memory::IsValidAddress(address) ? Memory::Read_Instruction(address, true).encoding : 0;
+			sprintf(dest, "%08X %08X", address, encoding);
 		} else {
 			sprintf(dest, "%08X", address);
 		}

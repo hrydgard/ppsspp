@@ -250,7 +250,7 @@ namespace MIPSComp {
 			SetJumpTarget(skip);
 		}
 
-		gpr.ReleaseSpillLocks();
+		gpr.ReleaseSpillLocksAndDiscardTemps();
 	}
 
 	void Arm64Jit::Comp_ITypeMem(MIPSOpcode op) {
@@ -311,7 +311,7 @@ namespace MIPSComp {
 					gpr.MapRegAsPointer(rs);
 
 					// For a store, try to avoid mapping a reg if not needed.
-					targetReg = load ? INVALID_REG : gpr.MapTempImm(rt);
+					targetReg = load ? INVALID_REG : gpr.TryMapTempImm(rt);
 					if (targetReg == INVALID_REG) {
 						gpr.MapReg(rt, load ? MAP_NOINIT : 0);
 						targetReg = gpr.R(rt);
@@ -327,12 +327,12 @@ namespace MIPSComp {
 					case 41: STRH(INDEX_UNSIGNED, targetReg, gpr.RPtr(rs), offset); break;
 					case 40: STRB(INDEX_UNSIGNED, targetReg, gpr.RPtr(rs), offset); break;
 					}
-					gpr.ReleaseSpillLocks();
+					gpr.ReleaseSpillLocksAndDiscardTemps();
 					break;
 				}
 			}
 
-			if (!load && gpr.IsImm(rt) && gpr.MapTempImm(rt) != INVALID_REG) {
+			if (!load && gpr.IsImm(rt) && gpr.TryMapTempImm(rt) != INVALID_REG) {
 				// We're storing an immediate value, let's see if we can optimize rt.
 				if (!gpr.IsImm(rs) || offset == 0) {
 					// In this case, we're always going to need rs mapped, which may flush the temp imm.
@@ -340,7 +340,7 @@ namespace MIPSComp {
 					gpr.MapIn(rs);
 				}
 
-				targetReg = gpr.MapTempImm(rt);
+				targetReg = gpr.TryMapTempImm(rt);
 			}
 
 			if (gpr.IsImm(rs) && Memory::IsValidAddress(iaddr)) {

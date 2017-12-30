@@ -69,10 +69,10 @@ void Arm64RegCache::Start(MIPSAnalyst::AnalysisResults &stats) {
 const ARM64Reg *Arm64RegCache::GetMIPSAllocationOrder(int &count) {
 	// See register alloc remarks in Arm64Asm.cpp
 
-	// W19-W22 are most suitable for static allocation. Those that are chosen for static allocation
+	// W19-W23 are most suitable for static allocation. Those that are chosen for static allocation
 	// should be omitted here and added in GetStaticAllocations.
 	static const ARM64Reg allocationOrder[] = {
-		W19, W20, W21, W22, W0, W1, W2, W3, W4, W5, W6, W7, W8, W9, W10, W11, W12, W13, W14, W15,
+		W19, W20, W21, W22, W23, W0, W1, W2, W3, W4, W5, W6, W7, W8, W9, W10, W11, W12, W13, W14, W15,
 	};
 	static const ARM64Reg allocationOrderStaticAlloc[] = {
 		W0, W1, W2, W3, W4, W5, W6, W7, W8, W9, W10, W11, W12, W13, W14, W15,
@@ -93,6 +93,7 @@ const Arm64RegCache::StaticAllocation *Arm64RegCache::GetStaticAllocations(int &
 		{MIPS_REG_V0, W20},
 		{MIPS_REG_V1, W22},
 		{MIPS_REG_A0, W21},
+		{MIPS_REG_RA, W23},
 	};
 
 	if (jo_->useStaticAlloc) {
@@ -304,7 +305,7 @@ ARM64Reg Arm64RegCache::FindBestToSpill(bool unusedOnly, bool *clobbered) {
 	return INVALID_REG;
 }
 
-ARM64Reg Arm64RegCache::MapTempImm(MIPSGPReg r) {
+ARM64Reg Arm64RegCache::TryMapTempImm(MIPSGPReg r) {
 	// If already mapped, no need for a temporary.
 	if (IsMapped(r)) {
 		return R(r);
@@ -459,7 +460,7 @@ void Arm64RegCache::MapInIn(MIPSGPReg rd, MIPSGPReg rs) {
 	SpillLock(rd, rs);
 	MapReg(rd);
 	MapReg(rs);
-	ReleaseSpillLocks();
+	ReleaseSpillLock(rd, rs);
 }
 
 void Arm64RegCache::MapDirtyIn(MIPSGPReg rd, MIPSGPReg rs, bool avoidLoad) {
@@ -467,7 +468,7 @@ void Arm64RegCache::MapDirtyIn(MIPSGPReg rd, MIPSGPReg rs, bool avoidLoad) {
 	bool load = !avoidLoad || rd == rs;
 	MapReg(rd, load ? MAP_DIRTY : MAP_NOINIT);
 	MapReg(rs);
-	ReleaseSpillLocks();
+	ReleaseSpillLock(rd, rs);
 }
 
 void Arm64RegCache::MapDirtyInIn(MIPSGPReg rd, MIPSGPReg rs, MIPSGPReg rt, bool avoidLoad) {
@@ -476,7 +477,7 @@ void Arm64RegCache::MapDirtyInIn(MIPSGPReg rd, MIPSGPReg rs, MIPSGPReg rt, bool 
 	MapReg(rd, load ? MAP_DIRTY : MAP_NOINIT);
 	MapReg(rt);
 	MapReg(rs);
-	ReleaseSpillLocks();
+	ReleaseSpillLock(rd, rs, rt);
 }
 
 void Arm64RegCache::MapDirtyDirtyIn(MIPSGPReg rd1, MIPSGPReg rd2, MIPSGPReg rs, bool avoidLoad) {
@@ -486,7 +487,7 @@ void Arm64RegCache::MapDirtyDirtyIn(MIPSGPReg rd1, MIPSGPReg rd2, MIPSGPReg rs, 
 	MapReg(rd1, load1 ? MAP_DIRTY : MAP_NOINIT);
 	MapReg(rd2, load2 ? MAP_DIRTY : MAP_NOINIT);
 	MapReg(rs);
-	ReleaseSpillLocks();
+	ReleaseSpillLock(rd1, rd2, rs);
 }
 
 void Arm64RegCache::MapDirtyDirtyInIn(MIPSGPReg rd1, MIPSGPReg rd2, MIPSGPReg rs, MIPSGPReg rt, bool avoidLoad) {
@@ -497,7 +498,7 @@ void Arm64RegCache::MapDirtyDirtyInIn(MIPSGPReg rd1, MIPSGPReg rd2, MIPSGPReg rs
 	MapReg(rd2, load2 ? MAP_DIRTY : MAP_NOINIT);
 	MapReg(rt);
 	MapReg(rs);
-	ReleaseSpillLocks();
+	ReleaseSpillLock(rd1, rd2, rs, rt);
 }
 
 void Arm64RegCache::FlushArmReg(ARM64Reg r) {
@@ -872,7 +873,7 @@ void Arm64RegCache::SpillLock(MIPSGPReg r1, MIPSGPReg r2, MIPSGPReg r3, MIPSGPRe
 	if (r4 != MIPS_REG_INVALID) mr[r4].spillLock = true;
 }
 
-void Arm64RegCache::ReleaseSpillLocks() {
+void Arm64RegCache::ReleaseSpillLocksAndDiscardTemps() {
 	for (int i = 0; i < NUM_MIPSREG; i++) {
 		if (!mr[i].isStatic)
 			mr[i].spillLock = false;
@@ -882,9 +883,15 @@ void Arm64RegCache::ReleaseSpillLocks() {
 	}
 }
 
-void Arm64RegCache::ReleaseSpillLock(MIPSGPReg reg) {
-	if (!mr[reg].isStatic)
-		mr[reg].spillLock = false;
+void Arm64RegCache::ReleaseSpillLock(MIPSGPReg r1, MIPSGPReg r2, MIPSGPReg r3, MIPSGPReg r4) {
+	if (!mr[r1].isStatic)
+		mr[r1].spillLock = false;
+	if (r2 != MIPS_REG_INVALID && !mr[r2].isStatic)
+		mr[r2].spillLock = false;
+	if (r3 != MIPS_REG_INVALID && !mr[r3].isStatic)
+		mr[r3].spillLock = false;
+	if (r4 != MIPS_REG_INVALID && !mr[r4].isStatic)
+		mr[r4].spillLock = false;
 }
 
 ARM64Reg Arm64RegCache::R(MIPSGPReg mipsReg) {
