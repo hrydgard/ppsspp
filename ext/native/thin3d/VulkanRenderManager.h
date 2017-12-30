@@ -194,15 +194,15 @@ public:
 
 	VkCommandBuffer GetInitCmd();
 
-	VkRenderPass GetRenderPass(int pass) const {
-		return queueRunner_.GetRenderPass(pass);
+	VkRenderPass GetRenderPass(VKRRenderPassAction color, VKRRenderPassAction depthStencil) {
+		return queueRunner_.GetRenderPass(color, depthStencil);
 	}
-	VkRenderPass GetBackbufferRenderPass() const {
+	VkRenderPass GetBackbufferRenderPass() {
 		return queueRunner_.GetBackbufferRenderPass();
 	}
-	VkRenderPass GetCompatibleRenderPass() const {
+	VkRenderPass GetCompatibleRenderPass() {
 		if (curRenderStep_ && curRenderStep_->render.framebuffer != nullptr) {
-			return queueRunner_.GetRenderPass(0);
+			return queueRunner_.GetRenderPass(VKRRenderPassAction::CLEAR, VKRRenderPassAction::CLEAR);
 		} else {
 			return queueRunner_.GetBackbufferRenderPass();
 		}
