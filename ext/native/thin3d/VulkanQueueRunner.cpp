@@ -148,8 +148,6 @@ VkRenderPass VulkanQueueRunner::GetRenderPass(VKRRenderPassAction colorLoadActio
 		return pass;
 	}
 
-	// Create a bunch of render pass objects, for normal rendering with a depth buffer,
-	// with clearing, without clearing, and dont-care for both depth/stencil and color, so 3*3=9 combos.
 	VkAttachmentDescription attachments[2] = {};
 	attachments[0].format = VK_FORMAT_R8G8B8A8_UNORM;
 	attachments[0].samples = VK_SAMPLE_COUNT_1_BIT;
