@@ -536,7 +536,7 @@ void Arm64Jit::Comp_JumpReg(MIPSOpcode op)
 		delaySlotIsNice = false;
 	CONDITIONAL_NICE_DELAYSLOT;
 
-	ARM64Reg destReg = OTHERTEMPREG;
+	ARM64Reg destReg = INVALID_REG;
 	if (IsSyscall(delaySlotOp)) {
 		gpr.MapReg(rs);
 		MovToPC(gpr.R(rs));  // For syscall to be able to return.
@@ -574,7 +574,9 @@ void Arm64Jit::Comp_JumpReg(MIPSOpcode op)
 		destReg = gpr.R(rs);  // Safe because FlushAll doesn't change any regs
 		FlushAll();
 	} else {
-		// Delay slot - this case is very rare, might be able to free up W24.
+		// Since we can't be in a delay slot, should be safe to steal FLAGTEMPREG for a temp reg.
+		// It will be saved, even if a function is called.
+		destReg = FLAGTEMPREG;
 		gpr.MapReg(rs);
 		MOV(destReg, gpr.R(rs));
 		if (andLink)
