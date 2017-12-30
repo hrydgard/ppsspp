@@ -275,6 +275,8 @@ ARM64Reg Arm64RegCache::FindBestToSpill(bool unusedOnly, bool *clobbered) {
 		ARM64Reg reg = allocOrder[i];
 		if (ar[reg].mipsReg != MIPS_REG_INVALID && mr[ar[reg].mipsReg].spillLock)
 			continue;
+		if (ar[reg].tempLocked)
+			continue;
 
 		// As it's in alloc-order, we know it's not static so we don't need to check for that.
 
