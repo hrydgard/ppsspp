@@ -176,17 +176,17 @@ namespace MIPSComp {
 		} else {
 			gpr.MapInIn(rt, rs);
 		}
+		gpr.SpillLock(rt);
+		gpr.SpillLock(rs);
+		// Need to get temps before skipping safe mem.
+		ARM64Reg LR_SCRATCH3 = gpr.GetAndLockTempR();
+		ARM64Reg LR_SCRATCH4 = gpr.GetAndLockTempR();
 
-		if (false && !g_Config.bFastMemory && rs != MIPS_REG_SP) {
+		if (!g_Config.bFastMemory && rs != MIPS_REG_SP) {
 			skips = SetScratch1ForSafeAddress(rs, offset, SCRATCH2);
 		} else {
 			SetScratch1ToEffectiveAddress(rs, offset);
 		}
-
-		// We can lose rs now, since we have it in SCRATCH1.
-		gpr.SpillLock(rt);
-		ARM64Reg LR_SCRATCH3 = gpr.GetAndLockTempR();
-		ARM64Reg LR_SCRATCH4 = gpr.GetAndLockTempR();
 
 		// Here's our shift amount.
 		ANDI2R(SCRATCH2, SCRATCH1, 3);
