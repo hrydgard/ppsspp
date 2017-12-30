@@ -104,6 +104,11 @@ private:
 	std::vector<Callback> callbacks_;
 };
 
+// For fast extension-enabled checks.
+struct VulkanDeviceExtensions {
+	bool DEDICATED_ALLOCATION;
+};
+
 // VulkanContext manages the device and swapchain, and deferred deletion of objects.
 class VulkanContext {
 public:
@@ -233,6 +238,8 @@ public:
 		MAX_INFLIGHT_FRAMES = 3,
 	};
 
+	const VulkanDeviceExtensions &DeviceExtensions() { return deviceExtensionsLookup_; }
+
 private:
 	// A layer can expose extensions, keep track of those extensions here.
 	struct LayerProperties {
@@ -265,6 +272,7 @@ private:
 
 	std::vector<const char *> device_extensions_enabled_;
 	std::vector<VkExtensionProperties> device_extension_properties_;
+	VulkanDeviceExtensions deviceExtensionsLookup_{};
 
 	std::vector<VkPhysicalDevice> physical_devices_;
 

@@ -125,11 +125,16 @@ VkResult VulkanContext::CreateInstance(const CreateInfo &info) {
 #endif
 
 	if (flags_ & VULKAN_FLAG_VALIDATE) {
-		for (size_t i = 0; i < ARRAY_SIZE(validationLayers); i++) {
-			instance_layer_names_.push_back(validationLayers[i]);
-			device_layer_names_.push_back(validationLayers[i]);
+		if (IsInstanceExtensionAvailable(VK_EXT_DEBUG_REPORT_EXTENSION_NAME)) {
+			for (size_t i = 0; i < ARRAY_SIZE(validationLayers); i++) {
+				instance_layer_names_.push_back(validationLayers[i]);
+				device_layer_names_.push_back(validationLayers[i]);
+			}
+			instance_extensions_enabled_.push_back(VK_EXT_DEBUG_REPORT_EXTENSION_NAME);
+		} else {
+			ELOG("Validation layer extension not available - not enabling Vulkan validation.");
+			flags_ &= ~VULKAN_FLAG_VALIDATE;
 		}
-		instance_extensions_enabled_.push_back(VK_EXT_DEBUG_REPORT_EXTENSION_NAME);
 	}
 
 	// Validate that all the instance extensions we ask for are actually available.
@@ -549,6 +554,8 @@ VkResult VulkanContext::CreateDevice() {
 		}
 	}
 	assert(found);
+
+	deviceExtensionsLookup_.DEDICATED_ALLOCATION = EnableDeviceExtension(VK_KHR_DEDICATED_ALLOCATION_EXTENSION_NAME);
 
 	VkDeviceCreateInfo device_info { VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO };
 	device_info.queueCreateInfoCount = 1;

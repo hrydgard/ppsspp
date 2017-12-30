@@ -38,13 +38,20 @@ void CreateImage(VulkanContext *vulkan, VkCommandBuffer cmd, VKRImage &img, int 
 
 	vkCreateImage(vulkan->GetDevice(), &ici, nullptr, &img.image);
 
-	// TODO: If available, use nVidia's VK_NV_dedicated_allocation for framebuffers
-
 	VkMemoryRequirements memreq;
 	vkGetImageMemoryRequirements(vulkan->GetDevice(), img.image, &memreq);
 
 	VkMemoryAllocateInfo alloc{ VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO };
 	alloc.allocationSize = memreq.size;
+
+	// Hint to the driver that this allocation is image-specific. Some drivers benefit.
+	// We only bother supporting the KHR extension, not the old NV one.
+	VkMemoryDedicatedAllocateInfoKHR dedicated{ VK_STRUCTURE_TYPE_MEMORY_DEDICATED_ALLOCATE_INFO_KHR };
+	if (vulkan->DeviceExtensions().DEDICATED_ALLOCATION) {
+		alloc.pNext = &dedicated;
+		dedicated.image = img.image;
+	}
+
 	vulkan->MemoryTypeFromProperties(memreq.memoryTypeBits, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, &alloc.memoryTypeIndex);
 	VkResult res = vkAllocateMemory(vulkan->GetDevice(), &alloc, nullptr, &img.memory);
 	assert(res == VK_SUCCESS);
