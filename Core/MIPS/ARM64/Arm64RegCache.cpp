@@ -275,6 +275,8 @@ ARM64Reg Arm64RegCache::FindBestToSpill(bool unusedOnly, bool *clobbered) {
 		ARM64Reg reg = allocOrder[i];
 		if (ar[reg].mipsReg != MIPS_REG_INVALID && mr[ar[reg].mipsReg].spillLock)
 			continue;
+		if (ar[reg].tempLocked)
+			continue;
 
 		// As it's in alloc-order, we know it's not static so we don't need to check for that.
 
@@ -690,6 +692,9 @@ void Arm64RegCache::FlushR(MIPSGPReg r) {
 }
 
 void Arm64RegCache::FlushAll() {
+	// Note: make sure not to change the registers when flushing:
+	// Branching code expects the armreg to retain its value.
+
 	// LO can't be included in a 32-bit pair, since it's 64 bit.
 	// Flush it first so we don't get it confused.
 	FlushR(MIPS_REG_LO);
