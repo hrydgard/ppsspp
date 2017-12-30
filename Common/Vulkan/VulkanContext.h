@@ -196,6 +196,14 @@ public:
 	const VulkanPhysicalDeviceInfo &GetDeviceInfo() const { return deviceInfo_; }
 	const VkSurfaceCapabilitiesKHR &GetSurfaceCapabilities() const { return surfCapabilities_; }
 
+	bool IsInstanceExtensionAvailable(const char *name) const {
+		for (auto &iter : instance_extension_properties_) {
+			if (!strcmp(name, iter.extensionName))
+				return true;
+		}
+		return false;
+	}
+
 	bool IsDeviceExtensionAvailable(const char *name) const {
 		for (auto &iter : device_extension_properties_) {
 			if (!strcmp(name, iter.extensionName))

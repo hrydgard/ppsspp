@@ -132,7 +132,13 @@ VkResult VulkanContext::CreateInstance(const CreateInfo &info) {
 		instance_extensions_enabled_.push_back(VK_EXT_DEBUG_REPORT_EXTENSION_NAME);
 	}
 
-	VkApplicationInfo app_info { VK_STRUCTURE_TYPE_APPLICATION_INFO };
+	// Validate that all the instance extensions we ask for are actually available.
+	for (auto ext : instance_extensions_enabled_) {
+		if (!IsInstanceExtensionAvailable(ext))
+			WLOG("WARNING: Does not seem that instance extension '%s' is available. Trying to proceed anyway.", ext);
+	}
+
+	VkApplicationInfo app_info{ VK_STRUCTURE_TYPE_APPLICATION_INFO };
 	app_info.pApplicationName = info.app_name;
 	app_info.applicationVersion = info.app_ver;
 	app_info.pEngineName = info.app_name;
@@ -140,7 +146,7 @@ VkResult VulkanContext::CreateInstance(const CreateInfo &info) {
 	app_info.engineVersion = 2;
 	app_info.apiVersion = VK_API_VERSION_1_0;
 
-	VkInstanceCreateInfo inst_info { VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO };
+	VkInstanceCreateInfo inst_info{ VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO };
 	inst_info.flags = 0;
 	inst_info.pApplicationInfo = &app_info;
 	inst_info.enabledLayerCount = (uint32_t)instance_layer_names_.size();
