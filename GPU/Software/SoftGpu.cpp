@@ -213,7 +213,7 @@ void SoftGPU::CopyToCurrentFboFromDisplayRam(int srcwidth, int srcheight) {
 		u1 = 1.0f;
 	}
 	if (!hasImage) {
-		draw_->BindFramebufferAsRenderTarget(nullptr, { Draw::RPAction::CLEAR, Draw::RPAction::DONT_CARE });
+		draw_->BindFramebufferAsRenderTarget(nullptr, { Draw::RPAction::CLEAR, Draw::RPAction::DONT_CARE, Draw::RPAction::DONT_CARE });
 		return;
 	}
 
@@ -247,7 +247,7 @@ void SoftGPU::CopyToCurrentFboFromDisplayRam(int srcwidth, int srcheight) {
 	if (GetGPUBackend() == GPUBackend::VULKAN) {
 		std::swap(v0, v1);
 	}
-	draw_->BindFramebufferAsRenderTarget(nullptr, { Draw::RPAction::CLEAR, Draw::RPAction::DONT_CARE });
+	draw_->BindFramebufferAsRenderTarget(nullptr, { Draw::RPAction::CLEAR, Draw::RPAction::DONT_CARE, Draw::RPAction::DONT_CARE });
 	Draw::Viewport viewport = { 0.0f, 0.0f, dstwidth, dstheight, 0.0f, 1.0f };
 	draw_->SetViewports(1, &viewport);
 	draw_->SetScissorRect(0, 0, dstwidth, dstheight);

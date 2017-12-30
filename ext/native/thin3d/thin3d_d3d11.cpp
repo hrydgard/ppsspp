@@ -1460,8 +1460,15 @@ void D3D11DrawContext::BindFramebufferAsRenderTarget(Framebuffer *fbo, const Ren
 			Uint8x4ToFloat4(cv, rp.clearColor);
 		context_->ClearRenderTargetView(curRenderTargetView_, cv);
 	}
-	if (rp.depth == RPAction::CLEAR && curDepthStencilView_) {
-		context_->ClearDepthStencilView(curDepthStencilView_, D3D11_CLEAR_DEPTH | D3D11_CLEAR_STENCIL, rp.clearDepth, rp.clearStencil);
+	int mask = 0;
+	if (rp.depth == RPAction::CLEAR) {
+		mask |= D3D11_CLEAR_DEPTH;
+	}
+	if (rp.stencil == RPAction::CLEAR) {
+		mask |= D3D11_CLEAR_STENCIL;
+	}
+	if (mask && curDepthStencilView_) {
+		context_->ClearDepthStencilView(curDepthStencilView_, mask, rp.clearDepth, rp.clearStencil);
 	}
 }
 

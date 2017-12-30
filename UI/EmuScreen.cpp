@@ -1022,9 +1022,9 @@ void EmuScreen::preRender() {
 	if ((!useBufferedRendering && !g_Config.bSoftwareRendering) || Core_IsStepping()) {
 		// We need to clear here already so that drawing during the frame is done on a clean slate.
 		if (Core_IsStepping() && gpuStats.numFlips != 0) {
-			draw->BindFramebufferAsRenderTarget(nullptr, { RPAction::KEEP, RPAction::DONT_CARE });
+			draw->BindFramebufferAsRenderTarget(nullptr, { RPAction::KEEP, RPAction::DONT_CARE, RPAction::DONT_CARE });
 		} else {
-			draw->BindFramebufferAsRenderTarget(nullptr, { RPAction::CLEAR, RPAction::CLEAR, 0xFF000000 });
+			draw->BindFramebufferAsRenderTarget(nullptr, { RPAction::CLEAR, RPAction::CLEAR, RPAction::CLEAR, 0xFF000000 });
 		}
 
 		Viewport viewport;
@@ -1057,7 +1057,7 @@ void EmuScreen::render() {
 		// It's possible this might be set outside PSP_RunLoopFor().
 		// In this case, we need to double check it here.
 		checkPowerDown();
-		thin3d->BindFramebufferAsRenderTarget(nullptr, { RPAction::CLEAR, RPAction::CLEAR });
+		thin3d->BindFramebufferAsRenderTarget(nullptr, { RPAction::CLEAR, RPAction::CLEAR, RPAction::CLEAR });
 		renderUI();
 		return;
 	}
@@ -1092,12 +1092,12 @@ void EmuScreen::render() {
 		coreState = CORE_RUNNING;
 	} else if (coreState == CORE_STEPPING) {
 		// If we're stepping, it's convenient not to clear the screen.
-		thin3d->BindFramebufferAsRenderTarget(nullptr, { RPAction::KEEP, RPAction::DONT_CARE });
+		thin3d->BindFramebufferAsRenderTarget(nullptr, { RPAction::KEEP, RPAction::DONT_CARE, RPAction::DONT_CARE });
 	} else {
 		// Didn't actually reach the end of the frame, ran out of the blockTicks cycles.
 		// In this case we need to bind and wipe the backbuffer, at least.
 		// It's possible we never ended up outputted anything - make sure we have the backbuffer cleared
-		thin3d->BindFramebufferAsRenderTarget(nullptr, { RPAction::CLEAR, RPAction::CLEAR });
+		thin3d->BindFramebufferAsRenderTarget(nullptr, { RPAction::CLEAR, RPAction::CLEAR, RPAction::CLEAR });
 	}
 	checkPowerDown();
 
