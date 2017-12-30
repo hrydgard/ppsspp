@@ -92,8 +92,8 @@ public:
 	// Protect the arm register containing a MIPS register from spilling, to ensure that
 	// it's being kept allocated.
 	void SpillLock(MIPSGPReg reg, MIPSGPReg reg2 = MIPS_REG_INVALID, MIPSGPReg reg3 = MIPS_REG_INVALID, MIPSGPReg reg4 = MIPS_REG_INVALID);
-	void ReleaseSpillLock(MIPSGPReg reg);
-	void ReleaseSpillLocks();
+	void ReleaseSpillLock(MIPSGPReg reg, MIPSGPReg reg2 = MIPS_REG_INVALID, MIPSGPReg reg3 = MIPS_REG_INVALID, MIPSGPReg reg4 = MIPS_REG_INVALID);
+	void ReleaseSpillLocksAndDiscardTemps();
 
 	void SetImm(MIPSGPReg reg, u64 immVal);
 	bool IsImm(MIPSGPReg reg) const;
@@ -102,7 +102,8 @@ public:
 	// Optimally set a register to an imm value (possibly using another register.)
 	void SetRegImm(Arm64Gen::ARM64Reg reg, u64 imm);
 
-	Arm64Gen::ARM64Reg MapTempImm(MIPSGPReg);
+	// May fail and return INVALID_REG if it needs flushing.
+	Arm64Gen::ARM64Reg TryMapTempImm(MIPSGPReg);
 
 	// Returns an ARM register containing the requested MIPS register.
 	Arm64Gen::ARM64Reg MapReg(MIPSGPReg reg, int mapFlags = 0);
