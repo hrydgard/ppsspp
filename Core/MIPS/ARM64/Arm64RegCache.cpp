@@ -69,10 +69,10 @@ void Arm64RegCache::Start(MIPSAnalyst::AnalysisResults &stats) {
 const ARM64Reg *Arm64RegCache::GetMIPSAllocationOrder(int &count) {
 	// See register alloc remarks in Arm64Asm.cpp
 
-	// W19-W22 are most suitable for static allocation. Those that are chosen for static allocation
+	// W19-W23 are most suitable for static allocation. Those that are chosen for static allocation
 	// should be omitted here and added in GetStaticAllocations.
 	static const ARM64Reg allocationOrder[] = {
-		W19, W20, W21, W22, W0, W1, W2, W3, W4, W5, W6, W7, W8, W9, W10, W11, W12, W13, W14, W15,
+		W19, W20, W21, W22, W23, W0, W1, W2, W3, W4, W5, W6, W7, W8, W9, W10, W11, W12, W13, W14, W15,
 	};
 	static const ARM64Reg allocationOrderStaticAlloc[] = {
 		W0, W1, W2, W3, W4, W5, W6, W7, W8, W9, W10, W11, W12, W13, W14, W15,
@@ -93,6 +93,7 @@ const Arm64RegCache::StaticAllocation *Arm64RegCache::GetStaticAllocations(int &
 		{MIPS_REG_V0, W20},
 		{MIPS_REG_V1, W22},
 		{MIPS_REG_A0, W21},
+		{MIPS_REG_RA, W23},
 	};
 
 	if (jo_->useStaticAlloc) {
