@@ -159,7 +159,7 @@ public:
 	VkRenderPass GetBackbufferRenderPass() const {
 		return backbufferRenderPass_;
 	}
-	VkRenderPass GetRenderPass(VKRRenderPassAction color, VKRRenderPassAction depth);
+	VkRenderPass GetRenderPass(VKRRenderPassAction colorLoadAction, VKRRenderPassAction depthLoadAction, VKRRenderPassAction stencilLoadAction);
 
 	inline int RPIndex(VKRRenderPassAction color, VKRRenderPassAction depth) {
 		return (int)depth * 3 + (int)color;
@@ -198,7 +198,8 @@ private:
 
 	struct RPKey {
 		VKRRenderPassAction colorAction;
-		VKRRenderPassAction depthStencilAction;
+		VKRRenderPassAction depthAction;
+		VKRRenderPassAction stencilAction;
 	};
 
 	// Renderpasses, all combinations of preserving or clearing or dont-care-ing fb contents.

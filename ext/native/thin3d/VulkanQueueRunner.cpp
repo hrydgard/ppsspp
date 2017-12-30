@@ -141,8 +141,8 @@ void VulkanQueueRunner::InitBackbufferRenderPass() {
 	assert(res == VK_SUCCESS);
 }
 
-VkRenderPass VulkanQueueRunner::GetRenderPass(VKRRenderPassAction colorAction, VKRRenderPassAction depthAction) {
-	RPKey key{ colorAction, depthAction };
+VkRenderPass VulkanQueueRunner::GetRenderPass(VKRRenderPassAction colorLoadAction, VKRRenderPassAction depthLoadAction, VKRRenderPassAction stencilLoadAction) {
+	RPKey key{ colorLoadAction, depthLoadAction, stencilLoadAction };
 	auto pass = renderPasses_.Get(key);
 	if (pass) {
 		return pass;
@@ -153,7 +153,7 @@ VkRenderPass VulkanQueueRunner::GetRenderPass(VKRRenderPassAction colorAction, V
 	VkAttachmentDescription attachments[2] = {};
 	attachments[0].format = VK_FORMAT_R8G8B8A8_UNORM;
 	attachments[0].samples = VK_SAMPLE_COUNT_1_BIT;
-	switch (colorAction) {
+	switch (colorLoadAction) {
 	case VKRRenderPassAction::CLEAR:
 		attachments[0].loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
 		break;
@@ -174,17 +174,25 @@ VkRenderPass VulkanQueueRunner::GetRenderPass(VKRRenderPassAction colorAction, V
 
 	attachments[1].format = vulkan_->GetDeviceInfo().preferredDepthStencilFormat;
 	attachments[1].samples = VK_SAMPLE_COUNT_1_BIT;
-	switch (depthAction) {
+	switch (depthLoadAction) {
 	case VKRRenderPassAction::CLEAR:
 		attachments[1].loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
-		attachments[1].stencilLoadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
 		break;
 	case VKRRenderPassAction::KEEP:
 		attachments[1].loadOp = VK_ATTACHMENT_LOAD_OP_LOAD;
-		attachments[1].stencilLoadOp = VK_ATTACHMENT_LOAD_OP_LOAD;
 		break;
 	case VKRRenderPassAction::DONT_CARE:
 		attachments[1].loadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
+		break;
+	}
+	switch (stencilLoadAction) {
+	case VKRRenderPassAction::CLEAR:
+		attachments[1].stencilLoadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
+		break;
+	case VKRRenderPassAction::KEEP:
+		attachments[1].stencilLoadOp = VK_ATTACHMENT_LOAD_OP_LOAD;
+		break;
+	case VKRRenderPassAction::DONT_CARE:
 		attachments[1].stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
 		break;
 	}
@@ -604,7 +612,7 @@ void VulkanQueueRunner::PerformBindFramebufferAsRenderTarget(const VKRStep &step
 			fb->depth.layout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
 		}
 
-		renderPass = GetRenderPass(step.render.color, step.render.depthStencil);
+		renderPass = GetRenderPass(step.render.color, step.render.depthStencil, step.render.depthStencil);
 		if (step.render.color == VKRRenderPassAction::CLEAR) {
 			Uint8x4ToFloat4(clearVal[0].color.float32, step.render.clearColor);
 			numClearVals = 1;

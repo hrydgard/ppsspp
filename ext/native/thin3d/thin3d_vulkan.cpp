@@ -462,7 +462,7 @@ public:
 		switch (obj) {
 		case NativeObject::FRAMEBUFFER_RENDERPASS:
 			// Return a representative renderpass.
-			return (uintptr_t)renderManager_.GetRenderPass(VKRRenderPassAction::CLEAR, VKRRenderPassAction::CLEAR);
+			return (uintptr_t)renderManager_.GetRenderPass(VKRRenderPassAction::CLEAR, VKRRenderPassAction::CLEAR, VKRRenderPassAction::CLEAR);
 		case NativeObject::BACKBUFFER_RENDERPASS:
 			return (uintptr_t)renderManager_.GetBackbufferRenderPass();
 		case NativeObject::COMPATIBLE_RENDERPASS:
@@ -1295,7 +1295,7 @@ private:
 
 Framebuffer *VKContext::CreateFramebuffer(const FramebufferDesc &desc) {
 	VkCommandBuffer cmd = renderManager_.GetInitCmd();
-	VKRFramebuffer *vkrfb = new VKRFramebuffer(vulkan_, cmd, renderManager_.GetRenderPass(VKRRenderPassAction::CLEAR, VKRRenderPassAction::CLEAR), desc.width, desc.height);
+	VKRFramebuffer *vkrfb = new VKRFramebuffer(vulkan_, cmd, renderManager_.GetRenderPass(VKRRenderPassAction::CLEAR, VKRRenderPassAction::CLEAR, VKRRenderPassAction::CLEAR), desc.width, desc.height);
 	return new VKFramebuffer(vkrfb);
 }
 
