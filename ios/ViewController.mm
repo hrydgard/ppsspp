@@ -66,7 +66,7 @@ extern ScreenManager *screenManager;
 extern bool iosCanUseJit;
 extern bool targetIsJailbroken;
 
-ViewController* sharedViewController;
+__unsafe_unretained static ViewController* sharedViewController;
 static GraphicsContext *graphicsContext;
 
 @interface ViewController ()
