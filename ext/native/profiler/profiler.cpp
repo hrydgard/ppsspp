@@ -15,7 +15,12 @@
 
 #define MAX_CATEGORIES 64 // Can be any number, represents max profiled names.
 #define MAX_DEPTH 16      // Can be any number, represents max nesting depth of profiled names.
+#if PPSSPP_PLATFORM(IOS) && defined(__IPHONE_OS_VERSION_MIN_REQUIRED) && __IPHONE_OS_VERSION_MIN_REQUIRED < __IPHONE_9_0
+// iOS did not support C++ thread_local before iOS 9
+#define MAX_THREADS 1     // Can be any number, represents concurrent threads calling the profiler.
+#else
 #define MAX_THREADS 4     // Can be any number, represents concurrent threads calling the profiler.
+#endif
 #define HISTORY_SIZE 128 // Must be power of 2
 
 #ifndef _DEBUG
