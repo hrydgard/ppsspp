@@ -77,6 +77,7 @@ void PSP_RunLoopFor(int cycles);
 void Core_UpdateDebugStats(bool collectStats);
 
 void Audio_Init();
+void Audio_Shutdown();
 
 bool IsOnSeparateCPUThread();
 bool IsAudioInitialised();
