@@ -11,6 +11,7 @@
 #include "base/logging.h"
 #include "base/timeutil.h"
 #include "gfx_es2/draw_buffer.h"
+#include "ppsspp_config.h"
 #include "profiler/profiler.h"
 
 #define MAX_CATEGORIES 64 // Can be any number, represents max profiled names.
