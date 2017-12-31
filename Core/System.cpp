@@ -134,6 +134,13 @@ void Audio_Init() {
 	}
 }
 
+void Audio_Shutdown() {
+	if (audioInitialized) {
+		audioInitialized = false;
+		host->ShutdownSound();
+	}
+}
+
 bool IsOnSeparateCPUThread() {
 	if (cpuThread != nullptr) {
 		return cpuThreadID == std::this_thread::get_id();
@@ -290,8 +297,7 @@ void CPU_Shutdown() {
 	__KernelShutdown();
 	HLEShutdown();
 	if (coreParameter.enableSound) {
-		host->ShutdownSound();
-		audioInitialized = false;  // deleted in ShutdownSound
+		Audio_Shutdown();
 	}
 	pspFileSystem.Shutdown();
 	mipsr4k.Shutdown();
