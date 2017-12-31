@@ -1891,8 +1891,8 @@ if(IOS)
       set(APP_DIR_NAME "$<TARGET_FILE_DIR:PPSSPP>")
     endif()
 	add_custom_command(TARGET PPSSPP POST_BUILD
-        COMMAND mkdir -p ${APP_DIR_NAME}
-		COMMAND tar -c -C ${CMAKE_CURRENT_BINARY_DIR} --exclude .DS_Store --exclude .git assets *.png | tar -x -C ${APP_DIR_NAME}
+		COMMAND mkdir -p \"${APP_DIR_NAME}\"
+		COMMAND tar -c -C ${CMAKE_CURRENT_BINARY_DIR} --exclude .DS_Store --exclude .git assets *.png | tar -x -C \"${APP_DIR_NAME}\"
 	)
 	set_target_properties(${TargetBin} PROPERTIES
 		MACOSX_BUNDLE_INFO_PLIST "${CMAKE_CURRENT_SOURCE_DIR}/ios/PPSSPP-Info.plist"
