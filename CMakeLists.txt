@@ -672,7 +672,7 @@ elseif(IOS)
 		ios/AppDelegate.h
 		ios/ViewController.mm
 		ios/ViewController.h
-		ios/iOSCoreAudio.cpp
+		ios/iOSCoreAudio.mm
 		ios/iOSCoreAudio.h
 		ios/PPSSPPUIApplication.h
 		ios/PPSSPPUIApplication.mm
