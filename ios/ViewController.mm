@@ -6,7 +6,6 @@
 //
 
 #import "ViewController.h"
-#import "AudioEngine.h"
 #import <GLKit/GLKit.h>
 #include <cassert>
 
@@ -78,7 +77,6 @@ static GraphicsContext *graphicsContext;
 @property (nonatomic, strong) NSString* documentsPath;
 @property (nonatomic, strong) NSString* bundlePath;
 @property (nonatomic, strong) NSMutableArray<NSDictionary *>* touches;
-@property (nonatomic) AudioEngine* audioEngine;
 //@property (nonatomic) iCadeReaderView* iCadeView;
 #if __IPHONE_OS_VERSION_MAX_ALLOWED > __IPHONE_6_1
 @property (nonatomic) GCController *gameController __attribute__((weak_import));
