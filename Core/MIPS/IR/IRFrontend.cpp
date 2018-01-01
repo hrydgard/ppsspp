@@ -32,8 +32,6 @@
 namespace MIPSComp {
 
 IRFrontend::IRFrontend(bool startDefaultPrefix) {
-	logBlocks = 0;
-	dontLogBlocks = 0;
 	js.startDefaultPrefix = true;
 	js.hasSetRounding = false;
 	// js.currentRoundingFunc = convertS0ToSCRATCH1[0];
@@ -267,7 +265,7 @@ void IRFrontend::DoJit(u32 em_address, std::vector<IRInst> &instructions, std::v
 			// &MergeLoadStore,
 			// &ThreeOpToTwoOp,
 		};
-		if (IRApplyPasses(passes, ARRAY_SIZE(passes), ir, simplified))
+		if (IRApplyPasses(passes, ARRAY_SIZE(passes), ir, simplified, opts))
 			logBlocks = 1;
 		code = &simplified;
 		//if (ir.GetInstructions().size() >= 24)

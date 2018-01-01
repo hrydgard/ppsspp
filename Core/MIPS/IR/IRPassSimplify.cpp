@@ -110,9 +110,9 @@ IROp ShiftToShiftImm(IROp op) {
 	}
 }
 
-bool IRApplyPasses(const IRPassFunc *passes, size_t c, const IRWriter &in, IRWriter &out) {
+bool IRApplyPasses(const IRPassFunc *passes, size_t c, const IRWriter &in, IRWriter &out, const IROptions &opts) {
 	if (c == 1) {
-		return passes[0](in, out);
+		return passes[0](in, out, opts);
 	}
 
 	bool logBlocks = false;
@@ -121,7 +121,7 @@ bool IRApplyPasses(const IRPassFunc *passes, size_t c, const IRWriter &in, IRWri
 	const IRWriter *nextIn = &in;
 	IRWriter *nextOut = &temp[1];
 	for (size_t i = 0; i < c - 1; ++i) {
-		if (passes[i](*nextIn, *nextOut)) {
+		if (passes[i](*nextIn, *nextOut, opts)) {
 			logBlocks = true;
 		}
 
@@ -129,14 +129,14 @@ bool IRApplyPasses(const IRPassFunc *passes, size_t c, const IRWriter &in, IRWri
 		nextIn = &temp[0];
 	}
 
-	if (passes[c - 1](*nextIn, out)) {
+	if (passes[c - 1](*nextIn, out, opts)) {
 		logBlocks = true;
 	}
 
 	return logBlocks;
 }
 
-bool OptimizeFPMoves(const IRWriter &in, IRWriter &out) {
+bool OptimizeFPMoves(const IRWriter &in, IRWriter &out, const IROptions &opts) {
 	const u32 *constants = !in.GetConstants().empty() ? &in.GetConstants()[0] : nullptr;
 	bool logBlocks = false;
 	IRInst prev;
@@ -191,7 +191,7 @@ bool OptimizeFPMoves(const IRWriter &in, IRWriter &out) {
 }
 
 // Might be useful later on x86.
-bool ThreeOpToTwoOp(const IRWriter &in, IRWriter &out) {
+bool ThreeOpToTwoOp(const IRWriter &in, IRWriter &out, const IROptions &opts) {
 	bool logBlocks = false;
 	for (int i = 0; i < (int)in.GetInstructions().size(); i++) {
 		IRInst inst = in.GetInstructions()[i];
@@ -245,7 +245,7 @@ bool ThreeOpToTwoOp(const IRWriter &in, IRWriter &out) {
 	return logBlocks;
 }
 
-bool PropagateConstants(const IRWriter &in, IRWriter &out) {
+bool PropagateConstants(const IRWriter &in, IRWriter &out, const IROptions &opts) {
 	IRRegCache gpr(&out);
 
 	const u32 *constants = !in.GetConstants().empty() ? &in.GetConstants()[0] : nullptr;
@@ -619,7 +619,7 @@ int IRDestGPR(const IRInst &inst) {
 	return -1;
 }
 
-bool PurgeTemps(const IRWriter &in, IRWriter &out) {
+bool PurgeTemps(const IRWriter &in, IRWriter &out, const IROptions &opts) {
 	std::vector<IRInst> insts;
 	insts.reserve(in.GetInstructions().size());
 
@@ -710,7 +710,7 @@ bool PurgeTemps(const IRWriter &in, IRWriter &out) {
 	return logBlocks;
 }
 
-bool ReduceLoads(const IRWriter &in, IRWriter &out) {
+bool ReduceLoads(const IRWriter &in, IRWriter &out, const IROptions &opts) {
 	for (u32 value : in.GetConstants()) {
 		out.AddConstant(value);
 	}
@@ -846,7 +846,7 @@ static std::vector<IRInst> ReorderLoadStoreOps(std::vector<IRInst> &ops, const u
 	return ops;
 }
 
-bool ReorderLoadStore(const IRWriter &in, IRWriter &out) {
+bool ReorderLoadStore(const IRWriter &in, IRWriter &out, const IROptions &opts) {
 	bool logBlocks = false;
 
 	enum class RegState : u8 {
@@ -1042,7 +1042,7 @@ bool ReorderLoadStore(const IRWriter &in, IRWriter &out) {
 	return logBlocks;
 }
 
-bool MergeLoadStore(const IRWriter &in, IRWriter &out) {
+bool MergeLoadStore(const IRWriter &in, IRWriter &out, const IROptions &opts) {
 	bool logBlocks = false;
 
 	auto opsCompatible = [&](const IRInst &a, const IRInst &b, int dist) {
@@ -1076,16 +1076,15 @@ bool MergeLoadStore(const IRWriter &in, IRWriter &out) {
 					break;
 				}
 			}
-			// Warning: this may generate unaligned stores.
-			if (c == 2 || c == 3) {
+			if ((c == 2 || c == 3) && opts.unalignedLoadStore) {
 				inst.op = IROp::Store16;
 				out.Write(inst);
 				prev = inst;
-				// Skip the next one.
+				// Skip the next one (the 3rd will be separate.)
 				++i;
 				continue;
 			}
-			if (c == 4) {
+			if (c == 4 && opts.unalignedLoadStore) {
 				inst.op = IROp::Store32;
 				out.Write(inst);
 				prev = inst;
@@ -1108,8 +1107,7 @@ bool MergeLoadStore(const IRWriter &in, IRWriter &out) {
 					break;
 				}
 			}
-			// Warning: this may generate unaligned stores.
-			if (c == 2) {
+			if (c == 2 && opts.unalignedLoadStore) {
 				inst.op = IROp::Store32;
 				out.Write(inst);
 				prev = inst;

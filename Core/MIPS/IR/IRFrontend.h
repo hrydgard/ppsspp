@@ -94,6 +94,10 @@ public:
 		js.EatPrefix();
 	}
 
+	void SetOptions(const IROptions &o) {
+		opts = o;
+	}
+
 private:
 	void RestoreRoundingMode(bool force = false);
 	void ApplyRoundingMode(bool force = false);
@@ -134,9 +138,10 @@ private:
 	// State
 	JitState js;
 	IRWriter ir;
+	IROptions opts{};
 
-	int dontLogBlocks;
-	int logBlocks;
+	int dontLogBlocks = 0;
+	int logBlocks = 0;
 };
 
 }  // namespace

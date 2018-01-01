@@ -363,6 +363,10 @@ private:
 	std::vector<u32> constPool_;
 };
 
+struct IROptions {
+	bool unalignedLoadStore;
+};
+
 const IRMeta *GetIRMeta(IROp op);
 void DisassembleIR(char *buf, size_t bufsize, IRInst inst, const u32 *constPool);
 void InitIR();
