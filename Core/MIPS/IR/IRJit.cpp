@@ -74,7 +74,7 @@ void IRJit::Compile(u32 em_address) {
 	// Overwrites the first instruction, and also updates stats.
 	blocks_.FinalizeBlock(block_num);
 
-	if (frontend_.CheckRounding()) {
+	if (frontend_.CheckRounding(em_address)) {
 		// Our assumptions are all wrong so it's clean-slate time.
 		ClearCache();
 		Compile(em_address);

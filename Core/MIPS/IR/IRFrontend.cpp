@@ -105,7 +105,7 @@ void IRFrontend::CompileDelaySlot() {
 	js.inDelaySlot = false;
 }
 
-bool IRFrontend::CheckRounding() {
+bool IRFrontend::CheckRounding(u32 blockAddress) {
 	bool cleanSlate = false;
 	if (js.hasSetRounding && !js.lastSetRounding) {
 		WARN_LOG(JIT, "Detected rounding mode usage, rebuilding jit with checks");
@@ -116,7 +116,7 @@ bool IRFrontend::CheckRounding() {
 
 	// Drat.  The VFPU hit an uneaten prefix at the end of a block.
 	if (js.startDefaultPrefix && js.MayHavePrefix()) {
-		WARN_LOG(JIT, "An uneaten prefix at end of block");
+		WARN_LOG_REPORT(JIT, "An uneaten prefix at end of block for %08x", blockAddress);
 		logBlocks = 1;
 		js.LogPrefix();
 
