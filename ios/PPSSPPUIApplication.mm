@@ -60,12 +60,6 @@
 
 @implementation PPSSPPUIApplication
 
-- (instancetype)init {
-    auto instance = [super init];
-    instance.delegate = [[AppDelegate alloc] init];
-    return instance;
-}
-
 - (void)decodeKeyEvent:(NSInteger *)eventMem {
     NSInteger eventType = eventMem[GSEVENT_TYPE];
     NSInteger eventScanCode = eventMem[GSEVENTKEY_KEYCODE];

@@ -692,6 +692,11 @@ elseif(IOS)
 
 	set_source_files_properties(ios/AppDelegate.mm PROPERTIES COMPILE_FLAGS -fobjc-arc)
 	set_source_files_properties(ios/ViewController.mm PROPERTIES COMPILE_FLAGS -fobjc-arc)
+	set_source_files_properties(ios/iOSCoreAudio.mm PROPERTIES COMPILE_FLAGS -fobjc-arc)
+	set_source_files_properties(ios/PPSSPPUIApplication.mm PROPERTIES COMPILE_FLAGS -fobjc-arc)
+	set_source_files_properties(ios/iCade/iCadeReaderView.m PROPERTIES COMPILE_FLAGS -fobjc-arc)
+	set_source_files_properties(ios/main.mm PROPERTIES COMPILE_FLAGS -fobjc-arc)
+
 
 	set(TargetBin PPSSPP)
 elseif(USING_QT_UI)

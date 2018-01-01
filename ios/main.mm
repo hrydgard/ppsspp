@@ -113,7 +113,6 @@ int main(int argc, char *argv[])
 	// Simulates a debugger. Makes it possible to use JIT (though only W^X)
 	syscall(SYS_ptrace, 0 /*PTRACE_TRACEME*/, 0, 0, 0);
 	@autoreleasepool {
-        return UIApplicationMain(argc, argv, NSStringFromClass([PPSSPPUIApplication class]), nil);
-        //return UIApplicationMain(argc, argv, nil, NSStringFromClass([AppDelegate class]));
+        return UIApplicationMain(argc, argv, NSStringFromClass([PPSSPPUIApplication class]), NSStringFromClass([AppDelegate class]));
 	}
 }

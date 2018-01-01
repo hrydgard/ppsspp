@@ -66,7 +66,7 @@ extern ScreenManager *screenManager;
 extern bool iosCanUseJit;
 extern bool targetIsJailbroken;
 
-ViewController* sharedViewController;
+__unsafe_unretained static ViewController* sharedViewController;
 static GraphicsContext *graphicsContext;
 
 @interface ViewController ()
@@ -74,10 +74,10 @@ static GraphicsContext *graphicsContext;
 	std::map<uint16_t, uint16_t> iCadeToKeyMap;
 }
 
-@property (nonatomic) EAGLContext* context;
-@property (nonatomic) NSString* documentsPath;
-@property (nonatomic) NSString* bundlePath;
-@property (nonatomic) NSMutableArray* touches;
+@property (nonatomic, strong) EAGLContext* context;
+@property (nonatomic, strong) NSString* documentsPath;
+@property (nonatomic, strong) NSString* bundlePath;
+@property (nonatomic, strong) NSMutableArray<NSDictionary *>* touches;
 @property (nonatomic) AudioEngine* audioEngine;
 //@property (nonatomic) iCadeReaderView* iCadeView;
 #if __IPHONE_OS_VERSION_MAX_ALLOWED > __IPHONE_6_1
@@ -214,16 +214,6 @@ static GraphicsContext *graphicsContext;
 #endif
 }
 
-- (void)viewDidUnload
-{
-	[super viewDidUnload];
-
-	if ([EAGLContext currentContext] == self.context) {
-		[EAGLContext setCurrentContext:nil];
-	}
-	self.context = nil;
-}
-
 - (void)didReceiveMemoryWarning
 {
 	[super didReceiveMemoryWarning];
@@ -231,7 +221,12 @@ static GraphicsContext *graphicsContext;
 
 - (void)dealloc
 {
-	[self viewDidUnload];
+	sharedViewController = nil;
+	
+	if ([EAGLContext currentContext] == self.context) {
+		[EAGLContext setCurrentContext:nil];
+	}
+	self.context = nil;
 
 #if __IPHONE_OS_VERSION_MAX_ALLOWED > __IPHONE_6_1
 	if ([GCController class]) {
