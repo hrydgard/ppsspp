@@ -18,6 +18,7 @@
 #pragma once
 
 #include <cstring>
+#include <unordered_map>
 
 #include "Common/Common.h"
 #include "Common/CPUDetect.h"
@@ -81,6 +82,11 @@ public:
 	}
 	bool OverlapsRange(u32 addr, u32 size);
 
+	void GetRange(u32 &start, u32 &size) {
+		start = origAddr_;
+		size = origSize_;
+	}
+
 	void Finalize(int number);
 	void Destroy(int number);
 
@@ -96,17 +102,17 @@ private:
 
 class IRBlockCache {
 public:
-	IRBlockCache() : size_(0) {}
+	IRBlockCache() {}
 	void Clear();
 	void InvalidateICache(u32 address, u32 length);
+	void FinalizeBlock(int i);
 	int GetNumBlocks() const { return (int)blocks_.size(); }
 	int AllocateBlock(int emAddr) {
 		blocks_.push_back(IRBlock(emAddr));
-		size_ = (int)blocks_.size();
 		return (int)blocks_.size() - 1;
 	}
 	IRBlock *GetBlock(int i) {
-		if (i >= 0 && i < size_) {
+		if (i >= 0 && i < (int)blocks_.size()) {
 			return &blocks_[i];
 		} else {
 			return nullptr;
@@ -117,8 +123,10 @@ public:
 	void RestoreSavedEmuHackOps(std::vector<u32> saved);
 
 private:
-	int size_;  // Hm, is this a cache for speed in debug mode, or what?
+	u32 AddressToPage(u32 addr);
+
 	std::vector<IRBlock> blocks_;
+	std::unordered_map<u32, std::vector<int>> byPage_;
 };
 
 class IRJit : public JitInterface {

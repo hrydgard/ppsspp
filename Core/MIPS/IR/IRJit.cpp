@@ -71,7 +71,8 @@ void IRJit::Compile(u32 em_address) {
 	frontend_.DoJit(em_address, instructions, constants, mipsBytes);
 	b->SetInstructions(instructions, constants);
 	b->SetOriginalSize(mipsBytes);
-	b->Finalize(block_num);  // Overwrites the first instruction
+	// Overwrites the first instruction, and also updates stats.
+	blocks_.FinalizeBlock(block_num);
 
 	if (frontend_.CheckRounding()) {
 		// Our assumptions are all wrong so it's clean-slate time.
@@ -130,26 +131,56 @@ bool IRJit::ReplaceJalTo(u32 dest) {
 }
 
 void IRBlockCache::Clear() {
-	for (int i = 0; i < size_; ++i) {
+	for (int i = 0; i < (int)blocks_.size(); ++i) {
 		blocks_[i].Destroy(i);
 	}
 	blocks_.clear();
+	byPage_.clear();
 }
 
 void IRBlockCache::InvalidateICache(u32 address, u32 length) {
-	// TODO: Could be more efficient.
-	for (int i = 0; i < size_; ++i) {
-		if (blocks_[i].OverlapsRange(address, length)) {
-			blocks_[i].Destroy(i);
+	u32 startPage = AddressToPage(address);
+	u32 endPage = AddressToPage(address + length);
+
+	for (u32 page = startPage; page <= endPage; ++page) {
+		const auto iter = byPage_.find(page);
+		if (iter == byPage_.end())
+			continue;
+
+		const std::vector<int> &blocksInPage = iter->second;
+		for (int i : blocksInPage) {
+			if (blocks_[i].OverlapsRange(address, length)) {
+				// Not removing from the page, hopefully doesn't build up with small recompiles.
+				blocks_[i].Destroy(i);
+			}
 		}
 	}
 }
 
+void IRBlockCache::FinalizeBlock(int i) {
+	blocks_[i].Finalize(i);
+
+	u32 startAddr, size;
+	blocks_[i].GetRange(startAddr, size);
+
+	u32 startPage = AddressToPage(startAddr);
+	u32 endPage = AddressToPage(startAddr + size);
+
+	for (u32 page = startPage; page <= endPage; ++page) {
+		byPage_[page].push_back(i);
+	}
+}
+
+u32 IRBlockCache::AddressToPage(u32 addr) {
+	// Use relatively small pages since basic blocks are typically small.
+	return (addr & 0x3FFFFFFF) >> 10;
+}
+
 std::vector<u32> IRBlockCache::SaveAndClearEmuHackOps() {
 	std::vector<u32> result;
-	result.resize(size_);
+	result.resize(blocks_.size());
 
-	for (int number = 0; number < size_; ++number) {
+	for (int number = 0; number < (int)blocks_.size(); ++number) {
 		IRBlock &b = blocks_[number];
 		if (b.IsValid() && b.RestoreOriginalFirstOp(number)) {
 			result[number] = number;
@@ -162,12 +193,12 @@ std::vector<u32> IRBlockCache::SaveAndClearEmuHackOps() {
 }
 
 void IRBlockCache::RestoreSavedEmuHackOps(std::vector<u32> saved) {
-	if (size_ != (int)saved.size()) {
+	if ((int)blocks_.size() != (int)saved.size()) {
 		ERROR_LOG(JIT, "RestoreSavedEmuHackOps: Wrong saved block size.");
 		return;
 	}
 
-	for (int number = 0; number < size_; ++number) {
+	for (int number = 0; number < (int)blocks_.size(); ++number) {
 		IRBlock &b = blocks_[number];
 		// Only if we restored it, write it back.
 		if (b.IsValid() && saved[number] != 0 && b.HasOriginalFirstOp()) {
@@ -207,7 +238,9 @@ void IRBlock::Destroy(int number) {
 }
 
 bool IRBlock::OverlapsRange(u32 addr, u32 size) {
-	return addr + size > origAddr_ && addr < origAddr_ + origSize_;
+	addr &= 0x3FFFFFFF;
+	u32 origAddr = origAddr_ & 0x3FFFFFFF;
+	return addr + size > origAddr && addr < origAddr + origSize_;
 }
 
 MIPSOpcode IRJit::GetOriginalOp(MIPSOpcode op) {
