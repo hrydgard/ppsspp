@@ -207,6 +207,8 @@ const char *GetGPRName(int r) {
 	switch (r) {
 	case IRTEMP_0: return "irtemp0";
 	case IRTEMP_1: return "irtemp1";
+	case IRTEMP_2: return "irtemp2";
+	case IRTEMP_3: return "irtemp3";
 	case IRTEMP_LHS: return "irtemp_lhs";
 	case IRTEMP_RHS: return "irtemp_rhs";
 	default: return "(unk)";

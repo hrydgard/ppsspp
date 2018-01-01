@@ -662,6 +662,8 @@ bool PurgeTemps(const IRWriter &in, IRWriter &out) {
 		switch (dest) {
 		case IRTEMP_0:
 		case IRTEMP_1:
+		case IRTEMP_2:
+		case IRTEMP_3:
 		case IRTEMP_LHS:
 		case IRTEMP_RHS:
 			// Unlike other ops, these don't need to persist between blocks.
