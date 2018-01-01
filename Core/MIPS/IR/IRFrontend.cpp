@@ -32,8 +32,6 @@
 namespace MIPSComp {
 
 IRFrontend::IRFrontend(bool startDefaultPrefix) {
-	logBlocks = 0;
-	dontLogBlocks = 0;
 	js.startDefaultPrefix = true;
 	js.hasSetRounding = false;
 	// js.currentRoundingFunc = convertS0ToSCRATCH1[0];
@@ -105,7 +103,7 @@ void IRFrontend::CompileDelaySlot() {
 	js.inDelaySlot = false;
 }
 
-bool IRFrontend::CheckRounding() {
+bool IRFrontend::CheckRounding(u32 blockAddress) {
 	bool cleanSlate = false;
 	if (js.hasSetRounding && !js.lastSetRounding) {
 		WARN_LOG(JIT, "Detected rounding mode usage, rebuilding jit with checks");
@@ -116,7 +114,7 @@ bool IRFrontend::CheckRounding() {
 
 	// Drat.  The VFPU hit an uneaten prefix at the end of a block.
 	if (js.startDefaultPrefix && js.MayHavePrefix()) {
-		WARN_LOG(JIT, "An uneaten prefix at end of block");
+		WARN_LOG_REPORT(JIT, "An uneaten prefix at end of block for %08x", blockAddress);
 		logBlocks = 1;
 		js.LogPrefix();
 
@@ -267,7 +265,7 @@ void IRFrontend::DoJit(u32 em_address, std::vector<IRInst> &instructions, std::v
 			// &MergeLoadStore,
 			// &ThreeOpToTwoOp,
 		};
-		if (IRApplyPasses(passes, ARRAY_SIZE(passes), ir, simplified))
+		if (IRApplyPasses(passes, ARRAY_SIZE(passes), ir, simplified, opts))
 			logBlocks = 1;
 		code = &simplified;
 		//if (ir.GetInstructions().size() >= 24)
@@ -279,32 +277,32 @@ void IRFrontend::DoJit(u32 em_address, std::vector<IRInst> &instructions, std::v
 
 	if (logBlocks > 0 && dontLogBlocks == 0) {
 		char temp2[256];
-		ILOG("=============== mips %08x ===============", em_address);
+		NOTICE_LOG(JIT, "=============== mips %08x ===============", em_address);
 		for (u32 cpc = em_address; cpc != GetCompilerPC() + 4; cpc += 4) {
 			temp2[0] = 0;
 			MIPSDisAsm(Memory::Read_Opcode_JIT(cpc), cpc, temp2, true);
-			ILOG("M: %08x   %s", cpc, temp2);
+			NOTICE_LOG(JIT, "M: %08x   %s", cpc, temp2);
 		}
 	}
 
 	if (logBlocks > 0 && dontLogBlocks == 0) {
-		ILOG("=============== Original IR (%d instructions, %d const) ===============", (int)ir.GetInstructions().size(), (int)ir.GetConstants().size());
+		NOTICE_LOG(JIT, "=============== Original IR (%d instructions, %d const) ===============", (int)ir.GetInstructions().size(), (int)ir.GetConstants().size());
 		for (size_t i = 0; i < ir.GetInstructions().size(); i++) {
 			char buf[256];
 			DisassembleIR(buf, sizeof(buf), ir.GetInstructions()[i], &ir.GetConstants()[0]);
-			ILOG("%s", buf);
+			NOTICE_LOG(JIT, "%s", buf);
 		}
-		ILOG("===============        end         =================");
+		NOTICE_LOG(JIT, "===============        end         =================");
 	}
 
 	if (logBlocks > 0 && dontLogBlocks == 0) {
-		ILOG("=============== IR (%d instructions, %d const) ===============", (int)code->GetInstructions().size(), (int)code->GetConstants().size());
+		NOTICE_LOG(JIT, "=============== IR (%d instructions, %d const) ===============", (int)code->GetInstructions().size(), (int)code->GetConstants().size());
 		for (size_t i = 0; i < code->GetInstructions().size(); i++) {
 			char buf[256];
 			DisassembleIR(buf, sizeof(buf), code->GetInstructions()[i], &code->GetConstants()[0]);
-			ILOG("%s", buf);
+			NOTICE_LOG(JIT, "%s", buf);
 		}
-		ILOG("===============        end         =================");
+		NOTICE_LOG(JIT, "===============        end         =================");
 	}
 
 	if (logBlocks > 0)

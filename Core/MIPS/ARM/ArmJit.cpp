@@ -218,7 +218,7 @@ void ArmJit::Compile(u32 em_address) {
 
 	// Drat.  The VFPU hit an uneaten prefix at the end of a block.
 	if (js.startDefaultPrefix && js.MayHavePrefix()) {
-		WARN_LOG(JIT, "An uneaten prefix at end of block: %08x", GetCompilerPC() - 4);
+		WARN_LOG_REPORT(JIT, "An uneaten prefix at end of block: %08x", GetCompilerPC() - 4);
 		js.LogPrefix();
 
 		// Let's try that one more time.  We won't get back here because we toggled the value.

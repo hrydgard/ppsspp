@@ -275,6 +275,8 @@ enum IRFpCompareMode {
 enum {
 	IRTEMP_0 = 192,
 	IRTEMP_1,
+	IRTEMP_2,
+	IRTEMP_3,
 	IRTEMP_LHS,  // Reserved for use in branches
 	IRTEMP_RHS,  // Reserved for use in branches
 
@@ -359,6 +361,10 @@ public:
 private:
 	std::vector<IRInst> insts_;
 	std::vector<u32> constPool_;
+};
+
+struct IROptions {
+	bool unalignedLoadStore;
 };
 
 const IRMeta *GetIRMeta(IROp op);

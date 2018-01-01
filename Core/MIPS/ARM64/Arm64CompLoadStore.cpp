@@ -180,7 +180,7 @@ namespace MIPSComp {
 		gpr.SpillLock(rs);
 		// Need to get temps before skipping safe mem.
 		ARM64Reg LR_SCRATCH3 = gpr.GetAndLockTempR();
-		ARM64Reg LR_SCRATCH4 = gpr.GetAndLockTempR();
+		ARM64Reg LR_SCRATCH4 = o == 42 || o == 46 ? gpr.GetAndLockTempR() : INVALID_REG;
 
 		if (!g_Config.bFastMemory && rs != MIPS_REG_SP) {
 			skips = SetScratch1ForSafeAddress(rs, offset, SCRATCH2);
