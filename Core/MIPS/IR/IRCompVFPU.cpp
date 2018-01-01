@@ -1929,7 +1929,7 @@ namespace MIPSComp {
 				ir.Write(IROp::FSub, tempregs[3], sregs[2], sregs[3]);
 			}
 		} else {
-			DISABLE;
+			INVALIDOP;
 		}
 
 		for (int i = 0; i < n; ++i) {

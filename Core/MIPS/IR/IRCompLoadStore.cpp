@@ -96,13 +96,16 @@ namespace MIPSComp {
 		case 46: //swr
 			DISABLE;
 			break;
+
 		default:
-			Comp_Generic(op);
+			INVALIDOP;
 			return;
 		}
 	}
 
 	void IRFrontend::Comp_Cache(MIPSOpcode op) {
+		CONDITIONAL_DISABLE;
+
 //		int imm = (s16)(op & 0xFFFF);
 //		int rs = _RS;
 //		int addr = R(rs) + imm;
