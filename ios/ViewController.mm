@@ -221,6 +221,8 @@ static GraphicsContext *graphicsContext;
 
 - (void)dealloc
 {
+	sharedViewController = nil;
+	
 	if ([EAGLContext currentContext] == self.context) {
 		[EAGLContext setCurrentContext:nil];
 	}
