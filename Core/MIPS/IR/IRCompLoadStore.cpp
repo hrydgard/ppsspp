@@ -41,16 +41,124 @@
 // #define CONDITIONAL_DISABLE { Comp_Generic(op); return; }
 #define CONDITIONAL_DISABLE ;
 #define DISABLE { Comp_Generic(op); return; }
+#define INVALIDOP { Comp_Generic(op); return; }
 
 namespace MIPSComp {
 	void IRFrontend::Comp_ITypeMemLR(MIPSOpcode op, bool load) {
-		DISABLE;
+		CONDITIONAL_DISABLE;
+
+		int offset = _IMM16;
+		MIPSGPReg rt = _RT;
+		MIPSGPReg rs = _RS;
+		int o = op >> 26;
+
+		if (!js.inDelaySlot && opts.unalignedLoadStore) {
+			// Optimisation: Combine to single unaligned load/store.
+			const bool isLeft = (o == 34 || o == 42);
+			MIPSOpcode nextOp = GetOffsetInstruction(1);
+			// Find a matching shifted load/store in opposite direction with opposite offset.
+			if (nextOp == (isLeft ? (op.encoding + (4 << 26) - 3) : (op.encoding - (4 << 26) + 3))) {
+				EatInstruction(nextOp);
+
+				if (isLeft) {
+					// Get the unaligned base offset from the lwr/swr instruction.
+					offset = (signed short)(nextOp & 0xFFFF);
+					// Already checked it if we're on the lwr.
+					CheckMemoryBreakpoint(rs, offset);
+				}
+
+				if (load) {
+					ir.Write(IROp::Load32, rt, rs, ir.AddConstant(offset));
+				} else {
+					ir.Write(IROp::Store32, rt, rs, ir.AddConstant(offset));
+				}
+				return;
+			}
+		}
+
+		int addrReg = IRTEMP_0;
+		int valueReg = IRTEMP_1;
+		int maskReg = IRTEMP_2;
+		int shiftReg = IRTEMP_3;
+
+		// addrReg = rs + imm
+		ir.Write(IROp::AddConst, addrReg, rs, ir.AddConstant(offset));
+		// shiftReg = (addr & 3) * 8
+		ir.Write(IROp::AndConst, shiftReg, addrReg, ir.AddConstant(3));
+		ir.Write(IROp::ShlImm, shiftReg, shiftReg, 3);
+		// addrReg = addr & 0xfffffffc (for stores, later)
+		ir.Write(IROp::AndConst, addrReg, addrReg, ir.AddConstant(0xFFFFFFFC));
+		// valueReg = RAM(addrReg)
+		ir.Write(IROp::Load32, valueReg, addrReg, ir.AddConstant(0));
+
+		switch (o) {
+		case 34: //lwl
+			// rt &= (0x00ffffff >> shift)
+			// Alternatively, could shift to a wall and back (but would require two shifts each way.)
+			ir.WriteSetConstant(maskReg, 0x00ffffff);
+			ir.Write(IROp::Shr, maskReg, maskReg, shiftReg);
+			ir.Write(IROp::And, rt, rt, maskReg);
+			// valueReg <<= (24 - shift)
+			ir.Write(IROp::Neg, shiftReg, shiftReg);
+			ir.Write(IROp::AddConst, shiftReg, shiftReg, ir.AddConstant(24));
+			ir.Write(IROp::Shl, valueReg, valueReg, shiftReg);
+			// rt |= valueReg
+			ir.Write(IROp::Or, rt, rt, valueReg);
+			break;
+		case 38: //lwr
+			// valueReg >>= shift
+			ir.Write(IROp::Shr, valueReg, valueReg, shiftReg);
+			// shiftReg = 24 - shift
+			ir.Write(IROp::Neg, shiftReg, shiftReg);
+			ir.Write(IROp::AddConst, shiftReg, shiftReg, ir.AddConstant(24));
+			// rt &= (0xffffff00 << (24 - shift))
+			// Alternatively, could shift to a wall and back (but would require two shifts each way.)
+			ir.WriteSetConstant(maskReg, 0xffffff00);
+			ir.Write(IROp::Shl, maskReg, maskReg, shiftReg);
+			ir.Write(IROp::And, rt, rt, maskReg);
+			// rt |= valueReg
+			ir.Write(IROp::Or, rt, rt, valueReg);
+			break;
+		case 42: //swl
+			// valueReg &= 0xffffff00 << shift
+			ir.WriteSetConstant(maskReg, 0xffffff00);
+			ir.Write(IROp::Shl, maskReg, maskReg, shiftReg);
+			ir.Write(IROp::And, valueReg, valueReg, maskReg);
+			// shiftReg = 24 - shift
+			ir.Write(IROp::Neg, shiftReg, shiftReg);
+			ir.Write(IROp::AddConst, shiftReg, shiftReg, ir.AddConstant(24));
+			// valueReg |= rt >> (24 - shift)
+			ir.Write(IROp::Shr, maskReg, rt, shiftReg);
+			ir.Write(IROp::Or, valueReg, valueReg, maskReg);
+			break;
+		case 46: //swr
+			// valueReg &= 0x00ffffff << (24 - shift)
+			ir.WriteSetConstant(maskReg, 0x00ffffff);
+			ir.Write(IROp::Neg, shiftReg, shiftReg);
+			ir.Write(IROp::AddConst, shiftReg, shiftReg, ir.AddConstant(24));
+			ir.Write(IROp::Shl, maskReg, maskReg, shiftReg);
+			ir.Write(IROp::And, valueReg, valueReg, maskReg);
+			ir.Write(IROp::Neg, shiftReg, shiftReg);
+			ir.Write(IROp::AddConst, shiftReg, shiftReg, ir.AddConstant(24));
+			// valueReg |= rt << shift
+			ir.Write(IROp::Shl, maskReg, rt, shiftReg);
+			ir.Write(IROp::Or, valueReg, valueReg, maskReg);
+			break;
+		default:
+			INVALIDOP;
+			return;
+		}
+
+		if (!load) {
+			// RAM(addrReg) = valueReg
+			ir.Write(IROp::Store32, valueReg, addrReg, ir.AddConstant(0));
+		}
 	}
 
 	void IRFrontend::Comp_ITypeMem(MIPSOpcode op) {
 		CONDITIONAL_DISABLE;
 
-		int offset = (signed short)(op & 0xFFFF);
+		int offset = _IMM16;
 		MIPSGPReg rt = _RT;
 		MIPSGPReg rs = _RS;
 		int o = op >> 26;
@@ -61,7 +169,6 @@ namespace MIPSComp {
 
 		CheckMemoryBreakpoint(rs, offset);
 
-		int addrReg = IRTEMP_0;
 		switch (o) {
 			// Load
 		case 35:
@@ -92,9 +199,11 @@ namespace MIPSComp {
 
 		case 34: //lwl
 		case 38: //lwr
+			Comp_ITypeMemLR(op, true);
+			break;
 		case 42: //swl
 		case 46: //swr
-			DISABLE;
+			Comp_ITypeMemLR(op, false);
 			break;
 
 		default:
