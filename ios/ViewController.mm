@@ -62,9 +62,6 @@ bool simulateAnalog = false;
 
 extern ScreenManager *screenManager;
 
-extern bool iosCanUseJit;
-extern bool targetIsJailbroken;
-
 __unsafe_unretained static ViewController* sharedViewController;
 static GraphicsContext *graphicsContext;
 
@@ -98,26 +95,6 @@ static GraphicsContext *graphicsContext;
 	if (self) {
 		sharedViewController = self;
 		self.touches = [NSMutableArray array];
-		self.documentsPath = [NSSearchPathForDirectoriesInDomains(NSDocumentDirectory, NSUserDomainMask, YES) objectAtIndex:0];
-		self.bundlePath = [[[NSBundle mainBundle] resourcePath] stringByAppendingString:@"/assets/"];
-
-		iosCanUseJit = true;
-		targetIsJailbroken = false;
-		NSArray *jailPath = [NSArray arrayWithObjects:
-							@"/Applications/Cydia.app",
-							@"/private/var/lib/apt",
-							@"/private/var/stash",
-							@"/usr/sbin/sshd",
-							@"/usr/bin/sshd", nil];
-
-		for (NSString *string in jailPath) {
-			if ([[NSFileManager defaultManager] fileExistsAtPath:string]) {
-				// checking device jailbreak status in order to determine which message to show in GameSettingsScreen
-				targetIsJailbroken = true;
-			}
-		}
-		
-		NativeInit(0, NULL, [self.documentsPath UTF8String], [self.bundlePath UTF8String], NULL);
 
 		iCadeToKeyMap[iCadeJoystickUp]		= NKCODE_DPAD_UP;
 		iCadeToKeyMap[iCadeJoystickRight]	= NKCODE_DPAD_RIGHT;

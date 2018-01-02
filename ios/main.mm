@@ -112,7 +112,13 @@ int main(int argc, char *argv[])
 {
 	// Simulates a debugger. Makes it possible to use JIT (though only W^X)
 	syscall(SYS_ptrace, 0 /*PTRACE_TRACEME*/, 0, 0, 0);
+	
 	@autoreleasepool {
-        return UIApplicationMain(argc, argv, NSStringFromClass([PPSSPPUIApplication class]), NSStringFromClass([AppDelegate class]));
+		NSString *documentsPath = [NSSearchPathForDirectoriesInDomains(NSDocumentDirectory, NSUserDomainMask, YES) objectAtIndex:0];
+		NSString *bundlePath = [[[NSBundle mainBundle] resourcePath] stringByAppendingString:@"/assets/"];
+		
+		NativeInit(argc, (const char**)argv, documentsPath.UTF8String, bundlePath.UTF8String, NULL);
+		
+		return UIApplicationMain(argc, argv, NSStringFromClass([PPSSPPUIApplication class]), NSStringFromClass([AppDelegate class]));
 	}
 }

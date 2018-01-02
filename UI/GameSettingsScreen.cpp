@@ -67,11 +67,6 @@
 #include "gfx/gl_common.h"
 #endif
 
-#ifdef IOS
-extern bool iosCanUseJit;
-extern bool targetIsJailbroken;
-#endif
-
 extern bool VulkanMayBeAvailable();
 
 GameSettingsScreen::GameSettingsScreen(std::string gamePath, std::string gameID, bool editThenRestore)
