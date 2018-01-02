@@ -130,11 +130,6 @@ std::string config_filename;
 
 bool g_graphicsInited;
 
-#ifdef IOS
-bool iosCanUseJit;
-bool targetIsJailbroken;
-#endif
-
 // Really need to clean this mess of globals up... but instead I add more :P
 bool g_TakeScreenshot;
 static bool isOuya;

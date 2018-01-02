@@ -55,11 +55,6 @@ static const char *logSectionName = "LogDebug";
 static const char *logSectionName = "Log";
 #endif
 
-
-#ifdef IOS
-extern bool iosCanUseJit;
-#endif
-
 struct ConfigSetting {
 	enum Type {
 		TYPE_TERMINATOR,
@@ -314,11 +309,8 @@ static int DefaultNumWorkers() {
 	return cpu_info.num_cores;
 }
 
-// TODO: Default to IRJit on iOS when it's done.
 static int DefaultCpuCore() {
-#ifdef IOS
-	return (int)(iosCanUseJit ? CPUCore::JIT : CPUCore::INTERPRETER);
-#elif defined(ARM) || defined(ARM64) || defined(_M_IX86) || defined(_M_X64)
+#if defined(ARM) || defined(ARM64) || defined(_M_IX86) || defined(_M_X64)
 	return (int)CPUCore::JIT;
 #else
 	return (int)CPUCore::INTERPRETER;
@@ -326,9 +318,7 @@ static int DefaultCpuCore() {
 }
 
 static bool DefaultCodeGen() {
-#ifdef IOS
-	return iosCanUseJit ? true : false;
-#elif defined(ARM) || defined(ARM64) || defined(_M_IX86) || defined(_M_X64)
+#if defined(ARM) || defined(ARM64) || defined(_M_IX86) || defined(_M_X64)
 	return true;
 #else
 	return false;
