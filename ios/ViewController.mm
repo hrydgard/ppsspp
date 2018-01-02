@@ -30,10 +30,6 @@
 #define IS_IPAD() ([UIDevice currentDevice].userInterfaceIdiom == UIUserInterfaceIdiomPad)
 #define IS_IPHONE() ([UIDevice currentDevice].userInterfaceIdiom == UIUserInterfaceIdiomPhone)
 
-#ifndef kCFCoreFoundationVersionNumber_IOS_9_0
-#define kCFCoreFoundationVersionNumber_IOS_9_0 1240.10
-#endif
-
 class IOSDummyGraphicsContext : public DummyGraphicsContext {
 public:
 	IOSDummyGraphicsContext() {
@@ -53,14 +49,12 @@ private:
 	Draw::DrawContext *draw_;
 };
 
-float dp_xscale = 1.0f;
-float dp_yscale = 1.0f;
+static float dp_xscale = 1.0f;
+static float dp_yscale = 1.0f;
 
-double lastSelectPress = 0.0f;
-double lastStartPress = 0.0f;
-bool simulateAnalog = false;
-
-extern ScreenManager *screenManager;
+static double lastSelectPress = 0.0f;
+static double lastStartPress = 0.0f;
+static bool simulateAnalog = false;
 
 __unsafe_unretained static ViewController* sharedViewController;
 static GraphicsContext *graphicsContext;
@@ -71,8 +65,6 @@ static GraphicsContext *graphicsContext;
 }
 
 @property (nonatomic, strong) EAGLContext* context;
-@property (nonatomic, strong) NSString* documentsPath;
-@property (nonatomic, strong) NSString* bundlePath;
 @property (nonatomic, strong) NSMutableArray<NSDictionary *>* touches;
 //@property (nonatomic) iCadeReaderView* iCadeView;
 #if __IPHONE_OS_VERSION_MAX_ALLOWED > __IPHONE_6_1
@@ -82,13 +74,6 @@ static GraphicsContext *graphicsContext;
 @end
 
 @implementation ViewController
--(bool) isArm64 {
-	size_t size;
-	cpu_type_t type;
-	size = sizeof(type);
-	sysctlbyname("hw.cputype", &type, &size, NULL, 0);
-	return type == CPU_TYPE_ARM64;
-}
 
 -(id) init {
 	self = [super init];
