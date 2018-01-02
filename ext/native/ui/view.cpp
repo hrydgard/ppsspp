@@ -837,7 +837,7 @@ void TextView::Draw(UIContext &dc) {
 	dc.SetFontStyle(small_ ? dc.theme->uiFontSmall : dc.theme->uiFont);
 	if (shadow_) {
 		uint32_t shadowColor = 0x80000000;
-		dc.DrawTextRect(text_.c_str(), bounds_, shadowColor, textAlign_);
+		dc.DrawTextRect(text_.c_str(), bounds_.Offset(1.0f, 1.0f), shadowColor, textAlign_);
 	}
 	uint32_t textColor = hasTextColor_ ? textColor_ : dc.theme->infoStyle.fgColor;
 	dc.DrawTextRect(text_.c_str(), bounds_, textColor, textAlign_);
