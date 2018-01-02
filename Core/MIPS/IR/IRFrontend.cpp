@@ -278,7 +278,7 @@ void IRFrontend::DoJit(u32 em_address, std::vector<IRInst> &instructions, std::v
 	if (logBlocks > 0 && dontLogBlocks == 0) {
 		char temp2[256];
 		NOTICE_LOG(JIT, "=============== mips %08x ===============", em_address);
-		for (u32 cpc = em_address; cpc != GetCompilerPC() + 4; cpc += 4) {
+		for (u32 cpc = em_address; cpc != GetCompilerPC(); cpc += 4) {
 			temp2[0] = 0;
 			MIPSDisAsm(Memory::Read_Opcode_JIT(cpc), cpc, temp2, true);
 			NOTICE_LOG(JIT, "M: %08x   %s", cpc, temp2);

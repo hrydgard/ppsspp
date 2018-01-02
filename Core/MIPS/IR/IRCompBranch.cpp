@@ -104,6 +104,8 @@ void IRFrontend::BranchRSRTComp(MIPSOpcode op, IRComparison cc, bool likely) {
 	FlushAll();
 	ir.Write(IROp::ExitToConst, ir.AddConstant(targetAddr));
 
+	// Account for the delay slot.
+	js.compilerPC += 4;
 	js.compiling = false;
 }
 
@@ -141,6 +143,9 @@ void IRFrontend::BranchRSZeroComp(MIPSOpcode op, IRComparison cc, bool andLink, 
 	// Taken
 	FlushAll();
 	ir.Write(IROp::ExitToConst, ir.AddConstant(targetAddr));
+
+	// Account for the delay slot.
+	js.compilerPC += 4;
 	js.compiling = false;
 }
 
@@ -206,6 +211,9 @@ void IRFrontend::BranchFPFlag(MIPSOpcode op, IRComparison cc, bool likely) {
 		CompileDelaySlot();
 	FlushAll();
 	ir.Write(IROp::ExitToConst, ir.AddConstant(targetAddr));
+
+	// Account for the delay slot.
+	js.compilerPC += 4;
 	js.compiling = false;
 }
 
@@ -261,6 +269,9 @@ void IRFrontend::BranchVFPUFlag(MIPSOpcode op, IRComparison cc, bool likely) {
 	// Taken
 	FlushAll();
 	ir.Write(IROp::ExitToConst, ir.AddConstant(targetAddr));
+
+	// Account for the delay slot.
+	js.compilerPC += 4;
 	js.compiling = false;
 }
 
@@ -314,6 +325,9 @@ void IRFrontend::Comp_Jump(MIPSOpcode op) {
 
 	FlushAll();
 	ir.Write(IROp::ExitToConst, ir.AddConstant(targetAddr));
+
+	// Account for the delay slot.
+	js.compilerPC += 4;
 	js.compiling = false;
 }
 
@@ -338,6 +352,9 @@ void IRFrontend::Comp_JumpReg(MIPSOpcode op) {
 			ir.WriteSetConstant(rd, GetCompilerPC() + 8);
 		CompileDelaySlot();
 		// Syscall (the delay slot) does FlushAll.
+
+		// Account for the delay slot itself in total bytes.
+		js.compilerPC += 4;
 		return;  // Syscall (delay slot) wrote exit code.
 	} else if (delaySlotIsNice) {
 		if (andLink)
@@ -371,6 +388,9 @@ void IRFrontend::Comp_JumpReg(MIPSOpcode op) {
 	js.downcountAmount = 0;
 
 	ir.Write(IROp::ExitToReg, 0, destReg, 0);
+
+	// Account for the delay slot.
+	js.compilerPC += 4;
 	js.compiling = false;
 }
 
