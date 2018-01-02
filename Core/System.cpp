@@ -181,6 +181,8 @@ bool CPU_NextStateNot(CPUThreadState from, CPUThreadState to) {
 }
 
 bool CPU_IsReady() {
+	if (coreState == CORE_POWERUP)
+		return false;
 	return cpuThreadState == CPU_THREAD_RUNNING || cpuThreadState == CPU_THREAD_NOT_RUNNING;
 }
 
@@ -270,7 +272,8 @@ void CPU_Init() {
 
 	// TODO: Check Game INI here for settings, patches and cheats, and modify coreParameter accordingly
 
-	// Why did we check for CORE_POWERDOWN here?
+	// If they shut down early, we'll catch it when load completes.
+	// Note: this may return before init is complete, which is checked if CPU_IsReady().
 	if (!LoadFile(&loadedFile, &coreParameter.errorString)) {
 		CPU_Shutdown();
 		coreParameter.fileToStart = "";
@@ -282,8 +285,6 @@ void CPU_Init() {
 	if (coreParameter.updateRecent) {
 		g_Config.AddRecent(filename);
 	}
-
-	coreState = coreParameter.startPaused ? CORE_STEPPING : CORE_RUNNING;
 }
 
 void CPU_Shutdown() {
