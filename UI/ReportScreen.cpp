@@ -62,11 +62,11 @@ private:
 
 RatingChoice::RatingChoice(const char *captionKey, int *value, LayoutParams *layoutParams)
 		: LinearLayout(ORIENT_VERTICAL, layoutParams), value_(value) {
-	SetSpacing(-8.0f);
+	SetSpacing(0.0f);
 
 	I18NCategory *rp = GetI18NCategory("Reporting");
 	group_ = new LinearLayout(ORIENT_HORIZONTAL);
-	Add(new InfoItem(rp->T(captionKey), ""));
+	Add(new TextView(rp->T(captionKey)))->SetShadow(true);
 	Add(group_);
 
 	group_->SetSpacing(0.0f);
@@ -223,7 +223,7 @@ void ReportScreen::CreateViews() {
 	ViewGroup *rightColumn = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(300, FILL_PARENT, actionMenuMargins));
 	LinearLayout *rightColumnItems = new LinearLayout(ORIENT_VERTICAL);
 
-	leftColumnItems->Add(new TextView(rp->T("FeedbackDesc", "How's the emulation?  Let us and the community know!"), new LinearLayoutParams(Margins(12, 5, 0, 5))));
+	leftColumnItems->Add(new TextView(rp->T("FeedbackDesc", "How's the emulation?  Let us and the community know!"), new LinearLayoutParams(Margins(12, 5, 0, 5))))->SetShadow(true);
 	if (!Reporting::IsEnabled()) {
 		reportingNotice_ = leftColumnItems->Add(new TextView(rp->T("FeedbackDisabled", "Compatibility server reports must be enabled."), new LinearLayoutParams(Margins(12, 5, 0, 5))));
 		reportingNotice_->SetShadow(true);
@@ -258,6 +258,7 @@ void ReportScreen::CreateViews() {
 
 	leftColumnItems->Add(new CompatRatingChoice("Overall", (int *)&overall_))->SetEnabledPtr(&enableReporting_)->OnChoice.Handle(this, &ReportScreen::HandleChoice);
 	overallDescription_ = leftColumnItems->Add(new TextView("", new LinearLayoutParams(Margins(10, 0))));
+	overallDescription_->SetShadow(true);
 	leftColumnItems->Add(new RatingChoice("Graphics", &graphics_))->SetEnabledPtr(&ratingEnabled_)->OnChoice.Handle(this, &ReportScreen::HandleChoice);
 	leftColumnItems->Add(new RatingChoice("Speed", &speed_))->SetEnabledPtr(&ratingEnabled_)->OnChoice.Handle(this, &ReportScreen::HandleChoice);
 	leftColumnItems->Add(new RatingChoice("Gameplay", &gameplay_))->SetEnabledPtr(&ratingEnabled_)->OnChoice.Handle(this, &ReportScreen::HandleChoice);
