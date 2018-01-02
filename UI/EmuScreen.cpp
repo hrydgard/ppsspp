@@ -240,8 +240,6 @@ void EmuScreen::bootComplete() {
 	host->BootDone();
 	host->UpdateDisassembly();
 
-	g_gameInfoCache->FlushBGs();
-
 	NOTICE_LOG(BOOT, "Loading %s...", PSP_CoreParameter().fileToStart.c_str());
 	autoLoad();
 
@@ -811,6 +809,37 @@ void EmuScreen::processAxis(const AxisInput &axis, int direction) {
 	}
 }
 
+class GameInfoBGView : public UI::InertView {
+public:
+	GameInfoBGView(const std::string &gamePath, UI::LayoutParams *layoutParams) : InertView(layoutParams), gamePath_(gamePath) {
+	}
+
+	void Draw(UIContext &dc) {
+		// Should only be called when visible.
+		std::shared_ptr<GameInfo> ginfo = g_gameInfoCache->GetInfo(dc.GetDrawContext(), gamePath_, GAMEINFO_WANTBG);
+		dc.Flush();
+
+		// PIC1 is the loading image, so let's only draw if it's available.
+		if (ginfo && ginfo->pic1.texture) {
+			dc.GetDrawContext()->BindTexture(0, ginfo->pic1.texture->GetTexture());
+
+			double loadTime = ginfo->pic1.timeLoaded;
+			uint32_t color = alphaMul(color_, ease((time_now_d() - loadTime) * 3));
+			dc.Draw()->DrawTexRect(dc.GetBounds(), 0, 0, 1, 1, color);
+			dc.Flush();
+			dc.RebindTexture();
+		}
+	}
+
+	void SetColor(uint32_t c) {
+		color_ = c;
+	}
+
+protected:
+	std::string gamePath_;
+	uint32_t color_ = 0xFFC0C0C0;
+};
+
 void EmuScreen::CreateViews() {
 	using namespace UI;
 
@@ -831,14 +860,31 @@ void EmuScreen::CreateViews() {
 	root_->Add(saveStatePreview_);
 	root_->Add(new OnScreenMessagesView(new AnchorLayoutParams((Size)bounds.w, (Size)bounds.h)));
 
-	loadingView_ = new TextView(sc->T("Loading game..."), new AnchorLayoutParams(bounds.centerX(), bounds.centerY(), NONE, NONE, true));
-	root_->Add(loadingView_);
+	GameInfoBGView *loadingBG = root_->Add(new GameInfoBGView(gamePath_, new AnchorLayoutParams(FILL_PARENT, FILL_PARENT)));
+	TextView *loadingTextView = root_->Add(new TextView(sc->T("Loading game..."), new AnchorLayoutParams(bounds.centerX(), bounds.centerY(), NONE, NONE, true)));
+	loadingTextView->SetShadow(true);
+	loadingView_ = loadingTextView;
+
+	loadingViewColor_ = loadingTextView->AddTween(new CallbackColorTween(0x00FFFFFF, 0x00FFFFFF, 0.2f, &bezierEaseInOut));
+	loadingViewColor_->SetCallback([loadingBG, loadingTextView](View *v, uint32_t c) {
+		loadingBG->SetColor(c & 0xFFC0C0C0);
+		loadingTextView->SetTextColor(c);
+	});
+	loadingViewColor_->Persist();
 
 	// We start invisible here, in case of recreated views.
-	loadingViewColor_ = loadingView_->AddTween(new TextColorTween(0x00FFFFFF, 0x00FFFFFF, 0.2f, &bezierEaseInOut));
-	loadingViewColor_->Persist();
-	loadingViewVisible_ = loadingView_->AddTween(new VisibilityTween(UI::V_INVISIBLE, UI::V_INVISIBLE, 0.2f, &bezierEaseInOut));
+	loadingViewVisible_ = loadingTextView->AddTween(new VisibilityTween(UI::V_INVISIBLE, UI::V_INVISIBLE, 0.2f, &bezierEaseInOut));
 	loadingViewVisible_->Persist();
+	loadingViewVisible_->Finish.Add([loadingBG](EventParams &p) {
+		loadingBG->SetVisibility(p.v->GetVisibility());
+
+		// If we just became invisible, flush BGs since we don't need them anymore.
+		// Saves some VRAM for the game, but don't do it before we fade out...
+		if (p.v->GetVisibility() == V_INVISIBLE) {
+			g_gameInfoCache->FlushBGs();
+		}
+		return EVENT_DONE;
+	});
 }
 
 UI::EventReturn EmuScreen::OnDevTools(UI::EventParams &params) {

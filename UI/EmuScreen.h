@@ -99,6 +99,6 @@ private:
 	int saveStateSlot_;
 
 	UI::View *loadingView_ = nullptr;
-	UI::TextColorTween *loadingViewColor_ = nullptr;
+	UI::CallbackColorTween *loadingViewColor_ = nullptr;
 	UI::VisibilityTween *loadingViewVisible_ = nullptr;
 };
