@@ -231,8 +231,8 @@ void EmuScreen::bootGame(const std::string &filename) {
 		host->NotifyUserMessage(gr->T("DefaultCPUClockRequired", "Warning: This game requires the CPU clock to be set to default."), 15.0f);
 	}
 
-	loadingViewColor_->Divert(0xFFFFFFFF, 0.15f);
-	loadingViewVisible_->Divert(UI::V_VISIBLE, 0.15f);
+	loadingViewColor_->Divert(0xFFFFFFFF, 0.75f);
+	loadingViewVisible_->Divert(UI::V_VISIBLE, 0.75f);
 }
 
 void EmuScreen::bootComplete() {
