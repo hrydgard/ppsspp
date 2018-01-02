@@ -11,6 +11,7 @@
 #import "PPSSPPUIApplication.h"
 
 #include "base/NativeApp.h"
+#include "profiler/profiler.h"
 
 @interface UIApplication (Private)
 -(void) suspend;
@@ -112,6 +113,8 @@ int main(int argc, char *argv[])
 {
 	// Simulates a debugger. Makes it possible to use JIT (though only W^X)
 	syscall(SYS_ptrace, 0 /*PTRACE_TRACEME*/, 0, 0, 0);
+	
+	PROFILE_INIT();
 	
 	@autoreleasepool {
 		NSString *documentsPath = [NSSearchPathForDirectoriesInDomains(NSDocumentDirectory, NSUserDomainMask, YES) objectAtIndex:0];
