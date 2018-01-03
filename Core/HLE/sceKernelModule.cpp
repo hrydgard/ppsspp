@@ -1283,7 +1283,18 @@ static Module *__KernelLoadELFFromPtr(const u8 *ptr, size_t elfSize, u32 loadAdd
 
 		// Some games don't have any sections at all.
 		if (scan && codeSections.empty()) {
-			MIPSAnalyst::ScanForFunctions(module->textStart, module->textEnd, !gotSymbols);
+			u32 scanStart = module->textStart;
+			u32 scanEnd = module->textEnd;
+			// Skip the exports and imports sections, they're not code.
+			if (scanEnd >= std::min(modinfo->libent, modinfo->libstub)) {
+				MIPSAnalyst::ScanForFunctions(scanStart, std::min(modinfo->libent, modinfo->libstub) - 4, !gotSymbols);
+				scanStart = std::min(modinfo->libentend, modinfo->libstubend);
+			}
+			if (scanEnd >= std::max(modinfo->libent, modinfo->libstub)) {
+				MIPSAnalyst::ScanForFunctions(scanStart, std::max(modinfo->libent, modinfo->libstub) - 4, !gotSymbols);
+				scanStart = std::max(modinfo->libentend, modinfo->libstubend);
+			}
+			MIPSAnalyst::ScanForFunctions(scanStart, scanEnd, !gotSymbols);
 		}
 	}
 
