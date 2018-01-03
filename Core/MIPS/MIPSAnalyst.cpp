@@ -1124,8 +1124,10 @@ skip:
 			}
 		}
 
-		currentFunction.end = addr + 4;
-		functions.push_back(currentFunction);
+		if (addr <= endAddr) {
+			currentFunction.end = addr + 4;
+			functions.push_back(currentFunction);
+		}
 
 		for (auto iter = functions.begin(); iter != functions.end(); iter++) {
 			iter->size = iter->end - iter->start + 4;

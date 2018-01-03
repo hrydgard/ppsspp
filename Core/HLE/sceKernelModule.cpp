@@ -1238,18 +1238,6 @@ static Module *__KernelLoadELFFromPtr(const u8 *ptr, size_t elfSize, u32 loadAdd
 
 		module->nm.text_addr = module->textStart;
 		module->nm.text_size = reader.GetTotalTextSize();
-
-		if (!module->isFake) {
-#if !defined(MOBILE_DEVICE)
-			bool gotSymbols = reader.LoadSymbols();
-			MIPSAnalyst::ScanForFunctions(module->textStart, module->textEnd, !gotSymbols);
-#else
-			if (g_Config.bFuncReplacements) {
-				bool gotSymbols = reader.LoadSymbols();
-				MIPSAnalyst::ScanForFunctions(module->textStart, module->textEnd, !gotSymbols);
-			}
-#endif
-		}
 	} else {
 		module->nm.text_addr = 0;
 		module->nm.text_size = 0;
@@ -1269,17 +1257,28 @@ static Module *__KernelLoadELFFromPtr(const u8 *ptr, size_t elfSize, u32 loadAdd
 	if (textSection == -1) {
 		module->textStart = reader.GetVaddr();
 		module->textEnd = firstImportStubAddr - 4;
+	}
 
-		if (!module->isFake) {
-#if !defined(MOBILE_DEVICE)
-			bool gotSymbols = reader.LoadSymbols();
-			MIPSAnalyst::ScanForFunctions(module->textStart, module->textEnd, !gotSymbols);
-#else
-			if (g_Config.bFuncReplacements) {
-				bool gotSymbols = reader.LoadSymbols();
-				MIPSAnalyst::ScanForFunctions(module->textStart, module->textEnd, !gotSymbols);
-			}
+	if (!module->isFake) {
+		bool scan = true;
+#if defined(MOBILE_DEVICE)
+		scan = g_Config.bFuncReplacements;
 #endif
+
+		bool gotSymbols = scan && reader.LoadSymbols();
+		std::vector<SectionID> codeSections = reader.GetCodeSections();
+		for (SectionID id : codeSections) {
+			u32 start = reader.GetSectionAddr(id);
+			u32 end = start + reader.GetSectionSize(id);
+
+			if (start < module->textStart)
+				module->textStart = start;
+			if (end > module->textEnd)
+				module->textEnd = end;
+
+			// Note: scan end is inclusive.
+			if (scan)
+				MIPSAnalyst::ScanForFunctions(start, end - 4, !gotSymbols);
 		}
 	}
 
