@@ -559,7 +559,7 @@ void VertexDecoder::Step_Color5551Morph() const
 	for (int i = 0; i < 4; i++) {
 		c[i] = clamp_u8((int)col[i]);
 	}
-	gstate_c.vertexFullAlpha = gstate_c.vertexFullAlpha && c[3] == 255;
+	gstate_c.vertexFullAlpha = gstate_c.vertexFullAlpha && (int)col[3] == 255;
 }
 
 void VertexDecoder::Step_Color4444Morph() const
@@ -575,7 +575,7 @@ void VertexDecoder::Step_Color4444Morph() const
 	for (int i = 0; i < 4; i++) {
 		c[i] = clamp_u8((int)col[i]);
 	}
-	gstate_c.vertexFullAlpha = gstate_c.vertexFullAlpha && c[3] == 255;
+	gstate_c.vertexFullAlpha = gstate_c.vertexFullAlpha && (int)col[3] == 255;
 }
 
 void VertexDecoder::Step_Color8888Morph() const
@@ -591,7 +591,7 @@ void VertexDecoder::Step_Color8888Morph() const
 	for (int i = 0; i < 4; i++) {
 		c[i] = clamp_u8((int)col[i]);
 	}
-	gstate_c.vertexFullAlpha = gstate_c.vertexFullAlpha && c[3] == 255;
+	gstate_c.vertexFullAlpha = gstate_c.vertexFullAlpha && (int)col[3] == 255;
 }
 
 void VertexDecoder::Step_NormalS8() const
