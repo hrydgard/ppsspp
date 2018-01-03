@@ -1234,7 +1234,7 @@ static Module *__KernelLoadELFFromPtr(const u8 *ptr, size_t elfSize, u32 loadAdd
 	if (textSection != -1) {
 		module->textStart = reader.GetSectionAddr(textSection);
 		u32 textSize = reader.GetSectionSize(textSection);
-		module->textEnd = module->textStart + textSize;
+		module->textEnd = module->textStart + textSize - 4;
 
 		module->nm.text_addr = module->textStart;
 		module->nm.text_size = reader.GetTotalTextSize();
@@ -1269,16 +1269,21 @@ static Module *__KernelLoadELFFromPtr(const u8 *ptr, size_t elfSize, u32 loadAdd
 		std::vector<SectionID> codeSections = reader.GetCodeSections();
 		for (SectionID id : codeSections) {
 			u32 start = reader.GetSectionAddr(id);
-			u32 end = start + reader.GetSectionSize(id);
+			// Note: scan end is inclusive.
+			u32 end = start + reader.GetSectionSize(id) - 4;
 
 			if (start < module->textStart)
 				module->textStart = start;
 			if (end > module->textEnd)
 				module->textEnd = end;
 
-			// Note: scan end is inclusive.
 			if (scan)
-				MIPSAnalyst::ScanForFunctions(start, end - 4, !gotSymbols);
+				MIPSAnalyst::ScanForFunctions(start, end, !gotSymbols);
+		}
+
+		// Some games don't have any sections at all.
+		if (scan && codeSections.empty()) {
+			MIPSAnalyst::ScanForFunctions(module->textStart, module->textEnd, !gotSymbols);
 		}
 	}
 
