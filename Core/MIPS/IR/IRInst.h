@@ -314,6 +314,9 @@ struct IRMeta {
 };
 
 // 32 bits.
+// TODO: Evaluate whether it would make sense to switch to 64-bit ops with immediates
+// included instead of storing immediates separately. Would simplify things at some memory
+// storage and bandwidth cost.
 struct IRInst {
 	IROp op;
 	union {

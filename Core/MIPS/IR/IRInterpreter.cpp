@@ -22,7 +22,7 @@
 #include "Core/MIPS/IR/IRInterpreter.h"
 #include "Core/System.h"
 
-alignas(16) float vec4InitValues[8][4] = {
+alignas(16) static const float vec4InitValues[8][4] = {
 	{ 0.0f, 0.0f, 0.0f, 0.0f },
 	{ 1.0f, 1.0f, 1.0f, 1.0f },
 	{ -1.0f, -1.0f, -1.0f, -1.0f },
@@ -30,6 +30,14 @@ alignas(16) float vec4InitValues[8][4] = {
 	{ 0.0f, 1.0f, 0.0f, 0.0f },
 	{ 0.0f, 0.0f, 1.0f, 0.0f },
 	{ 0.0f, 0.0f, 0.0f, 1.0f },
+};
+
+alignas(16) static const uint32_t signBits[4] = {
+	0x80000000, 0x80000000, 0x80000000, 0x80000000,
+};
+
+alignas(16) static const uint32_t noSignMask[4] = {
+	0x7FFFFFFF, 0x7FFFFFFF, 0x7FFFFFFF, 0x7FFFFFFF,
 };
 
 u32 RunBreakpoint(u32 pc) {
@@ -238,13 +246,21 @@ u32 IRInterpret(MIPSState *mips, const IRInst *inst, const u32 *constPool, int c
 			break;
 
 		case IROp::Vec4Neg:
+#if defined(_M_SSE)
+			_mm_store_ps(&mips->f[inst->dest], _mm_xor_ps(_mm_load_ps(&mips->f[inst->src1]), _mm_load_ps((const float *)signBits)));
+#else
 			for (int i = 0; i < 4; i++)
 				mips->f[inst->dest + i] = -mips->f[inst->src1 + i];
+#endif
 			break;
 
 		case IROp::Vec4Abs:
+#if defined(_M_SSE)
+			_mm_store_ps(&mips->f[inst->dest], _mm_and_ps(_mm_load_ps(&mips->f[inst->src1]), _mm_load_ps((const float *)noSignMask)));
+#else
 			for (int i = 0; i < 4; i++)
 				mips->f[inst->dest + i] = fabsf(mips->f[inst->src1 + i]);
+#endif
 			break;
 
 		case IROp::Vec2Unpack16To31:
@@ -433,8 +449,8 @@ u32 IRInterpret(MIPSState *mips, const IRInst *inst, const u32 *constPool, int c
 			u32 x = mips->r[inst->src1];
 			int sa = mips->r[inst->src2] & 31;
 			mips->r[inst->dest] = (x >> sa) | (x << (32 - sa));
+			break;
 		}
-		break;
 
 		case IROp::Clz:
 		{
@@ -690,13 +706,11 @@ u32 IRInterpret(MIPSState *mips, const IRInst *inst, const u32 *constPool, int c
 		case IROp::FCvtWS:
 		{
 			float src = mips->f[inst->src1];
-			if (my_isnanorinf(src))
-			{
+			if (my_isnanorinf(src)) {
 				mips->fs[inst->dest] = my_isinf(src) && src < 0.0f ? -2147483648LL : 2147483647LL;
 				break;
 			}
-			switch (mips->fcr31 & 3)
-			{
+			switch (mips->fcr31 & 3) {
 			case 0: mips->fs[inst->dest] = (int)round_ieee_754(src); break;  // RINT_0
 			case 1: mips->fs[inst->dest] = (int)src; break;  // CAST_1
 			case 2: mips->fs[inst->dest] = (int)ceilf(src); break;  // CEIL_2
@@ -760,7 +774,7 @@ u32 IRInterpret(MIPSState *mips, const IRInst *inst, const u32 *constPool, int c
 			break;
 
 		case IROp::Syscall:
-			// SetPC was executed before.
+			// IROp::SetPC was (hopefully) executed before.
 		{
 			MIPSOpcode op(constPool[inst->src1]);
 			CallSyscall(op);
@@ -772,7 +786,7 @@ u32 IRInterpret(MIPSState *mips, const IRInst *inst, const u32 *constPool, int c
 		case IROp::ExitToPC:
 			return mips->pc;
 
-		case IROp::Interpret:  // SLOW fallback. Can be made faster.
+		case IROp::Interpret:  // SLOW fallback. Can be made faster. Ideally should be removed but may be useful for debugging.
 		{
 			MIPSOpcode op(constPool[inst->src1]);
 			MIPSInterpret(op);
