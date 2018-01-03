@@ -633,6 +633,17 @@ u32 ElfReader::GetTotalSectionSizeByPrefix(const std::string &prefix) const {
 	return total;
 }
 
+std::vector<SectionID> ElfReader::GetCodeSections() const {
+	std::vector<SectionID> ids;
+	for (int i = 0; i < GetNumSections(); ++i) {
+		u32 flags = sections[i].sh_flags;
+		if ((flags & (SHF_ALLOC | SHF_EXECINSTR)) == (SHF_ALLOC | SHF_EXECINSTR)) {
+			ids.push_back(i);
+		}
+	}
+	return ids;
+}
+
 bool ElfReader::LoadSymbols()
 {
 	bool hasSymbols = false;
