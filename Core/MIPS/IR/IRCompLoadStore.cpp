@@ -136,7 +136,7 @@ namespace MIPSComp {
 			ir.WriteSetConstant(maskReg, 0x00ffffff);
 			ir.Write(IROp::Neg, shiftReg, shiftReg);
 			ir.Write(IROp::AddConst, shiftReg, shiftReg, ir.AddConstant(24));
-			ir.Write(IROp::Shl, maskReg, maskReg, shiftReg);
+			ir.Write(IROp::Shr, maskReg, maskReg, shiftReg);
 			ir.Write(IROp::And, valueReg, valueReg, maskReg);
 			ir.Write(IROp::Neg, shiftReg, shiftReg);
 			ir.Write(IROp::AddConst, shiftReg, shiftReg, ir.AddConstant(24));
