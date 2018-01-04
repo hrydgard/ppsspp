@@ -321,8 +321,8 @@ u32 IRInterpret(MIPSState *mips, const IRInst *inst, int count) {
 		{
 #if defined(_M_SSE)
 			__m128i src = _mm_cvtsi32_si128(mips->fi[inst->src1]);
+			src = _mm_unpacklo_epi8(src, _mm_setzero_si128());
 			src = _mm_unpacklo_epi16(src, _mm_setzero_si128());
-			src = _mm_unpacklo_epi32(src, _mm_setzero_si128());
 			_mm_store_si128((__m128i *)&mips->fi[inst->dest], _mm_slli_epi32(src, 24));
 #else
 			mips->fi[inst->dest] = (mips->fi[inst->src1] << 24);
@@ -350,36 +350,25 @@ u32 IRInterpret(MIPSState *mips, const IRInst *inst, int count) {
 
 		case IROp::Vec4Pack32To8:
 		{
-#if defined(_M_SSE)
-			// Packs the upper bits, so we need to shift down. Then we can just use SSE packing.
-			__m128i val = _mm_srli_epi32(_mm_load_si128((const __m128i *)&mips->fi[inst->src1]), 24);
-			val = _mm_packs_epi16(_mm_packs_epi32(val, _mm_setzero_si128()), _mm_setzero_si128());
-			mips->fi[inst->dest] = _mm_cvtsi128_si32(val);
-#else
+			// Removed previous SSE code due to the need for unsigned 16-bit pack, which I'm too lazy to work around the lack of in SSE2.
+			// pshufb or SSE4 instructions can be used instead.
 			u32 val = mips->fi[inst->src1] >> 24;
 			val |= (mips->fi[inst->src1 + 1] >> 16) & 0xFF00;
 			val |= (mips->fi[inst->src1 + 2] >> 8) & 0xFF0000;
 			val |= (mips->fi[inst->src1 + 3]) & 0xFF000000;
 			mips->fi[inst->dest] = val;
 			break;
-#endif
 		}
 
 		case IROp::Vec4Pack31To8:
 		{
-#if defined(_M_SSE)
-			// Packs the upper bits (offset by 1), so we need to shift down and mask. Then we can just use SSE packing.
-			__m128i val = _mm_srli_epi32(_mm_load_si128((const __m128i *)&mips->fi[inst->src1]), 23);
-			val = _mm_and_si128(val, _mm_load_si128((const __m128i *)&lowBytesMask));
-			val = _mm_packs_epi16(_mm_packs_epi32(val, _mm_setzero_si128()), _mm_setzero_si128());
-			mips->fi[inst->dest] = _mm_cvtsi128_si32(val);
-#else
+			// Removed previous SSE code due to the need for unsigned 16-bit pack, which I'm too lazy to work around the lack of in SSE2.
+			// pshufb or SSE4 instructions can be used instead.
 			u32 val = (mips->fi[inst->src1] >> 23) & 0xFF;
 			val |= (mips->fi[inst->src1 + 1] >> 15) & 0xFF00;
 			val |= (mips->fi[inst->src1 + 2] >> 7) & 0xFF0000;
 			val |= (mips->fi[inst->src1 + 3] << 1) & 0xFF000000;
 			mips->fi[inst->dest] = val;
-#endif
 			break;
 		}
 
@@ -394,18 +383,19 @@ u32 IRInterpret(MIPSState *mips, const IRInst *inst, int count) {
 
 		case IROp::Vec4ClampToZero:
 		{
-#if 0 && defined(_M_SSE)
-			// This is SSE4 only unfortunately, so only suitable for JIT, hence disabled above.
+#if defined(_M_SSE)
+			// Trickery: Expand the sign bit, and use andnot to zero negative values.
 			__m128i val = _mm_load_si128((const __m128i *)&mips->fi[inst->src1]);
-			val = _mm_max_epi32(val, _mm_setzero_si128());
-			mips->fi[inst->dest] = _mm_cvtsi128_si32(val);
+			__m128i mask = _mm_srai_epi32(val, 31);
+			val = _mm_andnot_si128(mask, val);
+			_mm_store_si128((__m128i *)&mips->fi[inst->dest], val);
 #else
 			for (int i = 0; i < 4; i++) {
 				u32 val = mips->fi[inst->src1 + i];
 				mips->fi[inst->dest + i] = (int)val >= 0 ? val : 0;
 			}
-			break;
 #endif
+			break;
 		}
 
 		case IROp::Vec4DuplicateUpperBitsAndShift1:  // For vuc2i, the weird one.
@@ -450,18 +440,18 @@ u32 IRInterpret(MIPSState *mips, const IRInst *inst, int count) {
 			} else {
 				mips->vfpuCtrl[VFPU_CTRL_CC] &= ~(1 << bit);
 			}
-		}
 			break;
+		}
 
 		case IROp::FCmpVfpuAggregate:
 		{
 			u32 mask = inst->dest;
 			u32 cc = mips->vfpuCtrl[VFPU_CTRL_CC];
-			int a = (cc & mask) ? 0x10 : 0x00;
-			int b = (cc & mask) == mask ? 0x20 : 0x00;
-			mips->vfpuCtrl[VFPU_CTRL_CC] = (cc & ~0x30) | a | b;
-		}
+			int anyBit = (cc & mask) ? 0x10 : 0x00;
+			int allBit = (cc & mask) == mask ? 0x20 : 0x00;
+			mips->vfpuCtrl[VFPU_CTRL_CC] = (cc & ~0x30) | anyBit | allBit;
 			break;
+		}
 
 		case IROp::FCmovVfpuCC:
 			if (((mips->vfpuCtrl[VFPU_CTRL_CC] >> (inst->src2 & 0xf)) & 1) == ((u32)inst->src2 >> 7)) {
@@ -791,6 +781,9 @@ u32 IRInterpret(MIPSState *mips, const IRInst *inst, int count) {
 			switch (inst->dest) {
 			case IRFpCompareMode::False:
 				mips->fpcond = 0;
+				break;
+			case IRFpCompareMode::NotEqualUnordered:
+				mips->fpcond = mips->f[inst->src1] != mips->f[inst->src2];
 				break;
 			case IRFpCompareMode::EqualOrdered:
 			case IRFpCompareMode::EqualUnordered:
