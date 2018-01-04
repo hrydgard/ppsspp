@@ -123,6 +123,10 @@ JitBlock *JitBlockCache::GetBlock(int no) {
 	return &blocks_[no];
 }
 
+const JitBlock *JitBlockCache::GetBlock(int no) const {
+	return &blocks_[no];
+}
+
 int JitBlockCache::AllocateBlock(u32 startAddress) {
 	JitBlock &b = blocks_[num_blocks_];
 
@@ -326,7 +330,7 @@ MIPSOpcode JitBlockCache::GetEmuHackOpForBlock(int blockNum) const {
 	return MIPSOpcode(MIPS_EMUHACK_OPCODE | off);
 }
 
-int JitBlockCache::GetBlockNumberFromStartAddress(u32 addr, bool realBlocksOnly) {
+int JitBlockCache::GetBlockNumberFromStartAddress(u32 addr, bool realBlocksOnly) const {
 	if (!blocks_ || !Memory::IsValidAddress(addr))
 		return -1;
 
@@ -610,12 +614,12 @@ int JitBlockCache::GetBlockExitSize() {
 #endif
 }
 
-void JitBlockCache::ComputeStats(BlockCacheStats &bcStats) {
+void JitBlockCache::ComputeStats(BlockCacheStats &bcStats) const {
 	double totalBloat = 0.0;
 	double maxBloat = 0.0;
 	double minBloat = 1000000000.0;
 	for (int i = 0; i < num_blocks_; i++) {
-		JitBlock *b = GetBlock(i);
+		const JitBlock *b = GetBlock(i);
 		double codeSize = (double)b->codeSize;
 		if (codeSize == 0)
 			continue;
@@ -636,4 +640,26 @@ void JitBlockCache::ComputeStats(BlockCacheStats &bcStats) {
 	bcStats.minBloat = minBloat;
 	bcStats.maxBloat = maxBloat;
 	bcStats.avgBloat = totalBloat / (double)num_blocks_;
+}
+
+JitBlockDebugInfo JitBlockCache::GetBlockDebugInfo(int blockNum) const {
+	JitBlockDebugInfo debugInfo{};
+	const JitBlock *block = GetBlock(blockNum);
+	debugInfo.originalAddress = block->originalAddress;
+	for (u32 addr = block->originalAddress; addr <= block->originalAddress + block->originalSize * 4; addr += 4) {
+		char temp[256];
+		MIPSDisAsm(Memory::Read_Instruction(addr), addr, temp, true);
+		std::string mipsDis = temp;
+		debugInfo.origDisasm.push_back(mipsDis);
+	}
+
+#if defined(ARM)
+	debugInfo.targetDisasm = DisassembleArm2(block->normalEntry, block->codeSize);
+#elif defined(ARM64)
+	debugInfo.targetDisasm = DisassembleArm64(block->normalEntry, block->codeSize);
+#elif defined(_M_IX86) || defined(_M_X64)
+	debugInfo.targetDisasm = DisassembleX86(block->normalEntry, block->codeSize);
+#endif
+
+	return debugInfo;
 }

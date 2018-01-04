@@ -701,46 +701,41 @@ void JitCompareScreen::UpdateDisasm() {
 
 	I18NCategory *dev = GetI18NCategory("Developer");
 
-	JitBlockCache *blockCache = MIPSComp::jit->GetBlockCache();
+	JitBlockCacheDebugInterface *blockCacheDebug = MIPSComp::jit->GetBlockCacheDebugInterface();
 
 	char temp[256];
-	snprintf(temp, sizeof(temp), "%i/%i", currentBlock_, blockCache->GetNumBlocks());
+	snprintf(temp, sizeof(temp), "%i/%i", currentBlock_, blockCacheDebug->GetNumBlocks());
 	blockName_->SetText(temp);
 
-	if (currentBlock_ < 0 || currentBlock_ >= blockCache->GetNumBlocks()) {
+	if (currentBlock_ < 0 || currentBlock_ >= blockCacheDebug->GetNumBlocks()) {
 		leftDisasm_->Add(new TextView(dev->T("No block")));
 		rightDisasm_->Add(new TextView(dev->T("No block")));
 		blockStats_->SetText("");
 		return;
 	}
 
-	JitBlock *block = blockCache->GetBlock(currentBlock_);
+	JitBlockDebugInfo debugInfo = blockCacheDebug->GetBlockDebugInfo(currentBlock_);
 
-	snprintf(temp, sizeof(temp), "%08x", block->originalAddress);
+	snprintf(temp, sizeof(temp), "%08x", debugInfo.originalAddress);
 	blockAddr_->SetText(temp);
 
 	// Alright. First generate the MIPS disassembly.
 	
 	// TODO: Need a way to communicate branch continuing.
-	for (u32 addr = block->originalAddress; addr <= block->originalAddress + block->originalSize * 4; addr += 4) {
-		char temp[256];
-		MIPSDisAsm(Memory::Read_Instruction(addr), addr, temp, true);
-		std::string mipsDis = temp;
-		leftDisasm_->Add(new TextView(mipsDis))->SetFocusable(true);
+	for (auto line : debugInfo.origDisasm) {
+		leftDisasm_->Add(new TextView(line))->SetFocusable(true);
 	}
 
-#if defined(ARM)
-	std::vector<std::string> targetDis = DisassembleArm2(block->normalEntry, block->codeSize);
-#elif defined(ARM64)
-	std::vector<std::string> targetDis = DisassembleArm64(block->normalEntry, block->codeSize);
-#elif defined(_M_IX86) || defined(_M_X64)
-	std::vector<std::string> targetDis = DisassembleX86(block->normalEntry, block->codeSize);
-#endif
-#if defined(ARM) || defined(ARM64) || defined(_M_IX86) || defined(_M_X64)
-	for (size_t i = 0; i < targetDis.size(); i++) {
-		rightDisasm_->Add(new TextView(targetDis[i]))->SetFocusable(true);
+	// TODO : When we have both target and IR, need a third column.
+	if (debugInfo.targetDisasm.size()) {
+		for (auto line : debugInfo.targetDisasm) {
+			rightDisasm_->Add(new TextView(line))->SetFocusable(true);
+		}
+	} else {
+		for (auto line : debugInfo.irDisasm) {
+			rightDisasm_->Add(new TextView(line))->SetFocusable(true);
+		}
 	}
-#endif
 
 	int numMips = leftDisasm_->GetNumSubviews();
 	int numHost = rightDisasm_->GetNumSubviews();
@@ -773,7 +768,7 @@ UI::EventReturn JitCompareScreen::OnShowStats(UI::EventParams &e) {
 		return UI::EVENT_DONE;
 	}
 
-	JitBlockCache *blockCache = MIPSComp::jit->GetBlockCache();
+	JitBlockCacheDebugInterface *blockCache = MIPSComp::jit->GetBlockCacheDebugInterface();
 	BlockCacheStats bcStats;
 	blockCache->ComputeStats(bcStats);
 	NOTICE_LOG(JIT, "Num blocks: %i", bcStats.numBlocks);
@@ -790,7 +785,6 @@ UI::EventReturn JitCompareScreen::OnShowStats(UI::EventParams &e) {
 		}
 		ctr++;
 	}
-
 	return UI::EVENT_DONE;
 }
 
@@ -839,7 +833,7 @@ UI::EventReturn JitCompareScreen::OnRandomBlock(UI::EventParams &e) {
 		return UI::EVENT_DONE;
 	}
 
-	JitBlockCache *blockCache = MIPSComp::jit->GetBlockCache();
+	JitBlockCacheDebugInterface *blockCache = MIPSComp::jit->GetBlockCacheDebugInterface();
 	if (!blockCache)
 		return UI::EVENT_DONE;
 

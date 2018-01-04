@@ -93,7 +93,24 @@ struct JitBlock {
 
 typedef void (*CompiledCode)();
 
-class JitBlockCache {
+struct JitBlockDebugInfo {
+	uint32_t originalAddress;
+	std::vector<std::string> origDisasm;
+	std::vector<std::string> irDisasm;  // if any
+	std::vector<std::string> targetDisasm;
+};
+
+class JitBlockCacheDebugInterface {
+public:
+	virtual int GetNumBlocks() const = 0;
+	virtual int GetBlockNumberFromStartAddress(u32 em_address, bool realBlocksOnly = true) const = 0;
+	virtual JitBlockDebugInfo GetBlockDebugInfo(int blockNum) const = 0;
+	virtual void ComputeStats(BlockCacheStats &bcStats) const = 0;
+
+	virtual ~JitBlockCacheDebugInterface() {}
+};
+
+class JitBlockCache : public JitBlockCacheDebugInterface {
 public:
 	JitBlockCache(MIPSState *mips_, CodeBlockCommon *codeBlock);
 	~JitBlockCache();
@@ -109,13 +126,14 @@ public:
 	void Reset();
 
 	bool IsFull() const;
-	void ComputeStats(BlockCacheStats &bcStats);
+	void ComputeStats(BlockCacheStats &bcStats) const override;
 
 	// Code Cache
 	JitBlock *GetBlock(int block_num);
+	const JitBlock *GetBlock(int block_num) const;
 
 	// Fast way to get a block. Only works on the first source-cpu instruction of a block.
-	int GetBlockNumberFromStartAddress(u32 em_address, bool realBlocksOnly = true);
+	int GetBlockNumberFromStartAddress(u32 em_address, bool realBlocksOnly = true) const override;
 
 	// slower, but can get numbers from within blocks, not just the first instruction.
 	// WARNING! WILL NOT WORK WITH JIT INLINING ENABLED (not yet a feature but will be soon)
@@ -140,9 +158,11 @@ public:
 	std::vector<u32> SaveAndClearEmuHackOps();
 	void RestoreSavedEmuHackOps(std::vector<u32> saved);
 
-	int GetNumBlocks() const { return num_blocks_; }
+	int GetNumBlocks() const override { return num_blocks_; }
 
 	static int GetBlockExitSize();
+
+	JitBlockDebugInfo GetBlockDebugInfo(int blockNum) const override;
 
 	enum {
 		MAX_BLOCK_INSTRUCTIONS = 0x4000,

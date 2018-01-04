@@ -64,15 +64,15 @@ public:
 	const IRInst *GetInstructions() const { return instr_; }
 	int GetNumInstructions() const { return numInstructions_; }
 	MIPSOpcode GetOriginalFirstOp() const { return origFirstOpcode_; }
-	bool HasOriginalFirstOp();
+	bool HasOriginalFirstOp() const;
 	bool RestoreOriginalFirstOp(int number);
 	bool IsValid() const { return origAddr_ != 0; }
 	void SetOriginalSize(u32 size) {
 		origSize_ = size;
 	}
-	bool OverlapsRange(u32 addr, u32 size);
+	bool OverlapsRange(u32 addr, u32 size) const;
 
-	void GetRange(u32 &start, u32 &size) {
+	void GetRange(u32 &start, u32 &size) const {
 		start = origAddr_;
 		size = origSize_;
 	}
@@ -88,13 +88,13 @@ private:
 	MIPSOpcode origFirstOpcode_;
 };
 
-class IRBlockCache {
+class IRBlockCache : public JitBlockCacheDebugInterface {
 public:
 	IRBlockCache() {}
 	void Clear();
 	void InvalidateICache(u32 address, u32 length);
 	void FinalizeBlock(int i);
-	int GetNumBlocks() const { return (int)blocks_.size(); }
+	int GetNumBlocks() const override { return (int)blocks_.size(); }
 	int AllocateBlock(int emAddr) {
 		blocks_.push_back(IRBlock(emAddr));
 		return (int)blocks_.size() - 1;
@@ -110,8 +110,12 @@ public:
 	std::vector<u32> SaveAndClearEmuHackOps();
 	void RestoreSavedEmuHackOps(std::vector<u32> saved);
 
+	JitBlockDebugInfo GetBlockDebugInfo(int blockNum) const override;
+	void ComputeStats(BlockCacheStats &bcStats) const override;
+	int GetBlockNumberFromStartAddress(u32 em_address, bool realBlocksOnly = true) const override;
+
 private:
-	u32 AddressToPage(u32 addr);
+	u32 AddressToPage(u32 addr) const;
 
 	std::vector<IRBlock> blocks_;
 	std::unordered_map<u32, std::vector<int>> byPage_;
@@ -133,6 +137,7 @@ public:
 	bool DescribeCodePtr(const u8 *ptr, std::string &name) override;
 	// Not using a regular block cache.
 	JitBlockCache *GetBlockCache() override { return nullptr; }
+	JitBlockCacheDebugInterface *GetBlockCacheDebugInterface() override { return &blocks_; }
 	MIPSOpcode GetOriginalOp(MIPSOpcode op) override;
 
 	std::vector<u32> SaveAndClearEmuHackOps() override { return blocks_.SaveAndClearEmuHackOps(); }
