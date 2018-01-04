@@ -658,29 +658,58 @@ u32 IRInterpret(MIPSState *mips, const IRInst *inst, int count) {
 			mips->r[inst->dest] = mips->vfpuCtrl[inst->src1];
 			break;
 		case IROp::FRound:
-			mips->fs[inst->dest] = (int)floorf(mips->f[inst->src1] + 0.5f);
-			break;
-		case IROp::FTrunc:
 		{
-			float src = mips->f[inst->src1];
-			if (src >= 0.0f) {
-				mips->fs[inst->dest] = (int)floorf(src);
-				// Overflow, but it was positive.
-				if (mips->fs[inst->dest] == -2147483648LL) {
-					mips->fs[inst->dest] = 2147483647LL;
-				}
+			float value = mips->f[inst->src1];
+			if (my_isnanorinf(value)) {
+				mips->fi[inst->dest] = my_isinf(value) && value < 0.0f ? -2147483648LL : 2147483647LL;
+				break;
 			} else {
-				// Overflow happens to be the right value anyway.
-				mips->fs[inst->dest] = (int)ceilf(src);
+				mips->fs[inst->dest] = (int)floorf(value + 0.5f);
 			}
 			break;
 		}
+		case IROp::FTrunc:
+		{
+			float value = mips->f[inst->src1];
+			if (my_isnanorinf(value)) {
+				mips->fi[inst->dest] = my_isinf(value) && value < 0.0f ? -2147483648LL : 2147483647LL;
+				break;
+			} else {
+				if (value >= 0.0f) {
+					mips->fs[inst->dest] = (int)floorf(value);
+					// Overflow, but it was positive.
+					if (mips->fs[inst->dest] == -2147483648LL) {
+						mips->fs[inst->dest] = 2147483647LL;
+					}
+				} else {
+					// Overflow happens to be the right value anyway.
+					mips->fs[inst->dest] = (int)ceilf(value);
+				}
+				break;
+			}
+		}
 		case IROp::FCeil:
-			mips->fs[inst->dest] = (int)ceilf(mips->f[inst->src1]);
+		{
+			float value = mips->f[inst->src1];
+			if (my_isnanorinf(value)) {
+				mips->fi[inst->dest] = my_isinf(value) && value < 0.0f ? -2147483648LL : 2147483647LL;
+				break;
+			} else {
+				mips->fs[inst->dest] = (int)ceilf(value);
+			}
 			break;
+		}
 		case IROp::FFloor:
-			mips->fs[inst->dest] = (int)floorf(mips->f[inst->src1]);
+		{
+			float value = mips->f[inst->src1];
+			if (my_isnanorinf(value)) {
+				mips->fi[inst->dest] = my_isinf(value) && value < 0.0f ? -2147483648LL : 2147483647LL;
+				break;
+			} else {
+				mips->fs[inst->dest] = (int)floorf(value);
+			}
 			break;
+		}
 		case IROp::FCmp:
 			switch (inst->dest) {
 			case IRFpCompareMode::False:
