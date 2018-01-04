@@ -263,7 +263,7 @@ inline IROp ComparisonToExit(IRComparison comp) {
 
 enum IRFpCompareMode {
 	False = 0,
-	NotEqualUnordered,
+	EitherUnordered,
 	EqualOrdered, // eq,  seq (equal, ordered)
 	EqualUnordered, // ueq, ngl (equal, unordered)
 	LessOrdered, // olt, lt (less than, ordered)

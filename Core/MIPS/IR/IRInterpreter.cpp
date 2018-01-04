@@ -782,9 +782,13 @@ u32 IRInterpret(MIPSState *mips, const IRInst *inst, int count) {
 			case IRFpCompareMode::False:
 				mips->fpcond = 0;
 				break;
-			case IRFpCompareMode::NotEqualUnordered:
-				mips->fpcond = mips->f[inst->src1] != mips->f[inst->src2];
+			case IRFpCompareMode::EitherUnordered:
+			{
+				float a = mips->f[inst->src1];
+				float b = mips->f[inst->src2];
+				mips->fpcond = !(a > b || a < b || a == b);
 				break;
+			}
 			case IRFpCompareMode::EqualOrdered:
 			case IRFpCompareMode::EqualUnordered:
 				mips->fpcond = mips->f[inst->src1] == mips->f[inst->src2];
