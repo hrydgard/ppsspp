@@ -648,6 +648,7 @@ u32 IRInterpret(MIPSState *mips, const IRInst *inst, int count) {
 				mips->f[inst->dest] = 1.0f;
 			else
 				mips->f[inst->dest] = -1.0f;
+			break;
 		}
 
 		case IROp::FpCondToReg:
