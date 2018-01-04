@@ -20,4 +20,4 @@ inline static u32 ReverseBits32(u32 v) {
 	return v;
 }
 
-u32 IRInterpret(MIPSState *mips, const IRInst *inst, const u32 *constPool, int count);
+u32 IRInterpret(MIPSState *mips, const IRInst *inst, int count);

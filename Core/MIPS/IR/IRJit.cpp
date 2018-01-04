@@ -70,10 +70,9 @@ void IRJit::Compile(u32 em_address) {
 	IRBlock *b = blocks_.GetBlock(block_num);
 
 	std::vector<IRInst> instructions;
-	std::vector<u32> constants;
 	u32 mipsBytes;
-	frontend_.DoJit(em_address, instructions, constants, mipsBytes);
-	b->SetInstructions(instructions, constants);
+	frontend_.DoJit(em_address, instructions, mipsBytes);
+	b->SetInstructions(instructions);
 	b->SetOriginalSize(mipsBytes);
 	// Overwrites the first instruction, and also updates stats.
 	blocks_.FinalizeBlock(block_num);
@@ -104,7 +103,7 @@ void IRJit::RunLoopUntil(u64 globalticks) {
 			if (opcode == MIPS_EMUHACK_OPCODE) {
 				u32 data = inst & 0xFFFFFF;
 				IRBlock *block = blocks_.GetBlock(data);
-				mips_->pc = IRInterpret(mips_, block->GetInstructions(), block->GetConstants(), block->GetNumInstructions());
+				mips_->pc = IRInterpret(mips_, block->GetInstructions(), block->GetNumInstructions());
 			} else {
 				// RestoreRoundingMode(true);
 				Compile(mips_->pc);
