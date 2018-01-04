@@ -162,7 +162,7 @@ void IRFrontend::Comp_ReplacementFunc(MIPSOpcode op) {
 			MIPSCompileOp(Memory::Read_Instruction(GetCompilerPC(), true), this);
 		} else {
 			ApplyRoundingMode();
-			ir.Write(IROp::Downcount, 0, js.downcountAmount & 0xFF, js.downcountAmount >> 8);
+			ir.Write(IROp::Downcount, 0, ir.AddConstant(js.downcountAmount));
 			ir.Write(IROp::ExitToReg, 0, MIPS_REG_RA, 0);
 			js.compiling = false;
 		}
@@ -319,7 +319,7 @@ void IRFrontend::CheckBreakpoint(u32 addr) {
 		// TODO: In likely branches, downcount will be incorrect.
 		int downcountOffset = js.inDelaySlot && js.downcountAmount >= 2 ? -2 : 0;
 		int downcountAmount = js.downcountAmount + downcountOffset;
-		ir.Write(IROp::Downcount, 0, downcountAmount & 0xFF, downcountAmount >> 8);
+		ir.Write(IROp::Downcount, 0, ir.AddConstant(downcountAmount));
 		// Note that this means downcount can't be metadata on the block.
 		js.downcountAmount = -downcountOffset;
 		ir.Write(IROp::Breakpoint);
@@ -342,7 +342,7 @@ void IRFrontend::CheckMemoryBreakpoint(int rs, int offset) {
 			downcountOffset = 0;
 		}
 		int downcountAmount = js.downcountAmount + downcountOffset;
-		ir.Write(IROp::Downcount, 0, downcountAmount & 0xFF, downcountAmount >> 8);
+		ir.Write(IROp::Downcount, 0, ir.AddConstant(downcountAmount));
 		// Note that this means downcount can't be metadata on the block.
 		js.downcountAmount = -downcountOffset;
 		ir.Write(IROp::MemoryCheck, 0, rs, ir.AddConstant(offset));

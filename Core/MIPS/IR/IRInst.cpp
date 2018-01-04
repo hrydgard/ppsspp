@@ -141,7 +141,7 @@ static const IRMeta irMeta[] = {
 	{ IROp::Vec2Pack31To16, "Vec2Pack31To16", "2V" },
 
 	{ IROp::Interpret, "Interpret", "_C" },
-	{ IROp::Downcount, "Downcount", "_II" },
+	{ IROp::Downcount, "Downcount", "_C" },
 	{ IROp::ExitToPC, "ExitToPC", "", IRFLAG_EXIT },
 	{ IROp::ExitToConst, "Exit", "C", IRFLAG_EXIT },
 	{ IROp::ExitToConstIfEq, "ExitIfEq", "CGG", IRFLAG_EXIT },
