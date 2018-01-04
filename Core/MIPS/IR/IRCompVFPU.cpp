@@ -333,7 +333,6 @@ namespace MIPSComp {
 
 		case 53: // lvl/lvr.q - highly unusual
 		case 61: // svl/svr.q - highly unusual
-			logBlocks = 1;
 			DISABLE;
 			break;
 

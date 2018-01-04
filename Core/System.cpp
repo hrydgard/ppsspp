@@ -29,6 +29,7 @@
 #include <mutex>
 #include <condition_variable>
 
+#include "base/timeutil.h"
 #include "math/math_util.h"
 #include "thread/threadutil.h"
 #include "util/text/utf8.h"
@@ -465,7 +466,8 @@ bool PSP_Init(const CoreParameter &coreParam, std::string *error_string) {
 		CPU_WaitStatus(cpuThreadReplyCond, &CPU_IsReady);
 	}
 
-	PSP_InitUpdate(error_string);
+	while (!PSP_InitUpdate(error_string))
+		sleep_ms(10);
 	return pspIsInited;
 }
 
