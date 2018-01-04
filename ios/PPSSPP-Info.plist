@@ -58,5 +58,7 @@
 		<integer>1</integer>
 		<integer>2</integer>
 	</array>
+	<key>UILaunchStoryboardName</key>
+	<string>Launch Screen</string>
 </dict>
 </plist>
