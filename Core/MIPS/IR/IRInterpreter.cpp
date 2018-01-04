@@ -58,7 +58,7 @@ u32 RunMemCheck(u32 pc, u32 addr) {
 	return coreState != CORE_RUNNING ? 1 : 0;
 }
 
-u32 IRInterpret(MIPSState *mips, const IRInst *inst, const u32 *constPool, int count) {
+u32 IRInterpret(MIPSState *mips, const IRInst *inst, int count) {
 	const IRInst *end = inst + count;
 	while (inst != end) {
 		switch (inst->op) {
@@ -66,10 +66,10 @@ u32 IRInterpret(MIPSState *mips, const IRInst *inst, const u32 *constPool, int c
 			_assert_(false);
 			break;
 		case IROp::SetConst:
-			mips->r[inst->dest] = constPool[inst->src1];
+			mips->r[inst->dest] = inst->constant;
 			break;
 		case IROp::SetConstF:
-			memcpy(&mips->f[inst->dest], &constPool[inst->src1], 4);
+			memcpy(&mips->f[inst->dest], &inst->constant, 4);
 			break;
 		case IROp::Add:
 			mips->r[inst->dest] = mips->r[inst->src1] + mips->r[inst->src2];
@@ -90,19 +90,19 @@ u32 IRInterpret(MIPSState *mips, const IRInst *inst, const u32 *constPool, int c
 			mips->r[inst->dest] = mips->r[inst->src1];
 			break;
 		case IROp::AddConst:
-			mips->r[inst->dest] = mips->r[inst->src1] + constPool[inst->src2];
+			mips->r[inst->dest] = mips->r[inst->src1] + inst->constant;
 			break;
 		case IROp::SubConst:
-			mips->r[inst->dest] = mips->r[inst->src1] - constPool[inst->src2];
+			mips->r[inst->dest] = mips->r[inst->src1] - inst->constant;
 			break;
 		case IROp::AndConst:
-			mips->r[inst->dest] = mips->r[inst->src1] & constPool[inst->src2];
+			mips->r[inst->dest] = mips->r[inst->src1] & inst->constant;
 			break;
 		case IROp::OrConst:
-			mips->r[inst->dest] = mips->r[inst->src1] | constPool[inst->src2];
+			mips->r[inst->dest] = mips->r[inst->src1] | inst->constant;
 			break;
 		case IROp::XorConst:
-			mips->r[inst->dest] = mips->r[inst->src1] ^ constPool[inst->src2];
+			mips->r[inst->dest] = mips->r[inst->src1] ^ inst->constant;
 			break;
 		case IROp::Neg:
 			mips->r[inst->dest] = -(s32)mips->r[inst->src1];
@@ -121,40 +121,40 @@ u32 IRInterpret(MIPSState *mips, const IRInst *inst, const u32 *constPool, int c
 			break;
 
 		case IROp::Load8:
-			mips->r[inst->dest] = Memory::ReadUnchecked_U8(mips->r[inst->src1] + constPool[inst->src2]);
+			mips->r[inst->dest] = Memory::ReadUnchecked_U8(mips->r[inst->src1] + inst->constant);
 			break;
 		case IROp::Load8Ext:
-			mips->r[inst->dest] = (s32)(s8)Memory::ReadUnchecked_U8(mips->r[inst->src1] + constPool[inst->src2]);
+			mips->r[inst->dest] = (s32)(s8)Memory::ReadUnchecked_U8(mips->r[inst->src1] + inst->constant);
 			break;
 		case IROp::Load16:
-			mips->r[inst->dest] = Memory::ReadUnchecked_U16(mips->r[inst->src1] + constPool[inst->src2]);
+			mips->r[inst->dest] = Memory::ReadUnchecked_U16(mips->r[inst->src1] + inst->constant);
 			break;
 		case IROp::Load16Ext:
-			mips->r[inst->dest] = (s32)(s16)Memory::ReadUnchecked_U16(mips->r[inst->src1] + constPool[inst->src2]);
+			mips->r[inst->dest] = (s32)(s16)Memory::ReadUnchecked_U16(mips->r[inst->src1] + inst->constant);
 			break;
 		case IROp::Load32:
-			mips->r[inst->dest] = Memory::ReadUnchecked_U32(mips->r[inst->src1] + constPool[inst->src2]);
+			mips->r[inst->dest] = Memory::ReadUnchecked_U32(mips->r[inst->src1] + inst->constant);
 			break;
 		case IROp::LoadFloat:
-			mips->f[inst->dest] = Memory::ReadUnchecked_Float(mips->r[inst->src1] + constPool[inst->src2]);
+			mips->f[inst->dest] = Memory::ReadUnchecked_Float(mips->r[inst->src1] + inst->constant);
 			break;
 
 		case IROp::Store8:
-			Memory::WriteUnchecked_U8(mips->r[inst->src3], mips->r[inst->src1] + constPool[inst->src2]);
+			Memory::WriteUnchecked_U8(mips->r[inst->src3], mips->r[inst->src1] + inst->constant);
 			break;
 		case IROp::Store16:
-			Memory::WriteUnchecked_U16(mips->r[inst->src3], mips->r[inst->src1] + constPool[inst->src2]);
+			Memory::WriteUnchecked_U16(mips->r[inst->src3], mips->r[inst->src1] + inst->constant);
 			break;
 		case IROp::Store32:
-			Memory::WriteUnchecked_U32(mips->r[inst->src3], mips->r[inst->src1] + constPool[inst->src2]);
+			Memory::WriteUnchecked_U32(mips->r[inst->src3], mips->r[inst->src1] + inst->constant);
 			break;
 		case IROp::StoreFloat:
-			Memory::WriteUnchecked_Float(mips->f[inst->src3], mips->r[inst->src1] + constPool[inst->src2]);
+			Memory::WriteUnchecked_Float(mips->f[inst->src3], mips->r[inst->src1] + inst->constant);
 			break;
 
 		case IROp::LoadVec4:
 		{
-			u32 base = mips->r[inst->src1] + constPool[inst->src2];
+			u32 base = mips->r[inst->src1] + inst->constant;
 #if defined(_M_SSE)
 			_mm_store_ps(&mips->f[inst->dest], _mm_load_ps((const float *)Memory::GetPointerUnchecked(base)));
 #else
@@ -165,7 +165,7 @@ u32 IRInterpret(MIPSState *mips, const IRInst *inst, const u32 *constPool, int c
 		}
 		case IROp::StoreVec4:
 		{
-			u32 base = mips->r[inst->src1] + constPool[inst->src2];
+			u32 base = mips->r[inst->src1] + inst->constant;
 #if defined(_M_SSE)
 			_mm_store_ps((float *)Memory::GetPointerUnchecked(base), _mm_load_ps(&mips->f[inst->dest]));
 #else
@@ -474,11 +474,11 @@ u32 IRInterpret(MIPSState *mips, const IRInst *inst, const u32 *constPool, int c
 			break;
 
 		case IROp::SltConst:
-			mips->r[inst->dest] = (s32)mips->r[inst->src1] < (s32)constPool[inst->src2];
+			mips->r[inst->dest] = (s32)mips->r[inst->src1] < (s32)inst->constant;
 			break;
 
 		case IROp::SltUConst:
-			mips->r[inst->dest] = mips->r[inst->src1] < constPool[inst->src2];
+			mips->r[inst->dest] = mips->r[inst->src1] < inst->constant;
 			break;
 
 		case IROp::MovZ:
@@ -731,38 +731,38 @@ u32 IRInterpret(MIPSState *mips, const IRInst *inst, const u32 *constPool, int c
 			break;
 
 		case IROp::ExitToConst:
-			return constPool[inst->dest];
+			return inst->constant;
 
 		case IROp::ExitToReg:
 			return mips->r[inst->src1];
 
 		case IROp::ExitToConstIfEq:
 			if (mips->r[inst->src1] == mips->r[inst->src2])
-				return constPool[inst->dest];
+				return inst->constant;
 			break;
 		case IROp::ExitToConstIfNeq:
 			if (mips->r[inst->src1] != mips->r[inst->src2])
-				return constPool[inst->dest];
+				return inst->constant;
 			break;
 		case IROp::ExitToConstIfGtZ:
 			if ((s32)mips->r[inst->src1] > 0)
-				return constPool[inst->dest];
+				return inst->constant;
 			break;
 		case IROp::ExitToConstIfGeZ:
 			if ((s32)mips->r[inst->src1] >= 0)
-				return constPool[inst->dest];
+				return inst->constant;
 			break;
 		case IROp::ExitToConstIfLtZ:
 			if ((s32)mips->r[inst->src1] < 0)
-				return constPool[inst->dest];
+				return inst->constant;
 			break;
 		case IROp::ExitToConstIfLeZ:
 			if ((s32)mips->r[inst->src1] <= 0)
-				return constPool[inst->dest];
+				return inst->constant;
 			break;
 
 		case IROp::Downcount:
-			mips->downcount -= (inst->src1) | ((inst->src2) << 8);
+			mips->downcount -= inst->constant;
 			break;
 
 		case IROp::SetPC:
@@ -770,13 +770,13 @@ u32 IRInterpret(MIPSState *mips, const IRInst *inst, const u32 *constPool, int c
 			break;
 
 		case IROp::SetPCConst:
-			mips->pc = constPool[inst->src1];
+			mips->pc = inst->constant;
 			break;
 
 		case IROp::Syscall:
 			// IROp::SetPC was (hopefully) executed before.
 		{
-			MIPSOpcode op(constPool[inst->src1]);
+			MIPSOpcode op(inst->constant);
 			CallSyscall(op);
 			if (coreState != CORE_RUNNING)
 				CoreTiming::ForceCheck();
@@ -788,14 +788,14 @@ u32 IRInterpret(MIPSState *mips, const IRInst *inst, const u32 *constPool, int c
 
 		case IROp::Interpret:  // SLOW fallback. Can be made faster. Ideally should be removed but may be useful for debugging.
 		{
-			MIPSOpcode op(constPool[inst->src1]);
+			MIPSOpcode op(inst->constant);
 			MIPSInterpret(op);
 			break;
 		}
 
 		case IROp::CallReplacement:
 		{
-			int funcIndex = constPool[inst->src1];
+			int funcIndex = inst->constant;
 			const ReplacementTableEntry *f = GetReplacementFunc(funcIndex);
 			int cycles = f->replaceFunc();
 			mips->downcount -= cycles;
@@ -810,7 +810,7 @@ u32 IRInterpret(MIPSState *mips, const IRInst *inst, const u32 *constPool, int c
 			return mips->pc + 4;
 
 		case IROp::SetCtrlVFPU:
-			mips->vfpuCtrl[inst->dest] = constPool[inst->src1];
+			mips->vfpuCtrl[inst->dest] = inst->constant;
 			break;
 
 		case IROp::SetCtrlVFPUReg:
@@ -829,7 +829,7 @@ u32 IRInterpret(MIPSState *mips, const IRInst *inst, const u32 *constPool, int c
 			break;
 
 		case IROp::MemoryCheck:
-			if (RunMemCheck(mips->pc, mips->r[inst->src1] + constPool[inst->src2])) {
+			if (RunMemCheck(mips->pc, mips->r[inst->src1] + inst->constant)) {
 				CoreTiming::ForceCheck();
 				return mips->pc;
 			}

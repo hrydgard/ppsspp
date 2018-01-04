@@ -313,10 +313,7 @@ struct IRMeta {
 	u32 flags;
 };
 
-// 32 bits.
-// TODO: Evaluate whether it would make sense to switch to 64-bit ops with immediates
-// included instead of storing immediates separately. Would simplify things at some memory
-// storage and bandwidth cost.
+// 64 bits.
 struct IRInst {
 	IROp op;
 	union {
@@ -325,22 +322,21 @@ struct IRInst {
 	};
 	u8 src1;
 	u8 src2;
+	u32 constant;
 };
 
 // Returns the new PC.
-u32 IRInterpret(MIPSState *mips, const IRInst *inst, const u32 *constPool, int count);
+u32 IRInterpret(MIPSState *mips, const IRInst *inst, int count);
 
 // Each IR block gets a constant pool.
 class IRWriter {
 public:
 	IRWriter &operator =(const IRWriter &w) {
 		insts_ = w.insts_;
-		constPool_ = w.constPool_;
 		return *this;
 	}
 	IRWriter &operator =(IRWriter &&w) {
 		insts_ = std::move(w.insts_);
-		constPool_ = std::move(w.constPool_);
 		return *this;
 	}
 
@@ -355,15 +351,13 @@ public:
 
 	void Clear() {
 		insts_.clear();
-		constPool_.clear();
 	}
 
 	const std::vector<IRInst> &GetInstructions() const { return insts_; }
-	const std::vector<u32> &GetConstants() const { return constPool_; }
 
 private:
 	std::vector<IRInst> insts_;
-	std::vector<u32> constPool_;
+	u32 nextConst_ = 0;
 };
 
 struct IROptions {
@@ -371,5 +365,5 @@ struct IROptions {
 };
 
 const IRMeta *GetIRMeta(IROp op);
-void DisassembleIR(char *buf, size_t bufsize, IRInst inst, const u32 *constPool);
+void DisassembleIR(char *buf, size_t bufsize, IRInst inst);
 void InitIR();

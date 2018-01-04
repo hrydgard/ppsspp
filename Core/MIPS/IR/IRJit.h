@@ -38,40 +38,30 @@ namespace MIPSComp {
 // TODO : Use arena allocators. For now let's just malloc.
 class IRBlock {
 public:
-	IRBlock() : instr_(nullptr), const_(nullptr), numInstructions_(0), numConstants_(0), origAddr_(0), origSize_(0) {}
-	IRBlock(u32 emAddr) : instr_(nullptr), const_(nullptr), numInstructions_(0), numConstants_(0), origAddr_(emAddr), origSize_(0) {}
+	IRBlock() : instr_(nullptr), numInstructions_(0), origAddr_(0), origSize_(0) {}
+	IRBlock(u32 emAddr) : instr_(nullptr), numInstructions_(0), origAddr_(emAddr), origSize_(0) {}
 	IRBlock(IRBlock &&b) {
 		instr_ = b.instr_;
-		const_ = b.const_;
 		numInstructions_ = b.numInstructions_;
-		numConstants_ = b.numConstants_;
 		origAddr_ = b.origAddr_;
 		origSize_ = b.origSize_;
 		origFirstOpcode_ = b.origFirstOpcode_;
 		b.instr_ = nullptr;
-		b.const_ = nullptr;
 	}
 
 	~IRBlock() {
 		delete[] instr_;
-		delete[] const_;
 	}
 
-	void SetInstructions(const std::vector<IRInst> &inst, const std::vector<u32> &constants) {
+	void SetInstructions(const std::vector<IRInst> &inst) {
 		instr_ = new IRInst[inst.size()];
 		numInstructions_ = (u16)inst.size();
 		if (!inst.empty()) {
 			memcpy(instr_, &inst[0], sizeof(IRInst) * inst.size());
 		}
-		const_ = new u32[constants.size()];
-		numConstants_ = (u16)constants.size();
-		if (!constants.empty()) {
-			memcpy(const_, &constants[0], sizeof(u32) * constants.size());
-		}
 	}
 
 	const IRInst *GetInstructions() const { return instr_; }
-	const u32 *GetConstants() const { return const_; }
 	int GetNumInstructions() const { return numInstructions_; }
 	MIPSOpcode GetOriginalFirstOp() const { return origFirstOpcode_; }
 	bool HasOriginalFirstOp();
@@ -92,9 +82,7 @@ public:
 
 private:
 	IRInst *instr_;
-	u32 *const_;
 	u16 numInstructions_;
-	u16 numConstants_;
 	u32 origAddr_;
 	u32 origSize_;
 	MIPSOpcode origFirstOpcode_;

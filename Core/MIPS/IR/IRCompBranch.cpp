@@ -92,7 +92,7 @@ void IRFrontend::BranchRSRTComp(MIPSOpcode op, IRComparison cc, bool likely) {
 		CompileDelaySlot();
 
 	int dcAmount = js.downcountAmount;
-	ir.Write(IROp::Downcount, 0, dcAmount & 0xFF, dcAmount >> 8);
+	ir.Write(IROp::Downcount, 0, ir.AddConstant(dcAmount));
 	js.downcountAmount = 0;
 
 	FlushAll();
@@ -133,7 +133,7 @@ void IRFrontend::BranchRSZeroComp(MIPSOpcode op, IRComparison cc, bool andLink, 
 		CompileDelaySlot();
 
 	int dcAmount = js.downcountAmount;
-	ir.Write(IROp::Downcount, 0, dcAmount & 0xFF, dcAmount >> 8);
+	ir.Write(IROp::Downcount, 0, ir.AddConstant(dcAmount));
 	js.downcountAmount = 0;
 
 	FlushAll();
@@ -200,7 +200,7 @@ void IRFrontend::BranchFPFlag(MIPSOpcode op, IRComparison cc, bool likely) {
 		CompileDelaySlot();
 
 	int dcAmount = js.downcountAmount;
-	ir.Write(IROp::Downcount, 0, dcAmount & 0xFF, dcAmount >> 8);
+	ir.Write(IROp::Downcount, 0, ir.AddConstant(dcAmount));
 	js.downcountAmount = 0;
 
 	FlushAll();
@@ -249,7 +249,7 @@ void IRFrontend::BranchVFPUFlag(MIPSOpcode op, IRComparison cc, bool likely) {
 		CompileDelaySlot();
 
 	int dcAmount = js.downcountAmount;
-	ir.Write(IROp::Downcount, 0, dcAmount & 0xFF, dcAmount >> 8);
+	ir.Write(IROp::Downcount, 0, ir.AddConstant(dcAmount));
 	js.downcountAmount = 0;
 
 	if (delaySlotIsBranch && (signed short)(delaySlotOp & 0xFFFF) != (signed short)(op & 0xFFFF) - 1)
@@ -320,7 +320,7 @@ void IRFrontend::Comp_Jump(MIPSOpcode op) {
 	}
 
 	int dcAmount = js.downcountAmount;
-	ir.Write(IROp::Downcount, 0, dcAmount & 0xFF, dcAmount >> 8);
+	ir.Write(IROp::Downcount, 0, ir.AddConstant(dcAmount));
 	js.downcountAmount = 0;
 
 	FlushAll();
@@ -384,7 +384,7 @@ void IRFrontend::Comp_JumpReg(MIPSOpcode op) {
 	}
 
 	int dcAmount = js.downcountAmount;
-	ir.Write(IROp::Downcount, 0, dcAmount & 0xFF, dcAmount >> 8);
+	ir.Write(IROp::Downcount, 0, ir.AddConstant(dcAmount));
 	js.downcountAmount = 0;
 
 	ir.Write(IROp::ExitToReg, 0, destReg, 0);
@@ -397,7 +397,7 @@ void IRFrontend::Comp_JumpReg(MIPSOpcode op) {
 void IRFrontend::Comp_Syscall(MIPSOpcode op) {
 	// Note: If we're in a delay slot, this is off by one compared to the interpreter.
 	int dcAmount = js.downcountAmount + (js.inDelaySlot ? -1 : 0);
-	ir.Write(IROp::Downcount, 0, dcAmount & 0xFF, dcAmount >> 8);
+	ir.Write(IROp::Downcount, 0, ir.AddConstant(dcAmount));
 	js.downcountAmount = 0;
 
 	// If not in a delay slot, we need to update PC.

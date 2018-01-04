@@ -162,7 +162,7 @@ void IRFrontend::Comp_ReplacementFunc(MIPSOpcode op) {
 			MIPSCompileOp(Memory::Read_Instruction(GetCompilerPC(), true), this);
 		} else {
 			ApplyRoundingMode();
-			ir.Write(IROp::Downcount, 0, js.downcountAmount & 0xFF, js.downcountAmount >> 8);
+			ir.Write(IROp::Downcount, 0, ir.AddConstant(js.downcountAmount));
 			ir.Write(IROp::ExitToReg, 0, MIPS_REG_RA, 0);
 			js.compiling = false;
 		}
@@ -219,7 +219,7 @@ MIPSOpcode IRFrontend::GetOffsetInstruction(int offset) {
 	return Memory::Read_Instruction(GetCompilerPC() + 4 * offset);
 }
 
-void IRFrontend::DoJit(u32 em_address, std::vector<IRInst> &instructions, std::vector<u32> &constants, u32 &mipsBytes) {
+void IRFrontend::DoJit(u32 em_address, std::vector<IRInst> &instructions, u32 &mipsBytes) {
 	js.cancel = false;
 	js.blockStart = em_address;
 	js.compilerPC = em_address;
@@ -244,12 +244,6 @@ void IRFrontend::DoJit(u32 em_address, std::vector<IRInst> &instructions, std::v
 		MIPSCompileOp(inst, this);
 		js.compilerPC += 4;
 		js.numInstructions++;
-
-		if (ir.GetConstants().size() > 64) {
-			// Need to break the block
-			ir.Write(IROp::ExitToConst, ir.AddConstant(js.compilerPC));
-			js.compiling = false;
-		}
 	}
 
 	mipsBytes = js.compilerPC - em_address;
@@ -273,7 +267,6 @@ void IRFrontend::DoJit(u32 em_address, std::vector<IRInst> &instructions, std::v
 	}
 
 	instructions = code->GetInstructions();
-	constants = code->GetConstants();
 
 	if (logBlocks > 0 && dontLogBlocks == 0) {
 		char temp2[256];
@@ -286,20 +279,20 @@ void IRFrontend::DoJit(u32 em_address, std::vector<IRInst> &instructions, std::v
 	}
 
 	if (logBlocks > 0 && dontLogBlocks == 0) {
-		NOTICE_LOG(JIT, "=============== Original IR (%d instructions, %d const) ===============", (int)ir.GetInstructions().size(), (int)ir.GetConstants().size());
+		NOTICE_LOG(JIT, "=============== Original IR (%d instructions) ===============", (int)ir.GetInstructions().size());
 		for (size_t i = 0; i < ir.GetInstructions().size(); i++) {
 			char buf[256];
-			DisassembleIR(buf, sizeof(buf), ir.GetInstructions()[i], &ir.GetConstants()[0]);
+			DisassembleIR(buf, sizeof(buf), ir.GetInstructions()[i]);
 			NOTICE_LOG(JIT, "%s", buf);
 		}
 		NOTICE_LOG(JIT, "===============        end         =================");
 	}
 
 	if (logBlocks > 0 && dontLogBlocks == 0) {
-		NOTICE_LOG(JIT, "=============== IR (%d instructions, %d const) ===============", (int)code->GetInstructions().size(), (int)code->GetConstants().size());
+		NOTICE_LOG(JIT, "=============== IR (%d instructions) ===============", (int)code->GetInstructions().size());
 		for (size_t i = 0; i < code->GetInstructions().size(); i++) {
 			char buf[256];
-			DisassembleIR(buf, sizeof(buf), code->GetInstructions()[i], &code->GetConstants()[0]);
+			DisassembleIR(buf, sizeof(buf), code->GetInstructions()[i]);
 			NOTICE_LOG(JIT, "%s", buf);
 		}
 		NOTICE_LOG(JIT, "===============        end         =================");
@@ -326,7 +319,7 @@ void IRFrontend::CheckBreakpoint(u32 addr) {
 		// TODO: In likely branches, downcount will be incorrect.
 		int downcountOffset = js.inDelaySlot && js.downcountAmount >= 2 ? -2 : 0;
 		int downcountAmount = js.downcountAmount + downcountOffset;
-		ir.Write(IROp::Downcount, 0, downcountAmount & 0xFF, downcountAmount >> 8);
+		ir.Write(IROp::Downcount, 0, ir.AddConstant(downcountAmount));
 		// Note that this means downcount can't be metadata on the block.
 		js.downcountAmount = -downcountOffset;
 		ir.Write(IROp::Breakpoint);
@@ -349,7 +342,7 @@ void IRFrontend::CheckMemoryBreakpoint(int rs, int offset) {
 			downcountOffset = 0;
 		}
 		int downcountAmount = js.downcountAmount + downcountOffset;
-		ir.Write(IROp::Downcount, 0, downcountAmount & 0xFF, downcountAmount >> 8);
+		ir.Write(IROp::Downcount, 0, ir.AddConstant(downcountAmount));
 		// Note that this means downcount can't be metadata on the block.
 		js.downcountAmount = -downcountOffset;
 		ir.Write(IROp::MemoryCheck, 0, rs, ir.AddConstant(offset));

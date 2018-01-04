@@ -7,43 +7,6 @@
 #include "Core/MIPS/IR/IRPassSimplify.h"
 #include "Core/MIPS/IR/IRRegCache.h"
 
-void WriteInstWithConstants(const IRWriter &in, IRWriter &out, const u32 *constants, IRInst inst) {
-	// Remap constants to the new reality
-	const IRMeta *m = GetIRMeta(inst.op);
-	if (!m) {
-		ERROR_LOG(CPU, "Bad IR instruction %02x", (int)inst.op);
-		return;
-	}
-	switch (m->types[0]) {
-	case 'C':
-		if (!constants) {
-			ERROR_LOG(CPU, "Missing constant for type 0");
-			return;
-		}
-		inst.dest = out.AddConstant(constants[inst.dest]);
-		break;
-	}
-	switch (m->types[1]) {
-	case 'C':
-		if (!constants) {
-			ERROR_LOG(CPU, "Missing constants for type 1");
-			return;
-		}
-		inst.src1 = out.AddConstant(constants[inst.src1]);
-		break;
-	}
-	switch (m->types[2]) {
-	case 'C':
-		if (!constants) {
-			ERROR_LOG(CPU, "Missing constants for type 2");
-			return;
-		}
-		inst.src2 = out.AddConstant(constants[inst.src2]);
-		break;
-	}
-	out.Write(inst);
-}
-
 u32 Evaluate(u32 a, u32 b, IROp op) {
 	switch (op) {
 	case IROp::Add: case IROp::AddConst: return a + b;
@@ -137,13 +100,8 @@ bool IRApplyPasses(const IRPassFunc *passes, size_t c, const IRWriter &in, IRWri
 }
 
 bool OptimizeFPMoves(const IRWriter &in, IRWriter &out, const IROptions &opts) {
-	const u32 *constants = !in.GetConstants().empty() ? &in.GetConstants()[0] : nullptr;
 	bool logBlocks = false;
-	IRInst prev;
-	prev.op = IROp::Nop;
-	prev.dest = 0;
-	prev.src1 = 0;
-	prev.src2 = 0;
+	IRInst prev{ IROp::Nop };
 	for (int i = 0; i < (int)in.GetInstructions().size(); i++) {
 		IRInst inst = in.GetInstructions()[i];
 		switch (inst.op) {
@@ -172,7 +130,7 @@ bool OptimizeFPMoves(const IRWriter &in, IRWriter &out, const IROptions &opts) {
 			// AddConst a0, sp, 0x30
 			// LoadVec4 v16, sp, 0x30 
 			if (prev.op == IROp::AddConst && prev.dest == inst.src1 && prev.dest != prev.src1 && prev.src1 == MIPS_REG_SP) {
-				inst.src2 = out.AddConstant(constants[prev.src2] + constants[inst.src2]);
+				inst.constant += prev.constant;
 				inst.src1 = prev.src1;
 				logBlocks = 1;
 			} else {
@@ -182,7 +140,7 @@ bool OptimizeFPMoves(const IRWriter &in, IRWriter &out, const IROptions &opts) {
 			break;
 		*/
 		default:
-			WriteInstWithConstants(in, out, constants, inst);
+			out.Write(inst);
 			break;
 		}
 		prev = inst;
@@ -238,28 +196,19 @@ bool ThreeOpToTwoOp(const IRWriter &in, IRWriter &out, const IROptions &opts) {
 			break;
 		}
 	}
-	// Can reuse the old constants array - not touching constants in this pass.
-	for (u32 value : in.GetConstants()) {
-		out.AddConstant(value);
-	}
 	return logBlocks;
 }
 
 bool PropagateConstants(const IRWriter &in, IRWriter &out, const IROptions &opts) {
 	IRRegCache gpr(&out);
 
-	const u32 *constants = !in.GetConstants().empty() ? &in.GetConstants()[0] : nullptr;
 	bool logBlocks = false;
 	for (int i = 0; i < (int)in.GetInstructions().size(); i++) {
 		IRInst inst = in.GetInstructions()[i];
 		bool symmetric = true;
-		if (out.GetConstants().size() > 128) {
-			// Avoid causing a constant explosion.
-			goto doDefaultAndFlush;
-		}
 		switch (inst.op) {
 		case IROp::SetConst:
-			gpr.SetImm(inst.dest, constants[inst.src1]);
+			gpr.SetImm(inst.dest, inst.constant);
 			break;
 		case IROp::SetConstF:
 			goto doDefault;
@@ -328,7 +277,7 @@ bool PropagateConstants(const IRWriter &in, IRWriter &out, const IROptions &opts
 		case IROp::SltConst:
 		case IROp::SltUConst:
 			if (gpr.IsImm(inst.src1)) {
-				gpr.SetImm(inst.dest, Evaluate(gpr.GetImm(inst.src1), constants[inst.src2], inst.op));
+				gpr.SetImm(inst.dest, Evaluate(gpr.GetImm(inst.src1), inst.constant, inst.op));
 			} else {
 				gpr.MapDirtyIn(inst.dest, inst.src1);
 				goto doDefault;
@@ -428,7 +377,7 @@ bool PropagateConstants(const IRWriter &in, IRWriter &out, const IROptions &opts
 		case IROp::Store32:
 			if (gpr.IsImm(inst.src1) && inst.src1 != inst.dest) {
 				gpr.MapIn(inst.dest);
-				out.Write(inst.op, inst.dest, 0, out.AddConstant(gpr.GetImm(inst.src1) + constants[inst.src2]));
+				out.Write(inst.op, inst.dest, 0, out.AddConstant(gpr.GetImm(inst.src1) + inst.constant));
 			} else {
 				gpr.MapInIn(inst.dest, inst.src1);
 				goto doDefault;
@@ -437,7 +386,7 @@ bool PropagateConstants(const IRWriter &in, IRWriter &out, const IROptions &opts
 		case IROp::StoreFloat:
 		case IROp::StoreVec4:
 			if (gpr.IsImm(inst.src1)) {
-				out.Write(inst.op, inst.dest, 0, out.AddConstant(gpr.GetImm(inst.src1) + constants[inst.src2]));
+				out.Write(inst.op, inst.dest, 0, out.AddConstant(gpr.GetImm(inst.src1) + inst.constant));
 			} else {
 				gpr.MapIn(inst.src1);
 				goto doDefault;
@@ -451,7 +400,7 @@ bool PropagateConstants(const IRWriter &in, IRWriter &out, const IROptions &opts
 		case IROp::Load32:
 			if (gpr.IsImm(inst.src1) && inst.src1 != inst.dest) {
 				gpr.MapDirty(inst.dest);
-				out.Write(inst.op, inst.dest, 0, out.AddConstant(gpr.GetImm(inst.src1) + constants[inst.src2]));
+				out.Write(inst.op, inst.dest, 0, out.AddConstant(gpr.GetImm(inst.src1) + inst.constant));
 			} else {
 				gpr.MapDirtyIn(inst.dest, inst.src1);
 				goto doDefault;
@@ -460,7 +409,7 @@ bool PropagateConstants(const IRWriter &in, IRWriter &out, const IROptions &opts
 		case IROp::LoadFloat:
 		case IROp::LoadVec4:
 			if (gpr.IsImm(inst.src1)) {
-				out.Write(inst.op, inst.dest, 0, out.AddConstant(gpr.GetImm(inst.src1) + constants[inst.src2]));
+				out.Write(inst.op, inst.dest, 0, out.AddConstant(gpr.GetImm(inst.src1) + inst.constant));
 			} else {
 				gpr.MapIn(inst.src1);
 				goto doDefault;
@@ -581,10 +530,9 @@ bool PropagateConstants(const IRWriter &in, IRWriter &out, const IROptions &opts
 		case IROp::MemoryCheck:
 		default:
 		{
-		doDefaultAndFlush:
 			gpr.FlushAll();
 		doDefault:
-			WriteInstWithConstants(in, out, constants, inst);
+			out.Write(inst);
 			break;
 		}
 		}
@@ -698,9 +646,6 @@ bool PurgeTemps(const IRWriter &in, IRWriter &out, const IROptions &opts) {
 		}
 	}
 
-	for (u32 value : in.GetConstants()) {
-		out.AddConstant(value);
-	}
 	for (const IRInst &inst : insts) {
 		if (inst.op != IROp::Mov || inst.dest != 0 || inst.src1 != 0) {
 			out.Write(inst);
@@ -711,10 +656,6 @@ bool PurgeTemps(const IRWriter &in, IRWriter &out, const IROptions &opts) {
 }
 
 bool ReduceLoads(const IRWriter &in, IRWriter &out, const IROptions &opts) {
-	for (u32 value : in.GetConstants()) {
-		out.AddConstant(value);
-	}
-
 	// This tells us to skip an AND op that has been optimized out.
 	// Maybe we could skip multiple, but that'd slow things down and is pretty uncommon.
 	int nextSkip = -1;
@@ -735,7 +676,7 @@ bool ReduceLoads(const IRWriter &in, IRWriter &out, const IROptions &opts) {
 				}
 				if (IRReadsFromGPR(laterInst, dest)) {
 					if (IRDestGPR(laterInst) == dest && laterInst.op == IROp::AndConst) {
-						const u32 mask = in.GetConstants()[laterInst.src2];
+						const u32 mask = laterInst.constant;
 						// Here we are, maybe we can reduce the load size based on the mask.
 						if ((mask & 0xffffff00) == 0) {
 							inst.op = IROp::Load8;
@@ -767,7 +708,7 @@ bool ReduceLoads(const IRWriter &in, IRWriter &out, const IROptions &opts) {
 	return logBlocks;
 }
 
-static std::vector<IRInst> ReorderLoadStoreOps(std::vector<IRInst> &ops, const u32 *consts) {
+static std::vector<IRInst> ReorderLoadStoreOps(std::vector<IRInst> &ops) {
 	if (ops.size() < 2) {
 		return ops;
 	}
@@ -838,7 +779,7 @@ static std::vector<IRInst> ReorderLoadStoreOps(std::vector<IRInst> &ops, const u
 		size_t end = j;
 		if (start + 1 < end) {
 			std::stable_sort(ops.begin() + start, ops.begin() + end, [&](const IRInst &a, const IRInst &b) {
-				return consts[a.src2] < consts[b.src2];
+				return a.constant < b.constant;
 			});
 		}
 	}
@@ -866,7 +807,7 @@ bool ReorderLoadStore(const IRWriter &in, IRWriter &out, const IROptions &opts) 
 		}
 
 		std::vector<IRInst> loadStoreUnsorted = loadStoreQueue;
-		std::vector<IRInst> loadStoreSorted = ReorderLoadStoreOps(loadStoreQueue, &in.GetConstants()[0]);
+		std::vector<IRInst> loadStoreSorted = ReorderLoadStoreOps(loadStoreQueue);
 		if (memcmp(&loadStoreSorted[0], &loadStoreUnsorted[0], sizeof(IRInst) * loadStoreSorted.size()) != 0) {
 			logBlocks = true;
 		}
@@ -1034,11 +975,6 @@ bool ReorderLoadStore(const IRWriter &in, IRWriter &out, const IROptions &opts) 
 			break;
 		}
 	}
-
-	// Can reuse the old constants array - not touching constants in this pass.
-	for (u32 value : in.GetConstants()) {
-		out.AddConstant(value);
-	}
 	return logBlocks;
 }
 
@@ -1050,8 +986,8 @@ bool MergeLoadStore(const IRWriter &in, IRWriter &out, const IROptions &opts) {
 			// Not similar enough at all.
 			return false;
 		}
-		u32 off1 = in.GetConstants()[a.src2];
-		u32 off2 = in.GetConstants()[b.src2];
+		u32 off1 = a.constant;
+		u32 off2 = b.constant;
 		if (off1 + dist != off2) {
 			// Not immediately sequential.
 			return false;
@@ -1171,11 +1107,6 @@ bool MergeLoadStore(const IRWriter &in, IRWriter &out, const IROptions &opts) {
 			prev = inst;
 			break;
 		}
-	}
-
-	// Can reuse the old constants array - not touching constants in this pass.
-	for (u32 value : in.GetConstants()) {
-		out.AddConstant(value);
 	}
 	return logBlocks;
 }
