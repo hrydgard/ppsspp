@@ -6,7 +6,7 @@
 #include "Common/Common.h"
 
 #ifdef _M_SSE
-#include <nmmintrin.h>
+#include <emmintrin.h>
 #endif
 
 #if PPSSPP_ARCH(ARM_NEON)
