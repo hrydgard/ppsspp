@@ -234,9 +234,33 @@ JitBlockDebugInfo IRBlockCache::GetBlockDebugInfo(int blockNum) const {
 }
 
 void IRBlockCache::ComputeStats(BlockCacheStats &bcStats) const {
-	// TODO: Implement properly
-	memset(&bcStats, 0, sizeof(bcStats));
+	double totalBloat = 0.0;
+	double maxBloat = 0.0;
+	double minBloat = 1000000000.0;
+	for (const auto &b : blocks_) {
+		double codeSize = (double)b.GetNumInstructions() * sizeof(IRInst);
+		if (codeSize == 0)
+			continue;
+
+		u32 origAddr, mipsBytes;
+		b.GetRange(origAddr, mipsBytes);
+		double origSize = (double)mipsBytes;
+		double bloat = codeSize / origSize;
+		if (bloat < minBloat) {
+			minBloat = bloat;
+			bcStats.minBloatBlock = origAddr;
+		}
+		if (bloat > maxBloat) {
+			maxBloat = bloat;
+			bcStats.maxBloatBlock = origAddr;
+		}
+		totalBloat += bloat;
+		bcStats.bloatMap[bloat] = origAddr;
+	}
 	bcStats.numBlocks = (int)blocks_.size();
+	bcStats.minBloat = minBloat;
+	bcStats.maxBloat = maxBloat;
+	bcStats.avgBloat = totalBloat / (double)blocks_.size();
 }
 
 int IRBlockCache::GetBlockNumberFromStartAddress(u32 em_address, bool realBlocksOnly) const {
