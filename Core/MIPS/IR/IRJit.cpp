@@ -67,6 +67,12 @@ void IRJit::Compile(u32 em_address) {
 	PROFILE_THIS_SCOPE("jitc");
 
 	int block_num = blocks_.AllocateBlock(em_address);
+	if ((block_num & ~MIPS_EMUHACK_VALUE_MASK) != 0) {
+		// Ran out of block numbers - need to reset.
+		ERROR_LOG(JIT, "Ran out of block numbers, clearing cache");
+		ClearCache();
+		block_num = blocks_.AllocateBlock(em_address);
+	}
 	IRBlock *b = blocks_.GetBlock(block_num);
 
 	std::vector<IRInst> instructions;
