@@ -240,19 +240,18 @@ void IRBlockCache::ComputeStats(BlockCacheStats &bcStats) const {
 }
 
 int IRBlockCache::GetBlockNumberFromStartAddress(u32 em_address, bool realBlocksOnly) const {
-	u32 startPage = AddressToPage(em_address);
-	u32 endPage = AddressToPage(em_address + 4);
+	u32 page = AddressToPage(em_address);
 
-	for (u32 page = startPage; page <= endPage; ++page) {
-		const auto iter = byPage_.find(page);
-		if (iter == byPage_.end())
-			continue;
+	const auto iter = byPage_.find(page);
+	if (iter == byPage_.end())
+		return -1;
 
-		const std::vector<int> &blocksInPage = iter->second;
-		for (int i : blocksInPage) {
-			if (blocks_[i].OverlapsRange(em_address, 4)) {
-				return i;
-			}
+	const std::vector<int> &blocksInPage = iter->second;
+	for (int i : blocksInPage) {
+		uint32_t start, size;
+		blocks_[i].GetRange(start, size);
+		if (start == em_address) {
+			return i;
 		}
 	}
 	return -1;
