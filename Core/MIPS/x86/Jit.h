@@ -158,6 +158,8 @@ public:
 	void UpdateRoundingMode();
 
 	JitBlockCache *GetBlockCache() override { return &blocks; }
+	JitBlockCacheDebugInterface *GetBlockCacheDebugInterface() override { return &blocks; }
+
 	MIPSOpcode GetOriginalOp(MIPSOpcode op) override;
 
 	std::vector<u32> SaveAndClearEmuHackOps() override { return blocks.SaveAndClearEmuHackOps(); }

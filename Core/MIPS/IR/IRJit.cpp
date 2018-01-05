@@ -116,7 +116,7 @@ void IRJit::RunLoopUntil(u64 globalticks) {
 }
 
 bool IRJit::DescribeCodePtr(const u8 *ptr, std::string &name) {
-	// Used in disassembly viewer.
+	// Used in target disassembly viewer.
 	return false;
 }
 
@@ -174,7 +174,7 @@ void IRBlockCache::FinalizeBlock(int i) {
 	}
 }
 
-u32 IRBlockCache::AddressToPage(u32 addr) {
+u32 IRBlockCache::AddressToPage(u32 addr) const {
 	// Use relatively small pages since basic blocks are typically small.
 	return (addr & 0x3FFFFFFF) >> 10;
 }
@@ -210,7 +210,54 @@ void IRBlockCache::RestoreSavedEmuHackOps(std::vector<u32> saved) {
 	}
 }
 
-bool IRBlock::HasOriginalFirstOp() {
+JitBlockDebugInfo IRBlockCache::GetBlockDebugInfo(int blockNum) const {
+	const IRBlock &ir = blocks_[blockNum];
+	JitBlockDebugInfo debugInfo{};
+	uint32_t start, size;
+	ir.GetRange(start, size);
+	debugInfo.originalAddress = start;  // TODO
+
+	for (u32 addr = start; addr < start + size; addr += 4) {
+		char temp[256];
+		MIPSDisAsm(Memory::Read_Instruction(addr), addr, temp, true);
+		std::string mipsDis = temp;
+		debugInfo.origDisasm.push_back(mipsDis);
+	}
+
+	for (int i = 0; i < ir.GetNumInstructions(); i++) {
+		IRInst inst = ir.GetInstructions()[i];
+		char buffer[256];
+		DisassembleIR(buffer, sizeof(buffer), inst);
+		debugInfo.irDisasm.push_back(buffer);
+	}
+	return debugInfo;
+}
+
+void IRBlockCache::ComputeStats(BlockCacheStats &bcStats) const {
+	// TODO: Implement properly
+	memset(&bcStats, 0, sizeof(bcStats));
+	bcStats.numBlocks = (int)blocks_.size();
+}
+
+int IRBlockCache::GetBlockNumberFromStartAddress(u32 em_address, bool realBlocksOnly) const {
+	u32 page = AddressToPage(em_address);
+
+	const auto iter = byPage_.find(page);
+	if (iter == byPage_.end())
+		return -1;
+
+	const std::vector<int> &blocksInPage = iter->second;
+	for (int i : blocksInPage) {
+		uint32_t start, size;
+		blocks_[i].GetRange(start, size);
+		if (start == em_address) {
+			return i;
+		}
+	}
+	return -1;
+}
+
+bool IRBlock::HasOriginalFirstOp() const {
 	return Memory::ReadUnchecked_U32(origAddr_) == origFirstOpcode_.encoding;
 }
 
@@ -240,7 +287,7 @@ void IRBlock::Destroy(int number) {
 	}
 }
 
-bool IRBlock::OverlapsRange(u32 addr, u32 size) {
+bool IRBlock::OverlapsRange(u32 addr, u32 size) const {
 	addr &= 0x3FFFFFFF;
 	u32 origAddr = origAddr_ & 0x3FFFFFFF;
 	return addr + size > origAddr && addr < origAddr + origSize_;
