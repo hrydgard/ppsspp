@@ -748,7 +748,7 @@ UI::EventReturn JitCompareScreen::OnAddressChange(UI::EventParams &e) {
 	if (!MIPSComp::jit) {
 		return UI::EVENT_DONE;
 	}
-	JitBlockCache *blockCache = MIPSComp::jit->GetBlockCache();
+	JitBlockCacheDebugInterface *blockCache = MIPSComp::jit->GetBlockCacheDebugInterface();
 	if (!blockCache)
 		return UI::EVENT_DONE;
 	u32 addr;
@@ -815,7 +815,7 @@ UI::EventReturn JitCompareScreen::OnBlockAddress(UI::EventParams &e) {
 		return UI::EVENT_DONE;
 	}
 
-	JitBlockCache *blockCache = MIPSComp::jit->GetBlockCache();
+	JitBlockCacheDebugInterface *blockCache = MIPSComp::jit->GetBlockCacheDebugInterface();
 	if (!blockCache)
 		return UI::EVENT_DONE;
 
@@ -859,7 +859,7 @@ void JitCompareScreen::OnRandomBlock(int flag) {
 	if (!MIPSComp::jit) {
 		return;
 	}
-	JitBlockCache *blockCache = MIPSComp::jit->GetBlockCache();
+	JitBlockCacheDebugInterface *blockCache = MIPSComp::jit->GetBlockCacheDebugInterface();
 	if (!blockCache)
 		return;
 
@@ -867,21 +867,25 @@ void JitCompareScreen::OnRandomBlock(int flag) {
 	if (numBlocks > 0) {
 		bool anyWanted = false;
 		int tries = 0;
-		while (!anyWanted && tries < 10000) {
+		while (!anyWanted && tries < numBlocks) {
 			currentBlock_ = rand() % numBlocks;
-			const JitBlock *b = blockCache->GetBlock(currentBlock_);
-			for (u32 addr = b->originalAddress; addr <= b->originalAddress + b->originalSize; addr += 4) {
+			JitBlockDebugInfo b = blockCache->GetBlockDebugInfo(currentBlock_);
+			u32 mipsBytes = (u32)b.origDisasm.size() * 4;
+			for (u32 addr = b.originalAddress; addr <= b.originalAddress + mipsBytes; addr += 4) {
 				MIPSOpcode opcode = Memory::Read_Instruction(addr);
 				if (MIPSGetInfo(opcode) & flag) {
 					char temp[256];
 					MIPSDisAsm(opcode, addr, temp);
-					// INFO_LOG(HLE, "Stopping VFPU instruction: %s", temp);
+					// INFO_LOG(HLE, "Stopping at random instruction: %08x %s", addr, temp);
 					anyWanted = true;
 					break;
 				}
 			}
 			tries++;
 		}
+
+		if (!anyWanted)
+			currentBlock_ = -1;
 	}
 	UpdateDisasm();
 }

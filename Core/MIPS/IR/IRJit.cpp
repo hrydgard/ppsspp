@@ -67,6 +67,12 @@ void IRJit::Compile(u32 em_address) {
 	PROFILE_THIS_SCOPE("jitc");
 
 	int block_num = blocks_.AllocateBlock(em_address);
+	if ((block_num & ~MIPS_EMUHACK_VALUE_MASK) != 0) {
+		// Ran out of block numbers - need to reset.
+		ERROR_LOG(JIT, "Ran out of block numbers, clearing cache");
+		ClearCache();
+		block_num = blocks_.AllocateBlock(em_address);
+	}
 	IRBlock *b = blocks_.GetBlock(block_num);
 
 	std::vector<IRInst> instructions;
@@ -234,9 +240,33 @@ JitBlockDebugInfo IRBlockCache::GetBlockDebugInfo(int blockNum) const {
 }
 
 void IRBlockCache::ComputeStats(BlockCacheStats &bcStats) const {
-	// TODO: Implement properly
-	memset(&bcStats, 0, sizeof(bcStats));
+	double totalBloat = 0.0;
+	double maxBloat = 0.0;
+	double minBloat = 1000000000.0;
+	for (const auto &b : blocks_) {
+		double codeSize = (double)b.GetNumInstructions() * sizeof(IRInst);
+		if (codeSize == 0)
+			continue;
+
+		u32 origAddr, mipsBytes;
+		b.GetRange(origAddr, mipsBytes);
+		double origSize = (double)mipsBytes;
+		double bloat = codeSize / origSize;
+		if (bloat < minBloat) {
+			minBloat = bloat;
+			bcStats.minBloatBlock = origAddr;
+		}
+		if (bloat > maxBloat) {
+			maxBloat = bloat;
+			bcStats.maxBloatBlock = origAddr;
+		}
+		totalBloat += bloat;
+		bcStats.bloatMap[bloat] = origAddr;
+	}
 	bcStats.numBlocks = (int)blocks_.size();
+	bcStats.minBloat = minBloat;
+	bcStats.maxBloat = maxBloat;
+	bcStats.avgBloat = totalBloat / (double)blocks_.size();
 }
 
 int IRBlockCache::GetBlockNumberFromStartAddress(u32 em_address, bool realBlocksOnly) const {
