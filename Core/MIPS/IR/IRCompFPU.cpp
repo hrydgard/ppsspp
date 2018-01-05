@@ -111,7 +111,7 @@ void IRFrontend::Comp_FPUComp(MIPSOpcode op) {
 	IRFpCompareMode mode;
 	switch (opc) {
 	case 1:      // un,  ngle (unordered)
-		mode = IRFpCompareMode::NotEqualUnordered;
+		mode = IRFpCompareMode::EitherUnordered;
 		break;
 	case 2:      // eq,  seq (equal, ordered)
 		mode = IRFpCompareMode::EqualOrdered;

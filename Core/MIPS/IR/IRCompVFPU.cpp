@@ -1642,7 +1642,7 @@ namespace MIPSComp {
 		GetVectorRegsPrefixS(sregs, sz, _VS);
 		GetVectorRegsPrefixT(tregs, sz, _VT);
 
-		VCondition cond = (VCondition)(op & 0xF);
+		int cond = op & 0xF;
 		int mask = 0;
 		for (int i = 0; i < n; i++) {
 			ir.Write(IROp::FCmpVfpuBit, cond | (i << 4), sregs[i], tregs[i]);

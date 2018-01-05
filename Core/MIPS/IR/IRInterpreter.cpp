@@ -1,11 +1,16 @@
 #include <algorithm>
 #include <cmath>
 
+#include "ppsspp_config.h"
 #include "math/math_util.h"
 #include "Common/Common.h"
 
 #ifdef _M_SSE
 #include <emmintrin.h>
+#endif
+
+#if PPSSPP_ARCH(ARM_NEON)
+#include <arm_neon.h>
 #endif
 
 #include "Core/Core.h"
@@ -40,6 +45,10 @@ alignas(16) static const uint32_t noSignMask[4] = {
 	0x7FFFFFFF, 0x7FFFFFFF, 0x7FFFFFFF, 0x7FFFFFFF,
 };
 
+alignas(16) static const uint32_t lowBytesMask[4] = {
+	0x000000FF, 0x000000FF, 0x000000FF, 0x000000FF,
+};
+
 u32 RunBreakpoint(u32 pc) {
 	// Should we skip this breakpoint?
 	if (CBreakPoints::CheckSkipFirst() == pc)
@@ -58,6 +67,7 @@ u32 RunMemCheck(u32 pc, u32 addr) {
 	return coreState != CORE_RUNNING ? 1 : 0;
 }
 
+// We cannot use NEON on ARM32 here until we make it a hard dependency. We can, however, on ARM64.
 u32 IRInterpret(MIPSState *mips, const IRInst *inst, int count) {
 	const IRInst *end = inst + count;
 	while (inst != end) {
@@ -176,58 +186,77 @@ u32 IRInterpret(MIPSState *mips, const IRInst *inst, int count) {
 		}
 
 		case IROp::Vec4Init:
+		{
 #if defined(_M_SSE)
 			_mm_store_ps(&mips->f[inst->dest], _mm_load_ps(vec4InitValues[inst->src1]));
 #else
 			memcpy(&mips->f[inst->dest], vec4InitValues[inst->src1], 4 * sizeof(float));
 #endif
 			break;
+		}
 
 		case IROp::Vec4Shuffle:
 		{
-			// Can't use the SSE shuffle here because it takes an immediate.
-			// Backends with SSE support could use that though.
+			// Can't use the SSE shuffle here because it takes an immediate. pshufb with a table would work though,
+			// or a big switch - there are only 256 shuffles possible (4^4)
 			for (int i = 0; i < 4; i++)
 				mips->f[inst->dest + i] = mips->f[inst->src1 + ((inst->src2 >> (i * 2)) & 3)];
 			break;
 		}
 
 		case IROp::Vec4Mov:
+		{
 #if defined(_M_SSE)
 			_mm_store_ps(&mips->f[inst->dest], _mm_load_ps(&mips->f[inst->src1]));
+#elif PPSSPP_ARCH(ARM64)
+			vst1q_f32(&mips->f[inst->dest], vld1q_f32(&mips->f[inst->src1]));
 #else
 			memcpy(&mips->f[inst->dest], &mips->f[inst->src1], 4 * sizeof(float));
 #endif
 			break;
+		}
 
 		case IROp::Vec4Add:
+		{
 #if defined(_M_SSE)
 			_mm_store_ps(&mips->f[inst->dest], _mm_add_ps(_mm_load_ps(&mips->f[inst->src1]), _mm_load_ps(&mips->f[inst->src2])));
+#elif PPSSPP_ARCH(ARM64)
+			vst1q_f32(&mips->f[inst->dest], vaddq_f32(vld1q_f32(&mips->f[inst->src1]), vld1q_f32(&mips->f[inst->src2])));
 #else
 			for (int i = 0; i < 4; i++)
 				mips->f[inst->dest + i] = mips->f[inst->src1 + i] + mips->f[inst->src2 + i];
 #endif
 			break;
+		}
 
 		case IROp::Vec4Sub:
+		{
 #if defined(_M_SSE)
 			_mm_store_ps(&mips->f[inst->dest], _mm_sub_ps(_mm_load_ps(&mips->f[inst->src1]), _mm_load_ps(&mips->f[inst->src2])));
+#elif PPSSPP_ARCH(ARM64)
+			vst1q_f32(&mips->f[inst->dest], vsubq_f32(vld1q_f32(&mips->f[inst->src1]), vld1q_f32(&mips->f[inst->src2])));
 #else
 			for (int i = 0; i < 4; i++)
 				mips->f[inst->dest + i] = mips->f[inst->src1 + i] - mips->f[inst->src2 + i];
 #endif
 			break;
+		}
 
 		case IROp::Vec4Mul:
+		{
 #if defined(_M_SSE)
 			_mm_store_ps(&mips->f[inst->dest], _mm_mul_ps(_mm_load_ps(&mips->f[inst->src1]), _mm_load_ps(&mips->f[inst->src2])));
+#elif PPSSPP_ARCH(ARM64)
+			vst1q_f32(&mips->f[inst->dest], vmulq_f32(vld1q_f32(&mips->f[inst->src1]), vld1q_f32(&mips->f[inst->src2])));
 #else
 			for (int i = 0; i < 4; i++)
 				mips->f[inst->dest + i] = mips->f[inst->src1 + i] * mips->f[inst->src2 + i];
 #endif
 			break;
+		}
 
 		case IROp::Vec4Div:
+		{
 #if defined(_M_SSE)
 			_mm_store_ps(&mips->f[inst->dest], _mm_div_ps(_mm_load_ps(&mips->f[inst->src1]), _mm_load_ps(&mips->f[inst->src2])));
 #else
@@ -235,8 +264,10 @@ u32 IRInterpret(MIPSState *mips, const IRInst *inst, int count) {
 				mips->f[inst->dest + i] = mips->f[inst->src1 + i] / mips->f[inst->src2 + i];
 #endif
 			break;
+		}
 
 		case IROp::Vec4Scale:
+		{
 #if defined(_M_SSE)
 			_mm_store_ps(&mips->f[inst->dest], _mm_mul_ps(_mm_load_ps(&mips->f[inst->src1]), _mm_set1_ps(mips->f[inst->src2])));
 #else
@@ -244,41 +275,63 @@ u32 IRInterpret(MIPSState *mips, const IRInst *inst, int count) {
 				mips->f[inst->dest + i] = mips->f[inst->src1 + i] * mips->f[inst->src2];
 #endif
 			break;
+		}
 
 		case IROp::Vec4Neg:
+		{
 #if defined(_M_SSE)
 			_mm_store_ps(&mips->f[inst->dest], _mm_xor_ps(_mm_load_ps(&mips->f[inst->src1]), _mm_load_ps((const float *)signBits)));
+#elif PPSSPP_ARCH(ARM64)
+			vst1q_f32(&mips->f[inst->dest], vnegq_f32(vld1q_f32(&mips->f[inst->src1])));
 #else
 			for (int i = 0; i < 4; i++)
 				mips->f[inst->dest + i] = -mips->f[inst->src1 + i];
 #endif
 			break;
+		}
 
 		case IROp::Vec4Abs:
+		{
 #if defined(_M_SSE)
 			_mm_store_ps(&mips->f[inst->dest], _mm_and_ps(_mm_load_ps(&mips->f[inst->src1]), _mm_load_ps((const float *)noSignMask)));
+#elif PPSSPP_ARCH(ARM64)
+			vst1q_f32(&mips->f[inst->dest], vabsq_f32(vld1q_f32(&mips->f[inst->src1])));
 #else
 			for (int i = 0; i < 4; i++)
 				mips->f[inst->dest + i] = fabsf(mips->f[inst->src1 + i]);
 #endif
 			break;
+		}
 
 		case IROp::Vec2Unpack16To31:
+		{
 			mips->fi[inst->dest] = (mips->fi[inst->src1] << 16) >> 1;
 			mips->fi[inst->dest + 1] = (mips->fi[inst->src1] & 0xFFFF0000) >> 1;
 			break;
+		}
 
 		case IROp::Vec2Unpack16To32:
+		{
 			mips->fi[inst->dest] = (mips->fi[inst->src1] << 16);
 			mips->fi[inst->dest + 1] = (mips->fi[inst->src1] & 0xFFFF0000);
 			break;
+		}
 
 		case IROp::Vec4Unpack8To32:
+		{
+#if defined(_M_SSE)
+			__m128i src = _mm_cvtsi32_si128(mips->fi[inst->src1]);
+			src = _mm_unpacklo_epi8(src, _mm_setzero_si128());
+			src = _mm_unpacklo_epi16(src, _mm_setzero_si128());
+			_mm_store_si128((__m128i *)&mips->fi[inst->dest], _mm_slli_epi32(src, 24));
+#else
 			mips->fi[inst->dest] = (mips->fi[inst->src1] << 24);
 			mips->fi[inst->dest + 1] = (mips->fi[inst->src1] << 16) & 0xFF000000;
 			mips->fi[inst->dest + 2] = (mips->fi[inst->src1] << 8) & 0xFF000000;
 			mips->fi[inst->dest + 3] = (mips->fi[inst->src1]) & 0xFF000000;
+#endif
 			break;
+		}
 
 		case IROp::Vec2Pack32To16:
 		{
@@ -297,6 +350,8 @@ u32 IRInterpret(MIPSState *mips, const IRInst *inst, int count) {
 
 		case IROp::Vec4Pack32To8:
 		{
+			// Removed previous SSE code due to the need for unsigned 16-bit pack, which I'm too lazy to work around the lack of in SSE2.
+			// pshufb or SSE4 instructions can be used instead.
 			u32 val = mips->fi[inst->src1] >> 24;
 			val |= (mips->fi[inst->src1 + 1] >> 16) & 0xFF00;
 			val |= (mips->fi[inst->src1 + 2] >> 8) & 0xFF0000;
@@ -307,6 +362,8 @@ u32 IRInterpret(MIPSState *mips, const IRInst *inst, int count) {
 
 		case IROp::Vec4Pack31To8:
 		{
+			// Removed previous SSE code due to the need for unsigned 16-bit pack, which I'm too lazy to work around the lack of in SSE2.
+			// pshufb or SSE4 instructions can be used instead.
 			u32 val = (mips->fi[inst->src1] >> 23) & 0xFF;
 			val |= (mips->fi[inst->src1 + 1] >> 15) & 0xFF00;
 			val |= (mips->fi[inst->src1 + 2] >> 7) & 0xFF0000;
@@ -326,14 +383,23 @@ u32 IRInterpret(MIPSState *mips, const IRInst *inst, int count) {
 
 		case IROp::Vec4ClampToZero:
 		{
+#if defined(_M_SSE)
+			// Trickery: Expand the sign bit, and use andnot to zero negative values.
+			__m128i val = _mm_load_si128((const __m128i *)&mips->fi[inst->src1]);
+			__m128i mask = _mm_srai_epi32(val, 31);
+			val = _mm_andnot_si128(mask, val);
+			_mm_store_si128((__m128i *)&mips->fi[inst->dest], val);
+#else
 			for (int i = 0; i < 4; i++) {
 				u32 val = mips->fi[inst->src1 + i];
 				mips->fi[inst->dest + i] = (int)val >= 0 ? val : 0;
 			}
+#endif
 			break;
 		}
 
-		case IROp::Vec4DuplicateUpperBitsAndShift1:
+		case IROp::Vec4DuplicateUpperBitsAndShift1:  // For vuc2i, the weird one.
+		{
 			for (int i = 0; i < 4; i++) {
 				u32 val = mips->fi[inst->src1 + i];
 				val = val | (val >> 8);
@@ -342,6 +408,7 @@ u32 IRInterpret(MIPSState *mips, const IRInst *inst, int count) {
 				mips->fi[inst->dest + i] = val;
 			}
 			break;
+		}
 
 		case IROp::FCmpVfpuBit:
 		{
@@ -373,18 +440,18 @@ u32 IRInterpret(MIPSState *mips, const IRInst *inst, int count) {
 			} else {
 				mips->vfpuCtrl[VFPU_CTRL_CC] &= ~(1 << bit);
 			}
-		}
 			break;
+		}
 
 		case IROp::FCmpVfpuAggregate:
 		{
 			u32 mask = inst->dest;
 			u32 cc = mips->vfpuCtrl[VFPU_CTRL_CC];
-			int a = (cc & mask) ? 0x10 : 0x00;
-			int b = (cc & mask) == mask ? 0x20 : 0x00;
-			mips->vfpuCtrl[VFPU_CTRL_CC] = (cc & ~0x30) | a | b;
-		}
+			int anyBit = (cc & mask) ? 0x10 : 0x00;
+			int allBit = (cc & mask) == mask ? 0x20 : 0x00;
+			mips->vfpuCtrl[VFPU_CTRL_CC] = (cc & ~0x30) | anyBit | allBit;
 			break;
+		}
 
 		case IROp::FCmovVfpuCC:
 			if (((mips->vfpuCtrl[VFPU_CTRL_CC] >> (inst->src2 & 0xf)) & 1) == ((u32)inst->src2 >> 7)) {
@@ -715,6 +782,13 @@ u32 IRInterpret(MIPSState *mips, const IRInst *inst, int count) {
 			case IRFpCompareMode::False:
 				mips->fpcond = 0;
 				break;
+			case IRFpCompareMode::EitherUnordered:
+			{
+				float a = mips->f[inst->src1];
+				float b = mips->f[inst->src2];
+				mips->fpcond = !(a > b || a < b || a == b);
+				break;
+			}
 			case IRFpCompareMode::EqualOrdered:
 			case IRFpCompareMode::EqualUnordered:
 				mips->fpcond = mips->f[inst->src1] == mips->f[inst->src2];
