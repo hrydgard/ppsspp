@@ -558,6 +558,22 @@ bool IRReadsFromGPR(const IRInst &inst, int reg) {
 	return false;
 }
 
+IRInst IRReplaceSrcGPR(const IRInst &inst, int fromReg, int toReg) {
+	IRInst newInst = inst;
+	const IRMeta *m = GetIRMeta(inst.op);
+
+	if (m->types[1] == 'G' && inst.src1 == fromReg) {
+		newInst.src1 = toReg;
+	}
+	if (m->types[2] == 'G' && inst.src2 == fromReg) {
+		newInst.src2 = toReg;
+	}
+	if ((m->flags & (IRFLAG_SRC3 | IRFLAG_SRC3DST)) != 0 && m->types[0] == 'G' && inst.src3 == fromReg) {
+		newInst.src3 = toReg;
+	}
+	return newInst;
+}
+
 int IRDestGPR(const IRInst &inst) {
 	const IRMeta *m = GetIRMeta(inst.op);
 
@@ -576,14 +592,17 @@ bool PurgeTemps(const IRWriter &in, IRWriter &out, const IROptions &opts) {
 		}
 
 		int reg;
+		int srcReg = -1;
 		int index;
 		bool readByExit;
 	};
 	std::vector<Check> checks;
+	int lastWrittenTo[256];
+	memset(lastWrittenTo, -1, sizeof(lastWrittenTo));
 
 	bool logBlocks = false;
 	for (int i = 0, n = (int)in.GetInstructions().size(); i < n; i++) {
-		const IRInst &inst = in.GetInstructions()[i];
+		IRInst inst = in.GetInstructions()[i];
 		const IRMeta *m = GetIRMeta(inst.op);
 
 		for (Check &check : checks) {
@@ -592,8 +611,16 @@ bool PurgeTemps(const IRWriter &in, IRWriter &out, const IROptions &opts) {
 			}
 
 			if (IRReadsFromGPR(inst, check.reg)) {
-				// Read from, so we can't optimize out.
-				check.reg = 0;
+				// Read from, but was this just a copy?
+				bool mutatesReg = (m->flags & IRFLAG_SRC3DST) != 0 && m->types[0] == 'G' && inst.src3 == check.reg;
+				bool cannotReplace = inst.op == IROp::Interpret || inst.op == IROp::CallReplacement;
+				if (!mutatesReg && !cannotReplace && check.srcReg >= 0 && lastWrittenTo[check.srcReg] < check.index) {
+					// Replace with the srcReg instead.  This happens with non-nice delay slots.
+					inst = IRReplaceSrcGPR(inst, check.reg, check.srcReg);
+				} else {
+					// Legitimately read from, so we can't optimize out.
+					check.reg = 0;
+				}
 			} else if (check.readByExit && (m->flags & IRFLAG_EXIT) != 0) {
 				check.reg = 0;
 			} else if (IRDestGPR(inst) == check.reg) {
@@ -616,10 +643,19 @@ bool PurgeTemps(const IRWriter &in, IRWriter &out, const IROptions &opts) {
 		case IRTEMP_RHS:
 			// Unlike other ops, these don't need to persist between blocks.
 			// So we consider them not read unless proven read.
-			checks.push_back(Check(dest, i, false));
+			lastWrittenTo[dest] = i;
+			// If this is a copy, we might be able to optimize out the copy.
+			if (inst.op == IROp::Mov) {
+				Check check(dest, i, false);
+				check.srcReg = inst.src1;
+				checks.push_back(check);
+			} else {
+				checks.push_back(Check(dest, i, false));
+			}
 			break;
 
 		default:
+			lastWrittenTo[dest] = i;
 			if (dest > IRTEMP_RHS) {
 				// These might sometimes be implicitly read/written by other instructions.
 				break;
