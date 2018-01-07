@@ -46,6 +46,7 @@ public:
 		origAddr_ = b.origAddr_;
 		origSize_ = b.origSize_;
 		origFirstOpcode_ = b.origFirstOpcode_;
+		hash_ = b.hash_;
 		b.instr_ = nullptr;
 	}
 
@@ -66,9 +67,15 @@ public:
 	MIPSOpcode GetOriginalFirstOp() const { return origFirstOpcode_; }
 	bool HasOriginalFirstOp() const;
 	bool RestoreOriginalFirstOp(int number);
-	bool IsValid() const { return origAddr_ != 0; }
+	bool IsValid() const { return origAddr_ != 0 && origFirstOpcode_.encoding != 0x68FFFFFF; }
 	void SetOriginalSize(u32 size) {
 		origSize_ = size;
+	}
+	void UpdateHash() {
+		hash_ = CalculateHash();
+	}
+	bool HashMatches() const {
+		return origAddr_ && hash_ == CalculateHash();
 	}
 	bool OverlapsRange(u32 addr, u32 size) const;
 
@@ -81,11 +88,14 @@ public:
 	void Destroy(int number);
 
 private:
+	u64 CalculateHash() const;
+
 	IRInst *instr_;
 	u16 numInstructions_;
 	u32 origAddr_;
 	u32 origSize_;
-	MIPSOpcode origFirstOpcode_;
+	u64 hash_ = 0;
+	MIPSOpcode origFirstOpcode_ = MIPSOpcode(0x68FFFFFF);
 };
 
 class IRBlockCache : public JitBlockCacheDebugInterface {
@@ -93,7 +103,7 @@ public:
 	IRBlockCache() {}
 	void Clear();
 	void InvalidateICache(u32 address, u32 length);
-	void FinalizeBlock(int i);
+	void FinalizeBlock(int i, bool preload = false);
 	int GetNumBlocks() const override { return (int)blocks_.size(); }
 	int AllocateBlock(int emAddr) {
 		blocks_.push_back(IRBlock(emAddr));
@@ -106,6 +116,8 @@ public:
 			return nullptr;
 		}
 	}
+
+	int FindPreloadBlock(u32 em_address);
 
 	std::vector<u32> SaveAndClearEmuHackOps();
 	void RestoreSavedEmuHackOps(std::vector<u32> saved);
@@ -133,6 +145,7 @@ public:
 	void RunLoopUntil(u64 globalticks) override;
 
 	void Compile(u32 em_address) override;	// Compiles a block at current MIPS PC
+	void CompileFunction(u32 start_address, u32 length) override;
 
 	bool DescribeCodePtr(const u8 *ptr, std::string &name) override;
 	// Not using a regular block cache.
@@ -152,6 +165,7 @@ public:
 	void UnlinkBlock(u8 *checkedEntry, u32 originalAddress) override;
 
 private:
+	bool CompileBlock(u32 em_address, std::vector<IRInst> &instructions, u32 &mipsBytes, bool preload);
 	bool ReplaceJalTo(u32 dest);
 
 	JitOptions jo;

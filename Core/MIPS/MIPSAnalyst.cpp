@@ -918,6 +918,8 @@ skip:
 		}
 		std::lock_guard<std::recursive_mutex> guard(functions_lock);
 
+		// TODO: Load from cache file if available instead.
+
 		double st = real_time_now();
 		for (auto iter = functions.begin(), end = functions.end(); iter != end; iter++) {
 			const AnalyzedFunction &f = *iter;
