@@ -198,12 +198,16 @@ namespace MIPSComp {
 			break;
 
 		case 34: //lwl
+			ir.Write(IROp::Load32Left, rt, rs, ir.AddConstant(offset));
+			break;
 		case 38: //lwr
-			Comp_ITypeMemLR(op, true);
+			ir.Write(IROp::Load32Right, rt, rs, ir.AddConstant(offset));
 			break;
 		case 42: //swl
+			ir.Write(IROp::Store32Left, rt, rs, ir.AddConstant(offset));
+			break;
 		case 46: //swr
-			Comp_ITypeMemLR(op, false);
+			ir.Write(IROp::Store32Right, rt, rs, ir.AddConstant(offset));
 			break;
 
 		default:

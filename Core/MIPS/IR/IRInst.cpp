@@ -71,11 +71,15 @@ static const IRMeta irMeta[] = {
 	{ IROp::Load16, "Load16", "GGC" },
 	{ IROp::Load16Ext, "Load16Ext", "GGC" },
 	{ IROp::Load32, "Load32", "GGC" },
+	{ IROp::Load32Left, "Load32Left", "GGC", IRFLAG_SRC3DST },
+	{ IROp::Load32Right, "Load32Right", "GGC", IRFLAG_SRC3DST },
 	{ IROp::LoadFloat, "LoadFloat", "FGC" },
 	{ IROp::LoadVec4, "LoadVec4", "VGC" },
 	{ IROp::Store8, "Store8", "GGC", IRFLAG_SRC3 },
 	{ IROp::Store16, "Store16", "GGC", IRFLAG_SRC3 },
 	{ IROp::Store32, "Store32", "GGC", IRFLAG_SRC3 },
+	{ IROp::Store32Left, "Store32Left", "GGC", IRFLAG_SRC3 },
+	{ IROp::Store32Right, "Store32Right", "GGC", IRFLAG_SRC3 },
 	{ IROp::StoreFloat, "StoreFloat", "FGC", IRFLAG_SRC3 },
 	{ IROp::StoreVec4, "StoreVec4", "VGC", IRFLAG_SRC3 },
 	{ IROp::FAdd, "FAdd", "FFF" },
@@ -206,6 +210,10 @@ const char *GetGPRName(int r) {
 	case IRTEMP_3: return "irtemp3";
 	case IRTEMP_LHS: return "irtemp_lhs";
 	case IRTEMP_RHS: return "irtemp_rhs";
+	case IRTEMP_LR_ADDR: return "irtemp_addr";
+	case IRTEMP_LR_VALUE: return "irtemp_value";
+	case IRTEMP_LR_MASK: return "irtemp_mask";
+	case IRTEMP_LR_SHIFT: return "irtemp_shift";
 	default: return "(unk)";
 	}
 }

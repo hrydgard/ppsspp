@@ -90,12 +90,16 @@ enum class IROp : u8 {
 	Load16,
 	Load16Ext,
 	Load32,
+	Load32Left,
+	Load32Right,
 	LoadFloat,
 	LoadVec4,
 
 	Store8,
 	Store16,
 	Store32,
+	Store32Left,
+	Store32Right,
 	StoreFloat,
 	StoreVec4,
 
@@ -279,6 +283,10 @@ enum {
 	IRTEMP_3,
 	IRTEMP_LHS,  // Reserved for use in branches
 	IRTEMP_RHS,  // Reserved for use in branches
+	IRTEMP_LR_ADDR,  // Reserved for left/right loads and stores.
+	IRTEMP_LR_VALUE, // Reserved for left/right loads and stores.
+	IRTEMP_LR_MASK,  // Reserved for left/right loads and stores.
+	IRTEMP_LR_SHIFT, // Reserved for left/right loads and stores.
 
 	IRVTEMP_PFX_S = 224 - 32,  // Relative to the FP regs
 	IRVTEMP_PFX_T = 228 - 32,
