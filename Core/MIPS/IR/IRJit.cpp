@@ -405,14 +405,18 @@ int IRBlockCache::GetBlockNumberFromStartAddress(u32 em_address, bool realBlocks
 		return -1;
 
 	const std::vector<int> &blocksInPage = iter->second;
+	int best = -1;
 	for (int i : blocksInPage) {
 		uint32_t start, size;
 		blocks_[i].GetRange(start, size);
 		if (start == em_address) {
-			return i;
+			best = i;
+			if (blocks_[i].IsValid()) {
+				return i;
+			}
 		}
 	}
-	return -1;
+	return best;
 }
 
 bool IRBlock::HasOriginalFirstOp() const {
