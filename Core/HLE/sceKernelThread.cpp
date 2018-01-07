@@ -26,7 +26,7 @@
 #include "Common/CommonTypes.h"
 #include "Core/HLE/HLE.h"
 #include "Core/HLE/HLETables.h"
-#include "Core/MIPS/MIPSInt.h"
+#include "Core/MIPS/MIPSAnalyst.h"
 #include "Core/MIPS/MIPSCodeUtils.h"
 #include "Core/MIPS/MIPS.h"
 #include "Core/CoreTiming.h"
@@ -887,6 +887,7 @@ static void __KernelWriteFakeSysCall(u32 nid, u32 *ptr, u32 &pos)
 	*ptr = pos;
 	pos += 8;
 	WriteSyscall("FakeSysCalls", nid, *ptr);
+	MIPSAnalyst::PrecompileFunction(*ptr, 8);
 }
 
 void __KernelThreadingInit()
