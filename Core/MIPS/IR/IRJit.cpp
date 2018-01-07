@@ -98,13 +98,18 @@ void IRJit::Compile(u32 em_address) {
 }
 
 bool IRJit::CompileBlock(u32 em_address, std::vector<IRInst> &instructions, u32 &mipsBytes, bool preload) {
+	frontend_.DoJit(em_address, instructions, mipsBytes, preload);
+	if (instructions.empty()) {
+		_dbg_assert_(JIT, preload);
+		// We return true when preloading so it doesn't abort.
+		return preload;
+	}
+
 	int block_num = blocks_.AllocateBlock(em_address);
 	if ((block_num & ~MIPS_EMUHACK_VALUE_MASK) != 0) {
 		// Out of block numbers.  Caller will handle.
 		return false;
 	}
-
-	frontend_.DoJit(em_address, instructions, mipsBytes);
 
 	IRBlock *b = blocks_.GetBlock(block_num);
 	b->SetInstructions(instructions);

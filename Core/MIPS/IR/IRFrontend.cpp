@@ -219,8 +219,9 @@ MIPSOpcode IRFrontend::GetOffsetInstruction(int offset) {
 	return Memory::Read_Instruction(GetCompilerPC() + 4 * offset);
 }
 
-void IRFrontend::DoJit(u32 em_address, std::vector<IRInst> &instructions, u32 &mipsBytes) {
+void IRFrontend::DoJit(u32 em_address, std::vector<IRInst> &instructions, u32 &mipsBytes, bool preload) {
 	js.cancel = false;
+	js.preloading = preload;
 	js.blockStart = em_address;
 	js.compilerPC = em_address;
 	js.lastContinuedPC = 0;
@@ -244,6 +245,11 @@ void IRFrontend::DoJit(u32 em_address, std::vector<IRInst> &instructions, u32 &m
 		MIPSCompileOp(inst, this);
 		js.compilerPC += 4;
 		js.numInstructions++;
+	}
+
+	if (js.cancel) {
+		// Clear the instructions to signal this was not compiled.
+		ir.Clear();
 	}
 
 	mipsBytes = js.compilerPC - em_address;
