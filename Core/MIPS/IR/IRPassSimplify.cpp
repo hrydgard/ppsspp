@@ -199,6 +199,68 @@ bool ThreeOpToTwoOp(const IRWriter &in, IRWriter &out, const IROptions &opts) {
 	return logBlocks;
 }
 
+bool RemoveLoadStoreLeftRight(const IRWriter &in, IRWriter &out, const IROptions &opts) {
+	IRInst dummy{ IROp::Nop };
+
+	bool logBlocks = false;
+	for (int i = 0, n = (int)in.GetInstructions().size(); i < n; ++i) {
+		const IRInst &inst = in.GetInstructions()[i];
+		const IRInst &next = i + 1 < n ? in.GetInstructions()[i + 1] : dummy;
+
+		// TODO: Reorder or look ahead to combine?
+		auto combineOpposite = [&](IROp matchOp, int matchOff, IROp replaceOp, int replaceOff) {
+			if (!opts.unalignedLoadStore)
+				return false;
+			if (next.op != matchOp || next.dest != inst.dest || next.src1 != inst.src1)
+				return false;
+			if (inst.constant + matchOff != next.constant)
+				return false;
+
+			// Write out one unaligned op.
+			out.Write(replaceOp, inst.dest, inst.src1, out.AddConstant(inst.constant + replaceOff));
+			// Skip the next one, replaced.
+			i++;
+			return true;
+		};
+
+		switch (inst.op) {
+		case IROp::Load32Left:
+			if (!combineOpposite(IROp::Load32Right, -3, IROp::Load32, -3)) {
+				// TODO: Flatten.
+				out.Write(inst);
+			}
+			break;
+
+		case IROp::Load32Right:
+			if (!combineOpposite(IROp::Load32Left, 3, IROp::Load32, 0)) {
+				// TODO: Flatten.
+				out.Write(inst);
+			}
+			break;
+
+		case IROp::Store32Left:
+			if (!combineOpposite(IROp::Store32Right, -3, IROp::Store32, -3)) {
+				// TODO: Flatten.
+				out.Write(inst);
+			}
+			break;
+
+		case IROp::Store32Right:
+			if (!combineOpposite(IROp::Store32Left, 3, IROp::Store32, 0)) {
+				// TODO: Flatten.
+				out.Write(inst);
+			}
+			break;
+
+		default:
+			out.Write(inst);
+			break;
+		}
+	}
+
+	return logBlocks;
+}
+
 bool PropagateConstants(const IRWriter &in, IRWriter &out, const IROptions &opts) {
 	IRRegCache gpr(&out);
 
