@@ -733,6 +733,11 @@ IRInst IRReplaceDestGPR(const IRInst &inst, int fromReg, int toReg) {
 	return newInst;
 }
 
+bool IRMutatesDestGPR(const IRInst &inst, int reg) {
+	const IRMeta *m = GetIRMeta(inst.op);
+	return (m->flags & IRFLAG_SRC3DST) != 0 && m->types[0] == 'G' && inst.src3 == reg;
+}
+
 bool PurgeTemps(const IRWriter &in, IRWriter &out, const IROptions &opts) {
 	std::vector<IRInst> insts;
 	insts.reserve(in.GetInstructions().size());
@@ -762,11 +767,18 @@ bool PurgeTemps(const IRWriter &in, IRWriter &out, const IROptions &opts) {
 
 			if (IRReadsFromGPR(inst, check.reg)) {
 				// Read from, but was this just a copy?
-				bool mutatesReg = (m->flags & IRFLAG_SRC3DST) != 0 && m->types[0] == 'G' && inst.src3 == check.reg;
+				bool mutatesReg = IRMutatesDestGPR(inst, check.reg);
 				bool cannotReplace = inst.op == IROp::Interpret || inst.op == IROp::CallReplacement;
 				if (!mutatesReg && !cannotReplace && check.srcReg >= 0 && lastWrittenTo[check.srcReg] < check.index) {
 					// Replace with the srcReg instead.  This happens with non-nice delay slots.
 					inst = IRReplaceSrcGPR(inst, check.reg, check.srcReg);
+				} else if (!IRMutatesDestGPR(insts[check.index], check.reg) && inst.op == IROp::Mov && i == check.index + 1) {
+					// This happens with lwl/lwr temps.  Replace the original dest.
+					insts[check.index] = IRReplaceDestGPR(insts[check.index], check.reg, inst.dest);
+					lastWrittenTo[inst.dest] = check.index;
+					check.reg = inst.dest;
+					// And swap the args for this mov, since we changed the other dest.  We'll optimize this out later.
+					std::swap(inst.dest, inst.src1);
 				} else {
 					// Legitimately read from, so we can't optimize out.
 					check.reg = 0;
