@@ -712,6 +712,7 @@ void ImportFuncSymbol(const FuncSymbolImport &func, bool reimporting) {
 		}
 		WriteSyscall(func.moduleName, func.nid, func.stubAddr);
 		currentMIPS->InvalidateICache(func.stubAddr, 8);
+		MIPSAnalyst::PrecompileFunction(func.stubAddr, 8);
 		return;
 	}
 
@@ -730,6 +731,7 @@ void ImportFuncSymbol(const FuncSymbolImport &func, bool reimporting) {
 				}
 				WriteFuncStub(func.stubAddr, it->symAddr);
 				currentMIPS->InvalidateICache(func.stubAddr, 8);
+				MIPSAnalyst::PrecompileFunction(func.stubAddr, 8);
 				return;
 			}
 		}
@@ -768,6 +770,7 @@ void ExportFuncSymbol(const FuncSymbolExport &func) {
 				INFO_LOG(LOADER, "Resolving function %s/%08x", func.moduleName, func.nid);
 				WriteFuncStub(it->stubAddr, func.symAddr);
 				currentMIPS->InvalidateICache(it->stubAddr, 8);
+				MIPSAnalyst::PrecompileFunction(it->stubAddr, 8);
 			}
 		}
 	}
@@ -1450,6 +1453,9 @@ static Module *__KernelLoadELFFromPtr(const u8 *ptr, size_t elfSize, u32 loadAdd
 		// use module_start_func instead of entry_addr if entry_addr is 0
 		if (module->nm.entry_addr == 0)
 			module->nm.entry_addr = module->nm.module_start_func;
+
+		MIPSAnalyst::PrecompileFunctions();
+
 	} else {
 		module->nm.entry_addr = -1;
 	}

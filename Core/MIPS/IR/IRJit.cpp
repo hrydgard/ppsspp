@@ -16,6 +16,7 @@
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
 #include "base/logging.h"
+#include "ext/xxhash.h"
 #include "profiler/profiler.h"
 #include "Common/ChunkFile.h"
 #include "Common/StringUtils.h"
@@ -66,27 +67,136 @@ void IRJit::InvalidateCacheAt(u32 em_address, int length) {
 void IRJit::Compile(u32 em_address) {
 	PROFILE_THIS_SCOPE("jitc");
 
-	int block_num = blocks_.AllocateBlock(em_address);
-	if ((block_num & ~MIPS_EMUHACK_VALUE_MASK) != 0) {
-		// Ran out of block numbers - need to reset.
-		ERROR_LOG(JIT, "Ran out of block numbers, clearing cache");
-		ClearCache();
-		block_num = blocks_.AllocateBlock(em_address);
+	if (g_Config.bPreloadFunctions) {
+		// Look to see if we've preloaded this block.
+		int block_num = blocks_.FindPreloadBlock(em_address);
+		if (block_num != -1) {
+			IRBlock *b = blocks_.GetBlock(block_num);
+			// Okay, let's link and finalize the block now.
+			b->Finalize(block_num);
+			if (b->IsValid()) {
+				// Success, we're done.
+				return;
+			}
+		}
 	}
-	IRBlock *b = blocks_.GetBlock(block_num);
 
 	std::vector<IRInst> instructions;
 	u32 mipsBytes;
-	frontend_.DoJit(em_address, instructions, mipsBytes);
-	b->SetInstructions(instructions);
-	b->SetOriginalSize(mipsBytes);
-	// Overwrites the first instruction, and also updates stats.
-	blocks_.FinalizeBlock(block_num);
+	if (!CompileBlock(em_address, instructions, mipsBytes, false)) {
+		// Ran out of block numbers - need to reset.
+		ERROR_LOG(JIT, "Ran out of block numbers, clearing cache");
+		ClearCache();
+		CompileBlock(em_address, instructions, mipsBytes, false);
+	}
 
 	if (frontend_.CheckRounding(em_address)) {
 		// Our assumptions are all wrong so it's clean-slate time.
 		ClearCache();
-		Compile(em_address);
+		CompileBlock(em_address, instructions, mipsBytes, false);
+	}
+}
+
+bool IRJit::CompileBlock(u32 em_address, std::vector<IRInst> &instructions, u32 &mipsBytes, bool preload) {
+	frontend_.DoJit(em_address, instructions, mipsBytes, preload);
+	if (instructions.empty()) {
+		_dbg_assert_(JIT, preload);
+		// We return true when preloading so it doesn't abort.
+		return preload;
+	}
+
+	int block_num = blocks_.AllocateBlock(em_address);
+	if ((block_num & ~MIPS_EMUHACK_VALUE_MASK) != 0) {
+		// Out of block numbers.  Caller will handle.
+		return false;
+	}
+
+	IRBlock *b = blocks_.GetBlock(block_num);
+	b->SetInstructions(instructions);
+	b->SetOriginalSize(mipsBytes);
+	if (preload) {
+		// Hash, then only update page stats, don't link yet.
+		b->UpdateHash();
+		blocks_.FinalizeBlock(block_num, true);
+	} else {
+		// Overwrites the first instruction, and also updates stats.
+		// TODO: Should we always hash?  Then we can reuse blocks.
+		blocks_.FinalizeBlock(block_num);
+	}
+
+	return true;
+}
+
+void IRJit::CompileFunction(u32 start_address, u32 length) {
+	PROFILE_THIS_SCOPE("jitc");
+
+	// Note: we don't actually write emuhacks yet, so we can validate hashes.
+	// This way, if the game changes the code afterward, we'll catch even without icache invalidation.
+
+	// We may go up and down from branches, so track all block starts done here.
+	std::set<u32> doneAddresses;
+	std::vector<u32> pendingAddresses;
+	pendingAddresses.push_back(start_address);
+	while (!pendingAddresses.empty()) {
+		u32 em_address = pendingAddresses.back();
+		pendingAddresses.pop_back();
+
+		// To be safe, also check if a real block is there.  This can be a runtime module load.
+		u32 inst = Memory::ReadUnchecked_U32(em_address);
+		if (MIPS_IS_RUNBLOCK(inst) || doneAddresses.find(em_address) != doneAddresses.end()) {
+			// Already compiled this address.
+			continue;
+		}
+
+		std::vector<IRInst> instructions;
+		u32 mipsBytes;
+		if (!CompileBlock(em_address, instructions, mipsBytes, true)) {
+			// Ran out of block numbers - let's hope there's no more code it needs to run.
+			// Will flush when actually compiling.
+			ERROR_LOG(JIT, "Ran out of block numbers while compiling function");
+			return;
+		}
+
+		doneAddresses.insert(em_address);
+
+		for (const IRInst &inst : instructions) {
+			u32 exit = 0;
+
+			switch (inst.op) {
+			case IROp::ExitToConst:
+			case IROp::ExitToConstIfEq:
+			case IROp::ExitToConstIfNeq:
+			case IROp::ExitToConstIfGtZ:
+			case IROp::ExitToConstIfGeZ:
+			case IROp::ExitToConstIfLtZ:
+			case IROp::ExitToConstIfLeZ:
+			case IROp::ExitToConstIfFpTrue:
+			case IROp::ExitToConstIfFpFalse:
+				exit = inst.constant;
+				break;
+
+			case IROp::ExitToPC:
+			case IROp::Break:
+				// Don't add any, we'll do block end anyway (for jal, etc.)
+				exit = 0;
+				break;
+
+			default:
+				exit = 0;
+				break;
+			}
+
+			// Only follow jumps internal to the function.
+			if (exit != 0 && exit >= start_address && exit < start_address + length) {
+				// Even if it's a duplicate, we check at loop start.
+				pendingAddresses.push_back(exit);
+			}
+		}
+
+		// Also include after the block for jal returns.
+		if (em_address + mipsBytes < start_address + length) {
+			pendingAddresses.push_back(em_address + mipsBytes);
+		}
 	}
 }
 
@@ -166,8 +276,10 @@ void IRBlockCache::InvalidateICache(u32 address, u32 length) {
 	}
 }
 
-void IRBlockCache::FinalizeBlock(int i) {
-	blocks_[i].Finalize(i);
+void IRBlockCache::FinalizeBlock(int i, bool preload) {
+	if (!preload) {
+		blocks_[i].Finalize(i);
+	}
 
 	u32 startAddr, size;
 	blocks_[i].GetRange(startAddr, size);
@@ -183,6 +295,27 @@ void IRBlockCache::FinalizeBlock(int i) {
 u32 IRBlockCache::AddressToPage(u32 addr) const {
 	// Use relatively small pages since basic blocks are typically small.
 	return (addr & 0x3FFFFFFF) >> 10;
+}
+
+int IRBlockCache::FindPreloadBlock(u32 em_address) {
+	u32 page = AddressToPage(em_address);
+	auto iter = byPage_.find(page);
+	if (iter == byPage_.end())
+		return -1;
+
+	const std::vector<int> &blocksInPage = iter->second;
+	for (int i : blocksInPage) {
+		u32 start, mipsBytes;
+		blocks_[i].GetRange(start, mipsBytes);
+
+		if (start == em_address) {
+			if (blocks_[i].HashMatches()) {
+				return i;
+			}
+		}
+	}
+
+	return -1;
 }
 
 std::vector<u32> IRBlockCache::SaveAndClearEmuHackOps() {
@@ -277,14 +410,18 @@ int IRBlockCache::GetBlockNumberFromStartAddress(u32 em_address, bool realBlocks
 		return -1;
 
 	const std::vector<int> &blocksInPage = iter->second;
+	int best = -1;
 	for (int i : blocksInPage) {
 		uint32_t start, size;
 		blocks_[i].GetRange(start, size);
 		if (start == em_address) {
-			return i;
+			best = i;
+			if (blocks_[i].IsValid()) {
+				return i;
+			}
 		}
 	}
-	return -1;
+	return best;
 }
 
 bool IRBlock::HasOriginalFirstOp() const {
@@ -301,9 +438,13 @@ bool IRBlock::RestoreOriginalFirstOp(int number) {
 }
 
 void IRBlock::Finalize(int number) {
-	origFirstOpcode_ = Memory::Read_Opcode_JIT(origAddr_);
-	MIPSOpcode opcode = MIPSOpcode(MIPS_EMUHACK_OPCODE | number);
-	Memory::Write_Opcode_JIT(origAddr_, opcode);
+	// Check it wasn't invalidated, in case this is after preload.
+	// TODO: Allow reusing blocks when the code matches hash_ again, instead.
+	if (origAddr_) {
+		origFirstOpcode_ = Memory::Read_Opcode_JIT(origAddr_);
+		MIPSOpcode opcode = MIPSOpcode(MIPS_EMUHACK_OPCODE | number);
+		Memory::Write_Opcode_JIT(origAddr_, opcode);
+	}
 }
 
 void IRBlock::Destroy(int number) {
@@ -315,6 +456,24 @@ void IRBlock::Destroy(int number) {
 		// Let's mark this invalid so we don't try to clear it again.
 		origAddr_ = 0;
 	}
+}
+
+u64 IRBlock::CalculateHash() const {
+	if (origAddr_) {
+		// This is unfortunate.  In case of emuhacks, we have to make a copy.
+		std::vector<u32> buffer;
+		buffer.resize(origSize_ / 4);
+		size_t pos = 0;
+		for (u32 off = 0; off < origSize_; off += 4) {
+			// Let's actually hash the replacement, if any.
+			MIPSOpcode instr = Memory::ReadUnchecked_Instruction(origAddr_ + off, false);
+			buffer[pos++] = instr.encoding;
+		}
+
+		return XXH64(&buffer[0], origSize_, 0x9A5C33B8);
+	}
+
+	return 0;
 }
 
 bool IRBlock::OverlapsRange(u32 addr, u32 size) const {

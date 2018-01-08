@@ -126,6 +126,7 @@ public:
 	bool bForceLagSync;
 	bool bFuncReplacements;
 	bool bHideSlowWarnings;
+	bool bPreloadFunctions;
 
 	bool bSeparateSASThread;
 	bool bSeparateIOThread;

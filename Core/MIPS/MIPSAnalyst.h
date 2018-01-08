@@ -107,7 +107,8 @@ namespace MIPSAnalyst
 	void RegisterFunction(u32 startAddr, u32 size, const char *name);
 	void ScanForFunctions(u32 startAddr, u32 endAddr, bool insertSymbols);
 	void ForgetFunctions(u32 startAddr, u32 endAddr);
-	void CompileLeafs();
+	void PrecompileFunctions();
+	void PrecompileFunction(u32 startAddr, u32 length);
 
 	void SetHashMapFilename(const std::string& filename = "");
 	void LoadBuiltinHashMap();
