@@ -375,6 +375,8 @@ bool PropagateConstants(const IRWriter &in, IRWriter &out, const IROptions &opts
 		case IROp::Store8:
 		case IROp::Store16:
 		case IROp::Store32:
+		case IROp::Store32Left:
+		case IROp::Store32Right:
 			if (gpr.IsImm(inst.src1) && inst.src1 != inst.dest) {
 				gpr.MapIn(inst.dest);
 				out.Write(inst.op, inst.dest, 0, out.AddConstant(gpr.GetImm(inst.src1) + inst.constant));
@@ -412,6 +414,16 @@ bool PropagateConstants(const IRWriter &in, IRWriter &out, const IROptions &opts
 				out.Write(inst.op, inst.dest, 0, out.AddConstant(gpr.GetImm(inst.src1) + inst.constant));
 			} else {
 				gpr.MapIn(inst.src1);
+				goto doDefault;
+			}
+			break;
+		case IROp::Load32Left:
+		case IROp::Load32Right:
+			if (gpr.IsImm(inst.src1)) {
+				gpr.MapIn(inst.dest);
+				out.Write(inst.op, inst.dest, 0, out.AddConstant(gpr.GetImm(inst.src1) + inst.constant));
+			} else {
+				gpr.MapInIn(inst.dest, inst.src1);
 				goto doDefault;
 			}
 			break;
@@ -760,6 +772,8 @@ static std::vector<IRInst> ReorderLoadStoreOps(std::vector<IRInst> &ops) {
 		case IROp::Load16:
 		case IROp::Load16Ext:
 		case IROp::Load32:
+		case IROp::Load32Left:
+		case IROp::Load32Right:
 			modifiesReg = true;
 			if (ops[i].src1 == ops[i].dest) {
 				// Can't ever reorder these, since it changes.
@@ -770,6 +784,8 @@ static std::vector<IRInst> ReorderLoadStoreOps(std::vector<IRInst> &ops) {
 		case IROp::Store8:
 		case IROp::Store16:
 		case IROp::Store32:
+		case IROp::Store32Left:
+		case IROp::Store32Right:
 			break;
 
 		case IROp::LoadFloat:
@@ -868,6 +884,8 @@ bool ReorderLoadStore(const IRWriter &in, IRWriter &out, const IROptions &opts) 
 		case IROp::Load16:
 		case IROp::Load16Ext:
 		case IROp::Load32:
+		case IROp::Load32Left:
+		case IROp::Load32Right:
 			// To move a load up, its dest can't be changed by things we move down.
 			if (otherRegs[inst.dest] != RegState::UNUSED || otherRegs[inst.src1] == RegState::CHANGED) {
 				flushQueue();
@@ -880,6 +898,8 @@ bool ReorderLoadStore(const IRWriter &in, IRWriter &out, const IROptions &opts) 
 		case IROp::Store8:
 		case IROp::Store16:
 		case IROp::Store32:
+		case IROp::Store32Left:
+		case IROp::Store32Right:
 			// A store can move above even if it's read, as long as it's not changed by the other ops.
 			if (otherRegs[inst.src3] == RegState::CHANGED || otherRegs[inst.src1] == RegState::CHANGED) {
 				flushQueue();
