@@ -200,18 +200,20 @@ bool ThreeOpToTwoOp(const IRWriter &in, IRWriter &out, const IROptions &opts) {
 }
 
 bool RemoveLoadStoreLeftRight(const IRWriter &in, IRWriter &out, const IROptions &opts) {
-	IRInst dummy{ IROp::Nop };
-
 	bool logBlocks = false;
 	for (int i = 0, n = (int)in.GetInstructions().size(); i < n; ++i) {
 		const IRInst &inst = in.GetInstructions()[i];
-		const IRInst &next = i + 1 < n ? in.GetInstructions()[i + 1] : dummy;
 
 		// TODO: Reorder or look ahead to combine?
 
+		auto nextOp = [&]() -> const IRInst &{
+			return in.GetInstructions()[i + 1];
+		};
+
 		auto combineOpposite = [&](IROp matchOp, int matchOff, IROp replaceOp, int replaceOff) {
-			if (!opts.unalignedLoadStore)
+			if (!opts.unalignedLoadStore || i + 1 >= n)
 				return false;
+			const IRInst &next = nextOp();
 			if (next.op != matchOp || next.dest != inst.dest || next.src1 != inst.src1)
 				return false;
 			if (inst.constant + matchOff != next.constant)
@@ -249,12 +251,29 @@ bool RemoveLoadStoreLeftRight(const IRWriter &in, IRWriter &out, const IROptions
 				out.WriteSetConstant(IRTEMP_LR_MASK, 0x00ffffff);
 				out.Write(IROp::Shr, IRTEMP_LR_MASK, IRTEMP_LR_MASK, IRTEMP_LR_SHIFT);
 				out.Write(IROp::And, inst.dest, inst.dest, IRTEMP_LR_MASK);
-				// IRTEMP_LR_VALUE <<= (24 - shift)
+				// IRTEMP_LR_SHIFT = 24 - shift
 				out.Write(IROp::Neg, IRTEMP_LR_SHIFT, IRTEMP_LR_SHIFT);
 				out.Write(IROp::AddConst, IRTEMP_LR_SHIFT, IRTEMP_LR_SHIFT, out.AddConstant(24));
+				// IRTEMP_LR_VALUE <<= (24 - shift)
 				out.Write(IROp::Shl, IRTEMP_LR_VALUE, IRTEMP_LR_VALUE, IRTEMP_LR_SHIFT);
 				// dest |= IRTEMP_LR_VALUE
 				out.Write(IROp::Or, inst.dest, inst.dest, IRTEMP_LR_VALUE);
+
+				bool src1Dirty = inst.dest == inst.src1;
+				while (i + 1 < n && !src1Dirty && nextOp().op == inst.op && nextOp().src1 == inst.src1 && (nextOp().constant & 3) == (inst.constant & 3)) {
+					// IRTEMP_LR_VALUE = RAM(IRTEMP_LR_ADDR + offsetDelta)
+					out.Write(IROp::Load32, IRTEMP_LR_VALUE, IRTEMP_LR_ADDR, out.AddConstant(nextOp().constant - inst.constant));
+
+					// dest &= IRTEMP_LR_MASK
+					out.Write(IROp::And, nextOp().dest, nextOp().dest, IRTEMP_LR_MASK);
+					// IRTEMP_LR_VALUE <<= (24 - shift)
+					out.Write(IROp::Shl, IRTEMP_LR_VALUE, IRTEMP_LR_VALUE, IRTEMP_LR_SHIFT);
+					// dest |= IRTEMP_LR_VALUE
+					out.Write(IROp::Or, nextOp().dest, nextOp().dest, IRTEMP_LR_VALUE);
+
+					src1Dirty = nextOp().dest == inst.src1;
+					++i;
+				}
 			}
 			break;
 
@@ -273,6 +292,31 @@ bool RemoveLoadStoreLeftRight(const IRWriter &in, IRWriter &out, const IROptions
 				out.Write(IROp::And, inst.dest, inst.dest, IRTEMP_LR_MASK);
 				// dest |= IRTEMP_LR_VALUE
 				out.Write(IROp::Or, inst.dest, inst.dest, IRTEMP_LR_VALUE);
+
+				// Building display lists sometimes involves a bunch of lwr in a row.
+				// We can generate more optimal code by combining.
+				bool shiftNeedsReverse = true;
+				bool src1Dirty = inst.dest == inst.src1;
+				while (i + 1 < n && !src1Dirty && nextOp().op == inst.op && nextOp().src1 == inst.src1 && (nextOp().constant & 3) == (inst.constant & 3)) {
+					// IRTEMP_LR_VALUE = RAM(IRTEMP_LR_ADDR + offsetDelta)
+					out.Write(IROp::Load32, IRTEMP_LR_VALUE, IRTEMP_LR_ADDR, out.AddConstant(nextOp().constant - inst.constant));
+
+					if (shiftNeedsReverse) {
+						// IRTEMP_LR_SHIFT = shift again
+						out.Write(IROp::Neg, IRTEMP_LR_SHIFT, IRTEMP_LR_SHIFT);
+						out.Write(IROp::AddConst, IRTEMP_LR_SHIFT, IRTEMP_LR_SHIFT, out.AddConstant(24));
+						shiftNeedsReverse = false;
+					}
+					// IRTEMP_LR_VALUE >>= IRTEMP_LR_SHIFT
+					out.Write(IROp::Shr, IRTEMP_LR_VALUE, IRTEMP_LR_VALUE, IRTEMP_LR_SHIFT);
+					// dest &= IRTEMP_LR_MASK
+					out.Write(IROp::And, nextOp().dest, nextOp().dest, IRTEMP_LR_MASK);
+					// dest |= IRTEMP_LR_VALUE
+					out.Write(IROp::Or, nextOp().dest, nextOp().dest, IRTEMP_LR_VALUE);
+
+					src1Dirty = nextOp().dest == inst.src1;
+					++i;
+				}
 			}
 			break;
 
