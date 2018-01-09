@@ -122,7 +122,7 @@ private:
 
 	// Utilities to reduce duplicated code
 	void CompShiftImm(MIPSOpcode op, IROp shiftType, int sa);
-	void CompShiftVar(MIPSOpcode op, IROp shiftType, IROp shiftTypeConst);
+	void CompShiftVar(MIPSOpcode op, IROp shiftType);
 
 	void ApplyPrefixST(u8 *vregs, u32 prefix, VectorSize sz, int tempReg);
 	void ApplyPrefixD(const u8 *vregs, VectorSize sz);

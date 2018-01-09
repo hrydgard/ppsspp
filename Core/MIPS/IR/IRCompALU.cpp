@@ -188,7 +188,7 @@ void IRFrontend::CompShiftImm(MIPSOpcode op, IROp shiftOpImm, int sa) {
 	ir.Write(shiftOpImm, rd, rt, sa);
 }
 
-void IRFrontend::CompShiftVar(MIPSOpcode op, IROp shiftOp, IROp shiftOpImm) {
+void IRFrontend::CompShiftVar(MIPSOpcode op, IROp shiftOp) {
 	MIPSGPReg rd = _RD;
 	MIPSGPReg rt = _RT;
 	MIPSGPReg rs = _RS;
@@ -211,9 +211,9 @@ void IRFrontend::Comp_ShiftType(MIPSOpcode op) {
 	case 0: CompShiftImm(op, IROp::ShlImm, sa); break; //sll
 	case 2: CompShiftImm(op, (rs == 1 ? IROp::RorImm : IROp::ShrImm), sa); break;	//srl
 	case 3: CompShiftImm(op, IROp::SarImm, sa); break; //sra
-	case 4: CompShiftVar(op, IROp::Shl, IROp::ShlImm); break; //sllv
-	case 6: CompShiftVar(op, (sa == 1 ? IROp::Ror : IROp::Shr), (sa == 1 ? IROp::RorImm : IROp::ShrImm)); break; //srlv
-	case 7: CompShiftVar(op, IROp::Sar, IROp::SarImm); break; //srav
+	case 4: CompShiftVar(op, IROp::Shl); break; //sllv
+	case 6: CompShiftVar(op, (sa == 1 ? IROp::Ror : IROp::Shr)); break; //srlv
+	case 7: CompShiftVar(op, IROp::Sar); break; //srav
 
 	default:
 		INVALIDOP;
