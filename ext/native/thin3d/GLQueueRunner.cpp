@@ -143,7 +143,6 @@ void GLQueueRunner::RunInitSteps(const std::vector<GLRInitStep> &steps) {
 			step.create_shader.shader->shader = shader;
 			const char *code = step.create_shader.code;
 			glShaderSource(shader, 1, &code, nullptr);
-			delete[] step.create_shader.code;
 			glCompileShader(shader);
 			GLint success = 0;
 			glGetShaderiv(shader, GL_COMPILE_STATUS, &success);
@@ -166,6 +165,7 @@ void GLQueueRunner::RunInitSteps(const std::vector<GLRInitStep> &steps) {
 #endif
 				step.create_shader.shader->valid = false;
 			}
+			delete[] step.create_shader.code;
 			delete[] step.create_shader.desc;
 			step.create_shader.shader->valid = true;
 			break;
