@@ -759,6 +759,7 @@ bool DrawEngineGLES::IsCodePtrVertexDecoder(const u8 *ptr) const {
 }
 
 void DrawEngineGLES::TessellationDataTransferGLES::SendDataToShader(const float *pos, const float *tex, const float *col, int size, bool hasColor, bool hasTexCoords) {
+	// TODO: Implement with the render manager
 	/*
 #ifndef USING_GLES2
 	if (isAllowTexture1D_) {

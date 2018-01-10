@@ -398,7 +398,6 @@ void GLQueueRunner::PerformRenderPass(const GLRStep &step) {
 
 	PerformBindFramebufferAsRenderTarget(step);
 
-	glDisable(GL_SCISSOR_TEST);
 	glDisable(GL_DEPTH_TEST);
 	glDisable(GL_STENCIL_TEST);
 	glDisable(GL_BLEND);

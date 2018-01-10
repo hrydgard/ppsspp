@@ -293,8 +293,8 @@ void FramebufferManagerGLES::DestroyDeviceObjects() {
 	}
 	if (drawPixelsTex_) {
 		render_->DeleteTexture(drawPixelsTex_);
-    drawPixelsTex_ = 0;
-  }
+		drawPixelsTex_ = 0;
+	}
 	if (stencilUploadProgram_) {
 		render_->DeleteProgram(stencilUploadProgram_);
 		stencilUploadProgram_ = nullptr;
