@@ -121,9 +121,16 @@ void DebugCallbackARB(GLenum source, GLenum type, GLuint id, GLenum severity,
 											GLsizei length, const GLchar *message, GLvoid *userParam) {
 	(void)length;
 	FILE *outFile = (FILE *)userParam;
-	char finalMessage[256];
-	FormatDebugOutputARB(finalMessage, 256, source, type, id, severity, message);
+	char finalMessage[1024];
+	FormatDebugOutputARB(finalMessage, sizeof(finalMessage), source, type, id, severity, message);
 	OutputDebugStringA(finalMessage);
+
+	// Truncate the \n before passing to our log functions.
+	size_t len = strlen(finalMessage);
+	if (len) {
+		finalMessage[len - 1] = '\0';
+	}
+
 	switch (type) {
 	case GL_DEBUG_TYPE_ERROR_ARB:
 	case GL_DEBUG_TYPE_DEPRECATED_BEHAVIOR_ARB:
