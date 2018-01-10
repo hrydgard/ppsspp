@@ -72,7 +72,7 @@ DepalShaderCacheGLES::~DepalShaderCacheGLES() {
 
 bool DepalShaderCacheGLES::CreateVertexShader() {
 	std::string src(useGL3_ ? depalVShader300 : depalVShader100);
-	vertexShader_ = render_->CreateShader(GL_VERTEX_SHADER, src);
+	vertexShader_ = render_->CreateShader(GL_VERTEX_SHADER, src, "depal");
 	return true;
 }
 
@@ -154,7 +154,7 @@ DepalShader *DepalShaderCacheGLES::GetDepalettizeShader(uint32_t clutMode, GEBuf
 	GenerateDepalShader(buffer, pixelFormat, useGL3_ ? GLSL_300 : GLSL_140);
 	
 	std::string src(buffer);
-	GLRShader *fragShader = render_->CreateShader(GL_FRAGMENT_SHADER, src);
+	GLRShader *fragShader = render_->CreateShader(GL_FRAGMENT_SHADER, src, "depal");
 
 	DepalShader *depal = new DepalShader();
 

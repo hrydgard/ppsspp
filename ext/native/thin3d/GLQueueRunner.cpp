@@ -1,3 +1,4 @@
+#include "Core/Reporting.h"
 #include "GLQueueRunner.h"
 #include "GLRenderManager.h"
 #include "DataFormatGL.h"
@@ -142,7 +143,7 @@ void GLQueueRunner::RunInitSteps(const std::vector<GLRInitStep> &steps) {
 			step.create_shader.shader->shader = shader;
 			const char *code = step.create_shader.code;
 			glShaderSource(shader, 1, &code, nullptr);
-			delete[] code;
+			delete[] step.create_shader.code;
 			glCompileShader(shader);
 			GLint success = 0;
 			glGetShaderiv(shader, GL_COMPILE_STATUS, &success);
@@ -152,11 +153,20 @@ void GLQueueRunner::RunInitSteps(const std::vector<GLRInitStep> &steps) {
 				GLsizei len = 0;
 				glGetShaderInfoLog(shader, MAX_INFO_LOG_SIZE, &len, infoLog);
 				infoLog[len] = '\0';
-				glDeleteShader(shader);
-				shader = 0;
-				ILOG("%s Shader compile error:\n%s", step.create_shader.stage == GL_FRAGMENT_SHADER ? "Fragment" : "Vertex", infoLog);
+#ifdef __ANDROID__
+				ELOG("Error in shader compilation! %s\n", infoLog);
+				ELOG("Shader source:\n%s\n", (const char *)code);
+#endif
+				ERROR_LOG(G3D, "Error in shader compilation for: %s", step.create_shader.desc);
+				ERROR_LOG(G3D, "Info log: %s", infoLog);
+				ERROR_LOG(G3D, "Shader source:\n%s\n", (const char *)code);
+				Reporting::ReportMessage("Error in shader compilation: info: %s\n%s\n%s", infoLog, step.create_shader.desc, (const char *)code);
+#ifdef SHADERLOG
+				OutputDebugStringUTF8(infoLog);
+#endif
 				step.create_shader.shader->valid = false;
 			}
+			delete[] step.create_shader.desc;
 			step.create_shader.shader->valid = true;
 			break;
 		}

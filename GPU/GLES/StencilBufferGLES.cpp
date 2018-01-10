@@ -121,8 +121,8 @@ bool FramebufferManagerGLES::NotifyStencilUpload(u32 addr, int size, bool skipZe
 		vs_code = ApplyGLSLPrelude(stencil_vs, GL_VERTEX_SHADER);
 		fs_code = ApplyGLSLPrelude(stencil_fs, GL_FRAGMENT_SHADER);
 		std::vector<GLRShader *> shaders;
-		shaders.push_back(render_->CreateShader(GL_VERTEX_SHADER, vs_code));
-		shaders.push_back(render_->CreateShader(GL_FRAGMENT_SHADER, fs_code));
+		shaders.push_back(render_->CreateShader(GL_VERTEX_SHADER, vs_code, "stencil"));
+		shaders.push_back(render_->CreateShader(GL_FRAGMENT_SHADER, fs_code, "stencil"));
 		std::vector<GLRProgram::UniformLocQuery> queries;
 		queries.push_back({ &u_stencilUploadTex, "tex" });
 		std::vector<GLRProgram::Initializer> inits;

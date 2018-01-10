@@ -91,8 +91,8 @@ void FramebufferManagerGLES::CompileDraw2DProgram() {
 		vs_code = ApplyGLSLPrelude(basic_vs, GL_VERTEX_SHADER);
 		fs_code = ApplyGLSLPrelude(tex_fs, GL_FRAGMENT_SHADER);
 		std::vector<GLRShader *> shaders;
-		shaders.push_back(render_->CreateShader(GL_VERTEX_SHADER, vs_code));
-		shaders.push_back(render_->CreateShader(GL_FRAGMENT_SHADER, fs_code));
+		shaders.push_back(render_->CreateShader(GL_VERTEX_SHADER, vs_code, "draw2d"));
+		shaders.push_back(render_->CreateShader(GL_FRAGMENT_SHADER, fs_code, "draw2d"));
 
 		std::vector<GLRProgram::UniformLocQuery> queries;
 		queries.push_back({ &u_draw2d_tex, "u_tex" });
@@ -153,8 +153,8 @@ void FramebufferManagerGLES::CompilePostShader() {
 			SetNumExtraFBOs(1);
 
 			std::vector<GLRShader *> shaders;
-			shaders.push_back(render_->CreateShader(GL_VERTEX_SHADER, vshader));
-			shaders.push_back(render_->CreateShader(GL_VERTEX_SHADER, fshader));
+			shaders.push_back(render_->CreateShader(GL_VERTEX_SHADER, vshader, "postshader"));
+			shaders.push_back(render_->CreateShader(GL_VERTEX_SHADER, fshader, "postshader"));
 			std::vector<GLRProgram::UniformLocQuery> queries;
 			queries.push_back({ &u_postShaderTex, "tex" });
 			queries.push_back({ &deltaLoc_, "u_texelDelta" });
