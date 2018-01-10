@@ -1,7 +1,7 @@
 #pragma once
 
 #include <thread>
-#include <map>
+#include <unordered_map>
 #include <vector>
 #include <set>
 #include <string>
@@ -101,7 +101,7 @@ public:
 		}
 		return loc;
 	}
-	std::map<std::string, UniformInfo> uniformCache_;
+	std::unordered_map<std::string, UniformInfo> uniformCache_;
 };
 
 class GLRTexture {

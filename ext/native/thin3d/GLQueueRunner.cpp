@@ -134,13 +134,12 @@ void GLQueueRunner::RunInitSteps(const std::vector<GLRInitStep> &steps) {
 					}
 				}
 			}
-		}
 			break;
+		}
 		case GLRInitStepType::CREATE_SHADER:
 		{
 			GLuint shader = glCreateShader(step.create_shader.stage);
 			step.create_shader.shader->shader = shader;
-			// language_ = language;
 			const char *code = step.create_shader.code;
 			glShaderSource(shader, 1, &code, nullptr);
 			delete[] code;
@@ -667,7 +666,7 @@ void GLQueueRunner::PerformRenderPass(const GLRStep &step) {
 				}
 			}
 			attrMask = layout->semanticsMask_;
-			for (int i = 0; i < layout->entries.size(); i++) {
+			for (size_t i = 0; i < layout->entries.size(); i++) {
 				auto &entry = layout->entries[i];
 				glVertexAttribPointer(entry.location, entry.count, entry.type, entry.normalized, entry.stride, (const void *)(c.bindVertexBuffer.offset + entry.offset));
 			}
@@ -826,6 +825,7 @@ void GLQueueRunner::PerformCopy(const GLRStep &step) {
 		dstTex = dst->color_texture;
 		break;
 	case GL_DEPTH_BUFFER_BIT:
+		// TODO: Support depth copies.
 		_assert_msg_(G3D, false, "Depth copies not yet supported - soon");
 		target = GL_RENDERBUFFER;
 		/*
