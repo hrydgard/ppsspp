@@ -75,9 +75,8 @@ bool VulkanPushBuffer::AddBuffer() {
 		return false;
 	}
 
-	buf_ = buffers_.size();
-	buffers_.resize(buf_ + 1);  // Why not push_back?
-	buffers_[buf_] = info;
+	buffers_.push_back(info);
+	buf_ = buffers_.size() - 1;
 	return true;
 }
 
