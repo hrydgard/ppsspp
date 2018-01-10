@@ -400,11 +400,11 @@ void SystemInfoScreen::CreateViews() {
 #endif
 #endif
 	if (GetGPUBackend() == GPUBackend::OPENGL) {
-		deviceSpecs->Add(new InfoItem(si->T("Core Context"), gl_extensions.IsCoreContext ? di->T("Supported") : di->T("Unsupported")));
+		deviceSpecs->Add(new InfoItem(si->T("Core Context"), gl_extensions.IsCoreContext ? di->T("Active") : di->T("Inactive")));
 	}
 	deviceSpecs->Add(new ItemHeader(si->T("OS Information")));
 	deviceSpecs->Add(new InfoItem(si->T("Memory Page Size"), StringFromFormat(si->T("%d bytes"), GetMemoryProtectPageSize())));
-	deviceSpecs->Add(new InfoItem(si->T("RW/RX exclusive"), PlatformIsWXExclusive() ? di->T("Yes") : di->T("No")));
+	deviceSpecs->Add(new InfoItem(si->T("RW/RX exclusive"), PlatformIsWXExclusive() ? di->T("Active") : di->T("Inactive")));
 #ifdef ANDROID
 	deviceSpecs->Add(new InfoItem(si->T("Sustained perf mode"), System_GetPropertyBool(SYSPROP_SUPPORTS_SUSTAINED_PERF_MODE) ? di->T("Supported") : di->T("Unsupported")));
 #endif
