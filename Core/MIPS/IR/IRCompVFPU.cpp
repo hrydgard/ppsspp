@@ -617,17 +617,16 @@ namespace MIPSComp {
 		GetVectorRegsPrefixD(dregs, sz, _VD);
 
 		u8 tempregs[4];
-		bool usingTemps = false;
 		for (int i = 0; i < n; i++) {
 			if (!IsOverlapSafe(dregs[i], n, sregs, n, tregs)) {
 				tempregs[i] = IRVTEMP_0 + i;
-				usingTemps = true;
 			} else {
 				tempregs[i] = dregs[i];
 			}
 		}
 
-		if (allowSIMD && sz == V_Quad && !usingTemps && IsConsecutive4(dregs) && IsConsecutive4(sregs) && IsConsecutive4(tregs)) {
+		// If all three are consecutive 4, we're safe regardless of if we use temps so we should not check that here.
+		if (allowSIMD && sz == V_Quad && IsConsecutive4(dregs) && IsConsecutive4(sregs) && IsConsecutive4(tregs)) {
 			IROp opFunc = IROp::Nop;
 			switch (op >> 26) {
 			case 24: //VFPU0
