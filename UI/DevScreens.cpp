@@ -366,7 +366,7 @@ void SystemInfoScreen::CreateViews() {
 	deviceSpecs->Add(new InfoItem(si->T("ABI"), GetCompilerABI()));
 #ifdef _WIN32
 	if (IsDebuggerPresent()) {
-		deviceSpecs->Add(new InfoItem(si->T("Debugger Present"), si->T("Yes")));
+		deviceSpecs->Add(new InfoItem(si->T("Debugger Present"), di->T("Yes")));
 	}
 #endif
 
@@ -400,13 +400,13 @@ void SystemInfoScreen::CreateViews() {
 #endif
 #endif
 	if (GetGPUBackend() == GPUBackend::OPENGL) {
-		deviceSpecs->Add(new InfoItem(si->T("Core Context"), gl_extensions.IsCoreContext ? si->T("Yes") : si->T("No")));
+		deviceSpecs->Add(new InfoItem(si->T("Core Context"), gl_extensions.IsCoreContext ? di->T("Active") : di->T("Inactive")));
 	}
 	deviceSpecs->Add(new ItemHeader(si->T("OS Information")));
 	deviceSpecs->Add(new InfoItem(si->T("Memory Page Size"), StringFromFormat(si->T("%d bytes"), GetMemoryProtectPageSize())));
-	deviceSpecs->Add(new InfoItem(si->T("RW/RX exclusive"), PlatformIsWXExclusive() ? si->T("Yes") : si->T("No")));
+	deviceSpecs->Add(new InfoItem(si->T("RW/RX exclusive"), PlatformIsWXExclusive() ? di->T("Active") : di->T("Inactive")));
 #ifdef ANDROID
-	deviceSpecs->Add(new InfoItem(si->T("Sustained perf mode"), System_GetPropertyBool(SYSPROP_SUPPORTS_SUSTAINED_PERF_MODE) ? si->T("Yes") : si->T("No")));
+	deviceSpecs->Add(new InfoItem(si->T("Sustained perf mode"), System_GetPropertyBool(SYSPROP_SUPPORTS_SUSTAINED_PERF_MODE) ? di->T("Supported") : di->T("Unsupported")));
 #endif
 
 	const char *build = si->T("Release");
