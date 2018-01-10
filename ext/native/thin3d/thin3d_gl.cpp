@@ -237,7 +237,7 @@ public:
 
 	~OpenGLShaderModule() {
 		if (shader_)
-		  render_->DeleteShader(shader_);
+			render_->DeleteShader(shader_);
 	}
 
 	bool Compile(GLRenderManager *render, ShaderLanguage language, const uint8_t *data, size_t dataSize);
@@ -1036,7 +1036,8 @@ OpenGLInputLayout::~OpenGLInputLayout() {
 void OpenGLInputLayout::Compile(const InputLayoutDesc &desc) {
 	int semMask = 0;
 
-	// This is only accurate if there's only one stream. But whatever, for now.
+	// TODO: This is only accurate if there's only one stream. But whatever, for now we
+	// never use multiple streams anyway.
 	stride = (GLsizei)desc.bindings[0].stride;
 
 	std::vector<GLRInputLayout::Entry> entries;

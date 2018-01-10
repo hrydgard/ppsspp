@@ -72,9 +72,9 @@ void EmuThread_Stop() {
 	Core_Stop();
 	Core_WaitInactive(800);
 	emuThread.join();
-  if (useRenderThread) {
-    renderThread.join();
-  }
+	if (useRenderThread) {
+		renderThread.join();
+	}
 
 	PostMessage(MainWindow::GetHWND(), MainWindow::WM_USER_UPDATE_UI, 0, 0);
 }
