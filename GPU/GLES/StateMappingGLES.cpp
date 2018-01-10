@@ -232,6 +232,7 @@ void DrawEngineGLES::ApplyDrawState(int prim) {
 				// TODO: Make this dynamic
 				// Logic Ops
 				if (gstate.isLogicOpEnabled() && gstate.getLogicOp() != GE_LOGIC_COPY) {
+					// TODO: Fix logic ops.
 					//glstate.colorLogicOp.enable();
 					//glstate.logicOp.set(logicOps[gstate.getLogicOp()]);
 				} else {
