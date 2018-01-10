@@ -132,9 +132,6 @@ private:
 	void GetVectorRegs(u8 regs[4], VectorSize N, int vectorReg);
 	void GetMatrixRegs(u8 regs[16], MatrixSize N, int matrixReg);
 
-	// Utils
-	void Comp_ITypeMemLR(MIPSOpcode op, bool load);
-
 	// State
 	JitState js;
 	IRWriter ir;

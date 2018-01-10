@@ -145,6 +145,24 @@ u32 IRInterpret(MIPSState *mips, const IRInst *inst, int count) {
 		case IROp::Load32:
 			mips->r[inst->dest] = Memory::ReadUnchecked_U32(mips->r[inst->src1] + inst->constant);
 			break;
+		case IROp::Load32Left:
+		{
+			u32 addr = mips->r[inst->src1] + inst->constant;
+			u32 shift = (addr & 3) * 8;
+			u32 mem = Memory::ReadUnchecked_U32(addr & 0xfffffffc);
+			u32 destMask = 0x00ffffff >> shift;
+			mips->r[inst->dest] = (mips->r[inst->dest] & destMask) | (mem << (24 - shift));
+			break;
+		}
+		case IROp::Load32Right:
+		{
+			u32 addr = mips->r[inst->src1] + inst->constant;
+			u32 shift = (addr & 3) * 8;
+			u32 mem = Memory::ReadUnchecked_U32(addr & 0xfffffffc);
+			u32 destMask = 0xffffff00 << (24 - shift);
+			mips->r[inst->dest] = (mips->r[inst->dest] & destMask) | (mem >> shift);
+			break;
+		}
 		case IROp::LoadFloat:
 			mips->f[inst->dest] = Memory::ReadUnchecked_Float(mips->r[inst->src1] + inst->constant);
 			break;
@@ -158,6 +176,26 @@ u32 IRInterpret(MIPSState *mips, const IRInst *inst, int count) {
 		case IROp::Store32:
 			Memory::WriteUnchecked_U32(mips->r[inst->src3], mips->r[inst->src1] + inst->constant);
 			break;
+		case IROp::Store32Left:
+		{
+			u32 addr = mips->r[inst->src1] + inst->constant;
+			u32 shift = (addr & 3) * 8;
+			u32 mem = Memory::ReadUnchecked_U32(addr & 0xfffffffc);
+			u32 memMask = 0xffffff00 << shift;
+			u32 result = (mips->r[inst->src3] >> (24 - shift)) | (mem & memMask);
+			Memory::WriteUnchecked_U32(result, addr & 0xfffffffc);
+			break;
+		}
+		case IROp::Store32Right:
+		{
+			u32 addr = mips->r[inst->src1] + inst->constant;
+			u32 shift = (addr & 3) * 8;
+			u32 mem = Memory::ReadUnchecked_U32(addr & 0xfffffffc);
+			u32 memMask = 0x00ffffff >> (24 - shift);
+			u32 result = (mips->r[inst->src3] << shift) | (mem & memMask);
+			Memory::WriteUnchecked_U32(result, addr & 0xfffffffc);
+			break;
+		}
 		case IROp::StoreFloat:
 			Memory::WriteUnchecked_Float(mips->f[inst->src3], mips->r[inst->src1] + inst->constant);
 			break;

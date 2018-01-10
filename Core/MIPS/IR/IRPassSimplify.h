@@ -6,6 +6,7 @@ typedef bool (*IRPassFunc)(const IRWriter &in, IRWriter &out, const IROptions &o
 bool IRApplyPasses(const IRPassFunc *passes, size_t c, const IRWriter &in, IRWriter &out, const IROptions &opts);
 
 // Block optimizer passes of varying usefulness.
+bool RemoveLoadStoreLeftRight(const IRWriter &in, IRWriter &out, const IROptions &opts);
 bool PropagateConstants(const IRWriter &in, IRWriter &out, const IROptions &opts);
 bool PurgeTemps(const IRWriter &in, IRWriter &out, const IROptions &opts);
 bool ReduceLoads(const IRWriter &in, IRWriter &out, const IROptions &opts);
