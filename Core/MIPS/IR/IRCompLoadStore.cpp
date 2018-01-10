@@ -44,12 +44,6 @@
 #define INVALIDOP { Comp_Generic(op); return; }
 
 namespace MIPSComp {
-	void IRFrontend::Comp_ITypeMemLR(MIPSOpcode op, bool load) {
-		CONDITIONAL_DISABLE;
-		// Should never get here, done in Comp_ITypeMem().
-		INVALIDOP;
-	}
-
 	void IRFrontend::Comp_ITypeMem(MIPSOpcode op) {
 		CONDITIONAL_DISABLE;
 
