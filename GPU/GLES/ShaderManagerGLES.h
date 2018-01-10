@@ -125,12 +125,12 @@ public:
 
 class Shader {
 public:
-	Shader(GLRenderManager *render, const char *code, uint32_t glShaderType, bool useHWTransform, uint32_t attrMask, uint64_t uniformMask);
+	Shader(GLRenderManager *render, const char *code, const char *desc, uint32_t glShaderType, bool useHWTransform, uint32_t attrMask, uint64_t uniformMask);
 	~Shader();
 	GLRShader *shader;
 
 	bool Failed() const { return failed_; }
-	bool UseHWTransform() const { return useHWTransform_; } // only relevant for vtx shaders
+	bool UseHWTransform() const { return useHWTransform_; }  // only relevant for vtx shaders
 
 	std::string GetShaderString(DebugShaderStringType type, ShaderID id) const;
 

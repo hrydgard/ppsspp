@@ -272,7 +272,7 @@ bool OpenGLShaderModule::Compile(GLRenderManager *render, ShaderLanguage languag
 		source_ = temp.c_str();
 	}
 
-	shader_ = render->CreateShader(glstage_, source_);
+	shader_ = render->CreateShader(glstage_, source_, "thin3d");
 	return true;
 }
 
