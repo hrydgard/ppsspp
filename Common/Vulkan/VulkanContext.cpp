@@ -111,7 +111,9 @@ VkResult VulkanContext::CreateInstance(const CreateInfo &info) {
 	instance_extensions_enabled_.push_back(VK_KHR_ANDROID_SURFACE_EXTENSION_NAME);
 #else
 #if defined(VK_USE_PLATFORM_XLIB_KHR)
-	instance_extensions_enabled_.push_back(VK_KHR_XLIB_SURFACE_EXTENSION_NAME);
+	if (IsInstanceExtensionAvailable(VK_KHR_XLIB_SURFACE_EXTENSION_NAME)) {
+		instance_extensions_enabled_.push_back(VK_KHR_XLIB_SURFACE_EXTENSION_NAME);
+	}
 #endif
 //#if defined(VK_USE_PLATFORM_XCB_KHR)
 //	instance_extensions_enabled_.push_back(VK_KHR_XCB_SURFACE_EXTENSION_NAME);
@@ -120,7 +122,9 @@ VkResult VulkanContext::CreateInstance(const CreateInfo &info) {
 //	instance_extensions_enabled_.push_back(VK_KHR_MIR_SURFACE_EXTENSION_NAME);
 //#endif
 #if defined(VK_USE_PLATFORM_WAYLAND_KHR)
-	instance_extensions_enabled_.push_back(VK_KHR_WAYLAND_SURFACE_EXTENSION_NAME);
+	if (IsInstanceExtensionAvailable(VK_KHR_WAYLAND_SURFACE_EXTENSION_NAME)) {
+		instance_extensions_enabled_.push_back(VK_KHR_WAYLAND_SURFACE_EXTENSION_NAME);
+	}
 #endif
 #endif
 
