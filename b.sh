@@ -39,12 +39,9 @@ do
 		--no-package) echo "Packaging disabled"
 			PACKAGE=0
 			;;
-                --clang) echo "Clang enabled"
+		--clang) echo "Clang enabled"
 			export CC=/usr/bin/clang
 			export CXX=/usr/bin/clang++
-			;;
-		--*) echo "Bad option: $1"
-			exit 1
 			;;
 		*) MAKE_OPT="$1 ${MAKE_OPT}"
 			;;
