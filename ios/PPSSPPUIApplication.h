@@ -14,6 +14,9 @@
 @interface PPSSPPUIApplication : UIApplication
 {
 }
+
+@property (nonatomic, strong) UISelectionFeedbackGenerator *feedbackGenerator;
+
 @end
 
 
