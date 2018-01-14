@@ -911,14 +911,25 @@ namespace MainWindow {
 			} else if (info.type == FILETYPE_DIRECTORY) {
 				MessageBox(hWnd, L"Cannot extract directories.", L"Sorry", 0);
 			} else if (W32Util::BrowseForFileName(false, hWnd, L"Save file as...", 0, L"All files\0*.*\0\0", L"", fn)) {
-				FILE *fp = File::OpenCFile(fn, "wb");
 				u32 handle = pspFileSystem.OpenFile(filename, FILEACCESS_READ, "");
+				// Note: len may be in blocks.
+				size_t len = pspFileSystem.SeekFile(handle, 0, FILEMOVE_END);
+				bool isBlockMode = pspFileSystem.DevType(handle) == PSP_DEV_TYPE_BLOCK;
+
+				FILE *fp = File::OpenCFile(fn, "wb");
+				pspFileSystem.SeekFile(handle, 0, FILEMOVE_BEGIN);
 				u8 buffer[4096];
-				size_t bytes;
-				do {
-					bytes = pspFileSystem.ReadFile(handle, buffer, sizeof(buffer));
+				size_t bufferSize = isBlockMode ? sizeof(buffer) / 2048 : sizeof(buffer);
+				while (len > 0) {
+					// This is all in blocks, not bytes, if isBlockMode.
+					size_t remain = std::min(len, bufferSize);
+					size_t readSize = pspFileSystem.ReadFile(handle, buffer, remain);
+					if (readSize == 0)
+						break;
+					size_t bytes = isBlockMode ? readSize * 2048 : readSize;
 					fwrite(buffer, 1, bytes, fp);
-				} while (bytes == sizeof(buffer));
+					len -= readSize;
+				}
 				pspFileSystem.CloseFile(handle);
 				fclose(fp);
 			}
