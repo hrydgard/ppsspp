@@ -1308,7 +1308,7 @@ void OtherSettingsScreen::CreateViews() {
 	emulatedSpeed->SetZeroLabel(gr->T("Disabled"));
 	list->Add(new CheckBox(&g_Config.bShowFrameProfiler, gr->T("Display frame profiler(heavy!)")));
 	list->Add(new CheckBox(&g_Config.bSimpleFrameStats, gr->T("Display simple frame stats(heavy!)")));
-	list->Add(new CheckBox(&g_Config.bRefreshAt60Hz, gr->T("Refresh at 60Hz(might help some gpu's to avoid stutter)")));
+	list->Add(new CheckBox(&g_Config.bRefreshAt60Hz, gr->T("Refresh at 60Hz(gamebreaking, but might be needed for NVidia stutter)")));
 }
 
 void OtherSettingsScreen::onFinish(DialogResult result) {

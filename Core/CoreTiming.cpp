@@ -123,7 +123,7 @@ u64 GetGlobalTimeUsScaled()
 		float vps;
 		__DisplayGetVPS(&vps);
 		if (vps > 4.0f)
-			freq *= (vps / 59.94f);
+			freq *= (vps / (g_Config.bRefreshAt60Hz ? 60.0f : 59.94f));
 	}
 	s64 usSinceLast = ticksSinceLast / freq;
 	return lastGlobalTimeUs + usSinceLast;
