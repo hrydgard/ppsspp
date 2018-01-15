@@ -92,7 +92,7 @@ void IRFrontend::BranchRSRTComp(MIPSOpcode op, IRComparison cc, bool likely) {
 		CompileDelaySlot();
 
 	int dcAmount = js.downcountAmount;
-	ir.Write(IROp::Downcount, 0, dcAmount & 0xFF, dcAmount >> 8);
+	ir.Write(IROp::Downcount, 0, ir.AddConstant(dcAmount));
 	js.downcountAmount = 0;
 
 	FlushAll();
@@ -104,6 +104,8 @@ void IRFrontend::BranchRSRTComp(MIPSOpcode op, IRComparison cc, bool likely) {
 	FlushAll();
 	ir.Write(IROp::ExitToConst, ir.AddConstant(targetAddr));
 
+	// Account for the delay slot.
+	js.compilerPC += 4;
 	js.compiling = false;
 }
 
@@ -131,7 +133,7 @@ void IRFrontend::BranchRSZeroComp(MIPSOpcode op, IRComparison cc, bool andLink, 
 		CompileDelaySlot();
 
 	int dcAmount = js.downcountAmount;
-	ir.Write(IROp::Downcount, 0, dcAmount & 0xFF, dcAmount >> 8);
+	ir.Write(IROp::Downcount, 0, ir.AddConstant(dcAmount));
 	js.downcountAmount = 0;
 
 	FlushAll();
@@ -141,6 +143,9 @@ void IRFrontend::BranchRSZeroComp(MIPSOpcode op, IRComparison cc, bool andLink, 
 	// Taken
 	FlushAll();
 	ir.Write(IROp::ExitToConst, ir.AddConstant(targetAddr));
+
+	// Account for the delay slot.
+	js.compilerPC += 4;
 	js.compiling = false;
 }
 
@@ -195,7 +200,7 @@ void IRFrontend::BranchFPFlag(MIPSOpcode op, IRComparison cc, bool likely) {
 		CompileDelaySlot();
 
 	int dcAmount = js.downcountAmount;
-	ir.Write(IROp::Downcount, 0, dcAmount & 0xFF, dcAmount >> 8);
+	ir.Write(IROp::Downcount, 0, ir.AddConstant(dcAmount));
 	js.downcountAmount = 0;
 
 	FlushAll();
@@ -206,6 +211,9 @@ void IRFrontend::BranchFPFlag(MIPSOpcode op, IRComparison cc, bool likely) {
 		CompileDelaySlot();
 	FlushAll();
 	ir.Write(IROp::ExitToConst, ir.AddConstant(targetAddr));
+
+	// Account for the delay slot.
+	js.compilerPC += 4;
 	js.compiling = false;
 }
 
@@ -241,7 +249,7 @@ void IRFrontend::BranchVFPUFlag(MIPSOpcode op, IRComparison cc, bool likely) {
 		CompileDelaySlot();
 
 	int dcAmount = js.downcountAmount;
-	ir.Write(IROp::Downcount, 0, dcAmount & 0xFF, dcAmount >> 8);
+	ir.Write(IROp::Downcount, 0, ir.AddConstant(dcAmount));
 	js.downcountAmount = 0;
 
 	if (delaySlotIsBranch && (signed short)(delaySlotOp & 0xFFFF) != (signed short)(op & 0xFFFF) - 1)
@@ -261,6 +269,9 @@ void IRFrontend::BranchVFPUFlag(MIPSOpcode op, IRComparison cc, bool likely) {
 	// Taken
 	FlushAll();
 	ir.Write(IROp::ExitToConst, ir.AddConstant(targetAddr));
+
+	// Account for the delay slot.
+	js.compilerPC += 4;
 	js.compiling = false;
 }
 
@@ -284,11 +295,12 @@ void IRFrontend::Comp_Jump(MIPSOpcode op) {
 
 	// Might be a stubbed address or something?
 	if (!Memory::IsValidAddress(targetAddr)) {
-		if (js.nextExit == 0) {
+		// If preloading, flush - this block will likely be fixed later.
+		if (js.preloading)
+			js.cancel = true;
+		else
 			ERROR_LOG_REPORT(JIT, "Jump to invalid address: %08x", targetAddr);
-		} else {
-			js.compiling = false;
-		}
+		js.compiling = false;
 		// TODO: Mark this block dirty or something?  May be indication it will be changed by imports.
 		return;
 	}
@@ -309,11 +321,14 @@ void IRFrontend::Comp_Jump(MIPSOpcode op) {
 	}
 
 	int dcAmount = js.downcountAmount;
-	ir.Write(IROp::Downcount, 0, dcAmount & 0xFF, dcAmount >> 8);
+	ir.Write(IROp::Downcount, 0, ir.AddConstant(dcAmount));
 	js.downcountAmount = 0;
 
 	FlushAll();
 	ir.Write(IROp::ExitToConst, ir.AddConstant(targetAddr));
+
+	// Account for the delay slot.
+	js.compilerPC += 4;
 	js.compiling = false;
 }
 
@@ -338,6 +353,9 @@ void IRFrontend::Comp_JumpReg(MIPSOpcode op) {
 			ir.WriteSetConstant(rd, GetCompilerPC() + 8);
 		CompileDelaySlot();
 		// Syscall (the delay slot) does FlushAll.
+
+		// Account for the delay slot itself in total bytes.
+		js.compilerPC += 4;
 		return;  // Syscall (delay slot) wrote exit code.
 	} else if (delaySlotIsNice) {
 		if (andLink)
@@ -367,17 +385,20 @@ void IRFrontend::Comp_JumpReg(MIPSOpcode op) {
 	}
 
 	int dcAmount = js.downcountAmount;
-	ir.Write(IROp::Downcount, 0, dcAmount & 0xFF, dcAmount >> 8);
+	ir.Write(IROp::Downcount, 0, ir.AddConstant(dcAmount));
 	js.downcountAmount = 0;
 
 	ir.Write(IROp::ExitToReg, 0, destReg, 0);
+
+	// Account for the delay slot.
+	js.compilerPC += 4;
 	js.compiling = false;
 }
 
 void IRFrontend::Comp_Syscall(MIPSOpcode op) {
 	// Note: If we're in a delay slot, this is off by one compared to the interpreter.
 	int dcAmount = js.downcountAmount + (js.inDelaySlot ? -1 : 0);
-	ir.Write(IROp::Downcount, 0, dcAmount & 0xFF, dcAmount >> 8);
+	ir.Write(IROp::Downcount, 0, ir.AddConstant(dcAmount));
 	js.downcountAmount = 0;
 
 	// If not in a delay slot, we need to update PC.

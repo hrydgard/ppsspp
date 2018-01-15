@@ -41,16 +41,13 @@
 // #define CONDITIONAL_DISABLE { Comp_Generic(op); return; }
 #define CONDITIONAL_DISABLE ;
 #define DISABLE { Comp_Generic(op); return; }
+#define INVALIDOP { Comp_Generic(op); return; }
 
 namespace MIPSComp {
-	void IRFrontend::Comp_ITypeMemLR(MIPSOpcode op, bool load) {
-		DISABLE;
-	}
-
 	void IRFrontend::Comp_ITypeMem(MIPSOpcode op) {
 		CONDITIONAL_DISABLE;
 
-		int offset = (signed short)(op & 0xFFFF);
+		int offset = _IMM16;
 		MIPSGPReg rt = _RT;
 		MIPSGPReg rs = _RS;
 		int o = op >> 26;
@@ -61,7 +58,6 @@ namespace MIPSComp {
 
 		CheckMemoryBreakpoint(rs, offset);
 
-		int addrReg = IRTEMP_0;
 		switch (o) {
 			// Load
 		case 35:
@@ -91,18 +87,27 @@ namespace MIPSComp {
 			break;
 
 		case 34: //lwl
-		case 38: //lwr
-		case 42: //swl
-		case 46: //swr
-			DISABLE;
+			ir.Write(IROp::Load32Left, rt, rs, ir.AddConstant(offset));
 			break;
+		case 38: //lwr
+			ir.Write(IROp::Load32Right, rt, rs, ir.AddConstant(offset));
+			break;
+		case 42: //swl
+			ir.Write(IROp::Store32Left, rt, rs, ir.AddConstant(offset));
+			break;
+		case 46: //swr
+			ir.Write(IROp::Store32Right, rt, rs, ir.AddConstant(offset));
+			break;
+
 		default:
-			Comp_Generic(op);
+			INVALIDOP;
 			return;
 		}
 	}
 
 	void IRFrontend::Comp_Cache(MIPSOpcode op) {
+		CONDITIONAL_DISABLE;
+
 //		int imm = (s16)(op & 0xFFFF);
 //		int rs = _RS;
 //		int addr = R(rs) + imm;

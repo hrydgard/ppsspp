@@ -214,12 +214,8 @@ void GPU_Vulkan::CheckGPUFeatures() {
 	}
 	if (vulkan_->GetFeaturesEnabled().dualSrcBlend) {
 		switch (vulkan_->GetPhysicalDeviceProperties().vendorID) {
-		case VULKAN_VENDOR_NVIDIA:
-			// Workaround for Shield TV and Shield Tablet driver bug.
-			if (strcmp(vulkan_->GetPhysicalDeviceProperties().deviceName, "NVIDIA Tegra X1") != 0 &&
-				  strcmp(vulkan_->GetPhysicalDeviceProperties().deviceName, "NVIDIA Tegra K1") != 0)
-				features |= GPU_SUPPORTS_DUALSOURCE_BLEND;
-			break;
+		// We thought we had a bug here on nVidia but turns out we accidentally #ifdef-ed out crucial
+		// code on Android.
 		case VULKAN_VENDOR_INTEL:
 			// Workaround for Intel driver bug.
 			break;
@@ -668,7 +664,7 @@ void GPU_Vulkan::GetStats(char *buffer, size_t bufsize) {
 		"Cached, Uncached Vertices Drawn: %i, %i\n"
 		"FBOs active: %i\n"
 		"Textures active: %i, decoded: %i  invalidated: %i\n"
-		"Readbacks: %d\n"
+		"Readbacks: %d, uploads: %d\n"
 		"Vertex, Fragment, Pipelines loaded: %i, %i, %i\n"
 		"Pushbuffer space used: UBO %d, Vtx %d, Idx %d\n"
 		"%s\n",
@@ -689,6 +685,7 @@ void GPU_Vulkan::GetStats(char *buffer, size_t bufsize) {
 		gpuStats.numTexturesDecoded,
 		gpuStats.numTextureInvalidations,
 		gpuStats.numReadbacks,
+		gpuStats.numUploads,
 		shaderManagerVulkan_->GetNumVertexShaders(),
 		shaderManagerVulkan_->GetNumFragmentShaders(),
 		pipelineManager_->GetNumPipelines(),

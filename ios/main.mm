@@ -11,6 +11,7 @@
 #import "PPSSPPUIApplication.h"
 
 #include "base/NativeApp.h"
+#include "profiler/profiler.h"
 
 @interface UIApplication (Private)
 -(void) suspend;
@@ -97,23 +98,60 @@ PermissionStatus System_GetPermissionStatus(SystemPermission permission) { retur
 
 FOUNDATION_EXTERN void AudioServicesPlaySystemSoundWithVibration(unsigned long, objc_object*, NSDictionary*);
 
-void Vibrate(int length_ms) {
-	NSMutableDictionary *dictionary = [NSMutableDictionary dictionary];
-	NSArray *pattern = @[@YES, @30, @NO, @2];
-	
-	dictionary[@"VibePattern"] = pattern;
-	dictionary[@"Intensity"] = @2;
-	
-	AudioServicesPlaySystemSoundWithVibration(kSystemSoundID_Vibrate, nil, dictionary);
-	// TODO: Actually make use of length_ms if PPSSPP ever adds that in the config
+BOOL SupportsTaptic()
+{
+    // we're on an iOS version that cannot instantiate UISelectionFeedbackGenerator, so no.
+    if(!NSClassFromString(@"UISelectionFeedbackGenerator"))
+    {
+        return NO;
+    }
+    
+    // http://www.mikitamanko.com/blog/2017/01/29/haptic-feedback-with-uifeedbackgenerator/
+    // use private API against UIDevice to determine the haptic stepping
+    // 2 - iPhone 7 or above, full taptic feedback
+    // 1 - iPhone 6S, limited taptic feedback
+    // 0 - iPhone 6 or below, no taptic feedback
+    NSNumber* val = (NSNumber*)[[UIDevice currentDevice] valueForKey:@"feedbackSupportLevel"];
+    return [val intValue] >= 2;
+}
+
+void Vibrate(int mode) {
+    
+    if(SupportsTaptic())
+    {
+        PPSSPPUIApplication* app = (PPSSPPUIApplication*)[UIApplication sharedApplication];
+        if(app.feedbackGenerator == nil)
+        {
+            app.feedbackGenerator = [[UISelectionFeedbackGenerator alloc] init];
+            [app.feedbackGenerator prepare];
+        }
+        [app.feedbackGenerator selectionChanged];
+    }
+    else
+    {
+        NSMutableDictionary *dictionary = [NSMutableDictionary dictionary];
+        NSArray *pattern = @[@YES, @30, @NO, @2];
+        
+        dictionary[@"VibePattern"] = pattern;
+        dictionary[@"Intensity"] = @2;
+        
+        AudioServicesPlaySystemSoundWithVibration(kSystemSoundID_Vibrate, nil, dictionary);
+    }
 }
 
 int main(int argc, char *argv[])
 {
 	// Simulates a debugger. Makes it possible to use JIT (though only W^X)
 	syscall(SYS_ptrace, 0 /*PTRACE_TRACEME*/, 0, 0, 0);
+	
+	PROFILE_INIT();
+	
 	@autoreleasepool {
-        return UIApplicationMain(argc, argv, NSStringFromClass([PPSSPPUIApplication class]), nil);
-        //return UIApplicationMain(argc, argv, nil, NSStringFromClass([AppDelegate class]));
+		NSString *documentsPath = [NSSearchPathForDirectoriesInDomains(NSDocumentDirectory, NSUserDomainMask, YES) objectAtIndex:0];
+		NSString *bundlePath = [[[NSBundle mainBundle] resourcePath] stringByAppendingString:@"/assets/"];
+		
+		NativeInit(argc, (const char**)argv, documentsPath.UTF8String, bundlePath.UTF8String, NULL);
+		
+		return UIApplicationMain(argc, argv, NSStringFromClass([PPSSPPUIApplication class]), NSStringFromClass([AppDelegate class]));
 	}
 }

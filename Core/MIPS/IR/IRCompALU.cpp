@@ -40,14 +40,15 @@
 // #define CONDITIONAL_DISABLE { Comp_Generic(op); return; }
 #define CONDITIONAL_DISABLE ;
 #define DISABLE { Comp_Generic(op); return; }
+#define INVALIDOP { Comp_Generic(op); return; }
 
 namespace MIPSComp {
 
 void IRFrontend::Comp_IType(MIPSOpcode op) {
 	CONDITIONAL_DISABLE;
 
-	s32 simm = (s32)(s16)(op & 0xFFFF);  // sign extension
-	u32 uimm = op & 0xFFFF;
+	s32 simm = (s32)_IMM16;  // sign extension
+	u32 uimm = (u16)_IMM16;
 	u32 suimm = (u32)(s32)simm;
 
 	MIPSGPReg rt = _RT;
@@ -80,7 +81,7 @@ void IRFrontend::Comp_IType(MIPSOpcode op) {
 		break;
 
 	default:
-		Comp_Generic(op);
+		INVALIDOP;
 		break;
 	}
 }
@@ -104,7 +105,7 @@ void IRFrontend::Comp_RType2(MIPSOpcode op) {
 		ir.Write(IROp::Clz, rd, IRTEMP_0);
 		break;
 	default:
-		Comp_Generic(op);
+		INVALIDOP;
 		break;
 	}
 }
@@ -176,7 +177,7 @@ void IRFrontend::Comp_RType3(MIPSOpcode op) {
 		break;
 
 	default:
-		Comp_Generic(op);
+		INVALIDOP;
 		break;
 	}
 }
@@ -187,7 +188,7 @@ void IRFrontend::CompShiftImm(MIPSOpcode op, IROp shiftOpImm, int sa) {
 	ir.Write(shiftOpImm, rd, rt, sa);
 }
 
-void IRFrontend::CompShiftVar(MIPSOpcode op, IROp shiftOp, IROp shiftOpImm) {
+void IRFrontend::CompShiftVar(MIPSOpcode op, IROp shiftOp) {
 	MIPSGPReg rd = _RD;
 	MIPSGPReg rt = _RT;
 	MIPSGPReg rs = _RS;
@@ -210,11 +211,12 @@ void IRFrontend::Comp_ShiftType(MIPSOpcode op) {
 	case 0: CompShiftImm(op, IROp::ShlImm, sa); break; //sll
 	case 2: CompShiftImm(op, (rs == 1 ? IROp::RorImm : IROp::ShrImm), sa); break;	//srl
 	case 3: CompShiftImm(op, IROp::SarImm, sa); break; //sra
-	case 4: CompShiftVar(op, IROp::Shl, IROp::ShlImm); break; //sllv
-	case 6: CompShiftVar(op, (sa == 1 ? IROp::Ror : IROp::Shr), (sa == 1 ? IROp::RorImm : IROp::ShrImm)); break; //srlv
-	case 7: CompShiftVar(op, IROp::Sar, IROp::SarImm); break; //srav
+	case 4: CompShiftVar(op, IROp::Shl); break; //sllv
+	case 6: CompShiftVar(op, (sa == 1 ? IROp::Ror : IROp::Shr)); break; //srlv
+	case 7: CompShiftVar(op, IROp::Sar); break; //srav
+
 	default:
-		Comp_Generic(op);
+		INVALIDOP;
 		break;
 	}
 }
@@ -256,7 +258,7 @@ void IRFrontend::Comp_Special3(MIPSOpcode op) {
 	break;
 
 	default:
-		Comp_Generic(op);
+		INVALIDOP;
 		break;
 	}
 }
@@ -285,7 +287,7 @@ void IRFrontend::Comp_Allegrex(MIPSOpcode op) {
 		break;
 
 	default:
-		Comp_Generic(op);
+		INVALIDOP;
 		return;
 	}
 }
@@ -307,7 +309,7 @@ void IRFrontend::Comp_Allegrex2(MIPSOpcode op) {
 		ir.Write(IROp::BSwap32, rd, rt);
 		break;
 	default:
-		Comp_Generic(op);
+		INVALIDOP;
 		break;
 	}
 }
@@ -372,7 +374,7 @@ void IRFrontend::Comp_MulDivType(MIPSOpcode op) {
 		break;
 
 	default:
-		DISABLE;
+		INVALIDOP;
 	}
 }
 

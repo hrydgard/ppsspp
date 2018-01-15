@@ -99,6 +99,8 @@ void HLEDoState(PointerWrap &p)
 	if (!s)
 		return;
 
+	// Can't be inside a syscall, reset this so errors aren't misleading.
+	latestSyscall = nullptr;
 	p.Do(delayedResultEvent);
 	CoreTiming::RestoreRegisterEvent(delayedResultEvent, "HLEDelayedResult", hleDelayResultFinish);
 }
@@ -656,11 +658,18 @@ size_t hleFormatLogArgs(char *message, size_t sz, const char *argmask) {
 
 void hleDoLogInternal(LogTypes::LOG_TYPE t, LogTypes::LOG_LEVELS level, u64 res, const char *file, int line, const char *reportTag, char retmask, const char *reason, const char *formatted_reason) {
 	char formatted_args[4096];
-	hleFormatLogArgs(formatted_args, sizeof(formatted_args), latestSyscall->argmask);
+	const char *funcName = "?";
+	u32 funcFlags = 0;
+	if (latestSyscall) {
+		hleFormatLogArgs(formatted_args, sizeof(formatted_args), latestSyscall->argmask);
 
-	// This acts as an override (for error returns which are usually hex.)
-	if (retmask == '\0')
-		retmask = latestSyscall->retmask;
+		// This acts as an override (for error returns which are usually hex.)
+		if (retmask == '\0')
+			retmask = latestSyscall->retmask;
+
+		funcName = latestSyscall->name;
+		funcFlags = latestSyscall->flags;
+	}
 
 	const char *fmt;
 	if (retmask == 'x') {
@@ -677,19 +686,19 @@ void hleDoLogInternal(LogTypes::LOG_TYPE t, LogTypes::LOG_LEVELS level, u64 res,
 		fmt = "%s%08llx=%s(%s)%s";
 	}
 
-	const char *kernelFlag = (latestSyscall->flags & HLE_KERNEL_SYSCALL) != 0 ? "K " : "";
-	GenericLog(level, t, file, line, fmt, kernelFlag, res, latestSyscall->name, formatted_args, formatted_reason);
+	const char *kernelFlag = (funcFlags & HLE_KERNEL_SYSCALL) != 0 ? "K " : "";
+	GenericLog(level, t, file, line, fmt, kernelFlag, res, funcName, formatted_args, formatted_reason);
 
 	if (reportTag != nullptr) {
 		// A blank string means always log, not just once.
 		if (reportTag[0] == '\0' || Reporting::ShouldLogOnce(reportTag)) {
 			// Here we want the original key, so that different args, etc. group together.
-			std::string key = std::string(kernelFlag) + std::string("%08x=") + latestSyscall->name + "(%s)";
+			std::string key = std::string(kernelFlag) + std::string("%08x=") + funcName + "(%s)";
 			if (reason != nullptr)
 				key += std::string(": ") + reason;
 
 			char formatted_message[8192];
-			snprintf(formatted_message, sizeof(formatted_message), fmt, kernelFlag, res, latestSyscall->name, formatted_args, formatted_reason);
+			snprintf(formatted_message, sizeof(formatted_message), fmt, kernelFlag, res, funcName, formatted_args, formatted_reason);
 			Reporting::ReportMessageFormatted(key.c_str(), formatted_message);
 		}
 	}

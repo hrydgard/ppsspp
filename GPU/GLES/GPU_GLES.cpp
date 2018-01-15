@@ -203,6 +203,26 @@ GPU_GLES::~GPU_GLES() {
 #endif
 }
 
+static constexpr int MakeIntelSimpleVer(int v1, int v2, int v3) {
+	return (v1 << 16) | (v2 << 8) | v3;
+}
+
+static bool HasIntelDualSrcBug(int versions[4]) {
+	// Intel uses a confusing set of at least 3 version numbering schemes.  This is the one given to OpenGL.
+	switch (MakeIntelSimpleVer(versions[0], versions[1], versions[2])) {
+	case MakeIntelSimpleVer(9, 17, 10):
+	case MakeIntelSimpleVer(9, 18, 10):
+		return false;
+	case MakeIntelSimpleVer(10, 18, 10):
+		return versions[3] < 4061;
+	case MakeIntelSimpleVer(10, 18, 14):
+		return versions[3] < 4080;
+	default:
+		// Older than above didn't support dual src anyway, newer should have the fix.
+		return false;
+	}
+}
+
 // Take the raw GL extension and versioning data and turn into feature flags.
 void GPU_GLES::CheckGPUFeatures() {
 	u32 features = 0;
@@ -210,18 +230,22 @@ void GPU_GLES::CheckGPUFeatures() {
 	features |= GPU_SUPPORTS_16BIT_FORMATS;
 
 	if (gl_extensions.ARB_blend_func_extended || gl_extensions.EXT_blend_func_extended) {
-		if (gl_extensions.gpuVendor == GPU_VENDOR_INTEL || !gl_extensions.VersionGEThan(3, 0, 0)) {
-			// Don't use this extension to off on sub 3.0 OpenGL versions as it does not seem reliable
-			// Also on Intel, see https://github.com/hrydgard/ppsspp/issues/4867
-		} else {
-#ifdef __ANDROID__
-			// This appears to be broken on nVidia Shield TV.
-			if (gl_extensions.gpuVendor != GPU_VENDOR_NVIDIA) {
+		if (!gl_extensions.VersionGEThan(3, 0, 0)) {
+			// Don't use this extension on sub 3.0 OpenGL versions as it does not seem reliable
+		} else if (gl_extensions.gpuVendor == GPU_VENDOR_INTEL) {
+			// Also on Intel, see https://github.com/hrydgard/ppsspp/issues/10117
+			// TODO: Remove entirely sometime reasonably far in driver years after 2015.
+			const std::string ver = draw_->GetInfoString(Draw::InfoField::APIVERSION);
+			int versions[4]{};
+			if (sscanf(ver.c_str(), "Build %d.%d.%d.%d", &versions[0], &versions[1], &versions[2], &versions[3]) == 4) {
+				if (!HasIntelDualSrcBug(versions)) {
+					features |= GPU_SUPPORTS_DUALSOURCE_BLEND;
+				}
+			} else {
 				features |= GPU_SUPPORTS_DUALSOURCE_BLEND;
 			}
-#else
+		} else {
 			features |= GPU_SUPPORTS_DUALSOURCE_BLEND;
-#endif
 		}
 	}
 
@@ -702,7 +726,7 @@ void GPU_GLES::GetStats(char *buffer, size_t bufsize) {
 		"Cached, Uncached Vertices Drawn: %i, %i\n"
 		"FBOs active: %i\n"
 		"Textures active: %i, decoded: %i  invalidated: %i\n"
-		"Readbacks: %d\n"
+		"Readbacks: %d, uploads: %d\n"
 		"Vertex, Fragment, Programs loaded: %i, %i, %i\n",
 		gpuStats.msProcessingDisplayLists * 1000.0f,
 		gpuStats.numDrawCalls,
@@ -721,6 +745,7 @@ void GPU_GLES::GetStats(char *buffer, size_t bufsize) {
 		gpuStats.numTexturesDecoded,
 		gpuStats.numTextureInvalidations,
 		gpuStats.numReadbacks,
+		gpuStats.numUploads,
 		shaderManagerGL_->GetNumVertexShaders(),
 		shaderManagerGL_->GetNumFragmentShaders(),
 		shaderManagerGL_->GetNumPrograms());

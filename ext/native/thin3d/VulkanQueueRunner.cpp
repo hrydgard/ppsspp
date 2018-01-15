@@ -7,7 +7,6 @@
 void VulkanQueueRunner::CreateDeviceObjects() {
 	ILOG("VulkanQueueRunner::CreateDeviceObjects");
 	InitBackbufferRenderPass();
-	InitRenderpasses();
 
 #if 0
 	// Just to check whether it makes sense to split some of these. drawidx is way bigger than the others...
@@ -67,11 +66,12 @@ void VulkanQueueRunner::DestroyDeviceObjects() {
 	vulkan_->Delete().QueueDeleteBuffer(readbackBuffer_);
 	readbackBufferSize_ = 0;
 
-	for (int i = 0; i < ARRAY_SIZE(renderPasses_); i++) {
-		assert(renderPasses_[i] != VK_NULL_HANDLE);
-		vulkan_->Delete().QueueDeleteRenderPass(renderPasses_[i]);
-		renderPasses_[i] = VK_NULL_HANDLE;
-	}
+	renderPasses_.Iterate([&](const RPKey &rpkey, VkRenderPass rp) {
+		_assert_(rp != VK_NULL_HANDLE);
+		vulkan_->Delete().QueueDeleteRenderPass(rp);
+	});
+	renderPasses_.Clear();
+
 	assert(backbufferRenderPass_ != VK_NULL_HANDLE);
 	vulkan_->Delete().QueueDeleteRenderPass(backbufferRenderPass_);
 	backbufferRenderPass_ = VK_NULL_HANDLE;
@@ -141,13 +141,28 @@ void VulkanQueueRunner::InitBackbufferRenderPass() {
 	assert(res == VK_SUCCESS);
 }
 
-void VulkanQueueRunner::InitRenderpasses() {
-	// Create a bunch of render pass objects, for normal rendering with a depth buffer,
-	// with clearing, without clearing, and dont-care for both depth/stencil and color, so 3*3=9 combos.
+VkRenderPass VulkanQueueRunner::GetRenderPass(VKRRenderPassAction colorLoadAction, VKRRenderPassAction depthLoadAction, VKRRenderPassAction stencilLoadAction) {
+	RPKey key{ colorLoadAction, depthLoadAction, stencilLoadAction };
+	auto pass = renderPasses_.Get(key);
+	if (pass) {
+		return pass;
+	}
+
 	VkAttachmentDescription attachments[2] = {};
 	attachments[0].format = VK_FORMAT_R8G8B8A8_UNORM;
 	attachments[0].samples = VK_SAMPLE_COUNT_1_BIT;
-	attachments[0].loadOp = VK_ATTACHMENT_LOAD_OP_LOAD;
+	switch (colorLoadAction) {
+	case VKRRenderPassAction::CLEAR:
+		attachments[0].loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
+		break;
+	case VKRRenderPassAction::KEEP:
+		attachments[0].loadOp = VK_ATTACHMENT_LOAD_OP_LOAD;
+		break;
+	case VKRRenderPassAction::DONT_CARE:
+	default:
+		attachments[0].loadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
+		break;
+	}
 	attachments[0].storeOp = VK_ATTACHMENT_STORE_OP_STORE;
 	attachments[0].stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
 	attachments[0].stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
@@ -157,9 +172,29 @@ void VulkanQueueRunner::InitRenderpasses() {
 
 	attachments[1].format = vulkan_->GetDeviceInfo().preferredDepthStencilFormat;
 	attachments[1].samples = VK_SAMPLE_COUNT_1_BIT;
-	attachments[1].loadOp = VK_ATTACHMENT_LOAD_OP_LOAD;
+	switch (depthLoadAction) {
+	case VKRRenderPassAction::CLEAR:
+		attachments[1].loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
+		break;
+	case VKRRenderPassAction::KEEP:
+		attachments[1].loadOp = VK_ATTACHMENT_LOAD_OP_LOAD;
+		break;
+	case VKRRenderPassAction::DONT_CARE:
+		attachments[1].loadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
+		break;
+	}
+	switch (stencilLoadAction) {
+	case VKRRenderPassAction::CLEAR:
+		attachments[1].stencilLoadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
+		break;
+	case VKRRenderPassAction::KEEP:
+		attachments[1].stencilLoadOp = VK_ATTACHMENT_LOAD_OP_LOAD;
+		break;
+	case VKRRenderPassAction::DONT_CARE:
+		attachments[1].stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
+		break;
+	}
 	attachments[1].storeOp = VK_ATTACHMENT_STORE_OP_STORE;
-	attachments[1].stencilLoadOp = VK_ATTACHMENT_LOAD_OP_LOAD;
 	attachments[1].stencilStoreOp = VK_ATTACHMENT_STORE_OP_STORE;
 	attachments[1].initialLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
 	attachments[1].finalLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
@@ -192,31 +227,10 @@ void VulkanQueueRunner::InitRenderpasses() {
 	rp.pSubpasses = &subpass;
 	rp.dependencyCount = 0;
 
-	for (int depth = 0; depth < 3; depth++) {
-		switch ((VKRRenderPassAction)depth) {
-		case VKRRenderPassAction::CLEAR:
-			attachments[1].loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
-			attachments[1].stencilLoadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
-			break;
-		case VKRRenderPassAction::KEEP:
-			attachments[1].loadOp = VK_ATTACHMENT_LOAD_OP_LOAD;
-			attachments[1].stencilLoadOp = VK_ATTACHMENT_LOAD_OP_LOAD;
-			break;
-		case VKRRenderPassAction::DONT_CARE:
-			attachments[1].loadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
-			attachments[1].stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
-			break;
-		}
-		for (int color = 0; color < 3; color++) {
-			switch ((VKRRenderPassAction)color) {
-			case VKRRenderPassAction::CLEAR: attachments[0].loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR; break;
-			case VKRRenderPassAction::KEEP: attachments[0].loadOp = VK_ATTACHMENT_LOAD_OP_LOAD; break;
-			case VKRRenderPassAction::DONT_CARE: attachments[0].loadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE; break;
-			}
-			int index = RPIndex((VKRRenderPassAction)color, (VKRRenderPassAction)depth);
-			vkCreateRenderPass(vulkan_->GetDevice(), &rp, nullptr, &renderPasses_[index]);
-		}
-	}
+	VkResult res = vkCreateRenderPass(vulkan_->GetDevice(), &rp, nullptr, &pass);
+	_assert_(res == VK_SUCCESS);
+	renderPasses_.Insert(key, pass);
+	return pass;
 }
 
 void VulkanQueueRunner::RunSteps(VkCommandBuffer cmd, const std::vector<VKRStep *> &steps) {
@@ -596,7 +610,7 @@ void VulkanQueueRunner::PerformBindFramebufferAsRenderTarget(const VKRStep &step
 			fb->depth.layout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
 		}
 
-		renderPass = renderPasses_[RPIndex(step.render.color, step.render.depthStencil)];
+		renderPass = GetRenderPass(step.render.color, step.render.depthStencil, step.render.depthStencil);
 		if (step.render.color == VKRRenderPassAction::CLEAR) {
 			Uint8x4ToFloat4(clearVal[0].color.float32, step.render.clearColor);
 			numClearVals = 1;

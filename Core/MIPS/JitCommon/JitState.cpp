@@ -51,8 +51,11 @@ namespace MIPSComp {
 		continueMaxInstructions = 300;
 
 		useStaticAlloc = false;
+		enablePointerify = false;
 #if PPSSPP_ARCH(ARM64)
 		useStaticAlloc = true;
+		// iOS/etc. may disable at runtime if Memory::base is not nicely aligned.
+		enablePointerify = true;
 #endif
 	}
 }

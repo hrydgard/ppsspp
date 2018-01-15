@@ -55,11 +55,6 @@ static const char *logSectionName = "LogDebug";
 static const char *logSectionName = "Log";
 #endif
 
-
-#ifdef IOS
-extern bool iosCanUseJit;
-#endif
-
 struct ConfigSetting {
 	enum Type {
 		TYPE_TERMINATOR,
@@ -314,11 +309,8 @@ static int DefaultNumWorkers() {
 	return cpu_info.num_cores;
 }
 
-// TODO: Default to IRJit on iOS when it's done.
 static int DefaultCpuCore() {
-#ifdef IOS
-	return (int)(iosCanUseJit ? CPUCore::JIT : CPUCore::INTERPRETER);
-#elif defined(ARM) || defined(ARM64) || defined(_M_IX86) || defined(_M_X64)
+#if defined(ARM) || defined(ARM64) || defined(_M_IX86) || defined(_M_X64)
 	return (int)CPUCore::JIT;
 #else
 	return (int)CPUCore::INTERPRETER;
@@ -326,9 +318,7 @@ static int DefaultCpuCore() {
 }
 
 static bool DefaultCodeGen() {
-#ifdef IOS
-	return iosCanUseJit ? true : false;
-#elif defined(ARM) || defined(ARM64) || defined(_M_IX86) || defined(_M_X64)
+#if defined(ARM) || defined(ARM64) || defined(_M_IX86) || defined(_M_X64)
 	return true;
 #else
 	return false;
@@ -423,6 +413,7 @@ static ConfigSetting cpuSettings[] = {
 	ConfigSetting("FastMemoryAccess", &g_Config.bFastMemory, false, true, true),
 	ReportedConfigSetting("FuncReplacements", &g_Config.bFuncReplacements, true, true, true),
 	ConfigSetting("HideSlowWarnings", &g_Config.bHideSlowWarnings, true, true, false),
+	ConfigSetting("PreloadFunctions", &g_Config.bPreloadFunctions, false, true, true),
 	ReportedConfigSetting("CPUSpeed", &g_Config.iLockedCPUSpeed, 0, true, true),
 
 	ConfigSetting(false),

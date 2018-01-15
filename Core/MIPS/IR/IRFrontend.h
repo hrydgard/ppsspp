@@ -86,12 +86,16 @@ public:
 
 	int Replace_fabsf() override;
 	void DoState(PointerWrap &p);
-	bool CheckRounding();  // returns true if we need a do-over
+	bool CheckRounding(u32 blockAddress);  // returns true if we need a do-over
 
-	void DoJit(u32 em_address, std::vector<IRInst> &instructions, std::vector<u32> &constants, u32 &mipsBytes);
+	void DoJit(u32 em_address, std::vector<IRInst> &instructions, u32 &mipsBytes, bool preload);
 
 	void EatPrefix() override {
 		js.EatPrefix();
+	}
+
+	void SetOptions(const IROptions &o) {
+		opts = o;
 	}
 
 private:
@@ -118,7 +122,7 @@ private:
 
 	// Utilities to reduce duplicated code
 	void CompShiftImm(MIPSOpcode op, IROp shiftType, int sa);
-	void CompShiftVar(MIPSOpcode op, IROp shiftType, IROp shiftTypeConst);
+	void CompShiftVar(MIPSOpcode op, IROp shiftType);
 
 	void ApplyPrefixST(u8 *vregs, u32 prefix, VectorSize sz, int tempReg);
 	void ApplyPrefixD(const u8 *vregs, VectorSize sz);
@@ -128,15 +132,13 @@ private:
 	void GetVectorRegs(u8 regs[4], VectorSize N, int vectorReg);
 	void GetMatrixRegs(u8 regs[16], MatrixSize N, int matrixReg);
 
-	// Utils
-	void Comp_ITypeMemLR(MIPSOpcode op, bool load);
-
 	// State
 	JitState js;
 	IRWriter ir;
+	IROptions opts{};
 
-	int dontLogBlocks;
-	int logBlocks;
+	int dontLogBlocks = 0;
+	int logBlocks = 0;
 };
 
 }  // namespace

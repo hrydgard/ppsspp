@@ -60,7 +60,7 @@ void DevMenu::CreatePopupContents(UI::ViewGroup *parent) {
 	I18NCategory *dev = GetI18NCategory("Developer");
 	I18NCategory *sy = GetI18NCategory("System");
 
-	ScrollView *scroll = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT));
+	ScrollView *scroll = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT, 1.0f));
 	LinearLayout *items = new LinearLayout(ORIENT_VERTICAL);
 
 	items->Add(new CheckBox(&g_Config.bShowFrameProfiler, dev->T("Frame Profiler"), ""));
@@ -366,7 +366,7 @@ void SystemInfoScreen::CreateViews() {
 	deviceSpecs->Add(new InfoItem(si->T("ABI"), GetCompilerABI()));
 #ifdef _WIN32
 	if (IsDebuggerPresent()) {
-		deviceSpecs->Add(new InfoItem(si->T("Debugger Present"), si->T("Yes")));
+		deviceSpecs->Add(new InfoItem(si->T("Debugger Present"), di->T("Yes")));
 	}
 #endif
 
@@ -400,13 +400,13 @@ void SystemInfoScreen::CreateViews() {
 #endif
 #endif
 	if (GetGPUBackend() == GPUBackend::OPENGL) {
-		deviceSpecs->Add(new InfoItem(si->T("Core Context"), gl_extensions.IsCoreContext ? si->T("Yes") : si->T("No")));
+		deviceSpecs->Add(new InfoItem(si->T("Core Context"), gl_extensions.IsCoreContext ? di->T("Active") : di->T("Inactive")));
 	}
 	deviceSpecs->Add(new ItemHeader(si->T("OS Information")));
 	deviceSpecs->Add(new InfoItem(si->T("Memory Page Size"), StringFromFormat(si->T("%d bytes"), GetMemoryProtectPageSize())));
-	deviceSpecs->Add(new InfoItem(si->T("RW/RX exclusive"), PlatformIsWXExclusive() ? si->T("Yes") : si->T("No")));
+	deviceSpecs->Add(new InfoItem(si->T("RW/RX exclusive"), PlatformIsWXExclusive() ? di->T("Active") : di->T("Inactive")));
 #ifdef ANDROID
-	deviceSpecs->Add(new InfoItem(si->T("Sustained perf mode"), System_GetPropertyBool(SYSPROP_SUPPORTS_SUSTAINED_PERF_MODE) ? si->T("Yes") : si->T("No")));
+	deviceSpecs->Add(new InfoItem(si->T("Sustained perf mode"), System_GetPropertyBool(SYSPROP_SUPPORTS_SUSTAINED_PERF_MODE) ? di->T("Supported") : di->T("Unsupported")));
 #endif
 
 	const char *build = si->T("Release");
@@ -701,46 +701,41 @@ void JitCompareScreen::UpdateDisasm() {
 
 	I18NCategory *dev = GetI18NCategory("Developer");
 
-	JitBlockCache *blockCache = MIPSComp::jit->GetBlockCache();
+	JitBlockCacheDebugInterface *blockCacheDebug = MIPSComp::jit->GetBlockCacheDebugInterface();
 
 	char temp[256];
-	snprintf(temp, sizeof(temp), "%i/%i", currentBlock_, blockCache->GetNumBlocks());
+	snprintf(temp, sizeof(temp), "%i/%i", currentBlock_, blockCacheDebug->GetNumBlocks());
 	blockName_->SetText(temp);
 
-	if (currentBlock_ < 0 || currentBlock_ >= blockCache->GetNumBlocks()) {
+	if (currentBlock_ < 0 || currentBlock_ >= blockCacheDebug->GetNumBlocks()) {
 		leftDisasm_->Add(new TextView(dev->T("No block")));
 		rightDisasm_->Add(new TextView(dev->T("No block")));
 		blockStats_->SetText("");
 		return;
 	}
 
-	JitBlock *block = blockCache->GetBlock(currentBlock_);
+	JitBlockDebugInfo debugInfo = blockCacheDebug->GetBlockDebugInfo(currentBlock_);
 
-	snprintf(temp, sizeof(temp), "%08x", block->originalAddress);
+	snprintf(temp, sizeof(temp), "%08x", debugInfo.originalAddress);
 	blockAddr_->SetText(temp);
 
 	// Alright. First generate the MIPS disassembly.
 	
 	// TODO: Need a way to communicate branch continuing.
-	for (u32 addr = block->originalAddress; addr <= block->originalAddress + block->originalSize * 4; addr += 4) {
-		char temp[256];
-		MIPSDisAsm(Memory::Read_Instruction(addr), addr, temp, true);
-		std::string mipsDis = temp;
-		leftDisasm_->Add(new TextView(mipsDis))->SetFocusable(true);
+	for (auto line : debugInfo.origDisasm) {
+		leftDisasm_->Add(new TextView(line))->SetFocusable(true);
 	}
 
-#if defined(ARM)
-	std::vector<std::string> targetDis = DisassembleArm2(block->normalEntry, block->codeSize);
-#elif defined(ARM64)
-	std::vector<std::string> targetDis = DisassembleArm64(block->normalEntry, block->codeSize);
-#elif defined(_M_IX86) || defined(_M_X64)
-	std::vector<std::string> targetDis = DisassembleX86(block->normalEntry, block->codeSize);
-#endif
-#if defined(ARM) || defined(ARM64) || defined(_M_IX86) || defined(_M_X64)
-	for (size_t i = 0; i < targetDis.size(); i++) {
-		rightDisasm_->Add(new TextView(targetDis[i]))->SetFocusable(true);
+	// TODO : When we have both target and IR, need a third column.
+	if (debugInfo.targetDisasm.size()) {
+		for (auto line : debugInfo.targetDisasm) {
+			rightDisasm_->Add(new TextView(line))->SetFocusable(true);
+		}
+	} else {
+		for (auto line : debugInfo.irDisasm) {
+			rightDisasm_->Add(new TextView(line))->SetFocusable(true);
+		}
 	}
-#endif
 
 	int numMips = leftDisasm_->GetNumSubviews();
 	int numHost = rightDisasm_->GetNumSubviews();
@@ -753,7 +748,7 @@ UI::EventReturn JitCompareScreen::OnAddressChange(UI::EventParams &e) {
 	if (!MIPSComp::jit) {
 		return UI::EVENT_DONE;
 	}
-	JitBlockCache *blockCache = MIPSComp::jit->GetBlockCache();
+	JitBlockCacheDebugInterface *blockCache = MIPSComp::jit->GetBlockCacheDebugInterface();
 	if (!blockCache)
 		return UI::EVENT_DONE;
 	u32 addr;
@@ -773,7 +768,7 @@ UI::EventReturn JitCompareScreen::OnShowStats(UI::EventParams &e) {
 		return UI::EVENT_DONE;
 	}
 
-	JitBlockCache *blockCache = MIPSComp::jit->GetBlockCache();
+	JitBlockCacheDebugInterface *blockCache = MIPSComp::jit->GetBlockCacheDebugInterface();
 	BlockCacheStats bcStats;
 	blockCache->ComputeStats(bcStats);
 	NOTICE_LOG(JIT, "Num blocks: %i", bcStats.numBlocks);
@@ -790,7 +785,6 @@ UI::EventReturn JitCompareScreen::OnShowStats(UI::EventParams &e) {
 		}
 		ctr++;
 	}
-
 	return UI::EVENT_DONE;
 }
 
@@ -821,7 +815,7 @@ UI::EventReturn JitCompareScreen::OnBlockAddress(UI::EventParams &e) {
 		return UI::EVENT_DONE;
 	}
 
-	JitBlockCache *blockCache = MIPSComp::jit->GetBlockCache();
+	JitBlockCacheDebugInterface *blockCache = MIPSComp::jit->GetBlockCacheDebugInterface();
 	if (!blockCache)
 		return UI::EVENT_DONE;
 
@@ -839,7 +833,7 @@ UI::EventReturn JitCompareScreen::OnRandomBlock(UI::EventParams &e) {
 		return UI::EVENT_DONE;
 	}
 
-	JitBlockCache *blockCache = MIPSComp::jit->GetBlockCache();
+	JitBlockCacheDebugInterface *blockCache = MIPSComp::jit->GetBlockCacheDebugInterface();
 	if (!blockCache)
 		return UI::EVENT_DONE;
 
@@ -865,7 +859,7 @@ void JitCompareScreen::OnRandomBlock(int flag) {
 	if (!MIPSComp::jit) {
 		return;
 	}
-	JitBlockCache *blockCache = MIPSComp::jit->GetBlockCache();
+	JitBlockCacheDebugInterface *blockCache = MIPSComp::jit->GetBlockCacheDebugInterface();
 	if (!blockCache)
 		return;
 
@@ -873,21 +867,25 @@ void JitCompareScreen::OnRandomBlock(int flag) {
 	if (numBlocks > 0) {
 		bool anyWanted = false;
 		int tries = 0;
-		while (!anyWanted && tries < 10000) {
+		while (!anyWanted && tries < numBlocks) {
 			currentBlock_ = rand() % numBlocks;
-			const JitBlock *b = blockCache->GetBlock(currentBlock_);
-			for (u32 addr = b->originalAddress; addr <= b->originalAddress + b->originalSize; addr += 4) {
+			JitBlockDebugInfo b = blockCache->GetBlockDebugInfo(currentBlock_);
+			u32 mipsBytes = (u32)b.origDisasm.size() * 4;
+			for (u32 addr = b.originalAddress; addr <= b.originalAddress + mipsBytes; addr += 4) {
 				MIPSOpcode opcode = Memory::Read_Instruction(addr);
 				if (MIPSGetInfo(opcode) & flag) {
 					char temp[256];
 					MIPSDisAsm(opcode, addr, temp);
-					// INFO_LOG(HLE, "Stopping VFPU instruction: %s", temp);
+					// INFO_LOG(HLE, "Stopping at random instruction: %08x %s", addr, temp);
 					anyWanted = true;
 					break;
 				}
 			}
 			tries++;
 		}
+
+		if (!anyWanted)
+			currentBlock_ = -1;
 	}
 	UpdateDisasm();
 }

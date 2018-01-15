@@ -2,6 +2,7 @@
 
 #include <cstdint>
 
+#include "Common/Hashmaps.h"
 #include "Common/Vulkan/VulkanContext.h"
 #include "math/dataconv.h"
 #include "thin3d/DataFormat.h"
@@ -87,7 +88,7 @@ enum class VKRStepType : uint8_t {
 	READBACK_IMAGE,
 };
 
-enum class VKRRenderPassAction {
+enum class VKRRenderPassAction : uint8_t {
 	DONT_CARE,
 	CLEAR,
 	KEEP,
@@ -144,7 +145,7 @@ struct VKRStep {
 
 class VulkanQueueRunner {
 public:
-	VulkanQueueRunner(VulkanContext *vulkan) : vulkan_(vulkan) {}
+	VulkanQueueRunner(VulkanContext *vulkan) : vulkan_(vulkan), renderPasses_(16) {}
 	void SetBackbuffer(VkFramebuffer fb, VkImage img) {
 		backbuffer_ = fb;
 		backbufferImage_ = img;
@@ -158,9 +159,7 @@ public:
 	VkRenderPass GetBackbufferRenderPass() const {
 		return backbufferRenderPass_;
 	}
-	VkRenderPass GetRenderPass(int i) const {
-		return renderPasses_[i];
-	}
+	VkRenderPass GetRenderPass(VKRRenderPassAction colorLoadAction, VKRRenderPassAction depthLoadAction, VKRRenderPassAction stencilLoadAction);
 
 	inline int RPIndex(VKRRenderPassAction color, VKRRenderPassAction depth) {
 		return (int)depth * 3 + (int)color;
@@ -170,7 +169,6 @@ public:
 
 private:
 	void InitBackbufferRenderPass();
-	void InitRenderpasses();
 
 	void PerformBindFramebufferAsRenderTarget(const VKRStep &pass, VkCommandBuffer cmd);
 	void PerformRenderPass(const VKRStep &pass, VkCommandBuffer cmd);
@@ -197,9 +195,16 @@ private:
 	VkFramebuffer curFramebuffer_ = VK_NULL_HANDLE;
 
 	VkRenderPass backbufferRenderPass_ = VK_NULL_HANDLE;
+
+	struct RPKey {
+		VKRRenderPassAction colorAction;
+		VKRRenderPassAction depthAction;
+		VKRRenderPassAction stencilAction;
+	};
+
 	// Renderpasses, all combinations of preserving or clearing or dont-care-ing fb contents.
 	// TODO: Create these on demand.
-	VkRenderPass renderPasses_[9]{};
+	DenseHashMap<RPKey, VkRenderPass, (VkRenderPass)VK_NULL_HANDLE> renderPasses_;
 
 	// Readback buffer. Currently we only support synchronous readback, so we only really need one.
 	// We size it generously.

@@ -129,19 +129,16 @@ namespace MIPSComp {
 			}
 		}
 
-		DISABLE;
-
 		u32 iaddr = gpr.IsImm(rs) ? offset + gpr.GetImm(rs) : 0xFFFFFFFF;
 		std::vector<FixupBranch> skips;
 
 		if (gpr.IsImm(rs) && Memory::IsValidAddress(iaddr)) {
-			u32 addr = iaddr;
 			// Need to initialize since this only loads part of the register.
 			// But rs no longer matters (even if rs == rt) since we have the address.
 			gpr.MapReg(rt, load ? MAP_DIRTY : 0);
-			gpr.SetRegImm(SCRATCH1, addr & ~3);
+			gpr.SetRegImm(SCRATCH1, iaddr & ~3);
 
-			u8 shift = (addr & 3) * 8;
+			u8 shift = (iaddr & 3) * 8;
 
 			switch (o) {
 			case 34: // lwl
@@ -159,34 +156,18 @@ namespace MIPSComp {
 			case 42: // swl
 				LDR(SCRATCH2, MEMBASEREG, SCRATCH1);
 				ANDI2R(SCRATCH2, SCRATCH2, 0xffffff00 << shift, INVALID_REG);
-				ORR(SCRATCH2, SCRATCH2, SCRATCH2, ArithOption(gpr.R(rt), ST_LSR, 24 - shift));
+				ORR(SCRATCH2, SCRATCH2, gpr.R(rt), ArithOption(gpr.R(rt), ST_LSR, 24 - shift));
 				STR(SCRATCH2, MEMBASEREG, SCRATCH1);
 				break;
 
 			case 46: // swr
 				LDR(SCRATCH2, MEMBASEREG, SCRATCH1);
 				ANDI2R(SCRATCH2, SCRATCH2, 0x00ffffff >> (24 - shift), INVALID_REG);
-				ORR(SCRATCH2, SCRATCH2, SCRATCH2, ArithOption(gpr.R(rt), ST_LSL, shift));
+				ORR(SCRATCH2, SCRATCH2, gpr.R(rt), ArithOption(gpr.R(rt), ST_LSL, shift));
 				STR(SCRATCH2, MEMBASEREG, SCRATCH1);
 				break;
 			}
 			return;
-		}
-
-		switch (o) {
-		case 34: // lwl
-			DISABLE;
-			break;
-
-		case 38: // lwr
-			DISABLE;
-			break;
-
-		case 42: // swl
-			break;
-
-		case 46: // swr
-			break;
 		}
 
 		_dbg_assert_msg_(JIT, !gpr.IsImm(rs), "Invalid immediate address?  CPU bug?");
@@ -195,20 +176,16 @@ namespace MIPSComp {
 		} else {
 			gpr.MapInIn(rt, rs);
 		}
+		gpr.SpillLock(rt);
+		gpr.SpillLock(rs);
+		// Need to get temps before skipping safe mem.
+		ARM64Reg LR_SCRATCH3 = gpr.GetAndLockTempR();
+		ARM64Reg LR_SCRATCH4 = o == 42 || o == 46 ? gpr.GetAndLockTempR() : INVALID_REG;
 
-		if (false && !g_Config.bFastMemory && rs != MIPS_REG_SP) {
+		if (!g_Config.bFastMemory && rs != MIPS_REG_SP) {
 			skips = SetScratch1ForSafeAddress(rs, offset, SCRATCH2);
 		} else {
 			SetScratch1ToEffectiveAddress(rs, offset);
-		}
-
-		// Need temp regs.  TODO: Get from the regcache?
-		static const ARM64Reg LR_SCRATCH3 = W9;
-		static const ARM64Reg LR_SCRATCH4 = W10;
-		if (false && load) {
-			PUSH(EncodeRegTo64(LR_SCRATCH3));
-		} else {
-			PUSH2(EncodeRegTo64(LR_SCRATCH3), EncodeRegTo64(LR_SCRATCH4));
 		}
 
 		// Here's our shift amount.
@@ -221,7 +198,7 @@ namespace MIPSComp {
 		switch (o) {
 		case 34: // lwl
 			MOVI2R(LR_SCRATCH3, 0x00ffffff);
-			LDR(SCRATCH1, MEMBASEREG, SCRATCH1);
+			LDR(SCRATCH1, MEMBASEREG, ArithOption(SCRATCH1));
 			LSRV(LR_SCRATCH3, LR_SCRATCH3, SCRATCH2);
 			AND(gpr.R(rt), gpr.R(rt), LR_SCRATCH3);
 			NEG(SCRATCH2, SCRATCH2);
@@ -232,7 +209,7 @@ namespace MIPSComp {
 
 		case 38: // lwr
 			MOVI2R(LR_SCRATCH3, 0xffffff00);
-			LDR(SCRATCH1, MEMBASEREG, SCRATCH1);
+			LDR(SCRATCH1, MEMBASEREG, ArithOption(SCRATCH1));
 			LSRV(SCRATCH1, SCRATCH1, SCRATCH2);
 			NEG(SCRATCH2, SCRATCH2);
 			ADDI2R(SCRATCH2, SCRATCH2, 24);
@@ -243,19 +220,20 @@ namespace MIPSComp {
 
 		case 42: // swl
 			MOVI2R(LR_SCRATCH3, 0xffffff00);
-			LDR(LR_SCRATCH4, MEMBASEREG, SCRATCH1);
+			LDR(LR_SCRATCH4, MEMBASEREG, ArithOption(SCRATCH1));
 			LSLV(LR_SCRATCH3, LR_SCRATCH3, SCRATCH2);
 			AND(LR_SCRATCH4, LR_SCRATCH4, LR_SCRATCH3);
 			NEG(SCRATCH2, SCRATCH2);
 			ADDI2R(SCRATCH2, SCRATCH2, 24);
+
 			LSRV(LR_SCRATCH3, gpr.R(rt), SCRATCH2);
 			ORR(LR_SCRATCH4, LR_SCRATCH4, LR_SCRATCH3);
-			STR(LR_SCRATCH4, MEMBASEREG, SCRATCH1);
+			STR(LR_SCRATCH4, MEMBASEREG, ArithOption(SCRATCH1));
 			break;
 
 		case 46: // swr
 			MOVI2R(LR_SCRATCH3, 0x00ffffff);
-			LDR(LR_SCRATCH4, MEMBASEREG, SCRATCH1);
+			LDR(LR_SCRATCH4, MEMBASEREG, ArithOption(SCRATCH1));
 			NEG(SCRATCH2, SCRATCH2);
 			ADDI2R(SCRATCH2, SCRATCH2, 24);
 			LSRV(LR_SCRATCH3, LR_SCRATCH3, SCRATCH2);
@@ -264,19 +242,15 @@ namespace MIPSComp {
 			ADDI2R(SCRATCH2, SCRATCH2, 24);
 			LSLV(LR_SCRATCH3, gpr.R(rt), SCRATCH2);
 			ORR(LR_SCRATCH4, LR_SCRATCH4, LR_SCRATCH3);
-			STR(LR_SCRATCH4, MEMBASEREG, SCRATCH1);
+			STR(LR_SCRATCH4, MEMBASEREG, ArithOption(SCRATCH1));
 			break;
-		}
-
-		if (false && load) {
-			POP(EncodeRegTo64(LR_SCRATCH3));
-		} else {
-			POP2(EncodeRegTo64(LR_SCRATCH3), EncodeRegTo64(LR_SCRATCH4));
 		}
 
 		for (auto skip : skips) {
 			SetJumpTarget(skip);
 		}
+
+		gpr.ReleaseSpillLocksAndDiscardTemps();
 	}
 
 	void Arm64Jit::Comp_ITypeMem(MIPSOpcode op) {
@@ -294,7 +268,8 @@ namespace MIPSComp {
 
 		u32 iaddr = gpr.IsImm(rs) ? offset + gpr.GetImm(rs) : 0xFFFFFFFF;
 		std::vector<FixupBranch> skips;
-		ARM64Reg addrReg = SCRATCH1;
+		ARM64Reg targetReg = INVALID_REG;
+		ARM64Reg addrReg = INVALID_REG;
 
 		int dataSize = 4;
 		switch (o) {
@@ -335,51 +310,66 @@ namespace MIPSComp {
 					gpr.SpillLock(rs, rt);
 					gpr.MapRegAsPointer(rs);
 
-					Arm64Gen::ARM64Reg ar;
-					if (!load && gpr.IsImm(rt) && gpr.GetImm(rt) == 0) {
-						// Can just store from the zero register directly.
-						ar = WZR;
-					} else {
+					// For a store, try to avoid mapping a reg if not needed.
+					targetReg = load ? INVALID_REG : gpr.TryMapTempImm(rt);
+					if (targetReg == INVALID_REG) {
 						gpr.MapReg(rt, load ? MAP_NOINIT : 0);
-						ar = gpr.R(rt);
+						targetReg = gpr.R(rt);
 					}
 					switch (o) {
-					case 35: LDR(INDEX_UNSIGNED, ar, gpr.RPtr(rs), offset); break;
-					case 37: LDRH(INDEX_UNSIGNED, ar, gpr.RPtr(rs), offset); break;
-					case 33: LDRSH(INDEX_UNSIGNED, ar, gpr.RPtr(rs), offset); break;
-					case 36: LDRB(INDEX_UNSIGNED, ar, gpr.RPtr(rs), offset); break;
-					case 32: LDRSB(INDEX_UNSIGNED, ar, gpr.RPtr(rs), offset); break;
+					case 35: LDR(INDEX_UNSIGNED, targetReg, gpr.RPtr(rs), offset); break;
+					case 37: LDRH(INDEX_UNSIGNED, targetReg, gpr.RPtr(rs), offset); break;
+					case 33: LDRSH(INDEX_UNSIGNED, targetReg, gpr.RPtr(rs), offset); break;
+					case 36: LDRB(INDEX_UNSIGNED, targetReg, gpr.RPtr(rs), offset); break;
+					case 32: LDRSB(INDEX_UNSIGNED, targetReg, gpr.RPtr(rs), offset); break;
 						// Store
-					case 43: STR(INDEX_UNSIGNED, ar, gpr.RPtr(rs), offset); break;
-					case 41: STRH(INDEX_UNSIGNED, ar, gpr.RPtr(rs), offset); break;
-					case 40: STRB(INDEX_UNSIGNED, ar, gpr.RPtr(rs), offset); break;
+					case 43: STR(INDEX_UNSIGNED, targetReg, gpr.RPtr(rs), offset); break;
+					case 41: STRH(INDEX_UNSIGNED, targetReg, gpr.RPtr(rs), offset); break;
+					case 40: STRB(INDEX_UNSIGNED, targetReg, gpr.RPtr(rs), offset); break;
 					}
-					gpr.ReleaseSpillLocks();
+					gpr.ReleaseSpillLocksAndDiscardTemps();
 					break;
 				}
 			}
 
+			if (!load && gpr.IsImm(rt) && gpr.TryMapTempImm(rt) != INVALID_REG) {
+				// We're storing an immediate value, let's see if we can optimize rt.
+				if (!gpr.IsImm(rs) || offset == 0) {
+					// In this case, we're always going to need rs mapped, which may flush the temp imm.
+					// We handle that in the cases below since targetReg is INVALID_REG.
+					gpr.MapIn(rs);
+				}
+
+				targetReg = gpr.TryMapTempImm(rt);
+			}
+
 			if (gpr.IsImm(rs) && Memory::IsValidAddress(iaddr)) {
-				// TODO: Avoid mapping a register for the "zero" register, use R0 instead.
-
-				// We can compute the full address at compile time. Kickass.
-				u32 addr = iaddr & 0x3FFFFFFF;
-
-				if (addr == iaddr && offset == 0) {
+				if (offset == 0) {
 					// It was already safe.  Let's shove it into a reg and use it directly.
-					load ? gpr.MapDirtyIn(rt, rs) : gpr.MapInIn(rt, rs);
+					if (targetReg == INVALID_REG) {
+						load ? gpr.MapDirtyIn(rt, rs) : gpr.MapInIn(rt, rs);
+						targetReg = gpr.R(rt);
+					}
 					addrReg = gpr.R(rs);
 				} else {
-					// In this case, only map rt. rs+offset will be in R0.
-					gpr.MapReg(rt, load ? MAP_NOINIT : 0);
-					gpr.SetRegImm(SCRATCH1, addr);
+					// In this case, only map rt. rs+offset will be in SCRATCH1.
+					if (targetReg == INVALID_REG) {
+						gpr.MapReg(rt, load ? MAP_NOINIT : 0);
+						targetReg = gpr.R(rt);
+					}
+					gpr.SetRegImm(SCRATCH1, iaddr);
 					addrReg = SCRATCH1;
 				}
 			} else {
 				// This actually gets hit in micro machines! rs = ZR rt = ZR. Probably a bug.
 				// Leaving this a debug assert for future investigation.
 				_dbg_assert_msg_(JIT, !gpr.IsImm(rs), "Invalid immediate address?  CPU bug?");
-				load ? gpr.MapDirtyIn(rt, rs) : gpr.MapInIn(rt, rs);
+
+				// If we already have a targetReg, we optimized an imm, and rs is already mapped.
+				if (targetReg == INVALID_REG) {
+					load ? gpr.MapDirtyIn(rt, rs) : gpr.MapInIn(rt, rs);
+					targetReg = gpr.R(rt);
+				}
 
 				if (!g_Config.bFastMemory && rs != MIPS_REG_SP) {
 					skips = SetScratch1ForSafeAddress(rs, offset, SCRATCH2);
@@ -391,15 +381,15 @@ namespace MIPSComp {
 
 			switch (o) {
 				// Load
-			case 35: LDR(gpr.R(rt), MEMBASEREG, addrReg); break;
-			case 37: LDRH(gpr.R(rt), MEMBASEREG, addrReg); break;
-			case 33: LDRSH(gpr.R(rt), MEMBASEREG, addrReg); break;
-			case 36: LDRB(gpr.R(rt), MEMBASEREG, addrReg); break;
-			case 32: LDRSB(gpr.R(rt), MEMBASEREG, addrReg); break;
+			case 35: LDR(targetReg, MEMBASEREG, addrReg); break;
+			case 37: LDRH(targetReg, MEMBASEREG, addrReg); break;
+			case 33: LDRSH(targetReg, MEMBASEREG, addrReg); break;
+			case 36: LDRB(targetReg, MEMBASEREG, addrReg); break;
+			case 32: LDRSB(targetReg, MEMBASEREG, addrReg); break;
 				// Store
-			case 43: STR(gpr.R(rt), MEMBASEREG, addrReg); break;
-			case 41: STRH(gpr.R(rt), MEMBASEREG, addrReg); break;
-			case 40: STRB(gpr.R(rt), MEMBASEREG, addrReg); break;
+			case 43: STR(targetReg, MEMBASEREG, addrReg); break;
+			case 41: STRH(targetReg, MEMBASEREG, addrReg); break;
+			case 40: STRB(targetReg, MEMBASEREG, addrReg); break;
 			}
 			for (auto skip : skips) {
 				SetJumpTarget(skip);

@@ -68,6 +68,10 @@ public:
 		// If not WX Exclusive, no need to call ProtectMemoryPages because we never change the protection from RWX.
 		PoisonMemory(offset);
 		ResetCodePtr(offset);
+		if (PlatformIsWXExclusive()) {
+			// Need to re-protect the part we didn't clear.
+			ProtectMemoryPages(region, offset, MEM_PROT_READ | MEM_PROT_EXEC);
+		}
 	}
 
 	// BeginWrite/EndWrite assume that we keep appending.

@@ -6,7 +6,6 @@
 //
 
 #import "ViewController.h"
-#import "AudioEngine.h"
 #import <GLKit/GLKit.h>
 #include <cassert>
 
@@ -31,10 +30,6 @@
 #define IS_IPAD() ([UIDevice currentDevice].userInterfaceIdiom == UIUserInterfaceIdiomPad)
 #define IS_IPHONE() ([UIDevice currentDevice].userInterfaceIdiom == UIUserInterfaceIdiomPhone)
 
-#ifndef kCFCoreFoundationVersionNumber_IOS_9_0
-#define kCFCoreFoundationVersionNumber_IOS_9_0 1240.10
-#endif
-
 class IOSDummyGraphicsContext : public DummyGraphicsContext {
 public:
 	IOSDummyGraphicsContext() {
@@ -54,19 +49,14 @@ private:
 	Draw::DrawContext *draw_;
 };
 
-float dp_xscale = 1.0f;
-float dp_yscale = 1.0f;
+static float dp_xscale = 1.0f;
+static float dp_yscale = 1.0f;
 
-double lastSelectPress = 0.0f;
-double lastStartPress = 0.0f;
-bool simulateAnalog = false;
+static double lastSelectPress = 0.0f;
+static double lastStartPress = 0.0f;
+static bool simulateAnalog = false;
 
-extern ScreenManager *screenManager;
-
-extern bool iosCanUseJit;
-extern bool targetIsJailbroken;
-
-ViewController* sharedViewController;
+__unsafe_unretained static ViewController* sharedViewController;
 static GraphicsContext *graphicsContext;
 
 @interface ViewController ()
@@ -74,11 +64,8 @@ static GraphicsContext *graphicsContext;
 	std::map<uint16_t, uint16_t> iCadeToKeyMap;
 }
 
-@property (nonatomic) EAGLContext* context;
-@property (nonatomic) NSString* documentsPath;
-@property (nonatomic) NSString* bundlePath;
-@property (nonatomic) NSMutableArray* touches;
-@property (nonatomic) AudioEngine* audioEngine;
+@property (nonatomic, strong) EAGLContext* context;
+@property (nonatomic, strong) NSMutableArray<NSDictionary *>* touches;
 //@property (nonatomic) iCadeReaderView* iCadeView;
 #if __IPHONE_OS_VERSION_MAX_ALLOWED > __IPHONE_6_1
 @property (nonatomic) GCController *gameController __attribute__((weak_import));
@@ -87,39 +74,12 @@ static GraphicsContext *graphicsContext;
 @end
 
 @implementation ViewController
--(bool) isArm64 {
-	size_t size;
-	cpu_type_t type;
-	size = sizeof(type);
-	sysctlbyname("hw.cputype", &type, &size, NULL, 0);
-	return type == CPU_TYPE_ARM64;
-}
 
 -(id) init {
 	self = [super init];
 	if (self) {
 		sharedViewController = self;
 		self.touches = [NSMutableArray array];
-		self.documentsPath = [NSSearchPathForDirectoriesInDomains(NSDocumentDirectory, NSUserDomainMask, YES) objectAtIndex:0];
-		self.bundlePath = [[[NSBundle mainBundle] resourcePath] stringByAppendingString:@"/assets/"];
-
-		iosCanUseJit = true;
-		targetIsJailbroken = false;
-		NSArray *jailPath = [NSArray arrayWithObjects:
-							@"/Applications/Cydia.app",
-							@"/private/var/lib/apt",
-							@"/private/var/stash",
-							@"/usr/sbin/sshd",
-							@"/usr/bin/sshd", nil];
-
-		for (NSString *string in jailPath) {
-			if ([[NSFileManager defaultManager] fileExistsAtPath:string]) {
-				// checking device jailbreak status in order to determine which message to show in GameSettingsScreen
-				targetIsJailbroken = true;
-			}
-		}
-		
-		NativeInit(0, NULL, [self.documentsPath UTF8String], [self.bundlePath UTF8String], NULL);
 
 		iCadeToKeyMap[iCadeJoystickUp]		= NKCODE_DPAD_UP;
 		iCadeToKeyMap[iCadeJoystickRight]	= NKCODE_DPAD_RIGHT;
@@ -214,16 +174,6 @@ static GraphicsContext *graphicsContext;
 #endif
 }
 
-- (void)viewDidUnload
-{
-	[super viewDidUnload];
-
-	if ([EAGLContext currentContext] == self.context) {
-		[EAGLContext setCurrentContext:nil];
-	}
-	self.context = nil;
-}
-
 - (void)didReceiveMemoryWarning
 {
 	[super didReceiveMemoryWarning];
@@ -231,7 +181,12 @@ static GraphicsContext *graphicsContext;
 
 - (void)dealloc
 {
-	[self viewDidUnload];
+	sharedViewController = nil;
+	
+	if ([EAGLContext currentContext] == self.context) {
+		[EAGLContext setCurrentContext:nil];
+	}
+	self.context = nil;
 
 #if __IPHONE_OS_VERSION_MAX_ALLOWED > __IPHONE_6_1
 	if ([GCController class]) {

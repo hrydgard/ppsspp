@@ -21,6 +21,7 @@
 #include <unordered_set>
 #include <mutex>
 
+#include "base/timeutil.h"
 #include "ext/cityhash/city.h"
 #include "Common/FileUtil.h"
 #include "Core/Config.h"
@@ -382,6 +383,7 @@ static const HardHashTableEntry hardcodedHashes[] = {
 	{ 0xb0ef265e87899f0a, 32, "vector_divide_t_s", },
 	{ 0xb183a37baa12607b, 32, "vscl_t", },
 	{ 0xb1a3e60a89af9857, 20, "fabs", },
+	{ 0xb25670ff47b4843d, 232, "starocean_clear_framebuf" },
 	{ 0xb3fef47fb27d57c9, 44, "vector_scale_t", },
 	{ 0xb43fd5078ae78029, 84, "send_commandi_stall", },
 	{ 0xb43ffbd4dc446dd2, 324, "atan2f", },
@@ -903,6 +905,32 @@ skip:
 		}
 	}
 
+	void PrecompileFunction(u32 startAddr, u32 length) {
+		// Direct calls to this ignore the bPreloadFunctions flag, since it's just for stubs.
+		if (MIPSComp::jit) {
+			MIPSComp::jit->CompileFunction(startAddr, length);
+		}
+	}
+
+	void PrecompileFunctions() {
+		if (!g_Config.bPreloadFunctions) {
+			return;
+		}
+		std::lock_guard<std::recursive_mutex> guard(functions_lock);
+
+		// TODO: Load from cache file if available instead.
+
+		double st = real_time_now();
+		for (auto iter = functions.begin(), end = functions.end(); iter != end; iter++) {
+			const AnalyzedFunction &f = *iter;
+
+			PrecompileFunction(f.start, f.end - f.start + 4);
+		}
+		double et = real_time_now();
+
+		NOTICE_LOG(JIT, "Precompiled %d MIPS functions in %0.2f milliseconds", (int)functions.size(), (et - st) * 1000.0);
+	}
+
 	static const char *DefaultFunctionName(char buffer[256], u32 startAddr) {
 		sprintf(buffer, "z_un_%08x", startAddr);
 		return buffer;
@@ -1123,8 +1151,10 @@ skip:
 			}
 		}
 
-		currentFunction.end = addr + 4;
-		functions.push_back(currentFunction);
+		if (addr <= endAddr) {
+			currentFunction.end = addr + 4;
+			functions.push_back(currentFunction);
+		}
 
 		for (auto iter = functions.begin(); iter != functions.end(); iter++) {
 			iter->size = iter->end - iter->start + 4;

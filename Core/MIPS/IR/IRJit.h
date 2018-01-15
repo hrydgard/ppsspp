@@ -18,6 +18,7 @@
 #pragma once
 
 #include <cstring>
+#include <unordered_map>
 
 #include "Common/Common.h"
 #include "Common/CPUDetect.h"
@@ -37,88 +38,99 @@ namespace MIPSComp {
 // TODO : Use arena allocators. For now let's just malloc.
 class IRBlock {
 public:
-	IRBlock() : instr_(nullptr), const_(nullptr), numInstructions_(0), numConstants_(0), origAddr_(0), origSize_(0) {}
-	IRBlock(u32 emAddr) : instr_(nullptr), const_(nullptr), numInstructions_(0), numConstants_(0), origAddr_(emAddr), origSize_(0) {}
+	IRBlock() : instr_(nullptr), numInstructions_(0), origAddr_(0), origSize_(0) {}
+	IRBlock(u32 emAddr) : instr_(nullptr), numInstructions_(0), origAddr_(emAddr), origSize_(0) {}
 	IRBlock(IRBlock &&b) {
 		instr_ = b.instr_;
-		const_ = b.const_;
 		numInstructions_ = b.numInstructions_;
-		numConstants_ = b.numConstants_;
 		origAddr_ = b.origAddr_;
 		origSize_ = b.origSize_;
 		origFirstOpcode_ = b.origFirstOpcode_;
+		hash_ = b.hash_;
 		b.instr_ = nullptr;
-		b.const_ = nullptr;
 	}
 
 	~IRBlock() {
 		delete[] instr_;
-		delete[] const_;
 	}
 
-	void SetInstructions(const std::vector<IRInst> &inst, const std::vector<u32> &constants) {
+	void SetInstructions(const std::vector<IRInst> &inst) {
 		instr_ = new IRInst[inst.size()];
 		numInstructions_ = (u16)inst.size();
 		if (!inst.empty()) {
 			memcpy(instr_, &inst[0], sizeof(IRInst) * inst.size());
 		}
-		const_ = new u32[constants.size()];
-		numConstants_ = (u16)constants.size();
-		if (!constants.empty()) {
-			memcpy(const_, &constants[0], sizeof(u32) * constants.size());
-		}
 	}
 
 	const IRInst *GetInstructions() const { return instr_; }
-	const u32 *GetConstants() const { return const_; }
 	int GetNumInstructions() const { return numInstructions_; }
 	MIPSOpcode GetOriginalFirstOp() const { return origFirstOpcode_; }
-	bool HasOriginalFirstOp();
+	bool HasOriginalFirstOp() const;
 	bool RestoreOriginalFirstOp(int number);
-	bool IsValid() const { return origAddr_ != 0; }
+	bool IsValid() const { return origAddr_ != 0 && origFirstOpcode_.encoding != 0x68FFFFFF; }
 	void SetOriginalSize(u32 size) {
 		origSize_ = size;
 	}
-	bool OverlapsRange(u32 addr, u32 size);
+	void UpdateHash() {
+		hash_ = CalculateHash();
+	}
+	bool HashMatches() const {
+		return origAddr_ && hash_ == CalculateHash();
+	}
+	bool OverlapsRange(u32 addr, u32 size) const;
+
+	void GetRange(u32 &start, u32 &size) const {
+		start = origAddr_;
+		size = origSize_;
+	}
 
 	void Finalize(int number);
 	void Destroy(int number);
 
 private:
+	u64 CalculateHash() const;
+
 	IRInst *instr_;
-	u32 *const_;
 	u16 numInstructions_;
-	u16 numConstants_;
 	u32 origAddr_;
 	u32 origSize_;
-	MIPSOpcode origFirstOpcode_;
+	u64 hash_ = 0;
+	MIPSOpcode origFirstOpcode_ = MIPSOpcode(0x68FFFFFF);
 };
 
-class IRBlockCache {
+class IRBlockCache : public JitBlockCacheDebugInterface {
 public:
-	IRBlockCache() : size_(0) {}
+	IRBlockCache() {}
 	void Clear();
 	void InvalidateICache(u32 address, u32 length);
-	int GetNumBlocks() const { return (int)blocks_.size(); }
+	void FinalizeBlock(int i, bool preload = false);
+	int GetNumBlocks() const override { return (int)blocks_.size(); }
 	int AllocateBlock(int emAddr) {
 		blocks_.push_back(IRBlock(emAddr));
-		size_ = (int)blocks_.size();
 		return (int)blocks_.size() - 1;
 	}
 	IRBlock *GetBlock(int i) {
-		if (i >= 0 && i < size_) {
+		if (i >= 0 && i < (int)blocks_.size()) {
 			return &blocks_[i];
 		} else {
 			return nullptr;
 		}
 	}
 
+	int FindPreloadBlock(u32 em_address);
+
 	std::vector<u32> SaveAndClearEmuHackOps();
 	void RestoreSavedEmuHackOps(std::vector<u32> saved);
 
+	JitBlockDebugInfo GetBlockDebugInfo(int blockNum) const override;
+	void ComputeStats(BlockCacheStats &bcStats) const override;
+	int GetBlockNumberFromStartAddress(u32 em_address, bool realBlocksOnly = true) const override;
+
 private:
-	int size_;  // Hm, is this a cache for speed in debug mode, or what?
+	u32 AddressToPage(u32 addr) const;
+
 	std::vector<IRBlock> blocks_;
+	std::unordered_map<u32, std::vector<int>> byPage_;
 };
 
 class IRJit : public JitInterface {
@@ -133,10 +145,12 @@ public:
 	void RunLoopUntil(u64 globalticks) override;
 
 	void Compile(u32 em_address) override;	// Compiles a block at current MIPS PC
+	void CompileFunction(u32 start_address, u32 length) override;
 
 	bool DescribeCodePtr(const u8 *ptr, std::string &name) override;
 	// Not using a regular block cache.
 	JitBlockCache *GetBlockCache() override { return nullptr; }
+	JitBlockCacheDebugInterface *GetBlockCacheDebugInterface() override { return &blocks_; }
 	MIPSOpcode GetOriginalOp(MIPSOpcode op) override;
 
 	std::vector<u32> SaveAndClearEmuHackOps() override { return blocks_.SaveAndClearEmuHackOps(); }
@@ -151,6 +165,7 @@ public:
 	void UnlinkBlock(u8 *checkedEntry, u32 originalAddress) override;
 
 private:
+	bool CompileBlock(u32 em_address, std::vector<IRInst> &instructions, u32 &mipsBytes, bool preload);
 	bool ReplaceJalTo(u32 dest);
 
 	JitOptions jo;

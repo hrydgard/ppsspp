@@ -231,16 +231,14 @@ void EmuScreen::bootGame(const std::string &filename) {
 		host->NotifyUserMessage(gr->T("DefaultCPUClockRequired", "Warning: This game requires the CPU clock to be set to default."), 15.0f);
 	}
 
-	loadingViewColor_->Divert(0xFFFFFFFF, 0.15f);
-	loadingViewVisible_->Divert(UI::V_VISIBLE, 0.15f);
+	loadingViewColor_->Divert(0xFFFFFFFF, 0.75f);
+	loadingViewVisible_->Divert(UI::V_VISIBLE, 0.75f);
 }
 
 void EmuScreen::bootComplete() {
 	UpdateUIState(UISTATE_INGAME);
 	host->BootDone();
 	host->UpdateDisassembly();
-
-	g_gameInfoCache->FlushBGs();
 
 	NOTICE_LOG(BOOT, "Loading %s...", PSP_CoreParameter().fileToStart.c_str());
 	autoLoad();
@@ -843,6 +841,37 @@ void EmuScreen::processAxis(const AxisInput &axis, int direction) {
 	}
 }
 
+class GameInfoBGView : public UI::InertView {
+public:
+	GameInfoBGView(const std::string &gamePath, UI::LayoutParams *layoutParams) : InertView(layoutParams), gamePath_(gamePath) {
+	}
+
+	void Draw(UIContext &dc) {
+		// Should only be called when visible.
+		std::shared_ptr<GameInfo> ginfo = g_gameInfoCache->GetInfo(dc.GetDrawContext(), gamePath_, GAMEINFO_WANTBG);
+		dc.Flush();
+
+		// PIC1 is the loading image, so let's only draw if it's available.
+		if (ginfo && ginfo->pic1.texture) {
+			dc.GetDrawContext()->BindTexture(0, ginfo->pic1.texture->GetTexture());
+
+			double loadTime = ginfo->pic1.timeLoaded;
+			uint32_t color = alphaMul(color_, ease((time_now_d() - loadTime) * 3));
+			dc.Draw()->DrawTexRect(dc.GetBounds(), 0, 0, 1, 1, color);
+			dc.Flush();
+			dc.RebindTexture();
+		}
+	}
+
+	void SetColor(uint32_t c) {
+		color_ = c;
+	}
+
+protected:
+	std::string gamePath_;
+	uint32_t color_ = 0xFFC0C0C0;
+};
+
 void EmuScreen::CreateViews() {
 	using namespace UI;
 
@@ -863,14 +892,31 @@ void EmuScreen::CreateViews() {
 	root_->Add(saveStatePreview_);
 	root_->Add(new OnScreenMessagesView(new AnchorLayoutParams((Size)bounds.w, (Size)bounds.h)));
 
-	loadingView_ = new TextView(sc->T("Loading game..."), new AnchorLayoutParams(bounds.centerX(), bounds.centerY(), NONE, NONE, true));
-	root_->Add(loadingView_);
+	GameInfoBGView *loadingBG = root_->Add(new GameInfoBGView(gamePath_, new AnchorLayoutParams(FILL_PARENT, FILL_PARENT)));
+	TextView *loadingTextView = root_->Add(new TextView(sc->T("Loading game..."), new AnchorLayoutParams(bounds.centerX(), bounds.centerY(), NONE, NONE, true)));
+	loadingTextView->SetShadow(true);
+	loadingView_ = loadingTextView;
+
+	loadingViewColor_ = loadingTextView->AddTween(new CallbackColorTween(0x00FFFFFF, 0x00FFFFFF, 0.2f, &bezierEaseInOut));
+	loadingViewColor_->SetCallback([loadingBG, loadingTextView](View *v, uint32_t c) {
+		loadingBG->SetColor(c & 0xFFC0C0C0);
+		loadingTextView->SetTextColor(c);
+	});
+	loadingViewColor_->Persist();
 
 	// We start invisible here, in case of recreated views.
-	loadingViewColor_ = loadingView_->AddTween(new TextColorTween(0x00FFFFFF, 0x00FFFFFF, 0.2f, &bezierEaseInOut));
-	loadingViewColor_->Persist();
-	loadingViewVisible_ = loadingView_->AddTween(new VisibilityTween(UI::V_INVISIBLE, UI::V_INVISIBLE, 0.2f, &bezierEaseInOut));
+	loadingViewVisible_ = loadingTextView->AddTween(new VisibilityTween(UI::V_INVISIBLE, UI::V_INVISIBLE, 0.2f, &bezierEaseInOut));
 	loadingViewVisible_->Persist();
+	loadingViewVisible_->Finish.Add([loadingBG](EventParams &p) {
+		loadingBG->SetVisibility(p.v->GetVisibility());
+
+		// If we just became invisible, flush BGs since we don't need them anymore.
+		// Saves some VRAM for the game, but don't do it before we fade out...
+		if (p.v->GetVisibility() == V_INVISIBLE) {
+			g_gameInfoCache->FlushBGs();
+		}
+		return EVENT_DONE;
+	});
 }
 
 UI::EventReturn EmuScreen::OnDevTools(UI::EventParams &params) {
@@ -1054,9 +1100,9 @@ void EmuScreen::preRender() {
 	if ((!useBufferedRendering && !g_Config.bSoftwareRendering) || Core_IsStepping()) {
 		// We need to clear here already so that drawing during the frame is done on a clean slate.
 		if (Core_IsStepping() && gpuStats.numFlips != 0) {
-			draw->BindFramebufferAsRenderTarget(nullptr, { RPAction::KEEP, RPAction::DONT_CARE });
+			draw->BindFramebufferAsRenderTarget(nullptr, { RPAction::KEEP, RPAction::DONT_CARE, RPAction::DONT_CARE });
 		} else {
-			draw->BindFramebufferAsRenderTarget(nullptr, { RPAction::CLEAR, RPAction::CLEAR, 0xFF000000 });
+			draw->BindFramebufferAsRenderTarget(nullptr, { RPAction::CLEAR, RPAction::CLEAR, RPAction::CLEAR, 0xFF000000 });
 		}
 
 		Viewport viewport;
@@ -1089,7 +1135,7 @@ void EmuScreen::render() {
 		// It's possible this might be set outside PSP_RunLoopFor().
 		// In this case, we need to double check it here.
 		checkPowerDown();
-		thin3d->BindFramebufferAsRenderTarget(nullptr, { RPAction::CLEAR, RPAction::CLEAR });
+		thin3d->BindFramebufferAsRenderTarget(nullptr, { RPAction::CLEAR, RPAction::CLEAR, RPAction::CLEAR });
 		renderUI();
 		return;
 	}
@@ -1124,12 +1170,12 @@ void EmuScreen::render() {
 		coreState = CORE_RUNNING;
 	} else if (coreState == CORE_STEPPING) {
 		// If we're stepping, it's convenient not to clear the screen.
-		thin3d->BindFramebufferAsRenderTarget(nullptr, { RPAction::KEEP, RPAction::DONT_CARE });
+		thin3d->BindFramebufferAsRenderTarget(nullptr, { RPAction::KEEP, RPAction::DONT_CARE, RPAction::DONT_CARE });
 	} else {
 		// Didn't actually reach the end of the frame, ran out of the blockTicks cycles.
 		// In this case we need to bind and wipe the backbuffer, at least.
 		// It's possible we never ended up outputted anything - make sure we have the backbuffer cleared
-		thin3d->BindFramebufferAsRenderTarget(nullptr, { RPAction::CLEAR, RPAction::CLEAR });
+		thin3d->BindFramebufferAsRenderTarget(nullptr, { RPAction::CLEAR, RPAction::CLEAR, RPAction::CLEAR });
 	}
 	checkPowerDown();
 

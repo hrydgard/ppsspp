@@ -43,6 +43,13 @@ struct BlockCacheStats {
 	std::map<float, u32> bloatMap;
 };
 
+enum class DestroyType {
+	DESTROY,
+	INVALIDATE,
+	// Skips jit unlink, since it'll be poisoned anyway.
+	CLEAR,
+};
+
 // Define this in order to get VTune profile support for the Jit generated code.
 // Add the VTune include/lib directories to the project directories to get this to build.
 // #define USE_VTUNE
@@ -86,7 +93,24 @@ struct JitBlock {
 
 typedef void (*CompiledCode)();
 
-class JitBlockCache {
+struct JitBlockDebugInfo {
+	uint32_t originalAddress;
+	std::vector<std::string> origDisasm;
+	std::vector<std::string> irDisasm;  // if any
+	std::vector<std::string> targetDisasm;
+};
+
+class JitBlockCacheDebugInterface {
+public:
+	virtual int GetNumBlocks() const = 0;
+	virtual int GetBlockNumberFromStartAddress(u32 em_address, bool realBlocksOnly = true) const = 0;
+	virtual JitBlockDebugInfo GetBlockDebugInfo(int blockNum) const = 0;
+	virtual void ComputeStats(BlockCacheStats &bcStats) const = 0;
+
+	virtual ~JitBlockCacheDebugInterface() {}
+};
+
+class JitBlockCache : public JitBlockCacheDebugInterface {
 public:
 	JitBlockCache(MIPSState *mips_, CodeBlockCommon *codeBlock);
 	~JitBlockCache();
@@ -102,13 +126,14 @@ public:
 	void Reset();
 
 	bool IsFull() const;
-	void ComputeStats(BlockCacheStats &bcStats);
+	void ComputeStats(BlockCacheStats &bcStats) const override;
 
 	// Code Cache
 	JitBlock *GetBlock(int block_num);
+	const JitBlock *GetBlock(int block_num) const;
 
 	// Fast way to get a block. Only works on the first source-cpu instruction of a block.
-	int GetBlockNumberFromStartAddress(u32 em_address, bool realBlocksOnly = true);
+	int GetBlockNumberFromStartAddress(u32 em_address, bool realBlocksOnly = true) const override;
 
 	// slower, but can get numbers from within blocks, not just the first instruction.
 	// WARNING! WILL NOT WORK WITH JIT INLINING ENABLED (not yet a feature but will be soon)
@@ -126,16 +151,18 @@ public:
 	// DOES NOT WORK CORRECTLY WITH JIT INLINING
 	void InvalidateICache(u32 address, const u32 length);
 	void InvalidateChangedBlocks();
-	void DestroyBlock(int block_num, bool invalidate);
+	void DestroyBlock(int block_num, DestroyType type);
 
 	// No jit operations may be run between these calls.
 	// Meant to be used to make memory safe for savestates, memcpy, etc.
 	std::vector<u32> SaveAndClearEmuHackOps();
 	void RestoreSavedEmuHackOps(std::vector<u32> saved);
 
-	int GetNumBlocks() const { return num_blocks_; }
+	int GetNumBlocks() const override { return num_blocks_; }
 
 	static int GetBlockExitSize();
+
+	JitBlockDebugInfo GetBlockDebugInfo(int blockNum) const override;
 
 	enum {
 		MAX_BLOCK_INSTRUCTIONS = 0x4000,

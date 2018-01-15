@@ -532,6 +532,7 @@ enum class RPAction {
 struct RenderPassInfo {
 	RPAction color;
 	RPAction depth;
+	RPAction stencil;
 	uint32_t clearColor;
 	float clearDepth;
 	uint8_t clearStencil;

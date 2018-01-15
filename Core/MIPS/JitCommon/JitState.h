@@ -56,15 +56,6 @@ namespace MIPSComp {
 			AFTER_MEMCHECK_CLEANUP = 0x04,
 		};
 
-		JitState()
-			: hasSetRounding(0),
-			lastSetRounding(0),
-			currentRoundingFunc(nullptr),
-			startDefaultPrefix(true),
-			prefixSFlag(PREFIX_UNKNOWN),
-			prefixTFlag(PREFIX_UNKNOWN),
-			prefixDFlag(PREFIX_UNKNOWN) {}
-
 		u32 compilerPC;
 		u32 blockStart;
 		u32 lastContinuedPC;
@@ -78,20 +69,21 @@ namespace MIPSComp {
 		int numInstructions;
 		bool compiling;	// TODO: get rid of this in favor of using analysis results to determine end of block
 		bool hadBreakpoints;
+		bool preloading = false;
 		JitBlock *curBlock;
 
-		u8 hasSetRounding;
-		u8 lastSetRounding;
-		const u8 *currentRoundingFunc;
+		u8 hasSetRounding = 0;
+		u8 lastSetRounding = 0;
+		const u8 *currentRoundingFunc = nullptr;
 
 		// VFPU prefix magic
-		bool startDefaultPrefix;
+		bool startDefaultPrefix = true;
 		u32 prefixS;
 		u32 prefixT;
 		u32 prefixD;
-		PrefixState prefixSFlag;
-		PrefixState prefixTFlag;
-		PrefixState prefixDFlag;
+		PrefixState prefixSFlag = PREFIX_UNKNOWN;
+		PrefixState prefixTFlag = PREFIX_UNKNOWN;
+		PrefixState prefixDFlag = PREFIX_UNKNOWN;
 
 		void PrefixStart() {
 			if (startDefaultPrefix) {
@@ -198,6 +190,7 @@ namespace MIPSComp {
 		// ARM64 only
 		bool useASIMDVFPU;
 		bool useStaticAlloc;
+		bool enablePointerify;
 
 		// Common
 		bool enableBlocklink;

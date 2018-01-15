@@ -785,12 +785,10 @@ static const BlendEq eqLookup[] = {
 
 static BlendFactor toDualSource(BlendFactor blendfunc) {
 	switch (blendfunc) {
-#if !defined(USING_GLES2)   // TODO: Remove when we have better headers
 	case BlendFactor::SRC_ALPHA:
 		return BlendFactor::SRC1_ALPHA;
 	case BlendFactor::ONE_MINUS_SRC_ALPHA:
 		return BlendFactor::ONE_MINUS_SRC1_ALPHA;
-#endif
 	default:
 		return blendfunc;
 	}

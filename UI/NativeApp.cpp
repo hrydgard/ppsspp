@@ -130,11 +130,6 @@ std::string config_filename;
 
 bool g_graphicsInited;
 
-#ifdef IOS
-bool iosCanUseJit;
-bool targetIsJailbroken;
-#endif
-
 // Really need to clean this mess of globals up... but instead I add more :P
 bool g_TakeScreenshot;
 static bool isOuya;
@@ -191,10 +186,7 @@ int Win32Mix(short *buffer, int numSamples, int bits, int rate, int channels) {
 #endif
 
 // globals
-#ifndef _WIN32
-static AndroidLogger *logger = 0;
-#endif
-
+static AndroidLogger *logger = nullptr;
 std::string boot_filename = "";
 
 void NativeHost::InitSound() {
@@ -372,8 +364,6 @@ void NativeInit(int argc, const char *argv[], const char *savegame_dir, const ch
 		LogManager::Init();
 
 #ifndef _WIN32
-	logger = new AndroidLogger();
-
 	g_Config.AddSearchPath(user_data_path);
 	g_Config.AddSearchPath(g_Config.memStickDirectory + "PSP/SYSTEM/");
 	g_Config.SetDefaultPath(g_Config.memStickDirectory + "PSP/SYSTEM/");
@@ -499,9 +489,13 @@ void NativeInit(int argc, const char *argv[], const char *savegame_dir, const ch
 		logman->SetEnabled(type, true);
 		logman->SetLogLevel(type, logLevel);
 	}
-#ifdef __ANDROID__
-	logman->AddListener(logger);
 #endif
+
+#if defined(__ANDROID__) || (defined(MOBILE_DEVICE) && !defined(_DEBUG))
+	// Enable basic logging for any kind of mobile device, since LogManager doesn't.
+	// The MOBILE_DEVICE/_DEBUG condition matches LogManager.cpp.
+	logger = new AndroidLogger();
+	logman->AddListener(logger);
 #endif
 
 	// Allow the lang directory to be overridden for testing purposes (e.g. Android, where it's hard to 
@@ -1138,6 +1132,9 @@ void NativeShutdown() {
 	System_SendMessage("finish", "");
 
 	net::Shutdown();
+
+	delete logger;
+	logger = nullptr;
 
 	// Previously we did exit() here on Android but that makes it hard to do things like restart on backend change.
 	// I think we handle most globals correctly or correct-enough now.

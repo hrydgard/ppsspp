@@ -111,7 +111,9 @@ VkResult VulkanContext::CreateInstance(const CreateInfo &info) {
 	instance_extensions_enabled_.push_back(VK_KHR_ANDROID_SURFACE_EXTENSION_NAME);
 #else
 #if defined(VK_USE_PLATFORM_XLIB_KHR)
-	instance_extensions_enabled_.push_back(VK_KHR_XLIB_SURFACE_EXTENSION_NAME);
+	if (IsInstanceExtensionAvailable(VK_KHR_XLIB_SURFACE_EXTENSION_NAME)) {
+		instance_extensions_enabled_.push_back(VK_KHR_XLIB_SURFACE_EXTENSION_NAME);
+	}
 #endif
 //#if defined(VK_USE_PLATFORM_XCB_KHR)
 //	instance_extensions_enabled_.push_back(VK_KHR_XCB_SURFACE_EXTENSION_NAME);
@@ -120,19 +122,32 @@ VkResult VulkanContext::CreateInstance(const CreateInfo &info) {
 //	instance_extensions_enabled_.push_back(VK_KHR_MIR_SURFACE_EXTENSION_NAME);
 //#endif
 #if defined(VK_USE_PLATFORM_WAYLAND_KHR)
-	instance_extensions_enabled_.push_back(VK_KHR_WAYLAND_SURFACE_EXTENSION_NAME);
+	if (IsInstanceExtensionAvailable(VK_KHR_WAYLAND_SURFACE_EXTENSION_NAME)) {
+		instance_extensions_enabled_.push_back(VK_KHR_WAYLAND_SURFACE_EXTENSION_NAME);
+	}
 #endif
 #endif
 
 	if (flags_ & VULKAN_FLAG_VALIDATE) {
-		for (size_t i = 0; i < ARRAY_SIZE(validationLayers); i++) {
-			instance_layer_names_.push_back(validationLayers[i]);
-			device_layer_names_.push_back(validationLayers[i]);
+		if (IsInstanceExtensionAvailable(VK_EXT_DEBUG_REPORT_EXTENSION_NAME)) {
+			for (size_t i = 0; i < ARRAY_SIZE(validationLayers); i++) {
+				instance_layer_names_.push_back(validationLayers[i]);
+				device_layer_names_.push_back(validationLayers[i]);
+			}
+			instance_extensions_enabled_.push_back(VK_EXT_DEBUG_REPORT_EXTENSION_NAME);
+		} else {
+			ELOG("Validation layer extension not available - not enabling Vulkan validation.");
+			flags_ &= ~VULKAN_FLAG_VALIDATE;
 		}
-		instance_extensions_enabled_.push_back(VK_EXT_DEBUG_REPORT_EXTENSION_NAME);
 	}
 
-	VkApplicationInfo app_info { VK_STRUCTURE_TYPE_APPLICATION_INFO };
+	// Validate that all the instance extensions we ask for are actually available.
+	for (auto ext : instance_extensions_enabled_) {
+		if (!IsInstanceExtensionAvailable(ext))
+			WLOG("WARNING: Does not seem that instance extension '%s' is available. Trying to proceed anyway.", ext);
+	}
+
+	VkApplicationInfo app_info{ VK_STRUCTURE_TYPE_APPLICATION_INFO };
 	app_info.pApplicationName = info.app_name;
 	app_info.applicationVersion = info.app_ver;
 	app_info.pEngineName = info.app_name;
@@ -140,7 +155,7 @@ VkResult VulkanContext::CreateInstance(const CreateInfo &info) {
 	app_info.engineVersion = 2;
 	app_info.apiVersion = VK_API_VERSION_1_0;
 
-	VkInstanceCreateInfo inst_info { VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO };
+	VkInstanceCreateInfo inst_info{ VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO };
 	inst_info.flags = 0;
 	inst_info.pApplicationInfo = &app_info;
 	inst_info.enabledLayerCount = (uint32_t)instance_layer_names_.size();
@@ -543,6 +558,8 @@ VkResult VulkanContext::CreateDevice() {
 		}
 	}
 	assert(found);
+
+	deviceExtensionsLookup_.DEDICATED_ALLOCATION = EnableDeviceExtension(VK_KHR_DEDICATED_ALLOCATION_EXTENSION_NAME);
 
 	VkDeviceCreateInfo device_info { VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO };
 	device_info.queueCreateInfoCount = 1;

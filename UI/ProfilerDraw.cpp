@@ -58,6 +58,7 @@ void DrawProfile(UIContext &ui) {
 	if (g_Config.bShowFrameProfiler) {
 		PROFILE_THIS_SCOPE("timing");
 		int numCategories = Profiler_GetNumCategories();
+		int numThreads = Profiler_GetNumThreads();
 		int historyLength = Profiler_GetHistoryLength();
 
 		ui.SetFontStyle(ui.theme->uiFont);
@@ -66,7 +67,10 @@ void DrawProfile(UIContext &ui) {
 		float legendMinVal = lastMaxVal * (1.0f / 120.0f);
 
 		std::vector<float> history(historyLength);
+		std::vector<int> slowestThread(historyLength);
 		std::vector<ProfileCatStatus> catStatus(numCategories);
+
+		Profiler_GetSlowestThreads(&slowestThread[0], historyLength);
 
 		float rowH = 30.0f;
 		float legendHeight = 0.0f;
@@ -78,7 +82,7 @@ void DrawProfile(UIContext &ui) {
 				continue;
 			}
 
-			Profiler_GetHistory(i, &history[0], historyLength);
+			Profiler_GetSlowestHistory(i, &slowestThread[0], &history[0], historyLength);
 			catStatus[i] = PROFILE_CAT_NOLEGEND;
 			for (int j = 0; j < historyLength; ++j) {
 				if (history[j] > legendMinVal) {
@@ -96,6 +100,10 @@ void DrawProfile(UIContext &ui) {
 			legendHeight += rowH;
 		}
 		legendWidth += 20.0f;
+
+		if (legendHeight > ui.GetBounds().h) {
+			legendHeight = ui.GetBounds().h;
+		}
 
 		float legendStartY = legendHeight > ui.GetBounds().centerY() ? ui.GetBounds().y2() - legendHeight : ui.GetBounds().centerY();
 		float legendStartX = ui.GetBounds().x2() - std::min(legendWidth, 200.0f);
@@ -183,6 +191,7 @@ void DrawProfile(UIContext &ui) {
 				}
 			}
 		}
+		Profiler_GetSlowestHistory(i, &slowestThread[0], &history[0], historyLength);
 
 		for (int n = 0; n < historyLength; n++) {
 			if (total[n] > maxTotal)

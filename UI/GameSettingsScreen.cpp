@@ -67,11 +67,6 @@
 #include "gfx/gl_common.h"
 #endif
 
-#ifdef IOS
-extern bool iosCanUseJit;
-extern bool targetIsJailbroken;
-#endif
-
 extern bool VulkanMayBeAvailable();
 
 GameSettingsScreen::GameSettingsScreen(std::string gamePath, std::string gameID, bool editThenRestore)
@@ -1262,14 +1257,7 @@ void DeveloperToolsScreen::CreateViews() {
 	Choice *cpuTests = new Choice(dev->T("Run CPU Tests"));
 	list->Add(cpuTests)->OnClick.Handle(this, &DeveloperToolsScreen::OnRunCPUTests);
 
-#ifdef IOS
-	const std::string testDirectory = g_Config.flash0Directory + "../";
-#else
-	const std::string testDirectory = g_Config.memStickDirectory;
-#endif
-	if (!File::Exists(testDirectory + "pspautotests/tests/")) {
-		cpuTests->SetEnabled(false);
-	}
+	cpuTests->SetEnabled(TestsAvailable());
 #endif
 
 	list->Add(new CheckBox(&g_Config.bEnableLogging, dev->T("Enable Logging")))->OnClick.Handle(this, &DeveloperToolsScreen::OnLoggingChanged);

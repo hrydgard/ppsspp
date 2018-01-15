@@ -17,4 +17,5 @@
 
 #pragma once
 
-void RunTests();
+bool RunTests();
+bool TestsAvailable();

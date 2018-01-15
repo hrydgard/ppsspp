@@ -1079,7 +1079,10 @@ void D3D9Context::BindFramebufferAsRenderTarget(Framebuffer *fbo, const RenderPa
 		clearFlags |= D3DCLEAR_TARGET;
 	}
 	if (rp.depth == RPAction::CLEAR) {
-		clearFlags |= D3DCLEAR_ZBUFFER | D3DCLEAR_STENCIL;
+		clearFlags |= D3DCLEAR_ZBUFFER;
+	}
+	if (rp.stencil == RPAction::CLEAR) {
+		clearFlags |= D3DCLEAR_STENCIL;
 	}
 	if (clearFlags) {
 		dxstate.scissorTest.force(false);

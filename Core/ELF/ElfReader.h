@@ -17,9 +17,9 @@
 
 #pragma once
 
+#include <vector>
 #include "Common/CommonTypes.h"
-
-#include "ElfTypes.h"
+#include "Core/ELF/ElfTypes.h"
 
 enum {
 	R_MIPS_NONE,
@@ -129,6 +129,8 @@ public:
 	u32 GetTotalTextSize() const;
 	u32 GetTotalDataSize() const;
 	u32 GetTotalSectionSizeByPrefix(const std::string &prefix) const;
+
+	std::vector<SectionID> GetCodeSections() const;
 
 	int LoadInto(u32 vaddr, bool fromTop);
 	bool LoadSymbols();

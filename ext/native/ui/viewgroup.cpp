@@ -1555,7 +1555,9 @@ void UpdateViewHierarchy(ViewGroup *root) {
 		std::lock_guard<std::mutex> lock(focusLock);
 		EnableFocusMovement(true);
 		if (!GetFocusedView()) {
-			if (root->GetDefaultFocusView()) {
+			View *defaultView = root->GetDefaultFocusView();
+			// Can't focus what you can't see.
+			if (defaultView && defaultView->GetVisibility() == V_VISIBLE) {
 				root->GetDefaultFocusView()->SetFocus();
 			} else {
 				root->SetFocus();

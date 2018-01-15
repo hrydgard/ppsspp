@@ -23,8 +23,7 @@
 
 namespace Arm64JitConstants {
 
-const Arm64Gen::ARM64Reg DOWNCOUNTREG = Arm64Gen::W23;
-const Arm64Gen::ARM64Reg OTHERTEMPREG = Arm64Gen::W24;
+const Arm64Gen::ARM64Reg DOWNCOUNTREG = Arm64Gen::W24;
 const Arm64Gen::ARM64Reg FLAGTEMPREG = Arm64Gen::X25;
 const Arm64Gen::ARM64Reg JITBASEREG = Arm64Gen::X26;
 const Arm64Gen::ARM64Reg CTXREG = Arm64Gen::X27;
@@ -41,6 +40,8 @@ enum {
 enum RegMIPSLoc {
 	ML_IMM,
 	ML_ARMREG,
+	// In an arm reg, but an adjusted pointer (not pointerified - unaligned.)
+	ML_ARMREG_AS_PTR,
 	// In an arm reg, but also has a known immediate value.
 	ML_ARMREG_IMM,
 	ML_MEM,
@@ -60,6 +61,7 @@ struct RegARM64 {
 	MIPSGPReg mipsReg;  // if -1, no mipsreg attached.
 	bool isDirty;  // Should the register be written back?
 	bool pointerified;  // Has used movk to move the memory base into the top part of the reg. Note - still usable as 32-bit reg!
+	bool tempLocked; // Reserved for a temp register.
 };
 
 struct RegMIPS {
@@ -89,8 +91,8 @@ public:
 	// Protect the arm register containing a MIPS register from spilling, to ensure that
 	// it's being kept allocated.
 	void SpillLock(MIPSGPReg reg, MIPSGPReg reg2 = MIPS_REG_INVALID, MIPSGPReg reg3 = MIPS_REG_INVALID, MIPSGPReg reg4 = MIPS_REG_INVALID);
-	void ReleaseSpillLock(MIPSGPReg reg);
-	void ReleaseSpillLocks();
+	void ReleaseSpillLock(MIPSGPReg reg, MIPSGPReg reg2 = MIPS_REG_INVALID, MIPSGPReg reg3 = MIPS_REG_INVALID, MIPSGPReg reg4 = MIPS_REG_INVALID);
+	void ReleaseSpillLocksAndDiscardTemps();
 
 	void SetImm(MIPSGPReg reg, u64 immVal);
 	bool IsImm(MIPSGPReg reg) const;
@@ -98,6 +100,9 @@ public:
 	u64 GetImm(MIPSGPReg reg) const;
 	// Optimally set a register to an imm value (possibly using another register.)
 	void SetRegImm(Arm64Gen::ARM64Reg reg, u64 imm);
+
+	// May fail and return INVALID_REG if it needs flushing.
+	Arm64Gen::ARM64Reg TryMapTempImm(MIPSGPReg);
 
 	// Returns an ARM register containing the requested MIPS register.
 	Arm64Gen::ARM64Reg MapReg(MIPSGPReg reg, int mapFlags = 0);
@@ -119,6 +124,8 @@ public:
 	void FlushAll();
 	void FlushR(MIPSGPReg r);
 	void DiscardR(MIPSGPReg r);
+
+	Arm64Gen::ARM64Reg GetAndLockTempR();
 
 	Arm64Gen::ARM64Reg R(MIPSGPReg preg); // Returns a cached register, while checking that it's NOT mapped as a pointer
 	Arm64Gen::ARM64Reg RPtr(MIPSGPReg preg); // Returns a cached register, if it has been mapped as a pointer
@@ -143,6 +150,7 @@ private:
 	const StaticAllocation *GetStaticAllocations(int &count);
 	const Arm64Gen::ARM64Reg *GetMIPSAllocationOrder(int &count);
 	void MapRegTo(Arm64Gen::ARM64Reg reg, MIPSGPReg mipsReg, int mapFlags);
+	Arm64Gen::ARM64Reg AllocateReg();
 	Arm64Gen::ARM64Reg FindBestToSpill(bool unusedOnly, bool *clobbered);
 	Arm64Gen::ARM64Reg ARM64RegForFlush(MIPSGPReg r);
 

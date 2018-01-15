@@ -16,6 +16,7 @@
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
 #include <algorithm>
+#include "profiler/profiler.h"
 #include "Common/ColorConv.h"
 #include "Common/MemoryUtil.h"
 #include "Common/StringUtils.h"
@@ -1473,6 +1474,7 @@ void TextureCacheCommon::ApplyTexture() {
 		}
 
 		if (nextNeedsRehash_) {
+			PROFILE_THIS_SCOPE("texhash");
 			// Update the hash on the texture.
 			int w = gstate.getTextureWidth(0);
 			int h = gstate.getTextureHeight(0);
@@ -1548,7 +1550,11 @@ void TextureCacheCommon::DeleteTexture(TexCache::iterator it) {
 bool TextureCacheCommon::CheckFullHash(TexCacheEntry *entry, bool &doDelete) {
 	int w = gstate.getTextureWidth(0);
 	int h = gstate.getTextureHeight(0);
-	u32 fullhash = QuickTexHash(replacer_, entry->addr, entry->bufw, w, h, GETextureFormat(entry->format), entry);
+	u32 fullhash;
+	{
+		PROFILE_THIS_SCOPE("texhash");
+		fullhash = QuickTexHash(replacer_, entry->addr, entry->bufw, w, h, GETextureFormat(entry->format), entry);
+	}
 
 	if (fullhash == entry->fullhash) {
 		if (g_Config.bTextureBackoffCache) {

@@ -49,7 +49,6 @@ static const char *OFF_STATES = "eczqtrfnmpgv";
 - (void)dealloc {
     [[NSNotificationCenter defaultCenter] removeObserver:self name:UIApplicationDidEnterBackgroundNotification object:nil];
     [[NSNotificationCenter defaultCenter] removeObserver:self name:UIApplicationDidBecomeActiveNotification object:nil];
-    [super dealloc];
 }
 
 - (void)didEnterBackground {

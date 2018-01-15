@@ -222,7 +222,7 @@ namespace MIPSComp {
 			fpr.MapRegV(vt, MAP_DIRTY | MAP_NOINIT);
 			if (gpr.IsImm(rs)) {
 				u32 addr = offset + gpr.GetImm(rs);
-				gpr.SetRegImm(SCRATCH1_64, addr + (uintptr_t)Memory::base);
+				gpr.SetRegImm(SCRATCH1, addr);
 			} else {
 				gpr.MapReg(rs);
 				if (g_Config.bFastMemory) {
@@ -230,10 +230,8 @@ namespace MIPSComp {
 				} else {
 					skips = SetScratch1ForSafeAddress(rs, offset, SCRATCH2);
 				}
-				// Pointerify
-				MOVK(SCRATCH1_64, ((uint64_t)Memory::base) >> 32, SHIFT_32);
 			}
-			fp.LDR(32, INDEX_UNSIGNED, fpr.V(vt), SCRATCH1_64, 0);
+			fp.LDR(32, fpr.V(vt), SCRATCH1_64, ArithOption(MEMBASEREG));
 			for (auto skip : skips) {
 				SetJumpTarget(skip);
 			}
@@ -253,7 +251,7 @@ namespace MIPSComp {
 			fpr.MapRegV(vt);
 			if (gpr.IsImm(rs)) {
 				u32 addr = offset + gpr.GetImm(rs);
-				gpr.SetRegImm(SCRATCH1_64, addr + (uintptr_t)Memory::base);
+				gpr.SetRegImm(SCRATCH1, addr);
 			} else {
 				gpr.MapReg(rs);
 				if (g_Config.bFastMemory) {
@@ -261,9 +259,8 @@ namespace MIPSComp {
 				} else {
 					skips = SetScratch1ForSafeAddress(rs, offset, SCRATCH2);
 				}
-				MOVK(SCRATCH1_64, ((uint64_t)Memory::base) >> 32, SHIFT_32);
 			}
-			fp.STR(32, INDEX_UNSIGNED, fpr.V(vt), SCRATCH1_64, 0);
+			fp.STR(32, fpr.V(vt), SCRATCH1_64, ArithOption(MEMBASEREG));
 			for (auto skip : skips) {
 				SetJumpTarget(skip);
 			}
@@ -303,7 +300,11 @@ namespace MIPSComp {
 					} else {
 						skips = SetScratch1ForSafeAddress(rs, imm, SCRATCH2);
 					}
-					MOVK(SCRATCH1_64, ((uint64_t)Memory::base) >> 32, SHIFT_32);
+					if (jo.enablePointerify) {
+						MOVK(SCRATCH1_64, ((uint64_t)Memory::base) >> 32, SHIFT_32);
+					} else {
+						ADD(SCRATCH1_64, SCRATCH1_64, MEMBASEREG);
+					}
 				}
 
 				fp.LDP(32, INDEX_SIGNED, fpr.V(vregs[0]), fpr.V(vregs[1]), SCRATCH1_64, 0);
@@ -332,7 +333,11 @@ namespace MIPSComp {
 					} else {
 						skips = SetScratch1ForSafeAddress(rs, imm, SCRATCH2);
 					}
-					MOVK(SCRATCH1_64, ((uint64_t)Memory::base) >> 32, SHIFT_32);
+					if (jo.enablePointerify) {
+						MOVK(SCRATCH1_64, ((uint64_t)Memory::base) >> 32, SHIFT_32);
+					} else {
+						ADD(SCRATCH1_64, SCRATCH1_64, MEMBASEREG);
+					}
 				}
 
 				fp.STP(32, INDEX_SIGNED, fpr.V(vregs[0]), fpr.V(vregs[1]), SCRATCH1_64, 0);

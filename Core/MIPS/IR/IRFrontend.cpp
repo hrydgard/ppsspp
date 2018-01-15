@@ -32,8 +32,6 @@
 namespace MIPSComp {
 
 IRFrontend::IRFrontend(bool startDefaultPrefix) {
-	logBlocks = 0;
-	dontLogBlocks = 0;
 	js.startDefaultPrefix = true;
 	js.hasSetRounding = false;
 	// js.currentRoundingFunc = convertS0ToSCRATCH1[0];
@@ -105,7 +103,7 @@ void IRFrontend::CompileDelaySlot() {
 	js.inDelaySlot = false;
 }
 
-bool IRFrontend::CheckRounding() {
+bool IRFrontend::CheckRounding(u32 blockAddress) {
 	bool cleanSlate = false;
 	if (js.hasSetRounding && !js.lastSetRounding) {
 		WARN_LOG(JIT, "Detected rounding mode usage, rebuilding jit with checks");
@@ -116,7 +114,7 @@ bool IRFrontend::CheckRounding() {
 
 	// Drat.  The VFPU hit an uneaten prefix at the end of a block.
 	if (js.startDefaultPrefix && js.MayHavePrefix()) {
-		WARN_LOG(JIT, "An uneaten prefix at end of block");
+		WARN_LOG_REPORT(JIT, "An uneaten prefix at end of block for %08x", blockAddress);
 		logBlocks = 1;
 		js.LogPrefix();
 
@@ -164,7 +162,7 @@ void IRFrontend::Comp_ReplacementFunc(MIPSOpcode op) {
 			MIPSCompileOp(Memory::Read_Instruction(GetCompilerPC(), true), this);
 		} else {
 			ApplyRoundingMode();
-			ir.Write(IROp::Downcount, 0, js.downcountAmount & 0xFF, js.downcountAmount >> 8);
+			ir.Write(IROp::Downcount, 0, ir.AddConstant(js.downcountAmount));
 			ir.Write(IROp::ExitToReg, 0, MIPS_REG_RA, 0);
 			js.compiling = false;
 		}
@@ -221,8 +219,9 @@ MIPSOpcode IRFrontend::GetOffsetInstruction(int offset) {
 	return Memory::Read_Instruction(GetCompilerPC() + 4 * offset);
 }
 
-void IRFrontend::DoJit(u32 em_address, std::vector<IRInst> &instructions, std::vector<u32> &constants, u32 &mipsBytes) {
+void IRFrontend::DoJit(u32 em_address, std::vector<IRInst> &instructions, u32 &mipsBytes, bool preload) {
 	js.cancel = false;
+	js.preloading = preload;
 	js.blockStart = em_address;
 	js.compilerPC = em_address;
 	js.lastContinuedPC = 0;
@@ -246,12 +245,11 @@ void IRFrontend::DoJit(u32 em_address, std::vector<IRInst> &instructions, std::v
 		MIPSCompileOp(inst, this);
 		js.compilerPC += 4;
 		js.numInstructions++;
+	}
 
-		if (ir.GetConstants().size() > 64) {
-			// Need to break the block
-			ir.Write(IROp::ExitToConst, ir.AddConstant(js.compilerPC));
-			js.compiling = false;
-		}
+	if (js.cancel) {
+		// Clear the instructions to signal this was not compiled.
+		ir.Clear();
 	}
 
 	mipsBytes = js.compilerPC - em_address;
@@ -260,6 +258,7 @@ void IRFrontend::DoJit(u32 em_address, std::vector<IRInst> &instructions, std::v
 	IRWriter *code = &ir;
 	if (!js.hadBreakpoints) {
 		static const IRPassFunc passes[] = {
+			&RemoveLoadStoreLeftRight,
 			&OptimizeFPMoves,
 			&PropagateConstants,
 			&PurgeTemps,
@@ -267,7 +266,7 @@ void IRFrontend::DoJit(u32 em_address, std::vector<IRInst> &instructions, std::v
 			// &MergeLoadStore,
 			// &ThreeOpToTwoOp,
 		};
-		if (IRApplyPasses(passes, ARRAY_SIZE(passes), ir, simplified))
+		if (IRApplyPasses(passes, ARRAY_SIZE(passes), ir, simplified, opts))
 			logBlocks = 1;
 		code = &simplified;
 		//if (ir.GetInstructions().size() >= 24)
@@ -275,36 +274,35 @@ void IRFrontend::DoJit(u32 em_address, std::vector<IRInst> &instructions, std::v
 	}
 
 	instructions = code->GetInstructions();
-	constants = code->GetConstants();
 
 	if (logBlocks > 0 && dontLogBlocks == 0) {
 		char temp2[256];
-		ILOG("=============== mips %08x ===============", em_address);
-		for (u32 cpc = em_address; cpc != GetCompilerPC() + 4; cpc += 4) {
+		NOTICE_LOG(JIT, "=============== mips %08x ===============", em_address);
+		for (u32 cpc = em_address; cpc != GetCompilerPC(); cpc += 4) {
 			temp2[0] = 0;
 			MIPSDisAsm(Memory::Read_Opcode_JIT(cpc), cpc, temp2, true);
-			ILOG("M: %08x   %s", cpc, temp2);
+			NOTICE_LOG(JIT, "M: %08x   %s", cpc, temp2);
 		}
 	}
 
 	if (logBlocks > 0 && dontLogBlocks == 0) {
-		ILOG("=============== Original IR (%d instructions, %d const) ===============", (int)ir.GetInstructions().size(), (int)ir.GetConstants().size());
+		NOTICE_LOG(JIT, "=============== Original IR (%d instructions) ===============", (int)ir.GetInstructions().size());
 		for (size_t i = 0; i < ir.GetInstructions().size(); i++) {
 			char buf[256];
-			DisassembleIR(buf, sizeof(buf), ir.GetInstructions()[i], &ir.GetConstants()[0]);
-			ILOG("%s", buf);
+			DisassembleIR(buf, sizeof(buf), ir.GetInstructions()[i]);
+			NOTICE_LOG(JIT, "%s", buf);
 		}
-		ILOG("===============        end         =================");
+		NOTICE_LOG(JIT, "===============        end         =================");
 	}
 
 	if (logBlocks > 0 && dontLogBlocks == 0) {
-		ILOG("=============== IR (%d instructions, %d const) ===============", (int)code->GetInstructions().size(), (int)code->GetConstants().size());
+		NOTICE_LOG(JIT, "=============== IR (%d instructions) ===============", (int)code->GetInstructions().size());
 		for (size_t i = 0; i < code->GetInstructions().size(); i++) {
 			char buf[256];
-			DisassembleIR(buf, sizeof(buf), code->GetInstructions()[i], &code->GetConstants()[0]);
-			ILOG("%s", buf);
+			DisassembleIR(buf, sizeof(buf), code->GetInstructions()[i]);
+			NOTICE_LOG(JIT, "%s", buf);
 		}
-		ILOG("===============        end         =================");
+		NOTICE_LOG(JIT, "===============        end         =================");
 	}
 
 	if (logBlocks > 0)
@@ -328,7 +326,7 @@ void IRFrontend::CheckBreakpoint(u32 addr) {
 		// TODO: In likely branches, downcount will be incorrect.
 		int downcountOffset = js.inDelaySlot && js.downcountAmount >= 2 ? -2 : 0;
 		int downcountAmount = js.downcountAmount + downcountOffset;
-		ir.Write(IROp::Downcount, 0, downcountAmount & 0xFF, downcountAmount >> 8);
+		ir.Write(IROp::Downcount, 0, ir.AddConstant(downcountAmount));
 		// Note that this means downcount can't be metadata on the block.
 		js.downcountAmount = -downcountOffset;
 		ir.Write(IROp::Breakpoint);
@@ -351,7 +349,7 @@ void IRFrontend::CheckMemoryBreakpoint(int rs, int offset) {
 			downcountOffset = 0;
 		}
 		int downcountAmount = js.downcountAmount + downcountOffset;
-		ir.Write(IROp::Downcount, 0, downcountAmount & 0xFF, downcountAmount >> 8);
+		ir.Write(IROp::Downcount, 0, ir.AddConstant(downcountAmount));
 		// Note that this means downcount can't be metadata on the block.
 		js.downcountAmount = -downcountOffset;
 		ir.Write(IROp::MemoryCheck, 0, rs, ir.AddConstant(offset));

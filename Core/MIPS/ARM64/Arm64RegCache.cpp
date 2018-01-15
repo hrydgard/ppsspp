@@ -45,6 +45,7 @@ void Arm64RegCache::Start(MIPSAnalyst::AnalysisResults &stats) {
 		ar[i].mipsReg = MIPS_REG_INVALID;
 		ar[i].isDirty = false;
 		ar[i].pointerified = false;
+		ar[i].tempLocked = false;
 	}
 	for (int i = 0; i < NUM_MIPSREG; i++) {
 		mr[i].loc = ML_MEM;
@@ -57,7 +58,7 @@ void Arm64RegCache::Start(MIPSAnalyst::AnalysisResults &stats) {
 	const StaticAllocation *statics = GetStaticAllocations(numStatics);
 	for (int i = 0; i < numStatics; i++) {
 		ar[statics[i].ar].mipsReg = statics[i].mr;
-		ar[statics[i].ar].pointerified = statics[i].pointerified;
+		ar[statics[i].ar].pointerified = statics[i].pointerified && jo_->enablePointerify;
 		mr[statics[i].mr].loc = ML_ARMREG;
 		mr[statics[i].mr].reg = statics[i].ar;
 		mr[statics[i].mr].isStatic = true;
@@ -68,10 +69,10 @@ void Arm64RegCache::Start(MIPSAnalyst::AnalysisResults &stats) {
 const ARM64Reg *Arm64RegCache::GetMIPSAllocationOrder(int &count) {
 	// See register alloc remarks in Arm64Asm.cpp
 
-	// W19-W22 are most suitable for static allocation. Those that are chosen for static allocation
+	// W19-W23 are most suitable for static allocation. Those that are chosen for static allocation
 	// should be omitted here and added in GetStaticAllocations.
 	static const ARM64Reg allocationOrder[] = {
-		W19, W20, W21, W22, W0, W1, W2, W3, W4, W5, W6, W7, W8, W9, W10, W11, W12, W13, W14, W15,
+		W19, W20, W21, W22, W23, W0, W1, W2, W3, W4, W5, W6, W7, W8, W9, W10, W11, W12, W13, W14, W15,
 	};
 	static const ARM64Reg allocationOrderStaticAlloc[] = {
 		W0, W1, W2, W3, W4, W5, W6, W7, W8, W9, W10, W11, W12, W13, W14, W15,
@@ -92,6 +93,7 @@ const Arm64RegCache::StaticAllocation *Arm64RegCache::GetStaticAllocations(int &
 		{MIPS_REG_V0, W20},
 		{MIPS_REG_V1, W22},
 		{MIPS_REG_A0, W21},
+		{MIPS_REG_RA, W23},
 	};
 
 	if (jo_->useStaticAlloc) {
@@ -110,7 +112,7 @@ void Arm64RegCache::EmitLoadStaticRegisters() {
 	for (int i = 0; i < count; i++) {
 		int offset = GetMipsRegOffset(allocs[i].mr);
 		emit_->LDR(INDEX_UNSIGNED, allocs[i].ar, CTXREG, offset);
-		if (allocs[i].pointerified) {
+		if (allocs[i].pointerified && jo_->enablePointerify) {
 			emit_->MOVK(EncodeRegTo64(allocs[i].ar), ((uint64_t)Memory::base) >> 32, SHIFT_32);
 		}
 	}
@@ -150,6 +152,8 @@ bool Arm64RegCache::IsMappedAsPointer(MIPSGPReg mipsReg) {
 		if (ar[mr[mipsReg].reg].pointerified) {
 			ELOG("Really shouldn't be pointerified here");
 		}
+	} else if (mr[mipsReg].loc == ML_ARMREG_AS_PTR) {
+		return true;
 	}
 	return false;
 }
@@ -211,6 +215,7 @@ void Arm64RegCache::MapRegTo(ARM64Reg reg, MIPSGPReg mipsReg, int mapFlags) {
 					mr[mipsReg].loc = ML_ARMREG_IMM;
 				break;
 			default:
+				_assert_msg_(JIT, mr[mipsReg].loc != ML_ARMREG_AS_PTR, "MapRegTo with a pointer?");
 				mr[mipsReg].loc = ML_ARMREG;
 				break;
 			}
@@ -223,6 +228,43 @@ void Arm64RegCache::MapRegTo(ARM64Reg reg, MIPSGPReg mipsReg, int mapFlags) {
 	mr[mipsReg].reg = reg;
 }
 
+ARM64Reg Arm64RegCache::AllocateReg() {
+	int allocCount;
+	const ARM64Reg *allocOrder = GetMIPSAllocationOrder(allocCount);
+
+allocate:
+	for (int i = 0; i < allocCount; i++) {
+		ARM64Reg reg = allocOrder[i];
+
+		if (ar[reg].mipsReg == MIPS_REG_INVALID && !ar[reg].tempLocked) {
+			return reg;
+		}
+	}
+
+	// Still nothing. Let's spill a reg and goto 10.
+	// TODO: Use age or something to choose which register to spill?
+	// TODO: Spill dirty regs first? or opposite?
+	bool clobbered;
+	ARM64Reg bestToSpill = FindBestToSpill(true, &clobbered);
+	if (bestToSpill == INVALID_REG) {
+		bestToSpill = FindBestToSpill(false, &clobbered);
+	}
+
+	if (bestToSpill != INVALID_REG) {
+		if (clobbered) {
+			DiscardR(ar[bestToSpill].mipsReg);
+		} else {
+			FlushArmReg(bestToSpill);
+		}
+		// Now one must be free.
+		goto allocate;
+	}
+
+	// Uh oh, we have all of them spilllocked....
+	ERROR_LOG_REPORT(JIT, "Out of spillable registers at PC %08x!!!", mips_->pc);
+	return INVALID_REG;
+}
+
 ARM64Reg Arm64RegCache::FindBestToSpill(bool unusedOnly, bool *clobbered) {
 	int allocCount;
 	const ARM64Reg *allocOrder = GetMIPSAllocationOrder(allocCount);
@@ -233,6 +275,8 @@ ARM64Reg Arm64RegCache::FindBestToSpill(bool unusedOnly, bool *clobbered) {
 	for (int i = 0; i < allocCount; i++) {
 		ARM64Reg reg = allocOrder[i];
 		if (ar[reg].mipsReg != MIPS_REG_INVALID && mr[ar[reg].mipsReg].spillLock)
+			continue;
+		if (ar[reg].tempLocked)
 			continue;
 
 		// As it's in alloc-order, we know it's not static so we don't need to check for that.
@@ -259,6 +303,37 @@ ARM64Reg Arm64RegCache::FindBestToSpill(bool unusedOnly, bool *clobbered) {
 	}
 
 	return INVALID_REG;
+}
+
+ARM64Reg Arm64RegCache::TryMapTempImm(MIPSGPReg r) {
+	// If already mapped, no need for a temporary.
+	if (IsMapped(r)) {
+		return R(r);
+	}
+
+	if (mr[r].loc == ML_IMM) {
+		if (mr[r].imm == 0) {
+			return WZR;
+		}
+
+		// Try our luck - check for an exact match in another armreg.
+		for (int i = 0; i < NUM_MIPSREG; ++i) {
+			if (mr[i].loc == ML_ARMREG_IMM && mr[i].imm == mr[r].imm) {
+				// Awesome, let's just use this reg.
+				return mr[i].reg;
+			}
+		}
+	}
+
+	return INVALID_REG;
+}
+
+ARM64Reg Arm64RegCache::GetAndLockTempR() {
+	ARM64Reg reg = AllocateReg();
+	if (reg != INVALID_REG) {
+		ar[reg].tempLocked = true;
+	}
+	return reg;
 }
 
 // TODO: Somewhat smarter spilling - currently simply spills the first available, should do
@@ -288,6 +363,13 @@ ARM64Reg Arm64RegCache::MapReg(MIPSGPReg mipsReg, int mapFlags) {
 				mr[mipsReg].loc = ML_ARMREG_IMM;
 				ar[armReg].pointerified = false;
 			}
+		} else if (mr[mipsReg].loc == ML_ARMREG_AS_PTR) {
+			// Was mapped as pointer, now we want it mapped as a value, presumably to
+			// add or subtract stuff to it.
+			if ((mapFlags & MAP_NOINIT) != MAP_NOINIT) {
+				emit_->SUB(EncodeRegTo64(armReg), EncodeRegTo64(armReg), MEMBASEREG);
+			}
+			mr[mipsReg].loc = ML_ARMREG;
 		}
 		// Erasing the imm on dirty (necessary since otherwise we will still think it's ML_ARMREG_IMM and return
 		// true for IsImm and calculate crazily wrong things).  /unknown
@@ -315,49 +397,35 @@ ARM64Reg Arm64RegCache::MapReg(MIPSGPReg mipsReg, int mapFlags) {
 		}
 
 		return mr[mipsReg].reg;
+	} else if (mr[mipsReg].loc == ML_ARMREG_AS_PTR) {
+		// Was mapped as pointer, now we want it mapped as a value, presumably to
+		// add or subtract stuff to it.
+		if ((mapFlags & MAP_NOINIT) != MAP_NOINIT) {
+			emit_->SUB(EncodeRegTo64(armReg), EncodeRegTo64(armReg), MEMBASEREG);
+		}
+		mr[mipsReg].loc = ML_ARMREG;
+		if (mapFlags & MAP_DIRTY) {
+			ar[armReg].isDirty = true;
+		}
+		return (ARM64Reg)mr[mipsReg].reg;
 	}
 
 	// Okay, not mapped, so we need to allocate an ARM register.
-
-	int allocCount;
-	const ARM64Reg *allocOrder = GetMIPSAllocationOrder(allocCount);
-
-allocate:
-	for (int i = 0; i < allocCount; i++) {
-		ARM64Reg reg = allocOrder[i];
-
-		if (ar[reg].mipsReg == MIPS_REG_INVALID) {
-			// That means it's free. Grab it, and load the value into it (if requested).
-			MapRegTo(reg, mipsReg, mapFlags);
-			return reg;
-		}
+	ARM64Reg reg = AllocateReg();
+	if (reg != INVALID_REG) {
+		// Grab it, and load the value into it (if requested).
+		MapRegTo(reg, mipsReg, mapFlags);
 	}
 
-	// Still nothing. Let's spill a reg and goto 10.
-	// TODO: Use age or something to choose which register to spill?
-	// TODO: Spill dirty regs first? or opposite?
-	bool clobbered;
-	ARM64Reg bestToSpill = FindBestToSpill(true, &clobbered);
-	if (bestToSpill == INVALID_REG) {
-		bestToSpill = FindBestToSpill(false, &clobbered);
-	}
-
-	if (bestToSpill != INVALID_REG) {
-		if (clobbered) {
-			DiscardR(ar[bestToSpill].mipsReg);
-		} else {
-			FlushArmReg(bestToSpill);
-		}
-		// Now one must be free.
-		goto allocate;
-	}
-
-	// Uh oh, we have all of them spilllocked....
-	ERROR_LOG_REPORT(JIT, "Out of spillable registers at PC %08x!!!", mips_->pc);
-	return INVALID_REG;
+	return reg;
 }
 
 Arm64Gen::ARM64Reg Arm64RegCache::MapRegAsPointer(MIPSGPReg reg) {
+	// Already mapped.
+	if (mr[reg].loc == ML_ARMREG_AS_PTR) {
+		return mr[reg].reg;
+	}
+
 	ARM64Reg retval = INVALID_REG;
 	if (mr[reg].loc != ML_ARMREG && mr[reg].loc != ML_ARMREG_IMM) {
 		retval = MapReg(reg);
@@ -368,9 +436,14 @@ Arm64Gen::ARM64Reg Arm64RegCache::MapRegAsPointer(MIPSGPReg reg) {
 	if (mr[reg].loc == ML_ARMREG || mr[reg].loc == ML_ARMREG_IMM) {
 		// If there was an imm attached, discard it.
 		mr[reg].loc = ML_ARMREG;
-		int a = DecodeReg(mr[reg].reg);
-		if (!ar[a].pointerified) {
-			emit_->MOVK(ARM64Reg(X0 + a), ((uint64_t)Memory::base) >> 32, SHIFT_32);
+		ARM64Reg a = DecodeReg(mr[reg].reg);
+		if (!jo_->enablePointerify) {
+			// Convert to a pointer by adding the base and clearing off the top bits.
+			// If SP, we can probably avoid the top bit clear, let's play with that later.
+			emit_->ADD(EncodeRegTo64(a), EncodeRegTo64(a), MEMBASEREG);
+			mr[reg].loc = ML_ARMREG_AS_PTR;
+		} else if (!ar[a].pointerified) {
+			emit_->MOVK(EncodeRegTo64(a), ((uint64_t)Memory::base) >> 32, SHIFT_32);
 			ar[a].pointerified = true;
 		}
 	} else {
@@ -387,7 +460,7 @@ void Arm64RegCache::MapInIn(MIPSGPReg rd, MIPSGPReg rs) {
 	SpillLock(rd, rs);
 	MapReg(rd);
 	MapReg(rs);
-	ReleaseSpillLocks();
+	ReleaseSpillLock(rd, rs);
 }
 
 void Arm64RegCache::MapDirtyIn(MIPSGPReg rd, MIPSGPReg rs, bool avoidLoad) {
@@ -395,7 +468,7 @@ void Arm64RegCache::MapDirtyIn(MIPSGPReg rd, MIPSGPReg rs, bool avoidLoad) {
 	bool load = !avoidLoad || rd == rs;
 	MapReg(rd, load ? MAP_DIRTY : MAP_NOINIT);
 	MapReg(rs);
-	ReleaseSpillLocks();
+	ReleaseSpillLock(rd, rs);
 }
 
 void Arm64RegCache::MapDirtyInIn(MIPSGPReg rd, MIPSGPReg rs, MIPSGPReg rt, bool avoidLoad) {
@@ -404,7 +477,7 @@ void Arm64RegCache::MapDirtyInIn(MIPSGPReg rd, MIPSGPReg rs, MIPSGPReg rt, bool 
 	MapReg(rd, load ? MAP_DIRTY : MAP_NOINIT);
 	MapReg(rt);
 	MapReg(rs);
-	ReleaseSpillLocks();
+	ReleaseSpillLock(rd, rs, rt);
 }
 
 void Arm64RegCache::MapDirtyDirtyIn(MIPSGPReg rd1, MIPSGPReg rd2, MIPSGPReg rs, bool avoidLoad) {
@@ -414,7 +487,7 @@ void Arm64RegCache::MapDirtyDirtyIn(MIPSGPReg rd1, MIPSGPReg rd2, MIPSGPReg rs, 
 	MapReg(rd1, load1 ? MAP_DIRTY : MAP_NOINIT);
 	MapReg(rd2, load2 ? MAP_DIRTY : MAP_NOINIT);
 	MapReg(rs);
-	ReleaseSpillLocks();
+	ReleaseSpillLock(rd1, rd2, rs);
 }
 
 void Arm64RegCache::MapDirtyDirtyInIn(MIPSGPReg rd1, MIPSGPReg rd2, MIPSGPReg rs, MIPSGPReg rt, bool avoidLoad) {
@@ -425,7 +498,7 @@ void Arm64RegCache::MapDirtyDirtyInIn(MIPSGPReg rd1, MIPSGPReg rd2, MIPSGPReg rs
 	MapReg(rd2, load2 ? MAP_DIRTY : MAP_NOINIT);
 	MapReg(rt);
 	MapReg(rs);
-	ReleaseSpillLocks();
+	ReleaseSpillLock(rd1, rd2, rs, rt);
 }
 
 void Arm64RegCache::FlushArmReg(ARM64Reg r) {
@@ -450,10 +523,17 @@ void Arm64RegCache::FlushArmReg(ARM64Reg r) {
 		mreg.loc = ML_IMM;
 		mreg.reg = INVALID_REG;
 	} else {
-		// Note: may be a 64-bit reg.
-		ARM64Reg storeReg = ARM64RegForFlush(ar[r].mipsReg);
-		if (storeReg != INVALID_REG)
-			emit_->STR(INDEX_UNSIGNED, storeReg, CTXREG, GetMipsRegOffset(ar[r].mipsReg));
+		if (mreg.loc == ML_IMM || ar[r].isDirty) {
+			if (mreg.loc == ML_ARMREG_AS_PTR) {
+				// Unpointerify, in case dirty.
+				emit_->SUB(EncodeRegTo64(r), EncodeRegTo64(r), MEMBASEREG);
+				mreg.loc = ML_ARMREG;
+			}
+			// Note: may be a 64-bit reg.
+			ARM64Reg storeReg = ARM64RegForFlush(ar[r].mipsReg);
+			if (storeReg != INVALID_REG)
+				emit_->STR(INDEX_UNSIGNED, storeReg, CTXREG, GetMipsRegOffset(ar[r].mipsReg));
+		}
 		mreg.loc = ML_MEM;
 		mreg.reg = INVALID_REG;
 		mreg.imm = 0;
@@ -465,9 +545,9 @@ void Arm64RegCache::FlushArmReg(ARM64Reg r) {
 
 void Arm64RegCache::DiscardR(MIPSGPReg mipsReg) {
 	if (mr[mipsReg].isStatic) {
-		// Simply do nothing unless it's an IMM or ARMREG_IMM, in case we just switch it over to ARMREG, losing the value.
-		if (mr[mipsReg].loc == ML_ARMREG_IMM || mr[mipsReg].loc == ML_IMM) {
-			ARM64Reg armReg = mr[mipsReg].reg;
+		// Simply do nothing unless it's an IMM/ARMREG_IMM/ARMREG_AS_PTR, in case we just switch it over to ARMREG, losing the value.
+		ARM64Reg armReg = mr[mipsReg].reg;
+		if (mr[mipsReg].loc == ML_ARMREG_IMM || mr[mipsReg].loc == ML_IMM || mr[mipsReg].loc == ML_ARMREG_AS_PTR) {
 			// Ignore the imm value, restore sanity
 			mr[mipsReg].loc = ML_ARMREG;
 			ar[armReg].pointerified = false;
@@ -476,7 +556,7 @@ void Arm64RegCache::DiscardR(MIPSGPReg mipsReg) {
 		return;
 	}
 	const RegMIPSLoc prevLoc = mr[mipsReg].loc;
-	if (prevLoc == ML_ARMREG || prevLoc == ML_ARMREG_IMM) {
+	if (prevLoc == ML_ARMREG || prevLoc == ML_ARMREG_IMM || prevLoc == ML_ARMREG_AS_PTR) {
 		ARM64Reg armReg = mr[mipsReg].reg;
 		ar[armReg].isDirty = false;
 		ar[armReg].mipsReg = MIPS_REG_INVALID;
@@ -532,6 +612,9 @@ ARM64Reg Arm64RegCache::ARM64RegForFlush(MIPSGPReg r) {
 		}
 		return mr[r].reg;
 
+	case ML_ARMREG_AS_PTR:
+		return INVALID_REG;
+
 	case ML_MEM:
 		return INVALID_REG;
 
@@ -578,6 +661,20 @@ void Arm64RegCache::FlushR(MIPSGPReg r) {
 		ar[mr[r].reg].pointerified = false;
 		break;
 
+	case ML_ARMREG_AS_PTR:
+		if (ar[mr[r].reg].isDirty) {
+			emit_->SUB(EncodeRegTo64(mr[r].reg), EncodeRegTo64(mr[r].reg), MEMBASEREG);
+			// We set this so ARM64RegForFlush knows it's no longer a pointer.
+			mr[r].loc = ML_ARMREG;
+			ARM64Reg storeReg = ARM64RegForFlush(r);
+			if (storeReg != INVALID_REG) {
+				emit_->STR(INDEX_UNSIGNED, storeReg, CTXREG, GetMipsRegOffset(r));
+			}
+			ar[mr[r].reg].isDirty = false;
+		}
+		ar[mr[r].reg].mipsReg = MIPS_REG_INVALID;
+		break;
+
 	case ML_MEM:
 		// Already there, nothing to do.
 		break;
@@ -596,6 +693,9 @@ void Arm64RegCache::FlushR(MIPSGPReg r) {
 }
 
 void Arm64RegCache::FlushAll() {
+	// Note: make sure not to change the registers when flushing:
+	// Branching code expects the armreg to retain its value.
+
 	// LO can't be included in a 32-bit pair, since it's 64 bit.
 	// Flush it first so we don't get it confused.
 	FlushR(MIPS_REG_LO);
@@ -654,6 +754,9 @@ void Arm64RegCache::FlushAll() {
 					ar[armReg].pointerified = false;
 				}
 				mr[i].loc = ML_ARMREG;
+			} else if (mr[i].loc == ML_ARMREG_AS_PTR) {
+				emit_->SUB(EncodeRegTo64(armReg), EncodeRegTo64(armReg), MEMBASEREG);
+				mr[i].loc = ML_ARMREG;
 			}
 			if (i != MIPS_REG_ZERO && mr[i].reg == INVALID_REG) {
 				ELOG("ARM reg of static %i is invalid", i);
@@ -667,7 +770,7 @@ void Arm64RegCache::FlushAll() {
 	int count = 0;
 	const StaticAllocation *allocs = GetStaticAllocations(count);
 	for (int i = 0; i < count; i++) {
-		if (allocs[i].pointerified && !ar[allocs[i].ar].pointerified) {
+		if (allocs[i].pointerified && !ar[allocs[i].ar].pointerified && jo_->enablePointerify) {
 			// Re-pointerify
 			emit_->MOVK(EncodeRegTo64(allocs[i].ar), ((uint64_t)Memory::base) >> 32, SHIFT_32);
 			ar[allocs[i].ar].pointerified = true;
@@ -770,16 +873,25 @@ void Arm64RegCache::SpillLock(MIPSGPReg r1, MIPSGPReg r2, MIPSGPReg r3, MIPSGPRe
 	if (r4 != MIPS_REG_INVALID) mr[r4].spillLock = true;
 }
 
-void Arm64RegCache::ReleaseSpillLocks() {
+void Arm64RegCache::ReleaseSpillLocksAndDiscardTemps() {
 	for (int i = 0; i < NUM_MIPSREG; i++) {
 		if (!mr[i].isStatic)
 			mr[i].spillLock = false;
 	}
+	for (int i = 0; i < NUM_ARMREG; i++) {
+		ar[i].tempLocked = false;
+	}
 }
 
-void Arm64RegCache::ReleaseSpillLock(MIPSGPReg reg) {
-	if (!mr[reg].isStatic)
-		mr[reg].spillLock = false;
+void Arm64RegCache::ReleaseSpillLock(MIPSGPReg r1, MIPSGPReg r2, MIPSGPReg r3, MIPSGPReg r4) {
+	if (!mr[r1].isStatic)
+		mr[r1].spillLock = false;
+	if (r2 != MIPS_REG_INVALID && !mr[r2].isStatic)
+		mr[r2].spillLock = false;
+	if (r3 != MIPS_REG_INVALID && !mr[r3].isStatic)
+		mr[r3].spillLock = false;
+	if (r4 != MIPS_REG_INVALID && !mr[r4].isStatic)
+		mr[r4].spillLock = false;
 }
 
 ARM64Reg Arm64RegCache::R(MIPSGPReg mipsReg) {
@@ -792,7 +904,9 @@ ARM64Reg Arm64RegCache::R(MIPSGPReg mipsReg) {
 }
 
 ARM64Reg Arm64RegCache::RPtr(MIPSGPReg mipsReg) {
-	if (mr[mipsReg].loc == ML_ARMREG || mr[mipsReg].loc == ML_ARMREG_IMM) {
+	if (mr[mipsReg].loc == ML_ARMREG_AS_PTR) {
+		return (ARM64Reg)mr[mipsReg].reg;
+	} else if (mr[mipsReg].loc == ML_ARMREG || mr[mipsReg].loc == ML_ARMREG_IMM) {
 		int a = mr[mipsReg].reg;
 		if (ar[a].pointerified) {
 			return (ARM64Reg)mr[mipsReg].reg;

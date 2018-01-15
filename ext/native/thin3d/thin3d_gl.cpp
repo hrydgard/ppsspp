@@ -1661,9 +1661,12 @@ void OpenGLContext::BindFramebufferAsRenderTarget(Framebuffer *fbo, const Render
 #else
 		glClearDepth(rp.clearDepth);
 #endif
-		glClearStencil(rp.clearStencil);
-		clearFlags |= GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT;
+		clearFlags |= GL_DEPTH_BUFFER_BIT;
 		glstate.depthWrite.force(GL_TRUE);
+	}
+	if (rp.stencil == RPAction::CLEAR) {
+		glClearStencil(rp.clearStencil);
+		clearFlags |= GL_STENCIL_BUFFER_BIT;
 		glstate.stencilFunc.force(GL_ALWAYS, 0, 0);
 		glstate.stencilMask.force(0xFF);
 	}
@@ -1677,6 +1680,8 @@ void OpenGLContext::BindFramebufferAsRenderTarget(Framebuffer *fbo, const Render
 	}
 	if (rp.depth == RPAction::CLEAR) {
 		glstate.depthWrite.restore();
+	}
+	if (rp.stencil == RPAction::CLEAR) {
 		glstate.stencilFunc.restore();
 		glstate.stencilMask.restore();
 	}
