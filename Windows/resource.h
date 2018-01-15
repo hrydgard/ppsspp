@@ -334,6 +334,11 @@
 #define IDC_GEDBG_RECORD                 40169
 #define ID_GEDBG_EXPORT_IMAGE            40170
 #define ID_GEDBG_ENABLE_PREVIEW          40171
+#define ID_OPTIONS_WINDOW6X              40172
+#define ID_OPTIONS_WINDOW7X              40173
+#define ID_OPTIONS_WINDOW8X              40174
+#define ID_OPTIONS_WINDOW9X              40175
+#define ID_OPTIONS_WINDOW10X             40176
 
 // Dummy option to let the buffered rendering hotkey cycle through all the options.
 #define ID_OPTIONS_BUFFEREDRENDERINGDUMMY 40500
@@ -346,7 +351,7 @@
 #ifdef APSTUDIO_INVOKED
 #ifndef APSTUDIO_READONLY_SYMBOLS
 #define _APS_NEXT_RESOURCE_VALUE        256
-#define _APS_NEXT_COMMAND_VALUE         40172
+#define _APS_NEXT_COMMAND_VALUE         40177
 #define _APS_NEXT_CONTROL_VALUE         1200
 #define _APS_NEXT_SYMED_VALUE           101
 #endif

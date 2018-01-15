@@ -732,6 +732,12 @@ namespace MainWindow {
 		case ID_OPTIONS_WINDOW2X:   SetWindowSize(2); break;
 		case ID_OPTIONS_WINDOW3X:   SetWindowSize(3); break;
 		case ID_OPTIONS_WINDOW4X:   SetWindowSize(4); break;
+		case ID_OPTIONS_WINDOW5X:   SetWindowSize(5); break;
+		case ID_OPTIONS_WINDOW6X:   SetWindowSize(6); break;
+		case ID_OPTIONS_WINDOW7X:   SetWindowSize(7); break;
+		case ID_OPTIONS_WINDOW8X:   SetWindowSize(8); break;
+		case ID_OPTIONS_WINDOW9X:   SetWindowSize(9); break;
+		case ID_OPTIONS_WINDOW10X:   SetWindowSize(10); break;
 
 		case ID_OPTIONS_RESOLUTIONDUMMY:
 		{
@@ -1107,11 +1113,17 @@ namespace MainWindow {
 			CheckMenuItem(menu, zoomitems[i], MF_BYCOMMAND | ((i == g_Config.iInternalResolution) ? MF_CHECKED : MF_UNCHECKED));
 		}
 
-		static const int windowSizeItems[4] = {
+		static const int windowSizeItems[10] = {
 			ID_OPTIONS_WINDOW1X,
 			ID_OPTIONS_WINDOW2X,
 			ID_OPTIONS_WINDOW3X,
 			ID_OPTIONS_WINDOW4X,
+			ID_OPTIONS_WINDOW5X,
+			ID_OPTIONS_WINDOW6X,
+			ID_OPTIONS_WINDOW7X,
+			ID_OPTIONS_WINDOW8X,
+			ID_OPTIONS_WINDOW9X,
+			ID_OPTIONS_WINDOW10X,
 		};
 
 		RECT rc;
