@@ -528,6 +528,8 @@ static void DoFrameTiming(bool &throttle, bool &skipFrame, float timestep) {
 	time_update();
 
 	float scaledTimestep = timestep;
+	if (g_Config.bRefreshAt60Hz)
+		scaledTimestep = scaledTimestep * 1.001f;
 	if (fpsLimiter == FPS_LIMIT_CUSTOM && g_Config.iFpsLimit != 0) {
 		scaledTimestep *= 60.0f / g_Config.iFpsLimit;
 	}
@@ -601,6 +603,8 @@ static void DoFrameIdleTiming() {
 	}
 
 	float scaledVblank = timePerVblank;
+	if (g_Config.bRefreshAt60Hz)
+		scaledVblank = scaledVblank * 1.001f;
 	if (PSP_CoreParameter().fpsLimit == FPS_LIMIT_CUSTOM) {
 		// 0 is handled in FrameTimingThrottled().
 		scaledVblank *= 60.0f / g_Config.iFpsLimit;

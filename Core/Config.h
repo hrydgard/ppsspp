@@ -202,6 +202,7 @@ public:
 	int iTexScalingType; // 0 = xBRZ, 1 = Hybrid
 	bool bTexDeposterize;
 	int iFpsLimit;
+	bool bRefreshAt60Hz;
 	bool bUnToggleFpsLimit;
 	int iForceMaxEmulatedFPS;
 	int iMaxRecent;

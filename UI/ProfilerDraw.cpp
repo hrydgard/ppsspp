@@ -160,7 +160,7 @@ void DrawProfile(UIContext &ui) {
 			if (catStatus[i] == PROFILE_CAT_IGNORE) {
 				continue;
 			}
-			Profiler_GetHistory(i, &history[0], historyLength);
+			Profiler_GetSlowestHistory(i, &slowestThread[0], &history[0], historyLength);
 
 			float x = 10;
 			uint32_t col = nice_colors[i % ARRAY_SIZE(nice_colors)];
@@ -191,7 +191,6 @@ void DrawProfile(UIContext &ui) {
 				}
 			}
 		}
-		Profiler_GetSlowestHistory(i, &slowestThread[0], &history[0], historyLength);
 
 		for (int n = 0; n < historyLength; n++) {
 			if (total[n] > maxTotal)
@@ -215,7 +214,10 @@ void DrawProfile(UIContext &ui) {
 		float legendMinVal = lastMaxVal * (1.0f / 120.0f);
 
 		std::vector<float> history(historyLength);
+		std::vector<int> slowestThread(historyLength);
 		std::vector<ProfileCatStatus> catStatus(numCategories);
+
+		Profiler_GetSlowestThreads(&slowestThread[0], historyLength);
 
 		float rowH = 30.0f;
 		float legendHeight = 0.0f;
@@ -234,7 +236,7 @@ void DrawProfile(UIContext &ui) {
 		int numberOfFrames = 30;
 		for (int i = 0; i < numCategories; i++) {
 			const char *name = Profiler_GetCategoryName(i);
-			Profiler_GetHistory(i, &history[0], numberOfFrames);
+			Profiler_GetSlowestHistory(i, &slowestThread[0], &history[0], historyLength);
 			float val = 0;
 			for (int n = 0; n < numberOfFrames; n++) {
 				val += history[n];
