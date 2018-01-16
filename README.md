@@ -1,11 +1,4 @@
-﻿The aim of this hackish branch is to:
- - hackfix stuff that might never get fixed because it's a regression to an unpopular game caused by a fix to popular one etc,
- - add my workaround cheat.db as a submodule to distinguish cheats and patches on importing,
- - more compat.ini hacks to easier test rare games against known problems and regressions,
- - merge some wip stuff,
- - customize stuff to my preference and be completely free with experimenting.
-
-
+﻿
 
 PPSSPP - a fast and portable PSP emulator
 =========================================
@@ -27,6 +20,42 @@ For the latest source code, see [our github page](https://github.com/hrydgard/pp
 
 For build instructions and other development tutorials, see the [wiki](https://github.com/hrydgard/ppsspp/wiki).
 
+
+This hackish branch add's:
+ - frame profiler and simpler frame stats as a normal option,
+ - adhoc between multiply instances on same pc,
+ - some other ini-only options exposed in UI,
+ - functionality of some additional hotkeys: W-Lan, Vol+/-, note(mute on/off), screen(accesses display layout editor),
+ - different default settings personalized for my liking,
+ - simple UI ~ an option to hide most rarely used options,
+ - new awful compat hacks to deal with just as awful regressions and other problems,
+ - guardband-culling branch as compat hack(activated for some games listed below),
+ - some cwcheat workarounds of mine included in separate import-ready database,
+ - a few more post process shaders,
+ - texture replacement info from ge debugger(experimental aka usually works, but it might be done badly, available from right click menu),
+ - ultra high render resolutions and render screenshots,
+ - some untested/optional hack to avoid stutter on NVidia hardware/bad drivers.
+
+ To list some game compatibility improvements here:
+ - Armored Core and Bleach: Soul Carnival series(freezes),
+ - Auditorium(black screen),
+ - Bijin Tokei Portable(miniatures),
+ - Driver '76(glitches),
+ - DTM Race Driver/TOCA Race Driver/V8 Supercars games(glitches),
+ - Evangelion Jo(most text in menus, note that it still requires pauth file;p),
+ - Heroes Phantasia(flashing/z-fighting),
+ - Hokuto no Ken: Raoh Gaiden(depth problem),
+ - Nascar(glitches),
+ - Nayuta no Kiseki(minor glitches),
+ - Patapon 2(menu speed),
+ - Resistance Retribution(some of the crashes),
+ - Sangokushi IX with Power-Up Kit(black layer),
+ - The Warriors(videos),
+ - and more via included patches.
+
+ Also includes a really awful hack for MOHH2 multiplayer(MOHH1 works fine without it;p).
+ 
+ ~ LunaMoo
 
 What's new in 1.5.4
 -------------------
@@ -199,32 +228,3 @@ What's new in 1.0
 * Fixes to dynamic unloading of code, fixing problems in GEB and TRM 2/3
 * Updated to SDL2 where applicable (Linux, Mac)
 * Some new features, like analog/dpad-swap hotkey, graphics hack for Phantasy Star, show last bit of debug log in dev tools, etc
-
-
-
-ADHOC SUPPORT (by Igor Calabria)
-================================
-This is based on coldbird's code: https://code.google.com/archive/p/aemu/
-All credit goes to him!
-
-Status
-------
-Code is a bit of a mess and it's not fully functional yet, I still need to implement
-some functions and add a upnp lib(really important for people with routers).
-
-I did test it with some games(emulator <-> real psp with the server running locally)
-and it's looking good:
-
-* Worms Open Warfare: Ran just fine, I was able to play a whole match without problems
-* Monster Hunter Freedom Unite: Runs fine too. Gathering Hall and embarking on quests works
-* Dissidia Duodecim 012: Doesn't work. It requires some functions that I haven't implemented
-yet. Also, it uses a port < 1000 and thats reserved for admin apps on linux, running the emu
-as sudo "solves" it, but it's far from ideal.
-* Pacman World Rally: Works too.
-
-Update (Kyhel) :
----------------
-* Now compiles on both Mac OSX and Windows. For more details on how to play and build
-go to see there http://forums.ppsspp.org/showthread.php?tid=3595&pid=59241#pid59241
-* Got it tested windows <-> mac osx <-> psp, it works
-* Monster Hunter 3rd HD works too, as well as God Eater Burst.
