@@ -44,7 +44,8 @@ GLRenderManager::GLRenderManager() {
 	}
 
 	if (!useThread_) {
-		queueRunner_.CreateDeviceObjects();
+		// The main thread is also the render thread.
+		ThreadStartup();
 	}
 }
 
@@ -54,16 +55,22 @@ GLRenderManager::~GLRenderManager() {
 	}
 
 	if (!useThread_) {
-		queueRunner_.DestroyDeviceObjects();
+		// The main thread is also the render thread.
+		ThreadEnd();
 	}
 }
 
-void GLRenderManager::ThreadFunc() {
-	setCurrentThreadName("RenderMan");
-	int threadFrame = threadInitFrame_;
-	bool nextFrame = false;
-	bool firstFrame = true;
+void GLRenderManager::ThreadStartup() {
 	queueRunner_.CreateDeviceObjects();
+}
+
+void GLRenderManager::ThreadEnd() {
+	queueRunner_.DestroyDeviceObjects();
+}
+
+void GLRenderManager::ThreadFunc() {
+	ThreadStartup();
+	int threadFrame = threadInitFrame_;
 	while (true) {
 		{
 			if (nextFrame) {
@@ -344,7 +351,9 @@ void GLRenderManager::EndSubmitFrame(int frame) {
 	Submit(frame, true);
 
 	if (!frameData.skipSwap) {
-		// glSwapBuffers();
+		if (swapFunction_) {
+			swapFunction_();
+		}
 	} else {
 		frameData.skipSwap = false;
 	}

@@ -213,7 +213,6 @@ void FramebufferManagerGLES::CompilePostShader() {
 		postShaderProgram_ = nullptr;
 		usePostShader_ = false;
 	}
-	glsl_unbind();
 }
 
 void FramebufferManagerGLES::Bind2DShader() {

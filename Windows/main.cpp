@@ -530,7 +530,9 @@ int WINAPI WinMain(HINSTANCE _hInstance, HINSTANCE hPrevInstance, LPSTR szCmdLin
 	}
 
 	// Emu thread (and render thread, if any) is always running!
-	EmuThread_Start(false);  //  g_Config.iGPUBackend == GPU_BACKEND_VULKAN);
+	// Only OpenGL uses an externally managed render thread (due to GL's single-threaded context design). Vulkan
+	// manages its own render thread.
+	EmuThread_Start(g_Config.iGPUBackend == (int)GPUBackend::OPENGL);
 	InputDevice::BeginPolling();
 
 	HACCEL hAccelTable = LoadAccelerators(_hInstance, (LPCTSTR)IDR_ACCELS);
