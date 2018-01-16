@@ -187,6 +187,7 @@ void GLQueueRunner::RunInitSteps(const std::vector<GLRInitStep> &steps) {
 		case GLRInitStepType::TEXTURE_IMAGE:
 		{
 			GLRTexture *tex = step.texture_image.texture;
+			_assert_msg_(G3D, tex->canary == GLRTexture::CanaryValue, "Canary has bad value %08x in texture %p", tex->canary, tex);
 			CHECK_GL_ERROR_IF_DEBUG();
 			if (boundTexture != tex->texture) {
 				glBindTexture(tex->target, tex->texture);
@@ -624,6 +625,7 @@ void GLQueueRunner::PerformRenderPass(const GLRStep &step) {
 			}
 			if (c.texture.texture) {
 				if (curTex[slot] != c.texture.texture) {
+					_assert_msg_(G3D, c.texture.texture->canary == GLRTexture::CanaryValue, "Canary has bad value %08x in texture %p", c.texture.texture->canary, c.texture.texture);
 					glBindTexture(c.texture.texture->target, c.texture.texture->texture);
 					curTex[slot] = c.texture.texture;
 				}

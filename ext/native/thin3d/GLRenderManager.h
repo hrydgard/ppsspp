@@ -111,7 +111,12 @@ public:
 		if (texture) {
 			glDeleteTextures(1, &texture);
 		}
+		canary = 0xd31373d;  // deleted
 	}
+	enum {
+		CanaryValue = 0x12345678,
+	};
+	uint32_t canary = CanaryValue;
 	GLuint texture = 0;
 	// Could also trust OpenGL defaults I guess..
 	GLenum target = 0xFFFF;
@@ -149,6 +154,8 @@ public:
 	void Perform();
 
 	void Take(GLDeleter &other) {
+		deleterMutex_.lock();
+		_assert_msg_(G3D, shaders.empty() && programs.empty() && buffers.empty() && textures.empty() && inputLayouts.empty() && framebuffers.empty(), "Deleter already has stuff");
 		shaders = std::move(other.shaders);
 		programs = std::move(other.programs);
 		buffers = std::move(other.buffers);
@@ -161,6 +168,7 @@ public:
 		other.textures.clear();
 		other.inputLayouts.clear();
 		other.framebuffers.clear();
+		deleterMutex_.unlock();
 	}
 
 	std::vector<GLRShader *> shaders;
@@ -169,6 +177,7 @@ public:
 	std::vector<GLRTexture *> textures;
 	std::vector<GLRInputLayout *> inputLayouts;
 	std::vector<GLRFramebuffer *> framebuffers;
+	std::mutex deleterMutex_;
 };
 
 class GLRInputLayout {
@@ -686,6 +695,9 @@ private:
 	std::mutex mutex_;
 	int threadInitFrame_ = 0;
 	GLQueueRunner queueRunner_;
+
+	// Thread state
+	int threadFrame_;
 
 	bool nextFrame = false;
 	bool firstFrame = true;
