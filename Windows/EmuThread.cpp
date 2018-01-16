@@ -104,7 +104,13 @@ void RenderThreadFunc() {
 		renderThreadSucceeded = true;
 	}
 
-	g_graphicsContext->ThreadFrame();
+	g_graphicsContext->ThreadStart();
+	while (emuThreadState != THREAD_SHUTDOWN) {
+		if (!g_graphicsContext->ThreadFrame())
+			break;
+	}
+	g_graphicsContext->ThreadEnd();
+	g_graphicsContext->ShutdownFromRenderThread();
 }
 
 void EmuThreadFunc() {
@@ -227,6 +233,8 @@ shutdown:
 	emuThreadState = THREAD_SHUTDOWN;
 
 	NativeShutdownGraphics();
+	if (!useRenderThread)
+		g_graphicsContext->ShutdownFromRenderThread();
 
 	// NativeShutdown deletes the graphics context through host->ShutdownGraphics().
 	NativeShutdown();
