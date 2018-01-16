@@ -153,6 +153,8 @@ void DebugCallbackARB(GLenum source, GLenum type, GLuint id, GLenum severity,
 }
 
 bool WindowsGLContext::Init(HINSTANCE hInst, HWND window, std::string *error_message) {
+	glslang::InitializeProcess();
+
 	hInst_ = hInst;
 	hWnd_ = window;
 	*error_message = "ok";
@@ -160,8 +162,6 @@ bool WindowsGLContext::Init(HINSTANCE hInst, HWND window, std::string *error_mes
 }
 
 bool WindowsGLContext::InitFromRenderThread(std::string *error_message) {
-	glslang::InitializeProcess();
-
 	*error_message = "ok";
 	GLuint PixelFormat;
 
@@ -386,6 +386,10 @@ void WindowsGLContext::SwapInterval(int interval) {
 }
 
 void WindowsGLContext::Shutdown() {
+	glslang::FinalizeProcess();
+}
+
+void WindowsGLContext::ShutdownFromRenderThread() {
 	delete draw_;
 	draw_ = nullptr;
 	CloseHandle(pauseEvent);
@@ -411,12 +415,19 @@ void WindowsGLContext::Shutdown() {
 		hDC = NULL;
 	}
 	hWnd_ = NULL;
-	glslang::FinalizeProcess();
 }
 
 void WindowsGLContext::Resize() {
 }
 
-void WindowsGLContext::ThreadFrame() {
-	renderManager_->ThreadFunc();
+void WindowsGLContext::ThreadStart() {
+	renderManager_->ThreadStart();
+}
+
+bool WindowsGLContext::ThreadFrame() {
+	return renderManager_->ThreadFrame();
+}
+
+void WindowsGLContext::ThreadEnd() {
+	renderManager_->ThreadEnd();
 }

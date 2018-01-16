@@ -47,7 +47,7 @@ GLRenderManager::GLRenderManager() {
 
 	if (!useThread_) {
 		// The main thread is also the render thread.
-		ThreadStartup();
+		ThreadStart();
 	}
 }
 
@@ -62,54 +62,50 @@ GLRenderManager::~GLRenderManager() {
 	}
 }
 
-void GLRenderManager::ThreadStartup() {
+void GLRenderManager::ThreadStart() {
 	queueRunner_.CreateDeviceObjects();
 	threadFrame_ = threadInitFrame_;
 }
 
 void GLRenderManager::ThreadEnd() {
 	queueRunner_.DestroyDeviceObjects();
+	VLOG("PULL: Quitting");
 }
 
-void GLRenderManager::ThreadFunc() {
-	ThreadStartup();
-	while (true) {
-		{
-			if (nextFrame) {
-				threadFrame_++;
-				if (threadFrame_ >= MAX_INFLIGHT_FRAMES)
-					threadFrame_ = 0;
-			}
-			FrameData &frameData = frameData_[threadFrame_];
-			std::unique_lock<std::mutex> lock(frameData.pull_mutex);
-			while (!frameData.readyForRun && run_) {
-				VLOG("PULL: Waiting for frame[%d].readyForRun", threadFrame_);
-				frameData.pull_condVar.wait(lock);
-			}
-			if (!frameData.readyForRun && !run_) {
-				// This means we're out of frames to render and run_ is false, so bail.
-				break;
-			}
-			VLOG("PULL: frame[%d].readyForRun = false", threadFrame_);
-			frameData.readyForRun = false;
-			// Previously we had a quick exit here that avoided calling Run() if run_ was suddenly false,
-			// but that created a race condition where frames could end up not finished properly on resize etc.
+bool GLRenderManager::ThreadFrame() {
+	{
+		if (nextFrame) {
+			threadFrame_++;
+			if (threadFrame_ >= MAX_INFLIGHT_FRAMES)
+				threadFrame_ = 0;
+		}
+		FrameData &frameData = frameData_[threadFrame_];
+		std::unique_lock<std::mutex> lock(frameData.pull_mutex);
+		while (!frameData.readyForRun && run_) {
+			VLOG("PULL: Waiting for frame[%d].readyForRun", threadFrame_);
+			frameData.pull_condVar.wait(lock);
+		}
+		if (!frameData.readyForRun && !run_) {
+			// This means we're out of frames to render and run_ is false, so bail.
+			return false;
+		}
+		VLOG("PULL: frame[%d].readyForRun = false", threadFrame_);
+		frameData.readyForRun = false;
+		// Previously we had a quick exit here that avoided calling Run() if run_ was suddenly false,
+		// but that created a race condition where frames could end up not finished properly on resize etc.
 
-			// Only increment next time if we're done.
-			nextFrame = frameData.type == GLRRunType::END;
-			assert(frameData.type == GLRRunType::END || frameData.type == GLRRunType::SYNC);
-		}
-		VLOG("PULL: Running frame %d", threadFrame_);
-		if (firstFrame) {
-			ILOG("Running first frame (%d)", threadFrame_);
-			firstFrame = false;
-		}
-		Run(threadFrame_);
-		VLOG("PULL: Finished frame %d", threadFrame_);
+		// Only increment next time if we're done.
+		nextFrame = frameData.type == GLRRunType::END;
+		assert(frameData.type == GLRRunType::END || frameData.type == GLRRunType::SYNC);
 	}
-	ThreadEnd();
-
-	VLOG("PULL: Quitting");
+	VLOG("PULL: Running frame %d", threadFrame_);
+	if (firstFrame) {
+		ILOG("Running first frame (%d)", threadFrame_);
+		firstFrame = false;
+	}
+	Run(threadFrame_);
+	VLOG("PULL: Finished frame %d", threadFrame_);
+	return true;
 }
 
 void GLRenderManager::StopThread() {

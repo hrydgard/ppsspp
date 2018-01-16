@@ -14,6 +14,7 @@ public:
 	bool Init(HINSTANCE hInst, HWND window, std::string *error_message) override;
 
 	bool InitFromRenderThread(std::string *errorMessage) override;
+	void ShutdownFromRenderThread() override;
 
 	void Shutdown() override;
 	void SwapInterval(int interval) override;
@@ -25,7 +26,9 @@ public:
 	void Resume() override;
 	void Resize() override;
 
-	void ThreadFrame() override;
+	void ThreadStart() override;
+	void ThreadEnd() override;
+	bool ThreadFrame() override;
 
 	Draw::DrawContext *GetDrawContext() override { return draw_; }
 

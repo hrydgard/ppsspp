@@ -199,7 +199,9 @@ public:
 	GLRenderManager();
 	~GLRenderManager();
 
-	void ThreadFunc();
+	void ThreadStart();
+	void ThreadEnd();
+	bool ThreadFrame();  // Returns false to request exiting the loop.
 
 	// Makes sure that the GPU has caught up enough that we can start writing buffers of this frame again.
 	void BeginFrame();
@@ -642,10 +644,9 @@ public:
 		}
 	}
 
-private:
-	void ThreadStartup();
-	void ThreadEnd();
+	void StopThread();
 
+private:
 	void BeginSubmitFrame(int frame);
 	void EndSubmitFrame(int frame);
 	void Submit(int frame, bool triggerFence);
@@ -653,8 +654,6 @@ private:
 	// Bad for performance but sometimes necessary for synchronous CPU readbacks (screenshots and whatnot).
 	void FlushSync();
 	void EndSyncFrame(int frame);
-
-	void StopThread();
 
 	// Per-frame data, round-robin so we can overlap submission with execution of the previous frame.
 	struct FrameData {
