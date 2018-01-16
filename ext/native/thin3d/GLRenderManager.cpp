@@ -285,7 +285,7 @@ void GLRenderManager::BeginFrame() {
 	}
 
 	// vulkan_->BeginFrame();
-	frameData.deleter.Perform();
+	// In GL, we have to do deletes on the submission thread.
 
 	insideFrame_ = true;
 }
@@ -328,6 +328,10 @@ void GLRenderManager::BeginSubmitFrame(int frame) {
 	if (!frameData.hasBegun) {
 		frameData.hasBegun = true;
 	}
+
+	// This should be the best time to perform deletes for the next frame.
+	FrameData &nextFrameData = frameData_[(frame + 1) % MAX_INFLIGHT_FRAMES];
+	nextFrameData.deleter.Perform();
 }
 
 void GLRenderManager::Submit(int frame, bool triggerFence) {
