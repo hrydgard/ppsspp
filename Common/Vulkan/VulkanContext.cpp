@@ -1090,22 +1090,22 @@ const char *VulkanResultToString(VkResult res) {
 }
 
 void VulkanDeleteList::Take(VulkanDeleteList &del) {
-	assert(cmdPools_.size() == 0);
-	assert(descPools_.size() == 0);
-	assert(modules_.size() == 0);
-	assert(buffers_.size() == 0);
-	assert(bufferViews_.size() == 0);
-	assert(images_.size() == 0);
-	assert(imageViews_.size() == 0);
-	assert(deviceMemory_.size() == 0);
-	assert(samplers_.size() == 0);
-	assert(pipelines_.size() == 0);
-	assert(pipelineCaches_.size() == 0);
-	assert(renderPasses_.size() == 0);
-	assert(framebuffers_.size() == 0);
-	assert(pipelineLayouts_.size() == 0);
-	assert(descSetLayouts_.size() == 0);
-	assert(callbacks_.size() == 0);
+	assert(cmdPools_.empty());
+	assert(descPools_.empty());
+	assert(modules_.empty());
+	assert(buffers_.empty());
+	assert(bufferViews_.empty());
+	assert(images_.empty());
+	assert(imageViews_.empty());
+	assert(deviceMemory_.empty());
+	assert(samplers_.empty());
+	assert(pipelines_.empty());
+	assert(pipelineCaches_.empty());
+	assert(renderPasses_.empty());
+	assert(framebuffers_.empty());
+	assert(pipelineLayouts_.empty());
+	assert(descSetLayouts_.empty());
+	assert(callbacks_.empty());
 	cmdPools_ = std::move(del.cmdPools_);
 	descPools_ = std::move(del.descPools_);
 	modules_ = std::move(del.modules_);
