@@ -735,7 +735,9 @@ void GLQueueRunner::PerformRenderPass(const GLRStep &step) {
 				tex->minFilter = c.textureSampler.minFilter;
 			}
 			if (tex->anisotropy != c.textureSampler.anisotropy) {
-				glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAX_ANISOTROPY_EXT, c.textureSampler.anisotropy);
+				if (c.textureSampler.anisotropy != 0.0f) {
+					glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAX_ANISOTROPY_EXT, c.textureSampler.anisotropy);
+				}
 				tex->anisotropy = c.textureSampler.anisotropy;
 			}
 			break;
