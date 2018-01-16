@@ -21,6 +21,7 @@
 #include "gfx/gl_common.h"
 #include "gfx/gl_debug_log.h"
 #include "gfx_es2/gpu_features.h"
+#include "thin3d/GLRenderManager.h"
 #include "GL/gl.h"
 #include "GL/wglew.h"
 #include "Core/Config.h"
@@ -34,7 +35,8 @@
 #include "Windows/GPU/WindowsGLContext.h"
 
 void WindowsGLContext::SwapBuffers() {
-	::SwapBuffers(hDC);
+	renderManager_->Swap();
+
 	// Used during fullscreen switching to prevent rendering.
 	if (pauseRequested) {
 		SetEvent(pauseEvent);
@@ -151,10 +153,16 @@ void DebugCallbackARB(GLenum source, GLenum type, GLuint id, GLenum severity,
 }
 
 bool WindowsGLContext::Init(HINSTANCE hInst, HWND window, std::string *error_message) {
+	hInst_ = hInst;
+	hWnd_ = window;
+	*error_message = "ok";
+	return true;
+}
+
+bool WindowsGLContext::InitFromRenderThread(std::string *error_message) {
 	glslang::InitializeProcess();
 
 	*error_message = "ok";
-	hWnd = window;
 	GLuint PixelFormat;
 
 	// TODO: Change to use WGL_ARB_pixel_format instead
@@ -179,7 +187,7 @@ bool WindowsGLContext::Init(HINSTANCE hInst, HWND window, std::string *error_mes
 			0, 0, 0												// Layer Masks Ignored
 	};
 
-	hDC = GetDC(hWnd);
+	hDC = GetDC(hWnd_);
 
 	if (!hDC) {
 		*error_message = "Failed to get a device context.";
@@ -239,7 +247,7 @@ bool WindowsGLContext::Init(HINSTANCE hInst, HWND window, std::string *error_mes
 		std::wstring title = ConvertUTF8ToWString(err->T("OpenGLDriverError", "OpenGL driver error"));
 		std::wstring combined = versionDetected + error;
 
-		bool yes = IDYES == MessageBox(hWnd, combined.c_str(), title.c_str(), MB_ICONERROR | MB_YESNO);
+		bool yes = IDYES == MessageBox(hWnd_, combined.c_str(), title.c_str(), MB_ICONERROR | MB_YESNO);
 
 		if (yes) {
 			// Change the config to D3D and restart.
@@ -362,8 +370,10 @@ bool WindowsGLContext::Init(HINSTANCE hInst, HWND window, std::string *error_mes
 
 	CheckGLExtensions();
 	draw_ = Draw::T3DCreateGLContext();
+	renderManager_ = (GLRenderManager *)draw_->GetNativeObject(Draw::NativeObject::RENDER_MANAGER);
 	SetGPUBackend(GPUBackend::OPENGL);
 	bool success = draw_->CreatePresets();  // if we get this far, there will always be a GLSL compiler capable of compiling these.
+	renderManager_->SetSwapFunction([&]() {::SwapBuffers(hDC); });
 	assert(success);
 	CHECK_GL_ERROR_IF_DEBUG();
 	return true;												// Success
@@ -393,16 +403,20 @@ void WindowsGLContext::Shutdown() {
 		hRC = NULL;
 	}
 
-	if (hDC && !ReleaseDC(hWnd,hDC)) {
+	if (hDC && !ReleaseDC(hWnd_, hDC)) {
 		DWORD err = GetLastError();
 		if (err != ERROR_DC_NOT_FOUND) {
 			MessageBox(NULL, L"Release device context failed.", L"SHUTDOWN ERROR", MB_OK | MB_ICONINFORMATION);
 		}
 		hDC = NULL;
 	}
-	hWnd = NULL;
+	hWnd_ = NULL;
 	glslang::FinalizeProcess();
 }
 
 void WindowsGLContext::Resize() {
+}
+
+void WindowsGLContext::ThreadFrame() {
+	renderManager_->ThreadFunc();
 }

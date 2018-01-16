@@ -3,6 +3,7 @@
 #include <thread>
 #include <unordered_map>
 #include <vector>
+#include <functional>
 #include <set>
 #include <string>
 #include <mutex>
@@ -622,7 +623,20 @@ public:
 		frameData_[frame].activePushBuffers.erase(iter);
 	}
 
+	void SetSwapFunction(std::function<void()> swapFunction) {
+		swapFunction_ = swapFunction;
+	}
+
+	void Swap() {
+		if (!useThread_ && swapFunction_) {
+			swapFunction_();
+		}
+	}
+
 private:
+	void ThreadStartup();
+	void ThreadEnd();
+
 	void BeginSubmitFrame(int frame);
 	void EndSubmitFrame(int frame);
 	void Submit(int frame, bool triggerFence);
@@ -668,16 +682,21 @@ private:
 
 	// Execution time state
 	bool run_ = true;
-	// Thread is managed elsewhere, and should call ThreadFunc.
+	// Thread is managed elsewhere, and should call ThreadFrame.
 	std::mutex mutex_;
 	int threadInitFrame_ = 0;
 	GLQueueRunner queueRunner_;
 
+	bool nextFrame = false;
+	bool firstFrame = true;
+
 	GLDeleter deleter_;
 
-	bool useThread_ = false;
+	bool useThread_ = true;
 
 	int curFrame_ = 0;
+
+	std::function<void()> swapFunction_;
 
 	int targetWidth_ = 0;
 	int targetHeight_ = 0;

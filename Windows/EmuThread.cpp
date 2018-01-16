@@ -33,6 +33,9 @@ static std::thread renderThread;
 static std::atomic<int> renderThreadReady;
 
 static bool useRenderThread;
+static bool renderThreadFailed;
+static bool renderThreadSucceeded;
+static std::string g_error_message;
 
 extern std::vector<std::wstring> GetWideCmdLine();
 
@@ -85,15 +88,23 @@ bool EmuThread_Ready() {
 
 void RenderThreadFunc() {
 	setCurrentThreadName("Render");
+	renderThreadFailed = false;
+	renderThreadSucceeded = false;
 	while (!g_graphicsContext) {
-		sleep_ms(50);
+		sleep_ms(10);
 		continue;
 	}
-	g_graphicsContext->InitFromThread();
-	while (true) {
-		g_graphicsContext->ThreadFrame();
-		break;
+
+	std::string error_message;
+	if (!g_graphicsContext->InitFromRenderThread(&error_message)) {
+		g_error_message = error_message;
+		renderThreadFailed = true;
+		return;
+	} else {
+		renderThreadSucceeded = true;
 	}
+
+	g_graphicsContext->ThreadFrame();
 }
 
 void EmuThreadFunc() {
@@ -119,10 +130,25 @@ void EmuThreadFunc() {
 
 	host->UpdateUI();
 
-	GraphicsContext *graphicsContext = nullptr;
-
 	std::string error_string;
-	if (!host->InitGraphics(&error_string, &graphicsContext)) {
+	bool success = host->InitGraphics(&error_string, &g_graphicsContext);
+
+	if (success) {
+		if (!useRenderThread) {
+			// This is also the render thread.
+			success = g_graphicsContext->InitFromRenderThread(&error_string);
+		} else {
+			while (!renderThreadFailed && !renderThreadSucceeded) {
+				sleep_ms(10);
+			}
+			success = renderThreadSucceeded;
+			if (!success) {
+				error_string = g_error_message;
+			}
+		}
+	}
+
+	if (!success) {
 		// Before anything: are we restarting right now?
 		if (performingRestart) {
 			// Okay, switching graphics didn't work out.  Probably a driver bug - fallback to restart.
@@ -171,7 +197,7 @@ void EmuThreadFunc() {
 		exit(1);
 	}
 
-	NativeInitGraphics(graphicsContext);
+	NativeInitGraphics(g_graphicsContext);
 	NativeResized();
 
 	INFO_LOG(BOOT, "Done.");
@@ -194,7 +220,7 @@ void EmuThreadFunc() {
 		// This way they can load a new game.
 		if (!Core_IsActive())
 			UpdateUIState(UISTATE_MENU);
-		Core_Run(graphicsContext);
+		Core_Run(g_graphicsContext);
 	}
 
 shutdown:

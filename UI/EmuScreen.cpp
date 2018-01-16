@@ -254,7 +254,7 @@ void EmuScreen::bootComplete() {
 
 #if !PPSSPP_PLATFORM(UWP)
 	if (GetGPUBackend() == GPUBackend::OPENGL) {
-		const char *renderer = (const char*)glGetString(GL_RENDERER);
+		const char *renderer = gl_extensions.model;
 		if (strstr(renderer, "Chainfire3D") != 0) {
 			osm.Show(sc->T("Chainfire3DWarning", "WARNING: Chainfire3D detected, may cause problems"), 10.0f, 0xFF30a0FF, -1, true);
 		} else if (strstr(renderer, "GLTools") != 0) {

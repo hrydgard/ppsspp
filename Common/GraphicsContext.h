@@ -10,10 +10,7 @@ class GraphicsContext {
 public:
 	virtual ~GraphicsContext() {}
 
-	// Threaded backends (that need to do init on the final render thread, like GL)
-	// call this from the render thread. Init() should block until InitFromThread is done.
-	// Other backends can ignore this.
-	virtual bool InitFromThread() { return true; }
+	virtual bool InitFromRenderThread(std::string *errorMessage) { return true; }
 
 	virtual void Shutdown() = 0;
 	virtual void SwapInterval(int interval) = 0;
