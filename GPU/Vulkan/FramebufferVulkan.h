@@ -57,6 +57,7 @@ public:
 	void SetDrawEngine(DrawEngineVulkan *td);
 	void SetVulkan2D(Vulkan2D *vk2d) { vulkan2D_ = vk2d; }
 	void SetPushBuffer(VulkanPushBuffer *push) { push_ = push; }
+	void SetStockObjects(VulkanStockObjects *stock) { stockObjects_ = stock; }
 
 	// x,y,w,h are relative to destW, destH which fill out the target completely.
 	void DrawActiveTexture(float x, float y, float w, float h, float destW, float destH, float u0, float v0, float u1, float v1, int uvRotation, int flags) override;
@@ -117,6 +118,7 @@ private:
 	ShaderManagerVulkan *shaderManagerVulkan_;
 	DrawEngineVulkan *drawEngineVulkan_;
 	VulkanPushBuffer *push_;
+	VulkanStockObjects *stockObjects_;
 
 	enum {
 		MAX_COMMAND_BUFFERS = 32,
@@ -134,7 +136,6 @@ private:
 	VkShaderModule stencilVs_ = VK_NULL_HANDLE;
 	VkShaderModule stencilFs_ = VK_NULL_HANDLE;
 
-
 	VkPipeline cur2DPipeline_ = VK_NULL_HANDLE;
 
 	// Postprocessing
@@ -142,9 +143,6 @@ private:
 	VkShaderModule postFs_ = VK_NULL_HANDLE;
 	VkPipeline pipelinePostShader_ = VK_NULL_HANDLE;
 	PostShaderUniforms postShaderUniforms_;
-
-	VkSampler linearSampler_;
-	VkSampler nearestSampler_;
 
 	// hack!
 	VkImageView overrideImageView_ = VK_NULL_HANDLE;

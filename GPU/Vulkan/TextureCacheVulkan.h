@@ -36,6 +36,7 @@ class VulkanContext;
 class VulkanTexture;
 class VulkanPushBuffer;
 class VulkanDeviceAllocator;
+class VulkanStockObjects;
 
 class CachedTextureVulkan {
 public:
@@ -91,7 +92,9 @@ public:
 	void SetPushBuffer(VulkanPushBuffer *push) {
 		push_ = push;
 	}
-
+	void SetStockObjects(VulkanStockObjects *stock) {
+		stockObjects_ = stock;
+	}
 	void ForgetLastTexture() override {
 		lastBoundTexture = nullptr;
 		gstate_c.Dirty(DIRTY_TEXTURE_PARAMS);
@@ -150,12 +153,11 @@ private:
 	ShaderManagerVulkan *shaderManagerVulkan_;
 	DrawEngineVulkan *drawEngine_;
 	Vulkan2D *vulkan2D_;
+	VulkanStockObjects *stockObjects_;
 
 	// Bound state to emulate an API similar to the others
 	VkImageView imageView_ = VK_NULL_HANDLE;
 	VkSampler curSampler_ = VK_NULL_HANDLE;
-
-	VkSampler samplerNearest_ = VK_NULL_HANDLE;
 };
 
 VkFormat getClutDestFormatVulkan(GEPaletteFormat format);

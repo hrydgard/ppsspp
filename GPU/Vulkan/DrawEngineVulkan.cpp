@@ -180,18 +180,6 @@ void DrawEngineVulkan::InitDeviceObjects() {
 	res = vkCreatePipelineLayout(device, &pl, nullptr, &pipelineLayout_);
 	assert(VK_SUCCESS == res);
 
-	VkSamplerCreateInfo samp = { VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO };
-	samp.addressModeU = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
-	samp.addressModeV = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
-	samp.addressModeW = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
-	samp.mipmapMode = VK_SAMPLER_MIPMAP_MODE_NEAREST;
-	samp.flags = 0;
-	samp.magFilter = VK_FILTER_NEAREST;
-	samp.minFilter = VK_FILTER_NEAREST;
-	res = vkCreateSampler(device, &samp, nullptr, &samplerSecondary_);
-	res = vkCreateSampler(device, &samp, nullptr, &nullSampler_);
-	assert(VK_SUCCESS == res);
-
 	vertexCache_ = new VulkanPushBuffer(vulkan_, VERTEX_CACHE_SIZE);
 
 	tessDataTransfer = new TessellationDataTransferVulkan(vulkan_, draw_);
@@ -234,10 +222,6 @@ void DrawEngineVulkan::DestroyDeviceObjects() {
 	for (int i = 0; i < VulkanContext::MAX_INFLIGHT_FRAMES; i++) {
 		frame_[i].Destroy(vulkan_);
 	}
-	if (samplerSecondary_ != VK_NULL_HANDLE)
-		vulkan_->Delete().QueueDeleteSampler(samplerSecondary_);
-	if (nullSampler_ != VK_NULL_HANDLE)
-		vulkan_->Delete().QueueDeleteSampler(nullSampler_);
 	if (pipelineLayout_ != VK_NULL_HANDLE)
 		vulkan_->Delete().QueueDeletePipelineLayout(pipelineLayout_);
 	if (descriptorSetLayout_ != VK_NULL_HANDLE)
@@ -507,7 +491,7 @@ VkDescriptorSet DrawEngineVulkan::GetOrCreateDescriptorSet(VkImageView imageView
 		// TODO: Also support LAYOUT_GENERAL to be able to texture from framebuffers without transitioning them?
 		tex[1].imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
 		tex[1].imageView = boundSecondary_;
-		tex[1].sampler = samplerSecondary_;
+		tex[1].sampler = stockObjects_->samplerNearest;
 		writes[n].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
 		writes[n].pNext = nullptr;
 		writes[n].dstBinding = DRAW_BINDING_2ND_TEXTURE;
@@ -819,7 +803,7 @@ void DrawEngineVulkan::DoFlush() {
 			if (imageView == VK_NULL_HANDLE)
 				imageView = nullTexture_->GetImageView();
 			if (sampler == VK_NULL_HANDLE)
-				sampler = nullSampler_;
+				sampler = stockObjects_->samplerNearest;
 		}
 
 		if (!lastPipeline_ || !gstate_c.IsDirty(DIRTY_BLEND_STATE | DIRTY_VIEWPORTSCISSOR_STATE | DIRTY_RASTER_STATE | DIRTY_DEPTHSTENCIL_STATE | DIRTY_VERTEXSHADER_STATE | DIRTY_FRAGMENTSHADER_STATE) || prim != lastPrim_) {
@@ -921,7 +905,7 @@ void DrawEngineVulkan::DoFlush() {
 				if (imageView == VK_NULL_HANDLE)
 					imageView = nullTexture_->GetImageView();
 				if (sampler == VK_NULL_HANDLE)
-					sampler = nullSampler_;
+					sampler = stockObjects_->samplerLinear;
 			}
 			if (!lastPipeline_ || gstate_c.IsDirty(DIRTY_BLEND_STATE | DIRTY_VIEWPORTSCISSOR_STATE | DIRTY_RASTER_STATE | DIRTY_DEPTHSTENCIL_STATE | DIRTY_VERTEXSHADER_STATE | DIRTY_FRAGMENTSHADER_STATE) || prim != lastPrim_) {
 				shaderManager_->GetShaders(prim, lastVType_, &vshader, &fshader, false);  // usehwtransform

@@ -24,23 +24,26 @@
 #include "Common/Vulkan/VulkanLoader.h"
 #include "Common/Vulkan/VulkanImage.h"
 
-// Vulkan doesn't really have the concept of an FBO that owns the images,
-// but it does have the concept of a framebuffer as a set of attachments.
-// VulkanFBO is an approximation of the FBO concept the other backends use
-// to make things as similar as possible without being suboptimal.
-//
-// An FBO can be rendered to and used as a texture multiple times in a frame.
-// Even at multiple sizes, while keeping the same contents.
-// With GL or D3D we'd just rely on the driver managing duplicates for us, but in
-// Vulkan we will want to be able to batch up the whole frame and reorder passes
-// so that all textures are ready before the main scene, instead of switching back and
-// forth. This comes at a memory cost but will be worth it.
-//
-// When we render to a scene, then render to a texture, then go back to the scene and
-// use that texture, we will register that as a dependency. Then we will walk the DAG
-// to find the final order of command buffers, and execute it.
-//
-// Each FBO will get its own command buffer for each pass. 
+
+// A set of convenient stock objects (simple samplers etc).
+class VulkanStockObjects {
+public:
+	VulkanStockObjects(VulkanContext *vulkan);
+	~VulkanStockObjects();
+
+	void DeviceLost();
+	void DeviceRestore(VulkanContext *vulkan);
+
+	VkSampler samplerNearest;
+	VkSampler samplerLinear;
+
+private:
+	void InitDeviceObjects();
+	void DestroyDeviceObjects();
+
+	VulkanContext *vulkan_;
+};
+
 
 // Similar to a subset of Thin3D, but separate.
 // This is used for things like postprocessing shaders, depal, etc.
@@ -48,7 +51,6 @@
 // No transform matrices, only post-proj coordinates.
 // Two textures can be sampled.
 // Some simplified depth/stencil modes available.
-
 class Vulkan2D {
 public:
 	Vulkan2D(VulkanContext *vulkan);
