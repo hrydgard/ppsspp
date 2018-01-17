@@ -349,6 +349,8 @@ std::vector<std::wstring> GetWideCmdLine() {
 	wargv = CommandLineToArgvW(GetCommandLineW(), &wargc);
 
 	std::vector<std::wstring> wideArgs(wargv, wargv + wargc);
+	LocalFree(wargv);
+
 	return wideArgs;
 }
 
