@@ -104,6 +104,7 @@ private:
 	TextureCacheVulkan *textureCacheVulkan_;
 	DepalShaderCacheVulkan depalShaderCache_;
 	DrawEngineVulkan drawEngine_;
+	VulkanStockObjects stockObjects_;
 
 	// Manages shaders and UBO data
 	ShaderManagerVulkan *shaderManagerVulkan_;

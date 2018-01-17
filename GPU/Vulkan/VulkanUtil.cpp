@@ -20,6 +20,47 @@
 #include "Common/Vulkan/VulkanContext.h"
 #include "GPU/Vulkan/VulkanUtil.h"
 
+VulkanStockObjects::VulkanStockObjects(VulkanContext *vulkan) : vulkan_(vulkan) {
+	InitDeviceObjects();
+}
+
+VulkanStockObjects::~VulkanStockObjects() {
+	DestroyDeviceObjects();
+}
+
+void VulkanStockObjects::InitDeviceObjects() {
+	VkResult res;
+	VkDevice device = vulkan_->GetDevice();
+	VkSamplerCreateInfo samp { VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO };
+	samp.addressModeU = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
+	samp.addressModeV = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
+	samp.addressModeW = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
+	samp.mipmapMode = VK_SAMPLER_MIPMAP_MODE_NEAREST;
+	samp.flags = 0;
+	samp.magFilter = VK_FILTER_NEAREST;
+	samp.minFilter = VK_FILTER_NEAREST;
+	res = vkCreateSampler(device, &samp, nullptr, &samplerNearest);
+	assert(VK_SUCCESS == res);
+	samp.magFilter = VK_FILTER_LINEAR;
+	samp.minFilter = VK_FILTER_LINEAR;
+	res = vkCreateSampler(device, &samp, nullptr, &samplerLinear);
+	assert(VK_SUCCESS == res);
+}
+
+void VulkanStockObjects::DestroyDeviceObjects() {
+	vulkan_->Delete().QueueDeleteSampler(samplerNearest);
+	vulkan_->Delete().QueueDeleteSampler(samplerLinear);
+}
+
+void VulkanStockObjects::DeviceLost() {
+	DestroyDeviceObjects();
+}
+
+void VulkanStockObjects::DeviceRestore(VulkanContext *vulkan) {
+	vulkan_ = vulkan;
+	InitDeviceObjects();
+}
+
 Vulkan2D::Vulkan2D(VulkanContext *vulkan) : vulkan_(vulkan) {
 	InitDeviceObjects();
 }

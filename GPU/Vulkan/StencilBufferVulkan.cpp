@@ -148,7 +148,7 @@ bool FramebufferManagerVulkan::NotifyStencilUpload(u32 addr, int size, bool skip
 	renderManager->SetScissor({ { 0, 0, },{ (uint32_t)w, (uint32_t)h } });
 	gstate_c.Dirty(DIRTY_VIEWPORTSCISSOR_STATE | DIRTY_BLEND_STATE | DIRTY_RASTER_STATE | DIRTY_DEPTHSTENCIL_STATE);
 
-	VkDescriptorSet descSet = vulkan2D_->GetDescriptorSet(overrideImageView_, nearestSampler_, VK_NULL_HANDLE, VK_NULL_HANDLE);
+	VkDescriptorSet descSet = vulkan2D_->GetDescriptorSet(overrideImageView_, stockObjects_->samplerNearest, VK_NULL_HANDLE, VK_NULL_HANDLE);
 
 	for (int i = 1; i < values; i += i) {
 		if (!(usedBits & i)) {

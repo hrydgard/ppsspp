@@ -126,19 +126,6 @@ void FramebufferManagerVulkan::InitDeviceObjects() {
 	vsBasicTex_ = CompileShaderModule(vulkan_, VK_SHADER_STAGE_VERTEX_BIT, tex_vs, &vs_errors);
 	assert(fsBasicTex_ != VK_NULL_HANDLE);
 	assert(vsBasicTex_ != VK_NULL_HANDLE);
-
-	VkSamplerCreateInfo samp = { VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO };
-	samp.addressModeU = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
-	samp.addressModeV = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
-	samp.addressModeW = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
-	samp.magFilter = VK_FILTER_NEAREST;
-	samp.minFilter = VK_FILTER_NEAREST;
-	VkResult res = vkCreateSampler(vulkan_->GetDevice(), &samp, nullptr, &nearestSampler_);
-	assert(res == VK_SUCCESS);
-	samp.magFilter = VK_FILTER_LINEAR;
-	samp.minFilter = VK_FILTER_LINEAR;
-	res = vkCreateSampler(vulkan_->GetDevice(), &samp, nullptr, &linearSampler_);
-	assert(res == VK_SUCCESS);
 }
 
 void FramebufferManagerVulkan::DestroyDeviceObjects() {
@@ -153,11 +140,6 @@ void FramebufferManagerVulkan::DestroyDeviceObjects() {
 		vulkan_->Delete().QueueDeleteShaderModule(stencilFs_);
 	if (stencilVs_ != VK_NULL_HANDLE)
 		vulkan_->Delete().QueueDeleteShaderModule(stencilVs_);
-
-	if (linearSampler_ != VK_NULL_HANDLE)
-		vulkan_->Delete().QueueDeleteSampler(linearSampler_);
-	if (nearestSampler_ != VK_NULL_HANDLE)
-		vulkan_->Delete().QueueDeleteSampler(nearestSampler_);
 
 	if (postVs_)
 		vulkan_->Delete().QueueDeleteShaderModule(postVs_);
@@ -335,7 +317,7 @@ void FramebufferManagerVulkan::DrawActiveTexture(float x, float y, float w, floa
 	VkImageView view = overrideImageView_ ? overrideImageView_ : (VkImageView)draw_->GetNativeObject(Draw::NativeObject::BOUND_TEXTURE0_IMAGEVIEW);
 	if ((flags & DRAWTEX_KEEP_TEX) == 0)
 		overrideImageView_ = VK_NULL_HANDLE;
-	VkDescriptorSet descSet = vulkan2D_->GetDescriptorSet(view, (flags & DRAWTEX_LINEAR) ? linearSampler_ : nearestSampler_, VK_NULL_HANDLE, VK_NULL_HANDLE);
+	VkDescriptorSet descSet = vulkan2D_->GetDescriptorSet(view, (flags & DRAWTEX_LINEAR) ? stockObjects_->samplerLinear : stockObjects_->samplerNearest, VK_NULL_HANDLE, VK_NULL_HANDLE);
 	VkBuffer vbuffer;
 	VkDeviceSize offset = push_->Push(vtx, sizeof(vtx), &vbuffer);
 	renderManager->BindPipeline(cur2DPipeline_);

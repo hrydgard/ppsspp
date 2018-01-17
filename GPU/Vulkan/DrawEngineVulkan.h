@@ -136,6 +136,9 @@ public:
 	void SetFramebufferManager(FramebufferManagerVulkan *fbManager) {
 		framebufferManager_ = fbManager;
 	}
+	void SetStockObjects(VulkanStockObjects *stock) {
+		stockObjects_ = stock;
+	}
 
 	void DeviceLost();
 	void DeviceRestore(VulkanContext *vulkan, Draw::DrawContext *draw);
@@ -212,7 +215,6 @@ private:
 
 	// Secondary texture for shader blending
 	VkImageView boundSecondary_ = VK_NULL_HANDLE;
-	VkSampler samplerSecondary_ = VK_NULL_HANDLE;  // This one is actually never used since we use fetch.
 
 	PrehashMap<VertexArrayInfoVulkan *, nullptr> vai_;
 	VulkanPushBuffer *vertexCache_;
@@ -249,6 +251,7 @@ private:
 	PipelineManagerVulkan *pipelineManager_ = nullptr;
 	TextureCacheVulkan *textureCache_ = nullptr;
 	FramebufferManagerVulkan *framebufferManager_ = nullptr;
+	VulkanStockObjects *stockObjects_ = nullptr;
 
 	// State cache
 	uint64_t dirtyUniforms_;
@@ -261,7 +264,6 @@ private:
 
 	// Null texture
 	VulkanTexture *nullTexture_ = nullptr;
-	VkSampler nullSampler_ = VK_NULL_HANDLE;
 
 	DrawEngineVulkanStats stats_;
 

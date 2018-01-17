@@ -44,6 +44,7 @@
 #include "GPU/Vulkan/DepalettizeShaderVulkan.h"
 #include "GPU/Vulkan/ShaderManagerVulkan.h"
 #include "GPU/Vulkan/DrawEngineVulkan.h"
+#include "GPU/Vulkan/VulkanUtil.h"
 #include "GPU/Common/TextureDecoder.h"
 
 #ifdef _M_SSE
@@ -182,8 +183,6 @@ void TextureCacheVulkan::DeviceLost() {
 	}
 
 	samplerCache_.DeviceLost();
-	vulkan_->Delete().QueueDeleteSampler(samplerNearest_);
-
 	nextTexture_ = nullptr;
 }
 
@@ -195,15 +194,6 @@ void TextureCacheVulkan::DeviceRestore(VulkanContext *vulkan, Draw::DrawContext 
 
 	allocator_ = new VulkanDeviceAllocator(vulkan_, TEXCACHE_MIN_SLAB_SIZE, TEXCACHE_MAX_SLAB_SIZE);
 	samplerCache_.DeviceRestore(vulkan);
-
-	VkSamplerCreateInfo samp{ VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO };
-	samp.addressModeU = VK_SAMPLER_ADDRESS_MODE_REPEAT;
-	samp.addressModeV = VK_SAMPLER_ADDRESS_MODE_REPEAT;
-	samp.addressModeW = VK_SAMPLER_ADDRESS_MODE_REPEAT;
-	samp.magFilter = VK_FILTER_NEAREST;
-	samp.minFilter = VK_FILTER_NEAREST;
-	samp.mipmapMode = VK_SAMPLER_MIPMAP_MODE_NEAREST;
-	vkCreateSampler(vulkan_->GetDevice(), &samp, nullptr, &samplerNearest_);
 }
 
 void TextureCacheVulkan::ReleaseTexture(TexCacheEntry *entry, bool delete_them) {
@@ -403,7 +393,7 @@ void TextureCacheVulkan::ApplyTextureFramebuffer(TexCacheEntry *entry, VirtualFr
 		draw_->BindFramebufferAsTexture(framebuffer->fbo, 0, Draw::FB_COLOR_BIT, 0);
 		VkImageView fbo = (VkImageView)draw_->GetNativeObject(Draw::NativeObject::BOUND_TEXTURE0_IMAGEVIEW);
 
-		VkDescriptorSet descSet = vulkan2D_->GetDescriptorSet(fbo, samplerNearest_, clutTexture->GetImageView(), samplerNearest_);
+		VkDescriptorSet descSet = vulkan2D_->GetDescriptorSet(fbo, stockObjects_->samplerNearest, clutTexture->GetImageView(), stockObjects_->samplerNearest);
 		VulkanRenderManager *renderManager = (VulkanRenderManager *)draw_->GetNativeObject(Draw::NativeObject::RENDER_MANAGER);
 		renderManager->BindPipeline(depalShader->pipeline);
 		renderManager->SetScissor(VkRect2D{ {0, 0}, { framebuffer->renderWidth, framebuffer->renderHeight} });
