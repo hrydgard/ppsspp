@@ -146,11 +146,12 @@ public:
 
 	static const size_t ALLOCATE_FAILED = -1;
 
-	int GetBlockCount() const { return (int)slabs_.size(); }
+	int GetSlabCount() const { return (int)slabs_.size(); }
 	int GetMinSlabSize() const { return (int)minSlabSize_; }
 	int GetMaxSlabSize() const { return (int)maxSlabSize_; }
 
 	int ComputeUsagePercent() const;
+	std::vector<uint8_t> GetSlabUsage(int slab) const;
 
 private:
 	static const size_t SLAB_GRAIN_SIZE = 1024;

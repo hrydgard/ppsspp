@@ -652,8 +652,7 @@ enum class TextureState {
 
 bool VKTexture::Create(VkCommandBuffer cmd, const TextureDesc &desc, VulkanDeviceAllocator *alloc) {
 	// Zero-sized textures not allowed.
-	if (desc.width * desc.height * desc.depth == 0)
-		return false;
+	assert(desc.width * desc.height * desc.depth > 0);
 	format_ = desc.format;
 	mipLevels_ = desc.mipLevels;
 	width_ = desc.width;

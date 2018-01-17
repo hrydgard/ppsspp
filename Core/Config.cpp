@@ -789,6 +789,7 @@ static ConfigSetting debuggerSettings[] = {
 	ConfigSetting("DisplayStatusBar", &g_Config.bDisplayStatusBar, true),
 	ConfigSetting("ShowBottomTabTitles",&g_Config.bShowBottomTabTitles,true),
 	ConfigSetting("ShowDeveloperMenu", &g_Config.bShowDeveloperMenu, false),
+	ConfigSetting("ShowAllocatorDebug", &g_Config.bShowAllocatorDebug, false, false),
 	ConfigSetting("SkipDeadbeefFilling", &g_Config.bSkipDeadbeefFilling, false),
 	ConfigSetting("FuncHashMap", &g_Config.bFuncHashMap, false),
 

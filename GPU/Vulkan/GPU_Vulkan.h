@@ -78,6 +78,10 @@ public:
 	std::vector<std::string> DebugGetShaderIDs(DebugShaderType shader) override;
 	std::string DebugGetShaderString(std::string id, DebugShaderType shader, DebugShaderStringType stringType) override;
 
+	TextureCacheVulkan *GetTextureCache() {
+		return textureCacheVulkan_;
+	}
+
 protected:
 	void FastRunLoop(DisplayList &list) override;
 	void FinishDeferred() override;

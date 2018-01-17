@@ -520,6 +520,7 @@ struct TextureDesc {
 	int depth;
 	int mipLevels;
 	bool generateMips;
+	// Does not take ownership over pointed-to data.
 	std::vector<uint8_t *> initData;
 };
 
@@ -564,6 +565,7 @@ public:
 
 	// Resources
 	virtual Buffer *CreateBuffer(size_t size, uint32_t usageFlags) = 0;
+	// Does not take ownership over pointed-to initData. After this returns, can dispose of it.
 	virtual Texture *CreateTexture(const TextureDesc &desc) = 0;
 	// On some hardware, you might get a 24-bit depth buffer even though you only wanted a 16-bit one.
 	virtual Framebuffer *CreateFramebuffer(const FramebufferDesc &desc) = 0;
