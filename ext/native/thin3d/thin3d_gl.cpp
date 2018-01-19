@@ -186,7 +186,7 @@ public:
 	bool depthWriteEnabled;
 	GLuint depthComp;
 	// TODO: Two-sided
-	GLboolean stencilEnabled;
+	bool stencilEnabled;
 	GLuint stencilFail;
 	GLuint stencilZFail;
 	GLuint stencilPass;

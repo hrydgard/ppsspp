@@ -498,10 +498,10 @@ void GLQueueRunner::PerformRenderPass(const GLRStep &step) {
 			break;
 		case GLRRenderCommand::CLEAR:
 			glDisable(GL_SCISSOR_TEST);
-			// TODO: We sometimes pass a color mask in that we want to respect (StencilBufferGLES.)
-			// We want to clear to only clear alpha, in that case.
-			glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
-			colorMask = 0xF;
+			if (c.clear.colorMask != colorMask) {
+				glColorMask(c.clear.colorMask & 1, (c.clear.colorMask >> 1) & 1, (c.clear.colorMask >> 2) & 1, (c.clear.colorMask >> 3) & 1);
+				colorMask = c.clear.colorMask;
+			}
 			if (c.clear.clearMask & GL_COLOR_BUFFER_BIT) {
 				float color[4];
 				Uint8x4ToFloat4(color, c.clear.clearColor);
