@@ -505,6 +505,16 @@ public:
 		curRenderStep_->commands.push_back(data);
 	}
 
+#ifndef USING_GLES2
+	void SetLogicOp(bool enabled, GLenum logicOp) {
+		_dbg_assert_(G3D, curRenderStep_ && curRenderStep_->stepType == GLRStepType::RENDER);
+		GLRRenderData data{ GLRRenderCommand::LOGICOP };
+		data.logic.enabled = enabled;
+		data.logic.logicOp = logicOp;
+		curRenderStep_->commands.push_back(data);
+	}
+#endif
+
 	void SetStencilFunc(bool enabled, GLenum func, uint8_t refValue, uint8_t compareMask) {
 		_dbg_assert_(G3D, curRenderStep_ && curRenderStep_->stepType == GLRStepType::RENDER);
 		GLRRenderData data{ GLRRenderCommand::STENCILFUNC };

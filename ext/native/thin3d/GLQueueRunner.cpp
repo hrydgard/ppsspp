@@ -405,6 +405,9 @@ void GLQueueRunner::PerformRenderPass(const GLRStep &step) {
 	glDisable(GL_CULL_FACE);
 	glDisable(GL_DITHER);
 	glEnable(GL_SCISSOR_TEST);
+#ifndef USING_GLES2
+	glDisable(GL_COLOR_LOGIC_OP);
+#endif
 
 	/*
 #ifndef USING_GLES2
@@ -430,12 +433,14 @@ void GLQueueRunner::PerformRenderPass(const GLRStep &step) {
 	int colorMask = -1;
 	int depthMask = -1;
 	int depthFunc = -1;
+	int logicOp = -1;
 	GLuint curArrayBuffer = (GLuint)-1;
 	GLuint curElemArrayBuffer = (GLuint)-1;
 	bool depthEnabled = false;
 	bool blendEnabled = false;
 	bool cullEnabled = false;
 	bool ditherEnabled = false;
+	bool logicEnabled = false;
 	GLuint blendEqColor = (GLuint)-1;
 	GLuint blendEqAlpha = (GLuint)-1;
 
@@ -495,6 +500,22 @@ void GLQueueRunner::PerformRenderPass(const GLRStep &step) {
 				glColorMask(c.blend.mask & 1, (c.blend.mask >> 1) & 1, (c.blend.mask >> 2) & 1, (c.blend.mask >> 3) & 1);
 				colorMask = c.blend.mask;
 			}
+			break;
+		case GLRRenderCommand::LOGICOP:
+#ifndef USING_GLES2
+			if (c.logic.enabled) {
+				if (!logicEnabled) {
+					glEnable(GL_COLOR_LOGIC_OP);
+					logicEnabled = true;
+				}
+				if (logicOp != c.logic.logicOp) {
+					glLogicOp(c.logic.logicOp);
+				}
+			} else if (!c.logic.enabled && logicEnabled) {
+				glDisable(GL_COLOR_LOGIC_OP);
+				logicEnabled = false;
+			}
+#endif
 			break;
 		case GLRRenderCommand::CLEAR:
 			glDisable(GL_SCISSOR_TEST);
@@ -814,6 +835,9 @@ void GLQueueRunner::PerformRenderPass(const GLRStep &step) {
 	glDisable(GL_STENCIL_TEST);
 	glDisable(GL_BLEND);
 	glDisable(GL_CULL_FACE);
+#ifndef USING_GLES2
+	glDisable(GL_COLOR_LOGIC_OP);
+#endif
 	glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
 }
 
