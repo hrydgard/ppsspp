@@ -157,11 +157,11 @@ void GLRenderManager::StopThread() {
 	}
 }
 
-void GLRenderManager::BindFramebufferAsRenderTarget(GLRFramebuffer *fb, GLRRenderPassAction color, GLRRenderPassAction depth, uint32_t clearColor, float clearDepth, uint8_t clearStencil) {
+void GLRenderManager::BindFramebufferAsRenderTarget(GLRFramebuffer *fb, GLRRenderPassAction color, GLRRenderPassAction depth, GLRRenderPassAction stencil, uint32_t clearColor, float clearDepth, uint8_t clearStencil) {
 	assert(insideFrame_);
 	// Eliminate dupes.
 	if (steps_.size() && steps_.back()->render.framebuffer == fb && steps_.back()->stepType == GLRStepType::RENDER) {
-		if (color != GLRRenderPassAction::CLEAR && depth != GLRRenderPassAction::CLEAR) {
+		if (color != GLRRenderPassAction::CLEAR && depth != GLRRenderPassAction::CLEAR && stencil != GLRRenderPassAction::CLEAR) {
 			// We don't move to a new step, this bind was unnecessary and we can safely skip it.
 			return;
 		}
@@ -184,8 +184,11 @@ void GLRenderManager::BindFramebufferAsRenderTarget(GLRFramebuffer *fb, GLRRende
 		data.clear.clearColor = clearColor;
 	}
 	if (depth == GLRRenderPassAction::CLEAR) {
-		clearMask |= GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT;
+		clearMask |= GL_DEPTH_BUFFER_BIT;
 		data.clear.clearZ = clearDepth;
+	}
+	if (stencil == GLRRenderPassAction::CLEAR) {
+		clearMask |= GL_STENCIL_BUFFER_BIT;
 		data.clear.clearStencil = clearStencil;
 	}
 	if (clearMask) {

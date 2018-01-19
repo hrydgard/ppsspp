@@ -155,21 +155,22 @@ bool FramebufferManagerVulkan::NotifyStencilUpload(u32 addr, int size, bool skip
 			// It's already zero, let's skip it.
 			continue;
 		}
-		// These feel a little backwards : Mask is the bits that are going to be written, while value
-		// is the "mask" that will be tested against.
-		uint8_t mask = 0;
+
+		// These are the stencil bits that will be written.  We discard when the bit doesn't match.
+		uint8_t writeMask = 0;
+		// This is the value to test the texture alpha against in the shader.
 		uint32_t value = 0;
 		if (dstBuffer->format == GE_FORMAT_4444) {
-			mask = i | (i << 4);
+			writeMask = i | (i << 4);
 			value = i * 16;
 		} else if (dstBuffer->format == GE_FORMAT_5551) {
-			mask = 0xFF;
+			writeMask = 0xFF;
 			value = i * 128;
 		} else {
-			mask = i;
+			writeMask = i;
 			value = i;
 		}
-		renderManager->SetStencilParams(mask, 0xFF, 0xFF);
+		renderManager->SetStencilParams(writeMask, 0xFF, 0xFF);
 		// Need to specify both VERTEX and FRAGMENT bits here since that's what we set up in the pipeline layout, and we need
 		// that for the post shaders. There's probably not really a cost to this.
 		renderManager->PushConstants(vulkan2D_->GetPipelineLayout(), VK_SHADER_STAGE_VERTEX_BIT|VK_SHADER_STAGE_FRAGMENT_BIT, 0, 4, &value);

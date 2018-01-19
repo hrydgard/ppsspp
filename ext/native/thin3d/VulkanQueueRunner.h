@@ -108,7 +108,8 @@ struct VKRStep {
 		struct {
 			VKRFramebuffer *framebuffer;
 			VKRRenderPassAction color;
-			VKRRenderPassAction depthStencil;
+			VKRRenderPassAction depth;
+			VKRRenderPassAction stencil;
 			uint32_t clearColor;
 			float clearDepth;
 			int clearStencil;
