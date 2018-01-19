@@ -947,9 +947,10 @@ void GLQueueRunner::PerformBindFramebufferAsRenderTarget(const GLRStep &pass) {
 void GLQueueRunner::CopyReadbackBuffer(int width, int height, Draw::DataFormat srcFormat, Draw::DataFormat destFormat, int pixelStride, uint8_t *pixels) {
 	// TODO: Maybe move data format conversion here, and always read back 8888. Drivers
 	// don't usually provide very optimized conversion implementations, though some do.
+	// Just need to be careful about dithering, which may break Danganronpa.
 	int bpp = (int)Draw::DataFormatSizeInBytes(destFormat);
 	for (int y = 0; y < height; y++) {
-		memcpy(pixels + y * pixelStride * bpp, readbackBuffer_ + y * width * bpp, pixelStride * bpp);
+		memcpy(pixels + y * pixelStride * bpp, readbackBuffer_ + y * width * bpp, width * bpp);
 	}
 }
 
