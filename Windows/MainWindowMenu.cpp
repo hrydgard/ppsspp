@@ -404,18 +404,6 @@ namespace MainWindow {
 				Core_EnableStepping(false);
 			}
 
-			// TODO: What is this for / what does it fix?
-			if (browseDialog->GetType() != W32Util::AsyncBrowseDialog::DIR) {
-				// Decode the filename with fullpath.
-				char drive[MAX_PATH];
-				char dir[MAX_PATH];
-				char fname[MAX_PATH];
-				char ext[MAX_PATH];
-				_splitpath(filename.c_str(), drive, dir, fname, ext);
-
-				filename = std::string(drive) + std::string(dir) + std::string(fname) + std::string(ext);
-			}
-
 			filename = ReplaceAll(filename, "\\", "/");
 			NativeMessageReceived("boot", filename.c_str());
 		}
