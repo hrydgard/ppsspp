@@ -115,7 +115,6 @@ static const GLuint MagFiltGL[2] = {
 
 // This should not have to be done per texture! OpenGL is silly yo
 void TextureCacheGLES::UpdateSamplingParams(TexCacheEntry &entry, bool force) {
-	CHECK_GL_ERROR_IF_DEBUG();
 	int minFilt;
 	int magFilt;
 	bool sClamp;
@@ -157,7 +156,6 @@ void TextureCacheGLES::UpdateSamplingParams(TexCacheEntry &entry, bool force) {
 
 	float aniso = 0.0f;
 	render_->SetTextureSampler(sClamp ? GL_CLAMP_TO_EDGE : GL_REPEAT, tClamp ? GL_CLAMP_TO_EDGE : GL_REPEAT, MagFiltGL[magFilt], MinFiltGL[minFilt], aniso);
-	CHECK_GL_ERROR_IF_DEBUG();
 }
 
 void TextureCacheGLES::SetFramebufferSamplingParams(u16 bufferWidth, u16 bufferHeight) {
@@ -735,8 +733,6 @@ void TextureCacheGLES::LoadTextureLevel(TexCacheEntry &entry, ReplacedTexture &r
 	bool useUnpack = false;
 	uint8_t *pixelData;
 
-	CHECK_GL_ERROR_IF_DEBUG();
-
 	// TODO: only do this once
 	u32 texByteAlign = 1;
 
@@ -793,8 +789,6 @@ void TextureCacheGLES::LoadTextureLevel(TexCacheEntry &entry, ReplacedTexture &r
 			replacer_.NotifyTextureDecoded(replacedInfo, pixelData, (useUnpack ? bufw : w) * bpp, level, w, h);
 		}
 	}
-
-	CHECK_GL_ERROR_IF_DEBUG();
 
 	GLuint components = dstFmt == GL_UNSIGNED_SHORT_5_6_5 ? GL_RGB : GL_RGBA;
 

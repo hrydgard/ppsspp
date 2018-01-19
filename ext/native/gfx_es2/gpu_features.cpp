@@ -393,6 +393,8 @@ void CheckGLExtensions() {
 	}
 #endif
 
+	glGetIntegerv(GL_MAX_VERTEX_TEXTURE_IMAGE_UNITS, &gl_extensions.maxVertexTextureUnits);
+
 	// This is probably a waste of time, implementations lie.
 	if (gl_extensions.IsGLES || strstr(extString, "GL_ARB_ES2_compatibility") || gl_extensions.VersionGEThan(4, 1)) {
 		const GLint precisions[6] = {

@@ -168,12 +168,12 @@ LinkedShader::LinkedShader(GLRenderManager *render, VShaderID VSID, Shader *vs, 
 	availableUniforms = vs->GetUniformMask() | fs->GetUniformMask();
 
 	std::vector<GLRProgram::Initializer> initialize;
-	initialize.push_back({ &u_tex, 0, 0 });
-	initialize.push_back({ &u_fbotex, 0, 1 });
-	initialize.push_back({ &u_testtex, 0, 2 });
-	initialize.push_back({ &u_tess_pos_tex, 4 }); // Texture unit 4
-	initialize.push_back({ &u_tess_tex_tex, 5 }); // Texture unit 5
-	initialize.push_back({ &u_tess_col_tex, 6 }); // Texture unit 6
+	initialize.push_back({ &u_tex,          0, 0 });
+	initialize.push_back({ &u_fbotex,       0, 1 });
+	initialize.push_back({ &u_testtex,      0, 2 });
+	initialize.push_back({ &u_tess_pos_tex, 0, 4 }); // Texture unit 4
+	initialize.push_back({ &u_tess_tex_tex, 0, 5 }); // Texture unit 5
+	initialize.push_back({ &u_tess_col_tex, 0, 6 }); // Texture unit 6
 
 	program = render->CreateProgram(shaders, semantics, queries, initialize, gstate_c.featureFlags & GPU_SUPPORTS_DUALSOURCE_BLEND);
 
