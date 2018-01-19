@@ -32,6 +32,7 @@ enum class GLRRenderCommand : uint8_t {
 	STENCILOP,
 	BLEND,
 	BLENDCOLOR,
+	LOGICOP,
 	UNIFORM4I,
 	UNIFORM4F,
 	UNIFORMMATRIX,
@@ -55,6 +56,7 @@ enum class GLRRenderCommand : uint8_t {
 
 // TODO: Bloated since the biggest struct decides the size. Will need something more efficient (separate structs with shared
 // type field, smashed right after each other?)
+// Also, all GLenums are really only 16 bits.
 struct GLRRenderData {
 	GLRRenderCommand cmd;
 	union {
@@ -71,6 +73,10 @@ struct GLRRenderData {
 		struct {
 			float color[4];
 		} blendColor;
+		struct {
+			GLboolean enabled;
+			GLenum logicOp;
+		} logic;
 		struct {
 			GLboolean enabled;
 			GLboolean write;
