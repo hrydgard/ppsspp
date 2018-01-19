@@ -2,10 +2,7 @@
 root = true
 
 [*]
-# Temporarily disabled because MSVC2017 misinterprets as utf-8-bom.
-# TODO: Reinstate once fixed build is released:
-# https://developercommunity.visualstudio.com/content/problem/22922/editorconfig-support-interprets-charset-utf-8-as-u.html
-#charset = utf-8
+charset = utf-8
 indent_style = tab
 insert_final_newline = true
 # Would be nice, but don't want to change files unnecessarily.
