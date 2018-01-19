@@ -110,6 +110,9 @@ bool FramebufferManagerGLES::NotifyStencilUpload(u32 addr, int size, bool skipZe
 		}
 
 		// Let's not bother with the shader if it's just zero.
+		if (dstBuffer->fbo) {
+			draw_->BindFramebufferAsRenderTarget(dstBuffer->fbo, { Draw::RPAction::KEEP, Draw::RPAction::KEEP, Draw::RPAction::CLEAR });
+		}
 		render_->SetNoBlendAndMask(0x8);
 		render_->Clear(0, 0, 0, GL_STENCIL_BUFFER_BIT | GL_COLOR_BUFFER_BIT);
 		render_->SetNoBlendAndMask(0xF);
