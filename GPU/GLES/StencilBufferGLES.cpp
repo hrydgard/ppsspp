@@ -130,6 +130,7 @@ bool FramebufferManagerGLES::NotifyStencilUpload(u32 addr, int size, bool skipZe
 		shaders.push_back(render_->CreateShader(GL_FRAGMENT_SHADER, fs_code, "stencil"));
 		std::vector<GLRProgram::UniformLocQuery> queries;
 		queries.push_back({ &u_stencilUploadTex, "tex" });
+		queries.push_back({ &u_stencilValue, "u_stencilValue" });
 		std::vector<GLRProgram::Initializer> inits;
 		inits.push_back({ &u_stencilUploadTex, 0, 0 });
 		stencilUploadProgram_ = render_->CreateProgram(shaders, {}, queries, inits, false);
@@ -138,11 +139,7 @@ bool FramebufferManagerGLES::NotifyStencilUpload(u32 addr, int size, bool skipZe
 		}
 		if (!stencilUploadProgram_) {
 			ERROR_LOG_REPORT(G3D, "Failed to compile stencilUploadProgram! This shouldn't happen.\n%s", errorString.c_str());
-		} else {
-			render_->BindProgram(stencilUploadProgram_);
 		}
-	} else {
-		render_->BindProgram(stencilUploadProgram_);
 	}
 
 	shaderManagerGL_->DirtyLastShader();
@@ -173,9 +170,11 @@ bool FramebufferManagerGLES::NotifyStencilUpload(u32 addr, int size, bool skipZe
 	MakePixelTexture(src, dstBuffer->format, dstBuffer->fb_stride, dstBuffer->bufferWidth, dstBuffer->bufferHeight, u1, v1);
 	textureCacheGL_->ForgetLastTexture();
 
-	render_->SetNoBlendAndMask(0x8);
+	// We must bind the program after starting the render pass, and set the color mask after clearing.
 	render_->Clear(0, 0, 0, GL_STENCIL_BUFFER_BIT);
 	render_->SetStencilFunc(GL_TRUE, GL_ALWAYS, 0xFF, 0xFF);
+	render_->BindProgram(stencilUploadProgram_);
+	render_->SetNoBlendAndMask(0x8);
 
 	for (int i = 1; i < values; i += i) {
 		if (!(usedBits & i)) {
