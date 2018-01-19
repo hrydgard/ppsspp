@@ -193,6 +193,7 @@ void GLRenderManager::BindFramebufferAsRenderTarget(GLRFramebuffer *fb, GLRRende
 	}
 	if (clearMask) {
 		data.clear.clearMask = clearMask;
+		data.clear.colorMask = 0xF;
 		step->commands.push_back(data);
 	}
 

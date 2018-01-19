@@ -571,13 +571,14 @@ public:
 		curRenderStep_->commands.push_back(data);
 	}
 
-	void Clear(uint32_t clearColor, float clearZ, int clearStencil, int clearMask) {
+	void Clear(uint32_t clearColor, float clearZ, int clearStencil, int clearMask, int colorMask = 0xF) {
 		_dbg_assert_(G3D, curRenderStep_ && curRenderStep_->stepType == GLRStepType::RENDER);
 		GLRRenderData data{ GLRRenderCommand::CLEAR };
 		data.clear.clearMask = clearMask;
 		data.clear.clearColor = clearColor;
 		data.clear.clearZ = clearZ;
 		data.clear.clearStencil = clearStencil;
+		data.clear.colorMask = colorMask;
 		curRenderStep_->commands.push_back(data);
 	}
 
