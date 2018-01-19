@@ -372,6 +372,9 @@ void FramebufferManagerGLES::MakePixelTexture(const u8 *srcPixels, GEBufferForma
 	}
 	render_->TextureImage(drawPixelsTex_, 0, texWidth, height, GL_RGBA, GL_RGBA, GL_UNSIGNED_BYTE, convBuf, false);
 	render_->FinalizeTexture(drawPixelsTex_, 0, false);
+
+	// TODO: Return instead?
+	render_->BindTexture(0, drawPixelsTex_);
 }
 
 void FramebufferManagerGLES::SetViewport2D(int x, int y, int w, int h) {

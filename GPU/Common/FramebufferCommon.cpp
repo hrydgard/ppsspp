@@ -719,8 +719,6 @@ void FramebufferManagerCommon::DrawPixels(VirtualFramebuffer *vfb, int dstX, int
 	float u0 = 0.0f, u1 = 1.0f;
 	float v0 = 0.0f, v1 = 1.0f;
 
-	MakePixelTexture(srcPixels, srcPixelFormat, srcStride, width, height, u1, v1);
-
 	if (useBufferedRendering_ && vfb && vfb->fbo) {
 		draw_->BindFramebufferAsRenderTarget(vfb->fbo, { Draw::RPAction::KEEP, Draw::RPAction::KEEP, Draw::RPAction::KEEP });
 		SetViewport2D(0, 0, vfb->renderWidth, vfb->renderHeight);
@@ -735,6 +733,8 @@ void FramebufferManagerCommon::DrawPixels(VirtualFramebuffer *vfb, int dstX, int
 		draw_->SetScissorRect(0, 0, pixelWidth_, pixelHeight_);
 	}
 	DisableState();
+
+	MakePixelTexture(srcPixels, srcPixelFormat, srcStride, width, height, u1, v1);
 
 	DrawTextureFlags flags = (vfb || g_Config.iBufFilter == SCALE_LINEAR) ? DRAWTEX_LINEAR : DRAWTEX_NEAREST;
 	Bind2DShader();
