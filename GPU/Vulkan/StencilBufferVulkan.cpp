@@ -116,18 +116,6 @@ bool FramebufferManagerVulkan::NotifyStencilUpload(u32 addr, int size, bool skip
 
 	VulkanRenderManager *renderManager = (VulkanRenderManager *)draw_->GetNativeObject(Draw::NativeObject::RENDER_MANAGER);
 
-	if (usedBits == 0) {
-		if (skipZero) {
-			// Common when creating buffers, it's already 0.  We're done.
-			return false;
-		}
-
-		// TODO: Find a nice way to clear alpha here too.
-		draw_->BindFramebufferAsRenderTarget(dstBuffer->fbo, { Draw::RPAction::KEEP, Draw::RPAction::KEEP, Draw::RPAction::CLEAR });
-		gstate_c.Dirty(DIRTY_BLEND_STATE | DIRTY_RASTER_STATE | DIRTY_VIEWPORTSCISSOR_STATE);
-		return true;
-	}
-
 	shaderManagerVulkan_->DirtyLastShader();
 	textureCacheVulkan_->ForgetLastTexture();
 
@@ -149,6 +137,18 @@ bool FramebufferManagerVulkan::NotifyStencilUpload(u32 addr, int size, bool skip
 	gstate_c.Dirty(DIRTY_VIEWPORTSCISSOR_STATE | DIRTY_BLEND_STATE | DIRTY_RASTER_STATE | DIRTY_DEPTHSTENCIL_STATE);
 
 	VkDescriptorSet descSet = vulkan2D_->GetDescriptorSet(overrideImageView_, nearestSampler_, VK_NULL_HANDLE, VK_NULL_HANDLE);
+
+	if (usedBits == 0) {
+		// Note: Even with skipZero, we don't necessarily start framebuffers at 0 in Vulkan.  Clear anyway.
+		// Not an actual clear, because we need to draw to alpha only as well.
+		uint32_t value = 0;
+		renderManager->PushConstants(vulkan2D_->GetPipelineLayout(), VK_SHADER_STAGE_VERTEX_BIT|VK_SHADER_STAGE_FRAGMENT_BIT, 0, 4, &value);
+		renderManager->SetStencilParams(0xFF, 0xFF, 0x00);
+		renderManager->Draw(vulkan2D_->GetPipelineLayout(), descSet, 0, nullptr, VK_NULL_HANDLE, 0, 3);  // full screen triangle
+
+		// Skip the loop.
+		values = 0;
+	}
 
 	for (int i = 1; i < values; i += i) {
 		if (!(usedBits & i)) {
