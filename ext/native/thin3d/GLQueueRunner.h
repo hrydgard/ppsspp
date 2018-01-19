@@ -117,6 +117,7 @@ struct GLRRenderData {
 			float clearZ;
 			int clearStencil;
 			int clearMask;   // VK_IMAGE_ASPECT_COLOR_BIT etc
+			int colorMask; // Like blend, but for the clear.
 		} clear;
 		struct {
 			int slot;

@@ -709,11 +709,13 @@ rotateVBO:
 			}
 
 			GLbitfield target = 0;
+			// Without this, we will clear RGB when clearing stencil, which breaks games.
+			uint8_t rgbaMask = (colorMask ? 7 : 0) | (alphaMask ? 8 : 0);
 			if (colorMask || alphaMask) target |= GL_COLOR_BUFFER_BIT;
 			if (alphaMask) target |= GL_STENCIL_BUFFER_BIT;
 			if (depthMask) target |= GL_DEPTH_BUFFER_BIT;
 
-			render_->Clear(clearColor, clearDepth, clearColor >> 24, target);
+			render_->Clear(clearColor, clearDepth, clearColor >> 24, target, rgbaMask);
 			framebufferManager_->SetColorUpdated(gstate_c.skipDrawReason);
 
 			int scissorX1 = gstate.getScissorX1();

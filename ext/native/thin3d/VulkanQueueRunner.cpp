@@ -391,7 +391,7 @@ void VulkanQueueRunner::PerformRenderPass(const VKRStep &step, VkCommandBuffer c
 	}
 
 	// Don't execute empty renderpasses.
-	if (step.commands.empty() && step.render.color == VKRRenderPassAction::KEEP && step.render.depthStencil == VKRRenderPassAction::KEEP) {
+	if (step.commands.empty() && step.render.color == VKRRenderPassAction::KEEP && step.render.depth == VKRRenderPassAction::KEEP && step.render.stencil == VKRRenderPassAction::KEEP) {
 		// Nothing to do.
 		return;
 	}
@@ -610,12 +610,12 @@ void VulkanQueueRunner::PerformBindFramebufferAsRenderTarget(const VKRStep &step
 			fb->depth.layout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
 		}
 
-		renderPass = GetRenderPass(step.render.color, step.render.depthStencil, step.render.depthStencil);
+		renderPass = GetRenderPass(step.render.color, step.render.depth, step.render.stencil);
 		if (step.render.color == VKRRenderPassAction::CLEAR) {
 			Uint8x4ToFloat4(clearVal[0].color.float32, step.render.clearColor);
 			numClearVals = 1;
 		}
-		if (step.render.depthStencil == VKRRenderPassAction::CLEAR) {
+		if (step.render.depth == VKRRenderPassAction::CLEAR || step.render.stencil == VKRRenderPassAction::CLEAR) {
 			clearVal[1].depthStencil.depth = step.render.clearDepth;
 			clearVal[1].depthStencil.stencil = step.render.clearStencil;
 			numClearVals = 2;
