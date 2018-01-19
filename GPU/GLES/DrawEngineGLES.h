@@ -202,10 +202,14 @@ private:
 	class TessellationDataTransferGLES : public TessellationDataTransfer {
 	private:
 		GLRTexture *data_tex[3]{};
-		bool isAllowTexture1D_;
+		GLRenderManager *renderManager_;
 	public:
-		TessellationDataTransferGLES(bool isAllowTexture1D) : TessellationDataTransfer(), isAllowTexture1D_(isAllowTexture1D) {	}
-		~TessellationDataTransferGLES() {	}
+		TessellationDataTransferGLES(GLRenderManager *renderManager)
+			  : renderManager_(renderManager) { }
+		~TessellationDataTransferGLES() {
+			EndFrame();
+		}
 		void SendDataToShader(const float *pos, const float *tex, const float *col, int size, bool hasColor, bool hasTexCoords) override;
+		void EndFrame() override;  // Queues textures for deletion.
 	};
 };

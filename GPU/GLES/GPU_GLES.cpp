@@ -316,8 +316,7 @@ void GPU_GLES::CheckGPUFeatures() {
 	if (instanceRendering)
 		features |= GPU_SUPPORTS_INSTANCE_RENDERING;
 
-	int maxVertexTextureImageUnits;
-	glGetIntegerv(GL_MAX_VERTEX_TEXTURE_IMAGE_UNITS, &maxVertexTextureImageUnits);
+	int maxVertexTextureImageUnits = gl_extensions.maxVertexTextureUnits;
 	if (maxVertexTextureImageUnits >= 3) // At least 3 for hardware tessellation
 		features |= GPU_SUPPORTS_VERTEX_TEXTURE_FETCH;
 

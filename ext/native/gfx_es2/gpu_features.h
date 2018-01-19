@@ -96,6 +96,8 @@ struct GLExtensions {
 	int range[2][6][2];  // [vs,fs][lowf,mediumf,highf,lowi,mediumi,highi][min,max]
 	int precision[2][6];  // [vs,fs][lowf...]
 
+	int maxVertexTextureUnits;
+
 	// greater-or-equal than
 	bool VersionGEThan(int major, int minor, int sub = 0);
 };
