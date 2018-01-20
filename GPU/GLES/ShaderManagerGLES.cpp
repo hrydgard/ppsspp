@@ -179,7 +179,6 @@ LinkedShader::LinkedShader(GLRenderManager *render, VShaderID VSID, Shader *vs, 
 
 	// The rest, use the "dirty" mechanism.
 	dirtyUniforms = DIRTY_ALL_UNIFORMS;
-	CHECK_GL_ERROR_IF_DEBUG();
 }
 
 LinkedShader::~LinkedShader() {

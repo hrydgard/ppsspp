@@ -139,10 +139,14 @@ DepalShader *DepalShaderCacheGLES::GetDepalettizeShader(uint32_t clutMode, GEBuf
 
 	auto shader = cache_.find(id);
 	if (shader != cache_.end()) {
+		DepalShader *depal = shader->second;
+		// If compile failed previously, try to recover.
+		if (depal->fragShader->failed || vertexShader_->failed)
+			return nullptr;
 		return shader->second;
 	}
 
-	if (vertexShader_ == 0) {
+	if (!vertexShader_) {
 		if (!CreateVertexShader()) {
 			// The vertex shader failed, no need to bother trying the fragment.
 			return nullptr;
