@@ -463,6 +463,7 @@ void FramebufferManagerGLES::ReformatFramebufferFrom(VirtualFramebuffer *vfb, GE
 
 	if (old == GE_FORMAT_565) {
 		draw_->BindFramebufferAsRenderTarget(vfb->fbo, { Draw::RPAction::CLEAR, Draw::RPAction::CLEAR, Draw::RPAction::CLEAR });
+		gstate_c.Dirty(DIRTY_BLEND_STATE);
 	} else {
 		draw_->BindFramebufferAsRenderTarget(vfb->fbo, { Draw::RPAction::KEEP, Draw::RPAction::KEEP, Draw::RPAction::KEEP });
 	}
@@ -557,6 +558,7 @@ void FramebufferManagerGLES::UpdateDownloadTempBuffer(VirtualFramebuffer *nvfb) 
 		draw_->BindFramebufferAsRenderTarget(nvfb->fbo, { Draw::RPAction::DONT_CARE, Draw::RPAction::DONT_CARE, Draw::RPAction::DONT_CARE });
 	} else if (gl_extensions.IsGLES) {
 		draw_->BindFramebufferAsRenderTarget(nvfb->fbo, { Draw::RPAction::CLEAR, Draw::RPAction::CLEAR, Draw::RPAction::CLEAR });
+		gstate_c.Dirty(DIRTY_BLEND_STATE);
 	}
 }
 
