@@ -38,11 +38,15 @@ layout (location = 0) in vec2 v_texcoord0;
 layout (location = 0) out vec4 fragColor0;
 
 void main() {
-	vec4 index = texture(tex, v_texcoord0);
-	int indexBits = int(floor(index.a * 255.99)) & 0xFF;
-	if ((indexBits & u_stencilValue) == 0)
-		discard;
-	fragColor0 = index.aaaa;
+	if (u_stencilValue == 0) {
+		fragColor0 = vec4(0.0);
+	} else {
+		vec4 index = texture(tex, v_texcoord0);
+		int indexBits = int(floor(index.a * 255.99)) & 0xFF;
+		if ((indexBits & u_stencilValue) == 0)
+			discard;
+		fragColor0 = index.aaaa;
+	}
 }
 )";
 
@@ -138,17 +142,12 @@ bool FramebufferManagerVulkan::NotifyStencilUpload(u32 addr, int size, bool skip
 
 	VkDescriptorSet descSet = vulkan2D_->GetDescriptorSet(overrideImageView_, nearestSampler_, VK_NULL_HANDLE, VK_NULL_HANDLE);
 
-	if (usedBits == 0) {
-		// Note: Even with skipZero, we don't necessarily start framebuffers at 0 in Vulkan.  Clear anyway.
-		// Not an actual clear, because we need to draw to alpha only as well.
-		uint32_t value = 0;
-		renderManager->PushConstants(vulkan2D_->GetPipelineLayout(), VK_SHADER_STAGE_VERTEX_BIT|VK_SHADER_STAGE_FRAGMENT_BIT, 0, 4, &value);
-		renderManager->SetStencilParams(0xFF, 0xFF, 0x00);
-		renderManager->Draw(vulkan2D_->GetPipelineLayout(), descSet, 0, nullptr, VK_NULL_HANDLE, 0, 3);  // full screen triangle
-
-		// Skip the loop.
-		values = 0;
-	}
+	// Note: Even with skipZero, we don't necessarily start framebuffers at 0 in Vulkan.  Clear anyway.
+	// Not an actual clear, because we need to draw to alpha only as well.
+	uint32_t value = 0;
+	renderManager->PushConstants(vulkan2D_->GetPipelineLayout(), VK_SHADER_STAGE_VERTEX_BIT|VK_SHADER_STAGE_FRAGMENT_BIT, 0, 4, &value);
+	renderManager->SetStencilParams(0xFF, 0xFF, 0x00);
+	renderManager->Draw(vulkan2D_->GetPipelineLayout(), descSet, 0, nullptr, VK_NULL_HANDLE, 0, 3);  // full screen triangle
 
 	for (int i = 1; i < values; i += i) {
 		if (!(usedBits & i)) {
