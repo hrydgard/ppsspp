@@ -301,7 +301,7 @@ struct GLRStep {
 			Draw::DataFormat dstFormat;
 		} readback;
 		struct {
-			GLint texture;
+			GLRTexture *texture;
 			GLRect2D srcRect;
 			int mipLevel;
 		} readback_image;

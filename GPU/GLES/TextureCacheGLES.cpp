@@ -907,19 +907,40 @@ bool TextureCacheGLES::GetCurrentTextureDebug(GPUDebugBuffer &buffer, int level)
 	}
 
 	SetTexture(true);
+	if (!nextTexture_)
+		return false;
+
+	// Apply texture may need to rebuild the texture if we're about to render, or bind a framebuffer.
+	TexCacheEntry *entry = nextTexture_;
 	ApplyTexture();
+
+	// TODO: Centralize?
+	if (entry->framebuffer) {
+		VirtualFramebuffer *vfb = entry->framebuffer;
+		buffer.Allocate(vfb->bufferWidth, vfb->bufferHeight, GPU_DBG_FORMAT_8888, false);
+		bool retval = draw_->CopyFramebufferToMemorySync(vfb->fbo, Draw::FB_COLOR_BIT, 0, 0, vfb->bufferWidth, vfb->bufferHeight, Draw::DataFormat::R8G8B8A8_UNORM, buffer.GetData(), vfb->bufferWidth);
+		// Vulkan requires us to re-apply all dynamic state for each command buffer, and the above will cause us to start a new cmdbuf.
+		// So let's dirty the things that are involved in Vulkan dynamic state. Readbacks are not frequent so this won't hurt other backends.
+		gstate_c.Dirty(DIRTY_VIEWPORTSCISSOR_STATE | DIRTY_BLEND_STATE | DIRTY_DEPTHSTENCIL_STATE);
+		// We may have blitted to a temp FBO.
+		framebufferManager_->RebindFramebuffer();
+		return retval;
+	}
+
+	GLRenderManager *renderManager = (GLRenderManager *)draw_->GetNativeObject(Draw::NativeObject::RENDER_MANAGER);
+
+	// Not a framebuffer, so let's assume these are right.
 	int w = gstate.getTextureWidth(level);
 	int h = gstate.getTextureHeight(level);
-	glGetTexLevelParameteriv(GL_TEXTURE_2D, 0, GL_TEXTURE_WIDTH, &w);
-	glGetTexLevelParameteriv(GL_TEXTURE_2D, 0, GL_TEXTURE_HEIGHT, &h);
 
 	if (level != 0) {
 		gstate = saved;
 	}
 
 	buffer.Allocate(w, h, GE_FORMAT_8888, false);
-	glPixelStorei(GL_PACK_ALIGNMENT, 4);
-	glGetTexImage(GL_TEXTURE_2D, 0, GL_RGBA, GL_UNSIGNED_BYTE, buffer.GetData());
+	renderManager->CopyImageToMemorySync(entry->textureName, level, 0, 0, w, h, Draw::DataFormat::R8G8B8A8_UNORM, (uint8_t *)buffer.GetData(), w);
+	gstate_c.Dirty(DIRTY_TEXTURE_IMAGE | DIRTY_TEXTURE_PARAMS);
+	framebufferManager_->RebindFramebuffer();
 
 	return true;
 #else

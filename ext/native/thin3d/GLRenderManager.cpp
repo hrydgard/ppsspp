@@ -276,6 +276,22 @@ bool GLRenderManager::CopyFramebufferToMemorySync(GLRFramebuffer *src, int aspec
 	return true;
 }
 
+void GLRenderManager::CopyImageToMemorySync(GLRTexture *texture, int mipLevel, int x, int y, int w, int h, Draw::DataFormat destFormat, uint8_t *pixels, int pixelStride) {
+	GLRStep *step = new GLRStep{ GLRStepType::READBACK_IMAGE };
+	step->readback_image.texture = texture;
+	step->readback_image.mipLevel = mipLevel;
+	step->readback_image.srcRect = { x, y, w, h };
+	steps_.push_back(step);
+
+	// Every step clears this state.
+	gstate_c.Dirty(DIRTY_BLEND_STATE | DIRTY_DEPTHSTENCIL_STATE | DIRTY_RASTER_STATE);
+
+	curRenderStep_ = nullptr;
+	FlushSync();
+
+	queueRunner_.CopyReadbackBuffer(w, h, Draw::DataFormat::R8G8B8A8_UNORM, destFormat, pixelStride, pixels);
+}
+
 void GLRenderManager::BeginFrame() {
 	VLOG("BeginFrame");
 
