@@ -58,7 +58,6 @@ public:
 	void BindFramebufferAsColorTexture(int stage, VirtualFramebuffer *framebuffer, int flags);
 
 	virtual bool NotifyStencilUpload(u32 addr, int size, bool skipZero = false) override;
-	void RebindFramebuffer();
 
 	// TODO: Remove
 	ID3D11Buffer *GetDynamicQuadBuffer() {
