@@ -4,23 +4,18 @@
 // It calls a set of methods defined in NativeApp.h. These should be implemented
 // by your game or app.
 
-#include <assert.h>
+#include <cassert>
+#include <cstdlib>
+#include <cstdint>
+
 #include <sstream>
-#include <jni.h>
-#include <android/log.h>
-#include <android/native_window_jni.h>
-#include <stdlib.h>
-#include <stdint.h>
-#include <GLES2/gl2.h>
-#include <GLES2/gl2ext.h>
 #include <queue>
 #include <mutex>
 #include <thread>
 
-#include "AndroidGraphicsContext.h"
-#include "AndroidVulkanContext.h"
-#include "AndroidEGLContext.h"
-#include "AndroidJavaGLContext.h"
+#include <jni.h>
+#include <android/log.h>
+#include <android/native_window_jni.h>
 
 #include "base/basictypes.h"
 #include "base/stringutil.h"
@@ -28,7 +23,6 @@
 #include "base/NativeApp.h"
 #include "base/logging.h"
 #include "base/timeutil.h"
-#include "thread/prioritizedworkqueue.h"
 #include "thread/threadutil.h"
 #include "file/zip_read.h"
 #include "input/input_state.h"
@@ -41,17 +35,17 @@
 #include "gfx/gl_common.h"
 #include "gfx_es2/gpu_features.h"
 
-#include "thin3d/thin3d.h"
-#include "thin3d/VulkanRenderManager.h"
+#include "Common/GraphicsContext.h"
+#include "AndroidGraphicsContext.h"
+#include "AndroidVulkanContext.h"
+#include "AndroidEGLContext.h"
+#include "AndroidJavaGLContext.h"
+
 #include "Core/Config.h"
 #include "Core/Loaders.h"
 #include "Core/System.h"
 #include "Common/CPUDetect.h"
-#include "Common/GraphicsContext.h"
 #include "Common/Log.h"
-#include "Common/GL/GLInterfaceBase.h"
-#include "Common/Vulkan/VulkanLoader.h"
-#include "Common/Vulkan/VulkanContext.h"
 #include "UI/GameInfoCache.h"
 
 #include "app-android.h"
