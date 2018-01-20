@@ -199,9 +199,8 @@ struct GLRInitStep {
 		} create_texture;
 		struct {
 			GLRShader *shader;
-			// These char arrays need to be allocated with new[].
+			// This char arrays needs to be allocated with new[].
 			char *code;
-			char *desc;  // For error logging.
 			GLuint stage;
 		} create_shader;
 		struct {

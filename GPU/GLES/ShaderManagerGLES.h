@@ -125,7 +125,7 @@ public:
 
 class Shader {
 public:
-	Shader(GLRenderManager *render, const char *code, const char *desc, uint32_t glShaderType, bool useHWTransform, uint32_t attrMask, uint64_t uniformMask);
+	Shader(GLRenderManager *render, const char *code, const std::string &desc, uint32_t glShaderType, bool useHWTransform, uint32_t attrMask, uint64_t uniformMask);
 	~Shader();
 	GLRShader *shader;
 

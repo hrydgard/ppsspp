@@ -75,6 +75,7 @@ public:
 	bool valid = false;
 	// Warning: Won't know until a future frame.
 	bool failed = false;
+	std::string desc;
 };
 
 class GLRProgram {
@@ -227,16 +228,13 @@ public:
 		return step.create_buffer.buffer;
 	}
 
-	GLRShader *CreateShader(GLuint stage, std::string code, std::string desc) {
+	GLRShader *CreateShader(GLuint stage, const std::string &code, const std::string &desc) {
 		GLRInitStep step{ GLRInitStepType::CREATE_SHADER };
 		step.create_shader.shader = new GLRShader();
+		step.create_shader.shader->desc = desc;
 		step.create_shader.stage = stage;
 		step.create_shader.code = new char[code.size() + 1];
 		memcpy(step.create_shader.code, code.data(), code.size() + 1);
-		if (!desc.empty()) {
-			step.create_shader.desc = desc.size() ? new char[desc.size() + 1] : nullptr;
-			memcpy(step.create_shader.desc, desc.data(), desc.size() + 1);
-		}
 		initSteps_.push_back(step);
 		return step.create_shader.shader;
 	}
