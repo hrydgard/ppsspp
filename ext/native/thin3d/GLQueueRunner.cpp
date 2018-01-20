@@ -961,6 +961,7 @@ void GLQueueRunner::PerformReadbackImage(const GLRStep &pass) {
 
 	CHECK_GL_ERROR_IF_DEBUG();
 
+#ifndef USING_GLES2
 	int pixelStride = pass.readback_image.srcRect.w;
 	glPixelStorei(GL_PACK_ALIGNMENT, 4);
 
@@ -975,6 +976,7 @@ void GLQueueRunner::PerformReadbackImage(const GLRStep &pass) {
 
 	glPixelStorei(GL_PACK_ALIGNMENT, 4);
 	glGetTexImage(GL_TEXTURE_2D, pass.readback_image.mipLevel, GL_RGBA, GL_UNSIGNED_BYTE, readbackBuffer_);
+#endif
 
 	CHECK_GL_ERROR_IF_DEBUG();
 }
