@@ -850,7 +850,7 @@ void GLQueueRunner::PerformCopy(const GLRStep &step) {
 	const GLOffset2D &dstPos = step.copy.dstPos;
 
 	GLRFramebuffer *src = step.copy.src;
-	GLRFramebuffer *dst = step.copy.src;
+	GLRFramebuffer *dst = step.copy.dst;
 
 	int srcLevel = 0;
 	int dstLevel = 0;
