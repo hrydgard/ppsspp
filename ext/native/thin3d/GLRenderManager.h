@@ -211,6 +211,9 @@ public:
 	// Zaps queued up commands. Use if you know there's a risk you've queued up stuff that has already been deleted. Can happen during in-game shutdown.
 	void Wipe();
 
+	// Wait until no frames are pending.  Use during shutdown before freeing pointers.
+	void WaitUntilQueueIdle();
+
 	// Creation commands. These were not needed in Vulkan since there we can do that on the main thread.
 	GLRTexture *CreateTexture(GLenum target) {
 		GLRInitStep step{ GLRInitStepType::CREATE_TEXTURE };
@@ -676,6 +679,7 @@ private:
 
 		bool readyForFence = true;
 		bool readyForRun = false;
+		bool readyForSubmit = false;
 		bool skipSwap = false;
 		GLRRunType type = GLRRunType::END;
 

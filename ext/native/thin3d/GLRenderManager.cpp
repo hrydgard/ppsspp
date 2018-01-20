@@ -148,10 +148,12 @@ void GLRenderManager::StopThread() {
 				Crash();
 			}
 			frameData.readyForRun = false;
+			frameData.readyForSubmit = false;
 			for (size_t i = 0; i < frameData.steps.size(); i++) {
 				delete frameData.steps[i];
 			}
 			frameData.steps.clear();
+			frameData.initSteps.clear();
 
 			std::unique_lock<std::mutex> lock(frameData.push_mutex);
 			while (!frameData.readyForFence) {
@@ -306,6 +308,7 @@ void GLRenderManager::BeginFrame() {
 			frameData.push_condVar.wait(lock);
 		}
 		frameData.readyForFence = false;
+		frameData.readyForSubmit = true;
 	}
 
 	VLOG("PUSH: Fencing %d", curFrame);
@@ -381,7 +384,9 @@ void GLRenderManager::Submit(int frame, bool triggerFence) {
 		VLOG("PULL: Frame %d.readyForFence = true", frame);
 
 		std::unique_lock<std::mutex> lock(frameData.push_mutex);
+		assert(frameData.readyForSubmit);
 		frameData.readyForFence = true;
+		frameData.readyForSubmit = false;
 		frameData.push_condVar.notify_all();
 	}
 }
@@ -466,6 +471,7 @@ void GLRenderManager::FlushSync() {
 			frameData.push_condVar.wait(lock);
 		}
 		frameData.readyForFence = false;
+		frameData.readyForSubmit = true;
 	}
 }
 
@@ -484,15 +490,36 @@ void GLRenderManager::EndSyncFrame(int frame) {
 	if (useThread_) {
 		std::unique_lock<std::mutex> lock(frameData.push_mutex);
 		frameData.readyForFence = true;
+		frameData.readyForSubmit = true;
 		frameData.push_condVar.notify_all();
 	}
 }
 
 void GLRenderManager::Wipe() {
+	initSteps_.clear();
 	for (auto step : steps_) {
 		delete step;
 	}
 	steps_.clear();
+}
+
+void GLRenderManager::WaitUntilQueueIdle() {
+	if (!useThread_) {
+		// Must be idle, nothing to do.
+		return;
+	}
+
+	// Just wait for all frames to be ready.
+	for (int i = 0; i < MAX_INFLIGHT_FRAMES; i++) {
+		FrameData &frameData = frameData_[i];
+
+		std::unique_lock<std::mutex> lock(frameData.push_mutex);
+		// Ignore unsubmitted frames.
+		while (!frameData.readyForFence && !frameData.readyForSubmit) {
+			VLOG("PUSH: Waiting for frame[%d].readyForFence = 1 (wait idle)", i);
+			frameData.push_condVar.wait(lock);
+		}
+	}
 }
 
 GLPushBuffer::GLPushBuffer(GLRenderManager *render, GLuint target, size_t size) : render_(render), target_(target), size_(size) {
