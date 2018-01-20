@@ -722,8 +722,14 @@ void NativeShutdownGraphics() {
 	ui_draw2d.Shutdown();
 	ui_draw2d_front.Shutdown();
 
-	colorPipeline->Release();
-	texColorPipeline->Release();
+	if (colorPipeline) {
+		colorPipeline->Release();
+		colorPipeline = nullptr;
+	}
+	if (texColorPipeline) {
+		texColorPipeline->Release();
+		texColorPipeline = nullptr;
+	}
 
 	ILOG("NativeShutdownGraphics done");
 }
