@@ -653,6 +653,10 @@ public:
 
 	void StopThread();
 
+	bool SawOutOfMemory() {
+		return queueRunner_.SawOutOfMemory();
+	}
+
 private:
 	void BeginSubmitFrame(int frame);
 	void EndSubmitFrame(int frame);
