@@ -12,6 +12,7 @@
 #include <queue>
 #include <mutex>
 #include <thread>
+#include <atomic>
 
 #include <jni.h>
 #include <android/log.h>
@@ -53,6 +54,21 @@
 JNIEnv *jniEnvMain;
 JNIEnv *jniEnvGraphics;
 JavaVM *javaVM;
+
+bool useCPUThread = true;
+
+enum class EmuThreadState {
+	DISABLED,
+	START_REQUESTED,
+	RUNNING,
+	QUIT_REQUESTED,
+	STOPPED,
+};
+
+static std::thread emuThread;
+static std::atomic<int> emuThreadState((int)EmuThreadState::DISABLED);
+
+void UpdateRunLoopAndroid(JNIEnv *env);
 
 static AndroidAudioState *g_audioState;
 
@@ -114,7 +130,33 @@ static bool javaGL = true;
 static std::string library_path;
 static std::map<SystemPermission, PermissionStatus> permissions;
 
-GraphicsContext *graphicsContext;
+AndroidGraphicsContext *graphicsContext;
+
+static void EmuThreadFunc(JavaVM *vm) {
+	JNIEnv *env;
+	vm->AttachCurrentThread(&env, nullptr);
+	// There's no real requirement that NativeInit happen on this thread.
+	// We just call the update/render loop here.
+	emuThreadState = (int)EmuThreadState::RUNNING;
+	while (emuThreadState != (int)EmuThreadState::QUIT_REQUESTED) {
+		UpdateRunLoopAndroid(env);
+	}
+	emuThreadState = (int)EmuThreadState::STOPPED;
+	vm->DetachCurrentThread();
+}
+
+static void EmuThreadStart(JNIEnv *env) {
+	emuThreadState = (int)EmuThreadState::START_REQUESTED;
+	JavaVM *vm;
+	env->GetJavaVM(&vm);
+	emuThread = std::thread(&EmuThreadFunc, vm);
+}
+
+static void EmuThreadStop() {
+	emuThreadState = (int)EmuThreadState::QUIT_REQUESTED;
+	emuThread.join();
+	emuThread = std::thread();
+}
 
 static void ProcessFrameCommands(JNIEnv *env);
 
@@ -225,7 +267,6 @@ std::string GetJavaString(JNIEnv *env, jstring jstr) {
 extern "C" void Java_org_ppsspp_ppsspp_NativeActivity_registerCallbacks(JNIEnv *env, jobject obj) {
 	nativeActivity = env->NewGlobalRef(obj);
 	postCommand = env->GetMethodID(env->GetObjectClass(obj), "postCommand", "(Ljava/lang/String;Ljava/lang/String;)V");
-	ILOG("Got method ID to postCommand: %p", postCommand);
 }
 
 extern "C" void Java_org_ppsspp_ppsspp_NativeActivity_unregisterCallbacks(JNIEnv *env, jobject obj) {
@@ -323,8 +364,7 @@ extern "C" void Java_org_ppsspp_ppsspp_NativeApp_init
 	if (shortcut_param.empty()) {
 		const char *argv[2] = {app_name.c_str(), 0};
 		NativeInit(1, argv, user_data_path.c_str(), externalDir.c_str(), cacheDir.c_str());
-	}
-	else {
+	} else {
 		const char *argv[3] = {app_name.c_str(), shortcut_param.c_str(), 0};
 		NativeInit(2, argv, user_data_path.c_str(), externalDir.c_str(), cacheDir.c_str());
 	}
@@ -332,6 +372,33 @@ extern "C" void Java_org_ppsspp_ppsspp_NativeApp_init
 	// Now that we've loaded config, set javaGL.
 	javaGL = NativeQueryConfig("androidJavaGL") == "true";
 
+retry:
+	switch (g_Config.iGPUBackend) {
+	case (int)GPUBackend::OPENGL:
+		ILOG("NativeApp.init() -- creating OpenGL context");
+		useCPUThread = true;
+		if (javaGL) {
+			graphicsContext = new AndroidJavaEGLGraphicsContext();
+		} else {
+			graphicsContext = new AndroidEGLGraphicsContext();
+		}
+		break;
+	case (int)GPUBackend::VULKAN:
+		ILOG("NativeApp.init() -- creating Vulkan context");
+		useCPUThread = false;  // The Vulkan render manager manages its own thread.
+		graphicsContext = new AndroidVulkanContext();
+		break;
+	default:
+		ELOG("NativeApp.init(): iGPUBackend %d not supported. Switching to OpenGL.", (int)g_Config.iGPUBackend);
+		g_Config.iGPUBackend = (int)GPUBackend::OPENGL;
+		goto retry;
+		// Crash();
+	}
+
+	if (useCPUThread) {
+		ILOG("NativeApp.init() - launching emu thread");
+		EmuThreadStart(env);
+	}
 	ILOG("NativeApp.init() -- end");
 }
 
@@ -381,9 +448,13 @@ extern "C" void Java_org_ppsspp_ppsspp_NativeApp_pause(JNIEnv *, jclass) {
 }
 
 extern "C" void Java_org_ppsspp_ppsspp_NativeApp_shutdown(JNIEnv *, jclass) {
+	if (useCPUThread)
+		EmuThreadStop();
+
 	ILOG("NativeApp.shutdown() -- begin");
 	if (renderer_inited) {
 		ILOG("Shutting down renderer");
+		// This will be from the wrong thread? :/
 		graphicsContext->Shutdown();
 		delete graphicsContext;
 		graphicsContext = nullptr;
@@ -407,26 +478,26 @@ extern "C" void Java_org_ppsspp_ppsspp_NativeRenderer_displayInit(JNIEnv * env, 
 		ELOG("GetEnv failed: %d", res);
 	}
 
-	if (javaGL && !graphicsContext) {
-		graphicsContext = new AndroidJavaEGLGraphicsContext();
-	} else if (!graphicsContext) {
-		_assert_msg_(G3D, false, "No graphics context in displayInit?");
-	}
+	if (!graphicsContext)
+		Crash();
 
+	// We should be running on the render thread here.
+	std::string errorMessage;
 	if (renderer_inited) {
 		ILOG("NativeApp.displayInit() restoring");
-		NativeShutdownGraphics();
-		delete graphicsContext;
+		graphicsContext->ThreadEnd();
+		graphicsContext->ShutdownFromRenderThread();
 
-		graphicsContext = new AndroidJavaEGLGraphicsContext();
-		NativeInitGraphics(graphicsContext);
+		graphicsContext->InitFromRenderThread(nullptr, 0, 0, 0, 0);
+		graphicsContext->ThreadStart();
 		ILOG("Restored.");
 	} else {
 		ILOG("NativeApp.displayInit() first time");
+		graphicsContext->InitFromRenderThread(nullptr, 0, 0, 0, 0);
+		graphicsContext->ThreadStart();
 		NativeInitGraphics(graphicsContext);
 		renderer_inited = true;
 	}
-
 	NativeMessageReceived("recreateviews", "");
 }
 
@@ -470,23 +541,19 @@ extern "C" void JNICALL Java_org_ppsspp_ppsspp_NativeApp_backbufferResize(JNIEnv
 	}
 }
 
-// JavaEGL
-extern "C" void Java_org_ppsspp_ppsspp_NativeRenderer_displayRender(JNIEnv *env, jobject obj) {
-	static bool hasSetThreadName = false;
-	if (!hasSetThreadName) {
-		hasSetThreadName = true;
-		setCurrentThreadName("AndroidRender");
+void UpdateRunLoopAndroid(JNIEnv *env) {
+	// Wait for render loop to get started.
+	if (!renderer_inited) {
+		ILOG("Runloop: Waiting for displayInit");
+		while (!renderer_inited) {
+			sleep_ms(20);
+		}
 	}
 
-	if (renderer_inited) {
-		NativeUpdate();
+	NativeUpdate();
 
-		NativeRender(graphicsContext);
-		time_update();
-	} else {
-		ELOG("BAD: Ended up in nativeRender even though app has quit.%s", "");
-		// Shouldn't really get here.
-	}
+	NativeRender(graphicsContext);
+	time_update();
 
 	std::lock_guard<std::mutex> guard(frameCommandLock);
 	if (!nativeActivity) {
@@ -496,6 +563,21 @@ extern "C" void Java_org_ppsspp_ppsspp_NativeRenderer_displayRender(JNIEnv *env,
 	}
 	// Still under lock here.
 	ProcessFrameCommands(env);
+}
+
+extern "C" void Java_org_ppsspp_ppsspp_NativeRenderer_displayRender(JNIEnv *env, jobject obj) {
+	static bool hasSetThreadName = false;
+	if (!hasSetThreadName) {
+		hasSetThreadName = true;
+		setCurrentThreadName("AndroidRender");
+	}
+	
+	if (useCPUThread) {
+		// This is the "GPU thread".
+		graphicsContext->ThreadFrame();
+	} else {
+		UpdateRunLoopAndroid(env);
+	}
 }
 
 void System_AskForPermission(SystemPermission permission) {
@@ -762,6 +844,8 @@ static void ProcessFrameCommands(JNIEnv *env) {
 }
 
 extern "C" bool JNICALL Java_org_ppsspp_ppsspp_NativeActivity_runEGLRenderLoop(JNIEnv *env, jobject obj, jobject _surf) {
+	// Needed for Vulkan, even if we're not using the old EGL path.
+
 	exitRenderLoop = false;
 	// This is up here to prevent race conditions, in case we pause during init.
 	renderLoopRunning = true;
@@ -787,14 +871,8 @@ retry:
 	bool vulkan = g_Config.iGPUBackend == (int)GPUBackend::VULKAN;
 
 	int tries = 0;
-	AndroidGraphicsContext *graphicsContext;
-	if (vulkan) {
-		graphicsContext = new AndroidVulkanContext();
-	} else {
-		graphicsContext = new AndroidEGLGraphicsContext();
-	}
 
-	if (!graphicsContext->Init(wnd, desiredBackbufferSizeX, desiredBackbufferSizeY, backbuffer_format, androidVersion)) {
+	if (!graphicsContext->InitFromRenderThread(wnd, desiredBackbufferSizeX, desiredBackbufferSizeY, backbuffer_format, androidVersion)) {
 		ELOG("Failed to initialize graphics context.");
 
 		if (!exitRenderLoop && (vulkan && tries < 2)) {

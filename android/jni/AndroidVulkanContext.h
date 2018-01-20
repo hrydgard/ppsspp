@@ -11,7 +11,7 @@ public:
 	AndroidVulkanContext() : draw_(nullptr) {}
 	~AndroidVulkanContext();
 
-	bool Init(ANativeWindow *wnd, int desiredBackbufferSizeX, int desiredBackbufferSizeY, int backbufferFormat, int androidVersion) override;
+	bool InitFromRenderThread(ANativeWindow *wnd, int desiredBackbufferSizeX, int desiredBackbufferSizeY, int backbufferFormat, int androidVersion) override;
 	void Shutdown() override;
 	void SwapInterval(int interval) override;
 	void SwapBuffers() override;

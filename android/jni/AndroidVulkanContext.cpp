@@ -58,7 +58,8 @@ static VKAPI_ATTR VkBool32 VKAPI_CALL Vulkan_Dbg(VkDebugReportFlagsEXT msgFlags,
 		loglevel = ANDROID_LOG_WARN;
 	}
 
-	__android_log_print(loglevel, APP_NAME, "[%s] %s Code %d : %s", pLayerPrefix, ObjTypeToString(objType), msgCode, pMsg);
+	__android_log_print(loglevel, APP_NAME, "[%s] %s Code %d : %s",
+						pLayerPrefix, ObjTypeToString(objType), msgCode, pMsg);
 
 	// false indicates that layer should not bail-out of an
 	// API call that had validation failures. This may mean that the
@@ -73,7 +74,9 @@ AndroidVulkanContext::~AndroidVulkanContext() {
 	g_Vulkan = nullptr;
 }
 
-bool AndroidVulkanContext::Init(ANativeWindow *wnd, int desiredBackbufferSizeX, int desiredBackbufferSizeY, int backbufferFormat, int androidVersion) {
+bool AndroidVulkanContext::InitFromRenderThread(ANativeWindow *wnd, int desiredBackbufferSizeX,
+												int desiredBackbufferSizeY, int backbufferFormat,
+												int androidVersion) {
 	ILOG("AndroidVulkanContext::Init");
 	init_glslang();
 

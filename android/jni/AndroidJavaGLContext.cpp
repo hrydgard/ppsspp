@@ -4,16 +4,25 @@
 #include "Core/System.h"
 
 AndroidJavaEGLGraphicsContext::AndroidJavaEGLGraphicsContext() {
+	SetGPUBackend(GPUBackend::OPENGL);
+}
+
+bool AndroidJavaEGLGraphicsContext::InitFromRenderThread(ANativeWindow *wnd, int desiredBackbufferSizeX, int desiredBackbufferSizeY, int backbufferFormat, int androidVersion) {
+	ILOG("AndroidJavaEGLGraphicsContext::InitFromRenderThread");
 	CheckGLExtensions();
 	draw_ = Draw::T3DCreateGLContext();
-	SetGPUBackend(GPUBackend::OPENGL);
+	renderManager_ = (GLRenderManager *)draw_->GetNativeObject(Draw::NativeObject::RENDER_MANAGER);
 	bool success = draw_->CreatePresets();
-	assert(success);
+	return success;
+}
+
+void AndroidJavaEGLGraphicsContext::ShutdownFromRenderThread() {
+	ILOG("AndroidJavaEGLGraphicsContext::Shutdown");
+	renderManager_ = nullptr;  // owned by draw_.
+	delete draw_;
+	draw_ = nullptr;
 }
 
 void AndroidJavaEGLGraphicsContext::Shutdown() {
-	ILOG("AndroidJavaEGLGraphicsContext::Shutdown");
-	delete draw_;
-	draw_ = nullptr;
-	NativeShutdownGraphics();
+	// TODO
 }

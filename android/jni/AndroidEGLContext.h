@@ -6,7 +6,7 @@
 class AndroidEGLGraphicsContext : public AndroidGraphicsContext {
 public:
 	AndroidEGLGraphicsContext() : draw_(nullptr), wnd_(nullptr), gl(nullptr) {}
-	bool Init(ANativeWindow *wnd, int desiredBackbufferSizeX, int desiredBackbufferSizeY, int backbufferFormat, int androidVersion) override;
+	bool InitFromRenderThread(ANativeWindow *wnd, int desiredBackbufferSizeX, int desiredBackbufferSizeY, int backbufferFormat, int androidVersion) override;
 	void Shutdown() override;
 	void SwapBuffers() override;
 	void SwapInterval(int interval) override {}
