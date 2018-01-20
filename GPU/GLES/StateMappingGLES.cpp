@@ -319,6 +319,9 @@ void DrawEngineGLES::ApplyDrawStateLate(bool setStencil, int stencilValue) {
 			// Note that this is positions, not UVs, that we need the copy from.
 			framebufferManager_->BindFramebufferAsColorTexture(1, framebufferManager_->GetCurrentRenderVFB(), BINDFBCOLOR_MAY_COPY);
 			framebufferManager_->RebindFramebuffer();
+			GLRenderManager *renderManager = (GLRenderManager *)draw_->GetNativeObject(Draw::NativeObject::RENDER_MANAGER);
+			// If we are rendering at a higher resolution, linear is probably best for the dest color.
+			renderManager->SetTextureSampler(GL_CLAMP_TO_EDGE, GL_CLAMP_TO_EDGE, GL_LINEAR, GL_LINEAR, 0.0f);
 			fboTexBound_ = true;
 			fboTexNeedBind_ = false;
 		}

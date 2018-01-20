@@ -1056,8 +1056,8 @@ void GLQueueRunner::fbo_ext_create(const GLRInitStep &step) {
 	fbo->color_texture.target = GL_TEXTURE_2D;
 	fbo->color_texture.wrapS = GL_CLAMP_TO_EDGE;
 	fbo->color_texture.wrapT = GL_CLAMP_TO_EDGE;
-	fbo->color_texture.magFilter = step.texture_image.linearFilter ? GL_LINEAR : GL_NEAREST;
-	fbo->color_texture.minFilter = step.texture_image.linearFilter ? GL_LINEAR : GL_NEAREST;
+	fbo->color_texture.magFilter = GL_LINEAR;
+	fbo->color_texture.minFilter = GL_LINEAR;
 	fbo->color_texture.maxLod = 0.0f;
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, fbo->color_texture.wrapS);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, fbo->color_texture.wrapT);
