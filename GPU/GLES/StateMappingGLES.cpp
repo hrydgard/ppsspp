@@ -229,7 +229,8 @@ void DrawEngineGLES::ApplyDrawState(int prim) {
 
 #ifndef USING_GLES2
 			if (gstate_c.Supports(GPU_SUPPORTS_LOGIC_OP)) {
-				renderManager->SetLogicOp(gstate.isLogicOpEnabled(), logicOps[gstate.getLogicOp()]);
+				renderManager->SetLogicOp(gstate.isLogicOpEnabled() && gstate.getLogicOp() != GE_LOGIC_COPY,
+					logicOps[gstate.getLogicOp()]);
 			}
 #endif
 		}
