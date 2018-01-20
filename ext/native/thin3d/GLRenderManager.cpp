@@ -69,11 +69,16 @@ void GLRenderManager::ThreadStart() {
 }
 
 void GLRenderManager::ThreadEnd() {
+	// Wait for any shutdown to complete in StopThread().
+	std::unique_lock<std::mutex> lock(mutex_);
 	queueRunner_.DestroyDeviceObjects();
 	VLOG("PULL: Quitting");
 }
 
 bool GLRenderManager::ThreadFrame() {
+	std::unique_lock<std::mutex> lock(mutex_);
+	if (!run_)
+		return false;
 	{
 		if (nextFrame) {
 			threadFrame_++;
@@ -126,7 +131,8 @@ void GLRenderManager::StopThread() {
 			}
 		}
 
-		// TODO: Wait for something here!
+		// Wait until we've definitely stopped the threadframe.
+		std::unique_lock<std::mutex> lock(mutex_);
 
 		ILOG("GL submission thread paused. Frame=%d", curFrame_);
 
