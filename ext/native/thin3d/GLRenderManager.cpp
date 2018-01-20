@@ -4,6 +4,7 @@
 #include "gfx_es2/gpu_features.h"
 #include "thread/threadutil.h"
 #include "base/logging.h"
+#include "GPU/GPUState.h"
 
 #if 0 // def _DEBUG
 #define VLOG ILOG
@@ -198,6 +199,9 @@ void GLRenderManager::BindFramebufferAsRenderTarget(GLRFramebuffer *fb, GLRRende
 	}
 
 	curRenderStep_ = step;
+
+	// Every step clears this state.
+	gstate_c.Dirty(DIRTY_BLEND_STATE | DIRTY_DEPTHSTENCIL_STATE | DIRTY_RASTER_STATE);
 }
 
 void GLRenderManager::BindFramebufferAsTexture(GLRFramebuffer *fb, int binding, int aspectBit, int attachment) {
@@ -210,17 +214,20 @@ void GLRenderManager::BindFramebufferAsTexture(GLRFramebuffer *fb, int binding, 
 }
 
 void GLRenderManager::CopyFramebuffer(GLRFramebuffer *src, GLRect2D srcRect, GLRFramebuffer *dst, GLOffset2D dstPos, int aspectMask) {
-	GLRStep * step = new GLRStep{ GLRStepType::COPY };
+	GLRStep *step = new GLRStep{ GLRStepType::COPY };
 	step->copy.srcRect = srcRect;
 	step->copy.dstPos = dstPos;
 	step->copy.src = src;
 	step->copy.dst = dst;
 	step->copy.aspectMask = aspectMask;
 	steps_.push_back(step);
+
+	// Every step clears this state.
+	gstate_c.Dirty(DIRTY_BLEND_STATE | DIRTY_DEPTHSTENCIL_STATE | DIRTY_RASTER_STATE);
 }
 
 void GLRenderManager::BlitFramebuffer(GLRFramebuffer *src, GLRect2D srcRect, GLRFramebuffer *dst, GLRect2D dstRect, int aspectMask, bool filter) {
-	GLRStep * step = new GLRStep{ GLRStepType::BLIT };
+	GLRStep *step = new GLRStep{ GLRStepType::BLIT };
 	step->blit.srcRect = srcRect;
 	step->blit.dstRect = dstRect;
 	step->blit.src = src;
@@ -228,6 +235,9 @@ void GLRenderManager::BlitFramebuffer(GLRFramebuffer *src, GLRect2D srcRect, GLR
 	step->blit.aspectMask = aspectMask;
 	step->blit.filter = filter;
 	steps_.push_back(step);
+
+	// Every step clears this state.
+	gstate_c.Dirty(DIRTY_BLEND_STATE | DIRTY_DEPTHSTENCIL_STATE | DIRTY_RASTER_STATE);
 }
 
 bool GLRenderManager::CopyFramebufferToMemorySync(GLRFramebuffer *src, int aspectBits, int x, int y, int w, int h, Draw::DataFormat destFormat, uint8_t *pixels, int pixelStride) {
@@ -237,6 +247,9 @@ bool GLRenderManager::CopyFramebufferToMemorySync(GLRFramebuffer *src, int aspec
 	step->readback.aspectMask = aspectBits;
 	step->readback.dstFormat = destFormat;
 	steps_.push_back(step);
+
+	// Every step clears this state.
+	gstate_c.Dirty(DIRTY_BLEND_STATE | DIRTY_DEPTHSTENCIL_STATE | DIRTY_RASTER_STATE);
 
 	curRenderStep_ = nullptr;
 	FlushSync();
