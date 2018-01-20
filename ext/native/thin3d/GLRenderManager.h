@@ -76,6 +76,7 @@ public:
 	// Warning: Won't know until a future frame.
 	bool failed = false;
 	std::string desc;
+	std::string code;
 };
 
 class GLRProgram {
