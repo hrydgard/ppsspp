@@ -317,6 +317,7 @@ void DrawEngineGLES::ApplyDrawStateLate(bool setStencil, int stencilValue) {
 	if (!gstate.isModeClear()) {
 		if (fboTexNeedBind_) {
 			// Note that this is positions, not UVs, that we need the copy from.
+			// TODO: If the device doesn't support blit, this will corrupt the currently applied texture.
 			framebufferManager_->BindFramebufferAsColorTexture(1, framebufferManager_->GetCurrentRenderVFB(), BINDFBCOLOR_MAY_COPY);
 			framebufferManager_->RebindFramebuffer();
 			GLRenderManager *renderManager = (GLRenderManager *)draw_->GetNativeObject(Draw::NativeObject::RENDER_MANAGER);
