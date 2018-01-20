@@ -771,9 +771,12 @@ void TextureCacheGLES::LoadTextureLevel(TexCacheEntry &entry, ReplacedTexture &r
 			entry.SetAlphaStatus(TexCacheEntry::STATUS_ALPHA_UNKNOWN);
 		}
 
-		// TODO: Scale's buffer management doesn't work.
-		//if (scaleFactor > 1)
-		//	scaler.Scale((uint32_t *)pixelData, dstFmt, w, h, scaleFactor);
+		if (scaleFactor > 1) {
+			uint8_t *rearrange = new uint8_t[w * scaleFactor * h * scaleFactor * 4];
+			scaler.ScaleAlways((u32 *)rearrange, (u32 *)pixelData, dstFmt, w, h, scaleFactor);
+			pixelData = rearrange;
+			delete [] finalBuf;
+		}
 
 		if (replacer_.Enabled()) {
 			ReplacedTextureDecodeInfo replacedInfo;
