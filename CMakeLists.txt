@@ -660,6 +660,13 @@ if(ANDROID)
 	set(nativeExtra ${nativeExtra}
 		ext/native/base/NativeApp.h
 		android/jni/app-android.cpp
+		android/jni/AndroidEGLContext.cpp
+		android/jni/AndroidEGLContext.h
+		android/jni/AndroidJavaGLContext.cpp
+		android/jni/AndroidJavaGLContext.h
+		android/jni/AndroidVulkanContext.cpp
+		android/jni/AndroidVulkanContext.h
+		android/jni/AndroidGraphicsContext.h
 		android/jni/native_audio.cpp
 		android/jni/native_audio.h
 		android/jni/native-audio-so.cpp

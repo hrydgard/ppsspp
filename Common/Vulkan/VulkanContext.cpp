@@ -6,9 +6,11 @@
 #include <iostream>
 
 #include "base/basictypes.h"
+#include "base/display.h"
 #include "VulkanContext.h"
 #include "GPU/Common/ShaderCommon.h"
 #include "Common/StringUtils.h"
+#include "Core/Config.h"
 
 // Change this to 1, 2, and 3 to fake failures in a few places, so that
 // we can test our fallback-to-GL code.
