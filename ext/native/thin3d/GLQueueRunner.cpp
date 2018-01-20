@@ -156,10 +156,10 @@ void GLQueueRunner::RunInitSteps(const std::vector<GLRInitStep> &steps) {
 				ELOG("Error in shader compilation! %s\n", infoLog);
 				ELOG("Shader source:\n%s\n", (const char *)code);
 #endif
-				ERROR_LOG(G3D, "Error in shader compilation for: %s", step.create_shader.desc);
+				ERROR_LOG(G3D, "Error in shader compilation for: %s", step.create_shader.shader->desc.c_str());
 				ERROR_LOG(G3D, "Info log: %s", infoLog);
 				ERROR_LOG(G3D, "Shader source:\n%s\n", (const char *)code);
-				Reporting::ReportMessage("Error in shader compilation: info: %s\n%s\n%s", infoLog, step.create_shader.desc, (const char *)code);
+				Reporting::ReportMessage("Error in shader compilation: info: %s\n%s\n%s", infoLog, step.create_shader.shader->desc.c_str(), (const char *)code);
 #ifdef SHADERLOG
 				OutputDebugStringUTF8(infoLog);
 #endif
@@ -167,7 +167,6 @@ void GLQueueRunner::RunInitSteps(const std::vector<GLRInitStep> &steps) {
 				step.create_shader.shader->failed = true;
 			}
 			delete[] step.create_shader.code;
-			delete[] step.create_shader.desc;
 			step.create_shader.shader->valid = true;
 			break;
 		}
