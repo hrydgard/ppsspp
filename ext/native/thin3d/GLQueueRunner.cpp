@@ -214,7 +214,7 @@ void GLQueueRunner::RunInitSteps(const std::vector<GLRInitStep> &steps) {
 				boundTexture = tex->texture;
 			}
 			glTexParameteri(tex->target, GL_TEXTURE_MAX_LEVEL, step.texture_finalize.maxLevel);
-			tex->maxLod = step.texture_finalize.maxLevel;
+			tex->maxLod = (float)step.texture_finalize.maxLevel;
 			if (step.texture_finalize.genMips) {
 				glGenerateMipmap(tex->target);
 			}
