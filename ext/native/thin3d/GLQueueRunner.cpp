@@ -185,7 +185,6 @@ void GLQueueRunner::RunInitSteps(const std::vector<GLRInitStep> &steps) {
 		case GLRInitStepType::TEXTURE_IMAGE:
 		{
 			GLRTexture *tex = step.texture_image.texture;
-			_assert_msg_(G3D, tex->canary == GLRTexture::CanaryValue, "Canary has bad value %08x in texture %p", tex->canary, tex);
 			CHECK_GL_ERROR_IF_DEBUG();
 			if (boundTexture != tex->texture) {
 				glBindTexture(tex->target, tex->texture);
@@ -243,21 +242,22 @@ void GLQueueRunner::InitCreateFramebuffer(const GLRInitStep &step) {
 
 	// Color texture is same everywhere
 	glGenFramebuffers(1, &fbo->handle);
-	glGenTextures(1, &fbo->color_texture);
+	glGenTextures(1, &fbo->color_texture.texture);
+	fbo->color_texture.target = GL_TEXTURE_2D;
+	fbo->color_texture.maxLod = 0.0f;
 
 	// Create the surfaces.
-	glBindTexture(GL_TEXTURE_2D, fbo->color_texture);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-
+	glBindTexture(GL_TEXTURE_2D, fbo->color_texture.texture);
 	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, fbo->width, fbo->height, 0, GL_RGBA, GL_UNSIGNED_BYTE, NULL);
 
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+	fbo->color_texture.wrapS = GL_CLAMP_TO_EDGE;
+	fbo->color_texture.wrapT = GL_CLAMP_TO_EDGE;
+	fbo->color_texture.magFilter = GL_LINEAR;
+	fbo->color_texture.minFilter = GL_LINEAR;
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, fbo->color_texture.wrapS);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, fbo->color_texture.wrapT);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, fbo->color_texture.magFilter);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, fbo->color_texture.minFilter);
 
 	if (gl_extensions.IsGLES) {
 		if (gl_extensions.OES_packed_depth_stencil) {
@@ -272,7 +272,7 @@ void GLQueueRunner::InitCreateFramebuffer(const GLRInitStep &step) {
 
 			// Bind it all together
 			glBindFramebuffer(GL_FRAMEBUFFER, fbo->handle);
-			glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, fbo->color_texture, 0);
+			glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, fbo->color_texture.texture, 0);
 			glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER, fbo->z_stencil_buffer);
 			glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_STENCIL_ATTACHMENT, GL_RENDERBUFFER, fbo->z_stencil_buffer);
 		} else {
@@ -292,7 +292,7 @@ void GLQueueRunner::InitCreateFramebuffer(const GLRInitStep &step) {
 
 			// Bind it all together
 			glBindFramebuffer(GL_FRAMEBUFFER, fbo->handle);
-			glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, fbo->color_texture, 0);
+			glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, fbo->color_texture.texture, 0);
 			glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER, fbo->z_buffer);
 			glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_STENCIL_ATTACHMENT, GL_RENDERBUFFER, fbo->stencil_buffer);
 		}
@@ -306,7 +306,7 @@ void GLQueueRunner::InitCreateFramebuffer(const GLRInitStep &step) {
 
 		// Bind it all together
 		glBindFramebuffer(GL_FRAMEBUFFER, fbo->handle);
-		glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, fbo->color_texture, 0);
+		glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, fbo->color_texture.texture, 0);
 		glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER, fbo->z_stencil_buffer);
 		glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_STENCIL_ATTACHMENT, GL_RENDERBUFFER, fbo->z_stencil_buffer);
 	}
@@ -654,7 +654,6 @@ void GLQueueRunner::PerformRenderPass(const GLRStep &step) {
 			}
 			if (c.texture.texture) {
 				if (curTex[slot] != c.texture.texture) {
-					_assert_msg_(G3D, c.texture.texture->canary == GLRTexture::CanaryValue, "Canary has bad value %08x in texture %p", c.texture.texture->canary, c.texture.texture);
 					glBindTexture(c.texture.texture->target, c.texture.texture->texture);
 					curTex[slot] = c.texture.texture;
 				}
@@ -672,9 +671,12 @@ void GLQueueRunner::PerformRenderPass(const GLRStep &step) {
 				activeSlot = slot;
 			}
 			if (c.bind_fb_texture.aspect == GL_COLOR_BUFFER_BIT) {
-				glBindTexture(GL_TEXTURE_2D, c.bind_fb_texture.framebuffer->color_texture);
+				if (curTex[slot] != &c.bind_fb_texture.framebuffer->color_texture)
+				glBindTexture(GL_TEXTURE_2D, c.bind_fb_texture.framebuffer->color_texture.texture);
+				curTex[slot] = &c.bind_fb_texture.framebuffer->color_texture;
 			} else {
 				// TODO: Depth texturing?
+				curTex[slot] = nullptr;
 			}
 			break;
 		}
@@ -866,8 +868,8 @@ void GLQueueRunner::PerformCopy(const GLRStep &step) {
 
 	switch (step.copy.aspectMask) {
 	case GL_COLOR_BUFFER_BIT:
-		srcTex = src->color_texture;
-		dstTex = dst->color_texture;
+		srcTex = src->color_texture.texture;
+		dstTex = dst->color_texture.texture;
 		break;
 	case GL_DEPTH_BUFFER_BIT:
 		// TODO: Support depth copies.
@@ -1026,16 +1028,22 @@ void GLQueueRunner::fbo_ext_create(const GLRInitStep &step) {
 
 	// Color texture is same everywhere
 	glGenFramebuffersEXT(1, &fbo->handle);
-	glGenTextures(1, &fbo->color_texture);
+	glGenTextures(1, &fbo->color_texture.texture);
 
 	// Create the surfaces.
-	glBindTexture(GL_TEXTURE_2D, fbo->color_texture);
+	glBindTexture(GL_TEXTURE_2D, fbo->color_texture.texture);
 	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, fbo->width, fbo->height, 0, GL_RGBA, GL_UNSIGNED_BYTE, NULL);
 
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+	fbo->color_texture.target = GL_TEXTURE_2D;
+	fbo->color_texture.wrapS = GL_CLAMP_TO_EDGE;
+	fbo->color_texture.wrapT = GL_CLAMP_TO_EDGE;
+	fbo->color_texture.magFilter = step.texture_image.linearFilter ? GL_LINEAR : GL_NEAREST;
+	fbo->color_texture.minFilter = step.texture_image.linearFilter ? GL_LINEAR : GL_NEAREST;
+	fbo->color_texture.maxLod = 0.0f;
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, fbo->color_texture.wrapS);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, fbo->color_texture.wrapT);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, fbo->color_texture.magFilter);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, fbo->color_texture.minFilter);
 
 	fbo->stencil_buffer = 0;
 	fbo->z_buffer = 0;
@@ -1047,7 +1055,7 @@ void GLQueueRunner::fbo_ext_create(const GLRInitStep &step) {
 
 	// Bind it all together
 	glBindFramebufferEXT(GL_FRAMEBUFFER_EXT, fbo->handle);
-	glFramebufferTexture2DEXT(GL_FRAMEBUFFER_EXT, GL_COLOR_ATTACHMENT0_EXT, GL_TEXTURE_2D, fbo->color_texture, 0);
+	glFramebufferTexture2DEXT(GL_FRAMEBUFFER_EXT, GL_COLOR_ATTACHMENT0_EXT, GL_TEXTURE_2D, fbo->color_texture.texture, 0);
 	glFramebufferRenderbufferEXT(GL_FRAMEBUFFER_EXT, GL_DEPTH_ATTACHMENT_EXT, GL_RENDERBUFFER_EXT, fbo->z_stencil_buffer);
 	glFramebufferRenderbufferEXT(GL_FRAMEBUFFER_EXT, GL_STENCIL_ATTACHMENT_EXT, GL_RENDERBUFFER_EXT, fbo->z_stencil_buffer);
 
@@ -1166,6 +1174,4 @@ GLRFramebuffer::~GLRFramebuffer() {
 			glDeleteRenderbuffers(1, &stencil_buffer);
 #endif
 	}
-
-	glDeleteTextures(1, &color_texture);
 }
