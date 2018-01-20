@@ -207,6 +207,19 @@ void TextureCacheGLES::StartFrame() {
 	InvalidateLastTexture();
 	timesInvalidatedAllThisFrame_ = 0;
 
+	GLRenderManager *renderManager = (GLRenderManager *)draw_->GetNativeObject(Draw::NativeObject::RENDER_MANAGER);
+	if (!lowMemoryMode_ && renderManager->SawOutOfMemory()) {
+		lowMemoryMode_ = true;
+		decimationCounter_ = 0;
+
+		I18NCategory *err = GetI18NCategory("Error");
+		if (standardScaleFactor_ > 1) {
+			host->NotifyUserMessage(err->T("Warning: Video memory FULL, reducing upscaling and switching to slow caching mode"), 2.0f);
+		} else {
+			host->NotifyUserMessage(err->T("Warning: Video memory FULL, switching to slow caching mode"), 2.0f);
+		}
+	}
+
 	if (texelsScaledThisFrame_) {
 		// INFO_LOG(G3D, "Scaled %i texels", texelsScaledThisFrame_);
 	}
@@ -771,9 +784,12 @@ void TextureCacheGLES::LoadTextureLevel(TexCacheEntry &entry, ReplacedTexture &r
 			entry.SetAlphaStatus(TexCacheEntry::STATUS_ALPHA_UNKNOWN);
 		}
 
-		// TODO: Scale's buffer management doesn't work.
-		//if (scaleFactor > 1)
-		//	scaler.Scale((uint32_t *)pixelData, dstFmt, w, h, scaleFactor);
+		if (scaleFactor > 1) {
+			uint8_t *rearrange = new uint8_t[w * scaleFactor * h * scaleFactor * 4];
+			scaler.ScaleAlways((u32 *)rearrange, (u32 *)pixelData, dstFmt, w, h, scaleFactor);
+			pixelData = rearrange;
+			delete [] finalBuf;
+		}
 
 		if (replacer_.Enabled()) {
 			ReplacedTextureDecodeInfo replacedInfo;
@@ -800,11 +816,6 @@ void TextureCacheGLES::LoadTextureLevel(TexCacheEntry &entry, ReplacedTexture &r
 		// glTexSubImage2D(GL_TEXTURE_2D, level, 0, 0, w, h, components2, dstFmt, pixelData);
 	} else {
 		PROFILE_THIS_SCOPE("loadtex");
-		// Avoid misleading errors in texture upload, these are common.
-		GLenum err = glGetError();
-		if (err) {
-			WARN_LOG(G3D, "Got an error BEFORE texture upload: %08x (%s)", err, GLEnumToString(err).c_str());
-		}
 		if (IsFakeMipmapChange())
 			render_->TextureImage(entry.textureName, 0, w, h, components, components2, dstFmt, pixelData);
 		else

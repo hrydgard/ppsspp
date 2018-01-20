@@ -23,6 +23,9 @@ GLuint g_defaultFBO = 0;
 void GLQueueRunner::CreateDeviceObjects() {
 	glGetFloatv(GL_MAX_TEXTURE_MAX_ANISOTROPY_EXT, &maxAnisotropyLevel_);
 	glGenVertexArrays(1, &globalVAO_);
+
+	// An eternal optimist.
+	sawOutOfMemory_ = false;
 }
 
 void GLQueueRunner::DestroyDeviceObjects() {
@@ -36,6 +39,7 @@ void GLQueueRunner::DestroyDeviceObjects() {
 void GLQueueRunner::RunInitSteps(const std::vector<GLRInitStep> &steps) {
 	glActiveTexture(GL_TEXTURE0);
 	GLuint boundTexture = (GLuint)-1;
+	bool allocatedTextures = false;
 
 	for (int i = 0; i < steps.size(); i++) {
 		const GLRInitStep &step = steps[i];
@@ -101,12 +105,27 @@ void GLQueueRunner::RunInitSteps(const std::vector<GLRInitStep> &steps) {
 				GLint bufLength = 0;
 				glGetProgramiv(program->program, GL_INFO_LOG_LENGTH, &bufLength);
 				if (bufLength) {
-					char* buf = new char[bufLength];
-					glGetProgramInfoLog(program->program, bufLength, NULL, buf);
+					char *buf = new char[bufLength];
+					glGetProgramInfoLog(program->program, bufLength, nullptr, buf);
+
+					// TODO: Could be other than vs/fs.  Also, we're assuming order here...
+					const char *vsDesc = step.create_program.shaders[0]->desc.c_str();
+					const char *fsDesc = step.create_program.num_shaders > 1 ? step.create_program.shaders[1]->desc.c_str() : nullptr;
+					const char *vsCode = step.create_program.shaders[0]->code.c_str();
+					const char *fsCode = step.create_program.num_shaders > 1 ? step.create_program.shaders[1]->code.c_str() : nullptr;
+					Reporting::ReportMessage("Error in shader program link: info: %s\nfs: %s\n%s\nvs: %s\n%s", buf, fsDesc, fsCode, vsDesc, vsCode);
+
 					ELOG("Could not link program:\n %s", buf);
-					// We've thrown out the source at this point. Might want to do something about that.
+					ERROR_LOG(G3D, "VS desc:\n%s", vsDesc);
+					ERROR_LOG(G3D, "FS desc:\n%s", fsDesc);
+					ERROR_LOG(G3D, "VS:\n%s\n", vsCode);
+					ERROR_LOG(G3D, "FS:\n%s\n", fsCode);
+
 #ifdef _WIN32
 					OutputDebugStringUTF8(buf);
+					OutputDebugStringUTF8(vsCode);
+					if (fsCode)
+						OutputDebugStringUTF8(fsCode);
 #endif
 					delete[] buf;
 				} else {
@@ -156,17 +175,19 @@ void GLQueueRunner::RunInitSteps(const std::vector<GLRInitStep> &steps) {
 				ELOG("Error in shader compilation! %s\n", infoLog);
 				ELOG("Shader source:\n%s\n", (const char *)code);
 #endif
-				ERROR_LOG(G3D, "Error in shader compilation for: %s", step.create_shader.desc);
+				ERROR_LOG(G3D, "Error in shader compilation for: %s", step.create_shader.shader->desc.c_str());
 				ERROR_LOG(G3D, "Info log: %s", infoLog);
 				ERROR_LOG(G3D, "Shader source:\n%s\n", (const char *)code);
-				Reporting::ReportMessage("Error in shader compilation: info: %s\n%s\n%s", infoLog, step.create_shader.desc, (const char *)code);
+				Reporting::ReportMessage("Error in shader compilation: info: %s\n%s\n%s", infoLog, step.create_shader.shader->desc.c_str(), (const char *)code);
 #ifdef SHADERLOG
 				OutputDebugStringUTF8(infoLog);
 #endif
 				step.create_shader.shader->valid = false;
+				step.create_shader.shader->failed = true;
 			}
+			// Before we throw away the code, attach it to the shader for debugging.
+			step.create_shader.shader->code = code;
 			delete[] step.create_shader.code;
-			delete[] step.create_shader.desc;
 			step.create_shader.shader->valid = true;
 			break;
 		}
@@ -180,6 +201,7 @@ void GLQueueRunner::RunInitSteps(const std::vector<GLRInitStep> &steps) {
 		{
 			boundTexture = (GLuint)-1;
 			InitCreateFramebuffer(step);
+			allocatedTextures = true;
 			break;
 		}
 		case GLRInitStepType::TEXTURE_IMAGE:
@@ -194,6 +216,7 @@ void GLQueueRunner::RunInitSteps(const std::vector<GLRInitStep> &steps) {
 				Crash();
 			// For things to show in RenderDoc, need to split into glTexImage2D(..., nullptr) and glTexSubImage.
 			glTexImage2D(tex->target, step.texture_image.level, step.texture_image.internalFormat, step.texture_image.width, step.texture_image.height, 0, step.texture_image.format, step.texture_image.type, step.texture_image.data);
+			allocatedTextures = true;
 			delete[] step.texture_image.data;
 			CHECK_GL_ERROR_IF_DEBUG();
 			tex->wrapS = GL_CLAMP_TO_EDGE;
@@ -223,6 +246,21 @@ void GLQueueRunner::RunInitSteps(const std::vector<GLRInitStep> &steps) {
 		default:
 			Crash();
 			break;
+		}
+	}
+
+	// TODO: Use GL_KHR_no_error or a debug callback, where supported?
+	if (allocatedTextures) {
+		// Users may use replacements or scaling, with high render resolutions, and run out of VRAM.
+		// This detects that, rather than looking like PPSSPP is broken.
+		// Calling glGetError() isn't great, but at the end of init shouldn't be too bad...
+		GLenum err = glGetError();
+		if (err == GL_OUT_OF_MEMORY) {
+			WARN_LOG_REPORT(G3D, "GL ran out of GPU memory; switching to low memory mode");
+			sawOutOfMemory_ = true;
+		} else if (err != GL_NO_ERROR) {
+			// We checked the err anyway, might as well log if there is one.
+			WARN_LOG(G3D, "Got an error after init: %08x (%s)", err, GLEnumToString(err).c_str());
 		}
 	}
 }
@@ -1039,8 +1077,8 @@ void GLQueueRunner::fbo_ext_create(const GLRInitStep &step) {
 	fbo->color_texture.target = GL_TEXTURE_2D;
 	fbo->color_texture.wrapS = GL_CLAMP_TO_EDGE;
 	fbo->color_texture.wrapT = GL_CLAMP_TO_EDGE;
-	fbo->color_texture.magFilter = step.texture_image.linearFilter ? GL_LINEAR : GL_NEAREST;
-	fbo->color_texture.minFilter = step.texture_image.linearFilter ? GL_LINEAR : GL_NEAREST;
+	fbo->color_texture.magFilter = GL_LINEAR;
+	fbo->color_texture.minFilter = GL_LINEAR;
 	fbo->color_texture.maxLod = 0.0f;
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, fbo->color_texture.wrapS);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, fbo->color_texture.wrapT);

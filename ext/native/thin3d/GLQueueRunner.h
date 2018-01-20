@@ -199,9 +199,8 @@ struct GLRInitStep {
 		} create_texture;
 		struct {
 			GLRShader *shader;
-			// These char arrays need to be allocated with new[].
+			// This char arrays needs to be allocated with new[].
 			char *code;
-			char *desc;  // For error logging.
 			GLuint stage;
 		} create_shader;
 		struct {
@@ -329,6 +328,10 @@ public:
 		targetWidth_ = width;
 		targetHeight_ = height;
 	}
+
+	bool SawOutOfMemory() {
+		return sawOutOfMemory_;
+	}
 private:
 	void InitCreateFramebuffer(const GLRInitStep &step);
 
@@ -375,4 +378,6 @@ private:
 	GLuint AllocTextureName();
 	// Texture name cache. Ripped straight from TextureCacheGLES.
 	std::vector<GLuint> nameCache_;
+
+	bool sawOutOfMemory_ = false;
 };

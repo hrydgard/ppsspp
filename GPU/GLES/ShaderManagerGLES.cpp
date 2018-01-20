@@ -44,12 +44,11 @@
 #include "GPU/GLES/DrawEngineGLES.h"
 #include "FramebufferManagerGLES.h"
 
-Shader::Shader(GLRenderManager *render, const char *code, const char *desc, uint32_t glShaderType, bool useHWTransform, uint32_t attrMask, uint64_t uniformMask)
+Shader::Shader(GLRenderManager *render, const char *code, const std::string &desc, uint32_t glShaderType, bool useHWTransform, uint32_t attrMask, uint64_t uniformMask)
 	  : render_(render), failed_(false), useHWTransform_(useHWTransform), attrMask_(attrMask), uniformMask_(uniformMask) {
 	PROFILE_THIS_SCOPE("shadercomp");
 	isFragment_ = glShaderType == GL_FRAGMENT_SHADER;
 	source_ = code;
-	std::string descstr(desc);
 #ifdef SHADERLOG
 #ifdef _WIN32
 	OutputDebugStringUTF8(code);
@@ -57,7 +56,7 @@ Shader::Shader(GLRenderManager *render, const char *code, const char *desc, uint
 	printf("%s\n", code);
 #endif
 #endif
-	shader = render->CreateShader(glShaderType, source_, descstr);
+	shader = render->CreateShader(glShaderType, source_, desc);
 }
 
 Shader::~Shader() {
@@ -179,7 +178,6 @@ LinkedShader::LinkedShader(GLRenderManager *render, VShaderID VSID, Shader *vs, 
 
 	// The rest, use the "dirty" mechanism.
 	dirtyUniforms = DIRTY_ALL_UNIFORMS;
-	CHECK_GL_ERROR_IF_DEBUG();
 }
 
 LinkedShader::~LinkedShader() {
@@ -610,7 +608,7 @@ Shader *ShaderManagerGLES::CompileFragmentShader(FShaderID FSID) {
 		return nullptr;
 	}
 	std::string desc = FragmentShaderDesc(FSID);
-	return new Shader(render_, codeBuffer_, desc.c_str(), GL_FRAGMENT_SHADER, false, 0, uniformMask);
+	return new Shader(render_, codeBuffer_, desc, GL_FRAGMENT_SHADER, false, 0, uniformMask);
 }
 
 Shader *ShaderManagerGLES::CompileVertexShader(VShaderID VSID) {
@@ -619,7 +617,7 @@ Shader *ShaderManagerGLES::CompileVertexShader(VShaderID VSID) {
 	uint64_t uniformMask;
 	GenerateVertexShader(VSID, codeBuffer_, &attrMask, &uniformMask);
 	std::string desc = VertexShaderDesc(VSID);
-	return new Shader(render_, codeBuffer_, desc.c_str(), GL_VERTEX_SHADER, useHWTransform, attrMask, uniformMask);
+	return new Shader(render_, codeBuffer_, desc, GL_VERTEX_SHADER, useHWTransform, attrMask, uniformMask);
 }
 
 Shader *ShaderManagerGLES::ApplyVertexShader(int prim, u32 vertType, VShaderID *VSID) {
@@ -669,7 +667,7 @@ Shader *ShaderManagerGLES::ApplyVertexShader(int prim, u32 vertType, VShaderID *
 			uint32_t attrMask;
 			uint64_t uniformMask;
 			GenerateVertexShader(vsidTemp, codeBuffer_, &attrMask, &uniformMask);
-			vs = new Shader(render_, codeBuffer_, VertexShaderDesc(vsidTemp).c_str(), GL_VERTEX_SHADER, false, attrMask, uniformMask);
+			vs = new Shader(render_, codeBuffer_, VertexShaderDesc(vsidTemp), GL_VERTEX_SHADER, false, attrMask, uniformMask);
 		}
 
 		vsCache_.Insert(*VSID, vs);
