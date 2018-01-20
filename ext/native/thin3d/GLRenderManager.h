@@ -18,6 +18,26 @@
 class GLRInputLayout;
 class GLPushBuffer;
 
+class GLRTexture {
+public:
+	~GLRTexture() {
+		if (texture) {
+			glDeleteTextures(1, &texture);
+		}
+	}
+	GLuint texture = 0;
+	// Could also trust OpenGL defaults I guess..
+	GLenum target = 0xFFFF;
+	GLenum wrapS = 0xFFFF;
+	GLenum wrapT = 0xFFFF;
+	GLenum magFilter = 0xFFFF;
+	GLenum minFilter = 0xFFFF;
+	float anisotropy = -100000.0f;
+	float minLod = -100000.0f;
+	float maxLod = 100000.0f;
+	float lodBias = 0.0f;
+};
+
 class GLRFramebuffer {
 public:
 	GLRFramebuffer(int _width, int _height, bool z_stencil)
@@ -29,7 +49,7 @@ public:
 	int numShadows = 1;  // TODO: Support this.
 
 	GLuint handle = 0;
-	GLuint color_texture = 0;
+	GLRTexture color_texture;
 	GLuint z_stencil_buffer = 0;  // Either this is set, or the two below.
 	GLuint z_buffer = 0;
 	GLuint stencil_buffer = 0;
@@ -103,31 +123,6 @@ public:
 		return loc;
 	}
 	std::unordered_map<std::string, UniformInfo> uniformCache_;
-};
-
-class GLRTexture {
-public:
-	~GLRTexture() {
-		if (texture) {
-			glDeleteTextures(1, &texture);
-		}
-		canary = 0xd31373d;  // deleted
-	}
-	enum {
-		CanaryValue = 0x12345678,
-	};
-	uint32_t canary = CanaryValue;
-	GLuint texture = 0;
-	// Could also trust OpenGL defaults I guess..
-	GLenum target = 0xFFFF;
-	GLenum wrapS = 0xFFFF;
-	GLenum wrapT = 0xFFFF;
-	GLenum magFilter = 0xFFFF;
-	GLenum minFilter = 0xFFFF;
-	float anisotropy = -100000.0f;
-	float minLod = -100000.0f;
-	float maxLod = 100000.0f;
-	float lodBias = 0.0f;
 };
 
 class GLRBuffer {
