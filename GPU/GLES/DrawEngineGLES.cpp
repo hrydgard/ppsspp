@@ -172,18 +172,26 @@ void DrawEngineGLES::InitDeviceObjects() {
 }
 
 void DrawEngineGLES::DestroyDeviceObjects() {
+	// Beware: this could be called twice in a row, sometimes.
 	for (int i = 0; i < GLRenderManager::MAX_INFLIGHT_FRAMES; i++) {
+		if (!frameData_[i].pushVertex && !frameData_[i].pushIndex)
+			continue;
+
 		render_->UnregisterPushBuffer(i, frameData_[i].pushVertex);
 		render_->UnregisterPushBuffer(i, frameData_[i].pushIndex);
 		frameData_[i].pushVertex->Destroy();
 		frameData_[i].pushIndex->Destroy();
 		delete frameData_[i].pushVertex;
 		delete frameData_[i].pushIndex;
+		frameData_[i].pushVertex = nullptr;
+		frameData_[i].pushIndex = nullptr;
 	}
 
 	ClearTrackedVertexArrays();
 
-	render_->DeleteInputLayout(softwareInputLayout_);
+	if (softwareInputLayout_)
+		render_->DeleteInputLayout(softwareInputLayout_);
+	softwareInputLayout_ = nullptr;
 }
 
 void DrawEngineGLES::ClearInputLayoutMap() {

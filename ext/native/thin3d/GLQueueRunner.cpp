@@ -850,7 +850,7 @@ void GLQueueRunner::PerformCopy(const GLRStep &step) {
 	const GLOffset2D &dstPos = step.copy.dstPos;
 
 	GLRFramebuffer *src = step.copy.src;
-	GLRFramebuffer *dst = step.copy.src;
+	GLRFramebuffer *dst = step.copy.dst;
 
 	int srcLevel = 0;
 	int dstLevel = 0;
@@ -947,7 +947,28 @@ void GLQueueRunner::PerformReadback(const GLRStep &pass) {
 }
 
 void GLQueueRunner::PerformReadbackImage(const GLRStep &pass) {
+	GLRTexture *tex = pass.readback_image.texture;
 
+	glBindTexture(GL_TEXTURE_2D, tex->texture);
+
+	CHECK_GL_ERROR_IF_DEBUG();
+
+	int pixelStride = pass.readback_image.srcRect.w;
+	glPixelStorei(GL_PACK_ALIGNMENT, 4);
+
+	GLRect2D rect = pass.readback.srcRect;
+
+	int size = 4 * rect.w * rect.h;
+	if (size > readbackBufferSize_) {
+		delete[] readbackBuffer_;
+		readbackBuffer_ = new uint8_t[size];
+		readbackBufferSize_ = size;
+	}
+
+	glPixelStorei(GL_PACK_ALIGNMENT, 4);
+	glGetTexImage(GL_TEXTURE_2D, pass.readback_image.mipLevel, GL_RGBA, GL_UNSIGNED_BYTE, readbackBuffer_);
+
+	CHECK_GL_ERROR_IF_DEBUG();
 }
 
 void GLQueueRunner::PerformBindFramebufferAsRenderTarget(const GLRStep &pass) {

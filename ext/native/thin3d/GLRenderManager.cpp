@@ -4,6 +4,7 @@
 #include "gfx_es2/gpu_features.h"
 #include "thread/threadutil.h"
 #include "base/logging.h"
+#include "GPU/GPUState.h"
 
 #if 0 // def _DEBUG
 #define VLOG ILOG
@@ -68,11 +69,16 @@ void GLRenderManager::ThreadStart() {
 }
 
 void GLRenderManager::ThreadEnd() {
+	// Wait for any shutdown to complete in StopThread().
+	std::unique_lock<std::mutex> lock(mutex_);
 	queueRunner_.DestroyDeviceObjects();
 	VLOG("PULL: Quitting");
 }
 
 bool GLRenderManager::ThreadFrame() {
+	std::unique_lock<std::mutex> lock(mutex_);
+	if (!run_)
+		return false;
 	{
 		if (nextFrame) {
 			threadFrame_++;
@@ -125,7 +131,8 @@ void GLRenderManager::StopThread() {
 			}
 		}
 
-		// TODO: Wait for something here!
+		// Wait until we've definitely stopped the threadframe.
+		std::unique_lock<std::mutex> lock(mutex_);
 
 		ILOG("GL submission thread paused. Frame=%d", curFrame_);
 
@@ -198,6 +205,9 @@ void GLRenderManager::BindFramebufferAsRenderTarget(GLRFramebuffer *fb, GLRRende
 	}
 
 	curRenderStep_ = step;
+
+	// Every step clears this state.
+	gstate_c.Dirty(DIRTY_BLEND_STATE | DIRTY_DEPTHSTENCIL_STATE | DIRTY_RASTER_STATE);
 }
 
 void GLRenderManager::BindFramebufferAsTexture(GLRFramebuffer *fb, int binding, int aspectBit, int attachment) {
@@ -210,17 +220,20 @@ void GLRenderManager::BindFramebufferAsTexture(GLRFramebuffer *fb, int binding, 
 }
 
 void GLRenderManager::CopyFramebuffer(GLRFramebuffer *src, GLRect2D srcRect, GLRFramebuffer *dst, GLOffset2D dstPos, int aspectMask) {
-	GLRStep * step = new GLRStep{ GLRStepType::COPY };
+	GLRStep *step = new GLRStep{ GLRStepType::COPY };
 	step->copy.srcRect = srcRect;
 	step->copy.dstPos = dstPos;
 	step->copy.src = src;
 	step->copy.dst = dst;
 	step->copy.aspectMask = aspectMask;
 	steps_.push_back(step);
+
+	// Every step clears this state.
+	gstate_c.Dirty(DIRTY_BLEND_STATE | DIRTY_DEPTHSTENCIL_STATE | DIRTY_RASTER_STATE);
 }
 
 void GLRenderManager::BlitFramebuffer(GLRFramebuffer *src, GLRect2D srcRect, GLRFramebuffer *dst, GLRect2D dstRect, int aspectMask, bool filter) {
-	GLRStep * step = new GLRStep{ GLRStepType::BLIT };
+	GLRStep *step = new GLRStep{ GLRStepType::BLIT };
 	step->blit.srcRect = srcRect;
 	step->blit.dstRect = dstRect;
 	step->blit.src = src;
@@ -228,6 +241,9 @@ void GLRenderManager::BlitFramebuffer(GLRFramebuffer *src, GLRect2D srcRect, GLR
 	step->blit.aspectMask = aspectMask;
 	step->blit.filter = filter;
 	steps_.push_back(step);
+
+	// Every step clears this state.
+	gstate_c.Dirty(DIRTY_BLEND_STATE | DIRTY_DEPTHSTENCIL_STATE | DIRTY_RASTER_STATE);
 }
 
 bool GLRenderManager::CopyFramebufferToMemorySync(GLRFramebuffer *src, int aspectBits, int x, int y, int w, int h, Draw::DataFormat destFormat, uint8_t *pixels, int pixelStride) {
@@ -237,6 +253,9 @@ bool GLRenderManager::CopyFramebufferToMemorySync(GLRFramebuffer *src, int aspec
 	step->readback.aspectMask = aspectBits;
 	step->readback.dstFormat = destFormat;
 	steps_.push_back(step);
+
+	// Every step clears this state.
+	gstate_c.Dirty(DIRTY_BLEND_STATE | DIRTY_DEPTHSTENCIL_STATE | DIRTY_RASTER_STATE);
 
 	curRenderStep_ = nullptr;
 	FlushSync();
@@ -255,6 +274,22 @@ bool GLRenderManager::CopyFramebufferToMemorySync(GLRFramebuffer *src, int aspec
 	}
 	queueRunner_.CopyReadbackBuffer(w, h, srcFormat, destFormat, pixelStride, pixels);
 	return true;
+}
+
+void GLRenderManager::CopyImageToMemorySync(GLRTexture *texture, int mipLevel, int x, int y, int w, int h, Draw::DataFormat destFormat, uint8_t *pixels, int pixelStride) {
+	GLRStep *step = new GLRStep{ GLRStepType::READBACK_IMAGE };
+	step->readback_image.texture = texture;
+	step->readback_image.mipLevel = mipLevel;
+	step->readback_image.srcRect = { x, y, w, h };
+	steps_.push_back(step);
+
+	// Every step clears this state.
+	gstate_c.Dirty(DIRTY_BLEND_STATE | DIRTY_DEPTHSTENCIL_STATE | DIRTY_RASTER_STATE);
+
+	curRenderStep_ = nullptr;
+	FlushSync();
+
+	queueRunner_.CopyReadbackBuffer(w, h, Draw::DataFormat::R8G8B8A8_UNORM, destFormat, pixelStride, pixels);
 }
 
 void GLRenderManager::BeginFrame() {
