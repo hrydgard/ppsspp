@@ -105,9 +105,8 @@ void RenderThreadFunc() {
 	}
 
 	g_graphicsContext->ThreadStart();
-	while (emuThreadState != THREAD_SHUTDOWN) {
-		if (!g_graphicsContext->ThreadFrame())
-			break;
+	while (g_graphicsContext->ThreadFrame()) {
+		continue;
 	}
 	g_graphicsContext->ThreadEnd();
 	g_graphicsContext->ShutdownFromRenderThread();
