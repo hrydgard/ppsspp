@@ -328,6 +328,10 @@ public:
 		targetWidth_ = width;
 		targetHeight_ = height;
 	}
+
+	bool SawOutOfMemory() {
+		return sawOutOfMemory_;
+	}
 private:
 	void InitCreateFramebuffer(const GLRInitStep &step);
 
@@ -374,4 +378,6 @@ private:
 	GLuint AllocTextureName();
 	// Texture name cache. Ripped straight from TextureCacheGLES.
 	std::vector<GLuint> nameCache_;
+
+	bool sawOutOfMemory_ = false;
 };

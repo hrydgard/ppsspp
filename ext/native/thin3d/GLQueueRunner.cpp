@@ -23,6 +23,9 @@ GLuint g_defaultFBO = 0;
 void GLQueueRunner::CreateDeviceObjects() {
 	glGetFloatv(GL_MAX_TEXTURE_MAX_ANISOTROPY_EXT, &maxAnisotropyLevel_);
 	glGenVertexArrays(1, &globalVAO_);
+
+	// An eternal optimist.
+	sawOutOfMemory_ = false;
 }
 
 void GLQueueRunner::DestroyDeviceObjects() {
@@ -36,6 +39,7 @@ void GLQueueRunner::DestroyDeviceObjects() {
 void GLQueueRunner::RunInitSteps(const std::vector<GLRInitStep> &steps) {
 	glActiveTexture(GL_TEXTURE0);
 	GLuint boundTexture = (GLuint)-1;
+	bool allocatedTextures = false;
 
 	for (int i = 0; i < steps.size(); i++) {
 		const GLRInitStep &step = steps[i];
@@ -197,6 +201,7 @@ void GLQueueRunner::RunInitSteps(const std::vector<GLRInitStep> &steps) {
 		{
 			boundTexture = (GLuint)-1;
 			InitCreateFramebuffer(step);
+			allocatedTextures = true;
 			break;
 		}
 		case GLRInitStepType::TEXTURE_IMAGE:
@@ -211,6 +216,7 @@ void GLQueueRunner::RunInitSteps(const std::vector<GLRInitStep> &steps) {
 				Crash();
 			// For things to show in RenderDoc, need to split into glTexImage2D(..., nullptr) and glTexSubImage.
 			glTexImage2D(tex->target, step.texture_image.level, step.texture_image.internalFormat, step.texture_image.width, step.texture_image.height, 0, step.texture_image.format, step.texture_image.type, step.texture_image.data);
+			allocatedTextures = true;
 			delete[] step.texture_image.data;
 			CHECK_GL_ERROR_IF_DEBUG();
 			tex->wrapS = GL_CLAMP_TO_EDGE;
@@ -240,6 +246,21 @@ void GLQueueRunner::RunInitSteps(const std::vector<GLRInitStep> &steps) {
 		default:
 			Crash();
 			break;
+		}
+	}
+
+	// TODO: Use GL_KHR_no_error or a debug callback, where supported?
+	if (allocatedTextures) {
+		// Users may use replacements or scaling, with high render resolutions, and run out of VRAM.
+		// This detects that, rather than looking like PPSSPP is broken.
+		// Calling glGetError() isn't great, but at the end of init shouldn't be too bad...
+		GLenum err = glGetError();
+		if (err == GL_OUT_OF_MEMORY) {
+			WARN_LOG_REPORT(G3D, "GL ran out of GPU memory; switching to low memory mode");
+			sawOutOfMemory_ = true;
+		} else if (err != GL_NO_ERROR) {
+			// We checked the err anyway, might as well log if there is one.
+			WARN_LOG(G3D, "Got an error after init: %08x (%s)", err, GLEnumToString(err).c_str());
 		}
 	}
 }
