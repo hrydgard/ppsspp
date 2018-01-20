@@ -73,6 +73,8 @@ public:
 	}
 	GLuint shader = 0;
 	bool valid = false;
+	// Warning: Won't know until a future frame.
+	bool failed = false;
 };
 
 class GLRProgram {

@@ -164,6 +164,7 @@ void GLQueueRunner::RunInitSteps(const std::vector<GLRInitStep> &steps) {
 				OutputDebugStringUTF8(infoLog);
 #endif
 				step.create_shader.shader->valid = false;
+				step.create_shader.shader->failed = true;
 			}
 			delete[] step.create_shader.code;
 			delete[] step.create_shader.desc;
