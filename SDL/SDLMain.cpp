@@ -35,6 +35,7 @@ SDLJoystick *joystick = NULL;
 #include "util/text/parsers.h"
 #include "math/math_util.h"
 #include "thin3d/GLRenderManager.h"
+#include "thread/threadutil.h"
 #include "Common/Vulkan/VulkanContext.h"
 #include "Common/Vulkan/VulkanDebug.h"
 #include "math.h"
@@ -725,6 +726,8 @@ static std::thread emuThread;
 static std::atomic<int> emuThreadState((int)EmuThreadState::DISABLED);
 
 static void EmuThreadFunc() {
+	setCurrentThreadName("Emu");
+
 	// There's no real requirement that NativeInit happen on this thread.
 	// We just call the update/render loop here.
 	emuThreadState = (int)EmuThreadState::RUNNING;
@@ -993,7 +996,9 @@ int main(int argc, char *argv[]) {
 	int framecount = 0;
 	bool mouseDown = false;
 
-	EmuThreadStart();
+	if (GetGPUBackend() == GPUBackend::OPENGL) {
+		EmuThreadStart();
+	}
 	graphicsContext->ThreadStart();
 
 	while (true) {
