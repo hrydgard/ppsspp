@@ -79,38 +79,42 @@ bool GLRenderManager::ThreadFrame() {
 	std::unique_lock<std::mutex> lock(mutex_);
 	if (!run_)
 		return false;
-	{
+
+	// In case of syncs or other partial completion, we keep going until we complete a frame.
+	do {
 		if (nextFrame) {
 			threadFrame_++;
 			if (threadFrame_ >= MAX_INFLIGHT_FRAMES)
 				threadFrame_ = 0;
 		}
 		FrameData &frameData = frameData_[threadFrame_];
-		std::unique_lock<std::mutex> lock(frameData.pull_mutex);
-		while (!frameData.readyForRun && run_) {
-			VLOG("PULL: Waiting for frame[%d].readyForRun", threadFrame_);
-			frameData.pull_condVar.wait(lock);
-		}
-		if (!frameData.readyForRun && !run_) {
-			// This means we're out of frames to render and run_ is false, so bail.
-			return false;
-		}
-		VLOG("PULL: frame[%d].readyForRun = false", threadFrame_);
-		frameData.readyForRun = false;
-		// Previously we had a quick exit here that avoided calling Run() if run_ was suddenly false,
-		// but that created a race condition where frames could end up not finished properly on resize etc.
+		{
+			std::unique_lock<std::mutex> lock(frameData.pull_mutex);
+			while (!frameData.readyForRun && run_) {
+				VLOG("PULL: Waiting for frame[%d].readyForRun", threadFrame_);
+				frameData.pull_condVar.wait(lock);
+			}
+			if (!frameData.readyForRun && !run_) {
+				// This means we're out of frames to render and run_ is false, so bail.
+				return false;
+			}
+			VLOG("PULL: frame[%d].readyForRun = false", threadFrame_);
+			frameData.readyForRun = false;
+			// Previously we had a quick exit here that avoided calling Run() if run_ was suddenly false,
+			// but that created a race condition where frames could end up not finished properly on resize etc.
 
-		// Only increment next time if we're done.
-		nextFrame = frameData.type == GLRRunType::END;
-		assert(frameData.type == GLRRunType::END || frameData.type == GLRRunType::SYNC);
-	}
-	VLOG("PULL: Running frame %d", threadFrame_);
-	if (firstFrame) {
-		ILOG("Running first frame (%d)", threadFrame_);
-		firstFrame = false;
-	}
-	Run(threadFrame_);
-	VLOG("PULL: Finished frame %d", threadFrame_);
+			// Only increment next time if we're done.
+			nextFrame = frameData.type == GLRRunType::END;
+			assert(frameData.type == GLRRunType::END || frameData.type == GLRRunType::SYNC);
+		}
+		VLOG("PULL: Running frame %d", threadFrame_);
+		if (firstFrame) {
+			ILOG("Running first frame (%d)", threadFrame_);
+			firstFrame = false;
+		}
+		Run(threadFrame_);
+		VLOG("PULL: Finished frame %d", threadFrame_);
+	} while (!nextFrame);
 	return true;
 }
 
