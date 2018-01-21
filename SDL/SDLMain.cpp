@@ -996,7 +996,9 @@ int main(int argc, char *argv[]) {
 	int framecount = 0;
 	bool mouseDown = false;
 
-	EmuThreadStart();
+	if (GetGPUBackend() == GPUBackend::OPENGL) {
+		EmuThreadStart();
+	}
 	graphicsContext->ThreadStart();
 
 	while (true) {
