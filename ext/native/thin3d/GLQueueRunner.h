@@ -2,6 +2,7 @@
 
 #include <cstdint>
 #include <vector>
+#include <unordered_map>
 
 #include "gfx/gl_common.h"
 #include "thin3d/DataFormat.h"
@@ -332,6 +333,12 @@ public:
 	bool SawOutOfMemory() {
 		return sawOutOfMemory_;
 	}
+
+	std::string GetGLString(int name) const {
+		auto it = glStrings_.find(name);
+		return it != glStrings_.end() ? it->second : "";
+	}
+
 private:
 	void InitCreateFramebuffer(const GLRInitStep &step);
 
@@ -378,6 +385,7 @@ private:
 	GLuint AllocTextureName();
 	// Texture name cache. Ripped straight from TextureCacheGLES.
 	std::vector<GLuint> nameCache_;
+	std::unordered_map<int, std::string> glStrings_;
 
 	bool sawOutOfMemory_ = false;
 };

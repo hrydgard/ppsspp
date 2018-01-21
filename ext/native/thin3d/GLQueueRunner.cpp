@@ -26,6 +26,20 @@ void GLQueueRunner::CreateDeviceObjects() {
 
 	// An eternal optimist.
 	sawOutOfMemory_ = false;
+
+	// Populate some strings from the GL thread.
+	auto populate = [&](int name) {
+		const GLubyte *value = glGetString(name);
+		if (!value)
+			glStrings_[name] = "?";
+		else
+			glStrings_[name] = (const char *)value;
+	};
+	populate(GL_VENDOR);
+	populate(GL_RENDERER);
+	populate(GL_VERSION);
+	populate(GL_SHADING_LANGUAGE_VERSION);
+	populate(GL_EXTENSIONS);
 }
 
 void GLQueueRunner::DestroyDeviceObjects() {
