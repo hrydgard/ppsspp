@@ -462,4 +462,8 @@ void DrawEngineD3D11::ApplyDrawStateLate(bool applyStencilRef, uint8_t stencilRe
 		context_->OMSetDepthStencilState(depthStencilState_, applyStencilRef ? stencilRef : dynState_.stencilRef);
 	}
 	gstate_c.Clean(DIRTY_VIEWPORTSCISSOR_STATE | DIRTY_DEPTHSTENCIL_STATE | DIRTY_RASTER_STATE | DIRTY_BLEND_STATE);
+
+	// Must dirty blend state here so we re-copy next time.  Example: Lunar's spell effects.
+	if (fboTexBound_)
+		gstate_c.Dirty(DIRTY_BLEND_STATE);
 }

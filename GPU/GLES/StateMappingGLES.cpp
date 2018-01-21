@@ -173,6 +173,21 @@ void DrawEngineGLES::ApplyDrawState(int prim) {
 				if (ApplyShaderBlending()) {
 					// We may still want to do something about stencil -> alpha.
 					ApplyStencilReplaceAndLogicOp(blendState.replaceAlphaWithStencil, blendState);
+
+					// We copy the framebuffer here, as doing so will wipe any blend state if we do it later.
+					if (fboTexNeedBind_) {
+						// Note that this is positions, not UVs, that we need the copy from.
+						// TODO: If the device doesn't support blit, this will corrupt the currently applied texture.
+						framebufferManager_->BindFramebufferAsColorTexture(1, framebufferManager_->GetCurrentRenderVFB(), BINDFBCOLOR_MAY_COPY);
+						// If we are rendering at a higher resolution, linear is probably best for the dest color.
+						renderManager->SetTextureSampler(GL_CLAMP_TO_EDGE, GL_CLAMP_TO_EDGE, GL_LINEAR, GL_LINEAR, 0.0f);
+						fboTexBound_ = true;
+						fboTexNeedBind_ = false;
+
+						framebufferManager_->RebindFramebuffer();
+						// Must dirty blend state here so we re-copy next time.  Example: Lunar's spell effects.
+						gstate_c.Dirty(DIRTY_BLEND_STATE);
+					}
 				} else {
 					// Until next time, force it off.
 					ResetShaderBlending();
@@ -315,18 +330,6 @@ void DrawEngineGLES::ApplyDrawStateLate(bool setStencil, int stencilValue) {
 	// At this point, we know if the vertices are full alpha or not.
 	// TODO: Set the nearest/linear here (since we correctly know if alpha/color tests are needed)?
 	if (!gstate.isModeClear()) {
-		if (fboTexNeedBind_) {
-			// Note that this is positions, not UVs, that we need the copy from.
-			// TODO: If the device doesn't support blit, this will corrupt the currently applied texture.
-			framebufferManager_->BindFramebufferAsColorTexture(1, framebufferManager_->GetCurrentRenderVFB(), BINDFBCOLOR_MAY_COPY);
-			framebufferManager_->RebindFramebuffer();
-			GLRenderManager *renderManager = (GLRenderManager *)draw_->GetNativeObject(Draw::NativeObject::RENDER_MANAGER);
-			// If we are rendering at a higher resolution, linear is probably best for the dest color.
-			renderManager->SetTextureSampler(GL_CLAMP_TO_EDGE, GL_CLAMP_TO_EDGE, GL_LINEAR, GL_LINEAR, 0.0f);
-			fboTexBound_ = true;
-			fboTexNeedBind_ = false;
-		}
-
 		// Apply last, once we know the alpha params of the texture.
 		if (gstate.isAlphaTestEnabled() || gstate.isColorTestEnabled()) {
 			fragmentTestCache_->BindTestTexture(2);
