@@ -365,30 +365,24 @@ bool GPU_GLES::IsReady() {
 	return shaderManagerGL_->ContinuePrecompile();
 }
 
-// Let's avoid passing nulls into snprintf().
-static const char *GetGLStringAlways(GLenum name) {
-	const GLubyte *value = glGetString(name);
-	if (!value)
-		return "?";
-	return (const char *)value;
-}
-
 // Needs to be called on GPU thread, not reporting thread.
 void GPU_GLES::BuildReportingInfo() {
-	const char *glVendor = GetGLStringAlways(GL_VENDOR);
-	const char *glRenderer = GetGLStringAlways(GL_RENDERER);
-	const char *glVersion = GetGLStringAlways(GL_VERSION);
-	const char *glSlVersion = GetGLStringAlways(GL_SHADING_LANGUAGE_VERSION);
-	const char *glExtensions = nullptr;
+	GLRenderManager *render = (GLRenderManager *)draw_->GetNativeObject(Draw::NativeObject::RENDER_MANAGER);
+
+	std::string glVendor = render->GetGLString(GL_VENDOR);
+	std::string glRenderer = render->GetGLString(GL_RENDERER);
+	std::string glVersion = render->GetGLString(GL_VERSION);
+	std::string glSlVersion = render->GetGLString(GL_SHADING_LANGUAGE_VERSION);
+	std::string glExtensions;
 
 	if (gl_extensions.VersionGEThan(3, 0)) {
-		glExtensions = g_all_gl_extensions.c_str();
+		glExtensions = g_all_gl_extensions;
 	} else {
-		glExtensions = GetGLStringAlways(GL_EXTENSIONS);
+		glExtensions = render->GetGLString(GL_EXTENSIONS);
 	}
 
 	char temp[16384];
-	snprintf(temp, sizeof(temp), "%s (%s %s), %s (extensions: %s)", glVersion, glVendor, glRenderer, glSlVersion, glExtensions);
+	snprintf(temp, sizeof(temp), "%s (%s %s), %s (extensions: %s)", glVersion.c_str(), glVendor.c_str(), glRenderer.c_str(), glSlVersion.c_str(), glExtensions.c_str());
 	reportingPrimaryInfo_ = glVendor;
 	reportingFullInfo_ = temp;
 

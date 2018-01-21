@@ -435,7 +435,7 @@ public:
 				} else {
 					return "OpenGL";
 				}
-			case VENDORSTRING: return (const char *)glGetString(GL_VENDOR);
+			case VENDORSTRING: return renderManager_.GetGLString(GL_VENDOR);
 			case VENDOR:
 				switch (caps_.vendor) {
 				case GPUVendor::VENDOR_AMD: return "VENDOR_AMD";
@@ -450,9 +450,9 @@ public:
 					return "VENDOR_UNKNOWN";
 				}
 				break;
-			case DRIVER: return (const char *)glGetString(GL_RENDERER);
-			case SHADELANGVERSION: return (const char *)glGetString(GL_SHADING_LANGUAGE_VERSION);
-			case APIVERSION: return (const char *)glGetString(GL_VERSION);
+			case DRIVER: return renderManager_.GetGLString(GL_RENDERER);
+			case SHADELANGVERSION: return renderManager_.GetGLString(GL_SHADING_LANGUAGE_VERSION);
+			case APIVERSION: return renderManager_.GetGLString(GL_VERSION);
 			default: return "?";
 		}
 	}

@@ -660,6 +660,11 @@ public:
 		return queueRunner_.SawOutOfMemory();
 	}
 
+	// Only supports a common subset.
+	std::string GetGLString(int name) const {
+		return queueRunner_.GetGLString(name);
+	}
+
 private:
 	void BeginSubmitFrame(int frame);
 	void EndSubmitFrame(int frame);
