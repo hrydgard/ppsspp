@@ -22,10 +22,26 @@ GLuint g_defaultFBO = 0;
 
 void GLQueueRunner::CreateDeviceObjects() {
 	glGetFloatv(GL_MAX_TEXTURE_MAX_ANISOTROPY_EXT, &maxAnisotropyLevel_);
-	glGenVertexArrays(1, &globalVAO_);
+	if (gl_extensions.ARB_vertex_array_object) {
+		glGenVertexArrays(1, &globalVAO_);
+	}
 
 	// An eternal optimist.
 	sawOutOfMemory_ = false;
+
+	// Populate some strings from the GL thread.
+	auto populate = [&](int name) {
+		const GLubyte *value = glGetString(name);
+		if (!value)
+			glStrings_[name] = "?";
+		else
+			glStrings_[name] = (const char *)value;
+	};
+	populate(GL_VENDOR);
+	populate(GL_RENDERER);
+	populate(GL_VERSION);
+	populate(GL_SHADING_LANGUAGE_VERSION);
+	populate(GL_EXTENSIONS);
 }
 
 void GLQueueRunner::DestroyDeviceObjects() {
@@ -33,7 +49,9 @@ void GLQueueRunner::DestroyDeviceObjects() {
 		glDeleteTextures((GLsizei)nameCache_.size(), &nameCache_[0]);
 		nameCache_.clear();
 	}
-	glDeleteVertexArrays(1, &globalVAO_);
+	if (gl_extensions.ARB_vertex_array_object) {
+		glDeleteVertexArrays(1, &globalVAO_);
+	}
 }
 
 void GLQueueRunner::RunInitSteps(const std::vector<GLRInitStep> &steps) {
@@ -465,7 +483,9 @@ void GLQueueRunner::PerformRenderPass(const GLRStep &step) {
 #endif
 	*/
 
-	glBindVertexArray(globalVAO_);
+	if (gl_extensions.ARB_vertex_array_object) {
+		glBindVertexArray(globalVAO_);
+	}
 
 	GLRFramebuffer *fb = step.render.framebuffer;
 	GLRProgram *curProgram = nullptr;
@@ -875,7 +895,9 @@ void GLQueueRunner::PerformRenderPass(const GLRStep &step) {
 	// Wipe out the current state.
 	glBindBuffer(GL_ARRAY_BUFFER, 0);
 	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
-	glBindVertexArray(0);
+	if (gl_extensions.ARB_vertex_array_object) {
+		glBindVertexArray(0);
+	}
 	glDisable(GL_SCISSOR_TEST);
 	glDisable(GL_DEPTH_TEST);
 	glDisable(GL_STENCIL_TEST);
