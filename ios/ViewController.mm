@@ -219,6 +219,7 @@ static GraphicsContext *graphicsContext;
 		self.gameController = nil;
 	}
 #endif
+    threadEnabled = false;
     graphicsContext->ThreadEnd();
 	NativeShutdownGraphics();
 	graphicsContext->Shutdown();
