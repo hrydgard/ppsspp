@@ -36,7 +36,7 @@ public:
 	IOSGraphicsContext() {
 		CheckGLExtensions();
 		draw_ = Draw::T3DCreateGLContext();
-        renderManager_ = (GLRenderManager *)draw_->GetNativeObject(Draw::NativeObject::RENDER_MANAGER);
+		renderManager_ = (GLRenderManager *)draw_->GetNativeObject(Draw::NativeObject::RENDER_MANAGER);
 		SetGPUBackend(GPUBackend::OPENGL);
 		bool success = draw_->CreatePresets();
 		assert(success);
