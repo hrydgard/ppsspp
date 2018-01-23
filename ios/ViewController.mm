@@ -47,20 +47,20 @@ public:
 	Draw::DrawContext *GetDrawContext() override {
 		return draw_;
 	}
-    void ThreadStart() override {
-        renderManager_->ThreadStart();
-    }
-    
-    bool ThreadFrame() override {
-        return renderManager_->ThreadFrame();
-    }
-    
-    void ThreadEnd() override {
-        renderManager_->ThreadEnd();
-    }
+	void ThreadStart() override {
+		renderManager_->ThreadStart();
+	}
+
+	bool ThreadFrame() override {
+		return renderManager_->ThreadFrame();
+	}
+
+	void ThreadEnd() override {
+		renderManager_->ThreadEnd();
+	}
 private:
 	Draw::DrawContext *draw_;
-    GLRenderManager *renderManager_;
+	GLRenderManager *renderManager_;
 };
 
 static float dp_xscale = 1.0f;
@@ -169,7 +169,7 @@ static GraphicsContext *graphicsContext;
 	pixel_in_dps_y = (float)pixel_yres / (float)dp_yres;
 
 	graphicsContext = new IOSGraphicsContext();
-    
+	
 	NativeInitGraphics(graphicsContext);
     graphicsContext->ThreadStart();
 
@@ -188,14 +188,14 @@ static GraphicsContext *graphicsContext;
 		}
 	}
 #endif
-   
-    dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_HIGH, 0), ^{
-        while (threadEnabled) {
-            NativeUpdate();
-            NativeRender(graphicsContext);
-            time_update();
-        }
-    });
+	
+	dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_HIGH, 0), ^{
+		while (threadEnabled) {
+			NativeUpdate();
+			NativeRender(graphicsContext);
+			time_update();
+		}
+	});
 }
 
 - (void)didReceiveMemoryWarning
@@ -219,8 +219,8 @@ static GraphicsContext *graphicsContext;
 		self.gameController = nil;
 	}
 #endif
-    threadEnabled = false;
-    graphicsContext->ThreadEnd();
+	threadEnabled = false;
+	graphicsContext->ThreadEnd();
 	NativeShutdownGraphics();
 	graphicsContext->Shutdown();
 	delete graphicsContext;
@@ -242,7 +242,7 @@ static GraphicsContext *graphicsContext;
 
 - (void)glkView:(GLKView *)view drawInRect:(CGRect)rect
 {
-    graphicsContext->ThreadFrame();
+	graphicsContext->ThreadFrame();
 }
 
 - (void)touchX:(float)x y:(float)y code:(int)code pointerId:(int)pointerId
