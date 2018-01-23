@@ -171,7 +171,7 @@ static GraphicsContext *graphicsContext;
 	graphicsContext = new IOSGraphicsContext();
 	
 	NativeInitGraphics(graphicsContext);
-    graphicsContext->ThreadStart();
+	graphicsContext->ThreadStart();
 
 	dp_xscale = (float)dp_xres / (float)pixel_xres;
 	dp_yscale = (float)dp_yres / (float)pixel_yres;
