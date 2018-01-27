@@ -424,18 +424,6 @@ namespace MainWindow {
 				Core_EnableStepping(false);
 			}
 
-			// TODO: What is this for / what does it fix?
-			if (browseDialog->GetType() != W32Util::AsyncBrowseDialog::DIR) {
-				// Decode the filename with fullpath.
-				char drive[MAX_PATH];
-				char dir[MAX_PATH];
-				char fname[MAX_PATH];
-				char ext[MAX_PATH];
-				_splitpath(filename.c_str(), drive, dir, fname, ext);
-
-				filename = std::string(drive) + std::string(dir) + std::string(fname) + std::string(ext);
-			}
-
 			filename = ReplaceAll(filename, "\\", "/");
 			NativeMessageReceived("boot", filename.c_str());
 		}
@@ -752,6 +740,12 @@ namespace MainWindow {
 		case ID_OPTIONS_WINDOW2X:   SetWindowSize(2); break;
 		case ID_OPTIONS_WINDOW3X:   SetWindowSize(3); break;
 		case ID_OPTIONS_WINDOW4X:   SetWindowSize(4); break;
+		case ID_OPTIONS_WINDOW5X:   SetWindowSize(5); break;
+		case ID_OPTIONS_WINDOW6X:   SetWindowSize(6); break;
+		case ID_OPTIONS_WINDOW7X:   SetWindowSize(7); break;
+		case ID_OPTIONS_WINDOW8X:   SetWindowSize(8); break;
+		case ID_OPTIONS_WINDOW9X:   SetWindowSize(9); break;
+		case ID_OPTIONS_WINDOW10X:   SetWindowSize(10); break;
 
 		case ID_OPTIONS_RESOLUTIONDUMMY:
 		{
@@ -931,14 +925,25 @@ namespace MainWindow {
 			} else if (info.type == FILETYPE_DIRECTORY) {
 				MessageBox(hWnd, L"Cannot extract directories.", L"Sorry", 0);
 			} else if (W32Util::BrowseForFileName(false, hWnd, L"Save file as...", 0, L"All files\0*.*\0\0", L"", fn)) {
-				FILE *fp = File::OpenCFile(fn, "wb");
 				u32 handle = pspFileSystem.OpenFile(filename, FILEACCESS_READ, "");
+				// Note: len may be in blocks.
+				size_t len = pspFileSystem.SeekFile(handle, 0, FILEMOVE_END);
+				bool isBlockMode = pspFileSystem.DevType(handle) == PSP_DEV_TYPE_BLOCK;
+
+				FILE *fp = File::OpenCFile(fn, "wb");
+				pspFileSystem.SeekFile(handle, 0, FILEMOVE_BEGIN);
 				u8 buffer[4096];
-				size_t bytes;
-				do {
-					bytes = pspFileSystem.ReadFile(handle, buffer, sizeof(buffer));
+				size_t bufferSize = isBlockMode ? sizeof(buffer) / 2048 : sizeof(buffer);
+				while (len > 0) {
+					// This is all in blocks, not bytes, if isBlockMode.
+					size_t remain = std::min(len, bufferSize);
+					size_t readSize = pspFileSystem.ReadFile(handle, buffer, remain);
+					if (readSize == 0)
+						break;
+					size_t bytes = isBlockMode ? readSize * 2048 : readSize;
 					fwrite(buffer, 1, bytes, fp);
-				} while (bytes == sizeof(buffer));
+					len -= readSize;
+				}
 				pspFileSystem.CloseFile(handle);
 				fclose(fp);
 			}
@@ -1138,11 +1143,17 @@ namespace MainWindow {
 			CheckMenuItem(menu, zoomitems[i], MF_BYCOMMAND | ((i == g_Config.iInternalResolution) ? MF_CHECKED : MF_UNCHECKED));
 		}
 
-		static const int windowSizeItems[4] = {
+		static const int windowSizeItems[10] = {
 			ID_OPTIONS_WINDOW1X,
 			ID_OPTIONS_WINDOW2X,
 			ID_OPTIONS_WINDOW3X,
 			ID_OPTIONS_WINDOW4X,
+			ID_OPTIONS_WINDOW5X,
+			ID_OPTIONS_WINDOW6X,
+			ID_OPTIONS_WINDOW7X,
+			ID_OPTIONS_WINDOW8X,
+			ID_OPTIONS_WINDOW9X,
+			ID_OPTIONS_WINDOW10X,
 		};
 
 		RECT rc;

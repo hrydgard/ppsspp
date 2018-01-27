@@ -200,6 +200,15 @@
     <ClCompile Include="..\android\jni\native-audio-so.cpp">
       <Filter>Other Platforms</Filter>
     </ClCompile>
+    <ClCompile Include="..\android\jni\AndroidEGLContext.cpp">
+      <Filter>Other Platforms</Filter>
+    </ClCompile>
+    <ClCompile Include="..\android\jni\AndroidJavaGLContext.cpp">
+      <Filter>Other Platforms</Filter>
+    </ClCompile>
+    <ClCompile Include="..\android\jni\AndroidVulkanContext.cpp">
+      <Filter>Other Platforms</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Debugger\CtrlDisAsmView.h">
@@ -366,6 +375,18 @@
       <Filter>Other Platforms</Filter>
     </ClInclude>
     <ClInclude Include="..\android\jni\native-audio-so.h">
+      <Filter>Other Platforms</Filter>
+    </ClInclude>
+    <ClInclude Include="..\android\jni\AndroidEGLContext.h">
+      <Filter>Other Platforms</Filter>
+    </ClInclude>
+    <ClInclude Include="..\android\jni\AndroidGraphicsContext.h">
+      <Filter>Other Platforms</Filter>
+    </ClInclude>
+    <ClInclude Include="..\android\jni\AndroidJavaGLContext.h">
+      <Filter>Other Platforms</Filter>
+    </ClInclude>
+    <ClInclude Include="..\android\jni\AndroidVulkanContext.h">
       <Filter>Other Platforms</Filter>
     </ClInclude>
   </ItemGroup>
