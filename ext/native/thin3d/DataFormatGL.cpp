@@ -81,7 +81,6 @@ bool Thin3DFormatToFormatAndType(DataFormat fmt, GLuint &internalFormat, GLuint 
 #endif
 
 	default:
-		_assert_msg_(G3D, false, "Thin3d GL: Unsupported texture format %d", (int)fmt);
 		return false;
 	}
 	return true;

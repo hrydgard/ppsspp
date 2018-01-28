@@ -984,7 +984,8 @@ void GLQueueRunner::PerformReadback(const GLRStep &pass) {
 	GLuint type;
 	int alignment;
 	if (!Draw::Thin3DFormatToFormatAndType(pass.readback.dstFormat, internalFormat, format, type, alignment)) {
-		assert(false);
+		ELOG("Readback failed - format %d not available", (int)pass.readback.dstFormat);
+		return;
 	}
 	int pixelStride = pass.readback.srcRect.w;
 	// Apply the correct alignment.
