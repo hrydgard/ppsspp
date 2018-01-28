@@ -41,7 +41,7 @@ void GLQueueRunner::CreateDeviceObjects() {
 	populate(GL_RENDERER);
 	populate(GL_VERSION);
 	populate(GL_SHADING_LANGUAGE_VERSION);
-	populate(GL_EXTENSIONS);
+	populate(GL_EXTENSIONS);  // TODO: Not OK to query this in core profile!
 }
 
 void GLQueueRunner::DestroyDeviceObjects() {
@@ -52,6 +52,10 @@ void GLQueueRunner::DestroyDeviceObjects() {
 	if (gl_extensions.ARB_vertex_array_object) {
 		glDeleteVertexArrays(1, &globalVAO_);
 	}
+	delete[] readbackBuffer_;
+	readbackBufferSize_ = 0;
+	delete[] tempBuffer_;
+	tempBufferSize_ = 0;
 }
 
 void GLQueueRunner::RunInitSteps(const std::vector<GLRInitStep> &steps) {
@@ -969,6 +973,8 @@ void GLQueueRunner::PerformCopy(const GLRStep &step) {
 }
 
 void GLQueueRunner::PerformReadback(const GLRStep &pass) {
+	using namespace Draw;
+
 	GLRFramebuffer *fb = pass.readback.src;
 
 	fbo_bind_fb_target(true, fb ? fb->handle : 0);
@@ -979,17 +985,16 @@ void GLQueueRunner::PerformReadback(const GLRStep &pass) {
 
 	CHECK_GL_ERROR_IF_DEBUG();
 
-	GLuint internalFormat;
-	GLuint format;
-	GLuint type;
-	int alignment;
-	if (!Draw::Thin3DFormatToFormatAndType(pass.readback.dstFormat, internalFormat, format, type, alignment)) {
-		ELOG("Readback failed - format %d not available", (int)pass.readback.dstFormat);
-		return;
-	}
+	// Always read back in 8888 format.
+	const GLuint internalFormat = GL_RGBA;
+	const GLuint format = GL_RGBA;
+	const GLuint type = GL_UNSIGNED_BYTE;
+	const int srcAlignment = 4;
+	int dstAlignment = DataFormatSizeInBytes(pass.readback.dstFormat);
+
 	int pixelStride = pass.readback.srcRect.w;
 	// Apply the correct alignment.
-	glPixelStorei(GL_PACK_ALIGNMENT, alignment);
+	glPixelStorei(GL_PACK_ALIGNMENT, srcAlignment);
 	if (!gl_extensions.IsGLES || gl_extensions.GLES3) {
 		// Some drivers seem to require we specify this.  See #8254.
 		glPixelStorei(GL_PACK_ROW_LENGTH, pixelStride);
@@ -997,21 +1002,32 @@ void GLQueueRunner::PerformReadback(const GLRStep &pass) {
 
 	GLRect2D rect = pass.readback.srcRect;
 
-	int size = alignment * rect.w * rect.h;
-	if (size > readbackBufferSize_) {
+	bool convert = pass.readback.dstFormat != DataFormat::R8G8B8A8_UNORM;
+
+	int tempSize = srcAlignment * rect.w * rect.h;
+	int readbackSize = dstAlignment * rect.w * rect.h;
+	if (convert && tempSize > tempBufferSize_) {
+		delete[] tempBuffer_;
+		tempBuffer_ = new uint8_t[tempSize];
+		tempBufferSize_ = tempSize;
+	}
+	if (readbackSize > readbackBufferSize_) {
 		delete[] readbackBuffer_;
-		readbackBuffer_ = new uint8_t[size];
-		readbackBufferSize_ = size;
+		readbackBuffer_ = new uint8_t[readbackSize];
+		readbackBufferSize_ = readbackSize;
 	}
 
-	glReadPixels(rect.x, rect.y, rect.w, rect.h, format, type, readbackBuffer_);
-
+	glReadPixels(rect.x, rect.y, rect.w, rect.h, format, type, convert ? tempBuffer_ : readbackBuffer_);
 	#ifdef DEBUG_READ_PIXELS
 	LogReadPixelsError(glGetError());
 	#endif
 	if (!gl_extensions.IsGLES || gl_extensions.GLES3) {
 		glPixelStorei(GL_PACK_ROW_LENGTH, 0);
 	}
+	if (convert) {
+		ConvertFromRGBA8888(readbackBuffer_, tempBuffer_, pixelStride, pixelStride, rect.w, rect.h, pass.readback.dstFormat);
+	}
+
 	CHECK_GL_ERROR_IF_DEBUG();
 }
 
