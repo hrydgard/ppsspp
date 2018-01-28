@@ -74,9 +74,7 @@ AndroidVulkanContext::~AndroidVulkanContext() {
 	g_Vulkan = nullptr;
 }
 
-bool AndroidVulkanContext::InitFromRenderThread(ANativeWindow *wnd, int desiredBackbufferSizeX,
-												int desiredBackbufferSizeY, int backbufferFormat,
-												int androidVersion) {
+bool AndroidVulkanContext::InitFromRenderThread(ANativeWindow *wnd, int desiredBackbufferSizeX, int desiredBackbufferSizeY, int backbufferFormat, int androidVersion) {
 	ILOG("AndroidVulkanContext::Init");
 	init_glslang();
 

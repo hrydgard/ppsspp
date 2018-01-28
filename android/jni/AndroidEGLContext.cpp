@@ -6,9 +6,7 @@
 #include "GL/GLInterface/EGLAndroid.h"
 #include "Core/System.h"
 
-bool AndroidEGLGraphicsContext::InitFromRenderThread(ANativeWindow *wnd, int desiredBackbufferSizeX,
-													 int desiredBackbufferSizeY,
-													 int backbufferFormat, int androidVersion) {
+bool AndroidEGLGraphicsContext::InitFromRenderThread(ANativeWindow *wnd, int desiredBackbufferSizeX, int desiredBackbufferSizeY, int backbufferFormat, int androidVersion) {
 	ILOG("AndroidEGLGraphicsContext::Init()");
 	wnd_ = wnd;
 	gl = HostGL_CreateGLInterface();
