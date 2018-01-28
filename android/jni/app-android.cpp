@@ -51,10 +51,6 @@
 
 #include "app-android.h"
 
-JNIEnv *jniEnvMain;
-JNIEnv *jniEnvGraphics;
-JavaVM *javaVM;
-
 bool useCPUThread = true;
 
 enum class EmuThreadState {
@@ -113,6 +109,12 @@ static int backbuffer_format;	// Android PixelFormat enum
 static int desiredBackbufferSizeX;
 static int desiredBackbufferSizeY;
 
+// Cache the class loader so we can use it from native threads. Required for TextAndroid.
+JavaVM* gJvm = nullptr;
+static jobject gClassLoader;
+static jmethodID gFindClassMethod;
+
+
 static jmethodID postCommand;
 static jobject nativeActivity;
 static volatile bool exitRenderLoop;
@@ -132,9 +134,44 @@ static std::map<SystemPermission, PermissionStatus> permissions;
 
 AndroidGraphicsContext *graphicsContext;
 
-static void EmuThreadFunc(JavaVM *vm) {
+JNIEnv* getEnv() {
 	JNIEnv *env;
-	vm->AttachCurrentThread(&env, nullptr);
+	int status = gJvm->GetEnv((void**)&env, JNI_VERSION_1_6);
+	if(status < 0) {
+		status = gJvm->AttachCurrentThread(&env, NULL);
+		if(status < 0) {
+			return nullptr;
+		}
+	}
+	return env;
+}
+
+jclass findClass(const char* name) {
+	return static_cast<jclass>(getEnv()->CallObjectMethod(gClassLoader, gFindClassMethod, getEnv()->NewStringUTF(name)));
+}
+
+JNIEXPORT jint JNICALL JNI_OnLoad(JavaVM *pjvm, void *reserved) {
+	ILOG("JNI_OnLoad");
+	gJvm = pjvm;  // cache the JavaVM pointer
+	auto env = getEnv();
+	//replace with one of your classes in the line below
+	auto randomClass = env->FindClass("org/ppsspp/ppsspp/NativeActivity");
+	jclass classClass = env->GetObjectClass(randomClass);
+	auto classLoaderClass = env->FindClass("java/lang/ClassLoader");
+	auto getClassLoaderMethod = env->GetMethodID(classClass, "getClassLoader",
+												 "()Ljava/lang/ClassLoader;");
+	gClassLoader = env->NewGlobalRef(env->CallObjectMethod(randomClass, getClassLoaderMethod));
+	gFindClassMethod = env->GetMethodID(classLoaderClass, "findClass",
+										"(Ljava/lang/String;)Ljava/lang/Class;");
+	return JNI_VERSION_1_6;
+}
+
+static void EmuThreadFunc() {
+	JNIEnv *env;
+	gJvm->AttachCurrentThread(&env, nullptr);
+
+	setCurrentThreadName("Emu");
+
 	// There's no real requirement that NativeInit happen on this thread.
 	// We just call the update/render loop here.
 	emuThreadState = (int)EmuThreadState::RUNNING;
@@ -142,14 +179,12 @@ static void EmuThreadFunc(JavaVM *vm) {
 		UpdateRunLoopAndroid(env);
 	}
 	emuThreadState = (int)EmuThreadState::STOPPED;
-	vm->DetachCurrentThread();
+	gJvm->DetachCurrentThread();
 }
 
 static void EmuThreadStart(JNIEnv *env) {
 	emuThreadState = (int)EmuThreadState::START_REQUESTED;
-	JavaVM *vm;
-	env->GetJavaVM(&vm);
-	emuThread = std::thread(&EmuThreadFunc, vm);
+	emuThread = std::thread(&EmuThreadFunc);
 }
 
 static void EmuThreadStop() {
@@ -306,9 +341,6 @@ extern "C" void Java_org_ppsspp_ppsspp_NativeApp_init
 	(JNIEnv *env, jclass, jstring jmodel, jint jdeviceType, jstring jlangRegion, jstring japkpath,
 		jstring jdataDir, jstring jexternalDir, jstring jlibraryDir, jstring jcacheDir, jstring jshortcutParam,
 		jint jAndroidVersion, jstring jboard) {
-	jniEnvMain = env;
-	env->GetJavaVM(&javaVM);
-
 	setCurrentThreadName("androidInit");
 
 	// Makes sure we get early permission grants.
@@ -472,15 +504,6 @@ extern "C" void Java_org_ppsspp_ppsspp_NativeApp_shutdown(JNIEnv *, jclass) {
 
 // JavaEGL
 extern "C" void Java_org_ppsspp_ppsspp_NativeRenderer_displayInit(JNIEnv * env, jobject obj) {
-	// Need to get the local JNI env for the graphics thread. Used later in draw_text_android.
-	int res = javaVM->GetEnv((void **)&jniEnvGraphics, JNI_VERSION_1_6);
-	if (res != JNI_OK) {
-		ELOG("GetEnv failed: %d", res);
-	}
-
-	if (!graphicsContext)
-		Crash();
-
 	// We should be running on the render thread here.
 	std::string errorMessage;
 	if (renderer_inited) {
@@ -495,7 +518,6 @@ extern "C" void Java_org_ppsspp_ppsspp_NativeRenderer_displayInit(JNIEnv * env, 
 		ILOG("NativeApp.displayInit() first time");
 		graphicsContext->InitFromRenderThread(nullptr, 0, 0, 0, 0);
 		graphicsContext->ThreadStart();
-		NativeInitGraphics(graphicsContext);
 		renderer_inited = true;
 	}
 	NativeMessageReceived("recreateviews", "");
@@ -548,6 +570,7 @@ void UpdateRunLoopAndroid(JNIEnv *env) {
 		while (!renderer_inited) {
 			sleep_ms(20);
 		}
+		NativeInitGraphics(graphicsContext);
 	}
 
 	NativeUpdate();
@@ -852,12 +875,6 @@ extern "C" bool JNICALL Java_org_ppsspp_ppsspp_NativeActivity_runEGLRenderLoop(J
 
 	ANativeWindow *wnd = ANativeWindow_fromSurface(env, _surf);
 
-	// Need to get the local JNI env for the graphics thread. Used later in draw_text_android.
-	int res = javaVM->GetEnv((void **)&jniEnvGraphics, JNI_VERSION_1_6);
-	if (res != JNI_OK) {
-		ELOG("GetEnv failed: %d", res);
-	}
-
 	WLOG("runEGLRenderLoop. display_xres=%d display_yres=%d", display_xres, display_yres);
 
 	if (wnd == nullptr) {
@@ -922,7 +939,6 @@ retry:
 	graphicsContext = nullptr;
 	renderLoopRunning = false;
 	WLOG("Render loop function exited.");
-	jniEnvGraphics = nullptr;
 	return true;
 }
 
