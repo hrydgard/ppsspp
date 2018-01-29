@@ -15,15 +15,16 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
+#include "gfx_es2/draw_buffer.h"
+#include "thin3d/thin3d.h"
+#include "ui/ui_context.h"
+#include "ui/view.h"
+
 #include "DebugVisVulkan.h"
 #include "Common/Vulkan/VulkanMemory.h"
 #include "Common/Vulkan/VulkanImage.h"
 #include "GPU/Vulkan/GPU_Vulkan.h"
 #include "GPU/Vulkan/VulkanUtil.h"
-#include "gfx_es2/draw_buffer.h"
-#include "thin3d/thin3d.h"
-#include "ui/ui_context.h"
-#include "ui/view.h"
 
 void DrawAllocatorVis(UIContext *ui, GPUInterface *gpu) {
 	if (!gpu) {
