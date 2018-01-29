@@ -160,29 +160,33 @@ struct KnotDiv {
 	float _3_2 = 1.0f; // Always 1
 };
 
-static void spline_n_4(int i, float t, float *knot, const KnotDiv &div, float *splineVal) {
+static void spline_n_4(int i, float t, float *knot, const KnotDiv &div, float *splineVal, float *derivs) {
 	knot += i;
 
 #ifdef _M_SSE
-		const __m128 knot012 = _mm_loadu_ps(knot);
-		const __m128 t012 = _mm_sub_ps(_mm_set_ps1(t), knot012);
-		const __m128 f30_41_52 = _mm_mul_ps(t012, _mm_loadu_ps(&div._3_0));
-		const __m128 f52_31_42 = _mm_mul_ps(t012, _mm_loadu_ps(&div._5_2));
-		const float &f32 = t012.m128_f32[2];
+	const __m128 knot012 = _mm_loadu_ps(knot);
+	const __m128 t012 = _mm_sub_ps(_mm_set_ps1(t), knot012);
+	const __m128 f30_41_52 = _mm_mul_ps(t012, _mm_loadu_ps(&div._3_0));
+	const __m128 f52_31_42 = _mm_mul_ps(t012, _mm_loadu_ps(&div._5_2));
+	const float &f32 = t012.m128_f32[2];
 
-		// Following comments are for explains order of the multiply.
-	//	float a = (1-f30)*(1-f31);
-	//	float c = (1-f41)*(1-f42);
-	//	float b = (  f31 *   f41);
-	//	float d = (  f42 *   f52);
-		const __m128 f30_41_31_42 = _mm_shuffle_ps(f30_41_52, f52_31_42, _MM_SHUFFLE(2, 1, 1, 0));
-		const __m128 f31_42_41_52 = _mm_shuffle_ps(f52_31_42, f30_41_52, _MM_SHUFFLE(2, 1, 2, 1));
-		const __m128 c1_1_0_0 = { 1, 1, 0, 0 };
-		const __m128 acbd = _mm_mul_ps(_mm_sub_ps(c1_1_0_0, f30_41_31_42), _mm_sub_ps(c1_1_0_0, f31_42_41_52));
-		const float &a = acbd.m128_f32[0];
-		const float &b = acbd.m128_f32[2];
-		const float &c = acbd.m128_f32[1];
-		const float &d = acbd.m128_f32[3];
+	// Following comments are for explains order of the multiply.
+//	float a = (1-f30)*(1-f31);
+//	float c = (1-f41)*(1-f42);
+//	float b = (  f31 *   f41);
+//	float d = (  f42 *   f52);
+	const __m128 f30_41_31_42 = _mm_shuffle_ps(f30_41_52, f52_31_42, _MM_SHUFFLE(2, 1, 1, 0));
+	const __m128 f31_42_41_52 = _mm_shuffle_ps(f52_31_42, f30_41_52, _MM_SHUFFLE(2, 1, 2, 1));
+	const __m128 c1_1_0_0 = { 1, 1, 0, 0 };
+	const __m128 acbd = _mm_mul_ps(_mm_sub_ps(c1_1_0_0, f30_41_31_42), _mm_sub_ps(c1_1_0_0, f31_42_41_52));
+	const float &a = acbd.m128_f32[0];
+	const float &b = acbd.m128_f32[2];
+	const float &c = acbd.m128_f32[1];
+	const float &d = acbd.m128_f32[3];
+
+	// For derivative
+	const float &f31 = f30_41_31_42.m128_f32[2];
+	const float &f42 = f30_41_31_42.m128_f32[3];
 #else
 	// TODO: Maybe compilers could be coaxed into vectorizing this code without the above explicitly...
 	float t0 = (t - knot[0]);
@@ -206,6 +210,20 @@ static void spline_n_4(int i, float t, float *knot, const KnotDiv &div, float *s
 	splineVal[1] = 1-a-b+((a+b+c-1)*f32);
 	splineVal[2] = b+((1-b-c-d)*f32);
 	splineVal[3] = d*f32;
+
+	// Derivative
+	float i1 = (1 - f31) * (1 - f32);
+	float i2 = f31 * (1 - f32) + (1 - f42) * f32;
+	float i3 = f42 * f32;
+
+	float f130 = i1 * div._3_0;
+	float f241 = i2 * div._4_1;
+	float f352 = i3 * div._5_2;
+
+	derivs[0] = 3 * (0 - f130);
+	derivs[1] = 3 * (f130 - f241);
+	derivs[2] = 3 * (f241 - f352);
+	derivs[3] = 3 * (f352 - 0);
 }
 
 // knot should be an array sized n + 5  (n + 1 + 1 + degree (cubic))
@@ -426,6 +444,9 @@ static void SplinePatchFullQuality(u8 *&dest, u16 *indices, int &count, const Sp
 			Vec3f vert_pos;
 			vert_pos.SetZero();
 			Vec3f vert_nrm;
+			Vec3f du, dv;
+			du.SetZero();
+			dv.SetZero();
 			if (origNrm) {
 				vert_nrm.SetZero();
 			}
@@ -446,6 +467,8 @@ static void SplinePatchFullQuality(u8 *&dest, u16 *indices, int &count, const Sp
 			// Collect influences from surrounding control points.
 			float u_weights[4];
 			float v_weights[4];
+			float u_derivs[4];
+			float v_derivs[4];
 
 			int iu = (int)u;
 			int iv = (int)v;
@@ -455,8 +478,8 @@ static void SplinePatchFullQuality(u8 *&dest, u16 *indices, int &count, const Sp
 			if (iu >= spatch.count_u - 3) iu = spatch.count_u - 4;
 			if (iv >= spatch.count_v - 3) iv = spatch.count_v - 4;
 
-			spline_n_4(iu, u, knot_u, divs_u[iu], u_weights);
-			spline_n_4(iv, v, knot_v, divs_v[iv], v_weights);
+			spline_n_4(iu, u, knot_u, divs_u[iu], u_weights, u_derivs);
+			spline_n_4(iv, v, knot_v, divs_v[iv], v_weights, v_derivs);
 
 			// Handle degenerate patches. without this, spatch.points[] may read outside the number of initialized points.
 			int patch_w = std::min(spatch.count_u - iu, 4);
@@ -493,13 +516,15 @@ static void SplinePatchFullQuality(u8 *&dest, u16 *indices, int &count, const Sp
 							AccumulateWeighted(vert_color, a_color, fv);
 						}
 						if (origNrm) {
-							AccumulateWeighted(vert_nrm, a->nrm, fv);
+							AccumulateWeighted(du, a->pos, Vec4f::AssignToAll(u_derivs[ii] * v_weights[jj]));
+							AccumulateWeighted(dv, a->pos, Vec4f::AssignToAll(u_weights[ii] * v_derivs[jj]));
 						}
 					}
 				}
 			}
 			vert->pos = vert_pos;
 			if (origNrm) {
+				vert_nrm = Cross(du, dv);
 #ifdef _M_SSE
 				const __m128 normalize = SSENormalizeMultiplier(useSSE4, vert_nrm.vec);
 				vert_nrm.vec = _mm_mul_ps(vert_nrm.vec, normalize);
@@ -519,52 +544,8 @@ static void SplinePatchFullQuality(u8 *&dest, u16 *indices, int &count, const Sp
 
 	delete[] knot_u;
 	delete[] knot_v;
-
-	// Hacky normal generation through central difference.
-	if (computeNormals && !origNrm) {
-#ifdef _M_SSE
-		const __m128 facing = spatch.patchFacing ? _mm_set_ps1(-1.0f) : _mm_set_ps1(1.0f);
-#endif
-
-		for (int v = 0; v < patch_div_t + 1; v++) {
-			Vec3f vl_pos = vertices[v * (patch_div_s + 1)].pos;
-			Vec3f vc_pos = vertices[v * (patch_div_s + 1)].pos;
-
-			for (int u = 0; u < patch_div_s + 1; u++) {
-				const int t = std::max(0, v - 1);
-				const int r = std::min(patch_div_s, u + 1);
-				const int b = std::min(patch_div_t, v + 1);
-
-				const Vec3f vr_pos = vertices[v * (patch_div_s + 1) + r].pos;
-
-#ifdef _M_SSE
-				const __m128 right = _mm_sub_ps(vr_pos.vec, vl_pos.vec);
-
-				const Vec3f vb_pos = vertices[b * (patch_div_s + 1) + u].pos;
-				const Vec3f vt_pos = vertices[t * (patch_div_s + 1) + u].pos;
-				const __m128 down = _mm_sub_ps(vb_pos.vec, vt_pos.vec);
-
-				const __m128 crossed = SSECrossProduct(right, down);
-				const __m128 normalize = SSENormalizeMultiplier(useSSE4, crossed);
-
-				Vec3f finalNrm = _mm_mul_ps(normalize, _mm_mul_ps(crossed, facing));
-				vertices[v * (patch_div_s + 1) + u].nrm = finalNrm;
-#else
-				const Vec3Packedf &right = vr_pos - vl_pos;
-				const Vec3Packedf &down = vertices[b * (patch_div_s + 1) + u].pos - vertices[t * (patch_div_s + 1) + u].pos;
-
-				vertices[v * (patch_div_s + 1) + u].nrm = Cross(right, down).Normalized();
-				if (spatch.patchFacing) {
-					vertices[v * (patch_div_s + 1) + u].nrm *= -1.0f;
-				}
-#endif
-
-				// Rotate for the next one to the right.
-				vl_pos = vc_pos;
-				vc_pos = vr_pos;
-			}
-		}
-	}
+	delete[] divs_u;
+	delete[] divs_v;
 
 	GEPatchPrimType prim_type = spatch.primType;
 	// Tessellate.
