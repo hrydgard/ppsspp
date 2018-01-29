@@ -510,7 +510,8 @@ void SasInstance::MixVoice(SasVoice &voice) {
 		}
 		voice.ReadSamples(&mixTemp_[2], samplesToRead);
 		int tempPos = 2 + samplesToRead;
-
+		int volumeShift = (12 + MAX_CONFIG_VOLUME - g_Config.iSASVolume);
+		if (volumeShift < 0) volumeShift = 0;
 		for (int i = delay; i < grainSize; i++) {
 			const int16_t *s = mixTemp_ + (sampleFrac >> PSP_SAS_PITCH_BASE_SHIFT);
 
@@ -532,10 +533,10 @@ void SasInstance::MixVoice(SasVoice &voice) {
 			// We mix into this 32-bit temp buffer and clip in a second loop
 			// Ideally, the shift right should be there too but for now I'm concerned about
 			// not overflowing.
-			mixBuffer[i * 2] += (sample * voice.volumeLeft) >> 12;
-			mixBuffer[i * 2 + 1] += (sample * voice.volumeRight) >> 12;
-			sendBuffer[i * 2] += sample * voice.effectLeft >> 12;
-			sendBuffer[i * 2 + 1] += sample * voice.effectRight >> 12;
+			mixBuffer[i * 2] += (sample * voice.volumeLeft) >> volumeShift;
+			mixBuffer[i * 2 + 1] += (sample * voice.volumeRight) >> volumeShift;
+			sendBuffer[i * 2] += sample * voice.effectLeft >> volumeShift;
+			sendBuffer[i * 2 + 1] += sample * voice.effectRight >> volumeShift;
 		}
 
 		voice.resampleHist[0] = mixTemp_[tempPos - 2];

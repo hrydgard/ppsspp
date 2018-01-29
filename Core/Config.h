@@ -25,6 +25,7 @@
 
 extern const char *PPSSPP_GIT_VERSION;
 
+const int MAX_CONFIG_VOLUME = 8;
 const int PSP_MODEL_FAT = 0;
 const int PSP_MODEL_SLIM = 1;
 const int PSP_DEFAULT_FIRMWARE = 150;
@@ -228,7 +229,7 @@ public:
 	bool bEnableSound;
 	int iAudioLatency; // 0 = low , 1 = medium(default) , 2 = high
 	int iAudioBackend;
-	int iGlobalVolume;
+	int iGlobalVolume, iSASVolume, iATRACMP3Volume;
 	bool bExtraAudioBuffering;  // For bluetooth
 
 	// UI

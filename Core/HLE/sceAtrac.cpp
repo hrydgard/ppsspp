@@ -1226,6 +1226,7 @@ u32 _AtracDecodeData(int atracID, u8 *outbuf, u32 outbufPtr, u32 *SamplesNum, u3
 							if (avret < 0) {
 								ERROR_LOG(ME, "swr_convert: Error while converting %d", avret);
 							}
+							__AdjustATRACMP3Volume((s16 *)out, numSamples * atrac->outputChannels_);
 						}
 #endif // USE_FFMPEG
 					}
@@ -2450,6 +2451,7 @@ static int sceAtracLowLevelDecode(int atracID, u32 sourceAddr, u32 sourceBytesCo
 			if (avret < 0) {
 				ERROR_LOG(ME, "swr_convert: Error while converting %d", avret);
 			}
+			__AdjustATRACMP3Volume((s16 *)out, numSamples * atrac->outputChannels_);
 #endif // USE_FFMPEG
 		} else {
 			// TODO: Error code otherwise?

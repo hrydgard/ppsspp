@@ -34,6 +34,8 @@ This hackish branch add's:
  - a few more post process shaders,
  - texture replacement info from ge debugger(experimental aka usually works, but it might be done badly, available from right click menu),
  - ultra high render resolutions and render screenshots,
+ - some mp3 improvements(volume clamping and removal of bad hack),
+ - separate sas and atrac/mp3 volume sliders,
  - some untested/optional hack to avoid stutter on NVidia hardware/bad drivers.
 
  To list some game compatibility improvements here:
@@ -51,6 +53,8 @@ This hackish branch add's:
  - Resistance Retribution(some of the crashes),
  - Sangokushi IX with Power-Up Kit(black layer),
  - The Warriors(videos),
+ - Mighty Flip Champs DX(sound too loud),
+ - N+(sound too loud),
  - and more via included patches.
 
  Also includes a really awful hack for MOHH2 multiplayer(MOHH1 works fine without it;p).

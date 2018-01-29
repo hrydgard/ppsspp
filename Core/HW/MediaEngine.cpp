@@ -117,6 +117,18 @@ static int getPixelFormatBytes(int pspFormat)
 	}
 }
 
+
+void __AdjustATRACMP3Volume(s16 *samples, u32 count) {
+	if (g_Config.iATRACMP3Volume < 0 || g_Config.iATRACMP3Volume >= MAX_CONFIG_VOLUME) {
+		return;
+	}
+	int volumeShift = MAX_CONFIG_VOLUME - g_Config.iATRACMP3Volume;
+	;
+	for (u32 i = 0; i < count; ++i) {
+		samples[i] >>= volumeShift;
+	}
+}
+
 MediaEngine::MediaEngine(): m_pdata(0) {
 #ifdef USE_FFMPEG
 	m_pFormatCtx = 0;

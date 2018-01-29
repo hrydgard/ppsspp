@@ -50,6 +50,8 @@ inline s64 getMpegTimeStamp(const u8 *buf) {
 bool InitFFmpeg();
 #endif
 
+void __AdjustATRACMP3Volume(s16 *samples, u32 count);
+
 class MediaEngine
 {
 public:

@@ -579,6 +579,8 @@ static ConfigSetting soundSettings[] = {
 	ConfigSetting("ExtraAudioBuffering", &g_Config.bExtraAudioBuffering, false, true, false),
 	ConfigSetting("AudioResampler", &g_Config.bAudioResampler, true, true, true),
 	ConfigSetting("GlobalVolume", &g_Config.iGlobalVolume, VOLUME_MAX, true, true),
+	ConfigSetting("SASVolume", &g_Config.iSASVolume, 8, true, true),
+	ConfigSetting("ATRACMP3Volume", &g_Config.iATRACMP3Volume, 8, true, true),
 
 	ConfigSetting(false),
 };

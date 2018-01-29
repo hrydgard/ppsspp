@@ -491,6 +491,11 @@ void GameSettingsScreen::CreateViews() {
 			CheckBox *resampling = audioSettings->Add(new CheckBox(&g_Config.bAudioResampler, a->T("Audio sync", "Audio sync (resampling)")));
 			resampling->SetEnabledPtr(&g_Config.bEnableSound);
 		}
+
+		PopupSliderChoice *sasVol = audioSettings->Add(new PopupSliderChoice(&g_Config.iSASVolume, 0, MAX_CONFIG_VOLUME, a->T("SAS volume"), screenManager()));
+		sasVol->SetEnabledPtr(&g_Config.bEnableSound);
+		PopupSliderChoice * atracmp3Vol = audioSettings->Add(new PopupSliderChoice(&g_Config.iATRACMP3Volume, 0, MAX_CONFIG_VOLUME, a->T("ATRAC / MP3 volume"), screenManager()));
+		atracmp3Vol->SetEnabledPtr(&g_Config.bEnableSound);
 	}
 	// Control
 	ViewGroup *controlsSettingsScroll = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, FILL_PARENT));
