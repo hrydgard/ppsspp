@@ -293,6 +293,13 @@ int VulkanDeviceAllocator::ComputeUsagePercent() const {
 	return blockSum == 0 ? 0 : 100 * blocksUsed / blockSum;
 }
 
+std::vector<uint8_t> VulkanDeviceAllocator::GetSlabUsage(int slabIndex) const {
+	if (slabIndex < 0 || slabIndex >= (int)slabs_.size())
+		return std::vector<uint8_t>();
+	const Slab &slab = slabs_[slabIndex];
+	return slab.usage;
+}
+
 void VulkanDeviceAllocator::Free(VkDeviceMemory deviceMemory, size_t offset) {
 	assert(!destroyed_);
 

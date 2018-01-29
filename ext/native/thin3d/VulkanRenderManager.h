@@ -219,6 +219,10 @@ public:
 		splitSubmit_ = split;
 	}
 
+	VulkanContext *GetVulkanContext() {
+		return vulkan_;
+	}
+
 private:
 	bool InitBackbufferFramebuffers(int width, int height);
 	bool InitDepthStencilBuffer(VkCommandBuffer cmd);  // Used for non-buffered rendering.

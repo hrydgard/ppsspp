@@ -142,7 +142,8 @@ VULKAN_FILES := \
   $(SRC)/GPU/Vulkan/TextureScalerVulkan.cpp \
   $(SRC)/GPU/Vulkan/DepalettizeShaderVulkan.cpp \
   $(SRC)/GPU/Vulkan/VertexShaderGeneratorVulkan.cpp \
-  $(SRC)/GPU/Vulkan/VulkanUtil.cpp
+  $(SRC)/GPU/Vulkan/VulkanUtil.cpp \
+  $(SRC)/GPU/Vulkan/DebugVisVulkan.cpp
 #endif
 
 SPIRV_CROSS_FILES := \
