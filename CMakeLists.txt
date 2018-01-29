@@ -1265,10 +1265,8 @@ set(GPU_D3D11
 	GPU/D3D11/VertexShaderGeneratorD3D11.h
 )
 
-set(GPU_IMPLS ${GPU_GLES})
-if(VULKAN)
-  set(GPU_IMPLS ${GPU_IMPLS} ${GPU_VULKAN})
-endif()
+# We build Vulkan even on Apple to avoid annoying build differences.
+set(GPU_IMPLS ${GPU_GLES} ${GPU_VULKAN})
 if(WIN32)
 	list(APPEND GPU_IMPLS ${GPU_D3D9} ${GPU_D3D11})
 endif()
