@@ -902,12 +902,10 @@ void DrawEngineCommon::SubmitSpline(const void *control_points, const void *indi
 		ERROR_LOG(G3D, "Something went really wrong, vertex size: %i vs %i", vertexSize, (int)sizeof(SimpleVertex));
 	}
 
-	SimpleVertex **points = (SimpleVertex **)managedBuf.Allocate(sizeof(SimpleVertex *) * count_u * count_v);
-
 	// Make an array of pointers to the control points, to get rid of indices.
-	for (int idx = 0; idx < count_u * count_v; idx++) {
+	SimpleVertex **points = (SimpleVertex **)managedBuf.Allocate(sizeof(SimpleVertex *) * count_u * count_v);
+	for (int idx = 0; idx < count_u * count_v; idx++)
 		points[idx] = simplified_control_points + (indices ? idxConv.convert(idx) : idx);
-	}
 
 	int count = 0;
 	u8 *dest = splineBuffer;
@@ -1022,6 +1020,11 @@ void DrawEngineCommon::SubmitBezier(const void *control_points, const void *indi
 	if (tess_u < 1) tess_u = 1;
 	if (tess_v < 1) tess_v = 1;
 
+	// Make an array of pointers to the control points, to get rid of indices.
+	SimpleVertex **points = (SimpleVertex **)managedBuf.Allocate(sizeof(SimpleVertex *) * count_u * count_v);
+	for (int idx = 0; idx < count_u * count_v; idx++)
+		points[idx] = simplified_control_points + (indices ? idxConv.convert(idx) : idx);
+
 	int count = 0;
 	u8 *dest = splineBuffer;
 	u16 *inds = quadIndices_;
@@ -1042,22 +1045,20 @@ void DrawEngineCommon::SubmitBezier(const void *control_points, const void *indi
 		float *t = tex;
 		float *c = col;
 		for (int idx = 0; idx < count_u * count_v; idx++) {
-			const SimpleVertex *point = simplified_control_points + (indices ? idxConv.convert(idx) : idx);
-			memcpy(p, point->pos.AsArray(), 3 * sizeof(float));
+			memcpy(p, points[idx]->pos.AsArray(), 3 * sizeof(float));
 			p += posStride;
 			if (hasTexCoords) {
-				memcpy(t, point->uv, 2 * sizeof(float));
+				memcpy(t, points[idx]->uv, 2 * sizeof(float));
 				t += texStride;
 			}
 			if (hasColor) {
-				memcpy(c, Vec4f::FromRGBA(point->color_32).AsArray(), 4 * sizeof(float));
+				memcpy(c, Vec4f::FromRGBA(points[idx]->color_32).AsArray(), 4 * sizeof(float));
 				c += colStride;
 			}
 		}
-		if (!hasColor) {
-			const SimpleVertex *point = simplified_control_points + (indices ? idxConv.convert(0) : 0);
-			memcpy(col, Vec4f::FromRGBA(point->color_32).AsArray(), 4 * sizeof(float));
-		}
+		if (!hasColor)
+			memcpy(col, Vec4f::FromRGBA(points[0]->color_32).AsArray(), 4 * sizeof(float));
+
 		tessDataTransfer->SendDataToShader(pos, tex, col, count_u * count_v, hasColor, hasTexCoords);
 		TessellateBezierPatchHardware(dest, inds, count, tess_u, tess_v, prim_type);
 		numPatches = num_patches_u * num_patches_v;
