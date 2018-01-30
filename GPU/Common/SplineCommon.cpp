@@ -881,7 +881,7 @@ void DrawEngineCommon::SubmitSpline(const void *control_points, const void *indi
 	*bytesRead = count_u * count_v * origVDecoder->VertexSize();
 
 	// Simplify away bones and morph before proceeding
-	SimpleVertex *simplified_control_points = (SimpleVertex *)managedBuf.Allocate(sizeof(SimpleVertex) * index_upper_bound + 1);
+	SimpleVertex *simplified_control_points = (SimpleVertex *)managedBuf.Allocate(sizeof(SimpleVertex) * (index_upper_bound + 1));
 	u8 *temp_buffer = managedBuf.Allocate(sizeof(SimpleVertex) * count_u * count_v);
 
 	u32 origVertType = vertType;
@@ -969,7 +969,7 @@ void DrawEngineCommon::SubmitBezier(const void *control_points, const void *indi
 
 	// Simplify away bones and morph before proceeding
 	// There are normally not a lot of control points so just splitting decoded should be reasonably safe, although not great.
-	SimpleVertex *simplified_control_points = (SimpleVertex *)managedBuf.Allocate(sizeof(SimpleVertex) * index_upper_bound + 1);
+	SimpleVertex *simplified_control_points = (SimpleVertex *)managedBuf.Allocate(sizeof(SimpleVertex) * (index_upper_bound + 1));
 	u8 *temp_buffer = managedBuf.Allocate(sizeof(SimpleVertex) * count_u * count_v);
 
 	u32 origVertType = vertType;
