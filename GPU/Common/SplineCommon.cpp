@@ -100,8 +100,7 @@ static void CopyQuadIndex(u16 *&indices, GEPatchPrimType type, const int idx0, c
 		*(indices++) = idx3;
 		*(indices++) = idx1;
 		*(indices++) = idx2;
-	}
-	else {
+	} else {
 		*(indices++) = idx0;
 		*(indices++) = idx2;
 		*(indices++) = idx1;
@@ -111,6 +110,17 @@ static void CopyQuadIndex(u16 *&indices, GEPatchPrimType type, const int idx0, c
 	}
 }
 
+static void BuildIndex(u16 *indices, int &count, int num_u, int num_v, GEPatchPrimType prim_type, int total = 0) {
+	for (int v = 0; v < num_v; ++v) {
+		for (int u = 0; u < num_u; ++u) {
+			int idx0 = v * (num_u + 1) + u + total; // Top left
+			int idx2 = (v + 1) * (num_u + 1) + u + total; // Bottom left
+
+			CopyQuadIndex(indices, prim_type, idx0, idx0 + 1, idx2, idx2 + 1);
+			count += 6;
+		}
+	}
+}
 
 // Bernstein basis functions
 inline float bern0(float x) { return (1 - x) * (1 - x) * (1 - x); }
@@ -283,18 +293,7 @@ static void TessellateSplinePatchHardware(u8 *&dest, u16 *indices, int &count, c
 		}
 	}
 
-	// Combine the vertices into triangles.
-	for (int tile_v = 0; tile_v < spatch.tess_v; ++tile_v) {
-		for (int tile_u = 0; tile_u < spatch.tess_u; ++tile_u) {
-			int idx0 = tile_v * (spatch.tess_u + 1) + tile_u;
-			int idx1 = tile_v * (spatch.tess_u + 1) + tile_u + 1;
-			int idx2 = (tile_v + 1) * (spatch.tess_u + 1) + tile_u;
-			int idx3 = (tile_v + 1) * (spatch.tess_u + 1) + tile_u + 1;
-
-			CopyQuadIndex(indices, spatch.primType, idx0, idx1, idx2, idx3);
-			count += 6;
-		}
-	}
+	BuildIndex(indices, count, spatch.tess_u, spatch.tess_v, spatch.primType);
 }
 
 static void _SplinePatchLowQuality(u8 *&dest, u16 *indices, int &count, const SplinePatchLocal &spatch, u32 origVertType) {
@@ -546,19 +545,7 @@ static void SplinePatchFullQuality(u8 *&dest, u16 *indices, int &count, const Sp
 	delete[] divs_u;
 	delete[] divs_v;
 
-	GEPatchPrimType prim_type = spatch.primType;
-	// Tessellate.
-	for (int tile_v = 0; tile_v < patch_div_t; ++tile_v) {
-		for (int tile_u = 0; tile_u < patch_div_s; ++tile_u) {
-			int idx0 = tile_v * (patch_div_s + 1) + tile_u;
-			int idx1 = tile_v * (patch_div_s + 1) + tile_u + 1;
-			int idx2 = (tile_v + 1) * (patch_div_s + 1) + tile_u;
-			int idx3 = (tile_v + 1) * (patch_div_s + 1) + tile_u + 1;
-
-			CopyQuadIndex(indices, prim_type, idx0, idx1, idx2, idx3);
-			count += 6;
-		}
-	}
+	BuildIndex(indices, count, patch_div_s, patch_div_t, spatch.primType);
 }
 
 template <bool origNrm, bool origCol, bool origTc>
@@ -817,18 +804,7 @@ static void TessellateBezierPatchHardware(u8 *&dest, u16 *indices, int &count, i
 		}
 	}
 
-	// Combine the vertices into triangles.
-	for (int tile_v = 0; tile_v < tess_v; ++tile_v) {
-		for (int tile_u = 0; tile_u < tess_u; ++tile_u) {
-			int idx0 = tile_v * (tess_u + 1) + tile_u;
-			int idx1 = tile_v * (tess_u + 1) + tile_u + 1;
-			int idx2 = (tile_v + 1) * (tess_u + 1) + tile_u;
-			int idx3 = (tile_v + 1) * (tess_u + 1) + tile_u + 1;
-
-			CopyQuadIndex(indices, primType, idx0, idx1, idx2, idx3);
-			count += 6;
-		}
-	}
+	BuildIndex(indices, count, tess_u, tess_v, primType);
 }
 
 void TessellateBezierPatch(u8 *&dest, u16 *&indices, int &count, int tess_u, int tess_v, const BezierPatch &patch, u32 origVertType) {
