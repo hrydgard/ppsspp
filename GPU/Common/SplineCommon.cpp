@@ -846,9 +846,34 @@ void TessellateBezierPatch(u8 *&dest, u16 *&indices, int &count, int tess_u, int
 	}
 }
 
+class SimpleBufferManager {
+private:
+	u8 *buf_;
+	size_t totalSize, maxSize_;
+public:
+	SimpleBufferManager(u8 *buf, size_t maxSize)
+		: buf_(buf), totalSize(0), maxSize_(maxSize) {}
+
+	u8 *Allocate(size_t size) {
+		size = (size + 15) & ~15; // Align for 16 bytes
+
+		if ((totalSize + size) > maxSize_)
+			return nullptr; // No more memory
+
+		size_t tmp = totalSize;
+		totalSize += size;
+		return buf_ + tmp;
+	}
+};
+
+// This maps GEPatchPrimType to GEPrimitiveType.
+const GEPrimitiveType primType[] = { GE_PRIM_TRIANGLES, GE_PRIM_LINES, GE_PRIM_POINTS, GE_PRIM_POINTS };
+
 void DrawEngineCommon::SubmitSpline(const void *control_points, const void *indices, int tess_u, int tess_v, int count_u, int count_v, int type_u, int type_v, GEPatchPrimType prim_type, bool computeNormals, bool patchFacing, u32 vertType, int *bytesRead) {
 	PROFILE_THIS_SCOPE("spline");
 	DispatchFlush();
+
+	SimpleBufferManager managedBuf(decoded, DECODED_VERTEX_BUFFER_SIZE);
 
 	u16 index_lower_bound = 0;
 	u16 index_upper_bound = count_u * count_v - 1;
@@ -865,8 +890,8 @@ void DrawEngineCommon::SubmitSpline(const void *control_points, const void *indi
 	}
 
 	// Simplify away bones and morph before proceeding
-	SimpleVertex *simplified_control_points = (SimpleVertex *)(decoded + 65536 * 12);
-	u8 *temp_buffer = decoded + 65536 * 18;
+	SimpleVertex *simplified_control_points = (SimpleVertex *)managedBuf.Allocate(sizeof(SimpleVertex) * index_upper_bound + 1);
+	u8 *temp_buffer = managedBuf.Allocate(sizeof(SimpleVertex) * count_u * count_v);
 
 	u32 origVertType = vertType;
 	vertType = NormalizeVertices((u8 *)simplified_control_points, temp_buffer, (u8 *)control_points, index_lower_bound, index_upper_bound, vertType);
@@ -878,8 +903,7 @@ void DrawEngineCommon::SubmitSpline(const void *control_points, const void *indi
 		ERROR_LOG(G3D, "Something went really wrong, vertex size: %i vs %i", vertexSize, (int)sizeof(SimpleVertex));
 	}
 
-	// TODO: Do something less idiotic to manage this buffer
-	auto points = new const SimpleVertex *[count_u * count_v];
+	SimpleVertex **points = (SimpleVertex **)managedBuf.Allocate(sizeof(SimpleVertex *) * count_u * count_v);
 
 	// Make an array of pointers to the control points, to get rid of indices.
 	for (int idx = 0; idx < count_u * count_v; idx++) {
@@ -903,9 +927,9 @@ void DrawEngineCommon::SubmitSpline(const void *control_points, const void *indi
 	patch.patchFacing = patchFacing;
 
 	if (CanUseHardwareTessellation(prim_type)) {
-		float *pos = (float*)(decoded + 65536 * 18); // Size 4 float
-		float *tex = pos + count_u * count_v * 4; // Size 4 float
-		float *col = tex + count_u * count_v * 4; // Size 4 float
+		float *pos = (float*)managedBuf.Allocate(sizeof(float) * count_u * count_v * 4); // Size 4 float
+		float *tex = (float*)managedBuf.Allocate(sizeof(float) * count_u * count_v * 4); // Size 4 float
+		float *col = (float*)managedBuf.Allocate(sizeof(float) * count_u * count_v * 4); // Size 4 float
 		const bool hasColor = (origVertType & GE_VTYPE_COL_MASK) != 0;
 		const bool hasTexCoords = (origVertType & GE_VTYPE_TC_MASK) != 0;
 
@@ -936,7 +960,6 @@ void DrawEngineCommon::SubmitSpline(const void *control_points, const void *indi
 		int maxVertexCount = SPLINE_BUFFER_SIZE / vertexSize;
 		TessellateSplinePatch(dest, quadIndices_, count, patch, origVertType, maxVertexCount);
 	}
-	delete[] points;
 
 	u32 vertTypeWithIndex16 = (vertType & ~GE_VTYPE_IDX_MASK) | GE_VTYPE_IDX_16BIT;
 
@@ -967,6 +990,8 @@ void DrawEngineCommon::SubmitBezier(const void *control_points, const void *indi
 
 	DispatchFlush();
 
+	SimpleBufferManager managedBuf(decoded, DECODED_VERTEX_BUFFER_SIZE);
+
 	u16 index_lower_bound = 0;
 	u16 index_upper_bound = count_u * count_v - 1;
 	IndexConverter idxConv(vertType, indices);
@@ -984,8 +1009,8 @@ void DrawEngineCommon::SubmitBezier(const void *control_points, const void *indi
 
 	// Simplify away bones and morph before proceeding
 	// There are normally not a lot of control points so just splitting decoded should be reasonably safe, although not great.
-	SimpleVertex *simplified_control_points = (SimpleVertex *)(decoded + 65536 * 12);
-	u8 *temp_buffer = decoded + 65536 * 18;
+	SimpleVertex *simplified_control_points = (SimpleVertex *)managedBuf.Allocate(sizeof(SimpleVertex) * index_upper_bound + 1);
+	u8 *temp_buffer = managedBuf.Allocate(sizeof(SimpleVertex) * count_u * count_v);
 
 	u32 origVertType = vertType;
 	vertType = NormalizeVertices((u8 *)simplified_control_points, temp_buffer, (u8 *)control_points, index_lower_bound, index_upper_bound, vertType);
@@ -997,9 +1022,9 @@ void DrawEngineCommon::SubmitBezier(const void *control_points, const void *indi
 		ERROR_LOG(G3D, "Something went really wrong, vertex size: %i vs %i", vertexSize, (int)sizeof(SimpleVertex));
 	}
 
-	float *pos = (float*)(decoded + 65536 * 18); // Size 4 float
-	float *tex = pos + count_u * count_v * 4; // Size 4 float
-	float *col = tex + count_u * count_v * 4; // Size 4 float
+	float *pos = (float*)managedBuf.Allocate(sizeof(float) * count_u * count_v * 4); // Size 4 float
+	float *tex = (float*)managedBuf.Allocate(sizeof(float) * count_u * count_v * 4); // Size 4 float
+	float *col = (float*)managedBuf.Allocate(sizeof(float) * count_u * count_v * 4); // Size 4 float
 	const bool hasColor = (origVertType & GE_VTYPE_COL_MASK) != 0;
 	const bool hasTexCoords = (origVertType & GE_VTYPE_TC_MASK) != 0;
 
@@ -1031,7 +1056,7 @@ void DrawEngineCommon::SubmitBezier(const void *control_points, const void *indi
 			memcpy(col, Vec4f::FromRGBA(point->color_32).AsArray(), 4 * sizeof(float));
 		}
 	} else {
-		patches = new BezierPatch[num_patches_u * num_patches_v];
+		patches = (BezierPatch *)managedBuf.Allocate(sizeof(BezierPatch) * num_patches_u * num_patches_v);
 		for (int patch_u = 0; patch_u < num_patches_u; patch_u++) {
 			for (int patch_v = 0; patch_v < num_patches_v; patch_v++) {
 				BezierPatch& patch = patches[patch_u + patch_v * num_patches_u];
@@ -1079,7 +1104,6 @@ void DrawEngineCommon::SubmitBezier(const void *control_points, const void *indi
 			const BezierPatch &patch = patches[patch_idx];
 			TessellateBezierPatch(dest, inds, count, tess_u, tess_v, patch, origVertType);
 		}
-		delete[] patches;
 	}
 
 	u32 vertTypeWithIndex16 = (vertType & ~GE_VTYPE_IDX_MASK) | GE_VTYPE_IDX_16BIT;
