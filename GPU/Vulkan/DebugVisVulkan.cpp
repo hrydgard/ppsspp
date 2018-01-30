@@ -81,6 +81,8 @@ void DrawAllocatorVis(UIContext *ui, GPUInterface *gpu) {
 
 		UI::Drawable white(0xFFFFFFFF);
 		draw->BindTexture(0, tex);
+		// Cheap black border.
+		ui->Draw()->Rect(x-2, y-2, w+4, h+4, 0xE0000000);
 		ui->Draw()->Rect(x, y, w, h, 0xFFFFFFFF);
 		ui->Flush();
 		texturesToDelete.push_back(tex);
