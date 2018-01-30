@@ -846,6 +846,23 @@ void TessellateBezierPatch(u8 *&dest, u16 *&indices, int &count, int tess_u, int
 	}
 }
 
+static void CopyControlPoints(const SimpleVertex *const *points, float *pos, float *tex, float *col, int posStride, int texStride, int colStride, int size, bool hasColor, bool hasTexCoords) {
+	for (int idx = 0; idx < size; idx++) {
+		memcpy(pos, points[idx]->pos.AsArray(), 3 * sizeof(float));
+		pos += posStride;
+		if (hasTexCoords) {
+			memcpy(tex, points[idx]->uv, 2 * sizeof(float));
+			tex += texStride;
+		}
+		if (hasColor) {
+			memcpy(col, Vec4f::FromRGBA(points[idx]->color_32).AsArray(), 4 * sizeof(float));
+			col += colStride;
+		}
+	}
+	if (!hasColor)
+		memcpy(col, Vec4f::FromRGBA(points[0]->color_32).AsArray(), 4 * sizeof(float));
+}
+
 class SimpleBufferManager {
 private:
 	u8 *buf_;
@@ -931,24 +948,7 @@ void DrawEngineCommon::SubmitSpline(const void *control_points, const void *indi
 
 		int posStride, texStride, colStride;
 		tessDataTransfer->PrepareBuffers(pos, tex, col, posStride, texStride, colStride, count_u * count_v, hasColor, hasTexCoords);
-		float *p = pos;
-		float *t = tex;
-		float *c = col;
-		for (int idx = 0; idx < count_u * count_v; idx++) {
-			memcpy(p, points[idx]->pos.AsArray(), 3 * sizeof(float));
-			p += posStride;
-			if (hasTexCoords) {
-				memcpy(t, points[idx]->uv, 2 * sizeof(float));
-				t += texStride;
-			}
-			if (hasColor) {
-				memcpy(c, Vec4f::FromRGBA(points[idx]->color_32).AsArray(), 4 * sizeof(float));
-				c += colStride;
-			}
-		}
-		if (!hasColor)
-			memcpy(col, Vec4f::FromRGBA(points[0]->color_32).AsArray(), 4 * sizeof(float));
-
+		CopyControlPoints(points, pos, tex, col, posStride, texStride, colStride, count_u * count_v, hasColor, hasTexCoords);
 		tessDataTransfer->SendDataToShader(pos, tex, col, count_u * count_v, hasColor, hasTexCoords);
 		TessellateSplinePatchHardware(dest, quadIndices_, count, patch);
 		numPatches = (count_u - 3) * (count_v - 3);
@@ -1041,24 +1041,7 @@ void DrawEngineCommon::SubmitBezier(const void *control_points, const void *indi
 
 		int posStride, texStride, colStride;
 		tessDataTransfer->PrepareBuffers(pos, tex, col, posStride, texStride, colStride, count_u * count_v, hasColor, hasTexCoords);
-		float *p = pos;
-		float *t = tex;
-		float *c = col;
-		for (int idx = 0; idx < count_u * count_v; idx++) {
-			memcpy(p, points[idx]->pos.AsArray(), 3 * sizeof(float));
-			p += posStride;
-			if (hasTexCoords) {
-				memcpy(t, points[idx]->uv, 2 * sizeof(float));
-				t += texStride;
-			}
-			if (hasColor) {
-				memcpy(c, Vec4f::FromRGBA(points[idx]->color_32).AsArray(), 4 * sizeof(float));
-				c += colStride;
-			}
-		}
-		if (!hasColor)
-			memcpy(col, Vec4f::FromRGBA(points[0]->color_32).AsArray(), 4 * sizeof(float));
-
+		CopyControlPoints(points, pos, tex, col, posStride, texStride, colStride, count_u * count_v, hasColor, hasTexCoords);
 		tessDataTransfer->SendDataToShader(pos, tex, col, count_u * count_v, hasColor, hasTexCoords);
 		TessellateBezierPatchHardware(dest, inds, count, tess_u, tess_v, prim_type);
 		numPatches = num_patches_u * num_patches_v;
