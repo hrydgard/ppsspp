@@ -148,12 +148,12 @@ enum class GLRRunType {
 	SYNC,
 };
 
+// Synchronize this externally if needed, no mutex anymore.
 class GLDeleter {
 public:
 	void Perform();
 
 	void Take(GLDeleter &other) {
-		deleterMutex_.lock();
 		_assert_msg_(G3D, shaders.empty() && programs.empty() && buffers.empty() && textures.empty() && inputLayouts.empty() && framebuffers.empty(), "Deleter already has stuff");
 		shaders = std::move(other.shaders);
 		programs = std::move(other.programs);
@@ -167,7 +167,6 @@ public:
 		other.textures.clear();
 		other.inputLayouts.clear();
 		other.framebuffers.clear();
-		deleterMutex_.unlock();
 	}
 
 	std::vector<GLRShader *> shaders;
@@ -176,7 +175,6 @@ public:
 	std::vector<GLRTexture *> textures;
 	std::vector<GLRInputLayout *> inputLayouts;
 	std::vector<GLRFramebuffer *> framebuffers;
-	std::mutex deleterMutex_;
 };
 
 class GLRInputLayout {
@@ -291,22 +289,22 @@ public:
 	}
 
 	void DeleteShader(GLRShader *shader) {
-		deleter_.shaders.push_back(shader);
+		frameData_[curFrame_].deleter.shaders.push_back(shader);
 	}
 	void DeleteProgram(GLRProgram *program) {
-		deleter_.programs.push_back(program);
+		frameData_[curFrame_].deleter.programs.push_back(program);
 	}
 	void DeleteBuffer(GLRBuffer *buffer) {
-		deleter_.buffers.push_back(buffer);
+		frameData_[curFrame_].deleter.buffers.push_back(buffer);
 	}
 	void DeleteTexture(GLRTexture *texture) {
-		deleter_.textures.push_back(texture);
+		frameData_[curFrame_].deleter.textures.push_back(texture);
 	}
 	void DeleteInputLayout(GLRInputLayout *inputLayout) {
-		deleter_.inputLayouts.push_back(inputLayout);
+		frameData_[curFrame_].deleter.inputLayouts.push_back(inputLayout);
 	}
 	void DeleteFramebuffer(GLRFramebuffer *framebuffer) {
-		deleter_.framebuffers.push_back(framebuffer);
+		frameData_[curFrame_].deleter.framebuffers.push_back(framebuffer);
 	}
 
 	void BindFramebufferAsRenderTarget(GLRFramebuffer *fb, GLRRenderPassAction color, GLRRenderPassAction depth, GLRRenderPassAction stencil, uint32_t clearColor, float clearDepth, uint8_t clearStencil);
@@ -696,7 +694,10 @@ private:
 		bool hasBegun = false;
 		uint32_t curSwapchainImage = -1;
 		
+		std::mutex deleter_mutex;
 		GLDeleter deleter;
+		GLDeleter deleter_prev;
+
 		std::set<GLPushBuffer *> activePushBuffers;
 	};
 
@@ -720,8 +721,6 @@ private:
 
 	bool nextFrame = false;
 	bool firstFrame = true;
-
-	GLDeleter deleter_;
 
 	bool useThread_ = true;
 
