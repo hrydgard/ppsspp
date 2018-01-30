@@ -873,6 +873,10 @@ void DrawEngineCommon::SubmitSpline(const void *control_points, const void *indi
 	PROFILE_THIS_SCOPE("spline");
 	DispatchFlush();
 
+	// Real hardware seems to draw nothing when given < 4 either U or V.
+	if (count_u < 4 || count_v < 4)
+		return;
+
 	SimpleBufferManager managedBuf(decoded, DECODED_VERTEX_BUFFER_SIZE);
 
 	u16 index_lower_bound = 0;
@@ -883,11 +887,6 @@ void DrawEngineCommon::SubmitSpline(const void *control_points, const void *indi
 
 	VertexDecoder *origVDecoder = GetVertexDecoder((vertType & 0xFFFFFF) | (gstate.getUVGenMode() << 24));
 	*bytesRead = count_u * count_v * origVDecoder->VertexSize();
-
-	// Real hardware seems to draw nothing when given < 4 either U or V.
-	if (count_u < 4 || count_v < 4) {
-		return;
-	}
 
 	// Simplify away bones and morph before proceeding
 	SimpleVertex *simplified_control_points = (SimpleVertex *)managedBuf.Allocate(sizeof(SimpleVertex) * index_upper_bound + 1);
@@ -987,8 +986,12 @@ void DrawEngineCommon::SubmitSpline(const void *control_points, const void *indi
 
 void DrawEngineCommon::SubmitBezier(const void *control_points, const void *indices, int tess_u, int tess_v, int count_u, int count_v, GEPatchPrimType prim_type, bool computeNormals, bool patchFacing, u32 vertType, int *bytesRead) {
 	PROFILE_THIS_SCOPE("bezier");
-
 	DispatchFlush();
+
+	// Real hardware seems to draw nothing when given < 4 either U or V.
+	// This would result in num_patches_u / num_patches_v being 0.
+	if (count_u < 4 || count_v < 4)
+		return;
 
 	SimpleBufferManager managedBuf(decoded, DECODED_VERTEX_BUFFER_SIZE);
 
@@ -1000,12 +1003,6 @@ void DrawEngineCommon::SubmitBezier(const void *control_points, const void *indi
 
 	VertexDecoder *origVDecoder = GetVertexDecoder((vertType & 0xFFFFFF) | (gstate.getUVGenMode() << 24));
 	*bytesRead = count_u * count_v * origVDecoder->VertexSize();
-
-	// Real hardware seems to draw nothing when given < 4 either U or V.
-	// This would result in num_patches_u / num_patches_v being 0.
-	if (count_u < 4 || count_v < 4) {
-		return;
-	}
 
 	// Simplify away bones and morph before proceeding
 	// There are normally not a lot of control points so just splitting decoded should be reasonably safe, although not great.
