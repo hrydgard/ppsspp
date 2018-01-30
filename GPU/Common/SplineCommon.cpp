@@ -910,7 +910,6 @@ void DrawEngineCommon::SubmitSpline(const void *control_points, const void *indi
 	}
 
 	int count = 0;
-
 	u8 *dest = splineBuffer;
 
 	SplinePatchLocal patch;
@@ -1019,17 +1018,24 @@ void DrawEngineCommon::SubmitBezier(const void *control_points, const void *indi
 		ERROR_LOG(G3D, "Something went really wrong, vertex size: %i vs %i", vertexSize, (int)sizeof(SimpleVertex));
 	}
 
-	float *pos = (float*)managedBuf.Allocate(sizeof(float) * count_u * count_v * 4); // Size 4 float
-	float *tex = (float*)managedBuf.Allocate(sizeof(float) * count_u * count_v * 4); // Size 4 float
-	float *col = (float*)managedBuf.Allocate(sizeof(float) * count_u * count_v * 4); // Size 4 float
-	const bool hasColor = (origVertType & GE_VTYPE_COL_MASK) != 0;
-	const bool hasTexCoords = (origVertType & GE_VTYPE_TC_MASK) != 0;
+	// If specified as 0, uses 1.
+	if (tess_u < 1) tess_u = 1;
+	if (tess_v < 1) tess_v = 1;
+
+	int count = 0;
+	u8 *dest = splineBuffer;
+	u16 *inds = quadIndices_;
 
 	// Bezier patches share less control points than spline patches. Otherwise they are pretty much the same (except bezier don't support the open/close thing)
 	int num_patches_u = (count_u - 1) / 3;
 	int num_patches_v = (count_v - 1) / 3;
-	BezierPatch *patches = nullptr;
 	if (CanUseHardwareTessellation(prim_type)) {
+		float *pos = (float*)managedBuf.Allocate(sizeof(float) * count_u * count_v * 4); // Size 4 float
+		float *tex = (float*)managedBuf.Allocate(sizeof(float) * count_u * count_v * 4); // Size 4 float
+		float *col = (float*)managedBuf.Allocate(sizeof(float) * count_u * count_v * 4); // Size 4 float
+		const bool hasColor = (origVertType & GE_VTYPE_COL_MASK) != 0;
+		const bool hasTexCoords = (origVertType & GE_VTYPE_TC_MASK) != 0;
+
 		int posStride, texStride, colStride;
 		tessDataTransfer->PrepareBuffers(pos, tex, col, posStride, texStride, colStride, count_u * count_v, hasColor, hasTexCoords);
 		float *p = pos;
@@ -1052,8 +1058,11 @@ void DrawEngineCommon::SubmitBezier(const void *control_points, const void *indi
 			const SimpleVertex *point = simplified_control_points + (indices ? idxConv.convert(0) : 0);
 			memcpy(col, Vec4f::FromRGBA(point->color_32).AsArray(), 4 * sizeof(float));
 		}
+		tessDataTransfer->SendDataToShader(pos, tex, col, count_u * count_v, hasColor, hasTexCoords);
+		TessellateBezierPatchHardware(dest, inds, count, tess_u, tess_v, prim_type);
+		numPatches = num_patches_u * num_patches_v;
 	} else {
-		patches = (BezierPatch *)managedBuf.Allocate(sizeof(BezierPatch) * num_patches_u * num_patches_v);
+		BezierPatch *patches = (BezierPatch *)managedBuf.Allocate(sizeof(BezierPatch) * num_patches_u * num_patches_v);
 		for (int patch_u = 0; patch_u < num_patches_u; patch_u++) {
 			for (int patch_v = 0; patch_v < num_patches_v; patch_v++) {
 				BezierPatch& patch = patches[patch_u + patch_v * num_patches_u];
@@ -1069,34 +1078,14 @@ void DrawEngineCommon::SubmitBezier(const void *control_points, const void *indi
 				patch.patchFacing = patchFacing;
 			}
 		}
-	}
-
-	int count = 0;
-	u8 *dest = splineBuffer;
-
-	// We shouldn't really split up into separate 4x4 patches, instead we should do something that works
-	// like the splines, so we subdivide across the whole "mega-patch".
-
-	// If specified as 0, uses 1.
-	if (tess_u < 1) {
-		tess_u = 1;
-	}
-	if (tess_v < 1) {
-		tess_v = 1;
-	}
-
-	u16 *inds = quadIndices_;
-	if (CanUseHardwareTessellation(prim_type)) {
-		tessDataTransfer->SendDataToShader(pos, tex, col, count_u * count_v, hasColor, hasTexCoords);
-		TessellateBezierPatchHardware(dest, inds, count, tess_u, tess_v, prim_type);
-		numPatches = num_patches_u * num_patches_v;
-	} else {
 		int maxVertices = SPLINE_BUFFER_SIZE / vertexSize;
 		// Downsample until it fits, in case crazy tessellation factors are sent.
 		while ((tess_u + 1) * (tess_v + 1) * num_patches_u * num_patches_v > maxVertices) {
 			tess_u /= 2;
 			tess_v /= 2;
 		}
+		// We shouldn't really split up into separate 4x4 patches, instead we should do something that works
+		// like the splines, so we subdivide across the whole "mega-patch".
 		for (int patch_idx = 0; patch_idx < num_patches_u*num_patches_v; ++patch_idx) {
 			const BezierPatch &patch = patches[patch_idx];
 			TessellateBezierPatch(dest, inds, count, tess_u, tess_v, patch, origVertType);
