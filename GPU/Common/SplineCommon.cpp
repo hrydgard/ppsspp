@@ -111,7 +111,6 @@ static void CopyQuadIndex(u16 *&indices, GEPatchPrimType type, const int idx0, c
 	}
 }
 
-#undef b2
 
 // Bernstein basis functions
 inline float bern0(float x) { return (1 - x) * (1 - x) * (1 - x); }
