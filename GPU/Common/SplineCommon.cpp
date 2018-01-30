@@ -1069,7 +1069,7 @@ void DrawEngineCommon::SubmitBezier(const void *control_points, const void *indi
 				BezierPatch& patch = patches[patch_u + patch_v * num_patches_u];
 				for (int point = 0; point < 16; ++point) {
 					int idx = (patch_u * 3 + point % 4) + (patch_v * 3 + point / 4) * count_u;
-					patch.points[point] = simplified_control_points + (indices ? idxConv.convert(idx) : idx);
+					patch.points[point] = points[idx];
 				}
 				patch.u_index = patch_u * 3;
 				patch.v_index = patch_v * 3;
