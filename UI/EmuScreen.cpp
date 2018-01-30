@@ -50,6 +50,7 @@
 #include "GPU/GPUState.h"
 #include "GPU/GPUInterface.h"
 #include "GPU/GLES/FramebufferManagerGLES.h"
+#include "GPU/Vulkan/DebugVisVulkan.h"
 #include "Core/HLE/sceCtrl.h"
 #include "Core/HLE/sceDisplay.h"
 #include "Core/HLE/sceSas.h"
@@ -1211,9 +1212,10 @@ void EmuScreen::renderUI() {
 	using namespace Draw;
 
 	DrawContext *thin3d = screenManager()->getDrawContext();
+	UIContext *ctx = screenManager()->getUIContext();
 
 	// This sets up some important states but not the viewport.
-	screenManager()->getUIContext()->Begin();
+	ctx->Begin();
 
 	Viewport viewport;
 	viewport.TopLeftX = 0;
@@ -1224,11 +1226,10 @@ void EmuScreen::renderUI() {
 	viewport.MinDepth = 0.0;
 	thin3d->SetViewports(1, &viewport);
 
-	DrawBuffer *draw2d = screenManager()->getUIContext()->Draw();
-
+	DrawBuffer *draw2d = ctx->Draw();
 	if (root_) {
-		UI::LayoutViewHierarchy(*screenManager()->getUIContext(), root_);
-		root_->Draw(*screenManager()->getUIContext());
+		UI::LayoutViewHierarchy(*ctx, root_);
+		root_->Draw(*ctx);
 	}
 
 	if (g_Config.bShowDebugStats && !invalid_) {
@@ -1240,14 +1241,18 @@ void EmuScreen::renderUI() {
 	}
 
 	if (g_Config.iShowFPSCounter && !invalid_) {
-		DrawFPS(draw2d, screenManager()->getUIContext()->GetBounds());
+		DrawFPS(draw2d, ctx->GetBounds());
+	}
+
+	if (g_Config.iGPUBackend == (int)GPUBackend::VULKAN && g_Config.bShowAllocatorDebug) {
+		DrawAllocatorVis(ctx, gpu);
 	}
 
 	if ((g_Config.bShowFrameProfiler || g_Config.bSimpleFrameStats) && !invalid_) {
-		DrawProfile(*screenManager()->getUIContext());
+		DrawProfile(*ctx);
 	}
 
-	screenManager()->getUIContext()->End();
+	ctx->End();
 }
 
 void EmuScreen::autoLoad() {

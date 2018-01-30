@@ -270,6 +270,7 @@
     <ClInclude Include="D3D11\StateMappingD3D11.h">
       <Filter>D3D11</Filter>
     </ClInclude>
+    <ClInclude Include="Vulkan\DebugVisVulkan.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Math3D.cpp">
@@ -536,5 +537,6 @@
     <ClCompile Include="Common\StencilCommon.cpp">
       <Filter>Common</Filter>
     </ClCompile>
+    <ClCompile Include="Vulkan\DebugVisVulkan.cpp" />
   </ItemGroup>
 </Project>

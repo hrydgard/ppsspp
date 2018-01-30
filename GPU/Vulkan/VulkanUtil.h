@@ -54,6 +54,8 @@ public:
 	Vulkan2D(VulkanContext *vulkan);
 	~Vulkan2D();
 
+	VulkanContext *GetVulkanContext() const { return vulkan_; }
+
 	void DeviceLost();
 	void DeviceRestore(VulkanContext *vulkan);
 	void Shutdown();
