@@ -1,3 +1,4 @@
+#include <cassert>
 #include "base/logging.h"
 #include "base/NativeApp.h"
 #include "gfx_es2/gpu_features.h"

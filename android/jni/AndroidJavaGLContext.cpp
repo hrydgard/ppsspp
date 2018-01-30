@@ -1,3 +1,5 @@
+#include <cassert>
+
 #include "AndroidJavaGLContext.h"
 #include "base/NativeApp.h"
 #include "gfx_es2/gpu_features.h"
