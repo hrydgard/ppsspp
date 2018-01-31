@@ -30,50 +30,6 @@
 #include "GPU/ge_constants.h"
 #include "GPU/GPUState.h"  // only needed for UVScale stuff
 
-#if defined(_M_SSE)
-#include <emmintrin.h>
-
-inline __m128 SSECrossProduct(__m128 a, __m128 b)
-{
-	const __m128 left = _mm_mul_ps(_mm_shuffle_ps(a, a, _MM_SHUFFLE(3, 0, 2, 1)), _mm_shuffle_ps(b, b, _MM_SHUFFLE(3, 1, 0, 2)));
-	const __m128 right = _mm_mul_ps(_mm_shuffle_ps(a, a, _MM_SHUFFLE(3, 1, 0, 2)), _mm_shuffle_ps(b, b, _MM_SHUFFLE(3, 0, 2, 1)));
-	return _mm_sub_ps(left, right);
-}
-
-inline __m128 SSENormalizeMultiplierSSE2(__m128 v)
-{
-	const __m128 sq = _mm_mul_ps(v, v);
-	const __m128 r2 = _mm_shuffle_ps(sq, sq, _MM_SHUFFLE(0, 0, 0, 1));
-	const __m128 r3 = _mm_shuffle_ps(sq, sq, _MM_SHUFFLE(0, 0, 0, 2));
-	const __m128 res = _mm_add_ss(r3, _mm_add_ss(r2, sq));
-
-	const __m128 rt = _mm_rsqrt_ss(res);
-	return _mm_shuffle_ps(rt, rt, _MM_SHUFFLE(0, 0, 0, 0));
-}
-
-#if _M_SSE >= 0x401
-#include <smmintrin.h>
-
-inline __m128 SSENormalizeMultiplierSSE4(__m128 v)
-{
-	return _mm_rsqrt_ps(_mm_dp_ps(v, v, 0xFF));
-}
-
-inline __m128 SSENormalizeMultiplier(bool useSSE4, __m128 v)
-{
-	if (useSSE4)
-		return SSENormalizeMultiplierSSE4(v);
-	return SSENormalizeMultiplierSSE2(v);
-}
-#else
-inline __m128 SSENormalizeMultiplier(bool useSSE4, __m128 v)
-{
-	return SSENormalizeMultiplierSSE2(v);
-}
-#endif
-
-#endif
-
 static void CopyQuadIndex(u16 *&indices, GEPatchPrimType type, const int idx0, const int idx1, const int idx2, const int idx3) {
 	if (type == GE_PATCHPRIM_LINES) {
 		*(indices++) = idx0;
@@ -280,30 +236,6 @@ static void TessellateSplinePatchHardware(u8 *&dest, u16 *indices, int &count, c
 	BuildIndex(indices, count, spatch.tess_u, spatch.tess_v, spatch.primType);
 }
 
-static inline void AccumulateWeighted(Vec3f &out, const Vec3f &in, const Vec4f &w) {
-#ifdef _M_SSE
-	out.vec = _mm_add_ps(out.vec, _mm_mul_ps(in.vec, w.vec));
-#else
-	out += in * w.x;
-#endif
-}
-
-static inline void AccumulateWeighted(Vec4f &out, const Vec4f &in, const Vec4f &w) {
-#ifdef _M_SSE
-	out.vec = _mm_add_ps(out.vec, _mm_mul_ps(in.vec, w.vec));
-#else
-	out += in * w;
-#endif
-}
-
-static inline void AccumulateWeighted(Vec2f &out, const Vec2f &in, const Vec4f &w) {
-#ifdef _M_SSE
-	out.vec = _mm_add_ps(out.vec, _mm_mul_ps(in.vec, w.vec));
-#else
-	out += in * w;
-#endif
-}
-
 template <bool origNrm, bool origCol, bool origTc, bool useSSE4>
 static void SplinePatchFullQuality(u8 *&dest, u16 *indices, int &count, const SplinePatchLocal &spatch, u32 origVertType, int quality, int maxVertices) {
 	// Full (mostly) correct tessellation of spline patches.
@@ -368,13 +300,11 @@ static void SplinePatchFullQuality(u8 *&dest, u16 *indices, int &count, const Sp
 			Vec4f vert_color(0, 0, 0, 0);
 			Vec3f vert_pos;
 			vert_pos.SetZero();
-			Vec3f vert_nrm;
 			Vec3f du, dv;
-			du.SetZero();
-			dv.SetZero();
 			Vec2f vert_tex;
 			if (origNrm) {
-				vert_nrm.SetZero();
+				du.SetZero();
+				dv.SetZero();
 			}
 			if (origCol) {
 				vert_color.SetZero();
@@ -417,11 +347,6 @@ static void SplinePatchFullQuality(u8 *&dest, u16 *indices, int &count, const Sp
 					float f = u_spline * v_spline;
 
 					if (f > 0.0f) {
-#ifdef _M_SSE
-						Vec4f fv(_mm_set_ps1(f));
-#else
-						Vec4f fv = Vec4f::AssignToAll(f);
-#endif
 						int idx = spatch.count_u * (iv + jj) + (iu + ii);
 						/*
 						if (idx >= max_idx) {
@@ -430,30 +355,23 @@ static void SplinePatchFullQuality(u8 *&dest, u16 *indices, int &count, const Sp
 							OutputDebugStringA(temp);
 							Crash();
 						}*/
-						AccumulateWeighted(vert_pos, spatch.pos[idx], fv);
+						vert_pos += spatch.pos[idx] * f;
 						if (origTc) {
-							AccumulateWeighted(vert_tex, spatch.tex[idx], fv);
+							vert_tex += spatch.tex[idx] * f;
 						}
 						if (origCol) {
-							AccumulateWeighted(vert_color, spatch.col[idx], fv);
+							vert_color += spatch.col[idx] * f;
 						}
 						if (origNrm) {
-							AccumulateWeighted(du, spatch.pos[idx], Vec4f::AssignToAll(u_derivs[ii] * v_weights[jj]));
-							AccumulateWeighted(dv, spatch.pos[idx], Vec4f::AssignToAll(u_weights[ii] * v_derivs[jj]));
+							du += spatch.pos[idx] * (u_derivs[ii] * v_weights[jj]);
+							dv += spatch.pos[idx] * (u_weights[ii] * v_derivs[jj]);
 						}
 					}
 				}
 			}
 			vert->pos = vert_pos;
 			if (origNrm) {
-				vert_nrm = Cross(du, dv);
-#ifdef _M_SSE
-				const __m128 normalize = SSENormalizeMultiplier(useSSE4, vert_nrm.vec);
-				vert_nrm.vec = _mm_mul_ps(vert_nrm.vec, normalize);
-#else
-				vert_nrm.Normalize();
-#endif
-				vert->nrm = vert_nrm;
+				vert->nrm = Cross(du, dv).Normalized(useSSE4);
 			} else {
 				vert->nrm.SetZero();
 				vert->nrm.z = 1.0f;
