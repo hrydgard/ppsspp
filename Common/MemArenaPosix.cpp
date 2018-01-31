@@ -102,7 +102,7 @@ void MemArena::ReleaseView(void* view, size_t size) {
 
 u8* MemArena::Find4GBBase() {
 	// Now, create views in high memory where there's plenty of space.
-#if PPSSPP_ARCH(64BIT)
+#if PPSSPP_ARCH(64BIT) && !defined(USE_ADDRESS_SANITIZER)
 	// Very precarious - mmap cannot return an error when trying to map already used pages.
 	// This makes the Windows approach above unusable on Linux, so we will simply pray...
 	return reinterpret_cast<u8*>(0x2300000000ULL);

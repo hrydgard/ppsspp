@@ -114,6 +114,7 @@ option(SIMULATOR "Set to ON when targeting an x86 simulator of an ARM platform" 
 option(USE_FFMPEG "Build with FFMPEG support" ${USE_FFMPEG})
 option(USE_SYSTEM_FFMPEG "Dynamically link against system FFMPEG" ${USE_SYSTEM_FFMPEG})
 option(USE_WAYLAND_WSI "Set to ON to require Wayland support for Vulkan" ${USE_WAYLAND_WSI})
+option(USE_ADDRESS_SANITIZER "Use Clang memory sanitizer" ${USE_ADDRESS_SANITIZER})
 
 if(UNIX AND NOT (APPLE OR ANDROID) AND VULKAN)
 	add_definitions(-DVK_USE_PLATFORM_XLIB_KHR)
@@ -212,6 +213,13 @@ if(NOT MSVC)
 	endif()
 	if (CLANG)
 		set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-switch -Wno-uninitialized")
+	endif()
+
+	if(USE_ADDRESS_SANITIZER)
+		message("Address sanitizer enabled (DEBUG only)")
+		set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS} -fsanitize=address")
+		set(CMAKE_LINKER_FLAGS_DEBUG "${CMAKE_LINKER_FLAGS_DEBUG} -fsanitize=address")
+		add_definitions(-DUSE_ADDRESS_SANITIZER)
 	endif()
 
 	set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -g -D_DEBUG")

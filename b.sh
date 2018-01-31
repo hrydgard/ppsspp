@@ -43,6 +43,9 @@ do
 			export CC=/usr/bin/clang
 			export CXX=/usr/bin/clang++
 			;;
+		--sanitize) echo "Enabling address-sanitizer if available"
+			CMAKE_ARGS="-DUSE_ADDRESS_SANITIZER=ON ${CMAKE_ARGS}"
+			;;
 		*) MAKE_OPT="$1 ${MAKE_OPT}"
 			;;
 	esac
