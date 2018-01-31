@@ -100,110 +100,137 @@ static T Bernstein3D(const T& p0, const T& p1, const T& p2, const T& p3, float w
 	return p0 * w[0] + p1 * w[1] + p2 * w[2] + p3 * w[3];
 }
 
-struct KnotDiv {
-	float _3_0 = 1.0f / 3.0f;
-	float _4_1 = 1.0f / 3.0f;
-	float _5_2 = 1.0f / 3.0f;
-	float _3_1 = 1.0f / 2.0f;
-	float _4_2 = 1.0f / 2.0f;
-	float _3_2 = 1.0f; // Always 1
-};
+class Spline3DWeight {
+private:
+	struct KnotDiv {
+		float _3_0 = 1.0f / 3.0f;
+		float _4_1 = 1.0f / 3.0f;
+		float _5_2 = 1.0f / 3.0f;
+		float _3_1 = 1.0f / 2.0f;
+		float _4_2 = 1.0f / 2.0f;
+		float _3_2 = 1.0f; // Always 1
+	};
 
-// knot should be an array sized n + 5  (n + 1 + 1 + degree (cubic))
-static void spline_knot(int n, int type, float *knots, KnotDiv *divs) {
-	// Basic theory (-2 to +3), optimized with KnotDiv (-2 to +0) 
-//	for (int i = 0; i < n + 5; ++i) {
-	for (int i = 0; i < n + 2; ++i) {
-		knots[i] = (float)i - 2;
+	// knot should be an array sized n + 5  (n + 1 + 1 + degree (cubic))
+	void CalcKnots(int n, int type, float *knots, KnotDiv *divs) {
+		// Basic theory (-2 to +3), optimized with KnotDiv (-2 to +0) 
+	//	for (int i = 0; i < n + 5; ++i) {
+		for (int i = 0; i < n + 2; ++i) {
+			knots[i] = (float)i - 2;
+		}
+
+		// The first edge is open
+		if ((type & 1) != 0) {
+			knots[0] = 0;
+			knots[1] = 0;
+
+			divs[0]._3_0 = 1.0f;
+			divs[0]._4_1 = 1.0f / 2.0f;
+			divs[0]._3_1 = 1.0f;
+			if (n > 1)
+				divs[1]._3_0 = 1.0f / 2.0f;
+		}
+		// The last edge is open
+		if ((type & 2) != 0) {
+			//	knots[n + 2] = (float)n; // Got rid of this line optimized with KnotDiv
+			//	knots[n + 3] = (float)n; // Got rid of this line optimized with KnotDiv
+			//	knots[n + 4] = (float)n; // Got rid of this line optimized with KnotDiv
+			divs[n - 1]._4_1 = 1.0f / 2.0f;
+			divs[n - 1]._5_2 = 1.0f;
+			divs[n - 1]._4_2 = 1.0f;
+			if (n > 1)
+				divs[n - 2]._5_2 = 1.0f / 2.0f;
+		}
 	}
 
-	// The first edge is open
-	if ((type & 1) != 0) {
-		knots[0] = 0;
-		knots[1] = 0;
-
-		divs[0]._3_0 = 1.0f;
-		divs[0]._4_1 = 1.0f / 2.0f;
-		divs[0]._3_1 = 1.0f;
-		if (n > 1)
-			divs[1]._3_0 = 1.0f / 2.0f;
-	}
-	// The last edge is open
-	if ((type & 2) != 0) {
-	//	knots[n + 2] = (float)n; // Got rid of this line optimized with KnotDiv
-	//	knots[n + 3] = (float)n; // Got rid of this line optimized with KnotDiv
-	//	knots[n + 4] = (float)n; // Got rid of this line optimized with KnotDiv
-		divs[n - 1]._4_1 = 1.0f / 2.0f;
-		divs[n - 1]._5_2 = 1.0f;
-		divs[n - 1]._4_2 = 1.0f;
-		if (n > 1)
-			divs[n - 2]._5_2 = 1.0f / 2.0f;
-	}
-}
-
-static void spline_n_4(float t, float *knot, const KnotDiv &div, float *splineVal, float *derivs) {
+	void CalcWeights(float t, const float *knots, const KnotDiv &div, Weight &w) {
 #ifdef _M_SSE
-	const __m128 knot012 = _mm_loadu_ps(knot);
-	const __m128 t012 = _mm_sub_ps(_mm_set_ps1(t), knot012);
-	const __m128 f30_41_52 = _mm_mul_ps(t012, _mm_loadu_ps(&div._3_0));
-	const __m128 f52_31_42 = _mm_mul_ps(t012, _mm_loadu_ps(&div._5_2));
-	const float &f32 = t012.m128_f32[2];
+		const __m128 knot012 = _mm_loadu_ps(knots);
+		const __m128 t012 = _mm_sub_ps(_mm_set_ps1(t), knot012);
+		const __m128 f30_41_52 = _mm_mul_ps(t012, _mm_loadu_ps(&div._3_0));
+		const __m128 f52_31_42 = _mm_mul_ps(t012, _mm_loadu_ps(&div._5_2));
+		const float &f32 = t012.m128_f32[2];
 
-	// Following comments are for explains order of the multiply.
-//	float a = (1-f30)*(1-f31);
-//	float c = (1-f41)*(1-f42);
-//	float b = (  f31 *   f41);
-//	float d = (  f42 *   f52);
-	const __m128 f30_41_31_42 = _mm_shuffle_ps(f30_41_52, f52_31_42, _MM_SHUFFLE(2, 1, 1, 0));
-	const __m128 f31_42_41_52 = _mm_shuffle_ps(f52_31_42, f30_41_52, _MM_SHUFFLE(2, 1, 2, 1));
-	const __m128 c1_1_0_0 = { 1, 1, 0, 0 };
-	const __m128 acbd = _mm_mul_ps(_mm_sub_ps(c1_1_0_0, f30_41_31_42), _mm_sub_ps(c1_1_0_0, f31_42_41_52));
-	const float &a = acbd.m128_f32[0];
-	const float &b = acbd.m128_f32[2];
-	const float &c = acbd.m128_f32[1];
-	const float &d = acbd.m128_f32[3];
+		// Following comments are for explains order of the multiply.
+	//	float a = (1-f30)*(1-f31);
+	//	float c = (1-f41)*(1-f42);
+	//	float b = (  f31 *   f41);
+	//	float d = (  f42 *   f52);
+		const __m128 f30_41_31_42 = _mm_shuffle_ps(f30_41_52, f52_31_42, _MM_SHUFFLE(2, 1, 1, 0));
+		const __m128 f31_42_41_52 = _mm_shuffle_ps(f52_31_42, f30_41_52, _MM_SHUFFLE(2, 1, 2, 1));
+		const __m128 c1_1_0_0 = { 1, 1, 0, 0 };
+		const __m128 acbd = _mm_mul_ps(_mm_sub_ps(c1_1_0_0, f30_41_31_42), _mm_sub_ps(c1_1_0_0, f31_42_41_52));
+		const float &a = acbd.m128_f32[0];
+		const float &b = acbd.m128_f32[2];
+		const float &c = acbd.m128_f32[1];
+		const float &d = acbd.m128_f32[3];
 
-	// For derivative
-	const float &f31 = f30_41_31_42.m128_f32[2];
-	const float &f42 = f30_41_31_42.m128_f32[3];
+		// For derivative
+		const float &f31 = f30_41_31_42.m128_f32[2];
+		const float &f42 = f30_41_31_42.m128_f32[3];
 #else
-	// TODO: Maybe compilers could be coaxed into vectorizing this code without the above explicitly...
-	float t0 = (t - knot[0]);
-	float t1 = (t - knot[1]);
-	float t2 = (t - knot[2]);
+		// TODO: Maybe compilers could be coaxed into vectorizing this code without the above explicitly...
+		float t0 = (t - knots[0]);
+		float t1 = (t - knots[1]);
+		float t2 = (t - knots[2]);
 
-	float f30 = t0 * div._3_0;
-	float f41 = t1 * div._4_1;
-	float f52 = t2 * div._5_2;
-	float f31 = t1 * div._3_1;
-	float f42 = t2 * div._4_2;
-	float f32 = t2 * div._3_2;
+		float f30 = t0 * div._3_0;
+		float f41 = t1 * div._4_1;
+		float f52 = t2 * div._5_2;
+		float f31 = t1 * div._3_1;
+		float f42 = t2 * div._4_2;
+		float f32 = t2 * div._3_2;
 
-	float a = (1-f30)*(1-f31);
-	float b = (f31*f41);
-	float c = (1-f41)*(1-f42);
-	float d = (f42*f52);
+		float a = (1 - f30) * (1 - f31);
+		float b = (f31 * f41);
+		float c = (1 - f41) * (1 - f42);
+		float d = (f42 * f52);
 #endif
+		w.weights[0] = a * (1 - f32); // (1-f30)*(1-f31)*(1-f32)
+		w.weights[1] = 1 - a - b + ((a + b + c - 1) * f32);
+		w.weights[2] = b + ((1 - b - c - d) * f32);
+		w.weights[3] = d * f32; // f32*f42*f52
 
-	splineVal[0] = a-(a*f32);
-	splineVal[1] = 1-a-b+((a+b+c-1)*f32);
-	splineVal[2] = b+((1-b-c-d)*f32);
-	splineVal[3] = d*f32;
+		// Derivative
+		float i1 = (1 - f31) * (1 - f32);
+		float i2 = f31 * (1 - f32) + (1 - f42) * f32;
+		float i3 = f42 * f32;
 
-	// Derivative
-	float i1 = (1 - f31) * (1 - f32);
-	float i2 = f31 * (1 - f32) + (1 - f42) * f32;
-	float i3 = f42 * f32;
+		float f130 = i1 * div._3_0;
+		float f241 = i2 * div._4_1;
+		float f352 = i3 * div._5_2;
 
-	float f130 = i1 * div._3_0;
-	float f241 = i2 * div._4_1;
-	float f352 = i3 * div._5_2;
+		w.derivs[0] = 3 * (0 - f130);
+		w.derivs[1] = 3 * (f130 - f241);
+		w.derivs[2] = 3 * (f241 - f352);
+		w.derivs[3] = 3 * (f352 - 0);
+	}
+public:
+	Weight *CalcWeightsAll(int count, int tess, int type) {
+		const int num_patches = count - 3;
+		Weight *weights = new Weight[tess * num_patches + 1];
 
-	derivs[0] = 3 * (0 - f130);
-	derivs[1] = 3 * (f130 - f241);
-	derivs[2] = 3 * (f241 - f352);
-	derivs[3] = 3 * (f352 - 0);
-}
+	//	float *knots = new float[num_patches + 5];
+		float *knots = new float[num_patches + 2]; // Optimized with KnotDiv, must use +5 in theory 
+		KnotDiv *divs = new KnotDiv[num_patches];
+		CalcKnots(num_patches, type, knots, divs);
+
+		const float inv_tess = 1.0f / (float)tess;
+		for (int i = 0; i < num_patches; ++i) {
+			const int _tess = (i == num_patches - 1) ? (tess + 1) : tess;
+			for (int j = 0; j < _tess; ++j) {
+				const int index = i * tess + j;
+				const float t = (float)index * inv_tess;
+				CalcWeights(t, knots + i, divs[i], weights[index]);
+			}
+		}
+
+		delete[] knots;
+		delete[] divs;
+
+		return weights;
+	}
+};
 
 bool CanUseHardwareTessellation(GEPatchPrimType prim) {
 	if (g_Config.bHardwareTessellation && !g_Config.bSoftwareRendering) {
@@ -241,12 +268,13 @@ static void SplinePatchFullQuality(u8 *&dest, u16 *indices, int &count, const Sp
 	// Full (mostly) correct tessellation of spline patches.
 	// Not very fast.
 
-	float *knot_u = new float[spatch.count_u + 4];
-	float *knot_v = new float[spatch.count_v + 4];
-	KnotDiv *divs_u = new KnotDiv[spatch.count_u - 3];
-	KnotDiv *divs_v = new KnotDiv[spatch.count_v - 3];
-	spline_knot(spatch.count_u - 3, spatch.type_u, knot_u, divs_u);
-	spline_knot(spatch.count_v - 3, spatch.type_v, knot_v, divs_v);
+	Spline3DWeight splineWeight;
+	Weight *weights_u, *weights_v;
+	weights_u = splineWeight.CalcWeightsAll(spatch.count_u, spatch.tess_u, spatch.type_u);
+	if (spatch.count_u == spatch.count_v && spatch.tess_u == spatch.tess_v && spatch.type_u == spatch.type_v)
+		weights_v = weights_u; // Use same weights
+	else
+		weights_v = splineWeight.CalcWeightsAll(spatch.count_v, spatch.tess_v, spatch.type_v);
 
 	// Increase tessellation based on the size. Should be approximately right?
 	int patch_div_s = (spatch.count_u - 3) * spatch.tess_u;
@@ -318,13 +346,6 @@ static void SplinePatchFullQuality(u8 *&dest, u16 *indices, int &count, const Sp
 				vert->uv[1] = tv_height * ((float)tile_v * one_over_patch_div_t);
 			}
 
-
-			// Collect influences from surrounding control points.
-			float u_weights[4];
-			float v_weights[4];
-			float u_derivs[4];
-			float v_derivs[4];
-
 			int iu = (int)u;
 			int iv = (int)v;
 
@@ -333,8 +354,8 @@ static void SplinePatchFullQuality(u8 *&dest, u16 *indices, int &count, const Sp
 			if (iu >= spatch.count_u - 3) iu = spatch.count_u - 4;
 			if (iv >= spatch.count_v - 3) iv = spatch.count_v - 4;
 
-			spline_n_4(u, knot_u + iu, divs_u[iu], u_weights, u_derivs);
-			spline_n_4(v, knot_v + iv, divs_v[iv], v_weights, v_derivs);
+			const Weight &wu = weights_u[tile_u];
+			const Weight &wv = weights_v[tile_v];
 
 			// Handle degenerate patches. without this, spatch.points[] may read outside the number of initialized points.
 			int patch_w = std::min(spatch.count_u - iu, 4);
@@ -342,8 +363,8 @@ static void SplinePatchFullQuality(u8 *&dest, u16 *indices, int &count, const Sp
 
 			for (int ii = 0; ii < patch_w; ++ii) {
 				for (int jj = 0; jj < patch_h; ++jj) {
-					float u_spline = u_weights[ii];
-					float v_spline = v_weights[jj];
+					float u_spline = wu.weights[ii];
+					float v_spline = wv.weights[jj];
 					float f = u_spline * v_spline;
 
 					if (f > 0.0f) {
@@ -363,8 +384,8 @@ static void SplinePatchFullQuality(u8 *&dest, u16 *indices, int &count, const Sp
 							vert_color += spatch.col[idx] * f;
 						}
 						if (origNrm) {
-							du += spatch.pos[idx] * (u_derivs[ii] * v_weights[jj]);
-							dv += spatch.pos[idx] * (u_weights[ii] * v_derivs[jj]);
+							du += spatch.pos[idx] * (wu.derivs[ii] * wv.weights[jj]);
+							dv += spatch.pos[idx] * (wu.weights[ii] * wv.derivs[jj]);
 						}
 					}
 				}
@@ -384,11 +405,6 @@ static void SplinePatchFullQuality(u8 *&dest, u16 *indices, int &count, const Sp
 			}
 		}
 	}
-
-	delete[] knot_u;
-	delete[] knot_v;
-	delete[] divs_u;
-	delete[] divs_v;
 
 	BuildIndex(indices, count, patch_div_s, patch_div_t, spatch.primType);
 }
