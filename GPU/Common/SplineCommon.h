@@ -53,6 +53,7 @@ struct SplinePatchLocal {
 	Vec3f *pos;
 	Vec4f *col;
 	Vec2f *tex;
+	u32_le defcolor;
 	int tess_u;
 	int tess_v;
 	int count_u;

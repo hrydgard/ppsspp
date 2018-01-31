@@ -74,24 +74,6 @@ inline __m128 SSENormalizeMultiplier(bool useSSE4, __m128 v)
 
 #endif
 
-
-#define START_OPEN 1
-#define END_OPEN 2
-
-
-
-static void CopyQuad(u8 *&dest, const SimpleVertex *v1, const SimpleVertex *v2, const SimpleVertex *v3, const SimpleVertex *v4) {
-	int vertexSize = sizeof(SimpleVertex);
-	memcpy(dest, v1, vertexSize);
-	dest += vertexSize;
-	memcpy(dest, v2, vertexSize);
-	dest += vertexSize;
-	memcpy(dest, v3, vertexSize);
-	dest += vertexSize;
-	memcpy(dest, v4, vertexSize);
-	dest += vertexSize;
-}
-
 static void CopyQuadIndex(u16 *&indices, GEPatchPrimType type, const int idx0, const int idx1, const int idx2, const int idx3) {
 	if (type == GE_PATCHPRIM_LINES) {
 		*(indices++) = idx0;
@@ -243,6 +225,7 @@ static void spline_knot(int n, int type, float *knots, KnotDiv *divs) {
 			knots[i] = (float)i - 2;
 		}
 
+		// The first edge is open
 		if ((type & 1) != 0) {
 			knots[0] = 0;
 			knots[1] = 0;
@@ -253,6 +236,7 @@ static void spline_knot(int n, int type, float *knots, KnotDiv *divs) {
 			if (n > 1)
 				divs[1]._3_0 = 1.0f / 2.0f;
 		}
+		// The last edge is open
 		if ((type & 2) != 0) {
 		//	knots[n + 2] = (float)n; // Got rid of this line optimized with KnotDiv
 		//	knots[n + 3] = (float)n; // Got rid of this line optimized with KnotDiv
@@ -296,76 +280,6 @@ static void TessellateSplinePatchHardware(u8 *&dest, u16 *indices, int &count, c
 	BuildIndex(indices, count, spatch.tess_u, spatch.tess_v, spatch.primType);
 }
 
-static void _SplinePatchLowQuality(u8 *&dest, u16 *indices, int &count, const SplinePatchLocal &spatch, u32 origVertType) {
-	// Fast and easy way - just draw the control points, generate some very basic normal vector substitutes.
-	// Very inaccurate but okay for Loco Roco. Maybe should keep it as an option because it's fast.
-
-	const int tile_min_u = (spatch.type_u & START_OPEN) ? 0 : 1;
-	const int tile_min_v = (spatch.type_v & START_OPEN) ? 0 : 1;
-	const int tile_max_u = (spatch.type_u & END_OPEN) ? spatch.count_u - 1 : spatch.count_u - 2;
-	const int tile_max_v = (spatch.type_v & END_OPEN) ? spatch.count_v - 1 : spatch.count_v - 2;
-
-	float tu_width = (float)spatch.count_u - 3.0f;
-	float tv_height = (float)spatch.count_v - 3.0f;
-	tu_width /= (float)(tile_max_u - tile_min_u);
-	tv_height /= (float)(tile_max_v - tile_min_v);
-
-	GEPatchPrimType prim_type = spatch.primType;
-	bool computeNormals = spatch.computeNormals;
-	bool patchFacing = spatch.patchFacing;
-
-	int i = 0;
-	for (int tile_v = tile_min_v; tile_v < tile_max_v; ++tile_v) {
-		for (int tile_u = tile_min_u; tile_u < tile_max_u; ++tile_u) {
-			int point_index = tile_u + tile_v * spatch.count_u;
-
-			SimpleVertex v0 = *spatch.points[point_index];
-			SimpleVertex v1 = *spatch.points[point_index + 1];
-			SimpleVertex v2 = *spatch.points[point_index + spatch.count_u];
-			SimpleVertex v3 = *spatch.points[point_index + spatch.count_u + 1];
-
-			// Generate UV. TODO: Do this even if UV specified in control points?
-			if ((origVertType & GE_VTYPE_TC_MASK) == 0) {
-				float u = (tile_u - tile_min_u) * tu_width;
-				float v = (tile_v - tile_min_v) * tv_height;
-
-				v0.uv[0] = u;
-				v0.uv[1] = v;
-				v1.uv[0] = u + tu_width;
-				v1.uv[1] = v;
-				v2.uv[0] = u;
-				v2.uv[1] = v + tv_height;
-				v3.uv[0] = u + tu_width;
-				v3.uv[1] = v + tv_height;
-			}
-
-			// Generate normal if lighting is enabled (otherwise there's no point).
-			// This is a really poor quality algorithm, we get facet normals.
-			if (computeNormals) {
-				Vec3Packedf norm = Cross(v1.pos - v0.pos, v2.pos - v0.pos);
-				norm.Normalize();
-				if (patchFacing)
-					norm *= -1.0f;
-				v0.nrm = norm;
-				v1.nrm = norm;
-				v2.nrm = norm;
-				v3.nrm = norm;
-			}
-
-			int idx0 = i * 4 + 0;
-			int idx1 = i * 4 + 1;
-			int idx2 = i * 4 + 2;
-			int idx3 = i * 4 + 3;
-			i++;
-
-			CopyQuad(dest, &v0, &v1, &v2, &v3);
-			CopyQuadIndex(indices, prim_type, idx0, idx1, idx2, idx3);
-			count += 6;
-		}
-	}
-
-}
-
 static inline void AccumulateWeighted(Vec3f &out, const Vec3f &in, const Vec4f &w) {
 #ifdef _M_SSE
 	out.vec = _mm_add_ps(out.vec, _mm_mul_ps(in.vec, w.vec));
@@ -405,6 +319,11 @@ static void SplinePatchFullQuality(u8 *&dest, u16 *indices, int &count, const Sp
 	// Increase tessellation based on the size. Should be approximately right?
 	int patch_div_s = (spatch.count_u - 3) * spatch.tess_u;
 	int patch_div_t = (spatch.count_v - 3) * spatch.tess_v;
+	if (quality == 0) {
+		// Low quality
+		patch_div_s = (spatch.count_u - 3) * 2;
+		patch_div_t = (spatch.count_v - 3) * 2;
+	}
 	if (quality > 1) {
 		// Don't cut below 2, though.
 		if (patch_div_s > 2) {
@@ -460,7 +379,7 @@ static void SplinePatchFullQuality(u8 *&dest, u16 *indices, int &count, const Sp
 			if (origCol) {
 				vert_color.SetZero();
 			} else {
-				memcpy(vert->color, spatch.points[0]->color, 4);
+				vert->color_32 = spatch.defcolor;
 			}
 			if (origTc) {
 				vert_tex.SetZero();
@@ -596,7 +515,7 @@ static void SplinePatchFullQualityDispatch(u8 *&dest, u16 *indices, int &count, 
 void TessellateSplinePatch(u8 *&dest, u16 *indices, int &count, const SplinePatchLocal &spatch, u32 origVertType, int maxVertexCount) {
 	switch (g_Config.iSplineBezierQuality) {
 	case LOW_QUALITY:
-		_SplinePatchLowQuality(dest, indices, count, spatch, origVertType);
+		SplinePatchFullQualityDispatch(dest, indices, count, spatch, origVertType, 0, maxVertexCount);
 		break;
 	case MEDIUM_QUALITY:
 		SplinePatchFullQualityDispatch(dest, indices, count, spatch, origVertType, 2, maxVertexCount);
@@ -604,66 +523,6 @@ void TessellateSplinePatch(u8 *&dest, u16 *indices, int &count, const SplinePatc
 	case HIGH_QUALITY:
 		SplinePatchFullQualityDispatch(dest, indices, count, spatch, origVertType, 1, maxVertexCount);
 		break;
-	}
-}
-
-static void _BezierPatchLowQuality(u8 *&dest, u16 *&indices, int &count, int tess_u, int tess_v, const BezierPatch &patch, u32 origVertType) {
-	const float third = 1.0f / 3.0f;
-	// Fast and easy way - just draw the control points, generate some very basic normal vector subsitutes.
-	// Very inaccurate though but okay for Loco Roco. Maybe should keep it as an option.
-
-	float u_base = patch.u_index / 3.0f;
-	float v_base = patch.v_index / 3.0f;
-
-	GEPatchPrimType prim_type = patch.primType;
-
-	for (int tile_v = 0; tile_v < 3; tile_v++) {
-		for (int tile_u = 0; tile_u < 3; tile_u++) {
-			int point_index = tile_u + tile_v * 4;
-
-			SimpleVertex v0 = *patch.points[point_index];
-			SimpleVertex v1 = *patch.points[point_index + 1];
-			SimpleVertex v2 = *patch.points[point_index + 4];
-			SimpleVertex v3 = *patch.points[point_index + 5];
-
-			// Generate UV. TODO: Do this even if UV specified in control points?
-			if ((origVertType & GE_VTYPE_TC_MASK) == 0) {
-				float u = u_base + tile_u * third;
-				float v = v_base + tile_v * third;
-				v0.uv[0] = u;
-				v0.uv[1] = v;
-				v1.uv[0] = u + third;
-				v1.uv[1] = v;
-				v2.uv[0] = u;
-				v2.uv[1] = v + third;
-				v3.uv[0] = u + third;
-				v3.uv[1] = v + third;
-			}
-
-			// Generate normal if lighting is enabled (otherwise there's no point).
-			// This is a really poor quality algorithm, we get facet normals.
-			if (patch.computeNormals) {
-				Vec3Packedf norm = Cross(v1.pos - v0.pos, v2.pos - v0.pos);
-				norm.Normalize();
-				if (patch.patchFacing)
-					norm *= -1.0f;
-				v0.nrm = norm;
-				v1.nrm = norm;
-				v2.nrm = norm;
-				v3.nrm = norm;
-			}
-
-			int total = patch.index * 3 * 3 * 4; // A patch has 3x3 tiles, and each tiles have 4 vertices.
-			int tile_index = tile_u + tile_v * 3;
-			int idx0 = total + tile_index * 4 + 0;
-			int idx1 = total + tile_index * 4 + 1;
-			int idx2 = total + tile_index * 4 + 2;
-			int idx3 = total + tile_index * 4 + 3;
-
-			CopyQuad(dest, &v0, &v1, &v2, &v3);
-			CopyQuadIndex(indices, prim_type, idx0, idx1, idx2, idx3);
-			count += 6;
-		}
 	}
 }
 
@@ -818,7 +677,7 @@ static void TessellateBezierPatchHardware(u8 *&dest, u16 *indices, int &count, i
 void TessellateBezierPatch(u8 *&dest, u16 *&indices, int &count, int tess_u, int tess_v, const BezierPatch &patch, u32 origVertType) {
 	switch (g_Config.iSplineBezierQuality) {
 	case LOW_QUALITY:
-		_BezierPatchLowQuality(dest, indices, count, tess_u, tess_v, patch, origVertType);
+		_BezierPatchHighQuality(dest, indices, count, 2, 2, patch, origVertType);
 		break;
 	case MEDIUM_QUALITY:
 		_BezierPatchHighQuality(dest, indices, count, std::max(tess_u / 2, 1), std::max(tess_v / 2, 1), patch, origVertType);
@@ -917,10 +776,10 @@ void DrawEngineCommon::SubmitSpline(const void *control_points, const void *indi
 	patch.type_v = type_v;
 	patch.count_u = count_u;
 	patch.count_v = count_v;
-	patch.points = points;
 	patch.computeNormals = computeNormals;
 	patch.primType = prim_type;
 	patch.patchFacing = patchFacing;
+	patch.defcolor = points[0]->color_32;
 
 	if (CanUseHardwareTessellation(prim_type)) {
 		tessDataTransfer->SendDataToShader(points, count_u * count_v, origVertType);
