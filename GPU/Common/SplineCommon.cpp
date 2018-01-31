@@ -61,26 +61,27 @@ static void BuildIndex(u16 *indices, int &count, int num_u, int num_v, GEPatchPr
 }
 
 // Bernstein basis functions
-inline float bern0(float x) { return (1 - x) * (1 - x) * (1 - x); }
-inline float bern1(float x) { return 3 * x * (1 - x) * (1 - x); }
-inline float bern2(float x) { return 3 * x * x * (1 - x); }
-inline float bern3(float x) { return x * x * x; }
+void Bernstein3DBasis(float x, float weights[4]) {
+	weights[0] = (1 - x) * (1 - x) * (1 - x);
+	weights[1] = 3 * x * (1 - x) * (1 - x);
+	weights[2] = 3 * x * x * (1 - x);
+	weights[3] = x * x * x;
+}
 
-inline float bern0deriv(float x) { return -3 * (x - 1) * (x - 1); }
-inline float bern1deriv(float x) { return 9 * x * x - 12 * x + 3; }
-inline float bern2deriv(float x) { return 3 * (2 - 3 * x) * x; }
-inline float bern3deriv(float x) { return 3 * x * x; }
+void Bernstein3DDerivative(float x, float derivs[4]) {
+	derivs[0] = -3 * (x - 1) * (x - 1);
+	derivs[1] = 9 * x * x - 12 * x + 3;
+	derivs[2] = 3 * (2 - 3 * x) * x;
+	derivs[3] = 3 * x * x;
+}
 
 // http://en.wikipedia.org/wiki/Bernstein_polynomial
 template<class T>
-static T Bernstein3D(const T& p0, const T& p1, const T& p2, const T& p3, float x) {
-	if (x == 0) return p0;
-	if (x == 1) return p3;
-	return p0 * bern0(x) + p1 * bern1(x) + p2 * bern2(x) + p3 * bern3(x);
-}
-
-static Vec3f Bernstein3DDerivative(const Vec3f& p0, const Vec3f& p1, const Vec3f& p2, const Vec3f& p3, float x) {
-	return p0 * bern0deriv(x) + p1 * bern1deriv(x) + p2 * bern2deriv(x) + p3 * bern3deriv(x);
+static T Bernstein3D(const T& p0, const T& p1, const T& p2, const T& p3, float w[4]) {
+	if (w[0] == 1) return p0;
+	if (w[3] == 1) return p3;
+	// Linear combination
+	return p0 * w[0] + p1 * w[1] + p2 * w[2] + p3 * w[3];
 }
 
 struct KnotDiv {
@@ -441,12 +442,8 @@ struct PrecomputedCurves {
 		FreeAlignedMemory(horiz1);
 	}
 
-	T Bernstein3D(int u, float bv) {
-		return ::Bernstein3D(horiz1[u], horiz2[u], horiz3[u], horiz4[u], bv);
-	}
-
-	T Bernstein3DDerivative(int u, float bv) {
-		return ::Bernstein3DDerivative(horiz1[u], horiz2[u], horiz3[u], horiz4[u], bv);
+	T Bernstein3D(int u, float w[4]) {
+		return ::Bernstein3D(horiz1[u], horiz2[u], horiz3[u], horiz4[u], w);
 	}
 
 	T *horiz1;
@@ -484,31 +481,34 @@ static void _BezierPatchHighQuality(u8 *&dest, u16 *&indices, int &count, int te
 				_col[point] = &patch.col[idx];
 				_tex[point] = &patch.tex[idx];
 			}
+			float weights[4], derivs[4];
 			for (int i = 0; i < tess_u + 1; i++) {
 				float u = ((float)i / (float)tess_u);
-				prepos.horiz1[i] = Bernstein3D(*_pos[0], *_pos[1], *_pos[2], *_pos[3], u);
-				prepos.horiz2[i] = Bernstein3D(*_pos[4], *_pos[5], *_pos[6], *_pos[7], u);
-				prepos.horiz3[i] = Bernstein3D(*_pos[8], *_pos[9], *_pos[10], *_pos[11], u);
-				prepos.horiz4[i] = Bernstein3D(*_pos[12], *_pos[13], *_pos[14], *_pos[15], u);
+				Bernstein3DBasis(u, weights);
+				prepos.horiz1[i] = Bernstein3D(*_pos[0], *_pos[1], *_pos[2], *_pos[3], weights);
+				prepos.horiz2[i] = Bernstein3D(*_pos[4], *_pos[5], *_pos[6], *_pos[7], weights);
+				prepos.horiz3[i] = Bernstein3D(*_pos[8], *_pos[9], *_pos[10], *_pos[11], weights);
+				prepos.horiz4[i] = Bernstein3D(*_pos[12], *_pos[13], *_pos[14], *_pos[15], weights);
 
 				if (sampleColors) {
-					precol.horiz1[i] = Bernstein3D(*_col[0], *_col[1], *_col[2], *_col[3], u);
-					precol.horiz2[i] = Bernstein3D(*_col[4], *_col[5], *_col[6], *_col[7], u);
-					precol.horiz3[i] = Bernstein3D(*_col[8], *_col[9], *_col[10], *_col[11], u);
-					precol.horiz4[i] = Bernstein3D(*_col[12], *_col[13], *_col[14], *_col[15], u);
+					precol.horiz1[i] = Bernstein3D(*_col[0], *_col[1], *_col[2], *_col[3], weights);
+					precol.horiz2[i] = Bernstein3D(*_col[4], *_col[5], *_col[6], *_col[7], weights);
+					precol.horiz3[i] = Bernstein3D(*_col[8], *_col[9], *_col[10], *_col[11], weights);
+					precol.horiz4[i] = Bernstein3D(*_col[12], *_col[13], *_col[14], *_col[15], weights);
 				}
 				if (sampleTexcoords) {
-					pretex.horiz1[i] = Bernstein3D(*_tex[0], *_tex[1], *_tex[2], *_tex[3], u);
-					pretex.horiz2[i] = Bernstein3D(*_tex[4], *_tex[5], *_tex[6], *_tex[7], u);
-					pretex.horiz3[i] = Bernstein3D(*_tex[8], *_tex[9], *_tex[10], *_tex[11], u);
-					pretex.horiz4[i] = Bernstein3D(*_tex[12], *_tex[13], *_tex[14], *_tex[15], u);
+					pretex.horiz1[i] = Bernstein3D(*_tex[0], *_tex[1], *_tex[2], *_tex[3], weights);
+					pretex.horiz2[i] = Bernstein3D(*_tex[4], *_tex[5], *_tex[6], *_tex[7], weights);
+					pretex.horiz3[i] = Bernstein3D(*_tex[8], *_tex[9], *_tex[10], *_tex[11], weights);
+					pretex.horiz4[i] = Bernstein3D(*_tex[12], *_tex[13], *_tex[14], *_tex[15], weights);
 				}
 
 				if (computeNormals) {
-					prederivU.horiz1[i] = Bernstein3DDerivative(*_pos[0], *_pos[1], *_pos[2], *_pos[3], u);
-					prederivU.horiz2[i] = Bernstein3DDerivative(*_pos[4], *_pos[5], *_pos[6], *_pos[7], u);
-					prederivU.horiz3[i] = Bernstein3DDerivative(*_pos[8], *_pos[9], *_pos[10], *_pos[11], u);
-					prederivU.horiz4[i] = Bernstein3DDerivative(*_pos[12], *_pos[13], *_pos[14], *_pos[15], u);
+					Bernstein3DDerivative(u, derivs);
+					prederivU.horiz1[i] = Bernstein3D(*_pos[0], *_pos[1], *_pos[2], *_pos[3], derivs);
+					prederivU.horiz2[i] = Bernstein3D(*_pos[4], *_pos[5], *_pos[6], *_pos[7], derivs);
+					prederivU.horiz3[i] = Bernstein3D(*_pos[8], *_pos[9], *_pos[10], *_pos[11], derivs);
+					prederivU.horiz4[i] = Bernstein3D(*_pos[12], *_pos[13], *_pos[14], *_pos[15], derivs);
 				}
 			}
 
@@ -516,13 +516,14 @@ static void _BezierPatchHighQuality(u8 *&dest, u16 *&indices, int &count, int te
 				for (int tile_u = 0; tile_u < tess_u + 1; ++tile_u) {
 					float u = ((float)tile_u / (float)tess_u);
 					float v = ((float)tile_v / (float)tess_v);
-					float bv = v;
 
 					SimpleVertex &vert = vertices[tile_v * (tess_u + 1) + tile_u];
 
+					Bernstein3DBasis(v, weights);
 					if (computeNormals) {
-						const Vec3f derivU = prederivU.Bernstein3D(tile_u, bv);
-						const Vec3f derivV = prepos.Bernstein3DDerivative(tile_u, bv);
+						Bernstein3DDerivative(v, derivs);
+						const Vec3f derivU = prederivU.Bernstein3D(tile_u, weights);
+						const Vec3f derivV = prepos.Bernstein3D(tile_u, derivs);
 
 						vert.nrm = Cross(derivU, derivV).Normalized();
 						if (patch.patchFacing)
@@ -531,7 +532,7 @@ static void _BezierPatchHighQuality(u8 *&dest, u16 *&indices, int &count, int te
 						vert.nrm.SetZero();
 					}
 
-					vert.pos = prepos.Bernstein3D(tile_u, bv);
+					vert.pos = prepos.Bernstein3D(tile_u, weights);
 
 					if (!sampleTexcoords) {
 						// Generate texcoord
@@ -539,13 +540,13 @@ static void _BezierPatchHighQuality(u8 *&dest, u16 *&indices, int &count, int te
 						vert.uv[1] = v + patch_u * third;
 					} else {
 						// Sample UV from control points
-						const Vec2f res = pretex.Bernstein3D(tile_u, bv);
+						const Vec2f res = pretex.Bernstein3D(tile_u, weights);
 						vert.uv[0] = res.x;
 						vert.uv[1] = res.y;
 					}
 
 					if (sampleColors) {
-						vert.color_32 = precol.Bernstein3D(tile_u, bv).ToRGBA();
+						vert.color_32 = precol.Bernstein3D(tile_u, weights).ToRGBA();
 					} else {
 						vert.color_32 = patch.defcolor;
 					}
