@@ -16,6 +16,7 @@
 #include "net/resolve.h"
 #include "ui/screen.h"
 #include "thin3d/thin3d.h"
+#include "thin3d/GLRenderManager.h"
 #include "input/keycodes.h"
 #include "gfx_es2/gpu_features.h"
 
@@ -30,23 +31,36 @@
 #define IS_IPAD() ([UIDevice currentDevice].userInterfaceIdiom == UIUserInterfaceIdiomPad)
 #define IS_IPHONE() ([UIDevice currentDevice].userInterfaceIdiom == UIUserInterfaceIdiomPhone)
 
-class IOSDummyGraphicsContext : public DummyGraphicsContext {
+class IOSGraphicsContext : public DummyGraphicsContext {
 public:
-	IOSDummyGraphicsContext() {
+	IOSGraphicsContext() {
 		CheckGLExtensions();
 		draw_ = Draw::T3DCreateGLContext();
+		renderManager_ = (GLRenderManager *)draw_->GetNativeObject(Draw::NativeObject::RENDER_MANAGER);
 		SetGPUBackend(GPUBackend::OPENGL);
 		bool success = draw_->CreatePresets();
 		assert(success);
 	}
-	~IOSDummyGraphicsContext() {
+	~IOSGraphicsContext() {
 		delete draw_;
 	}
 	Draw::DrawContext *GetDrawContext() override {
 		return draw_;
 	}
+	void ThreadStart() override {
+		renderManager_->ThreadStart();
+	}
+
+	bool ThreadFrame() override {
+		return renderManager_->ThreadFrame();
+	}
+
+	void ThreadEnd() override {
+		renderManager_->ThreadEnd();
+	}
 private:
 	Draw::DrawContext *draw_;
+	GLRenderManager *renderManager_;
 };
 
 static float dp_xscale = 1.0f;
@@ -55,6 +69,7 @@ static float dp_yscale = 1.0f;
 static double lastSelectPress = 0.0f;
 static double lastStartPress = 0.0f;
 static bool simulateAnalog = false;
+static bool threadEnabled = true;
 
 __unsafe_unretained static ViewController* sharedViewController;
 static GraphicsContext *graphicsContext;
@@ -153,9 +168,10 @@ static GraphicsContext *graphicsContext;
 	pixel_in_dps_x = (float)pixel_xres / (float)dp_xres;
 	pixel_in_dps_y = (float)pixel_yres / (float)dp_yres;
 
-	graphicsContext = new IOSDummyGraphicsContext();
-
+	graphicsContext = new IOSGraphicsContext();
+	
 	NativeInitGraphics(graphicsContext);
+	graphicsContext->ThreadStart();
 
 	dp_xscale = (float)dp_xres / (float)pixel_xres;
 	dp_yscale = (float)dp_yres / (float)pixel_yres;
@@ -172,6 +188,14 @@ static GraphicsContext *graphicsContext;
 		}
 	}
 #endif
+	
+	dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_HIGH, 0), ^{
+		while (threadEnabled) {
+			NativeUpdate();
+			NativeRender(graphicsContext);
+			time_update();
+		}
+	});
 }
 
 - (void)didReceiveMemoryWarning
@@ -195,6 +219,8 @@ static GraphicsContext *graphicsContext;
 		self.gameController = nil;
 	}
 #endif
+	threadEnabled = false;
+	graphicsContext->ThreadEnd();
 	NativeShutdownGraphics();
 	graphicsContext->Shutdown();
 	delete graphicsContext;
@@ -216,9 +242,7 @@ static GraphicsContext *graphicsContext;
 
 - (void)glkView:(GLKView *)view drawInRect:(CGRect)rect
 {
-	NativeUpdate();
-	NativeRender(graphicsContext);
-	time_update();
+	graphicsContext->ThreadFrame();
 }
 
 - (void)touchX:(float)x y:(float)y code:(int)code pointerId:(int)pointerId

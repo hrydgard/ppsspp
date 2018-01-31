@@ -10,6 +10,7 @@
 
 #include "Common/Log.h"
 #include "Common/StringUtils.h"
+#include "Common/GraphicsContext.h"
 #include "Windows/EmuThread.h"
 #include "Windows/W32Util/Misc.h"
 #include "Windows/MainWindow.h"
@@ -27,7 +28,20 @@ static std::mutex emuThreadLock;
 static std::thread emuThread;
 static std::atomic<int> emuThreadState;
 
+static std::mutex renderThreadLock;
+static std::thread renderThread;
+static std::atomic<int> renderThreadReady;
+
+static bool useRenderThread;
+static bool renderThreadFailed;
+static bool renderThreadSucceeded;
+static std::string g_error_message;
+
 extern std::vector<std::wstring> GetWideCmdLine();
+
+class GraphicsContext;
+
+static GraphicsContext *g_graphicsContext;
 
 enum EmuThreadStatus : int {
 	THREAD_NONE = 0,
@@ -38,10 +52,15 @@ enum EmuThreadStatus : int {
 };
 
 void EmuThreadFunc();
+void RenderThreadFunc();
 
-void EmuThread_Start() {
+void EmuThread_Start(bool separateRenderThread) {
 	std::lock_guard<std::mutex> guard(emuThreadLock);
 	emuThread = std::thread(&EmuThreadFunc);
+	useRenderThread = separateRenderThread;
+	if (useRenderThread) {
+		renderThread = std::thread(&RenderThreadFunc);
+	}
 }
 
 void EmuThread_Stop() {
@@ -56,12 +75,41 @@ void EmuThread_Stop() {
 	Core_Stop();
 	Core_WaitInactive(800);
 	emuThread.join();
+	if (useRenderThread) {
+		renderThread.join();
+	}
 
 	PostMessage(MainWindow::GetHWND(), MainWindow::WM_USER_UPDATE_UI, 0, 0);
 }
 
 bool EmuThread_Ready() {
 	return emuThreadState == THREAD_CORE_LOOP;
+}
+
+void RenderThreadFunc() {
+	setCurrentThreadName("Render");
+	renderThreadFailed = false;
+	renderThreadSucceeded = false;
+	while (!g_graphicsContext) {
+		sleep_ms(10);
+		continue;
+	}
+
+	std::string error_message;
+	if (!g_graphicsContext->InitFromRenderThread(&error_message)) {
+		g_error_message = error_message;
+		renderThreadFailed = true;
+		return;
+	} else {
+		renderThreadSucceeded = true;
+	}
+
+	g_graphicsContext->ThreadStart();
+	while (g_graphicsContext->ThreadFrame()) {
+		continue;
+	}
+	g_graphicsContext->ThreadEnd();
+	g_graphicsContext->ShutdownFromRenderThread();
 }
 
 void EmuThreadFunc() {
@@ -87,10 +135,25 @@ void EmuThreadFunc() {
 
 	host->UpdateUI();
 
-	GraphicsContext *graphicsContext = nullptr;
-
 	std::string error_string;
-	if (!host->InitGraphics(&error_string, &graphicsContext)) {
+	bool success = host->InitGraphics(&error_string, &g_graphicsContext);
+
+	if (success) {
+		if (!useRenderThread) {
+			// This is also the render thread.
+			success = g_graphicsContext->InitFromRenderThread(&error_string);
+		} else {
+			while (!renderThreadFailed && !renderThreadSucceeded) {
+				sleep_ms(10);
+			}
+			success = renderThreadSucceeded;
+			if (!success) {
+				error_string = g_error_message;
+			}
+		}
+	}
+
+	if (!success) {
 		// Before anything: are we restarting right now?
 		if (performingRestart) {
 			// Okay, switching graphics didn't work out.  Probably a driver bug - fallback to restart.
@@ -139,7 +202,7 @@ void EmuThreadFunc() {
 		exit(1);
 	}
 
-	NativeInitGraphics(graphicsContext);
+	NativeInitGraphics(g_graphicsContext);
 	NativeResized();
 
 	INFO_LOG(BOOT, "Done.");
@@ -162,17 +225,18 @@ void EmuThreadFunc() {
 		// This way they can load a new game.
 		if (!Core_IsActive())
 			UpdateUIState(UISTATE_MENU);
-		Core_Run(graphicsContext);
+		Core_Run(g_graphicsContext);
 	}
 
 shutdown:
 	emuThreadState = THREAD_SHUTDOWN;
 
 	NativeShutdownGraphics();
+	if (!useRenderThread)
+		g_graphicsContext->ShutdownFromRenderThread();
 
 	// NativeShutdown deletes the graphics context through host->ShutdownGraphics().
 	NativeShutdown();
 	emuThreadState = THREAD_END;
 }
-
 

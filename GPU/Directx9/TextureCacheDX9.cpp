@@ -171,7 +171,6 @@ void TextureCacheDX9::UpdateSamplingParams(TexCacheEntry &entry, bool force) {
 			dxstate.texMaxMipLevel.set(0);
 			dxstate.texMipLodBias.set(0.0f);
 		}
-		entry.lodBias = lodBias;
 	} else {
 		dxstate.texMaxMipLevel.set(0);
 		dxstate.texMipLodBias.set(0.0f);

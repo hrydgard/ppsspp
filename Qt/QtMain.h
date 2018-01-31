@@ -19,6 +19,8 @@ QTM_USE_NAMESPACE
 #endif
 
 #include <cassert>
+#include <atomic>
+#include <thread>
 
 #include "base/display.h"
 #include "base/logging.h"
@@ -37,6 +39,7 @@ QTM_USE_NAMESPACE
 #include "Core/Core.h"
 #include "Core/Config.h"
 #include "Core/System.h"
+#include "thin3d/GLRenderManager.h"
 
 // Input
 void SimulateGamepad();
@@ -47,21 +50,48 @@ public:
 		CheckGLExtensions();
 		draw_ = Draw::T3DCreateGLContext();
 		SetGPUBackend(GPUBackend::OPENGL);
+		renderManager_ = (GLRenderManager *)draw_->GetNativeObject(Draw::NativeObject::RENDER_MANAGER);
 		bool success = draw_->CreatePresets();
 		assert(success);
 	}
+
 	~QtDummyGraphicsContext() {
 		delete draw_;
+		draw_ = nullptr;
+		renderManager_ = nullptr;
 	}
 
 	Draw::DrawContext *GetDrawContext() override {
 		return draw_;
 	}
+
+	void ThreadStart() override {
+		renderManager_->ThreadStart();
+	}
+
+	bool ThreadFrame() override {
+		return renderManager_->ThreadFrame();
+	}
+
+	void ThreadEnd() override {
+		renderManager_->ThreadEnd();
+	}
+
 private:
-	Draw::DrawContext *draw_;
+	Draw::DrawContext *draw_ = nullptr;
+	GLRenderManager *renderManager_ = nullptr;
 };
 
-//GUI
+enum class EmuThreadState {
+	DISABLED,
+	START_REQUESTED,
+	RUNNING,
+	QUIT_REQUESTED,
+	STOPPED,
+};
+
+
+// GUI, thread manager
 class MainUI : public QGLWidget
 {
 	Q_OBJECT
@@ -87,6 +117,10 @@ protected:
 
 	void updateAccelerometer();
 
+	void EmuThreadFunc();
+	void EmuThreadStart();
+	void EmuThreadStop();
+
 private:
 	QtDummyGraphicsContext *graphicsContext;
 
@@ -94,6 +128,11 @@ private:
 #if defined(MOBILE_DEVICE)
 	QAccelerometer* acc;
 #endif
+
+	std::thread emuThread;
+	std::atomic<int> emuThreadState;
+
+	bool useThread_ = false;
 };
 
 extern MainUI* emugl;

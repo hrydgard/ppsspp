@@ -7,13 +7,16 @@
 #include "GL/GLInterface/EGLAndroid.h"
 #include "Core/System.h"
 
-bool AndroidEGLGraphicsContext::Init(ANativeWindow *wnd, int backbufferWidth, int backbufferHeight, int backbufferFormat, int androidVersion) {
+bool AndroidEGLGraphicsContext::InitFromRenderThread(ANativeWindow *wnd, int desiredBackbufferSizeX, int desiredBackbufferSizeY, int backbufferFormat, int androidVersion) {
+	ILOG("AndroidEGLGraphicsContext::Init()");
 	wnd_ = wnd;
 	gl = HostGL_CreateGLInterface();
 	if (!gl) {
 		ELOG("ERROR: Failed to create GL interface");
 		return false;
 	}
+	int backbufferWidth = desiredBackbufferSizeX;
+	int backbufferHeight = desiredBackbufferSizeY;
 	ILOG("EGL interface created. Desired backbuffer size: %dx%d", backbufferWidth, backbufferHeight);
 
 	// Apparently we still have to set this through Java through setFixedSize on the bufferHolder for it to take effect...

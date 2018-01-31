@@ -830,7 +830,14 @@ if(ANDROID)
 	set(nativeExtra ${nativeExtra} ${NativeAppSource})
 endif()
 
-set(THIN3D_PLATFORMS ext/native/thin3d/thin3d_gl.cpp)
+set(THIN3D_PLATFORMS ext/native/thin3d/thin3d_gl.cpp
+	ext/native/thin3d/GLRenderManager.cpp
+	ext/native/thin3d/GLRenderManager.h
+	ext/native/thin3d/GLQueueRunner.cpp
+	ext/native/thin3d/GLQueueRunner.h
+	ext/native/thin3d/DataFormatGL.cpp
+	ext/native/thin3d/DataFormatGL.h)
+
 set(THIN3D_PLATFORMS ${THIN3D_PLATFORMS}
 	ext/native/thin3d/thin3d_vulkan.cpp
 	ext/native/thin3d/VulkanRenderManager.cpp
@@ -887,8 +894,6 @@ add_library(native STATIC
 	ext/native/file/vfs.h
 	ext/native/file/zip_read.cpp
 	ext/native/file/zip_read.h
-	ext/native/gfx/GLStateCache.cpp
-	ext/native/gfx/GLStateCache.h
 	ext/native/gfx/gl_common.h
 	ext/native/gfx/gl_debug_log.cpp
 	ext/native/gfx/gl_debug_log.h

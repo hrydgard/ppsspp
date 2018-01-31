@@ -75,7 +75,6 @@ LOCAL_SRC_FILES :=\
     gfx_es2/draw_buffer.cpp.arm \
     gfx_es2/draw_text.cpp.arm \
     gfx_es2/draw_text_android.cpp.arm \
-    gfx/GLStateCache.cpp.arm \
     gfx/gl_debug_log.cpp \
     gfx/texture_atlas.cpp \
     image/zim_load.cpp \
@@ -84,8 +83,11 @@ LOCAL_SRC_FILES :=\
     thin3d/thin3d.cpp \
     thin3d/thin3d_gl.cpp \
     thin3d/thin3d_vulkan.cpp \
+    thin3d/GLRenderManager.cpp \
+    thin3d/GLQueueRunner.cpp \
     thin3d/VulkanRenderManager.cpp \
     thin3d/VulkanQueueRunner.cpp \
+    thin3d/DataFormatGL.cpp \
     ui/view.cpp \
     ui/viewgroup.cpp \
     ui/ui.cpp \

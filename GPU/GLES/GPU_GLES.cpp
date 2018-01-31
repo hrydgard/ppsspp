@@ -36,7 +36,6 @@
 #include "GPU/GeDisasm.h"
 #include "GPU/Common/FramebufferCommon.h"
 
-#include "ext/native/gfx/GLStateCache.h"
 #include "GPU/GLES/ShaderManagerGLES.h"
 #include "GPU/GLES/GPU_GLES.h"
 #include "GPU/GLES/FramebufferManagerGLES.h"
@@ -79,12 +78,14 @@ static const GLESCommandTableEntry commandTable[] = {
 GPU_GLES::CommandInfo GPU_GLES::cmdInfo_[256];
 
 GPU_GLES::GPU_GLES(GraphicsContext *gfxCtx, Draw::DrawContext *draw)
-: GPUCommon(gfxCtx, draw) {
+: GPUCommon(gfxCtx, draw), drawEngine_(draw), fragmentTestCache_(draw), depalShaderCache_(draw) {
 	UpdateVsyncInterval(true);
 	CheckGPUFeatures();
 
-	shaderManagerGL_ = new ShaderManagerGLES();
-	framebufferManagerGL_ = new FramebufferManagerGLES(draw);
+	GLRenderManager *render = (GLRenderManager *)draw->GetNativeObject(Draw::NativeObject::RENDER_MANAGER);
+
+	shaderManagerGL_ = new ShaderManagerGLES(render);
+	framebufferManagerGL_ = new FramebufferManagerGLES(draw, render);
 	framebufferManager_ = framebufferManagerGL_;
 	textureCacheGL_ = new TextureCacheGLES(draw);
 	textureCache_ = textureCacheGL_;
@@ -158,10 +159,6 @@ GPU_GLES::GPU_GLES(GraphicsContext *gfxCtx, Draw::DrawContext *draw)
 	// Update again after init to be sure of any silly driver problems.
 	UpdateVsyncInterval(true);
 
-	// Some of our defaults are different from hw defaults, let's assert them.
-	// We restore each frame anyway, but here is convenient for tests.
-	glstate.Restore();
-	drawEngine_.RestoreVAO();
 	textureCacheGL_->NotifyConfigChanged();
 
 	// Load shader cache.
@@ -187,6 +184,10 @@ GPU_GLES::GPU_GLES(GraphicsContext *gfxCtx, Draw::DrawContext *draw)
 }
 
 GPU_GLES::~GPU_GLES() {
+	GLRenderManager *render = (GLRenderManager *)draw_->GetNativeObject(Draw::NativeObject::RENDER_MANAGER);
+	render->Wipe();
+	render->WaitUntilQueueIdle();
+
 	framebufferManagerGL_->DestroyAllFBOs();
 	shaderManagerGL_->ClearCache(true);
 	depalShaderCache_.Clear();
@@ -298,9 +299,6 @@ void GPU_GLES::CheckGPUFeatures() {
 	if (gl_extensions.OES_texture_npot)
 		features |= GPU_SUPPORTS_OES_TEXTURE_NPOT;
 
-	if (gl_extensions.EXT_unpack_subimage)
-		features |= GPU_SUPPORTS_UNPACK_SUBIMAGE;
-
 	if (gl_extensions.EXT_blend_minmax)
 		features |= GPU_SUPPORTS_BLEND_MINMAX;
 
@@ -322,8 +320,7 @@ void GPU_GLES::CheckGPUFeatures() {
 	if (instanceRendering)
 		features |= GPU_SUPPORTS_INSTANCE_RENDERING;
 
-	int maxVertexTextureImageUnits;
-	glGetIntegerv(GL_MAX_VERTEX_TEXTURE_IMAGE_UNITS, &maxVertexTextureImageUnits);
+	int maxVertexTextureImageUnits = gl_extensions.maxVertexTextureUnits;
 	if (maxVertexTextureImageUnits >= 3) // At least 3 for hardware tessellation
 		features |= GPU_SUPPORTS_VERTEX_TEXTURE_FETCH;
 
@@ -368,30 +365,24 @@ bool GPU_GLES::IsReady() {
 	return shaderManagerGL_->ContinuePrecompile();
 }
 
-// Let's avoid passing nulls into snprintf().
-static const char *GetGLStringAlways(GLenum name) {
-	const GLubyte *value = glGetString(name);
-	if (!value)
-		return "?";
-	return (const char *)value;
-}
-
 // Needs to be called on GPU thread, not reporting thread.
 void GPU_GLES::BuildReportingInfo() {
-	const char *glVendor = GetGLStringAlways(GL_VENDOR);
-	const char *glRenderer = GetGLStringAlways(GL_RENDERER);
-	const char *glVersion = GetGLStringAlways(GL_VERSION);
-	const char *glSlVersion = GetGLStringAlways(GL_SHADING_LANGUAGE_VERSION);
-	const char *glExtensions = nullptr;
+	GLRenderManager *render = (GLRenderManager *)draw_->GetNativeObject(Draw::NativeObject::RENDER_MANAGER);
+
+	std::string glVendor = render->GetGLString(GL_VENDOR);
+	std::string glRenderer = render->GetGLString(GL_RENDERER);
+	std::string glVersion = render->GetGLString(GL_VERSION);
+	std::string glSlVersion = render->GetGLString(GL_SHADING_LANGUAGE_VERSION);
+	std::string glExtensions;
 
 	if (gl_extensions.VersionGEThan(3, 0)) {
-		glExtensions = g_all_gl_extensions.c_str();
+		glExtensions = g_all_gl_extensions;
 	} else {
-		glExtensions = GetGLStringAlways(GL_EXTENSIONS);
+		glExtensions = render->GetGLString(GL_EXTENSIONS);
 	}
 
 	char temp[16384];
-	snprintf(temp, sizeof(temp), "%s (%s %s), %s (extensions: %s)", glVersion, glVendor, glRenderer, glSlVersion, glExtensions);
+	snprintf(temp, sizeof(temp), "%s (%s %s), %s (extensions: %s)", glVersion.c_str(), glVendor.c_str(), glRenderer.c_str(), glSlVersion.c_str(), glExtensions.c_str());
 	reportingPrimaryInfo_ = glVendor;
 	reportingFullInfo_ = temp;
 
@@ -401,6 +392,10 @@ void GPU_GLES::BuildReportingInfo() {
 void GPU_GLES::DeviceLost() {
 	ILOG("GPU_GLES: DeviceLost");
 
+	// Simply drop all caches and textures.
+	// FBOs appear to survive? Or no?
+	// TransformDraw has registered as a GfxResourceHolder.
+	drawEngine_.ClearInputLayoutMap();
 	shaderManagerGL_->ClearCache(false);
 	textureCacheGL_->Clear(false);
 	fragmentTestCache_.Clear(false);
@@ -429,14 +424,6 @@ void GPU_GLES::Reinitialize() {
 }
 
 void GPU_GLES::InitClear() {
-	bool useNonBufferedRendering = g_Config.iRenderingMode == FB_NON_BUFFERED_MODE;
-	if (useNonBufferedRendering) {
-		glstate.depthWrite.set(GL_TRUE);
-		glstate.colorMask.set(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
-		glClearColor(0,0,0,1);
-		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
-	}
-	glstate.viewport.set(0, 0, PSP_CoreParameter().pixelWidth, PSP_CoreParameter().pixelHeight);
 }
 
 void GPU_GLES::BeginHostFrame() {
@@ -449,6 +436,12 @@ void GPU_GLES::BeginHostFrame() {
 		shaderManagerGL_->DirtyShader();
 		textureCacheGL_->NotifyConfigChanged();
 	}
+
+	drawEngine_.BeginFrame();
+}
+
+void GPU_GLES::EndHostFrame() {
+	drawEngine_.EndFrame();
 }
 
 inline void GPU_GLES::UpdateVsyncInterval(bool force) {
@@ -489,8 +482,6 @@ void GPU_GLES::UpdateCmdInfo() {
 }
 
 void GPU_GLES::ReapplyGfxState() {
-	drawEngine_.RestoreVAO();
-	glstate.Restore();
 	GPUCommon::ReapplyGfxState();
 }
 
@@ -500,7 +491,6 @@ void GPU_GLES::BeginFrame() {
 
 	textureCacheGL_->StartFrame();
 	drawEngine_.DecimateTrackedVertexArrays();
-	drawEngine_.DecimateBuffers();
 	depalShaderCache_.Decimate();
 	fragmentTestCache_.Decimate();
 
@@ -550,9 +540,6 @@ void GPU_GLES::CopyDisplayToOutput() {
 	drawEngine_.Flush();
 
 	shaderManagerGL_->DirtyLastShader();
-
-	glstate.depthWrite.set(GL_TRUE);
-	glstate.colorMask.set(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
 
 	framebufferManagerGL_->CopyDisplayToOutput();
 	framebufferManagerGL_->EndFrame();
@@ -762,8 +749,6 @@ void GPU_GLES::ClearShaderCache() {
 void GPU_GLES::CleanupBeforeUI() {
 	// Clear any enabled vertex arrays.
 	shaderManagerGL_->DirtyLastShader();
-	glstate.arrayBuffer.bind(0);
-	glstate.elementArrayBuffer.bind(0);
 }
 
 void GPU_GLES::DoState(PointerWrap &p) {

@@ -170,6 +170,7 @@ protected:
 			colStride = 4;
 		}
 		virtual void SendDataToShader(const float *pos, const float *tex, const float *col, int size, bool hasColor, bool hasTexCoords) = 0;
+		virtual void EndFrame() {}
 	};
 	TessellationDataTransfer *tessDataTransfer;
 };

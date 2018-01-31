@@ -16,9 +16,9 @@
 #include <jni.h>
 
 TextDrawerAndroid::TextDrawerAndroid(Draw::DrawContext *draw) : TextDrawer(draw) {
-	env_ = jniEnvGraphics;
+	env_ = getEnv();
 	const char *textRendererClassName = "org/ppsspp/ppsspp/TextRenderer";
-	jclass localClass = env_->FindClass(textRendererClassName);
+	jclass localClass = findClass(textRendererClassName);
 	cls_textRenderer = reinterpret_cast<jclass>(env_->NewGlobalRef(localClass));
 	ILOG("cls_textRender: %p", cls_textRenderer);
 	if (cls_textRenderer) {

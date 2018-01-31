@@ -576,17 +576,11 @@ void ConvertViewportAndScissor(bool useBufferedRendering, float renderWidth, flo
 
 	// This is a bit of a hack as the render buffer isn't always that size
 	// We always scissor on non-buffered so that clears don't spill outside the frame.
-	if (useBufferedRendering && scissorX1 == 0 && scissorY1 == 0
-		&& scissorX2 >= (int)gstate_c.curRTWidth
-		&& scissorY2 >= (int)gstate_c.curRTHeight) {
-		out.scissorEnable = false;
-	} else {
-		out.scissorEnable = true;
-		out.scissorX = renderX + displayOffsetX + scissorX1 * renderWidthFactor;
-		out.scissorY = renderY + displayOffsetY + scissorY1 * renderHeightFactor;
-		out.scissorW = (scissorX2 - scissorX1) * renderWidthFactor;
-		out.scissorH = (scissorY2 - scissorY1) * renderHeightFactor;
-	}
+	out.scissorEnable = true;
+	out.scissorX = renderX + displayOffsetX + scissorX1 * renderWidthFactor;
+	out.scissorY = renderY + displayOffsetY + scissorY1 * renderHeightFactor;
+	out.scissorW = (scissorX2 - scissorX1) * renderWidthFactor;
+	out.scissorH = (scissorY2 - scissorY1) * renderHeightFactor;
 
 	int curRTWidth = gstate_c.curRTWidth;
 	int curRTHeight = gstate_c.curRTHeight;

@@ -6,8 +6,7 @@
 
 #include <jni.h>
 
-extern JNIEnv *jniEnvMain;
-extern JNIEnv *jniEnvGraphics;
-extern JavaVM *javaVM;
+jclass findClass(const char* name);
+JNIEnv* getEnv();
 
 #endif

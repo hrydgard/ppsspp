@@ -107,7 +107,6 @@ void GenerateVertexShader(const VShaderID &id, char *buffer, uint32_t *attrMask,
 	const char *attribute = "attribute";
 	const char * const * boneWeightDecl = boneWeightAttrDecl;
 	const char *texelFetch = NULL;
-	bool isAllowTexture1D = false;
 	bool highpFog = false;
 	bool highpTexcoord = false;
 
@@ -135,13 +134,11 @@ void GenerateVertexShader(const VShaderID &id, char *buffer, uint32_t *attrMask,
 				glslES30 = true;
 				WRITE(p, "#version 330\n");
 				texelFetch = "texelFetch";
-				isAllowTexture1D = true;
 			} else if (gl_extensions.VersionGEThan(3, 0, 0)) {
 				WRITE(p, "#version 130\n");
 				if (gl_extensions.EXT_gpu_shader4) {
 					WRITE(p, "#extension GL_EXT_gpu_shader4 : enable\n");
 					texelFetch = "texelFetch";
-					isAllowTexture1D = true;
 				}
 			} else {
 				WRITE(p, "#version 110\n");
@@ -374,10 +371,9 @@ void GenerateVertexShader(const VShaderID &id, char *buffer, uint32_t *attrMask,
 	if (doBezier || doSpline) {
 		*uniformMask |= DIRTY_BEZIERSPLINE;
 
-		const char *sampler = !isAllowTexture1D ? "sampler2D" : "sampler1D";
-		WRITE(p, "uniform %s u_tess_pos_tex;\n", sampler);
-		WRITE(p, "uniform %s u_tess_tex_tex;\n", sampler);
-		WRITE(p, "uniform %s u_tess_col_tex;\n", sampler);
+		WRITE(p, "uniform sampler2D u_tess_pos_tex;\n");
+		WRITE(p, "uniform sampler2D u_tess_tex_tex;\n");
+		WRITE(p, "uniform sampler2D u_tess_col_tex;\n");
 
 		WRITE(p, "uniform int u_spline_count_u;\n");
 
@@ -502,12 +498,11 @@ void GenerateVertexShader(const VShaderID &id, char *buffer, uint32_t *attrMask,
 				WRITE(p, "  for (int i = 0; i < 4; i++) {\n");
 				WRITE(p, "    for (int j = 0; j < 4; j++) {\n");
 				WRITE(p, "      int index = (i + v%s) * u_spline_count_u + (j + u%s);\n", doBezier ? " * 3" : "", doBezier ? " * 3" : "");
-				const char *index = !isAllowTexture1D ? "ivec2(index, 0)" : "index";
-				WRITE(p, "      _pos[i * 4 + j] = %s(u_tess_pos_tex, %s, 0).xyz;\n", texelFetch, index);
+				WRITE(p, "      _pos[i * 4 + j] = %s(u_tess_pos_tex, ivec2(index, 0), 0).xyz;\n", texelFetch);
 				if (doTexture && hasTexcoord && hasTexcoordTess)
-					WRITE(p, "      _tex[i * 4 + j] = %s(u_tess_tex_tex, %s, 0).xy;\n", texelFetch, index);
+					WRITE(p, "      _tex[i * 4 + j] = %s(u_tess_tex_tex, ivec2(index, 0), 0).xy;\n", texelFetch);
 				if (hasColor && hasColorTess)
-					WRITE(p, "      _col[i * 4 + j] = %s(u_tess_col_tex, %s, 0).rgba;\n", texelFetch, index);
+					WRITE(p, "      _col[i * 4 + j] = %s(u_tess_col_tex, ivec2(index, 0), 0).rgba;\n", texelFetch);
 				WRITE(p, "    }\n");
 				WRITE(p, "  }\n");
 				WRITE(p, "  vec2 tess_pos = position.xy;\n");
@@ -536,7 +531,7 @@ void GenerateVertexShader(const VShaderID &id, char *buffer, uint32_t *attrMask,
 					if (hasColorTess)
 						WRITE(p, "  vec4 col = tess_sample(_col, weights);\n");
 					else
-						WRITE(p, "  vec4 col = %s(u_tess_col_tex, %s, 0).rgba;\n", texelFetch, !isAllowTexture1D ? "ivec2(0, 0)" : "0");
+						WRITE(p, "  vec4 col = %s(u_tess_col_tex, ivec2(0, 0), 0).rgba;\n", texelFetch);
 				}
 				if (hasNormal) {
 					// Curved surface is probably always need to compute normal(not sampling from control points)

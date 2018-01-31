@@ -14,9 +14,11 @@ SDLJoystick *joystick = NULL;
 #include <bcm_host.h>
 #endif
 
+#include <atomic>
 #include <algorithm>
 #include <cassert>
 #include <cmath>
+#include <thread>
 
 #include "base/display.h"
 #include "base/logging.h"
@@ -32,6 +34,8 @@ SDLJoystick *joystick = NULL;
 #include "util/text/utf8.h"
 #include "util/text/parsers.h"
 #include "math/math_util.h"
+#include "thin3d/GLRenderManager.h"
+#include "thread/threadutil.h"
 #include "Common/Vulkan/VulkanContext.h"
 #include "Common/Vulkan/VulkanDebug.h"
 #include "math.h"
@@ -198,6 +202,8 @@ void EGL_Close() {
 }
 #endif
 
+class GLRenderManager;
+
 class SDLGLGraphicsContext : public DummyGraphicsContext {
 public:
 	SDLGLGraphicsContext() {
@@ -218,21 +224,30 @@ public:
 	}
 
 	void SwapBuffers() override {
-#ifdef USING_EGL
-		eglSwapBuffers(g_eglDisplay, g_eglSurface);
-#else
-		SDL_GL_SwapWindow(window_);
-#endif
+		renderManager_->Swap();
 	}
 
 	Draw::DrawContext *GetDrawContext() override {
 		return draw_;
 	}
 
+	void ThreadStart() override {
+		renderManager_->ThreadStart();
+	}
+
+	bool ThreadFrame() override {
+		return renderManager_->ThreadFrame();
+	}
+
+	void ThreadEnd() override {
+		renderManager_->ThreadEnd();
+	}
+
 private:
 	Draw::DrawContext *draw_ = nullptr;
 	SDL_Window *window_;
 	SDL_GLContext glContext = nullptr;
+	GLRenderManager *renderManager_ = nullptr;
 };
 
 // Returns 0 on success.
@@ -340,9 +355,17 @@ int SDLGLGraphicsContext::Init(SDL_Window *&window, int x, int y, int mode, std:
 	// Finally we can do the regular initialization.
 	CheckGLExtensions();
 	draw_ = Draw::T3DCreateGLContext();
+	renderManager_ = (GLRenderManager *)draw_->GetNativeObject(Draw::NativeObject::RENDER_MANAGER);
 	SetGPUBackend(GPUBackend::OPENGL);
 	bool success = draw_->CreatePresets();
 	assert(success);
+	renderManager_->SetSwapFunction([&]() {
+#ifdef USING_EGL
+		eglSwapBuffers(g_eglDisplay, g_eglSurface);
+#else
+		SDL_GL_SwapWindow(window_);
+#endif
+	});
 	window_ = window;
 	return 0;
 }
@@ -691,6 +714,40 @@ void ToggleFullScreenIfFlagSet(SDL_Window *window) {
 	}
 }
 
+enum class EmuThreadState {
+	DISABLED,
+	START_REQUESTED,
+	RUNNING,
+	QUIT_REQUESTED,
+	STOPPED,
+};
+
+static std::thread emuThread;
+static std::atomic<int> emuThreadState((int)EmuThreadState::DISABLED);
+
+static void EmuThreadFunc() {
+	setCurrentThreadName("Emu");
+
+	// There's no real requirement that NativeInit happen on this thread.
+	// We just call the update/render loop here.
+	emuThreadState = (int)EmuThreadState::RUNNING;
+	while (emuThreadState != (int)EmuThreadState::QUIT_REQUESTED) {
+		UpdateRunLoop();
+	}
+	emuThreadState = (int)EmuThreadState::STOPPED;
+}
+
+static void EmuThreadStart() {
+	emuThreadState = (int)EmuThreadState::START_REQUESTED;
+	emuThread = std::thread(&EmuThreadFunc);
+}
+
+static void EmuThreadStop() {
+	emuThreadState = (int)EmuThreadState::QUIT_REQUESTED;
+	emuThread.join();
+	emuThread = std::thread();
+}
+
 #ifdef _WIN32
 #undef main
 #endif
@@ -888,6 +945,11 @@ int main(int argc, char *argv[]) {
 		}
 	}
 
+	// Since we render from the main thread, there's nothing done here, but we call it to avoid confusion.
+	if (!graphicsContext->InitFromRenderThread(&error_message)) {
+		printf("Init from thread error: '%s'\n", error_message.c_str());
+	}
+
 	SDL_SetWindowTitle(window, (app_name_nice + " " + PPSSPP_GIT_VERSION).c_str());
 
 #ifdef MOBILE_DEVICE
@@ -933,6 +995,11 @@ int main(int argc, char *argv[]) {
 
 	int framecount = 0;
 	bool mouseDown = false;
+
+	if (GetGPUBackend() == GPUBackend::OPENGL) {
+		EmuThreadStart();
+	}
+	graphicsContext->ThreadStart();
 
 	while (true) {
 		SDL_Event event;
@@ -1101,7 +1168,9 @@ int main(int argc, char *argv[]) {
 		if (g_QuitRequested)
 			break;
 		const uint8_t *keys = SDL_GetKeyboardState(NULL);
-		UpdateRunLoop();
+		if (emuThreadState == (int)EmuThreadState::DISABLED) {
+			UpdateRunLoop();
+		}
 		if (g_QuitRequested)
 			break;
 #if !defined(MOBILE_DEVICE)
@@ -1118,12 +1187,22 @@ int main(int argc, char *argv[]) {
 			// glsl_refresh(); // auto-reloads modified GLSL shaders once per second.
 		}
 
+		if (emuThreadState != (int)EmuThreadState::DISABLED) {
+			if (!graphicsContext->ThreadFrame())
+				break;
+		}
 		graphicsContext->SwapBuffers();
 
 		ToggleFullScreenIfFlagSet(window);
 		time_update();
 		framecount++;
 	}
+
+	graphicsContext->ThreadEnd();
+	graphicsContext->ShutdownFromRenderThread();
+
+	EmuThreadStop();
+
 	delete joystick;
 	NativeShutdownGraphics();
 	graphicsContext->Shutdown();
