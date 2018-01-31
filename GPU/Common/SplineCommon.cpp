@@ -109,6 +109,38 @@ struct KnotDiv {
 	float _3_2 = 1.0f; // Always 1
 };
 
+// knot should be an array sized n + 5  (n + 1 + 1 + degree (cubic))
+static void spline_knot(int n, int type, float *knots, KnotDiv *divs) {
+	// Basic theory (-2 to +3), optimized with KnotDiv (-2 to +0) 
+//	for (int i = 0; i < n + 5; ++i) {
+	for (int i = 0; i < n + 2; ++i) {
+		knots[i] = (float)i - 2;
+	}
+
+	// The first edge is open
+	if ((type & 1) != 0) {
+		knots[0] = 0;
+		knots[1] = 0;
+
+		divs[0]._3_0 = 1.0f;
+		divs[0]._4_1 = 1.0f / 2.0f;
+		divs[0]._3_1 = 1.0f;
+		if (n > 1)
+			divs[1]._3_0 = 1.0f / 2.0f;
+	}
+	// The last edge is open
+	if ((type & 2) != 0) {
+	//	knots[n + 2] = (float)n; // Got rid of this line optimized with KnotDiv
+	//	knots[n + 3] = (float)n; // Got rid of this line optimized with KnotDiv
+	//	knots[n + 4] = (float)n; // Got rid of this line optimized with KnotDiv
+		divs[n - 1]._4_1 = 1.0f / 2.0f;
+		divs[n - 1]._5_2 = 1.0f;
+		divs[n - 1]._4_2 = 1.0f;
+		if (n > 1)
+			divs[n - 2]._5_2 = 1.0f / 2.0f;
+	}
+}
+
 static void spline_n_4(float t, float *knot, const KnotDiv &div, float *splineVal, float *derivs) {
 #ifdef _M_SSE
 	const __m128 knot012 = _mm_loadu_ps(knot);
@@ -171,38 +203,6 @@ static void spline_n_4(float t, float *knot, const KnotDiv &div, float *splineVa
 	derivs[1] = 3 * (f130 - f241);
 	derivs[2] = 3 * (f241 - f352);
 	derivs[3] = 3 * (f352 - 0);
-}
-
-// knot should be an array sized n + 5  (n + 1 + 1 + degree (cubic))
-static void spline_knot(int n, int type, float *knots, KnotDiv *divs) {
-	// Basic theory (-2 to +3), optimized with KnotDiv (-2 to +0) 
-//	for (int i = 0; i < n + 5; ++i) {
-	for (int i = 0; i < n + 2; ++i) {
-		knots[i] = (float)i - 2;
-	}
-
-	// The first edge is open
-	if ((type & 1) != 0) {
-		knots[0] = 0;
-		knots[1] = 0;
-
-		divs[0]._3_0 = 1.0f;
-		divs[0]._4_1 = 1.0f / 2.0f;
-		divs[0]._3_1 = 1.0f;
-		if (n > 1)
-			divs[1]._3_0 = 1.0f / 2.0f;
-	}
-	// The last edge is open
-	if ((type & 2) != 0) {
-	//	knots[n + 2] = (float)n; // Got rid of this line optimized with KnotDiv
-	//	knots[n + 3] = (float)n; // Got rid of this line optimized with KnotDiv
-	//	knots[n + 4] = (float)n; // Got rid of this line optimized with KnotDiv
-		divs[n - 1]._4_1 = 1.0f / 2.0f;
-		divs[n - 1]._5_2 = 1.0f;
-		divs[n - 1]._4_2 = 1.0f;
-		if (n > 1)
-			divs[n - 2]._5_2 = 1.0f / 2.0f;
-	}
 }
 
 bool CanUseHardwareTessellation(GEPatchPrimType prim) {
