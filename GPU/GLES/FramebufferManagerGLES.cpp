@@ -154,7 +154,7 @@ void FramebufferManagerGLES::CompilePostShader() {
 
 			std::vector<GLRShader *> shaders;
 			shaders.push_back(render_->CreateShader(GL_VERTEX_SHADER, vshader, "postshader"));
-			shaders.push_back(render_->CreateShader(GL_VERTEX_SHADER, fshader, "postshader"));
+			shaders.push_back(render_->CreateShader(GL_FRAGMENT_SHADER, fshader, "postshader"));
 			std::vector<GLRProgram::UniformLocQuery> queries;
 			queries.push_back({ &u_postShaderTex, "tex" });
 			queries.push_back({ &deltaLoc_, "u_texelDelta" });
@@ -164,9 +164,10 @@ void FramebufferManagerGLES::CompilePostShader() {
 
 			std::vector<GLRProgram::Initializer> inits;
 			inits.push_back({ &u_postShaderTex, 0, 0 });
-			postShaderProgram_ = render_->CreateProgram(shaders, {}, queries, inits, false);
-			render_->SetUniformI1(&u_postShaderTex, 0);
-
+			std::vector<GLRProgram::Semantic> semantics;
+			semantics.push_back({ 0, "a_position" });
+			semantics.push_back({ 1, "a_texcoord0" });
+			postShaderProgram_ = render_->CreateProgram(shaders, semantics, queries, inits, false);
 			for (auto iter : shaders) {
 				render_->DeleteShader(iter);
 			}
