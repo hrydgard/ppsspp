@@ -48,6 +48,7 @@ DrawEngineCommon::~DrawEngineCommon() {
 	decoderMap_.Iterate([&](const uint32_t vtype, VertexDecoder *decoder) {
 		delete decoder;
 	});
+	ClearSplineBezierWeights();
 }
 
 VertexDecoder *DrawEngineCommon::GetVertexDecoder(u32 vtype) {

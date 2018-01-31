@@ -80,7 +80,8 @@ private:
 		w.derivs[3] = 3 * t * t;
 	}
 public:
-	Weight *CalcWeightsAll(int tess) {
+	Weight *CalcWeightsAll(u32 key) {
+		int tess = (int)key;
 		Weight *weights = new Weight[tess + 1];
 		const float inv_u = 1.0f / (float)tess;
 		for (int i = 0; i < tess + 1; ++i) {
@@ -93,7 +94,7 @@ public:
 
 // http://en.wikipedia.org/wiki/Bernstein_polynomial
 template<class T>
-static T Bernstein3D(const T& p0, const T& p1, const T& p2, const T& p3, float w[4]) {
+static T Bernstein3D(const T& p0, const T& p1, const T& p2, const T& p3, const float w[4]) {
 	if (w[0] == 1) return p0;
 	if (w[3] == 1) return p3;
 	// Linear combination
@@ -206,7 +207,9 @@ private:
 		w.derivs[3] = 3 * (f352 - 0);
 	}
 public:
-	Weight *CalcWeightsAll(int count, int tess, int type) {
+	Weight *CalcWeightsAll(u32 key) {
+		int tess, count, type;
+		FromKey(key, tess, count, type);
 		const int num_patches = count - 3;
 		Weight *weights = new Weight[tess * num_patches + 1];
 
@@ -230,7 +233,52 @@ public:
 
 		return weights;
 	}
+
+	u32 ToKey(int tess, int count, int type) {
+		return tess | (count << 8) | (type << 16);
+	}
+
+	void FromKey(u32 key, int &tess, int &count, int &type) {
+		tess = key & 0xFF; count = (key >> 8) & 0xFF; type = (key >> 16) & 0xFF;
+	}
 };
+
+template<class T>
+class WeightCache : public T {
+private:
+	std::unordered_map<u32, Weight*> weightsCache;
+public:
+	Weight* operator [] (u32 key) {
+		Weight *&weights = weightsCache[key];
+		if (!weights)
+			weights = CalcWeightsAll(key);
+		return weights;
+	}
+
+	void Clear() {
+		for (auto it : weightsCache)
+			delete[] it.second;
+		weightsCache.clear();
+	}
+};
+
+static WeightCache<Bezier3DWeight> bezierWeightsCache;
+static WeightCache<Spline3DWeight> splineWeightsCache;
+
+struct Weight2D {
+	const Weight *u, *v;
+
+	template<class T>
+	Weight2D(WeightCache<T> &cache, u32 key_u, u32 key_v) {
+		u = cache[key_u];
+		v = (key_u != key_v) ? cache[key_v] : u; // Use same weights if u == v
+	}
+};
+
+void DrawEngineCommon::ClearSplineBezierWeights() {
+	bezierWeightsCache.Clear();
+	splineWeightsCache.Clear();
+}
 
 bool CanUseHardwareTessellation(GEPatchPrimType prim) {
 	if (g_Config.bHardwareTessellation && !g_Config.bSoftwareRendering) {
@@ -268,13 +316,9 @@ static void SplinePatchFullQuality(u8 *&dest, u16 *indices, int &count, const Sp
 	// Full (mostly) correct tessellation of spline patches.
 	// Not very fast.
 
-	Spline3DWeight splineWeight;
-	Weight *weights_u, *weights_v;
-	weights_u = splineWeight.CalcWeightsAll(spatch.count_u, spatch.tess_u, spatch.type_u);
-	if (spatch.count_u == spatch.count_v && spatch.tess_u == spatch.tess_v && spatch.type_u == spatch.type_v)
-		weights_v = weights_u; // Use same weights
-	else
-		weights_v = splineWeight.CalcWeightsAll(spatch.count_v, spatch.tess_v, spatch.type_v);
+	u32 key_u = splineWeightsCache.ToKey(spatch.tess_u, spatch.count_u, spatch.type_u);
+	u32 key_v = splineWeightsCache.ToKey(spatch.tess_v, spatch.count_v, spatch.type_v);
+	Weight2D weights(splineWeightsCache, key_u, key_v);
 
 	// Increase tessellation based on the size. Should be approximately right?
 	int patch_div_s = (spatch.count_u - 3) * spatch.tess_u;
@@ -354,8 +398,8 @@ static void SplinePatchFullQuality(u8 *&dest, u16 *indices, int &count, const Sp
 			if (iu >= spatch.count_u - 3) iu = spatch.count_u - 4;
 			if (iv >= spatch.count_v - 3) iv = spatch.count_v - 4;
 
-			const Weight &wu = weights_u[tile_u];
-			const Weight &wv = weights_v[tile_v];
+			const Weight &wu = weights.u[tile_u];
+			const Weight &wv = weights.v[tile_v];
 
 			// Handle degenerate patches. without this, spatch.points[] may read outside the number of initialized points.
 			int patch_w = std::min(spatch.count_u - iu, 4);
@@ -472,7 +516,7 @@ struct PrecomputedCurves {
 		FreeAlignedMemory(horiz1);
 	}
 
-	T Bernstein3D(int u, float w[4]) {
+	T Bernstein3D(int u, const float w[4]) {
 		return ::Bernstein3D(horiz1[u], horiz2[u], horiz3[u], horiz4[u], w);
 	}
 
@@ -497,13 +541,7 @@ static void _BezierPatchHighQuality(u8 *&dest, u16 *&indices, int &count, int te
 	const bool sampleColors = (origVertType & GE_VTYPE_COL_MASK) != 0;
 	const bool sampleTexcoords = (origVertType & GE_VTYPE_TC_MASK) != 0;
 
-	Bezier3DWeight bezierWeight;
-	Weight *weights_u, *weights_v;
-	weights_u = bezierWeight.CalcWeightsAll(tess_u);
-	if (tess_u == tess_v)
-		weights_v = weights_u; // Use same weights
-	else
-		weights_v = bezierWeight.CalcWeightsAll(tess_u);
+	Weight2D weights(bezierWeightsCache, tess_u, tess_v);
 
 	int num_patches_u = (patch.count_u - 1) / 3;
 	int num_patches_v = (patch.count_v - 1) / 3;
@@ -520,7 +558,7 @@ static void _BezierPatchHighQuality(u8 *&dest, u16 *&indices, int &count, int te
 				_tex[point] = &patch.tex[idx];
 			}
 			for (int i = 0; i < tess_u + 1; i++) {
-				Weight &wu = weights_u[i];
+				const Weight &wu = weights.u[i];
 				prepos.horiz1[i] = Bernstein3D(*_pos[0], *_pos[1], *_pos[2], *_pos[3], wu.weights);
 				prepos.horiz2[i] = Bernstein3D(*_pos[4], *_pos[5], *_pos[6], *_pos[7], wu.weights);
 				prepos.horiz3[i] = Bernstein3D(*_pos[8], *_pos[9], *_pos[10], *_pos[11], wu.weights);
@@ -552,7 +590,7 @@ static void _BezierPatchHighQuality(u8 *&dest, u16 *&indices, int &count, int te
 
 					SimpleVertex &vert = vertices[tile_v * (tess_u + 1) + tile_u];
 
-					Weight &wv = weights_v[tile_v];
+					const Weight &wv = weights.v[tile_v];
 					if (computeNormals) {
 						const Vec3f derivU = prederivU.Bernstein3D(tile_u, wv.weights);
 						const Vec3f derivV = prepos.Bernstein3D(tile_u, wv.derivs);
