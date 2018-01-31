@@ -134,7 +134,7 @@ inline float bern2deriv(float x) { return 3 * (2 - 3 * x) * x; }
 inline float bern3deriv(float x) { return 3 * x * x; }
 
 // http://en.wikipedia.org/wiki/Bernstein_polynomial
-static Math3D::Vec2f Bernstein3D(const Math3D::Vec2f& p0, const Math3D::Vec2f& p1, const Math3D::Vec2f& p2, const Math3D::Vec2f& p3, float x) {
+static Vec2f Bernstein3D(const Vec2f& p0, const Vec2f& p1, const Vec2f& p2, const Vec2f& p3, float x) {
 	if (x == 0) return p0;
 	else if (x == 1) return p3;
 	return p0 * bern0(x) + p1 * bern1(x) + p2 * bern2(x) + p3 * bern3(x);
@@ -693,7 +693,7 @@ static void _BezierPatchHighQuality(u8 *&dest, u16 *&indices, int &count, int te
 
 	PrecomputedCurves<Vec3f> prepos(tess_u + 1);
 	PrecomputedCurves<Vec4f> precol(tess_u + 1);
-	PrecomputedCurves<Math3D::Vec2f> pretex(tess_u + 1);
+	PrecomputedCurves<Vec2f> pretex(tess_u + 1);
 	PrecomputedCurves<Vec3f> prederivU(tess_u + 1);
 
 	const bool computeNormals = patch.computeNormals;
@@ -715,10 +715,10 @@ static void _BezierPatchHighQuality(u8 *&dest, u16 *&indices, int &count, int te
 			precol.horiz4[i] = Bernstein3D(patch.points[12]->color_32, patch.points[13]->color_32, patch.points[14]->color_32, patch.points[15]->color_32, u);
 		}
 		if (sampleTexcoords) {
-			pretex.horiz1[i] = Bernstein3D(Math3D::Vec2f(patch.points[0]->uv), Math3D::Vec2f(patch.points[1]->uv), Math3D::Vec2f(patch.points[2]->uv), Math3D::Vec2f(patch.points[3]->uv), u);
-			pretex.horiz2[i] = Bernstein3D(Math3D::Vec2f(patch.points[4]->uv), Math3D::Vec2f(patch.points[5]->uv), Math3D::Vec2f(patch.points[6]->uv), Math3D::Vec2f(patch.points[7]->uv), u);
-			pretex.horiz3[i] = Bernstein3D(Math3D::Vec2f(patch.points[8]->uv), Math3D::Vec2f(patch.points[9]->uv), Math3D::Vec2f(patch.points[10]->uv), Math3D::Vec2f(patch.points[11]->uv), u);
-			pretex.horiz4[i] = Bernstein3D(Math3D::Vec2f(patch.points[12]->uv), Math3D::Vec2f(patch.points[13]->uv), Math3D::Vec2f(patch.points[14]->uv), Math3D::Vec2f(patch.points[15]->uv), u);
+			pretex.horiz1[i] = Bernstein3D(Vec2f(patch.points[0]->uv), Vec2f(patch.points[1]->uv), Vec2f(patch.points[2]->uv), Vec2f(patch.points[3]->uv), u);
+			pretex.horiz2[i] = Bernstein3D(Vec2f(patch.points[4]->uv), Vec2f(patch.points[5]->uv), Vec2f(patch.points[6]->uv), Vec2f(patch.points[7]->uv), u);
+			pretex.horiz3[i] = Bernstein3D(Vec2f(patch.points[8]->uv), Vec2f(patch.points[9]->uv), Vec2f(patch.points[10]->uv), Vec2f(patch.points[11]->uv), u);
+			pretex.horiz4[i] = Bernstein3D(Vec2f(patch.points[12]->uv), Vec2f(patch.points[13]->uv), Vec2f(patch.points[14]->uv), Vec2f(patch.points[15]->uv), u);
 		}
 
 		if (computeNormals) {
@@ -757,7 +757,7 @@ static void _BezierPatchHighQuality(u8 *&dest, u16 *&indices, int &count, int te
 				vert.uv[1] = v + patch.v_index * third;
 			} else {
 				// Sample UV from control points
-				const Math3D::Vec2f res = pretex.Bernstein3D(tile_u, bv);
+				const Vec2f res = pretex.Bernstein3D(tile_u, bv);
 				vert.uv[0] = res.x;
 				vert.uv[1] = res.y;
 			} 

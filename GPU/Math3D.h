@@ -177,8 +177,6 @@ public:
 	const Vec2 ts() const { return Vec2(y, x); }
 };
 
-typedef Vec2<float> Vec2f;
-
 template<typename T>
 class Vec3Packed;
 
@@ -817,6 +815,7 @@ private:
 
 }; // namespace Math3D
 
+typedef Math3D::Vec2<float> Vec2f;
 typedef Math3D::Vec3<float> Vec3f;
 typedef Math3D::Vec3Packed<float> Vec3Packedf;
 typedef Math3D::Vec4<float> Vec4f;
