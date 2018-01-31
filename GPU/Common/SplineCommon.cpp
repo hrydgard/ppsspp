@@ -60,20 +60,36 @@ static void BuildIndex(u16 *indices, int &count, int num_u, int num_v, GEPatchPr
 	}
 }
 
-// Bernstein basis functions
-void Bernstein3DBasis(float x, float weights[4]) {
-	weights[0] = (1 - x) * (1 - x) * (1 - x);
-	weights[1] = 3 * x * (1 - x) * (1 - x);
-	weights[2] = 3 * x * x * (1 - x);
-	weights[3] = x * x * x;
-}
+struct Weight {
+	float weights[4], derivs[4];
+};
 
-void Bernstein3DDerivative(float x, float derivs[4]) {
-	derivs[0] = -3 * (x - 1) * (x - 1);
-	derivs[1] = 9 * x * x - 12 * x + 3;
-	derivs[2] = 3 * (2 - 3 * x) * x;
-	derivs[3] = 3 * x * x;
-}
+class Bezier3DWeight {
+private:
+	void CalcWeights(float t, Weight &w) {
+		// Bernstein 3D basis polynomial
+		w.weights[0] = (1 - t) * (1 - t) * (1 - t);
+		w.weights[1] = 3 * t * (1 - t) * (1 - t);
+		w.weights[2] = 3 * t * t * (1 - t);
+		w.weights[3] = t * t * t;
+
+		// Derivative
+		w.derivs[0] = -3 * (1 - t) * (1 - t);
+		w.derivs[1] = 9 * t * t - 12 * t + 3;
+		w.derivs[2] = 3 * (2 - 3 * t) * t;
+		w.derivs[3] = 3 * t * t;
+	}
+public:
+	Weight *CalcWeightsAll(int tess) {
+		Weight *weights = new Weight[tess + 1];
+		const float inv_u = 1.0f / (float)tess;
+		for (int i = 0; i < tess + 1; ++i) {
+			const float t = (float)i * inv_u;
+			CalcWeights(t, weights[i]);
+		}
+		return weights;
+	}
+};
 
 // http://en.wikipedia.org/wiki/Bernstein_polynomial
 template<class T>
@@ -467,6 +483,14 @@ static void _BezierPatchHighQuality(u8 *&dest, u16 *&indices, int &count, int te
 	const bool sampleColors = (origVertType & GE_VTYPE_COL_MASK) != 0;
 	const bool sampleTexcoords = (origVertType & GE_VTYPE_TC_MASK) != 0;
 
+	Bezier3DWeight bezierWeight;
+	Weight *weights_u, *weights_v;
+	weights_u = bezierWeight.CalcWeightsAll(tess_u);
+	if (tess_u == tess_v)
+		weights_v = weights_u; // Use same weights
+	else
+		weights_v = bezierWeight.CalcWeightsAll(tess_u);
+
 	int num_patches_u = (patch.count_u - 1) / 3;
 	int num_patches_v = (patch.count_v - 1) / 3;
 	for (int patch_u = 0; patch_u < num_patches_u; ++patch_u) {
@@ -481,49 +505,43 @@ static void _BezierPatchHighQuality(u8 *&dest, u16 *&indices, int &count, int te
 				_col[point] = &patch.col[idx];
 				_tex[point] = &patch.tex[idx];
 			}
-			float weights[4], derivs[4];
 			for (int i = 0; i < tess_u + 1; i++) {
-				float u = ((float)i / (float)tess_u);
-				Bernstein3DBasis(u, weights);
-				prepos.horiz1[i] = Bernstein3D(*_pos[0], *_pos[1], *_pos[2], *_pos[3], weights);
-				prepos.horiz2[i] = Bernstein3D(*_pos[4], *_pos[5], *_pos[6], *_pos[7], weights);
-				prepos.horiz3[i] = Bernstein3D(*_pos[8], *_pos[9], *_pos[10], *_pos[11], weights);
-				prepos.horiz4[i] = Bernstein3D(*_pos[12], *_pos[13], *_pos[14], *_pos[15], weights);
+				Weight &wu = weights_u[i];
+				prepos.horiz1[i] = Bernstein3D(*_pos[0], *_pos[1], *_pos[2], *_pos[3], wu.weights);
+				prepos.horiz2[i] = Bernstein3D(*_pos[4], *_pos[5], *_pos[6], *_pos[7], wu.weights);
+				prepos.horiz3[i] = Bernstein3D(*_pos[8], *_pos[9], *_pos[10], *_pos[11], wu.weights);
+				prepos.horiz4[i] = Bernstein3D(*_pos[12], *_pos[13], *_pos[14], *_pos[15], wu.weights);
 
 				if (sampleColors) {
-					precol.horiz1[i] = Bernstein3D(*_col[0], *_col[1], *_col[2], *_col[3], weights);
-					precol.horiz2[i] = Bernstein3D(*_col[4], *_col[5], *_col[6], *_col[7], weights);
-					precol.horiz3[i] = Bernstein3D(*_col[8], *_col[9], *_col[10], *_col[11], weights);
-					precol.horiz4[i] = Bernstein3D(*_col[12], *_col[13], *_col[14], *_col[15], weights);
+					precol.horiz1[i] = Bernstein3D(*_col[0], *_col[1], *_col[2], *_col[3], wu.weights);
+					precol.horiz2[i] = Bernstein3D(*_col[4], *_col[5], *_col[6], *_col[7], wu.weights);
+					precol.horiz3[i] = Bernstein3D(*_col[8], *_col[9], *_col[10], *_col[11], wu.weights);
+					precol.horiz4[i] = Bernstein3D(*_col[12], *_col[13], *_col[14], *_col[15], wu.weights);
 				}
 				if (sampleTexcoords) {
-					pretex.horiz1[i] = Bernstein3D(*_tex[0], *_tex[1], *_tex[2], *_tex[3], weights);
-					pretex.horiz2[i] = Bernstein3D(*_tex[4], *_tex[5], *_tex[6], *_tex[7], weights);
-					pretex.horiz3[i] = Bernstein3D(*_tex[8], *_tex[9], *_tex[10], *_tex[11], weights);
-					pretex.horiz4[i] = Bernstein3D(*_tex[12], *_tex[13], *_tex[14], *_tex[15], weights);
+					pretex.horiz1[i] = Bernstein3D(*_tex[0], *_tex[1], *_tex[2], *_tex[3], wu.weights);
+					pretex.horiz2[i] = Bernstein3D(*_tex[4], *_tex[5], *_tex[6], *_tex[7], wu.weights);
+					pretex.horiz3[i] = Bernstein3D(*_tex[8], *_tex[9], *_tex[10], *_tex[11], wu.weights);
+					pretex.horiz4[i] = Bernstein3D(*_tex[12], *_tex[13], *_tex[14], *_tex[15], wu.weights);
 				}
 
 				if (computeNormals) {
-					Bernstein3DDerivative(u, derivs);
-					prederivU.horiz1[i] = Bernstein3D(*_pos[0], *_pos[1], *_pos[2], *_pos[3], derivs);
-					prederivU.horiz2[i] = Bernstein3D(*_pos[4], *_pos[5], *_pos[6], *_pos[7], derivs);
-					prederivU.horiz3[i] = Bernstein3D(*_pos[8], *_pos[9], *_pos[10], *_pos[11], derivs);
-					prederivU.horiz4[i] = Bernstein3D(*_pos[12], *_pos[13], *_pos[14], *_pos[15], derivs);
+					prederivU.horiz1[i] = Bernstein3D(*_pos[0], *_pos[1], *_pos[2], *_pos[3], wu.derivs);
+					prederivU.horiz2[i] = Bernstein3D(*_pos[4], *_pos[5], *_pos[6], *_pos[7], wu.derivs);
+					prederivU.horiz3[i] = Bernstein3D(*_pos[8], *_pos[9], *_pos[10], *_pos[11], wu.derivs);
+					prederivU.horiz4[i] = Bernstein3D(*_pos[12], *_pos[13], *_pos[14], *_pos[15], wu.derivs);
 				}
 			}
 
 			for (int tile_v = 0; tile_v < tess_v + 1; ++tile_v) {
 				for (int tile_u = 0; tile_u < tess_u + 1; ++tile_u) {
-					float u = ((float)tile_u / (float)tess_u);
-					float v = ((float)tile_v / (float)tess_v);
 
 					SimpleVertex &vert = vertices[tile_v * (tess_u + 1) + tile_u];
 
-					Bernstein3DBasis(v, weights);
+					Weight &wv = weights_v[tile_v];
 					if (computeNormals) {
-						Bernstein3DDerivative(v, derivs);
-						const Vec3f derivU = prederivU.Bernstein3D(tile_u, weights);
-						const Vec3f derivV = prepos.Bernstein3D(tile_u, derivs);
+						const Vec3f derivU = prederivU.Bernstein3D(tile_u, wv.weights);
+						const Vec3f derivV = prepos.Bernstein3D(tile_u, wv.derivs);
 
 						vert.nrm = Cross(derivU, derivV).Normalized();
 						if (patch.patchFacing)
@@ -532,21 +550,23 @@ static void _BezierPatchHighQuality(u8 *&dest, u16 *&indices, int &count, int te
 						vert.nrm.SetZero();
 					}
 
-					vert.pos = prepos.Bernstein3D(tile_u, weights);
+					vert.pos = prepos.Bernstein3D(tile_u, wv.weights);
 
 					if (!sampleTexcoords) {
+						float u = ((float)tile_u / (float)tess_u);
+						float v = ((float)tile_v / (float)tess_v);
 						// Generate texcoord
 						vert.uv[0] = u + patch_u * third;
 						vert.uv[1] = v + patch_u * third;
 					} else {
 						// Sample UV from control points
-						const Vec2f res = pretex.Bernstein3D(tile_u, weights);
+						const Vec2f res = pretex.Bernstein3D(tile_u, wv.weights);
 						vert.uv[0] = res.x;
 						vert.uv[1] = res.y;
 					}
 
 					if (sampleColors) {
-						vert.color_32 = precol.Bernstein3D(tile_u, weights).ToRGBA();
+						vert.color_32 = precol.Bernstein3D(tile_u, wv.weights).ToRGBA();
 					} else {
 						vert.color_32 = patch.defcolor;
 					}
