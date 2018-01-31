@@ -196,6 +196,9 @@ private:
 	FragmentTestCacheGLES *fragmentTestCache_ = nullptr;
 	Draw::DrawContext *draw_;
 
+	// Need to preserve the scissor for use when clearing.
+	ViewportAndScissor vpAndScissor;
+
 	int bufferDecimationCounter_ = 0;
 
 	// Hardware tessellation

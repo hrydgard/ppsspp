@@ -729,7 +729,7 @@ rotateVBO:
 			int scissorX2 = gstate.getScissorX2() + 1;
 			int scissorY2 = gstate.getScissorY2() + 1;
 
-			render_->Clear(clearColor, clearDepth, clearColor >> 24, target, rgbaMask, scissorX1, scissorY1, scissorX2 - scissorX1, scissorY2 - scissorY1);
+			render_->Clear(clearColor, clearDepth, clearColor >> 24, target, rgbaMask, vpAndScissor.scissorX, vpAndScissor.scissorY, vpAndScissor.scissorW, vpAndScissor.scissorH);
 			framebufferManager_->SetColorUpdated(gstate_c.skipDrawReason);
 			framebufferManager_->SetSafeSize(scissorX2, scissorY2);
 

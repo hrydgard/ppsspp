@@ -301,7 +301,6 @@ void DrawEngineGLES::ApplyDrawState(int prim) {
 
 	if (gstate_c.IsDirty(DIRTY_VIEWPORTSCISSOR_STATE)) {
 		gstate_c.Clean(DIRTY_VIEWPORTSCISSOR_STATE);
-		ViewportAndScissor vpAndScissor;
 		ConvertViewportAndScissor(useBufferedRendering,
 			framebufferManager_->GetRenderWidth(), framebufferManager_->GetRenderHeight(),
 			framebufferManager_->GetTargetBufferWidth(), framebufferManager_->GetTargetBufferHeight(),
