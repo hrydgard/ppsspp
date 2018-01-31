@@ -395,8 +395,8 @@ void PSPSaveDialog::DisplaySaveDataInfo1()
 	} else {
 		char title[512];
 		char time[512];
-		char saveTitle[512];
-		char saveDetail[512];
+		char saveTitle[1024];
+		char saveDetail[1024];
 
 		char am_pm[] = "AM";
 		char hour_time[10] ;
@@ -421,27 +421,27 @@ void PSPSaveDialog::DisplaySaveDataInfo1()
 			snprintf(hour_time,10,"%02d:%02d %s", hour, min, am_pm);
 		}
 
-		snprintf(title, 512, "%s", param.GetFileInfo(currentSelectedSave).title);
+		snprintf(title, sizeof(title), "%s", param.GetFileInfo(currentSelectedSave).title);
 		int day   = param.GetFileInfo(currentSelectedSave).modif_time.tm_mday;
 		int month = param.GetFileInfo(currentSelectedSave).modif_time.tm_mon + 1;
 		int year  = param.GetFileInfo(currentSelectedSave).modif_time.tm_year + 1900;
 		s64 sizeK = param.GetFileInfo(currentSelectedSave).size / 1024;
 		switch (g_Config.iDateFormat) {
 		case 1:
-			snprintf(time, 512, "%d/%02d/%02d   %s  %lld KB", year, month, day, hour_time, sizeK);
+			snprintf(time, sizeof(time), "%d/%02d/%02d   %s  %lld KB", year, month, day, hour_time, sizeK);
 			break;
 		case 2:
-			snprintf(time, 512, "%02d/%02d/%d   %s  %lld KB", month, day, year, hour_time, sizeK);
+			snprintf(time, sizeof(time), "%02d/%02d/%d   %s  %lld KB", month, day, year, hour_time, sizeK);
 			break;
 		case 3:
-			snprintf(time, 512, "%02d/%02d/%d   %s  %lld KB", day, month, year, hour_time, sizeK);
+			snprintf(time, sizeof(time), "%02d/%02d/%d   %s  %lld KB", day, month, year, hour_time, sizeK);
 			break;
 		default:
-			snprintf(time, 512, "%d/%02d/%02d   %s  %lld KB", year, month, day, hour_time, sizeK);
+			snprintf(time, sizeof(time), "%d/%02d/%02d   %s  %lld KB", year, month, day, hour_time, sizeK);
 		}
-		snprintf(saveTitle, 512, "%s", param.GetFileInfo(currentSelectedSave).saveTitle);
-		snprintf(saveDetail, 512, "%s", param.GetFileInfo(currentSelectedSave).saveDetail);
-		
+		snprintf(saveTitle, sizeof(saveTitle), "%s", param.GetFileInfo(currentSelectedSave).saveTitle);
+		snprintf(saveDetail, sizeof(saveDetail), "%s", param.GetFileInfo(currentSelectedSave).saveDetail);
+
 		PPGeDrawRect(180, 136, 480, 137, CalcFadedColor(0xFFFFFFFF));
 		std::string titleTxt = title;
 		std::string timeTxt = time;

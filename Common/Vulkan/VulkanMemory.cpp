@@ -359,7 +359,7 @@ void VulkanDeviceAllocator::ExecuteFree(FreeInfo *userdata) {
 			slab.allocSizes.erase(it);
 		} else {
 			// Ack, a double free?
-			_assert_msg_(G3D, false, "Double free? Block missing at offset %d", userdata->offset);
+			_assert_msg_(G3D, false, "Double free? Block missing at offset %d", (int)userdata->offset);
 		}
 		found = true;
 		break;
