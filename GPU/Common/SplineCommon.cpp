@@ -72,26 +72,11 @@ inline float bern2deriv(float x) { return 3 * (2 - 3 * x) * x; }
 inline float bern3deriv(float x) { return 3 * x * x; }
 
 // http://en.wikipedia.org/wiki/Bernstein_polynomial
-static Vec2f Bernstein3D(const Vec2f& p0, const Vec2f& p1, const Vec2f& p2, const Vec2f& p3, float x) {
+template<class T>
+static T Bernstein3D(const T& p0, const T& p1, const T& p2, const T& p3, float x) {
 	if (x == 0) return p0;
-	else if (x == 1) return p3;
+	if (x == 1) return p3;
 	return p0 * bern0(x) + p1 * bern1(x) + p2 * bern2(x) + p3 * bern3(x);
-}
-
-static Vec3f Bernstein3D(const Vec3f& p0, const Vec3f& p1, const Vec3f& p2, const Vec3f& p3, float x) {
-	if (x == 0) return p0;
-	else if (x == 1) return p3;
-	return p0 * bern0(x) + p1 * bern1(x) + p2 * bern2(x) + p3 * bern3(x);
-}
-
-static Vec4f Bernstein3D(const Vec4f& p0, const Vec4f& p1, const Vec4f& p2, const Vec4f& p3, float x) {
-	if (x == 0) return p0;
-	else if (x == 1) return p3;
-	return p0 * bern0(x) + p1 * bern1(x) + p2 * bern2(x) + p3 * bern3(x);
-}
-
-static Vec4f Bernstein3D(const u32& p0, const u32& p1, const u32& p2, const u32& p3, float x) {
-	return Bernstein3D(Vec4f::FromRGBA(p0), Vec4f::FromRGBA(p1), Vec4f::FromRGBA(p2), Vec4f::FromRGBA(p3), x);
 }
 
 static Vec3f Bernstein3DDerivative(const Vec3f& p0, const Vec3f& p1, const Vec3f& p2, const Vec3f& p3, float x) {
@@ -485,91 +470,95 @@ static void _BezierPatchHighQuality(u8 *&dest, u16 *&indices, int &count, int te
 	const bool sampleColors = (origVertType & GE_VTYPE_COL_MASK) != 0;
 	const bool sampleTexcoords = (origVertType & GE_VTYPE_TC_MASK) != 0;
 
-	// Precompute the horizontal curves to we only have to evaluate the vertical ones.
-	for (int i = 0; i < tess_u + 1; i++) {
-		float u = ((float)i / (float)tess_u);
-		prepos.horiz1[i] = Bernstein3D(patch.points[0]->pos, patch.points[1]->pos, patch.points[2]->pos, patch.points[3]->pos, u);
-		prepos.horiz2[i] = Bernstein3D(patch.points[4]->pos, patch.points[5]->pos, patch.points[6]->pos, patch.points[7]->pos, u);
-		prepos.horiz3[i] = Bernstein3D(patch.points[8]->pos, patch.points[9]->pos, patch.points[10]->pos, patch.points[11]->pos, u);
-		prepos.horiz4[i] = Bernstein3D(patch.points[12]->pos, patch.points[13]->pos, patch.points[14]->pos, patch.points[15]->pos, u);
+	int num_patches_u = (patch.count_u - 1) / 3;
+	int num_patches_v = (patch.count_v - 1) / 3;
+	for (int patch_u = 0; patch_u < num_patches_u; ++patch_u) {
+		for (int patch_v = 0; patch_v < num_patches_v; ++patch_v) {
+			// Precompute the horizontal curves to we only have to evaluate the vertical ones.
+			Vec3f *_pos[16];
+			Vec4f *_col[16];
+			Vec2f *_tex[16];
+			for (int point = 0; point < 16; ++point) {
+				int idx = (patch_u * 3 + point % 4) + (patch_v * 3 + point / 4) * patch.count_u;
+				_pos[point] = &patch.pos[idx];
+				_col[point] = &patch.col[idx];
+				_tex[point] = &patch.tex[idx];
+			}
+			for (int i = 0; i < tess_u + 1; i++) {
+				float u = ((float)i / (float)tess_u);
+				prepos.horiz1[i] = Bernstein3D(*_pos[0], *_pos[1], *_pos[2], *_pos[3], u);
+				prepos.horiz2[i] = Bernstein3D(*_pos[4], *_pos[5], *_pos[6], *_pos[7], u);
+				prepos.horiz3[i] = Bernstein3D(*_pos[8], *_pos[9], *_pos[10], *_pos[11], u);
+				prepos.horiz4[i] = Bernstein3D(*_pos[12], *_pos[13], *_pos[14], *_pos[15], u);
 
-		if (sampleColors) {
-			precol.horiz1[i] = Bernstein3D(patch.points[0]->color_32, patch.points[1]->color_32, patch.points[2]->color_32, patch.points[3]->color_32, u);
-			precol.horiz2[i] = Bernstein3D(patch.points[4]->color_32, patch.points[5]->color_32, patch.points[6]->color_32, patch.points[7]->color_32, u);
-			precol.horiz3[i] = Bernstein3D(patch.points[8]->color_32, patch.points[9]->color_32, patch.points[10]->color_32, patch.points[11]->color_32, u);
-			precol.horiz4[i] = Bernstein3D(patch.points[12]->color_32, patch.points[13]->color_32, patch.points[14]->color_32, patch.points[15]->color_32, u);
-		}
-		if (sampleTexcoords) {
-			pretex.horiz1[i] = Bernstein3D(Vec2f(patch.points[0]->uv), Vec2f(patch.points[1]->uv), Vec2f(patch.points[2]->uv), Vec2f(patch.points[3]->uv), u);
-			pretex.horiz2[i] = Bernstein3D(Vec2f(patch.points[4]->uv), Vec2f(patch.points[5]->uv), Vec2f(patch.points[6]->uv), Vec2f(patch.points[7]->uv), u);
-			pretex.horiz3[i] = Bernstein3D(Vec2f(patch.points[8]->uv), Vec2f(patch.points[9]->uv), Vec2f(patch.points[10]->uv), Vec2f(patch.points[11]->uv), u);
-			pretex.horiz4[i] = Bernstein3D(Vec2f(patch.points[12]->uv), Vec2f(patch.points[13]->uv), Vec2f(patch.points[14]->uv), Vec2f(patch.points[15]->uv), u);
-		}
+				if (sampleColors) {
+					precol.horiz1[i] = Bernstein3D(*_col[0], *_col[1], *_col[2], *_col[3], u);
+					precol.horiz2[i] = Bernstein3D(*_col[4], *_col[5], *_col[6], *_col[7], u);
+					precol.horiz3[i] = Bernstein3D(*_col[8], *_col[9], *_col[10], *_col[11], u);
+					precol.horiz4[i] = Bernstein3D(*_col[12], *_col[13], *_col[14], *_col[15], u);
+				}
+				if (sampleTexcoords) {
+					pretex.horiz1[i] = Bernstein3D(*_tex[0], *_tex[1], *_tex[2], *_tex[3], u);
+					pretex.horiz2[i] = Bernstein3D(*_tex[4], *_tex[5], *_tex[6], *_tex[7], u);
+					pretex.horiz3[i] = Bernstein3D(*_tex[8], *_tex[9], *_tex[10], *_tex[11], u);
+					pretex.horiz4[i] = Bernstein3D(*_tex[12], *_tex[13], *_tex[14], *_tex[15], u);
+				}
 
-		if (computeNormals) {
-			prederivU.horiz1[i] = Bernstein3DDerivative(patch.points[0]->pos, patch.points[1]->pos, patch.points[2]->pos, patch.points[3]->pos, u);
-			prederivU.horiz2[i] = Bernstein3DDerivative(patch.points[4]->pos, patch.points[5]->pos, patch.points[6]->pos, patch.points[7]->pos, u);
-			prederivU.horiz3[i] = Bernstein3DDerivative(patch.points[8]->pos, patch.points[9]->pos, patch.points[10]->pos, patch.points[11]->pos, u);
-			prederivU.horiz4[i] = Bernstein3DDerivative(patch.points[12]->pos, patch.points[13]->pos, patch.points[14]->pos, patch.points[15]->pos, u);
-		}
-	}
-
-
-	for (int tile_v = 0; tile_v < tess_v + 1; ++tile_v) {
-		for (int tile_u = 0; tile_u < tess_u + 1; ++tile_u) {
-			float u = ((float)tile_u / (float)tess_u);
-			float v = ((float)tile_v / (float)tess_v);
-			float bv = v;
-
-			SimpleVertex &vert = vertices[tile_v * (tess_u + 1) + tile_u];
-
-			if (computeNormals) {
-				const Vec3f derivU = prederivU.Bernstein3D(tile_u, bv);
-				const Vec3f derivV = prepos.Bernstein3DDerivative(tile_u, bv);
-
-				vert.nrm = Cross(derivU, derivV).Normalized();
-				if (patch.patchFacing)
-					vert.nrm *= -1.0f;
-			} else {
-				vert.nrm.SetZero();
+				if (computeNormals) {
+					prederivU.horiz1[i] = Bernstein3DDerivative(*_pos[0], *_pos[1], *_pos[2], *_pos[3], u);
+					prederivU.horiz2[i] = Bernstein3DDerivative(*_pos[4], *_pos[5], *_pos[6], *_pos[7], u);
+					prederivU.horiz3[i] = Bernstein3DDerivative(*_pos[8], *_pos[9], *_pos[10], *_pos[11], u);
+					prederivU.horiz4[i] = Bernstein3DDerivative(*_pos[12], *_pos[13], *_pos[14], *_pos[15], u);
+				}
 			}
 
-			vert.pos = prepos.Bernstein3D(tile_u, bv);
+			for (int tile_v = 0; tile_v < tess_v + 1; ++tile_v) {
+				for (int tile_u = 0; tile_u < tess_u + 1; ++tile_u) {
+					float u = ((float)tile_u / (float)tess_u);
+					float v = ((float)tile_v / (float)tess_v);
+					float bv = v;
 
-			if (!sampleTexcoords) {
-				// Generate texcoord
-				vert.uv[0] = u + patch.u_index * third;
-				vert.uv[1] = v + patch.v_index * third;
-			} else {
-				// Sample UV from control points
-				const Vec2f res = pretex.Bernstein3D(tile_u, bv);
-				vert.uv[0] = res.x;
-				vert.uv[1] = res.y;
-			} 
+					SimpleVertex &vert = vertices[tile_v * (tess_u + 1) + tile_u];
 
-			if (sampleColors) {
-				vert.color_32 = precol.Bernstein3D(tile_u, bv).ToRGBA();
-			} else {
-				memcpy(vert.color, patch.points[0]->color, 4);
+					if (computeNormals) {
+						const Vec3f derivU = prederivU.Bernstein3D(tile_u, bv);
+						const Vec3f derivV = prepos.Bernstein3DDerivative(tile_u, bv);
+
+						vert.nrm = Cross(derivU, derivV).Normalized();
+						if (patch.patchFacing)
+							vert.nrm *= -1.0f;
+					} else {
+						vert.nrm.SetZero();
+					}
+
+					vert.pos = prepos.Bernstein3D(tile_u, bv);
+
+					if (!sampleTexcoords) {
+						// Generate texcoord
+						vert.uv[0] = u + patch_u * third;
+						vert.uv[1] = v + patch_u * third;
+					} else {
+						// Sample UV from control points
+						const Vec2f res = pretex.Bernstein3D(tile_u, bv);
+						vert.uv[0] = res.x;
+						vert.uv[1] = res.y;
+					}
+
+					if (sampleColors) {
+						vert.color_32 = precol.Bernstein3D(tile_u, bv).ToRGBA();
+					} else {
+						vert.color_32 = patch.defcolor;
+					}
+				}
 			}
+
+			int patch_index = patch_v * num_patches_u + patch_u;
+			int total = patch_index * (tess_u + 1) * (tess_v + 1);
+			BuildIndex(indices + count, count, tess_u, tess_v, patch.primType, total);
+
+			dest += (tess_u + 1) * (tess_v + 1) * sizeof(SimpleVertex);
 		}
 	}
-
-	GEPatchPrimType prim_type = patch.primType;
-	// Combine the vertices into triangles.
-	for (int tile_v = 0; tile_v < tess_v; ++tile_v) {
-		for (int tile_u = 0; tile_u < tess_u; ++tile_u) {
-			int total = patch.index * (tess_u + 1) * (tess_v + 1);
-			int idx0 = total + tile_v * (tess_u + 1) + tile_u;
-			int idx1 = total + tile_v * (tess_u + 1) + tile_u + 1;
-			int idx2 = total + (tile_v + 1) * (tess_u + 1) + tile_u;
-			int idx3 = total + (tile_v + 1) * (tess_u + 1) + tile_u + 1;
-
-			CopyQuadIndex(indices, prim_type, idx0, idx1, idx2, idx3);
-			count += 6;
-		}
-	}
-	dest += (tess_u + 1) * (tess_v + 1) * sizeof(SimpleVertex);
 }
 
 // Prepare mesh of one patch for "Instanced Tessellation".
@@ -796,21 +785,20 @@ void DrawEngineCommon::SubmitBezier(const void *control_points, const void *indi
 		TessellateBezierPatchHardware(dest, inds, count, tess_u, tess_v, prim_type);
 		numPatches = num_patches_u * num_patches_v;
 	} else {
-		BezierPatch *patches = (BezierPatch *)managedBuf.Allocate(sizeof(BezierPatch) * num_patches_u * num_patches_v);
-		for (int patch_u = 0; patch_u < num_patches_u; patch_u++) {
-			for (int patch_v = 0; patch_v < num_patches_v; patch_v++) {
-				BezierPatch& patch = patches[patch_u + patch_v * num_patches_u];
-				for (int point = 0; point < 16; ++point) {
-					int idx = (patch_u * 3 + point % 4) + (patch_v * 3 + point / 4) * count_u;
-					patch.points[point] = points[idx];
-				}
-				patch.u_index = patch_u * 3;
-				patch.v_index = patch_v * 3;
-				patch.index = patch_v * num_patches_u + patch_u;
-				patch.primType = prim_type;
-				patch.computeNormals = computeNormals;
-				patch.patchFacing = patchFacing;
-			}
+		BezierPatch patch;
+		patch.count_u = count_u;
+		patch.count_v = count_v;
+		patch.primType = prim_type;
+		patch.computeNormals = computeNormals;
+		patch.patchFacing = patchFacing;
+		patch.defcolor = points[0]->color_32;
+		patch.pos = (Vec3f *)managedBuf.Allocate(sizeof(Vec3f) * count_u * count_v);
+		patch.tex = (Vec2f *)managedBuf.Allocate(sizeof(Vec2f) * count_u * count_v);
+		patch.col = (Vec4f *)managedBuf.Allocate(sizeof(Vec4f) * count_u * count_v);
+		for (int idx = 0; idx < count_u * count_v; idx++) {
+			patch.pos[idx] = Vec3f(points[idx]->pos);
+			patch.tex[idx] = Vec2f(points[idx]->uv);
+			patch.col[idx] = Vec4f::FromRGBA(points[idx]->color_32);
 		}
 		int maxVertices = SPLINE_BUFFER_SIZE / vertexSize;
 		// Downsample until it fits, in case crazy tessellation factors are sent.
@@ -818,12 +806,7 @@ void DrawEngineCommon::SubmitBezier(const void *control_points, const void *indi
 			tess_u /= 2;
 			tess_v /= 2;
 		}
-		// We shouldn't really split up into separate 4x4 patches, instead we should do something that works
-		// like the splines, so we subdivide across the whole "mega-patch".
-		for (int patch_idx = 0; patch_idx < num_patches_u*num_patches_v; ++patch_idx) {
-			const BezierPatch &patch = patches[patch_idx];
-			TessellateBezierPatch(dest, inds, count, tess_u, tess_v, patch, origVertType);
-		}
+		TessellateBezierPatch(dest, inds, count, tess_u, tess_v, patch, origVertType);
 	}
 
 	u32 vertTypeWithIndex16 = (vertType & ~GE_VTYPE_IDX_MASK) | GE_VTYPE_IDX_16BIT;

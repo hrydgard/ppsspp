@@ -39,11 +39,9 @@ struct BezierPatch {
 	Vec3f *pos;
 	Vec4f *col;
 	Vec2f *tex;
-
-	// These are used to generate UVs.
-	int u_index, v_index;
-
-	int index;
+	u32_le defcolor;
+	int count_u;
+	int count_v;
 	GEPatchPrimType primType;
 	bool computeNormals;
 	bool patchFacing;
