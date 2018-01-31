@@ -36,7 +36,9 @@ struct SimpleVertex {
 // We decode all vertices into a common format for easy interpolation and stuff.
 // Not fast but can be optimized later.
 struct BezierPatch {
-	const SimpleVertex *points[16];
+	Vec3f *pos;
+	Vec4f *col;
+	Vec2f *tex;
 
 	// These are used to generate UVs.
 	int u_index, v_index;
@@ -48,7 +50,9 @@ struct BezierPatch {
 };
 
 struct SplinePatchLocal {
-	const SimpleVertex **points;
+	Vec3f *pos;
+	Vec4f *col;
+	Vec2f *tex;
 	int tess_u;
 	int tess_v;
 	int count_u;
@@ -68,4 +72,3 @@ enum SplineQuality {
 
 bool CanUseHardwareTessellation(GEPatchPrimType prim);
 void TessellateSplinePatch(u8 *&dest, u16 *indices, int &count, const SplinePatchLocal &spatch, u32 origVertType, int maxVertices);
-void TessellateBezierPatch(u8 *&dest, u16 *&indices, int &count, int tess_u, int tess_v, const BezierPatch &patch, u32 origVertType);

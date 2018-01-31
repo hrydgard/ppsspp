@@ -366,15 +366,23 @@ static void _SplinePatchLowQuality(u8 *&dest, u16 *indices, int &count, const Sp
 
 }
 
-static inline void AccumulateWeighted(Vec3f &out, const Vec3Packedf &in, const Vec4f &w) {
+static inline void AccumulateWeighted(Vec3f &out, const Vec3f &in, const Vec4f &w) {
 #ifdef _M_SSE
-	out.vec = _mm_add_ps(out.vec, _mm_mul_ps(_mm_loadu_ps(in.AsArray()), w.vec));
+	out.vec = _mm_add_ps(out.vec, _mm_mul_ps(in.vec, w.vec));
 #else
 	out += in * w.x;
 #endif
 }
 
 static inline void AccumulateWeighted(Vec4f &out, const Vec4f &in, const Vec4f &w) {
+#ifdef _M_SSE
+	out.vec = _mm_add_ps(out.vec, _mm_mul_ps(in.vec, w.vec));
+#else
+	out += in * w;
+#endif
+}
+
+static inline void AccumulateWeighted(Vec2f &out, const Vec2f &in, const Vec4f &w) {
 #ifdef _M_SSE
 	out.vec = _mm_add_ps(out.vec, _mm_mul_ps(in.vec, w.vec));
 #else
@@ -445,6 +453,7 @@ static void SplinePatchFullQuality(u8 *&dest, u16 *indices, int &count, const Sp
 			Vec3f du, dv;
 			du.SetZero();
 			dv.SetZero();
+			Vec2f vert_tex;
 			if (origNrm) {
 				vert_nrm.SetZero();
 			}
@@ -454,8 +463,7 @@ static void SplinePatchFullQuality(u8 *&dest, u16 *indices, int &count, const Sp
 				memcpy(vert->color, spatch.points[0]->color, 4);
 			}
 			if (origTc) {
-				vert->uv[0] = 0.0f;
-				vert->uv[1] = 0.0f;
+				vert_tex.SetZero();
 			} else {
 				vert->uv[0] = tu_width * ((float)tile_u * one_over_patch_div_s);
 				vert->uv[1] = tv_height * ((float)tile_v * one_over_patch_div_t);
@@ -503,19 +511,16 @@ static void SplinePatchFullQuality(u8 *&dest, u16 *indices, int &count, const Sp
 							OutputDebugStringA(temp);
 							Crash();
 						}*/
-						const SimpleVertex *a = spatch.points[idx];
-						AccumulateWeighted(vert_pos, a->pos, fv);
+						AccumulateWeighted(vert_pos, spatch.pos[idx], fv);
 						if (origTc) {
-							vert->uv[0] += a->uv[0] * f;
-							vert->uv[1] += a->uv[1] * f;
+							AccumulateWeighted(vert_tex, spatch.tex[idx], fv);
 						}
 						if (origCol) {
-							Vec4f a_color = Vec4f::FromRGBA(a->color_32);
-							AccumulateWeighted(vert_color, a_color, fv);
+							AccumulateWeighted(vert_color, spatch.col[idx], fv);
 						}
 						if (origNrm) {
-							AccumulateWeighted(du, a->pos, Vec4f::AssignToAll(u_derivs[ii] * v_weights[jj]));
-							AccumulateWeighted(dv, a->pos, Vec4f::AssignToAll(u_weights[ii] * v_derivs[jj]));
+							AccumulateWeighted(du, spatch.pos[idx], Vec4f::AssignToAll(u_derivs[ii] * v_weights[jj]));
+							AccumulateWeighted(dv, spatch.pos[idx], Vec4f::AssignToAll(u_weights[ii] * v_derivs[jj]));
 						}
 					}
 				}
@@ -536,6 +541,9 @@ static void SplinePatchFullQuality(u8 *&dest, u16 *indices, int &count, const Sp
 			}
 			if (origCol) {
 				vert->color_32 = vert_color.ToRGBA();
+			}
+			if (origTc) {
+				vert_tex.Write(vert->uv);
 			}
 		}
 	}
@@ -919,6 +927,14 @@ void DrawEngineCommon::SubmitSpline(const void *control_points, const void *indi
 		TessellateSplinePatchHardware(dest, quadIndices_, count, patch);
 		numPatches = (count_u - 3) * (count_v - 3);
 	} else {
+		patch.pos = (Vec3f *)managedBuf.Allocate(sizeof(Vec3f) * count_u * count_v);
+		patch.tex = (Vec2f *)managedBuf.Allocate(sizeof(Vec2f) * count_u * count_v);
+		patch.col = (Vec4f *)managedBuf.Allocate(sizeof(Vec4f) * count_u * count_v);
+		for (int idx = 0; idx < count_u * count_v; idx++) {
+			patch.pos[idx] = Vec3f(points[idx]->pos);
+			patch.tex[idx] = Vec2f(points[idx]->uv);
+			patch.col[idx] = Vec4f::FromRGBA(points[idx]->color_32);
+		}
 		int maxVertexCount = SPLINE_BUFFER_SIZE / vertexSize;
 		TessellateSplinePatch(dest, quadIndices_, count, patch, origVertType, maxVertexCount);
 	}
