@@ -109,9 +109,7 @@ struct KnotDiv {
 	float _3_2 = 1.0f; // Always 1
 };
 
-static void spline_n_4(int i, float t, float *knot, const KnotDiv &div, float *splineVal, float *derivs) {
-	knot += i;
-
+static void spline_n_4(float t, float *knot, const KnotDiv &div, float *splineVal, float *derivs) {
 #ifdef _M_SSE
 	const __m128 knot012 = _mm_loadu_ps(knot);
 	const __m128 t012 = _mm_sub_ps(_mm_set_ps1(t), knot012);
@@ -177,34 +175,34 @@ static void spline_n_4(int i, float t, float *knot, const KnotDiv &div, float *s
 
 // knot should be an array sized n + 5  (n + 1 + 1 + degree (cubic))
 static void spline_knot(int n, int type, float *knots, KnotDiv *divs) {
-		// Basic theory (-2 to +3), optimized with KnotDiv (-2 to +0) 
-	//	for (int i = 0; i < n + 5; ++i) {
-		for (int i = 0; i < n + 2; ++i) {
-			knots[i] = (float)i - 2;
-		}
+	// Basic theory (-2 to +3), optimized with KnotDiv (-2 to +0) 
+//	for (int i = 0; i < n + 5; ++i) {
+	for (int i = 0; i < n + 2; ++i) {
+		knots[i] = (float)i - 2;
+	}
 
-		// The first edge is open
-		if ((type & 1) != 0) {
-			knots[0] = 0;
-			knots[1] = 0;
+	// The first edge is open
+	if ((type & 1) != 0) {
+		knots[0] = 0;
+		knots[1] = 0;
 
-			divs[0]._3_0 = 1.0f;
-			divs[0]._4_1 = 1.0f / 2.0f;
-			divs[0]._3_1 = 1.0f;
-			if (n > 1)
-				divs[1]._3_0 = 1.0f / 2.0f;
-		}
-		// The last edge is open
-		if ((type & 2) != 0) {
-		//	knots[n + 2] = (float)n; // Got rid of this line optimized with KnotDiv
-		//	knots[n + 3] = (float)n; // Got rid of this line optimized with KnotDiv
-		//	knots[n + 4] = (float)n; // Got rid of this line optimized with KnotDiv
-			divs[n - 1]._4_1 = 1.0f / 2.0f;
-			divs[n - 1]._5_2 = 1.0f;
-			divs[n - 1]._4_2 = 1.0f;
-			if (n > 1)
-				divs[n - 2]._5_2 = 1.0f / 2.0f;
-		}
+		divs[0]._3_0 = 1.0f;
+		divs[0]._4_1 = 1.0f / 2.0f;
+		divs[0]._3_1 = 1.0f;
+		if (n > 1)
+			divs[1]._3_0 = 1.0f / 2.0f;
+	}
+	// The last edge is open
+	if ((type & 2) != 0) {
+	//	knots[n + 2] = (float)n; // Got rid of this line optimized with KnotDiv
+	//	knots[n + 3] = (float)n; // Got rid of this line optimized with KnotDiv
+	//	knots[n + 4] = (float)n; // Got rid of this line optimized with KnotDiv
+		divs[n - 1]._4_1 = 1.0f / 2.0f;
+		divs[n - 1]._5_2 = 1.0f;
+		divs[n - 1]._4_2 = 1.0f;
+		if (n > 1)
+			divs[n - 2]._5_2 = 1.0f / 2.0f;
+	}
 }
 
 bool CanUseHardwareTessellation(GEPatchPrimType prim) {
@@ -335,8 +333,8 @@ static void SplinePatchFullQuality(u8 *&dest, u16 *indices, int &count, const Sp
 			if (iu >= spatch.count_u - 3) iu = spatch.count_u - 4;
 			if (iv >= spatch.count_v - 3) iv = spatch.count_v - 4;
 
-			spline_n_4(iu, u, knot_u, divs_u[iu], u_weights, u_derivs);
-			spline_n_4(iv, v, knot_v, divs_v[iv], v_weights, v_derivs);
+			spline_n_4(u, knot_u + iu, divs_u[iu], u_weights, u_derivs);
+			spline_n_4(v, knot_v + iv, divs_v[iv], v_weights, v_derivs);
 
 			// Handle degenerate patches. without this, spatch.points[] may read outside the number of initialized points.
 			int patch_w = std::min(spatch.count_u - iu, 4);
