@@ -69,10 +69,29 @@ void GLRenderManager::ThreadStart() {
 }
 
 void GLRenderManager::ThreadEnd() {
+	ILOG("ThreadEnd");
+
 	// Wait for any shutdown to complete in StopThread().
 	std::unique_lock<std::mutex> lock(mutex_);
 	queueRunner_.DestroyDeviceObjects();
 	VLOG("PULL: Quitting");
+
+	// Good point to run all the deleters to get rid of leftover objects.
+	for (int i = 0; i < MAX_INFLIGHT_FRAMES; i++) {
+		frameData_[i].deleter.Perform();
+		for (int j = 0; j < (int)frameData_[i].steps.size(); j++) {
+			delete frameData_[i].steps[j];
+		}
+		frameData_[i].steps.clear();
+		frameData_[i].initSteps.clear();
+	}
+	deleter_.Perform();
+
+	for (int i = 0; i < (int)steps_.size(); i++) {
+		delete steps_[i];
+	}
+	steps_.clear();
+	initSteps_.clear();
 }
 
 bool GLRenderManager::ThreadFrame() {

@@ -237,7 +237,7 @@ MainUI::MainUI(QWidget *parent):
 
 MainUI::~MainUI()
 {
-	if (useThread_) {
+	if (emuThreadState != (int)EmuThreadState::DISABLED) {
 		EmuThreadStop();
 	}
 #if defined(MOBILE_DEVICE)
@@ -365,34 +365,32 @@ void MainUI::initializeGL()
 		glGetError();
 #endif
 	ILOG("Initializing graphics context");
-	graphicsContext = new QtDummyGraphicsContext();
-	NativeInitGraphics(graphicsContext);
 
 	// OpenGL uses a background thread to do the main processing and only renders on the gl thread.
-	useThread_ = g_Config.iGPUBackend == (int)GPUBackend::OPENGL;
+	graphicsContext = new QtDummyGraphicsContext();
 
-	if (useThread_) {
+	NativeInitGraphics(graphicsContext);
+
+	if (g_Config.iGPUBackend == (int)GPUBackend::OPENGL) {
 		ILOG("Using thread, starting emu thread");
 		EmuThreadStart();
-
-		graphicsContext->ThreadStart();
 	} else {
 		ILOG("Not using thread, backend=%d", (int)g_Config.iGPUBackend);
 	}
+	graphicsContext->ThreadStart();
 }
 
 void MainUI::paintGL()
 {
-	if (useThread_) {
+	#ifdef SDL
+	SDL_PumpEvents();
+	#endif
+	updateAccelerometer();
+	if (emuThreadState == (int)EmuThreadState::DISABLED) {
+		UpdateRunLoop();
+	} else {
 		graphicsContext->ThreadFrame();
 		// Do the rest in EmuThreadFunc
-	} else {
-	#ifdef SDL
-		SDL_PumpEvents();
-	#endif
-		updateAccelerometer();
-		time_update();
-		UpdateRunLoop();
 	}
 }
 

@@ -131,8 +131,6 @@ private:
 
 	std::thread emuThread;
 	std::atomic<int> emuThreadState;
-
-	bool useThread_ = false;
 };
 
 extern MainUI* emugl;

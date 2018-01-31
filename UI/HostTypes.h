@@ -110,7 +110,7 @@ public:
 	// this is sent from EMU thread! Make sure that Host handles it properly!
 	virtual void BootDone() {
 		g_symbolMap->SortSymbols();
-		mainWindow->Boot();
+		mainWindow->Notify(MainWindowMsg::BOOT_DONE);
 	}
 
 	virtual bool IsDebuggingEnabled() {

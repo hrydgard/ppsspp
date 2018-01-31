@@ -1198,14 +1198,13 @@ int main(int argc, char *argv[]) {
 		framecount++;
 	}
 
-	graphicsContext->ThreadEnd();
-	graphicsContext->ShutdownFromRenderThread();
-
 	EmuThreadStop();
 
 	delete joystick;
 	NativeShutdownGraphics();
 	graphicsContext->Shutdown();
+	graphicsContext->ThreadEnd();
+	graphicsContext->ShutdownFromRenderThread();
 	NativeShutdown();
 	delete graphicsContext;
 

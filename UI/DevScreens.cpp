@@ -471,6 +471,9 @@ void SystemInfoScreen::CreateViews() {
 #else
 	buildConfig->Add(new InfoItem("NDEBUG", ""));
 #endif
+#ifdef USE_ADDRESS_SANITIZER
+	buildConfig->Add(new InfoItem("USE_ADDRESS_SANITIZER", ""));
+#endif
 #ifdef USING_GLES2
 	buildConfig->Add(new InfoItem("USING_GLES2", ""));
 #endif

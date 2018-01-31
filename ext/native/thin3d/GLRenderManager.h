@@ -10,6 +10,7 @@
 #include <condition_variable>
 #include <cassert>
 
+#include "base/logging.h"
 #include "gfx/gl_common.h"
 #include "math/dataconv.h"
 #include "Common/Log.h"
@@ -701,7 +702,7 @@ private:
 		// Swapchain.
 		bool hasBegun = false;
 		uint32_t curSwapchainImage = -1;
-		
+
 		GLDeleter deleter;
 		std::set<GLPushBuffer *> activePushBuffers;
 	};
