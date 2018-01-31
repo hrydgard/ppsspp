@@ -1023,7 +1023,7 @@ void OpenGLContext::Clear(int mask, uint32_t colorval, float depthVal, int stenc
 	if (mask & FBChannel::FB_STENCIL_BIT) {
 		glMask |= GL_STENCIL_BUFFER_BIT;
 	}
-	renderManager_.Clear(colorval, depthVal, stencilVal, glMask);
+	renderManager_.Clear(colorval, depthVal, stencilVal, glMask, 0xF, 0, 0, targetWidth_, targetHeight_);
 }
 
 DrawContext *T3DCreateGLContext() {

@@ -724,13 +724,13 @@ rotateVBO:
 			if (alphaMask) target |= GL_STENCIL_BUFFER_BIT;
 			if (depthMask) target |= GL_DEPTH_BUFFER_BIT;
 
-			render_->Clear(clearColor, clearDepth, clearColor >> 24, target, rgbaMask);
-			framebufferManager_->SetColorUpdated(gstate_c.skipDrawReason);
-
 			int scissorX1 = gstate.getScissorX1();
 			int scissorY1 = gstate.getScissorY1();
 			int scissorX2 = gstate.getScissorX2() + 1;
 			int scissorY2 = gstate.getScissorY2() + 1;
+
+			render_->Clear(clearColor, clearDepth, clearColor >> 24, target, rgbaMask, scissorX1, scissorY1, scissorX2 - scissorX1, scissorY2 - scissorY1);
+			framebufferManager_->SetColorUpdated(gstate_c.skipDrawReason);
 			framebufferManager_->SetSafeSize(scissorX2, scissorY2);
 
 			if (g_Config.bBlockTransferGPU && (gstate_c.featureFlags & GPU_USE_CLEAR_RAM_HACK) && colorMask && (alphaMask || gstate.FrameBufFormat() == GE_FORMAT_565)) {

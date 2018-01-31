@@ -629,7 +629,12 @@ void GLQueueRunner::PerformRenderPass(const GLRStep &step) {
 #endif
 			break;
 		case GLRRenderCommand::CLEAR:
-			glDisable(GL_SCISSOR_TEST);
+			if (c.clear.scissorW > 0) {
+				glEnable(GL_SCISSOR_TEST);
+				glScissor(c.clear.scissorX, c.clear.scissorY, c.clear.scissorW, c.clear.scissorH);
+			} else {
+				glDisable(GL_SCISSOR_TEST);
+			}
 			if (c.clear.colorMask != colorMask) {
 				glColorMask(c.clear.colorMask & 1, (c.clear.colorMask >> 1) & 1, (c.clear.colorMask >> 2) & 1, (c.clear.colorMask >> 3) & 1);
 				colorMask = c.clear.colorMask;
@@ -650,7 +655,9 @@ void GLQueueRunner::PerformRenderPass(const GLRStep &step) {
 				glClearStencil(c.clear.clearStencil);
 			}
 			glClear(c.clear.clearMask);
-			glEnable(GL_SCISSOR_TEST);
+			if (c.clear.scissorW > 0) {
+				glDisable(GL_SCISSOR_TEST);
+			}
 			break;
 		case GLRRenderCommand::INVALIDATE:
 		{

@@ -203,11 +203,14 @@ void GLRenderManager::BindFramebufferAsRenderTarget(GLRFramebuffer *fb, GLRRende
 		data.clear.clearStencil = clearStencil;
 	}
 	if (clearMask) {
+		data.clear.scissorX = 0;
+		data.clear.scissorY = 0;
+		data.clear.scissorW = 0;
+		data.clear.scissorH = 0;
 		data.clear.clearMask = clearMask;
 		data.clear.colorMask = 0xF;
 		step->commands.push_back(data);
 	}
-
 	curRenderStep_ = step;
 
 	// Every step clears this state.

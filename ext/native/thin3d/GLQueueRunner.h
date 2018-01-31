@@ -122,9 +122,13 @@ struct GLRRenderData {
 		struct {
 			uint32_t clearColor;
 			float clearZ;
-			int clearStencil;
-			int clearMask;   // VK_IMAGE_ASPECT_COLOR_BIT etc
-			int colorMask; // Like blend, but for the clear.
+			uint8_t clearStencil;
+			uint8_t colorMask; // Like blend, but for the clear.
+			GLuint clearMask;   // GL_COLOR_BUFFER_BIT etc
+			int16_t scissorX;
+			int16_t scissorY;
+			int16_t scissorW;
+			int16_t scissorH;
 		} clear;
 		struct {
 			int slot;

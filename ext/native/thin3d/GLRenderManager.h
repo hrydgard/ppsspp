@@ -578,14 +578,20 @@ public:
 		curRenderStep_->commands.push_back(data);
 	}
 
-	void Clear(uint32_t clearColor, float clearZ, int clearStencil, int clearMask, int colorMask = 0xF) {
+	// If scissorW == 0, no scissor is applied.
+	void Clear(uint32_t clearColor, float clearZ, int clearStencil, int clearMask, int colorMask, int scissorX, int scissorY, int scissorW, int scissorH) {
 		_dbg_assert_(G3D, curRenderStep_ && curRenderStep_->stepType == GLRStepType::RENDER);
 		GLRRenderData data{ GLRRenderCommand::CLEAR };
+		_assert_(clearMask != 0);  // What would be the point?
 		data.clear.clearMask = clearMask;
 		data.clear.clearColor = clearColor;
 		data.clear.clearZ = clearZ;
 		data.clear.clearStencil = clearStencil;
 		data.clear.colorMask = colorMask;
+		data.clear.scissorX = scissorX;
+		data.clear.scissorY = scissorY;
+		data.clear.scissorW = scissorW;
+		data.clear.scissorH = scissorH;
 		curRenderStep_->commands.push_back(data);
 	}
 
