@@ -495,33 +495,43 @@ void TessellateSplinePatch(u8 *&dest, u16 *indices, int &count, const SplinePatc
 	}
 }
 
-template <typename T>
-struct PrecomputedCurves {
-	PrecomputedCurves(const T *const p[16]) : p(p) {
-	}
+// Tessellate single patch (4x4 control points)
+template<typename T>
+class Tessellator {
+private:
+	const T *const p[4]; // T p[v][u]; 4x4 control points
+	T u[4]; // Pre-tessellated U lines
+public:
+	Tessellator(const T *p, const int idx[4]) : p{ p + idx[0], p + idx[1], p + idx[2], p + idx[3] } {}
 
-	// http://en.wikipedia.org/wiki/Bernstein_polynomial
-	template<class T>
-	static T Bernstein3D(const T p[4], const float w[4]) {
-		if (w[0] == 1) return p[0];
-		if (w[3] == 1) return p[3];
-		// Linear combination
+	// Linear combination
+	T Sample(const T p[4], const float w[4]) {
 		return p[0] * w[0] + p[1] * w[1] + p[2] * w[2] + p[3] * w[3];
 	}
 
-	void Bernstein3D_U(const float w[4]) {
-		horiz[0] = Bernstein3D(p[0], w);
-		horiz[1] = Bernstein3D(p[4], w);
-		horiz[2] = Bernstein3D(p[8], w);
-		horiz[3] = Bernstein3D(p[12], w);
+	void SampleEdgeU(int idx) {
+		u[0] = p[0][idx];
+		u[1] = p[1][idx];
+		u[2] = p[2][idx];
+		u[3] = p[3][idx];
 	}
 
-	T Bernstein3D_V(const float w[4]) {
-		return Bernstein3D(horiz, w);
+	void SampleU(const float weights[4]) {
+		if (weights[0] == 1.0f) { SampleEdgeU(0); return; } // weights = {1,0,0,0}, first edge is open.
+		if (weights[3] == 1.0f) { SampleEdgeU(3); return; } // weights = {0,0,0,1}, last edge is open.
+
+		u[0] = Sample(p[0], weights);
+		u[1] = Sample(p[1], weights);
+		u[2] = Sample(p[2], weights);
+		u[3] = Sample(p[3], weights);
 	}
 
-	const T *const *p;
-	T horiz[4];
+	T SampleV(const float weights[4]) {
+		if (weights[0] == 1.0f) return u[0]; // weights = {1,0,0,0}, first edge is open.
+		if (weights[3] == 1.0f) return u[3]; // weights = {0,0,0,1}, last edge is open.
+
+		return Sample(u, weights);
+	}
 };
 
 static void _BezierPatchHighQuality(u8 *&dest, u16 *&indices, int &count, int tess_u, int tess_v, const BezierPatch &patch, u32 origVertType) {
@@ -541,53 +551,47 @@ static void _BezierPatchHighQuality(u8 *&dest, u16 *&indices, int &count, int te
 	int num_patches_v = (patch.count_v - 1) / 3;
 	for (int patch_u = 0; patch_u < num_patches_u; ++patch_u) {
 		for (int patch_v = 0; patch_v < num_patches_v; ++patch_v) {
-			// Precompute the horizontal curves to we only have to evaluate the vertical ones.
-			Vec3f *_pos[16];
-			Vec4f *_col[16];
-			Vec2f *_tex[16];
-			for (int point = 0; point < 16; ++point) {
-				int idx = (patch_u * 3 + point % 4) + (patch_v * 3 + point / 4) * patch.count_u;
-				_pos[point] = &patch.pos[idx];
-				_col[point] = &patch.col[idx];
-				_tex[point] = &patch.tex[idx];
-			}
-			PrecomputedCurves<Vec3f> prepos(_pos);
-			PrecomputedCurves<Vec4f> precol(_col);
-			PrecomputedCurves<Vec2f> pretex(_tex);
-			PrecomputedCurves<Vec3f> prederivU(_pos);
+
+			// Prepare 4x4 control points to tessellate
+			const int idx = patch_v * 3 * patch.count_u + patch_u * 3;
+			const int idx_v[4] = { idx, idx + patch.count_u, idx + patch.count_u * 2, idx + patch.count_u * 3 };
+			Tessellator<Vec3f> tess_pos(patch.pos, idx_v);
+			Tessellator<Vec4f> tess_col(patch.col, idx_v);
+			Tessellator<Vec2f> tess_tex(patch.tex, idx_v);
+			Tessellator<Vec3f> tess_nrm(patch.pos, idx_v);
 
 			for (int tile_u = 0; tile_u < tess_u + 1; ++tile_u) {
 				const Weight &wu = weights.u[tile_u];
 
-				prepos.Bernstein3D_U(wu.weights);
+				tess_pos.SampleU(wu.weights);
 				if (sampleColors)
-					precol.Bernstein3D_U(wu.weights);
+					tess_col.SampleU(wu.weights);
 				if (sampleTexcoords)
-					pretex.Bernstein3D_U(wu.weights);
+					tess_tex.SampleU(wu.weights);
 				if (computeNormals)
-					prederivU.Bernstein3D_U(wu.derivs);
+					tess_nrm.SampleU(wu.derivs);
 
 				for (int tile_v = 0; tile_v < tess_v + 1; ++tile_v) {
 					const Weight &wv = weights.v[tile_v];
 
 					SimpleVertex &vert = vertices[tile_v * (tess_u + 1) + tile_u];
 
-					vert.pos = prepos.Bernstein3D_V(wv.weights);
+					vert.pos = tess_pos.SampleV(wv.weights);
 					if (sampleColors) {
-						vert.color_32 = precol.Bernstein3D_V(wv.weights).ToRGBA();
+						vert.color_32 = tess_col.SampleV(wv.weights).ToRGBA();
 					} else {
 						vert.color_32 = patch.defcolor;
 					}
 					if (sampleTexcoords) {
-						pretex.Bernstein3D_V(wv.weights).Write(vert.uv);
+						tess_tex.SampleV(wv.weights).Write(vert.uv);
 					} else {
 						// Generate texcoord
 						vert.uv[0] = patch_u + tile_u * inv_u;
 						vert.uv[1] = patch_v + tile_v * inv_v;
 					}
 					if (computeNormals) {
-						const Vec3f derivU = prederivU.Bernstein3D_V(wv.weights);
-						const Vec3f derivV = prepos.Bernstein3D_V(wv.derivs);
+						const Vec3f derivU = tess_nrm.SampleV(wv.weights);
+						const Vec3f derivV = tess_pos.SampleV(wv.derivs);
 
 						vert.nrm = Cross(derivU, derivV).Normalized();
 						if (patch.patchFacing)
