@@ -346,8 +346,6 @@ static void SplinePatchFullQuality(u8 *&dest, u16 *indices, int &count, const Sp
 
 	// int max_idx = spatch.count_u * spatch.count_v;
 
-	bool computeNormals = spatch.computeNormals;
-
 	float one_over_patch_div_s = 1.0f / (float)(patch_div_s);
 	float one_over_patch_div_t = 1.0f / (float)(patch_div_t);
 
@@ -541,9 +539,9 @@ static void _BezierPatchHighQuality(u8 *&dest, u16 *&indices, int &count, int te
 	// First compute all the vertices and put them in an array
 	SimpleVertex *&vertices = (SimpleVertex*&)dest;
 
-	const bool computeNormals = patch.computeNormals;
-	const bool sampleColors = (origVertType & GE_VTYPE_COL_MASK) != 0;
-	const bool sampleTexcoords = (origVertType & GE_VTYPE_TC_MASK) != 0;
+	const bool sampleNrm = (origVertType & GE_VTYPE_NRM_MASK) != 0;
+	const bool sampleCol = (origVertType & GE_VTYPE_COL_MASK) != 0;
+	const bool sampleTex = (origVertType & GE_VTYPE_TC_MASK) != 0;
 
 	Weight2D weights(bezierWeightsCache, tess_u, tess_v);
 
@@ -564,11 +562,11 @@ static void _BezierPatchHighQuality(u8 *&dest, u16 *&indices, int &count, int te
 				const Weight &wu = weights.u[tile_u];
 
 				tess_pos.SampleU(wu.weights);
-				if (sampleColors)
+				if (sampleCol)
 					tess_col.SampleU(wu.weights);
-				if (sampleTexcoords)
+				if (sampleTex)
 					tess_tex.SampleU(wu.weights);
-				if (computeNormals)
+				if (sampleNrm)
 					tess_nrm.SampleU(wu.derivs);
 
 				for (int tile_v = 0; tile_v < tess_v + 1; ++tile_v) {
@@ -577,19 +575,19 @@ static void _BezierPatchHighQuality(u8 *&dest, u16 *&indices, int &count, int te
 					SimpleVertex &vert = vertices[tile_v * (tess_u + 1) + tile_u];
 
 					vert.pos = tess_pos.SampleV(wv.weights);
-					if (sampleColors) {
+					if (sampleCol) {
 						vert.color_32 = tess_col.SampleV(wv.weights).ToRGBA();
 					} else {
 						vert.color_32 = patch.defcolor;
 					}
-					if (sampleTexcoords) {
+					if (sampleTex) {
 						tess_tex.SampleV(wv.weights).Write(vert.uv);
 					} else {
 						// Generate texcoord
 						vert.uv[0] = patch_u + tile_u * inv_u;
 						vert.uv[1] = patch_v + tile_v * inv_v;
 					}
-					if (computeNormals) {
+					if (sampleNrm) {
 						const Vec3f derivU = tess_nrm.SampleV(wv.weights);
 						const Vec3f derivV = tess_pos.SampleV(wv.derivs);
 
@@ -733,7 +731,6 @@ void DrawEngineCommon::SubmitSpline(const void *control_points, const void *indi
 	patch.type_v = type_v;
 	patch.count_u = count_u;
 	patch.count_v = count_v;
-	patch.computeNormals = computeNormals;
 	patch.primType = prim_type;
 	patch.patchFacing = patchFacing;
 	patch.defcolor = points[0]->color_32;
@@ -839,7 +836,6 @@ void DrawEngineCommon::SubmitBezier(const void *control_points, const void *indi
 		patch.count_u = count_u;
 		patch.count_v = count_v;
 		patch.primType = prim_type;
-		patch.computeNormals = computeNormals;
 		patch.patchFacing = patchFacing;
 		patch.defcolor = points[0]->color_32;
 		patch.pos = (Vec3f *)managedBuf.Allocate(sizeof(Vec3f) * count_u * count_v);

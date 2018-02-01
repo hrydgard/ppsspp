@@ -43,7 +43,6 @@ struct BezierPatch {
 	int count_u;
 	int count_v;
 	GEPatchPrimType primType;
-	bool computeNormals;
 	bool patchFacing;
 };
 
@@ -58,7 +57,6 @@ struct SplinePatchLocal {
 	int count_v;
 	int type_u;
 	int type_v;
-	bool computeNormals;
 	bool patchFacing;
 	GEPatchPrimType primType;
 };
