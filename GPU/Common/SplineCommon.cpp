@@ -302,7 +302,7 @@ static void TessellateSplinePatchHardware(u8 *&dest, u16 *indices, int &count, c
 	BuildIndex(indices, count, spatch.tess_u, spatch.tess_v, spatch.primType);
 }
 
-template <bool origNrm, bool origCol, bool origTc, bool useSSE4>
+template <bool sampleNrm, bool sampleCol, bool sampleTex, bool useSSE4>
 static void SplinePatchFullQuality(u8 *&dest, u16 *indices, int &count, const SplinePatchLocal &spatch, u32 origVertType, int quality, int maxVertices) {
 	// Full (mostly) correct tessellation of spline patches.
 	// Not very fast.
@@ -341,100 +341,68 @@ static void SplinePatchFullQuality(u8 *&dest, u16 *indices, int &count, const Sp
 	// First compute all the vertices and put them in an array
 	SimpleVertex *&vertices = (SimpleVertex*&)dest;
 
-	float tu_width = (float)spatch.count_u - 3.0f;
-	float tv_height = (float)spatch.count_v - 3.0f;
+	const float inv_u = 1.0f / (float)spatch.tess_u;
+	const float inv_v = 1.0f / (float)spatch.tess_v;
 
-	// int max_idx = spatch.count_u * spatch.count_v;
+	int num_patches_u = spatch.count_u - 3;
+	int num_patches_v = spatch.count_v - 3;
+	for (int patch_u = 0; patch_u < num_patches_u; ++patch_u) {
+		int tess_u = (patch_u - 1 == num_patches_u) ? spatch.tess_u + 1 : spatch.tess_u;
+		for (int patch_v = 0; patch_v < num_patches_v; ++patch_v) {
+			int tess_v = (patch_v - 1 == num_patches_v) ? spatch.tess_v + 1 : spatch.tess_v;
 
-	float one_over_patch_div_s = 1.0f / (float)(patch_div_s);
-	float one_over_patch_div_t = 1.0f / (float)(patch_div_t);
+			// Prepare 4x4 control points to tessellate
+			const int idx = patch_v * spatch.count_u + patch_u;
+			const int idx_v[4] = { idx, idx + spatch.count_u, idx + spatch.count_u * 2, idx + spatch.count_u * 3 };
+			Tessellator<Vec3f> tess_pos(spatch.pos, idx_v);
+			Tessellator<Vec4f> tess_col(spatch.col, idx_v);
+			Tessellator<Vec2f> tess_tex(spatch.tex, idx_v);
+			Tessellator<Vec3f> tess_nrm(spatch.pos, idx_v);
 
-	for (int tile_v = 0; tile_v < patch_div_t + 1; tile_v++) {
-		float v = (float)tile_v * (float)(spatch.count_v - 3) * one_over_patch_div_t;
-		if (v < 0.0f)
-			v = 0.0f;
-		for (int tile_u = 0; tile_u < patch_div_s + 1; tile_u++) {
-			float u = (float)tile_u * (float)(spatch.count_u - 3) * one_over_patch_div_s;
-			if (u < 0.0f)
-				u = 0.0f;
-			SimpleVertex *vert = &vertices[tile_v * (patch_div_s + 1) + tile_u];
-			Vec4f vert_color(0, 0, 0, 0);
-			Vec3f vert_pos;
-			vert_pos.SetZero();
-			Vec3f du, dv;
-			Vec2f vert_tex;
-			if (origNrm) {
-				du.SetZero();
-				dv.SetZero();
-			}
-			if (origCol) {
-				vert_color.SetZero();
-			} else {
-				vert->color_32 = spatch.defcolor;
-			}
-			if (origTc) {
-				vert_tex.SetZero();
-			} else {
-				vert->uv[0] = tu_width * ((float)tile_u * one_over_patch_div_s);
-				vert->uv[1] = tv_height * ((float)tile_v * one_over_patch_div_t);
-			}
+			for (int tile_u = 0; tile_u < tess_u + 1; ++tile_u) {
+				int index_u = patch_u * spatch.tess_u + tile_u;
+				const Weight &wu = weights.u[index_u];
 
-			int iu = (int)u;
-			int iv = (int)v;
+				// Pre-tessellate U lines
+				tess_pos.SampleU(wu.weights);
+				if (sampleCol)
+					tess_col.SampleU(wu.weights);
+				if (sampleTex)
+					tess_tex.SampleU(wu.weights);
+				if (sampleNrm)
+					tess_nrm.SampleU(wu.derivs);
 
-			// TODO: Would really like to fix the surrounding logic somehow to get rid of these but I can't quite get it right..
-			// Without the previous epsilons and with large count_u, we will end up doing an out of bounds access later without these.
-			if (iu >= spatch.count_u - 3) iu = spatch.count_u - 4;
-			if (iv >= spatch.count_v - 3) iv = spatch.count_v - 4;
+				for (int tile_v = 0; tile_v < tess_v + 1; ++tile_v) {
+					int index_v = patch_v * spatch.tess_v + tile_v;
+					const Weight &wv = weights.v[index_v];
 
-			const Weight &wu = weights.u[tile_u];
-			const Weight &wv = weights.v[tile_v];
+					SimpleVertex &vert = vertices[index_v * (patch_div_s + 1) + index_u];
 
-			// Handle degenerate patches. without this, spatch.points[] may read outside the number of initialized points.
-			int patch_w = std::min(spatch.count_u - iu, 4);
-			int patch_h = std::min(spatch.count_v - iv, 4);
+					// Tessellate
+					vert.pos = tess_pos.SampleV(wv.weights);
+					if (sampleCol) {
+						vert.color_32 = tess_col.SampleV(wv.weights).ToRGBA();
+					} else {
+						vert.color_32 = spatch.defcolor;
+					}
+					if (sampleTex) {
+						tess_tex.SampleV(wv.weights).Write(vert.uv);
+					} else {
+						// Generate texcoord
+						vert.uv[0] = patch_u + tile_u * inv_u;
+						vert.uv[1] = patch_v + tile_v * inv_v;
+					}
+					if (sampleNrm) {
+						const Vec3f derivU = tess_nrm.SampleV(wv.weights);
+						const Vec3f derivV = tess_pos.SampleV(wv.derivs);
 
-			for (int ii = 0; ii < patch_w; ++ii) {
-				for (int jj = 0; jj < patch_h; ++jj) {
-					float u_spline = wu.weights[ii];
-					float v_spline = wv.weights[jj];
-					float f = u_spline * v_spline;
-
-					if (f > 0.0f) {
-						int idx = spatch.count_u * (iv + jj) + (iu + ii);
-						/*
-						if (idx >= max_idx) {
-							char temp[512];
-							snprintf(temp, sizeof(temp), "count_u: %d count_v: %d patch_w: %d patch_h: %d  ii: %d  jj: %d  iu: %d  iv: %d  patch_div_s: %d  patch_div_t: %d\n", spatch.count_u, spatch.count_v, patch_w, patch_h, ii, jj, iu, iv, patch_div_s, patch_div_t);
-							OutputDebugStringA(temp);
-							Crash();
-						}*/
-						vert_pos += spatch.pos[idx] * f;
-						if (origTc) {
-							vert_tex += spatch.tex[idx] * f;
-						}
-						if (origCol) {
-							vert_color += spatch.col[idx] * f;
-						}
-						if (origNrm) {
-							du += spatch.pos[idx] * (wu.derivs[ii] * wv.weights[jj]);
-							dv += spatch.pos[idx] * (wu.weights[ii] * wv.derivs[jj]);
-						}
+						vert.nrm = Cross(derivU, derivV).Normalized(useSSE4);
+						if (spatch.patchFacing)
+							vert.nrm *= -1.0f;
+					} else {
+						vert.nrm.SetZero();
 					}
 				}
-			}
-			vert->pos = vert_pos;
-			if (origNrm) {
-				vert->nrm = Cross(du, dv).Normalized(useSSE4);
-			} else {
-				vert->nrm.SetZero();
-				vert->nrm.z = 1.0f;
-			}
-			if (origCol) {
-				vert->color_32 = vert_color.ToRGBA();
-			}
-			if (origTc) {
-				vert_tex.Write(vert->uv);
 			}
 		}
 	}
@@ -561,6 +529,7 @@ static void _BezierPatchHighQuality(u8 *&dest, u16 *&indices, int &count, int te
 			for (int tile_u = 0; tile_u < tess_u + 1; ++tile_u) {
 				const Weight &wu = weights.u[tile_u];
 
+				// Pre-tessellate U lines
 				tess_pos.SampleU(wu.weights);
 				if (sampleCol)
 					tess_col.SampleU(wu.weights);
@@ -574,6 +543,7 @@ static void _BezierPatchHighQuality(u8 *&dest, u16 *&indices, int &count, int te
 
 					SimpleVertex &vert = vertices[tile_v * (tess_u + 1) + tile_u];
 
+					// Tessellate
 					vert.pos = tess_pos.SampleV(wv.weights);
 					if (sampleCol) {
 						vert.color_32 = tess_col.SampleV(wv.weights).ToRGBA();
