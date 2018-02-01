@@ -524,7 +524,8 @@ struct PrecomputedCurves {
 };
 
 static void _BezierPatchHighQuality(u8 *&dest, u16 *&indices, int &count, int tess_u, int tess_v, const BezierPatch &patch, u32 origVertType) {
-	const float third = 1.0f / 3.0f;
+	const float inv_u = 1.0f / (float)tess_u;
+	const float inv_v = 1.0f / (float)tess_v;
 
 	// First compute all the vertices and put them in an array
 	SimpleVertex *&vertices = (SimpleVertex*&)dest;
@@ -583,16 +584,12 @@ static void _BezierPatchHighQuality(u8 *&dest, u16 *&indices, int &count, int te
 					vert.pos = prepos.Bernstein3D_V(wv.weights);
 
 					if (!sampleTexcoords) {
-						float u = ((float)tile_u / (float)tess_u);
-						float v = ((float)tile_v / (float)tess_v);
 						// Generate texcoord
-						vert.uv[0] = u + patch_u * third;
-						vert.uv[1] = v + patch_u * third;
+						vert.uv[0] = patch_u + tile_u * inv_u;
+						vert.uv[1] = patch_v + tile_v * inv_v;
 					} else {
 						// Sample UV from control points
-						const Vec2f res = pretex.Bernstein3D_V(wv.weights);
-						vert.uv[0] = res.x;
-						vert.uv[1] = res.y;
+						pretex.Bernstein3D_V(wv.weights).Write(vert.uv);
 					}
 
 					if (sampleColors) {
