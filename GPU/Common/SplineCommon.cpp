@@ -557,6 +557,7 @@ static void _BezierPatchHighQuality(u8 *&dest, u16 *&indices, int &count, int te
 			}
 			for (int tile_u = 0; tile_u < tess_u + 1; ++tile_u) {
 				const Weight &wu = weights.u[tile_u];
+
 				prepos.Bernstein3D_U(_pos, wu.weights);
 				if (sampleColors)
 					precol.Bernstein3D_U(_col, wu.weights);
@@ -566,10 +567,23 @@ static void _BezierPatchHighQuality(u8 *&dest, u16 *&indices, int &count, int te
 					prederivU.Bernstein3D_U(_pos, wu.derivs);
 
 				for (int tile_v = 0; tile_v < tess_v + 1; ++tile_v) {
+					const Weight &wv = weights.v[tile_v];
 
 					SimpleVertex &vert = vertices[tile_v * (tess_u + 1) + tile_u];
 
-					const Weight &wv = weights.v[tile_v];
+					vert.pos = prepos.Bernstein3D_V(wv.weights);
+					if (sampleColors) {
+						vert.color_32 = precol.Bernstein3D_V(wv.weights).ToRGBA();
+					} else {
+						vert.color_32 = patch.defcolor;
+					}
+					if (sampleTexcoords) {
+						pretex.Bernstein3D_V(wv.weights).Write(vert.uv);
+					} else {
+						// Generate texcoord
+						vert.uv[0] = patch_u + tile_u * inv_u;
+						vert.uv[1] = patch_v + tile_v * inv_v;
+					}
 					if (computeNormals) {
 						const Vec3f derivU = prederivU.Bernstein3D_V(wv.weights);
 						const Vec3f derivV = prepos.Bernstein3D_V(wv.derivs);
@@ -579,23 +593,6 @@ static void _BezierPatchHighQuality(u8 *&dest, u16 *&indices, int &count, int te
 							vert.nrm *= -1.0f;
 					} else {
 						vert.nrm.SetZero();
-					}
-
-					vert.pos = prepos.Bernstein3D_V(wv.weights);
-
-					if (!sampleTexcoords) {
-						// Generate texcoord
-						vert.uv[0] = patch_u + tile_u * inv_u;
-						vert.uv[1] = patch_v + tile_v * inv_v;
-					} else {
-						// Sample UV from control points
-						pretex.Bernstein3D_V(wv.weights).Write(vert.uv);
-					}
-
-					if (sampleColors) {
-						vert.color_32 = precol.Bernstein3D_V(wv.weights).ToRGBA();
-					} else {
-						vert.color_32 = patch.defcolor;
 					}
 				}
 			}
