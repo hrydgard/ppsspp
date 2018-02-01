@@ -410,53 +410,31 @@ static void SplinePatchFullQuality(u8 *&dest, u16 *indices, int &count, const Sp
 	BuildIndex(indices, count, patch_div_s, patch_div_t, spatch.primType);
 }
 
-template <bool origNrm, bool origCol, bool origTc>
-static inline void SplinePatchFullQualityDispatch4(u8 *&dest, u16 *indices, int &count, const SplinePatchLocal &spatch, u32 origVertType, int quality, int maxVertices) {
-	if (cpu_info.bSSE4_1)
-		SplinePatchFullQuality<origNrm, origCol, origTc, true>(dest, indices, count, spatch, origVertType, quality, maxVertices);
-	else
-		SplinePatchFullQuality<origNrm, origCol, origTc, false>(dest, indices, count, spatch, origVertType, quality, maxVertices);
-}
-
-template <bool origNrm, bool origCol>
-static inline void SplinePatchFullQualityDispatch3(u8 *&dest, u16 *indices, int &count, const SplinePatchLocal &spatch, u32 origVertType, int quality, int maxVertices) {
-	bool origTc = (origVertType & GE_VTYPE_TC_MASK) != 0;
-
-	if (origTc)
-		SplinePatchFullQualityDispatch4<origNrm, origCol, true>(dest, indices, count, spatch, origVertType, quality, maxVertices);
-	else
-		SplinePatchFullQualityDispatch4<origNrm, origCol, false>(dest, indices, count, spatch, origVertType, quality, maxVertices);
-}
-
-template <bool origNrm>
-static inline void SplinePatchFullQualityDispatch2(u8 *&dest, u16 *indices, int &count, const SplinePatchLocal &spatch, u32 origVertType, int quality, int maxVertices) {
-	bool origCol = (origVertType & GE_VTYPE_COL_MASK) != 0;
-
-	if (origCol)
-		SplinePatchFullQualityDispatch3<origNrm, true>(dest, indices, count, spatch, origVertType, quality, maxVertices);
-	else
-		SplinePatchFullQualityDispatch3<origNrm, false>(dest, indices, count, spatch, origVertType, quality, maxVertices);
-}
-
-static void SplinePatchFullQualityDispatch(u8 *&dest, u16 *indices, int &count, const SplinePatchLocal &spatch, u32 origVertType, int quality, int maxVertices) {
-	bool origNrm = (origVertType & GE_VTYPE_NRM_MASK) != 0;
-
-	if (origNrm)
-		SplinePatchFullQualityDispatch2<true>(dest, indices, count, spatch, origVertType, quality, maxVertices);
-	else
-		SplinePatchFullQualityDispatch2<false>(dest, indices, count, spatch, origVertType, quality, maxVertices);
-}
+// Define class TemplateParameterDispatcherTess
+TEMPLATE_PARAMETER_DISPATCHER(Tess, SplinePatchFullQuality);
 
 void TessellateSplinePatch(u8 *&dest, u16 *indices, int &count, const SplinePatchLocal &spatch, u32 origVertType, int maxVertexCount) {
+	using TessFunc = void(*)(u8 *&, u16 *, int &, const SplinePatchLocal &, u32, int, int);
+	constexpr int NumParams = 4;
+	static TemplateParameterDispatcherTess<TessFunc, NumParams> dispatcher; // Initialize only once
+
+	const bool params[NumParams] = {
+		(origVertType & GE_VTYPE_NRM_MASK) != 0,
+		(origVertType & GE_VTYPE_COL_MASK) != 0,
+		(origVertType & GE_VTYPE_TC_MASK) != 0,
+		cpu_info.bSSE4_1,
+	};
+	TessFunc func = dispatcher.GetFunc(params);
+
 	switch (g_Config.iSplineBezierQuality) {
 	case LOW_QUALITY:
-		SplinePatchFullQualityDispatch(dest, indices, count, spatch, origVertType, 0, maxVertexCount);
+		(*func)(dest, indices, count, spatch, origVertType, 0, maxVertexCount);
 		break;
 	case MEDIUM_QUALITY:
-		SplinePatchFullQualityDispatch(dest, indices, count, spatch, origVertType, 2, maxVertexCount);
+		(*func)(dest, indices, count, spatch, origVertType, 2, maxVertexCount);
 		break;
 	case HIGH_QUALITY:
-		SplinePatchFullQualityDispatch(dest, indices, count, spatch, origVertType, 1, maxVertexCount);
+		(*func)(dest, indices, count, spatch, origVertType, 1, maxVertexCount);
 		break;
 	}
 }
