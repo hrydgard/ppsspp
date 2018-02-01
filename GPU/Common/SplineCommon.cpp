@@ -94,11 +94,11 @@ public:
 
 // http://en.wikipedia.org/wiki/Bernstein_polynomial
 template<class T>
-static T Bernstein3D(const T& p0, const T& p1, const T& p2, const T& p3, const float w[4]) {
-	if (w[0] == 1) return p0;
-	if (w[3] == 1) return p3;
+static T Bernstein3D(const T *p, const float w[4]) {
+	if (w[0] == 1) return p[0];
+	if (w[3] == 1) return p[3];
 	// Linear combination
-	return p0 * w[0] + p1 * w[1] + p2 * w[2] + p3 * w[3];
+	return p[0] * w[0] + p[1] * w[1] + p[2] * w[2] + p[3] * w[3];
 }
 
 class Spline3DWeight {
@@ -507,23 +507,13 @@ void TessellateSplinePatch(u8 *&dest, u16 *indices, int &count, const SplinePatc
 template <typename T>
 struct PrecomputedCurves {
 	PrecomputedCurves(int count) {
-		horiz1 = (T *)AllocateAlignedMemory(count * 4 * sizeof(T), 16);
-		horiz2 = horiz1 + count * 1;
-		horiz3 = horiz1 + count * 2;
-		horiz4 = horiz1 + count * 3;
-	}
-	~PrecomputedCurves() {
-		FreeAlignedMemory(horiz1);
 	}
 
 	T Bernstein3D(int u, const float w[4]) {
-		return ::Bernstein3D(horiz1[u], horiz2[u], horiz3[u], horiz4[u], w);
+		return ::Bernstein3D(horiz, w);
 	}
 
-	T *horiz1;
-	T *horiz2;
-	T *horiz3;
-	T *horiz4;
+	T horiz[4];
 };
 
 static void _BezierPatchHighQuality(u8 *&dest, u16 *&indices, int &count, int tess_u, int tess_v, const BezierPatch &patch, u32 origVertType) {
@@ -557,36 +547,34 @@ static void _BezierPatchHighQuality(u8 *&dest, u16 *&indices, int &count, int te
 				_col[point] = &patch.col[idx];
 				_tex[point] = &patch.tex[idx];
 			}
-			for (int i = 0; i < tess_u + 1; i++) {
-				const Weight &wu = weights.u[i];
-				prepos.horiz1[i] = Bernstein3D(*_pos[0], *_pos[1], *_pos[2], *_pos[3], wu.weights);
-				prepos.horiz2[i] = Bernstein3D(*_pos[4], *_pos[5], *_pos[6], *_pos[7], wu.weights);
-				prepos.horiz3[i] = Bernstein3D(*_pos[8], *_pos[9], *_pos[10], *_pos[11], wu.weights);
-				prepos.horiz4[i] = Bernstein3D(*_pos[12], *_pos[13], *_pos[14], *_pos[15], wu.weights);
+			for (int tile_u = 0; tile_u < tess_u + 1; ++tile_u) {
+				const Weight &wu = weights.u[tile_u];
+				prepos.horiz[0] = Bernstein3D(_pos[0], wu.weights);
+				prepos.horiz[1] = Bernstein3D(_pos[4], wu.weights);
+				prepos.horiz[2] = Bernstein3D(_pos[8], wu.weights);
+				prepos.horiz[3] = Bernstein3D(_pos[12], wu.weights);
 
 				if (sampleColors) {
-					precol.horiz1[i] = Bernstein3D(*_col[0], *_col[1], *_col[2], *_col[3], wu.weights);
-					precol.horiz2[i] = Bernstein3D(*_col[4], *_col[5], *_col[6], *_col[7], wu.weights);
-					precol.horiz3[i] = Bernstein3D(*_col[8], *_col[9], *_col[10], *_col[11], wu.weights);
-					precol.horiz4[i] = Bernstein3D(*_col[12], *_col[13], *_col[14], *_col[15], wu.weights);
+					precol.horiz[0] = Bernstein3D(_col[0], wu.weights);
+					precol.horiz[1] = Bernstein3D(_col[4], wu.weights);
+					precol.horiz[2] = Bernstein3D(_col[8], wu.weights);
+					precol.horiz[3] = Bernstein3D(_col[12], wu.weights);
 				}
 				if (sampleTexcoords) {
-					pretex.horiz1[i] = Bernstein3D(*_tex[0], *_tex[1], *_tex[2], *_tex[3], wu.weights);
-					pretex.horiz2[i] = Bernstein3D(*_tex[4], *_tex[5], *_tex[6], *_tex[7], wu.weights);
-					pretex.horiz3[i] = Bernstein3D(*_tex[8], *_tex[9], *_tex[10], *_tex[11], wu.weights);
-					pretex.horiz4[i] = Bernstein3D(*_tex[12], *_tex[13], *_tex[14], *_tex[15], wu.weights);
+					pretex.horiz[0] = Bernstein3D(_tex[0], wu.weights);
+					pretex.horiz[1] = Bernstein3D(_tex[4], wu.weights);
+					pretex.horiz[2] = Bernstein3D(_tex[8], wu.weights);
+					pretex.horiz[3] = Bernstein3D(_tex[12], wu.weights);
 				}
 
 				if (computeNormals) {
-					prederivU.horiz1[i] = Bernstein3D(*_pos[0], *_pos[1], *_pos[2], *_pos[3], wu.derivs);
-					prederivU.horiz2[i] = Bernstein3D(*_pos[4], *_pos[5], *_pos[6], *_pos[7], wu.derivs);
-					prederivU.horiz3[i] = Bernstein3D(*_pos[8], *_pos[9], *_pos[10], *_pos[11], wu.derivs);
-					prederivU.horiz4[i] = Bernstein3D(*_pos[12], *_pos[13], *_pos[14], *_pos[15], wu.derivs);
+					prederivU.horiz[0] = Bernstein3D(_pos[0], wu.derivs);
+					prederivU.horiz[1] = Bernstein3D(_pos[4], wu.derivs);
+					prederivU.horiz[2] = Bernstein3D(_pos[8], wu.derivs);
+					prederivU.horiz[3] = Bernstein3D(_pos[12], wu.derivs);
 				}
-			}
 
-			for (int tile_v = 0; tile_v < tess_v + 1; ++tile_v) {
-				for (int tile_u = 0; tile_u < tess_u + 1; ++tile_u) {
+				for (int tile_v = 0; tile_v < tess_v + 1; ++tile_v) {
 
 					SimpleVertex &vert = vertices[tile_v * (tess_u + 1) + tile_u];
 
