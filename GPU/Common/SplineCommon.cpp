@@ -497,7 +497,7 @@ void TessellateSplinePatch(u8 *&dest, u16 *indices, int &count, const SplinePatc
 
 template <typename T>
 struct PrecomputedCurves {
-	PrecomputedCurves(int count) {
+	PrecomputedCurves(const T *const p[16]) : p(p) {
 	}
 
 	// http://en.wikipedia.org/wiki/Bernstein_polynomial
@@ -509,7 +509,7 @@ struct PrecomputedCurves {
 		return p[0] * w[0] + p[1] * w[1] + p[2] * w[2] + p[3] * w[3];
 	}
 
-	void Bernstein3D_U(const T *const p[16], const float w[4]) {
+	void Bernstein3D_U(const float w[4]) {
 		horiz[0] = Bernstein3D(p[0], w);
 		horiz[1] = Bernstein3D(p[4], w);
 		horiz[2] = Bernstein3D(p[8], w);
@@ -520,6 +520,7 @@ struct PrecomputedCurves {
 		return Bernstein3D(horiz, w);
 	}
 
+	const T *const *p;
 	T horiz[4];
 };
 
@@ -529,11 +530,6 @@ static void _BezierPatchHighQuality(u8 *&dest, u16 *&indices, int &count, int te
 
 	// First compute all the vertices and put them in an array
 	SimpleVertex *&vertices = (SimpleVertex*&)dest;
-
-	PrecomputedCurves<Vec3f> prepos(tess_u + 1);
-	PrecomputedCurves<Vec4f> precol(tess_u + 1);
-	PrecomputedCurves<Vec2f> pretex(tess_u + 1);
-	PrecomputedCurves<Vec3f> prederivU(tess_u + 1);
 
 	const bool computeNormals = patch.computeNormals;
 	const bool sampleColors = (origVertType & GE_VTYPE_COL_MASK) != 0;
@@ -555,16 +551,21 @@ static void _BezierPatchHighQuality(u8 *&dest, u16 *&indices, int &count, int te
 				_col[point] = &patch.col[idx];
 				_tex[point] = &patch.tex[idx];
 			}
+			PrecomputedCurves<Vec3f> prepos(_pos);
+			PrecomputedCurves<Vec4f> precol(_col);
+			PrecomputedCurves<Vec2f> pretex(_tex);
+			PrecomputedCurves<Vec3f> prederivU(_pos);
+
 			for (int tile_u = 0; tile_u < tess_u + 1; ++tile_u) {
 				const Weight &wu = weights.u[tile_u];
 
-				prepos.Bernstein3D_U(_pos, wu.weights);
+				prepos.Bernstein3D_U(wu.weights);
 				if (sampleColors)
-					precol.Bernstein3D_U(_col, wu.weights);
+					precol.Bernstein3D_U(wu.weights);
 				if (sampleTexcoords)
-					pretex.Bernstein3D_U(_tex, wu.weights);
+					pretex.Bernstein3D_U(wu.weights);
 				if (computeNormals)
-					prederivU.Bernstein3D_U(_pos, wu.derivs);
+					prederivU.Bernstein3D_U(wu.derivs);
 
 				for (int tile_v = 0; tile_v < tess_v + 1; ++tile_v) {
 					const Weight &wv = weights.v[tile_v];
