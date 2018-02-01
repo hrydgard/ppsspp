@@ -92,15 +92,6 @@ public:
 	}
 };
 
-// http://en.wikipedia.org/wiki/Bernstein_polynomial
-template<class T>
-static T Bernstein3D(const T *p, const float w[4]) {
-	if (w[0] == 1) return p[0];
-	if (w[3] == 1) return p[3];
-	// Linear combination
-	return p[0] * w[0] + p[1] * w[1] + p[2] * w[2] + p[3] * w[3];
-}
-
 class Spline3DWeight {
 private:
 	struct KnotDiv {
@@ -509,8 +500,24 @@ struct PrecomputedCurves {
 	PrecomputedCurves(int count) {
 	}
 
-	T Bernstein3D(int u, const float w[4]) {
-		return ::Bernstein3D(horiz, w);
+	// http://en.wikipedia.org/wiki/Bernstein_polynomial
+	template<class T>
+	static T Bernstein3D(const T p[4], const float w[4]) {
+		if (w[0] == 1) return p[0];
+		if (w[3] == 1) return p[3];
+		// Linear combination
+		return p[0] * w[0] + p[1] * w[1] + p[2] * w[2] + p[3] * w[3];
+	}
+
+	void Bernstein3D_U(const T *const p[16], const float w[4]) {
+		horiz[0] = Bernstein3D(p[0], w);
+		horiz[1] = Bernstein3D(p[4], w);
+		horiz[2] = Bernstein3D(p[8], w);
+		horiz[3] = Bernstein3D(p[12], w);
+	}
+
+	T Bernstein3D_V(const float w[4]) {
+		return Bernstein3D(horiz, w);
 	}
 
 	T horiz[4];
@@ -549,30 +556,13 @@ static void _BezierPatchHighQuality(u8 *&dest, u16 *&indices, int &count, int te
 			}
 			for (int tile_u = 0; tile_u < tess_u + 1; ++tile_u) {
 				const Weight &wu = weights.u[tile_u];
-				prepos.horiz[0] = Bernstein3D(_pos[0], wu.weights);
-				prepos.horiz[1] = Bernstein3D(_pos[4], wu.weights);
-				prepos.horiz[2] = Bernstein3D(_pos[8], wu.weights);
-				prepos.horiz[3] = Bernstein3D(_pos[12], wu.weights);
-
-				if (sampleColors) {
-					precol.horiz[0] = Bernstein3D(_col[0], wu.weights);
-					precol.horiz[1] = Bernstein3D(_col[4], wu.weights);
-					precol.horiz[2] = Bernstein3D(_col[8], wu.weights);
-					precol.horiz[3] = Bernstein3D(_col[12], wu.weights);
-				}
-				if (sampleTexcoords) {
-					pretex.horiz[0] = Bernstein3D(_tex[0], wu.weights);
-					pretex.horiz[1] = Bernstein3D(_tex[4], wu.weights);
-					pretex.horiz[2] = Bernstein3D(_tex[8], wu.weights);
-					pretex.horiz[3] = Bernstein3D(_tex[12], wu.weights);
-				}
-
-				if (computeNormals) {
-					prederivU.horiz[0] = Bernstein3D(_pos[0], wu.derivs);
-					prederivU.horiz[1] = Bernstein3D(_pos[4], wu.derivs);
-					prederivU.horiz[2] = Bernstein3D(_pos[8], wu.derivs);
-					prederivU.horiz[3] = Bernstein3D(_pos[12], wu.derivs);
-				}
+				prepos.Bernstein3D_U(_pos, wu.weights);
+				if (sampleColors)
+					precol.Bernstein3D_U(_col, wu.weights);
+				if (sampleTexcoords)
+					pretex.Bernstein3D_U(_tex, wu.weights);
+				if (computeNormals)
+					prederivU.Bernstein3D_U(_pos, wu.derivs);
 
 				for (int tile_v = 0; tile_v < tess_v + 1; ++tile_v) {
 
@@ -580,8 +570,8 @@ static void _BezierPatchHighQuality(u8 *&dest, u16 *&indices, int &count, int te
 
 					const Weight &wv = weights.v[tile_v];
 					if (computeNormals) {
-						const Vec3f derivU = prederivU.Bernstein3D(tile_u, wv.weights);
-						const Vec3f derivV = prepos.Bernstein3D(tile_u, wv.derivs);
+						const Vec3f derivU = prederivU.Bernstein3D_V(wv.weights);
+						const Vec3f derivV = prepos.Bernstein3D_V(wv.derivs);
 
 						vert.nrm = Cross(derivU, derivV).Normalized();
 						if (patch.patchFacing)
@@ -590,7 +580,7 @@ static void _BezierPatchHighQuality(u8 *&dest, u16 *&indices, int &count, int te
 						vert.nrm.SetZero();
 					}
 
-					vert.pos = prepos.Bernstein3D(tile_u, wv.weights);
+					vert.pos = prepos.Bernstein3D_V(wv.weights);
 
 					if (!sampleTexcoords) {
 						float u = ((float)tile_u / (float)tess_u);
@@ -600,13 +590,13 @@ static void _BezierPatchHighQuality(u8 *&dest, u16 *&indices, int &count, int te
 						vert.uv[1] = v + patch_u * third;
 					} else {
 						// Sample UV from control points
-						const Vec2f res = pretex.Bernstein3D(tile_u, wv.weights);
+						const Vec2f res = pretex.Bernstein3D_V(wv.weights);
 						vert.uv[0] = res.x;
 						vert.uv[1] = res.y;
 					}
 
 					if (sampleColors) {
-						vert.color_32 = precol.Bernstein3D(tile_u, wv.weights).ToRGBA();
+						vert.color_32 = precol.Bernstein3D_V(wv.weights).ToRGBA();
 					} else {
 						vert.color_32 = patch.defcolor;
 					}
