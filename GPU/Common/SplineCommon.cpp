@@ -30,6 +30,8 @@
 #include "GPU/ge_constants.h"
 #include "GPU/GPUState.h"  // only needed for UVScale stuff
 
+#define HALF_CEIL(x) (x + 1) / 2 // Integer ceil = (int)ceil((float)x / 2.0f)
+
 static void CopyQuadIndex(u16 *&indices, GEPatchPrimType type, const int idx0, const int idx1, const int idx2, const int idx3) {
 	if (type == GE_PATCHPRIM_LINES) {
 		*(indices++) = idx0;
@@ -303,7 +305,7 @@ static void TessellateSplinePatchHardware(u8 *&dest, u16 *indices, int &count, c
 }
 
 template <bool sampleNrm, bool sampleCol, bool sampleTex, bool useSSE4>
-static void SplinePatchFullQuality(u8 *&dest, u16 *indices, int &count, const SplinePatchLocal &spatch, u32 origVertType, int quality, int maxVertices) {
+static void SplinePatchFullQuality(u8 *&dest, u16 *indices, int &count, const SplinePatchLocal &spatch) {
 	// Full (mostly) correct tessellation of spline patches.
 	// Not very fast.
 
@@ -314,29 +316,6 @@ static void SplinePatchFullQuality(u8 *&dest, u16 *indices, int &count, const Sp
 	// Increase tessellation based on the size. Should be approximately right?
 	int patch_div_s = (spatch.count_u - 3) * spatch.tess_u;
 	int patch_div_t = (spatch.count_v - 3) * spatch.tess_v;
-	if (quality == 0) {
-		// Low quality
-		patch_div_s = (spatch.count_u - 3) * 2;
-		patch_div_t = (spatch.count_v - 3) * 2;
-	}
-	if (quality > 1) {
-		// Don't cut below 2, though.
-		if (patch_div_s > 2) {
-			patch_div_s /= quality;
-		}
-		if (patch_div_t > 2) {
-			patch_div_t /= quality;
-		}
-	}
-
-	// Downsample until it fits, in case crazy tessellation factors are sent.
-	while ((patch_div_s + 1) * (patch_div_t + 1) > maxVertices) {
-		patch_div_s /= 2;
-		patch_div_t /= 2;
-	}
-
-	if (patch_div_s < 1) patch_div_s = 1;
-	if (patch_div_t < 1) patch_div_t = 1;
 
 	// First compute all the vertices and put them in an array
 	SimpleVertex *&vertices = (SimpleVertex*&)dest;
@@ -413,8 +392,8 @@ static void SplinePatchFullQuality(u8 *&dest, u16 *indices, int &count, const Sp
 // Define class TemplateParameterDispatcherTess
 TEMPLATE_PARAMETER_DISPATCHER(Tess, SplinePatchFullQuality);
 
-void TessellateSplinePatch(u8 *&dest, u16 *indices, int &count, const SplinePatchLocal &spatch, u32 origVertType, int maxVertexCount) {
-	using TessFunc = void(*)(u8 *&, u16 *, int &, const SplinePatchLocal &, u32, int, int);
+void TessellateSplinePatch(u8 *&dest, u16 *indices, int &count, SplinePatchLocal &spatch, u32 origVertType, int maxVertices) {
+	using TessFunc = void(*)(u8 *&, u16 *, int &, const SplinePatchLocal &);
 	constexpr int NumParams = 4;
 	static TemplateParameterDispatcherTess<TessFunc, NumParams> dispatcher; // Initialize only once
 
@@ -428,15 +407,26 @@ void TessellateSplinePatch(u8 *&dest, u16 *indices, int &count, const SplinePatc
 
 	switch (g_Config.iSplineBezierQuality) {
 	case LOW_QUALITY:
-		(*func)(dest, indices, count, spatch, origVertType, 0, maxVertexCount);
+		spatch.tess_u = 2;
+		spatch.tess_v = 2;
 		break;
 	case MEDIUM_QUALITY:
-		(*func)(dest, indices, count, spatch, origVertType, 2, maxVertexCount);
-		break;
+		// Don't cut below 2, though.
+		if (spatch.tess_u > 2) spatch.tess_u = HALF_CEIL(spatch.tess_u);
+		if (spatch.tess_v > 2) spatch.tess_v = HALF_CEIL(spatch.tess_v);
+		// Pass through
 	case HIGH_QUALITY:
-		(*func)(dest, indices, count, spatch, origVertType, 1, maxVertexCount);
+		int num_patches_u = spatch.count_u - 3;
+		int num_patches_v = spatch.count_v - 3;
+		// Downsample until it fits, in case crazy tessellation factors are sent.
+		while ((num_patches_u * spatch.tess_u + 1) * (num_patches_v * spatch.tess_v + 1) > maxVertices) {
+			spatch.tess_u--;
+			spatch.tess_v--;
+		}
 		break;
 	}
+
+	(*func)(dest, indices, count, spatch);
 }
 
 // Tessellate single patch (4x4 control points)
@@ -577,18 +567,29 @@ static void TessellateBezierPatchHardware(u8 *&dest, u16 *indices, int &count, i
 	BuildIndex(indices, count, tess_u, tess_v, primType);
 }
 
-void TessellateBezierPatch(u8 *&dest, u16 *&indices, int &count, int tess_u, int tess_v, const BezierPatch &patch, u32 origVertType) {
+void TessellateBezierPatch(u8 *&dest, u16 *&indices, int &count, int tess_u, int tess_v, const BezierPatch &patch, u32 origVertType, int maxVertices) {
 	switch (g_Config.iSplineBezierQuality) {
 	case LOW_QUALITY:
-		_BezierPatchHighQuality(dest, indices, count, 2, 2, patch, origVertType);
+		tess_u = 2;
+		tess_v = 2;
 		break;
 	case MEDIUM_QUALITY:
-		_BezierPatchHighQuality(dest, indices, count, std::max(tess_u / 2, 1), std::max(tess_v / 2, 1), patch, origVertType);
-		break;
+		// Don't cut below 2, though.
+		if (tess_u > 2) tess_u = HALF_CEIL(tess_u);
+		if (tess_v > 2) tess_v = HALF_CEIL(tess_v);
+		// Pass through
 	case HIGH_QUALITY:
-		_BezierPatchHighQuality(dest, indices, count, tess_u, tess_v, patch, origVertType);
+		int num_patches_u = (patch.count_u - 1) / 3;
+		int num_patches_v = (patch.count_v - 1) / 3;
+		// Downsample until it fits, in case crazy tessellation factors are sent.
+		while ((tess_u + 1) * (tess_v + 1) * num_patches_u * num_patches_v > maxVertices) {
+			tess_u--;
+			tess_v--;
+		}
 		break;
 	}
+
+	_BezierPatchHighQuality(dest, indices, count, tess_u, tess_v, patch, origVertType);
 }
 
 static void CopyControlPoints(const SimpleVertex *const *points, float *pos, float *tex, float *col, int posStride, int texStride, int colStride, int size, bool hasColor, bool hasTexCoords) {
@@ -663,6 +664,10 @@ void DrawEngineCommon::SubmitSpline(const void *control_points, const void *indi
 	if (vertexSize != sizeof(SimpleVertex)) {
 		ERROR_LOG(G3D, "Something went really wrong, vertex size: %i vs %i", vertexSize, (int)sizeof(SimpleVertex));
 	}
+
+	// If specified as 0, uses 1.
+	if (tess_u < 1) tess_u = 1;
+	if (tess_v < 1) tess_v = 1;
 
 	// Make an array of pointers to the control points, to get rid of indices.
 	const SimpleVertex **points = (const SimpleVertex **)managedBuf.Allocate(sizeof(SimpleVertex *) * count_u * count_v);
@@ -795,12 +800,7 @@ void DrawEngineCommon::SubmitBezier(const void *control_points, const void *indi
 			patch.col[idx] = Vec4f::FromRGBA(points[idx]->color_32);
 		}
 		int maxVertices = SPLINE_BUFFER_SIZE / vertexSize;
-		// Downsample until it fits, in case crazy tessellation factors are sent.
-		while ((tess_u + 1) * (tess_v + 1) * num_patches_u * num_patches_v > maxVertices) {
-			tess_u /= 2;
-			tess_v /= 2;
-		}
-		TessellateBezierPatch(dest, inds, count, tess_u, tess_v, patch, origVertType);
+		TessellateBezierPatch(dest, inds, count, tess_u, tess_v, patch, origVertType, maxVertices);
 	}
 
 	u32 vertTypeWithIndex16 = (vertType & ~GE_VTYPE_IDX_MASK) | GE_VTYPE_IDX_16BIT;
