@@ -725,21 +725,26 @@ enum class EmuThreadState {
 static std::thread emuThread;
 static std::atomic<int> emuThreadState((int)EmuThreadState::DISABLED);
 
-static void EmuThreadFunc() {
+static void EmuThreadFunc(GraphicsContext *graphicsContext) {
 	setCurrentThreadName("Emu");
 
 	// There's no real requirement that NativeInit happen on this thread.
 	// We just call the update/render loop here.
 	emuThreadState = (int)EmuThreadState::RUNNING;
+
+	NativeInitGraphics(graphicsContext);
+
 	while (emuThreadState != (int)EmuThreadState::QUIT_REQUESTED) {
 		UpdateRunLoop();
 	}
 	emuThreadState = (int)EmuThreadState::STOPPED;
+
+	NativeShutdownGraphics();
 }
 
-static void EmuThreadStart() {
+static void EmuThreadStart(GraphicsContext *context) {
 	emuThreadState = (int)EmuThreadState::START_REQUESTED;
-	emuThread = std::thread(&EmuThreadFunc);
+	emuThread = std::thread(&EmuThreadFunc, context);
 }
 
 static void EmuThreadStop() {
@@ -923,6 +928,9 @@ int main(int argc, char *argv[]) {
 
 	GraphicsContext *graphicsContext = nullptr;
 	SDL_Window *window = nullptr;
+
+	bool useEmuThread;
+
 	std::string error_message;
 	if (g_Config.iGPUBackend == (int)GPUBackend::OPENGL) {
 		SDLGLGraphicsContext *ctx = new SDLGLGraphicsContext();
@@ -930,6 +938,7 @@ int main(int argc, char *argv[]) {
 			printf("GL init error '%s'\n", error_message.c_str());
 		}
 		graphicsContext = ctx;
+		useEmuThread = true;
 	} else if (g_Config.iGPUBackend == (int)GPUBackend::VULKAN) {
 		SDLVulkanGraphicsContext *ctx = new SDLVulkanGraphicsContext();
 		if (!ctx->Init(window, x, y, mode, &error_message)) {
@@ -943,6 +952,7 @@ int main(int argc, char *argv[]) {
 		} else {
 			graphicsContext = ctx;
 		}
+		useEmuThread = false;
 	}
 
 	// Since we render from the main thread, there's nothing done here, but we call it to avoid confusion.
@@ -956,9 +966,10 @@ int main(int argc, char *argv[]) {
 	SDL_ShowCursor(SDL_DISABLE);
 #endif
 
-	NativeInitGraphics(graphicsContext);
-
-	NativeResized();
+	if (!useEmuThread) {
+		NativeInitGraphics(graphicsContext);
+		NativeResized();
+	}
 
 	SDL_AudioSpec fmt, ret_fmt;
 	memset(&fmt, 0, sizeof(fmt));
@@ -996,8 +1007,8 @@ int main(int argc, char *argv[]) {
 	int framecount = 0;
 	bool mouseDown = false;
 
-	if (GetGPUBackend() == GPUBackend::OPENGL) {
-		EmuThreadStart();
+	if (useEmuThread) {
+		EmuThreadStart(graphicsContext);
 	}
 	graphicsContext->ThreadStart();
 
@@ -1201,7 +1212,6 @@ int main(int argc, char *argv[]) {
 	EmuThreadStop();
 
 	delete joystick;
-	NativeShutdownGraphics();
 	graphicsContext->Shutdown();
 	graphicsContext->ThreadEnd();
 	graphicsContext->ShutdownFromRenderThread();
