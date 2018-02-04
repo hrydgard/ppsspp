@@ -153,9 +153,12 @@ class GLDeleter {
 public:
 	void Perform();
 
+	bool IsEmpty() const {
+		return shaders.empty() && programs.empty() && buffers.empty() && textures.empty() && inputLayouts.empty() && framebuffers.empty();
+	}
 	void Take(GLDeleter &other) {
 		deleterMutex_.lock();
-		_assert_msg_(G3D, shaders.empty() && programs.empty() && buffers.empty() && textures.empty() && inputLayouts.empty() && framebuffers.empty(), "Deleter already has stuff");
+		_assert_msg_(G3D, IsEmpty(), "Deleter already has stuff");
 		shaders = std::move(other.shaders);
 		programs = std::move(other.programs);
 		buffers = std::move(other.buffers);

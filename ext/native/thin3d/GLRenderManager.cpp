@@ -54,7 +54,7 @@ GLRenderManager::GLRenderManager() {
 
 GLRenderManager::~GLRenderManager() {
 	for (int i = 0; i < MAX_INFLIGHT_FRAMES; i++) {
-		// _assert_(frameData_[i].deleter.IsEmpty());
+		_assert_(frameData_[i].deleter.IsEmpty());
 	}
 
 	if (!useThread_) {
