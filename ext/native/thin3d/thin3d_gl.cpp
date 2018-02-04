@@ -527,6 +527,7 @@ OpenGLContext::OpenGLContext() {
 }
 
 OpenGLContext::~OpenGLContext() {
+	DestroyPresets();
 	for (int i = 0; i < GLRenderManager::MAX_INFLIGHT_FRAMES; i++) {
 		renderManager_.UnregisterPushBuffer(i, frameData_[i].push);
 		frameData_[i].push->Destroy();
@@ -1031,6 +1032,7 @@ DrawContext *T3DCreateGLContext() {
 }
 
 OpenGLInputLayout::~OpenGLInputLayout() {
+	render_->DeleteInputLayout(inputLayout_);
 }
 
 void OpenGLInputLayout::Compile(const InputLayoutDesc &desc) {

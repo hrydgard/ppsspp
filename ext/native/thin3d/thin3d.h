@@ -543,6 +543,7 @@ class DrawContext {
 public:
 	virtual ~DrawContext();
 	bool CreatePresets();
+	void DestroyPresets();
 
 	virtual const DeviceCaps &GetDeviceCaps() const = 0;
 	virtual uint32_t GetDataFormatSupport(DataFormat fmt) const = 0;

@@ -336,15 +336,23 @@ bool DrawContext::CreatePresets() {
 	return vsPresets_[VS_TEXTURE_COLOR_2D] && vsPresets_[VS_COLOR_2D] && fsPresets_[FS_TEXTURE_COLOR_2D] && fsPresets_[FS_COLOR_2D];
 }
 
-DrawContext::~DrawContext() {
+void DrawContext::DestroyPresets() {
 	for (int i = 0; i < VS_MAX_PRESET; i++) {
-		if (vsPresets_[i])
+		if (vsPresets_[i]) {
 			vsPresets_[i]->Release();
+			vsPresets_[i] = nullptr;
+		}
 	}
 	for (int i = 0; i < FS_MAX_PRESET; i++) {
-		if (fsPresets_[i])
+		if (fsPresets_[i]) {
 			fsPresets_[i]->Release();
+			fsPresets_[i] = nullptr;
+		}
 	}
+}
+
+DrawContext::~DrawContext() {
+	DestroyPresets();
 }
 
 // TODO: SSE/NEON
