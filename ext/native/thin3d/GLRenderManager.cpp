@@ -13,6 +13,7 @@
 #endif
 
 void GLDeleter::Perform() {
+	deleterMutex_.lock();
 	for (auto shader : shaders) {
 		delete shader;
 	}
@@ -37,6 +38,7 @@ void GLDeleter::Perform() {
 		delete framebuffer;
 	}
 	framebuffers.clear();
+	deleterMutex_.unlock();
 }
 
 GLRenderManager::GLRenderManager() {
@@ -358,6 +360,8 @@ void GLRenderManager::Finish() {
 		frameData.pull_condVar.notify_all();
 	}
 
+	frameData_[curFrame_].deleter.Take(deleter_);
+
 	curFrame_++;
 	if (curFrame_ >= MAX_INFLIGHT_FRAMES)
 		curFrame_ = 0;
@@ -378,6 +382,10 @@ void GLRenderManager::Submit(int frame, bool triggerFence) {
 	// In GL, submission happens automatically in Run().
 
 	// When !triggerFence, we notify after syncing with Vulkan.
+
+	// Putting deletes here is safe but only because OpenGL has its own delete handling..
+	// ideally we'd like to wait a frame or two.
+	frameData.deleter.Perform();
 
 	if (useThread_ && triggerFence) {
 		VLOG("PULL: Frame %d.readyForFence = true", frame);
@@ -409,10 +417,6 @@ void GLRenderManager::Run(int frame) {
 	BeginSubmitFrame(frame);
 
 	FrameData &frameData = frameData_[frame];
-
-	// Delete stuff from the last round.
-	frameData.deleter_prev.Perform();
-
 	auto &stepsOnThread = frameData_[frame].steps;
 	auto &initStepsOnThread = frameData_[frame].initSteps;
 	// queueRunner_.LogSteps(stepsOnThread);
@@ -423,7 +427,6 @@ void GLRenderManager::Run(int frame) {
 
 	switch (frameData.type) {
 	case GLRRunType::END:
-		frameData.deleter_prev.Take(frameData.deleter);
 		EndSubmitFrame(frame);
 		break;
 

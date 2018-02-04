@@ -424,52 +424,9 @@ void GLQueueRunner::RunSteps(const std::vector<GLRStep *> &steps) {
 }
 
 void GLQueueRunner::LogSteps(const std::vector<GLRStep *> &steps) {
-	for (int i = 0; i < steps.size(); i++) {
-		const GLRStep &step = *steps[i];
-		switch (step.stepType) {
-		case GLRStepType::RENDER:
-			LogRenderPass(step);
-			break;
-		case GLRStepType::COPY:
-			LogCopy(step);
-			break;
-		case GLRStepType::BLIT:
-			LogBlit(step);
-			break;
-		case GLRStepType::READBACK:
-			LogReadback(step);
-			break;
-		case GLRStepType::READBACK_IMAGE:
-			LogReadbackImage(step);
-			break;
-		default:
-			Crash();
-			break;
-		}
-		delete steps[i];
-	}
+
 }
 
-// TODO: Improve these.
-void GLQueueRunner::LogRenderPass(const GLRStep &pass) {
-	ILOG("RenderPass (%d commands)", (int)pass.commands.size());
-}
-
-void GLQueueRunner::LogCopy(const GLRStep &pass) {
-	ILOG("Copy");
-}
-
-void GLQueueRunner::LogBlit(const GLRStep &pass) {
-	ILOG("Blit");
-}
-
-void GLQueueRunner::LogReadback(const GLRStep &pass) {
-	ILOG("Readback");
-}
-
-void GLQueueRunner::LogReadbackImage(const GLRStep &pass) {
-	ILOG("ReadbackImage");
-}
 
 void GLQueueRunner::PerformBlit(const GLRStep &step) {
 	// Without FBO_ARB / GLES3, this will collide with bind_for_read, but there's nothing
@@ -1040,7 +997,7 @@ void GLQueueRunner::PerformReadback(const GLRStep &pass) {
 	const GLuint format = GL_RGBA;
 	const GLuint type = GL_UNSIGNED_BYTE;
 	const int srcAlignment = 4;
-	int dstAlignment = (int)DataFormatSizeInBytes(pass.readback.dstFormat);
+	int dstAlignment = DataFormatSizeInBytes(pass.readback.dstFormat);
 
 	int pixelStride = pass.readback.srcRect.w;
 	// Apply the correct alignment.
