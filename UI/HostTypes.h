@@ -110,7 +110,7 @@ public:
 	// this is sent from EMU thread! Make sure that Host handles it properly!
 	virtual void BootDone() {
 		g_symbolMap->SortSymbols();
-		mainWindow->Boot();
+		mainWindow->Notify(MainWindowMsg::BOOT_DONE);
 	}
 
 	virtual bool IsDebuggingEnabled() {
@@ -121,7 +121,10 @@ public:
 #endif
 	}
 	virtual bool AttemptLoadSymbolMap() {
-		return g_symbolMap->LoadSymbolMap(SymbolMapFilename(PSP_CoreParameter().fileToStart));
+		return false;
+		// TODO: Make this work with Qt and threaded GL... not sure what's so broken.
+		// auto fn = SymbolMapFilename(PSP_CoreParameter().fileToStart);
+		// return g_symbolMap->LoadSymbolMap(fn);
 	}
 	virtual void PrepareShutdown() {
 		g_symbolMap->SaveSymbolMap(SymbolMapFilename(PSP_CoreParameter().fileToStart));

@@ -297,6 +297,7 @@ public:
 	OpenGLPipeline(GLRenderManager *render) : render_(render) {
 	}
 	~OpenGLPipeline() {
+		ILOG("OpenGLPipeline released");
 		for (auto &iter : shaders) {
 			iter->Release();
 		}
@@ -477,7 +478,7 @@ private:
 	OpenGLTexture *boundTextures_[8]{};
 	int maxTextures_ = 0;
 	DeviceCaps caps_{};
-	
+
 	// Bound state
 	OpenGLPipeline *curPipeline_ = nullptr;
 	OpenGLBuffer *curVBuffers_[4]{};
@@ -519,7 +520,7 @@ OpenGLContext::OpenGLContext() {
 	default:
 		caps_.vendor = GPUVendor::VENDOR_UNKNOWN;
 		break;
-  }
+	}
 	for (int i = 0; i < GLRenderManager::MAX_INFLIGHT_FRAMES; i++) {
 		frameData_[i].push = new GLPushBuffer(&renderManager_, GL_ARRAY_BUFFER, 64 * 1024);
 		renderManager_.RegisterPushBuffer(i, frameData_[i].push);

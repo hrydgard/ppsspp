@@ -72,6 +72,17 @@ void MainWindow::newFrame()
 
 		updateMenus();
 	}
+
+	std::unique_lock<std::mutex> lock(msgMutex_);
+	while (!msgQueue_.empty()) {
+		MainWindowMsg msg = msgQueue_.front();
+		msgQueue_.pop();
+		switch (msg) {
+		case MainWindowMsg::BOOT_DONE:
+			bootDone();
+			break;
+		}
+	}
 }
 
 void MainWindow::updateMenus()
@@ -128,8 +139,7 @@ void MainWindow::updateMenus()
 	emit updateMenu();
 }
 
-/* SLOTS */
-void MainWindow::Boot()
+void MainWindow::bootDone()
 {
 	dialogDisasm = new Debugger_Disasm(currentDebugMIPS, this, this);
 	if(g_Config.bShowDebuggerOnLoad)
@@ -149,6 +159,7 @@ void MainWindow::Boot()
 	updateMenus();
 }
 
+/* SIGNALS */
 void MainWindow::openAct()
 {
 	QString filename = QFileDialog::getOpenFileName(NULL, "Load File", g_Config.currentDirectory.c_str(), "PSP ROMs (*.pbp *.elf *.iso *.cso *.prx)");

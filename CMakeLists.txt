@@ -776,7 +776,9 @@ elseif(TARGET SDL2::SDL2)
 	set(nativeExtra ${nativeExtra}
 		SDL/SDLJoystick.h
 		SDL/SDLJoystick.cpp
-		SDL/SDLMain.cpp)
+		SDL/SDLMain.cpp
+		SDL/SDLGLGraphicsContext.cpp
+		SDL/SDLVulkanGraphicsContext.cpp)
 	set(nativeExtraLibs ${nativeExtraLibs} SDL2::SDL2)
 	if(APPLE)
 		set(nativeExtra ${nativeExtra} SDL/SDLMain.h SDL/SDLMain.mm)

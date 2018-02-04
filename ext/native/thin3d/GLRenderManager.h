@@ -10,6 +10,7 @@
 #include <condition_variable>
 #include <cassert>
 
+#include "base/logging.h"
 #include "gfx/gl_common.h"
 #include "math/dataconv.h"
 #include "Common/Log.h"
@@ -152,9 +153,12 @@ class GLDeleter {
 public:
 	void Perform();
 
+	bool IsEmpty() const {
+		return shaders.empty() && programs.empty() && buffers.empty() && textures.empty() && inputLayouts.empty() && framebuffers.empty();
+	}
 	void Take(GLDeleter &other) {
 		deleterMutex_.lock();
-		_assert_msg_(G3D, shaders.empty() && programs.empty() && buffers.empty() && textures.empty() && inputLayouts.empty() && framebuffers.empty(), "Deleter already has stuff");
+		_assert_msg_(G3D, IsEmpty(), "Deleter already has stuff");
 		shaders = std::move(other.shaders);
 		programs = std::move(other.programs);
 		buffers = std::move(other.buffers);
@@ -193,6 +197,9 @@ public:
 	int semanticsMask_ = 0;
 };
 
+// Note: The GLRenderManager is created and destroyed on the render thread, and the latter
+// happens after the emu thread has been destroyed. Therefore, it's safe to run wild deleting stuff
+// directly in the destructor.
 class GLRenderManager {
 public:
 	GLRenderManager();
@@ -701,7 +708,7 @@ private:
 		// Swapchain.
 		bool hasBegun = false;
 		uint32_t curSwapchainImage = -1;
-		
+
 		GLDeleter deleter;
 		std::set<GLPushBuffer *> activePushBuffers;
 	};

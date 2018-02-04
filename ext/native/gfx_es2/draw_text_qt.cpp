@@ -140,6 +140,12 @@ void TextDrawerQt::ClearCache() {
 	}
 	cache_.clear();
 	sizeCache_.clear();
+	// Also wipe the font map.
+	for (auto iter : fontMap_) {
+		delete iter.second;
+	}
+	fontMap_.clear();
+	fontHash_ = 0;
 }
 
 void TextDrawerQt::DrawStringRect(DrawBuffer &target, const char *str, const Bounds &bounds, uint32_t color, int align) {
