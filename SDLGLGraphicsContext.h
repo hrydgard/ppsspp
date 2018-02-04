@@ -11,20 +11,12 @@ class SDLGLGraphicsContext : public DummyGraphicsContext {
 public:
 	SDLGLGraphicsContext() {
 	}
-	~SDLGLGraphicsContext() {
-		delete draw_;
-	}
 
 	// Returns 0 on success.
 	int Init(SDL_Window *&window, int x, int y, int mode, std::string *error_message);
 
-	void Shutdown() override {
-#ifdef USING_EGL
-		EGL_Close();
-#else
-		SDL_GL_DeleteContext(glContext);
-#endif
-	}
+	void Shutdown() override;
+	void ShutdownFromRenderThread() override;
 
 	void SwapBuffers() override {
 		renderManager_->Swap();

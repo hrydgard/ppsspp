@@ -194,6 +194,9 @@ public:
 	int semanticsMask_ = 0;
 };
 
+// Note: The GLRenderManager is created and destroyed on the render thread, and the latter
+// happens after the emu thread has been destroyed. Therefore, it's safe to run wild deleting stuff
+// directly in the destructor.
 class GLRenderManager {
 public:
 	GLRenderManager();

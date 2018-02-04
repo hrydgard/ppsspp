@@ -126,3 +126,17 @@ int SDLGLGraphicsContext::Init(SDL_Window *&window, int x, int y, int mode, std:
 	window_ = window;
 	return 0;
 }
+
+void SDLGLGraphicsContext::Shutdown() {
+}
+
+void SDLGLGraphicsContext::ShutdownFromRenderThread() {
+	delete draw_;
+	draw_ = nullptr;
+
+#ifdef USING_EGL
+	EGL_Close();
+#else
+	SDL_GL_DeleteContext(glContext);
+#endif
+}
