@@ -297,6 +297,7 @@ public:
 	OpenGLPipeline(GLRenderManager *render) : render_(render) {
 	}
 	~OpenGLPipeline() {
+		ILOG("OpenGLPipeline released");
 		for (auto &iter : shaders) {
 			iter->Release();
 		}

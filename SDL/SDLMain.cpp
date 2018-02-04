@@ -913,5 +913,6 @@ int main(int argc, char *argv[]) {
 #endif
 
 	glslang::FinalizeProcess();
+	ILOG("Leaving main");
 	return 0;
 }

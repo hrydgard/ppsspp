@@ -56,6 +56,9 @@ GLRenderManager::~GLRenderManager() {
 	for (int i = 0; i < MAX_INFLIGHT_FRAMES; i++) {
 		_assert_(frameData_[i].deleter.IsEmpty());
 	}
+	// Was anything deleted during shutdown?
+	deleter_.Perform();
+	// _assert_(deleter_.IsEmpty());
 
 	if (!useThread_) {
 		// The main thread is also the render thread.
