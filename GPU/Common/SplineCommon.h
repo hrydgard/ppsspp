@@ -22,6 +22,8 @@
 #include "GPU/Math3D.h"
 #include "GPU/ge_constants.h"
 
+#define HALF_CEIL(x) (x + 1) / 2 // Integer ceil = (int)ceil((float)x / 2.0f)
+
 // PSP compatible format so we can use the end of the pipeline in beziers etc
 struct SimpleVertex {
 	float uv[2];
@@ -33,38 +35,126 @@ struct SimpleVertex {
 	Vec3Packedf pos;
 };
 
+void BuildIndex(u16 *indices, int &count, int num_u, int num_v, GEPatchPrimType prim_type, int total = 0);
+
+enum SplineQuality {
+	LOW_QUALITY = 0,
+	MEDIUM_QUALITY = 1,
+	HIGH_QUALITY = 2,
+};
+
 // We decode all vertices into a common format for easy interpolation and stuff.
 // Not fast but can be optimized later.
 struct BezierPatch {
-	Vec3f *pos;
-	Vec4f *col;
-	Vec2f *tex;
-	u32_le defcolor;
-	int count_u;
-	int count_v;
-	GEPatchPrimType primType;
-	bool patchFacing;
-};
-
-struct SplinePatchLocal {
-	Vec3f *pos;
-	Vec4f *col;
-	Vec2f *tex;
-	u32_le defcolor;
 	int tess_u;
 	int tess_v;
 	int count_u;
 	int count_v;
 	int type_u;
 	int type_v;
-	bool patchFacing;
+	int num_patches_u;
+	int num_patches_v;
 	GEPatchPrimType primType;
+	bool patchFacing;
+
+	void Init(int maxVertices) {
+		switch (g_Config.iSplineBezierQuality) {
+		case LOW_QUALITY:
+			tess_u = 2;
+			tess_v = 2;
+			break;
+		case MEDIUM_QUALITY:
+			// Don't cut below 2, though.
+			if (tess_u > 2) tess_u = HALF_CEIL(tess_u);
+			if (tess_v > 2) tess_v = HALF_CEIL(tess_v);
+			// Pass through
+		case HIGH_QUALITY:
+			// Downsample until it fits, in case crazy tessellation factors are sent.
+			while ((tess_u + 1) * (tess_v + 1) * num_patches_u * num_patches_v > maxVertices) {
+				tess_u--;
+				tess_v--;
+			}
+			break;
+		}
+	}
+
+	int GetTessU(int patch_u) const { return tess_u + 1; }
+	int GetTessV(int patch_v) const { return tess_v + 1; }
+
+	int GetPointIndex(int patch_u, int patch_v) const { return patch_v * 3 * count_u + patch_u * 3;}
+
+	int GetIndexU(int patch_u, int tile_u) const { return tile_u; }
+	int GetIndexV(int patch_v, int tile_v) const { return tile_v; }
+
+	int GetPatchIndex(int patch_u, int patch_v) const { return patch_v * num_patches_u + patch_u;}
+	int GetIndex(int index_u, int index_v, int patch_u, int patch_v) const {
+		return index_v * (tess_u + 1) + index_u + (tess_u + 1) * (tess_v + 1) * GetPatchIndex(patch_u, patch_v);
+	}
+
+	void BuildIndex(u16 *indices, int &count) const {
+		for (int patch_u = 0; patch_u < num_patches_u; ++patch_u) {
+			for (int patch_v = 0; patch_v < num_patches_v; ++patch_v) {
+				int patch_index = patch_v * num_patches_u + patch_u;
+				int total = patch_index * (tess_u + 1) * (tess_v + 1);
+				::BuildIndex(indices + count, count, tess_u, tess_v, primType, total);
+			}
+		}
+	}
 };
 
-enum SplineQuality {
-	LOW_QUALITY = 0,
-	MEDIUM_QUALITY = 1,
-	HIGH_QUALITY = 2,
+struct SplinePatchLocal {
+	int tess_u;
+	int tess_v;
+	int count_u;
+	int count_v;
+	int type_u;
+	int type_v;
+	int num_patches_u;
+	int num_patches_v;
+	int num_divisions_u;
+	int num_divisions_v;
+	bool patchFacing;
+	GEPatchPrimType primType;
+
+	void Init(int maxVertices) {
+		switch (g_Config.iSplineBezierQuality) {
+		case LOW_QUALITY:
+			tess_u = 2;
+			tess_v = 2;
+			break;
+		case MEDIUM_QUALITY:
+			// Don't cut below 2, though.
+			if (tess_u > 2) tess_u = HALF_CEIL(tess_u);
+			if (tess_v > 2) tess_v = HALF_CEIL(tess_v);
+			// Pass through
+		case HIGH_QUALITY:
+			// Downsample until it fits, in case crazy tessellation factors are sent.
+			while ((num_patches_u * tess_u + 1) * (num_patches_v * tess_v + 1) > maxVertices) {
+				tess_u--;
+				tess_v--;
+			}
+			break;
+		}
+
+		num_divisions_u = num_patches_u * tess_u;
+		num_divisions_v = num_patches_v * tess_v;
+	}
+
+	int GetTessU(int patch_u) const { return (patch_u == num_patches_u - 1) ? tess_u + 1 : tess_u; }
+	int GetTessV(int patch_v) const { return (patch_v == num_patches_v - 1) ? tess_v + 1 : tess_v; }
+
+	int GetPointIndex(int patch_u, int patch_v) const { return patch_v * count_u + patch_u;}
+
+	int GetIndexU(int patch_u, int tile_u) const { return patch_u * tess_u + tile_u; }
+	int GetIndexV(int patch_v, int tile_v) const { return patch_v * tess_v + tile_v; }
+
+	int GetIndex(int index_u, int index_v, int patch_u, int patch_v) const {
+		return index_v * (num_divisions_u + 1) + index_u;
+	}
+
+	void BuildIndex(u16 *indices, int &count) const {
+		::BuildIndex(indices, count, num_divisions_u, num_divisions_v, primType);
+	}
 };
 
 bool CanUseHardwareTessellation(GEPatchPrimType prim);void TessellateSplinePatch(u8 *&dest, u16 *indices, int &count, SplinePatchLocal &spatch, u32 origVertType, int maxVertices);void TessellateBezierPatch(u8 *&dest, u16 *&indices, int &count, int tess_u, int tess_v, const BezierPatch &patch, u32 origVertType, int maxVertices);

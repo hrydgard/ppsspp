@@ -30,8 +30,6 @@
 #include "GPU/ge_constants.h"
 #include "GPU/GPUState.h"  // only needed for UVScale stuff
 
-#define HALF_CEIL(x) (x + 1) / 2 // Integer ceil = (int)ceil((float)x / 2.0f)
-
 static void CopyQuadIndex(u16 *&indices, GEPatchPrimType type, const int idx0, const int idx1, const int idx2, const int idx3) {
 	if (type == GE_PATCHPRIM_LINES) {
 		*(indices++) = idx0;
@@ -50,7 +48,7 @@ static void CopyQuadIndex(u16 *&indices, GEPatchPrimType type, const int idx0, c
 	}
 }
 
-static void BuildIndex(u16 *indices, int &count, int num_u, int num_v, GEPatchPrimType prim_type, int total = 0) {
+static void BuildIndex(u16 *indices, int &count, int num_u, int num_v, GEPatchPrimType prim_type, int total) {
 	for (int v = 0; v < num_v; ++v) {
 		for (int u = 0; u < num_u; ++u) {
 			int idx0 = v * (num_u + 1) + u + total; // Top left
@@ -91,6 +89,10 @@ public:
 			CalcWeights(t, weights[i]);
 		}
 		return weights;
+	}
+
+	u32 ToKey(int tess, int count, int type) {
+		return tess;
 	}
 };
 
@@ -304,131 +306,6 @@ static void TessellateSplinePatchHardware(u8 *&dest, u16 *indices, int &count, c
 	BuildIndex(indices, count, spatch.tess_u, spatch.tess_v, spatch.primType);
 }
 
-template <bool sampleNrm, bool sampleCol, bool sampleTex, bool useSSE4>
-static void SplinePatchFullQuality(u8 *&dest, u16 *indices, int &count, const SplinePatchLocal &spatch) {
-	// Full (mostly) correct tessellation of spline patches.
-	// Not very fast.
-
-	u32 key_u = splineWeightsCache.ToKey(spatch.tess_u, spatch.count_u, spatch.type_u);
-	u32 key_v = splineWeightsCache.ToKey(spatch.tess_v, spatch.count_v, spatch.type_v);
-	Weight2D weights(splineWeightsCache, key_u, key_v);
-
-	// Increase tessellation based on the size. Should be approximately right?
-	int patch_div_s = (spatch.count_u - 3) * spatch.tess_u;
-	int patch_div_t = (spatch.count_v - 3) * spatch.tess_v;
-
-	// First compute all the vertices and put them in an array
-	SimpleVertex *&vertices = (SimpleVertex*&)dest;
-
-	const float inv_u = 1.0f / (float)spatch.tess_u;
-	const float inv_v = 1.0f / (float)spatch.tess_v;
-
-	int num_patches_u = spatch.count_u - 3;
-	int num_patches_v = spatch.count_v - 3;
-	for (int patch_u = 0; patch_u < num_patches_u; ++patch_u) {
-		int tess_u = (patch_u - 1 == num_patches_u) ? spatch.tess_u + 1 : spatch.tess_u;
-		for (int patch_v = 0; patch_v < num_patches_v; ++patch_v) {
-			int tess_v = (patch_v - 1 == num_patches_v) ? spatch.tess_v + 1 : spatch.tess_v;
-
-			// Prepare 4x4 control points to tessellate
-			const int idx = patch_v * spatch.count_u + patch_u;
-			const int idx_v[4] = { idx, idx + spatch.count_u, idx + spatch.count_u * 2, idx + spatch.count_u * 3 };
-			Tessellator<Vec3f> tess_pos(spatch.pos, idx_v);
-			Tessellator<Vec4f> tess_col(spatch.col, idx_v);
-			Tessellator<Vec2f> tess_tex(spatch.tex, idx_v);
-			Tessellator<Vec3f> tess_nrm(spatch.pos, idx_v);
-
-			for (int tile_u = 0; tile_u < tess_u + 1; ++tile_u) {
-				int index_u = patch_u * spatch.tess_u + tile_u;
-				const Weight &wu = weights.u[index_u];
-
-				// Pre-tessellate U lines
-				tess_pos.SampleU(wu.weights);
-				if (sampleCol)
-					tess_col.SampleU(wu.weights);
-				if (sampleTex)
-					tess_tex.SampleU(wu.weights);
-				if (sampleNrm)
-					tess_nrm.SampleU(wu.derivs);
-
-				for (int tile_v = 0; tile_v < tess_v + 1; ++tile_v) {
-					int index_v = patch_v * spatch.tess_v + tile_v;
-					const Weight &wv = weights.v[index_v];
-
-					SimpleVertex &vert = vertices[index_v * (patch_div_s + 1) + index_u];
-
-					// Tessellate
-					vert.pos = tess_pos.SampleV(wv.weights);
-					if (sampleCol) {
-						vert.color_32 = tess_col.SampleV(wv.weights).ToRGBA();
-					} else {
-						vert.color_32 = spatch.defcolor;
-					}
-					if (sampleTex) {
-						tess_tex.SampleV(wv.weights).Write(vert.uv);
-					} else {
-						// Generate texcoord
-						vert.uv[0] = patch_u + tile_u * inv_u;
-						vert.uv[1] = patch_v + tile_v * inv_v;
-					}
-					if (sampleNrm) {
-						const Vec3f derivU = tess_nrm.SampleV(wv.weights);
-						const Vec3f derivV = tess_pos.SampleV(wv.derivs);
-
-						vert.nrm = Cross(derivU, derivV).Normalized(useSSE4);
-						if (spatch.patchFacing)
-							vert.nrm *= -1.0f;
-					} else {
-						vert.nrm.SetZero();
-					}
-				}
-			}
-		}
-	}
-
-	BuildIndex(indices, count, patch_div_s, patch_div_t, spatch.primType);
-}
-
-// Define class TemplateParameterDispatcherTess
-TEMPLATE_PARAMETER_DISPATCHER(Tess, SplinePatchFullQuality);
-
-void TessellateSplinePatch(u8 *&dest, u16 *indices, int &count, SplinePatchLocal &spatch, u32 origVertType, int maxVertices) {
-	using TessFunc = void(*)(u8 *&, u16 *, int &, const SplinePatchLocal &);
-	constexpr int NumParams = 4;
-	static TemplateParameterDispatcherTess<TessFunc, NumParams> dispatcher; // Initialize only once
-
-	const bool params[NumParams] = {
-		(origVertType & GE_VTYPE_NRM_MASK) != 0,
-		(origVertType & GE_VTYPE_COL_MASK) != 0,
-		(origVertType & GE_VTYPE_TC_MASK) != 0,
-		cpu_info.bSSE4_1,
-	};
-	TessFunc func = dispatcher.GetFunc(params);
-
-	switch (g_Config.iSplineBezierQuality) {
-	case LOW_QUALITY:
-		spatch.tess_u = 2;
-		spatch.tess_v = 2;
-		break;
-	case MEDIUM_QUALITY:
-		// Don't cut below 2, though.
-		if (spatch.tess_u > 2) spatch.tess_u = HALF_CEIL(spatch.tess_u);
-		if (spatch.tess_v > 2) spatch.tess_v = HALF_CEIL(spatch.tess_v);
-		// Pass through
-	case HIGH_QUALITY:
-		int num_patches_u = spatch.count_u - 3;
-		int num_patches_v = spatch.count_v - 3;
-		// Downsample until it fits, in case crazy tessellation factors are sent.
-		while ((num_patches_u * spatch.tess_u + 1) * (num_patches_v * spatch.tess_v + 1) > maxVertices) {
-			spatch.tess_u--;
-			spatch.tess_v--;
-		}
-		break;
-	}
-
-	(*func)(dest, indices, count, spatch);
-}
-
 // Tessellate single patch (4x4 control points)
 template<typename T>
 class Tessellator {
@@ -468,85 +345,6 @@ public:
 	}
 };
 
-static void _BezierPatchHighQuality(u8 *&dest, u16 *&indices, int &count, int tess_u, int tess_v, const BezierPatch &patch, u32 origVertType) {
-	const float inv_u = 1.0f / (float)tess_u;
-	const float inv_v = 1.0f / (float)tess_v;
-
-	// First compute all the vertices and put them in an array
-	SimpleVertex *&vertices = (SimpleVertex*&)dest;
-
-	const bool sampleNrm = (origVertType & GE_VTYPE_NRM_MASK) != 0;
-	const bool sampleCol = (origVertType & GE_VTYPE_COL_MASK) != 0;
-	const bool sampleTex = (origVertType & GE_VTYPE_TC_MASK) != 0;
-
-	Weight2D weights(bezierWeightsCache, tess_u, tess_v);
-
-	int num_patches_u = (patch.count_u - 1) / 3;
-	int num_patches_v = (patch.count_v - 1) / 3;
-	for (int patch_u = 0; patch_u < num_patches_u; ++patch_u) {
-		for (int patch_v = 0; patch_v < num_patches_v; ++patch_v) {
-
-			// Prepare 4x4 control points to tessellate
-			const int idx = patch_v * 3 * patch.count_u + patch_u * 3;
-			const int idx_v[4] = { idx, idx + patch.count_u, idx + patch.count_u * 2, idx + patch.count_u * 3 };
-			Tessellator<Vec3f> tess_pos(patch.pos, idx_v);
-			Tessellator<Vec4f> tess_col(patch.col, idx_v);
-			Tessellator<Vec2f> tess_tex(patch.tex, idx_v);
-			Tessellator<Vec3f> tess_nrm(patch.pos, idx_v);
-
-			for (int tile_u = 0; tile_u < tess_u + 1; ++tile_u) {
-				const Weight &wu = weights.u[tile_u];
-
-				// Pre-tessellate U lines
-				tess_pos.SampleU(wu.weights);
-				if (sampleCol)
-					tess_col.SampleU(wu.weights);
-				if (sampleTex)
-					tess_tex.SampleU(wu.weights);
-				if (sampleNrm)
-					tess_nrm.SampleU(wu.derivs);
-
-				for (int tile_v = 0; tile_v < tess_v + 1; ++tile_v) {
-					const Weight &wv = weights.v[tile_v];
-
-					SimpleVertex &vert = vertices[tile_v * (tess_u + 1) + tile_u];
-
-					// Tessellate
-					vert.pos = tess_pos.SampleV(wv.weights);
-					if (sampleCol) {
-						vert.color_32 = tess_col.SampleV(wv.weights).ToRGBA();
-					} else {
-						vert.color_32 = patch.defcolor;
-					}
-					if (sampleTex) {
-						tess_tex.SampleV(wv.weights).Write(vert.uv);
-					} else {
-						// Generate texcoord
-						vert.uv[0] = patch_u + tile_u * inv_u;
-						vert.uv[1] = patch_v + tile_v * inv_v;
-					}
-					if (sampleNrm) {
-						const Vec3f derivU = tess_nrm.SampleV(wv.weights);
-						const Vec3f derivV = tess_pos.SampleV(wv.derivs);
-
-						vert.nrm = Cross(derivU, derivV).Normalized();
-						if (patch.patchFacing)
-							vert.nrm *= -1.0f;
-					} else {
-						vert.nrm.SetZero();
-					}
-				}
-			}
-
-			int patch_index = patch_v * num_patches_u + patch_u;
-			int total = patch_index * (tess_u + 1) * (tess_v + 1);
-			BuildIndex(indices + count, count, tess_u, tess_v, patch.primType, total);
-
-			dest += (tess_u + 1) * (tess_v + 1) * sizeof(SimpleVertex);
-		}
-	}
-}
-
 // Prepare mesh of one patch for "Instanced Tessellation".
 static void TessellateBezierPatchHardware(u8 *&dest, u16 *indices, int &count, int tess_u, int tess_v, GEPatchPrimType primType) {
 	SimpleVertex *&vertices = (SimpleVertex*&)dest;
@@ -565,31 +363,6 @@ static void TessellateBezierPatchHardware(u8 *&dest, u16 *indices, int &count, i
 	}
 
 	BuildIndex(indices, count, tess_u, tess_v, primType);
-}
-
-void TessellateBezierPatch(u8 *&dest, u16 *&indices, int &count, int tess_u, int tess_v, const BezierPatch &patch, u32 origVertType, int maxVertices) {
-	switch (g_Config.iSplineBezierQuality) {
-	case LOW_QUALITY:
-		tess_u = 2;
-		tess_v = 2;
-		break;
-	case MEDIUM_QUALITY:
-		// Don't cut below 2, though.
-		if (tess_u > 2) tess_u = HALF_CEIL(tess_u);
-		if (tess_v > 2) tess_v = HALF_CEIL(tess_v);
-		// Pass through
-	case HIGH_QUALITY:
-		int num_patches_u = (patch.count_u - 1) / 3;
-		int num_patches_v = (patch.count_v - 1) / 3;
-		// Downsample until it fits, in case crazy tessellation factors are sent.
-		while ((tess_u + 1) * (tess_v + 1) * num_patches_u * num_patches_v > maxVertices) {
-			tess_u--;
-			tess_v--;
-		}
-		break;
-	}
-
-	_BezierPatchHighQuality(dest, indices, count, tess_u, tess_v, patch, origVertType);
 }
 
 class SimpleBufferManager {
@@ -611,6 +384,129 @@ public:
 		return buf_ + tmp;
 	}
 };
+
+template<class Patch>
+class SubdivisionSurface {
+private:
+	Vec3f *pos;
+	Vec4f *col;
+	Vec2f *tex;
+	u32_le defcolor;
+	const Patch &patch;
+	const Weight2D &weights;
+public:
+	SubdivisionSurface(SimpleBufferManager &managedBuf, const SimpleVertex *const *points, const Patch &patch, const Weight2D &weights)
+		: patch(patch), weights(weights)
+	{
+		int size = patch.count_u * patch.count_v;
+		pos = (Vec3f *)managedBuf.Allocate(sizeof(Vec3f) * size);
+		tex = (Vec2f *)managedBuf.Allocate(sizeof(Vec2f) * size);
+		col = (Vec4f *)managedBuf.Allocate(sizeof(Vec4f) * size);
+		for (int idx = 0; idx < size; ++idx) {
+			pos[idx] = Vec3f(points[idx]->pos);
+			tex[idx] = Vec2f(points[idx]->uv);
+			col[idx] = Vec4f::FromRGBA(points[idx]->color_32);
+		}
+		defcolor = points[0]->color_32;
+	}
+
+	template <bool sampleNrm, bool sampleCol, bool sampleTex, bool useSSE4>
+	void Tessellate(SimpleVertex *vertices, u16 *indices, int &count) {
+		const float inv_u = 1.0f / (float)patch.tess_u;
+		const float inv_v = 1.0f / (float)patch.tess_v;
+
+		for (int patch_u = 0; patch_u < patch.num_patches_u; ++patch_u) {
+			const int tess_u = patch.GetTessU(patch_u);
+			for (int patch_v = 0; patch_v < patch.num_patches_v; ++patch_v) {
+				const int tess_v = patch.GetTessV(patch_v);
+
+				// Prepare 4x4 control points to tessellate
+				const int idx = patch.GetPointIndex(patch_u, patch_v);
+				const int idx_v[4] = { idx, idx + patch.count_u, idx + patch.count_u * 2, idx + patch.count_u * 3 };
+				Tessellator<Vec3f> tess_pos(pos, idx_v);
+				Tessellator<Vec4f> tess_col(col, idx_v);
+				Tessellator<Vec2f> tess_tex(tex, idx_v);
+				Tessellator<Vec3f> tess_nrm(pos, idx_v);
+
+				for (int tile_u = 0; tile_u < tess_u; ++tile_u) {
+					const int index_u = patch.GetIndexU(patch_u, tile_u);
+					const Weight &wu = weights.u[index_u];
+
+					// Pre-tessellate U lines
+					tess_pos.SampleU(wu.weights);
+					if (sampleCol)
+						tess_col.SampleU(wu.weights);
+					if (sampleTex)
+						tess_tex.SampleU(wu.weights);
+					if (sampleNrm)
+						tess_nrm.SampleU(wu.derivs);
+
+					for (int tile_v = 0; tile_v < tess_v; ++tile_v) {
+						const int index_v = patch.GetIndexV(patch_v, tile_v);
+						const Weight &wv = weights.v[index_v];
+
+						SimpleVertex &vert = vertices[patch.GetIndex(index_u, index_v, patch_u, patch_v)];
+
+						// Tessellate
+						vert.pos = tess_pos.SampleV(wv.weights);
+						if (sampleCol) {
+							vert.color_32 = tess_col.SampleV(wv.weights).ToRGBA();
+						} else {
+							vert.color_32 = defcolor;
+						}
+						if (sampleTex) {
+							tess_tex.SampleV(wv.weights).Write(vert.uv);
+						} else {
+							// Generate texcoord
+							vert.uv[0] = patch_u + tile_u * inv_u;
+							vert.uv[1] = patch_v + tile_v * inv_v;
+						}
+						if (sampleNrm) {
+							const Vec3f derivU = tess_nrm.SampleV(wv.weights);
+							const Vec3f derivV = tess_pos.SampleV(wv.derivs);
+
+							vert.nrm = Cross(derivU, derivV).Normalized(useSSE4);
+							if (patch.patchFacing)
+								vert.nrm *= -1.0f;
+						} else {
+							vert.nrm.SetZero();
+						}
+					}
+				}
+			}
+		}
+
+		patch.BuildIndex(indices, count);
+	}
+
+	// Define class TemplateParameterDispatcherTess
+	TEMPLATE_PARAMETER_DISPATCHER(Tess, SubdivisionSurface::Tessellate);
+
+	void Tessellate(SimpleVertex *vertices, u16 *indices, int &count, u32 origVertType) {
+		using TessFunc = void(SubdivisionSurface::*)(SimpleVertex *, u16 *, int &);
+		constexpr int NumParams = 4;
+		static TemplateParameterDispatcherTess<TessFunc, NumParams> dispatcher; // Initialize only once
+
+		const bool params[NumParams] = {
+			(origVertType & GE_VTYPE_NRM_MASK) != 0,
+			(origVertType & GE_VTYPE_COL_MASK) != 0,
+			(origVertType & GE_VTYPE_TC_MASK) != 0,
+			cpu_info.bSSE4_1,
+		};
+		TessFunc func = dispatcher.GetFunc(params);
+		(this->*func)(vertices, indices, count);
+	}
+};
+
+template<class Patch, class Cache>
+static void SoftwareTessellation(SimpleVertex *vertices, u16 *indices, int &count, const Patch &patch, int origVertType, const SimpleVertex *const *points, SimpleBufferManager &managedBuf, Cache &weightsCache) {
+	u32 key_u = weightsCache.ToKey(patch.tess_u, patch.count_u, patch.type_u);
+	u32 key_v = weightsCache.ToKey(patch.tess_v, patch.count_v, patch.type_v);
+	Weight2D weights(weightsCache, key_u, key_v);
+
+	SubdivisionSurface<Patch> surface(managedBuf, points, patch, weights);
+	surface.Tessellate(vertices, indices, count, origVertType);
+}
 
 // This maps GEPatchPrimType to GEPrimitiveType.
 const GEPrimitiveType primType[] = { GE_PRIM_TRIANGLES, GE_PRIM_LINES, GE_PRIM_POINTS, GE_PRIM_POINTS };
@@ -667,25 +563,18 @@ void DrawEngineCommon::SubmitSpline(const void *control_points, const void *indi
 	patch.type_v = type_v;
 	patch.count_u = count_u;
 	patch.count_v = count_v;
+	patch.num_patches_u = count_u - 3;
+	patch.num_patches_v = count_v - 3;
 	patch.primType = prim_type;
 	patch.patchFacing = patchFacing;
-	patch.defcolor = points[0]->color_32;
 
 	if (CanUseHardwareTessellation(prim_type)) {
 		tessDataTransfer->SendDataToShader(points, count_u * count_v, origVertType);
 		TessellateSplinePatchHardware(dest, quadIndices_, count, patch);
 		numPatches = (count_u - 3) * (count_v - 3);
 	} else {
-		patch.pos = (Vec3f *)managedBuf.Allocate(sizeof(Vec3f) * count_u * count_v);
-		patch.tex = (Vec2f *)managedBuf.Allocate(sizeof(Vec2f) * count_u * count_v);
-		patch.col = (Vec4f *)managedBuf.Allocate(sizeof(Vec4f) * count_u * count_v);
-		for (int idx = 0; idx < count_u * count_v; idx++) {
-			patch.pos[idx] = Vec3f(points[idx]->pos);
-			patch.tex[idx] = Vec2f(points[idx]->uv);
-			patch.col[idx] = Vec4f::FromRGBA(points[idx]->color_32);
-		}
-		int maxVertexCount = SPLINE_BUFFER_SIZE / vertexSize;
-		TessellateSplinePatch(dest, quadIndices_, count, patch, origVertType, maxVertexCount);
+		patch.Init(SPLINE_BUFFER_SIZE / vertexSize);
+		SoftwareTessellation((SimpleVertex *)splineBuffer, quadIndices_, count, patch, origVertType, points, managedBuf, splineWeightsCache);
 	}
 
 	u32 vertTypeWithIndex16 = (vertType & ~GE_VTYPE_IDX_MASK) | GE_VTYPE_IDX_16BIT;
@@ -769,21 +658,17 @@ void DrawEngineCommon::SubmitBezier(const void *control_points, const void *indi
 		numPatches = num_patches_u * num_patches_v;
 	} else {
 		BezierPatch patch;
+		patch.tess_u = tess_u;
+		patch.tess_v = tess_v;
 		patch.count_u = count_u;
 		patch.count_v = count_v;
+		patch.num_patches_u = (count_u - 1) / 3;
+		patch.num_patches_v = (count_v - 1) / 3;
 		patch.primType = prim_type;
 		patch.patchFacing = patchFacing;
-		patch.defcolor = points[0]->color_32;
-		patch.pos = (Vec3f *)managedBuf.Allocate(sizeof(Vec3f) * count_u * count_v);
-		patch.tex = (Vec2f *)managedBuf.Allocate(sizeof(Vec2f) * count_u * count_v);
-		patch.col = (Vec4f *)managedBuf.Allocate(sizeof(Vec4f) * count_u * count_v);
-		for (int idx = 0; idx < count_u * count_v; idx++) {
-			patch.pos[idx] = Vec3f(points[idx]->pos);
-			patch.tex[idx] = Vec2f(points[idx]->uv);
-			patch.col[idx] = Vec4f::FromRGBA(points[idx]->color_32);
-		}
-		int maxVertices = SPLINE_BUFFER_SIZE / vertexSize;
-		TessellateBezierPatch(dest, inds, count, tess_u, tess_v, patch, origVertType, maxVertices);
+
+		patch.Init(SPLINE_BUFFER_SIZE / vertexSize);
+		SoftwareTessellation((SimpleVertex *)splineBuffer, quadIndices_, count, patch, origVertType, points, managedBuf, bezierWeightsCache);
 	}
 
 	u32 vertTypeWithIndex16 = (vertType & ~GE_VTYPE_IDX_MASK) | GE_VTYPE_IDX_16BIT;
