@@ -140,8 +140,7 @@ float CalculateDPIScale()
 #endif
 }
 
-static int mainInternal(QApplication &a)
-{
+static int mainInternal(QApplication &a) {
 #ifdef MOBILE_DEVICE
 	emugl = new MainUI();
 	emugl->resize(pixel_xres, pixel_yres);
@@ -186,15 +185,19 @@ static int mainInternal(QApplication &a)
 	QScopedPointer<MainAudio> audio(new MainAudio());
 	audio->run();
 #endif
-	return a.exec();
+	int retval = a.exec();
+	delete emugl;
+	return retval;
 }
 
 void MainUI::EmuThreadFunc() {
 	ILOG("In emu thread");
 	setCurrentThreadName("Emu");
 
-	// There's no real requirement that NativeInit happen on this thread.
-	// We just call the update/render loop here.
+	// There's no real requirement that NativeInit happen on this thread, though it can't hurt...
+	// We just call the update/render loop here. NativeInitGraphics should be here though.
+	NativeInitGraphics(graphicsContext);
+
 	emuThreadState = (int)EmuThreadState::RUNNING;
 	while (emuThreadState != (int)EmuThreadState::QUIT_REQUESTED) {
 	#ifdef SDL
@@ -204,6 +207,8 @@ void MainUI::EmuThreadFunc() {
 		time_update();
 		UpdateRunLoop();
 	}
+	NativeShutdownGraphics();
+
 	emuThreadState = (int)EmuThreadState::STOPPED;
 }
 
@@ -237,13 +242,14 @@ MainUI::MainUI(QWidget *parent):
 
 MainUI::~MainUI()
 {
+	ILOG("MainUI::Destructor");
 	if (emuThreadState != (int)EmuThreadState::DISABLED) {
+		ILOG("EmuThreadStop");
 		EmuThreadStop();
 	}
 #if defined(MOBILE_DEVICE)
 	delete acc;
 #endif
-	NativeShutdownGraphics();
 	graphicsContext->Shutdown();
 	delete graphicsContext;
 	graphicsContext = nullptr;
@@ -368,8 +374,6 @@ void MainUI::initializeGL()
 
 	// OpenGL uses a background thread to do the main processing and only renders on the gl thread.
 	graphicsContext = new QtDummyGraphicsContext();
-
-	NativeInitGraphics(graphicsContext);
 
 	if (g_Config.iGPUBackend == (int)GPUBackend::OPENGL) {
 		ILOG("Using thread, starting emu thread");
@@ -516,8 +520,8 @@ int main(int argc, char *argv[])
 	g_Config.iGPUBackend = (int)GPUBackend::OPENGL;
 
 	int ret = mainInternal(a);
+	ILOG("Left mainInternal here.");
 
-	NativeShutdownGraphics();
 #ifdef SDL
 	SDL_PauseAudio(1);
 	SDL_CloseAudio();
