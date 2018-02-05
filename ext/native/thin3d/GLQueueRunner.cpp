@@ -997,7 +997,7 @@ void GLQueueRunner::PerformReadback(const GLRStep &pass) {
 	const GLuint format = GL_RGBA;
 	const GLuint type = GL_UNSIGNED_BYTE;
 	const int srcAlignment = 4;
-	int dstAlignment = DataFormatSizeInBytes(pass.readback.dstFormat);
+	int dstAlignment = (int)DataFormatSizeInBytes(pass.readback.dstFormat);
 
 	int pixelStride = pass.readback.srcRect.w;
 	// Apply the correct alignment.

@@ -160,6 +160,9 @@
     <ClCompile Include="..\..\GPU\Debugger\Record.cpp">
       <Filter>Debugger</Filter>
     </ClCompile>
+    <ClCompile Include="..\..\GPU\Common\StencilCommon.cpp">
+      <Filter>Common</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="pch.h" />
@@ -294,6 +297,9 @@
     <ClInclude Include="..\..\GPU\Software\Sampler.h" />
     <ClInclude Include="..\..\GPU\Debugger\Record.h">
       <Filter>Debugger</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\GPU\Common\StencilCommon.h">
+      <Filter>Common</Filter>
     </ClInclude>
   </ItemGroup>
 </Project>

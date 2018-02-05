@@ -196,7 +196,7 @@ void UpdateRunLoop() {
 }
 
 void KeepScreenAwake() {
-#ifdef _WIN32
+#if defined(_WIN32) && !PPSSPP_PLATFORM(UWP)
 	SetThreadExecutionState(ES_SYSTEM_REQUIRED | ES_DISPLAY_REQUIRED);
 #endif
 }
