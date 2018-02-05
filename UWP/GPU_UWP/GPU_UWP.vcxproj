@@ -313,6 +313,7 @@
     <ClInclude Include="..\..\GPU\Common\SoftwareLighting.h" />
     <ClInclude Include="..\..\GPU\Common\SoftwareTransformCommon.h" />
     <ClInclude Include="..\..\GPU\Common\SplineCommon.h" />
+    <ClInclude Include="..\..\GPU\Common\StencilCommon.h" />
     <ClInclude Include="..\..\GPU\Common\TextureCacheCommon.h" />
     <ClInclude Include="..\..\GPU\Common\TextureDecoder.h" />
     <ClInclude Include="..\..\GPU\Common\TextureDecoderNEON.h" />
@@ -365,6 +366,7 @@
     <ClCompile Include="..\..\GPU\Common\ShaderUniforms.cpp" />
     <ClCompile Include="..\..\GPU\Common\SoftwareTransformCommon.cpp" />
     <ClCompile Include="..\..\GPU\Common\SplineCommon.cpp" />
+    <ClCompile Include="..\..\GPU\Common\StencilCommon.cpp" />
     <ClCompile Include="..\..\GPU\Common\TextureCacheCommon.cpp" />
     <ClCompile Include="..\..\GPU\Common\TextureDecoder.cpp" />
     <ClCompile Include="..\..\GPU\Common\TextureDecoderNEON.cpp" />

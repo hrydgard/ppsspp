@@ -49,8 +49,10 @@
 #include "Core/System.h"
 #include "GPU/GPUState.h"
 #include "GPU/GPUInterface.h"
-#include "GPU/GLES/FramebufferManagerGLES.h"
+#include "GPU/Common/FramebufferCommon.h"
+#if !PPSSPP_PLATFORM(UWP)
 #include "GPU/Vulkan/DebugVisVulkan.h"
+#endif
 #include "Core/HLE/sceCtrl.h"
 #include "Core/HLE/sceDisplay.h"
 #include "Core/HLE/sceSas.h"
@@ -77,9 +79,6 @@
 
 #if defined(_WIN32) && !PPSSPP_PLATFORM(UWP)
 #include "Windows/MainWindow.h"
-#endif
-#if !PPSSPP_PLATFORM(UWP)
-#include "gfx/gl_common.h"
 #endif
 
 #ifndef MOBILE_DEVICE
@@ -1212,9 +1211,11 @@ void EmuScreen::renderUI() {
 		DrawFPS(draw2d, ctx->GetBounds());
 	}
 
+#if !PPSSPP_PLATFORM(UWP)
 	if (g_Config.iGPUBackend == (int)GPUBackend::VULKAN && g_Config.bShowAllocatorDebug) {
 		DrawAllocatorVis(ctx, gpu);
 	}
+#endif
 
 #ifdef USE_PROFILER
 	if (g_Config.bShowFrameProfiler && !invalid_) {

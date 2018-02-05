@@ -17,7 +17,6 @@
 
 #include "GPU/ge_constants.h"
 #include "GPU/GPUState.h"
-#include "GPU/GLES/ShaderManagerGLES.h"
 
 #include "Common/ChunkFile.h"
 #include "Core/CoreParameter.h"

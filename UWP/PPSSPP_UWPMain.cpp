@@ -1,4 +1,4 @@
-﻿#include "pch.h"
+#include "pch.h"
 #include "PPSSPP_UWPMain.h"
 
 #include <cassert>
@@ -108,8 +108,7 @@ PPSSPP_UWPMain::PPSSPP_UWPMain(App ^app, const std::shared_ptr<DX::DeviceResourc
 
 	bool debugLogLevel = false;
 
-	g_Config.iGPUBackend = GPU_BACKEND_DIRECT3D11;
-	g_Config.bSeparateCPUThread = false;
+	g_Config.iGPUBackend = (int)GPUBackend::DIRECT3D11;
 
 	if (debugLogLevel) {
 		LogManager::GetInstance()->SetAllLogLevels(LogTypes::LDEBUG);
