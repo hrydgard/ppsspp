@@ -641,12 +641,12 @@ int main(int argc, char *argv[]) {
 		useEmuThread = false;
 	}
 
+	SDL_SetWindowTitle(window, (app_name_nice + " " + PPSSPP_GIT_VERSION).c_str());
+
 	// Since we render from the main thread, there's nothing done here, but we call it to avoid confusion.
 	if (!graphicsContext->InitFromRenderThread(&error_message)) {
 		printf("Init from thread error: '%s'\n", error_message.c_str());
 	}
-
-	SDL_SetWindowTitle(window, (app_name_nice + " " + PPSSPP_GIT_VERSION).c_str());
 
 #ifdef MOBILE_DEVICE
 	SDL_ShowCursor(SDL_DISABLE);

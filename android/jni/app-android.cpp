@@ -217,7 +217,7 @@ static void EmuThreadStop() {
 static void EmuThreadJoin() {
 	emuThread.join();
 	emuThread = std::thread();
-	ILOG("EmuThreadStop - joined.");
+	ILOG("EmuThreadJoin - joined");
 }
 
 static void ProcessFrameCommands(JNIEnv *env);

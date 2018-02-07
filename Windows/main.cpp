@@ -532,7 +532,7 @@ int WINAPI WinMain(HINSTANCE _hInstance, HINSTANCE hPrevInstance, LPSTR szCmdLin
 	// Emu thread (and render thread, if any) is always running!
 	// Only OpenGL uses an externally managed render thread (due to GL's single-threaded context design). Vulkan
 	// manages its own render thread.
-	EmuThread_Start(g_Config.iGPUBackend == (int)GPUBackend::OPENGL);
+	MainThread_Start(g_Config.iGPUBackend == (int)GPUBackend::OPENGL);
 	InputDevice::BeginPolling();
 
 	HACCEL hAccelTable = LoadAccelerators(_hInstance, (LPCTSTR)IDR_ACCELS);
@@ -585,9 +585,6 @@ int WINAPI WinMain(HINSTANCE _hInstance, HINSTANCE hPrevInstance, LPSTR szCmdLin
 	VFSShutdown();
 
 	InputDevice::StopPolling();
-
-	// The emuthread calls NativeShutdown when shutting down.
-	EmuThread_Stop();
 
 	MainWindow::DestroyDebugWindows();
 	DialogManager::DestroyAll();
