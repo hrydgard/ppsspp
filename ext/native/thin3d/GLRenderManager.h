@@ -663,12 +663,6 @@ public:
 		swapFunction_ = swapFunction;
 	}
 
-	void Swap() {
-		if (!useThread_ && swapFunction_) {
-			swapFunction_();
-		}
-	}
-
 	void StopThread();
 
 	bool SawOutOfMemory() {
@@ -738,8 +732,6 @@ private:
 
 	GLDeleter deleter_;
 
-	bool useThread_ = true;
-
 	int curFrame_ = 0;
 
 	std::function<void()> swapFunction_;
@@ -748,10 +740,11 @@ private:
 	int targetHeight_ = 0;
 };
 
-
-// Similar to VulkanPushBuffer but uses really stupid tactics - collect all the data in RAM then do a big
-// memcpy/buffer upload at the end. This can however be optimized with glBufferStorage on chips that support that
-// for massive boosts.
+// Similar to VulkanPushBuffer but is currently less efficient - it collects all the data in
+// RAM then does a big memcpy/buffer upload at the end of the frame. This is at least a lot
+// faster than the hundreds of buffer uploads or memory array buffers we used before.
+// On modern GL we could avoid the copy using glBufferStorage but not sure it's worth the
+// trouble.
 class GLPushBuffer {
 public:
 	struct BufInfo {

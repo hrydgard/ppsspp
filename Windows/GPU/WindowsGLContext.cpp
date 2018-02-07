@@ -35,7 +35,8 @@
 #include "Windows/GPU/WindowsGLContext.h"
 
 void WindowsGLContext::SwapBuffers() {
-	renderManager_->Swap();
+	// We no longer call RenderManager::Swap here, it's handled by the render thread, which
+	// we're not on here.
 
 	// Used during fullscreen switching to prevent rendering.
 	if (pauseRequested) {
