@@ -41,7 +41,9 @@ void GLQueueRunner::CreateDeviceObjects() {
 	populate(GL_RENDERER);
 	populate(GL_VERSION);
 	populate(GL_SHADING_LANGUAGE_VERSION);
-	populate(GL_EXTENSIONS);  // TODO: Not OK to query this in core profile!
+	if (!gl_extensions.IsCoreContext) {  // Not OK to query this in core profile!
+		populate(GL_EXTENSIONS);
+	}
 }
 
 void GLQueueRunner::DestroyDeviceObjects() {
