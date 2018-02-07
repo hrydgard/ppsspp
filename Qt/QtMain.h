@@ -120,6 +120,7 @@ protected:
 	void EmuThreadFunc();
 	void EmuThreadStart();
 	void EmuThreadStop();
+	void EmuThreadJoin();
 
 private:
 	QtDummyGraphicsContext *graphicsContext;
