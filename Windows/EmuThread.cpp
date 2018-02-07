@@ -54,6 +54,9 @@ enum EmuThreadStatus : int {
 void EmuThreadFunc();
 void RenderThreadFunc();
 
+// On most other platforms, we let the main thread become the render thread and
+// start a separate emu thread from that, if needed. Should probably switch to that
+// to make it the same on all platforms.
 void EmuThread_Start(bool separateRenderThread) {
 	std::lock_guard<std::mutex> guard(emuThreadLock);
 	emuThread = std::thread(&EmuThreadFunc);
@@ -218,7 +221,7 @@ void EmuThreadFunc() {
 	if (g_Config.bBrowse)
 		PostMessage(MainWindow::GetHWND(), WM_COMMAND, ID_FILE_LOAD, 0);
 
-	Core_EnableStepping(FALSE);
+	Core_EnableStepping(false);
 
 	while (GetUIState() != UISTATE_EXIT) {
 		// We're here again, so the game quit.  Restart Core_Run() which controls the UI.

@@ -15,6 +15,10 @@ public:
 		delete draw_;
 	}
 
+	bool Initialized() override {
+		return draw_ != nullptr;
+	}
+
 	// This performs the actual initialization,
 	bool InitFromRenderThread(ANativeWindow *wnd, int desiredBackbufferSizeX, int desiredBackbufferSizeY, int backbufferFormat, int androidVersion) override;
 
