@@ -432,6 +432,9 @@ static void EmuThreadStart(GraphicsContext *context) {
 
 static void EmuThreadStop() {
 	emuThreadState = (int)EmuThreadState::QUIT_REQUESTED;
+}
+
+static void EmuThreadJoin() {
 	emuThread.join();
 	emuThread = std::thread();
 }
@@ -892,7 +895,14 @@ int main(int argc, char *argv[]) {
 		framecount++;
 	}
 
-	EmuThreadStop();
+	if (useEmuThread) {
+		EmuThreadStop();
+		while (emuThreadState != (int)EmuThreadState::STOPPED) {
+			// Need to keep eating frames to allow the EmuThread to exit correctly.
+			graphicsContext->ThreadFrame();
+		}
+		EmuThreadJoin();
+	}
 
 	delete joystick;
 
@@ -902,6 +912,7 @@ int main(int argc, char *argv[]) {
 	graphicsContext->Shutdown();
 	graphicsContext->ThreadEnd();
 	graphicsContext->ShutdownFromRenderThread();
+
 	NativeShutdown();
 	delete graphicsContext;
 
