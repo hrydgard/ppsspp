@@ -192,6 +192,8 @@ void DrawEngineGLES::DestroyDeviceObjects() {
 	if (softwareInputLayout_)
 		render_->DeleteInputLayout(softwareInputLayout_);
 	softwareInputLayout_ = nullptr;
+
+	ClearInputLayoutMap();
 }
 
 void DrawEngineGLES::ClearInputLayoutMap() {
