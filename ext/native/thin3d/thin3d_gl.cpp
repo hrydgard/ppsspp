@@ -921,7 +921,7 @@ void OpenGLContext::ApplySamplers() {
 			}
 			GLenum magFilt = samp->magFilt;
 			GLenum minFilt = tex->HasMips() ? samp->mipMinFilt : samp->minFilt;
-			renderManager_.SetTextureSampler(wrapS, wrapT, magFilt, minFilt, 0.0f);
+			renderManager_.SetTextureSampler(i, wrapS, wrapT, magFilt, minFilt, 0.0f);
 		}
 	}
 }

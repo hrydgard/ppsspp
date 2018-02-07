@@ -152,6 +152,7 @@ struct GLRRenderData {
 			size_t offset;
 		} bindVertexBuffer;
 		struct {
+			int slot;
 			GLenum wrapS;
 			GLenum wrapT;
 			GLenum magFilter;
@@ -159,6 +160,7 @@ struct GLRRenderData {
 			float anisotropy;
 		} textureSampler;
 		struct {
+			int slot;
 			float minLod;
 			float maxLod;
 			float lodBias;

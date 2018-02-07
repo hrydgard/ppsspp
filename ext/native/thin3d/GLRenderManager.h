@@ -567,9 +567,10 @@ public:
 	}
 	
 	// Modifies the current texture as per GL specs, not global state.
-	void SetTextureSampler(GLenum wrapS, GLenum wrapT, GLenum magFilter, GLenum minFilter, float anisotropy) {
+	void SetTextureSampler(int slot, GLenum wrapS, GLenum wrapT, GLenum magFilter, GLenum minFilter, float anisotropy) {
 		_dbg_assert_(G3D, curRenderStep_ && curRenderStep_->stepType == GLRStepType::RENDER);
 		GLRRenderData data{ GLRRenderCommand::TEXTURESAMPLER };
+		data.textureSampler.slot = slot;
 		data.textureSampler.wrapS = wrapS;
 		data.textureSampler.wrapT = wrapT;
 		data.textureSampler.magFilter = magFilter;
@@ -578,9 +579,10 @@ public:
 		curRenderStep_->commands.push_back(data);
 	}
 
-	void SetTextureLod(float minLod, float maxLod, float lodBias) {
+	void SetTextureLod(int slot, float minLod, float maxLod, float lodBias) {
 		_dbg_assert_(G3D, curRenderStep_ && curRenderStep_->stepType == GLRStepType::RENDER);
 		GLRRenderData data{ GLRRenderCommand::TEXTURELOD};
+		data.textureLod.slot = slot;
 		data.textureLod.minLod = minLod;
 		data.textureLod.maxLod = maxLod;
 		data.textureLod.lodBias = lodBias;

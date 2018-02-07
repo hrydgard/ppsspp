@@ -423,11 +423,11 @@ void FramebufferManagerGLES::DrawActiveTexture(float x, float y, float w, float 
 		pos[i * 3 + 1] = pos[i * 3 + 1] * invDestH - 1.0f;
 	}
 
-	// Upscaling postshaders doesn't look well with linear
+	// Upscaling postshaders don't look well with linear
 	if (flags & DRAWTEX_LINEAR) {
-		render_->SetTextureSampler(GL_CLAMP_TO_EDGE, GL_CLAMP_TO_EDGE, GL_LINEAR, GL_LINEAR, 0.0f);
+		render_->SetTextureSampler(0, GL_CLAMP_TO_EDGE, GL_CLAMP_TO_EDGE, GL_LINEAR, GL_LINEAR, 0.0f);
 	} else {
-		render_->SetTextureSampler(GL_CLAMP_TO_EDGE, GL_CLAMP_TO_EDGE, GL_NEAREST, GL_NEAREST, 0.0f);
+		render_->SetTextureSampler(0, GL_CLAMP_TO_EDGE, GL_CLAMP_TO_EDGE, GL_NEAREST, GL_NEAREST, 0.0f);
 	}
 
 	Simple2DVertex verts[4];

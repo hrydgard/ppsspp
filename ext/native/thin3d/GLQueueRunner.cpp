@@ -816,7 +816,12 @@ void GLQueueRunner::PerformRenderPass(const GLRStep &step) {
 			break;
 		case GLRRenderCommand::TEXTURESAMPLER:
 		{
-			GLRTexture *tex = curTex[activeSlot];
+			GLint slot = c.textureSampler.slot;
+			if (slot != activeSlot) {
+				glActiveTexture(GL_TEXTURE0 + slot);
+				activeSlot = slot;
+			}
+			GLRTexture *tex = curTex[slot];
 			if (!tex) {
 				break;
 			}
@@ -846,7 +851,12 @@ void GLQueueRunner::PerformRenderPass(const GLRStep &step) {
 		}
 		case GLRRenderCommand::TEXTURELOD:
 		{
-			GLRTexture *tex = curTex[activeSlot];
+			GLint slot = c.textureSampler.slot;
+			if (slot != activeSlot) {
+				glActiveTexture(GL_TEXTURE0 + slot);
+				activeSlot = slot;
+			}
+			GLRTexture *tex = curTex[slot];
 			if (!tex) {
 				break;
 			}
@@ -900,8 +910,10 @@ void GLQueueRunner::PerformRenderPass(const GLRStep &step) {
 		}
 	}
 
-	if (activeSlot != 0)
+	if (activeSlot != 0) {
 		glActiveTexture(GL_TEXTURE0);
+		activeSlot = 0;  // doesn't matter, just nice.
+	}
 
 	// Wipe out the current state.
 	glBindBuffer(GL_ARRAY_BUFFER, 0);

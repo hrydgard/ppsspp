@@ -180,7 +180,7 @@ void DrawEngineGLES::ApplyDrawState(int prim) {
 						// TODO: If the device doesn't support blit, this will corrupt the currently applied texture.
 						framebufferManager_->BindFramebufferAsColorTexture(1, framebufferManager_->GetCurrentRenderVFB(), BINDFBCOLOR_MAY_COPY);
 						// If we are rendering at a higher resolution, linear is probably best for the dest color.
-						renderManager->SetTextureSampler(GL_CLAMP_TO_EDGE, GL_CLAMP_TO_EDGE, GL_LINEAR, GL_LINEAR, 0.0f);
+						renderManager->SetTextureSampler(1, GL_CLAMP_TO_EDGE, GL_CLAMP_TO_EDGE, GL_LINEAR, GL_LINEAR, 0.0f);
 						fboTexBound_ = true;
 						fboTexNeedBind_ = false;
 
