@@ -616,6 +616,8 @@ void GLQueueRunner::PerformRenderPass(const GLRStep &step) {
 			glClear(c.clear.clearMask);
 			if (c.clear.scissorW > 0) {
 				glDisable(GL_SCISSOR_TEST);
+			} else {
+				glEnable(GL_SCISSOR_TEST);
 			}
 			break;
 		case GLRRenderCommand::INVALIDATE:
