@@ -13,7 +13,6 @@
 #endif
 
 void GLDeleter::Perform() {
-	deleterMutex_.lock();
 	for (auto shader : shaders) {
 		delete shader;
 	}
@@ -38,7 +37,6 @@ void GLDeleter::Perform() {
 		delete framebuffer;
 	}
 	framebuffers.clear();
-	deleterMutex_.unlock();
 }
 
 GLRenderManager::GLRenderManager() {
@@ -50,6 +48,7 @@ GLRenderManager::GLRenderManager() {
 GLRenderManager::~GLRenderManager() {
 	for (int i = 0; i < MAX_INFLIGHT_FRAMES; i++) {
 		_assert_(frameData_[i].deleter.IsEmpty());
+		_assert_(frameData_[i].deleter_prev.IsEmpty());
 	}
 	// Was anything deleted during shutdown?
 	deleter_.Perform();
@@ -72,6 +71,7 @@ void GLRenderManager::ThreadEnd() {
 	// Good point to run all the deleters to get rid of leftover objects.
 	for (int i = 0; i < MAX_INFLIGHT_FRAMES; i++) {
 		frameData_[i].deleter.Perform();
+		frameData_[i].deleter_prev.Perform();
 		for (int j = 0; j < (int)frameData_[i].steps.size(); j++) {
 			delete frameData_[i].steps[j];
 		}
@@ -110,8 +110,10 @@ bool GLRenderManager::ThreadFrame() {
 				// This means we're out of frames to render and run_ is false, so bail.
 				return false;
 			}
-			VLOG("PULL: frame[%d].readyForRun = false", threadFrame_);
+			VLOG("PULL: Setting frame[%d].readyForRun = false", threadFrame_);
 			frameData.readyForRun = false;
+			frameData.deleter_prev.Perform();
+			frameData.deleter_prev.Take(frameData.deleter);
 			// Previously we had a quick exit here that avoided calling Run() if run_ was suddenly false,
 			// but that created a race condition where frames could end up not finished properly on resize etc.
 
@@ -352,17 +354,18 @@ void GLRenderManager::Finish() {
 	FrameData &frameData = frameData_[curFrame];
 	{
 		std::unique_lock<std::mutex> lock(frameData.pull_mutex);
-		VLOG("PUSH: Frame[%d].readyForRun = true", curFrame);
+		VLOG("PUSH: Frame[%d].readyForRun = true, notifying pull", curFrame);
 		frameData.steps = std::move(steps_);
 		steps_.clear();
 		frameData.initSteps = std::move(initSteps_);
 		initSteps_.clear();
 		frameData.readyForRun = true;
 		frameData.type = GLRRunType::END;
-		frameData.pull_condVar.notify_all();
+		frameData_[curFrame_].deleter.Take(deleter_);
 	}
 
-	frameData_[curFrame_].deleter.Take(deleter_);
+	// Notify calls do not in fact need to be done with the mutex locked.
+	frameData.pull_condVar.notify_all();
 
 	curFrame_++;
 	if (curFrame_ >= MAX_INFLIGHT_FRAMES)
@@ -385,10 +388,6 @@ void GLRenderManager::Submit(int frame, bool triggerFence) {
 	// In GL, submission happens automatically in Run().
 
 	// When !triggerFence, we notify after syncing with Vulkan.
-
-	// Putting deletes here is safe but only because OpenGL has its own delete handling..
-	// ideally we'd like to wait a frame or two.
-	frameData.deleter.Perform();
 
 	if (triggerFence) {
 		VLOG("PULL: Frame %d.readyForFence = true", frame);

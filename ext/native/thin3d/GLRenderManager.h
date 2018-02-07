@@ -157,7 +157,6 @@ public:
 		return shaders.empty() && programs.empty() && buffers.empty() && textures.empty() && inputLayouts.empty() && framebuffers.empty();
 	}
 	void Take(GLDeleter &other) {
-		deleterMutex_.lock();
 		_assert_msg_(G3D, IsEmpty(), "Deleter already has stuff");
 		shaders = std::move(other.shaders);
 		programs = std::move(other.programs);
@@ -171,7 +170,6 @@ public:
 		other.textures.clear();
 		other.inputLayouts.clear();
 		other.framebuffers.clear();
-		deleterMutex_.unlock();
 	}
 
 	std::vector<GLRShader *> shaders;
@@ -180,7 +178,6 @@ public:
 	std::vector<GLRTexture *> textures;
 	std::vector<GLRInputLayout *> inputLayouts;
 	std::vector<GLRFramebuffer *> framebuffers;
-	std::mutex deleterMutex_;
 };
 
 class GLRInputLayout {
@@ -706,6 +703,7 @@ private:
 		uint32_t curSwapchainImage = -1;
 
 		GLDeleter deleter;
+		GLDeleter deleter_prev;
 		std::set<GLPushBuffer *> activePushBuffers;
 	};
 
