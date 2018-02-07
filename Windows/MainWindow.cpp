@@ -795,7 +795,7 @@ namespace MainWindow
 
 		case WM_COMMAND:
 			{
-				if (!EmuThread_Ready())
+				if (!MainThread_Ready())
 					return DefWindowProc(hWnd, message, wParam, lParam);
 
 				MainWindowMenu_Process(hWnd, wParam);
@@ -844,7 +844,7 @@ namespace MainWindow
 
 		case WM_DROPFILES:
 			{
-				if (!EmuThread_Ready())
+				if (!MainThread_Ready())
 					return DefWindowProc(hWnd, message, wParam, lParam);
 
 				HDROP hdrop = (HDROP)wParam;
@@ -866,9 +866,8 @@ namespace MainWindow
 
 		case WM_CLOSE:
 			InputDevice::StopPolling();
-			EmuThread_Stop();
+			MainThread_Stop();
 			WindowsRawInput::Shutdown();
-
 			return DefWindowProc(hWnd,message,wParam,lParam);
 
 		case WM_DESTROY:
@@ -914,10 +913,10 @@ namespace MainWindow
 		case WM_USER_RESTART_EMUTHREAD:
 			NativeSetRestarting();
 			InputDevice::StopPolling();
-			EmuThread_Stop();
+			MainThread_Stop();
 			coreState = CORE_POWERUP;
 			ResetUIState();
-			EmuThread_Start(false);
+			MainThread_Start(false);
 			InputDevice::BeginPolling();
 			break;
 

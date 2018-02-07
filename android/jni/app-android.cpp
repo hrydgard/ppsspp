@@ -171,6 +171,20 @@ static void EmuThreadFunc() {
 	gJvm->AttachCurrentThread(&env, nullptr);
 
 	setCurrentThreadName("Emu");
+	ILOG("Entering emu thread");
+
+	// Wait for render loop to get started.
+	if (!graphicsContext || !graphicsContext->Initialized()) {
+		ILOG("Runloop: Waiting for displayInit...");
+		while (!graphicsContext || !graphicsContext->Initialized()) {
+			sleep_ms(20);
+		}
+	} else {
+		ILOG("Runloop: Graphics context available! %p", graphicsContext);
+	}
+	NativeInitGraphics(graphicsContext);
+
+	ILOG("Graphics initialized. Entering loop.");
 
 	// There's no real requirement that NativeInit happen on this thread.
 	// We just call the update/render loop here.
@@ -179,18 +193,31 @@ static void EmuThreadFunc() {
 		UpdateRunLoopAndroid(env);
 	}
 	emuThreadState = (int)EmuThreadState::STOPPED;
+
+	NativeShutdownGraphics();
+
 	gJvm->DetachCurrentThread();
+	ILOG("Leaving emu thread");
 }
 
-static void EmuThreadStart(JNIEnv *env) {
+static void EmuThreadStart() {
+	ILOG("EmuThreadStart");
 	emuThreadState = (int)EmuThreadState::START_REQUESTED;
 	emuThread = std::thread(&EmuThreadFunc);
 }
 
+// Call EmuThreadStop first, then keep running the GPU (or eat commands)
+// as long as emuThreadState isn't STOPPED and/or there are still things queued up.
+// Only after that, call EmuThreadJoin.
 static void EmuThreadStop() {
+	ILOG("EmuThreadStop - stopping...");
 	emuThreadState = (int)EmuThreadState::QUIT_REQUESTED;
+}
+
+static void EmuThreadJoin() {
 	emuThread.join();
 	emuThread = std::thread();
+	ILOG("EmuThreadJoin - joined");
 }
 
 static void ProcessFrameCommands(JNIEnv *env);
@@ -429,9 +456,8 @@ retry:
 
 	if (useCPUThread) {
 		ILOG("NativeApp.init() - launching emu thread");
-		EmuThreadStart(env);
+		EmuThreadStart();
 	}
-	ILOG("NativeApp.init() -- end");
 }
 
 extern "C" void Java_org_ppsspp_ppsspp_NativeApp_audioInit(JNIEnv *, jclass) {
@@ -480,8 +506,13 @@ extern "C" void Java_org_ppsspp_ppsspp_NativeApp_pause(JNIEnv *, jclass) {
 }
 
 extern "C" void Java_org_ppsspp_ppsspp_NativeApp_shutdown(JNIEnv *, jclass) {
-	if (useCPUThread)
+	if (useCPUThread && graphicsContext) {
 		EmuThreadStop();
+		while (emuThreadState != (int)EmuThreadState::STOPPED) {
+			graphicsContext->ThreadFrame();
+		}
+		EmuThreadJoin();
+	}
 
 	ILOG("NativeApp.shutdown() -- begin");
 	if (renderer_inited) {
@@ -507,11 +538,28 @@ extern "C" void Java_org_ppsspp_ppsspp_NativeRenderer_displayInit(JNIEnv * env, 
 	// We should be running on the render thread here.
 	std::string errorMessage;
 	if (renderer_inited) {
+		// Would be really nice if we could get something on the GL thread immediately when shutting down...
 		ILOG("NativeApp.displayInit() restoring");
 		graphicsContext->ThreadEnd();
+		if (useCPUThread) {
+			EmuThreadStop();
+			while (emuThreadState != (int)EmuThreadState::STOPPED) {
+				graphicsContext->ThreadFrame();
+			}
+			EmuThreadJoin();
+		} else {
+			NativeShutdownGraphics();
+		}
 		graphicsContext->ShutdownFromRenderThread();
 
+		ILOG("Shut down both threads. Now let's bring it up again!");
+
 		graphicsContext->InitFromRenderThread(nullptr, 0, 0, 0, 0);
+		if (useCPUThread) {
+			EmuThreadStart();
+		} else {
+			NativeInitGraphics(graphicsContext);
+		}
 		graphicsContext->ThreadStart();
 		ILOG("Restored.");
 	} else {
@@ -564,15 +612,6 @@ extern "C" void JNICALL Java_org_ppsspp_ppsspp_NativeApp_backbufferResize(JNIEnv
 }
 
 void UpdateRunLoopAndroid(JNIEnv *env) {
-	// Wait for render loop to get started.
-	if (!renderer_inited) {
-		ILOG("Runloop: Waiting for displayInit");
-		while (!renderer_inited) {
-			sleep_ms(20);
-		}
-		NativeInitGraphics(graphicsContext);
-	}
-
 	NativeUpdate();
 
 	NativeRender(graphicsContext);

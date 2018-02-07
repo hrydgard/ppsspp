@@ -191,7 +191,6 @@ static int mainInternal(QApplication &a) {
 }
 
 void MainUI::EmuThreadFunc() {
-	ILOG("In emu thread");
 	setCurrentThreadName("Emu");
 
 	// There's no real requirement that NativeInit happen on this thread, though it can't hurt...
@@ -204,12 +203,11 @@ void MainUI::EmuThreadFunc() {
 		SDL_PumpEvents();
 	#endif
 		updateAccelerometer();
-		time_update();
 		UpdateRunLoop();
 	}
-	NativeShutdownGraphics();
-
 	emuThreadState = (int)EmuThreadState::STOPPED;
+
+	NativeShutdownGraphics();
 }
 
 void MainUI::EmuThreadStart() {
@@ -219,6 +217,9 @@ void MainUI::EmuThreadStart() {
 
 void MainUI::EmuThreadStop() {
 	emuThreadState = (int)EmuThreadState::QUIT_REQUESTED;
+}
+
+void MainUI::EmuThreadJoin() {
 	emuThread.join();
 	emuThread = std::thread();
 }
@@ -246,6 +247,11 @@ MainUI::~MainUI()
 	if (emuThreadState != (int)EmuThreadState::DISABLED) {
 		ILOG("EmuThreadStop");
 		EmuThreadStop();
+		while (emuThreadState != (int)EmuThreadState::STOPPED) {
+			// Need to keep eating frames to allow the EmuThread to exit correctly.
+			graphicsContext->ThreadFrame();
+		}
+		EmuThreadJoin();
 	}
 #if defined(MOBILE_DEVICE)
 	delete acc;

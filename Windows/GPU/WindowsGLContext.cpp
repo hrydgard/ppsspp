@@ -386,8 +386,6 @@ void WindowsGLContext::SwapInterval(int interval) {
 }
 
 void WindowsGLContext::Shutdown() {
-	if (renderManager_)
-		renderManager_->StopThread();
 	glslang::FinalizeProcess();
 }
 

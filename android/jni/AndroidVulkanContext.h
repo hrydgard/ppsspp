@@ -22,6 +22,10 @@ public:
 	Draw::DrawContext *GetDrawContext() override {
 		return draw_;
 	}
+	bool Initialized() override {
+		return draw_ != nullptr;
+	}
+
 private:
 	VulkanContext *g_Vulkan = nullptr;
 	Draw::DrawContext *draw_ = nullptr;

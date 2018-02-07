@@ -189,10 +189,7 @@ void UpdateRunLoop() {
 		return;
 	}
 	NativeUpdate();
-
-	if (GetUIState() != UISTATE_EXIT) {
-		NativeRender(graphicsContext);
-	}
+	NativeRender(graphicsContext);
 }
 
 void KeepScreenAwake() {
@@ -268,6 +265,7 @@ reswitch:
 		if (GetUIState() != UISTATE_INGAME) {
 			CoreStateProcessed();
 			if (GetUIState() == UISTATE_EXIT) {
+				UpdateRunLoop();
 				return;
 			}
 			Core_RunLoop(ctx);

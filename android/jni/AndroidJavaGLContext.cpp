@@ -20,6 +20,7 @@ bool AndroidJavaEGLGraphicsContext::InitFromRenderThread(ANativeWindow *wnd, int
 
 void AndroidJavaEGLGraphicsContext::ShutdownFromRenderThread() {
 	ILOG("AndroidJavaEGLGraphicsContext::Shutdown");
+	renderManager_->WaitUntilQueueIdle();
 	renderManager_ = nullptr;  // owned by draw_.
 	delete draw_;
 	draw_ = nullptr;

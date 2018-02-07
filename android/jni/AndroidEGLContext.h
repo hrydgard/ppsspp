@@ -14,6 +14,9 @@ public:
 	Draw::DrawContext *GetDrawContext() override {
 		return draw_;
 	}
+	bool Initialized() override {
+		return draw_ != nullptr;
+	}
 
 private:
 	Draw::DrawContext *draw_;
