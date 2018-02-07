@@ -113,6 +113,7 @@ option(SIMULATOR "Set to ON when targeting an x86 simulator of an ARM platform" 
 # :: Options
 option(USE_FFMPEG "Build with FFMPEG support" ${USE_FFMPEG})
 option(USE_SYSTEM_FFMPEG "Dynamically link against system FFMPEG" ${USE_SYSTEM_FFMPEG})
+option(USE_SYSTEM_LIBZIP "Dynamically link against system libzip" ${USE_SYSTEM_LIBZIP})
 option(USE_WAYLAND_WSI "Set to ON to require Wayland support for Vulkan" ${USE_WAYLAND_WSI})
 option(USE_ADDRESS_SANITIZER "Use Clang memory sanitizer" ${USE_ADDRESS_SANITIZER})
 
@@ -545,65 +546,70 @@ if (NOT MSVC)
 endif()
 
 
-add_library(libzip STATIC
-	ext/native/ext/libzip/zip.h
-	ext/native/ext/libzip/mkstemp.c
-	ext/native/ext/libzip/zip_add.c
-	ext/native/ext/libzip/zip_add_dir.c
-	ext/native/ext/libzip/zip_close.c
-	ext/native/ext/libzip/zip_delete.c
-	ext/native/ext/libzip/zip_dirent.c
-	ext/native/ext/libzip/zip_entry_free.c
-	ext/native/ext/libzip/zip_entry_new.c
-	ext/native/ext/libzip/zip_err_str.c
-	ext/native/ext/libzip/zip_error.c
-	ext/native/ext/libzip/zip_error_clear.c
-	ext/native/ext/libzip/zip_error_get.c
-	ext/native/ext/libzip/zip_error_get_sys_type.c
-	ext/native/ext/libzip/zip_error_strerror.c
-	ext/native/ext/libzip/zip_error_to_str.c
-	ext/native/ext/libzip/zip_fclose.c
-	ext/native/ext/libzip/zip_file_error_clear.c
-	ext/native/ext/libzip/zip_file_error_get.c
-	ext/native/ext/libzip/zip_file_get_offset.c
-	ext/native/ext/libzip/zip_file_strerror.c
-	ext/native/ext/libzip/zip_filerange_crc.c
-	ext/native/ext/libzip/zip_fopen.c
-	ext/native/ext/libzip/zip_fopen_index.c
-	ext/native/ext/libzip/zip_fread.c
-	ext/native/ext/libzip/zip_free.c
-	ext/native/ext/libzip/zip_get_archive_comment.c
-	ext/native/ext/libzip/zip_get_archive_flag.c
-	ext/native/ext/libzip/zip_get_file_comment.c
-	ext/native/ext/libzip/zip_get_name.c
-	ext/native/ext/libzip/zip_get_num_files.c
-	ext/native/ext/libzip/zip_memdup.c
-	ext/native/ext/libzip/zip_name_locate.c
-	ext/native/ext/libzip/zip_new.c
-	ext/native/ext/libzip/zip_open.c
-	ext/native/ext/libzip/zip_rename.c
-	ext/native/ext/libzip/zip_replace.c
-	ext/native/ext/libzip/zip_set_archive_comment.c
-	ext/native/ext/libzip/zip_set_archive_flag.c
-	ext/native/ext/libzip/zip_set_file_comment.c
-	ext/native/ext/libzip/zip_set_name.c
-	ext/native/ext/libzip/zip_source_buffer.c
-	ext/native/ext/libzip/zip_source_file.c
-	ext/native/ext/libzip/zip_source_filep.c
-	ext/native/ext/libzip/zip_source_free.c
-	ext/native/ext/libzip/zip_source_function.c
-	ext/native/ext/libzip/zip_source_zip.c
-	ext/native/ext/libzip/zip_stat.c
-	ext/native/ext/libzip/zip_stat_index.c
-	ext/native/ext/libzip/zip_stat_init.c
-	ext/native/ext/libzip/zip_strerror.c
-	ext/native/ext/libzip/zip_unchange.c
-	ext/native/ext/libzip/zip_unchange_all.c
-	ext/native/ext/libzip/zip_unchange_archive.c
-	ext/native/ext/libzip/zip_unchange_data.c)
-target_link_libraries(libzip)
-include_directories(ext/native/ext/libzip)
-set(LIBZIP_LIBRARY libzip)
+find_package(LibZip)
+if(LIBZIP_FOUND AND USE_SYSTEM_LIBZIP)
+	add_definitions(-DSHARED_LIBZIP)
+else()
+	add_library(libzip STATIC
+		ext/native/ext/libzip/zip.h
+		ext/native/ext/libzip/mkstemp.c
+		ext/native/ext/libzip/zip_add.c
+		ext/native/ext/libzip/zip_add_dir.c
+		ext/native/ext/libzip/zip_close.c
+		ext/native/ext/libzip/zip_delete.c
+		ext/native/ext/libzip/zip_dirent.c
+		ext/native/ext/libzip/zip_entry_free.c
+		ext/native/ext/libzip/zip_entry_new.c
+		ext/native/ext/libzip/zip_err_str.c
+		ext/native/ext/libzip/zip_error.c
+		ext/native/ext/libzip/zip_error_clear.c
+		ext/native/ext/libzip/zip_error_get.c
+		ext/native/ext/libzip/zip_error_get_sys_type.c
+		ext/native/ext/libzip/zip_error_strerror.c
+		ext/native/ext/libzip/zip_error_to_str.c
+		ext/native/ext/libzip/zip_fclose.c
+		ext/native/ext/libzip/zip_file_error_clear.c
+		ext/native/ext/libzip/zip_file_error_get.c
+		ext/native/ext/libzip/zip_file_get_offset.c
+		ext/native/ext/libzip/zip_file_strerror.c
+		ext/native/ext/libzip/zip_filerange_crc.c
+		ext/native/ext/libzip/zip_fopen.c
+		ext/native/ext/libzip/zip_fopen_index.c
+		ext/native/ext/libzip/zip_fread.c
+		ext/native/ext/libzip/zip_free.c
+		ext/native/ext/libzip/zip_get_archive_comment.c
+		ext/native/ext/libzip/zip_get_archive_flag.c
+		ext/native/ext/libzip/zip_get_file_comment.c
+		ext/native/ext/libzip/zip_get_name.c
+		ext/native/ext/libzip/zip_get_num_files.c
+		ext/native/ext/libzip/zip_memdup.c
+		ext/native/ext/libzip/zip_name_locate.c
+		ext/native/ext/libzip/zip_new.c
+		ext/native/ext/libzip/zip_open.c
+		ext/native/ext/libzip/zip_rename.c
+		ext/native/ext/libzip/zip_replace.c
+		ext/native/ext/libzip/zip_set_archive_comment.c
+		ext/native/ext/libzip/zip_set_archive_flag.c
+		ext/native/ext/libzip/zip_set_file_comment.c
+		ext/native/ext/libzip/zip_set_name.c
+		ext/native/ext/libzip/zip_source_buffer.c
+		ext/native/ext/libzip/zip_source_file.c
+		ext/native/ext/libzip/zip_source_filep.c
+		ext/native/ext/libzip/zip_source_free.c
+		ext/native/ext/libzip/zip_source_function.c
+		ext/native/ext/libzip/zip_source_zip.c
+		ext/native/ext/libzip/zip_stat.c
+		ext/native/ext/libzip/zip_stat_index.c
+		ext/native/ext/libzip/zip_stat_init.c
+		ext/native/ext/libzip/zip_strerror.c
+		ext/native/ext/libzip/zip_unchange.c
+		ext/native/ext/libzip/zip_unchange_all.c
+		ext/native/ext/libzip/zip_unchange_archive.c
+		ext/native/ext/libzip/zip_unchange_data.c)
+	target_link_libraries(libzip)
+	include_directories(ext/native/ext/libzip)
+	set(LIBZIP_LIBRARY libzip)
+endif()
 
 # FindPNG does a few things we don't want. So do it ourselves. Fixed to libpng17
 find_path(PNG_PNG_INCLUDE_DIR NAMES "libpng17/png.h")
