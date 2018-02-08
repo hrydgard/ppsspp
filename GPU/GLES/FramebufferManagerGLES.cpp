@@ -419,11 +419,13 @@ void FramebufferManagerGLES::DrawActiveTexture(float x, float y, float w, float 
 		pos[i * 3 + 1] = pos[i * 3 + 1] * invDestH - 1.0f;
 	}
 
-	// We always want a plain state here.
+	// We always want a plain state here, well, except for when it's used by the stencil stuff...
 	render_->SetNoBlendAndMask(0xF);
 	render_->SetDepth(false, false, GL_ALWAYS);
-	render_->SetStencilDisabled();
-	render_->SetRaster(false, GL_CCW, GL_FALSE, GL_FALSE);
+	render_->SetRaster(false, GL_CCW, GL_FRONT, GL_FALSE);
+	if (!(flags & DRAWTEX_KEEP_STENCIL)) {
+		render_->SetStencilDisabled();
+	}
 
 	// Upscaling postshaders don't look well with linear
 	if (flags & DRAWTEX_LINEAR) {
