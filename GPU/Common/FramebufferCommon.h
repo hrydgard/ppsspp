@@ -312,7 +312,6 @@ protected:
 	bool UpdateSize();
 	void SetNumExtraFBOs(int num);
 
-	virtual void DisableState() = 0;
 	void FlushBeforeCopy();
 	virtual void DecimateFBOs();  // keeping it virtual to let D3D do a little extra
 

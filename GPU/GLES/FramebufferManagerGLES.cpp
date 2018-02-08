@@ -80,10 +80,6 @@ const int MAX_PBO = 2;
 
 void ConvertFromRGBA8888(u8 *dst, const u8 *src, u32 dstStride, u32 srcStride, u32 width, u32 height, GEBufferFormat format);
 
-void FramebufferManagerGLES::DisableState() {
-	gstate_c.Dirty(DIRTY_BLEND_STATE | DIRTY_RASTER_STATE | DIRTY_DEPTHSTENCIL_STATE | DIRTY_VIEWPORTSCISSOR_STATE);
-}
-
 void FramebufferManagerGLES::CompileDraw2DProgram() {
 	if (!draw2dprogram_) {
 		std::string errorString;
@@ -784,8 +780,6 @@ void FramebufferManagerGLES::DestroyAllFBOs() {
 	tempFBOs_.clear();
 
 	SetNumExtraFBOs(0);
-
-	DisableState();
 }
 
 void FramebufferManagerGLES::Resized() {

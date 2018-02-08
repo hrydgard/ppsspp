@@ -690,7 +690,6 @@ void FramebufferManagerCommon::UpdateFromMemory(u32 addr, int size, bool safe) {
 				FlushBeforeCopy();
 
 				if (useBufferedRendering_ && vfb->fbo) {
-					DisableState();
 					GEBufferFormat fmt = vfb->format;
 					if (vfb->last_frame_render + 1 < gpuStats.numFlips && isDisplayBuf) {
 						// If we're not rendering to it, format may be wrong.  Use displayFormat_ instead.
@@ -731,7 +730,6 @@ void FramebufferManagerCommon::DrawPixels(VirtualFramebuffer *vfb, int dstX, int
 		SetViewport2D(x, y, w, h);
 		draw_->SetScissorRect(0, 0, pixelWidth_, pixelHeight_);
 	}
-	DisableState();
 
 	MakePixelTexture(srcPixels, srcPixelFormat, srcStride, width, height, u1, v1);
 
@@ -774,8 +772,6 @@ void FramebufferManagerCommon::DrawFramebufferToOutput(const u8 *srcPixels, GEBu
 	float u0 = 0.0f, u1 = 480.0f / 512.0f;
 	float v0 = 0.0f, v1 = 1.0f;
 	MakePixelTexture(srcPixels, srcPixelFormat, srcStride, 512, 272, u1, v1);
-
-	DisableState();
 
 	struct CardboardSettings cardboardSettings;
 	GetCardboardSettings(&cardboardSettings);
@@ -951,7 +947,6 @@ void FramebufferManagerCommon::CopyDisplayToOutput() {
 
 	if (vfb->fbo) {
 		DEBUG_LOG(FRAMEBUF, "Displaying FBO %08x", vfb->fb_address);
-		DisableState();
 
 		int uvRotation = useBufferedRendering_ ? g_Config.iInternalScreenRotation : ROTATION_LOCKED_HORIZONTAL;
 

@@ -142,8 +142,6 @@ bool FramebufferManagerGLES::NotifyStencilUpload(u32 addr, int size, bool skipZe
 
 	shaderManagerGL_->DirtyLastShader();
 
-	DisableState();
-
 	bool useBlit = gstate_c.Supports(GPU_SUPPORTS_ARB_FRAMEBUFFER_BLIT | GPU_SUPPORTS_NV_FRAMEBUFFER_BLIT);
 
 	// Our fragment shader (and discard) is slow.  Since the source is 1x, we can stencil to 1x.
@@ -169,6 +167,7 @@ bool FramebufferManagerGLES::NotifyStencilUpload(u32 addr, int size, bool skipZe
 	textureCacheGL_->ForgetLastTexture();
 
 	// We must bind the program after starting the render pass, and set the color mask after clearing.
+	render_->SetDepth(false, false, GL_ALWAYS);
 	render_->Clear(0, 0, 0, GL_COLOR_BUFFER_BIT | GL_STENCIL_BUFFER_BIT, 0x8, 0, 0, 0, 0);
 	render_->SetStencilFunc(GL_TRUE, GL_ALWAYS, 0xFF, 0xFF);
 	render_->BindProgram(stencilUploadProgram_);

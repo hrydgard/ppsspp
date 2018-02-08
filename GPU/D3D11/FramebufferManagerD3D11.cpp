@@ -197,13 +197,6 @@ void FramebufferManagerD3D11::SetDrawEngine(DrawEngineD3D11 *td) {
 	drawEngine_ = td;
 }
 
-void FramebufferManagerD3D11::DisableState() {
-	context_->OMSetBlendState(stockD3D11.blendStateDisabledWithColorMask[0xF], nullptr, 0xFFFFFFFF);
-	context_->RSSetState(stockD3D11.rasterStateNoCull);
-	context_->OMSetDepthStencilState(stockD3D11.depthStencilDisabled, 0xFF);
-	gstate_c.Dirty(DIRTY_BLEND_STATE | DIRTY_DEPTHSTENCIL_STATE | DIRTY_RASTER_STATE);
-}
-
 void FramebufferManagerD3D11::CompilePostShader() {
 	std::string vsSource;
 	std::string psSource;
@@ -731,8 +724,6 @@ void FramebufferManagerD3D11::DestroyAllFBOs() {
 	tempFBOs_.clear();
 
 	SetNumExtraFBOs(0);
-
-	DisableState();
 }
 
 void FramebufferManagerD3D11::Resized() {
