@@ -461,7 +461,6 @@ void LinearLayout::Measure(const UIContext &dc, MeasureSpec horiz, MeasureSpec v
 			allowedWidth = horiz.size;
 		}
 
-		float unit = (allowedWidth - weightZeroSum) / weightSum;
 		float usedWidth = 0.0f;
 
 		// Redistribute the stretchy ones! and remeasure the children!
@@ -477,6 +476,7 @@ void LinearLayout::Measure(const UIContext &dc, MeasureSpec horiz, MeasureSpec v
 				MeasureSpec v = vert;
 				if (v.type == UNSPECIFIED && measuredHeight_ != 0.0f)
 					v = MeasureSpec(AT_MOST, measuredHeight_);
+				float unit = (allowedWidth - weightZeroSum) / weightSum;
 				MeasureSpec h(AT_MOST, unit * linLayoutParams->weight - margins.horiz());
 				if (horiz.type == EXACTLY) {
 					h.type = EXACTLY;
@@ -502,7 +502,6 @@ void LinearLayout::Measure(const UIContext &dc, MeasureSpec horiz, MeasureSpec v
 			allowedHeight = vert.size;
 		}
 
-		float unit = (allowedHeight - weightZeroSum) / weightSum;
 		float usedHeight = 0.0f;
 
 		// Redistribute the stretchy ones! and remeasure the children!
@@ -518,6 +517,7 @@ void LinearLayout::Measure(const UIContext &dc, MeasureSpec horiz, MeasureSpec v
 				MeasureSpec h = horiz;
 				if (h.type == UNSPECIFIED && measuredWidth_ != 0.0f)
 					h = MeasureSpec(AT_MOST, measuredWidth_);
+				float unit = (allowedHeight - weightZeroSum) / weightSum;
 				MeasureSpec v(AT_MOST, unit * linLayoutParams->weight - margins.vert());
 				if (vert.type == EXACTLY) {
 					v.type = EXACTLY;
