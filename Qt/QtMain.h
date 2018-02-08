@@ -44,9 +44,9 @@ QTM_USE_NAMESPACE
 // Input
 void SimulateGamepad();
 
-class QtDummyGraphicsContext : public DummyGraphicsContext {
+class QtGLGraphicsContext : public GraphicsContext {
 public:
-	QtDummyGraphicsContext() {
+	QtGLGraphicsContext() {
 		CheckGLExtensions();
 		draw_ = Draw::T3DCreateGLContext();
 		SetGPUBackend(GPUBackend::OPENGL);
@@ -55,11 +55,16 @@ public:
 		assert(success);
 	}
 
-	~QtDummyGraphicsContext() {
+	~QtGLGraphicsContext() {
 		delete draw_;
 		draw_ = nullptr;
 		renderManager_ = nullptr;
 	}
+
+	void Shutdown() override {}
+	void SwapInterval(int interval) override {}
+	void SwapBuffers() override {}
+	void Resize() override {}
 
 	Draw::DrawContext *GetDrawContext() override {
 		return draw_;
@@ -123,7 +128,7 @@ protected:
 	void EmuThreadJoin();
 
 private:
-	QtDummyGraphicsContext *graphicsContext;
+	QtGLGraphicsContext *graphicsContext;
 
 	float xscale, yscale;
 #if defined(MOBILE_DEVICE)
@@ -139,8 +144,7 @@ extern MainUI* emugl;
 #ifndef SDL
 
 // Audio
-class MainAudio: public QObject
-{
+class MainAudio : public QObject {
 	Q_OBJECT
 public:
 	MainAudio() {}

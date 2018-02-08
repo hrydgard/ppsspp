@@ -364,24 +364,28 @@ bool MainUI::event(QEvent *e)
     return true;
 }
 
-void MainUI::initializeGL()
-{
+void MainUI::initializeGL() {
+	if (g_Config.iGPUBackend != (int)GPUBackend::OPENGL) {
+		ILOG("Only GL supported under Qt - switching.");
+		g_Config.iGPUBackend = (int)GPUBackend::OPENGL;
+	}
+
 #ifndef USING_GLES2
 	// Some core profile drivers elide certain extensions from GL_EXTENSIONS/etc.
 	// glewExperimental allows us to force GLEW to search for the pointers anyway.
-	if (gl_extensions.IsCoreContext)
+	if (gl_extensions.IsCoreContext) {
 		glewExperimental = true;
+	}
 	glewInit();
 	// Unfortunately, glew will generate an invalid enum error, ignore.
-	if (gl_extensions.IsCoreContext)
+	if (gl_extensions.IsCoreContext) {
 		glGetError();
+	}
 #endif
-	ILOG("Initializing graphics context");
-
-	// OpenGL uses a background thread to do the main processing and only renders on the gl thread.
-	graphicsContext = new QtDummyGraphicsContext();
-
 	if (g_Config.iGPUBackend == (int)GPUBackend::OPENGL) {
+		// OpenGL uses a background thread to do the main processing and only renders on the gl thread.
+		ILOG("Initializing GL graphics context");
+		graphicsContext = new QtGLGraphicsContext();
 		ILOG("Using thread, starting emu thread");
 		EmuThreadStart();
 	} else {
@@ -390,8 +394,7 @@ void MainUI::initializeGL()
 	graphicsContext->ThreadStart();
 }
 
-void MainUI::paintGL()
-{
+void MainUI::paintGL() {
 	#ifdef SDL
 	SDL_PumpEvents();
 	#endif
