@@ -157,7 +157,6 @@ public:
 		return shaders.empty() && programs.empty() && buffers.empty() && textures.empty() && inputLayouts.empty() && framebuffers.empty();
 	}
 	void Take(GLDeleter &other) {
-		deleterMutex_.lock();
 		_assert_msg_(G3D, IsEmpty(), "Deleter already has stuff");
 		shaders = std::move(other.shaders);
 		programs = std::move(other.programs);
@@ -171,7 +170,6 @@ public:
 		other.textures.clear();
 		other.inputLayouts.clear();
 		other.framebuffers.clear();
-		deleterMutex_.unlock();
 	}
 
 	std::vector<GLRShader *> shaders;
@@ -180,7 +178,6 @@ public:
 	std::vector<GLRTexture *> textures;
 	std::vector<GLRInputLayout *> inputLayouts;
 	std::vector<GLRFramebuffer *> framebuffers;
-	std::mutex deleterMutex_;
 };
 
 class GLRInputLayout {
@@ -663,12 +660,6 @@ public:
 		swapFunction_ = swapFunction;
 	}
 
-	void Swap() {
-		if (!useThread_ && swapFunction_) {
-			swapFunction_();
-		}
-	}
-
 	void StopThread();
 
 	bool SawOutOfMemory() {
@@ -712,6 +703,7 @@ private:
 		uint32_t curSwapchainImage = -1;
 
 		GLDeleter deleter;
+		GLDeleter deleter_prev;
 		std::set<GLPushBuffer *> activePushBuffers;
 	};
 
@@ -738,8 +730,6 @@ private:
 
 	GLDeleter deleter_;
 
-	bool useThread_ = true;
-
 	int curFrame_ = 0;
 
 	std::function<void()> swapFunction_;
@@ -748,10 +738,11 @@ private:
 	int targetHeight_ = 0;
 };
 
-
-// Similar to VulkanPushBuffer but uses really stupid tactics - collect all the data in RAM then do a big
-// memcpy/buffer upload at the end. This can however be optimized with glBufferStorage on chips that support that
-// for massive boosts.
+// Similar to VulkanPushBuffer but is currently less efficient - it collects all the data in
+// RAM then does a big memcpy/buffer upload at the end of the frame. This is at least a lot
+// faster than the hundreds of buffer uploads or memory array buffers we used before.
+// On modern GL we could avoid the copy using glBufferStorage but not sure it's worth the
+// trouble.
 class GLPushBuffer {
 public:
 	struct BufInfo {

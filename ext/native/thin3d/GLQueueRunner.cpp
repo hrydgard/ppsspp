@@ -41,7 +41,9 @@ void GLQueueRunner::CreateDeviceObjects() {
 	populate(GL_RENDERER);
 	populate(GL_VERSION);
 	populate(GL_SHADING_LANGUAGE_VERSION);
-	populate(GL_EXTENSIONS);  // TODO: Not OK to query this in core profile!
+	if (!gl_extensions.IsCoreContext) {  // Not OK to query this in core profile!
+		populate(GL_EXTENSIONS);
+	}
 }
 
 void GLQueueRunner::DestroyDeviceObjects() {
@@ -614,6 +616,8 @@ void GLQueueRunner::PerformRenderPass(const GLRStep &step) {
 			glClear(c.clear.clearMask);
 			if (c.clear.scissorW > 0) {
 				glDisable(GL_SCISSOR_TEST);
+			} else {
+				glEnable(GL_SCISSOR_TEST);
 			}
 			break;
 		case GLRRenderCommand::INVALIDATE:

@@ -13,7 +13,6 @@
 #endif
 
 void GLDeleter::Perform() {
-	deleterMutex_.lock();
 	for (auto shader : shaders) {
 		delete shader;
 	}
@@ -38,32 +37,22 @@ void GLDeleter::Perform() {
 		delete framebuffer;
 	}
 	framebuffers.clear();
-	deleterMutex_.unlock();
 }
 
 GLRenderManager::GLRenderManager() {
 	for (int i = 0; i < MAX_INFLIGHT_FRAMES; i++) {
 
 	}
-
-	if (!useThread_) {
-		// The main thread is also the render thread.
-		ThreadStart();
-	}
 }
 
 GLRenderManager::~GLRenderManager() {
 	for (int i = 0; i < MAX_INFLIGHT_FRAMES; i++) {
 		_assert_(frameData_[i].deleter.IsEmpty());
+		_assert_(frameData_[i].deleter_prev.IsEmpty());
 	}
 	// Was anything deleted during shutdown?
 	deleter_.Perform();
-	// _assert_(deleter_.IsEmpty());
-
-	if (!useThread_) {
-		// The main thread is also the render thread.
-		ThreadEnd();
-	}
+	_assert_(deleter_.IsEmpty());
 }
 
 void GLRenderManager::ThreadStart() {
@@ -82,6 +71,7 @@ void GLRenderManager::ThreadEnd() {
 	// Good point to run all the deleters to get rid of leftover objects.
 	for (int i = 0; i < MAX_INFLIGHT_FRAMES; i++) {
 		frameData_[i].deleter.Perform();
+		frameData_[i].deleter_prev.Perform();
 		for (int j = 0; j < (int)frameData_[i].steps.size(); j++) {
 			delete frameData_[i].steps[j];
 		}
@@ -120,8 +110,10 @@ bool GLRenderManager::ThreadFrame() {
 				// This means we're out of frames to render and run_ is false, so bail.
 				return false;
 			}
-			VLOG("PULL: frame[%d].readyForRun = false", threadFrame_);
+			VLOG("PULL: Setting frame[%d].readyForRun = false", threadFrame_);
 			frameData.readyForRun = false;
+			frameData.deleter_prev.Perform();
+			frameData.deleter_prev.Take(frameData.deleter);
 			// Previously we had a quick exit here that avoided calling Run() if run_ was suddenly false,
 			// but that created a race condition where frames could end up not finished properly on resize etc.
 
@@ -143,7 +135,7 @@ bool GLRenderManager::ThreadFrame() {
 void GLRenderManager::StopThread() {
 	// Since we don't control the thread directly, this will only pause the thread.
 
-	if (useThread_ && run_) {
+	if (run_) {
 		run_ = false;
 		for (int i = 0; i < MAX_INFLIGHT_FRAMES; i++) {
 			auto &frameData = frameData_[i];
@@ -170,6 +162,7 @@ void GLRenderManager::StopThread() {
 		// when we restart...
 		for (int i = 0; i < MAX_INFLIGHT_FRAMES; i++) {
 			auto &frameData = frameData_[i];
+			std::unique_lock<std::mutex> lock(frameData.push_mutex);
 			if (frameData.readyForRun || frameData.steps.size() != 0) {
 				Crash();
 			}
@@ -181,7 +174,6 @@ void GLRenderManager::StopThread() {
 			frameData.steps.clear();
 			frameData.initSteps.clear();
 
-			std::unique_lock<std::mutex> lock(frameData.push_mutex);
 			while (!frameData.readyForFence) {
 				VLOG("PUSH: Waiting for frame[%d].readyForFence = 1 (stop)", i);
 				frameData.push_condVar.wait(lock);
@@ -330,7 +322,7 @@ void GLRenderManager::BeginFrame() {
 	FrameData &frameData = frameData_[curFrame];
 
 	// Make sure the very last command buffer from the frame before the previous has been fully executed.
-	if (useThread_) {
+	{
 		std::unique_lock<std::mutex> lock(frameData.push_mutex);
 		while (!frameData.readyForFence) {
 			VLOG("PUSH: Waiting for frame[%d].readyForFence = 1", curFrame);
@@ -342,10 +334,7 @@ void GLRenderManager::BeginFrame() {
 
 	VLOG("PUSH: Fencing %d", curFrame);
 
-
-	// vkWaitForFences(device, 1, &frameData.fence, true, UINT64_MAX);
-	// vkResetFences(device, 1, &frameData.fence);
-	// glFenceSync(...)
+	// glFenceSync(&frameData.fence...)
 
 	// Must be after the fence - this performs deletes.
 	VLOG("PUSH: BeginFrame %d", curFrame);
@@ -363,26 +352,20 @@ void GLRenderManager::Finish() {
 	curRenderStep_ = nullptr;
 	int curFrame = GetCurFrame();
 	FrameData &frameData = frameData_[curFrame];
-	if (!useThread_) {
-		frameData.steps = std::move(steps_);
-		steps_.clear();
-		frameData.initSteps = std::move(initSteps_);
-		initSteps_.clear();
-		frameData.type = GLRRunType::END;
-		Run(curFrame);
-	} else {
+	{
 		std::unique_lock<std::mutex> lock(frameData.pull_mutex);
-		VLOG("PUSH: Frame[%d].readyForRun = true", curFrame);
+		VLOG("PUSH: Frame[%d].readyForRun = true, notifying pull", curFrame);
 		frameData.steps = std::move(steps_);
 		steps_.clear();
 		frameData.initSteps = std::move(initSteps_);
 		initSteps_.clear();
 		frameData.readyForRun = true;
 		frameData.type = GLRRunType::END;
-		frameData.pull_condVar.notify_all();
+		frameData_[curFrame_].deleter.Take(deleter_);
 	}
 
-	frameData_[curFrame_].deleter.Take(deleter_);
+	// Notify calls do not in fact need to be done with the mutex locked.
+	frameData.pull_condVar.notify_all();
 
 	curFrame_++;
 	if (curFrame_ >= MAX_INFLIGHT_FRAMES)
@@ -398,6 +381,7 @@ void GLRenderManager::BeginSubmitFrame(int frame) {
 	}
 }
 
+// Render thread
 void GLRenderManager::Submit(int frame, bool triggerFence) {
 	FrameData &frameData = frameData_[frame];
 
@@ -405,11 +389,7 @@ void GLRenderManager::Submit(int frame, bool triggerFence) {
 
 	// When !triggerFence, we notify after syncing with Vulkan.
 
-	// Putting deletes here is safe but only because OpenGL has its own delete handling..
-	// ideally we'd like to wait a frame or two.
-	frameData.deleter.Perform();
-
-	if (useThread_ && triggerFence) {
+	if (triggerFence) {
 		VLOG("PULL: Frame %d.readyForFence = true", frame);
 
 		std::unique_lock<std::mutex> lock(frameData.push_mutex);
@@ -420,6 +400,7 @@ void GLRenderManager::Submit(int frame, bool triggerFence) {
 	}
 }
 
+// Render thread
 void GLRenderManager::EndSubmitFrame(int frame) {
 	FrameData &frameData = frameData_[frame];
 	frameData.hasBegun = false;
@@ -435,6 +416,7 @@ void GLRenderManager::EndSubmitFrame(int frame) {
 	}
 }
 
+// Render thread
 void GLRenderManager::Run(int frame) {
 	BeginSubmitFrame(frame);
 
@@ -472,14 +454,7 @@ void GLRenderManager::FlushSync() {
 	// TODO: Reset curRenderStep_?
 	int curFrame = curFrame_;
 	FrameData &frameData = frameData_[curFrame];
-	if (!useThread_) {
-		frameData.initSteps = std::move(initSteps_);
-		initSteps_.clear();
-		frameData.steps = std::move(steps_);
-		steps_.clear();
-		frameData.type = GLRRunType::SYNC;
-		Run(curFrame);
-	} else {
+	{
 		std::unique_lock<std::mutex> lock(frameData.pull_mutex);
 		VLOG("PUSH: Frame[%d].readyForRun = true (sync)", curFrame);
 		frameData.initSteps = std::move(initSteps_);
@@ -491,8 +466,7 @@ void GLRenderManager::FlushSync() {
 		frameData.type = GLRRunType::SYNC;
 		frameData.pull_condVar.notify_all();
 	}
-
-	if (useThread_) {
+	{
 		std::unique_lock<std::mutex> lock(frameData.push_mutex);
 		// Wait for the flush to be hit, since we're syncing.
 		while (!frameData.readyForFence) {
@@ -504,19 +478,20 @@ void GLRenderManager::FlushSync() {
 	}
 }
 
+// Render thread
 void GLRenderManager::EndSyncFrame(int frame) {
 	FrameData &frameData = frameData_[frame];
 	Submit(frame, false);
 
-	// This is brutal! Should probably wait for a fence instead, not that it'll matter much since we'll
-	// still stall everything.
-	glFinish();
+	// glFinish is not actually necessary here, and won't be until we start using
+	// glBufferStorage. Then we need to use fences.
+	// glFinish();
 
 	// At this point we can resume filling the command buffers for the current frame since
 	// we know the device is idle - and thus all previously enqueued command buffers have been processed.
 	// No need to switch to the next frame number.
 
-	if (useThread_) {
+	{
 		std::unique_lock<std::mutex> lock(frameData.push_mutex);
 		frameData.readyForFence = true;
 		frameData.readyForSubmit = true;
@@ -533,11 +508,6 @@ void GLRenderManager::Wipe() {
 }
 
 void GLRenderManager::WaitUntilQueueIdle() {
-	if (!useThread_) {
-		// Must be idle, nothing to do.
-		return;
-	}
-
 	// Just wait for all frames to be ready.
 	for (int i = 0; i < MAX_INFLIGHT_FRAMES; i++) {
 		FrameData &frameData = frameData_[i];
@@ -563,16 +533,15 @@ GLPushBuffer::~GLPushBuffer() {
 void GLPushBuffer::Map() {
 	assert(!writePtr_);
 	// TODO: Even a good old glMapBuffer could actually work well here.
-	// VkResult res = vkMapMemory(device_, buffers_[buf_].deviceMemory, 0, size_, 0, (void **)(&writePtr_));
 	writePtr_ = buffers_[buf_].deviceMemory;
 	assert(writePtr_);
 }
 
 void GLPushBuffer::Unmap() {
 	assert(writePtr_);
-	// Here we should simply upload everything to the buffers.
-	// Might be worth trying with size_ instead of offset_, so the driver can replace the whole buffer.
-	// At least if it's close.
+	// Here we simply upload the data to the last buffer.
+	// Might be worth trying with size_ instead of offset_, so the driver can replace
+	// the whole buffer. At least if it's close.
 	render_->BufferSubdata(buffers_[buf_].buffer, 0, offset_, buffers_[buf_].deviceMemory, false);
 	writePtr_ = nullptr;
 }
