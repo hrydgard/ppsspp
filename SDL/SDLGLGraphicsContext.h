@@ -19,7 +19,7 @@ public:
 	void ShutdownFromRenderThread() override;
 
 	void SwapBuffers() override {
-		renderManager_->Swap();
+		// Do nothing, the render thread takes care of this.
 	}
 
 	Draw::DrawContext *GetDrawContext() override {
