@@ -643,8 +643,6 @@ void FramebufferManagerGLES::BlitFramebuffer(VirtualFramebuffer *dst, int dstX, 
 	gstate_c.Dirty(DIRTY_VIEWPORTSCISSOR_STATE | DIRTY_BLEND_STATE | DIRTY_RASTER_STATE);
 }
 
-// TODO: SSE/NEON
-// Could also make C fake-simd for 64-bit, two 8888 pixels fit in a register :)
 void ConvertFromRGBA8888(u8 *dst, const u8 *src, u32 dstStride, u32 srcStride, u32 width, u32 height, GEBufferFormat format) {
 	// Must skip stride in the cases below.  Some games pack data into the cracks, like MotoGP.
 	const u32 *src32 = (const u32 *)src;

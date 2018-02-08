@@ -101,4 +101,5 @@ private:
 	UI::View *loadingView_ = nullptr;
 	UI::CallbackColorTween *loadingViewColor_ = nullptr;
 	UI::VisibilityTween *loadingViewVisible_ = nullptr;
+	UI::Spinner *loadingSpinner_ = nullptr;
 };

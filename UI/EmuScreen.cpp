@@ -862,13 +862,22 @@ void EmuScreen::CreateViews() {
 
 	GameInfoBGView *loadingBG = root_->Add(new GameInfoBGView(gamePath_, new AnchorLayoutParams(FILL_PARENT, FILL_PARENT)));
 	TextView *loadingTextView = root_->Add(new TextView(sc->T("Loading game..."), new AnchorLayoutParams(bounds.centerX(), bounds.centerY(), NONE, NONE, true)));
+	static const int symbols[4] = {
+		I_CROSS,
+		I_CIRCLE,
+		I_SQUARE,
+		I_TRIANGLE
+	};
+	Spinner *loadingSpinner = root_->Add(new Spinner(symbols, ARRAY_SIZE(symbols), new AnchorLayoutParams(bounds.centerX(), bounds.centerY() + 64, NONE, NONE, true)));
+	loadingSpinner_ = loadingSpinner;
 	loadingTextView->SetShadow(true);
 	loadingView_ = loadingTextView;
 
 	loadingViewColor_ = loadingTextView->AddTween(new CallbackColorTween(0x00FFFFFF, 0x00FFFFFF, 0.2f, &bezierEaseInOut));
-	loadingViewColor_->SetCallback([loadingBG, loadingTextView](View *v, uint32_t c) {
+	loadingViewColor_->SetCallback([loadingBG, loadingTextView, loadingSpinner](View *v, uint32_t c) {
 		loadingBG->SetColor(c & 0xFFC0C0C0);
 		loadingTextView->SetTextColor(c);
+		loadingSpinner->SetColor(alphaMul(c, 0.7f));
 	});
 	loadingViewColor_->Persist();
 

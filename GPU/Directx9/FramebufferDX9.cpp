@@ -537,9 +537,7 @@ static const D3DVERTEXELEMENT9 g_FramebufferVertexElements[] = {
 		}
 	}
 
-	// TODO: SSE/NEON
-	// Could also make C fake-simd for 64-bit, two 8888 pixels fit in a register :)
-	void ConvertFromRGBA8888(u8 *dst, u8 *src, u32 dstStride, u32 srcStride, u32 width, u32 height, GEBufferFormat format) {
+	void ConvertFromBGRA8888(u8 *dst, u8 *src, u32 dstStride, u32 srcStride, u32 width, u32 height, GEBufferFormat format) {
 		// Must skip stride in the cases below.  Some games pack data into the cracks, like MotoGP.
 		const u32 *src32 = (const u32 *)src;
 
@@ -617,7 +615,7 @@ static const D3DVERTEXELEMENT9 g_FramebufferVertexElements[] = {
 					// TODO: Handle the other formats?  We don't currently create them, I think.
 					const int dstByteOffset = (y * vfb->fb_stride + x) * dstBpp;
 					// Pixel size always 4 here because we always request BGRA8888.
-					ConvertFromRGBA8888(Memory::GetPointer(fb_address + dstByteOffset), (u8 *)locked.pBits, vfb->fb_stride, locked.Pitch / 4, w, h, vfb->format);
+					ConvertFromBGRA8888(Memory::GetPointer(fb_address + dstByteOffset), (u8 *)locked.pBits, vfb->fb_stride, locked.Pitch / 4, w, h, vfb->format);
 					offscreen->UnlockRect();
 				} else {
 					ERROR_LOG_REPORT(G3D, "Unable to lock rect from %08x: %d,%d %dx%d of %dx%d", fb_address, rect.left, rect.top, rect.right, rect.bottom, vfb->renderWidth, vfb->renderHeight);

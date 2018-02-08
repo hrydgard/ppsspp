@@ -882,6 +882,22 @@ private:
 	float progress_;
 };
 
+class Spinner : public InertView {
+public:
+	Spinner(const int *images, int numImages, LayoutParams *layoutParams = 0)
+		: InertView(layoutParams), images_(images), numImages_(numImages) {
+	}
+
+	void GetContentDimensions(const UIContext &dc, float &w, float &h) const override;
+	void Draw(UIContext &dc) override;
+	void SetColor(uint32_t color) { color_ = color; }
+
+private:
+	const int *images_;
+	int numImages_;
+	uint32_t color_ = 0xFFFFFFFF;
+};
+
 void MeasureBySpec(Size sz, float contentWidth, MeasureSpec spec, float *measured);
 
 void EventTriggered(Event *e, EventParams params);
