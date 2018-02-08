@@ -81,17 +81,6 @@ static const D3DVERTEXELEMENT9 g_FramebufferVertexElements[] = {
 	D3DDECL_END()
 };
 
-	void FramebufferManagerDX9::DisableState() {
-		dxstate.blend.disable();
-		dxstate.cullMode.set(false, false);
-		dxstate.depthTest.disable();
-		dxstate.scissorTest.disable();
-		dxstate.stencilTest.disable();
-		dxstate.colorMask.set(true, true, true, true);
-		dxstate.stencilMask.set(0xFF);
-		gstate_c.Dirty(DIRTY_BLEND_STATE | DIRTY_RASTER_STATE | DIRTY_DEPTHSTENCIL_STATE | DIRTY_VIEWPORTSCISSOR_STATE);
-	}
-
 	FramebufferManagerDX9::FramebufferManagerDX9(Draw::DrawContext *draw)
 		: FramebufferManagerCommon(draw),
 			drawPixelsTex_(0),
@@ -249,7 +238,7 @@ static const D3DVERTEXELEMENT9 g_FramebufferVertexElements[] = {
 	}
 
 	void FramebufferManagerDX9::DrawActiveTexture(float x, float y, float w, float h, float destW, float destH, float u0, float v0, float u1, float v1, int uvRotation, int flags) {
-		// TODO: StretchRect instead?
+		// TODO: StretchRect instead when possible?
 		float coord[20] = {
 			x,y,0, u0,v0,
 			x+w,y,0, u1,v0,
@@ -297,7 +286,13 @@ static const D3DVERTEXELEMENT9 g_FramebufferVertexElements[] = {
 		}
 		dxstate.texMipLodBias.set(0.0f);
 		dxstate.texMaxMipLevel.set(0);
-		device_->SetRenderState(D3DRS_CULLMODE, D3DCULL_NONE);
+		dxstate.blend.disable();
+		dxstate.cullMode.set(false, false);
+		dxstate.depthTest.disable();
+		dxstate.scissorTest.disable();
+		dxstate.stencilTest.disable();
+		dxstate.colorMask.set(true, true, true, true);
+		dxstate.stencilMask.set(0xFF);
 		HRESULT hr = device_->DrawPrimitiveUP(D3DPT_TRIANGLEFAN, 2, coord, 5 * sizeof(float));
 		if (FAILED(hr)) {
 			ERROR_LOG_REPORT(G3D, "DrawActiveTexture() failed: %08x", hr);
@@ -725,8 +720,6 @@ static const D3DVERTEXELEMENT9 g_FramebufferVertexElements[] = {
 		offscreenSurfaces_.clear();
 
 		SetNumExtraFBOs(0);
-
-		DisableState();
 	}
 
 	void FramebufferManagerDX9::Resized() {

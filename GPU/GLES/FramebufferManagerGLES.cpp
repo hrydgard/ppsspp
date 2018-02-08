@@ -80,10 +80,6 @@ const int MAX_PBO = 2;
 
 void ConvertFromRGBA8888(u8 *dst, const u8 *src, u32 dstStride, u32 srcStride, u32 width, u32 height, GEBufferFormat format);
 
-void FramebufferManagerGLES::DisableState() {
-	gstate_c.Dirty(DIRTY_BLEND_STATE | DIRTY_RASTER_STATE | DIRTY_DEPTHSTENCIL_STATE | DIRTY_VIEWPORTSCISSOR_STATE);
-}
-
 void FramebufferManagerGLES::CompileDraw2DProgram() {
 	if (!draw2dprogram_) {
 		std::string errorString;
@@ -421,6 +417,14 @@ void FramebufferManagerGLES::DrawActiveTexture(float x, float y, float w, float 
 	for (int i = 0; i < 4; i++) {
 		pos[i * 3] = pos[i * 3] * invDestW - 1.0f;
 		pos[i * 3 + 1] = pos[i * 3 + 1] * invDestH - 1.0f;
+	}
+
+	// We always want a plain state here, well, except for when it's used by the stencil stuff...
+	render_->SetNoBlendAndMask(0xF);
+	render_->SetDepth(false, false, GL_ALWAYS);
+	render_->SetRaster(false, GL_CCW, GL_FRONT, GL_FALSE);
+	if (!(flags & DRAWTEX_KEEP_STENCIL)) {
+		render_->SetStencilDisabled();
 	}
 
 	// Upscaling postshaders don't look well with linear
@@ -778,8 +782,6 @@ void FramebufferManagerGLES::DestroyAllFBOs() {
 	tempFBOs_.clear();
 
 	SetNumExtraFBOs(0);
-
-	DisableState();
 }
 
 void FramebufferManagerGLES::Resized() {

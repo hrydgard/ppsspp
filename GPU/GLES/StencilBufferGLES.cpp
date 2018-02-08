@@ -142,8 +142,6 @@ bool FramebufferManagerGLES::NotifyStencilUpload(u32 addr, int size, bool skipZe
 
 	shaderManagerGL_->DirtyLastShader();
 
-	DisableState();
-
 	bool useBlit = gstate_c.Supports(GPU_SUPPORTS_ARB_FRAMEBUFFER_BLIT | GPU_SUPPORTS_NV_FRAMEBUFFER_BLIT);
 
 	// Our fragment shader (and discard) is slow.  Since the source is 1x, we can stencil to 1x.
@@ -169,8 +167,10 @@ bool FramebufferManagerGLES::NotifyStencilUpload(u32 addr, int size, bool skipZe
 	textureCacheGL_->ForgetLastTexture();
 
 	// We must bind the program after starting the render pass, and set the color mask after clearing.
+	render_->SetDepth(false, false, GL_ALWAYS);
 	render_->Clear(0, 0, 0, GL_COLOR_BUFFER_BIT | GL_STENCIL_BUFFER_BIT, 0x8, 0, 0, 0, 0);
 	render_->SetStencilFunc(GL_TRUE, GL_ALWAYS, 0xFF, 0xFF);
+	render_->SetRaster(false, GL_CCW, GL_FRONT, GL_FALSE);
 	render_->BindProgram(stencilUploadProgram_);
 	render_->SetNoBlendAndMask(0x8);
 
@@ -189,14 +189,14 @@ bool FramebufferManagerGLES::NotifyStencilUpload(u32 addr, int size, bool skipZe
 			render_->SetStencilOp(i, GL_REPLACE, GL_REPLACE, GL_REPLACE);
 			render_->SetUniformF1(&u_stencilValue, i * (1.0f / 255.0f));
 		}
-		DrawActiveTexture(0, 0, dstBuffer->width, dstBuffer->height, dstBuffer->bufferWidth, dstBuffer->bufferHeight, 0.0f, 0.0f, u1, v1, ROTATION_LOCKED_HORIZONTAL, DRAWTEX_NEAREST);
+		DrawActiveTexture(0, 0, dstBuffer->width, dstBuffer->height, dstBuffer->bufferWidth, dstBuffer->bufferHeight, 0.0f, 0.0f, u1, v1, ROTATION_LOCKED_HORIZONTAL, DRAWTEX_NEAREST | DRAWTEX_KEEP_STENCIL);
 	}
 
 	if (useBlit) {
 		draw_->BlitFramebuffer(blitFBO, 0, 0, w, h, dstBuffer->fbo, 0, 0, dstBuffer->renderWidth, dstBuffer->renderHeight, Draw::FB_STENCIL_BIT, Draw::FB_BLIT_NEAREST);
 	}
 
-	gstate_c.Dirty(DIRTY_BLEND_STATE | DIRTY_DEPTHSTENCIL_STATE | DIRTY_VIEWPORTSCISSOR_STATE);
+	gstate_c.Dirty(DIRTY_BLEND_STATE | DIRTY_RASTER_STATE | DIRTY_DEPTHSTENCIL_STATE | DIRTY_VIEWPORTSCISSOR_STATE);
 	RebindFramebuffer();
 	return true;
 }

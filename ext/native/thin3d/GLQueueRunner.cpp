@@ -588,11 +588,12 @@ void GLQueueRunner::PerformRenderPass(const GLRStep &step) {
 #endif
 			break;
 		case GLRRenderCommand::CLEAR:
-			if (c.clear.scissorW > 0) {
-				glEnable(GL_SCISSOR_TEST);
-				glScissor(c.clear.scissorX, c.clear.scissorY, c.clear.scissorW, c.clear.scissorH);
-			} else {
+			// Scissor test is on, and should be on after leaving this case. If we disable it,
+			// we re-enable it at the end.
+			if (c.clear.scissorW == 0) {
 				glDisable(GL_SCISSOR_TEST);
+			} else {
+				glScissor(c.clear.scissorX, c.clear.scissorY, c.clear.scissorW, c.clear.scissorH);
 			}
 			if (c.clear.colorMask != colorMask) {
 				glColorMask(c.clear.colorMask & 1, (c.clear.colorMask >> 1) & 1, (c.clear.colorMask >> 2) & 1, (c.clear.colorMask >> 3) & 1);
@@ -614,9 +615,7 @@ void GLQueueRunner::PerformRenderPass(const GLRStep &step) {
 				glClearStencil(c.clear.clearStencil);
 			}
 			glClear(c.clear.clearMask);
-			if (c.clear.scissorW > 0) {
-				glDisable(GL_SCISSOR_TEST);
-			} else {
+			if (c.clear.scissorW == 0) {
 				glEnable(GL_SCISSOR_TEST);
 			}
 			break;

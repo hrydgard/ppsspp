@@ -150,6 +150,7 @@ enum DrawTextureFlags {
 	DRAWTEX_NEAREST = 0,
 	DRAWTEX_LINEAR = 1,
 	DRAWTEX_KEEP_TEX = 2,
+	DRAWTEX_KEEP_STENCIL = 4,
 };
 
 inline Draw::DataFormat GEFormatToThin3D(int geFormat) {
@@ -312,7 +313,6 @@ protected:
 	bool UpdateSize();
 	void SetNumExtraFBOs(int num);
 
-	virtual void DisableState() = 0;
 	void FlushBeforeCopy();
 	virtual void DecimateFBOs();  // keeping it virtual to let D3D do a little extra
 
