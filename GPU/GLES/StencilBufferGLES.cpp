@@ -189,7 +189,7 @@ bool FramebufferManagerGLES::NotifyStencilUpload(u32 addr, int size, bool skipZe
 			render_->SetStencilOp(i, GL_REPLACE, GL_REPLACE, GL_REPLACE);
 			render_->SetUniformF1(&u_stencilValue, i * (1.0f / 255.0f));
 		}
-		DrawActiveTexture(0, 0, dstBuffer->width, dstBuffer->height, dstBuffer->bufferWidth, dstBuffer->bufferHeight, 0.0f, 0.0f, u1, v1, ROTATION_LOCKED_HORIZONTAL, DRAWTEX_NEAREST | DRAWTEX_KEEP_STENCIL);
+		DrawActiveTexture(0, 0, dstBuffer->width, dstBuffer->height, dstBuffer->bufferWidth, dstBuffer->bufferHeight, 0.0f, 0.0f, u1, v1, ROTATION_LOCKED_HORIZONTAL, DRAWTEX_NEAREST | DRAWTEX_KEEP_STENCIL_ALPHA);
 	}
 
 	if (useBlit) {

@@ -150,7 +150,7 @@ enum DrawTextureFlags {
 	DRAWTEX_NEAREST = 0,
 	DRAWTEX_LINEAR = 1,
 	DRAWTEX_KEEP_TEX = 2,
-	DRAWTEX_KEEP_STENCIL = 4,
+	DRAWTEX_KEEP_STENCIL_ALPHA = 4,
 };
 
 inline Draw::DataFormat GEFormatToThin3D(int geFormat) {
