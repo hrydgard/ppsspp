@@ -615,8 +615,6 @@ int main(int argc, char *argv[]) {
 	GraphicsContext *graphicsContext = nullptr;
 	SDL_Window *window = nullptr;
 
-	bool useEmuThread;
-
 	std::string error_message;
 	if (g_Config.iGPUBackend == (int)GPUBackend::OPENGL) {
 		SDLGLGraphicsContext *ctx = new SDLGLGraphicsContext();
@@ -624,7 +622,6 @@ int main(int argc, char *argv[]) {
 			printf("GL init error '%s'\n", error_message.c_str());
 		}
 		graphicsContext = ctx;
-		useEmuThread = true;
 	} else if (g_Config.iGPUBackend == (int)GPUBackend::VULKAN) {
 		SDLVulkanGraphicsContext *ctx = new SDLVulkanGraphicsContext();
 		if (!ctx->Init(window, x, y, mode, &error_message)) {
@@ -638,8 +635,9 @@ int main(int argc, char *argv[]) {
 		} else {
 			graphicsContext = ctx;
 		}
-		useEmuThread = false;
 	}
+
+	bool useEmuThread = g_Config.iGPUBackend == (int)GPUBackend::OPENGL;
 
 	SDL_SetWindowTitle(window, (app_name_nice + " " + PPSSPP_GIT_VERSION).c_str());
 
