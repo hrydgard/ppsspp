@@ -754,13 +754,13 @@ void VulkanRenderManager::BeginSubmitFrame(int frame) {
 		} else if (res == VK_ERROR_OUT_OF_DATE_KHR) {
 			frameData.skipSwap = true;
 		} else {
-			_assert_msg_(G3D, res == VK_SUCCESS, "vkAcquireNextImageKHR failed! result=%d", (int)res);
+			_assert_msg_(G3D, res == VK_SUCCESS, "vkAcquireNextImageKHR failed! result=%s", VulkanResultToString(res));
 		}
 
 		VkCommandBufferBeginInfo begin{ VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO };
 		begin.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
 		res = vkBeginCommandBuffer(frameData.mainCmd, &begin);
-		_assert_msg_(G3D, res == VK_SUCCESS, "vkBeginCommandBuffer failed! result=%d", (int)res);
+		_assert_msg_(G3D, res == VK_SUCCESS, "vkBeginCommandBuffer failed! result=%s", VulkanResultToString(res));
 
 		queueRunner_.SetBackbuffer(framebuffers_[frameData.curSwapchainImage], swapchainImages_[frameData.curSwapchainImage].image);
 
@@ -772,11 +772,11 @@ void VulkanRenderManager::Submit(int frame, bool triggerFence) {
 	FrameData &frameData = frameData_[frame];
 	if (frameData.hasInitCommands) {
 		VkResult res = vkEndCommandBuffer(frameData.initCmd);
-		_assert_msg_(G3D, res == VK_SUCCESS, "vkEndCommandBuffer failed (init)! result=%d", (int)res);
+		_assert_msg_(G3D, res == VK_SUCCESS, "vkEndCommandBuffer failed (init)! result=%s", VulkanResultToString(res));
 	}
 
 	VkResult res = vkEndCommandBuffer(frameData.mainCmd);
-	_assert_msg_(G3D, res == VK_SUCCESS, "vkEndCommandBuffer failed (main)! result=%d", (int)res);
+	_assert_msg_(G3D, res == VK_SUCCESS, "vkEndCommandBuffer failed (main)! result=%s", VulkanResultToString(res));
 
 	VkCommandBuffer cmdBufs[2];
 	int numCmdBufs = 0;
@@ -792,7 +792,7 @@ void VulkanRenderManager::Submit(int frame, bool triggerFence) {
 			if (res == VK_ERROR_DEVICE_LOST) {
 				_assert_msg_(G3D, false, "Lost the Vulkan device!");
 			} else {
-				_assert_msg_(G3D, res == VK_SUCCESS, "vkQueueSubmit failed (init)! result=%d", (int)res);
+				_assert_msg_(G3D, res == VK_SUCCESS, "vkQueueSubmit failed (init)! result=%s", VulkanResultToString(res));
 			}
 			numCmdBufs = 0;
 		}
@@ -816,7 +816,7 @@ void VulkanRenderManager::Submit(int frame, bool triggerFence) {
 	if (res == VK_ERROR_DEVICE_LOST) {
 		_assert_msg_(G3D, false, "Lost the Vulkan device!");
 	} else {
-		_assert_msg_(G3D, res == VK_SUCCESS, "vkQueueSubmit failed (main, split=%d)! result=%d", (int)splitSubmit_, (int)res);
+		_assert_msg_(G3D, res == VK_SUCCESS, "vkQueueSubmit failed (main, split=%d)! result=%s", (int)splitSubmit_, VulkanResultToString(res));
 	}
 
 	// When !triggerFence, we notify after syncing with Vulkan.
@@ -848,7 +848,7 @@ void VulkanRenderManager::EndSubmitFrame(int frame) {
 		if (res == VK_ERROR_OUT_OF_DATE_KHR || res == VK_SUBOPTIMAL_KHR) {
 			// ignore, it'll be fine. this happens sometimes during resizes, and we do make sure to recreate the swap chain.
 		} else {
-			_assert_msg_(G3D, res == VK_SUCCESS, "vkQueuePresentKHR failed! result=%d", (int)res);
+			_assert_msg_(G3D, res == VK_SUCCESS, "vkQueuePresentKHR failed! result=%s", VulkanResultToString(res));
 		}
 	} else {
 		frameData.skipSwap = false;
