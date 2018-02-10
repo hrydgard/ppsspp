@@ -571,16 +571,16 @@ int WINAPI WinMain(HINSTANCE _hInstance, HINSTANCE hPrevInstance, LPSTR szCmdLin
 			break;
 		}
 
-		if (!TranslateAccelerator(wnd, accel, &msg))
-		{
-			if (!DialogManager::IsDialogMessage(&msg))
-			{
+		if (!TranslateAccelerator(wnd, accel, &msg)) {
+			if (!DialogManager::IsDialogMessage(&msg)) {
 				//and finally translate and dispatch
 				TranslateMessage(&msg);
 				DispatchMessage(&msg);
 			}
 		}
 	}
+
+	MainThread_Stop();
 
 	VFSShutdown();
 
