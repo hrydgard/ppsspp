@@ -234,6 +234,10 @@ void MainThreadFunc() {
 		}
 	}
 	Core_Stop();
+	if (!useEmuThread) {
+		// Process the shutdown.  Without this, non-GL delays 800ms on shutdown.
+		Core_Run(g_graphicsContext);
+	}
 	Core_WaitInactive(800);
 
 	g_inLoop = false;
