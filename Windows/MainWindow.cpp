@@ -915,7 +915,7 @@ namespace MainWindow
 			MainThread_Stop();
 			coreState = CORE_POWERUP;
 			ResetUIState();
-			MainThread_Start(false);
+			MainThread_Start(g_Config.iGPUBackend == (int)GPUBackend::OPENGL);
 			InputDevice::BeginPolling();
 			break;
 
