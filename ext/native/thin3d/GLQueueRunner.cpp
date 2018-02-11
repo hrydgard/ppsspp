@@ -770,6 +770,7 @@ void GLQueueRunner::PerformRenderPass(const GLRStep &step) {
 			// TODO: Add fast path for glBindVertexBuffer
 			GLRInputLayout *layout = c.bindVertexBuffer.inputLayout;
 			GLuint buf = c.bindVertexBuffer.buffer ? c.bindVertexBuffer.buffer->buffer : 0;
+			assert(!c.bindVertexBuffer.buffer->Mapped());
 			if (buf != curArrayBuffer) {
 				glBindBuffer(GL_ARRAY_BUFFER, buf);
 				curArrayBuffer = buf;
@@ -797,12 +798,14 @@ void GLQueueRunner::PerformRenderPass(const GLRStep &step) {
 				Crash();
 			} else if (c.bind_buffer.target == GL_ELEMENT_ARRAY_BUFFER) {
 				GLuint buf = c.bind_buffer.buffer ? c.bind_buffer.buffer->buffer : 0;
+				assert(!c.bind_buffer.buffer->Mapped());
 				if (buf != curElemArrayBuffer) {
 					glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, buf);
 					curElemArrayBuffer = buf;
 				}
 			} else {
 				GLuint buf = c.bind_buffer.buffer ? c.bind_buffer.buffer->buffer : 0;
+				assert(!c.bind_buffer.buffer->Mapped());
 				glBindBuffer(c.bind_buffer.target, buf);
 			}
 			break;

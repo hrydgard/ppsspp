@@ -421,6 +421,11 @@ void GLRenderManager::Run(int frame) {
 	BeginSubmitFrame(frame);
 
 	FrameData &frameData = frameData_[frame];
+	for (auto iter : frameData.activePushBuffers) {
+		iter->Flush();
+		iter->UnmapDevice();
+	}
+
 	auto &stepsOnThread = frameData_[frame].steps;
 	auto &initStepsOnThread = frameData_[frame].initSteps;
 	// queueRunner_.LogSteps(stepsOnThread);
@@ -428,6 +433,10 @@ void GLRenderManager::Run(int frame) {
 	queueRunner_.RunSteps(stepsOnThread);
 	stepsOnThread.clear();
 	initStepsOnThread.clear();
+
+	for (auto iter : frameData.activePushBuffers) {
+		iter->MapDevice();
+	}
 
 	switch (frameData.type) {
 	case GLRRunType::END:
@@ -446,11 +455,6 @@ void GLRenderManager::Run(int frame) {
 }
 
 void GLRenderManager::FlushSync() {
-	// Need to flush any pushbuffers to VRAM before submitting draw calls.
-	for (auto iter : frameData_[curFrame_].activePushBuffers) {
-		iter->Flush();
-	}
-
 	// TODO: Reset curRenderStep_?
 	int curFrame = curFrame_;
 	FrameData &frameData = frameData_[curFrame];
@@ -532,42 +536,51 @@ GLPushBuffer::~GLPushBuffer() {
 
 void GLPushBuffer::Map() {
 	assert(!writePtr_);
-	// TODO: Even a good old glMapBuffer could actually work well here.
-	writePtr_ = buffers_[buf_].deviceMemory;
+	auto &info = buffers_[buf_];
+	writePtr_ = info.deviceMemory ? info.deviceMemory : info.localMemory;
+	// Force alignment.  This is needed for PushAligned() to work as expected.
+	while ((intptr_t)writePtr_ & 15) {
+		writePtr_++;
+	}
 	assert(writePtr_);
 }
 
 void GLPushBuffer::Unmap() {
 	assert(writePtr_);
-	// Here we simply upload the data to the last buffer.
-	// Might be worth trying with size_ instead of offset_, so the driver can replace
-	// the whole buffer. At least if it's close.
-	render_->BufferSubdata(buffers_[buf_].buffer, 0, offset_, buffers_[buf_].deviceMemory, false);
+	if (!buffers_[buf_].deviceMemory) {
+		// Here we simply upload the data to the last buffer.
+		// Might be worth trying with size_ instead of offset_, so the driver can replace
+		// the whole buffer. At least if it's close.
+		render_->BufferSubdata(buffers_[buf_].buffer, 0, offset_, buffers_[buf_].localMemory, false);
+	}
 	writePtr_ = nullptr;
 }
 
 void GLPushBuffer::Flush() {
-	render_->BufferSubdata(buffers_[buf_].buffer, 0, offset_, buffers_[buf_].deviceMemory, false);
-	// Here we will submit all the draw calls, with the already known buffer and offsets.
-	// Might as well reset the write pointer here and start over the current buffer.
-	writePtr_ = buffers_[buf_].deviceMemory;
-	offset_ = 0;
+	// We don't need to do this for device memory.
+	if (!buffers_[buf_].deviceMemory && writePtr_) {
+		render_->BufferSubdata(buffers_[buf_].buffer, 0, offset_, buffers_[buf_].localMemory, false);
+		// Here we will submit all the draw calls, with the already known buffer and offsets.
+		// Might as well reset the write pointer here and start over the current buffer.
+		writePtr_ = buffers_[buf_].localMemory;
+		offset_ = 0;
+	}
 }
 
 bool GLPushBuffer::AddBuffer() {
 	BufInfo info;
-	info.deviceMemory = new uint8_t[size_];
+	info.localMemory = new uint8_t[size_];
 	info.buffer = render_->CreateBuffer(target_, size_, GL_DYNAMIC_DRAW);
 	buf_ = buffers_.size();
-	buffers_.resize(buf_ + 1);
-	buffers_[buf_] = info;
+	buffers_.push_back(info);
 	return true;
 }
 
 void GLPushBuffer::Destroy() {
 	for (BufInfo &info : buffers_) {
+		// This will automatically unmap device memory, if needed.
 		render_->DeleteBuffer(info.buffer);
-		delete[] info.deviceMemory;
+		delete[] info.localMemory;
 	}
 	buffers_.clear();
 }
@@ -616,4 +629,38 @@ size_t GLPushBuffer::GetTotalSize() const {
 		sum += size_ * (buffers_.size() - 1);
 	sum += offset_;
 	return sum;
+}
+
+void GLPushBuffer::MapDevice() {
+	for (auto &info : buffers_) {
+		assert(!info.deviceMemory);
+		// TODO: Can we use GL_WRITE_ONLY?
+		info.deviceMemory = (uint8_t *)info.buffer->Map(GL_READ_WRITE);
+
+		if (info.deviceMemory) {
+			delete[] info.localMemory;
+			info.localMemory = nullptr;
+		} else if (!info.localMemory) {
+			// Somehow it failed, let's dodge crashing.
+			info.localMemory = new uint8_t[info.buffer->size_];
+		}
+
+		assert(info.localMemory || info.deviceMemory);
+	}
+
+	if (writePtr_) {
+		// This can happen during a sync.  Remap.
+		writePtr_ = nullptr;
+		Map();
+	}
+}
+
+void GLPushBuffer::UnmapDevice() {
+	for (auto &info : buffers_) {
+		if (info.deviceMemory) {
+			// TODO: Technically this can return false?
+			info.buffer->Unmap();
+			info.deviceMemory = nullptr;
+		}
+	}
 }
