@@ -139,7 +139,7 @@ public:
 		}
 	}
 
-	void *Map(GLenum accessOld, GLbitfield accessNew);
+	void *Map(GLbitfield access);
 	bool Unmap();
 
 	bool Mapped() {

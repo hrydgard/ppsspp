@@ -668,7 +668,7 @@ void GLPushBuffer::MapDevice() {
 
 		assert(!info.deviceMemory);
 		// TODO: Can we use GL_WRITE_ONLY?
-		info.deviceMemory = (uint8_t *)info.buffer->Map(GL_READ_WRITE, GL_MAP_WRITE_BIT | GL_MAP_FLUSH_EXPLICIT_BIT);
+		info.deviceMemory = (uint8_t *)info.buffer->Map(GL_MAP_WRITE_BIT | GL_MAP_FLUSH_EXPLICIT_BIT);
 
 		if (!info.deviceMemory && !info.localMemory) {
 			// Somehow it failed, let's dodge crashing.
@@ -695,7 +695,7 @@ void GLPushBuffer::UnmapDevice() {
 	}
 }
 
-void *GLRBuffer::Map(GLenum accessOld, GLbitfield accessNew) {
+void *GLRBuffer::Map(GLbitfield access) {
 	assert(buffer != 0);
 	glBindBuffer(target_, buffer);
 
@@ -703,19 +703,19 @@ void *GLRBuffer::Map(GLenum accessOld, GLbitfield accessNew) {
 	if (gl_extensions.ARB_buffer_storage || gl_extensions.EXT_buffer_storage) {
 		if (!hasStorage_) {
 #ifdef USING_GLES2
-			glBufferStorageEXT(target_, size_, nullptr, GL_MAP_WRITE_BIT);
+			glBufferStorageEXT(target_, size_, nullptr, access & (GL_MAP_READ_BIT | GL_MAP_WRITE_BIT));
 #else
-			glBufferStorage(target_, size_, nullptr, GL_MAP_WRITE_BIT);
+			glBufferStorage(target_, size_, nullptr, access & (GL_MAP_READ_BIT | GL_MAP_WRITE_BIT));
 #endif
 			hasStorage_ = true;
 		}
-		p = glMapBufferRange(target_, 0, size_, accessNew);
+		p = glMapBufferRange(target_, 0, size_, access);
 	} else if (gl_extensions.VersionGEThan(3, 0, 0)) {
 		// GLES3 or desktop 3.
-		p = glMapBufferRange(target_, 0, size_, accessNew);
+		p = glMapBufferRange(target_, 0, size_, access);
 	} else {
 #ifndef USING_GLES2
-		p = glMapBuffer(target_, accessOld);
+		p = glMapBuffer(target_, GL_READ_WRITE);
 #endif
 	}
 
