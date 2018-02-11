@@ -357,10 +357,8 @@ void GenerateVertexShaderHLSL(const VShaderID &id, char *buffer, ShaderLanguage 
 				WRITE(p, "  int2 patch_pos = int2(u, v);\n");
 				WRITE(p, "  int2 vertex_pos = int2(In.position.xy);\n");
 				if (doSpline) {
-					WRITE(p, "  if ((vertex_pos.x == spline_tess.x) && (u < spline_num_patches.x - 1))\n");
-					WRITE(p, "    u++;\n"); // Use next patch position
-					WRITE(p, "  if ((vertex_pos.y == spline_tess.y) && (v < spline_num_patches.y - 1))\n");
-					WRITE(p, "    v++;\n"); // Use next patch position
+					WRITE(p, "  bool2 isFirstEdge = !bool2(vertex_pos);\n"); // vertex_pos == 0
+					WRITE(p, "  bool2 isNotFirstPatch = bool2(patch_pos);\n"); // patch_pos > 0
 					WRITE(p, "  vertex_pos += patch_pos * spline_tess;\n");
 				}
 				// Load 4x4 control points
@@ -382,6 +380,12 @@ void GenerateVertexShaderHLSL(const VShaderID &id, char *buffer, ShaderLanguage 
 				// Basis polynomials as weight coefficients
 				WRITE(p, "  float4 basis_u = tess_weights_u[vertex_pos.x].basis;\n");
 				WRITE(p, "  float4 basis_v = tess_weights_v[vertex_pos.y].basis;\n");
+				if (doSpline) {
+					WRITE(p, "  if (isFirstEdge.x && isNotFirstPatch.x)\n");
+					WRITE(p, "    basis_u = float4(basis_u.yzw, 0);\n");
+					WRITE(p, "  if (isFirstEdge.y && isNotFirstPatch.y)\n");
+					WRITE(p, "    basis_v = float4(basis_v.yzw, 0);\n");
+				}
 
 				// Tessellate
 				WRITE(p, "  float3 pos = tess_sample(_pos, basis_u, basis_v);\n");
@@ -401,6 +405,12 @@ void GenerateVertexShaderHLSL(const VShaderID &id, char *buffer, ShaderLanguage 
 					// Derivatives as weight coefficients
 					WRITE(p, "  float4 deriv_u = tess_weights_u[vertex_pos.x].deriv;\n");
 					WRITE(p, "  float4 deriv_v = tess_weights_v[vertex_pos.y].deriv;\n");
+					if (doSpline) {
+						WRITE(p, "  if (isFirstEdge.x && isNotFirstPatch.x)\n");
+						WRITE(p, "    deriv_u = float4(deriv_u.yzw, 0);\n");
+						WRITE(p, "  if (isFirstEdge.y && isNotFirstPatch.y)\n");
+						WRITE(p, "    deriv_v = float4(deriv_v.yzw, 0);\n");
+					}
 
 					WRITE(p, "  float3 du = tess_sample(_pos, deriv_u, basis_v);\n");
 					WRITE(p, "  float3 dv = tess_sample(_pos, basis_u, deriv_v);\n");

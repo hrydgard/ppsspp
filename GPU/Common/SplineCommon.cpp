@@ -214,8 +214,8 @@ public:
 
 		const float inv_tess = 1.0f / (float)tess;
 		for (int i = 0; i < num_patches; ++i) {
-			const int _tess = (i == num_patches - 1) ? (tess + 1) : tess;
-			for (int j = 0; j < _tess; ++j) {
+			const int start = (i == 0) ? 0 : 1;
+			for (int j = start; j <= tess; ++j) {
 				const int index = i * tess + j;
 				const float t = (float)index * inv_tess;
 				CalcWeights(t, knots + i, divs[i], weights[index]);
@@ -346,9 +346,9 @@ public:
 		const float inv_v = 1.0f / (float)patch.tess_v;
 
 		for (int patch_u = 0; patch_u < patch.num_patches_u; ++patch_u) {
-			const int tess_u = patch.GetTessU(patch_u);
+			const int start_u = patch.GetTessStart(patch_u);
 			for (int patch_v = 0; patch_v < patch.num_patches_v; ++patch_v) {
-				const int tess_v = patch.GetTessV(patch_v);
+				const int start_v = patch.GetTessStart(patch_v);
 
 				// Prepare 4x4 control points to tessellate
 				const int idx = patch.GetPointIndex(patch_u, patch_v);
@@ -358,7 +358,7 @@ public:
 				Tessellator<Vec2f> tess_tex(tex, idx_v);
 				Tessellator<Vec3f> tess_nrm(pos, idx_v);
 
-				for (int tile_u = 0; tile_u < tess_u; ++tile_u) {
+				for (int tile_u = start_u; tile_u <= patch.tess_u; ++tile_u) {
 					const int index_u = patch.GetIndexU(patch_u, tile_u);
 					const Weight &wu = weights.u[index_u];
 
@@ -371,7 +371,7 @@ public:
 					if (sampleNrm)
 						tess_nrm.SampleU(wu.deriv);
 
-					for (int tile_v = 0; tile_v < tess_v; ++tile_v) {
+					for (int tile_v = start_v; tile_v <= patch.tess_v; ++tile_v) {
 						const int index_v = patch.GetIndexV(patch_v, tile_v);
 						const Weight &wv = weights.v[index_v];
 

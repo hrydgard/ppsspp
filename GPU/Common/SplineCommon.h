@@ -80,8 +80,7 @@ struct BezierPatch {
 		}
 	}
 
-	int GetTessU(int patch_u) const { return tess_u + 1; }
-	int GetTessV(int patch_v) const { return tess_v + 1; }
+	int GetTessStart(int patch) const { return 0; }
 
 	int GetPointIndex(int patch_u, int patch_v) const { return patch_v * 3 * count_u + patch_u * 3;}
 
@@ -142,8 +141,7 @@ struct SplinePatchLocal {
 		num_divisions_v = num_patches_v * tess_v;
 	}
 
-	int GetTessU(int patch_u) const { return (patch_u == num_patches_u - 1) ? tess_u + 1 : tess_u; }
-	int GetTessV(int patch_v) const { return (patch_v == num_patches_v - 1) ? tess_v + 1 : tess_v; }
+	int GetTessStart(int patch) const { return (patch == 0) ? 0 : 1; }
 
 	int GetPointIndex(int patch_u, int patch_v) const { return patch_v * count_u + patch_u;}
 

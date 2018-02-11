@@ -446,10 +446,8 @@ void GenerateVertexShader(const VShaderID &id, char *buffer, uint32_t *attrMask,
 				WRITE(p, "  ivec2 patch_pos = ivec2(u, v);\n");
 				WRITE(p, "  ivec2 vertex_pos = ivec2(position.xy);\n");
 				if (doSpline) {
-					WRITE(p, "  if ((vertex_pos.x == u_spline_tess.x) && (u < u_spline_num_patches.x - 1))\n");
-					WRITE(p, "    u++;\n"); // Use next patch position
-					WRITE(p, "  if ((vertex_pos.y == u_spline_tess.y) && (v < u_spline_num_patches.y - 1))\n");
-					WRITE(p, "    v++;\n"); // Use next patch position
+					WRITE(p, "  bvec2 isFirstEdge = not(bvec2(vertex_pos));\n"); // vertex_pos == 0
+					WRITE(p, "  bvec2 isNotFirstPatch = bvec2(patch_pos);\n"); // patch_pos > 0
 					WRITE(p, "  vertex_pos += patch_pos * u_spline_tess;\n");
 				}
 				// Load 4x4 control points
@@ -470,6 +468,12 @@ void GenerateVertexShader(const VShaderID &id, char *buffer, uint32_t *attrMask,
 				// Basis polynomials as weight coefficients
 				WRITE(p, "  vec4 basis_u = %s(u_tess_weights_u, %s, 0);\n", texelFetch, "ivec2(vertex_pos.x * 2, 0)");
 				WRITE(p, "  vec4 basis_v = %s(u_tess_weights_v, %s, 0);\n", texelFetch, "ivec2(vertex_pos.y * 2, 0)");
+				if (doSpline) {
+					WRITE(p, "  if (isFirstEdge.x && isNotFirstPatch.x)\n");
+					WRITE(p, "    basis_u = vec4(basis_u.yzw, 0);\n");
+					WRITE(p, "  if (isFirstEdge.y && isNotFirstPatch.y)\n");
+					WRITE(p, "    basis_v = vec4(basis_v.yzw, 0);\n");
+				}
 
 				// Tessellate
 				WRITE(p, "  vec3 pos = tess_sample(_pos, basis_u, basis_v);\n");
@@ -489,6 +493,12 @@ void GenerateVertexShader(const VShaderID &id, char *buffer, uint32_t *attrMask,
 					// Derivatives as weight coefficients
 					WRITE(p, "  vec4 deriv_u = %s(u_tess_weights_u, %s, 0);\n", texelFetch, "ivec2(vertex_pos.x * 2 + 1, 0)");
 					WRITE(p, "  vec4 deriv_v = %s(u_tess_weights_v, %s, 0);\n", texelFetch, "ivec2(vertex_pos.y * 2 + 1, 0)");
+					if (doSpline) {
+						WRITE(p, "  if (isFirstEdge.x && isNotFirstPatch.x)\n");
+						WRITE(p, "    deriv_u = vec4(deriv_u.yzw, 0);\n");
+						WRITE(p, "  if (isFirstEdge.y && isNotFirstPatch.y)\n");
+						WRITE(p, "    deriv_v = vec4(deriv_v.yzw, 0);\n");
+					}
 
 					WRITE(p, "  vec3 du = tess_sample(_pos, deriv_u, basis_v);\n");
 					WRITE(p, "  vec3 dv = tess_sample(_pos, basis_u, deriv_v);\n");

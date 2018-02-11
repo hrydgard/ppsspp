@@ -297,10 +297,8 @@ bool GenerateVulkanGLSLVertexShader(const VShaderID &id, char *buffer) {
 				WRITE(p, "  ivec2 patch_pos = ivec2(u, v);\n");
 				WRITE(p, "  ivec2 vertex_pos = ivec2(position.xy);\n");
 				if (doSpline) {
-					WRITE(p, "  if ((vertex_pos.x == spline_tess.x) && (u < spline_num_patches.x - 1))\n");
-					WRITE(p, "    u++;\n"); // Use next patch position
-					WRITE(p, "  if ((vertex_pos.y == spline_tess.y) && (v < spline_num_patches.y - 1))\n");
-					WRITE(p, "    v++;\n"); // Use next patch position
+					WRITE(p, "  bvec2 isFirstEdge = not(bvec2(vertex_pos));\n"); // vertex_pos == 0
+					WRITE(p, "  bvec2 isNotFirstPatch = bvec2(patch_pos);\n"); // patch_pos > 0
 					WRITE(p, "  vertex_pos += patch_pos * spline_tess;\n");
 				}
 				// Load 4x4 control points
@@ -321,6 +319,12 @@ bool GenerateVulkanGLSLVertexShader(const VShaderID &id, char *buffer) {
 				// Basis polynomials as weight coefficients
 				WRITE(p, "  vec4 basis_u = tess_weights_u.data[vertex_pos.x].basis;\n");
 				WRITE(p, "  vec4 basis_v = tess_weights_v.data[vertex_pos.y].basis;\n");
+				if (doSpline) {
+					WRITE(p, "  if (isFirstEdge.x && isNotFirstPatch.x)\n");
+					WRITE(p, "    basis_u = vec4(basis_u.yzw, 0);\n");
+					WRITE(p, "  if (isFirstEdge.y && isNotFirstPatch.y)\n");
+					WRITE(p, "    basis_v = vec4(basis_v.yzw, 0);\n");
+				}
 
 				// Tessellate
 				WRITE(p, "  vec3 pos = tess_sample(_pos, basis_u, basis_v);\n");
@@ -340,6 +344,12 @@ bool GenerateVulkanGLSLVertexShader(const VShaderID &id, char *buffer) {
 					// Derivatives as weight coefficients
 					WRITE(p, "  vec4 deriv_u = tess_weights_u.data[vertex_pos.x].deriv;\n");
 					WRITE(p, "  vec4 deriv_v = tess_weights_v.data[vertex_pos.y].deriv;\n");
+					if (doSpline) {
+						WRITE(p, "  if (isFirstEdge.x && isNotFirstPatch.x)\n");
+						WRITE(p, "    deriv_u = vec4(deriv_u.yzw, 0);\n");
+						WRITE(p, "  if (isFirstEdge.y && isNotFirstPatch.y)\n");
+						WRITE(p, "    deriv_v = vec4(deriv_v.yzw, 0);\n");
+					}
 
 					WRITE(p, "  vec3 du = tess_sample(_pos, deriv_u, basis_v);\n");
 					WRITE(p, "  vec3 dv = tess_sample(_pos, basis_u, deriv_v);\n");
