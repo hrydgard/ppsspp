@@ -244,9 +244,9 @@ void MainThreadFunc() {
 
 	if (useEmuThread) {
 		EmuThreadStop();
-		while (emuThreadState != (int)EmuThreadState::STOPPED) {
+		while (graphicsContext->ThreadFrame()) {
 			// Need to keep eating frames to allow the EmuThread to exit correctly.
-			graphicsContext->ThreadFrame();
+			continue;
 		}
 		EmuThreadJoin();
 	}

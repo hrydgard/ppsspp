@@ -514,7 +514,7 @@ void GLRenderManager::WaitUntilQueueIdle() {
 
 		std::unique_lock<std::mutex> lock(frameData.push_mutex);
 		// Ignore unsubmitted frames.
-		while (!frameData.readyForFence && !frameData.readyForSubmit) {
+		while (!frameData.readyForFence && frameData.readyForRun) {
 			VLOG("PUSH: Waiting for frame[%d].readyForFence = 1 (wait idle)", i);
 			frameData.push_condVar.wait(lock);
 		}
