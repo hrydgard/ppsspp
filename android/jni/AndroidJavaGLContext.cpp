@@ -27,5 +27,4 @@ void AndroidJavaEGLGraphicsContext::ShutdownFromRenderThread() {
 }
 
 void AndroidJavaEGLGraphicsContext::Shutdown() {
-	// TODO
 }
