@@ -86,6 +86,9 @@ static void EmuThreadFunc(GraphicsContext *graphicsContext) {
 	emuThreadState = (int)EmuThreadState::STOPPED;
 
 	NativeShutdownGraphics();
+
+	// Ask the main thread to stop.  This prevents a hang on a race condition.
+	graphicsContext->StopThread();
 }
 
 static void EmuThreadStart(GraphicsContext *graphicsContext) {

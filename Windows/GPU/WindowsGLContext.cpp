@@ -432,3 +432,8 @@ bool WindowsGLContext::ThreadFrame() {
 void WindowsGLContext::ThreadEnd() {
 	renderManager_->ThreadEnd();
 }
+
+void WindowsGLContext::StopThread() {
+	renderManager_->WaitUntilQueueIdle();
+	renderManager_->StopThread();
+}
