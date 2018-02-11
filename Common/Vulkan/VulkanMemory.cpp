@@ -283,9 +283,9 @@ bool VulkanDeviceAllocator::AllocateFromSlab(Slab &slab, size_t &start, size_t b
 int VulkanDeviceAllocator::ComputeUsagePercent() const {
 	int blockSum = 0;
 	int blocksUsed = 0;
-	for (int i = 0; i < slabs_.size(); i++) {
+	for (size_t i = 0; i < slabs_.size(); i++) {
 		blockSum += (int)slabs_[i].usage.size();
-		for (int j = 0; j < slabs_[i].usage.size(); j++) {
+		for (size_t j = 0; j < slabs_[i].usage.size(); j++) {
 			blocksUsed += slabs_[i].usage[j] != 0 ? 1 : 0;
 		}
 	}

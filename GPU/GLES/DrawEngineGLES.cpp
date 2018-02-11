@@ -777,7 +777,7 @@ void DrawEngineGLES::TessellationDataTransferGLES::SendDataToShader(const float 
 	uint8_t *pos_data = new uint8_t[size * sizeof(float) * 4];
 	memcpy(pos_data, pos, size * sizeof(float) * 4);
 	data_tex[0] = renderManager_->CreateTexture(GL_TEXTURE_2D);
-	renderManager_->TextureImage(data_tex[0], 0, size, 1, GL_RGBA32F, GL_RGBA, GL_FLOAT, pos_data, false);
+	renderManager_->TextureImage(data_tex[0], 0, size, 1, GL_RGBA32F, GL_RGBA, GL_FLOAT, pos_data, GLRAllocType::NEW, false);
 	renderManager_->FinalizeTexture(data_tex[0], 0, false);
 	renderManager_->BindTexture(4, data_tex[0]);
 
@@ -788,7 +788,7 @@ void DrawEngineGLES::TessellationDataTransferGLES::SendDataToShader(const float 
 		uint8_t *tex_data = new uint8_t[size * sizeof(float) * 4];
 		memcpy(tex_data, pos, size * sizeof(float) * 4);
 		data_tex[1] = renderManager_->CreateTexture(GL_TEXTURE_2D);
-		renderManager_->TextureImage(data_tex[1], 0, size, 1, GL_RGBA32F, GL_RGBA, GL_FLOAT, tex_data, false);
+		renderManager_->TextureImage(data_tex[1], 0, size, 1, GL_RGBA32F, GL_RGBA, GL_FLOAT, tex_data, GLRAllocType::NEW, false);
 		renderManager_->FinalizeTexture(data_tex[1], 0, false);
 		renderManager_->BindTexture(5, data_tex[1]);
 	}
@@ -800,7 +800,7 @@ void DrawEngineGLES::TessellationDataTransferGLES::SendDataToShader(const float 
 	uint8_t *col_data = new uint8_t[sizeColor * sizeof(float) * 4];
 	memcpy(col_data, col, sizeColor * sizeof(float) * 4);
 
-	renderManager_->TextureImage(data_tex[2], 0, sizeColor, 1, GL_RGBA32F, GL_RGBA, GL_FLOAT, col_data, false);
+	renderManager_->TextureImage(data_tex[2], 0, sizeColor, 1, GL_RGBA32F, GL_RGBA, GL_FLOAT, col_data, GLRAllocType::NEW, false);
 	renderManager_->FinalizeTexture(data_tex[2], 0, false);
 	renderManager_->BindTexture(6, data_tex[2]);
 }

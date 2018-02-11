@@ -267,7 +267,7 @@ public:
 		step.create_program.program->initialize_ = initalizers;
 		step.create_program.support_dual_source = supportDualSource;
 		_assert_msg_(G3D, shaders.size() > 0, "Can't create a program with zero shaders");
-		for (int i = 0; i < shaders.size(); i++) {
+		for (size_t i = 0; i < shaders.size(); i++) {
 			step.create_program.shaders[i] = shaders[i];
 		}
 #ifdef _DEBUG
@@ -337,7 +337,7 @@ public:
 	}
 
 	// Takes ownership over the data pointer and delete[]-s it.
-	void TextureImage(GLRTexture *texture, int level, int width, int height, GLenum internalFormat, GLenum format, GLenum type, uint8_t *data, bool linearFilter = false) {
+	void TextureImage(GLRTexture *texture, int level, int width, int height, GLenum internalFormat, GLenum format, GLenum type, uint8_t *data, GLRAllocType allocType = GLRAllocType::NEW, bool linearFilter = false) {
 		GLRInitStep step{ GLRInitStepType::TEXTURE_IMAGE };
 		step.texture_image.texture = texture;
 		step.texture_image.data = data;
@@ -347,6 +347,7 @@ public:
 		step.texture_image.level = level;
 		step.texture_image.width = width;
 		step.texture_image.height = height;
+		step.texture_image.allocType = allocType;
 		step.texture_image.linearFilter = linearFilter;
 		initSteps_.push_back(step);
 	}

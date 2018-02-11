@@ -351,7 +351,7 @@ std::vector<std::string> CWCheatEngine::GetCodesList() {
 		// It also goes through other "_" lines, but they all have to meet this requirement anyway
 		// so we don't have to specify any syntax checks here that are made by cheat engine.
 		if (line.length() >= 5 && line[0] == '_') {
-			for (int i = 4; i < line.length(); i++) {
+			for (size_t i = 4; i < line.length(); i++) {
 				if (line[i] != ' ') {
 					validCheatLine = true;
 					break;

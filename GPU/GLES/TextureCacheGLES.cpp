@@ -714,7 +714,7 @@ u8 *TextureCacheGLES::DecodeTextureLevelOld(GETextureFormat format, GEPaletteFor
 		decPitch = bufw * pixelSize;
 	}
 
-	uint8_t *texBuf = new uint8_t[std::max(w, bufw) * h * pixelSize];
+	uint8_t *texBuf = (uint8_t *)AllocateAlignedMemory(std::max(w, bufw) * h * pixelSize, 16);
 	DecodeTextureLevel(texBuf, decPitch, format, clutformat, texaddr, level, bufw, true, false, false);
 	return texBuf;
 }
@@ -755,7 +755,7 @@ void TextureCacheGLES::LoadTextureLevel(TexCacheEntry &entry, ReplacedTexture &r
 		PROFILE_THIS_SCOPE("replacetex");
 
 		int bpp = replaced.Format(level) == ReplacedTextureFormat::F_8888 ? 4 : 2;
-		uint8_t *rearrange = new uint8_t[w * h * bpp];
+		uint8_t *rearrange = (uint8_t *)AllocateAlignedMemory(w * h * bpp, 16);
 		replaced.Load(level, rearrange, bpp * w);
 		pixelData = rearrange;
 
@@ -785,7 +785,7 @@ void TextureCacheGLES::LoadTextureLevel(TexCacheEntry &entry, ReplacedTexture &r
 		}
 
 		if (scaleFactor > 1) {
-			uint8_t *rearrange = new uint8_t[w * scaleFactor * h * scaleFactor * 4];
+			uint8_t *rearrange = (uint8_t *)AllocateAlignedMemory(w * scaleFactor * h * scaleFactor * 4, 16);
 			scaler.ScaleAlways((u32 *)rearrange, (u32 *)pixelData, dstFmt, w, h, scaleFactor);
 			pixelData = rearrange;
 			delete [] finalBuf;
@@ -817,9 +817,9 @@ void TextureCacheGLES::LoadTextureLevel(TexCacheEntry &entry, ReplacedTexture &r
 	} else {
 		PROFILE_THIS_SCOPE("loadtex");
 		if (IsFakeMipmapChange())
-			render_->TextureImage(entry.textureName, 0, w, h, components, components2, dstFmt, pixelData);
+			render_->TextureImage(entry.textureName, 0, w, h, components, components2, dstFmt, pixelData, GLRAllocType::ALIGNED);
 		else
-			render_->TextureImage(entry.textureName, level, w, h, components, components2, dstFmt, pixelData);
+			render_->TextureImage(entry.textureName, level, w, h, components, components2, dstFmt, pixelData, GLRAllocType::ALIGNED);
 	}
 }
 

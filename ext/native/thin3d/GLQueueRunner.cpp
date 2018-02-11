@@ -1,3 +1,4 @@
+#include "Common/MemoryUtil.h"
 #include "Core/Reporting.h"
 #include "GLQueueRunner.h"
 #include "GLRenderManager.h"
@@ -65,7 +66,7 @@ void GLQueueRunner::RunInitSteps(const std::vector<GLRInitStep> &steps) {
 	GLuint boundTexture = (GLuint)-1;
 	bool allocatedTextures = false;
 
-	for (int i = 0; i < steps.size(); i++) {
+	for (size_t i = 0; i < steps.size(); i++) {
 		const GLRInitStep &step = steps[i];
 		switch (step.stepType) {
 		case GLRInitStepType::CREATE_TEXTURE:
@@ -98,9 +99,9 @@ void GLQueueRunner::RunInitSteps(const std::vector<GLRInitStep> &steps) {
 			GLRProgram *program = step.create_program.program;
 			program->program = glCreateProgram();
 			_assert_msg_(G3D, step.create_program.num_shaders > 0, "Can't create a program with zero shaders");
-			for (int i = 0; i < step.create_program.num_shaders; i++) {
-				_dbg_assert_msg_(G3D, step.create_program.shaders[i]->shader, "Can't create a program with a null shader");
-				glAttachShader(program->program, step.create_program.shaders[i]->shader);
+			for (int j = 0; j < step.create_program.num_shaders; j++) {
+				_dbg_assert_msg_(G3D, step.create_program.shaders[j]->shader, "Can't create a program with a null shader");
+				glAttachShader(program->program, step.create_program.shaders[j]->shader);
 			}
 
 			for (auto iter : program->semantics_) {
@@ -161,15 +162,15 @@ void GLQueueRunner::RunInitSteps(const std::vector<GLRInitStep> &steps) {
 			glUseProgram(program->program);
 
 			// Query all the uniforms.
-			for (int i = 0; i < program->queries_.size(); i++) {
-				auto &x = program->queries_[i];
+			for (size_t j = 0; j < program->queries_.size(); j++) {
+				auto &x = program->queries_[j];
 				assert(x.name);
 				*x.dest = glGetUniformLocation(program->program, x.name);
 			}
 
 			// Run initializers.
-			for (int i = 0; i < program->initialize_.size(); i++) {
-				auto &init = program->initialize_[i];
+			for (size_t j = 0; j < program->initialize_.size(); j++) {
+				auto &init = program->initialize_[j];
 				GLint uniform = *init.uniform;
 				if (uniform != -1) {
 					switch (init.type) {
@@ -241,7 +242,11 @@ void GLQueueRunner::RunInitSteps(const std::vector<GLRInitStep> &steps) {
 			// For things to show in RenderDoc, need to split into glTexImage2D(..., nullptr) and glTexSubImage.
 			glTexImage2D(tex->target, step.texture_image.level, step.texture_image.internalFormat, step.texture_image.width, step.texture_image.height, 0, step.texture_image.format, step.texture_image.type, step.texture_image.data);
 			allocatedTextures = true;
-			delete[] step.texture_image.data;
+			if (step.texture_image.allocType == GLRAllocType::ALIGNED) {
+				FreeAlignedMemory(step.texture_image.data);
+			} else {
+				delete[] step.texture_image.data;
+			}
 			CHECK_GL_ERROR_IF_DEBUG();
 			tex->wrapS = GL_CLAMP_TO_EDGE;
 			tex->wrapT = GL_CLAMP_TO_EDGE;
@@ -399,7 +404,7 @@ void GLQueueRunner::InitCreateFramebuffer(const GLRInitStep &step) {
 }
 
 void GLQueueRunner::RunSteps(const std::vector<GLRStep *> &steps) {
-	for (int i = 0; i < steps.size(); i++) {
+	for (size_t i = 0; i < steps.size(); i++) {
 		const GLRStep &step = *steps[i];
 		switch (step.stepType) {
 		case GLRStepType::RENDER:

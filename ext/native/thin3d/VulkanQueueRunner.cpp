@@ -241,7 +241,7 @@ void VulkanQueueRunner::RunSteps(VkCommandBuffer cmd, const std::vector<VKRStep 
 	//  * Create copies of render target that are rendered to multiple times and textured from in sequence, and push those render passes
 	//    as early as possible in the frame (Wipeout billboards).
 
-	for (int i = 0; i < steps.size(); i++) {
+	for (size_t i = 0; i < steps.size(); i++) {
 		const VKRStep &step = *steps[i];
 		switch (step.stepType) {
 		case VKRStepType::RENDER:
@@ -266,7 +266,7 @@ void VulkanQueueRunner::RunSteps(VkCommandBuffer cmd, const std::vector<VKRStep 
 
 void VulkanQueueRunner::LogSteps(const std::vector<VKRStep *> &steps) {
 	ILOG("=======================================");
-	for (int i = 0; i < steps.size(); i++) {
+	for (size_t i = 0; i < steps.size(); i++) {
 		const VKRStep &step = *steps[i];
 		switch (step.stepType) {
 		case VKRStepType::RENDER:
