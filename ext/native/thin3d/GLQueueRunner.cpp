@@ -65,7 +65,7 @@ void GLQueueRunner::RunInitSteps(const std::vector<GLRInitStep> &steps) {
 	GLuint boundTexture = (GLuint)-1;
 	bool allocatedTextures = false;
 
-	for (int i = 0; i < steps.size(); i++) {
+	for (size_t i = 0; i < steps.size(); i++) {
 		const GLRInitStep &step = steps[i];
 		switch (step.stepType) {
 		case GLRInitStepType::CREATE_TEXTURE:
@@ -98,9 +98,9 @@ void GLQueueRunner::RunInitSteps(const std::vector<GLRInitStep> &steps) {
 			GLRProgram *program = step.create_program.program;
 			program->program = glCreateProgram();
 			_assert_msg_(G3D, step.create_program.num_shaders > 0, "Can't create a program with zero shaders");
-			for (int i = 0; i < step.create_program.num_shaders; i++) {
-				_dbg_assert_msg_(G3D, step.create_program.shaders[i]->shader, "Can't create a program with a null shader");
-				glAttachShader(program->program, step.create_program.shaders[i]->shader);
+			for (int j = 0; j < step.create_program.num_shaders; j++) {
+				_dbg_assert_msg_(G3D, step.create_program.shaders[j]->shader, "Can't create a program with a null shader");
+				glAttachShader(program->program, step.create_program.shaders[j]->shader);
 			}
 
 			for (auto iter : program->semantics_) {
@@ -161,15 +161,15 @@ void GLQueueRunner::RunInitSteps(const std::vector<GLRInitStep> &steps) {
 			glUseProgram(program->program);
 
 			// Query all the uniforms.
-			for (int i = 0; i < program->queries_.size(); i++) {
-				auto &x = program->queries_[i];
+			for (size_t j = 0; j < program->queries_.size(); j++) {
+				auto &x = program->queries_[j];
 				assert(x.name);
 				*x.dest = glGetUniformLocation(program->program, x.name);
 			}
 
 			// Run initializers.
-			for (int i = 0; i < program->initialize_.size(); i++) {
-				auto &init = program->initialize_[i];
+			for (size_t j = 0; j < program->initialize_.size(); j++) {
+				auto &init = program->initialize_[j];
 				GLint uniform = *init.uniform;
 				if (uniform != -1) {
 					switch (init.type) {
@@ -399,7 +399,7 @@ void GLQueueRunner::InitCreateFramebuffer(const GLRInitStep &step) {
 }
 
 void GLQueueRunner::RunSteps(const std::vector<GLRStep *> &steps) {
-	for (int i = 0; i < steps.size(); i++) {
+	for (size_t i = 0; i < steps.size(); i++) {
 		const GLRStep &step = *steps[i];
 		switch (step.stepType) {
 		case GLRStepType::RENDER:

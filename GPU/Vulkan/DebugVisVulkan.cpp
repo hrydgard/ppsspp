@@ -58,7 +58,7 @@ void DrawAllocatorVis(UIContext *ui, GPUInterface *gpu) {
 		uint32_t *wideData = (uint32_t *)initData.data();
 
 		// Convert to nice colors. If we really wanted to save on memory, we could use a 16-bit texture...
-		for (int j = 0; j < usage.size(); j++) {
+		for (size_t j = 0; j < usage.size(); j++) {
 			switch (usage[j]) {
 			case 0: wideData[j] = 0xFF333333; break;
 			case 1: wideData[j] = 0xFF33FF33; break;

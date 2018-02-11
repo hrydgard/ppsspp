@@ -267,7 +267,7 @@ public:
 		step.create_program.program->initialize_ = initalizers;
 		step.create_program.support_dual_source = supportDualSource;
 		_assert_msg_(G3D, shaders.size() > 0, "Can't create a program with zero shaders");
-		for (int i = 0; i < shaders.size(); i++) {
+		for (size_t i = 0; i < shaders.size(); i++) {
 			step.create_program.shaders[i] = shaders[i];
 		}
 #ifdef _DEBUG

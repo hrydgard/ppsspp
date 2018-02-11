@@ -1,4 +1,4 @@
-﻿// Copyright (c) 2017- PPSSPP Project.
+// Copyright (c) 2017- PPSSPP Project.
 
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
@@ -50,9 +50,9 @@ void BlobFileSystem::CloseFile(u32 handle) {
 size_t BlobFileSystem::ReadFile(u32 handle, u8 *pointer, s64 size) {
 	auto entry = entries_.find(handle);
 	if (entry != entries_.end()) {
-		size_t readSize = fileLoader_->ReadAt(entry->second, size, pointer);
+		s64 readSize = fileLoader_->ReadAt(entry->second, size, pointer);
 		entry->second += readSize;
-		return readSize;
+		return (size_t)readSize;
 	}
 	return 0;
 }
