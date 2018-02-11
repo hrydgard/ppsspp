@@ -1,3 +1,4 @@
+#include "Common/MemoryUtil.h"
 #include "Core/Reporting.h"
 #include "GLQueueRunner.h"
 #include "GLRenderManager.h"
@@ -241,7 +242,11 @@ void GLQueueRunner::RunInitSteps(const std::vector<GLRInitStep> &steps) {
 			// For things to show in RenderDoc, need to split into glTexImage2D(..., nullptr) and glTexSubImage.
 			glTexImage2D(tex->target, step.texture_image.level, step.texture_image.internalFormat, step.texture_image.width, step.texture_image.height, 0, step.texture_image.format, step.texture_image.type, step.texture_image.data);
 			allocatedTextures = true;
-			delete[] step.texture_image.data;
+			if (step.texture_image.allocType == GLRAllocType::ALIGNED) {
+				FreeAlignedMemory(step.texture_image.data);
+			} else {
+				delete[] step.texture_image.data;
+			}
 			CHECK_GL_ERROR_IF_DEBUG();
 			tex->wrapS = GL_CLAMP_TO_EDGE;
 			tex->wrapT = GL_CLAMP_TO_EDGE;

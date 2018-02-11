@@ -19,6 +19,10 @@ struct GLOffset2D {
 	int x, y;
 };
 
+enum class GLRAllocType {
+	NEW,
+	ALIGNED,
+};
 
 class GLRShader;
 class GLRTexture;
@@ -242,6 +246,7 @@ struct GLRInitStep {
 			int level;
 			int width;
 			int height;
+			GLRAllocType allocType;
 			bool linearFilter;
 			uint8_t *data;  // owned, delete[]-d
 		} texture_image;

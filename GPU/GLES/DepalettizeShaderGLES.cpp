@@ -95,7 +95,7 @@ GLRTexture *DepalShaderCacheGLES::GetClutTexture(GEPaletteFormat clutFormat, con
 
 	uint8_t *clutCopy = new uint8_t[1024];
 	memcpy(clutCopy, rawClut, 1024);
-	render_->TextureImage(tex->texture, 0, texturePixels, 1, components, components2, dstFmt, clutCopy, false);
+	render_->TextureImage(tex->texture, 0, texturePixels, 1, components, components2, dstFmt, clutCopy, GLRAllocType::NEW, false);
 
 	tex->lastFrame = gpuStats.numFlips;
 	texCache_[clutId] = tex;
