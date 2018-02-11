@@ -32,6 +32,7 @@ public:
 	virtual void ThreadStart() {}
 	virtual bool ThreadFrame() { return true; }
 	virtual void ThreadEnd() {}
+	virtual void StopThread() {}
 
 	virtual Draw::DrawContext *GetDrawContext() = 0;
 };

@@ -29,6 +29,7 @@ public:
 	void ThreadStart() override;
 	void ThreadEnd() override;
 	bool ThreadFrame() override;
+	void StopThread() override;
 
 	Draw::DrawContext *GetDrawContext() override { return draw_; }
 

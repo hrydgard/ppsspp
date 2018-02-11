@@ -86,6 +86,9 @@ static void EmuThreadFunc(GraphicsContext *graphicsContext) {
 	emuThreadState = (int)EmuThreadState::STOPPED;
 
 	NativeShutdownGraphics();
+
+	// Ask the main thread to stop.  This prevents a hang on a race condition.
+	graphicsContext->StopThread();
 }
 
 static void EmuThreadStart(GraphicsContext *graphicsContext) {
@@ -231,6 +234,10 @@ void MainThreadFunc() {
 		}
 	}
 	Core_Stop();
+	if (!useEmuThread) {
+		// Process the shutdown.  Without this, non-GL delays 800ms on shutdown.
+		Core_Run(g_graphicsContext);
+	}
 	Core_WaitInactive(800);
 
 	g_inLoop = false;

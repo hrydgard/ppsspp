@@ -82,6 +82,11 @@ public:
 		renderManager_->ThreadEnd();
 	}
 
+	void StopThread() override {
+		renderManager_->WaitUntilQueueIdle();
+		renderManager_->StopThread();
+	}
+
 private:
 	Draw::DrawContext *draw_ = nullptr;
 	GLRenderManager *renderManager_ = nullptr;

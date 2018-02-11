@@ -196,6 +196,9 @@ static void EmuThreadFunc() {
 
 	NativeShutdownGraphics();
 
+	// Also ask the main thread to stop, so it doesn't hang waiting for a new frame.
+	graphicsContext->StopThread();
+
 	gJvm->DetachCurrentThread();
 	ILOG("Leaving emu thread");
 }
