@@ -542,6 +542,7 @@ void GLPushBuffer::Map() {
 	while ((intptr_t)writePtr_ & 15) {
 		writePtr_++;
 	}
+	info.flushOffset = 0;
 	assert(writePtr_);
 }
 
@@ -552,18 +553,37 @@ void GLPushBuffer::Unmap() {
 		// Might be worth trying with size_ instead of offset_, so the driver can replace
 		// the whole buffer. At least if it's close.
 		render_->BufferSubdata(buffers_[buf_].buffer, 0, offset_, buffers_[buf_].localMemory, false);
+	} else {
+		buffers_[buf_].flushOffset = offset_;
 	}
 	writePtr_ = nullptr;
 }
 
 void GLPushBuffer::Flush() {
-	// We don't need to do this for device memory.
+	// Must be called from the render thread.
+	buffers_[buf_].flushOffset = offset_;
 	if (!buffers_[buf_].deviceMemory && writePtr_) {
-		render_->BufferSubdata(buffers_[buf_].buffer, 0, offset_, buffers_[buf_].localMemory, false);
+		auto &info = buffers_[buf_];
+		glBindBuffer(target_, info.buffer->buffer);
+		glBufferSubData(target_, 0, info.flushOffset, info.localMemory);
+
 		// Here we will submit all the draw calls, with the already known buffer and offsets.
 		// Might as well reset the write pointer here and start over the current buffer.
-		writePtr_ = buffers_[buf_].localMemory;
+		writePtr_ = info.localMemory;
 		offset_ = 0;
+		info.flushOffset = 0;
+	}
+
+	// For device memory, we flush all buffers here.
+	if (gl_extensions.VersionGEThan(3, 0, 0)) {
+		for (auto &info : buffers_) {
+			if (info.flushOffset == 0 || !info.deviceMemory)
+				continue;
+
+			glBindBuffer(target_, info.buffer->buffer);
+			glFlushMappedBufferRange(target_, 0, info.flushOffset);
+			info.flushOffset = 0;
+		}
 	}
 }
 
@@ -648,7 +668,7 @@ void GLPushBuffer::MapDevice() {
 
 		assert(!info.deviceMemory);
 		// TODO: Can we use GL_WRITE_ONLY?
-		info.deviceMemory = (uint8_t *)info.buffer->Map(GL_READ_WRITE, GL_MAP_WRITE_BIT);
+		info.deviceMemory = (uint8_t *)info.buffer->Map(GL_READ_WRITE, GL_MAP_WRITE_BIT | GL_MAP_FLUSH_EXPLICIT_BIT);
 
 		if (!info.deviceMemory && !info.localMemory) {
 			// Somehow it failed, let's dodge crashing.
@@ -679,12 +699,23 @@ void *GLRBuffer::Map(GLenum accessOld, GLbitfield accessNew) {
 	assert(buffer != 0);
 	glBindBuffer(target_, buffer);
 
-	void *p;
-	if (gl_extensions.VersionGEThan(3, 0, 0)) {
+	void *p = nullptr;
+	if (gl_extensions.ARB_buffer_storage || gl_extensions.EXT_buffer_storage) {
+		if (!hasStorage_) {
+#ifdef USING_GLES2
+			glBufferStorageEXT(target_, size_, nullptr, GL_MAP_WRITE_BIT);
+#else
+			glBufferStorage(target_, size_, nullptr, GL_MAP_WRITE_BIT);
+#endif
+			hasStorage_ = true;
+		}
+		p = glMapBufferRange(target_, 0, size_, accessNew);
+	} else if (gl_extensions.VersionGEThan(3, 0, 0)) {
+		// GLES3 or desktop 3.
 		p = glMapBufferRange(target_, 0, size_, accessNew);
 	} else {
 #ifndef USING_GLES2
-	p = glMapBuffer(target_, accessOld);
+		p = glMapBuffer(target_, accessOld);
 #endif
 	}
 

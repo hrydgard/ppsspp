@@ -299,6 +299,7 @@ void CheckGLExtensions() {
 	gl_extensions.OES_copy_image = strstr(extString, "GL_OES_copy_image") != 0;
 	gl_extensions.EXT_copy_image = strstr(extString, "GL_EXT_copy_image") != 0;
 	gl_extensions.ARB_copy_image = strstr(extString, "GL_ARB_copy_image") != 0;
+	gl_extensions.ARB_buffer_storage = strstr(extString, "GL_ARB_buffer_storage") != 0;
 	gl_extensions.ARB_vertex_array_object = strstr(extString, "GL_ARB_vertex_array_object") != 0;
 	gl_extensions.ARB_texture_float = strstr(extString, "GL_ARB_texture_float") != 0;
 	gl_extensions.EXT_texture_filter_anisotropic = strstr(extString, "GL_EXT_texture_filter_anisotropic") != 0;
@@ -317,6 +318,7 @@ void CheckGLExtensions() {
 		gl_extensions.NV_shader_framebuffer_fetch = strstr(extString, "GL_NV_shader_framebuffer_fetch") != 0;
 		gl_extensions.ARM_shader_framebuffer_fetch = strstr(extString, "GL_ARM_shader_framebuffer_fetch") != 0;
 		gl_extensions.OES_texture_float = strstr(extString, "GL_OES_texture_float") != 0;
+		gl_extensions.EXT_buffer_storage = strstr(extString, "GL_EXT_buffer_storage") != 0;
 
 #if defined(__ANDROID__)
 		// On Android, incredibly, this is not consistently non-zero! It does seem to have the same value though.
@@ -458,7 +460,7 @@ void CheckGLExtensions() {
 			// ARB_vertex_attrib_binding = true;
 		}
 		if (gl_extensions.VersionGEThan(4, 4)) {
-			// ARB_buffer_storage = true;
+			gl_extensions.ARB_buffer_storage = true;
 		}
 	}
 

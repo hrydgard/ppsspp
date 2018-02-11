@@ -152,6 +152,7 @@ public:
 
 private:
 	bool mapped_ = false;
+	bool hasStorage_ = false;
 };
 
 enum class GLRRunType {
@@ -760,6 +761,7 @@ public:
 		GLRBuffer *buffer = nullptr;
 		uint8_t *localMemory = nullptr;
 		uint8_t *deviceMemory = nullptr;
+		size_t flushOffset = 0;
 	};
 
 public:
