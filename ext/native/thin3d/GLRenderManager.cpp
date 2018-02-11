@@ -701,6 +701,7 @@ void *GLRBuffer::Map(GLbitfield access) {
 
 	void *p = nullptr;
 	if (gl_extensions.ARB_buffer_storage || gl_extensions.EXT_buffer_storage) {
+#ifndef IOS
 		if (!hasStorage_) {
 #ifdef USING_GLES2
 			glBufferStorageEXT(target_, size_, nullptr, access & (GL_MAP_READ_BIT | GL_MAP_WRITE_BIT));
@@ -709,6 +710,7 @@ void *GLRBuffer::Map(GLbitfield access) {
 #endif
 			hasStorage_ = true;
 		}
+#endif
 		p = glMapBufferRange(target_, 0, size_, access);
 	} else if (gl_extensions.VersionGEThan(3, 0, 0)) {
 		// GLES3 or desktop 3.
