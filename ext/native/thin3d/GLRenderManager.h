@@ -138,10 +138,21 @@ public:
 			glDeleteBuffers(1, &buffer);
 		}
 	}
+
+	void *Map(GLbitfield access);
+	bool Unmap();
+
+	bool Mapped() {
+		return mapped_;
+	}
+
 	GLuint buffer = 0;
 	GLuint target_;
 	int size_;
+
 private:
+	bool mapped_ = false;
+	bool hasStorage_ = false;
 };
 
 enum class GLRRunType {
@@ -747,8 +758,10 @@ private:
 class GLPushBuffer {
 public:
 	struct BufInfo {
-		GLRBuffer *buffer;
-		uint8_t *deviceMemory;
+		GLRBuffer *buffer = nullptr;
+		uint8_t *localMemory = nullptr;
+		uint8_t *deviceMemory = nullptr;
+		size_t flushOffset = 0;
 	};
 
 public:
@@ -835,6 +848,10 @@ public:
 
 	void Flush();
 
+protected:
+	void MapDevice();
+	void UnmapDevice();
+
 private:
 	bool AddBuffer();
 	void NextBuffer(size_t minSize);
@@ -847,4 +864,6 @@ private:
 	size_t size_ = 0;
 	uint8_t *writePtr_ = nullptr;
 	GLuint target_;
+
+	friend class GLRenderManager;
 };

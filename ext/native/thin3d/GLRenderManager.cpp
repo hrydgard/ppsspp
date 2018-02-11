@@ -421,6 +421,11 @@ void GLRenderManager::Run(int frame) {
 	BeginSubmitFrame(frame);
 
 	FrameData &frameData = frameData_[frame];
+	for (auto iter : frameData.activePushBuffers) {
+		iter->Flush();
+		iter->UnmapDevice();
+	}
+
 	auto &stepsOnThread = frameData_[frame].steps;
 	auto &initStepsOnThread = frameData_[frame].initSteps;
 	// queueRunner_.LogSteps(stepsOnThread);
@@ -428,6 +433,10 @@ void GLRenderManager::Run(int frame) {
 	queueRunner_.RunSteps(stepsOnThread);
 	stepsOnThread.clear();
 	initStepsOnThread.clear();
+
+	for (auto iter : frameData.activePushBuffers) {
+		iter->MapDevice();
+	}
 
 	switch (frameData.type) {
 	case GLRRunType::END:
@@ -446,11 +455,6 @@ void GLRenderManager::Run(int frame) {
 }
 
 void GLRenderManager::FlushSync() {
-	// Need to flush any pushbuffers to VRAM before submitting draw calls.
-	for (auto iter : frameData_[curFrame_].activePushBuffers) {
-		iter->Flush();
-	}
-
 	// TODO: Reset curRenderStep_?
 	int curFrame = curFrame_;
 	FrameData &frameData = frameData_[curFrame];
@@ -532,42 +536,71 @@ GLPushBuffer::~GLPushBuffer() {
 
 void GLPushBuffer::Map() {
 	assert(!writePtr_);
-	// TODO: Even a good old glMapBuffer could actually work well here.
-	writePtr_ = buffers_[buf_].deviceMemory;
+	auto &info = buffers_[buf_];
+	writePtr_ = info.deviceMemory ? info.deviceMemory : info.localMemory;
+	// Force alignment.  This is needed for PushAligned() to work as expected.
+	while ((intptr_t)writePtr_ & 15) {
+		writePtr_++;
+	}
+	info.flushOffset = 0;
 	assert(writePtr_);
 }
 
 void GLPushBuffer::Unmap() {
 	assert(writePtr_);
-	// Here we simply upload the data to the last buffer.
-	// Might be worth trying with size_ instead of offset_, so the driver can replace
-	// the whole buffer. At least if it's close.
-	render_->BufferSubdata(buffers_[buf_].buffer, 0, offset_, buffers_[buf_].deviceMemory, false);
+	if (!buffers_[buf_].deviceMemory) {
+		// Here we simply upload the data to the last buffer.
+		// Might be worth trying with size_ instead of offset_, so the driver can replace
+		// the whole buffer. At least if it's close.
+		render_->BufferSubdata(buffers_[buf_].buffer, 0, offset_, buffers_[buf_].localMemory, false);
+	} else {
+		buffers_[buf_].flushOffset = offset_;
+	}
 	writePtr_ = nullptr;
 }
 
 void GLPushBuffer::Flush() {
-	render_->BufferSubdata(buffers_[buf_].buffer, 0, offset_, buffers_[buf_].deviceMemory, false);
-	// Here we will submit all the draw calls, with the already known buffer and offsets.
-	// Might as well reset the write pointer here and start over the current buffer.
-	writePtr_ = buffers_[buf_].deviceMemory;
-	offset_ = 0;
+	// Must be called from the render thread.
+	buffers_[buf_].flushOffset = offset_;
+	if (!buffers_[buf_].deviceMemory && writePtr_) {
+		auto &info = buffers_[buf_];
+		glBindBuffer(target_, info.buffer->buffer);
+		glBufferSubData(target_, 0, info.flushOffset, info.localMemory);
+
+		// Here we will submit all the draw calls, with the already known buffer and offsets.
+		// Might as well reset the write pointer here and start over the current buffer.
+		writePtr_ = info.localMemory;
+		offset_ = 0;
+		info.flushOffset = 0;
+	}
+
+	// For device memory, we flush all buffers here.
+	if (gl_extensions.VersionGEThan(3, 0, 0)) {
+		for (auto &info : buffers_) {
+			if (info.flushOffset == 0 || !info.deviceMemory)
+				continue;
+
+			glBindBuffer(target_, info.buffer->buffer);
+			glFlushMappedBufferRange(target_, 0, info.flushOffset);
+			info.flushOffset = 0;
+		}
+	}
 }
 
 bool GLPushBuffer::AddBuffer() {
 	BufInfo info;
-	info.deviceMemory = new uint8_t[size_];
+	info.localMemory = new uint8_t[size_];
 	info.buffer = render_->CreateBuffer(target_, size_, GL_DYNAMIC_DRAW);
 	buf_ = buffers_.size();
-	buffers_.resize(buf_ + 1);
-	buffers_[buf_] = info;
+	buffers_.push_back(info);
 	return true;
 }
 
 void GLPushBuffer::Destroy() {
 	for (BufInfo &info : buffers_) {
+		// This will automatically unmap device memory, if needed.
 		render_->DeleteBuffer(info.buffer);
-		delete[] info.deviceMemory;
+		delete[] info.localMemory;
 	}
 	buffers_.clear();
 }
@@ -598,6 +631,14 @@ void GLPushBuffer::NextBuffer(size_t minSize) {
 
 void GLPushBuffer::Defragment() {
 	if (buffers_.size() <= 1) {
+		// Let's take this chance to jetison localMemory we don't need.
+		for (auto &info : buffers_) {
+			if (info.deviceMemory) {
+				delete[] info.localMemory;
+				info.localMemory = nullptr;
+			}
+		}
+
 		return;
 	}
 
@@ -616,4 +657,76 @@ size_t GLPushBuffer::GetTotalSize() const {
 		sum += size_ * (buffers_.size() - 1);
 	sum += offset_;
 	return sum;
+}
+
+void GLPushBuffer::MapDevice() {
+	for (auto &info : buffers_) {
+		if (!info.buffer->buffer) {
+			// Can't map - no device buffer associated yet.
+			continue;
+		}
+
+		assert(!info.deviceMemory);
+		// TODO: Can we use GL_WRITE_ONLY?
+		info.deviceMemory = (uint8_t *)info.buffer->Map(GL_MAP_WRITE_BIT | GL_MAP_FLUSH_EXPLICIT_BIT);
+
+		if (!info.deviceMemory && !info.localMemory) {
+			// Somehow it failed, let's dodge crashing.
+			info.localMemory = new uint8_t[info.buffer->size_];
+		}
+
+		assert(info.localMemory || info.deviceMemory);
+	}
+
+	if (writePtr_) {
+		// This can happen during a sync.  Remap.
+		writePtr_ = nullptr;
+		Map();
+	}
+}
+
+void GLPushBuffer::UnmapDevice() {
+	for (auto &info : buffers_) {
+		if (info.deviceMemory) {
+			// TODO: Technically this can return false?
+			info.buffer->Unmap();
+			info.deviceMemory = nullptr;
+		}
+	}
+}
+
+void *GLRBuffer::Map(GLbitfield access) {
+	assert(buffer != 0);
+	glBindBuffer(target_, buffer);
+
+	void *p = nullptr;
+	if (gl_extensions.ARB_buffer_storage || gl_extensions.EXT_buffer_storage) {
+#ifndef IOS
+		if (!hasStorage_) {
+#ifdef USING_GLES2
+			glBufferStorageEXT(target_, size_, nullptr, access & (GL_MAP_READ_BIT | GL_MAP_WRITE_BIT));
+#else
+			glBufferStorage(target_, size_, nullptr, access & (GL_MAP_READ_BIT | GL_MAP_WRITE_BIT));
+#endif
+			hasStorage_ = true;
+		}
+#endif
+		p = glMapBufferRange(target_, 0, size_, access);
+	} else if (gl_extensions.VersionGEThan(3, 0, 0)) {
+		// GLES3 or desktop 3.
+		p = glMapBufferRange(target_, 0, size_, access);
+	} else {
+#ifndef USING_GLES2
+		p = glMapBuffer(target_, GL_READ_WRITE);
+#endif
+	}
+
+	mapped_ = p != nullptr;
+	return p;
+}
+
+bool GLRBuffer::Unmap() {
+	glBindBuffer(target_, buffer);
+	mapped_ = false;
+	return glUnmapBuffer(target_) == GL_TRUE;
 }
