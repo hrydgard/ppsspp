@@ -511,8 +511,8 @@ extern "C" void Java_org_ppsspp_ppsspp_NativeApp_pause(JNIEnv *, jclass) {
 extern "C" void Java_org_ppsspp_ppsspp_NativeApp_shutdown(JNIEnv *, jclass) {
 	if (useCPUThread && graphicsContext) {
 		EmuThreadStop();
-		while (emuThreadState != (int)EmuThreadState::STOPPED) {
-			graphicsContext->ThreadFrame();
+		while (graphicsContext->ThreadFrame()) {
+			continue;
 		}
 		EmuThreadJoin();
 	}
@@ -546,8 +546,8 @@ extern "C" void Java_org_ppsspp_ppsspp_NativeRenderer_displayInit(JNIEnv * env, 
 		graphicsContext->ThreadEnd();
 		if (useCPUThread) {
 			EmuThreadStop();
-			while (emuThreadState != (int)EmuThreadState::STOPPED) {
-				graphicsContext->ThreadFrame();
+			while (graphicsContext->ThreadFrame()) {
+				continue;
 			}
 			EmuThreadJoin();
 		} else {
