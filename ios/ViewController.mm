@@ -58,6 +58,11 @@ public:
 	void ThreadEnd() override {
 		renderManager_->ThreadEnd();
 	}
+
+	void StopThread() override {
+		renderManager_->WaitUntilQueueIdle();
+		renderManager_->StopThread();
+	}
 private:
 	Draw::DrawContext *draw_;
 	GLRenderManager *renderManager_;
@@ -170,7 +175,6 @@ static GraphicsContext *graphicsContext;
 
 	graphicsContext = new IOSGraphicsContext();
 	
-	NativeInitGraphics(graphicsContext);
 	graphicsContext->ThreadStart();
 
 	dp_xscale = (float)dp_xres / (float)pixel_xres;
@@ -190,11 +194,18 @@ static GraphicsContext *graphicsContext;
 #endif
 	
 	dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_HIGH, 0), ^{
+		NativeInitGraphics(graphicsContext);
+
 		while (threadEnabled) {
 			NativeUpdate();
 			NativeRender(graphicsContext);
 			time_update();
 		}
+
+		NativeShutdownGraphics();
+
+		// Also ask the main thread to stop, so it doesn't hang waiting for a new frame.
+		graphicsContext->StopThread();
 	});
 }
 
@@ -220,8 +231,10 @@ static GraphicsContext *graphicsContext;
 	}
 #endif
 	threadEnabled = false;
+	while (graphicsContext->ThreadFrame()) {
+		continue;
+	}
 	graphicsContext->ThreadEnd();
-	NativeShutdownGraphics();
 	graphicsContext->Shutdown();
 	delete graphicsContext;
 	graphicsContext = NULL;
