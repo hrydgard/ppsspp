@@ -139,18 +139,8 @@ public:
 		}
 	}
 
-	void *Map(GLenum access) {
-		glBindBuffer(target_, buffer);
-		void *p = glMapBuffer(target_, access);
-		mapped_ = p != nullptr;
-		return p;
-	}
-
-	bool Unmap() {
-		glBindBuffer(target_, buffer);
-		mapped_ = false;
-		return glUnmapBuffer(target_) == GL_TRUE;
-	}
+	void *Map(GLenum accessOld, GLbitfield accessNew);
+	bool Unmap();
 
 	bool Mapped() {
 		return mapped_;

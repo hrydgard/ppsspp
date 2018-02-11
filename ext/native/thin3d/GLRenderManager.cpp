@@ -633,9 +633,14 @@ size_t GLPushBuffer::GetTotalSize() const {
 
 void GLPushBuffer::MapDevice() {
 	for (auto &info : buffers_) {
+		if (!info.buffer->buffer) {
+			// Can't map - no device buffer associated yet.
+			continue;
+		}
+
 		assert(!info.deviceMemory);
 		// TODO: Can we use GL_WRITE_ONLY?
-		info.deviceMemory = (uint8_t *)info.buffer->Map(GL_READ_WRITE);
+		info.deviceMemory = (uint8_t *)info.buffer->Map(GL_READ_WRITE, GL_MAP_WRITE_BIT);
 
 		if (info.deviceMemory) {
 			delete[] info.localMemory;
@@ -663,4 +668,27 @@ void GLPushBuffer::UnmapDevice() {
 			info.deviceMemory = nullptr;
 		}
 	}
+}
+
+void *GLRBuffer::Map(GLenum accessOld, GLbitfield accessNew) {
+	assert(buffer != 0);
+	glBindBuffer(target_, buffer);
+
+	void *p;
+	if (gl_extensions.VersionGEThan(3, 0, 0)) {
+		p = glMapBufferRange(target_, 0, size_, accessNew);
+	} else {
+#ifndef USING_GLES2
+	p = glMapBuffer(target_, accessOld);
+#endif
+	}
+
+	mapped_ = p != nullptr;
+	return p;
+}
+
+bool GLRBuffer::Unmap() {
+	glBindBuffer(target_, buffer);
+	mapped_ = false;
+	return glUnmapBuffer(target_) == GL_TRUE;
 }
