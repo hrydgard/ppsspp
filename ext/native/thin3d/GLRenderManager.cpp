@@ -611,6 +611,14 @@ void GLPushBuffer::NextBuffer(size_t minSize) {
 
 void GLPushBuffer::Defragment() {
 	if (buffers_.size() <= 1) {
+		// Let's take this chance to jetison localMemory we don't need.
+		for (auto &info : buffers_) {
+			if (info.deviceMemory) {
+				delete[] info.localMemory;
+				info.localMemory = nullptr;
+			}
+		}
+
 		return;
 	}
 
@@ -642,10 +650,7 @@ void GLPushBuffer::MapDevice() {
 		// TODO: Can we use GL_WRITE_ONLY?
 		info.deviceMemory = (uint8_t *)info.buffer->Map(GL_READ_WRITE, GL_MAP_WRITE_BIT);
 
-		if (info.deviceMemory) {
-			delete[] info.localMemory;
-			info.localMemory = nullptr;
-		} else if (!info.localMemory) {
+		if (!info.deviceMemory && !info.localMemory) {
 			// Somehow it failed, let's dodge crashing.
 			info.localMemory = new uint8_t[info.buffer->size_];
 		}
