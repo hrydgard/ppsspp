@@ -448,7 +448,7 @@ retry:
 	case (int)GPUBackend::VULKAN:
 		ILOG("NativeApp.init() -- creating Vulkan context");
 		useCPUThread = false;  // The Vulkan render manager manages its own thread.
-		graphicsContext = new AndroidVulkanContext();
+		// We create and destroy the Vulkan graphics context in the "EGL" thread.
 		break;
 	default:
 		ELOG("NativeApp.init(): iGPUBackend %d not supported. Switching to OpenGL.", (int)g_Config.iGPUBackend);
@@ -930,6 +930,12 @@ retry:
 	bool vulkan = g_Config.iGPUBackend == (int)GPUBackend::VULKAN;
 
 	int tries = 0;
+
+	_assert_msg_(G3D, !graphicsContext, "Graphics context already exists entering runEGLRenderLoop - this is wrong.");
+
+	if (vulkan) {
+		graphicsContext = new AndroidVulkanContext();
+	}
 
 	if (!graphicsContext->InitFromRenderThread(wnd, desiredBackbufferSizeX, desiredBackbufferSizeY, backbuffer_format, androidVersion)) {
 		ELOG("Failed to initialize graphics context.");
