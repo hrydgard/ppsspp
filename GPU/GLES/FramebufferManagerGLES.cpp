@@ -792,6 +792,9 @@ void FramebufferManagerGLES::Resized() {
 		DestroyAllFBOs();
 	}
 
+	// Might have a new post shader - let's compile it.
+	CompilePostShader();
+
 	// render_->SetLineWidth(renderWidth_ / 480.0f);
 }
 
