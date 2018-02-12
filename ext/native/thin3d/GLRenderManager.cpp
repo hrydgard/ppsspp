@@ -712,10 +712,10 @@ void *GLRBuffer::Map(GLbitfield access) {
 		}
 #endif
 		p = glMapBufferRange(target_, 0, size_, access);
-	} else if (gl_extensions.VersionGEThan(3, 0, 0)) {
+	} else if (gl_extensions.VersionGEThan(3, 0, 0) && !(gl_extensions.bugs & BUG_ANY_MAP_BUFFER_RANGE_SLOW)) {
 		// GLES3 or desktop 3.
 		p = glMapBufferRange(target_, 0, size_, access);
-	} else {
+	} else if (!(gl_extensions.bugs & BUG_ANY_MAP_BUFFER_RANGE_SLOW)) {
 #ifndef USING_GLES2
 		p = glMapBuffer(target_, GL_READ_WRITE);
 #endif
