@@ -47,7 +47,9 @@
 // Not used in lowmem mode.
 #define TEXTURE_SECOND_KILL_AGE 100
 // Used when there are multiple CLUT variants of a texture.
-#define TEXTURE_KILL_AGE_CLUT 12
+#define TEXTURE_KILL_AGE_CLUT 6
+
+#define TEXTURE_CLUT_VARIANTS_MIN 6
 
 // Try to be prime to other decimation intervals.
 #define TEXCACHE_DECIMATION_INTERVAL 13
@@ -459,15 +461,17 @@ void TextureCacheCommon::SetTexture(bool force) {
 		if (hasClut && clutRenderAddress_ == 0xFFFFFFFF) {
 			const u64 cachekeyMin = (u64)(texaddr & 0x3FFFFFFF) << 32;
 			const u64 cachekeyMax = cachekeyMin + (1ULL << 32);
-			bool found = false;
+
+			int found = 0;
 			for (auto it = cache_.lower_bound(cachekeyMin), end = cache_.upper_bound(cachekeyMax); it != end; ++it) {
-				if (it->second->cluthash != entry->cluthash) {
-					it->second->status |= TexCacheEntry::STATUS_CLUT_VARIANTS;
-					found = true;
-				}
+				found++;
 			}
 
-			if (found) {
+			if (found >= TEXTURE_CLUT_VARIANTS_MIN) {
+				for (auto it = cache_.lower_bound(cachekeyMin), end = cache_.upper_bound(cachekeyMax); it != end; ++it) {
+					it->second->status |= TexCacheEntry::STATUS_CLUT_VARIANTS;
+				}
+
 				entry->status |= TexCacheEntry::STATUS_CLUT_VARIANTS;
 			}
 		}
