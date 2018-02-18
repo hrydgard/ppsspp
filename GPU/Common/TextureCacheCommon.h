@@ -108,8 +108,7 @@ struct TexCacheEntry {
 		STATUS_ALPHA_FULL = 0x00,      // Has no alpha channel, or always full alpha.
 		STATUS_ALPHA_MASK = 0x04,
 
-		// 0x08 free.
-
+		STATUS_CLUT_VARIANTS = 0x08,   // Has multiple CLUT variants.
 		STATUS_CHANGE_FREQUENT = 0x10, // Changes often (less than 6 frames in between.)
 		STATUS_CLUT_RECHECK = 0x20,    // Another texture with same addr had a hashfail.
 		STATUS_DEPALETTIZE = 0x40,     // Needs to go through a depalettize pass.
