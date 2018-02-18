@@ -178,6 +178,7 @@ private:
 		std::unordered_map<size_t, size_t> allocSizes;
 		std::unordered_map<size_t, UsageInfo> tags;
 		size_t nextFree;
+		size_t totalUsage;
 
 		size_t Size() {
 			return usage.size() * SLAB_GRAIN_SIZE;

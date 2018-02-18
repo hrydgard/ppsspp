@@ -279,6 +279,7 @@ bool VulkanDeviceAllocator::AllocateFromSlab(Slab &slab, size_t &start, size_t b
 	// Remember the size so we can free.
 	slab.allocSizes[start] = blocks;
 	slab.tags[start] = { tag, time_now(), 0.0f };
+	slab.totalUsage += blocks;
 	return true;
 }
 
@@ -377,6 +378,12 @@ void VulkanDeviceAllocator::ExecuteFree(FreeInfo *userdata) {
 				slab.usage[start + i] = 0;
 			}
 			slab.allocSizes.erase(it);
+			slab.totalUsage -= size;
+
+			// Allow reusing.
+			if (slab.nextFree > start) {
+				slab.nextFree = start;
+			}
 		} else {
 			// Ack, a double free?
 			_assert_msg_(G3D, false, "Double free? Block missing at offset %d", (int)userdata->offset);
@@ -434,8 +441,26 @@ void VulkanDeviceAllocator::Decimate() {
 		// Go backwards.  This way, we keep the largest free slab.
 		// We do this here (instead of the for) since size_t is unsigned.
 		size_t index = slabs_.size() - i - 1;
+		auto &slab = slabs_[index];
 
-		if (!slabs_[index].allocSizes.empty()) {
+		if (!slab.allocSizes.empty()) {
+			size_t usagePercent = 100 * slab.totalUsage / slab.usage.size();
+			size_t freeNextPercent = 100 * slab.nextFree / slab.usage.size();
+
+			// This may mean we're going to leave an allocation hanging.  Reset nextFree instead.
+			if (freeNextPercent >= 100 - usagePercent) {
+				size_t newFree = 0;
+				while (newFree < slab.usage.size()) {
+					auto it = slab.allocSizes.find(newFree);
+					if (it == slab.allocSizes.end()) {
+						break;
+					}
+
+					newFree += it->second;
+				}
+
+				slab.nextFree = newFree;
+			}
 			continue;
 		}
 
@@ -446,7 +471,7 @@ void VulkanDeviceAllocator::Decimate() {
 		}
 
 		// Okay, let's free this one up.
-		vulkan_->Delete().QueueDeleteDeviceMemory(slabs_[index].deviceMemory);
+		vulkan_->Delete().QueueDeleteDeviceMemory(slab.deviceMemory);
 		slabs_.erase(slabs_.begin() + index);
 
 		// Let's check the next one, which is now in this same slot.
