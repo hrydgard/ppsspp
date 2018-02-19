@@ -788,7 +788,7 @@ void TextureCacheGLES::LoadTextureLevel(TexCacheEntry &entry, ReplacedTexture &r
 			uint8_t *rearrange = (uint8_t *)AllocateAlignedMemory(w * scaleFactor * h * scaleFactor * 4, 16);
 			scaler.ScaleAlways((u32 *)rearrange, (u32 *)pixelData, dstFmt, w, h, scaleFactor);
 			pixelData = rearrange;
-			delete [] finalBuf;
+			FreeAlignedMemory(finalBuf);
 		}
 
 		if (replacer_.Enabled()) {
