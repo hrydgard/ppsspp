@@ -51,9 +51,6 @@ public:
 	void DoState(PointerWrap &p) override;
 
 	void ClearShaderCache() override;
-	bool DecodeTexture(u8 *dest, const GPUgstate &state) override {
-		return textureCacheDX9_->DecodeTexture(dest, state);
-	}
 	bool FramebufferDirty() override;
 	bool FramebufferReallyDirty() override;
 

@@ -769,11 +769,6 @@ void TextureCacheD3D11::LoadTextureLevel(TexCacheEntry &entry, ReplacedTexture &
 	FreeAlignedMemory(mapData);
 }
 
-bool TextureCacheD3D11::DecodeTexture(u8 *output, const GPUgstate &state) {
-	OutputDebugStringA("TextureCache::DecodeTexture : FixMe\r\n");
-	return true;
-}
-
 bool TextureCacheD3D11::GetCurrentTextureDebug(GPUDebugBuffer &buffer, int level) {
 	SetTexture(false);
 	if (!nextTexture_)
