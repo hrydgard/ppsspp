@@ -227,9 +227,6 @@ public:
 	const std::list<int>& GetDisplayLists() override {
 		return dlQueue;
 	}
-	bool DecodeTexture(u8* dest, const GPUgstate &state) override {
-		return false;
-	}
 	std::vector<FramebufferInfo> GetFramebufferList() override;
 	void ClearShaderCache() override {}
 	void CleanupBeforeUI() override {}

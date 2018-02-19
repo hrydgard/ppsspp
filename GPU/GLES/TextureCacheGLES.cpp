@@ -696,29 +696,6 @@ GLenum TextureCacheGLES::GetDestFormat(GETextureFormat format, GEPaletteFormat c
 	}
 }
 
-u8 *TextureCacheGLES::DecodeTextureLevelOld(GETextureFormat format, GEPaletteFormat clutformat, int level, GLenum dstFmt, int scaleFactor, int *bufwout) {
-	void *finalBuf = nullptr;
-	u32 texaddr = gstate.getTextureAddress(level);
-	int bufw = GetTextureBufw(level, texaddr, format);
-	if (bufwout)
-		*bufwout = bufw;
-
-	int w = gstate.getTextureWidth(level);
-	int h = gstate.getTextureHeight(level);
-
-	int decPitch = 0;
-	int pixelSize = dstFmt == GL_UNSIGNED_BYTE ? 4 : 2;
-	if (!(scaleFactor == 1 && gstate_c.Supports(GPU_SUPPORTS_UNPACK_SUBIMAGE)) && w != bufw) {
-		decPitch = w * pixelSize;
-	} else {
-		decPitch = bufw * pixelSize;
-	}
-
-	uint8_t *texBuf = (uint8_t *)AllocateAlignedMemory(std::max(w, bufw) * h * pixelSize, 16);
-	DecodeTextureLevel(texBuf, decPitch, format, clutformat, texaddr, level, bufw, true, false, false);
-	return texBuf;
-}
-
 TexCacheEntry::TexStatus TextureCacheGLES::CheckAlpha(const uint8_t *pixelData, GLenum dstFmt, int stride, int w, int h) {
 	CheckAlphaResult res;
 	switch (dstFmt) {
@@ -766,15 +743,19 @@ void TextureCacheGLES::LoadTextureLevel(TexCacheEntry &entry, ReplacedTexture &r
 		PROFILE_THIS_SCOPE("decodetex");
 
 		GEPaletteFormat clutformat = gstate.getClutPaletteFormat();
-		int bufw;
-		uint8_t *finalBuf = DecodeTextureLevelOld(GETextureFormat(entry.format), clutformat, level, dstFmt, scaleFactor, &bufw);
-		if (!finalBuf) {
-			return;
-		}
+		u32 texaddr = gstate.getTextureAddress(level);
+		int bufw = GetTextureBufw(level, texaddr, GETextureFormat(entry.format));
+		int w = gstate.getTextureWidth(level);
+		int h = gstate.getTextureHeight(level);
+
+		int pixelSize = dstFmt == GL_UNSIGNED_BYTE ? 4 : 2;
+		int decPitch = w * pixelSize;
+
+		pixelData = (uint8_t *)AllocateAlignedMemory(decPitch * h * pixelSize, 16);
+		DecodeTextureLevel(pixelData, decPitch, GETextureFormat(entry.format), clutformat, texaddr, level, bufw, true, false, false);
 
 		// Textures are always aligned to 16 bytes bufw, so this could safely be 4 always.
 		texByteAlign = dstFmt == GL_UNSIGNED_BYTE ? 4 : 2;
-		pixelData = finalBuf;
 
 		// We check before scaling since scaling shouldn't invent alpha from a full alpha texture.
 		if ((entry.status & TexCacheEntry::STATUS_CHANGE_FREQUENT) == 0) {
@@ -787,8 +768,8 @@ void TextureCacheGLES::LoadTextureLevel(TexCacheEntry &entry, ReplacedTexture &r
 		if (scaleFactor > 1) {
 			uint8_t *rearrange = (uint8_t *)AllocateAlignedMemory(w * scaleFactor * h * scaleFactor * 4, 16);
 			scaler.ScaleAlways((u32 *)rearrange, (u32 *)pixelData, dstFmt, w, h, scaleFactor);
+			FreeAlignedMemory(pixelData);
 			pixelData = rearrange;
-			FreeAlignedMemory(finalBuf);
 		}
 
 		if (replacer_.Enabled()) {
@@ -821,82 +802,6 @@ void TextureCacheGLES::LoadTextureLevel(TexCacheEntry &entry, ReplacedTexture &r
 		else
 			render_->TextureImage(entry.textureName, level, w, h, components, components2, dstFmt, pixelData, GLRAllocType::ALIGNED);
 	}
-}
-
-// Only used by Qt UI?
-bool TextureCacheGLES::DecodeTexture(u8* output, const GPUgstate &state) {
-	GPUgstate oldState = gstate;
-	gstate = state;
-
-	u32 texaddr = gstate.getTextureAddress(0);
-
-	if (!Memory::IsValidAddress(texaddr)) {
-		return false;
-	}
-
-	GLenum dstFmt = 0;
-
-	GETextureFormat format = gstate.getTextureFormat();
-	GEPaletteFormat clutformat = gstate.getClutPaletteFormat();
-	u8 level = 0;
-
-	int bufw = GetTextureBufw(level, texaddr, format);
-	int w = gstate.getTextureWidth(level);
-	int h = gstate.getTextureHeight(level);
-
-	void *finalBuf = DecodeTextureLevelOld(format, clutformat, level, dstFmt, 1);
-	if (finalBuf == NULL) {
-		return false;
-	}
-
-	switch (dstFmt) {
-	case GL_UNSIGNED_SHORT_4_4_4_4:
-		for (int y = 0; y < h; y++)
-			for (int x = 0; x < bufw; x++) {
-				u32 val = ((u16*)finalBuf)[y*bufw + x];
-				u32 r = ((val>>12) & 0xF) * 17;
-				u32 g = ((val>> 8) & 0xF) * 17;
-				u32 b = ((val>> 4) & 0xF) * 17;
-				u32 a = ((val>> 0) & 0xF) * 17;
-				((u32*)output)[y*w + x] = (a << 24) | (r << 16) | (g << 8) | b;
-			}
-		break;
-
-	case GL_UNSIGNED_SHORT_5_5_5_1:
-		for (int y = 0; y < h; y++)
-			for (int x = 0; x < bufw; x++) {
-				u32 val = ((u16*)finalBuf)[y*bufw + x];
-				u32 r = Convert5To8((val>>11) & 0x1F);
-				u32 g = Convert5To8((val>> 6) & 0x1F);
-				u32 b = Convert5To8((val>> 1) & 0x1F);
-				u32 a = (val & 0x1) * 255;
-				((u32*)output)[y*w + x] = (a << 24) | (r << 16) | (g << 8) | b;
-			}
-		break;
-
-	case GL_UNSIGNED_SHORT_5_6_5:
-		for (int y = 0; y < h; y++)
-			for (int x = 0; x < bufw; x++) {
-				u32 val = ((u16*)finalBuf)[y*bufw + x];
-				u32 a = 0xFF;
-				u32 r = Convert5To8((val>>11) & 0x1F);
-				u32 g = Convert6To8((val>> 5) & 0x3F);
-				u32 b = Convert5To8((val    ) & 0x1F);
-				((u32*)output)[y*w + x] = (a << 24) | (r << 16) | (g << 8) | b;
-			}
-		break;
-
-	default:
-		for (int y = 0; y < h; y++)
-			for (int x = 0; x < bufw; x++) {
-				u32 val = ((u32*)finalBuf)[y*bufw + x];
-				((u32*)output)[y*w + x] = ((val & 0xFF000000)) | ((val & 0x00FF0000)>>16) | ((val & 0x0000FF00)) | ((val & 0x000000FF)<<16);
-			}
-		break;
-	}
-
-	gstate = oldState;
-	return true;
 }
 
 bool TextureCacheGLES::GetCurrentTextureDebug(GPUDebugBuffer &buffer, int level) {
