@@ -9,4 +9,8 @@
 
 @interface ViewController : GLKViewController <iCadeEventDelegate>
 
+- (void)shutdown;
+
 @end
+
+extern __unsafe_unretained ViewController* sharedViewController;
