@@ -75,8 +75,9 @@ static double lastSelectPress = 0.0f;
 static double lastStartPress = 0.0f;
 static bool simulateAnalog = false;
 static bool threadEnabled = true;
+static bool threadStopped = false;
 
-__unsafe_unretained static ViewController* sharedViewController;
+__unsafe_unretained ViewController* sharedViewController;
 static GraphicsContext *graphicsContext;
 
 @interface ViewController ()
@@ -113,6 +114,8 @@ static GraphicsContext *graphicsContext;
 		iCadeToKeyMap[iCadeButtonF]			= NKCODE_BUTTON_2; // Cross
 		iCadeToKeyMap[iCadeButtonG]			= NKCODE_BUTTON_1; // Triangle
 		iCadeToKeyMap[iCadeButtonH]			= NKCODE_BUTTON_3; // Circle
+
+		[[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(appWillTerminate:) name:UIApplicationWillTerminateNotification object:nil];
 
 #if __IPHONE_OS_VERSION_MAX_ALLOWED > __IPHONE_6_1
 		if ([GCController class]) // Checking the availability of a GameController framework
@@ -196,15 +199,20 @@ static GraphicsContext *graphicsContext;
 	dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_HIGH, 0), ^{
 		NativeInitGraphics(graphicsContext);
 
+		ILOG("Emulation thread starting\n");
 		while (threadEnabled) {
 			NativeUpdate();
 			NativeRender(graphicsContext);
 			time_update();
 		}
 
+		threadStopped = true;
+
+		ILOG("Emulation thread shutting down\n");
 		NativeShutdownGraphics();
 
 		// Also ask the main thread to stop, so it doesn't hang waiting for a new frame.
+		ILOG("Emulation thread stopping\n");
 		graphicsContext->StopThread();
 	});
 }
@@ -214,31 +222,58 @@ static GraphicsContext *graphicsContext;
 	[super didReceiveMemoryWarning];
 }
 
-- (void)dealloc
+- (void)appWillTerminate:(NSNotification *)notification
 {
-	sharedViewController = nil;
-	
-	if ([EAGLContext currentContext] == self.context) {
-		[EAGLContext setCurrentContext:nil];
+	[self shutdown];
+}
+
+- (void)shutdown
+{
+	if (sharedViewController == nil) {
+		return;
 	}
-	self.context = nil;
+
+	Audio_Shutdown();
+
+	if (threadEnabled) {
+		threadEnabled = false;
+		while (graphicsContext->ThreadFrame()) {
+			continue;
+		}
+		while (!threadStopped) {}
+		graphicsContext->ThreadEnd();
+	}
+
+	sharedViewController = nil;
+
+	if (self.context) {
+		if ([EAGLContext currentContext] == self.context) {
+			[EAGLContext setCurrentContext:nil];
+		}
+		self.context = nil;
+	}
+
+	[[NSNotificationCenter defaultCenter] removeObserver:self];
 
 #if __IPHONE_OS_VERSION_MAX_ALLOWED > __IPHONE_6_1
 	if ([GCController class]) {
-		[[NSNotificationCenter defaultCenter] removeObserver:self name:GCControllerDidConnectNotification object:nil];
-		[[NSNotificationCenter defaultCenter] removeObserver:self name:GCControllerDidDisconnectNotification object:nil];
 		self.gameController = nil;
 	}
 #endif
-	threadEnabled = false;
-	while (graphicsContext->ThreadFrame()) {
-		continue;
-	}
-	graphicsContext->ThreadEnd();
+
 	graphicsContext->Shutdown();
-	delete graphicsContext;
-	graphicsContext = NULL;
+
+	if (graphicsContext) {
+		delete graphicsContext;
+		graphicsContext = NULL;
+	}
+
 	NativeShutdown();
+}
+
+- (void)dealloc
+{
+	[self shutdown];
 }
 
 // For iOS before 6.0
@@ -255,7 +290,8 @@ static GraphicsContext *graphicsContext;
 
 - (void)glkView:(GLKView *)view drawInRect:(CGRect)rect
 {
-	graphicsContext->ThreadFrame();
+	if (sharedViewController)
+		graphicsContext->ThreadFrame();
 }
 
 - (void)touchX:(float)x y:(float)y code:(int)code pointerId:(int)pointerId
