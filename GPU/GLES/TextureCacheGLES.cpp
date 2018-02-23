@@ -745,17 +745,12 @@ void TextureCacheGLES::LoadTextureLevel(TexCacheEntry &entry, ReplacedTexture &r
 		GEPaletteFormat clutformat = gstate.getClutPaletteFormat();
 		u32 texaddr = gstate.getTextureAddress(level);
 		int bufw = GetTextureBufw(level, texaddr, GETextureFormat(entry.format));
-		int w = gstate.getTextureWidth(level);
-		int h = gstate.getTextureHeight(level);
 
 		int pixelSize = dstFmt == GL_UNSIGNED_BYTE ? 4 : 2;
 		int decPitch = w * pixelSize;
 
 		pixelData = (uint8_t *)AllocateAlignedMemory(decPitch * h * pixelSize, 16);
 		DecodeTextureLevel(pixelData, decPitch, GETextureFormat(entry.format), clutformat, texaddr, level, bufw, true, false, false);
-
-		// Textures are always aligned to 16 bytes bufw, so this could safely be 4 always.
-		texByteAlign = dstFmt == GL_UNSIGNED_BYTE ? 4 : 2;
 
 		// We check before scaling since scaling shouldn't invent alpha from a full alpha texture.
 		if ((entry.status & TexCacheEntry::STATUS_CHANGE_FREQUENT) == 0) {
@@ -771,6 +766,9 @@ void TextureCacheGLES::LoadTextureLevel(TexCacheEntry &entry, ReplacedTexture &r
 			FreeAlignedMemory(pixelData);
 			pixelData = rearrange;
 		}
+
+		// Textures are always aligned to 16 bytes bufw, so this could safely be 4 always.
+		texByteAlign = dstFmt == GL_UNSIGNED_BYTE ? 4 : 2;
 
 		if (replacer_.Enabled()) {
 			ReplacedTextureDecodeInfo replacedInfo;
