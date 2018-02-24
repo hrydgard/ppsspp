@@ -490,6 +490,18 @@ VkDescriptorSet DrawEngineVulkan::GetOrCreateDescriptorSet(VkImageView imageView
 	descAlloc.descriptorPool = frame.descPool;
 	descAlloc.descriptorSetCount = 1;
 	VkResult result = vkAllocateDescriptorSets(vulkan_->GetDevice(), &descAlloc, &desc);
+
+	if (result == VK_ERROR_FRAGMENTED_POOL || result < 0) {
+		// There seems to have been a spec revision. Here we should apparently recreate the descriptor pool,
+		// so let's do that. See https://www.khronos.org/registry/vulkan/specs/1.0/man/html/vkAllocateDescriptorSets.html
+		// Fragmentation shouldn't really happen though since we wipe the pool every frame..
+		VkResult res = RecreateDescriptorPool(frame, frame.descPoolSize);
+		_assert_msg_(G3D, res == VK_SUCCESS, "Ran out of descriptor space (frag?) and failed to recreate a descriptor pool. sz=%d res=%d", (int)frame.descSets.size(), (int)res);
+		descAlloc.descriptorPool = frame.descPool;  // Need to update this pointer since we have allocated a new one.
+		result = vkAllocateDescriptorSets(vulkan_->GetDevice(), &descAlloc, &desc);
+		_assert_msg_(G3D, result == VK_SUCCESS, "Ran out of descriptor space (frag?) and failed to allocate after recreating a descriptor pool. res=%d", (int)result);
+	}
+
 	// Even in release mode, this is bad.
 	_assert_msg_(G3D, result == VK_SUCCESS, "Ran out of descriptor space in pool. sz=%d res=%d", (int)frame.descSets.size(), (int)result);
 
