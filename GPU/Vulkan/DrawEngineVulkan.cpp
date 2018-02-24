@@ -136,36 +136,10 @@ void DrawEngineVulkan::InitDeviceObjects() {
 	VkResult res = vkCreateDescriptorSetLayout(device, &dsl, nullptr, &descriptorSetLayout_);
 	assert(VK_SUCCESS == res);
 
-	VkDescriptorPoolSize dpTypes[3];
-	dpTypes[0].descriptorCount = 8192;
-	dpTypes[0].type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC;
-	dpTypes[1].descriptorCount = 8192 + 4096;  // Due to the tess stuff, we need a LOT of these. Most will be empty...
-	dpTypes[1].type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-	dpTypes[2].descriptorCount = 2048;
-	dpTypes[2].type = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
-
-	VkDescriptorPoolCreateInfo dp = { VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO };
-	dp.pNext = nullptr;
-	dp.flags = 0;   // Don't want to mess around with individually freeing these.
-	                // We zap the whole pool every few frames.
-	dp.maxSets = 2048;
-	dp.pPoolSizes = dpTypes;
-	dp.poolSizeCount = ARRAY_SIZE(dpTypes);
-
 	// We are going to use one-shot descriptors in the initial implementation. Might look into caching them
 	// if creating and updating them turns out to be expensive.
 	for (int i = 0; i < VulkanContext::MAX_INFLIGHT_FRAMES; i++) {
-		// If we run out of memory, try with less descriptors.
-		for (int tries = 0; tries < 3; ++tries) {
-			VkResult res = vkCreateDescriptorPool(vulkan_->GetDevice(), &dp, nullptr, &frame_[i].descPool);
-			if (res == VK_SUCCESS) {
-				break;
-			}
-			// Let's try to reduce the counts.
-			assert(res == VK_ERROR_OUT_OF_HOST_MEMORY || res == VK_ERROR_OUT_OF_DEVICE_MEMORY);
-			dpTypes[0].descriptorCount /= 2;
-			dpTypes[1].descriptorCount /= 2;
-		}
+		// We now create descriptor pools on demand, so removed from here.
 		frame_[i].pushUBO = new VulkanPushBuffer(vulkan_, 8 * 1024 * 1024);
 		frame_[i].pushVertex = new VulkanPushBuffer(vulkan_, 2 * 1024 * 1024);
 		frame_[i].pushIndex = new VulkanPushBuffer(vulkan_, 1 * 1024 * 1024);
@@ -326,9 +300,9 @@ void DrawEngineVulkan::BeginFrame() {
 
 	vertexCache_->BeginNoReset();
 
-	// TODO: Need a better way to keep the number of descriptors under control.
-	if (--descDecimationCounter_ <= 0 || frame->descSets.size() > 1024) {
-		vkResetDescriptorPool(vulkan_->GetDevice(), frame->descPool, 0);
+	if (--descDecimationCounter_ <= 0) {
+		if (frame->descPool != VK_NULL_HANDLE)
+			vkResetDescriptorPool(vulkan_->GetDevice(), frame->descPool, 0);
 		frame->descSets.Clear();
 		descDecimationCounter_ = DESCRIPTORSET_DECIMATION_INTERVAL;
 	}
@@ -461,13 +435,44 @@ VkDescriptorSet DrawEngineVulkan::GetOrCreateDescriptorSet(VkImageView imageView
 	_dbg_assert_(G3D, light != VK_NULL_HANDLE);
 	_dbg_assert_(G3D, bone != VK_NULL_HANDLE);
 
-	FrameData *frame = &frame_[vulkan_->GetCurFrame()];
+	FrameData &frame = frame_[vulkan_->GetCurFrame()];
 	// See if we already have this descriptor set cached.
 	if (!tess) { // Don't cache descriptors for HW tessellation.
-		VkDescriptorSet d = frame->descSets.Get(key);
+		VkDescriptorSet d = frame.descSets.Get(key);
 		if (d != VK_NULL_HANDLE)
 			return d;
 	}
+
+	if (!frame.descPool || frame.descPoolSize < frame.descSets.size() + 1) {
+		// Reallocate this desc pool larger, and "wipe" the cache. We might lose a tiny bit of descriptor set reuse but
+		// only for this frame.
+		if (frame.descPool) {
+			DEBUG_LOG(G3D, "Reallocating desc pool from %d to %d", frame.descPoolSize, frame.descPoolSize * 2);
+			vulkan_->Delete().QueueDeleteDescriptorPool(frame.descPool);
+			frame.descSets.Clear();
+		}
+		frame.descPoolSize *= 2;
+
+		VkDescriptorPoolSize dpTypes[3];
+		dpTypes[0].descriptorCount = frame.descPoolSize * 3;
+		dpTypes[0].type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC;
+		dpTypes[1].descriptorCount = frame.descPoolSize * 2;  // Don't use these for tess anymore, need max two per set.
+		dpTypes[1].type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+		dpTypes[2].descriptorCount = frame.descPoolSize;
+		dpTypes[2].type = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+
+		VkDescriptorPoolCreateInfo dp = { VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO };
+		dp.pNext = nullptr;
+		dp.flags = 0;   // Don't want to mess around with individually freeing these.
+										// We zap the whole pool every few frames.
+		dp.maxSets = frame.descPoolSize;
+		dp.pPoolSizes = dpTypes;
+		dp.poolSizeCount = ARRAY_SIZE(dpTypes);
+
+		VkResult res = vkCreateDescriptorPool(vulkan_->GetDevice(), &dp, nullptr, &frame.descPool);
+		assert(res == VK_SUCCESS);
+	}
+
 
 	// Didn't find one in the frame descriptor set cache, let's make a new one.
 	// We wipe the cache on every frame.
@@ -476,11 +481,11 @@ VkDescriptorSet DrawEngineVulkan::GetOrCreateDescriptorSet(VkImageView imageView
 	VkDescriptorSetAllocateInfo descAlloc = { VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO };
 	descAlloc.pNext = nullptr;
 	descAlloc.pSetLayouts = &descriptorSetLayout_;
-	descAlloc.descriptorPool = frame->descPool;
+	descAlloc.descriptorPool = frame.descPool;
 	descAlloc.descriptorSetCount = 1;
 	VkResult result = vkAllocateDescriptorSets(vulkan_->GetDevice(), &descAlloc, &desc);
 	// Even in release mode, this is bad.
-	_assert_msg_(G3D, result == VK_SUCCESS, "Ran out of descriptor space in pool. sz=%d res=%d", (int)frame->descSets.size(), (int)result);
+	_assert_msg_(G3D, result == VK_SUCCESS, "Ran out of descriptor space in pool. sz=%d res=%d", (int)frame.descSets.size(), (int)result);
 
 	// We just don't write to the slots we don't care about.
 	// We need 8 now that we support secondary texture bindings.
@@ -573,7 +578,7 @@ VkDescriptorSet DrawEngineVulkan::GetOrCreateDescriptorSet(VkImageView imageView
 	vkUpdateDescriptorSets(vulkan_->GetDevice(), n, writes, 0, nullptr);
 
 	if (!tess) // Again, avoid caching when HW tessellation.
-		frame->descSets.Insert(key, desc);
+		frame.descSets.Insert(key, desc);
 	return desc;
 }
 

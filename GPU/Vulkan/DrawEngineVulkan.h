@@ -229,12 +229,14 @@ private:
 
 	// We alternate between these.
 	struct FrameData {
-		FrameData() : descSets(1024) {}
+		FrameData() : descSets(512) {}
 
-		VkDescriptorPool descPool;
-		VulkanPushBuffer *pushUBO;
-		VulkanPushBuffer *pushVertex;
-		VulkanPushBuffer *pushIndex;
+		VkDescriptorPool descPool = VK_NULL_HANDLE;
+		int descPoolSize = 256;  // We double this before we allocate so we initialize this to half the size we want.
+
+		VulkanPushBuffer *pushUBO = nullptr;
+		VulkanPushBuffer *pushVertex = nullptr;
+		VulkanPushBuffer *pushIndex = nullptr;
 		// We do rolling allocation and reset instead of caching across frames. That we might do later.
 		DenseHashMap<DescriptorSetKey, VkDescriptorSet, (VkDescriptorSet)VK_NULL_HANDLE> descSets;
 
