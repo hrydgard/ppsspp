@@ -304,6 +304,7 @@ void DrawEngineVulkan::BeginFrame() {
 		if (frame->descPool != VK_NULL_HANDLE)
 			vkResetDescriptorPool(vulkan_->GetDevice(), frame->descPool, 0);
 		frame->descSets.Clear();
+		frame->descCount = 0;
 		descDecimationCounter_ = DESCRIPTORSET_DECIMATION_INTERVAL;
 	}
 
@@ -443,13 +444,14 @@ VkDescriptorSet DrawEngineVulkan::GetOrCreateDescriptorSet(VkImageView imageView
 			return d;
 	}
 
-	if (!frame.descPool || frame.descPoolSize < frame.descSets.size() + 1) {
+	if (!frame.descPool || frame.descPoolSize < frame.descCount + 1) {
 		// Reallocate this desc pool larger, and "wipe" the cache. We might lose a tiny bit of descriptor set reuse but
 		// only for this frame.
 		if (frame.descPool) {
 			DEBUG_LOG(G3D, "Reallocating desc pool from %d to %d", frame.descPoolSize, frame.descPoolSize * 2);
 			vulkan_->Delete().QueueDeleteDescriptorPool(frame.descPool);
 			frame.descSets.Clear();
+			frame.descCount = 0;
 		}
 		frame.descPoolSize *= 2;
 
@@ -579,6 +581,7 @@ VkDescriptorSet DrawEngineVulkan::GetOrCreateDescriptorSet(VkImageView imageView
 
 	if (!tess) // Again, avoid caching when HW tessellation.
 		frame.descSets.Insert(key, desc);
+	frame.descCount++;
 	return desc;
 }
 

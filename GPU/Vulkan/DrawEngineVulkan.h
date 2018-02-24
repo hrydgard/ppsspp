@@ -232,6 +232,7 @@ private:
 		FrameData() : descSets(512) {}
 
 		VkDescriptorPool descPool = VK_NULL_HANDLE;
+		int descCount = 0;
 		int descPoolSize = 256;  // We double this before we allocate so we initialize this to half the size we want.
 
 		VulkanPushBuffer *pushUBO = nullptr;
