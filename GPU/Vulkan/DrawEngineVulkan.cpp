@@ -424,6 +424,37 @@ void DrawEngineVulkan::SetLineWidth(float lineWidth) {
 	pipelineManager_->SetLineWidth(lineWidth);
 }
 
+VkResult DrawEngineVulkan::RecreateDescriptorPool(FrameData &frame, int newSize) {
+	// Reallocate this desc pool larger, and "wipe" the cache. We might lose a tiny bit of descriptor set reuse but
+	// only for this frame.
+	if (frame.descPool) {
+		DEBUG_LOG(G3D, "Reallocating desc pool from %d to %d", frame.descPoolSize, newSize);
+		vulkan_->Delete().QueueDeleteDescriptorPool(frame.descPool);
+		frame.descSets.Clear();
+		frame.descCount = 0;
+	}
+	frame.descPoolSize = newSize;
+
+	VkDescriptorPoolSize dpTypes[3];
+	dpTypes[0].descriptorCount = frame.descPoolSize * 3;
+	dpTypes[0].type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC;
+	dpTypes[1].descriptorCount = frame.descPoolSize * 2;  // Don't use these for tess anymore, need max two per set.
+	dpTypes[1].type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+	dpTypes[2].descriptorCount = frame.descPoolSize;
+	dpTypes[2].type = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+
+	VkDescriptorPoolCreateInfo dp = { VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO };
+	dp.pNext = nullptr;
+	dp.flags = 0;   // Don't want to mess around with individually freeing these.
+									// We zap the whole pool every few frames.
+	dp.maxSets = frame.descPoolSize;
+	dp.pPoolSizes = dpTypes;
+	dp.poolSizeCount = ARRAY_SIZE(dpTypes);
+
+	VkResult res = vkCreateDescriptorPool(vulkan_->GetDevice(), &dp, nullptr, &frame.descPool);
+	return res;
+}
+
 VkDescriptorSet DrawEngineVulkan::GetOrCreateDescriptorSet(VkImageView imageView, VkSampler sampler, VkBuffer base, VkBuffer light, VkBuffer bone, bool tess) {
 	DescriptorSetKey key;
 	key.imageView_ = imageView;
@@ -445,36 +476,9 @@ VkDescriptorSet DrawEngineVulkan::GetOrCreateDescriptorSet(VkImageView imageView
 	}
 
 	if (!frame.descPool || frame.descPoolSize < frame.descCount + 1) {
-		// Reallocate this desc pool larger, and "wipe" the cache. We might lose a tiny bit of descriptor set reuse but
-		// only for this frame.
-		if (frame.descPool) {
-			DEBUG_LOG(G3D, "Reallocating desc pool from %d to %d", frame.descPoolSize, frame.descPoolSize * 2);
-			vulkan_->Delete().QueueDeleteDescriptorPool(frame.descPool);
-			frame.descSets.Clear();
-			frame.descCount = 0;
-		}
-		frame.descPoolSize *= 2;
-
-		VkDescriptorPoolSize dpTypes[3];
-		dpTypes[0].descriptorCount = frame.descPoolSize * 3;
-		dpTypes[0].type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC;
-		dpTypes[1].descriptorCount = frame.descPoolSize * 2;  // Don't use these for tess anymore, need max two per set.
-		dpTypes[1].type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-		dpTypes[2].descriptorCount = frame.descPoolSize;
-		dpTypes[2].type = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
-
-		VkDescriptorPoolCreateInfo dp = { VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO };
-		dp.pNext = nullptr;
-		dp.flags = 0;   // Don't want to mess around with individually freeing these.
-										// We zap the whole pool every few frames.
-		dp.maxSets = frame.descPoolSize;
-		dp.pPoolSizes = dpTypes;
-		dp.poolSizeCount = ARRAY_SIZE(dpTypes);
-
-		VkResult res = vkCreateDescriptorPool(vulkan_->GetDevice(), &dp, nullptr, &frame.descPool);
+		VkResult res = RecreateDescriptorPool(frame, frame.descPoolSize * 2);
 		assert(res == VK_SUCCESS);
 	}
-
 
 	// Didn't find one in the frame descriptor set cache, let's make a new one.
 	// We wipe the cache on every frame.

@@ -195,6 +195,7 @@ private:
 	void DestroyDeviceObjects();
 
 	void DecodeVertsToPushBuffer(VulkanPushBuffer *push, uint32_t *bindOffset, VkBuffer *vkbuf);
+	VkResult RecreateDescriptorPool(FrameData &frame, int newSize);
 
 	void DoFlush();
 	void UpdateUBOs(FrameData *frame);
