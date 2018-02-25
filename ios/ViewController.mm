@@ -16,6 +16,7 @@
 #include "net/resolve.h"
 #include "ui/screen.h"
 #include "thin3d/thin3d.h"
+#include "thin3d/thin3d_create.h"
 #include "thin3d/GLRenderManager.h"
 #include "input/keycodes.h"
 #include "gfx_es2/gpu_features.h"

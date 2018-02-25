@@ -14,4 +14,5 @@
 
 #undef min
 #undef max
+#undef DrawText
 #endif

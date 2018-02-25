@@ -21,6 +21,7 @@
 #include "gfx/gl_common.h"
 #include "gfx/gl_debug_log.h"
 #include "gfx_es2/gpu_features.h"
+#include "thin3d/thin3d_create.h"
 #include "thin3d/GLRenderManager.h"
 #include "GL/gl.h"
 #include "GL/wglew.h"

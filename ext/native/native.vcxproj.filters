@@ -338,6 +338,9 @@
     <ClInclude Include="thin3d\DataFormatGL.h">
       <Filter>thin3d</Filter>
     </ClInclude>
+    <ClInclude Include="thin3d\thin3d_create.h">
+      <Filter>thin3d</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="gfx\gl_debug_log.cpp">

@@ -6,6 +6,7 @@
 
 #include "AndroidGraphicsContext.h"
 #include "thin3d/GLRenderManager.h"
+#include "thin3d/thin3d_create.h"
 
 // Doesn't do much. Just to fit in.
 class AndroidJavaEGLGraphicsContext : public AndroidGraphicsContext {
