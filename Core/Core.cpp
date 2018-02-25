@@ -37,6 +37,7 @@
 #include "Common/GraphicsContext.h"
 
 #ifdef _WIN32
+#include "Common/CommonWindows.h"
 #include "Windows/InputDevice.h"
 #endif
 

@@ -42,6 +42,7 @@
 #include "UI/GameSettingsScreen.h"
 
 #ifdef _WIN32
+#include "Common/CommonWindows.h"
 // Want to avoid including the full header here as it includes d3dx.h
 int GetD3DXVersion();
 #endif

@@ -243,6 +243,7 @@
     <ClInclude Include="thin3d\DataFormatGL.h" />
     <ClInclude Include="thin3d\GLQueueRunner.h" />
     <ClInclude Include="thin3d\GLRenderManager.h" />
+    <ClInclude Include="thin3d\thin3d_create.h" />
     <ClInclude Include="thin3d\VulkanQueueRunner.h" />
     <ClInclude Include="thin3d\VulkanRenderManager.h" />
     <ClInclude Include="util\text\wrap_text.h" />

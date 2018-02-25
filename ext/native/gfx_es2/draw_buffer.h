@@ -11,8 +11,6 @@
 #include "math/lin/matrix4x4.h"
 #include "thin3d/thin3d.h"
 
-#undef DrawText
-
 struct Atlas;
 
 enum {

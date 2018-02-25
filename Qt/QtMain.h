@@ -39,6 +39,7 @@ QTM_USE_NAMESPACE
 #include "Core/Core.h"
 #include "Core/Config.h"
 #include "Core/System.h"
+#include "thin3d/thin3d_create.h"
 #include "thin3d/GLRenderManager.h"
 
 // Input

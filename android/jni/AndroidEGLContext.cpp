@@ -2,6 +2,7 @@
 #include "base/logging.h"
 #include "base/NativeApp.h"
 #include "gfx_es2/gpu_features.h"
+#include "thin3d/thin3d_create.h"
 
 #include "AndroidEGLContext.h"
 #include "GL/GLInterface/EGLAndroid.h"
