@@ -2,6 +2,7 @@
 #include "base/NativeApp.h"
 #include "base/display.h"
 #include "thin3d/thin3d.h"
+#include "thin3d/thin3d_create.h"
 #include "util/text/parsers.h"
 
 #include "Core/System.h"
