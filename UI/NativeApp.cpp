@@ -123,8 +123,6 @@ static UI::Theme ui_theme;
 #include "android/android-ndk-profiler/prof.h"
 #endif
 
-std::unique_ptr<ManagedTexture> uiTexture;
-
 ScreenManager *screenManager;
 std::string config_filename;
 
@@ -622,16 +620,6 @@ bool NativeInitGraphics(GraphicsContext *graphicsContext) {
 
 	UIThemeInit();
 
-	uiTexture = CreateTextureFromFile(g_draw, "ui_atlas.zim", ImageFileType::ZIM);
-	if (!uiTexture) {
-		PanicAlert("Failed to load ui_atlas.zim.\n\nPlace it in the directory \"assets\" under your PPSSPP directory.");
-		ELOG("Failed to load ui_atlas.zim");
-#if defined(_WIN32) && !PPSSPP_PLATFORM(UWP)
-		UINT ExitCode = 0;
-		ExitProcess(ExitCode);
-#endif
-	}
-
 	uiContext = new UIContext();
 	uiContext->theme = &ui_theme;
 
@@ -713,8 +701,6 @@ void NativeShutdownGraphics() {
 	g_gameInfoCache = nullptr;
 
 	UIBackgroundShutdown();
-
-	uiTexture.reset(nullptr);
 
 	delete uiContext;
 	uiContext = nullptr;
@@ -803,10 +789,6 @@ void RenderOverlays(UIContext *dc, void *userdata) {
 
 void NativeRender(GraphicsContext *graphicsContext) {
 	g_GameManager.Update();
-
-	// If uitexture gets reloaded, make sure we use the latest one.
-	// Not sure this happens anymore now that we tear down all graphics on app switches...
-	uiContext->FrameSetup(uiTexture->GetTexture());
 
 	float xres = dp_xres;
 	float yres = dp_yres;
