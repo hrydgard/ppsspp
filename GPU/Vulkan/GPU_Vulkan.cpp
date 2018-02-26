@@ -46,20 +46,7 @@
 #include "Core/HLE/sceKernelInterrupt.h"
 #include "Core/HLE/sceGe.h"
 
-struct VulkanCommandTableEntry {
-	uint8_t cmd;
-	uint8_t flags;
-	uint64_t dirty;
-	GPU_Vulkan::CmdFunc func;
-};
-
 GPU_Vulkan::CommandInfo GPU_Vulkan::cmdInfo_[256];
-
-// This table gets crunched into a faster form by init.
-static const VulkanCommandTableEntry commandTable[] = {
-	// Changes that trigger data copies. Only flushing on change for LOADCLUT must be a bit of a hack...
-	{ GE_CMD_LOADCLUT, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTE, 0, &GPU_Vulkan::Execute_LoadClut },
-};
 
 GPU_Vulkan::GPU_Vulkan(GraphicsContext *gfxCtx, Draw::DrawContext *draw)
 	: GPUCommon(gfxCtx, draw),
@@ -114,20 +101,6 @@ GPU_Vulkan::GPU_Vulkan(GraphicsContext *gfxCtx, Draw::DrawContext *draw)
 		}
 		cmdInfo_[cmd].flags |= (uint64_t)commonCommandTable[i].flags | (commonCommandTable[i].dirty << 8);
 		cmdInfo_[cmd].func = commonCommandTable[i].func;
-		if ((cmdInfo_[cmd].flags & (FLAG_EXECUTE | FLAG_EXECUTEONCHANGE)) && !cmdInfo_[cmd].func) {
-			Crash();
-		}
-	}
-
-	for (size_t i = 0; i < ARRAY_SIZE(commandTable); i++) {
-		const u8 cmd = commandTable[i].cmd;
-		if (dupeCheck.find(cmd) != dupeCheck.end()) {
-			ERROR_LOG(G3D, "Command table Dupe: %02x (%i)", (int)cmd, (int)cmd);
-		} else {
-			dupeCheck.insert(cmd);
-		}
-		cmdInfo_[cmd].flags |= (uint64_t)commandTable[i].flags | (commandTable[i].dirty << 8);
-		cmdInfo_[cmd].func = commandTable[i].func;
 		if ((cmdInfo_[cmd].flags & (FLAG_EXECUTE | FLAG_EXECUTEONCHANGE)) && !cmdInfo_[cmd].func) {
 			Crash();
 		}
@@ -508,11 +481,6 @@ void GPU_Vulkan::ExecuteOp(u32 op, u32 diff) {
 		if (dirty)
 			gstate_c.Dirty(dirty);
 	}
-}
-
-void GPU_Vulkan::Execute_LoadClut(u32 op, u32 diff) {
-	gstate_c.Dirty(DIRTY_TEXTURE_PARAMS);
-	textureCache_->LoadClut(gstate.getClutAddress(), gstate.getClutLoadBytes());
 }
 
 void GPU_Vulkan::InitDeviceObjects() {

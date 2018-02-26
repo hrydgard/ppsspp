@@ -66,19 +66,6 @@
 #include "Core/HLE/sceKernelInterrupt.h"
 #include "Core/HLE/sceGe.h"
 
-struct D3D11CommandTableEntry {
-	uint8_t cmd;
-	uint8_t flags;
-	uint64_t dirty;
-	GPU_D3D11::CmdFunc func;
-};
-
-// This table gets crunched into a faster form by init.
-static const D3D11CommandTableEntry commandTable[] = {
-	// Changes that trigger data copies. Only flushing on change for LOADCLUT must be a bit of a hack...
-	{ GE_CMD_LOADCLUT, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTE, 0, &GPU_D3D11::Execute_LoadClut },
-};
-
 GPU_D3D11::CommandInfo GPU_D3D11::cmdInfo_[256]{};
 
 GPU_D3D11::GPU_D3D11(GraphicsContext *gfxCtx, Draw::DrawContext *draw)
@@ -129,20 +116,6 @@ GPU_D3D11::GPU_D3D11(GraphicsContext *gfxCtx, Draw::DrawContext *draw)
 		}
 		cmdInfo_[cmd].flags |= (uint64_t)commonCommandTable[i].flags | (commonCommandTable[i].dirty << 8);
 		cmdInfo_[cmd].func = commonCommandTable[i].func;
-		if ((cmdInfo_[cmd].flags & (FLAG_EXECUTE | FLAG_EXECUTEONCHANGE)) && !cmdInfo_[cmd].func) {
-			Crash();
-		}
-	}
-
-	for (size_t i = 0; i < ARRAY_SIZE(commandTable); i++) {
-		const u8 cmd = commandTable[i].cmd;
-		if (dupeCheck.find(cmd) != dupeCheck.end()) {
-			ERROR_LOG(G3D, "Command table Dupe: %02x (%i)", (int)cmd, (int)cmd);
-		} else {
-			dupeCheck.insert(cmd);
-		}
-		cmdInfo_[cmd].flags |= (uint64_t)commandTable[i].flags | (commandTable[i].dirty << 8);
-		cmdInfo_[cmd].func = commandTable[i].func;
 		if ((cmdInfo_[cmd].flags & (FLAG_EXECUTE | FLAG_EXECUTEONCHANGE)) && !cmdInfo_[cmd].func) {
 			Crash();
 		}
@@ -423,12 +396,6 @@ void GPU_D3D11::ExecuteOp(u32 op, u32 diff) {
 		if (dirty)
 			gstate_c.Dirty(dirty);
 	}
-}
-
-void GPU_D3D11::Execute_LoadClut(u32 op, u32 diff) {
-	gstate_c.Dirty(DIRTY_TEXTURE_PARAMS);
-	textureCache_->LoadClut(gstate.getClutAddress(), gstate.getClutLoadBytes());
-	// This could be used to "dirty" textures with clut.
 }
 
 void GPU_D3D11::GetStats(char *buffer, size_t bufsize) {

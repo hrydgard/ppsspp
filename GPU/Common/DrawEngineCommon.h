@@ -56,7 +56,9 @@ public:
 	// Flush is normally non-virtual but here's a virtual way to call it, used by the shared spline code, which is expensive anyway.
 	// Not really sure if these wrappers are worth it...
 	virtual void DispatchFlush() = 0;
-	// Same for SubmitPrim
+
+	// This would seem to be unnecessary now, but is still required for splines/beziers to work in the software backend since SubmitPrim
+	// is different. Should probably refactor that.
 	virtual void DispatchSubmitPrim(void *verts, void *inds, GEPrimitiveType prim, int vertexCount, u32 vertType, int *bytesRead) = 0;
 
 	bool TestBoundingBox(void* control_points, int vertexCount, u32 vertType, int *bytesRead);

@@ -49,6 +49,8 @@ const CommonCommandTableEntry commonCommandTable[] = {
 	// Changing the vertex type requires us to flush.
 	{ GE_CMD_VERTEXTYPE, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE, 0, &GPUCommon::Execute_VertexType },
 
+	{ GE_CMD_LOADCLUT, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTE, 0, &GPUCommon::Execute_LoadClut },
+
 	// These two are actually processed in CMD_END. Not sure if FLAG_FLUSHBEFORE matters.
 	{ GE_CMD_SIGNAL, FLAG_FLUSHBEFORE },
 	{ GE_CMD_FINISH, FLAG_FLUSHBEFORE },
@@ -1352,6 +1354,11 @@ void GPUCommon::Execute_VertexType(u32 op, u32 diff) {
 		if (diff & GE_VTYPE_THROUGH_MASK)
 			gstate_c.Dirty(DIRTY_RASTER_STATE | DIRTY_VIEWPORTSCISSOR_STATE | DIRTY_FRAGMENTSHADER_STATE);
 	}
+}
+
+void GPUCommon::Execute_LoadClut(u32 op, u32 diff) {
+	gstate_c.Dirty(DIRTY_TEXTURE_PARAMS);
+	textureCache_->LoadClut(gstate.getClutAddress(), gstate.getClutLoadBytes());
 }
 
 void GPUCommon::Execute_VertexTypeSkinning(u32 op, u32 diff) {

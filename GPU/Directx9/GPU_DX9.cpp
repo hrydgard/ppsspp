@@ -50,19 +50,6 @@
 
 namespace DX9 {
 
-struct D3D9CommandTableEntry {
-	uint8_t cmd;
-	uint8_t flags;
-	uint64_t dirty;
-	GPU_DX9::CmdFunc func;
-};
-
-// This table gets crunched into a faster form by init.
-static const D3D9CommandTableEntry commandTable[] = {
-	// Changes that trigger data copies. Only flushing on change for LOADCLUT must be a bit of a hack...
-	{ GE_CMD_LOADCLUT, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTE, 0, &GPU_DX9::Execute_LoadClut },
-};
-
 GPU_DX9::CommandInfo GPU_DX9::cmdInfo_[256];
 
 GPU_DX9::GPU_DX9(GraphicsContext *gfxCtx, Draw::DrawContext *draw)
@@ -116,19 +103,6 @@ GPU_DX9::GPU_DX9(GraphicsContext *gfxCtx, Draw::DrawContext *draw)
 		}
 	}
 
-	for (size_t i = 0; i < ARRAY_SIZE(commandTable); i++) {
-		const u8 cmd = commandTable[i].cmd;
-		if (dupeCheck.find(cmd) != dupeCheck.end()) {
-			ERROR_LOG(G3D, "Command table Dupe: %02x (%i)", (int)cmd, (int)cmd);
-		} else {
-			dupeCheck.insert(cmd);
-		}
-		cmdInfo_[cmd].flags |= (uint64_t)commandTable[i].flags | (commandTable[i].dirty << 8);
-		cmdInfo_[cmd].func = commandTable[i].func;
-		if ((cmdInfo_[cmd].flags & (FLAG_EXECUTE | FLAG_EXECUTEONCHANGE)) && !cmdInfo_[cmd].func) {
-			Crash();
-		}
-	}
 	// Find commands missing from the table.
 	for (int i = 0; i < 0xEF; i++) {
 		if (dupeCheck.find((u8)i) == dupeCheck.end()) {

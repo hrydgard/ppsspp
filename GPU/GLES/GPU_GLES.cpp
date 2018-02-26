@@ -51,20 +51,6 @@
 #include "Windows/GPU/WindowsGLContext.h"
 #endif
 
-struct GLESCommandTableEntry {
-	uint8_t cmd;
-	uint8_t flags;
-	uint64_t dirty;
-	GPU_GLES::CmdFunc func;
-};
-
-// This table gets crunched into a faster form by init.
-// TODO: Share this table between the backends. Will have to make another indirection for the function pointers though..
-static const GLESCommandTableEntry commandTable[] = {
-	// Changes that trigger data copies. Only flushing on change for LOADCLUT must be a bit of a hack...
-	{ GE_CMD_LOADCLUT, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTE, 0, &GPU_GLES::Execute_LoadClut },
-};
-
 GPU_GLES::CommandInfo GPU_GLES::cmdInfo_[256];
 
 GPU_GLES::GPU_GLES(GraphicsContext *gfxCtx, Draw::DrawContext *draw)
@@ -120,19 +106,6 @@ GPU_GLES::GPU_GLES(GraphicsContext *gfxCtx, Draw::DrawContext *draw)
 		}
 	}
 
-	for (size_t i = 0; i < ARRAY_SIZE(commandTable); i++) {
-		const u8 cmd = commandTable[i].cmd;
-		if (dupeCheck.find(cmd) != dupeCheck.end()) {
-			ERROR_LOG(G3D, "Command table Dupe: %02x (%i)", (int)cmd, (int)cmd);
-		} else {
-			dupeCheck.insert(cmd);
-		}
-		cmdInfo_[cmd].flags |= (uint64_t)commandTable[i].flags | (commandTable[i].dirty << 8);
-		cmdInfo_[cmd].func = commandTable[i].func;
-		if ((cmdInfo_[cmd].flags & (FLAG_EXECUTE | FLAG_EXECUTEONCHANGE)) && !cmdInfo_[cmd].func) {
-			Crash();
-		}
-	}
 	// Find commands missing from the table.
 	for (int i = 0; i < 0xEF; i++) {
 		if (dupeCheck.find((u8)i) == dupeCheck.end()) {
@@ -613,11 +586,6 @@ void GPU_GLES::ExecuteOp(u32 op, u32 diff) {
 		if (dirty)
 			gstate_c.Dirty(dirty);
 	}
-}
-
-void GPU_GLES::Execute_LoadClut(u32 op, u32 diff) {
-	gstate_c.Dirty(DIRTY_TEXTURE_PARAMS);
-	textureCache_->LoadClut(gstate.getClutAddress(), gstate.getClutLoadBytes());
 }
 
 void GPU_GLES::GetStats(char *buffer, size_t bufsize) {

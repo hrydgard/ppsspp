@@ -135,6 +135,8 @@ public:
 	void Execute_BoundingBox(u32 op, u32 diff);
 	void Execute_BlockTransferStart(u32 op, u32 diff);
 
+	void Execute_LoadClut(u32 op, u32 diff);
+
 	void Execute_TexSize0(u32 op, u32 diff);
 	void Execute_TexLevel(u32 op, u32 diff);
 
