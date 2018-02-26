@@ -301,9 +301,9 @@ struct DescriptorSetKey {
 
 class VKTexture : public Texture {
 public:
-	VKTexture(VulkanContext *vulkan, VkCommandBuffer cmd, const TextureDesc &desc, VulkanDeviceAllocator *alloc)
+	VKTexture(VulkanContext *vulkan, VkCommandBuffer cmd, VulkanPushBuffer *pushBuffer, const TextureDesc &desc, VulkanDeviceAllocator *alloc)
 		: vulkan_(vulkan), mipLevels_(desc.mipLevels), format_(desc.format) {
-		bool result = Create(cmd, desc, alloc);
+		bool result = Create(cmd, pushBuffer, desc, alloc);
 		assert(result);
 	}
 
@@ -314,9 +314,7 @@ public:
 	VkImageView GetImageView() { return vkTex_->GetImageView(); }
 
 private:
-	void SetImageData(VkCommandBuffer cmd, int x, int y, int z, int width, int height, int depth, int level, int stride, const uint8_t *data);
-
-	bool Create(VkCommandBuffer cmd, const TextureDesc &desc, VulkanDeviceAllocator *alloc);
+	bool Create(VkCommandBuffer cmd, VulkanPushBuffer *pushBuffer, const TextureDesc &desc, VulkanDeviceAllocator *alloc);
 
 	void Destroy() {
 		if (vkTex_) {
@@ -650,20 +648,45 @@ enum class TextureState {
 	PENDING_DESTRUCTION,
 };
 
-bool VKTexture::Create(VkCommandBuffer cmd, const TextureDesc &desc, VulkanDeviceAllocator *alloc) {
+bool VKTexture::Create(VkCommandBuffer cmd, VulkanPushBuffer *push, const TextureDesc &desc, VulkanDeviceAllocator *alloc) {
 	// Zero-sized textures not allowed.
 	assert(desc.width * desc.height * desc.depth > 0);
+	assert(push);
 	format_ = desc.format;
 	mipLevels_ = desc.mipLevels;
 	width_ = desc.width;
 	height_ = desc.height;
 	depth_ = desc.depth;
 	vkTex_ = new VulkanTexture(vulkan_, alloc);
+	VkFormat vulkanFormat = DataFormatToVulkan(format_);
+	int stride = desc.width * (int)DataFormatSizeInBytes(format_);
+	int bpp = GetBpp(vulkanFormat);
+	int bytesPerPixel = bpp / 8;
+	int usageBits = VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
+	if (mipLevels_ > (int)desc.initData.size()) {
+		// Gonna have to generate some, which requires TRANSFER_SRC
+		usageBits |= VK_IMAGE_USAGE_TRANSFER_SRC_BIT;
+	}
+	vkTex_->CreateDirect(cmd, width_, height_, mipLevels_, vulkanFormat, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, usageBits);
 	if (desc.initData.size()) {
-		for (int i = 0; i < (int)desc.initData.size(); i++) {
-			this->SetImageData(cmd, 0, 0, 0, width_, height_, depth_, i, 0, desc.initData[i]);
+		int w = width_;
+		int h = height_;
+		int i;
+		for (i = 0; i < (int)desc.initData.size(); i++) {
+			uint32_t offset;
+			VkBuffer buf;
+			size_t size = w * h * bytesPerPixel;
+			offset = push->PushAligned((const void *)desc.initData[i], size, 16, &buf);
+			vkTex_->UploadMip(cmd, i, w, h, buf, offset, w);
+			w = (w + 1) / 2;
+			h = (h + 1) / 2;
+		}
+		// Generate the rest of the mips automatically.
+		for (; i < mipLevels_; i++) {
+			vkTex_->GenerateMip(cmd, i);
 		}
 	}
+	vkTex_->EndCreate(cmd, false);
 	return true;
 }
 
@@ -703,13 +726,13 @@ VKContext::VKContext(VulkanContext *vulkan, bool splitSubmit)
 	dpTypes[1].descriptorCount = 200;
 	dpTypes[1].type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
 
-	VkDescriptorPoolCreateInfo dp = { VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO };
+	VkDescriptorPoolCreateInfo dp{ VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO };
 	dp.flags = 0;   // Don't want to mess around with individually freeing these, let's go dynamic each frame.
 	dp.maxSets = 200;  // 200 textures per frame should be enough for the UI...
 	dp.pPoolSizes = dpTypes;
 	dp.poolSizeCount = ARRAY_SIZE(dpTypes);
 
-	VkCommandPoolCreateInfo p = { VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO };
+	VkCommandPoolCreateInfo p{ VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO };
 	p.flags = VK_COMMAND_POOL_CREATE_TRANSIENT_BIT;
 	p.queueFamilyIndex = vulkan->GetGraphicsQueueFamilyIndex();
 
@@ -994,23 +1017,7 @@ InputLayout *VKContext::CreateInputLayout(const InputLayoutDesc &desc) {
 }
 
 Texture *VKContext::CreateTexture(const TextureDesc &desc) {
-	return new VKTexture(vulkan_, renderManager_.GetInitCmd(), desc, allocator_);
-}
-
-void VKTexture::SetImageData(VkCommandBuffer cmd, int x, int y, int z, int width, int height, int depth, int level, int stride, const uint8_t *data) {
-	VkFormat vulkanFormat = DataFormatToVulkan(format_);
-	if (stride == 0) {
-		stride = width * (int)DataFormatSizeInBytes(format_);
-	}
-	int bpp = GetBpp(vulkanFormat);
-	int bytesPerPixel = bpp / 8;
-	vkTex_->Create(width, height, vulkanFormat);
-	int rowPitch;
-	uint8_t *dstData = vkTex_->Lock(0, &rowPitch);
-	for (int y = 0; y < height; y++) {
-		memcpy(dstData + rowPitch * y, data + stride * y, width * bytesPerPixel);
-	}
-	vkTex_->Unlock(cmd);
+	return new VKTexture(vulkan_, renderManager_.GetInitCmd(), push_, desc, allocator_);
 }
 
 static inline void CopySide(VkStencilOpState &dest, const StencilSide &src) {

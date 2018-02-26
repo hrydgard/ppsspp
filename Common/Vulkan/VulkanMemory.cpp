@@ -36,7 +36,7 @@ VulkanPushBuffer::~VulkanPushBuffer() {
 bool VulkanPushBuffer::AddBuffer() {
 	BufInfo info;
 
-	VkBufferCreateInfo b = { VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO };
+	VkBufferCreateInfo b{ VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO };
 	b.size = size_;
 	b.flags = 0;
 	b.usage = VK_BUFFER_USAGE_INDEX_BUFFER_BIT | VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT;
@@ -56,7 +56,7 @@ bool VulkanPushBuffer::AddBuffer() {
 	// TODO: We really should use memoryTypeIndex here..
 
 	// Okay, that's the buffer. Now let's allocate some memory for it.
-	VkMemoryAllocateInfo alloc = { VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO };
+	VkMemoryAllocateInfo alloc{ VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO };
 	// TODO: Should check here that memoryTypeIndex_ matches reqs.memoryTypeBits.
 	alloc.memoryTypeIndex = memoryTypeIndex_;
 	alloc.allocationSize = reqs.size;
@@ -145,7 +145,7 @@ void VulkanPushBuffer::Unmap() {
 	assert(writePtr_);
 	/*
 	// Should not need this since we use coherent memory.
-	VkMappedMemoryRange range = { VK_STRUCTURE_TYPE_MAPPED_MEMORY_RANGE };
+	VkMappedMemoryRange range{ VK_STRUCTURE_TYPE_MAPPED_MEMORY_RANGE };
 	range.offset = 0;
 	range.size = offset_;
 	range.memory = buffers_[buf_].deviceMemory;
@@ -380,7 +380,7 @@ bool VulkanDeviceAllocator::AllocateSlab(VkDeviceSize minBytes) {
 		minSlabSize_ <<= 1;
 	}
 
-	VkMemoryAllocateInfo alloc = { VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO };
+	VkMemoryAllocateInfo alloc{ VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO };
 	alloc.allocationSize = minSlabSize_;
 	alloc.memoryTypeIndex = memoryTypeIndex_;
 
