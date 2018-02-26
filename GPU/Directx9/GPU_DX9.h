@@ -59,12 +59,6 @@ public:
 		fullInfo = reportingFullInfo_;
 	}
 
-	typedef void (GPU_DX9::*CmdFunc)(u32 op, u32 diff);
-	struct CommandInfo {
-		uint64_t flags;
-		GPU_DX9::CmdFunc func;
-	};
-
 	// Using string because it's generic - makes no assumptions on the size of the shader IDs of this backend.
 	std::vector<std::string> DebugGetShaderIDs(DebugShaderType shader) override;
 	std::string DebugGetShaderString(std::string id, DebugShaderType shader, DebugShaderStringType stringType) override;
@@ -97,8 +91,6 @@ private:
 	DepalShaderCacheDX9 depalShaderCache_;
 	DrawEngineDX9 drawEngine_;
 	ShaderManagerDX9 *shaderManagerDX9_;
-
-	static CommandInfo cmdInfo_[256];
 
 	int lastVsync_;
 	int vertexCost_ = 0;

@@ -66,8 +66,6 @@
 #include "Core/HLE/sceKernelInterrupt.h"
 #include "Core/HLE/sceGe.h"
 
-GPU_D3D11::CommandInfo GPU_D3D11::cmdInfo_[256]{};
-
 GPU_D3D11::GPU_D3D11(GraphicsContext *gfxCtx, Draw::DrawContext *draw)
 	: GPUCommon(gfxCtx, draw), drawEngine_(draw,
 	(ID3D11Device *)draw->GetNativeObject(Draw::NativeObject::DEVICE),
@@ -101,31 +99,6 @@ GPU_D3D11::GPU_D3D11(GraphicsContext *gfxCtx, Draw::DrawContext *draw)
 	// Sanity check gstate
 	if ((int *)&gstate.transferstart - (int *)&gstate != 0xEA) {
 		ERROR_LOG(G3D, "gstate has drifted out of sync!");
-	}
-
-	memset(cmdInfo_, 0, sizeof(cmdInfo_));
-
-	// Import both the global and local command tables, and check for dupes
-	std::set<u8> dupeCheck;
-	for (size_t i = 0; i < commonCommandTableSize; i++) {
-		const u8 cmd = commonCommandTable[i].cmd;
-		if (dupeCheck.find(cmd) != dupeCheck.end()) {
-			ERROR_LOG(G3D, "Command table Dupe: %02x (%i)", (int)cmd, (int)cmd);
-		} else {
-			dupeCheck.insert(cmd);
-		}
-		cmdInfo_[cmd].flags |= (uint64_t)commonCommandTable[i].flags | (commonCommandTable[i].dirty << 8);
-		cmdInfo_[cmd].func = commonCommandTable[i].func;
-		if ((cmdInfo_[cmd].flags & (FLAG_EXECUTE | FLAG_EXECUTEONCHANGE)) && !cmdInfo_[cmd].func) {
-			Crash();
-		}
-	}
-
-	// Find commands missing from the table.
-	for (int i = 0; i < 0xEF; i++) {
-		if (dupeCheck.find((u8)i) == dupeCheck.end()) {
-			ERROR_LOG(G3D, "Command missing from table: %02x (%i)", i, i);
-		}
 	}
 
 	// No need to flush before the tex scale/offset commands if we are baking

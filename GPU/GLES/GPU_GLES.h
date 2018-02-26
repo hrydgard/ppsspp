@@ -63,12 +63,6 @@ public:
 		fullInfo = reportingFullInfo_;
 	}
 
-	typedef void (GPU_GLES::*CmdFunc)(u32 op, u32 diff);
-	struct CommandInfo {
-		uint64_t flags;
-		GPU_GLES::CmdFunc func;
-	};
-
 	// Using string because it's generic - makes no assumptions on the size of the shader IDs of this backend.
 	std::vector<std::string> DebugGetShaderIDs(DebugShaderType shader) override;
 	std::string DebugGetShaderString(std::string id, DebugShaderType shader, DebugShaderStringType stringType) override;
@@ -94,8 +88,6 @@ private:
 
 	inline void UpdateVsyncInterval(bool force);
 	void UpdateCmdInfo();
-
-	static CommandInfo cmdInfo_[256];
 
 	FramebufferManagerGLES *framebufferManagerGL_;
 	TextureCacheGLES *textureCacheGL_;

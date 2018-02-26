@@ -295,6 +295,14 @@ protected:
 	GraphicsContext *gfxCtx_;
 	Draw::DrawContext *draw_;
 
+	typedef void (GPUCommon::*CmdFunc)(u32 op, u32 diff);
+	struct CommandInfo {
+		uint64_t flags;
+		GPUCommon::CmdFunc func;
+	};
+
+	static CommandInfo cmdInfo_[256];
+
 	typedef std::list<int> DisplayListQueue;
 
 	int nextListID;

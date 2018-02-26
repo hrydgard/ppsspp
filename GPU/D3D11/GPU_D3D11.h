@@ -58,12 +58,6 @@ public:
 		fullInfo = reportingFullInfo_;
 	}
 
-	typedef void (GPU_D3D11::*CmdFunc)(u32 op, u32 diff);
-	struct CommandInfo {
-		uint64_t flags;
-		GPU_D3D11::CmdFunc func;
-	};
-
 	// Using string because it's generic - makes no assumptions on the size of the shader IDs of this backend.
 	std::vector<std::string> DebugGetShaderIDs(DebugShaderType shader) override;
 	std::string DebugGetShaderString(std::string id, DebugShaderType shader, DebugShaderStringType stringType) override;
@@ -97,8 +91,6 @@ private:
 	DepalShaderCacheD3D11 *depalShaderCache_;
 	DrawEngineD3D11 drawEngine_;
 	ShaderManagerD3D11 *shaderManagerD3D11_;
-
-	static CommandInfo cmdInfo_[256];
 
 	int lastVsync_;
 	int vertexCost_ = 0;

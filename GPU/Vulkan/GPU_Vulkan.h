@@ -62,12 +62,6 @@ public:
 		fullInfo = reportingFullInfo_;
 	}
 
-	typedef void (GPU_Vulkan::*CmdFunc)(u32 op, u32 diff);
-	struct CommandInfo {
-		uint64_t flags;
-		GPU_Vulkan::CmdFunc func;
-	};
-
 	// Using string because it's generic - makes no assumptions on the size of the shader IDs of this backend.
 	std::vector<std::string> DebugGetShaderIDs(DebugShaderType shader) override;
 	std::string DebugGetShaderString(std::string id, DebugShaderType shader, DebugShaderStringType stringType) override;
@@ -94,8 +88,6 @@ private:
 
 	void InitDeviceObjects();
 	void DestroyDeviceObjects();
-
-	static CommandInfo cmdInfo_[256];
 
 	VulkanContext *vulkan_;
 	FramebufferManagerVulkan *framebufferManagerVulkan_;
