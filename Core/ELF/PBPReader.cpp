@@ -45,7 +45,7 @@ PBPReader::PBPReader(FileLoader *fileLoader) : file_(nullptr), header_(), isELF_
 		return;
 	}
 
-	DEBUG_LOG(LOADER, "Loading PBP, version = %08x", header_.version);
+	VERBOSE_LOG(LOADER, "Loading PBP, version = %08x", header_.version);
 	file_ = fileLoader;
 }
 

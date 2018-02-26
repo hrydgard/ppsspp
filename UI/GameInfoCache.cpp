@@ -460,13 +460,13 @@ handleELF:
 				std::string screenshot_jpg = GetSysDirectory(DIRECTORY_SCREENSHOT) + info_->id + "_00000.jpg";
 				std::string screenshot_png = GetSysDirectory(DIRECTORY_SCREENSHOT) + info_->id + "_00000.png";
 				// Try using png/jpg screenshots first
-				if (File::Exists(screenshot_png))
+				if (File::Exists(screenshot_png)) {
 					readFileToString(false, screenshot_png.c_str(), info_->icon.data);
-				else if (File::Exists(screenshot_jpg))
+				} else if (File::Exists(screenshot_jpg)) {
 					readFileToString(false, screenshot_jpg.c_str(), info_->icon.data);
-				else {
+				} else {
 					// Read standard icon
-					DEBUG_LOG(LOADER, "Loading unknown.png because there was an ELF");
+					VERBOSE_LOG(LOADER, "Loading unknown.png because there was an ELF");
 					ReadVFSToString("unknown.png", &info_->icon.data, &info_->lock);
 				}
 				info_->icon.dataLoaded = true;
