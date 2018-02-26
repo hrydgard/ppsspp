@@ -59,7 +59,9 @@ public:
 
 	// This would seem to be unnecessary now, but is still required for splines/beziers to work in the software backend since SubmitPrim
 	// is different. Should probably refactor that.
-	virtual void DispatchSubmitPrim(void *verts, void *inds, GEPrimitiveType prim, int vertexCount, u32 vertType, int *bytesRead) = 0;
+	virtual void DispatchSubmitPrim(void *verts, void *inds, GEPrimitiveType prim, int vertexCount, u32 vertType, int *bytesRead) {
+		SubmitPrim(verts, inds, prim, vertexCount, vertType, bytesRead);
+	}
 
 	bool TestBoundingBox(void* control_points, int vertexCount, u32 vertType, int *bytesRead);
 

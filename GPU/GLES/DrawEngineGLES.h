@@ -144,9 +144,6 @@ public:
 	bool IsCodePtrVertexDecoder(const u8 *ptr) const;
 
 	void DispatchFlush() override { Flush(); }
-	void DispatchSubmitPrim(void *verts, void *inds, GEPrimitiveType prim, int vertexCount, u32 vertType, int *bytesRead) override {
-		SubmitPrim(verts, inds, prim, vertexCount, vertType, bytesRead);
-	}
 
 	GLPushBuffer *GetPushVertexBuffer() {
 		return frameData_[render_->GetCurFrame()].pushVertex;
