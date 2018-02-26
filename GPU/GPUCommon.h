@@ -300,7 +300,6 @@ protected:
 	GraphicsContext *gfxCtx_;
 	Draw::DrawContext *draw_;
 
-	typedef void (GPUCommon::*CmdFunc)(u32 op, u32 diff);
 	struct CommandInfo {
 		uint64_t flags;
 		GPUCommon::CmdFunc func;
