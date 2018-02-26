@@ -376,44 +376,6 @@ void GPU_Vulkan::CopyDisplayToOutput() {
 	gstate_c.Dirty(DIRTY_TEXTURE_IMAGE);
 }
 
-// Maybe should write this in ASM...
-void GPU_Vulkan::FastRunLoop(DisplayList &list) {
-	PROFILE_THIS_SCOPE("gpuloop");
-	const CommandInfo *cmdInfo = cmdInfo_;
-	int dc = downcount;
-	for (; dc > 0; --dc) {
-		// We know that display list PCs have the upper nibble == 0 - no need to mask the pointer
-		const u32 op = *(const u32 *)(Memory::base + list.pc);
-		const u32 cmd = op >> 24;
-		const CommandInfo &info = cmdInfo[cmd];
-		const u32 diff = op ^ gstate.cmdmem[cmd];
-		if (diff == 0) {
-			if (info.flags & FLAG_EXECUTE) {
-				downcount = dc;
-				(this->*info.func)(op, diff);
-				dc = downcount;
-			}
-		} else {
-			uint64_t flags = info.flags;
-			if (flags & FLAG_FLUSHBEFOREONCHANGE) {
-				drawEngine_.Flush();
-			}
-			gstate.cmdmem[cmd] = op;
-			if (flags & (FLAG_EXECUTE | FLAG_EXECUTEONCHANGE)) {
-				downcount = dc;
-				(this->*info.func)(op, diff);
-				dc = downcount;
-			} else {
-				uint64_t dirty = flags >> 8;
-				if (dirty)
-					gstate_c.Dirty(dirty);
-			}
-		}
-		list.pc += 4;
-	}
-	downcount = 0;
-}
-
 void GPU_Vulkan::FinishDeferred() {
 	drawEngine_.FinishDeferred();
 }

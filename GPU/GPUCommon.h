@@ -265,8 +265,8 @@ protected:
 
 	void BeginFrame() override;
 
-	// To avoid virtual calls to PreExecuteOp().
-	virtual void FastRunLoop(DisplayList &list) = 0;
+	virtual void FastRunLoop(DisplayList &list);
+
 	void SlowRunLoop(DisplayList &list);
 	void UpdatePC(u32 currentPC, u32 newPC);
 	void UpdateState(GPURunState state);

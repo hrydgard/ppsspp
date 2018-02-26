@@ -66,7 +66,6 @@ public:
 	void BeginHostFrame() override;
 
 protected:
-	void FastRunLoop(DisplayList &list) override;
 	void FinishDeferred() override;
 
 private:
