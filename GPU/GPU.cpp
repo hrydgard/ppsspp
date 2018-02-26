@@ -110,6 +110,6 @@ bool GPU_Init(GraphicsContext *ctx, Draw::DrawContext *draw) {
 
 void GPU_Shutdown() {
 	delete gpu;
-	gpu = 0;
+	gpu = nullptr;
 	gpuDebug = 0;
 }

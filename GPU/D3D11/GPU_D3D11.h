@@ -36,7 +36,7 @@ public:
 	GPU_D3D11(GraphicsContext *gfxCtx, Draw::DrawContext *draw);
 	~GPU_D3D11();
 
-	void CheckGPUFeatures();
+	void CheckGPUFeatures() override;
 	void PreExecuteOp(u32 op, u32 diff) override;
 	void ExecuteOp(u32 op, u32 diff) override;
 
@@ -50,22 +50,11 @@ public:
 	void DoState(PointerWrap &p) override;
 
 	void ClearShaderCache() override;
-	bool FramebufferDirty() override;
-	bool FramebufferReallyDirty() override;
 
 	void GetReportingInfo(std::string &primaryInfo, std::string &fullInfo) override {
 		primaryInfo = reportingPrimaryInfo_;
 		fullInfo = reportingFullInfo_;
 	}
-
-	typedef void (GPU_D3D11::*CmdFunc)(u32 op, u32 diff);
-	struct CommandInfo {
-		uint64_t flags;
-		GPU_D3D11::CmdFunc func;
-	};
-
-	void Execute_Prim(u32 op, u32 diff);
-	void Execute_LoadClut(u32 op, u32 diff);
 
 	// Using string because it's generic - makes no assumptions on the size of the shader IDs of this backend.
 	std::vector<std::string> DebugGetShaderIDs(DebugShaderType shader) override;
@@ -75,12 +64,9 @@ public:
 	void EndHostFrame() override;
 
 protected:
-	void FastRunLoop(DisplayList &list) override;
 	void FinishDeferred() override;
 
 private:
-	void UpdateCmdInfo();
-
 	void Flush() {
 		drawEngine_.Flush();
 	}
@@ -100,8 +86,6 @@ private:
 	DepalShaderCacheD3D11 *depalShaderCache_;
 	DrawEngineD3D11 drawEngine_;
 	ShaderManagerD3D11 *shaderManagerD3D11_;
-
-	static CommandInfo cmdInfo_[256];
 
 	int lastVsync_;
 	int vertexCost_ = 0;

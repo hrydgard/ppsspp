@@ -56,10 +56,16 @@ public:
 	// Flush is normally non-virtual but here's a virtual way to call it, used by the shared spline code, which is expensive anyway.
 	// Not really sure if these wrappers are worth it...
 	virtual void DispatchFlush() = 0;
-	// Same for SubmitPrim
-	virtual void DispatchSubmitPrim(void *verts, void *inds, GEPrimitiveType prim, int vertexCount, u32 vertType, int *bytesRead) = 0;
+
+	// This would seem to be unnecessary now, but is still required for splines/beziers to work in the software backend since SubmitPrim
+	// is different. Should probably refactor that.
+	virtual void DispatchSubmitPrim(void *verts, void *inds, GEPrimitiveType prim, int vertexCount, u32 vertType, int *bytesRead) {
+		SubmitPrim(verts, inds, prim, vertexCount, vertType, bytesRead);
+	}
 
 	bool TestBoundingBox(void* control_points, int vertexCount, u32 vertType, int *bytesRead);
+
+	void SubmitPrim(void *verts, void *inds, GEPrimitiveType prim, int vertexCount, u32 vertType, int *bytesRead);
 	void SubmitSpline(const void *control_points, const void *indices, int tess_u, int tess_v, int count_u, int count_v, int type_u, int type_v, GEPatchPrimType prim_type, bool computeNormals, bool patchFacing, u32 vertType, int *bytesRead);
 	void SubmitBezier(const void *control_points, const void *indices, int tess_u, int tess_v, int count_u, int count_v, GEPatchPrimType prim_type, bool computeNormals, bool patchFacing, u32 vertType, int *bytesRead);
 
@@ -72,6 +78,9 @@ public:
 
 	bool IsCodePtrVertexDecoder(const u8 *ptr) const {
 		return decJitCache_->IsInSpace(ptr);
+	}
+	int GetNumDrawCalls() const {
+		return numDrawCalls;
 	}
 
 protected:

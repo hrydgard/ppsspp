@@ -42,6 +42,15 @@ const CommonCommandTableEntry commonCommandTable[] = {
 	{ GE_CMD_BJUMP, FLAG_EXECUTE | FLAG_READS_PC | FLAG_WRITES_PC, 0, &GPUCommon::Execute_BJump },  // EXECUTE
 	{ GE_CMD_BOUNDINGBOX, FLAG_EXECUTE, 0, &GPUCommon::Execute_BoundingBox }, // + FLUSHBEFORE when we implement... or not, do we need to?
 
+	{ GE_CMD_PRIM, FLAG_EXECUTE, 0, &GPUCommon::Execute_Prim },
+	{ GE_CMD_BEZIER, FLAG_FLUSHBEFORE | FLAG_EXECUTE, 0, &GPUCommon::Execute_Bezier },
+	{ GE_CMD_SPLINE, FLAG_FLUSHBEFORE | FLAG_EXECUTE, 0, &GPUCommon::Execute_Spline },
+
+	// Changing the vertex type requires us to flush.
+	{ GE_CMD_VERTEXTYPE, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE, 0, &GPUCommon::Execute_VertexType },
+
+	{ GE_CMD_LOADCLUT, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTE, 0, &GPUCommon::Execute_LoadClut },
+
 	// These two are actually processed in CMD_END. Not sure if FLAG_FLUSHBEFORE matters.
 	{ GE_CMD_SIGNAL, FLAG_FLUSHBEFORE },
 	{ GE_CMD_FINISH, FLAG_FLUSHBEFORE },
@@ -121,7 +130,7 @@ const CommonCommandTableEntry commonCommandTable[] = {
 	{ GE_CMD_TEXOFFSETU },
 	{ GE_CMD_TEXOFFSETV },
 
-	// TEXSIZE0 is handled by each backend.
+	{ GE_CMD_TEXSIZE0, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTE, 0, &GPUCommon::Execute_TexSize0 },
 	{ GE_CMD_TEXSIZE1, FLAG_FLUSHBEFOREONCHANGE, DIRTY_TEXTURE_PARAMS },
 	{ GE_CMD_TEXSIZE2, FLAG_FLUSHBEFOREONCHANGE, DIRTY_TEXTURE_PARAMS },
 	{ GE_CMD_TEXSIZE3, FLAG_FLUSHBEFOREONCHANGE, DIRTY_TEXTURE_PARAMS },
@@ -343,6 +352,9 @@ const CommonCommandTableEntry commonCommandTable[] = {
 };
 size_t commonCommandTableSize = ARRAY_SIZE(commonCommandTable);
 
+// TODO: Make class member?
+GPUCommon::CommandInfo GPUCommon::cmdInfo_[256];
+
 void GPUCommon::Flush() {
 	drawEngineCommon_->DispatchFlush();
 }
@@ -366,9 +378,45 @@ GPUCommon::GPUCommon(GraphicsContext *gfxCtx, Draw::DrawContext *draw) :
 	gstate.Reset();
 	gstate_c.Reset();
 	gpuStats.Reset();
+
+	memset(cmdInfo_, 0, sizeof(cmdInfo_));
+
+	// Import both the global and local command tables, and check for dupes
+	std::set<u8> dupeCheck;
+	for (size_t i = 0; i < commonCommandTableSize; i++) {
+		const u8 cmd = commonCommandTable[i].cmd;
+		if (dupeCheck.find(cmd) != dupeCheck.end()) {
+			ERROR_LOG(G3D, "Command table Dupe: %02x (%i)", (int)cmd, (int)cmd);
+		} else {
+			dupeCheck.insert(cmd);
+		}
+		cmdInfo_[cmd].flags |= (uint64_t)commonCommandTable[i].flags | (commonCommandTable[i].dirty << 8);
+		cmdInfo_[cmd].func = commonCommandTable[i].func;
+		if ((cmdInfo_[cmd].flags & (FLAG_EXECUTE | FLAG_EXECUTEONCHANGE)) && !cmdInfo_[cmd].func) {
+			Crash();
+		}
+	}
+	// Find commands missing from the table.
+	for (int i = 0; i < 0xEF; i++) {
+		if (dupeCheck.find((u8)i) == dupeCheck.end()) {
+			ERROR_LOG(G3D, "Command missing from table: %02x (%i)", i, i);
+		}
+	}
+
+	UpdateCmdInfo();
 }
 
 GPUCommon::~GPUCommon() {
+}
+
+void GPUCommon::UpdateCmdInfo() {
+	if (g_Config.bSoftwareSkinning) {
+		cmdInfo_[GE_CMD_VERTEXTYPE].flags &= ~FLAG_FLUSHBEFOREONCHANGE;
+		cmdInfo_[GE_CMD_VERTEXTYPE].func = &GPUCommon::Execute_VertexTypeSkinning;
+	} else {
+		cmdInfo_[GE_CMD_VERTEXTYPE].flags |= FLAG_FLUSHBEFOREONCHANGE;
+		cmdInfo_[GE_CMD_VERTEXTYPE].func = &GPUCommon::Execute_VertexType;
+	}
 }
 
 void GPUCommon::BeginHostFrame() {
@@ -917,6 +965,46 @@ bool GPUCommon::InterpretList(DisplayList &list) {
 	return gpuState == GPUSTATE_DONE || gpuState == GPUSTATE_ERROR;
 }
 
+// Maybe should write this in ASM...
+void GPUCommon::FastRunLoop(DisplayList &list) {
+	PROFILE_THIS_SCOPE("gpuloop");
+	const CommandInfo *cmdInfo = cmdInfo_;
+	int dc = downcount;
+	for (; dc > 0; --dc) {
+		// We know that display list PCs have the upper nibble == 0 - no need to mask the pointer
+		const u32 op = *(const u32 *)(Memory::base + list.pc);
+		const u32 cmd = op >> 24;
+		const CommandInfo &info = cmdInfo[cmd];
+		const u32 diff = op ^ gstate.cmdmem[cmd];
+		if (diff == 0) {
+			if (info.flags & FLAG_EXECUTE) {
+				downcount = dc;
+				(this->*info.func)(op, diff);
+				dc = downcount;
+			}
+		} else {
+			uint64_t flags = info.flags;
+			if (flags & FLAG_FLUSHBEFOREONCHANGE) {
+				if (drawEngineCommon_->GetNumDrawCalls()) {
+					drawEngineCommon_->DispatchFlush();
+				}
+			}
+			gstate.cmdmem[cmd] = op;
+			if (flags & (FLAG_EXECUTE | FLAG_EXECUTEONCHANGE)) {
+				downcount = dc;
+				(this->*info.func)(op, diff);
+				dc = downcount;
+			} else {
+				uint64_t dirty = flags >> 8;
+				if (dirty)
+					gstate_c.Dirty(dirty);
+			}
+		}
+		list.pc += 4;
+	}
+	downcount = 0;
+}
+
 void GPUCommon::BeginFrame() {
 	immCount_ = 0;
 	if (dumpNextFrame_) {
@@ -1347,6 +1435,11 @@ void GPUCommon::Execute_VertexType(u32 op, u32 diff) {
 	}
 }
 
+void GPUCommon::Execute_LoadClut(u32 op, u32 diff) {
+	gstate_c.Dirty(DIRTY_TEXTURE_PARAMS);
+	textureCache_->LoadClut(gstate.getClutAddress(), gstate.getClutLoadBytes());
+}
+
 void GPUCommon::Execute_VertexTypeSkinning(u32 op, u32 diff) {
 	// Don't flush when weight count changes, unless morph is enabled.
 	if ((diff & ~GE_VTYPE_WEIGHTCOUNT_MASK) || (op & GE_VTYPE_MORPHCOUNT_MASK) != 0) {
@@ -1366,6 +1459,81 @@ void GPUCommon::Execute_VertexTypeSkinning(u32 op, u32 diff) {
 	}
 	if (diff & GE_VTYPE_THROUGH_MASK)
 		gstate_c.Dirty(DIRTY_RASTER_STATE | DIRTY_VIEWPORTSCISSOR_STATE | DIRTY_FRAGMENTSHADER_STATE);
+}
+
+
+void GPUCommon::Execute_Prim(u32 op, u32 diff) {
+	// This drives all drawing. All other state we just buffer up, then we apply it only
+	// when it's time to draw. As most PSP games set state redundantly ALL THE TIME, this is a huge optimization.
+
+	PROFILE_THIS_SCOPE("execprim");
+
+	u32 data = op & 0xFFFFFF;
+	u32 count = data & 0xFFFF;
+	if (count == 0)
+		return;
+
+	// Upper bits are ignored.
+	GEPrimitiveType prim = static_cast<GEPrimitiveType>((data >> 16) & 7);
+	SetDrawType(DRAW_PRIM, prim);
+
+	// Discard AA lines as we can't do anything that makes sense with these anyway. The SW plugin might, though.
+	if (gstate.isAntiAliasEnabled()) {
+		// Discard AA lines in DOA
+		if (prim == GE_PRIM_LINE_STRIP)
+			return;
+		// Discard AA lines in Summon Night 5
+		if ((prim == GE_PRIM_LINES) && gstate.isSkinningEnabled())
+			return;
+	}
+
+	// This also makes skipping drawing very effective.
+	framebufferManager_->SetRenderFrameBuffer(gstate_c.IsDirty(DIRTY_FRAMEBUF), gstate_c.skipDrawReason);
+
+	if (gstate_c.skipDrawReason & (SKIPDRAW_SKIPFRAME | SKIPDRAW_NON_DISPLAYED_FB)) {
+		drawEngineCommon_->SetupVertexDecoder(gstate.vertType);  // Do we still need to do this?
+																											// Rough estimate, not sure what's correct.
+		cyclesExecuted += EstimatePerVertexCost() * count;
+		return;
+	}
+
+	if (!Memory::IsValidAddress(gstate_c.vertexAddr)) {
+		ERROR_LOG_REPORT(G3D, "Bad vertex address %08x!", gstate_c.vertexAddr);
+		return;
+	}
+
+	void *verts = Memory::GetPointerUnchecked(gstate_c.vertexAddr);
+	void *inds = 0;
+	u32 vertexType = gstate.vertType;
+	if ((gstate.vertType & GE_VTYPE_IDX_MASK) != GE_VTYPE_IDX_NONE) {
+		u32 indexAddr = gstate_c.indexAddr;
+		if (!Memory::IsValidAddress(indexAddr)) {
+			ERROR_LOG_REPORT(G3D, "Bad index address %08x!", indexAddr);
+			return;
+		}
+		inds = Memory::GetPointerUnchecked(indexAddr);
+	}
+
+#ifndef MOBILE_DEVICE
+	if (prim > GE_PRIM_RECTANGLES) {
+		ERROR_LOG_REPORT_ONCE(reportPrim, G3D, "Unexpected prim type: %d", prim);
+	}
+#endif
+
+	if (gstate_c.dirty & DIRTY_VERTEXSHADER_STATE) {
+		vertexCost_ = EstimatePerVertexCost();
+	}
+	gpuStats.vertexGPUCycles += vertexCost_ * count;
+	cyclesExecuted += vertexCost_* count;
+
+	int bytesRead = 0;
+	UpdateUVScaleOffset();
+	drawEngineCommon_->SubmitPrim(verts, inds, prim, count, vertexType, &bytesRead);
+
+	// After drawing, we advance the vertexAddr (when non indexed) or indexAddr (when indexed).
+	// Some games rely on this, they don't bother reloading VADDR and IADDR.
+	// The VADDR/IADDR registers are NOT updated.
+	AdvanceVerts(vertexType, count, bytesRead);
 }
 
 void GPUCommon::Execute_Bezier(u32 op, u32 diff) {
@@ -2431,4 +2599,24 @@ bool GPUCommon::DescribeCodePtr(const u8 *ptr, std::string &name) {
 		return true;
 	}
 	return false;
+}
+
+bool GPUCommon::FramebufferDirty() {
+	VirtualFramebuffer *vfb = framebufferManager_->GetDisplayVFB();
+	if (vfb) {
+		bool dirty = vfb->dirtyAfterDisplay;
+		vfb->dirtyAfterDisplay = false;
+		return dirty;
+	}
+	return true;
+}
+
+bool GPUCommon::FramebufferReallyDirty() {
+	VirtualFramebuffer *vfb = framebufferManager_->GetDisplayVFB();
+	if (vfb) {
+		bool dirty = vfb->reallyDirtyAfterDisplay;
+		vfb->reallyDirtyAfterDisplay = false;
+		return dirty;
+	}
+	return true;
 }

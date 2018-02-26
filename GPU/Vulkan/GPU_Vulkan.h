@@ -36,7 +36,7 @@ public:
 	~GPU_Vulkan();
 
 	// This gets called on startup and when we get back from settings.
-	void CheckGPUFeatures();
+	void CheckGPUFeatures() override;
 
 	// These are where we can reset command buffers etc.
 	void BeginHostFrame() override;
@@ -54,22 +54,11 @@ public:
 	void DoState(PointerWrap &p) override;
 
 	void ClearShaderCache() override;
-	bool FramebufferDirty() override;
-	bool FramebufferReallyDirty() override;
 
 	void GetReportingInfo(std::string &primaryInfo, std::string &fullInfo) override {
 		primaryInfo = reportingPrimaryInfo_;
 		fullInfo = reportingFullInfo_;
 	}
-
-	typedef void (GPU_Vulkan::*CmdFunc)(u32 op, u32 diff);
-	struct CommandInfo {
-		uint64_t flags;
-		GPU_Vulkan::CmdFunc func;
-	};
-	
-	void Execute_Prim(u32 op, u32 diff);
-	void Execute_LoadClut(u32 op, u32 diff);
 
 	// Using string because it's generic - makes no assumptions on the size of the shader IDs of this backend.
 	std::vector<std::string> DebugGetShaderIDs(DebugShaderType shader) override;
@@ -80,7 +69,6 @@ public:
 	}
 
 protected:
-	void FastRunLoop(DisplayList &list) override;
 	void FinishDeferred() override;
 
 private:
@@ -93,12 +81,9 @@ private:
 	void CopyDisplayToOutput() override;
 	void Reinitialize() override;
 	inline void UpdateVsyncInterval(bool force);
-	void UpdateCmdInfo();
 
 	void InitDeviceObjects();
 	void DestroyDeviceObjects();
-
-	static CommandInfo cmdInfo_[256];
 
 	VulkanContext *vulkan_;
 	FramebufferManagerVulkan *framebufferManagerVulkan_;
@@ -111,8 +96,6 @@ private:
 
 	// Manages state and pipeline objects
 	PipelineManagerVulkan *pipelineManager_;
-
-	int vertexCost_ = 0;
 
 	std::string reportingPrimaryInfo_;
 	std::string reportingFullInfo_;

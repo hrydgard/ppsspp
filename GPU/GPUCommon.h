@@ -70,6 +70,10 @@ public:
 	Draw::DrawContext *GetDrawContext() override {
 		return draw_;
 	}
+	virtual void CheckGPUFeatures() = 0;
+
+	void UpdateCmdInfo();
+
 	bool IsReady() override {
 		return true;
 	}
@@ -129,10 +133,13 @@ public:
 	void Execute_VertexType(u32 op, u32 diff);
 	void Execute_VertexTypeSkinning(u32 op, u32 diff);
 
+	void Execute_Prim(u32 op, u32 diff);
 	void Execute_Bezier(u32 op, u32 diff);
 	void Execute_Spline(u32 op, u32 diff);
 	void Execute_BoundingBox(u32 op, u32 diff);
 	void Execute_BlockTransferStart(u32 op, u32 diff);
+
+	void Execute_LoadClut(u32 op, u32 diff);
 
 	void Execute_TexSize0(u32 op, u32 diff);
 	void Execute_TexLevel(u32 op, u32 diff);
@@ -238,6 +245,9 @@ public:
 		return -1;
 	}
 
+	bool FramebufferDirty() override;
+	bool FramebufferReallyDirty() override;
+
 	typedef void (GPUCommon::*CmdFunc)(u32 op, u32 diff);
 
 protected:
@@ -258,8 +268,8 @@ protected:
 
 	void BeginFrame() override;
 
-	// To avoid virtual calls to PreExecuteOp().
-	virtual void FastRunLoop(DisplayList &list) = 0;
+	virtual void FastRunLoop(DisplayList &list);
+
 	void SlowRunLoop(DisplayList &list);
 	void UpdatePC(u32 currentPC, u32 newPC);
 	void UpdateState(GPURunState state);
@@ -290,6 +300,13 @@ protected:
 	GraphicsContext *gfxCtx_;
 	Draw::DrawContext *draw_;
 
+	struct CommandInfo {
+		uint64_t flags;
+		GPUCommon::CmdFunc func;
+	};
+
+	static CommandInfo cmdInfo_[256];
+
 	typedef std::list<int> DisplayListQueue;
 
 	int nextListID;
@@ -315,6 +332,8 @@ protected:
 	bool resized_;
 	DrawType lastDraw_;
 	GEPrimitiveType lastPrim_;
+
+	int vertexCost_ = 0;
 
 	// No idea how big this buffer needs to be.
 	enum {
