@@ -345,26 +345,6 @@ void GPU_Vulkan::SetDisplayFramebuffer(u32 framebuf, u32 stride, GEBufferFormat 
 	framebufferManager_->SetDisplayFramebuffer(framebuf, stride, format);
 }
 
-bool GPU_Vulkan::FramebufferDirty() {
-	VirtualFramebuffer *vfb = framebufferManager_->GetDisplayVFB();
-	if (vfb) {
-		bool dirty = vfb->dirtyAfterDisplay;
-		vfb->dirtyAfterDisplay = false;
-		return dirty;
-	}
-	return true;
-}
-
-bool GPU_Vulkan::FramebufferReallyDirty() {
-	VirtualFramebuffer *vfb = framebufferManager_->GetDisplayVFB();
-	if (vfb) {
-		bool dirty = vfb->reallyDirtyAfterDisplay;
-		vfb->reallyDirtyAfterDisplay = false;
-		return dirty;
-	}
-	return true;
-}
-
 void GPU_Vulkan::CopyDisplayToOutput() {
 	// Flush anything left over.
 	drawEngine_.Flush();

@@ -245,6 +245,9 @@ public:
 		return -1;
 	}
 
+	bool FramebufferDirty() override;
+	bool FramebufferReallyDirty() override;
+
 	typedef void (GPUCommon::*CmdFunc)(u32 op, u32 diff);
 
 protected:

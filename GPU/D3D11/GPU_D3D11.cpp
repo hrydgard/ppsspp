@@ -254,26 +254,6 @@ void GPU_D3D11::SetDisplayFramebuffer(u32 framebuf, u32 stride, GEBufferFormat f
 	framebufferManagerD3D11_->SetDisplayFramebuffer(framebuf, stride, format);
 }
 
-bool GPU_D3D11::FramebufferDirty() {
-	VirtualFramebuffer *vfb = framebufferManager_->GetDisplayVFB();
-	if (vfb) {
-		bool dirty = vfb->dirtyAfterDisplay;
-		vfb->dirtyAfterDisplay = false;
-		return dirty;
-	}
-	return true;
-}
-
-bool GPU_D3D11::FramebufferReallyDirty() {
-	VirtualFramebuffer *vfb = framebufferManager_->GetDisplayVFB();
-	if (vfb) {
-		bool dirty = vfb->reallyDirtyAfterDisplay;
-		vfb->reallyDirtyAfterDisplay = false;
-		return dirty;
-	}
-	return true;
-}
-
 void GPU_D3D11::CopyDisplayToOutput() {
 	float blendColor[4]{};
 	context_->OMSetBlendState(stockD3D11.blendStateDisabledWithColorMask[0xF], blendColor, 0xFFFFFFFF);

@@ -230,26 +230,6 @@ void GPU_DX9::SetDisplayFramebuffer(u32 framebuf, u32 stride, GEBufferFormat for
 	framebufferManagerDX9_->SetDisplayFramebuffer(framebuf, stride, format);
 }
 
-bool GPU_DX9::FramebufferDirty() {
-	VirtualFramebuffer *vfb = framebufferManager_->GetDisplayVFB();
-	if (vfb) {
-		bool dirty = vfb->dirtyAfterDisplay;
-		vfb->dirtyAfterDisplay = false;
-		return dirty;
-	}
-	return true;
-}
-
-bool GPU_DX9::FramebufferReallyDirty() {
-	VirtualFramebuffer *vfb = framebufferManager_->GetDisplayVFB();
-	if (vfb) {
-		bool dirty = vfb->reallyDirtyAfterDisplay;
-		vfb->reallyDirtyAfterDisplay = false;
-		return dirty;
-	}
-	return true;
-}
-
 void GPU_DX9::CopyDisplayToOutput() {
 	dxstate.depthWrite.set(true);
 	dxstate.colorMask.set(true, true, true, true);

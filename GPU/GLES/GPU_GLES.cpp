@@ -440,26 +440,6 @@ void GPU_GLES::SetDisplayFramebuffer(u32 framebuf, u32 stride, GEBufferFormat fo
 	framebufferManagerGL_->SetDisplayFramebuffer(framebuf, stride, format);
 }
 
-bool GPU_GLES::FramebufferDirty() {
-	VirtualFramebuffer *vfb = framebufferManagerGL_->GetDisplayVFB();
-	if (vfb) {
-		bool dirty = vfb->dirtyAfterDisplay;
-		vfb->dirtyAfterDisplay = false;
-		return dirty;
-	}
-	return true;
-}
-
-bool GPU_GLES::FramebufferReallyDirty() {
-	VirtualFramebuffer *vfb = framebufferManagerGL_->GetDisplayVFB();
-	if (vfb) {
-		bool dirty = vfb->reallyDirtyAfterDisplay;
-		vfb->reallyDirtyAfterDisplay = false;
-		return dirty;
-	}
-	return true;
-}
-
 void GPU_GLES::CopyDisplayToOutput() {
 	// Flush anything left over.
 	framebufferManagerGL_->RebindFramebuffer();

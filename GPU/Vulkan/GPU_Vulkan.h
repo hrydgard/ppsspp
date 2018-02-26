@@ -54,8 +54,6 @@ public:
 	void DoState(PointerWrap &p) override;
 
 	void ClearShaderCache() override;
-	bool FramebufferDirty() override;
-	bool FramebufferReallyDirty() override;
 
 	void GetReportingInfo(std::string &primaryInfo, std::string &fullInfo) override {
 		primaryInfo = reportingPrimaryInfo_;

@@ -2598,3 +2598,23 @@ bool GPUCommon::DescribeCodePtr(const u8 *ptr, std::string &name) {
 	}
 	return false;
 }
+
+bool GPUCommon::FramebufferDirty() {
+	VirtualFramebuffer *vfb = framebufferManager_->GetDisplayVFB();
+	if (vfb) {
+		bool dirty = vfb->dirtyAfterDisplay;
+		vfb->dirtyAfterDisplay = false;
+		return dirty;
+	}
+	return true;
+}
+
+bool GPUCommon::FramebufferReallyDirty() {
+	VirtualFramebuffer *vfb = framebufferManager_->GetDisplayVFB();
+	if (vfb) {
+		bool dirty = vfb->reallyDirtyAfterDisplay;
+		vfb->reallyDirtyAfterDisplay = false;
+		return dirty;
+	}
+	return true;
+}
