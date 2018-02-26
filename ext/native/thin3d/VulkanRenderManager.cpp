@@ -1,4 +1,6 @@
 #include <cstdint>
+
+#include "Common/Log.h"
 #include "base/logging.h"
 
 #include "Common/Vulkan/VulkanContext.h"
@@ -631,12 +633,16 @@ void VulkanRenderManager::Clear(uint32_t clearColor, float clearZ, int clearSten
 }
 
 void VulkanRenderManager::CopyFramebuffer(VKRFramebuffer *src, VkRect2D srcRect, VKRFramebuffer *dst, VkOffset2D dstPos, int aspectMask) {
-	_dbg_assert_msg_(G3D, srcRect.offset.x >= 0, "srcrect offset x < 0");
-	_dbg_assert_msg_(G3D, srcRect.offset.y >= 0, "srcrect offset y < 0");
-	_dbg_assert_msg_(G3D, srcRect.offset.x + srcRect.extent.width <= (uint32_t)src->width, "srcrect offset x + extent > width");
-	_dbg_assert_msg_(G3D, srcRect.offset.y + srcRect.extent.height <= (uint32_t)src->height, "srcrect offset y + extent > height");
-	_dbg_assert_msg_(G3D, dstPos.x >= 0, "dstPos offset x < 0");
-	_dbg_assert_msg_(G3D, dstPos.y >= 0, "dstPos offset y < 0");
+	_dbg_assert_msg_(G3D, srcRect.offset.x >= 0, "srcrect offset x (%d) < 0", srcRect.offset.x);
+	_dbg_assert_msg_(G3D, srcRect.offset.y >= 0, "srcrect offset y (%d) < 0", srcRect.offset.y);
+	_dbg_assert_msg_(G3D, srcRect.offset.x + srcRect.extent.width <= (uint32_t)src->width, "srcrect offset x (%d) + extent (%d) > width (%d)", srcRect.offset.x, srcRect.extent.width, (uint32_t)src->width);
+	_dbg_assert_msg_(G3D, srcRect.offset.y + srcRect.extent.height <= (uint32_t)src->height, "srcrect offset y (%d) + extent (%d) > height (%d)", srcRect.offset.y, srcRect.extent.height, (uint32_t)src->height);
+
+	_dbg_assert_msg_(G3D, srcRect.extent.width > 0, "copy srcwidth == 0");
+	_dbg_assert_msg_(G3D, srcRect.extent.height > 0, "copy srcheight == 0");
+
+	_dbg_assert_msg_(G3D, dstPos.x >= 0, "dstPos offset x (%d) < 0", dstPos.x);
+	_dbg_assert_msg_(G3D, dstPos.y >= 0, "dstPos offset y (%d) < 0", dstPos.y);
 	_dbg_assert_msg_(G3D, dstPos.x + srcRect.extent.width <= (uint32_t)dst->width, "dstPos + extent x > width");
 	_dbg_assert_msg_(G3D, dstPos.y + srcRect.extent.height <= (uint32_t)dst->height, "dstPos + extent y > height");
 
@@ -654,10 +660,10 @@ void VulkanRenderManager::CopyFramebuffer(VKRFramebuffer *src, VkRect2D srcRect,
 }
 
 void VulkanRenderManager::BlitFramebuffer(VKRFramebuffer *src, VkRect2D srcRect, VKRFramebuffer *dst, VkRect2D dstRect, int aspectMask, VkFilter filter) {
-	_dbg_assert_msg_(G3D, srcRect.offset.x >= 0, "srcrect offset x < 0");
-	_dbg_assert_msg_(G3D, srcRect.offset.y >= 0, "srcrect offset y < 0");
-	_dbg_assert_msg_(G3D, srcRect.offset.x + srcRect.extent.width <= (uint32_t)src->width, "srcrect offset x + extent > width");
-	_dbg_assert_msg_(G3D, srcRect.offset.y + srcRect.extent.height <= (uint32_t)src->height, "srcrect offset y + extent > height");
+	_dbg_assert_msg_(G3D, srcRect.offset.x >= 0, "srcrect offset x (%d) < 0", srcRect.offset.x);
+	_dbg_assert_msg_(G3D, srcRect.offset.y >= 0, "srcrect offset y (%d) < 0", srcRect.offset.y);
+	_dbg_assert_msg_(G3D, srcRect.offset.x + srcRect.extent.width <= (uint32_t)src->width, "srcrect offset x (%d) + extent (%d) > width (%d)", srcRect.offset.x, srcRect.extent.width, (uint32_t)src->width);
+	_dbg_assert_msg_(G3D, srcRect.offset.y + srcRect.extent.height <= (uint32_t)src->height, "srcrect offset y (%d) + extent (%d) > height (%d)", srcRect.offset.y, srcRect.extent.height, (uint32_t)src->height);
 
 	_dbg_assert_msg_(G3D, srcRect.extent.width > 0, "blit srcwidth == 0");
 	_dbg_assert_msg_(G3D, srcRect.extent.height > 0, "blit srcheight == 0");
