@@ -697,28 +697,38 @@ void GLPushBuffer::UnmapDevice() {
 
 void *GLRBuffer::Map(GLbitfield access) {
 	assert(buffer != 0);
-	glBindBuffer(target_, buffer);
+
+	// Notes on buffer mapping:
+	// NVIDIA GTX 9xx / 2017-10 drivers - mapping improves speed, explicit flush zero cost/benefit.
+	// PowerVR GX6xxx / iOS 10.3 - mapping has little improvement, explicit flush is slower.
+	// AMD / unknown - mapping causes black screens and flickering?
+	// Mali / unknown - mapping causes black screens and flickering?
 
 	void *p = nullptr;
-	if (gl_extensions.ARB_buffer_storage || gl_extensions.EXT_buffer_storage) {
+	bool allowNativeBuffer = (gl_extensions.bugs & BUG_ANY_MAP_BUFFER_RANGE_SLOW) == 0;
+	if (allowNativeBuffer) {
+		glBindBuffer(target_, buffer);
+
+		if (gl_extensions.ARB_buffer_storage || gl_extensions.EXT_buffer_storage) {
 #ifndef IOS
-		if (!hasStorage_) {
+			if (!hasStorage_) {
 #ifdef USING_GLES2
-			glBufferStorageEXT(target_, size_, nullptr, access & (GL_MAP_READ_BIT | GL_MAP_WRITE_BIT));
+				glBufferStorageEXT(target_, size_, nullptr, access & (GL_MAP_READ_BIT | GL_MAP_WRITE_BIT));
 #else
-			glBufferStorage(target_, size_, nullptr, access & (GL_MAP_READ_BIT | GL_MAP_WRITE_BIT));
+				glBufferStorage(target_, size_, nullptr, access & (GL_MAP_READ_BIT | GL_MAP_WRITE_BIT));
 #endif
-			hasStorage_ = true;
-		}
+				hasStorage_ = true;
+			}
 #endif
-		p = glMapBufferRange(target_, 0, size_, access);
-	} else if (gl_extensions.VersionGEThan(3, 0, 0) && !(gl_extensions.bugs & BUG_ANY_MAP_BUFFER_RANGE_SLOW)) {
-		// GLES3 or desktop 3.
-		p = glMapBufferRange(target_, 0, size_, access);
-	} else if (!(gl_extensions.bugs & BUG_ANY_MAP_BUFFER_RANGE_SLOW)) {
+			p = glMapBufferRange(target_, 0, size_, access);
+		} else if (gl_extensions.VersionGEThan(3, 0, 0)) {
+			// GLES3 or desktop 3.
+			p = glMapBufferRange(target_, 0, size_, access);
+		} else {
 #ifndef USING_GLES2
-		p = glMapBuffer(target_, GL_READ_WRITE);
+			p = glMapBuffer(target_, GL_READ_WRITE);
 #endif
+		}
 	}
 
 	mapped_ = p != nullptr;
