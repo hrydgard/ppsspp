@@ -132,7 +132,6 @@ protected:
 	struct DeferredDrawCall {
 		void *verts;
 		void *inds;
-		u32 vertType;
 		u8 indexType;
 		s8 prim;
 		u32 vertexCount;

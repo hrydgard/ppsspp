@@ -1577,6 +1577,7 @@ void __KernelLoadReset() {
 		HLEShutdown();
 		Replacement_Init();
 		HLEInit();
+		assert(gpu);
 		gpu->Reinitialize();
 	}
 

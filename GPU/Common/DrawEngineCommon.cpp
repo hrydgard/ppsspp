@@ -330,11 +330,12 @@ bool DrawEngineCommon::GetCurrentSimpleVertices(int count, std::vector<GPUDebugV
 	Matrix4ByMatrix4(worldviewproj, worldview, gstate.projMatrix);
 
 	vertices.resize(indexUpperBound + 1);
+	uint32_t vertType = gstate.vertType;
 	for (int i = indexLowerBound; i <= indexUpperBound; ++i) {
 		const SimpleVertex &vert = simpleVertices[i];
 
-		if (gstate.isModeThrough()) {
-			if (gstate.vertType & GE_VTYPE_TC_MASK) {
+		if ((vertType & GE_VTYPE_THROUGH) != 0) {
+			if (vertType & GE_VTYPE_TC_MASK) {
 				vertices[i].u = vert.uv[0];
 				vertices[i].v = vert.uv[1];
 			} else {
@@ -344,7 +345,7 @@ bool DrawEngineCommon::GetCurrentSimpleVertices(int count, std::vector<GPUDebugV
 			vertices[i].x = vert.pos.x;
 			vertices[i].y = vert.pos.y;
 			vertices[i].z = vert.pos.z;
-			if (gstate.vertType & GE_VTYPE_COL_MASK) {
+			if (vertType & GE_VTYPE_COL_MASK) {
 				memcpy(vertices[i].c, vert.color, sizeof(vertices[i].c));
 			} else {
 				memset(vertices[i].c, 0, sizeof(vertices[i].c));
@@ -358,7 +359,7 @@ bool DrawEngineCommon::GetCurrentSimpleVertices(int count, std::vector<GPUDebugV
 			Vec3f screenPos = ClipToScreen(clipPos);
 			Vec3f drawPos = ScreenToDrawing(screenPos);
 
-			if (gstate.vertType & GE_VTYPE_TC_MASK) {
+			if (vertType & GE_VTYPE_TC_MASK) {
 				vertices[i].u = vert.uv[0] * (float)gstate.getTextureWidth(0);
 				vertices[i].v = vert.uv[1] * (float)gstate.getTextureHeight(0);
 			} else {
@@ -369,7 +370,7 @@ bool DrawEngineCommon::GetCurrentSimpleVertices(int count, std::vector<GPUDebugV
 			vertices[i].x = drawPos.x;
 			vertices[i].y = drawPos.y;
 			vertices[i].z = drawPos.z;
-			if (gstate.vertType & GE_VTYPE_COL_MASK) {
+			if (vertType & GE_VTYPE_COL_MASK) {
 				memcpy(vertices[i].c, vert.color, sizeof(vertices[i].c));
 			} else {
 				memset(vertices[i].c, 0, sizeof(vertices[i].c));
@@ -690,23 +691,17 @@ void DrawEngineCommon::SubmitPrim(void *verts, void *inds, GEPrimitiveType prim,
 	DeferredDrawCall &dc = drawCalls[numDrawCalls];
 	dc.verts = verts;
 	dc.inds = inds;
-	dc.vertType = vertType;
 	dc.indexType = (vertType & GE_VTYPE_IDX_MASK) >> GE_VTYPE_IDX_SHIFT;
 	dc.prim = prim;
 	dc.vertexCount = vertexCount;
 
 	if (g_Config.bVertexCache) {
 		u32 dhash = dcid_;
-		dhash ^= (u32)(uintptr_t)verts;
-		dhash = __rotl(dhash, 13);
-		dhash ^= (u32)(uintptr_t)inds;
-		dhash = __rotl(dhash, 13);
-		dhash ^= (u32)vertType;
-		dhash = __rotl(dhash, 13);
-		dhash ^= (u32)vertexCount;
-		dhash = __rotl(dhash, 13);
-		dhash ^= (u32)prim;
-		dcid_ = dhash;
+		dhash = __rotl(dhash ^ (u32)(uintptr_t)verts, 13);
+		dhash = __rotl(dhash ^ (u32)(uintptr_t)inds, 13);
+		dhash = __rotl(dhash ^ (u32)vertType, 13);
+		dhash = __rotl(dhash ^ (u32)vertexCount, 13);
+		dcid_ = dhash ^ (u32)prim;;
 	}
 
 	if (inds) {

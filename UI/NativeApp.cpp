@@ -1107,7 +1107,7 @@ void NativeShutdown() {
 #endif
 	g_Config.Save();
 
-	// Avoid shutting this down when restaring core.
+	// Avoid shutting this down when restarting core.
 	if (!restarting)
 		LogManager::Shutdown();
 
