@@ -105,8 +105,6 @@ public:
 	DrawEngineGLES(Draw::DrawContext *draw);
 	virtual ~DrawEngineGLES();
 
-	void SubmitPrim(void *verts, void *inds, GEPrimitiveType prim, int vertexCount, u32 vertType, int *bytesRead);
-
 	void SetShaderManager(ShaderManagerGLES *shaderManager) {
 		shaderManager_ = shaderManager;
 	}

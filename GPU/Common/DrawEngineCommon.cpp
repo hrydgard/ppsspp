@@ -668,3 +668,69 @@ ReliableHashType DrawEngineCommon::ComputeHash() {
 	fullhash += DoReliableHash(&uvScale[0], sizeof(uvScale[0]) * numDrawCalls, 0x0123e658);
 	return fullhash;
 }
+
+void DrawEngineCommon::SubmitPrim(void *verts, void *inds, GEPrimitiveType prim, int vertexCount, u32 vertType, int *bytesRead) {
+	if (!indexGen.PrimCompatible(prevPrim_, prim) || numDrawCalls >= MAX_DEFERRED_DRAW_CALLS || vertexCountInDrawCalls_ + vertexCount > VERTEX_BUFFER_MAX) {
+		DispatchFlush();
+	}
+
+	// TODO: Is this the right thing to do?
+	if (prim == GE_PRIM_KEEP_PREVIOUS) {
+		prim = prevPrim_ != GE_PRIM_INVALID ? prevPrim_ : GE_PRIM_POINTS;
+	} else {
+		prevPrim_ = prim;
+	}
+
+	SetupVertexDecoder(vertType);
+
+	*bytesRead = vertexCount * dec_->VertexSize();
+	if ((vertexCount < 2 && prim > 0) || (vertexCount < 3 && prim > 2 && prim != GE_PRIM_RECTANGLES))
+		return;
+
+	DeferredDrawCall &dc = drawCalls[numDrawCalls];
+	dc.verts = verts;
+	dc.inds = inds;
+	dc.vertType = vertType;
+	dc.indexType = (vertType & GE_VTYPE_IDX_MASK) >> GE_VTYPE_IDX_SHIFT;
+	dc.prim = prim;
+	dc.vertexCount = vertexCount;
+
+	if (g_Config.bVertexCache) {
+		u32 dhash = dcid_;
+		dhash ^= (u32)(uintptr_t)verts;
+		dhash = __rotl(dhash, 13);
+		dhash ^= (u32)(uintptr_t)inds;
+		dhash = __rotl(dhash, 13);
+		dhash ^= (u32)vertType;
+		dhash = __rotl(dhash, 13);
+		dhash ^= (u32)vertexCount;
+		dhash = __rotl(dhash, 13);
+		dhash ^= (u32)prim;
+		dcid_ = dhash;
+	}
+
+	if (inds) {
+		GetIndexBounds(inds, vertexCount, vertType, &dc.indexLowerBound, &dc.indexUpperBound);
+	} else {
+		dc.indexLowerBound = 0;
+		dc.indexUpperBound = vertexCount - 1;
+	}
+
+	uvScale[numDrawCalls] = gstate_c.uv;
+
+	numDrawCalls++;
+	vertexCountInDrawCalls_ += vertexCount;
+
+	if (g_Config.bSoftwareSkinning && (vertType & GE_VTYPE_WEIGHT_MASK)) {
+		DecodeVertsStep(decoded, decodeCounter_, decodedVerts_);
+		decodeCounter_++;
+	}
+
+	if (prim == GE_PRIM_RECTANGLES && (gstate.getTextureAddress(0) & 0x3FFFFFFF) == (gstate.getFrameBufAddress() & 0x3FFFFFFF)) {
+		// Rendertarget == texture?
+		if (!g_Config.bDisableSlowFramebufEffects) {
+			gstate_c.Dirty(DIRTY_TEXTURE_PARAMS);
+			DispatchFlush();
+		}
+	}
+}

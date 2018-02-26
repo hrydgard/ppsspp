@@ -122,8 +122,6 @@ public:
 	DrawEngineVulkan(VulkanContext *vulkan, Draw::DrawContext *draw);
 	virtual ~DrawEngineVulkan();
 
-	void SubmitPrim(void *verts, void *inds, GEPrimitiveType prim, int vertexCount, u32 vertType, int *bytesRead);
-
 	void SetShaderManager(ShaderManagerVulkan *shaderManager) {
 		shaderManager_ = shaderManager;
 	}
