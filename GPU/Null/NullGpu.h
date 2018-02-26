@@ -26,6 +26,8 @@ class NullGPU : public GPUCommon {
 public:
 	NullGPU();
 	~NullGPU();
+
+	void CheckGPUFeatures() override {}
 	void InitClear() override {}
 	void ExecuteOp(u32 op, u32 diff) override;
 

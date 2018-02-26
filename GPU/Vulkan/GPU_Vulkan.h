@@ -36,7 +36,7 @@ public:
 	~GPU_Vulkan();
 
 	// This gets called on startup and when we get back from settings.
-	void CheckGPUFeatures();
+	void CheckGPUFeatures() override;
 
 	// These are where we can reset command buffers etc.
 	void BeginHostFrame() override;

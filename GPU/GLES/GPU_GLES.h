@@ -36,7 +36,7 @@ public:
 	~GPU_GLES();
 
 	// This gets called on startup and when we get back from settings.
-	void CheckGPUFeatures();
+	void CheckGPUFeatures() override;
 
 	bool IsReady() override;
 

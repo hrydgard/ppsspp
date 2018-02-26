@@ -36,7 +36,7 @@ public:
 	GPU_D3D11(GraphicsContext *gfxCtx, Draw::DrawContext *draw);
 	~GPU_D3D11();
 
-	void CheckGPUFeatures();
+	void CheckGPUFeatures() override;
 	void PreExecuteOp(u32 op, u32 diff) override;
 	void ExecuteOp(u32 op, u32 diff) override;
 

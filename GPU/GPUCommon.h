@@ -70,6 +70,8 @@ public:
 	Draw::DrawContext *GetDrawContext() override {
 		return draw_;
 	}
+	virtual void CheckGPUFeatures() = 0;
+
 	bool IsReady() override {
 		return true;
 	}
