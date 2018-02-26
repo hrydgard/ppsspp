@@ -402,9 +402,21 @@ GPUCommon::GPUCommon(GraphicsContext *gfxCtx, Draw::DrawContext *draw) :
 			ERROR_LOG(G3D, "Command missing from table: %02x (%i)", i, i);
 		}
 	}
+
+	UpdateCmdInfo();
 }
 
 GPUCommon::~GPUCommon() {
+}
+
+void GPUCommon::UpdateCmdInfo() {
+	if (g_Config.bSoftwareSkinning) {
+		cmdInfo_[GE_CMD_VERTEXTYPE].flags &= ~FLAG_FLUSHBEFOREONCHANGE;
+		cmdInfo_[GE_CMD_VERTEXTYPE].func = &GPUCommon::Execute_VertexTypeSkinning;
+	} else {
+		cmdInfo_[GE_CMD_VERTEXTYPE].flags |= FLAG_FLUSHBEFOREONCHANGE;
+		cmdInfo_[GE_CMD_VERTEXTYPE].func = &GPUCommon::Execute_VertexType;
+	}
 }
 
 void GPUCommon::BeginHostFrame() {

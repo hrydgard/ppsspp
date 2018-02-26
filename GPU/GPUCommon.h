@@ -72,6 +72,8 @@ public:
 	}
 	virtual void CheckGPUFeatures() = 0;
 
+	void UpdateCmdInfo();
+
 	bool IsReady() override {
 		return true;
 	}

@@ -86,8 +86,6 @@ GPU_Vulkan::GPU_Vulkan(GraphicsContext *gfxCtx, Draw::DrawContext *draw)
 		ERROR_LOG(G3D, "gstate has drifted out of sync!");
 	}
 
-	UpdateCmdInfo();
-
 	BuildReportingInfo();
 	// Update again after init to be sure of any silly driver problems.
 	UpdateVsyncInterval(true);
@@ -340,16 +338,6 @@ void GPU_Vulkan::InitClear() {
 
 void GPU_Vulkan::UpdateVsyncInterval(bool force) {
 	// TODO
-}
-
-void GPU_Vulkan::UpdateCmdInfo() {
-	if (g_Config.bSoftwareSkinning) {
-		cmdInfo_[GE_CMD_VERTEXTYPE].flags &= ~FLAG_FLUSHBEFOREONCHANGE;
-		cmdInfo_[GE_CMD_VERTEXTYPE].func = &GPUCommon::Execute_VertexTypeSkinning;
-	} else {
-		cmdInfo_[GE_CMD_VERTEXTYPE].flags |= FLAG_FLUSHBEFOREONCHANGE;
-		cmdInfo_[GE_CMD_VERTEXTYPE].func = &GPUCommon::Execute_VertexType;
-	}
 }
 
 void GPU_Vulkan::SetDisplayFramebuffer(u32 framebuf, u32 stride, GEBufferFormat format) {

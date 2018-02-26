@@ -407,16 +407,6 @@ inline void GPU_GLES::UpdateVsyncInterval(bool force) {
 #endif
 }
 
-void GPU_GLES::UpdateCmdInfo() {
-	if (g_Config.bSoftwareSkinning) {
-		cmdInfo_[GE_CMD_VERTEXTYPE].flags &= ~FLAG_FLUSHBEFOREONCHANGE;
-		cmdInfo_[GE_CMD_VERTEXTYPE].func = &GPUCommon::Execute_VertexTypeSkinning;
-	} else {
-		cmdInfo_[GE_CMD_VERTEXTYPE].flags |= FLAG_FLUSHBEFOREONCHANGE;
-		cmdInfo_[GE_CMD_VERTEXTYPE].func = &GPUCommon::Execute_VertexType;
-	}
-}
-
 void GPU_GLES::ReapplyGfxState() {
 	GPUCommon::ReapplyGfxState();
 }

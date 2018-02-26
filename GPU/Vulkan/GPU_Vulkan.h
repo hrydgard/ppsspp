@@ -84,7 +84,6 @@ private:
 	void CopyDisplayToOutput() override;
 	void Reinitialize() override;
 	inline void UpdateVsyncInterval(bool force);
-	void UpdateCmdInfo();
 
 	void InitDeviceObjects();
 	void DestroyDeviceObjects();

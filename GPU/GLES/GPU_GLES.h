@@ -87,7 +87,6 @@ private:
 	void Reinitialize() override;
 
 	inline void UpdateVsyncInterval(bool force);
-	void UpdateCmdInfo();
 
 	FramebufferManagerGLES *framebufferManagerGL_;
 	TextureCacheGLES *textureCacheGL_;

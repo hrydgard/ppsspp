@@ -70,8 +70,6 @@ protected:
 	void FinishDeferred() override;
 
 private:
-	void UpdateCmdInfo();
-
 	void Flush() {
 		drawEngine_.Flush();
 	}
