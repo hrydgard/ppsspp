@@ -9,9 +9,7 @@ class VulkanDeviceAllocator;
 class VulkanTexture {
 public:
 	VulkanTexture(VulkanContext *vulkan, VulkanDeviceAllocator *allocator)
-		: vulkan_(vulkan), image(VK_NULL_HANDLE), mem(VK_NULL_HANDLE), view(VK_NULL_HANDLE),
-		tex_width(0), tex_height(0), numMips_(1), format_(VK_FORMAT_UNDEFINED),
-		allocator_(allocator), offset_(0) {
+		: vulkan_(vulkan), allocator_(allocator) {
 	}
 	~VulkanTexture() {
 		Destroy();
@@ -28,13 +26,13 @@ public:
 	void Destroy();
 
 	// Used in image copies, etc.
-	VkImage GetImage() const { return image; }
+	VkImage GetImage() const { return image_; }
 
 	// Used for sampling, generally.
-	VkImageView GetImageView() const { return view; }
+	VkImageView GetImageView() const { return view_; }
 
-	int32_t GetWidth() const { return tex_width; }
-	int32_t GetHeight() const { return tex_height; }
+	int32_t GetWidth() const { return width_; }
+	int32_t GetHeight() const { return height_; }
 	int32_t GetNumMips() const { return numMips_; }
 	VkFormat GetFormat() const { return format_; }
 
@@ -42,11 +40,13 @@ private:
 	void Wipe();
 
 	VulkanContext *vulkan_;
-	VkImage image;
-	VkImageView view;
-	VkDeviceMemory mem;
-	int32_t tex_width, tex_height, numMips_;
-	VkFormat format_;
+	VkImage image_ = VK_NULL_HANDLE;
+	VkImageView view_ = VK_NULL_HANDLE;
+	VkDeviceMemory mem_ = VK_NULL_HANDLE;
+	int32_t width_ = 0;
+	int32_t height_ = 0;
+	int32_t numMips_ = 1;
+	VkFormat format_ = VK_FORMAT_UNDEFINED;
 	VulkanDeviceAllocator *allocator_;
-	size_t offset_;
+	size_t offset_ = 0;
 };
