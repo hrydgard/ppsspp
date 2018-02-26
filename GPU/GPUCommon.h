@@ -129,6 +129,7 @@ public:
 	void Execute_VertexType(u32 op, u32 diff);
 	void Execute_VertexTypeSkinning(u32 op, u32 diff);
 
+	void Execute_Prim(u32 op, u32 diff);
 	void Execute_Bezier(u32 op, u32 diff);
 	void Execute_Spline(u32 op, u32 diff);
 	void Execute_BoundingBox(u32 op, u32 diff);
@@ -315,6 +316,8 @@ protected:
 	bool resized_;
 	DrawType lastDraw_;
 	GEPrimitiveType lastPrim_;
+
+	int vertexCost_ = 0;
 
 	// No idea how big this buffer needs to be.
 	enum {

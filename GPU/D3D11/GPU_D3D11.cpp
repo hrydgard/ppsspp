@@ -75,16 +75,6 @@ struct D3D11CommandTableEntry {
 
 // This table gets crunched into a faster form by init.
 static const D3D11CommandTableEntry commandTable[] = {
-	// Changes that dirty the current texture.
-	{ GE_CMD_TEXSIZE0, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTE, 0, &GPUCommon::Execute_TexSize0 },
-
-	// Changing the vertex type requires us to flush.
-	{ GE_CMD_VERTEXTYPE, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE, 0, &GPUCommon::Execute_VertexType },
-
-	{ GE_CMD_PRIM, FLAG_EXECUTE, 0, &GPU_D3D11::Execute_Prim },
-	{ GE_CMD_BEZIER, FLAG_FLUSHBEFORE | FLAG_EXECUTE, 0, &GPUCommon::Execute_Bezier },
-	{ GE_CMD_SPLINE, FLAG_FLUSHBEFORE | FLAG_EXECUTE, 0, &GPUCommon::Execute_Spline },
-
 	// Changes that trigger data copies. Only flushing on change for LOADCLUT must be a bit of a hack...
 	{ GE_CMD_LOADCLUT, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTE, 0, &GPU_D3D11::Execute_LoadClut },
 };
@@ -435,82 +425,9 @@ void GPU_D3D11::ExecuteOp(u32 op, u32 diff) {
 	}
 }
 
-void GPU_D3D11::Execute_Prim(u32 op, u32 diff) {
-	// This drives all drawing. All other state we just buffer up, then we apply it only
-	// when it's time to draw. As most PSP games set state redundantly ALL THE TIME, this is a huge optimization.
-
-	u32 data = op & 0xFFFFFF;
-	u32 count = data & 0xFFFF;
-	if (count == 0)
-		return;
-
-	// Upper bits are ignored.
-	GEPrimitiveType prim = static_cast<GEPrimitiveType>((data >> 16) & 7);
-	SetDrawType(DRAW_PRIM, prim);
-
-	// Discard AA lines as we can't do anything that makes sense with these anyway. The SW plugin might, though.
-
-	if (gstate.isAntiAliasEnabled()) {
-		// Discard AA lines in DOA
-		if (prim == GE_PRIM_LINE_STRIP)
-			return;
-		// Discard AA lines in Summon Night 5
-		if ((prim == GE_PRIM_LINES) && gstate.isSkinningEnabled())
-			return;
-	}
-
-	// This also make skipping drawing very effective.
-	framebufferManagerD3D11_->SetRenderFrameBuffer(gstate_c.IsDirty(DIRTY_FRAMEBUF), gstate_c.skipDrawReason);
-	if (gstate_c.skipDrawReason & (SKIPDRAW_SKIPFRAME | SKIPDRAW_NON_DISPLAYED_FB)) {
-		drawEngine_.SetupVertexDecoder(gstate.vertType);
-		// Rough estimate, not sure what's correct.
-		cyclesExecuted += EstimatePerVertexCost() * count;
-		return;
-	}
-
-	u32 vertexAddr = gstate_c.vertexAddr;
-	if (!Memory::IsValidAddress(vertexAddr)) {
-		ERROR_LOG_REPORT(G3D, "Bad vertex address %08x!", vertexAddr);
-		return;
-	}
-
-	void *verts = Memory::GetPointerUnchecked(vertexAddr);
-	void *inds = 0;
-	u32 vertexType = gstate.vertType;
-	if ((vertexType & GE_VTYPE_IDX_MASK) != GE_VTYPE_IDX_NONE) {
-		u32 indexAddr = gstate_c.indexAddr;
-		if (!Memory::IsValidAddress(indexAddr)) {
-			ERROR_LOG_REPORT(G3D, "Bad index address %08x!", indexAddr);
-			return;
-		}
-		inds = Memory::GetPointerUnchecked(indexAddr);
-	}
-
-#ifndef MOBILE_DEVICE
-	if (prim > GE_PRIM_RECTANGLES) {
-		ERROR_LOG_REPORT_ONCE(reportPrim, G3D, "Unexpected prim type: %d", prim);
-	}
-#endif
-
-	if (gstate_c.dirty & DIRTY_VERTEXSHADER_STATE) {
-		vertexCost_ = EstimatePerVertexCost();
-	}
-	gpuStats.vertexGPUCycles += vertexCost_ * count;
-	cyclesExecuted += vertexCost_* count;
-
-	int bytesRead = 0;
-	UpdateUVScaleOffset();
-	drawEngine_.SubmitPrim(verts, inds, prim, count, vertexType, &bytesRead);
-
-	// After drawing, we advance the vertexAddr (when non indexed) or indexAddr (when indexed).
-	// Some games rely on this, they don't bother reloading VADDR and IADDR.
-	// The VADDR/IADDR registers are NOT updated.
-	AdvanceVerts(vertexType, count, bytesRead);
-}
-
 void GPU_D3D11::Execute_LoadClut(u32 op, u32 diff) {
 	gstate_c.Dirty(DIRTY_TEXTURE_PARAMS);
-	textureCacheD3D11_->LoadClut(gstate.getClutAddress(), gstate.getClutLoadBytes());
+	textureCache_->LoadClut(gstate.getClutAddress(), gstate.getClutLoadBytes());
 	// This could be used to "dirty" textures with clut.
 }
 

@@ -65,8 +65,6 @@ public:
 		GPU_DX9::CmdFunc func;
 	};
 
-	void Execute_Prim(u32 op, u32 diff);
-	void Execute_TexSize0(u32 op, u32 diff);
 	void Execute_LoadClut(u32 op, u32 diff);
 
 	// Using string because it's generic - makes no assumptions on the size of the shader IDs of this backend.
