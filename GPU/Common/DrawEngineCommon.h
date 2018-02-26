@@ -79,6 +79,9 @@ public:
 	bool IsCodePtrVertexDecoder(const u8 *ptr) const {
 		return decJitCache_->IsInSpace(ptr);
 	}
+	int GetNumDrawCalls() const {
+		return numDrawCalls;
+	}
 
 protected:
 	virtual void ClearTrackedVertexArrays() {}
