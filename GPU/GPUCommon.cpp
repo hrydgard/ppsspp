@@ -1062,7 +1062,6 @@ void GPUCommon::UpdatePC(u32 currentPC, u32 newPC) {
 	}
 
 	// Exit the runloop and recalculate things.  This happens a lot in some games.
-	// No need to lock, this function is always called under listLock.
 	if (currentList)
 		downcount = currentList->stall == 0 ? 0x0FFFFFFF : (currentList->stall - newPC) / 4;
 	else
@@ -1505,7 +1504,7 @@ void GPUCommon::Execute_Prim(u32 op, u32 diff) {
 	void *verts = Memory::GetPointerUnchecked(gstate_c.vertexAddr);
 	void *inds = 0;
 	u32 vertexType = gstate.vertType;
-	if ((gstate.vertType & GE_VTYPE_IDX_MASK) != GE_VTYPE_IDX_NONE) {
+	if ((vertexType & GE_VTYPE_IDX_MASK) != GE_VTYPE_IDX_NONE) {
 		u32 indexAddr = gstate_c.indexAddr;
 		if (!Memory::IsValidAddress(indexAddr)) {
 			ERROR_LOG_REPORT(G3D, "Bad index address %08x!", indexAddr);
@@ -1523,17 +1522,90 @@ void GPUCommon::Execute_Prim(u32 op, u32 diff) {
 	if (gstate_c.dirty & DIRTY_VERTEXSHADER_STATE) {
 		vertexCost_ = EstimatePerVertexCost();
 	}
-	gpuStats.vertexGPUCycles += vertexCost_ * count;
-	cyclesExecuted += vertexCost_* count;
 
 	int bytesRead = 0;
 	UpdateUVScaleOffset();
-	drawEngineCommon_->SubmitPrim(verts, inds, prim, count, vertexType, &bytesRead);
 
+	drawEngineCommon_->SubmitPrim(verts, inds, prim, count, vertexType, &bytesRead);
 	// After drawing, we advance the vertexAddr (when non indexed) or indexAddr (when indexed).
 	// Some games rely on this, they don't bother reloading VADDR and IADDR.
 	// The VADDR/IADDR registers are NOT updated.
 	AdvanceVerts(vertexType, count, bytesRead);
+	int totalVertCount = count;
+
+	// PRIMs are often followed by more PRIMs. Save some work and submit them immediately.
+	const u32 *src = (const u32 *)Memory::GetPointerUnchecked(currentList->pc + 4);
+	const u32 *stall = currentList->stall ? (const u32 *)Memory::GetPointerUnchecked(currentList->stall) : 0;
+	int cmdCount = 0;
+
+	// Optimized submission of sequences of PRIM. Allows us to avoid going through all the mess
+	// above for each one. This can be expanded to support additional games that intersperse
+	// PRIM commands with other commands. A special case that might be interesting is that game
+	// that changes culling mode between each prim, we could just change the triangle winding
+	// right here to still be able to join draw calls.
+	while (src != stall) {
+		uint32_t data = *src;
+		switch (data >> 24) {
+		case GE_CMD_PRIM:
+		{
+			u32 count = data & 0xFFFF;
+			if (count == 0) {
+				break;
+			}
+
+			GEPrimitiveType newPrim = static_cast<GEPrimitiveType>((data >> 16) & 7);
+			// Can be more lenient later.
+			if (newPrim != prim) {
+				goto bail;
+			}
+			// TODO: more efficient updating of verts/inds
+			verts = Memory::GetPointerUnchecked(gstate_c.vertexAddr);
+			inds = 0;
+			if ((vertexType & GE_VTYPE_IDX_MASK) != GE_VTYPE_IDX_NONE) {
+				u32 indexAddr = gstate_c.indexAddr;
+				if (!Memory::IsValidAddress(indexAddr)) {
+					ERROR_LOG_REPORT(G3D, "Bad index address %08x!", indexAddr);
+					return;
+				}
+				inds = Memory::GetPointerUnchecked(indexAddr);
+			}
+
+			drawEngineCommon_->SubmitPrim(verts, inds, newPrim, count, vertexType, &bytesRead);
+			AdvanceVerts(vertexType, count, bytesRead);
+			totalVertCount += count;
+			break;
+		}
+		case GE_CMD_VERTEXTYPE:
+			// Some games spam redundant GE_CMD_VERTEXTYPE
+			if (data != vertexType) {  // don't mask data, vertexType is unmasked
+				goto bail;
+			}
+			break;
+		case GE_CMD_VADDR:
+			gstate_c.vertexAddr = gstate_c.getRelativeAddress(data & 0x00FFFFFF);
+			break;
+		case GE_CMD_BASE:
+			gstate.cmdmem[GE_CMD_BASE] = data;
+			break;
+		case GE_CMD_NOP_FF:
+			break;
+		default:
+			// All other commands might need a flush or something, stop this inner loop.
+			goto bail;
+		}
+		cmdCount++;
+		src++;
+	}
+
+bail:
+	// Skip over the commands we just read out manually.
+	if (cmdCount > 0) {
+		UpdatePC(currentList->pc, currentList->pc + cmdCount * 4);
+		currentList->pc += cmdCount * 4;
+	}
+
+	gpuStats.vertexGPUCycles += vertexCost_ * totalVertCount;
+	cyclesExecuted += vertexCost_ * totalVertCount;
 }
 
 void GPUCommon::Execute_Bezier(u32 op, u32 diff) {
