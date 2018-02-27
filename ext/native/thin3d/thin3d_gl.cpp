@@ -231,7 +231,7 @@ GLuint ShaderStageToOpenGL(ShaderStage stage) {
 class OpenGLShaderModule : public ShaderModule {
 public:
 	OpenGLShaderModule(GLRenderManager *render, ShaderStage stage) : render_(render), stage_(stage) {
-		ILOG("Shader module created (%p)", this);
+		DLOG("Shader module created (%p)", this);
 		glstage_ = ShaderStageToOpenGL(stage);
 	}
 
@@ -297,7 +297,7 @@ public:
 	OpenGLPipeline(GLRenderManager *render) : render_(render) {
 	}
 	~OpenGLPipeline() {
-		ILOG("OpenGLPipeline released");
+		DLOG("OpenGLPipeline released");
 		for (auto &iter : shaders) {
 			iter->Release();
 		}
@@ -633,7 +633,6 @@ OpenGLTexture::OpenGLTexture(GLRenderManager *render, const TextureDesc &desc) :
 
 	bool genMips = false;
 	if ((int)desc.initData.size() < desc.mipLevels && desc.generateMips) {
-		ILOG("Generating mipmaps");
 		// Assumes the texture is bound for editing
 		genMips = true;
 		generatedMips_ = true;

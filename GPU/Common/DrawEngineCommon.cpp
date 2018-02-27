@@ -701,7 +701,7 @@ void DrawEngineCommon::SubmitPrim(void *verts, void *inds, GEPrimitiveType prim,
 		dhash = __rotl(dhash ^ (u32)(uintptr_t)inds, 13);
 		dhash = __rotl(dhash ^ (u32)vertType, 13);
 		dhash = __rotl(dhash ^ (u32)vertexCount, 13);
-		dcid_ = dhash ^ (u32)prim;;
+		dcid_ = dhash ^ (u32)prim;
 	}
 
 	if (inds) {

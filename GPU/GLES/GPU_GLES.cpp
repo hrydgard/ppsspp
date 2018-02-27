@@ -120,6 +120,12 @@ GPU_GLES::GPU_GLES(GraphicsContext *gfxCtx, Draw::DrawContext *draw)
 }
 
 GPU_GLES::~GPU_GLES() {
+	GLRenderManager *render = (GLRenderManager *)draw_->GetNativeObject(Draw::NativeObject::RENDER_MANAGER);
+	render->Wipe();
+
+	// If we're here during app shutdown (exiting the Windows app in-game, for example)
+	// everything should already be cleared since DeviceLost has been run.
+
 	framebufferManagerGL_->DestroyAllFBOs();
 	shaderManagerGL_->ClearCache(true);
 	depalShaderCache_.Clear();
