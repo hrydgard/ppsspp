@@ -20,6 +20,7 @@
 #include "net/resolve.h"
 #include "base/display.h"
 #include "thread/threadutil.h"
+#include "thin3d/thin3d_create.h"
 #include "util/text/utf8.h"
 #include "Common/DirectXHelper.h"
 #include "NKCodeFromWindowsSystem.h"
