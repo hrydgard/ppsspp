@@ -1543,6 +1543,9 @@ void GPUCommon::Execute_Prim(u32 op, u32 diff) {
 	// PRIM commands with other commands. A special case that might be interesting is that game
 	// that changes culling mode between each prim, we could just change the triangle winding
 	// right here to still be able to join draw calls.
+	if (debugRecording_)
+		goto bail;
+
 	while (src != stall) {
 		uint32_t data = *src;
 		switch (data >> 24) {
