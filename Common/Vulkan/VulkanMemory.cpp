@@ -135,14 +135,14 @@ size_t VulkanPushBuffer::GetTotalSize() const {
 }
 
 void VulkanPushBuffer::Map() {
-	assert(!writePtr_);
+	_dbg_assert_(G3D, !writePtr_);
 	VkResult res = vkMapMemory(device_, buffers_[buf_].deviceMemory, 0, size_, 0, (void **)(&writePtr_));
-	assert(writePtr_);
+	_dbg_assert_(G3D, writePtr_);
 	assert(VK_SUCCESS == res);
 }
 
 void VulkanPushBuffer::Unmap() {
-	assert(writePtr_);
+	_dbg_assert_(G3D, writePtr_ != 0);
 	/*
 	// Should not need this since we use coherent memory.
 	VkMappedMemoryRange range{ VK_STRUCTURE_TYPE_MAPPED_MEMORY_RANGE };
@@ -366,10 +366,7 @@ void VulkanDeviceAllocator::ExecuteFree(FreeInfo *userdata) {
 	}
 
 	// Wrong deviceMemory even?  Maybe it was already decimated, but that means a double-free.
-	if (!found) {
-		Crash();
-	}
-
+	_assert_msg_(G3D, found, "ExecuteFree: Block not found (offset %d)", (int)offset);
 	delete userdata;
 }
 
