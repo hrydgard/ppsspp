@@ -1590,6 +1590,7 @@ void GPUCommon::Execute_Prim(u32 op, u32 diff) {
 		case GE_CMD_BASE:
 			gstate.cmdmem[GE_CMD_BASE] = data;
 			break;
+		case GE_CMD_NOP:
 		case GE_CMD_NOP_FF:
 			break;
 		default:
