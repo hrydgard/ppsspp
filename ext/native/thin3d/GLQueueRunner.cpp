@@ -512,6 +512,7 @@ void GLQueueRunner::PerformRenderPass(const GLRStep &step) {
 	GLuint curArrayBuffer = (GLuint)-1;
 	GLuint curElemArrayBuffer = (GLuint)-1;
 	bool depthEnabled = false;
+	bool stencilEnabled = false;
 	bool blendEnabled = false;
 	bool cullEnabled = false;
 	bool ditherEnabled = false;
@@ -545,10 +546,14 @@ void GLQueueRunner::PerformRenderPass(const GLRStep &step) {
 			break;
 		case GLRRenderCommand::STENCILFUNC:
 			if (c.stencilFunc.enabled) {
-				glEnable(GL_STENCIL_TEST);
+				if (!stencilEnabled) {
+					glEnable(GL_STENCIL_TEST);
+					stencilEnabled = true;
+				}
 				glStencilFunc(c.stencilFunc.func, c.stencilFunc.ref, c.stencilFunc.compareMask);
-			} else {
+			} else if (stencilEnabled) {
 				glDisable(GL_STENCIL_TEST);
+				stencilEnabled = false;
 			}
 			break;
 		case GLRRenderCommand::STENCILOP:
