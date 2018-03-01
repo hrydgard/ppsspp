@@ -199,9 +199,6 @@ void MainUI::EmuThreadFunc() {
 
 	emuThreadState = (int)EmuThreadState::RUNNING;
 	while (emuThreadState != (int)EmuThreadState::QUIT_REQUESTED) {
-	#ifdef SDL
-		SDL_PumpEvents();
-	#endif
 		updateAccelerometer();
 		UpdateRunLoop();
 	}
