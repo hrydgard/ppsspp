@@ -304,7 +304,7 @@ public:
 	VKTexture(VulkanContext *vulkan, VkCommandBuffer cmd, VulkanPushBuffer *pushBuffer, const TextureDesc &desc, VulkanDeviceAllocator *alloc)
 		: vulkan_(vulkan), mipLevels_(desc.mipLevels), format_(desc.format) {
 		bool result = Create(cmd, pushBuffer, desc, alloc);
-		assert(result);
+		_assert_(result);
 	}
 
 	~VKTexture() {
@@ -650,8 +650,8 @@ enum class TextureState {
 
 bool VKTexture::Create(VkCommandBuffer cmd, VulkanPushBuffer *push, const TextureDesc &desc, VulkanDeviceAllocator *alloc) {
 	// Zero-sized textures not allowed.
-	assert(desc.width * desc.height * desc.depth > 0);
-	assert(push);
+	_assert_(desc.width * desc.height * desc.depth > 0);  // remember to set depth to 1!
+	_assert_(push);
 	format_ = desc.format;
 	mipLevels_ = desc.mipLevels;
 	width_ = desc.width;
@@ -667,7 +667,10 @@ bool VKTexture::Create(VkCommandBuffer cmd, VulkanPushBuffer *push, const Textur
 		// Gonna have to generate some, which requires TRANSFER_SRC
 		usageBits |= VK_IMAGE_USAGE_TRANSFER_SRC_BIT;
 	}
-	vkTex_->CreateDirect(cmd, width_, height_, mipLevels_, vulkanFormat, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, usageBits);
+	if (!vkTex_->CreateDirect(cmd, width_, height_, mipLevels_, vulkanFormat, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, usageBits)) {
+		ELOG("Failed to create VulkanTexture: %dx%dx%d fmt %d, %d levels", width_, height_, depth_, (int)vulkanFormat, mipLevels_);
+		return false;
+	}
 	if (desc.initData.size()) {
 		int w = width_;
 		int h = height_;
@@ -1017,6 +1020,12 @@ InputLayout *VKContext::CreateInputLayout(const InputLayoutDesc &desc) {
 }
 
 Texture *VKContext::CreateTexture(const TextureDesc &desc) {
+	if (!push_) {
+		// Too early! Fail.
+		ELOG("Can't create textures before the first frame has started.");
+		return nullptr;
+	}
+	_assert_(renderManager_.GetInitCmd());
 	return new VKTexture(vulkan_, renderManager_.GetInitCmd(), push_, desc, allocator_);
 }
 

@@ -131,8 +131,7 @@ bool ManagedTexture::LoadFromFileData(const uint8_t *data, size_t dataSize, Imag
 		if (image[i])
 			free(image[i]);
 	}
-
-	return true;
+	return texture_ != nullptr;
 }
 
 bool ManagedTexture::LoadFromFile(const std::string &filename, ImageFileType type, bool generateMips) {
