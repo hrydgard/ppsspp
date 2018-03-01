@@ -86,7 +86,7 @@ bool VulkanTexture::CreateDirect(VkCommandBuffer cmd, int w, int h, int numMips,
 			_assert_msg_(G3D, res != VK_ERROR_TOO_MANY_OBJECTS, "Too many Vulkan memory objects!");
 			_assert_(res == VK_ERROR_OUT_OF_HOST_MEMORY || res == VK_ERROR_OUT_OF_DEVICE_MEMORY || res == VK_ERROR_TOO_MANY_OBJECTS);
 			vkDestroyImage(vulkan_->GetDevice(), image_, nullptr);
-			image_ = nullptr;
+			image_ = VK_NULL_HANDLE;
 			return false;
 		}
 
