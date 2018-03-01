@@ -664,8 +664,6 @@ bool NativeInitGraphics(GraphicsContext *graphicsContext) {
 	screenManager->setDrawContext(g_draw);
 	screenManager->setPostRenderCallback(&RenderOverlays, nullptr);
 
-	UIBackgroundInit(*uiContext);
-
 #ifdef _WIN32
 	winAudioBackend = CreateAudioBackend((AudioBackendType)g_Config.iAudioBackend);
 #if PPSSPP_PLATFORM(UWP)
