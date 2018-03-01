@@ -104,6 +104,7 @@ GPU_D3D11::GPU_D3D11(GraphicsContext *gfxCtx, Draw::DrawContext *draw)
 	// No need to flush before the tex scale/offset commands if we are baking
 	// the tex scale/offset into the vertices anyway.
 	UpdateCmdInfo();
+	CheckGPUFeatures();
 
 	BuildReportingInfo();
 
@@ -129,8 +130,10 @@ void GPU_D3D11::CheckGPUFeatures() {
 	features |= GPU_SUPPORTS_BLEND_MINMAX;
 	features |= GPU_PREFER_CPU_DOWNLOAD;
 
-	// Accurate depth is required on AMD so we ignore the compat flag to disable it on those. See #9545
-	if (!PSP_CoreParameter().compat.flags().DisableAccurateDepth || draw_->GetDeviceCaps().vendor == Draw::GPUVendor::VENDOR_AMD) {
+	// Accurate depth is required on AMD/nVidia (for reverse Z) so we ignore the compat flag to disable it on those. See #9545
+	auto vendor = draw_->GetDeviceCaps().vendor;
+
+	if (!PSP_CoreParameter().compat.flags().DisableAccurateDepth || vendor == Draw::GPUVendor::VENDOR_AMD || vendor == Draw::GPUVendor::VENDOR_NVIDIA) {
 		features |= GPU_SUPPORTS_ACCURATE_DEPTH;  // Breaks text in PaRappa for some reason.
 	}
 
@@ -214,6 +217,7 @@ void GPU_D3D11::BeginHostFrame() {
 	GPUCommon::BeginHostFrame();
 	UpdateCmdInfo();
 	if (resized_) {
+		CheckGPUFeatures();
 		framebufferManager_->Resized();
 		drawEngine_.Resized();
 		textureCacheD3D11_->NotifyConfigChanged();

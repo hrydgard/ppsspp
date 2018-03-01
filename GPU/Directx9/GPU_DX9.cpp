@@ -86,6 +86,7 @@ GPU_DX9::GPU_DX9(GraphicsContext *gfxCtx, Draw::DrawContext *draw)
 	// No need to flush before the tex scale/offset commands if we are baking
 	// the tex scale/offset into the vertices anyway.
 	UpdateCmdInfo();
+	CheckGPUFeatures();
 
 	BuildReportingInfo();
 
@@ -111,8 +112,9 @@ void GPU_DX9::CheckGPUFeatures() {
 	features |= GPU_SUPPORTS_TEXTURE_LOD_CONTROL;
 	features |= GPU_PREFER_CPU_DOWNLOAD;
 
-	// Accurate depth is required on AMD so we ignore the compat flag to disable it on those. See #9545
-	if (!PSP_CoreParameter().compat.flags().DisableAccurateDepth || draw_->GetDeviceCaps().vendor == Draw::GPUVendor::VENDOR_AMD) {
+	auto vendor = draw_->GetDeviceCaps().vendor;
+	// Accurate depth is required on AMD/nVidia (for reverse Z) so we ignore the compat flag to disable it on those. See #9545
+	if (!PSP_CoreParameter().compat.flags().DisableAccurateDepth || vendor == Draw::GPUVendor::VENDOR_AMD || vendor == Draw::GPUVendor::VENDOR_NVIDIA) {
 		features |= GPU_SUPPORTS_ACCURATE_DEPTH;
 	}
 
@@ -191,6 +193,7 @@ void GPU_DX9::BeginHostFrame() {
 	GPUCommon::BeginHostFrame();
 	UpdateCmdInfo();
 	if (resized_) {
+		CheckGPUFeatures();
 		framebufferManager_->Resized();
 		drawEngine_.Resized();
 		shaderManagerDX9_->DirtyShader();
