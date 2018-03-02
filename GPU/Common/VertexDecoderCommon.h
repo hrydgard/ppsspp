@@ -431,9 +431,6 @@ struct JitLookup {
 	JitStepFunction jitFunc;
 };
 
-// Collapse to less skinning shaders to reduce shader switching, which is expensive.
-int TranslateNumBones(int bones);
-
 typedef void(*JittedVertexDecoder)(const u8 *src, u8 *dst, int count);
 
 struct VertexDecoderOptions {

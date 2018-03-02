@@ -126,7 +126,7 @@ protected:
 	TransformedVertex *transformed = nullptr;
 	TransformedVertex *transformedExpanded = nullptr;
 
-	// Defer all vertex decoding to a "Flush" (except when software skinning)
+	// Defer all vertex decoding to a "Flush" (except when skinning)
 	struct DeferredDrawCall {
 		void *verts;
 		void *inds;
