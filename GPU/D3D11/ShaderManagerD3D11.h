@@ -61,9 +61,6 @@ public:
 	const std::vector<uint8_t> &bytecode() const { return bytecode_; }
 	bool Failed() const { return failed_; }
 	bool UseHWTransform() const { return useHWTransform_; }
-	bool HasBones() const {
-		return id_.Bit(VS_BIT_ENABLE_BONES);
-	}
 	bool HasLights() const {
 		return usesLighting_;
 	}
@@ -134,12 +131,10 @@ private:
 	// Uniform block scratchpad. These (the relevant ones) are copied to the current pushbuffer at draw time.
 	UB_VS_FS_Base ub_base;
 	UB_VS_Lights ub_lights;
-	UB_VS_Bones ub_bones;
 
 	// Not actual pushbuffers, requires D3D11.1, let's try to live without that first.
 	ID3D11Buffer *push_base;
 	ID3D11Buffer *push_lights;
-	ID3D11Buffer *push_bones;
 
 	D3D11FragmentShader *lastFShader_;
 	D3D11VertexShader *lastVShader_;

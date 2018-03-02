@@ -144,8 +144,6 @@ void SoftwareTransform(
 		vscale /= gstate_c.curTextureHeight;
 	}
 
-	bool skinningEnabled = vertTypeIsSkinningEnabled(vertType);
-
 	const int w = gstate.getTextureWidth(0);
 	const int h = gstate.getTextureHeight(0);
 	float widthFactor = (float) w / (float) gstate_c.curTextureWidth;
@@ -213,48 +211,14 @@ void SoftwareTransform(
 			Vec3f worldnormal(0, 0, 1);
 			reader.ReadPos(pos);
 
-			if (!skinningEnabled) {
-				Vec3ByMatrix43(out, pos, gstate.worldMatrix);
-				if (reader.hasNormal()) {
-					reader.ReadNrm(normal.AsArray());
-					if (gstate.areNormalsReversed()) {
-						normal = -normal;
-					}
-					Norm3ByMatrix43(worldnormal.AsArray(), normal.AsArray(), gstate.worldMatrix);
-					worldnormal = worldnormal.Normalized();
+			Vec3ByMatrix43(out, pos, gstate.worldMatrix);
+			if (reader.hasNormal()) {
+				reader.ReadNrm(normal.AsArray());
+				if (gstate.areNormalsReversed()) {
+					normal = -normal;
 				}
-			} else {
-				float weights[8];
-				reader.ReadWeights(weights);
-				if (reader.hasNormal())
-					reader.ReadNrm(normal.AsArray());
-
-				// Skinning
-				Vec3f psum(0, 0, 0);
-				Vec3f nsum(0, 0, 0);
-				for (int i = 0; i < vertTypeGetNumBoneWeights(vertType); i++) {
-					if (weights[i] != 0.0f) {
-						Vec3ByMatrix43(out, pos, gstate.boneMatrix+i*12);
-						Vec3f tpos(out);
-						psum += tpos * weights[i];
-						if (reader.hasNormal()) {
-							Vec3f norm;
-							Norm3ByMatrix43(norm.AsArray(), normal.AsArray(), gstate.boneMatrix+i*12);
-							nsum += norm * weights[i];
-						}
-					}
-				}
-
-				// Yes, we really must multiply by the world matrix too.
-				Vec3ByMatrix43(out, psum.AsArray(), gstate.worldMatrix);
-				if (reader.hasNormal()) {
-					normal = nsum;
-					if (gstate.areNormalsReversed()) {
-						normal = -normal;
-					}
-					Norm3ByMatrix43(worldnormal.AsArray(), normal.AsArray(), gstate.worldMatrix);
-					worldnormal = worldnormal.Normalized();
-				}
+				Norm3ByMatrix43(worldnormal.AsArray(), normal.AsArray(), gstate.worldMatrix);
+				worldnormal = worldnormal.Normalized();
 			}
 
 			// Perform lighting here if enabled. don't need to check through, it's checked above.

@@ -63,9 +63,6 @@ public:
 
 	bool Failed() const { return failed_; }
 	bool UseHWTransform() const { return useHWTransform_; }
-	bool HasBones() const {
-		return id_.Bit(VS_BIT_ENABLE_BONES);
-	}
 	bool HasLights() const {
 		return usesLighting_;
 	}
@@ -110,17 +107,12 @@ public:
 	// Applies dirty changes and copies the buffer.
 	bool IsBaseDirty() { return true; }
 	bool IsLightDirty() { return true; }
-	bool IsBoneDirty() { return true; }
 
 	uint32_t PushBaseBuffer(VulkanPushBuffer *dest, VkBuffer *buf) {
 		return dest->PushAligned(&ub_base, sizeof(ub_base), uboAlignment_, buf);
 	}
 	uint32_t PushLightBuffer(VulkanPushBuffer *dest, VkBuffer *buf) {
 		return dest->PushAligned(&ub_lights, sizeof(ub_lights), uboAlignment_, buf);
-	}
-	// TODO: Only push half the bone buffer if we only have four bones.
-	uint32_t PushBoneBuffer(VulkanPushBuffer *dest, VkBuffer *buf) {
-		return dest->PushAligned(&ub_bones, sizeof(ub_bones), uboAlignment_, buf);
 	}
 
 private:
@@ -140,7 +132,6 @@ private:
 	// Uniform block scratchpad. These (the relevant ones) are copied to the current pushbuffer at draw time.
 	UB_VS_FS_Base ub_base;
 	UB_VS_Lights ub_lights;
-	UB_VS_Bones ub_bones;
 
 	VulkanFragmentShader *lastFShader_;
 	VulkanVertexShader *lastVShader_;
