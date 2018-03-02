@@ -105,13 +105,6 @@ public:
 	// Applies dirty changes and copies the buffer.
 	bool IsBaseDirty() { return true; }
 	bool IsLightDirty() { return true; }
-	bool IsBoneDirty() { return true; }
-
-	/*
-	uint32_t PushBaseBuffer(D3D11PushBuffer *dest, VkBuffer *buf);
-	uint32_t PushLightBuffer(D3D11PushBuffer *dest, VkBuffer *buf);
-	uint32_t PushBoneBuffer(D3D11PushBuffer *dest, VkBuffer *buf);
-	*/
 
 private:
 	void Clear();

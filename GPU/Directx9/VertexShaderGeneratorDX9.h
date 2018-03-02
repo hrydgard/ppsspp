@@ -21,8 +21,6 @@
 
 namespace DX9 {
 
-// #define USE_BONE_ARRAY
-
 	void GenerateVertexShaderHLSL(const VShaderID &id, char *buffer, ShaderLanguage lang = HLSL_DX9);
 
 	enum {
