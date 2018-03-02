@@ -673,6 +673,42 @@ void VertexDecoder::Step_NormalFloatMorph() const
 	}
 }
 
+void VertexDecoder::Step_NormalS8MorphSkin() const {
+	float *normal = (float *)(decoded_ + decFmt.nrmoff);
+	float nrm[3]{};
+	for (int n = 0; n < morphcount; n++) {
+		const s8 *bv = (const s8*)(ptr_ + onesize_ * n + nrmoff);
+		const float multiplier = gstate_c.morphWeights[n] * (1.0f / 128.0f);
+		for (int j = 0; j < 3; j++)
+			normal[j] += bv[j] * multiplier;
+	}
+	Norm3ByMatrix43(normal, nrm, skinMatrix);
+}
+
+void VertexDecoder::Step_NormalS16MorphSkin() const {
+	float *normal = (float *)(decoded_ + decFmt.nrmoff);
+	float nrm[3]{};
+	for (int n = 0; n < morphcount; n++) {
+		const s16 *sv = (const s16_le *)(ptr_ + onesize_ * n + nrmoff);
+		const float multiplier = gstate_c.morphWeights[n] * (1.0f / 32768.0f);
+		for (int j = 0; j < 3; j++)
+			nrm[j] += sv[j] * multiplier;
+	}
+	Norm3ByMatrix43(normal, nrm, skinMatrix);
+}
+
+void VertexDecoder::Step_NormalFloatMorphSkin() const {
+	float *normal = (float *)(decoded_ + decFmt.nrmoff);
+	float nrm[3]{};
+	for (int n = 0; n < morphcount; n++) {
+		float multiplier = gstate_c.morphWeights[n];
+		const float *fv = (const float*)(ptr_ + onesize_ * n + nrmoff);
+		for (int j = 0; j < 3; j++)
+			nrm[j] += fv[j] * multiplier;
+	}
+	Norm3ByMatrix43(normal, nrm, skinMatrix);
+}
+
 void VertexDecoder::Step_PosS8() const
 {
 	float *pos = (float *)(decoded_ + decFmt.posoff);
@@ -780,6 +816,41 @@ void VertexDecoder::Step_PosFloatMorph() const
 	}
 }
 
+void VertexDecoder::Step_PosS8MorphSkin() const {
+	float *v = (float *)(decoded_ + decFmt.posoff);
+	float pos[3]{};
+	for (int n = 0; n < morphcount; n++) {
+		const float multiplier = 1.0f / 128.0f;
+		const s8 *sv = (const s8*)(ptr_ + onesize_ * n + posoff);
+		for (int j = 0; j < 3; j++)
+			pos[j] += (float)sv[j] * (multiplier * gstate_c.morphWeights[n]);
+	}
+	Vec3ByMatrix43(v, pos, skinMatrix);
+}
+
+void VertexDecoder::Step_PosS16MorphSkin() const {
+	float *v = (float *)(decoded_ + decFmt.posoff);
+	float pos[3]{};
+	for (int n = 0; n < morphcount; n++) {
+		const float multiplier = 1.0f / 32768.0f;
+		const s16 *sv = (const s16*)(ptr_ + onesize_ * n + posoff);
+		for (int j = 0; j < 3; j++)
+			pos[j] += (float)sv[j] * (multiplier * gstate_c.morphWeights[n]);
+	}
+	Vec3ByMatrix43(v, pos, skinMatrix);
+}
+
+void VertexDecoder::Step_PosFloatMorphSkin() const {
+	float *v = (float *)(decoded_ + decFmt.posoff);
+	float pos[3]{};
+	for (int n = 0; n < morphcount; n++) {
+		const float *fv = (const float*)(ptr_ + onesize_ * n + posoff);
+		for (int j = 0; j < 3; j++)
+			pos[j] += fv[j] * gstate_c.morphWeights[n];
+	}
+	Vec3ByMatrix43(v, pos, skinMatrix);
+}
+
 static const StepFunction wtstep[4] = {
 	0,
 	&VertexDecoder::Step_WeightsU8,
@@ -793,6 +864,9 @@ static const StepFunction wtstepToFloat[4] = {
 	&VertexDecoder::Step_WeightsU16ToFloat,
 	&VertexDecoder::Step_WeightsFloat,
 };
+
+// TODO: Morph weights correctly! This is missing. Not sure if any game actually
+// use this functionality at all.
 
 static const StepFunction wtstep_skin[4] = {
 	0,
@@ -921,6 +995,13 @@ static const StepFunction nrmstep_morph[4] = {
 	&VertexDecoder::Step_NormalFloatMorph,
 };
 
+static const StepFunction nrmstep_morphskin[4] = {
+	0,
+	&VertexDecoder::Step_NormalS8MorphSkin,
+	&VertexDecoder::Step_NormalS16MorphSkin,
+	&VertexDecoder::Step_NormalFloatMorphSkin,
+};
+
 static const StepFunction posstep[4] = {
 	&VertexDecoder::Step_PosS8,
 	&VertexDecoder::Step_PosS8,
@@ -940,6 +1021,13 @@ static const StepFunction posstep_morph[4] = {
 	&VertexDecoder::Step_PosS8Morph,
 	&VertexDecoder::Step_PosS16Morph,
 	&VertexDecoder::Step_PosFloatMorph,
+};
+
+static const StepFunction posstep_morph_skin[4] = {
+	&VertexDecoder::Step_PosS8MorphSkin,
+	&VertexDecoder::Step_PosS8MorphSkin,
+	&VertexDecoder::Step_PosS16MorphSkin,
+	&VertexDecoder::Step_PosFloatMorphSkin,
 };
 
 static const StepFunction posstep_through[4] = {
@@ -987,6 +1075,8 @@ void VertexDecoder::SetVertexType(u32 fmt, const VertexDecoderOptions &options, 
 		if (skinInDecode) {
 			// No visible output, computes a matrix that is passed through the skinMatrix variable
 			// to the "nrm" and "pos" steps.
+			// Technically we should support morphing the weights too, but I have a hard time
+			// imagining that any game would use that.. but you never know.
 			steps_[numSteps_++] = wtstep_skin[weighttype];
 		} else {
 			int fmtBase = DEC_FLOAT_1;
@@ -1077,7 +1167,7 @@ void VertexDecoder::SetVertexType(u32 fmt, const VertexDecoderOptions &options, 
 			biggest = nrmalign[nrm];
 
 		if (skinInDecode) {
-			steps_[numSteps_++] = nrmstep_skin[nrm];
+			steps_[numSteps_++] = morphcount == 1 ? nrmstep_skin[nrm] : nrmstep_morphskin[nrm];
 			// After skinning, we always have three floats.
 			decFmt.nrmfmt = DEC_FLOAT_3;
 		} else {
@@ -1128,7 +1218,7 @@ void VertexDecoder::SetVertexType(u32 fmt, const VertexDecoderOptions &options, 
 			decFmt.posfmt = DEC_FLOAT_3;
 		} else {
 			if (skinInDecode) {
-				steps_[numSteps_++] = posstep_skin[pos];
+				steps_[numSteps_++] = morphcount == 1 ? posstep_skin[pos] : posstep_morph_skin[pos];
 				decFmt.posfmt = DEC_FLOAT_3;
 			} else {
 				steps_[numSteps_++] = morphcount == 1 ? posstep[pos] : posstep_morph[pos];

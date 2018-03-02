@@ -519,6 +519,10 @@ public:
 	void Step_NormalS16Morph() const;
 	void Step_NormalFloatMorph() const;
 
+	void Step_NormalS8MorphSkin() const;
+	void Step_NormalS16MorphSkin() const;
+	void Step_NormalFloatMorphSkin() const;
+
 	void Step_PosS8() const;
 	void Step_PosS16() const;
 	void Step_PosFloat() const;
@@ -530,6 +534,10 @@ public:
 	void Step_PosS8Morph() const;
 	void Step_PosS16Morph() const;
 	void Step_PosFloatMorph() const;
+
+	void Step_PosS8MorphSkin() const;
+	void Step_PosS16MorphSkin() const;
+	void Step_PosFloatMorphSkin() const;
 
 	void Step_PosS8Through() const;
 	void Step_PosS16Through() const;
