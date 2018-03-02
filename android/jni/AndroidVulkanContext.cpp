@@ -72,12 +72,15 @@ static VKAPI_ATTR VkBool32 VKAPI_CALL Vulkan_Dbg(VkDebugReportFlagsEXT msgFlags,
 	return false;
 }
 
+AndroidVulkanContext::AndroidVulkanContext() {
+}
+
 AndroidVulkanContext::~AndroidVulkanContext() {
 	delete g_Vulkan;
 	g_Vulkan = nullptr;
 }
 
-bool AndroidVulkanContext::InitFromRenderThread(ANativeWindow *wnd, int desiredBackbufferSizeX, int desiredBackbufferSizeY, int backbufferFormat, int androidVersion) {
+bool AndroidVulkanContext::InitAPI() {
 	ILOG("AndroidVulkanContext::Init");
 	init_glslang();
 
@@ -124,6 +127,10 @@ bool AndroidVulkanContext::InitFromRenderThread(ANativeWindow *wnd, int desiredB
 		g_Vulkan = nullptr;
 		return false;
 	}
+	return true;
+}
+
+bool AndroidVulkanContext::InitFromRenderThread(ANativeWindow *wnd, int desiredBackbufferSizeX, int desiredBackbufferSizeY, int backbufferFormat, int androidVersion) {
 	int width = desiredBackbufferSizeX;
 	int height = desiredBackbufferSizeY;
 	if (!width || !height) {
