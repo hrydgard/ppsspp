@@ -219,52 +219,37 @@ void VertexDecoder::Step_WeightsFloat() const
 		wt[j++] = 0.0f;
 }
 
-void VertexDecoder::Step_WeightsU8Skin() const
-{
+void VertexDecoder::ComputeSkinMatrix(const float weights[8]) const {
 	memset(skinMatrix, 0, sizeof(skinMatrix));
+	for (int j = 0; j < nweights; j++) {
+		const float *bone = &gstate.boneMatrix[j * 12];
+		if (weights[j] != 0.0f) {
+			for (int i = 0; i < 12; i++) {
+				skinMatrix[i] += weights[j] * bone[i];
+			}
+		}
+	}
+}
+
+void VertexDecoder::Step_WeightsU8Skin() const {
 	const u8 *wdata = (const u8*)(ptr_);
-	for (int j = 0; j < nweights; j++) {
-		const float *bone = &gstate.boneMatrix[j * 12];
-		if (wdata[j] != 0) {
-			float weight = wdata[j] * (1.0f / 128.0f);
-			for (int i = 0; i < 12; i++) {
-				skinMatrix[i] += weight * bone[i];
-			}
-		}
-	}
+	float weights[8];
+	for (int j = 0; j < nweights; j++)
+		weights[j] = wdata[j] * (1.0f / 128.0f);
+	ComputeSkinMatrix(weights);
 }
 
-void VertexDecoder::Step_WeightsU16Skin() const
-{
-	memset(skinMatrix, 0, sizeof(skinMatrix));
+void VertexDecoder::Step_WeightsU16Skin() const {
 	const u16 *wdata = (const u16*)(ptr_);
-	for (int j = 0; j < nweights; j++) {
-		const float *bone = &gstate.boneMatrix[j * 12];
-		if (wdata[j] != 0) {
-			float weight = wdata[j] * (1.0f / 32768.0f);
-			for (int i = 0; i < 12; i++) {
-				skinMatrix[i] += weight * bone[i];
-			}
-		}
-	}
+	float weights[8];
+	for (int j = 0; j < nweights; j++)
+		weights[j] = wdata[j] * (1.0f / 32768.0f);
+	ComputeSkinMatrix(weights);
 }
 
-// Float weights should be uncommon, we can live with having to multiply these by 2.0
-// to avoid special checks in the vertex shader generator.
-// (PSP uses 0.0-2.0 fixed point numbers for weights)
-void VertexDecoder::Step_WeightsFloatSkin() const
-{
-	memset(skinMatrix, 0, sizeof(skinMatrix));
+void VertexDecoder::Step_WeightsFloatSkin() const {
 	const float *wdata = (const float*)(ptr_);
-	for (int j = 0; j < nweights; j++) {
-		const float *bone = &gstate.boneMatrix[j * 12];
-		float weight = wdata[j];
-		if (weight > 0.0) {
-			for (int i = 0; i < 12; i++) {
-				skinMatrix[i] += weight * bone[i];
-			}
-		}
-	}
+	ComputeSkinMatrix(wdata);
 }
 
 void VertexDecoder::Step_TcU8ToFloat() const
@@ -1000,8 +985,9 @@ void VertexDecoder::SetVertexType(u32 fmt, const VertexDecoderOptions &options, 
 			biggest = wtalign[weighttype];
 
 		if (skinInDecode) {
+			// No visible output, computes a matrix that is passed through the skinMatrix variable
+			// to the "nrm" and "pos" steps.
 			steps_[numSteps_++] = wtstep_skin[weighttype];
-			// No visible output, passed in register/external memory to the "pos" step.
 		} else {
 			int fmtBase = DEC_FLOAT_1;
 			if (options.expandAllWeightsToFloat) {

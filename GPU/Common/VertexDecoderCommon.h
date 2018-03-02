@@ -466,6 +466,8 @@ public:
 	void Step_WeightsU16ToFloat() const;
 	void Step_WeightsFloat() const;
 
+	void ComputeSkinMatrix(const float weights[8]) const;
+
 	void Step_WeightsU8Skin() const;
 	void Step_WeightsU16Skin() const;
 	void Step_WeightsFloatSkin() const;
