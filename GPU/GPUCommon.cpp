@@ -1491,8 +1491,7 @@ void GPUCommon::Execute_Prim(u32 op, u32 diff) {
 	framebufferManager_->SetRenderFrameBuffer(gstate_c.IsDirty(DIRTY_FRAMEBUF), gstate_c.skipDrawReason);
 
 	if (gstate_c.skipDrawReason & (SKIPDRAW_SKIPFRAME | SKIPDRAW_NON_DISPLAYED_FB)) {
-		drawEngineCommon_->SetupVertexDecoder(gstate.vertType);  // Do we still need to do this?
-																											// Rough estimate, not sure what's correct.
+		// Rough estimate, not sure what's correct.
 		cyclesExecuted += EstimatePerVertexCost() * count;
 		return;
 	}
@@ -1560,10 +1559,6 @@ void GPUCommon::Execute_Prim(u32 op, u32 diff) {
 			}
 
 			GEPrimitiveType newPrim = static_cast<GEPrimitiveType>((data >> 16) & 7);
-			// Can be more lenient later.
-			if (newPrim != prim) {
-				goto bail;
-			}
 			// TODO: more efficient updating of verts/inds
 			verts = Memory::GetPointerUnchecked(gstate_c.vertexAddr);
 			inds = 0;

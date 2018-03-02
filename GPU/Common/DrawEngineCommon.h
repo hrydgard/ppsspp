@@ -74,8 +74,6 @@ public:
 
 	virtual void Resized();
 
-	void SetupVertexDecoder(u32 vertType);
-
 	bool IsCodePtrVertexDecoder(const u8 *ptr) const {
 		return decJitCache_->IsInSpace(ptr);
 	}

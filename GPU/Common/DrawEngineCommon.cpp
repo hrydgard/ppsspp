@@ -50,18 +50,6 @@ DrawEngineCommon::~DrawEngineCommon() {
 	});
 }
 
-void DrawEngineCommon::SetupVertexDecoder(u32 vertType) {
-	// As the decoder depends on the UVGenMode when we use UV prescale, we simply mash it
-	// into the top of the verttype where there are unused bits.
-	const u32 vertTypeID = (vertType & 0xFFFFFF) | (gstate.getUVGenMode() << 24);
-
-	// If vtype has changed, setup the vertex decoder.
-	if (vertTypeID != lastVType_) {
-		dec_ = GetVertexDecoder(vertTypeID);
-		lastVType_ = vertTypeID;
-	}
-}
-
 VertexDecoder *DrawEngineCommon::GetVertexDecoder(u32 vtype) {
 	VertexDecoder *dec = decoderMap_.Get(vtype);
 	if (dec)
@@ -682,7 +670,14 @@ void DrawEngineCommon::SubmitPrim(void *verts, void *inds, GEPrimitiveType prim,
 		prevPrim_ = prim;
 	}
 
-	SetupVertexDecoder(vertType);
+	// As the decoder depends on the UVGenMode when we use UV prescale, we simply mash it
+	// into the top of the verttype where there are unused bits.
+	const u32 vertTypeID = (vertType & 0xFFFFFF) | (gstate.getUVGenMode() << 24);
+	// If vtype has changed, setup the vertex decoder.
+	if (vertTypeID != lastVType_) {
+		dec_ = GetVertexDecoder(vertTypeID);
+		lastVType_ = vertTypeID;
+	}
 
 	*bytesRead = vertexCount * dec_->VertexSize();
 	if ((vertexCount < 2 && prim > 0) || (vertexCount < 3 && prim > 2 && prim != GE_PRIM_RECTANGLES))
