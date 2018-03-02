@@ -381,7 +381,7 @@ GPUCommon::GPUCommon(GraphicsContext *gfxCtx, Draw::DrawContext *draw) :
 
 	memset(cmdInfo_, 0, sizeof(cmdInfo_));
 
-	// Import both the global and local command tables, and check for dupes
+	// Convert the command table to a faster format, and check for dupes.
 	std::set<u8> dupeCheck;
 	for (size_t i = 0; i < commonCommandTableSize; i++) {
 		const u8 cmd = commonCommandTable[i].cmd;
@@ -393,6 +393,7 @@ GPUCommon::GPUCommon(GraphicsContext *gfxCtx, Draw::DrawContext *draw) :
 		cmdInfo_[cmd].flags |= (uint64_t)commonCommandTable[i].flags | (commonCommandTable[i].dirty << 8);
 		cmdInfo_[cmd].func = commonCommandTable[i].func;
 		if ((cmdInfo_[cmd].flags & (FLAG_EXECUTE | FLAG_EXECUTEONCHANGE)) && !cmdInfo_[cmd].func) {
+			// Can't have FLAG_EXECUTE commands without a function pointer to execute.
 			Crash();
 		}
 	}
@@ -1543,8 +1544,10 @@ void GPUCommon::Execute_Prim(u32 op, u32 diff) {
 	// PRIM commands with other commands. A special case that might be interesting is that game
 	// that changes culling mode between each prim, we could just change the triangle winding
 	// right here to still be able to join draw calls.
-	if (debugRecording_)
+#ifndef MOBILE_DEVICE
+	if (debugRecording_ || host->GPUDebuggingActive())
 		goto bail;
+#endif
 
 	while (src != stall) {
 		uint32_t data = *src;
