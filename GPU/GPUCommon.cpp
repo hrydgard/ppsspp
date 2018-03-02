@@ -1441,8 +1441,8 @@ void GPUCommon::Execute_LoadClut(u32 op, u32 diff) {
 }
 
 void GPUCommon::Execute_VertexTypeSkinning(u32 op, u32 diff) {
-	// Don't flush when weight count changes, unless morph is enabled.
-	if ((diff & ~GE_VTYPE_WEIGHTCOUNT_MASK) || (op & GE_VTYPE_MORPHCOUNT_MASK) != 0) {
+	// Don't flush when weight count changes.
+	if (diff & ~GE_VTYPE_WEIGHTCOUNT_MASK) {
 		// Restore and flush
 		gstate.vertType ^= diff;
 		Flush();
@@ -1638,7 +1638,7 @@ void GPUCommon::Execute_Bezier(u32 op, u32 diff) {
 		indices = Memory::GetPointerUnchecked(gstate_c.indexAddr);
 	}
 
-	if ((gstate.vertType & GE_VTYPE_MORPHCOUNT_MASK) || vertTypeIsSkinningEnabled(gstate.vertType)) {
+	if (vertTypeIsSkinningEnabled(gstate.vertType)) {
 		DEBUG_LOG_REPORT(G3D, "Unusual bezier/spline vtype: %08x, morph: %d, bones: %d", gstate.vertType, (gstate.vertType & GE_VTYPE_MORPHCOUNT_MASK) >> GE_VTYPE_MORPHCOUNT_SHIFT, vertTypeGetNumBoneWeights(gstate.vertType));
 	}
 
@@ -1700,7 +1700,7 @@ void GPUCommon::Execute_Spline(u32 op, u32 diff) {
 		indices = Memory::GetPointerUnchecked(gstate_c.indexAddr);
 	}
 
-	if ((gstate.vertType & GE_VTYPE_MORPHCOUNT_MASK) || vertTypeIsSkinningEnabled(gstate.vertType)) {
+	if (vertTypeIsSkinningEnabled(gstate.vertType)) {
 		DEBUG_LOG_REPORT(G3D, "Unusual bezier/spline vtype: %08x, morph: %d, bones: %d", gstate.vertType, (gstate.vertType & GE_VTYPE_MORPHCOUNT_MASK) >> GE_VTYPE_MORPHCOUNT_SHIFT, vertTypeGetNumBoneWeights(gstate.vertType));
 	}
 
@@ -1985,7 +1985,7 @@ void GPUCommon::Execute_BoneMtxNum(u32 op, u32 diff) {
 
 	if (fastLoad) {
 		// If we can't use software skinning, we have to flush and dirty.
-		if (!g_Config.bSoftwareSkinning || (gstate.vertType & GE_VTYPE_MORPHCOUNT_MASK) != 0) {
+		if (!g_Config.bSoftwareSkinning) {
 			while ((src[i] >> 24) == GE_CMD_BONEMATRIXDATA) {
 				const u32 newVal = src[i] << 8;
 				if (dst[i] != newVal) {
@@ -2030,7 +2030,7 @@ void GPUCommon::Execute_BoneMtxData(u32 op, u32 diff) {
 	u32 newVal = op << 8;
 	if (num < 96 && newVal != ((const u32 *)gstate.boneMatrix)[num]) {
 		// Bone matrices should NOT flush when software skinning is enabled!
-		if (!g_Config.bSoftwareSkinning || (gstate.vertType & GE_VTYPE_MORPHCOUNT_MASK) != 0) {
+		if (!g_Config.bSoftwareSkinning) {
 			Flush();
 			gstate_c.Dirty(DIRTY_BONEMATRIX0 << (num / 12));
 		} else {
@@ -2180,7 +2180,7 @@ void GPUCommon::FastLoadBoneMatrix(u32 target) {
 		uniformsToDirty |= DIRTY_BONEMATRIX0 << ((mtxNum + 1) & 7);
 	}
 
-	if (!g_Config.bSoftwareSkinning || (gstate.vertType & GE_VTYPE_MORPHCOUNT_MASK) != 0) {
+	if (!g_Config.bSoftwareSkinning) {
 		Flush();
 		gstate_c.Dirty(uniformsToDirty);
 	} else {
