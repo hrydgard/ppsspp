@@ -431,25 +431,33 @@ extern "C" void Java_org_ppsspp_ppsspp_NativeApp_init
 		NativeInit(2, argv, user_data_path.c_str(), externalDir.c_str(), cacheDir.c_str());
 	}
 
-	// Now that we've loaded config, set javaGL.
-	javaGL = NativeQueryConfig("androidJavaGL") == "true";
 
 retry:
+	// Now that we've loaded config, set javaGL.
+	javaGL = NativeQueryConfig("androidJavaGL") == "true";
 	switch (g_Config.iGPUBackend) {
 	case (int)GPUBackend::OPENGL:
-		ILOG("NativeApp.init() -- creating OpenGL context");
 		useCPUThread = true;
-		if (javaGL) {
-			graphicsContext = new AndroidJavaEGLGraphicsContext();
-		} else {
-			graphicsContext = new AndroidEGLGraphicsContext();
-		}
+		_assert_(javaGL);
+		ILOG("NativeApp.init() -- creating OpenGL context (JavaGL)");
+		graphicsContext = new AndroidJavaEGLGraphicsContext();
 		break;
 	case (int)GPUBackend::VULKAN:
+	{
 		ILOG("NativeApp.init() -- creating Vulkan context");
 		useCPUThread = false;  // The Vulkan render manager manages its own thread.
 		// We create and destroy the Vulkan graphics context in the "EGL" thread.
+		AndroidVulkanContext *ctx = new AndroidVulkanContext();
+		if (!ctx->InitAPI()) {
+			ILOG("Failed to initialize Vulkan, switching to OpenGL");
+			g_Config.iGPUBackend = (int)GPUBackend::OPENGL;
+			SetGPUBackend(GPUBackend::OPENGL);
+			goto retry;
+		} else {
+			graphicsContext = ctx;
+		}
 		break;
+	}
 	default:
 		ELOG("NativeApp.init(): iGPUBackend %d not supported. Switching to OpenGL.", (int)g_Config.iGPUBackend);
 		g_Config.iGPUBackend = (int)GPUBackend::OPENGL;
@@ -930,12 +938,6 @@ retry:
 	bool vulkan = g_Config.iGPUBackend == (int)GPUBackend::VULKAN;
 
 	int tries = 0;
-
-	_assert_msg_(G3D, !graphicsContext, "Graphics context already exists entering runEGLRenderLoop - this is wrong.");
-
-	if (vulkan) {
-		graphicsContext = new AndroidVulkanContext();
-	}
 
 	if (!graphicsContext->InitFromRenderThread(wnd, desiredBackbufferSizeX, desiredBackbufferSizeY, backbuffer_format, androidVersion)) {
 		ELOG("Failed to initialize graphics context.");

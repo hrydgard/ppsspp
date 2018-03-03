@@ -482,7 +482,7 @@ public abstract class NativeActivity extends Activity implements SurfaceHolder.C
 		gainAudioFocus(this.audioManager, this.audioFocusChangeListener);
         NativeApp.audioInit();
 
-	    if (javaGL) {
+        if (javaGL) {
 	        mGLSurfaceView = new NativeGLView(this);
 			nativeRenderer = new NativeRenderer(this);
 			mGLSurfaceView.setEGLContextClientVersion(2);

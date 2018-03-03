@@ -8,8 +8,10 @@ class VulkanContext;
 
 class AndroidVulkanContext : public AndroidGraphicsContext {
 public:
-	AndroidVulkanContext() : draw_(nullptr) {}
+	AndroidVulkanContext();
 	~AndroidVulkanContext();
+
+	bool InitAPI();
 
 	bool InitFromRenderThread(ANativeWindow *wnd, int desiredBackbufferSizeX, int desiredBackbufferSizeY, int backbufferFormat, int androidVersion) override;
 	void Shutdown() override;
