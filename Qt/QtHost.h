@@ -82,9 +82,13 @@ public:
 		g_symbolMap->SaveSymbolMap(SymbolMapFilename(PSP_CoreParameter().fileToStart));
 	}
 	void SetWindowTitle(const char *message) override {
-		QString title = "PPSSPP " + QString(PPSSPP_GIT_VERSION) + " - " + QString::fromUtf8(message);
-
-		mainWindow->setWindowTitle(title);
+		std::string title = std::string("PPSSPP ") + PPSSPP_GIT_VERSION;
+		if (message)
+			title += std::string(" - ") + message;
+#ifdef _DEBUG
+		title += " (debug)";
+#endif
+		mainWindow->SetWindowTitleAsync(title);
 	}
 
 	void NotifyUserMessage(const std::string &message, float duration = 1.0f, u32 color = 0x00FFFFFF, const char *id = nullptr) override {

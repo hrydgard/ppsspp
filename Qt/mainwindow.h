@@ -25,7 +25,8 @@ class MenuTree;
 
 // hacky, should probably use qt signals or something, but whatever..
 enum class MainWindowMsg {
-	BOOT_DONE
+	BOOT_DONE,
+	WINDOW_TITLE_CHANGED,
 };
 
 class MainWindow : public QMainWindow
@@ -48,6 +49,12 @@ public:
 	void Notify(MainWindowMsg msg) {
 		std::unique_lock<std::mutex> lock(msgMutex_);
 		msgQueue_.push(msg);
+	}
+
+	void SetWindowTitleAsync(std::string title) {
+		std::unique_lock<std::mutex> lock(titleMutex_);
+		newWindowTitle_ = title;
+		Notify(MainWindowMsg::WINDOW_TITLE_CHANGED);
 	}
 
 protected:
@@ -170,6 +177,9 @@ private:
 
 	std::queue<MainWindowMsg> msgQueue_;
 	std::mutex msgMutex_;
+
+	std::string newWindowTitle_;
+	std::mutex titleMutex_;
 };
 
 class MenuAction : public QAction
