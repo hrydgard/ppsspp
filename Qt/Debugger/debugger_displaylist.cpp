@@ -10,8 +10,9 @@
 #include "Core/Host.h"
 #include "base/display.h"
 #include "mainwindow.h"
-#include "UI/HostTypes.h"
-//commented out until someone bothers to maintain it
+#include "Qt/QtHost.h"
+
+//commented out until someone bothers to maintain it (see below)
 //#include "GPU/GLES/VertexDecoder.h"
 
 Debugger_DisplayList::Debugger_DisplayList(DebugInterface *_cpu, Draw::DrawContext *draw, MainWindow* mainWindow_, QWidget *parent) :

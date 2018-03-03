@@ -81,6 +81,10 @@ void MainWindow::newFrame()
 		case MainWindowMsg::BOOT_DONE:
 			bootDone();
 			break;
+		case MainWindowMsg::WINDOW_TITLE_CHANGED:
+			std::unique_lock<std::mutex> lock(titleMutex_);
+			setWindowTitle(QString::fromUtf8(newWindowTitle_.c_str()));
+			break;
 		}
 	}
 }
