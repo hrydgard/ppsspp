@@ -101,6 +101,10 @@
 #include "Common/KeyMap.h"
 #endif
 
+#if !defined(MOBILE_DEVICE) && defined(USING_QT_UI)
+#include "Qt/QtHost.h"
+#endif
+
 // The new UI framework, for initialization
 
 static UI::Theme ui_theme;
