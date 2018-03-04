@@ -538,11 +538,12 @@ void GLPushBuffer::Map() {
 	assert(!writePtr_);
 	auto &info = buffers_[buf_];
 	writePtr_ = info.deviceMemory ? info.deviceMemory : info.localMemory;
+	info.flushOffset = 0;
 	// Force alignment.  This is needed for PushAligned() to work as expected.
 	while ((intptr_t)writePtr_ & 15) {
 		writePtr_++;
+		info.flushOffset++;
 	}
-	info.flushOffset = 0;
 	assert(writePtr_);
 }
 
@@ -564,8 +565,10 @@ void GLPushBuffer::Flush() {
 	buffers_[buf_].flushOffset = offset_;
 	if (!buffers_[buf_].deviceMemory && writePtr_) {
 		auto &info = buffers_[buf_];
-		glBindBuffer(target_, info.buffer->buffer);
-		glBufferSubData(target_, 0, info.flushOffset, info.localMemory);
+		if (info.flushOffset != 0) {
+			glBindBuffer(target_, info.buffer->buffer);
+			glBufferSubData(target_, 0, info.flushOffset, info.localMemory);
+		}
 
 		// Here we will submit all the draw calls, with the already known buffer and offsets.
 		// Might as well reset the write pointer here and start over the current buffer.
@@ -660,6 +663,7 @@ size_t GLPushBuffer::GetTotalSize() const {
 }
 
 void GLPushBuffer::MapDevice() {
+	bool mapChanged = false;
 	for (auto &info : buffers_) {
 		if (!info.buffer->buffer) {
 			// Can't map - no device buffer associated yet.
@@ -669,16 +673,18 @@ void GLPushBuffer::MapDevice() {
 		assert(!info.deviceMemory);
 		// TODO: Can we use GL_WRITE_ONLY?
 		info.deviceMemory = (uint8_t *)info.buffer->Map(GL_MAP_WRITE_BIT | GL_MAP_FLUSH_EXPLICIT_BIT);
+		mapChanged = mapChanged || info.deviceMemory != nullptr;
 
 		if (!info.deviceMemory && !info.localMemory) {
 			// Somehow it failed, let's dodge crashing.
 			info.localMemory = new uint8_t[info.buffer->size_];
+			mapChanged = true;
 		}
 
 		assert(info.localMemory || info.deviceMemory);
 	}
 
-	if (writePtr_) {
+	if (writePtr_ && mapChanged) {
 		// This can happen during a sync.  Remap.
 		writePtr_ = nullptr;
 		Map();
