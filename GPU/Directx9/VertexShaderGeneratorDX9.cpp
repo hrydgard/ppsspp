@@ -37,7 +37,7 @@
 
 namespace DX9 {
 
-	enum DoLightComputation {
+enum DoLightComputation {
 	LIGHT_OFF,
 	LIGHT_SHADE,
 	LIGHT_FULL,
