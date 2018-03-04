@@ -5,6 +5,7 @@
 #include "thread/threadutil.h"
 #include "base/logging.h"
 #include "GPU/GPUState.h"
+#include "Common/MemoryUtil.h"
 
 #if 0 // def _DEBUG
 #define VLOG ILOG
@@ -592,7 +593,7 @@ void GLPushBuffer::Flush() {
 
 bool GLPushBuffer::AddBuffer() {
 	BufInfo info;
-	info.localMemory = new uint8_t[size_];
+	info.localMemory = (uint8_t *)AllocateAlignedMemory(size_, 16);
 	info.buffer = render_->CreateBuffer(target_, size_, GL_DYNAMIC_DRAW);
 	buf_ = buffers_.size();
 	buffers_.push_back(info);
@@ -603,7 +604,7 @@ void GLPushBuffer::Destroy() {
 	for (BufInfo &info : buffers_) {
 		// This will automatically unmap device memory, if needed.
 		render_->DeleteBuffer(info.buffer);
-		delete[] info.localMemory;
+		FreeAlignedMemory(info.localMemory);
 	}
 	buffers_.clear();
 }
@@ -637,7 +638,7 @@ void GLPushBuffer::Defragment() {
 		// Let's take this chance to jetison localMemory we don't need.
 		for (auto &info : buffers_) {
 			if (info.deviceMemory) {
-				delete[] info.localMemory;
+				FreeAlignedMemory(info.localMemory);
 				info.localMemory = nullptr;
 			}
 		}
@@ -677,7 +678,7 @@ void GLPushBuffer::MapDevice() {
 
 		if (!info.deviceMemory && !info.localMemory) {
 			// Somehow it failed, let's dodge crashing.
-			info.localMemory = new uint8_t[info.buffer->size_];
+			info.localMemory = (uint8_t *)AllocateAlignedMemory(info.buffer->size_, 16);
 			mapChanged = true;
 		}
 
