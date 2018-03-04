@@ -543,6 +543,7 @@ void GLPushBuffer::Map() {
 	// Force alignment.  This is needed for PushAligned() to work as expected.
 	while ((intptr_t)writePtr_ & 15) {
 		writePtr_++;
+		offset_++;
 		info.flushOffset++;
 	}
 	assert(writePtr_);
