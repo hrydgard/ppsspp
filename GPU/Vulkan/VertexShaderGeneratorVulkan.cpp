@@ -203,7 +203,7 @@ bool GenerateVulkanGLSLVertexShader(const VShaderID &id, char *buffer, bool *use
 		WRITE(p, "  vec4 uv;\n");
 		WRITE(p, "  vec4 color;\n");
 		WRITE(p, "};");
-		WRITE(p, "layout (std430, set = 0, binding = 5) buffer s_tess_data {\n");
+		WRITE(p, "layout (std430, set = 0, binding = 4) buffer s_tess_data {\n");
 		WRITE(p, "  TessData data[];");
 		WRITE(p, "} tess_data;");
 
