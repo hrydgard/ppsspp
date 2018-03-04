@@ -847,6 +847,7 @@ public:
 	size_t GetTotalSize() const;
 
 	void Flush();
+	void FlushFromThread();
 
 protected:
 	void MapDevice();

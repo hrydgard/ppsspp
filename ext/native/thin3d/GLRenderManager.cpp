@@ -423,8 +423,8 @@ void GLRenderManager::Run(int frame) {
 
 	FrameData &frameData = frameData_[frame];
 	for (auto iter : frameData.activePushBuffers) {
-		iter->Flush();
-		iter->UnmapDevice();
+		//iter->FlushFromThread();
+		//iter->UnmapDevice();
 	}
 
 	auto &stepsOnThread = frameData_[frame].steps;
@@ -436,7 +436,7 @@ void GLRenderManager::Run(int frame) {
 	initStepsOnThread.clear();
 
 	for (auto iter : frameData.activePushBuffers) {
-		iter->MapDevice();
+		//iter->MapDevice();
 	}
 
 	switch (frameData.type) {
@@ -456,6 +456,11 @@ void GLRenderManager::Run(int frame) {
 }
 
 void GLRenderManager::FlushSync() {
+	// Need to flush any pushbuffers to VRAM before submitting draw calls.
+	for (auto iter : frameData_[curFrame_].activePushBuffers) {
+		iter->Flush();
+	}
+
 	// TODO: Reset curRenderStep_?
 	int curFrame = curFrame_;
 	FrameData &frameData = frameData_[curFrame];
@@ -541,10 +546,12 @@ void GLPushBuffer::Map() {
 	writePtr_ = info.deviceMemory ? info.deviceMemory : info.localMemory;
 	info.flushOffset = 0;
 	// Force alignment.  This is needed for PushAligned() to work as expected.
+	/*
 	while ((intptr_t)writePtr_ & 15) {
 		writePtr_++;
 		info.flushOffset++;
 	}
+	*/
 	assert(writePtr_);
 }
 
@@ -561,7 +568,7 @@ void GLPushBuffer::Unmap() {
 	writePtr_ = nullptr;
 }
 
-void GLPushBuffer::Flush() {
+void GLPushBuffer::FlushFromThread() {
 	// Must be called from the render thread.
 	buffers_[buf_].flushOffset = offset_;
 	if (!buffers_[buf_].deviceMemory && writePtr_) {
@@ -589,6 +596,14 @@ void GLPushBuffer::Flush() {
 			info.flushOffset = 0;
 		}
 	}
+}
+
+void GLPushBuffer::Flush() {
+	render_->BufferSubdata(buffers_[buf_].buffer, 0, offset_, buffers_[buf_].localMemory, false);
+	// Here we will submit all the draw calls, with the already known buffer and offsets.
+	// Might as well reset the write pointer here and start over the current buffer.
+	writePtr_ = buffers_[buf_].localMemory;
+	offset_ = 0;
 }
 
 bool GLPushBuffer::AddBuffer() {
@@ -642,7 +657,6 @@ void GLPushBuffer::Defragment() {
 				info.localMemory = nullptr;
 			}
 		}
-
 		return;
 	}
 
