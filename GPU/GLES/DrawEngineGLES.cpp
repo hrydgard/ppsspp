@@ -15,52 +15,6 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
-// Ideas for speeding things up on mobile OpenGL ES implementations
-//
-// Use superbuffers! Yes I just invented that name.
-//
-// The idea is to avoid respecifying the vertex format between every draw call (multiple glVertexAttribPointer ...)
-// by combining the contents of multiple draw calls into one buffer, as long as
-// they have exactly the same output vertex format. (different input formats is fine! This way
-// we can combine the data for multiple draws with different numbers of bones, as we consider numbones < 4 to be = 4)
-// into one VBO.
-//
-// This will likely be a win because I believe that between every change of VBO + glVertexAttribPointer*N, the driver will
-// perform a lot of validation, probably at draw call time, while all the validation can be skipped if the only thing
-// that changes between two draw calls is simple state or texture or a matrix etc, not anything vertex related.
-// Also the driver will have to manage hundreds instead of thousands of VBOs in games like GTA.
-//
-// * Every 10 frames or something, do the following:
-//   - Frame 1:
-//		 + Mark all drawn buffers with in-frame sequence numbers (alternatively,
-//		   just log them in an array)
-//	 - Frame 2 (beginning?):
-//	   + Take adjacent buffers that have the same output vertex format, and add them
-//	     to a list of buffers to combine. Create said buffers with appropriate sizes
-//	     and precompute the offsets that the draws should be written into.
-//	 - Frame 2 (end):
-//	   + Actually do the work of combining the buffers. This probably means re-decoding
-//	     the vertices into a new one. Will also have to apply index offsets.
-//
-// Also need to change the drawing code so that we don't glBindBuffer and respecify glVAP if
-// two subsequent drawcalls come from the same superbuffer.
-//
-// Or we ignore all of this including vertex caching and simply find a way to do highly optimized vertex streaming,
-// like Dolphin is trying to. That will likely never be able to reach the same speed as perfectly optimized
-// superbuffers though. For this we will have to JIT the vertex decoder but that's not too hard.
-//
-// Now, when do we delete superbuffers? Maybe when half the buffers within have been killed?
-//
-// Another idea for GTA which switches textures a lot while not changing much other state is to use ES 3 Array
-// textures, if they are the same size (even if they aren't, might be okay to simply resize the textures to match
-// if they're just a multiple of 2 away) or something. Then we'd have to add a W texture coordinate to choose the
-// texture within the bound texture array to the vertex data when merging into superbuffers.
-//
-// There are even more things to try. For games that do matrix palette skinning by quickly switching bones and
-// just drawing a few triangles per call (NBA, FF:CC, Tekken 6 etc) we could even collect matrices, upload them
-// all at once, writing matrix indices into the vertices in addition to the weights, and then doing a single
-// draw call with specially generated shader to draw the whole mesh. This code will be seriously complex though.
-
 #include "base/logging.h"
 #include "base/timeutil.h"
 
@@ -376,8 +330,8 @@ void DrawEngineGLES::DoFlush() {
 
 		// Cannot cache vertex data with morph enabled.
 		bool useCache = g_Config.bVertexCache && !(lastVType_ & GE_VTYPE_MORPHCOUNT_MASK);
-		// Also avoid caching when software skinning.
-		if (g_Config.bSoftwareSkinning && (lastVType_ & GE_VTYPE_WEIGHT_MASK))
+		// Also avoid caching when skinning.
+		if (lastVType_ & GE_VTYPE_WEIGHT_MASK)
 			useCache = false;
 
 		// TEMPORARY
@@ -521,8 +475,8 @@ void DrawEngineGLES::DoFlush() {
 
 			vai->lastFrame = gpuStats.numFlips;
 		} else {
-			if (g_Config.bSoftwareSkinning && (lastVType_ & GE_VTYPE_WEIGHT_MASK)) {
-				// If software skinning, we've already predecoded into "decoded". So push that content.
+			if (lastVType_ & GE_VTYPE_WEIGHT_MASK) {
+				// If skinning, we've already predecoded into "decoded". So push that content.
 				size_t size = decodedVerts_ * dec_->GetDecVtxFmt().stride;
 				u8 *dest = (u8 *)frameData.pushVertex->Push(size, &vertexBufferOffset, &vertexBuffer);
 				memcpy(dest, decoded, size);

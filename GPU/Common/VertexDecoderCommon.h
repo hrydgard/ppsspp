@@ -431,9 +431,6 @@ struct JitLookup {
 	JitStepFunction jitFunc;
 };
 
-// Collapse to less skinning shaders to reduce shader switching, which is expensive.
-int TranslateNumBones(int bones);
-
 typedef void(*JittedVertexDecoder)(const u8 *src, u8 *dst, int count);
 
 struct VertexDecoderOptions {
@@ -460,11 +457,7 @@ public:
 
 	std::string GetString(DebugShaderStringType stringType);
 
-	void Step_WeightsU8() const;
-	void Step_WeightsU16() const;
-	void Step_WeightsU8ToFloat() const;
-	void Step_WeightsU16ToFloat() const;
-	void Step_WeightsFloat() const;
+	void ComputeSkinMatrix(const float weights[8]) const;
 
 	void Step_WeightsU8Skin() const;
 	void Step_WeightsU16Skin() const;
@@ -517,6 +510,10 @@ public:
 	void Step_NormalS16Morph() const;
 	void Step_NormalFloatMorph() const;
 
+	void Step_NormalS8MorphSkin() const;
+	void Step_NormalS16MorphSkin() const;
+	void Step_NormalFloatMorphSkin() const;
+
 	void Step_PosS8() const;
 	void Step_PosS16() const;
 	void Step_PosFloat() const;
@@ -528,6 +525,10 @@ public:
 	void Step_PosS8Morph() const;
 	void Step_PosS16Morph() const;
 	void Step_PosFloatMorph() const;
+
+	void Step_PosS8MorphSkin() const;
+	void Step_PosS16MorphSkin() const;
+	void Step_PosFloatMorphSkin() const;
 
 	void Step_PosS8Through() const;
 	void Step_PosS16Through() const;
@@ -607,12 +608,6 @@ public:
 	// Returns a pointer to the code to run.
 	JittedVertexDecoder Compile(const VertexDecoder &dec, int32_t *jittedSize);
 	void Clear();
-
-	void Jit_WeightsU8();
-	void Jit_WeightsU16();
-	void Jit_WeightsU8ToFloat();
-	void Jit_WeightsU16ToFloat();
-	void Jit_WeightsFloat();
 
 	void Jit_WeightsU8Skin();
 	void Jit_WeightsU16Skin();

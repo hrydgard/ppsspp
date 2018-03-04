@@ -56,8 +56,7 @@ struct VulkanPipelineKey {
 
 enum {
 	UB_VS_FS_BASE = (1 << 0),
-	UB_VS_BONES = (1 << 1),
-	UB_VS_LIGHTS = (1 << 2),
+	UB_VS_LIGHTS = (1 << 1),
 };
 
 // Simply wraps a Vulkan pipeline, providing some metadata.

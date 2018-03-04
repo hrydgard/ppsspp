@@ -23,7 +23,7 @@
 // * binding 1: Secondary texture sampler for shader blending or depal palettes
 // * binding 2: Base Uniform Buffer (includes fragment state)
 // * binding 3: Light uniform buffer
-// * binding 4: Bone uniform buffer
+// * binding 4: Shader buffer storage for tesselation
 //
 // All shaders conform to this layout, so they are all compatible with the same descriptor set.
 // The format of the various uniform buffers may vary though - vertex shaders that don't skin
@@ -195,7 +195,7 @@ private:
 	void DoFlush();
 	void UpdateUBOs(FrameData *frame);
 
-	VkDescriptorSet GetOrCreateDescriptorSet(VkImageView imageView, VkSampler sampler, VkBuffer base, VkBuffer light, VkBuffer bone, bool tess);
+	VkDescriptorSet GetOrCreateDescriptorSet(VkImageView imageView, VkSampler sampler, VkBuffer base, VkBuffer light, bool tess);
 
 	VulkanContext *vulkan_;
 	Draw::DrawContext *draw_;
@@ -219,7 +219,7 @@ private:
 		VkImageView imageView_;
 		VkImageView secondaryImageView_;
 		VkSampler sampler_;
-		VkBuffer base_, light_, bone_;  // All three UBO slots will be set to this. This will usually be identical
+		VkBuffer base_, light_;  // All three UBO slots will be set to this. This will usually be identical
 		// for all draws in a frame, except when the buffer has to grow.
 	};
 
@@ -253,8 +253,7 @@ private:
 	uint64_t dirtyUniforms_;
 	uint32_t baseUBOOffset;
 	uint32_t lightUBOOffset;
-	uint32_t boneUBOOffset;
-	VkBuffer baseBuf, lightBuf, boneBuf;
+	VkBuffer baseBuf, lightBuf;
 	VkImageView imageView = VK_NULL_HANDLE;
 	VkSampler sampler = VK_NULL_HANDLE;
 

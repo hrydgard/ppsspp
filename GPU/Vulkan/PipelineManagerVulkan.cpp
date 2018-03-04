@@ -292,9 +292,6 @@ static VulkanPipeline *CreateVulkanPipeline(VkDevice device, VkPipelineCache pip
 		if (vs->HasLights()) {
 			vulkanPipeline->uniformBlocks |= UB_VS_LIGHTS;
 		}
-		if (vs->HasBones()) {
-			vulkanPipeline->uniformBlocks |= UB_VS_BONES;
-		}
 	}
 	return vulkanPipeline;
 }
