@@ -130,6 +130,26 @@ public:
 	std::unordered_map<std::string, UniformInfo> uniformCache_;
 };
 
+enum class GLBufferStrategy {
+	SUBDATA = 0,
+
+	MASK_FLUSH = 0x10,
+	MASK_INVALIDATE = 0x20,
+
+	// Map/unmap the buffer each frame.
+	FRAME_UNMAP = 1,
+	// Map/unmap and also invalidate the buffer on map.
+	INVALIDATE_UNMAP = MASK_INVALIDATE,
+	// Map/unmap and explicitly flushed changed ranges.
+	FLUSH_UNMAP = MASK_FLUSH,
+	// Map/unmap, invalidate on map, and explicit flush.
+	FLUSH_INVALIDATE_UNMAP = MASK_FLUSH | MASK_INVALIDATE,
+};
+
+static inline int operator &(const GLBufferStrategy &lhs, const GLBufferStrategy &rhs) {
+	return (int)lhs & (int)rhs;
+}
+
 class GLRBuffer {
 public:
 	GLRBuffer(GLuint target, size_t size) : target_(target), size_((int)size) {}
@@ -139,7 +159,7 @@ public:
 		}
 	}
 
-	void *Map(GLbitfield access);
+	void *Map(GLBufferStrategy strategy);
 	bool Unmap();
 
 	bool Mapped() {
@@ -745,6 +765,7 @@ private:
 	int curFrame_ = 0;
 
 	std::function<void()> swapFunction_;
+	GLBufferStrategy bufferStrategy_ = GLBufferStrategy::SUBDATA;
 
 	int targetWidth_ = 0;
 	int targetHeight_ = 0;
@@ -849,7 +870,7 @@ public:
 	void Flush();
 
 protected:
-	void MapDevice();
+	void MapDevice(GLBufferStrategy strategy);
 	void UnmapDevice();
 
 private:
@@ -864,6 +885,7 @@ private:
 	size_t size_ = 0;
 	uint8_t *writePtr_ = nullptr;
 	GLuint target_;
+	GLBufferStrategy strategy_ = GLBufferStrategy::SUBDATA;
 
 	friend class GLRenderManager;
 };
