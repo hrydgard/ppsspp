@@ -229,7 +229,7 @@ JittedVertexDecoder VertexDecoderJitCache::Compile(const VertexDecoder &dec, int
 	// Keep the scale/offset in a few fp registers if we need it.
 	if (prescaleStep) {
 		MOV(PTRBITS, R(tempReg1), ImmPtr(&gstate_c.uv));
-		MOVAPS(fpScaleOffsetReg, MatR(tempReg1));
+		MOVUPS(fpScaleOffsetReg, MatR(tempReg1));
 		if ((dec.VertexType() & GE_VTYPE_TC_MASK) == GE_VTYPE_TC_8BIT) {
 			MOV(PTRBITS, R(tempReg2), ImmPtr(&by128_11));
 			MULPS(fpScaleOffsetReg, MatR(tempReg2));
