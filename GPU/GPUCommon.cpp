@@ -1528,6 +1528,7 @@ void GPUCommon::Execute_Prim(u32 op, u32 diff) {
 		{
 			u32 count = data & 0xFFFF;
 			if (count == 0) {
+				// Ignore.
 				break;
 			}
 
@@ -1536,12 +1537,7 @@ void GPUCommon::Execute_Prim(u32 op, u32 diff) {
 			verts = Memory::GetPointerUnchecked(gstate_c.vertexAddr);
 			inds = 0;
 			if ((vertexType & GE_VTYPE_IDX_MASK) != GE_VTYPE_IDX_NONE) {
-				u32 indexAddr = gstate_c.indexAddr;
-				if (!Memory::IsValidAddress(indexAddr)) {
-					ERROR_LOG_REPORT(G3D, "Bad index address %08x!", indexAddr);
-					return;
-				}
-				inds = Memory::GetPointerUnchecked(indexAddr);
+				inds = Memory::GetPointerUnchecked(gstate_c.indexAddr);
 			}
 
 			drawEngineCommon_->SubmitPrim(verts, inds, newPrim, count, vertTypeID, &bytesRead);
@@ -1550,13 +1546,23 @@ void GPUCommon::Execute_Prim(u32 op, u32 diff) {
 			break;
 		}
 		case GE_CMD_VERTEXTYPE:
-			// Some games spam redundant GE_CMD_VERTEXTYPE
-			if (data != vertexType) {  // don't mask data, vertexType is unmasked
+		{
+			uint32_t diff = data ^ vertexType;
+			// don't mask upper bits, vertexType is unmasked
+			if (diff & ~GE_VTYPE_WEIGHTCOUNT_MASK) {
 				goto bail;
+			} else {
+				vertexType = data;
+				vertTypeID = GetVertTypeID(vertexType, gstate.getUVGenMode());
 			}
 			break;
+		}
 		case GE_CMD_VADDR:
 			gstate_c.vertexAddr = gstate_c.getRelativeAddress(data & 0x00FFFFFF);
+			break;
+		case GE_CMD_OFFSETADDR:
+			gstate.cmdmem[GE_CMD_OFFSETADDR] = data;
+			gstate_c.offsetAddr = data << 8;
 			break;
 		case GE_CMD_BASE:
 			gstate.cmdmem[GE_CMD_BASE] = data;
@@ -1564,6 +1570,32 @@ void GPUCommon::Execute_Prim(u32 op, u32 diff) {
 		case GE_CMD_NOP:
 		case GE_CMD_NOP_FF:
 			break;
+		case GE_CMD_BONEMATRIXNUMBER:
+			gstate.cmdmem[GE_CMD_BONEMATRIXNUMBER] = data;
+			break;
+		case GE_CMD_TEXSCALEU:
+			gstate.cmdmem[GE_CMD_TEXSCALEU] = data;
+			gstate_c.uv.uScale = getFloat24(data);
+			break;
+		case GE_CMD_TEXSCALEV:
+			gstate.cmdmem[GE_CMD_TEXSCALEV] = data;
+			gstate_c.uv.vScale = getFloat24(data);
+			break;
+		case GE_CMD_CALL:
+		{
+			// A bone matrix probably. If not we bail.
+			const u32 target = gstate_c.getRelativeAddress(data & 0x00FFFFFC);
+			if ((Memory::ReadUnchecked_U32(target) >> 24) == GE_CMD_BONEMATRIXDATA &&
+				(Memory::ReadUnchecked_U32(target + 11 * 4) >> 24) == GE_CMD_BONEMATRIXDATA &&
+				(Memory::ReadUnchecked_U32(target + 12 * 4) >> 24) == GE_CMD_RET &&
+				(target > currentList->stall || target + 12 * 4 < currentList->stall)) {
+				FastLoadBoneMatrix(target);
+			} else {
+				goto bail;
+			}
+			break;
+		}
+
 		default:
 			// All other commands might need a flush or something, stop this inner loop.
 			goto bail;
@@ -1573,6 +1605,7 @@ void GPUCommon::Execute_Prim(u32 op, u32 diff) {
 	}
 
 bail:
+	gstate.cmdmem[GE_CMD_VERTEXTYPE] = vertexType;
 	// Skip over the commands we just read out manually.
 	if (cmdCount > 0) {
 		UpdatePC(currentList->pc, currentList->pc + cmdCount * 4);
