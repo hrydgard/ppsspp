@@ -44,6 +44,12 @@ typedef u64 ReliableHashType;
 typedef u32 ReliableHashType;
 #endif
 
+inline uint32_t GetVertTypeID(uint32_t vertType, int uvGenMode) {
+	// As the decoder depends on the UVGenMode when we use UV prescale, we simply mash it
+	// into the top of the verttype where there are unused bits.
+	return (vertType & 0xFFFFFF) | (uvGenMode << 24);
+}
+
 class DrawEngineCommon {
 public:
 	DrawEngineCommon();
@@ -59,13 +65,14 @@ public:
 
 	// This would seem to be unnecessary now, but is still required for splines/beziers to work in the software backend since SubmitPrim
 	// is different. Should probably refactor that.
-	virtual void DispatchSubmitPrim(void *verts, void *inds, GEPrimitiveType prim, int vertexCount, u32 vertType, int *bytesRead) {
-		SubmitPrim(verts, inds, prim, vertexCount, vertType, bytesRead);
+	// Note that vertTypeID should be computed using GetVertTypeID().
+	virtual void DispatchSubmitPrim(void *verts, void *inds, GEPrimitiveType prim, int vertexCount, u32 vertTypeID, int *bytesRead) {
+		SubmitPrim(verts, inds, prim, vertexCount, vertTypeID, bytesRead);
 	}
 
 	bool TestBoundingBox(void* control_points, int vertexCount, u32 vertType, int *bytesRead);
 
-	void SubmitPrim(void *verts, void *inds, GEPrimitiveType prim, int vertexCount, u32 vertType, int *bytesRead);
+	void SubmitPrim(void *verts, void *inds, GEPrimitiveType prim, int vertexCount, u32 vertTypeID, int *bytesRead);
 	void SubmitSpline(const void *control_points, const void *indices, int tess_u, int tess_v, int count_u, int count_v, int type_u, int type_v, GEPatchPrimType prim_type, bool computeNormals, bool patchFacing, u32 vertType, int *bytesRead);
 	void SubmitBezier(const void *control_points, const void *indices, int tess_u, int tess_v, int count_u, int count_v, GEPatchPrimType prim_type, bool computeNormals, bool patchFacing, u32 vertType, int *bytesRead);
 
@@ -135,13 +142,13 @@ protected:
 		u32 vertexCount;
 		u16 indexLowerBound;
 		u16 indexUpperBound;
+		UVScale uvScale;
 	};
 
 	enum { MAX_DEFERRED_DRAW_CALLS = 128 };
 	DeferredDrawCall drawCalls[MAX_DEFERRED_DRAW_CALLS];
 	int numDrawCalls = 0;
 	int vertexCountInDrawCalls_ = 0;
-	UVScale uvScale[MAX_DEFERRED_DRAW_CALLS];
 
 	int decimationCounter_ = 0;
 	int decodeCounter_ = 0;
