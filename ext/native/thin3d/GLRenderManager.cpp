@@ -59,6 +59,33 @@ GLRenderManager::~GLRenderManager() {
 void GLRenderManager::ThreadStart() {
 	queueRunner_.CreateDeviceObjects();
 	threadFrame_ = threadInitFrame_;
+
+	bool mapBuffers = (gl_extensions.bugs & BUG_ANY_MAP_BUFFER_RANGE_SLOW) == 0;
+	bool hasBufferStorage = gl_extensions.ARB_buffer_storage || gl_extensions.EXT_buffer_storage;
+	if (!gl_extensions.VersionGEThan(3, 0, 0) && gl_extensions.IsGLES && !hasBufferStorage) {
+		// Force disable if it wouldn't work anyway.
+		mapBuffers = false;
+	}
+
+	// Notes on buffer mapping:
+	// NVIDIA GTX 9xx / 2017-10 drivers - mapping improves speed, basic unmap seems best.
+	// PowerVR GX6xxx / iOS 10.3 - mapping has little improvement, explicit flush is slower.
+	if (mapBuffers) {
+		switch (gl_extensions.gpuVendor) {
+		case GPU_VENDOR_NVIDIA:
+			bufferStrategy_ = GLBufferStrategy::FRAME_UNMAP;
+			break;
+
+		case GPU_VENDOR_QUALCOMM:
+			bufferStrategy_ = GLBufferStrategy::FLUSH_INVALIDATE_UNMAP;
+			break;
+
+		default:
+			bufferStrategy_ = GLBufferStrategy::SUBDATA;
+		}
+	} else {
+		bufferStrategy_ = GLBufferStrategy::SUBDATA;
+	}
 }
 
 void GLRenderManager::ThreadEnd() {
@@ -436,7 +463,7 @@ void GLRenderManager::Run(int frame) {
 	initStepsOnThread.clear();
 
 	for (auto iter : frameData.activePushBuffers) {
-		iter->MapDevice();
+		iter->MapDevice(bufferStrategy_);
 	}
 
 	switch (frameData.type) {
@@ -543,6 +570,7 @@ void GLPushBuffer::Map() {
 	// Force alignment.  This is needed for PushAligned() to work as expected.
 	while ((intptr_t)writePtr_ & 15) {
 		writePtr_++;
+		offset_++;
 		info.flushOffset++;
 	}
 	assert(writePtr_);
@@ -579,7 +607,7 @@ void GLPushBuffer::Flush() {
 	}
 
 	// For device memory, we flush all buffers here.
-	if (gl_extensions.VersionGEThan(3, 0, 0)) {
+	if ((strategy_ & GLBufferStrategy::MASK_FLUSH) != 0) {
 		for (auto &info : buffers_) {
 			if (info.flushOffset == 0 || !info.deviceMemory)
 				continue;
@@ -663,17 +691,20 @@ size_t GLPushBuffer::GetTotalSize() const {
 	return sum;
 }
 
-void GLPushBuffer::MapDevice() {
+void GLPushBuffer::MapDevice(GLBufferStrategy strategy) {
+	strategy_ = strategy;
+	if (strategy_ == GLBufferStrategy::SUBDATA) {
+		return;
+	}
+
 	bool mapChanged = false;
 	for (auto &info : buffers_) {
-		if (!info.buffer->buffer) {
-			// Can't map - no device buffer associated yet.
+		if (!info.buffer->buffer || info.deviceMemory) {
+			// Can't map - no device buffer associated yet or already mapped.
 			continue;
 		}
 
-		assert(!info.deviceMemory);
-		// TODO: Can we use GL_WRITE_ONLY?
-		info.deviceMemory = (uint8_t *)info.buffer->Map(GL_MAP_WRITE_BIT | GL_MAP_FLUSH_EXPLICIT_BIT);
+		info.deviceMemory = (uint8_t *)info.buffer->Map(strategy_);
 		mapChanged = mapChanged || info.deviceMemory != nullptr;
 
 		if (!info.deviceMemory && !info.localMemory) {
@@ -702,27 +733,30 @@ void GLPushBuffer::UnmapDevice() {
 	}
 }
 
-void *GLRBuffer::Map(GLbitfield access) {
+void *GLRBuffer::Map(GLBufferStrategy strategy) {
 	assert(buffer != 0);
 
-	// Notes on buffer mapping:
-	// NVIDIA GTX 9xx / 2017-10 drivers - mapping improves speed, explicit flush zero cost/benefit.
-	// PowerVR GX6xxx / iOS 10.3 - mapping has little improvement, explicit flush is slower.
-	// AMD / unknown - mapping causes black screens and flickering?
-	// Mali / unknown - mapping causes black screens and flickering?
+	GLbitfield access = GL_MAP_WRITE_BIT;
+	if ((strategy & GLBufferStrategy::MASK_FLUSH) != 0) {
+		access |= GL_MAP_FLUSH_EXPLICIT_BIT;
+	}
+	if ((strategy & GLBufferStrategy::MASK_INVALIDATE) != 0) {
+		access |= GL_MAP_INVALIDATE_BUFFER_BIT;
+	}
 
 	void *p = nullptr;
-	bool allowNativeBuffer = (gl_extensions.bugs & BUG_ANY_MAP_BUFFER_RANGE_SLOW) == 0;
+	bool allowNativeBuffer = strategy != GLBufferStrategy::SUBDATA;
 	if (allowNativeBuffer) {
 		glBindBuffer(target_, buffer);
 
 		if (gl_extensions.ARB_buffer_storage || gl_extensions.EXT_buffer_storage) {
 #ifndef IOS
 			if (!hasStorage_) {
+				GLbitfield storageFlags = access & ~(GL_MAP_INVALIDATE_BUFFER_BIT | GL_MAP_FLUSH_EXPLICIT_BIT);
 #ifdef USING_GLES2
-				glBufferStorageEXT(target_, size_, nullptr, access & (GL_MAP_READ_BIT | GL_MAP_WRITE_BIT));
+				glBufferStorageEXT(target_, size_, nullptr, storageFlags);
 #else
-				glBufferStorage(target_, size_, nullptr, access & (GL_MAP_READ_BIT | GL_MAP_WRITE_BIT));
+				glBufferStorage(target_, size_, nullptr, storageFlags);
 #endif
 				hasStorage_ = true;
 			}
