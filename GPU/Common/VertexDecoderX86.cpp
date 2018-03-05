@@ -39,6 +39,13 @@ alignas(16) static const float by32768[4] = {
 	1.0f / 32768.0f, 1.0f / 32768.0f, 1.0f / 32768.0f, 1.0f / 32768.0f,
 };
 
+alignas(16) static const float by128_11[4] = {
+	1.0f / 128.0f, 1.0f / 128.0f, 1.0f, 1.0f,
+};
+alignas(16) static const float by32768_11[4] = {
+	1.0f / 32768.0f, 1.0f / 32768.0f, 1.0f, 1.0f,
+};
+
 alignas(16) static const u32 threeMasks[4] = { 0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF, 0 };
 alignas(16) static const u32 aOne[4] = {0, 0, 0, 0x3F800000};
 
@@ -222,20 +229,14 @@ JittedVertexDecoder VertexDecoderJitCache::Compile(const VertexDecoder &dec, int
 	// Keep the scale/offset in a few fp registers if we need it.
 	if (prescaleStep) {
 		MOV(PTRBITS, R(tempReg1), ImmPtr(&gstate_c.uv));
-		MOVSS(fpScaleOffsetReg, MDisp(tempReg1, 0));
-		MOVSS(fpScratchReg, MDisp(tempReg1, 4));
-		UNPCKLPS(fpScaleOffsetReg, R(fpScratchReg));
+		MOVAPS(fpScaleOffsetReg, MatR(tempReg1));
 		if ((dec.VertexType() & GE_VTYPE_TC_MASK) == GE_VTYPE_TC_8BIT) {
-			MOV(PTRBITS, R(tempReg2), ImmPtr(&by128));
+			MOV(PTRBITS, R(tempReg2), ImmPtr(&by128_11));
 			MULPS(fpScaleOffsetReg, MatR(tempReg2));
 		} else if ((dec.VertexType() & GE_VTYPE_TC_MASK) == GE_VTYPE_TC_16BIT) {
-			MOV(PTRBITS, R(tempReg2), ImmPtr(&by32768));
+			MOV(PTRBITS, R(tempReg2), ImmPtr(&by32768_11));
 			MULPS(fpScaleOffsetReg, MatR(tempReg2));
 		}
-		MOVSS(fpScratchReg, MDisp(tempReg1, 8));
-		MOVSS(fpScratchReg2, MDisp(tempReg1, 12));
-		UNPCKLPS(fpScratchReg, R(fpScratchReg2));
-		UNPCKLPD(fpScaleOffsetReg, R(fpScratchReg));
 	}
 
 	// Let's not bother with a proper stack frame. We just grab the arguments and go.
