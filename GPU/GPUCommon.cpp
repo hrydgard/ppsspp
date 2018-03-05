@@ -1498,7 +1498,8 @@ void GPUCommon::Execute_Prim(u32 op, u32 diff) {
 	int bytesRead = 0;
 	UpdateUVScaleOffset();
 
-	drawEngineCommon_->SubmitPrim(verts, inds, prim, count, vertexType, &bytesRead);
+	uint32_t vertTypeID = GetVertTypeID(vertexType, gstate.getUVGenMode());
+	drawEngineCommon_->SubmitPrim(verts, inds, prim, count, vertTypeID, &bytesRead);
 	// After drawing, we advance the vertexAddr (when non indexed) or indexAddr (when indexed).
 	// Some games rely on this, they don't bother reloading VADDR and IADDR.
 	// The VADDR/IADDR registers are NOT updated.
@@ -1543,7 +1544,7 @@ void GPUCommon::Execute_Prim(u32 op, u32 diff) {
 				inds = Memory::GetPointerUnchecked(indexAddr);
 			}
 
-			drawEngineCommon_->SubmitPrim(verts, inds, newPrim, count, vertexType, &bytesRead);
+			drawEngineCommon_->SubmitPrim(verts, inds, newPrim, count, vertTypeID, &bytesRead);
 			AdvanceVerts(vertexType, count, bytesRead);
 			totalVertCount += count;
 			break;
@@ -2047,7 +2048,8 @@ void GPUCommon::FlushImm() {
 	int vtype = GE_VTYPE_POS_FLOAT | GE_VTYPE_COL_8888 | GE_VTYPE_THROUGH;
 
 	int bytesRead;
-	drawEngineCommon_->DispatchSubmitPrim(temp, nullptr, immPrim_, immCount_, vtype, &bytesRead);
+	uint32_t vertTypeID = GetVertTypeID(vtype, 0);
+	drawEngineCommon_->DispatchSubmitPrim(temp, nullptr, immPrim_, immCount_, vertTypeID, &bytesRead);
 	drawEngineCommon_->DispatchFlush();
 	// TOOD: In the future, make a special path for these.
 	// drawEngineCommon_->DispatchSubmitImm(immBuffer_, immCount_);

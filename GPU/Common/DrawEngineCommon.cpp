@@ -93,7 +93,7 @@ int DrawEngineCommon::ComputeNumVertsToDecode() const {
 void DrawEngineCommon::DecodeVerts(u8 *dest) {
 	const UVScale origUV = gstate_c.uv;
 	for (; decodeCounter_ < numDrawCalls; decodeCounter_++) {
-		gstate_c.uv = uvScale[decodeCounter_];
+		gstate_c.uv = drawCalls[decodeCounter_].uvScale;
 		DecodeVertsStep(dest, decodeCounter_, decodedVerts_);  // NOTE! DecodeVertsStep can modify decodeCounter_!
 	}
 	gstate_c.uv = origUV;
@@ -601,11 +601,12 @@ ReliableHashType DrawEngineCommon::ComputeHash() {
 		}
 	}
 
-	fullhash += DoReliableHash(&uvScale[0], sizeof(uvScale[0]) * numDrawCalls, 0x0123e658);
+	fullhash += DoReliableHash(&drawCalls[0].uvScale, sizeof(drawCalls[0].uvScale) * numDrawCalls, 0x0123e658);
 	return fullhash;
 }
 
-void DrawEngineCommon::SubmitPrim(void *verts, void *inds, GEPrimitiveType prim, int vertexCount, u32 vertType, int *bytesRead) {
+// vertTypeID is the vertex type but with the UVGen mode smashed into the top bits.
+void DrawEngineCommon::SubmitPrim(void *verts, void *inds, GEPrimitiveType prim, int vertexCount, u32 vertTypeID, int *bytesRead) {
 	if (!indexGen.PrimCompatible(prevPrim_, prim) || numDrawCalls >= MAX_DEFERRED_DRAW_CALLS || vertexCountInDrawCalls_ + vertexCount > VERTEX_BUFFER_MAX) {
 		DispatchFlush();
 	}
@@ -617,9 +618,6 @@ void DrawEngineCommon::SubmitPrim(void *verts, void *inds, GEPrimitiveType prim,
 		prevPrim_ = prim;
 	}
 
-	// As the decoder depends on the UVGenMode when we use UV prescale, we simply mash it
-	// into the top of the verttype where there are unused bits.
-	const u32 vertTypeID = (vertType & 0xFFFFFF) | (gstate.getUVGenMode() << 24);
 	// If vtype has changed, setup the vertex decoder.
 	if (vertTypeID != lastVType_) {
 		dec_ = GetVertexDecoder(vertTypeID);
@@ -630,35 +628,34 @@ void DrawEngineCommon::SubmitPrim(void *verts, void *inds, GEPrimitiveType prim,
 	if ((vertexCount < 2 && prim > 0) || (vertexCount < 3 && prim > 2 && prim != GE_PRIM_RECTANGLES))
 		return;
 
-	DeferredDrawCall &dc = drawCalls[numDrawCalls];
-	dc.verts = verts;
-	dc.inds = inds;
-	dc.indexType = (vertType & GE_VTYPE_IDX_MASK) >> GE_VTYPE_IDX_SHIFT;
-	dc.prim = prim;
-	dc.vertexCount = vertexCount;
-
 	if (g_Config.bVertexCache) {
 		u32 dhash = dcid_;
 		dhash = __rotl(dhash ^ (u32)(uintptr_t)verts, 13);
 		dhash = __rotl(dhash ^ (u32)(uintptr_t)inds, 13);
-		dhash = __rotl(dhash ^ (u32)vertType, 13);
+		dhash = __rotl(dhash ^ (u32)vertTypeID, 13);
 		dhash = __rotl(dhash ^ (u32)vertexCount, 13);
 		dcid_ = dhash ^ (u32)prim;
 	}
 
+	DeferredDrawCall &dc = drawCalls[numDrawCalls];
+	dc.verts = verts;
+	dc.inds = inds;
+	dc.indexType = (vertTypeID & GE_VTYPE_IDX_MASK) >> GE_VTYPE_IDX_SHIFT;
+	dc.prim = prim;
+	dc.vertexCount = vertexCount;
+	dc.uvScale = gstate_c.uv;
+
 	if (inds) {
-		GetIndexBounds(inds, vertexCount, vertType, &dc.indexLowerBound, &dc.indexUpperBound);
+		GetIndexBounds(inds, vertexCount, vertTypeID, &dc.indexLowerBound, &dc.indexUpperBound);
 	} else {
 		dc.indexLowerBound = 0;
 		dc.indexUpperBound = vertexCount - 1;
 	}
 
-	uvScale[numDrawCalls] = gstate_c.uv;
-
 	numDrawCalls++;
 	vertexCountInDrawCalls_ += vertexCount;
 
-	if (vertType & GE_VTYPE_WEIGHT_MASK) {
+	if (vertTypeID & GE_VTYPE_WEIGHT_MASK) {
 		DecodeVertsStep(decoded, decodeCounter_, decodedVerts_);
 		decodeCounter_++;
 	}

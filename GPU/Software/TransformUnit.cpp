@@ -53,8 +53,8 @@ SoftwareDrawEngine::~SoftwareDrawEngine() {
 void SoftwareDrawEngine::DispatchFlush() {
 }
 
-void SoftwareDrawEngine::DispatchSubmitPrim(void *verts, void *inds, GEPrimitiveType prim, int vertexCount, u32 vertType, int *bytesRead) {
-	transformUnit.SubmitPrimitive(verts, inds, prim, vertexCount, vertType, bytesRead, this);
+void SoftwareDrawEngine::DispatchSubmitPrim(void *verts, void *inds, GEPrimitiveType prim, int vertexCount, u32 vertTypeID, int *bytesRead) {
+	transformUnit.SubmitPrimitive(verts, inds, prim, vertexCount, vertTypeID, bytesRead, this);
 }
 
 VertexDecoder *SoftwareDrawEngine::FindVertexDecoder(u32 vtype) {
