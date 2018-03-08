@@ -1189,7 +1189,7 @@ void EmuScreen::renderUI() {
 
 	DrawContext *thin3d = screenManager()->getDrawContext();
 	UIContext *ctx = screenManager()->getUIContext();
-
+	ctx->BeginFrame();
 	// This sets up some important states but not the viewport.
 	ctx->Begin();
 

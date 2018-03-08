@@ -167,6 +167,7 @@ public:
 		data.draw.vbuffer = vbuffer;
 		data.draw.voffset = voffset;
 		data.draw.numUboOffsets = numUboOffsets;
+		assert(numUboOffsets <= ARRAY_SIZE(data.drawIndexed.uboOffsets));
 		for (int i = 0; i < numUboOffsets; i++)
 			data.draw.uboOffsets[i] = uboOffsets[i];
 		curRenderStep_->commands.push_back(data);
@@ -185,6 +186,7 @@ public:
 		data.drawIndexed.ibuffer = ibuffer;
 		data.drawIndexed.ioffset = ioffset;
 		data.drawIndexed.numUboOffsets = numUboOffsets;
+		assert(numUboOffsets <= ARRAY_SIZE(data.drawIndexed.uboOffsets));
 		for (int i = 0; i < numUboOffsets; i++)
 			data.drawIndexed.uboOffsets[i] = uboOffsets[i];
 		data.drawIndexed.indexType = indexType;
