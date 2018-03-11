@@ -169,22 +169,24 @@ bool AndroidVulkanContext::InitFromRenderThread(ANativeWindow *wnd, int desiredB
 	return success;
 }
 
-void AndroidVulkanContext::Shutdown() {
+void AndroidVulkanContext::ShutdownFromRenderThread() {
 	ILOG("AndroidVulkanContext::Shutdown");
 	draw_->HandleEvent(Draw::Event::LOST_BACKBUFFER, g_Vulkan->GetBackbufferWidth(), g_Vulkan->GetBackbufferHeight());
-	ILOG("Calling NativeShutdownGraphics");
-	NativeShutdownGraphics();
 	delete draw_;
 	draw_ = nullptr;
 	g_Vulkan->WaitUntilQueueIdle();
-	g_Vulkan->DestroyObjects();
+	g_Vulkan->PerformPendingDeletes();
+	g_Vulkan->DestroyObjects();  // Also destroys the surface, a bit asymmetric
+	ILOG("Done with ShutdownFromRenderThread");
+}
+
+void AndroidVulkanContext::Shutdown() {
+	ILOG("Calling NativeShutdownGraphics");
 	g_Vulkan->DestroyDevice();
 	g_Vulkan->DestroyDebugMsgCallback();
 
 	g_Vulkan->DestroyInstance();
-
 	// We keep the g_Vulkan context around to avoid invalidating a ton of pointers around the app.
-
 	finalize_glslang();
 	ILOG("AndroidVulkanContext::Shutdown completed");
 }

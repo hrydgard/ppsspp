@@ -148,9 +148,9 @@ public:
 
 	// Also destroys the surface.
 	void DestroyObjects();
-
 	void DestroyDevice();
 
+	void PerformPendingDeletes();
 	void WaitUntilQueueIdle();
 
 	// Utility functions for shorter code
