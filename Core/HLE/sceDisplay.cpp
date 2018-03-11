@@ -863,7 +863,9 @@ void __DisplaySetFramebuf(u32 topaddr, int linesize, int pixelFormat, int sync) 
 		framebuf = fbstate;
 		gpu->SetDisplayFramebuffer(framebuf.topaddr, framebuf.stride, framebuf.fmt);
 		// IMMEDIATE means that the buffer is fine. We can just flip immediately.
-		if (!flippedThisFrame)
+		// Doing it in non-buffered though creates problems (black screen) on occasion though
+		// so let's not.
+		if (!flippedThisFrame && g_Config.iRenderingMode != FB_NON_BUFFERED_MODE)
 			__DisplayFlip(0);
 	} else {
 		// Delay the write until vblank
