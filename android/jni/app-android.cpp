@@ -983,10 +983,9 @@ retry:
 	NativeShutdownGraphics();
 	renderer_inited = false;
 
-	ILOG("Shutting down graphics context.");
-	graphicsContext->Shutdown();
-	delete graphicsContext;
-	graphicsContext = nullptr;
+	// Shut the graphics context down to the same state it was in when we entered the render thread.
+	ILOG("Shutting down graphics context from render thread...");
+	graphicsContext->ShutdownFromRenderThread();
 	renderLoopRunning = false;
 	WLOG("Render loop function exited.");
 	return true;

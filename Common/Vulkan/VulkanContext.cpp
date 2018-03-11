@@ -922,13 +922,16 @@ VkFence VulkanContext::CreateFence(bool presignalled) {
 	return fence;
 }
 
-void VulkanContext::DestroyDevice() {
-	ILOG("VulkanContext::DestroyDevice (performing deletes)");
-	// If there happen to be any pending deletes, now is a good time.
+void VulkanContext::PerformPendingDeletes() {
 	for (int i = 0; i < ARRAY_SIZE(frame_); i++) {
 		frame_[i].deleteList.PerformDeletes(device_);
 	}
 	Delete().PerformDeletes(device_);
+}
+
+void VulkanContext::DestroyDevice() {
+	ILOG("VulkanContext::DestroyDevice (performing deletes)");
+	PerformPendingDeletes();
 
 	vkDestroyDevice(device_, nullptr);
 	device_ = nullptr;
