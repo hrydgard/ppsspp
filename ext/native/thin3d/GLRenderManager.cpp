@@ -436,6 +436,12 @@ void GLRenderManager::EndSubmitFrame(int frame) {
 	Submit(frame, true);
 
 	if (!frameData.skipSwap) {
+		if (swapIntervalChanged_) {
+			swapIntervalChanged_ = false;
+			if (swapIntervalFunction_) {
+				swapIntervalFunction_(swapInterval_);
+			}
+		}
 		if (swapFunction_) {
 			swapFunction_();
 		}

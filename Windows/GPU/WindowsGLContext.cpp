@@ -332,8 +332,6 @@ bool WindowsGLContext::InitFromRenderThread(std::string *error_message) {
 
 	hRC = m_hrc;
 
-	SwapInterval(0);
-
 	if (g_Config.bGfxDebugOutput) {
 		if (wglewIsSupported("GL_KHR_debug") == 1) {
 			glGetError();
@@ -375,16 +373,21 @@ bool WindowsGLContext::InitFromRenderThread(std::string *error_message) {
 	renderManager_ = (GLRenderManager *)draw_->GetNativeObject(Draw::NativeObject::RENDER_MANAGER);
 	SetGPUBackend(GPUBackend::OPENGL);
 	bool success = draw_->CreatePresets();  // if we get this far, there will always be a GLSL compiler capable of compiling these.
-	renderManager_->SetSwapFunction([&]() {::SwapBuffers(hDC); });
 	assert(success);
+	renderManager_->SetSwapFunction([&]() {::SwapBuffers(hDC); });
+	if (wglSwapIntervalEXT) {
+		// glew loads wglSwapIntervalEXT if available
+		renderManager_->SetSwapIntervalFunction([&](int interval) {
+			wglSwapIntervalEXT(interval);
+		});
+	}
 	CHECK_GL_ERROR_IF_DEBUG();
 	return true;												// Success
 }
 
 void WindowsGLContext::SwapInterval(int interval) {
-	// glew loads wglSwapIntervalEXT if available
-	if (wglSwapIntervalEXT)
-		wglSwapIntervalEXT(interval);
+	// Delegate to the render manager to make sure it's done on the right thread.
+	renderManager_->SwapInterval(interval);
 }
 
 void WindowsGLContext::Shutdown() {
