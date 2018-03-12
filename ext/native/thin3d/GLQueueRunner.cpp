@@ -22,7 +22,12 @@ extern void bindDefaultFBO();
 GLuint g_defaultFBO = 0;
 
 void GLQueueRunner::CreateDeviceObjects() {
-	glGetFloatv(GL_MAX_TEXTURE_MAX_ANISOTROPY_EXT, &maxAnisotropyLevel_);
+	if (gl_extensions.EXT_texture_filter_anisotropic) {
+		glGetFloatv(GL_MAX_TEXTURE_MAX_ANISOTROPY_EXT, &maxAnisotropyLevel_);
+	} else {
+		maxAnisotropyLevel_ = 0.0f;
+	}
+
 	if (gl_extensions.ARB_vertex_array_object) {
 		glGenVertexArrays(1, &globalVAO_);
 	}
