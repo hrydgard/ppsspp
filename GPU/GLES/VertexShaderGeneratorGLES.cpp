@@ -251,8 +251,7 @@ void GenerateVertexShader(const VShaderID &id, char *buffer, uint32_t *attrMask,
 
 				if (type == GE_LIGHTTYPE_SPOT || type == GE_LIGHTTYPE_UNKNOWN) {
 					WRITE(p, "uniform mediump vec3 u_lightdir%i;\n", i);
-					WRITE(p, "uniform mediump float u_lightangle%i;\n", i);
-					WRITE(p, "uniform mediump float u_lightspotCoef%i;\n", i);
+					WRITE(p, "uniform mediump vec2 u_lightangle_spotCoef%i;\n", i);
 				}
 				WRITE(p, "uniform lowp vec3 u_lightambient%i;\n", i);
 				WRITE(p, "uniform lowp vec3 u_lightdiffuse%i;\n", i);
@@ -646,8 +645,8 @@ void GenerateVertexShader(const VShaderID &id, char *buffer, uint32_t *attrMask,
 			case GE_LIGHTTYPE_SPOT:
 			case GE_LIGHTTYPE_UNKNOWN:
 				WRITE(p, "  angle = dot(normalize(u_lightdir%i), toLight);\n", i);
-				WRITE(p, "  if (angle >= u_lightangle%i) {\n", i);
-				WRITE(p, "    lightScale = clamp(1.0 / dot(u_lightatt%i, vec3(1.0, distance, distance*distance)), 0.0, 1.0) * pow(angle, u_lightspotCoef%i);\n", i, i);
+				WRITE(p, "  if (angle >= u_lightangle_spotCoef%i.x) {\n", i);
+				WRITE(p, "    lightScale = clamp(1.0 / dot(u_lightatt%i, vec3(1.0, distance, distance*distance)), 0.0, 1.0) * pow(angle, u_lightangle_spotCoef%i.y);\n", i, i);
 				WRITE(p, "  } else {\n");
 				WRITE(p, "    lightScale = 0.0;\n");
 				WRITE(p, "  }\n");

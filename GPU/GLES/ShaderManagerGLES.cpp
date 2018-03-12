@@ -127,11 +127,9 @@ LinkedShader::LinkedShader(GLRenderManager *render, VShaderID VSID, Shader *vs, 
 		queries.push_back({ &u_lightdir[i], lightdir_names[i] });
 		static const char * const lightatt_names[4] = { "u_lightatt0", "u_lightatt1", "u_lightatt2", "u_lightatt3", };
 		queries.push_back({ &u_lightatt[i], lightatt_names[i] });
-		static const char * const lightangle_names[4] = { "u_lightangle0", "u_lightangle1", "u_lightangle2", "u_lightangle3", };
-		queries.push_back({ &u_lightangle[i], lightangle_names[i] });
+		static const char * const lightangle_spotCoef_names[4] = { "u_lightangle_spotCoef0", "u_lightangle_spotCoef1", "u_lightangle_spotCoef2", "u_lightangle_spotCoef3", };
+		queries.push_back({ &u_lightangle_spotCoef[i], lightangle_spotCoef_names[i] });
 
-		static const char * const lightspotCoef_names[4] = { "u_lightspotCoef0", "u_lightspotCoef1", "u_lightspotCoef2", "u_lightspotCoef3", };
-		queries.push_back({ &u_lightspotCoef[i], lightspotCoef_names[i] });
 		static const char * const lightambient_names[4] = { "u_lightambient0", "u_lightambient1", "u_lightambient2", "u_lightambient3", };
 		queries.push_back({ &u_lightambient[i], lightambient_names[i] });
 		static const char * const lightdiffuse_names[4] = { "u_lightdiffuse0", "u_lightdiffuse1", "u_lightdiffuse2", "u_lightdiffuse3", };
@@ -174,6 +172,10 @@ LinkedShader::~LinkedShader() {
 // Utility
 static inline void SetFloatUniform(GLRenderManager *render, GLint *uniform, float value) {
 	render->SetUniformF(uniform, 1, &value);
+}
+
+static inline void SetFloatUniform2(GLRenderManager *render, GLint *uniform, float value[2]) {
+	render->SetUniformF(uniform, 2, value);
 }
 
 static inline void SetColorUniform3(GLRenderManager *render, GLint *uniform, u32 color) {
@@ -516,8 +518,10 @@ void LinkedShader::UpdateUniforms(u32 vertType, const ShaderID &vsid) {
 			}
 			if (u_lightdir[i] != -1) SetFloat24Uniform3(render_, &u_lightdir[i], &gstate.ldir[i * 3]);
 			if (u_lightatt[i] != -1) SetFloat24Uniform3(render_, &u_lightatt[i], &gstate.latt[i * 3]);
-			if (u_lightangle[i] != -1) SetFloatUniform(render_, &u_lightangle[i], getFloat24(gstate.lcutoff[i]));
-			if (u_lightspotCoef[i] != -1) SetFloatUniform(render_, &u_lightspotCoef[i], getFloat24(gstate.lconv[i]));
+			if (u_lightangle_spotCoef[i] != -1) {
+				float lightangle_spotCoef[2] = { getFloat24(gstate.lcutoff[i]), getFloat24(gstate.lconv[i]) };
+				SetFloatUniform2(render_, &u_lightangle_spotCoef[i], lightangle_spotCoef);
+			}
 			if (u_lightambient[i] != -1) SetColorUniform3(render_, &u_lightambient[i], gstate.lcolor[i * 3]);
 			if (u_lightdiffuse[i] != -1) SetColorUniform3(render_, &u_lightdiffuse[i], gstate.lcolor[i * 3 + 1]);
 			if (u_lightspecular[i] != -1) SetColorUniform3(render_, &u_lightspecular[i], gstate.lcolor[i * 3 + 2]);

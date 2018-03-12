@@ -456,8 +456,8 @@ void ShaderManagerDX9::VSUpdateUniforms(u64 dirtyUniforms) {
 			}
 			VSSetFloat24Uniform3(CONST_VS_LIGHTDIR + i, &gstate.ldir[i * 3]);
 			VSSetFloat24Uniform3(CONST_VS_LIGHTATT + i, &gstate.latt[i * 3]);
-			VSSetFloat(CONST_VS_LIGHTANGLE + i, getFloat24(gstate.lcutoff[i]));
-			VSSetFloat(CONST_VS_LIGHTSPOTCOEF + i, getFloat24(gstate.lconv[i]));
+			float angle_spotCoef[4] = { getFloat24(gstate.lcutoff[i]), getFloat24(gstate.lconv[i]) };
+			VSSetFloatUniform4(CONST_VS_LIGHTANGLE_SPOTCOEF + i, angle_spotCoef);
 			VSSetColorUniform3(CONST_VS_LIGHTAMBIENT + i, gstate.lcolor[i * 3]);
 			VSSetColorUniform3(CONST_VS_LIGHTDIFFUSE + i, gstate.lcolor[i * 3 + 1]);
 			VSSetColorUniform3(CONST_VS_LIGHTSPECULAR + i, gstate.lcolor[i * 3 + 2]);
