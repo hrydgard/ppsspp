@@ -682,6 +682,7 @@ public:
 	void RegisterPushBuffer(int frame, GLPushBuffer *buffer) {
 		frameData_[frame].activePushBuffers.insert(buffer);
 	}
+
 	void UnregisterPushBuffer(int frame, GLPushBuffer *buffer) {
 		auto iter = frameData_[frame].activePushBuffers.find(buffer);
 		_assert_(iter != frameData_[frame].activePushBuffers.end());
@@ -690,6 +691,17 @@ public:
 
 	void SetSwapFunction(std::function<void()> swapFunction) {
 		swapFunction_ = swapFunction;
+	}
+
+	void SetSwapIntervalFunction(std::function<void(int)> swapIntervalFunction) {
+		swapIntervalFunction_ = swapIntervalFunction;
+	}
+
+	void SwapInterval(int interval) {
+		if (interval != swapInterval_) {
+			swapInterval_ = interval;
+			swapIntervalChanged_ = true;
+		}
 	}
 
 	void StopThread();
@@ -765,7 +777,11 @@ private:
 	int curFrame_ = 0;
 
 	std::function<void()> swapFunction_;
+	std::function<void(int)> swapIntervalFunction_;
 	GLBufferStrategy bufferStrategy_ = GLBufferStrategy::SUBDATA;
+
+	int swapInterval_ = 0;
+	bool swapIntervalChanged_ = true;
 
 	int targetWidth_ = 0;
 	int targetHeight_ = 0;
