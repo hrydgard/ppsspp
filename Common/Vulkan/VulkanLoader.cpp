@@ -113,16 +113,12 @@ PFN_vkDestroyCommandPool vkDestroyCommandPool;
 PFN_vkResetCommandPool vkResetCommandPool;
 PFN_vkAllocateCommandBuffers vkAllocateCommandBuffers;
 PFN_vkFreeCommandBuffers vkFreeCommandBuffers;
-PFN_vkBeginCommandBuffer vkBeginCommandBuffer;
-PFN_vkEndCommandBuffer vkEndCommandBuffer;
-PFN_vkResetCommandBuffer vkResetCommandBuffer;
+
+// Used frequently
 PFN_vkCmdBindPipeline vkCmdBindPipeline;
 PFN_vkCmdSetViewport vkCmdSetViewport;
 PFN_vkCmdSetScissor vkCmdSetScissor;
-PFN_vkCmdSetLineWidth vkCmdSetLineWidth;
-PFN_vkCmdSetDepthBias vkCmdSetDepthBias;
 PFN_vkCmdSetBlendConstants vkCmdSetBlendConstants;
-PFN_vkCmdSetDepthBounds vkCmdSetDepthBounds;
 PFN_vkCmdSetStencilCompareMask vkCmdSetStencilCompareMask;
 PFN_vkCmdSetStencilWriteMask vkCmdSetStencilWriteMask;
 PFN_vkCmdSetStencilReference vkCmdSetStencilReference;
@@ -131,34 +127,43 @@ PFN_vkCmdBindIndexBuffer vkCmdBindIndexBuffer;
 PFN_vkCmdBindVertexBuffers vkCmdBindVertexBuffers;
 PFN_vkCmdDraw vkCmdDraw;
 PFN_vkCmdDrawIndexed vkCmdDrawIndexed;
-PFN_vkCmdDrawIndirect vkCmdDrawIndirect;
-PFN_vkCmdDrawIndexedIndirect vkCmdDrawIndexedIndirect;
-PFN_vkCmdDispatch vkCmdDispatch;
-PFN_vkCmdDispatchIndirect vkCmdDispatchIndirect;
+PFN_vkCmdClearAttachments vkCmdClearAttachments;
+PFN_vkCmdPipelineBarrier vkCmdPipelineBarrier;
+PFN_vkCmdPushConstants vkCmdPushConstants;
+
+// Every frame to a few times per frame
+PFN_vkBeginCommandBuffer vkBeginCommandBuffer;
+PFN_vkEndCommandBuffer vkEndCommandBuffer;
+PFN_vkResetCommandBuffer vkResetCommandBuffer;
+PFN_vkCmdSetEvent vkCmdSetEvent;
+PFN_vkCmdResetEvent vkCmdResetEvent;
+PFN_vkCmdWaitEvents vkCmdWaitEvents;
+PFN_vkCmdBeginRenderPass vkCmdBeginRenderPass;
+PFN_vkCmdEndRenderPass vkCmdEndRenderPass;
 PFN_vkCmdCopyBuffer vkCmdCopyBuffer;
 PFN_vkCmdCopyImage vkCmdCopyImage;
 PFN_vkCmdBlitImage vkCmdBlitImage;
 PFN_vkCmdCopyBufferToImage vkCmdCopyBufferToImage;
 PFN_vkCmdCopyImageToBuffer vkCmdCopyImageToBuffer;
+
+PFN_vkCmdSetDepthBounds vkCmdSetDepthBounds;
+PFN_vkCmdSetLineWidth vkCmdSetLineWidth;
+PFN_vkCmdSetDepthBias vkCmdSetDepthBias;
+PFN_vkCmdDrawIndirect vkCmdDrawIndirect;
+PFN_vkCmdDrawIndexedIndirect vkCmdDrawIndexedIndirect;
+PFN_vkCmdDispatch vkCmdDispatch;
+PFN_vkCmdDispatchIndirect vkCmdDispatchIndirect;
 PFN_vkCmdUpdateBuffer vkCmdUpdateBuffer;
 PFN_vkCmdFillBuffer vkCmdFillBuffer;
 PFN_vkCmdClearColorImage vkCmdClearColorImage;
 PFN_vkCmdClearDepthStencilImage vkCmdClearDepthStencilImage;
-PFN_vkCmdClearAttachments vkCmdClearAttachments;
 PFN_vkCmdResolveImage vkCmdResolveImage;
-PFN_vkCmdSetEvent vkCmdSetEvent;
-PFN_vkCmdResetEvent vkCmdResetEvent;
-PFN_vkCmdWaitEvents vkCmdWaitEvents;
-PFN_vkCmdPipelineBarrier vkCmdPipelineBarrier;
 PFN_vkCmdBeginQuery vkCmdBeginQuery;
 PFN_vkCmdEndQuery vkCmdEndQuery;
 PFN_vkCmdResetQueryPool vkCmdResetQueryPool;
 PFN_vkCmdWriteTimestamp vkCmdWriteTimestamp;
 PFN_vkCmdCopyQueryPoolResults vkCmdCopyQueryPoolResults;
-PFN_vkCmdPushConstants vkCmdPushConstants;
-PFN_vkCmdBeginRenderPass vkCmdBeginRenderPass;
 PFN_vkCmdNextSubpass vkCmdNextSubpass;
-PFN_vkCmdEndRenderPass vkCmdEndRenderPass;
 PFN_vkCmdExecuteCommands vkCmdExecuteCommands;
 
 #ifdef __ANDROID__
