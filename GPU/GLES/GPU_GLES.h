@@ -56,11 +56,6 @@ public:
 	void ClearShaderCache() override;
 	void CleanupBeforeUI() override;
 
-	void GetReportingInfo(std::string &primaryInfo, std::string &fullInfo) override {
-		primaryInfo = reportingPrimaryInfo_;
-		fullInfo = reportingFullInfo_;
-	}
-
 	// Using string because it's generic - makes no assumptions on the size of the shader IDs of this backend.
 	std::vector<std::string> DebugGetShaderIDs(DebugShaderType shader) override;
 	std::string DebugGetShaderString(std::string id, DebugShaderType shader, DebugShaderStringType stringType) override;
@@ -92,12 +87,10 @@ private:
 	FragmentTestCacheGLES fragmentTestCache_;
 	ShaderManagerGLES *shaderManagerGL_;
 
+	std::string shaderCachePath_;
+
 #ifdef _WIN32
 	int lastVsync_;
 #endif
 	int vertexCost_ = 0;
-
-	std::string reportingPrimaryInfo_;
-	std::string reportingFullInfo_;
-	std::string shaderCachePath_;
 };

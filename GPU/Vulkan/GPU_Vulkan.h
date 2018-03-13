@@ -55,11 +55,6 @@ public:
 
 	void ClearShaderCache() override;
 
-	void GetReportingInfo(std::string &primaryInfo, std::string &fullInfo) override {
-		primaryInfo = reportingPrimaryInfo_;
-		fullInfo = reportingFullInfo_;
-	}
-
 	// Using string because it's generic - makes no assumptions on the size of the shader IDs of this backend.
 	std::vector<std::string> DebugGetShaderIDs(DebugShaderType shader) override;
 	std::string DebugGetShaderString(std::string id, DebugShaderType shader, DebugShaderStringType stringType) override;
@@ -96,9 +91,6 @@ private:
 
 	// Manages state and pipeline objects
 	PipelineManagerVulkan *pipelineManager_;
-
-	std::string reportingPrimaryInfo_;
-	std::string reportingFullInfo_;
 
 	// Simple 2D drawing engine.
 	Vulkan2D vulkan2D_;

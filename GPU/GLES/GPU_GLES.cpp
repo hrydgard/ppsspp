@@ -301,7 +301,6 @@ bool GPU_GLES::IsReady() {
 	return shaderManagerGL_->ContinuePrecompile();
 }
 
-// Needs to be called on GPU thread, not reporting thread.
 void GPU_GLES::BuildReportingInfo() {
 	GLRenderManager *render = (GLRenderManager *)draw_->GetNativeObject(Draw::NativeObject::RENDER_MANAGER);
 
@@ -421,7 +420,7 @@ void GPU_GLES::BeginFrame() {
 	GPUCommon::BeginFrame();
 
 	// Save the cache from time to time. TODO: How often?
-	if (!shaderCachePath_.empty() && (gpuStats.numFlips & 1023) == 0) {
+	if (!shaderCachePath_.empty() && (gpuStats.numFlips & 4095) == 0) {
 		shaderManagerGL_->Save(shaderCachePath_);
 	}
 

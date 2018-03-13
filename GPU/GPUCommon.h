@@ -247,6 +247,11 @@ public:
 
 	typedef void (GPUCommon::*CmdFunc)(u32 op, u32 diff);
 
+	void GetReportingInfo(std::string &primaryInfo, std::string &fullInfo) override {
+		primaryInfo = reportingPrimaryInfo_;
+		fullInfo = reportingFullInfo_;
+	}
+
 protected:
 	void SetDrawType(DrawType type, GEPrimitiveType prim) {
 		if (type != lastDraw_) {
@@ -340,6 +345,9 @@ protected:
 	TransformedVertex immBuffer_[MAX_IMMBUFFER_SIZE];
 	int immCount_ = 0;
 	GEPrimitiveType immPrim_;
+
+	std::string reportingPrimaryInfo_;
+	std::string reportingFullInfo_;
 
 private:
 	void FlushImm();

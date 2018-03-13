@@ -52,11 +52,6 @@ public:
 
 	void ClearShaderCache() override;
 
-	void GetReportingInfo(std::string &primaryInfo, std::string &fullInfo) override {
-		primaryInfo = reportingPrimaryInfo_;
-		fullInfo = reportingFullInfo_;
-	}
-
 	// Using string because it's generic - makes no assumptions on the size of the shader IDs of this backend.
 	std::vector<std::string> DebugGetShaderIDs(DebugShaderType shader) override;
 	std::string DebugGetShaderString(std::string id, DebugShaderType shader, DebugShaderStringType stringType) override;
@@ -70,7 +65,6 @@ private:
 	void Flush() {
 		drawEngine_.Flush();
 	}
-	// void ApplyDrawState(int prim);
 	void CheckFlushOp(int cmd, u32 diff);
 	void BuildReportingInfo();
 
@@ -89,9 +83,6 @@ private:
 
 	int lastVsync_;
 	int vertexCost_ = 0;
-
-	std::string reportingPrimaryInfo_;
-	std::string reportingFullInfo_;
 };
 
 }  // namespace DX9
