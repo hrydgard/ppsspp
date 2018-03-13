@@ -62,7 +62,10 @@ void Vulkan2D::DestroyDeviceObjects() {
 }
 
 void Vulkan2D::InitDeviceObjects() {
-	pipelineCache_ = vulkan_->CreatePipelineCache();
+	VkPipelineCacheCreateInfo pc{ VK_STRUCTURE_TYPE_PIPELINE_CACHE_CREATE_INFO };
+	VkResult res = vkCreatePipelineCache(vulkan_->GetDevice(), &pc, nullptr, &pipelineCache_);
+	assert(VK_SUCCESS == res);
+
 	VkDescriptorSetLayoutBinding bindings[2] = {};
 	// Texture.
 	bindings[0].descriptorCount = 1;
@@ -80,7 +83,7 @@ void Vulkan2D::InitDeviceObjects() {
 	VkDescriptorSetLayoutCreateInfo dsl = { VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO };
 	dsl.bindingCount = 2;
 	dsl.pBindings = bindings;
-	VkResult res = vkCreateDescriptorSetLayout(device, &dsl, nullptr, &descriptorSetLayout_);
+	res = vkCreateDescriptorSetLayout(device, &dsl, nullptr, &descriptorSetLayout_);
 	assert(VK_SUCCESS == res);
 
 	VkDescriptorPoolSize dpTypes[1];

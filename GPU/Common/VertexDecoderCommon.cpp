@@ -75,6 +75,21 @@ void DecVtxFormat::ComputeID() {
 	id = uvfmt | (c0fmt << 4) | (c1fmt << 8) | (nrmfmt << 12) | (posfmt << 16);
 }
 
+void DecVtxFormat::InitializeFromID(uint32_t id) {
+	this->id = id;
+	uvfmt = (id & 0xF);
+	c0fmt = ((id >> 4) & 0xF);
+	c1fmt = ((id >> 8) & 0xF);
+	nrmfmt = ((id >> 12) & 0xF);
+	posfmt = ((id >> 16) & 0xF);
+	uvoff = 0;
+	c0off = uvoff + DecFmtSize(uvfmt);
+	c1off = c0off + DecFmtSize(c0fmt);
+	nrmoff = c1off + DecFmtSize(c1fmt);
+	posoff = nrmoff + DecFmtSize(nrmfmt);
+	stride = posoff + DecFmtSize(posfmt);
+}
+
 void GetIndexBounds(const void *inds, int count, u32 vertType, u16 *indexLowerBound, u16 *indexUpperBound) {
 	// Find index bounds. Could cache this in display lists.
 	// Also, this could be greatly sped up with SSE2/NEON, although rarely a bottleneck.

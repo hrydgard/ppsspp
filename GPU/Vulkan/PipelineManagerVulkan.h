@@ -42,7 +42,7 @@ struct VulkanPipelineKey {
 	VkRenderPass renderPass;
 	VkShaderModule vShader;
 	VkShaderModule fShader;
-	uint32_t vtxDecId;
+	uint32_t vtxFmtId;
 	bool useHWTransform;
 
 	void ToString(std::string *str) const {
@@ -52,6 +52,14 @@ struct VulkanPipelineKey {
 	void FromString(const std::string &str) {
 		memcpy(this, &str[0], sizeof(*this));
 	}
+};
+
+struct StoredVulkanPipelineKey {
+	VulkanPipelineRasterStateKey raster;
+	VShaderID vShaderID;
+	FShaderID fShaderID;
+	uint32_t vtxFmtId;
+	bool useHWTransform;
 };
 
 enum PipelineFlags {
@@ -74,6 +82,8 @@ struct VulkanPipeline {
 class VulkanContext;
 class VulkanVertexShader;
 class VulkanFragmentShader;
+class ShaderManagerVulkan;
+class DrawEngineCommon;
 
 class PipelineManagerVulkan {
 public:
@@ -93,9 +103,13 @@ public:
 	std::string DebugGetObjectString(std::string id, DebugShaderType type, DebugShaderStringType stringType);
 	std::vector<std::string> DebugGetObjectIDs(DebugShaderType type);
 
+	// Saves data for faster creation next time.
+	void SaveCache(FILE *file, bool saveRawPipelineCache, ShaderManagerVulkan *shaderManager);
+	bool LoadCache(FILE *file, bool loadRawPipelineCache, ShaderManagerVulkan *shaderManager, DrawEngineCommon *drawEngine, VkPipelineLayout layout, VkRenderPass renderPass);
+
 private:
 	DenseHashMap<VulkanPipelineKey, VulkanPipeline *, nullptr> pipelines_;
-	VkPipelineCache pipelineCache_;
+	VkPipelineCache pipelineCache_ = VK_NULL_HANDLE;
 	VulkanContext *vulkan_;
 	float lineWidth_ = 1.0f;
 };

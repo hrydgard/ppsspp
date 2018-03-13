@@ -40,8 +40,8 @@
 #include "GPU/Vulkan/FragmentShaderGeneratorVulkan.h"
 #include "GPU/Vulkan/VertexShaderGeneratorVulkan.h"
 
-VulkanFragmentShader::VulkanFragmentShader(VulkanContext *vulkan, FShaderID id, const char *code, bool useHWTransform)
-	: vulkan_(vulkan), id_(id), failed_(false), useHWTransform_(useHWTransform), module_(0) {
+VulkanFragmentShader::VulkanFragmentShader(VulkanContext *vulkan, FShaderID id, const char *code)
+	: vulkan_(vulkan), id_(id), failed_(false), module_(0) {
 	PROFILE_THIS_SCOPE("shadercomp");
 	source_ = code;
 
@@ -98,7 +98,7 @@ std::string VulkanFragmentShader::GetShaderString(DebugShaderStringType type) co
 	}
 }
 
-VulkanVertexShader::VulkanVertexShader(VulkanContext *vulkan, VShaderID id, const char *code, int vertType, bool useHWTransform, bool usesLighting)
+VulkanVertexShader::VulkanVertexShader(VulkanContext *vulkan, VShaderID id, const char *code, bool useHWTransform, bool usesLighting)
 	: vulkan_(vulkan), id_(id), failed_(false), useHWTransform_(useHWTransform), module_(VK_NULL_HANDLE), usesLighting_(usesLighting) {
 	PROFILE_THIS_SCOPE("shadercomp");
 	source_ = code;
@@ -254,7 +254,7 @@ void ShaderManagerVulkan::GetShaders(int prim, u32 vertType, VulkanVertexShader 
 		// Vertex shader not in cache. Let's compile it.
 		bool usesLighting;
 		GenerateVulkanGLSLVertexShader(VSID, codeBuffer_, &usesLighting);
-		vs = new VulkanVertexShader(vulkan_, VSID, codeBuffer_, vertType, useHWTransform, usesLighting);
+		vs = new VulkanVertexShader(vulkan_, VSID, codeBuffer_, useHWTransform, usesLighting);
 		vsCache_.Insert(VSID, vs);
 	}
 	lastVSID_ = VSID;
@@ -263,7 +263,7 @@ void ShaderManagerVulkan::GetShaders(int prim, u32 vertType, VulkanVertexShader 
 	if (!fs) {
 		// Fragment shader not in cache. Let's compile it.
 		GenerateVulkanGLSLFragmentShader(FSID, codeBuffer_);
-		fs = new VulkanFragmentShader(vulkan_, FSID, codeBuffer_, useHWTransform);
+		fs = new VulkanFragmentShader(vulkan_, FSID, codeBuffer_);
 		fsCache_.Insert(FSID, fs);
 	}
 
@@ -322,4 +322,90 @@ std::string ShaderManagerVulkan::DebugGetShaderString(std::string id, DebugShade
 	default:
 		return "N/A";
 	}
+}
+
+VulkanVertexShader *ShaderManagerVulkan::GetVertexShaderFromModule(VkShaderModule module) {
+	VulkanVertexShader *vs = nullptr;
+	vsCache_.Iterate([&](const VShaderID &id, VulkanVertexShader *shader) {
+		if (shader->GetModule() == module)
+			vs = shader;
+	});
+	return vs;
+}
+
+VulkanFragmentShader *ShaderManagerVulkan::GetFragmentShaderFromModule(VkShaderModule module) {
+	VulkanFragmentShader *fs = nullptr;
+	fsCache_.Iterate([&](const FShaderID &id, VulkanFragmentShader *shader) {
+		if (shader->GetModule() == module)
+			fs = shader;
+	});
+	return fs;
+}
+
+// Shader cache.
+//
+// We simply store the IDs of the shaders used during gameplay. On next startup of
+// the same game, we simply compile all the shaders from the start, so we don't have to
+// compile them on the fly later. We also store the Vulkan pipeline cache, so if it contains
+// pipelines compiled from SPIR-V matching these shaders, pipeline creation will be practically
+// instantaneous.
+
+#define CACHE_HEADER_MAGIC 0xff51f420 
+#define CACHE_VERSION 5
+struct VulkanCacheHeader {
+	uint32_t magic;
+	uint32_t version;
+	uint32_t featureFlags;
+	uint32_t reserved;
+	int numVertexShaders;
+	int numFragmentShaders;
+};
+
+bool ShaderManagerVulkan::LoadCache(FILE *f) {
+	VulkanCacheHeader header{};
+	fread(&header, sizeof(header), 1, f);
+	if (header.magic != CACHE_HEADER_MAGIC)
+		return false;
+	if (header.version != CACHE_VERSION)
+		return false;
+	if (header.featureFlags != gstate_c.featureFlags)
+		return false;
+
+	for (int i = 0; i < header.numVertexShaders; i++) {
+		VShaderID id;
+		fread(&id, sizeof(id), 1, f);
+		bool useHWTransform = id.Bit(VS_BIT_USE_HW_TRANSFORM);
+		bool usesLighting;
+		GenerateVulkanGLSLVertexShader(id, codeBuffer_, &usesLighting);
+		VulkanVertexShader *vs = new VulkanVertexShader(vulkan_, id, codeBuffer_, useHWTransform, usesLighting);
+		vsCache_.Insert(id, vs);
+	}
+	for (int i = 0; i < header.numFragmentShaders; i++) {
+		FShaderID id;
+		fread(&id, sizeof(id), 1, f);
+		GenerateVulkanGLSLFragmentShader(id, codeBuffer_);
+		VulkanFragmentShader *fs = new VulkanFragmentShader(vulkan_, id, codeBuffer_);
+		fsCache_.Insert(id, fs);
+	}
+
+	NOTICE_LOG(G3D, "Loaded %d vertex and %d fragment shaders", header.numVertexShaders, header.numFragmentShaders);
+	return true;
+}
+
+void ShaderManagerVulkan::SaveCache(FILE *f) {
+	VulkanCacheHeader header{};
+	header.magic = CACHE_HEADER_MAGIC;
+	header.version = CACHE_VERSION;
+	header.featureFlags = gstate_c.featureFlags;
+	header.reserved = 0;
+	header.numVertexShaders = (int)vsCache_.size();
+	header.numFragmentShaders = (int)fsCache_.size();
+	fwrite(&header, sizeof(header), 1, f);
+	vsCache_.Iterate([&](const VShaderID &id, VulkanVertexShader *vs) {
+		fwrite(&id, sizeof(id), 1, f);
+	});
+	fsCache_.Iterate([&](const FShaderID &id, VulkanFragmentShader *fs) {
+		fwrite(&id, sizeof(id), 1, f);
+	});
+	NOTICE_LOG(G3D, "Saved %d vertex and %d fragment shaders", header.numVertexShaders, header.numFragmentShaders);
 }

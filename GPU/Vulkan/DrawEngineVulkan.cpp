@@ -255,9 +255,7 @@ void DrawEngineVulkan::BeginFrame() {
 	// TODO: How can we make this nicer...
 	((TessellationDataTransferVulkan *)tessDataTransfer)->SetPushBuffer(frame->pushUBO);
 
-	// TODO : Find a better place to do this.
 	if (!nullTexture_) {
-		ILOG("INIT : Creating null texture");
 		VkCommandBuffer cmdInit = (VkCommandBuffer)draw_->GetNativeObject(Draw::NativeObject::INIT_COMMANDBUFFER);
 		nullTexture_ = new VulkanTexture(vulkan_, textureCache_->GetAllocator());
 		int w = 8;

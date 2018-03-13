@@ -29,6 +29,7 @@
 #include "Core/Config.h"
 #include "Core/Reporting.h"
 #include "Core/System.h"
+#include "Core/ELF/ParamSFO.h"
 
 #include "GPU/GPUState.h"
 #include "GPU/ge_constants.h"
@@ -94,9 +95,57 @@ GPU_Vulkan::GPU_Vulkan(GraphicsContext *gfxCtx, Draw::DrawContext *draw)
 	if (vulkan_->GetFeaturesEnabled().wideLines) {
 		drawEngine_.SetLineWidth(PSP_CoreParameter().renderWidth / 480.0f);
 	}
+
+	// Load shader cache.
+	std::string discID = g_paramSFO.GetDiscID();
+	if (discID.size()) {
+		File::CreateFullPath(GetSysDirectory(DIRECTORY_APP_CACHE));
+		shaderCachePath_ = GetSysDirectory(DIRECTORY_APP_CACHE) + "/" + discID + ".vkshadercache";
+
+		LoadCache(shaderCachePath_);
+	}
+}
+
+void GPU_Vulkan::LoadCache(std::string filename) {
+	PSP_SetLoading("Loading shader cache...");
+	// Actually precompiled by IsReady() since we're single-threaded.
+	FILE *f = File::OpenCFile(filename, "rb");
+	if (!f)
+		return;
+
+	// First compile shaders to SPIR-V, then load the pipeline cache and recreate the pipelines.
+	// It's when recreating the pipelines that the pipeline cache is useful - in the ideal case,
+	// it can just memcpy the finished shader binaries out of the pipeline cache file.
+	bool result = shaderManagerVulkan_->LoadCache(f);
+	if (result) {
+		VkRenderPass renderPass = g_Config.iRenderingMode == FB_BUFFERED_MODE ?
+			(VkRenderPass)draw_->GetNativeObject(Draw::NativeObject::FRAMEBUFFER_RENDERPASS) :
+			(VkRenderPass)draw_->GetNativeObject(Draw::NativeObject::BACKBUFFER_RENDERPASS);
+		result = pipelineManager_->LoadCache(f, false, shaderManagerVulkan_, &drawEngine_, drawEngine_.GetPipelineLayout(), renderPass);
+	}
+	fclose(f);
+	if (!result) {
+		WARN_LOG(G3D, "Bad Vulkan pipeline cache");
+		// Bad cache file for this GPU/Driver/etc. Delete it.
+		File::Delete(filename);
+	} else {
+		INFO_LOG(G3D, "Loaded Vulkan pipeline cache.");
+	}
+}
+
+void GPU_Vulkan::SaveCache(std::string filename) {
+	FILE *f = File::OpenCFile(filename, "wb");
+	if (!f)
+		return;
+	shaderManagerVulkan_->SaveCache(f);
+	pipelineManager_->SaveCache(f, false, shaderManagerVulkan_);
+	INFO_LOG(G3D, "Saved Vulkan pipeline cache");
+	fclose(f);
 }
 
 GPU_Vulkan::~GPU_Vulkan() {
+	SaveCache(shaderCachePath_);
+	// Note: We save the cache in DeviceLost
 	DestroyDeviceObjects();
 	framebufferManagerVulkan_->DestroyAllFBOs();
 	vulkan2D_.Shutdown();
@@ -407,6 +456,9 @@ void GPU_Vulkan::DestroyDeviceObjects() {
 }
 
 void GPU_Vulkan::DeviceLost() {
+	if (!shaderCachePath_.empty()) {
+		SaveCache(shaderCachePath_);
+	}
 	DestroyDeviceObjects();
 	framebufferManagerVulkan_->DeviceLost();
 	vulkan2D_.DeviceLost();

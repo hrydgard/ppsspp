@@ -142,8 +142,6 @@ public:
 
 	VulkanDeleteList &Delete() { return globalDeleteList_; }
 
-	VkPipelineCache CreatePipelineCache();
-
 	// The parameters are whatever the chosen window system wants.
 	void InitSurface(WindowSystem winsys, void *data1, void *data2, int width = -1, int height = -1);
 	void ReinitSurface(int width = -1, int height = -1);
