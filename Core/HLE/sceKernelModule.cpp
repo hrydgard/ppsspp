@@ -1588,6 +1588,8 @@ void __KernelLoadReset() {
 bool __KernelLoadExec(const char *filename, u32 paramPtr, std::string *error_string) {
 	SceKernelLoadExecParam param;
 
+	PSP_SetLoading("Loading game...");
+
 	if (paramPtr)
 		Memory::ReadStruct(paramPtr, &param);
 	else
@@ -1626,6 +1628,7 @@ bool __KernelLoadExec(const char *filename, u32 paramPtr, std::string *error_str
 
 	pspFileSystem.ReadFile(handle, temp, (size_t)info.size);
 
+	PSP_SetLoading("Loading modules...");
 	Module *module = __KernelLoadModule(temp, (size_t)info.size, 0, error_string);
 
 	if (!module || module->isFake) {
@@ -1666,6 +1669,7 @@ bool __KernelLoadExec(const char *filename, u32 paramPtr, std::string *error_str
 	if (module->nm.module_start_thread_stacksize != 0)
 		option.stacksize = module->nm.module_start_thread_stacksize;
 
+	PSP_SetLoading("Starting modules...");
 	if (paramPtr)
 		__KernelStartModule(module, param.args, (const char*)param_argp, &option);
 	else
@@ -1682,6 +1686,7 @@ bool __KernelLoadExec(const char *filename, u32 paramPtr, std::string *error_str
 
 bool __KernelLoadGEDump(const std::string &base_filename, std::string *error_string) {
 	__KernelLoadReset();
+	PSP_SetLoading("Generating code...");
 
 	mipsr4k.pc = PSP_GetUserMemoryBase();
 

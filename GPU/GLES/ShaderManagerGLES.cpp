@@ -36,7 +36,8 @@
 #include "Common/FileUtil.h"
 #include "Core/Config.h"
 #include "Core/Host.h"
-#include "Core/Reporting.h"
+#include "Core/Reporting.h""
+#include "Core/System.h"
 #include "GPU/Math3D.h"
 #include "GPU/GPUState.h"
 #include "GPU/ge_constants.h"
@@ -868,6 +869,8 @@ bool ShaderManagerGLES::ContinuePrecompile(float sliceTime) {
 	if (pending.Done()) {
 		return true;
 	}
+
+	PSP_SetLoading("Compiling shaders...");
 
 	double start = real_time_now();
 	// Let's try to keep it under sliceTime if possible.
