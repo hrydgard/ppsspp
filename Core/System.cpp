@@ -428,7 +428,6 @@ void PSP_SetLoading(const std::string &reason) {
 std::string PSP_GetLoading() {
 	std::lock_guard<std::mutex> guard(loadingReasonLock);
 	return loadingReason;
-
 }
 
 CoreParameter &PSP_CoreParameter() {

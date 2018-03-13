@@ -16,8 +16,10 @@
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
 #include <thread>
+
 #include "file/file_util.h"
 #include "util/text/utf8.h"
+#include "thread/threadutil.h"
 
 #include "Common/FileUtil.h"
 #include "Common/StringUtils.h"
@@ -253,6 +255,8 @@ bool Load_PSP_ISO(FileLoader *fileLoader, std::string *error_string) {
 	INFO_LOG(LOADER,"Loading %s...", bootpath.c_str());
 
 	std::thread th([bootpath] {
+		setCurrentThreadName("ExecLoader");
+		PSP_SetLoading("Loading executable...");
 		// TODO: We can't use the initial error_string pointer.
 		bool success = __KernelLoadExec(bootpath.c_str(), 0, &PSP_CoreParameter().errorString);
 		if (success && coreState == CORE_POWERUP) {
