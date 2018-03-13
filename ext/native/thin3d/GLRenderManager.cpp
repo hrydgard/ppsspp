@@ -455,15 +455,18 @@ void GLRenderManager::Run(int frame) {
 	BeginSubmitFrame(frame);
 
 	FrameData &frameData = frameData_[frame];
-	for (auto iter : frameData.activePushBuffers) {
-		iter->Flush();
-		iter->UnmapDevice();
-	}
 
 	auto &stepsOnThread = frameData_[frame].steps;
 	auto &initStepsOnThread = frameData_[frame].initSteps;
 	// queueRunner_.LogSteps(stepsOnThread);
 	queueRunner_.RunInitSteps(initStepsOnThread);
+
+	// Run this after RunInitSteps so any fresh GLRBuffers for the pushbuffers can get created.
+	for (auto iter : frameData.activePushBuffers) {
+		iter->Flush();
+		iter->UnmapDevice();
+	}
+
 	queueRunner_.RunSteps(stepsOnThread);
 	stepsOnThread.clear();
 	initStepsOnThread.clear();
@@ -601,6 +604,7 @@ void GLPushBuffer::Flush() {
 	if (!buffers_[buf_].deviceMemory && writePtr_) {
 		auto &info = buffers_[buf_];
 		if (info.flushOffset != 0) {
+			assert(info.buffer->buffer);
 			glBindBuffer(target_, info.buffer->buffer);
 			glBufferSubData(target_, 0, info.flushOffset, info.localMemory);
 		}
