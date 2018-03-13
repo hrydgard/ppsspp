@@ -81,6 +81,8 @@ ParamSFOData g_paramSFO;
 static GlobalUIState globalUIState;
 static CoreParameter coreParameter;
 static FileLoader *loadedFile;
+static std::mutex loadingReasonLock;
+static std::string loadingReason;
 
 bool audioInitialized;
 
@@ -311,6 +313,7 @@ bool PSP_InitStart(const CoreParameter &coreParam, std::string *error_string) {
 	}
 	coreParameter.errorString = "";
 	pspIsIniting = true;
+	PSP_SetLoading("Loading game...");
 
 	CPU_Init();
 
@@ -334,6 +337,7 @@ bool PSP_InitUpdate(std::string *error_string) {
 	bool success = coreParameter.fileToStart != "";
 	*error_string = coreParameter.errorString;
 	if (success && gpu == nullptr) {
+		PSP_SetLoading("Starting graphics...");
 		success = GPU_Init(coreParameter.graphicsContext, coreParameter.thin3d);
 		if (!success) {
 			PSP_Shutdown();
@@ -414,6 +418,17 @@ void PSP_RunLoopUntil(u64 globalticks) {
 
 void PSP_RunLoopFor(int cycles) {
 	PSP_RunLoopUntil(CoreTiming::GetTicks() + cycles);
+}
+
+void PSP_SetLoading(const std::string &reason) {
+	std::lock_guard<std::mutex> guard(loadingReasonLock);
+	loadingReason = reason;
+}
+
+std::string PSP_GetLoading() {
+	std::lock_guard<std::mutex> guard(loadingReasonLock);
+	return loadingReason;
+
 }
 
 CoreParameter &PSP_CoreParameter() {
