@@ -432,8 +432,11 @@ VkDescriptorSet DrawEngineVulkan::GetOrCreateDescriptorSet(VkImageView imageView
 	int n = 0;
 	VkDescriptorImageInfo tex[2]{};
 	if (imageView) {
-		// TODO: Also support LAYOUT_GENERAL to be able to texture from framebuffers without transitioning them?
+#ifdef VULKAN_USE_GENERAL_LAYOUT_FOR_COLOR
+		tex[0].imageLayout = VK_IMAGE_LAYOUT_GENERAL;
+#else
 		tex[0].imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+#endif
 		tex[0].imageView = imageView;
 		tex[0].sampler = sampler;
 		writes[n].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
@@ -447,8 +450,11 @@ VkDescriptorSet DrawEngineVulkan::GetOrCreateDescriptorSet(VkImageView imageView
 	}
 
 	if (boundSecondary_) {
-		// TODO: Also support LAYOUT_GENERAL to be able to texture from framebuffers without transitioning them?
+#ifdef VULKAN_USE_GENERAL_LAYOUT_FOR_COLOR
+		tex[0].imageLayout = VK_IMAGE_LAYOUT_GENERAL;
+#else
 		tex[1].imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+#endif
 		tex[1].imageView = boundSecondary_;
 		tex[1].sampler = samplerSecondary_;
 		writes[n].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
