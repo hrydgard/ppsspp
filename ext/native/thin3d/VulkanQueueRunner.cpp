@@ -564,12 +564,22 @@ void VulkanQueueRunner::PerformBindFramebufferAsRenderTarget(const VKRStep &step
 		framebuf = fb->framebuf;
 		w = fb->width;
 		h = fb->height;
+
+		bool maliBugWorkaround = vulkan_->GetPhysicalDeviceProperties().driverVersion == 0xaa9c4b29;
+
 		// Now, if the image needs transitioning, let's transition.
 		// The backbuffer does not, that's handled by VulkanContext.
-		if (step.render.framebuffer->color.layout != VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL) {
+		if (true) {  // step.render.framebuffer->color.layout != VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL) {
 			VkAccessFlags srcAccessMask = 0;
 			VkPipelineStageFlags srcStage = 0;
+			VkPipelineStageFlags dstStage = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
 			switch (fb->color.layout) {
+			case VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL:
+				// Already in the right layout but we still need a barrier.
+				srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_READ_BIT | VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+				srcStage = VK_PIPELINE_STAGE_ALL_GRAPHICS_BIT;
+				dstStage = VK_PIPELINE_STAGE_ALL_GRAPHICS_BIT;
+				break;
 			case VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL:
 				srcAccessMask = VK_ACCESS_SHADER_READ_BIT;
 				srcStage = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
@@ -587,10 +597,16 @@ void VulkanQueueRunner::PerformBindFramebufferAsRenderTarget(const VKRStep &step
 				break;
 			}
 
-			// Due to a known bug in the Mali driver, pass the level count explicitly.
+			if (maliBugWorkaround && step.render.framebuffer->color.layout == VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL) {
+				TransitionImageLayout2(cmd, fb->color.image, 0, 1, VK_IMAGE_ASPECT_COLOR_BIT,
+					fb->color.layout, VK_IMAGE_LAYOUT_GENERAL,
+					srcStage, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
+					srcAccessMask, VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT | VK_ACCESS_COLOR_ATTACHMENT_READ_BIT);
+				fb->color.layout = VK_IMAGE_LAYOUT_GENERAL;
+			}
 			TransitionImageLayout2(cmd, fb->color.image, 0, 1, VK_IMAGE_ASPECT_COLOR_BIT,
 				fb->color.layout, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
-				srcStage, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
+				srcStage, dstStage,
 				srcAccessMask, VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT | VK_ACCESS_COLOR_ATTACHMENT_READ_BIT);
 			fb->color.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
 		}
