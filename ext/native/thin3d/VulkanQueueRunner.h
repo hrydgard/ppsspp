@@ -82,6 +82,7 @@ struct VkRenderData {
 
 enum class VKRStepType : uint8_t {
 	RENDER,
+	RENDER_SKIP,
 	COPY,
 	BLIT,
 	READBACK,
