@@ -255,10 +255,38 @@ VkRenderPass VulkanQueueRunner::GetRenderPass(VKRRenderPassAction colorLoadActio
 void VulkanQueueRunner::RunSteps(VkCommandBuffer cmd, const std::vector<VKRStep *> &steps) {
 	// Optimizes renderpasses, then sequences them.
 	// Planned optimizations: 
-	//  * Push down empty "Clear/Store" renderpasses, and merge them with the first "Load/Store" to the same framebuffer.
-	//    (These happen in Wipeout)
 	//  * Create copies of render target that are rendered to multiple times and textured from in sequence, and push those render passes
 	//    as early as possible in the frame (Wipeout billboards).
+
+	// Push down empty "Clear/Store" renderpasses, and merge them with the first "Load/Store" to the same framebuffer.
+	// Actually let's just bother with the first one for now. This affects Wipeout Pure.
+	if (steps.size() > 1 && steps[0]->stepType == VKRStepType::RENDER &&
+		steps[0]->render.numDraws == 0 &&
+		steps[0]->render.color == VKRRenderPassAction::CLEAR &&
+		steps[0]->render.stencil == VKRRenderPassAction::CLEAR &&
+		steps[0]->render.depth == VKRRenderPassAction::CLEAR) {
+		// Drop the first step, and merge it into the next step that touches the same framebuffer.
+		for (size_t i = 1; i < steps.size(); i++) {
+			if (steps[i]->stepType == VKRStepType::RENDER &&
+				steps[i]->render.framebuffer == steps[0]->render.framebuffer) {
+				if (steps[i]->render.color != VKRRenderPassAction::CLEAR) {
+					steps[i]->render.color = VKRRenderPassAction::CLEAR;
+					steps[i]->render.clearColor = steps[0]->render.clearColor;
+				}
+				if (steps[i]->render.depth != VKRRenderPassAction::CLEAR) {
+					steps[i]->render.depth = VKRRenderPassAction::CLEAR;
+					steps[i]->render.clearDepth = steps[0]->render.clearDepth;
+				}
+				if (steps[i]->render.stencil != VKRRenderPassAction::CLEAR) {
+					steps[i]->render.stencil = VKRRenderPassAction::CLEAR;
+					steps[i]->render.clearStencil = steps[0]->render.clearStencil;
+				}
+				// Cheaply skip the first step.
+				steps[0]->stepType = VKRStepType::RENDER_SKIP;
+				break;
+			}
+		}
+	}
 
 	for (size_t i = 0; i < steps.size(); i++) {
 		const VKRStep &step = *steps[i];
@@ -277,6 +305,8 @@ void VulkanQueueRunner::RunSteps(VkCommandBuffer cmd, const std::vector<VKRStep 
 			break;
 		case VKRStepType::READBACK_IMAGE:
 			PerformReadbackImage(step, cmd);
+			break;
+		case VKRStepType::RENDER_SKIP:
 			break;
 		}
 		delete steps[i];
@@ -302,6 +332,9 @@ void VulkanQueueRunner::LogSteps(const std::vector<VKRStep *> &steps) {
 			break;
 		case VKRStepType::READBACK_IMAGE:
 			LogReadbackImage(step);
+			break;
+		case VKRStepType::RENDER_SKIP:
+			ILOG("(skipped render pass)");
 			break;
 		}
 	}
