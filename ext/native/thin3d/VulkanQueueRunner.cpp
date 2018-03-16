@@ -260,30 +260,37 @@ void VulkanQueueRunner::RunSteps(VkCommandBuffer cmd, const std::vector<VKRStep 
 
 	// Push down empty "Clear/Store" renderpasses, and merge them with the first "Load/Store" to the same framebuffer.
 	// Actually let's just bother with the first one for now. This affects Wipeout Pure.
-	if (steps.size() > 1 && steps[0]->stepType == VKRStepType::RENDER &&
-		steps[0]->render.numDraws == 0 &&
-		steps[0]->render.color == VKRRenderPassAction::CLEAR &&
-		steps[0]->render.stencil == VKRRenderPassAction::CLEAR &&
-		steps[0]->render.depth == VKRRenderPassAction::CLEAR) {
-		// Drop the first step, and merge it into the next step that touches the same framebuffer.
-		for (size_t i = 1; i < steps.size(); i++) {
-			if (steps[i]->stepType == VKRStepType::RENDER &&
-				steps[i]->render.framebuffer == steps[0]->render.framebuffer) {
-				if (steps[i]->render.color != VKRRenderPassAction::CLEAR) {
-					steps[i]->render.color = VKRRenderPassAction::CLEAR;
-					steps[i]->render.clearColor = steps[0]->render.clearColor;
+	for (int j = 0; j < (int)steps.size() - 1; j++) {
+		if (steps.size() > 1 && steps[j]->stepType == VKRStepType::RENDER &&
+			steps[j]->render.numDraws == 0 &&
+			steps[j]->render.color == VKRRenderPassAction::CLEAR &&
+			steps[j]->render.stencil == VKRRenderPassAction::CLEAR &&
+			steps[j]->render.depth == VKRRenderPassAction::CLEAR) {
+
+			//if (j != 0)
+			//	__debugbreak();
+
+			// Drop the first step, and merge it into the next step that touches the same framebuffer.
+			for (size_t i = j + 1; i < steps.size(); i++) {
+				if (steps[i]->stepType == VKRStepType::RENDER &&
+					steps[i]->render.framebuffer == steps[j]->render.framebuffer) {
+					if (steps[i]->render.color != VKRRenderPassAction::CLEAR) {
+						steps[i]->render.color = VKRRenderPassAction::CLEAR;
+						steps[i]->render.clearColor = steps[j]->render.clearColor;
+					}
+					if (steps[i]->render.depth != VKRRenderPassAction::CLEAR) {
+						steps[i]->render.depth = VKRRenderPassAction::CLEAR;
+						steps[i]->render.clearDepth = steps[j]->render.clearDepth;
+					}
+					if (steps[i]->render.stencil != VKRRenderPassAction::CLEAR) {
+						steps[i]->render.stencil = VKRRenderPassAction::CLEAR;
+						steps[i]->render.clearStencil = steps[j]->render.clearStencil;
+					}
+					// Cheaply skip the first step.
+					steps[j]->stepType = VKRStepType::RENDER_SKIP;
+					ILOG("Avoided a lone clear at step %d, merged it with step %d", (int)j, (int)i);
+					break;
 				}
-				if (steps[i]->render.depth != VKRRenderPassAction::CLEAR) {
-					steps[i]->render.depth = VKRRenderPassAction::CLEAR;
-					steps[i]->render.clearDepth = steps[0]->render.clearDepth;
-				}
-				if (steps[i]->render.stencil != VKRRenderPassAction::CLEAR) {
-					steps[i]->render.stencil = VKRRenderPassAction::CLEAR;
-					steps[i]->render.clearStencil = steps[0]->render.clearStencil;
-				}
-				// Cheaply skip the first step.
-				steps[0]->stepType = VKRStepType::RENDER_SKIP;
-				break;
 			}
 		}
 	}
