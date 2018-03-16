@@ -2042,6 +2042,10 @@ void FramebufferManagerCommon::PackFramebufferSync_(VirtualFramebuffer *vfb, int
 	DEBUG_LOG(G3D, "Reading framebuffer to mem, fb_address = %08x", fb_address);
 
 	draw_->CopyFramebufferToMemorySync(vfb->fbo, Draw::FB_COLOR_BIT, x, y, w, h, destFormat, destPtr, vfb->fb_stride);
+
+	// A new command buffer will begin after CopyFrameBufferToMemorySync, so we need to trigger
+	// updates of any dynamic command buffer state by dirtying some stuff.
+	gstate_c.Dirty(DIRTY_VIEWPORTSCISSOR_STATE | DIRTY_BLEND_STATE | DIRTY_DEPTHSTENCIL_STATE | DIRTY_RASTER_STATE);
 	gpuStats.numReadbacks++;
 }
 
