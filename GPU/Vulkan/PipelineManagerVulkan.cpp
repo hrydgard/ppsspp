@@ -285,12 +285,14 @@ static VulkanPipeline *CreateVulkanPipeline(VkDevice device, VkPipelineCache pip
 
 	VulkanPipeline *vulkanPipeline = new VulkanPipeline();
 	vulkanPipeline->pipeline = pipeline;
-	vulkanPipeline->uniformBlocks = UB_VS_FS_BASE;
-	vulkanPipeline->useBlendConstant = useBlendConstant;
-	vulkanPipeline->usesLines = key.topology == VK_PRIMITIVE_TOPOLOGY_LINE_LIST || key.topology == VK_PRIMITIVE_TOPOLOGY_LINE_STRIP;
+	vulkanPipeline->flags = PIPELINE_FLAG_USES_BASE_UB;
+	if (useBlendConstant)
+		vulkanPipeline->flags |= PIPELINE_FLAG_USES_BLEND_CONSTANT;
+	if (key.topology == VK_PRIMITIVE_TOPOLOGY_LINE_LIST || key.topology == VK_PRIMITIVE_TOPOLOGY_LINE_STRIP)
+		vulkanPipeline->flags |= PIPELINE_FLAG_USES_LINES;
 	if (useHwTransform) {
 		if (vs->HasLights()) {
-			vulkanPipeline->uniformBlocks |= UB_VS_LIGHTS;
+			vulkanPipeline->flags |= PIPELINE_FLAG_USES_LIGHT_UB;
 		}
 	}
 	return vulkanPipeline;
@@ -489,7 +491,7 @@ void PipelineManagerVulkan::SetLineWidth(float lineWidth) {
 
 	// Wipe all line-drawing pipelines.
 	pipelines_.Iterate([&](const VulkanPipelineKey &key, VulkanPipeline *value) {
-		if (value->usesLines) {
+		if (value->UsesLines()) {
 			vulkan_->Delete().QueueDeletePipeline(value->pipeline);
 			delete value;
 			pipelines_.Remove(key);

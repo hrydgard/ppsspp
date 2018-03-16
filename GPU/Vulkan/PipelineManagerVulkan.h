@@ -54,17 +54,21 @@ struct VulkanPipelineKey {
 	}
 };
 
-enum {
-	UB_VS_FS_BASE = (1 << 0),
-	UB_VS_LIGHTS = (1 << 1),
+enum PipelineFlags {
+	PIPELINE_FLAG_USES_BASE_UB = (1 << 0),
+	PIPELINE_FLAG_USES_LIGHT_UB = (1 << 1),
+	PIPELINE_FLAG_USES_LINES = (1 << 2),
+	PIPELINE_FLAG_USES_BLEND_CONSTANT = (1 << 3),
 };
 
 // Simply wraps a Vulkan pipeline, providing some metadata.
 struct VulkanPipeline {
 	VkPipeline pipeline;
-	int uniformBlocks;  // UB_ enum above.
-	bool useBlendConstant;
-	bool usesLines;
+	int flags;  // PipelineFlags enum above.
+
+	// Convenience.
+	bool UsesBlendConstant() const { return (flags & PIPELINE_FLAG_USES_BLEND_CONSTANT) != 0; }
+	bool UsesLines() const { return (flags & PIPELINE_FLAG_USES_LINES) != 0; }
 };
 
 class VulkanContext;

@@ -783,12 +783,12 @@ void DrawEngineVulkan::DoFlush() {
 			BindShaderBlendTex();  // This might cause copies so important to do before BindPipeline.
 			renderManager->BindPipeline(pipeline->pipeline);
 			if (pipeline != lastPipeline_) {
-				if (lastPipeline_ && !lastPipeline_->useBlendConstant && pipeline->useBlendConstant) {
+				if (lastPipeline_ && !(lastPipeline_->UsesBlendConstant() && pipeline->UsesBlendConstant())) {
 					gstate_c.Dirty(DIRTY_BLEND_STATE);
 				}
 				lastPipeline_ = pipeline;
 			}
-			ApplyDrawStateLate(renderManager, false, 0, pipeline->useBlendConstant);
+			ApplyDrawStateLate(renderManager, false, 0, pipeline->UsesBlendConstant());
 			gstate_c.Clean(DIRTY_BLEND_STATE | DIRTY_DEPTHSTENCIL_STATE | DIRTY_RASTER_STATE | DIRTY_VIEWPORTSCISSOR_STATE);
 			lastPipeline_ = pipeline;
 
@@ -887,12 +887,12 @@ void DrawEngineVulkan::DoFlush() {
 				BindShaderBlendTex();  // This might cause copies so super important to do before BindPipeline.
 				renderManager->BindPipeline(pipeline->pipeline);
 				if (pipeline != lastPipeline_) {
-					if (lastPipeline_ && !lastPipeline_->useBlendConstant && pipeline->useBlendConstant) {
+					if (lastPipeline_ && !lastPipeline_->UsesBlendConstant() && pipeline->UsesBlendConstant()) {
 						gstate_c.Dirty(DIRTY_BLEND_STATE);
 					}
 					lastPipeline_ = pipeline;
 				}
-				ApplyDrawStateLate(renderManager, result.setStencil, result.stencilValue, pipeline->useBlendConstant);
+				ApplyDrawStateLate(renderManager, result.setStencil, result.stencilValue, pipeline->UsesBlendConstant());
 				gstate_c.Clean(DIRTY_BLEND_STATE | DIRTY_DEPTHSTENCIL_STATE | DIRTY_RASTER_STATE | DIRTY_VIEWPORTSCISSOR_STATE);
 				lastPipeline_ = pipeline;
 
