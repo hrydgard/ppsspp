@@ -937,17 +937,6 @@ void VulkanContext::DestroyDevice() {
 	device_ = nullptr;
 }
 
-VkPipelineCache VulkanContext::CreatePipelineCache() {
-	VkPipelineCache cache;
-	VkPipelineCacheCreateInfo pc{ VK_STRUCTURE_TYPE_PIPELINE_CACHE_CREATE_INFO };
-	pc.pInitialData = nullptr;
-	pc.initialDataSize = 0;
-	pc.flags = 0;
-	VkResult res = vkCreatePipelineCache(device_, &pc, nullptr, &cache);
-	assert(VK_SUCCESS == res);
-	return cache;
-}
-
 bool VulkanContext::CreateShaderModule(const std::vector<uint32_t> &spirv, VkShaderModule *shaderModule) {
 	VkShaderModuleCreateInfo sm{ VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO };
 	sm.pCode = spirv.data();

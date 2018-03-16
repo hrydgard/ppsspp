@@ -419,7 +419,7 @@ void GPU_GLES::BeginFrame() {
 
 	GPUCommon::BeginFrame();
 
-	// Save the cache from time to time. TODO: How often?
+	// Save the cache from time to time. TODO: How often? We save on exit, so shouldn't need to do this all that often.
 	if (!shaderCachePath_.empty() && (gpuStats.numFlips & 4095) == 0) {
 		shaderManagerGL_->Save(shaderCachePath_);
 	}

@@ -72,10 +72,11 @@ struct DecVtxFormat {
 	u8 c1fmt; u8 c1off;
 	u8 nrmfmt; u8 nrmoff;
 	u8 posfmt; u8 posoff;
-	short stride;
+	u8 stride;
 
 	uint32_t id;
 	void ComputeID();
+	void InitializeFromID(uint32_t id);
 };
 
 void GetIndexBounds(const void *inds, int count, u32 vertType, u16 *indexLowerBound, u16 *indexUpperBound);

@@ -80,6 +80,9 @@ private:
 	void InitDeviceObjects();
 	void DestroyDeviceObjects();
 
+	void LoadCache(std::string filename);
+	void SaveCache(std::string filename);
+
 	VulkanContext *vulkan_;
 	FramebufferManagerVulkan *framebufferManagerVulkan_;
 	TextureCacheVulkan *textureCacheVulkan_;
@@ -100,4 +103,6 @@ private:
 	};
 
 	FrameData frameData_[VulkanContext::MAX_INFLIGHT_FRAMES]{};
+
+	std::string shaderCachePath_;
 };

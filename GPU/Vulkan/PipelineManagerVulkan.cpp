@@ -1,4 +1,5 @@
 #include <cstring>
+#include <memory>
 
 #include "profiler/profiler.h"
 
@@ -8,9 +9,10 @@
 #include "GPU/Vulkan/VulkanUtil.h"
 #include "GPU/Vulkan/PipelineManagerVulkan.h"
 #include "GPU/Vulkan/ShaderManagerVulkan.h"
+#include "GPU/Common/DrawEngineCommon.h"
 
 PipelineManagerVulkan::PipelineManagerVulkan(VulkanContext *vulkan) : vulkan_(vulkan), pipelines_(256) {
-	pipelineCache_ = vulkan->CreatePipelineCache();
+	// The pipeline cache is created on demand (or explicitly through Load).
 }
 
 PipelineManagerVulkan::~PipelineManagerVulkan() {
@@ -40,7 +42,7 @@ void PipelineManagerVulkan::DeviceLost() {
 
 void PipelineManagerVulkan::DeviceRestore(VulkanContext *vulkan) {
 	vulkan_ = vulkan;
-	pipelineCache_ = vulkan->CreatePipelineCache();
+	// The pipeline cache is created on demand.
 }
 
 struct DeclTypeInfo {
@@ -97,7 +99,7 @@ static int SetupVertexAttribs(VkVertexInputAttributeDescription attrs[], const D
 	return count;
 }
 
-static int SetupVertexAttribsPretransformed(VkVertexInputAttributeDescription attrs[], const DecVtxFormat &decFmt) {
+static int SetupVertexAttribsPretransformed(VkVertexInputAttributeDescription attrs[]) {
 	int count = 0;
 	VertexAttribSetup(&attrs[count++], DEC_FLOAT_4, 0, PspAttributeLocation::POSITION);
 	VertexAttribSetup(&attrs[count++], DEC_FLOAT_3, 16, PspAttributeLocation::TEXCOORD);
@@ -223,7 +225,7 @@ static VulkanPipeline *CreateVulkanPipeline(VkDevice device, VkPipelineCache pip
 		attributeCount = SetupVertexAttribs(attrs, *decFmt);
 		vertexStride = decFmt->stride;
 	} else {
-		attributeCount = SetupVertexAttribsPretransformed(attrs, *decFmt);
+		attributeCount = SetupVertexAttribsPretransformed(attrs);
 		vertexStride = 36;
 	}
 
@@ -293,6 +295,12 @@ static VulkanPipeline *CreateVulkanPipeline(VkDevice device, VkPipelineCache pip
 }
 
 VulkanPipeline *PipelineManagerVulkan::GetOrCreatePipeline(VkPipelineLayout layout, VkRenderPass renderPass, const VulkanPipelineRasterStateKey &rasterKey, const DecVtxFormat *decFmt, VulkanVertexShader *vs, VulkanFragmentShader *fs, bool useHwTransform) {
+	if (!pipelineCache_) {
+		VkPipelineCacheCreateInfo pc{ VK_STRUCTURE_TYPE_PIPELINE_CACHE_CREATE_INFO };
+		VkResult res = vkCreatePipelineCache(vulkan_->GetDevice(), &pc, nullptr, &pipelineCache_);
+		assert(VK_SUCCESS == res);
+	}
+
 	VulkanPipelineKey key{};
 	_assert_msg_(G3D, renderPass, "Can't create a pipeline with a null renderpass");
 
@@ -301,7 +309,7 @@ VulkanPipeline *PipelineManagerVulkan::GetOrCreatePipeline(VkPipelineLayout layo
 	key.useHWTransform = useHwTransform;
 	key.vShader = vs->GetModule();
 	key.fShader = fs->GetModule();
-	key.vtxDecId = useHwTransform ? decFmt->id : 0;
+	key.vtxFmtId = useHwTransform ? decFmt->id : 0;
 
 	auto iter = pipelines_.Get(key);
 	if (iter)
@@ -459,9 +467,9 @@ std::string PipelineManagerVulkan::DebugGetObjectString(std::string id, DebugSha
 		if (pipelineKey.useHWTransform) {
 			str << "HWX ";
 		}
-		if (pipelineKey.vtxDecId) {
+		if (pipelineKey.vtxFmtId) {
 			str << "V(";
-			str << StringFromFormat("%08x", pipelineKey.vtxDecId);  // TODO: Format nicer.
+			str << StringFromFormat("%08x", pipelineKey.vtxFmtId);  // TODO: Format nicer.
 			str << ") ";
 		} else {
 			str << "SWX ";
@@ -491,4 +499,146 @@ void PipelineManagerVulkan::SetLineWidth(float lineWidth) {
 			pipelines_.Remove(key);
 		}
 	});
+}
+
+// For some reason this struct is only defined in the spec, not in the headers.
+struct VkPipelineCacheHeader {
+	uint32_t headerSize;
+	VkPipelineCacheHeaderVersion version;
+	uint32_t vendorId;
+	uint32_t deviceId;
+	uint8_t uuid[VK_UUID_SIZE];
+};
+
+void PipelineManagerVulkan::SaveCache(FILE *file, bool saveRawPipelineCache, ShaderManagerVulkan *shaderManager) {
+	size_t dataSize = 0;
+	uint32_t size;
+
+	if (saveRawPipelineCache) {
+		VkResult result = vkGetPipelineCacheData(vulkan_->GetDevice(), pipelineCache_, &dataSize, nullptr);
+		uint32_t size = (uint32_t)dataSize;
+		if (result != VK_SUCCESS) {
+			size = 0;
+			fwrite(&size, sizeof(size), 1, file);
+			return;
+		}
+		std::unique_ptr<uint8_t[]> buffer(new uint8_t[dataSize]);
+		vkGetPipelineCacheData(vulkan_->GetDevice(), pipelineCache_, &dataSize, buffer.get());
+		size = (uint32_t)dataSize;
+		fwrite(&size, sizeof(size), 1, file);
+		fwrite(buffer.get(), 1, size, file);
+		NOTICE_LOG(G3D, "Saved Vulkan pipeline cache (%d bytes).", (int)size);
+	}
+
+	size_t seekPosOnFailure = ftell(file);
+	// Write the number of pipelines.
+	size = (uint32_t)pipelines_.size();
+	fwrite(&size, sizeof(size), 1, file);
+
+	bool failed = false;
+	int count = 0;
+	pipelines_.Iterate([&](const VulkanPipelineKey &pkey, VulkanPipeline *value) {
+		if (failed)
+			return;
+		VulkanVertexShader *vshader = shaderManager->GetVertexShaderFromModule(pkey.vShader);
+		VulkanFragmentShader *fshader = shaderManager->GetFragmentShaderFromModule(pkey.fShader);
+		if (!vshader || !fshader) {
+			failed = true;
+			return;
+		}
+		StoredVulkanPipelineKey key{};
+		key.raster = pkey.raster;
+		key.useHWTransform = pkey.useHWTransform;
+		key.fShaderID = fshader->GetID();
+		key.vShaderID = vshader->GetID();
+		if (key.useHWTransform) {
+			// NOTE: This is not a vtype, but a decoded vertex format.
+			key.vtxFmtId = pkey.vtxFmtId;
+		}
+		fwrite(&key, sizeof(key), 1, file);
+		count++;
+	});
+
+	if (failed) {
+		ERROR_LOG(G3D, "Failed to write pipeline cache, some shader was missing");
+		// Write a zero in the right place so it doesn't try to load the pipelines next time.
+		size = 0;
+		fseek(file, (long)seekPosOnFailure, SEEK_SET);
+		fwrite(&size, sizeof(size), 1, file);
+		return;
+	}
+	NOTICE_LOG(G3D, "Saved Vulkan pipeline ID cache (%d pipelines).", (int)count);
+}
+
+bool PipelineManagerVulkan::LoadCache(FILE *file, bool loadRawPipelineCache, ShaderManagerVulkan *shaderManager, DrawEngineCommon *drawEngine, VkPipelineLayout layout, VkRenderPass renderPass) {
+	uint32_t size = 0;
+	if (loadRawPipelineCache) {
+		fread(&size, sizeof(size), 1, file);
+		if (!size) {
+			WARN_LOG(G3D, "Zero-sized Vulkan pipeline cache.");
+			return true;
+		}
+		std::unique_ptr<uint8_t[]> buffer(new uint8_t[size]);
+		fread(buffer.get(), 1, size, file);
+		// Verify header.
+		VkPipelineCacheHeader *header = (VkPipelineCacheHeader *)buffer.get();
+		if (header->version != VK_PIPELINE_CACHE_HEADER_VERSION_ONE) {
+			// Bad header, don't do anything.
+			WARN_LOG(G3D, "Bad Vulkan pipeline cache header - ignoring");
+			return false;
+		}
+		if (0 != memcmp(header->uuid, vulkan_->GetPhysicalDeviceProperties().pipelineCacheUUID, VK_UUID_SIZE)) {
+			// Wrong hardware/driver/etc.
+			WARN_LOG(G3D, "Bad Vulkan pipeline cache UUID - ignoring");
+			return false;
+		}
+
+		VkPipelineCacheCreateInfo pc{ VK_STRUCTURE_TYPE_PIPELINE_CACHE_CREATE_INFO };
+		pc.pInitialData = buffer.get();
+		pc.initialDataSize = size;
+		pc.flags = 0;
+		VkPipelineCache cache;
+		VkResult res = vkCreatePipelineCache(vulkan_->GetDevice(), &pc, nullptr, &cache);
+		if (res != VK_SUCCESS) {
+			return false;
+		}
+		if (!pipelineCache_) {
+			pipelineCache_ = cache;
+		} else {
+			vkMergePipelineCaches(vulkan_->GetDevice(), pipelineCache_, 1, &cache);
+		}
+	} else {
+		if (!pipelineCache_) {
+			VkPipelineCacheCreateInfo pc{ VK_STRUCTURE_TYPE_PIPELINE_CACHE_CREATE_INFO };
+			VkResult res = vkCreatePipelineCache(vulkan_->GetDevice(), &pc, nullptr, &pipelineCache_);
+		}
+		NOTICE_LOG(G3D, "Loaded Vulkan pipeline cache (%d bytes).", (int)size);
+	}
+
+	// Read the number of pipelines.
+	fread(&size, sizeof(size), 1, file);
+
+	NOTICE_LOG(G3D, "Creating %d pipelines...", size);
+	bool failed = false;
+	for (uint32_t i = 0; i < size; i++) {
+		if (failed) {
+			continue;
+		}
+		StoredVulkanPipelineKey key;
+		fread(&key, sizeof(key), 1, file);
+		VulkanVertexShader *vs = shaderManager->GetVertexShaderFromID(key.vShaderID);
+		VulkanFragmentShader *fs = shaderManager->GetFragmentShaderFromID(key.fShaderID);
+		if (!vs || !fs) {
+			failed = true;
+			ERROR_LOG(G3D, "Failed to find vs or fs in of pipeline %d in cache", (int)i);
+			continue;
+		}
+		DecVtxFormat fmt;
+		fmt.InitializeFromID(key.vtxFmtId);
+		GetOrCreatePipeline(layout, renderPass, key.raster,
+			key.useHWTransform ? &fmt : 0,
+			vs, fs, key.useHWTransform);
+	}
+	NOTICE_LOG(G3D, "Recreated Vulkan pipeline cache (%d pipelines).", (int)size);
+	return true;
 }
