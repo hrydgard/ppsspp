@@ -267,9 +267,6 @@ void VulkanQueueRunner::RunSteps(VkCommandBuffer cmd, const std::vector<VKRStep 
 			steps[j]->render.stencil == VKRRenderPassAction::CLEAR &&
 			steps[j]->render.depth == VKRRenderPassAction::CLEAR) {
 
-			//if (j != 0)
-			//	__debugbreak();
-
 			// Drop the first step, and merge it into the next step that touches the same framebuffer.
 			for (size_t i = j + 1; i < steps.size(); i++) {
 				if (steps[i]->stepType == VKRStepType::RENDER &&
@@ -288,7 +285,6 @@ void VulkanQueueRunner::RunSteps(VkCommandBuffer cmd, const std::vector<VKRStep 
 					}
 					// Cheaply skip the first step.
 					steps[j]->stepType = VKRStepType::RENDER_SKIP;
-					ILOG("Avoided a lone clear at step %d, merged it with step %d", (int)j, (int)i);
 					break;
 				}
 			}
