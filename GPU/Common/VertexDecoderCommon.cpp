@@ -72,7 +72,7 @@ int DecFmtSize(u8 fmt) {
 }
 
 void DecVtxFormat::ComputeID() {
-	id = w0fmt | (w1fmt << 4) | (uvfmt << 8) | (c0fmt << 12) | (c1fmt << 16) | (nrmfmt << 20) | (posfmt << 24);
+	id = uvfmt | (c0fmt << 4) | (c1fmt << 8) | (nrmfmt << 12) | (posfmt << 16);
 }
 
 void GetIndexBounds(const void *inds, int count, u32 vertType, u16 *indexLowerBound, u16 *indexUpperBound) {
