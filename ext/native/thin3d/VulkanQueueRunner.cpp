@@ -597,12 +597,28 @@ void VulkanQueueRunner::PerformBindFramebufferAsRenderTarget(const VKRStep &step
 		framebuf = fb->framebuf;
 		w = fb->width;
 		h = fb->height;
+
+		bool maliBugWorkaround = vulkan_->GetPhysicalDeviceProperties().driverVersion == 0xaa9c4b29;
+		if (step.render.color != VKRRenderPassAction::KEEP)
+			maliBugWorkaround = false;  // Not needed if we're clearing.
+
 		// Now, if the image needs transitioning, let's transition.
-		// The backbuffer does not, that's handled by VulkanContext.
-		if (step.render.framebuffer->color.layout != VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL) {
+		// TODO: I think technically we might always need a barrier in color_optimal->color_optimal cases,
+		// but no hardware seems to require it (and it doesn't help with the Mali bug, switching ot GENERAL
+		// and back does though).
+		if (maliBugWorkaround || step.render.framebuffer->color.layout != VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL) {
 			VkAccessFlags srcAccessMask = 0;
+			VkAccessFlags dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT | VK_ACCESS_COLOR_ATTACHMENT_READ_BIT;
 			VkPipelineStageFlags srcStage = 0;
+			VkPipelineStageFlags dstStage = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
 			switch (fb->color.layout) {
+			case VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL:
+				// Already in the right layout but we still need a barrier.
+				srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_READ_BIT | VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+				dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_READ_BIT | VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+				srcStage = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+				dstStage = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+				break;
 			case VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL:
 				srcAccessMask = VK_ACCESS_SHADER_READ_BIT;
 				srcStage = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
@@ -620,10 +636,18 @@ void VulkanQueueRunner::PerformBindFramebufferAsRenderTarget(const VKRStep &step
 				break;
 			}
 
-			// Due to a known bug in the Mali driver, pass the level count explicitly.
+			if (maliBugWorkaround && step.render.framebuffer->color.layout == VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL) {
+				// To flush the transaction elimination buffers, working around what appears to be a driver bug, transition to GENERAL and back.
+				TransitionImageLayout2(cmd, fb->color.image, 0, 1, VK_IMAGE_ASPECT_COLOR_BIT,
+					fb->color.layout, VK_IMAGE_LAYOUT_GENERAL,
+					srcStage, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
+					srcAccessMask, dstAccessMask);
+				srcStage = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+				fb->color.layout = VK_IMAGE_LAYOUT_GENERAL;
+			}
 			TransitionImageLayout2(cmd, fb->color.image, 0, 1, VK_IMAGE_ASPECT_COLOR_BIT,
 				fb->color.layout, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
-				srcStage, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
+				srcStage, dstStage,
 				srcAccessMask, VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT | VK_ACCESS_COLOR_ATTACHMENT_READ_BIT);
 			fb->color.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
 		}
