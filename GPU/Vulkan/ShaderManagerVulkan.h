@@ -57,16 +57,13 @@ protected:
 
 class VulkanVertexShader {
 public:
-	VulkanVertexShader(VulkanContext *vulkan, VShaderID id, const char *code, bool useHWTransform, bool usesLighting);
+	VulkanVertexShader(VulkanContext *vulkan, VShaderID id, const char *code, bool useHWTransform);
 	~VulkanVertexShader();
 
 	const std::string &source() const { return source_; }
 
 	bool Failed() const { return failed_; }
 	bool UseHWTransform() const { return useHWTransform_; }
-	bool HasLights() const {
-		return usesLighting_;
-	}
 
 	std::string GetShaderString(DebugShaderStringType type) const;
 	VkShaderModule GetModule() const { return module_; }
@@ -79,7 +76,6 @@ protected:
 	std::string source_;
 	bool failed_;
 	bool useHWTransform_;
-	bool usesLighting_;
 	VShaderID id_;
 };
 

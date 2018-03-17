@@ -579,6 +579,7 @@ VkResult VulkanContext::CreateDevice() {
 		VulkanLoadDeviceFunctions(device_);
 	}
 	ILOG("Device created.\n");
+	VulkanSetAvailable(true);
 	return res;
 }
 

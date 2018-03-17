@@ -19,7 +19,6 @@
 #include "GPU/D3D11/VertexShaderGeneratorD3D11.h"
 #include "GPU/Directx9/VertexShaderGeneratorDX9.h"
 
-void GenerateVertexShaderD3D11(const VShaderID &id, char *buffer, bool *usesLighting, ShaderLanguage lang) {
-	*usesLighting = true;
+void GenerateVertexShaderD3D11(const VShaderID &id, char *buffer, ShaderLanguage lang) {
 	DX9::GenerateVertexShaderHLSL(id, buffer, lang);
 }

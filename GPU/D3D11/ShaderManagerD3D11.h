@@ -54,16 +54,13 @@ protected:
 
 class D3D11VertexShader {
 public:
-	D3D11VertexShader(ID3D11Device *device, D3D_FEATURE_LEVEL featureLevel, VShaderID id, const char *code, int vertType, bool useHWTransform, bool usesLighting);
+	D3D11VertexShader(ID3D11Device *device, D3D_FEATURE_LEVEL featureLevel, VShaderID id, const char *code, int vertType, bool useHWTransform);
 	~D3D11VertexShader();
 
 	const std::string &source() const { return source_; }
 	const std::vector<uint8_t> &bytecode() const { return bytecode_; }
 	bool Failed() const { return failed_; }
 	bool UseHWTransform() const { return useHWTransform_; }
-	bool HasLights() const {
-		return usesLighting_;
-	}
 
 	std::string GetShaderString(DebugShaderStringType type) const;
 	ID3D11VertexShader *GetShader() const { return module_; }
@@ -77,7 +74,6 @@ protected:
 
 	bool failed_;
 	bool useHWTransform_;
-	bool usesLighting_;
 	VShaderID id_;
 };
 

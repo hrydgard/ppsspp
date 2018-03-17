@@ -98,8 +98,8 @@ std::string VulkanFragmentShader::GetShaderString(DebugShaderStringType type) co
 	}
 }
 
-VulkanVertexShader::VulkanVertexShader(VulkanContext *vulkan, VShaderID id, const char *code, bool useHWTransform, bool usesLighting)
-	: vulkan_(vulkan), id_(id), failed_(false), useHWTransform_(useHWTransform), module_(VK_NULL_HANDLE), usesLighting_(usesLighting) {
+VulkanVertexShader::VulkanVertexShader(VulkanContext *vulkan, VShaderID id, const char *code, bool useHWTransform)
+	: vulkan_(vulkan), id_(id), failed_(false), useHWTransform_(useHWTransform), module_(VK_NULL_HANDLE) {
 	PROFILE_THIS_SCOPE("shadercomp");
 	source_ = code;
 	std::string errorMessage;
@@ -252,9 +252,8 @@ void ShaderManagerVulkan::GetShaders(int prim, u32 vertType, VulkanVertexShader 
 	VulkanVertexShader *vs = vsCache_.Get(VSID);
 	if (!vs)	{
 		// Vertex shader not in cache. Let's compile it.
-		bool usesLighting;
-		GenerateVulkanGLSLVertexShader(VSID, codeBuffer_, &usesLighting);
-		vs = new VulkanVertexShader(vulkan_, VSID, codeBuffer_, useHWTransform, usesLighting);
+		GenerateVulkanGLSLVertexShader(VSID, codeBuffer_);
+		vs = new VulkanVertexShader(vulkan_, VSID, codeBuffer_, useHWTransform);
 		vsCache_.Insert(VSID, vs);
 	}
 	lastVSID_ = VSID;
@@ -375,9 +374,8 @@ bool ShaderManagerVulkan::LoadCache(FILE *f) {
 		VShaderID id;
 		fread(&id, sizeof(id), 1, f);
 		bool useHWTransform = id.Bit(VS_BIT_USE_HW_TRANSFORM);
-		bool usesLighting;
-		GenerateVulkanGLSLVertexShader(id, codeBuffer_, &usesLighting);
-		VulkanVertexShader *vs = new VulkanVertexShader(vulkan_, id, codeBuffer_, useHWTransform, usesLighting);
+		GenerateVulkanGLSLVertexShader(id, codeBuffer_);
+		VulkanVertexShader *vs = new VulkanVertexShader(vulkan_, id, codeBuffer_, useHWTransform);
 		vsCache_.Insert(id, vs);
 	}
 	for (int i = 0; i < header.numFragmentShaders; i++) {
