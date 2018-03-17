@@ -12,6 +12,7 @@
 
 #include "Common/Vulkan/VulkanContext.h"
 #include "math/dataconv.h"
+#include "math/math_util.h"
 #include "thin3d/DataFormat.h"
 #include "thin3d/VulkanQueueRunner.h"
 
@@ -117,7 +118,14 @@ public:
 	void SetViewport(const VkViewport &vp) {
 		_dbg_assert_(G3D, curRenderStep_ && curRenderStep_->stepType == VKRStepType::RENDER);
 		VkRenderData data{ VKRRenderCommand::VIEWPORT };
-		data.viewport.vp = vp;
+		data.viewport.vp.x = vp.x;
+		data.viewport.vp.y = vp.y;
+		data.viewport.vp.width = vp.width;
+		data.viewport.vp.height = vp.height;
+		// We can't allow values outside this range unless we use VK_EXT_depth_range_unrestricted.
+		// Sometimes state mapping produces 65536/65535 which is slightly outside.
+		data.viewport.vp.maxDepth = clamp_value(vp.maxDepth, 0.0f, 1.0f);
+		data.viewport.vp.minDepth = clamp_value(vp.minDepth, 0.0f, 1.0f);
 		curRenderStep_->commands.push_back(data);
 	}
 
