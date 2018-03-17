@@ -161,7 +161,8 @@ public:
 	VkRenderPass GetBackbufferRenderPass() const {
 		return backbufferRenderPass_;
 	}
-	VkRenderPass GetRenderPass(VKRRenderPassAction colorLoadAction, VKRRenderPassAction depthLoadAction, VKRRenderPassAction stencilLoadAction);
+	VkRenderPass GetRenderPass(VKRRenderPassAction colorLoadAction, VKRRenderPassAction depthLoadAction, VKRRenderPassAction stencilLoadAction,
+		VkImageLayout prevColorLayout, VkImageLayout prevDepthLayout);
 
 	inline int RPIndex(VKRRenderPassAction color, VKRRenderPassAction depth) {
 		return (int)depth * 3 + (int)color;
@@ -202,6 +203,8 @@ private:
 		VKRRenderPassAction colorAction;
 		VKRRenderPassAction depthAction;
 		VKRRenderPassAction stencilAction;
+		VkImageLayout prevColorLayout;
+		VkImageLayout prevDepthLayout;
 	};
 
 	// Renderpasses, all combinations of preserving or clearing or dont-care-ing fb contents.
