@@ -324,30 +324,46 @@ namespace SaveState
 	// Slot utilities
 
 	std::string AppendSlotTitle(const std::string &filename, const std::string &title) {
-		if (!endsWith(filename, std::string(".") + STATE_EXTENSION)) {
-			return title + " (" + filename + ")";
+		char slotChar = 0;
+		auto detectSlot = [&](const std::string &ext) {
+			if (!endsWith(filename, std::string(".") + ext)) {
+				return false;
+			}
+
+			// Usually these are slots, let's check the slot # after the last '_'.
+			size_t slotNumPos = filename.find_last_of('_');
+			if (slotNumPos == filename.npos) {
+				return false;
+			}
+
+			const size_t extLength = ext.length() + 1;
+			// If we take out the extension, '_', etc. we should be left with only a single digit.
+			if (slotNumPos + 1 + extLength != filename.length() - 1) {
+				return false;
+			}
+
+			slotChar = filename[slotNumPos + 1];
+			if (slotChar < '0' || slotChar > '8') {
+				return false;
+			}
+
+			// Change from zero indexed to human friendly.
+			slotChar++;
+			return true;
+		};
+
+		if (detectSlot(STATE_EXTENSION)) {
+			return StringFromFormat("%s (%c)", title.c_str(), slotChar);
+		}
+		if (detectSlot(UNDO_STATE_EXTENSION)) {
+			I18NCategory *sy = GetI18NCategory("System");
+			// Allow the number to be positioned where it makes sense.
+			std::string undo = sy->T("undo %c");
+			return title + " (" + StringFromFormat(undo.c_str(), slotChar) + ")";
 		}
 
-		// Usually these are slots, let's check the slot # after the last '_'.
-		size_t slotNumPos = filename.find_last_of('_');
-		if (slotNumPos == filename.npos) {
-			return title + " (" + filename + ")";
-		}
-
-		const size_t extLength = strlen(STATE_EXTENSION) + 1;
-		// If we take out the extension, '_', etc. we should be left with only a single digit.
-		if (slotNumPos + 1 + extLength != filename.length() - 1) {
-			return title + " (" + filename + ")";
-		}
-
-		std::string slot = filename.substr(slotNumPos + 1, 1);
-		if (slot[0] < '0' || slot[0] > '8') {
-			return title + " (" + filename + ")";
-		}
-
-		// Change from zero indexed to human friendly.
-		slot[0]++;
-		return title + " (" + slot + ")";
+		// Couldn't detect, use the filename.
+		return title + " (" + filename + ")";
 	}
 
 	std::string GetTitle(const std::string &filename) {
