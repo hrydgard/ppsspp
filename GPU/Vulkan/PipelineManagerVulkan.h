@@ -63,8 +63,6 @@ struct StoredVulkanPipelineKey {
 };
 
 enum PipelineFlags {
-	PIPELINE_FLAG_USES_BASE_UB = (1 << 0),
-	PIPELINE_FLAG_USES_LIGHT_UB = (1 << 1),
 	PIPELINE_FLAG_USES_LINES = (1 << 2),
 	PIPELINE_FLAG_USES_BLEND_CONSTANT = (1 << 3),
 };

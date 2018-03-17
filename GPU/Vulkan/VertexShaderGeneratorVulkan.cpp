@@ -85,7 +85,7 @@ enum DoLightComputation {
 // TODO: Skip all this if we can actually get a 16-bit depth buffer along with stencil, which
 // is a bit of a rare configuration, although quite common on mobile.
 
-bool GenerateVulkanGLSLVertexShader(const VShaderID &id, char *buffer, bool *usesLighting) {
+bool GenerateVulkanGLSLVertexShader(const VShaderID &id, char *buffer) {
 	char *p = buffer;
 
 	WRITE(p, "%s", vulkan_glsl_preamble);
@@ -123,10 +123,6 @@ bool GenerateVulkanGLSLVertexShader(const VShaderID &id, char *buffer, bool *use
 	bool hasTexcoordTess = id.Bit(VS_BIT_HAS_TEXCOORD_TESS);
 	bool flipNormalTess = id.Bit(VS_BIT_NORM_REVERSE_TESS);
 
-	// The uniforms are passed in as three "clumps" that may or may not be present.
-	// We will memcpy the parts into place in a big buffer so we can be quite dynamic about what parts
-	// are present and what parts aren't, but we will not be ultra detailed about it.
-	*usesLighting = enableLighting || doShadeMapping;
 	WRITE(p, "\n");
 	WRITE(p, "layout (std140, set = 0, binding = 2) uniform baseVars {\n%s} base;\n", ub_baseStr);
 	if (enableLighting || doShadeMapping)

@@ -281,16 +281,11 @@ static VulkanPipeline *CreateVulkanPipeline(VkDevice device, VkPipelineCache pip
 
 	VulkanPipeline *vulkanPipeline = new VulkanPipeline();
 	vulkanPipeline->pipeline = pipeline;
-	vulkanPipeline->flags = PIPELINE_FLAG_USES_BASE_UB;
+	vulkanPipeline->flags = 0;
 	if (useBlendConstant)
 		vulkanPipeline->flags |= PIPELINE_FLAG_USES_BLEND_CONSTANT;
 	if (key.topology == VK_PRIMITIVE_TOPOLOGY_LINE_LIST || key.topology == VK_PRIMITIVE_TOPOLOGY_LINE_STRIP)
 		vulkanPipeline->flags |= PIPELINE_FLAG_USES_LINES;
-	if (useHwTransform) {
-		if (vs->HasLights()) {
-			vulkanPipeline->flags |= PIPELINE_FLAG_USES_LIGHT_UB;
-		}
-	}
 	return vulkanPipeline;
 }
 
