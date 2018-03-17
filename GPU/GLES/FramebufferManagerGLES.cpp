@@ -754,6 +754,7 @@ void FramebufferManagerGLES::DeviceLost() {
 
 void FramebufferManagerGLES::DeviceRestore(Draw::DrawContext *draw) {
 	draw_ = draw;
+	render_ = (GLRenderManager *)draw_->GetNativeObject(Draw::NativeObject::RENDER_MANAGER);
 	CreateDeviceObjects();
 }
 
