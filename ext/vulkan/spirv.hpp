@@ -47,11 +47,11 @@ namespace spv {
 typedef unsigned int Id;
 
 #define SPV_VERSION 0x10100
-#define SPV_REVISION 6
+#define SPV_REVISION 8
 
 static const unsigned int MagicNumber = 0x07230203;
 static const unsigned int Version = 0x00010100;
-static const unsigned int Revision = 6;
+static const unsigned int Revision = 8;
 static const unsigned int OpCodeMask = 0xffff;
 static const unsigned int WordCountShift = 16;
 
@@ -61,6 +61,7 @@ enum SourceLanguage {
     SourceLanguageGLSL = 2,
     SourceLanguageOpenCL_C = 3,
     SourceLanguageOpenCL_CPP = 4,
+    SourceLanguageHLSL = 5,
     SourceLanguageMax = 0x7fffffff,
 };
 
@@ -125,6 +126,8 @@ enum ExecutionMode {
     ExecutionModeFinalizer = 34,
     ExecutionModeSubgroupSize = 35,
     ExecutionModeSubgroupsPerWorkgroup = 36,
+    ExecutionModePostDepthCoverage = 4446,
+    ExecutionModeStencilRefReplacingEXT = 5027,
     ExecutionModeMax = 0x7fffffff,
 };
 
@@ -141,6 +144,7 @@ enum StorageClass {
     StorageClassPushConstant = 9,
     StorageClassAtomicCounter = 10,
     StorageClassImage = 11,
+    StorageClassStorageBuffer = 12,
     StorageClassMax = 0x7fffffff,
 };
 
@@ -379,6 +383,7 @@ enum Decoration {
     DecorationInputAttachmentIndex = 43,
     DecorationAlignment = 44,
     DecorationMaxByteOffset = 45,
+    DecorationExplicitInterpAMD = 4999,
     DecorationOverrideCoverageNV = 5248,
     DecorationPassthroughNV = 5250,
     DecorationViewportRelativeNV = 5252,
@@ -438,6 +443,14 @@ enum BuiltIn {
     BuiltInDrawIndex = 4426,
     BuiltInDeviceIndex = 4438,
     BuiltInViewIndex = 4440,
+    BuiltInBaryCoordNoPerspAMD = 4992,
+    BuiltInBaryCoordNoPerspCentroidAMD = 4993,
+    BuiltInBaryCoordNoPerspSampleAMD = 4994,
+    BuiltInBaryCoordSmoothAMD = 4995,
+    BuiltInBaryCoordSmoothCentroidAMD = 4996,
+    BuiltInBaryCoordSmoothSampleAMD = 4997,
+    BuiltInBaryCoordPullModelAMD = 4998,
+    BuiltInFragStencilRefEXT = 5014,
     BuiltInViewportMaskNV = 5253,
     BuiltInSecondaryPositionNV = 5257,
     BuiltInSecondaryViewportMaskNV = 5258,
@@ -628,18 +641,32 @@ enum Capability {
     CapabilitySubgroupBallotKHR = 4423,
     CapabilityDrawParameters = 4427,
     CapabilitySubgroupVoteKHR = 4431,
+    CapabilityStorageBuffer16BitAccess = 4433,
     CapabilityStorageUniformBufferBlock16 = 4433,
     CapabilityStorageUniform16 = 4434,
+    CapabilityUniformAndStorageBuffer16BitAccess = 4434,
     CapabilityStoragePushConstant16 = 4435,
     CapabilityStorageInputOutput16 = 4436,
     CapabilityDeviceGroup = 4437,
     CapabilityMultiView = 4439,
+    CapabilityVariablePointersStorageBuffer = 4441,
+    CapabilityVariablePointers = 4442,
+    CapabilityAtomicStorageOps = 4445,
+    CapabilitySampleMaskPostDepthCoverage = 4447,
+    CapabilityImageGatherBiasLodAMD = 5009,
+    CapabilityFragmentMaskAMD = 5010,
+    CapabilityStencilExportEXT = 5013,
+    CapabilityImageReadWriteLodAMD = 5015,
     CapabilitySampleMaskOverrideCoverageNV = 5249,
     CapabilityGeometryShaderPassthroughNV = 5251,
+    CapabilityShaderViewportIndexLayerEXT = 5254,
     CapabilityShaderViewportIndexLayerNV = 5254,
     CapabilityShaderViewportMaskNV = 5255,
     CapabilityShaderStereoViewNV = 5259,
     CapabilityPerViewAttributesNV = 5260,
+    CapabilitySubgroupShuffleINTEL = 5568,
+    CapabilitySubgroupBufferBlockIOINTEL = 5569,
+    CapabilitySubgroupImageBlockIOINTEL = 5570,
     CapabilityMax = 0x7fffffff,
 };
 
@@ -954,6 +981,24 @@ enum Op {
     OpSubgroupAnyKHR = 4429,
     OpSubgroupAllEqualKHR = 4430,
     OpSubgroupReadInvocationKHR = 4432,
+    OpGroupIAddNonUniformAMD = 5000,
+    OpGroupFAddNonUniformAMD = 5001,
+    OpGroupFMinNonUniformAMD = 5002,
+    OpGroupUMinNonUniformAMD = 5003,
+    OpGroupSMinNonUniformAMD = 5004,
+    OpGroupFMaxNonUniformAMD = 5005,
+    OpGroupUMaxNonUniformAMD = 5006,
+    OpGroupSMaxNonUniformAMD = 5007,
+    OpFragmentMaskFetchAMD = 5011,
+    OpFragmentFetchAMD = 5012,
+    OpSubgroupShuffleINTEL = 5571,
+    OpSubgroupShuffleDownINTEL = 5572,
+    OpSubgroupShuffleUpINTEL = 5573,
+    OpSubgroupShuffleXorINTEL = 5574,
+    OpSubgroupBlockReadINTEL = 5575,
+    OpSubgroupBlockWriteINTEL = 5576,
+    OpSubgroupImageBlockReadINTEL = 5577,
+    OpSubgroupImageBlockWriteINTEL = 5578,
     OpMax = 0x7fffffff,
 };
 
