@@ -1268,7 +1268,7 @@ static Module *__KernelLoadELFFromPtr(const u8 *ptr, size_t elfSize, u32 loadAdd
 		scan = g_Config.bFuncReplacements;
 #endif
 
-		bool gotSymbols = scan && reader.LoadSymbols();
+		bool insertSymbols = scan && !reader.LoadSymbols();
 		std::vector<SectionID> codeSections = reader.GetCodeSections();
 		for (SectionID id : codeSections) {
 			u32 start = reader.GetSectionAddr(id);
@@ -1280,8 +1280,9 @@ static Module *__KernelLoadELFFromPtr(const u8 *ptr, size_t elfSize, u32 loadAdd
 			if (end > module->textEnd)
 				module->textEnd = end;
 
-			if (scan)
-				MIPSAnalyst::ScanForFunctions(start, end, !gotSymbols);
+			if (scan) {
+				MIPSAnalyst::ScanForFunctions(start, end, insertSymbols);
+			}
 		}
 
 		// Some games don't have any sections at all.
@@ -1290,14 +1291,18 @@ static Module *__KernelLoadELFFromPtr(const u8 *ptr, size_t elfSize, u32 loadAdd
 			u32 scanEnd = module->textEnd;
 			// Skip the exports and imports sections, they're not code.
 			if (scanEnd >= std::min(modinfo->libent, modinfo->libstub)) {
-				MIPSAnalyst::ScanForFunctions(scanStart, std::min(modinfo->libent, modinfo->libstub) - 4, !gotSymbols);
+				MIPSAnalyst::ScanForFunctions(scanStart, std::min(modinfo->libent, modinfo->libstub) - 4, insertSymbols);
 				scanStart = std::min(modinfo->libentend, modinfo->libstubend);
 			}
 			if (scanEnd >= std::max(modinfo->libent, modinfo->libstub)) {
-				MIPSAnalyst::ScanForFunctions(scanStart, std::max(modinfo->libent, modinfo->libstub) - 4, !gotSymbols);
+				MIPSAnalyst::ScanForFunctions(scanStart, std::max(modinfo->libent, modinfo->libstub) - 4, insertSymbols);
 				scanStart = std::max(modinfo->libentend, modinfo->libstubend);
 			}
-			MIPSAnalyst::ScanForFunctions(scanStart, scanEnd, !gotSymbols);
+			MIPSAnalyst::ScanForFunctions(scanStart, scanEnd, insertSymbols);
+		}
+
+		if (scan) {
+			MIPSAnalyst::FinalizeScan(insertSymbols);
 		}
 	}
 
