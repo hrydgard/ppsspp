@@ -105,7 +105,9 @@ namespace MIPSAnalyst
 	// If we have loaded symbols from the elf, we'll register functions as they are touched
 	// so that we don't just dump them all in the cache.
 	void RegisterFunction(u32 startAddr, u32 size, const char *name);
-	void ScanForFunctions(u32 startAddr, u32 endAddr, bool insertSymbols);
+	// Returns new insertSymbols value for FinalizeScan().
+	bool ScanForFunctions(u32 startAddr, u32 endAddr, bool insertSymbols);
+	void FinalizeScan(bool insertSymbols);
 	void ForgetFunctions(u32 startAddr, u32 endAddr);
 	void PrecompileFunctions();
 	void PrecompileFunction(u32 startAddr, u32 length);
