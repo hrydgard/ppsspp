@@ -226,22 +226,24 @@ void VulkanSetAvailable(bool available) {
 bool VulkanMayBeAvailable() {
 	if (g_vulkanAvailabilityChecked)
 		return g_vulkanMayBeAvailable;
-	bool available = false;
 #ifndef _WIN32
 	void *lib = nullptr;
 	for (int i = 0; i < ARRAY_SIZE(so_names); i++) {
 		lib = dlopen(so_names[i], RTLD_NOW | RTLD_LOCAL);
 		if (lib) {
-			available = true;
 			break;
 		}
 	}
 #else
 	// LoadLibrary etc
 	HINSTANCE lib = LoadLibrary(L"vulkan-1.dll");
-
-	available = lib != 0;
 #endif
+	if (!lib) {
+		g_vulkanAvailabilityChecked = true;
+		g_vulkanMayBeAvailable = false;
+		return false;
+	}
+
 	// Do a hyper minimal initialization and teardown to figure out if there's any chance
 	// that any sort of Vulkan will be usable.
 	PFN_vkCreateInstance localCreateInstance = LOAD_GLOBAL_FUNC_LOCAL(lib, vkCreateInstance);
@@ -253,9 +255,8 @@ bool VulkanMayBeAvailable() {
 	VkInstanceCreateInfo ci{ VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO };
 	VkApplicationInfo info{ VK_STRUCTURE_TYPE_APPLICATION_INFO };
 	std::vector<VkPhysicalDevice> devices;
-	bool anyGood;
-	const char *instanceExtensions[1];
-	int extCount = 0;
+	bool anyGood = false;
+	const char *instanceExtensions[1]{};
 	VkInstance instance = VK_NULL_HANDLE;
 	VkResult res;
 	uint32_t physicalDeviceCount = 0;
@@ -270,6 +271,7 @@ bool VulkanMayBeAvailable() {
 	instanceExtensions[0] = VK_KHR_ANDROID_SURFACE_EXTENSION_NAME;
 	ci.enabledExtensionCount = 1;
 #endif
+
 	ci.ppEnabledExtensionNames = instanceExtensions;
 	ci.enabledLayerCount = 0;
 	info.apiVersion = VK_API_VERSION_1_0;
@@ -281,6 +283,7 @@ bool VulkanMayBeAvailable() {
 	ci.flags = 0;
 	res = localCreateInstance(&ci, nullptr, &instance);
 	if (res != VK_SUCCESS) {
+		instance = nullptr;
 		ELOG("Failed to create vulkan instance.");
 		goto bail;
 	}
