@@ -1391,8 +1391,9 @@ void GPUCommon::Execute_End(u32 op, u32 diff) {
 }
 
 void GPUCommon::Execute_TexLevel(u32 op, u32 diff) {
-	if (diff == 0xFFFFFFFF) return;
-
+	// TODO: If you change the rules here, don't forget to update the inner interpreter in Execute_Prim.
+	if (diff == 0xFFFFFFFF)
+		return;
 	gstate.texlevel ^= diff;
 	if (gstate.getTexLevelMode() != GE_TEXLEVEL_MODE_AUTO && (0x00FF0000 & gstate.texlevel) != 0) {
 		Flush();
@@ -1580,6 +1581,13 @@ void GPUCommon::Execute_Prim(u32 op, u32 diff) {
 		case GE_CMD_TEXSCALEV:
 			gstate.cmdmem[GE_CMD_TEXSCALEV] = data;
 			gstate_c.uv.vScale = getFloat24(data);
+			break;
+		case GE_CMD_TEXLEVEL:
+			// Same Gran Turismo hack from Execute_TexLevel
+			if ((data & 3) != GE_TEXLEVEL_MODE_AUTO && (0x00FF0000 & data) != 0) {
+				goto bail;
+			}
+			gstate.cmdmem[GE_CMD_TEXLEVEL] = data;
 			break;
 		case GE_CMD_CALL:
 		{
