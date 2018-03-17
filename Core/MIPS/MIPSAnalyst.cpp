@@ -1018,7 +1018,7 @@ skip:
 		return furthestJumpbackAddr;
 	}
 
-	void ScanForFunctions(u32 startAddr, u32 endAddr, bool &insertSymbols) {
+	bool ScanForFunctions(u32 startAddr, u32 endAddr, bool insertSymbols) {
 		std::lock_guard<std::recursive_mutex> guard(functions_lock);
 
 		AnalyzedFunction currentFunction = {startAddr};
@@ -1166,6 +1166,8 @@ skip:
 				g_symbolMap->AddFunction(DefaultFunctionName(temp, iter->start), iter->start, iter->end - iter->start + 4);
 			}
 		}
+
+		return insertSymbols;
 	}
 
 	void FinalizeScan(bool insertSymbols) {

@@ -1268,6 +1268,7 @@ static Module *__KernelLoadELFFromPtr(const u8 *ptr, size_t elfSize, u32 loadAdd
 		scan = g_Config.bFuncReplacements;
 #endif
 
+		// If the ELF has debug symbols, don't add entries to the symbol table.
 		bool insertSymbols = scan && !reader.LoadSymbols();
 		std::vector<SectionID> codeSections = reader.GetCodeSections();
 		for (SectionID id : codeSections) {
@@ -1281,7 +1282,7 @@ static Module *__KernelLoadELFFromPtr(const u8 *ptr, size_t elfSize, u32 loadAdd
 				module->textEnd = end;
 
 			if (scan) {
-				MIPSAnalyst::ScanForFunctions(start, end, insertSymbols);
+				insertSymbols = MIPSAnalyst::ScanForFunctions(start, end, insertSymbols);
 			}
 		}
 
@@ -1291,14 +1292,14 @@ static Module *__KernelLoadELFFromPtr(const u8 *ptr, size_t elfSize, u32 loadAdd
 			u32 scanEnd = module->textEnd;
 			// Skip the exports and imports sections, they're not code.
 			if (scanEnd >= std::min(modinfo->libent, modinfo->libstub)) {
-				MIPSAnalyst::ScanForFunctions(scanStart, std::min(modinfo->libent, modinfo->libstub) - 4, insertSymbols);
+				insertSymbols = MIPSAnalyst::ScanForFunctions(scanStart, std::min(modinfo->libent, modinfo->libstub) - 4, insertSymbols);
 				scanStart = std::min(modinfo->libentend, modinfo->libstubend);
 			}
 			if (scanEnd >= std::max(modinfo->libent, modinfo->libstub)) {
-				MIPSAnalyst::ScanForFunctions(scanStart, std::max(modinfo->libent, modinfo->libstub) - 4, insertSymbols);
+				insertSymbols = MIPSAnalyst::ScanForFunctions(scanStart, std::max(modinfo->libent, modinfo->libstub) - 4, insertSymbols);
 				scanStart = std::max(modinfo->libentend, modinfo->libstubend);
 			}
-			MIPSAnalyst::ScanForFunctions(scanStart, scanEnd, insertSymbols);
+			insertSymbols = MIPSAnalyst::ScanForFunctions(scanStart, scanEnd, insertSymbols);
 		}
 
 		if (scan) {
