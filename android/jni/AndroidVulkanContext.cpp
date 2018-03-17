@@ -98,9 +98,11 @@ bool AndroidVulkanContext::InitAPI() {
 	info.app_name = "PPSSPP";
 	info.app_ver = gitVer.ToInteger();
 	info.flags = VULKAN_FLAG_PRESENT_MAILBOX | VULKAN_FLAG_PRESENT_FIFO_RELAXED;
-	if (VK_SUCCESS != g_Vulkan->CreateInstance(info)) {
+	VkResult res = g_Vulkan->CreateInstance(info);
+	if (res != VK_SUCCESS) {
 		ELOG("Failed to create vulkan context: %s", g_Vulkan->InitError().c_str());
 		System_SendMessage("toast", "No Vulkan compatible device found. Using OpenGL instead.");
+		VulkanSetAvailable(false);
 		delete g_Vulkan;
 		g_Vulkan = nullptr;
 		return false;
