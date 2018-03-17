@@ -38,6 +38,8 @@ public:
 	// This gets called on startup and when we get back from settings.
 	void CheckGPUFeatures() override;
 
+	bool IsReady() override;
+
 	// These are where we can reset command buffers etc.
 	void BeginHostFrame() override;
 	void EndHostFrame() override;
@@ -105,4 +107,5 @@ private:
 	FrameData frameData_[VulkanContext::MAX_INFLIGHT_FRAMES]{};
 
 	std::string shaderCachePath_;
+	bool shaderCacheLoaded_ = false;
 };

@@ -16,6 +16,7 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
+#include <thread>
 #include "base/logging.h"
 #include "profiler/profiler.h"
 
@@ -101,9 +102,18 @@ GPU_Vulkan::GPU_Vulkan(GraphicsContext *gfxCtx, Draw::DrawContext *draw)
 	if (discID.size()) {
 		File::CreateFullPath(GetSysDirectory(DIRECTORY_APP_CACHE));
 		shaderCachePath_ = GetSysDirectory(DIRECTORY_APP_CACHE) + "/" + discID + ".vkshadercache";
+		shaderCacheLoaded_ = false;
 
-		LoadCache(shaderCachePath_);
+		std::thread th([&] {
+			LoadCache(shaderCachePath_);
+			shaderCacheLoaded_ = true;
+		});
+		th.detach();
 	}
+}
+
+bool GPU_Vulkan::IsReady() {
+	return shaderCacheLoaded_;
 }
 
 void GPU_Vulkan::LoadCache(std::string filename) {
