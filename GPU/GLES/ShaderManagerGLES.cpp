@@ -79,8 +79,6 @@ LinkedShader::LinkedShader(GLRenderManager *render, VShaderID VSID, Shader *vs, 
 	semantics.push_back({ ATTR_POSITION, "position" });
 	semantics.push_back({ ATTR_TEXCOORD, "texcoord" });
 	semantics.push_back({ ATTR_NORMAL, "normal" });
-	semantics.push_back({ ATTR_W1, "w1" });
-	semantics.push_back({ ATTR_W2, "w2" });
 	semantics.push_back({ ATTR_COLOR0, "color0" });
 	semantics.push_back({ ATTR_COLOR1, "color1" });
 

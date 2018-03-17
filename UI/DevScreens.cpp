@@ -120,7 +120,8 @@ UI::EventReturn DevMenu::OnJitCompare(UI::EventParams &e) {
 
 UI::EventReturn DevMenu::OnShaderView(UI::EventParams &e) {
 	UpdateUIState(UISTATE_PAUSEMENU);
-	screenManager()->push(new ShaderListScreen());
+	if (gpu)  // Avoid crashing if chosen while the game is being loaded.
+		screenManager()->push(new ShaderListScreen());
 	return UI::EVENT_DONE;
 }
 

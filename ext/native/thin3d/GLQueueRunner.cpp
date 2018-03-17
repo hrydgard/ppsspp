@@ -326,10 +326,12 @@ void GLQueueRunner::InitCreateFramebuffer(const GLRInitStep &step) {
 	fbo->color_texture.wrapT = GL_CLAMP_TO_EDGE;
 	fbo->color_texture.magFilter = GL_LINEAR;
 	fbo->color_texture.minFilter = GL_LINEAR;
+	fbo->color_texture.canWrap = false;
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, fbo->color_texture.wrapS);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, fbo->color_texture.wrapT);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, fbo->color_texture.magFilter);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, fbo->color_texture.minFilter);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAX_LEVEL, 0);
 
 	if (gl_extensions.IsGLES) {
 		if (gl_extensions.OES_packed_depth_stencil) {
@@ -846,13 +848,15 @@ void GLQueueRunner::PerformRenderPass(const GLRStep &step) {
 			if (!tex) {
 				break;
 			}
-			if (tex->wrapS != c.textureSampler.wrapS) {
-				glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, c.textureSampler.wrapS);
-				tex->wrapS = c.textureSampler.wrapS;
-			}
-			if (tex->wrapT != c.textureSampler.wrapT) {
-				glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, c.textureSampler.wrapT);
-				tex->wrapT = c.textureSampler.wrapT;
+			if (tex->canWrap) {
+				if (tex->wrapS != c.textureSampler.wrapS) {
+					glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, c.textureSampler.wrapS);
+					tex->wrapS = c.textureSampler.wrapS;
+				}
+				if (tex->wrapT != c.textureSampler.wrapT) {
+					glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, c.textureSampler.wrapT);
+					tex->wrapT = c.textureSampler.wrapT;
+				}
 			}
 			if (tex->magFilter != c.textureSampler.magFilter) {
 				glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, c.textureSampler.magFilter);

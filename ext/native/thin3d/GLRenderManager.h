@@ -33,9 +33,10 @@ public:
 	GLenum wrapT = 0xFFFF;
 	GLenum magFilter = 0xFFFF;
 	GLenum minFilter = 0xFFFF;
+	bool canWrap = true;
 	float anisotropy = -100000.0f;
-	float minLod = -100000.0f;
-	float maxLod = 100000.0f;
+	float minLod = -1000.0f;
+	float maxLod = 1000.0f;
 	float lodBias = 0.0f;
 };
 
