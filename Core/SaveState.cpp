@@ -411,11 +411,16 @@ namespace SaveState
 	{
 		std::string fn = GenerateSaveSlotFilename(gameFilename, slot, STATE_EXTENSION);
 		std::string shot = GenerateSaveSlotFilename(gameFilename, slot, SCREENSHOT_EXTENSION);
+		std::string fnUndo = GenerateSaveSlotFilename(gameFilename, slot, UNDO_STATE_EXTENSION);
+		std::string shotUndo = GenerateSaveSlotFilename(gameFilename, slot, UNDO_SCREENSHOT_EXTENSION);
 		if (!fn.empty()) {
 			auto renameCallback = [=](bool status, const std::string &message, void *data) {
 				if (status) {
-					if (File::Exists(fn)) {
-						File::Delete(fn);
+					if (File::Exists(fnUndo) && g_Config.bEnableStateUndo) {
+						File::Delete(fnUndo);
+					}
+					if (File::Exists(fn) && g_Config.bEnableStateUndo) {
+						File::Rename(fn, fnUndo);
 					}
 					File::Rename(fn + ".tmp", fn);
 				}
@@ -424,6 +429,9 @@ namespace SaveState
 				}
 			};
 			// Let's also create a screenshot.
+			if (File::Exists(shot) && g_Config.bEnableStateUndo) {
+				File::Rename(shot, shotUndo);
+			}
 			SaveScreenshot(shot, Callback(), 0);
 			Save(fn + ".tmp", renameCallback, cbUserData);
 		} else {
@@ -433,10 +441,41 @@ namespace SaveState
 		}
 	}
 
+	bool UndoSaveSlot(const std::string &gameFilename, int slot) {
+		std::string fn = GenerateSaveSlotFilename(gameFilename, slot, STATE_EXTENSION);
+		std::string shot = GenerateSaveSlotFilename(gameFilename, slot, SCREENSHOT_EXTENSION);
+		std::string fnUndo = GenerateSaveSlotFilename(gameFilename, slot, UNDO_STATE_EXTENSION);
+		std::string shotUndo = GenerateSaveSlotFilename(gameFilename, slot, UNDO_SCREENSHOT_EXTENSION);
+
+		// Do nothing if there's no undo.
+		if (File::Exists(fnUndo)) {
+			// Swap them so they can undo again to redo.  Mistakes happen.
+			if (File::Exists(shotUndo)) {
+				File::Rename(shot, shot + ".tmp");
+				File::Rename(shotUndo, shot);
+				File::Rename(shot + ".tmp", shotUndo);
+			}
+
+			File::Rename(fn, fn + ".tmp");
+			File::Rename(fnUndo, fn);
+			File::Rename(fn + ".tmp", fnUndo);
+
+			return true;
+		}
+
+		return false;
+	}
+
 	bool HasSaveInSlot(const std::string &gameFilename, int slot)
 	{
 		std::string fn = GenerateSaveSlotFilename(gameFilename, slot, STATE_EXTENSION);
 		return File::Exists(fn);
+	}
+
+	bool HasUndoSaveInSlot(const std::string &gameFilename, int slot)
+	{
+		std::string fn = GenerateSaveSlotFilename(gameFilename, slot, STATE_EXTENSION);
+		return File::Exists(fn + ".undo");
 	}
 
 	bool HasScreenshotInSlot(const std::string &gameFilename, int slot)
