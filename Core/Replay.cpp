@@ -28,9 +28,10 @@ enum class ReplayState {
 	SAVE,
 };
 
+// File data formats below.
 #pragma pack(push, 1)
 
-struct ReplayItem {
+struct ReplayItemHeader {
 	ReplayAction action;
 	uint64_t timestamp;
 	union {
@@ -38,32 +39,51 @@ struct ReplayItem {
 		uint8_t analog[2][2];
 		uint32_t result;
 		uint64_t result64;
-		// TODO: Where do we store read data?
-		struct {
-			uint32_t offset;
-			uint32_t size;
-		} read;
+		// NOTE: Certain action types have data, always sized by this/result.
+		uint32_t size;
 	};
 
-	ReplayItem(ReplayAction a, uint64_t t) {
+	ReplayItemHeader(ReplayAction a, uint64_t t) {
 		action = a;
 		timestamp = t;
 	}
 
-	ReplayItem(ReplayAction a, uint64_t t, uint32_t v) : ReplayItem(a, t) {
+	ReplayItemHeader(ReplayAction a, uint64_t t, uint32_t v) : ReplayItemHeader(a, t) {
 		result = v;
 	}
 
-	ReplayItem(ReplayAction a, uint64_t t, uint64_t v) : ReplayItem(a, t) {
+	ReplayItemHeader(ReplayAction a, uint64_t t, uint64_t v) : ReplayItemHeader(a, t) {
 		result64 = v;
 	}
 
-	ReplayItem(ReplayAction a, uint64_t t, uint8_t v[2][2]) : ReplayItem(a, t) {
+	ReplayItemHeader(ReplayAction a, uint64_t t, uint8_t v[2][2]) : ReplayItemHeader(a, t) {
 		memcpy(analog, v, sizeof(analog));
 	}
 };
 
+static const int REPLAY_MAX_FILENAME = 256;
+
+struct ReplayFileInfo {
+	char filename[REPLAY_MAX_FILENAME]{};
+	int64_t size = 0;
+	uint16_t access = 0;
+	uint8_t exists = 0;
+	uint8_t isDirectory = 0;
+
+	int64_t atime = 0;
+	int64_t ctime = 0;
+	int64_t mtime = 0;
+};
+
 #pragma pack(pop)
+
+struct ReplayItem {
+	ReplayItemHeader info;
+	std::vector<u8> data;
+
+	ReplayItem(ReplayItemHeader h) : info(h) {
+	}
+};
 
 static std::vector<ReplayItem> replayItems;
 static ReplayState replayState = ReplayState::IDLE;
@@ -74,25 +94,25 @@ static uint8_t lastAnalog[2][2];
 
 static void ReplaySaveCtrl(uint32_t &buttons, uint8_t analog[2][2], uint64_t t) {
 	if (lastButtons != buttons) {
-		replayItems.push_back({ ReplayAction::BUTTONS, t, buttons });
+		replayItems.push_back(ReplayItemHeader(ReplayAction::BUTTONS, t, buttons));
 		lastButtons = buttons;
 	}
 	if (memcmp(lastAnalog, analog, sizeof(lastAnalog)) != 0) {
-		replayItems.push_back({ ReplayAction::ANALOG, t, analog });
+		replayItems.push_back(ReplayItemHeader(ReplayAction::ANALOG, t, analog));
 		memcpy(lastAnalog, analog, sizeof(lastAnalog));
 	}
 }
 
 static void ReplayExecuteCtrl(uint32_t &buttons, uint8_t analog[2][2], uint64_t t) {
-	for (; replayCtrlPos < replayItems.size() && t >= replayItems[replayCtrlPos].timestamp; ++replayCtrlPos) {
+	for (; replayCtrlPos < replayItems.size() && t >= replayItems[replayCtrlPos].info.timestamp; ++replayCtrlPos) {
 		const auto &item = replayItems[replayCtrlPos];
-		switch (item.action) {
+		switch (item.info.action) {
 		case ReplayAction::BUTTONS:
-			buttons = item.buttons;
+			buttons = item.info.buttons;
 			break;
 
 		case ReplayAction::ANALOG:
-			memcpy(analog, item.analog, sizeof(analog));
+			memcpy(analog, item.info.analog, sizeof(analog));
 			break;
 
 		default:
@@ -126,7 +146,7 @@ uint32_t ReplayApplyDisk(ReplayAction action, uint32_t result, uint64_t t) {
 		return result;
 
 	case ReplayState::SAVE:
-		replayItems.push_back({ action, t, result });
+		replayItems.push_back(ReplayItemHeader(action, t, result));
 		return result;
 
 	case ReplayState::IDLE:
@@ -143,7 +163,7 @@ uint64_t ReplayApplyDisk64(ReplayAction action, uint64_t result, uint64_t t) {
 		return result;
 
 	case ReplayState::SAVE:
-		replayItems.push_back({ action, t, result });
+		replayItems.push_back(ReplayItemHeader(action, t, result));
 		return result;
 
 	case ReplayState::IDLE:
@@ -160,15 +180,28 @@ uint32_t ReplayApplyDiskRead(void *data, uint32_t readSize, uint32_t dataSize, u
 		return readSize;
 
 	case ReplayState::SAVE:
-		// TODO
-		//replayItems.push_back({ action, t, readSize });
-		//data?
+	{
+		ReplayItem item = ReplayItemHeader(ReplayAction::FILE_READ, t, readSize);
+		item.data.resize(readSize);
+		memcpy(&item.data[0], data, readSize);
+		replayItems.push_back(item);
 		return readSize;
+	}
 
 	case ReplayState::IDLE:
 	default:
 		return readSize;
 	}
+}
+
+ReplayFileInfo ConvertFileInfo(const PSPFileInfo &data) {
+	// TODO
+	return ReplayFileInfo();
+}
+
+PSPFileInfo ConvertFileInfo(const ReplayFileInfo &data) {
+	// TODO
+	return PSPFileInfo();
 }
 
 PSPFileInfo ReplayApplyDiskFileInfo(const PSPFileInfo &data, uint64_t t) {
@@ -179,10 +212,14 @@ PSPFileInfo ReplayApplyDiskFileInfo(const PSPFileInfo &data, uint64_t t) {
 		return data;
 
 	case ReplayState::SAVE:
-		// TODO
-		//replayItems.push_back({ action, t });
-		//data?
+	{
+		ReplayFileInfo info = ConvertFileInfo(data);
+		ReplayItem item = ReplayItemHeader(ReplayAction::FILE_INFO, t, (uint32_t)sizeof(info));
+		item.data.resize(sizeof(info));
+		memcpy(&item.data[0], &info, sizeof(info));
+		replayItems.push_back(item);
 		return data;
+	}
 
 	case ReplayState::IDLE:
 	default:
@@ -198,10 +235,17 @@ std::vector<PSPFileInfo> ReplayApplyDiskListing(const std::vector<PSPFileInfo> &
 		return data;
 
 	case ReplayState::SAVE:
-		// TODO
-		//replayItems.push_back({ action, t });
-		//data?
+	{
+		size_t sz = sizeof(ReplayFileInfo) * data.size();
+		ReplayItem item = ReplayItemHeader(ReplayAction::FILE_LISTING, t, (uint32_t)sz);
+		item.data.resize(sz);
+		for (size_t i = 0; i < data.size(); ++i) {
+			ReplayFileInfo info = ConvertFileInfo(data[i]);
+			memcpy(&item.data[i * sizeof(ReplayFileInfo)], &info, sizeof(info));
+		}
+		replayItems.push_back(item);
 		return data;
+	}
 
 	case ReplayState::IDLE:
 	default:
