@@ -248,6 +248,11 @@ VkRenderPass VulkanQueueRunner::GetRenderPass(VKRRenderPassAction colorLoadActio
 	case VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL:
 		// Already the right color layout. Unclear that we need to do a lot here..
 		break;
+	case VK_IMAGE_LAYOUT_GENERAL:
+		// We came from the Mali workaround, and are transitioning back to COLOR_ATTACHMENT_OPTIMAL.
+		dep.srcAccessMask |= VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+		dep.srcStageMask |= VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+		break;
 	case VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL:
 		dep.srcAccessMask |= VK_ACCESS_SHADER_READ_BIT;
 		dep.srcStageMask |= VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
@@ -658,6 +663,22 @@ void VulkanQueueRunner::PerformBindFramebufferAsRenderTarget(const VKRStep &step
 		framebuf = fb->framebuf;
 		w = fb->width;
 		h = fb->height;
+
+		// Mali driver on S8 (Android O) and S9 mishandles renderpasses that do just a clear
+		// and then no draw calls. Memory transaction elimination gets mis-flagged or something.
+		// To avoid this, we transition to GENERAL and back in this case (ARM-approved workaround).
+		// See pull request #10723.
+		bool maliBugWorkaround = step.render.numDraws == 0 &&
+			step.render.color == VKRRenderPassAction::CLEAR &&
+			vulkan_->GetPhysicalDeviceProperties().driverVersion == 0xaa9c4b29;
+		if (maliBugWorkaround) {
+			TransitionImageLayout2(cmd, step.render.framebuffer->color.image, 0, 1, VK_IMAGE_ASPECT_COLOR_BIT,
+				fb->color.layout, VK_IMAGE_LAYOUT_GENERAL,
+				VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
+				VK_ACCESS_COLOR_ATTACHMENT_READ_BIT | VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
+				VK_ACCESS_COLOR_ATTACHMENT_READ_BIT | VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT);
+			fb->color.layout = VK_IMAGE_LAYOUT_GENERAL;
+		}
 
 		renderPass = GetRenderPass(step.render.color, step.render.depth, step.render.stencil, fb->color.layout, fb->depth.layout);
 		// We now do any layout pretransitions as part of the render pass.
