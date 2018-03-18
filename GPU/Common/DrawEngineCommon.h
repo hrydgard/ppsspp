@@ -139,7 +139,7 @@ protected:
 		void *inds;
 		u8 indexType;
 		s8 prim;
-		u32 vertexCount;
+		u16 vertexCount;
 		u16 indexLowerBound;
 		u16 indexUpperBound;
 		UVScale uvScale;
