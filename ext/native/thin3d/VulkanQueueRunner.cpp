@@ -286,6 +286,11 @@ void VulkanQueueRunner::RunSteps(VkCommandBuffer cmd, const std::vector<VKRStep 
 					// Cheaply skip the first step.
 					steps[j]->stepType = VKRStepType::RENDER_SKIP;
 					break;
+				} else if (steps[i]->stepType == VKRStepType::COPY &&
+					steps[i]->copy.src == steps[j]->render.framebuffer) {
+					// Can't eliminate the clear if a game copies from it before it's
+					// rendered to. However this should be rare.
+					break;
 				}
 			}
 		}
@@ -445,7 +450,7 @@ void VulkanQueueRunner::PerformRenderPass(const VKRStep &step, VkCommandBuffer c
 		}
 	}
 
-	// Don't execute empty renderpasses.
+	// Don't execute empty renderpasses that keep the contents.
 	if (step.commands.empty() && step.render.color == VKRRenderPassAction::KEEP && step.render.depth == VKRRenderPassAction::KEEP && step.render.stencil == VKRRenderPassAction::KEEP) {
 		// Nothing to do.
 		return;
