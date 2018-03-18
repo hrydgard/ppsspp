@@ -150,8 +150,8 @@ void VulkanQueueRunner::InitBackbufferRenderPass() {
 	assert(res == VK_SUCCESS);
 }
 
-VkRenderPass VulkanQueueRunner::GetRenderPass(VKRRenderPassAction colorLoadAction, VKRRenderPassAction depthLoadAction, VKRRenderPassAction stencilLoadAction, VkImageLayout prevColorLayout, VkImageLayout prevDepthLayout) {
-	RPKey key{ colorLoadAction, depthLoadAction, stencilLoadAction, prevColorLayout, prevDepthLayout };
+VkRenderPass VulkanQueueRunner::GetRenderPass(VKRRenderPassAction colorLoadAction, VKRRenderPassAction depthLoadAction, VKRRenderPassAction stencilLoadAction, VkImageLayout prevColorLayout, VkImageLayout prevDepthLayout, VkImageLayout finalColorLayout) {
+	RPKey key{ colorLoadAction, depthLoadAction, stencilLoadAction, prevColorLayout, prevDepthLayout, finalColorLayout };
 	auto pass = renderPasses_.Get(key);
 	if (pass) {
 		return pass;
@@ -177,10 +177,10 @@ VkRenderPass VulkanQueueRunner::GetRenderPass(VKRRenderPassAction colorLoadActio
 	attachments[0].stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
 #ifdef VULKAN_USE_GENERAL_LAYOUT_FOR_COLOR
 	attachments[0].initialLayout = VK_IMAGE_LAYOUT_GENERAL;
-	attachments[0].finalLayout = VK_IMAGE_LAYOUT_GENERAL;  // TODO: Look into auto-transitioning to SAMPLED when appropriate.
+	attachments[0].finalLayout = VK_IMAGE_LAYOUT_GENERAL;
 #else
 	attachments[0].initialLayout = prevColorLayout;
-	attachments[0].finalLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;  // TODO: Look into auto-transitioning to SAMPLED when appropriate.
+	attachments[0].finalLayout = finalColorLayout;
 #endif
 	attachments[0].flags = 0;
 
@@ -221,11 +221,11 @@ VkRenderPass VulkanQueueRunner::GetRenderPass(VKRRenderPassAction colorLoadActio
 
 	VkAttachmentReference color_reference{};
 	color_reference.attachment = 0;
-	color_reference.layout = attachments[0].finalLayout;
+	color_reference.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
 
 	VkAttachmentReference depth_reference{};
 	depth_reference.attachment = 1;
-	depth_reference.layout = attachments[1].finalLayout;
+	depth_reference.layout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
 
 	VkSubpassDescription subpass{};
 	subpass.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
@@ -239,31 +239,28 @@ VkRenderPass VulkanQueueRunner::GetRenderPass(VKRRenderPassAction colorLoadActio
 	subpass.preserveAttachmentCount = 0;
 	subpass.pPreserveAttachments = nullptr;
 
-	VkSubpassDependency dep{};
-	dep.srcSubpass = VK_SUBPASS_EXTERNAL;
-	dep.dstSubpass = 0;
-	dep.dependencyFlags = 0;
-
+	VkSubpassDependency deps[2]{};
+	int numDeps = 0;
 	switch (prevColorLayout) {
 	case VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL:
 		// Already the right color layout. Unclear that we need to do a lot here..
 		break;
 	case VK_IMAGE_LAYOUT_GENERAL:
 		// We came from the Mali workaround, and are transitioning back to COLOR_ATTACHMENT_OPTIMAL.
-		dep.srcAccessMask |= VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
-		dep.srcStageMask |= VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+		deps[numDeps].srcAccessMask |= VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+		deps[numDeps].srcStageMask |= VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
 		break;
 	case VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL:
-		dep.srcAccessMask |= VK_ACCESS_SHADER_READ_BIT;
-		dep.srcStageMask |= VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
+		deps[numDeps].srcAccessMask |= VK_ACCESS_SHADER_READ_BIT;
+		deps[numDeps].srcStageMask |= VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
 		break;
 	case VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL:
-		dep.srcAccessMask |= VK_ACCESS_TRANSFER_WRITE_BIT;
-		dep.srcStageMask |= VK_PIPELINE_STAGE_TRANSFER_BIT;
+		deps[numDeps].srcAccessMask |= VK_ACCESS_TRANSFER_WRITE_BIT;
+		deps[numDeps].srcStageMask |= VK_PIPELINE_STAGE_TRANSFER_BIT;
 		break;
 	case VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL:
-		dep.srcAccessMask |= VK_ACCESS_TRANSFER_READ_BIT;
-		dep.srcStageMask |= VK_PIPELINE_STAGE_TRANSFER_BIT;
+		deps[numDeps].srcAccessMask |= VK_ACCESS_TRANSFER_READ_BIT;
+		deps[numDeps].srcStageMask |= VK_PIPELINE_STAGE_TRANSFER_BIT;
 		break;
 	default:
 		_dbg_assert_msg_(G3D, false, "GetRenderPass: Unexpected color layout %d", (int)prevColorLayout);
@@ -275,23 +272,60 @@ VkRenderPass VulkanQueueRunner::GetRenderPass(VKRRenderPassAction colorLoadActio
 		// Already the right depth layout. Unclear that we need to do a lot here..
 		break;
 	case VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL:
-		dep.srcAccessMask |= VK_ACCESS_SHADER_READ_BIT;
-		dep.srcStageMask |= VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
+		deps[numDeps].srcAccessMask |= VK_ACCESS_SHADER_READ_BIT;
+		deps[numDeps].srcStageMask |= VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
 		break;
 	case VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL:
-		dep.srcAccessMask |= VK_ACCESS_TRANSFER_READ_BIT;
-		dep.srcStageMask |= VK_PIPELINE_STAGE_TRANSFER_BIT;
+		deps[numDeps].srcAccessMask |= VK_ACCESS_TRANSFER_READ_BIT;
+		deps[numDeps].srcStageMask |= VK_PIPELINE_STAGE_TRANSFER_BIT;
 		break;
 	case VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL:
-		dep.srcAccessMask |= VK_ACCESS_TRANSFER_WRITE_BIT;
-		dep.srcStageMask |= VK_PIPELINE_STAGE_TRANSFER_BIT;
+		deps[numDeps].srcAccessMask |= VK_ACCESS_TRANSFER_WRITE_BIT;
+		deps[numDeps].srcStageMask |= VK_PIPELINE_STAGE_TRANSFER_BIT;
 		break;
 	default:
 		_dbg_assert_msg_(G3D, false, "PerformBindRT: Unexpected depth layout %d", (int)prevDepthLayout);
 		break;
 	}
-	dep.dstStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT | VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT | VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT;
-	dep.dstAccessMask = VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_READ_BIT | VK_ACCESS_COLOR_ATTACHMENT_READ_BIT | VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+
+	if (deps[numDeps].srcAccessMask) {
+		deps[numDeps].srcSubpass = VK_SUBPASS_EXTERNAL;
+		deps[numDeps].dstSubpass = 0;
+		deps[numDeps].dependencyFlags = 0;
+		deps[numDeps].dstStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT | VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT | VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT;
+		deps[numDeps].dstAccessMask = VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_READ_BIT | VK_ACCESS_COLOR_ATTACHMENT_READ_BIT | VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+		numDeps++;
+	}
+
+	// And the final transition.
+	// Don't need to transition it if VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL.
+	switch (finalColorLayout) {
+	case VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL:
+		deps[numDeps].dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
+		deps[numDeps].dstStageMask = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
+		break;
+	case VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL:
+		deps[numDeps].dstAccessMask = VK_ACCESS_TRANSFER_READ_BIT;
+		deps[numDeps].dstStageMask = VK_PIPELINE_STAGE_TRANSFER_BIT;
+		break;
+	case VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL:
+		deps[numDeps].dstAccessMask = VK_ACCESS_TRANSFER_READ_BIT;
+		deps[numDeps].dstStageMask = VK_PIPELINE_STAGE_TRANSFER_BIT;
+		break;
+	case VK_IMAGE_LAYOUT_UNDEFINED:
+	case VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL:
+		// Nothing to do.
+		break;
+	}
+
+	if (deps[numDeps].dstAccessMask) {
+		deps[numDeps].srcSubpass = 0;
+		deps[numDeps].dstSubpass = VK_SUBPASS_EXTERNAL;
+		deps[numDeps].dependencyFlags = 0;
+		deps[numDeps].srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+		deps[numDeps].srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+		numDeps++;
+	}
 
 	VkRenderPassCreateInfo rp{ VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO };
 	rp.attachmentCount = 2;
@@ -299,9 +333,9 @@ VkRenderPass VulkanQueueRunner::GetRenderPass(VKRRenderPassAction colorLoadActio
 	rp.subpassCount = 1;
 	rp.pSubpasses = &subpass;
 
-	if (dep.srcAccessMask) {
-		rp.dependencyCount = 1;
-		rp.pDependencies = &dep;
+	if (numDeps) {
+		rp.dependencyCount = numDeps;
+		rp.pDependencies = deps;
 	}
 
 	VkResult res = vkCreateRenderPass(vulkan_->GetDevice(), &rp, nullptr, &pass);
@@ -319,6 +353,12 @@ void VulkanQueueRunner::RunSteps(VkCommandBuffer cmd, const std::vector<VKRStep 
 	// Push down empty "Clear/Store" renderpasses, and merge them with the first "Load/Store" to the same framebuffer.
 	// Actually let's just bother with the first one for now. This affects Wipeout Pure.
 	for (int j = 0; j < (int)steps.size() - 1; j++) {
+		if (steps[j]->stepType == VKRStepType::RENDER &&
+			steps[j]->render.finalColorLayout == VK_IMAGE_LAYOUT_UNDEFINED) {
+			// Just leave it at color_optimal.
+			steps[j]->render.finalColorLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+		}
+
 		if (steps.size() > 1 && steps[j]->stepType == VKRStepType::RENDER &&
 			steps[j]->render.numDraws == 0 &&
 			steps[j]->render.color == VKRRenderPassAction::CLEAR &&
@@ -616,37 +656,8 @@ void VulkanQueueRunner::PerformRenderPass(const VKRStep &step, VkCommandBuffer c
 	}
 	vkCmdEndRenderPass(cmd);
 
-	// Transition the framebuffer if requested.
-	// Don't need to transition it if VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL.
-	if (fb && step.render.finalColorLayout != VK_IMAGE_LAYOUT_UNDEFINED && step.render.finalColorLayout != VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL) {
-		VkAccessFlags srcAccessMask = 0;
-		VkAccessFlags dstAccessMask = 0;
-		switch (fb->color.layout) {
-		case VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL:
-			srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT | VK_ACCESS_COLOR_ATTACHMENT_READ_BIT;
-			break;
-		case VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL:
-			srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
-			break;
-		default:
-			Crash();
-		}
-		switch (step.render.finalColorLayout) {
-		case VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL:
-			dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
-			break;
-		case VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL:
-			dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT | VK_ACCESS_COLOR_ATTACHMENT_READ_BIT;
-			break;
-		default:
-			Crash();
-		}
-		// we're between passes so it's OK.
-		// ARM Best Practices guide recommends these stage bits.
-		TransitionImageLayout2(cmd, fb->color.image, 0, 1, VK_IMAGE_ASPECT_COLOR_BIT,
-			fb->color.layout, step.render.finalColorLayout,
-			VK_PIPELINE_STAGE_ALL_GRAPHICS_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
-			srcAccessMask, dstAccessMask);
+	// The renderpass handles the layout transition.
+	if (fb) {
 		fb->color.layout = step.render.finalColorLayout;
 	}
 }
@@ -680,7 +691,10 @@ void VulkanQueueRunner::PerformBindFramebufferAsRenderTarget(const VKRStep &step
 			fb->color.layout = VK_IMAGE_LAYOUT_GENERAL;
 		}
 
-		renderPass = GetRenderPass(step.render.color, step.render.depth, step.render.stencil, fb->color.layout, fb->depth.layout);
+		renderPass = GetRenderPass(
+			step.render.color, step.render.depth, step.render.stencil,
+			fb->color.layout, fb->depth.layout, step.render.finalColorLayout);
+
 		// We now do any layout pretransitions as part of the render pass.
 		fb->color.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
 		fb->depth.layout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;

@@ -646,6 +646,22 @@ void VulkanRenderManager::CopyFramebuffer(VKRFramebuffer *src, VkRect2D srcRect,
 	_dbg_assert_msg_(G3D, dstPos.x + srcRect.extent.width <= (uint32_t)dst->width, "dstPos + extent x > width");
 	_dbg_assert_msg_(G3D, dstPos.y + srcRect.extent.height <= (uint32_t)dst->height, "dstPos + extent y > height");
 
+	for (int i = (int)steps_.size() - 1; i >= 0; i--) {
+		if (steps_[i]->stepType == VKRStepType::RENDER) {
+			if (steps_[i]->render.framebuffer == src) {
+				if (steps_[i]->render.finalColorLayout == VK_IMAGE_LAYOUT_UNDEFINED) {
+					steps_[i]->render.finalColorLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
+					break;
+				}
+			} else if (steps_[i]->render.framebuffer == dst) {
+				if (steps_[i]->render.finalColorLayout == VK_IMAGE_LAYOUT_UNDEFINED) {
+					steps_[i]->render.finalColorLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
+					break;
+				}
+			}
+		}
+	}
+
 	VKRStep *step = new VKRStep{ VKRStepType::COPY };
 
 	step->copy.aspectMask = aspectMask;
@@ -698,10 +714,6 @@ VkImageView VulkanRenderManager::BindFramebufferAsTexture(VKRFramebuffer *fb, in
 			if (steps_[i]->render.finalColorLayout == VK_IMAGE_LAYOUT_UNDEFINED) {
 				steps_[i]->render.finalColorLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
 				break;
-			}
-			else if (steps_[i]->render.finalColorLayout != VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL) {
-				Crash();
-				// May need to shadow the framebuffer if we re-order passes later.
 			}
 		}
 	}
