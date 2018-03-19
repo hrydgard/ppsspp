@@ -110,6 +110,7 @@ public:
 
 	void BindPipeline(VkPipeline pipeline) {
 		_dbg_assert_(G3D, curRenderStep_ && curRenderStep_->stepType == VKRStepType::RENDER);
+		_dbg_assert_(G3D, pipeline != VK_NULL_HANDLE);
 		VkRenderData data{ VKRRenderCommand::BIND_PIPELINE };
 		data.pipeline.pipeline = pipeline;
 		curRenderStep_->commands.push_back(data);

@@ -28,7 +28,8 @@ void PipelineManagerVulkan::Clear() {
 	// store the keys.
 
 	pipelines_.Iterate([&](const VulkanPipelineKey &key, VulkanPipeline *value) {
-		vulkan_->Delete().QueueDeletePipeline(value->pipeline);
+		if (value->pipeline)
+			vulkan_->Delete().QueueDeletePipeline(value->pipeline);
 		delete value;
 	});
 
@@ -116,6 +117,7 @@ static bool UsesBlendConstant(int factor) {
 static VulkanPipeline *CreateVulkanPipeline(VkDevice device, VkPipelineCache pipelineCache, 
 		VkPipelineLayout layout, VkRenderPass renderPass, const VulkanPipelineRasterStateKey &key,
 		const DecVtxFormat *decFmt, VulkanVertexShader *vs, VulkanFragmentShader *fs, bool useHwTransform, float lineWidth) {
+	PROFILE_THIS_SCOPE("pipelinebuild");
 	bool useBlendConstant = false;
 
 	VkPipelineColorBlendAttachmentState blend0 = {};
@@ -209,7 +211,11 @@ static VulkanPipeline *CreateVulkanPipeline(VkDevice device, VkPipelineCache pip
 
 	if (!ss[0].module || !ss[1].module) {
 		ERROR_LOG(G3D, "Failed creating graphics pipeline - bad shaders");
-		return nullptr;
+		// Create a placeholder to avoid creating over and over if shader compiler broken.
+		VulkanPipeline *nullPipeline = new VulkanPipeline();
+		nullPipeline->pipeline = nullptr;
+		nullPipeline->flags = 0;
+		return nullPipeline;
 	}
 
 	VkPipelineInputAssemblyStateCreateInfo inputAssembly{ VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO };
@@ -277,7 +283,11 @@ static VulkanPipeline *CreateVulkanPipeline(VkDevice device, VkPipelineCache pip
 	if (result != VK_SUCCESS) {
 		_assert_msg_(G3D, false, "Failed creating graphics pipeline! result='%s'", VulkanResultToString(result));
 		ERROR_LOG(G3D, "Failed creating graphics pipeline! result='%s'", VulkanResultToString(result));
-		return nullptr;
+		// Create a placeholder to avoid creating over and over if something is broken.
+		VulkanPipeline *nullPipeline = new VulkanPipeline();
+		nullPipeline->pipeline = nullptr;
+		nullPipeline->flags = 0;
+		return nullPipeline;
 	}
 
 	VulkanPipeline *vulkanPipeline = new VulkanPipeline();
@@ -311,14 +321,17 @@ VulkanPipeline *PipelineManagerVulkan::GetOrCreatePipeline(VkPipelineLayout layo
 	if (iter)
 		return iter;
 
-	PROFILE_THIS_SCOPE("pipelinebuild");
-
 	VulkanPipeline *pipeline = CreateVulkanPipeline(
 		vulkan_->GetDevice(), pipelineCache_, layout, renderPass, 
 		rasterKey, decFmt, vs, fs, useHwTransform, lineWidth_);
-	// Even if the result is nullptr, insert it so we don't try to create it repeatedly.
 	pipelines_.Insert(key, pipeline);
-	return pipeline;
+
+	// Don't return placeholder null pipelines.
+	if (pipeline && pipeline->pipeline) {
+		return pipeline;
+	} else {
+		return nullptr;
+	}
 }
 
 std::vector<std::string> PipelineManagerVulkan::DebugGetObjectIDs(DebugShaderType type) {
@@ -510,7 +523,8 @@ void PipelineManagerVulkan::SetLineWidth(float lineWidth) {
 	// Wipe all line-drawing pipelines.
 	pipelines_.Iterate([&](const VulkanPipelineKey &key, VulkanPipeline *value) {
 		if (value->UsesLines()) {
-			vulkan_->Delete().QueueDeletePipeline(value->pipeline);
+			if (value->pipeline)
+				vulkan_->Delete().QueueDeletePipeline(value->pipeline);
 			delete value;
 			pipelines_.Remove(key);
 		}
