@@ -1,5 +1,6 @@
 #include <cstring>
 #include <memory>
+#include <set>
 
 #include "profiler/profiler.h"
 
@@ -312,6 +313,10 @@ VulkanPipeline *PipelineManagerVulkan::GetOrCreatePipeline(VkPipelineLayout layo
 
 	PROFILE_THIS_SCOPE("pipelinebuild");
 
+	std::string temp;
+	key.ToString(&temp);
+	NOTICE_LOG(G3D, "Creating: %s", temp.c_str());
+
 	VulkanPipeline *pipeline = CreateVulkanPipeline(
 		vulkan_->GetDevice(), pipelineCache_, layout, renderPass, 
 		rasterKey, decFmt, vs, fs, useHwTransform, lineWidth_);
@@ -366,6 +371,25 @@ static const char *const compareOps[8] = {
 	"ALWAYS",
 };
 
+static const char *const logicOps[] = {
+	"CLEAR",
+	"AND",
+	"AND_REV",
+	"COPY",
+	"AND_INV",
+	"NOOP",
+	"XOR",
+	"OR",
+	"NOR",
+	"EQUIV",
+	"INVERT",
+	"OR_REV",
+	"COPY_INV",
+	"OR_INV",
+	"NAND",
+	"SET",
+};
+
 static const char *const stencilOps[8] = {
 	"KEEP",
 	"ZERO",
@@ -411,27 +435,31 @@ std::string PipelineManagerVulkan::DebugGetObjectString(std::string id, DebugSha
 		return "";
 	}
 
+	std::string str = pipelineKey.GetDescription(stringType);
+	return StringFromFormat("%p: %s", iter, str.c_str());
+}
+
+std::string VulkanPipelineKey::GetDescription(DebugShaderStringType stringType) const {
 	switch (stringType) {
 	case SHADER_STRING_SHORT_DESC:
 	{
 		std::stringstream str;
-		str << topologies[pipelineKey.raster.topology] << " ";
-		if (pipelineKey.raster.blendEnable) {
-			str << "Blend(";
-			str << "C:" << blendOps[pipelineKey.raster.blendOpColor] << "/"
-				<< blendFactors[pipelineKey.raster.srcColor] << ":" << blendFactors[pipelineKey.raster.destColor] << " ";
-			if (pipelineKey.raster.blendOpAlpha != VK_BLEND_OP_ADD ||
-				pipelineKey.raster.srcAlpha != VK_BLEND_FACTOR_ONE ||
-				pipelineKey.raster.destAlpha != VK_BLEND_FACTOR_ZERO) {
-				str << "A:" << blendOps[pipelineKey.raster.blendOpAlpha] << "/"
-					<< blendFactors[pipelineKey.raster.srcColor] << ":" << blendFactors[pipelineKey.raster.destColor] << " ";
+		str << topologies[raster.topology] << " ";
+		if (raster.blendEnable) {
+			str << "Blend(C:" << blendOps[raster.blendOpColor] << "/"
+				<< blendFactors[raster.srcColor] << ":" << blendFactors[raster.destColor] << " ";
+			if (raster.blendOpAlpha != VK_BLEND_OP_ADD ||
+				raster.srcAlpha != VK_BLEND_FACTOR_ONE ||
+				raster.destAlpha != VK_BLEND_FACTOR_ZERO) {
+				str << "A:" << blendOps[raster.blendOpAlpha] << "/"
+					<< blendFactors[raster.srcColor] << ":" << blendFactors[raster.destColor] << " ";
 			}
 			str << ") ";
 		}
-		if (pipelineKey.raster.colorWriteMask != 0xF) {
+		if (raster.colorWriteMask != 0xF) {
 			str << "Mask(";
 			for (int i = 0; i < 4; i++) {
-				if (pipelineKey.raster.colorWriteMask & (1 << i)) {
+				if (raster.colorWriteMask & (1 << i)) {
 					str << "RGBA"[i];
 				} else {
 					str << "_";
@@ -439,37 +467,34 @@ std::string PipelineManagerVulkan::DebugGetObjectString(std::string id, DebugSha
 			}
 			str << ") ";
 		}
-		if (pipelineKey.raster.depthTestEnable) {
+		if (raster.depthTestEnable) {
 			str << "Depth(";
-			if (pipelineKey.raster.depthWriteEnable)
+			if (raster.depthWriteEnable)
 				str << "W, ";
-			if (pipelineKey.raster.depthCompareOp)
-				str << compareOps[pipelineKey.raster.depthCompareOp & 7];
+			if (raster.depthCompareOp)
+				str << compareOps[raster.depthCompareOp & 7];
 			str << ") ";
 		}
-		if (pipelineKey.raster.stencilTestEnable) {
+		if (raster.stencilTestEnable) {
 			str << "Stencil(";
-			str << compareOps[pipelineKey.raster.stencilCompareOp & 7] << " ";
-			str << stencilOps[pipelineKey.raster.stencilPassOp & 7] << "/";
-			str << stencilOps[pipelineKey.raster.stencilFailOp & 7] << "/";
-			str << stencilOps[pipelineKey.raster.stencilDepthFailOp& 7];
+			str << compareOps[raster.stencilCompareOp & 7] << " ";
+			str << stencilOps[raster.stencilPassOp & 7] << "/";
+			str << stencilOps[raster.stencilFailOp & 7] << "/";
+			str << stencilOps[raster.stencilDepthFailOp& 7];
 			str << ") ";
 		}
-		if (pipelineKey.raster.logicOpEnable) {
-			str << "Logic(";
-			str << ") ";
+		if (raster.logicOpEnable) {
+			str << "Logic(" << logicOps[raster.logicOp & 15] << ") ";
 		}
-		if (pipelineKey.useHWTransform) {
+		if (useHWTransform) {
 			str << "HWX ";
 		}
-		if (pipelineKey.vtxFmtId) {
-			str << "V(";
-			str << StringFromFormat("%08x", pipelineKey.vtxFmtId);  // TODO: Format nicer.
-			str << ") ";
+		if (vtxFmtId) {
+			str << "V(" << StringFromFormat("%08x", vtxFmtId) << ") ";  // TODO: Format nicer.
 		} else {
 			str << "SWX ";
 		}
-		return StringFromFormat("%p: %s", iter, str.str().c_str());
+		return str.str();
 	}
 
 	case SHADER_STRING_SOURCE_CODE:
@@ -526,12 +551,14 @@ void PipelineManagerVulkan::SaveCache(FILE *file, bool saveRawPipelineCache, Sha
 	}
 
 	size_t seekPosOnFailure = ftell(file);
-	// Write the number of pipelines.
-	size = (uint32_t)pipelines_.size();
-	fwrite(&size, sizeof(size), 1, file);
 
 	bool failed = false;
 	int count = 0;
+	// Since we don't include the full pipeline key, there can be duplicates,
+	// caused by things like switching from buffered to non-buffered rendering.
+	// Make sure the set of pipelines we write is "unique".
+	std::set<StoredVulkanPipelineKey> keys;
+
 	pipelines_.Iterate([&](const VulkanPipelineKey &pkey, VulkanPipeline *value) {
 		if (failed)
 			return;
@@ -550,9 +577,17 @@ void PipelineManagerVulkan::SaveCache(FILE *file, bool saveRawPipelineCache, Sha
 			// NOTE: This is not a vtype, but a decoded vertex format.
 			key.vtxFmtId = pkey.vtxFmtId;
 		}
-		fwrite(&key, sizeof(key), 1, file);
-		count++;
+		keys.insert(key);
 	});
+
+	// Write the number of pipelines.
+	size = (uint32_t)keys.size();
+	fwrite(&size, sizeof(size), 1, file);
+
+	// Write the pipelines.
+	for (auto &key : keys) {
+		fwrite(&key, sizeof(key), 1, file);
+	}
 
 	if (failed) {
 		ERROR_LOG(G3D, "Failed to write pipeline cache, some shader was missing");
@@ -562,7 +597,7 @@ void PipelineManagerVulkan::SaveCache(FILE *file, bool saveRawPipelineCache, Sha
 		fwrite(&size, sizeof(size), 1, file);
 		return;
 	}
-	NOTICE_LOG(G3D, "Saved Vulkan pipeline ID cache (%d pipelines).", (int)count);
+	NOTICE_LOG(G3D, "Saved Vulkan pipeline ID cache (%d unique pipelines/%d).", (int)keys.size(), (int)pipelines_.size());
 }
 
 bool PipelineManagerVulkan::LoadCache(FILE *file, bool loadRawPipelineCache, ShaderManagerVulkan *shaderManager, DrawEngineCommon *drawEngine, VkPipelineLayout layout, VkRenderPass renderPass) {

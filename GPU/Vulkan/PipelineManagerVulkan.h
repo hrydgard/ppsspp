@@ -17,6 +17,7 @@
 
 #pragma once
 
+#include <cstring>
 #include "Common/Hashmaps.h"
 
 #include "GPU/Common/VertexDecoderCommon.h"
@@ -52,6 +53,7 @@ struct VulkanPipelineKey {
 	void FromString(const std::string &str) {
 		memcpy(this, &str[0], sizeof(*this));
 	}
+	std::string GetDescription(DebugShaderStringType stringType) const;
 };
 
 struct StoredVulkanPipelineKey {
@@ -60,6 +62,11 @@ struct StoredVulkanPipelineKey {
 	FShaderID fShaderID;
 	uint32_t vtxFmtId;
 	bool useHWTransform;
+
+	// For std::set. Better zero-initialize the struct properly for this to work.
+	bool operator < (const StoredVulkanPipelineKey &other) const {
+		return memcmp(this, &other, sizeof(*this)) < 0;
+	}
 };
 
 enum PipelineFlags {
