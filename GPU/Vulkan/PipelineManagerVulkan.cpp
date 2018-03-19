@@ -313,10 +313,6 @@ VulkanPipeline *PipelineManagerVulkan::GetOrCreatePipeline(VkPipelineLayout layo
 
 	PROFILE_THIS_SCOPE("pipelinebuild");
 
-	std::string temp;
-	key.ToString(&temp);
-	NOTICE_LOG(G3D, "Creating: %s", temp.c_str());
-
 	VulkanPipeline *pipeline = CreateVulkanPipeline(
 		vulkan_->GetDevice(), pipelineCache_, layout, renderPass, 
 		rasterKey, decFmt, vs, fs, useHwTransform, lineWidth_);
