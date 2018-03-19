@@ -213,7 +213,7 @@ static VulkanPipeline *CreateVulkanPipeline(VkDevice device, VkPipelineCache pip
 		ERROR_LOG(G3D, "Failed creating graphics pipeline - bad shaders");
 		// Create a placeholder to avoid creating over and over if shader compiler broken.
 		VulkanPipeline *nullPipeline = new VulkanPipeline();
-		nullPipeline->pipeline = nullptr;
+		nullPipeline->pipeline = VK_NULL_HANDLE;
 		nullPipeline->flags = 0;
 		return nullPipeline;
 	}
@@ -285,7 +285,7 @@ static VulkanPipeline *CreateVulkanPipeline(VkDevice device, VkPipelineCache pip
 		ERROR_LOG(G3D, "Failed creating graphics pipeline! result='%s'", VulkanResultToString(result));
 		// Create a placeholder to avoid creating over and over if something is broken.
 		VulkanPipeline *nullPipeline = new VulkanPipeline();
-		nullPipeline->pipeline = nullptr;
+		nullPipeline->pipeline = VK_NULL_HANDLE;
 		nullPipeline->flags = 0;
 		return nullPipeline;
 	}
