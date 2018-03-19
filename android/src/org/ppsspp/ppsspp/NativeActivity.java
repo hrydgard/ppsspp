@@ -373,8 +373,7 @@ public abstract class NativeActivity extends Activity implements SurfaceHolder.C
 
 		switch (rot) {
 		case 0:
-			// Auto is no longer supported.
-			setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE);
+			setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED);
 			break;
 		case 1:
 			setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE);
@@ -538,7 +537,7 @@ public abstract class NativeActivity extends Activity implements SurfaceHolder.C
 		int requestedOr = getRequestedOrientation();
 		boolean requestedPortrait = requestedOr == ActivityInfo.SCREEN_ORIENTATION_PORTRAIT || requestedOr == ActivityInfo.SCREEN_ORIENTATION_REVERSE_PORTRAIT;
 		boolean detectedPortrait = pixelHeight > pixelWidth;
-		if (badOrientationCount < 3 && requestedPortrait != detectedPortrait) {
+		if (badOrientationCount < 3 && requestedPortrait != detectedPortrait && requestedOr != ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED) {
 			Log.e(TAG, "Bad orientation detected (w=" + pixelWidth + " h=" + pixelHeight + "! Recreating activity.");
 			badOrientationCount++;
 			recreate();
