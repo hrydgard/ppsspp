@@ -1,5 +1,6 @@
 #include <cstring>
 #include <memory>
+#include <set>
 
 #include "profiler/profiler.h"
 
@@ -526,12 +527,14 @@ void PipelineManagerVulkan::SaveCache(FILE *file, bool saveRawPipelineCache, Sha
 	}
 
 	size_t seekPosOnFailure = ftell(file);
-	// Write the number of pipelines.
-	size = (uint32_t)pipelines_.size();
-	fwrite(&size, sizeof(size), 1, file);
 
 	bool failed = false;
 	int count = 0;
+	// Since we don't include the full pipeline key, there can be duplicates,
+	// caused by things like switching from buffered to non-buffered rendering.
+	// Make sure the set of pipelines we write is "unique".
+	std::set<StoredVulkanPipelineKey> keys;
+
 	pipelines_.Iterate([&](const VulkanPipelineKey &pkey, VulkanPipeline *value) {
 		if (failed)
 			return;
@@ -550,9 +553,17 @@ void PipelineManagerVulkan::SaveCache(FILE *file, bool saveRawPipelineCache, Sha
 			// NOTE: This is not a vtype, but a decoded vertex format.
 			key.vtxFmtId = pkey.vtxFmtId;
 		}
-		fwrite(&key, sizeof(key), 1, file);
-		count++;
+		keys.insert(key);
 	});
+
+	// Write the number of pipelines.
+	size = (uint32_t)keys.size();
+	fwrite(&size, sizeof(size), 1, file);
+
+	// Write the pipelines.
+	for (auto &key : keys) {
+		fwrite(&key, sizeof(key), 1, file);
+	}
 
 	if (failed) {
 		ERROR_LOG(G3D, "Failed to write pipeline cache, some shader was missing");
@@ -562,7 +573,7 @@ void PipelineManagerVulkan::SaveCache(FILE *file, bool saveRawPipelineCache, Sha
 		fwrite(&size, sizeof(size), 1, file);
 		return;
 	}
-	NOTICE_LOG(G3D, "Saved Vulkan pipeline ID cache (%d pipelines).", (int)count);
+	NOTICE_LOG(G3D, "Saved Vulkan pipeline ID cache (%d unique pipelines/%d).", (int)keys.size(), (int)pipelines_.size());
 }
 
 bool PipelineManagerVulkan::LoadCache(FILE *file, bool loadRawPipelineCache, ShaderManagerVulkan *shaderManager, DrawEngineCommon *drawEngine, VkPipelineLayout layout, VkRenderPass renderPass) {

@@ -135,10 +135,11 @@ public:
 	bool EnableDeviceExtension(const char *extension);
 	VkResult CreateDevice();
 
-	const std::string &InitError() { return init_error_; }
+	const std::string &InitError() const { return init_error_; }
 
-	VkDevice GetDevice() { return device_; }
-	VkInstance GetInstance() { return instance_; }
+	VkDevice GetDevice() const { return device_; }
+	VkInstance GetInstance() const { return instance_; }
+	uint32_t GetFlags() const { return flags_; }
 
 	VulkanDeleteList &Delete() { return globalDeleteList_; }
 

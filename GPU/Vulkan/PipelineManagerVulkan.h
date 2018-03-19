@@ -17,6 +17,7 @@
 
 #pragma once
 
+#include <cstring>
 #include "Common/Hashmaps.h"
 
 #include "GPU/Common/VertexDecoderCommon.h"
@@ -60,6 +61,11 @@ struct StoredVulkanPipelineKey {
 	FShaderID fShaderID;
 	uint32_t vtxFmtId;
 	bool useHWTransform;
+
+	// For std::set. Better zero-initialize the struct properly for this to work.
+	bool operator < (const StoredVulkanPipelineKey &other) const {
+		return memcmp(this, &other, sizeof(*this)) < 0;
+	}
 };
 
 enum PipelineFlags {
