@@ -53,6 +53,7 @@ struct VulkanPipelineKey {
 	void FromString(const std::string &str) {
 		memcpy(this, &str[0], sizeof(*this));
 	}
+	std::string GetDescription(DebugShaderStringType stringType) const;
 };
 
 struct StoredVulkanPipelineKey {
