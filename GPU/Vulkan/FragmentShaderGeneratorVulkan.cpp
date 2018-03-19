@@ -268,12 +268,13 @@ bool GenerateVulkanGLSLFragmentShader(const FShaderID &id, char *buffer) {
 		if (enableColorTest) {
 			if (colorTestAgainstZero) {
 				// When testing against 0 (common), we can avoid some math.
+				// Have my doubts that this special case is actually worth it, but whatever.
 				// 0.002 is approximately half of 1.0 / 255.0.
 				if (colorTestFunc == GE_COMP_NOTEQUAL) {
-					WRITE(p, "  if (v.r < 0.002 && v.g < 0.002 && v.b < 0.002) discard;\n");
+					WRITE(p, "  if (v.r + v.g + v.b < 0.002) discard;\n");
 				} else if (colorTestFunc != GE_COMP_NEVER) {
 					// Anything else is a test for == 0.
-					WRITE(p, "  if (v.r > 0.002 || v.g > 0.002 || v.b > 0.002) discard;\n");
+					WRITE(p, "  if (v.r + v.g + v.b > 0.002) discard;\n");
 				} else {
 					// NEVER has been logged as used by games, although it makes little sense - statically failing.
 					// Maybe we could discard the drawcall, but it's pretty rare.  Let's just statically discard here.
