@@ -50,7 +50,7 @@ void BlobFileSystem::CloseFile(u32 handle) {
 size_t BlobFileSystem::ReadFile(u32 handle, u8 *pointer, s64 size) {
 	auto entry = entries_.find(handle);
 	if (entry != entries_.end()) {
-		s64 readSize = fileLoader_->ReadAt(entry->second, size, pointer);
+		s64 readSize = (s64)fileLoader_->ReadAt(entry->second, (size_t)size, pointer);
 		entry->second += readSize;
 		return (size_t)readSize;
 	}

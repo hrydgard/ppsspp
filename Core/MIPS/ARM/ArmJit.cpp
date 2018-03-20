@@ -179,20 +179,10 @@ void ArmJit::CompileDelaySlot(int flags)
 		_MSR(true, false, R8);  // Restore flags register
 }
 
-
 void ArmJit::Compile(u32 em_address) {
 	PROFILE_THIS_SCOPE("jitc");
 
-#if PPSSPP_PLATFORM(UWP)
 	// INFO_LOG(JIT, "Compiling at %08x", em_address);
-	// Unfortunately Microsoft forgot to expose FlushInstructionCache to UWP applications... even though they expose
-	// the ability to generate code :( This works great on x86 but on ARM we're out of luck.
-	// This seems to be enough to flush the instruction cache:
-	// If this OutputDebugStringUTF8 is not called, we crash.
-	// But it only helps if the debugger is attached :( If not, we still crash.
-	// So really, the JIT is broken on Windows UWP ARM.
-	OutputDebugStringUTF8("JITHACK");
-#endif
 
 	if (GetSpaceLeft() < 0x10000 || blocks.IsFull()) {
 		ClearCache();
