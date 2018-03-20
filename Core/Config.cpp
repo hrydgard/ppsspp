@@ -713,8 +713,8 @@ static ConfigSetting controlSettings[] = {
 	ConfigSetting("UseMouse", &g_Config.bMouseControl, false, true, true),
 	ConfigSetting("MapMouse", &g_Config.bMapMouse, false, true, true),
 	ConfigSetting("ConfineMap", &g_Config.bMouseConfine, false, true, true),
-	ConfigSetting("MouseSensitivity", &g_Config.fMouseSensitivity, 0.1, true, true),
-	ConfigSetting("MouseSmoothing", &g_Config.fMouseSmoothing, 0.9, true, true),
+	ConfigSetting("MouseSensitivity", &g_Config.fMouseSensitivity, 0.1f, true, true),
+	ConfigSetting("MouseSmoothing", &g_Config.fMouseSmoothing, 0.9f, true, true),
 
 	ConfigSetting(false),
 };

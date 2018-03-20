@@ -78,6 +78,7 @@ StereoResampler::StereoResampler()
 
 StereoResampler::~StereoResampler() {
 	delete[] m_buffer;
+	m_buffer = nullptr;
 }
 
 void StereoResampler::UpdateBufferSize() {
