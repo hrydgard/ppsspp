@@ -387,6 +387,9 @@ public abstract class NativeActivity extends Activity implements SurfaceHolder.C
 		case 4:
 			setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_REVERSE_PORTRAIT);
 			break;
+		case 5:
+			setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE);
+			break;
 		}
 	}
 
