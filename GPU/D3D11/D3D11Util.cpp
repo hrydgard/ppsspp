@@ -1,6 +1,7 @@
 #include "ppsspp_config.h"
 
 #include <cstdint>
+#include <cfloat>
 #include <vector>
 #include <d3d11.h>
 #include <D3Dcompiler.h>

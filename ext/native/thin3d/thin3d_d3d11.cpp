@@ -13,6 +13,7 @@
 #include "Common/ColorConv.h"
 
 #include <cassert>
+#include <cfloat>
 #include <D3DCommon.h>
 #include <d3d11.h>
 #include <d3d11_1.h>

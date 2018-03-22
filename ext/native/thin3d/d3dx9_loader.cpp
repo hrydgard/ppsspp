@@ -4,6 +4,7 @@
 #include <vector>
 #include <stdio.h>
 #include <stdlib.h>
+#include <stdexcept>
 
 #include "base/logging.h"
 #include "thin3d/d3dx9_loader.h"
