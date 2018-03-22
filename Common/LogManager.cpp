@@ -176,6 +176,7 @@ void LogManager::ChangeFileLog(const char *filename) {
 	if (fileLog_) {
 		RemoveListener(fileLog_);
 		delete fileLog_;
+		fileLog_ = nullptr;
 	}
 
 	if (filename) {
