@@ -717,12 +717,13 @@ public:
 };
 
 Texture *D3D11DrawContext::CreateTexture(const TextureDesc &desc) {
-	D3D11Texture *tex = new D3D11Texture(desc);
 
 	if (!(GetDataFormatSupport(desc.format) & FMT_TEXTURE)) {
 		// D3D11 does not support this format as a texture format.
-		return false;
+		return nullptr;
 	}
+
+	D3D11Texture *tex = new D3D11Texture(desc);
 
 	bool generateMips = desc.generateMips;
 	if (desc.generateMips && !(GetDataFormatSupport(desc.format) & FMT_AUTOGEN_MIPS)) {
