@@ -432,7 +432,6 @@ if(WIN32)
 		set(CMAKE_RC_COMPILE_OBJECT "<CMAKE_RC_COMPILER> -O coff <INCLUDES> <SOURCE> <OBJECT>")
 		# required when using the dx9sdk include paths
 		add_definitions(-include ${CMAKE_CURRENT_SOURCE_DIR}/Windows/mingw_defines.h)
-		add_definitions(-D_WIN32_WINNT=0x0601)
 	else()
 		target_link_libraries(Common dxguid)
 	endif()

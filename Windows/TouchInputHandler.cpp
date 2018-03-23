@@ -1,4 +1,4 @@
-#define NOMINMAX
+#include "stdafx.h"
 #include <Windows.h>
 #include "Windows/TouchInputHandler.h"
 
