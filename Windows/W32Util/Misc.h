@@ -16,7 +16,7 @@ namespace W32Util
 
 struct GenericListViewColumn
 {
-	wchar_t *name;
+	const wchar_t *name;
 	float size;
 	int flags;
 };

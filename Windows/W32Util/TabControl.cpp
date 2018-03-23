@@ -15,7 +15,7 @@ TabControl::TabControl(HWND handle, bool noDisplayArea)
 	hasButtons = (GetWindowLong(handle,GWL_STYLE) & TCS_BUTTONS) != 0;
 }
 
-HWND TabControl::AddTabWindow(wchar_t* className, wchar_t* title, DWORD style)
+HWND TabControl::AddTabWindow(const wchar_t* className, const wchar_t *title, DWORD style)
 {
 	TabInfo info;
 	info.hasBorder = (style & WS_BORDER) != 0;
@@ -50,13 +50,13 @@ HWND TabControl::AddTabWindow(wchar_t* className, wchar_t* title, DWORD style)
 	return tabHandle;
 }
 
-void TabControl::AddTabDialog(Dialog* dialog, wchar_t* title)
+void TabControl::AddTabDialog(Dialog* dialog, const wchar_t* title)
 {
 	HWND handle = dialog->GetDlgHandle();
 	AddTab(handle,title);
 }
 
-void TabControl::AddTab(HWND handle, wchar_t* title)
+void TabControl::AddTab(HWND handle, const wchar_t* title)
 {
 	if (showTabTitles)
 		AppendPageToControl(title);
@@ -93,13 +93,13 @@ void TabControl::AddTab(HWND handle, wchar_t* title)
 	ShowTab(index);
 }
 
-int TabControl::AppendPageToControl(wchar_t* title)
+int TabControl::AppendPageToControl(const wchar_t *title)
 {
 	TCITEM tcItem;
 	ZeroMemory (&tcItem,sizeof (tcItem));
 	tcItem.mask			= TCIF_TEXT;
 	tcItem.dwState		= 0;
-	tcItem.pszText		= title;
+	tcItem.pszText		= (LPTSTR)title;
 	tcItem.cchTextMax	= (int)wcslen(tcItem.pszText)+1;
 	tcItem.iImage		= 0;
 

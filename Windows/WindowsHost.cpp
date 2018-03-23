@@ -247,7 +247,7 @@ void WindowsHost::BootDone() {
 	Core_EnableStepping(!g_Config.bAutoRun);
 }
 
-static std::string SymbolMapFilename(const char *currentFilename, char* ext) {
+static std::string SymbolMapFilename(const char *currentFilename, const char* ext) {
 	FileInfo info;
 
 	std::string result = currentFilename;
@@ -256,9 +256,9 @@ static std::string SymbolMapFilename(const char *currentFilename, char* ext) {
 	getFileInfo(currentFilename, &info);
 	if (info.isDirectory) {
 #ifdef _WIN32
-		char* slash = "\\";
+		const char* slash = "\\";
 #else
-		char* slash = "/";
+		const char* slash = "/";
 #endif
 		if (!endsWith(result,slash))
 			result += slash;

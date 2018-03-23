@@ -275,10 +275,6 @@ if(NOT MSVC)
 	elseif(ANDROID)
 		add_definitions(-fsigned-char)
 	endif()
-
-   if(WIN32)
-      add_definitions(-Wno-write-strings)
-   endif()
 else()
 	# Disable warnings about MS-specific _s variants of libc functions
 	add_definitions(-D_CRT_SECURE_NO_WARNINGS)
