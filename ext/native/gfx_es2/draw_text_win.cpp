@@ -231,6 +231,12 @@ void TextDrawerWin32::DrawString(DrawBuffer &target, const char *str, float x, f
 			size.cx = MAX_TEXT_WIDTH;
 		if (size.cy > MAX_TEXT_HEIGHT)
 			size.cy = MAX_TEXT_HEIGHT;
+		// Prevent zero-sized textures, which can occur. Not worth to avoid
+		// creating the texture altogether in this case.
+		if (size.cx == 0)
+			size.cx = 1;
+		if (size.cy == 0)
+			size.cy = 1;
 
 		entry = new TextStringEntry();
 		entry->width = size.cx;

@@ -8,9 +8,6 @@
 #include "base/logging.h"
 #include "Common/Vulkan/VulkanLoader.h"
 
-// Amount of time, in nanoseconds, to wait for a command buffer to complete
-#define FENCE_TIMEOUT 10000000000
-
 enum {
 	VULKAN_FLAG_VALIDATE = 1,
 	VULKAN_FLAG_PRESENT_MAILBOX = 2,
