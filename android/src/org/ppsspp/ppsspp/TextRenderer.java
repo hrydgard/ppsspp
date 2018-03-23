@@ -26,12 +26,17 @@ public class TextRenderer {
 		}
 	}
 	private static Point measureLine(String string, double textSize) {
-		p.setTextSize((float)textSize);
-		int w = (int)p.measureText(string);
+		int w;
+		if (string.length() > 0) {
+			p.setTextSize((float)textSize);
+			w = (int)p.measureText(string);
+			// Round width up to even already here to avoid annoyances from odd-width 16-bit textures which
+			// OpenGL does not like - each line must be 4-byte aligned
+			w = (w + 5) & ~1;
+		} else {
+			w = 1;
+		}
 		int h = (int)(p.descent() - p.ascent() + 2.0f);
-		// Round width up to even already here to avoid annoyances from odd-width 16-bit textures which
-		// OpenGL does not like - each line must be 4-byte aligned
-		w = (w + 5) & ~1;
 		Point p = new Point();
 		p.x = w;
 		p.y = h;
@@ -57,6 +62,10 @@ public class TextRenderer {
 
 		int w = s.x;
 		int h = s.y;
+		if (w == 0)
+			w = 1;
+		if (h == 0)
+			h = 1;
 
 		Bitmap bmp = Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888);
 		Canvas canvas = new Canvas(bmp);
@@ -65,7 +74,8 @@ public class TextRenderer {
 		String lines[] = string.replaceAll("\\r", "").split("\n");
 		float y = 1.0f;
 		for (String line : lines) {
-			canvas.drawText(line, 1, -p.ascent() + y, p);
+			if (line.length() > 0)
+				canvas.drawText(line, 1, -p.ascent() + y, p);
 			y += p.descent() - p.ascent();
 		}
 

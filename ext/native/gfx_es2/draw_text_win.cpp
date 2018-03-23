@@ -232,7 +232,8 @@ void TextDrawerWin32::DrawString(DrawBuffer &target, const char *str, float x, f
 		if (size.cy > MAX_TEXT_HEIGHT)
 			size.cy = MAX_TEXT_HEIGHT;
 		// Prevent zero-sized textures, which can occur. Not worth to avoid
-		// creating the texture altogether in this case.
+		// creating the texture altogether in this case. One example is a string
+		// containing only '\r\n', see issue #10764.
 		if (size.cx == 0)
 			size.cx = 1;
 		if (size.cy == 0)
