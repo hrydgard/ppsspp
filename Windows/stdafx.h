@@ -24,7 +24,7 @@
 
 #undef _WIN32_WINNT
 
-#if _MSC_VER < 1700
+#if defined(_MSC_VER) && _MSC_VER < 1700
 #error You need a newer version of Visual Studio
 #else
 #define _WIN32_WINNT 0x600 // Compile for Vista on Visual Studio 2012 and above

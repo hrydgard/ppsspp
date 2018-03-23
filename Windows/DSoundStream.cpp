@@ -1,7 +1,14 @@
 #include "Common/CommonWindows.h"
 #include <mmreg.h>
-#include <dsound.h>
 #include <process.h>
+
+#ifdef __MINGW32__
+#define __null
+#endif
+#include <dsound.h>
+#ifdef __MINGW32__
+#undef __null
+#endif
 
 #include "thread/threadutil.h"
 #include "Common/OSVersion.h"
@@ -317,7 +324,15 @@ int WASAPIAudioBackend::RunThread() {
 	REFERENCE_TIME hnsBufferDuration, hnsActualDuration;
 	UINT32 pNumBufferFrames;
 	UINT32 pNumPaddingFrames, pNumAvFrames;
+	short *shortBuf = nullptr;
+	int numSamples;
 	hnsBufferDuration = REFTIMES_PER_SEC;
+
+	enum {
+		UNKNOWN_FORMAT = 0,
+		IEEE_FLOAT = 1,
+		PCM16 = 2,
+	} format = UNKNOWN_FORMAT;
 
 	HRESULT hresult;
 	hresult = CoCreateInstance(CLSID_MMDeviceEnumerator,
@@ -357,12 +372,6 @@ int WASAPIAudioBackend::RunThread() {
 
 	sampleRate_ = pDeviceFormat->Format.nSamplesPerSec;
 
-	enum {
-		UNKNOWN_FORMAT = 0,
-		IEEE_FLOAT = 1,
-		PCM16 = 2,
-	} format = UNKNOWN_FORMAT;
-
 	// Don't know if PCM16 ever shows up here, the documentation only talks about float... but let's blindly
 	// try to support it :P
 
@@ -383,11 +392,10 @@ int WASAPIAudioBackend::RunThread() {
 		}
 	}
 
-	short *shortBuf = nullptr;
 
 	BYTE *pData;
 	hresult = pAudioRenderClient->GetBuffer(pNumBufferFrames, &pData);
-	int numSamples = pNumBufferFrames * pDeviceFormat->Format.nChannels;
+	numSamples = pNumBufferFrames * pDeviceFormat->Format.nChannels;
 	if (format == IEEE_FLOAT) {
 		memset(pData, 0, sizeof(float) * numSamples);
 		shortBuf = new short[pNumBufferFrames * pDeviceFormat->Format.nChannels];

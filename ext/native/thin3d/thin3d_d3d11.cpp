@@ -19,6 +19,11 @@
 #include <d3d11_1.h>
 #include <d3dcompiler.h>
 
+#ifdef __MINGW32__
+#undef __uuidof
+#define __uuidof(type) IID_##type
+#endif
+
 namespace Draw {
 
 // A problem is that we can't get the D3Dcompiler.dll without using a later SDK than 7.1, which was the last that

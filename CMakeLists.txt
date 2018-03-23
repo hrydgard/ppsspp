@@ -50,6 +50,11 @@ include(ccache)
 # Remove soon?
 set(USE_FFMPEG ON)
 
+# the libraries in the ffmpeg/ directory are not compatible with mingw
+if(MINGW AND NOT DEFINED USE_SYSTEM_FFMPEG)
+   set(USE_SYSTEM_FFMPEG ON)
+endif()
+
 if(NOT ANDROID AND NOT IOS)
 	if(ARM OR SIMULATOR)
 		set(USING_EGL ON)
@@ -243,7 +248,7 @@ if(NOT MSVC)
 	add_definitions(-Wno-deprecated-register)
 
 	# Don't compile with strict aliasing, we're not 100% aliasing-safe
-	add_definitions(-fno-strict-aliasing)
+	add_compile_options(-fno-strict-aliasing)
 	if (${CMAKE_C_COMPILER_ID} STREQUAL "Intel")
 		set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -parallel -fopenmp")
 	endif()
@@ -270,14 +275,21 @@ if(NOT MSVC)
 	elseif(ANDROID)
 		add_definitions(-fsigned-char)
 	endif()
+
+   if(WIN32)
+      add_definitions(-Wno-write-strings)
+   endif()
 else()
 	# Disable warnings about MS-specific _s variants of libc functions
 	add_definitions(-D_CRT_SECURE_NO_WARNINGS)
-	add_definitions(-D_UNICODE -DUNICODE)
-	add_definitions(-DUSING_WIN_UI)
 	add_definitions(-MP)
 	set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -D_DEBUG")
 	set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -D_NDEBUG")
+endif()
+
+if(WIN32)
+   add_definitions(-D_UNICODE -DUNICODE)
+   add_definitions(-DUSING_WIN_UI)
 endif()
 
 if(NOT ANDROID)
@@ -419,7 +431,16 @@ target_link_libraries(Common Ext::Snappy)
 
 if(WIN32)
 	include_directories(dx9sdk/Include)
-	target_link_libraries(Common winmm d3d9 dxguid dsound)
+	include_directories(dx9sdk/Include/DX11)
+	if(MINGW)
+		set(CMAKE_RC_COMPILE_OBJECT "<CMAKE_RC_COMPILER> -O coff <INCLUDES> <SOURCE> <OBJECT>")
+		# required when using the dx9sdk include paths
+		add_definitions(-include ${CMAKE_CURRENT_SOURCE_DIR}/Windows/mingw_defines.h)
+		add_definitions(-D_WIN32_WINNT=0x0601)
+	else()
+		target_link_libraries(Common dxguid)
+	endif()
+	target_link_libraries(Common winmm d3d9 dsound)
 endif()
 
 if(TARGET SDL2::SDL2)
@@ -772,24 +793,6 @@ elseif(USING_QT_UI)
         set(nativeExtraLibs ${nativeExtraLibs} Qt5::Multimedia)
     endif()
 
-elseif(TARGET SDL2::SDL2)
-	set(TargetBin PPSSPPSDL)
-	# Require SDL
-	add_definitions(-DSDL)
-	set(nativeExtra ${nativeExtra}
-		SDL/SDLJoystick.h
-		SDL/SDLJoystick.cpp
-		SDL/SDLMain.cpp
-		SDL/SDLGLGraphicsContext.cpp
-		SDL/SDLVulkanGraphicsContext.cpp)
-	set(nativeExtraLibs ${nativeExtraLibs} SDL2::SDL2)
-	if(APPLE)
-		set(nativeExtra ${nativeExtra} SDL/SDLMain.h SDL/SDLMain.mm)
-		set(nativeExtraLibs ${nativeExtraLibs} ${COCOA_LIBRARY})
-	elseif(USING_EGL)
-		set(nativeExtraLibs ${nativeExtraLibs} pthread)
-	endif()
-	set(TargetBin PPSSPPSDL)
 elseif(WIN32)
 	# Don't care about SDL.
 	set(TargetBin PPSSPPWindows)
@@ -798,6 +801,25 @@ elseif(WIN32)
 	else()
 		link_directories(dx9sdk/Lib/x86)
 	endif()
+   set(nativeExtra ${nativeExtra} ext/native/base/logging.cpp)
+elseif(TARGET SDL2::SDL2)
+   set(TargetBin PPSSPPSDL)
+   # Require SDL
+   add_definitions(-DSDL)
+   set(nativeExtra ${nativeExtra}
+      SDL/SDLJoystick.h
+      SDL/SDLJoystick.cpp
+      SDL/SDLMain.cpp
+      SDL/SDLGLGraphicsContext.cpp
+      SDL/SDLVulkanGraphicsContext.cpp)
+   set(nativeExtraLibs ${nativeExtraLibs} SDL2::SDL2)
+   if(APPLE)
+      set(nativeExtra ${nativeExtra} SDL/SDLMain.h SDL/SDLMain.mm)
+      set(nativeExtraLibs ${nativeExtraLibs} ${COCOA_LIBRARY})
+   elseif(USING_EGL)
+      set(nativeExtraLibs ${nativeExtraLibs} pthread)
+   endif()
+   set(TargetBin PPSSPPSDL)
 else()
 	message(FATAL_ERROR "Could not find SDL2. Failing.")
 endif()
@@ -1031,7 +1053,7 @@ if(ANDROID)
 	SET(ATOMIC_LIB atomic)
 endif()
 
-target_link_libraries(native ${LIBZIP_LIBRARY} ${ZLIB_LIBRARY} ${PNG_LIBRARY} rg_etc1 vjson udis86 ${RT_LIB} ${nativeExtraLibs} ${ATOMIC_LIB})
+target_link_libraries(native ${LIBZIP_LIBRARY} ${PNG_LIBRARY} ${ZLIB_LIBRARY} rg_etc1 vjson udis86 ${RT_LIB} ${nativeExtraLibs} ${ATOMIC_LIB})
 if(TARGET Ext::GLEW)
   target_link_libraries(native Ext::GLEW)
 endif()
@@ -1080,7 +1102,7 @@ include_directories(ext/xxhash)
 set(CoreExtra)
 set(CoreExtraLibs)
 
-if(WINDOWS OR ANDROID)
+if(WIN32 OR ANDROID)
 	set(CoreExtraLibs ${CoreExtraLibs} armips)
 endif()
 
@@ -1689,6 +1711,10 @@ set(CoreExtraLibs ${CoreExtraLibs} armips)
 
 set(GlslangLibs glslang OGLCompiler OSDependent SPIRV SPVRemapper spirv-cross-glsl)
 
+if(WIN32)
+   set(GlslangLibs ${GlslangLibs} spirv-cross-hlsl)
+endif()
+
 target_link_libraries(${CoreLibName} Common native kirk cityhash sfmt19937 xbrz xxhash ${GlslangLibs}
 	${CoreExtraLibs} ${OPENGL_LIBRARIES} ${X11_LIBRARIES} ${CMAKE_DL_LIBS})
 
@@ -1700,6 +1726,7 @@ if(FFmpeg_FOUND)
     FFmpeg::avutil
     FFmpeg::swresample
     FFmpeg::swscale
+    ${ZLIB_LIBRARY}
   )
 endif()
 
@@ -1765,7 +1792,6 @@ set(WindowsFiles
 	Windows/EmuThread.cpp
 	Windows/EmuThread.h
 	Windows/GeDebugger/GeDebugger.cpp
-	Windows/Globals.cpp
 	Windows/GPU/D3D9Context.cpp
 	Windows/GPU/D3D9Context.h
 	Windows/GPU/D3D11Context.cpp
@@ -1813,7 +1839,7 @@ set(WindowsFiles
 list(APPEND LinkCommon ${CoreLibName} ${CMAKE_THREAD_LIBS_INIT})
 
 if(WIN32)
-	list(APPEND LinkCommon kernel32 user32 gdi32 shell32 comctl32 dsound xinput)
+	list(APPEND LinkCommon kernel32 user32 gdi32 shell32 comctl32 dsound xinput d3d9 winmm dinput8 ole32 winspool ksuser)
 	#setup_target_project(${TargetBin} Windows)
 	list(APPEND NativeAppSource ${WindowsFiles})
 endif()
@@ -1892,7 +1918,11 @@ if (TargetBin)
 		endif()
 	elseif(WIN32)
 		add_executable(${TargetBin} WIN32 ${NativeAppSource})
-		set_target_properties(${TargetBin} PROPERTIES LINK_FLAGS "/SUBSYSTEM:WINDOWS")
+		if(MSVC)
+			set_target_properties(${TargetBin} PROPERTIES LINK_FLAGS "/SUBSYSTEM:WINDOWS")
+		else()
+			set_target_properties(${TargetBin} PROPERTIES LINK_FLAGS "-Wl,-subsystem,windows")
+		endif()
 		set_property(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR} PROPERTY VS_STARTUP_PROJECT ${TargetBin})
 	else()
 		add_executable(${TargetBin} ${NativeAppSource})

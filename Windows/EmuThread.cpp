@@ -45,7 +45,6 @@ extern std::vector<std::wstring> GetWideCmdLine();
 class GraphicsContext;
 static GraphicsContext *g_graphicsContext;
 
-void EmuThreadFunc(GraphicsContext *graphicsContext);
 void MainThreadFunc();
 
 // On most other platforms, we let the "main" thread become the render thread and
