@@ -110,6 +110,7 @@ option(MOBILE_DEVICE "Set to ON when targeting a mobile device" ${MOBILE_DEVICE}
 option(HEADLESS "Set to OFF to not generate the PPSSPPHeadless target" ${HEADLESS})
 option(UNITTEST "Set to ON to generate the unittest target" ${UNITTEST})
 option(SIMULATOR "Set to ON when targeting an x86 simulator of an ARM platform" ${SIMULATOR})
+option(LIBRETRO "Build as a libretro library" OFF)
 # :: Options
 option(USE_FFMPEG "Build with FFMPEG support" ${USE_FFMPEG})
 option(USE_SYSTEM_FFMPEG "Dynamically link against system FFMPEG" ${USE_SYSTEM_FFMPEG})
@@ -130,11 +131,22 @@ if(UNIX AND NOT (APPLE OR ANDROID) AND VULKAN)
 	endif()
 endif()
 
+if(LIBRETRO)
+	add_definitions(-D__LIBRETRO__)
+	add_definitions(-DGLEW_NO_GLU)
+	add_definitions(-fPIC)
+
+	include_directories(libretro)
+endif()
+
 if(ANDROID)
-	set(CoreLibName ppsspp_jni)
-	set(CoreLinkType SHARED)
 	set(MOBILE_DEVICE ON)
 	set(USING_GLES2 ON)
+endif()
+
+if(ANDROID AND NOT LIBRETRO)
+	set(CoreLibName ppsspp_jni)
+	set(CoreLinkType SHARED)
 else()
 	set(CoreLibName Core)
 	set(CoreLinkType STATIC)
@@ -280,7 +292,10 @@ else()
 	set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -D_NDEBUG")
 endif()
 
-if(NOT ANDROID)
+if(LIBRETRO)
+set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/lib")
+set(CMAKE_LIBRARY_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}")
+elseif(NOT ANDROID)
 set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/lib")
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/lib")
 endif()
@@ -426,7 +441,7 @@ if(TARGET SDL2::SDL2)
 	target_link_libraries(Common SDL2::SDL2)
 endif()
 
-if(USING_GLES2)
+if(USING_GLES2 AND NOT LIBRETRO)
 	find_package(X11)
 endif()
 
@@ -657,7 +672,9 @@ endif()
 set(nativeExtra)
 set(nativeExtraLibs)
 
-if(ANDROID)
+if(LIBRETRO)
+	# Ignore the following rules
+elseif(ANDROID)
   set(nativeExtra ${nativeExtra}
     Common/GL/GLInterface/EGLAndroid.cpp
     Common/GL/GLInterface/EGLAndroid.h
@@ -1845,6 +1862,10 @@ if(HEADLESS)
 	target_link_libraries(PPSSPPHeadless
 		${COCOA_LIBRARY} ${LinkCommon})
 	setup_target_project(PPSSPPHeadless headless)
+endif()
+
+if(LIBRETRO)
+	add_subdirectory(libretro)
 endif()
 
 if(UNITTEST)
