@@ -201,9 +201,6 @@ public:
 	int iGlobalVolume;
 	bool bExtraAudioBuffering;  // For bluetooth
 
-	// Audio Hack
-	bool bSoundSpeedHack;
-
 	// UI
 	bool bShowDebuggerOnLoad;
 	int iShowFPSCounter;

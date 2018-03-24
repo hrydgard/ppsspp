@@ -330,15 +330,8 @@ u32 AuCtx::AuDecode(u32 pcmAddr)
 	memset(outbuf, 0, PCMBufSize); // important! empty outbuf to avoid noise
 	u32 outpcmbufsize = 0;
 
-	int repeat = 1;
-	if (g_Config.bSoundSpeedHack){
-		repeat = 2;
-	}
-	int i = 0;
-	// decode frames in sourcebuff and output into PCMBuf (each time, we decode one or two frames)
-	// some games as Miku like one frame each time, some games like DOA like two frames each time
-	while (sourcebuff.size() > 0 && outpcmbufsize < PCMBufSize && i < repeat){
-		i++;
+	// decode frames in sourcebuff and output into PCMBuf, making sure it's filled
+	while (sourcebuff.size() > 0 && outpcmbufsize < PCMBufSize) {
 		int pcmframesize;
 		// decode
 		decoder->Decode((void*)sourcebuff.c_str(), (int)sourcebuff.size(), outbuf, &pcmframesize);
@@ -367,6 +360,7 @@ u32 AuCtx::AuDecode(u32 pcmAddr)
 		outbuf += pcmframesize;
 		// increase FrameNum count
 		FrameNum++;
+		break;
 	}
 	Memory::Write_U32(PCMBuf, pcmAddr);
 	return outpcmbufsize;
