@@ -26,6 +26,9 @@
 #else
 #include <stdarg.h>
 #endif
+#ifndef _MSC_VER
+#include <unistd.h>
+#endif
 
 #include "ppsspp_config.h"
 #include "thread/threadutil.h"
