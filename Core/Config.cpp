@@ -325,6 +325,14 @@ static bool DefaultCodeGen() {
 #endif
 }
 
+static bool DefaultEnableStateUndo() {
+#ifdef MOBILE_DEVICE
+	// Off on mobile to save disk space.
+	return false;
+#endif
+	return true;
+}
+
 struct ConfigSectionSettings {
 	const char *section;
 	ConfigSetting *settings;
@@ -354,6 +362,7 @@ static ConfigSetting generalSettings[] = {
 	ConfigSetting("DumpAudio", &g_Config.bDumpAudio, false),
 	ConfigSetting("SaveLoadResetsAVdumping", &g_Config.bSaveLoadResetsAVdumping, false),
 	ConfigSetting("StateSlot", &g_Config.iCurrentStateSlot, 0, true, true),
+	ConfigSetting("EnableStateUndo", &g_Config.bEnableStateUndo, &DefaultEnableStateUndo, true, true),
 	ConfigSetting("RewindFlipFrequency", &g_Config.iRewindFlipFrequency, 0, true, true),
 
 	ConfigSetting("GridView1", &g_Config.bGridView1, true),

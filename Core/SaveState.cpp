@@ -324,30 +324,46 @@ namespace SaveState
 	// Slot utilities
 
 	std::string AppendSlotTitle(const std::string &filename, const std::string &title) {
-		if (!endsWith(filename, std::string(".") + STATE_EXTENSION)) {
-			return title + " (" + filename + ")";
+		char slotChar = 0;
+		auto detectSlot = [&](const std::string &ext) {
+			if (!endsWith(filename, std::string(".") + ext)) {
+				return false;
+			}
+
+			// Usually these are slots, let's check the slot # after the last '_'.
+			size_t slotNumPos = filename.find_last_of('_');
+			if (slotNumPos == filename.npos) {
+				return false;
+			}
+
+			const size_t extLength = ext.length() + 1;
+			// If we take out the extension, '_', etc. we should be left with only a single digit.
+			if (slotNumPos + 1 + extLength != filename.length() - 1) {
+				return false;
+			}
+
+			slotChar = filename[slotNumPos + 1];
+			if (slotChar < '0' || slotChar > '8') {
+				return false;
+			}
+
+			// Change from zero indexed to human friendly.
+			slotChar++;
+			return true;
+		};
+
+		if (detectSlot(STATE_EXTENSION)) {
+			return StringFromFormat("%s (%c)", title.c_str(), slotChar);
+		}
+		if (detectSlot(UNDO_STATE_EXTENSION)) {
+			I18NCategory *sy = GetI18NCategory("System");
+			// Allow the number to be positioned where it makes sense.
+			std::string undo = sy->T("undo %c");
+			return title + " (" + StringFromFormat(undo.c_str(), slotChar) + ")";
 		}
 
-		// Usually these are slots, let's check the slot # after the last '_'.
-		size_t slotNumPos = filename.find_last_of('_');
-		if (slotNumPos == filename.npos) {
-			return title + " (" + filename + ")";
-		}
-
-		const size_t extLength = strlen(STATE_EXTENSION) + 1;
-		// If we take out the extension, '_', etc. we should be left with only a single digit.
-		if (slotNumPos + 1 + extLength != filename.length() - 1) {
-			return title + " (" + filename + ")";
-		}
-
-		std::string slot = filename.substr(slotNumPos + 1, 1);
-		if (slot[0] < '0' || slot[0] > '8') {
-			return title + " (" + filename + ")";
-		}
-
-		// Change from zero indexed to human friendly.
-		slot[0]++;
-		return title + " (" + slot + ")";
+		// Couldn't detect, use the filename.
+		return title + " (" + filename + ")";
 	}
 
 	std::string GetTitle(const std::string &filename) {
@@ -411,11 +427,16 @@ namespace SaveState
 	{
 		std::string fn = GenerateSaveSlotFilename(gameFilename, slot, STATE_EXTENSION);
 		std::string shot = GenerateSaveSlotFilename(gameFilename, slot, SCREENSHOT_EXTENSION);
+		std::string fnUndo = GenerateSaveSlotFilename(gameFilename, slot, UNDO_STATE_EXTENSION);
+		std::string shotUndo = GenerateSaveSlotFilename(gameFilename, slot, UNDO_SCREENSHOT_EXTENSION);
 		if (!fn.empty()) {
 			auto renameCallback = [=](bool status, const std::string &message, void *data) {
 				if (status) {
-					if (File::Exists(fn)) {
-						File::Delete(fn);
+					if (File::Exists(fnUndo) && g_Config.bEnableStateUndo) {
+						File::Delete(fnUndo);
+					}
+					if (File::Exists(fn) && g_Config.bEnableStateUndo) {
+						File::Rename(fn, fnUndo);
 					}
 					File::Rename(fn + ".tmp", fn);
 				}
@@ -424,6 +445,9 @@ namespace SaveState
 				}
 			};
 			// Let's also create a screenshot.
+			if (File::Exists(shot) && g_Config.bEnableStateUndo) {
+				File::Rename(shot, shotUndo);
+			}
 			SaveScreenshot(shot, Callback(), 0);
 			Save(fn + ".tmp", renameCallback, cbUserData);
 		} else {
@@ -433,10 +457,41 @@ namespace SaveState
 		}
 	}
 
+	bool UndoSaveSlot(const std::string &gameFilename, int slot) {
+		std::string fn = GenerateSaveSlotFilename(gameFilename, slot, STATE_EXTENSION);
+		std::string shot = GenerateSaveSlotFilename(gameFilename, slot, SCREENSHOT_EXTENSION);
+		std::string fnUndo = GenerateSaveSlotFilename(gameFilename, slot, UNDO_STATE_EXTENSION);
+		std::string shotUndo = GenerateSaveSlotFilename(gameFilename, slot, UNDO_SCREENSHOT_EXTENSION);
+
+		// Do nothing if there's no undo.
+		if (File::Exists(fnUndo)) {
+			// Swap them so they can undo again to redo.  Mistakes happen.
+			if (File::Exists(shotUndo)) {
+				File::Rename(shot, shot + ".tmp");
+				File::Rename(shotUndo, shot);
+				File::Rename(shot + ".tmp", shotUndo);
+			}
+
+			File::Rename(fn, fn + ".tmp");
+			File::Rename(fnUndo, fn);
+			File::Rename(fn + ".tmp", fnUndo);
+
+			return true;
+		}
+
+		return false;
+	}
+
 	bool HasSaveInSlot(const std::string &gameFilename, int slot)
 	{
 		std::string fn = GenerateSaveSlotFilename(gameFilename, slot, STATE_EXTENSION);
 		return File::Exists(fn);
+	}
+
+	bool HasUndoSaveInSlot(const std::string &gameFilename, int slot)
+	{
+		std::string fn = GenerateSaveSlotFilename(gameFilename, slot, STATE_EXTENSION);
+		return File::Exists(fn + ".undo");
 	}
 
 	bool HasScreenshotInSlot(const std::string &gameFilename, int slot)
