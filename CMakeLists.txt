@@ -52,7 +52,7 @@ set(USE_FFMPEG ON)
 
 # the libraries in the ffmpeg/ directory are not compatible with mingw
 if(MINGW AND NOT DEFINED USE_SYSTEM_FFMPEG)
-   set(USE_SYSTEM_FFMPEG ON)
+	set(USE_SYSTEM_FFMPEG ON)
 endif()
 
 if(NOT ANDROID AND NOT IOS)
@@ -115,6 +115,7 @@ option(MOBILE_DEVICE "Set to ON when targeting a mobile device" ${MOBILE_DEVICE}
 option(HEADLESS "Set to OFF to not generate the PPSSPPHeadless target" ${HEADLESS})
 option(UNITTEST "Set to ON to generate the unittest target" ${UNITTEST})
 option(SIMULATOR "Set to ON when targeting an x86 simulator of an ARM platform" ${SIMULATOR})
+option(LIBRETRO "Set to ON to generate the libretro target" OFF)
 # :: Options
 option(USE_FFMPEG "Build with FFMPEG support" ${USE_FFMPEG})
 option(USE_SYSTEM_FFMPEG "Dynamically link against system FFMPEG" ${USE_SYSTEM_FFMPEG})
@@ -132,6 +133,14 @@ if(UNIX AND NOT (APPLE OR ANDROID) AND VULKAN)
 	if (WAYLAND_FOUND)
 		include_directories(${WAYLAND_INCLUDE_DIR})
 		add_definitions(-DVK_USE_PLATFORM_WAYLAND_KHR)
+	endif()
+endif()
+
+if(LIBRETRO)
+	add_definitions(-D__LIBRETRO__)
+	add_definitions(-DGLEW_NO_GLU)
+	if(NOT MSVC)
+		add_compile_options(-fPIC)
 	endif()
 endif()
 
@@ -284,8 +293,8 @@ else()
 endif()
 
 if(WIN32)
-   add_definitions(-D_UNICODE -DUNICODE)
-   add_definitions(-DUSING_WIN_UI)
+	add_definitions(-D_UNICODE -DUNICODE)
+	add_definitions(-DUSING_WIN_UI)
 endif()
 
 if(NOT ANDROID)
@@ -1882,6 +1891,10 @@ if(UNITTEST)
 	target_link_libraries(unitTest
 		${COCOA_LIBRARY} ${LinkCommon} Common)
 	setup_target_project(unitTest unittest)
+endif()
+
+if(LIBRETRO)
+	add_subdirectory(libretro)
 endif()
 
 if (TargetBin)

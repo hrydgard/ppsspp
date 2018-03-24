@@ -640,10 +640,13 @@ void VulkanContext::ReinitSurface(int width, int height) {
 		HINSTANCE connection = (HINSTANCE)winsysData1_;
 		HWND window = (HWND)winsysData2_;
 
-		RECT rc;
-		GetClientRect(window, &rc);
-		width = rc.right - rc.left;
-		height = rc.bottom - rc.top;
+		if (width < 0 || height < 0)
+		{
+			RECT rc;
+			GetClientRect(window, &rc);
+			width = rc.right - rc.left;
+			height = rc.bottom - rc.top;
+		}
 
 		VkWin32SurfaceCreateInfoKHR win32{ VK_STRUCTURE_TYPE_WIN32_SURFACE_CREATE_INFO_KHR };
 		win32.flags = 0;

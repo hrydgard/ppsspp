@@ -64,6 +64,14 @@ matrix:
       compiler: "gcc"
       env: PPSSPP_BUILD_TYPE=Linux
            QT=TRUE
+    - os: linux
+      compiler: "gcc"
+      env: PPSSPP_BUILD_TYPE=Linux
+           LIBRETRO=TRUE
+    - os: linux
+      compiler: "clang"
+      env: PPSSPP_BUILD_TYPE=Linux
+           LIBRETRO=TRUE
     - os: osx
       osx_image: xcode8
       compiler: "clang macos"
