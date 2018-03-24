@@ -96,20 +96,19 @@ static VKAPI_ATTR VkResult VKAPI_CALL vkCreateDevice_libretro(VkPhysicalDevice p
 	std::vector<const char *> EnabledExtensionNames(info.ppEnabledExtensionNames, info.ppEnabledExtensionNames + info.enabledExtensionCount);
 	VkPhysicalDeviceFeatures EnabledFeatures = *info.pEnabledFeatures;
 
-	for (int i = 0; i < vk_init_info.num_required_device_layers; i++)
+	for (unsigned i = 0; i < vk_init_info.num_required_device_layers; i++)
 		add_name_unique(EnabledLayerNames, vk_init_info.required_device_layers[i]);
 
-	for (int i = 0; i < vk_init_info.num_required_device_extensions; i++)
+	for (unsigned i = 0; i < vk_init_info.num_required_device_extensions; i++)
 		add_name_unique(EnabledExtensionNames, vk_init_info.required_device_extensions[i]);
 
 	add_name_unique(EnabledExtensionNames, VK_KHR_SAMPLER_MIRROR_CLAMP_TO_EDGE_EXTENSION_NAME);
-	for (int i = 0; i < sizeof(VkPhysicalDeviceFeatures) / sizeof(VkBool32); i++)
+	for (unsigned i = 0; i < sizeof(VkPhysicalDeviceFeatures) / sizeof(VkBool32); i++)
 	{
 		if (((VkBool32 *)vk_init_info.required_features)[i])
 			((VkBool32 *)&EnabledFeatures)[i] = VK_TRUE;
 	}
 
-	static bool DEDICATED_ALLOCATION;
 	for (auto extension_name : EnabledExtensionNames)
 	{
 		if (!strcmp(extension_name, VK_KHR_DEDICATED_ALLOCATION_EXTENSION_NAME))
@@ -445,6 +444,7 @@ void vk_libretro_init(VkInstance instance, VkPhysicalDevice gpu, VkSurfaceKHR su
 void vk_libretro_set_hwrender_interface(retro_hw_render_interface *hw_render_interface) { vulkan = (retro_hw_render_interface_vulkan *)hw_render_interface; }
 void vk_libretro_shutdown()
 {
+	memset(&vk_init_info, 0x00, sizeof(vk_init_info));
 	vulkan = NULL;
 	DEDICATED_ALLOCATION = false;
 }

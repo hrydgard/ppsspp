@@ -673,8 +673,8 @@ endif
 
 GIT_VERSION_SRC = $(CORE_DIR)/git-version.cpp
 GIT_VERSION := $(shell git describe --always || echo v1.4.2-git)
-GIT_VERSION_NO_UPDATE = $(findstring 1,$(shell grep PPSSPP_GIT_VERSION_NO_UPDATE $(GIT_VERSION_SRC)))
-ifneq (,$(findstring $(GIT_VERSION),$(shell grep char $(GIT_VERSION_SRC))))
+GIT_VERSION_NO_UPDATE = $(findstring 1,$(shell grep -s PPSSPP_GIT_VERSION_NO_UPDATE $(GIT_VERSION_SRC)))
+ifneq (,$(findstring $(GIT_VERSION),$(shell grep -s char $(GIT_VERSION_SRC))))
    GIT_VERSION_NO_UPDATE = 1
 endif
 

@@ -72,9 +72,9 @@ class LibretroD3D9Context : public LibretroHWRenderContext {
 	LibretroD3D9Context() : LibretroHWRenderContext(RETRO_HW_CONTEXT_DIRECT3D, 9) {}
 	bool Init() override { return false; }
 
-	void InitDrawContext() override
+	void CreateDrawContext() override
 	{
-		draw_ = Draw::T3DCreateDX9Context();
+		draw_ = Draw::T3DCreateDX9Context(nullptr, nullptr, 0, nullptr, nullptr);
 		draw_->CreatePresets();
 	}
 
@@ -87,9 +87,9 @@ class LibretroD3D11Context : public LibretroHWRenderContext {
 	LibretroD3D11Context() : LibretroHWRenderContext(RETRO_HW_CONTEXT_DIRECT3D, 11) {}
 	bool Init() override { return false; }
 
-	void InitDrawContext() override
+	void CreateDrawContext() override
 	{
-		draw_ = Draw::T3DCreateD3D11Context();
+		draw_ = Draw::T3DCreateD3D11Context(nullptr, nullptr, nullptr, nullptr, D3D_FEATURE_LEVEL_11_0, nullptr);
 		draw_->CreatePresets();
 	}
 

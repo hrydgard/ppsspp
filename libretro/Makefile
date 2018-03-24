@@ -280,7 +280,7 @@ else ifneq (,$(findstring windows_msvc2017,$(platform)))
 	reg_query = $(call filter_out2,$(subst $2,,$(shell reg query "$2" -v "$1" 2>nul)))
 	fix_path = $(subst $(SPACE),\ ,$(subst \,/,$1))
 
-	ProgramFiles86w := $(shell cmd /c "echo %PROGRAMFILES(x86)%")
+	ProgramFiles86w := $(shell echo "$$PROGRAMFILES(x86)")
 	ProgramFiles86 := $(shell cygpath "$(ProgramFiles86w)")
 
 	WindowsSdkDir ?= $(call reg_query,InstallationFolder,HKEY_LOCAL_MACHINE\SOFTWARE\Wow6432Node\Microsoft\Microsoft SDKs\Windows\v10.0)
@@ -311,6 +311,7 @@ else ifneq (,$(findstring windows_msvc2017,$(platform)))
 
 	VcCompilerToolsVer := $(shell cat "$(VsInstallRoot)/VC/Auxiliary/Build/Microsoft.VCToolsVersion.default.txt" | grep -o '[0-9\.]*')
 	VcCompilerToolsDir := $(VsInstallRoot)/VC/Tools/MSVC/$(VcCompilerToolsVer)
+	VcCompilerLibDir := $(VcCompilerToolsDir)/lib/$(TargetArchMoniker)
 
 	WindowsSDKSharedIncludeDir := $(shell cygpath -w "$(WindowsSdkDir)\Include\$(WindowsSDKVersion)\shared")
 	WindowsSDKUCRTIncludeDir := $(shell cygpath -w "$(WindowsSdkDir)\Include\$(WindowsSDKVersion)\ucrt")
@@ -318,7 +319,7 @@ else ifneq (,$(findstring windows_msvc2017,$(platform)))
 	WindowsSDKUCRTLibDir := $(shell cygpath -w "$(WindowsSdkDir)\Lib\$(WindowsSDKVersion)\ucrt\$(TargetArchMoniker)")
 	WindowsSDKUMLibDir := $(shell cygpath -w "$(WindowsSdkDir)\Lib\$(WindowsSDKVersion)\um\$(TargetArchMoniker)")
 
-	LIB := $(shell IFS=$$'\n'; cygpath -w "$(VcCompilerToolsDir)/lib/$(TargetArchMoniker)")
+	LIB := $(shell IFS=$$'\n'; cygpath -w "$(VcCompilerLibDir)")
 	INCLUDE := $(shell IFS=$$'\n'; cygpath -w "$(VcCompilerToolsDir)/include")
 
 	# For some reason the HostX86 compiler doesn't like compiling for x64
@@ -327,15 +328,15 @@ else ifneq (,$(findstring windows_msvc2017,$(platform)))
 	# NOTE: What about ARM?
 	ifneq (,$(findstring x64,$(TargetArchMoniker)))
 		TARGET_ARCH = x86_64
-		VCCompilerToolsBinDir := $(VcCompilerToolsDir)\bin\HostX64
+		VCCompilerToolsBinDir := $(VcCompilerToolsDir)/bin/HostX64/$(TargetArchMoniker)
       LIB := $(LIB);$(CORE_DIR)/dx9sdk/Lib/x64
 	else
 		TARGET_ARCH = x86
-		VCCompilerToolsBinDir := $(VcCompilerToolsDir)\bin\HostX86
+		VCCompilerToolsBinDir := $(VcCompilerToolsDir)/bin/HostX86/$(TargetArchMoniker)
       LIB := $(LIB);$(CORE_DIR)/dx9sdk/Lib/x86
 	endif
 
-	PATH := $(shell IFS=$$'\n'; cygpath "$(VCCompilerToolsBinDir)/$(TargetArchMoniker)"):$(PATH)
+	PATH := $(shell IFS=$$'\n'; cygpath "$(VCCompilerToolsBinDir)"):$(PATH)
 	PATH := $(PATH):$(shell IFS=$$'\n'; cygpath "$(VsInstallRoot)/Common7/IDE")
 
 	export INCLUDE := $(INCLUDE);$(WindowsSDKSharedIncludeDir);$(WindowsSDKUCRTIncludeDir);$(WindowsSDKUMIncludeDir)
@@ -403,10 +404,8 @@ CXXFLAGS    += $(CPUOPTS) $(COREFLAGS) $(FFMPEGINCFLAGS) $(INCFLAGS) $(INCFLAGS_
 CFLAGS		+= $(CPUOPTS) $(COREFLAGS) $(FFMPEGINCFLAGS) $(INCFLAGS) $(INCFLAGS_PLATFORM) $(PLATCFLAGS) $(fpic) $(PLATCFLAGS) $(CPUFLAGS) $(GLFLAGS) $(DYNAFLAGS)
 
 LDFLAGS		+= $(FFMPEGLDFLAGS) $(fpic)
-ifeq (,$(findstring android,$(platform)))
-   ifeq (,$(findstring msvc,$(platform)))
-      LDFLAGS		+= -lpthread
-   endif
+ifeq (,$(findstring android,$(platform))$(findstring msvc,$(platform)))
+   LDFLAGS	+= -lpthread
 endif
 
 OBJOUT   = -o
