@@ -200,13 +200,13 @@ else ifeq ($(platform), qnx)
 # ARM
 else ifneq (,$(findstring armv,$(platform)))
 	TARGET := $(TARGET_NAME)_libretro.so
+	TARGET_ARCH = armv7
 	fpic := -fPIC
 	LDFLAGS += -shared -Wl,--version-script=link.T -Wl,--no-undefined
 	FFMPEGINCFLAGS += -I$(FFMPEGDIR)/linux/$(TARGET_ARCH)/include
 	FFMPEGLIBDIR := $(FFMPEGDIR)/linux/$(TARGET_ARCH)/lib
 	FFMPEGLDFLAGS += -L$(FFMPEGLIBDIR) -lavformat -lavcodec -lavutil -lswresample -lswscale
 	INCFLAGS += -I.
-	TARGET_ARCH = arm
 	ifneq (,$(findstring gles,$(platform)))
 		GLES := 1
 		GL_LIB := -lGLESv2 -lEGL
