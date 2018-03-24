@@ -929,7 +929,7 @@ void Config::Load(const char *iniFileName, const char *controllerIniFilename) {
 
 	IniFile iniFile;
 	if (!iniFile.Load(iniFilename_)) {
-		ERROR_LOG(LOADER, "Failed to read %s. Setting config to default.", iniFilename_.c_str());
+		ERROR_LOG(LOADER, "Failed to read '%s'. Setting config to default.", iniFilename_.c_str());
 		// Continue anyway to initialize the config.
 	}
 
@@ -1089,7 +1089,7 @@ void Config::Save() {
 		CleanRecent();
 		IniFile iniFile;
 		if (!iniFile.Load(iniFilename_.c_str())) {
-			ERROR_LOG(LOADER, "Error saving config - can't read ini %s", iniFilename_.c_str());
+			ERROR_LOG(LOADER, "Error saving config - can't read ini '%s'", iniFilename_.c_str());
 		}
 
 		// Need to do this somewhere...
@@ -1130,21 +1130,21 @@ void Config::Save() {
 			LogManager::GetInstance()->SaveConfig(log);
 
 		if (!iniFile.Save(iniFilename_.c_str())) {
-			ERROR_LOG(LOADER, "Error saving config - can't write ini %s", iniFilename_.c_str());
+			ERROR_LOG(LOADER, "Error saving config - can't write ini '%s'", iniFilename_.c_str());
 			System_SendMessage("toast", "Failed to save settings!\nCheck permissions, or try to restart the device.");
 			return;
 		}
-		INFO_LOG(LOADER, "Config saved: %s", iniFilename_.c_str());
+		INFO_LOG(LOADER, "Config saved: '%s'", iniFilename_.c_str());
 
 		if (!bGameSpecific) //otherwise we already did this in saveGameConfig()
 		{
 			IniFile controllerIniFile;
 			if (!controllerIniFile.Load(controllerIniFilename_.c_str())) {
-				ERROR_LOG(LOADER, "Error saving config - can't read ini %s", controllerIniFilename_.c_str());
+				ERROR_LOG(LOADER, "Error saving config - can't read ini '%s'", controllerIniFilename_.c_str());
 			}
 			KeyMap::SaveToIni(controllerIniFile);
 			if (!controllerIniFile.Save(controllerIniFilename_.c_str())) {
-				ERROR_LOG(LOADER, "Error saving config - can't write ini %s", controllerIniFilename_.c_str());
+				ERROR_LOG(LOADER, "Error saving config - can't write ini '%s'", controllerIniFilename_.c_str());
 				return;
 			}
 			INFO_LOG(LOADER, "Controller config saved: %s", controllerIniFilename_.c_str());

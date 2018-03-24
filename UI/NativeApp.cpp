@@ -138,6 +138,8 @@ static bool isOuya;
 static bool resized = false;
 static bool restarting = false;
 
+static bool askedForStoragePermission = false;
+
 struct PendingMessage {
 	std::string msg;
 	std::string value;
@@ -369,6 +371,9 @@ void NativeInit(int argc, const char *argv[], const char *savegame_dir, const ch
 	g_Config.AddSearchPath(user_data_path);
 	g_Config.AddSearchPath(g_Config.memStickDirectory + "PSP/SYSTEM/");
 	g_Config.SetDefaultPath(g_Config.memStickDirectory + "PSP/SYSTEM/");
+
+	// Note that if we don't have storage permission here, loading the config will
+	// fail and it will be set to the default. Later, we load again when we get permission.
 	g_Config.Load();
 	g_Config.externalDirectory = external_dir;
 #endif
@@ -383,6 +388,8 @@ void NativeInit(int argc, const char *argv[], const char *savegame_dir, const ch
 	File::CreateDir((g_Config.memStickDirectory + "PSP/SAVEDATA").c_str());
 	File::CreateDir((g_Config.memStickDirectory + "PSP/GAME").c_str());
 #endif
+
+
 
 	const char *fileToLog = 0;
 	const char *stateToLoad = 0;
@@ -509,6 +516,13 @@ void NativeInit(int argc, const char *argv[], const char *savegame_dir, const ch
 		i18nrepo.LoadIni(g_Config.sLanguageIni);
 	else
 		i18nrepo.LoadIni(g_Config.sLanguageIni, langOverridePath);
+
+	if (System_GetPropertyBool(SYSPROP_SUPPORTS_PERMISSIONS)) {
+		if (System_GetPermissionStatus(SYSTEM_PERMISSION_STORAGE) != PERMISSION_STATUS_GRANTED) {
+			System_AskForPermission(SYSTEM_PERMISSION_STORAGE);
+		}
+	}
+
 
 	I18NCategory *des = GetI18NCategory("DesktopUI");
 	// Note to translators: do not translate this/add this to PPSSPP-lang's files.
@@ -925,6 +939,12 @@ void HandleGlobalMessage(const std::string &msg, const std::string &value) {
 
 		Core_SetPowerSaving(value != "false");
 	}
+	if (msg == "permission_granted" && value == "storage") {
+		// We must have failed to load the config before, so load it now to avoid overwriting the old config
+		// with a freshly generated one.
+		ILOG("Reloading config after storage permission grant.");
+		g_Config.Load();
+	}
 }
 
 void NativeUpdate() {
@@ -1128,10 +1148,6 @@ void NativeShutdown() {
 
 	// Previously we did exit() here on Android but that makes it hard to do things like restart on backend change.
 	// I think we handle most globals correctly or correct-enough now.
-}
-
-void NativePermissionStatus(SystemPermission permission, PermissionStatus status) {
-	// TODO: Send this through the screen system? Nicer than listening to string messages
 }
 
 void PushNewGpsData(float latitude, float longitude, float altitude, float speed, float bearing, long long time) {
