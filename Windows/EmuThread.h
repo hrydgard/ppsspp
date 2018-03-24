@@ -17,6 +17,6 @@
 
 #pragma once
 
-void EmuThread_Start();
-void EmuThread_Stop();
-bool EmuThread_Ready();
+void MainThread_Start(bool separateRenderThread);
+void MainThread_Stop();
+bool MainThread_Ready();

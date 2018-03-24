@@ -262,19 +262,11 @@ void LightUpdateUniforms(UB_VS_Lights *ub, uint64_t dirtyUniforms) {
 			}
 			ExpandFloat24x3ToFloat4(ub->ldir[i], &gstate.ldir[i * 3]);
 			ExpandFloat24x3ToFloat4(ub->latt[i], &gstate.latt[i * 3]);
-			CopyFloat1To4(ub->lightAngle[i], getFloat24(gstate.lcutoff[i]));
-			CopyFloat1To4(ub->lightSpotCoef[i], getFloat24(gstate.lconv[i]));
+			float lightAngle_spotCoef[2] = { getFloat24(gstate.lcutoff[i]), getFloat24(gstate.lconv[i]) };
+			CopyFloat2To4(ub->lightAngle_SpotCoef[i], lightAngle_spotCoef);
 			Uint8x3ToFloat4(ub->lightAmbient[i], gstate.lcolor[i * 3]);
 			Uint8x3ToFloat4(ub->lightDiffuse[i], gstate.lcolor[i * 3 + 1]);
 			Uint8x3ToFloat4(ub->lightSpecular[i], gstate.lcolor[i * 3 + 2]);
-		}
-	}
-}
-
-void BoneUpdateUniforms(UB_VS_Bones *ub, uint64_t dirtyUniforms) {
-	for (int i = 0; i < 8; i++) {
-		if (dirtyUniforms & (DIRTY_BONEMATRIX0 << i)) {
-			ConvertMatrix4x3To3x4Transposed(ub->bones[i], gstate.boneMatrix + 12 * i);
 		}
 	}
 }

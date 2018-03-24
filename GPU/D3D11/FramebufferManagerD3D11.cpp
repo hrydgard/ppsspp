@@ -197,13 +197,6 @@ void FramebufferManagerD3D11::SetDrawEngine(DrawEngineD3D11 *td) {
 	drawEngine_ = td;
 }
 
-void FramebufferManagerD3D11::DisableState() {
-	context_->OMSetBlendState(stockD3D11.blendStateDisabledWithColorMask[0xF], nullptr, 0xFFFFFFFF);
-	context_->RSSetState(stockD3D11.rasterStateNoCull);
-	context_->OMSetDepthStencilState(stockD3D11.depthStencilDisabled, 0xFF);
-	gstate_c.Dirty(DIRTY_BLEND_STATE | DIRTY_DEPTHSTENCIL_STATE | DIRTY_RASTER_STATE);
-}
-
 void FramebufferManagerD3D11::CompilePostShader() {
 	std::string vsSource;
 	std::string psSource;
@@ -457,15 +450,6 @@ void FramebufferManagerD3D11::BindPostShader(const PostShaderUniforms &uniforms)
 	context_->Unmap(postConstants_, 0);
 	context_->VSSetConstantBuffers(0, 1, &postConstants_);  // Probably not necessary
 	context_->PSSetConstantBuffers(0, 1, &postConstants_);
-}
-
-void FramebufferManagerD3D11::RebindFramebuffer() {
-	if (currentRenderVfb_ && currentRenderVfb_->fbo) {
-		draw_->BindFramebufferAsRenderTarget(currentRenderVfb_->fbo, { Draw::RPAction::KEEP, Draw::RPAction::KEEP, Draw::RPAction::KEEP });
-	} else {
-		// Should this even happen?
-		draw_->BindFramebufferAsRenderTarget(nullptr, { Draw::RPAction::KEEP, Draw::RPAction::KEEP, Draw::RPAction::KEEP });
-	}
 }
 
 void FramebufferManagerD3D11::ReformatFramebufferFrom(VirtualFramebuffer *vfb, GEBufferFormat old) {
@@ -740,8 +724,6 @@ void FramebufferManagerD3D11::DestroyAllFBOs() {
 	tempFBOs_.clear();
 
 	SetNumExtraFBOs(0);
-
-	DisableState();
 }
 
 void FramebufferManagerD3D11::Resized() {

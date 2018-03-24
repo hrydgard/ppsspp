@@ -14,6 +14,7 @@
 #include "Windows/GPU/D3D9Context.h"
 #include "Windows/W32Util/Misc.h"
 #include "thin3d/thin3d.h"
+#include "thin3d/thin3d_create.h"
 #include "thin3d/d3dx9_loader.h"
 
 void D3D9Context::SwapBuffers() {

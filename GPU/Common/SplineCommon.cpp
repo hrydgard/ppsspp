@@ -949,8 +949,10 @@ void DrawEngineCommon::SubmitSpline(const void *control_points, const void *indi
 		gstate_c.uv.vOff = 0.0f;
 	}
 
+	uint32_t vertTypeID = GetVertTypeID(vertTypeWithIndex16, gstate.getUVGenMode());
+
 	int generatedBytesRead;
-	DispatchSubmitPrim(splineBuffer, quadIndices_, primType[prim_type], count, vertTypeWithIndex16, &generatedBytesRead);
+	DispatchSubmitPrim(splineBuffer, quadIndices_, primType[prim_type], count, vertTypeID, &generatedBytesRead);
 
 	DispatchFlush();
 
@@ -1091,8 +1093,9 @@ void DrawEngineCommon::SubmitBezier(const void *control_points, const void *indi
 		gstate_c.uv.vOff = 0;
 	}
 
+	uint32_t vertTypeID = GetVertTypeID(vertTypeWithIndex16, gstate.getUVGenMode());
 	int generatedBytesRead;
-	DispatchSubmitPrim(splineBuffer, quadIndices_, primType[prim_type], count, vertTypeWithIndex16, &generatedBytesRead);
+	DispatchSubmitPrim(splineBuffer, quadIndices_, primType[prim_type], count, vertTypeID, &generatedBytesRead);
 
 	DispatchFlush();
 

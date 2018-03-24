@@ -23,6 +23,7 @@
 #include "StateMappingGLES.h"
 #include "profiler/profiler.h"
 #include "gfx/gl_debug_log.h"
+#include "thin3d/GLRenderManager.h"
 
 #include "GPU/Math3D.h"
 #include "GPU/GPUState.h"
@@ -31,7 +32,6 @@
 #include "Core/Config.h"
 #include "Core/Reporting.h"
 #include "GPU/GLES/GPU_GLES.h"
-#include "ext/native/gfx/GLStateCache.h"
 #include "GPU/GLES/ShaderManagerGLES.h"
 #include "GPU/GLES/TextureCacheGLES.h"
 #include "GPU/GLES/FramebufferManagerGLES.h"
@@ -123,18 +123,14 @@ static const GLushort logicOps[] = {
 
 inline void DrawEngineGLES::ResetShaderBlending() {
 	if (fboTexBound_) {
-		glActiveTexture(GL_TEXTURE1);
-		glBindTexture(GL_TEXTURE_2D, 0);
-		glActiveTexture(GL_TEXTURE0);
+		GLRenderManager *renderManager = (GLRenderManager *)draw_->GetNativeObject(Draw::NativeObject::RENDER_MANAGER);
+		renderManager->BindTexture(1, nullptr);
 		fboTexBound_ = false;
 	}
 }
 
 void DrawEngineGLES::ApplyDrawState(int prim) {
-	if (gstate_c.IsDirty(DIRTY_TEXTURE_IMAGE | DIRTY_TEXTURE_PARAMS) && !gstate.isModeClear() && gstate.isTextureMapEnabled()) {
-		textureCache_->SetTexture();
-		gstate_c.Clean(DIRTY_TEXTURE_IMAGE | DIRTY_TEXTURE_PARAMS);
-	}
+	GLRenderManager *renderManager = (GLRenderManager *)draw_->GetNativeObject(Draw::NativeObject::RENDER_MANAGER);
 
 	if (!gstate_c.IsDirty(DIRTY_BLEND_STATE | DIRTY_DEPTHSTENCIL_STATE | DIRTY_RASTER_STATE | DIRTY_VIEWPORTSCISSOR_STATE)) {
 		// Nothing to do, let's early-out
@@ -163,17 +159,10 @@ void DrawEngineGLES::ApplyDrawState(int prim) {
 		gstate_c.SetAllowShaderBlend(!g_Config.bDisableSlowFramebufEffects);
 
 		if (gstate.isModeClear()) {
-			glstate.blend.disable();
 			// Color Test
 			bool colorMask = gstate.isClearModeColorMask();
 			bool alphaMask = gstate.isClearModeAlphaMask();
-			glstate.colorMask.set(colorMask, colorMask, colorMask, alphaMask);
-#ifndef USING_GLES2
-			if (gstate_c.Supports(GPU_SUPPORTS_LOGIC_OP)) {
-				// Logic Ops
-				glstate.colorLogicOp.disable();
-			}
-#endif
+			renderManager->SetNoBlendAndMask((colorMask ? 7 : 0) | (alphaMask ? 8 : 0));
 		} else {
 			// Do the large chunks of state conversion. We might be able to hide these two behind a dirty-flag each,
 			// to avoid recomputing heavy stuff unnecessarily every draw call.
@@ -184,6 +173,21 @@ void DrawEngineGLES::ApplyDrawState(int prim) {
 				if (ApplyShaderBlending()) {
 					// We may still want to do something about stencil -> alpha.
 					ApplyStencilReplaceAndLogicOp(blendState.replaceAlphaWithStencil, blendState);
+
+					// We copy the framebuffer here, as doing so will wipe any blend state if we do it later.
+					if (fboTexNeedBind_) {
+						// Note that this is positions, not UVs, that we need the copy from.
+						// TODO: If the device doesn't support blit, this will corrupt the currently applied texture.
+						framebufferManager_->BindFramebufferAsColorTexture(1, framebufferManager_->GetCurrentRenderVFB(), BINDFBCOLOR_MAY_COPY);
+						// If we are rendering at a higher resolution, linear is probably best for the dest color.
+						renderManager->SetTextureSampler(1, GL_CLAMP_TO_EDGE, GL_CLAMP_TO_EDGE, GL_LINEAR, GL_LINEAR, 0.0f);
+						fboTexBound_ = true;
+						fboTexNeedBind_ = false;
+
+						framebufferManager_->RebindFramebuffer();
+						// Must dirty blend state here so we re-copy next time.  Example: Lunar's spell effects.
+						gstate_c.Dirty(DIRTY_BLEND_STATE);
+					}
 				} else {
 					// Until next time, force it off.
 					ResetShaderBlending();
@@ -194,11 +198,6 @@ void DrawEngineGLES::ApplyDrawState(int prim) {
 			}
 
 			if (blendState.enabled) {
-				glstate.blend.enable();
-				glstate.blendEquationSeparate.set(glBlendEqLookup[(size_t)blendState.eqColor], glBlendEqLookup[(size_t)blendState.eqAlpha]);
-				glstate.blendFuncSeparate.set(
-					glBlendFactorLookup[(size_t)blendState.srcColor], glBlendFactorLookup[(size_t)blendState.dstColor],
-					glBlendFactorLookup[(size_t)blendState.srcAlpha], glBlendFactorLookup[(size_t)blendState.dstAlpha]);
 				if (blendState.dirtyShaderBlend) {
 					gstate_c.Dirty(DIRTY_SHADERBLEND);
 				}
@@ -210,10 +209,8 @@ void DrawEngineGLES::ApplyDrawState(int prim) {
 						(float)((color & 0xFF0000) >> 16) * (1.0f / 255.0f),
 						(float)((color & 0xFF000000) >> 24) * (1.0f / 255.0f),
 					};
-					glstate.blendColor.set(col);
+					renderManager->SetBlendFactor(col);
 				}
-			} else {
-				glstate.blend.disable();
 			}
 
 			// PSP color/alpha mask is per bit but we can only support per byte.
@@ -235,19 +232,20 @@ void DrawEngineGLES::ApplyDrawState(int prim) {
 				WARN_LOG_REPORT_ONCE(amask, G3D, "Unsupported alpha/stencil mask: %02x", abits);
 			}
 #endif
-
-			glstate.colorMask.set(rmask, gmask, bmask, amask);
+			int mask = (int)rmask | ((int)gmask << 1) | ((int)bmask << 2) | ((int)amask << 3);
+			if (blendState.enabled) {
+				renderManager->SetBlendAndMask(mask, blendState.enabled,
+					glBlendFactorLookup[(size_t)blendState.srcColor], glBlendFactorLookup[(size_t)blendState.dstColor],
+					glBlendFactorLookup[(size_t)blendState.srcAlpha], glBlendFactorLookup[(size_t)blendState.dstAlpha],
+					glBlendEqLookup[(size_t)blendState.eqColor], glBlendEqLookup[(size_t)blendState.eqAlpha]);
+			} else {
+				renderManager->SetNoBlendAndMask(mask);
+			}
 
 #ifndef USING_GLES2
 			if (gstate_c.Supports(GPU_SUPPORTS_LOGIC_OP)) {
-				// TODO: Make this dynamic
-				// Logic Ops
-				if (gstate.isLogicOpEnabled() && gstate.getLogicOp() != GE_LOGIC_COPY) {
-					glstate.colorLogicOp.enable();
-					glstate.logicOp.set(logicOps[gstate.getLogicOp()]);
-				} else {
-					glstate.colorLogicOp.disable();
-				}
+				renderManager->SetLogicOp(gstate.isLogicOpEnabled() && gstate.getLogicOp() != GE_LOGIC_COPY,
+					logicOps[gstate.getLogicOp()]);
 			}
 #endif
 		}
@@ -257,26 +255,18 @@ void DrawEngineGLES::ApplyDrawState(int prim) {
 		gstate_c.Clean(DIRTY_RASTER_STATE);
 
 		// Dither
-		if (gstate.isDitherEnabled()) {
-			glstate.dither.enable();
-			glstate.dither.set(true);
-		} else {
-			glstate.dither.disable();
-		}
+		bool dither = gstate.isDitherEnabled();
+		bool cullEnable;
+		GLenum cullMode = cullingMode[gstate.getCullMode() ^ !useBufferedRendering];
 
 		if (gstate.isModeClear()) {
 			// Culling
-			glstate.cullFace.disable();
+			cullEnable = false;
 		} else {
 			// Set cull
-			bool cullEnabled = !gstate.isModeThrough() && prim != GE_PRIM_RECTANGLES && gstate.isCullEnabled();
-			if (cullEnabled) {
-				glstate.cullFace.enable();
-				glstate.cullFaceMode.set(cullingMode[gstate.getCullMode() ^ !useBufferedRendering]);
-			} else {
-				glstate.cullFace.disable();
-			}
+			cullEnable = !gstate.isModeThrough() && prim != GE_PRIM_RECTANGLES && gstate.isCullEnabled();
 		}
+		renderManager->SetRaster(cullEnable, GL_CCW, cullMode, dither);
 	}
 
 	if (gstate_c.IsDirty(DIRTY_DEPTHSTENCIL_STATE)) {
@@ -284,77 +274,43 @@ void DrawEngineGLES::ApplyDrawState(int prim) {
 		bool enableStencilTest = !g_Config.bDisableStencilTest;
 		if (gstate.isModeClear()) {
 			// Depth Test
-			glstate.depthTest.enable();
-			glstate.depthFunc.set(GL_ALWAYS);
-			glstate.depthWrite.set(gstate.isClearModeDepthMask() ? GL_TRUE : GL_FALSE);
 			if (gstate.isClearModeDepthMask()) {
 				framebufferManager_->SetDepthUpdated();
 			}
-
-			// Stencil Test
-			if (gstate.isClearModeAlphaMask() && enableStencilTest) {
-				glstate.stencilTest.enable();
-				glstate.stencilOp.set(GL_REPLACE, GL_REPLACE, GL_REPLACE);
-				// TODO: In clear mode, the stencil value is set to the alpha value of the vertex.
-				// A normal clear will be 2 points, the second point has the color.
-				// We should set "ref" to that value instead of 0.
-				// In case of clear rectangles, we set it again once we know what the color is.
-				glstate.stencilFunc.set(GL_ALWAYS, 255, 0xFF);
-				glstate.stencilMask.set(0xFF);
-			} else {
-				glstate.stencilTest.disable();
-			}
+			renderManager->SetStencilFunc(gstate.isClearModeAlphaMask() && enableStencilTest, GL_ALWAYS, 0xFF, 0xFF);
+			renderManager->SetStencilOp(0xFF, GL_REPLACE, GL_REPLACE, GL_REPLACE);
+			renderManager->SetDepth(true, gstate.isClearModeDepthMask() ? true : false, GL_ALWAYS);
 		} else {
 			// Depth Test
-			if (gstate.isDepthTestEnabled()) {
-				glstate.depthTest.enable();
-				glstate.depthFunc.set(compareOps[gstate.getDepthTestFunction()]);
-				glstate.depthWrite.set(gstate.isDepthWriteEnabled() ? GL_TRUE : GL_FALSE);
-				if (gstate.isDepthWriteEnabled()) {
-					framebufferManager_->SetDepthUpdated();
-				}
-			} else {
-				glstate.depthTest.disable();
+			renderManager->SetDepth(gstate.isDepthTestEnabled(), gstate.isDepthWriteEnabled(), compareOps[gstate.getDepthTestFunction()]);
+			if (gstate.isDepthTestEnabled() && gstate.isDepthWriteEnabled()) {
+				framebufferManager_->SetDepthUpdated();
 			}
 
 			GenericStencilFuncState stencilState;
 			ConvertStencilFuncState(stencilState);
-
 			// Stencil Test
 			if (stencilState.enabled) {
-				glstate.stencilTest.enable();
-				glstate.stencilFunc.set(compareOps[stencilState.testFunc], stencilState.testRef, stencilState.testMask);
-				glstate.stencilOp.set(stencilOps[stencilState.sFail], stencilOps[stencilState.zFail], stencilOps[stencilState.zPass]);
-				glstate.stencilMask.set(stencilState.writeMask);
+				renderManager->SetStencilFunc(stencilState.enabled, compareOps[stencilState.testFunc], stencilState.testRef, stencilState.testMask);
+				renderManager->SetStencilOp(stencilState.writeMask, stencilOps[stencilState.sFail], stencilOps[stencilState.zFail], stencilOps[stencilState.zPass]);
 			} else {
-				glstate.stencilTest.disable();
+				renderManager->SetStencilDisabled();
 			}
 		}
 	}
 
 	if (gstate_c.IsDirty(DIRTY_VIEWPORTSCISSOR_STATE)) {
 		gstate_c.Clean(DIRTY_VIEWPORTSCISSOR_STATE);
-		ViewportAndScissor vpAndScissor;
 		ConvertViewportAndScissor(useBufferedRendering,
 			framebufferManager_->GetRenderWidth(), framebufferManager_->GetRenderHeight(),
 			framebufferManager_->GetTargetBufferWidth(), framebufferManager_->GetTargetBufferHeight(),
 			vpAndScissor);
 
-		if (vpAndScissor.scissorEnable) {
-			glstate.scissorTest.enable();
-			if (!useBufferedRendering) {
-				vpAndScissor.scissorY = PSP_CoreParameter().pixelHeight - vpAndScissor.scissorH - vpAndScissor.scissorY;
-			}
-			glstate.scissorRect.set(vpAndScissor.scissorX, vpAndScissor.scissorY, vpAndScissor.scissorW, vpAndScissor.scissorH);
-		} else {
-			glstate.scissorTest.disable();
-		}
-
-		if (!useBufferedRendering) {
-			vpAndScissor.viewportY = PSP_CoreParameter().pixelHeight - vpAndScissor.viewportH - vpAndScissor.viewportY;
-		}
-		glstate.viewport.set(vpAndScissor.viewportX, vpAndScissor.viewportY, vpAndScissor.viewportW, vpAndScissor.viewportH);
-		glstate.depthRange.set(vpAndScissor.depthRangeMin, vpAndScissor.depthRangeMax);
+		renderManager->SetScissor(GLRect2D{ vpAndScissor.scissorX, vpAndScissor.scissorY, vpAndScissor.scissorW, vpAndScissor.scissorH });
+		renderManager->SetViewport({
+			vpAndScissor.viewportX, vpAndScissor.viewportY,
+			vpAndScissor.viewportW, vpAndScissor.viewportH,
+			vpAndScissor.depthRangeMin, vpAndScissor.depthRangeMax });
 
 		if (vpAndScissor.dirtyProj) {
 			gstate_c.Dirty(DIRTY_PROJMATRIX);
@@ -363,40 +319,19 @@ void DrawEngineGLES::ApplyDrawState(int prim) {
 			gstate_c.Dirty(DIRTY_DEPTHRANGE);
 		}
 	}
-	CHECK_GL_ERROR_IF_DEBUG();
 }
 
-void DrawEngineGLES::ApplyDrawStateLate() {
+void DrawEngineGLES::ApplyDrawStateLate(bool setStencil, int stencilValue) {
+	if (setStencil) {
+		render_->SetStencilFunc(GL_TRUE, GL_ALWAYS, stencilValue, 255);
+	}
+
 	// At this point, we know if the vertices are full alpha or not.
 	// TODO: Set the nearest/linear here (since we correctly know if alpha/color tests are needed)?
 	if (!gstate.isModeClear()) {
-		if (fboTexNeedBind_) {
-			CHECK_GL_ERROR_IF_DEBUG();
-			// Note that this is positions, not UVs, that we need the copy from.
-			framebufferManager_->BindFramebufferAsColorTexture(1, framebufferManager_->GetCurrentRenderVFB(), BINDFBCOLOR_MAY_COPY);
-			framebufferManager_->RebindFramebuffer();
-			CHECK_GL_ERROR_IF_DEBUG();
-
-			glActiveTexture(GL_TEXTURE1);
-			// If we are rendering at a higher resolution, linear is probably best for the dest color.
-			glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-			glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-			glActiveTexture(GL_TEXTURE0);
-			fboTexBound_ = true;
-			fboTexNeedBind_ = false;
-			CHECK_GL_ERROR_IF_DEBUG();
-		}
-		CHECK_GL_ERROR_IF_DEBUG();
-
-		// Apply the texture after the FBO tex, since it might unbind the texture.
-		// TODO: Could use a separate texture unit to be safer?
-		textureCache_->ApplyTexture();
-		CHECK_GL_ERROR_IF_DEBUG();
-
 		// Apply last, once we know the alpha params of the texture.
 		if (gstate.isAlphaTestEnabled() || gstate.isColorTestEnabled()) {
-			fragmentTestCache_->BindTestTexture(GL_TEXTURE2);
+			fragmentTestCache_->BindTestTexture(2);
 		}
-		CHECK_GL_ERROR_IF_DEBUG();
 	}
 }

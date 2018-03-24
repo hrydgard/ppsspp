@@ -16,6 +16,7 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
+#include <thread>
 #include "base/logging.h"
 #include "profiler/profiler.h"
 
@@ -29,6 +30,7 @@
 #include "Core/Config.h"
 #include "Core/Reporting.h"
 #include "Core/System.h"
+#include "Core/ELF/ParamSFO.h"
 
 #include "GPU/GPUState.h"
 #include "GPU/ge_constants.h"
@@ -45,31 +47,6 @@
 #include "Core/HLE/sceKernelThread.h"
 #include "Core/HLE/sceKernelInterrupt.h"
 #include "Core/HLE/sceGe.h"
-
-struct VulkanCommandTableEntry {
-	uint8_t cmd;
-	uint8_t flags;
-	uint64_t dirty;
-	GPU_Vulkan::CmdFunc func;
-};
-
-GPU_Vulkan::CommandInfo GPU_Vulkan::cmdInfo_[256];
-
-// This table gets crunched into a faster form by init.
-static const VulkanCommandTableEntry commandTable[] = {
-	// Changes that dirty the current texture.
-	{ GE_CMD_TEXSIZE0, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTE, 0, &GPUCommon::Execute_TexSize0 },
-
-	// Changing the vertex type requires us to flush.
-	{ GE_CMD_VERTEXTYPE, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE, 0, &GPUCommon::Execute_VertexType },
-
-	{ GE_CMD_PRIM, FLAG_EXECUTE, 0, &GPU_Vulkan::Execute_Prim },
-	{ GE_CMD_BEZIER, FLAG_FLUSHBEFORE | FLAG_EXECUTE, 0, &GPUCommon::Execute_Bezier },
-	{ GE_CMD_SPLINE, FLAG_FLUSHBEFORE | FLAG_EXECUTE, 0, &GPUCommon::Execute_Spline },
-
-	// Changes that trigger data copies. Only flushing on change for LOADCLUT must be a bit of a hack...
-	{ GE_CMD_LOADCLUT, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTE, 0, &GPU_Vulkan::Execute_LoadClut },
-};
 
 GPU_Vulkan::GPU_Vulkan(GraphicsContext *gfxCtx, Draw::DrawContext *draw)
 	: GPUCommon(gfxCtx, draw),
@@ -111,46 +88,6 @@ GPU_Vulkan::GPU_Vulkan(GraphicsContext *gfxCtx, Draw::DrawContext *draw)
 		ERROR_LOG(G3D, "gstate has drifted out of sync!");
 	}
 
-	memset(cmdInfo_, 0, sizeof(cmdInfo_));
-
-	// Import both the global and local command tables, and check for dupes
-	std::set<u8> dupeCheck;
-	for (size_t i = 0; i < commonCommandTableSize; i++) {
-		const u8 cmd = commonCommandTable[i].cmd;
-		if (dupeCheck.find(cmd) != dupeCheck.end()) {
-			ERROR_LOG(G3D, "Command table Dupe: %02x (%i)", (int)cmd, (int)cmd);
-		} else {
-			dupeCheck.insert(cmd);
-		}
-		cmdInfo_[cmd].flags |= (uint64_t)commonCommandTable[i].flags | (commonCommandTable[i].dirty << 8);
-		cmdInfo_[cmd].func = commonCommandTable[i].func;
-		if ((cmdInfo_[cmd].flags & (FLAG_EXECUTE | FLAG_EXECUTEONCHANGE)) && !cmdInfo_[cmd].func) {
-			Crash();
-		}
-	}
-
-	for (size_t i = 0; i < ARRAY_SIZE(commandTable); i++) {
-		const u8 cmd = commandTable[i].cmd;
-		if (dupeCheck.find(cmd) != dupeCheck.end()) {
-			ERROR_LOG(G3D, "Command table Dupe: %02x (%i)", (int)cmd, (int)cmd);
-		} else {
-			dupeCheck.insert(cmd);
-		}
-		cmdInfo_[cmd].flags |= (uint64_t)commandTable[i].flags | (commandTable[i].dirty << 8);
-		cmdInfo_[cmd].func = commandTable[i].func;
-		if ((cmdInfo_[cmd].flags & (FLAG_EXECUTE | FLAG_EXECUTEONCHANGE)) && !cmdInfo_[cmd].func) {
-			Crash();
-		}
-	}
-	// Find commands missing from the table.
-	for (int i = 0; i < 0xEF; i++) {
-		if (dupeCheck.find((u8)i) == dupeCheck.end()) {
-			ERROR_LOG(G3D, "Command missing from table: %02x (%i)", i, i);
-		}
-	}
-
-	UpdateCmdInfo();
-
 	BuildReportingInfo();
 	// Update again after init to be sure of any silly driver problems.
 	UpdateVsyncInterval(true);
@@ -159,9 +96,66 @@ GPU_Vulkan::GPU_Vulkan(GraphicsContext *gfxCtx, Draw::DrawContext *draw)
 	if (vulkan_->GetFeaturesEnabled().wideLines) {
 		drawEngine_.SetLineWidth(PSP_CoreParameter().renderWidth / 480.0f);
 	}
+
+	// Load shader cache.
+	std::string discID = g_paramSFO.GetDiscID();
+	if (discID.size()) {
+		File::CreateFullPath(GetSysDirectory(DIRECTORY_APP_CACHE));
+		shaderCachePath_ = GetSysDirectory(DIRECTORY_APP_CACHE) + "/" + discID + ".vkshadercache";
+		shaderCacheLoaded_ = false;
+
+		std::thread th([&] {
+			LoadCache(shaderCachePath_);
+			shaderCacheLoaded_ = true;
+		});
+		th.detach();
+	}
+}
+
+bool GPU_Vulkan::IsReady() {
+	return shaderCacheLoaded_;
+}
+
+void GPU_Vulkan::LoadCache(std::string filename) {
+	PSP_SetLoading("Loading shader cache...");
+	// Actually precompiled by IsReady() since we're single-threaded.
+	FILE *f = File::OpenCFile(filename, "rb");
+	if (!f)
+		return;
+
+	// First compile shaders to SPIR-V, then load the pipeline cache and recreate the pipelines.
+	// It's when recreating the pipelines that the pipeline cache is useful - in the ideal case,
+	// it can just memcpy the finished shader binaries out of the pipeline cache file.
+	bool result = shaderManagerVulkan_->LoadCache(f);
+	if (result) {
+		VkRenderPass renderPass = g_Config.iRenderingMode == FB_BUFFERED_MODE ?
+			(VkRenderPass)draw_->GetNativeObject(Draw::NativeObject::FRAMEBUFFER_RENDERPASS) :
+			(VkRenderPass)draw_->GetNativeObject(Draw::NativeObject::BACKBUFFER_RENDERPASS);
+		result = pipelineManager_->LoadCache(f, false, shaderManagerVulkan_, &drawEngine_, drawEngine_.GetPipelineLayout(), renderPass);
+	}
+	fclose(f);
+	if (!result) {
+		WARN_LOG(G3D, "Bad Vulkan pipeline cache");
+		// Bad cache file for this GPU/Driver/etc. Delete it.
+		File::Delete(filename);
+	} else {
+		INFO_LOG(G3D, "Loaded Vulkan pipeline cache.");
+	}
+}
+
+void GPU_Vulkan::SaveCache(std::string filename) {
+	FILE *f = File::OpenCFile(filename, "wb");
+	if (!f)
+		return;
+	shaderManagerVulkan_->SaveCache(f);
+	pipelineManager_->SaveCache(f, false, shaderManagerVulkan_);
+	INFO_LOG(G3D, "Saved Vulkan pipeline cache");
+	fclose(f);
 }
 
 GPU_Vulkan::~GPU_Vulkan() {
+	SaveCache(shaderCachePath_);
+	// Note: We save the cache in DeviceLost
 	DestroyDeviceObjects();
 	framebufferManagerVulkan_->DestroyAllFBOs();
 	vulkan2D_.Shutdown();
@@ -255,7 +249,6 @@ void GPU_Vulkan::CheckGPUFeatures() {
 
 void GPU_Vulkan::BeginHostFrame() {
 	drawEngine_.BeginFrame();
-	UpdateCmdInfo();
 
 	if (resized_) {
 		CheckGPUFeatures();
@@ -405,39 +398,9 @@ void GPU_Vulkan::UpdateVsyncInterval(bool force) {
 	// TODO
 }
 
-void GPU_Vulkan::UpdateCmdInfo() {
-	if (g_Config.bSoftwareSkinning) {
-		cmdInfo_[GE_CMD_VERTEXTYPE].flags &= ~FLAG_FLUSHBEFOREONCHANGE;
-		cmdInfo_[GE_CMD_VERTEXTYPE].func = &GPUCommon::Execute_VertexTypeSkinning;
-	} else {
-		cmdInfo_[GE_CMD_VERTEXTYPE].flags |= FLAG_FLUSHBEFOREONCHANGE;
-		cmdInfo_[GE_CMD_VERTEXTYPE].func = &GPUCommon::Execute_VertexType;
-	}
-}
-
 void GPU_Vulkan::SetDisplayFramebuffer(u32 framebuf, u32 stride, GEBufferFormat format) {
 	host->GPUNotifyDisplay(framebuf, stride, format);
 	framebufferManager_->SetDisplayFramebuffer(framebuf, stride, format);
-}
-
-bool GPU_Vulkan::FramebufferDirty() {
-	VirtualFramebuffer *vfb = framebufferManager_->GetDisplayVFB();
-	if (vfb) {
-		bool dirty = vfb->dirtyAfterDisplay;
-		vfb->dirtyAfterDisplay = false;
-		return dirty;
-	}
-	return true;
-}
-
-bool GPU_Vulkan::FramebufferReallyDirty() {
-	VirtualFramebuffer *vfb = framebufferManager_->GetDisplayVFB();
-	if (vfb) {
-		bool dirty = vfb->reallyDirtyAfterDisplay;
-		vfb->reallyDirtyAfterDisplay = false;
-		return dirty;
-	}
-	return true;
 }
 
 void GPU_Vulkan::CopyDisplayToOutput() {
@@ -449,44 +412,6 @@ void GPU_Vulkan::CopyDisplayToOutput() {
 	framebufferManagerVulkan_->CopyDisplayToOutput();
 
 	gstate_c.Dirty(DIRTY_TEXTURE_IMAGE);
-}
-
-// Maybe should write this in ASM...
-void GPU_Vulkan::FastRunLoop(DisplayList &list) {
-	PROFILE_THIS_SCOPE("gpuloop");
-	const CommandInfo *cmdInfo = cmdInfo_;
-	int dc = downcount;
-	for (; dc > 0; --dc) {
-		// We know that display list PCs have the upper nibble == 0 - no need to mask the pointer
-		const u32 op = *(const u32 *)(Memory::base + list.pc);
-		const u32 cmd = op >> 24;
-		const CommandInfo &info = cmdInfo[cmd];
-		const u32 diff = op ^ gstate.cmdmem[cmd];
-		if (diff == 0) {
-			if (info.flags & FLAG_EXECUTE) {
-				downcount = dc;
-				(this->*info.func)(op, diff);
-				dc = downcount;
-			}
-		} else {
-			uint64_t flags = info.flags;
-			if (flags & FLAG_FLUSHBEFOREONCHANGE) {
-				drawEngine_.Flush();
-			}
-			gstate.cmdmem[cmd] = op;
-			if (flags & (FLAG_EXECUTE | FLAG_EXECUTEONCHANGE)) {
-				downcount = dc;
-				(this->*info.func)(op, diff);
-				dc = downcount;
-			} else {
-				uint64_t dirty = flags >> 8;
-				if (dirty)
-					gstate_c.Dirty(dirty);
-			}
-		}
-		list.pc += 4;
-	}
-	downcount = 0;
 }
 
 void GPU_Vulkan::FinishDeferred() {
@@ -520,85 +445,6 @@ void GPU_Vulkan::ExecuteOp(u32 op, u32 diff) {
 	}
 }
 
-void GPU_Vulkan::Execute_Prim(u32 op, u32 diff) {
-	// This drives all drawing. All other state we just buffer up, then we apply it only
-	// when it's time to draw. As most PSP games set state redundantly ALL THE TIME, this is a huge optimization.
-
-	PROFILE_THIS_SCOPE("execprim");
-
-	u32 data = op & 0xFFFFFF;
-	u32 count = data & 0xFFFF;
-	if (count == 0)
-		return;
-
-	// Upper bits are ignored.
-	GEPrimitiveType prim = static_cast<GEPrimitiveType>((data >> 16) & 7);
-	SetDrawType(DRAW_PRIM, prim);
-
-	// Discard AA lines as we can't do anything that makes sense with these anyway. The SW plugin might, though.
-	if (gstate.isAntiAliasEnabled()) {
-		// Discard AA lines in DOA
-		if (prim == GE_PRIM_LINE_STRIP)
-			return;
-		// Discard AA lines in Summon Night 5
-		if ((prim == GE_PRIM_LINES) && gstate.isSkinningEnabled())
-			return;
-	}
-
-	// This also makes skipping drawing very effective.
-	framebufferManager_->SetRenderFrameBuffer(gstate_c.IsDirty(DIRTY_FRAMEBUF), gstate_c.skipDrawReason);
-
-	if (gstate_c.skipDrawReason & (SKIPDRAW_SKIPFRAME | SKIPDRAW_NON_DISPLAYED_FB)) {
-		drawEngine_.SetupVertexDecoder(gstate.vertType);  // Do we still need to do this?
-		// Rough estimate, not sure what's correct.
-		cyclesExecuted += EstimatePerVertexCost() * count;
-		return;
-	}
-
-	if (!Memory::IsValidAddress(gstate_c.vertexAddr)) {
-		ERROR_LOG_REPORT(G3D, "Bad vertex address %08x!", gstate_c.vertexAddr);
-		return;
-	}
-
-	void *verts = Memory::GetPointerUnchecked(gstate_c.vertexAddr);
-	void *inds = 0;
-	u32 vertexType = gstate.vertType;
-	if ((gstate.vertType & GE_VTYPE_IDX_MASK) != GE_VTYPE_IDX_NONE) {
-		u32 indexAddr = gstate_c.indexAddr;
-		if (!Memory::IsValidAddress(indexAddr)) {
-			ERROR_LOG_REPORT(G3D, "Bad index address %08x!", indexAddr);
-			return;
-		}
-		inds = Memory::GetPointerUnchecked(indexAddr);
-	}
-
-#ifndef MOBILE_DEVICE
-	if (prim > GE_PRIM_RECTANGLES) {
-		ERROR_LOG_REPORT_ONCE(reportPrim, G3D, "Unexpected prim type: %d", prim);
-	}
-#endif
-
-	if (gstate_c.dirty & DIRTY_VERTEXSHADER_STATE) {
-		vertexCost_ = EstimatePerVertexCost();
-	}
-	gpuStats.vertexGPUCycles += vertexCost_ * count;
-	cyclesExecuted += vertexCost_* count;
-
-	int bytesRead = 0;
-	UpdateUVScaleOffset();
-	drawEngine_.SubmitPrim(verts, inds, prim, count, vertexType, &bytesRead);
-
-	// After drawing, we advance the vertexAddr (when non indexed) or indexAddr (when indexed).
-	// Some games rely on this, they don't bother reloading VADDR and IADDR.
-	// The VADDR/IADDR registers are NOT updated.
-	AdvanceVerts(vertexType, count, bytesRead);
-}
-
-void GPU_Vulkan::Execute_LoadClut(u32 op, u32 diff) {
-	gstate_c.Dirty(DIRTY_TEXTURE_PARAMS);
-	textureCacheVulkan_->LoadClut(gstate.getClutAddress(), gstate.getClutLoadBytes());
-}
-
 void GPU_Vulkan::InitDeviceObjects() {
 	ILOG("GPU_Vulkan::InitDeviceObjects");
 	// Initialize framedata
@@ -620,6 +466,9 @@ void GPU_Vulkan::DestroyDeviceObjects() {
 }
 
 void GPU_Vulkan::DeviceLost() {
+	if (!shaderCachePath_.empty()) {
+		SaveCache(shaderCachePath_);
+	}
 	DestroyDeviceObjects();
 	framebufferManagerVulkan_->DeviceLost();
 	vulkan2D_.DeviceLost();
@@ -637,7 +486,6 @@ void GPU_Vulkan::DeviceRestore() {
 
 	CheckGPUFeatures();
 	BuildReportingInfo();
-	UpdateCmdInfo();
 
 	framebufferManagerVulkan_->DeviceRestore(vulkan_, draw_);
 	vulkan2D_.DeviceRestore(vulkan_);

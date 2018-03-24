@@ -775,22 +775,19 @@ void TextureCacheD3D11::LoadTextureLevel(TexCacheEntry &entry, ReplacedTexture &
 	FreeAlignedMemory(mapData);
 }
 
-bool TextureCacheD3D11::DecodeTexture(u8 *output, const GPUgstate &state) {
-	OutputDebugStringA("TextureCache::DecodeTexture : FixMe\r\n");
-	return true;
-}
-
 bool TextureCacheD3D11::GetCurrentTextureDebug(GPUDebugBuffer &buffer, int level) {
-	ApplyTexture();
 	SetTexture(false);
 	if (!nextTexture_)
 		return false;
 
+	// Apply texture may need to rebuild the texture if we're about to render, or bind a framebuffer.
+	TexCacheEntry *entry = nextTexture_;
+	ApplyTexture();
+
 	// TODO: Centralize.
-	if (nextTexture_->framebuffer) {
-		VirtualFramebuffer *vfb = nextTexture_->framebuffer;
-		bool flipY = GetGPUBackend() == GPUBackend::OPENGL && g_Config.iRenderingMode != FB_NON_BUFFERED_MODE;
-		buffer.Allocate(vfb->bufferWidth, vfb->bufferHeight, GPU_DBG_FORMAT_8888, flipY);
+	if (entry->framebuffer) {
+		VirtualFramebuffer *vfb = entry->framebuffer;
+		buffer.Allocate(vfb->bufferWidth, vfb->bufferHeight, GPU_DBG_FORMAT_8888, false);
 		bool retval = draw_->CopyFramebufferToMemorySync(vfb->fbo, Draw::FB_COLOR_BIT, 0, 0, vfb->bufferWidth, vfb->bufferHeight, Draw::DataFormat::R8G8B8A8_UNORM, buffer.GetData(), vfb->bufferWidth);
 		// Vulkan requires us to re-apply all dynamic state for each command buffer, and the above will cause us to start a new cmdbuf.
 		// So let's dirty the things that are involved in Vulkan dynamic state. Readbacks are not frequent so this won't hurt other backends.
@@ -800,7 +797,7 @@ bool TextureCacheD3D11::GetCurrentTextureDebug(GPUDebugBuffer &buffer, int level
 		return retval;
 	}
 
-	ID3D11Texture2D *texture = (ID3D11Texture2D *)nextTexture_->texturePtr;
+	ID3D11Texture2D *texture = (ID3D11Texture2D *)entry->texturePtr;
 	if (!texture)
 		return false;
 

@@ -6,7 +6,7 @@
 
 #pragma once
 
-#include <stdint.h>
+#include <cstdint>
 #include <cstddef>
 #include <vector>
 #include <string>
@@ -15,26 +15,6 @@
 #include "DataFormat.h"
 
 class Matrix4x4;
-
-#ifdef _WIN32
-#ifndef NOMINMAX
-#define NOMINMAX
-#endif
-#define WIN32_LEAN_AND_MEAN
-#include <Windows.h>
-#include <d3dcommon.h>
-struct IDirect3DDevice9;
-struct IDirect3D9;
-struct IDirect3DDevice9Ex;
-struct IDirect3D9Ex;
-struct ID3D11Device;
-struct ID3D11DeviceContext;
-struct ID3D11Device1;
-struct ID3D11DeviceContext1;
-
-#endif
-
-class VulkanContext;
 
 namespace Draw {
 
@@ -543,6 +523,7 @@ class DrawContext {
 public:
 	virtual ~DrawContext();
 	bool CreatePresets();
+	void DestroyPresets();
 
 	virtual const DeviceCaps &GetDeviceCaps() const = 0;
 	virtual uint32_t GetDataFormatSupport(DataFormat fmt) const = 0;
@@ -589,7 +570,10 @@ public:
 	// color must be 0, for now.
 	virtual void BindFramebufferAsTexture(Framebuffer *fbo, int binding, FBChannel channelBit, int attachment) = 0;
 
-	virtual uintptr_t GetFramebufferAPITexture(Framebuffer *fbo, int channelBits, int attachment) = 0;
+	// deprecated
+	virtual uintptr_t GetFramebufferAPITexture(Framebuffer *fbo, int channelBits, int attachment) {
+		return 0;
+	}
 
 	virtual void GetFramebufferDimensions(Framebuffer *fbo, int *w, int *h) = 0;
 
@@ -632,7 +616,7 @@ public:
 	virtual void Clear(int mask, uint32_t colorval, float depthVal, int stencilVal) = 0;
 
 	// Necessary to correctly flip scissor rectangles etc for OpenGL.
-	void SetTargetSize(int w, int h) {
+	virtual void SetTargetSize(int w, int h) {
 		targetWidth_ = w;
 		targetHeight_ = h;
 	}
@@ -660,16 +644,7 @@ protected:
 	int targetHeight_;
 };
 
-DrawContext *T3DCreateGLContext();
-
 extern const UniformBufferDesc UBPresetDesc;
-
-#ifdef _WIN32
-DrawContext *T3DCreateDX9Context(IDirect3D9 *d3d, IDirect3D9Ex *d3dEx, int adapterId, IDirect3DDevice9 *device, IDirect3DDevice9Ex *deviceEx);
-DrawContext *T3DCreateD3D11Context(ID3D11Device *device, ID3D11DeviceContext *context, ID3D11Device1 *device1, ID3D11DeviceContext1 *context1, D3D_FEATURE_LEVEL featureLevel, HWND hWnd);
-#endif
-
-DrawContext *T3DCreateVulkanContext(VulkanContext *context, bool split);
 
 // UBs for the preset shaders
 

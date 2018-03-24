@@ -58,6 +58,7 @@
 
 #include "base/stringutil.h"
 #include "thin3d/thin3d.h"
+#include "thin3d/thin3d_create.h"
 #include "thin3d/VulkanRenderManager.h"
 #include "util/text/parsers.h"
 #include "Windows/GPU/WindowsVulkanContext.h"

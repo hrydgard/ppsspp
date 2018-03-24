@@ -67,17 +67,16 @@ enum {
 int DecFmtSize(u8 fmt);
 
 struct DecVtxFormat {
-	u8 w0fmt; u8 w0off;  // first 4 weights
-	u8 w1fmt; u8 w1off;  // second 4 weights
 	u8 uvfmt; u8 uvoff;
 	u8 c0fmt; u8 c0off;  // First color
 	u8 c1fmt; u8 c1off;
 	u8 nrmfmt; u8 nrmoff;
 	u8 posfmt; u8 posoff;
-	short stride;
+	u8 stride;
 
 	uint32_t id;
 	void ComputeID();
+	void InitializeFromID(uint32_t id);
 };
 
 void GetIndexBounds(const void *inds, int count, u32 vertType, u16 *indexLowerBound, u16 *indexUpperBound);
@@ -346,61 +345,6 @@ public:
 		}
 	}
 
-	void ReadWeights(float weights[8]) const {
-		const float *f = (const float *)(data_ + decFmt_.w0off);
-		const u8 *b = (const u8 *)(data_ + decFmt_.w0off);
-		const u16 *s = (const u16 *)(data_ + decFmt_.w0off);
-		switch (decFmt_.w0fmt) {
-		case DEC_FLOAT_1:
-		case DEC_FLOAT_2:
-		case DEC_FLOAT_3:
-		case DEC_FLOAT_4:
-			for (int i = 0; i <= decFmt_.w0fmt - DEC_FLOAT_1; i++)
-				weights[i] = f[i];
-			break;
-		case DEC_U8_1: weights[0] = b[0] * (1.f / 128.f); break;
-		case DEC_U8_2: for (int i = 0; i < 2; i++) weights[i] = b[i] * (1.f / 128.f); break;
-		case DEC_U8_3: for (int i = 0; i < 3; i++) weights[i] = b[i] * (1.f / 128.f); break;
-		case DEC_U8_4: for (int i = 0; i < 4; i++) weights[i] = b[i] * (1.f / 128.f); break;
-		case DEC_U16_1: weights[0] = s[0] * (1.f / 32768.f); break;
-		case DEC_U16_2: for (int i = 0; i < 2; i++) weights[i] = s[i] * (1.f / 32768.f); break;
-		case DEC_U16_3: for (int i = 0; i < 3; i++) weights[i] = s[i] * (1.f / 32768.f); break;
-		case DEC_U16_4: for (int i = 0; i < 4; i++) weights[i] = s[i] * (1.f / 32768.f); break;
-		default:
-			ERROR_LOG_REPORT_ONCE(fmtw0, G3D, "Reader: Unsupported W0 Format %d", decFmt_.w0fmt);
-			memset(weights, 0, sizeof(float) * 8);
-			break;
-		}
-
-		f = (const float *)(data_ + decFmt_.w1off);
-		b = (const u8 *)(data_ + decFmt_.w1off);
-		s = (const u16 *)(data_ + decFmt_.w1off);
-		switch (decFmt_.w1fmt) {
-		case 0:
-			// It's fine for there to be w0 weights but not w1.
-			break;
-		case DEC_FLOAT_1:
-		case DEC_FLOAT_2:
-		case DEC_FLOAT_3:
-		case DEC_FLOAT_4:
-			for (int i = 0; i <= decFmt_.w1fmt - DEC_FLOAT_1; i++)
-				weights[i+4] = f[i];
-			break;
-		case DEC_U8_1: weights[4] = b[0] * (1.f / 128.f); break;
-		case DEC_U8_2: for (int i = 0; i < 2; i++) weights[i+4] = b[i] * (1.f / 128.f); break;
-		case DEC_U8_3: for (int i = 0; i < 3; i++) weights[i+4] = b[i] * (1.f / 128.f); break;
-		case DEC_U8_4: for (int i = 0; i < 4; i++) weights[i+4] = b[i] * (1.f / 128.f); break;
-		case DEC_U16_1: weights[4] = s[0] * (1.f / 32768.f); break;
-		case DEC_U16_2: for (int i = 0; i < 2; i++) weights[i+4] = s[i] * (1.f / 32768.f); break;
-		case DEC_U16_3: for (int i = 0; i < 3; i++) weights[i+4] = s[i] * (1.f / 32768.f); break;
-		case DEC_U16_4: for (int i = 0; i < 4; i++) weights[i+4] = s[i]  * (1.f / 32768.f); break;
-		default:
-			ERROR_LOG_REPORT_ONCE(fmtw1, G3D, "Reader: Unsupported W1 Format %d", decFmt_.w1fmt);
-			memset(weights + 4, 0, sizeof(float) * 4);
-			break;
-		}
-	}
-
 	bool hasColor0() const { return decFmt_.c0fmt != 0; }
 	bool hasColor1() const { return decFmt_.c1fmt != 0; }
 	bool hasNormal() const { return decFmt_.nrmfmt != 0; }
@@ -431,9 +375,6 @@ struct JitLookup {
 	JitStepFunction jitFunc;
 };
 
-// Collapse to less skinning shaders to reduce shader switching, which is expensive.
-int TranslateNumBones(int bones);
-
 typedef void(*JittedVertexDecoder)(const u8 *src, u8 *dst, int count);
 
 struct VertexDecoderOptions {
@@ -460,11 +401,7 @@ public:
 
 	std::string GetString(DebugShaderStringType stringType);
 
-	void Step_WeightsU8() const;
-	void Step_WeightsU16() const;
-	void Step_WeightsU8ToFloat() const;
-	void Step_WeightsU16ToFloat() const;
-	void Step_WeightsFloat() const;
+	void ComputeSkinMatrix(const float weights[8]) const;
 
 	void Step_WeightsU8Skin() const;
 	void Step_WeightsU16Skin() const;
@@ -517,6 +454,10 @@ public:
 	void Step_NormalS16Morph() const;
 	void Step_NormalFloatMorph() const;
 
+	void Step_NormalS8MorphSkin() const;
+	void Step_NormalS16MorphSkin() const;
+	void Step_NormalFloatMorphSkin() const;
+
 	void Step_PosS8() const;
 	void Step_PosS16() const;
 	void Step_PosFloat() const;
@@ -528,6 +469,10 @@ public:
 	void Step_PosS8Morph() const;
 	void Step_PosS16Morph() const;
 	void Step_PosFloatMorph() const;
+
+	void Step_PosS8MorphSkin() const;
+	void Step_PosS16MorphSkin() const;
+	void Step_PosFloatMorphSkin() const;
 
 	void Step_PosS8Through() const;
 	void Step_PosS16Through() const;
@@ -607,12 +552,6 @@ public:
 	// Returns a pointer to the code to run.
 	JittedVertexDecoder Compile(const VertexDecoder &dec, int32_t *jittedSize);
 	void Clear();
-
-	void Jit_WeightsU8();
-	void Jit_WeightsU16();
-	void Jit_WeightsU8ToFloat();
-	void Jit_WeightsU16ToFloat();
-	void Jit_WeightsFloat();
 
 	void Jit_WeightsU8Skin();
 	void Jit_WeightsU16Skin();

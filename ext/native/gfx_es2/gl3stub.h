@@ -260,6 +260,10 @@ typedef struct __GLsync *GLsync;
 #define GL_MAP_INVALIDATE_BUFFER_BIT                     0x0008
 #define GL_MAP_FLUSH_EXPLICIT_BIT                        0x0010
 #define GL_MAP_UNSYNCHRONIZED_BIT                        0x0020
+#define GL_MAP_PERSISTENT_BIT_EXT                        0x0040
+#define GL_MAP_COHERENT_BIT_EXT                          0x0080
+#define GL_DYNAMIC_STORAGE_BIT_EXT                       0x0100
+#define GL_CLIENT_STORAGE_BIT_EXT                        0x0200
 #define GL_RG                                            0x8227
 #define GL_RG_INTEGER                                    0x8228
 #define GL_R8                                            0x8229
@@ -500,9 +504,12 @@ extern GL_APICALL void           (* GL_APIENTRY glBindFragDataLocationEXT) (GLui
 extern GL_APICALL GLint          (* GL_APIENTRY glGetProgramResourceLocationIndexEXT) (GLuint program, GLenum programInterface, const GLchar *name);
 extern GL_APICALL GLint          (* GL_APIENTRY glGetFragDataIndexEXT) (GLuint program, const GLchar *name);
 
+/* EXT_buffer_storage */
+extern GL_APICALL void           (* GL_APIENTRY glBufferStorageEXT) (GLenum target, GLsizeiptr size, const void *data, GLbitfield flags);
+
 /* OES_copy_image, etc. */
 extern GL_APICALL void           (* GL_APIENTRY glCopyImageSubDataOES) (GLuint srcName, GLenum srcTarget, GLint srcLevel, GLint srcX, GLint srcY, GLint srcZ, GLuint dstName, GLenum dstTarget, GLint dstLevel, GLint dstX, GLint dstY, GLint dstZ, GLsizei width, GLsizei height, GLsizei depth);
-    
+
 #endif   // IOS
 
 #ifdef __cplusplus

@@ -50,18 +50,6 @@ DrawEngineCommon::~DrawEngineCommon() {
 	});
 }
 
-void DrawEngineCommon::SetupVertexDecoder(u32 vertType) {
-	// As the decoder depends on the UVGenMode when we use UV prescale, we simply mash it
-	// into the top of the verttype where there are unused bits.
-	const u32 vertTypeID = (vertType & 0xFFFFFF) | (gstate.getUVGenMode() << 24);
-
-	// If vtype has changed, setup the vertex decoder.
-	if (vertTypeID != lastVType_) {
-		dec_ = GetVertexDecoder(vertTypeID);
-		lastVType_ = vertTypeID;
-	}
-}
-
 VertexDecoder *DrawEngineCommon::GetVertexDecoder(u32 vtype) {
 	VertexDecoder *dec = decoderMap_.Get(vtype);
 	if (dec)
@@ -105,7 +93,7 @@ int DrawEngineCommon::ComputeNumVertsToDecode() const {
 void DrawEngineCommon::DecodeVerts(u8 *dest) {
 	const UVScale origUV = gstate_c.uv;
 	for (; decodeCounter_ < numDrawCalls; decodeCounter_++) {
-		gstate_c.uv = uvScale[decodeCounter_];
+		gstate_c.uv = drawCalls[decodeCounter_].uvScale;
 		DecodeVertsStep(dest, decodeCounter_, decodedVerts_);  // NOTE! DecodeVertsStep can modify decodeCounter_!
 	}
 	gstate_c.uv = origUV;
@@ -330,11 +318,12 @@ bool DrawEngineCommon::GetCurrentSimpleVertices(int count, std::vector<GPUDebugV
 	Matrix4ByMatrix4(worldviewproj, worldview, gstate.projMatrix);
 
 	vertices.resize(indexUpperBound + 1);
+	uint32_t vertType = gstate.vertType;
 	for (int i = indexLowerBound; i <= indexUpperBound; ++i) {
 		const SimpleVertex &vert = simpleVertices[i];
 
-		if (gstate.isModeThrough()) {
-			if (gstate.vertType & GE_VTYPE_TC_MASK) {
+		if ((vertType & GE_VTYPE_THROUGH) != 0) {
+			if (vertType & GE_VTYPE_TC_MASK) {
 				vertices[i].u = vert.uv[0];
 				vertices[i].v = vert.uv[1];
 			} else {
@@ -344,7 +333,7 @@ bool DrawEngineCommon::GetCurrentSimpleVertices(int count, std::vector<GPUDebugV
 			vertices[i].x = vert.pos.x;
 			vertices[i].y = vert.pos.y;
 			vertices[i].z = vert.pos.z;
-			if (gstate.vertType & GE_VTYPE_COL_MASK) {
+			if (vertType & GE_VTYPE_COL_MASK) {
 				memcpy(vertices[i].c, vert.color, sizeof(vertices[i].c));
 			} else {
 				memset(vertices[i].c, 0, sizeof(vertices[i].c));
@@ -358,7 +347,7 @@ bool DrawEngineCommon::GetCurrentSimpleVertices(int count, std::vector<GPUDebugV
 			Vec3f screenPos = ClipToScreen(clipPos);
 			Vec3f drawPos = ScreenToDrawing(screenPos);
 
-			if (gstate.vertType & GE_VTYPE_TC_MASK) {
+			if (vertType & GE_VTYPE_TC_MASK) {
 				vertices[i].u = vert.uv[0] * (float)gstate.getTextureWidth(0);
 				vertices[i].v = vert.uv[1] * (float)gstate.getTextureHeight(0);
 			} else {
@@ -369,7 +358,7 @@ bool DrawEngineCommon::GetCurrentSimpleVertices(int count, std::vector<GPUDebugV
 			vertices[i].x = drawPos.x;
 			vertices[i].y = drawPos.y;
 			vertices[i].z = drawPos.z;
-			if (gstate.vertType & GE_VTYPE_COL_MASK) {
+			if (vertType & GE_VTYPE_COL_MASK) {
 				memcpy(vertices[i].c, vert.color, sizeof(vertices[i].c));
 			} else {
 				memset(vertices[i].c, 0, sizeof(vertices[i].c));
@@ -390,12 +379,8 @@ bool DrawEngineCommon::GetCurrentSimpleVertices(int count, std::vector<GPUDebugV
 // The implementation is initially a bit inefficient but shouldn't be a big deal.
 // An intermediate buffer of not-easy-to-predict size is stored at bufPtr.
 u32 DrawEngineCommon::NormalizeVertices(u8 *outPtr, u8 *bufPtr, const u8 *inPtr, VertexDecoder *dec, int lowerBound, int upperBound, u32 vertType) {
-	// First, decode the vertices into a GPU compatible format. This step can be eliminated but will need a separate
-	// implementation of the vertex decoder.
+	// First, decode the vertices into a GPU compatible format.
 	dec->DecodeVerts(bufPtr, inPtr, lowerBound, upperBound);
-
-	// OK, morphing eliminated but bones still remain to be taken care of.
-	// Let's do a partial software transform where we only do skinning.
 
 	VertexReader reader(bufPtr, dec->GetDecVtxFmt(), vertType);
 
@@ -408,56 +393,7 @@ u32 DrawEngineCommon::NormalizeVertices(u8 *outPtr, u8 *bufPtr, const u8 *inPtr,
 		(u8)gstate.getMaterialAmbientA(),
 	};
 
-	// Let's have two separate loops, one for non skinning and one for skinning.
-	if (!g_Config.bSoftwareSkinning && (vertType & GE_VTYPE_WEIGHT_MASK) != GE_VTYPE_WEIGHT_NONE) {
-		int numBoneWeights = vertTypeGetNumBoneWeights(vertType);
-		for (int i = lowerBound; i <= upperBound; i++) {
-			reader.Goto(i - lowerBound);
-			SimpleVertex &sv = sverts[i];
-			if (vertType & GE_VTYPE_TC_MASK) {
-				reader.ReadUV(sv.uv);
-			}
-
-			if (vertType & GE_VTYPE_COL_MASK) {
-				reader.ReadColor0_8888(sv.color);
-			} else {
-				memcpy(sv.color, defaultColor, 4);
-			}
-
-			float nrm[3], pos[3];
-			float bnrm[3], bpos[3];
-
-			if (vertType & GE_VTYPE_NRM_MASK) {
-				// Normals are generated during tessellation anyway, not sure if any need to supply
-				reader.ReadNrm(nrm);
-			} else {
-				nrm[0] = 0;
-				nrm[1] = 0;
-				nrm[2] = 1.0f;
-			}
-			reader.ReadPos(pos);
-
-			// Apply skinning transform directly
-			float weights[8];
-			reader.ReadWeights(weights);
-			// Skinning
-			Vec3Packedf psum(0, 0, 0);
-			Vec3Packedf nsum(0, 0, 0);
-			for (int w = 0; w < numBoneWeights; w++) {
-				if (weights[w] != 0.0f) {
-					Vec3ByMatrix43(bpos, pos, gstate.boneMatrix + w * 12);
-					Vec3Packedf tpos(bpos);
-					psum += tpos * weights[w];
-
-					Norm3ByMatrix43(bnrm, nrm, gstate.boneMatrix + w * 12);
-					Vec3Packedf tnorm(bnrm);
-					nsum += tnorm * weights[w];
-				}
-			}
-			sv.pos = psum;
-			sv.nrm = nsum;
-		}
-	} else {
+	{
 		for (int i = lowerBound; i <= upperBound; i++) {
 			reader.Goto(i - lowerBound);
 			SimpleVertex &sv = sverts[i];
@@ -665,6 +601,70 @@ ReliableHashType DrawEngineCommon::ComputeHash() {
 		}
 	}
 
-	fullhash += DoReliableHash(&uvScale[0], sizeof(uvScale[0]) * numDrawCalls, 0x0123e658);
+	fullhash += DoReliableHash(&drawCalls[0].uvScale, sizeof(drawCalls[0].uvScale) * numDrawCalls, 0x0123e658);
 	return fullhash;
+}
+
+// vertTypeID is the vertex type but with the UVGen mode smashed into the top bits.
+void DrawEngineCommon::SubmitPrim(void *verts, void *inds, GEPrimitiveType prim, int vertexCount, u32 vertTypeID, int *bytesRead) {
+	if (!indexGen.PrimCompatible(prevPrim_, prim) || numDrawCalls >= MAX_DEFERRED_DRAW_CALLS || vertexCountInDrawCalls_ + vertexCount > VERTEX_BUFFER_MAX) {
+		DispatchFlush();
+	}
+
+	// TODO: Is this the right thing to do?
+	if (prim == GE_PRIM_KEEP_PREVIOUS) {
+		prim = prevPrim_ != GE_PRIM_INVALID ? prevPrim_ : GE_PRIM_POINTS;
+	} else {
+		prevPrim_ = prim;
+	}
+
+	// If vtype has changed, setup the vertex decoder.
+	if (vertTypeID != lastVType_) {
+		dec_ = GetVertexDecoder(vertTypeID);
+		lastVType_ = vertTypeID;
+	}
+
+	*bytesRead = vertexCount * dec_->VertexSize();
+	if ((vertexCount < 2 && prim > 0) || (vertexCount < 3 && prim > 2 && prim != GE_PRIM_RECTANGLES))
+		return;
+
+	if (g_Config.bVertexCache) {
+		u32 dhash = dcid_;
+		dhash = __rotl(dhash ^ (u32)(uintptr_t)verts, 13);
+		dhash = __rotl(dhash ^ (u32)(uintptr_t)inds, 13);
+		dhash = __rotl(dhash ^ (u32)vertTypeID, 13);
+		dhash = __rotl(dhash ^ (u32)vertexCount, 13);
+		dcid_ = dhash ^ (u32)prim;
+	}
+
+	DeferredDrawCall &dc = drawCalls[numDrawCalls];
+	dc.verts = verts;
+	dc.inds = inds;
+	dc.indexType = (vertTypeID & GE_VTYPE_IDX_MASK) >> GE_VTYPE_IDX_SHIFT;
+	dc.prim = prim;
+	dc.vertexCount = vertexCount;
+	dc.uvScale = gstate_c.uv;
+
+	if (inds) {
+		GetIndexBounds(inds, vertexCount, vertTypeID, &dc.indexLowerBound, &dc.indexUpperBound);
+	} else {
+		dc.indexLowerBound = 0;
+		dc.indexUpperBound = vertexCount - 1;
+	}
+
+	numDrawCalls++;
+	vertexCountInDrawCalls_ += vertexCount;
+
+	if (vertTypeID & GE_VTYPE_WEIGHT_MASK) {
+		DecodeVertsStep(decoded, decodeCounter_, decodedVerts_);
+		decodeCounter_++;
+	}
+
+	if (prim == GE_PRIM_RECTANGLES && (gstate.getTextureAddress(0) & 0x3FFFFFFF) == (gstate.getFrameBufAddress() & 0x3FFFFFFF)) {
+		// Rendertarget == texture?
+		if (!g_Config.bDisableSlowFramebufEffects) {
+			gstate_c.Dirty(DIRTY_TEXTURE_PARAMS);
+			DispatchFlush();
+		}
+	}
 }

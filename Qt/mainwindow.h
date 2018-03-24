@@ -1,5 +1,7 @@
-#ifndef MAINWINDOW_H
-#define MAINWINDOW_H
+#pragma once
+
+#include <queue>
+#include <mutex>
 
 #include <QtCore>
 #include <QMenuBar>
@@ -21,6 +23,12 @@ extern bool g_TakeScreenshot;
 class MenuAction;
 class MenuTree;
 
+// hacky, should probably use qt signals or something, but whatever..
+enum class MainWindowMsg {
+	BOOT_DONE,
+	WINDOW_TITLE_CHANGED,
+};
+
 class MainWindow : public QMainWindow
 {
 	Q_OBJECT
@@ -38,6 +46,17 @@ public:
 	void ShowMemory(u32 addr);
 	void updateMenus();
 
+	void Notify(MainWindowMsg msg) {
+		std::unique_lock<std::mutex> lock(msgMutex_);
+		msgQueue_.push(msg);
+	}
+
+	void SetWindowTitleAsync(std::string title) {
+		std::unique_lock<std::mutex> lock(titleMutex_);
+		newWindowTitle_ = title;
+		Notify(MainWindowMsg::WINDOW_TITLE_CHANGED);
+	}
+
 protected:
 	void changeEvent(QEvent *e)
 	{
@@ -54,7 +73,6 @@ signals:
 	void updateMenu();
 
 public slots:
-	void Boot();
 	void newFrame();
 
 private slots:
@@ -136,6 +154,7 @@ private slots:
 	void langChanged(QAction *action) { loadLanguage(action->data().toString(), true); }
 
 private:
+	void bootDone();
 	void SetWindowScale(int zoom);
 	void SetGameTitle(QString text);
 	void loadLanguage(const QString &language, bool retranslate);
@@ -155,6 +174,12 @@ private:
 
 	QActionGroup *anisotropicGroup, *screenGroup, *displayLayoutGroup,
 	             *defaultLogGroup, *g3dLogGroup, *hleLogGroup;
+
+	std::queue<MainWindowMsg> msgQueue_;
+	std::mutex msgMutex_;
+
+	std::string newWindowTitle_;
+	std::mutex titleMutex_;
 };
 
 class MenuAction : public QAction
@@ -275,5 +300,3 @@ public slots:
 private:
 	const char *_text;
 };
-
-#endif // MAINWINDOW_H

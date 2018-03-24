@@ -111,9 +111,6 @@ static const ARMReg srcNEON = Q2;
 static const ARMReg accNEON = Q3;
 
 static const JitLookup jitLookup[] = {
-	{&VertexDecoder::Step_WeightsU8, &VertexDecoderJitCache::Jit_WeightsU8},
-	{&VertexDecoder::Step_WeightsU16, &VertexDecoderJitCache::Jit_WeightsU16},
-	{&VertexDecoder::Step_WeightsFloat, &VertexDecoderJitCache::Jit_WeightsFloat},
 	{&VertexDecoder::Step_WeightsU8Skin, &VertexDecoderJitCache::Jit_WeightsU8Skin},
 	{&VertexDecoder::Step_WeightsU16Skin, &VertexDecoderJitCache::Jit_WeightsU16Skin},
 	{&VertexDecoder::Step_WeightsFloatSkin, &VertexDecoderJitCache::Jit_WeightsFloatSkin},
@@ -232,7 +229,7 @@ JittedVertexDecoder VertexDecoderJitCache::Compile(const VertexDecoder &dec, int
 	// Add code to convert matrices to 4x4.
 	// Later we might want to do this when the matrices are loaded instead.
 	int boneCount = 0;
-	if (NEONSkinning && dec.weighttype && g_Config.bSoftwareSkinning && dec.morphcount == 1) {
+	if (NEONSkinning && dec.weighttype) {
 		// Copying from R3 to R4
 		MOVP2R(R3, gstate.boneMatrix);
 		MOVP2R(R4, bones);
@@ -324,55 +321,6 @@ JittedVertexDecoder VertexDecoderJitCache::Compile(const VertexDecoder &dec, int
 	*jittedSize = GetCodePtr() - start;
 	EndWrite();
 	return (JittedVertexDecoder)start;
-}
-
-void VertexDecoderJitCache::Jit_WeightsU8() {
-	// Basic implementation - a byte at a time. TODO: Optimize
-	int j;
-	for (j = 0; j < dec_->nweights; j++) {
-		LDRB(tempReg1, srcReg, dec_->weightoff + j);
-		STRB(tempReg1, dstReg, dec_->decFmt.w0off + j);
-	}
-	if (j & 3) {
-		// Create a zero register. Might want to make a fixed one.
-		EOR(scratchReg, scratchReg, scratchReg);
-	}
-	while (j & 3) {
-		STRB(scratchReg, dstReg, dec_->decFmt.w0off + j);
-		j++;
-	}
-}
-
-void VertexDecoderJitCache::Jit_WeightsU16() {
-	// Basic implementation - a short at a time. TODO: Optimize
-	int j;
-	for (j = 0; j < dec_->nweights; j++) {
-		LDRH(tempReg1, srcReg, dec_->weightoff + j * 2);
-		STRH(tempReg1, dstReg, dec_->decFmt.w0off + j * 2);
-	}
-	if (j & 3) {
-		// Create a zero register. Might want to make a fixed one.
-		EOR(scratchReg, scratchReg, scratchReg);
-	}
-	while (j & 3) {
-		STRH(scratchReg, dstReg, dec_->decFmt.w0off + j * 2);
-		j++;
-	}
-}
-
-void VertexDecoderJitCache::Jit_WeightsFloat() {
-	int j;
-	for (j = 0; j < dec_->nweights; j++) {
-		LDR(tempReg1, srcReg, dec_->weightoff + j * 4);
-		STR(tempReg1, dstReg, dec_->decFmt.w0off + j * 4);
-	}
-	if (j & 3) {
-		EOR(tempReg1, tempReg1, tempReg1);
-	}
-	while (j & 3) {  // Zero additional weights rounding up to 4.
-		STR(tempReg1, dstReg, dec_->decFmt.w0off + j * 4);
-		j++;
-	}
 }
 
 static const ARMReg weightRegs[8] = { S8, S9, S10, S11, S12, S13, S14, S15 };

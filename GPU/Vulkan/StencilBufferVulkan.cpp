@@ -38,11 +38,15 @@ layout (location = 0) in vec2 v_texcoord0;
 layout (location = 0) out vec4 fragColor0;
 
 void main() {
-	vec4 index = texture(tex, v_texcoord0);
-	int indexBits = int(floor(index.a * 255.99)) & 0xFF;
-	if ((indexBits & u_stencilValue) == 0)
-		discard;
-	fragColor0 = index.aaaa;
+	if (u_stencilValue == 0) {
+		fragColor0 = vec4(0.0);
+	} else {
+		vec4 index = texture(tex, v_texcoord0);
+		int indexBits = int(floor(index.a * 255.99)) & 0xFF;
+		if ((indexBits & u_stencilValue) == 0)
+			discard;
+		fragColor0 = index.aaaa;
+	}
 }
 )";
 
@@ -116,18 +120,6 @@ bool FramebufferManagerVulkan::NotifyStencilUpload(u32 addr, int size, bool skip
 
 	VulkanRenderManager *renderManager = (VulkanRenderManager *)draw_->GetNativeObject(Draw::NativeObject::RENDER_MANAGER);
 
-	if (usedBits == 0) {
-		if (skipZero) {
-			// Common when creating buffers, it's already 0.  We're done.
-			return false;
-		}
-
-		// TODO: Find a nice way to clear alpha here too.
-		draw_->BindFramebufferAsRenderTarget(dstBuffer->fbo, { Draw::RPAction::KEEP, Draw::RPAction::KEEP, Draw::RPAction::CLEAR });
-		gstate_c.Dirty(DIRTY_BLEND_STATE | DIRTY_RASTER_STATE | DIRTY_VIEWPORTSCISSOR_STATE);
-		return true;
-	}
-
 	shaderManagerVulkan_->DirtyLastShader();
 	textureCacheVulkan_->ForgetLastTexture();
 
@@ -150,26 +142,34 @@ bool FramebufferManagerVulkan::NotifyStencilUpload(u32 addr, int size, bool skip
 
 	VkDescriptorSet descSet = vulkan2D_->GetDescriptorSet(overrideImageView_, nearestSampler_, VK_NULL_HANDLE, VK_NULL_HANDLE);
 
+	// Note: Even with skipZero, we don't necessarily start framebuffers at 0 in Vulkan.  Clear anyway.
+	// Not an actual clear, because we need to draw to alpha only as well.
+	uint32_t value = 0;
+	renderManager->PushConstants(vulkan2D_->GetPipelineLayout(), VK_SHADER_STAGE_VERTEX_BIT|VK_SHADER_STAGE_FRAGMENT_BIT, 0, 4, &value);
+	renderManager->SetStencilParams(0xFF, 0xFF, 0x00);
+	renderManager->Draw(vulkan2D_->GetPipelineLayout(), descSet, 0, nullptr, VK_NULL_HANDLE, 0, 3);  // full screen triangle
+
 	for (int i = 1; i < values; i += i) {
 		if (!(usedBits & i)) {
 			// It's already zero, let's skip it.
 			continue;
 		}
-		// These feel a little backwards : Mask is the bits that are going to be written, while value
-		// is the "mask" that will be tested against.
-		uint8_t mask = 0;
+
+		// These are the stencil bits that will be written.  We discard when the bit doesn't match.
+		uint8_t writeMask = 0;
+		// This is the value to test the texture alpha against in the shader.
 		uint32_t value = 0;
 		if (dstBuffer->format == GE_FORMAT_4444) {
-			mask = i | (i << 4);
+			writeMask = i | (i << 4);
 			value = i * 16;
 		} else if (dstBuffer->format == GE_FORMAT_5551) {
-			mask = 0xFF;
+			writeMask = 0xFF;
 			value = i * 128;
 		} else {
-			mask = i;
+			writeMask = i;
 			value = i;
 		}
-		renderManager->SetStencilParams(mask, 0xFF, 0xFF);
+		renderManager->SetStencilParams(writeMask, 0xFF, 0xFF);
 		// Need to specify both VERTEX and FRAGMENT bits here since that's what we set up in the pipeline layout, and we need
 		// that for the post shaders. There's probably not really a cost to this.
 		renderManager->PushConstants(vulkan2D_->GetPipelineLayout(), VK_SHADER_STAGE_VERTEX_BIT|VK_SHADER_STAGE_FRAGMENT_BIT, 0, 4, &value);

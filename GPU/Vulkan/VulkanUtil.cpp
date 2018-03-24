@@ -62,7 +62,10 @@ void Vulkan2D::DestroyDeviceObjects() {
 }
 
 void Vulkan2D::InitDeviceObjects() {
-	pipelineCache_ = vulkan_->CreatePipelineCache();
+	VkPipelineCacheCreateInfo pc{ VK_STRUCTURE_TYPE_PIPELINE_CACHE_CREATE_INFO };
+	VkResult res = vkCreatePipelineCache(vulkan_->GetDevice(), &pc, nullptr, &pipelineCache_);
+	assert(VK_SUCCESS == res);
+
 	VkDescriptorSetLayoutBinding bindings[2] = {};
 	// Texture.
 	bindings[0].descriptorCount = 1;
@@ -80,7 +83,7 @@ void Vulkan2D::InitDeviceObjects() {
 	VkDescriptorSetLayoutCreateInfo dsl = { VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO };
 	dsl.bindingCount = 2;
 	dsl.pBindings = bindings;
-	VkResult res = vkCreateDescriptorSetLayout(device, &dsl, nullptr, &descriptorSetLayout_);
+	res = vkCreateDescriptorSetLayout(device, &dsl, nullptr, &descriptorSetLayout_);
 	assert(VK_SUCCESS == res);
 
 	VkDescriptorPoolSize dpTypes[1];
@@ -164,8 +167,11 @@ VkDescriptorSet Vulkan2D::GetDescriptorSet(VkImageView tex1, VkSampler sampler1,
 	VkDescriptorImageInfo image1 = {};
 	VkDescriptorImageInfo image2 = {};
 	if (tex1) {
-		// TODO: Also support LAYOUT_GENERAL to be able to texture from framebuffers without transitioning them?
+#ifdef VULKAN_USE_GENERAL_LAYOUT_FOR_COLOR
+		image1.imageLayout = VK_IMAGE_LAYOUT_GENERAL;
+#else
 		image1.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+#endif
 		image1.imageView = tex1;
 		image1.sampler = sampler1;
 		writes[n].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
@@ -178,7 +184,11 @@ VkDescriptorSet Vulkan2D::GetDescriptorSet(VkImageView tex1, VkSampler sampler1,
 	}
 	if (tex2) {
 		// TODO: Also support LAYOUT_GENERAL to be able to texture from framebuffers without transitioning them?
+#ifdef VULKAN_USE_GENERAL_LAYOUT_FOR_COLOR
+		image2.imageLayout = VK_IMAGE_LAYOUT_GENERAL;
+#else
 		image2.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+#endif
 		image2.imageView = tex2;
 		image2.sampler = sampler2;
 		writes[n].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;

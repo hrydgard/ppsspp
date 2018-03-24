@@ -77,6 +77,12 @@ void ProcessGPUFeatures() {
 		}
 		gl_extensions.bugs |= BUG_PVR_GENMIPMAP_HEIGHT_GREATER;
 	}
+
+	// TODO: Make this check more lenient. Disabled for all right now
+	// because it murders performance on Mali.
+	if (gl_extensions.gpuVendor != GPU_VENDOR_NVIDIA) {
+		gl_extensions.bugs |= BUG_ANY_MAP_BUFFER_RANGE_SLOW;
+	}
 }
 
 // http://stackoverflow.com/questions/16147700/opengl-es-using-tegra-specific-extensions-gl-ext-texture-array
@@ -299,6 +305,7 @@ void CheckGLExtensions() {
 	gl_extensions.OES_copy_image = strstr(extString, "GL_OES_copy_image") != 0;
 	gl_extensions.EXT_copy_image = strstr(extString, "GL_EXT_copy_image") != 0;
 	gl_extensions.ARB_copy_image = strstr(extString, "GL_ARB_copy_image") != 0;
+	gl_extensions.ARB_buffer_storage = strstr(extString, "GL_ARB_buffer_storage") != 0;
 	gl_extensions.ARB_vertex_array_object = strstr(extString, "GL_ARB_vertex_array_object") != 0;
 	gl_extensions.ARB_texture_float = strstr(extString, "GL_ARB_texture_float") != 0;
 	gl_extensions.EXT_texture_filter_anisotropic = strstr(extString, "GL_EXT_texture_filter_anisotropic") != 0;
@@ -317,6 +324,7 @@ void CheckGLExtensions() {
 		gl_extensions.NV_shader_framebuffer_fetch = strstr(extString, "GL_NV_shader_framebuffer_fetch") != 0;
 		gl_extensions.ARM_shader_framebuffer_fetch = strstr(extString, "GL_ARM_shader_framebuffer_fetch") != 0;
 		gl_extensions.OES_texture_float = strstr(extString, "GL_OES_texture_float") != 0;
+		gl_extensions.EXT_buffer_storage = strstr(extString, "GL_EXT_buffer_storage") != 0;
 
 #if defined(__ANDROID__)
 		// On Android, incredibly, this is not consistently non-zero! It does seem to have the same value though.
@@ -393,6 +401,8 @@ void CheckGLExtensions() {
 	}
 #endif
 
+	glGetIntegerv(GL_MAX_VERTEX_TEXTURE_IMAGE_UNITS, &gl_extensions.maxVertexTextureUnits);
+
 	// This is probably a waste of time, implementations lie.
 	if (gl_extensions.IsGLES || strstr(extString, "GL_ARB_ES2_compatibility") || gl_extensions.VersionGEThan(4, 1)) {
 		const GLint precisions[6] = {
@@ -456,7 +466,7 @@ void CheckGLExtensions() {
 			// ARB_vertex_attrib_binding = true;
 		}
 		if (gl_extensions.VersionGEThan(4, 4)) {
-			// ARB_buffer_storage = true;
+			gl_extensions.ARB_buffer_storage = true;
 		}
 	}
 

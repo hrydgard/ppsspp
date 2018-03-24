@@ -37,6 +37,7 @@
 #include "Common/GraphicsContext.h"
 
 #ifdef _WIN32
+#include "Common/CommonWindows.h"
 #include "Windows/InputDevice.h"
 #endif
 
@@ -176,7 +177,7 @@ bool UpdateScreenScale(int width, int height) {
 		dp_yres = new_dp_yres;
 		pixel_xres = width;
 		pixel_yres = height;
-		INFO_LOG(SYSTEM, "pixel_res: %dx%d. Calling NativeResized()", pixel_xres, pixel_yres);
+		DEBUG_LOG(SYSTEM, "pixel_res: %dx%d. Calling NativeResized()", pixel_xres, pixel_yres);
 		NativeResized();
 		return true;
 	}
@@ -189,14 +190,11 @@ void UpdateRunLoop() {
 		return;
 	}
 	NativeUpdate();
-
-	if (GetUIState() != UISTATE_EXIT) {
-		NativeRender(graphicsContext);
-	}
+	NativeRender(graphicsContext);
 }
 
 void KeepScreenAwake() {
-#ifdef _WIN32
+#if defined(_WIN32) && !PPSSPP_PLATFORM(UWP)
 	SetThreadExecutionState(ES_SYSTEM_REQUIRED | ES_DISPLAY_REQUIRED);
 #endif
 }
@@ -268,6 +266,7 @@ reswitch:
 		if (GetUIState() != UISTATE_INGAME) {
 			CoreStateProcessed();
 			if (GetUIState() == UISTATE_EXIT) {
+				UpdateRunLoop();
 				return;
 			}
 			Core_RunLoop(ctx);

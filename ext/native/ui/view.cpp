@@ -816,6 +816,10 @@ void TextView::GetContentDimensionsBySpec(const UIContext &dc, MeasureSpec horiz
 }
 
 void TextView::Draw(UIContext &dc) {
+	uint32_t textColor = hasTextColor_ ? textColor_ : dc.theme->infoStyle.fgColor;
+	if (!(textColor & 0xFF000000))
+		return;
+
 	bool clip = false;
 	if (measuredWidth_ > bounds_.w || measuredHeight_ > bounds_.h)
 		clip = true;
@@ -839,7 +843,6 @@ void TextView::Draw(UIContext &dc) {
 		uint32_t shadowColor = 0x80000000;
 		dc.DrawTextRect(text_.c_str(), bounds_.Offset(1.0f, 1.0f), shadowColor, textAlign_);
 	}
-	uint32_t textColor = hasTextColor_ ? textColor_ : dc.theme->infoStyle.fgColor;
 	dc.DrawTextRect(text_.c_str(), bounds_, textColor, textAlign_);
 	if (clip) {
 		dc.PopScissor();
@@ -1069,6 +1072,26 @@ void ProgressBar::Draw(UIContext &dc) {
 	dc.Draw()->DrawImageStretch(dc.theme->whiteImage, bounds_.x, bounds_.y, bounds_.x + bounds_.w * progress_, bounds_.y2(), 0xc0c0c0c0);
 	dc.SetFontStyle(dc.theme->uiFont);
 	dc.DrawTextRect(temp, bounds_, 0xFFFFFFFF, ALIGN_CENTER);
+}
+
+void Spinner::GetContentDimensions(const UIContext &dc, float &w, float &h) const {
+	w = 48;
+	h = 48;
+}
+
+void Spinner::Draw(UIContext &dc) {
+	if (!(color_ & 0xFF000000))
+		return;
+	double t = time_now_d() * 1.3f;
+	double angle = fmod(t, M_PI * 2.0);
+	float r = bounds_.w * 0.5f;
+	double da = M_PI * 2.0 / numImages_;
+	for (int i = 0; i < numImages_; i++) {
+		double a = angle + i * da;
+		float x = (float)cos(a) * r;
+		float y = (float)sin(a) * r;
+		dc.Draw()->DrawImage(images_[i], bounds_.centerX() + x, bounds_.centerY() + y, 1.0f, color_, ALIGN_CENTER);
+	}
 }
 
 void TriggerButton::Touch(const TouchInput &input) {

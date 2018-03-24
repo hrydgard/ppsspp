@@ -29,6 +29,7 @@
 #include "QtMain.h"
 #include "gfx_es2/gpu_features.h"
 #include "math/math_util.h"
+#include "thread/threadutil.h"
 
 #include <string.h>
 
@@ -139,8 +140,7 @@ float CalculateDPIScale()
 #endif
 }
 
-static int mainInternal(QApplication &a)
-{
+static int mainInternal(QApplication &a) {
 #ifdef MOBILE_DEVICE
 	emugl = new MainUI();
 	emugl->resize(pixel_xres, pixel_yres);
@@ -185,34 +185,78 @@ static int mainInternal(QApplication &a)
 	QScopedPointer<MainAudio> audio(new MainAudio());
 	audio->run();
 #endif
-	return a.exec();
+	int retval = a.exec();
+	delete emugl;
+	return retval;
+}
+
+void MainUI::EmuThreadFunc() {
+	setCurrentThreadName("Emu");
+
+	// There's no real requirement that NativeInit happen on this thread, though it can't hurt...
+	// We just call the update/render loop here. NativeInitGraphics should be here though.
+	NativeInitGraphics(graphicsContext);
+
+	emuThreadState = (int)EmuThreadState::RUNNING;
+	while (emuThreadState != (int)EmuThreadState::QUIT_REQUESTED) {
+		updateAccelerometer();
+		UpdateRunLoop();
+	}
+	emuThreadState = (int)EmuThreadState::STOPPED;
+
+	NativeShutdownGraphics();
+	graphicsContext->StopThread();
+}
+
+void MainUI::EmuThreadStart() {
+	emuThreadState = (int)EmuThreadState::START_REQUESTED;
+	emuThread = std::thread([&]() { this->EmuThreadFunc(); } );
+}
+
+void MainUI::EmuThreadStop() {
+	emuThreadState = (int)EmuThreadState::QUIT_REQUESTED;
+}
+
+void MainUI::EmuThreadJoin() {
+	emuThread.join();
+	emuThread = std::thread();
 }
 
 MainUI::MainUI(QWidget *parent):
-    QGLWidget(parent)
+	QGLWidget(parent)
 {
-    setAttribute(Qt::WA_AcceptTouchEvents);
+	emuThreadState = (int)EmuThreadState::DISABLED;
+	setAttribute(Qt::WA_AcceptTouchEvents);
 #if QT_VERSION < QT_VERSION_CHECK(5, 0, 0)
-    setAttribute(Qt::WA_LockLandscapeOrientation);
+	setAttribute(Qt::WA_LockLandscapeOrientation);
 #endif
 #if defined(MOBILE_DEVICE)
-    acc = new QAccelerometer(this);
-    acc->start();
+	acc = new QAccelerometer(this);
+	acc->start();
 #endif
-    setFocus();
-    setFocusPolicy(Qt::StrongFocus);
-    startTimer(16);
+	setFocus();
+	setFocusPolicy(Qt::StrongFocus);
+	startTimer(16);
 }
 
 MainUI::~MainUI()
 {
+	ILOG("MainUI::Destructor");
+	if (emuThreadState != (int)EmuThreadState::DISABLED) {
+		ILOG("EmuThreadStop");
+		EmuThreadStop();
+		while (graphicsContext->ThreadFrame()) {
+			// Need to keep eating frames to allow the EmuThread to exit correctly.
+			continue;
+		}
+		EmuThreadJoin();
+	}
 #if defined(MOBILE_DEVICE)
-        delete acc;
+	delete acc;
 #endif
-        NativeShutdownGraphics();
-        graphicsContext->Shutdown();
-        delete graphicsContext;
-        graphicsContext = nullptr;
+	graphicsContext->Shutdown();
+	delete graphicsContext;
+	graphicsContext = nullptr;
 }
 
 QString MainUI::InputBoxGetQString(QString title, QString defaultValue)
@@ -318,30 +362,47 @@ bool MainUI::event(QEvent *e)
     return true;
 }
 
-void MainUI::initializeGL()
-{
+void MainUI::initializeGL() {
+	if (g_Config.iGPUBackend != (int)GPUBackend::OPENGL) {
+		ILOG("Only GL supported under Qt - switching.");
+		g_Config.iGPUBackend = (int)GPUBackend::OPENGL;
+	}
+
 #ifndef USING_GLES2
 	// Some core profile drivers elide certain extensions from GL_EXTENSIONS/etc.
 	// glewExperimental allows us to force GLEW to search for the pointers anyway.
-	if (gl_extensions.IsCoreContext)
+	if (gl_extensions.IsCoreContext) {
 		glewExperimental = true;
+	}
 	glewInit();
 	// Unfortunately, glew will generate an invalid enum error, ignore.
-	if (gl_extensions.IsCoreContext)
+	if (gl_extensions.IsCoreContext) {
 		glGetError();
+	}
 #endif
-	graphicsContext = new QtDummyGraphicsContext();
-	NativeInitGraphics(graphicsContext);
+	if (g_Config.iGPUBackend == (int)GPUBackend::OPENGL) {
+		// OpenGL uses a background thread to do the main processing and only renders on the gl thread.
+		ILOG("Initializing GL graphics context");
+		graphicsContext = new QtGLGraphicsContext();
+		ILOG("Using thread, starting emu thread");
+		EmuThreadStart();
+	} else {
+		ILOG("Not using thread, backend=%d", (int)g_Config.iGPUBackend);
+	}
+	graphicsContext->ThreadStart();
 }
 
-void MainUI::paintGL()
-{
-#ifdef SDL
-    SDL_PumpEvents();
-#endif
-    updateAccelerometer();
-    time_update();
-    UpdateRunLoop();
+void MainUI::paintGL() {
+	#ifdef SDL
+	SDL_PumpEvents();
+	#endif
+	updateAccelerometer();
+	if (emuThreadState == (int)EmuThreadState::DISABLED) {
+		UpdateRunLoop();
+	} else {
+		graphicsContext->ThreadFrame();
+		// Do the rest in EmuThreadFunc
+	}
 }
 
 void MainUI::updateAccelerometer()
@@ -454,17 +515,20 @@ int main(int argc, char *argv[])
 #endif
 	savegame_dir += "/";
 	external_dir += "/";
-	
+
 	bool fullscreenCLI=false;
 	for (int i = 1; i < argc; i++) {
 		if (!strcmp(argv[i],"--fullscreen"))
 			fullscreenCLI=true;
 	}
 	NativeInit(argc, (const char **)argv, savegame_dir.c_str(), external_dir.c_str(), nullptr, fullscreenCLI);
-	
-	int ret = mainInternal(a);
 
-	NativeShutdownGraphics();
+	// TODO: Support other backends than GL, like Vulkan, in the Qt backend.
+	g_Config.iGPUBackend = (int)GPUBackend::OPENGL;
+
+	int ret = mainInternal(a);
+	ILOG("Left mainInternal here.");
+
 #ifdef SDL
 	SDL_PauseAudio(1);
 	SDL_CloseAudio();

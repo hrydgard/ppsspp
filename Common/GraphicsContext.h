@@ -10,6 +10,9 @@ class GraphicsContext {
 public:
 	virtual ~GraphicsContext() {}
 
+	virtual bool InitFromRenderThread(std::string *errorMessage) { return true; }
+	virtual void ShutdownFromRenderThread() {}
+
 	virtual void Shutdown() = 0;
 	virtual void SwapInterval(int interval) = 0;
 
@@ -24,6 +27,12 @@ public:
 
 	// Needs casting to the appropriate type, unfortunately. Should find a better solution..
 	virtual void *GetAPIContext() { return nullptr; }
+
+	// Called from the render thread from threaded backends.
+	virtual void ThreadStart() {}
+	virtual bool ThreadFrame() { return true; }
+	virtual void ThreadEnd() {}
+	virtual void StopThread() {}
 
 	virtual Draw::DrawContext *GetDrawContext() = 0;
 };

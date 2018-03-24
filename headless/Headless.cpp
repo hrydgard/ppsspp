@@ -371,7 +371,6 @@ int main(int argc, const char* argv[])
 	g_Config.iNumWorkerThreads = 1;
 	g_Config.iATRACMP3Volume = MAX_CONFIG_VOLUME;
 	g_Config.iSASVolume = MAX_CONFIG_VOLUME;
-	g_Config.bSoftwareSkinning = true;
 	g_Config.bVertexDecoderJit = true;
 	g_Config.bBlockTransferGPU = true;
 	g_Config.iSplineBezierQuality = 2;

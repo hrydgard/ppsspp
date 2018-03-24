@@ -547,7 +547,7 @@ VkResult VulkanContext::CreateDevice() {
 		return VK_ERROR_INITIALIZATION_FAILED;
 	}
 
-	VkDeviceQueueCreateInfo queue_info = { VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO };
+	VkDeviceQueueCreateInfo queue_info{ VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO };
 	float queue_priorities[1] = { 1.0f };
 	queue_info.queueCount = 1;
 	queue_info.pQueuePriorities = queue_priorities;
@@ -563,7 +563,7 @@ VkResult VulkanContext::CreateDevice() {
 
 	deviceExtensionsLookup_.DEDICATED_ALLOCATION = EnableDeviceExtension(VK_KHR_DEDICATED_ALLOCATION_EXTENSION_NAME);
 
-	VkDeviceCreateInfo device_info { VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO };
+	VkDeviceCreateInfo device_info{ VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO };
 	device_info.queueCreateInfoCount = 1;
 	device_info.pQueueCreateInfos = &queue_info;
 	device_info.enabledLayerCount = (uint32_t)device_layer_names_.size();
@@ -579,6 +579,7 @@ VkResult VulkanContext::CreateDevice() {
 		VulkanLoadDeviceFunctions(device_);
 	}
 	ILOG("Device created.\n");
+	VulkanSetAvailable(true);
 	return res;
 }
 
@@ -922,27 +923,19 @@ VkFence VulkanContext::CreateFence(bool presignalled) {
 	return fence;
 }
 
-void VulkanContext::DestroyDevice() {
-	ILOG("VulkanContext::DestroyDevice (performing deletes)");
-	// If there happen to be any pending deletes, now is a good time.
+void VulkanContext::PerformPendingDeletes() {
 	for (int i = 0; i < ARRAY_SIZE(frame_); i++) {
 		frame_[i].deleteList.PerformDeletes(device_);
 	}
 	Delete().PerformDeletes(device_);
+}
+
+void VulkanContext::DestroyDevice() {
+	ILOG("VulkanContext::DestroyDevice (performing deletes)");
+	PerformPendingDeletes();
 
 	vkDestroyDevice(device_, nullptr);
 	device_ = nullptr;
-}
-
-VkPipelineCache VulkanContext::CreatePipelineCache() {
-	VkPipelineCache cache;
-	VkPipelineCacheCreateInfo pc{ VK_STRUCTURE_TYPE_PIPELINE_CACHE_CREATE_INFO };
-	pc.pInitialData = nullptr;
-	pc.initialDataSize = 0;
-	pc.flags = 0;
-	VkResult res = vkCreatePipelineCache(device_, &pc, nullptr, &cache);
-	assert(VK_SUCCESS == res);
-	return cache;
 }
 
 bool VulkanContext::CreateShaderModule(const std::vector<uint32_t> &spirv, VkShaderModule *shaderModule) {
@@ -962,6 +955,24 @@ void TransitionImageLayout2(VkCommandBuffer cmd, VkImage image, int baseMip, int
 	VkImageLayout oldImageLayout, VkImageLayout newImageLayout,
 	VkPipelineStageFlags srcStageMask, VkPipelineStageFlags dstStageMask,
 	VkAccessFlags srcAccessMask, VkAccessFlags dstAccessMask) {
+#ifdef VULKAN_USE_GENERAL_LAYOUT_FOR_COLOR
+	if (aspectMask == VK_IMAGE_ASPECT_COLOR_BIT) {
+		// Hack to disable transaction elimination on ARM Mali.
+		if (oldImageLayout == VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL || oldImageLayout == VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL)
+			oldImageLayout = VK_IMAGE_LAYOUT_GENERAL;
+		if (newImageLayout == VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL || newImageLayout == VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL)
+			newImageLayout = VK_IMAGE_LAYOUT_GENERAL;
+	}
+#endif
+#ifdef VULKAN_USE_GENERAL_LAYOUT_FOR_DEPTH_STENCIL
+	if (aspectMask != VK_IMAGE_ASPECT_COLOR_BIT) {
+		// Hack to disable transaction elimination on ARM Mali.
+		if (oldImageLayout == VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL || oldImageLayout == VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL)
+			oldImageLayout = VK_IMAGE_LAYOUT_GENERAL;
+		if (newImageLayout == VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL || newImageLayout == VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL)
+			newImageLayout = VK_IMAGE_LAYOUT_GENERAL;
+	}
+#endif
 	VkImageMemoryBarrier image_memory_barrier{ VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER };
 	image_memory_barrier.srcAccessMask = srcAccessMask;
 	image_memory_barrier.dstAccessMask = dstAccessMask;
@@ -1090,22 +1101,22 @@ const char *VulkanResultToString(VkResult res) {
 }
 
 void VulkanDeleteList::Take(VulkanDeleteList &del) {
-	assert(cmdPools_.size() == 0);
-	assert(descPools_.size() == 0);
-	assert(modules_.size() == 0);
-	assert(buffers_.size() == 0);
-	assert(bufferViews_.size() == 0);
-	assert(images_.size() == 0);
-	assert(imageViews_.size() == 0);
-	assert(deviceMemory_.size() == 0);
-	assert(samplers_.size() == 0);
-	assert(pipelines_.size() == 0);
-	assert(pipelineCaches_.size() == 0);
-	assert(renderPasses_.size() == 0);
-	assert(framebuffers_.size() == 0);
-	assert(pipelineLayouts_.size() == 0);
-	assert(descSetLayouts_.size() == 0);
-	assert(callbacks_.size() == 0);
+	assert(cmdPools_.empty());
+	assert(descPools_.empty());
+	assert(modules_.empty());
+	assert(buffers_.empty());
+	assert(bufferViews_.empty());
+	assert(images_.empty());
+	assert(imageViews_.empty());
+	assert(deviceMemory_.empty());
+	assert(samplers_.empty());
+	assert(pipelines_.empty());
+	assert(pipelineCaches_.empty());
+	assert(renderPasses_.empty());
+	assert(framebuffers_.empty());
+	assert(pipelineLayouts_.empty());
+	assert(descSetLayouts_.empty());
+	assert(callbacks_.empty());
 	cmdPools_ = std::move(del.cmdPools_);
 	descPools_ = std::move(del.descPools_);
 	modules_ = std::move(del.modules_);

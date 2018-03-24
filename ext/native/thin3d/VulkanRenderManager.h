@@ -12,6 +12,7 @@
 
 #include "Common/Vulkan/VulkanContext.h"
 #include "math/dataconv.h"
+#include "math/math_util.h"
 #include "thin3d/DataFormat.h"
 #include "thin3d/VulkanQueueRunner.h"
 
@@ -99,7 +100,7 @@ public:
 	// Zaps queued up commands. Use if you know there's a risk you've queued up stuff that has already been deleted. Can happen during in-game shutdown.
 	void Wipe();
 
-	void BindFramebufferAsRenderTarget(VKRFramebuffer *fb, VKRRenderPassAction color, VKRRenderPassAction depth, uint32_t clearColor, float clearDepth, uint8_t clearStencil);
+	void BindFramebufferAsRenderTarget(VKRFramebuffer *fb, VKRRenderPassAction color, VKRRenderPassAction depth, VKRRenderPassAction stencil, uint32_t clearColor, float clearDepth, uint8_t clearStencil);
 	VkImageView BindFramebufferAsTexture(VKRFramebuffer *fb, int binding, int aspectBit, int attachment);
 	bool CopyFramebufferToMemorySync(VKRFramebuffer *src, int aspectBits, int x, int y, int w, int h, Draw::DataFormat destFormat, uint8_t *pixels, int pixelStride);
 	void CopyImageToMemorySync(VkImage image, int mipLevel, int x, int y, int w, int h, Draw::DataFormat destFormat, uint8_t *pixels, int pixelStride);
@@ -109,6 +110,7 @@ public:
 
 	void BindPipeline(VkPipeline pipeline) {
 		_dbg_assert_(G3D, curRenderStep_ && curRenderStep_->stepType == VKRStepType::RENDER);
+		_dbg_assert_(G3D, pipeline != VK_NULL_HANDLE);
 		VkRenderData data{ VKRRenderCommand::BIND_PIPELINE };
 		data.pipeline.pipeline = pipeline;
 		curRenderStep_->commands.push_back(data);
@@ -117,7 +119,14 @@ public:
 	void SetViewport(const VkViewport &vp) {
 		_dbg_assert_(G3D, curRenderStep_ && curRenderStep_->stepType == VKRStepType::RENDER);
 		VkRenderData data{ VKRRenderCommand::VIEWPORT };
-		data.viewport.vp = vp;
+		data.viewport.vp.x = vp.x;
+		data.viewport.vp.y = vp.y;
+		data.viewport.vp.width = vp.width;
+		data.viewport.vp.height = vp.height;
+		// We can't allow values outside this range unless we use VK_EXT_depth_range_unrestricted.
+		// Sometimes state mapping produces 65536/65535 which is slightly outside.
+		data.viewport.vp.maxDepth = clamp_value(vp.maxDepth, 0.0f, 1.0f);
+		data.viewport.vp.minDepth = clamp_value(vp.minDepth, 0.0f, 1.0f);
 		curRenderStep_->commands.push_back(data);
 	}
 
@@ -167,6 +176,7 @@ public:
 		data.draw.vbuffer = vbuffer;
 		data.draw.voffset = voffset;
 		data.draw.numUboOffsets = numUboOffsets;
+		assert(numUboOffsets <= ARRAY_SIZE(data.drawIndexed.uboOffsets));
 		for (int i = 0; i < numUboOffsets; i++)
 			data.draw.uboOffsets[i] = uboOffsets[i];
 		curRenderStep_->commands.push_back(data);
@@ -185,6 +195,7 @@ public:
 		data.drawIndexed.ibuffer = ibuffer;
 		data.drawIndexed.ioffset = ioffset;
 		data.drawIndexed.numUboOffsets = numUboOffsets;
+		assert(numUboOffsets <= ARRAY_SIZE(data.drawIndexed.uboOffsets));
 		for (int i = 0; i < numUboOffsets; i++)
 			data.drawIndexed.uboOffsets[i] = uboOffsets[i];
 		data.drawIndexed.indexType = indexType;
@@ -195,14 +206,16 @@ public:
 	VkCommandBuffer GetInitCmd();
 
 	VkRenderPass GetRenderPass(VKRRenderPassAction colorLoadAction, VKRRenderPassAction depthLoadAction, VKRRenderPassAction stencilLoadAction) {
-		return queueRunner_.GetRenderPass(colorLoadAction, depthLoadAction, stencilLoadAction);
+		return queueRunner_.GetRenderPass(colorLoadAction, depthLoadAction, stencilLoadAction,
+			VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
 	}
 	VkRenderPass GetBackbufferRenderPass() {
 		return queueRunner_.GetBackbufferRenderPass();
 	}
 	VkRenderPass GetCompatibleRenderPass() {
 		if (curRenderStep_ && curRenderStep_->render.framebuffer != nullptr) {
-			return queueRunner_.GetRenderPass(VKRRenderPassAction::CLEAR, VKRRenderPassAction::CLEAR, VKRRenderPassAction::CLEAR);
+			return queueRunner_.GetRenderPass(VKRRenderPassAction::CLEAR, VKRRenderPassAction::CLEAR, VKRRenderPassAction::CLEAR,
+				VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
 		} else {
 			return queueRunner_.GetBackbufferRenderPass();
 		}

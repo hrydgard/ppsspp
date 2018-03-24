@@ -112,7 +112,7 @@ PrioritizedWorkQueueItem *PrioritizedWorkQueue::Pop() {
 static std::thread *workThread;
 
 static void threadfunc(PrioritizedWorkQueue *wq) {
-	setCurrentThreadName("PrioritizedWorkQueue");
+	setCurrentThreadName("PrioQueue");
 	while (true) {
 		PrioritizedWorkQueueItem *item = wq->Pop();
 		if (!item) {
@@ -126,7 +126,7 @@ static void threadfunc(PrioritizedWorkQueue *wq) {
 }
 
 void ProcessWorkQueueOnThreadWhile(PrioritizedWorkQueue *wq) {
-	workThread = new std::thread(std::bind(&threadfunc, wq));
+	workThread = new std::thread([=](){threadfunc(wq);});
 }
 
 void StopProcessingWorkQueue(PrioritizedWorkQueue *wq) {
@@ -135,5 +135,5 @@ void StopProcessingWorkQueue(PrioritizedWorkQueue *wq) {
 		workThread->join();
 		delete workThread;
 	}
-	workThread = 0;
+	workThread = nullptr;
 }

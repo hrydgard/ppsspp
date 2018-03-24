@@ -821,7 +821,7 @@ typedef Math3D::Vec3<float> Vec3f;
 typedef Math3D::Vec3Packed<float> Vec3Packedf;
 typedef Math3D::Vec4<float> Vec4f;
 
-
+// v and vecOut must point to different memory.
 inline void Vec3ByMatrix43(float vecOut[3], const float v[3], const float m[12]) {
 	vecOut[0] = v[0] * m[0] + v[1] * m[3] + v[2] * m[6] + m[9];
 	vecOut[1] = v[0] * m[1] + v[1] * m[4] + v[2] * m[7] + m[10];

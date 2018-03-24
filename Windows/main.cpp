@@ -529,8 +529,10 @@ int WINAPI WinMain(HINSTANCE _hInstance, HINSTANCE hPrevInstance, LPSTR szCmdLin
 		MainWindow::Minimize();
 	}
 
-	// Emu thread is always running!
-	EmuThread_Start();
+	// Emu thread (and render thread, if any) is always running!
+	// Only OpenGL uses an externally managed render thread (due to GL's single-threaded context design). Vulkan
+	// manages its own render thread.
+	MainThread_Start(g_Config.iGPUBackend == (int)GPUBackend::OPENGL);
 	InputDevice::BeginPolling();
 
 	HACCEL hAccelTable = LoadAccelerators(_hInstance, (LPCTSTR)IDR_ACCELS);
@@ -569,10 +571,8 @@ int WINAPI WinMain(HINSTANCE _hInstance, HINSTANCE hPrevInstance, LPSTR szCmdLin
 			break;
 		}
 
-		if (!TranslateAccelerator(wnd, accel, &msg))
-		{
-			if (!DialogManager::IsDialogMessage(&msg))
-			{
+		if (!TranslateAccelerator(wnd, accel, &msg)) {
+			if (!DialogManager::IsDialogMessage(&msg)) {
 				//and finally translate and dispatch
 				TranslateMessage(&msg);
 				DispatchMessage(&msg);
@@ -580,12 +580,11 @@ int WINAPI WinMain(HINSTANCE _hInstance, HINSTANCE hPrevInstance, LPSTR szCmdLin
 		}
 	}
 
+	MainThread_Stop();
+
 	VFSShutdown();
 
 	InputDevice::StopPolling();
-
-	// The emuthread calls NativeShutdown when shutting down.
-	EmuThread_Stop();
 
 	MainWindow::DestroyDebugWindows();
 	DialogManager::DestroyAll();

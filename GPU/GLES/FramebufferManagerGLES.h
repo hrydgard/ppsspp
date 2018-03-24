@@ -29,28 +29,16 @@
 #include "Core/Config.h"
 #include "GPU/GPUCommon.h"
 #include "GPU/Common/FramebufferCommon.h"
+#include "thin3d/GLRenderManager.h"
 
 struct GLSLProgram;
 class TextureCacheGLES;
 class DrawEngineGLES;
 class ShaderManagerGLES;
 
-// Simple struct for asynchronous PBO readbacks
-struct AsyncPBO {
-	uint32_t handle;
-	u32 maxSize;
-
-	u32 fb_address;
-	u32 stride;
-	u32 height;
-	u32 size;
-	GEBufferFormat format;
-	bool reading;
-};
-
 class FramebufferManagerGLES : public FramebufferManagerCommon {
 public:
-	FramebufferManagerGLES(Draw::DrawContext *draw);
+	FramebufferManagerGLES(Draw::DrawContext *draw, GLRenderManager *render);
 	~FramebufferManagerGLES();
 
 	void SetTextureCache(TextureCacheGLES *tc);
@@ -66,7 +54,6 @@ public:
 	void EndFrame();
 	void Resized() override;
 	void DeviceLost();
-	void SetLineWidth();
 	void ReformatFramebufferFrom(VirtualFramebuffer *vfb, GEBufferFormat old) override;
 
 	void BlitFramebufferDepth(VirtualFramebuffer *src, VirtualFramebuffer *dst) override;
@@ -74,20 +61,14 @@ public:
 	// For use when texturing from a framebuffer.  May create a duplicate if target.
 	void BindFramebufferAsColorTexture(int stage, VirtualFramebuffer *framebuffer, int flags);
 
-	// Reads a rectangular subregion of a framebuffer to the right position in its backing memory.
-	void ReadFramebufferToMemory(VirtualFramebuffer *vfb, bool sync, int x, int y, int w, int h) override;
-	void DownloadFramebufferForClut(u32 fb_address, u32 loadBytes) override;
-
 	bool NotifyStencilUpload(u32 addr, int size, bool skipZero = false) override;
 
 	bool GetOutputFramebuffer(GPUDebugBuffer &buffer) override;
-	virtual void RebindFramebuffer() override;
 
 	void DeviceRestore(Draw::DrawContext *draw);
 
 protected:
 	void SetViewport2D(int x, int y, int w, int h) override;
-	void DisableState() override;
 
 	// Used by ReadFramebufferToMemory and later framebuffer block copies
 	void BlitFramebuffer(VirtualFramebuffer *dst, int dstX, int dstY, VirtualFramebuffer *src, int srcX, int srcY, int w, int h, int bpp) override;
@@ -103,35 +84,44 @@ private:
 	void Bind2DShader() override;
 	void BindPostShader(const PostShaderUniforms &uniforms) override;
 	void CompileDraw2DProgram();
-	void DestroyDraw2DProgram();
 	void CompilePostShader();
 
-	void PackFramebufferAsync_(VirtualFramebuffer *vfb);  // Not used under ES currently
-	void PackFramebufferSync_(VirtualFramebuffer *vfb, int x, int y, int w, int h) override;
 	void PackDepthbuffer(VirtualFramebuffer *vfb, int x, int y, int w, int h);
 
+	GLRenderManager *render_;
+
 	// Used by DrawPixels
-	unsigned int drawPixelsTex_;
-	GEBufferFormat drawPixelsTexFormat_;
-	int drawPixelsTexW_;
-	int drawPixelsTexH_;
+	GLRTexture *drawPixelsTex_ = nullptr;
+	GEBufferFormat drawPixelsTexFormat_ = GE_FORMAT_INVALID;
+	int drawPixelsTexW_ = 0;
+	int drawPixelsTexH_ = 0;
 
-	u8 *convBuf_;
-	u32 convBufSize_;
-	GLSLProgram *draw2dprogram_ = nullptr;
-	GLSLProgram *postShaderProgram_ = nullptr;
-	GLSLProgram *stencilUploadProgram_ = nullptr;
-	int plainColorLoc_;
-	int videoLoc_;
-	int timeLoc_;
-	int pixelDeltaLoc_;
-	int deltaLoc_;
+	u8 *convBuf_ = nullptr;
+	u32 convBufSize_ = 0;
+	GLRProgram *draw2dprogram_ = nullptr;
+	GLRProgram *postShaderProgram_ = nullptr;
 
-	TextureCacheGLES *textureCacheGL_;
-	ShaderManagerGLES *shaderManagerGL_;
-	DrawEngineGLES *drawEngineGL_;
+	GLRProgram *stencilUploadProgram_ = nullptr;
+	int u_stencilUploadTex = -1;
+	int u_stencilValue = -1;
+	int u_postShaderTex = -1;
+	
+	// Cached uniform locs
+	int u_draw2d_tex = -1;
 
-	// Not used under ES currently.
-	AsyncPBO *pixelBufObj_; //this isn't that large
-	u8 currentPBO_;
+	int plainColorLoc_ = -1;
+	int videoLoc_ = -1;
+	int timeLoc_ = -1;
+	int pixelDeltaLoc_ = -1;
+	int deltaLoc_ = -1;
+
+	TextureCacheGLES *textureCacheGL_ = nullptr;
+	ShaderManagerGLES *shaderManagerGL_ = nullptr;
+	DrawEngineGLES *drawEngineGL_ = nullptr;
+
+	struct Simple2DVertex {
+		float pos[3];
+		float uv[2];
+	};
+	GLRInputLayout *simple2DInputLayout_ = nullptr;
 };

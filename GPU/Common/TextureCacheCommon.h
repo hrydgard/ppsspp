@@ -87,6 +87,8 @@ struct SamplerCacheKey {
 	}
 };
 
+class GLRTexture;
+
 // TODO: Shrink this struct. There is some fluff.
 struct TexCacheEntry {
 	~TexCacheEntry() {
@@ -106,8 +108,7 @@ struct TexCacheEntry {
 		STATUS_ALPHA_FULL = 0x00,      // Has no alpha channel, or always full alpha.
 		STATUS_ALPHA_MASK = 0x04,
 
-		// 0x08 free.
-
+		STATUS_CLUT_VARIANTS = 0x08,   // Has multiple CLUT variants.
 		STATUS_CHANGE_FREQUENT = 0x10, // Changes often (less than 6 frames in between.)
 		STATUS_CLUT_RECHECK = 0x20,    // Another texture with same addr had a hashfail.
 		STATUS_DEPALETTIZE = 0x40,     // Needs to go through a depalettize pass.
@@ -132,7 +133,7 @@ struct TexCacheEntry {
 	u16 dim;
 	u16 bufw;
 	union {
-		u32 textureName;
+		GLRTexture *textureName;
 		void *texturePtr;
 		CachedTextureVulkan *vkTex;
 	};
@@ -146,15 +147,7 @@ struct TexCacheEntry {
 	u32 framesUntilNextFullHash;
 	u32 fullhash;
 	u32 cluthash;
-	float lodBias;
 	u16 maxSeenV;
-
-	// Cache the current filter settings so we can avoid setting it again.
-	// (OpenGL ES 2.0 madness where filter settings are attached to each texture. Unused in other backends).
-	u8 magFilt;
-	u8 minFilt;
-	bool sClamp;
-	bool tClamp;
 
 	TexStatus GetHashStatus() {
 		return TexStatus(status & STATUS_MASK);

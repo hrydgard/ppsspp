@@ -44,6 +44,12 @@ typedef u64 ReliableHashType;
 typedef u32 ReliableHashType;
 #endif
 
+inline uint32_t GetVertTypeID(uint32_t vertType, int uvGenMode) {
+	// As the decoder depends on the UVGenMode when we use UV prescale, we simply mash it
+	// into the top of the verttype where there are unused bits.
+	return (vertType & 0xFFFFFF) | (uvGenMode << 24);
+}
+
 class DrawEngineCommon {
 public:
 	DrawEngineCommon();
@@ -56,10 +62,17 @@ public:
 	// Flush is normally non-virtual but here's a virtual way to call it, used by the shared spline code, which is expensive anyway.
 	// Not really sure if these wrappers are worth it...
 	virtual void DispatchFlush() = 0;
-	// Same for SubmitPrim
-	virtual void DispatchSubmitPrim(void *verts, void *inds, GEPrimitiveType prim, int vertexCount, u32 vertType, int *bytesRead) = 0;
+
+	// This would seem to be unnecessary now, but is still required for splines/beziers to work in the software backend since SubmitPrim
+	// is different. Should probably refactor that.
+	// Note that vertTypeID should be computed using GetVertTypeID().
+	virtual void DispatchSubmitPrim(void *verts, void *inds, GEPrimitiveType prim, int vertexCount, u32 vertTypeID, int *bytesRead) {
+		SubmitPrim(verts, inds, prim, vertexCount, vertTypeID, bytesRead);
+	}
 
 	bool TestBoundingBox(void* control_points, int vertexCount, u32 vertType, int *bytesRead);
+
+	void SubmitPrim(void *verts, void *inds, GEPrimitiveType prim, int vertexCount, u32 vertTypeID, int *bytesRead);
 	void SubmitSpline(const void *control_points, const void *indices, int tess_u, int tess_v, int count_u, int count_v, int type_u, int type_v, GEPatchPrimType prim_type, bool computeNormals, bool patchFacing, u32 vertType, int *bytesRead);
 	void SubmitBezier(const void *control_points, const void *indices, int tess_u, int tess_v, int count_u, int count_v, GEPatchPrimType prim_type, bool computeNormals, bool patchFacing, u32 vertType, int *bytesRead);
 
@@ -68,11 +81,14 @@ public:
 
 	virtual void Resized();
 
-	void SetupVertexDecoder(u32 vertType);
-
 	bool IsCodePtrVertexDecoder(const u8 *ptr) const {
 		return decJitCache_->IsInSpace(ptr);
 	}
+	int GetNumDrawCalls() const {
+		return numDrawCalls;
+	}
+
+	VertexDecoder *GetVertexDecoder(u32 vtype);
 
 protected:
 	virtual void ClearTrackedVertexArrays() {}
@@ -91,8 +107,6 @@ protected:
 	void DecodeVertsStep(u8 *dest, int &i, int &decodedVerts);
 
 	bool ApplyShaderBlending();
-
-	VertexDecoder *GetVertexDecoder(u32 vtype);
 
 	inline int IndexSize(u32 vtype) const {
 		const u32 indexType = (vtype & GE_VTYPE_IDX_MASK);
@@ -119,23 +133,22 @@ protected:
 	TransformedVertex *transformed = nullptr;
 	TransformedVertex *transformedExpanded = nullptr;
 
-	// Defer all vertex decoding to a "Flush" (except when software skinning)
+	// Defer all vertex decoding to a "Flush" (except when skinning)
 	struct DeferredDrawCall {
 		void *verts;
 		void *inds;
-		u32 vertType;
 		u8 indexType;
 		s8 prim;
-		u32 vertexCount;
+		u16 vertexCount;
 		u16 indexLowerBound;
 		u16 indexUpperBound;
+		UVScale uvScale;
 	};
 
 	enum { MAX_DEFERRED_DRAW_CALLS = 128 };
 	DeferredDrawCall drawCalls[MAX_DEFERRED_DRAW_CALLS];
 	int numDrawCalls = 0;
 	int vertexCountInDrawCalls_ = 0;
-	UVScale uvScale[MAX_DEFERRED_DRAW_CALLS];
 
 	int decimationCounter_ = 0;
 	int decodeCounter_ = 0;
@@ -170,6 +183,7 @@ protected:
 			colStride = 4;
 		}
 		virtual void SendDataToShader(const float *pos, const float *tex, const float *col, int size, bool hasColor, bool hasTexCoords) = 0;
+		virtual void EndFrame() {}
 	};
 	TessellationDataTransfer *tessDataTransfer;
 };

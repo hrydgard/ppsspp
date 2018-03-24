@@ -23,7 +23,7 @@
 // * binding 1: Secondary texture sampler for shader blending or depal palettes
 // * binding 2: Base Uniform Buffer (includes fragment state)
 // * binding 3: Light uniform buffer
-// * binding 4: Bone uniform buffer
+// * binding 4: Shader buffer storage for tesselation
 //
 // All shaders conform to this layout, so they are all compatible with the same descriptor set.
 // The format of the various uniform buffers may vary though - vertex shaders that don't skin
@@ -122,8 +122,6 @@ public:
 	DrawEngineVulkan(VulkanContext *vulkan, Draw::DrawContext *draw);
 	virtual ~DrawEngineVulkan();
 
-	void SubmitPrim(void *verts, void *inds, GEPrimitiveType prim, int vertexCount, u32 vertType, int *bytesRead);
-
 	void SetShaderManager(ShaderManagerVulkan *shaderManager) {
 		shaderManager_ = shaderManager;
 	}
@@ -157,9 +155,6 @@ public:
 	}
 
 	void DispatchFlush() override { Flush(); }
-	void DispatchSubmitPrim(void *verts, void *inds, GEPrimitiveType prim, int vertexCount, u32 vertType, int *bytesRead) override {
-		SubmitPrim(verts, inds, prim, vertexCount, vertType, bytesRead);
-	}
 
 	VkPipelineLayout GetPipelineLayout() const {
 		return pipelineLayout_;
@@ -195,11 +190,12 @@ private:
 	void DestroyDeviceObjects();
 
 	void DecodeVertsToPushBuffer(VulkanPushBuffer *push, uint32_t *bindOffset, VkBuffer *vkbuf);
+	VkResult RecreateDescriptorPool(FrameData &frame, int newSize);
 
 	void DoFlush();
 	void UpdateUBOs(FrameData *frame);
 
-	VkDescriptorSet GetOrCreateDescriptorSet(VkImageView imageView, VkSampler sampler, VkBuffer base, VkBuffer light, VkBuffer bone, bool tess);
+	VkDescriptorSet GetOrCreateDescriptorSet(VkImageView imageView, VkSampler sampler, VkBuffer base, VkBuffer light, bool tess);
 
 	VulkanContext *vulkan_;
 	Draw::DrawContext *draw_;
@@ -223,18 +219,21 @@ private:
 		VkImageView imageView_;
 		VkImageView secondaryImageView_;
 		VkSampler sampler_;
-		VkBuffer base_, light_, bone_;  // All three UBO slots will be set to this. This will usually be identical
+		VkBuffer base_, light_;  // All three UBO slots will be set to this. This will usually be identical
 		// for all draws in a frame, except when the buffer has to grow.
 	};
 
 	// We alternate between these.
 	struct FrameData {
-		FrameData() : descSets(1024) {}
+		FrameData() : descSets(512) {}
 
-		VkDescriptorPool descPool;
-		VulkanPushBuffer *pushUBO;
-		VulkanPushBuffer *pushVertex;
-		VulkanPushBuffer *pushIndex;
+		VkDescriptorPool descPool = VK_NULL_HANDLE;
+		int descCount = 0;
+		int descPoolSize = 256;  // We double this before we allocate so we initialize this to half the size we want.
+
+		VulkanPushBuffer *pushUBO = nullptr;
+		VulkanPushBuffer *pushVertex = nullptr;
+		VulkanPushBuffer *pushIndex = nullptr;
 		// We do rolling allocation and reset instead of caching across frames. That we might do later.
 		DenseHashMap<DescriptorSetKey, VkDescriptorSet, (VkDescriptorSet)VK_NULL_HANDLE> descSets;
 
@@ -254,8 +253,7 @@ private:
 	uint64_t dirtyUniforms_;
 	uint32_t baseUBOOffset;
 	uint32_t lightUBOOffset;
-	uint32_t boneUBOOffset;
-	VkBuffer baseBuf, lightBuf, boneBuf;
+	VkBuffer baseBuf, lightBuf;
 	VkImageView imageView = VK_NULL_HANDLE;
 	VkSampler sampler = VK_NULL_HANDLE;
 

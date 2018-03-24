@@ -42,6 +42,7 @@
 #include "UI/GameSettingsScreen.h"
 
 #ifdef _WIN32
+#include "Common/CommonWindows.h"
 // Want to avoid including the full header here as it includes d3dx.h
 int GetD3DXVersion();
 #endif
@@ -119,7 +120,8 @@ UI::EventReturn DevMenu::OnJitCompare(UI::EventParams &e) {
 
 UI::EventReturn DevMenu::OnShaderView(UI::EventParams &e) {
 	UpdateUIState(UISTATE_PAUSEMENU);
-	screenManager()->push(new ShaderListScreen());
+	if (gpu)  // Avoid crashing if chosen while the game is being loaded.
+		screenManager()->push(new ShaderListScreen());
 	return UI::EVENT_DONE;
 }
 
@@ -470,6 +472,9 @@ void SystemInfoScreen::CreateViews() {
 	buildConfig->Add(new InfoItem("_DEBUG", ""));
 #else
 	buildConfig->Add(new InfoItem("NDEBUG", ""));
+#endif
+#ifdef USE_ADDRESS_SANITIZER
+	buildConfig->Add(new InfoItem("USE_ADDRESS_SANITIZER", ""));
 #endif
 #ifdef USING_GLES2
 	buildConfig->Add(new InfoItem("USING_GLES2", ""));

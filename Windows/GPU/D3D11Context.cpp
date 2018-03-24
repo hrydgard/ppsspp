@@ -14,6 +14,7 @@
 #include "Windows/GPU/D3D11Context.h"
 #include "Windows/W32Util/Misc.h"
 #include "thin3d/thin3d.h"
+#include "thin3d/thin3d_create.h"
 #include "thin3d/d3d11_loader.h"
 
 #if PPSSPP_PLATFORM(UWP)

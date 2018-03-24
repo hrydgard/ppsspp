@@ -789,16 +789,18 @@ void TextureCacheVulkan::LoadTextureLevel(TexCacheEntry &entry, uint8_t *writePt
 }
 
 bool TextureCacheVulkan::GetCurrentTextureDebug(GPUDebugBuffer &buffer, int level) {
-	ApplyTexture();
 	SetTexture(false);
 	if (!nextTexture_)
 		return false;
 
+	// Apply texture may need to rebuild the texture if we're about to render, or bind a framebuffer.
+	TexCacheEntry *entry = nextTexture_;
+	ApplyTexture();
+
 	// TODO: Centralize?
-	if (nextTexture_->framebuffer) {
-		VirtualFramebuffer *vfb = nextTexture_->framebuffer;
-		bool flipY = GetGPUBackend() == GPUBackend::OPENGL && g_Config.iRenderingMode != FB_NON_BUFFERED_MODE;
-		buffer.Allocate(vfb->bufferWidth, vfb->bufferHeight, GPU_DBG_FORMAT_8888, flipY);
+	if (entry->framebuffer) {
+		VirtualFramebuffer *vfb = entry->framebuffer;
+		buffer.Allocate(vfb->bufferWidth, vfb->bufferHeight, GPU_DBG_FORMAT_8888, false);
 		bool retval = draw_->CopyFramebufferToMemorySync(vfb->fbo, Draw::FB_COLOR_BIT, 0, 0, vfb->bufferWidth, vfb->bufferHeight, Draw::DataFormat::R8G8B8A8_UNORM, buffer.GetData(), vfb->bufferWidth);
 		// Vulkan requires us to re-apply all dynamic state for each command buffer, and the above will cause us to start a new cmdbuf.
 		// So let's dirty the things that are involved in Vulkan dynamic state. Readbacks are not frequent so this won't hurt other backends.
@@ -808,9 +810,9 @@ bool TextureCacheVulkan::GetCurrentTextureDebug(GPUDebugBuffer &buffer, int leve
 		return retval;
 	}
 
-	if (!nextTexture_->vkTex || !nextTexture_->vkTex->texture_)
+	if (!entry->vkTex || !entry->vkTex->texture_)
 		return false;
-	VulkanTexture *texture = nextTexture_->vkTex->texture_;
+	VulkanTexture *texture = entry->vkTex->texture_;
 	VulkanRenderManager *renderManager = (VulkanRenderManager *)draw_->GetNativeObject(Draw::NativeObject::RENDER_MANAGER);
 
 	GPUDebugBufferFormat bufferFormat;

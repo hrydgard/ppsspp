@@ -52,6 +52,8 @@ class SoftGPU : public GPUCommon {
 public:
 	SoftGPU(GraphicsContext *gfxCtx, Draw::DrawContext *_thin3D);
 	~SoftGPU();
+
+	void CheckGPUFeatures() override {}
 	void InitClear() override {}
 	void ExecuteOp(u32 op, u32 diff) override;
 

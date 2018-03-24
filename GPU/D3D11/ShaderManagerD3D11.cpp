@@ -63,8 +63,8 @@ std::string D3D11FragmentShader::GetShaderString(DebugShaderStringType type) con
 	}
 }
 
-D3D11VertexShader::D3D11VertexShader(ID3D11Device *device, D3D_FEATURE_LEVEL featureLevel, VShaderID id, const char *code, int vertType, bool useHWTransform, bool usesLighting)
-	: device_(device), id_(id), failed_(false), useHWTransform_(useHWTransform), module_(nullptr), usesLighting_(usesLighting) {
+D3D11VertexShader::D3D11VertexShader(ID3D11Device *device, D3D_FEATURE_LEVEL featureLevel, VShaderID id, const char *code, int vertType, bool useHWTransform)
+	: device_(device), id_(id), failed_(false), useHWTransform_(useHWTransform), module_(nullptr) {
 	source_ = code;
 
 	module_ = CreateVertexShaderD3D11(device, code, strlen(code), &bytecode_, featureLevel);
@@ -93,24 +93,19 @@ ShaderManagerD3D11::ShaderManagerD3D11(ID3D11Device *device, ID3D11DeviceContext
 	codeBuffer_ = new char[16384];
 	memset(&ub_base, 0, sizeof(ub_base));
 	memset(&ub_lights, 0, sizeof(ub_lights));
-	memset(&ub_bones, 0, sizeof(ub_bones));
 
 	INFO_LOG(G3D, "sizeof(ub_base): %d", (int)sizeof(ub_base));
 	INFO_LOG(G3D, "sizeof(ub_lights): %d", (int)sizeof(ub_lights));
-	INFO_LOG(G3D, "sizeof(ub_bones): %d", (int)sizeof(ub_bones));
 
 	D3D11_BUFFER_DESC desc{sizeof(ub_base), D3D11_USAGE_DYNAMIC, D3D11_BIND_CONSTANT_BUFFER, D3D11_CPU_ACCESS_WRITE };
 	ASSERT_SUCCESS(device_->CreateBuffer(&desc, nullptr, &push_base));
 	desc.ByteWidth = sizeof(ub_lights);
 	ASSERT_SUCCESS(device_->CreateBuffer(&desc, nullptr, &push_lights));
-	desc.ByteWidth = sizeof(ub_bones);
-	ASSERT_SUCCESS(device_->CreateBuffer(&desc, nullptr, &push_bones));
 }
 
 ShaderManagerD3D11::~ShaderManagerD3D11() {
 	push_base->Release();
 	push_lights->Release();
-	push_bones->Release();
 	ClearShaders();
 	delete[] codeBuffer_;
 }
@@ -159,21 +154,15 @@ uint64_t ShaderManagerD3D11::UpdateUniforms() {
 			memcpy(map.pData, &ub_lights, sizeof(ub_lights));
 			context_->Unmap(push_lights, 0);
 		}
-		if (dirty & DIRTY_BONE_UNIFORMS) {
-			BoneUpdateUniforms(&ub_bones, dirty);
-			context_->Map(push_bones, 0, D3D11_MAP_WRITE_DISCARD, 0, &map);
-			memcpy(map.pData, &ub_bones, sizeof(ub_bones));
-			context_->Unmap(push_bones, 0);
-		}
 	}
 	gstate_c.CleanUniforms();
 	return dirty;
 }
 
 void ShaderManagerD3D11::BindUniforms() {
-	ID3D11Buffer *vs_cbs[3] = { push_base, push_lights, push_bones };
+	ID3D11Buffer *vs_cbs[2] = { push_base, push_lights };
 	ID3D11Buffer *ps_cbs[1] = { push_base };
-	context_->VSSetConstantBuffers(0, 3, vs_cbs);
+	context_->VSSetConstantBuffers(0, 2, vs_cbs);
 	context_->PSSetConstantBuffers(0, 1, ps_cbs);
 }
 
@@ -207,9 +196,8 @@ void ShaderManagerD3D11::GetShaders(int prim, u32 vertType, D3D11VertexShader **
 	D3D11VertexShader *vs;
 	if (vsIter == vsCache_.end()) {
 		// Vertex shader not in cache. Let's compile it.
-		bool usesLighting;
-		GenerateVertexShaderD3D11(VSID, codeBuffer_, &usesLighting, featureLevel_ <= D3D_FEATURE_LEVEL_9_3 ? HLSL_D3D11_LEVEL9 : HLSL_D3D11);
-		vs = new D3D11VertexShader(device_, featureLevel_, VSID, codeBuffer_, vertType, useHWTransform, usesLighting);
+		GenerateVertexShaderD3D11(VSID, codeBuffer_, featureLevel_ <= D3D_FEATURE_LEVEL_9_3 ? HLSL_D3D11_LEVEL9 : HLSL_D3D11);
+		vs = new D3D11VertexShader(device_, featureLevel_, VSID, codeBuffer_, vertType, useHWTransform);
 		vsCache_[VSID] = vs;
 	} else {
 		vs = vsIter->second;

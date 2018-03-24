@@ -105,8 +105,6 @@ public:
 	DrawEngineD3D11(Draw::DrawContext *draw, ID3D11Device *device, ID3D11DeviceContext *context);
 	virtual ~DrawEngineD3D11();
 
-	void SubmitPrim(void *verts, void *inds, GEPrimitiveType prim, int vertexCount, u32 vertType, int *bytesRead);
-
 	void SetShaderManager(ShaderManagerD3D11 *shaderManager) {
 		shaderManager_ = shaderManager;
 	}
@@ -135,9 +133,6 @@ public:
 	}
 
 	void DispatchFlush() override { Flush(); }
-	void DispatchSubmitPrim(void *verts, void *inds, GEPrimitiveType prim, int vertexCount, u32 vertType, int *bytesRead) override {
-		SubmitPrim(verts, inds, prim, vertexCount, vertType, bytesRead);
-	}
 
 	void ClearTrackedVertexArrays() override;
 

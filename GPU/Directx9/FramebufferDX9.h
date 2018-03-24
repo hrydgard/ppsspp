@@ -73,7 +73,6 @@ protected:
 	void Bind2DShader() override;
 	void BindPostShader(const PostShaderUniforms &uniforms) override;
 	void SetViewport2D(int x, int y, int w, int h) override;
-	void DisableState() override;
 	void DecimateFBOs() override;
 
 	// Used by ReadFramebufferToMemory and later framebuffer block copies

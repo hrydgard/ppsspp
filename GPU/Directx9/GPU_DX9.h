@@ -37,7 +37,7 @@ public:
 	GPU_DX9(GraphicsContext *gfxCtx, Draw::DrawContext *draw);
 	~GPU_DX9();
 
-	void CheckGPUFeatures();
+	void CheckGPUFeatures() override;
 	void PreExecuteOp(u32 op, u32 diff) override;
 	void ExecuteOp(u32 op, u32 diff) override;
 
@@ -51,26 +51,6 @@ public:
 	void DoState(PointerWrap &p) override;
 
 	void ClearShaderCache() override;
-	bool DecodeTexture(u8 *dest, const GPUgstate &state) override {
-		return textureCacheDX9_->DecodeTexture(dest, state);
-	}
-	bool FramebufferDirty() override;
-	bool FramebufferReallyDirty() override;
-
-	void GetReportingInfo(std::string &primaryInfo, std::string &fullInfo) override {
-		primaryInfo = reportingPrimaryInfo_;
-		fullInfo = reportingFullInfo_;
-	}
-
-	typedef void (GPU_DX9::*CmdFunc)(u32 op, u32 diff);
-	struct CommandInfo {
-		uint64_t flags;
-		GPU_DX9::CmdFunc func;
-	};
-
-	void Execute_Prim(u32 op, u32 diff);
-	void Execute_TexSize0(u32 op, u32 diff);
-	void Execute_LoadClut(u32 op, u32 diff);
 
 	// Using string because it's generic - makes no assumptions on the size of the shader IDs of this backend.
 	std::vector<std::string> DebugGetShaderIDs(DebugShaderType shader) override;
@@ -79,16 +59,12 @@ public:
 	void BeginHostFrame() override;
 
 protected:
-	void FastRunLoop(DisplayList &list) override;
 	void FinishDeferred() override;
 
 private:
-	void UpdateCmdInfo();
-
 	void Flush() {
 		drawEngine_.Flush();
 	}
-	// void ApplyDrawState(int prim);
 	void CheckFlushOp(int cmd, u32 diff);
 	void BuildReportingInfo();
 
@@ -105,13 +81,8 @@ private:
 	DrawEngineDX9 drawEngine_;
 	ShaderManagerDX9 *shaderManagerDX9_;
 
-	static CommandInfo cmdInfo_[256];
-
 	int lastVsync_;
 	int vertexCost_ = 0;
-
-	std::string reportingPrimaryInfo_;
-	std::string reportingFullInfo_;
 };
 
 }  // namespace DX9

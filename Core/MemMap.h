@@ -83,8 +83,8 @@ extern u32 g_MemorySize;
 extern u32 g_PSPModel;
 
 // UWP has such limited memory management that we need to mask
-// even in 64-bit mode.
-#if PPSSPP_ARCH(32BIT) || PPSSPP_PLATFORM(UWP)
+// even in 64-bit mode. Also, when using the sanitizer, we need to mask as well.
+#if PPSSPP_ARCH(32BIT) || PPSSPP_PLATFORM(UWP) || USE_ADDRESS_SANITIZER
 #define MASKED_PSP_MEMORY
 #endif
 

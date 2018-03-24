@@ -36,7 +36,7 @@ public:
 	~GPU_GLES();
 
 	// This gets called on startup and when we get back from settings.
-	void CheckGPUFeatures();
+	void CheckGPUFeatures() override;
 
 	bool IsReady() override;
 
@@ -55,34 +55,15 @@ public:
 
 	void ClearShaderCache() override;
 	void CleanupBeforeUI() override;
-	bool DecodeTexture(u8 *dest, const GPUgstate &state) override {
-		return textureCacheGL_->DecodeTexture(dest, state);
-	}
-	bool FramebufferDirty() override;
-	bool FramebufferReallyDirty() override;
-
-	void GetReportingInfo(std::string &primaryInfo, std::string &fullInfo) override {
-		primaryInfo = reportingPrimaryInfo_;
-		fullInfo = reportingFullInfo_;
-	}
-
-	typedef void (GPU_GLES::*CmdFunc)(u32 op, u32 diff);
-	struct CommandInfo {
-		uint64_t flags;
-		GPU_GLES::CmdFunc func;
-	};
-
-	void Execute_Prim(u32 op, u32 diff);
-	void Execute_LoadClut(u32 op, u32 diff);
 
 	// Using string because it's generic - makes no assumptions on the size of the shader IDs of this backend.
 	std::vector<std::string> DebugGetShaderIDs(DebugShaderType shader) override;
 	std::string DebugGetShaderString(std::string id, DebugShaderType shader, DebugShaderStringType stringType) override;
 
 	void BeginHostFrame() override;
+	void EndHostFrame() override;
 
 protected:
-	void FastRunLoop(DisplayList &list) override;
 	void FinishDeferred() override;
 
 private:
@@ -98,9 +79,6 @@ private:
 	void Reinitialize() override;
 
 	inline void UpdateVsyncInterval(bool force);
-	void UpdateCmdInfo();
-
-	static CommandInfo cmdInfo_[256];
 
 	FramebufferManagerGLES *framebufferManagerGL_;
 	TextureCacheGLES *textureCacheGL_;
@@ -109,12 +87,10 @@ private:
 	FragmentTestCacheGLES fragmentTestCache_;
 	ShaderManagerGLES *shaderManagerGL_;
 
+	std::string shaderCachePath_;
+
 #ifdef _WIN32
 	int lastVsync_;
 #endif
 	int vertexCost_ = 0;
-
-	std::string reportingPrimaryInfo_;
-	std::string reportingFullInfo_;
-	std::string shaderCachePath_;
 };

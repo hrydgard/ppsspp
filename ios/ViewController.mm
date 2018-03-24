@@ -16,6 +16,8 @@
 #include "net/resolve.h"
 #include "ui/screen.h"
 #include "thin3d/thin3d.h"
+#include "thin3d/thin3d_create.h"
+#include "thin3d/GLRenderManager.h"
 #include "input/keycodes.h"
 #include "gfx_es2/gpu_features.h"
 
@@ -30,23 +32,41 @@
 #define IS_IPAD() ([UIDevice currentDevice].userInterfaceIdiom == UIUserInterfaceIdiomPad)
 #define IS_IPHONE() ([UIDevice currentDevice].userInterfaceIdiom == UIUserInterfaceIdiomPhone)
 
-class IOSDummyGraphicsContext : public DummyGraphicsContext {
+class IOSGraphicsContext : public DummyGraphicsContext {
 public:
-	IOSDummyGraphicsContext() {
+	IOSGraphicsContext() {
 		CheckGLExtensions();
 		draw_ = Draw::T3DCreateGLContext();
+		renderManager_ = (GLRenderManager *)draw_->GetNativeObject(Draw::NativeObject::RENDER_MANAGER);
 		SetGPUBackend(GPUBackend::OPENGL);
 		bool success = draw_->CreatePresets();
 		assert(success);
 	}
-	~IOSDummyGraphicsContext() {
+	~IOSGraphicsContext() {
 		delete draw_;
 	}
 	Draw::DrawContext *GetDrawContext() override {
 		return draw_;
 	}
+	void ThreadStart() override {
+		renderManager_->ThreadStart();
+	}
+
+	bool ThreadFrame() override {
+		return renderManager_->ThreadFrame();
+	}
+
+	void ThreadEnd() override {
+		renderManager_->ThreadEnd();
+	}
+
+	void StopThread() override {
+		renderManager_->WaitUntilQueueIdle();
+		renderManager_->StopThread();
+	}
 private:
 	Draw::DrawContext *draw_;
+	GLRenderManager *renderManager_;
 };
 
 static float dp_xscale = 1.0f;
@@ -55,8 +75,10 @@ static float dp_yscale = 1.0f;
 static double lastSelectPress = 0.0f;
 static double lastStartPress = 0.0f;
 static bool simulateAnalog = false;
+static bool threadEnabled = true;
+static bool threadStopped = false;
 
-__unsafe_unretained static ViewController* sharedViewController;
+__unsafe_unretained ViewController* sharedViewController;
 static GraphicsContext *graphicsContext;
 
 @interface ViewController ()
@@ -93,6 +115,8 @@ static GraphicsContext *graphicsContext;
 		iCadeToKeyMap[iCadeButtonF]			= NKCODE_BUTTON_2; // Cross
 		iCadeToKeyMap[iCadeButtonG]			= NKCODE_BUTTON_1; // Triangle
 		iCadeToKeyMap[iCadeButtonH]			= NKCODE_BUTTON_3; // Circle
+
+		[[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(appWillTerminate:) name:UIApplicationWillTerminateNotification object:nil];
 
 #if __IPHONE_OS_VERSION_MAX_ALLOWED > __IPHONE_6_1
 		if ([GCController class]) // Checking the availability of a GameController framework
@@ -153,9 +177,9 @@ static GraphicsContext *graphicsContext;
 	pixel_in_dps_x = (float)pixel_xres / (float)dp_xres;
 	pixel_in_dps_y = (float)pixel_yres / (float)dp_yres;
 
-	graphicsContext = new IOSDummyGraphicsContext();
-
-	NativeInitGraphics(graphicsContext);
+	graphicsContext = new IOSGraphicsContext();
+	
+	graphicsContext->ThreadStart();
 
 	dp_xscale = (float)dp_xres / (float)pixel_xres;
 	dp_yscale = (float)dp_yres / (float)pixel_yres;
@@ -172,6 +196,26 @@ static GraphicsContext *graphicsContext;
 		}
 	}
 #endif
+	
+	dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_HIGH, 0), ^{
+		NativeInitGraphics(graphicsContext);
+
+		ILOG("Emulation thread starting\n");
+		while (threadEnabled) {
+			NativeUpdate();
+			NativeRender(graphicsContext);
+			time_update();
+		}
+
+		threadStopped = true;
+
+		ILOG("Emulation thread shutting down\n");
+		NativeShutdownGraphics();
+
+		// Also ask the main thread to stop, so it doesn't hang waiting for a new frame.
+		ILOG("Emulation thread stopping\n");
+		graphicsContext->StopThread();
+	});
 }
 
 - (void)didReceiveMemoryWarning
@@ -179,27 +223,58 @@ static GraphicsContext *graphicsContext;
 	[super didReceiveMemoryWarning];
 }
 
-- (void)dealloc
+- (void)appWillTerminate:(NSNotification *)notification
 {
-	sharedViewController = nil;
-	
-	if ([EAGLContext currentContext] == self.context) {
-		[EAGLContext setCurrentContext:nil];
+	[self shutdown];
+}
+
+- (void)shutdown
+{
+	if (sharedViewController == nil) {
+		return;
 	}
-	self.context = nil;
+
+	Audio_Shutdown();
+
+	if (threadEnabled) {
+		threadEnabled = false;
+		while (graphicsContext->ThreadFrame()) {
+			continue;
+		}
+		while (!threadStopped) {}
+		graphicsContext->ThreadEnd();
+	}
+
+	sharedViewController = nil;
+
+	if (self.context) {
+		if ([EAGLContext currentContext] == self.context) {
+			[EAGLContext setCurrentContext:nil];
+		}
+		self.context = nil;
+	}
+
+	[[NSNotificationCenter defaultCenter] removeObserver:self];
 
 #if __IPHONE_OS_VERSION_MAX_ALLOWED > __IPHONE_6_1
 	if ([GCController class]) {
-		[[NSNotificationCenter defaultCenter] removeObserver:self name:GCControllerDidConnectNotification object:nil];
-		[[NSNotificationCenter defaultCenter] removeObserver:self name:GCControllerDidDisconnectNotification object:nil];
 		self.gameController = nil;
 	}
 #endif
-	NativeShutdownGraphics();
+
 	graphicsContext->Shutdown();
-	delete graphicsContext;
-	graphicsContext = NULL;
+
+	if (graphicsContext) {
+		delete graphicsContext;
+		graphicsContext = NULL;
+	}
+
 	NativeShutdown();
+}
+
+- (void)dealloc
+{
+	[self shutdown];
 }
 
 // For iOS before 6.0
@@ -216,9 +291,8 @@ static GraphicsContext *graphicsContext;
 
 - (void)glkView:(GLKView *)view drawInRect:(CGRect)rect
 {
-	NativeUpdate();
-	NativeRender(graphicsContext);
-	time_update();
+	if (sharedViewController)
+		graphicsContext->ThreadFrame();
 }
 
 - (void)touchX:(float)x y:(float)y code:(int)code pointerId:(int)pointerId

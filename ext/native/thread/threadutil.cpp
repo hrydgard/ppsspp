@@ -12,7 +12,7 @@
 #include "base/logging.h"
 #include "thread/threadutil.h"
 
-#ifdef __ANDROID__
+#if defined(__ANDROID__) || defined(__APPLE__) || (defined(__GLIBC__) && defined(_GNU_SOURCE))
 #include <pthread.h>
 #endif
 
@@ -96,10 +96,12 @@ void setCurrentThreadName(const char* threadName) {
 	{}
 #else
 
-#if defined(__ANDROID__)
+#if defined(__ANDROID__) || (defined(__GLIBC__) && defined(_GNU_SOURCE))
 	pthread_setname_np(pthread_self(), threadName);
+#elif defined(__APPLE__)
+	pthread_setname_np(threadName);
 // #else
-//	pthread_setname_np(thread_name);
+//	pthread_setname_np(threadName);
 #endif
 
 	// Do nothing

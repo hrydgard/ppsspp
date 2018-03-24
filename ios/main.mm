@@ -9,6 +9,7 @@
 
 #import "AppDelegate.h"
 #import "PPSSPPUIApplication.h"
+#import "ViewController.h"
 
 #include "base/NativeApp.h"
 #include "profiler/profiler.h"
@@ -24,6 +25,8 @@
 
 @implementation UIApplication (SpringBoardAnimatedExit)
 -(void) animatedExit {
+	[sharedViewController shutdown];
+
 	BOOL multitaskingSupported = NO;
 	if ([[UIDevice currentDevice] respondsToSelector:@selector(isMultitaskingSupported)]) {
 		multitaskingSupported = [UIDevice currentDevice].multitaskingSupported;
@@ -40,6 +43,8 @@
 }
 
 -(void) exit {
+	[sharedViewController shutdown];
+
 	if ([self respondsToSelector:@selector(terminateWithSuccess)]) {
 		[self terminateWithSuccess];
 	} else {
@@ -89,7 +94,9 @@ bool System_GetPropertyBool(SystemProperty prop) {
 
 void System_SendMessage(const char *command, const char *parameter) {
 	if (!strcmp(command, "finish")) {
-		[[UIApplication sharedApplication] animatedExit];
+		dispatch_async(dispatch_get_main_queue(), ^{
+			[[UIApplication sharedApplication] animatedExit];
+		});
 	}
 }
 

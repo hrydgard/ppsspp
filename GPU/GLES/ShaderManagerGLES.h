@@ -21,6 +21,7 @@
 
 #include "base/basictypes.h"
 #include "Common/Hashmaps.h"
+#include "thin3d/GLRenderManager.h"
 #include "GPU/Common/ShaderCommon.h"
 #include "GPU/Common/ShaderId.h"
 #include "GPU/GLES/VertexShaderGeneratorGLES.h"
@@ -33,28 +34,26 @@ enum {
 	ATTR_POSITION = 0,
 	ATTR_TEXCOORD = 1,
 	ATTR_NORMAL = 2,
-	ATTR_W1 = 3,
-	ATTR_W2 = 4,
-	ATTR_COLOR0 = 5,
-	ATTR_COLOR1 = 6,
+	ATTR_COLOR0 = 3,
+	ATTR_COLOR1 = 4,
 
 	ATTR_COUNT,
 };
 
 class LinkedShader {
 public:
-	LinkedShader(VShaderID VSID, Shader *vs, FShaderID FSID, Shader *fs, bool useHWTransform, bool preloading = false);
+	LinkedShader(GLRenderManager *render, VShaderID VSID, Shader *vs, FShaderID FSID, Shader *fs, bool useHWTransform, bool preloading = false);
 	~LinkedShader();
 
-	void use(const VShaderID &VSID, LinkedShader *previous);
-	void stop();
-	void UpdateUniforms(u32 vertType, const VShaderID &VSID);
+	void use(const ShaderID &VSID);
+	void UpdateUniforms(u32 vertType, const ShaderID &VSID);
 
+	GLRenderManager *render_;
 	Shader *vs_;
 	// Set to false if the VS failed, happens on Mali-400 a lot for complex shaders.
 	bool useHWTransform_;
 
-	uint32_t program = 0;
+	GLRProgram *program;
 	uint64_t availableUniforms;
 	uint64_t dirtyUniforms = 0;
 
@@ -70,13 +69,6 @@ public:
 	int u_texmtx;
 	int u_world;
 	int u_depthRange;   // x,y = viewport xscale/xcenter. z,w=clipping minz/maxz (?)
-
-#ifdef USE_BONE_ARRAY
-	int u_bone;  // array, size is numBones
-#else
-	int u_bone[8];
-#endif
-	int numBones;
 
 	// Shader blending.
 	int u_fbotex;
@@ -108,8 +100,7 @@ public:
 	int u_lightpos[4];
 	int u_lightdir[4];
 	int u_lightatt[4];  // attenuation
-	int u_lightangle[4]; // spotlight cone angle (cosine)
-	int u_lightspotCoef[4]; // spotlight dropoff
+	int u_lightangle_spotCoef[4]; // spotlight cone angle (cosine) (x), spotlight dropoff (y)
 	int u_lightdiffuse[4];  // each light consist of vec4[3]
 	int u_lightspecular[4];  // attenuation
 	int u_lightambient[4];  // attenuation
@@ -127,12 +118,12 @@ public:
 
 class Shader {
 public:
-	Shader(const ShaderID &id, const char *code, uint32_t glShaderType, bool useHWTransform, uint32_t attrMask, uint64_t uniformMask);
+	Shader(GLRenderManager *render, const char *code, const std::string &desc, uint32_t glShaderType, bool useHWTransform, uint32_t attrMask, uint64_t uniformMask);
 	~Shader();
-	uint32_t shader;
+	GLRShader *shader;
 
 	bool Failed() const { return failed_; }
-	bool UseHWTransform() const { return useHWTransform_; } // only relevant for vtx shaders
+	bool UseHWTransform() const { return useHWTransform_; }  // only relevant for vtx shaders
 
 	std::string GetShaderString(DebugShaderStringType type, ShaderID id) const;
 
@@ -140,6 +131,7 @@ public:
 	uint64_t GetUniformMask() const { return uniformMask_; }
 
 private:
+	GLRenderManager *render_;
 	std::string source_;
 	bool failed_;
 	bool useHWTransform_;
@@ -150,7 +142,7 @@ private:
 
 class ShaderManagerGLES : public ShaderManagerCommon {
 public:
-	ShaderManagerGLES();
+	ShaderManagerGLES(GLRenderManager *render);
 	~ShaderManagerGLES();
 
 	void ClearCache(bool deleteThem);  // TODO: deleteThem currently not respected
@@ -189,6 +181,7 @@ private:
 	};
 	typedef std::vector<LinkedShaderCacheEntry> LinkedShaderCache;
 
+	GLRenderManager *render_;
 	LinkedShaderCache linkedShaderCache_;
 
 	bool lastVShaderSame_;

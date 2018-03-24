@@ -89,7 +89,6 @@ protected:
 	void Bind2DShader() override;
 	void BindPostShader(const PostShaderUniforms &uniforms) override;
 	void SetViewport2D(int x, int y, int w, int h) override;
-	void DisableState() override {}
 
 	// Used by ReadFramebufferToMemory and later framebuffer block copies
 	void BlitFramebuffer(VirtualFramebuffer *dst, int dstX, int dstY, VirtualFramebuffer *src, int srcX, int srcY, int w, int h, int bpp) override;

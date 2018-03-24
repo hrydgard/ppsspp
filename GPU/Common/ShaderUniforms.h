@@ -98,7 +98,8 @@ R"(  float4x4 u_proj;
   float2 u_texclampoff;
 )";
 
-// 576 bytes. Can we get down to 512?
+// 512 bytes. Would like to shrink more. Some colors only have 8-bit precision and we expand
+// them to float unnecessarily, could just as well expand in the shader.
 struct UB_VS_Lights {
 	float ambientColor[4];
 	float materialDiffuse[4];
@@ -107,8 +108,7 @@ struct UB_VS_Lights {
 	float lpos[4][4];
 	float ldir[4][4];
 	float latt[4][4];
-	float lightAngle[4][4];   // TODO: Merge with lightSpotCoef, use .xy
-	float lightSpotCoef[4][4];
+	float lightAngle_SpotCoef[4][4];   // TODO: Merge with lightSpotCoef, use .xy
 	float lightAmbient[4][4];
 	float lightDiffuse[4][4];
 	float lightSpecular[4][4];
@@ -122,8 +122,7 @@ R"(	vec4 u_ambient;
 	vec3 pos[4];
 	vec3 dir[4];
 	vec3 att[4];
-	float angle[4];
-	float spotCoef[4];
+	vec2 angle_spotCoef[4];
 	vec3 ambient[4];
 	vec3 diffuse[4];
 	vec3 specular[4];
@@ -147,14 +146,10 @@ R"(	float4 u_ambient;
 	float3 u_lightatt1;
 	float3 u_lightatt2;
 	float3 u_lightatt3;
-	float4 u_lightangle0;
-	float4 u_lightangle1;
-	float4 u_lightangle2;
-	float4 u_lightangle3;
-	float4 u_lightspotCoef0;
-	float4 u_lightspotCoef1;
-	float4 u_lightspotCoef2;
-	float4 u_lightspotCoef3;
+	float4 u_lightangle_spotCoef0;
+	float4 u_lightangle_spotCoef1;
+	float4 u_lightangle_spotCoef2;
+	float4 u_lightangle_spotCoef3;
 	float3 u_lightambient0;
 	float3 u_lightambient1;
 	float3 u_lightambient2;
@@ -169,24 +164,8 @@ R"(	float4 u_ambient;
 	float3 u_lightspecular3;
 )";
 
-// With some cleverness, we could get away with uploading just half this when only the four or five first
-// bones are being used. This is 512b, 256b would be great.
-struct UB_VS_Bones {
-	float bones[8][12];
-};
-
-static const char *ub_vs_bonesStr =
-R"(	mat3x4 m[8];
-)";
-
-// HLSL code is shared so these names are changed to match those in DX9.
-static const char *cb_vs_bonesStr =
-R"(	float4x3 u_bone[8];
-)";
-
 void BaseUpdateUniforms(UB_VS_FS_Base *ub, uint64_t dirtyUniforms, bool flipViewport);
 void LightUpdateUniforms(UB_VS_Lights *ub, uint64_t dirtyUniforms);
-void BoneUpdateUniforms(UB_VS_Bones *ub, uint64_t dirtyUniforms);
 
 // Shared helper functions
 void ComputeGuardband(float gb[4], float zmin);

@@ -47,7 +47,7 @@ public class NativeSurfaceView extends SurfaceView implements SensorEventListene
 			Log.i(TAG, "MOGA initialized");
 			mController.setListener(this, new Handler());
 		} catch (Exception e) {
-			Log.i(TAG, "Moga failed to initialize");
+			// Ignore.
 		}
 	}
 

@@ -49,8 +49,10 @@
 #include "Core/System.h"
 #include "GPU/GPUState.h"
 #include "GPU/GPUInterface.h"
-#include "GPU/GLES/FramebufferManagerGLES.h"
+#include "GPU/Common/FramebufferCommon.h"
+#if !PPSSPP_PLATFORM(UWP)
 #include "GPU/Vulkan/DebugVisVulkan.h"
+#endif
 #include "Core/HLE/sceCtrl.h"
 #include "Core/HLE/sceDisplay.h"
 #include "Core/HLE/sceSas.h"
@@ -77,9 +79,6 @@
 
 #if defined(_WIN32) && !PPSSPP_PLATFORM(UWP)
 #include "Windows/MainWindow.h"
-#endif
-#if !PPSSPP_PLATFORM(UWP)
-#include "gfx/gl_common.h"
 #endif
 
 #ifndef MOBILE_DEVICE
@@ -255,7 +254,7 @@ void EmuScreen::bootComplete() {
 
 #if !PPSSPP_PLATFORM(UWP)
 	if (GetGPUBackend() == GPUBackend::OPENGL) {
-		const char *renderer = (const char*)glGetString(GL_RENDERER);
+		const char *renderer = gl_extensions.model;
 		if (strstr(renderer, "Chainfire3D") != 0) {
 			osm.Show(sc->T("Chainfire3DWarning", "WARNING: Chainfire3D detected, may cause problems"), 10.0f, 0xFF30a0FF, -1, true);
 		} else if (strstr(renderer, "GLTools") != 0) {
@@ -894,14 +893,23 @@ void EmuScreen::CreateViews() {
 	root_->Add(new OnScreenMessagesView(new AnchorLayoutParams((Size)bounds.w, (Size)bounds.h)));
 
 	GameInfoBGView *loadingBG = root_->Add(new GameInfoBGView(gamePath_, new AnchorLayoutParams(FILL_PARENT, FILL_PARENT)));
-	TextView *loadingTextView = root_->Add(new TextView(sc->T("Loading game..."), new AnchorLayoutParams(bounds.centerX(), bounds.centerY(), NONE, NONE, true)));
+	TextView *loadingTextView = root_->Add(new TextView(sc->T(PSP_GetLoading()), new AnchorLayoutParams(bounds.centerX(), NONE, NONE, 40, true)));
+	static const int symbols[4] = {
+		I_CROSS,
+		I_CIRCLE,
+		I_SQUARE,
+		I_TRIANGLE
+	};
+	Spinner *loadingSpinner = root_->Add(new Spinner(symbols, ARRAY_SIZE(symbols), new AnchorLayoutParams(NONE, NONE, 45, 45, true)));
+	loadingSpinner_ = loadingSpinner;
 	loadingTextView->SetShadow(true);
-	loadingView_ = loadingTextView;
+	loadingTextView_ = loadingTextView;
 
 	loadingViewColor_ = loadingTextView->AddTween(new CallbackColorTween(0x00FFFFFF, 0x00FFFFFF, 0.2f, &bezierEaseInOut));
-	loadingViewColor_->SetCallback([loadingBG, loadingTextView](View *v, uint32_t c) {
+	loadingViewColor_->SetCallback([loadingBG, loadingTextView, loadingSpinner](View *v, uint32_t c) {
 		loadingBG->SetColor(c & 0xFFC0C0C0);
 		loadingTextView->SetTextColor(c);
+		loadingSpinner->SetColor(alphaMul(c, 0.7f));
 	});
 	loadingViewColor_->Persist();
 
@@ -1133,6 +1141,10 @@ void EmuScreen::render() {
 	DrawContext *thin3d = screenManager()->getDrawContext();
 
 	if (invalid_) {
+		// Loading, or after shutdown?
+		if (loadingTextView_->GetVisibility() == UI::V_VISIBLE)
+			loadingTextView_->SetText(PSP_GetLoading());
+
 		// It's possible this might be set outside PSP_RunLoopFor().
 		// In this case, we need to double check it here.
 		checkPowerDown();
@@ -1184,7 +1196,7 @@ void EmuScreen::render() {
 	if (invalid_)
 		return;
 
-	const bool hasVisibleUI = !osm.IsEmpty() || saveStatePreview_->GetVisibility() != UI::V_GONE || g_Config.bShowTouchControls || loadingView_->GetVisibility() == UI::V_VISIBLE;
+	const bool hasVisibleUI = !osm.IsEmpty() || saveStatePreview_->GetVisibility() != UI::V_GONE || g_Config.bShowTouchControls || loadingTextView_->GetVisibility() == UI::V_VISIBLE;
 	const bool showDebugUI = g_Config.bShowDebugStats || g_Config.bShowDeveloperMenu || g_Config.bShowAudioDebug || g_Config.bShowFrameProfiler || g_Config.bSimpleFrameStats;
 	if (hasVisibleUI || showDebugUI || g_Config.iShowFPSCounter != 0) {
 		renderUI();
@@ -1213,7 +1225,7 @@ void EmuScreen::renderUI() {
 
 	DrawContext *thin3d = screenManager()->getDrawContext();
 	UIContext *ctx = screenManager()->getUIContext();
-
+	ctx->BeginFrame();
 	// This sets up some important states but not the viewport.
 	ctx->Begin();
 
@@ -1244,9 +1256,11 @@ void EmuScreen::renderUI() {
 		DrawFPS(draw2d, ctx->GetBounds());
 	}
 
+#if !PPSSPP_PLATFORM(UWP)
 	if (g_Config.iGPUBackend == (int)GPUBackend::VULKAN && g_Config.bShowAllocatorDebug) {
 		DrawAllocatorVis(ctx, gpu);
 	}
+#endif
 
 	if ((g_Config.bShowFrameProfiler || g_Config.bSimpleFrameStats) && !invalid_) {
 		DrawProfile(*ctx);

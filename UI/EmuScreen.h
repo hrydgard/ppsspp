@@ -98,7 +98,8 @@ private:
 	AsyncImageFileView *saveStatePreview_;
 	int saveStateSlot_;
 
-	UI::View *loadingView_ = nullptr;
 	UI::CallbackColorTween *loadingViewColor_ = nullptr;
 	UI::VisibilityTween *loadingViewVisible_ = nullptr;
+	UI::Spinner *loadingSpinner_ = nullptr;
+	UI::TextView *loadingTextView_ = nullptr;
 };

@@ -1,9 +1,12 @@
+#include <cassert>
+
 #include "AndroidVulkanContext.h"
 #include "base/NativeApp.h"
 #include "base/display.h"
 #include "Common/Vulkan/VulkanLoader.h"
 #include "Common/Vulkan/VulkanContext.h"
 #include "thin3d/VulkanRenderManager.h"
+#include "thin3d/thin3d_create.h"
 #include "util/text/parsers.h"
 #include "Core/Config.h"
 #include "Core/System.h"
@@ -58,7 +61,8 @@ static VKAPI_ATTR VkBool32 VKAPI_CALL Vulkan_Dbg(VkDebugReportFlagsEXT msgFlags,
 		loglevel = ANDROID_LOG_WARN;
 	}
 
-	__android_log_print(loglevel, APP_NAME, "[%s] %s Code %d : %s", pLayerPrefix, ObjTypeToString(objType), msgCode, pMsg);
+	__android_log_print(loglevel, APP_NAME, "[%s] %s Code %d : %s",
+						pLayerPrefix, ObjTypeToString(objType), msgCode, pMsg);
 
 	// false indicates that layer should not bail-out of an
 	// API call that had validation failures. This may mean that the
@@ -68,12 +72,15 @@ static VKAPI_ATTR VkBool32 VKAPI_CALL Vulkan_Dbg(VkDebugReportFlagsEXT msgFlags,
 	return false;
 }
 
+AndroidVulkanContext::AndroidVulkanContext() {
+}
+
 AndroidVulkanContext::~AndroidVulkanContext() {
 	delete g_Vulkan;
 	g_Vulkan = nullptr;
 }
 
-bool AndroidVulkanContext::Init(ANativeWindow *wnd, int desiredBackbufferSizeX, int desiredBackbufferSizeY, int backbufferFormat, int androidVersion) {
+bool AndroidVulkanContext::InitAPI() {
 	ILOG("AndroidVulkanContext::Init");
 	init_glslang();
 
@@ -91,9 +98,11 @@ bool AndroidVulkanContext::Init(ANativeWindow *wnd, int desiredBackbufferSizeX, 
 	info.app_name = "PPSSPP";
 	info.app_ver = gitVer.ToInteger();
 	info.flags = VULKAN_FLAG_PRESENT_MAILBOX | VULKAN_FLAG_PRESENT_FIFO_RELAXED;
-	if (VK_SUCCESS != g_Vulkan->CreateInstance(info)) {
+	VkResult res = g_Vulkan->CreateInstance(info);
+	if (res != VK_SUCCESS) {
 		ELOG("Failed to create vulkan context: %s", g_Vulkan->InitError().c_str());
 		System_SendMessage("toast", "No Vulkan compatible device found. Using OpenGL instead.");
+		VulkanSetAvailable(false);
 		delete g_Vulkan;
 		g_Vulkan = nullptr;
 		return false;
@@ -120,6 +129,10 @@ bool AndroidVulkanContext::Init(ANativeWindow *wnd, int desiredBackbufferSizeX, 
 		g_Vulkan = nullptr;
 		return false;
 	}
+	return true;
+}
+
+bool AndroidVulkanContext::InitFromRenderThread(ANativeWindow *wnd, int desiredBackbufferSizeX, int desiredBackbufferSizeY, int backbufferFormat, int androidVersion) {
 	int width = desiredBackbufferSizeX;
 	int height = desiredBackbufferSizeY;
 	if (!width || !height) {
@@ -158,22 +171,24 @@ bool AndroidVulkanContext::Init(ANativeWindow *wnd, int desiredBackbufferSizeX, 
 	return success;
 }
 
-void AndroidVulkanContext::Shutdown() {
+void AndroidVulkanContext::ShutdownFromRenderThread() {
 	ILOG("AndroidVulkanContext::Shutdown");
 	draw_->HandleEvent(Draw::Event::LOST_BACKBUFFER, g_Vulkan->GetBackbufferWidth(), g_Vulkan->GetBackbufferHeight());
-	ILOG("Calling NativeShutdownGraphics");
-	NativeShutdownGraphics();
 	delete draw_;
 	draw_ = nullptr;
 	g_Vulkan->WaitUntilQueueIdle();
-	g_Vulkan->DestroyObjects();
+	g_Vulkan->PerformPendingDeletes();
+	g_Vulkan->DestroyObjects();  // Also destroys the surface, a bit asymmetric
+	ILOG("Done with ShutdownFromRenderThread");
+}
+
+void AndroidVulkanContext::Shutdown() {
+	ILOG("Calling NativeShutdownGraphics");
 	g_Vulkan->DestroyDevice();
 	g_Vulkan->DestroyDebugMsgCallback();
 
 	g_Vulkan->DestroyInstance();
-
 	// We keep the g_Vulkan context around to avoid invalidating a ton of pointers around the app.
-
 	finalize_glslang();
 	ILOG("AndroidVulkanContext::Shutdown completed");
 }

@@ -175,16 +175,6 @@ IDirect3DVertexDeclaration9 *DrawEngineDX9::SetupDecFmtForDraw(VSShader *vshader
 		D3DVERTEXELEMENT9 *VertexElement = &VertexElements[0];
 
 		// Vertices Elements orders
-		// WEIGHT
-		if (decFmt.w0fmt != 0) {
-			VertexAttribSetup(VertexElement, decFmt.w0fmt, decFmt.w0off, D3DDECLUSAGE_TEXCOORD, 1);
-			VertexElement++;
-		}
-
-		if (decFmt.w1fmt != 0) {
-			VertexAttribSetup(VertexElement, decFmt.w1fmt, decFmt.w1off, D3DDECLUSAGE_TEXCOORD, 2);
-			VertexElement++;
-		}
 
 		// TC
 		if (decFmt.uvfmt != 0) {
@@ -229,70 +219,6 @@ IDirect3DVertexDeclaration9 *DrawEngineDX9::SetupDecFmtForDraw(VSShader *vshader
 		// Add it to map
 		vertexDeclMap_.Insert(pspFmt, pHardwareVertexDecl);
 		return pHardwareVertexDecl;
-	}
-}
-
-void DrawEngineDX9::SubmitPrim(void *verts, void *inds, GEPrimitiveType prim, int vertexCount, u32 vertType, int *bytesRead) {
-	if (!indexGen.PrimCompatible(prevPrim_, prim) || numDrawCalls >= MAX_DEFERRED_DRAW_CALLS || vertexCountInDrawCalls_ + vertexCount > VERTEX_BUFFER_MAX)
-		Flush();
-
-	// TODO: Is this the right thing to do?
-	if (prim == GE_PRIM_KEEP_PREVIOUS) {
-		prim = prevPrim_ != GE_PRIM_INVALID ? prevPrim_ : GE_PRIM_POINTS;
-	} else {
-		prevPrim_ = prim;
-	}
-
-	SetupVertexDecoder(vertType);
-
-	*bytesRead = vertexCount * dec_->VertexSize();
-
-	if ((vertexCount < 2 && prim > 0) || (vertexCount < 3 && prim > 2 && prim != GE_PRIM_RECTANGLES))
-		return;
-
-	DeferredDrawCall &dc = drawCalls[numDrawCalls];
-	dc.verts = verts;
-	dc.inds = inds;
-	dc.vertType = vertType;
-	dc.indexType = (vertType & GE_VTYPE_IDX_MASK) >> GE_VTYPE_IDX_SHIFT;
-	dc.prim = prim;
-	dc.vertexCount = vertexCount;
-
-	u32 dhash = dcid_;
-	dhash ^= (u32)(uintptr_t)verts;
-	dhash = __rotl(dhash, 13);
-	dhash ^= (u32)(uintptr_t)inds;
-	dhash = __rotl(dhash, 13);
-	dhash ^= (u32)vertType;
-	dhash = __rotl(dhash, 13);
-	dhash ^= (u32)vertexCount;
-	dhash = __rotl(dhash, 13);
-	dhash ^= (u32)prim;
-	dcid_ = dhash;
-
-	if (inds) {
-		GetIndexBounds(inds, vertexCount, vertType, &dc.indexLowerBound, &dc.indexUpperBound);
-	} else {
-		dc.indexLowerBound = 0;
-		dc.indexUpperBound = vertexCount - 1;
-	}
-
-	uvScale[numDrawCalls] = gstate_c.uv;
-
-	numDrawCalls++;
-	vertexCountInDrawCalls_ += vertexCount;
-
-	if (g_Config.bSoftwareSkinning && (vertType & GE_VTYPE_WEIGHT_MASK)) {
-		DecodeVertsStep(decoded, decodeCounter_, decodedVerts_);
-		decodeCounter_++;
-	}
-
-	if (prim == GE_PRIM_RECTANGLES && (gstate.getTextureAddress(0) & 0x3FFFFFFF) == (gstate.getFrameBufAddress() & 0x3FFFFFFF)) {
-		// Rendertarget == texture?
-		if (!g_Config.bDisableSlowFramebufEffects) {
-			gstate_c.Dirty(DIRTY_TEXTURE_PARAMS);
-			Flush();
-		}
 	}
 }
 
@@ -388,8 +314,8 @@ void DrawEngineDX9::DoFlush() {
 
 		// Cannot cache vertex data with morph enabled.
 		bool useCache = g_Config.bVertexCache && !(lastVType_ & GE_VTYPE_MORPHCOUNT_MASK);
-		// Also avoid caching when software skinning.
-		if (g_Config.bSoftwareSkinning && (lastVType_ & GE_VTYPE_WEIGHT_MASK))
+		// Also avoid caching when skinning.
+		if (lastVType_ & GE_VTYPE_WEIGHT_MASK)
 			useCache = false;
 
 		if (useCache) {

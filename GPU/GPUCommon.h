@@ -32,7 +32,7 @@ enum DrawType {
 enum {
 	FLAG_FLUSHBEFORE = 1,
 	FLAG_FLUSHBEFOREONCHANGE = 2,
-	FLAG_EXECUTE = 4,  // needs to actually be executed. unused for now.
+	FLAG_EXECUTE = 4,
 	FLAG_EXECUTEONCHANGE = 8,
 	FLAG_READS_PC = 16,
 	FLAG_WRITES_PC = 32,
@@ -70,6 +70,8 @@ public:
 	Draw::DrawContext *GetDrawContext() override {
 		return draw_;
 	}
+	virtual void CheckGPUFeatures() = 0;
+
 	bool IsReady() override {
 		return true;
 	}
@@ -127,12 +129,14 @@ public:
 	void Execute_End(u32 op, u32 diff);
 
 	void Execute_VertexType(u32 op, u32 diff);
-	void Execute_VertexTypeSkinning(u32 op, u32 diff);
 
+	void Execute_Prim(u32 op, u32 diff);
 	void Execute_Bezier(u32 op, u32 diff);
 	void Execute_Spline(u32 op, u32 diff);
 	void Execute_BoundingBox(u32 op, u32 diff);
 	void Execute_BlockTransferStart(u32 op, u32 diff);
+
+	void Execute_LoadClut(u32 op, u32 diff);
 
 	void Execute_TexSize0(u32 op, u32 diff);
 	void Execute_TexLevel(u32 op, u32 diff);
@@ -228,9 +232,6 @@ public:
 	const std::list<int>& GetDisplayLists() override {
 		return dlQueue;
 	}
-	bool DecodeTexture(u8* dest, const GPUgstate &state) override {
-		return false;
-	}
 	std::vector<FramebufferInfo> GetFramebufferList() override;
 	void ClearShaderCache() override {}
 	void CleanupBeforeUI() override {}
@@ -242,7 +243,15 @@ public:
 		return -1;
 	}
 
+	bool FramebufferDirty() override;
+	bool FramebufferReallyDirty() override;
+
 	typedef void (GPUCommon::*CmdFunc)(u32 op, u32 diff);
+
+	void GetReportingInfo(std::string &primaryInfo, std::string &fullInfo) override {
+		primaryInfo = reportingPrimaryInfo_;
+		fullInfo = reportingFullInfo_;
+	}
 
 protected:
 	void SetDrawType(DrawType type, GEPrimitiveType prim) {
@@ -262,8 +271,8 @@ protected:
 
 	void BeginFrame() override;
 
-	// To avoid virtual calls to PreExecuteOp().
-	virtual void FastRunLoop(DisplayList &list) = 0;
+	virtual void FastRunLoop(DisplayList &list);
+
 	void SlowRunLoop(DisplayList &list);
 	void UpdatePC(u32 currentPC, u32 newPC);
 	void UpdateState(GPURunState state);
@@ -294,6 +303,13 @@ protected:
 	GraphicsContext *gfxCtx_;
 	Draw::DrawContext *draw_;
 
+	struct CommandInfo {
+		uint64_t flags;
+		GPUCommon::CmdFunc func;
+	};
+
+	static CommandInfo cmdInfo_[256];
+
 	typedef std::list<int> DisplayListQueue;
 
 	int nextListID;
@@ -320,6 +336,8 @@ protected:
 	DrawType lastDraw_;
 	GEPrimitiveType lastPrim_;
 
+	int vertexCost_ = 0;
+
 	// No idea how big this buffer needs to be.
 	enum {
 		MAX_IMMBUFFER_SIZE = 32,
@@ -328,6 +346,9 @@ protected:
 	TransformedVertex immBuffer_[MAX_IMMBUFFER_SIZE];
 	int immCount_ = 0;
 	GEPrimitiveType immPrim_;
+
+	std::string reportingPrimaryInfo_;
+	std::string reportingFullInfo_;
 
 private:
 	void FlushImm();

@@ -17,6 +17,7 @@
 
 #pragma once
 
+#include <cstring>
 #include "Common/Hashmaps.h"
 
 #include "GPU/Common/VertexDecoderCommon.h"
@@ -42,7 +43,7 @@ struct VulkanPipelineKey {
 	VkRenderPass renderPass;
 	VkShaderModule vShader;
 	VkShaderModule fShader;
-	uint32_t vtxDecId;
+	uint32_t vtxFmtId;
 	bool useHWTransform;
 
 	void ToString(std::string *str) const {
@@ -52,25 +53,42 @@ struct VulkanPipelineKey {
 	void FromString(const std::string &str) {
 		memcpy(this, &str[0], sizeof(*this));
 	}
+	std::string GetDescription(DebugShaderStringType stringType) const;
 };
 
-enum {
-	UB_VS_FS_BASE = (1 << 0),
-	UB_VS_BONES = (1 << 1),
-	UB_VS_LIGHTS = (1 << 2),
+struct StoredVulkanPipelineKey {
+	VulkanPipelineRasterStateKey raster;
+	VShaderID vShaderID;
+	FShaderID fShaderID;
+	uint32_t vtxFmtId;
+	bool useHWTransform;
+
+	// For std::set. Better zero-initialize the struct properly for this to work.
+	bool operator < (const StoredVulkanPipelineKey &other) const {
+		return memcmp(this, &other, sizeof(*this)) < 0;
+	}
+};
+
+enum PipelineFlags {
+	PIPELINE_FLAG_USES_LINES = (1 << 2),
+	PIPELINE_FLAG_USES_BLEND_CONSTANT = (1 << 3),
 };
 
 // Simply wraps a Vulkan pipeline, providing some metadata.
 struct VulkanPipeline {
 	VkPipeline pipeline;
-	int uniformBlocks;  // UB_ enum above.
-	bool useBlendConstant;
-	bool usesLines;
+	int flags;  // PipelineFlags enum above.
+
+	// Convenience.
+	bool UsesBlendConstant() const { return (flags & PIPELINE_FLAG_USES_BLEND_CONSTANT) != 0; }
+	bool UsesLines() const { return (flags & PIPELINE_FLAG_USES_LINES) != 0; }
 };
 
 class VulkanContext;
 class VulkanVertexShader;
 class VulkanFragmentShader;
+class ShaderManagerVulkan;
+class DrawEngineCommon;
 
 class PipelineManagerVulkan {
 public:
@@ -90,9 +108,13 @@ public:
 	std::string DebugGetObjectString(std::string id, DebugShaderType type, DebugShaderStringType stringType);
 	std::vector<std::string> DebugGetObjectIDs(DebugShaderType type);
 
+	// Saves data for faster creation next time.
+	void SaveCache(FILE *file, bool saveRawPipelineCache, ShaderManagerVulkan *shaderManager);
+	bool LoadCache(FILE *file, bool loadRawPipelineCache, ShaderManagerVulkan *shaderManager, DrawEngineCommon *drawEngine, VkPipelineLayout layout, VkRenderPass renderPass);
+
 private:
 	DenseHashMap<VulkanPipelineKey, VulkanPipeline *, nullptr> pipelines_;
-	VkPipelineCache pipelineCache_;
+	VkPipelineCache pipelineCache_ = VK_NULL_HANDLE;
 	VulkanContext *vulkan_;
 	float lineWidth_ = 1.0f;
 };

@@ -1360,8 +1360,8 @@ namespace MIPSInt
 		{
 			for (int i = 0; i < n; i++)
 			{
-				d[i] = 0.0f;
-				for (int k = 0; k < n; k++)
+				d[i] = s[i*4] * t[0];
+				for (int k = 1; k < n; k++)
 				{
 					d[i] += s[i*4+k] * t[k];
 				}
@@ -1371,7 +1371,8 @@ namespace MIPSInt
 		{
 			Reporting::ReportMessage("Trying to interpret instruction that can't be interpreted (BADVTFM)");
 			_dbg_assert_msg_(CPU,0,"Trying to interpret instruction that can't be interpreted (BADVTFM)");
-			memset(d, 0, sizeof(d));
+			for (int i = 0; i < n; i++)
+				d[i] = 0.0;
 		}
 		WriteVector(d, sz, vd);
 		PC += 4;

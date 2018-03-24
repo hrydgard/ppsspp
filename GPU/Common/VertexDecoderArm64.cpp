@@ -85,9 +85,6 @@ static const ARM64Reg neonWeightRegsQ[2] = { Q3, Q2 };  // reverse order to prev
 // Q16+ are free-for-all for matrices. In 16 registers, we can fit 4 4x4 matrices.
 
 static const JitLookup jitLookup[] = {
-	{&VertexDecoder::Step_WeightsU8, &VertexDecoderJitCache::Jit_WeightsU8},
-	{&VertexDecoder::Step_WeightsU16, &VertexDecoderJitCache::Jit_WeightsU16},
-	{&VertexDecoder::Step_WeightsFloat, &VertexDecoderJitCache::Jit_WeightsFloat},
 	{&VertexDecoder::Step_WeightsU8Skin, &VertexDecoderJitCache::Jit_WeightsU8Skin},
 	{&VertexDecoder::Step_WeightsU16Skin, &VertexDecoderJitCache::Jit_WeightsU16Skin},
 	{&VertexDecoder::Step_WeightsFloatSkin, &VertexDecoderJitCache::Jit_WeightsFloatSkin},
@@ -196,7 +193,7 @@ JittedVertexDecoder VertexDecoderJitCache::Compile(const VertexDecoder &dec, int
 	// Add code to convert matrices to 4x4.
 	// Later we might want to do this when the matrices are loaded instead.
 	int boneCount = 0;
-	if (dec.weighttype && g_Config.bSoftwareSkinning && dec.morphcount == 1) {
+	if (dec.weighttype) {
 		// Copying from R3 to R4
 		MOVP2R(X3, gstate.boneMatrix);
 		MOVP2R(X4, bones);
@@ -353,44 +350,6 @@ void VertexDecoderJitCache::Jit_ApplyWeights() {
 			ADDI2R(scratchReg64, scratchReg64, 4 * 16);
 			break;
 		}
-	}
-}
-
-void VertexDecoderJitCache::Jit_WeightsU8() {
-	// Basic implementation - a byte at a time. TODO: Optimize
-	int j;
-	for (j = 0; j < dec_->nweights; j++) {
-		LDRB(INDEX_UNSIGNED, tempReg1, srcReg, dec_->weightoff + j);
-		STRB(INDEX_UNSIGNED, tempReg1, dstReg, dec_->decFmt.w0off + j);
-	}
-	while (j & 3) {
-		STRB(INDEX_UNSIGNED, WZR, dstReg, dec_->decFmt.w0off + j);
-		j++;
-	}
-}
-
-void VertexDecoderJitCache::Jit_WeightsU16() {
-	// Basic implementation - a short at a time. TODO: Optimize
-	int j;
-	for (j = 0; j < dec_->nweights; j++) {
-		LDRH(INDEX_UNSIGNED, tempReg1, srcReg, dec_->weightoff + j * 2);
-		STRH(INDEX_UNSIGNED, tempReg1, dstReg, dec_->decFmt.w0off + j * 2);
-	}
-	while (j & 3) {
-		STRH(INDEX_UNSIGNED, WZR, dstReg, dec_->decFmt.w0off + j * 2);
-		j++;
-	}
-}
-
-void VertexDecoderJitCache::Jit_WeightsFloat() {
-	int j;
-	for (j = 0; j < dec_->nweights; j++) {
-		LDR(INDEX_UNSIGNED, tempReg1, srcReg, dec_->weightoff + j * 4);
-		STR(INDEX_UNSIGNED, tempReg1, dstReg, dec_->decFmt.w0off + j * 4);
-	}
-	while (j & 3) {  // Zero additional weights rounding up to 4.
-		STR(INDEX_UNSIGNED, WZR, dstReg, dec_->decFmt.w0off + j * 4);
-		j++;
 	}
 }
 

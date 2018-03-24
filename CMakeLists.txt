@@ -113,7 +113,9 @@ option(SIMULATOR "Set to ON when targeting an x86 simulator of an ARM platform" 
 # :: Options
 option(USE_FFMPEG "Build with FFMPEG support" ${USE_FFMPEG})
 option(USE_SYSTEM_FFMPEG "Dynamically link against system FFMPEG" ${USE_SYSTEM_FFMPEG})
+option(USE_SYSTEM_LIBZIP "Dynamically link against system libzip" ${USE_SYSTEM_LIBZIP})
 option(USE_WAYLAND_WSI "Set to ON to require Wayland support for Vulkan" ${USE_WAYLAND_WSI})
+option(USE_ADDRESS_SANITIZER "Use Clang memory sanitizer" ${USE_ADDRESS_SANITIZER})
 
 if(UNIX AND NOT (APPLE OR ANDROID) AND VULKAN)
 	add_definitions(-DVK_USE_PLATFORM_XLIB_KHR)
@@ -212,6 +214,13 @@ if(NOT MSVC)
 	endif()
 	if (CLANG)
 		set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-switch -Wno-uninitialized")
+	endif()
+
+	if(USE_ADDRESS_SANITIZER)
+		message("Address sanitizer enabled (DEBUG only)")
+		set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS} -fsanitize=address")
+		set(CMAKE_LINKER_FLAGS_DEBUG "${CMAKE_LINKER_FLAGS_DEBUG} -fsanitize=address")
+		add_definitions(-DUSE_ADDRESS_SANITIZER)
 	endif()
 
 	set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -g -D_DEBUG")
@@ -538,7 +547,7 @@ endif()
 
 
 find_package(LibZip)
-if(LIBZIP_FOUND)
+if(LIBZIP_FOUND AND USE_SYSTEM_LIBZIP)
 	add_definitions(-DSHARED_LIBZIP)
 else()
 	add_library(libzip STATIC
@@ -724,6 +733,8 @@ elseif(USING_QT_UI)
       ${QT_UI_GEN}
       Qt/QtMain.cpp
       Qt/QtMain.h
+      Qt/QtHost.cpp
+      Qt/QtHost.h
       Qt/mainwindow.cpp
       Qt/mainwindow.h
       Qt/Debugger/ctrldisasmview.cpp
@@ -768,7 +779,9 @@ elseif(TARGET SDL2::SDL2)
 	set(nativeExtra ${nativeExtra}
 		SDL/SDLJoystick.h
 		SDL/SDLJoystick.cpp
-		SDL/SDLMain.cpp)
+		SDL/SDLMain.cpp
+		SDL/SDLGLGraphicsContext.cpp
+		SDL/SDLVulkanGraphicsContext.cpp)
 	set(nativeExtraLibs ${nativeExtraLibs} SDL2::SDL2)
 	if(APPLE)
 		set(nativeExtra ${nativeExtra} SDL/SDLMain.h SDL/SDLMain.mm)
@@ -830,7 +843,14 @@ if(ANDROID)
 	set(nativeExtra ${nativeExtra} ${NativeAppSource})
 endif()
 
-set(THIN3D_PLATFORMS ext/native/thin3d/thin3d_gl.cpp)
+set(THIN3D_PLATFORMS ext/native/thin3d/thin3d_gl.cpp
+	ext/native/thin3d/GLRenderManager.cpp
+	ext/native/thin3d/GLRenderManager.h
+	ext/native/thin3d/GLQueueRunner.cpp
+	ext/native/thin3d/GLQueueRunner.h
+	ext/native/thin3d/DataFormatGL.cpp
+	ext/native/thin3d/DataFormatGL.h)
+
 set(THIN3D_PLATFORMS ${THIN3D_PLATFORMS}
 	ext/native/thin3d/thin3d_vulkan.cpp
 	ext/native/thin3d/VulkanRenderManager.cpp
@@ -887,8 +907,6 @@ add_library(native STATIC
 	ext/native/file/vfs.h
 	ext/native/file/zip_read.cpp
 	ext/native/file/zip_read.h
-	ext/native/gfx/GLStateCache.cpp
-	ext/native/gfx/GLStateCache.h
 	ext/native/gfx/gl_common.h
 	ext/native/gfx/gl_debug_log.cpp
 	ext/native/gfx/gl_debug_log.h
@@ -964,6 +982,7 @@ add_library(native STATIC
 	ext/native/profiler/profiler.h
 	ext/native/thin3d/thin3d.cpp
 	ext/native/thin3d/thin3d.h
+	ext/native/thin3d/thin3d_create.h
 	${THIN3D_PLATFORMS}
 	ext/native/thread/executor.cpp
 	ext/native/thread/executor.h

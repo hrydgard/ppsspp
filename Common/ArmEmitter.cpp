@@ -633,9 +633,7 @@ void ARMXEmitter::FlushIcacheSection(u8 *start, u8 *end)
 	// Header file says this is equivalent to: sys_icache_invalidate(start, end - start);
 	sys_cache_control(kCacheFunctionPrepareForExecution, start, end - start);
 #elif PPSSPP_PLATFORM(WINDOWS)
-#if !PPSSPP_PLATFORM(UWP)  // Not available on UWP, which is very bad!
 	FlushInstructionCache(GetCurrentProcess(), start, end - start);
-#endif
 #elif PPSSPP_ARCH(ARM)
 
 #if defined(__clang__) || defined(__ANDROID__)

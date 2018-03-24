@@ -32,7 +32,7 @@ struct VkRenderData {
 			VkPipelineLayout pipelineLayout;
 			VkDescriptorSet ds;
 			int numUboOffsets;
-			uint32_t uboOffsets[3];
+			uint32_t uboOffsets[2];
 			VkBuffer vbuffer;
 			VkDeviceSize voffset;
 			uint32_t count;
@@ -41,7 +41,7 @@ struct VkRenderData {
 			VkPipelineLayout pipelineLayout;
 			VkDescriptorSet ds;
 			int numUboOffsets;
-			uint32_t uboOffsets[3];
+			uint32_t uboOffsets[2];
 			VkBuffer vbuffer;  // might need to increase at some point
 			VkDeviceSize voffset;
 			VkBuffer ibuffer;
@@ -82,6 +82,7 @@ struct VkRenderData {
 
 enum class VKRStepType : uint8_t {
 	RENDER,
+	RENDER_SKIP,
 	COPY,
 	BLIT,
 	READBACK,
@@ -108,7 +109,8 @@ struct VKRStep {
 		struct {
 			VKRFramebuffer *framebuffer;
 			VKRRenderPassAction color;
-			VKRRenderPassAction depthStencil;
+			VKRRenderPassAction depth;
+			VKRRenderPassAction stencil;
 			uint32_t clearColor;
 			float clearDepth;
 			int clearStencil;
@@ -159,7 +161,8 @@ public:
 	VkRenderPass GetBackbufferRenderPass() const {
 		return backbufferRenderPass_;
 	}
-	VkRenderPass GetRenderPass(VKRRenderPassAction colorLoadAction, VKRRenderPassAction depthLoadAction, VKRRenderPassAction stencilLoadAction);
+	VkRenderPass GetRenderPass(VKRRenderPassAction colorLoadAction, VKRRenderPassAction depthLoadAction, VKRRenderPassAction stencilLoadAction,
+		VkImageLayout prevColorLayout, VkImageLayout prevDepthLayout, VkImageLayout finalColorLayout);
 
 	inline int RPIndex(VKRRenderPassAction color, VKRRenderPassAction depth) {
 		return (int)depth * 3 + (int)color;
@@ -200,6 +203,10 @@ private:
 		VKRRenderPassAction colorAction;
 		VKRRenderPassAction depthAction;
 		VKRRenderPassAction stencilAction;
+		VkImageLayout prevColorLayout;
+		VkImageLayout prevDepthLayout;
+		VkImageLayout finalColorLayout;
+		// TODO: Also pre-transition depth, for copies etc.
 	};
 
 	// Renderpasses, all combinations of preserving or clearing or dont-care-ing fb contents.

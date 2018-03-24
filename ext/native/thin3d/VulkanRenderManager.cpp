@@ -1,4 +1,6 @@
 #include <cstdint>
+
+#include "Common/Log.h"
 #include "base/logging.h"
 
 #include "Common/Vulkan/VulkanContext.h"
@@ -392,16 +394,16 @@ VkCommandBuffer VulkanRenderManager::GetInitCmd() {
 	return frameData_[curFrame].initCmd;
 }
 
-void VulkanRenderManager::BindFramebufferAsRenderTarget(VKRFramebuffer *fb, VKRRenderPassAction color, VKRRenderPassAction depth, uint32_t clearColor, float clearDepth, uint8_t clearStencil) {
+void VulkanRenderManager::BindFramebufferAsRenderTarget(VKRFramebuffer *fb, VKRRenderPassAction color, VKRRenderPassAction depth, VKRRenderPassAction stencil, uint32_t clearColor, float clearDepth, uint8_t clearStencil) {
 	assert(insideFrame_);
 	// Eliminate dupes.
 	if (steps_.size() && steps_.back()->render.framebuffer == fb && steps_.back()->stepType == VKRStepType::RENDER) {
-		if (color != VKRRenderPassAction::CLEAR && depth != VKRRenderPassAction::CLEAR) {
+		if (color != VKRRenderPassAction::CLEAR && depth != VKRRenderPassAction::CLEAR && stencil != VKRRenderPassAction::CLEAR) {
 			// We don't move to a new step, this bind was unnecessary and we can safely skip it.
 			return;
 		}
 	}
-	if (curRenderStep_ && curRenderStep_->commands.size() == 0 && curRenderStep_->render.color == VKRRenderPassAction::KEEP && curRenderStep_->render.depthStencil == VKRRenderPassAction::KEEP) {
+	if (curRenderStep_ && curRenderStep_->commands.size() == 0 && curRenderStep_->render.color == VKRRenderPassAction::KEEP && curRenderStep_->render.depth == VKRRenderPassAction::KEEP && curRenderStep_->render.stencil == VKRRenderPassAction::KEEP) {
 		// Can trivially kill the last empty render step.
 		assert(steps_.back() == curRenderStep_);
 		delete steps_.back();
@@ -416,7 +418,8 @@ void VulkanRenderManager::BindFramebufferAsRenderTarget(VKRFramebuffer *fb, VKRR
 	// This is what queues up new passes, and can end previous ones.
 	step->render.framebuffer = fb;
 	step->render.color = color;
-	step->render.depthStencil = depth;
+	step->render.depth= depth;
+	step->render.stencil = stencil;
 	step->render.clearColor = clearColor;
 	step->render.clearDepth = clearDepth;
 	step->render.clearStencil = clearStencil;
@@ -620,7 +623,8 @@ void VulkanRenderManager::Clear(uint32_t clearColor, float clearZ, int clearSten
 		curRenderStep_->render.clearDepth = clearZ;
 		curRenderStep_->render.clearStencil = clearStencil;
 		curRenderStep_->render.color = (clearMask & VK_IMAGE_ASPECT_COLOR_BIT) ? VKRRenderPassAction::CLEAR : VKRRenderPassAction::KEEP;
-		curRenderStep_->render.depthStencil = (clearMask & (VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT)) ? VKRRenderPassAction::CLEAR : VKRRenderPassAction::KEEP;
+		curRenderStep_->render.depth = (clearMask & VK_IMAGE_ASPECT_DEPTH_BIT) ? VKRRenderPassAction::CLEAR : VKRRenderPassAction::KEEP;
+		curRenderStep_->render.stencil = (clearMask & VK_IMAGE_ASPECT_STENCIL_BIT) ? VKRRenderPassAction::CLEAR : VKRRenderPassAction::KEEP;
 	} else {
 		VkRenderData data{ VKRRenderCommand::CLEAR };
 		data.clear.clearColor = clearColor;
@@ -632,14 +636,35 @@ void VulkanRenderManager::Clear(uint32_t clearColor, float clearZ, int clearSten
 }
 
 void VulkanRenderManager::CopyFramebuffer(VKRFramebuffer *src, VkRect2D srcRect, VKRFramebuffer *dst, VkOffset2D dstPos, int aspectMask) {
-	_dbg_assert_msg_(G3D, srcRect.offset.x >= 0, "srcrect offset x < 0");
-	_dbg_assert_msg_(G3D, srcRect.offset.y >= 0, "srcrect offset y < 0");
-	_dbg_assert_msg_(G3D, srcRect.offset.x + srcRect.extent.width <= (uint32_t)src->width, "srcrect offset x + extent > width");
-	_dbg_assert_msg_(G3D, srcRect.offset.y + srcRect.extent.height <= (uint32_t)src->height, "srcrect offset y + extent > height");
-	_dbg_assert_msg_(G3D, dstPos.x >= 0, "dstPos offset x < 0");
-	_dbg_assert_msg_(G3D, dstPos.y >= 0, "dstPos offset y < 0");
+	_dbg_assert_msg_(G3D, srcRect.offset.x >= 0, "srcrect offset x (%d) < 0", srcRect.offset.x);
+	_dbg_assert_msg_(G3D, srcRect.offset.y >= 0, "srcrect offset y (%d) < 0", srcRect.offset.y);
+	_dbg_assert_msg_(G3D, srcRect.offset.x + srcRect.extent.width <= (uint32_t)src->width, "srcrect offset x (%d) + extent (%d) > width (%d)", srcRect.offset.x, srcRect.extent.width, (uint32_t)src->width);
+	_dbg_assert_msg_(G3D, srcRect.offset.y + srcRect.extent.height <= (uint32_t)src->height, "srcrect offset y (%d) + extent (%d) > height (%d)", srcRect.offset.y, srcRect.extent.height, (uint32_t)src->height);
+
+	_dbg_assert_msg_(G3D, srcRect.extent.width > 0, "copy srcwidth == 0");
+	_dbg_assert_msg_(G3D, srcRect.extent.height > 0, "copy srcheight == 0");
+
+	_dbg_assert_msg_(G3D, dstPos.x >= 0, "dstPos offset x (%d) < 0", dstPos.x);
+	_dbg_assert_msg_(G3D, dstPos.y >= 0, "dstPos offset y (%d) < 0", dstPos.y);
 	_dbg_assert_msg_(G3D, dstPos.x + srcRect.extent.width <= (uint32_t)dst->width, "dstPos + extent x > width");
 	_dbg_assert_msg_(G3D, dstPos.y + srcRect.extent.height <= (uint32_t)dst->height, "dstPos + extent y > height");
+
+	for (int i = (int)steps_.size() - 1; i >= 0; i--) {
+		if (steps_[i]->stepType == VKRStepType::RENDER && steps_[i]->render.framebuffer == src) {
+			if (steps_[i]->render.finalColorLayout == VK_IMAGE_LAYOUT_UNDEFINED) {
+				steps_[i]->render.finalColorLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
+			}
+			break;
+		}
+	}
+	for (int i = (int)steps_.size() - 1; i >= 0; i--) {
+		if (steps_[i]->stepType == VKRStepType::RENDER && steps_[i]->render.framebuffer == dst) {
+			if (steps_[i]->render.finalColorLayout == VK_IMAGE_LAYOUT_UNDEFINED) {
+				steps_[i]->render.finalColorLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
+			}
+			break;
+		}
+	}
 
 	VKRStep *step = new VKRStep{ VKRStepType::COPY };
 
@@ -655,10 +680,10 @@ void VulkanRenderManager::CopyFramebuffer(VKRFramebuffer *src, VkRect2D srcRect,
 }
 
 void VulkanRenderManager::BlitFramebuffer(VKRFramebuffer *src, VkRect2D srcRect, VKRFramebuffer *dst, VkRect2D dstRect, int aspectMask, VkFilter filter) {
-	_dbg_assert_msg_(G3D, srcRect.offset.x >= 0, "srcrect offset x < 0");
-	_dbg_assert_msg_(G3D, srcRect.offset.y >= 0, "srcrect offset y < 0");
-	_dbg_assert_msg_(G3D, srcRect.offset.x + srcRect.extent.width <= (uint32_t)src->width, "srcrect offset x + extent > width");
-	_dbg_assert_msg_(G3D, srcRect.offset.y + srcRect.extent.height <= (uint32_t)src->height, "srcrect offset y + extent > height");
+	_dbg_assert_msg_(G3D, srcRect.offset.x >= 0, "srcrect offset x (%d) < 0", srcRect.offset.x);
+	_dbg_assert_msg_(G3D, srcRect.offset.y >= 0, "srcrect offset y (%d) < 0", srcRect.offset.y);
+	_dbg_assert_msg_(G3D, srcRect.offset.x + srcRect.extent.width <= (uint32_t)src->width, "srcrect offset x (%d) + extent (%d) > width (%d)", srcRect.offset.x, srcRect.extent.width, (uint32_t)src->width);
+	_dbg_assert_msg_(G3D, srcRect.offset.y + srcRect.extent.height <= (uint32_t)src->height, "srcrect offset y (%d) + extent (%d) > height (%d)", srcRect.offset.y, srcRect.extent.height, (uint32_t)src->height);
 
 	_dbg_assert_msg_(G3D, srcRect.extent.width > 0, "blit srcwidth == 0");
 	_dbg_assert_msg_(G3D, srcRect.extent.height > 0, "blit srcheight == 0");
@@ -692,12 +717,8 @@ VkImageView VulkanRenderManager::BindFramebufferAsTexture(VKRFramebuffer *fb, in
 			// If this framebuffer was rendered to earlier in this frame, make sure to pre-transition it to the correct layout.
 			if (steps_[i]->render.finalColorLayout == VK_IMAGE_LAYOUT_UNDEFINED) {
 				steps_[i]->render.finalColorLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-				break;
 			}
-			else if (steps_[i]->render.finalColorLayout != VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL) {
-				Crash();
-				// May need to shadow the framebuffer if we re-order passes later.
-			}
+			break;
 		}
 	}
 
@@ -755,13 +776,13 @@ void VulkanRenderManager::BeginSubmitFrame(int frame) {
 		} else if (res == VK_ERROR_OUT_OF_DATE_KHR) {
 			frameData.skipSwap = true;
 		} else {
-			_assert_msg_(G3D, res == VK_SUCCESS, "vkAcquireNextImageKHR failed! result=%d", (int)res);
+			_assert_msg_(G3D, res == VK_SUCCESS, "vkAcquireNextImageKHR failed! result=%s", VulkanResultToString(res));
 		}
 
 		VkCommandBufferBeginInfo begin{ VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO };
 		begin.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
 		res = vkBeginCommandBuffer(frameData.mainCmd, &begin);
-		_assert_msg_(G3D, res == VK_SUCCESS, "vkBeginCommandBuffer failed! result=%d", (int)res);
+		_assert_msg_(G3D, res == VK_SUCCESS, "vkBeginCommandBuffer failed! result=%s", VulkanResultToString(res));
 
 		queueRunner_.SetBackbuffer(framebuffers_[frameData.curSwapchainImage], swapchainImages_[frameData.curSwapchainImage].image);
 
@@ -773,11 +794,11 @@ void VulkanRenderManager::Submit(int frame, bool triggerFence) {
 	FrameData &frameData = frameData_[frame];
 	if (frameData.hasInitCommands) {
 		VkResult res = vkEndCommandBuffer(frameData.initCmd);
-		_assert_msg_(G3D, res == VK_SUCCESS, "vkEndCommandBuffer failed (init)! result=%d", (int)res);
+		_assert_msg_(G3D, res == VK_SUCCESS, "vkEndCommandBuffer failed (init)! result=%s", VulkanResultToString(res));
 	}
 
 	VkResult res = vkEndCommandBuffer(frameData.mainCmd);
-	_assert_msg_(G3D, res == VK_SUCCESS, "vkEndCommandBuffer failed (main)! result=%d", (int)res);
+	_assert_msg_(G3D, res == VK_SUCCESS, "vkEndCommandBuffer failed (main)! result=%s", VulkanResultToString(res));
 
 	VkCommandBuffer cmdBufs[2];
 	int numCmdBufs = 0;
@@ -793,7 +814,7 @@ void VulkanRenderManager::Submit(int frame, bool triggerFence) {
 			if (res == VK_ERROR_DEVICE_LOST) {
 				_assert_msg_(G3D, false, "Lost the Vulkan device!");
 			} else {
-				_assert_msg_(G3D, res == VK_SUCCESS, "vkQueueSubmit failed (init)! result=%d", (int)res);
+				_assert_msg_(G3D, res == VK_SUCCESS, "vkQueueSubmit failed (init)! result=%s", VulkanResultToString(res));
 			}
 			numCmdBufs = 0;
 		}
@@ -817,7 +838,7 @@ void VulkanRenderManager::Submit(int frame, bool triggerFence) {
 	if (res == VK_ERROR_DEVICE_LOST) {
 		_assert_msg_(G3D, false, "Lost the Vulkan device!");
 	} else {
-		_assert_msg_(G3D, res == VK_SUCCESS, "vkQueueSubmit failed (main, split=%d)! result=%d", (int)splitSubmit_, (int)res);
+		_assert_msg_(G3D, res == VK_SUCCESS, "vkQueueSubmit failed (main, split=%d)! result=%s", (int)splitSubmit_, VulkanResultToString(res));
 	}
 
 	// When !triggerFence, we notify after syncing with Vulkan.
@@ -849,7 +870,7 @@ void VulkanRenderManager::EndSubmitFrame(int frame) {
 		if (res == VK_ERROR_OUT_OF_DATE_KHR || res == VK_SUBOPTIMAL_KHR) {
 			// ignore, it'll be fine. this happens sometimes during resizes, and we do make sure to recreate the swap chain.
 		} else {
-			_assert_msg_(G3D, res == VK_SUCCESS, "vkQueuePresentKHR failed! result=%d", (int)res);
+			_assert_msg_(G3D, res == VK_SUCCESS, "vkQueuePresentKHR failed! result=%s", VulkanResultToString(res));
 		}
 	} else {
 		frameData.skipSwap = false;

@@ -3,7 +3,6 @@
 #include <memory>
 
 #include "thin3d/thin3d.h"
-#include "Core/Config.h"
 
 enum ImageFileType {
 	PNG,

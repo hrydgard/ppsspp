@@ -19,7 +19,6 @@
 
 #include <map>
 #include "Common/CommonTypes.h"
-#include "ext/native/gfx/GLStateCache.h"
 #include "GPU/GLES/TextureCacheGLES.h"
 
 #include "GPU/ge_constants.h"
@@ -53,33 +52,33 @@ struct FragmentTestID {
 };
 
 struct FragmentTestTexture {
-	GLuint texture;
+	GLRTexture *texture;
 	int lastFrame;
 };
 
 class FragmentTestCacheGLES {
 public:
-	FragmentTestCacheGLES();
+	FragmentTestCacheGLES(Draw::DrawContext *draw);
 	~FragmentTestCacheGLES();
 
 	void SetTextureCache(TextureCacheGLES *tc) {
 		textureCache_ = tc;
 	}
 
-	void BindTestTexture(GLenum unit);
+	void BindTestTexture(int slot);
 
 	void Clear(bool deleteThem = true);
 	void Decimate();
 
 private:
 
-	GLuint CreateTestTexture(const GEComparison funcs[4], const u8 refs[4], const u8 masks[4], const bool valid[4]);
+	GLRTexture *CreateTestTexture(const GEComparison funcs[4], const u8 refs[4], const u8 masks[4], const bool valid[4]);
 	FragmentTestID GenerateTestID() const;
 
+	GLRenderManager *render_;
 	TextureCacheGLES *textureCache_;
 
 	std::map<FragmentTestID, FragmentTestTexture> cache_;
-	u8 *scratchpad_;
-	GLuint lastTexture_;
-	int decimationCounter_;
+	GLRTexture *lastTexture_ = nullptr;
+	int decimationCounter_ = 0;
 };

@@ -16,9 +16,9 @@
 #include <jni.h>
 
 TextDrawerAndroid::TextDrawerAndroid(Draw::DrawContext *draw) : TextDrawer(draw) {
-	env_ = jniEnvGraphics;
+	env_ = getEnv();
 	const char *textRendererClassName = "org/ppsspp/ppsspp/TextRenderer";
-	jclass localClass = env_->FindClass(textRendererClassName);
+	jclass localClass = findClass(textRendererClassName);
 	cls_textRenderer = reinterpret_cast<jclass>(env_->NewGlobalRef(localClass));
 	ILOG("cls_textRender: %p", cls_textRenderer);
 	if (cls_textRenderer) {
@@ -184,8 +184,13 @@ void TextDrawerAndroid::DrawString(DrawBuffer &target, const char *str, float x,
 
 		jstring jstr = env_->NewStringUTF(text.c_str());
 		uint32_t textSize = env_->CallStaticIntMethod(cls_textRenderer, method_measureText, jstr, size);
-		int imageWidth = (textSize >> 16);
-		int imageHeight = (textSize & 0xFFFF);
+		int imageWidth = (short)(textSize >> 16);
+		int imageHeight = (short)(textSize & 0xFFFF);
+		if (imageWidth <= 0)
+			imageWidth = 1;
+		if (imageHeight <= 0)
+			imageHeight = 1;
+
 		jintArray imageData = (jintArray)env_->CallStaticObjectMethod(cls_textRenderer, method_renderText, jstr, size);
 		env_->DeleteLocalRef(jstr);
 

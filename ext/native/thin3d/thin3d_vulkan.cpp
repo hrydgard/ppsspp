@@ -301,10 +301,10 @@ struct DescriptorSetKey {
 
 class VKTexture : public Texture {
 public:
-	VKTexture(VulkanContext *vulkan, VkCommandBuffer cmd, const TextureDesc &desc, VulkanDeviceAllocator *alloc)
+	VKTexture(VulkanContext *vulkan, VkCommandBuffer cmd, VulkanPushBuffer *pushBuffer, const TextureDesc &desc, VulkanDeviceAllocator *alloc)
 		: vulkan_(vulkan), mipLevels_(desc.mipLevels), format_(desc.format) {
-		bool result = Create(cmd, desc, alloc);
-		assert(result);
+		bool result = Create(cmd, pushBuffer, desc, alloc);
+		_assert_(result);
 	}
 
 	~VKTexture() {
@@ -314,9 +314,7 @@ public:
 	VkImageView GetImageView() { return vkTex_->GetImageView(); }
 
 private:
-	void SetImageData(VkCommandBuffer cmd, int x, int y, int z, int width, int height, int depth, int level, int stride, const uint8_t *data);
-
-	bool Create(VkCommandBuffer cmd, const TextureDesc &desc, VulkanDeviceAllocator *alloc);
+	bool Create(VkCommandBuffer cmd, VulkanPushBuffer *pushBuffer, const TextureDesc &desc, VulkanDeviceAllocator *alloc);
 
 	void Destroy() {
 		if (vkTex_) {
@@ -650,20 +648,48 @@ enum class TextureState {
 	PENDING_DESTRUCTION,
 };
 
-bool VKTexture::Create(VkCommandBuffer cmd, const TextureDesc &desc, VulkanDeviceAllocator *alloc) {
+bool VKTexture::Create(VkCommandBuffer cmd, VulkanPushBuffer *push, const TextureDesc &desc, VulkanDeviceAllocator *alloc) {
 	// Zero-sized textures not allowed.
-	assert(desc.width * desc.height * desc.depth > 0);
+	_assert_(desc.width * desc.height * desc.depth > 0);  // remember to set depth to 1!
+	_assert_(push);
 	format_ = desc.format;
 	mipLevels_ = desc.mipLevels;
 	width_ = desc.width;
 	height_ = desc.height;
 	depth_ = desc.depth;
 	vkTex_ = new VulkanTexture(vulkan_, alloc);
+	VkFormat vulkanFormat = DataFormatToVulkan(format_);
+	int stride = desc.width * (int)DataFormatSizeInBytes(format_);
+	int bpp = GetBpp(vulkanFormat);
+	int bytesPerPixel = bpp / 8;
+	int usageBits = VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
+	if (mipLevels_ > (int)desc.initData.size()) {
+		// Gonna have to generate some, which requires TRANSFER_SRC
+		usageBits |= VK_IMAGE_USAGE_TRANSFER_SRC_BIT;
+	}
+	if (!vkTex_->CreateDirect(cmd, width_, height_, mipLevels_, vulkanFormat, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, usageBits)) {
+		ELOG("Failed to create VulkanTexture: %dx%dx%d fmt %d, %d levels", width_, height_, depth_, (int)vulkanFormat, mipLevels_);
+		return false;
+	}
 	if (desc.initData.size()) {
-		for (int i = 0; i < (int)desc.initData.size(); i++) {
-			this->SetImageData(cmd, 0, 0, 0, width_, height_, depth_, i, 0, desc.initData[i]);
+		int w = width_;
+		int h = height_;
+		int i;
+		for (i = 0; i < (int)desc.initData.size(); i++) {
+			uint32_t offset;
+			VkBuffer buf;
+			size_t size = w * h * bytesPerPixel;
+			offset = push->PushAligned((const void *)desc.initData[i], size, 16, &buf);
+			vkTex_->UploadMip(cmd, i, w, h, buf, offset, w);
+			w = (w + 1) / 2;
+			h = (h + 1) / 2;
+		}
+		// Generate the rest of the mips automatically.
+		for (; i < mipLevels_; i++) {
+			vkTex_->GenerateMip(cmd, i);
 		}
 	}
+	vkTex_->EndCreate(cmd, false);
 	return true;
 }
 
@@ -703,13 +729,13 @@ VKContext::VKContext(VulkanContext *vulkan, bool splitSubmit)
 	dpTypes[1].descriptorCount = 200;
 	dpTypes[1].type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
 
-	VkDescriptorPoolCreateInfo dp = { VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO };
+	VkDescriptorPoolCreateInfo dp{ VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO };
 	dp.flags = 0;   // Don't want to mess around with individually freeing these, let's go dynamic each frame.
 	dp.maxSets = 200;  // 200 textures per frame should be enough for the UI...
 	dp.pPoolSizes = dpTypes;
 	dp.poolSizeCount = ARRAY_SIZE(dpTypes);
 
-	VkCommandPoolCreateInfo p = { VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO };
+	VkCommandPoolCreateInfo p{ VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO };
 	p.flags = VK_COMMAND_POOL_CREATE_TRANSIENT_BIT;
 	p.queueFamilyIndex = vulkan->GetGraphicsQueueFamilyIndex();
 
@@ -747,7 +773,9 @@ VKContext::VKContext(VulkanContext *vulkan, bool splitSubmit)
 	res = vkCreatePipelineLayout(device_, &pl, nullptr, &pipelineLayout_);
 	assert(VK_SUCCESS == res);
 
-	pipelineCache_ = vulkan_->CreatePipelineCache();
+	VkPipelineCacheCreateInfo pc{ VK_STRUCTURE_TYPE_PIPELINE_CACHE_CREATE_INFO };
+	res = vkCreatePipelineCache(vulkan_->GetDevice(), &pc, nullptr, &pipelineCache_);
+	assert(VK_SUCCESS == res);
 
 	renderManager_.SetSplitSubmit(splitSubmit);
 
@@ -833,7 +861,11 @@ VkDescriptorSet VKContext::GetOrCreateDescriptorSet(VkBuffer buf) {
 	VkDescriptorImageInfo imageDesc;
 	imageDesc.imageView = boundTextures_[0]->GetImageView();
 	imageDesc.sampler = boundSamplers_[0]->GetSampler();
+#ifdef VULKAN_USE_GENERAL_LAYOUT_FOR_COLOR
+	imageDesc.imageLayout = VK_IMAGE_LAYOUT_GENERAL;
+#else
 	imageDesc.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+#endif
 
 	VkWriteDescriptorSet writes[2] = {};
 	writes[0].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
@@ -994,23 +1026,13 @@ InputLayout *VKContext::CreateInputLayout(const InputLayoutDesc &desc) {
 }
 
 Texture *VKContext::CreateTexture(const TextureDesc &desc) {
-	return new VKTexture(vulkan_, renderManager_.GetInitCmd(), desc, allocator_);
-}
-
-void VKTexture::SetImageData(VkCommandBuffer cmd, int x, int y, int z, int width, int height, int depth, int level, int stride, const uint8_t *data) {
-	VkFormat vulkanFormat = DataFormatToVulkan(format_);
-	if (stride == 0) {
-		stride = width * (int)DataFormatSizeInBytes(format_);
+	if (!push_) {
+		// Too early! Fail.
+		ELOG("Can't create textures before the first frame has started.");
+		return nullptr;
 	}
-	int bpp = GetBpp(vulkanFormat);
-	int bytesPerPixel = bpp / 8;
-	vkTex_->Create(width, height, vulkanFormat);
-	int rowPitch;
-	uint8_t *dstData = vkTex_->Lock(0, &rowPitch);
-	for (int y = 0; y < height; y++) {
-		memcpy(dstData + rowPitch * y, data + stride * y, width * bytesPerPixel);
-	}
-	vkTex_->Unlock(cmd);
+	_assert_(renderManager_.GetInitCmd());
+	return new VKTexture(vulkan_, renderManager_.GetInitCmd(), push_, desc, allocator_);
 }
 
 static inline void CopySide(VkStencilOpState &dest, const StencilSide &src) {
@@ -1338,8 +1360,9 @@ void VKContext::BindFramebufferAsRenderTarget(Framebuffer *fbo, const RenderPass
 	VKFramebuffer *fb = (VKFramebuffer *)fbo;
 	VKRRenderPassAction color = (VKRRenderPassAction)rp.color;
 	VKRRenderPassAction depth = (VKRRenderPassAction)rp.depth;
+	VKRRenderPassAction stencil = (VKRRenderPassAction)rp.stencil;
 
-	renderManager_.BindFramebufferAsRenderTarget(fb ? fb->GetFB() : nullptr, color, depth, rp.clearColor, rp.clearDepth, rp.clearStencil);
+	renderManager_.BindFramebufferAsRenderTarget(fb ? fb->GetFB() : nullptr, color, depth, stencil, rp.clearColor, rp.clearDepth, rp.clearStencil);
 	curFramebuffer_ = fb;
 }
 

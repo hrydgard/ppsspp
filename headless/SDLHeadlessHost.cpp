@@ -36,6 +36,7 @@
 #include "gfx_es2/gpu_features.h"
 #include "file/vfs.h"
 #include "file/zip_read.h"
+#include "thin3d/thin3d_create.h"
 
 const bool WINDOW_VISIBLE = false;
 const int WINDOW_WIDTH = 480;

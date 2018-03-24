@@ -66,8 +66,7 @@ enum {
 	DRAW_BINDING_2ND_TEXTURE = 1,
 	DRAW_BINDING_DYNUBO_BASE = 2,
 	DRAW_BINDING_DYNUBO_LIGHT = 3,
-	DRAW_BINDING_DYNUBO_BONE = 4,
-	DRAW_BINDING_TESS_STORAGE_BUF = 5,
+	DRAW_BINDING_TESS_STORAGE_BUF = 4,
 };
 
 enum {
@@ -95,83 +94,47 @@ DrawEngineVulkan::DrawEngineVulkan(VulkanContext *vulkan, Draw::DrawContext *dra
 
 void DrawEngineVulkan::InitDeviceObjects() {
 	// All resources we need for PSP drawing. Usually only bindings 0 and 2-4 are populated.
-	VkDescriptorSetLayoutBinding bindings[6];
+	VkDescriptorSetLayoutBinding bindings[5]{};
 	bindings[0].descriptorCount = 1;
-	bindings[0].pImmutableSamplers = nullptr;
 	bindings[0].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
 	bindings[0].stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
 	bindings[0].binding = DRAW_BINDING_TEXTURE;
 	bindings[1].descriptorCount = 1;
-	bindings[1].pImmutableSamplers = nullptr;
 	bindings[1].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
 	bindings[1].stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
 	bindings[1].binding = DRAW_BINDING_2ND_TEXTURE;
 	bindings[2].descriptorCount = 1;
-	bindings[2].pImmutableSamplers = nullptr;
 	bindings[2].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC;
 	bindings[2].stageFlags = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT;
 	bindings[2].binding = DRAW_BINDING_DYNUBO_BASE;
 	bindings[3].descriptorCount = 1;
-	bindings[3].pImmutableSamplers = nullptr;
 	bindings[3].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC;
 	bindings[3].stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
 	bindings[3].binding = DRAW_BINDING_DYNUBO_LIGHT;
-	bindings[4].descriptorCount = 1;
-	bindings[4].pImmutableSamplers = nullptr;
-	bindings[4].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC;
-	bindings[4].stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
-	bindings[4].binding = DRAW_BINDING_DYNUBO_BONE;
 	// Used only for hardware tessellation.
-	bindings[5].descriptorCount = 1;
-	bindings[5].pImmutableSamplers = nullptr;
-	bindings[5].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
-	bindings[5].stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
-	bindings[5].binding = DRAW_BINDING_TESS_STORAGE_BUF;
+	bindings[4].descriptorCount = 1;
+	bindings[4].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+	bindings[4].stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
+	bindings[4].binding = DRAW_BINDING_TESS_STORAGE_BUF;
 
 	VkDevice device = vulkan_->GetDevice();
 
-	VkDescriptorSetLayoutCreateInfo dsl = { VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO };
+	VkDescriptorSetLayoutCreateInfo dsl{ VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO };
 	dsl.bindingCount = ARRAY_SIZE(bindings);
 	dsl.pBindings = bindings;
 	VkResult res = vkCreateDescriptorSetLayout(device, &dsl, nullptr, &descriptorSetLayout_);
 	assert(VK_SUCCESS == res);
 
-	VkDescriptorPoolSize dpTypes[3];
-	dpTypes[0].descriptorCount = 8192;
-	dpTypes[0].type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC;
-	dpTypes[1].descriptorCount = 8192 + 4096;  // Due to the tess stuff, we need a LOT of these. Most will be empty...
-	dpTypes[1].type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-	dpTypes[2].descriptorCount = 2048;
-	dpTypes[2].type = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
-
-	VkDescriptorPoolCreateInfo dp = { VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO };
-	dp.pNext = nullptr;
-	dp.flags = 0;   // Don't want to mess around with individually freeing these.
-	                // We zap the whole pool every few frames.
-	dp.maxSets = 2048;
-	dp.pPoolSizes = dpTypes;
-	dp.poolSizeCount = ARRAY_SIZE(dpTypes);
-
 	// We are going to use one-shot descriptors in the initial implementation. Might look into caching them
 	// if creating and updating them turns out to be expensive.
 	for (int i = 0; i < VulkanContext::MAX_INFLIGHT_FRAMES; i++) {
-		// If we run out of memory, try with less descriptors.
-		for (int tries = 0; tries < 3; ++tries) {
-			VkResult res = vkCreateDescriptorPool(vulkan_->GetDevice(), &dp, nullptr, &frame_[i].descPool);
-			if (res == VK_SUCCESS) {
-				break;
-			}
-			// Let's try to reduce the counts.
-			assert(res == VK_ERROR_OUT_OF_HOST_MEMORY || res == VK_ERROR_OUT_OF_DEVICE_MEMORY);
-			dpTypes[0].descriptorCount /= 2;
-			dpTypes[1].descriptorCount /= 2;
-		}
-		frame_[i].pushUBO = new VulkanPushBuffer(vulkan_, 8 * 1024 * 1024);
+		// We now create descriptor pools on demand, so removed from here.
+		frame_[i].pushUBO = new VulkanPushBuffer(vulkan_, 4 * 1024 * 1024);
 		frame_[i].pushVertex = new VulkanPushBuffer(vulkan_, 2 * 1024 * 1024);
 		frame_[i].pushIndex = new VulkanPushBuffer(vulkan_, 1 * 1024 * 1024);
 	}
 
-	VkPipelineLayoutCreateInfo pl = { VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO };
+	VkPipelineLayoutCreateInfo pl{ VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO };
 	pl.pPushConstantRanges = nullptr;
 	pl.pushConstantRangeCount = 0;
 	pl.setLayoutCount = 1;
@@ -180,7 +143,7 @@ void DrawEngineVulkan::InitDeviceObjects() {
 	res = vkCreatePipelineLayout(device, &pl, nullptr, &pipelineLayout_);
 	assert(VK_SUCCESS == res);
 
-	VkSamplerCreateInfo samp = { VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO };
+	VkSamplerCreateInfo samp{ VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO };
 	samp.addressModeU = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
 	samp.addressModeV = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
 	samp.addressModeW = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
@@ -292,9 +255,7 @@ void DrawEngineVulkan::BeginFrame() {
 	// TODO: How can we make this nicer...
 	((TessellationDataTransferVulkan *)tessDataTransfer)->SetPushBuffer(frame->pushUBO);
 
-	// TODO : Find a better place to do this.
 	if (!nullTexture_) {
-		ILOG("INIT : Creating null texture");
 		VkCommandBuffer cmdInit = (VkCommandBuffer)draw_->GetNativeObject(Draw::NativeObject::INIT_COMMANDBUFFER);
 		nullTexture_ = new VulkanTexture(vulkan_, textureCache_->GetAllocator());
 		int w = 8;
@@ -326,10 +287,11 @@ void DrawEngineVulkan::BeginFrame() {
 
 	vertexCache_->BeginNoReset();
 
-	// TODO: Need a better way to keep the number of descriptors under control.
-	if (--descDecimationCounter_ <= 0 || frame->descSets.size() > 1024) {
-		vkResetDescriptorPool(vulkan_->GetDevice(), frame->descPool, 0);
+	if (--descDecimationCounter_ <= 0) {
+		if (frame->descPool != VK_NULL_HANDLE)
+			vkResetDescriptorPool(vulkan_->GetDevice(), frame->descPool, 0);
 		frame->descSets.Clear();
+		frame->descCount = 0;
 		descDecimationCounter_ = DESCRIPTORSET_DECIMATION_INTERVAL;
 	}
 
@@ -368,72 +330,6 @@ void DrawEngineVulkan::EndFrame() {
 	vertexCache_->End();
 }
 
-void DrawEngineVulkan::SubmitPrim(void *verts, void *inds, GEPrimitiveType prim, int vertexCount, u32 vertType, int *bytesRead) {
-	if (!indexGen.PrimCompatible(prevPrim_, prim) || numDrawCalls >= MAX_DEFERRED_DRAW_CALLS || vertexCountInDrawCalls_ + vertexCount > VERTEX_BUFFER_MAX) {
-		Flush();
-	}
-
-	// TODO: Is this the right thing to do?
-	if (prim == GE_PRIM_KEEP_PREVIOUS) {
-		prim = prevPrim_ != GE_PRIM_INVALID ? prevPrim_ : GE_PRIM_POINTS;
-	} else {
-		prevPrim_ = prim;
-	}
-
-	SetupVertexDecoder(vertType);
-
-	*bytesRead = vertexCount * dec_->VertexSize();
-	if ((vertexCount < 2 && prim > 0) || (vertexCount < 3 && prim > 2 && prim != GE_PRIM_RECTANGLES))
-		return;
-
-	DeferredDrawCall &dc = drawCalls[numDrawCalls];
-	dc.verts = verts;
-	dc.inds = inds;
-	dc.vertType = vertType;
-	dc.indexType = (vertType & GE_VTYPE_IDX_MASK) >> GE_VTYPE_IDX_SHIFT;
-	dc.prim = prim;
-	dc.vertexCount = vertexCount;
-
-	if (g_Config.bVertexCache) {
-		u32 dhash = dcid_;
-		dhash ^= (u32)(uintptr_t)verts;
-		dhash = __rotl(dhash, 13);
-		dhash ^= (u32)(uintptr_t)inds;
-		dhash = __rotl(dhash, 13);
-		dhash ^= (u32)vertType;
-		dhash = __rotl(dhash, 13);
-		dhash ^= (u32)vertexCount;
-		dhash = __rotl(dhash, 13);
-		dhash ^= (u32)prim;
-		dcid_ = dhash;
-	}
-
-	if (inds) {
-		GetIndexBounds(inds, vertexCount, vertType, &dc.indexLowerBound, &dc.indexUpperBound);
-	} else {
-		dc.indexLowerBound = 0;
-		dc.indexUpperBound = vertexCount - 1;
-	}
-
-	uvScale[numDrawCalls] = gstate_c.uv;
-
-	numDrawCalls++;
-	vertexCountInDrawCalls_ += vertexCount;
-
-	if (g_Config.bSoftwareSkinning && (vertType & GE_VTYPE_WEIGHT_MASK)) {
-		DecodeVertsStep(decoded, decodeCounter_, decodedVerts_);
-		decodeCounter_++;
-	}
-
-	if (prim == GE_PRIM_RECTANGLES && (gstate.getTextureAddress(0) & 0x3FFFFFFF) == (gstate.getFrameBufAddress() & 0x3FFFFFFF)) {
-		// Rendertarget == texture?
-		if (!g_Config.bDisableSlowFramebufEffects) {
-			gstate_c.Dirty(DIRTY_TEXTURE_PARAMS);
-			Flush();
-		}
-	}
-}
-
 void DrawEngineVulkan::DecodeVertsToPushBuffer(VulkanPushBuffer *push, uint32_t *bindOffset, VkBuffer *vkbuf) {
 	u8 *dest = decoded;
 
@@ -449,38 +345,83 @@ void DrawEngineVulkan::SetLineWidth(float lineWidth) {
 	pipelineManager_->SetLineWidth(lineWidth);
 }
 
-VkDescriptorSet DrawEngineVulkan::GetOrCreateDescriptorSet(VkImageView imageView, VkSampler sampler, VkBuffer base, VkBuffer light, VkBuffer bone, bool tess) {
+VkResult DrawEngineVulkan::RecreateDescriptorPool(FrameData &frame, int newSize) {
+	// Reallocate this desc pool larger, and "wipe" the cache. We might lose a tiny bit of descriptor set reuse but
+	// only for this frame.
+	if (frame.descPool) {
+		DEBUG_LOG(G3D, "Reallocating desc pool from %d to %d", frame.descPoolSize, newSize);
+		vulkan_->Delete().QueueDeleteDescriptorPool(frame.descPool);
+		frame.descSets.Clear();
+		frame.descCount = 0;
+	}
+	frame.descPoolSize = newSize;
+
+	VkDescriptorPoolSize dpTypes[3];
+	dpTypes[0].descriptorCount = frame.descPoolSize * 2;
+	dpTypes[0].type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC;
+	dpTypes[1].descriptorCount = frame.descPoolSize * 2;  // Don't use these for tess anymore, need max two per set.
+	dpTypes[1].type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+	dpTypes[2].descriptorCount = frame.descPoolSize;
+	dpTypes[2].type = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+
+	VkDescriptorPoolCreateInfo dp{ VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO };
+	dp.flags = 0;   // Don't want to mess around with individually freeing these.
+									// We zap the whole pool every few frames.
+	dp.maxSets = frame.descPoolSize;
+	dp.pPoolSizes = dpTypes;
+	dp.poolSizeCount = ARRAY_SIZE(dpTypes);
+
+	VkResult res = vkCreateDescriptorPool(vulkan_->GetDevice(), &dp, nullptr, &frame.descPool);
+	return res;
+}
+
+VkDescriptorSet DrawEngineVulkan::GetOrCreateDescriptorSet(VkImageView imageView, VkSampler sampler, VkBuffer base, VkBuffer light, bool tess) {
 	DescriptorSetKey key;
 	key.imageView_ = imageView;
 	key.sampler_ = sampler;
 	key.secondaryImageView_ = boundSecondary_;
 	key.base_ = base;
 	key.light_ = light;
-	key.bone_ = bone;
 	_dbg_assert_(G3D, base != VK_NULL_HANDLE);
 	_dbg_assert_(G3D, light != VK_NULL_HANDLE);
-	_dbg_assert_(G3D, bone != VK_NULL_HANDLE);
 
-	FrameData *frame = &frame_[vulkan_->GetCurFrame()];
+	FrameData &frame = frame_[vulkan_->GetCurFrame()];
 	// See if we already have this descriptor set cached.
 	if (!tess) { // Don't cache descriptors for HW tessellation.
-		VkDescriptorSet d = frame->descSets.Get(key);
+		VkDescriptorSet d = frame.descSets.Get(key);
 		if (d != VK_NULL_HANDLE)
 			return d;
+	}
+
+	if (!frame.descPool || frame.descPoolSize < frame.descCount + 1) {
+		VkResult res = RecreateDescriptorPool(frame, frame.descPoolSize * 2);
+		assert(res == VK_SUCCESS);
 	}
 
 	// Didn't find one in the frame descriptor set cache, let's make a new one.
 	// We wipe the cache on every frame.
 
 	VkDescriptorSet desc;
-	VkDescriptorSetAllocateInfo descAlloc = { VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO };
+	VkDescriptorSetAllocateInfo descAlloc{ VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO };
 	descAlloc.pNext = nullptr;
 	descAlloc.pSetLayouts = &descriptorSetLayout_;
-	descAlloc.descriptorPool = frame->descPool;
+	descAlloc.descriptorPool = frame.descPool;
 	descAlloc.descriptorSetCount = 1;
 	VkResult result = vkAllocateDescriptorSets(vulkan_->GetDevice(), &descAlloc, &desc);
+
+	if (result == VK_ERROR_FRAGMENTED_POOL || result < 0) {
+		// There seems to have been a spec revision. Here we should apparently recreate the descriptor pool,
+		// so let's do that. See https://www.khronos.org/registry/vulkan/specs/1.0/man/html/vkAllocateDescriptorSets.html
+		// Fragmentation shouldn't really happen though since we wipe the pool every frame..
+		VkResult res = RecreateDescriptorPool(frame, frame.descPoolSize);
+		_assert_msg_(G3D, res == VK_SUCCESS, "Ran out of descriptor space (frag?) and failed to recreate a descriptor pool. sz=%d res=%d", (int)frame.descSets.size(), (int)res);
+		descAlloc.descriptorPool = frame.descPool;  // Need to update this pointer since we have allocated a new one.
+		result = vkAllocateDescriptorSets(vulkan_->GetDevice(), &descAlloc, &desc);
+		_assert_msg_(G3D, result == VK_SUCCESS, "Ran out of descriptor space (frag?) and failed to allocate after recreating a descriptor pool. res=%d", (int)result);
+	}
+
 	// Even in release mode, this is bad.
-	_assert_msg_(G3D, result == VK_SUCCESS, "Ran out of descriptor space in pool. sz=%d res=%d", (int)frame->descSets.size(), (int)result);
+	_assert_msg_(G3D, result == VK_SUCCESS, "Ran out of descriptor space in pool. sz=%d res=%d", (int)frame.descSets.size(), (int)result);
 
 	// We just don't write to the slots we don't care about.
 	// We need 8 now that we support secondary texture bindings.
@@ -489,8 +430,11 @@ VkDescriptorSet DrawEngineVulkan::GetOrCreateDescriptorSet(VkImageView imageView
 	int n = 0;
 	VkDescriptorImageInfo tex[2]{};
 	if (imageView) {
-		// TODO: Also support LAYOUT_GENERAL to be able to texture from framebuffers without transitioning them?
+#ifdef VULKAN_USE_GENERAL_LAYOUT_FOR_COLOR
+		tex[0].imageLayout = VK_IMAGE_LAYOUT_GENERAL;
+#else
 		tex[0].imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+#endif
 		tex[0].imageView = imageView;
 		tex[0].sampler = sampler;
 		writes[n].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
@@ -504,8 +448,11 @@ VkDescriptorSet DrawEngineVulkan::GetOrCreateDescriptorSet(VkImageView imageView
 	}
 
 	if (boundSecondary_) {
-		// TODO: Also support LAYOUT_GENERAL to be able to texture from framebuffers without transitioning them?
+#ifdef VULKAN_USE_GENERAL_LAYOUT_FOR_COLOR
+		tex[0].imageLayout = VK_IMAGE_LAYOUT_GENERAL;
+#else
 		tex[1].imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+#endif
 		tex[1].imageView = boundSecondary_;
 		tex[1].sampler = samplerSecondary_;
 		writes[n].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
@@ -544,7 +491,7 @@ VkDescriptorSet DrawEngineVulkan::GetOrCreateDescriptorSet(VkImageView imageView
 	}
 
 	// Uniform buffer objects
-	VkDescriptorBufferInfo buf[3]{};
+	VkDescriptorBufferInfo buf[2]{};
 	int count = 0;
 	buf[count].buffer = base;
 	buf[count].offset = 0;
@@ -553,10 +500,6 @@ VkDescriptorSet DrawEngineVulkan::GetOrCreateDescriptorSet(VkImageView imageView
 	buf[count].buffer = light;
 	buf[count].offset = 0;
 	buf[count].range = sizeof(UB_VS_Lights);
-	count++;
-	buf[count].buffer = bone;
-	buf[count].offset = 0;
-	buf[count].range = sizeof(UB_VS_Bones);
 	count++;
 	for (int i = 0; i < count; i++) {
 		writes[n].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
@@ -573,18 +516,17 @@ VkDescriptorSet DrawEngineVulkan::GetOrCreateDescriptorSet(VkImageView imageView
 	vkUpdateDescriptorSets(vulkan_->GetDevice(), n, writes, 0, nullptr);
 
 	if (!tess) // Again, avoid caching when HW tessellation.
-		frame->descSets.Insert(key, desc);
+		frame.descSets.Insert(key, desc);
+	frame.descCount++;
 	return desc;
 }
 
 void DrawEngineVulkan::DirtyAllUBOs() {
 	baseUBOOffset = 0;
 	lightUBOOffset = 0;
-	boneUBOOffset = 0;
 	baseBuf = VK_NULL_HANDLE;
 	lightBuf = VK_NULL_HANDLE;
-	boneBuf = VK_NULL_HANDLE;
-	dirtyUniforms_ = DIRTY_BASE_UNIFORMS | DIRTY_LIGHT_UNIFORMS | DIRTY_BONE_UNIFORMS;
+	dirtyUniforms_ = DIRTY_BASE_UNIFORMS | DIRTY_LIGHT_UNIFORMS;
 	imageView = VK_NULL_HANDLE;
 	sampler = VK_NULL_HANDLE;
 	gstate_c.Dirty(DIRTY_TEXTURE_IMAGE);
@@ -640,10 +582,10 @@ void DrawEngineVulkan::DoFlush() {
 
 		// Cannot cache vertex data with morph enabled.
 		bool useCache = g_Config.bVertexCache && !(lastVType_ & GE_VTYPE_MORPHCOUNT_MASK);
-		// Also avoid caching when software skinning.
+		// Also avoid caching when skinning.
 		VkBuffer vbuf = VK_NULL_HANDLE;
 		VkBuffer ibuf = VK_NULL_HANDLE;
-		if (g_Config.bSoftwareSkinning && (lastVType_ & GE_VTYPE_WEIGHT_MASK)) {
+		if (lastVType_ & GE_VTYPE_WEIGHT_MASK) {
 			useCache = false;
 		}
 
@@ -785,8 +727,8 @@ void DrawEngineVulkan::DoFlush() {
 				break;
 			}
 		} else {
-			if (g_Config.bSoftwareSkinning && (lastVType_ & GE_VTYPE_WEIGHT_MASK)) {
-				// If software skinning, we've already predecoded into "decoded". So push that content.
+			if (lastVType_ & GE_VTYPE_WEIGHT_MASK) {
+				// If skinning, we've already predecoded into "decoded". So push that content.
 				VkDeviceSize size = decodedVerts_ * dec_->GetDecVtxFmt().stride;
 				u8 *dest = (u8 *)frame->pushVertex->Push(size, &vbOffset, &vbuf);
 				memcpy(dest, decoded, size);
@@ -832,33 +774,37 @@ void DrawEngineVulkan::DoFlush() {
 			Draw::NativeObject object = g_Config.iRenderingMode != 0 ? Draw::NativeObject::FRAMEBUFFER_RENDERPASS : Draw::NativeObject::BACKBUFFER_RENDERPASS;
 			VkRenderPass renderPass = (VkRenderPass)draw_->GetNativeObject(object);
 			VulkanPipeline *pipeline = pipelineManager_->GetOrCreatePipeline(pipelineLayout_, renderPass, pipelineKey_, &dec_->decFmt, vshader, fshader, true);
-			if (!pipeline) {
+			if (!pipeline || !pipeline->pipeline) {
 				// Already logged, let's bail out.
 				return;
 			}
 			BindShaderBlendTex();  // This might cause copies so important to do before BindPipeline.
 			renderManager->BindPipeline(pipeline->pipeline);
 			if (pipeline != lastPipeline_) {
-				if (lastPipeline_ && !lastPipeline_->useBlendConstant && pipeline->useBlendConstant) {
+				if (lastPipeline_ && !(lastPipeline_->UsesBlendConstant() && pipeline->UsesBlendConstant())) {
 					gstate_c.Dirty(DIRTY_BLEND_STATE);
 				}
 				lastPipeline_ = pipeline;
 			}
-			ApplyDrawStateLate(renderManager, false, 0, pipeline->useBlendConstant);
+			ApplyDrawStateLate(renderManager, false, 0, pipeline->UsesBlendConstant());
 			gstate_c.Clean(DIRTY_BLEND_STATE | DIRTY_DEPTHSTENCIL_STATE | DIRTY_RASTER_STATE | DIRTY_VIEWPORTSCISSOR_STATE);
 			lastPipeline_ = pipeline;
+
+			// Must dirty blend state here so we re-copy next time.  Example: Lunar's spell effects.
+			if (fboTexBound_)
+				gstate_c.Dirty(DIRTY_BLEND_STATE);
 		}
 		lastPrim_ = prim;
 
 		dirtyUniforms_ |= shaderManager_->UpdateUniforms();
 		UpdateUBOs(frame);
 
-		VkDescriptorSet ds = GetOrCreateDescriptorSet(imageView, sampler, baseBuf, lightBuf, boneBuf, tess);
+		VkDescriptorSet ds = GetOrCreateDescriptorSet(imageView, sampler, baseBuf, lightBuf, tess);
 		{
 		PROFILE_THIS_SCOPE("renderman_q");
 
-		const uint32_t dynamicUBOOffsets[3] = {
-			baseUBOOffset, lightUBOOffset, boneUBOOffset,
+		const uint32_t dynamicUBOOffsets[2] = {
+			baseUBOOffset, lightUBOOffset,
 		};
 
 		int stride = dec_->GetDecVtxFmt().stride;
@@ -867,9 +813,9 @@ void DrawEngineVulkan::DoFlush() {
 			if (!ibuf)
 				ibOffset = (uint32_t)frame->pushIndex->Push(decIndex, sizeof(uint16_t) * indexGen.VertexCount(), &ibuf);
 			int numInstances = tess ? numPatches : 1;
-			renderManager->DrawIndexed(pipelineLayout_, ds, 3, dynamicUBOOffsets, vbuf, vbOffset, ibuf, ibOffset, vertexCount, numInstances, VK_INDEX_TYPE_UINT16);
+			renderManager->DrawIndexed(pipelineLayout_, ds, ARRAY_SIZE(dynamicUBOOffsets), dynamicUBOOffsets, vbuf, vbOffset, ibuf, ibOffset, vertexCount, numInstances, VK_INDEX_TYPE_UINT16);
 		} else {
-			renderManager->Draw(pipelineLayout_, ds, 3, dynamicUBOOffsets, vbuf, vbOffset, vertexCount);
+			renderManager->Draw(pipelineLayout_, ds, ARRAY_SIZE(dynamicUBOOffsets), dynamicUBOOffsets, vbuf, vbOffset, vertexCount);
 		}
 		}
 	} else {
@@ -932,21 +878,25 @@ void DrawEngineVulkan::DoFlush() {
 				Draw::NativeObject object = g_Config.iRenderingMode != 0 ? Draw::NativeObject::FRAMEBUFFER_RENDERPASS : Draw::NativeObject::BACKBUFFER_RENDERPASS;
 				VkRenderPass renderPass = (VkRenderPass)draw_->GetNativeObject(object);
 				VulkanPipeline *pipeline = pipelineManager_->GetOrCreatePipeline(pipelineLayout_, renderPass, pipelineKey_, &dec_->decFmt, vshader, fshader, false);
-				if (!pipeline) {
+				if (!pipeline || !pipeline->pipeline) {
 					// Already logged, let's bail out.
 					return;
 				}
 				BindShaderBlendTex();  // This might cause copies so super important to do before BindPipeline.
 				renderManager->BindPipeline(pipeline->pipeline);
 				if (pipeline != lastPipeline_) {
-					if (lastPipeline_ && !lastPipeline_->useBlendConstant && pipeline->useBlendConstant) {
+					if (lastPipeline_ && !lastPipeline_->UsesBlendConstant() && pipeline->UsesBlendConstant()) {
 						gstate_c.Dirty(DIRTY_BLEND_STATE);
 					}
 					lastPipeline_ = pipeline;
 				}
-				ApplyDrawStateLate(renderManager, result.setStencil, result.stencilValue, pipeline->useBlendConstant);
+				ApplyDrawStateLate(renderManager, result.setStencil, result.stencilValue, pipeline->UsesBlendConstant());
 				gstate_c.Clean(DIRTY_BLEND_STATE | DIRTY_DEPTHSTENCIL_STATE | DIRTY_RASTER_STATE | DIRTY_VIEWPORTSCISSOR_STATE);
 				lastPipeline_ = pipeline;
+
+				// Must dirty blend state here so we re-copy next time.  Example: Lunar's spell effects.
+				if (fboTexBound_)
+					gstate_c.Dirty(DIRTY_BLEND_STATE);
 			}
 			lastPrim_ = prim;
 
@@ -955,9 +905,9 @@ void DrawEngineVulkan::DoFlush() {
 			// Even if the first draw is through-mode, make sure we at least have one copy of these uniforms buffered
 			UpdateUBOs(frame);
 
-			VkDescriptorSet ds = GetOrCreateDescriptorSet(imageView, sampler, baseBuf, lightBuf, boneBuf, tess);
-			const uint32_t dynamicUBOOffsets[3] = {
-				baseUBOOffset, lightUBOOffset, boneUBOOffset,
+			VkDescriptorSet ds = GetOrCreateDescriptorSet(imageView, sampler, baseBuf, lightBuf, tess);
+			const uint32_t dynamicUBOOffsets[2] = {
+				baseUBOOffset, lightUBOOffset,
 			};
 
 			PROFILE_THIS_SCOPE("renderman_q");
@@ -967,12 +917,12 @@ void DrawEngineVulkan::DoFlush() {
 				vbOffset = (uint32_t)frame->pushVertex->Push(drawBuffer, maxIndex * sizeof(TransformedVertex), &vbuf);
 				ibOffset = (uint32_t)frame->pushIndex->Push(inds, sizeof(short) * numTrans, &ibuf);
 				VkDeviceSize offsets[1] = { vbOffset };
-				renderManager->DrawIndexed(pipelineLayout_, ds, 3, dynamicUBOOffsets, vbuf, vbOffset, ibuf, ibOffset, numTrans, 1, VK_INDEX_TYPE_UINT16);
+				renderManager->DrawIndexed(pipelineLayout_, ds, ARRAY_SIZE(dynamicUBOOffsets), dynamicUBOOffsets, vbuf, vbOffset, ibuf, ibOffset, numTrans, 1, VK_INDEX_TYPE_UINT16);
 			} else {
 				VkBuffer vbuf;
 				vbOffset = (uint32_t)frame->pushVertex->Push(drawBuffer, numTrans * sizeof(TransformedVertex), &vbuf);
 				VkDeviceSize offsets[1] = { vbOffset };
-				renderManager->Draw(pipelineLayout_, ds, 3, dynamicUBOOffsets, vbuf, vbOffset, numTrans);
+				renderManager->Draw(pipelineLayout_, ds, ARRAY_SIZE(dynamicUBOOffsets), dynamicUBOOffsets, vbuf, vbOffset, numTrans);
 			}
 		} else if (result.action == SW_CLEAR) {
 			// Note: we won't get here if the clear is alpha but not color, or color but not alpha.
@@ -1023,10 +973,6 @@ void DrawEngineVulkan::UpdateUBOs(FrameData *frame) {
 	if ((dirtyUniforms_ & DIRTY_LIGHT_UNIFORMS) || lightBuf == VK_NULL_HANDLE) {
 		lightUBOOffset = shaderManager_->PushLightBuffer(frame->pushUBO, &lightBuf);
 		dirtyUniforms_ &= ~DIRTY_LIGHT_UNIFORMS;
-	}
-	if ((dirtyUniforms_ & DIRTY_BONE_UNIFORMS) || boneBuf == VK_NULL_HANDLE) {
-		boneUBOOffset = shaderManager_->PushBoneBuffer(frame->pushUBO, &boneBuf);
-		dirtyUniforms_ &= ~DIRTY_BONE_UNIFORMS;
 	}
 }
 

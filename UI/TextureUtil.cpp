@@ -131,8 +131,7 @@ bool ManagedTexture::LoadFromFileData(const uint8_t *data, size_t dataSize, Imag
 		if (image[i])
 			free(image[i]);
 	}
-
-	return true;
+	return texture_ != nullptr;
 }
 
 bool ManagedTexture::LoadFromFile(const std::string &filename, ImageFileType type, bool generateMips) {
@@ -162,7 +161,7 @@ std::unique_ptr<ManagedTexture> CreateTextureFromFile(Draw::DrawContext *draw, c
 		delete mtex;
 		return std::unique_ptr<ManagedTexture>();
 	}
-	return std::move(std::unique_ptr<ManagedTexture>(mtex));
+	return std::unique_ptr<ManagedTexture>(mtex);
 }
 
 // TODO: Remove the code duplication between this and LoadFromFileData
@@ -171,5 +170,5 @@ std::unique_ptr<ManagedTexture> CreateTextureFromFileData(Draw::DrawContext *dra
 		return std::unique_ptr<ManagedTexture>();
 	ManagedTexture *mtex = new ManagedTexture(draw);
 	mtex->LoadFromFileData(data, size, type, generateMips);
-	return std::move(std::unique_ptr<ManagedTexture>(mtex));
+	return std::unique_ptr<ManagedTexture>(mtex);
 }

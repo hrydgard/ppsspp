@@ -46,9 +46,9 @@
     <MinimumVisualStudioVersion>14.0</MinimumVisualStudioVersion>
     <AppContainerApplication>true</AppContainerApplication>
     <ApplicationType>Windows Store</ApplicationType>
-    <WindowsTargetPlatformMinVersion>10.0.10240.0</WindowsTargetPlatformMinVersion>
+    <WindowsTargetPlatformMinVersion>10.0.14393.0</WindowsTargetPlatformMinVersion>
     <ApplicationTypeRevision>10.0</ApplicationTypeRevision>
-    <WindowsTargetPlatformVersion>10.0.15063.0</WindowsTargetPlatformVersion>
+    <WindowsTargetPlatformVersion>10.0.16299.0</WindowsTargetPlatformVersion>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" Label="Configuration">
@@ -313,6 +313,7 @@
     <ClInclude Include="..\..\GPU\Common\SoftwareLighting.h" />
     <ClInclude Include="..\..\GPU\Common\SoftwareTransformCommon.h" />
     <ClInclude Include="..\..\GPU\Common\SplineCommon.h" />
+    <ClInclude Include="..\..\GPU\Common\StencilCommon.h" />
     <ClInclude Include="..\..\GPU\Common\TextureCacheCommon.h" />
     <ClInclude Include="..\..\GPU\Common\TextureDecoder.h" />
     <ClInclude Include="..\..\GPU\Common\TextureDecoderNEON.h" />
@@ -365,6 +366,7 @@
     <ClCompile Include="..\..\GPU\Common\ShaderUniforms.cpp" />
     <ClCompile Include="..\..\GPU\Common\SoftwareTransformCommon.cpp" />
     <ClCompile Include="..\..\GPU\Common\SplineCommon.cpp" />
+    <ClCompile Include="..\..\GPU\Common\StencilCommon.cpp" />
     <ClCompile Include="..\..\GPU\Common\TextureCacheCommon.cpp" />
     <ClCompile Include="..\..\GPU\Common\TextureDecoder.cpp" />
     <ClCompile Include="..\..\GPU\Common\TextureDecoderNEON.cpp" />

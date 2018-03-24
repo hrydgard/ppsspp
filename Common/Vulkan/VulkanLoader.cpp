@@ -16,6 +16,7 @@
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
 #include "Common/Vulkan/VulkanLoader.h"
+#include <vector>
 #include "base/logging.h"
 #include "base/basictypes.h"
 
@@ -113,16 +114,12 @@ PFN_vkDestroyCommandPool vkDestroyCommandPool;
 PFN_vkResetCommandPool vkResetCommandPool;
 PFN_vkAllocateCommandBuffers vkAllocateCommandBuffers;
 PFN_vkFreeCommandBuffers vkFreeCommandBuffers;
-PFN_vkBeginCommandBuffer vkBeginCommandBuffer;
-PFN_vkEndCommandBuffer vkEndCommandBuffer;
-PFN_vkResetCommandBuffer vkResetCommandBuffer;
+
+// Used frequently
 PFN_vkCmdBindPipeline vkCmdBindPipeline;
 PFN_vkCmdSetViewport vkCmdSetViewport;
 PFN_vkCmdSetScissor vkCmdSetScissor;
-PFN_vkCmdSetLineWidth vkCmdSetLineWidth;
-PFN_vkCmdSetDepthBias vkCmdSetDepthBias;
 PFN_vkCmdSetBlendConstants vkCmdSetBlendConstants;
-PFN_vkCmdSetDepthBounds vkCmdSetDepthBounds;
 PFN_vkCmdSetStencilCompareMask vkCmdSetStencilCompareMask;
 PFN_vkCmdSetStencilWriteMask vkCmdSetStencilWriteMask;
 PFN_vkCmdSetStencilReference vkCmdSetStencilReference;
@@ -131,34 +128,43 @@ PFN_vkCmdBindIndexBuffer vkCmdBindIndexBuffer;
 PFN_vkCmdBindVertexBuffers vkCmdBindVertexBuffers;
 PFN_vkCmdDraw vkCmdDraw;
 PFN_vkCmdDrawIndexed vkCmdDrawIndexed;
-PFN_vkCmdDrawIndirect vkCmdDrawIndirect;
-PFN_vkCmdDrawIndexedIndirect vkCmdDrawIndexedIndirect;
-PFN_vkCmdDispatch vkCmdDispatch;
-PFN_vkCmdDispatchIndirect vkCmdDispatchIndirect;
+PFN_vkCmdClearAttachments vkCmdClearAttachments;
+PFN_vkCmdPipelineBarrier vkCmdPipelineBarrier;
+PFN_vkCmdPushConstants vkCmdPushConstants;
+
+// Every frame to a few times per frame
+PFN_vkBeginCommandBuffer vkBeginCommandBuffer;
+PFN_vkEndCommandBuffer vkEndCommandBuffer;
+PFN_vkResetCommandBuffer vkResetCommandBuffer;
+PFN_vkCmdSetEvent vkCmdSetEvent;
+PFN_vkCmdResetEvent vkCmdResetEvent;
+PFN_vkCmdWaitEvents vkCmdWaitEvents;
+PFN_vkCmdBeginRenderPass vkCmdBeginRenderPass;
+PFN_vkCmdEndRenderPass vkCmdEndRenderPass;
 PFN_vkCmdCopyBuffer vkCmdCopyBuffer;
 PFN_vkCmdCopyImage vkCmdCopyImage;
 PFN_vkCmdBlitImage vkCmdBlitImage;
 PFN_vkCmdCopyBufferToImage vkCmdCopyBufferToImage;
 PFN_vkCmdCopyImageToBuffer vkCmdCopyImageToBuffer;
+
+PFN_vkCmdSetDepthBounds vkCmdSetDepthBounds;
+PFN_vkCmdSetLineWidth vkCmdSetLineWidth;
+PFN_vkCmdSetDepthBias vkCmdSetDepthBias;
+PFN_vkCmdDrawIndirect vkCmdDrawIndirect;
+PFN_vkCmdDrawIndexedIndirect vkCmdDrawIndexedIndirect;
+PFN_vkCmdDispatch vkCmdDispatch;
+PFN_vkCmdDispatchIndirect vkCmdDispatchIndirect;
 PFN_vkCmdUpdateBuffer vkCmdUpdateBuffer;
 PFN_vkCmdFillBuffer vkCmdFillBuffer;
 PFN_vkCmdClearColorImage vkCmdClearColorImage;
 PFN_vkCmdClearDepthStencilImage vkCmdClearDepthStencilImage;
-PFN_vkCmdClearAttachments vkCmdClearAttachments;
 PFN_vkCmdResolveImage vkCmdResolveImage;
-PFN_vkCmdSetEvent vkCmdSetEvent;
-PFN_vkCmdResetEvent vkCmdResetEvent;
-PFN_vkCmdWaitEvents vkCmdWaitEvents;
-PFN_vkCmdPipelineBarrier vkCmdPipelineBarrier;
 PFN_vkCmdBeginQuery vkCmdBeginQuery;
 PFN_vkCmdEndQuery vkCmdEndQuery;
 PFN_vkCmdResetQueryPool vkCmdResetQueryPool;
 PFN_vkCmdWriteTimestamp vkCmdWriteTimestamp;
 PFN_vkCmdCopyQueryPoolResults vkCmdCopyQueryPoolResults;
-PFN_vkCmdPushConstants vkCmdPushConstants;
-PFN_vkCmdBeginRenderPass vkCmdBeginRenderPass;
 PFN_vkCmdNextSubpass vkCmdNextSubpass;
-PFN_vkCmdEndRenderPass vkCmdEndRenderPass;
 PFN_vkCmdExecuteCommands vkCmdExecuteCommands;
 
 #ifdef __ANDROID__
@@ -198,37 +204,142 @@ static HINSTANCE vulkanLibrary;
 static void *vulkanLibrary;
 #endif
 
+bool g_vulkanAvailabilityChecked = false;
+bool g_vulkanMayBeAvailable = false;
+
 #define LOAD_INSTANCE_FUNC(instance, x) x = (PFN_ ## x)vkGetInstanceProcAddr(instance, #x); if (!x) {ILOG("Missing (instance): %s", #x);}
 #define LOAD_DEVICE_FUNC(instance, x) x = (PFN_ ## x)vkGetDeviceProcAddr(instance, #x); if (!x) {ILOG("Missing (device): %s", #x);}
 #define LOAD_GLOBAL_FUNC(x) x = (PFN_ ## x)dlsym(vulkanLibrary, #x); if (!x) {ILOG("Missing (global): %s", #x);}
+
+#define LOAD_GLOBAL_FUNC_LOCAL(lib, x) (PFN_ ## x)dlsym(lib, #x);
 
 static const char *so_names[] = {
 	"libvulkan.so",
 	"libvulkan.so.1",
 };
 
+void VulkanSetAvailable(bool available) {
+	g_vulkanAvailabilityChecked = true;
+	g_vulkanMayBeAvailable = available;
+}
+
 bool VulkanMayBeAvailable() {
-	if (vulkanLibrary)
-		return true;
-	bool available = false;
+	if (g_vulkanAvailabilityChecked)
+		return g_vulkanMayBeAvailable;
 #ifndef _WIN32
+	void *lib = nullptr;
 	for (int i = 0; i < ARRAY_SIZE(so_names); i++) {
-		void *lib = dlopen(so_names[i], RTLD_NOW | RTLD_LOCAL);
+		lib = dlopen(so_names[i], RTLD_NOW | RTLD_LOCAL);
 		if (lib) {
-			available = true;
-			dlclose(lib);
 			break;
 		}
 	}
 #else
 	// LoadLibrary etc
 	HINSTANCE lib = LoadLibrary(L"vulkan-1.dll");
-	available = lib != 0;
-	if (lib) {
-		FreeLibrary(lib);
-	}
 #endif
-	return available;
+	if (!lib) {
+		g_vulkanAvailabilityChecked = true;
+		g_vulkanMayBeAvailable = false;
+		return false;
+	}
+
+	// Do a hyper minimal initialization and teardown to figure out if there's any chance
+	// that any sort of Vulkan will be usable.
+	PFN_vkCreateInstance localCreateInstance = LOAD_GLOBAL_FUNC_LOCAL(lib, vkCreateInstance);
+	PFN_vkEnumeratePhysicalDevices localEnumerate = LOAD_GLOBAL_FUNC_LOCAL(lib, vkEnumeratePhysicalDevices);
+	PFN_vkDestroyInstance localDestroyInstance = LOAD_GLOBAL_FUNC_LOCAL(lib, vkDestroyInstance);
+	PFN_vkGetPhysicalDeviceProperties localGetPhysicalDeviceProperties = LOAD_GLOBAL_FUNC_LOCAL(lib, vkGetPhysicalDeviceProperties);
+
+	// Need to predeclare all this because of the gotos...
+	VkInstanceCreateInfo ci{ VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO };
+	VkApplicationInfo info{ VK_STRUCTURE_TYPE_APPLICATION_INFO };
+	std::vector<VkPhysicalDevice> devices;
+	bool anyGood = false;
+	const char *instanceExtensions[1]{};
+	VkInstance instance = VK_NULL_HANDLE;
+	VkResult res;
+	uint32_t physicalDeviceCount = 0;
+
+	if (!localCreateInstance || !localEnumerate || !localDestroyInstance || !localGetPhysicalDeviceProperties)
+		goto bail;
+
+#ifdef _WIN32
+	instanceExtensions[0] = VK_KHR_WIN32_SURFACE_EXTENSION_NAME;
+	ci.enabledExtensionCount = 1;
+#elif defined(__ANDROID__)
+	instanceExtensions[0] = VK_KHR_ANDROID_SURFACE_EXTENSION_NAME;
+	ci.enabledExtensionCount = 1;
+#endif
+
+	ci.ppEnabledExtensionNames = instanceExtensions;
+	ci.enabledLayerCount = 0;
+	info.apiVersion = VK_API_VERSION_1_0;
+	info.applicationVersion = 1;
+	info.engineVersion = 1;
+	info.pApplicationName = "VulkanChecker";
+	info.pEngineName = "VulkanChecker";
+	ci.pApplicationInfo = &info;
+	ci.flags = 0;
+	res = localCreateInstance(&ci, nullptr, &instance);
+	if (res != VK_SUCCESS) {
+		instance = nullptr;
+		ELOG("Failed to create vulkan instance.");
+		goto bail;
+	}
+	ILOG("Vulkan test instance created successfully.");
+	res = localEnumerate(instance, &physicalDeviceCount, nullptr);
+	if (res != VK_SUCCESS) {
+		ELOG("Failed to count physical devices.");
+		goto bail;
+	}
+	if (physicalDeviceCount == 0) {
+		ELOG("No physical Vulkan devices.");
+		goto bail;
+	}
+	devices.resize(physicalDeviceCount);
+	res = localEnumerate(instance, &physicalDeviceCount, devices.data());
+	if (res != VK_SUCCESS) {
+		ELOG("Failed to enumerate physical devices.");
+		goto bail;
+	}
+	anyGood = false;
+	for (auto device : devices) {
+		VkPhysicalDeviceProperties props;
+		localGetPhysicalDeviceProperties(device, &props);
+		switch (props.deviceType) {
+		case VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU:
+		case VK_PHYSICAL_DEVICE_TYPE_INTEGRATED_GPU:
+		case VK_PHYSICAL_DEVICE_TYPE_VIRTUAL_GPU:
+			anyGood = true;
+			break;
+		}
+		// TODO: Should also check queuefamilyproperties for a GRAPHICS queue family? Oh well.
+	}
+
+	if (!anyGood) {
+		WLOG("Found Vulkan API, but no good Vulkan device!");
+		g_vulkanMayBeAvailable = false;
+	} else {
+		ILOG("Found working Vulkan API!");
+		g_vulkanMayBeAvailable = true;
+	}
+
+bail:
+	g_vulkanAvailabilityChecked = true;
+	if (instance) {
+		localDestroyInstance(instance, nullptr);
+	}
+	if (lib) {
+#ifndef _WIN32
+		dlclose(lib);
+#else
+		FreeLibrary(lib);
+#endif
+	} else {
+		ELOG("Vulkan with working device not detected.");
+	}
+	return g_vulkanMayBeAvailable;
 }
 
 bool VulkanLoad() {

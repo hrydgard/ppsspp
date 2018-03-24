@@ -19,5 +19,8 @@ enum {
 
 class AndroidGraphicsContext : public GraphicsContext {
 public:
-	virtual bool Init(ANativeWindow *wnd, int desiredBackbufferSizeX, int desiredBackbufferSizeY, int backbufferFormat, int androidVersion) = 0;
+	// This is different than the base class function since on
+	// Android (EGL, Vulkan) we do have all this info on the render thread.
+	virtual bool InitFromRenderThread(ANativeWindow *wnd, int desiredBackbufferSizeX, int desiredBackbufferSizeY, int backbufferFormat, int androidVersion) = 0;
+	virtual bool Initialized() = 0;
 };

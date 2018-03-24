@@ -373,8 +373,7 @@ public abstract class NativeActivity extends Activity implements SurfaceHolder.C
 
 		switch (rot) {
 		case 0:
-			// Auto is no longer supported.
-			setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE);
+			setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED);
 			break;
 		case 1:
 			setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE);
@@ -387,6 +386,9 @@ public abstract class NativeActivity extends Activity implements SurfaceHolder.C
 			break;
 		case 4:
 			setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_REVERSE_PORTRAIT);
+			break;
+		case 5:
+			setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE);
 			break;
 		}
 	}
@@ -482,7 +484,7 @@ public abstract class NativeActivity extends Activity implements SurfaceHolder.C
 		gainAudioFocus(this.audioManager, this.audioFocusChangeListener);
         NativeApp.audioInit();
 
-	    if (javaGL) {
+        if (javaGL) {
 	        mGLSurfaceView = new NativeGLView(this);
 			nativeRenderer = new NativeRenderer(this);
 			mGLSurfaceView.setEGLContextClientVersion(2);
@@ -538,7 +540,7 @@ public abstract class NativeActivity extends Activity implements SurfaceHolder.C
 		int requestedOr = getRequestedOrientation();
 		boolean requestedPortrait = requestedOr == ActivityInfo.SCREEN_ORIENTATION_PORTRAIT || requestedOr == ActivityInfo.SCREEN_ORIENTATION_REVERSE_PORTRAIT;
 		boolean detectedPortrait = pixelHeight > pixelWidth;
-		if (badOrientationCount < 3 && requestedPortrait != detectedPortrait) {
+		if (badOrientationCount < 3 && requestedPortrait != detectedPortrait && requestedOr != ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED) {
 			Log.e(TAG, "Bad orientation detected (w=" + pixelWidth + " h=" + pixelHeight + "! Recreating activity.");
 			badOrientationCount++;
 			recreate();

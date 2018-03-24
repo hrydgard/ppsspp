@@ -101,6 +101,10 @@
 #include "Common/KeyMap.h"
 #endif
 
+#if !defined(MOBILE_DEVICE) && defined(USING_QT_UI)
+#include "Qt/QtHost.h"
+#endif
+
 // The new UI framework, for initialization
 
 static UI::Theme ui_theme;
@@ -122,8 +126,6 @@ static UI::Theme ui_theme;
 #include <stdlib.h>
 #include "android/android-ndk-profiler/prof.h"
 #endif
-
-std::unique_ptr<ManagedTexture> uiTexture;
 
 ScreenManager *screenManager;
 std::string config_filename;
@@ -622,16 +624,6 @@ bool NativeInitGraphics(GraphicsContext *graphicsContext) {
 
 	UIThemeInit();
 
-	uiTexture = CreateTextureFromFile(g_draw, "ui_atlas.zim", ImageFileType::ZIM);
-	if (!uiTexture) {
-		PanicAlert("Failed to load ui_atlas.zim.\n\nPlace it in the directory \"assets\" under your PPSSPP directory.");
-		ELOG("Failed to load ui_atlas.zim");
-#if defined(_WIN32) && !PPSSPP_PLATFORM(UWP)
-		UINT ExitCode = 0;
-		ExitProcess(ExitCode);
-#endif
-	}
-
 	uiContext = new UIContext();
 	uiContext->theme = &ui_theme;
 
@@ -676,8 +668,6 @@ bool NativeInitGraphics(GraphicsContext *graphicsContext) {
 	screenManager->setDrawContext(g_draw);
 	screenManager->setPostRenderCallback(&RenderOverlays, nullptr);
 
-	UIBackgroundInit(*uiContext);
-
 #ifdef _WIN32
 	winAudioBackend = CreateAudioBackend((AudioBackendType)g_Config.iAudioBackend);
 #if PPSSPP_PLATFORM(UWP)
@@ -713,8 +703,6 @@ void NativeShutdownGraphics() {
 	g_gameInfoCache = nullptr;
 
 	UIBackgroundShutdown();
-
-	uiTexture.reset(nullptr);
 
 	delete uiContext;
 	uiContext = nullptr;
@@ -803,10 +791,6 @@ void RenderOverlays(UIContext *dc, void *userdata) {
 
 void NativeRender(GraphicsContext *graphicsContext) {
 	g_GameManager.Update();
-
-	// If uitexture gets reloaded, make sure we use the latest one.
-	// Not sure this happens anymore now that we tear down all graphics on app switches...
-	uiContext->FrameSetup(uiTexture->GetTexture());
 
 	float xres = dp_xres;
 	float yres = dp_yres;
@@ -1125,7 +1109,7 @@ void NativeShutdown() {
 #endif
 	g_Config.Save();
 
-	// Avoid shutting this down when restaring core.
+	// Avoid shutting this down when restarting core.
 	if (!restarting)
 		LogManager::Shutdown();
 

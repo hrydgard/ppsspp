@@ -17,7 +17,6 @@
 
 #include "gfx_es2/glsl_program.h"
 #include "Core/Reporting.h"
-#include "ext/native/gfx/GLStateCache.h"
 #include "GPU/Common/StencilCommon.h"
 #include "GPU/GLES/FramebufferManagerGLES.h"
 #include "GPU/GLES/ShaderManagerGLES.h"
@@ -111,12 +110,10 @@ bool FramebufferManagerGLES::NotifyStencilUpload(u32 addr, int size, bool skipZe
 		}
 
 		// Let's not bother with the shader if it's just zero.
-		glstate.scissorTest.disable();
-		glstate.colorMask.set(GL_FALSE, GL_FALSE, GL_FALSE, GL_TRUE);
-		glClearColor(0, 0, 0, 0);
-		glClearStencil(0);
-		glClear(GL_STENCIL_BUFFER_BIT | GL_COLOR_BUFFER_BIT);
-
+		if (dstBuffer->fbo) {
+			draw_->BindFramebufferAsRenderTarget(dstBuffer->fbo, { Draw::RPAction::KEEP, Draw::RPAction::KEEP, Draw::RPAction::CLEAR });
+		}
+		render_->Clear(0, 0, 0, GL_STENCIL_BUFFER_BIT | GL_COLOR_BUFFER_BIT, 0x8, 0, 0, 0, 0);
 		gstate_c.Dirty(DIRTY_BLEND_STATE | DIRTY_VIEWPORTSCISSOR_STATE);
 		return true;
 	}
@@ -126,26 +123,24 @@ bool FramebufferManagerGLES::NotifyStencilUpload(u32 addr, int size, bool skipZe
 		static std::string vs_code, fs_code;
 		vs_code = ApplyGLSLPrelude(stencil_vs, GL_VERTEX_SHADER);
 		fs_code = ApplyGLSLPrelude(stencil_fs, GL_FRAGMENT_SHADER);
-		stencilUploadProgram_ = glsl_create_source(vs_code.c_str(), fs_code.c_str(), &errorString);
+		std::vector<GLRShader *> shaders;
+		shaders.push_back(render_->CreateShader(GL_VERTEX_SHADER, vs_code, "stencil"));
+		shaders.push_back(render_->CreateShader(GL_FRAGMENT_SHADER, fs_code, "stencil"));
+		std::vector<GLRProgram::UniformLocQuery> queries;
+		queries.push_back({ &u_stencilUploadTex, "tex" });
+		queries.push_back({ &u_stencilValue, "u_stencilValue" });
+		std::vector<GLRProgram::Initializer> inits;
+		inits.push_back({ &u_stencilUploadTex, 0, 0 });
+		stencilUploadProgram_ = render_->CreateProgram(shaders, {}, queries, inits, false);
+		for (auto iter : shaders) {
+			render_->DeleteShader(iter);
+		}
 		if (!stencilUploadProgram_) {
 			ERROR_LOG_REPORT(G3D, "Failed to compile stencilUploadProgram! This shouldn't happen.\n%s", errorString.c_str());
-		} else {
-			glsl_bind(stencilUploadProgram_);
 		}
-
-		GLint u_tex = glsl_uniform_loc(stencilUploadProgram_, "tex");
-		glUniform1i(u_tex, 0);
-	} else {
-		glsl_bind(stencilUploadProgram_);
 	}
 
 	shaderManagerGL_->DirtyLastShader();
-
-	DisableState();
-	glstate.colorMask.set(GL_FALSE, GL_FALSE, GL_FALSE, GL_TRUE);
-	glstate.stencilTest.enable();
-	glstate.stencilOp.set(GL_REPLACE, GL_REPLACE, GL_REPLACE);
-	gstate_c.Dirty(DIRTY_BLEND_STATE | DIRTY_DEPTHSTENCIL_STATE);
 
 	bool useBlit = gstate_c.Supports(GPU_SUPPORTS_ARB_FRAMEBUFFER_BLIT | GPU_SUPPORTS_NV_FRAMEBUFFER_BLIT);
 
@@ -164,43 +159,44 @@ bool FramebufferManagerGLES::NotifyStencilUpload(u32 addr, int size, bool skipZe
 	} else if (dstBuffer->fbo) {
 		draw_->BindFramebufferAsRenderTarget(dstBuffer->fbo, { Draw::RPAction::KEEP, Draw::RPAction::KEEP, Draw::RPAction::CLEAR });
 	}
-	glViewport(0, 0, w, h);
-	gstate_c.Dirty(DIRTY_VIEWPORTSCISSOR_STATE);
+	render_->SetViewport({ 0, 0, (float)w, (float)h, 0.0f, 1.0f });
 
 	float u1 = 1.0f;
 	float v1 = 1.0f;
 	MakePixelTexture(src, dstBuffer->format, dstBuffer->fb_stride, dstBuffer->bufferWidth, dstBuffer->bufferHeight, u1, v1);
 	textureCacheGL_->ForgetLastTexture();
 
-	glClearStencil(0);
-	glClear(GL_STENCIL_BUFFER_BIT);
+	// We must bind the program after starting the render pass, and set the color mask after clearing.
+	render_->SetDepth(false, false, GL_ALWAYS);
+	render_->Clear(0, 0, 0, GL_COLOR_BUFFER_BIT | GL_STENCIL_BUFFER_BIT, 0x8, 0, 0, 0, 0);
+	render_->SetStencilFunc(GL_TRUE, GL_ALWAYS, 0xFF, 0xFF);
+	render_->SetRaster(false, GL_CCW, GL_FRONT, GL_FALSE);
+	render_->BindProgram(stencilUploadProgram_);
+	render_->SetNoBlendAndMask(0x8);
 
-	glstate.stencilFunc.set(GL_ALWAYS, 0xFF, 0xFF);
-
-	GLint u_stencilValue = glsl_uniform_loc(stencilUploadProgram_, "u_stencilValue");
 	for (int i = 1; i < values; i += i) {
 		if (!(usedBits & i)) {
 			// It's already zero, let's skip it.
 			continue;
 		}
 		if (dstBuffer->format == GE_FORMAT_4444) {
-			glstate.stencilMask.set((i << 4) | i);
-			glUniform1f(u_stencilValue, i * (16.0f / 255.0f));
+			render_->SetStencilOp((i << 4) | i, GL_REPLACE, GL_REPLACE, GL_REPLACE);
+			render_->SetUniformF1(&u_stencilValue, i * (16.0f / 255.0f));
 		} else if (dstBuffer->format == GE_FORMAT_5551) {
-			glstate.stencilMask.set(0xFF);
-			glUniform1f(u_stencilValue, i * (128.0f / 255.0f));
+			render_->SetStencilOp(0xFF, GL_REPLACE, GL_REPLACE, GL_REPLACE);
+			render_->SetUniformF1(&u_stencilValue, i * (128.0f / 255.0f));
 		} else {
-			glstate.stencilMask.set(i);
-			glUniform1f(u_stencilValue, i * (1.0f / 255.0f));
+			render_->SetStencilOp(i, GL_REPLACE, GL_REPLACE, GL_REPLACE);
+			render_->SetUniformF1(&u_stencilValue, i * (1.0f / 255.0f));
 		}
-		DrawActiveTexture(0, 0, dstBuffer->width, dstBuffer->height, dstBuffer->bufferWidth, dstBuffer->bufferHeight, 0.0f, 0.0f, u1, v1, ROTATION_LOCKED_HORIZONTAL, DRAWTEX_NEAREST);
+		DrawActiveTexture(0, 0, dstBuffer->width, dstBuffer->height, dstBuffer->bufferWidth, dstBuffer->bufferHeight, 0.0f, 0.0f, u1, v1, ROTATION_LOCKED_HORIZONTAL, DRAWTEX_NEAREST | DRAWTEX_KEEP_STENCIL_ALPHA);
 	}
-	glstate.stencilMask.set(0xFF);
 
 	if (useBlit) {
 		draw_->BlitFramebuffer(blitFBO, 0, 0, w, h, dstBuffer->fbo, 0, 0, dstBuffer->renderWidth, dstBuffer->renderHeight, Draw::FB_STENCIL_BIT, Draw::FB_BLIT_NEAREST);
 	}
 
+	gstate_c.Dirty(DIRTY_BLEND_STATE | DIRTY_RASTER_STATE | DIRTY_DEPTHSTENCIL_STATE | DIRTY_VIEWPORTSCISSOR_STATE);
 	RebindFramebuffer();
 	return true;
 }

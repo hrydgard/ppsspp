@@ -135,6 +135,9 @@ GLboolean gl3stubInit() {
     FIND_PROC(glGetProgramResourceLocationIndexEXT);
     FIND_PROC(glGetFragDataIndexEXT);
 
+    /* EXT_buffer_storage */
+    FIND_PROC(glBufferStorageEXT);
+
     /* OES_copy_image, etc. */
     FIND_PROC(glCopyImageSubDataOES);
 
@@ -365,6 +368,9 @@ GL_APICALL void           (* GL_APIENTRY glBindFragDataLocationIndexedEXT) (GLui
 GL_APICALL void           (* GL_APIENTRY glBindFragDataLocationEXT) (GLuint program, GLuint color, const GLchar *name);
 GL_APICALL GLint          (* GL_APIENTRY glGetProgramResourceLocationIndexEXT) (GLuint program, GLenum programInterface, const GLchar *name);
 GL_APICALL GLint          (* GL_APIENTRY glGetFragDataIndexEXT) (GLuint program, const GLchar *name);
+
+/* EXT_buffer_storage */
+GL_APICALL void           (* GL_APIENTRY glBufferStorageEXT) (GLenum target, GLsizeiptr size, const void *data, GLbitfield flags);
 
 /* OES_copy_image, etc. */
 GL_APICALL void           (* GL_APIENTRY glCopyImageSubDataOES) (GLuint srcName, GLenum srcTarget, GLint srcLevel, GLint srcX, GLint srcY, GLint srcZ, GLuint dstName, GLenum dstTarget, GLint dstLevel, GLint dstX, GLint dstY, GLint dstZ, GLsizei width, GLsizei height, GLsizei depth);

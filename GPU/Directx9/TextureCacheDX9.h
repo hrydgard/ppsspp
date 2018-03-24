@@ -49,9 +49,6 @@ public:
 		shaderManager_ = sm;
 	}
 
-	// Only used by Qt UI?
-	bool DecodeTexture(u8 *output, const GPUgstate &state);
-
 	void ForgetLastTexture() override;
 	void InvalidateLastTexture(TexCacheEntry *entry = nullptr) override;
 

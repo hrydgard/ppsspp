@@ -8,10 +8,14 @@ class VulkanContext;
 
 class AndroidVulkanContext : public AndroidGraphicsContext {
 public:
-	AndroidVulkanContext() : draw_(nullptr) {}
+	AndroidVulkanContext();
 	~AndroidVulkanContext();
 
-	bool Init(ANativeWindow *wnd, int desiredBackbufferSizeX, int desiredBackbufferSizeY, int backbufferFormat, int androidVersion) override;
+	bool InitAPI();
+
+	bool InitFromRenderThread(ANativeWindow *wnd, int desiredBackbufferSizeX, int desiredBackbufferSizeY, int backbufferFormat, int androidVersion) override;
+	void ShutdownFromRenderThread() override;  // Inverses InitFromRenderThread.
+
 	void Shutdown() override;
 	void SwapInterval(int interval) override;
 	void SwapBuffers() override;
@@ -22,6 +26,10 @@ public:
 	Draw::DrawContext *GetDrawContext() override {
 		return draw_;
 	}
+	bool Initialized() override {
+		return draw_ != nullptr;
+	}
+
 private:
 	VulkanContext *g_Vulkan = nullptr;
 	Draw::DrawContext *draw_ = nullptr;

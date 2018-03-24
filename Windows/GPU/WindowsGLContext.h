@@ -7,9 +7,15 @@ namespace Draw {
 	class DrawContext;
 }
 
+class GLRenderManager;
+
 class WindowsGLContext : public WindowsGraphicsContext {
 public:
 	bool Init(HINSTANCE hInst, HWND window, std::string *error_message) override;
+
+	bool InitFromRenderThread(std::string *errorMessage) override;
+	void ShutdownFromRenderThread() override;
+
 	void Shutdown() override;
 	void SwapInterval(int interval) override;
 	void SwapBuffers() override;
@@ -18,16 +24,23 @@ public:
 	// not the rendering thread or CPU thread.
 	void Pause() override;
 	void Resume() override;
-
 	void Resize() override;
+
+	void ThreadStart() override;
+	void ThreadEnd() override;
+	bool ThreadFrame() override;
+	void StopThread() override;
 
 	Draw::DrawContext *GetDrawContext() override { return draw_; }
 
 private:
+	bool renderThread_;
 	Draw::DrawContext *draw_;
+	GLRenderManager *renderManager_;
+	HINSTANCE hInst_;
 	HDC hDC;     // Private GDI Device Context
 	HGLRC hRC;   // Permanent Rendering Context
-	HWND hWnd;   // Holds Our Window Handle
+	HWND hWnd_;   // Holds Our Window Handle
 	volatile bool pauseRequested;
 	volatile bool resumeRequested;
 	HANDLE pauseEvent;

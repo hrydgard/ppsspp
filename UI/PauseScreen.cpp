@@ -80,7 +80,7 @@ void AsyncImageFileView::SetFilename(std::string filename) {
 void AsyncImageFileView::Draw(UIContext &dc) {
 	using namespace Draw;
 	if (!texture_ && !textureFailed_ && !filename_.empty()) {
-		texture_ = std::move(CreateTextureFromFile(dc.GetDrawContext(), filename_.c_str(), DETECT, true));
+		texture_ = CreateTextureFromFile(dc.GetDrawContext(), filename_.c_str(), DETECT, true);
 		if (!texture_.get())
 			textureFailed_ = true;
 	}

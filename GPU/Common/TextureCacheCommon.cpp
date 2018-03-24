@@ -47,6 +47,10 @@
 #define TEXTURE_KILL_AGE_LOWMEM 60
 // Not used in lowmem mode.
 #define TEXTURE_SECOND_KILL_AGE 100
+// Used when there are multiple CLUT variants of a texture.
+#define TEXTURE_KILL_AGE_CLUT 6
+
+#define TEXTURE_CLUT_VARIANTS_MIN 6
 
 // Try to be prime to other decimation intervals.
 #define TEXCACHE_DECIMATION_INTERVAL 13
@@ -384,7 +388,7 @@ void TextureCacheCommon::SetTexture(bool force) {
 					// Exponential backoff up to 512 frames.  Textures are often reused.
 					if (entry->numFrames > 32) {
 						// Also, try to add some "randomness" to avoid rehashing several textures the same frame.
-						entry->framesUntilNextFullHash = std::min(512, entry->numFrames) + (entry->textureName & 15);
+						entry->framesUntilNextFullHash = std::min(512, entry->numFrames) + (((intptr_t)(entry->textureName) >> 12) & 15);
 					} else {
 						entry->framesUntilNextFullHash = entry->numFrames;
 					}
@@ -455,6 +459,24 @@ void TextureCacheCommon::SetTexture(bool force) {
 			entry->status = TexCacheEntry::STATUS_UNRELIABLE;
 		}
 
+		if (hasClut && clutRenderAddress_ == 0xFFFFFFFF) {
+			const u64 cachekeyMin = (u64)(texaddr & 0x3FFFFFFF) << 32;
+			const u64 cachekeyMax = cachekeyMin + (1ULL << 32);
+
+			int found = 0;
+			for (auto it = cache_.lower_bound(cachekeyMin), end = cache_.upper_bound(cachekeyMax); it != end; ++it) {
+				found++;
+			}
+
+			if (found >= TEXTURE_CLUT_VARIANTS_MIN) {
+				for (auto it = cache_.lower_bound(cachekeyMin), end = cache_.upper_bound(cachekeyMax); it != end; ++it) {
+					it->second->status |= TexCacheEntry::STATUS_CLUT_VARIANTS;
+				}
+
+				entry->status |= TexCacheEntry::STATUS_CLUT_VARIANTS;
+			}
+		}
+
 		nextNeedsChange_ = false;
 	}
 
@@ -506,8 +528,10 @@ void TextureCacheCommon::Decimate() {
 		const u32 had = cacheSizeEstimate_;
 
 		ForgetLastTexture();
-		int killAge = lowMemoryMode_ ? TEXTURE_KILL_AGE_LOWMEM : TEXTURE_KILL_AGE;
+		int killAgeBase = lowMemoryMode_ ? TEXTURE_KILL_AGE_LOWMEM : TEXTURE_KILL_AGE;
 		for (TexCache::iterator iter = cache_.begin(); iter != cache_.end(); ) {
+			bool hasClut = (iter->second->status & TexCacheEntry::STATUS_CLUT_VARIANTS) != 0;
+			int killAge = hasClut ? TEXTURE_KILL_AGE_CLUT : killAgeBase;
 			if (iter->second->lastFrame + killAge < gpuStats.numFlips) {
 				DeleteTexture(iter++);
 			} else {

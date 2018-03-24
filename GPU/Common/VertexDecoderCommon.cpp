@@ -41,19 +41,12 @@ static const u8 nrmsize[4] = { 0, 3, 6, 12 }, nrmalign[4] = { 0, 1, 2, 4 };
 static const u8 possize[4] = { 3, 3, 6, 12 }, posalign[4] = { 1, 1, 2, 4 };
 static const u8 wtsize[4] = { 0, 1, 2, 4 }, wtalign[4] = { 0, 1, 2, 4 };
 
-// When software skinning. This array is only used when non-jitted - when jitted, the matrix
+// This array is only used when non-jitted - when jitted, the matrix
 // is kept in registers.
 alignas(16) static float skinMatrix[12];
 
 inline int align(int n, int align) {
 	return (n + (align - 1)) & ~(align - 1);
-}
-
-int TranslateNumBones(int bones) {
-	if (!bones) return 0;
-	if (bones < 4) return 4;
-	// if (bones < 8) return 8;   I get drawing problems in FF:CC with this!
-	return bones;
 }
 
 int DecFmtSize(u8 fmt) {
@@ -79,7 +72,22 @@ int DecFmtSize(u8 fmt) {
 }
 
 void DecVtxFormat::ComputeID() {
-	id = w0fmt | (w1fmt << 4) | (uvfmt << 8) | (c0fmt << 12) | (c1fmt << 16) | (nrmfmt << 20) | (posfmt << 24);
+	id = uvfmt | (c0fmt << 4) | (c1fmt << 8) | (nrmfmt << 12) | (posfmt << 16);
+}
+
+void DecVtxFormat::InitializeFromID(uint32_t id) {
+	this->id = id;
+	uvfmt = (id & 0xF);
+	c0fmt = ((id >> 4) & 0xF);
+	c1fmt = ((id >> 8) & 0xF);
+	nrmfmt = ((id >> 12) & 0xF);
+	posfmt = ((id >> 16) & 0xF);
+	uvoff = 0;
+	c0off = uvoff + DecFmtSize(uvfmt);
+	c1off = c0off + DecFmtSize(c0fmt);
+	nrmoff = c1off + DecFmtSize(c1fmt);
+	posoff = nrmoff + DecFmtSize(nrmfmt);
+	stride = posoff + DecFmtSize(posfmt);
 }
 
 void GetIndexBounds(const void *inds, int count, u32 vertType, u16 *indexLowerBound, u16 *indexUpperBound) {
@@ -158,113 +166,37 @@ void PrintDecodedVertex(VertexReader &vtx) {
 VertexDecoder::VertexDecoder() : decoded_(nullptr), ptr_(nullptr), jitted_(0), jittedSize_(0) {
 }
 
-void VertexDecoder::Step_WeightsU8() const
-{
-	u8 *wt = (u8 *)(decoded_ + decFmt.w0off);
-	const u8 *wdata = (const u8*)(ptr_);
-	int j;
-	for (j = 0; j < nweights; j++)
-		wt[j] = wdata[j];
-	while (j & 3)   // Zero additional weights rounding up to 4.
-		wt[j++] = 0;
-}
-
-void VertexDecoder::Step_WeightsU16() const
-{
-	u16 *wt = (u16 *)(decoded_ + decFmt.w0off);
-	const u16 *wdata = (const u16*)(ptr_);
-	int j;
-	for (j = 0; j < nweights; j++)
-		wt[j] = wdata[j];
-	while (j & 3)   // Zero additional weights rounding up to 4.
-		wt[j++] = 0;
-}
-
-void VertexDecoder::Step_WeightsU8ToFloat() const
-{
-	float *wt = (float *)(decoded_ + decFmt.w0off);
-	const u8 *wdata = (const u8*)(ptr_);
-	int j;
-	for (j = 0; j < nweights; j++) {
-		wt[j] = (float)wdata[j] * (1.0f / 128.0f);
+void VertexDecoder::ComputeSkinMatrix(const float weights[8]) const {
+	memset(skinMatrix, 0, sizeof(skinMatrix));
+	for (int j = 0; j < nweights; j++) {
+		const float *bone = &gstate.boneMatrix[j * 12];
+		if (weights[j] != 0.0f) {
+			for (int i = 0; i < 12; i++) {
+				skinMatrix[i] += weights[j] * bone[i];
+			}
+		}
 	}
-	while (j & 3)   // Zero additional weights rounding up to 4.
-		wt[j++] = 0;
 }
 
-void VertexDecoder::Step_WeightsU16ToFloat() const
-{
-	float *wt = (float *)(decoded_ + decFmt.w0off);
+void VertexDecoder::Step_WeightsU8Skin() const {
+	const u8 *wdata = (const u8*)(ptr_);
+	float weights[8];
+	for (int j = 0; j < nweights; j++)
+		weights[j] = wdata[j] * (1.0f / 128.0f);
+	ComputeSkinMatrix(weights);
+}
+
+void VertexDecoder::Step_WeightsU16Skin() const {
 	const u16 *wdata = (const u16*)(ptr_);
-	int j;
-	for (j = 0; j < nweights; j++) {
-		wt[j] = (float)wdata[j] * (1.0f / 32768.0f);
-	}
-	while (j & 3)   // Zero additional weights rounding up to 4.
-		wt[j++] = 0;
+	float weights[8];
+	for (int j = 0; j < nweights; j++)
+		weights[j] = wdata[j] * (1.0f / 32768.0f);
+	ComputeSkinMatrix(weights);
 }
 
-// Float weights should be uncommon, we can live with having to multiply these by 2.0
-// to avoid special checks in the vertex shader generator.
-// (PSP uses 0.0-2.0 fixed point numbers for weights)
-void VertexDecoder::Step_WeightsFloat() const
-{
-	float *wt = (float *)(decoded_ + decFmt.w0off);
+void VertexDecoder::Step_WeightsFloatSkin() const {
 	const float *wdata = (const float*)(ptr_);
-	int j;
-	for (j = 0; j < nweights; j++) {
-		wt[j] = wdata[j];
-	}
-	while (j & 3)   // Zero additional weights rounding up to 4.
-		wt[j++] = 0.0f;
-}
-
-void VertexDecoder::Step_WeightsU8Skin() const
-{
-	memset(skinMatrix, 0, sizeof(skinMatrix));
-	const u8 *wdata = (const u8*)(ptr_);
-	for (int j = 0; j < nweights; j++) {
-		const float *bone = &gstate.boneMatrix[j * 12];
-		if (wdata[j] != 0) {
-			float weight = wdata[j] * (1.0f / 128.0f);
-			for (int i = 0; i < 12; i++) {
-				skinMatrix[i] += weight * bone[i];
-			}
-		}
-	}
-}
-
-void VertexDecoder::Step_WeightsU16Skin() const
-{
-	memset(skinMatrix, 0, sizeof(skinMatrix));
-	const u16 *wdata = (const u16*)(ptr_);
-	for (int j = 0; j < nweights; j++) {
-		const float *bone = &gstate.boneMatrix[j * 12];
-		if (wdata[j] != 0) {
-			float weight = wdata[j] * (1.0f / 32768.0f);
-			for (int i = 0; i < 12; i++) {
-				skinMatrix[i] += weight * bone[i];
-			}
-		}
-	}
-}
-
-// Float weights should be uncommon, we can live with having to multiply these by 2.0
-// to avoid special checks in the vertex shader generator.
-// (PSP uses 0.0-2.0 fixed point numbers for weights)
-void VertexDecoder::Step_WeightsFloatSkin() const
-{
-	memset(skinMatrix, 0, sizeof(skinMatrix));
-	const float *wdata = (const float*)(ptr_);
-	for (int j = 0; j < nweights; j++) {
-		const float *bone = &gstate.boneMatrix[j * 12];
-		float weight = wdata[j];
-		if (weight > 0.0) {
-			for (int i = 0; i < 12; i++) {
-				skinMatrix[i] += weight * bone[i];
-			}
-		}
-	}
+	ComputeSkinMatrix(wdata);
 }
 
 void VertexDecoder::Step_TcU8ToFloat() const
@@ -688,6 +620,42 @@ void VertexDecoder::Step_NormalFloatMorph() const
 	}
 }
 
+void VertexDecoder::Step_NormalS8MorphSkin() const {
+	float *normal = (float *)(decoded_ + decFmt.nrmoff);
+	float nrm[3]{};
+	for (int n = 0; n < morphcount; n++) {
+		const s8 *bv = (const s8*)(ptr_ + onesize_ * n + nrmoff);
+		const float multiplier = gstate_c.morphWeights[n] * (1.0f / 128.0f);
+		for (int j = 0; j < 3; j++)
+			normal[j] += bv[j] * multiplier;
+	}
+	Norm3ByMatrix43(normal, nrm, skinMatrix);
+}
+
+void VertexDecoder::Step_NormalS16MorphSkin() const {
+	float *normal = (float *)(decoded_ + decFmt.nrmoff);
+	float nrm[3]{};
+	for (int n = 0; n < morphcount; n++) {
+		const s16 *sv = (const s16_le *)(ptr_ + onesize_ * n + nrmoff);
+		const float multiplier = gstate_c.morphWeights[n] * (1.0f / 32768.0f);
+		for (int j = 0; j < 3; j++)
+			nrm[j] += sv[j] * multiplier;
+	}
+	Norm3ByMatrix43(normal, nrm, skinMatrix);
+}
+
+void VertexDecoder::Step_NormalFloatMorphSkin() const {
+	float *normal = (float *)(decoded_ + decFmt.nrmoff);
+	float nrm[3]{};
+	for (int n = 0; n < morphcount; n++) {
+		float multiplier = gstate_c.morphWeights[n];
+		const float *fv = (const float*)(ptr_ + onesize_ * n + nrmoff);
+		for (int j = 0; j < 3; j++)
+			nrm[j] += fv[j] * multiplier;
+	}
+	Norm3ByMatrix43(normal, nrm, skinMatrix);
+}
+
 void VertexDecoder::Step_PosS8() const
 {
 	float *pos = (float *)(decoded_ + decFmt.posoff);
@@ -795,19 +763,43 @@ void VertexDecoder::Step_PosFloatMorph() const
 	}
 }
 
-static const StepFunction wtstep[4] = {
-	0,
-	&VertexDecoder::Step_WeightsU8,
-	&VertexDecoder::Step_WeightsU16,
-	&VertexDecoder::Step_WeightsFloat,
-};
+void VertexDecoder::Step_PosS8MorphSkin() const {
+	float *v = (float *)(decoded_ + decFmt.posoff);
+	float pos[3]{};
+	for (int n = 0; n < morphcount; n++) {
+		const float multiplier = 1.0f / 128.0f;
+		const s8 *sv = (const s8*)(ptr_ + onesize_ * n + posoff);
+		for (int j = 0; j < 3; j++)
+			pos[j] += (float)sv[j] * (multiplier * gstate_c.morphWeights[n]);
+	}
+	Vec3ByMatrix43(v, pos, skinMatrix);
+}
 
-static const StepFunction wtstepToFloat[4] = {
-	0,
-	&VertexDecoder::Step_WeightsU8ToFloat,
-	&VertexDecoder::Step_WeightsU16ToFloat,
-	&VertexDecoder::Step_WeightsFloat,
-};
+void VertexDecoder::Step_PosS16MorphSkin() const {
+	float *v = (float *)(decoded_ + decFmt.posoff);
+	float pos[3]{};
+	for (int n = 0; n < morphcount; n++) {
+		const float multiplier = 1.0f / 32768.0f;
+		const s16 *sv = (const s16*)(ptr_ + onesize_ * n + posoff);
+		for (int j = 0; j < 3; j++)
+			pos[j] += (float)sv[j] * (multiplier * gstate_c.morphWeights[n]);
+	}
+	Vec3ByMatrix43(v, pos, skinMatrix);
+}
+
+void VertexDecoder::Step_PosFloatMorphSkin() const {
+	float *v = (float *)(decoded_ + decFmt.posoff);
+	float pos[3]{};
+	for (int n = 0; n < morphcount; n++) {
+		const float *fv = (const float*)(ptr_ + onesize_ * n + posoff);
+		for (int j = 0; j < 3; j++)
+			pos[j] += fv[j] * gstate_c.morphWeights[n];
+	}
+	Vec3ByMatrix43(v, pos, skinMatrix);
+}
+
+// TODO: Morph weights correctly! This is missing. Not sure if any game actually
+// use this functionality at all.
 
 static const StepFunction wtstep_skin[4] = {
 	0,
@@ -936,6 +928,13 @@ static const StepFunction nrmstep_morph[4] = {
 	&VertexDecoder::Step_NormalFloatMorph,
 };
 
+static const StepFunction nrmstep_morphskin[4] = {
+	0,
+	&VertexDecoder::Step_NormalS8MorphSkin,
+	&VertexDecoder::Step_NormalS16MorphSkin,
+	&VertexDecoder::Step_NormalFloatMorphSkin,
+};
+
 static const StepFunction posstep[4] = {
 	&VertexDecoder::Step_PosS8,
 	&VertexDecoder::Step_PosS8,
@@ -955,6 +954,13 @@ static const StepFunction posstep_morph[4] = {
 	&VertexDecoder::Step_PosS8Morph,
 	&VertexDecoder::Step_PosS16Morph,
 	&VertexDecoder::Step_PosFloatMorph,
+};
+
+static const StepFunction posstep_morph_skin[4] = {
+	&VertexDecoder::Step_PosS8MorphSkin,
+	&VertexDecoder::Step_PosS8MorphSkin,
+	&VertexDecoder::Step_PosS16MorphSkin,
+	&VertexDecoder::Step_PosFloatMorphSkin,
 };
 
 static const StepFunction posstep_through[4] = {
@@ -990,7 +996,7 @@ void VertexDecoder::SetVertexType(u32 fmt, const VertexDecoderOptions &options, 
 		DEBUG_LOG(G3D, "VTYPE: THRU=%i TC=%i COL=%i POS=%i NRM=%i WT=%i NW=%i IDX=%i MC=%i", (int)throughmode, tc, col, pos, nrm, weighttype, nweights, idx, morphcount);
 	}
 
-	bool skinInDecode = weighttype != 0 && g_Config.bSoftwareSkinning && morphcount == 1;
+	bool skinning = weighttype != 0;
 
 	if (weighttype) { // && nweights?
 		weightoff = size;
@@ -999,40 +1005,11 @@ void VertexDecoder::SetVertexType(u32 fmt, const VertexDecoderOptions &options, 
 		if (wtalign[weighttype] > biggest)
 			biggest = wtalign[weighttype];
 
-		if (skinInDecode) {
-			steps_[numSteps_++] = wtstep_skin[weighttype];
-			// No visible output, passed in register/external memory to the "pos" step.
-		} else {
-			int fmtBase = DEC_FLOAT_1;
-			if (options.expandAllWeightsToFloat) {
-				steps_[numSteps_++] = wtstepToFloat[weighttype];
-				fmtBase = DEC_FLOAT_1;
-			} else {
-				steps_[numSteps_++] = wtstep[weighttype];
-				if (weighttype == GE_VTYPE_WEIGHT_8BIT >> GE_VTYPE_WEIGHT_SHIFT) {
-					fmtBase = DEC_U8_1;
-				} else if (weighttype == GE_VTYPE_WEIGHT_16BIT >> GE_VTYPE_WEIGHT_SHIFT) {
-					fmtBase = DEC_U16_1;
-				} else if (weighttype == GE_VTYPE_WEIGHT_FLOAT >> GE_VTYPE_WEIGHT_SHIFT) {
-					fmtBase = DEC_FLOAT_1;
-				}
-			}
-
-			int numWeights = TranslateNumBones(nweights);
-
-			if (numWeights <= 4) {
-				decFmt.w0off = decOff;
-				decFmt.w0fmt = fmtBase + numWeights - 1;
-				decOff += DecFmtSize(decFmt.w0fmt);
-			} else {
-				decFmt.w0off = decOff;
-				decFmt.w0fmt = fmtBase + 3;
-				decOff += DecFmtSize(decFmt.w0fmt);
-				decFmt.w1off = decOff;
-				decFmt.w1fmt = fmtBase + numWeights - 5;
-				decOff += DecFmtSize(decFmt.w1fmt);
-			}
-		}
+		// No visible output, computes a matrix that is passed through the skinMatrix variable
+		// to the "nrm" and "pos" steps.
+		// Technically we should support morphing the weights too, but I have a hard time
+		// imagining that any game would use that.. but you never know.
+		steps_[numSteps_++] = wtstep_skin[weighttype];
 	}
 
 	if (tc) {
@@ -1090,8 +1067,8 @@ void VertexDecoder::SetVertexType(u32 fmt, const VertexDecoderOptions &options, 
 		if (nrmalign[nrm] > biggest)
 			biggest = nrmalign[nrm];
 
-		if (skinInDecode) {
-			steps_[numSteps_++] = nrmstep_skin[nrm];
+		if (skinning) {
+			steps_[numSteps_++] = morphcount == 1 ? nrmstep_skin[nrm] : nrmstep_morphskin[nrm];
 			// After skinning, we always have three floats.
 			decFmt.nrmfmt = DEC_FLOAT_3;
 		} else {
@@ -1141,8 +1118,8 @@ void VertexDecoder::SetVertexType(u32 fmt, const VertexDecoderOptions &options, 
 			steps_[numSteps_++] = posstep_through[pos];
 			decFmt.posfmt = DEC_FLOAT_3;
 		} else {
-			if (skinInDecode) {
-				steps_[numSteps_++] = posstep_skin[pos];
+			if (skinning) {
+				steps_[numSteps_++] = morphcount == 1 ? posstep_skin[pos] : posstep_morph_skin[pos];
 				decFmt.posfmt = DEC_FLOAT_3;
 			} else {
 				steps_[numSteps_++] = morphcount == 1 ? posstep[pos] : posstep_morph[pos];

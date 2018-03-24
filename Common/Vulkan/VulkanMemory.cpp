@@ -36,7 +36,7 @@ VulkanPushBuffer::~VulkanPushBuffer() {
 bool VulkanPushBuffer::AddBuffer() {
 	BufInfo info;
 
-	VkBufferCreateInfo b = { VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO };
+	VkBufferCreateInfo b{ VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO };
 	b.size = size_;
 	b.flags = 0;
 	b.usage = VK_BUFFER_USAGE_INDEX_BUFFER_BIT | VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT;
@@ -56,7 +56,7 @@ bool VulkanPushBuffer::AddBuffer() {
 	// TODO: We really should use memoryTypeIndex here..
 
 	// Okay, that's the buffer. Now let's allocate some memory for it.
-	VkMemoryAllocateInfo alloc = { VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO };
+	VkMemoryAllocateInfo alloc{ VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO };
 	// TODO: Should check here that memoryTypeIndex_ matches reqs.memoryTypeBits.
 	alloc.memoryTypeIndex = memoryTypeIndex_;
 	alloc.allocationSize = reqs.size;
@@ -75,9 +75,8 @@ bool VulkanPushBuffer::AddBuffer() {
 		return false;
 	}
 
-	buf_ = buffers_.size();
-	buffers_.resize(buf_ + 1);
-	buffers_[buf_] = info;
+	buffers_.push_back(info);
+	buf_ = buffers_.size() - 1;
 	return true;
 }
 
@@ -136,17 +135,17 @@ size_t VulkanPushBuffer::GetTotalSize() const {
 }
 
 void VulkanPushBuffer::Map() {
-	assert(!writePtr_);
+	_dbg_assert_(G3D, !writePtr_);
 	VkResult res = vkMapMemory(device_, buffers_[buf_].deviceMemory, 0, size_, 0, (void **)(&writePtr_));
-	assert(writePtr_);
+	_dbg_assert_(G3D, writePtr_);
 	assert(VK_SUCCESS == res);
 }
 
 void VulkanPushBuffer::Unmap() {
-	assert(writePtr_);
+	_dbg_assert_(G3D, writePtr_ != 0);
 	/*
 	// Should not need this since we use coherent memory.
-	VkMappedMemoryRange range = { VK_STRUCTURE_TYPE_MAPPED_MEMORY_RANGE };
+	VkMappedMemoryRange range{ VK_STRUCTURE_TYPE_MAPPED_MEMORY_RANGE };
 	range.offset = 0;
 	range.size = offset_;
 	range.memory = buffers_[buf_].deviceMemory;
@@ -284,9 +283,9 @@ bool VulkanDeviceAllocator::AllocateFromSlab(Slab &slab, size_t &start, size_t b
 int VulkanDeviceAllocator::ComputeUsagePercent() const {
 	int blockSum = 0;
 	int blocksUsed = 0;
-	for (int i = 0; i < slabs_.size(); i++) {
+	for (size_t i = 0; i < slabs_.size(); i++) {
 		blockSum += (int)slabs_[i].usage.size();
-		for (int j = 0; j < slabs_[i].usage.size(); j++) {
+		for (size_t j = 0; j < slabs_[i].usage.size(); j++) {
 			blocksUsed += slabs_[i].usage[j] != 0 ? 1 : 0;
 		}
 	}
@@ -360,17 +359,14 @@ void VulkanDeviceAllocator::ExecuteFree(FreeInfo *userdata) {
 			slab.allocSizes.erase(it);
 		} else {
 			// Ack, a double free?
-			_assert_msg_(G3D, false, "Double free? Block missing at offset %d", userdata->offset);
+			_assert_msg_(G3D, false, "Double free? Block missing at offset %d", (int)userdata->offset);
 		}
 		found = true;
 		break;
 	}
 
 	// Wrong deviceMemory even?  Maybe it was already decimated, but that means a double-free.
-	if (!found) {
-		Crash();
-	}
-
+	_assert_msg_(G3D, found, "ExecuteFree: Block not found (offset %d)", (int)offset);
 	delete userdata;
 }
 
@@ -381,7 +377,7 @@ bool VulkanDeviceAllocator::AllocateSlab(VkDeviceSize minBytes) {
 		minSlabSize_ <<= 1;
 	}
 
-	VkMemoryAllocateInfo alloc = { VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO };
+	VkMemoryAllocateInfo alloc{ VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO };
 	alloc.allocationSize = minSlabSize_;
 	alloc.memoryTypeIndex = memoryTypeIndex_;
 

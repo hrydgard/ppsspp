@@ -71,6 +71,8 @@ static const uint32_t colors[4] = {
 
 static std::unique_ptr<ManagedTexture> bgTexture;
 
+static bool backgroundInited;
+
 void UIBackgroundInit(UIContext &dc) {
 	const std::string bgPng = GetSysDirectory(DIRECTORY_SYSTEM) + "background.png";
 	const std::string bgJpg = GetSysDirectory(DIRECTORY_SYSTEM) + "background.jpg";
@@ -82,9 +84,15 @@ void UIBackgroundInit(UIContext &dc) {
 
 void UIBackgroundShutdown() {
 	bgTexture.reset(nullptr);
+	backgroundInited = false;
 }
 
 void DrawBackground(UIContext &dc, float alpha) {
+	if (!backgroundInited) {
+		UIBackgroundInit(dc);
+		backgroundInited = true;
+	}
+
 	static float xbase[100] = {0};
 	static float ybase[100] = {0};
 	float xres = dc.GetBounds().w;

@@ -42,6 +42,15 @@ const CommonCommandTableEntry commonCommandTable[] = {
 	{ GE_CMD_BJUMP, FLAG_EXECUTE | FLAG_READS_PC | FLAG_WRITES_PC, 0, &GPUCommon::Execute_BJump },  // EXECUTE
 	{ GE_CMD_BOUNDINGBOX, FLAG_EXECUTE, 0, &GPUCommon::Execute_BoundingBox }, // + FLUSHBEFORE when we implement... or not, do we need to?
 
+	{ GE_CMD_PRIM, FLAG_EXECUTE, 0, &GPUCommon::Execute_Prim },
+	{ GE_CMD_BEZIER, FLAG_FLUSHBEFORE | FLAG_EXECUTE, 0, &GPUCommon::Execute_Bezier },
+	{ GE_CMD_SPLINE, FLAG_FLUSHBEFORE | FLAG_EXECUTE, 0, &GPUCommon::Execute_Spline },
+
+	// Changing the vertex type does not always require us to flush so handle that in Execute_VertexType.
+	{ GE_CMD_VERTEXTYPE, FLAG_EXECUTEONCHANGE, 0, &GPUCommon::Execute_VertexType },
+
+	{ GE_CMD_LOADCLUT, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTE, 0, &GPUCommon::Execute_LoadClut },
+
 	// These two are actually processed in CMD_END. Not sure if FLAG_FLUSHBEFORE matters.
 	{ GE_CMD_SIGNAL, FLAG_FLUSHBEFORE },
 	{ GE_CMD_FINISH, FLAG_FLUSHBEFORE },
@@ -121,7 +130,7 @@ const CommonCommandTableEntry commonCommandTable[] = {
 	{ GE_CMD_TEXOFFSETU },
 	{ GE_CMD_TEXOFFSETV },
 
-	// TEXSIZE0 is handled by each backend.
+	{ GE_CMD_TEXSIZE0, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTE, 0, &GPUCommon::Execute_TexSize0 },
 	{ GE_CMD_TEXSIZE1, FLAG_FLUSHBEFOREONCHANGE, DIRTY_TEXTURE_PARAMS },
 	{ GE_CMD_TEXSIZE2, FLAG_FLUSHBEFOREONCHANGE, DIRTY_TEXTURE_PARAMS },
 	{ GE_CMD_TEXSIZE3, FLAG_FLUSHBEFOREONCHANGE, DIRTY_TEXTURE_PARAMS },
@@ -343,6 +352,9 @@ const CommonCommandTableEntry commonCommandTable[] = {
 };
 size_t commonCommandTableSize = ARRAY_SIZE(commonCommandTable);
 
+// TODO: Make class member?
+GPUCommon::CommandInfo GPUCommon::cmdInfo_[256];
+
 void GPUCommon::Flush() {
 	drawEngineCommon_->DispatchFlush();
 }
@@ -366,6 +378,31 @@ GPUCommon::GPUCommon(GraphicsContext *gfxCtx, Draw::DrawContext *draw) :
 	gstate.Reset();
 	gstate_c.Reset();
 	gpuStats.Reset();
+
+	memset(cmdInfo_, 0, sizeof(cmdInfo_));
+
+	// Convert the command table to a faster format, and check for dupes.
+	std::set<u8> dupeCheck;
+	for (size_t i = 0; i < commonCommandTableSize; i++) {
+		const u8 cmd = commonCommandTable[i].cmd;
+		if (dupeCheck.find(cmd) != dupeCheck.end()) {
+			ERROR_LOG(G3D, "Command table Dupe: %02x (%i)", (int)cmd, (int)cmd);
+		} else {
+			dupeCheck.insert(cmd);
+		}
+		cmdInfo_[cmd].flags |= (uint64_t)commonCommandTable[i].flags | (commonCommandTable[i].dirty << 8);
+		cmdInfo_[cmd].func = commonCommandTable[i].func;
+		if ((cmdInfo_[cmd].flags & (FLAG_EXECUTE | FLAG_EXECUTEONCHANGE)) && !cmdInfo_[cmd].func) {
+			// Can't have FLAG_EXECUTE commands without a function pointer to execute.
+			Crash();
+		}
+	}
+	// Find commands missing from the table.
+	for (int i = 0; i < 0xEF; i++) {
+		if (dupeCheck.find((u8)i) == dupeCheck.end()) {
+			ERROR_LOG(G3D, "Command missing from table: %02x (%i)", i, i);
+		}
+	}
 }
 
 GPUCommon::~GPUCommon() {
@@ -923,6 +960,46 @@ bool GPUCommon::InterpretList(DisplayList &list) {
 	return gpuState == GPUSTATE_DONE || gpuState == GPUSTATE_ERROR;
 }
 
+// Maybe should write this in ASM...
+void GPUCommon::FastRunLoop(DisplayList &list) {
+	PROFILE_THIS_SCOPE("gpuloop");
+	const CommandInfo *cmdInfo = cmdInfo_;
+	int dc = downcount;
+	for (; dc > 0; --dc) {
+		// We know that display list PCs have the upper nibble == 0 - no need to mask the pointer
+		const u32 op = *(const u32 *)(Memory::base + list.pc);
+		const u32 cmd = op >> 24;
+		const CommandInfo &info = cmdInfo[cmd];
+		const u32 diff = op ^ gstate.cmdmem[cmd];
+		if (diff == 0) {
+			if (info.flags & FLAG_EXECUTE) {
+				downcount = dc;
+				(this->*info.func)(op, diff);
+				dc = downcount;
+			}
+		} else {
+			uint64_t flags = info.flags;
+			if (flags & FLAG_FLUSHBEFOREONCHANGE) {
+				if (drawEngineCommon_->GetNumDrawCalls()) {
+					drawEngineCommon_->DispatchFlush();
+				}
+			}
+			gstate.cmdmem[cmd] = op;
+			if (flags & (FLAG_EXECUTE | FLAG_EXECUTEONCHANGE)) {
+				downcount = dc;
+				(this->*info.func)(op, diff);
+				dc = downcount;
+			} else {
+				uint64_t dirty = flags >> 8;
+				if (dirty)
+					gstate_c.Dirty(dirty);
+			}
+		}
+		list.pc += 4;
+	}
+	downcount = 0;
+}
+
 void GPUCommon::BeginFrame() {
 	immCount_ = 0;
 	if (dumpNextFrame_) {
@@ -980,7 +1057,6 @@ void GPUCommon::UpdatePC(u32 currentPC, u32 newPC) {
 	}
 
 	// Exit the runloop and recalculate things.  This happens a lot in some games.
-	// No need to lock, this function is always called under listLock.
 	if (currentList)
 		downcount = currentList->stall == 0 ? 0x0FFFFFFF : (currentList->stall - newPC) / 4;
 	else
@@ -1321,8 +1397,9 @@ void GPUCommon::Execute_End(u32 op, u32 diff) {
 }
 
 void GPUCommon::Execute_TexLevel(u32 op, u32 diff) {
-	if (diff == 0xFFFFFFFF) return;
-
+	// TODO: If you change the rules here, don't forget to update the inner interpreter in Execute_Prim.
+	if (diff == 0xFFFFFFFF)
+		return;
 	gstate.texlevel ^= diff;
 	if (gstate.getTexLevelMode() == GE_TEXLEVEL_MODE_CONST && (0x00FF0000 & gstate.texlevel) != 0) {
 		Flush();
@@ -1343,35 +1420,214 @@ void GPUCommon::Execute_TexSize0(u32 op, u32 diff) {
 	}
 }
 
-void GPUCommon::Execute_VertexType(u32 op, u32 diff) {
-	if (diff)
-		gstate_c.Dirty(DIRTY_VERTEXSHADER_STATE);
-	if (diff & (GE_VTYPE_TC_MASK | GE_VTYPE_THROUGH_MASK)) {
-		gstate_c.Dirty(DIRTY_UVSCALEOFFSET);
-		if (diff & GE_VTYPE_THROUGH_MASK)
-			gstate_c.Dirty(DIRTY_RASTER_STATE | DIRTY_VIEWPORTSCISSOR_STATE | DIRTY_FRAGMENTSHADER_STATE);
-	}
+void GPUCommon::Execute_LoadClut(u32 op, u32 diff) {
+	gstate_c.Dirty(DIRTY_TEXTURE_PARAMS);
+	textureCache_->LoadClut(gstate.getClutAddress(), gstate.getClutLoadBytes());
 }
 
-void GPUCommon::Execute_VertexTypeSkinning(u32 op, u32 diff) {
-	// Don't flush when weight count changes, unless morph is enabled.
-	if ((diff & ~GE_VTYPE_WEIGHTCOUNT_MASK) || (op & GE_VTYPE_MORPHCOUNT_MASK) != 0) {
+void GPUCommon::Execute_VertexType(u32 op, u32 diff) {
+	// Don't flush when weight count changes.
+	if (diff & ~GE_VTYPE_WEIGHTCOUNT_MASK) {
 		// Restore and flush
 		gstate.vertType ^= diff;
 		Flush();
 		gstate.vertType ^= diff;
 		if (diff & (GE_VTYPE_TC_MASK | GE_VTYPE_THROUGH_MASK))
 			gstate_c.Dirty(DIRTY_UVSCALEOFFSET);
-		// In this case, we may be doing weights and morphs.
-		// Update any bone matrix uniforms so it uses them correctly.
-		if ((op & GE_VTYPE_MORPHCOUNT_MASK) != 0) {
-			gstate_c.Dirty(gstate_c.deferredVertTypeDirty);
-			gstate_c.deferredVertTypeDirty = 0;
-		}
 		gstate_c.Dirty(DIRTY_VERTEXSHADER_STATE);
 	}
 	if (diff & GE_VTYPE_THROUGH_MASK)
 		gstate_c.Dirty(DIRTY_RASTER_STATE | DIRTY_VIEWPORTSCISSOR_STATE | DIRTY_FRAGMENTSHADER_STATE);
+}
+
+
+void GPUCommon::Execute_Prim(u32 op, u32 diff) {
+	// This drives all drawing. All other state we just buffer up, then we apply it only
+	// when it's time to draw. As most PSP games set state redundantly ALL THE TIME, this is a huge optimization.
+
+	PROFILE_THIS_SCOPE("execprim");
+
+	u32 data = op & 0xFFFFFF;
+	u32 count = data & 0xFFFF;
+	if (count == 0)
+		return;
+
+	// Upper bits are ignored.
+	GEPrimitiveType prim = static_cast<GEPrimitiveType>((data >> 16) & 7);
+	SetDrawType(DRAW_PRIM, prim);
+
+	// Discard AA lines as we can't do anything that makes sense with these anyway. The SW plugin might, though.
+	if (gstate.isAntiAliasEnabled()) {
+		// Discard AA lines in DOA
+		if (prim == GE_PRIM_LINE_STRIP)
+			return;
+		// Discard AA lines in Summon Night 5
+		if ((prim == GE_PRIM_LINES) && gstate.isSkinningEnabled())
+			return;
+	}
+
+	// This also makes skipping drawing very effective.
+	framebufferManager_->SetRenderFrameBuffer(gstate_c.IsDirty(DIRTY_FRAMEBUF), gstate_c.skipDrawReason);
+
+	if (gstate_c.skipDrawReason & (SKIPDRAW_SKIPFRAME | SKIPDRAW_NON_DISPLAYED_FB)) {
+		// Rough estimate, not sure what's correct.
+		cyclesExecuted += EstimatePerVertexCost() * count;
+		return;
+	}
+
+	if (!Memory::IsValidAddress(gstate_c.vertexAddr)) {
+		ERROR_LOG_REPORT(G3D, "Bad vertex address %08x!", gstate_c.vertexAddr);
+		return;
+	}
+
+	void *verts = Memory::GetPointerUnchecked(gstate_c.vertexAddr);
+	void *inds = 0;
+	u32 vertexType = gstate.vertType;
+	if ((vertexType & GE_VTYPE_IDX_MASK) != GE_VTYPE_IDX_NONE) {
+		u32 indexAddr = gstate_c.indexAddr;
+		if (!Memory::IsValidAddress(indexAddr)) {
+			ERROR_LOG_REPORT(G3D, "Bad index address %08x!", indexAddr);
+			return;
+		}
+		inds = Memory::GetPointerUnchecked(indexAddr);
+	}
+
+#ifndef MOBILE_DEVICE
+	if (prim > GE_PRIM_RECTANGLES) {
+		ERROR_LOG_REPORT_ONCE(reportPrim, G3D, "Unexpected prim type: %d", prim);
+	}
+#endif
+
+	if (gstate_c.dirty & DIRTY_VERTEXSHADER_STATE) {
+		vertexCost_ = EstimatePerVertexCost();
+	}
+
+	int bytesRead = 0;
+	UpdateUVScaleOffset();
+
+	uint32_t vertTypeID = GetVertTypeID(vertexType, gstate.getUVGenMode());
+	drawEngineCommon_->SubmitPrim(verts, inds, prim, count, vertTypeID, &bytesRead);
+	// After drawing, we advance the vertexAddr (when non indexed) or indexAddr (when indexed).
+	// Some games rely on this, they don't bother reloading VADDR and IADDR.
+	// The VADDR/IADDR registers are NOT updated.
+	AdvanceVerts(vertexType, count, bytesRead);
+	int totalVertCount = count;
+
+	// PRIMs are often followed by more PRIMs. Save some work and submit them immediately.
+	const u32 *src = (const u32 *)Memory::GetPointerUnchecked(currentList->pc + 4);
+	const u32 *stall = currentList->stall ? (const u32 *)Memory::GetPointerUnchecked(currentList->stall) : 0;
+	int cmdCount = 0;
+
+	// Optimized submission of sequences of PRIM. Allows us to avoid going through all the mess
+	// above for each one. This can be expanded to support additional games that intersperse
+	// PRIM commands with other commands. A special case that might be interesting is that game
+	// that changes culling mode between each prim, we could just change the triangle winding
+	// right here to still be able to join draw calls.
+#ifndef MOBILE_DEVICE
+	if (debugRecording_ || host->GPUDebuggingActive())
+		goto bail;
+#endif
+
+	while (src != stall) {
+		uint32_t data = *src;
+		switch (data >> 24) {
+		case GE_CMD_PRIM:
+		{
+			u32 count = data & 0xFFFF;
+			if (count == 0) {
+				// Ignore.
+				break;
+			}
+
+			GEPrimitiveType newPrim = static_cast<GEPrimitiveType>((data >> 16) & 7);
+			// TODO: more efficient updating of verts/inds
+			verts = Memory::GetPointerUnchecked(gstate_c.vertexAddr);
+			inds = 0;
+			if ((vertexType & GE_VTYPE_IDX_MASK) != GE_VTYPE_IDX_NONE) {
+				inds = Memory::GetPointerUnchecked(gstate_c.indexAddr);
+			}
+
+			drawEngineCommon_->SubmitPrim(verts, inds, newPrim, count, vertTypeID, &bytesRead);
+			AdvanceVerts(vertexType, count, bytesRead);
+			totalVertCount += count;
+			break;
+		}
+		case GE_CMD_VERTEXTYPE:
+		{
+			uint32_t diff = data ^ vertexType;
+			// don't mask upper bits, vertexType is unmasked
+			if (diff & ~GE_VTYPE_WEIGHTCOUNT_MASK) {
+				goto bail;
+			} else {
+				vertexType = data;
+				vertTypeID = GetVertTypeID(vertexType, gstate.getUVGenMode());
+			}
+			break;
+		}
+		case GE_CMD_VADDR:
+			gstate_c.vertexAddr = gstate_c.getRelativeAddress(data & 0x00FFFFFF);
+			break;
+		case GE_CMD_OFFSETADDR:
+			gstate.cmdmem[GE_CMD_OFFSETADDR] = data;
+			gstate_c.offsetAddr = data << 8;
+			break;
+		case GE_CMD_BASE:
+			gstate.cmdmem[GE_CMD_BASE] = data;
+			break;
+		case GE_CMD_NOP:
+		case GE_CMD_NOP_FF:
+			break;
+		case GE_CMD_BONEMATRIXNUMBER:
+			gstate.cmdmem[GE_CMD_BONEMATRIXNUMBER] = data;
+			break;
+		case GE_CMD_TEXSCALEU:
+			gstate.cmdmem[GE_CMD_TEXSCALEU] = data;
+			gstate_c.uv.uScale = getFloat24(data);
+			break;
+		case GE_CMD_TEXSCALEV:
+			gstate.cmdmem[GE_CMD_TEXSCALEV] = data;
+			gstate_c.uv.vScale = getFloat24(data);
+			break;
+		case GE_CMD_TEXLEVEL:
+			// Same Gran Turismo hack from Execute_TexLevel
+			if ((data & 3) != GE_TEXLEVEL_MODE_AUTO && (0x00FF0000 & data) != 0) {
+				goto bail;
+			}
+			gstate.cmdmem[GE_CMD_TEXLEVEL] = data;
+			break;
+		case GE_CMD_CALL:
+		{
+			// A bone matrix probably. If not we bail.
+			const u32 target = gstate_c.getRelativeAddress(data & 0x00FFFFFC);
+			if ((Memory::ReadUnchecked_U32(target) >> 24) == GE_CMD_BONEMATRIXDATA &&
+				(Memory::ReadUnchecked_U32(target + 11 * 4) >> 24) == GE_CMD_BONEMATRIXDATA &&
+				(Memory::ReadUnchecked_U32(target + 12 * 4) >> 24) == GE_CMD_RET &&
+				(target > currentList->stall || target + 12 * 4 < currentList->stall)) {
+				FastLoadBoneMatrix(target);
+			} else {
+				goto bail;
+			}
+			break;
+		}
+
+		default:
+			// All other commands might need a flush or something, stop this inner loop.
+			goto bail;
+		}
+		cmdCount++;
+		src++;
+	}
+
+bail:
+	gstate.cmdmem[GE_CMD_VERTEXTYPE] = vertexType;
+	// Skip over the commands we just read out manually.
+	if (cmdCount > 0) {
+		UpdatePC(currentList->pc, currentList->pc + cmdCount * 4);
+		currentList->pc += cmdCount * 4;
+	}
+
+	gpuStats.vertexGPUCycles += vertexCost_ * totalVertCount;
+	cyclesExecuted += vertexCost_ * totalVertCount;
 }
 
 void GPUCommon::Execute_Bezier(u32 op, u32 diff) {
@@ -1400,10 +1656,6 @@ void GPUCommon::Execute_Bezier(u32 op, u32 diff) {
 			return;
 		}
 		indices = Memory::GetPointerUnchecked(gstate_c.indexAddr);
-	}
-
-	if ((gstate.vertType & GE_VTYPE_MORPHCOUNT_MASK) || vertTypeIsSkinningEnabled(gstate.vertType)) {
-		DEBUG_LOG_REPORT(G3D, "Unusual bezier/spline vtype: %08x, morph: %d, bones: %d", gstate.vertType, (gstate.vertType & GE_VTYPE_MORPHCOUNT_MASK) >> GE_VTYPE_MORPHCOUNT_SHIFT, vertTypeGetNumBoneWeights(gstate.vertType));
 	}
 
 	GEPatchPrimType patchPrim = gstate.getPatchPrimitiveType();
@@ -1462,10 +1714,6 @@ void GPUCommon::Execute_Spline(u32 op, u32 diff) {
 			return;
 		}
 		indices = Memory::GetPointerUnchecked(gstate_c.indexAddr);
-	}
-
-	if ((gstate.vertType & GE_VTYPE_MORPHCOUNT_MASK) || vertTypeIsSkinningEnabled(gstate.vertType)) {
-		DEBUG_LOG_REPORT(G3D, "Unusual bezier/spline vtype: %08x, morph: %d, bones: %d", gstate.vertType, (gstate.vertType & GE_VTYPE_MORPHCOUNT_MASK) >> GE_VTYPE_MORPHCOUNT_SHIFT, vertTypeGetNumBoneWeights(gstate.vertType));
 	}
 
 	int sp_ucount = op & 0xFF;
@@ -1748,34 +1996,10 @@ void GPUCommon::Execute_BoneMtxNum(u32 op, u32 diff) {
 	}
 
 	if (fastLoad) {
-		// If we can't use software skinning, we have to flush and dirty.
-		if (!g_Config.bSoftwareSkinning || (gstate.vertType & GE_VTYPE_MORPHCOUNT_MASK) != 0) {
-			while ((src[i] >> 24) == GE_CMD_BONEMATRIXDATA) {
-				const u32 newVal = src[i] << 8;
-				if (dst[i] != newVal) {
-					Flush();
-					dst[i] = newVal;
-				}
-				if (++i >= end) {
-					break;
-				}
-			}
-
-			const unsigned int numPlusCount = (op & 0x7F) + i;
-			for (unsigned int num = op & 0x7F; num < numPlusCount; num += 12) {
-				gstate_c.Dirty(DIRTY_BONEMATRIX0 << (num / 12));
-			}
-		} else {
-			while ((src[i] >> 24) == GE_CMD_BONEMATRIXDATA) {
-				dst[i] = src[i] << 8;
-				if (++i >= end) {
-					break;
-				}
-			}
-
-			const unsigned int numPlusCount = (op & 0x7F) + i;
-			for (unsigned int num = op & 0x7F; num < numPlusCount; num += 12) {
-				gstate_c.deferredVertTypeDirty |= DIRTY_BONEMATRIX0 << (num / 12);
+		while ((src[i] >> 24) == GE_CMD_BONEMATRIXDATA) {
+			dst[i] = src[i] << 8;
+			if (++i >= end) {
+				break;
 			}
 		}
 	}
@@ -1793,13 +2017,6 @@ void GPUCommon::Execute_BoneMtxData(u32 op, u32 diff) {
 	int num = gstate.boneMatrixNumber & 0x7F;
 	u32 newVal = op << 8;
 	if (num < 96 && newVal != ((const u32 *)gstate.boneMatrix)[num]) {
-		// Bone matrices should NOT flush when software skinning is enabled!
-		if (!g_Config.bSoftwareSkinning || (gstate.vertType & GE_VTYPE_MORPHCOUNT_MASK) != 0) {
-			Flush();
-			gstate_c.Dirty(DIRTY_BONEMATRIX0 << (num / 12));
-		} else {
-			gstate_c.deferredVertTypeDirty |= DIRTY_BONEMATRIX0 << (num / 12);
-		}
 		((u32 *)gstate.boneMatrix)[num] = newVal;
 	}
 	num++;
@@ -1878,7 +2095,8 @@ void GPUCommon::FlushImm() {
 	int vtype = GE_VTYPE_POS_FLOAT | GE_VTYPE_COL_8888 | GE_VTYPE_THROUGH;
 
 	int bytesRead;
-	drawEngineCommon_->DispatchSubmitPrim(temp, nullptr, immPrim_, immCount_, vtype, &bytesRead);
+	uint32_t vertTypeID = GetVertTypeID(vtype, 0);
+	drawEngineCommon_->DispatchSubmitPrim(temp, nullptr, immPrim_, immCount_, vertTypeID, &bytesRead);
 	drawEngineCommon_->DispatchFlush();
 	// TOOD: In the future, make a special path for these.
 	// drawEngineCommon_->DispatchSubmitImm(immBuffer_, immCount_);
@@ -1939,17 +2157,6 @@ void GPUCommon::Execute_Unknown(u32 op, u32 diff) {
 void GPUCommon::FastLoadBoneMatrix(u32 target) {
 	const int num = gstate.boneMatrixNumber & 0x7F;
 	const int mtxNum = num / 12;
-	uint32_t uniformsToDirty = DIRTY_BONEMATRIX0 << mtxNum;
-	if ((num - 12 * mtxNum) != 0) {
-		uniformsToDirty |= DIRTY_BONEMATRIX0 << ((mtxNum + 1) & 7);
-	}
-
-	if (!g_Config.bSoftwareSkinning || (gstate.vertType & GE_VTYPE_MORPHCOUNT_MASK) != 0) {
-		Flush();
-		gstate_c.Dirty(uniformsToDirty);
-	} else {
-		gstate_c.deferredVertTypeDirty |= uniformsToDirty;
-	}
 	gstate.FastLoadBoneMatrix(target);
 }
 
@@ -2441,4 +2648,24 @@ bool GPUCommon::DescribeCodePtr(const u8 *ptr, std::string &name) {
 		return true;
 	}
 	return false;
+}
+
+bool GPUCommon::FramebufferDirty() {
+	VirtualFramebuffer *vfb = framebufferManager_->GetDisplayVFB();
+	if (vfb) {
+		bool dirty = vfb->dirtyAfterDisplay;
+		vfb->dirtyAfterDisplay = false;
+		return dirty;
+	}
+	return true;
+}
+
+bool GPUCommon::FramebufferReallyDirty() {
+	VirtualFramebuffer *vfb = framebufferManager_->GetDisplayVFB();
+	if (vfb) {
+		bool dirty = vfb->reallyDirtyAfterDisplay;
+		vfb->reallyDirtyAfterDisplay = false;
+		return dirty;
+	}
+	return true;
 }

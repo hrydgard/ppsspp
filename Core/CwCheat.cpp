@@ -30,10 +30,11 @@ void hleCheat(u64 userdata, int cyclesLate);
 
 static inline std::string TrimString(const std::string &s) {
 	auto wsfront = std::find_if_not(s.begin(), s.end(), [](int c) {
-	   return std::isspace(c);
+		// isspace() expects 0 - 255, so convert any sign-extended value.
+	   return std::isspace(c & 0xFF);
    });
    auto wsback = std::find_if_not(s.rbegin(), s.rend(), [](int c){
-	   return std::isspace(c);
+	   return std::isspace(c & 0xFF);
    }).base();
    return wsback > wsfront ? std::string(wsfront, wsback) : std::string();
 }
@@ -351,7 +352,7 @@ std::vector<std::string> CWCheatEngine::GetCodesList() {
 		// It also goes through other "_" lines, but they all have to meet this requirement anyway
 		// so we don't have to specify any syntax checks here that are made by cheat engine.
 		if (line.length() >= 5 && line[0] == '_') {
-			for (int i = 4; i < line.length(); i++) {
+			for (size_t i = 4; i < line.length(); i++) {
 				if (line[i] != ' ') {
 					validCheatLine = true;
 					break;

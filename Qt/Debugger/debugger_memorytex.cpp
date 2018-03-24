@@ -1,5 +1,4 @@
 #include "debugger_memorytex.h"
-#include "gfx/GLStateCache.h"
 #include "gfx/gl_common.h"
 #include "ui_debugger_memorytex.h"
 #include "Core/MemMap.h"
@@ -55,17 +54,7 @@ void Debugger_MemoryTex::on_readBtn_clicked()
 	w = std::max(bufW,w);
 	uchar* newData = new uchar[w*h*4];
 
-	if(gpu->DecodeTexture(newData, state))
-	{
-		QImage img = QImage(newData, w, h, w*4, QImage::Format_ARGB32); // EmuThread_GrabBackBuffer();
-
-		QPixmap pixmap = QPixmap::fromImage(img);
-		ui->textureImg->setPixmap(pixmap);
-		ui->textureImg->setMinimumWidth(pixmap.width());
-		ui->textureImg->setMinimumHeight(pixmap.height());
-		ui->textureImg->setMaximumWidth(pixmap.width());
-		ui->textureImg->setMaximumHeight(pixmap.height());
-	}
+	// TODO: Use GPU_GetCurrentTexture().  Warning: blocks.
 
 	delete[] newData;
 }

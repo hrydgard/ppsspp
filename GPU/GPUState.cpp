@@ -17,7 +17,6 @@
 
 #include "GPU/ge_constants.h"
 #include "GPU/GPUState.h"
-#include "GPU/GLES/ShaderManagerGLES.h"
 
 #include "Common/ChunkFile.h"
 #include "Core/CoreParameter.h"
@@ -239,13 +238,6 @@ void GPUgstate::Restore(u32_le *ptr) {
 		projmtxnum = *cmds++;
 		texmtxnum = *cmds++;
 	}
-}
-
-bool vertTypeIsSkinningEnabled(u32 vertType) {
-	if (g_Config.bSoftwareSkinning && ((vertType & GE_VTYPE_MORPHCOUNT_MASK) == 0))
-		return false;
-	else
-		return ((vertType & GE_VTYPE_WEIGHT_MASK) != GE_VTYPE_WEIGHT_NONE);
 }
 
 struct GPUStateCache_v0 {

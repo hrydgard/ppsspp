@@ -6,6 +6,7 @@
 #include "math/geom2d.h"
 #include "math/lin/vec3.h"
 #include "gfx/texture_atlas.h"
+#include "UI/TextureUtil.h"
 
 // Everything you need to draw a UI collected into a single unit that can be passed around.
 // Everything forward declared so this header is safe everywhere.
@@ -46,7 +47,7 @@ public:
 
 	void Init(Draw::DrawContext *thin3d, Draw::Pipeline *uipipe, Draw::Pipeline *uipipenotex, DrawBuffer *uidrawbuffer, DrawBuffer *uidrawbufferTop);
 
-	void FrameSetup(Draw::Texture *uiTexture);
+	void BeginFrame();
 
 	void Begin();
 	void BeginNoTex();
@@ -102,7 +103,7 @@ private:
 	Draw::SamplerState *sampler_;
 	Draw::Pipeline *ui_pipeline_ = nullptr;
 	Draw::Pipeline *ui_pipeline_notex_ = nullptr;
-	Draw::Texture *uitexture_ = nullptr;
+	std::unique_ptr<ManagedTexture> uitexture_;
 
 	DrawBuffer *uidrawbuffer_ = nullptr;
 	DrawBuffer *uidrawbufferTop_ = nullptr;

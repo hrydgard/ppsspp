@@ -54,19 +54,13 @@ protected:
 
 class D3D11VertexShader {
 public:
-	D3D11VertexShader(ID3D11Device *device, D3D_FEATURE_LEVEL featureLevel, VShaderID id, const char *code, int vertType, bool useHWTransform, bool usesLighting);
+	D3D11VertexShader(ID3D11Device *device, D3D_FEATURE_LEVEL featureLevel, VShaderID id, const char *code, int vertType, bool useHWTransform);
 	~D3D11VertexShader();
 
 	const std::string &source() const { return source_; }
 	const std::vector<uint8_t> &bytecode() const { return bytecode_; }
 	bool Failed() const { return failed_; }
 	bool UseHWTransform() const { return useHWTransform_; }
-	bool HasBones() const {
-		return id_.Bit(VS_BIT_ENABLE_BONES);
-	}
-	bool HasLights() const {
-		return usesLighting_;
-	}
 
 	std::string GetShaderString(DebugShaderStringType type) const;
 	ID3D11VertexShader *GetShader() const { return module_; }
@@ -80,7 +74,6 @@ protected:
 
 	bool failed_;
 	bool useHWTransform_;
-	bool usesLighting_;
 	VShaderID id_;
 };
 
@@ -108,13 +101,6 @@ public:
 	// Applies dirty changes and copies the buffer.
 	bool IsBaseDirty() { return true; }
 	bool IsLightDirty() { return true; }
-	bool IsBoneDirty() { return true; }
-
-	/*
-	uint32_t PushBaseBuffer(D3D11PushBuffer *dest, VkBuffer *buf);
-	uint32_t PushLightBuffer(D3D11PushBuffer *dest, VkBuffer *buf);
-	uint32_t PushBoneBuffer(D3D11PushBuffer *dest, VkBuffer *buf);
-	*/
 
 private:
 	void Clear();
@@ -134,12 +120,10 @@ private:
 	// Uniform block scratchpad. These (the relevant ones) are copied to the current pushbuffer at draw time.
 	UB_VS_FS_Base ub_base;
 	UB_VS_Lights ub_lights;
-	UB_VS_Bones ub_bones;
 
 	// Not actual pushbuffers, requires D3D11.1, let's try to live without that first.
 	ID3D11Buffer *push_base;
 	ID3D11Buffer *push_lights;
-	ID3D11Buffer *push_bones;
 
 	D3D11FragmentShader *lastFShader_;
 	D3D11VertexShader *lastVShader_;

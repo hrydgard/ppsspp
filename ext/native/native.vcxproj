@@ -232,7 +232,6 @@
     <ClInclude Include="file\free.h" />
     <ClInclude Include="gfx\d3d9_shader.h" />
     <ClInclude Include="gfx\d3d9_state.h" />
-    <ClInclude Include="gfx\GLStateCache.h" />
     <ClInclude Include="gfx\gl_common.h" />
     <ClInclude Include="gfx\gl_debug_log.h" />
     <ClInclude Include="gfx\texture_atlas.h" />
@@ -241,6 +240,10 @@
     <ClInclude Include="gfx_es2\draw_text_win.h" />
     <ClInclude Include="thin3d\d3d11_loader.h" />
     <ClInclude Include="thin3d\DataFormat.h" />
+    <ClInclude Include="thin3d\DataFormatGL.h" />
+    <ClInclude Include="thin3d\GLQueueRunner.h" />
+    <ClInclude Include="thin3d\GLRenderManager.h" />
+    <ClInclude Include="thin3d\thin3d_create.h" />
     <ClInclude Include="thin3d\VulkanQueueRunner.h" />
     <ClInclude Include="thin3d\VulkanRenderManager.h" />
     <ClInclude Include="util\text\wrap_text.h" />
@@ -691,7 +694,6 @@
     <ClCompile Include="file\free.cpp" />
     <ClCompile Include="gfx\d3d9_shader.cpp" />
     <ClCompile Include="gfx\d3d9_state.cpp" />
-    <ClCompile Include="gfx\GLStateCache.cpp" />
     <ClCompile Include="gfx\gl_debug_log.cpp" />
     <ClCompile Include="gfx\texture_atlas.cpp" />
     <ClCompile Include="gfx_es2\draw_text_android.cpp" />
@@ -699,6 +701,9 @@
     <ClCompile Include="gfx_es2\draw_text_win.cpp" />
     <ClCompile Include="math\dataconv.cpp" />
     <ClCompile Include="thin3d\d3d11_loader.cpp" />
+    <ClCompile Include="thin3d\DataFormatGL.cpp" />
+    <ClCompile Include="thin3d\GLQueueRunner.cpp" />
+    <ClCompile Include="thin3d\GLRenderManager.cpp" />
     <ClCompile Include="thin3d\thin3d_d3d11.cpp" />
     <ClCompile Include="thin3d\VulkanQueueRunner.cpp" />
     <ClCompile Include="thin3d\VulkanRenderManager.cpp" />

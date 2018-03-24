@@ -186,7 +186,7 @@ bool DirectoryFileHandle::Open(std::string &basePath, std::string &fileName, Fil
 #endif
 
 	std::string fullName = GetLocalPath(basePath,fileName);
-	DEBUG_LOG(FILESYS,"Actually opening %s", fullName.c_str());
+	VERBOSE_LOG(FILESYS,"Actually opening %s", fullName.c_str());
 
 	// On the PSP, truncating doesn't lose data.  If you seek later, you'll recover it.
 	// This is abnormal, so we deviate from the PSP's behavior and truncate on write/close.
@@ -1002,7 +1002,7 @@ u32 VFSFileSystem::OpenFile(std::string filename, FileAccess access, const char 
 
 	std::string fullName = GetLocalPath(filename);
 	const char *fullNameC = fullName.c_str();
-	DEBUG_LOG(FILESYS,"VFSFileSystem actually opening %s (%s)", fullNameC, filename.c_str());
+	VERBOSE_LOG(FILESYS,"VFSFileSystem actually opening %s (%s)", fullNameC, filename.c_str());
 
 	size_t size;
 	u8 *data = VFSReadFile(fullNameC, &size);

@@ -171,7 +171,6 @@ void TextureCacheDX9::UpdateSamplingParams(TexCacheEntry &entry, bool force) {
 			dxstate.texMaxMipLevel.set(0);
 			dxstate.texMipLodBias.set(0.0f);
 		}
-		entry.lodBias = lodBias;
 	} else {
 		dxstate.texMaxMipLevel.set(0);
 		dxstate.texMipLodBias.set(0.0f);
@@ -786,12 +785,6 @@ void TextureCacheDX9::LoadTextureLevel(TexCacheEntry &entry, ReplacedTexture &re
 		texture->UnlockRect(0);
 	else
 		texture->UnlockRect(level);
-}
-
-bool TextureCacheDX9::DecodeTexture(u8 *output, const GPUgstate &state)
-{
-	OutputDebugStringA("TextureCache::DecodeTexture : FixMe\r\n");
-	return true;
 }
 
 bool TextureCacheDX9::GetCurrentTextureDebug(GPUDebugBuffer &buffer, int level) {

@@ -878,13 +878,16 @@ namespace MIPSAnalyst {
 
 		for (auto iter = functions.begin(), end = functions.end(); iter != end; iter++) {
 			AnalyzedFunction &f = *iter;
+			if (Memory::IsValidRange(f.start, f.end - f.start + 4)) {
+				continue;
+			}
 
 			// This is unfortunate.  In case of emuhacks or relocs, we have to make a copy.
 			buffer.resize((f.end - f.start + 4) / 4);
 			size_t pos = 0;
 			for (u32 addr = f.start; addr <= f.end; addr += 4) {
 				u32 validbits = 0xFFFFFFFF;
-				MIPSOpcode instr = Memory::Read_Instruction(addr, true);
+				MIPSOpcode instr = Memory::ReadUnchecked_Instruction(addr, true);
 				if (MIPS_IS_EMUHACK(instr)) {
 					f.hasHash = false;
 					goto skip;
@@ -1015,7 +1018,7 @@ skip:
 		return furthestJumpbackAddr;
 	}
 
-	void ScanForFunctions(u32 startAddr, u32 endAddr, bool insertSymbols) {
+	bool ScanForFunctions(u32 startAddr, u32 endAddr, bool insertSymbols) {
 		std::lock_guard<std::recursive_mutex> guard(functions_lock);
 
 		AnalyzedFunction currentFunction = {startAddr};
@@ -1164,6 +1167,10 @@ skip:
 			}
 		}
 
+		return insertSymbols;
+	}
+
+	void FinalizeScan(bool insertSymbols) {
 		HashFunctions();
 
 		std::string hashMapFilename = GetSysDirectory(DIRECTORY_SYSTEM) + "knownfuncs.ini";
