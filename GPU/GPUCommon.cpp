@@ -1466,6 +1466,9 @@ void GPUCommon::Execute_Prim(u32 op, u32 diff) {
 	if (gstate_c.skipDrawReason & (SKIPDRAW_SKIPFRAME | SKIPDRAW_NON_DISPLAYED_FB)) {
 		// Rough estimate, not sure what's correct.
 		cyclesExecuted += EstimatePerVertexCost() * count;
+		if (gstate.isModeClear()) {
+			gpuStats.numClears++;
+		}
 		return;
 	}
 
