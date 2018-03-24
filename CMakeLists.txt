@@ -52,7 +52,7 @@ set(USE_FFMPEG ON)
 
 # the libraries in the ffmpeg/ directory are not compatible with mingw
 if(MINGW AND NOT DEFINED USE_SYSTEM_FFMPEG)
-   set(USE_SYSTEM_FFMPEG ON)
+	set(USE_SYSTEM_FFMPEG ON)
 endif()
 
 if(NOT ANDROID AND NOT IOS)
@@ -139,9 +139,9 @@ endif()
 if(LIBRETRO)
 	add_definitions(-D__LIBRETRO__)
 	add_definitions(-DGLEW_NO_GLU)
-   if(NOT MSVC)
-      add_compile_options(-fPIC)
-   endif()
+	if(NOT MSVC)
+		add_compile_options(-fPIC)
+	endif()
 endif()
 
 if(ANDROID)
@@ -293,8 +293,8 @@ else()
 endif()
 
 if(WIN32)
-   add_definitions(-D_UNICODE -DUNICODE)
-   add_definitions(-DUSING_WIN_UI)
+	add_definitions(-D_UNICODE -DUNICODE)
+	add_definitions(-DUSING_WIN_UI)
 endif()
 
 if(NOT ANDROID)

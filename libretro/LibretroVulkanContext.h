@@ -5,12 +5,7 @@
 
 class LibretroVulkanContext : public LibretroHWRenderContext {
 	public:
-	LibretroVulkanContext() : LibretroHWRenderContext(RETRO_HW_CONTEXT_VULKAN, VK_MAKE_VERSION(1, 0, 18))
-	{
-#if 0
-		hw_render_.cache_context = true;
-#endif
-	}
+	LibretroVulkanContext() : LibretroHWRenderContext(RETRO_HW_CONTEXT_VULKAN, VK_MAKE_VERSION(1, 0, 18)) {}
 	~LibretroVulkanContext() override {}
 	bool Init() override;
 	void Shutdown() override;

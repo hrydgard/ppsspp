@@ -21,10 +21,6 @@ void LibretroGLContext::Shutdown()
 {
 	LibretroGraphicsContext::Shutdown();
 	libretro_get_proc_address = nullptr;
-#if 0
-   NativeShutdownGraphics();
-	finalize_glslang();
-#endif
 }
 
 void LibretroGLContext::CreateDrawContext()

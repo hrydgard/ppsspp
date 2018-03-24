@@ -127,9 +127,6 @@ void LibretroVulkanContext::Shutdown()
 	delete vk;
 	vk = nullptr;
 
-#if 0
-   NativeShutdownGraphics();
-#endif
 	finalize_glslang();
 	vk_libretro_shutdown();
 }

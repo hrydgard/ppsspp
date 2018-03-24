@@ -71,13 +71,13 @@ class LibretroD3D9Context : public LibretroHWRenderContext {
 	public:
 	LibretroD3D9Context() : LibretroHWRenderContext(RETRO_HW_CONTEXT_DIRECT3D, 9) {}
 	bool Init() override { return false; }
-#if 0
-   void InitDrawContext() override
-   {
-      draw_ = Draw::T3DCreateDX9Context();
-      draw_->CreatePresets();
-   }
-#endif
+
+	void InitDrawContext() override
+	{
+		draw_ = Draw::T3DCreateDX9Context();
+		draw_->CreatePresets();
+	}
+
 	GPUCore GetGPUCore() override { return GPUCORE_DIRECTX9; }
 	const char *Ident() override { return "DirectX 9"; }
 };
@@ -86,13 +86,13 @@ class LibretroD3D11Context : public LibretroHWRenderContext {
 	public:
 	LibretroD3D11Context() : LibretroHWRenderContext(RETRO_HW_CONTEXT_DIRECT3D, 11) {}
 	bool Init() override { return false; }
-#if 0
-   void InitDrawContext() override
-   {
-      draw_ = Draw::T3DCreateD3D11Context();
-      draw_->CreatePresets();
-   }
-#endif
+
+	void InitDrawContext() override
+	{
+		draw_ = Draw::T3DCreateD3D11Context();
+		draw_->CreatePresets();
+	}
+
 	GPUCore GetGPUCore() override { return GPUCORE_DIRECTX11; }
 	const char *Ident() override { return "DirectX 11"; }
 };

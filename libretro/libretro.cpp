@@ -327,7 +327,7 @@ void retro_set_input_state(retro_input_state_t cb) { input_state_cb = cb; }
 void retro_init(void)
 {
 #if 0
-   g_Config.Load("");
+	g_Config.Load("");
 #endif
 
 	g_Config.bEnableLogging = true;
@@ -587,7 +587,7 @@ bool retro_load_game(const struct retro_game_info *game)
 	check_variables(coreParam);
 
 #if 0
-   g_Config.bVertexDecoderJit = (coreParam.cpuCore == CPU_JIT) ? true : false;
+	g_Config.bVertexDecoderJit = (coreParam.cpuCore == CPU_JIT) ? true : false;
 #endif
 
 	std::string error_string;
@@ -620,12 +620,12 @@ void retro_reset(void)
 	PSP_Shutdown();
 
 #if 0
-   coreState = CORE_POWERUP;
-   if(!PSP_InitStart(PSP_CoreParameter(), &error_string))
-   {
-      ERROR_LOG(BOOT, "%s", error_string.c_str());
-  		environ_cb(RETRO_ENVIRONMENT_SHUTDOWN, nullptr);
-   }
+	coreState = CORE_POWERUP;
+	if(!PSP_InitStart(PSP_CoreParameter(), &error_string))
+	{
+		ERROR_LOG(BOOT, "%s", error_string.c_str());
+		environ_cb(RETRO_ENVIRONMENT_SHUTDOWN, nullptr);
+	}
 #else
 	if (!PSP_Init(PSP_CoreParameter(), &error_string))
 	{
@@ -644,17 +644,17 @@ static void retro_input(void)
 		u32 sceCtrl;
 	} map[] = {
 		{ RETRO_DEVICE_ID_JOYPAD_UP,     CTRL_UP },
-      { RETRO_DEVICE_ID_JOYPAD_DOWN,   CTRL_DOWN },
-      { RETRO_DEVICE_ID_JOYPAD_LEFT,   CTRL_LEFT },
-      { RETRO_DEVICE_ID_JOYPAD_RIGHT,  CTRL_RIGHT },
-      { RETRO_DEVICE_ID_JOYPAD_X,      CTRL_TRIANGLE },
-      { RETRO_DEVICE_ID_JOYPAD_A,      CTRL_CIRCLE },
-      { RETRO_DEVICE_ID_JOYPAD_B,      CTRL_CROSS },
-      { RETRO_DEVICE_ID_JOYPAD_Y,      CTRL_SQUARE },
-      { RETRO_DEVICE_ID_JOYPAD_L,      CTRL_LTRIGGER },
-      { RETRO_DEVICE_ID_JOYPAD_R,      CTRL_RTRIGGER },
-      { RETRO_DEVICE_ID_JOYPAD_START,  CTRL_START },
-      { RETRO_DEVICE_ID_JOYPAD_SELECT, CTRL_SELECT },
+		{ RETRO_DEVICE_ID_JOYPAD_DOWN,   CTRL_DOWN },
+		{ RETRO_DEVICE_ID_JOYPAD_LEFT,   CTRL_LEFT },
+		{ RETRO_DEVICE_ID_JOYPAD_RIGHT,  CTRL_RIGHT },
+		{ RETRO_DEVICE_ID_JOYPAD_X,      CTRL_TRIANGLE },
+		{ RETRO_DEVICE_ID_JOYPAD_A,      CTRL_CIRCLE },
+		{ RETRO_DEVICE_ID_JOYPAD_B,      CTRL_CROSS },
+		{ RETRO_DEVICE_ID_JOYPAD_Y,      CTRL_SQUARE },
+		{ RETRO_DEVICE_ID_JOYPAD_L,      CTRL_LTRIGGER },
+		{ RETRO_DEVICE_ID_JOYPAD_R,      CTRL_RTRIGGER },
+		{ RETRO_DEVICE_ID_JOYPAD_START,  CTRL_START },
+		{ RETRO_DEVICE_ID_JOYPAD_SELECT, CTRL_SELECT },
 	};
 	// clang-format on
 
@@ -678,10 +678,10 @@ void retro_run(void)
 	{
 		std::string error_string;
 #if 0
-      if(!PSP_InitUpdate(&error_string))
+		if(!PSP_InitUpdate(&error_string))
 		{
-         graphics_context->SwapBuffers();
-         return;
+			graphics_context->SwapBuffers();
+			return;
 		}
 #else
 		while (!PSP_InitUpdate(&error_string))
