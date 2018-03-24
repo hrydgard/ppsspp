@@ -13,10 +13,16 @@
 #include "Common/ColorConv.h"
 
 #include <cassert>
+#include <cfloat>
 #include <D3DCommon.h>
 #include <d3d11.h>
 #include <d3d11_1.h>
 #include <d3dcompiler.h>
+
+#ifdef __MINGW32__
+#undef __uuidof
+#define __uuidof(type) IID_##type
+#endif
 
 namespace Draw {
 
@@ -717,12 +723,13 @@ public:
 };
 
 Texture *D3D11DrawContext::CreateTexture(const TextureDesc &desc) {
-	D3D11Texture *tex = new D3D11Texture(desc);
 
 	if (!(GetDataFormatSupport(desc.format) & FMT_TEXTURE)) {
 		// D3D11 does not support this format as a texture format.
-		return false;
+		return nullptr;
 	}
+
+	D3D11Texture *tex = new D3D11Texture(desc);
 
 	bool generateMips = desc.generateMips;
 	if (desc.generateMips && !(GetDataFormatSupport(desc.format) & FMT_AUTOGEN_MIPS)) {

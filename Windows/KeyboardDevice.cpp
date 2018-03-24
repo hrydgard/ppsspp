@@ -5,7 +5,7 @@
 #include "KeyMap.h"
 #include "KeyboardDevice.h"
 #include "../Common/CommonTypes.h"
-#include "WinUser.h"
+#include "../Common/CommonWindows.h"
 
 
 // TODO: More keys need to be added, but this is more than

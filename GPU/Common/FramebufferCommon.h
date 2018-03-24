@@ -387,8 +387,8 @@ protected:
 	bool gameUsesSequentialCopies_ = false;
 
 	// Sampled in BeginFrame for safety.
-	float renderWidth_;
-	float renderHeight_;
+	float renderWidth_ = 0.0f;
+	float renderHeight_ = 0.0f;
 	int pixelWidth_;
 	int pixelHeight_;
 	int bloomHack_ = 0;

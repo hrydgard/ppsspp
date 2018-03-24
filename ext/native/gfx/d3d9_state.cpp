@@ -1,4 +1,4 @@
-#ifdef _MSC_VER
+#ifdef _WIN32
 
 #include "d3d9_state.h"
 #include <assert.h>

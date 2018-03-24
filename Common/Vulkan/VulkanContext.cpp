@@ -1151,6 +1151,10 @@ void VulkanDeleteList::Take(VulkanDeleteList &del) {
 }
 
 void VulkanDeleteList::PerformDeletes(VkDevice device) {
+	for (auto &callback : callbacks_) {
+		callback.func(callback.userdata);
+	}
+	callbacks_.clear();
 	for (auto &cmdPool : cmdPools_) {
 		vkDestroyCommandPool(device, cmdPool, nullptr);
 	}
@@ -1211,8 +1215,4 @@ void VulkanDeleteList::PerformDeletes(VkDevice device) {
 		vkDestroyDescriptorSetLayout(device, descSetLayout, nullptr);
 	}
 	descSetLayouts_.clear();
-	for (auto &callback : callbacks_) {
-		callback.func(callback.userdata);
-	}
-	callbacks_.clear();
 }

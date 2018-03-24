@@ -15,8 +15,10 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
+#include "stdafx.h"
 #include <limits.h>
 #include <algorithm>
+#include <mmsystem.h>
 
 #include "Core/HLE/sceCtrl.h"
 #include "DinputDevice.h"

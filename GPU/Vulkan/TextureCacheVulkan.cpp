@@ -182,7 +182,9 @@ void TextureCacheVulkan::DeviceLost() {
 	}
 
 	samplerCache_.DeviceLost();
-	vulkan_->Delete().QueueDeleteSampler(samplerNearest_);
+
+	if (samplerNearest_)
+		vulkan_->Delete().QueueDeleteSampler(samplerNearest_);
 
 	nextTexture_ = nullptr;
 }

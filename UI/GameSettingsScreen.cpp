@@ -712,7 +712,11 @@ void GameSettingsScreen::CreateViews() {
 			SavePathInMyDocumentChoice->SetEnabled(false);
 	} else {
 		if (installed_ && (result == S_OK)) {
+#ifdef _MSC_VER
 			std::ifstream inputFile(ConvertUTF8ToWString(installedFile));
+#else
+			std::ifstream inputFile(installedFile);
+#endif
 			if (!inputFile.fail() && inputFile.is_open()) {
 				std::string tempString;
 				std::getline(inputFile, tempString);

@@ -61,8 +61,10 @@ inline u64 __rotr64(u64 x, unsigned int shift){
 #else // WIN32
 
 // Function Cross-Compatibility
+#ifndef __MINGW32__
 	#define strcasecmp _stricmp
 	#define strncasecmp _strnicmp
+#endif
 	#define unlink _unlink
 	#define __rotl _rotl
 	#define __rotl64 _rotl64

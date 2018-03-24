@@ -56,7 +56,7 @@ namespace W32Util
  
 	void NiceSizeFormat(size_t size, char *out)
 	{
-		char *sizes[] = {"B","KB","MB","GB","TB","PB","EB"};
+		const char *sizes[] = {"B","KB","MB","GB","TB","PB","EB"};
 		int s = 0;
 		int frac = 0;
 		while (size>=1024)
@@ -172,7 +172,7 @@ GenericListControl::GenericListControl(HWND hwnd, const GenericListViewDef& def)
 	int totalListSize = rect.right-rect.left;
 	for (int i = 0; i < columnCount; i++) {
 		lvc.cx = columns[i].size * totalListSize;
-		lvc.pszText = columns[i].name;
+		lvc.pszText = (LPTSTR)columns[i].name;
 
 		if (columns[i].flags & GLVC_CENTERED)
 			lvc.fmt = LVCFMT_CENTER;

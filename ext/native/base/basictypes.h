@@ -54,7 +54,7 @@ inline uint32_t swap32(const uint8_t* _pData) {return swap32(*(const uint32_t*)_
 inline uint64_t swap64(const uint8_t* _pData) {return swap64(*(const uint64_t*)_pData);}
 
 // Thread local storage
-#ifdef _WIN32
+#ifdef _MSC_VER
 #define __THREAD __declspec( thread ) 
 #else
 #define __THREAD __thread
