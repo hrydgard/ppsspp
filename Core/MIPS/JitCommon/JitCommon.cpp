@@ -77,7 +77,7 @@ namespace MIPSComp {
 	}
 
 }
-#if PPSSPP_PLATFORM(WINDOWS) && !defined(__LIBRETRO__)
+#if PPSSPP_PLATFORM(WINDOWS)
 #define DISASM_ALL 1
 #endif
 

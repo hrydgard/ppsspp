@@ -77,14 +77,14 @@ bool GPU_Init(GraphicsContext *ctx, Draw::DrawContext *draw) {
 		SetGPU(new SoftGPU(ctx, draw));
 		break;
 	case GPUCORE_DIRECTX9:
-#if defined(_WIN32) && !defined(__LIBRETRO__)
+#if defined(_WIN32)
 		SetGPU(new DIRECTX9_GPU(ctx, draw));
 		break;
 #else
 		return false;
 #endif
 	case GPUCORE_DIRECTX11:
-#if defined(_WIN32) && !defined(__LIBRETRO__)
+#if defined(_WIN32)
 		SetGPU(new GPU_D3D11(ctx, draw));
 		break;
 #else
