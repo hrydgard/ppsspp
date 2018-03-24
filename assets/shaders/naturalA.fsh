@@ -1,5 +1,5 @@
 /*
-   AA shader v2.o + Natural Vision
+   Natural Colors
    
    Copyright (C) 2006 guest(r) - guest.r@gmail.com
 
