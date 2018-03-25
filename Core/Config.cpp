@@ -605,7 +605,7 @@ static bool DefaultShowTouchControls() {
 static const float defaultControlScale = 1.15f;
 
 static ConfigSetting controlSettings[] = {
-	ConfigSetting("HapticFeedback", &g_Config.bHapticFeedback, true, true, true),
+	ConfigSetting("HapticFeedback", &g_Config.bHapticFeedback, false, true, true),
 	ConfigSetting("ShowTouchCross", &g_Config.bShowTouchCross, true, true, true),
 	ConfigSetting("ShowTouchCircle", &g_Config.bShowTouchCircle, true, true, true),
 	ConfigSetting("ShowTouchSquare", &g_Config.bShowTouchSquare, true, true, true),
