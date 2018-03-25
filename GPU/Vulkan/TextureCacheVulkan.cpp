@@ -459,7 +459,7 @@ VkFormat ToVulkanFormat(ReplacedTextureFormat fmt) {
 	}
 }
 
-void TextureCacheVulkan::BuildTexture(TexCacheEntry *const entry, bool replaceImages) {
+void TextureCacheVulkan::BuildTexture(TexCacheEntry *const entry) {
 	entry->status &= ~TexCacheEntry::STATUS_ALPHA_MASK;
 
 	VkCommandBuffer cmdInit = (VkCommandBuffer)draw_->GetNativeObject(Draw::NativeObject::INIT_COMMANDBUFFER);
@@ -525,11 +525,6 @@ void TextureCacheVulkan::BuildTexture(TexCacheEntry *const entry, bool replaceIm
 	int h = gstate.getTextureHeight(0);
 	ReplacedTexture &replaced = replacer_.FindReplacement(cachekey, entry->fullhash, w, h);
 	if (replaced.GetSize(0, w, h)) {
-		if (replaceImages) {
-			// Since we're replacing the texture, we can't replace the image inside.
-			ReleaseTexture(entry, true);
-			replaceImages = false;
-		}
 		// We're replacing, so we won't scale.
 		scaleFactor = 1;
 		entry->status |= TexCacheEntry::STATUS_IS_SCALED;

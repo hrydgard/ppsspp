@@ -129,7 +129,7 @@ private:
 	void UpdateCurrentClut(GEPaletteFormat clutFormat, u32 clutBase, bool clutIndexIsSimple) override;
 
 	void ApplyTextureFramebuffer(TexCacheEntry *entry, VirtualFramebuffer *framebuffer) override;
-	void BuildTexture(TexCacheEntry *const entry, bool replaceImages) override;
+	void BuildTexture(TexCacheEntry *const entry) override;
 
 	VulkanContext *vulkan_ = nullptr;
 	VulkanDeviceAllocator *allocator_ = nullptr;
