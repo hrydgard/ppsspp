@@ -206,7 +206,7 @@ namespace MainWindow {
 					checkedStatus = MF_CHECKED;
 				}
 
-				translatedShaderName = ps->T(i->section.c_str());
+				translatedShaderName = ps->T(i->section.c_str(), i->name.c_str());
 
 				AppendMenu(shaderMenu, MF_STRING | MF_BYPOSITION | checkedStatus, item++, ConvertUTF8ToWString(translatedShaderName).c_str());
 			}
