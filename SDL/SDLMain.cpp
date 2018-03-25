@@ -912,11 +912,12 @@ int main(int argc, char *argv[]) {
 	if (!useEmuThread) {
 		NativeShutdownGraphics();
 	}
-	graphicsContext->Shutdown();
 	graphicsContext->ThreadEnd();
-	graphicsContext->ShutdownFromRenderThread();
 
 	NativeShutdown();
+
+	// Destroys Draw, which is used in NativeShutdown to shutdown.
+	graphicsContext->ShutdownFromRenderThread();
 	delete graphicsContext;
 
 	SDL_PauseAudio(1);
