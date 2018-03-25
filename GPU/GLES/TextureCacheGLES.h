@@ -75,14 +75,14 @@ protected:
 
 private:
 	void UpdateSamplingParams(TexCacheEntry &entry, bool force);
-	void LoadTextureLevel(TexCacheEntry &entry, ReplacedTexture &replaced, int level, bool replaceImages, int scaleFactor, GLenum dstFmt);
+	void LoadTextureLevel(TexCacheEntry &entry, ReplacedTexture &replaced, int level, int scaleFactor, GLenum dstFmt);
 	GLenum GetDestFormat(GETextureFormat format, GEPaletteFormat clutFormat) const;
 
 	TexCacheEntry::TexStatus CheckAlpha(const uint8_t *pixelData, GLenum dstFmt, int stride, int w, int h);
 	void UpdateCurrentClut(GEPaletteFormat clutFormat, u32 clutBase, bool clutIndexIsSimple) override;
 	void ApplyTextureFramebuffer(TexCacheEntry *entry, VirtualFramebuffer *framebuffer) override;
 
-	void BuildTexture(TexCacheEntry *const entry, bool replaceImages) override;
+	void BuildTexture(TexCacheEntry *const entry) override;
 
 	GLRenderManager *render_;
 

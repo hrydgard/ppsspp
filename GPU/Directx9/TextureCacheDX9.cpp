@@ -469,7 +469,7 @@ void TextureCacheDX9::ApplyTextureFramebuffer(TexCacheEntry *entry, VirtualFrame
 	InvalidateLastTexture();
 }
 
-void TextureCacheDX9::BuildTexture(TexCacheEntry *const entry, bool replaceImages) {
+void TextureCacheDX9::BuildTexture(TexCacheEntry *const entry) {
 	entry->status &= ~TexCacheEntry::STATUS_ALPHA_MASK;
 
 	// For the estimate, we assume cluts always point to 8888 for simplicity.
@@ -532,11 +532,6 @@ void TextureCacheDX9::BuildTexture(TexCacheEntry *const entry, bool replaceImage
 	int h = gstate.getTextureHeight(0);
 	ReplacedTexture &replaced = replacer_.FindReplacement(cachekey, entry->fullhash, w, h);
 	if (replaced.GetSize(0, w, h)) {
-		if (replaceImages) {
-			// Since we're replacing the texture, we can't replace the image inside.
-			ReleaseTexture(entry, true);
-			replaceImages = false;
-		}
 		// We're replacing, so we won't scale.
 		scaleFactor = 1;
 		entry->status |= TexCacheEntry::STATUS_IS_SCALED;
@@ -564,10 +559,6 @@ void TextureCacheDX9::BuildTexture(TexCacheEntry *const entry, bool replaceImage
 		}
 	}
 
-	if (replaceImages) {
-		// Make sure it's not currently set.
-		device_->SetTexture(0, NULL);
-	}
 	// Seems to cause problems in Tactics Ogre.
 	if (badMipSizes) {
 		maxLevel = 0;
@@ -576,9 +567,9 @@ void TextureCacheDX9::BuildTexture(TexCacheEntry *const entry, bool replaceImage
 	if (IsFakeMipmapChange()) {
 		// NOTE: Since the level is not part of the cache key, we assume it never changes.
 		u8 level = std::max(0, gstate.getTexLevelOffset16() / 16);
-		LoadTextureLevel(*entry, replaced, level, maxLevel, replaceImages, scaleFactor, dstFmt);
+		LoadTextureLevel(*entry, replaced, level, maxLevel, scaleFactor, dstFmt);
 	} else {
-		LoadTextureLevel(*entry, replaced, 0, maxLevel, replaceImages, scaleFactor, dstFmt);
+		LoadTextureLevel(*entry, replaced, 0, maxLevel, scaleFactor, dstFmt);
 	}
 	LPDIRECT3DTEXTURE9 &texture = DxTex(entry);
 	if (!texture) {
@@ -588,7 +579,7 @@ void TextureCacheDX9::BuildTexture(TexCacheEntry *const entry, bool replaceImage
 	// Mipmapping is only enabled when texture scaling is disabled.
 	if (maxLevel > 0 && scaleFactor == 1) {
 		for (int i = 1; i <= maxLevel; i++) {
-			LoadTextureLevel(*entry, replaced, i, maxLevel, replaceImages, scaleFactor, dstFmt);
+			LoadTextureLevel(*entry, replaced, i, maxLevel, scaleFactor, dstFmt);
 		}
 	}
 
@@ -663,12 +654,12 @@ D3DFORMAT ToD3D9Format(ReplacedTextureFormat fmt) {
 	}
 }
 
-void TextureCacheDX9::LoadTextureLevel(TexCacheEntry &entry, ReplacedTexture &replaced, int level, int maxLevel, bool replaceImages, int scaleFactor, u32 dstFmt) {
+void TextureCacheDX9::LoadTextureLevel(TexCacheEntry &entry, ReplacedTexture &replaced, int level, int maxLevel, int scaleFactor, u32 dstFmt) {
 	int w = gstate.getTextureWidth(level);
 	int h = gstate.getTextureHeight(level);
 
 	LPDIRECT3DTEXTURE9 &texture = DxTex(&entry);
-	if ((level == 0 || IsFakeMipmapChange()) && (!replaceImages || texture == nullptr)) {
+	if ((level == 0 || IsFakeMipmapChange()) && texture == nullptr) {
 		// Create texture
 		D3DPOOL pool = D3DPOOL_MANAGED;
 		int usage = 0;
