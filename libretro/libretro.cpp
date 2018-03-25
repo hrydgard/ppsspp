@@ -3,6 +3,7 @@
 #include <cassert>
 #include <thread>
 #include <atomic>
+#include <vector>
 
 #include "base/timeutil.h"
 #include "Common/ChunkFile.h"

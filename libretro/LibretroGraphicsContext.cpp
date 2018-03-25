@@ -5,6 +5,9 @@
 #ifndef NO_VULKAN
 #include "libretro/LibretroVulkanContext.h"
 #endif
+#ifdef _WIN32
+#include "libretro/LibretroD3D11Context.h"
+#endif
 
 #include "Common/Log.h"
 #include "Core/Config.h"
@@ -34,8 +37,8 @@ void LibretroHWRenderContext::ContextReset()
 {
 	INFO_LOG(G3D, "Context reset");
 
-	//	 needed to restart the thread
-	//	 TODO: find a way to move this to ContextDestroy.
+	// needed to restart the thread
+	// TODO: find a way to move this to ContextDestroy.
 	if (Libretro::useEmuThread && draw_ && Libretro::emuThreadState != Libretro::EmuThreadState::PAUSED)
 		DestroyDrawContext();
 
@@ -43,9 +46,11 @@ void LibretroHWRenderContext::ContextReset()
 	{
 		CreateDrawContext();
 		PSP_CoreParameter().thin3d = draw_;
-		draw_->CreatePresets();
-		draw_->HandleEvent(Draw::Event::GOT_BACKBUFFER, PSP_CoreParameter().pixelWidth, PSP_CoreParameter().pixelHeight);
+		bool success = draw_->CreatePresets();
+		assert(success);
 	}
+
+	GotBackbuffer();
 
 	if (gpu)
 		gpu->DeviceRestore();
@@ -64,7 +69,18 @@ void LibretroHWRenderContext::ContextDestroy()
 #endif
 	}
 
+	LostBackbuffer();
 	gpu->DeviceLost();
+}
+
+void LibretroGraphicsContext::GotBackbuffer()
+{
+	draw_->HandleEvent(Draw::Event::GOT_BACKBUFFER, PSP_CoreParameter().pixelWidth, PSP_CoreParameter().pixelHeight);
+}
+
+void LibretroGraphicsContext::LostBackbuffer()
+{
+	draw_->HandleEvent(Draw::Event::LOST_BACKBUFFER, -1, -1);
 }
 
 LibretroGraphicsContext *LibretroGraphicsContext::CreateGraphicsContext()

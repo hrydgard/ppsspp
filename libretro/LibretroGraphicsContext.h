@@ -11,7 +11,7 @@
 class LibretroGraphicsContext : public GraphicsContext {
 	public:
 	LibretroGraphicsContext() {}
-	~LibretroGraphicsContext() override {}
+	~LibretroGraphicsContext() override { Shutdown();}
 
 	virtual bool Init() = 0;
 	virtual void SetRenderTarget() {}
@@ -26,12 +26,14 @@ class LibretroGraphicsContext : public GraphicsContext {
 	void SwapInterval(int interval) override {}
 	void Resize() override {}
 
+	virtual void GotBackbuffer();
+	virtual void LostBackbuffer();
+
 	virtual void CreateDrawContext() {}
 	virtual void DestroyDrawContext()
 	{
 		if (!draw_)
 			return;
-		draw_->HandleEvent(Draw::Event::LOST_BACKBUFFER, -1, -1);
 		delete draw_;
 		draw_ = nullptr;
 	}
@@ -80,21 +82,6 @@ class LibretroD3D9Context : public LibretroHWRenderContext {
 
 	GPUCore GetGPUCore() override { return GPUCORE_DIRECTX9; }
 	const char *Ident() override { return "DirectX 9"; }
-};
-
-class LibretroD3D11Context : public LibretroHWRenderContext {
-	public:
-	LibretroD3D11Context() : LibretroHWRenderContext(RETRO_HW_CONTEXT_DIRECT3D, 11) {}
-	bool Init() override { return false; }
-
-	void CreateDrawContext() override
-	{
-		draw_ = Draw::T3DCreateD3D11Context(nullptr, nullptr, nullptr, nullptr, D3D_FEATURE_LEVEL_11_0, nullptr);
-		draw_->CreatePresets();
-	}
-
-	GPUCore GetGPUCore() override { return GPUCORE_DIRECTX11; }
-	const char *Ident() override { return "DirectX 11"; }
 };
 #endif
 

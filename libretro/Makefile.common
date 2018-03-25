@@ -636,7 +636,8 @@ SOURCES_CXX += \
 	$(GPUDIR)/D3D11/StencilBufferD3D11.cpp \
 	$(GPUDIR)/D3D11/TextureCacheD3D11.cpp \
 	$(GPUDIR)/D3D11/TextureScalerD3D11.cpp \
-	$(GPUDIR)/D3D11/VertexShaderGeneratorD3D11.cpp
+	$(GPUDIR)/D3D11/VertexShaderGeneratorD3D11.cpp \
+   $(LIBRETRODIR)/LibretroD3D11Context.cpp
 
 SOURCES_CXX += \
    $(NATIVEDIR)/thin3d/thin3d_d3d9.cpp \
