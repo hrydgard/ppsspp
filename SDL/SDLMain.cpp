@@ -698,6 +698,7 @@ int main(int argc, char *argv[]) {
 	graphicsContext->ThreadStart();
 
 	while (true) {
+		double startTime = time_now_d();
 		SDL_Event event;
 		while (SDL_PollEvent(&event)) {
 			float mx = event.motion.x * g_dpi_scale_x;
@@ -887,9 +888,21 @@ int main(int argc, char *argv[]) {
 			if (!graphicsContext->ThreadFrame())
 				break;
 		}
+
+
 		graphicsContext->SwapBuffers();
 
 		ToggleFullScreenIfFlagSet(window);
+
+		// Simple throttling to not burn the GPU in the menu.
+		time_update();
+		if (GetUIState() != UISTATE_INGAME || !PSP_IsInited()) {
+			double diffTime = time_now_d() - startTime;
+			int sleepTime = (int)(1000.0 / 60.0) - (int)(diffTime * 1000.0);
+			if (sleepTime > 0)
+				sleep_ms(sleepTime);
+		}
+
 		time_update();
 		framecount++;
 	}
