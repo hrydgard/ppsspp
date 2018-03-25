@@ -689,7 +689,7 @@ void RemoteISOSettingsScreen::CreateViews() {
 #if !defined(MOBILE_DEVICE)
 	PopupTextInputChoice *remoteServer = remoteisoSettings->Add(new PopupTextInputChoice(&g_Config.sLastRemoteISOServer, ri->T("Remote Server"), "", 255, screenManager()));
 #else
-	ChoiceWithValueDisplay *remoteServer = new ChoiceWithValueDisplay(&g_Config.sLastRemoteISOServer, ri->T("Remote Server"), nullptr);
+	ChoiceWithValueDisplay *remoteServer = new ChoiceWithValueDisplay(&g_Config.sLastRemoteISOServer, ri->T("Remote Server"), (const char *)nullptr);
 	remoteisoSettings->Add(remoteServer);
 	remoteServer->OnClick.Handle(this, &RemoteISOSettingsScreen::OnClickRemoteServer);
 #endif
@@ -701,7 +701,7 @@ void RemoteISOSettingsScreen::CreateViews() {
 	remoteSubdir->OnChange.Handle(this, &RemoteISOSettingsScreen::OnChangeRemoteISOSubdir);
 #else
 	ChoiceWithValueDisplay *remoteSubdir = remoteisoSettings->Add(
-			new ChoiceWithValueDisplay(&g_Config.sRemoteISOSubdir, ri->T("Remote Subdirectory"), nullptr));
+			new ChoiceWithValueDisplay(&g_Config.sRemoteISOSubdir, ri->T("Remote Subdirectory"), (const char *)nullptr));
 	remoteSubdir->OnClick.Handle(this, &RemoteISOSettingsScreen::OnClickRemoteISOSubdir);
 #endif
 	remoteSubdir->SetEnabledPtr(&g_Config.bRemoteISOManual);

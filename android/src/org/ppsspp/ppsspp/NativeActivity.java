@@ -546,6 +546,7 @@ public abstract class NativeActivity extends Activity implements SurfaceHolder.C
 			recreate();
 			return;
 		} else if (requestedPortrait == detectedPortrait) {
+			Log.i(TAG, "Correct orientation detected, resetting orientation counter.");
 			badOrientationCount = 0;
 		}
 

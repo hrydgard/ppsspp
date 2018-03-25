@@ -167,11 +167,16 @@ namespace MainWindow {
 	}
 
 	bool CreateShadersSubmenu(HMENU menu) {
+		// NOTE: We do not load this until translations are loaded!
+		if (!I18NCategoryLoaded("PostShaders"))
+			return false;
+
 		// We only reload this initially and when a menu is actually opened.
 		if (!menuShaderInfoLoaded) {
 			ReloadAllPostShaderInfo();
 			menuShaderInfoLoaded = true;
 		}
+
 		std::vector<ShaderInfo> info = GetAllPostShaderInfo();
 
 		if (menuShaderInfo.size() == info.size() && std::equal(info.begin(), info.end(), menuShaderInfo.begin())) {

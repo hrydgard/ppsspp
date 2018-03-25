@@ -77,6 +77,9 @@ public:
 	std::string LanguageID();
 
 	I18NCategory *GetCategory(const char *categoryName);
+	bool HasCategory(const char *categoryName) const {
+		return cats_.find(categoryName) != cats_.end();
+	}
 	const char *T(const char *category, const char *key, const char *def = 0);
 
 private:
@@ -99,6 +102,10 @@ inline I18NCategory *GetI18NCategory(const char *categoryName) {
 	if (!categoryName)
 		return nullptr;
 	return i18nrepo.GetCategory(categoryName);
+}
+
+inline bool I18NCategoryLoaded(const char *categoryName) {
+	return i18nrepo.HasCategory(categoryName);
 }
 
 inline const char *T(const char *category, const char *key, const char *def = 0) {
