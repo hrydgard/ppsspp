@@ -18,6 +18,7 @@
 #pragma once
 
 #include "headless/StubHost.h"
+#include <thread>
 
 #undef HEADLESSHOST_CLASS
 #define HEADLESSHOST_CLASS WindowsHeadlessHost
@@ -38,8 +39,20 @@ public:
 protected:
 	void LoadNativeAssets();
 
+	enum class RenderThreadState {
+		IDLE,
+		START_REQUESTED,
+		STARTING,
+		START_FAILED,
+		STARTED,
+		STOP_REQUESTED,
+		STOPPING,
+		STOPPED,
+	};
+
 	HWND hWnd;
 	HDC hDC;
 	HGLRC hRC;
 	GraphicsContext *gfx_;
+	volatile RenderThreadState threadState_ = RenderThreadState::IDLE;
 };
