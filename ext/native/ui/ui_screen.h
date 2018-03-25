@@ -369,7 +369,7 @@ private:
 	int *iValue_ = nullptr;
 	std::string *sValue_ = nullptr;
 	const char *category_ = nullptr;
-	std::string(*translateCallback_)(const char *value);
+	std::string (*translateCallback_)(const char *value) = nullptr;
 };
 
 }  // namespace UI
