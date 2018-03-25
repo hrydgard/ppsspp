@@ -74,4 +74,5 @@ void main()
     c00 = vec3(pow(c00.x,val00.x),c00.yz*val00.yz);    
 
     gl_FragColor.xyz= YIQtoRGB*c00;
+	gl_FragColor.w = 1.0;
 }
