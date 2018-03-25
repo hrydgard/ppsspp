@@ -63,16 +63,12 @@ void main()
     float d2=dot(abs(c20-c02),dt)+0.0001;
     float hl=dot(abs(c01-c21),dt)+0.0001;
     float vl=dot(abs(c10-c12),dt)+0.0001;
-
-    float md = d1+d2;   float mc = hl+vl;
-    hl*=  md;vl*= md;   d1*=  mc;d2*= mc;
-    
-        float ww = d1+d2+hl+vl;
+    float md = d1+d2;   
+    float mc = hl+vl;
+    float ww = d1+d2+hl+vl;
 
     c00 = RGBtoYIQ*((hl*(c10+c12)+vl*(c01+c21)+d1*(c20+c02)+d2*(c00+c22)+ww*c11)/(3.0*ww));    
-    
     c00 = vec3(pow(c00.x,val00.x),c00.yz*val00.yz);    
 
     gl_FragColor.xyz= YIQtoRGB*c00;
-	gl_FragColor.w = 1.0;
 }
