@@ -43,6 +43,7 @@
 #include "Core/Config.h"
 #include "Core/MIPS/MIPSVFPUUtils.h"
 #include "Core/FileSystems/ISOFileSystem.h"
+#include "GPU/Common/TextureDecoder.h"
 
 #include "unittest/JitHarness.h"
 #include "unittest/TestVertexJit.h"
@@ -401,6 +402,63 @@ bool TestParseLBN() {
 	return true;
 }
 
+// So we can use EXPECT_TRUE, etc.
+struct AlignedMem {
+	AlignedMem(size_t sz, size_t alignment = 16) {
+		p_ = AllocateAlignedMemory(sz, alignment);
+	}
+	~AlignedMem() {
+		FreeAlignedMemory(p_);
+	}
+
+	operator void *() {
+		return p_;
+	}
+
+	operator char *() {
+		return (char *)p_;
+	}
+
+private:
+	void *p_;
+};
+
+bool TestQuickTexHash() {
+	SetupTextureDecoder();
+
+	static const int BUF_SIZE = 1024;
+	AlignedMem buf(BUF_SIZE, 16);
+
+	memset(buf, 0, BUF_SIZE);
+	EXPECT_EQ_HEX(DoQuickTexHash(buf, BUF_SIZE), 0xaa756edc);
+
+	memset(buf, 1, BUF_SIZE);
+	EXPECT_EQ_HEX(DoQuickTexHash(buf, BUF_SIZE), 0x66f81b1c);
+
+	strncpy(buf, "hello", BUF_SIZE);
+	EXPECT_EQ_HEX(DoQuickTexHash(buf, BUF_SIZE), 0xf6028131);
+
+	strncpy(buf, "goodbye", BUF_SIZE);
+	EXPECT_EQ_HEX(DoQuickTexHash(buf, BUF_SIZE), 0xef81b54f);
+
+	// Simple patterns.
+	for (int i = 0; i < BUF_SIZE; ++i) {
+		char *p = buf;
+		p[i] = i & 0xFF;
+	}
+	EXPECT_EQ_HEX(DoQuickTexHash(buf, BUF_SIZE), 0x0d64531c);
+
+	int j = 573;
+	for (int i = 0; i < BUF_SIZE; ++i) {
+		char *p = buf;
+		j += ((i * 7) + (i & 3)) * 11;
+		p[i] = j & 0xFF;
+	}
+	EXPECT_EQ_HEX(DoQuickTexHash(buf, BUF_SIZE), 0x58de8dbc);
+
+	return false;
+}
+
 typedef bool (*TestFunc)();
 struct TestItem {
 	const char *name;
@@ -432,6 +490,7 @@ TestItem availableTests[] = {
 	TEST_ITEM(Jit),
 	TEST_ITEM(MatrixTranspose),
 	TEST_ITEM(ParseLBN),
+	TEST_ITEM(QuickTexHash),
 };
 
 int main(int argc, const char *argv[]) {
