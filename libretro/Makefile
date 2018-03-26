@@ -417,6 +417,8 @@ ifneq (,$(findstring msvc,$(platform)))
 	OBJOUT = -Fo
 	LINKOUT = -out:
 	LD = link.exe
+else ifneq (,$(findstring osx,$(platform)))
+	LD = $(CXX)
 else
 	LD = $(CXX)
    CFLAGS += -ffunction-sections -fdata-sections

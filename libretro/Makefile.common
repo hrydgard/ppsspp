@@ -250,7 +250,8 @@ SOURCES_CXX += $(COMMONDIR)/MemArenaWin32.cpp \
 	       $(EXTDIR)/glslang/glslang/OSDependent/Windows/ossource.cpp \
 	       $(NATIVEDIR)/gfx_es2/draw_text_win.cpp
 else ifeq ($(PLATFORM_EXT), darwin)
-SOURCES_CXX += $(COMMONDIR)/MemArenaDarwin.cpp
+SOURCES_CXX += $(COMMONDIR)/MemArenaDarwin.cpp \
+	       $(EXTDIR)/glslang/glslang/OSDependent/Unix/ossource.cpp
 else ifeq ($(PLATFORM_EXT), android)
 SOURCES_CXX += $(COMMONDIR)/MemArenaAndroid.cpp \
 	       $(EXTDIR)/glslang/glslang/OSDependent/Unix/ossource.cpp \
