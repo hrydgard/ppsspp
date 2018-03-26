@@ -218,7 +218,8 @@ int getDisplayNumber(void) {
 
 void SystemToast(const char *text) {
 #ifdef _WIN32
-	MessageBox(0, text, "Toast!", MB_ICONINFORMATION);
+	std::wstring str = ConvertUTF8ToWString(text);
+	MessageBox(0, str.c_str(), L"Toast!", MB_ICONINFORMATION);
 #else
 	puts(text);
 #endif
@@ -256,7 +257,8 @@ void LaunchBrowser(const char *url) {
 #if defined(MOBILE_DEVICE)
 	ILOG("Would have gone to %s but LaunchBrowser is not implemented on this platform", url);
 #elif defined(_WIN32)
-	ShellExecute(NULL, "open", url, NULL, NULL, SW_SHOWNORMAL);
+	std::wstring wurl = ConvertUTF8ToWString(url);
+	ShellExecute(NULL, L"open", wurl.c_str(), NULL, NULL, SW_SHOWNORMAL);
 #elif defined(__APPLE__)
 	std::string command = std::string("open ") + url;
 	system(command.c_str());
@@ -273,7 +275,8 @@ void LaunchMarket(const char *url) {
 #if defined(MOBILE_DEVICE)
 	ILOG("Would have gone to %s but LaunchMarket is not implemented on this platform", url);
 #elif defined(_WIN32)
-	ShellExecute(NULL, "open", url, NULL, NULL, SW_SHOWNORMAL);
+	std::wstring wurl = ConvertUTF8ToWString(url);
+	ShellExecute(NULL, L"open", wurl.c_str(), NULL, NULL, SW_SHOWNORMAL);
 #elif defined(__APPLE__)
 	std::string command = std::string("open ") + url;
 	system(command.c_str());
@@ -290,7 +293,8 @@ void LaunchEmail(const char *email_address) {
 #if defined(MOBILE_DEVICE)
 	ILOG("Would have opened your email client for %s but LaunchEmail is not implemented on this platform", email_address);
 #elif defined(_WIN32)
-	ShellExecute(NULL, "open", (std::string("mailto:") + email_address).c_str(), NULL, NULL, SW_SHOWNORMAL);
+	std::wstring mailto = std::wstring(L"mailto:") + ConvertUTF8ToWString(email_address);
+	ShellExecute(NULL, L"open", mailto.c_str(), NULL, NULL, SW_SHOWNORMAL);
 #elif defined(__APPLE__)
 	std::string command = std::string("open mailto:") + email_address;
 	system(command.c_str());
@@ -921,11 +925,12 @@ int main(int argc, char *argv[]) {
 	if (!useEmuThread) {
 		NativeShutdownGraphics();
 	}
-	graphicsContext->Shutdown();
 	graphicsContext->ThreadEnd();
-	graphicsContext->ShutdownFromRenderThread();
 
 	NativeShutdown();
+
+	// Destroys Draw, which is used in NativeShutdown to shutdown.
+	graphicsContext->ShutdownFromRenderThread();
 	delete graphicsContext;
 
 	SDL_PauseAudio(1);
