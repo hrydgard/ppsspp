@@ -35,7 +35,7 @@ static const std::string NEW_TEXTURE_DIR = "new/";
 static const int VERSION = 1;
 static const int MAX_MIP_LEVELS = 12;  // 12 should be plenty, 8 is the max mip levels supported by the PSP.
 
-TextureReplacer::TextureReplacer() : enabled_(false), allowVideo_(false), ignoreAddress_(false), hash_(ReplacedTextureHash::QUICK) {
+TextureReplacer::TextureReplacer() {
 	none_.alphaStatus_ = ReplacedTextureAlpha::UNKNOWN;
 }
 
