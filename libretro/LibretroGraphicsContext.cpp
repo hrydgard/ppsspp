@@ -1,7 +1,7 @@
 
-#include "libretro/libretro.h"
 #include "libretro/LibretroGraphicsContext.h"
 #include "libretro/LibretroGLContext.h"
+#include "libretro/libretro.h"
 #ifndef NO_VULKAN
 #include "libretro/LibretroVulkanContext.h"
 #endif
@@ -15,13 +15,15 @@
 #include "GPU/GPUInterface.h"
 
 retro_video_refresh_t LibretroGraphicsContext::video_cb;
-retro_hw_get_proc_address_t libretro_get_proc_address;
 
 void retro_set_video_refresh(retro_video_refresh_t cb) { LibretroGraphicsContext::video_cb = cb; }
 static void context_reset() { ((LibretroHWRenderContext *)Libretro::ctx)->ContextReset(); }
 static void context_destroy() { ((LibretroHWRenderContext *)Libretro::ctx)->ContextDestroy(); }
 
-bool LibretroHWRenderContext::Init() { return Libretro::environ_cb(RETRO_ENVIRONMENT_SET_HW_RENDER, &hw_render_); }
+bool LibretroHWRenderContext::Init(bool cache_context) {
+	hw_render_.cache_context = cache_context;
+	return Libretro::environ_cb(RETRO_ENVIRONMENT_SET_HW_RENDER, &hw_render_);
+}
 
 LibretroHWRenderContext::LibretroHWRenderContext(retro_hw_context_type context_type, unsigned version_major, unsigned version_minor)
 {
@@ -39,7 +41,7 @@ void LibretroHWRenderContext::ContextReset()
 
 	// needed to restart the thread
 	// TODO: find a way to move this to ContextDestroy.
-	if (Libretro::useEmuThread && draw_ && Libretro::emuThreadState != Libretro::EmuThreadState::PAUSED)
+	if (!hw_render_.cache_context && Libretro::useEmuThread && draw_ && Libretro::emuThreadState != Libretro::EmuThreadState::PAUSED)
 		DestroyDrawContext();
 
 	if (!draw_)
@@ -70,7 +72,11 @@ void LibretroHWRenderContext::ContextDestroy()
 	}
 
 	LostBackbuffer();
+
 	gpu->DeviceLost();
+
+	if(!hw_render_.cache_context && !Libretro::useEmuThread)
+		Shutdown();
 }
 
 void LibretroGraphicsContext::GotBackbuffer()

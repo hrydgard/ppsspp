@@ -9,7 +9,7 @@
 #endif
 
 bool LibretroD3D11Context::Init() {
-	if (!LibretroHWRenderContext::Init())
+	if (!LibretroHWRenderContext::Init(true))
 		return false;
 
 	g_Config.iGPUBackend = (int)GPUBackend::DIRECT3D11;
@@ -41,15 +41,6 @@ void LibretroD3D11Context::CreateDrawContext() {
 void LibretroD3D11Context::DestroyDrawContext() {
 	LibretroHWRenderContext::DestroyDrawContext();
 	d3d11_ = nullptr;
-}
-
-void LibretroD3D11Context::ContextDestroy()
-{
-	LibretroHWRenderContext::ContextDestroy();
-#if 0
-	// this should be enabled once DeviceLost/DeviceRestore can fully switch to a new draw context.
-	DestroyDrawContext();
-#endif
 }
 
 void LibretroD3D11Context::GotBackbuffer() {

@@ -15,8 +15,6 @@ class LibretroD3D11Context : public LibretroHWRenderContext {
 	void CreateDrawContext() override;
 	void DestroyDrawContext() override;
 
-	void ContextDestroy() override;
-
 	GPUCore GetGPUCore() override { return GPUCORE_DIRECTX11; }
 	const char *Ident() override { return "DirectX 11"; }
 private:

@@ -20,7 +20,6 @@ class LibretroGLContext : public LibretroHWRenderContext {
 	}
 
 	bool Init() override;
-	void Shutdown() override;
 	void CreateDrawContext() override;
 	void DestroyDrawContext() override;
 	void SetRenderTarget() override

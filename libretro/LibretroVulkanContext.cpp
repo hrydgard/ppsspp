@@ -19,6 +19,9 @@ void vk_libretro_shutdown();
 void vk_libretro_set_hwrender_interface(retro_hw_render_interface *hw_render_interface);
 void vk_libretro_wait_for_presentation();
 
+LibretroVulkanContext::LibretroVulkanContext()
+	: LibretroHWRenderContext(RETRO_HW_CONTEXT_VULKAN, VK_MAKE_VERSION(1, 0, 18)) {}
+
 void LibretroVulkanContext::SwapBuffers()
 {
 	vk_libretro_wait_for_presentation();
@@ -76,22 +79,6 @@ static bool create_device(retro_vulkan_context *context, VkInstance instance, Vk
 	return true;
 }
 
-static void destroy_device(void)
-{
-	if (!vk)
-		return;
-
-	PSP_CoreParameter().graphicsContext->Shutdown();
-}
-
-void LibretroVulkanContext::ContextDestroy()
-{
-	LibretroHWRenderContext::ContextDestroy();
-
-	// temporary workaround, destroy_device is currently being called too late/never
-	destroy_device();
-}
-
 static const VkApplicationInfo *GetApplicationInfo(void)
 {
 	static VkApplicationInfo app_info{ VK_STRUCTURE_TYPE_APPLICATION_INFO };
@@ -105,7 +92,7 @@ static const VkApplicationInfo *GetApplicationInfo(void)
 
 bool LibretroVulkanContext::Init()
 {
-	if (!LibretroHWRenderContext::Init())
+	if (!LibretroHWRenderContext::Init(false))
 		return false;
 
 	static const struct retro_hw_render_context_negotiation_interface_vulkan iface = { RETRO_HW_RENDER_CONTEXT_NEGOTIATION_INTERFACE_VULKAN, RETRO_HW_RENDER_CONTEXT_NEGOTIATION_INTERFACE_VULKAN_VERSION, GetApplicationInfo, create_device, nullptr };
@@ -118,6 +105,9 @@ bool LibretroVulkanContext::Init()
 void LibretroVulkanContext::Shutdown()
 {
 	LibretroHWRenderContext::Shutdown();
+
+	if (!vk)
+		return;
 
 	vk->WaitUntilQueueIdle();
 

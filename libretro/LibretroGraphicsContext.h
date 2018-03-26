@@ -50,7 +50,7 @@ class LibretroGraphicsContext : public GraphicsContext {
 class LibretroHWRenderContext : public LibretroGraphicsContext {
 	public:
 	LibretroHWRenderContext(retro_hw_context_type context_type, unsigned version_major = 0, unsigned version_minor = 0);
-	bool Init() override;
+	bool Init(bool cache_context);
 	void SetRenderTarget() override {}
 	void SwapBuffers() override
 	{
@@ -65,8 +65,6 @@ class LibretroHWRenderContext : public LibretroGraphicsContext {
 	protected:
 	retro_hw_render_callback hw_render_ = {};
 };
-
-extern "C" retro_hw_get_proc_address_t libretro_get_proc_address;
 
 #ifdef _WIN32
 class LibretroD3D9Context : public LibretroHWRenderContext {

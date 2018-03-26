@@ -8,19 +8,11 @@
 
 bool LibretroGLContext::Init()
 {
-	if (!LibretroHWRenderContext::Init())
+	if (!LibretroHWRenderContext::Init(true))
 		return false;
-
-	libretro_get_proc_address = hw_render_.get_proc_address;
 
 	g_Config.iGPUBackend = (int)GPUBackend::OPENGL;
 	return true;
-}
-
-void LibretroGLContext::Shutdown()
-{
-	LibretroGraphicsContext::Shutdown();
-	libretro_get_proc_address = nullptr;
 }
 
 void LibretroGLContext::CreateDrawContext()
@@ -40,6 +32,7 @@ void LibretroGLContext::CreateDrawContext()
 	draw_ = Draw::T3DCreateGLContext();
 	renderManager_ = (GLRenderManager *)draw_->GetNativeObject(Draw::NativeObject::RENDER_MANAGER);
 }
+
 void LibretroGLContext::DestroyDrawContext()
 {
 	LibretroHWRenderContext::DestroyDrawContext();
