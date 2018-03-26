@@ -5,7 +5,7 @@
 #include "libretro/LibretroGraphicsContext.h"
 
 class LibretroD3D11Context : public LibretroHWRenderContext {
-	public:
+public:
 	LibretroD3D11Context() : LibretroHWRenderContext(RETRO_HW_CONTEXT_DIRECT3D, 11) {}
 	bool Init() override;
 
@@ -17,6 +17,7 @@ class LibretroD3D11Context : public LibretroHWRenderContext {
 
 	GPUCore GetGPUCore() override { return GPUCORE_DIRECTX11; }
 	const char *Ident() override { return "DirectX 11"; }
+
 private:
 	retro_hw_render_interface_d3d11 *d3d11_ = nullptr;
 	ID3D11Texture2D *texture_ = nullptr;

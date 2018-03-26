@@ -88,7 +88,7 @@ void LibretroD3D11Context::SwapBuffers() {
 	d3d11_->context->PSSetShaderResources(0, 1, &SRView_);
 	LibretroHWRenderContext::SwapBuffers();
 
-	ID3D11ShaderResourceView * nullSRV = nullptr;
+	ID3D11ShaderResourceView *nullSRV = nullptr;
 	d3d11_->context->PSSetShaderResources(0, 1, &nullSRV);
 
 	draw_->HandleEvent(Draw::Event::PRESENTED, 0, 0, nullptr, nullptr);

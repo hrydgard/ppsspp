@@ -6,8 +6,7 @@
 
 #include "libretro/LibretroGLContext.h"
 
-bool LibretroGLContext::Init()
-{
+bool LibretroGLContext::Init() {
 	if (!LibretroHWRenderContext::Init(true))
 		return false;
 
@@ -15,13 +14,10 @@ bool LibretroGLContext::Init()
 	return true;
 }
 
-void LibretroGLContext::CreateDrawContext()
-{
-	if (!glewInitDone)
-	{
+void LibretroGLContext::CreateDrawContext() {
+	if (!glewInitDone) {
 #if !defined(IOS) && !defined(USING_GLES2)
-		if (glewInit() != GLEW_OK)
-		{
+		if (glewInit() != GLEW_OK) {
 			ERROR_LOG(G3D, "glewInit() failed.\n");
 			return;
 		}
@@ -33,8 +29,7 @@ void LibretroGLContext::CreateDrawContext()
 	renderManager_ = (GLRenderManager *)draw_->GetNativeObject(Draw::NativeObject::RENDER_MANAGER);
 }
 
-void LibretroGLContext::DestroyDrawContext()
-{
+void LibretroGLContext::DestroyDrawContext() {
 	LibretroHWRenderContext::DestroyDrawContext();
 	renderManager_ = nullptr;
 }

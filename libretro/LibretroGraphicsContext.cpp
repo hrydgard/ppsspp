@@ -25,8 +25,7 @@ bool LibretroHWRenderContext::Init(bool cache_context) {
 	return Libretro::environ_cb(RETRO_ENVIRONMENT_SET_HW_RENDER, &hw_render_);
 }
 
-LibretroHWRenderContext::LibretroHWRenderContext(retro_hw_context_type context_type, unsigned version_major, unsigned version_minor)
-{
+LibretroHWRenderContext::LibretroHWRenderContext(retro_hw_context_type context_type, unsigned version_major, unsigned version_minor) {
 	hw_render_.context_type = context_type;
 	hw_render_.version_major = version_major;
 	hw_render_.version_minor = version_minor;
@@ -35,17 +34,16 @@ LibretroHWRenderContext::LibretroHWRenderContext(retro_hw_context_type context_t
 	hw_render_.depth = true;
 }
 
-void LibretroHWRenderContext::ContextReset()
-{
+void LibretroHWRenderContext::ContextReset() {
 	INFO_LOG(G3D, "Context reset");
 
 	// needed to restart the thread
 	// TODO: find a way to move this to ContextDestroy.
-	if (!hw_render_.cache_context && Libretro::useEmuThread && draw_ && Libretro::emuThreadState != Libretro::EmuThreadState::PAUSED)
+	if (!hw_render_.cache_context && Libretro::useEmuThread && draw_ && Libretro::emuThreadState != Libretro::EmuThreadState::PAUSED) {
 		DestroyDrawContext();
+	}
 
-	if (!draw_)
-	{
+	if (!draw_) {
 		CreateDrawContext();
 		PSP_CoreParameter().thin3d = draw_;
 		bool success = draw_->CreatePresets();
@@ -54,16 +52,15 @@ void LibretroHWRenderContext::ContextReset()
 
 	GotBackbuffer();
 
-	if (gpu)
+	if (gpu) {
 		gpu->DeviceRestore();
+	}
 }
 
-void LibretroHWRenderContext::ContextDestroy()
-{
+void LibretroHWRenderContext::ContextDestroy() {
 	INFO_LOG(G3D, "Context destroy");
 
-	if (Libretro::useEmuThread)
-	{
+	if (Libretro::useEmuThread) {
 #if 0
 		Libretro::EmuThreadPause();
 #else
@@ -75,62 +72,56 @@ void LibretroHWRenderContext::ContextDestroy()
 
 	gpu->DeviceLost();
 
-	if(!hw_render_.cache_context && !Libretro::useEmuThread)
+	if (!hw_render_.cache_context && !Libretro::useEmuThread) {
 		Shutdown();
+	}
 }
 
-void LibretroGraphicsContext::GotBackbuffer()
-{
-	draw_->HandleEvent(Draw::Event::GOT_BACKBUFFER, PSP_CoreParameter().pixelWidth, PSP_CoreParameter().pixelHeight);
-}
+void LibretroGraphicsContext::GotBackbuffer() { draw_->HandleEvent(Draw::Event::GOT_BACKBUFFER, PSP_CoreParameter().pixelWidth, PSP_CoreParameter().pixelHeight); }
 
-void LibretroGraphicsContext::LostBackbuffer()
-{
-	draw_->HandleEvent(Draw::Event::LOST_BACKBUFFER, -1, -1);
-}
+void LibretroGraphicsContext::LostBackbuffer() { draw_->HandleEvent(Draw::Event::LOST_BACKBUFFER, -1, -1); }
 
-LibretroGraphicsContext *LibretroGraphicsContext::CreateGraphicsContext()
-{
+LibretroGraphicsContext *LibretroGraphicsContext::CreateGraphicsContext() {
 	LibretroGraphicsContext *ctx;
 
 	ctx = new LibretroGLContext();
 
-	if (ctx->Init())
+	if (ctx->Init()) {
 		return ctx;
-
+	}
 	delete ctx;
 
 #ifndef NO_VULKAN
 	ctx = new LibretroVulkanContext();
 
-	if (ctx->Init())
+	if (ctx->Init()) {
 		return ctx;
-
+	}
 	delete ctx;
 #endif
 
 #ifdef _WIN32
 	ctx = new LibretroD3D11Context();
 
-	if (ctx->Init())
+	if (ctx->Init()) {
 		return ctx;
-
+	}
 	delete ctx;
 
 	ctx = new LibretroD3D9Context();
 
-	if (ctx->Init())
+	if (ctx->Init()) {
 		return ctx;
-
+	}
 	delete ctx;
 #endif
 
 #if 1
 	ctx = new LibretroSoftwareContext();
 
-	if (ctx->Init())
+	if (ctx->Init()) {
 		return ctx;
-
+	}
 	delete ctx;
 #endif
 

@@ -3,7 +3,7 @@
 #include "libretro/LibretroGraphicsContext.h"
 
 class LibretroVulkanContext : public LibretroHWRenderContext {
-	public:
+public:
 	LibretroVulkanContext();
 	~LibretroVulkanContext() override {}
 	bool Init() override;
