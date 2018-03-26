@@ -280,7 +280,9 @@ else ifneq (,$(findstring windows_msvc2017,$(platform)))
 	reg_query = $(call filter_out2,$(subst $2,,$(shell reg query "$2" -v "$1" 2>nul)))
 	fix_path = $(subst $(SPACE),\ ,$(subst \,/,$1))
 
-	ProgramFiles86w := $(shell echo "$$PROGRAMFILES(x86)")
+	b1 := (
+	b2 := )
+	ProgramFiles86w := $(ProgramFiles$(b1)x86$(b2))
 	ProgramFiles86 := $(shell cygpath "$(ProgramFiles86w)")
 
 	WindowsSdkDir ?= $(call reg_query,InstallationFolder,HKEY_LOCAL_MACHINE\SOFTWARE\Wow6432Node\Microsoft\Microsoft SDKs\Windows\v10.0)
@@ -327,11 +329,11 @@ else ifneq (,$(findstring windows_msvc2017,$(platform)))
 	# Work around it for now by using the strictly x86 compiler for x86, and x64 for x64.
 	# NOTE: What about ARM?
 	ifneq (,$(findstring x64,$(TargetArchMoniker)))
-		TARGET_ARCH = x86_64
+		override TARGET_ARCH = x86_64
 		VCCompilerToolsBinDir := $(VcCompilerToolsDir)/bin/HostX64/$(TargetArchMoniker)
       LIB := $(LIB);$(CORE_DIR)/dx9sdk/Lib/x64
 	else
-		TARGET_ARCH = x86
+		override TARGET_ARCH = x86
 		VCCompilerToolsBinDir := $(VcCompilerToolsDir)/bin/HostX86/$(TargetArchMoniker)
       LIB := $(LIB);$(CORE_DIR)/dx9sdk/Lib/x86
 	endif
