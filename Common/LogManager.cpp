@@ -176,6 +176,7 @@ void LogManager::ChangeFileLog(const char *filename) {
 	if (fileLog_) {
 		RemoveListener(fileLog_);
 		delete fileLog_;
+		fileLog_ = nullptr;
 	}
 
 	if (filename) {
@@ -245,16 +246,20 @@ void LogManager::Log(LogTypes::LOG_LEVELS level, LogTypes::LOG_TYPE type, const 
 	}
 
 	char msgBuf[1024];
+	va_list args_copy;
+
+	va_copy(args_copy, args);
 	size_t neededBytes = vsnprintf(msgBuf, sizeof(msgBuf), format, args);
 	if (neededBytes > sizeof(msgBuf)) {
 		// Needed more space? Re-run vsnprintf.
 		message.msg.resize(neededBytes + 1);
-		vsnprintf(&message.msg[0], neededBytes + 1, format, args);
+		vsnprintf(&message.msg[0], neededBytes + 1, format, args_copy);
 	} else {
 		message.msg.resize(neededBytes + 1);
 		memcpy(&message.msg[0], msgBuf, neededBytes);
 	}
 	message.msg[message.msg.size() - 1] = '\n';
+	va_end(args_copy);
 
 	std::lock_guard<std::mutex> listeners_lock(listeners_lock_);
 	for (auto &iter : listeners_) {

@@ -354,17 +354,22 @@ private:
 class ChoiceWithValueDisplay : public UI::Choice {
 public:
 	ChoiceWithValueDisplay(int *value, const std::string &text, LayoutParams *layoutParams = 0)
-		: Choice(text, layoutParams), iValue_(value), category_(nullptr) { sValue_ = nullptr; }
+		: Choice(text, layoutParams), iValue_(value) {}
 
 	ChoiceWithValueDisplay(std::string *value, const std::string &text, const char *category, LayoutParams *layoutParams = 0)
-		: Choice(text, layoutParams), sValue_(value), category_(category) { iValue_ = nullptr; }
+		: Choice(text, layoutParams), sValue_(value), category_(category) {}
+
+	ChoiceWithValueDisplay(std::string *value, const std::string &text, std::string (*translateCallback)(const char *value), LayoutParams *layoutParams = 0)
+		: Choice(text, layoutParams), sValue_(value), translateCallback_(translateCallback) {
+	}
 
 	virtual void Draw(UIContext &dc) override;
 
 private:
-	int *iValue_;
-	std::string *sValue_;
-	const char *category_;
+	int *iValue_ = nullptr;
+	std::string *sValue_ = nullptr;
+	const char *category_ = nullptr;
+	std::string (*translateCallback_)(const char *value) = nullptr;
 };
 
 }  // namespace UI

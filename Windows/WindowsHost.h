@@ -18,6 +18,7 @@
 #include "../Core/Host.h"
 #include "InputDevice.h"
 #include "KeyboardDevice.h"
+#include "Common/CommonWindows.h"
 #include <list>
 #include <memory>
 

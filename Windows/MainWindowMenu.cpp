@@ -185,11 +185,16 @@ namespace MainWindow {
 	}
 
 	bool CreateShadersSubmenu(HMENU menu) {
+		// NOTE: We do not load this until translations are loaded!
+		if (!I18NCategoryLoaded("PostShaders"))
+			return false;
+
 		// We only reload this initially and when a menu is actually opened.
 		if (!menuShaderInfoLoaded) {
 			ReloadAllPostShaderInfo();
 			menuShaderInfoLoaded = true;
 		}
+
 		std::vector<ShaderInfo> info = GetAllPostShaderInfo();
 
 		if (menuShaderInfo.size() == info.size() && std::equal(info.begin(), info.end(), menuShaderInfo.begin())) {
@@ -224,7 +229,7 @@ namespace MainWindow {
 					checkedStatus = MF_CHECKED;
 				}
 
-				translatedShaderName = ps->T(i->section.c_str());
+				translatedShaderName = ps->T(i->section.c_str(), i->name.c_str());
 
 				AppendMenu(shaderMenu, MF_STRING | MF_BYPOSITION | checkedStatus, item++, ConvertUTF8ToWString(translatedShaderName).c_str());
 			}

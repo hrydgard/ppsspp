@@ -45,7 +45,6 @@ extern std::vector<std::wstring> GetWideCmdLine();
 class GraphicsContext;
 static GraphicsContext *g_graphicsContext;
 
-void EmuThreadFunc(GraphicsContext *graphicsContext);
 void MainThreadFunc();
 
 // On most other platforms, we let the "main" thread become the render thread and
@@ -185,10 +184,15 @@ void MainThreadFunc() {
 			g_Config.Save();
 
 			W32Util::ExitAndRestart();
+		} else {
+			if (g_Config.iGPUBackend == (int)GPUBackend::DIRECT3D9) {
+				// Allow the user to download the DX9 runtime.
+				LaunchBrowser("https://www.microsoft.com/en-us/download/details.aspx?id=34429");
+			}
 		}
 
 		// No safe way out without graphics.
-		exit(1);
+		ExitProcess(1);
 	}
 
 	GraphicsContext *graphicsContext = g_graphicsContext;

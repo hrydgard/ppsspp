@@ -20,16 +20,16 @@
 #ifdef _WIN32
 #ifndef _WIN32_WINNT
 
-#if _MSC_VER < 1700
+#if defined(_MSC_VER) && _MSC_VER < 1700
 #error You need a newer version of Visual Studio.
 #else
-#define _WIN32_WINNT 0x600
+#define _WIN32_WINNT 0x601
 #endif
 
 #endif // #ifndef _WIN32_WINNT
 
 #undef WINVER
-#define WINVER 0x0600
+#define WINVER _WIN32_WINNT
 #ifndef _WIN32_IE
 #define _WIN32_IE 0x0600       // Default value is 0x0400
 #endif

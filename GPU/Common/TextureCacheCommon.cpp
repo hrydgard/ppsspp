@@ -575,23 +575,15 @@ void TextureCacheCommon::DecimateVideos() {
 	}
 }
 
-bool TextureCacheCommon::HandleTextureChange(TexCacheEntry *const entry, const char *reason, bool initialMatch, bool doDelete) {
-	bool replaceImages = false;
-
+void TextureCacheCommon::HandleTextureChange(TexCacheEntry *const entry, const char *reason, bool initialMatch, bool doDelete) {
 	cacheSizeEstimate_ -= EstimateTexMemoryUsage(entry);
 	entry->numInvalidated++;
 	gpuStats.numTextureInvalidations++;
 	DEBUG_LOG(G3D, "Texture different or overwritten, reloading at %08x: %s", entry->addr, reason);
 	if (doDelete) {
-		if (initialMatch && standardScaleFactor_ == 1 && (entry->status & TexCacheEntry::STATUS_IS_SCALED) == 0) {
-			// Actually, if size and number of levels match, let's try to avoid deleting and recreating.
-			// Instead, let's use glTexSubImage to replace the images.
-			replaceImages = true;
-		} else {
-			InvalidateLastTexture();
-			ReleaseTexture(entry, true);
-			entry->status &= ~TexCacheEntry::STATUS_IS_SCALED;
-		}
+		InvalidateLastTexture();
+		ReleaseTexture(entry, true);
+		entry->status &= ~TexCacheEntry::STATUS_IS_SCALED;
 	}
 	// Clear the reliable bit if set.
 	if (entry->GetHashStatus() == TexCacheEntry::STATUS_RELIABLE) {
@@ -618,8 +610,6 @@ bool TextureCacheCommon::HandleTextureChange(TexCacheEntry *const entry, const c
 		}
 	}
 	entry->numFrames = 0;
-
-	return replaceImages;
 }
 
 void TextureCacheCommon::NotifyFramebuffer(u32 address, VirtualFramebuffer *framebuffer, FramebufferNotification msg) {
@@ -1488,7 +1478,6 @@ void TextureCacheCommon::ApplyTexture() {
 
 	UpdateMaxSeenV(entry, gstate.isModeThrough());
 
-	bool replaceImages = false;
 	if (nextNeedsRebuild_) {
 		// Regardless of hash fails or otherwise, if this is a video, mark it frequently changing.
 		// This prevents temporary scaling perf hits on the first second of video.
@@ -1509,14 +1498,14 @@ void TextureCacheCommon::ApplyTexture() {
 		}
 		if (nextNeedsChange_) {
 			// This texture existed previously, let's handle the change.
-			replaceImages = HandleTextureChange(entry, nextChangeReason_, false, true);
+			HandleTextureChange(entry, nextChangeReason_, false, true);
 		}
 		// We actually build afterward (shared with rehash rebuild.)
 	} else if (nextNeedsRehash_) {
 		// Okay, this matched and didn't change - but let's check the hash.  Maybe it will change.
 		bool doDelete = true;
 		if (!CheckFullHash(entry, doDelete)) {
-			replaceImages = HandleTextureChange(entry, "hash fail", true, doDelete);
+			HandleTextureChange(entry, "hash fail", true, doDelete);
 			nextNeedsRebuild_ = true;
 		} else if (nextTexture_ != nullptr) {
 			// The secondary cache may choose an entry from its storage by setting nextTexture_.
@@ -1529,7 +1518,8 @@ void TextureCacheCommon::ApplyTexture() {
 
 	// Okay, now actually rebuild the texture if needed.
 	if (nextNeedsRebuild_) {
-		BuildTexture(entry, replaceImages);
+		_assert_(!entry->texturePtr);
+		BuildTexture(entry);
 	}
 
 	entry->lastFrame = gpuStats.numFlips;

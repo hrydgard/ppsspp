@@ -196,13 +196,13 @@ protected:
 	void PopulateReplacement(ReplacedTexture *result, u64 cachekey, u32 hash, int w, int h);
 
 	SimpleBuf<u32> saveBuf;
-	bool enabled_;
-	bool allowVideo_;
-	bool ignoreAddress_;
-	bool reduceHash_;
+	bool enabled_ = false;
+	bool allowVideo_ = false;
+	bool ignoreAddress_ = false;
+	bool reduceHash_ = false;
 	std::string gameID_;
 	std::string basePath_;
-	ReplacedTextureHash hash_;
+	ReplacedTextureHash hash_ = ReplacedTextureHash::QUICK;
 	typedef std::pair<int, int> WidthHeightPair;
 	std::unordered_map<u64, WidthHeightPair> hashranges_;
 	std::unordered_map<ReplacementAliasKey, std::string> aliases_;

@@ -38,9 +38,19 @@ public:
 protected:
 	void LoadNativeAssets();
 
-	SDL_Window *screen_;
-	SDL_GLContext glContext_;
+	enum class RenderThreadState {
+		IDLE,
+		START_REQUESTED,
+		STARTING,
+		START_FAILED,
+		STARTED,
+		STOP_REQUESTED,
+		STOPPING,
+		STOPPED,
+	};
+
 	GraphicsContext *gfx_;
+	volatile RenderThreadState threadState_ = RenderThreadState::IDLE;
 };
 
 #endif

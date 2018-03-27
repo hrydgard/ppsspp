@@ -1,6 +1,6 @@
 #include "ppsspp_config.h"
 
-#ifdef _MSC_VER
+#ifdef _WIN32
 
 #include <cstdint>
 #include "OSVersion.h"

@@ -496,12 +496,8 @@ GLenum ToGLESFormat(ReplacedTextureFormat fmt) {
 	}
 }
 
-void TextureCacheGLES::BuildTexture(TexCacheEntry *const entry, bool replaceImages) {
+void TextureCacheGLES::BuildTexture(TexCacheEntry *const entry) {
 	entry->status &= ~TexCacheEntry::STATUS_ALPHA_MASK;
-
-	// Never replace images in-place - there's no such thing, drivers have to fake it anyway, at least if
-	// the image has been in use within the last frame or two.
-	replaceImages = false;
 
 	// For the estimate, we assume cluts always point to 8888 for simplicity.
 	cacheSizeEstimate_ += EstimateTexMemoryUsage(entry);
@@ -512,10 +508,8 @@ void TextureCacheGLES::BuildTexture(TexCacheEntry *const entry, bool replaceImag
 	}
 
 	// Always generate a texture name unless it's a framebuffer, we might need it if the texture is replaced later.
-	if (!replaceImages) {
-		if (!entry->textureName) {
-			entry->textureName = render_->CreateTexture(GL_TEXTURE_2D);
-		}
+	if (!entry->textureName) {
+		entry->textureName = render_->CreateTexture(GL_TEXTURE_2D);
 	}
 
 	if ((entry->bufw == 0 || (gstate.texbufwidth[0] & 0xf800) != 0) && entry->addr >= PSP_GetKernelMemoryEnd()) {
@@ -581,13 +575,6 @@ void TextureCacheGLES::BuildTexture(TexCacheEntry *const entry, bool replaceImag
 	int h = gstate.getTextureHeight(0);
 	ReplacedTexture &replaced = replacer_.FindReplacement(cachekey, entry->fullhash, w, h);
 	if (replaced.GetSize(0, w, h)) {
-		if (replaceImages) {
-			// Since we're replacing the texture, we can't replace the image inside.
-			render_->DeleteTexture(entry->textureName);
-			entry->textureName = render_->CreateTexture(GL_TEXTURE_2D);
-			replaceImages = false;
-		}
-
 		// We're replacing, so we won't scale.
 		scaleFactor = 1;
 		entry->status |= TexCacheEntry::STATUS_IS_SCALED;
@@ -630,9 +617,9 @@ void TextureCacheGLES::BuildTexture(TexCacheEntry *const entry, bool replaceImag
 	if (IsFakeMipmapChange()) {
 		// NOTE: Since the level is not part of the cache key, we assume it never changes.
 		u8 level = std::max(0, gstate.getTexLevelOffset16() / 16);
-		LoadTextureLevel(*entry, replaced, level, replaceImages, scaleFactor, dstFmt);
+		LoadTextureLevel(*entry, replaced, level, scaleFactor, dstFmt);
 	} else
-		LoadTextureLevel(*entry, replaced, 0, replaceImages, scaleFactor, dstFmt);
+		LoadTextureLevel(*entry, replaced, 0, scaleFactor, dstFmt);
 
 	// Mipmapping only enable when texture scaling disable
 	int texMaxLevel = 0;
@@ -649,7 +636,7 @@ void TextureCacheGLES::BuildTexture(TexCacheEntry *const entry, bool replaceImag
 				}
 			} else {
 				for (int i = 1; i <= maxLevel; i++) {
-					LoadTextureLevel(*entry, replaced, i, replaceImages, scaleFactor, dstFmt);
+					LoadTextureLevel(*entry, replaced, i, scaleFactor, dstFmt);
 				}
 				texMaxLevel = maxLevel;
 			}
@@ -726,7 +713,7 @@ TexCacheEntry::TexStatus TextureCacheGLES::CheckAlpha(const uint8_t *pixelData, 
 	return (TexCacheEntry::TexStatus)res;
 }
 
-void TextureCacheGLES::LoadTextureLevel(TexCacheEntry &entry, ReplacedTexture &replaced, int level, bool replaceImages, int scaleFactor, GLenum dstFmt) {
+void TextureCacheGLES::LoadTextureLevel(TexCacheEntry &entry, ReplacedTexture &replaced, int level, int scaleFactor, GLenum dstFmt) {
 	int w = gstate.getTextureWidth(level);
 	int h = gstate.getTextureHeight(level);
 	bool useUnpack = false;
@@ -798,17 +785,11 @@ void TextureCacheGLES::LoadTextureLevel(TexCacheEntry &entry, ReplacedTexture &r
 
 	GLuint components2 = components;
 
-	if (replaceImages) {
-		PROFILE_THIS_SCOPE("repltex");
-		Crash();
-		// glTexSubImage2D(GL_TEXTURE_2D, level, 0, 0, w, h, components2, dstFmt, pixelData);
-	} else {
-		PROFILE_THIS_SCOPE("loadtex");
-		if (IsFakeMipmapChange())
-			render_->TextureImage(entry.textureName, 0, w, h, components, components2, dstFmt, pixelData, GLRAllocType::ALIGNED);
-		else
-			render_->TextureImage(entry.textureName, level, w, h, components, components2, dstFmt, pixelData, GLRAllocType::ALIGNED);
-	}
+	PROFILE_THIS_SCOPE("loadtex");
+	if (IsFakeMipmapChange())
+		render_->TextureImage(entry.textureName, 0, w, h, components, components2, dstFmt, pixelData, GLRAllocType::ALIGNED);
+	else
+		render_->TextureImage(entry.textureName, level, w, h, components, components2, dstFmt, pixelData, GLRAllocType::ALIGNED);
 }
 
 bool TextureCacheGLES::GetCurrentTextureDebug(GPUDebugBuffer &buffer, int level) {

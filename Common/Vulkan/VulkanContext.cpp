@@ -640,10 +640,13 @@ void VulkanContext::ReinitSurface(int width, int height) {
 		HINSTANCE connection = (HINSTANCE)winsysData1_;
 		HWND window = (HWND)winsysData2_;
 
-		RECT rc;
-		GetClientRect(window, &rc);
-		width = rc.right - rc.left;
-		height = rc.bottom - rc.top;
+		if (width < 0 || height < 0)
+		{
+			RECT rc;
+			GetClientRect(window, &rc);
+			width = rc.right - rc.left;
+			height = rc.bottom - rc.top;
+		}
 
 		VkWin32SurfaceCreateInfoKHR win32{ VK_STRUCTURE_TYPE_WIN32_SURFACE_CREATE_INFO_KHR };
 		win32.flags = 0;
@@ -1151,6 +1154,10 @@ void VulkanDeleteList::Take(VulkanDeleteList &del) {
 }
 
 void VulkanDeleteList::PerformDeletes(VkDevice device) {
+	for (auto &callback : callbacks_) {
+		callback.func(callback.userdata);
+	}
+	callbacks_.clear();
 	for (auto &cmdPool : cmdPools_) {
 		vkDestroyCommandPool(device, cmdPool, nullptr);
 	}
@@ -1211,8 +1218,4 @@ void VulkanDeleteList::PerformDeletes(VkDevice device) {
 		vkDestroyDescriptorSetLayout(device, descSetLayout, nullptr);
 	}
 	descSetLayouts_.clear();
-	for (auto &callback : callbacks_) {
-		callback.func(callback.userdata);
-	}
-	callbacks_.clear();
 }

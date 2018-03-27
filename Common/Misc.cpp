@@ -43,13 +43,13 @@ const char *GetLastErrorMsg()
 const char *GetStringErrorMsg(int errCode) {
 	static const size_t buff_size = 1023;
 #ifdef _WIN32
-	static __declspec(thread) wchar_t err_strw[buff_size] = {};
+	static __THREAD wchar_t err_strw[buff_size] = {};
 
 	FormatMessageW(FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS, NULL, errCode,
 		MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT),
 		err_strw, buff_size, NULL);
 
-	static __declspec(thread) char err_str[buff_size] = {};
+	static __THREAD char err_str[buff_size] = {};
 	snprintf(err_str, buff_size, "%s", ConvertWStringToUTF8(err_strw).c_str());
 #else
 	static __thread char err_str[buff_size] = {};

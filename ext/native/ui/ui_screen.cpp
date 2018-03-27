@@ -836,7 +836,9 @@ void ChoiceWithValueDisplay::Draw(UIContext &dc) {
 
 	I18NCategory *category = GetI18NCategory(category_);
 	std::ostringstream valueText;
-	if (sValue_ != nullptr) {
+	if (translateCallback_ && sValue_) {
+		valueText << translateCallback_(sValue_->c_str());
+	} else if (sValue_ != nullptr) {
 		if (category)
 			valueText << category->T(*sValue_);
 		else

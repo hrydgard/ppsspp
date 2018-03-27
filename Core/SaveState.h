@@ -28,6 +28,8 @@ namespace SaveState
 	static const int NUM_SLOTS = 5;
 	static const char *STATE_EXTENSION = "ppst";
 	static const char *SCREENSHOT_EXTENSION = "jpg";
+	static const char *UNDO_STATE_EXTENSION = "undo.ppst";
+	static const char *UNDO_SCREENSHOT_EXTENSION = "undo.jpg";
 
 	void Init();
 	void Shutdown();
@@ -36,8 +38,10 @@ namespace SaveState
 	void NextSlot();
 	void SaveSlot(const std::string &gameFilename, int slot, Callback callback, void *cbUserData = 0);
 	void LoadSlot(const std::string &gameFilename, int slot, Callback callback, void *cbUserData = 0);
+	bool UndoSaveSlot(const std::string &gameFilename, int slot);
 	// Checks whether there's an existing save in the specified slot.
 	bool HasSaveInSlot(const std::string &gameFilename, int slot);
+	bool HasUndoSaveInSlot(const std::string &gameFilename, int slot);
 	bool HasScreenshotInSlot(const std::string &gameFilename, int slot);
 
 	int GetCurrentSlot();

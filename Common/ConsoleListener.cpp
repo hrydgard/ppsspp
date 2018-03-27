@@ -26,6 +26,9 @@
 #else
 #include <stdarg.h>
 #endif
+#ifndef _MSC_VER
+#include <unistd.h>
+#endif
 
 #include "ppsspp_config.h"
 #include "thread/threadutil.h"
@@ -66,6 +69,8 @@ ConsoleListener::ConsoleListener() : bHidden(true)
 #elif defined(IOS)
 	bUseColor = false;
 #elif PPSSPP_PLATFORM(UWP)
+	bUseColor = false;
+#elif defined(_MSC_VER)
 	bUseColor = false;
 #else
 	bUseColor = isatty(fileno(stdout));

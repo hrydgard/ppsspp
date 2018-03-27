@@ -648,7 +648,8 @@ Pipeline *D3D9Context::CreateGraphicsPipeline(const PipelineDesc &desc) {
 	for (auto iter : desc.shaders) {
 		if (!iter) {
 			ELOG("NULL shader passed to CreateGraphicsPipeline");
-			return false;
+			delete pipeline;
+			return NULL;
 		}
 		if (iter->GetStage() == ShaderStage::FRAGMENT) {
 			pipeline->pshader = static_cast<D3D9ShaderModule *>(iter);

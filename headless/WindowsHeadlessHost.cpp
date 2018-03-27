@@ -32,6 +32,7 @@
 #include "Windows/GPU/WindowsVulkanContext.h"
 
 #include "base/logging.h"
+#include "base/timeutil.h"
 #include "gfx/gl_common.h"
 #include "gfx_es2/gpu_features.h"
 #include "file/vfs.h"
@@ -86,11 +87,13 @@ bool WindowsHeadlessHost::InitGraphics(std::string *error_message, GraphicsConte
 	}
 
 	WindowsGraphicsContext *graphicsContext = nullptr;
+	bool needRenderThread = false;
 	switch (gpuCore_) {
 	case GPUCORE_NULL:
 	case GPUCORE_GLES:
 	case GPUCORE_SOFTWARE:
 		graphicsContext = new WindowsGLContext();
+		needRenderThread = true;
 		break;
 
 	case GPUCORE_DIRECTX9:
@@ -116,17 +119,53 @@ bool WindowsHeadlessHost::InitGraphics(std::string *error_message, GraphicsConte
 		return false;
 	}
 
-	if (gpuCore_ == GPUCORE_GLES) {
-		// TODO: Do we need to do this here?
-		CheckGLExtensions();
+	if (needRenderThread) {
+		std::thread th([&]{
+			while (threadState_ == RenderThreadState::IDLE)
+				sleep_ms(1);
+			threadState_ = RenderThreadState::STARTING;
+
+			std::string err;
+			if (!gfx_->InitFromRenderThread(&err)) {
+				threadState_ = RenderThreadState::START_FAILED;
+				return;
+			}
+			gfx_->ThreadStart();
+			threadState_ = RenderThreadState::STARTED;
+
+			while (threadState_ != RenderThreadState::STOP_REQUESTED) {
+				if (!gfx_->ThreadFrame()) {
+					break;
+				}
+				gfx_->SwapBuffers();
+			}
+
+			threadState_ = RenderThreadState::STOPPING;
+			gfx_->ThreadEnd();
+			gfx_->ShutdownFromRenderThread();
+			threadState_ = RenderThreadState::STOPPED;
+		});
+		th.detach();
 	}
 
 	LoadNativeAssets();
+
+	if (needRenderThread) {
+		threadState_ = RenderThreadState::START_REQUESTED;
+		while (threadState_ == RenderThreadState::START_REQUESTED || threadState_ == RenderThreadState::STARTING)
+			sleep_ms(1);
+
+		return threadState_ == RenderThreadState::STARTED;
+	}
 
 	return true;
 }
 
 void WindowsHeadlessHost::ShutdownGraphics() {
+	gfx_->StopThread();
+	while (threadState_ != RenderThreadState::STOPPED)
+		sleep_ms(1);
+
 	gfx_->Shutdown();
 	delete gfx_;
 	gfx_ = nullptr;

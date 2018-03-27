@@ -530,25 +530,12 @@ public abstract class NativeActivity extends Activity implements SurfaceHolder.C
     }
 
 	private Point desiredSize = new Point();
-	private int badOrientationCount = 0;
 	@Override
 	public void surfaceCreated(SurfaceHolder holder) {
 		pixelWidth = holder.getSurfaceFrame().width();
 		pixelHeight = holder.getSurfaceFrame().height();
 
-		// Workaround for terrible bug when locking and unlocking the screen in landscape mode on Nexus 5X.
 		int requestedOr = getRequestedOrientation();
-		boolean requestedPortrait = requestedOr == ActivityInfo.SCREEN_ORIENTATION_PORTRAIT || requestedOr == ActivityInfo.SCREEN_ORIENTATION_REVERSE_PORTRAIT;
-		boolean detectedPortrait = pixelHeight > pixelWidth;
-		if (badOrientationCount < 3 && requestedPortrait != detectedPortrait && requestedOr != ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED) {
-			Log.e(TAG, "Bad orientation detected (w=" + pixelWidth + " h=" + pixelHeight + "! Recreating activity.");
-			badOrientationCount++;
-			recreate();
-			return;
-		} else if (requestedPortrait == detectedPortrait) {
-			badOrientationCount = 0;
-		}
-
 		Log.d(TAG, "Surface created. pixelWidth=" + pixelWidth + ", pixelHeight=" + pixelHeight + " holder: " + holder.toString() + " or: " + requestedOr);
 		NativeApp.setDisplayParameters(pixelWidth, pixelHeight, (int)densityDpi, refreshRate);
 		getDesiredBackbufferSize(desiredSize);
@@ -1091,7 +1078,6 @@ public abstract class NativeActivity extends Activity implements SurfaceHolder.C
     	dlg.show();
     }
 
-
     public boolean processCommand(String command, String params) {
     	SurfaceView surfView = javaGL ? mGLSurfaceView : mSurfaceView;
 		if (command.equals("launchBrowser")) {
@@ -1204,7 +1190,7 @@ public abstract class NativeActivity extends Activity implements SurfaceHolder.C
 			Log.i(TAG, "Launching inputbox: " + title + " " + defString);
 			inputBox(title, defString, "OK");
 			return true;
-		} else if (command.equals("vibrate") && surfView != null) {
+		} else if (command.equals("vibrate")) {
 			int milliseconds = -1;
 			if (params != "") {
 				try {
@@ -1219,20 +1205,24 @@ public abstract class NativeActivity extends Activity implements SurfaceHolder.C
 			// -3 = Long press feedback
 			// Note that these three do not require the VIBRATE Android
 			// permission.
-			switch (milliseconds) {
-			case -1:
-				surfView.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP);
-				break;
-			case -2:
-				surfView.performHapticFeedback(HapticFeedbackConstants.VIRTUAL_KEY);
-				break;
-			case -3:
-				surfView.performHapticFeedback(HapticFeedbackConstants.LONG_PRESS);
-				break;
-			default:
-				// Requires the vibrate permission, which we don't have, so disabled.
-				// vibrator.vibrate(milliseconds);
-				break;
+			if (surfView != null) {
+				switch (milliseconds) {
+					case -1:
+						surfView.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP, HapticFeedbackConstants.FLAG_IGNORE_GLOBAL_SETTING);
+						break;
+					case -2:
+						surfView.performHapticFeedback(HapticFeedbackConstants.VIRTUAL_KEY, HapticFeedbackConstants.FLAG_IGNORE_GLOBAL_SETTING);
+						break;
+					case -3:
+						surfView.performHapticFeedback(HapticFeedbackConstants.LONG_PRESS, HapticFeedbackConstants.FLAG_IGNORE_GLOBAL_SETTING);
+						break;
+					default:
+						// Requires the vibrate permission, which we don't have, so disabled.
+						// vibrator.vibrate(milliseconds);
+						break;
+				}
+			} else {
+				Log.e(TAG, "Can't vibrate, no surface view");
 			}
 			return true;
 		} else if (command.equals("finish")) {

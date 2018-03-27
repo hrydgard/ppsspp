@@ -19,19 +19,16 @@
 
 #pragma warning(disable:4996)
 
-// WinSock2 MUST be included before <windows.h> !!!
-#include <WinSock2.h>
-
 #undef _WIN32_WINNT
 
-#if _MSC_VER < 1700
+#if defined(_MSC_VER) && _MSC_VER < 1700
 #error You need a newer version of Visual Studio
 #else
-#define _WIN32_WINNT 0x600 // Compile for Vista on Visual Studio 2012 and above
+#define _WIN32_WINNT 0x601 // Compile for Win7 on Visual Studio 2012 and above
 #endif
 
 #undef WINVER
-#define WINVER 0x0600
+#define WINVER _WIN32_WINNT
 #ifndef _WIN32_IE
 #define _WIN32_IE 0x0600       // Default value is 0x0400
 #endif
@@ -46,6 +43,16 @@
 #else
 #pragma comment(linker,"/manifestdependency:\"type='win32' name='Microsoft.Windows.Common-Controls' version='6.0.0.0' processorArchitecture='*' publicKeyToken='6595b64144ccf1df' language='*'\"")
 #endif
+
+#ifndef WIN32_LEAN_AND_MEAN
+#define WIN32_LEAN_AND_MEAN
+#endif
+#ifndef NOMINMAX
+#define NOMINMAX
+#endif
+
+// WinSock2 MUST be included before <windows.h> !!!
+#include <WinSock2.h>
 
 #include "Common/CommonWindows.h"
 

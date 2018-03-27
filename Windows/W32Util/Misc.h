@@ -1,5 +1,6 @@
 #pragma once
 
+#include <string>
 #include "Common/CommonWindows.h"
 
 namespace W32Util
@@ -15,7 +16,7 @@ namespace W32Util
 
 struct GenericListViewColumn
 {
-	wchar_t *name;
+	const wchar_t *name;
 	float size;
 	int flags;
 };

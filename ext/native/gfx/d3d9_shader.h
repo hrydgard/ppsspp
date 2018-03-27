@@ -1,7 +1,7 @@
 #pragma once
 
 #include "Common/CommonWindows.h"
-
+#include <initguid.h>
 #include <string>
 #include <d3d9.h>
 

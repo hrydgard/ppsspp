@@ -106,6 +106,8 @@ travis_script() {
 
         if [ "$QT" = "TRUE" ]; then
             ./b.sh --qt
+        elif [ "$LIBRETRO" = "TRUE" ]; then
+            ./b.sh --libretro
         else
             ./b.sh --headless
         fi

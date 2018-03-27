@@ -1,4 +1,4 @@
-#define NOMINMAX
+#include "stdafx.h"
 #include <Windows.h>
 #include "Windows/TouchInputHandler.h"
 
@@ -7,6 +7,7 @@
 #include "base/display.h"
 #include "Common/CommonWindows.h"
 #include "Common/CommonFuncs.h"
+#include "Common/Log.h"
 #include "base/NativeApp.h"
 #include "Windows/MainWindow.h"
 

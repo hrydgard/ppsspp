@@ -1,5 +1,5 @@
 #pragma once
-#ifdef _WIN32
+#ifdef _MSC_VER
 #include "SDL/SDL.h"
 #include "SDL/SDL_thread.h"
 #else

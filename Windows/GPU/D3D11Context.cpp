@@ -17,6 +17,11 @@
 #include "thin3d/thin3d_create.h"
 #include "thin3d/d3d11_loader.h"
 
+#ifdef __MINGW32__
+#undef __uuidof
+#define __uuidof(type) IID_##type
+#endif
+
 #if PPSSPP_PLATFORM(UWP)
 #error This file should not be compiled for UWP.
 #endif

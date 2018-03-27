@@ -52,6 +52,7 @@
 #include "Core/Host.h"
 #include "Core/System.h"
 #include "Core/Reporting.h"
+#include "GPU/Common/PostShader.h"
 #include "android/jni/TestRunner.h"
 #include "GPU/GPUInterface.h"
 #include "GPU/Common/FramebufferCommon.h"
@@ -104,6 +105,14 @@ bool DoesBackendSupportHWTess() {
 		return true;
 	}
 	return false;
+}
+
+static std::string PostShaderTranslateName(const char *value) {
+	I18NCategory *ps = GetI18NCategory("PostShaders");
+	const ShaderInfo *info = GetPostShaderInfo(value);
+	if (info) {
+		return ps->T(value, info ? info->name.c_str() : value);
+	}
 }
 
 void GameSettingsScreen::CreateViews() {
@@ -246,7 +255,7 @@ void GameSettingsScreen::CreateViews() {
 	// Hide postprocess option on unsupported backends to avoid confusion.
 	if (GetGPUBackend() != GPUBackend::DIRECT3D9) {
 		I18NCategory *ps = GetI18NCategory("PostShaders");
-		postProcChoice_ = graphicsSettings->Add(new ChoiceWithValueDisplay(&g_Config.sPostShaderName, gr->T("Postprocessing Shader"), ps->GetName()));
+		postProcChoice_ = graphicsSettings->Add(new ChoiceWithValueDisplay(&g_Config.sPostShaderName, gr->T("Postprocessing Shader"), &PostShaderTranslateName));
 		postProcChoice_->OnClick.Handle(this, &GameSettingsScreen::OnPostProcShader);
 		postProcEnable_ = !g_Config.bSoftwareRendering && (g_Config.iRenderingMode != FB_NON_BUFFERED_MODE);
 		postProcChoice_->SetEnabledPtr(&postProcEnable_);
@@ -613,12 +622,12 @@ void GameSettingsScreen::CreateViews() {
 #if !defined(MOBILE_DEVICE) && !defined(USING_QT_UI)
 	networkingSettings->Add(new PopupTextInputChoice(&g_Config.proAdhocServer, n->T("Change proAdhocServer Address"), "", 255, screenManager()));
 #elif defined(__ANDROID__)
-	networkingSettings->Add(new ChoiceWithValueDisplay(&g_Config.proAdhocServer, n->T("Change proAdhocServer Address"), nullptr))->OnClick.Handle(this, &GameSettingsScreen::OnChangeproAdhocServerAddress);
+	networkingSettings->Add(new ChoiceWithValueDisplay(&g_Config.proAdhocServer, n->T("Change proAdhocServer Address"), (const char *)nullptr))->OnClick.Handle(this, &GameSettingsScreen::OnChangeproAdhocServerAddress);
 #else
-	networkingSettings->Add(new ChoiceWithValueDisplay(&g_Config.proAdhocServer, n->T("Change proAdhocServer Address"), nullptr))->OnClick.Handle(this, &GameSettingsScreen::OnChangeproAdhocServerAddress);
+	networkingSettings->Add(new ChoiceWithValueDisplay(&g_Config.proAdhocServer, n->T("Change proAdhocServer Address"), (const char *)nullptr))->OnClick.Handle(this, &GameSettingsScreen::OnChangeproAdhocServerAddress);
 #endif
 	networkingSettings->Add(new CheckBox(&g_Config.bEnableAdhocServer, n->T("Enable built-in PRO Adhoc Server", "Enable built-in PRO Adhoc Server")));
-	networkingSettings->Add(new ChoiceWithValueDisplay(&g_Config.sMACAddress, n->T("Change Mac Address"), nullptr))->OnClick.Handle(this, &GameSettingsScreen::OnChangeMacAddress);
+	networkingSettings->Add(new ChoiceWithValueDisplay(&g_Config.sMACAddress, n->T("Change Mac Address"), (const char *)nullptr))->OnClick.Handle(this, &GameSettingsScreen::OnChangeMacAddress);
 	networkingSettings->Add(new PopupSliderChoice(&g_Config.iPortOffset, 0, 60000, n->T("Port offset", "Port offset(0 = PSP compatibility)"), 100, screenManager()));
 	networkingSettings->Add(new CheckBox(&g_Config.bMOHH2hack, n->T("Medal of Honor Heroes 2 hack", "Medal of Honor Heroes 2 hack")));
 
@@ -708,6 +717,7 @@ void GameSettingsScreen::CreateViews() {
 	}
 	systemSettings->Add(new Choice(sy->T("Restore Default Settings")))->OnClick.Handle(this, &GameSettingsScreen::OnRestoreDefaultSettings);
 	if (!g_Config.bSimpleUI) {
+		systemSettings->Add(new CheckBox(&g_Config.bEnableStateUndo, sy->T("Savestate slot backups")));
 		systemSettings->Add(new CheckBox(&g_Config.bEnableAutoLoad, sy->T("Auto Load Newest Savestate")));
 
 #if defined(USING_WIN_UI)
@@ -735,13 +745,20 @@ void GameSettingsScreen::CreateViews() {
 			}
 			else
 				SavePathInMyDocumentChoice->SetEnabled(false);
-		}
-		else {
-			if (installed_ && (result == S_OK)) {
-				std::ifstream inputFile(ConvertUTF8ToWString(installedFile));
-				if (!inputFile.fail() && inputFile.is_open()) {
-					std::string tempString;
-					std::getline(inputFile, tempString);
+			else
+				SavePathInOtherChoice->SetEnabled(true);
+		} else
+			SavePathInMyDocumentChoice->SetEnabled(false);
+	} else {
+		if (installed_ && (result == S_OK)) {
+#ifdef _MSC_VER
+			std::ifstream inputFile(ConvertUTF8ToWString(installedFile));
+#else
+			std::ifstream inputFile(installedFile);
+#endif
+			if (!inputFile.fail() && inputFile.is_open()) {
+				std::string tempString;
+				std::getline(inputFile, tempString);
 
 					// Skip UTF-8 encoding bytes if there are any. There are 3 of them.
 					if (tempString.substr(0, 3) == "\xEF\xBB\xBF")
@@ -781,7 +798,7 @@ void GameSettingsScreen::CreateViews() {
 #elif defined(USING_QT_UI)
 	systemSettings->Add(new Choice(sy->T("Change Nickname")))->OnClick.Handle(this, &GameSettingsScreen::OnChangeNickname);
 #elif defined(__ANDROID__)
-	systemSettings->Add(new ChoiceWithValueDisplay(&g_Config.sNickName, sy->T("Change Nickname"), nullptr))->OnClick.Handle(this, &GameSettingsScreen::OnChangeNickname);
+	systemSettings->Add(new ChoiceWithValueDisplay(&g_Config.sNickName, sy->T("Change Nickname"), (const char *)nullptr))->OnClick.Handle(this, &GameSettingsScreen::OnChangeNickname);
 #endif
 #if defined(_WIN32) || (defined(USING_QT_UI) && !defined(MOBILE_DEVICE))
 	if (!g_Config.bSimpleUI) {
