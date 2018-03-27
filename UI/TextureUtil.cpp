@@ -7,6 +7,7 @@
 #include "file/vfs.h"
 #include "ext/jpge/jpgd.h"
 #include "UI/TextureUtil.h"
+#include "Common/Log.h"
 
 static Draw::DataFormat ZimToT3DFormat(int zim) {
 	switch (zim) {
@@ -37,7 +38,7 @@ static bool LoadTextureLevels(const uint8_t *data, size_t size, ImageFileType ty
 		type = DetectImageFileType(data, size);
 	}
 	if (type == TYPE_UNKNOWN) {
-		ELOG("File has unknown format");
+		ELOG("File (size: %d) has unknown format", (int)size);
 		return false;
 	}
 
@@ -79,7 +80,7 @@ static bool LoadTextureLevels(const uint8_t *data, size_t size, ImageFileType ty
 	break;
 
 	default:
-		ELOG("Unknown image format");
+		ELOG("Unsupported image format %d", (int)type);
 		return false;
 	}
 
@@ -87,6 +88,7 @@ static bool LoadTextureLevels(const uint8_t *data, size_t size, ImageFileType ty
 }
 
 bool ManagedTexture::LoadFromFileData(const uint8_t *data, size_t dataSize, ImageFileType type, bool generateMips) {
+	generateMips_ = generateMips;
 	using namespace Draw;
 
 	int width[16]{}, height[16]{};
@@ -135,18 +137,20 @@ bool ManagedTexture::LoadFromFileData(const uint8_t *data, size_t dataSize, Imag
 }
 
 bool ManagedTexture::LoadFromFile(const std::string &filename, ImageFileType type, bool generateMips) {
-	filename_ = "";
+	generateMips_ = generateMips;
 	size_t fileSize;
 	uint8_t *buffer = VFSReadFile(filename.c_str(), &fileSize);
 	if (!buffer) {
-		ELOG("Failed to read file %s", filename.c_str());
+		filename_ = "";
+		ELOG("Failed to read file '%s'", filename.c_str());
 		return false;
 	}
 	bool retval = LoadFromFileData(buffer, fileSize, type, generateMips);
 	if (retval) {
 		filename_ = filename;
 	} else {
-		ELOG("Failed to load texture %s", filename.c_str());
+		filename_ = "";
+		ELOG("Failed to load texture '%s'", filename.c_str());
 	}
 	delete[] buffer;
 	return retval;
@@ -162,6 +166,32 @@ std::unique_ptr<ManagedTexture> CreateTextureFromFile(Draw::DrawContext *draw, c
 		return std::unique_ptr<ManagedTexture>();
 	}
 	return std::unique_ptr<ManagedTexture>(mtex);
+}
+
+void ManagedTexture::DeviceLost() {
+	ILOG("ManagedTexture::DeviceLost(%s)", filename_.c_str());
+	if (texture_)
+		texture_->Release();
+	texture_ = nullptr;
+}
+
+void ManagedTexture::DeviceRestored(Draw::DrawContext *draw) {
+	ILOG("ManagedTexture::DeviceRestored(%s)", filename_.c_str());
+	_assert_(!texture_);
+	draw_ = draw;
+	// Vulkan: Can't load textures before the first frame has started.
+	// Should probably try to lift that restriction again someday..
+	loadPending_ = true;
+}
+
+Draw::Texture *ManagedTexture::GetTexture() {
+	if (loadPending_) {
+		if (!LoadFromFile(filename_, ImageFileType::DETECT, generateMips_)) {
+			ELOG("ManagedTexture failed: '%s'", filename_.c_str());
+		}
+		loadPending_ = false;
+	}
+	return texture_;
 }
 
 // TODO: Remove the code duplication between this and LoadFromFileData

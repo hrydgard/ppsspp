@@ -117,6 +117,20 @@ void ViewGroup::Axis(const AxisInput &input) {
 	}
 }
 
+void ViewGroup::DeviceLost() {
+	std::lock_guard<std::mutex> guard(modifyLock_);
+	for (auto iter = views_.begin(); iter != views_.end(); ++iter) {
+		(*iter)->DeviceLost();
+	}
+}
+
+void ViewGroup::DeviceRestored(Draw::DrawContext *draw) {
+	std::lock_guard<std::mutex> guard(modifyLock_);
+	for (auto iter = views_.begin(); iter != views_.end(); ++iter) {
+		(*iter)->DeviceRestored(draw);
+	}
+}
+
 void ViewGroup::Draw(UIContext &dc) {
 	if (hasDropShadow_) {
 		// Darken things behind.
@@ -124,7 +138,7 @@ void ViewGroup::Draw(UIContext &dc) {
 		float dropsize = 30.0f;
 		dc.Draw()->DrawImage4Grid(dc.theme->dropShadow4Grid,
 			bounds_.x - dropsize, bounds_.y,
-			bounds_.x2() + dropsize, bounds_.y2()+dropsize*1.5, 0xDF000000, 3.0f);
+			bounds_.x2() + dropsize, bounds_.y2()+dropsize*1.5f, 0xDF000000, 3.0f);
 	}
 
 	if (clip_) {

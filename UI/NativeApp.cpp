@@ -681,6 +681,7 @@ bool NativeInitGraphics(GraphicsContext *graphicsContext) {
 	screenManager->setUIContext(uiContext);
 	screenManager->setDrawContext(g_draw);
 	screenManager->setPostRenderCallback(&RenderOverlays, nullptr);
+	screenManager->deviceRestored();
 
 #ifdef _WIN32
 	winAudioBackend = CreateAudioBackend((AudioBackendType)g_Config.iAudioBackend);
@@ -702,6 +703,8 @@ bool NativeInitGraphics(GraphicsContext *graphicsContext) {
 }
 
 void NativeShutdownGraphics() {
+	screenManager->deviceLost();
+
 	if (gpu)
 		gpu->DeviceLost();
 

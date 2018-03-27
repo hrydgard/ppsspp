@@ -33,6 +33,7 @@ class Texture;
 class UIContext;
 
 namespace Draw {
+	class DrawContext;
 	class Texture;
 }
 
@@ -364,6 +365,9 @@ public:
 	virtual void Touch(const TouchInput &input) {}
 	virtual void Axis(const AxisInput &input) {}
 	virtual void Update();
+
+	virtual void DeviceLost() {}
+	virtual void DeviceRestored(Draw::DrawContext *draw) {}
 
 	// If this view covers these coordinates, it should add itself and its children to the list.
 	virtual void Query(float x, float y, std::vector<View *> &list);

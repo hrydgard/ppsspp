@@ -38,6 +38,9 @@ public:
 	virtual void Update() override;
 	virtual void Query(float x, float y, std::vector<View *> &list) override;
 
+	virtual void DeviceLost() override;
+	virtual void DeviceRestored(Draw::DrawContext *draw) override;
+
 	virtual void Draw(UIContext &dc) override;
 
 	// These should be unused.

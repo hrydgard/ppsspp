@@ -49,7 +49,7 @@ AsyncImageFileView::AsyncImageFileView(const std::string &filename, UI::ImageSiz
 AsyncImageFileView::~AsyncImageFileView() {}
 
 void AsyncImageFileView::GetContentDimensions(const UIContext &dc, float &w, float &h) const {
-	if (texture_) {
+	if (texture_ && texture_->GetTexture()) {
 		float texw = (float)texture_->Width();
 		float texh = (float)texture_->Height();
 		switch (sizeMode_) {
@@ -77,6 +77,16 @@ void AsyncImageFileView::SetFilename(std::string filename) {
 	}
 }
 
+void AsyncImageFileView::DeviceLost() {
+	if (texture_.get())
+		texture_->DeviceLost();
+}
+
+void AsyncImageFileView::DeviceRestored(Draw::DrawContext *draw) {
+	if (texture_.get())
+		texture_->DeviceRestored(draw);
+}
+
 void AsyncImageFileView::Draw(UIContext &dc) {
 	using namespace Draw;
 	if (!texture_ && !textureFailed_ && !filename_.empty()) {
@@ -90,7 +100,7 @@ void AsyncImageFileView::Draw(UIContext &dc) {
 	}
 
 	// TODO: involve sizemode
-	if (texture_) {
+	if (texture_ && texture_->GetTexture()) {
 		dc.Flush();
 		dc.GetDrawContext()->BindTexture(0, texture_->GetTexture());
 		dc.Draw()->Rect(bounds_.x, bounds_.y, bounds_.w, bounds_.h, color_);

@@ -60,8 +60,8 @@ private:
 
 class PrioritizedWorkQueue;
 
-// TextureView takes a texture that is assumed to be alive during the lifetime
-// of the view. TODO: Actually make async using the task.
+// AsyncImageFileView loads a texture from a file, and reloads it as necessary.
+// TODO: Actually make async, doh.
 class AsyncImageFileView : public UI::Clickable {
 public:
 	AsyncImageFileView(const std::string &filename, UI::ImageSizeMode sizeMode, PrioritizedWorkQueue *wq, UI::LayoutParams *layoutParams = 0);
@@ -69,6 +69,9 @@ public:
 
 	void GetContentDimensions(const UIContext &dc, float &w, float &h) const override;
 	void Draw(UIContext &dc) override;
+
+	void DeviceLost() override;
+	void DeviceRestored(Draw::DrawContext *draw) override;
 
 	void SetFilename(std::string filename);
 	void SetColor(uint32_t color) { color_ = color; }
