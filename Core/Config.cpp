@@ -367,7 +367,7 @@ static ConfigSetting generalSettings[] = {
 	ConfigSetting("DumpAudio", &g_Config.bDumpAudio, false),
 	ConfigSetting("SaveLoadResetsAVdumping", &g_Config.bSaveLoadResetsAVdumping, false),
 	ConfigSetting("StateSlot", &g_Config.iCurrentStateSlot, 0, true, true),
-	ConfigSetting("EnableStateUndo", &g_Config.bEnableStateUndo, &DefaultEnableStateUndo, true, true),
+	ConfigSetting("EnableStateUndo", &g_Config.bEnableStateUndo, false/*&DefaultEnableStateUndo*/, true, true),
 	ConfigSetting("RewindFlipFrequency", &g_Config.iRewindFlipFrequency, 0, true, true),
 
 	ConfigSetting("GridView1", &g_Config.bGridView1, true),
@@ -534,7 +534,7 @@ static ConfigSetting graphicsSettings[] = {
 	// Most low-performance (and many high performance) mobile GPUs do not support aniso anyway so defaulting to 4 is fine.
 	ConfigSetting("AnisotropyLevel", &g_Config.iAnisotropyLevel, 4, true, true),
 
-	ReportedConfigSetting("VertexDecCache", &g_Config.bVertexCache, &DefaultVertexCache, true, true),
+	ReportedConfigSetting("VertexDecCache", &g_Config.bVertexCache, false/*&DefaultVertexCache*/, true, true),
 	ReportedConfigSetting("TextureBackoffCache", &g_Config.bTextureBackoffCache, false, true, true),
 	ReportedConfigSetting("TextureSecondaryCache", &g_Config.bTextureSecondaryCache, false, true, true),
 	ReportedConfigSetting("VertexDecJit", &g_Config.bVertexDecoderJit, &DefaultCodeGen, false),

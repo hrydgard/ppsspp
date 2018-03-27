@@ -98,7 +98,7 @@ public:
 	void DrawUP(const void *vdata, int vertexCount) override;
 	void Clear(int mask, uint32_t colorval, float depthVal, int stencilVal);
 
-	void BeginFrame() override;
+	// void BeginFrame() override; //Libretro bs
 
 	std::string GetInfoString(InfoField info) const override {
 		switch (info) {
@@ -1276,7 +1276,7 @@ void D3D11DrawContext::Clear(int mask, uint32_t colorval, float depthVal, int st
 	}
 }
 
-void D3D11DrawContext::BeginFrame() {
+/*void D3D11DrawContext::BeginFrame() { //Libretro bs
 	context_->OMSetRenderTargets(1, &curRenderTargetView_, curDepthStencilView_);
 
 	if (curBlend_) {
@@ -1302,7 +1302,7 @@ void D3D11DrawContext::BeginFrame() {
 			context_->VSSetConstantBuffers(0, 1, &curPipeline_->dynamicUniforms);
 		}
 	}
-}
+}*/
 
 void D3D11DrawContext::CopyFramebufferImage(Framebuffer *srcfb, int level, int x, int y, int z, Framebuffer *dstfb, int dstLevel, int dstX, int dstY, int dstZ, int width, int height, int depth, int channelBit) {
 	D3D11Framebuffer *src = (D3D11Framebuffer *)srcfb;
