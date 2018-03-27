@@ -561,6 +561,9 @@ bool TextureScalerCommon::ScaleInto(u32 *outputBuf, u32 *src, u32 &dstFmt, int &
 	case HYBRID:
 		ScaleHybrid(factor, inputBuf, outputBuf, width, height);
 		break;
+	case GAUSSIAN:
+	case COSINE:
+		// no cpu implementation for those, so fall back to bicubic
 	case BICUBIC:
 		ScaleBicubicMitchell(factor, inputBuf, outputBuf, width, height);
 		break;

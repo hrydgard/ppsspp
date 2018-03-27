@@ -612,8 +612,11 @@ BEGIN
             MENUITEM "Hybrid",                          ID_TEXTURESCALING_HYBRID
             MENUITEM "Bicubic",                         ID_TEXTURESCALING_BICUBIC
             MENUITEM "Hybrid + Bicubic",                ID_TEXTURESCALING_HYBRID_BICUBIC
+            MENUITEM "Gaussian",                        ID_TEXTURESCALING_GAUSSIAN
+            MENUITEM "Cosine",                          ID_TEXTURESCALING_COSINE
             MENUITEM SEPARATOR
             MENUITEM "Deposterize",                     ID_TEXTURESCALING_DEPOSTERIZE
+            MENUITEM "Realtime Scaling",                ID_TEXTURESCALING_REALTIME
         END
         MENUITEM "Hardware Transform",                  ID_OPTIONS_HARDWARETRANSFORM
         MENUITEM "Vertex Cache",                        ID_OPTIONS_VERTEXCACHE

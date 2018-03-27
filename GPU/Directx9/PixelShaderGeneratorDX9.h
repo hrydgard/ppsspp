@@ -38,4 +38,6 @@ bool GenerateFragmentShaderHLSL(const FShaderID &id, char *buffer, ShaderLanguag
 // For stencil upload
 #define CONST_PS_STENCILVALUE 10
 
+// For scaling filters
+#define CONST_PS_TEXSIZE 11
 };

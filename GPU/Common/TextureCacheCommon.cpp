@@ -423,6 +423,7 @@ void TextureCacheCommon::SetTexture(bool force) {
 			//got one!
 			gstate_c.curTextureWidth = w;
 			gstate_c.curTextureHeight = h;
+			gstate_c.Dirty(DIRTY_TEXSIZE);
 			if (rehash) {
 				// Update in case any of these changed.
 				entry->sizeInRAM = (textureBitsPerPixel[format] * bufw * h / 2) / 8;
@@ -842,6 +843,7 @@ void TextureCacheCommon::SetTextureFramebuffer(TexCacheEntry *entry, VirtualFram
 		// We need to force it, since we may have set it on a texture before attaching.
 		gstate_c.curTextureWidth = framebuffer->bufferWidth;
 		gstate_c.curTextureHeight = framebuffer->bufferHeight;
+		gstate_c.Dirty(DIRTY_TEXSIZE);
 		if (gstate_c.bgraTexture) {
 			gstate_c.Dirty(DIRTY_FRAGMENTSHADER_STATE);
 		} else if ((gstate_c.curTextureXOffset == 0) != (fbInfo.xOffset == 0) || (gstate_c.curTextureYOffset == 0) != (fbInfo.yOffset == 0)) {
@@ -909,33 +911,37 @@ bool TextureCacheCommon::SetOffsetTexture(u32 offset) {
 void TextureCacheCommon::NotifyConfigChanged() {
 	int scaleFactor;
 
-	// 0 means automatic texture scaling, up to 5x, based on resolution.
-	if (g_Config.iTexScalingLevel == 0) {
-		scaleFactor = g_Config.iInternalResolution;
-		// Automatic resolution too?  Okay.
-		if (scaleFactor == 0) {
-			if (!g_Config.IsPortrait()) {
-				scaleFactor = (PSP_CoreParameter().pixelWidth + 479) / 480;
-			} else {
-				scaleFactor = (PSP_CoreParameter().pixelHeight + 479) / 480;
+	if (g_Config.bRealtimeTexScaling) {
+		scaleFactor = 1;
+	} else {
+		// 0 means automatic texture scaling, up to 5x, based on resolution.
+		if (g_Config.iTexScalingLevel == 0) {
+			scaleFactor = g_Config.iInternalResolution;
+			// Automatic resolution too?  Okay.
+			if (scaleFactor == 0) {
+				if (!g_Config.IsPortrait()) {
+					scaleFactor = (PSP_CoreParameter().pixelWidth + 479) / 480;
+				} else {
+					scaleFactor = (PSP_CoreParameter().pixelHeight + 479) / 480;
+				}
+			}
+
+			scaleFactor = std::min(5, scaleFactor);
+		} else {
+			scaleFactor = g_Config.iTexScalingLevel;
+		}
+
+		if (!gstate_c.Supports(GPU_SUPPORTS_OES_TEXTURE_NPOT)) {
+			// Reduce the scale factor to a power of two (e.g. 2 or 4) if textures must be a power of two.
+			while ((scaleFactor & (scaleFactor - 1)) != 0) {
+				--scaleFactor;
 			}
 		}
 
-		scaleFactor = std::min(5, scaleFactor);
-	} else {
-		scaleFactor = g_Config.iTexScalingLevel;
-	}
-
-	if (!gstate_c.Supports(GPU_SUPPORTS_OES_TEXTURE_NPOT)) {
-		// Reduce the scale factor to a power of two (e.g. 2 or 4) if textures must be a power of two.
-		while ((scaleFactor & (scaleFactor - 1)) != 0) {
-			--scaleFactor;
+		// Just in case, small display with auto resolution or something.
+		if (scaleFactor <= 0) {
+			scaleFactor = 1;
 		}
-	}
-
-	// Just in case, small display with auto resolution or something.
-	if (scaleFactor <= 0) {
-		scaleFactor = 1;
 	}
 
 	standardScaleFactor_ = scaleFactor;
