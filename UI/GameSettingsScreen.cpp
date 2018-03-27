@@ -493,6 +493,9 @@ void GameSettingsScreen::CreateViews() {
 		sasVol->SetEnabledPtr(&g_Config.bEnableSound);
 		PopupSliderChoice * atracmp3Vol = audioSettings->Add(new PopupSliderChoice(&g_Config.iATRACMP3Volume, 0, MAX_CONFIG_VOLUME, a->T("ATRAC / MP3 volume"), screenManager()));
 		atracmp3Vol->SetEnabledPtr(&g_Config.bEnableSound);
+
+		CheckBox *speedLimitHack = audioSettings->Add(new CheckBox(&g_Config.bSpeedLimitHack, a->T("Speed Limit Hack", "Speed Limit Hack(Orbit etc.)")));
+		speedLimitHack->SetEnabledPtr(&g_Config.bEnableSound);
 	}
 	// Control
 	ViewGroup *controlsSettingsScroll = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, FILL_PARENT));
@@ -742,23 +745,18 @@ void GameSettingsScreen::CreateViews() {
 					SavePathInMyDocumentChoice->SetEnabled(false);
 				else
 					SavePathInOtherChoice->SetEnabled(true);
-			}
-			else
+			} else
 				SavePathInMyDocumentChoice->SetEnabled(false);
-			else
-				SavePathInOtherChoice->SetEnabled(true);
-		} else
-			SavePathInMyDocumentChoice->SetEnabled(false);
-	} else {
-		if (installed_ && (result == S_OK)) {
+		} else {
+			if (installed_ && (result == S_OK)) {
 #ifdef _MSC_VER
-			std::ifstream inputFile(ConvertUTF8ToWString(installedFile));
+				std::ifstream inputFile(ConvertUTF8ToWString(installedFile));
 #else
-			std::ifstream inputFile(installedFile);
+				std::ifstream inputFile(installedFile);
 #endif
-			if (!inputFile.fail() && inputFile.is_open()) {
-				std::string tempString;
-				std::getline(inputFile, tempString);
+				if (!inputFile.fail() && inputFile.is_open()) {
+					std::string tempString;
+					std::getline(inputFile, tempString);
 
 					// Skip UTF-8 encoding bytes if there are any. There are 3 of them.
 					if (tempString.substr(0, 3) == "\xEF\xBB\xBF")

@@ -231,6 +231,7 @@ public:
 	int iAudioBackend;
 	int iGlobalVolume, iSASVolume, iATRACMP3Volume;
 	bool bExtraAudioBuffering;  // For bluetooth
+	bool bSpeedLimitHack;
 
 	// UI
 	bool bShowDebuggerOnLoad;

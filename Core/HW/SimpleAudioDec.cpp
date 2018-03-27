@@ -362,6 +362,9 @@ u32 AuCtx::AuDecode(u32 pcmAddr)
 		outbuf += pcmframesize;
 		// increase FrameNum count
 		FrameNum++;
+		if (g_Config.bSpeedLimitHack) {
+			break;
+		}
 	}
 	Memory::Write_U32(PCMBuf, pcmAddr);
 	return outpcmbufsize;
