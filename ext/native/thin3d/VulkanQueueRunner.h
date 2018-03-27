@@ -161,8 +161,12 @@ public:
 	VkRenderPass GetBackbufferRenderPass() const {
 		return backbufferRenderPass_;
 	}
-	VkRenderPass GetRenderPass(VKRRenderPassAction colorLoadAction, VKRRenderPassAction depthLoadAction, VKRRenderPassAction stencilLoadAction,
-		VkImageLayout prevColorLayout, VkImageLayout prevDepthLayout, VkImageLayout finalColorLayout);
+
+	// Get a render pass that's compatible with all our framebuffers.
+	// Note that it's precached, cannot look up in the map as this might be on another thread.
+	VkRenderPass GetFramebufferRenderPass() const {
+		return framebufferRenderPass_;
+	}
 
 	inline int RPIndex(VKRRenderPassAction color, VKRRenderPassAction depth) {
 		return (int)depth * 3 + (int)color;
@@ -171,6 +175,10 @@ public:
 	void CopyReadbackBuffer(int width, int height, Draw::DataFormat srcFormat, Draw::DataFormat destFormat, int pixelStride, uint8_t *pixels);
 
 private:
+	// Only call this from the render thread!
+	VkRenderPass GetRenderPass(VKRRenderPassAction colorLoadAction, VKRRenderPassAction depthLoadAction, VKRRenderPassAction stencilLoadAction,
+		VkImageLayout prevColorLayout, VkImageLayout prevDepthLayout, VkImageLayout finalColorLayout);
+
 	void InitBackbufferRenderPass();
 
 	void PerformBindFramebufferAsRenderTarget(const VKRStep &pass, VkCommandBuffer cmd);
@@ -198,6 +206,7 @@ private:
 	VkFramebuffer curFramebuffer_ = VK_NULL_HANDLE;
 
 	VkRenderPass backbufferRenderPass_ = VK_NULL_HANDLE;
+	VkRenderPass framebufferRenderPass_ = VK_NULL_HANDLE;
 
 	struct RPKey {
 		VKRRenderPassAction colorAction;
