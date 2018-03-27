@@ -250,7 +250,8 @@ SOURCES_CXX += $(COMMONDIR)/MemArenaWin32.cpp \
 	       $(EXTDIR)/glslang/glslang/OSDependent/Windows/ossource.cpp \
 	       $(NATIVEDIR)/gfx_es2/draw_text_win.cpp
 else ifeq ($(PLATFORM_EXT), darwin)
-SOURCES_CXX += $(COMMONDIR)/MemArenaDarwin.cpp
+SOURCES_CXX += $(COMMONDIR)/MemArenaDarwin.cpp \
+	       $(EXTDIR)/glslang/glslang/OSDependent/Unix/ossource.cpp
 else ifeq ($(PLATFORM_EXT), android)
 SOURCES_CXX += $(COMMONDIR)/MemArenaAndroid.cpp \
 	       $(EXTDIR)/glslang/glslang/OSDependent/Unix/ossource.cpp \
@@ -636,7 +637,8 @@ SOURCES_CXX += \
 	$(GPUDIR)/D3D11/StencilBufferD3D11.cpp \
 	$(GPUDIR)/D3D11/TextureCacheD3D11.cpp \
 	$(GPUDIR)/D3D11/TextureScalerD3D11.cpp \
-	$(GPUDIR)/D3D11/VertexShaderGeneratorD3D11.cpp
+	$(GPUDIR)/D3D11/VertexShaderGeneratorD3D11.cpp \
+   $(LIBRETRODIR)/LibretroD3D11Context.cpp
 
 SOURCES_CXX += \
    $(NATIVEDIR)/thin3d/thin3d_d3d9.cpp \
@@ -673,8 +675,8 @@ endif
 
 GIT_VERSION_SRC = $(CORE_DIR)/git-version.cpp
 GIT_VERSION := $(shell git describe --always || echo v1.4.2-git)
-GIT_VERSION_NO_UPDATE = $(findstring 1,$(shell grep PPSSPP_GIT_VERSION_NO_UPDATE $(GIT_VERSION_SRC)))
-ifneq (,$(findstring $(GIT_VERSION),$(shell grep char $(GIT_VERSION_SRC))))
+GIT_VERSION_NO_UPDATE = $(findstring 1,$(shell grep -s PPSSPP_GIT_VERSION_NO_UPDATE $(GIT_VERSION_SRC)))
+ifneq (,$(findstring $(GIT_VERSION),$(shell grep -s char $(GIT_VERSION_SRC))))
    GIT_VERSION_NO_UPDATE = 1
 endif
 

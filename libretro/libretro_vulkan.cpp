@@ -10,8 +10,7 @@
 
 static retro_hw_render_interface_vulkan *vulkan;
 
-static struct
-{
+static struct {
 	VkInstance instance;
 	VkPhysicalDevice gpu;
 	VkSurfaceKHR surface;
@@ -36,11 +35,9 @@ extern PFN_vkDestroyImageView vkDestroyImageView;
 extern PFN_vkFreeMemory vkFreeMemory;
 
 #define VULKAN_MAX_SWAPCHAIN_IMAGES 8
-struct VkSwapchainKHR_T
-{
+struct VkSwapchainKHR_T {
 	uint32_t count;
-	struct
-	{
+	struct {
 		VkImage handle;
 		VkDeviceMemory memory;
 		retro_vulkan_image retro_image;
@@ -51,67 +48,61 @@ struct VkSwapchainKHR_T
 };
 static VkSwapchainKHR_T chain;
 
-#define LIBRETRO_VK_WARP_LIST() \
-	LIBRETRO_VK_WARP_FUNC(vkDestroyInstance); \
-	LIBRETRO_VK_WARP_FUNC(vkCreateDevice); \
-	LIBRETRO_VK_WARP_FUNC(vkDestroyDevice); \
-	LIBRETRO_VK_WARP_FUNC(vkGetPhysicalDeviceSurfaceCapabilitiesKHR); \
-	LIBRETRO_VK_WARP_FUNC(vkDestroySurfaceKHR); \
-	LIBRETRO_VK_WARP_FUNC(vkCreateSwapchainKHR); \
-	LIBRETRO_VK_WARP_FUNC(vkGetSwapchainImagesKHR); \
-	LIBRETRO_VK_WARP_FUNC(vkAcquireNextImageKHR); \
-	LIBRETRO_VK_WARP_FUNC(vkQueuePresentKHR); \
-	LIBRETRO_VK_WARP_FUNC(vkDestroySwapchainKHR); \
-	LIBRETRO_VK_WARP_FUNC(vkQueueSubmit); \
-	LIBRETRO_VK_WARP_FUNC(vkQueueWaitIdle); \
-	LIBRETRO_VK_WARP_FUNC(vkCmdPipelineBarrier); \
+#define LIBRETRO_VK_WARP_LIST()                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                \
+	LIBRETRO_VK_WARP_FUNC(vkDestroyInstance);                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   \
+	LIBRETRO_VK_WARP_FUNC(vkCreateDevice);                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      \
+	LIBRETRO_VK_WARP_FUNC(vkDestroyDevice);                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     \
+	LIBRETRO_VK_WARP_FUNC(vkGetPhysicalDeviceSurfaceCapabilitiesKHR);                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           \
+	LIBRETRO_VK_WARP_FUNC(vkDestroySurfaceKHR);                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 \
+	LIBRETRO_VK_WARP_FUNC(vkCreateSwapchainKHR);                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                \
+	LIBRETRO_VK_WARP_FUNC(vkGetSwapchainImagesKHR);                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             \
+	LIBRETRO_VK_WARP_FUNC(vkAcquireNextImageKHR);                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               \
+	LIBRETRO_VK_WARP_FUNC(vkQueuePresentKHR);                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   \
+	LIBRETRO_VK_WARP_FUNC(vkDestroySwapchainKHR);                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               \
+	LIBRETRO_VK_WARP_FUNC(vkQueueSubmit);                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       \
+	LIBRETRO_VK_WARP_FUNC(vkQueueWaitIdle);                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     \
+	LIBRETRO_VK_WARP_FUNC(vkCmdPipelineBarrier);                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                \
 	LIBRETRO_VK_WARP_FUNC(vkCreateRenderPass)
 
-#define LIBRETRO_VK_WARP_FUNC(x) \
-	extern PFN_##x x; \
+#define LIBRETRO_VK_WARP_FUNC(x)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               \
+	extern PFN_##x x;                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           \
 	PFN_##x x##_org
 
 LIBRETRO_VK_WARP_FUNC(vkGetInstanceProcAddr);
 LIBRETRO_VK_WARP_FUNC(vkGetDeviceProcAddr);
 LIBRETRO_VK_WARP_LIST();
 
-static VKAPI_ATTR VkResult VKAPI_CALL vkCreateInstance_libretro(const VkInstanceCreateInfo *pCreateInfo, const VkAllocationCallbacks *pAllocator, VkInstance *pInstance)
-{
+static VKAPI_ATTR VkResult VKAPI_CALL vkCreateInstance_libretro(const VkInstanceCreateInfo *pCreateInfo, const VkAllocationCallbacks *pAllocator, VkInstance *pInstance) {
 	*pInstance = vk_init_info.instance;
 	return VK_SUCCESS;
 }
 
-static void add_name_unique(std::vector<const char *> &list, const char *value)
-{
+static void add_name_unique(std::vector<const char *> &list, const char *value) {
 	for (const char *name : list)
 		if (!strcmp(value, name))
 			return;
 
 	list.push_back(value);
 }
-static VKAPI_ATTR VkResult VKAPI_CALL vkCreateDevice_libretro(VkPhysicalDevice physicalDevice, const VkDeviceCreateInfo *pCreateInfo, const VkAllocationCallbacks *pAllocator, VkDevice *pDevice)
-{
+static VKAPI_ATTR VkResult VKAPI_CALL vkCreateDevice_libretro(VkPhysicalDevice physicalDevice, const VkDeviceCreateInfo *pCreateInfo, const VkAllocationCallbacks *pAllocator, VkDevice *pDevice) {
 	VkDeviceCreateInfo info = *pCreateInfo;
 	std::vector<const char *> EnabledLayerNames(info.ppEnabledLayerNames, info.ppEnabledLayerNames + info.enabledLayerCount);
 	std::vector<const char *> EnabledExtensionNames(info.ppEnabledExtensionNames, info.ppEnabledExtensionNames + info.enabledExtensionCount);
 	VkPhysicalDeviceFeatures EnabledFeatures = *info.pEnabledFeatures;
 
-	for (int i = 0; i < vk_init_info.num_required_device_layers; i++)
+	for (unsigned i = 0; i < vk_init_info.num_required_device_layers; i++)
 		add_name_unique(EnabledLayerNames, vk_init_info.required_device_layers[i]);
 
-	for (int i = 0; i < vk_init_info.num_required_device_extensions; i++)
+	for (unsigned i = 0; i < vk_init_info.num_required_device_extensions; i++)
 		add_name_unique(EnabledExtensionNames, vk_init_info.required_device_extensions[i]);
 
 	add_name_unique(EnabledExtensionNames, VK_KHR_SAMPLER_MIRROR_CLAMP_TO_EDGE_EXTENSION_NAME);
-	for (int i = 0; i < sizeof(VkPhysicalDeviceFeatures) / sizeof(VkBool32); i++)
-	{
+	for (unsigned i = 0; i < sizeof(VkPhysicalDeviceFeatures) / sizeof(VkBool32); i++) {
 		if (((VkBool32 *)vk_init_info.required_features)[i])
 			((VkBool32 *)&EnabledFeatures)[i] = VK_TRUE;
 	}
 
-	static bool DEDICATED_ALLOCATION;
-	for (auto extension_name : EnabledExtensionNames)
-	{
+	for (auto extension_name : EnabledExtensionNames) {
 		if (!strcmp(extension_name, VK_KHR_DEDICATED_ALLOCATION_EXTENSION_NAME))
 			DEDICATED_ALLOCATION = true;
 	}
@@ -125,35 +116,28 @@ static VKAPI_ATTR VkResult VKAPI_CALL vkCreateDevice_libretro(VkPhysicalDevice p
 	return vkCreateDevice_org(physicalDevice, &info, pAllocator, pDevice);
 }
 
-static VKAPI_ATTR VkResult VKAPI_CALL vkCreateLibretroSurfaceKHR(VkInstance instance, const void *pCreateInfo, const VkAllocationCallbacks *pAllocator, VkSurfaceKHR *pSurface)
-{
+static VKAPI_ATTR VkResult VKAPI_CALL vkCreateLibretroSurfaceKHR(VkInstance instance, const void *pCreateInfo, const VkAllocationCallbacks *pAllocator, VkSurfaceKHR *pSurface) {
 	*pSurface = vk_init_info.surface;
 	return VK_SUCCESS;
 }
 
-VKAPI_ATTR VkResult VKAPI_CALL vkGetPhysicalDeviceSurfaceCapabilitiesKHR_libretro(VkPhysicalDevice physicalDevice, VkSurfaceKHR surface, VkSurfaceCapabilitiesKHR *pSurfaceCapabilities)
-{
+VKAPI_ATTR VkResult VKAPI_CALL vkGetPhysicalDeviceSurfaceCapabilitiesKHR_libretro(VkPhysicalDevice physicalDevice, VkSurfaceKHR surface, VkSurfaceCapabilitiesKHR *pSurfaceCapabilities) {
 	VkResult res = vkGetPhysicalDeviceSurfaceCapabilitiesKHR_org(physicalDevice, surface, pSurfaceCapabilities);
-	if (res == VK_SUCCESS)
-	{
+	if (res == VK_SUCCESS) {
 		pSurfaceCapabilities->currentExtent.width = -1;
 		pSurfaceCapabilities->currentExtent.height = -1;
 	}
 	return res;
 }
 
-static bool MemoryTypeFromProperties(uint32_t typeBits, VkFlags requirements_mask, uint32_t *typeIndex)
-{
+static bool MemoryTypeFromProperties(uint32_t typeBits, VkFlags requirements_mask, uint32_t *typeIndex) {
 	VkPhysicalDeviceMemoryProperties memory_properties;
 	vkGetPhysicalDeviceMemoryProperties(vulkan->gpu, &memory_properties);
 	// Search memtypes to find first index with those properties
-	for (uint32_t i = 0; i < 32; i++)
-	{
-		if ((typeBits & 1) == 1)
-		{
+	for (uint32_t i = 0; i < 32; i++) {
+		if ((typeBits & 1) == 1) {
 			// Type is available, does it match user properties?
-			if ((memory_properties.memoryTypes[i].propertyFlags & requirements_mask) == requirements_mask)
-			{
+			if ((memory_properties.memoryTypes[i].propertyFlags & requirements_mask) == requirements_mask) {
 				*typeIndex = i;
 				return true;
 			}
@@ -164,20 +148,17 @@ static bool MemoryTypeFromProperties(uint32_t typeBits, VkFlags requirements_mas
 	return false;
 }
 
-static VKAPI_ATTR VkResult VKAPI_CALL vkCreateSwapchainKHR_libretro(VkDevice device, const VkSwapchainCreateInfoKHR *pCreateInfo, const VkAllocationCallbacks *pAllocator, VkSwapchainKHR *pSwapchain)
-{
+static VKAPI_ATTR VkResult VKAPI_CALL vkCreateSwapchainKHR_libretro(VkDevice device, const VkSwapchainCreateInfoKHR *pCreateInfo, const VkAllocationCallbacks *pAllocator, VkSwapchainKHR *pSwapchain) {
 	uint32_t swapchain_mask = vulkan->get_sync_index_mask(vulkan->handle);
 
 	chain.count = 0;
-	while (swapchain_mask)
-	{
+	while (swapchain_mask) {
 		chain.count++;
 		swapchain_mask >>= 1;
 	}
 	assert(chain.count <= VULKAN_MAX_SWAPCHAIN_IMAGES);
 
-	for (uint32_t i = 0; i < chain.count; i++)
-	{
+	for (uint32_t i = 0; i < chain.count; i++) {
 		{
 			VkImageCreateInfo info{ VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO };
 			info.flags = VK_IMAGE_CREATE_MUTABLE_FORMAT_BIT;
@@ -203,8 +184,7 @@ static VKAPI_ATTR VkResult VKAPI_CALL vkCreateSwapchainKHR_libretro(VkDevice dev
 		alloc.allocationSize = memreq.size;
 
 		VkMemoryDedicatedAllocateInfoKHR dedicated{ VK_STRUCTURE_TYPE_MEMORY_DEDICATED_ALLOCATE_INFO_KHR };
-		if (DEDICATED_ALLOCATION)
-		{
+		if (DEDICATED_ALLOCATION) {
 			alloc.pNext = &dedicated;
 			dedicated.image = chain.images[i].handle;
 		}
@@ -234,23 +214,19 @@ static VKAPI_ATTR VkResult VKAPI_CALL vkCreateSwapchainKHR_libretro(VkDevice dev
 
 	return VK_SUCCESS;
 }
-static VKAPI_ATTR VkResult VKAPI_CALL vkGetSwapchainImagesKHR_libretro(VkDevice device, VkSwapchainKHR swapchain_, uint32_t *pSwapchainImageCount, VkImage *pSwapchainImages)
-{
+static VKAPI_ATTR VkResult VKAPI_CALL vkGetSwapchainImagesKHR_libretro(VkDevice device, VkSwapchainKHR swapchain_, uint32_t *pSwapchainImageCount, VkImage *pSwapchainImages) {
 	VkSwapchainKHR_T *swapchain = (VkSwapchainKHR_T *)swapchain_;
-	if (pSwapchainImages)
-	{
+	if (pSwapchainImages) {
 		assert(*pSwapchainImageCount <= swapchain->count);
 		for (int i = 0; i < *pSwapchainImageCount; i++)
 			pSwapchainImages[i] = swapchain->images[i].handle;
-	}
-	else
+	} else
 		*pSwapchainImageCount = swapchain->count;
 
 	return VK_SUCCESS;
 }
 
-static VKAPI_ATTR VkResult VKAPI_CALL vkAcquireNextImageKHR_libretro(VkDevice device, VkSwapchainKHR swapchain, uint64_t timeout, VkSemaphore semaphore, VkFence fence, uint32_t *pImageIndex)
-{
+static VKAPI_ATTR VkResult VKAPI_CALL vkAcquireNextImageKHR_libretro(VkDevice device, VkSwapchainKHR swapchain, uint64_t timeout, VkSemaphore semaphore, VkFence fence, uint32_t *pImageIndex) {
 	vulkan->wait_sync_index(vulkan->handle);
 	*pImageIndex = vulkan->get_sync_index(vulkan->handle);
 #if 0
@@ -259,8 +235,7 @@ static VKAPI_ATTR VkResult VKAPI_CALL vkAcquireNextImageKHR_libretro(VkDevice de
 	return VK_SUCCESS;
 }
 
-static VKAPI_ATTR VkResult VKAPI_CALL vkQueuePresentKHR_libretro(VkQueue queue, const VkPresentInfoKHR *pPresentInfo)
-{
+static VKAPI_ATTR VkResult VKAPI_CALL vkQueuePresentKHR_libretro(VkQueue queue, const VkPresentInfoKHR *pPresentInfo) {
 	VkSwapchainKHR_T *swapchain = (VkSwapchainKHR_T *)pPresentInfo->pSwapchains[0];
 	std::unique_lock<std::mutex> lock(swapchain->mutex);
 #if 0
@@ -279,8 +254,7 @@ static VKAPI_ATTR VkResult VKAPI_CALL vkQueuePresentKHR_libretro(VkQueue queue, 
 	return VK_SUCCESS;
 }
 
-void vk_libretro_wait_for_presentation()
-{
+void vk_libretro_wait_for_presentation() {
 	std::unique_lock<std::mutex> lock(chain.mutex);
 	if (chain.current_index < 0)
 		chain.condVar.wait(lock);
@@ -293,10 +267,8 @@ void vk_libretro_wait_for_presentation()
 static VKAPI_ATTR void VKAPI_CALL vkDestroyInstance_libretro(VkInstance instance, const VkAllocationCallbacks *pAllocator) {}
 static VKAPI_ATTR void VKAPI_CALL vkDestroyDevice_libretro(VkDevice device, const VkAllocationCallbacks *pAllocator) {}
 static VKAPI_ATTR void VKAPI_CALL vkDestroySurfaceKHR_libretro(VkInstance instance, VkSurfaceKHR surface, const VkAllocationCallbacks *pAllocator) {}
-static VKAPI_ATTR void VKAPI_CALL vkDestroySwapchainKHR_libretro(VkDevice device, VkSwapchainKHR swapchain, const VkAllocationCallbacks *pAllocator)
-{
-	for (int i = 0; i < chain.count; i++)
-	{
+static VKAPI_ATTR void VKAPI_CALL vkDestroySwapchainKHR_libretro(VkDevice device, VkSwapchainKHR swapchain, const VkAllocationCallbacks *pAllocator) {
+	for (int i = 0; i < chain.count; i++) {
 		vkDestroyImage(device, chain.images[i].handle, pAllocator);
 		vkDestroyImageView(device, chain.images[i].retro_image.image_view, pAllocator);
 		vkFreeMemory(device, chain.images[i].memory, pAllocator);
@@ -307,8 +279,7 @@ static VKAPI_ATTR void VKAPI_CALL vkDestroySwapchainKHR_libretro(VkDevice device
 	chain.current_index = -1;
 }
 
-VKAPI_ATTR VkResult VKAPI_CALL vkQueueSubmit_libretro(VkQueue queue, uint32_t submitCount, const VkSubmitInfo *pSubmits, VkFence fence)
-{
+VKAPI_ATTR VkResult VKAPI_CALL vkQueueSubmit_libretro(VkQueue queue, uint32_t submitCount, const VkSubmitInfo *pSubmits, VkFence fence) {
 	VkResult res = VK_SUCCESS;
 
 #if 0
@@ -316,8 +287,7 @@ VKAPI_ATTR VkResult VKAPI_CALL vkQueueSubmit_libretro(VkQueue queue, uint32_t su
 		vulkan->set_command_buffers(vulkan->handle, pSubmits[i].commandBufferCount, pSubmits[i].pCommandBuffers);
 #else
 #if 1
-	for (int i = 0; i < submitCount; i++)
-	{
+	for (int i = 0; i < submitCount; i++) {
 		((VkSubmitInfo *)pSubmits)[i].waitSemaphoreCount = 0;
 		((VkSubmitInfo *)pSubmits)[i].pWaitSemaphores = nullptr;
 		((VkSubmitInfo *)pSubmits)[i].signalSemaphoreCount = 0;
@@ -332,26 +302,21 @@ VKAPI_ATTR VkResult VKAPI_CALL vkQueueSubmit_libretro(VkQueue queue, uint32_t su
 	return res;
 }
 
-VKAPI_ATTR VkResult VKAPI_CALL vkQueueWaitIdle_libretro(VkQueue queue)
-{
+VKAPI_ATTR VkResult VKAPI_CALL vkQueueWaitIdle_libretro(VkQueue queue) {
 	vulkan->lock_queue(vulkan->handle);
 	VkResult res = vkQueueWaitIdle_org(queue);
 	vulkan->unlock_queue(vulkan->handle);
 	return res;
 }
 
-VKAPI_ATTR void VKAPI_CALL vkCmdPipelineBarrier_libretro(VkCommandBuffer commandBuffer, VkPipelineStageFlags srcStageMask, VkPipelineStageFlags dstStageMask, VkDependencyFlags dependencyFlags, uint32_t memoryBarrierCount, const VkMemoryBarrier *pMemoryBarriers, uint32_t bufferMemoryBarrierCount, const VkBufferMemoryBarrier *pBufferMemoryBarriers, uint32_t imageMemoryBarrierCount, const VkImageMemoryBarrier *pImageMemoryBarriers)
-{
+VKAPI_ATTR void VKAPI_CALL vkCmdPipelineBarrier_libretro(VkCommandBuffer commandBuffer, VkPipelineStageFlags srcStageMask, VkPipelineStageFlags dstStageMask, VkDependencyFlags dependencyFlags, uint32_t memoryBarrierCount, const VkMemoryBarrier *pMemoryBarriers, uint32_t bufferMemoryBarrierCount, const VkBufferMemoryBarrier *pBufferMemoryBarriers, uint32_t imageMemoryBarrierCount, const VkImageMemoryBarrier *pImageMemoryBarriers) {
 	VkImageMemoryBarrier *barriers = (VkImageMemoryBarrier *)pImageMemoryBarriers;
-	for (int i = 0; i < imageMemoryBarrierCount; i++)
-	{
-		if (pImageMemoryBarriers[i].oldLayout == VK_IMAGE_LAYOUT_PRESENT_SRC_KHR)
-		{
+	for (int i = 0; i < imageMemoryBarrierCount; i++) {
+		if (pImageMemoryBarriers[i].oldLayout == VK_IMAGE_LAYOUT_PRESENT_SRC_KHR) {
 			barriers[i].oldLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
 			barriers[i].srcAccessMask = VK_ACCESS_SHADER_READ_BIT;
 		}
-		if (pImageMemoryBarriers[i].newLayout == VK_IMAGE_LAYOUT_PRESENT_SRC_KHR)
-		{
+		if (pImageMemoryBarriers[i].newLayout == VK_IMAGE_LAYOUT_PRESENT_SRC_KHR) {
 			barriers[i].newLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
 			barriers[i].dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
 		}
@@ -359,8 +324,7 @@ VKAPI_ATTR void VKAPI_CALL vkCmdPipelineBarrier_libretro(VkCommandBuffer command
 	return vkCmdPipelineBarrier_org(commandBuffer, srcStageMask, dstStageMask, dependencyFlags, memoryBarrierCount, pMemoryBarriers, bufferMemoryBarrierCount, pBufferMemoryBarriers, imageMemoryBarrierCount, barriers);
 }
 
-VKAPI_ATTR VkResult VKAPI_CALL vkCreateRenderPass_libretro(VkDevice device, const VkRenderPassCreateInfo *pCreateInfo, const VkAllocationCallbacks *pAllocator, VkRenderPass *pRenderPass)
-{
+VKAPI_ATTR VkResult VKAPI_CALL vkCreateRenderPass_libretro(VkDevice device, const VkRenderPassCreateInfo *pCreateInfo, const VkAllocationCallbacks *pAllocator, VkRenderPass *pRenderPass) {
 	if (pCreateInfo->pAttachments[0].finalLayout == VK_IMAGE_LAYOUT_PRESENT_SRC_KHR)
 		((VkAttachmentDescription *)pCreateInfo->pAttachments)[0].finalLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
 
@@ -368,18 +332,15 @@ VKAPI_ATTR VkResult VKAPI_CALL vkCreateRenderPass_libretro(VkDevice device, cons
 }
 
 #undef LIBRETRO_VK_WARP_FUNC
-#define LIBRETRO_VK_WARP_FUNC(x) \
-	do \
-	{ \
-		if (!strcmp(pName, #x)) \
-		{ \
-			x##_org = (PFN_##x)fptr; \
-			return (PFN_vkVoidFunction)x##_libretro; \
-		} \
+#define LIBRETRO_VK_WARP_FUNC(x)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               \
+	do {                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        \
+		if (!strcmp(pName, #x)) {                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                \
+			x##_org = (PFN_##x)fptr;                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              \
+			return (PFN_vkVoidFunction)x##_libretro;                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              \
+		}                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        \
 	} while (0)
 
-VKAPI_ATTR PFN_vkVoidFunction VKAPI_CALL vkGetInstanceProcAddr_libretro(VkInstance instance, const char *pName)
-{
+VKAPI_ATTR PFN_vkVoidFunction VKAPI_CALL vkGetInstanceProcAddr_libretro(VkInstance instance, const char *pName) {
 	if (false
 #ifdef _WIN32
 		 || !strcmp(pName, "vkCreateWin32SurfaceKHR")
@@ -396,8 +357,7 @@ VKAPI_ATTR PFN_vkVoidFunction VKAPI_CALL vkGetInstanceProcAddr_libretro(VkInstan
 #ifdef VK_USE_PLATFORM_WAYLAND_KHR
 		 || !strcmp(pName, "vkCreateWaylandSurfaceKHR")
 #endif
-	)
-	{
+	) {
 		return (PFN_vkVoidFunction)vkCreateLibretroSurfaceKHR;
 	}
 
@@ -410,8 +370,7 @@ VKAPI_ATTR PFN_vkVoidFunction VKAPI_CALL vkGetInstanceProcAddr_libretro(VkInstan
 	return fptr;
 }
 
-VKAPI_ATTR PFN_vkVoidFunction VKAPI_CALL vkGetDeviceProcAddr_libretro(VkDevice device, const char *pName)
-{
+VKAPI_ATTR PFN_vkVoidFunction VKAPI_CALL vkGetDeviceProcAddr_libretro(VkDevice device, const char *pName) {
 	PFN_vkVoidFunction fptr = vkGetDeviceProcAddr_org(device, pName);
 	if (!fptr)
 		return fptr;
@@ -421,8 +380,7 @@ VKAPI_ATTR PFN_vkVoidFunction VKAPI_CALL vkGetDeviceProcAddr_libretro(VkDevice d
 	return fptr;
 }
 
-void vk_libretro_init(VkInstance instance, VkPhysicalDevice gpu, VkSurfaceKHR surface, PFN_vkGetInstanceProcAddr get_instance_proc_addr, const char **required_device_extensions, unsigned num_required_device_extensions, const char **required_device_layers, unsigned num_required_device_layers, const VkPhysicalDeviceFeatures *required_features)
-{
+void vk_libretro_init(VkInstance instance, VkPhysicalDevice gpu, VkSurfaceKHR surface, PFN_vkGetInstanceProcAddr get_instance_proc_addr, const char **required_device_extensions, unsigned num_required_device_extensions, const char **required_device_layers, unsigned num_required_device_layers, const VkPhysicalDeviceFeatures *required_features) {
 	assert(surface);
 
 	vk_init_info.instance = instance;
@@ -443,8 +401,8 @@ void vk_libretro_init(VkInstance instance, VkPhysicalDevice gpu, VkSurfaceKHR su
 }
 
 void vk_libretro_set_hwrender_interface(retro_hw_render_interface *hw_render_interface) { vulkan = (retro_hw_render_interface_vulkan *)hw_render_interface; }
-void vk_libretro_shutdown()
-{
+void vk_libretro_shutdown() {
+	memset(&vk_init_info, 0x00, sizeof(vk_init_info));
 	vulkan = NULL;
 	DEDICATED_ALLOCATION = false;
 }

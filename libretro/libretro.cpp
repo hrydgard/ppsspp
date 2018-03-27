@@ -3,6 +3,7 @@
 #include <cassert>
 #include <thread>
 #include <atomic>
+#include <vector>
 
 #include "base/timeutil.h"
 #include "Common/ChunkFile.h"
@@ -45,18 +46,17 @@ retro_environment_t environ_cb;
 static retro_audio_sample_batch_t audio_batch_cb;
 static retro_input_poll_t input_poll_cb;
 static retro_input_state_t input_state_cb;
-}   // namespace Libretro
+} // namespace Libretro
 
 using namespace Libretro;
 
 class LibretroHost : public Host {
-	public:
+public:
 	LibretroHost() {}
 	bool InitGraphics(std::string *error_message, GraphicsContext **ctx) override { return true; }
 	void ShutdownGraphics() override {}
 	void InitSound() override {}
-	void UpdateSound() override
-	{
+	void UpdateSound() override {
 		extern int hostAttemptBlockSize;
 		const int blockSizeMax = 512;
 		static int16_t audio[blockSizeMax * 2];
@@ -71,69 +71,60 @@ class LibretroHost : public Host {
 };
 
 class PrintfLogger : public LogListener {
-	public:
+public:
 	PrintfLogger(retro_log_callback log) : log_(log.log) {}
-	void Log(const LogMessage &message)
-	{
-		switch (message.level)
-		{
-			case LogTypes::LVERBOSE:
-			case LogTypes::LDEBUG:
-				log_(RETRO_LOG_DEBUG, "[%s] %s", message.log, message.msg.c_str());
-				return;
+	void Log(const LogMessage &message) {
+		switch (message.level) {
+		case LogTypes::LVERBOSE:
+		case LogTypes::LDEBUG:
+			log_(RETRO_LOG_DEBUG, "[%s] %s", message.log, message.msg.c_str());
+			return;
 
-			case LogTypes::LERROR:
-				log_(RETRO_LOG_ERROR, "[%s] %s", message.log, message.msg.c_str());
-				return;
+		case LogTypes::LERROR:
+			log_(RETRO_LOG_ERROR, "[%s] %s", message.log, message.msg.c_str());
+			return;
 
-			case LogTypes::LNOTICE:
-			case LogTypes::LWARNING:
-				log_(RETRO_LOG_WARN, "[%s] %s", message.log, message.msg.c_str());
-				return;
+		case LogTypes::LNOTICE:
+		case LogTypes::LWARNING:
+			log_(RETRO_LOG_WARN, "[%s] %s", message.log, message.msg.c_str());
+			return;
 
-			case LogTypes::LINFO:
-			default:
-				log_(RETRO_LOG_INFO, "[%s] %s", message.log, message.msg.c_str());
-				return;
+		case LogTypes::LINFO:
+		default:
+			log_(RETRO_LOG_INFO, "[%s] %s", message.log, message.msg.c_str());
+			return;
 		}
 	}
 
-	private:
+private:
 	retro_log_printf_t log_;
 };
 static PrintfLogger *printfLogger;
 
 template <typename T> class RetroOption {
-	public:
+public:
 	RetroOption(const char *id, const char *name, std::initializer_list<std::pair<const char *, T>> list) : id_(id), name_(name), list_(list.begin(), list.end()) {}
-	RetroOption(const char *id, const char *name, std::initializer_list<const char *> list) : id_(id), name_(name)
-	{
+	RetroOption(const char *id, const char *name, std::initializer_list<const char *> list) : id_(id), name_(name) {
 		for (auto option : list)
 			list_.push_back({ option, (T)list_.size() });
 	}
-	RetroOption(const char *id, const char *name, T first, std::initializer_list<const char *> list) : id_(id), name_(name)
-	{
+	RetroOption(const char *id, const char *name, T first, std::initializer_list<const char *> list) : id_(id), name_(name) {
 		for (auto option : list)
 			list_.push_back({ option, first + (int)list_.size() });
 	}
-	RetroOption(const char *id, const char *name, T first, int count, int step = 1) : id_(id), name_(name)
-	{
+	RetroOption(const char *id, const char *name, T first, int count, int step = 1) : id_(id), name_(name) {
 		for (T i = first; i < first + count; i += step)
 			list_.push_back({ std::to_string(i), i });
 	}
-	RetroOption(const char *id, const char *name, bool initial) : id_(id), name_(name)
-	{
+	RetroOption(const char *id, const char *name, bool initial) : id_(id), name_(name) {
 		list_.push_back({ initial ? "enabled" : "disabled", initial });
 		list_.push_back({ !initial ? "enabled" : "disabled", !initial });
 	}
-	retro_variable GetOptions()
-	{
-		if (options_.empty())
-		{
+	retro_variable GetOptions() {
+		if (options_.empty()) {
 			options_ = name_;
 			options_.push_back(';');
-			for (auto &option : list_)
-			{
+			for (auto &option : list_) {
 				if (option.first == list_.begin()->first)
 					options_ += std::string(" ") + option.first;
 				else
@@ -142,25 +133,20 @@ template <typename T> class RetroOption {
 		}
 		return { id_, options_.c_str() };
 	}
-	bool Update(T *dest)
-	{
+	bool Update(T *dest) {
 		retro_variable var{ id_ };
 		T val = list_.front().second;
 
-		if (environ_cb(RETRO_ENVIRONMENT_GET_VARIABLE, &var) && var.value)
-		{
-			for (auto option : list_)
-			{
-				if (option.first == var.value)
-				{
+		if (environ_cb(RETRO_ENVIRONMENT_GET_VARIABLE, &var) && var.value) {
+			for (auto option : list_) {
+				if (option.first == var.value) {
 					val = option.second;
 					break;
 				}
 			}
 		}
 
-		if (*dest != val)
-		{
+		if (*dest != val) {
 			*dest = val;
 			return true;
 		}
@@ -168,7 +154,7 @@ template <typename T> class RetroOption {
 		return false;
 	}
 
-	private:
+private:
 	const char *id_;
 	const char *name_;
 	std::string options_;
@@ -199,8 +185,7 @@ static RetroOption<bool> ppsspp_unsafe_func_replacements("ppsspp_unsafe_func_rep
 static RetroOption<bool> ppsspp_sound_speedhack("ppsspp_sound_speedhack", "Sound Speedhack", false);
 static RetroOption<bool> ppsspp_cheats("ppsspp_cheats", "Internal Cheats Support", false);
 
-void retro_set_environment(retro_environment_t cb)
-{
+void retro_set_environment(retro_environment_t cb) {
 	std::vector<retro_variable> vars;
 	vars.push_back(ppsspp_cpu_core.GetOptions());
 	vars.push_back(ppsspp_locked_cpu_speed.GetOptions());
@@ -232,44 +217,41 @@ void retro_set_environment(retro_environment_t cb)
 	cb(RETRO_ENVIRONMENT_SET_VARIABLES, (void *)vars.data());
 }
 
-static int get_language_auto(void)
-{
+static int get_language_auto(void) {
 	retro_language val = RETRO_LANGUAGE_ENGLISH;
 	environ_cb(RETRO_ENVIRONMENT_GET_LANGUAGE, &val);
 
-	switch (val)
-	{
-		default:
-		case RETRO_LANGUAGE_ENGLISH:
-			return PSP_SYSTEMPARAM_LANGUAGE_ENGLISH;
-		case RETRO_LANGUAGE_JAPANESE:
-			return PSP_SYSTEMPARAM_LANGUAGE_JAPANESE;
-		case RETRO_LANGUAGE_FRENCH:
-			return PSP_SYSTEMPARAM_LANGUAGE_FRENCH;
-		case RETRO_LANGUAGE_GERMAN:
-			return PSP_SYSTEMPARAM_LANGUAGE_GERMAN;
-		case RETRO_LANGUAGE_SPANISH:
-			return PSP_SYSTEMPARAM_LANGUAGE_SPANISH;
-		case RETRO_LANGUAGE_ITALIAN:
-			return PSP_SYSTEMPARAM_LANGUAGE_ITALIAN;
-		case RETRO_LANGUAGE_PORTUGUESE_BRAZIL:
-		case RETRO_LANGUAGE_PORTUGUESE_PORTUGAL:
-			return PSP_SYSTEMPARAM_LANGUAGE_PORTUGUESE;
-		case RETRO_LANGUAGE_RUSSIAN:
-			return PSP_SYSTEMPARAM_LANGUAGE_RUSSIAN;
-		case RETRO_LANGUAGE_DUTCH:
-			return PSP_SYSTEMPARAM_LANGUAGE_DUTCH;
-		case RETRO_LANGUAGE_KOREAN:
-			return PSP_SYSTEMPARAM_LANGUAGE_KOREAN;
-		case RETRO_LANGUAGE_CHINESE_TRADITIONAL:
-			return PSP_SYSTEMPARAM_LANGUAGE_CHINESE_TRADITIONAL;
-		case RETRO_LANGUAGE_CHINESE_SIMPLIFIED:
-			return PSP_SYSTEMPARAM_LANGUAGE_CHINESE_SIMPLIFIED;
+	switch (val) {
+	default:
+	case RETRO_LANGUAGE_ENGLISH:
+		return PSP_SYSTEMPARAM_LANGUAGE_ENGLISH;
+	case RETRO_LANGUAGE_JAPANESE:
+		return PSP_SYSTEMPARAM_LANGUAGE_JAPANESE;
+	case RETRO_LANGUAGE_FRENCH:
+		return PSP_SYSTEMPARAM_LANGUAGE_FRENCH;
+	case RETRO_LANGUAGE_GERMAN:
+		return PSP_SYSTEMPARAM_LANGUAGE_GERMAN;
+	case RETRO_LANGUAGE_SPANISH:
+		return PSP_SYSTEMPARAM_LANGUAGE_SPANISH;
+	case RETRO_LANGUAGE_ITALIAN:
+		return PSP_SYSTEMPARAM_LANGUAGE_ITALIAN;
+	case RETRO_LANGUAGE_PORTUGUESE_BRAZIL:
+	case RETRO_LANGUAGE_PORTUGUESE_PORTUGAL:
+		return PSP_SYSTEMPARAM_LANGUAGE_PORTUGUESE;
+	case RETRO_LANGUAGE_RUSSIAN:
+		return PSP_SYSTEMPARAM_LANGUAGE_RUSSIAN;
+	case RETRO_LANGUAGE_DUTCH:
+		return PSP_SYSTEMPARAM_LANGUAGE_DUTCH;
+	case RETRO_LANGUAGE_KOREAN:
+		return PSP_SYSTEMPARAM_LANGUAGE_KOREAN;
+	case RETRO_LANGUAGE_CHINESE_TRADITIONAL:
+		return PSP_SYSTEMPARAM_LANGUAGE_CHINESE_TRADITIONAL;
+	case RETRO_LANGUAGE_CHINESE_SIMPLIFIED:
+		return PSP_SYSTEMPARAM_LANGUAGE_CHINESE_SIMPLIFIED;
 	}
 }
 
-static void check_variables(CoreParameter &coreParam)
-{
+static void check_variables(CoreParameter &coreParam) {
 	bool updated = false;
 
 	if (coreState != CORE_POWERUP && environ_cb(RETRO_ENVIRONMENT_GET_VARIABLE_UPDATE, &updated) && !updated)
@@ -296,15 +278,14 @@ static void check_variables(CoreParameter &coreParam)
 	ppsspp_cpu_core.Update((CPUCore *)&g_Config.iCpuCore);
 
 	ppsspp_language.Update(&g_Config.iLanguage);
-	if (g_Config.iLanguage < 0)
+	if (g_Config.iLanguage < 0) {
 		g_Config.iLanguage = get_language_auto();
+	}
 
-	if (ppsspp_internal_resolution.Update(&g_Config.iInternalResolution))
-	{
+	if (ppsspp_internal_resolution.Update(&g_Config.iInternalResolution)) {
 		coreParam.pixelWidth = coreParam.renderWidth = g_Config.iInternalResolution * 480;
 		coreParam.pixelHeight = coreParam.renderHeight = g_Config.iInternalResolution * 272;
-		if (gpu)
-		{
+		if (gpu) {
 			retro_system_av_info av_info;
 			retro_get_system_av_info(&av_info);
 			environ_cb(RETRO_ENVIRONMENT_SET_SYSTEM_AV_INFO, &av_info);
@@ -312,11 +293,13 @@ static void check_variables(CoreParameter &coreParam)
 		}
 	}
 
-	if (ppsspp_texture_scaling_type.Update(&g_Config.iTexScalingType) && gpu)
+	if (ppsspp_texture_scaling_type.Update(&g_Config.iTexScalingType) && gpu) {
 		gpu->ClearCacheNextFrame();
+	}
 
-	if (ppsspp_texture_scaling_level.Update(&g_Config.iTexScalingLevel) && gpu)
+	if (ppsspp_texture_scaling_level.Update(&g_Config.iTexScalingLevel) && gpu) {
 		gpu->ClearCacheNextFrame();
+	}
 }
 
 void retro_set_audio_sample_batch(retro_audio_sample_batch_t cb) { audio_batch_cb = cb; }
@@ -324,8 +307,7 @@ void retro_set_audio_sample(retro_audio_sample_t cb) { (void)cb; }
 void retro_set_input_poll(retro_input_poll_t cb) { input_poll_cb = cb; }
 void retro_set_input_state(retro_input_state_t cb) { input_state_cb = cb; }
 
-void retro_init(void)
-{
+void retro_init(void) {
 #if 0
 	g_Config.Load("");
 #endif
@@ -343,8 +325,7 @@ void retro_init(void)
 	host = new LibretroHost;
 
 	struct retro_log_callback log;
-	if (environ_cb(RETRO_ENVIRONMENT_GET_LOG_INTERFACE, &log))
-	{
+	if (environ_cb(RETRO_ENVIRONMENT_GET_LOG_INTERFACE, &log)) {
 		printfLogger = new PrintfLogger(log);
 		LogManager *logman = LogManager::GetInstance();
 		logman->RemoveListener(logman->GetConsoleListener());
@@ -357,8 +338,7 @@ void retro_init(void)
 	}
 }
 
-void retro_deinit(void)
-{
+void retro_deinit(void) {
 	LogManager::Shutdown();
 
 	delete printfLogger;
@@ -368,14 +348,12 @@ void retro_deinit(void)
 	host = nullptr;
 }
 
-void retro_set_controller_port_device(unsigned port, unsigned device)
-{
+void retro_set_controller_port_device(unsigned port, unsigned device) {
 	(void)port;
 	(void)device;
 }
 
-void retro_get_system_info(struct retro_system_info *info)
-{
+void retro_get_system_info(struct retro_system_info *info) {
 	*info = {};
 	info->library_name = "PPSSPP";
 	info->library_version = PPSSPP_GIT_VERSION;
@@ -383,8 +361,7 @@ void retro_get_system_info(struct retro_system_info *info)
 	info->valid_extensions = "elf|iso|cso|prx|pbp";
 }
 
-void retro_get_system_av_info(struct retro_system_av_info *info)
-{
+void retro_get_system_av_info(struct retro_system_av_info *info) {
 	*info = {};
 	info->timing.fps = 60.0f / 1.001f;
 	info->timing.sample_rate = SAMPLERATE;
@@ -403,11 +380,11 @@ bool useEmuThread = false;
 std::atomic<EmuThreadState> emuThreadState(EmuThreadState::DISABLED);
 
 static std::thread emuThread;
-static void EmuFrame()
-{
+static void EmuFrame() {
 	ctx->SetRenderTarget();
-	if (ctx->GetDrawContext())
+	if (ctx->GetDrawContext()) {
 		ctx->GetDrawContext()->BeginFrame();
+	}
 
 	gpu->BeginHostFrame();
 
@@ -416,60 +393,55 @@ static void EmuFrame()
 
 	gpu->EndHostFrame();
 
-	if (ctx->GetDrawContext())
+	if (ctx->GetDrawContext()) {
 		ctx->GetDrawContext()->EndFrame();
+	}
 }
 
-static void EmuThreadFunc()
-{
+static void EmuThreadFunc() {
 	setCurrentThreadName("Emu");
 
-	while (true)
-	{
-		switch ((EmuThreadState)emuThreadState)
-		{
-			case EmuThreadState::START_REQUESTED:
-				emuThreadState = EmuThreadState::RUNNING;
-				/* fallthrough */
-			case EmuThreadState::RUNNING:
-				EmuFrame();
-				break;
-			case EmuThreadState::PAUSE_REQUESTED:
-				emuThreadState = EmuThreadState::PAUSED;
-				/* fallthrough */
-			case EmuThreadState::PAUSED:
-				sleep_ms(1);
-				break;
-			default:
-			case EmuThreadState::QUIT_REQUESTED:
-				emuThreadState = EmuThreadState::STOPPED;
-				ctx->StopThread();
-				return;
+	while (true) {
+		switch ((EmuThreadState)emuThreadState) {
+		case EmuThreadState::START_REQUESTED:
+			emuThreadState = EmuThreadState::RUNNING;
+			/* fallthrough */
+		case EmuThreadState::RUNNING:
+			EmuFrame();
+			break;
+		case EmuThreadState::PAUSE_REQUESTED:
+			emuThreadState = EmuThreadState::PAUSED;
+			/* fallthrough */
+		case EmuThreadState::PAUSED:
+			sleep_ms(1);
+			break;
+		default:
+		case EmuThreadState::QUIT_REQUESTED:
+			emuThreadState = EmuThreadState::STOPPED;
+			ctx->StopThread();
+			return;
 		}
 	}
 }
 
-void EmuThreadStart()
-{
+void EmuThreadStart() {
 	bool wasPaused = emuThreadState == EmuThreadState::PAUSED;
 	emuThreadState = EmuThreadState::START_REQUESTED;
 
-	if (!wasPaused)
-	{
+	if (!wasPaused) {
 		ctx->ThreadStart();
 		emuThread = std::thread(&EmuThreadFunc);
 	}
 }
 
-void EmuThreadStop()
-{
-	if (emuThreadState != EmuThreadState::RUNNING)
+void EmuThreadStop() {
+	if (emuThreadState != EmuThreadState::RUNNING) {
 		return;
+	}
 
 	emuThreadState = EmuThreadState::QUIT_REQUESTED;
 
-	while (ctx->ThreadFrame())
-	{
+	while (ctx->ThreadFrame()) {
 		// Need to keep eating frames to allow the EmuThread to exit correctly.
 		continue;
 	}
@@ -478,20 +450,20 @@ void EmuThreadStop()
 	ctx->ThreadEnd();
 }
 
-void EmuThreadPause()
-{
-	if (emuThreadState != EmuThreadState::RUNNING)
+void EmuThreadPause() {
+	if (emuThreadState != EmuThreadState::RUNNING) {
 		return;
+	}
 	emuThreadState = EmuThreadState::PAUSE_REQUESTED;
 	ctx->ThreadFrame();
-	while (emuThreadState != EmuThreadState::PAUSED)
+	while (emuThreadState != EmuThreadState::PAUSED) {
 		sleep_ms(1);
+	}
 }
 
-}   // namespace Libretro
+} // namespace Libretro
 
-bool retro_load_game(const struct retro_game_info *game)
-{
+bool retro_load_game(const struct retro_game_info *game) {
 	struct retro_input_descriptor desc[] = {
 		{ 0, RETRO_DEVICE_JOYPAD, 0, RETRO_DEVICE_ID_JOYPAD_LEFT, "D-Pad Left" },
 		{ 0, RETRO_DEVICE_JOYPAD, 0, RETRO_DEVICE_ID_JOYPAD_UP, "D-Pad Up" },
@@ -512,22 +484,21 @@ bool retro_load_game(const struct retro_game_info *game)
 	environ_cb(RETRO_ENVIRONMENT_SET_INPUT_DESCRIPTORS, desc);
 
 	enum retro_pixel_format fmt = RETRO_PIXEL_FORMAT_XRGB8888;
-	if (!environ_cb(RETRO_ENVIRONMENT_SET_PIXEL_FORMAT, &fmt))
-	{
+	if (!environ_cb(RETRO_ENVIRONMENT_SET_PIXEL_FORMAT, &fmt)) {
 		ERROR_LOG(SYSTEM, "XRGB8888 is not supported.\n");
 		return false;
 	}
 
 	const char *nickname = NULL;
-	if (environ_cb(RETRO_ENVIRONMENT_GET_USERNAME, &nickname) && nickname)
+	if (environ_cb(RETRO_ENVIRONMENT_GET_USERNAME, &nickname) && nickname) {
 		g_Config.sNickName = std::string(nickname);
+	}
 
 	const char *dir_ptr = NULL;
 	static std::string retro_base_dir;
 	static std::string retro_save_dir;
 
-	if (environ_cb(RETRO_ENVIRONMENT_GET_SYSTEM_DIRECTORY, &dir_ptr) && dir_ptr)
-	{
+	if (environ_cb(RETRO_ENVIRONMENT_GET_SYSTEM_DIRECTORY, &dir_ptr) && dir_ptr) {
 		retro_base_dir = dir_ptr;
 		// Make sure that we don't have any lingering slashes, etc, as they break Windows.
 		size_t last = retro_base_dir.find_last_not_of(DIR_SEP_CHRS);
@@ -537,8 +508,7 @@ bool retro_load_game(const struct retro_game_info *game)
 		retro_base_dir = retro_base_dir.substr(0, last) + DIR_SEP;
 	}
 
-	if (environ_cb(RETRO_ENVIRONMENT_GET_SAVE_DIRECTORY, &dir_ptr) && dir_ptr)
-	{
+	if (environ_cb(RETRO_ENVIRONMENT_GET_SAVE_DIRECTORY, &dir_ptr) && dir_ptr) {
 		retro_save_dir = dir_ptr;
 		// Make sure that we don't have any lingering slashes, etc, as they break Windows.
 		size_t last = retro_save_dir.find_last_not_of(DIR_SEP_CHRS);
@@ -548,13 +518,15 @@ bool retro_load_game(const struct retro_game_info *game)
 		retro_save_dir = retro_save_dir.substr(0, last) + DIR_SEP;
 	}
 
-	if (retro_base_dir.empty())
+	if (retro_base_dir.empty()) {
 		retro_base_dir = File::GetDir(game->path);
+	}
 
 	retro_base_dir += "PPSSPP" DIR_SEP;
 
-	if (retro_save_dir.empty())
+	if (retro_save_dir.empty()) {
 		retro_save_dir = File::GetDir(game->path);
+	}
 
 	g_Config.currentDirectory = retro_base_dir;
 	g_Config.externalDirectory = retro_base_dir;
@@ -591,8 +563,7 @@ bool retro_load_game(const struct retro_game_info *game)
 #endif
 
 	std::string error_string;
-	if (!PSP_InitStart(coreParam, &error_string))
-	{
+	if (!PSP_InitStart(coreParam, &error_string)) {
 		ERROR_LOG(BOOT, "%s", error_string.c_str());
 		return false;
 	}
@@ -600,10 +571,10 @@ bool retro_load_game(const struct retro_game_info *game)
 	return true;
 }
 
-void retro_unload_game(void)
-{
-	if (Libretro::useEmuThread)
+void retro_unload_game(void) {
+	if (Libretro::useEmuThread) {
 		Libretro::EmuThreadStop();
+	}
 
 	PSP_Shutdown();
 	VFSShutdown();
@@ -613,30 +584,27 @@ void retro_unload_game(void)
 	PSP_CoreParameter().graphicsContext = nullptr;
 }
 
-void retro_reset(void)
-{
+void retro_reset(void) {
 	std::string error_string;
 
 	PSP_Shutdown();
 
 #if 0
 	coreState = CORE_POWERUP;
-	if(!PSP_InitStart(PSP_CoreParameter(), &error_string))
+	if (!PSP_InitStart(PSP_CoreParameter(), &error_string))
 	{
 		ERROR_LOG(BOOT, "%s", error_string.c_str());
 		environ_cb(RETRO_ENVIRONMENT_SHUTDOWN, nullptr);
 	}
 #else
-	if (!PSP_Init(PSP_CoreParameter(), &error_string))
-	{
+	if (!PSP_Init(PSP_CoreParameter(), &error_string)) {
 		ERROR_LOG(BOOT, "%s", error_string.c_str());
 		environ_cb(RETRO_ENVIRONMENT_SHUTDOWN, nullptr);
 	}
 #endif
 }
 
-static void retro_input(void)
-{
+static void retro_input(void) {
 	// clang-format off
 	static struct
 	{
@@ -660,36 +628,34 @@ static void retro_input(void)
 
 	input_poll_cb();
 
-	for (int i = 0; i < sizeof(map) / sizeof(*map); i++)
-	{
-		if (input_state_cb(0, RETRO_DEVICE_JOYPAD, 0, map[i].retro))
+	for (int i = 0; i < sizeof(map) / sizeof(*map); i++) {
+		if (input_state_cb(0, RETRO_DEVICE_JOYPAD, 0, map[i].retro)) {
 			__CtrlButtonDown(map[i].sceCtrl);
-		else
+		} else {
 			__CtrlButtonUp(map[i].sceCtrl);
+		}
 	}
 
 	__CtrlSetAnalogX(input_state_cb(0, RETRO_DEVICE_ANALOG, RETRO_DEVICE_INDEX_ANALOG_LEFT, RETRO_DEVICE_ID_ANALOG_X) / 32768.0f);
 	__CtrlSetAnalogY(input_state_cb(0, RETRO_DEVICE_ANALOG, RETRO_DEVICE_INDEX_ANALOG_LEFT, RETRO_DEVICE_ID_ANALOG_Y) / -32768.0f);
 }
 
-void retro_run(void)
-{
-	if (PSP_IsIniting())
-	{
+void retro_run(void) {
+	if (PSP_IsIniting()) {
 		std::string error_string;
 #if 0
-		if(!PSP_InitUpdate(&error_string))
+		if (!PSP_InitUpdate(&error_string))
 		{
 			graphics_context->SwapBuffers();
 			return;
 		}
 #else
-		while (!PSP_InitUpdate(&error_string))
+		while (!PSP_InitUpdate(&error_string)) {
 			sleep_ms(4);
+		}
 #endif
 
-		if (!PSP_IsInited())
-		{
+		if (!PSP_IsInited()) {
 			ERROR_LOG(BOOT, "%s", error_string.c_str());
 			environ_cb(RETRO_ENVIRONMENT_SHUTDOWN, nullptr);
 			return;
@@ -700,24 +666,24 @@ void retro_run(void)
 
 	retro_input();
 
-	if (useEmuThread)
-	{
-		if (emuThreadState != EmuThreadState::RUNNING)
+	if (useEmuThread) {
+		if (emuThreadState != EmuThreadState::RUNNING) {
 			EmuThreadStart();
+		}
 
-		if (!ctx->ThreadFrame())
+		if (!ctx->ThreadFrame()) {
 			return;
-	}
-	else
+		}
+	} else {
 		EmuFrame();
+	}
 
 	ctx->SwapBuffers();
 }
 
 unsigned retro_get_region(void) { return RETRO_REGION_NTSC; }
 
-bool retro_load_game_special(unsigned type, const struct retro_game_info *info, size_t num)
-{
+bool retro_load_game_special(unsigned type, const struct retro_game_info *info, size_t num) {
 	(void)type;
 	(void)info;
 	(void)num;
@@ -725,62 +691,53 @@ bool retro_load_game_special(unsigned type, const struct retro_game_info *info, 
 }
 
 namespace SaveState {
-struct SaveStart
-{
+struct SaveStart {
 	void DoState(PointerWrap &p);
 };
-}   // namespace SaveState
+} // namespace SaveState
 
-size_t retro_serialize_size(void)
-{
+size_t retro_serialize_size(void) {
 	SaveState::SaveStart state;
 	return (CChunkFileReader::MeasurePtr(state) + 0x800000) & ~0x7FFFFF;
 }
 
-bool retro_serialize(void *data, size_t size)
-{
+bool retro_serialize(void *data, size_t size) {
 	SaveState::SaveStart state;
 	assert(CChunkFileReader::MeasurePtr(state) <= size);
 	return CChunkFileReader::SavePtr((u8 *)data, state) == CChunkFileReader::ERROR_NONE;
 }
 
-bool retro_unserialize(const void *data, size_t size)
-{
+bool retro_unserialize(const void *data, size_t size) {
 	SaveState::SaveStart state;
 	return CChunkFileReader::LoadPtr((u8 *)data, state) == CChunkFileReader::ERROR_NONE;
 }
 
-void *retro_get_memory_data(unsigned id)
-{
+void *retro_get_memory_data(unsigned id) {
 	(void)id;
 	return NULL;
 }
 
-size_t retro_get_memory_size(unsigned id)
-{
+size_t retro_get_memory_size(unsigned id) {
 	(void)id;
 	return 0;
 }
 
 void retro_cheat_reset(void) {}
 
-void retro_cheat_set(unsigned index, bool enabled, const char *code)
-{
+void retro_cheat_set(unsigned index, bool enabled, const char *code) {
 	(void)index;
 	(void)enabled;
 	(void)code;
 }
 
-int System_GetPropertyInt(SystemProperty prop)
-{
-	switch (prop)
-	{
-		case SYSPROP_AUDIO_SAMPLE_RATE:
-			return SAMPLERATE;
-		case SYSPROP_DISPLAY_REFRESH_RATE:
-			return 60000;
-		default:
-			return -1;
+int System_GetPropertyInt(SystemProperty prop) {
+	switch (prop) {
+	case SYSPROP_AUDIO_SAMPLE_RATE:
+		return SAMPLERATE;
+	case SYSPROP_DISPLAY_REFRESH_RATE:
+		return 60000;
+	default:
+		return -1;
 	}
 }
 

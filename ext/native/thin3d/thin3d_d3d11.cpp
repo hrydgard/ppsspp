@@ -98,6 +98,8 @@ public:
 	void DrawUP(const void *vdata, int vertexCount) override;
 	void Clear(int mask, uint32_t colorval, float depthVal, int stencilVal);
 
+	void BeginFrame() override;
+
 	std::string GetInfoString(InfoField info) const override {
 		switch (info) {
 		case APIVERSION: return "Direct3D 11";
@@ -1271,6 +1273,34 @@ void D3D11DrawContext::Clear(int mask, uint32_t colorval, float depthVal, int st
 		if (mask & FBChannel::FB_STENCIL_BIT)
 			clearFlag |= D3D11_CLEAR_STENCIL;
 		context_->ClearDepthStencilView(curDepthStencilView_, clearFlag, depthVal, stencilVal);
+	}
+}
+
+void D3D11DrawContext::BeginFrame() {
+	context_->OMSetRenderTargets(1, &curRenderTargetView_, curDepthStencilView_);
+
+	if (curBlend_) {
+		context_->OMSetBlendState(curBlend_->bs, blendFactor_, 0xFFFFFFFF);
+	}
+	if (curDepth_) {
+		context_->OMSetDepthStencilState(curDepth_->dss, stencilRef_);
+	}
+	if (curRaster_) {
+		context_->RSSetState(curRaster_->rs);
+	}
+	context_->IASetInputLayout(curInputLayout_);
+	context_->VSSetShader(curVS_, nullptr, 0);
+	context_->PSSetShader(curPS_, nullptr, 0);
+	context_->GSSetShader(curGS_, nullptr, 0);
+	if (curTopology_ != D3D11_PRIMITIVE_TOPOLOGY_UNDEFINED) {
+		context_->IASetPrimitiveTopology(curTopology_);
+	}
+	if (curPipeline_) {
+		context_->IASetVertexBuffers(0, 1, nextVertexBuffers_, (UINT *)curPipeline_->input->strides.data(), (UINT *)nextVertexBufferOffsets_);
+		context_->IASetIndexBuffer(nextIndexBuffer_, DXGI_FORMAT_R32_UINT, nextIndexBufferOffset_);
+		if (curPipeline_->dynamicUniforms) {
+			context_->VSSetConstantBuffers(0, 1, &curPipeline_->dynamicUniforms);
+		}
 	}
 }
 

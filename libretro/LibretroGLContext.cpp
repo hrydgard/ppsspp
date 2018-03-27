@@ -6,30 +6,18 @@
 
 #include "libretro/LibretroGLContext.h"
 
-bool LibretroGLContext::Init()
-{
-	if (!LibretroHWRenderContext::Init())
+bool LibretroGLContext::Init() {
+	if (!LibretroHWRenderContext::Init(true))
 		return false;
-
-	libretro_get_proc_address = hw_render_.get_proc_address;
 
 	g_Config.iGPUBackend = (int)GPUBackend::OPENGL;
 	return true;
 }
 
-void LibretroGLContext::Shutdown()
-{
-	LibretroGraphicsContext::Shutdown();
-	libretro_get_proc_address = nullptr;
-}
-
-void LibretroGLContext::CreateDrawContext()
-{
-	if (!glewInitDone)
-	{
+void LibretroGLContext::CreateDrawContext() {
+	if (!glewInitDone) {
 #if !defined(IOS) && !defined(USING_GLES2)
-		if (glewInit() != GLEW_OK)
-		{
+		if (glewInit() != GLEW_OK) {
 			ERROR_LOG(G3D, "glewInit() failed.\n");
 			return;
 		}
@@ -40,8 +28,8 @@ void LibretroGLContext::CreateDrawContext()
 	draw_ = Draw::T3DCreateGLContext();
 	renderManager_ = (GLRenderManager *)draw_->GetNativeObject(Draw::NativeObject::RENDER_MANAGER);
 }
-void LibretroGLContext::DestroyDrawContext()
-{
+
+void LibretroGLContext::DestroyDrawContext() {
 	LibretroHWRenderContext::DestroyDrawContext();
 	renderManager_ = nullptr;
 }

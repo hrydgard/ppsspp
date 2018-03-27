@@ -1,10 +1,15 @@
+
 set(LIBRETRO_SRCS
-  libretro.cpp
-  LibretroGraphicsContext.cpp
-  LibretroGLContext.cpp
-  LibretroVulkanContext.cpp
-  libretro_vulkan.cpp
-)
+	libretro.cpp
+	LibretroGraphicsContext.cpp
+	LibretroGLContext.cpp
+	LibretroVulkanContext.cpp
+	libretro_vulkan.cpp)
+
+if(WIN32)
+	set(LIBRETRO_SRCS ${LIBRETRO_SRCS}
+		LibretroD3D11Context.cpp)
+endif()
 
 include_directories(libretro)
 

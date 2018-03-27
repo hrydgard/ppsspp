@@ -9,29 +9,30 @@
 #include "GPU/GPUState.h"
 
 class LibretroGraphicsContext : public GraphicsContext {
-	public:
+public:
 	LibretroGraphicsContext() {}
-	~LibretroGraphicsContext() override {}
+	~LibretroGraphicsContext() override { Shutdown(); }
 
 	virtual bool Init() = 0;
 	virtual void SetRenderTarget() {}
 	virtual GPUCore GetGPUCore() = 0;
 	virtual const char *Ident() = 0;
 
-	void Shutdown() override
-	{
+	void Shutdown() override {
 		DestroyDrawContext();
 		PSP_CoreParameter().thin3d = nullptr;
 	}
 	void SwapInterval(int interval) override {}
 	void Resize() override {}
 
+	virtual void GotBackbuffer();
+	virtual void LostBackbuffer();
+
 	virtual void CreateDrawContext() {}
-	virtual void DestroyDrawContext()
-	{
-		if (!draw_)
+	virtual void DestroyDrawContext() {
+		if (!draw_) {
 			return;
-		draw_->HandleEvent(Draw::Event::LOST_BACKBUFFER, -1, -1);
+		}
 		delete draw_;
 		draw_ = nullptr;
 	}
@@ -41,65 +42,47 @@ class LibretroGraphicsContext : public GraphicsContext {
 
 	static retro_video_refresh_t video_cb;
 
-	protected:
+protected:
 	Draw::DrawContext *draw_ = nullptr;
 };
 
 class LibretroHWRenderContext : public LibretroGraphicsContext {
-	public:
+public:
 	LibretroHWRenderContext(retro_hw_context_type context_type, unsigned version_major = 0, unsigned version_minor = 0);
-	bool Init() override;
+	bool Init(bool cache_context);
 	void SetRenderTarget() override {}
-	void SwapBuffers() override
-	{
-		if (gstate_c.skipDrawReason)
+	void SwapBuffers() override {
+		if (gstate_c.skipDrawReason) {
 			video_cb(NULL, 0, 0, 0);
-		else
+		} else {
 			video_cb(RETRO_HW_FRAME_BUFFER_VALID, PSP_CoreParameter().pixelWidth, PSP_CoreParameter().pixelHeight, 0);
+		}
 	}
 	virtual void ContextReset();
 	virtual void ContextDestroy();
 
-	protected:
+protected:
 	retro_hw_render_callback hw_render_ = {};
 };
 
-extern "C" retro_hw_get_proc_address_t libretro_get_proc_address;
-
 #ifdef _WIN32
 class LibretroD3D9Context : public LibretroHWRenderContext {
-	public:
+public:
 	LibretroD3D9Context() : LibretroHWRenderContext(RETRO_HW_CONTEXT_DIRECT3D, 9) {}
 	bool Init() override { return false; }
 
-	void InitDrawContext() override
-	{
-		draw_ = Draw::T3DCreateDX9Context();
+	void CreateDrawContext() override {
+		draw_ = Draw::T3DCreateDX9Context(nullptr, nullptr, 0, nullptr, nullptr);
 		draw_->CreatePresets();
 	}
 
 	GPUCore GetGPUCore() override { return GPUCORE_DIRECTX9; }
 	const char *Ident() override { return "DirectX 9"; }
 };
-
-class LibretroD3D11Context : public LibretroHWRenderContext {
-	public:
-	LibretroD3D11Context() : LibretroHWRenderContext(RETRO_HW_CONTEXT_DIRECT3D, 11) {}
-	bool Init() override { return false; }
-
-	void InitDrawContext() override
-	{
-		draw_ = Draw::T3DCreateD3D11Context();
-		draw_->CreatePresets();
-	}
-
-	GPUCore GetGPUCore() override { return GPUCORE_DIRECTX11; }
-	const char *Ident() override { return "DirectX 11"; }
-};
 #endif
 
 class LibretroSoftwareContext : public LibretroGraphicsContext {
-	public:
+public:
 	LibretroSoftwareContext() {}
 	bool Init() override { return true; }
 	void SwapBuffers() override { video_cb(NULL, PSP_CoreParameter().pixelWidth, PSP_CoreParameter().pixelHeight, 0); }
@@ -108,7 +91,7 @@ class LibretroSoftwareContext : public LibretroGraphicsContext {
 };
 
 class LibretroNullContext : public LibretroGraphicsContext {
-	public:
+public:
 	LibretroNullContext() {}
 
 	bool Init() override { return true; }
@@ -121,8 +104,7 @@ namespace Libretro {
 extern LibretroGraphicsContext *ctx;
 extern retro_environment_t environ_cb;
 
-enum class EmuThreadState
-{
+enum class EmuThreadState {
 	DISABLED,
 	START_REQUESTED,
 	RUNNING,
@@ -136,4 +118,4 @@ extern std::atomic<EmuThreadState> emuThreadState;
 void EmuThreadStart();
 void EmuThreadStop();
 void EmuThreadPause();
-}   // namespace Libretro
+} // namespace Libretro
