@@ -194,6 +194,9 @@ void TextureCacheCommon::GetSamplingParams(int &minFilt, int &magFilt, bool &sCl
 			forceNearest = true;
 		}
 	}
+	if (g_Config.bRealtimeTexScaling && g_Config.iTexScalingLevel != 1) {
+		forceNearest = true;
+	}
 	if (forceNearest) {
 		magFilt &= ~1;
 		minFilt &= ~1;

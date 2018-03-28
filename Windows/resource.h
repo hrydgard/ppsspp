@@ -341,8 +341,9 @@
 #define ID_OPTIONS_WINDOW10X             40176
 
 #define ID_TEXTURESCALING_REALTIME       40177
-#define ID_TEXTURESCALING_GAUSSIAN       40178
-#define ID_TEXTURESCALING_COSINE         40179
+#define ID_TEXTURESCALING_SABR           40178
+#define ID_TEXTURESCALING_GAUSSIAN       40179
+#define ID_TEXTURESCALING_COSINE         40180
 
 // Dummy option to let the buffered rendering hotkey cycle through all the options.
 #define ID_OPTIONS_BUFFEREDRENDERINGDUMMY 40500
