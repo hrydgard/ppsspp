@@ -149,7 +149,8 @@ void DebugCallbackARB(GLenum source, GLenum type, GLuint id, GLenum severity,
 
 	case GL_DEBUG_TYPE_OTHER_ARB:
 	default:
-		INFO_LOG(G3D, "GL: %s", finalMessage);
+		// These are just performance warnings.
+		VERBOSE_LOG(G3D, "GL: %s", finalMessage);
 		break;
 	}
 }

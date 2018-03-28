@@ -112,6 +112,8 @@ static std::string PostShaderTranslateName(const char *value) {
 	const ShaderInfo *info = GetPostShaderInfo(value);
 	if (info) {
 		return ps->T(value, info ? info->name.c_str() : value);
+	} else {
+		return value;
 	}
 }
 
