@@ -496,6 +496,7 @@ void TextureCacheCommon::SetTexture(bool force) {
 
 	gstate_c.curTextureWidth = w;
 	gstate_c.curTextureHeight = h;
+	gstate_c.Dirty(DIRTY_TEXSIZE);
 
 	// Before we go reading the texture from memory, let's check for render-to-texture.
 	// We must do this early so we have the right w/h.

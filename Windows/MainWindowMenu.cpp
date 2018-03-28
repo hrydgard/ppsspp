@@ -770,8 +770,8 @@ namespace MainWindow {
 		case ID_TEXTURESCALING_HYBRID:          setTexScalingType(TextureScalerCommon::HYBRID); break;
 		case ID_TEXTURESCALING_BICUBIC:         setTexScalingType(TextureScalerCommon::BICUBIC); break;
 		case ID_TEXTURESCALING_HYBRID_BICUBIC:  setTexScalingType(TextureScalerCommon::HYBRID_BICUBIC); break;
-		case ID_TEXTURESCALING_GAUSSIAN:			 setTexScalingType(TextureScalerCommon::GAUSSIAN); break;
-		case ID_TEXTURESCALING_COSINE:			 setTexScalingType(TextureScalerCommon::COSINE); break;
+		case ID_TEXTURESCALING_GAUSSIAN:        setTexScalingType(TextureScalerCommon::GAUSSIAN); break;
+		case ID_TEXTURESCALING_COSINE:          setTexScalingType(TextureScalerCommon::COSINE); break;
 
 		case ID_TEXTURESCALING_REALTIME:
 			g_Config.bRealtimeTexScaling = !g_Config.bRealtimeTexScaling;

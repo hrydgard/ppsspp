@@ -262,16 +262,7 @@ static const char* sampler_xbrz =
 	"	res2 = lerp(res2, lerp(F, B, px.y), maximos.y);\n"
 	"	res2 = lerp(res2, lerp(D, H, px.w), maximos.w);\n"
 	"\n"
-	"	float4 res = lerp(res1, res2, step(c_df(E, res1), c_df(E, res2)));\n"
-	"  return res;\n"
-//	"	float texel_alpha = tex_sample_direct(tc * u_texSize.zw).a;\n"
-//	"\n"
-//	"	return float4(E, texel_alpha);\n"
-//	"  return tex_sample_direct(coord);\n"
-//	"  return tex_sample_direct(coord * u_texSize.xy * u_texSize.zw);\n"
-//	"	return float4(res2, texel_alpha);\n"
-//	"	return float4(res.r, 0.0f, 0.0f, texel_alpha);\n"
-//	"	return float4(res, texel_alpha);\n"
+	"	return lerp(res1, res2, step(c_df(E, res1), c_df(E, res2)));\n"
 	"}\n";
 
 
@@ -393,7 +384,7 @@ bool GenerateFragmentShaderHLSL(const FShaderID &id, char *buffer, ShaderLanguag
 	}
 	WRITE(p, "};\n");
 
-	if (doTexture) {
+	if (!isModeClear && doTexture) {
 		WRITE(p, "float4 tex_sample_direct(float2 coord) {\n");
 
 		if (lang == HLSL_D3D11 || lang == HLSL_D3D11_LEVEL9) {

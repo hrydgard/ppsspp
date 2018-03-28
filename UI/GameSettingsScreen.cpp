@@ -1038,6 +1038,7 @@ void GameSettingsScreen::onFinish(DialogResult result) {
 	// Wipe some caches after potentially changing settings.
 	NativeMessageReceived("gpu_resized", "");
 	NativeMessageReceived("gpu_clearCache", "");
+	NativeMessageReceived("gpu_clearShaderCache", "");
 }
 
 void GameSettingsScreen::CallbackRenderingBackend(bool yes) {
