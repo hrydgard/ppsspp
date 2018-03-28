@@ -205,17 +205,15 @@ public:
 
 	VkCommandBuffer GetInitCmd();
 
-	VkRenderPass GetRenderPass(VKRRenderPassAction colorLoadAction, VKRRenderPassAction depthLoadAction, VKRRenderPassAction stencilLoadAction) {
-		return queueRunner_.GetRenderPass(colorLoadAction, depthLoadAction, stencilLoadAction,
-			VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
-	}
 	VkRenderPass GetBackbufferRenderPass() {
 		return queueRunner_.GetBackbufferRenderPass();
 	}
+	VkRenderPass GetFramebufferRenderPass() {
+		return queueRunner_.GetFramebufferRenderPass();
+	}
 	VkRenderPass GetCompatibleRenderPass() {
 		if (curRenderStep_ && curRenderStep_->render.framebuffer != nullptr) {
-			return queueRunner_.GetRenderPass(VKRRenderPassAction::CLEAR, VKRRenderPassAction::CLEAR, VKRRenderPassAction::CLEAR,
-				VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
+			return queueRunner_.GetFramebufferRenderPass();
 		} else {
 			return queueRunner_.GetBackbufferRenderPass();
 		}

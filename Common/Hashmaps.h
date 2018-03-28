@@ -304,6 +304,7 @@ private:
 		state.clear();
 
 		int oldCount = count_;
+		int oldCapacity = capacity_;
 		capacity_ *= factor;
 		map.resize(capacity_);
 		state.resize(capacity_);
@@ -314,6 +315,7 @@ private:
 				Insert(old[i].hash, old[i].value);
 			}
 		}
+		INFO_LOG(G3D, "Grew hashmap capacity from %d to %d", oldCapacity, capacity_);
 		_assert_msg_(SYSTEM, oldCount == count_, "PrehashMap: count should not change in Grow()");
 	}
 	struct Pair {
