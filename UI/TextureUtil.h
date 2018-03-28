@@ -23,14 +23,19 @@ public:
 
 	bool LoadFromFile(const std::string &filename, ImageFileType type = ImageFileType::DETECT, bool generateMips = false);
 	bool LoadFromFileData(const uint8_t *data, size_t dataSize, ImageFileType type = ImageFileType::DETECT, bool generateMips = false);
-	Draw::Texture *GetTexture() { return texture_; }  // For immediate use, don't store.
+	Draw::Texture *GetTexture();  // For immediate use, don't store.
 	int Width() const { return texture_->Width(); }
 	int Height() const { return texture_->Height(); }
+
+	void DeviceLost();
+	void DeviceRestored(Draw::DrawContext *draw);
 
 private:
 	Draw::Texture *texture_ = nullptr;
 	Draw::DrawContext *draw_;
 	std::string filename_;  // Textures that are loaded from files can reload themselves automatically.
+	bool generateMips_ = false;
+	bool loadPending_ = false;
 };
 
 std::unique_ptr<ManagedTexture> CreateTextureFromFile(Draw::DrawContext *draw, const char *filename, ImageFileType fileType, bool generateMips = false);

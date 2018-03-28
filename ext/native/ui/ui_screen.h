@@ -15,16 +15,18 @@ public:
 	UIScreen();
 	~UIScreen();
 
-	virtual void update() override;
-	virtual void preRender() override;
-	virtual void render() override;
-	virtual void postRender() override;
+	void update() override;
+	void preRender() override;
+	void render() override;
+	void postRender() override;
+	void deviceLost() override;
+	void deviceRestored() override;
 
-	virtual bool touch(const TouchInput &touch) override;
-	virtual bool key(const KeyInput &touch) override;
-	virtual bool axis(const AxisInput &touch) override;
+	bool touch(const TouchInput &touch) override;
+	bool key(const KeyInput &touch) override;
+	bool axis(const AxisInput &touch) override;
 
-	virtual TouchInput transformTouch(const TouchInput &touch) override;
+	TouchInput transformTouch(const TouchInput &touch) override;
 
 	virtual void TriggerFinish(DialogResult result);
 
