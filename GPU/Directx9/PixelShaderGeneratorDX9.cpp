@@ -37,9 +37,6 @@ static const char* sampler_default =
 	"  return tex_sample_direct(coord);\n"
 	"};\n";
 
-static const char* sampler_hybrid = sampler_default;
-static const char* sampler_bicubic = sampler_default;
-static const char* sampler_hybrid_bicubic = sampler_default;
 static const char* sampler_gaussian =
 	"#define sharpness 1.0\n"
 	"#define pi 3.14159265358\n"
@@ -95,7 +92,7 @@ static const char* sampler_cosine =
 	"      tempColor+=c*KERNEL(pos.x,sharpness)*KERNEL(pos.y,sharpness);\n"
 	"    }\n"
 	"  }\n"
-	"  return tempColor;\n"
+	"  return tempColor.rgba;\n"
 	"};\n";
 static const char* sampler_xbrz =
 	"float c_df(float4 c1, float4 c2) {\n"
@@ -324,6 +321,48 @@ static const char* sampler_sabr =
 	"  float4 res = lerp(res1, res2, step(c_df(P12, res1), c_df(P12, res2)));\n"
 	"  return res;\n"
 	"}\n";
+
+static const char* sampler_hybrid = sampler_xbrz;
+static const char* sampler_hybrid_bicubic = sampler_xbrz;
+static const char* sampler_bicubic =
+	"// generate the value of a Mitchell-Netravali scaling spline at distance d, with parameters A and B\n"
+	"// B=1 C=0   : cubic B spline (very smooth)\n"
+	"// B=C=1/3   : recommended for general upscaling\n"
+	"// B=0 C=1/2 : Catmull-Rom spline (sharp, ringing)\n"
+	"// see Mitchell & Netravali, \"Reconstruction Filters in Computer Graphics\"\n"
+	"\n"
+	"//#define BSPLINE\n"
+	"#ifdef BSPLINE\n"
+	"  static const float B = 1.0f;\n"
+	"  static const float C = 0.0f;\n"
+	"#else\n"
+	"  static const float B = 1.0f / 3.0f;\n"
+	"  static const float C = 1.0f / 3.0f;\n"
+	"#endif\n"
+	"float mitchell(float2 pos) {\n"
+	"  float x = sqrt(dot(pos, pos));\n"
+	"	return\n"
+	"    step(x, 2.0) * \n"
+	"    (step(1.0, x) * ((-B - 6 * C)*(x*x*x) + (6 * B + 30 * C)*(x*x) + (-12 * B - 48 * C)*x + (8 * B + 24 * C)) +\n"
+	"     step(x, 1.0) * ((12 - 9 * B - 6 * C)*(x*x*x) + (-18 + 12 * B + 6 * C)*(x*x) + (6 - 2 * B)))\n"
+	"    / 6.0f;\n"
+	"}\n"
+	"float4 tex_sample(float2 coord) {\n"
+	"  float2 offset = frac(coord * u_texSize.xy) - 0.5;\n"
+	"  float4 tempColor = 0.0;\n"
+	"  float4 c;\n"
+	"  float i,j;\n"
+	"  float2 pos;\n"
+	"  for (i = -2.0; i < 3.0; i++){\n"
+	"    pos.x = offset.x - i;\n"
+	"    for (j = -2.0; j < 3.0 ;j++){\n"
+	"      pos.y = offset.y - j;\n"
+	"      c=tex_sample_direct(coord - pos * u_texSize.zw).rgba;\n"
+	"      tempColor+=c*mitchell(pos);\n"
+	"    }\n"
+	"  }\n"
+	"  return tempColor;\n"
+	"};\n";
 
 // Missing: Z depth range
 // Also, logic ops etc, of course, as they are not supported in DX9.
