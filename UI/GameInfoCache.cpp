@@ -506,6 +506,8 @@ handleELF:
 			if (File::Exists(screenshotPath)) {
 				if (readFileToString(false, screenshotPath.c_str(), info_->icon.data)) {
 					info_->icon.dataLoaded = true;
+				} else {
+					ERROR_LOG(G3D, "Error loading screenshot data: '%s'", screenshotPath.c_str());
 				}
 			}
 			break;
@@ -795,6 +797,8 @@ void GameInfoCache::SetupTexture(std::shared_ptr<GameInfo> &info, Draw::DrawCont
 			tex.texture = CreateTextureFromFileData(thin3d, (const uint8_t *)tex.data.data(), (int)tex.data.size(), ImageFileType::DETECT);
 			if (tex.texture) {
 				tex.timeLoaded = time_now_d();
+			} else {
+				ERROR_LOG(G3D, "Failed creating texture");
 			}
 		}
 		if ((info->wantFlags & GAMEINFO_WANTBGDATA) == 0) {

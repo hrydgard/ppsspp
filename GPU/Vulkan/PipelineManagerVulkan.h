@@ -56,19 +56,6 @@ struct VulkanPipelineKey {
 	std::string GetDescription(DebugShaderStringType stringType) const;
 };
 
-struct StoredVulkanPipelineKey {
-	VulkanPipelineRasterStateKey raster;
-	VShaderID vShaderID;
-	FShaderID fShaderID;
-	uint32_t vtxFmtId;
-	bool useHWTransform;
-
-	// For std::set. Better zero-initialize the struct properly for this to work.
-	bool operator < (const StoredVulkanPipelineKey &other) const {
-		return memcmp(this, &other, sizeof(*this)) < 0;
-	}
-};
-
 enum PipelineFlags {
 	PIPELINE_FLAG_USES_LINES = (1 << 2),
 	PIPELINE_FLAG_USES_BLEND_CONSTANT = (1 << 3),
@@ -109,8 +96,8 @@ public:
 	std::vector<std::string> DebugGetObjectIDs(DebugShaderType type);
 
 	// Saves data for faster creation next time.
-	void SaveCache(FILE *file, bool saveRawPipelineCache, ShaderManagerVulkan *shaderManager);
-	bool LoadCache(FILE *file, bool loadRawPipelineCache, ShaderManagerVulkan *shaderManager, DrawEngineCommon *drawEngine, VkPipelineLayout layout, VkRenderPass renderPass);
+	void SaveCache(FILE *file, bool saveRawPipelineCache, ShaderManagerVulkan *shaderManager, Draw::DrawContext *drawContext);
+	bool LoadCache(FILE *file, bool loadRawPipelineCache, ShaderManagerVulkan *shaderManager, Draw::DrawContext *drawContext, VkPipelineLayout layout, VkRenderPass renderPass);
 
 private:
 	DenseHashMap<VulkanPipelineKey, VulkanPipeline *, nullptr> pipelines_;

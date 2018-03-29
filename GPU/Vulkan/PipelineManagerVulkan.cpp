@@ -11,6 +11,9 @@
 #include "GPU/Vulkan/PipelineManagerVulkan.h"
 #include "GPU/Vulkan/ShaderManagerVulkan.h"
 #include "GPU/Common/DrawEngineCommon.h"
+#include "ext/native/thin3d/thin3d.h"
+#include "ext/native/thin3d/VulkanRenderManager.h"
+#include "ext/native/thin3d/VulkanQueueRunner.h"
 
 PipelineManagerVulkan::PipelineManagerVulkan(VulkanContext *vulkan) : vulkan_(vulkan), pipelines_(256) {
 	// The pipeline cache is created on demand (or explicitly through Load).
@@ -540,7 +543,25 @@ struct VkPipelineCacheHeader {
 	uint8_t uuid[VK_UUID_SIZE];
 };
 
-void PipelineManagerVulkan::SaveCache(FILE *file, bool saveRawPipelineCache, ShaderManagerVulkan *shaderManager) {
+struct StoredVulkanPipelineKey {
+	VulkanPipelineRasterStateKey raster;
+	VShaderID vShaderID;
+	FShaderID fShaderID;
+	uint32_t vtxFmtId;
+	bool useHWTransform;
+	bool backbufferPass;
+	VulkanQueueRunner::RPKey renderPassKey;
+
+	// For std::set. Better zero-initialize the struct properly for this to work.
+	bool operator < (const StoredVulkanPipelineKey &other) const {
+		return memcmp(this, &other, sizeof(*this)) < 0;
+	}
+};
+
+void PipelineManagerVulkan::SaveCache(FILE *file, bool saveRawPipelineCache, ShaderManagerVulkan *shaderManager, Draw::DrawContext *drawContext) {
+	VulkanRenderManager *rm = (VulkanRenderManager *)drawContext->GetNativeObject(Draw::NativeObject::RENDER_MANAGER);
+	VulkanQueueRunner *queueRunner = rm->GetQueueRunner();
+
 	size_t dataSize = 0;
 	uint32_t size;
 
@@ -569,6 +590,7 @@ void PipelineManagerVulkan::SaveCache(FILE *file, bool saveRawPipelineCache, Sha
 	// Make sure the set of pipelines we write is "unique".
 	std::set<StoredVulkanPipelineKey> keys;
 
+	// TODO: Use derivative pipelines when possible, helps Mali driver pipeline creation speed at least.
 	pipelines_.Iterate([&](const VulkanPipelineKey &pkey, VulkanPipeline *value) {
 		if (failed)
 			return;
@@ -586,6 +608,14 @@ void PipelineManagerVulkan::SaveCache(FILE *file, bool saveRawPipelineCache, Sha
 		if (key.useHWTransform) {
 			// NOTE: This is not a vtype, but a decoded vertex format.
 			key.vtxFmtId = pkey.vtxFmtId;
+		}
+		// Figure out what kind of renderpass this pipeline uses.
+		if (pkey.renderPass == queueRunner->GetBackbufferRenderPass()) {
+			key.backbufferPass = true;
+			key.renderPassKey = {};
+		} else {
+			key.backbufferPass = false;
+			queueRunner->GetRenderPassKey(pkey.renderPass, &key.renderPassKey);
 		}
 		keys.insert(key);
 	});
@@ -610,7 +640,10 @@ void PipelineManagerVulkan::SaveCache(FILE *file, bool saveRawPipelineCache, Sha
 	NOTICE_LOG(G3D, "Saved Vulkan pipeline ID cache (%d unique pipelines/%d).", (int)keys.size(), (int)pipelines_.size());
 }
 
-bool PipelineManagerVulkan::LoadCache(FILE *file, bool loadRawPipelineCache, ShaderManagerVulkan *shaderManager, DrawEngineCommon *drawEngine, VkPipelineLayout layout, VkRenderPass renderPass) {
+bool PipelineManagerVulkan::LoadCache(FILE *file, bool loadRawPipelineCache, ShaderManagerVulkan *shaderManager, Draw::DrawContext *drawContext, VkPipelineLayout layout, VkRenderPass renderPass) {
+	VulkanRenderManager *rm = (VulkanRenderManager *)drawContext->GetNativeObject(Draw::NativeObject::RENDER_MANAGER);
+	VulkanQueueRunner *queueRunner = rm->GetQueueRunner();
+
 	uint32_t size = 0;
 	if (loadRawPipelineCache) {
 		fread(&size, sizeof(size), 1, file);
@@ -673,6 +706,14 @@ bool PipelineManagerVulkan::LoadCache(FILE *file, bool loadRawPipelineCache, Sha
 			ERROR_LOG(G3D, "Failed to find vs or fs in of pipeline %d in cache", (int)i);
 			continue;
 		}
+
+		VkRenderPass rp;
+		if (key.backbufferPass) {
+			rp = queueRunner->GetBackbufferRenderPass();
+		} else {
+			rp = queueRunner->GetRenderPass(key.renderPassKey);
+		}
+
 		DecVtxFormat fmt;
 		fmt.InitializeFromID(key.vtxFmtId);
 		GetOrCreatePipeline(layout, renderPass, key.raster,

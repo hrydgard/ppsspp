@@ -312,9 +312,7 @@ void SavedataBrowser::Refresh() {
 		if (!isState && File::Exists(path_ + fileInfo[i].name + "/PARAM.SFO"))
 			isSaveData = true;
 
-		if (isSaveData) {
-			savedataButtons.push_back(new SavedataButton(fileInfo[i].fullName, new UI::LinearLayoutParams(UI::FILL_PARENT, UI::WRAP_CONTENT)));
-		} else if (isState) {
+		if (isSaveData || isState) {
 			savedataButtons.push_back(new SavedataButton(fileInfo[i].fullName, new UI::LinearLayoutParams(UI::FILL_PARENT, UI::WRAP_CONTENT)));
 		}
 	}
