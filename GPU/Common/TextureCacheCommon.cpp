@@ -498,7 +498,7 @@ void TextureCacheCommon::SetTexture(bool force) {
 
 	// Before we go reading the texture from memory, let's check for render-to-texture.
 	// We must do this early so we have the right w/h.
-	entry->framebuffer = 0;
+	entry->framebuffer = nullptr;
 	for (size_t i = 0, n = fbCache_.size(); i < n; ++i) {
 		auto framebuffer = fbCache_[i];
 		AttachFramebuffer(entry, framebuffer->fb_address, framebuffer);
@@ -678,6 +678,7 @@ void TextureCacheCommon::AttachFramebufferValid(TexCacheEntry *entry, VirtualFra
 		if (entry->framebuffer == nullptr) {
 			cacheSizeEstimate_ -= EstimateTexMemoryUsage(entry);
 		}
+		ReleaseTexture(entry, true);
 		entry->framebuffer = framebuffer;
 		entry->invalidHint = 0;
 		entry->status &= ~TexCacheEntry::STATUS_DEPALETTIZE;
@@ -697,6 +698,7 @@ void TextureCacheCommon::AttachFramebufferInvalid(TexCacheEntry *entry, VirtualF
 		if (entry->framebuffer == nullptr) {
 			cacheSizeEstimate_ -= EstimateTexMemoryUsage(entry);
 		}
+		ReleaseTexture(entry, true);
 		entry->framebuffer = framebuffer;
 		entry->invalidHint = -1;
 		entry->status &= ~TexCacheEntry::STATUS_DEPALETTIZE;
