@@ -388,6 +388,7 @@ bool GenerateFragmentShaderHLSL(const FShaderID &id, char *buffer, ShaderLanguag
 	GEComparison alphaTestFunc = (GEComparison)id.Bits(FS_BIT_ALPHA_TEST_FUNC, 3);
 	GEComparison colorTestFunc = (GEComparison)id.Bits(FS_BIT_COLOR_TEST_FUNC, 2);
 	bool needShaderTexClamp = id.Bit(FS_BIT_SHADER_TEX_CLAMP);
+	bool needScaleFilter = g_Config.bRealtimeTexScaling && g_Config.iTexScalingLevel != 1 && !gstate_c.curTextureIsRT;
 
 	ReplaceBlendType replaceBlend = static_cast<ReplaceBlendType>(id.Bits(FS_BIT_REPLACE_BLEND, 3));
 	ReplaceAlphaType stencilToAlpha = static_cast<ReplaceAlphaType>(id.Bits(FS_BIT_STENCIL_TO_ALPHA, 2));
@@ -491,7 +492,7 @@ bool GenerateFragmentShaderHLSL(const FShaderID &id, char *buffer, ShaderLanguag
 		}
 		WRITE(p, "};\n");
 
-		if (g_Config.bRealtimeTexScaling && g_Config.iTexScalingLevel != 1) {
+		if (needScaleFilter) {
 			switch (g_Config.iTexScalingType) {
 			case TextureScalerCommon::XBRZ:
 				WRITE(p, sampler_xbrz);

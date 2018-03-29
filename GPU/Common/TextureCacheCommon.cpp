@@ -194,7 +194,8 @@ void TextureCacheCommon::GetSamplingParams(int &minFilt, int &magFilt, bool &sCl
 			forceNearest = true;
 		}
 	}
-	if (g_Config.bRealtimeTexScaling && g_Config.iTexScalingLevel != 1) {
+	// addr is set to nullptr for framebuffers
+	if (addr && g_Config.bRealtimeTexScaling && g_Config.iTexScalingLevel != 1) {
 		forceNearest = true;
 	}
 	if (forceNearest) {
@@ -1533,8 +1534,10 @@ void TextureCacheCommon::ApplyTexture() {
 
 	entry->lastFrame = gpuStats.numFlips;
 	if (entry->framebuffer) {
+		gstate_c.curTextureIsRT = true;
 		ApplyTextureFramebuffer(entry, entry->framebuffer);
 	} else {
+		gstate_c.curTextureIsRT = false;
 		BindTexture(entry);
 		gstate_c.SetTextureFullAlpha(entry->GetAlphaStatus() == TexCacheEntry::STATUS_ALPHA_FULL);
 	}
