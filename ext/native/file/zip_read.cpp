@@ -366,7 +366,7 @@ uint8_t *VFSReadFile(const char *filename, size_t *size) {
 		}
 	}
 	if (!fileSystemFound) {
-		ELOG("Missing filesystem for %s", filename);
+		ELOG("Missing filesystem for '%s'", filename);
 	}  // Otherwise, the file was just missing. No need to log.
 	return 0;
 }

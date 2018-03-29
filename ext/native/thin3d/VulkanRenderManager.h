@@ -234,6 +234,11 @@ public:
 		return vulkan_;
 	}
 
+	// Be careful with this. Only meant to be used for fetching render passes for shader cache initialization.
+	VulkanQueueRunner *GetQueueRunner() {
+		return &queueRunner_;
+	}
+
 private:
 	bool InitBackbufferFramebuffers(int width, int height);
 	bool InitDepthStencilBuffer(VkCommandBuffer cmd);  // Used for non-buffered rendering.

@@ -8,6 +8,7 @@
 #include "gfx/gl_debug_log.h"
 #include "gfx_es2/gpu_features.h"
 #include "math/dataconv.h"
+#include "math/math_util.h"
 
 #define TEXCACHE_NAME_CACHE_SIZE 16
 
@@ -326,7 +327,7 @@ void GLQueueRunner::InitCreateFramebuffer(const GLRInitStep &step) {
 	fbo->color_texture.wrapT = GL_CLAMP_TO_EDGE;
 	fbo->color_texture.magFilter = GL_LINEAR;
 	fbo->color_texture.minFilter = GL_LINEAR;
-	fbo->color_texture.canWrap = false;
+	fbo->color_texture.canWrap = isPowerOf2(fbo->width) && isPowerOf2(fbo->height);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, fbo->color_texture.wrapS);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, fbo->color_texture.wrapT);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, fbo->color_texture.magFilter);

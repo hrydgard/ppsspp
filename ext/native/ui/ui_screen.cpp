@@ -61,6 +61,16 @@ void UIScreen::update() {
 	}
 }
 
+void UIScreen::deviceLost() {
+	if (root_)
+		root_->DeviceLost();
+}
+
+void UIScreen::deviceRestored() {
+	if (root_)
+		root_->DeviceRestored(screenManager()->getDrawContext());
+}
+
 void UIScreen::preRender() {
 	using namespace Draw;
 	Draw::DrawContext *draw = screenManager()->getDrawContext();

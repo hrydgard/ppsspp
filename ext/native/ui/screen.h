@@ -58,6 +58,8 @@ public:
 	virtual bool key(const KeyInput &key) { return false; }
 	virtual bool axis(const AxisInput &touch) { return false; }
 	virtual void sendMessage(const char *msg, const char *value) {}
+	virtual void deviceLost() {}
+	virtual void deviceRestored() {}
 
 	virtual void RecreateViews() {}
 
@@ -114,6 +116,9 @@ public:
 	void render();
 	void resized();
 	void shutdown();
+
+	void deviceLost();
+	void deviceRestored();
 
 	// Push a dialog box in front. Currently 1-level only.
 	void push(Screen *screen, int layerFlags = 0);

@@ -169,16 +169,16 @@ void TextureCacheGLES::SetFramebufferSamplingParams(u16 bufferWidth, u16 bufferH
 
 	minFilt &= 1;  // framebuffers can't mipmap.
 
-	float aniso = 0.0f;
-	render_->SetTextureSampler(0, sClamp ? GL_CLAMP_TO_EDGE : GL_REPEAT, tClamp ? GL_CLAMP_TO_EDGE : GL_REPEAT, MagFiltGL[magFilt], MinFiltGL[minFilt], aniso);
-
 	// Often the framebuffer will not match the texture size.  We'll wrap/clamp in the shader in that case.
 	// This happens whether we have OES_texture_npot or not.
 	int w = gstate.getTextureWidth(0);
 	int h = gstate.getTextureHeight(0);
 	if (w != bufferWidth || h != bufferHeight) {
-		return;
+		sClamp = true;
+		tClamp = true;
 	}
+	float aniso = 0.0f;
+	render_->SetTextureSampler(0, sClamp ? GL_CLAMP_TO_EDGE : GL_REPEAT, tClamp ? GL_CLAMP_TO_EDGE : GL_REPEAT, MagFiltGL[magFilt], MinFiltGL[minFilt], aniso);
 }
 
 static void ConvertColors(void *dstBuf, const void *srcBuf, GLuint dstFmt, int numPixels) {

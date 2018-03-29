@@ -7,6 +7,7 @@
 
 #include "base/logging.h"
 #include "math/dataconv.h"
+#include "math/math_util.h"
 #include "math/lin/matrix4x4.h"
 #include "thin3d/thin3d.h"
 #include "thin3d/DataFormatGL.h"
@@ -571,10 +572,6 @@ GLuint TypeToTarget(TextureType type) {
 		ELOG("Bad texture type %d", (int)type);
 		return GL_NONE;
 	}
-}
-
-inline bool isPowerOf2(int n) {
-	return n == 1 || (n & (n - 1)) == 0;
 }
 
 class OpenGLTexture : public Texture {

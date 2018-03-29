@@ -97,6 +97,16 @@ bool ScreenManager::axis(const AxisInput &axis) {
 	}
 }
 
+void ScreenManager::deviceLost() {
+	for (auto &iter : stack_)
+		iter.screen->deviceLost();
+}
+
+void ScreenManager::deviceRestored() {
+	for (auto &iter : stack_)
+		iter.screen->deviceRestored();
+}
+
 void ScreenManager::resized() {
 	std::lock_guard<std::recursive_mutex> guard(inputLock_);
 	// Have to notify the whole stack, otherwise there will be problems when going back
