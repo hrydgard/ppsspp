@@ -1417,6 +1417,7 @@ void GPUCommon::Execute_TexSize0(u32 op, u32 diff) {
 		gstate_c.Dirty(DIRTY_UVSCALEOFFSET);
 		// We will need to reset the texture now.
 		gstate_c.Dirty(DIRTY_TEXTURE_PARAMS);
+		gstate_c.Dirty(DIRTY_TEXSIZE);
 	}
 }
 

@@ -555,12 +555,17 @@ bool TextureScalerCommon::ScaleInto(u32 *outputBuf, u32 *src, u32 &dstFmt, int &
 
 	// scale 
 	switch (g_Config.iTexScalingType) {
+	case SABR:
+		// no cpu implementation for sabr, fall back to xbrz
 	case XBRZ:
 		ScaleXBRZ(factor, inputBuf, outputBuf, width, height);
 		break;
 	case HYBRID:
 		ScaleHybrid(factor, inputBuf, outputBuf, width, height);
 		break;
+	case GAUSSIAN:
+	case COSINE:
+		// no cpu implementation for those, fall back to bicubic
 	case BICUBIC:
 		ScaleBicubicMitchell(factor, inputBuf, outputBuf, width, height);
 		break;

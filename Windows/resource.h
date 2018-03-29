@@ -343,6 +343,12 @@
 #define ID_SIMPLEUI_TOGGLE               40200
 #define ID_SIMPLEUI_HIDE                 40201
 
+#define ID_TEXTURESCALING_REALTIME       40177
+#define ID_TEXTURESCALING_REALTIME_HC    40178
+#define ID_TEXTURESCALING_SABR           40179
+#define ID_TEXTURESCALING_GAUSSIAN       40180
+#define ID_TEXTURESCALING_COSINE         40181
+
 // Dummy option to let the buffered rendering hotkey cycle through all the options.
 #define ID_OPTIONS_BUFFEREDRENDERINGDUMMY 40500
 #define IDC_STEPOUT                       40501

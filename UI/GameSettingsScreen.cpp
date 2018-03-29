@@ -387,7 +387,7 @@ void GameSettingsScreen::CreateViews() {
 	texScalingChoice->SetDisabledPtr(&g_Config.bSoftwareRendering);
 
 	if (!g_Config.bSimpleUI) {
-		static const char *texScaleAlgos[] = { "xBRZ", "Hybrid", "Bicubic", "Hybrid + Bicubic", };
+		static const char *texScaleAlgos[] = { "xBRZ", "Hybrid", "Bicubic", "Hybrid + Bicubic", "SABR", "Gaussian", "Cosine" };
 		PopupMultiChoice *texScalingType = graphicsSettings->Add(new PopupMultiChoice(&g_Config.iTexScalingType, gr->T("Upscale Type"), texScaleAlgos, 0, ARRAY_SIZE(texScaleAlgos), gr->GetName(), screenManager()));
 		texScalingType->SetDisabledPtr(&g_Config.bSoftwareRendering);
 
@@ -400,6 +400,14 @@ void GameSettingsScreen::CreateViews() {
 		});
 		deposterize->SetDisabledPtr(&g_Config.bSoftwareRendering);
 
+		CheckBox *realtimeScaling = graphicsSettings->Add(new CheckBox(&g_Config.bRealtimeTexScaling, gr->T("Realtime Scaling")));
+		realtimeScaling->OnClick.Add([=](EventParams &e) {
+			if (g_Config.bRealtimeTexScaling == true) {
+				settingInfo_->Show(gr->T("Realtime Scaling Tip", "GPU heavy - apply texture scaling filters with shaders during rendering"), e.v);
+			}
+			return UI::EVENT_CONTINUE;
+		});
+		realtimeScaling->SetDisabledPtr(&g_Config.bSoftwareRendering);
 		graphicsSettings->Add(new ItemHeader(gr->T("Texture Filtering")));
 		static const char *anisoLevels[] = { "Off", "2x", "4x", "8x", "16x" };
 		PopupMultiChoice *anisoFiltering = graphicsSettings->Add(new PopupMultiChoice(&g_Config.iAnisotropyLevel, gr->T("Anisotropic Filtering"), anisoLevels, 0, ARRAY_SIZE(anisoLevels), gr->GetName(), screenManager()));
@@ -1068,6 +1076,7 @@ void GameSettingsScreen::onFinish(DialogResult result) {
 	// Wipe some caches after potentially changing settings.
 	NativeMessageReceived("gpu_resized", "");
 	NativeMessageReceived("gpu_clearCache", "");
+	NativeMessageReceived("gpu_clearShaderCache", "");
 }
 
 void GameSettingsScreen::CallbackRenderingBackend(bool yes) {

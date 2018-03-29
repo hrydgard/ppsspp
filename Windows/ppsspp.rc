@@ -76,6 +76,7 @@ BEGIN
     VK_F3,          ID_FILE_SAVESTATE_NEXT_SLOT_HC, VIRTKEY, NOINVERT
     VK_F2,          ID_FILE_QUICKSAVESTATE_HC, VIRTKEY, NOINVERT
     VK_F4,          ID_FILE_QUICKLOADSTATE_HC, VIRTKEY, NOINVERT
+    VK_F5,          ID_TEXTURESCALING_REALTIME_HC, VIRTKEY, NOINVERT
     "1",            ID_OPTIONS_RESOLUTIONDUMMY,    VIRTKEY, CONTROL, NOINVERT
     VK_F7,          ID_OPTIONS_FRAMESKIPDUMMY, VIRTKEY, NOINVERT
     VK_F12,         ID_DEBUG_TAKESCREENSHOT,  VIRTKEY, NOINVERT
@@ -612,8 +613,12 @@ BEGIN
             MENUITEM "Hybrid",                          ID_TEXTURESCALING_HYBRID
             MENUITEM "Bicubic",                         ID_TEXTURESCALING_BICUBIC
             MENUITEM "Hybrid + Bicubic",                ID_TEXTURESCALING_HYBRID_BICUBIC
+            MENUITEM "SABR",                            ID_TEXTURESCALING_SABR
+            MENUITEM "Gaussian",                        ID_TEXTURESCALING_GAUSSIAN
+            MENUITEM "Cosine",                          ID_TEXTURESCALING_COSINE
             MENUITEM SEPARATOR
             MENUITEM "Deposterize",                     ID_TEXTURESCALING_DEPOSTERIZE
+            MENUITEM "Realtime Scaling",                ID_TEXTURESCALING_REALTIME
         END
         MENUITEM "Hardware Transform",                  ID_OPTIONS_HARDWARETRANSFORM
         MENUITEM "Vertex Cache",                        ID_OPTIONS_VERTEXCACHE

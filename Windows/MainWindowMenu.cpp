@@ -365,7 +365,11 @@ namespace MainWindow {
 		TranslateMenuItem(menu, ID_TEXTURESCALING_HYBRID);
 		TranslateMenuItem(menu, ID_TEXTURESCALING_BICUBIC);
 		TranslateMenuItem(menu, ID_TEXTURESCALING_HYBRID_BICUBIC);
+		TranslateMenuItem(menu, ID_TEXTURESCALING_SABR);
+		TranslateMenuItem(menu, ID_TEXTURESCALING_GAUSSIAN);
+		TranslateMenuItem(menu, ID_TEXTURESCALING_COSINE);
 		TranslateMenuItem(menu, ID_TEXTURESCALING_DEPOSTERIZE);
+		TranslateMenuItem(menu, ID_TEXTURESCALING_REALTIME, L"\tF5");
 		TranslateMenuItem(menu, ID_OPTIONS_HARDWARETRANSFORM);
 		TranslateMenuItem(menu, ID_OPTIONS_VERTEXCACHE);
 		TranslateMenuItem(menu, ID_OPTIONS_SHOWFPS);
@@ -501,6 +505,10 @@ namespace MainWindow {
 	void setTexScalingMultiplier(int level) {
 		g_Config.iTexScalingLevel = level;
 		NativeMessageReceived("gpu_clearCache", "");
+
+		if(g_Config.bRealtimeTexScaling) {
+			NativeMessageReceived("gpu_clearShaderCache", "");
+		}
 	}
 
 	static void setTexFiltering(int type) {
@@ -514,6 +522,26 @@ namespace MainWindow {
 	static void setTexScalingType(int type) {
 		g_Config.iTexScalingType = type;
 		NativeMessageReceived("gpu_clearCache", "");
+
+		if(g_Config.bRealtimeTexScaling) {
+			NativeMessageReceived("gpu_clearShaderCache", "");
+		}
+	}
+
+	static void setTexScalingMode(bool realtime) {
+		g_Config.bRealtimeTexScaling = realtime;
+		NativeMessageReceived("gpu_clearShaderCache", "");
+		NativeMessageReceived("gpu_clearCache", "");
+
+		std::ostringstream messageStream;
+		I18NCategory *gr = GetI18NCategory("Graphics");
+		messageStream << gr->T("Texture Scaling") << ":" << " ";
+		if (realtime) {
+			messageStream << gr->T("Realtime");
+		} else {
+			messageStream << gr->T("Cached");
+		}
+		osm.Show(messageStream.str(), 3.0f);
 	}
 
 	static void setRenderingMode(int mode) {
@@ -779,6 +807,19 @@ namespace MainWindow {
 		case ID_TEXTURESCALING_HYBRID:          setTexScalingType(TextureScalerCommon::HYBRID); break;
 		case ID_TEXTURESCALING_BICUBIC:         setTexScalingType(TextureScalerCommon::BICUBIC); break;
 		case ID_TEXTURESCALING_HYBRID_BICUBIC:  setTexScalingType(TextureScalerCommon::HYBRID_BICUBIC); break;
+		case ID_TEXTURESCALING_SABR:            setTexScalingType(TextureScalerCommon::SABR); break;
+		case ID_TEXTURESCALING_GAUSSIAN:        setTexScalingType(TextureScalerCommon::GAUSSIAN); break;
+		case ID_TEXTURESCALING_COSINE:          setTexScalingType(TextureScalerCommon::COSINE); break;
+
+		case ID_TEXTURESCALING_REALTIME:
+			setTexScalingMode(!g_Config.bRealtimeTexScaling);
+			break;
+
+		case ID_TEXTURESCALING_REALTIME_HC:
+			if (KeyMap::g_controllerMap[VIRTKEY_LOAD_STATE].empty()) {
+				setTexScalingMode(!g_Config.bRealtimeTexScaling);
+			}
+			break;
 
 		case ID_TEXTURESCALING_DEPOSTERIZE:
 			g_Config.bTexDeposterize = !g_Config.bTexDeposterize;
@@ -1094,6 +1135,7 @@ namespace MainWindow {
 		CHECKITEM(ID_OPTIONS_PAUSE_FOCUS, g_Config.bPauseOnLostFocus);
 		CHECKITEM(ID_EMULATION_SOUND, g_Config.bEnableSound);
 		CHECKITEM(ID_TEXTURESCALING_DEPOSTERIZE, g_Config.bTexDeposterize);
+		CHECKITEM(ID_TEXTURESCALING_REALTIME, g_Config.bRealtimeTexScaling);
 		CHECKITEM(ID_EMULATION_CHEATS, g_Config.bEnableCheats);
 		CHECKITEM(ID_OPTIONS_IGNOREWINKEY, g_Config.bIgnoreWindowsKey);
 		CHECKITEM(ID_FILE_DUMPFRAMES, g_Config.bDumpFrames);
@@ -1203,12 +1245,15 @@ namespace MainWindow {
 			ID_TEXTURESCALING_HYBRID,
 			ID_TEXTURESCALING_BICUBIC,
 			ID_TEXTURESCALING_HYBRID_BICUBIC,
+			ID_TEXTURESCALING_SABR,
+			ID_TEXTURESCALING_GAUSSIAN,
+			ID_TEXTURESCALING_COSINE,
 		};
 		if (g_Config.iTexScalingType < TextureScalerCommon::XBRZ)
 			g_Config.iTexScalingType = TextureScalerCommon::XBRZ;
 
-		else if (g_Config.iTexScalingType > TextureScalerCommon::HYBRID_BICUBIC)
-			g_Config.iTexScalingType = TextureScalerCommon::HYBRID_BICUBIC;
+		else if (g_Config.iTexScalingType > TextureScalerCommon::COSINE)
+			g_Config.iTexScalingType = TextureScalerCommon::COSINE;
 
 		for (int i = 0; i < ARRAY_SIZE(texscalingtypeitems); i++) {
 			CheckMenuItem(menu, texscalingtypeitems[i], MF_BYCOMMAND | ((i == g_Config.iTexScalingType) ? MF_CHECKED : MF_UNCHECKED));

@@ -227,6 +227,14 @@ void BaseUpdateUniforms(UB_VS_FS_Base *ub, uint64_t dirtyUniforms, bool flipView
 		ub->spline_type_u = gstate_c.spline_type_u;
 		ub->spline_type_v = gstate_c.spline_type_v;
 	}
+
+	if (dirtyUniforms & DIRTY_TEXSIZE) {
+		ub->texSize[0] = (float)gstate_c.curTextureWidth;
+		ub->texSize[1] = (float)gstate_c.curTextureHeight;
+		ub->texSize[2] = 1.0f / (float)gstate_c.curTextureWidth;
+		ub->texSize[3] = 1.0f / (float)gstate_c.curTextureHeight;
+	}
+
 }
 
 void LightUpdateUniforms(UB_VS_Lights *ub, uint64_t dirtyUniforms) {

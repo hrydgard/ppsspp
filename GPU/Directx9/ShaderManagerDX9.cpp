@@ -259,7 +259,7 @@ static void ConvertProjMatrixToD3DThrough(Matrix4x4 &in) {
 	in.translateAndScale(Vec3(xoff, yoff, 0.5f), Vec3(1.0f, 1.0f, 0.5f));
 }
 
-const uint64_t psUniforms = DIRTY_TEXENV | DIRTY_ALPHACOLORREF | DIRTY_ALPHACOLORMASK | DIRTY_FOGCOLOR | DIRTY_STENCILREPLACEVALUE | DIRTY_SHADERBLEND | DIRTY_TEXCLAMP;
+const uint64_t psUniforms = DIRTY_TEXENV | DIRTY_ALPHACOLORREF | DIRTY_ALPHACOLORMASK | DIRTY_FOGCOLOR | DIRTY_STENCILREPLACEVALUE | DIRTY_SHADERBLEND | DIRTY_TEXCLAMP | DIRTY_TEXSIZE;
 
 void ShaderManagerDX9::PSUpdateUniforms(u64 dirtyUniforms) {
 	if (dirtyUniforms & DIRTY_TEXENV) {
@@ -310,6 +310,16 @@ void ShaderManagerDX9::PSUpdateUniforms(u64 dirtyUniforms) {
 		};
 		PSSetFloatArray(CONST_PS_TEXCLAMP, texclamp, 4);
 		PSSetFloatArray(CONST_PS_TEXCLAMPOFF, texclampoff, 2);
+	}
+
+	if (dirtyUniforms & DIRTY_TEXSIZE) {
+		const float texSize[4] = {
+			(float)gstate_c.curTextureWidth,
+			(float)gstate_c.curTextureHeight,
+			1.0f / (float)gstate_c.curTextureWidth,
+			1.0f / (float)gstate_c.curTextureHeight,
+		};
+		PSSetFloatArray(CONST_PS_TEXSIZE, texSize, 4);
 	}
 }
 

@@ -84,10 +84,11 @@ enum : uint64_t {
 	// These are for hardware tessellation
 	DIRTY_BEZIERSPLINE = 1ULL << 32,
 	DIRTY_TEXCLAMP = 1ULL << 33,
+	DIRTY_TEXSIZE = 1ULL << 34,
 
-	// space for 7 more uniforms.
+	// space for 5 more uniforms.
 
-	DIRTY_ALL_UNIFORMS = 0x3FFFFFFFFULL,
+	DIRTY_ALL_UNIFORMS = 0x7FFFFFFFFULL,
 	DIRTY_ALL_LIGHTS = DIRTY_LIGHT0 | DIRTY_LIGHT1 | DIRTY_LIGHT2 | DIRTY_LIGHT3,
 
 	// Other dirty elements that aren't uniforms!

@@ -195,6 +195,10 @@ void TextureCacheCommon::GetSamplingParams(int &minFilt, int &magFilt, bool &sCl
 			forceNearest = true;
 		}
 	}
+	// addr is set to nullptr for framebuffers
+	if (addr && g_Config.bRealtimeTexScaling && g_Config.iTexScalingLevel != 1) {
+		forceNearest = true;
+	}
 	if (forceNearest) {
 		magFilt &= ~1;
 		minFilt &= ~1;
@@ -424,6 +428,7 @@ void TextureCacheCommon::SetTexture(bool force) {
 			//got one!
 			gstate_c.curTextureWidth = w;
 			gstate_c.curTextureHeight = h;
+			gstate_c.Dirty(DIRTY_TEXSIZE);
 			if (rehash) {
 				// Update in case any of these changed.
 				entry->sizeInRAM = (textureBitsPerPixel[format] * bufw * h / 2) / 8;
@@ -496,6 +501,7 @@ void TextureCacheCommon::SetTexture(bool force) {
 
 	gstate_c.curTextureWidth = w;
 	gstate_c.curTextureHeight = h;
+	gstate_c.Dirty(DIRTY_TEXSIZE);
 
 	// Before we go reading the texture from memory, let's check for render-to-texture.
 	// We must do this early so we have the right w/h.
@@ -843,6 +849,7 @@ void TextureCacheCommon::SetTextureFramebuffer(TexCacheEntry *entry, VirtualFram
 		// We need to force it, since we may have set it on a texture before attaching.
 		gstate_c.curTextureWidth = framebuffer->bufferWidth;
 		gstate_c.curTextureHeight = framebuffer->bufferHeight;
+		gstate_c.Dirty(DIRTY_TEXSIZE);
 		if (gstate_c.bgraTexture) {
 			gstate_c.Dirty(DIRTY_FRAGMENTSHADER_STATE);
 		} else if ((gstate_c.curTextureXOffset == 0) != (fbInfo.xOffset == 0) || (gstate_c.curTextureYOffset == 0) != (fbInfo.yOffset == 0)) {
@@ -910,33 +917,37 @@ bool TextureCacheCommon::SetOffsetTexture(u32 offset) {
 void TextureCacheCommon::NotifyConfigChanged() {
 	int scaleFactor;
 
-	// 0 means automatic texture scaling, up to 5x, based on resolution.
-	if (g_Config.iTexScalingLevel == 0) {
-		scaleFactor = g_Config.iInternalResolution;
-		// Automatic resolution too?  Okay.
-		if (scaleFactor == 0) {
-			if (!g_Config.IsPortrait()) {
-				scaleFactor = (PSP_CoreParameter().pixelWidth + 479) / 480;
-			} else {
-				scaleFactor = (PSP_CoreParameter().pixelHeight + 479) / 480;
+	if (g_Config.bRealtimeTexScaling) {
+		scaleFactor = 1;
+	} else {
+		// 0 means automatic texture scaling, up to 5x, based on resolution.
+		if (g_Config.iTexScalingLevel == 0) {
+			scaleFactor = g_Config.iInternalResolution;
+			// Automatic resolution too?  Okay.
+			if (scaleFactor == 0) {
+				if (!g_Config.IsPortrait()) {
+					scaleFactor = (PSP_CoreParameter().pixelWidth + 479) / 480;
+				} else {
+					scaleFactor = (PSP_CoreParameter().pixelHeight + 479) / 480;
+				}
+			}
+
+			scaleFactor = std::min(5, scaleFactor);
+		} else {
+			scaleFactor = g_Config.iTexScalingLevel;
+		}
+
+		if (!gstate_c.Supports(GPU_SUPPORTS_OES_TEXTURE_NPOT)) {
+			// Reduce the scale factor to a power of two (e.g. 2 or 4) if textures must be a power of two.
+			while ((scaleFactor & (scaleFactor - 1)) != 0) {
+				--scaleFactor;
 			}
 		}
 
-		scaleFactor = std::min(5, scaleFactor);
-	} else {
-		scaleFactor = g_Config.iTexScalingLevel;
-	}
-
-	if (!gstate_c.Supports(GPU_SUPPORTS_OES_TEXTURE_NPOT)) {
-		// Reduce the scale factor to a power of two (e.g. 2 or 4) if textures must be a power of two.
-		while ((scaleFactor & (scaleFactor - 1)) != 0) {
-			--scaleFactor;
+		// Just in case, small display with auto resolution or something.
+		if (scaleFactor <= 0) {
+			scaleFactor = 1;
 		}
-	}
-
-	// Just in case, small display with auto resolution or something.
-	if (scaleFactor <= 0) {
-		scaleFactor = 1;
 	}
 
 	standardScaleFactor_ = scaleFactor;
@@ -1524,8 +1535,10 @@ void TextureCacheCommon::ApplyTexture() {
 
 	entry->lastFrame = gpuStats.numFlips;
 	if (entry->framebuffer) {
+		gstate_c.curTextureIsRT = true;
 		ApplyTextureFramebuffer(entry, entry->framebuffer);
 	} else {
+		gstate_c.curTextureIsRT = false;
 		BindTexture(entry);
 		gstate_c.SetTextureFullAlpha(entry->GetAlphaStatus() == TexCacheEntry::STATUS_ALPHA_FULL);
 	}
