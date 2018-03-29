@@ -128,10 +128,7 @@ void GPU_Vulkan::LoadCache(std::string filename) {
 	// it can just memcpy the finished shader binaries out of the pipeline cache file.
 	bool result = shaderManagerVulkan_->LoadCache(f);
 	if (result) {
-		VkRenderPass renderPass = g_Config.iRenderingMode == FB_BUFFERED_MODE ?
-			(VkRenderPass)draw_->GetNativeObject(Draw::NativeObject::FRAMEBUFFER_RENDERPASS) :
-			(VkRenderPass)draw_->GetNativeObject(Draw::NativeObject::BACKBUFFER_RENDERPASS);
-		result = pipelineManager_->LoadCache(f, false, shaderManagerVulkan_, draw_, drawEngine_.GetPipelineLayout(), renderPass);
+		result = pipelineManager_->LoadCache(f, false, shaderManagerVulkan_, draw_, drawEngine_.GetPipelineLayout());
 	}
 	fclose(f);
 	if (!result) {

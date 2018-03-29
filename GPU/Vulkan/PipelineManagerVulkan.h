@@ -97,7 +97,7 @@ public:
 
 	// Saves data for faster creation next time.
 	void SaveCache(FILE *file, bool saveRawPipelineCache, ShaderManagerVulkan *shaderManager, Draw::DrawContext *drawContext);
-	bool LoadCache(FILE *file, bool loadRawPipelineCache, ShaderManagerVulkan *shaderManager, Draw::DrawContext *drawContext, VkPipelineLayout layout, VkRenderPass renderPass);
+	bool LoadCache(FILE *file, bool loadRawPipelineCache, ShaderManagerVulkan *shaderManager, Draw::DrawContext *drawContext, VkPipelineLayout layout);
 
 private:
 	DenseHashMap<VulkanPipelineKey, VulkanPipeline *, nullptr> pipelines_;
