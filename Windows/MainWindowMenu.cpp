@@ -350,7 +350,7 @@ namespace MainWindow {
 		TranslateMenuItem(menu, ID_TEXTURESCALING_GAUSSIAN);
 		TranslateMenuItem(menu, ID_TEXTURESCALING_COSINE);
 		TranslateMenuItem(menu, ID_TEXTURESCALING_DEPOSTERIZE);
-		TranslateMenuItem(menu, ID_TEXTURESCALING_REALTIME);
+		TranslateMenuItem(menu, ID_TEXTURESCALING_REALTIME, L"\tF5");
 		TranslateMenuItem(menu, ID_OPTIONS_HARDWARETRANSFORM);
 		TranslateMenuItem(menu, ID_OPTIONS_VERTEXCACHE);
 		TranslateMenuItem(menu, ID_OPTIONS_SHOWFPS);
@@ -506,6 +506,22 @@ namespace MainWindow {
 		if(g_Config.bRealtimeTexScaling) {
 			NativeMessageReceived("gpu_clearShaderCache", "");
 		}
+	}
+
+	static void setTexScalingMode(bool realtime) {
+		g_Config.bRealtimeTexScaling = realtime;
+		NativeMessageReceived("gpu_clearShaderCache", "");
+		NativeMessageReceived("gpu_clearCache", "");
+
+		std::ostringstream messageStream;
+		I18NCategory *gr = GetI18NCategory("Graphics");
+		messageStream << gr->T("Texture Scaling") << ":" << " ";
+		if (realtime) {
+			messageStream << gr->T("Realtime");
+		} else {
+			messageStream << gr->T("Cached");
+		}
+		osm.Show(messageStream.str(), 3.0f);
 	}
 
 	static void setRenderingMode(int mode) {
@@ -776,9 +792,13 @@ namespace MainWindow {
 		case ID_TEXTURESCALING_COSINE:          setTexScalingType(TextureScalerCommon::COSINE); break;
 
 		case ID_TEXTURESCALING_REALTIME:
-			g_Config.bRealtimeTexScaling = !g_Config.bRealtimeTexScaling;
-			NativeMessageReceived("gpu_clearShaderCache", "");
-			NativeMessageReceived("gpu_clearCache", "");
+			setTexScalingMode(!g_Config.bRealtimeTexScaling);
+			break;
+
+		case ID_TEXTURESCALING_REALTIME_HC:
+			if (KeyMap::g_controllerMap[VIRTKEY_LOAD_STATE].empty()) {
+				setTexScalingMode(!g_Config.bRealtimeTexScaling);
+			}
 			break;
 
 		case ID_TEXTURESCALING_DEPOSTERIZE:
