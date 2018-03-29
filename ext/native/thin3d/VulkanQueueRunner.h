@@ -174,11 +174,38 @@ public:
 
 	void CopyReadbackBuffer(int width, int height, Draw::DataFormat srcFormat, Draw::DataFormat destFormat, int pixelStride, uint8_t *pixels);
 
-private:
-	// Only call this from the render thread!
-	VkRenderPass GetRenderPass(VKRRenderPassAction colorLoadAction, VKRRenderPassAction depthLoadAction, VKRRenderPassAction stencilLoadAction,
-		VkImageLayout prevColorLayout, VkImageLayout prevDepthLayout, VkImageLayout finalColorLayout);
+	struct RPKey {
+		VKRRenderPassAction colorLoadAction;
+		VKRRenderPassAction depthLoadAction;
+		VKRRenderPassAction stencilLoadAction;
+		VkImageLayout prevColorLayout;
+		VkImageLayout prevDepthLayout;
+		VkImageLayout finalColorLayout;
+		// TODO: Also pre-transition depth, for copies etc.
+	};
 
+	// Only call this from the render thread! Also ok during initialization (LoadCache).
+	VkRenderPass GetRenderPass(
+		VKRRenderPassAction colorLoadAction, VKRRenderPassAction depthLoadAction, VKRRenderPassAction stencilLoadAction,
+		VkImageLayout prevColorLayout, VkImageLayout prevDepthLayout, VkImageLayout finalColorLayout) {
+		RPKey key{ colorLoadAction, depthLoadAction, stencilLoadAction, prevColorLayout, prevDepthLayout, finalColorLayout };
+		return GetRenderPass(key);
+	}
+
+	VkRenderPass GetRenderPass(const RPKey &key);
+
+	bool GetRenderPassKey(VkRenderPass passToFind, RPKey *outKey) const {
+		bool found = false;
+		renderPasses_.Iterate([passToFind, &found, outKey](const RPKey &rpkey, VkRenderPass pass) {
+			if (pass == passToFind) {
+				found = true;
+				*outKey = rpkey;
+			}
+		});
+		return found;
+	}
+
+private:
 	void InitBackbufferRenderPass();
 
 	void PerformBindFramebufferAsRenderTarget(const VKRStep &pass, VkCommandBuffer cmd);
@@ -207,16 +234,6 @@ private:
 
 	VkRenderPass backbufferRenderPass_ = VK_NULL_HANDLE;
 	VkRenderPass framebufferRenderPass_ = VK_NULL_HANDLE;
-
-	struct RPKey {
-		VKRRenderPassAction colorAction;
-		VKRRenderPassAction depthAction;
-		VKRRenderPassAction stencilAction;
-		VkImageLayout prevColorLayout;
-		VkImageLayout prevDepthLayout;
-		VkImageLayout finalColorLayout;
-		// TODO: Also pre-transition depth, for copies etc.
-	};
 
 	// Renderpasses, all combinations of preserving or clearing or dont-care-ing fb contents.
 	// TODO: Create these on demand.

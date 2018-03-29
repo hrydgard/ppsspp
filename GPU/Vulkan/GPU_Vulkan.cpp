@@ -131,7 +131,7 @@ void GPU_Vulkan::LoadCache(std::string filename) {
 		VkRenderPass renderPass = g_Config.iRenderingMode == FB_BUFFERED_MODE ?
 			(VkRenderPass)draw_->GetNativeObject(Draw::NativeObject::FRAMEBUFFER_RENDERPASS) :
 			(VkRenderPass)draw_->GetNativeObject(Draw::NativeObject::BACKBUFFER_RENDERPASS);
-		result = pipelineManager_->LoadCache(f, false, shaderManagerVulkan_, &drawEngine_, drawEngine_.GetPipelineLayout(), renderPass);
+		result = pipelineManager_->LoadCache(f, false, shaderManagerVulkan_, draw_, drawEngine_.GetPipelineLayout(), renderPass);
 	}
 	fclose(f);
 	if (!result) {
@@ -148,7 +148,7 @@ void GPU_Vulkan::SaveCache(std::string filename) {
 	if (!f)
 		return;
 	shaderManagerVulkan_->SaveCache(f);
-	pipelineManager_->SaveCache(f, false, shaderManagerVulkan_);
+	pipelineManager_->SaveCache(f, false, shaderManagerVulkan_, draw_);
 	INFO_LOG(G3D, "Saved Vulkan pipeline cache");
 	fclose(f);
 }

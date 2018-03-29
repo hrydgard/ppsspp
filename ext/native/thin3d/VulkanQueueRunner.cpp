@@ -153,8 +153,7 @@ void VulkanQueueRunner::InitBackbufferRenderPass() {
 	assert(res == VK_SUCCESS);
 }
 
-VkRenderPass VulkanQueueRunner::GetRenderPass(VKRRenderPassAction colorLoadAction, VKRRenderPassAction depthLoadAction, VKRRenderPassAction stencilLoadAction, VkImageLayout prevColorLayout, VkImageLayout prevDepthLayout, VkImageLayout finalColorLayout) {
-	RPKey key{ colorLoadAction, depthLoadAction, stencilLoadAction, prevColorLayout, prevDepthLayout, finalColorLayout };
+VkRenderPass VulkanQueueRunner::GetRenderPass(const RPKey &key) {
 	auto pass = renderPasses_.Get(key);
 	if (pass) {
 		return pass;
@@ -163,7 +162,7 @@ VkRenderPass VulkanQueueRunner::GetRenderPass(VKRRenderPassAction colorLoadActio
 	VkAttachmentDescription attachments[2] = {};
 	attachments[0].format = VK_FORMAT_R8G8B8A8_UNORM;
 	attachments[0].samples = VK_SAMPLE_COUNT_1_BIT;
-	switch (colorLoadAction) {
+	switch (key.colorLoadAction) {
 	case VKRRenderPassAction::CLEAR:
 		attachments[0].loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
 		break;
@@ -182,14 +181,14 @@ VkRenderPass VulkanQueueRunner::GetRenderPass(VKRRenderPassAction colorLoadActio
 	attachments[0].initialLayout = VK_IMAGE_LAYOUT_GENERAL;
 	attachments[0].finalLayout = VK_IMAGE_LAYOUT_GENERAL;
 #else
-	attachments[0].initialLayout = prevColorLayout;
-	attachments[0].finalLayout = finalColorLayout;
+	attachments[0].initialLayout = key.prevColorLayout;
+	attachments[0].finalLayout = key.finalColorLayout;
 #endif
 	attachments[0].flags = 0;
 
 	attachments[1].format = vulkan_->GetDeviceInfo().preferredDepthStencilFormat;
 	attachments[1].samples = VK_SAMPLE_COUNT_1_BIT;
-	switch (depthLoadAction) {
+	switch (key.depthLoadAction) {
 	case VKRRenderPassAction::CLEAR:
 		attachments[1].loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
 		break;
@@ -200,7 +199,7 @@ VkRenderPass VulkanQueueRunner::GetRenderPass(VKRRenderPassAction colorLoadActio
 		attachments[1].loadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
 		break;
 	}
-	switch (stencilLoadAction) {
+	switch (key.stencilLoadAction) {
 	case VKRRenderPassAction::CLEAR:
 		attachments[1].stencilLoadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
 		break;
@@ -217,7 +216,7 @@ VkRenderPass VulkanQueueRunner::GetRenderPass(VKRRenderPassAction colorLoadActio
 	attachments[1].initialLayout = VK_IMAGE_LAYOUT_GENERAL;
 	attachments[1].finalLayout = VK_IMAGE_LAYOUT_GENERAL;
 #else
-	attachments[1].initialLayout = prevDepthLayout;
+	attachments[1].initialLayout = key.prevDepthLayout;
 	attachments[1].finalLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
 #endif
 	attachments[1].flags = 0;
@@ -244,7 +243,7 @@ VkRenderPass VulkanQueueRunner::GetRenderPass(VKRRenderPassAction colorLoadActio
 
 	VkSubpassDependency deps[2]{};
 	int numDeps = 0;
-	switch (prevColorLayout) {
+	switch (key.prevColorLayout) {
 	case VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL:
 		// Already the right color layout. Unclear that we need to do a lot here..
 		break;
@@ -266,11 +265,11 @@ VkRenderPass VulkanQueueRunner::GetRenderPass(VKRRenderPassAction colorLoadActio
 		deps[numDeps].srcStageMask |= VK_PIPELINE_STAGE_TRANSFER_BIT;
 		break;
 	default:
-		_dbg_assert_msg_(G3D, false, "GetRenderPass: Unexpected color layout %d", (int)prevColorLayout);
+		_dbg_assert_msg_(G3D, false, "GetRenderPass: Unexpected color layout %d", (int)key.prevColorLayout);
 		break;
 	}
 
-	switch (prevDepthLayout) {
+	switch (key.prevDepthLayout) {
 	case VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL:
 		// Already the right depth layout. Unclear that we need to do a lot here..
 		break;
@@ -287,7 +286,7 @@ VkRenderPass VulkanQueueRunner::GetRenderPass(VKRRenderPassAction colorLoadActio
 		deps[numDeps].srcStageMask |= VK_PIPELINE_STAGE_TRANSFER_BIT;
 		break;
 	default:
-		_dbg_assert_msg_(G3D, false, "PerformBindRT: Unexpected depth layout %d", (int)prevDepthLayout);
+		_dbg_assert_msg_(G3D, false, "PerformBindRT: Unexpected depth layout %d", (int)key.prevDepthLayout);
 		break;
 	}
 
@@ -302,7 +301,7 @@ VkRenderPass VulkanQueueRunner::GetRenderPass(VKRRenderPassAction colorLoadActio
 
 	// And the final transition.
 	// Don't need to transition it if VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL.
-	switch (finalColorLayout) {
+	switch (key.finalColorLayout) {
 	case VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL:
 		deps[numDeps].dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
 		deps[numDeps].dstStageMask = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
