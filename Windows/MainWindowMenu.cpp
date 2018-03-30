@@ -787,6 +787,7 @@ namespace MainWindow {
 		case ID_TEXTURESCALING_HYBRID:          setTexScalingType(TextureScalerCommon::HYBRID); break;
 		case ID_TEXTURESCALING_BICUBIC:         setTexScalingType(TextureScalerCommon::BICUBIC); break;
 		case ID_TEXTURESCALING_HYBRID_BICUBIC:  setTexScalingType(TextureScalerCommon::HYBRID_BICUBIC); break;
+		case ID_TEXTURESCALING_XBR:             setTexScalingType(TextureScalerCommon::XBR); break;
 		case ID_TEXTURESCALING_SABR:            setTexScalingType(TextureScalerCommon::SABR); break;
 		case ID_TEXTURESCALING_GAUSSIAN:        setTexScalingType(TextureScalerCommon::GAUSSIAN); break;
 		case ID_TEXTURESCALING_COSINE:          setTexScalingType(TextureScalerCommon::COSINE); break;
@@ -1214,6 +1215,7 @@ namespace MainWindow {
 			ID_TEXTURESCALING_HYBRID,
 			ID_TEXTURESCALING_BICUBIC,
 			ID_TEXTURESCALING_HYBRID_BICUBIC,
+			ID_TEXTURESCALING_XBR,
 			ID_TEXTURESCALING_SABR,
 			ID_TEXTURESCALING_GAUSSIAN,
 			ID_TEXTURESCALING_COSINE,

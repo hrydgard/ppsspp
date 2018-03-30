@@ -613,6 +613,7 @@ BEGIN
             MENUITEM "Hybrid",                          ID_TEXTURESCALING_HYBRID
             MENUITEM "Bicubic",                         ID_TEXTURESCALING_BICUBIC
             MENUITEM "Hybrid + Bicubic",                ID_TEXTURESCALING_HYBRID_BICUBIC
+            MENUITEM "XBR",                             ID_TEXTURESCALING_XBR
             MENUITEM "SABR",                            ID_TEXTURESCALING_SABR
             MENUITEM "Gaussian",                        ID_TEXTURESCALING_GAUSSIAN
             MENUITEM "Cosine",                          ID_TEXTURESCALING_COSINE
