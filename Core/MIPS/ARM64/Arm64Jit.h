@@ -202,7 +202,7 @@ private:
 	void WriteDownCountR(Arm64Gen::ARM64Reg reg, bool updateFlags = true);
 	void RestoreRoundingMode(bool force = false);
 	void ApplyRoundingMode(bool force = false);
-	void UpdateRoundingMode();
+	void UpdateRoundingMode(u32 fcr31 = -1);
 	void MovFromPC(Arm64Gen::ARM64Reg r);
 	void MovToPC(Arm64Gen::ARM64Reg r);
 

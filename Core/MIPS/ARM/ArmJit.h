@@ -203,7 +203,7 @@ private:
 	void WriteDownCountR(ArmGen::ARMReg reg);
 	void RestoreRoundingMode(bool force = false);
 	void ApplyRoundingMode(bool force = false);
-	void UpdateRoundingMode();
+	void UpdateRoundingMode(u32 fcr31 = -1);
 	void MovFromPC(ArmGen::ARMReg r);
 	void MovToPC(ArmGen::ARMReg r);
 
@@ -311,7 +311,6 @@ public:
 
 	const u8 *restoreRoundingMode;
 	const u8 *applyRoundingMode;
-	const u8 *updateRoundingMode;
 
 	const u8 *breakpointBailout;
 };

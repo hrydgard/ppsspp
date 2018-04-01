@@ -375,8 +375,10 @@ void Arm64Jit::Comp_mxc1(MIPSOpcode op)
 			// Must clear before setting, since ApplyRoundingMode() assumes it was cleared.
 			RestoreRoundingMode();
 			bool wasImm = gpr.IsImm(rt);
+			u32 immVal = -1;
 			if (wasImm) {
-				gpr.SetImm(MIPS_REG_FPCOND, (gpr.GetImm(rt) >> 23) & 1);
+				immVal = gpr.GetImm(rt);
+				gpr.SetImm(MIPS_REG_FPCOND, (immVal >> 23) & 1);
 				gpr.MapReg(rt);
 			} else {
 				gpr.MapDirtyIn(MIPS_REG_FPCOND, rt);
@@ -387,9 +389,11 @@ void Arm64Jit::Comp_mxc1(MIPSOpcode op)
 			STR(INDEX_UNSIGNED, gpr.R(rt), CTXREG, offsetof(MIPSState, fcr31));
 			if (!wasImm) {
 				UBFX(gpr.R(MIPS_REG_FPCOND), gpr.R(rt), 23, 1);
+				// TODO: We do have the fcr31 value in a register here, could use that in UpdateRoundingMode to avoid reloading it.
+				UpdateRoundingMode();
+			} else {
+				UpdateRoundingMode(immVal);
 			}
-			// TODO: We do have the fcr31 value in a register here, could use that in UpdateRoundingMode to avoid reloading it.
-			UpdateRoundingMode();
 			ApplyRoundingMode();
 		} else {
 			Comp_Generic(op);

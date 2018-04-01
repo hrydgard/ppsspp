@@ -200,6 +200,8 @@ void IRFrontend::ApplyRoundingMode(bool force) {
 
 // Destroys SCRATCH1 and SCRATCH2
 void IRFrontend::UpdateRoundingMode() {
+	// We must set js.hasSetRounding at compile time, or this block will use the wrong rounding mode.
+	js.hasSetRounding = true;
 	ir.Write(IROp::UpdateRoundingMode);
 }
 

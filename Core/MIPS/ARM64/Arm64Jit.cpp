@@ -602,7 +602,12 @@ void Arm64Jit::ApplyRoundingMode(bool force) {
 }
 
 // Destroys SCRATCH1 and SCRATCH2
-void Arm64Jit::UpdateRoundingMode() {
+void Arm64Jit::UpdateRoundingMode(u32 fcr31) {
+	// We must set js.hasSetRounding at compile time, or this block will use the wrong rounding mode.
+	// The fcr31 parameter is -1 when not known at compile time, so we just assume it was changed.
+	if (fcr31 & 0x01000003) {
+		js.hasSetRounding = true;
+	}
 	QuickCallFunction(SCRATCH2_64, updateRoundingMode);
 }
 

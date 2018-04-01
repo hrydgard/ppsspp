@@ -177,17 +177,6 @@ void Arm64Jit::GenerateFixedCode(const JitOptions &jo) {
 		ADDI2R(SCRATCH2, SCRATCH2, 4);
 		SetJumpTarget(skip);
 
-		// We need both SCRATCH1 and SCRATCH2 for updating hasSetRounding.
-		PUSH(SCRATCH2);
-		// We can only skip if the rounding mode is zero and flush is not set.
-		CMPI2R(SCRATCH2, 0);
-		FixupBranch skip2 = B(CC_EQ);
-		MOVI2R(SCRATCH2, 1);
-		MOVP2R(SCRATCH1_64, &js.hasSetRounding);
-		STRB(INDEX_UNSIGNED, SCRATCH2, SCRATCH1_64, 0);
-		SetJumpTarget(skip2);
-		POP(SCRATCH2);
-
 		// Let's update js.currentRoundingFunc with the right convertS0ToSCRATCH1 func.
 		MOVP2R(SCRATCH1_64, convertS0ToSCRATCH1);
 		LSL(SCRATCH2, SCRATCH2, 3);

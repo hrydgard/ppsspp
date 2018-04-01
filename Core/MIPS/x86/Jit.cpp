@@ -198,8 +198,12 @@ void Jit::ApplyRoundingMode(bool force) {
 	}
 }
 
-void Jit::UpdateRoundingMode() {
-	CALL(updateRoundingMode);
+void Jit::UpdateRoundingMode(u32 fcr31) {
+	// We must set js.hasSetRounding at compile time, or this block will use the wrong rounding mode.
+	// The fcr31 parameter is -1 when not known at compile time, so we just assume it was changed.
+	if (fcr31 & 0x01000003) {
+		js.hasSetRounding = true;
+	}
 }
 
 void Jit::ClearCache()
@@ -418,8 +422,6 @@ void Jit::AddContinuedBlock(u32 dest) {
 bool Jit::DescribeCodePtr(const u8 *ptr, std::string &name) {
 	if (ptr == applyRoundingMode)
 		name = "applyRoundingMode";
-	else if (ptr == updateRoundingMode)
-		name = "updateRoundingMode";
 	else if (ptr == dispatcher)
 		name = "dispatcher";
 	else if (ptr == dispatcherInEAXNoCheck)

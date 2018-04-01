@@ -155,7 +155,7 @@ public:
 
 	void RestoreRoundingMode(bool force = false);
 	void ApplyRoundingMode(bool force = false);
-	void UpdateRoundingMode();
+	void UpdateRoundingMode(u32 fcr31 = -1);
 
 	JitBlockCache *GetBlockCache() override { return &blocks; }
 	JitBlockCacheDebugInterface *GetBlockCacheDebugInterface() override { return &blocks; }
@@ -324,7 +324,6 @@ private:
 
 	const u8 *restoreRoundingMode;
 	const u8 *applyRoundingMode;
-	const u8 *updateRoundingMode;
 
 	const u8 *endOfPregeneratedCode;
 
