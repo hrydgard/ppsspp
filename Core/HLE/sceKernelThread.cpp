@@ -31,6 +31,7 @@
 #include "Core/MIPS/MIPS.h"
 #include "Core/CoreTiming.h"
 #include "Core/MemMapHelpers.h"
+#include "Core/MIPS/JitCommon/JitCommon.h"
 #include "Core/Reporting.h"
 #include "Common/ChunkFile.h"
 
@@ -1460,6 +1461,10 @@ void __KernelLoadContext(ThreadContext *ctx, bool vfpuEnabled)
 	}
 
 	memcpy(currentMIPS->other, ctx->other, sizeof(ctx->other));
+	if (MIPSComp::jit) {
+		// When thread switching, we must update the rounding mode if cached in the jit.
+		MIPSComp::jit->UpdateFCR31();
+	}
 
 	// Reset the llBit, the other thread may have touched memory.
 	currentMIPS->llBit = 0;

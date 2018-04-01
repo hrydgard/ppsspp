@@ -123,20 +123,6 @@ void ArmJit::GenerateFixedCode() {
 		POP(2, SCRATCHREG1, R_PC);
 	}
 
-	// Must preserve SCRATCHREG1 (R0), destroys SCRATCHREG2 (LR)
-	updateRoundingMode = AlignCode16(); {
-		PUSH(2, SCRATCHREG1, R_LR);
-		LDR(SCRATCHREG2, CTXREG, offsetof(MIPSState, fcr31));
-		MOVI2R(SCRATCHREG1, 0x1000003);
-		TST(SCRATCHREG2, SCRATCHREG1);
-		FixupBranch skip = B_CC(CC_EQ);  // zero
-		MOVI2R(SCRATCHREG2, 1);
-		MOVP2R(SCRATCHREG1, &js.hasSetRounding);
-		STRB(SCRATCHREG2, SCRATCHREG1, 0);
-		SetJumpTarget(skip);
-		POP(2, SCRATCHREG1, R_PC);
-	}
-
 	FlushLitPool();
 
 	enterDispatcher = AlignCode16();

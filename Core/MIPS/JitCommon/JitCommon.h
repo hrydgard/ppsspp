@@ -131,6 +131,7 @@ namespace MIPSComp {
 		virtual void Compile(u32 em_address) = 0;
 		virtual void CompileFunction(u32 start_address, u32 length) { }
 		virtual void ClearCache() = 0;
+		virtual void UpdateFCR31() = 0;
 		virtual MIPSOpcode GetOriginalOp(MIPSOpcode op) = 0;
 
 		// No jit operations may be run between these calls.

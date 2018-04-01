@@ -79,7 +79,7 @@ Arm64Jit::Arm64Jit(MIPSState *mips) : blocks(mips, this), gpr(mips, &js, &jo), f
 	AllocCodeSpace(1024 * 1024 * 16);  // 32MB is the absolute max because that's what an ARM branch instruction can reach, backwards and forwards.
 	GenerateFixedCode(jo);
 	js.startDefaultPrefix = mips_->HasDefaultPrefix();
-	js.currentRoundingFunc = convertS0ToSCRATCH1[0];
+	js.currentRoundingFunc = convertS0ToSCRATCH1[mips_->fcr31 & 3];
 }
 
 Arm64Jit::~Arm64Jit() {
@@ -98,13 +98,14 @@ void Arm64Jit::DoState(PointerWrap &p) {
 		js.hasSetRounding = 1;
 	}
 
-	if (p.GetMode() == PointerWrap::MODE_READ) {
-		js.currentRoundingFunc = convertS0ToSCRATCH1[(mips_->fcr31) & 3];
-	}
+	// Note: we can't update the currentRoundingFunc here because fcr31 wasn't loaded yet.
 }
 
-void Arm64Jit::FlushAll()
-{
+void Arm64Jit::UpdateFCR31() {
+	js.currentRoundingFunc = convertS0ToSCRATCH1[mips_->fcr31 & 3];
+}
+
+void Arm64Jit::FlushAll() {
 	gpr.FlushAll();
 	fpr.FlushAll();
 	FlushPrefixV();
@@ -601,7 +602,12 @@ void Arm64Jit::ApplyRoundingMode(bool force) {
 }
 
 // Destroys SCRATCH1 and SCRATCH2
-void Arm64Jit::UpdateRoundingMode() {
+void Arm64Jit::UpdateRoundingMode(u32 fcr31) {
+	// We must set js.hasSetRounding at compile time, or this block will use the wrong rounding mode.
+	// The fcr31 parameter is -1 when not known at compile time, so we just assume it was changed.
+	if (fcr31 & 0x01000003) {
+		js.hasSetRounding = true;
+	}
 	QuickCallFunction(SCRATCH2_64, updateRoundingMode);
 }
 

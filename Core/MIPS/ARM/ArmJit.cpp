@@ -106,6 +106,9 @@ void ArmJit::DoState(PointerWrap &p)
 	}
 }
 
+void ArmJit::UpdateFCR31() {
+}
+
 void ArmJit::FlushAll()
 {
 	gpr.FlushAll();
@@ -637,8 +640,12 @@ void ArmJit::ApplyRoundingMode(bool force) {
 }
 
 // Does (must!) not destroy R0 (SCRATCHREG1). Destroys R14 (SCRATCHREG2).
-void ArmJit::UpdateRoundingMode() {
-	QuickCallFunction(R1, updateRoundingMode);
+void ArmJit::UpdateRoundingMode(u32 fcr31) {
+	// We must set js.hasSetRounding at compile time, or this block will use the wrong rounding mode.
+	// The fcr31 parameter is -1 when not known at compile time, so we just assume it was changed.
+	if (fcr31 & 0x01000003) {
+		js.hasSetRounding = true;
+	}
 }
 
 // IDEA - could have a WriteDualExit that takes two destinations and two condition flags,
