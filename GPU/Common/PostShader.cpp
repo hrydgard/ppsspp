@@ -42,6 +42,7 @@ void LoadPostShaderInfo(std::vector<std::string> directories) {
 	off.section = "Off";
 	off.outputResolution = false;
 	off.isUpscalingFilter = false;
+	off.isSSAAFilter = false;
 	off.requires60fps = false;
 	shaderInfo.push_back(off);
 
@@ -87,6 +88,7 @@ void LoadPostShaderInfo(std::vector<std::string> directories) {
 					info.vertexShaderFile = path + "/" + temp;
 					section.Get("OutputResolution", &info.outputResolution, false);
 					section.Get("Upscaling", &info.isUpscalingFilter, false);
+					section.Get("SSAA", &info.isSSAAFilter, false);
 					section.Get("60fps", &info.requires60fps, false);
 
 					// Let's ignore shaders we can't support. TODO: Not a very good check

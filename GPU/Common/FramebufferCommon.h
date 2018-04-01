@@ -379,6 +379,7 @@ protected:
 	bool usePostShader_ = false;
 	bool postShaderAtOutputResolution_ = false;
 	bool postShaderIsUpscalingFilter_ = false;
+	bool postShaderIsSSAAFilter_ = false;
 
 	std::vector<VirtualFramebuffer *> vfbs_;
 	std::vector<VirtualFramebuffer *> bvfbs_; // blitting framebuffers (for download)

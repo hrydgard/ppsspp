@@ -36,6 +36,8 @@ struct ShaderInfo {
 	bool outputResolution;
 	// Use x1 rendering res + nearest screen scaling filter
 	bool isUpscalingFilter;
+	// Use 2x display resolution for supersampling with blurry shaders.
+	bool isSSAAFilter;
 	// Force constant/max refresh for animated filters
 	bool requires60fps;
 
