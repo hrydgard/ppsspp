@@ -334,7 +334,7 @@ namespace MIPSComp {
 
 			if (!load && gpr.IsImm(rt) && gpr.TryMapTempImm(rt) != INVALID_REG) {
 				// We're storing an immediate value, let's see if we can optimize rt.
-				if (!gpr.IsImm(rs) || offset == 0) {
+				if (!gpr.IsImm(rs) || !Memory::IsValidAddress(iaddr) || offset == 0) {
 					// In this case, we're always going to need rs mapped, which may flush the temp imm.
 					// We handle that in the cases below since targetReg is INVALID_REG.
 					gpr.MapIn(rs);
