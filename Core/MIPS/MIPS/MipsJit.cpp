@@ -66,6 +66,9 @@ void MipsJit::DoState(PointerWrap &p)
 	}
 }
 
+void MipsJit::UpdateFCR31() {
+}
+
 void MipsJit::FlushAll()
 {
 	//gpr.FlushAll();

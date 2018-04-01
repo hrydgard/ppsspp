@@ -55,6 +55,9 @@ void IRJit::DoState(PointerWrap &p) {
 	frontend_.DoState(p);
 }
 
+void IRJit::UpdateFCR31() {
+}
+
 void IRJit::ClearCache() {
 	ILOG("IRJit: Clearing the cache!");
 	blocks_.Clear();

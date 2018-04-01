@@ -142,6 +142,9 @@ void Jit::DoState(PointerWrap &p) {
 	CBreakPoints::SetSkipFirst(0);
 }
 
+void Jit::UpdateFCR31() {
+}
+
 void Jit::GetStateAndFlushAll(RegCacheState &state) {
 	gpr.GetState(state.gpr);
 	fpr.GetState(state.fpr);

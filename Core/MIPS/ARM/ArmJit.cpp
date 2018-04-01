@@ -106,6 +106,9 @@ void ArmJit::DoState(PointerWrap &p)
 	}
 }
 
+void ArmJit::UpdateFCR31() {
+}
+
 void ArmJit::FlushAll()
 {
 	gpr.FlushAll();

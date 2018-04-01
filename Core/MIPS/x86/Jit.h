@@ -171,6 +171,7 @@ public:
 			blocks.InvalidateICache(em_address, length);
 		}
 	}
+	void UpdateFCR31() override;
 
 	const u8 *GetDispatcher() const override {
 		return dispatcher;
