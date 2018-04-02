@@ -707,5 +707,22 @@ void FramebufferManagerVulkan::CompilePostShader() {
 		ELOG("Failed to compile.");
 		pipelinePostShader_ = VK_NULL_HANDLE;
 		usePostShader_ = false;
+
+		std::string firstLine;
+		std::string errorString = errorVS + "\n" + errorFS;
+		size_t start = 0;
+		for (size_t i = 0; i < errorString.size(); i++) {
+			if (errorString[i] == '\n' && i == start) {
+				start = i + 1;
+			} else if (errorString[i] == '\n') {
+				firstLine = errorString.substr(start, i - start);
+				break;
+			}
+		}
+		if (!firstLine.empty()) {
+			host->NotifyUserMessage("Post-shader error: " + firstLine + "...", 10.0f, 0xFF3090FF);
+		} else {
+			host->NotifyUserMessage("Post-shader error, see log for details", 10.0f, 0xFF3090FF);
+		}
 	}
 }
