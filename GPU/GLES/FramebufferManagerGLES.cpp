@@ -163,9 +163,7 @@ void FramebufferManagerGLES::CompilePostShader() {
 			semantics.push_back({ 0, "a_position" });
 			semantics.push_back({ 1, "a_texcoord0" });
 			postShaderProgram_ = render_->CreateProgram(shaders, semantics, queries, inits, false);
-			for (auto iter : shaders) {
-				render_->DeleteShader(iter);
-			}
+			postShaderModules_ = shaders;
 		} else {
 			ERROR_LOG(FRAMEBUF, "Failed to translate post shader!");
 		}
@@ -176,31 +174,7 @@ void FramebufferManagerGLES::CompilePostShader() {
 			// DO NOT turn this into a report, as it will pollute our logs with all kinds of
 			// user shader experiments.
 			ERROR_LOG(FRAMEBUF, "Failed to build post-processing program from %s and %s!\n%s", shaderInfo->vertexShaderFile.c_str(), shaderInfo->fragmentShaderFile.c_str(), errorString.c_str());
-			// let's show the first line of the error string as an OSM.
-			std::set<std::string> blacklistedLines;
-			// These aren't useful to show, skip to the first interesting line.
-			blacklistedLines.insert("Fragment shader failed to compile with the following errors:");
-			blacklistedLines.insert("Vertex shader failed to compile with the following errors:");
-			blacklistedLines.insert("Compile failed.");
-			blacklistedLines.insert("");
-
-			std::string firstLine;
-			size_t start = 0;
-			for (size_t i = 0; i < errorString.size(); i++) {
-				if (errorString[i] == '\n') {
-					firstLine = errorString.substr(start, i - start);
-					if (blacklistedLines.find(firstLine) == blacklistedLines.end()) {
-						break;
-					}
-					start = i + 1;
-					firstLine.clear();
-				}
-			}
-			if (!firstLine.empty()) {
-				host->NotifyUserMessage("Post-shader error: " + firstLine + "...", 10.0f, 0xFF3090FF);
-			} else {
-				host->NotifyUserMessage("Post-shader error, see log for details", 10.0f, 0xFF3090FF);
-			}
+			ShowPostShaderError(errorString);
 			usePostShader_ = false;
 		} else {
 			usePostShader_ = true;
@@ -208,6 +182,36 @@ void FramebufferManagerGLES::CompilePostShader() {
 	} else {
 		postShaderProgram_ = nullptr;
 		usePostShader_ = false;
+	}
+}
+
+void FramebufferManagerGLES::ShowPostShaderError(const std::string &errorString) {
+	// let's show the first line of the error string as an OSM.
+	std::set<std::string> blacklistedLines;
+	// These aren't useful to show, skip to the first interesting line.
+	blacklistedLines.insert("Fragment shader failed to compile with the following errors:");
+	blacklistedLines.insert("Vertex shader failed to compile with the following errors:");
+	blacklistedLines.insert("Compile failed.");
+	blacklistedLines.insert("");
+
+	std::string firstLine;
+	size_t start = 0;
+	for (size_t i = 0; i < errorString.size(); i++) {
+		if (errorString[i] == '\n' && i == start) {
+			start = i + 1;
+		} else if (errorString[i] == '\n') {
+			firstLine = errorString.substr(start, i - start);
+			if (blacklistedLines.find(firstLine) == blacklistedLines.end()) {
+				break;
+			}
+			start = i + 1;
+			firstLine.clear();
+		}
+	}
+	if (!firstLine.empty()) {
+		host->NotifyUserMessage("Post-shader error: " + firstLine + "...", 10.0f, 0xFF3090FF);
+	} else {
+		host->NotifyUserMessage("Post-shader error, see log for details", 10.0f, 0xFF3090FF);
 	}
 }
 
@@ -220,6 +224,30 @@ void FramebufferManagerGLES::BindPostShader(const PostShaderUniforms &uniforms) 
 	if (!postShaderProgram_) {
 		CompileDraw2DProgram();
 	}
+
+	bool failed = false;
+	std::string errorMessage;
+	for (size_t i = 0; i < postShaderModules_.size(); ++i) {
+		auto &shader = postShaderModules_[i];
+		if (shader->failed) {
+			failed = true;
+			errorMessage += shader->error + "\n";
+		}
+
+		if (shader->valid || shader->failed) {
+			render_->DeleteShader(shader);
+			postShaderModules_.erase(postShaderModules_.begin() + i);
+			// Check this index again.
+			i--;
+		}
+	}
+
+	if (failed) {
+		ShowPostShaderError(errorMessage);
+		// Show stuff if possible in an upcoming frame.
+		usePostShader_ = false;
+	}
+
 	render_->BindProgram(postShaderProgram_);
 	if (deltaLoc_ != -1)
 		render_->SetUniformF(&deltaLoc_, 2, uniforms.texelDelta);
@@ -286,6 +314,11 @@ void FramebufferManagerGLES::DestroyDeviceObjects() {
 		render_->DeleteProgram(postShaderProgram_);
 		postShaderProgram_ = nullptr;
 	}
+	// Will usually be clear already.
+	for (auto iter : postShaderModules_) {
+		render_->DeleteShader(iter);
+	}
+	postShaderModules_.clear();
 	if (drawPixelsTex_) {
 		render_->DeleteTexture(drawPixelsTex_);
 		drawPixelsTex_ = 0;

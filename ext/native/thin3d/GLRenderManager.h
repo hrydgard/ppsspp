@@ -79,6 +79,7 @@ public:
 	bool failed = false;
 	std::string desc;
 	std::string code;
+	std::string error;
 };
 
 class GLRProgram {
