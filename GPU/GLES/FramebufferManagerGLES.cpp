@@ -131,14 +131,13 @@ void FramebufferManagerGLES::CompilePostShader() {
 		bool translationFailed = false;
 		if (gl_extensions.IsCoreContext) {
 			// Gonna have to upconvert the shaders.
-			std::string errorMessage;
-			if (!TranslateShader(&vshader, GLSL_300, nullptr, vs, GLSL_140, Draw::ShaderStage::VERTEX, &errorMessage)) {
+			if (!TranslateShader(&vshader, GLSL_300, nullptr, vs, GLSL_140, Draw::ShaderStage::VERTEX, &errorString)) {
 				translationFailed = true;
-				ELOG("Failed to translate post-vshader: %s", errorMessage.c_str());
+				ELOG("Failed to translate post-vshader: %s", errorString.c_str());
 			}
-			if (!TranslateShader(&fshader, GLSL_300, nullptr, fs, GLSL_140, Draw::ShaderStage::FRAGMENT, &errorMessage)) {
+			if (!TranslateShader(&fshader, GLSL_300, nullptr, fs, GLSL_140, Draw::ShaderStage::FRAGMENT, &errorString)) {
 				translationFailed = true;
-				ELOG("Failed to translate post-fshader: %s", errorMessage.c_str());
+				ELOG("Failed to translate post-fshader: %s", errorString.c_str());
 			}
 		} else {
 			vshader = vs;
