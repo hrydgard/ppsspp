@@ -349,7 +349,12 @@ void GamePauseScreen::CreateViews() {
 		rightColumnItems->Add(new Choice(rp->T("ReportButton", "Report Feedback")))->OnClick.Handle(this, &GamePauseScreen::OnReportFeedback);
 	}
 	rightColumnItems->Add(new Spacer(25.0));
-	rightColumnItems->Add(new Choice(pa->T("Exit to menu")))->OnClick.Handle(this, &GamePauseScreen::OnExitToMenu);
+	if (g_Config.bPauseMenuExitsEmulator) {
+		I18NCategory *mm = GetI18NCategory("MainMenu");
+		rightColumnItems->Add(new Choice(mm->T("Exit")))->OnClick.Handle(this, &GamePauseScreen::OnExitToMenu);
+	} else {
+		rightColumnItems->Add(new Choice(pa->T("Exit to menu")))->OnClick.Handle(this, &GamePauseScreen::OnExitToMenu);
+	}
 }
 
 UI::EventReturn GamePauseScreen::OnGameSettings(UI::EventParams &e) {
@@ -392,7 +397,11 @@ UI::EventReturn GamePauseScreen::OnScreenshotClicked(UI::EventParams &e) {
 }
 
 UI::EventReturn GamePauseScreen::OnExitToMenu(UI::EventParams &e) {
-	TriggerFinish(DR_OK);
+	if (g_Config.bPauseMenuExitsEmulator) {
+		System_SendMessage("finish", "");
+	} else {
+		TriggerFinish(DR_OK);
+	}
 	return UI::EVENT_DONE;
 }
 

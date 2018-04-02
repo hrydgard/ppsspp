@@ -434,6 +434,8 @@ void NativeInit(int argc, const char *argv[], const char *savegame_dir, const ch
 				if (!strncmp(argv[i], "--escape-exit", strlen("--escape-exit")))
 					g_Config.bPauseExitsEmulator = true;
 #endif
+				if (!strncmp(argv[i], "--pause-menu-exit", strlen("--pause-menu-exit")))
+					g_Config.bPauseMenuExitsEmulator = true;
 				break;
 			}
 		} else {
