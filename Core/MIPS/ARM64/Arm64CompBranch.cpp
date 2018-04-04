@@ -576,7 +576,7 @@ void Arm64Jit::Comp_JumpReg(MIPSOpcode op)
 	} else {
 		// Since we can't be in a delay slot, should be safe to steal FLAGTEMPREG for a temp reg.
 		// It will be saved, even if a function is called.
-		destReg = FLAGTEMPREG;
+		destReg = DecodeReg(FLAGTEMPREG);
 		gpr.MapReg(rs);
 		MOV(destReg, gpr.R(rs));
 		if (andLink)
