@@ -558,6 +558,7 @@ bool TextureScalerCommon::ScaleInto(u32 *outputBuf, u32 *src, u32 &dstFmt, int &
 	case XBR:
 	case SABR:
 		// no cpu implementation, fall back to xbrz
+	case _4XBRZ:
 	case XBRZ:
 		ScaleXBRZ(factor, inputBuf, outputBuf, width, height);
 		break;

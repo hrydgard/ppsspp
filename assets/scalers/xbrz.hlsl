@@ -1,3 +1,6 @@
+// xBRZ-freescale
+// based on :
+
 
 // 4xBRZ shader - Copyright (C) 2014-2016 DeSmuME team
 //
@@ -46,23 +49,38 @@
 #define EQUAL_COLOR_TOLERANCE 30.0/255.0
 #define STEEP_DIRECTION_THRESHOLD 2.2
 #define DOMINANT_DIRECTION_THRESHOLD 3.6
+#define BLEND_ALPHA
 
-float reduce(float4 color)
-{
-  return dot(color.rgb, float3(65536.0, 256.0, 1.0));
-}
+#ifdef BLEND_ALPHA
+// TODO: check why the [0.0,1.0] clamp is necessary here
+float4 premultiply_alpha(float4 c) { float a = clamp(c.a, 0.0, 1.0); return float4(c.rgb * a, a); }
+float4 postdivide_alpha(float4 c) { return c.a < 0.001f? float4(0.0f,0.0f,0.0f,0.0f) : float4(c.rgb / c.a, c.a); }
+#define eq(a,b)  all(a == b)
+#define neq(a,b) any(a != b)
+#else
+#define premultiply_alpha(c) (c)
+#define postdivide_alpha(c) (c)
+#define eq(a,b)  all(a.rgb == b.rgb)
+#define neq(a,b) any(a.rgb != b.rgb)
+#endif
+
+#define P(x,y) tex_sample_direct(coord + u_texSize.zw * float2(x, y))
 
 float DistYCbCr(float4 pixA, float4 pixB)
 {
   const float3 w = float3(0.2627, 0.6780, 0.0593);
   const float scaleB = 0.5 / (1.0 - w.b);
   const float scaleR = 0.5 / (1.0 - w.r);
-  float3 diff = pixA.rgb - pixB.rgb;
-  float Y = dot(diff, w);
+  float4 diff = pixA - pixB;
+  float Y = dot(diff.rgb, w);
   float Cb = scaleB * (diff.b - Y);
   float Cr = scaleR * (diff.r - Y);
 
-  return sqrt( ((LUMINANCE_WEIGHT * Y) * (LUMINANCE_WEIGHT * Y)) + (Cb * Cb) + (Cr * Cr) );
+#ifdef BLEND_ALPHA
+  return sqrt(((LUMINANCE_WEIGHT * Y) * (LUMINANCE_WEIGHT * Y)) + (Cb * Cb) + (Cr * Cr) + (diff.a * diff.a));
+#else
+  return sqrt(((LUMINANCE_WEIGHT * Y) * (LUMINANCE_WEIGHT * Y)) + (Cb * Cb) + (Cr * Cr));
+#endif
 }
 
 bool IsPixEqual(const float4 pixA, const float4 pixB)
@@ -70,266 +88,213 @@ bool IsPixEqual(const float4 pixA, const float4 pixB)
   return (DistYCbCr(pixA, pixB) < EQUAL_COLOR_TOLERANCE);
 }
 
-bool IsBlendingNeeded(const int4 blend)
+float get_left_ratio(float2 center, float2 origin, float2 direction, float2 scale)
 {
-  return any(blend - BLEND_NONE);
+  float2 P0 = center - origin;
+  float2 proj = direction * (dot(P0, direction) / dot(direction, direction));
+  float2 distv = P0 - proj;
+  float2 orth = float2(-direction.y, direction.x);
+  float side = sign(dot(P0, orth));
+  float v = side * length(distv * scale);
+
+//  return step(0, v);
+  return smoothstep(-sqrt(2.0)/2.0, sqrt(2.0)/2.0, v);
 }
 
-//---------------------------------------
-// Input Pixel Mapping:    --|21|22|23|--
-//                         19|06|07|08|09
-//                         18|05|00|01|10
-//                         17|04|03|02|11
-//                         --|15|14|13|--
-//
-// Output Pixel Mapping: 20|21|22|23|24|25
-//                       19|06|07|08|09|26
-//                       18|05|00|01|10|27
-//                       17|04|03|02|11|28
-//                       16|15|14|13|12|29
-//                       35|34|33|32|31|30
-
-float4 tex_sample(float2 coord)
-{
-  float dx = u_texSize.z;
-  float dy = u_texSize.w;
-
-    //  A1 B1 C1
-  // A0 A  B  C C4
-  // D0 D  E  F F4
-  // G0 G  H  I I4
-    //  G5 H5 I5
-
-  float4 t1 = coord.xxxy + float4( -dx, 0.0, dx,-2.0*dy); // A1 B1 C1
-  float4 t2 = coord.xxxy + float4( -dx, 0.0, dx, -dy); // A B C
-  float4 t3 = coord.xxxy + float4( -dx, 0.0, dx, 0.0); // D E F
-  float4 t4 = coord.xxxy + float4( -dx, 0.0, dx, dy); // G H I
-  float4 t5 = coord.xxxy + float4( -dx, 0.0, dx, 2.0*dy); // G5 H5 I5
-  float4 t6 = coord.xyyy + float4(-2.0*dx,-dy, 0.0, dy); // A0 D0 G0
-  float4 t7 = coord.xyyy + float4( 2.0*dx,-dy, 0.0, dy); // C4 F4 I4
-
-  float2 f = frac(coord.xy * u_texSize.xy);
-
+float4 tex_sample(float2 coord) {
   //---------------------------------------
-  // Input Pixel Mapping:    |21|22|23|
-  //                       19|06|07|08|09
-  //                       18|05|00|01|10
-  //                       17|04|03|02|11
-  //                         |15|14|13|
+  // Input Pixel Mapping:  -|x|x|x|-
+  //                       x|A|B|C|x
+  //                       x|D|E|F|x
+  //                       x|G|H|I|x
+  //                       -|x|x|x|-
 
-  float4 src[25];
+  float2 scale = u_texSize.zw / float2(ddx(coord.x), ddy(coord.y));
+  float2 pos = frac(coord * u_texSize.xy) - float2(0.5, 0.5);
+  float4 A = P(-1,-1);
+  float4 B = P( 0,-1);
+  float4 C = P( 1,-1);
+  float4 D = P(-1, 0);
+  float4 E = P( 0, 0);
+  float4 F = P( 1, 0);
+  float4 G = P(-1, 1);
+  float4 H = P( 0, 1);
+  float4 I = P( 1, 1);
 
-  src[21] = premultiply_alpha(tex_sample_direct(t1.xw));
-  src[22] = premultiply_alpha(tex_sample_direct(t1.yw));
-  src[23] = premultiply_alpha(tex_sample_direct(t1.zw));
-  src[ 6] = premultiply_alpha(tex_sample_direct(t2.xw));
-  src[ 7] = premultiply_alpha(tex_sample_direct(t2.yw));
-  src[ 8] = premultiply_alpha(tex_sample_direct(t2.zw));
-  src[ 5] = premultiply_alpha(tex_sample_direct(t3.xw));
-  src[ 0] = premultiply_alpha(tex_sample_direct(t3.yw));
-  src[ 1] = premultiply_alpha(tex_sample_direct(t3.zw));
-  src[ 4] = premultiply_alpha(tex_sample_direct(t4.xw));
-  src[ 3] = premultiply_alpha(tex_sample_direct(t4.yw));
-  src[ 2] = premultiply_alpha(tex_sample_direct(t4.zw));
-  src[15] = premultiply_alpha(tex_sample_direct(t5.xw));
-  src[14] = premultiply_alpha(tex_sample_direct(t5.yw));
-  src[13] = premultiply_alpha(tex_sample_direct(t5.zw));
-  src[19] = premultiply_alpha(tex_sample_direct(t6.xy));
-  src[18] = premultiply_alpha(tex_sample_direct(t6.xz));
-  src[17] = premultiply_alpha(tex_sample_direct(t6.xw));
-  src[ 9] = premultiply_alpha(tex_sample_direct(t7.xy));
-  src[10] = premultiply_alpha(tex_sample_direct(t7.xz));
-  src[11] = premultiply_alpha(tex_sample_direct(t7.xw));
-
-  float v[9];
-  v[0] = reduce(src[0]);
-  v[1] = reduce(src[1]);
-  v[2] = reduce(src[2]);
-  v[3] = reduce(src[3]);
-  v[4] = reduce(src[4]);
-  v[5] = reduce(src[5]);
-  v[6] = reduce(src[6]);
-  v[7] = reduce(src[7]);
-  v[8] = reduce(src[8]);
-
-  int4 blendResult = BLEND_NONE;
+  // blendResult Mapping: x|y|
+  //                      w|z|
+  int4 blendResult = int4(BLEND_NONE,BLEND_NONE,BLEND_NONE,BLEND_NONE);
 
   // Preprocess corners
-  // Pixel Tap Mapping: --|--|--|--|--
-  //                    --|--|07|08|--
-  //                    --|05|00|01|10
-  //                    --|04|03|02|11
-  //                    --|--|14|13|--
-  // Corner (1, 1)
-  if ( ((v[0] == v[1] && v[3] == v[2]) || (v[0] == v[3] && v[1] == v[2])) == false)
+  // Pixel Tap Mapping: -|-|-|-|-
+  //                    -|-|B|C|-
+  //                    -|D|E|F|x
+  //                    -|G|H|I|x
+  //                    -|-|x|x|-
+  if (!((eq(E,F) && eq(H,I)) || (eq(E,H) && eq(F,I))))
   {
-    float dist_03_01 = DistYCbCr(src[ 4], src[ 0]) + DistYCbCr(src[ 0], src[ 8]) + DistYCbCr(src[14], src[ 2]) + DistYCbCr(src[ 2], src[10]) + (4.0 * DistYCbCr(src[ 3], src[ 1]));
-    float dist_00_02 = DistYCbCr(src[ 5], src[ 3]) + DistYCbCr(src[ 3], src[13]) + DistYCbCr(src[ 7], src[ 1]) + DistYCbCr(src[ 1], src[11]) + (4.0 * DistYCbCr(src[ 0], src[ 2]));
-    bool dominantGradient = (DOMINANT_DIRECTION_THRESHOLD * dist_03_01) < dist_00_02;
-    blendResult[2] = ((dist_03_01 < dist_00_02) && (v[0] != v[1]) && (v[0] != v[3])) ? ((dominantGradient) ? BLEND_DOMINANT : BLEND_NORMAL) : BLEND_NONE;
+    float dist_H_F = DistYCbCr(G, E) + DistYCbCr(E, C) + DistYCbCr(P(0,2), I) + DistYCbCr(I, P(2,0)) + (4.0 * DistYCbCr(H, F));
+    float dist_E_I = DistYCbCr(D, H) + DistYCbCr(H, P(1,2)) + DistYCbCr(B, F) + DistYCbCr(F, P(2,1)) + (4.0 * DistYCbCr(E, I));
+    bool dominantGradient = (DOMINANT_DIRECTION_THRESHOLD * dist_H_F) < dist_E_I;
+    blendResult.z = ((dist_H_F < dist_E_I) && neq(E,F) && neq(E,H)) ? ((dominantGradient) ? BLEND_DOMINANT : BLEND_NORMAL) : BLEND_NONE;
   }
 
-  // Pixel Tap Mapping: --|--|--|--|--
-  //                    --|06|07|--|--
-  //                    18|05|00|01|--
-  //                    17|04|03|02|--
-  //                    --|15|14|--|--
-  // Corner (0, 1)
-  if ( ((v[5] == v[0] && v[4] == v[3]) || (v[5] == v[4] && v[0] == v[3])) == false)
+
+  // Pixel Tap Mapping: -|-|-|-|-
+  //                    -|A|B|-|-
+  //                    x|D|E|F|-
+  //                    x|G|H|I|-
+  //                    -|x|x|-|-
+  if (!((eq(D,E) && eq(G,H)) || (eq(D,G) && eq(E,H))))
   {
-    float dist_04_00 = DistYCbCr(src[17], src[ 5]) + DistYCbCr(src[ 5], src[ 7]) + DistYCbCr(src[15], src[ 3]) + DistYCbCr(src[ 3], src[ 1]) + (4.0 * DistYCbCr(src[ 4], src[ 0]));
-    float dist_05_03 = DistYCbCr(src[18], src[ 4]) + DistYCbCr(src[ 4], src[14]) + DistYCbCr(src[ 6], src[ 0]) + DistYCbCr(src[ 0], src[ 2]) + (4.0 * DistYCbCr(src[ 5], src[ 3]));
-    bool dominantGradient = (DOMINANT_DIRECTION_THRESHOLD * dist_05_03) < dist_04_00;
-    blendResult[3] = ((dist_04_00 > dist_05_03) && (v[0] != v[5]) && (v[0] != v[3])) ? ((dominantGradient) ? BLEND_DOMINANT : BLEND_NORMAL) : BLEND_NONE;
+    float dist_G_E = DistYCbCr(P(-2,1)  , D) + DistYCbCr(D, B) + DistYCbCr(P(-1,2), H) + DistYCbCr(H, F) + (4.0 * DistYCbCr(G, E));
+    float dist_D_H = DistYCbCr(P(-2,0)  , G) + DistYCbCr(G, P(0,2)) + DistYCbCr(A, E) + DistYCbCr(E, I) + (4.0 * DistYCbCr(D, H));
+    bool dominantGradient = (DOMINANT_DIRECTION_THRESHOLD * dist_D_H) < dist_G_E;
+    blendResult.w = ((dist_G_E > dist_D_H) && neq(E,D) && neq(E,H)) ? ((dominantGradient) ? BLEND_DOMINANT : BLEND_NORMAL) : BLEND_NONE;
   }
 
-  // Pixel Tap Mapping: --|--|22|23|--
-  //                    --|06|07|08|09
-  //                    --|05|00|01|10
-  //                    --|--|03|02|--
-  //                    --|--|--|--|--
-  // Corner (1, 0)
-  if ( ((v[7] == v[8] && v[0] == v[1]) || (v[7] == v[0] && v[8] == v[1])) == false)
+  // Pixel Tap Mapping: -|-|x|x|-
+  //                    -|A|B|C|x
+  //                    -|D|E|F|x
+  //                    -|-|H|I|-
+  //                    -|-|-|-|-
+  if (!((eq(B,C) && eq(E,F)) || (eq(B,E) && eq(C,F))))
   {
-    float dist_00_08 = DistYCbCr(src[ 5], src[ 7]) + DistYCbCr(src[ 7], src[23]) + DistYCbCr(src[ 3], src[ 1]) + DistYCbCr(src[ 1], src[ 9]) + (4.0 * DistYCbCr(src[ 0], src[ 8]));
-    float dist_07_01 = DistYCbCr(src[ 6], src[ 0]) + DistYCbCr(src[ 0], src[ 2]) + DistYCbCr(src[22], src[ 8]) + DistYCbCr(src[ 8], src[10]) + (4.0 * DistYCbCr(src[ 7], src[ 1]));
-    bool dominantGradient = (DOMINANT_DIRECTION_THRESHOLD * dist_07_01) < dist_00_08;
-    blendResult[1] = ((dist_00_08 > dist_07_01) && (v[0] != v[7]) && (v[0] != v[1])) ? ((dominantGradient) ? BLEND_DOMINANT : BLEND_NORMAL) : BLEND_NONE;
+    float dist_E_C = DistYCbCr(D, B) + DistYCbCr(B, P(1,-2)) + DistYCbCr(H, F) + DistYCbCr(F, P(2,-1)) + (4.0 * DistYCbCr(E, C));
+    float dist_B_F = DistYCbCr(A, E) + DistYCbCr(E, I) + DistYCbCr(P(0,-2), C) + DistYCbCr(C, P(2,0)) + (4.0 * DistYCbCr(B, F));
+    bool dominantGradient = (DOMINANT_DIRECTION_THRESHOLD * dist_B_F) < dist_E_C;
+    blendResult.y = ((dist_E_C > dist_B_F) && neq(E,B) && neq(E,F)) ? ((dominantGradient) ? BLEND_DOMINANT : BLEND_NORMAL) : BLEND_NONE;
   }
 
-  // Pixel Tap Mapping: --|21|22|--|--
-  //                    19|06|07|08|--
-  //                    18|05|00|01|--
-  //                    --|04|03|--|--
-  //                    --|--|--|--|--
-  // Corner (0, 0)
-  if ( ((v[6] == v[7] && v[5] == v[0]) || (v[6] == v[5] && v[7] == v[0])) == false)
+  // Pixel Tap Mapping: -|x|x|-|-
+  //                    x|A|B|C|-
+  //                    x|D|E|F|-
+  //                    -|G|H|-|-
+  //                    -|-|-|-|-
+  if (!((eq(A,B) && eq(D,E)) || (eq(A,D) && eq(B,E))))
   {
-    float dist_05_07 = DistYCbCr(src[18], src[ 6]) + DistYCbCr(src[ 6], src[22]) + DistYCbCr(src[ 4], src[ 0]) + DistYCbCr(src[ 0], src[ 8]) + (4.0 * DistYCbCr(src[ 5], src[ 7]));
-    float dist_06_00 = DistYCbCr(src[19], src[ 5]) + DistYCbCr(src[ 5], src[ 3]) + DistYCbCr(src[21], src[ 7]) + DistYCbCr(src[ 7], src[ 1]) + (4.0 * DistYCbCr(src[ 6], src[ 0]));
-    bool dominantGradient = (DOMINANT_DIRECTION_THRESHOLD * dist_05_07) < dist_06_00;
-    blendResult[0] = ((dist_05_07 < dist_06_00) && (v[0] != v[5]) && (v[0] != v[7])) ? ((dominantGradient) ? BLEND_DOMINANT : BLEND_NORMAL) : BLEND_NONE;
+    float dist_D_B = DistYCbCr(P(-2,0), A) + DistYCbCr(A, P(0,-2)) + DistYCbCr(G, E) + DistYCbCr(E, C) + (4.0 * DistYCbCr(D, B));
+    float dist_A_E = DistYCbCr(P(-2,-1), D) + DistYCbCr(D, H) + DistYCbCr(P(-1,-2), B) + DistYCbCr(B, F) + (4.0 * DistYCbCr(A, E));
+    bool dominantGradient = (DOMINANT_DIRECTION_THRESHOLD * dist_D_B) < dist_A_E;
+    blendResult.x = ((dist_D_B < dist_A_E) && neq(E,D) && neq(E,B)) ? ((dominantGradient) ? BLEND_DOMINANT : BLEND_NORMAL) : BLEND_NONE;
   }
 
-  float4 dst[16];
-  dst[ 0] = src[0];
-  dst[ 1] = src[0];
-  dst[ 2] = src[0];
-  dst[ 3] = src[0];
-  dst[ 4] = src[0];
-  dst[ 5] = src[0];
-  dst[ 6] = src[0];
-  dst[ 7] = src[0];
-  dst[ 8] = src[0];
-  dst[ 9] = src[0];
-  dst[10] = src[0];
-  dst[11] = src[0];
-  dst[12] = src[0];
-  dst[13] = src[0];
-  dst[14] = src[0];
-  dst[15] = src[0];
+  float4 res = premultiply_alpha(E);
 
-  // Scale pixel
-  if (IsBlendingNeeded(blendResult) == true)
+  // Pixel Tap Mapping: -|-|-|-|-
+  //                    -|-|B|C|-
+  //                    -|D|E|F|x
+  //                    -|G|H|I|x
+  //                    -|-|x|x|-
+  if(blendResult.z != BLEND_NONE)
   {
-    float dist_01_04 = DistYCbCr(src[1], src[4]);
-    float dist_03_08 = DistYCbCr(src[3], src[8]);
-    bool haveShallowLine = (STEEP_DIRECTION_THRESHOLD * dist_01_04 <= dist_03_08) && (v[0] != v[4]) && (v[5] != v[4]);
-    bool haveSteepLine   = (STEEP_DIRECTION_THRESHOLD * dist_03_08 <= dist_01_04) && (v[0] != v[8]) && (v[7] != v[8]);
-    bool needBlend = (blendResult[2] != BLEND_NONE);
-    bool doLineBlend = (  blendResult[2] >= BLEND_DOMINANT ||
-               ((blendResult[1] != BLEND_NONE && !IsPixEqual(src[0], src[4])) ||
-               (blendResult[3] != BLEND_NONE && !IsPixEqual(src[0], src[8])) ||
-               (IsPixEqual(src[4], src[3]) && IsPixEqual(src[3], src[2]) && IsPixEqual(src[2], src[1]) && IsPixEqual(src[1], src[8]) && IsPixEqual(src[0], src[2]) == false) ) == false );
+    float dist_F_G = DistYCbCr(F, G);
+    float dist_H_C = DistYCbCr(H, C);
+    bool doLineBlend = (blendResult.z == BLEND_DOMINANT ||
+                !((blendResult.y != BLEND_NONE && !IsPixEqual(E, G)) || (blendResult.w != BLEND_NONE && !IsPixEqual(E, C)) ||
+                  (IsPixEqual(G, H) && IsPixEqual(H, I) && IsPixEqual(I, F) && IsPixEqual(F, C) && !IsPixEqual(E, I))));
 
-    float4 blendPix = ( DistYCbCr(src[0], src[1]) <= DistYCbCr(src[0], src[3]) ) ? src[1] : src[3];
-    dst[ 2] = lerp(dst[ 2], blendPix, (needBlend && doLineBlend) ? ((haveShallowLine) ? ((haveSteepLine) ? 1.0/3.0 : 0.25) : ((haveSteepLine) ? 0.25 : 0.00)) : 0.00);
-    dst[ 9] = lerp(dst[ 9], blendPix, (needBlend && doLineBlend && haveSteepLine) ? 0.25 : 0.00);
-    dst[10] = lerp(dst[10], blendPix, (needBlend && doLineBlend && haveSteepLine) ? 0.75 : 0.00);
-    dst[11] = lerp(dst[11], blendPix, (needBlend) ? ((doLineBlend) ? ((haveSteepLine) ? 1.00 : ((haveShallowLine) ? 0.75 : 0.50)) : 0.08677704501) : 0.00);
-    dst[12] = lerp(dst[12], blendPix, (needBlend) ? ((doLineBlend) ? 1.00 : 0.6848532563) : 0.00);
-    dst[13] = lerp(dst[13], blendPix, (needBlend) ? ((doLineBlend) ? ((haveShallowLine) ? 1.00 : ((haveSteepLine) ? 0.75 : 0.50)) : 0.08677704501) : 0.00);
-    dst[14] = lerp(dst[14], blendPix, (needBlend && doLineBlend && haveShallowLine) ? 0.75 : 0.00);
-    dst[15] = lerp(dst[15], blendPix, (needBlend && doLineBlend && haveShallowLine) ? 0.25 : 0.00);
+    float2 origin = float2(0.0, 1.0 / sqrt(2.0));
+    float2 direction = float2(1.0, -1.0);
+    if(doLineBlend)
+    {
+      bool haveShallowLine = (STEEP_DIRECTION_THRESHOLD * dist_F_G <= dist_H_C) && neq(E,G) && neq(D,G);
+      bool haveSteepLine = (STEEP_DIRECTION_THRESHOLD * dist_H_C <= dist_F_G) && neq(E,C) && neq(B,C);
+      origin = haveShallowLine? float2(0.0, 0.25) : float2(0.0, 0.5);
+      direction.x += haveShallowLine? 1.0: 0.0;
+      direction.y -= haveSteepLine? 1.0: 0.0;
+    }
 
-    dist_01_04 = DistYCbCr(src[7], src[2]);
-    dist_03_08 = DistYCbCr(src[1], src[6]);
-    haveShallowLine = (STEEP_DIRECTION_THRESHOLD * dist_01_04 <= dist_03_08) && (v[0] != v[2]) && (v[3] != v[2]);
-    haveSteepLine   = (STEEP_DIRECTION_THRESHOLD * dist_03_08 <= dist_01_04) && (v[0] != v[6]) && (v[5] != v[6]);
-    needBlend = (blendResult[1] != BLEND_NONE);
-    doLineBlend = (  blendResult[1] >= BLEND_DOMINANT ||
-            !((blendResult[0] != BLEND_NONE && !IsPixEqual(src[0], src[2])) ||
-            (blendResult[2] != BLEND_NONE && !IsPixEqual(src[0], src[6])) ||
-            (IsPixEqual(src[2], src[1]) && IsPixEqual(src[1], src[8]) && IsPixEqual(src[8], src[7]) && IsPixEqual(src[7], src[6]) && !IsPixEqual(src[0], src[8])) ) );
-
-    blendPix = ( DistYCbCr(src[0], src[7]) <= DistYCbCr(src[0], src[1]) ) ? src[7] : src[1];
-    dst[ 1] = lerp(dst[ 1], blendPix, (needBlend && doLineBlend) ? ((haveShallowLine) ? ((haveSteepLine) ? 1.0/3.0 : 0.25) : ((haveSteepLine) ? 0.25 : 0.00)) : 0.00);
-    dst[ 6] = lerp(dst[ 6], blendPix, (needBlend && doLineBlend && haveSteepLine) ? 0.25 : 0.00);
-    dst[ 7] = lerp(dst[ 7], blendPix, (needBlend && doLineBlend && haveSteepLine) ? 0.75 : 0.00);
-    dst[ 8] = lerp(dst[ 8], blendPix, (needBlend) ? ((doLineBlend) ? ((haveSteepLine) ? 1.00 : ((haveShallowLine) ? 0.75 : 0.50)) : 0.08677704501) : 0.00);
-    dst[ 9] = lerp(dst[ 9], blendPix, (needBlend) ? ((doLineBlend) ? 1.00 : 0.6848532563) : 0.00);
-    dst[10] = lerp(dst[10], blendPix, (needBlend) ? ((doLineBlend) ? ((haveShallowLine) ? 1.00 : ((haveSteepLine) ? 0.75 : 0.50)) : 0.08677704501) : 0.00);
-    dst[11] = lerp(dst[11], blendPix, (needBlend && doLineBlend && haveShallowLine) ? 0.75 : 0.00);
-    dst[12] = lerp(dst[12], blendPix, (needBlend && doLineBlend && haveShallowLine) ? 0.25 : 0.00);
-
-    dist_01_04 = DistYCbCr(src[5], src[8]);
-    dist_03_08 = DistYCbCr(src[7], src[4]);
-    haveShallowLine = (STEEP_DIRECTION_THRESHOLD * dist_01_04 <= dist_03_08) && (v[0] != v[8]) && (v[1] != v[8]);
-    haveSteepLine   = (STEEP_DIRECTION_THRESHOLD * dist_03_08 <= dist_01_04) && (v[0] != v[4]) && (v[3] != v[4]);
-    needBlend = (blendResult[0] != BLEND_NONE);
-    doLineBlend = (  blendResult[0] >= BLEND_DOMINANT ||
-            !((blendResult[3] != BLEND_NONE && !IsPixEqual(src[0], src[8])) ||
-            (blendResult[1] != BLEND_NONE && !IsPixEqual(src[0], src[4])) ||
-            (IsPixEqual(src[8], src[7]) && IsPixEqual(src[7], src[6]) && IsPixEqual(src[6], src[5]) && IsPixEqual(src[5], src[4]) && !IsPixEqual(src[0], src[6])) ) );
-
-    blendPix = ( DistYCbCr(src[0], src[5]) <= DistYCbCr(src[0], src[7]) ) ? src[5] : src[7];
-    dst[ 0] = lerp(dst[ 0], blendPix, (needBlend && doLineBlend) ? ((haveShallowLine) ? ((haveSteepLine) ? 1.0/3.0 : 0.25) : ((haveSteepLine) ? 0.25 : 0.00)) : 0.00);
-    dst[15] = lerp(dst[15], blendPix, (needBlend && doLineBlend && haveSteepLine) ? 0.25 : 0.00);
-    dst[ 4] = lerp(dst[ 4], blendPix, (needBlend && doLineBlend && haveSteepLine) ? 0.75 : 0.00);
-    dst[ 5] = lerp(dst[ 5], blendPix, (needBlend) ? ((doLineBlend) ? ((haveSteepLine) ? 1.00 : ((haveShallowLine) ? 0.75 : 0.50)) : 0.08677704501) : 0.00);
-    dst[ 6] = lerp(dst[ 6], blendPix, (needBlend) ? ((doLineBlend) ? 1.00 : 0.6848532563) : 0.00);
-    dst[ 7] = lerp(dst[ 7], blendPix, (needBlend) ? ((doLineBlend) ? ((haveShallowLine) ? 1.00 : ((haveSteepLine) ? 0.75 : 0.50)) : 0.08677704501) : 0.00);
-    dst[ 8] = lerp(dst[ 8], blendPix, (needBlend && doLineBlend && haveShallowLine) ? 0.75 : 0.00);
-    dst[ 9] = lerp(dst[ 9], blendPix, (needBlend && doLineBlend && haveShallowLine) ? 0.25 : 0.00);
-
-
-    dist_01_04 = DistYCbCr(src[3], src[6]);
-    dist_03_08 = DistYCbCr(src[5], src[2]);
-    haveShallowLine = (STEEP_DIRECTION_THRESHOLD * dist_01_04 <= dist_03_08) && (v[0] != v[6]) && (v[7] != v[6]);
-    haveSteepLine   = (STEEP_DIRECTION_THRESHOLD * dist_03_08 <= dist_01_04) && (v[0] != v[2]) && (v[1] != v[2]);
-    needBlend = (blendResult[3] != BLEND_NONE);
-    doLineBlend = (  blendResult[3] >= BLEND_DOMINANT ||
-            !((blendResult[2] != BLEND_NONE && !IsPixEqual(src[0], src[6])) ||
-            (blendResult[0] != BLEND_NONE && !IsPixEqual(src[0], src[2])) ||
-            (IsPixEqual(src[6], src[5]) && IsPixEqual(src[5], src[4]) && IsPixEqual(src[4], src[3]) && IsPixEqual(src[3], src[2]) && !IsPixEqual(src[0], src[4])) ) );
-
-    blendPix = ( DistYCbCr(src[0], src[3]) <= DistYCbCr(src[0], src[5]) ) ? src[3] : src[5];
-    dst[ 3] = lerp(dst[ 3], blendPix, (needBlend && doLineBlend) ? ((haveShallowLine) ? ((haveSteepLine) ? 1.0/3.0 : 0.25) : ((haveSteepLine) ? 0.25 : 0.00)) : 0.00);
-    dst[12] = lerp(dst[12], blendPix, (needBlend && doLineBlend && haveSteepLine) ? 0.25 : 0.00);
-    dst[13] = lerp(dst[13], blendPix, (needBlend && doLineBlend && haveSteepLine) ? 0.75 : 0.00);
-    dst[14] = lerp(dst[14], blendPix, (needBlend) ? ((doLineBlend) ? ((haveSteepLine) ? 1.00 : ((haveShallowLine) ? 0.75 : 0.50)) : 0.08677704501) : 0.00);
-    dst[15] = lerp(dst[15], blendPix, (needBlend) ? ((doLineBlend) ? 1.00 : 0.6848532563) : 0.00);
-    dst[ 4] = lerp(dst[ 4], blendPix, (needBlend) ? ((doLineBlend) ? ((haveShallowLine) ? 1.00 : ((haveSteepLine) ? 0.75 : 0.50)) : 0.08677704501) : 0.00);
-    dst[ 5] = lerp(dst[ 5], blendPix, (needBlend && doLineBlend && haveShallowLine) ? 0.75 : 0.00);
-    dst[ 6] = lerp(dst[ 6], blendPix, (needBlend && doLineBlend && haveShallowLine) ? 0.25 : 0.00);
+    float4 blendPix = premultiply_alpha(lerp(H,F, step(DistYCbCr(E, F), DistYCbCr(E, H))));
+    res = lerp(res, blendPix, get_left_ratio(pos, origin, direction, scale));
   }
 
-  // select output pixel
-  float4 res = lerp(lerp(lerp(lerp(dst[ 6], dst[ 7], step(0.25, f.x)),
-                              lerp(dst[ 8], dst[ 9], step(0.75, f.x)),
-                              step(0.50, f.x)),
-                         lerp(lerp(dst[ 5], dst[ 0], step(0.25, f.x)),
-                              lerp(dst[ 1], dst[10], step(0.75, f.x)),
-                              step(0.50, f.x)),
-                         step(0.25, f.y)),
-                    lerp(lerp(lerp(dst[ 4], dst[ 3], step(0.25, f.x)),
-                              lerp(dst[ 2], dst[11], step(0.75, f.x)),
-                              step(0.50, f.x)),
-                         lerp(lerp(dst[15], dst[14], step(0.25, f.x)),
-                              lerp(dst[13], dst[12], step(0.75, f.x)),
-                              step(0.50, f.x)),
-                         step(0.75, f.y)),
-                    step(0.50, f.y));
+  // Pixel Tap Mapping: -|-|-|-|-
+  //                    -|A|B|-|-
+  //                    x|D|E|F|-
+  //                    x|G|H|I|-
+  //                    -|x|x|-|-
+  if(blendResult.w != BLEND_NONE)
+  {
+    float dist_H_A = DistYCbCr(H, A);
+    float dist_D_I = DistYCbCr(D, I);
+    bool doLineBlend = (blendResult.w == BLEND_DOMINANT ||
+                !((blendResult.z != BLEND_NONE && !IsPixEqual(E, A)) || (blendResult.x != BLEND_NONE && !IsPixEqual(E, I)) ||
+                  (IsPixEqual(A, D) && IsPixEqual(D, G) && IsPixEqual(G, H) && IsPixEqual(H, I) && !IsPixEqual(E, G))));
+
+    float2 origin = float2(-1.0 / sqrt(2.0), 0.0);
+    float2 direction = float2(1.0, 1.0);
+    if(doLineBlend)
+    {
+      bool haveShallowLine = (STEEP_DIRECTION_THRESHOLD * dist_H_A <= dist_D_I) && neq(E,A) && neq(B,A);
+      bool haveSteepLine  = (STEEP_DIRECTION_THRESHOLD * dist_D_I <= dist_H_A) && neq(E,I) && neq(F,I);
+      origin = haveShallowLine? float2(-0.25, 0.0) : float2(-0.5, 0.0);
+      direction.y += haveShallowLine? 1.0: 0.0;
+      direction.x += haveSteepLine? 1.0: 0.0;
+    }
+    origin = origin;
+    direction = direction;
+
+    float4 blendPix = premultiply_alpha(lerp(H,D, step(DistYCbCr(E, D), DistYCbCr(E, H))));
+    res = lerp(res, blendPix, get_left_ratio(pos, origin, direction, scale));
+  }
+
+  // Pixel Tap Mapping: -|-|x|x|-
+  //                    -|A|B|C|x
+  //                    -|D|E|F|x
+  //                    -|-|H|I|-
+  //                    -|-|-|-|-
+  if(blendResult.y != BLEND_NONE)
+  {
+    float dist_B_I = DistYCbCr(B, I);
+    float dist_F_A = DistYCbCr(F, A);
+    bool doLineBlend = (blendResult.y == BLEND_DOMINANT ||
+                !((blendResult.x != BLEND_NONE && !IsPixEqual(E, I)) || (blendResult.z != BLEND_NONE && !IsPixEqual(E, A)) ||
+                  (IsPixEqual(I, F) && IsPixEqual(F, C) && IsPixEqual(C, B) && IsPixEqual(B, A) && !IsPixEqual(E, C))));
+
+    float2 origin = float2(1.0 / sqrt(2.0), 0.0);
+    float2 direction = float2(-1.0, -1.0);
+
+    if(doLineBlend)
+    {
+      bool haveShallowLine = (STEEP_DIRECTION_THRESHOLD * dist_B_I <= dist_F_A) && neq(E,I) && neq(H,I);
+      bool haveSteepLine  = (STEEP_DIRECTION_THRESHOLD * dist_F_A <= dist_B_I) && neq(E,A) && neq(D,A);
+      origin = haveShallowLine? float2(0.25, 0.0) : float2(0.5, 0.0);
+      direction.y -= haveShallowLine? 1.0: 0.0;
+      direction.x -= haveSteepLine? 1.0: 0.0;
+    }
+
+    float4 blendPix = premultiply_alpha(lerp(F,B, step(DistYCbCr(E, B), DistYCbCr(E, F))));
+    res = lerp(res, blendPix, get_left_ratio(pos, origin, direction, scale));
+  }
+
+  // Pixel Tap Mapping: -|x|x|-|-
+  //                    x|A|B|C|-
+  //                    x|D|E|F|-
+  //                    -|G|H|-|-
+  //                    -|-|-|-|-
+  if(blendResult.x != BLEND_NONE)
+  {
+    float dist_D_C = DistYCbCr(D, C);
+    float dist_B_G = DistYCbCr(B, G);
+    bool doLineBlend = (blendResult.x == BLEND_DOMINANT ||
+                !((blendResult.w != BLEND_NONE && !IsPixEqual(E, C)) || (blendResult.y != BLEND_NONE && !IsPixEqual(E, G)) ||
+                  (IsPixEqual(C, B) && IsPixEqual(B, A) && IsPixEqual(A, D) && IsPixEqual(D, G) && !IsPixEqual(E, A))));
+
+    float2 origin = float2(0.0, -1.0 / sqrt(2.0));
+    float2 direction = float2(-1.0, 1.0);
+    if(doLineBlend)
+    {
+      bool haveShallowLine = (STEEP_DIRECTION_THRESHOLD * dist_D_C <= dist_B_G) && neq(E,C) && neq(F,C);
+      bool haveSteepLine  = (STEEP_DIRECTION_THRESHOLD * dist_B_G <= dist_D_C) && neq(E,G) && neq(H,G);
+      origin = haveShallowLine? float2(0.0, -0.25) : float2(0.0, -0.5);
+      direction.x -= haveShallowLine? 1.0: 0.0;
+      direction.y += haveSteepLine? 1.0: 0.0;
+    }
+
+    float4 blendPix = premultiply_alpha(lerp(D,B, step(DistYCbCr(E, B), DistYCbCr(E, D))));
+    res = lerp(res, blendPix, get_left_ratio(pos, origin, direction, scale));
+  }
 
   return postdivide_alpha(res);
-};
+}

@@ -152,12 +152,7 @@ bool GenerateFragmentShaderHLSL(const FShaderID &id, char *buffer, char* scalerC
 
 	if (!isModeClear && doTexture) {
 		if (doTextureAlpha) {
-			// TODO: check why the [0.0,1.0] clamp is necessary here
-			WRITE(p, "float4 premultiply_alpha(float4 c) { float a = clamp(c.a, 0.0, 1.0); return float4(c.rgb * a, a); }");
-			WRITE(p, "float4 postdivide_alpha(float4 c) { return c.a < 0.0001f? 0.0f : float4(c.rgb / c.a, c.a); }\n");
-		} else {
-			WRITE(p, "#define premultiply_alpha(c) (c)\n");
-			WRITE(p, "#define postdivide_alpha(c) (c)\n");
+			WRITE(p, "#define BLEND_ALPHA\n");
 		}
 
 		WRITE(p, "float4 tex_sample_direct(float2 coord) {\n");

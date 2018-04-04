@@ -1,3 +1,10 @@
+#ifdef BLEND_ALPHA
+float4 premultiply_alpha(float4 c) { float a = clamp(c.a, 0.0, 1.0); return float4(c.rgb * a, a); }
+float4 postdivide_alpha(float4 c) { return c.a < 0.001f? float4(0.0f,0.0f,0.0f,0.0f) : float4(c.rgb / c.a, c.a); }
+#else
+#define premultiply_alpha(c) (c)
+#define postdivide_alpha(c) (c)
+#endif
 
 float c_df(float4 c1, float4 c2) {
 	float3 df = abs(c1.rgb - c2.rgb);

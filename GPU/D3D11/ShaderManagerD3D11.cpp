@@ -219,6 +219,7 @@ void ShaderManagerD3D11::GetShaders(int prim, u32 vertType, D3D11VertexShader **
 				"scalers/hybrid.hlsl",
 				"scalers/bicubic.hlsl",
 				"scalers/hybrid_bicubic.hlsl",
+				"scalers/4xbrz.hlsl",
 				"scalers/xbr.hlsl",
 				"scalers/sabr.hlsl",
 				"scalers/gaussian.hlsl",

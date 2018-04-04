@@ -1,4 +1,12 @@
 
+#ifdef BLEND_ALPHA
+float4 premultiply_alpha(float4 c) { float a = clamp(c.a, 0.0, 1.0); return float4(c.rgb * a, a); }
+float4 postdivide_alpha(float4 c) { return c.a < 0.001f? float4(0.0f,0.0f,0.0f,0.0f) : float4(c.rgb / c.a, c.a); }
+#else
+#define premultiply_alpha(c) (c)
+#define postdivide_alpha(c) (c)
+#endif
+
 // generate the value of a Mitchell-Netravali scaling spline at distance d, with parameters A and B
 // B=1 C=0   : cubic B spline (very smooth)
 // B=C=1/3   : recommended for general upscaling

@@ -25,6 +25,14 @@
    Incorporates some of the ideas from SABR shader. Thanks to Joshua Street.
 */
 
+#ifdef BLEND_ALPHA
+float4 premultiply_alpha(float4 c) { float a = clamp(c.a, 0.0, 1.0); return float4(c.rgb * a, a); }
+float4 postdivide_alpha(float4 c) { return c.a < 0.001f? float4(0.0f,0.0f,0.0f,0.0f) : float4(c.rgb / c.a, c.a); }
+#else
+#define premultiply_alpha(c) (c)
+#define postdivide_alpha(c) (c)
+#endif
+
 #define XBR_Y_WEIGHT          48.0 //  0.0 .. 100.0
 #define XBR_EQ_THRESHOLD      15.0 //  0.0 ..  50.0
 #define XBR_LV1_COEFFICIENT    0.5 //  0.0 ..  30.0
@@ -35,7 +43,7 @@
 #define XBR_SCALE 4.0
 
 static const float coef           = 2.0;
-static const float3  rgbw         = float3(14.352, 28.176, 5.472);
+static const float4  rgbw         = float4(14.352, 28.176, 5.472, 50);
 static const float4  eq_threshold = float4(15.0, 15.0, 15.0, 15.0);
 
 static const float4 delta   = float4(1.0/XBR_SCALE, 1.0/XBR_SCALE, 1.0/XBR_SCALE, 1.0/XBR_SCALE);
@@ -53,7 +61,7 @@ static const float4 By = float4( 2.0,  0.5, -2.0,-0.5 );
 static const float4 Cy = float4( 2.0,  0.0, -1.0, 0.5 );
 static const float4 Ci = float4(0.25, 0.25, 0.25, 0.25);
 
-static const float3 Y = float3(0.2126, 0.7152, 0.0722);
+static const float4 Y = float4(0.2126, 0.7152, 0.0722, 1.0);
 
 // Difference between vector components.
 float4 df(float4 A, float4 B) { return abs(A-B); }
@@ -76,9 +84,9 @@ float4 weighted_distance(float4 a, float4 b, float4 c, float4 d, float4 e, float
 	return (df(a,b) + df(a,c) + df(d,e) + df(d,f) + df(i,j) + df(k,l) + 2.0*df(g,h));
 }
 
-float c_df(float3 c1, float3 c2) {
-  float3 df = abs(c1 - c2);
-  return df.r + df.g + df.b;
+float c_df(float4 c1, float4 c2) {
+  float4 df = abs(c1 - c2);
+  return df.r + df.g + df.b + df.a;
 }
 
 float4 tex_sample(float2 coord) {
@@ -98,32 +106,32 @@ float4 tex_sample(float2 coord) {
 
   float2 fp  = frac(coord*u_texSize.xy);
 
-  float4 A1 = premultiply_alpha(tex_sample_direct(t1.xw));
-  float4 B1 = premultiply_alpha(tex_sample_direct(t1.yw));
-  float4 C1 = premultiply_alpha(tex_sample_direct(t1.zw));
-  float4 A  = premultiply_alpha(tex_sample_direct(t2.xw));
-  float4 B  = premultiply_alpha(tex_sample_direct(t2.yw));
-  float4 C  = premultiply_alpha(tex_sample_direct(t2.zw));
-  float4 D  = premultiply_alpha(tex_sample_direct(t3.xw));
-  float4 E  = premultiply_alpha(tex_sample_direct(t3.yw));
-  float4 F  = premultiply_alpha(tex_sample_direct(t3.zw));
-  float4 G  = premultiply_alpha(tex_sample_direct(t4.xw));
-  float4 H  = premultiply_alpha(tex_sample_direct(t4.yw));
-  float4 I  = premultiply_alpha(tex_sample_direct(t4.zw));
-  float4 G5 = premultiply_alpha(tex_sample_direct(t5.xw));
-  float4 H5 = premultiply_alpha(tex_sample_direct(t5.yw));
-  float4 I5 = premultiply_alpha(tex_sample_direct(t5.zw));
-  float4 A0 = premultiply_alpha(tex_sample_direct(t6.xy));
-  float4 D0 = premultiply_alpha(tex_sample_direct(t6.xz));
-  float4 G0 = premultiply_alpha(tex_sample_direct(t6.xw));
-  float4 C4 = premultiply_alpha(tex_sample_direct(t7.xy));
-  float4 F4 = premultiply_alpha(tex_sample_direct(t7.xz));
-  float4 I4 = premultiply_alpha(tex_sample_direct(t7.xw));
+  float4 A1 = tex_sample_direct(t1.xw);
+  float4 B1 = tex_sample_direct(t1.yw);
+  float4 C1 = tex_sample_direct(t1.zw);
+  float4 A  = tex_sample_direct(t2.xw);
+  float4 B  = tex_sample_direct(t2.yw);
+  float4 C  = tex_sample_direct(t2.zw);
+  float4 D  = tex_sample_direct(t3.xw);
+  float4 E  = tex_sample_direct(t3.yw);
+  float4 F  = tex_sample_direct(t3.zw);
+  float4 G  = tex_sample_direct(t4.xw);
+  float4 H  = tex_sample_direct(t4.yw);
+  float4 I  = tex_sample_direct(t4.zw);
+  float4 G5 = tex_sample_direct(t5.xw);
+  float4 H5 = tex_sample_direct(t5.yw);
+  float4 I5 = tex_sample_direct(t5.zw);
+  float4 A0 = tex_sample_direct(t6.xy);
+  float4 D0 = tex_sample_direct(t6.xz);
+  float4 G0 = tex_sample_direct(t6.xw);
+  float4 C4 = tex_sample_direct(t7.xy);
+  float4 F4 = tex_sample_direct(t7.xz);
+  float4 I4 = tex_sample_direct(t7.xw);
 
-  float4 b  = float4(dot(B.rgb ,rgbw), dot(D.rgb ,rgbw), dot(H.rgb ,rgbw), dot(F.rgb ,rgbw));
-  float4 c  = float4(dot(C.rgb ,rgbw), dot(A.rgb ,rgbw), dot(G.rgb ,rgbw), dot(I.rgb ,rgbw));
+  float4 b  = float4(dot(B, rgbw), dot(D, rgbw), dot(H, rgbw), dot(F, rgbw));
+  float4 c  = float4(dot(C, rgbw), dot(A, rgbw), dot(G, rgbw), dot(I, rgbw));
   float4 d  = b.yzwx;
-  float4 e  = dot(E.rgb,rgbw);
+  float4 e  = dot(E, rgbw);
   float4 f  = b.wxyz;
   float4 g  = c.zwxy;
   float4 h  = b.zwxy;
@@ -133,13 +141,13 @@ float4 tex_sample(float2 coord) {
 
   float y_weight = XBR_Y_WEIGHT;
 #ifdef SMALL_DETAILS
-  i4 = mul(float4x3(I4.rgb, C1.rgb, A0.rgb, G5.rgb), y_weight * Y);
-  i5 = mul(float4x3(I5.rgb, C4.rgb, A1.rgb, G0.rgb), y_weight * Y);
-  h5 = mul(float4x3(H5.rgb, F4.rgb, B1.rgb, D0.rgb), y_weight * Y);
+  i4 = mul(float4x4(I4, C1, A0, G5), y_weight * Y);
+  i5 = mul(float4x4(I5, C4, A1, G0), y_weight * Y);
+  h5 = mul(float4x4(H5, F4, B1, D0), y_weight * Y);
 #else
-  i4 = float4(dot(I4.rgb,rgbw), dot(C1.rgb,rgbw), dot(A0.rgb,rgbw), dot(G5.rgb,rgbw));
-  i5 = float4(dot(I5.rgb,rgbw), dot(C4.rgb,rgbw), dot(A1.rgb,rgbw), dot(G0.rgb,rgbw));
-  h5 = float4(dot(H5.rgb,rgbw), dot(F4.rgb,rgbw), dot(B1.rgb,rgbw), dot(D0.rgb,rgbw));
+  i4 = float4(dot(I4,rgbw), dot(C1,rgbw), dot(A0,rgbw), dot(G5,rgbw));
+  i5 = float4(dot(I5,rgbw), dot(C4,rgbw), dot(A1,rgbw), dot(G0,rgbw));
+  h5 = float4(dot(H5,rgbw), dot(F4,rgbw), dot(B1,rgbw), dot(D0,rgbw));
 #endif
   f4 = h5.yzwx;
 
@@ -197,14 +205,14 @@ float4 tex_sample(float2 coord) {
   float4 maximos = max(max(fx30, fx60), fx45);
 #endif
 
-  float4 res1 = E;
-  res1 = lerp(res1, lerp(H, F, px.x), maximos.x);
-  res1 = lerp(res1, lerp(B, D, px.z), maximos.z);
+  float4 res1 = premultiply_alpha(E);
+  res1 = lerp(res1, premultiply_alpha(lerp(H, F, px.x)), maximos.x);
+  res1 = lerp(res1, premultiply_alpha(lerp(B, D, px.z)), maximos.z);
 
-  float4 res2 = E;
-  res2 = lerp(res2, lerp(F, B, px.y), maximos.y);
-  res2 = lerp(res2, lerp(D, H, px.w), maximos.w);
+  float4 res2 = premultiply_alpha(E);
+  res2 = lerp(res2, premultiply_alpha(lerp(F, B, px.y)), maximos.y);
+  res2 = lerp(res2, premultiply_alpha(lerp(D, H, px.w)), maximos.w);
 
-  float4 res = lerp(res1, res2, step(c_df(E.rgb, res1.rgb), c_df(E.rgb, res2.rgb)));
+  float4 res = lerp(res1, res2, step(c_df(E, res1), c_df(E, res2)));
   return postdivide_alpha(res);
 }

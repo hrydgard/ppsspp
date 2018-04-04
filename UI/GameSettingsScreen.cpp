@@ -378,7 +378,7 @@ void GameSettingsScreen::CreateViews() {
 	});
 	texScalingChoice->SetDisabledPtr(&g_Config.bSoftwareRendering);
 
-	static const char *texScaleAlgos[] = { "xBRZ", "Hybrid", "Bicubic", "Hybrid + Bicubic", "XBR", "SABR", "Gaussian", "Cosine"};
+	static const char *texScaleAlgos[] = { "xBRZ", "Hybrid", "Bicubic", "Hybrid + Bicubic", "4xBRZ", "xBR", "SABR", "Gaussian", "Cosine"};
 	PopupMultiChoice *texScalingType = graphicsSettings->Add(new PopupMultiChoice(&g_Config.iTexScalingType, gr->T("Upscale Type"), texScaleAlgos, 0, ARRAY_SIZE(texScaleAlgos), gr->GetName(), screenManager()));
 	texScalingType->SetDisabledPtr(&g_Config.bSoftwareRendering);
 
