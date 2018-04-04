@@ -1752,17 +1752,20 @@ void FramebufferManagerCommon::Resized() {
 	}
 
 	postShaderIsUpscalingFilter_ = shaderInfo ? shaderInfo->isUpscalingFilter : false;
+	postShaderSSAAFilterLevel_ = shaderInfo ? shaderInfo->SSAAFilterLevel : 0;
 
 	// Actually, auto mode should be more granular...
 	// Round up to a zoom factor for the render size.
 	int zoom = g_Config.iInternalResolution;
-	if (zoom == 0) {
+	if (zoom == 0 || postShaderSSAAFilterLevel_ >= 2) {
 		// auto mode, use the longest dimension
 		if (!g_Config.IsPortrait()) {
 			zoom = (PSP_CoreParameter().pixelWidth + 479) / 480;
 		} else {
 			zoom = (PSP_CoreParameter().pixelHeight + 479) / 480;
 		}
+		if (postShaderSSAAFilterLevel_ >= 2)
+			zoom *= postShaderSSAAFilterLevel_;
 	}
 	if (zoom <= 1 || postShaderIsUpscalingFilter_)
 		zoom = 1;
@@ -1871,6 +1874,8 @@ void FramebufferManagerCommon::ShowScreenResolution() {
 	messageStream << PSP_CoreParameter().renderWidth << "x" << PSP_CoreParameter().renderHeight << " ";
 	if (postShaderIsUpscalingFilter_) {
 		messageStream << gr->T("(upscaling)") << " ";
+	} else if (postShaderSSAAFilterLevel_ >= 2) {
+		messageStream << gr->T("(supersampling)") << " ";
 	}
 	messageStream << gr->T("Window Size") << ": ";
 	messageStream << PSP_CoreParameter().pixelWidth << "x" << PSP_CoreParameter().pixelHeight;
