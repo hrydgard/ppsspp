@@ -455,8 +455,10 @@ public:
 		return step.create_input_layout.inputLayout;
 	}
 
-	GLPushBuffer *CreatePushBuffer(GLuint target, size_t size) {
-		return new GLPushBuffer(this, target, size);
+	GLPushBuffer *CreatePushBuffer(int frame, GLuint target, size_t size) {
+		GLPushBuffer *push = new GLPushBuffer(this, target, size);
+		RegisterPushBuffer(frame, push);
+		return push;
 	}
 
 	void DeleteShader(GLRShader *shader) {
@@ -822,16 +824,16 @@ public:
 		queueRunner_.Resize(width, height);
 	}
 
-	// When using legacy functionality for push buffers (glBufferData), we need to flush them
-	// before actually making the glDraw* calls. It's best if the render manager handles that.
-	void RegisterPushBuffer(int frame, GLPushBuffer *buffer) {
-		frameData_[frame].activePushBuffers.insert(buffer);
-	}
-
-	void UnregisterPushBuffer(int frame, GLPushBuffer *buffer) {
-		auto iter = frameData_[frame].activePushBuffers.find(buffer);
-		_assert_(iter != frameData_[frame].activePushBuffers.end());
-		frameData_[frame].activePushBuffers.erase(iter);
+	void UnregisterPushBuffer(GLPushBuffer *buffer) {
+		bool found = false;
+		for (int i = 0; i < MAX_INFLIGHT_FRAMES; i++) {
+			auto iter = frameData_[i].activePushBuffers.find(buffer);
+			if (iter != frameData_[i].activePushBuffers.end()) {
+				frameData_[i].activePushBuffers.erase(iter);
+				found = true;
+			}
+		}
+		assert(found);
 	}
 
 	void SetSwapFunction(std::function<void()> swapFunction) {
@@ -868,6 +870,12 @@ private:
 	// Bad for performance but sometimes necessary for synchronous CPU readbacks (screenshots and whatnot).
 	void FlushSync();
 	void EndSyncFrame(int frame);
+
+	// When using legacy functionality for push buffers (glBufferData), we need to flush them
+	// before actually making the glDraw* calls. It's best if the render manager handles that.
+	void RegisterPushBuffer(int frame, GLPushBuffer *buffer) {
+		frameData_[frame].activePushBuffers.insert(buffer);
+	}
 
 	// Per-frame data, round-robin so we can overlap submission with execution of the previous frame.
 	struct FrameData {
