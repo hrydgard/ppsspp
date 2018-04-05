@@ -184,8 +184,12 @@ class GLRenderManager;
 // faster than the hundreds of buffer uploads or memory array buffers we used before.
 // On modern GL we could avoid the copy using glBufferStorage but not sure it's worth the
 // trouble.
+// We need to manage the lifetime of this together with the other resources so its destructor
+// runs on the render thread.
 class GLPushBuffer {
 public:
+	friend class GLRenderManager;
+
 	struct BufInfo {
 		GLRBuffer *buffer = nullptr;
 		uint8_t *localMemory = nullptr;
@@ -198,6 +202,7 @@ public:
 
 	void Reset() { offset_ = 0; }
 
+private:
 	// Needs context in case of defragment.
 	void Begin() {
 		buf_ = 0;
@@ -216,6 +221,7 @@ public:
 		Unmap();
 	}
 
+public:
 	void Map();
 	void Unmap();
 
@@ -306,7 +312,7 @@ public:
 	void Perform();
 
 	bool IsEmpty() const {
-		return shaders.empty() && programs.empty() && buffers.empty() && textures.empty() && inputLayouts.empty() && framebuffers.empty();
+		return shaders.empty() && programs.empty() && buffers.empty() && textures.empty() && inputLayouts.empty() && framebuffers.empty() && pushBuffers.empty();
 	}
 	void Take(GLDeleter &other) {
 		_assert_msg_(G3D, IsEmpty(), "Deleter already has stuff");
@@ -316,12 +322,14 @@ public:
 		textures = std::move(other.textures);
 		inputLayouts = std::move(other.inputLayouts);
 		framebuffers = std::move(other.framebuffers);
+		pushBuffers = std::move(other.pushBuffers);
 		other.shaders.clear();
 		other.programs.clear();
 		other.buffers.clear();
 		other.textures.clear();
 		other.inputLayouts.clear();
 		other.framebuffers.clear();
+		other.pushBuffers.clear();
 	}
 
 	std::vector<GLRShader *> shaders;
@@ -330,6 +338,7 @@ public:
 	std::vector<GLRTexture *> textures;
 	std::vector<GLRInputLayout *> inputLayouts;
 	std::vector<GLRFramebuffer *> framebuffers;
+	std::vector<GLPushBuffer *> pushBuffers;
 };
 
 class GLRInputLayout {
@@ -469,7 +478,7 @@ public:
 		deleter_.framebuffers.push_back(framebuffer);
 	}
 	void DeletePushBuffer(GLPushBuffer *pushbuffer) {
-		delete pushbuffer;
+		deleter_.pushBuffers.push_back(pushbuffer);
 	}
 
 	void BeginPushBuffer(GLPushBuffer *pushbuffer) {

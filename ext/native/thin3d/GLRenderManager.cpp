@@ -13,7 +13,12 @@
 #define VLOG(...)
 #endif
 
+// Runs on the GPU thread.
 void GLDeleter::Perform() {
+	for (auto pushBuffer : pushBuffers) {
+		delete pushBuffer;
+	}
+	pushBuffers.clear();
 	for (auto shader : shaders) {
 		delete shader;
 	}
@@ -638,10 +643,13 @@ bool GLPushBuffer::AddBuffer() {
 	return true;
 }
 
+// Executed on the render thread!
 void GLPushBuffer::Destroy() {
 	for (BufInfo &info : buffers_) {
 		// This will automatically unmap device memory, if needed.
-		render_->DeleteBuffer(info.buffer);
+		// NOTE: We immediately delete the buffer, don't go through the deleter, since we're on the render thread.
+		// render_->DeleteBuffer(info.buffer);
+		delete info.buffer;
 		FreeAlignedMemory(info.localMemory);
 	}
 	buffers_.clear();
