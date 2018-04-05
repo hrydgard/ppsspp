@@ -568,7 +568,7 @@ GLPushBuffer::GLPushBuffer(GLRenderManager *render, GLuint target, size_t size) 
 }
 
 GLPushBuffer::~GLPushBuffer() {
-	assert(buffers_.empty());
+	Destroy();
 }
 
 void GLPushBuffer::Map() {
@@ -645,6 +645,7 @@ void GLPushBuffer::Destroy() {
 		FreeAlignedMemory(info.localMemory);
 	}
 	buffers_.clear();
+	buf_ = -1;
 }
 
 void GLPushBuffer::NextBuffer(size_t minSize) {
