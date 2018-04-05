@@ -141,6 +141,12 @@ void GPU_Vulkan::LoadCache(std::string filename) {
 }
 
 void GPU_Vulkan::SaveCache(std::string filename) {
+	if (!draw_) {
+		// Already got the lost message, we're in shutdown.
+		WARN_LOG(G3D, "Not saving shaders - shutting down from in-game.");
+		return;
+	}
+
 	FILE *f = File::OpenCFile(filename, "wb");
 	if (!f)
 		return;
@@ -474,6 +480,7 @@ void GPU_Vulkan::DeviceLost() {
 	textureCacheVulkan_->DeviceLost();
 	depalShaderCache_.DeviceLost();
 	shaderManagerVulkan_->ClearShaders();
+	draw_ = nullptr;
 }
 
 void GPU_Vulkan::DeviceRestore() {

@@ -130,7 +130,7 @@ GPU_GLES::~GPU_GLES() {
 	shaderManagerGL_->ClearCache(true);
 	depalShaderCache_.Clear();
 	fragmentTestCache_.Clear();
-	if (!shaderCachePath_.empty()) {
+	if (!shaderCachePath_.empty() && draw_) {
 		shaderManagerGL_->Save(shaderCachePath_);
 	}
 	delete shaderManagerGL_;
