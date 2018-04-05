@@ -540,12 +540,12 @@ OpenGLContext::~OpenGLContext() {
 void OpenGLContext::BeginFrame() {
 	renderManager_.BeginFrame();
 	FrameData &frameData = frameData_[renderManager_.GetCurFrame()];
-	frameData.push->Begin();
+	renderManager_.BeginPushBuffer(frameData.push);
 }
 
 void OpenGLContext::EndFrame() {
 	FrameData &frameData = frameData_[renderManager_.GetCurFrame()];
-	frameData.push->End();  // upload the data!
+	renderManager_.EndPushBuffer(frameData.push);  // upload the data!
 	renderManager_.Finish();
 }
 

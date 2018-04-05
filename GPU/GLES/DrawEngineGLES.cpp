@@ -157,14 +157,14 @@ void DrawEngineGLES::ClearInputLayoutMap() {
 
 void DrawEngineGLES::BeginFrame() {
 	FrameData &frameData = frameData_[render_->GetCurFrame()];
-	frameData.pushIndex->Begin();
-	frameData.pushVertex->Begin();
+	render_->BeginPushBuffer(frameData.pushIndex);
+	render_->BeginPushBuffer(frameData.pushVertex);
 }
 
 void DrawEngineGLES::EndFrame() {
 	FrameData &frameData = frameData_[render_->GetCurFrame()];
-	frameData.pushIndex->End();
-	frameData.pushVertex->End();
+	render_->EndPushBuffer(frameData.pushIndex);
+	render_->EndPushBuffer(frameData.pushVertex);
 	tessDataTransfer->EndFrame();
 }
 
