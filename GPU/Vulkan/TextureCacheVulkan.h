@@ -37,16 +37,6 @@ class VulkanTexture;
 class VulkanPushBuffer;
 class VulkanDeviceAllocator;
 
-class CachedTextureVulkan {
-public:
-	CachedTextureVulkan() : texture_(nullptr) {
-	}
-	~CachedTextureVulkan();
-
-	// TODO: Switch away from VulkanImage to some kind of smart suballocating texture pool.
-	VulkanTexture *texture_;
-};
-
 class SamplerCache {
 public:
 	SamplerCache(VulkanContext *vulkan) : vulkan_(vulkan), cache_(16) {}
@@ -139,7 +129,7 @@ private:
 
 	TextureScalerVulkan scaler;
 
-	CachedTextureVulkan *lastBoundTexture = nullptr;
+	VulkanTexture *lastBoundTexture = nullptr;
 
 	int decimationCounter_ = 0;
 	int texelsScaledThisFrame_ = 0;

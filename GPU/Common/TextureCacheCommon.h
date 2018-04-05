@@ -50,8 +50,6 @@ enum FramebufferNotification {
 
 struct VirtualFramebuffer;
 
-class CachedTextureVulkan;
-
 namespace Draw {
 class DrawContext;
 }
@@ -88,6 +86,7 @@ struct SamplerCacheKey {
 };
 
 class GLRTexture;
+class VulkanTexture;
 
 // TODO: Shrink this struct. There is some fluff.
 struct TexCacheEntry {
@@ -135,7 +134,7 @@ struct TexCacheEntry {
 	union {
 		GLRTexture *textureName;
 		void *texturePtr;
-		CachedTextureVulkan *vkTex;
+		VulkanTexture *vkTex;
 	};
 #ifdef _WIN32
 	void *textureView;  // Used by D3D11 only for the shader resource view.
