@@ -118,8 +118,10 @@ GPU_GLES::GPU_GLES(GraphicsContext *gfxCtx, Draw::DrawContext *draw)
 }
 
 GPU_GLES::~GPU_GLES() {
-	GLRenderManager *render = (GLRenderManager *)draw_->GetNativeObject(Draw::NativeObject::RENDER_MANAGER);
-	render->Wipe();
+	if (draw_) {
+		GLRenderManager *render = (GLRenderManager *)draw_->GetNativeObject(Draw::NativeObject::RENDER_MANAGER);
+		render->Wipe();
+	}
 
 	// If we're here during app shutdown (exiting the Windows app in-game, for example)
 	// everything should already be cleared since DeviceLost has been run.
@@ -135,9 +137,6 @@ GPU_GLES::~GPU_GLES() {
 	shaderManagerGL_ = nullptr;
 	delete framebufferManagerGL_;
 	delete textureCacheGL_;
-#ifdef _WIN32
-	gfxCtx_->SwapInterval(0);
-#endif
 }
 
 static constexpr int MakeIntelSimpleVer(int v1, int v2, int v3) {
@@ -332,11 +331,13 @@ void GPU_GLES::DeviceLost() {
 	// TransformDraw has registered as a GfxResourceHolder.
 	drawEngine_.ClearInputLayoutMap();
 	shaderManagerGL_->ClearCache(false);
-	textureCacheGL_->Clear(false);
+	textureCacheGL_->DeviceLost();
 	fragmentTestCache_.Clear(false);
 	depalShaderCache_.Clear();
 	drawEngine_.DeviceLost();
 	framebufferManagerGL_->DeviceLost();
+	// Don't even try to access the lost device.
+	draw_ = nullptr;
 }
 
 void GPU_GLES::DeviceRestore() {
