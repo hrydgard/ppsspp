@@ -854,6 +854,7 @@ void TextureCacheGLES::DeviceLost() {
 
 void TextureCacheGLES::DeviceRestore(Draw::DrawContext *draw) {
 	draw_ = draw;
+	render_ = (GLRenderManager *)draw_->GetNativeObject(Draw::NativeObject::RENDER_MANAGER);
 	if (!shadeInputLayout_) {
 		std::vector<GLRInputLayout::Entry> entries;
 		entries.push_back({ 0, 3, GL_FLOAT, GL_FALSE, 20, 0 });
