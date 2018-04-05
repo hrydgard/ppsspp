@@ -177,6 +177,131 @@ private:
 	bool hasStorage_ = false;
 };
 
+class GLRenderManager;
+
+// Similar to VulkanPushBuffer but is currently less efficient - it collects all the data in
+// RAM then does a big memcpy/buffer upload at the end of the frame. This is at least a lot
+// faster than the hundreds of buffer uploads or memory array buffers we used before.
+// On modern GL we could avoid the copy using glBufferStorage but not sure it's worth the
+// trouble.
+// We need to manage the lifetime of this together with the other resources so its destructor
+// runs on the render thread.
+class GLPushBuffer {
+public:
+	friend class GLRenderManager;
+
+	struct BufInfo {
+		GLRBuffer *buffer = nullptr;
+		uint8_t *localMemory = nullptr;
+		uint8_t *deviceMemory = nullptr;
+		size_t flushOffset = 0;
+	};
+
+	GLPushBuffer(GLRenderManager *render, GLuint target, size_t size);
+	~GLPushBuffer();
+
+	void Reset() { offset_ = 0; }
+
+private:
+	// Needs context in case of defragment.
+	void Begin() {
+		buf_ = 0;
+		offset_ = 0;
+		// Note: we must defrag because some buffers may be smaller than size_.
+		Defragment();
+		Map();
+		assert(writePtr_);
+	}
+
+	void BeginNoReset() {
+		Map();
+	}
+
+	void End() {
+		Unmap();
+	}
+
+public:
+	void Map();
+	void Unmap();
+
+	// When using the returned memory, make sure to bind the returned vkbuf.
+	// This will later allow for handling overflow correctly.
+	size_t Allocate(size_t numBytes, GLRBuffer **vkbuf) {
+		size_t out = offset_;
+		if (offset_ + ((numBytes + 3) & ~3) >= size_) {
+			NextBuffer(numBytes);
+			out = offset_;
+			offset_ += (numBytes + 3) & ~3;
+		} else {
+			offset_ += (numBytes + 3) & ~3;  // Round up to 4 bytes.
+		}
+		*vkbuf = buffers_[buf_].buffer;
+		return out;
+	}
+
+	// Returns the offset that should be used when binding this buffer to get this data.
+	size_t Push(const void *data, size_t size, GLRBuffer **vkbuf) {
+		assert(writePtr_);
+		size_t off = Allocate(size, vkbuf);
+		memcpy(writePtr_ + off, data, size);
+		return off;
+	}
+
+	uint32_t PushAligned(const void *data, size_t size, int align, GLRBuffer **vkbuf) {
+		assert(writePtr_);
+		offset_ = (offset_ + align - 1) & ~(align - 1);
+		size_t off = Allocate(size, vkbuf);
+		memcpy(writePtr_ + off, data, size);
+		return (uint32_t)off;
+	}
+
+	size_t GetOffset() const {
+		return offset_;
+	}
+
+	// "Zero-copy" variant - you can write the data directly as you compute it.
+	// Recommended.
+	void *Push(size_t size, uint32_t *bindOffset, GLRBuffer **vkbuf) {
+		assert(writePtr_);
+		size_t off = Allocate(size, vkbuf);
+		*bindOffset = (uint32_t)off;
+		return writePtr_ + off;
+	}
+	void *PushAligned(size_t size, uint32_t *bindOffset, GLRBuffer **vkbuf, int align) {
+		assert(writePtr_);
+		offset_ = (offset_ + align - 1) & ~(align - 1);
+		size_t off = Allocate(size, vkbuf);
+		*bindOffset = (uint32_t)off;
+		return writePtr_ + off;
+	}
+
+	size_t GetTotalSize() const;
+
+	void Flush();
+
+protected:
+	void MapDevice(GLBufferStrategy strategy);
+	void UnmapDevice();
+
+private:
+	bool AddBuffer();
+	void NextBuffer(size_t minSize);
+	void Defragment();
+	void Destroy();
+
+	GLRenderManager *render_;
+	std::vector<BufInfo> buffers_;
+	size_t buf_ = 0;
+	size_t offset_ = 0;
+	size_t size_ = 0;
+	uint8_t *writePtr_ = nullptr;
+	GLuint target_;
+	GLBufferStrategy strategy_ = GLBufferStrategy::SUBDATA;
+
+	friend class GLRenderManager;
+};
+
 enum class GLRRunType {
 	END,
 	SYNC,
@@ -184,10 +309,10 @@ enum class GLRRunType {
 
 class GLDeleter {
 public:
-	void Perform();
+	void Perform(GLRenderManager *renderManager);
 
 	bool IsEmpty() const {
-		return shaders.empty() && programs.empty() && buffers.empty() && textures.empty() && inputLayouts.empty() && framebuffers.empty();
+		return shaders.empty() && programs.empty() && buffers.empty() && textures.empty() && inputLayouts.empty() && framebuffers.empty() && pushBuffers.empty();
 	}
 	void Take(GLDeleter &other) {
 		_assert_msg_(G3D, IsEmpty(), "Deleter already has stuff");
@@ -197,12 +322,14 @@ public:
 		textures = std::move(other.textures);
 		inputLayouts = std::move(other.inputLayouts);
 		framebuffers = std::move(other.framebuffers);
+		pushBuffers = std::move(other.pushBuffers);
 		other.shaders.clear();
 		other.programs.clear();
 		other.buffers.clear();
 		other.textures.clear();
 		other.inputLayouts.clear();
 		other.framebuffers.clear();
+		other.pushBuffers.clear();
 	}
 
 	std::vector<GLRShader *> shaders;
@@ -211,6 +338,7 @@ public:
 	std::vector<GLRTexture *> textures;
 	std::vector<GLRInputLayout *> inputLayouts;
 	std::vector<GLRFramebuffer *> framebuffers;
+	std::vector<GLPushBuffer *> pushBuffers;
 };
 
 class GLRInputLayout {
@@ -327,6 +455,12 @@ public:
 		return step.create_input_layout.inputLayout;
 	}
 
+	GLPushBuffer *CreatePushBuffer(int frame, GLuint target, size_t size) {
+		GLPushBuffer *push = new GLPushBuffer(this, target, size);
+		RegisterPushBuffer(frame, push);
+		return push;
+	}
+
 	void DeleteShader(GLRShader *shader) {
 		deleter_.shaders.push_back(shader);
 	}
@@ -344,6 +478,17 @@ public:
 	}
 	void DeleteFramebuffer(GLRFramebuffer *framebuffer) {
 		deleter_.framebuffers.push_back(framebuffer);
+	}
+	void DeletePushBuffer(GLPushBuffer *pushbuffer) {
+		deleter_.pushBuffers.push_back(pushbuffer);
+	}
+
+	void BeginPushBuffer(GLPushBuffer *pushbuffer) {
+		pushbuffer->Begin();
+	}
+
+	void EndPushBuffer(GLPushBuffer *pushbuffer) {
+		pushbuffer->End();
 	}
 
 	void BindFramebufferAsRenderTarget(GLRFramebuffer *fb, GLRRenderPassAction color, GLRRenderPassAction depth, GLRRenderPassAction stencil, uint32_t clearColor, float clearDepth, uint8_t clearStencil);
@@ -679,16 +824,16 @@ public:
 		queueRunner_.Resize(width, height);
 	}
 
-	// When using legacy functionality for push buffers (glBufferData), we need to flush them
-	// before actually making the glDraw* calls. It's best if the render manager handles that.
-	void RegisterPushBuffer(int frame, GLPushBuffer *buffer) {
-		frameData_[frame].activePushBuffers.insert(buffer);
-	}
-
-	void UnregisterPushBuffer(int frame, GLPushBuffer *buffer) {
-		auto iter = frameData_[frame].activePushBuffers.find(buffer);
-		_assert_(iter != frameData_[frame].activePushBuffers.end());
-		frameData_[frame].activePushBuffers.erase(iter);
+	void UnregisterPushBuffer(GLPushBuffer *buffer) {
+		bool found = false;
+		for (int i = 0; i < MAX_INFLIGHT_FRAMES; i++) {
+			auto iter = frameData_[i].activePushBuffers.find(buffer);
+			if (iter != frameData_[i].activePushBuffers.end()) {
+				frameData_[i].activePushBuffers.erase(iter);
+				found = true;
+			}
+		}
+		assert(found);
 	}
 
 	void SetSwapFunction(std::function<void()> swapFunction) {
@@ -725,6 +870,12 @@ private:
 	// Bad for performance but sometimes necessary for synchronous CPU readbacks (screenshots and whatnot).
 	void FlushSync();
 	void EndSyncFrame(int frame);
+
+	// When using legacy functionality for push buffers (glBufferData), we need to flush them
+	// before actually making the glDraw* calls. It's best if the render manager handles that.
+	void RegisterPushBuffer(int frame, GLPushBuffer *buffer) {
+		frameData_[frame].activePushBuffers.insert(buffer);
+	}
 
 	// Per-frame data, round-robin so we can overlap submission with execution of the previous frame.
 	struct FrameData {
@@ -787,123 +938,4 @@ private:
 
 	int targetWidth_ = 0;
 	int targetHeight_ = 0;
-};
-
-// Similar to VulkanPushBuffer but is currently less efficient - it collects all the data in
-// RAM then does a big memcpy/buffer upload at the end of the frame. This is at least a lot
-// faster than the hundreds of buffer uploads or memory array buffers we used before.
-// On modern GL we could avoid the copy using glBufferStorage but not sure it's worth the
-// trouble.
-class GLPushBuffer {
-public:
-	struct BufInfo {
-		GLRBuffer *buffer = nullptr;
-		uint8_t *localMemory = nullptr;
-		uint8_t *deviceMemory = nullptr;
-		size_t flushOffset = 0;
-	};
-
-public:
-	GLPushBuffer(GLRenderManager *render, GLuint target, size_t size);
-	~GLPushBuffer();
-
-	void Destroy();
-
-	void Reset() { offset_ = 0; }
-
-	// Needs context in case of defragment.
-	void Begin() {
-		buf_ = 0;
-		offset_ = 0;
-		// Note: we must defrag because some buffers may be smaller than size_.
-		Defragment();
-		Map();
-		assert(writePtr_);
-	}
-
-	void BeginNoReset() {
-		Map();
-	}
-
-	void End() {
-		Unmap();
-	}
-
-	void Map();
-	void Unmap();
-
-	// When using the returned memory, make sure to bind the returned vkbuf.
-	// This will later allow for handling overflow correctly.
-	size_t Allocate(size_t numBytes, GLRBuffer **vkbuf) {
-		size_t out = offset_;
-		if (offset_ + ((numBytes + 3) & ~3) >= size_) {
-			NextBuffer(numBytes);
-			out = offset_;
-			offset_ += (numBytes + 3) & ~3;
-		} else {
-			offset_ += (numBytes + 3) & ~3;  // Round up to 4 bytes.
-		}
-		*vkbuf = buffers_[buf_].buffer;
-		return out;
-	}
-
-	// Returns the offset that should be used when binding this buffer to get this data.
-	size_t Push(const void *data, size_t size, GLRBuffer **vkbuf) {
-		assert(writePtr_);
-		size_t off = Allocate(size, vkbuf);
-		memcpy(writePtr_ + off, data, size);
-		return off;
-	}
-
-	uint32_t PushAligned(const void *data, size_t size, int align, GLRBuffer **vkbuf) {
-		assert(writePtr_);
-		offset_ = (offset_ + align - 1) & ~(align - 1);
-		size_t off = Allocate(size, vkbuf);
-		memcpy(writePtr_ + off, data, size);
-		return (uint32_t)off;
-	}
-
-	size_t GetOffset() const {
-		return offset_;
-	}
-
-	// "Zero-copy" variant - you can write the data directly as you compute it.
-	// Recommended.
-	void *Push(size_t size, uint32_t *bindOffset, GLRBuffer **vkbuf) {
-		assert(writePtr_);
-		size_t off = Allocate(size, vkbuf);
-		*bindOffset = (uint32_t)off;
-		return writePtr_ + off;
-	}
-	void *PushAligned(size_t size, uint32_t *bindOffset, GLRBuffer **vkbuf, int align) {
-		assert(writePtr_);
-		offset_ = (offset_ + align - 1) & ~(align - 1);
-		size_t off = Allocate(size, vkbuf);
-		*bindOffset = (uint32_t)off;
-		return writePtr_ + off;
-	}
-
-	size_t GetTotalSize() const;
-
-	void Flush();
-
-protected:
-	void MapDevice(GLBufferStrategy strategy);
-	void UnmapDevice();
-
-private:
-	bool AddBuffer();
-	void NextBuffer(size_t minSize);
-	void Defragment();
-
-	GLRenderManager *render_;
-	std::vector<BufInfo> buffers_;
-	size_t buf_ = 0;
-	size_t offset_ = 0;
-	size_t size_ = 0;
-	uint8_t *writePtr_ = nullptr;
-	GLuint target_;
-	GLBufferStrategy strategy_ = GLBufferStrategy::SUBDATA;
-
-	friend class GLRenderManager;
 };

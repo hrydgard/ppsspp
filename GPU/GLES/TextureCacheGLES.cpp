@@ -53,6 +53,7 @@ TextureCacheGLES::TextureCacheGLES(Draw::DrawContext *draw)
 	SetupTextureDecoder();
 
 	nextTexture_ = nullptr;
+
 	std::vector<GLRInputLayout::Entry> entries;
 	entries.push_back({ 0, 3, GL_FLOAT, GL_FALSE, 20, 0 });
 	entries.push_back({ 1, 2, GL_FLOAT, GL_FALSE, 20, 12 });
@@ -60,7 +61,9 @@ TextureCacheGLES::TextureCacheGLES(Draw::DrawContext *draw)
 }
 
 TextureCacheGLES::~TextureCacheGLES() {
-	render_->DeleteInputLayout(shadeInputLayout_);
+	if (shadeInputLayout_) {
+		render_->DeleteInputLayout(shadeInputLayout_);
+	}
 	Clear(true);
 }
 
@@ -839,6 +842,23 @@ bool TextureCacheGLES::GetCurrentTextureDebug(GPUDebugBuffer &buffer, int level)
 #endif
 }
 
+void TextureCacheGLES::DeviceLost() {
+	if (shadeInputLayout_) {
+		render_->DeleteInputLayout(shadeInputLayout_);
+		shadeInputLayout_ = nullptr;
+	}
+	Clear(false);
+	draw_ = nullptr;
+	render_ = nullptr;
+}
+
 void TextureCacheGLES::DeviceRestore(Draw::DrawContext *draw) {
 	draw_ = draw;
+	render_ = (GLRenderManager *)draw_->GetNativeObject(Draw::NativeObject::RENDER_MANAGER);
+	if (!shadeInputLayout_) {
+		std::vector<GLRInputLayout::Entry> entries;
+		entries.push_back({ 0, 3, GL_FLOAT, GL_FALSE, 20, 0 });
+		entries.push_back({ 1, 2, GL_FLOAT, GL_FALSE, 20, 12 });
+		shadeInputLayout_ = render_->CreateInputLayout(entries);
+	}
 }
