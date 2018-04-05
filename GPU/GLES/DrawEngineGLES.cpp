@@ -109,11 +109,9 @@ void DrawEngineGLES::DeviceRestore() {
 
 void DrawEngineGLES::InitDeviceObjects() {
 	for (int i = 0; i < GLRenderManager::MAX_INFLIGHT_FRAMES; i++) {
-		frameData_[i].pushVertex = render_->CreatePushBuffer(GL_ARRAY_BUFFER, 1024 * 1024);
-		frameData_[i].pushIndex = render_->CreatePushBuffer(GL_ELEMENT_ARRAY_BUFFER, 256 * 1024);
+		frameData_[i].pushVertex = render_->CreatePushBuffer(i, GL_ARRAY_BUFFER, 1024 * 1024);
+		frameData_[i].pushIndex = render_->CreatePushBuffer(i, GL_ELEMENT_ARRAY_BUFFER, 256 * 1024);
 
-		render_->RegisterPushBuffer(i, frameData_[i].pushVertex);
-		render_->RegisterPushBuffer(i, frameData_[i].pushIndex);
 	}
 
 	int vertexSize = sizeof(TransformedVertex);
@@ -131,8 +129,6 @@ void DrawEngineGLES::DestroyDeviceObjects() {
 		if (!frameData_[i].pushVertex && !frameData_[i].pushIndex)
 			continue;
 
-		render_->UnregisterPushBuffer(i, frameData_[i].pushVertex);
-		render_->UnregisterPushBuffer(i, frameData_[i].pushIndex);
 		render_->DeletePushBuffer(frameData_[i].pushVertex);
 		render_->DeletePushBuffer(frameData_[i].pushIndex);
 		frameData_[i].pushVertex = nullptr;

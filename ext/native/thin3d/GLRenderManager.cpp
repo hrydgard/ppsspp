@@ -14,8 +14,9 @@
 #endif
 
 // Runs on the GPU thread.
-void GLDeleter::Perform() {
+void GLDeleter::Perform(GLRenderManager *renderManager) {
 	for (auto pushBuffer : pushBuffers) {
+		renderManager->UnregisterPushBuffer(pushBuffer);
 		delete pushBuffer;
 	}
 	pushBuffers.clear();
@@ -57,7 +58,7 @@ GLRenderManager::~GLRenderManager() {
 		_assert_(frameData_[i].deleter_prev.IsEmpty());
 	}
 	// Was anything deleted during shutdown?
-	deleter_.Perform();
+	deleter_.Perform(this);
 	_assert_(deleter_.IsEmpty());
 }
 
@@ -103,15 +104,15 @@ void GLRenderManager::ThreadEnd() {
 
 	// Good point to run all the deleters to get rid of leftover objects.
 	for (int i = 0; i < MAX_INFLIGHT_FRAMES; i++) {
-		frameData_[i].deleter.Perform();
-		frameData_[i].deleter_prev.Perform();
+		frameData_[i].deleter.Perform(this);
+		frameData_[i].deleter_prev.Perform(this);
 		for (int j = 0; j < (int)frameData_[i].steps.size(); j++) {
 			delete frameData_[i].steps[j];
 		}
 		frameData_[i].steps.clear();
 		frameData_[i].initSteps.clear();
 	}
-	deleter_.Perform();
+	deleter_.Perform(this);
 
 	for (int i = 0; i < (int)steps_.size(); i++) {
 		delete steps_[i];
@@ -145,7 +146,7 @@ bool GLRenderManager::ThreadFrame() {
 			}
 			VLOG("PULL: Setting frame[%d].readyForRun = false", threadFrame_);
 			frameData.readyForRun = false;
-			frameData.deleter_prev.Perform();
+			frameData.deleter_prev.Perform(this);
 			frameData.deleter_prev.Take(frameData.deleter);
 			// Previously we had a quick exit here that avoided calling Run() if run_ was suddenly false,
 			// but that created a race condition where frames could end up not finished properly on resize etc.

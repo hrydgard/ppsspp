@@ -530,7 +530,6 @@ OpenGLContext::OpenGLContext() {
 OpenGLContext::~OpenGLContext() {
 	DestroyPresets();
 	for (int i = 0; i < GLRenderManager::MAX_INFLIGHT_FRAMES; i++) {
-		renderManager_.UnregisterPushBuffer(frameData_[i].push);
 		renderManager_.DeletePushBuffer(frameData_[i].push);
 	}
 	boundSamplers_.clear();

@@ -309,7 +309,7 @@ enum class GLRRunType {
 
 class GLDeleter {
 public:
-	void Perform();
+	void Perform(GLRenderManager *renderManager);
 
 	bool IsEmpty() const {
 		return shaders.empty() && programs.empty() && buffers.empty() && textures.empty() && inputLayouts.empty() && framebuffers.empty() && pushBuffers.empty();
