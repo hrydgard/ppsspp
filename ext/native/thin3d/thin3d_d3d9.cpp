@@ -937,7 +937,9 @@ void D3D9Context::Clear(int mask, uint32_t colorval, float depthVal, int stencil
 	if (mask & FBChannel::FB_COLOR_BIT) d3dMask |= D3DCLEAR_TARGET;
 	if (mask & FBChannel::FB_DEPTH_BIT) d3dMask |= D3DCLEAR_ZBUFFER;
 	if (mask & FBChannel::FB_STENCIL_BIT) d3dMask |= D3DCLEAR_STENCIL;
-	device_->Clear(0, NULL, d3dMask, (D3DCOLOR)SwapRB(colorval), depthVal, stencilVal);
+	if (d3dMask) {
+		device_->Clear(0, NULL, d3dMask, (D3DCOLOR)SwapRB(colorval), depthVal, stencilVal);
+	}
 }
 
 void D3D9Context::SetScissorRect(int left, int top, int width, int height) {

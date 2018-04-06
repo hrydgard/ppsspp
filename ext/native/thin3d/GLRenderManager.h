@@ -164,7 +164,7 @@ public:
 	void *Map(GLBufferStrategy strategy);
 	bool Unmap();
 
-	bool Mapped() {
+	bool Mapped() const {
 		return mapped_;
 	}
 
@@ -768,8 +768,9 @@ public:
 	// If scissorW == 0, no scissor is applied.
 	void Clear(uint32_t clearColor, float clearZ, int clearStencil, int clearMask, int colorMask, int scissorX, int scissorY, int scissorW, int scissorH) {
 		_dbg_assert_(G3D, curRenderStep_ && curRenderStep_->stepType == GLRStepType::RENDER);
+		if (!clearMask)
+			return;
 		GLRRenderData data{ GLRRenderCommand::CLEAR };
-		_assert_(clearMask != 0);  // What would be the point?
 		data.clear.clearMask = clearMask;
 		data.clear.clearColor = clearColor;
 		data.clear.clearZ = clearZ;
@@ -825,15 +826,15 @@ public:
 	}
 
 	void UnregisterPushBuffer(GLPushBuffer *buffer) {
-		bool found = false;
+		int foundCount = 0;
 		for (int i = 0; i < MAX_INFLIGHT_FRAMES; i++) {
 			auto iter = frameData_[i].activePushBuffers.find(buffer);
 			if (iter != frameData_[i].activePushBuffers.end()) {
 				frameData_[i].activePushBuffers.erase(iter);
-				found = true;
+				foundCount++;
 			}
 		}
-		assert(found);
+		assert(foundCount == 1);
 	}
 
 	void SetSwapFunction(std::function<void()> swapFunction) {
@@ -920,7 +921,7 @@ private:
 	GLQueueRunner queueRunner_;
 
 	// Thread state
-	int threadFrame_;
+	int threadFrame_ = -1;
 
 	bool nextFrame = false;
 	bool firstFrame = true;

@@ -614,6 +614,8 @@ bool VulkanRenderManager::InitDepthStencilBuffer(VkCommandBuffer cmd) {
 
 void VulkanRenderManager::Clear(uint32_t clearColor, float clearZ, int clearStencil, int clearMask) {
 	_dbg_assert_(G3D, curRenderStep_ && curRenderStep_->stepType == VKRStepType::RENDER);
+	if (!clearMask)
+		return;
 	// If this is the first drawing command, merge it into the pass.
 	if (curRenderStep_->render.numDraws == 0) {
 		curRenderStep_->render.clearColor = clearColor;

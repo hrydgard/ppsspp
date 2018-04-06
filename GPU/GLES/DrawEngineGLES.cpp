@@ -587,12 +587,6 @@ rotateVBO:
 		} else if (result.action == SW_CLEAR) {
 			u32 clearColor = result.color;
 			float clearDepth = result.depth;
-			const float col[4] = {
-				((clearColor & 0xFF)) / 255.0f,
-				((clearColor & 0xFF00) >> 8) / 255.0f,
-				((clearColor & 0xFF0000) >> 16) / 255.0f,
-				((clearColor & 0xFF000000) >> 24) / 255.0f,
-			};
 
 			bool colorMask = gstate.isClearModeColorMask();
 			bool alphaMask = gstate.isClearModeAlphaMask();

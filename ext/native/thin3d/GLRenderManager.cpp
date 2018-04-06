@@ -327,7 +327,7 @@ bool GLRenderManager::CopyFramebufferToMemorySync(GLRFramebuffer *src, int aspec
 		// TODO: Do this properly.
 		srcFormat = Draw::DataFormat::D24_S8;
 	} else {
-		_assert_(false);
+		return false;
 	}
 	queueRunner_.CopyReadbackBuffer(w, h, srcFormat, destFormat, pixelStride, pixels);
 	return true;
@@ -638,6 +638,8 @@ void GLPushBuffer::Flush() {
 bool GLPushBuffer::AddBuffer() {
 	BufInfo info;
 	info.localMemory = (uint8_t *)AllocateAlignedMemory(size_, 16);
+	if (!info.localMemory)
+		return false;
 	info.buffer = render_->CreateBuffer(target_, size_, GL_DYNAMIC_DRAW);
 	buf_ = buffers_.size();
 	buffers_.push_back(info);

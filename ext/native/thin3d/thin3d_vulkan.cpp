@@ -19,7 +19,7 @@
 #include <vector>
 #include <string>
 #include <map>
-#include <assert.h>
+#include <cassert>
 
 #include "Common/Vulkan/SPIRVDisasm.h"
 #include "Core/Config.h"
@@ -1189,7 +1189,6 @@ void VKContext::Clear(int clearMask, uint32_t colorval, float depthVal, int sten
 		mask |= VK_IMAGE_ASPECT_DEPTH_BIT;
 	if (clearMask & FBChannel::FB_STENCIL_BIT)
 		mask |= VK_IMAGE_ASPECT_STENCIL_BIT;
-
 	renderManager_.Clear(colorval, depthVal, stencilVal, mask);
 }
 

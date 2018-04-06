@@ -167,9 +167,6 @@ void FramebufferManagerVulkan::DestroyDeviceObjects() {
 }
 
 void FramebufferManagerVulkan::NotifyClear(bool clearColor, bool clearAlpha, bool clearDepth, uint32_t color, float depth) {
-	float x, y, w, h;
-	CenterDisplayOutputRect(&x, &y, &w, &h, 480.0f, 272.0f, (float)pixelWidth_, (float)pixelHeight_, ROTATION_LOCKED_HORIZONTAL);
-
 	int mask = 0;
 	// The Clear detection takes care of doing a regular draw instead if separate masking
 	// of color and alpha is needed, so we can just treat them as the same.
