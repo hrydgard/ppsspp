@@ -311,7 +311,10 @@ public:
 		Destroy();
 	}
 
-	VkImageView GetImageView() { return vkTex_->GetImageView(); }
+	VkImageView GetImageView() {
+		vkTex_->Touch();
+		return vkTex_->GetImageView();
+	}
 
 private:
 	bool Create(VkCommandBuffer cmd, VulkanPushBuffer *pushBuffer, const TextureDesc &desc, VulkanDeviceAllocator *alloc);
@@ -658,6 +661,7 @@ bool VKTexture::Create(VkCommandBuffer cmd, VulkanPushBuffer *push, const Textur
 	height_ = desc.height;
 	depth_ = desc.depth;
 	vkTex_ = new VulkanTexture(vulkan_, alloc);
+	vkTex_->SetTag(desc.tag);
 	VkFormat vulkanFormat = DataFormatToVulkan(format_);
 	int stride = desc.width * (int)DataFormatSizeInBytes(format_);
 	int bpp = GetBpp(vulkanFormat);

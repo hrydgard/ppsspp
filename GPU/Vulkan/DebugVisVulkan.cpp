@@ -74,6 +74,7 @@ void DrawAllocatorVis(UIContext *ui, GPUInterface *gpu) {
 		desc.format = Draw::DataFormat::R8G8B8A8_UNORM;
 		desc.mipLevels = 1;
 		desc.type = Draw::TextureType::LINEAR2D;
+		desc.tag = "DebugVis";
 		desc.initData.push_back(initData.data());
 
 		Draw::DrawContext *draw = ui->GetDrawContext();
