@@ -180,6 +180,8 @@ void GameSettingsScreen::CreateViews() {
 	tabHolder->AddTab(ms->T("Graphics"), graphicsSettingsScroll);
 
 	graphicsSettings->Add(new ItemHeader(gr->T("Rendering Mode")));
+
+#if !PPSSPP_PLATFORM(UWP)
 	static const char *renderingBackend[] = { "OpenGL", "Direct3D 9", "Direct3D 11", "Vulkan" };
 	PopupMultiChoice *renderingBackendChoice = graphicsSettings->Add(new PopupMultiChoice(&g_Config.iGPUBackend, gr->T("Backend"), renderingBackend, (int)GPUBackend::OPENGL, ARRAY_SIZE(renderingBackend), gr->GetName(), screenManager()));
 	renderingBackendChoice->OnChoice.Handle(this, &GameSettingsScreen::OnRenderingBackend);
@@ -199,6 +201,7 @@ void GameSettingsScreen::CreateViews() {
 	if (!vulkanAvailable) {
 		renderingBackendChoice->HideChoice(3);
 	}
+#endif
 
 	static const char *renderingMode[] = { "Non-Buffered Rendering", "Buffered Rendering"};
 	PopupMultiChoice *renderingModeChoice = graphicsSettings->Add(new PopupMultiChoice(&g_Config.iRenderingMode, gr->T("Mode"), renderingMode, 0, ARRAY_SIZE(renderingMode), gr->GetName(), screenManager()));
