@@ -125,6 +125,7 @@ bool ManagedTexture::LoadFromFileData(const uint8_t *data, size_t dataSize, Imag
 	desc.depth = 1;
 	desc.mipLevels = generateMips ? potentialLevels : num_levels;
 	desc.generateMips = generateMips && potentialLevels > num_levels;
+	desc.tag = "LoadedFileData";
 	for (int i = 0; i < num_levels; i++) {
 		desc.initData.push_back(image[i]);
 	}

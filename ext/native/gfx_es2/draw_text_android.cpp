@@ -206,6 +206,7 @@ void TextDrawerAndroid::DrawString(DrawBuffer &target, const char *str, float x,
 		desc.height = entry->bmHeight;
 		desc.depth = 1;
 		desc.mipLevels = 1;
+		desc.tag = "TextDrawer";
 
 		uint16_t *bitmapData = new uint16_t[entry->bmWidth * entry->bmHeight];
 		jint* jimage = env_->GetIntArrayElements(imageData, nullptr);

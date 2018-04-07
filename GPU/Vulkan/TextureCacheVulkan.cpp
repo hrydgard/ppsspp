@@ -50,12 +50,11 @@
 #include <emmintrin.h>
 #endif
 
-#define TEXCACHE_NAME_CACHE_SIZE 16
-
 #define TEXCACHE_MAX_TEXELS_SCALED (256*256)  // Per frame
 
-#define TEXCACHE_MIN_SLAB_SIZE (4 * 1024 * 1024)
+#define TEXCACHE_MIN_SLAB_SIZE (8 * 1024 * 1024)
 #define TEXCACHE_MAX_SLAB_SIZE (32 * 1024 * 1024)
+#define TEXCACHE_SLAB_PRESSURE 4
 
 // Note: some drivers prefer B4G4R4A4_UNORM_PACK16 over R4G4B4A4_UNORM_PACK16.
 #define VULKAN_4444_FORMAT VK_FORMAT_B4G4R4A4_UNORM_PACK16
@@ -264,7 +263,7 @@ void TextureCacheVulkan::StartFrame() {
 		Clear(true);
 		clearCacheNextFrame_ = false;
 	} else {
-		Decimate();
+		Decimate(allocator_->GetSlabCount() > TEXCACHE_SLAB_PRESSURE);
 	}
 
 	allocator_->Begin();
@@ -318,6 +317,7 @@ void TextureCacheVulkan::BindTexture(TexCacheEntry *entry) {
 		return;
 	}
 
+	entry->vkTex->Touch();
 	imageView_ = entry->vkTex->GetImageView();
 	SamplerCacheKey key{};
 	UpdateSamplingParams(*entry, key);
@@ -580,6 +580,10 @@ void TextureCacheVulkan::BuildTexture(TexCacheEntry *const entry) {
 			mapping = &VULKAN_8888_SWIZZLE;
 			break;
 		}
+
+		char texName[128]{};
+		snprintf(texName, sizeof(texName), "Texture%08x", entry->addr);
+		image->SetTag(texName);
 
 		bool allocSuccess = image->CreateDirect(cmdInit, w * scaleFactor, h * scaleFactor, maxLevel + 1, actualFmt, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, mapping);
 		if (!allocSuccess && !lowMemoryMode_) {

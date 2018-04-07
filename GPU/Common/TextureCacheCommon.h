@@ -220,7 +220,7 @@ protected:
 	virtual void Unbind() = 0;
 	virtual void ReleaseTexture(TexCacheEntry *entry, bool delete_them) = 0;
 	void DeleteTexture(TexCache::iterator it);
-	void Decimate();
+	void Decimate(bool forcePressure = false);
 
 	virtual void ApplyTextureFramebuffer(TexCacheEntry *entry, VirtualFramebuffer *framebuffer) = 0;
 	void HandleTextureChange(TexCacheEntry *const entry, const char *reason, bool initialMatch, bool doDelete);

@@ -500,6 +500,8 @@ struct TextureDesc {
 	int depth;
 	int mipLevels;
 	bool generateMips;
+	// Optional, for tracking memory usage.
+	std::string tag;
 	// Does not take ownership over pointed-to data.
 	std::vector<uint8_t *> initData;
 };

@@ -204,6 +204,7 @@ void FramebufferManagerVulkan::MakePixelTexture(const u8 *srcPixels, GEBufferFor
 
 	// There's only ever a few of these alive, don't need to stress the allocator with these big ones.
 	drawPixelsTex_ = new VulkanTexture(vulkan_, nullptr);
+	drawPixelsTex_->SetTag("DrawPixels");
 	if (!drawPixelsTex_->CreateDirect(initCmd, width, height, 1, VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT)) {
 		// out of memory?
 		delete drawPixelsTex_;
