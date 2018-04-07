@@ -263,7 +263,12 @@ void TextureCacheVulkan::StartFrame() {
 		Clear(true);
 		clearCacheNextFrame_ = false;
 	} else {
-		Decimate(allocator_->GetSlabCount() > TEXCACHE_SLAB_PRESSURE);
+		int slabPressureLimit = TEXCACHE_SLAB_PRESSURE;
+		if (g_Config.iTexScalingLevel > 1) {
+			// Since textures are 2D maybe we should square this, but might get too non-aggressive.
+			slabPressureLimit *= g_Config.iTexScalingLevel;
+		}
+		Decimate(allocator_->GetSlabCount() > slabPressureLimit);
 	}
 
 	allocator_->Begin();
