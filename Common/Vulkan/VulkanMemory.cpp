@@ -20,6 +20,7 @@
 
 #include "Common/Log.h"
 #include "Common/Vulkan/VulkanMemory.h"
+#include "base/timeutil.h"
 #include "math/math_util.h"
 
 VulkanPushBuffer::VulkanPushBuffer(VulkanContext *vulkan, size_t size) : device_(vulkan->GetDevice()), buf_(0), offset_(0), size_(size), writePtr_(nullptr) {
@@ -186,7 +187,7 @@ void VulkanDeviceAllocator::Destroy() {
 	destroyed_ = true;
 }
 
-size_t VulkanDeviceAllocator::Allocate(const VkMemoryRequirements &reqs, VkDeviceMemory *deviceMemory) {
+size_t VulkanDeviceAllocator::Allocate(const VkMemoryRequirements &reqs, VkDeviceMemory *deviceMemory, const std::string &tag) {
 	assert(!destroyed_);
 	uint32_t memoryTypeIndex;
 	bool pass = vulkan_->MemoryTypeFromProperties(reqs.memoryTypeBits, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, &memoryTypeIndex);
@@ -216,7 +217,7 @@ size_t VulkanDeviceAllocator::Allocate(const VkMemoryRequirements &reqs, VkDevic
 
 		while (start < slab.usage.size()) {
 			start = (start + align - 1) & ~(align - 1);
-			if (AllocateFromSlab(slab, start, blocks)) {
+			if (AllocateFromSlab(slab, start, blocks, tag)) {
 				// Allocated?  Great, let's return right away.
 				*deviceMemory = slab.deviceMemory;
 				lastSlab_ = actualSlab;
@@ -233,7 +234,7 @@ size_t VulkanDeviceAllocator::Allocate(const VkMemoryRequirements &reqs, VkDevic
 	// Guaranteed to be the last one, unless it failed to allocate.
 	Slab &slab = slabs_[slabs_.size() - 1];
 	size_t start = 0;
-	if (AllocateFromSlab(slab, start, blocks)) {
+	if (AllocateFromSlab(slab, start, blocks, tag)) {
 		*deviceMemory = slab.deviceMemory;
 		lastSlab_ = slabs_.size() - 1;
 		return start << SLAB_GRAIN_SHIFT;
@@ -243,7 +244,7 @@ size_t VulkanDeviceAllocator::Allocate(const VkMemoryRequirements &reqs, VkDevic
 	return ALLOCATE_FAILED;
 }
 
-bool VulkanDeviceAllocator::AllocateFromSlab(Slab &slab, size_t &start, size_t blocks) {
+bool VulkanDeviceAllocator::AllocateFromSlab(Slab &slab, size_t &start, size_t blocks, const std::string &tag) {
 	assert(!destroyed_);
 	bool matched = true;
 
@@ -277,6 +278,7 @@ bool VulkanDeviceAllocator::AllocateFromSlab(Slab &slab, size_t &start, size_t b
 
 	// Remember the size so we can free.
 	slab.allocSizes[start] = blocks;
+	slab.tags[start] = { tag, time_now(), 0.0f };
 	return true;
 }
 
@@ -297,6 +299,24 @@ std::vector<uint8_t> VulkanDeviceAllocator::GetSlabUsage(int slabIndex) const {
 		return std::vector<uint8_t>();
 	const Slab &slab = slabs_[slabIndex];
 	return slab.usage;
+}
+
+void VulkanDeviceAllocator::DoTouch(VkDeviceMemory deviceMemory, size_t offset) {
+	size_t start = offset >> SLAB_GRAIN_SHIFT;
+	bool found = false;
+	for (Slab &slab : slabs_) {
+		if (slab.deviceMemory != deviceMemory) {
+			continue;
+		}
+
+		auto it = slab.tags.find(start);
+		if (it != slab.tags.end()) {
+			it->second.touched = time_now();
+			found = true;
+		}
+	}
+
+	_assert_msg_(G3D, found, "Failed to find allocation to touch - use after free?");
 }
 
 void VulkanDeviceAllocator::Free(VkDeviceMemory deviceMemory, size_t offset) {
@@ -360,6 +380,10 @@ void VulkanDeviceAllocator::ExecuteFree(FreeInfo *userdata) {
 		} else {
 			// Ack, a double free?
 			_assert_msg_(G3D, false, "Double free? Block missing at offset %d", (int)userdata->offset);
+		}
+		auto itTag = slab.tags.find(start);
+		if (itTag != slab.tags.end()) {
+			slab.tags.erase(itTag);
 		}
 		found = true;
 		break;
