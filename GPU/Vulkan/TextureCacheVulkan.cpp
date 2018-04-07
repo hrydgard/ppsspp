@@ -317,6 +317,7 @@ void TextureCacheVulkan::BindTexture(TexCacheEntry *entry) {
 		return;
 	}
 
+	entry->vkTex->Touch();
 	imageView_ = entry->vkTex->GetImageView();
 	SamplerCacheKey key{};
 	UpdateSamplingParams(*entry, key);
@@ -579,6 +580,10 @@ void TextureCacheVulkan::BuildTexture(TexCacheEntry *const entry) {
 			mapping = &VULKAN_8888_SWIZZLE;
 			break;
 		}
+
+		char texName[128]{};
+		snprintf(texName, sizeof(texName), "Texture%08x", entry->addr);
+		image->SetTag(texName);
 
 		bool allocSuccess = image->CreateDirect(cmdInit, w * scaleFactor, h * scaleFactor, maxLevel + 1, actualFmt, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, mapping);
 		if (!allocSuccess && !lowMemoryMode_) {
