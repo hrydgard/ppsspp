@@ -433,9 +433,43 @@ bool VulkanDeviceAllocator::AllocateSlab(VkDeviceSize minBytes) {
 	return true;
 }
 
+void VulkanDeviceAllocator::ReportOldUsage() {
+	float now = time_now();
+	static const float OLD_AGE = 10.0f;
+	for (size_t i = 0; i < slabs_.size(); ++i) {
+		const auto &slab = slabs_[i];
+
+		bool hasOldAllocs = false;
+		for (auto it : slab.tags) {
+			const auto info = it.second;
+			float touchedAge = now - info.touched;
+			if (touchedAge >= OLD_AGE) {
+				hasOldAllocs = true;
+				break;
+			}
+		}
+
+		if (hasOldAllocs) {
+			NOTICE_LOG(G3D, "Slab %d usage:", i);
+			for (auto it : slab.tags) {
+				const auto info = it.second;
+
+				float createAge = now - info.created;
+				float touchedAge = now - info.touched;
+				NOTICE_LOG(G3D, "  * %s (created %fs ago, used %fs ago)", info.tag.c_str(), createAge, touchedAge);
+			}
+			NOTICE_LOG(G3D, "");
+		}
+	}
+}
+
 void VulkanDeviceAllocator::Decimate() {
 	assert(!destroyed_);
 	bool foundFree = false;
+
+	if (TRACK_TOUCH) {
+		ReportOldUsage();
+	}
 
 	for (size_t i = 0; i < slabs_.size(); ++i) {
 		// Go backwards.  This way, we keep the largest free slab.

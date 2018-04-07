@@ -205,6 +205,7 @@ private:
 	void Decimate();
 	void DoTouch(VkDeviceMemory deviceMemory, size_t offset);
 	void ExecuteFree(FreeInfo *userdata);
+	void ReportOldUsage();
 
 	VulkanContext *const vulkan_;
 	std::vector<Slab> slabs_;
