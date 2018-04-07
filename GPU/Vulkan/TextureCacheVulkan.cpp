@@ -50,12 +50,11 @@
 #include <emmintrin.h>
 #endif
 
-#define TEXCACHE_NAME_CACHE_SIZE 16
-
 #define TEXCACHE_MAX_TEXELS_SCALED (256*256)  // Per frame
 
 #define TEXCACHE_MIN_SLAB_SIZE (4 * 1024 * 1024)
 #define TEXCACHE_MAX_SLAB_SIZE (32 * 1024 * 1024)
+#define TEXCACHE_SLAB_PRESSURE 4
 
 // Note: some drivers prefer B4G4R4A4_UNORM_PACK16 over R4G4B4A4_UNORM_PACK16.
 #define VULKAN_4444_FORMAT VK_FORMAT_B4G4R4A4_UNORM_PACK16
@@ -264,7 +263,7 @@ void TextureCacheVulkan::StartFrame() {
 		Clear(true);
 		clearCacheNextFrame_ = false;
 	} else {
-		Decimate();
+		Decimate(allocator_->GetSlabCount() > TEXCACHE_SLAB_PRESSURE);
 	}
 
 	allocator_->Begin();
