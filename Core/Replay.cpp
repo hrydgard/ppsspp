@@ -16,8 +16,10 @@
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
 #include <cstring>
+#include <ctime>
 #include <vector>
 #include "Common/Common.h"
+#include "Common/StringUtils.h"
 #include "Core/Replay.h"
 #include "Core/FileSystems/FileSystem.h"
 #include "Core/HLE/sceCtrl.h"
@@ -92,6 +94,9 @@ static size_t replayCtrlPos = 0;
 static uint32_t lastButtons;
 static uint8_t lastAnalog[2][2];
 
+static size_t replayDiskPos = 0;
+static bool diskFailed = false;
+
 static void ReplaySaveCtrl(uint32_t &buttons, uint8_t analog[2][2], uint64_t t) {
 	if (lastButtons != buttons) {
 		replayItems.push_back(ReplayItemHeader(ReplayAction::BUTTONS, t, buttons));
@@ -138,12 +143,43 @@ void ReplayApplyCtrl(uint32_t &buttons, uint8_t analog[2][2], uint64_t t) {
 	}
 }
 
+static const ReplayItem *ReplayNextDisk(uint64_t t) {
+	// TODO: Currently not checking t for timing purposes.  Should still be same order anyway.
+	while (replayDiskPos < replayItems.size()) {
+		const auto &item = replayItems[replayDiskPos++];
+		if ((int)item.info.action & (int)ReplayAction::MASK_FILE) {
+			return &item;
+		}
+	}
+
+	return nullptr;
+}
+
+static const ReplayItem *ReplayNextDisk(ReplayAction action, uint64_t t) {
+	// Bail early and ignore replay data if the disk data is out of sync.
+	if (diskFailed) {
+		return nullptr;
+	}
+
+	auto item = ReplayNextDisk(t);
+	if (!item || item->info.action != action) {
+		// If we got the wrong thing, or if there weren't any disk items then stop trying.
+		diskFailed = true;
+		return nullptr;
+	}
+
+	return item;
+}
+
 uint32_t ReplayApplyDisk(ReplayAction action, uint32_t result, uint64_t t) {
 	switch (replayState) {
 	case ReplayState::EXECUTE:
-		// TODO
-		//return ReplayExecuteDisk32(action, result, t);
+	{
+		auto item = ReplayNextDisk(action, t);
+		if (item)
+			return item->info.result;
 		return result;
+	}
 
 	case ReplayState::SAVE:
 		replayItems.push_back(ReplayItemHeader(action, t, result));
@@ -158,9 +194,12 @@ uint32_t ReplayApplyDisk(ReplayAction action, uint32_t result, uint64_t t) {
 uint64_t ReplayApplyDisk64(ReplayAction action, uint64_t result, uint64_t t) {
 	switch (replayState) {
 	case ReplayState::EXECUTE:
-		// TODO
-		//return ReplayExecuteDisk64(action, result, t);
+	{
+		auto item = ReplayNextDisk(action, t);
+		if (item)
+			return item->info.result64;
 		return result;
+	}
 
 	case ReplayState::SAVE:
 		replayItems.push_back(ReplayItemHeader(action, t, result));
@@ -175,9 +214,14 @@ uint64_t ReplayApplyDisk64(ReplayAction action, uint64_t result, uint64_t t) {
 uint32_t ReplayApplyDiskRead(void *data, uint32_t readSize, uint32_t dataSize, uint64_t t) {
 	switch (replayState) {
 	case ReplayState::EXECUTE:
-		// TODO
-		//return ReplayExecuteDiskRead(data, readSize, dataSize, t);
+	{
+		auto item = ReplayNextDisk(ReplayAction::FILE_READ, t);
+		if (item && item->data.size() <= dataSize) {
+			memcpy(data, &item->data[0], item->data.size());
+			return item->info.result;
+		}
 		return readSize;
+	}
 
 	case ReplayState::SAVE:
 	{
@@ -194,22 +238,62 @@ uint32_t ReplayApplyDiskRead(void *data, uint32_t readSize, uint32_t dataSize, u
 	}
 }
 
-ReplayFileInfo ConvertFileInfo(const PSPFileInfo &data) {
-	// TODO
-	return ReplayFileInfo();
+static int64_t ConvertFromTm(const struct tm *t) {
+	// Remember, mktime modifies.
+	struct tm copy = *t;
+	return (int64_t)mktime(&copy);
 }
 
-PSPFileInfo ConvertFileInfo(const ReplayFileInfo &data) {
-	// TODO
-	return PSPFileInfo();
+static void ConvertToTm(struct tm *t, int64_t sec) {
+	time_t copy = sec;
+	localtime_r(&copy, t);
+}
+
+ReplayFileInfo ConvertFileInfo(const PSPFileInfo &data) {
+	ReplayFileInfo info;
+	truncate_cpy(info.filename, data.name.c_str());
+	info.size = data.size;
+	info.access = (uint16_t)data.access;
+	info.exists = data.exists ? 1 : 0;
+	info.isDirectory = data.type == FILETYPE_DIRECTORY ? 1 : 0;
+	info.atime = ConvertFromTm(&data.atime);
+	info.ctime = ConvertFromTm(&data.ctime);
+	info.mtime = ConvertFromTm(&data.mtime);
+	return info;
+}
+
+PSPFileInfo ConvertFileInfo(const ReplayFileInfo &info) {
+	PSPFileInfo data;
+	data.name = std::string(info.filename, strnlen(info.filename, sizeof(info.filename)));
+	data.size = info.size;
+	data.access = info.access;
+	data.exists = info.exists != 0;
+	data.type = info.isDirectory ? FILETYPE_DIRECTORY : FILETYPE_NORMAL;
+	ConvertToTm(&data.atime, info.atime);
+	ConvertToTm(&data.ctime, info.ctime);
+	ConvertToTm(&data.mtime, info.mtime);
+
+	// Always a regular file read.
+	data.isOnSectorSystem = false;
+	data.startSector = 0;
+	data.numSectors = 0;
+	data.sectorSize = 0;
+
+	return data;
 }
 
 PSPFileInfo ReplayApplyDiskFileInfo(const PSPFileInfo &data, uint64_t t) {
 	switch (replayState) {
 	case ReplayState::EXECUTE:
-		// TODO
-		//return ReplayExecuteDiskFileInfo(data, t);
+	{
+		auto item = ReplayNextDisk(ReplayAction::FILE_INFO, t);
+		if (item && item->data.size() == sizeof(ReplayFileInfo)) {
+			ReplayFileInfo info;
+			memcpy(&info, &item->data[0], sizeof(info));
+			return ConvertFileInfo(info);
+		}
 		return data;
+	}
 
 	case ReplayState::SAVE:
 	{
@@ -230,9 +314,20 @@ PSPFileInfo ReplayApplyDiskFileInfo(const PSPFileInfo &data, uint64_t t) {
 std::vector<PSPFileInfo> ReplayApplyDiskListing(const std::vector<PSPFileInfo> &data, uint64_t t) {
 	switch (replayState) {
 	case ReplayState::EXECUTE:
-		// TODO
-		//return ReplayExecuteDiskListing(data, t);
+	{
+		auto item = ReplayNextDisk(ReplayAction::FILE_LISTING, t);
+		if (item && (item->data.size() % sizeof(ReplayFileInfo)) == 0) {
+			std::vector<PSPFileInfo> results;
+			size_t items = item->data.size() / sizeof(ReplayFileInfo);
+			for (size_t i = 0; i < items; ++i) {
+				ReplayFileInfo info;
+				memcpy(&info, &item->data[i * sizeof(info)], sizeof(info));
+				results.push_back(ConvertFileInfo(info));
+			}
+			return results;
+		}
 		return data;
+	}
 
 	case ReplayState::SAVE:
 	{

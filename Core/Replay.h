@@ -20,22 +20,27 @@
 #include <cstdint>
 #include <vector>
 
+// Be careful about changing these values (used in file data.)
 enum class ReplayAction : uint8_t {
-	BUTTONS,
-	ANALOG,
+	BUTTONS = 0x00,
+	ANALOG = 0x01,
+
 	// All of these are just save results of memory stick operations, e.g. if mkdir succeeded, etc.
 	// We assume the game will generate the same data and syscalls.
-	FILE_RENAME,
-	FILE_REMOVE,
+	FILE_RENAME = 0x40,
+	FILE_REMOVE = 0x41,
 	// For FILE_READ, we do save the read data, in case it could change.
-	FILE_READ,
-	FILE_OPEN,
-	FILE_SEEK,
-	FILE_INFO,
-	FILE_LISTING,
-	MKDIR,
-	RMDIR,
-	FREESPACE,
+	FILE_READ = 0xC2,
+	FILE_OPEN = 0x43,
+	FILE_SEEK = 0x44,
+	FILE_INFO = 0xC5,
+	FILE_LISTING = 0xC6,
+	MKDIR = 0x47,
+	RMDIR = 0x48,
+	FREESPACE = 0x49,
+
+	MASK_FILE = 0x40,
+	MASK_SIDEDATA = 0x80,
 };
 
 struct PSPFileInfo;
