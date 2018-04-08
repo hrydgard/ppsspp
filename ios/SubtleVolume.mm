@@ -79,7 +79,6 @@ CGFloat volumeLevel = 0;
     }
     
     volumeLevel = [[AVAudioSession sharedInstance] outputVolume];
-//    [self updateVolume:[[AVAudioSession sharedInstance] outputVolume] animated:NO];
     [[AVAudioSession sharedInstance] addObserver:self forKeyPath:@"outputVolume" options:NSKeyValueObservingOptionNew  context:NULL];
     [volume setVolumeThumbImage:[[UIImage alloc] init] forState:UIControlStateNormal];
     [volume setUserInteractionEnabled:NO];
@@ -94,15 +93,18 @@ CGFloat volumeLevel = 0;
 
 - (void)layoutSubviews {
     [super layoutSubviews];
-    overlay.frame = self.frame;
-    overlay.frame = CGRectMake(0, 0, self.frame.size.width*volumeLevel, self.frame.size.height);
+    overlay.frame = CGRectMake(
+       self.padding,
+       self.padding,
+       (self.frame.size.width - (self.padding*2)) * volumeLevel,
+       self.frame.size.height - (self.padding*2)
+    );
     
     self.backgroundColor = self.barBackgroundColor;
     overlay.backgroundColor = self.barTintColor;
     
 }
 - (void)updateVolume:(CGFloat)value animated:(BOOL)animated {
-    NSLog(@"updateVolume: value:%f animated:%@", value, animated?@"YES":@"NO");
     [self.delegate subtleVolume:self willChange:value];
     volumeLevel = value;
     lastAnimated = animated;
@@ -119,27 +121,17 @@ CGFloat volumeLevel = 0;
         self.timer = nil;
     }
     
-    NSLog(@"Spinning up timer with timeInterval 2 ...");
     self.timer = [NSTimer scheduledTimerWithTimeInterval:2 target:self selector:@selector(timerComplete) userInfo:nil repeats:NO];
-
     [self doShow:animated];
-    
     [self.delegate subtleVolume:self didChange:value];
 }
 
 - (void)timerComplete {
-    NSLog(@"timerComplete!");
     [self doHide:lastAnimated];
     self.timer = nil;
 }
 
 - (void)doHide:(BOOL)animated {
-    NSLog(@"doHide:%@, runningShowAnimation: %@, runningHideAnimation: %@, showing: %@",
-          animated?@"YES":@"NO",
-          runningShowAnimation?@"YES":@"NO",
-          runningHideAnimation?@"YES":@"NO",
-          showing?@"YES":@"NO");
-    
     if(!showing) {
         return;
     }
@@ -169,12 +161,10 @@ CGFloat volumeLevel = 0;
                     break;
             }
         } completion:^(BOOL finished) {
-            NSLog(@"Hide animation complete; finished? %@", finished?@"YES":@"NO");
             showing = NO;
             runningHideAnimation = NO;
         }];
     } else {
-        NSLog(@"Hide immediate complete.");
         showing = NO;
         self.alpha = 0.0001;
         if(self.animation == SubtleVolumeAnimationSlideDown) {
@@ -184,12 +174,6 @@ CGFloat volumeLevel = 0;
 }
 
 - (void)doShow:(BOOL)animated {
-    NSLog(@"doShow:%@, runningShowAnimation: %@, runningHideAnimation: %@, showing: %@",
-          animated?@"YES":@"NO",
-          runningShowAnimation?@"YES":@"NO",
-          runningHideAnimation?@"YES":@"NO",
-          showing?@"YES":@"NO");
-    
     if(showing) {
         return;
     }
@@ -203,6 +187,12 @@ CGFloat volumeLevel = 0;
     }
     
     if(animated) {
+        // set up for first run, assuming the animation has changed
+        // between instantiation and first showing
+        if(self.animation == SubtleVolumeAnimationSlideDown) {
+            self.transform = CGAffineTransformMakeTranslation(0, -self.frame.size.height);
+        }
+        
         runningShowAnimation = YES;
         [UIView animateWithDuration:0.333 animations:^{
             switch (self.animation) {
@@ -219,12 +209,10 @@ CGFloat volumeLevel = 0;
                     break;
             }
         } completion:^(BOOL finished) {
-            NSLog(@"Show animation complete; finished? %@", finished?@"YES":@"NO");
             showing = YES;
             runningShowAnimation = NO;
         }];
     } else {
-        NSLog(@"Show immediate complete.");
         showing = YES;
         self.alpha = 1;
         self.transform = CGAffineTransformIdentity;

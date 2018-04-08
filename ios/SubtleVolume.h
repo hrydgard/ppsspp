@@ -77,6 +77,7 @@ typedef NS_ENUM(NSInteger, SubtleVolumeAnimation) {
 @property (nonatomic, strong) UIColor *barTintColor;
 @property (nonatomic, assign) id <SubtleVolumeDelegate> delegate;
 @property (nonatomic, assign) BOOL animatedByDefault;
+@property (nonatomic, assign) CGFloat padding;
 
 - (instancetype)initWithStyle:(SubtleVolumeStyle)style;
 - (instancetype)initWithStyle:(SubtleVolumeStyle)style frame:(CGRect)frame;

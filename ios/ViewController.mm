@@ -136,10 +136,8 @@ static GraphicsContext *graphicsContext;
 }
 
 - (void)subtleVolume:(SubtleVolume *)volumeView willChange:(CGFloat)value {
-//    NSLog(@"%f alpha: %f", value, volumeView.alpha);
 }
 - (void)subtleVolume:(SubtleVolume *)volumeView didChange:(CGFloat)value {
-//    NSLog(@"END %f alpha: %f", value, volumeView.alpha);
 }
 
 - (void)viewDidLoad {
@@ -210,10 +208,20 @@ static GraphicsContext *graphicsContext;
 	}
 #endif
 	
-    volume = [[SubtleVolume alloc] initWithStyle:SubtleVolumeStylePlain frame:CGRectMake(10, 0, self.view.frame.size.width-20, 4)];
-    // volume.animatedByDefault = NO;
-    volume.barTintColor = [UIColor whiteColor];
-    volume.barBackgroundColor = [[UIColor whiteColor] colorWithAlphaComponent:0.3];
+    CGFloat margin = 0;
+    CGFloat height = 16;
+    volume = [[SubtleVolume alloc]
+              initWithStyle:SubtleVolumeStylePlain
+              frame:CGRectMake(
+                               margin,   // X
+                               0,        // Y
+                               self.view.frame.size.width-(margin*2), // width
+                               height    // height
+                            )];
+    
+    volume.padding = 7;
+    volume.barTintColor = [UIColor blackColor];
+    volume.barBackgroundColor = [UIColor whiteColor];
     volume.animation = SubtleVolumeAnimationSlideDown;
     volume.delegate = self;
     [self.view addSubview:volume];
