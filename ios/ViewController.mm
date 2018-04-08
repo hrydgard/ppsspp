@@ -263,6 +263,11 @@ static GraphicsContext *graphicsContext;
 	if (sharedViewController == nil) {
 		return;
 	}
+    
+    if(volume) {
+        [volume removeFromSuperview];
+        volume = nil;
+    }
 
 	Audio_Shutdown();
 
