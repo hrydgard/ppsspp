@@ -18,10 +18,10 @@
  - Dots: A bar composed by a line of dots
  */
 typedef NS_ENUM(NSInteger, SubtleVolumeStyle) {
-    SubtleVolumeStylePlain,
-    SubtleVolumeStyleRoundedLine,
-    SubtleVolumeStyleDashes,
-    SubtleVolumeStyleDots
+	SubtleVolumeStylePlain,
+	SubtleVolumeStyleRoundedLine,
+	SubtleVolumeStyleDashes,
+	SubtleVolumeStyleDots
 };
 
 
@@ -32,9 +32,9 @@ typedef NS_ENUM(NSInteger, SubtleVolumeStyle) {
  - FadeIn: The indicator fades in and out
  */
 typedef NS_ENUM(NSInteger, SubtleVolumeAnimation) {
-    SubtleVolumeAnimationNone,
-    SubtleVolumeAnimationSlideDown,
-    SubtleVolumeAnimationFadeIn
+	SubtleVolumeAnimationNone,
+	SubtleVolumeAnimationSlideDown,
+	SubtleVolumeAnimationFadeIn
 };
 
 @class SubtleVolume;

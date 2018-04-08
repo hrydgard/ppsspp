@@ -96,7 +96,7 @@ static GraphicsContext *graphicsContext;
 @end
 
 @interface ViewController () <SubtleVolumeDelegate> {
-    SubtleVolume *volume;
+	SubtleVolume *volume;
 }
 @end
 
@@ -208,25 +208,25 @@ static GraphicsContext *graphicsContext;
 	}
 #endif
 	
-    CGFloat margin = 0;
-    CGFloat height = 16;
-    volume = [[SubtleVolume alloc]
-              initWithStyle:SubtleVolumeStylePlain
-              frame:CGRectMake(
-                               margin,   // X
-                               0,        // Y
-                               self.view.frame.size.width-(margin*2), // width
-                               height    // height
-                            )];
-    
-    volume.padding = 7;
-    volume.barTintColor = [UIColor blackColor];
-    volume.barBackgroundColor = [UIColor whiteColor];
-    volume.animation = SubtleVolumeAnimationSlideDown;
-    volume.delegate = self;
-    [self.view addSubview:volume];
-    [self.view bringSubviewToFront:volume];
-    
+	CGFloat margin = 0;
+	CGFloat height = 16;
+	volume = [[SubtleVolume alloc]
+			  initWithStyle:SubtleVolumeStylePlain
+			  frame:CGRectMake(
+							   margin,   // X
+							   0,        // Y
+							   self.view.frame.size.width-(margin*2), // width
+							   height    // height
+							)];
+	
+	volume.padding = 7;
+	volume.barTintColor = [UIColor blackColor];
+	volume.barBackgroundColor = [UIColor whiteColor];
+	volume.animation = SubtleVolumeAnimationSlideDown;
+	volume.delegate = self;
+	[self.view addSubview:volume];
+	[self.view bringSubviewToFront:volume];
+	
 	dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_HIGH, 0), ^{
 		NativeInitGraphics(graphicsContext);
 
@@ -263,11 +263,11 @@ static GraphicsContext *graphicsContext;
 	if (sharedViewController == nil) {
 		return;
 	}
-    
-    if(volume) {
-        [volume removeFromSuperview];
-        volume = nil;
-    }
+	
+	if(volume) {
+		[volume removeFromSuperview];
+		volume = nil;
+	}
 
 	Audio_Shutdown();
 
@@ -418,13 +418,13 @@ static GraphicsContext *graphicsContext;
 
 - (void)touchesCancelled:(NSSet<UITouch *> *)touches withEvent:(UIEvent *)event
 {
-    for(UITouch* touch in touches)
-    {
-        CGPoint point = [touch locationInView:self.view];
-        NSDictionary* dict = [self touchDictBy:touch];
-        [self touchX:point.x y:point.y code:2 pointerId:[[dict objectForKey:@"index"] intValue]];
-        [self.touches removeObject:dict];
-    }
+	for(UITouch* touch in touches)
+	{
+		CGPoint point = [touch locationInView:self.view];
+		NSDictionary* dict = [self touchDictBy:touch];
+		[self touchX:point.x y:point.y code:2 pointerId:[[dict objectForKey:@"index"] intValue]];
+		[self.touches removeObject:dict];
+	}
 }
 
 - (void)bindDefaultFBO
