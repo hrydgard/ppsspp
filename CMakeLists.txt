@@ -1677,6 +1677,8 @@ add_library(${CoreLibName} ${CoreLinkType}
 	Core/PSPLoaders.h
 	Core/Reporting.cpp
 	Core/Reporting.h
+	Core/Replay.cpp
+	Core/Replay.h
 	Core/SaveState.cpp
 	Core/SaveState.h
 	Core/Screenshot.cpp
