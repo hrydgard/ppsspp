@@ -268,17 +268,20 @@ static void ReplaySaveCtrl(uint32_t &buttons, uint8_t analog[2][2], uint64_t t) 
 }
 
 static void ReplayExecuteCtrl(uint32_t &buttons, uint8_t analog[2][2], uint64_t t) {
+	if (replayCtrlPos >= replayItems.size()) {
+		// Don't assert buttons, let the user input prevail.
+		return;
+	}
+
 	for (; replayCtrlPos < replayItems.size() && t >= replayItems[replayCtrlPos].info.timestamp; ++replayCtrlPos) {
 		const auto &item = replayItems[replayCtrlPos];
 		switch (item.info.action) {
 		case ReplayAction::BUTTONS:
-			buttons = item.info.buttons;
 			lastButtons = item.info.buttons;
 			break;
 
 		case ReplayAction::ANALOG:
-			memcpy(analog, item.info.analog, sizeof(analog));
-			memcpy(lastAnalog, item.info.analog, sizeof(analog));
+			memcpy(lastAnalog, item.info.analog, sizeof(lastAnalog));
 			break;
 
 		default:
@@ -286,6 +289,10 @@ static void ReplayExecuteCtrl(uint32_t &buttons, uint8_t analog[2][2], uint64_t 
 			break;
 		}
 	}
+
+	// We have to always apply the latest state here, because otherwise real input is used between changes.
+	buttons = lastButtons;
+	memcpy(analog, lastAnalog, sizeof(analog));
 
 	if (replayExecPos < replayCtrlPos) {
 		replayExecPos = replayCtrlPos;
