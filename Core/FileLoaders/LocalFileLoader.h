@@ -17,6 +17,7 @@
 
 #pragma once
 
+#include <mutex>
 #include "Common/CommonTypes.h"
 #include "Core/Loaders.h"
 #ifdef _WIN32
@@ -42,4 +43,5 @@ private:
 #endif
 	u64 filesize_;
 	std::string filename_;
+	std::mutex readLock_;
 };

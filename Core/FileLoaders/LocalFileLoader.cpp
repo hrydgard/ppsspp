@@ -37,7 +37,7 @@ LocalFileLoader::LocalFileLoader(const std::string &filename)
 	if (fd_ == -1) {
 		return;
 	}
-#if defined(__ANDROID__) || (defined(_FILE_OFFSET_BITS) && _FILE_OFFSET_BITS < 64)
+#if PPSSPP_PLATFORM(ANDROID) || (defined(_FILE_OFFSET_BITS) && _FILE_OFFSET_BITS < 64)
 	off64_t off = lseek64(fd_, 0, SEEK_END);
 	filesize_ = off;
 	lseek64(fd_, 0, SEEK_SET);
@@ -112,7 +112,17 @@ std::string LocalFileLoader::Path() const {
 }
 
 size_t LocalFileLoader::ReadAt(s64 absolutePos, size_t bytes, size_t count, void *data, Flags flags) {
-#ifndef _WIN32
+#if PPSSPP_PLATFORM(ANDROID)
+	// pread64 doesn't appear to actually be 64-bit safe, though such ISOs are uncommon.  See #10862.
+	if (absolutePos <= 0x7FFFFFFF) {
+		return pread64(fd_, data, bytes * count, absolutePos) / bytes;
+	} else {
+		// Since pread64 doesn't change the file offset, it should be safe to avoid the lock in the common case.
+		std::lock_guard<std::mutex> guard(readLock_);
+		lseek64(fd_, absolutePos, SEEK_SET);
+		return read(fd_, data, bytes * count) / bytes;
+	}
+#elif !defined(_WIN32)
 #if defined(_FILE_OFFSET_BITS) && _FILE_OFFSET_BITS < 64
 	return pread64(fd_, data, bytes * count, absolutePos) / bytes;
 #else
