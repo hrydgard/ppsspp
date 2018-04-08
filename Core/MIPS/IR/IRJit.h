@@ -158,6 +158,7 @@ public:
 
 	void ClearCache() override;
 	void InvalidateCacheAt(u32 em_address, int length = 4) override;
+	void UpdateFCR31() override;
 
 	const u8 *GetDispatcher() const override { return nullptr; }
 

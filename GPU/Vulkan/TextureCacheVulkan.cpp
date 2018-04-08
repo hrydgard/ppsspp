@@ -50,12 +50,11 @@
 #include <emmintrin.h>
 #endif
 
-#define TEXCACHE_NAME_CACHE_SIZE 16
-
 #define TEXCACHE_MAX_TEXELS_SCALED (256*256)  // Per frame
 
-#define TEXCACHE_MIN_SLAB_SIZE (4 * 1024 * 1024)
+#define TEXCACHE_MIN_SLAB_SIZE (8 * 1024 * 1024)
 #define TEXCACHE_MAX_SLAB_SIZE (32 * 1024 * 1024)
+#define TEXCACHE_SLAB_PRESSURE 4
 
 // Note: some drivers prefer B4G4R4A4_UNORM_PACK16 over R4G4B4A4_UNORM_PACK16.
 #define VULKAN_4444_FORMAT VK_FORMAT_B4G4R4A4_UNORM_PACK16
@@ -67,11 +66,6 @@ static const VkComponentMapping VULKAN_4444_SWIZZLE = { VK_COMPONENT_SWIZZLE_A, 
 static const VkComponentMapping VULKAN_1555_SWIZZLE = { VK_COMPONENT_SWIZZLE_B, VK_COMPONENT_SWIZZLE_G, VK_COMPONENT_SWIZZLE_R, VK_COMPONENT_SWIZZLE_A };
 static const VkComponentMapping VULKAN_565_SWIZZLE = { VK_COMPONENT_SWIZZLE_R, VK_COMPONENT_SWIZZLE_G, VK_COMPONENT_SWIZZLE_B, VK_COMPONENT_SWIZZLE_A };
 static const VkComponentMapping VULKAN_8888_SWIZZLE = { VK_COMPONENT_SWIZZLE_R, VK_COMPONENT_SWIZZLE_G, VK_COMPONENT_SWIZZLE_B, VK_COMPONENT_SWIZZLE_A };
-
-
-CachedTextureVulkan::~CachedTextureVulkan() {
-	delete texture_;
-}
 
 SamplerCache::~SamplerCache() {
 	DeviceLost();
@@ -269,7 +263,12 @@ void TextureCacheVulkan::StartFrame() {
 		Clear(true);
 		clearCacheNextFrame_ = false;
 	} else {
-		Decimate();
+		int slabPressureLimit = TEXCACHE_SLAB_PRESSURE;
+		if (g_Config.iTexScalingLevel > 1) {
+			// Since textures are 2D maybe we should square this, but might get too non-aggressive.
+			slabPressureLimit *= g_Config.iTexScalingLevel;
+		}
+		Decimate(allocator_->GetSlabCount() > slabPressureLimit);
 	}
 
 	allocator_->Begin();
@@ -323,7 +322,8 @@ void TextureCacheVulkan::BindTexture(TexCacheEntry *entry) {
 		return;
 	}
 
-	imageView_ = entry->vkTex->texture_->GetImageView();
+	entry->vkTex->Touch();
+	imageView_ = entry->vkTex->GetImageView();
 	SamplerCacheKey key{};
 	UpdateSamplingParams(*entry, key);
 	curSampler_ = samplerCache_.GetOrCreateSampler(key);
@@ -569,9 +569,8 @@ void TextureCacheVulkan::BuildTexture(TexCacheEntry *const entry) {
 
 	{
 		delete entry->vkTex;
-		entry->vkTex = new CachedTextureVulkan();
-		entry->vkTex->texture_ = new VulkanTexture(vulkan_, allocator_);
-		VulkanTexture *image = entry->vkTex->texture_;
+		entry->vkTex = new VulkanTexture(vulkan_, allocator_);
+		VulkanTexture *image = entry->vkTex;
 
 		const VkComponentMapping *mapping;
 		switch (actualFmt) {
@@ -591,6 +590,10 @@ void TextureCacheVulkan::BuildTexture(TexCacheEntry *const entry) {
 			mapping = &VULKAN_8888_SWIZZLE;
 			break;
 		}
+
+		char texName[128]{};
+		snprintf(texName, sizeof(texName), "Texture%08x", entry->addr);
+		image->SetTag(texName);
 
 		bool allocSuccess = image->CreateDirect(cmdInit, w * scaleFactor, h * scaleFactor, maxLevel + 1, actualFmt, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, mapping);
 		if (!allocSuccess && !lowMemoryMode_) {
@@ -657,7 +660,7 @@ void TextureCacheVulkan::BuildTexture(TexCacheEntry *const entry) {
 			} else {
 				if (fakeMipmap) {
 					LoadTextureLevel(*entry, (uint8_t *)data, stride, level, scaleFactor, dstFmt);
-					entry->vkTex->texture_->UploadMip(cmdInit, 0, mipWidth, mipHeight, texBuf, bufferOffset, stride / bpp);
+					entry->vkTex->UploadMip(cmdInit, 0, mipWidth, mipHeight, texBuf, bufferOffset, stride / bpp);
 					break;
 				} else {
 					LoadTextureLevel(*entry, (uint8_t *)data, stride, i, scaleFactor, dstFmt);
@@ -666,7 +669,7 @@ void TextureCacheVulkan::BuildTexture(TexCacheEntry *const entry) {
 					replacer_.NotifyTextureDecoded(replacedInfo, data, stride, i, mipWidth, mipHeight);
 				}
 			}
-			entry->vkTex->texture_->UploadMip(cmdInit, i, mipWidth, mipHeight, texBuf, bufferOffset, stride / bpp);
+			entry->vkTex->UploadMip(cmdInit, i, mipWidth, mipHeight, texBuf, bufferOffset, stride / bpp);
 		}
 
 		if (maxLevel == 0) {
@@ -677,7 +680,7 @@ void TextureCacheVulkan::BuildTexture(TexCacheEntry *const entry) {
 		if (replaced.Valid()) {
 			entry->SetAlphaStatus(TexCacheEntry::TexStatus(replaced.AlphaStatus()));
 		}
-		entry->vkTex->texture_->EndCreate(cmdInit);
+		entry->vkTex->EndCreate(cmdInit);
 	}
 
 	gstate_c.SetTextureFullAlpha(entry->GetAlphaStatus() == TexCacheEntry::STATUS_ALPHA_FULL);
@@ -727,7 +730,7 @@ TexCacheEntry::TexStatus TextureCacheVulkan::CheckAlpha(const u32 *pixelData, Vk
 }
 
 void TextureCacheVulkan::LoadTextureLevel(TexCacheEntry &entry, uint8_t *writePtr, int rowPitch, int level, int scaleFactor, VkFormat dstFmt) {
-	CachedTextureVulkan *tex = entry.vkTex;
+	VulkanTexture *tex = entry.vkTex;
 	int w = gstate.getTextureWidth(level);
 	int h = gstate.getTextureHeight(level);
 
@@ -807,9 +810,9 @@ bool TextureCacheVulkan::GetCurrentTextureDebug(GPUDebugBuffer &buffer, int leve
 		return retval;
 	}
 
-	if (!entry->vkTex || !entry->vkTex->texture_)
+	if (!entry->vkTex)
 		return false;
-	VulkanTexture *texture = entry->vkTex->texture_;
+	VulkanTexture *texture = entry->vkTex;
 	VulkanRenderManager *renderManager = (VulkanRenderManager *)draw_->GetNativeObject(Draw::NativeObject::RENDER_MANAGER);
 
 	GPUDebugBufferFormat bufferFormat;

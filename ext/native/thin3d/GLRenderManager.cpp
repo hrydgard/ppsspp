@@ -13,7 +13,13 @@
 #define VLOG(...)
 #endif
 
-void GLDeleter::Perform() {
+// Runs on the GPU thread.
+void GLDeleter::Perform(GLRenderManager *renderManager) {
+	for (auto pushBuffer : pushBuffers) {
+		renderManager->UnregisterPushBuffer(pushBuffer);
+		delete pushBuffer;
+	}
+	pushBuffers.clear();
 	for (auto shader : shaders) {
 		delete shader;
 	}
@@ -52,7 +58,7 @@ GLRenderManager::~GLRenderManager() {
 		_assert_(frameData_[i].deleter_prev.IsEmpty());
 	}
 	// Was anything deleted during shutdown?
-	deleter_.Perform();
+	deleter_.Perform(this);
 	_assert_(deleter_.IsEmpty());
 }
 
@@ -98,15 +104,15 @@ void GLRenderManager::ThreadEnd() {
 
 	// Good point to run all the deleters to get rid of leftover objects.
 	for (int i = 0; i < MAX_INFLIGHT_FRAMES; i++) {
-		frameData_[i].deleter.Perform();
-		frameData_[i].deleter_prev.Perform();
+		frameData_[i].deleter.Perform(this);
+		frameData_[i].deleter_prev.Perform(this);
 		for (int j = 0; j < (int)frameData_[i].steps.size(); j++) {
 			delete frameData_[i].steps[j];
 		}
 		frameData_[i].steps.clear();
 		frameData_[i].initSteps.clear();
 	}
-	deleter_.Perform();
+	deleter_.Perform(this);
 
 	for (int i = 0; i < (int)steps_.size(); i++) {
 		delete steps_[i];
@@ -140,7 +146,7 @@ bool GLRenderManager::ThreadFrame() {
 			}
 			VLOG("PULL: Setting frame[%d].readyForRun = false", threadFrame_);
 			frameData.readyForRun = false;
-			frameData.deleter_prev.Perform();
+			frameData.deleter_prev.Perform(this);
 			frameData.deleter_prev.Take(frameData.deleter);
 			// Previously we had a quick exit here that avoided calling Run() if run_ was suddenly false,
 			// but that created a race condition where frames could end up not finished properly on resize etc.
@@ -321,7 +327,7 @@ bool GLRenderManager::CopyFramebufferToMemorySync(GLRFramebuffer *src, int aspec
 		// TODO: Do this properly.
 		srcFormat = Draw::DataFormat::D24_S8;
 	} else {
-		_assert_(false);
+		return false;
 	}
 	queueRunner_.CopyReadbackBuffer(w, h, srcFormat, destFormat, pixelStride, pixels);
 	return true;
@@ -568,7 +574,7 @@ GLPushBuffer::GLPushBuffer(GLRenderManager *render, GLuint target, size_t size) 
 }
 
 GLPushBuffer::~GLPushBuffer() {
-	assert(buffers_.empty());
+	Destroy();
 }
 
 void GLPushBuffer::Map() {
@@ -632,19 +638,25 @@ void GLPushBuffer::Flush() {
 bool GLPushBuffer::AddBuffer() {
 	BufInfo info;
 	info.localMemory = (uint8_t *)AllocateAlignedMemory(size_, 16);
+	if (!info.localMemory)
+		return false;
 	info.buffer = render_->CreateBuffer(target_, size_, GL_DYNAMIC_DRAW);
 	buf_ = buffers_.size();
 	buffers_.push_back(info);
 	return true;
 }
 
+// Executed on the render thread!
 void GLPushBuffer::Destroy() {
 	for (BufInfo &info : buffers_) {
 		// This will automatically unmap device memory, if needed.
-		render_->DeleteBuffer(info.buffer);
+		// NOTE: We immediately delete the buffer, don't go through the deleter, since we're on the render thread.
+		// render_->DeleteBuffer(info.buffer);
+		delete info.buffer;
 		FreeAlignedMemory(info.localMemory);
 	}
 	buffers_.clear();
+	buf_ = -1;
 }
 
 void GLPushBuffer::NextBuffer(size_t minSize) {

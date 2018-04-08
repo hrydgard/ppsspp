@@ -131,6 +131,34 @@ EmuScreen::EmuScreen(const std::string &filename)
 	OnDevMenu.Handle(this, &EmuScreen::OnDevTools);
 }
 
+bool EmuScreen::bootAllowStorage(const std::string &filename) {
+	// No permissions needed.  The easy life.
+	if (filename.find("http://") == 0 || filename.find("https://") == 0)
+		return true;
+	if (!System_GetPropertyBool(SYSPROP_SUPPORTS_PERMISSIONS))
+		return true;
+
+	PermissionStatus status = System_GetPermissionStatus(SYSTEM_PERMISSION_STORAGE);
+	switch (status) {
+	case PERMISSION_STATUS_UNKNOWN:
+		System_AskForPermission(SYSTEM_PERMISSION_STORAGE);
+		return false;
+
+	case PERMISSION_STATUS_DENIED:
+		stopRender_ = true;
+		screenManager()->switchScreen(new MainScreen());
+		System_SendMessage("event", "failstartgame");
+		return false;
+
+	case PERMISSION_STATUS_PENDING:
+		// Keep waiting.
+		return false;
+
+	case PERMISSION_STATUS_GRANTED:
+		return true;
+	}
+}
+
 void EmuScreen::bootGame(const std::string &filename) {
 	if (PSP_IsIniting()) {
 		std::string error_string;
@@ -149,6 +177,10 @@ void EmuScreen::bootGame(const std::string &filename) {
 	}
 
 	SetBackgroundAudioGame("");
+
+	// Check permission status first, in case we came from a shortcut.
+	if (!bootAllowStorage(filename))
+		return;
 
 	//pre-emptive loading of game specific config if possible, to get all the settings
 	std::shared_ptr<GameInfo> info = g_gameInfoCache->GetInfo(nullptr, filename, 0);

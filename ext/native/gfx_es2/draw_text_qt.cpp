@@ -114,6 +114,7 @@ void TextDrawerQt::DrawString(DrawBuffer &target, const char *str, float x, floa
 		desc.height = entry->bmHeight;
 		desc.depth = 1;
 		desc.mipLevels = 1;
+		desc.tag = "TextDrawer";
 
 		uint16_t *bitmapData = new uint16_t[entry->bmWidth * entry->bmHeight];
 		for (int x = 0; x < entry->bmWidth; x++) {

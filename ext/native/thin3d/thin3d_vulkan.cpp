@@ -19,7 +19,7 @@
 #include <vector>
 #include <string>
 #include <map>
-#include <assert.h>
+#include <cassert>
 
 #include "Common/Vulkan/SPIRVDisasm.h"
 #include "Core/Config.h"
@@ -311,7 +311,10 @@ public:
 		Destroy();
 	}
 
-	VkImageView GetImageView() { return vkTex_->GetImageView(); }
+	VkImageView GetImageView() {
+		vkTex_->Touch();
+		return vkTex_->GetImageView();
+	}
 
 private:
 	bool Create(VkCommandBuffer cmd, VulkanPushBuffer *pushBuffer, const TextureDesc &desc, VulkanDeviceAllocator *alloc);
@@ -658,6 +661,7 @@ bool VKTexture::Create(VkCommandBuffer cmd, VulkanPushBuffer *push, const Textur
 	height_ = desc.height;
 	depth_ = desc.depth;
 	vkTex_ = new VulkanTexture(vulkan_, alloc);
+	vkTex_->SetTag(desc.tag);
 	VkFormat vulkanFormat = DataFormatToVulkan(format_);
 	int stride = desc.width * (int)DataFormatSizeInBytes(format_);
 	int bpp = GetBpp(vulkanFormat);
@@ -1189,7 +1193,6 @@ void VKContext::Clear(int clearMask, uint32_t colorval, float depthVal, int sten
 		mask |= VK_IMAGE_ASPECT_DEPTH_BIT;
 	if (clearMask & FBChannel::FB_STENCIL_BIT)
 		mask |= VK_IMAGE_ASPECT_STENCIL_BIT;
-
 	renderManager_.Clear(colorval, depthVal, stencilVal, mask);
 }
 

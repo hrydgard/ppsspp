@@ -215,6 +215,7 @@ void GLQueueRunner::RunInitSteps(const std::vector<GLRInitStep> &steps) {
 #endif
 				step.create_shader.shader->valid = false;
 				step.create_shader.shader->failed = true;
+				step.create_shader.shader->error = infoLog;
 			}
 			// Before we throw away the code, attach it to the shader for debugging.
 			step.create_shader.shader->code = code;

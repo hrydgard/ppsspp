@@ -523,14 +523,14 @@ void TextureCacheCommon::SetTexture(bool force) {
 }
 
 // Removes old textures.
-void TextureCacheCommon::Decimate() {
+void TextureCacheCommon::Decimate(bool forcePressure) {
 	if (--decimationCounter_ <= 0) {
 		decimationCounter_ = TEXCACHE_DECIMATION_INTERVAL;
 	} else {
 		return;
 	}
 
-	if (cacheSizeEstimate_ >= TEXCACHE_MIN_PRESSURE) {
+	if (forcePressure || cacheSizeEstimate_ >= TEXCACHE_MIN_PRESSURE) {
 		const u32 had = cacheSizeEstimate_;
 
 		ForgetLastTexture();
@@ -549,7 +549,7 @@ void TextureCacheCommon::Decimate() {
 	}
 
 	// If enabled, we also need to clear the secondary cache.
-	if (g_Config.bTextureSecondaryCache && secondCacheSizeEstimate_ >= TEXCACHE_SECOND_MIN_PRESSURE) {
+	if (g_Config.bTextureSecondaryCache && (forcePressure || secondCacheSizeEstimate_ >= TEXCACHE_SECOND_MIN_PRESSURE)) {
 		const u32 had = secondCacheSizeEstimate_;
 
 		for (TexCache::iterator iter = secondCache_.begin(); iter != secondCache_.end(); ) {

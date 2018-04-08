@@ -118,6 +118,7 @@ public:
 #if !defined(MOBILE_DEVICE)
 	bool bPauseExitsEmulator;
 #endif
+	bool bPauseMenuExitsEmulator;
 	bool bPS3Controller;
 
 	// Core

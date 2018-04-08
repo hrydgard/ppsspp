@@ -170,22 +170,12 @@ void Arm64Jit::GenerateFixedCode(const JitOptions &jo) {
 	updateRoundingMode = AlignCode16(); {
 		LDR(INDEX_UNSIGNED, SCRATCH2, CTXREG, offsetof(MIPSState, fcr31));
 
+		// Set SCRATCH2 to FZ:RM (FZ is bit 24, and RM are lowest 2 bits.)
 		TSTI2R(SCRATCH2, 1 << 24);
 		ANDI2R(SCRATCH2, SCRATCH2, 3);
 		FixupBranch skip = B(CC_EQ);
 		ADDI2R(SCRATCH2, SCRATCH2, 4);
 		SetJumpTarget(skip);
-
-		PUSH(SCRATCH2);
-		// We can only skip if the rounding mode is zero and flush is not set.
-		// TODO: This actually seems to compare against 3??
-		CMPI2R(SCRATCH2, 0);
-		FixupBranch skip2 = B(CC_EQ);
-		MOVI2R(SCRATCH2, 1);
-		MOVP2R(SCRATCH1_64, &js.hasSetRounding);
-		STRB(INDEX_UNSIGNED, SCRATCH2, SCRATCH1_64, 0);
-		SetJumpTarget(skip2);
-		POP(SCRATCH2);
 
 		// Let's update js.currentRoundingFunc with the right convertS0ToSCRATCH1 func.
 		MOVP2R(SCRATCH1_64, convertS0ToSCRATCH1);

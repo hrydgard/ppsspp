@@ -54,6 +54,7 @@ protected:
 
 private:
 	void bootGame(const std::string &filename);
+	bool bootAllowStorage(const std::string &filename);
 	void bootComplete();
 	void renderUI();
 	void processAxis(const AxisInput &axis, int direction);

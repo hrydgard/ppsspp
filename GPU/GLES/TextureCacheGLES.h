@@ -66,6 +66,7 @@ public:
 	void SetFramebufferSamplingParams(u16 bufferWidth, u16 bufferHeight);
 	bool GetCurrentTextureDebug(GPUDebugBuffer &buffer, int level) override;
 
+	void DeviceLost();
 	void DeviceRestore(Draw::DrawContext *draw);
 
 protected:
@@ -95,7 +96,7 @@ private:
 	ShaderManagerGLES *shaderManager_;
 	DrawEngineGLES *drawEngine_;
 
-	GLRInputLayout *shadeInputLayout_;
+	GLRInputLayout *shadeInputLayout_ = nullptr;
 
 	enum { INVALID_TEX = -1 };
 };

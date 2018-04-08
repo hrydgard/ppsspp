@@ -528,6 +528,10 @@ namespace MIPSInt
 				if (fs == 31) {
 					currentMIPS->fcr31 = value & 0x0181FFFF;
 					currentMIPS->fpcond = (value >> 23) & 1;
+					if (MIPSComp::jit) {
+						// In case of DISABLE, we need to tell jit we updated FCR31.
+						MIPSComp::jit->UpdateFCR31();
+					}
 				} else {
 					WARN_LOG_REPORT(CPU, "WriteFCR: Unexpected reg %d (value %08x)", fs, value);
 				}

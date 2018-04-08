@@ -627,7 +627,7 @@ void VertexDecoder::Step_NormalS8MorphSkin() const {
 		const s8 *bv = (const s8*)(ptr_ + onesize_ * n + nrmoff);
 		const float multiplier = gstate_c.morphWeights[n] * (1.0f / 128.0f);
 		for (int j = 0; j < 3; j++)
-			normal[j] += bv[j] * multiplier;
+			nrm[j] += bv[j] * multiplier;
 	}
 	Norm3ByMatrix43(normal, nrm, skinMatrix);
 }

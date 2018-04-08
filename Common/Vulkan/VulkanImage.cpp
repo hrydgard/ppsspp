@@ -74,7 +74,7 @@ bool VulkanTexture::CreateDirect(VkCommandBuffer cmd, int w, int h, int numMips,
 	vkGetImageMemoryRequirements(vulkan_->GetDevice(), image_, &mem_reqs);
 
 	if (allocator_) {
-		offset_ = allocator_->Allocate(mem_reqs, &mem_);
+		offset_ = allocator_->Allocate(mem_reqs, &mem_, Tag());
 		if (offset_ == VulkanDeviceAllocator::ALLOCATE_FAILED) {
 			return false;
 		}
@@ -205,6 +205,12 @@ void VulkanTexture::EndCreate(VkCommandBuffer cmd, bool vertexTexture) {
 		VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
 		VK_PIPELINE_STAGE_TRANSFER_BIT, vertexTexture ? VK_PIPELINE_STAGE_VERTEX_SHADER_BIT : VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
 		VK_ACCESS_TRANSFER_WRITE_BIT, VK_ACCESS_SHADER_READ_BIT);
+}
+
+void VulkanTexture::Touch() {
+	if (allocator_ && mem_ != VK_NULL_HANDLE) {
+		allocator_->Touch(mem_, offset_);
+	}
 }
 
 void VulkanTexture::Destroy() {

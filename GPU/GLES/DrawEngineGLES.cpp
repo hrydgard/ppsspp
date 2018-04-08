@@ -109,11 +109,9 @@ void DrawEngineGLES::DeviceRestore() {
 
 void DrawEngineGLES::InitDeviceObjects() {
 	for (int i = 0; i < GLRenderManager::MAX_INFLIGHT_FRAMES; i++) {
-		frameData_[i].pushVertex = new GLPushBuffer(render_, GL_ARRAY_BUFFER, 1024 * 1024);
-		frameData_[i].pushIndex = new GLPushBuffer(render_, GL_ELEMENT_ARRAY_BUFFER, 256 * 1024);
+		frameData_[i].pushVertex = render_->CreatePushBuffer(i, GL_ARRAY_BUFFER, 1024 * 1024);
+		frameData_[i].pushIndex = render_->CreatePushBuffer(i, GL_ELEMENT_ARRAY_BUFFER, 256 * 1024);
 
-		render_->RegisterPushBuffer(i, frameData_[i].pushVertex);
-		render_->RegisterPushBuffer(i, frameData_[i].pushIndex);
 	}
 
 	int vertexSize = sizeof(TransformedVertex);
@@ -131,12 +129,8 @@ void DrawEngineGLES::DestroyDeviceObjects() {
 		if (!frameData_[i].pushVertex && !frameData_[i].pushIndex)
 			continue;
 
-		render_->UnregisterPushBuffer(i, frameData_[i].pushVertex);
-		render_->UnregisterPushBuffer(i, frameData_[i].pushIndex);
-		frameData_[i].pushVertex->Destroy();
-		frameData_[i].pushIndex->Destroy();
-		delete frameData_[i].pushVertex;
-		delete frameData_[i].pushIndex;
+		render_->DeletePushBuffer(frameData_[i].pushVertex);
+		render_->DeletePushBuffer(frameData_[i].pushIndex);
 		frameData_[i].pushVertex = nullptr;
 		frameData_[i].pushIndex = nullptr;
 	}
@@ -159,14 +153,14 @@ void DrawEngineGLES::ClearInputLayoutMap() {
 
 void DrawEngineGLES::BeginFrame() {
 	FrameData &frameData = frameData_[render_->GetCurFrame()];
-	frameData.pushIndex->Begin();
-	frameData.pushVertex->Begin();
+	render_->BeginPushBuffer(frameData.pushIndex);
+	render_->BeginPushBuffer(frameData.pushVertex);
 }
 
 void DrawEngineGLES::EndFrame() {
 	FrameData &frameData = frameData_[render_->GetCurFrame()];
-	frameData.pushIndex->End();
-	frameData.pushVertex->End();
+	render_->EndPushBuffer(frameData.pushIndex);
+	render_->EndPushBuffer(frameData.pushVertex);
 	tessDataTransfer->EndFrame();
 }
 
@@ -593,12 +587,6 @@ rotateVBO:
 		} else if (result.action == SW_CLEAR) {
 			u32 clearColor = result.color;
 			float clearDepth = result.depth;
-			const float col[4] = {
-				((clearColor & 0xFF)) / 255.0f,
-				((clearColor & 0xFF00) >> 8) / 255.0f,
-				((clearColor & 0xFF0000) >> 16) / 255.0f,
-				((clearColor & 0xFF000000) >> 24) / 255.0f,
-			};
 
 			bool colorMask = gstate.isClearModeColorMask();
 			bool alphaMask = gstate.isClearModeAlphaMask();

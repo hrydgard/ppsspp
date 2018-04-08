@@ -109,18 +109,6 @@ void Jit::GenerateFixedCode(JitOptions &jo) {
 		RET();
 	}
 
-	updateRoundingMode = AlignCode16(); {
-		// If it's only ever 0, we don't actually bother applying or restoring it.
-		// This is the most common situation.
-		TEST(32, MIPSSTATE_VAR(fcr31), Imm32(0x01000003));
-		FixupBranch skip = J_CC(CC_Z);
-		// TODO: Move the hasSetRounding flag somewhere we can reach it through the context pointer, or something.
-		MOV(PTRBITS, R(RAX), ImmPtr(&js.hasSetRounding));
-		MOV(8, MatR(RAX), Imm8(1));
-		SetJumpTarget(skip);
-		RET();
-	}
-
 	enterDispatcher = AlignCode16();
 	ABI_PushAllCalleeSavedRegsAndAdjustStack();
 #ifdef _M_X64

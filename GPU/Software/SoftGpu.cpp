@@ -165,6 +165,7 @@ void SoftGPU::CopyToCurrentFboFromDisplayRam(int srcwidth, int srcheight) {
 	desc.format = Draw::DataFormat::R8G8B8A8_UNORM;
 	desc.depth = 1;
 	desc.mipLevels = 1;
+	desc.tag = "SoftGPU";
 	bool hasImage = true;
 	if (!Memory::IsValidAddress(displayFramebuf_) || srcwidth == 0 || srcheight == 0) {
 		hasImage = false;

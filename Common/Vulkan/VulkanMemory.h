@@ -139,12 +139,20 @@ public:
 	}
 
 	// May return ALLOCATE_FAILED if the allocation fails.
-	size_t Allocate(const VkMemoryRequirements &reqs, VkDeviceMemory *deviceMemory);
+	size_t Allocate(const VkMemoryRequirements &reqs, VkDeviceMemory *deviceMemory, const std::string &tag);
 
 	// Crashes on a double or misfree.
 	void Free(VkDeviceMemory deviceMemory, size_t offset);
 
+	inline void Touch(VkDeviceMemory deviceMemory, size_t offset) {
+		if (TRACK_TOUCH) {
+			DoTouch(deviceMemory, offset);
+		}
+	}
+
 	static const size_t ALLOCATE_FAILED = -1;
+	// Set to true to report potential leaks / long held textures.
+	static const bool TRACK_TOUCH = false;
 
 	int GetSlabCount() const { return (int)slabs_.size(); }
 	int GetMinSlabSize() const { return (int)minSlabSize_; }
@@ -158,11 +166,19 @@ private:
 	static const uint8_t SLAB_GRAIN_SHIFT = 10;
 	static const uint32_t UNDEFINED_MEMORY_TYPE = -1;
 
+	struct UsageInfo {
+		std::string tag;
+		float created;
+		float touched;
+	};
+
 	struct Slab {
 		VkDeviceMemory deviceMemory;
 		std::vector<uint8_t> usage;
 		std::unordered_map<size_t, size_t> allocSizes;
+		std::unordered_map<size_t, UsageInfo> tags;
 		size_t nextFree;
+		size_t totalUsage;
 
 		size_t Size() {
 			return usage.size() * SLAB_GRAIN_SIZE;
@@ -185,9 +201,11 @@ private:
 	}
 
 	bool AllocateSlab(VkDeviceSize minBytes);
-	bool AllocateFromSlab(Slab &slab, size_t &start, size_t blocks);
+	bool AllocateFromSlab(Slab &slab, size_t &start, size_t blocks, const std::string &tag);
 	void Decimate();
+	void DoTouch(VkDeviceMemory deviceMemory, size_t offset);
 	void ExecuteFree(FreeInfo *userdata);
+	void ReportOldUsage();
 
 	VulkanContext *const vulkan_;
 	std::vector<Slab> slabs_;

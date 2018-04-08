@@ -52,7 +52,6 @@ class ShaderManagerVulkan;
 class PipelineManagerVulkan;
 class TextureCacheVulkan;
 class FramebufferManagerVulkan;
-class CachedTextureVulkan;
 
 // Avoiding the full include of TextureDecoder.h.
 #if (defined(_M_SSE) && defined(_M_X64)) || defined(ARM64)

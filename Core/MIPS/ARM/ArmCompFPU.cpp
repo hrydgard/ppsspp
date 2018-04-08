@@ -416,8 +416,10 @@ void ArmJit::Comp_mxc1(MIPSOpcode op)
 			// Must clear before setting, since ApplyRoundingMode() assumes it was cleared.
 			RestoreRoundingMode();
 			bool wasImm = gpr.IsImm(rt);
+			u32 immVal = -1;
 			if (wasImm) {
-				gpr.SetImm(MIPS_REG_FPCOND, (gpr.GetImm(rt) >> 23) & 1);
+				immVal = gpr.GetImm(rt);
+				gpr.SetImm(MIPS_REG_FPCOND, (immVal >> 23) & 1);
 				gpr.MapReg(rt);
 			} else {
 				gpr.MapDirtyIn(MIPS_REG_FPCOND, rt);
@@ -433,8 +435,10 @@ void ArmJit::Comp_mxc1(MIPSOpcode op)
 				MOV(SCRATCHREG1, Operand2(gpr.R(rt), ST_LSR, 23));
 				AND(gpr.R(MIPS_REG_FPCOND), SCRATCHREG1, Operand2(1));
 #endif
+				UpdateRoundingMode();
+			} else {
+				UpdateRoundingMode(immVal);
 			}
-			UpdateRoundingMode();
 			ApplyRoundingMode();
 		} else {
 			Comp_Generic(op);

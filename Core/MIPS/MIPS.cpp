@@ -293,6 +293,11 @@ void MIPSState::DoState(PointerWrap &p) {
 	p.Do(inDelaySlot);
 	p.Do(llBit);
 	p.Do(debugCount);
+
+	if (p.mode == p.MODE_READ && MIPSComp::jit) {
+		// Now that we've loaded fcr31, update any jit state associated.
+		MIPSComp::jit->UpdateFCR31();
+	}
 }
 
 void MIPSState::SingleStep() {

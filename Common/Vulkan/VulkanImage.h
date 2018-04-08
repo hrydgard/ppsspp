@@ -25,6 +25,14 @@ public:
 
 	void Destroy();
 
+	void SetTag(const std::string &tag) {
+		tag_ = tag;
+	}
+	std::string Tag() const {
+		return tag_;
+	}
+	void Touch();
+
 	// Used in image copies, etc.
 	VkImage GetImage() const { return image_; }
 
@@ -49,4 +57,5 @@ private:
 	VkFormat format_ = VK_FORMAT_UNDEFINED;
 	VulkanDeviceAllocator *allocator_;
 	size_t offset_ = 0;
+	std::string tag_;
 };

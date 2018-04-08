@@ -301,6 +301,7 @@ void TextDrawerWin32::DrawString(DrawBuffer &target, const char *str, float x, f
 		desc.height = entry->bmHeight;
 		desc.depth = 1;
 		desc.mipLevels = 1;
+		desc.tag = "TextDrawer";
 		entry->texture = draw_->CreateTexture(desc);
 		if (bitmapData16)
 			delete[] bitmapData16;

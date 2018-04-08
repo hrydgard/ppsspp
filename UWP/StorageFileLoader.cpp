@@ -19,10 +19,12 @@ StorageFileLoader::StorageFileLoader(Windows::Storage::StorageFile ^file) {
 }
 
 StorageFileLoader::~StorageFileLoader() {
+	initMutex.lock();
 	active_ = false;
 	operationRequested_ = false;
 	cond_.notify_all();
 	thread_->join();
+	initMutex.unlock();
 }
 
 void StorageFileLoader::threadfunc() {

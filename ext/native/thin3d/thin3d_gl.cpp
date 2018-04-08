@@ -523,17 +523,14 @@ OpenGLContext::OpenGLContext() {
 		break;
 	}
 	for (int i = 0; i < GLRenderManager::MAX_INFLIGHT_FRAMES; i++) {
-		frameData_[i].push = new GLPushBuffer(&renderManager_, GL_ARRAY_BUFFER, 64 * 1024);
-		renderManager_.RegisterPushBuffer(i, frameData_[i].push);
+		frameData_[i].push = renderManager_.CreatePushBuffer(i, GL_ARRAY_BUFFER, 64 * 1024);
 	}
 }
 
 OpenGLContext::~OpenGLContext() {
 	DestroyPresets();
 	for (int i = 0; i < GLRenderManager::MAX_INFLIGHT_FRAMES; i++) {
-		renderManager_.UnregisterPushBuffer(i, frameData_[i].push);
-		frameData_[i].push->Destroy();
-		delete frameData_[i].push;
+		renderManager_.DeletePushBuffer(frameData_[i].push);
 	}
 	boundSamplers_.clear();
 }
@@ -541,12 +538,12 @@ OpenGLContext::~OpenGLContext() {
 void OpenGLContext::BeginFrame() {
 	renderManager_.BeginFrame();
 	FrameData &frameData = frameData_[renderManager_.GetCurFrame()];
-	frameData.push->Begin();
+	renderManager_.BeginPushBuffer(frameData.push);
 }
 
 void OpenGLContext::EndFrame() {
 	FrameData &frameData = frameData_[renderManager_.GetCurFrame()];
-	frameData.push->End();  // upload the data!
+	renderManager_.EndPushBuffer(frameData.push);  // upload the data!
 	renderManager_.Finish();
 }
 

@@ -167,9 +167,6 @@ void FramebufferManagerVulkan::DestroyDeviceObjects() {
 }
 
 void FramebufferManagerVulkan::NotifyClear(bool clearColor, bool clearAlpha, bool clearDepth, uint32_t color, float depth) {
-	float x, y, w, h;
-	CenterDisplayOutputRect(&x, &y, &w, &h, 480.0f, 272.0f, (float)pixelWidth_, (float)pixelHeight_, ROTATION_LOCKED_HORIZONTAL);
-
 	int mask = 0;
 	// The Clear detection takes care of doing a regular draw instead if separate masking
 	// of color and alpha is needed, so we can just treat them as the same.
@@ -207,6 +204,7 @@ void FramebufferManagerVulkan::MakePixelTexture(const u8 *srcPixels, GEBufferFor
 
 	// There's only ever a few of these alive, don't need to stress the allocator with these big ones.
 	drawPixelsTex_ = new VulkanTexture(vulkan_, nullptr);
+	drawPixelsTex_->SetTag("DrawPixels");
 	if (!drawPixelsTex_->CreateDirect(initCmd, width, height, 1, VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT)) {
 		// out of memory?
 		delete drawPixelsTex_;
@@ -707,5 +705,22 @@ void FramebufferManagerVulkan::CompilePostShader() {
 		ELOG("Failed to compile.");
 		pipelinePostShader_ = VK_NULL_HANDLE;
 		usePostShader_ = false;
+
+		std::string firstLine;
+		std::string errorString = errorVS + "\n" + errorFS;
+		size_t start = 0;
+		for (size_t i = 0; i < errorString.size(); i++) {
+			if (errorString[i] == '\n' && i == start) {
+				start = i + 1;
+			} else if (errorString[i] == '\n') {
+				firstLine = errorString.substr(start, i - start);
+				break;
+			}
+		}
+		if (!firstLine.empty()) {
+			host->NotifyUserMessage("Post-shader error: " + firstLine + "...", 10.0f, 0xFF3090FF);
+		} else {
+			host->NotifyUserMessage("Post-shader error, see log for details", 10.0f, 0xFF3090FF);
+		}
 	}
 }

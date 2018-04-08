@@ -434,6 +434,8 @@ void NativeInit(int argc, const char *argv[], const char *savegame_dir, const ch
 				if (!strncmp(argv[i], "--escape-exit", strlen("--escape-exit")))
 					g_Config.bPauseExitsEmulator = true;
 #endif
+				if (!strncmp(argv[i], "--pause-menu-exit", strlen("--pause-menu-exit")))
+					g_Config.bPauseMenuExitsEmulator = true;
 				break;
 			}
 		} else {
@@ -444,11 +446,16 @@ void NativeInit(int argc, const char *argv[], const char *savegame_dir, const ch
 				ILOG("Boot filename found in args: '%s'", argv[i]);
 
 				bool okToLoad = true;
+				bool okToCheck = true;
 				if (System_GetPropertyBool(SYSPROP_SUPPORTS_PERMISSIONS)) {
 					PermissionStatus status = System_GetPermissionStatus(SYSTEM_PERMISSION_STORAGE);
-					if (status != PERMISSION_STATUS_GRANTED) {
-						ELOG("Storage permission not granted. Launching without argument.");
+					if (status == PERMISSION_STATUS_DENIED) {
+						ELOG("Storage permission denied. Launching without argument.");
 						okToLoad = false;
+						okToCheck = false;
+					} else if (status != PERMISSION_STATUS_GRANTED) {
+						ELOG("Storage permission not granted. Launching without argument check.");
+						okToCheck = false;
 					} else {
 						ILOG("Storage permission granted.");
 					}
@@ -459,7 +466,8 @@ void NativeInit(int argc, const char *argv[], const char *savegame_dir, const ch
 					boot_filename = ReplaceAll(boot_filename, "\\", "/");
 #endif
 					skipLogo = true;
-
+				}
+				if (okToLoad && okToCheck) {
 					std::unique_ptr<FileLoader> fileLoader(ConstructFileLoader(boot_filename));
 					if (!fileLoader->Exists()) {
 						fprintf(stderr, "File not found: %s\n", boot_filename.c_str());
