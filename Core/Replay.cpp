@@ -19,6 +19,7 @@
 #include <ctime>
 #include <vector>
 #include "Common/Common.h"
+#include "Common/FileUtil.h"
 #include "Common/StringUtils.h"
 #include "Core/Replay.h"
 #include "Core/FileSystems/FileSystem.h"
@@ -88,14 +89,172 @@ struct ReplayItem {
 };
 
 static std::vector<ReplayItem> replayItems;
+// One more than the last executed item.
+static size_t replayExecPos = 0;
+static bool replaySaveWroteHeader = false;
 static ReplayState replayState = ReplayState::IDLE;
 
 static size_t replayCtrlPos = 0;
-static uint32_t lastButtons;
-static uint8_t lastAnalog[2][2];
+static uint32_t lastButtons = 0;
+static uint8_t lastAnalog[2][2]{};
 
 static size_t replayDiskPos = 0;
 static bool diskFailed = false;
+
+// TODO: File format either needs rtc and rand seed, or must be paired with a save state.
+
+void ReplayExecuteBlob(const std::vector<u8> &data) {
+	ReplayAbort();
+
+	// Rough estimate.
+	replayItems.reserve(data.size() / sizeof(ReplayItemHeader));
+	for (size_t i = 0, sz = data.size(); i < sz; ) {
+		if (i + sizeof(ReplayItemHeader) > sz) {
+			ERROR_LOG(SYSTEM, "Truncated replay data at %lld during item header", (long long)i);
+			break;
+		}
+		ReplayItemHeader *info = (ReplayItemHeader *)&data[i];
+		ReplayItem item(*info);
+		i += sizeof(ReplayItemHeader);
+
+		if ((int)item.info.action & (int)ReplayAction::MASK_SIDEDATA) {
+			if (i + item.info.size > sz) {
+				ERROR_LOG(SYSTEM, "Truncated replay data at %lld during side data", (long long)i);
+				break;
+			}
+			if (item.info.size != 0) {
+				item.data.resize(item.info.size);
+				memcpy(&item.data[0], &data[i], item.info.size);
+				i += item.info.size;
+			}
+		}
+
+		replayItems.push_back(item);
+	}
+
+	replayState = ReplayState::EXECUTE;
+	INFO_LOG(SYSTEM, "Executing replay with %lld items", (long long)replayItems.size());
+}
+
+bool ReplayExecuteFile(const std::string &filename) {
+	ReplayAbort();
+
+	FILE *fp = File::OpenCFile(filename, "rb");
+	if (!fp) {
+		DEBUG_LOG(SYSTEM, "Failed to open replay file: %s", filename.c_str());
+		return false;
+	}
+
+	// TODO: Header handling.
+	// Include initial rand state or timestamp?
+
+	// TODO: Maybe stream instead.
+	size_t sz = File::GetFileSize(fp);
+	if (sz == 0) {
+		ERROR_LOG(SYSTEM, "Empty replay data");
+		fclose(fp);
+		return false;
+	}
+
+	std::vector<u8> data;
+	data.resize(sz);
+
+	if (fread(&data[0], sz, 1, fp) != 1) {
+		ERROR_LOG(SYSTEM, "Could not read replay data");
+		fclose(fp);
+		return false;
+	}
+
+	ReplayExecuteBlob(data);
+	return true;
+}
+
+bool ReplayHasMoreEvents() {
+	return replayExecPos < replayItems.size();
+}
+
+void ReplayBeginSave() {
+	if (replayState != ReplayState::EXECUTE) {
+		// Restart any save operation.
+		ReplayAbort();
+	} else {
+		// Discard any unexecuted items, but resume from there.
+		// The parameter isn't used here, since we'll always be resizing down.
+		replayItems.resize(replayExecPos, ReplayItem(ReplayItemHeader(ReplayAction::BUTTONS, 0)));
+	}
+
+	replayState = ReplayState::SAVE;
+}
+
+void ReplayFlushBlob(std::vector<u8> *data) {
+	size_t sz = replayItems.size() * sizeof(ReplayItemHeader);
+	// Add in any side data.
+	for (const auto &item : replayItems) {
+		if ((int)item.info.action & (int)ReplayAction::MASK_SIDEDATA) {
+			sz += item.info.size;
+		}
+	}
+
+	data->resize(sz);
+
+	size_t pos = 0;
+	for (const auto &item : replayItems) {
+		memcpy(&(*data)[pos], &item.info, sizeof(item.info));
+		pos += sizeof(item.info);
+
+		if ((int)item.info.action & (int)ReplayAction::MASK_SIDEDATA) {
+			memcpy(&(*data)[pos], &item.data[0], item.data.size());
+			pos += item.data.size();
+		}
+	}
+
+	// Keep recording, but throw away our buffered items.
+	replayItems.clear();
+}
+
+bool ReplayFlushFile(const std::string &filename) {
+	FILE *fp = File::OpenCFile(filename, replaySaveWroteHeader ? "ab" : "wb");
+	if (!fp) {
+		ERROR_LOG(SYSTEM, "Failed to open replay file: %s", filename.c_str());
+		return false;
+	}
+
+	// TODO: Header handling.
+	// Include initial rand state or timestamp?
+	replaySaveWroteHeader = true;
+
+	size_t c = replayItems.size();
+	bool success = true;
+	if (c != 0) {
+		// TODO: Maybe stream instead.
+		std::vector<u8> data;
+		ReplayFlushBlob(&data);
+
+		success = fwrite(&data[0], data.size(), 1, fp) == 1;
+	}
+	fclose(fp);
+
+	if (success) {
+		DEBUG_LOG(SYSTEM, "Flushed %lld replay items", (long long)c);
+	} else {
+		ERROR_LOG(SYSTEM, "Could not write %lld replay items (disk full?)", (long long)c);
+	}
+	return success;
+}
+
+void ReplayAbort() {
+	replayItems.clear();
+	replayExecPos = 0;
+	replaySaveWroteHeader = false;
+	replayState = ReplayState::IDLE;
+
+	replayCtrlPos = 0;
+	lastButtons = 0;
+	memset(lastAnalog, 0, sizeof(lastAnalog));
+
+	replayDiskPos = 0;
+	diskFailed = false;
+}
 
 static void ReplaySaveCtrl(uint32_t &buttons, uint8_t analog[2][2], uint64_t t) {
 	if (lastButtons != buttons) {
@@ -114,16 +273,22 @@ static void ReplayExecuteCtrl(uint32_t &buttons, uint8_t analog[2][2], uint64_t 
 		switch (item.info.action) {
 		case ReplayAction::BUTTONS:
 			buttons = item.info.buttons;
+			lastButtons = item.info.buttons;
 			break;
 
 		case ReplayAction::ANALOG:
 			memcpy(analog, item.info.analog, sizeof(analog));
+			memcpy(lastAnalog, item.info.analog, sizeof(analog));
 			break;
 
 		default:
 			// Ignore non ctrl types.
 			break;
 		}
+	}
+
+	if (replayExecPos < replayCtrlPos) {
+		replayExecPos = replayCtrlPos;
 	}
 }
 
@@ -166,6 +331,10 @@ static const ReplayItem *ReplayNextDisk(ReplayAction action, uint64_t t) {
 		// If we got the wrong thing, or if there weren't any disk items then stop trying.
 		diskFailed = true;
 		return nullptr;
+	}
+
+	if (replayExecPos < replayDiskPos) {
+		replayExecPos = replayDiskPos;
 	}
 
 	return item;

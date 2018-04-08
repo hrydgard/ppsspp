@@ -18,6 +18,7 @@
 #pragma once
 
 #include <cstdint>
+#include <string>
 #include <vector>
 
 // Be careful about changing these values (used in file data.)
@@ -44,6 +45,25 @@ enum class ReplayAction : uint8_t {
 };
 
 struct PSPFileInfo;
+
+// Replay from data in memory.
+void ReplayExecuteBlob(const std::vector<u8> &data);
+// Replay from data in a file.  Returns false if invalid.
+bool ReplayExecuteFile(const std::string &filename);
+// Returns whether there are unexected events to replay.
+bool ReplayHasMoreEvents();
+
+// Begin recording.  If currently executing, discards unexecuted events.
+void ReplayBeginSave();
+// Flush buffered events to memory.  Continues recording (next call will receive new events only.)
+// No header is flushed with this operation - don't mix with ReplayFlushFile().
+void ReplayFlushBlob(std::vector<u8> *data);
+// Flush buffered events to file.  Continues recording (next call will receive new events only.)
+// Do not call with a different filename before ReplayAbort().
+bool ReplayFlushFile(const std::string &filename);
+
+// Abort any execute or record operation in progress.
+void ReplayAbort();
 
 void ReplayApplyCtrl(uint32_t &buttons, uint8_t analog[2][2], uint64_t t);
 uint32_t ReplayApplyDisk(ReplayAction action, uint32_t result, uint64_t t);
