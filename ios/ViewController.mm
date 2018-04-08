@@ -6,6 +6,7 @@
 //
 
 #import "ViewController.h"
+#import "SubtleVolume.h"
 #import <GLKit/GLKit.h>
 #include <cassert>
 
@@ -81,8 +82,7 @@ static bool threadStopped = false;
 __unsafe_unretained ViewController* sharedViewController;
 static GraphicsContext *graphicsContext;
 
-@interface ViewController ()
-{
+@interface ViewController () {
 	std::map<uint16_t, uint16_t> iCadeToKeyMap;
 }
 
@@ -94,6 +94,12 @@ static GraphicsContext *graphicsContext;
 #endif
 
 @end
+
+@interface ViewController () <SubtleVolumeDelegate> {
+    SubtleVolume *volume;
+}
+@end
+
 
 @implementation ViewController
 
@@ -127,6 +133,13 @@ static GraphicsContext *graphicsContext;
 #endif
 	}
 	return self;
+}
+
+- (void)subtleVolume:(SubtleVolume *)volumeView willChange:(CGFloat)value {
+//    NSLog(@"%f alpha: %f", value, volumeView.alpha);
+}
+- (void)subtleVolume:(SubtleVolume *)volumeView didChange:(CGFloat)value {
+//    NSLog(@"END %f alpha: %f", value, volumeView.alpha);
 }
 
 - (void)viewDidLoad {
@@ -197,6 +210,15 @@ static GraphicsContext *graphicsContext;
 	}
 #endif
 	
+    volume = [[SubtleVolume alloc] initWithStyle:SubtleVolumeStylePlain frame:CGRectMake(10, 0, self.view.frame.size.width-20, 4)];
+    // volume.animatedByDefault = NO;
+    volume.barTintColor = [UIColor whiteColor];
+    volume.barBackgroundColor = [[UIColor whiteColor] colorWithAlphaComponent:0.3];
+    volume.animation = SubtleVolumeAnimationSlideDown;
+    volume.delegate = self;
+    [self.view addSubview:volume];
+    [self.view bringSubviewToFront:volume];
+    
 	dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_HIGH, 0), ^{
 		NativeInitGraphics(graphicsContext);
 
