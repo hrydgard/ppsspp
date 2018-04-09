@@ -157,6 +157,9 @@ bool EmuScreen::bootAllowStorage(const std::string &filename) {
 	case PERMISSION_STATUS_GRANTED:
 		return true;
 	}
+
+	_assert_(false);
+	return false;
 }
 
 void EmuScreen::bootGame(const std::string &filename) {
