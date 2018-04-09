@@ -288,7 +288,7 @@ private:
 	bool AddBuffer();
 	void NextBuffer(size_t minSize);
 	void Defragment();
-	void Destroy();
+	void Destroy(bool onRenderThread);
 
 	GLRenderManager *render_;
 	std::vector<BufInfo> buffers_;
