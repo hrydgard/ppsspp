@@ -101,6 +101,7 @@ public:
 	// Applies dirty changes and copies the buffer.
 	bool IsBaseDirty() { return true; }
 	bool IsLightDirty() { return true; }
+	bool IsBoneDirty() { return true; }
 
 private:
 	void Clear();

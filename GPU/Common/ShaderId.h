@@ -44,7 +44,8 @@ enum {
 	VS_BIT_LIGHT2_ENABLE = 54,
 	VS_BIT_LIGHT3_ENABLE = 55,
 	VS_BIT_LIGHTING_ENABLE = 56,
-	// 57 - 61 are free.
+	VS_BIT_WEIGHT_FMTSCALE = 57,  // only two bits
+	// 59 - 61 are free.
 	VS_BIT_FLATSHADE = 62, // 1 bit
 	VS_BIT_BEZIER = 63, // 1 bit
 	// No more free
