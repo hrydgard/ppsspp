@@ -357,113 +357,116 @@ void GenerateVertexShaderHLSL(const VShaderID &id, char *buffer, ShaderLanguage 
 			}
 		}
 	}  else {
-		// Step 1: World Transform
-		// Hardware tessellation
-		if (doSpline || doBezier) {
-			WRITE(p, "  uint num_patches_u = %s;\n", doBezier ? "(u_spline_count_u - 1) / 3u" : "u_spline_count_u - 3");
-			WRITE(p, "  float2 tess_pos = In.position.xy;\n");
-			WRITE(p, "  int u = In.instanceId %% num_patches_u;\n");
-			WRITE(p, "  int v = In.instanceId / num_patches_u;\n");
-			WRITE(p, "  int2 patch_pos = int2(u, v);\n");
-			WRITE(p, "  float3 _pos[16];\n");
-			WRITE(p, "  float2 _tex[16];\n");
-			WRITE(p, "  float4 _col[16];\n");
-			WRITE(p, "  int idx;\n");
-			WRITE(p, "  int2 index;\n");
-			for (int i = 0; i < 4; i++) {
-				for (int j = 0; j < 4; j++) {
-					WRITE(p, "  idx = (%i + v%s) * u_spline_count_u + (%i + u%s);\n", i, doBezier ? " * 3" : "", j, doBezier ? " * 3" : "");
-					WRITE(p, "  index = int2(idx, 0);\n");
-					WRITE(p, "  _pos[%i] = u_tess_pos_tex.Load(index).xyz;\n", i * 4 + j);
-					if (doTexture && hasTexcoord && hasTexcoordTess)
-						WRITE(p, "  _tex[%i] = u_tess_tex_tex.Load(index).xy;\n", i * 4 + j);
-					if (hasColor && hasColorTess)
-						WRITE(p, "  _col[%i] = u_tess_col_tex.Load(index).rgba;\n", i * 4 + j);
+		// Step 1: World Transform / Skinning
+		if (true) {
+			// Hardware tessellation
+			if (doSpline || doBezier) {
+				WRITE(p, "  uint num_patches_u = %s;\n", doBezier ? "(u_spline_count_u - 1) / 3u" : "u_spline_count_u - 3");
+				WRITE(p, "  float2 tess_pos = In.position.xy;\n");
+				WRITE(p, "  int u = In.instanceId %% num_patches_u;\n");
+				WRITE(p, "  int v = In.instanceId / num_patches_u;\n");
+				WRITE(p, "  int2 patch_pos = int2(u, v);\n");
+				WRITE(p, "  float3 _pos[16];\n");
+				WRITE(p, "  float2 _tex[16];\n");
+				WRITE(p, "  float4 _col[16];\n");
+				WRITE(p, "  int idx;\n");
+				WRITE(p, "  int2 index;\n");
+				for (int i = 0; i < 4; i++) {
+					for (int j = 0; j < 4; j++) {
+						WRITE(p, "  idx = (%i + v%s) * u_spline_count_u + (%i + u%s);\n", i, doBezier ? " * 3" : "", j, doBezier ? " * 3" : "");
+						WRITE(p, "  index = int2(idx, 0);\n");
+						WRITE(p, "  _pos[%i] = u_tess_pos_tex.Load(index).xyz;\n", i * 4 + j);
+						if (doTexture && hasTexcoord && hasTexcoordTess)
+							WRITE(p, "  _tex[%i] = u_tess_tex_tex.Load(index).xy;\n", i * 4 + j);
+						if (hasColor && hasColorTess)
+							WRITE(p, "  _col[%i] = u_tess_col_tex.Load(index).rgba;\n", i * 4 + j);
+					}
 				}
-			}
-			WRITE(p, "  float2 weights[4];\n");
-			if (doBezier) {
-				// Bernstein 3D
-				WRITE(p, "  weights[0] = (1.0 - tess_pos) * (1.0 - tess_pos) * (1.0 - tess_pos);\n");
-				WRITE(p, "  weights[1] = 3.0 * tess_pos * (1.0 - tess_pos) * (1.0 - tess_pos);\n");
-				WRITE(p, "  weights[2] = 3.0 * tess_pos * tess_pos * (1.0 - tess_pos);\n");
-				WRITE(p, "  weights[3] = tess_pos * tess_pos * tess_pos;\n");
-			} else if (doSpline) {
-				WRITE(p, "  int2 spline_num_patches = int2(u_spline_count_u - 3, u_spline_count_v - 3);\n");
-				WRITE(p, "  int2 spline_type = int2(u_spline_type_u, u_spline_type_v);\n");
-				WRITE(p, "  float2 knots[6];\n");
-				WRITE(p, "  spline_knot(spline_num_patches, spline_type, knots, patch_pos);\n");
-				WRITE(p, "  spline_weight(tess_pos + patch_pos, knots, weights);\n");
-			}
-			WRITE(p, "  float3 pos = tess_sample(_pos, weights);\n");
-			if (doTexture && hasTexcoord) {
-				if (hasTexcoordTess)
-					WRITE(p, "  float2 tex = tess_sample(_tex, weights);\n");
-				else
-					WRITE(p, "  float2 tex = tess_pos + patch_pos;\n");
-			}
-			if (hasColor) {
-				if (hasColorTess)
-					WRITE(p, "  float4 col = tess_sample(_col, weights);\n");
-				else
-					WRITE(p, "  float4 col = u_tess_col_tex.Load(int2(0, 0)).rgba;\n");
-			}
-			if (hasNormal) {
-				// Curved surface is probably always need to compute normal(not sampling from control points)
+				WRITE(p, "  float2 weights[4];\n");
 				if (doBezier) {
-					// Bernstein derivative
-					WRITE(p, "  float2 bernderiv[4];\n");
-					WRITE(p, "  bernderiv[0] = -3.0 * (tess_pos - 1.0) * (tess_pos - 1.0); \n");
-					WRITE(p, "  bernderiv[1] = 9.0 * tess_pos * tess_pos - 12.0 * tess_pos + 3.0; \n");
-					WRITE(p, "  bernderiv[2] = 3.0 * (2.0 - 3.0 * tess_pos) * tess_pos; \n");
-					WRITE(p, "  bernderiv[3] = 3.0 * tess_pos * tess_pos; \n");
-
-					WRITE(p, "  float2 bernderiv_u[4];\n");
-					WRITE(p, "  float2 bernderiv_v[4];\n");
-					WRITE(p, "  for (int i = 0; i < 4; i++) {\n");
-					WRITE(p, "    bernderiv_u[i] = float2(bernderiv[i].x, weights[i].y);\n");
-					WRITE(p, "    bernderiv_v[i] = float2(weights[i].x, bernderiv[i].y);\n");
-					WRITE(p, "  }\n");
-
-					WRITE(p, "  float3 du = tess_sample(_pos, bernderiv_u);\n");
-					WRITE(p, "  float3 dv = tess_sample(_pos, bernderiv_v);\n");
+					// Bernstein 3D
+					WRITE(p, "  weights[0] = (1.0 - tess_pos) * (1.0 - tess_pos) * (1.0 - tess_pos);\n");
+					WRITE(p, "  weights[1] = 3.0 * tess_pos * (1.0 - tess_pos) * (1.0 - tess_pos);\n");
+					WRITE(p, "  weights[2] = 3.0 * tess_pos * tess_pos * (1.0 - tess_pos);\n");
+					WRITE(p, "  weights[3] = tess_pos * tess_pos * tess_pos;\n");
 				} else if (doSpline) {
-					WRITE(p, "  float2 tess_next_u = float2(In.normal.x, 0.0);\n");
-					WRITE(p, "  float2 tess_next_v = float2(0.0, In.normal.y);\n");
-					// Right
-					WRITE(p, "  float2 tess_pos_r = tess_pos + tess_next_u;\n");
-					WRITE(p, "  spline_weight(tess_pos_r + patch_pos, knots, weights);\n");
-					WRITE(p, "  float3 pos_r = tess_sample(_pos, weights);\n");
-					// Left
-					WRITE(p, "  float2 tess_pos_l = tess_pos - tess_next_u;\n");
-					WRITE(p, "  spline_weight(tess_pos_l + patch_pos, knots, weights);\n");
-					WRITE(p, "  float3 pos_l = tess_sample(_pos, weights);\n");
-					// Down
-					WRITE(p, "  float2 tess_pos_d = tess_pos + tess_next_v;\n");
-					WRITE(p, "  spline_weight(tess_pos_d + patch_pos, knots, weights);\n");
-					WRITE(p, "  float3 pos_d = tess_sample(_pos, weights);\n");
-					// Up
-					WRITE(p, "  float2 tess_pos_u = tess_pos - tess_next_v;\n");
-					WRITE(p, "  spline_weight(tess_pos_u + patch_pos, knots, weights);\n");
-					WRITE(p, "  float3 pos_u = tess_sample(_pos, weights);\n");
-
-					WRITE(p, "  float3 du = pos_r - pos_l;\n");
-					WRITE(p, "  float3 dv = pos_d - pos_u;\n");
+					WRITE(p, "  int2 spline_num_patches = int2(u_spline_count_u - 3, u_spline_count_v - 3);\n");
+					WRITE(p, "  int2 spline_type = int2(u_spline_type_u, u_spline_type_v);\n");
+					WRITE(p, "  float2 knots[6];\n");
+					WRITE(p, "  spline_knot(spline_num_patches, spline_type, knots, patch_pos);\n");
+					WRITE(p, "  spline_weight(tess_pos + patch_pos, knots, weights);\n");
 				}
-				WRITE(p, "  float3 nrm = cross(du, dv);\n");
-				WRITE(p, "  nrm = normalize(nrm);\n");
+				WRITE(p, "  float3 pos = tess_sample(_pos, weights);\n");
+				if (doTexture && hasTexcoord) {
+					if (hasTexcoordTess)
+						WRITE(p, "  float2 tex = tess_sample(_tex, weights);\n");
+					else
+						WRITE(p, "  float2 tex = tess_pos + patch_pos;\n");
+				}
+				if (hasColor) {
+					if (hasColorTess)
+						WRITE(p, "  float4 col = tess_sample(_col, weights);\n");
+					else
+						WRITE(p, "  float4 col = u_tess_col_tex.Load(int2(0, 0)).rgba;\n");
+				}
+				if (hasNormal) {
+					// Curved surface is probably always need to compute normal(not sampling from control points)
+					if (doBezier) {
+						// Bernstein derivative
+						WRITE(p, "  float2 bernderiv[4];\n");
+						WRITE(p, "  bernderiv[0] = -3.0 * (tess_pos - 1.0) * (tess_pos - 1.0); \n");
+						WRITE(p, "  bernderiv[1] = 9.0 * tess_pos * tess_pos - 12.0 * tess_pos + 3.0; \n");
+						WRITE(p, "  bernderiv[2] = 3.0 * (2.0 - 3.0 * tess_pos) * tess_pos; \n");
+						WRITE(p, "  bernderiv[3] = 3.0 * tess_pos * tess_pos; \n");
+
+						WRITE(p, "  float2 bernderiv_u[4];\n");
+						WRITE(p, "  float2 bernderiv_v[4];\n");
+						WRITE(p, "  for (int i = 0; i < 4; i++) {\n");
+						WRITE(p, "    bernderiv_u[i] = float2(bernderiv[i].x, weights[i].y);\n");
+						WRITE(p, "    bernderiv_v[i] = float2(weights[i].x, bernderiv[i].y);\n");
+						WRITE(p, "  }\n");
+
+						WRITE(p, "  float3 du = tess_sample(_pos, bernderiv_u);\n");
+						WRITE(p, "  float3 dv = tess_sample(_pos, bernderiv_v);\n");
+					} else if (doSpline) {
+						WRITE(p, "  float2 tess_next_u = float2(In.normal.x, 0.0);\n");
+						WRITE(p, "  float2 tess_next_v = float2(0.0, In.normal.y);\n");
+						// Right
+						WRITE(p, "  float2 tess_pos_r = tess_pos + tess_next_u;\n");
+						WRITE(p, "  spline_weight(tess_pos_r + patch_pos, knots, weights);\n");
+						WRITE(p, "  float3 pos_r = tess_sample(_pos, weights);\n");
+						// Left
+						WRITE(p, "  float2 tess_pos_l = tess_pos - tess_next_u;\n");
+						WRITE(p, "  spline_weight(tess_pos_l + patch_pos, knots, weights);\n");
+						WRITE(p, "  float3 pos_l = tess_sample(_pos, weights);\n");
+						// Down
+						WRITE(p, "  float2 tess_pos_d = tess_pos + tess_next_v;\n");
+						WRITE(p, "  spline_weight(tess_pos_d + patch_pos, knots, weights);\n");
+						WRITE(p, "  float3 pos_d = tess_sample(_pos, weights);\n");
+						// Up
+						WRITE(p, "  float2 tess_pos_u = tess_pos - tess_next_v;\n");
+						WRITE(p, "  spline_weight(tess_pos_u + patch_pos, knots, weights);\n");
+						WRITE(p, "  float3 pos_u = tess_sample(_pos, weights);\n");
+
+						WRITE(p, "  float3 du = pos_r - pos_l;\n");
+						WRITE(p, "  float3 dv = pos_d - pos_u;\n");
+					}
+					WRITE(p, "  float3 nrm = cross(du, dv);\n");
+					WRITE(p, "  nrm = normalize(nrm);\n");
+				}
+				WRITE(p, "  float3 worldpos = mul(float4(pos.xyz, 1.0), u_world);\n");
+				if (hasNormal)
+					WRITE(p, "  float3 worldnormal = normalize(mul(float4(%snrm, 0.0), u_world));\n", flipNormalTess ? "-" : "");
+				else
+					WRITE(p, "  float3 worldnormal = float3(0.0, 0.0, 1.0);\n");
+			} else {
+				// No skinning, just standard T&L.
+				WRITE(p, "  float3 worldpos = mul(float4(In.position.xyz, 1.0), u_world);\n");
+				if (hasNormal)
+					WRITE(p, "  float3 worldnormal = normalize(mul(float4(%sIn.normal, 0.0), u_world));\n", flipNormal ? "-" : "");
+				else
+					WRITE(p, "  float3 worldnormal = float3(0.0, 0.0, 1.0);\n");
 			}
-			WRITE(p, "  float3 worldpos = mul(float4(pos.xyz, 1.0), u_world);\n");
-			if (hasNormal)
-				WRITE(p, "  float3 worldnormal = normalize(mul(float4(%snrm, 0.0), u_world));\n", flipNormalTess ? "-" : "");
-			else
-				WRITE(p, "  float3 worldnormal = float3(0.0, 0.0, 1.0);\n");
-		} else {
-			WRITE(p, "  float3 worldpos = mul(float4(In.position.xyz, 1.0), u_world);\n");
-			if (hasNormal)
-				WRITE(p, "  float3 worldnormal = normalize(mul(float4(%sIn.normal, 0.0), u_world));\n", flipNormal ? "-" : "");
-			else
-				WRITE(p, "  float3 worldnormal = float3(0.0, 0.0, 1.0);\n");
 		}
 
 		WRITE(p, "  float4 viewPos = float4(mul(float4(worldpos, 1.0), u_view), 1.0);\n");

@@ -41,12 +41,19 @@ static const u8 nrmsize[4] = { 0, 3, 6, 12 }, nrmalign[4] = { 0, 1, 2, 4 };
 static const u8 possize[4] = { 3, 3, 6, 12 }, posalign[4] = { 1, 1, 2, 4 };
 static const u8 wtsize[4] = { 0, 1, 2, 4 }, wtalign[4] = { 0, 1, 2, 4 };
 
-// This array is only used when non-jitted - when jitted, the matrix
+// When software skinning. This array is only used when non-jitted - when jitted, the matrix
 // is kept in registers.
 alignas(16) static float skinMatrix[12];
 
 inline int align(int n, int align) {
 	return (n + (align - 1)) & ~(align - 1);
+}
+
+int TranslateNumBones(int bones) {
+	if (!bones) return 0;
+	if (bones < 4) return 4;
+	// if (bones < 8) return 8;   I get drawing problems in FF:CC with this!
+	return bones;
 }
 
 int DecFmtSize(u8 fmt) {
