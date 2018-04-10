@@ -87,6 +87,12 @@ static void VertexAttribSetup(VkVertexInputAttributeDescription *attr, int fmt, 
 // as we will only call this code when we need to create a new VkPipeline.
 static int SetupVertexAttribs(VkVertexInputAttributeDescription attrs[], const DecVtxFormat &decFmt) {
 	int count = 0;
+	if (decFmt.w0fmt != 0) {
+		VertexAttribSetup(&attrs[count++], decFmt.w0fmt, decFmt.w0off, PspAttributeLocation::W1);
+	}
+	if (decFmt.w1fmt != 0) {
+		VertexAttribSetup(&attrs[count++], decFmt.w1fmt, decFmt.w1off, PspAttributeLocation::W2);
+	}
 	if (decFmt.uvfmt != 0) {
 		VertexAttribSetup(&attrs[count++], decFmt.uvfmt, decFmt.uvoff, PspAttributeLocation::TEXCOORD);
 	}
