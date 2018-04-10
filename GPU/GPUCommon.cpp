@@ -1553,6 +1553,10 @@ void GPUCommon::Execute_Prim(u32 op, u32 diff) {
 		goto bail;
 #endif
 
+	uint32_t vtypeCheckMask = ~GE_VTYPE_WEIGHTCOUNT_MASK;
+	if (!g_Config.bSoftwareSkinning)
+		vtypeCheckMask = 0xFFFFFFFF;
+
 	while (src != stall) {
 		uint32_t data = *src;
 		switch (data >> 24) {
@@ -1581,7 +1585,7 @@ void GPUCommon::Execute_Prim(u32 op, u32 diff) {
 		{
 			uint32_t diff = data ^ vertexType;
 			// don't mask upper bits, vertexType is unmasked
-			if (diff & ~GE_VTYPE_WEIGHTCOUNT_MASK) {
+			if (diff & vtypeCheckMask) {
 				goto bail;
 			} else {
 				vertexType = data;
