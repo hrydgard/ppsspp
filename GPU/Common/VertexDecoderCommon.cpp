@@ -77,12 +77,16 @@ void DecVtxFormat::ComputeID() {
 
 void DecVtxFormat::InitializeFromID(uint32_t id) {
 	this->id = id;
-	uvfmt = (id & 0xF);
-	c0fmt = ((id >> 4) & 0xF);
-	c1fmt = ((id >> 8) & 0xF);
-	nrmfmt = ((id >> 12) & 0xF);
-	posfmt = ((id >> 16) & 0xF);
-	uvoff = 0;
+	w0fmt = ((id) & 0xF);
+	w1fmt = ((id >> 4) & 0xF);
+	uvfmt = ((id >> 8) & 0xF);
+	c0fmt = ((id >> 12) & 0xF);
+	c1fmt = ((id >> 16) & 0xF);
+	nrmfmt = ((id >> 20) & 0xF);
+	posfmt = ((id >> 24) & 0xF);
+	w0off = 0;
+	w1off = w0off + DecFmtSize(w0fmt);
+	uvoff = w1off + DecFmtSize(w1fmt);
 	c0off = uvoff + DecFmtSize(uvfmt);
 	c1off = c0off + DecFmtSize(c0fmt);
 	nrmoff = c1off + DecFmtSize(c1fmt);

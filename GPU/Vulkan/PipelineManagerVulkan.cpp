@@ -76,6 +76,8 @@ static const DeclTypeInfo VComp[] = {
 };
 
 static void VertexAttribSetup(VkVertexInputAttributeDescription *attr, int fmt, int offset, PspAttributeLocation location) {
+	assert(fmt != DEC_NONE);
+	assert(fmt < ARRAY_SIZE(VComp));
 	attr->location = (uint32_t)location;
 	attr->binding = 0;
 	attr->format = VComp[fmt].type;
