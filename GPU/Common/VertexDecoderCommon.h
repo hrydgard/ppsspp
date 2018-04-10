@@ -461,6 +461,12 @@ public:
 
 	std::string GetString(DebugShaderStringType stringType);
 
+	void Step_WeightsU8() const;
+	void Step_WeightsU16() const;
+	void Step_WeightsU8ToFloat() const;
+	void Step_WeightsU16ToFloat() const;
+	void Step_WeightsFloat() const;
+
 	void ComputeSkinMatrix(const float weights[8]) const;
 
 	void Step_WeightsU8Skin() const;
@@ -612,6 +618,12 @@ public:
 	// Returns a pointer to the code to run.
 	JittedVertexDecoder Compile(const VertexDecoder &dec, int32_t *jittedSize);
 	void Clear();
+
+	void Jit_WeightsU8();
+	void Jit_WeightsU16();
+	void Jit_WeightsU8ToFloat();
+	void Jit_WeightsU16ToFloat();
+	void Jit_WeightsFloat();
 
 	void Jit_WeightsU8Skin();
 	void Jit_WeightsU16Skin();
