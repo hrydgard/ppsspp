@@ -46,8 +46,8 @@ const CommonCommandTableEntry commonCommandTable[] = {
 	{ GE_CMD_BEZIER, FLAG_FLUSHBEFORE | FLAG_EXECUTE, 0, &GPUCommon::Execute_Bezier },
 	{ GE_CMD_SPLINE, FLAG_FLUSHBEFORE | FLAG_EXECUTE, 0, &GPUCommon::Execute_Spline },
 
-	// Changing the vertex type does not always require us to flush so handle that in Execute_VertexType.
-	{ GE_CMD_VERTEXTYPE, FLAG_EXECUTEONCHANGE, 0, &GPUCommon::Execute_VertexType },
+	// Changing the vertex type requires us to flush.
+	{ GE_CMD_VERTEXTYPE, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE, 0, &GPUCommon::Execute_VertexType },
 
 	{ GE_CMD_LOADCLUT, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTE, 0, &GPUCommon::Execute_LoadClut },
 
@@ -403,9 +403,21 @@ GPUCommon::GPUCommon(GraphicsContext *gfxCtx, Draw::DrawContext *draw) :
 			ERROR_LOG(G3D, "Command missing from table: %02x (%i)", i, i);
 		}
 	}
+
+	UpdateCmdInfo();
 }
 
 GPUCommon::~GPUCommon() {
+}
+
+void GPUCommon::UpdateCmdInfo() {
+	if (g_Config.bSoftwareSkinning) {
+		cmdInfo_[GE_CMD_VERTEXTYPE].flags &= ~FLAG_FLUSHBEFOREONCHANGE;
+		cmdInfo_[GE_CMD_VERTEXTYPE].func = &GPUCommon::Execute_VertexTypeSkinning;
+	} else {
+		cmdInfo_[GE_CMD_VERTEXTYPE].flags |= FLAG_FLUSHBEFOREONCHANGE;
+		cmdInfo_[GE_CMD_VERTEXTYPE].func = &GPUCommon::Execute_VertexType;
+	}
 }
 
 void GPUCommon::BeginHostFrame() {
@@ -1414,12 +1426,22 @@ void GPUCommon::Execute_TexSize0(u32 op, u32 diff) {
 	}
 }
 
+void GPUCommon::Execute_VertexType(u32 op, u32 diff) {
+	if (diff)
+		gstate_c.Dirty(DIRTY_VERTEXSHADER_STATE);
+	if (diff & (GE_VTYPE_TC_MASK | GE_VTYPE_THROUGH_MASK)) {
+		gstate_c.Dirty(DIRTY_UVSCALEOFFSET);
+		if (diff & GE_VTYPE_THROUGH_MASK)
+			gstate_c.Dirty(DIRTY_RASTER_STATE | DIRTY_VIEWPORTSCISSOR_STATE | DIRTY_FRAGMENTSHADER_STATE);
+	}
+}
+
 void GPUCommon::Execute_LoadClut(u32 op, u32 diff) {
 	gstate_c.Dirty(DIRTY_TEXTURE_PARAMS);
 	textureCache_->LoadClut(gstate.getClutAddress(), gstate.getClutLoadBytes());
 }
 
-void GPUCommon::Execute_VertexType(u32 op, u32 diff) {
+void GPUCommon::Execute_VertexTypeSkinning(u32 op, u32 diff) {
 	// Don't flush when weight count changes.
 	if (diff & ~GE_VTYPE_WEIGHTCOUNT_MASK) {
 		// Restore and flush
@@ -1428,6 +1450,12 @@ void GPUCommon::Execute_VertexType(u32 op, u32 diff) {
 		gstate.vertType ^= diff;
 		if (diff & (GE_VTYPE_TC_MASK | GE_VTYPE_THROUGH_MASK))
 			gstate_c.Dirty(DIRTY_UVSCALEOFFSET);
+		// In this case, we may be doing weights and morphs.
+		// Update any bone matrix uniforms so it uses them correctly.
+		if ((op & GE_VTYPE_MORPHCOUNT_MASK) != 0) {
+			gstate_c.Dirty(gstate_c.deferredVertTypeDirty);
+			gstate_c.deferredVertTypeDirty = 0;
+		}
 		gstate_c.Dirty(DIRTY_VERTEXSHADER_STATE);
 	}
 	if (diff & GE_VTYPE_THROUGH_MASK)
@@ -1525,6 +1553,10 @@ void GPUCommon::Execute_Prim(u32 op, u32 diff) {
 		goto bail;
 #endif
 
+	uint32_t vtypeCheckMask = ~GE_VTYPE_WEIGHTCOUNT_MASK;
+	if (!g_Config.bSoftwareSkinning)
+		vtypeCheckMask = 0xFFFFFFFF;
+
 	while (src != stall) {
 		uint32_t data = *src;
 		switch (data >> 24) {
@@ -1553,7 +1585,7 @@ void GPUCommon::Execute_Prim(u32 op, u32 diff) {
 		{
 			uint32_t diff = data ^ vertexType;
 			// don't mask upper bits, vertexType is unmasked
-			if (diff & ~GE_VTYPE_WEIGHTCOUNT_MASK) {
+			if (diff & vtypeCheckMask) {
 				goto bail;
 			} else {
 				vertexType = data;
@@ -1655,6 +1687,10 @@ void GPUCommon::Execute_Bezier(u32 op, u32 diff) {
 		indices = Memory::GetPointerUnchecked(gstate_c.indexAddr);
 	}
 
+	if (vertTypeIsSkinningEnabled(gstate.vertType)) {
+		DEBUG_LOG_REPORT(G3D, "Unusual bezier/spline vtype: %08x, morph: %d, bones: %d", gstate.vertType, (gstate.vertType & GE_VTYPE_MORPHCOUNT_MASK) >> GE_VTYPE_MORPHCOUNT_SHIFT, vertTypeGetNumBoneWeights(gstate.vertType));
+	}
+
 	GEPatchPrimType patchPrim = gstate.getPatchPrimitiveType();
 	SetDrawType(DRAW_BEZIER, PatchPrimToPrim(patchPrim));
 
@@ -1711,6 +1747,10 @@ void GPUCommon::Execute_Spline(u32 op, u32 diff) {
 			return;
 		}
 		indices = Memory::GetPointerUnchecked(gstate_c.indexAddr);
+	}
+
+	if (vertTypeIsSkinningEnabled(gstate.vertType)) {
+		DEBUG_LOG_REPORT(G3D, "Unusual bezier/spline vtype: %08x, morph: %d, bones: %d", gstate.vertType, (gstate.vertType & GE_VTYPE_MORPHCOUNT_MASK) >> GE_VTYPE_MORPHCOUNT_SHIFT, vertTypeGetNumBoneWeights(gstate.vertType));
 	}
 
 	int sp_ucount = op & 0xFF;
@@ -1993,10 +2033,34 @@ void GPUCommon::Execute_BoneMtxNum(u32 op, u32 diff) {
 	}
 
 	if (fastLoad) {
-		while ((src[i] >> 24) == GE_CMD_BONEMATRIXDATA) {
-			dst[i] = src[i] << 8;
-			if (++i >= end) {
-				break;
+		// If we can't use software skinning, we have to flush and dirty.
+		if (!g_Config.bSoftwareSkinning) {
+			while ((src[i] >> 24) == GE_CMD_BONEMATRIXDATA) {
+				const u32 newVal = src[i] << 8;
+				if (dst[i] != newVal) {
+					Flush();
+					dst[i] = newVal;
+				}
+				if (++i >= end) {
+					break;
+				}
+			}
+
+			const unsigned int numPlusCount = (op & 0x7F) + i;
+			for (unsigned int num = op & 0x7F; num < numPlusCount; num += 12) {
+				gstate_c.Dirty(DIRTY_BONEMATRIX0 << (num / 12));
+			}
+		} else {
+			while ((src[i] >> 24) == GE_CMD_BONEMATRIXDATA) {
+				dst[i] = src[i] << 8;
+				if (++i >= end) {
+					break;
+				}
+			}
+
+			const unsigned int numPlusCount = (op & 0x7F) + i;
+			for (unsigned int num = op & 0x7F; num < numPlusCount; num += 12) {
+				gstate_c.deferredVertTypeDirty |= DIRTY_BONEMATRIX0 << (num / 12);
 			}
 		}
 	}
@@ -2014,6 +2078,13 @@ void GPUCommon::Execute_BoneMtxData(u32 op, u32 diff) {
 	int num = gstate.boneMatrixNumber & 0x7F;
 	u32 newVal = op << 8;
 	if (num < 96 && newVal != ((const u32 *)gstate.boneMatrix)[num]) {
+		// Bone matrices should NOT flush when software skinning is enabled!
+		if (!g_Config.bSoftwareSkinning) {
+			Flush();
+			gstate_c.Dirty(DIRTY_BONEMATRIX0 << (num / 12));
+		} else {
+			gstate_c.deferredVertTypeDirty |= DIRTY_BONEMATRIX0 << (num / 12);
+		}
 		((u32 *)gstate.boneMatrix)[num] = newVal;
 	}
 	num++;
@@ -2154,6 +2225,17 @@ void GPUCommon::Execute_Unknown(u32 op, u32 diff) {
 void GPUCommon::FastLoadBoneMatrix(u32 target) {
 	const int num = gstate.boneMatrixNumber & 0x7F;
 	const int mtxNum = num / 12;
+	uint32_t uniformsToDirty = DIRTY_BONEMATRIX0 << mtxNum;
+	if ((num - 12 * mtxNum) != 0) {
+		uniformsToDirty |= DIRTY_BONEMATRIX0 << ((mtxNum + 1) & 7);
+	}
+
+	if (!g_Config.bSoftwareSkinning) {
+		Flush();
+		gstate_c.Dirty(uniformsToDirty);
+	} else {
+		gstate_c.deferredVertTypeDirty |= uniformsToDirty;
+	}
 	gstate.FastLoadBoneMatrix(target);
 }
 

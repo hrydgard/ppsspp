@@ -38,6 +38,30 @@
 
 #define WRITE p+=sprintf
 
+static const char * const boneWeightAttrDecl[9] = {
+	"#ERROR#",
+	"attribute mediump float w1;\n",
+	"attribute mediump vec2 w1;\n",
+	"attribute mediump vec3 w1;\n",
+	"attribute mediump vec4 w1;\n",
+	"attribute mediump vec4 w1;\nattribute mediump float w2;\n",
+	"attribute mediump vec4 w1;\nattribute mediump vec2 w2;\n",
+	"attribute mediump vec4 w1;\nattribute mediump vec3 w2;\n",
+	"attribute mediump vec4 w1, w2;\n",
+};
+
+static const char * const boneWeightInDecl[9] = {
+	"#ERROR#",
+	"in mediump float w1;\n",
+	"in mediump vec2 w1;\n",
+	"in mediump vec3 w1;\n",
+	"in mediump vec4 w1;\n",
+	"in mediump vec4 w1;\nin mediump float w2;\n",
+	"in mediump vec4 w1;\nin mediump vec2 w2;\n",
+	"in mediump vec4 w1;\nin mediump vec3 w2;\n",
+	"in mediump vec4 w1, w2;\n",
+};
+
 enum DoLightComputation {
 	LIGHT_OFF,
 	LIGHT_SHADE,
@@ -81,6 +105,7 @@ void GenerateVertexShader(const VShaderID &id, char *buffer, uint32_t *attrMask,
 	bool glslES30 = false;
 	const char *varying = "varying";
 	const char *attribute = "attribute";
+	const char * const * boneWeightDecl = boneWeightAttrDecl;
 	const char *texelFetch = NULL;
 	bool highpFog = false;
 	bool highpTexcoord = false;
@@ -133,6 +158,7 @@ void GenerateVertexShader(const VShaderID &id, char *buffer, uint32_t *attrMask,
 	if (glslES30 || gl_extensions.IsCoreContext) {
 		attribute = "in";
 		varying = "out";
+		boneWeightDecl = boneWeightInDecl;
 	}
 
 	bool isModeThrough = id.Bit(VS_BIT_IS_THROUGH);
@@ -156,6 +182,7 @@ void GenerateVertexShader(const VShaderID &id, char *buffer, uint32_t *attrMask,
 	bool flipNormal = id.Bit(VS_BIT_NORM_REVERSE);
 	int ls0 = id.Bits(VS_BIT_LS0, 2);
 	int ls1 = id.Bits(VS_BIT_LS1, 2);
+	bool enableBones = id.Bit(VS_BIT_ENABLE_BONES);
 	bool enableLighting = id.Bit(VS_BIT_LIGHTING_ENABLE);
 	int matUpdate = id.Bits(VS_BIT_MATERIAL_UPDATE, 3);
 
@@ -179,6 +206,16 @@ void GenerateVertexShader(const VShaderID &id, char *buffer, uint32_t *attrMask,
 			if (id.Bit(VS_BIT_LIGHTING_ENABLE) && id.Bit(VS_BIT_LIGHT0_ENABLE + i))
 				doLight[i] = LIGHT_FULL;
 		}
+	}
+
+	int numBoneWeights = 0;
+	int boneWeightScale = id.Bits(VS_BIT_WEIGHT_FMTSCALE, 2);
+	if (enableBones) {
+		numBoneWeights = 1 + id.Bits(VS_BIT_BONES, 3);
+		WRITE(p, "%s", boneWeightDecl[numBoneWeights]);
+		*attrMask |= 1 << ATTR_W1;
+		if (numBoneWeights >= 5)
+			*attrMask |= 1 << ATTR_W2;
 	}
 
 	if (useHWTransform)
@@ -230,6 +267,17 @@ void GenerateVertexShader(const VShaderID &id, char *buffer, uint32_t *attrMask,
 		if (doTextureProjection) {
 			WRITE(p, "uniform mediump mat4 u_texmtx;\n");
 			*uniformMask |= DIRTY_TEXMATRIX;
+		}
+		if (enableBones) {
+#ifdef USE_BONE_ARRAY
+			WRITE(p, "uniform mediump mat4 u_bone[%i];\n", numBoneWeights);
+			*uniformMask |= DIRTY_BONE_UNIFORMS;
+#else
+			for (int i = 0; i < numBoneWeights; i++) {
+				WRITE(p, "uniform mat4 u_bone%i;\n", i);
+				*uniformMask |= DIRTY_BONEMATRIX0 << i;
+			}
+#endif
 		}
 		if (doTexture) {
 			WRITE(p, "uniform vec4 u_uvscaleoffset;\n");
@@ -435,111 +483,189 @@ void GenerateVertexShader(const VShaderID &id, char *buffer, uint32_t *attrMask,
 			}
 		}
 	} else {
-		// Step 1: World Transform
-		// Hardware tessellation
-		if (doBezier || doSpline) {
-			WRITE(p, "  vec3 _pos[16];\n");
-			WRITE(p, "  vec2 _tex[16];\n");
-			WRITE(p, "  vec4 _col[16];\n");
-			WRITE(p, "  int num_patches_u = %s;\n", doBezier ? "(u_spline_count_u - 1) / 3" : "u_spline_count_u - 3");
-			WRITE(p, "  int u = int(mod(float(gl_InstanceID), float(num_patches_u)));\n");
-			WRITE(p, "  int v = gl_InstanceID / num_patches_u;\n");
-			WRITE(p, "  ivec2 patch_pos = ivec2(u, v);\n");
-			WRITE(p, "  for (int i = 0; i < 4; i++) {\n");
-			WRITE(p, "    for (int j = 0; j < 4; j++) {\n");
-			WRITE(p, "      int index = (i + v%s) * u_spline_count_u + (j + u%s);\n", doBezier ? " * 3" : "", doBezier ? " * 3" : "");
-			WRITE(p, "      _pos[i * 4 + j] = %s(u_tess_pos_tex, ivec2(index, 0), 0).xyz;\n", texelFetch);
-			if (doTexture && hasTexcoord && hasTexcoordTess)
-				WRITE(p, "      _tex[i * 4 + j] = %s(u_tess_tex_tex, ivec2(index, 0), 0).xy;\n", texelFetch);
-			if (hasColor && hasColorTess)
-				WRITE(p, "      _col[i * 4 + j] = %s(u_tess_col_tex, ivec2(index, 0), 0).rgba;\n", texelFetch);
-			WRITE(p, "    }\n");
-			WRITE(p, "  }\n");
-			WRITE(p, "  vec2 tess_pos = position.xy;\n");
-			WRITE(p, "  vec2 weights[4];\n");
-			if (doBezier) {
-				// Bernstein 3D
-				WRITE(p, "  weights[0] = (1.0 - tess_pos) * (1.0 - tess_pos) * (1.0 - tess_pos);\n");
-				WRITE(p, "  weights[1] = 3.0 * tess_pos * (1.0 - tess_pos) * (1.0 - tess_pos);\n");
-				WRITE(p, "  weights[2] = 3.0 * tess_pos * tess_pos * (1.0 - tess_pos);\n");
-				WRITE(p, "  weights[3] = tess_pos * tess_pos * tess_pos;\n");
-			} else { // Spline
-				WRITE(p, "  ivec2 spline_num_patches = ivec2(u_spline_count_u - 3, u_spline_count_v - 3);\n");
-				WRITE(p, "  ivec2 spline_type = ivec2(u_spline_type_u, u_spline_type_v);\n");
-				WRITE(p, "  vec2 knots[6];\n");
-				WRITE(p, "  spline_knot(spline_num_patches, spline_type, knots, patch_pos);\n");
-				WRITE(p, "  spline_weight(tess_pos + vec2(patch_pos), knots, weights);\n");
-			}
-			WRITE(p, "  vec3 pos = tess_sample(_pos, weights);\n");
-			if (doTexture && hasTexcoord) {
-				if (hasTexcoordTess)
-					WRITE(p, "  vec2 tex = tess_sample(_tex, weights);\n");
-				else
-					WRITE(p, "  vec2 tex = tess_pos + vec2(patch_pos);\n");
-			}
-			if (hasColor) {
-				if (hasColorTess)
-					WRITE(p, "  vec4 col = tess_sample(_col, weights);\n");
-				else
-					WRITE(p, "  vec4 col = %s(u_tess_col_tex, ivec2(0, 0), 0).rgba;\n", texelFetch);
-			}
-			if (hasNormal) {
-				// Curved surface is probably always need to compute normal(not sampling from control points)
+		// Step 1: World Transform / Skinning
+		if (!enableBones) {
+			// Hardware tessellation
+			if (doBezier || doSpline) {
+				WRITE(p, "  vec3 _pos[16];\n");
+				WRITE(p, "  vec2 _tex[16];\n");
+				WRITE(p, "  vec4 _col[16];\n");
+				WRITE(p, "  int num_patches_u = %s;\n", doBezier ? "(u_spline_count_u - 1) / 3" : "u_spline_count_u - 3");
+				WRITE(p, "  int u = int(mod(float(gl_InstanceID), float(num_patches_u)));\n");
+				WRITE(p, "  int v = gl_InstanceID / num_patches_u;\n");
+				WRITE(p, "  ivec2 patch_pos = ivec2(u, v);\n");
+				WRITE(p, "  for (int i = 0; i < 4; i++) {\n");
+				WRITE(p, "    for (int j = 0; j < 4; j++) {\n");
+				WRITE(p, "      int index = (i + v%s) * u_spline_count_u + (j + u%s);\n", doBezier ? " * 3" : "", doBezier ? " * 3" : "");
+				WRITE(p, "      _pos[i * 4 + j] = %s(u_tess_pos_tex, ivec2(index, 0), 0).xyz;\n", texelFetch);
+				if (doTexture && hasTexcoord && hasTexcoordTess)
+					WRITE(p, "      _tex[i * 4 + j] = %s(u_tess_tex_tex, ivec2(index, 0), 0).xy;\n", texelFetch);
+				if (hasColor && hasColorTess)
+					WRITE(p, "      _col[i * 4 + j] = %s(u_tess_col_tex, ivec2(index, 0), 0).rgba;\n", texelFetch);
+				WRITE(p, "    }\n");
+				WRITE(p, "  }\n");
+				WRITE(p, "  vec2 tess_pos = position.xy;\n");
+				WRITE(p, "  vec2 weights[4];\n");
 				if (doBezier) {
-					// Bernstein derivative
-					WRITE(p, "  vec2 bernderiv[4];\n");
-					WRITE(p, "  bernderiv[0] = -3.0 * (tess_pos - 1.0) * (tess_pos - 1.0); \n");
-					WRITE(p, "  bernderiv[1] = 9.0 * tess_pos * tess_pos - 12.0 * tess_pos + 3.0; \n");
-					WRITE(p, "  bernderiv[2] = 3.0 * (2.0 - 3.0 * tess_pos) * tess_pos; \n");
-					WRITE(p, "  bernderiv[3] = 3.0 * tess_pos * tess_pos; \n");
-
-					WRITE(p, "  vec2 bernderiv_u[4];\n");
-					WRITE(p, "  vec2 bernderiv_v[4];\n");
-					WRITE(p, "  for (int i = 0; i < 4; i++) {\n");
-					WRITE(p, "    bernderiv_u[i] = vec2(bernderiv[i].x, weights[i].y);\n");
-					WRITE(p, "    bernderiv_v[i] = vec2(weights[i].x, bernderiv[i].y);\n");
-					WRITE(p, "  }\n");
-
-					WRITE(p, "  vec3 du = tess_sample(_pos, bernderiv_u);\n");
-					WRITE(p, "  vec3 dv = tess_sample(_pos, bernderiv_v);\n");
+					// Bernstein 3D
+					WRITE(p, "  weights[0] = (1.0 - tess_pos) * (1.0 - tess_pos) * (1.0 - tess_pos);\n");
+					WRITE(p, "  weights[1] = 3.0 * tess_pos * (1.0 - tess_pos) * (1.0 - tess_pos);\n");
+					WRITE(p, "  weights[2] = 3.0 * tess_pos * tess_pos * (1.0 - tess_pos);\n");
+					WRITE(p, "  weights[3] = tess_pos * tess_pos * tess_pos;\n");
 				} else { // Spline
-					WRITE(p, "  vec2 tess_next_u = vec2(normal.x, 0.0);\n");
-					WRITE(p, "  vec2 tess_next_v = vec2(0.0, normal.y);\n");
-					// Right
-					WRITE(p, "  vec2 tess_pos_r = tess_pos + tess_next_u;\n");
-					WRITE(p, "  spline_weight(tess_pos_r + vec2(patch_pos), knots, weights);\n");
-					WRITE(p, "  vec3 pos_r = tess_sample(_pos, weights);\n");
-					// Left
-					WRITE(p, "  vec2 tess_pos_l = tess_pos - tess_next_u;\n");
-					WRITE(p, "  spline_weight(tess_pos_l + vec2(patch_pos), knots, weights);\n");
-					WRITE(p, "  vec3 pos_l = tess_sample(_pos, weights);\n");
-					// Down
-					WRITE(p, "  vec2 tess_pos_d = tess_pos + tess_next_v;\n");
-					WRITE(p, "  spline_weight(tess_pos_d + vec2(patch_pos), knots, weights);\n");
-					WRITE(p, "  vec3 pos_d = tess_sample(_pos, weights);\n");
-					// Up
-					WRITE(p, "  vec2 tess_pos_u = tess_pos - tess_next_v;\n");
-					WRITE(p, "  spline_weight(tess_pos_u + vec2(patch_pos), knots, weights);\n");
-					WRITE(p, "  vec3 pos_u = tess_sample(_pos, weights);\n");
-
-					WRITE(p, "  vec3 du = pos_r - pos_l;\n");
-					WRITE(p, "  vec3 dv = pos_d - pos_u;\n");
+					WRITE(p, "  ivec2 spline_num_patches = ivec2(u_spline_count_u - 3, u_spline_count_v - 3);\n");
+					WRITE(p, "  ivec2 spline_type = ivec2(u_spline_type_u, u_spline_type_v);\n");
+					WRITE(p, "  vec2 knots[6];\n");
+					WRITE(p, "  spline_knot(spline_num_patches, spline_type, knots, patch_pos);\n");
+					WRITE(p, "  spline_weight(tess_pos + vec2(patch_pos), knots, weights);\n");
 				}
-				WRITE(p, "  vec3 nrm = cross(du, dv);\n");
-				WRITE(p, "  nrm = normalize(nrm);\n");
-			}
-			WRITE(p, "  vec3 worldpos = (u_world * vec4(pos.xyz, 1.0)).xyz;\n");
-			if (hasNormal) {
-				WRITE(p, "  mediump vec3 worldnormal = normalize((u_world * vec4(%snrm, 0.0)).xyz);\n", flipNormalTess ? "-" : "");
+				WRITE(p, "  vec3 pos = tess_sample(_pos, weights);\n");
+				if (doTexture && hasTexcoord) {
+					if (hasTexcoordTess)
+						WRITE(p, "  vec2 tex = tess_sample(_tex, weights);\n");
+					else
+						WRITE(p, "  vec2 tex = tess_pos + vec2(patch_pos);\n");
+				}
+				if (hasColor) {
+					if (hasColorTess)
+						WRITE(p, "  vec4 col = tess_sample(_col, weights);\n");
+					else
+						WRITE(p, "  vec4 col = %s(u_tess_col_tex, ivec2(0, 0), 0).rgba;\n", texelFetch);
+				}
+				if (hasNormal) {
+					// Curved surface is probably always need to compute normal(not sampling from control points)
+					if (doBezier) {
+						// Bernstein derivative
+						WRITE(p, "  vec2 bernderiv[4];\n");
+						WRITE(p, "  bernderiv[0] = -3.0 * (tess_pos - 1.0) * (tess_pos - 1.0); \n");
+						WRITE(p, "  bernderiv[1] = 9.0 * tess_pos * tess_pos - 12.0 * tess_pos + 3.0; \n");
+						WRITE(p, "  bernderiv[2] = 3.0 * (2.0 - 3.0 * tess_pos) * tess_pos; \n");
+						WRITE(p, "  bernderiv[3] = 3.0 * tess_pos * tess_pos; \n");
+
+						WRITE(p, "  vec2 bernderiv_u[4];\n");
+						WRITE(p, "  vec2 bernderiv_v[4];\n");
+						WRITE(p, "  for (int i = 0; i < 4; i++) {\n");
+						WRITE(p, "    bernderiv_u[i] = vec2(bernderiv[i].x, weights[i].y);\n");
+						WRITE(p, "    bernderiv_v[i] = vec2(weights[i].x, bernderiv[i].y);\n");
+						WRITE(p, "  }\n");
+
+						WRITE(p, "  vec3 du = tess_sample(_pos, bernderiv_u);\n");
+						WRITE(p, "  vec3 dv = tess_sample(_pos, bernderiv_v);\n");
+					} else { // Spline
+						WRITE(p, "  vec2 tess_next_u = vec2(normal.x, 0.0);\n");
+						WRITE(p, "  vec2 tess_next_v = vec2(0.0, normal.y);\n");
+						// Right
+						WRITE(p, "  vec2 tess_pos_r = tess_pos + tess_next_u;\n");
+						WRITE(p, "  spline_weight(tess_pos_r + vec2(patch_pos), knots, weights);\n");
+						WRITE(p, "  vec3 pos_r = tess_sample(_pos, weights);\n");
+						// Left
+						WRITE(p, "  vec2 tess_pos_l = tess_pos - tess_next_u;\n");
+						WRITE(p, "  spline_weight(tess_pos_l + vec2(patch_pos), knots, weights);\n");
+						WRITE(p, "  vec3 pos_l = tess_sample(_pos, weights);\n");
+						// Down
+						WRITE(p, "  vec2 tess_pos_d = tess_pos + tess_next_v;\n");
+						WRITE(p, "  spline_weight(tess_pos_d + vec2(patch_pos), knots, weights);\n");
+						WRITE(p, "  vec3 pos_d = tess_sample(_pos, weights);\n");
+						// Up
+						WRITE(p, "  vec2 tess_pos_u = tess_pos - tess_next_v;\n");
+						WRITE(p, "  spline_weight(tess_pos_u + vec2(patch_pos), knots, weights);\n");
+						WRITE(p, "  vec3 pos_u = tess_sample(_pos, weights);\n");
+
+						WRITE(p, "  vec3 du = pos_r - pos_l;\n");
+						WRITE(p, "  vec3 dv = pos_d - pos_u;\n");
+					}
+					WRITE(p, "  vec3 nrm = cross(du, dv);\n");
+					WRITE(p, "  nrm = normalize(nrm);\n");
+				}
+				WRITE(p, "  vec3 worldpos = (u_world * vec4(pos.xyz, 1.0)).xyz;\n");
+				if (hasNormal) {
+					WRITE(p, "  mediump vec3 worldnormal = normalize((u_world * vec4(%snrm, 0.0)).xyz);\n", flipNormalTess ? "-" : "");
+				} else {
+					WRITE(p, "  mediump vec3 worldnormal = vec3(0.0, 0.0, 1.0);\n");
+				}
 			} else {
-				WRITE(p, "  mediump vec3 worldnormal = vec3(0.0, 0.0, 1.0);\n");
+				// No skinning, just standard T&L.
+				WRITE(p, "  vec3 worldpos = (u_world * vec4(position.xyz, 1.0)).xyz;\n");
+				if (hasNormal)
+					WRITE(p, "  mediump vec3 worldnormal = normalize((u_world * vec4(%snormal, 0.0)).xyz);\n", flipNormal ? "-" : "");
+				else
+					WRITE(p, "  mediump vec3 worldnormal = vec3(0.0, 0.0, 1.0);\n");
 			}
 		} else {
-			WRITE(p, "  vec3 worldpos = (u_world * vec4(position.xyz, 1.0)).xyz;\n");
-			if (hasNormal)
-				WRITE(p, "  mediump vec3 worldnormal = normalize((u_world * vec4(%snormal, 0.0)).xyz);\n", flipNormal ? "-" : "");
+			static const char *rescale[4] = {"", " * 1.9921875", " * 1.999969482421875", ""}; // 2*127.5f/128.f, 2*32767.5f/32768.f, 1.0f};
+			const char *factor = rescale[boneWeightScale];
+
+			static const char * const boneWeightAttr[8] = {
+				"w1.x", "w1.y", "w1.z", "w1.w",
+				"w2.x", "w2.y", "w2.z", "w2.w",
+			};
+
+#if defined(USE_FOR_LOOP) && defined(USE_BONE_ARRAY)
+
+			// To loop through the weights, we unfortunately need to put them in a float array.
+			// GLSL ES sucks - no way to directly initialize an array!
+			switch (numBoneWeights) {
+			case 1: WRITE(p, "  float w[1]; w[0] = w1;\n"); break;
+			case 2: WRITE(p, "  float w[2]; w[0] = w1.x; w[1] = w1.y;\n"); break;
+			case 3: WRITE(p, "  float w[3]; w[0] = w1.x; w[1] = w1.y; w[2] = w1.z;\n"); break;
+			case 4: WRITE(p, "  float w[4]; w[0] = w1.x; w[1] = w1.y; w[2] = w1.z; w[3] = w1.w;\n"); break;
+			case 5: WRITE(p, "  float w[5]; w[0] = w1.x; w[1] = w1.y; w[2] = w1.z; w[3] = w1.w; w[4] = w2;\n"); break;
+			case 6: WRITE(p, "  float w[6]; w[0] = w1.x; w[1] = w1.y; w[2] = w1.z; w[3] = w1.w; w[4] = w2.x; w[5] = w2.y;\n"); break;
+			case 7: WRITE(p, "  float w[7]; w[0] = w1.x; w[1] = w1.y; w[2] = w1.z; w[3] = w1.w; w[4] = w2.x; w[5] = w2.y; w[6] = w2.z;\n"); break;
+			case 8: WRITE(p, "  float w[8]; w[0] = w1.x; w[1] = w1.y; w[2] = w1.z; w[3] = w1.w; w[4] = w2.x; w[5] = w2.y; w[6] = w2.z; w[7] = w2.w;\n"); break;
+			}
+
+			WRITE(p, "  mat4 skinMatrix = w[0] * u_bone[0];\n");
+			if (numBoneWeights > 1) {
+				WRITE(p, "  for (int i = 1; i < %i; i++) {\n", numBoneWeights);
+				WRITE(p, "    skinMatrix += w[i] * u_bone[i];\n");
+				WRITE(p, "  }\n");
+			}
+
+#else
+
+#ifdef USE_BONE_ARRAY
+			if (numBoneWeights == 1)
+				WRITE(p, "  mat4 skinMatrix = w1 * u_bone[0]");
 			else
-				WRITE(p, "  mediump vec3 worldnormal = vec3(0.0, 0.0, 1.0);\n");
+				WRITE(p, "  mat4 skinMatrix = w1.x * u_bone[0]");
+			for (int i = 1; i < numBoneWeights; i++) {
+				const char *weightAttr = boneWeightAttr[i];
+				// workaround for "cant do .x of scalar" issue
+				if (numBoneWeights == 1 && i == 0) weightAttr = "w1";
+				if (numBoneWeights == 5 && i == 4) weightAttr = "w2";
+				WRITE(p, " + %s * u_bone[%i]", weightAttr, i);
+			}
+#else
+			// Uncomment this to screw up bone shaders to check the vertex shader software fallback
+			// WRITE(p, "THIS SHOULD ERROR! #error");
+			if (numBoneWeights == 1)
+				WRITE(p, "  mat4 skinMatrix = w1 * u_bone0");
+			else
+				WRITE(p, "  mat4 skinMatrix = w1.x * u_bone0");
+			for (int i = 1; i < numBoneWeights; i++) {
+				const char *weightAttr = boneWeightAttr[i];
+				// workaround for "cant do .x of scalar" issue
+				if (numBoneWeights == 1 && i == 0) weightAttr = "w1";
+				if (numBoneWeights == 5 && i == 4) weightAttr = "w2";
+				WRITE(p, " + %s * u_bone%i", weightAttr, i);
+			}
+#endif
+
+#endif
+
+			WRITE(p, ";\n");
+
+			// Trying to simplify this results in bugs in LBP...
+			WRITE(p, "  vec3 skinnedpos = (skinMatrix * vec4(position, 1.0)).xyz %s;\n", factor);
+			WRITE(p, "  vec3 worldpos = (u_world * vec4(skinnedpos, 1.0)).xyz;\n");
+
+			if (hasNormal) {
+				WRITE(p, "  mediump vec3 skinnednormal = (skinMatrix * vec4(%snormal, 0.0)).xyz %s;\n", flipNormal ? "-" : "", factor);
+			} else {
+				WRITE(p, "  mediump vec3 skinnednormal = (skinMatrix * vec4(0.0, 0.0, %s1.0, 0.0)).xyz %s;\n", flipNormal ? "-" : "", factor);
+			}
+			WRITE(p, "  mediump vec3 worldnormal = normalize((u_world * vec4(skinnednormal, 0.0)).xyz);\n");
 		}
 
 		WRITE(p, "  vec4 viewPos = u_view * vec4(worldpos, 1.0);\n");

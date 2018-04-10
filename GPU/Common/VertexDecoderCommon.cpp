@@ -41,12 +41,19 @@ static const u8 nrmsize[4] = { 0, 3, 6, 12 }, nrmalign[4] = { 0, 1, 2, 4 };
 static const u8 possize[4] = { 3, 3, 6, 12 }, posalign[4] = { 1, 1, 2, 4 };
 static const u8 wtsize[4] = { 0, 1, 2, 4 }, wtalign[4] = { 0, 1, 2, 4 };
 
-// This array is only used when non-jitted - when jitted, the matrix
+// When software skinning. This array is only used when non-jitted - when jitted, the matrix
 // is kept in registers.
 alignas(16) static float skinMatrix[12];
 
 inline int align(int n, int align) {
 	return (n + (align - 1)) & ~(align - 1);
+}
+
+int TranslateNumBones(int bones) {
+	if (!bones) return 0;
+	if (bones < 4) return 4;
+	// if (bones < 8) return 8;   I get drawing problems in FF:CC with this!
+	return bones;
 }
 
 int DecFmtSize(u8 fmt) {
@@ -168,6 +175,67 @@ void PrintDecodedVertex(VertexReader &vtx) {
 }
 
 VertexDecoder::VertexDecoder() : decoded_(nullptr), ptr_(nullptr), jitted_(0), jittedSize_(0) {
+}
+
+void VertexDecoder::Step_WeightsU8() const
+{
+	u8 *wt = (u8 *)(decoded_ + decFmt.w0off);
+	const u8 *wdata = (const u8*)(ptr_);
+	int j;
+	for (j = 0; j < nweights; j++)
+		wt[j] = wdata[j];
+	while (j & 3)   // Zero additional weights rounding up to 4.
+		wt[j++] = 0;
+}
+
+void VertexDecoder::Step_WeightsU16() const
+{
+	u16 *wt = (u16 *)(decoded_ + decFmt.w0off);
+	const u16 *wdata = (const u16*)(ptr_);
+	int j;
+	for (j = 0; j < nweights; j++)
+		wt[j] = wdata[j];
+	while (j & 3)   // Zero additional weights rounding up to 4.
+		wt[j++] = 0;
+}
+
+void VertexDecoder::Step_WeightsU8ToFloat() const
+{
+	float *wt = (float *)(decoded_ + decFmt.w0off);
+	const u8 *wdata = (const u8*)(ptr_);
+	int j;
+	for (j = 0; j < nweights; j++) {
+		wt[j] = (float)wdata[j] * (1.0f / 128.0f);
+	}
+	while (j & 3)   // Zero additional weights rounding up to 4.
+		wt[j++] = 0;
+}
+
+void VertexDecoder::Step_WeightsU16ToFloat() const
+{
+	float *wt = (float *)(decoded_ + decFmt.w0off);
+	const u16 *wdata = (const u16*)(ptr_);
+	int j;
+	for (j = 0; j < nweights; j++) {
+		wt[j] = (float)wdata[j] * (1.0f / 32768.0f);
+	}
+	while (j & 3)   // Zero additional weights rounding up to 4.
+		wt[j++] = 0;
+}
+
+// Float weights should be uncommon, we can live with having to multiply these by 2.0
+// to avoid special checks in the vertex shader generator.
+// (PSP uses 0.0-2.0 fixed point numbers for weights)
+void VertexDecoder::Step_WeightsFloat() const
+{
+	float *wt = (float *)(decoded_ + decFmt.w0off);
+	const float *wdata = (const float*)(ptr_);
+	int j;
+	for (j = 0; j < nweights; j++) {
+		wt[j] = wdata[j];
+	}
+	while (j & 3)   // Zero additional weights rounding up to 4.
+		wt[j++] = 0.0f;
 }
 
 void VertexDecoder::ComputeSkinMatrix(const float weights[8]) const {
@@ -802,6 +870,20 @@ void VertexDecoder::Step_PosFloatMorphSkin() const {
 	Vec3ByMatrix43(v, pos, skinMatrix);
 }
 
+static const StepFunction wtstep[4] = {
+	0,
+	&VertexDecoder::Step_WeightsU8,
+	&VertexDecoder::Step_WeightsU16,
+	&VertexDecoder::Step_WeightsFloat,
+};
+
+static const StepFunction wtstepToFloat[4] = {
+	0,
+	&VertexDecoder::Step_WeightsU8ToFloat,
+	&VertexDecoder::Step_WeightsU16ToFloat,
+	&VertexDecoder::Step_WeightsFloat,
+};
+
 // TODO: Morph weights correctly! This is missing. Not sure if any game actually
 // use this functionality at all.
 
@@ -1000,7 +1082,7 @@ void VertexDecoder::SetVertexType(u32 fmt, const VertexDecoderOptions &options, 
 		DEBUG_LOG(G3D, "VTYPE: THRU=%i TC=%i COL=%i POS=%i NRM=%i WT=%i NW=%i IDX=%i MC=%i", (int)throughmode, tc, col, pos, nrm, weighttype, nweights, idx, morphcount);
 	}
 
-	bool skinning = weighttype != 0;
+	bool skinInDecode = weighttype != 0 && g_Config.bSoftwareSkinning;
 
 	if (weighttype) { // && nweights?
 		weightoff = size;
@@ -1009,11 +1091,43 @@ void VertexDecoder::SetVertexType(u32 fmt, const VertexDecoderOptions &options, 
 		if (wtalign[weighttype] > biggest)
 			biggest = wtalign[weighttype];
 
-		// No visible output, computes a matrix that is passed through the skinMatrix variable
-		// to the "nrm" and "pos" steps.
-		// Technically we should support morphing the weights too, but I have a hard time
-		// imagining that any game would use that.. but you never know.
-		steps_[numSteps_++] = wtstep_skin[weighttype];
+		if (skinInDecode) {
+			// No visible output, computes a matrix that is passed through the skinMatrix variable
+			// to the "nrm" and "pos" steps.
+			// Technically we should support morphing the weights too, but I have a hard time
+			// imagining that any game would use that.. but you never know.
+			steps_[numSteps_++] = wtstep_skin[weighttype];
+		} else {
+			int fmtBase = DEC_FLOAT_1;
+			if (options.expandAllWeightsToFloat) {
+				steps_[numSteps_++] = wtstepToFloat[weighttype];
+				fmtBase = DEC_FLOAT_1;
+			} else {
+				steps_[numSteps_++] = wtstep[weighttype];
+				if (weighttype == GE_VTYPE_WEIGHT_8BIT >> GE_VTYPE_WEIGHT_SHIFT) {
+					fmtBase = DEC_U8_1;
+				} else if (weighttype == GE_VTYPE_WEIGHT_16BIT >> GE_VTYPE_WEIGHT_SHIFT) {
+					fmtBase = DEC_U16_1;
+				} else if (weighttype == GE_VTYPE_WEIGHT_FLOAT >> GE_VTYPE_WEIGHT_SHIFT) {
+					fmtBase = DEC_FLOAT_1;
+				}
+			}
+
+			int numWeights = TranslateNumBones(nweights);
+
+			if (numWeights <= 4) {
+				decFmt.w0off = decOff;
+				decFmt.w0fmt = fmtBase + numWeights - 1;
+				decOff += DecFmtSize(decFmt.w0fmt);
+			} else {
+				decFmt.w0off = decOff;
+				decFmt.w0fmt = fmtBase + 3;
+				decOff += DecFmtSize(decFmt.w0fmt);
+				decFmt.w1off = decOff;
+				decFmt.w1fmt = fmtBase + numWeights - 5;
+				decOff += DecFmtSize(decFmt.w1fmt);
+			}
+		}
 	}
 
 	if (tc) {
@@ -1071,7 +1185,7 @@ void VertexDecoder::SetVertexType(u32 fmt, const VertexDecoderOptions &options, 
 		if (nrmalign[nrm] > biggest)
 			biggest = nrmalign[nrm];
 
-		if (skinning) {
+		if (skinInDecode) {
 			steps_[numSteps_++] = morphcount == 1 ? nrmstep_skin[nrm] : nrmstep_morphskin[nrm];
 			// After skinning, we always have three floats.
 			decFmt.nrmfmt = DEC_FLOAT_3;
@@ -1122,7 +1236,7 @@ void VertexDecoder::SetVertexType(u32 fmt, const VertexDecoderOptions &options, 
 			steps_[numSteps_++] = posstep_through[pos];
 			decFmt.posfmt = DEC_FLOAT_3;
 		} else {
-			if (skinning) {
+			if (skinInDecode) {
 				steps_[numSteps_++] = morphcount == 1 ? posstep_skin[pos] : posstep_morph_skin[pos];
 				decFmt.posfmt = DEC_FLOAT_3;
 			} else {

@@ -158,9 +158,11 @@ ShaderManagerVulkan::ShaderManagerVulkan(VulkanContext *vulkan)
 	uboAlignment_ = vulkan_->GetPhysicalDeviceProperties().limits.minUniformBufferOffsetAlignment;
 	memset(&ub_base, 0, sizeof(ub_base));
 	memset(&ub_lights, 0, sizeof(ub_lights));
+	memset(&ub_bones, 0, sizeof(ub_bones));
 
 	ILOG("sizeof(ub_base): %d", (int)sizeof(ub_base));
 	ILOG("sizeof(ub_lights): %d", (int)sizeof(ub_lights));
+	ILOG("sizeof(ub_bones): %d", (int)sizeof(ub_bones));
 }
 
 ShaderManagerVulkan::~ShaderManagerVulkan() {
@@ -213,6 +215,8 @@ uint64_t ShaderManagerVulkan::UpdateUniforms() {
 			BaseUpdateUniforms(&ub_base, dirty, false);
 		if (dirty & DIRTY_LIGHT_UNIFORMS)
 			LightUpdateUniforms(&ub_lights, dirty);
+		if (dirty & DIRTY_BONE_UNIFORMS)
+			BoneUpdateUniforms(&ub_bones, dirty);
 	}
 	gstate_c.CleanUniforms();
 	return dirty;

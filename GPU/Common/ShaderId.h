@@ -7,6 +7,7 @@
 
 // TODO: There will be additional bits, indicating that groups of these will be
 // sent to the shader and processed there. This will cut down the number of shaders ("ubershader approach")
+// This is probably only really worth doing for lighting and bones.
 enum {
 	VS_BIT_LMODE = 0,
 	VS_BIT_IS_THROUGH = 1,
@@ -28,7 +29,10 @@ enum {
 	VS_BIT_UVPROJ_MODE = 18,  // 2, can overlap with LS0
 	VS_BIT_LS0 = 18,  // 2
 	VS_BIT_LS1 = 20,  // 2
-	// 22 - 31 are free.
+	VS_BIT_BONES = 22,  // 3 should be enough, not 8
+	// 25 - 29 are free.
+	VS_BIT_ENABLE_BONES = 30,
+	// 31 is free.
 	VS_BIT_LIGHT0_COMP = 32,  // 2 bits
 	VS_BIT_LIGHT0_TYPE = 34,  // 2 bits
 	VS_BIT_LIGHT1_COMP = 36,  // 2 bits

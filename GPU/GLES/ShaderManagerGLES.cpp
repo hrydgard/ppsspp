@@ -109,7 +109,20 @@ LinkedShader::LinkedShader(GLRenderManager *render, VShaderID VSID, Shader *vs, 
 	queries.push_back({ &u_world, "u_world" });
 	queries.push_back({ &u_texmtx, "u_texmtx" });
 
+	if (VSID.Bit(VS_BIT_ENABLE_BONES))
+		numBones = TranslateNumBones(VSID.Bits(VS_BIT_BONES, 3) + 1);
+	else
+		numBones = 0;
 	queries.push_back({ &u_depthRange, "u_depthRange" });
+
+#ifdef USE_BONE_ARRAY
+	queries.push_back({ &u_bone, "u_bone" });
+#else
+	static const char * const boneNames[8] = { "u_bone0", "u_bone1", "u_bone2", "u_bone3", "u_bone4", "u_bone5", "u_bone6", "u_bone7", };
+	for (int i = 0; i < 8; i++) {
+		queries.push_back({ &u_bone[i], boneNames[i] });
+	}
+#endif
 
 	// Lighting, texturing
 	queries.push_back({ &u_ambient, "u_ambient" });
@@ -465,6 +478,13 @@ void LinkedShader::UpdateUniforms(u32 vertType, const ShaderID &vsid) {
 		float f = (float)gstate.getStencilTestRef() * (1.0f / 255.0f);
 		render_->SetUniformF(&u_stencilReplaceValue, 1, &f);
 	}
+	float bonetemp[16];
+	for (int i = 0; i < numBones; i++) {
+		if (dirty & (DIRTY_BONEMATRIX0 << i)) {
+			ConvertMatrix4x3To4x4(bonetemp, gstate.boneMatrix + 12 * i);
+			render_->SetUniformM4x4(&u_bone[i], bonetemp);
+		}
+	}
 
 	if (dirty & DIRTY_SHADERBLEND) {
 		if (u_blendFixA != -1) {
@@ -790,7 +810,7 @@ std::string ShaderManagerGLES::DebugGetShaderString(std::string id, DebugShaderT
 // as sometimes these features might have an effect on the ID bits.
 
 #define CACHE_HEADER_MAGIC 0x83277592
-#define CACHE_VERSION 10
+#define CACHE_VERSION 11
 struct CacheHeader {
 	uint32_t magic;
 	uint32_t version;
