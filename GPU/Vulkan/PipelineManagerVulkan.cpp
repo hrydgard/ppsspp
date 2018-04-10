@@ -76,6 +76,8 @@ static const DeclTypeInfo VComp[] = {
 };
 
 static void VertexAttribSetup(VkVertexInputAttributeDescription *attr, int fmt, int offset, PspAttributeLocation location) {
+	assert(fmt != DEC_NONE);
+	assert(fmt < ARRAY_SIZE(VComp));
 	attr->location = (uint32_t)location;
 	attr->binding = 0;
 	attr->format = VComp[fmt].type;
@@ -87,6 +89,12 @@ static void VertexAttribSetup(VkVertexInputAttributeDescription *attr, int fmt, 
 // as we will only call this code when we need to create a new VkPipeline.
 static int SetupVertexAttribs(VkVertexInputAttributeDescription attrs[], const DecVtxFormat &decFmt) {
 	int count = 0;
+	if (decFmt.w0fmt != 0) {
+		VertexAttribSetup(&attrs[count++], decFmt.w0fmt, decFmt.w0off, PspAttributeLocation::W1);
+	}
+	if (decFmt.w1fmt != 0) {
+		VertexAttribSetup(&attrs[count++], decFmt.w1fmt, decFmt.w1off, PspAttributeLocation::W2);
+	}
 	if (decFmt.uvfmt != 0) {
 		VertexAttribSetup(&attrs[count++], decFmt.uvfmt, decFmt.uvoff, PspAttributeLocation::TEXCOORD);
 	}

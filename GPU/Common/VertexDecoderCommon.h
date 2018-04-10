@@ -67,6 +67,8 @@ enum {
 int DecFmtSize(u8 fmt);
 
 struct DecVtxFormat {
+	u8 w0fmt; u8 w0off;  // first 4 weights
+	u8 w1fmt; u8 w1off;  // second 4 weights
 	u8 uvfmt; u8 uvoff;
 	u8 c0fmt; u8 c0off;  // First color
 	u8 c1fmt; u8 c1off;
@@ -341,6 +343,61 @@ public:
 		default:
 			ERROR_LOG_REPORT_ONCE(fmtc1, G3D, "Reader: Unsupported C1 Format %d", decFmt_.c1fmt);
 			memset(color, 0, sizeof(float) * 3);
+			break;
+		}
+	}
+
+	void ReadWeights(float weights[8]) const {
+		const float *f = (const float *)(data_ + decFmt_.w0off);
+		const u8 *b = (const u8 *)(data_ + decFmt_.w0off);
+		const u16 *s = (const u16 *)(data_ + decFmt_.w0off);
+		switch (decFmt_.w0fmt) {
+		case DEC_FLOAT_1:
+		case DEC_FLOAT_2:
+		case DEC_FLOAT_3:
+		case DEC_FLOAT_4:
+			for (int i = 0; i <= decFmt_.w0fmt - DEC_FLOAT_1; i++)
+				weights[i] = f[i];
+			break;
+		case DEC_U8_1: weights[0] = b[0] * (1.f / 128.f); break;
+		case DEC_U8_2: for (int i = 0; i < 2; i++) weights[i] = b[i] * (1.f / 128.f); break;
+		case DEC_U8_3: for (int i = 0; i < 3; i++) weights[i] = b[i] * (1.f / 128.f); break;
+		case DEC_U8_4: for (int i = 0; i < 4; i++) weights[i] = b[i] * (1.f / 128.f); break;
+		case DEC_U16_1: weights[0] = s[0] * (1.f / 32768.f); break;
+		case DEC_U16_2: for (int i = 0; i < 2; i++) weights[i] = s[i] * (1.f / 32768.f); break;
+		case DEC_U16_3: for (int i = 0; i < 3; i++) weights[i] = s[i] * (1.f / 32768.f); break;
+		case DEC_U16_4: for (int i = 0; i < 4; i++) weights[i] = s[i] * (1.f / 32768.f); break;
+		default:
+			ERROR_LOG_REPORT_ONCE(fmtw0, G3D, "Reader: Unsupported W0 Format %d", decFmt_.w0fmt);
+			memset(weights, 0, sizeof(float) * 8);
+			break;
+		}
+
+		f = (const float *)(data_ + decFmt_.w1off);
+		b = (const u8 *)(data_ + decFmt_.w1off);
+		s = (const u16 *)(data_ + decFmt_.w1off);
+		switch (decFmt_.w1fmt) {
+		case 0:
+			// It's fine for there to be w0 weights but not w1.
+			break;
+		case DEC_FLOAT_1:
+		case DEC_FLOAT_2:
+		case DEC_FLOAT_3:
+		case DEC_FLOAT_4:
+			for (int i = 0; i <= decFmt_.w1fmt - DEC_FLOAT_1; i++)
+				weights[i+4] = f[i];
+			break;
+		case DEC_U8_1: weights[4] = b[0] * (1.f / 128.f); break;
+		case DEC_U8_2: for (int i = 0; i < 2; i++) weights[i+4] = b[i] * (1.f / 128.f); break;
+		case DEC_U8_3: for (int i = 0; i < 3; i++) weights[i+4] = b[i] * (1.f / 128.f); break;
+		case DEC_U8_4: for (int i = 0; i < 4; i++) weights[i+4] = b[i] * (1.f / 128.f); break;
+		case DEC_U16_1: weights[4] = s[0] * (1.f / 32768.f); break;
+		case DEC_U16_2: for (int i = 0; i < 2; i++) weights[i+4] = s[i] * (1.f / 32768.f); break;
+		case DEC_U16_3: for (int i = 0; i < 3; i++) weights[i+4] = s[i] * (1.f / 32768.f); break;
+		case DEC_U16_4: for (int i = 0; i < 4; i++) weights[i+4] = s[i]  * (1.f / 32768.f); break;
+		default:
+			ERROR_LOG_REPORT_ONCE(fmtw1, G3D, "Reader: Unsupported W1 Format %d", decFmt_.w1fmt);
+			memset(weights + 4, 0, sizeof(float) * 4);
 			break;
 		}
 	}

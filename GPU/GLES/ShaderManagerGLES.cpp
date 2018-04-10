@@ -79,6 +79,8 @@ LinkedShader::LinkedShader(GLRenderManager *render, VShaderID VSID, Shader *vs, 
 	semantics.push_back({ ATTR_POSITION, "position" });
 	semantics.push_back({ ATTR_TEXCOORD, "texcoord" });
 	semantics.push_back({ ATTR_NORMAL, "normal" });
+	semantics.push_back({ ATTR_W1, "w1" });
+	semantics.push_back({ ATTR_W2, "w2" });
 	semantics.push_back({ ATTR_COLOR0, "color0" });
 	semantics.push_back({ ATTR_COLOR1, "color1" });
 
@@ -788,7 +790,7 @@ std::string ShaderManagerGLES::DebugGetShaderString(std::string id, DebugShaderT
 // as sometimes these features might have an effect on the ID bits.
 
 #define CACHE_HEADER_MAGIC 0x83277592
-#define CACHE_VERSION 7
+#define CACHE_VERSION 10
 struct CacheHeader {
 	uint32_t magic;
 	uint32_t version;

@@ -89,6 +89,9 @@ void GenerateVertexShaderHLSL(const VShaderID &id, char *buffer, ShaderLanguage 
 		}
 	}
 
+	int numBoneWeights = 0;
+	int boneWeightScale = id.Bits(VS_BIT_WEIGHT_FMTSCALE, 2);
+
 	if (lang == HLSL_DX9) {
 		WRITE(p, "#pragma warning( disable : 3571 )\n");
 		if (isModeThrough) {

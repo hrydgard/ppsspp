@@ -45,6 +45,7 @@ std::string VertexShaderDesc(const ShaderID &id) {
 		}
 	}
 	if (id.Bits(VS_BIT_MATERIAL_UPDATE, 3)) desc << "MatUp:" << id.Bits(VS_BIT_MATERIAL_UPDATE, 3) << " ";
+	if (id.Bits(VS_BIT_WEIGHT_FMTSCALE, 2)) desc << "WScale " << id.Bits(VS_BIT_WEIGHT_FMTSCALE, 2) << " ";
 	if (id.Bit(VS_BIT_FLATSHADE)) desc << "Flat ";
 
 	if (id.Bit(VS_BIT_BEZIER)) desc << "Bezier ";
