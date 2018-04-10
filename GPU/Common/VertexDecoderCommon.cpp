@@ -1082,7 +1082,7 @@ void VertexDecoder::SetVertexType(u32 fmt, const VertexDecoderOptions &options, 
 		DEBUG_LOG(G3D, "VTYPE: THRU=%i TC=%i COL=%i POS=%i NRM=%i WT=%i NW=%i IDX=%i MC=%i", (int)throughmode, tc, col, pos, nrm, weighttype, nweights, idx, morphcount);
 	}
 
-	bool skinning = weighttype != 0;
+	bool skinInDecode = weighttype != 0 && g_Config.bSoftwareSkinning && morphcount == 1;
 
 	if (weighttype) { // && nweights?
 		weightoff = size;
@@ -1091,11 +1091,43 @@ void VertexDecoder::SetVertexType(u32 fmt, const VertexDecoderOptions &options, 
 		if (wtalign[weighttype] > biggest)
 			biggest = wtalign[weighttype];
 
-		// No visible output, computes a matrix that is passed through the skinMatrix variable
-		// to the "nrm" and "pos" steps.
-		// Technically we should support morphing the weights too, but I have a hard time
-		// imagining that any game would use that.. but you never know.
-		steps_[numSteps_++] = wtstep_skin[weighttype];
+		if (skinInDecode) {
+			// No visible output, computes a matrix that is passed through the skinMatrix variable
+			// to the "nrm" and "pos" steps.
+			// Technically we should support morphing the weights too, but I have a hard time
+			// imagining that any game would use that.. but you never know.
+			steps_[numSteps_++] = wtstep_skin[weighttype];
+		} else {
+			int fmtBase = DEC_FLOAT_1;
+			if (options.expandAllWeightsToFloat) {
+				steps_[numSteps_++] = wtstepToFloat[weighttype];
+				fmtBase = DEC_FLOAT_1;
+			} else {
+				steps_[numSteps_++] = wtstep[weighttype];
+				if (weighttype == GE_VTYPE_WEIGHT_8BIT >> GE_VTYPE_WEIGHT_SHIFT) {
+					fmtBase = DEC_U8_1;
+				} else if (weighttype == GE_VTYPE_WEIGHT_16BIT >> GE_VTYPE_WEIGHT_SHIFT) {
+					fmtBase = DEC_U16_1;
+				} else if (weighttype == GE_VTYPE_WEIGHT_FLOAT >> GE_VTYPE_WEIGHT_SHIFT) {
+					fmtBase = DEC_FLOAT_1;
+				}
+			}
+
+			int numWeights = TranslateNumBones(nweights);
+
+			if (numWeights <= 4) {
+				decFmt.w0off = decOff;
+				decFmt.w0fmt = fmtBase + numWeights - 1;
+				decOff += DecFmtSize(decFmt.w0fmt);
+			} else {
+				decFmt.w0off = decOff;
+				decFmt.w0fmt = fmtBase + 3;
+				decOff += DecFmtSize(decFmt.w0fmt);
+				decFmt.w1off = decOff;
+				decFmt.w1fmt = fmtBase + numWeights - 5;
+				decOff += DecFmtSize(decFmt.w1fmt);
+			}
+		}
 	}
 
 	if (tc) {
@@ -1153,7 +1185,7 @@ void VertexDecoder::SetVertexType(u32 fmt, const VertexDecoderOptions &options, 
 		if (nrmalign[nrm] > biggest)
 			biggest = nrmalign[nrm];
 
-		if (skinning) {
+		if (skinInDecode) {
 			steps_[numSteps_++] = morphcount == 1 ? nrmstep_skin[nrm] : nrmstep_morphskin[nrm];
 			// After skinning, we always have three floats.
 			decFmt.nrmfmt = DEC_FLOAT_3;
@@ -1204,7 +1236,7 @@ void VertexDecoder::SetVertexType(u32 fmt, const VertexDecoderOptions &options, 
 			steps_[numSteps_++] = posstep_through[pos];
 			decFmt.posfmt = DEC_FLOAT_3;
 		} else {
-			if (skinning) {
+			if (skinInDecode) {
 				steps_[numSteps_++] = morphcount == 1 ? posstep_skin[pos] : posstep_morph_skin[pos];
 				decFmt.posfmt = DEC_FLOAT_3;
 			} else {
