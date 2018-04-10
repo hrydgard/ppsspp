@@ -37,6 +37,18 @@
 
 namespace DX9 {
 
+static const char * const boneWeightAttrDecl[9] = {	
+	"#ERROR#",
+	"float  a_w1:TEXCOORD1;\n",
+	"float2 a_w1:TEXCOORD1;\n",
+	"float3 a_w1:TEXCOORD1;\n",
+	"float4 a_w1:TEXCOORD1;\n",
+	"float4 a_w1:TEXCOORD1;\n  float  a_w2:TEXCOORD2;\n",
+	"float4 a_w1:TEXCOORD1;\n  float2 a_w2:TEXCOORD2;\n",
+	"float4 a_w1:TEXCOORD1;\n  float3 a_w2:TEXCOORD2;\n",
+	"float4 a_w1:TEXCOORD1;\n  float4 a_w2:TEXCOORD2;\n",
+};
+
 enum DoLightComputation {
 	LIGHT_OFF,
 	LIGHT_SHADE,
@@ -68,6 +80,7 @@ void GenerateVertexShaderHLSL(const VShaderID &id, char *buffer, ShaderLanguage 
 	bool flipNormal = id.Bit(VS_BIT_NORM_REVERSE);
 	int ls0 = id.Bits(VS_BIT_LS0, 2);
 	int ls1 = id.Bits(VS_BIT_LS1, 2);
+	bool enableBones = id.Bit(VS_BIT_ENABLE_BONES);
 	bool enableLighting = id.Bit(VS_BIT_LIGHTING_ENABLE);
 	int matUpdate = id.Bits(VS_BIT_MATERIAL_UPDATE, 3);
 
@@ -91,6 +104,9 @@ void GenerateVertexShaderHLSL(const VShaderID &id, char *buffer, ShaderLanguage 
 
 	int numBoneWeights = 0;
 	int boneWeightScale = id.Bits(VS_BIT_WEIGHT_FMTSCALE, 2);
+	if (enableBones) {
+		numBoneWeights = 1 + id.Bits(VS_BIT_BONES, 3);
+	}
 
 	if (lang == HLSL_DX9) {
 		WRITE(p, "#pragma warning( disable : 3571 )\n");
@@ -113,6 +129,15 @@ void GenerateVertexShaderHLSL(const VShaderID &id, char *buffer, ShaderLanguage 
 			WRITE(p, "float4x3 u_view : register(c%i);\n", CONST_VS_VIEW);
 			if (doTextureTransform)
 				WRITE(p, "float4x3 u_tex : register(c%i);\n", CONST_VS_TEXMTX);
+			if (enableBones) {
+#ifdef USE_BONE_ARRAY
+				WRITE(p, "float4x3 u_bone[%i] : register(c%i);\n", numBones, CONST_VS_BONE0);
+#else
+				for (int i = 0; i < numBoneWeights; i++) {
+					WRITE(p, "float4x3 u_bone%i : register(c%i);\n", i, CONST_VS_BONE0 + i * 3);
+				}
+#endif
+			}
 			if (doTexture) {
 				WRITE(p, "float4 u_uvscaleoffset : register(c%i);\n", CONST_VS_UVSCALEOFFSET);
 			}
@@ -156,6 +181,7 @@ void GenerateVertexShaderHLSL(const VShaderID &id, char *buffer, ShaderLanguage 
 	} else {
 		WRITE(p, "cbuffer base : register(b0) {\n%s};\n", cb_baseStr);
 		WRITE(p, "cbuffer lights: register(b1) {\n%s};\n", cb_vs_lightsStr);
+		WRITE(p, "cbuffer bones : register(b2) {\n%s};\n", cb_vs_bonesStr);
 	}
 
 	// And the "varyings".
@@ -164,6 +190,9 @@ void GenerateVertexShaderHLSL(const VShaderID &id, char *buffer, ShaderLanguage 
 		WRITE(p, "struct VS_IN {                              \n");
 		if ((doSpline || doBezier) && lang == HLSL_D3D11) {
 			WRITE(p, "  uint instanceId : SV_InstanceID;\n");
+		}
+		if (enableBones) {
+			WRITE(p, "  %s", boneWeightAttrDecl[numBoneWeights]);
 		}
 		if (doTexture && hasTexcoord) {
 			WRITE(p, "  float2 texcoord : TEXCOORD0;\n");
@@ -358,7 +387,7 @@ void GenerateVertexShaderHLSL(const VShaderID &id, char *buffer, ShaderLanguage 
 		}
 	}  else {
 		// Step 1: World Transform / Skinning
-		if (true) {
+		if (!enableBones) {
 			// Hardware tessellation
 			if (doSpline || doBezier) {
 				WRITE(p, "  uint num_patches_u = %s;\n", doBezier ? "(u_spline_count_u - 1) / 3u" : "u_spline_count_u - 3");
@@ -467,6 +496,74 @@ void GenerateVertexShaderHLSL(const VShaderID &id, char *buffer, ShaderLanguage 
 				else
 					WRITE(p, "  float3 worldnormal = float3(0.0, 0.0, 1.0);\n");
 			}
+		} else {
+			static const char * const boneWeightAttr[8] = {
+				"a_w1.x", "a_w1.y", "a_w1.z", "a_w1.w",
+				"a_w2.x", "a_w2.y", "a_w2.z", "a_w2.w",
+			};
+
+#if defined(USE_FOR_LOOP) && defined(USE_BONE_ARRAY)
+
+			// To loop through the weights, we unfortunately need to put them in a float array.
+			// GLSL ES sucks - no way to directly initialize an array!
+			switch (numBoneWeights) {
+			case 1: WRITE(p, "  float w[1]; w[0] = a_w1;\n"); break;
+			case 2: WRITE(p, "  float w[2]; w[0] = a_w1.x; w[1] = a_w1.y;\n"); break;
+			case 3: WRITE(p, "  float w[3]; w[0] = a_w1.x; w[1] = a_w1.y; w[2] = a_w1.z;\n"); break;
+			case 4: WRITE(p, "  float w[4]; w[0] = a_w1.x; w[1] = a_w1.y; w[2] = a_w1.z; w[3] = a_w1.w;\n"); break;
+			case 5: WRITE(p, "  float w[5]; w[0] = a_w1.x; w[1] = a_w1.y; w[2] = a_w1.z; w[3] = a_w1.w; w[4] = a_w2;\n"); break;
+			case 6: WRITE(p, "  float w[6]; w[0] = a_w1.x; w[1] = a_w1.y; w[2] = a_w1.z; w[3] = a_w1.w; w[4] = a_w2.x; w[5] = a_w2.y;\n"); break;
+			case 7: WRITE(p, "  float w[7]; w[0] = a_w1.x; w[1] = a_w1.y; w[2] = a_w1.z; w[3] = a_w1.w; w[4] = a_w2.x; w[5] = a_w2.y; w[6] = a_w2.z;\n"); break;
+			case 8: WRITE(p, "  float w[8]; w[0] = a_w1.x; w[1] = a_w1.y; w[2] = a_w1.z; w[3] = a_w1.w; w[4] = a_w2.x; w[5] = a_w2.y; w[6] = a_w2.z; w[7] = a_w2.w;\n"); break;
+			}
+
+			WRITE(p, "  mat4 skinMatrix = w[0] * u_bone[0];\n");
+			if (numBoneWeights > 1) {
+				WRITE(p, "  for (int i = 1; i < %i; i++) {\n", numBoneWeights);
+				WRITE(p, "    skinMatrix += w[i] * u_bone[i];\n");
+				WRITE(p, "  }\n");
+			}
+
+#else
+			if (lang == HLSL_D3D11 || lang == HLSL_D3D11_LEVEL9) {
+				if (numBoneWeights == 1)
+					WRITE(p, "  float4x3 skinMatrix = mul(In.a_w1, u_bone[0])");
+				else
+					WRITE(p, "  float4x3 skinMatrix = mul(In.a_w1.x, u_bone[0])");
+				for (int i = 1; i < numBoneWeights; i++) {
+					const char *weightAttr = boneWeightAttr[i];
+					// workaround for "cant do .x of scalar" issue
+					if (numBoneWeights == 1 && i == 0) weightAttr = "a_w1";
+					if (numBoneWeights == 5 && i == 4) weightAttr = "a_w2";
+					WRITE(p, " + mul(In.%s, u_bone[%i])", weightAttr, i);
+				}
+			} else {
+				if (numBoneWeights == 1)
+					WRITE(p, "  float4x3 skinMatrix = mul(In.a_w1, u_bone0)");
+				else
+					WRITE(p, "  float4x3 skinMatrix = mul(In.a_w1.x, u_bone0)");
+				for (int i = 1; i < numBoneWeights; i++) {
+					const char *weightAttr = boneWeightAttr[i];
+					// workaround for "cant do .x of scalar" issue
+					if (numBoneWeights == 1 && i == 0) weightAttr = "a_w1";
+					if (numBoneWeights == 5 && i == 4) weightAttr = "a_w2";
+					WRITE(p, " + mul(In.%s, u_bone%i)", weightAttr, i);
+				}
+			}
+#endif
+
+			WRITE(p, ";\n");
+
+			// Trying to simplify this results in bugs in LBP...
+			WRITE(p, "  float3 skinnedpos = mul(float4(In.position.xyz, 1.0), skinMatrix);\n");
+			WRITE(p, "  float3 worldpos = mul(float4(skinnedpos, 1.0), u_world);\n");
+
+			if (hasNormal) {
+				WRITE(p, "  float3 skinnednormal = mul(float4(%sIn.normal, 0.0), skinMatrix);\n", flipNormal ? "-" : "");
+			} else {
+				WRITE(p, "  float3 skinnednormal = mul(float4(0.0, 0.0, %s1.0, 0.0), skinMatrix);\n", flipNormal ? "-" : "");
+			}
+			WRITE(p, "  float3 worldnormal = normalize(mul(float4(skinnednormal, 0.0), u_world));\n");
 		}
 
 		WRITE(p, "  float4 viewPos = float4(mul(float4(worldpos, 1.0), u_view), 1.0);\n");

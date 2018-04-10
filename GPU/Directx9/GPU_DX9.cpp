@@ -83,6 +83,9 @@ GPU_DX9::GPU_DX9(GraphicsContext *gfxCtx, Draw::DrawContext *draw)
 		ERROR_LOG(G3D, "gstate has drifted out of sync!");
 	}
 
+	// No need to flush before the tex scale/offset commands if we are baking
+	// the tex scale/offset into the vertices anyway.
+	UpdateCmdInfo();
 	CheckGPUFeatures();
 
 	BuildReportingInfo();
@@ -188,6 +191,7 @@ void GPU_DX9::InitClear() {
 
 void GPU_DX9::BeginHostFrame() {
 	GPUCommon::BeginHostFrame();
+	UpdateCmdInfo();
 	if (resized_) {
 		CheckGPUFeatures();
 		framebufferManager_->Resized();

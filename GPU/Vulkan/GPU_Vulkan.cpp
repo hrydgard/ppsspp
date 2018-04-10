@@ -252,6 +252,7 @@ void GPU_Vulkan::CheckGPUFeatures() {
 
 void GPU_Vulkan::BeginHostFrame() {
 	drawEngine_.BeginFrame();
+	UpdateCmdInfo();
 
 	if (resized_) {
 		CheckGPUFeatures();
@@ -490,6 +491,7 @@ void GPU_Vulkan::DeviceRestore() {
 
 	CheckGPUFeatures();
 	BuildReportingInfo();
+	UpdateCmdInfo();
 
 	framebufferManagerVulkan_->DeviceRestore(vulkan_, draw_);
 	vulkan2D_.DeviceRestore(vulkan_);

@@ -54,6 +54,18 @@ static const char *vulkan_glsl_preamble =
 
 #define WRITE p+=sprintf
 
+static const char * const boneWeightDecl[9] = {
+	"#ERROR#",
+	"layout(location = 3) in float w1;\n",
+	"layout(location = 3) in vec2 w1;\n",
+	"layout(location = 3) in vec3 w1;\n",
+	"layout(location = 3) in vec4 w1;\n",
+	"layout(location = 3) in vec4 w1;\nlayout(location = 4) in float w2;\n",
+	"layout(location = 3) in vec4 w1;\nlayout(location = 4) in vec2 w2;\n",
+	"layout(location = 3) in vec4 w1;\nlayout(location = 4) in vec3 w2;\n",
+	"layout(location = 3) in vec4 w1;\nlayout(location = 4) in vec4 w2;\n",
+};
+
 enum DoLightComputation {
 	LIGHT_OFF,
 	LIGHT_SHADE,
@@ -114,6 +126,7 @@ bool GenerateVulkanGLSLVertexShader(const VShaderID &id, char *buffer) {
 	bool flipNormal = id.Bit(VS_BIT_NORM_REVERSE);
 	int ls0 = id.Bits(VS_BIT_LS0, 2);
 	int ls1 = id.Bits(VS_BIT_LS1, 2);
+	bool enableBones = id.Bit(VS_BIT_ENABLE_BONES);
 	bool enableLighting = id.Bit(VS_BIT_LIGHTING_ENABLE);
 	int matUpdate = id.Bits(VS_BIT_MATERIAL_UPDATE, 3);
 
@@ -127,6 +140,8 @@ bool GenerateVulkanGLSLVertexShader(const VShaderID &id, char *buffer) {
 	WRITE(p, "layout (std140, set = 0, binding = 2) uniform baseVars {\n%s} base;\n", ub_baseStr);
 	if (enableLighting || doShadeMapping)
 		WRITE(p, "layout (std140, set = 0, binding = 3) uniform lightVars {\n%s} light;\n", ub_vs_lightsStr);
+	if (enableBones)
+		WRITE(p, "layout (std140, set = 0, binding = 4) uniform boneVars {\n%s} bone;\n", ub_vs_bonesStr);
 
 	const char *shading = doFlatShading ? "flat " : "";
 
@@ -140,6 +155,13 @@ bool GenerateVulkanGLSLVertexShader(const VShaderID &id, char *buffer) {
 			if (id.Bit(VS_BIT_LIGHTING_ENABLE) && id.Bit(VS_BIT_LIGHT0_ENABLE + i))
 				doLight[i] = LIGHT_FULL;
 		}
+	}
+
+	int numBoneWeights = 0;
+	int boneWeightScale = id.Bits(VS_BIT_WEIGHT_FMTSCALE, 2);
+	if (enableBones) {
+		numBoneWeights = 1 + id.Bits(VS_BIT_BONES, 3);
+		WRITE(p, "%s", boneWeightDecl[numBoneWeights]);
 	}
 
 	if (useHWTransform)
@@ -307,7 +329,7 @@ bool GenerateVulkanGLSLVertexShader(const VShaderID &id, char *buffer) {
 		}
 	} else {
 		// Step 1: World Transform / Skinning
-		if (true) {
+		if (!enableBones) {
 			if (doBezier || doSpline) {
 				WRITE(p, "  vec3 _pos[16];\n");
 				WRITE(p, "  vec2 _tex[16];\n");
@@ -413,6 +435,34 @@ bool GenerateVulkanGLSLVertexShader(const VShaderID &id, char *buffer) {
 				else
 					WRITE(p, "  mediump vec3 worldnormal = vec3(0.0, 0.0, 1.0);\n");
 			}
+		} else {
+			static const char *rescale[4] = { "", " * 1.9921875", " * 1.999969482421875", "" }; // 2*127.5f/128.f, 2*32767.5f/32768.f, 1.0f};
+			const char *factor = rescale[boneWeightScale];
+
+			static const char * const boneWeightAttr[8] = {
+				"w1.x", "w1.y", "w1.z", "w1.w",
+				"w2.x", "w2.y", "w2.z", "w2.w",
+			};
+
+			WRITE(p, "  mat3x4 skinMatrix = w1.x * bone.m[0];\n");
+			if (numBoneWeights > 1) {
+				for (int i = 1; i < numBoneWeights; i++) {
+					WRITE(p, "    skinMatrix += %s * bone.m[%i];\n", boneWeightAttr[i], i);
+				}
+			}
+
+			WRITE(p, ";\n");
+
+			// Trying to simplify this results in bugs in LBP...
+			WRITE(p, "  vec3 skinnedpos = (vec4(position, 1.0) * skinMatrix) %s;\n", factor);
+			WRITE(p, "  vec3 worldpos = vec4(skinnedpos, 1.0) * base.world_mtx;\n");
+
+			if (hasNormal) {
+				WRITE(p, "  mediump vec3 skinnednormal = vec4(%snormal, 0.0) * skinMatrix %s;\n", flipNormal ? "-" : "", factor);
+			} else {
+				WRITE(p, "  mediump vec3 skinnednormal = vec4(0.0, 0.0, %s1.0, 0.0) * skinMatrix %s;\n", flipNormal ? "-" : "", factor);
+			}
+			WRITE(p, "  mediump vec3 worldnormal = normalize(vec4(skinnednormal, 0.0) * base.world_mtx);\n");
 		}
 
 		WRITE(p, "  vec4 viewPos = vec4(vec4(worldpos, 1.0) * base.view_mtx, 1.0);\n");

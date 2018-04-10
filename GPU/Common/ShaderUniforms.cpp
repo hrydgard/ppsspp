@@ -246,3 +246,11 @@ void LightUpdateUniforms(UB_VS_Lights *ub, uint64_t dirtyUniforms) {
 		}
 	}
 }
+
+void BoneUpdateUniforms(UB_VS_Bones *ub, uint64_t dirtyUniforms) {
+	for (int i = 0; i < 8; i++) {
+		if (dirtyUniforms & (DIRTY_BONEMATRIX0 << i)) {
+			ConvertMatrix4x3To3x4Transposed(ub->bones[i], gstate.boneMatrix + 12 * i);
+		}
+	}
+}

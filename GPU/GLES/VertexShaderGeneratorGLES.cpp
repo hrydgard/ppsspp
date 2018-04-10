@@ -38,6 +38,30 @@
 
 #define WRITE p+=sprintf
 
+static const char * const boneWeightAttrDecl[9] = {
+	"#ERROR#",
+	"attribute mediump float w1;\n",
+	"attribute mediump vec2 w1;\n",
+	"attribute mediump vec3 w1;\n",
+	"attribute mediump vec4 w1;\n",
+	"attribute mediump vec4 w1;\nattribute mediump float w2;\n",
+	"attribute mediump vec4 w1;\nattribute mediump vec2 w2;\n",
+	"attribute mediump vec4 w1;\nattribute mediump vec3 w2;\n",
+	"attribute mediump vec4 w1, w2;\n",
+};
+
+static const char * const boneWeightInDecl[9] = {
+	"#ERROR#",
+	"in mediump float w1;\n",
+	"in mediump vec2 w1;\n",
+	"in mediump vec3 w1;\n",
+	"in mediump vec4 w1;\n",
+	"in mediump vec4 w1;\nin mediump float w2;\n",
+	"in mediump vec4 w1;\nin mediump vec2 w2;\n",
+	"in mediump vec4 w1;\nin mediump vec3 w2;\n",
+	"in mediump vec4 w1, w2;\n",
+};
+
 enum DoLightComputation {
 	LIGHT_OFF,
 	LIGHT_SHADE,
@@ -81,6 +105,7 @@ void GenerateVertexShader(const VShaderID &id, char *buffer, uint32_t *attrMask,
 	bool glslES30 = false;
 	const char *varying = "varying";
 	const char *attribute = "attribute";
+	const char * const * boneWeightDecl = boneWeightAttrDecl;
 	const char *texelFetch = NULL;
 	bool highpFog = false;
 	bool highpTexcoord = false;
@@ -133,6 +158,7 @@ void GenerateVertexShader(const VShaderID &id, char *buffer, uint32_t *attrMask,
 	if (glslES30 || gl_extensions.IsCoreContext) {
 		attribute = "in";
 		varying = "out";
+		boneWeightDecl = boneWeightInDecl;
 	}
 
 	bool isModeThrough = id.Bit(VS_BIT_IS_THROUGH);
@@ -156,6 +182,7 @@ void GenerateVertexShader(const VShaderID &id, char *buffer, uint32_t *attrMask,
 	bool flipNormal = id.Bit(VS_BIT_NORM_REVERSE);
 	int ls0 = id.Bits(VS_BIT_LS0, 2);
 	int ls1 = id.Bits(VS_BIT_LS1, 2);
+	bool enableBones = id.Bit(VS_BIT_ENABLE_BONES);
 	bool enableLighting = id.Bit(VS_BIT_LIGHTING_ENABLE);
 	int matUpdate = id.Bits(VS_BIT_MATERIAL_UPDATE, 3);
 
@@ -179,6 +206,16 @@ void GenerateVertexShader(const VShaderID &id, char *buffer, uint32_t *attrMask,
 			if (id.Bit(VS_BIT_LIGHTING_ENABLE) && id.Bit(VS_BIT_LIGHT0_ENABLE + i))
 				doLight[i] = LIGHT_FULL;
 		}
+	}
+
+	int numBoneWeights = 0;
+	int boneWeightScale = id.Bits(VS_BIT_WEIGHT_FMTSCALE, 2);
+	if (enableBones) {
+		numBoneWeights = 1 + id.Bits(VS_BIT_BONES, 3);
+		WRITE(p, "%s", boneWeightDecl[numBoneWeights]);
+		*attrMask |= 1 << ATTR_W1;
+		if (numBoneWeights >= 5)
+			*attrMask |= 1 << ATTR_W2;
 	}
 
 	if (useHWTransform)
@@ -230,6 +267,17 @@ void GenerateVertexShader(const VShaderID &id, char *buffer, uint32_t *attrMask,
 		if (doTextureProjection) {
 			WRITE(p, "uniform mediump mat4 u_texmtx;\n");
 			*uniformMask |= DIRTY_TEXMATRIX;
+		}
+		if (enableBones) {
+#ifdef USE_BONE_ARRAY
+			WRITE(p, "uniform mediump mat4 u_bone[%i];\n", numBoneWeights);
+			*uniformMask |= DIRTY_BONE_UNIFORMS;
+#else
+			for (int i = 0; i < numBoneWeights; i++) {
+				WRITE(p, "uniform mat4 u_bone%i;\n", i);
+				*uniformMask |= DIRTY_BONEMATRIX0 << i;
+			}
+#endif
 		}
 		if (doTexture) {
 			WRITE(p, "uniform vec4 u_uvscaleoffset;\n");
@@ -436,7 +484,7 @@ void GenerateVertexShader(const VShaderID &id, char *buffer, uint32_t *attrMask,
 		}
 	} else {
 		// Step 1: World Transform / Skinning
-		if (true) {
+		if (!enableBones) {
 			// Hardware tessellation
 			if (doBezier || doSpline) {
 				WRITE(p, "  vec3 _pos[16];\n");
@@ -543,6 +591,81 @@ void GenerateVertexShader(const VShaderID &id, char *buffer, uint32_t *attrMask,
 				else
 					WRITE(p, "  mediump vec3 worldnormal = vec3(0.0, 0.0, 1.0);\n");
 			}
+		} else {
+			static const char *rescale[4] = {"", " * 1.9921875", " * 1.999969482421875", ""}; // 2*127.5f/128.f, 2*32767.5f/32768.f, 1.0f};
+			const char *factor = rescale[boneWeightScale];
+
+			static const char * const boneWeightAttr[8] = {
+				"w1.x", "w1.y", "w1.z", "w1.w",
+				"w2.x", "w2.y", "w2.z", "w2.w",
+			};
+
+#if defined(USE_FOR_LOOP) && defined(USE_BONE_ARRAY)
+
+			// To loop through the weights, we unfortunately need to put them in a float array.
+			// GLSL ES sucks - no way to directly initialize an array!
+			switch (numBoneWeights) {
+			case 1: WRITE(p, "  float w[1]; w[0] = w1;\n"); break;
+			case 2: WRITE(p, "  float w[2]; w[0] = w1.x; w[1] = w1.y;\n"); break;
+			case 3: WRITE(p, "  float w[3]; w[0] = w1.x; w[1] = w1.y; w[2] = w1.z;\n"); break;
+			case 4: WRITE(p, "  float w[4]; w[0] = w1.x; w[1] = w1.y; w[2] = w1.z; w[3] = w1.w;\n"); break;
+			case 5: WRITE(p, "  float w[5]; w[0] = w1.x; w[1] = w1.y; w[2] = w1.z; w[3] = w1.w; w[4] = w2;\n"); break;
+			case 6: WRITE(p, "  float w[6]; w[0] = w1.x; w[1] = w1.y; w[2] = w1.z; w[3] = w1.w; w[4] = w2.x; w[5] = w2.y;\n"); break;
+			case 7: WRITE(p, "  float w[7]; w[0] = w1.x; w[1] = w1.y; w[2] = w1.z; w[3] = w1.w; w[4] = w2.x; w[5] = w2.y; w[6] = w2.z;\n"); break;
+			case 8: WRITE(p, "  float w[8]; w[0] = w1.x; w[1] = w1.y; w[2] = w1.z; w[3] = w1.w; w[4] = w2.x; w[5] = w2.y; w[6] = w2.z; w[7] = w2.w;\n"); break;
+			}
+
+			WRITE(p, "  mat4 skinMatrix = w[0] * u_bone[0];\n");
+			if (numBoneWeights > 1) {
+				WRITE(p, "  for (int i = 1; i < %i; i++) {\n", numBoneWeights);
+				WRITE(p, "    skinMatrix += w[i] * u_bone[i];\n");
+				WRITE(p, "  }\n");
+			}
+
+#else
+
+#ifdef USE_BONE_ARRAY
+			if (numBoneWeights == 1)
+				WRITE(p, "  mat4 skinMatrix = w1 * u_bone[0]");
+			else
+				WRITE(p, "  mat4 skinMatrix = w1.x * u_bone[0]");
+			for (int i = 1; i < numBoneWeights; i++) {
+				const char *weightAttr = boneWeightAttr[i];
+				// workaround for "cant do .x of scalar" issue
+				if (numBoneWeights == 1 && i == 0) weightAttr = "w1";
+				if (numBoneWeights == 5 && i == 4) weightAttr = "w2";
+				WRITE(p, " + %s * u_bone[%i]", weightAttr, i);
+			}
+#else
+			// Uncomment this to screw up bone shaders to check the vertex shader software fallback
+			// WRITE(p, "THIS SHOULD ERROR! #error");
+			if (numBoneWeights == 1)
+				WRITE(p, "  mat4 skinMatrix = w1 * u_bone0");
+			else
+				WRITE(p, "  mat4 skinMatrix = w1.x * u_bone0");
+			for (int i = 1; i < numBoneWeights; i++) {
+				const char *weightAttr = boneWeightAttr[i];
+				// workaround for "cant do .x of scalar" issue
+				if (numBoneWeights == 1 && i == 0) weightAttr = "w1";
+				if (numBoneWeights == 5 && i == 4) weightAttr = "w2";
+				WRITE(p, " + %s * u_bone%i", weightAttr, i);
+			}
+#endif
+
+#endif
+
+			WRITE(p, ";\n");
+
+			// Trying to simplify this results in bugs in LBP...
+			WRITE(p, "  vec3 skinnedpos = (skinMatrix * vec4(position, 1.0)).xyz %s;\n", factor);
+			WRITE(p, "  vec3 worldpos = (u_world * vec4(skinnedpos, 1.0)).xyz;\n");
+
+			if (hasNormal) {
+				WRITE(p, "  mediump vec3 skinnednormal = (skinMatrix * vec4(%snormal, 0.0)).xyz %s;\n", flipNormal ? "-" : "", factor);
+			} else {
+				WRITE(p, "  mediump vec3 skinnednormal = (skinMatrix * vec4(0.0, 0.0, %s1.0, 0.0)).xyz %s;\n", flipNormal ? "-" : "", factor);
+			}
+			WRITE(p, "  mediump vec3 worldnormal = normalize((u_world * vec4(skinnednormal, 0.0)).xyz);\n");
 		}
 
 		WRITE(p, "  vec4 viewPos = u_view * vec4(worldpos, 1.0);\n");

@@ -103,6 +103,7 @@ GPU_D3D11::GPU_D3D11(GraphicsContext *gfxCtx, Draw::DrawContext *draw)
 
 	// No need to flush before the tex scale/offset commands if we are baking
 	// the tex scale/offset into the vertices anyway.
+	UpdateCmdInfo();
 	CheckGPUFeatures();
 
 	BuildReportingInfo();
@@ -214,6 +215,7 @@ void GPU_D3D11::InitClear() {
 
 void GPU_D3D11::BeginHostFrame() {
 	GPUCommon::BeginHostFrame();
+	UpdateCmdInfo();
 	if (resized_) {
 		CheckGPUFeatures();
 		framebufferManager_->Resized();

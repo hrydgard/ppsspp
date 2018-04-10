@@ -89,6 +89,8 @@ GPU_GLES::GPU_GLES(GraphicsContext *gfxCtx, Draw::DrawContext *draw)
 	// No need to flush before the tex scale/offset commands if we are baking
 	// the tex scale/offset into the vertices anyway.
 
+	UpdateCmdInfo();
+
 	BuildReportingInfo();
 	// Update again after init to be sure of any silly driver problems.
 	UpdateVsyncInterval(true);
@@ -344,6 +346,7 @@ void GPU_GLES::DeviceRestore() {
 	draw_ = (Draw::DrawContext *)PSP_CoreParameter().graphicsContext->GetDrawContext();
 	ILOG("GPU_GLES: DeviceRestore");
 
+	UpdateCmdInfo();
 	UpdateVsyncInterval(true);
 
 	textureCacheGL_->DeviceRestore(draw_);
@@ -363,6 +366,7 @@ void GPU_GLES::InitClear() {
 
 void GPU_GLES::BeginHostFrame() {
 	GPUCommon::BeginHostFrame();
+	UpdateCmdInfo();
 	if (resized_) {
 		CheckGPUFeatures();
 		framebufferManager_->Resized();

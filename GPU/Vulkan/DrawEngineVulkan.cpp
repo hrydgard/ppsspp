@@ -66,7 +66,8 @@ enum {
 	DRAW_BINDING_2ND_TEXTURE = 1,
 	DRAW_BINDING_DYNUBO_BASE = 2,
 	DRAW_BINDING_DYNUBO_LIGHT = 3,
-	DRAW_BINDING_TESS_STORAGE_BUF = 4,
+	DRAW_BINDING_DYNUBO_BONE = 4,
+	DRAW_BINDING_TESS_STORAGE_BUF = 5,
 };
 
 enum {
@@ -94,7 +95,7 @@ DrawEngineVulkan::DrawEngineVulkan(VulkanContext *vulkan, Draw::DrawContext *dra
 
 void DrawEngineVulkan::InitDeviceObjects() {
 	// All resources we need for PSP drawing. Usually only bindings 0 and 2-4 are populated.
-	VkDescriptorSetLayoutBinding bindings[5]{};
+	VkDescriptorSetLayoutBinding bindings[6]{};
 	bindings[0].descriptorCount = 1;
 	bindings[0].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
 	bindings[0].stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
@@ -111,11 +112,15 @@ void DrawEngineVulkan::InitDeviceObjects() {
 	bindings[3].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC;
 	bindings[3].stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
 	bindings[3].binding = DRAW_BINDING_DYNUBO_LIGHT;
-	// Used only for hardware tessellation.
 	bindings[4].descriptorCount = 1;
-	bindings[4].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+	bindings[4].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC;
 	bindings[4].stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
-	bindings[4].binding = DRAW_BINDING_TESS_STORAGE_BUF;
+	bindings[4].binding = DRAW_BINDING_DYNUBO_BONE;
+	// Used only for hardware tessellation.
+	bindings[5].descriptorCount = 1;
+	bindings[5].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+	bindings[5].stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
+	bindings[5].binding = DRAW_BINDING_TESS_STORAGE_BUF;
 
 	VkDevice device = vulkan_->GetDevice();
 
@@ -129,7 +134,7 @@ void DrawEngineVulkan::InitDeviceObjects() {
 	// if creating and updating them turns out to be expensive.
 	for (int i = 0; i < VulkanContext::MAX_INFLIGHT_FRAMES; i++) {
 		// We now create descriptor pools on demand, so removed from here.
-		frame_[i].pushUBO = new VulkanPushBuffer(vulkan_, 4 * 1024 * 1024);
+		frame_[i].pushUBO = new VulkanPushBuffer(vulkan_, 8 * 1024 * 1024);
 		frame_[i].pushVertex = new VulkanPushBuffer(vulkan_, 2 * 1024 * 1024);
 		frame_[i].pushIndex = new VulkanPushBuffer(vulkan_, 1 * 1024 * 1024);
 	}
@@ -360,7 +365,7 @@ VkResult DrawEngineVulkan::RecreateDescriptorPool(FrameData &frame, int newSize)
 	frame.descPoolSize = newSize;
 
 	VkDescriptorPoolSize dpTypes[3];
-	dpTypes[0].descriptorCount = frame.descPoolSize * 2;
+	dpTypes[0].descriptorCount = frame.descPoolSize * 3;
 	dpTypes[0].type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC;
 	dpTypes[1].descriptorCount = frame.descPoolSize * 2;  // Don't use these for tess anymore, need max two per set.
 	dpTypes[1].type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
@@ -378,15 +383,17 @@ VkResult DrawEngineVulkan::RecreateDescriptorPool(FrameData &frame, int newSize)
 	return res;
 }
 
-VkDescriptorSet DrawEngineVulkan::GetOrCreateDescriptorSet(VkImageView imageView, VkSampler sampler, VkBuffer base, VkBuffer light, bool tess) {
+VkDescriptorSet DrawEngineVulkan::GetOrCreateDescriptorSet(VkImageView imageView, VkSampler sampler, VkBuffer base, VkBuffer light, VkBuffer bone, bool tess) {
 	DescriptorSetKey key;
 	key.imageView_ = imageView;
 	key.sampler_ = sampler;
 	key.secondaryImageView_ = boundSecondary_;
 	key.base_ = base;
 	key.light_ = light;
+	key.bone_ = bone;
 	_dbg_assert_(G3D, base != VK_NULL_HANDLE);
 	_dbg_assert_(G3D, light != VK_NULL_HANDLE);
+	_dbg_assert_(G3D, bone != VK_NULL_HANDLE);
 
 	FrameData &frame = frame_[vulkan_->GetCurFrame()];
 	// See if we already have this descriptor set cached.
@@ -494,7 +501,7 @@ VkDescriptorSet DrawEngineVulkan::GetOrCreateDescriptorSet(VkImageView imageView
 	}
 
 	// Uniform buffer objects
-	VkDescriptorBufferInfo buf[2]{};
+	VkDescriptorBufferInfo buf[3]{};
 	int count = 0;
 	buf[count].buffer = base;
 	buf[count].offset = 0;
@@ -503,6 +510,10 @@ VkDescriptorSet DrawEngineVulkan::GetOrCreateDescriptorSet(VkImageView imageView
 	buf[count].buffer = light;
 	buf[count].offset = 0;
 	buf[count].range = sizeof(UB_VS_Lights);
+	count++;
+	buf[count].buffer = bone;
+	buf[count].offset = 0;
+	buf[count].range = sizeof(UB_VS_Bones);
 	count++;
 	for (int i = 0; i < count; i++) {
 		writes[n].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
@@ -527,9 +538,11 @@ VkDescriptorSet DrawEngineVulkan::GetOrCreateDescriptorSet(VkImageView imageView
 void DrawEngineVulkan::DirtyAllUBOs() {
 	baseUBOOffset = 0;
 	lightUBOOffset = 0;
+	boneUBOOffset = 0;
 	baseBuf = VK_NULL_HANDLE;
 	lightBuf = VK_NULL_HANDLE;
-	dirtyUniforms_ = DIRTY_BASE_UNIFORMS | DIRTY_LIGHT_UNIFORMS;
+	boneBuf = VK_NULL_HANDLE;
+	dirtyUniforms_ = DIRTY_BASE_UNIFORMS | DIRTY_LIGHT_UNIFORMS | DIRTY_BONE_UNIFORMS;
 	imageView = VK_NULL_HANDLE;
 	sampler = VK_NULL_HANDLE;
 	gstate_c.Dirty(DIRTY_TEXTURE_IMAGE);
@@ -588,7 +601,7 @@ void DrawEngineVulkan::DoFlush() {
 		// Also avoid caching when software skinning.
 		VkBuffer vbuf = VK_NULL_HANDLE;
 		VkBuffer ibuf = VK_NULL_HANDLE;
-		if (lastVType_ & GE_VTYPE_WEIGHT_MASK) {
+		if (g_Config.bSoftwareSkinning && (lastVType_ & GE_VTYPE_WEIGHT_MASK)) {
 			useCache = false;
 		}
 
@@ -730,7 +743,7 @@ void DrawEngineVulkan::DoFlush() {
 				break;
 			}
 		} else {
-			if (lastVType_ & GE_VTYPE_WEIGHT_MASK) {
+			if (g_Config.bSoftwareSkinning && (lastVType_ & GE_VTYPE_WEIGHT_MASK)) {
 				// If software skinning, we've already predecoded into "decoded". So push that content.
 				VkDeviceSize size = decodedVerts_ * dec_->GetDecVtxFmt().stride;
 				u8 *dest = (u8 *)frame->pushVertex->Push(size, &vbOffset, &vbuf);
@@ -802,12 +815,12 @@ void DrawEngineVulkan::DoFlush() {
 		dirtyUniforms_ |= shaderManager_->UpdateUniforms();
 		UpdateUBOs(frame);
 
-		VkDescriptorSet ds = GetOrCreateDescriptorSet(imageView, sampler, baseBuf, lightBuf, tess);
+		VkDescriptorSet ds = GetOrCreateDescriptorSet(imageView, sampler, baseBuf, lightBuf, boneBuf, tess);
 		{
 		PROFILE_THIS_SCOPE("renderman_q");
 
-		const uint32_t dynamicUBOOffsets[2] = {
-			baseUBOOffset, lightUBOOffset,
+		const uint32_t dynamicUBOOffsets[3] = {
+			baseUBOOffset, lightUBOOffset, boneUBOOffset,
 		};
 
 		int stride = dec_->GetDecVtxFmt().stride;
@@ -908,9 +921,9 @@ void DrawEngineVulkan::DoFlush() {
 			// Even if the first draw is through-mode, make sure we at least have one copy of these uniforms buffered
 			UpdateUBOs(frame);
 
-			VkDescriptorSet ds = GetOrCreateDescriptorSet(imageView, sampler, baseBuf, lightBuf, tess);
-			const uint32_t dynamicUBOOffsets[2] = {
-				baseUBOOffset, lightUBOOffset,
+			VkDescriptorSet ds = GetOrCreateDescriptorSet(imageView, sampler, baseBuf, lightBuf, boneBuf, tess);
+			const uint32_t dynamicUBOOffsets[3] = {
+				baseUBOOffset, lightUBOOffset, boneUBOOffset,
 			};
 
 			PROFILE_THIS_SCOPE("renderman_q");
@@ -976,6 +989,10 @@ void DrawEngineVulkan::UpdateUBOs(FrameData *frame) {
 	if ((dirtyUniforms_ & DIRTY_LIGHT_UNIFORMS) || lightBuf == VK_NULL_HANDLE) {
 		lightUBOOffset = shaderManager_->PushLightBuffer(frame->pushUBO, &lightBuf);
 		dirtyUniforms_ &= ~DIRTY_LIGHT_UNIFORMS;
+	}
+	if ((dirtyUniforms_ & DIRTY_BONE_UNIFORMS) || boneBuf == VK_NULL_HANDLE) {
+		boneUBOOffset = shaderManager_->PushBoneBuffer(frame->pushUBO, &boneBuf);
+		dirtyUniforms_ &= ~DIRTY_BONE_UNIFORMS;
 	}
 }
 

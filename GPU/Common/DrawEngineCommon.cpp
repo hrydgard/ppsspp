@@ -379,8 +379,12 @@ bool DrawEngineCommon::GetCurrentSimpleVertices(int count, std::vector<GPUDebugV
 // The implementation is initially a bit inefficient but shouldn't be a big deal.
 // An intermediate buffer of not-easy-to-predict size is stored at bufPtr.
 u32 DrawEngineCommon::NormalizeVertices(u8 *outPtr, u8 *bufPtr, const u8 *inPtr, VertexDecoder *dec, int lowerBound, int upperBound, u32 vertType) {
-	// First, decode the vertices into a GPU compatible format.
+	// First, decode the vertices into a GPU compatible format. This step can be eliminated but will need a separate
+	// implementation of the vertex decoder.
 	dec->DecodeVerts(bufPtr, inPtr, lowerBound, upperBound);
+
+	// OK, morphing eliminated but bones still remain to be taken care of.
+	// Let's do a partial software transform where we only do skinning.
 
 	VertexReader reader(bufPtr, dec->GetDecVtxFmt(), vertType);
 
@@ -393,7 +397,56 @@ u32 DrawEngineCommon::NormalizeVertices(u8 *outPtr, u8 *bufPtr, const u8 *inPtr,
 		(u8)gstate.getMaterialAmbientA(),
 	};
 
-	{
+	// Let's have two separate loops, one for non skinning and one for skinning.
+	if (!g_Config.bSoftwareSkinning && (vertType & GE_VTYPE_WEIGHT_MASK) != GE_VTYPE_WEIGHT_NONE) {
+		int numBoneWeights = vertTypeGetNumBoneWeights(vertType);
+		for (int i = lowerBound; i <= upperBound; i++) {
+			reader.Goto(i - lowerBound);
+			SimpleVertex &sv = sverts[i];
+			if (vertType & GE_VTYPE_TC_MASK) {
+				reader.ReadUV(sv.uv);
+			}
+
+			if (vertType & GE_VTYPE_COL_MASK) {
+				reader.ReadColor0_8888(sv.color);
+			} else {
+				memcpy(sv.color, defaultColor, 4);
+			}
+
+			float nrm[3], pos[3];
+			float bnrm[3], bpos[3];
+
+			if (vertType & GE_VTYPE_NRM_MASK) {
+				// Normals are generated during tessellation anyway, not sure if any need to supply
+				reader.ReadNrm(nrm);
+			} else {
+				nrm[0] = 0;
+				nrm[1] = 0;
+				nrm[2] = 1.0f;
+			}
+			reader.ReadPos(pos);
+
+			// Apply skinning transform directly
+			float weights[8];
+			reader.ReadWeights(weights);
+			// Skinning
+			Vec3Packedf psum(0, 0, 0);
+			Vec3Packedf nsum(0, 0, 0);
+			for (int w = 0; w < numBoneWeights; w++) {
+				if (weights[w] != 0.0f) {
+					Vec3ByMatrix43(bpos, pos, gstate.boneMatrix + w * 12);
+					Vec3Packedf tpos(bpos);
+					psum += tpos * weights[w];
+
+					Norm3ByMatrix43(bnrm, nrm, gstate.boneMatrix + w * 12);
+					Vec3Packedf tnorm(bnrm);
+					nsum += tnorm * weights[w];
+				}
+			}
+			sv.pos = psum;
+			sv.nrm = nsum;
+		}
+	} else {
 		for (int i = lowerBound; i <= upperBound; i++) {
 			reader.Goto(i - lowerBound);
 			SimpleVertex &sv = sverts[i];
@@ -655,7 +708,7 @@ void DrawEngineCommon::SubmitPrim(void *verts, void *inds, GEPrimitiveType prim,
 	numDrawCalls++;
 	vertexCountInDrawCalls_ += vertexCount;
 
-	if (vertTypeID & GE_VTYPE_WEIGHT_MASK) {
+	if (g_Config.bSoftwareSkinning && (vertTypeID & GE_VTYPE_WEIGHT_MASK)) {
 		DecodeVertsStep(decoded, decodeCounter_, decodedVerts_);
 		decodeCounter_++;
 	}

@@ -159,5 +159,22 @@ R"(	float4 u_ambient;
 	float3 u_lightspecular3;
 )";
 
+// With some cleverness, we could get away with uploading just half this when only the four or five first
+// bones are being used. This is 512b, 256b would be great.
+struct UB_VS_Bones {
+	float bones[8][12];
+};
+
+static const char *ub_vs_bonesStr =
+R"(	mat3x4 m[8];
+)";
+
+// HLSL code is shared so these names are changed to match those in DX9.
+static const char *cb_vs_bonesStr =
+R"(	float4x3 u_bone[8];
+)";
+
 void BaseUpdateUniforms(UB_VS_FS_Base *ub, uint64_t dirtyUniforms, bool flipViewport);
 void LightUpdateUniforms(UB_VS_Lights *ub, uint64_t dirtyUniforms);
+void BoneUpdateUniforms(UB_VS_Bones *ub, uint64_t dirtyUniforms);
+

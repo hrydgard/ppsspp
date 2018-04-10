@@ -202,7 +202,7 @@ JittedVertexDecoder VertexDecoderJitCache::Compile(const VertexDecoder &dec, int
 	// Add code to convert matrices to 4x4.
 	// Later we might want to do this when the matrices are loaded instead.
 	int boneCount = 0;
-	if (dec.weighttype) {
+	if (dec.weighttype && g_Config.bSoftwareSkinning && dec.morphcount == 1) {
 		MOV(PTRBITS, R(tempReg1), ImmPtr(&threeMasks));
 		MOVAPS(XMM4, MatR(tempReg1));
 		MOV(PTRBITS, R(tempReg1), ImmPtr(&aOne));

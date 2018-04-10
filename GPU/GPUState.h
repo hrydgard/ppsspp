@@ -441,6 +441,11 @@ struct GPUgstate {
 	void Restore(u32_le *ptr);
 };
 
+bool vertTypeIsSkinningEnabled(u32 vertType);
+
+inline int vertTypeGetNumBoneWeights(u32 vertType) { return 1 + ((vertType & GE_VTYPE_WEIGHTCOUNT_MASK) >> GE_VTYPE_WEIGHTCOUNT_SHIFT); }
+inline int vertTypeGetWeightMask(u32 vertType) { return vertType & GE_VTYPE_WEIGHT_MASK; }
+
 // The rest is cached simplified/converted data for fast access.
 // Does not need to be saved when saving/restoring context.
 //

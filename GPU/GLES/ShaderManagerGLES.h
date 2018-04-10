@@ -72,6 +72,13 @@ public:
 	int u_world;
 	int u_depthRange;   // x,y = viewport xscale/xcenter. z,w=clipping minz/maxz (?)
 
+#ifdef USE_BONE_ARRAY
+	int u_bone;  // array, size is numBones
+#else
+	int u_bone[8];
+#endif
+	int numBones;
+
 	// Shader blending.
 	int u_fbotex;
 	int u_blendFixA;
