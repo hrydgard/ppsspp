@@ -977,7 +977,18 @@ u32 IRInterpret(MIPSState *mips, const IRInst *inst, int count) {
 			}
 			break;
 
+		case IROp::ApplyRoundingMode:
+			// TODO: Implement
+			break;
+		case IROp::RestoreRoundingMode:
+			// TODO: Implement
+			break;
+		case IROp::UpdateRoundingMode:
+			// TODO: Implement
+			break;
+
 		default:
+			// Unimplemented IR op. Bad.
 			Crash();
 		}
 #ifdef _DEBUG
