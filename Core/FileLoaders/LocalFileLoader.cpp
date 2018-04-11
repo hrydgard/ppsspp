@@ -115,7 +115,11 @@ size_t LocalFileLoader::ReadAt(s64 absolutePos, size_t bytes, size_t count, void
 #if PPSSPP_PLATFORM(ANDROID)
 	// pread64 doesn't appear to actually be 64-bit safe, though such ISOs are uncommon.  See #10862.
 	if (absolutePos <= 0x7FFFFFFF) {
+#if defined(_FILE_OFFSET_BITS) && _FILE_OFFSET_BITS < 64
 		return pread64(fd_, data, bytes * count, absolutePos) / bytes;
+#else
+		return pread(fd_, data, bytes * count, absolutePos) / bytes;
+#endif
 	} else {
 		// Since pread64 doesn't change the file offset, it should be safe to avoid the lock in the common case.
 		std::lock_guard<std::mutex> guard(readLock_);
