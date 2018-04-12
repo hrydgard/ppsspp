@@ -425,11 +425,12 @@ void TextureCacheVulkan::ApplyTextureFramebuffer(TexCacheEntry *entry, VirtualFr
 
 		// Need to rebind the pipeline since we switched it.
 		drawEngine_->DirtyPipeline();
-		gstate_c.Dirty(DIRTY_VIEWPORTSCISSOR_STATE);
+		// Since we may have switched render targets, we need to re-set depth/stencil etc states.
+		gstate_c.Dirty(DIRTY_VIEWPORTSCISSOR_STATE | DIRTY_DEPTHSTENCIL_STATE | DIRTY_BLEND_STATE | DIRTY_RASTER_STATE);
 	} else {
 		entry->status &= ~TexCacheEntry::STATUS_DEPALETTIZE;
 
-		framebufferManager_->RebindFramebuffer();
+		framebufferManager_->RebindFramebuffer();  // TODO: This line should not be needed?
 		imageView_ = framebufferManagerVulkan_->BindFramebufferAsColorTexture(0, framebuffer, BINDFBCOLOR_MAY_COPY_WITH_UV | BINDFBCOLOR_APPLY_TEX_OFFSET);
 
 		gstate_c.SetTextureFullAlpha(gstate.getTextureFormat() == GE_TFMT_5650);
