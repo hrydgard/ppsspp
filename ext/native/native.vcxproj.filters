@@ -341,6 +341,12 @@
     <ClInclude Include="json\json_reader.h">
       <Filter>json</Filter>
     </ClInclude>
+    <ClInclude Include="net\websocket_server.h">
+      <Filter>net</Filter>
+    </ClInclude>
+    <ClInclude Include="data\base64.h">
+      <Filter>data</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="gfx\gl_debug_log.cpp">
@@ -813,6 +819,12 @@
     </ClCompile>
     <ClCompile Include="json\json_reader.cpp">
       <Filter>json</Filter>
+    </ClCompile>
+    <ClCompile Include="net\websocket_server.cpp">
+      <Filter>net</Filter>
+    </ClCompile>
+    <ClCompile Include="data\base64.cpp">
+      <Filter>data</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>

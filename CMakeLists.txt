@@ -893,6 +893,8 @@ add_library(native STATIC
 	ext/native/base/stringutil.h
 	ext/native/base/timeutil.cpp
 	ext/native/base/timeutil.h
+	ext/native/data/base64.cpp
+	ext/native/data/base64.h
 	ext/native/data/compression.cpp
 	ext/native/data/compression.h
 	ext/native/file/chunk_file.cpp
@@ -985,6 +987,8 @@ add_library(native STATIC
 	ext/native/net/sinks.h
 	ext/native/net/url.cpp
 	ext/native/net/url.h
+	ext/native/net/websocket_server.cpp
+	ext/native/net/websocket_server.h
 	ext/native/profiler/profiler.cpp
 	ext/native/profiler/profiler.h
 	ext/native/thin3d/thin3d.cpp
