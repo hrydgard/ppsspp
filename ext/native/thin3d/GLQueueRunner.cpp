@@ -68,6 +68,7 @@ void GLQueueRunner::DestroyDeviceObjects() {
 }
 
 void GLQueueRunner::RunInitSteps(const std::vector<GLRInitStep> &steps) {
+	CHECK_GL_ERROR_IF_DEBUG();
 	glActiveTexture(GL_TEXTURE0);
 	GLuint boundTexture = (GLuint)-1;
 	bool allocatedTextures = false;
@@ -102,6 +103,7 @@ void GLQueueRunner::RunInitSteps(const std::vector<GLRInitStep> &steps) {
 		}
 		case GLRInitStepType::CREATE_PROGRAM:
 		{
+			CHECK_GL_ERROR_IF_DEBUG();
 			GLRProgram *program = step.create_program.program;
 			program->program = glCreateProgram();
 			_assert_msg_(G3D, step.create_program.num_shaders > 0, "Can't create a program with zero shaders");
@@ -162,6 +164,7 @@ void GLQueueRunner::RunInitSteps(const std::vector<GLRInitStep> &steps) {
 				} else {
 					ELOG("Could not link program with %d shaders for unknown reason:", step.create_program.num_shaders);
 				}
+				CHECK_GL_ERROR_IF_DEBUG();
 				break;
 			}
 
@@ -185,10 +188,12 @@ void GLQueueRunner::RunInitSteps(const std::vector<GLRInitStep> &steps) {
 					}
 				}
 			}
+			CHECK_GL_ERROR_IF_DEBUG();
 			break;
 		}
 		case GLRInitStepType::CREATE_SHADER:
 		{
+			CHECK_GL_ERROR_IF_DEBUG();
 			GLuint shader = glCreateShader(step.create_shader.stage);
 			step.create_shader.shader->shader = shader;
 			const char *code = step.create_shader.code;
@@ -221,6 +226,7 @@ void GLQueueRunner::RunInitSteps(const std::vector<GLRInitStep> &steps) {
 			step.create_shader.shader->code = code;
 			delete[] step.create_shader.code;
 			step.create_shader.shader->valid = true;
+			CHECK_GL_ERROR_IF_DEBUG();
 			break;
 		}
 		case GLRInitStepType::CREATE_INPUT_LAYOUT:
@@ -231,9 +237,11 @@ void GLQueueRunner::RunInitSteps(const std::vector<GLRInitStep> &steps) {
 		}
 		case GLRInitStepType::CREATE_FRAMEBUFFER:
 		{
+			CHECK_GL_ERROR_IF_DEBUG();
 			boundTexture = (GLuint)-1;
 			InitCreateFramebuffer(step);
 			allocatedTextures = true;
+			CHECK_GL_ERROR_IF_DEBUG();
 			break;
 		}
 		case GLRInitStepType::TEXTURE_IMAGE:
@@ -263,10 +271,12 @@ void GLQueueRunner::RunInitSteps(const std::vector<GLRInitStep> &steps) {
 			glTexParameteri(tex->target, GL_TEXTURE_WRAP_T, tex->wrapT);
 			glTexParameteri(tex->target, GL_TEXTURE_MAG_FILTER, tex->magFilter);
 			glTexParameteri(tex->target, GL_TEXTURE_MIN_FILTER, tex->minFilter);
+			CHECK_GL_ERROR_IF_DEBUG();
 			break;
 		}
 		case GLRInitStepType::TEXTURE_FINALIZE:
 		{
+			CHECK_GL_ERROR_IF_DEBUG();
 			GLRTexture *tex = step.texture_finalize.texture;
 			if (boundTexture != tex->texture) {
 				glBindTexture(tex->target, tex->texture);
@@ -277,13 +287,16 @@ void GLQueueRunner::RunInitSteps(const std::vector<GLRInitStep> &steps) {
 			if (step.texture_finalize.genMips) {
 				glGenerateMipmap(tex->target);
 			}
+			CHECK_GL_ERROR_IF_DEBUG();
 			break;
 		}
 		default:
+			CHECK_GL_ERROR_IF_DEBUG();
 			Crash();
 			break;
 		}
 	}
+	CHECK_GL_ERROR_IF_DEBUG();
 
 	// TODO: Use GL_KHR_no_error or a debug callback, where supported?
 	if (allocatedTextures) {
@@ -752,6 +765,7 @@ void GLQueueRunner::PerformRenderPass(const GLRStep &step) {
 				glBindTexture(GL_TEXTURE_2D, 0);  // Which target? Well we only use this one anyway...
 				curTex[slot] = nullptr;
 			}
+			CHECK_GL_ERROR_IF_DEBUG();
 			break;
 		}
 		case GLRRenderCommand::BIND_FB_TEXTURE:
@@ -769,6 +783,7 @@ void GLQueueRunner::PerformRenderPass(const GLRStep &step) {
 				// TODO: Depth texturing?
 				curTex[slot] = nullptr;
 			}
+			CHECK_GL_ERROR_IF_DEBUG();
 			break;
 		}
 		case GLRRenderCommand::BINDPROGRAM:
@@ -804,6 +819,7 @@ void GLQueueRunner::PerformRenderPass(const GLRStep &step) {
 				auto &entry = layout->entries[i];
 				glVertexAttribPointer(entry.location, entry.count, entry.type, entry.normalized, entry.stride, (const void *)(c.bindVertexBuffer.offset + entry.offset));
 			}
+			CHECK_GL_ERROR_IF_DEBUG();
 			break;
 		}
 		case GLRRenderCommand::BIND_BUFFER:
@@ -822,6 +838,7 @@ void GLQueueRunner::PerformRenderPass(const GLRStep &step) {
 				assert(!c.bind_buffer.buffer->Mapped());
 				glBindBuffer(c.bind_buffer.target, buf);
 			}
+			CHECK_GL_ERROR_IF_DEBUG();
 			break;
 		}
 		case GLRRenderCommand::GENMIPS:
@@ -841,6 +858,7 @@ void GLQueueRunner::PerformRenderPass(const GLRStep &step) {
 			break;
 		case GLRRenderCommand::TEXTURESAMPLER:
 		{
+			CHECK_GL_ERROR_IF_DEBUG();
 			GLint slot = c.textureSampler.slot;
 			if (slot != activeSlot) {
 				glActiveTexture(GL_TEXTURE0 + slot);
@@ -874,6 +892,7 @@ void GLQueueRunner::PerformRenderPass(const GLRStep &step) {
 				}
 				tex->anisotropy = c.textureSampler.anisotropy;
 			}
+			CHECK_GL_ERROR_IF_DEBUG();
 			break;
 		}
 		case GLRRenderCommand::TEXTURELOD:
@@ -957,6 +976,7 @@ void GLQueueRunner::PerformRenderPass(const GLRStep &step) {
 	glDisable(GL_COLOR_LOGIC_OP);
 #endif
 	glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
+	CHECK_GL_ERROR_IF_DEBUG();
 }
 
 void GLQueueRunner::PerformCopy(const GLRStep &step) {
@@ -1016,6 +1036,7 @@ void GLQueueRunner::PerformCopy(const GLRStep &step) {
 			srcRect.w, srcRect.h, depth);
 	}
 #endif
+	CHECK_GL_ERROR_IF_DEBUG();
 }
 
 void GLQueueRunner::PerformReadback(const GLRStep &pass) {
