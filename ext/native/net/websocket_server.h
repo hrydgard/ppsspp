@@ -71,6 +71,8 @@ protected:
 	}
 
 	void SendHeader(bool fin, int opcode, size_t sz);
+	void SendBytes(const void *p, size_t sz);
+	void SendFlush();
 	bool ReadFrames();
 	bool ReadFrame();
 	bool ReadPending();
@@ -83,6 +85,7 @@ protected:
 	InputSink *in_ = nullptr;
 	OutputSink *out_ = nullptr;
 	WebSocketClose closeReason_ = WebSocketClose::NO_STATUS;
+	std::vector<uint8_t> outBuf_;
 
 	std::vector<uint8_t> pendingBuf_;
 	uint8_t pendingMask_[4]{};
