@@ -375,19 +375,9 @@ namespace MIPSInt
 		{
 		case 10: if (R(rt) == 0) R(rd) = R(rs); break; //movz
 		case 11: if (R(rt) != 0) R(rd) = R(rs); break; //movn
-		case 32: 
-			if (!has_warned) {
-				ERROR_LOG(CPU,"WARNING : exception-causing add at %08x", PC);
-				has_warned = true;
-			}
-			R(rd) = R(rs) + R(rt);		break; //add
+		case 32: R(rd) = R(rs) + R(rt);		break; //add (exception on overflow)
 		case 33: R(rd) = R(rs) + R(rt);		break; //addu
-		case 34: 
-			if (!has_warned) {
-				ERROR_LOG(CPU,"WARNING : exception-causing sub at %08x", PC);
-				has_warned = true;
-			}
-			R(rd) = R(rs) - R(rt);		break; //sub
+		case 34: R(rd) = R(rs) - R(rt);		break; //sub (exception on overflow)
 		case 35: R(rd) = R(rs) - R(rt);		break; //subu
 		case 36: R(rd) = R(rs) & R(rt);		break; //and
 		case 37: R(rd) = R(rs) | R(rt);		break; //or
@@ -398,7 +388,7 @@ namespace MIPSInt
 		case 44: R(rd) = ((s32)R(rs) > (s32)R(rt)) ? R(rs) : R(rt); break; //max
 		case 45: R(rd) = ((s32)R(rs) < (s32)R(rt)) ? R(rs) : R(rt); break;//min
 		default:
-			_dbg_assert_msg_(CPU,0,"Trying to interpret instruction that can't be interpreted");
+			_dbg_assert_msg_(CPU, 0, "Unknown MIPS instruction %08x", op.encoding);
 			break;
 		}
 		PC += 4;

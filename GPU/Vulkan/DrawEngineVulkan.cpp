@@ -1003,14 +1003,11 @@ DrawEngineVulkan::TessellationDataTransferVulkan::TessellationDataTransferVulkan
 DrawEngineVulkan::TessellationDataTransferVulkan::~TessellationDataTransferVulkan() {
 }
 
-// TODO: Consolidate the three textures into one, with height 3.
-// This can be done for all the backends.
-// TODO: Actually, even better, avoid the usage of textures altogether and just use shader storage buffers from the current pushbuffer.
 void DrawEngineVulkan::TessellationDataTransferVulkan::PrepareBuffers(float *&pos, float *&tex, float *&col, int &posStride, int &texStride, int &colStride, int size, bool hasColor, bool hasTexCoords) {
 	colStride = 4;
 
-	// TODO: This SHOULD work without padding but I can't get it to work on nvidia, so had
-	// to expand to vec4. Driver bug?
+	// SSBOs that are not simply float1 or float2 need to be padded up to a float4 size. vec3 members
+	// also need to be 16-byte aligned, hence the padding.
 	struct TessData {
 		float pos[3]; float pad1;
 		float uv[2]; float pad2[2];
@@ -1030,5 +1027,5 @@ void DrawEngineVulkan::TessellationDataTransferVulkan::PrepareBuffers(float *&po
 }
 
 void DrawEngineVulkan::TessellationDataTransferVulkan::SendDataToShader(const float *pos, const float *tex, const float *col, int size, bool hasColor, bool hasTexCoords) {
-	// Nothing to do here!
+	// Nothing to do here! The caller will write directly to the pushbuffer through the pointers it got through PrepareBuffers.
 }
