@@ -45,7 +45,32 @@ enum class Opcode {
 	CONTROL_MAX = 10,
 };
 
-WebSocketServer *WebSocketServer::CreateAsUpgrade(const http::Request &request) {
+static inline std::string TrimString(const std::string &s) {
+	auto wsfront = std::find_if_not(s.begin(), s.end(), [](int c) {
+		// isspace() expects 0 - 255, so convert any sign-extended value.
+	   return std::isspace(c & 0xFF);
+   });
+   auto wsback = std::find_if_not(s.rbegin(), s.rend(), [](int c){
+	   return std::isspace(c & 0xFF);
+   }).base();
+   return wsback > wsfront ? std::string(wsfront, wsback) : std::string();
+}
+
+static bool ListContainsNoCase(const std::string &list, const std::string value) {
+	std::vector<std::string> split;
+	SplitString(list, ',', split);
+
+	for (auto item : split) {
+		std::transform(item.begin(), item.end(), item.begin(), tolower);
+		if (TrimString(item) == value) {
+			return true;
+		}
+	}
+
+	return false;
+}
+
+WebSocketServer *WebSocketServer::CreateAsUpgrade(const http::Request &request, const std::string &protocol) {
 	auto requireHeader = [&](const char *name, const char *expected) {
 		std::string val;
 		if (!request.GetHeader(name, &val)) {
@@ -58,8 +83,7 @@ WebSocketServer *WebSocketServer::CreateAsUpgrade(const http::Request &request) 
 		if (!request.GetHeader(name, &val)) {
 			return false;
 		}
-		std::transform(val.begin(), val.end(), val.begin(), tolower);
-		return strstr(val.c_str(), expected) != 0;
+		return ListContainsNoCase(val, expected);
 	};
 
 	if (!requireHeader("upgrade", "websocket") || !requireHeaderContains("connection", "upgrade")) {
@@ -71,6 +95,14 @@ WebSocketServer *WebSocketServer::CreateAsUpgrade(const http::Request &request) 
 		request.WriteHttpResponseHeader(400, -1, "text/plain", "Sec-WebSocket-Version: 13\r\n");
 		request.Out()->Push("Unsupported version.");
 		return nullptr;
+	}
+
+	std::string requestedProtocols;
+	std::string obtainedProtocolHeader;
+	if (!protocol.empty() && request.GetHeader("sec-websocket-protocol", &requestedProtocols)) {
+		if (ListContainsNoCase(requestedProtocols, protocol)) {
+			obtainedProtocolHeader = "Sec-WebSocket-Protocol: " + protocol + "\r\n";
+		}
 	}
 
 	std::string key;
@@ -85,7 +117,7 @@ WebSocketServer *WebSocketServer::CreateAsUpgrade(const http::Request &request) 
 	sha1((unsigned char *)key.c_str(), (int)key.size(), accept);
 
 	std::string acceptKey = Base64Encode(accept, 20);
-	std::string otherHeaders = StringFromFormat("Upgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Accept: %s\r\n", acceptKey.c_str());
+	std::string otherHeaders = StringFromFormat("Upgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Accept: %s\r\n%s", acceptKey.c_str(), obtainedProtocolHeader.c_str());
 
 	// Okay, we're good to go then.
 	request.WriteHttpResponseHeader(101, -1, "websocket", otherHeaders.c_str());

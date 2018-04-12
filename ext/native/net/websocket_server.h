@@ -28,7 +28,7 @@ enum class WebSocketClose : uint16_t {
 // RFC 6455
 class WebSocketServer {
 public:
-	static WebSocketServer *CreateAsUpgrade(const http::Request &request);
+	static WebSocketServer *CreateAsUpgrade(const http::Request &request, const std::string &protocol = "");
 
 	void Send(const std::string &str);
 	void Send(const std::vector<uint8_t> &payload);
