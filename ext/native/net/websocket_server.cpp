@@ -96,6 +96,7 @@ WebSocketServer *WebSocketServer::CreateAsUpgrade(const http::Request &request) 
 
 void WebSocketServer::Send(const std::string &str) {
 	assert(open_);
+	assert(fragmentOpcode_ == -1);
 	SendHeader(true, (int)Opcode::TEXT, str.size());
 	// TODO: For long strings, this will block.  Possibly not ideal.
 	if (!out_->Push(str.c_str(), str.size())) {
@@ -107,12 +108,55 @@ void WebSocketServer::Send(const std::string &str) {
 
 void WebSocketServer::Send(const std::vector<uint8_t> &payload) {
 	assert(open_);
+	assert(fragmentOpcode_ == -1);
 	SendHeader(true, (int)Opcode::BINARY, payload.size());
 	// TODO: For long strings, this will block.  Possibly not ideal.
 	if (!out_->Push((const char *)&payload[0], payload.size())) {
 		assert(false);
 		open_ = false;
 		closeReason_ = WebSocketClose::ABNORMAL;
+	}
+}
+
+void WebSocketServer::AddFragment(bool finish, const std::string &str) {
+	assert(open_);
+	if (fragmentOpcode_ == -1) {
+		SendHeader(finish, (int)Opcode::TEXT, str.size());
+		fragmentOpcode_ = (int)Opcode::TEXT;
+	} else if (fragmentOpcode_ == (int)Opcode::TEXT) {
+		SendHeader(finish, (int)Opcode::CONTINUE, str.size());
+	} else {
+		assert(fragmentOpcode_ == (int)Opcode::TEXT || fragmentOpcode_ == -1);
+	}
+	// TODO: For long strings, this will block.  Possibly not ideal.
+	if (!out_->Push(str.c_str(), str.size())) {
+		assert(false);
+		open_ = false;
+		closeReason_ = WebSocketClose::ABNORMAL;
+	}
+	if (finish) {
+		fragmentOpcode_ = -1;
+	}
+}
+
+void WebSocketServer::AddFragment(bool finish, const std::vector<uint8_t> &payload) {
+	assert(open_);
+	if (fragmentOpcode_ == -1) {
+		SendHeader(finish, (int)Opcode::BINARY, payload.size());
+		fragmentOpcode_ = (int)Opcode::BINARY;
+	} else if (fragmentOpcode_ == (int)Opcode::BINARY) {
+		SendHeader(finish, (int)Opcode::CONTINUE, payload.size());
+	} else {
+		assert(fragmentOpcode_ == (int)Opcode::BINARY || fragmentOpcode_ == -1);
+	}
+	// TODO: For long strings, this will block.  Possibly not ideal.
+	if (!out_->Push((const char *)&payload[0], payload.size())) {
+		assert(false);
+		open_ = false;
+		closeReason_ = WebSocketClose::ABNORMAL;
+	}
+	if (finish) {
+		fragmentOpcode_ = -1;
 	}
 }
 

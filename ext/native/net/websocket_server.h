@@ -30,9 +30,14 @@ class WebSocketServer {
 public:
 	static WebSocketServer *CreateAsUpgrade(const http::Request &request);
 
-	// TODO: Doesn't support fragmented data yet.
 	void Send(const std::string &str);
 	void Send(const std::vector<uint8_t> &payload);
+
+	// Call with finish = false to start and continue, then finally with finish = true to complete.
+	// Note: Fragmented data cannot be interleaved, per protocol.
+	void AddFragment(bool finish, const std::string &str);
+	void AddFragment(bool finish, const std::vector<uint8_t> &payload);
+
 	void Ping(const std::vector<uint8_t> &payload = {});
 	void Pong(const std::vector<uint8_t> &payload = {});
 	void Close(WebSocketClose reason = WebSocketClose::GOING_AWAY);
@@ -73,6 +78,7 @@ protected:
 
 	bool open_ = true;
 	bool sentClose_ = false;
+	int fragmentOpcode_ = -1;
 	size_t fd_ = 0;
 	InputSink *in_ = nullptr;
 	OutputSink *out_ = nullptr;
