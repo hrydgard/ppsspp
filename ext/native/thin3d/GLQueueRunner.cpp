@@ -282,7 +282,9 @@ void GLQueueRunner::RunInitSteps(const std::vector<GLRInitStep> &steps) {
 				glBindTexture(tex->target, tex->texture);
 				boundTexture = tex->texture;
 			}
-			glTexParameteri(tex->target, GL_TEXTURE_MAX_LEVEL, step.texture_finalize.maxLevel);
+			if (!gl_extensions.IsGLES || gl_extensions.GLES3) {
+				glTexParameteri(tex->target, GL_TEXTURE_MAX_LEVEL, step.texture_finalize.maxLevel);
+			}
 			tex->maxLod = (float)step.texture_finalize.maxLevel;
 			if (step.texture_finalize.genMips) {
 				glGenerateMipmap(tex->target);
@@ -346,7 +348,9 @@ void GLQueueRunner::InitCreateFramebuffer(const GLRInitStep &step) {
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, fbo->color_texture.wrapT);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, fbo->color_texture.magFilter);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, fbo->color_texture.minFilter);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAX_LEVEL, 0);
+	if (!gl_extensions.IsGLES || gl_extensions.GLES3) {
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAX_LEVEL, 0);
+	}
 
 	if (gl_extensions.IsGLES) {
 		if (gl_extensions.OES_packed_depth_stencil) {
