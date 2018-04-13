@@ -20,6 +20,7 @@
 #endif
 
 #include "base/logging.h"
+#include "base/stringutil.h"
 #include "math/lin/matrix4x4.h"
 #include "math/math_util.h"
 #include "math/dataconv.h"
@@ -48,7 +49,7 @@ VulkanFragmentShader::VulkanFragmentShader(VulkanContext *vulkan, FShaderID id, 
 	std::string errorMessage;
 	std::vector<uint32_t> spirv;
 #ifdef SHADERLOG
-	OutputDebugStringA(code);
+	OutputDebugStringA(LineNumberString(code).c_str());
 #endif
 
 	bool success = GLSLtoSPV(VK_SHADER_STAGE_FRAGMENT_BIT, code, spirv, &errorMessage);
@@ -63,7 +64,6 @@ VulkanFragmentShader::VulkanFragmentShader(VulkanContext *vulkan, FShaderID id, 
 #ifdef SHADERLOG
 		OutputDebugStringA("Messages:\n");
 		OutputDebugStringA(errorMessage.c_str());
-		OutputDebugStringA(code);
 #endif
 		Reporting::ReportMessage("Vulkan error in shader compilation: info: %s / code: %s", errorMessage.c_str(), code);
 	} else {
@@ -105,7 +105,7 @@ VulkanVertexShader::VulkanVertexShader(VulkanContext *vulkan, VShaderID id, cons
 	std::string errorMessage;
 	std::vector<uint32_t> spirv;
 #ifdef SHADERLOG
-	OutputDebugStringA(code);
+	OutputDebugStringA(LineNumberString(code).c_str());
 #endif
 	bool success = GLSLtoSPV(VK_SHADER_STAGE_VERTEX_BIT, code, spirv, &errorMessage);
 	if (!errorMessage.empty()) {
