@@ -57,6 +57,7 @@ struct CompatFlags {
 	bool RequireDefaultCPUClock;
 	bool DisableReadbacks;
 	bool DisableAccurateDepth;
+	bool MGS2AcidHack;
 };
 
 class IniFile;

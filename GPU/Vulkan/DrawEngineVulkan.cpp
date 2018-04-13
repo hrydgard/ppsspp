@@ -372,7 +372,7 @@ VkResult DrawEngineVulkan::RecreateDescriptorPool(FrameData &frame, int newSize)
 	VkDescriptorPoolSize dpTypes[3];
 	dpTypes[0].descriptorCount = frame.descPoolSize * 3;
 	dpTypes[0].type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC;
-	dpTypes[1].descriptorCount = frame.descPoolSize * 2;  // Don't use these for tess anymore, need max two per set.
+	dpTypes[1].descriptorCount = frame.descPoolSize * 3;  // Don't use these for tess anymore, need max three per set.
 	dpTypes[1].type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
 	dpTypes[2].descriptorCount = frame.descPoolSize;
 	dpTypes[2].type = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
