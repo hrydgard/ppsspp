@@ -41,6 +41,17 @@ struct TransformedVertex;
 
 struct DecVtxFormat;
 
+enum {
+	TEX_SLOT_PSP_TEXTURE = 0,
+	TEX_SLOT_SHADERBLEND_SRC = 1,
+	TEX_SLOT_ALPHATEST = 2,
+	TEX_SLOT_CLUT = 3,
+	TEX_SLOT_SPLINE_POS = 4,
+	TEX_SLOT_SPLINE_NRM = 5,
+	TEX_SLOT_SPLINE_COL = 6,
+};
+
+
 // States transitions:
 // On creation: DRAWN_NEW
 // DRAWN_NEW -> DRAWN_HASHING

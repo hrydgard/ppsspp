@@ -390,6 +390,8 @@ void GenerateVertexShaderHLSL(const VShaderID &id, char *buffer, ShaderLanguage 
 		if (!enableBones) {
 			// Hardware tessellation
 			if (doSpline || doBezier) {
+				WRITE(p, "  uint u_spline_count_u = u_spline_counts & 0xFF;\n");
+				WRITE(p, "  uint u_spline_count_v = (u_spline_counts >> 8) & 0xFF;\n");
 				WRITE(p, "  uint num_patches_u = %s;\n", doBezier ? "(u_spline_count_u - 1) / 3u" : "u_spline_count_u - 3");
 				WRITE(p, "  float2 tess_pos = In.position.xy;\n");
 				WRITE(p, "  int u = In.instanceId %% num_patches_u;\n");
@@ -420,6 +422,8 @@ void GenerateVertexShaderHLSL(const VShaderID &id, char *buffer, ShaderLanguage 
 					WRITE(p, "  weights[3] = tess_pos * tess_pos * tess_pos;\n");
 				} else if (doSpline) {
 					WRITE(p, "  int2 spline_num_patches = int2(u_spline_count_u - 3, u_spline_count_v - 3);\n");
+					WRITE(p, "  int u_spline_type_u = (u_spline_counts >> 16) & 0xFF;\n");
+					WRITE(p, "  int u_spline_type_v = (u_spline_counts >> 24) & 0xFF;\n");
 					WRITE(p, "  int2 spline_type = int2(u_spline_type_u, u_spline_type_v);\n");
 					WRITE(p, "  float2 knots[6];\n");
 					WRITE(p, "  spline_knot(spline_num_patches, spline_type, knots, patch_pos);\n");

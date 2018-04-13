@@ -157,3 +157,7 @@ inline void ExpandFloat24x3ToFloat4(float dest[4], const uint32_t src[3]) {
 	memcpy(dest, temp, sizeof(float) * 4);
 #endif
 }
+
+inline uint32_t BytesToUint32(uint8_t a, uint8_t b, uint8_t c, uint8_t d) {
+	return (a) | (b << 8) | (c << 16) | (d << 24);
+}

@@ -216,14 +216,14 @@ bool GenerateVulkanGLSLVertexShader(const VShaderID &id, char *buffer) {
 	WRITE(p, "out gl_PerVertex { vec4 gl_Position; };\n");
 
 	if (doBezier || doSpline) {
-		WRITE(p, "layout (std430) struct TessData {\n");
+		WRITE(p, "struct TessData {\n");
 		WRITE(p, "  vec4 pos;\n");
 		WRITE(p, "  vec4 uv;\n");
 		WRITE(p, "  vec4 color;\n");
 		WRITE(p, "};");
 		WRITE(p, "layout (std430, set = 0, binding = 5) buffer s_tess_data {\n");
 		WRITE(p, "  TessData data[];");
-		WRITE(p, "} tess_data;");
+		WRITE(p, "} tess_data;\n");
 
 		for (int i = 2; i <= 4; i++) {
 			// Define 3 types vec2, vec3, vec4
@@ -334,13 +334,15 @@ bool GenerateVulkanGLSLVertexShader(const VShaderID &id, char *buffer) {
 				WRITE(p, "  vec3 _pos[16];\n");
 				WRITE(p, "  vec2 _tex[16];\n");
 				WRITE(p, "  vec4 _col[16];\n");
-				WRITE(p, "  int num_patches_u = %s;\n", doBezier ? "(base.spline_count_u - 1) / 3" : "base.spline_count_u - 3");
+				WRITE(p, "  int spline_count_u = int(base.spline_counts & 0xff);\n");
+				WRITE(p, "  int spline_count_v = int((base.spline_counts >> 8) & 0xff);\n");
+				WRITE(p, "  int num_patches_u = %s;\n", doBezier ? "(spline_count_u - 1) / 3" : "spline_count_u - 3");
 				WRITE(p, "  int u = int(mod(gl_InstanceIndex, num_patches_u));\n");
 				WRITE(p, "  int v = gl_InstanceIndex / num_patches_u;\n");
 				WRITE(p, "  ivec2 patch_pos = ivec2(u, v);\n");
 				WRITE(p, "  for (int i = 0; i < 4; i++) {\n");
 				WRITE(p, "    for (int j = 0; j < 4; j++) {\n");
-				WRITE(p, "      int idx = (i + v%s) * base.spline_count_u + (j + u%s);\n", doBezier ? " * 3" : "", doBezier ? " * 3" : "");
+				WRITE(p, "      int idx = (i + v%s) * spline_count_u + (j + u%s);\n", doBezier ? " * 3" : "", doBezier ? " * 3" : "");
 				WRITE(p, "      _pos[i * 4 + j] = tess_data.data[idx].pos.xyz;\n");
 				if (doTexture && hasTexcoord && hasTexcoordTess)
 					WRITE(p, "      _tex[i * 4 + j] = tess_data.data[idx].uv.xy;\n");
@@ -357,8 +359,10 @@ bool GenerateVulkanGLSLVertexShader(const VShaderID &id, char *buffer) {
 					WRITE(p, "  weights[2] = 3 * tess_pos * tess_pos * (1 - tess_pos);\n");
 					WRITE(p, "  weights[3] = tess_pos * tess_pos * tess_pos;\n");
 				} else { // Spline
-					WRITE(p, "  ivec2 spline_num_patches = ivec2(base.spline_count_u - 3, base.spline_count_v - 3);\n");
-					WRITE(p, "  ivec2 spline_type = ivec2(base.spline_type_u, base.spline_type_v);\n");
+					WRITE(p, "  ivec2 spline_num_patches = ivec2(spline_count_u - 3, spline_count_v - 3);\n");
+					WRITE(p, "  int spline_type_u = int((base.spline_counts >> 16) & 0xff);\n");
+					WRITE(p, "  int spline_type_v = int((base.spline_counts >> 24) & 0xff);\n");
+					WRITE(p, "  ivec2 spline_type = ivec2(spline_type_u, spline_type_v);\n");
 					WRITE(p, "  vec2 knots[6];\n");
 					WRITE(p, "  spline_knot(spline_num_patches, spline_type, knots, patch_pos);\n");
 					WRITE(p, "  spline_weight(tess_pos + patch_pos, knots, weights);\n");
