@@ -188,14 +188,19 @@ void WebSocketServer::Pong(const std::vector<uint8_t> &payload) {
 
 void WebSocketServer::Close(WebSocketClose reason) {
 	closeReason_ = reason;
-	SendHeader(true, (int)Opcode::CLOSE, 2);
+	if (reason == WebSocketClose::NO_STATUS) {
+		// This means we received a CLOSE without a code.
+		SendHeader(true, (int)Opcode::CLOSE, 0);
+	} else {
+		SendHeader(true, (int)Opcode::CLOSE, 2);
 
-	uint16_t r = (uint16_t)reason;
-	uint8_t reasonData[] = {
-		(uint8_t)((r >> 8) & 0xFF),
-		(uint8_t)((r >> 0) & 0xFF),
-	};
-	SendBytes((const char *)reasonData, sizeof(reasonData));
+		uint16_t r = (uint16_t)reason;
+		uint8_t reasonData[] = {
+			(uint8_t)((r >> 8) & 0xFF),
+			(uint8_t)((r >> 0) & 0xFF),
+		};
+		SendBytes((const char *)reasonData, sizeof(reasonData));
+	}
 
 	sentClose_ = true;
 }
