@@ -10,6 +10,11 @@
 class VKRFramebuffer;
 struct VKRImage;
 
+enum {
+	QUEUE_HACK_MGS2_ACID = 1,
+	QUEUE_HACK_SONIC = 2,
+};
+
 enum class VKRRenderCommand : uint8_t {
 	BIND_PIPELINE,
 	STENCIL,
@@ -152,7 +157,9 @@ public:
 		backbuffer_ = fb;
 		backbufferImage_ = img;
 	}
-	void RunSteps(VkCommandBuffer cmd, const std::vector<VKRStep *> &steps);
+
+	// RunSteps can modify steps but will leave it in a valid state.
+	void RunSteps(VkCommandBuffer cmd, std::vector<VKRStep *> &steps);
 	void LogSteps(const std::vector<VKRStep *> &steps);
 
 	void CreateDeviceObjects();
@@ -205,6 +212,10 @@ public:
 		return found;
 	}
 
+	void EnableHacks(uint32_t hacks) {
+		hacksEnabled_ = hacks;
+	}
+
 private:
 	void InitBackbufferRenderPass();
 
@@ -222,6 +233,9 @@ private:
 	void LogReadbackImage(const VKRStep &pass);
 
 	void ResizeReadbackBuffer(VkDeviceSize requiredSize);
+
+	void ApplyMGSHack(std::vector<VKRStep *> &steps);
+	void ApplySonicHack(std::vector<VKRStep *> &steps);
 
 	static void SetupTransitionToTransferSrc(VKRImage &img, VkImageMemoryBarrier &barrier, VkPipelineStageFlags &stage, VkImageAspectFlags aspect);
 	static void SetupTransitionToTransferDst(VKRImage &img, VkImageMemoryBarrier &barrier, VkPipelineStageFlags &stage, VkImageAspectFlags aspect);
@@ -244,4 +258,7 @@ private:
 	VkDeviceMemory readbackMemory_ = VK_NULL_HANDLE;
 	VkBuffer readbackBuffer_ = VK_NULL_HANDLE;
 	VkDeviceSize readbackBufferSize_ = 0;
+
+	// TODO: Enable based on compat.ini.
+	uint32_t hacksEnabled_ = 0;
 };

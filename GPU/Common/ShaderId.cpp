@@ -171,6 +171,7 @@ std::string FragmentShaderDesc(const ShaderID &id) {
 	if (id.Bit(FS_BIT_COLOR_DOUBLE)) desc << "2x ";
 	if (id.Bit(FS_BIT_FLATSHADE)) desc << "Flat ";
 	if (id.Bit(FS_BIT_BGRA_TEXTURE)) desc << "BGRA ";
+	if (id.Bit(FS_BIT_SHADER_DEPAL)) desc << "Depal ";
 	if (id.Bit(FS_BIT_SHADER_TEX_CLAMP)) {
 		desc << "TClamp";
 		if (id.Bit(FS_BIT_CLAMP_S)) desc << "S";
@@ -236,6 +237,7 @@ void ComputeFragmentShaderID(ShaderID *id_out) {
 		bool doTextureProjection = (gstate.getUVGenMode() == GE_TEXMAP_TEXTURE_MATRIX && MatrixNeedsProjection(gstate.tgenMatrix));
 		bool doTextureAlpha = gstate.isTextureAlphaUsed();
 		bool doFlatShading = gstate.getShadeMode() == GE_SHADE_FLAT;
+		bool useShaderDepal = gstate_c.useShaderDepal;
 
 		ReplaceBlendType replaceBlend = ReplaceBlendWithShader(gstate_c.allowShaderBlend, gstate.FrameBufFormat());
 		ReplaceAlphaType stencilToAlpha = ReplaceAlphaWithStencil(replaceBlend);
@@ -299,6 +301,8 @@ void ComputeFragmentShaderID(ShaderID *id_out) {
 			id.SetBits(FS_BIT_BLENDFUNC_B, 4, gstate.getBlendFuncB());
 		}
 		id.SetBit(FS_BIT_FLATSHADE, doFlatShading);
+
+		id.SetBit(FS_BIT_SHADER_DEPAL, useShaderDepal);
 	}
 
 	*id_out = id;

@@ -42,6 +42,8 @@
 #include "GPU/Vulkan/FramebufferVulkan.h"
 #include "GPU/Vulkan/DrawEngineVulkan.h"
 #include "GPU/Vulkan/TextureCacheVulkan.h"
+#include "thin3d/VulkanRenderManager.h"
+#include "thin3d/VulkanQueueRunner.h"
 
 #include "Core/MIPS/MIPS.h"
 #include "Core/HLE/sceKernelThread.h"
@@ -456,6 +458,16 @@ void GPU_Vulkan::InitDeviceObjects() {
 		assert(!frameData_[i].push_);
 		frameData_[i].push_ = new VulkanPushBuffer(vulkan_, 64 * 1024);
 	}
+
+	VulkanRenderManager *rm = (VulkanRenderManager *)draw_->GetNativeObject(Draw::NativeObject::RENDER_MANAGER);
+	uint32_t hacks = 0;
+	if (PSP_CoreParameter().compat.flags().MGS2AcidHack)
+		hacks |= QUEUE_HACK_MGS2_ACID;
+	if (PSP_CoreParameter().compat.flags().SonicRivalsHack)
+		hacks |= QUEUE_HACK_SONIC;
+	if (hacks) {
+		rm->GetQueueRunner()->EnableHacks(hacks);
+	}
 }
 
 void GPU_Vulkan::DestroyDeviceObjects() {
@@ -467,6 +479,10 @@ void GPU_Vulkan::DestroyDeviceObjects() {
 			frameData_[i].push_ = nullptr;
 		}
 	}
+
+	// Need to turn off hacks when shutting down the GPU. Don't want them running in the menu.
+	VulkanRenderManager *rm = (VulkanRenderManager *)draw_->GetNativeObject(Draw::NativeObject::RENDER_MANAGER);
+	rm->GetQueueRunner()->EnableHacks(0);
 }
 
 void GPU_Vulkan::DeviceLost() {

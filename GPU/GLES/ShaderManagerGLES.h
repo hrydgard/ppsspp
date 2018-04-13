@@ -85,6 +85,10 @@ public:
 	int u_blendFixB;
 	int u_fbotexSize;
 
+	// Shader depal
+	int u_pal;  // the texture
+	int u_depal;  // the params
+
 	// Fragment processing inputs
 	int u_alphacolorref;
 	int u_alphacolormask;

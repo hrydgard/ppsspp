@@ -347,7 +347,7 @@ VkRenderPass VulkanQueueRunner::GetRenderPass(const RPKey &key) {
 	return pass;
 }
 
-void VulkanQueueRunner::RunSteps(VkCommandBuffer cmd, const std::vector<VKRStep *> &steps) {
+void VulkanQueueRunner::RunSteps(VkCommandBuffer cmd, std::vector<VKRStep *> &steps) {
 	// Optimizes renderpasses, then sequences them.
 	// Planned optimizations: 
 	//  * Create copies of render target that are rendered to multiple times and textured from in sequence, and push those render passes
@@ -397,6 +397,17 @@ void VulkanQueueRunner::RunSteps(VkCommandBuffer cmd, const std::vector<VKRStep 
 		}
 	}
 
+	// Queue hacks.
+	if (hacksEnabled_) {
+		if (hacksEnabled_ & QUEUE_HACK_MGS2_ACID) {
+			// Massive speedup.
+			ApplyMGSHack(steps);
+		}
+		if (hacksEnabled_ & QUEUE_HACK_SONIC) {
+			ApplySonicHack(steps);
+		}
+	}
+
 	for (size_t i = 0; i < steps.size(); i++) {
 		const VKRStep &step = *steps[i];
 		switch (step.stepType) {
@@ -419,6 +430,146 @@ void VulkanQueueRunner::RunSteps(VkCommandBuffer cmd, const std::vector<VKRStep 
 			break;
 		}
 		delete steps[i];
+	}
+}
+
+void VulkanQueueRunner::ApplyMGSHack(std::vector<VKRStep *> &steps) {
+	// We want to turn a sequence of copy,render(1),copy,render(1),copy,render(1) to copy,copy,copy,render(n).
+
+	for (int i = 0; i < (int)steps.size() - 3; i++) {
+		int last = -1;
+		if (!(steps[i]->stepType == VKRStepType::COPY &&
+			steps[i + 1]->stepType == VKRStepType::RENDER &&
+			steps[i + 2]->stepType == VKRStepType::COPY &&
+			steps[i + 1]->render.numDraws == 1 &&
+			steps[i]->copy.dst == steps[i + 2]->copy.dst))
+			continue;
+		// Looks promising! Let's start by finding the last one.
+		for (int j = i; j < (int)steps.size(); j++) {
+			switch (steps[j]->stepType) {
+			case VKRStepType::RENDER:
+				if (steps[j]->render.numDraws > 1)
+					last = j - 1;
+				break;
+			case VKRStepType::COPY:
+				if (steps[j]->copy.dst != steps[i]->copy.dst)
+					last = j - 1;
+				break;
+			}
+			if (last != -1)
+				break;
+		}
+
+		if (last != -1) {
+			// We've got a sequence from i to last that needs reordering.
+			// First, let's sort it, keeping the same length.
+			std::vector<VKRStep *> copies;
+			std::vector<VKRStep *> renders;
+			copies.reserve((last - i) / 2);
+			renders.reserve((last - i) / 2);
+			for (int n = i; n <= last; n++) {
+				if (steps[n]->stepType == VKRStepType::COPY)
+					copies.push_back(steps[n]);
+				else if (steps[n]->stepType == VKRStepType::RENDER)
+					renders.push_back(steps[n]);
+			}
+			// Write the copies back. TODO: Combine them too.
+			for (int j = 0; j < (int)copies.size(); j++) {
+				steps[i + j] = copies[j];
+			}
+			// Write the renders back (so they will be deleted properly).
+			for (int j = 0; j < (int)renders.size(); j++) {
+				steps[i + j + copies.size()] = renders[j];
+			}
+			assert(steps[i + copies.size()]->stepType == VKRStepType::RENDER);
+			// Combine the renders.
+			for (int j = 1; j < (int)renders.size(); j++) {
+				for (int k = 0; k < renders[j]->commands.size(); k++) {
+					steps[i + copies.size()]->commands.push_back(renders[j]->commands[k]);
+				}
+				steps[i + copies.size() + j]->stepType = VKRStepType::RENDER_SKIP;
+			}
+			// We're done.
+			break;
+		}
+	}
+}
+
+void VulkanQueueRunner::ApplySonicHack(std::vector<VKRStep *> &steps) {
+	// We want to turn a sequence of render(3),render(1),render(6),render(1),render(6),render(1),render(3) to
+	// render(1), render(1), render(1), render(6), render(6), render(6)
+
+	for (int i = 0; i < (int)steps.size() - 4; i++) {
+		int last = -1;
+		if (!(steps[i]->stepType == VKRStepType::RENDER &&
+			steps[i + 1]->stepType == VKRStepType::RENDER &&
+			steps[i + 2]->stepType == VKRStepType::RENDER &&
+			steps[i + 3]->stepType == VKRStepType::RENDER &&
+			steps[i]->render.numDraws == 3 &&
+			steps[i + 1]->render.numDraws == 1 &&
+			steps[i + 2]->render.numDraws == 6 &&
+			steps[i + 3]->render.numDraws == 1 &&
+			steps[i]->render.framebuffer == steps[i + 2]->render.framebuffer &&
+			steps[i + 1]->render.framebuffer == steps[i + 3]->render.framebuffer))
+			continue;
+		// Looks promising! Let's start by finding the last one.
+		for (int j = i; j < (int)steps.size(); j++) {
+			switch (steps[j]->stepType) {
+			case VKRStepType::RENDER:
+				if ((j - i) & 1) {
+					if (steps[j]->render.framebuffer != steps[i + 1]->render.framebuffer)
+						last = j - 1;
+					if (steps[j]->render.numDraws != 1)
+						last = j - 1;
+				} else {
+					if (steps[j]->render.framebuffer != steps[i]->render.framebuffer)
+						last = j - 1;
+					if (steps[j]->render.numDraws != 3 && steps[j]->render.numDraws != 6)
+						last = j - 1;
+				}
+			}
+			if (last != -1)
+				break;
+		}
+
+		if (last != -1) {
+			// We've got a sequence from i to last that needs reordering.
+			// First, let's sort it, keeping the same length.
+			std::vector<VKRStep *> type1;
+			std::vector<VKRStep *> type2;
+			type1.reserve((last - i) / 2);
+			type2.reserve((last - i) / 2);
+			for (int n = i; n <= last; n++) {
+				if (steps[n]->render.framebuffer == steps[i]->render.framebuffer)
+					type1.push_back(steps[n]);
+				else
+					type2.push_back(steps[n]);
+			}
+
+			// Write the renders back in order. Same amount, so deletion will work fine.
+			for (int j = 0; j < (int)type1.size(); j++) {
+				steps[i + j] = type1[j];
+			}
+			for (int j = 0; j < (int)type2.size(); j++) {
+				steps[i + j + type1.size()] = type2[j];
+			}
+
+			// Combine the renders.
+			for (int j = 1; j < (int)type1.size(); j++) {
+				for (int k = 0; k < (int)type1[j]->commands.size(); k++) {
+					steps[i]->commands.push_back(type1[j]->commands[k]);
+				}
+				steps[i + j]->stepType = VKRStepType::RENDER_SKIP;
+			}
+			for (int j = 1; j < (int)type2.size(); j++) {
+				for (int k = 0; k < (int)type2[j]->commands.size(); k++) {
+					steps[i + type1.size()]->commands.push_back(type2[j]->commands[k]);
+				}
+				steps[i + j + type1.size()]->stepType = VKRStepType::RENDER_SKIP;
+			}
+			// We're done.
+			break;
+		}
 	}
 }
 

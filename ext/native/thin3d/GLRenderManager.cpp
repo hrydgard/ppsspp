@@ -472,6 +472,7 @@ void GLRenderManager::Run(int frame) {
 	auto &initStepsOnThread = frameData_[frame].initSteps;
 	// queueRunner_.LogSteps(stepsOnThread);
 	queueRunner_.RunInitSteps(initStepsOnThread);
+	initStepsOnThread.clear();
 
 	// Run this after RunInitSteps so any fresh GLRBuffers for the pushbuffers can get created.
 	for (auto iter : frameData.activePushBuffers) {
@@ -481,7 +482,6 @@ void GLRenderManager::Run(int frame) {
 
 	queueRunner_.RunSteps(stepsOnThread);
 	stepsOnThread.clear();
-	initStepsOnThread.clear();
 
 	for (auto iter : frameData.activePushBuffers) {
 		iter->MapDevice(bufferStrategy_);

@@ -161,7 +161,7 @@ void TextureCacheGLES::UpdateSamplingParams(TexCacheEntry &entry, bool force) {
 	render_->SetTextureSampler(0, sClamp ? GL_CLAMP_TO_EDGE : GL_REPEAT, tClamp ? GL_CLAMP_TO_EDGE : GL_REPEAT, MagFiltGL[magFilt], MinFiltGL[minFilt], aniso);
 }
 
-void TextureCacheGLES::SetFramebufferSamplingParams(u16 bufferWidth, u16 bufferHeight) {
+void TextureCacheGLES::SetFramebufferSamplingParams(u16 bufferWidth, u16 bufferHeight, bool forcePoint) {
 	int minFilt;
 	int magFilt;
 	bool sClamp;
@@ -171,6 +171,10 @@ void TextureCacheGLES::SetFramebufferSamplingParams(u16 bufferWidth, u16 bufferH
 	GetSamplingParams(minFilt, magFilt, sClamp, tClamp, lodBias, 0, 0, mode);
 
 	minFilt &= 1;  // framebuffers can't mipmap.
+	if (forcePoint) {
+		minFilt &= ~1;
+		magFilt &= ~1;
+	}
 
 	// Often the framebuffer will not match the texture size.  We'll wrap/clamp in the shader in that case.
 	// This happens whether we have OES_texture_npot or not.
@@ -324,6 +328,7 @@ void TextureCacheGLES::BindTexture(TexCacheEntry *entry) {
 		lastBoundTexture = entry->textureName;
 	}
 	UpdateSamplingParams(*entry, false);
+	gstate_c.useShaderDepal = false;
 }
 
 void TextureCacheGLES::Unbind() {
@@ -434,7 +439,33 @@ protected:
 void TextureCacheGLES::ApplyTextureFramebuffer(TexCacheEntry *entry, VirtualFramebuffer *framebuffer) {
 	DepalShader *depal = nullptr;
 	uint32_t clutMode = gstate.clutformat & 0xFFFFFF;
+
+#if 0
+	bool useShaderDepal = gstate_c.Supports(GPU_SUPPORTS_GLSL_ES_300);
+#else
+	bool useShaderDepal = false;
+#endif
+
 	if ((entry->status & TexCacheEntry::STATUS_DEPALETTIZE) && !g_Config.bDisableSlowFramebufEffects) {
+		if (useShaderDepal) {
+			const GEPaletteFormat clutFormat = gstate.getClutPaletteFormat();
+			GLRTexture *clutTexture = depalShaderCache_->GetClutTexture(clutFormat, clutHash_, clutBuf_);
+			render_->BindTexture(TEX_SLOT_CLUT, clutTexture);
+			framebufferManagerGL_->BindFramebufferAsColorTexture(0, framebuffer, BINDFBCOLOR_MAY_COPY_WITH_UV | BINDFBCOLOR_APPLY_TEX_OFFSET);
+			SetFramebufferSamplingParams(framebuffer->bufferWidth, framebuffer->bufferHeight, true);
+			InvalidateLastTexture();
+
+			// Since we started/ended render passes, might need these.
+			gstate_c.Dirty(DIRTY_DEPAL);
+			gstate_c.useShaderDepal = true;
+			gstate_c.depalFramebufferFormat = framebuffer->drawnFormat;
+			const u32 bytesPerColor = clutFormat == GE_CMODE_32BIT_ABGR8888 ? sizeof(u32) : sizeof(u16);
+			const u32 clutTotalColors = clutMaxBytes_ / bytesPerColor;
+			TexCacheEntry::TexStatus alphaStatus = CheckAlpha((const uint8_t *)clutBuf_, getClutDestFormat(clutFormat), clutTotalColors, clutTotalColors, 1);
+			gstate_c.SetTextureFullAlpha(alphaStatus == TexCacheEntry::STATUS_ALPHA_FULL);
+			return;
+		}
+
 		depal = depalShaderCache_->GetDepalettizeShader(clutMode, framebuffer->drawnFormat);
 	}
 	if (depal) {
@@ -472,7 +503,7 @@ void TextureCacheGLES::ApplyTextureFramebuffer(TexCacheEntry *entry, VirtualFram
 	}
 
 	framebufferManagerGL_->RebindFramebuffer();
-	SetFramebufferSamplingParams(framebuffer->bufferWidth, framebuffer->bufferHeight);
+	SetFramebufferSamplingParams(framebuffer->bufferWidth, framebuffer->bufferHeight, false);
 
 	InvalidateLastTexture();
 

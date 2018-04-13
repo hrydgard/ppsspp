@@ -161,7 +161,7 @@ const CommonCommandTableEntry commonCommandTable[] = {
 	// These must flush on change, so that LoadClut doesn't have to always flush.
 	{ GE_CMD_CLUTADDR, FLAG_FLUSHBEFOREONCHANGE },
 	{ GE_CMD_CLUTADDRUPPER, FLAG_FLUSHBEFOREONCHANGE },
-	{ GE_CMD_CLUTFORMAT, FLAG_FLUSHBEFOREONCHANGE, DIRTY_TEXTURE_PARAMS },
+	{ GE_CMD_CLUTFORMAT, FLAG_FLUSHBEFOREONCHANGE, DIRTY_TEXTURE_PARAMS | DIRTY_DEPAL },
 
 	// Morph weights. TODO: Remove precomputation?
 	{ GE_CMD_MORPHWEIGHT0, FLAG_FLUSHBEFOREONCHANGE | FLAG_EXECUTEONCHANGE, 0, &GPUCommon::Execute_MorphWeight },

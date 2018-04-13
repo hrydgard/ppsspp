@@ -600,6 +600,9 @@ struct GPUStateCache {
 	int spline_type_u;
 	int spline_type_v;
 
+	bool useShaderDepal;
+	GEBufferFormat depalFramebufferFormat;
+
 	u32 getRelativeAddress(u32 data) const;
 	void Reset();
 	void DoState(PointerWrap &p);

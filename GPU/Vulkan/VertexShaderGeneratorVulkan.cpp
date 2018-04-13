@@ -137,11 +137,11 @@ bool GenerateVulkanGLSLVertexShader(const VShaderID &id, char *buffer) {
 	bool flipNormalTess = id.Bit(VS_BIT_NORM_REVERSE_TESS);
 
 	WRITE(p, "\n");
-	WRITE(p, "layout (std140, set = 0, binding = 2) uniform baseVars {\n%s} base;\n", ub_baseStr);
+	WRITE(p, "layout (std140, set = 0, binding = 3) uniform baseVars {\n%s} base;\n", ub_baseStr);
 	if (enableLighting || doShadeMapping)
-		WRITE(p, "layout (std140, set = 0, binding = 3) uniform lightVars {\n%s} light;\n", ub_vs_lightsStr);
+		WRITE(p, "layout (std140, set = 0, binding = 4) uniform lightVars {\n%s} light;\n", ub_vs_lightsStr);
 	if (enableBones)
-		WRITE(p, "layout (std140, set = 0, binding = 4) uniform boneVars {\n%s} bone;\n", ub_vs_bonesStr);
+		WRITE(p, "layout (std140, set = 0, binding = 5) uniform boneVars {\n%s} bone;\n", ub_vs_bonesStr);
 
 	const char *shading = doFlatShading ? "flat " : "";
 
@@ -221,7 +221,7 @@ bool GenerateVulkanGLSLVertexShader(const VShaderID &id, char *buffer) {
 		WRITE(p, "  vec4 uv;\n");
 		WRITE(p, "  vec4 color;\n");
 		WRITE(p, "};");
-		WRITE(p, "layout (std430, set = 0, binding = 5) buffer s_tess_data {\n");
+		WRITE(p, "layout (std430, set = 0, binding = 6) buffer s_tess_data {\n");
 		WRITE(p, "  TessData data[];");
 		WRITE(p, "} tess_data;\n");
 

@@ -4,6 +4,7 @@
 #include "GLRenderManager.h"
 #include "DataFormatGL.h"
 #include "base/logging.h"
+#include "base/stringutil.h"
 #include "gfx/gl_common.h"
 #include "gfx/gl_debug_log.h"
 #include "gfx_es2/gpu_features.h"
@@ -156,9 +157,10 @@ void GLQueueRunner::RunInitSteps(const std::vector<GLRInitStep> &steps) {
 
 #ifdef _WIN32
 					OutputDebugStringUTF8(buf);
-					OutputDebugStringUTF8(vsCode);
+					if (vsCode)
+						OutputDebugStringUTF8(LineNumberString(vsCode).c_str());
 					if (fsCode)
-						OutputDebugStringUTF8(fsCode);
+						OutputDebugStringUTF8(LineNumberString(fsCode).c_str());
 #endif
 					delete[] buf;
 				} else {
