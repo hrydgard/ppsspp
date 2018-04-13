@@ -222,10 +222,18 @@ void BaseUpdateUniforms(UB_VS_FS_Base *ub, uint64_t dirtyUniforms, bool flipView
 	}
 
 	if (dirtyUniforms & DIRTY_BEZIERSPLINE) {
-		ub->spline_count_u = gstate_c.spline_count_u;
-		ub->spline_count_v = gstate_c.spline_count_v;
-		ub->spline_type_u = gstate_c.spline_type_u;
-		ub->spline_type_v = gstate_c.spline_type_v;
+		ub->spline_counts = BytesToUint32(gstate_c.spline_count_u, gstate_c.spline_count_v, gstate_c.spline_type_u, gstate_c.spline_type_v);
+	}
+
+	if (dirtyUniforms & DIRTY_DEPAL) {
+		int indexMask = gstate.getClutIndexMask();
+		int indexShift = gstate.getClutIndexShift();
+		int indexOffset = gstate.getClutIndexStartPos() >> 4;
+		int format = gstate_c.depalFramebufferFormat;
+		uint32_t val = BytesToUint32(indexMask, indexShift, indexOffset, format);
+		// Poke in a bilinear filter flag in the top bit.
+		val |= gstate.isMagnifyFilteringEnabled() << 31;
+		ub->depal_mask_shift_off_fmt = val;
 	}
 
 	if (dirtyUniforms & DIRTY_TEXSIZE) {
@@ -275,6 +283,14 @@ void LightUpdateUniforms(UB_VS_Lights *ub, uint64_t dirtyUniforms) {
 			Uint8x3ToFloat4(ub->lightAmbient[i], gstate.lcolor[i * 3]);
 			Uint8x3ToFloat4(ub->lightDiffuse[i], gstate.lcolor[i * 3 + 1]);
 			Uint8x3ToFloat4(ub->lightSpecular[i], gstate.lcolor[i * 3 + 2]);
+		}
+	}
+}
+
+void BoneUpdateUniforms(UB_VS_Bones *ub, uint64_t dirtyUniforms) {
+	for (int i = 0; i < 8; i++) {
+		if (dirtyUniforms & (DIRTY_BONEMATRIX0 << i)) {
+			ConvertMatrix4x3To3x4Transposed(ub->bones[i], gstate.boneMatrix + 12 * i);
 		}
 	}
 }

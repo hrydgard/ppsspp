@@ -20,10 +20,12 @@
 // The Descriptor Set used for the majority of PSP rendering looks like this:
 //
 // * binding 0: Texture/Sampler (the PSP texture)
-// * binding 1: Secondary texture sampler for shader blending or depal palettes
-// * binding 2: Base Uniform Buffer (includes fragment state)
-// * binding 3: Light uniform buffer
-// * binding 4: Shader buffer storage for tesselation
+// * binding 1: Secondary texture sampler for shader blending
+// * binding 2: Depal palette
+// * binding 3: Base Uniform Buffer (includes fragment state)
+// * binding 4: Light uniform buffer
+// * binding 5: Bone uniform buffer
+// * binding 6: Tess data storage buffer
 //
 // All shaders conform to this layout, so they are all compatible with the same descriptor set.
 // The format of the various uniform buffers may vary though - vertex shaders that don't skin
@@ -177,6 +179,9 @@ public:
 	}
 
 	void SetLineWidth(float lineWidth);
+	void SetDepalTexture(VkImageView depal) {
+		boundDepal_ = depal;
+	}
 
 private:
 	struct FrameData;
@@ -194,7 +199,7 @@ private:
 	void DoFlush();
 	void UpdateUBOs(FrameData *frame);
 
-	VkDescriptorSet GetOrCreateDescriptorSet(VkImageView imageView, VkSampler sampler, VkBuffer base, VkBuffer light, bool tess);
+	VkDescriptorSet GetOrCreateDescriptorSet(VkImageView imageView, VkSampler sampler, VkBuffer base, VkBuffer light, VkBuffer bone, bool tess);
 
 	VulkanContext *vulkan_;
 	Draw::DrawContext *draw_;
@@ -207,6 +212,7 @@ private:
 
 	// Secondary texture for shader blending
 	VkImageView boundSecondary_ = VK_NULL_HANDLE;
+	VkImageView boundDepal_ = VK_NULL_HANDLE;
 	VkSampler samplerSecondary_ = VK_NULL_HANDLE;  // This one is actually never used since we use fetch.
 
 	PrehashMap<VertexArrayInfoVulkan *, nullptr> vai_;
@@ -217,8 +223,9 @@ private:
 	struct DescriptorSetKey {
 		VkImageView imageView_;
 		VkImageView secondaryImageView_;
+		VkImageView depalImageView_;
 		VkSampler sampler_;
-		VkBuffer base_, light_;  // All three UBO slots will be set to this. This will usually be identical
+		VkBuffer base_, light_, bone_;  // All three UBO slots will be set to this. This will usually be identical
 		// for all draws in a frame, except when the buffer has to grow.
 	};
 
@@ -252,7 +259,8 @@ private:
 	uint64_t dirtyUniforms_;
 	uint32_t baseUBOOffset;
 	uint32_t lightUBOOffset;
-	VkBuffer baseBuf, lightBuf;
+	uint32_t boneUBOOffset;
+	VkBuffer baseBuf, lightBuf, boneBuf;
 	VkImageView imageView = VK_NULL_HANDLE;
 	VkSampler sampler = VK_NULL_HANDLE;
 

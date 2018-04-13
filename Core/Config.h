@@ -161,6 +161,7 @@ public:
 	int iGPUBackend;
 	bool bSoftwareRendering;
 	bool bHardwareTransform; // only used in the GLES backend
+	bool bSoftwareSkinning;  // may speed up some games
 
 	int iRenderingMode; // 0 = non-buffered rendering 1 = buffered rendering
 	int iTexFiltering; // 1 = off , 2 = nearest , 3 = linear , 4 = linear(CG)

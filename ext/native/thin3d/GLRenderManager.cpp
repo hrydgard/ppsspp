@@ -13,6 +13,11 @@
 #define VLOG(...)
 #endif
 
+static std::thread::id renderThreadId;
+static bool OnRenderThread() {
+	return std::this_thread::get_id() == renderThreadId;
+}
+
 // Runs on the GPU thread.
 void GLDeleter::Perform(GLRenderManager *renderManager) {
 	for (auto pushBuffer : pushBuffers) {
@@ -65,6 +70,7 @@ GLRenderManager::~GLRenderManager() {
 void GLRenderManager::ThreadStart() {
 	queueRunner_.CreateDeviceObjects();
 	threadFrame_ = threadInitFrame_;
+	renderThreadId = std::this_thread::get_id();
 
 	bool mapBuffers = (gl_extensions.bugs & BUG_ANY_MAP_BUFFER_RANGE_SLOW) == 0;
 	bool hasBufferStorage = gl_extensions.ARB_buffer_storage || gl_extensions.EXT_buffer_storage;
@@ -466,6 +472,7 @@ void GLRenderManager::Run(int frame) {
 	auto &initStepsOnThread = frameData_[frame].initSteps;
 	// queueRunner_.LogSteps(stepsOnThread);
 	queueRunner_.RunInitSteps(initStepsOnThread);
+	initStepsOnThread.clear();
 
 	// Run this after RunInitSteps so any fresh GLRBuffers for the pushbuffers can get created.
 	for (auto iter : frameData.activePushBuffers) {
@@ -475,7 +482,6 @@ void GLRenderManager::Run(int frame) {
 
 	queueRunner_.RunSteps(stepsOnThread);
 	stepsOnThread.clear();
-	initStepsOnThread.clear();
 
 	for (auto iter : frameData.activePushBuffers) {
 		iter->MapDevice(bufferStrategy_);
@@ -574,7 +580,7 @@ GLPushBuffer::GLPushBuffer(GLRenderManager *render, GLuint target, size_t size) 
 }
 
 GLPushBuffer::~GLPushBuffer() {
-	Destroy();
+	Destroy(true);
 }
 
 void GLPushBuffer::Map() {
@@ -606,6 +612,8 @@ void GLPushBuffer::Unmap() {
 
 void GLPushBuffer::Flush() {
 	// Must be called from the render thread.
+	_dbg_assert_(G3D, OnRenderThread());
+
 	buffers_[buf_].flushOffset = offset_;
 	if (!buffers_[buf_].deviceMemory && writePtr_) {
 		auto &info = buffers_[buf_];
@@ -647,12 +655,18 @@ bool GLPushBuffer::AddBuffer() {
 }
 
 // Executed on the render thread!
-void GLPushBuffer::Destroy() {
+void GLPushBuffer::Destroy(bool onRenderThread) {
 	for (BufInfo &info : buffers_) {
 		// This will automatically unmap device memory, if needed.
-		// NOTE: We immediately delete the buffer, don't go through the deleter, since we're on the render thread.
-		// render_->DeleteBuffer(info.buffer);
-		delete info.buffer;
+		// NOTE: We immediately delete the buffer, don't go through the deleter, if we're on the render thread.
+		if (onRenderThread) {
+			_dbg_assert_(G3D, OnRenderThread());
+			delete info.buffer;
+		} else {
+			_dbg_assert_(G3D, !OnRenderThread());
+			render_->DeleteBuffer(info.buffer);
+		}
+
 		FreeAlignedMemory(info.localMemory);
 	}
 	buffers_.clear();
@@ -684,6 +698,8 @@ void GLPushBuffer::NextBuffer(size_t minSize) {
 }
 
 void GLPushBuffer::Defragment() {
+	_dbg_assert_(G3D, std::this_thread::get_id() != renderThreadId);
+
 	if (buffers_.size() <= 1) {
 		// Let's take this chance to jetison localMemory we don't need.
 		for (auto &info : buffers_) {
@@ -698,7 +714,7 @@ void GLPushBuffer::Defragment() {
 
 	// Okay, we have more than one.  Destroy them all and start over with a larger one.
 	size_t newSize = size_ * buffers_.size();
-	Destroy();
+	Destroy(false);
 
 	size_ = newSize;
 	bool res = AddBuffer();
@@ -714,6 +730,8 @@ size_t GLPushBuffer::GetTotalSize() const {
 }
 
 void GLPushBuffer::MapDevice(GLBufferStrategy strategy) {
+	_dbg_assert_(G3D, OnRenderThread());
+
 	strategy_ = strategy;
 	if (strategy_ == GLBufferStrategy::SUBDATA) {
 		return;
@@ -746,6 +764,8 @@ void GLPushBuffer::MapDevice(GLBufferStrategy strategy) {
 }
 
 void GLPushBuffer::UnmapDevice() {
+	_dbg_assert_(G3D, OnRenderThread());
+
 	for (auto &info : buffers_) {
 		if (info.deviceMemory) {
 			// TODO: Technically this can return false?

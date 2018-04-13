@@ -67,6 +67,8 @@ struct CompatFlags {
 	bool Force04Download;
 	bool GuardBand;
 	bool DisableAccurateDepth;
+	bool MGS2AcidHack;
+	bool SonicRivalsHack;
 };
 
 class IniFile;

@@ -324,7 +324,7 @@ void ShaderManagerDX9::PSUpdateUniforms(u64 dirtyUniforms) {
 }
 
 const uint64_t vsUniforms = DIRTY_PROJMATRIX | DIRTY_PROJTHROUGHMATRIX | DIRTY_WORLDMATRIX | DIRTY_VIEWMATRIX | DIRTY_TEXMATRIX |
-DIRTY_FOGCOEF | DIRTY_UVSCALEOFFSET | DIRTY_DEPTHRANGE |
+DIRTY_FOGCOEF | DIRTY_BONE_UNIFORMS | DIRTY_UVSCALEOFFSET | DIRTY_DEPTHRANGE |
 DIRTY_AMBIENT | DIRTY_MATAMBIENTALPHA | DIRTY_MATSPECULAR | DIRTY_MATDIFFUSE | DIRTY_MATEMISSIVE | DIRTY_LIGHT0 | DIRTY_LIGHT1 | DIRTY_LIGHT2 | DIRTY_LIGHT3;
 
 void ShaderManagerDX9::VSUpdateUniforms(u64 dirtyUniforms) {
@@ -398,6 +398,39 @@ void ShaderManagerDX9::VSUpdateUniforms(u64 dirtyUniforms) {
 		ComputeGuardband(gb, 0.0f);
 		VSSetFloatUniform4(CONST_VS_GUARDBAND, gb);
 	}
+
+	// TODO: Could even set all bones in one go if they're all dirty.
+#ifdef USE_BONE_ARRAY
+	if (u_bone != 0) {
+		float allBones[8 * 16];
+
+		bool allDirty = true;
+		for (int i = 0; i < numBones; i++) {
+			if (dirtyUniforms & (DIRTY_BONEMATRIX0 << i)) {
+				ConvertMatrix4x3To4x4(allBones + 16 * i, gstate.boneMatrix + 12 * i);
+			} else {
+				allDirty = false;
+			}
+		}
+		if (allDirty) {
+			// Set them all with one call
+			//glUniformMatrix4fv(u_bone, numBones, GL_FALSE, allBones);
+		} else {
+			// Set them one by one. Could try to coalesce two in a row etc but too lazy.
+			for (int i = 0; i < numBones; i++) {
+				if (dirtyUniforms & (DIRTY_BONEMATRIX0 << i)) {
+					//glUniformMatrix4fv(u_bone + i, 1, GL_FALSE, allBones + 16 * i);
+				}
+			}
+		}
+	}
+#else
+	for (int i = 0; i < 8; i++) {
+		if (dirtyUniforms & (DIRTY_BONEMATRIX0 << i)) {
+			VSSetMatrix4x3_3(CONST_VS_BONE0 + 3 * i, gstate.boneMatrix + 12 * i);
+		}
+	}
+#endif
 
 	// Texturing
 	if (dirtyUniforms & DIRTY_UVSCALEOFFSET) {

@@ -551,7 +551,6 @@ extern "C" void Java_org_ppsspp_ppsspp_NativeRenderer_displayInit(JNIEnv * env, 
 	if (renderer_inited) {
 		// Would be really nice if we could get something on the GL thread immediately when shutting down...
 		ILOG("NativeApp.displayInit() restoring");
-		graphicsContext->ThreadEnd();
 		if (useCPUThread) {
 			EmuThreadStop();
 			while (graphicsContext->ThreadFrame()) {
@@ -561,6 +560,7 @@ extern "C" void Java_org_ppsspp_ppsspp_NativeRenderer_displayInit(JNIEnv * env, 
 		} else {
 			NativeShutdownGraphics();
 		}
+		graphicsContext->ThreadEnd();
 		graphicsContext->ShutdownFromRenderThread();
 
 		ILOG("Shut down both threads. Now let's bring it up again!");

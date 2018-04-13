@@ -369,6 +369,7 @@ int main(int argc, const char* argv[])
 	g_Config.bFrameSkipUnthrottle = false;
 	g_Config.bEnableLogging = fullLog;
 	g_Config.iNumWorkerThreads = 1;
+	g_Config.bSoftwareSkinning = true;
 	g_Config.iATRACMP3Volume = MAX_CONFIG_VOLUME;
 	g_Config.iSASVolume = MAX_CONFIG_VOLUME;
 	g_Config.bVertexDecoderJit = true;

@@ -292,7 +292,7 @@ static void ReplayExecuteCtrl(uint32_t &buttons, uint8_t analog[2][2], uint64_t 
 
 	// We have to always apply the latest state here, because otherwise real input is used between changes.
 	buttons = lastButtons;
-	memcpy(analog, lastAnalog, sizeof(analog));
+	memcpy(analog, lastAnalog, sizeof(lastAnalog));
 
 	if (replayExecPos < replayCtrlPos) {
 		replayExecPos = replayCtrlPos;

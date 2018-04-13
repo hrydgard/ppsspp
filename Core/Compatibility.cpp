@@ -67,6 +67,8 @@ void Compatibility::CheckSettings(IniFile &iniFile, const std::string &gameID) {
 	CheckSetting(iniFile, gameID, "RequireDefaultCPUClock", &flags_.RequireDefaultCPUClock);
 	CheckSetting(iniFile, gameID, "DisableReadbacks", &flags_.DisableReadbacks);
 	CheckSetting(iniFile, gameID, "DisableAccurateDepth", &flags_.DisableAccurateDepth);
+	CheckSetting(iniFile, gameID, "MGS2AcidHack", &flags_.MGS2AcidHack);
+	CheckSetting(iniFile, gameID, "SonicRivalsHack", &flags_.SonicRivalsHack);
 }
 
 void Compatibility::CheckSetting(IniFile &iniFile, const std::string &gameID, const char *option, bool *flag) {

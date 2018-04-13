@@ -80,6 +80,8 @@ LinkedShader::LinkedShader(GLRenderManager *render, VShaderID VSID, Shader *vs, 
 	semantics.push_back({ ATTR_POSITION, "position" });
 	semantics.push_back({ ATTR_TEXCOORD, "texcoord" });
 	semantics.push_back({ ATTR_NORMAL, "normal" });
+	semantics.push_back({ ATTR_W1, "w1" });
+	semantics.push_back({ ATTR_W2, "w2" });
 	semantics.push_back({ ATTR_COLOR0, "color0" });
 	semantics.push_back({ ATTR_COLOR1, "color1" });
 
@@ -102,13 +104,27 @@ LinkedShader::LinkedShader(GLRenderManager *render, VShaderID VSID, Shader *vs, 
 	queries.push_back({ &u_blendFixA, "u_blendFixA" });
 	queries.push_back({ &u_blendFixB, "u_blendFixB" });
 	queries.push_back({ &u_fbotexSize, "u_fbotexSize" });
+	queries.push_back({ &u_pal, "pal" });
 
 	// Transform
 	queries.push_back({ &u_view, "u_view" });
 	queries.push_back({ &u_world, "u_world" });
 	queries.push_back({ &u_texmtx, "u_texmtx" });
 
+	if (VSID.Bit(VS_BIT_ENABLE_BONES))
+		numBones = TranslateNumBones(VSID.Bits(VS_BIT_BONES, 3) + 1);
+	else
+		numBones = 0;
 	queries.push_back({ &u_depthRange, "u_depthRange" });
+
+#ifdef USE_BONE_ARRAY
+	queries.push_back({ &u_bone, "u_bone" });
+#else
+	static const char * const boneNames[8] = { "u_bone0", "u_bone1", "u_bone2", "u_bone3", "u_bone4", "u_bone5", "u_bone6", "u_bone7", };
+	for (int i = 0; i < 8; i++) {
+		queries.push_back({ &u_bone[i], boneNames[i] });
+	}
+#endif
 
 	// Lighting, texturing
 	queries.push_back({ &u_ambient, "u_ambient" });
@@ -148,6 +164,7 @@ LinkedShader::LinkedShader(GLRenderManager *render, VShaderID VSID, Shader *vs, 
 	queries.push_back({ &u_spline_count_v, "u_spline_count_v" });
 	queries.push_back({ &u_spline_type_u, "u_spline_type_u" });
 	queries.push_back({ &u_spline_type_v, "u_spline_type_v" });
+	queries.push_back({ &u_depal, "u_depal" });
 
 	attrMask = vs->GetAttrMask();
 	availableUniforms = vs->GetUniformMask() | fs->GetUniformMask();
@@ -156,6 +173,7 @@ LinkedShader::LinkedShader(GLRenderManager *render, VShaderID VSID, Shader *vs, 
 	initialize.push_back({ &u_tex,          0, 0 });
 	initialize.push_back({ &u_fbotex,       0, 1 });
 	initialize.push_back({ &u_testtex,      0, 2 });
+	initialize.push_back({ &u_pal,          0, 3 }); // CLUT
 	initialize.push_back({ &u_tess_pos_tex, 0, 4 }); // Texture unit 4
 	initialize.push_back({ &u_tess_tex_tex, 0, 5 }); // Texture unit 5
 	initialize.push_back({ &u_tess_col_tex, 0, 6 }); // Texture unit 6
@@ -269,6 +287,17 @@ void LinkedShader::UpdateUniforms(u32 vertType, const ShaderID &vsid) {
 	dirtyUniforms = 0;
 	if (!dirty)
 		return;
+
+	if (dirty & DIRTY_DEPAL) {
+		int indexMask = gstate.getClutIndexMask();
+		int indexShift = gstate.getClutIndexShift();
+		int indexOffset = gstate.getClutIndexStartPos() >> 4;
+		int format = gstate_c.depalFramebufferFormat;
+		uint32_t val = BytesToUint32(indexMask, indexShift, indexOffset, format);
+		// Poke in a bilinear filter flag in the top bit.
+		val |= gstate.isMagnifyFilteringEnabled() << 31;
+		render_->SetUniformI1(&u_depal, val);
+	}
 
 	// Update any dirty uniforms before we draw
 	if (dirty & DIRTY_PROJMATRIX) {
@@ -471,6 +500,13 @@ void LinkedShader::UpdateUniforms(u32 vertType, const ShaderID &vsid) {
 	if (dirty & DIRTY_STENCILREPLACEVALUE) {
 		float f = (float)gstate.getStencilTestRef() * (1.0f / 255.0f);
 		render_->SetUniformF(&u_stencilReplaceValue, 1, &f);
+	}
+	float bonetemp[16];
+	for (int i = 0; i < numBones; i++) {
+		if (dirty & (DIRTY_BONEMATRIX0 << i)) {
+			ConvertMatrix4x3To4x4(bonetemp, gstate.boneMatrix + 12 * i);
+			render_->SetUniformM4x4(&u_bone[i], bonetemp);
+		}
 	}
 
 	if (dirty & DIRTY_SHADERBLEND) {
@@ -797,7 +833,7 @@ std::string ShaderManagerGLES::DebugGetShaderString(std::string id, DebugShaderT
 // as sometimes these features might have an effect on the ID bits.
 
 #define CACHE_HEADER_MAGIC 0x83277592
-#define CACHE_VERSION 7
+#define CACHE_VERSION 12
 struct CacheHeader {
 	uint32_t magic;
 	uint32_t version;

@@ -211,6 +211,8 @@ GLRInputLayout *DrawEngineGLES::SetupDecFmtForDraw(LinkedShader *program, const 
 	}
 
 	std::vector<GLRInputLayout::Entry> entries;
+	VertexAttribSetup(ATTR_W1, decFmt.w0fmt, decFmt.stride, decFmt.w0off, entries);
+	VertexAttribSetup(ATTR_W2, decFmt.w1fmt, decFmt.stride, decFmt.w1off, entries);
 	VertexAttribSetup(ATTR_TEXCOORD, decFmt.uvfmt, decFmt.stride, decFmt.uvoff, entries);
 	VertexAttribSetup(ATTR_COLOR0, decFmt.c0fmt, decFmt.stride, decFmt.c0off, entries);
 	VertexAttribSetup(ATTR_COLOR1, decFmt.c1fmt, decFmt.stride, decFmt.c1off, entries);
@@ -322,8 +324,8 @@ void DrawEngineGLES::DoFlush() {
 
 		// Cannot cache vertex data with morph enabled.
 		bool useCache = g_Config.bVertexCache && !(lastVType_ & GE_VTYPE_MORPHCOUNT_MASK);
-		// Also avoid caching when skinning.
-		if (lastVType_ & GE_VTYPE_WEIGHT_MASK)
+		// Also avoid caching when software skinning.
+		if (g_Config.bSoftwareSkinning && (lastVType_ & GE_VTYPE_WEIGHT_MASK))
 			useCache = false;
 
 		// TEMPORARY
@@ -467,8 +469,8 @@ void DrawEngineGLES::DoFlush() {
 
 			vai->lastFrame = gpuStats.numFlips;
 		} else {
-			if (lastVType_ & GE_VTYPE_WEIGHT_MASK) {
-				// If skinning, we've already predecoded into "decoded". So push that content.
+			if (g_Config.bSoftwareSkinning && (lastVType_ & GE_VTYPE_WEIGHT_MASK)) {
+				// If software skinning, we've already predecoded into "decoded". So push that content.
 				size_t size = decodedVerts_ * dec_->GetDecVtxFmt().stride;
 				u8 *dest = (u8 *)frameData.pushVertex->Push(size, &vertexBufferOffset, &vertexBuffer);
 				memcpy(dest, decoded, size);
@@ -655,7 +657,7 @@ void DrawEngineGLES::TessellationDataTransferGLES::SendDataToShader(const float 
 	data_tex[0] = renderManager_->CreateTexture(GL_TEXTURE_2D);
 	renderManager_->TextureImage(data_tex[0], 0, size, 1, GL_RGBA32F, GL_RGBA, GL_FLOAT, pos_data, GLRAllocType::NEW, false);
 	renderManager_->FinalizeTexture(data_tex[0], 0, false);
-	renderManager_->BindTexture(4, data_tex[0]);
+	renderManager_->BindTexture(TEX_SLOT_SPLINE_POS, data_tex[0]);
 
 	// Texcoords
 	if (hasTexCoords) {
@@ -666,7 +668,7 @@ void DrawEngineGLES::TessellationDataTransferGLES::SendDataToShader(const float 
 		data_tex[1] = renderManager_->CreateTexture(GL_TEXTURE_2D);
 		renderManager_->TextureImage(data_tex[1], 0, size, 1, GL_RGBA32F, GL_RGBA, GL_FLOAT, tex_data, GLRAllocType::NEW, false);
 		renderManager_->FinalizeTexture(data_tex[1], 0, false);
-		renderManager_->BindTexture(5, data_tex[1]);
+		renderManager_->BindTexture(TEX_SLOT_SPLINE_NRM, data_tex[1]);
 	}
 
 	if (data_tex[2])
@@ -678,7 +680,7 @@ void DrawEngineGLES::TessellationDataTransferGLES::SendDataToShader(const float 
 
 	renderManager_->TextureImage(data_tex[2], 0, sizeColor, 1, GL_RGBA32F, GL_RGBA, GL_FLOAT, col_data, GLRAllocType::NEW, false);
 	renderManager_->FinalizeTexture(data_tex[2], 0, false);
-	renderManager_->BindTexture(6, data_tex[2]);
+	renderManager_->BindTexture(TEX_SLOT_SPLINE_COL, data_tex[2]);
 }
 
 void DrawEngineGLES::TessellationDataTransferGLES::EndFrame() {

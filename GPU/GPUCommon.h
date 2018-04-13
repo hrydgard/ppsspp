@@ -72,6 +72,8 @@ public:
 	}
 	virtual void CheckGPUFeatures() = 0;
 
+	void UpdateCmdInfo();
+
 	bool IsReady() override {
 		return true;
 	}
@@ -129,6 +131,7 @@ public:
 	void Execute_End(u32 op, u32 diff);
 
 	void Execute_VertexType(u32 op, u32 diff);
+	void Execute_VertexTypeSkinning(u32 op, u32 diff);
 
 	void Execute_Prim(u32 op, u32 diff);
 	void Execute_Bezier(u32 op, u32 diff);

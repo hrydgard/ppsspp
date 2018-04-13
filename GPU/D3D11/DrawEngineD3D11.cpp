@@ -204,6 +204,18 @@ ID3D11InputLayout *DrawEngineD3D11::SetupDecFmtForDraw(D3D11VertexShader *vshade
 		D3D11_INPUT_ELEMENT_DESC VertexElements[8];
 		D3D11_INPUT_ELEMENT_DESC *VertexElement = &VertexElements[0];
 
+		// Vertices Elements orders
+		// WEIGHT
+		if (decFmt.w0fmt != 0) {
+			VertexAttribSetup(VertexElement, decFmt.w0fmt, decFmt.w0off, "TEXCOORD", 1);
+			VertexElement++;
+		}
+
+		if (decFmt.w1fmt != 0) {
+			VertexAttribSetup(VertexElement, decFmt.w1fmt, decFmt.w1off, "TEXCOORD", 2);
+			VertexElement++;
+		}
+
 		// TC
 		if (decFmt.uvfmt != 0) {
 			VertexAttribSetup(VertexElement, decFmt.uvfmt, decFmt.uvoff, "TEXCOORD", 0);
@@ -331,8 +343,8 @@ void DrawEngineD3D11::DoFlush() {
 
 		// Cannot cache vertex data with morph enabled.
 		bool useCache = g_Config.bVertexCache && !(lastVType_ & GE_VTYPE_MORPHCOUNT_MASK);
-		// Also avoid caching when skinning.
-		if (lastVType_ & GE_VTYPE_WEIGHT_MASK)
+		// Also avoid caching when software skinning.
+		if (g_Config.bSoftwareSkinning && (lastVType_ & GE_VTYPE_WEIGHT_MASK))
 			useCache = false;
 
 		if (useCache) {

@@ -34,8 +34,10 @@ enum {
 	ATTR_POSITION = 0,
 	ATTR_TEXCOORD = 1,
 	ATTR_NORMAL = 2,
-	ATTR_COLOR0 = 3,
-	ATTR_COLOR1 = 4,
+	ATTR_W1 = 3,
+	ATTR_W2 = 4,
+	ATTR_COLOR0 = 5,
+	ATTR_COLOR1 = 6,
 
 	ATTR_COUNT,
 };
@@ -70,11 +72,22 @@ public:
 	int u_world;
 	int u_depthRange;   // x,y = viewport xscale/xcenter. z,w=clipping minz/maxz (?)
 
+#ifdef USE_BONE_ARRAY
+	int u_bone;  // array, size is numBones
+#else
+	int u_bone[8];
+#endif
+	int numBones;
+
 	// Shader blending.
 	int u_fbotex;
 	int u_blendFixA;
 	int u_blendFixB;
 	int u_fbotexSize;
+
+	// Shader depal
+	int u_pal;  // the texture
+	int u_depal;  // the params
 
 	// Fragment processing inputs
 	int u_alphacolorref;

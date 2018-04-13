@@ -49,7 +49,7 @@ VulkanFragmentShader::VulkanFragmentShader(VulkanContext *vulkan, FShaderID id, 
 	std::string errorMessage;
 	std::vector<uint32_t> spirv;
 #ifdef SHADERLOG
-	OutputDebugStringA(code);
+	OutputDebugStringA(LineNumberString(code).c_str());
 #endif
 
 	bool success = GLSLtoSPV(VK_SHADER_STAGE_FRAGMENT_BIT, code, spirv, &errorMessage);
@@ -62,9 +62,9 @@ VulkanFragmentShader::VulkanFragmentShader(VulkanContext *vulkan, FShaderID id, 
 		ERROR_LOG(G3D, "Messages: %s", errorMessage.c_str());
 		ERROR_LOG(G3D, "Shader source:\n%s", code);
 #ifdef SHADERLOG
+		OutputDebugStringA(LineNumberString(code).c_str());
 		OutputDebugStringA("Messages:\n");
 		OutputDebugStringA(errorMessage.c_str());
-		OutputDebugStringA(LineNumberString(code).c_str());
 #endif
 		Reporting::ReportMessage("Vulkan error in shader compilation: info: %s / code: %s", errorMessage.c_str(), code);
 	} else {
@@ -106,7 +106,7 @@ VulkanVertexShader::VulkanVertexShader(VulkanContext *vulkan, VShaderID id, cons
 	std::string errorMessage;
 	std::vector<uint32_t> spirv;
 #ifdef SHADERLOG
-	OutputDebugStringA(code);
+	OutputDebugStringA(LineNumberString(code).c_str());
 #endif
 	bool success = GLSLtoSPV(VK_SHADER_STAGE_VERTEX_BIT, code, spirv, &errorMessage);
 	if (!errorMessage.empty()) {
@@ -117,8 +117,11 @@ VulkanVertexShader::VulkanVertexShader(VulkanContext *vulkan, VShaderID id, cons
 		}
 		ERROR_LOG(G3D, "Messages: %s", errorMessage.c_str());
 		ERROR_LOG(G3D, "Shader source:\n%s", code);
+#ifdef SHADERLOG
+		OutputDebugStringA(LineNumberString(code).c_str());
 		OutputDebugStringUTF8("Messages:\n");
 		OutputDebugStringUTF8(errorMessage.c_str());
+#endif
 		Reporting::ReportMessage("Vulkan error in shader compilation: info: %s / code: %s", errorMessage.c_str(), code);
 	} else {
 		success = vulkan_->CreateShaderModule(spirv, &module_);
@@ -159,9 +162,11 @@ ShaderManagerVulkan::ShaderManagerVulkan(VulkanContext *vulkan)
 	uboAlignment_ = vulkan_->GetPhysicalDeviceProperties().limits.minUniformBufferOffsetAlignment;
 	memset(&ub_base, 0, sizeof(ub_base));
 	memset(&ub_lights, 0, sizeof(ub_lights));
+	memset(&ub_bones, 0, sizeof(ub_bones));
 
 	ILOG("sizeof(ub_base): %d", (int)sizeof(ub_base));
 	ILOG("sizeof(ub_lights): %d", (int)sizeof(ub_lights));
+	ILOG("sizeof(ub_bones): %d", (int)sizeof(ub_bones));
 }
 
 ShaderManagerVulkan::~ShaderManagerVulkan() {
@@ -214,6 +219,8 @@ uint64_t ShaderManagerVulkan::UpdateUniforms() {
 			BaseUpdateUniforms(&ub_base, dirty, false);
 		if (dirty & DIRTY_LIGHT_UNIFORMS)
 			LightUpdateUniforms(&ub_lights, dirty);
+		if (dirty & DIRTY_BONE_UNIFORMS)
+			BoneUpdateUniforms(&ub_bones, dirty);
 	}
 	gstate_c.CleanUniforms();
 	return dirty;
@@ -351,7 +358,7 @@ VulkanFragmentShader *ShaderManagerVulkan::GetFragmentShaderFromModule(VkShaderM
 // instantaneous.
 
 #define CACHE_HEADER_MAGIC 0xff51f420 
-#define CACHE_VERSION 9
+#define CACHE_VERSION 13
 struct VulkanCacheHeader {
 	uint32_t magic;
 	uint32_t version;

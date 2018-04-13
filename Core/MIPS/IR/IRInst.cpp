@@ -156,12 +156,16 @@ static const IRMeta irMeta[] = {
 	{ IROp::ExitToConstIfLtZ, "ExitIfLtZ", "CG", IRFLAG_EXIT },
 	{ IROp::ExitToReg, "ExitToReg", "_G", IRFLAG_EXIT },
 	{ IROp::Syscall, "Syscall", "_C", IRFLAG_EXIT },
-	{ IROp::Break, "Break", "", IRFLAG_EXIT},
+	{ IROp::Break, "Break", "", IRFLAG_EXIT },
 	{ IROp::SetPC, "SetPC", "_G" },
 	{ IROp::SetPCConst, "SetPC", "_C" },
 	{ IROp::CallReplacement, "CallRepl", "_C" },
 	{ IROp::Breakpoint, "Breakpoint", "", IRFLAG_EXIT },
 	{ IROp::MemoryCheck, "MemoryCheck", "_GC", IRFLAG_EXIT },
+
+	{ IROp::RestoreRoundingMode, "RestoreRoundingMode", "" },
+	{ IROp::ApplyRoundingMode, "ApplyRoundingMode", "" },
+	{ IROp::UpdateRoundingMode, "UpdateRoundingMode", "" },
 };
 
 const IRMeta *metaIndex[256];

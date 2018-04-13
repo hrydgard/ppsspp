@@ -11,7 +11,7 @@ enum : uint64_t {
 	DIRTY_WORLDMATRIX | DIRTY_PROJTHROUGHMATRIX | DIRTY_VIEWMATRIX | DIRTY_TEXMATRIX | DIRTY_ALPHACOLORREF |
 	DIRTY_PROJMATRIX | DIRTY_FOGCOLOR | DIRTY_FOGCOEF | DIRTY_TEXENV | DIRTY_STENCILREPLACEVALUE | DIRTY_GUARDBAND |
 	DIRTY_ALPHACOLORMASK | DIRTY_SHADERBLEND | DIRTY_UVSCALEOFFSET | DIRTY_TEXCLAMP | DIRTY_DEPTHRANGE | DIRTY_MATAMBIENTALPHA |
-	DIRTY_BEZIERSPLINE | DIRTY_TEXSIZE,
+	DIRTY_BEZIERSPLINE | DIRTY_TEXSIZE | DIRTY_DEPAL,
 	DIRTY_LIGHT_UNIFORMS =
 	DIRTY_LIGHT0 | DIRTY_LIGHT1 | DIRTY_LIGHT2 | DIRTY_LIGHT3 |
 	DIRTY_MATDIFFUSE | DIRTY_MATSPECULAR | DIRTY_MATEMISSIVE | DIRTY_AMBIENT,
@@ -30,7 +30,8 @@ struct UB_VS_FS_Base {
 	float depthRange[4];
 	float fogCoef[2];	float stencil; float pad0;
 	float matAmbient[4];
-	int spline_count_u; int spline_count_v; int spline_type_u; int spline_type_v;
+	uint32_t spline_counts; uint32_t depal_mask_shift_off_fmt;  // 4 params packed into one.
+	int pad2; int pad3;
 	float guardband[4];
 	// Fragment data
 	float fogColor[4];
@@ -55,10 +56,10 @@ R"(  mat4 proj_mtx;
   vec2 fogcoef;
   float stencilReplace;
   vec4 matambientalpha;
-  int spline_count_u;
-  int spline_count_v;
-  int spline_type_u;
-  int spline_type_v;
+  uint spline_counts;
+  uint depal_mask_shift_off_fmt;
+  int pad2;
+  int pad3;
   vec4 guardband;
   // Fragment
   vec3 fogcolor;
@@ -84,10 +85,10 @@ R"(  float4x4 u_proj;
   float2 u_fogcoef;
   float u_stencilReplaceValue;
   float4 u_matambientalpha;
-  int u_spline_count_u;
-  int u_spline_count_v;
-  int u_spline_type_u;
-  int u_spline_type_v;
+  uint u_spline_counts;
+  uint u_depal_mask_shift_off_fmt;
+  int pad2;
+  int pad3;
   float4 u_guardband;
   // Fragment
   float3 u_fogcolor;
@@ -167,8 +168,24 @@ R"(	float4 u_ambient;
 	float3 u_lightspecular3;
 )";
 
+// With some cleverness, we could get away with uploading just half this when only the four or five first
+// bones are being used. This is 512b, 256b would be great.
+struct UB_VS_Bones {
+	float bones[8][12];
+};
+
+static const char *ub_vs_bonesStr =
+R"(	mat3x4 m[8];
+)";
+
+// HLSL code is shared so these names are changed to match those in DX9.
+static const char *cb_vs_bonesStr =
+R"(	float4x3 u_bone[8];
+)";
+
 void BaseUpdateUniforms(UB_VS_FS_Base *ub, uint64_t dirtyUniforms, bool flipViewport);
 void LightUpdateUniforms(UB_VS_Lights *ub, uint64_t dirtyUniforms);
+void BoneUpdateUniforms(UB_VS_Bones *ub, uint64_t dirtyUniforms);
 
 // Shared helper functions
 void ComputeGuardband(float gb[4], float zmin);

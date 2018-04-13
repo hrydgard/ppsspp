@@ -878,7 +878,7 @@ namespace MIPSAnalyst {
 
 		for (auto iter = functions.begin(), end = functions.end(); iter != end; iter++) {
 			AnalyzedFunction &f = *iter;
-			if (Memory::IsValidRange(f.start, f.end - f.start + 4)) {
+			if (!Memory::IsValidRange(f.start, f.end - f.start + 4)) {
 				continue;
 			}
 

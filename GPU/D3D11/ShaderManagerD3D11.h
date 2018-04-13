@@ -101,6 +101,7 @@ public:
 	// Applies dirty changes and copies the buffer.
 	bool IsBaseDirty() { return true; }
 	bool IsLightDirty() { return true; }
+	bool IsBoneDirty() { return true; }
 
 private:
 	void Clear();
@@ -120,10 +121,12 @@ private:
 	// Uniform block scratchpad. These (the relevant ones) are copied to the current pushbuffer at draw time.
 	UB_VS_FS_Base ub_base;
 	UB_VS_Lights ub_lights;
+	UB_VS_Bones ub_bones;
 
 	// Not actual pushbuffers, requires D3D11.1, let's try to live without that first.
 	ID3D11Buffer *push_base;
 	ID3D11Buffer *push_lights;
+	ID3D11Buffer *push_bones;
 
 	D3D11FragmentShader *lastFShader_;
 	D3D11VertexShader *lastVShader_;
