@@ -103,6 +103,7 @@ LinkedShader::LinkedShader(GLRenderManager *render, VShaderID VSID, Shader *vs, 
 	queries.push_back({ &u_blendFixA, "u_blendFixA" });
 	queries.push_back({ &u_blendFixB, "u_blendFixB" });
 	queries.push_back({ &u_fbotexSize, "u_fbotexSize" });
+	queries.push_back({ &u_pal, "pal" });
 
 	// Transform
 	queries.push_back({ &u_view, "u_view" });
@@ -161,6 +162,7 @@ LinkedShader::LinkedShader(GLRenderManager *render, VShaderID VSID, Shader *vs, 
 	queries.push_back({ &u_spline_count_v, "u_spline_count_v" });
 	queries.push_back({ &u_spline_type_u, "u_spline_type_u" });
 	queries.push_back({ &u_spline_type_v, "u_spline_type_v" });
+	queries.push_back({ &u_depal, "u_depal" });
 
 	attrMask = vs->GetAttrMask();
 	availableUniforms = vs->GetUniformMask() | fs->GetUniformMask();
@@ -169,6 +171,7 @@ LinkedShader::LinkedShader(GLRenderManager *render, VShaderID VSID, Shader *vs, 
 	initialize.push_back({ &u_tex,          0, 0 });
 	initialize.push_back({ &u_fbotex,       0, 1 });
 	initialize.push_back({ &u_testtex,      0, 2 });
+	initialize.push_back({ &u_pal,          0, 3 }); // CLUT
 	initialize.push_back({ &u_tess_pos_tex, 0, 4 }); // Texture unit 4
 	initialize.push_back({ &u_tess_tex_tex, 0, 5 }); // Texture unit 5
 	initialize.push_back({ &u_tess_col_tex, 0, 6 }); // Texture unit 6
@@ -282,6 +285,17 @@ void LinkedShader::UpdateUniforms(u32 vertType, const ShaderID &vsid) {
 	dirtyUniforms = 0;
 	if (!dirty)
 		return;
+
+	if (dirty & DIRTY_DEPAL) {
+		int indexMask = gstate.getClutIndexMask();
+		int indexShift = gstate.getClutIndexShift();
+		int indexOffset = gstate.getClutIndexStartPos() >> 4;
+		int format = gstate_c.depalFramebufferFormat;
+		uint32_t val = BytesToUint32(indexMask, indexShift, indexOffset, format);
+		// Poke in a bilinear filter flag in the top bit.
+		val |= gstate.isMagnifyFilteringEnabled() << 31;
+		render_->SetUniformI1(&u_depal, val);
+	}
 
 	// Update any dirty uniforms before we draw
 	if (dirty & DIRTY_PROJMATRIX) {
@@ -810,7 +824,7 @@ std::string ShaderManagerGLES::DebugGetShaderString(std::string id, DebugShaderT
 // as sometimes these features might have an effect on the ID bits.
 
 #define CACHE_HEADER_MAGIC 0x83277592
-#define CACHE_VERSION 11
+#define CACHE_VERSION 12
 struct CacheHeader {
 	uint32_t magic;
 	uint32_t version;
