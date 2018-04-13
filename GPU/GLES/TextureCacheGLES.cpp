@@ -327,7 +327,7 @@ void TextureCacheGLES::BindTexture(TexCacheEntry *entry) {
 }
 
 void TextureCacheGLES::Unbind() {
-	render_->BindTexture(0, nullptr);
+	render_->BindTexture(TEX_SLOT_PSP_TEXTURE, nullptr);
 	InvalidateLastTexture();
 }
 
@@ -451,8 +451,8 @@ void TextureCacheGLES::ApplyTextureFramebuffer(TexCacheEntry *entry, VirtualFram
 		shaderApply.Use(render_, drawEngine_, shadeInputLayout_);
 
 		framebufferManagerGL_->BindFramebufferAsColorTexture(0, framebuffer, BINDFBCOLOR_SKIP_COPY);
-		render_->BindTexture(3, clutTexture);
-		render_->SetTextureSampler(3, GL_CLAMP_TO_EDGE, GL_CLAMP_TO_EDGE, GL_NEAREST, GL_NEAREST, 0.0f);
+		render_->BindTexture(TEX_SLOT_CLUT, clutTexture);
+		render_->SetTextureSampler(TEX_SLOT_CLUT, GL_CLAMP_TO_EDGE, GL_CLAMP_TO_EDGE, GL_NEAREST, GL_NEAREST, 0.0f);
 
 		shaderApply.Shade(render_);
 
@@ -662,7 +662,7 @@ void TextureCacheGLES::BuildTexture(TexCacheEntry *const entry) {
 
 	// This will rebind it, but that's okay.
 	// Need to actually bind it now - it might only have gotten bound in the init phase.
-	render_->BindTexture(0, entry->textureName);
+	render_->BindTexture(TEX_SLOT_PSP_TEXTURE, entry->textureName);
 	UpdateSamplingParams(*entry, true);
 }
 

@@ -403,7 +403,7 @@ void FramebufferManagerGLES::MakePixelTexture(const u8 *srcPixels, GEBufferForma
 	render_->FinalizeTexture(drawPixelsTex_, 0, false);
 
 	// TODO: Return instead?
-	render_->BindTexture(0, drawPixelsTex_);
+	render_->BindTexture(TEX_SLOT_PSP_TEXTURE, drawPixelsTex_);
 }
 
 void FramebufferManagerGLES::SetViewport2D(int x, int y, int w, int h) {

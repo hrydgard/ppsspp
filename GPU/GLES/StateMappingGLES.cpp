@@ -124,7 +124,7 @@ static const GLushort logicOps[] = {
 inline void DrawEngineGLES::ResetShaderBlending() {
 	if (fboTexBound_) {
 		GLRenderManager *renderManager = (GLRenderManager *)draw_->GetNativeObject(Draw::NativeObject::RENDER_MANAGER);
-		renderManager->BindTexture(1, nullptr);
+		renderManager->BindTexture(TEX_SLOT_SHADERBLEND_SRC, nullptr);
 		fboTexBound_ = false;
 	}
 }
@@ -331,7 +331,7 @@ void DrawEngineGLES::ApplyDrawStateLate(bool setStencil, int stencilValue) {
 	if (!gstate.isModeClear()) {
 		// Apply last, once we know the alpha params of the texture.
 		if (gstate.isAlphaTestEnabled() || gstate.isColorTestEnabled()) {
-			fragmentTestCache_->BindTestTexture(2);
+			fragmentTestCache_->BindTestTexture(TEX_SLOT_ALPHATEST);
 		}
 	}
 }
