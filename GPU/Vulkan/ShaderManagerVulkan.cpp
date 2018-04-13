@@ -61,10 +61,9 @@ VulkanFragmentShader::VulkanFragmentShader(VulkanContext *vulkan, FShaderID id, 
 		}
 		ERROR_LOG(G3D, "Messages: %s", errorMessage.c_str());
 		ERROR_LOG(G3D, "Shader source:\n%s", code);
-#ifdef SHADERLOG
+		OutputDebugStringA(LineNumberString(code).c_str());
 		OutputDebugStringA("Messages:\n");
 		OutputDebugStringA(errorMessage.c_str());
-#endif
 		Reporting::ReportMessage("Vulkan error in shader compilation: info: %s / code: %s", errorMessage.c_str(), code);
 	} else {
 		success = vulkan_->CreateShaderModule(spirv, &module_);
@@ -116,6 +115,7 @@ VulkanVertexShader::VulkanVertexShader(VulkanContext *vulkan, VShaderID id, cons
 		}
 		ERROR_LOG(G3D, "Messages: %s", errorMessage.c_str());
 		ERROR_LOG(G3D, "Shader source:\n%s", code);
+		OutputDebugStringA(LineNumberString(code).c_str());
 		OutputDebugStringUTF8("Messages:\n");
 		OutputDebugStringUTF8(errorMessage.c_str());
 		Reporting::ReportMessage("Vulkan error in shader compilation: info: %s / code: %s", errorMessage.c_str(), code);
@@ -354,7 +354,7 @@ VulkanFragmentShader *ShaderManagerVulkan::GetFragmentShaderFromModule(VkShaderM
 // instantaneous.
 
 #define CACHE_HEADER_MAGIC 0xff51f420 
-#define CACHE_VERSION 12
+#define CACHE_VERSION 13
 struct VulkanCacheHeader {
 	uint32_t magic;
 	uint32_t version;

@@ -327,6 +327,8 @@ void TextureCacheVulkan::BindTexture(TexCacheEntry *entry) {
 	SamplerCacheKey key{};
 	UpdateSamplingParams(*entry, key);
 	curSampler_ = samplerCache_.GetOrCreateSampler(key);
+	drawEngine_->SetDepalTexture(VK_NULL_HANDLE);
+	gstate_c.useShaderDepal = false;
 }
 
 void TextureCacheVulkan::Unbind() {
@@ -336,10 +338,29 @@ void TextureCacheVulkan::Unbind() {
 }
 
 void TextureCacheVulkan::ApplyTextureFramebuffer(TexCacheEntry *entry, VirtualFramebuffer *framebuffer) {
+	SamplerCacheKey samplerKey{};
+	SetFramebufferSamplingParams(framebuffer->bufferWidth, framebuffer->bufferHeight, samplerKey);
+
 	DepalShaderVulkan *depalShader = nullptr;
 	uint32_t clutMode = gstate.clutformat & 0xFFFFFF;
 	if ((entry->status & TexCacheEntry::STATUS_DEPALETTIZE) && !g_Config.bDisableSlowFramebufEffects) {
-		depalShader = depalShaderCache_->GetDepalettizeShader(clutMode, framebuffer->drawnFormat);
+		bool useShaderDepal = true;
+		if (useShaderDepal) {
+			depalShaderCache_->SetPushBuffer(drawEngine_->GetPushBufferForTextureData());
+			const GEPaletteFormat clutFormat = gstate.getClutPaletteFormat();
+			VulkanTexture *clutTexture = depalShaderCache_->GetClutTexture(clutFormat, clutHash_, clutBuf_);
+			drawEngine_->SetDepalTexture(clutTexture->GetImageView());
+			// Only point filtering enabled.
+			samplerKey.magFilt = false;
+			samplerKey.minFilt = false;
+			samplerKey.mipFilt = false;
+			// Make sure to update the uniforms.
+			gstate_c.Dirty(DIRTY_DEPAL);
+			gstate_c.useShaderDepal = true;
+			gstate_c.depalFramebufferFormat = framebuffer->drawnFormat;
+		} else {
+			depalShader = depalShaderCache_->GetDepalettizeShader(clutMode, framebuffer->drawnFormat);
+		}
 	}
 	if (depalShader) {
 		depalShaderCache_->SetPushBuffer(drawEngine_->GetPushBufferForTextureData());
@@ -430,14 +451,12 @@ void TextureCacheVulkan::ApplyTextureFramebuffer(TexCacheEntry *entry, VirtualFr
 	} else {
 		entry->status &= ~TexCacheEntry::STATUS_DEPALETTIZE;
 
-		framebufferManager_->RebindFramebuffer();  // TODO: This line should not be needed?
+		framebufferManager_->RebindFramebuffer();  // TODO: This line should usually not be needed.
 		imageView_ = framebufferManagerVulkan_->BindFramebufferAsColorTexture(0, framebuffer, BINDFBCOLOR_MAY_COPY_WITH_UV | BINDFBCOLOR_APPLY_TEX_OFFSET);
 
 		gstate_c.SetTextureFullAlpha(gstate.getTextureFormat() == GE_TFMT_5650);
 	}
 
-	SamplerCacheKey samplerKey{};
-	SetFramebufferSamplingParams(framebuffer->bufferWidth, framebuffer->bufferHeight, samplerKey);
 	curSampler_ = samplerCache_.GetOrCreateSampler(samplerKey);
 	InvalidateLastTexture(entry);
 }

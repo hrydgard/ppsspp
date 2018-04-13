@@ -62,7 +62,7 @@ enum {
 	FS_BIT_DO_TEXTURE = 1,
 	FS_BIT_TEXFUNC = 2,  // 3 bits
 	FS_BIT_TEXALPHA = 5,
-	// 6 is free.
+	FS_BIT_SHADER_DEPAL = 6,
 	FS_BIT_SHADER_TEX_CLAMP = 7,
 	FS_BIT_CLAMP_S = 8,
 	FS_BIT_CLAMP_T = 9,

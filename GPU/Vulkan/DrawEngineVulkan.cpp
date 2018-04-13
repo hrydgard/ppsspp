@@ -64,10 +64,11 @@ enum { VAI_KILL_AGE = 120, VAI_UNRELIABLE_KILL_AGE = 240, VAI_UNRELIABLE_KILL_MA
 enum {
 	DRAW_BINDING_TEXTURE = 0,
 	DRAW_BINDING_2ND_TEXTURE = 1,
-	DRAW_BINDING_DYNUBO_BASE = 2,
-	DRAW_BINDING_DYNUBO_LIGHT = 3,
-	DRAW_BINDING_DYNUBO_BONE = 4,
-	DRAW_BINDING_TESS_STORAGE_BUF = 5,
+	DRAW_BINDING_DEPAL_TEXTURE = 2,
+	DRAW_BINDING_DYNUBO_BASE = 3,
+	DRAW_BINDING_DYNUBO_LIGHT = 4,
+	DRAW_BINDING_DYNUBO_BONE = 5,
+	DRAW_BINDING_TESS_STORAGE_BUF = 6,
 };
 
 enum {
@@ -95,7 +96,7 @@ DrawEngineVulkan::DrawEngineVulkan(VulkanContext *vulkan, Draw::DrawContext *dra
 
 void DrawEngineVulkan::InitDeviceObjects() {
 	// All resources we need for PSP drawing. Usually only bindings 0 and 2-4 are populated.
-	VkDescriptorSetLayoutBinding bindings[6]{};
+	VkDescriptorSetLayoutBinding bindings[7]{};
 	bindings[0].descriptorCount = 1;
 	bindings[0].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
 	bindings[0].stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
@@ -105,22 +106,26 @@ void DrawEngineVulkan::InitDeviceObjects() {
 	bindings[1].stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
 	bindings[1].binding = DRAW_BINDING_2ND_TEXTURE;
 	bindings[2].descriptorCount = 1;
-	bindings[2].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC;
-	bindings[2].stageFlags = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT;
-	bindings[2].binding = DRAW_BINDING_DYNUBO_BASE;
+	bindings[2].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;  // sampler is ignored though.
+	bindings[2].stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
+	bindings[2].binding = DRAW_BINDING_DEPAL_TEXTURE;
 	bindings[3].descriptorCount = 1;
 	bindings[3].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC;
-	bindings[3].stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
-	bindings[3].binding = DRAW_BINDING_DYNUBO_LIGHT;
+	bindings[3].stageFlags = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT;
+	bindings[3].binding = DRAW_BINDING_DYNUBO_BASE;
 	bindings[4].descriptorCount = 1;
 	bindings[4].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC;
 	bindings[4].stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
-	bindings[4].binding = DRAW_BINDING_DYNUBO_BONE;
-	// Used only for hardware tessellation.
+	bindings[4].binding = DRAW_BINDING_DYNUBO_LIGHT;
 	bindings[5].descriptorCount = 1;
-	bindings[5].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+	bindings[5].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC;
 	bindings[5].stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
-	bindings[5].binding = DRAW_BINDING_TESS_STORAGE_BUF;
+	bindings[5].binding = DRAW_BINDING_DYNUBO_BONE;
+	// Used only for hardware tessellation.
+	bindings[6].descriptorCount = 1;
+	bindings[6].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+	bindings[6].stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
+	bindings[6].binding = DRAW_BINDING_TESS_STORAGE_BUF;
 
 	VkDevice device = vulkan_->GetDevice();
 
@@ -388,6 +393,7 @@ VkDescriptorSet DrawEngineVulkan::GetOrCreateDescriptorSet(VkImageView imageView
 	key.imageView_ = imageView;
 	key.sampler_ = sampler;
 	key.secondaryImageView_ = boundSecondary_;
+	key.depalImageView_ = boundDepal_;
 	key.base_ = base;
 	key.light_ = light;
 	key.bone_ = bone;
@@ -433,12 +439,11 @@ VkDescriptorSet DrawEngineVulkan::GetOrCreateDescriptorSet(VkImageView imageView
 	// Even in release mode, this is bad.
 	_assert_msg_(G3D, result == VK_SUCCESS, "Ran out of descriptor space in pool. sz=%d res=%d", (int)frame.descSets.size(), (int)result);
 
-	// We just don't write to the slots we don't care about.
-	// We need 8 now that we support secondary texture bindings.
-	VkWriteDescriptorSet writes[8]{};
+	// We just don't write to the slots we don't care about, which is fine.
+	VkWriteDescriptorSet writes[7]{};
 	// Main texture
 	int n = 0;
-	VkDescriptorImageInfo tex[2]{};
+	VkDescriptorImageInfo tex[3]{};
 	if (imageView) {
 #ifdef VULKAN_USE_GENERAL_LAYOUT_FOR_COLOR
 		tex[0].imageLayout = VK_IMAGE_LAYOUT_GENERAL;
@@ -446,7 +451,7 @@ VkDescriptorSet DrawEngineVulkan::GetOrCreateDescriptorSet(VkImageView imageView
 		tex[0].imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
 #endif
 		tex[0].imageView = imageView;
-		tex[0].sampler = sampler;
+		tex[0].sampler = sampler;  // We override sampling when doing depal.
 		writes[n].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
 		writes[n].pNext = nullptr;
 		writes[n].dstBinding = DRAW_BINDING_TEXTURE;
@@ -459,7 +464,7 @@ VkDescriptorSet DrawEngineVulkan::GetOrCreateDescriptorSet(VkImageView imageView
 
 	if (boundSecondary_) {
 #ifdef VULKAN_USE_GENERAL_LAYOUT_FOR_COLOR
-		tex[0].imageLayout = VK_IMAGE_LAYOUT_GENERAL;
+		tex[1].imageLayout = VK_IMAGE_LAYOUT_GENERAL;
 #else
 		tex[1].imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
 #endif
@@ -475,7 +480,23 @@ VkDescriptorSet DrawEngineVulkan::GetOrCreateDescriptorSet(VkImageView imageView
 		n++;
 	}
 
-  // Skipping 2nd texture for now.
+	if (boundDepal_) {
+#ifdef VULKAN_USE_GENERAL_LAYOUT_FOR_COLOR
+		tex[2].imageLayout = VK_IMAGE_LAYOUT_GENERAL;
+#else
+		tex[2].imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+#endif
+		tex[2].imageView = boundDepal_;
+		tex[2].sampler = samplerSecondary_;  // doesn't matter, we use load
+		writes[n].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+		writes[n].pNext = nullptr;
+		writes[n].dstBinding = DRAW_BINDING_DEPAL_TEXTURE;
+		writes[n].pImageInfo = &tex[2];
+		writes[n].descriptorCount = 1;
+		writes[n].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+		writes[n].dstSet = desc;
+		n++;
+	}
 
 	// Tessellation data buffer. Make sure this is declared outside the if to avoid optimizer
 	// shenanigans.

@@ -70,7 +70,7 @@ void GenerateDepalShader300(char *buffer, GEBufferFormat pixelFormat, ShaderLang
 	int mask = gstate.getClutIndexMask();
 	int shift = gstate.getClutIndexShift();
 	int offset = gstate.getClutIndexStartPos();
-	const GEPaletteFormat clutFormat = gstate.getClutPaletteFormat();
+	GEPaletteFormat clutFormat = gstate.getClutPaletteFormat();
 	// Unfortunately sampling turned our texture into floating point. To avoid this, might be able
 	// to declare them as isampler2D objects, but these require integer textures, which needs more work.
 	// Anyhow, we simply work around this by converting back to integer. Hopefully there will be no loss of precision.
