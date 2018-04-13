@@ -1402,6 +1402,8 @@ add_library(${CoreLibName} ${CoreLinkType}
 	Core/Debugger/SymbolMap.h
 	Core/Debugger/DisassemblyManager.cpp
 	Core/Debugger/DisassemblyManager.h
+	Core/Debugger/WebSocket.cpp
+	Core/Debugger/WebSocket.h
 	Core/Dialog/PSPDialog.cpp
 	Core/Dialog/PSPDialog.h
 	Core/Dialog/PSPGamedataInstallDialog.cpp

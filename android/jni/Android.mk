@@ -300,6 +300,7 @@ EXEC_AND_LIB_FILES := \
   $(SRC)/Core/WebServer.cpp \
   $(SRC)/Core/Debugger/Breakpoints.cpp \
   $(SRC)/Core/Debugger/SymbolMap.cpp \
+  $(SRC)/Core/Debugger/WebSocket.cpp \
   $(SRC)/Core/Dialog/PSPDialog.cpp \
   $(SRC)/Core/Dialog/PSPGamedataInstallDialog.cpp \
   $(SRC)/Core/Dialog/PSPMsgDialog.cpp \

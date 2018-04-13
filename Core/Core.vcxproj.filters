@@ -692,6 +692,9 @@
     <ClCompile Include="WebServer.cpp">
       <Filter>Core</Filter>
     </ClCompile>
+    <ClCompile Include="Debugger\WebSocket.cpp">
+      <Filter>Debugger</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="ELF\ElfReader.h">
@@ -1273,6 +1276,9 @@
     </ClInclude>
     <ClInclude Include="WebServer.h">
       <Filter>Core</Filter>
+    </ClInclude>
+    <ClInclude Include="Debugger\WebSocket.h">
+      <Filter>Debugger</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
