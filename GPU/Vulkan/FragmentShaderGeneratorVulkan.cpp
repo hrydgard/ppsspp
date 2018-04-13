@@ -197,7 +197,7 @@ bool GenerateVulkanGLSLFragmentShader(const FShaderID &id, char *buffer) {
 				WRITE(p, "  uint depalOffset = ((base.depal_mask_shift_off_fmt >> 16) & 0xFF) << 4;\n");
 				WRITE(p, "  uint depalFmt = (base.depal_mask_shift_off_fmt >> 24) & 0x3;\n");
 				WRITE(p, "  bool bilinear = (base.depal_mask_shift_off_fmt >> 31) != 0;\n");
-				WRITE(p, "  vec2 fraction = fract(%s.xy);\n", texcoord);
+				WRITE(p, "  vec2 fraction = fract(%s.xy * vec2(textureSize(tex, 0).xy));\n", texcoord);
 				WRITE(p, "  uvec4 col; uint index0; uint index1; uint index2; uint index3;\n");
 				WRITE(p, "  switch (depalFmt) {\n");  // We might want to include fmt in the shader ID if this is a performance issue.
 				WRITE(p, "  case 0:\n");  // 565

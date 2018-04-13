@@ -363,7 +363,7 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, uint64_t *uniform
 				WRITE(p, "  int depalOffset = (((u_depal >> 16) & 0xFF) << 4);\n");
 				WRITE(p, "  int depalFmt = ((u_depal >> 24) & 0x3);\n");
 				WRITE(p, "  bool bilinear = (u_depal >> 31) != 0;\n");
-				WRITE(p, "  vec2 fraction = fract(%s.xy);\n", texcoord);
+				WRITE(p, "  vec2 fraction = fract(%s.xy * vec2(textureSize(tex, 0).xy));\n", texcoord);
 				WRITE(p, "  ivec4 col; int index0; int index1; int index2; int index3;\n");
 				WRITE(p, "  switch (depalFmt) {\n");  // We might want to include fmt in the shader ID if this is a performance issue.
 				WRITE(p, "  case 0:\n");  // 565
