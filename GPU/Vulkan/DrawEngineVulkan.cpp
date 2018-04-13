@@ -451,7 +451,7 @@ VkDescriptorSet DrawEngineVulkan::GetOrCreateDescriptorSet(VkImageView imageView
 		tex[0].imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
 #endif
 		tex[0].imageView = imageView;
-		tex[0].sampler = sampler;  // We override sampling when doing depal.
+		tex[0].sampler = sampler;
 		writes[n].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
 		writes[n].pNext = nullptr;
 		writes[n].dstBinding = DRAW_BINDING_TEXTURE;
