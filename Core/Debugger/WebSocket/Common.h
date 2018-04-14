@@ -24,11 +24,19 @@
 #include "Common/Log.h"
 
 struct DebuggerErrorEvent {
-	DebuggerErrorEvent(const std::string m, LogTypes::LOG_LEVELS l) : message(m), level(l) {
+	DebuggerErrorEvent(const std::string m, LogTypes::LOG_LEVELS l, const JsonGet data = JsonValue(JSON_NULL))
+		: message(m), level(l) {
+		// Need to format right away, before it's out of scope.
+		if (data) {
+			const JsonNode *value = data.get("ticket");
+			if (value)
+				ticketRaw = json_stringify(value);
+		}
 	}
 
 	std::string message;
 	LogTypes::LOG_LEVELS level;
+	std::string ticketRaw;
 
 	operator std::string() {
 		JsonWriter j;
@@ -36,6 +44,9 @@ struct DebuggerErrorEvent {
 		j.writeString("event", "error");
 		j.writeString("message", message);
 		j.writeInt("level", level);
+		if (!ticketRaw.empty()) {
+			j.writeRaw("ticket", ticketRaw);
+		}
 		j.end();
 		return j.str();
 	}

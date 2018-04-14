@@ -22,9 +22,27 @@
 #include "Core/Debugger/WebSocket/LogBroadcaster.h"
 #include "Core/Debugger/WebSocket/SteppingBroadcaster.h"
 
+// This WebSocket (connected through the same port as disc sharing) allows API/debugger access to PPSSPP.
+// Currently, the only subprotocol "debugger.ppsspp.org" uses a simple JSON based interface.
+//
+// Messages to and from PPSSPP follow the same basic format:
+//    { "event": "NAME", ... }
+//
+// And are primarily of these types:
+//  * Events from the debugger/client (you) to PPSSPP
+//    If there's a response, it will generally use the same name.  It may not be immedate - it's an event.
+//  * Spontaneous events from PPSSPP
+//    Things like logs, breakpoint hits, etc. not directly requested.
+//
+// Otherwise you may see error events which indicate PPSSPP couldn't understand or failed internally:
+//  - "event": "error"
+//  - "message": A string describing what happened.
+//  - "level": Integer severity level. (1 = NOTICE, 2 = ERROR, 3 = WARN, 4 = INFO, 5 = DEBUG, 6 = VERBOSE)
+//  - "ticket": Optional, present if in response to an event with a "ticket" field, simply repeats that value.
+
 // TODO: Just for now, testing...
 static void WebSocketTestEvent(net::WebSocketServer *ws, const JsonGet &data) {
-	ws->Send(DebuggerErrorEvent("Test message", LogTypes::LNOTICE));
+	ws->Send(DebuggerErrorEvent("Test message", LogTypes::LNOTICE, data));
 }
 
 typedef void (*DebuggerEventHandler)(net::WebSocketServer *ws, const JsonGet &data);
@@ -51,7 +69,7 @@ void HandleDebuggerRequest(const http::Request &request) {
 		const JsonGet root = reader.root();
 		const char *event = root ? root.getString("event", nullptr) : nullptr;
 		if (!event) {
-			ws->Send(DebuggerErrorEvent("Bad message: no event property", LogTypes::LERROR));
+			ws->Send(DebuggerErrorEvent("Bad message: no event property", LogTypes::LERROR, root));
 			return;
 		}
 
@@ -59,7 +77,7 @@ void HandleDebuggerRequest(const http::Request &request) {
 		if (eventFunc != debuggerEvents.end()) {
 			eventFunc->second(ws, root);
 		} else {
-			ws->Send(DebuggerErrorEvent("Bad message: unknown event", LogTypes::LERROR));
+			ws->Send(DebuggerErrorEvent("Bad message: unknown event", LogTypes::LERROR, root));
 		}
 	});
 	ws->SetBinaryHandler([&](const std::vector<uint8_t> &d) {
