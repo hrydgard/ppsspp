@@ -1,4 +1,5 @@
 #include <iomanip>
+#include <cstring>
 #include "json/json_writer.h"
 
 JsonWriter::JsonWriter(int flags) {
@@ -49,7 +50,7 @@ const char *JsonWriter::comma() const {
 	if (stack_.back().first) {
 		return "";
 	} else {
-		return ",\n";
+		return pretty_ ? ",\n" : ",";
 	}
 }
 

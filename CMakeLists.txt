@@ -919,10 +919,6 @@ add_library(native STATIC
 	ext/native/base/timeutil.h
 	ext/native/data/compression.cpp
 	ext/native/data/compression.h
-	ext/native/ext/vjson/json.cpp
-	ext/native/ext/vjson/json.h
-	ext/native/ext/vjson/block_allocator.cpp
-	ext/native/ext/vjson/block_allocator.h
 	ext/native/file/chunk_file.cpp
 	ext/native/file/chunk_file.h
 	ext/native/file/fd_util.cpp
@@ -976,6 +972,8 @@ add_library(native STATIC
 	ext/native/input/keycodes.h
 	ext/native/input/input_state.h
 	ext/native/input/input_state.cpp
+	ext/native/json/json_writer.h
+	ext/native/json/json_writer.cpp
 	ext/native/math/fast/fast_math.c
 	ext/native/math/fast/fast_matrix.c
 	ext/native/math/fast/fast_matrix_neon.S
