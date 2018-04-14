@@ -592,6 +592,7 @@ void PipelineManagerVulkan::SaveCache(FILE *file, bool saveRawPipelineCache, Sha
 	size_t seekPosOnFailure = ftell(file);
 
 	bool failed = false;
+	bool writeFailed = false;
 	int count = 0;
 	// Since we don't include the full pipeline key, there can be duplicates,
 	// caused by things like switching from buffered to non-buffered rendering.
@@ -630,11 +631,11 @@ void PipelineManagerVulkan::SaveCache(FILE *file, bool saveRawPipelineCache, Sha
 
 	// Write the number of pipelines.
 	size = (uint32_t)keys.size();
-	fwrite(&size, sizeof(size), 1, file);
+	writeFailed = writeFailed || fwrite(&size, sizeof(size), 1, file) != 1;
 
 	// Write the pipelines.
 	for (auto &key : keys) {
-		fwrite(&key, sizeof(key), 1, file);
+		writeFailed = writeFailed || fwrite(&key, sizeof(key), 1, file) != 1;
 	}
 
 	if (failed) {
@@ -642,10 +643,17 @@ void PipelineManagerVulkan::SaveCache(FILE *file, bool saveRawPipelineCache, Sha
 		// Write a zero in the right place so it doesn't try to load the pipelines next time.
 		size = 0;
 		fseek(file, (long)seekPosOnFailure, SEEK_SET);
-		fwrite(&size, sizeof(size), 1, file);
+		writeFailed = fwrite(&size, sizeof(size), 1, file) != 1;
+		if (writeFailed) {
+			ERROR_LOG(G3D, "Failed to write pipeline cache, disk full?");
+		}
 		return;
 	}
-	NOTICE_LOG(G3D, "Saved Vulkan pipeline ID cache (%d unique pipelines/%d).", (int)keys.size(), (int)pipelines_.size());
+	if (writeFailed) {
+		ERROR_LOG(G3D, "Failed to write pipeline cache, disk full?");
+	} else {
+		NOTICE_LOG(G3D, "Saved Vulkan pipeline ID cache (%d unique pipelines/%d).", (int)keys.size(), (int)pipelines_.size());
+	}
 }
 
 bool PipelineManagerVulkan::LoadCache(FILE *file, bool loadRawPipelineCache, ShaderManagerVulkan *shaderManager, Draw::DrawContext *drawContext, VkPipelineLayout layout) {
@@ -654,16 +662,16 @@ bool PipelineManagerVulkan::LoadCache(FILE *file, bool loadRawPipelineCache, Sha
 
 	uint32_t size = 0;
 	if (loadRawPipelineCache) {
-		fread(&size, sizeof(size), 1, file);
-		if (!size) {
+		bool success = fread(&size, sizeof(size), 1, file) == 1;
+		if (!size || !success) {
 			WARN_LOG(G3D, "Zero-sized Vulkan pipeline cache.");
 			return true;
 		}
 		std::unique_ptr<uint8_t[]> buffer(new uint8_t[size]);
-		fread(buffer.get(), 1, size, file);
+		success = fread(buffer.get(), 1, size, file) == size;
 		// Verify header.
 		VkPipelineCacheHeader *header = (VkPipelineCacheHeader *)buffer.get();
-		if (header->version != VK_PIPELINE_CACHE_HEADER_VERSION_ONE) {
+		if (!success || header->version != VK_PIPELINE_CACHE_HEADER_VERSION_ONE) {
 			// Bad header, don't do anything.
 			WARN_LOG(G3D, "Bad Vulkan pipeline cache header - ignoring");
 			return false;
@@ -697,16 +705,19 @@ bool PipelineManagerVulkan::LoadCache(FILE *file, bool loadRawPipelineCache, Sha
 	}
 
 	// Read the number of pipelines.
-	fread(&size, sizeof(size), 1, file);
+	bool failed = fread(&size, sizeof(size), 1, file) != 1;
 
 	NOTICE_LOG(G3D, "Creating %d pipelines...", size);
-	bool failed = false;
 	for (uint32_t i = 0; i < size; i++) {
 		if (failed) {
-			continue;
+			break;
 		}
 		StoredVulkanPipelineKey key;
-		fread(&key, sizeof(key), 1, file);
+		failed = failed || fread(&key, sizeof(key), 1, file) != 1;
+		if (failed) {
+			ERROR_LOG(G3D, "Truncated Vulkan pipeline cache file");
+			continue;
+		}
 		VulkanVertexShader *vs = shaderManager->GetVertexShaderFromID(key.vShaderID);
 		VulkanFragmentShader *fs = shaderManager->GetFragmentShaderFromID(key.fShaderID);
 		if (!vs || !fs) {
