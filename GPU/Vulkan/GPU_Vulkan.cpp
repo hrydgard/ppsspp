@@ -481,8 +481,11 @@ void GPU_Vulkan::DestroyDeviceObjects() {
 	}
 
 	// Need to turn off hacks when shutting down the GPU. Don't want them running in the menu.
-	VulkanRenderManager *rm = (VulkanRenderManager *)draw_->GetNativeObject(Draw::NativeObject::RENDER_MANAGER);
-	rm->GetQueueRunner()->EnableHacks(0);
+	if (draw_) {
+		VulkanRenderManager *rm = (VulkanRenderManager *)draw_->GetNativeObject(Draw::NativeObject::RENDER_MANAGER);
+		if (rm)
+			rm->GetQueueRunner()->EnableHacks(0);
+	}
 }
 
 void GPU_Vulkan::DeviceLost() {
