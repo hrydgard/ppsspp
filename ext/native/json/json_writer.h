@@ -16,7 +16,7 @@
 
 class JsonWriter {
 public:
-	JsonWriter();
+	JsonWriter(int flags = NORMAL);
 	~JsonWriter();
 	void begin();
 	void end();
@@ -31,10 +31,24 @@ public:
 	void writeFloat(const char *name, double value);
 	void writeString(const char *value);
 	void writeString(const char *name, const char *value);
+	void writeString(const std::string &value) {
+		writeString(value.c_str());
+	}
+	void writeString(const char *name, const std::string &value) {
+		writeString(name, value.c_str());
+	}
+	void writeString(const std::string &name, const std::string &value) {
+		writeString(name.c_str(), value.c_str());
+	}
 
 	std::string str() const {
 		return str_.str();
 	}
+
+	enum {
+		NORMAL = 0,
+		PRETTY = 1,
+	};
 
 private:
 	const char *indent(int n) const;
@@ -42,6 +56,8 @@ private:
 	const char *arrayComma() const;
 	const char *indent() const;
 	const char *arrayIndent() const;
+	void writeEscapedString(const char *s);
+
 	enum BlockType {
 		ARRAY,
 		DICT,
@@ -53,4 +69,5 @@ private:
 	};
 	std::vector<StackEntry> stack_;
 	std::ostringstream str_;
+	bool pretty_;
 };
