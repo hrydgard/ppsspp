@@ -370,8 +370,8 @@ struct VulkanCacheHeader {
 
 bool ShaderManagerVulkan::LoadCache(FILE *f) {
 	VulkanCacheHeader header{};
-	fread(&header, sizeof(header), 1, f);
-	if (header.magic != CACHE_HEADER_MAGIC)
+	bool success = fread(&header, sizeof(header), 1, f) == 1;
+	if (!success || header.magic != CACHE_HEADER_MAGIC)
 		return false;
 	if (header.version != CACHE_VERSION)
 		return false;
@@ -380,7 +380,10 @@ bool ShaderManagerVulkan::LoadCache(FILE *f) {
 
 	for (int i = 0; i < header.numVertexShaders; i++) {
 		VShaderID id;
-		fread(&id, sizeof(id), 1, f);
+		if (fread(&id, sizeof(id), 1, f) != 1) {
+			ERROR_LOG(G3D, "Vulkan shader cache truncated");
+			break;
+		}
 		bool useHWTransform = id.Bit(VS_BIT_USE_HW_TRANSFORM);
 		GenerateVulkanGLSLVertexShader(id, codeBuffer_);
 		VulkanVertexShader *vs = new VulkanVertexShader(vulkan_, id, codeBuffer_, useHWTransform);
@@ -388,7 +391,10 @@ bool ShaderManagerVulkan::LoadCache(FILE *f) {
 	}
 	for (int i = 0; i < header.numFragmentShaders; i++) {
 		FShaderID id;
-		fread(&id, sizeof(id), 1, f);
+		if (fread(&id, sizeof(id), 1, f) != 1) {
+			ERROR_LOG(G3D, "Vulkan shader cache truncated");
+			break;
+		}
 		GenerateVulkanGLSLFragmentShader(id, codeBuffer_);
 		VulkanFragmentShader *fs = new VulkanFragmentShader(vulkan_, id, codeBuffer_);
 		fsCache_.Insert(id, fs);
@@ -406,12 +412,16 @@ void ShaderManagerVulkan::SaveCache(FILE *f) {
 	header.reserved = 0;
 	header.numVertexShaders = (int)vsCache_.size();
 	header.numFragmentShaders = (int)fsCache_.size();
-	fwrite(&header, sizeof(header), 1, f);
+	bool writeFailed = fwrite(&header, sizeof(header), 1, f) != 1;
 	vsCache_.Iterate([&](const VShaderID &id, VulkanVertexShader *vs) {
-		fwrite(&id, sizeof(id), 1, f);
+		writeFailed = writeFailed || fwrite(&id, sizeof(id), 1, f) != 1;
 	});
 	fsCache_.Iterate([&](const FShaderID &id, VulkanFragmentShader *fs) {
-		fwrite(&id, sizeof(id), 1, f);
+		writeFailed = writeFailed || fwrite(&id, sizeof(id), 1, f) != 1;
 	});
-	NOTICE_LOG(G3D, "Saved %d vertex and %d fragment shaders", header.numVertexShaders, header.numFragmentShaders);
+	if (writeFailed) {
+		ERROR_LOG(G3D, "Failed to write Vulkan shader cache, disk full?");
+	} else {
+		NOTICE_LOG(G3D, "Saved %d vertex and %d fragment shaders", header.numVertexShaders, header.numFragmentShaders);
+	}
 }

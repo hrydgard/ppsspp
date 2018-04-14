@@ -23,4 +23,7 @@ public:
 	// Android (EGL, Vulkan) we do have all this info on the render thread.
 	virtual bool InitFromRenderThread(ANativeWindow *wnd, int desiredBackbufferSizeX, int desiredBackbufferSizeY, int backbufferFormat, int androidVersion) = 0;
 	virtual bool Initialized() = 0;
+
+private:
+	using GraphicsContext::InitFromRenderThread;
 };

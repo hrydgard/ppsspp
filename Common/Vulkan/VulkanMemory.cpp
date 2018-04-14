@@ -450,7 +450,7 @@ void VulkanDeviceAllocator::ReportOldUsage() {
 		}
 
 		if (hasOldAllocs) {
-			NOTICE_LOG(G3D, "Slab %d usage:", i);
+			NOTICE_LOG(G3D, "Slab %d usage:", (int)i);
 			for (auto it : slab.tags) {
 				const auto info = it.second;
 
@@ -458,7 +458,6 @@ void VulkanDeviceAllocator::ReportOldUsage() {
 				float touchedAge = now - info.touched;
 				NOTICE_LOG(G3D, "  * %s (created %fs ago, used %fs ago)", info.tag.c_str(), createAge, touchedAge);
 			}
-			NOTICE_LOG(G3D, "");
 		}
 	}
 }
