@@ -298,8 +298,6 @@ private:
 	uint8_t *writePtr_ = nullptr;
 	GLuint target_;
 	GLBufferStrategy strategy_ = GLBufferStrategy::SUBDATA;
-
-	friend class GLRenderManager;
 };
 
 enum class GLRRunType {
