@@ -15,113 +15,63 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
-#include <algorithm>
-#include <string>
-#include "json/json_writer.h"
-#include "net/websocket_server.h"
 #include "Core/Debugger/WebSocket.h"
-#include "Common/LogManager.h"
+#include "Core/Debugger/WebSocket/Common.h"
 
-// TODO: Move this to its own file?
-class DebuggerLogListener : public LogListener {
-public:
-	void Log(const LogMessage &msg) override {
-		std::lock_guard<std::mutex> guard(lock_);
-		messages_[nextMessage_] = msg;
-		nextMessage_++;
-		if (nextMessage_ >= BUFFER_SIZE)
-			nextMessage_ -= BUFFER_SIZE;
-		count_++;
-	}
+#include "Core/Debugger/WebSocket/GameBroadcaster.h"
+#include "Core/Debugger/WebSocket/LogBroadcaster.h"
+#include "Core/Debugger/WebSocket/SteppingBroadcaster.h"
 
-	std::vector<LogMessage> GetMessages() {
-		std::lock_guard<std::mutex> guard(lock_);
-		int splitPoint;
-		int readCount;
-		if (read_ + BUFFER_SIZE < count_) {
-			// We'll start with our oldest then.
-			splitPoint = nextMessage_;
-			readCount = Count();
-		} else {
-			splitPoint = read_;
-			readCount = count_ - read_;
-		}
+// TODO: Just for now, testing...
+static void WebSocketTestEvent(net::WebSocketServer *ws, const JsonGet &data) {
+	ws->Send(DebuggerErrorEvent("Test message", LogTypes::LNOTICE));
+}
 
-		read_ = count_;
-
-		std::vector<LogMessage> results;
-		int splitEnd = std::min(splitPoint + readCount, (int)BUFFER_SIZE);
-		for (int i = splitPoint; i < splitEnd; ++i) {
-			results.push_back(messages_[i]);
-			readCount--;
-		}
-		for (int i = 0; i < readCount; ++i) {
-			results.push_back(messages_[i]);
-		}
-
-		return results;
-	}
-
-	int Count() const {
-		return count_ < BUFFER_SIZE ? count_ : BUFFER_SIZE;
-	}
-
-private:
-	enum { BUFFER_SIZE = 128 };
-	LogMessage messages_[BUFFER_SIZE];
-	std::mutex lock_;
-	int nextMessage_ = 0;
-	int count_ = 0;
-	int read_ = 0;
-};
-
-struct DebuggerLogEvent {
-	std::string header;
-	std::string message;
-	int level;
-	const char *channel;
-
-	operator std::string() {
-		JsonWriter j;
-		j.begin();
-		j.writeString("event", "log");
-		j.writeString("header", header);
-		j.writeString("message", message);
-		j.writeInt("level", level);
-		j.writeString("channel", channel);
-		j.end();
-		return j.str();
-	}
-};
+typedef void (*DebuggerEventHandler)(net::WebSocketServer *ws, const JsonGet &data);
+static const std::unordered_map<std::string, DebuggerEventHandler> debuggerEvents({
+	{"test", &WebSocketTestEvent},
+});
 
 void HandleDebuggerRequest(const http::Request &request) {
 	net::WebSocketServer *ws = net::WebSocketServer::CreateAsUpgrade(request, "debugger.ppsspp.org");
 	if (!ws)
 		return;
 
-	DebuggerLogListener *logListener = new DebuggerLogListener();
-	if (LogManager::GetInstance())
-		LogManager::GetInstance()->AddListener(logListener);
+	LogBroadcaster logger;
+	GameBroadcaster game;
+	SteppingBroadcaster stepping;
 
-	// TODO: Handle incoming messages.
 	ws->SetTextHandler([&](const std::string &t) {
-		ws->Send(R"({"event":"error","message":"Bad message","level":2})");
+		JsonReader reader(t.c_str(), t.size());
+		if (!reader.ok()) {
+			ws->Send(DebuggerErrorEvent("Bad message: invalid JSON", LogTypes::LERROR));
+			return;
+		}
+
+		const JsonGet root = reader.root();
+		const char *event = root ? root.getString("event", nullptr) : nullptr;
+		if (!event) {
+			ws->Send(DebuggerErrorEvent("Bad message: no event property", LogTypes::LERROR));
+			return;
+		}
+
+		auto eventFunc = debuggerEvents.find(event);
+		if (eventFunc != debuggerEvents.end()) {
+			eventFunc->second(ws, root);
+		} else {
+			ws->Send(DebuggerErrorEvent("Bad message: unknown event", LogTypes::LERROR));
+		}
 	});
 	ws->SetBinaryHandler([&](const std::vector<uint8_t> &d) {
-		ws->Send(R"({"event":"error","message":"Bad message","level":2})");
+		ws->Send(DebuggerErrorEvent("Bad message", LogTypes::LERROR));
 	});
 
-	while (ws->Process(0.1f)) {
-		auto messages = logListener->GetMessages();
-		// TODO: Check for other conditions?
-		for (auto msg : messages) {
-			ws->Send(DebuggerLogEvent{msg.header, msg.msg, msg.level, msg.log});
-		}
-		continue;
+	while (ws->Process(1.0f / 60.0f)) {
+		// These send events that aren't just responses to requests.
+		logger.Broadcast(ws);
+		game.Broadcast(ws);
+		stepping.Broadcast(ws);
 	}
 
-	if (LogManager::GetInstance())
-		LogManager::GetInstance()->RemoveListener(logListener);
-	delete logListener;
 	delete ws;
 }

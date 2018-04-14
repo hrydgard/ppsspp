@@ -70,6 +70,9 @@
     <Filter Include="MIPS\IR">
       <UniqueIdentifier>{119ac973-e457-4025-9e1e-4fb34022ae23}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Debugger\WebSocket">
+      <UniqueIdentifier>{c21d9bb5-614d-451b-8c0b-3078b29122d8}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="ELF\ElfReader.cpp">
@@ -695,6 +698,15 @@
     <ClCompile Include="Debugger\WebSocket.cpp">
       <Filter>Debugger</Filter>
     </ClCompile>
+    <ClCompile Include="Debugger\WebSocket\LogBroadcaster.cpp">
+      <Filter>Debugger\WebSocket</Filter>
+    </ClCompile>
+    <ClCompile Include="Debugger\WebSocket\SteppingBroadcaster.cpp">
+      <Filter>Debugger\WebSocket</Filter>
+    </ClCompile>
+    <ClCompile Include="Debugger\WebSocket\GameBroadcaster.cpp">
+      <Filter>Debugger\WebSocket</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="ELF\ElfReader.h">
@@ -1279,6 +1291,18 @@
     </ClInclude>
     <ClInclude Include="Debugger\WebSocket.h">
       <Filter>Debugger</Filter>
+    </ClInclude>
+    <ClInclude Include="Debugger\WebSocket\LogBroadcaster.h">
+      <Filter>Debugger\WebSocket</Filter>
+    </ClInclude>
+    <ClInclude Include="Debugger\WebSocket\SteppingBroadcaster.h">
+      <Filter>Debugger\WebSocket</Filter>
+    </ClInclude>
+    <ClInclude Include="Debugger\WebSocket\GameBroadcaster.h">
+      <Filter>Debugger\WebSocket</Filter>
+    </ClInclude>
+    <ClInclude Include="Debugger\WebSocket\Common.h">
+      <Filter>Debugger\WebSocket</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
