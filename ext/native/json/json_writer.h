@@ -7,8 +7,7 @@
 //
 // Does not deal with encodings in any way.
 //
-// Zero dependencies apart from stdlib.
-// See json_writer_test.cpp for usage.
+// Zero dependencies apart from stdlib (if you remove the vhjson usage.)
 
 #include <string>
 #include <vector>
@@ -19,6 +18,8 @@ public:
 	JsonWriter(int flags = NORMAL);
 	~JsonWriter();
 	void begin();
+	void beginArray();
+	void beginRaw();
 	void end();
 	void pushDict(const char *name);
 	void pushArray(const char *name);
@@ -39,6 +40,17 @@ public:
 	}
 	void writeString(const std::string &name, const std::string &value) {
 		writeString(name.c_str(), value.c_str());
+	}
+	void writeRaw(const char *value);
+	void writeRaw(const char *name, const char *value);
+	void writeRaw(const std::string &value) {
+		writeRaw(value.c_str());
+	}
+	void writeRaw(const char *name, const std::string &value) {
+		writeRaw(name, value.c_str());
+	}
+	void writeRaw(const std::string &name, const std::string &value) {
+		writeRaw(name.c_str(), value.c_str());
 	}
 
 	std::string str() const {
@@ -61,6 +73,7 @@ private:
 	enum BlockType {
 		ARRAY,
 		DICT,
+		RAW,
 	};
 	struct StackEntry {
 		StackEntry(BlockType t) : type(t), first(true) {}
@@ -71,3 +84,6 @@ private:
 	std::ostringstream str_;
 	bool pretty_;
 };
+
+struct json_value;
+std::string json_stringify(const json_value *json);
