@@ -516,6 +516,7 @@ static ConfigSetting graphicsSettings[] = {
 	ConfigSetting("SoftwareRenderer", &g_Config.bSoftwareRendering, false, true, true),
 	ReportedConfigSetting("HardwareTransform", &g_Config.bHardwareTransform, true, true, true),
 	ReportedConfigSetting("SoftwareSkinning", &g_Config.bSoftwareSkinning, true, true, true),
+	ConfigSetting("ShaderDepal", &g_Config.bShaderDepal, false, true, true),
 	ReportedConfigSetting("TextureFiltering", &g_Config.iTexFiltering, 1, true, true),
 	ReportedConfigSetting("BufferFiltering", &g_Config.iBufFilter, 1, true, true),
 	ReportedConfigSetting("InternalResolution", &g_Config.iInternalResolution, &DefaultInternalResolution, true, true),

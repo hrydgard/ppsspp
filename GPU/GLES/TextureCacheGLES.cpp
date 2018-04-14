@@ -439,12 +439,10 @@ protected:
 void TextureCacheGLES::ApplyTextureFramebuffer(TexCacheEntry *entry, VirtualFramebuffer *framebuffer) {
 	DepalShader *depal = nullptr;
 	uint32_t clutMode = gstate.clutformat & 0xFFFFFF;
-
-#if 0
-	bool useShaderDepal = gstate_c.Supports(GPU_SUPPORTS_GLSL_ES_300);
-#else
 	bool useShaderDepal = false;
-#endif
+	if (g_Config.bShaderDepal) {
+		useShaderDepal = gstate_c.Supports(GPU_SUPPORTS_GLSL_ES_300);
+	}
 
 	if ((entry->status & TexCacheEntry::STATUS_DEPALETTIZE) && !g_Config.bDisableSlowFramebufEffects) {
 		if (useShaderDepal) {
