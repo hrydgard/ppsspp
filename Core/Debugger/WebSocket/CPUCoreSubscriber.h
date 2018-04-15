@@ -15,18 +15,10 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
-#include "Core/Core.h"
-#include "Core/Debugger/WebSocket/SteppingBroadcaster.h"
-#include "Core/Debugger/WebSocket/WebSocketUtils.h"
-#include "Core/System.h"
+#pragma once
 
-void SteppingBroadcaster::Broadcast(net::WebSocketServer *ws) {
-	// TODO: This is somewhat primitive.  It'd be nice to register a callback with Core instead?
-	if (coreState != prevState_) {
-		if (Core_IsStepping() && PSP_IsInited()) {
-			// TODO: Should send more data proactively.
-			ws->Send(R"({"event":"cpu_stepping"})");
-		}
-		prevState_ = coreState;
-	}
-}
+struct DebuggerRequest;
+
+void WebSocketCPUGetAllRegs(DebuggerRequest &req);
+void WebSocketCPUGetReg(DebuggerRequest &req);
+void WebSocketCPUSetReg(DebuggerRequest &req);

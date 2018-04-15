@@ -15,8 +15,8 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
-#include "Core/Debugger/WebSocket/Common.h"
 #include "Core/Debugger/WebSocket/GameBroadcaster.h"
+#include "Core/Debugger/WebSocket/WebSocketUtils.h"
 #include "Core/System.h"
 
 void GameBroadcaster::Broadcast(net::WebSocketServer *ws) {

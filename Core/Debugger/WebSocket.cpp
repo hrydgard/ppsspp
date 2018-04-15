@@ -16,11 +16,7 @@
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
 #include "Core/Debugger/WebSocket.h"
-#include "Core/Debugger/WebSocket/Common.h"
-
-#include "Core/Debugger/WebSocket/GameBroadcaster.h"
-#include "Core/Debugger/WebSocket/LogBroadcaster.h"
-#include "Core/Debugger/WebSocket/SteppingBroadcaster.h"
+#include "Core/Debugger/WebSocket/WebSocketUtils.h"
 
 // This WebSocket (connected through the same port as disc sharing) allows API/debugger access to PPSSPP.
 // Currently, the only subprotocol "debugger.ppsspp.org" uses a simple JSON based interface.
@@ -40,14 +36,17 @@
 //  - "level": Integer severity level. (1 = NOTICE, 2 = ERROR, 3 = WARN, 4 = INFO, 5 = DEBUG, 6 = VERBOSE)
 //  - "ticket": Optional, present if in response to an event with a "ticket" field, simply repeats that value.
 
-// TODO: Just for now, testing...
-static void WebSocketTestEvent(net::WebSocketServer *ws, const JsonGet &data) {
-	ws->Send(DebuggerErrorEvent("Test message", LogTypes::LNOTICE, data));
-}
+#include "Core/Debugger/WebSocket/GameBroadcaster.h"
+#include "Core/Debugger/WebSocket/LogBroadcaster.h"
+#include "Core/Debugger/WebSocket/SteppingBroadcaster.h"
 
-typedef void (*DebuggerEventHandler)(net::WebSocketServer *ws, const JsonGet &data);
+#include "Core/Debugger/WebSocket/CPUCoreSubscriber.h"
+
+typedef void (*DebuggerEventHandler)(DebuggerRequest &req);
 static const std::unordered_map<std::string, DebuggerEventHandler> debuggerEvents({
-	{"test", &WebSocketTestEvent},
+	{"cpu.getAllRegs", &WebSocketCPUGetAllRegs},
+	{"cpu.getReg", &WebSocketCPUGetReg},
+	{"cpu.setReg", &WebSocketCPUSetReg},
 });
 
 void HandleDebuggerRequest(const http::Request &request) {
@@ -73,11 +72,14 @@ void HandleDebuggerRequest(const http::Request &request) {
 			return;
 		}
 
+		DebuggerRequest req(event, ws, root);
+
 		auto eventFunc = debuggerEvents.find(event);
 		if (eventFunc != debuggerEvents.end()) {
-			eventFunc->second(ws, root);
+			eventFunc->second(req);
+			req.Finish();
 		} else {
-			ws->Send(DebuggerErrorEvent("Bad message: unknown event", LogTypes::LERROR, root));
+			req.Fail("Bad message: unknown event");
 		}
 	});
 	ws->SetBinaryHandler([&](const std::vector<uint8_t> &d) {

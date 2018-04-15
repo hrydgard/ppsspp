@@ -707,6 +707,12 @@
     <ClCompile Include="Debugger\WebSocket\GameBroadcaster.cpp">
       <Filter>Debugger\WebSocket</Filter>
     </ClCompile>
+    <ClCompile Include="Debugger\WebSocket\CPUCoreSubscriber.cpp">
+      <Filter>Debugger\WebSocket</Filter>
+    </ClCompile>
+    <ClCompile Include="Debugger\WebSocket\WebSocketUtils.cpp">
+      <Filter>Debugger\WebSocket</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="ELF\ElfReader.h">
@@ -1301,7 +1307,10 @@
     <ClInclude Include="Debugger\WebSocket\GameBroadcaster.h">
       <Filter>Debugger\WebSocket</Filter>
     </ClInclude>
-    <ClInclude Include="Debugger\WebSocket\Common.h">
+    <ClInclude Include="Debugger\WebSocket\CPUCoreSubscriber.h">
+      <Filter>Debugger\WebSocket</Filter>
+    </ClInclude>
+    <ClInclude Include="Debugger\WebSocket\WebSocketUtils.h">
       <Filter>Debugger\WebSocket</Filter>
     </ClInclude>
   </ItemGroup>

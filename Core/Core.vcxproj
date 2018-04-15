@@ -185,9 +185,11 @@
     <ClCompile Include="..\ext\udis86\udis86.c" />
     <ClCompile Include="AVIDump.cpp" />
     <ClCompile Include="Debugger\WebSocket.cpp" />
+    <ClCompile Include="Debugger\WebSocket\CPUCoreSubscriber.cpp" />
     <ClCompile Include="Debugger\WebSocket\GameBroadcaster.cpp" />
     <ClCompile Include="Debugger\WebSocket\LogBroadcaster.cpp" />
     <ClCompile Include="Debugger\WebSocket\SteppingBroadcaster.cpp" />
+    <ClCompile Include="Debugger\WebSocket\WebSocketUtils.cpp" />
     <ClCompile Include="FileSystems\BlobFileSystem.cpp" />
     <ClCompile Include="HLE\KUBridge.cpp" />
     <ClCompile Include="HLE\sceUsbCam.cpp" />
@@ -537,7 +539,8 @@
     <ClInclude Include="..\ext\udis86\udis86.h" />
     <ClInclude Include="AVIDump.h" />
     <ClInclude Include="Debugger\WebSocket.h" />
-    <ClInclude Include="Debugger\WebSocket\Common.h" />
+    <ClInclude Include="Debugger\WebSocket\WebSocketUtils.h" />
+    <ClInclude Include="Debugger\WebSocket\CPUCoreSubscriber.h" />
     <ClInclude Include="Debugger\WebSocket\GameBroadcaster.h" />
     <ClInclude Include="Debugger\WebSocket\LogBroadcaster.h" />
     <ClInclude Include="Debugger\WebSocket\SteppingBroadcaster.h" />

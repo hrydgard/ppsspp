@@ -1404,13 +1404,16 @@ add_library(${CoreLibName} ${CoreLinkType}
 	Core/Debugger/DisassemblyManager.h
 	Core/Debugger/WebSocket.cpp
 	Core/Debugger/WebSocket.h
-	Core/Debugger/WebSocket/Common.h
+	Core/Debugger/WebSocket/CPUCoreSubscriber.cpp
+	Core/Debugger/WebSocket/CPUCoreSubscriber.h
 	Core/Debugger/WebSocket/GameBroadcaster.cpp
 	Core/Debugger/WebSocket/GameBroadcaster.h
 	Core/Debugger/WebSocket/LogBroadcaster.cpp
 	Core/Debugger/WebSocket/LogBroadcaster.h
 	Core/Debugger/WebSocket/SteppingBroadcaster.cpp
 	Core/Debugger/WebSocket/SteppingBroadcaster.h
+	Core/Debugger/WebSocket/WebSocketUtils.cpp
+	Core/Debugger/WebSocket/WebSocketUtils.h
 	Core/Dialog/PSPDialog.cpp
 	Core/Dialog/PSPDialog.h
 	Core/Dialog/PSPGamedataInstallDialog.cpp

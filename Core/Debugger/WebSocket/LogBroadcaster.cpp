@@ -18,8 +18,8 @@
 #include <algorithm>
 #include <mutex>
 #include "Common/LogManager.h"
-#include "Core/Debugger/WebSocket/Common.h"
 #include "Core/Debugger/WebSocket/LogBroadcaster.h"
+#include "Core/Debugger/WebSocket/WebSocketUtils.h"
 
 class DebuggerLogListener : public LogListener {
 public:

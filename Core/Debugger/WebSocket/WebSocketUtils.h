@@ -17,11 +17,18 @@
 
 #pragma once
 
+#include <cassert>
 #include <string>
 #include "json/json_reader.h"
 #include "json/json_writer.h"
 #include "net/websocket_server.h"
 #include "Common/Log.h"
+
+static inline void DebuggerJsonAddTicket(JsonWriter &writer, const JsonGet &data) {
+	const JsonNode *value = data.get("ticket");
+	if (value)
+		writer.writeRaw("ticket", json_stringify(value));
+}
 
 struct DebuggerErrorEvent {
 	DebuggerErrorEvent(const std::string m, LogTypes::LOG_LEVELS l, const JsonGet data = JsonValue(JSON_NULL))
@@ -50,4 +57,30 @@ struct DebuggerErrorEvent {
 		j.end();
 		return j.str();
 	}
+};
+
+struct DebuggerRequest {
+	DebuggerRequest(const char *n, net::WebSocketServer *w, const JsonGet &d)
+		: name(n), ws(w), data(d) {
+	}
+
+	const char *name;
+	net::WebSocketServer *ws;
+	const JsonGet data;
+
+	void Fail(const std::string &message) {
+		ws->Send(DebuggerErrorEvent(message, LogTypes::LERROR, data));
+		responseSent_ = true;
+	}
+
+	bool ParamU32(const char *name, uint32_t *out);
+	bool ParamU32OrFloatBits(const char *name, uint32_t *out);
+
+	JsonWriter &Respond();
+	void Finish();
+
+private:
+	JsonWriter writer_;
+	bool responseBegun_ = false;
+	bool responseSent_ = false;
 };
