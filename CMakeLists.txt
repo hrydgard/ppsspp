@@ -458,11 +458,9 @@ if(USING_GLES2)
 	find_package(X11)
 endif()
 
-add_library(vjson STATIC
-	ext/native/ext/vjson/json.cpp
-	ext/native/ext/vjson/json.h
-	ext/native/ext/vjson/block_allocator.cpp
-	ext/native/ext/vjson/block_allocator.h
+add_library(gason STATIC
+	ext/native/ext/gason/gason.cpp
+	ext/native/ext/gason/gason.h
 )
 
 add_library(rg_etc1 STATIC
@@ -972,6 +970,8 @@ add_library(native STATIC
 	ext/native/input/keycodes.h
 	ext/native/input/input_state.h
 	ext/native/input/input_state.cpp
+	ext/native/json/json_reader.h
+	ext/native/json/json_reader.cpp
 	ext/native/json/json_writer.h
 	ext/native/json/json_writer.cpp
 	ext/native/math/fast/fast_math.c
@@ -1060,7 +1060,7 @@ if(ANDROID)
 	SET(ATOMIC_LIB atomic)
 endif()
 
-target_link_libraries(native ${LIBZIP_LIBRARY} ${PNG_LIBRARY} ${ZLIB_LIBRARY} rg_etc1 vjson udis86 ${RT_LIB} ${nativeExtraLibs} ${ATOMIC_LIB})
+target_link_libraries(native ${LIBZIP_LIBRARY} ${PNG_LIBRARY} ${ZLIB_LIBRARY} rg_etc1 gason udis86 ${RT_LIB} ${nativeExtraLibs} ${ATOMIC_LIB})
 if(TARGET Ext::GLEW)
   target_link_libraries(native Ext::GLEW)
 endif()

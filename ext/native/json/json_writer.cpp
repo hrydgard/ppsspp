@@ -1,7 +1,7 @@
 #include <iomanip>
 #include <cmath>
 #include <cstring>
-#include "ext/vjson/json.h"
+#include "json/json_reader.h"
 #include "json/json_writer.h"
 
 JsonWriter::JsonWriter(int flags) {
@@ -234,33 +234,33 @@ void JsonWriter::writeEscapedString(const char *str) {
 	}
 }
 
-static void json_stringify_object(JsonWriter &writer, const json_value *value);
-static void json_stringify_array(JsonWriter &writer, const json_value *value);
+static void json_stringify_object(JsonWriter &writer, const JsonNode *node);
+static void json_stringify_array(JsonWriter &writer, const JsonNode *node);
 
-std::string json_stringify(const json_value *value) {
+std::string json_stringify(const JsonNode *node) {
 	JsonWriter writer;
 
 	// Handle direct values too, not just objects.
-	switch (value->type) {
+	switch (node->value.getTag()) {
 	case JSON_NULL:
 	case JSON_STRING:
-	case JSON_INT:
-	case JSON_FLOAT:
-	case JSON_BOOL:
+	case JSON_NUMBER:
+	case JSON_TRUE:
+	case JSON_FALSE:
 		writer.beginRaw();
 		// It's the same as a one entry array without brackets, so reuse.
-		json_stringify_array(writer, value);
+		json_stringify_array(writer, node);
 		break;
 
 	case JSON_OBJECT:
 		writer.begin();
-		for (const json_value *it = value->first_child; it; it = it->next_sibling) {
+		for (const JsonNode *it : node->value) {
 			json_stringify_object(writer, it);
 		}
 		break;
 	case JSON_ARRAY:
 		writer.beginArray();
-		for (const json_value *it = value->first_child; it; it = it->next_sibling) {
+		for (const JsonNode *it : node->value) {
 			json_stringify_array(writer, it);
 		}
 		break;
@@ -270,34 +270,34 @@ std::string json_stringify(const json_value *value) {
 	return writer.str();
 }
 
-static void json_stringify_object(JsonWriter &writer, const json_value *value) {
-	switch (value->type) {
+static void json_stringify_object(JsonWriter &writer, const JsonNode *node) {
+	switch (node->value.getTag()) {
 	case JSON_NULL:
-		writer.writeRaw(value->name, "null");
+		writer.writeRaw(node->key, "null");
 		break;
 	case JSON_STRING:
-		writer.writeString(value->name, value->string_value);
+		writer.writeString(node->key, node->value.toString());
 		break;
-	case JSON_INT:
-		writer.writeInt(value->name, value->int_value);
+	case JSON_NUMBER:
+		writer.writeFloat(node->key, node->value.toNumber());
 		break;
-	case JSON_FLOAT:
-		writer.writeFloat(value->name, value->float_value);
+	case JSON_TRUE:
+		writer.writeBool(node->key, true);
 		break;
-	case JSON_BOOL:
-		writer.writeBool(value->name, value->int_value != 0);
+	case JSON_FALSE:
+		writer.writeBool(node->key, false);
 		break;
 
 	case JSON_OBJECT:
-		writer.pushDict(value->name);
-		for (const json_value *it = value->first_child; it; it = it->next_sibling) {
+		writer.pushDict(node->key);
+		for (const JsonNode *it : node->value) {
 			json_stringify_object(writer, it);
 		}
 		writer.pop();
 		break;
 	case JSON_ARRAY:
-		writer.pushArray(value->name);
-		for (const json_value *it = value->first_child; it; it = it->next_sibling) {
+		writer.pushArray(node->key);
+		for (const JsonNode *it : node->value) {
 			json_stringify_array(writer, it);
 		}
 		writer.pop();
@@ -305,34 +305,34 @@ static void json_stringify_object(JsonWriter &writer, const json_value *value) {
 	}
 }
 
-static void json_stringify_array(JsonWriter &writer, const json_value *value) {
-	switch (value->type) {
+static void json_stringify_array(JsonWriter &writer, const JsonNode *node) {
+	switch (node->value.getTag()) {
 	case JSON_NULL:
 		writer.writeRaw("null");
 		break;
 	case JSON_STRING:
-		writer.writeString(value->string_value);
+		writer.writeString(node->value.toString());
 		break;
-	case JSON_INT:
-		writer.writeInt(value->int_value);
+	case JSON_NUMBER:
+		writer.writeFloat(node->value.toNumber());
 		break;
-	case JSON_FLOAT:
-		writer.writeFloat(value->float_value);
+	case JSON_TRUE:
+		writer.writeBool(true);
 		break;
-	case JSON_BOOL:
-		writer.writeBool(value->int_value != 0);
+	case JSON_FALSE:
+		writer.writeBool(false);
 		break;
 
 	case JSON_OBJECT:
 		writer.pushDict();
-		for (const json_value *it = value->first_child; it; it = it->next_sibling) {
+		for (const JsonNode *it : node->value) {
 			json_stringify_object(writer, it);
 		}
 		writer.pop();
 		break;
 	case JSON_ARRAY:
 		writer.pushArray();
-		for (const json_value *it = value->first_child; it; it = it->next_sibling) {
+		for (const JsonNode *it : node->value) {
 			json_stringify_array(writer, it);
 		}
 		writer.pop();

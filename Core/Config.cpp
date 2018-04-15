@@ -22,9 +22,9 @@
 
 #include "base/display.h"
 #include "base/NativeApp.h"
-#include "ext/vjson/json.h"
 #include "file/ini_file.h"
 #include "i18n/i18n.h"
+#include "json/json_reader.h"
 #include "gfx_es2/gpu_features.h"
 #include "net/http_client.h"
 #include "util/text/parsers.h"
@@ -1181,13 +1181,13 @@ void Config::DownloadCompletedCallback(http::Download &download) {
 	}
 
 	JsonReader reader(data.c_str(), data.size());
-	const json_value *root = reader.root();
+	const JsonGet root = reader.root();
 	if (!root) {
 		ERROR_LOG(LOADER, "Failed to parse json");
 		return;
 	}
 
-	std::string version = root->getString("version", "");
+	std::string version = root.getString("version", "");
 
 	const char *gitVer = PPSSPP_GIT_VERSION;
 	Version installed(gitVer);

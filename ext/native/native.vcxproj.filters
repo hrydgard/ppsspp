@@ -242,12 +242,6 @@
     <ClInclude Include="ext\jpge\jpge.h">
       <Filter>ext\jpge</Filter>
     </ClInclude>
-    <ClInclude Include="ext\vjson\block_allocator.h">
-      <Filter>ext\vjson</Filter>
-    </ClInclude>
-    <ClInclude Include="ext\vjson\json.h">
-      <Filter>ext\vjson</Filter>
-    </ClInclude>
     <ClInclude Include="gfx_es2\gl3stub.h">
       <Filter>gfx</Filter>
     </ClInclude>
@@ -340,6 +334,12 @@
     </ClInclude>
     <ClInclude Include="thin3d\thin3d_create.h">
       <Filter>thin3d</Filter>
+    </ClInclude>
+    <ClInclude Include="ext\gason\gason.h">
+      <Filter>ext\gason</Filter>
+    </ClInclude>
+    <ClInclude Include="json\json_reader.h">
+      <Filter>json</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
@@ -712,12 +712,6 @@
     <ClCompile Include="ext\jpge\jpge.cpp">
       <Filter>ext\jpge</Filter>
     </ClCompile>
-    <ClCompile Include="ext\vjson\block_allocator.cpp">
-      <Filter>ext\vjson</Filter>
-    </ClCompile>
-    <ClCompile Include="ext\vjson\json.cpp">
-      <Filter>ext\vjson</Filter>
-    </ClCompile>
     <ClCompile Include="gfx_es2\gl3stub.c">
       <Filter>gfx</Filter>
     </ClCompile>
@@ -814,6 +808,12 @@
     <ClCompile Include="thin3d\DataFormatGL.cpp">
       <Filter>thin3d</Filter>
     </ClCompile>
+    <ClCompile Include="ext\gason\gason.cpp">
+      <Filter>ext\gason</Filter>
+    </ClCompile>
+    <ClCompile Include="json\json_reader.cpp">
+      <Filter>json</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <Filter Include="gfx">
@@ -876,14 +876,14 @@
     <Filter Include="ext\jpge">
       <UniqueIdentifier>{3721adbc-1a4a-4017-bc1d-893c7e86bc22}</UniqueIdentifier>
     </Filter>
-    <Filter Include="ext\vjson">
-      <UniqueIdentifier>{c6910d82-73d3-4d97-ac9c-bcc03265b1bc}</UniqueIdentifier>
-    </Filter>
     <Filter Include="math\fast">
       <UniqueIdentifier>{5ce64c0e-98e4-4411-86cc-aacaf2f60b21}</UniqueIdentifier>
     </Filter>
     <Filter Include="thin3d">
       <UniqueIdentifier>{06c6305a-a646-485b-85b9-645a24dd6553}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="ext\gason">
+      <UniqueIdentifier>{5b740c6f-8dbc-4529-9114-6564b37b3548}</UniqueIdentifier>
     </Filter>
   </ItemGroup>
 </Project>

@@ -87,5 +87,5 @@ private:
 	bool pretty_;
 };
 
-struct json_value;
-std::string json_stringify(const json_value *json);
+struct JsonNode;
+std::string json_stringify(const JsonNode *json);
