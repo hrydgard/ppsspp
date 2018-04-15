@@ -508,6 +508,9 @@ static ConfigSetting graphicsSettings[] = {
 	ConfigSetting("ShowFPSCounter", &g_Config.iShowFPSCounter, 0, true, true),
 	ReportedConfigSetting("GraphicsBackend", &g_Config.iGPUBackend, &DefaultGPUBackend),
 	ConfigSetting("VulkanDevice", &g_Config.VulkanDevice, "", true, false),
+#ifdef _WIN32
+	ConfigSetting("D3D11Device", &g_Config.D3D11Device, "", true, false),
+#endif
 	ReportedConfigSetting("RenderingMode", &g_Config.iRenderingMode, &DefaultRenderingMode, true, true),
 	ConfigSetting("SoftwareRenderer", &g_Config.bSoftwareRendering, false, true, true),
 	ReportedConfigSetting("HardwareTransform", &g_Config.bHardwareTransform, true, true, true),

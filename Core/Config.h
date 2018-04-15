@@ -156,6 +156,9 @@ public:
 	// We have separate device parameters for each backend so it doesn't get erased if you switch backends.
 	// If not set, will use the "best" device.
 	std::string VulkanDevice;
+#ifdef _WIN32
+	std::string D3D11Device;
+#endif
 	bool bSoftwareRendering;
 	bool bHardwareTransform; // only used in the GLES backend
 	bool bSoftwareSkinning;  // may speed up some games

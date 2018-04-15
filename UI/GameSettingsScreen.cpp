@@ -203,13 +203,17 @@ void GameSettingsScreen::CreateViews() {
 	}
 #endif
 	Draw::DrawContext *draw = screenManager()->getDrawContext();
-	if (draw->GetDeviceList().size() > 0) {
+	if (draw->GetDeviceList().size() > 1) {
 		// Some backends don't support switching so no point in showing multiple devices.
 		std::string *deviceNameSetting = nullptr;
 		if (g_Config.iGPUBackend == (int)GPUBackend::VULKAN) {
 			deviceNameSetting = &g_Config.VulkanDevice;
 		}
-
+#ifdef _WIN32
+		if (g_Config.iGPUBackend == (int)GPUBackend::DIRECT3D11) {
+			deviceNameSetting = &g_Config.D3D11Device;
+		}
+#endif
 		if (deviceNameSetting) {
 			PopupMultiChoiceDynamic *deviceChoice = graphicsSettings->Add(new PopupMultiChoiceDynamic(deviceNameSetting, gr->T("Device"), draw->GetDeviceList(), nullptr, screenManager()));
 			deviceChoice->OnChoice.Handle(this, &GameSettingsScreen::OnRenderingBackend);
