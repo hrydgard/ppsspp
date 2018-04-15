@@ -1,4 +1,5 @@
 #include <iomanip>
+#include <cmath>
 #include <cstring>
 #include "ext/vjson/json.h"
 #include "json/json_writer.h"
@@ -129,14 +130,22 @@ void JsonWriter::writeInt(const char *name, int value) {
 }
 
 void JsonWriter::writeFloat(double value) {
-	str_ << arrayComma() << arrayIndent() << value;
+	str_ << arrayComma() << arrayIndent();
+	if (std::isfinite(value))
+		str_ << value;
+	else
+		str_ << "null";
 	stack_.back().first = false;
 }
 
 void JsonWriter::writeFloat(const char *name, double value) {
 	str_ << comma() << indent() << "\"";
 	writeEscapedString(name);
-	str_ << "\": " << value;
+	str_ << "\": ";
+	if (std::isfinite(value))
+		str_ << value;
+	else
+		str_ << "null";
 	stack_.back().first = false;
 }
 
