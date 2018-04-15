@@ -54,85 +54,70 @@ public:
 	u32 GetLR() override { return cpu->r[MIPS_REG_RA]; }
 	void SetPC(u32 _pc) override { cpu->pc = _pc; }
 
-	const char *GetCategoryName(int cat) override
-	{
-		const char *names[3] = {("GPR"),("FPU"),("VFPU")};
+	const char *GetCategoryName(int cat) override {
+		static const char *const names[3] = { "GPR", "FPU", "VFPU" };
 		return names[cat];
 	}
 	int GetNumCategories() override { return 3; }
-	int GetNumRegsInCategory(int cat) override
-	{
-		int r[3] = {32,32,32};
+	int GetNumRegsInCategory(int cat) override {
+		static int r[3] = { 32, 32, 128 };
 		return r[cat];
 	}
 	const char *GetRegName(int cat, int index) override;
 
-	void PrintRegValue(int cat, int index, char *out) override
-	{
-		switch (cat)
-		{
+	void PrintRegValue(int cat, int index, char *out) override {
+		switch (cat) {
 		case 0: sprintf(out, "%08X", cpu->r[index]); break;
 		case 1: sprintf(out, "%f", cpu->f[index]); break;
 		case 2: sprintf(out, "N/A"); break;
 		}
 	}
 
-	u32 GetHi() override
-	{
+	u32 GetHi() override {
 		return cpu->hi;
 	}
 
-	u32 GetLo() override
-	{
+	u32 GetLo() override {
 		return cpu->lo;
 	}
 	
-	void SetHi(u32 val) override
-	{
+	void SetHi(u32 val) override {
 		cpu->hi = val;
 	}
 
-	void SetLo(u32 val) override
-	{
+	void SetLo(u32 val) override {
 		cpu->lo = val;
 	}
 
-	u32 GetRegValue(int cat, int index) override
-	{
-		u32 temp;
-		switch (cat)
-		{
+	u32 GetRegValue(int cat, int index) override {
+		switch (cat) {
 		case 0:
 			return cpu->r[index];
 
 		case 1:
-			memcpy(&temp, &cpu->f[index], 4);
-			return temp;
+			return cpu->fi[index];
 
 		case 2:
-			memcpy(&temp, &cpu->v[voffset[index]], 4);
-			return temp;
+			return cpu->vi[voffset[index]];
 
 		default:
 			return 0;
 		}
 	}
 
-	void SetRegValue(int cat, int index, u32 value) override
-	{
-		switch (cat)
-		{
+	void SetRegValue(int cat, int index, u32 value) override {
+		switch (cat) {
 		case 0:
 			if (index != 0)
 				cpu->r[index] = value;
 			break;
 
 		case 1:
-			memcpy(&cpu->f[index], &value, 4);
+			cpu->fi[index] = value;
 			break;
 
 		case 2:
-			memcpy(&cpu->v[voffset[index]], &value, 4);
+			cpu->vi[voffset[index]] = value;
 			break;
 
 		default:
