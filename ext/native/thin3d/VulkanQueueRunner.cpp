@@ -850,7 +850,7 @@ void VulkanQueueRunner::PerformBindFramebufferAsRenderTarget(const VKRStep &step
 		// See pull request #10723.
 		bool maliBugWorkaround = step.render.numDraws == 0 &&
 			step.render.color == VKRRenderPassAction::CLEAR &&
-			vulkan_->GetPhysicalDeviceProperties().driverVersion == 0xaa9c4b29;
+			vulkan_->GetPhysicalDeviceProperties(vulkan_->GetCurrentPhysicalDevice()).driverVersion == 0xaa9c4b29;
 		if (maliBugWorkaround) {
 			TransitionImageLayout2(cmd, step.render.framebuffer->color.image, 0, 1, VK_IMAGE_ASPECT_COLOR_BIT,
 				fb->color.layout, VK_IMAGE_LAYOUT_GENERAL,

@@ -33,6 +33,6 @@ DrawContext *T3DCreateDX9Context(IDirect3D9 *d3d, IDirect3D9Ex *d3dEx, int adapt
 DrawContext *T3DCreateD3D11Context(ID3D11Device *device, ID3D11DeviceContext *context, ID3D11Device1 *device1, ID3D11DeviceContext1 *context1, D3D_FEATURE_LEVEL featureLevel, HWND hWnd);
 #endif
 
-DrawContext *T3DCreateVulkanContext(VulkanContext *context, bool split);
+DrawContext *T3DCreateVulkanContext(VulkanContext *context, bool splitSubmit);
 
 }  // namespace Draw

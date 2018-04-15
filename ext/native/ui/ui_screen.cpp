@@ -444,6 +444,8 @@ void PopupMultiChoice::Update() {
 }
 
 void PopupMultiChoice::UpdateText() {
+	if (!choices_)
+		return;
 	I18NCategory *category = GetI18NCategory(category_);
 	// Clamp the value to be safe.
 	if (*value_ < minVal_ || *value_ > minVal_ + numChoices_ - 1) {
@@ -466,6 +468,7 @@ void PopupMultiChoice::ChoiceCallback(int num) {
 		if (restoreFocus_) {
 			SetFocusedView(this);
 		}
+		PostChoiceCallback(num);
 	}
 }
 

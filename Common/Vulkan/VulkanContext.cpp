@@ -213,6 +213,7 @@ VkResult VulkanContext::CreateInstance(const CreateInfo &info) {
 
 	assert(gpu_count > 0);
 	physical_devices_.resize(gpu_count);
+	physicalDeviceProperties_.resize(gpu_count);
 	res = vkEnumeratePhysicalDevices(instance_, &gpu_count, physical_devices_.data());
 	if (res != VK_SUCCESS) {
 		init_error_ = "Failed to enumerate physical devices";
@@ -221,6 +222,9 @@ VkResult VulkanContext::CreateInstance(const CreateInfo &info) {
 		return res;
 	}
 
+	for (uint32_t i = 0; i < gpu_count; i++) {
+		vkGetPhysicalDeviceProperties(physical_devices_[i], &physicalDeviceProperties_[i]);
+	}
 	return VK_SUCCESS;
 }
 
@@ -417,6 +421,14 @@ bool VulkanContext::CheckLayers(const std::vector<LayerProperties> &layer_props,
 	return true;
 }
 
+int VulkanContext::GetPhysicalDeviceByName(std::string name) {
+	for (size_t i = 0; i < physical_devices_.size(); i++) {
+		if (physicalDeviceProperties_[i].deviceName == name)
+			return (int)i;
+	}
+	return -1;
+}
+
 int VulkanContext::GetBestPhysicalDevice() {
 	// Rules: Prefer discrete over embedded.
 	// Prefer nVidia over Intel.
@@ -490,7 +502,6 @@ void VulkanContext::ChooseDevice(int physical_device) {
 
 	// This is as good a place as any to do this
 	vkGetPhysicalDeviceMemoryProperties(physical_devices_[physical_device_], &memory_properties);
-	vkGetPhysicalDeviceProperties(physical_devices_[physical_device_], &gpu_props);
 
 	// Optional features
 	vkGetPhysicalDeviceFeatures(physical_devices_[physical_device_], &featuresAvailable_);
