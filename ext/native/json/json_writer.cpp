@@ -6,6 +6,8 @@
 JsonWriter::JsonWriter(int flags) {
 	pretty_ = (flags & PRETTY) != 0;
 	str_.imbue(std::locale::classic());
+	// Let's maximize precision by default.
+	str_.precision(53);
 }
 
 JsonWriter::~JsonWriter() {
