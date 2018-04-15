@@ -42,11 +42,15 @@
 
 #include "Core/Debugger/WebSocket/CPUCoreSubscriber.h"
 
-typedef void (*DebuggerEventHandler)(DebuggerRequest &req);
-static const std::unordered_map<std::string, DebuggerEventHandler> debuggerEvents({
-	{"cpu.getAllRegs", &WebSocketCPUGetAllRegs},
-	{"cpu.getReg", &WebSocketCPUGetReg},
-	{"cpu.setReg", &WebSocketCPUSetReg},
+typedef void *(*SubscriberInit)(DebuggerEventHandlerMap &map);
+typedef void (*Subscribershutdown)(void *p);
+struct SubscriberInfo {
+	SubscriberInit init;
+	Subscribershutdown shutdown;
+};
+
+static const std::vector<SubscriberInfo> subscribers({
+	{ &WebSocketCPUCoreInit, nullptr },
 });
 
 void HandleDebuggerRequest(const http::Request &request) {
@@ -57,6 +61,12 @@ void HandleDebuggerRequest(const http::Request &request) {
 	LogBroadcaster logger;
 	GameBroadcaster game;
 	SteppingBroadcaster stepping;
+
+	std::unordered_map<std::string, DebuggerEventHandler> eventHandlers;
+	std::vector<void *> subscriberData;
+	for (auto info : subscribers) {
+		subscriberData.push_back(info.init(eventHandlers));
+	}
 
 	ws->SetTextHandler([&](const std::string &t) {
 		JsonReader reader(t.c_str(), t.size());
@@ -73,8 +83,8 @@ void HandleDebuggerRequest(const http::Request &request) {
 		}
 
 		DebuggerRequest req(event, ws, root);
-		auto eventFunc = debuggerEvents.find(event);
-		if (eventFunc != debuggerEvents.end()) {
+		auto eventFunc = eventHandlers.find(event);
+		if (eventFunc != eventHandlers.end()) {
 			eventFunc->second(req);
 			req.Finish();
 		} else {
@@ -90,6 +100,14 @@ void HandleDebuggerRequest(const http::Request &request) {
 		logger.Broadcast(ws);
 		game.Broadcast(ws);
 		stepping.Broadcast(ws);
+	}
+
+	for (size_t i = 0; i < subscribers.size(); ++i) {
+		if (subscribers[i].shutdown) {
+			subscribers[i].shutdown(subscriberData[i]);
+		} else {
+			assert(!subscriberData[i]);
+		}
 	}
 
 	delete ws;

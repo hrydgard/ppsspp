@@ -22,6 +22,15 @@
 #include "Core/MIPS/MIPS.h"
 #include "Core/MIPS/MIPSDebugInterface.h"
 
+void *WebSocketCPUCoreInit(DebuggerEventHandlerMap &map) {
+	// No need to bind or alloc state, these are all global.
+	map["cpu.getAllRegs"] = &WebSocketCPUGetAllRegs;
+	map["cpu.getReg"] = &WebSocketCPUGetReg;
+	map["cpu.setReg"] = &WebSocketCPUSetReg;
+
+	return nullptr;
+}
+
 static std::string RegValueAsFloat(uint32_t u) {
 	union {
 		uint32_t u;

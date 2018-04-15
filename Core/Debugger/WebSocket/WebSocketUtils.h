@@ -84,3 +84,6 @@ private:
 	bool responseBegun_ = false;
 	bool responseSent_ = false;
 };
+
+typedef std::function<void(DebuggerRequest &req)> DebuggerEventHandler;
+typedef std::unordered_map<std::string, DebuggerEventHandler> DebuggerEventHandlerMap;

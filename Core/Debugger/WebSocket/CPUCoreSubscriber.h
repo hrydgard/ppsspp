@@ -17,7 +17,9 @@
 
 #pragma once
 
-struct DebuggerRequest;
+#include "Core/Debugger/WebSocket/WebSocketUtils.h"
+
+void *WebSocketCPUCoreInit(DebuggerEventHandlerMap &map);
 
 void WebSocketCPUGetAllRegs(DebuggerRequest &req);
 void WebSocketCPUGetReg(DebuggerRequest &req);
