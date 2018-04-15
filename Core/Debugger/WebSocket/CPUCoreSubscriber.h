@@ -21,6 +21,8 @@
 
 void *WebSocketCPUCoreInit(DebuggerEventHandlerMap &map);
 
+void WebSocketCPUStepping(DebuggerRequest &req);
+void WebSocketCPUResume(DebuggerRequest &req);
 void WebSocketCPUGetAllRegs(DebuggerRequest &req);
 void WebSocketCPUGetReg(DebuggerRequest &req);
 void WebSocketCPUSetReg(DebuggerRequest &req);

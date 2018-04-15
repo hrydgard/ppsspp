@@ -22,11 +22,14 @@
 
 void SteppingBroadcaster::Broadcast(net::WebSocketServer *ws) {
 	// TODO: This is somewhat primitive.  It'd be nice to register a callback with Core instead?
-	if (coreState != prevState_) {
-		if (Core_IsStepping() && PSP_IsInited()) {
+	if (coreState != prevState_ && PSP_IsInited()) {
+		// We ignore CORE_POWERDOWN.
+		if (coreState == CORE_STEPPING) {
 			// TODO: Should send more data proactively.
 			ws->Send(R"({"event":"cpu.stepping"})");
+		} else if (prevState_ == CORE_STEPPING && Core_IsActive()) {
+			ws->Send(R"({"event":"cpu.resume"})");
 		}
-		prevState_ = coreState;
 	}
+	prevState_ = coreState;
 }

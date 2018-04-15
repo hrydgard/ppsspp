@@ -24,6 +24,8 @@
 
 void *WebSocketCPUCoreInit(DebuggerEventHandlerMap &map) {
 	// No need to bind or alloc state, these are all global.
+	map["cpu.stepping"] = &WebSocketCPUStepping;
+	map["cpu.resume"] = &WebSocketCPUResume;
 	map["cpu.getAllRegs"] = &WebSocketCPUGetAllRegs;
 	map["cpu.getReg"] = &WebSocketCPUGetReg;
 	map["cpu.setReg"] = &WebSocketCPUSetReg;
@@ -37,6 +39,36 @@ static std::string RegValueAsFloat(uint32_t u) {
 		float f;
 	} bits = { u };
 	return StringFromFormat("%f", bits.f);
+}
+
+// Begin stepping and pause the CPU (cpu.stepping)
+//
+// No parameters.
+//
+// No immediate response.  Once CPU is stepping, a "cpu.stepping" event will be sent.
+void WebSocketCPUStepping(DebuggerRequest &req) {
+	if (!currentDebugMIPS->isAlive()) {
+		return req.Fail("CPU not started");
+	}
+	if (!Core_IsStepping() && Core_IsActive()) {
+		Core_EnableStepping(true);
+	}
+}
+
+// Stop stepping and resume the CPU (cpu.resume)
+//
+// No parameters.
+//
+// No immediate response.  Once CPU is stepping, a "cpu.resume" event will be sent.
+void WebSocketCPUResume(DebuggerRequest &req) {
+	if (!currentDebugMIPS->isAlive()) {
+		return req.Fail("CPU not started");
+	}
+	if (!Core_IsStepping() || coreState == CORE_POWERDOWN) {
+		return req.Fail("CPU not stepping");
+	}
+
+	Core_EnableStepping(false);
 }
 
 // Retrieve all regs and their values (cpu.getAllRegs)
