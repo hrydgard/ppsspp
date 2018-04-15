@@ -48,14 +48,27 @@ static bool U32FromString(const char *str, uint32_t *out, bool allowFloat) {
 		return true;
 	}
 
-	// We have to try float last because we use float bits.
-	union {
-		uint32_t u;
-		float f;
-	} bits;
-	if (allowFloat && TryParse(str, &bits.f)) {
-		*out = bits.u;
-		return true;
+	// We have to try float last because we use float bits, so 1.0 != 1.
+	if (allowFloat) {
+		union {
+			uint32_t u;
+			float f;
+		} bits;
+		if (TryParse(str, &bits.f)) {
+			*out = bits.u;
+			return true;
+		}
+
+		if (!strcasecmp(str, "nan")) {
+			*out = 0x7FC00000;
+			return true;
+		} else if (!strcasecmp(str, "infinity") || !strcasecmp(str, "inf")) {
+			*out = 0x7F800000;
+			return true;
+		} else if (!strcasecmp(str, "-infinity") || !strcasecmp(str, "-inf")) {
+			*out = 0xFF800000;
+			return true;
+		}
 	}
 
 	return false;
