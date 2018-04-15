@@ -15,6 +15,8 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
+#include <cmath>
+#include <limits>
 #include "Common/StringUtils.h"
 #include "Core/Debugger/WebSocket/WebSocketUtils.h"
 
@@ -66,8 +68,26 @@ bool DebuggerRequest::ParamU32(const char *name, uint32_t *out) {
 		return false;
 	}
 
-	// TODO: For now, only supporting strings.  Switch to gason?
-	// Otherwise we get overflow (signed integer parsing.)
+	if (node->value.getTag() == JSON_NUMBER) {
+		double val = node->value.toNumber();
+		bool isInteger = trunc(val) == val;
+		if (!isInteger) {
+			Fail(StringFromFormat("Could not parse '%s' parameter: integer required", name));
+			return false;
+		}
+
+		if (val < 0 && val >= std::numeric_limits<int32_t>::min()) {
+			// Convert to unsigned representation.
+			*out = (uint32_t)(int32_t)val;
+			return true;
+		} else if (val >= 0 && val <= std::numeric_limits<uint32_t>::max()) {
+			*out = (uint32_t)val;
+			return true;
+		}
+
+		Fail(StringFromFormat("Could not parse '%s' parameter: outside 32 bit range", name));
+		return false;
+	}
 	if (node->value.getTag() != JSON_STRING) {
 		Fail(StringFromFormat("Invalid '%s' parameter type", name));
 		return false;
@@ -76,7 +96,7 @@ bool DebuggerRequest::ParamU32(const char *name, uint32_t *out) {
 	if (U32FromString(node->value.toString(), out, false))
 		return true;
 
-	Fail(StringFromFormat("Could not parse '%s' parameter", name));
+	Fail(StringFromFormat("Could not parse '%s' parameter: integer required", name));
 	return false;
 }
 
@@ -87,9 +107,26 @@ bool DebuggerRequest::ParamU32OrFloatBits(const char *name, uint32_t *out) {
 		return false;
 	}
 
-	// TODO: For now, only supporting strings and floats.  Switch to gason?
-	// Otherwise we get overflow (signed integer parsing.)
 	if (node->value.getTag() == JSON_NUMBER) {
+		double val = node->value.toNumber();
+		bool isInteger = trunc(val) == val;
+
+		// JSON doesn't give a great way to differentiate ints and floats.
+		// Let's play it safe and require a string.
+		if (!isInteger) {
+			Fail(StringFromFormat("Could not parse '%s' parameter: use a string for non integer values", name));
+			return false;
+		}
+
+		if (val < 0 && val >= std::numeric_limits<int32_t>::min()) {
+			// Convert to unsigned representation.
+			*out = (uint32_t)(int32_t)val;
+			return true;
+		} else if (val >= 0 && val <= std::numeric_limits<uint32_t>::max()) {
+			*out = (uint32_t)val;
+			return true;
+		}
+
 		Fail(StringFromFormat("Could not parse '%s' parameter: outside 32 bit range (use string for float)", name));
 		return false;
 	}
@@ -101,6 +138,6 @@ bool DebuggerRequest::ParamU32OrFloatBits(const char *name, uint32_t *out) {
 	if (U32FromString(node->value.toString(), out, true))
 		return true;
 
-	Fail(StringFromFormat("Could not parse '%s' parameter", name));
+	Fail(StringFromFormat("Could not parse '%s' parameter: number expected", name));
 	return false;
 }

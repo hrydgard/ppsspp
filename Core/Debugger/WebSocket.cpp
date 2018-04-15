@@ -73,7 +73,6 @@ void HandleDebuggerRequest(const http::Request &request) {
 		}
 
 		DebuggerRequest req(event, ws, root);
-
 		auto eventFunc = debuggerEvents.find(event);
 		if (eventFunc != debuggerEvents.end()) {
 			eventFunc->second(req);
