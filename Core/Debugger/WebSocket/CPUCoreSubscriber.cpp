@@ -30,6 +30,17 @@ static std::string RegValueAsFloat(uint32_t u) {
 	return StringFromFormat("%f", bits.f);
 }
 
+// Retrieve all regs and their values (cpu.getAllRegs)
+//
+// No parameters.
+//
+// Response (same event name):
+//  - categories: array of objects:
+//     - id: "category" property to use for other events.
+//     - name: a category name, such as "GPR".
+//     - registerNames: array of string names of the registers (size varies per category.)
+//     - uintValues: array of unsigned integer values for the registers.
+//     - floatValues: array of strings showing float representation.  May be "nan", "inf", or "-inf".
 void WebSocketCPUGetAllRegs(DebuggerRequest &req) {
 	JsonWriter &json = req.Respond();
 
@@ -41,7 +52,7 @@ void WebSocketCPUGetAllRegs(DebuggerRequest &req) {
 
 		int total = currentDebugMIPS->GetNumRegsInCategory(c);
 
-		json.pushArray("names");
+		json.pushArray("registerNames");
 		for (int r = 0; r < total; ++r)
 			json.writeString(currentDebugMIPS->GetRegName(c, r));
 		if (c == 0) {
@@ -51,7 +62,7 @@ void WebSocketCPUGetAllRegs(DebuggerRequest &req) {
 		}
 		json.pop();
 
-		json.pushArray("intValues");
+		json.pushArray("uintValues");
 		// Writing as floating point to avoid negatives.  Actually double, so safe.
 		for (int r = 0; r < total; ++r)
 			json.writeFloat(currentDebugMIPS->GetRegValue(c, r));
@@ -150,6 +161,20 @@ static DebuggerRegType ValidateCatReg(DebuggerRequest &req, int *cat, int *reg) 
 	return DebuggerRegType::NORMAL;
 }
 
+// Retrieve the value of a single register (cpu.getReg)
+//
+// Parameters (by name):
+//  - name: string name of register to lookup.
+//
+// Parameters (by category id and index, ignored if name specified):
+//  - category: id of category for the register.
+//  - register: index into array of registers.
+//
+// Response (same event name):
+//  - category: id of category for the register.
+//  - register: index into array of registers.
+//  - uintValue: value in register.
+//  - floatValue: string showing float representation.  May be "nan", "inf", or "-inf".
 void WebSocketCPUGetReg(DebuggerRequest &req) {
 	int cat, reg;
 	uint32_t val;
@@ -176,16 +201,36 @@ void WebSocketCPUGetReg(DebuggerRequest &req) {
 	JsonWriter &json = req.Respond();
 	json.writeInt("category", cat);
 	json.writeInt("register", reg);
-	json.writeFloat("intValue", val);
+	json.writeFloat("uintValue", val);
 	json.writeString("floatValue", RegValueAsFloat(val));
 }
 
+// Retrieve the value of a single register (cpu.getReg)
+//
+// Parameters (by name):
+//  - name: string name of register to lookup.
+//  - value: number (uint values only) or string to set to.  Values may include
+//    "0x1234", "1.5", "nan", "-inf", etc.  For a float, use a string with decimal e.g. "1.0".
+//
+// Parameters (by category id and index, ignored if name specified):
+//  - category: id of category for the register.
+//  - register: index into array of registers.
+//  - value: number (uint values only) or string to set to.  Values may include
+//    "0x1234", "1.5", "nan", "-inf", etc.  For a float, use a string with decimal e.g. "1.0".
+//
+// Response (same event name):
+//  - category: id of category for the register.
+//  - register: index into array of registers.
+//  - uintValue: new value in register.
+//  - floatValue: string showing float representation.  May be "nan", "inf", or "-inf".
+//
+// NOTE: Cannot be called unless the CPU is currently stepping.
 void WebSocketCPUSetReg(DebuggerRequest &req) {
 	if (!currentDebugMIPS->isAlive()) {
 		return req.Fail("CPU not started");
 	}
 	if (!Core_IsStepping()) {
-		return req.Fail("CPU currently running (cpu.interrupt first)");
+		return req.Fail("CPU currently running (cpu.stepping first)");
 	}
 
 	uint32_t val;
@@ -219,6 +264,6 @@ void WebSocketCPUSetReg(DebuggerRequest &req) {
 	// Repeat it back just to avoid confusion on how it parsed.
 	json.writeInt("category", cat);
 	json.writeInt("register", reg);
-	json.writeFloat("intValue", val);
+	json.writeFloat("uintValue", val);
 	json.writeString("floatValue", RegValueAsFloat(val));
 }

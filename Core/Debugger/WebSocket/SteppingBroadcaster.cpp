@@ -25,7 +25,7 @@ void SteppingBroadcaster::Broadcast(net::WebSocketServer *ws) {
 	if (coreState != prevState_) {
 		if (Core_IsStepping() && PSP_IsInited()) {
 			// TODO: Should send more data proactively.
-			ws->Send(R"({"event":"cpu_stepping"})");
+			ws->Send(R"({"event":"cpu.stepping"})");
 		}
 		prevState_ = coreState;
 	}

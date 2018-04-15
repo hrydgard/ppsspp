@@ -25,13 +25,13 @@ void GameBroadcaster::Broadcast(net::WebSocketServer *ws) {
 	GlobalUIState state = GetUIState();
 	if (prevState_ != state) {
 		if (state == UISTATE_PAUSEMENU) {
-			ws->Send(R"({"event":"game_pause"})");
+			ws->Send(R"({"event":"game.pause"})");
 		} else if (state == UISTATE_INGAME && prevState_ == UISTATE_PAUSEMENU) {
-			ws->Send(R"({"event":"game_resume"})");
+			ws->Send(R"({"event":"game.resume"})");
 		} else if (state == UISTATE_INGAME) {
-			ws->Send(R"({"event":"game_start"})");
+			ws->Send(R"({"event":"game.start"})");
 		} else if (state == UISTATE_MENU) {
-			ws->Send(R"({"event":"game_quit"})");
+			ws->Send(R"({"event":"game.quit"})");
 		}
 		prevState_ = state;
 	}
