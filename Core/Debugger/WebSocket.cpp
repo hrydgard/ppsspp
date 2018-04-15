@@ -15,6 +15,7 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
+#include "thread/threadutil.h"
 #include "Core/Debugger/WebSocket.h"
 #include "Core/Debugger/WebSocket/WebSocketUtils.h"
 
@@ -57,6 +58,8 @@ void HandleDebuggerRequest(const http::Request &request) {
 	net::WebSocketServer *ws = net::WebSocketServer::CreateAsUpgrade(request, "debugger.ppsspp.org");
 	if (!ws)
 		return;
+
+	setCurrentThreadName("Debugger");
 
 	LogBroadcaster logger;
 	GameBroadcaster game;
