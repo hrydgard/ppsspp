@@ -21,7 +21,9 @@ public:
 	void beginArray();
 	void beginRaw();
 	void end();
+	void pushDict();
 	void pushDict(const char *name);
+	void pushArray();
 	void pushArray(const char *name);
 	void pop();
 	void writeBool(bool value);

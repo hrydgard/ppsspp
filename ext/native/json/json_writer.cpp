@@ -75,11 +75,24 @@ const char *JsonWriter::arrayComma() const {
 	}
 }
 
+void JsonWriter::pushDict() {
+	str_ << arrayComma() << arrayIndent() << "{";
+	stack_.back().first = false;
+	stack_.push_back(StackEntry(DICT));
+}
+
 void JsonWriter::pushDict(const char *name) {
 	str_ << comma() << indent() << "\"";
 	writeEscapedString(name);
 	str_ << "\": {";
+	stack_.back().first = false;
 	stack_.push_back(StackEntry(DICT));
+}
+
+void JsonWriter::pushArray() {
+	str_ << arrayComma() << arrayIndent() << "[";
+	stack_.back().first = false;
+	stack_.push_back(StackEntry(ARRAY));
 }
 
 void JsonWriter::pushArray(const char *name) {
@@ -300,14 +313,14 @@ static void json_stringify_array(JsonWriter &writer, const json_value *value) {
 		break;
 
 	case JSON_OBJECT:
-		writer.begin();
+		writer.pushDict();
 		for (const json_value *it = value->first_child; it; it = it->next_sibling) {
 			json_stringify_object(writer, it);
 		}
 		writer.pop();
 		break;
 	case JSON_ARRAY:
-		writer.beginArray();
+		writer.pushArray();
 		for (const json_value *it = value->first_child; it; it = it->next_sibling) {
 			json_stringify_array(writer, it);
 		}
