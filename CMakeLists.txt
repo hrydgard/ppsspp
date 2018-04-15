@@ -1858,7 +1858,8 @@ endif()
 set(NativeAssets
 	android/assets/ui_atlas.zim
 	assets/lang
-	assets/shaders
+   assets/shaders
+   assets/scalers
 	assets/Roboto-Condensed.ttf
 	assets/7z.png
 	assets/compat.ini

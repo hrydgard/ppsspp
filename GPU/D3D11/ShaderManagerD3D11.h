@@ -117,6 +117,8 @@ private:
 	VSCache vsCache_;
 
 	char *codeBuffer_;
+	char *scalerCode_;
+	bool needScalerCode;
 
 	// Uniform block scratchpad. These (the relevant ones) are copied to the current pushbuffer at draw time.
 	UB_VS_FS_Base ub_base;

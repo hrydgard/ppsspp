@@ -515,7 +515,7 @@ void ShaderManagerDX9::VSUpdateUniforms(u64 dirtyUniforms) {
 }
 
 ShaderManagerDX9::ShaderManagerDX9(LPDIRECT3DDEVICE9 device) : device_(device), lastVShader_(nullptr), lastPShader_(nullptr) {
-	codeBuffer_ = new char[16384];
+	codeBuffer_ = new char[16384 * 2];
 }
 
 ShaderManagerDX9::~ShaderManagerDX9() {
