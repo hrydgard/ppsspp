@@ -127,7 +127,7 @@ private:
 	typedef enum { VFILETYPE_NORMAL, VFILETYPE_LBN, VFILETYPE_ISO } VirtualFileType;
 
 	struct OpenFileEntry {
-		DirectoryFileHandle hFile;
+		DirectoryFileHandle hFile = DirectoryFileHandle::SKIP_REPLAY;
 		HandlerFileHandle handler;
 		VirtualFileType type;
 		u32 fileIndex;
