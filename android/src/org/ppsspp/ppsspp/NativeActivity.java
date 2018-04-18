@@ -530,12 +530,28 @@ public abstract class NativeActivity extends Activity implements SurfaceHolder.C
     }
 
 	private Point desiredSize = new Point();
+	private int badOrientationCount = 0;
 	@Override
 	public void surfaceCreated(SurfaceHolder holder) {
 		pixelWidth = holder.getSurfaceFrame().width();
 		pixelHeight = holder.getSurfaceFrame().height();
 
+		// Workaround for terrible bug when locking and unlocking the screen in landscape mode on Nexus 5X.
 		int requestedOr = getRequestedOrientation();
+		boolean requestedPortrait = requestedOr == ActivityInfo.SCREEN_ORIENTATION_PORTRAIT || requestedOr == ActivityInfo.SCREEN_ORIENTATION_REVERSE_PORTRAIT;
+		boolean detectedPortrait = pixelHeight > pixelWidth;
+		if (Build.VERSION.SDK_INT < Build.VERSION_CODES.KITKAT && badOrientationCount < 3 && requestedPortrait != detectedPortrait && requestedOr != ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED) {
+			Log.e(TAG, "Bad orientation detected (w=" + pixelWidth + " h=" + pixelHeight + "! Recreating activity.");
+			badOrientationCount++;
+			recreate();
+			return;
+		} else if (requestedPortrait == detectedPortrait) {
+			Log.i(TAG, "Correct orientation detected, resetting orientation counter.");
+			badOrientationCount = 0;
+		} else {
+			Log.i(TAG, "Bad orientation detected but ignored" + (Build.VERSION.SDK_INT < Build.VERSION_CODES.KITKAT ? " (sdk version)" : "");
+		}
+
 		Log.d(TAG, "Surface created. pixelWidth=" + pixelWidth + ", pixelHeight=" + pixelHeight + " holder: " + holder.toString() + " or: " + requestedOr);
 		NativeApp.setDisplayParameters(pixelWidth, pixelHeight, (int)densityDpi, refreshRate);
 		getDesiredBackbufferSize(desiredSize);
