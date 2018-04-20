@@ -897,6 +897,10 @@ void EmuScreen::CreateViews() {
 
 	GameInfoBGView *loadingBG = root_->Add(new GameInfoBGView(gamePath_, new AnchorLayoutParams(FILL_PARENT, FILL_PARENT)));
 	TextView *loadingTextView = root_->Add(new TextView(sc->T(PSP_GetLoading()), new AnchorLayoutParams(bounds.centerX(), NONE, NONE, 40, true)));
+
+	// Don't really need this, and it creates a lot of strings to translate...
+	loadingTextView->SetVisibility(V_GONE);
+
 	static const int symbols[4] = {
 		I_CROSS,
 		I_CIRCLE,
