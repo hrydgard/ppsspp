@@ -899,7 +899,7 @@ void EmuScreen::CreateViews() {
 	TextView *loadingTextView = root_->Add(new TextView(sc->T(PSP_GetLoading()), new AnchorLayoutParams(bounds.centerX(), NONE, NONE, 40, true)));
 
 	// Don't really need this, and it creates a lot of strings to translate...
-	loadingTextView->SetVisibility(V_GONE);
+	loadingTextView->SetVisibility(V_INVISIBLE);
 
 	static const int symbols[4] = {
 		I_CROSS,
