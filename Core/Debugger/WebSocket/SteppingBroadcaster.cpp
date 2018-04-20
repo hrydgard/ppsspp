@@ -21,15 +21,18 @@
 #include "Core/System.h"
 
 void SteppingBroadcaster::Broadcast(net::WebSocketServer *ws) {
-	// TODO: This is somewhat primitive.  It'd be nice to register a callback with Core instead?
-	if (coreState != prevState_ && PSP_IsInited()) {
-		// We ignore CORE_POWERDOWN.
-		if (coreState == CORE_STEPPING) {
+	if (PSP_IsInited()) {
+		int steppingCounter = Core_GetSteppingCounter();
+		// We ignore CORE_POWERDOWN as a stepping state.
+		if (coreState == CORE_STEPPING && steppingCounter != lastCounter_) {
 			// TODO: Should send more data proactively.
 			ws->Send(R"({"event":"cpu.stepping"})");
-		} else if (prevState_ == CORE_STEPPING && Core_IsActive()) {
+		} else if (prevState_ == CORE_STEPPING && coreState != CORE_STEPPING && Core_IsActive()) {
 			ws->Send(R"({"event":"cpu.resume"})");
 		}
+		lastCounter_ = steppingCounter;
+		prevState_ = coreState;
+	} else {
+		prevState_ = CORE_POWERDOWN;
 	}
-	prevState_ = coreState;
 }

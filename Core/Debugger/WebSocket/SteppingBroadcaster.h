@@ -33,4 +33,5 @@ public:
 
 private:
 	CoreState prevState_;
+	int lastCounter_ = 0;
 };
