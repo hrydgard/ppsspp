@@ -98,7 +98,7 @@ void Core_Halt(const char *msg)  {
 void Core_Stop() {
 	Core_UpdateState(CORE_POWERDOWN);
 	Core_NotifyShutdown();
-	m_StepCond.notify_one();
+	m_StepCond.notify_all();
 }
 
 bool Core_IsStepping() {
@@ -239,11 +239,11 @@ void Core_RunLoop(GraphicsContext *ctx) {
 
 void Core_DoSingleStep() {
 	singleStepPending = true;
-	m_StepCond.notify_one();
+	m_StepCond.notify_all();
 }
 
 void Core_UpdateSingleStep() {
-	m_StepCond.notify_one();
+	m_StepCond.notify_all();
 }
 
 void Core_SingleStep() {
@@ -253,7 +253,7 @@ void Core_SingleStep() {
 static inline void CoreStateProcessed() {
 	if (coreStatePending) {
 		coreStatePending = false;
-		m_InactiveCond.notify_one();
+		m_InactiveCond.notify_all();
 	}
 }
 
@@ -338,6 +338,6 @@ void Core_EnableStepping(bool step) {
 		host->SetDebugMode(false);
 		coreState = CORE_RUNNING;
 		coreStatePending = false;
-		m_StepCond.notify_one();
+		m_StepCond.notify_all();
 	}
 }

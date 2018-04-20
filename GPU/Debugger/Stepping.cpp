@@ -67,7 +67,7 @@ static void SetPauseAction(PauseAction act, bool waitComplete = true) {
 	pauseLock.unlock();
 
 	actionComplete = false;
-	pauseWait.notify_one();
+	pauseWait.notify_all();
 	while (waitComplete && !actionComplete) {
 		actionWait.wait(guard);
 	}
@@ -113,7 +113,7 @@ static void RunPauseAction() {
 	}
 
 	actionComplete = true;
-	actionWait.notify_one();
+	actionWait.notify_all();
 	pauseAction = PAUSE_BREAK;
 }
 
@@ -200,7 +200,7 @@ void ResumeFromStepping() {
 void ForceUnpause() {
 	SetPauseAction(PAUSE_CONTINUE, false);
 	actionComplete = true;
-	actionWait.notify_one();
+	actionWait.notify_all();
 }
 
 }  // namespace
