@@ -549,7 +549,7 @@ public abstract class NativeActivity extends Activity implements SurfaceHolder.C
 			Log.i(TAG, "Correct orientation detected, resetting orientation counter.");
 			badOrientationCount = 0;
 		} else {
-			Log.i(TAG, "Bad orientation detected but ignored" + (Build.VERSION.SDK_INT < Build.VERSION_CODES.KITKAT ? " (sdk version)" : "");
+			Log.i(TAG, "Bad orientation detected but ignored" + (Build.VERSION.SDK_INT < Build.VERSION_CODES.KITKAT ? " (sdk version)" : ""));
 		}
 
 		Log.d(TAG, "Surface created. pixelWidth=" + pixelWidth + ", pixelHeight=" + pixelHeight + " holder: " + holder.toString() + " or: " + requestedOr);
