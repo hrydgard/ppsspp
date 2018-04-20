@@ -54,6 +54,7 @@ static std::mutex m_hStepMutex;
 static std::condition_variable m_InactiveCond;
 static std::mutex m_hInactiveMutex;
 static bool singleStepPending = false;
+static int steppingCounter = 0;
 static std::set<Core_ShutdownFunc> shutdownFuncs;
 static bool windowHidden = false;
 static double lastActivity = 0.0;
@@ -334,10 +335,15 @@ void Core_EnableStepping(bool step) {
 		sleep_ms(1);
 		host->SetDebugMode(true);
 		Core_UpdateState(CORE_STEPPING);
+		steppingCounter++;
 	} else {
 		host->SetDebugMode(false);
 		coreState = CORE_RUNNING;
 		coreStatePending = false;
 		m_StepCond.notify_all();
 	}
+}
+
+int Core_GetSteppingCounter() {
+	return steppingCounter;
 }

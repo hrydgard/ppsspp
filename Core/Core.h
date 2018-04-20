@@ -31,12 +31,12 @@ void Core_ErrorPause();
 // For platforms that don't call Core_Run
 void Core_SetGraphicsContext(GraphicsContext *ctx);
 
-void Core_RunRenderThreadFrame();
-
 // called from gui
 void Core_EnableStepping(bool step);
 void Core_DoSingleStep();
 void Core_UpdateSingleStep();
+// Changes every time we enter stepping.
+int Core_GetSteppingCounter();
 
 typedef void (* Core_ShutdownFunc)();
 void Core_ListenShutdown(Core_ShutdownFunc func);
