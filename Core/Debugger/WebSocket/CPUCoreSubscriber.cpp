@@ -26,6 +26,7 @@ void *WebSocketCPUCoreInit(DebuggerEventHandlerMap &map) {
 	// No need to bind or alloc state, these are all global.
 	map["cpu.stepping"] = &WebSocketCPUStepping;
 	map["cpu.resume"] = &WebSocketCPUResume;
+	map["cpu.status"] = &WebSocketCPUStatus;
 	map["cpu.getAllRegs"] = &WebSocketCPUGetAllRegs;
 	map["cpu.getReg"] = &WebSocketCPUGetReg;
 	map["cpu.setReg"] = &WebSocketCPUSetReg;
@@ -69,6 +70,19 @@ void WebSocketCPUResume(DebuggerRequest &req) {
 	}
 
 	Core_EnableStepping(false);
+}
+
+// Request the current CPU status (cpu.status)
+//
+// No parameters.
+//
+// Response (same event name):
+//  - stepping: boolean, CPU currently stepping.
+//  - paused: boolean, CPU paused or not started yet.
+void WebSocketCPUStatus(DebuggerRequest &req) {
+	JsonWriter &json = req.Respond();
+	json.writeBool("stepping", PSP_IsInited() && Core_IsStepping() && coreState != CORE_POWERDOWN);
+	json.writeBool("paused", GetUIState() != UISTATE_INGAME);
 }
 
 // Retrieve all regs and their values (cpu.getAllRegs)
@@ -283,7 +297,12 @@ void WebSocketCPUSetReg(DebuggerRequest &req) {
 	int cat, reg;
 	switch (ValidateCatReg(req, &cat, &reg)) {
 	case DebuggerRegType::NORMAL:
+		if (cat == 0 && reg == 0 && val != 0) {
+			return req.Fail("Cannot change reg zero");
+		}
 		currentDebugMIPS->SetRegValue(cat, reg, val);
+		// In case part of it was ignored (e.g. flags reg.)
+		val = currentDebugMIPS->GetRegValue(cat, reg);
 		break;
 
 	case DebuggerRegType::PC:
