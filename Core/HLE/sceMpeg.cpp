@@ -884,13 +884,16 @@ public:
 		}
 	};
 #ifndef USE_FFMPEG
-#define FF_INPUT_BUFFER_PADDING_SIZE 16
+#define AV_INPUT_BUFFER_PADDING_SIZE 16
+#endif
+#ifndef AV_INPUT_BUFFER_PADDING_SIZE
+#define AV_INPUT_BUFFER_PADDING_SIZE FF_INPUT_BUFFER_PADDING_SIZE
 #endif
 	void addpadding(){
-		u8* str = new u8[size + FF_INPUT_BUFFER_PADDING_SIZE];
+		u8* str = new u8[size + AV_INPUT_BUFFER_PADDING_SIZE];
 		memcpy(str, stream, size);
-		memset(str + size, 0, FF_INPUT_BUFFER_PADDING_SIZE);
-		size += FF_INPUT_BUFFER_PADDING_SIZE;
+		memset(str + size, 0, AV_INPUT_BUFFER_PADDING_SIZE);
+		size += AV_INPUT_BUFFER_PADDING_SIZE;
 		delete[] stream;
 		stream = str;
 	}
