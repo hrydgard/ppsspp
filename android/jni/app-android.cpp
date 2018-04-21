@@ -523,6 +523,9 @@ extern "C" void Java_org_ppsspp_ppsspp_NativeApp_shutdown(JNIEnv *, jclass) {
 			continue;
 		}
 		EmuThreadJoin();
+
+		graphicsContext->ThreadEnd();
+		graphicsContext->ShutdownFromRenderThread();
 	}
 
 	ILOG("NativeApp.shutdown() -- begin");
