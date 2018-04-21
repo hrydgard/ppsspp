@@ -22,3 +22,5 @@ class Request;
 }
 
 void HandleDebuggerRequest(const http::Request &request);
+// Note: blocks.
+void StopAllDebuggers();

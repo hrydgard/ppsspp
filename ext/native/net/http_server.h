@@ -63,6 +63,7 @@ private:
 class Server {
 public:
 	Server(threading::Executor *executor);
+	virtual ~Server() {}
 
 	typedef std::function<void(const Request &)> UrlHandlerFunc;
 	typedef std::map<std::string, UrlHandlerFunc> UrlHandlerMap;

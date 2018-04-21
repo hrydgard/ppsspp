@@ -279,7 +279,7 @@ void Server::HandleConnection(int conn_fd) {
     WLOG("Bad request, ignoring.");
     return;
   }
-  HandleRequestDefault(request);
+  HandleRequest(request);
 
   // TODO: Way to mark the content body as read, read it here if never read.
   // This allows the handler to stream if need be.

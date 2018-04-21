@@ -216,6 +216,8 @@ static void ExecuteWebServer() {
 	}
 
 	http->Stop();
+	StopAllDebuggers();
+	delete http;
 
 	// Move to STARTING to lock flags/STOPPING.
 	if (UpdateStatus(ServerStatus::STARTING, ServerStatus::RESTARTING)) {

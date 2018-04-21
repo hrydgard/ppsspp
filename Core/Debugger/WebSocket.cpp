@@ -15,6 +15,8 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
+#include <mutex>
+#include <condition_variable>
 #include "thread/threadutil.h"
 #include "Core/Debugger/WebSocket.h"
 #include "Core/Debugger/WebSocket/WebSocketUtils.h"
@@ -54,12 +56,25 @@ static const std::vector<SubscriberInfo> subscribers({
 	{ &WebSocketCPUCoreInit, nullptr },
 });
 
+// To handle webserver restart, keep track of how many running.
+static volatile int debuggersConnected = 0;
+static volatile bool stopRequested = false;
+static std::mutex stopLock;
+static std::condition_variable stopCond;
+
+static void UpdateConnected(int delta) {
+	std::lock_guard<std::mutex> guard(stopLock);
+	debuggersConnected += delta;
+	stopCond.notify_all();
+}
+
 void HandleDebuggerRequest(const http::Request &request) {
 	net::WebSocketServer *ws = net::WebSocketServer::CreateAsUpgrade(request, "debugger.ppsspp.org");
 	if (!ws)
 		return;
 
 	setCurrentThreadName("Debugger");
+	UpdateConnected(1);
 
 	LogBroadcaster logger;
 	GameBroadcaster game;
@@ -103,6 +118,10 @@ void HandleDebuggerRequest(const http::Request &request) {
 		logger.Broadcast(ws);
 		game.Broadcast(ws);
 		stepping.Broadcast(ws);
+
+		if (stopRequested) {
+			ws->Close(net::WebSocketClose::GOING_AWAY);
+		}
 	}
 
 	for (size_t i = 0; i < subscribers.size(); ++i) {
@@ -114,4 +133,16 @@ void HandleDebuggerRequest(const http::Request &request) {
 	}
 
 	delete ws;
+	UpdateConnected(-1);
+}
+
+void StopAllDebuggers() {
+	std::unique_lock<std::mutex> guard(stopLock);
+	while (debuggersConnected != 0) {
+		stopRequested = true;
+		stopCond.wait(guard);
+	}
+
+	// Reset it back for next time.
+	stopRequested = false;
 }
