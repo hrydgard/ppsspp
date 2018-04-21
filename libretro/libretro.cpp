@@ -178,6 +178,7 @@ static RetroOption<bool> ppsspp_fast_memory("ppsspp_fast_memory", "Fast Memory (
 static RetroOption<bool> ppsspp_block_transfer_gpu("ppsspp_block_transfer_gpu", "Block Transfer GPU", true);
 static RetroOption<int> ppsspp_texture_scaling_level("ppsspp_texture_scaling_level", "Texture Scaling Level", { { "1", 1 }, { "2", 2 }, { "3", 3 }, { "4", 4 }, { "5", 5 }, { "0", 0 } });
 static RetroOption<int> ppsspp_texture_scaling_type("ppsspp_texture_scaling_type", "Texture Scaling Type", { { "xbrz", TextureScalerCommon::XBRZ }, { "hybrid", TextureScalerCommon::HYBRID }, { "bicubic", TextureScalerCommon::BICUBIC }, { "hybrid_bicubic", TextureScalerCommon::HYBRID_BICUBIC } });
+static RetroOption<int> ppsspp_texture_filtering("ppsspp_texture_filtering", "Texture Filtering", { { "auto", 1 }, { "nearest", 2 }, { "linear", 3 }, { "linear(FMV)", 4 } });
 static RetroOption<int> ppsspp_texture_anisotropic_filtering("ppsspp_texture_anisotropic_filtering", "Anisotropic Filtering", { "off", "1x", "2x", "4x", "8x", "16x" });
 static RetroOption<bool> ppsspp_texture_deposterize("ppsspp_texture_deposterize", "Texture Deposterize", false);
 static RetroOption<bool> ppsspp_gpu_hardware_transform("ppsspp_gpu_hardware_transform", "GPU Hardware T&L", true);
@@ -204,6 +205,7 @@ void retro_set_environment(retro_environment_t cb) {
 	vars.push_back(ppsspp_block_transfer_gpu.GetOptions());
 	vars.push_back(ppsspp_texture_scaling_level.GetOptions());
 	vars.push_back(ppsspp_texture_scaling_type.GetOptions());
+	vars.push_back(ppsspp_texture_filtering.GetOptions());
 	vars.push_back(ppsspp_texture_anisotropic_filtering.GetOptions());
 	vars.push_back(ppsspp_texture_deposterize.GetOptions());
 	vars.push_back(ppsspp_gpu_hardware_transform.GetOptions());
@@ -268,6 +270,7 @@ static void check_variables(CoreParameter &coreParam) {
 	ppsspp_true_color.Update(&g_Config.bTrueColor);
 	ppsspp_auto_frameskip.Update(&g_Config.bAutoFrameSkip);
 	ppsspp_block_transfer_gpu.Update(&g_Config.bBlockTransferGPU);
+	ppsspp_texture_filtering.Update(&g_Config.iTexFiltering);
 	ppsspp_texture_anisotropic_filtering.Update(&g_Config.iAnisotropyLevel);
 	ppsspp_texture_deposterize.Update(&g_Config.bTexDeposterize);
 	ppsspp_separate_io_thread.Update(&g_Config.bSeparateIOThread);
