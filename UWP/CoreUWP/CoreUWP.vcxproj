@@ -463,6 +463,7 @@
     <ClInclude Include="..\..\Core\System.h" />
     <ClInclude Include="..\..\Core\TextureReplacer.h" />
     <ClInclude Include="..\..\Core\ThreadEventQueue.h" />
+    <ClInclude Include="..\..\Core\WebServer.h" />
     <ClInclude Include="..\..\Core\Util\AudioFormat.h" />
     <ClInclude Include="..\..\Core\Util\AudioFormatNEON.h" />
     <ClInclude Include="..\..\Core\Util\BlockAllocator.h" />
@@ -673,6 +674,7 @@
     <ClCompile Include="..\..\Core\Screenshot.cpp" />
     <ClCompile Include="..\..\Core\System.cpp" />
     <ClCompile Include="..\..\Core\TextureReplacer.cpp" />
+    <ClCompile Include="..\..\Core\WebServer.cpp" />
     <ClCompile Include="..\..\Core\Util\AudioFormat.cpp" />
     <ClCompile Include="..\..\Core\Util\AudioFormatNEON.cpp" />
     <ClCompile Include="..\..\Core\Util\BlockAllocator.cpp" />

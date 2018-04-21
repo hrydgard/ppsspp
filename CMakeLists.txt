@@ -1393,6 +1393,8 @@ add_library(${CoreLibName} ${CoreLinkType}
 	Core/HDRemaster.cpp
 	Core/HDRemaster.h
 	Core/ThreadEventQueue.h
+	Core/WebServer.cpp
+	Core/WebServer.h
 	Core/Debugger/Breakpoints.cpp
 	Core/Debugger/Breakpoints.h
 	Core/Debugger/DebugInterface.h
