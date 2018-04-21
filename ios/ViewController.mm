@@ -297,9 +297,8 @@ static GraphicsContext *graphicsContext;
 	}
 #endif
 
-	graphicsContext->Shutdown();
-
 	if (graphicsContext) {
+		graphicsContext->Shutdown();
 		delete graphicsContext;
 		graphicsContext = NULL;
 	}
