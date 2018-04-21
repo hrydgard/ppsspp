@@ -156,8 +156,7 @@
     <PackageCertificateKeyFile>PPSSPP_UWP_TemporaryKey.pfx</PackageCertificateKeyFile>
     <AppxAutoIncrementPackageRevision>True</AppxAutoIncrementPackageRevision>
     <AppxSymbolPackageEnabled>False</AppxSymbolPackageEnabled>
-    <AppxBundle>Never</AppxBundle>
-    <AppxPackageDir>C:\Users\b33tlejuice\Documents\PPSSPP Builds\</AppxPackageDir>
+    <AppxBundle>Never</AppxBundle>   
     <PackageCertificateThumbprint>B57919568D3F60B8D25EC6856DE94173682C548C</PackageCertificateThumbprint>
   </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|ARM'">
