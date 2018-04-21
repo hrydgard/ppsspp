@@ -153,7 +153,11 @@
   </ImportGroup>
   <PropertyGroup Label="UserMacros" />
   <PropertyGroup>
-    <PackageCertificateKeyFile>UWP_TemporaryKey.pfx</PackageCertificateKeyFile>
+    <PackageCertificateKeyFile>PPSSPP_UWP_TemporaryKey.pfx</PackageCertificateKeyFile>
+    <AppxAutoIncrementPackageRevision>True</AppxAutoIncrementPackageRevision>
+    <AppxSymbolPackageEnabled>False</AppxSymbolPackageEnabled>
+    <AppxBundle>Never</AppxBundle>   
+    <PackageCertificateThumbprint>B57919568D3F60B8D25EC6856DE94173682C548C</PackageCertificateThumbprint>
   </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|ARM'">
     <Link>
@@ -345,6 +349,9 @@ copy AssetsGold\*.* Assets /Y
     </PreBuildEvent>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <Image Include="AssetsGold\StoreLogo.scale-100.png">
+      <DeploymentContent>true</DeploymentContent>
+    </Image>
     <Image Include="Assets\LockScreenLogo.scale-200.png">
       <DeploymentContent>true</DeploymentContent>
     </Image>
@@ -453,6 +460,7 @@ copy AssetsGold\*.* Assets /Y
     <None Include="Content\ui_atlas_lowmem.zim">
       <DeploymentContent>true</DeploymentContent>
     </None>
+    <None Include="PPSSPP_UWP_TemporaryKey.pfx" />
     <None Include="UWP_TemporaryKey.pfx" />
   </ItemGroup>
   <ItemGroup>
