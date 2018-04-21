@@ -85,6 +85,9 @@
     <Image Include="Content\ui_atlas.zim">
       <Filter>Content</Filter>
     </Image>
+    <Image Include="AssetsGold\StoreLogo.scale-100.png">
+      <Filter>Assets</Filter>
+    </Image>
   </ItemGroup>
   <ItemGroup>
     <AppxManifest Include="Package.appxmanifest" />
@@ -106,6 +109,7 @@
     <None Include="Content\ui_atlas_lowmem.zim">
       <Filter>Content</Filter>
     </None>
+    <None Include="PPSSPP_UWP_TemporaryKey.pfx" />
   </ItemGroup>
   <ItemGroup>
     <Text Include="Content\gamecontrollerdb.txt">
