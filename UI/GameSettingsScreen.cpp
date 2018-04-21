@@ -52,6 +52,7 @@
 #include "Core/Host.h"
 #include "Core/System.h"
 #include "Core/Reporting.h"
+#include "Core/WebServer.h"
 #include "GPU/Common/PostShader.h"
 #include "android/jni/TestRunner.h"
 #include "GPU/GPUInterface.h"
@@ -1270,6 +1271,12 @@ void DeveloperToolsScreen::CreateViews() {
 		createTextureIni->SetEnabled(false);
 	}
 #endif
+
+	allowDebugger_ = !WebServerStopped(WebServerFlags::DEBUGGER);
+	canAllowDebugger_ = !WebServerStopping(WebServerFlags::DEBUGGER);
+	CheckBox *allowDebugger = new CheckBox(&allowDebugger_, dev->T("Allow remote debugger"));
+	list->Add(allowDebugger)->OnClick.Handle(this, &DeveloperToolsScreen::OnRemoteDebugger);
+	allowDebugger->SetEnabledPtr(&canAllowDebugger_);
 }
 
 void DeveloperToolsScreen::onFinish(DialogResult result) {
@@ -1369,6 +1376,23 @@ UI::EventReturn DeveloperToolsScreen::OnLogConfig(UI::EventParams &e) {
 UI::EventReturn DeveloperToolsScreen::OnJitAffectingSetting(UI::EventParams &e) {
 	NativeMessageReceived("clear jit", "");
 	return UI::EVENT_DONE;
+}
+
+UI::EventReturn DeveloperToolsScreen::OnRemoteDebugger(UI::EventParams &e) {
+	if (allowDebugger_) {
+		StartWebServer(WebServerFlags::DEBUGGER);
+	} else {
+		StopWebServer(WebServerFlags::DEBUGGER);
+	}
+	// Persist the setting.  Maybe should separate?
+	g_Config.bRemoteDebuggerOnStartup = allowDebugger_;
+	return UI::EVENT_CONTINUE;
+}
+
+void DeveloperToolsScreen::update() {
+	UIDialogScreenWithBackground::update();
+	allowDebugger_ = !WebServerStopped(WebServerFlags::DEBUGGER);
+	canAllowDebugger_ = !WebServerStopping(WebServerFlags::DEBUGGER);
 }
 
 void ProAdhocServerScreen::CreateViews() {
