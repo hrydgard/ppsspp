@@ -22,3 +22,4 @@
 void *WebSocketGameInit(DebuggerEventHandlerMap &map);
 
 void WebSocketGameStatus(DebuggerRequest &req);
+void WebSocketVersion(DebuggerRequest &req);

@@ -22,6 +22,7 @@
 
 void *WebSocketGameInit(DebuggerEventHandlerMap &map) {
 	map["game.status"] = &WebSocketGameStatus;
+	map["version"] = &WebSocketVersion;
 
 	return nullptr;
 }
@@ -48,4 +49,19 @@ void WebSocketGameStatus(DebuggerRequest &req) {
 		json.writeRaw("game", "null");
 	}
 	json.writeBool("paused", GetUIState() == UISTATE_PAUSEMENU);
+}
+
+// Notify debugger version info (version)
+//
+// Parameters:
+//  - name: string indicating name of app or tool.
+//  - version: string version.
+//
+// Response (same event name):
+//  - name: string, "PPSSPP" unless some special build.
+//  - version: string, typically starts with "v" and may have git build info.
+void WebSocketVersion(DebuggerRequest &req) {
+	JsonWriter &json = req.Respond();
+	json.writeString("name", "PPSSPP");
+	json.writeString("version", PPSSPP_GIT_VERSION);
 }

@@ -38,6 +38,10 @@
 //  - "message": A string describing what happened.
 //  - "level": Integer severity level. (1 = NOTICE, 2 = ERROR, 3 = WARN, 4 = INFO, 5 = DEBUG, 6 = VERBOSE)
 //  - "ticket": Optional, present if in response to an event with a "ticket" field, simply repeats that value.
+//
+// At start, please send a "version" event.  See WebSocket/GameSubscriber.cpp for more details.
+//
+// For other events, look inside Core/Debugger/WebSocket/ for details on each event.
 
 #include "Core/Debugger/WebSocket/GameBroadcaster.h"
 #include "Core/Debugger/WebSocket/LogBroadcaster.h"
