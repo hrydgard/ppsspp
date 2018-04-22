@@ -17,6 +17,7 @@
 
 #include "Common/StringUtils.h"
 #include "Core/Core.h"
+#include "Core/CoreTiming.h"
 #include "Core/Debugger/WebSocket/CPUCoreSubscriber.h"
 #include "Core/Debugger/WebSocket/WebSocketUtils.h"
 #include "Core/MIPS/MIPS.h"
@@ -79,10 +80,16 @@ void WebSocketCPUResume(DebuggerRequest &req) {
 // Response (same event name):
 //  - stepping: boolean, CPU currently stepping.
 //  - paused: boolean, CPU paused or not started yet.
+//  - pc: number value of PC register (inaccurate unless stepping.)
+//  - ticks: number of CPU cycles into emulation.
 void WebSocketCPUStatus(DebuggerRequest &req) {
 	JsonWriter &json = req.Respond();
 	json.writeBool("stepping", PSP_IsInited() && Core_IsStepping() && coreState != CORE_POWERDOWN);
 	json.writeBool("paused", GetUIState() != UISTATE_INGAME);
+	// Avoid NULL deference.
+	json.writeFloat("pc", PSP_IsInited() ? currentMIPS->pc : 0);
+	// A double ought to be good enough for a 156 day debug session.
+	json.writeFloat("ticks", PSP_IsInited() ? CoreTiming::GetTicks() : 0);
 }
 
 // Retrieve all regs and their values (cpu.getAllRegs)

@@ -16,17 +16,40 @@
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
 #include "Core/Core.h"
+#include "Core/CoreTiming.h"
 #include "Core/Debugger/WebSocket/SteppingBroadcaster.h"
 #include "Core/Debugger/WebSocket/WebSocketUtils.h"
+#include "Core/MIPS/MIPS.h"
 #include "Core/System.h"
 
+struct CPUSteppingEvent {
+	operator std::string() {
+		JsonWriter j;
+		j.begin();
+		j.writeString("event", "cpu.stepping");
+		j.writeFloat("pc", currentMIPS->pc);
+		// A double ought to be good enough for a 156 day debug session.
+		j.writeFloat("ticks", CoreTiming::GetTicks());
+		j.end();
+		return j.str();
+	}
+};
+
+// CPU has begun stepping (cpu.stepping)
+//
+// Sent unexpectedly with these properties:
+//  - pc: number value of PC register (inaccurate unless stepping.)
+//  - ticks: number of CPU cycles into emulation.
+
+// CPU has resumed from stepping (cpu.resume)
+//
+// Sent unexpectedly with no other properties.
 void SteppingBroadcaster::Broadcast(net::WebSocketServer *ws) {
 	if (PSP_IsInited()) {
 		int steppingCounter = Core_GetSteppingCounter();
 		// We ignore CORE_POWERDOWN as a stepping state.
 		if (coreState == CORE_STEPPING && steppingCounter != lastCounter_) {
-			// TODO: Should send more data proactively.
-			ws->Send(R"({"event":"cpu.stepping"})");
+			ws->Send(CPUSteppingEvent());
 		} else if (prevState_ == CORE_STEPPING && coreState != CORE_STEPPING && Core_IsActive()) {
 			ws->Send(R"({"event":"cpu.resume"})");
 		}
