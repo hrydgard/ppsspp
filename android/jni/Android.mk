@@ -303,6 +303,7 @@ EXEC_AND_LIB_FILES := \
   $(SRC)/Core/Debugger/WebSocket.cpp \
   $(SRC)/Core/Debugger/WebSocket/CPUCoreSubscriber.cpp \
   $(SRC)/Core/Debugger/WebSocket/GameBroadcaster.cpp \
+  $(SRC)/Core/Debugger/WebSocket/GameSubscriber.cpp \
   $(SRC)/Core/Debugger/WebSocket/LogBroadcaster.cpp \
   $(SRC)/Core/Debugger/WebSocket/SteppingBroadcaster.cpp \
   $(SRC)/Core/Debugger/WebSocket/WebSocketUtils.cpp \

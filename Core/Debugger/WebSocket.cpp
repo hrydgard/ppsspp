@@ -44,6 +44,7 @@
 #include "Core/Debugger/WebSocket/SteppingBroadcaster.h"
 
 #include "Core/Debugger/WebSocket/CPUCoreSubscriber.h"
+#include "Core/Debugger/WebSocket/GameSubscriber.h"
 
 typedef void *(*SubscriberInit)(DebuggerEventHandlerMap &map);
 typedef void (*Subscribershutdown)(void *p);
@@ -54,6 +55,7 @@ struct SubscriberInfo {
 
 static const std::vector<SubscriberInfo> subscribers({
 	{ &WebSocketCPUCoreInit, nullptr },
+	{ &WebSocketGameInit, nullptr },
 });
 
 // To handle webserver restart, keep track of how many running.

@@ -1408,6 +1408,8 @@ add_library(${CoreLibName} ${CoreLinkType}
 	Core/Debugger/WebSocket/CPUCoreSubscriber.h
 	Core/Debugger/WebSocket/GameBroadcaster.cpp
 	Core/Debugger/WebSocket/GameBroadcaster.h
+	Core/Debugger/WebSocket/GameSubscriber.cpp
+	Core/Debugger/WebSocket/GameSubscriber.h
 	Core/Debugger/WebSocket/LogBroadcaster.cpp
 	Core/Debugger/WebSocket/LogBroadcaster.h
 	Core/Debugger/WebSocket/SteppingBroadcaster.cpp

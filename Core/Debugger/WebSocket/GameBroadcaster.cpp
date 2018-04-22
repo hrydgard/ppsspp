@@ -17,22 +17,78 @@
 
 #include "Core/Debugger/WebSocket/GameBroadcaster.h"
 #include "Core/Debugger/WebSocket/WebSocketUtils.h"
+#include "Core/ELF/ParamSFO.h"
 #include "Core/System.h"
 
+struct GameStatusEvent {
+	const char *ev;
+
+	operator std::string() {
+		JsonWriter j;
+		j.begin();
+		j.writeString("event", ev);
+		if (PSP_IsInited()) {
+			j.pushDict("game");
+			j.writeString("id", g_paramSFO.GetDiscID());
+			j.writeString("version", g_paramSFO.GetValueString("DISC_VERSION"));
+			j.writeString("title", g_paramSFO.GetValueString("TITLE"));
+			j.pop();
+		} else {
+			j.writeRaw("game", "null");
+		}
+		j.end();
+		return j.str();
+	}
+};
+
+// Game started (game.start)
+//
+// Sent unexpectedly with these properties:
+//  - game: null or an object with properties:
+//     - id: string disc ID (such as ULUS12345.)
+//     - version: string disc version.
+//     - title: string game title.
+
+// Game quit / ended (game.quit)
+//
+// Sent unexpectedly with these properties:
+//  - game: null
+
+// Game paused (game.pause)
+//
+// Note: this is not the same as stepping.  This means the user went to the pause menu.
+//
+// Sent unexpectedly with these properties:
+//  - game: null or an object with properties:
+//     - id: string disc ID (such as ULUS12345.)
+//     - version: string disc version.
+//     - title: string game title.
+
+// Game resumed (game.pause)
+//
+// Note: this is not the same as stepping.  This means the user resumed from the pause menu.
+//
+// Sent unexpectedly with these properties:
+//  - game: null or an object with properties:
+//     - id: string disc ID (such as ULUS12345.)
+//     - version: string disc version.
+//     - title: string game title.
 void GameBroadcaster::Broadcast(net::WebSocketServer *ws) {
-	// TODO: This is ugly.  Implement proper information instead.
-	// TODO: Should probably include info about which game, etc.
+	// TODO: This is ugly.  Callbacks instead?
 	GlobalUIState state = GetUIState();
 	if (prevState_ != state) {
 		if (state == UISTATE_PAUSEMENU) {
-			ws->Send(R"({"event":"game.pause"})");
+			ws->Send(GameStatusEvent{"game.pause"});
+			prevState_ = state;
 		} else if (state == UISTATE_INGAME && prevState_ == UISTATE_PAUSEMENU) {
-			ws->Send(R"({"event":"game.resume"})");
-		} else if (state == UISTATE_INGAME) {
-			ws->Send(R"({"event":"game.start"})");
-		} else if (state == UISTATE_MENU) {
-			ws->Send(R"({"event":"game.quit"})");
+			ws->Send(GameStatusEvent{"game.resume"});
+			prevState_ = state;
+		} else if (state == UISTATE_INGAME && PSP_IsInited()) {
+			ws->Send(GameStatusEvent{"game.start"});
+			prevState_ = state;
+		} else if (state == UISTATE_MENU && !PSP_IsInited() && !PSP_IsQuitting()) {
+			ws->Send(GameStatusEvent{"game.quit"});
+			prevState_ = state;
 		}
-		prevState_ = state;
 	}
 }

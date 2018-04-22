@@ -66,6 +66,7 @@ bool PSP_InitStart(const CoreParameter &coreParam, std::string *error_string);
 bool PSP_InitUpdate(std::string *error_string);
 bool PSP_IsIniting();
 bool PSP_IsInited();
+bool PSP_IsQuitting();
 void PSP_Shutdown();
 
 void PSP_BeginHostFrame();

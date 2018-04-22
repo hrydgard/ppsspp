@@ -713,6 +713,9 @@
     <ClCompile Include="Debugger\WebSocket\WebSocketUtils.cpp">
       <Filter>Debugger\WebSocket</Filter>
     </ClCompile>
+    <ClCompile Include="Debugger\WebSocket\GameSubscriber.cpp">
+      <Filter>Debugger\WebSocket</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="ELF\ElfReader.h">
@@ -1311,6 +1314,9 @@
       <Filter>Debugger\WebSocket</Filter>
     </ClInclude>
     <ClInclude Include="Debugger\WebSocket\WebSocketUtils.h">
+      <Filter>Debugger\WebSocket</Filter>
+    </ClInclude>
+    <ClInclude Include="Debugger\WebSocket\GameSubscriber.h">
       <Filter>Debugger\WebSocket</Filter>
     </ClInclude>
   </ItemGroup>
