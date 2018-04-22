@@ -20,6 +20,15 @@ For build instructions and other development tutorials, see [the wiki](https://g
 
 For game compatibility, see [community compatibility feedback](http://report.ppsspp.org/games).
 
+What's new in 1.6.0
+-------------------
+* OpenGL backend now properly multithreaded, giving a good speed boost.
+* Various Vulkan performance improvements and memory allocation fixes.
+* Various fixes for app switching on Android
+* Bugfixes and some performance improvements in the ARM64 JIT compiler and IR interpreter
+* Shader cache enabled for Vulkan
+* A few iOS fixes
+* Retroarch support
 
 What's new in 1.5.4
 -------------------
