@@ -68,10 +68,41 @@ static volatile bool stopRequested = false;
 static std::mutex stopLock;
 static std::condition_variable stopCond;
 
+// Prevent threading surprises and obscure crashes by locking startup/shutdown.
+static bool lifecycleLockSetup = false;
+static std::mutex lifecycleLock;
+
 static void UpdateConnected(int delta) {
 	std::lock_guard<std::mutex> guard(stopLock);
 	debuggersConnected += delta;
 	stopCond.notify_all();
+}
+
+static void WebSocketNotifyLifecycle(CoreLifecycle stage) {
+	switch (stage) {
+	case CoreLifecycle::STARTING:
+	case CoreLifecycle::STOPPING:
+		if (debuggersConnected > 0) {
+			DEBUG_LOG(SYSTEM, "Waiting for debugger to complete on shutdown");
+		}
+		lifecycleLock.lock();
+		break;
+
+	case CoreLifecycle::START_COMPLETE:
+	case CoreLifecycle::STOPPED:
+		lifecycleLock.unlock();
+		if (debuggersConnected > 0) {
+			DEBUG_LOG(SYSTEM, "Debugger ready for shutdown");
+		}
+		break;
+	}
+}
+
+static void SetupDebuggerLock() {
+	if (!lifecycleLockSetup) {
+		Core_ListenLifecycle(&WebSocketNotifyLifecycle);
+		lifecycleLockSetup = true;
+	}
 }
 
 void HandleDebuggerRequest(const http::Request &request) {
@@ -81,6 +112,7 @@ void HandleDebuggerRequest(const http::Request &request) {
 
 	setCurrentThreadName("Debugger");
 	UpdateConnected(1);
+	SetupDebuggerLock();
 
 	LogBroadcaster logger;
 	GameBroadcaster game;
@@ -89,6 +121,7 @@ void HandleDebuggerRequest(const http::Request &request) {
 	std::unordered_map<std::string, DebuggerEventHandler> eventHandlers;
 	std::vector<void *> subscriberData;
 	for (auto info : subscribers) {
+		std::lock_guard<std::mutex> guard(lifecycleLock);
 		subscriberData.push_back(info.init(eventHandlers));
 	}
 
@@ -109,6 +142,7 @@ void HandleDebuggerRequest(const http::Request &request) {
 		DebuggerRequest req(event, ws, root);
 		auto eventFunc = eventHandlers.find(event);
 		if (eventFunc != eventHandlers.end()) {
+			std::lock_guard<std::mutex> guard(lifecycleLock);
 			eventFunc->second(req);
 			req.Finish();
 		} else {
@@ -120,6 +154,7 @@ void HandleDebuggerRequest(const http::Request &request) {
 	});
 
 	while (ws->Process(1.0f / 60.0f)) {
+		std::lock_guard<std::mutex> guard(lifecycleLock);
 		// These send events that aren't just responses to requests.
 		logger.Broadcast(ws);
 		game.Broadcast(ws);
@@ -130,6 +165,7 @@ void HandleDebuggerRequest(const http::Request &request) {
 		}
 	}
 
+	std::lock_guard<std::mutex> guard(lifecycleLock);
 	for (size_t i = 0; i < subscribers.size(); ++i) {
 		if (subscribers[i].shutdown) {
 			subscribers[i].shutdown(subscriberData[i]);
