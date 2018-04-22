@@ -373,6 +373,9 @@ public:
 			verts_[1].uv = UV(uvright, uvbottom);
 			verts_[2].uv = UV(uvright, uvtop);
 			verts_[3].uv = UV(uvleft, uvtop);
+
+			// We need to reapply the texture next time since we cropped UV.
+			gstate_c.Dirty(DIRTY_TEXTURE_PARAMS);
 		}
 	}
 
