@@ -86,27 +86,33 @@ LogBroadcaster::~LogBroadcaster() {
 }
 
 struct DebuggerLogEvent {
-	std::string header;
-	std::string message;
-	int level;
-	const char *channel;
+	const LogMessage &l;
 
 	operator std::string() {
 		JsonWriter j;
 		j.begin();
 		j.writeString("event", "log");
-		j.writeString("header", header);
-		j.writeString("message", message);
-		j.writeInt("level", level);
-		j.writeString("channel", channel);
+		j.writeString("timestamp", l.timestamp);
+		j.writeString("header", l.header);
+		j.writeString("message", l.msg);
+		j.writeInt("level", l.level);
+		j.writeString("channel", l.log);
 		j.end();
 		return j.str();
 	}
 };
 
+// Log message (log)
+//
+// Sent unexpectedly with these properties:
+//  - timestamp: string timestamp of event.
+//  - header: string header information about the event (including file/line.)
+//  - message: actual log message as a string.
+//  - level: number severity level (1 = highest.)
+//  - channel: string describing log channel / grouping.
 void LogBroadcaster::Broadcast(net::WebSocketServer *ws) {
 	auto messages = listener_->GetMessages();
 	for (auto msg : messages) {
-		ws->Send(DebuggerLogEvent{msg.header, msg.msg, msg.level, msg.log});
+		ws->Send(DebuggerLogEvent{msg});
 	}
 }

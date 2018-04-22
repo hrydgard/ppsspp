@@ -225,22 +225,17 @@ void LogManager::Log(LogTypes::LOG_LEVELS level, LogTypes::LOG_TYPE type, const 
 		if (fileshort != file)
 			file = fileshort + 1;
 	}
-	
-	char formattedTime[13];
 
 	std::lock_guard<std::mutex> lk(log_lock_);
-	Common::Timer::GetTimeFormatted(formattedTime);
+	Common::Timer::GetTimeFormatted(message.timestamp);
 
-	size_t prefixLen;
 	if (hleCurrentThreadName) {
-		prefixLen = snprintf(message.header, sizeof(message.header), "%s %-12.12s %c[%s]: %s:%d",
-			formattedTime,
+		snprintf(message.header, sizeof(message.header), "%-12.12s %c[%s]: %s:%d",
 			hleCurrentThreadName, level_to_char[(int)level],
 			log.m_shortName,
 			file, line);
 	} else {
-		prefixLen = snprintf(message.header, sizeof(message.header), "%s %s:%d %c[%s]:",
-			formattedTime,
+		snprintf(message.header, sizeof(message.header), "%s:%d %c[%s]:",
 			file, line, level_to_char[(int)level],
 			log.m_shortName);
 	}
@@ -250,15 +245,14 @@ void LogManager::Log(LogTypes::LOG_LEVELS level, LogTypes::LOG_TYPE type, const 
 
 	va_copy(args_copy, args);
 	size_t neededBytes = vsnprintf(msgBuf, sizeof(msgBuf), format, args);
+	message.msg.resize(neededBytes + 1);
 	if (neededBytes > sizeof(msgBuf)) {
 		// Needed more space? Re-run vsnprintf.
-		message.msg.resize(neededBytes + 1);
 		vsnprintf(&message.msg[0], neededBytes + 1, format, args_copy);
 	} else {
-		message.msg.resize(neededBytes + 1);
 		memcpy(&message.msg[0], msgBuf, neededBytes);
 	}
-	message.msg[message.msg.size() - 1] = '\n';
+	message.msg[neededBytes] = '\n';
 	va_end(args_copy);
 
 	std::lock_guard<std::mutex> listeners_lock(listeners_lock_);
@@ -313,7 +307,7 @@ void FileLogListener::Log(const LogMessage &message) {
 		return;
 
 	std::lock_guard<std::mutex> lk(m_log_lock);
-	m_logfile << message.header << " " << message.msg << std::flush;
+	m_logfile << message.timestamp << " " << message.header << " " << message.msg << std::flush;
 }
 
 void OutputDebugStringLogListener::Log(const LogMessage &message) {
