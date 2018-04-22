@@ -38,9 +38,18 @@ void Core_UpdateSingleStep();
 // Changes every time we enter stepping.
 int Core_GetSteppingCounter();
 
-typedef void (* Core_ShutdownFunc)();
-void Core_ListenShutdown(Core_ShutdownFunc func);
-void Core_NotifyShutdown();
+enum class CoreLifecycle {
+	STARTING,
+	// Note: includes failure cases.  Guaranteed call after STARTING.
+	START_COMPLETE,
+	STOPPING,
+	// Guaranteed call after STOPPING.
+	STOPPED,
+};
+
+typedef void (* CoreLifecycleFunc)(CoreLifecycle stage);
+void Core_ListenLifecycle(CoreLifecycleFunc func);
+void Core_NotifyLifecycle(CoreLifecycle stage);
 void Core_Halt(const char *msg);
 
 bool Core_IsStepping();

@@ -55,7 +55,7 @@ static std::condition_variable m_InactiveCond;
 static std::mutex m_hInactiveMutex;
 static bool singleStepPending = false;
 static int steppingCounter = 0;
-static std::set<Core_ShutdownFunc> shutdownFuncs;
+static std::set<CoreLifecycleFunc> shutdownFuncs;
 static bool windowHidden = false;
 static double lastActivity = 0.0;
 static double lastKeepAwake = 0.0;
@@ -76,13 +76,13 @@ void Core_NotifyActivity() {
 	lastActivity = time_now_d();
 }
 
-void Core_ListenShutdown(Core_ShutdownFunc func) {
+void Core_ListenLifecycle(CoreLifecycleFunc func) {
 	shutdownFuncs.insert(func);
 }
 
-void Core_NotifyShutdown() {
+void Core_NotifyLifecycle(CoreLifecycle stage) {
 	for (auto it = shutdownFuncs.begin(); it != shutdownFuncs.end(); ++it) {
-		(*it)();
+		(*it)(stage);
 	}
 }
 
@@ -98,7 +98,6 @@ void Core_Halt(const char *msg)  {
 
 void Core_Stop() {
 	Core_UpdateState(CORE_POWERDOWN);
-	Core_NotifyShutdown();
 	m_StepCond.notify_all();
 }
 

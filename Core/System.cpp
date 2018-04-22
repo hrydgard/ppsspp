@@ -317,6 +317,7 @@ bool PSP_InitStart(const CoreParameter &coreParam, std::string *error_string) {
 	INFO_LOG(BOOT, "PPSSPP %s", PPSSPP_GIT_VERSION);
 #endif
 
+	Core_NotifyLifecycle(CoreLifecycle::STARTING);
 	GraphicsContext *temp = coreParameter.graphicsContext;
 	coreParameter = coreParam;
 	if (coreParameter.graphicsContext == nullptr) {
@@ -331,6 +332,7 @@ bool PSP_InitStart(const CoreParameter &coreParam, std::string *error_string) {
 	*error_string = coreParameter.errorString;
 	bool success = coreParameter.fileToStart != "";
 	if (!success) {
+		Core_NotifyLifecycle(CoreLifecycle::START_COMPLETE);
 		pspIsIniting = false;
 	}
 	return success;
@@ -361,6 +363,9 @@ bool PSP_InitUpdate(std::string *error_string) {
 
 	pspIsInited = GPU_IsReady();
 	pspIsIniting = !pspIsInited;
+	if (pspIsInited) {
+		Core_NotifyLifecycle(CoreLifecycle::START_COMPLETE);
+	}
 	return pspIsInited;
 }
 
@@ -386,17 +391,20 @@ void PSP_Shutdown() {
 		return;
 	}
 
+	// Make sure things know right away that PSP memory, etc. is going away.
+	pspIsQuitting = true;
+	if (coreState == CORE_RUNNING)
+		Core_UpdateState(CORE_ERROR);
+
 #ifndef MOBILE_DEVICE
 	if (g_Config.bFuncHashMap) {
 		MIPSAnalyst::StoreHashMap();
 	}
 #endif
 
-	// Make sure things know right away that PSP memory, etc. is going away.
-	pspIsQuitting = true;
-	if (coreState == CORE_RUNNING)
-		Core_UpdateState(CORE_ERROR);
-	Core_NotifyShutdown();
+	if (pspIsIniting)
+		Core_NotifyLifecycle(CoreLifecycle::START_COMPLETE);
+	Core_NotifyLifecycle(CoreLifecycle::STOPPING);
 	CPU_Shutdown();
 	GPU_Shutdown();
 	g_paramSFO.Clear();
@@ -406,6 +414,7 @@ void PSP_Shutdown() {
 	pspIsIniting = false;
 	pspIsQuitting = false;
 	g_Config.unloadGameConfig();
+	Core_NotifyLifecycle(CoreLifecycle::STOPPED);
 }
 
 void PSP_BeginHostFrame() {

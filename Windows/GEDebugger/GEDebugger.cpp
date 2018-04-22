@@ -67,7 +67,7 @@ void CGEDebugger::Init() {
 CGEDebugger::CGEDebugger(HINSTANCE _hInstance, HWND _hParent)
 	: Dialog((LPCSTR)IDD_GEDEBUGGER, _hInstance, _hParent) {
 	GPUBreakpoints::Init();
-	Core_ListenShutdown(ForceUnpause);
+	Core_ListenLifecycle(ForceUnpause);
 
 	// minimum size = a little more than the default
 	RECT windowRect;
