@@ -103,6 +103,9 @@ void DrawEngineDX9::ApplyDrawState(int prim) {
 	if (gstate_c.IsDirty(DIRTY_TEXTURE_IMAGE | DIRTY_TEXTURE_PARAMS) && !gstate.isModeClear() && gstate.isTextureMapEnabled()) {
 		textureCache_->SetTexture();
 		gstate_c.Clean(DIRTY_TEXTURE_IMAGE | DIRTY_TEXTURE_PARAMS);
+	} else if (gstate.getTextureAddress(0) == ((gstate.getFrameBufRawAddress() | 0x04000000) & 0x3FFFFFFF)) {
+		// This catches the case of clearing a texture.
+		gstate_c.Dirty(DIRTY_TEXTURE_IMAGE);
 	}
 
 	// Start profiling here to skip SetTexture which is already accounted for
