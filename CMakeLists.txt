@@ -1406,6 +1406,8 @@ add_library(${CoreLibName} ${CoreLinkType}
 	Core/Debugger/WebSocket.h
 	Core/Debugger/WebSocket/CPUCoreSubscriber.cpp
 	Core/Debugger/WebSocket/CPUCoreSubscriber.h
+	Core/Debugger/WebSocket/DisasmSubscriber.cpp
+	Core/Debugger/WebSocket/DisasmSubscriber.h
 	Core/Debugger/WebSocket/GameBroadcaster.cpp
 	Core/Debugger/WebSocket/GameBroadcaster.h
 	Core/Debugger/WebSocket/GameSubscriber.cpp

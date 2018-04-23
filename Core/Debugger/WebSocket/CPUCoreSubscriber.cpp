@@ -296,7 +296,7 @@ void WebSocketCPUSetReg(DebuggerRequest &req) {
 	}
 
 	uint32_t val;
-	if (!req.ParamU32OrFloatBits("value", &val)) {
+	if (!req.ParamU32("value", &val, true)) {
 		// Already sent error.
 		return;
 	}

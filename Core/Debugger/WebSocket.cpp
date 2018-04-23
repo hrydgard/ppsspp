@@ -48,6 +48,7 @@
 #include "Core/Debugger/WebSocket/SteppingBroadcaster.h"
 
 #include "Core/Debugger/WebSocket/CPUCoreSubscriber.h"
+#include "Core/Debugger/WebSocket/DisasmSubscriber.h"
 #include "Core/Debugger/WebSocket/GameSubscriber.h"
 
 typedef void *(*SubscriberInit)(DebuggerEventHandlerMap &map);
@@ -59,6 +60,7 @@ struct SubscriberInfo {
 
 static const std::vector<SubscriberInfo> subscribers({
 	{ &WebSocketCPUCoreInit, nullptr },
+	{ &WebSocketDisasmInit, &WebSocketDisasmShutdown },
 	{ &WebSocketGameInit, nullptr },
 });
 

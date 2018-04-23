@@ -189,6 +189,7 @@
     <ClCompile Include="Debugger\WebSocket\GameBroadcaster.cpp" />
     <ClCompile Include="Debugger\WebSocket\GameSubscriber.cpp" />
     <ClCompile Include="Debugger\WebSocket\LogBroadcaster.cpp" />
+    <ClCompile Include="Debugger\WebSocket\DisasmSubscriber.cpp" />
     <ClCompile Include="Debugger\WebSocket\SteppingBroadcaster.cpp" />
     <ClCompile Include="Debugger\WebSocket\WebSocketUtils.cpp" />
     <ClCompile Include="FileSystems\BlobFileSystem.cpp" />
@@ -541,6 +542,7 @@
     <ClInclude Include="AVIDump.h" />
     <ClInclude Include="Debugger\WebSocket.h" />
     <ClInclude Include="Debugger\WebSocket\GameSubscriber.h" />
+    <ClInclude Include="Debugger\WebSocket\DisasmSubscriber.h" />
     <ClInclude Include="Debugger\WebSocket\WebSocketUtils.h" />
     <ClInclude Include="Debugger\WebSocket\CPUCoreSubscriber.h" />
     <ClInclude Include="Debugger\WebSocket\GameBroadcaster.h" />

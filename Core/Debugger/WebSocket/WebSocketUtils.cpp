@@ -74,19 +74,35 @@ static bool U32FromString(const char *str, uint32_t *out, bool allowFloat) {
 	return false;
 }
 
-bool DebuggerRequest::ParamU32(const char *name, uint32_t *out) {
+bool DebuggerRequest::ParamU32(const char *name, uint32_t *out, bool allowFloatBits, DebuggerParamType type) {
+	bool allowLoose = type == DebuggerParamType::REQUIRED_LOOSE || type == DebuggerParamType::OPTIONAL_LOOSE;
+	bool required = type == DebuggerParamType::REQUIRED || type == DebuggerParamType::REQUIRED_LOOSE;
+
 	const JsonNode *node = data.get(name);
 	if (!node) {
-		Fail(StringFromFormat("Missing '%s' parameter", name));
-		return false;
+		if (required)
+			Fail(StringFromFormat("Missing '%s' parameter", name));
+		return !required;
 	}
 
 	if (node->value.getTag() == JSON_NUMBER) {
 		double val = node->value.toNumber();
 		bool isInteger = trunc(val) == val;
-		if (!isInteger) {
-			Fail(StringFromFormat("Could not parse '%s' parameter: integer required", name));
+		if (!isInteger && !allowLoose) {
+			// JSON doesn't give a great way to differentiate ints and floats.
+			// Let's play it safe and require a string.
+			if (allowFloatBits)
+				Fail(StringFromFormat("Could not parse '%s' parameter: use a string for non integer values", name));
+			else
+				Fail(StringFromFormat("Could not parse '%s' parameter: integer required", name));
 			return false;
+		} else if (!isInteger && allowFloatBits) {
+			union {
+				float f;
+				uint32_t u;
+			} bits = { (float)val };
+			*out = bits.u;
+			return true;
 		}
 
 		if (val < 0 && val >= std::numeric_limits<int32_t>::min()) {
@@ -96,61 +112,87 @@ bool DebuggerRequest::ParamU32(const char *name, uint32_t *out) {
 		} else if (val >= 0 && val <= std::numeric_limits<uint32_t>::max()) {
 			*out = (uint32_t)val;
 			return true;
+		} else if (allowLoose) {
+			*out = val >= 0 ? std::numeric_limits<uint32_t>::max() : std::numeric_limits<uint32_t>::min();
+			return true;
 		}
 
-		Fail(StringFromFormat("Could not parse '%s' parameter: outside 32 bit range", name));
+		if (allowFloatBits)
+			Fail(StringFromFormat("Could not parse '%s' parameter: outside 32 bit range (use string for float)", name));
+		else
+			Fail(StringFromFormat("Could not parse '%s' parameter: outside 32 bit range", name));
 		return false;
 	}
 	if (node->value.getTag() != JSON_STRING) {
-		Fail(StringFromFormat("Invalid '%s' parameter type", name));
-		return false;
+		if (required || node->value.getTag() != JSON_NULL) {
+			Fail(StringFromFormat("Invalid '%s' parameter type", name));
+			return false;
+		}
+		return true;
 	}
 
-	if (U32FromString(node->value.toString(), out, false))
+	if (U32FromString(node->value.toString(), out, allowFloatBits))
 		return true;
 
-	Fail(StringFromFormat("Could not parse '%s' parameter: integer required", name));
+	if (allowFloatBits)
+		Fail(StringFromFormat("Could not parse '%s' parameter: number expected", name));
+	else
+		Fail(StringFromFormat("Could not parse '%s' parameter: integer required", name));
 	return false;
 }
 
-bool DebuggerRequest::ParamU32OrFloatBits(const char *name, uint32_t *out) {
+bool DebuggerRequest::ParamBool(const char *name, bool *out, DebuggerParamType type) {
+	bool allowLoose = type == DebuggerParamType::REQUIRED_LOOSE || type == DebuggerParamType::OPTIONAL_LOOSE;
+	bool required = type == DebuggerParamType::REQUIRED || type == DebuggerParamType::REQUIRED_LOOSE;
+
 	const JsonNode *node = data.get(name);
 	if (!node) {
-		Fail(StringFromFormat("Missing '%s' parameter", name));
-		return false;
+		if (required)
+			Fail(StringFromFormat("Missing '%s' parameter", name));
+		return !required;
 	}
 
 	if (node->value.getTag() == JSON_NUMBER) {
 		double val = node->value.toNumber();
-		bool isInteger = trunc(val) == val;
-
-		// JSON doesn't give a great way to differentiate ints and floats.
-		// Let's play it safe and require a string.
-		if (!isInteger) {
-			Fail(StringFromFormat("Could not parse '%s' parameter: use a string for non integer values", name));
-			return false;
-		}
-
-		if (val < 0 && val >= std::numeric_limits<int32_t>::min()) {
-			// Convert to unsigned representation.
-			*out = (uint32_t)(int32_t)val;
-			return true;
-		} else if (val >= 0 && val <= std::numeric_limits<uint32_t>::max()) {
-			*out = (uint32_t)val;
+		if (val == 1.0 || val == 0.0 || allowLoose) {
+			*out = val != 0.0;
 			return true;
 		}
 
-		Fail(StringFromFormat("Could not parse '%s' parameter: outside 32 bit range (use string for float)", name));
+		Fail(StringFromFormat("Could not parse '%s' parameter: should be true/1 or false/0", name));
 		return false;
+	}
+	if (node->value.getTag() == JSON_TRUE) {
+		*out = true;
+		return true;
+	}
+	if (node->value.getTag() == JSON_FALSE) {
+		*out = false;
+		return true;
 	}
 	if (node->value.getTag() != JSON_STRING) {
-		Fail(StringFromFormat("Invalid '%s' parameter type", name));
-		return false;
+		if (type == DebuggerParamType::REQUIRED || node->value.getTag() != JSON_NULL) {
+			Fail(StringFromFormat("Invalid '%s' parameter type", name));
+			return false;
+		}
+		return true;
 	}
 
-	if (U32FromString(node->value.toString(), out, true))
+	const std::string s = node->value.toString();
+	if (s == "1" || s == "true") {
+		*out = true;
 		return true;
+	}
+	if (s == "0" || s == "false" || (s == "" && allowLoose)) {
+		*out = false;
+		return true;
+	}
 
-	Fail(StringFromFormat("Could not parse '%s' parameter: number expected", name));
+	if (allowLoose) {
+		*out = true;
+		return true;
+	}
+
+	Fail(StringFromFormat("Could not parse '%s' parameter: boolean required", name));
 	return false;
 }
