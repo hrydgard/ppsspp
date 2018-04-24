@@ -244,29 +244,28 @@ void DisassemblyManager::getLine(u32 address, bool insertSymbols, DisassemblyLin
 	{
 		analyze(address);
 		it = findDisassemblyEntry(entries,address,false);
-
-		if (it == entries.end())
-		{
-			if (address % 4)
-				dest.totalSize = ((address+3) & ~3)-address;
-			else
-				dest.totalSize = 4;
-			dest.name = "ERROR";
-			dest.params = "Disassembly failure";
-			return;
-		}
 	}
 
-	DisassemblyEntry* entry = it->second;
-	if (entry->disassemble(address,dest,insertSymbols))
-		return;
-	
+	if (it != entries.end()) {
+		DisassemblyEntry *entry = it->second;
+		if (entry->disassemble(address, dest, insertSymbols))
+			return;
+	}
+
+	dest.type = DISTYPE_OTHER;
+	memset(&dest.info, 0, sizeof(dest.info));
+	dest.info.opcodeAddress = address;
 	if (address % 4)
 		dest.totalSize = ((address+3) & ~3)-address;
 	else
 		dest.totalSize = 4;
-	dest.name = "ERROR";
-	dest.params = "Disassembly failure";
+	if (Memory::IsValidRange(address, 4)) {
+		dest.name = "ERROR";
+		dest.params = "Disassembly failure";
+	} else {
+		dest.name = "-";
+		dest.params = "";
+	}
 }
 
 u32 DisassemblyManager::getStartAddress(u32 address)
