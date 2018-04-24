@@ -23,11 +23,16 @@ For game compatibility, see [community compatibility feedback](http://report.pps
 What's new in 1.6.0
 -------------------
 * OpenGL backend now properly multithreaded, giving a good speed boost.
-* Various Vulkan performance improvements and memory allocation fixes.
-* Various fixes for app switching on Android
+* Various Vulkan performance improvements (like #10911) and memory allocation fixes.
+* GPU command interpreter performance improvements (#10658)
+* Various fixes for app switching and widgets (#10855) on Android
 * Bugfixes and some performance improvements in the ARM64 JIT compiler and IR interpreter
 * Shader cache enabled for Vulkan
-* A few iOS fixes
+* Multiple iOS fixes, including JIT (#10465) and file browser (#10921).
+* Improved compatibility on Mac (#10113)
+* Texture replacement ID bugfix (note: some textures from 1.5.4 may become incompatible)
+* Adhoc multiplayer fixes (#8975)
+* Vulkan support on Linux/SDL (#10413)
 * Retroarch support
 
 What's new in 1.5.4
