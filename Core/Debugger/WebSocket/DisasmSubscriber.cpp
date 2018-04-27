@@ -64,7 +64,16 @@ void WebSocketDisasmState::WriteDisasmLine(JsonWriter &json, const DisassemblyLi
 
 	json.writeFloat("address", addr);
 	json.writeInt("addressSize", l.totalSize);
-	json.writeFloat("encoding", l.info.encodedOpcode.encoding);
+	json.writeFloat("encoding", Memory::IsValidAddress(addr) ? Memory::Read_Instruction(addr).encoding : 0);
+	if (l.totalSize >= 8 && Memory::IsValidRange(addr, l.totalSize)) {
+		json.pushArray("macroEncoding");
+		for (u32 off = 0; off < l.totalSize; off += 4) {
+			json.writeFloat(Memory::Read_Instruction(addr + off).encoding);
+		}
+		json.pop();
+	} else {
+		json.writeRaw("macroEncoding", "null");
+	}
 	int c = currentDebugMIPS->getColor(addr) & 0x00FFFFFF;
 	json.writeString("backgroundColor", StringFromFormat("#%02x%02x%02x", c & 0xFF, (c >> 8) & 0xFF, c >> 16));
 	json.writeString("name", l.name);
@@ -94,7 +103,9 @@ void WebSocketDisasmState::WriteDisasmLine(JsonWriter &json, const DisassemblyLi
 	json.writeBool("isCurrentPC", currentDebugMIPS->GetPC() == addr);
 	if (l.info.isBranch) {
 		json.pushDict("branch");
+		std::string targetSymbol;
 		if (!l.info.isBranchToRegister) {
+			targetSymbol = g_symbolMap->GetLabelString(l.info.branchTarget);
 			json.writeFloat("targetAddress", l.info.branchTarget);
 			json.writeRaw("register", "null");
 		} else {
@@ -103,6 +114,10 @@ void WebSocketDisasmState::WriteDisasmLine(JsonWriter &json, const DisassemblyLi
 		}
 		json.writeBool("isLinked", l.info.isLinkedBranch);
 		json.writeBool("isLikely", l.info.isLikelyBranch);
+		if (targetSymbol.empty())
+			json.writeRaw("symbol", "null");
+		else
+			json.writeString("symbol", targetSymbol);
 		json.pop();
 	} else {
 		json.writeRaw("branch", "null");
