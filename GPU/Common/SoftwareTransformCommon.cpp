@@ -125,6 +125,33 @@ static bool IsReallyAClear(const TransformedVertex *transformed, int numVerts, f
 	return true;
 }
 
+static int ColorIndexOffset(int prim, GEShadeMode shadeMode, bool clearMode) {
+	if (shadeMode != GE_SHADE_FLAT || clearMode) {
+		return 0;
+	}
+
+	switch (prim) {
+	case GE_PRIM_LINES:
+	case GE_PRIM_LINE_STRIP:
+		return 1;
+
+	case GE_PRIM_TRIANGLES:
+	case GE_PRIM_TRIANGLE_STRIP:
+		return 2;
+
+	case GE_PRIM_TRIANGLE_FAN:
+		return 1;
+
+	case GE_PRIM_RECTANGLES:
+		// We already use BR color when expanding, so no need to offset.
+		return 0;
+
+	default:
+		break;
+	}
+	return 0;
+}
+
 void SoftwareTransform(
 	int prim, int vertexCount, u32 vertType, u16 *&inds, int indexType,
 	const DecVtxFormat &decVtxFormat, int &maxIndex, TransformedVertex *&drawBuffer, int &numTrans, bool &drawIndexed, const SoftwareTransformParams *params, SoftwareTransformResult *result) {
@@ -168,6 +195,11 @@ void SoftwareTransform(
 		fog_slope = 1.0f;
 	}
 
+	int colorIndOffset = 0;
+	if (params->provokeFlatFirst) {
+		colorIndOffset = ColorIndexOffset(prim, gstate.getShadeMode(), gstate.isModeClear());
+	}
+
 	VertexReader reader(decoded, decVtxFormat, vertType);
 	if (throughmode) {
 		for (int index = 0; index < maxIndex; index++) {
@@ -178,7 +210,13 @@ void SoftwareTransform(
 			reader.ReadPos(vert.pos);
 
 			if (reader.hasColor0()) {
-				reader.ReadColor0_8888(vert.color0);
+				if (colorIndOffset != 0 && index + colorIndOffset < maxIndex) {
+					reader.Goto(index + colorIndOffset);
+					reader.ReadColor0_8888(vert.color0);
+					reader.Goto(index);
+				} else {
+					reader.ReadColor0_8888(vert.color0);
+				}
 			} else {
 				vert.color0_32 = gstate.getMaterialAmbientRGBA();
 			}
@@ -260,7 +298,13 @@ void SoftwareTransform(
 			// Perform lighting here if enabled. don't need to check through, it's checked above.
 			Vec4f unlitColor = Vec4f(1, 1, 1, 1);
 			if (reader.hasColor0()) {
-				reader.ReadColor0(&unlitColor.x);
+				if (colorIndOffset != 0 && index + colorIndOffset < maxIndex) {
+					reader.Goto(index + colorIndOffset);
+					reader.ReadColor0(&unlitColor.x);
+					reader.Goto(index);
+				} else {
+					reader.ReadColor0(&unlitColor.x);
+				}
 			} else {
 				unlitColor = Vec4f::FromRGBA(gstate.getMaterialAmbientRGBA());
 			}

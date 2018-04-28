@@ -587,6 +587,7 @@ rotateVBO:
 		params.texCache = textureCache_;
 		params.allowClear = true;
 		params.allowSeparateAlphaClear = false;  // D3D11 doesn't support separate alpha clears
+		params.provokeFlatFirst = true;
 
 		int maxIndex = indexGen.MaxIndex();
 		SoftwareTransform(

@@ -860,6 +860,7 @@ void DrawEngineVulkan::DoFlush() {
 		// do not respect scissor rects.
 		params.allowClear = g_Config.iRenderingMode != 0;
 		params.allowSeparateAlphaClear = false;
+		params.provokeFlatFirst = true;
 
 		int maxIndex = indexGen.MaxIndex();
 		SoftwareTransform(
