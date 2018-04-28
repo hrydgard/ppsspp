@@ -15,6 +15,7 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
+#include <algorithm>
 #include "base/stringutil.h"
 #include "Core/Debugger/Breakpoints.h"
 #include "Core/Debugger/DisassemblyManager.h"
@@ -189,15 +190,55 @@ void WebSocketDisasmState::WriteBranchGuide(JsonWriter &json, const BranchLine &
 	json.pop();
 }
 
+// Request the current PSP memory base address (memory.base)
+//
+// WARNING: Avoid this unless you have a good reason.  Uses PPSSPP's address space.
+//
+// No parameters.
+//
+// Response (same event name):
+//  - addressHex: string indicating base address in hexadecimal (may be 64 bit.)
 void WebSocketDisasmState::Base(DebuggerRequest &req) {
 	JsonWriter &json = req.Respond();
 	json.writeString("addressHex", StringFromFormat("%016llx", Memory::base));
 }
 
+// Disassemble a range of memory as CPU instructions (memory.disasm)
+//
+// Parameters (by count):
+//  - address: number specifying the start address.
+//  - count: number of lines to return (may be clamped to an internal limit.)
+//  - displaySymbols: boolean true to show symbol names in instruction params.
+//
+// Parameters (by end address):
+//  - address: number specifying the start address.
+//  - end: number which must be after the start address (may be clamped to an internal limit.)
+//  - displaySymbols: boolean true to show symbol names in instruction params.
+//
+// Response (same event name):
+//  - range: object with result "start" and "end" properties, the addresses actually used.
+//    (disassembly may have snapped to a nearby instruction.)
+//  - branchGuides: array of objects:
+//     - top: the earlier address as a number.
+//     - bottom: the later address as a number.
+//     - direction: "up", "down", or "right" depending on the flow of the branch.
+//     - lane: number index to avoid overlapping guides.
+//  - lines: array of objects:
+//     - type: "opcode", "macro", "data", or "other".
+//     - address: address of first actual instruction.
+//     - addressSize: bytes used by this line (might be more than 4.)
+//     - encoding: uint value of actual instruction (may differ from memory read when using jit.)
+//     - macroEncoding: null, or an array of encodings if this line represents multiple instructions.
+//     - name: string name of the instruction.
+//     - params: formatted parameters for the instruction.
+//     - (other info about the disassembled line.)
 void WebSocketDisasmState::Disasm(DebuggerRequest &req) {
 	if (!currentDebugMIPS->isAlive() || !Memory::IsActive()) {
 		return req.Fail("CPU not started");
 	}
+
+	// In case of client errors, we limit the range to something that won't make us crash.
+	static const uint32_t MAX_RANGE = 10000;
 
 	uint32_t start, end;
 	if (!req.ParamU32("address", &start))
@@ -206,6 +247,7 @@ void WebSocketDisasmState::Disasm(DebuggerRequest &req) {
 	if (!req.ParamU32("count", &count, false, DebuggerParamType::OPTIONAL))
 		return;
 	if (count != 0) {
+		count = std::min(count, MAX_RANGE);
 		// Let's assume everything is two instructions.
 		disasm_.analyze(start - 4, count * 8 + 8);
 		start = disasm_.getStartAddress(start);
@@ -213,12 +255,12 @@ void WebSocketDisasmState::Disasm(DebuggerRequest &req) {
 			req.ParamU32("address", &start);
 		end = disasm_.getNthNextAddress(start, count);
 	} else if (req.ParamU32("end", &end)) {
+		end = std::min(std::max(start, end), start + MAX_RANGE * 4);
 		// Let's assume everything is two instructions.
 		disasm_.analyze(start - 4, end - start + 8);
 		start = disasm_.getStartAddress(start);
 		if (start == -1)
 			req.ParamU32("address", &start);
-
 		// Correct end and calculate count based on it.
 		// This accounts for macros as one line, although two instructions.
 		u32 stop = end;
