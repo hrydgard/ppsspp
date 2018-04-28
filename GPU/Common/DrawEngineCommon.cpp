@@ -544,17 +544,29 @@ void DrawEngineCommon::DecodeVertsStep(u8 *dest, int &i, int &decodedVerts) {
 		switch (dc.indexType) {
 		case GE_VTYPE_IDX_8BIT >> GE_VTYPE_IDX_SHIFT:
 			for (int j = i; j <= lastMatch; j++) {
-				indexGen.TranslatePrim(drawCalls[j].prim, drawCalls[j].vertexCount, (const u8 *)drawCalls[j].inds, indexLowerBound);
+				bool clockwise = true;
+				if (drawCalls[j].cullMode != -1 && gstate.isCullEnabled() && gstate.getCullMode() != drawCalls[j].cullMode) {
+					clockwise = false;
+				}
+				indexGen.TranslatePrim(drawCalls[j].prim, drawCalls[j].vertexCount, (const u8 *)drawCalls[j].inds, indexLowerBound, clockwise);
 			}
 			break;
 		case GE_VTYPE_IDX_16BIT >> GE_VTYPE_IDX_SHIFT:
 			for (int j = i; j <= lastMatch; j++) {
-				indexGen.TranslatePrim(drawCalls[j].prim, drawCalls[j].vertexCount, (const u16_le *)drawCalls[j].inds, indexLowerBound);
+				bool clockwise = true;
+				if (drawCalls[j].cullMode != -1 && gstate.isCullEnabled() && gstate.getCullMode() != drawCalls[j].cullMode) {
+					clockwise = false;
+				}
+				indexGen.TranslatePrim(drawCalls[j].prim, drawCalls[j].vertexCount, (const u16_le *)drawCalls[j].inds, indexLowerBound, clockwise);
 			}
 			break;
 		case GE_VTYPE_IDX_32BIT >> GE_VTYPE_IDX_SHIFT:
 			for (int j = i; j <= lastMatch; j++) {
-				indexGen.TranslatePrim(drawCalls[j].prim, drawCalls[j].vertexCount, (const u32_le *)drawCalls[j].inds, indexLowerBound);
+				bool clockwise = true;
+				if (drawCalls[j].cullMode != -1 && gstate.isCullEnabled() && gstate.getCullMode() != drawCalls[j].cullMode) {
+					clockwise = false;
+				}
+				indexGen.TranslatePrim(drawCalls[j].prim, drawCalls[j].vertexCount, (const u32_le *)drawCalls[j].inds, indexLowerBound, clockwise);
 			}
 			break;
 		}
@@ -659,7 +671,7 @@ ReliableHashType DrawEngineCommon::ComputeHash() {
 }
 
 // vertTypeID is the vertex type but with the UVGen mode smashed into the top bits.
-void DrawEngineCommon::SubmitPrim(void *verts, void *inds, GEPrimitiveType prim, int vertexCount, u32 vertTypeID, int *bytesRead) {
+void DrawEngineCommon::SubmitPrim(void *verts, void *inds, GEPrimitiveType prim, int vertexCount, u32 vertTypeID, int cullMode, int *bytesRead) {
 	if (!indexGen.PrimCompatible(prevPrim_, prim) || numDrawCalls >= MAX_DEFERRED_DRAW_CALLS || vertexCountInDrawCalls_ + vertexCount > VERTEX_BUFFER_MAX) {
 		DispatchFlush();
 	}
@@ -697,6 +709,7 @@ void DrawEngineCommon::SubmitPrim(void *verts, void *inds, GEPrimitiveType prim,
 	dc.prim = prim;
 	dc.vertexCount = vertexCount;
 	dc.uvScale = gstate_c.uv;
+	dc.cullMode = cullMode;
 
 	if (inds) {
 		GetIndexBounds(inds, vertexCount, vertTypeID, &dc.indexLowerBound, &dc.indexUpperBound);

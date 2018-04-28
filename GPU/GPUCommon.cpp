@@ -1537,8 +1537,11 @@ void GPUCommon::Execute_Prim(u32 op, u32 diff) {
 	int bytesRead = 0;
 	UpdateUVScaleOffset();
 
+	// cull mode
+	int cullMode = gstate.isCullEnabled() ? gstate.getCullMode() : -1;
+
 	uint32_t vertTypeID = GetVertTypeID(vertexType, gstate.getUVGenMode());
-	drawEngineCommon_->SubmitPrim(verts, inds, prim, count, vertTypeID, &bytesRead);
+	drawEngineCommon_->SubmitPrim(verts, inds, prim, count, vertTypeID, cullMode, &bytesRead);
 	// After drawing, we advance the vertexAddr (when non indexed) or indexAddr (when indexed).
 	// Some games rely on this, they don't bother reloading VADDR and IADDR.
 	// The VADDR/IADDR registers are NOT updated.
@@ -1584,7 +1587,14 @@ void GPUCommon::Execute_Prim(u32 op, u32 diff) {
 				inds = Memory::GetPointerUnchecked(gstate_c.indexAddr);
 			}
 
-			drawEngineCommon_->SubmitPrim(verts, inds, newPrim, count, vertTypeID, &bytesRead);
+			if (newPrim != GE_PRIM_TRIANGLE_STRIP && cullMode != -1 && cullMode != gstate.getCullMode()) {
+				DEBUG_LOG(G3D, "flush cull mode before prim: %d", newPrim);
+				drawEngineCommon_->DispatchFlush();
+				gstate.cmdmem[GE_CMD_CULL] ^= 1;
+				gstate_c.Dirty(DIRTY_RASTER_STATE);
+			}
+
+			drawEngineCommon_->SubmitPrim(verts, inds, newPrim, count, vertTypeID, cullMode, &bytesRead);
 			AdvanceVerts(vertexType, count, bytesRead);
 			totalVertCount += count;
 			break;
@@ -1611,6 +1621,10 @@ void GPUCommon::Execute_Prim(u32 op, u32 diff) {
 		case GE_CMD_BASE:
 			gstate.cmdmem[GE_CMD_BASE] = data;
 			break;
+		case GE_CMD_CULL:
+			// flip face by indices for GE_PRIM_TRIANGLE_STRIP
+			cullMode = data & 1;
+			break;
 		case GE_CMD_NOP:
 		case GE_CMD_NOP_FF:
 			break;
@@ -1624,6 +1638,14 @@ void GPUCommon::Execute_Prim(u32 op, u32 diff) {
 		case GE_CMD_TEXSCALEV:
 			gstate.cmdmem[GE_CMD_TEXSCALEV] = data;
 			gstate_c.uv.vScale = getFloat24(data);
+			break;
+		case GE_CMD_TEXOFFSETU:
+			gstate.cmdmem[GE_CMD_TEXOFFSETU] = data;
+			gstate_c.uv.uOff = getFloat24(data);
+			break;
+		case GE_CMD_TEXOFFSETV:
+			gstate.cmdmem[GE_CMD_TEXOFFSETV] = data;
+			gstate_c.uv.vOff = getFloat24(data);
 			break;
 		case GE_CMD_TEXLEVEL:
 			// Same Gran Turismo hack from Execute_TexLevel
@@ -1661,6 +1683,12 @@ bail:
 	if (cmdCount > 0) {
 		UpdatePC(currentList->pc, currentList->pc + cmdCount * 4);
 		currentList->pc += cmdCount * 4;
+		// flush back cull mode
+		if (cullMode != -1 && cullMode != gstate.getCullMode()) {
+			drawEngineCommon_->DispatchFlush();
+			gstate.cmdmem[GE_CMD_CULL] ^= 1;
+			gstate_c.Dirty(DIRTY_RASTER_STATE);
+		}
 	}
 
 	gpuStats.vertexGPUCycles += vertexCost_ * totalVertCount;

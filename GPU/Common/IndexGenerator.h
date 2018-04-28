@@ -50,9 +50,9 @@ public:
 	GEPrimitiveType Prim() const { return prim_; }
 
 	void AddPrim(int prim, int vertexCount);
-	void TranslatePrim(int prim, int numInds, const u8 *inds, int indexOffset);
-	void TranslatePrim(int prim, int numInds, const u16_le *inds, int indexOffset);
-	void TranslatePrim(int prim, int numInds, const u32_le *inds, int indexOffset);
+	void TranslatePrim(int prim, int numInds, const u8 *inds, int indexOffset, bool clockwise);
+	void TranslatePrim(int prim, int numInds, const u16_le *inds, int indexOffset, bool clockwise);
+	void TranslatePrim(int prim, int numInds, const u32_le *inds, int indexOffset, bool clockwise);
 
 	void Advance(int numVerts) {
 		index_ += numVerts;
@@ -95,7 +95,7 @@ private:
 	inline void TranslateLineStrip(int numVerts, const ITypeLE *inds, int indexOffset);
 
 	template <class ITypeLE, int flag>
-	void TranslateStrip(int numVerts, const ITypeLE *inds, int indexOffset);
+	void TranslateStrip(int numVerts, const ITypeLE *inds, int indexOffset, bool clockwise);
 	template <class ITypeLE, int flag>
 	void TranslateFan(int numVerts, const ITypeLE *inds, int indexOffset);
 
