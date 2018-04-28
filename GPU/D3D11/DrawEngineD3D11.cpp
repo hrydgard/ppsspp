@@ -331,7 +331,8 @@ void DrawEngineD3D11::DoFlush() {
 	GEPrimitiveType prim = prevPrim_;
 	ApplyDrawState(prim);
 
-	bool useHWTransform = CanUseHardwareTransform(prim);
+	// Always use software for flat shading to fix the provoking index.
+	bool useHWTransform = CanUseHardwareTransform(prim) && gstate.getShadeMode() != GE_SHADE_FLAT;
 
 	if (useHWTransform) {
 		ID3D11Buffer *vb_ = nullptr;
