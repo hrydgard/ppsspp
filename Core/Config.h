@@ -223,6 +223,7 @@ public:
 	bool bBlockTransferGPU;
 	bool bDisableSlowFramebufEffects;
 	bool bFragmentTestCache;
+	bool bDirtyClearRSelf;
 	int iSplineBezierQuality; // 0 = low , 1 = Intermediate , 2 = High
 	bool bHardwareTessellation;
 	std::string sPostShaderName;  // Off for off.

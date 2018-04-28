@@ -376,6 +376,9 @@ void GameSettingsScreen::CreateViews() {
 		});
 		tessHWEnable_ = DoesBackendSupportHWTess() && !g_Config.bSoftwareRendering && g_Config.bHardwareTransform;
 		tessellationHW->SetEnabledPtr(&tessHWEnable_);
+
+		CheckBox *dirtyClearRSelf = graphicsSettings->Add(new CheckBox(&g_Config.bDirtyClearRSelf, gr->T("Dirty on clear or render to self")));
+		dirtyClearRSelf->SetDisabledPtr(&g_Config.bSoftwareRendering);
 	}
 
 	// In case we're going to add few other antialiasing option like MSAA in the future.
