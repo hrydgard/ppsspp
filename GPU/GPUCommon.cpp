@@ -1580,6 +1580,13 @@ void GPUCommon::Execute_Prim(u32 op, u32 diff) {
 				inds = Memory::GetPointerUnchecked(gstate_c.indexAddr);
 			}
 
+			if (newPrim != GE_PRIM_TRIANGLE_STRIP && cullMode != -1 && cullMode != gstate.getCullMode()) {
+				DEBUG_LOG(G3D, "flush cull mode before prim: %d", newPrim);
+				drawEngineCommon_->DispatchFlush();
+				gstate.cmdmem[GE_CMD_CULL] ^= 1;
+				gstate_c.Dirty(DIRTY_RASTER_STATE);
+			}
+
 			drawEngineCommon_->SubmitPrim(verts, inds, newPrim, count, vertTypeID, cullMode, &bytesRead);
 			AdvanceVerts(vertexType, count, bytesRead);
 			totalVertCount += count;
