@@ -428,6 +428,9 @@ void TextureCacheVulkan::ApplyTextureFramebuffer(TexCacheEntry *entry, VirtualFr
 			verts[2].v = uvtop;
 			verts[3].u = uvright;
 			verts[3].v = uvtop;
+
+			// We need to reapply the texture next time since we cropped UV.
+			gstate_c.Dirty(DIRTY_TEXTURE_PARAMS);
 		}
 
 		VkBuffer pushed;

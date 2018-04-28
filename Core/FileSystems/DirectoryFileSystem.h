@@ -57,23 +57,21 @@ enum FixPathCaseBehavior {
 bool FixPathCase(std::string& basePath, std::string &path, FixPathCaseBehavior behavior);
 #endif
 
-struct DirectoryFileHandle
-{
-#ifdef _WIN32
-	HANDLE hFile;
-#else
-	int hFile;
-#endif
-	s64 needsTrunc_;
+struct DirectoryFileHandle {
+	enum Flags {
+		NORMAL,
+		SKIP_REPLAY,
+	};
 
-	DirectoryFileHandle()
-	{
 #ifdef _WIN32
-		hFile = (HANDLE)-1;
+	HANDLE hFile = (HANDLE)-1;
 #else
-		hFile = -1;
+	int hFile = -1;
 #endif
-		needsTrunc_ = -1;
+	s64 needsTrunc_ = -1;
+	bool replay_ = true;
+
+	DirectoryFileHandle(Flags flags) : replay_(flags != SKIP_REPLAY) {
 	}
 
 	std::string GetLocalPath(std::string& basePath, std::string localpath);
@@ -115,7 +113,7 @@ public:
 
 private:
 	struct OpenFileEntry {
-		DirectoryFileHandle hFile;
+		DirectoryFileHandle hFile = DirectoryFileHandle::NORMAL;
 		std::string guestFilename;
 		FileAccess access;
 	};
