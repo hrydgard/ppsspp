@@ -788,7 +788,12 @@ VKContext::VKContext(VulkanContext *vulkan, bool splitSubmit)
 
 VKContext::~VKContext() {
 	allocator_->Destroy();
-	delete allocator_;
+	// We have to delete on queue, so this can free its queued deletions.
+	vulkan_->Delete().QueueCallback([](void *ptr) {
+		auto allocator = static_cast<VulkanDeviceAllocator *>(ptr);
+		delete allocator;
+	}, allocator_);
+	allocator_ = nullptr;
 	// This also destroys all descriptor sets.
 	for (int i = 0; i < VulkanContext::MAX_INFLIGHT_FRAMES; i++) {
 		frame_[i].descSets_.clear();
