@@ -372,6 +372,14 @@ void ConvertFromRGBA8888(uint8_t *dst, const uint8_t *src, uint32_t dstStride, u
 				dst32 += dstStride;
 			}
 		}
+	} else if (format == Draw::DataFormat::R8G8B8_UNORM) {
+		for (uint32_t y = 0; y < height; ++y) {
+			for (uint32_t x = 0; x < width; ++x) {
+				memcpy(dst + x * 3, src32 + x, 3);
+			}
+			src32 += srcStride;
+			dst += dstStride * 3;
+		}
 	} else {
 		// But here it shouldn't matter if they do intersect
 		uint16_t *dst16 = (uint16_t *)dst;
