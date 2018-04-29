@@ -576,6 +576,9 @@ bool SavedataParam::Load(SceUtilitySavedataParam *param, const std::string &save
 }
 
 bool SavedataParam::LoadSaveData(SceUtilitySavedataParam *param, const std::string &saveDirName, const std::string& dirPath, bool secureMode) {
+	if (param->secureVersion != 0) {
+		WARN_LOG_REPORT(SCEUTILITY, "Savedata version requested: %d", param->secureVersion);
+	}
 	u8 *data_ = param->dataBuf;
 	std::string filePath = dirPath+"/"+GetFileName(param);
 	s64 readSize;
