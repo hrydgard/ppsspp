@@ -6,6 +6,7 @@
 #include "thin3d/thin3d.h"
 #include "Common/Log.h"
 #include "Common/ColorConv.h"
+#include "Core/Reporting.h"
 
 namespace Draw {
 
@@ -408,7 +409,7 @@ void ConvertFromRGBA8888(uint8_t *dst, const uint8_t *src, uint32_t dstStride, u
 		case Draw::DataFormat::R8G8B8A8_UNORM:
 		case Draw::DataFormat::UNDEFINED:
 		default:
-			// Not possible.
+			WARN_LOG_REPORT_ONCE(convFromRGBA, G3D, "Unable to convert from format: %d", format);
 			break;
 		}
 	}
