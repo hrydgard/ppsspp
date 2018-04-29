@@ -897,9 +897,7 @@ void EmuScreen::CreateViews() {
 
 	GameInfoBGView *loadingBG = root_->Add(new GameInfoBGView(gamePath_, new AnchorLayoutParams(FILL_PARENT, FILL_PARENT)));
 	TextView *loadingTextView = root_->Add(new TextView(sc->T(PSP_GetLoading()), new AnchorLayoutParams(bounds.centerX(), NONE, NONE, 40, true)));
-
-	// Don't really need this, and it creates a lot of strings to translate...
-	loadingTextView->SetVisibility(V_INVISIBLE);
+	loadingTextView_ = loadingTextView;
 
 	static const int symbols[4] = {
 		I_CROSS,
@@ -909,10 +907,17 @@ void EmuScreen::CreateViews() {
 	};
 	Spinner *loadingSpinner = root_->Add(new Spinner(symbols, ARRAY_SIZE(symbols), new AnchorLayoutParams(NONE, NONE, 45, 45, true)));
 	loadingSpinner_ = loadingSpinner;
-	loadingTextView->SetShadow(true);
-	loadingTextView_ = loadingTextView;
 
-	loadingViewColor_ = loadingTextView->AddTween(new CallbackColorTween(0x00FFFFFF, 0x00FFFFFF, 0.2f, &bezierEaseInOut));
+	loadingBG->SetTag("LoadingBG");
+	loadingTextView->SetTag("LoadingText");
+	loadingSpinner->SetTag("LoadingSpinner");
+
+	// Don't really need this, and it creates a lot of strings to translate...
+	// Maybe just show "Loading game..." only?
+	loadingTextView->SetVisibility(V_GONE);
+	loadingTextView->SetShadow(true);
+
+	loadingViewColor_ = loadingSpinner->AddTween(new CallbackColorTween(0x00FFFFFF, 0x00FFFFFF, 0.2f, &bezierEaseInOut));
 	loadingViewColor_->SetCallback([loadingBG, loadingTextView, loadingSpinner](View *v, uint32_t c) {
 		loadingBG->SetColor(c & 0xFFC0C0C0);
 		loadingTextView->SetTextColor(c);
@@ -921,15 +926,18 @@ void EmuScreen::CreateViews() {
 	loadingViewColor_->Persist();
 
 	// We start invisible here, in case of recreated views.
-	loadingViewVisible_ = loadingTextView->AddTween(new VisibilityTween(UI::V_INVISIBLE, UI::V_INVISIBLE, 0.2f, &bezierEaseInOut));
+	loadingViewVisible_ = loadingSpinner->AddTween(new VisibilityTween(UI::V_INVISIBLE, UI::V_INVISIBLE, 0.2f, &bezierEaseInOut));
 	loadingViewVisible_->Persist();
-	loadingViewVisible_->Finish.Add([loadingBG](EventParams &p) {
+	loadingViewVisible_->Finish.Add([loadingBG, loadingSpinner](EventParams &p) {
 		loadingBG->SetVisibility(p.v->GetVisibility());
 
 		// If we just became invisible, flush BGs since we don't need them anymore.
 		// Saves some VRAM for the game, but don't do it before we fade out...
 		if (p.v->GetVisibility() == V_INVISIBLE) {
 			g_gameInfoCache->FlushBGs();
+			// And we can go away too.  This means the tween will never run again.
+			loadingBG->SetVisibility(V_GONE);
+			loadingSpinner->SetVisibility(V_GONE);
 		}
 		return EVENT_DONE;
 	});
@@ -1203,7 +1211,7 @@ void EmuScreen::render() {
 	if (invalid_)
 		return;
 
-	const bool hasVisibleUI = !osm.IsEmpty() || saveStatePreview_->GetVisibility() != UI::V_GONE || g_Config.bShowTouchControls || loadingTextView_->GetVisibility() == UI::V_VISIBLE;
+	const bool hasVisibleUI = !osm.IsEmpty() || saveStatePreview_->GetVisibility() != UI::V_GONE || g_Config.bShowTouchControls || loadingSpinner_->GetVisibility() == UI::V_VISIBLE;
 	const bool showDebugUI = g_Config.bShowDebugStats || g_Config.bShowDeveloperMenu || g_Config.bShowAudioDebug || g_Config.bShowFrameProfiler;
 	if (hasVisibleUI || showDebugUI || g_Config.iShowFPSCounter != 0) {
 		renderUI();
