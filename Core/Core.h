@@ -34,6 +34,7 @@ void Core_SetGraphicsContext(GraphicsContext *ctx);
 void Core_EnableStepping(bool step);
 void Core_DoSingleStep();
 void Core_UpdateSingleStep();
+void Core_ProcessStepping();
 // Changes every time we enter stepping.
 int Core_GetSteppingCounter();
 
@@ -54,6 +55,7 @@ bool Core_IsStepping();
 
 bool Core_IsActive();
 bool Core_IsInactive();
+// Warning: these currently work only on Windows.
 void Core_WaitInactive();
 void Core_WaitInactive(int milliseconds);
 

@@ -87,7 +87,6 @@ void Core_NotifyLifecycle(CoreLifecycle stage) {
 
 void Core_Stop() {
 	Core_UpdateState(CORE_POWERDOWN);
-	m_StepCond.notify_all();
 }
 
 bool Core_IsStepping() {
@@ -173,6 +172,7 @@ bool UpdateScreenScale(int width, int height) {
 	return false;
 }
 
+// Note: not used on Android.
 void UpdateRunLoop() {
 	if (windowHidden && g_Config.bPauseWhenMinimized) {
 		sleep_ms(16);
@@ -227,11 +227,13 @@ void Core_RunLoop(GraphicsContext *ctx) {
 }
 
 void Core_DoSingleStep() {
+	std::lock_guard<std::mutex> guard(m_hStepMutex);
 	singleStepPending = true;
 	m_StepCond.notify_all();
 }
 
 void Core_UpdateSingleStep() {
+	std::lock_guard<std::mutex> guard(m_hStepMutex);
 	m_StepCond.notify_all();
 }
 
@@ -241,8 +243,41 @@ void Core_SingleStep() {
 
 static inline void CoreStateProcessed() {
 	if (coreStatePending) {
+		std::lock_guard<std::mutex> guard(m_hInactiveMutex);
 		coreStatePending = false;
 		m_InactiveCond.notify_all();
+	}
+}
+
+static inline void Core_WaitStepping() {
+	std::unique_lock<std::mutex> guard(m_hStepMutex);
+	if (!singleStepPending && coreState == CORE_STEPPING)
+		m_StepCond.wait(guard);
+}
+
+void Core_ProcessStepping() {
+	CoreStateProcessed();
+
+	// Check if there's any pending save state actions.
+	SaveState::Process();
+	if (coreState != CORE_STEPPING) {
+		return;
+	}
+
+	host->UpdateDisassembly();
+	host->UpdateMemView();
+
+	// Need to check inside the lock to avoid races.
+	Core_WaitStepping();
+
+	// We may still be stepping without singleStepPending to process a save state.
+	if (singleStepPending && coreState == CORE_STEPPING) {
+		singleStepPending = false;
+
+		Core_SingleStep();
+		// Update disasm dialog.
+		host->UpdateDisassembly();
+		host->UpdateMemView();
 	}
 }
 
@@ -251,7 +286,6 @@ static inline void CoreStateProcessed() {
 void Core_Run(GraphicsContext *ctx) {
 	host->UpdateDisassembly();
 	while (true) {
-reswitch:
 		if (GetUIState() != UISTATE_INGAME) {
 			CoreStateProcessed();
 			if (GetUIState() == UISTATE_EXIT) {
@@ -270,38 +304,9 @@ reswitch:
 
 		// We should never get here on Android.
 		case CORE_STEPPING:
-			singleStepPending = false;
-			CoreStateProcessed();
-
-			// Check if there's any pending savestate actions.
-			SaveState::Process();
-			if (coreState == CORE_POWERDOWN) {
+			Core_ProcessStepping();
+			if (coreState == CORE_POWERDOWN)
 				return;
-			}
-
-			// wait for step command..
-			host->UpdateDisassembly();
-			host->UpdateMemView();
-			host->SendCoreWait(true);
-
-			{
-				std::unique_lock<std::mutex> guard(m_hStepMutex);
-				m_StepCond.wait(guard);
-			}
-
-			host->SendCoreWait(false);
-			// No step pending?  Let's go back to the wait.
-			if (!singleStepPending || coreState != CORE_STEPPING) {
-				if (coreState == CORE_POWERDOWN) {
-					return;
-				}
-				goto reswitch;
-			}
-
-			Core_SingleStep();
-			// update disasm dialog
-			host->UpdateDisassembly();
-			host->UpdateMemView();
 			break;
 
 		case CORE_POWERUP:
