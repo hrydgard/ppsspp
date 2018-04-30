@@ -31,6 +31,7 @@ void *WebSocketCPUCoreInit(DebuggerEventHandlerMap &map) {
 	map["cpu.getAllRegs"] = &WebSocketCPUGetAllRegs;
 	map["cpu.getReg"] = &WebSocketCPUGetReg;
 	map["cpu.setReg"] = &WebSocketCPUSetReg;
+	map["cpu.evaluate"] = &WebSocketCPUEvaluate;
 
 	return nullptr;
 }
@@ -331,6 +332,39 @@ void WebSocketCPUSetReg(DebuggerRequest &req) {
 	// Repeat it back just to avoid confusion on how it parsed.
 	json.writeInt("category", cat);
 	json.writeInt("register", reg);
+	json.writeFloat("uintValue", val);
+	json.writeString("floatValue", RegValueAsFloat(val));
+}
+
+// Evaluate an expression (cpu.evaluate)
+//
+// Parameters:
+//  - expression: string containing labels, operators, regs, etc.
+//
+// Response (same event name):
+//  - uintValue: value in register.
+//  - floatValue: string showing float representation.  May be "nan", "inf", or "-inf".
+void WebSocketCPUEvaluate(DebuggerRequest &req) {
+	if (!currentDebugMIPS->isAlive()) {
+		return req.Fail("CPU not started");
+	}
+
+	std::string exp;
+	if (!req.ParamString("expression", &exp)) {
+		// Already sent error.
+		return;
+	}
+
+	u32 val;
+	PostfixExpression postfix;
+	if (!currentDebugMIPS->initExpression(exp.c_str(), postfix)) {
+		return req.Fail(StringFromFormat("Could not parse expression syntax: %s", getExpressionError()));
+	}
+	if (!currentDebugMIPS->parseExpression(postfix, val)) {
+		return req.Fail(StringFromFormat("Could not evaluate expression: %s", getExpressionError()));
+	}
+
+	JsonWriter &json = req.Respond();
 	json.writeFloat("uintValue", val);
 	json.writeString("floatValue", RegValueAsFloat(val));
 }

@@ -85,7 +85,8 @@ bool DebuggerRequest::ParamU32(const char *name, uint32_t *out, bool allowFloatB
 		return !required;
 	}
 
-	if (node->value.getTag() == JSON_NUMBER) {
+	auto tag = node->value.getTag();
+	if (tag == JSON_NUMBER) {
 		double val = node->value.toNumber();
 		bool isInteger = trunc(val) == val;
 		if (!isInteger && !allowLoose) {
@@ -123,8 +124,8 @@ bool DebuggerRequest::ParamU32(const char *name, uint32_t *out, bool allowFloatB
 			Fail(StringFromFormat("Could not parse '%s' parameter: outside 32 bit range", name));
 		return false;
 	}
-	if (node->value.getTag() != JSON_STRING) {
-		if (required || node->value.getTag() != JSON_NULL) {
+	if (tag != JSON_STRING) {
+		if (required || tag != JSON_NULL) {
 			Fail(StringFromFormat("Invalid '%s' parameter type", name));
 			return false;
 		}
@@ -152,7 +153,8 @@ bool DebuggerRequest::ParamBool(const char *name, bool *out, DebuggerParamType t
 		return !required;
 	}
 
-	if (node->value.getTag() == JSON_NUMBER) {
+	auto tag = node->value.getTag();
+	if (tag == JSON_NUMBER) {
 		double val = node->value.toNumber();
 		if (val == 1.0 || val == 0.0 || allowLoose) {
 			*out = val != 0.0;
@@ -162,16 +164,16 @@ bool DebuggerRequest::ParamBool(const char *name, bool *out, DebuggerParamType t
 		Fail(StringFromFormat("Could not parse '%s' parameter: should be true/1 or false/0", name));
 		return false;
 	}
-	if (node->value.getTag() == JSON_TRUE) {
+	if (tag == JSON_TRUE) {
 		*out = true;
 		return true;
 	}
-	if (node->value.getTag() == JSON_FALSE) {
+	if (tag == JSON_FALSE) {
 		*out = false;
 		return true;
 	}
-	if (node->value.getTag() != JSON_STRING) {
-		if (type == DebuggerParamType::REQUIRED || node->value.getTag() != JSON_NULL) {
+	if (tag != JSON_STRING) {
+		if (type == DebuggerParamType::REQUIRED || tag != JSON_NULL) {
 			Fail(StringFromFormat("Invalid '%s' parameter type", name));
 			return false;
 		}
@@ -194,5 +196,50 @@ bool DebuggerRequest::ParamBool(const char *name, bool *out, DebuggerParamType t
 	}
 
 	Fail(StringFromFormat("Could not parse '%s' parameter: boolean required", name));
+	return false;
+}
+
+bool DebuggerRequest::ParamString(const char *name, std::string *out, DebuggerParamType type) {
+	bool allowLoose = type == DebuggerParamType::REQUIRED_LOOSE || type == DebuggerParamType::OPTIONAL_LOOSE;
+	bool required = type == DebuggerParamType::REQUIRED || type == DebuggerParamType::REQUIRED_LOOSE;
+
+	const JsonNode *node = data.get(name);
+	if (!node) {
+		if (required)
+			Fail(StringFromFormat("Missing '%s' parameter", name));
+		return !required;
+	}
+
+	auto tag = node->value.getTag();
+	if (tag == JSON_STRING) {
+		*out = node->value.toString();
+		return true;
+	} else if (!allowLoose) {
+		if (required || tag != JSON_NULL) {
+			Fail(StringFromFormat("Invalid '%s' parameter type", name));
+			return false;
+		}
+		return true;
+	}
+
+	// For loose, let's allow a few things.
+	if (tag == JSON_TRUE) {
+		*out = "true";
+		return true;
+	} else if (tag == JSON_FALSE) {
+		*out = "false";
+		return true;
+	} else if (tag == JSON_NULL) {
+		if (required) {
+			*out = "";
+		}
+		return true;
+	} else if (tag == JSON_NUMBER) {
+		// Will have a decimal place, though.
+		*out = StringFromFormat("%f", node->value.toNumber());
+		return true;
+	}
+
+	Fail(StringFromFormat("Invalid '%s' parameter type", name));
 	return false;
 }

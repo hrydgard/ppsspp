@@ -82,6 +82,7 @@ struct DebuggerRequest {
 
 	bool ParamU32(const char *name, uint32_t *out, bool allowFloatBits = false, DebuggerParamType type = DebuggerParamType::REQUIRED);
 	bool ParamBool(const char *name, bool *out, DebuggerParamType type = DebuggerParamType::REQUIRED);
+	bool ParamString(const char *name, std::string *out, DebuggerParamType type = DebuggerParamType::REQUIRED);
 
 	JsonWriter &Respond();
 	void Finish();
