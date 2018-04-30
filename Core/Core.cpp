@@ -239,6 +239,8 @@ void Core_UpdateSingleStep() {
 
 void Core_SingleStep() {
 	currentMIPS->SingleStep();
+	if (coreState == CORE_STEPPING)
+		steppingCounter++;
 }
 
 static inline void CoreStateProcessed() {
@@ -249,10 +251,14 @@ static inline void CoreStateProcessed() {
 	}
 }
 
-static inline void Core_WaitStepping() {
+static inline bool Core_WaitStepping() {
 	std::unique_lock<std::mutex> guard(m_hStepMutex);
 	if (!singleStepPending && coreState == CORE_STEPPING)
 		m_StepCond.wait(guard);
+
+	bool result = singleStepPending;
+	singleStepPending = false;
+	return result;
 }
 
 void Core_ProcessStepping() {
@@ -268,12 +274,10 @@ void Core_ProcessStepping() {
 	host->UpdateMemView();
 
 	// Need to check inside the lock to avoid races.
-	Core_WaitStepping();
+	bool doStep = Core_WaitStepping();
 
 	// We may still be stepping without singleStepPending to process a save state.
-	if (singleStepPending && coreState == CORE_STEPPING) {
-		singleStepPending = false;
-
+	if (doStep && coreState == CORE_STEPPING) {
 		Core_SingleStep();
 		// Update disasm dialog.
 		host->UpdateDisassembly();
@@ -298,15 +302,13 @@ void Core_Run(GraphicsContext *ctx) {
 
 		switch (coreState) {
 		case CORE_RUNNING:
+		case CORE_STEPPING:
 			// enter a fast runloop
 			Core_RunLoop(ctx);
-			break;
-
-		// We should never get here on Android.
-		case CORE_STEPPING:
-			Core_ProcessStepping();
-			if (coreState == CORE_POWERDOWN)
+			if (coreState == CORE_POWERDOWN) {
+				CoreStateProcessed();
 				return;
+			}
 			break;
 
 		case CORE_POWERUP:
