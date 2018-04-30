@@ -1416,6 +1416,8 @@ add_library(${CoreLibName} ${CoreLinkType}
 	Core/Debugger/WebSocket/LogBroadcaster.h
 	Core/Debugger/WebSocket/SteppingBroadcaster.cpp
 	Core/Debugger/WebSocket/SteppingBroadcaster.h
+	Core/Debugger/WebSocket/SteppingSubscriber.cpp
+	Core/Debugger/WebSocket/SteppingSubscriber.h
 	Core/Debugger/WebSocket/WebSocketUtils.cpp
 	Core/Debugger/WebSocket/WebSocketUtils.h
 	Core/Dialog/PSPDialog.cpp

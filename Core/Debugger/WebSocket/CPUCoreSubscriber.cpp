@@ -71,6 +71,9 @@ void WebSocketCPUResume(DebuggerRequest &req) {
 		return req.Fail("CPU not stepping");
 	}
 
+	if (currentMIPS->inDelaySlot) {
+		Core_DoSingleStep();
+	}
 	Core_EnableStepping(false);
 }
 

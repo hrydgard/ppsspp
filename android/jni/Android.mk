@@ -308,6 +308,7 @@ EXEC_AND_LIB_FILES := \
   $(SRC)/Core/Debugger/WebSocket/GameSubscriber.cpp \
   $(SRC)/Core/Debugger/WebSocket/LogBroadcaster.cpp \
   $(SRC)/Core/Debugger/WebSocket/SteppingBroadcaster.cpp \
+  $(SRC)/Core/Debugger/WebSocket/SteppingSubscriber.cpp \
   $(SRC)/Core/Debugger/WebSocket/WebSocketUtils.cpp \
   $(SRC)/Core/Dialog/PSPDialog.cpp \
   $(SRC)/Core/Dialog/PSPGamedataInstallDialog.cpp \
