@@ -33,11 +33,6 @@ u64 CBreakPoints::breakSkipFirstTicks_ = 0;
 std::vector<MemCheck> CBreakPoints::memChecks_;
 std::vector<MemCheck *> CBreakPoints::cleanupMemChecks_;
 
-MemCheck::MemCheck()
-{
-	numHits = 0;
-}
-
 void MemCheck::Log(u32 addr, bool write, int size, u32 pc) {
 	if (result & BREAK_ACTION_LOG) {
 		if (logFormat.empty()) {
