@@ -32,10 +32,19 @@ JsonWriter &DebuggerRequest::Respond() {
 void DebuggerRequest::Finish() {
 	if (responseBegun_ && !responseSent_) {
 		writer_.end();
-		ws->Send(writer_.str());
+		if (responsePartial_)
+			ws->AddFragment(true, writer_.str());
+		else
+			ws->Send(writer_.str());
 		responseBegun_ = false;
 		responseSent_ = true;
+		responsePartial_ = false;
 	}
+}
+
+void DebuggerRequest::Flush() {
+	ws->AddFragment(false, writer_.flush());
+	responsePartial_ = true;
 }
 
 static bool U32FromString(const char *str, uint32_t *out, bool allowFloat) {

@@ -72,7 +72,7 @@ const char *JsonWriter::comma() const {
 
 const char *JsonWriter::arrayComma() const {
 	if (stack_.back().first) {
-		return "\n";
+		return pretty_ ? "\n" : "";
 	} else {
 		return pretty_ ? ", " : ",";
 	}
@@ -159,7 +159,7 @@ void JsonWriter::writeString(const char *value) {
 void JsonWriter::writeString(const char *name, const char *value) {
 	str_ << comma() << indent() << "\"";
 	writeEscapedString(name);
-	str_ << "\": \"";
+	str_ << (pretty_ ? "\": \"" : "\":\"");
 	writeEscapedString(value);
 	str_ << "\"";
 	stack_.back().first = false;

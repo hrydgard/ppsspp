@@ -59,6 +59,12 @@ public:
 		return str_.str();
 	}
 
+	std::string flush() {
+		std::string result = str_.str();
+		str_.str("");
+		return result;
+	}
+
 	enum {
 		NORMAL = 0,
 		PRETTY = 1,

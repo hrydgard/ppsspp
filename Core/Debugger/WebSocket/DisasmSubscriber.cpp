@@ -290,6 +290,10 @@ void WebSocketDisasmState::Disasm(DebuggerRequest &req) {
 		disasm_.getLine(addr, displaySymbols, line);
 		WriteDisasmLine(json, line);
 		addr += line.totalSize;
+
+		// These are pretty long, so let's grease the wheels a bit.
+		if (i % 50 == 0)
+			req.Flush();
 	}
 	json.pop();
 

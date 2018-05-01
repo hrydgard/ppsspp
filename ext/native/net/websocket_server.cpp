@@ -46,6 +46,8 @@ enum class Opcode {
 	CONTROL_MAX = 10,
 };
 
+static const size_t OUT_PRESSURE = 65536;
+
 static inline std::string TrimString(const std::string &s) {
 	auto wsfront = std::find_if_not(s.begin(), s.end(), [](int c) {
 		// isspace() expects 0 - 255, so convert any sign-extended value.
@@ -508,6 +510,14 @@ void WebSocketServer::SendBytes(const void *p, size_t sz) {
 		size_t pos = outBuf_.size();
 		outBuf_.resize(pos + sz);
 		memcpy(&outBuf_[pos], data, sz);
+
+		if (pos + sz > lastPressure_ + OUT_PRESSURE) {
+			size_t pushed = out_->PushAtMost((const char *)&outBuf_[0], outBuf_.size());
+			if (pushed != 0) {
+				outBuf_.erase(outBuf_.begin(), outBuf_.begin() + pushed);
+			}
+			lastPressure_ = outBuf_.size();
+		}
 	}
 }
 
@@ -529,6 +539,7 @@ void WebSocketServer::SendFlush() {
 		// Hopefully this is usually the entire buffer.
 		outBuf_.erase(outBuf_.begin(), outBuf_.begin() + totalPushed);
 	}
+	lastPressure_ = outBuf_.size();
 }
 
 };

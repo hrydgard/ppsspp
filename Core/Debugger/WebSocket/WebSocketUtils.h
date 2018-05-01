@@ -85,12 +85,14 @@ struct DebuggerRequest {
 	bool ParamString(const char *name, std::string *out, DebuggerParamType type = DebuggerParamType::REQUIRED);
 
 	JsonWriter &Respond();
+	void Flush();
 	void Finish();
 
 private:
 	JsonWriter writer_;
 	bool responseBegun_ = false;
 	bool responseSent_ = false;
+	bool responsePartial_ = false;
 };
 
 typedef std::function<void(DebuggerRequest &req)> DebuggerEventHandler;

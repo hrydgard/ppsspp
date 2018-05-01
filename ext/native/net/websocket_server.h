@@ -86,6 +86,7 @@ protected:
 	OutputSink *out_ = nullptr;
 	WebSocketClose closeReason_ = WebSocketClose::NO_STATUS;
 	std::vector<uint8_t> outBuf_;
+	size_t lastPressure_ = 0;
 
 	std::vector<uint8_t> pendingBuf_;
 	uint8_t pendingMask_[4]{};
