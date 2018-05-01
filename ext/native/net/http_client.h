@@ -6,6 +6,7 @@
 
 #include "base/basictypes.h"
 #include "base/buffer.h"
+#include "net/resolve.h"
 
 #ifdef _WIN32
 #ifndef NOMINMAX
@@ -28,7 +29,7 @@ public:
 	virtual ~Connection();
 
 	// Inits the sockaddr_in.
-	bool Resolve(const char *host, int port);
+	bool Resolve(const char *host, int port, DNSType type = DNSType::ANY);
 
 	bool Connect(int maxTries = 2, double timeout = 20.0f, bool *cancelConnect = nullptr);
 	void Disconnect();

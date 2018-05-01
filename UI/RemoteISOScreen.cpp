@@ -69,14 +69,24 @@ static ServerStatus RetrieveStatus() {
 // relay that address to a mobile device searching for the server.
 static void RegisterServer(int port) {
 	http::Client http;
-	Buffer theVoid;
 
-	if (http.Resolve(REPORT_HOSTNAME, REPORT_PORT)) {
+	char resource[1024] = {};
+	// We register both IPv4 and IPv6 in case the other client is using a different one.
+	// Our server is (currently?) ipv4 only, so we always register the ipv4 local for now.
+	if (http.Resolve(REPORT_HOSTNAME, REPORT_PORT, net::DNSType::IPV4)) {
+		Buffer theVoid;
 		if (http.Connect(2, 20.0, &scanCancelled)) {
-			char resource[1024] = {};
 			std::string ip = fd_util::GetLocalIP(http.sock());
 			snprintf(resource, sizeof(resource) - 1, "/match/update?local=%s&port=%d", ip.c_str(), port);
 
+			http.GET(resource, &theVoid);
+			http.Disconnect();
+		}
+	}
+
+	if (http.Resolve(REPORT_HOSTNAME, REPORT_PORT, net::DNSType::IPV6)) {
+		Buffer theVoid;
+		if (http.Connect()) {
 			http.GET(resource, &theVoid);
 			http.Disconnect();
 		}
