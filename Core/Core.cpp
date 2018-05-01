@@ -101,6 +101,14 @@ bool Core_IsInactive() {
 	return coreState != CORE_RUNNING && coreState != CORE_NEXTFRAME && !coreStatePending;
 }
 
+static inline void Core_StateProcessed() {
+	if (coreStatePending) {
+		std::lock_guard<std::mutex> guard(m_hInactiveMutex);
+		coreStatePending = false;
+		m_InactiveCond.notify_all();
+	}
+}
+
 void Core_WaitInactive() {
 	while (Core_IsActive()) {
 		std::unique_lock<std::mutex> guard(m_hInactiveMutex);
@@ -191,6 +199,8 @@ void KeepScreenAwake() {
 void Core_RunLoop(GraphicsContext *ctx) {
 	graphicsContext = ctx;
 	while ((GetUIState() != UISTATE_INGAME || !PSP_IsInited()) && GetUIState() != UISTATE_EXIT) {
+		// In case it was pending, we're not in game anymore.  We won't get to Core_Run().
+		Core_StateProcessed();
 		time_update();
 		double startTime = time_now_d();
 		UpdateRunLoop();
@@ -243,14 +253,6 @@ void Core_SingleStep() {
 		steppingCounter++;
 }
 
-static inline void CoreStateProcessed() {
-	if (coreStatePending) {
-		std::lock_guard<std::mutex> guard(m_hInactiveMutex);
-		coreStatePending = false;
-		m_InactiveCond.notify_all();
-	}
-}
-
 static inline bool Core_WaitStepping() {
 	std::unique_lock<std::mutex> guard(m_hStepMutex);
 	if (!singleStepPending && coreState == CORE_STEPPING)
@@ -262,7 +264,7 @@ static inline bool Core_WaitStepping() {
 }
 
 void Core_ProcessStepping() {
-	CoreStateProcessed();
+	Core_StateProcessed();
 
 	// Check if there's any pending save state actions.
 	SaveState::Process();
@@ -291,7 +293,7 @@ void Core_Run(GraphicsContext *ctx) {
 	host->UpdateDisassembly();
 	while (true) {
 		if (GetUIState() != UISTATE_INGAME) {
-			CoreStateProcessed();
+			Core_StateProcessed();
 			if (GetUIState() == UISTATE_EXIT) {
 				UpdateRunLoop();
 				return;
@@ -306,7 +308,7 @@ void Core_Run(GraphicsContext *ctx) {
 			// enter a fast runloop
 			Core_RunLoop(ctx);
 			if (coreState == CORE_POWERDOWN) {
-				CoreStateProcessed();
+				Core_StateProcessed();
 				return;
 			}
 			break;
@@ -315,7 +317,7 @@ void Core_Run(GraphicsContext *ctx) {
 		case CORE_POWERDOWN:
 		case CORE_ERROR:
 			// Exit loop!!
-			CoreStateProcessed();
+			Core_StateProcessed();
 
 			return;
 
