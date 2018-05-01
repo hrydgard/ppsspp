@@ -329,7 +329,6 @@ void Core_Run(GraphicsContext *ctx) {
 
 void Core_EnableStepping(bool step) {
 	if (step) {
-		sleep_ms(1);
 		host->SetDebugMode(true);
 		Core_UpdateState(CORE_STEPPING);
 		steppingCounter++;
