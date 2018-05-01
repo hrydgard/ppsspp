@@ -129,6 +129,8 @@ void HandleDebuggerRequest(const http::Request &request) {
 		subscriberData.push_back(info.init(eventHandlers));
 	}
 
+	// There's a tradeoff between responsiveness to incoming events, and polling for changes.
+	int highActivity = 0;
 	ws->SetTextHandler([&](const std::string &t) {
 		JsonReader reader(t.c_str(), t.size());
 		if (!reader.ok()) {
@@ -148,7 +150,10 @@ void HandleDebuggerRequest(const http::Request &request) {
 		if (eventFunc != eventHandlers.end()) {
 			std::lock_guard<std::mutex> guard(lifecycleLock);
 			eventFunc->second(req);
-			req.Finish();
+			if (!req.Finish()) {
+				// Poll more frequently for a second in case this triggers something.
+				highActivity = 1000;
+			}
 		} else {
 			req.Fail("Bad message: unknown event");
 		}
@@ -157,7 +162,7 @@ void HandleDebuggerRequest(const http::Request &request) {
 		ws->Send(DebuggerErrorEvent("Bad message", LogTypes::LERROR));
 	});
 
-	while (ws->Process(1.0f / 60.0f)) {
+	while (ws->Process(highActivity ? 1.0f / 1000.0f : 1.0f / 60.0f)) {
 		std::lock_guard<std::mutex> guard(lifecycleLock);
 		// These send events that aren't just responses to requests.
 		logger.Broadcast(ws);
@@ -166,6 +171,9 @@ void HandleDebuggerRequest(const http::Request &request) {
 
 		if (stopRequested) {
 			ws->Close(net::WebSocketClose::GOING_AWAY);
+		}
+		if (highActivity > 0) {
+			highActivity--;
 		}
 	}
 

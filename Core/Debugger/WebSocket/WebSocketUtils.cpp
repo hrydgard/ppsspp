@@ -29,7 +29,7 @@ JsonWriter &DebuggerRequest::Respond() {
 	return writer_;
 }
 
-void DebuggerRequest::Finish() {
+bool DebuggerRequest::Finish() {
 	if (responseBegun_ && !responseSent_) {
 		writer_.end();
 		if (responsePartial_)
@@ -40,6 +40,8 @@ void DebuggerRequest::Finish() {
 		responseSent_ = true;
 		responsePartial_ = false;
 	}
+
+	return responseSent_;
 }
 
 void DebuggerRequest::Flush() {

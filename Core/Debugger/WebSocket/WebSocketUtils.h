@@ -86,7 +86,7 @@ struct DebuggerRequest {
 
 	JsonWriter &Respond();
 	void Flush();
-	void Finish();
+	bool Finish();
 
 private:
 	JsonWriter writer_;
