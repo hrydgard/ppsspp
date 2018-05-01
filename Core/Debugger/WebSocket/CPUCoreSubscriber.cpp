@@ -91,7 +91,7 @@ void WebSocketCPUStatus(DebuggerRequest &req) {
 	json.writeBool("stepping", PSP_IsInited() && Core_IsStepping() && coreState != CORE_POWERDOWN);
 	json.writeBool("paused", GetUIState() != UISTATE_INGAME);
 	// Avoid NULL deference.
-	json.writeFloat("pc", PSP_IsInited() ? currentMIPS->pc : 0);
+	json.writeUint("pc", PSP_IsInited() ? currentMIPS->pc : 0);
 	// A double ought to be good enough for a 156 day debug session.
 	json.writeFloat("ticks", PSP_IsInited() ? CoreTiming::GetTicks() : 0);
 }
@@ -131,11 +131,11 @@ void WebSocketCPUGetAllRegs(DebuggerRequest &req) {
 		json.pushArray("uintValues");
 		// Writing as floating point to avoid negatives.  Actually double, so safe.
 		for (int r = 0; r < total; ++r)
-			json.writeFloat(currentDebugMIPS->GetRegValue(c, r));
+			json.writeUint(currentDebugMIPS->GetRegValue(c, r));
 		if (c == 0) {
-			json.writeFloat(currentDebugMIPS->GetPC());
-			json.writeFloat(currentDebugMIPS->GetHi());
-			json.writeFloat(currentDebugMIPS->GetLo());
+			json.writeUint(currentDebugMIPS->GetPC());
+			json.writeUint(currentDebugMIPS->GetHi());
+			json.writeUint(currentDebugMIPS->GetLo());
 		}
 		json.pop();
 
@@ -267,7 +267,7 @@ void WebSocketCPUGetReg(DebuggerRequest &req) {
 	JsonWriter &json = req.Respond();
 	json.writeInt("category", cat);
 	json.writeInt("register", reg);
-	json.writeFloat("uintValue", val);
+	json.writeUint("uintValue", val);
 	json.writeString("floatValue", RegValueAsFloat(val));
 }
 
@@ -335,7 +335,7 @@ void WebSocketCPUSetReg(DebuggerRequest &req) {
 	// Repeat it back just to avoid confusion on how it parsed.
 	json.writeInt("category", cat);
 	json.writeInt("register", reg);
-	json.writeFloat("uintValue", val);
+	json.writeUint("uintValue", val);
 	json.writeString("floatValue", RegValueAsFloat(val));
 }
 
@@ -368,6 +368,6 @@ void WebSocketCPUEvaluate(DebuggerRequest &req) {
 	}
 
 	JsonWriter &json = req.Respond();
-	json.writeFloat("uintValue", val);
+	json.writeUint("uintValue", val);
 	json.writeString("floatValue", RegValueAsFloat(val));
 }

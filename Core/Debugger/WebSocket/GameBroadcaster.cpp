@@ -34,7 +34,7 @@ struct GameStatusEvent {
 			j.writeString("title", g_paramSFO.GetValueString("TITLE"));
 			j.pop();
 		} else {
-			j.writeRaw("game", "null");
+			j.writeNull("game");
 		}
 		j.end();
 		return j.str();

@@ -63,17 +63,17 @@ void WebSocketDisasmState::WriteDisasmLine(JsonWriter &json, const DisassemblyLi
 	else if (l.type == DISTYPE_OTHER)
 		json.writeString("type", "other");
 
-	json.writeFloat("address", addr);
+	json.writeUint("address", addr);
 	json.writeInt("addressSize", l.totalSize);
-	json.writeFloat("encoding", Memory::IsValidAddress(addr) ? Memory::Read_Instruction(addr).encoding : 0);
+	json.writeUint("encoding", Memory::IsValidAddress(addr) ? Memory::Read_Instruction(addr).encoding : 0);
 	if (l.totalSize >= 8 && Memory::IsValidRange(addr, l.totalSize)) {
 		json.pushArray("macroEncoding");
 		for (u32 off = 0; off < l.totalSize; off += 4) {
-			json.writeFloat(Memory::Read_Instruction(addr + off).encoding);
+			json.writeUint(Memory::Read_Instruction(addr + off).encoding);
 		}
 		json.pop();
 	} else {
-		json.writeRaw("macroEncoding", "null");
+		json.writeNull("macroEncoding");
 	}
 	int c = currentDebugMIPS->getColor(addr) & 0x00FFFFFF;
 	json.writeString("backgroundColor", StringFromFormat("#%02x%02x%02x", c & 0xFF, (c >> 8) & 0xFF, c >> 16));
@@ -82,7 +82,7 @@ void WebSocketDisasmState::WriteDisasmLine(JsonWriter &json, const DisassemblyLi
 
 	const std::string addressSymbol = g_symbolMap->GetLabelString(addr);
 	if (addressSymbol.empty())
-		json.writeRaw("symbol", "null");
+		json.writeNull("symbol");
 	else
 		json.writeString("symbol", addressSymbol);
 
@@ -95,10 +95,10 @@ void WebSocketDisasmState::WriteDisasmLine(JsonWriter &json, const DisassemblyLi
 		if (cond)
 			json.writeString("expression", cond->expressionString);
 		else
-			json.writeRaw("expression", "null");
+			json.writeNull("expression");
 		json.pop();
 	} else {
-		json.writeRaw("breakpoint", "null");
+		json.writeNull("breakpoint");
 	}
 
 	json.writeBool("isCurrentPC", currentDebugMIPS->GetPC() == addr);
@@ -107,70 +107,70 @@ void WebSocketDisasmState::WriteDisasmLine(JsonWriter &json, const DisassemblyLi
 		std::string targetSymbol;
 		if (!l.info.isBranchToRegister) {
 			targetSymbol = g_symbolMap->GetLabelString(l.info.branchTarget);
-			json.writeFloat("targetAddress", l.info.branchTarget);
-			json.writeRaw("register", "null");
+			json.writeUint("targetAddress", l.info.branchTarget);
+			json.writeNull("register");
 		} else {
-			json.writeRaw("targetAddress", "null");
+			json.writeNull("targetAddress");
 			json.writeInt("register", l.info.branchRegisterNum);
 		}
 		json.writeBool("isLinked", l.info.isLinkedBranch);
 		json.writeBool("isLikely", l.info.isLikelyBranch);
 		if (targetSymbol.empty())
-			json.writeRaw("symbol", "null");
+			json.writeNull("symbol");
 		else
 			json.writeString("symbol", targetSymbol);
 		json.pop();
 	} else {
-		json.writeRaw("branch", "null");
+		json.writeNull("branch");
 	}
 
 	if (l.info.hasRelevantAddress) {
 		json.pushDict("relevantData");
-		json.writeFloat("address", l.info.relevantAddress);
+		json.writeUint("address", l.info.relevantAddress);
 		if (Memory::IsValidRange(l.info.relevantAddress, 4))
-			json.writeFloat("uintValue", Memory::ReadUnchecked_U32(l.info.relevantAddress));
+			json.writeUint("uintValue", Memory::ReadUnchecked_U32(l.info.relevantAddress));
 		else
-			json.writeRaw("uintValue", "null");
+			json.writeNull("uintValue");
 		json.pop();
 	} else {
-		json.writeRaw("relevantData", "null");
+		json.writeNull("relevantData");
 	}
 
 	if (l.info.isConditional)
 		json.writeBool("conditionMet", l.info.conditionMet);
 	else
-		json.writeRaw("conditionMet", "null");
+		json.writeNull("conditionMet");
 
 	if (l.info.isDataAccess) {
 		json.pushDict("dataAccess");
-		json.writeFloat("address", l.info.dataAddress);
+		json.writeUint("address", l.info.dataAddress);
 		json.writeInt("size", l.info.dataSize);
 		
 		std::string dataSymbol = g_symbolMap->GetLabelString(l.info.dataAddress);
 		std::string valueSymbol;
 		if (!Memory::IsValidRange(l.info.dataAddress, l.info.dataSize))
-			json.writeRaw("uintValue", "null");
+			json.writeNull("uintValue");
 		else if (l.info.dataSize == 1)
-			json.writeFloat("uintValue", Memory::ReadUnchecked_U8(l.info.dataAddress));
+			json.writeUint("uintValue", Memory::ReadUnchecked_U8(l.info.dataAddress));
 		else if (l.info.dataSize == 2)
-			json.writeFloat("uintValue", Memory::ReadUnchecked_U16(l.info.dataAddress));
+			json.writeUint("uintValue", Memory::ReadUnchecked_U16(l.info.dataAddress));
 		else if (l.info.dataSize >= 4) {
 			u32 data = Memory::ReadUnchecked_U32(l.info.dataAddress);
 			valueSymbol = g_symbolMap->GetLabelString(data);
-			json.writeFloat("uintValue", data);
+			json.writeUint("uintValue", data);
 		}
 
 		if (!dataSymbol.empty())
 			json.writeString("symbol", dataSymbol);
 		else
-			json.writeRaw("symbol", "null");
+			json.writeNull("symbol");
 		if (!valueSymbol.empty())
 			json.writeString("valueSymbol", valueSymbol);
 		else
-			json.writeRaw("valueSymbol", "null");
+			json.writeNull("valueSymbol");
 		json.pop();
 	} else {
-		json.writeRaw("dataAccess", "null");
+		json.writeNull("dataAccess");
 	}
 
 	json.pop();
@@ -178,8 +178,8 @@ void WebSocketDisasmState::WriteDisasmLine(JsonWriter &json, const DisassemblyLi
 
 void WebSocketDisasmState::WriteBranchGuide(JsonWriter &json, const BranchLine &l) {
 	json.pushDict();
-	json.writeFloat("top", l.first);
-	json.writeFloat("bottom", l.second);
+	json.writeUint("top", l.first);
+	json.writeUint("bottom", l.second);
 	if (l.type == LINE_UP)
 		json.writeString("direction", "up");
 	else if (l.type == LINE_DOWN)
@@ -279,8 +279,8 @@ void WebSocketDisasmState::Disasm(DebuggerRequest &req) {
 
 	JsonWriter &json = req.Respond();
 	json.pushDict("range");
-	json.writeFloat("start", start);
-	json.writeFloat("end", end);
+	json.writeUint("start", start);
+	json.writeUint("end", end);
 	json.pop();
 
 	json.pushArray("lines");

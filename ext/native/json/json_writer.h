@@ -22,38 +22,24 @@ public:
 	void beginRaw();
 	void end();
 	void pushDict();
-	void pushDict(const char *name);
+	void pushDict(const std::string &name);
 	void pushArray();
-	void pushArray(const char *name);
+	void pushArray(const std::string &name);
 	void pop();
 	void writeBool(bool value);
-	void writeBool(const char *name, bool value);
+	void writeBool(const std::string &name, bool value);
 	void writeInt(int value);
-	void writeInt(const char *name, int value);
+	void writeInt(const std::string &name, int value);
+	void writeUint(uint32_t value);
+	void writeUint(const std::string &name, uint32_t value);
 	void writeFloat(double value);
-	void writeFloat(const char *name, double value);
-	void writeString(const char *value);
-	void writeString(const char *name, const char *value);
-	void writeString(const std::string &value) {
-		writeString(value.c_str());
-	}
-	void writeString(const char *name, const std::string &value) {
-		writeString(name, value.c_str());
-	}
-	void writeString(const std::string &name, const std::string &value) {
-		writeString(name.c_str(), value.c_str());
-	}
-	void writeRaw(const char *value);
-	void writeRaw(const char *name, const char *value);
-	void writeRaw(const std::string &value) {
-		writeRaw(value.c_str());
-	}
-	void writeRaw(const char *name, const std::string &value) {
-		writeRaw(name, value.c_str());
-	}
-	void writeRaw(const std::string &name, const std::string &value) {
-		writeRaw(name.c_str(), value.c_str());
-	}
+	void writeFloat(const std::string &name, double value);
+	void writeString(const std::string &value);
+	void writeString(const std::string &name, const std::string &value);
+	void writeRaw(const std::string &value);
+	void writeRaw(const std::string &name, const std::string &value);
+	void writeNull();
+	void writeNull(const std::string &name);
 
 	std::string str() const {
 		return str_.str();
@@ -76,7 +62,7 @@ private:
 	const char *arrayComma() const;
 	const char *indent() const;
 	const char *arrayIndent() const;
-	void writeEscapedString(const char *s);
+	void writeEscapedString(const std::string &s);
 
 	enum BlockType {
 		ARRAY,

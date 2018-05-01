@@ -46,7 +46,7 @@ void WebSocketGameStatus(DebuggerRequest &req) {
 		json.writeString("title", g_paramSFO.GetValueString("TITLE"));
 		json.pop();
 	} else {
-		json.writeRaw("game", "null");
+		json.writeNull("game");
 	}
 	json.writeBool("paused", GetUIState() == UISTATE_PAUSEMENU);
 }
