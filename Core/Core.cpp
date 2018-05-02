@@ -28,22 +28,21 @@
 #include "thread/threadutil.h"
 #include "profiler/profiler.h"
 
+#include "Common/GraphicsContext.h"
 #include "Core/Core.h"
 #include "Core/Config.h"
+#include "Core/Host.h"
 #include "Core/MemMap.h"
 #include "Core/SaveState.h"
 #include "Core/System.h"
+#include "Core/Debugger/Breakpoints.h"
 #include "Core/MIPS/MIPS.h"
-#include "Common/GraphicsContext.h"
 
 #ifdef _WIN32
 #include "Common/CommonWindows.h"
 #include "Windows/InputDevice.h"
 #endif
 
-#include "Host.h"
-
-#include "Core/Debugger/Breakpoints.h"
 
 // Time until we stop considering the core active without user input.
 // Should this be configurable?  2 hours currently.
@@ -84,16 +83,6 @@ void Core_NotifyLifecycle(CoreLifecycle stage) {
 	for (auto it = shutdownFuncs.begin(); it != shutdownFuncs.end(); ++it) {
 		(*it)(stage);
 	}
-}
-
-void Core_ErrorPause() {
-	Core_UpdateState(CORE_ERROR);
-}
-
-void Core_Halt(const char *msg)  {
-	Core_EnableStepping(true);
-	ERROR_LOG(CPU, "CPU HALTED : %s",msg);
-	_dbg_update_();
 }
 
 void Core_Stop() {

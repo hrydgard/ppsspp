@@ -27,7 +27,6 @@ void UpdateRunLoop();
 
 void Core_Run(GraphicsContext *ctx);
 void Core_Stop();
-void Core_ErrorPause();
 // For platforms that don't call Core_Run
 void Core_SetGraphicsContext(GraphicsContext *ctx);
 
@@ -50,7 +49,6 @@ enum class CoreLifecycle {
 typedef void (* CoreLifecycleFunc)(CoreLifecycle stage);
 void Core_ListenLifecycle(CoreLifecycleFunc func);
 void Core_NotifyLifecycle(CoreLifecycle stage);
-void Core_Halt(const char *msg);
 
 bool Core_IsStepping();
 

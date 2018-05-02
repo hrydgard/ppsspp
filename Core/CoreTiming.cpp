@@ -182,7 +182,7 @@ int RegisterEvent(const char *name, TimedCallback callback)
 void AntiCrashCallback(u64 userdata, int cyclesLate)
 {
 	ERROR_LOG(SAVESTATE, "Savestate broken: an unregistered event was called.");
-	Core_Halt("invalid timing events");
+	Core_EnableStepping(true);
 }
 
 void RestoreRegisterEvent(int event_type, const char *name, TimedCallback callback)
