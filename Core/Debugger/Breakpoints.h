@@ -93,9 +93,14 @@ struct MemCheck {
 	u32 lastAddr = 0;
 	int lastSize = 0;
 
+	// Called on the stored memcheck (affects numHits, etc.)
+	BreakAction Apply(u32 addr, bool write, int size, u32 pc);
+	// Called on a copy.
 	BreakAction Action(u32 addr, bool write, int size, u32 pc);
-	void JitBefore(u32 addr, bool write, int size, u32 pc);
-	void JitCleanup();
+	void JitBeforeApply(u32 addr, bool write, int size, u32 pc);
+	void JitBeforeAction(u32 addr, bool write, int size, u32 pc);
+	bool JitApplyChanged();
+	void JitCleanup(bool changed);
 
 	void Log(u32 addr, bool write, int size, u32 pc);
 
@@ -172,6 +177,7 @@ private:
 	static size_t FindBreakpoint(u32 addr, bool matchTemp = false, bool temp = false);
 	// Finds exactly, not using a range check.
 	static size_t FindMemCheck(u32 start, u32 end);
+	static MemCheck *GetMemCheckLocked(u32 address, int size);
 
 	static std::vector<BreakPoint> breakPoints_;
 	static u32 breakSkipFirstAt_;
