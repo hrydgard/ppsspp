@@ -585,7 +585,6 @@ void Advance()
 	int cyclesExecuted = slicelength - currentMIPS->downcount;
 	globalTimer += cyclesExecuted;
 	currentMIPS->downcount = slicelength;
-	VERBOSE_LOG(SCEDISPLAY, "CoreTiming: Event type '%s'", event_types[first->type].name);
 
 	if (Common::AtomicLoadAcquire(hasTsEvents))
 		MoveEvents();
