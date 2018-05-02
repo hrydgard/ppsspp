@@ -17,11 +17,13 @@
 
 #include <algorithm>
 #include "base/stringutil.h"
+#include "util/text/utf8.h"
 #include "Core/Debugger/Breakpoints.h"
 #include "Core/Debugger/DisassemblyManager.h"
 #include "Core/Debugger/WebSocket/DisasmSubscriber.h"
 #include "Core/Debugger/WebSocket/WebSocketUtils.h"
 #include "Core/MemMap.h"
+#include "Core/MIPS/MIPSAsm.h"
 #include "Core/MIPS/MIPSDebugInterface.h"
 
 struct WebSocketDisasmState {
@@ -31,6 +33,7 @@ struct WebSocketDisasmState {
 
 	void Base(DebuggerRequest &req);
 	void Disasm(DebuggerRequest &req);
+	void Assemble(DebuggerRequest &req);
 
 protected:
 	void WriteDisasmLine(JsonWriter &json, const DisassemblyLineInfo &l);
@@ -43,6 +46,7 @@ void *WebSocketDisasmInit(DebuggerEventHandlerMap &map) {
 	auto p = new WebSocketDisasmState();
 	map["memory.base"] = std::bind(&WebSocketDisasmState::Base, p, std::placeholders::_1);
 	map["memory.disasm"] = std::bind(&WebSocketDisasmState::Disasm, p, std::placeholders::_1);
+	map["memory.assemble"] = std::bind(&WebSocketDisasmState::Assemble, p, std::placeholders::_1);
 
 	return p;
 }
@@ -285,8 +289,8 @@ void WebSocketDisasmState::Disasm(DebuggerRequest &req) {
 
 	json.pushArray("lines");
 	DisassemblyLineInfo line;
-	u32 addr = start;
-	for (u32 i = 0; i < count; ++i) {
+	uint32_t addr = start;
+	for (uint32_t i = 0; i < count; ++i) {
 		disasm_.getLine(addr, displaySymbols, line);
 		WriteDisasmLine(json, line);
 		addr += line.totalSize;
@@ -302,4 +306,23 @@ void WebSocketDisasmState::Disasm(DebuggerRequest &req) {
 	for (auto bl : branchGuides)
 		WriteBranchGuide(json, bl);
 	json.pop();
+}
+
+void WebSocketDisasmState::Assemble(DebuggerRequest &req) {
+	if (!currentDebugMIPS->isAlive() || !Memory::IsActive()) {
+		return req.Fail("CPU not started");
+	}
+
+	uint32_t address;
+	if (!req.ParamU32("address", &address))
+		return;
+	std::string code;
+	if (!req.ParamString("code", &code))
+		return;
+
+	if (!MIPSAsm::MipsAssembleOpcode(code.c_str(), currentDebugMIPS, address))
+		return req.Fail(StringFromFormat("Could not assemble: %s", ConvertWStringToUTF8(MIPSAsm::GetAssembleError()).c_str()));
+
+	JsonWriter &json = req.Respond();
+	json.writeUint("encoding", Memory::Read_Instruction(address).encoding);
 }

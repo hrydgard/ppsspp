@@ -271,7 +271,7 @@ void WebSocketCPUGetReg(DebuggerRequest &req) {
 	json.writeString("floatValue", RegValueAsFloat(val));
 }
 
-// Retrieve the value of a single register (cpu.getReg)
+// Update the value of a single register (cpu.setReg)
 //
 // Parameters (by name):
 //  - name: string name of register to lookup.
