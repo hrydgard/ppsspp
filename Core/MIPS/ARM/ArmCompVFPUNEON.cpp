@@ -159,6 +159,7 @@ void ArmJit::CompNEON_VecDo3(MIPSOpcode op) {
 
 void ArmJit::CompNEON_SV(MIPSOpcode op) {
 	CONDITIONAL_DISABLE;
+	CheckMemoryBreakpoint();
 	
 	// Remember to use single lane stores here and not VLDR/VSTR - switching usage
 	// between NEON and VFPU can be expensive on some chips.
@@ -276,6 +277,7 @@ inline int MIPS_GET_VQVT(u32 op) {
 
 void ArmJit::CompNEON_SVQ(MIPSOpcode op) {
 	CONDITIONAL_DISABLE;
+	CheckMemoryBreakpoint();
 
 	int offset = (signed short)(op & 0xFFFC);
 	int vt = MIPS_GET_VQVT(op.encoding);
