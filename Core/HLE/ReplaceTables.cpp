@@ -152,10 +152,10 @@ static int Replace_memcpy() {
 		}
 	}
 	RETURN(destPtr);
-#ifndef MOBILE_DEVICE
+
 	CBreakPoints::ExecMemCheck(srcPtr, false, bytes, currentMIPS->pc);
 	CBreakPoints::ExecMemCheck(destPtr, true, bytes, currentMIPS->pc);
-#endif
+
 	return 10 + bytes / 4;  // approximation
 }
 
@@ -194,10 +194,10 @@ static int Replace_memcpy_jak() {
 	currentMIPS->r[MIPS_REG_A2] = 0;
 	currentMIPS->r[MIPS_REG_A3] = destPtr + bytes;
 	RETURN(destPtr);
-#ifndef MOBILE_DEVICE
+
 	CBreakPoints::ExecMemCheck(srcPtr, false, bytes, currentMIPS->pc);
 	CBreakPoints::ExecMemCheck(destPtr, true, bytes, currentMIPS->pc);
-#endif
+
 	return 5 + bytes * 8 + 2;  // approximation. This is a slow memcpy - a byte copy loop..
 }
 
@@ -222,10 +222,10 @@ static int Replace_memcpy16() {
 		}
 	}
 	RETURN(destPtr);
-#ifndef MOBILE_DEVICE
+
 	CBreakPoints::ExecMemCheck(srcPtr, false, bytes, currentMIPS->pc);
 	CBreakPoints::ExecMemCheck(destPtr, true, bytes, currentMIPS->pc);
-#endif
+
 	return 10 + bytes / 4;  // approximation
 }
 
@@ -260,10 +260,10 @@ static int Replace_memcpy_swizzled() {
 	}
 
 	RETURN(0);
-#ifndef MOBILE_DEVICE
+
 	CBreakPoints::ExecMemCheck(srcPtr, false, pitch * h, currentMIPS->pc);
 	CBreakPoints::ExecMemCheck(destPtr, true, pitch * h, currentMIPS->pc);
-#endif
+
 	return 10 + (pitch * h) / 4;  // approximation
 }
 
@@ -288,10 +288,10 @@ static int Replace_memmove() {
 		}
 	}
 	RETURN(destPtr);
-#ifndef MOBILE_DEVICE
+
 	CBreakPoints::ExecMemCheck(srcPtr, false, bytes, currentMIPS->pc);
 	CBreakPoints::ExecMemCheck(destPtr, true, bytes, currentMIPS->pc);
-#endif
+
 	return 10 + bytes / 4;  // approximation
 }
 
@@ -310,9 +310,9 @@ static int Replace_memset() {
 		}
 	}
 	RETURN(destPtr);
-#ifndef MOBILE_DEVICE
+
 	CBreakPoints::ExecMemCheck(destPtr, true, bytes, currentMIPS->pc);
-#endif
+
 	return 10 + bytes / 4;  // approximation
 }
 
@@ -342,9 +342,8 @@ static int Replace_memset_jak() {
 	currentMIPS->r[MIPS_REG_A3] = -1;
 	RETURN(destPtr);
 
-#ifndef MOBILE_DEVICE
 	CBreakPoints::ExecMemCheck(destPtr, true, bytes, currentMIPS->pc);
-#endif
+
 	return 5 + bytes * 6 + 2;  // approximation (hm, inspecting the disasm this should be 5 + 6 * bytes + 2, but this is what works..)
 }
 
@@ -591,11 +590,9 @@ static int Replace_dl_write_matrix() {
 #endif
 	}
 
-#ifndef MOBILE_DEVICE
 	CBreakPoints::ExecMemCheck(PARAM(2), false, count * sizeof(float), currentMIPS->pc);
 	CBreakPoints::ExecMemCheck(PARAM(0) + 2 * sizeof(u32), true, sizeof(u32), currentMIPS->pc);
 	CBreakPoints::ExecMemCheck(dlStruct[2], true, (count + 1) * sizeof(u32), currentMIPS->pc);
-#endif
 
 	dlStruct[2] += (1 + count) * 4;
 	RETURN(dlStruct[2]);
