@@ -588,7 +588,6 @@ static void DoFrameTiming(bool &throttle, bool &skipFrame, float timestep) {
 
 static void DoFrameIdleTiming() {
 	PROFILE_THIS_SCOPE("timing");
-
 	if (!FrameTimingThrottled() || !g_Config.bEnableSound || wasPaused) {
 		return;
 	}
@@ -911,8 +910,6 @@ u32 sceDisplaySetFramebuf(u32 topaddr, int linesize, int pixelformat, int sync) 
 		// sceDisplaySetFramebuf() isn't supposed to delay threads at all.  This is a hack.
 		// So let's only delay when it's more than 1ms.
 		const s64 FLIP_DELAY_CYCLES_MIN = usToCycles(1000);
-		// Though if we are super early, we also don't want to delay because the game is being silly like in #10763
-		const s64 FLIP_DELAY_CYCLES_MAX = usToCycles(16000);  // This is slightly less than a full frame at 60hz, 16666
 		// Some games (like Final Fantasy 4) only call this too much in spurts.
 		// The goal is to fix games where this would result in a consistent overhead.
 		const int FLIP_DELAY_MIN_FLIPS = 30;
@@ -922,7 +919,7 @@ u32 sceDisplaySetFramebuf(u32 topaddr, int linesize, int pixelformat, int sync) 
 
 		u64 now = CoreTiming::GetTicks();
 		s64 cyclesAhead = nextFlipCycles - now;
-		if (cyclesAhead > FLIP_DELAY_CYCLES_MIN && (cyclesAhead < FLIP_DELAY_CYCLES_MAX || PSP_CoreParameter().unthrottle)) {
+		if (cyclesAhead > FLIP_DELAY_CYCLES_MIN) {
 			if (lastFlipsTooFrequent >= FLIP_DELAY_MIN_FLIPS && gpuStats.numClears > 0) {
 				delayCycles = cyclesAhead;
 			} else {
