@@ -313,8 +313,6 @@ public:
 
 	const u8 *restoreRoundingMode;
 	const u8 *applyRoundingMode;
-
-	const u8 *breakpointBailout;
 };
 
 }	// namespace MIPSComp

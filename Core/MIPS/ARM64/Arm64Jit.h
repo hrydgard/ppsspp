@@ -274,8 +274,6 @@ public:
 	const u8 *dispatcher;
 	const u8 *dispatcherNoCheck;
 
-	const u8 *breakpointBailout;
-
 	const u8 *saveStaticRegisters;
 	const u8 *loadStaticRegisters;
 

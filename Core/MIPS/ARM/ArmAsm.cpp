@@ -238,7 +238,6 @@ void ArmJit::GenerateFixedCode() {
 		B_CC(CC_EQ, outerLoop);
 
 	SetJumpTarget(badCoreState);
-	breakpointBailout = GetCodePtr();
 
 	SaveDowncount();
 	RestoreRoundingMode(true);
