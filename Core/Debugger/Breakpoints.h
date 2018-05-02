@@ -156,7 +156,7 @@ public:
 	static u32 CheckSkipFirst();
 
 	// Includes uncached addresses.
-	static const std::vector<MemCheck> GetMemCheckRanges();
+	static const std::vector<MemCheck> GetMemCheckRanges(bool write);
 
 	static const std::vector<MemCheck> GetMemChecks();
 	static const std::vector<BreakPoint> GetBreakpoints();

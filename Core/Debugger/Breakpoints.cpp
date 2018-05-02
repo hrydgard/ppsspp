@@ -488,17 +488,20 @@ u32 CBreakPoints::CheckSkipFirst()
 	return 0;
 }
 
-const std::vector<MemCheck> CBreakPoints::GetMemCheckRanges()
-{
+const std::vector<MemCheck> CBreakPoints::GetMemCheckRanges(bool write) {
 	std::vector<MemCheck> ranges = memChecks_;
-	for (auto it = memChecks_.begin(), end = memChecks_.end(); it != end; ++it)
-	{
-		MemCheck check = *it;
+	for (const auto &check : memChecks_) {
+		if (!(check.cond & MEMCHECK_READ) && !write)
+			continue;
+		if (!(check.cond & MEMCHECK_WRITE) && write)
+			continue;
+
+		MemCheck copy = check;
 		// Toggle the cached part of the address.
-		check.start ^= 0x40000000;
-		if (check.end != 0)
-			check.end ^= 0x40000000;
-		ranges.push_back(check);
+		copy.start ^= 0x40000000;
+		if (copy.end != 0)
+			copy.end ^= 0x40000000;
+		ranges.push_back(copy);
 	}
 
 	return ranges;

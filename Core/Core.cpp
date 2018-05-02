@@ -272,6 +272,8 @@ void Core_ProcessStepping() {
 		return;
 	}
 
+	// We're not inside jit now, so it's safe to clear the breakpoints.
+	CBreakPoints::ClearTemporaryBreakPoints();
 	host->UpdateDisassembly();
 	host->UpdateMemView();
 
