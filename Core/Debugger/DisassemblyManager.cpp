@@ -524,7 +524,8 @@ void DisassemblyFunction::generateBranchLines()
 
 		if (lane == -1)
 		{
-			// error
+			// Let's just pile on.
+			lines[i].laneIndex = 15;
 			continue;
 		}
 

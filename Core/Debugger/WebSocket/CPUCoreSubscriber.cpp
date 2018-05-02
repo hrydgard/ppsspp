@@ -18,6 +18,7 @@
 #include "Common/StringUtils.h"
 #include "Core/Core.h"
 #include "Core/CoreTiming.h"
+#include "Core/Debugger/Breakpoints.h"
 #include "Core/Debugger/WebSocket/CPUCoreSubscriber.h"
 #include "Core/Debugger/WebSocket/WebSocketUtils.h"
 #include "Core/MIPS/MIPS.h"
@@ -71,6 +72,7 @@ void WebSocketCPUResume(DebuggerRequest &req) {
 		return req.Fail("CPU not stepping");
 	}
 
+	CBreakPoints::SetSkipFirst(currentMIPS->pc);
 	if (currentMIPS->inDelaySlot) {
 		Core_DoSingleStep();
 	}
