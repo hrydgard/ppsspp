@@ -616,14 +616,19 @@ void VulkanRenderManager::Clear(uint32_t clearColor, float clearZ, int clearSten
 	_dbg_assert_(G3D, curRenderStep_ && curRenderStep_->stepType == VKRStepType::RENDER);
 	if (!clearMask)
 		return;
-	// If this is the first drawing command, merge it into the pass.
-	if (curRenderStep_->render.numDraws == 0) {
+	// If this is the first drawing command or clears everything, merge it into the pass.
+	int allAspects = VK_IMAGE_ASPECT_COLOR_BIT | VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT;
+	if (curRenderStep_->render.numDraws == 0 || clearMask == allAspects) {
 		curRenderStep_->render.clearColor = clearColor;
 		curRenderStep_->render.clearDepth = clearZ;
 		curRenderStep_->render.clearStencil = clearStencil;
 		curRenderStep_->render.color = (clearMask & VK_IMAGE_ASPECT_COLOR_BIT) ? VKRRenderPassAction::CLEAR : VKRRenderPassAction::KEEP;
 		curRenderStep_->render.depth = (clearMask & VK_IMAGE_ASPECT_DEPTH_BIT) ? VKRRenderPassAction::CLEAR : VKRRenderPassAction::KEEP;
 		curRenderStep_->render.stencil = (clearMask & VK_IMAGE_ASPECT_STENCIL_BIT) ? VKRRenderPassAction::CLEAR : VKRRenderPassAction::KEEP;
+
+		// In case there were commands already.
+		curRenderStep_->render.numDraws = 0;
+		curRenderStep_->commands.clear();
 	} else {
 		VkRenderData data{ VKRRenderCommand::CLEAR };
 		data.clear.clearColor = clearColor;
