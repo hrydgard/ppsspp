@@ -615,9 +615,11 @@ bool VulkanRenderManager::InitDepthStencilBuffer(VkCommandBuffer cmd) {
 
 static void RemoveDrawCommands(std::vector<VkRenderData> *cmds) {
 	// Here we remove any DRAW type commands when we hit a CLEAR.
-	cmds->erase(std::remove_if(cmds->begin(), cmds->end(), [](const VkRenderData &data) {
-		return data.cmd == VKRRenderCommand::DRAW || data.cmd == VKRRenderCommand::DRAW_INDEXED;
-	}), cmds->end());
+	for (auto &c : *cmds) {
+		if (c.cmd == VKRRenderCommand::DRAW || c.cmd == VKRRenderCommand::DRAW_INDEXED) {
+			c.cmd = VKRRenderCommand::REMOVED;
+		}
+	}
 }
 
 static void CleanupRenderCommands(std::vector<VkRenderData> *cmds) {
@@ -631,7 +633,6 @@ static void CleanupRenderCommands(std::vector<VkRenderData> *cmds) {
 
 		switch (c.cmd) {
 		case VKRRenderCommand::REMOVED:
-			// Ignore, in case some other code starts using this.
 			continue;
 
 		case VKRRenderCommand::BIND_PIPELINE:
@@ -671,10 +672,6 @@ static void CleanupRenderCommands(std::vector<VkRenderData> *cmds) {
 			cmds->at(lastOfCmd).cmd = VKRRenderCommand::REMOVED;
 		}
 	}
-
-	cmds->erase(std::remove_if(cmds->begin(), cmds->end(), [](const VkRenderData &data) {
-		return data.cmd == VKRRenderCommand::REMOVED;
-	}), cmds->end());
 }
 
 void VulkanRenderManager::Clear(uint32_t clearColor, float clearZ, int clearStencil, int clearMask) {

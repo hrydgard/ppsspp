@@ -612,7 +612,7 @@ void VulkanQueueRunner::LogRenderPass(const VKRStep &pass) {
 	for (auto &cmd : pass.commands) {
 		switch (cmd.cmd) {
 		case VKRRenderCommand::REMOVED:
-			ILOG("  REMOVED");
+			ILOG("  (Removed)");
 			break;
 
 		case VKRRenderCommand::BIND_PIPELINE:
