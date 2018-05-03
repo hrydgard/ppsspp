@@ -1,3 +1,4 @@
+#include <algorithm>
 #include <cstdint>
 
 #include "Common/Log.h"
@@ -612,6 +613,67 @@ bool VulkanRenderManager::InitDepthStencilBuffer(VkCommandBuffer cmd) {
 	return true;
 }
 
+static void RemoveDrawCommands(std::vector<VkRenderData> *cmds) {
+	// Here we remove any DRAW type commands when we hit a CLEAR.
+	for (auto &c : *cmds) {
+		if (c.cmd == VKRRenderCommand::DRAW || c.cmd == VKRRenderCommand::DRAW_INDEXED) {
+			c.cmd = VKRRenderCommand::REMOVED;
+		}
+	}
+}
+
+static void CleanupRenderCommands(std::vector<VkRenderData> *cmds) {
+	size_t lastCommand[256];
+	memset(lastCommand, -1, sizeof(lastCommand));
+
+	// Find any duplicate state commands (likely from RemoveDrawCommands.)
+	for (size_t i = 0; i < cmds->size(); ++i) {
+		auto &c = cmds->at(i);
+		auto &lastOfCmd = lastCommand[(uint8_t)c.cmd];
+
+		switch (c.cmd) {
+		case VKRRenderCommand::REMOVED:
+			continue;
+
+		case VKRRenderCommand::BIND_PIPELINE:
+		case VKRRenderCommand::VIEWPORT:
+		case VKRRenderCommand::SCISSOR:
+		case VKRRenderCommand::BLEND:
+		case VKRRenderCommand::STENCIL:
+			if (lastOfCmd != -1) {
+				cmds->at(lastOfCmd).cmd = VKRRenderCommand::REMOVED;
+			}
+			break;
+
+		case VKRRenderCommand::PUSH_CONSTANTS:
+			// TODO: For now, we have to keep this one (it has an offset.)  Still update lastCommand.
+			break;
+
+		case VKRRenderCommand::CLEAR:
+			// Ignore, doesn't participate in state.
+			continue;
+
+		case VKRRenderCommand::DRAW_INDEXED:
+		case VKRRenderCommand::DRAW:
+		default:
+			// Boundary - must keep state before this.
+			memset(lastCommand, -1, sizeof(lastCommand));
+			continue;
+		}
+
+		lastOfCmd = i;
+	}
+
+	// At this point, anything in lastCommand can be cleaned up too.
+	// Note that it's safe to remove the last unused PUSH_CONSTANTS here.
+	for (size_t i = 0; i < ARRAY_SIZE(lastCommand); ++i) {
+		auto &lastOfCmd = lastCommand[i];
+		if (lastOfCmd != -1) {
+			cmds->at(lastOfCmd).cmd = VKRRenderCommand::REMOVED;
+		}
+	}
+}
+
 void VulkanRenderManager::Clear(uint32_t clearColor, float clearZ, int clearStencil, int clearMask) {
 	_dbg_assert_(G3D, curRenderStep_ && curRenderStep_->stepType == VKRStepType::RENDER);
 	if (!clearMask)
@@ -628,7 +690,7 @@ void VulkanRenderManager::Clear(uint32_t clearColor, float clearZ, int clearSten
 
 		// In case there were commands already.
 		curRenderStep_->render.numDraws = 0;
-		curRenderStep_->commands.clear();
+		RemoveDrawCommands(&curRenderStep_->commands);
 	} else {
 		VkRenderData data{ VKRRenderCommand::CLEAR };
 		data.clear.clearColor = clearColor;
@@ -738,6 +800,14 @@ VkImageView VulkanRenderManager::BindFramebufferAsTexture(VKRFramebuffer *fb, in
 
 void VulkanRenderManager::Finish() {
 	curRenderStep_ = nullptr;
+
+	// Let's do just a bit of cleanup on render commands now.
+	for (auto &step : steps_) {
+		if (step->stepType == VKRStepType::RENDER) {
+			CleanupRenderCommands(&step->commands);
+		}
+	}
+
 	int curFrame = vulkan_->GetCurFrame();
 	FrameData &frameData = frameData_[curFrame];
 	if (!useThread_) {
