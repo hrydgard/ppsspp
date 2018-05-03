@@ -16,6 +16,7 @@
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
 #include <algorithm>
+#include <cctype>
 #include "base/stringutil.h"
 #include "util/text/utf8.h"
 #include "Core/Debugger/Breakpoints.h"
@@ -33,11 +34,13 @@ struct WebSocketDisasmState {
 
 	void Base(DebuggerRequest &req);
 	void Disasm(DebuggerRequest &req);
+	void SearchDisasm(DebuggerRequest &req);
 	void Assemble(DebuggerRequest &req);
 
 protected:
 	void WriteDisasmLine(JsonWriter &json, const DisassemblyLineInfo &l);
 	void WriteBranchGuide(JsonWriter &json, const BranchLine &l);
+	uint32_t RoundAddressUp(uint32_t addr);
 
 	DisassemblyManager disasm_;
 };
@@ -46,6 +49,7 @@ void *WebSocketDisasmInit(DebuggerEventHandlerMap &map) {
 	auto p = new WebSocketDisasmState();
 	map["memory.base"] = std::bind(&WebSocketDisasmState::Base, p, std::placeholders::_1);
 	map["memory.disasm"] = std::bind(&WebSocketDisasmState::Disasm, p, std::placeholders::_1);
+	map["memory.searchDisasm"] = std::bind(&WebSocketDisasmState::SearchDisasm, p, std::placeholders::_1);
 	map["memory.assemble"] = std::bind(&WebSocketDisasmState::Assemble, p, std::placeholders::_1);
 
 	return p;
@@ -97,9 +101,9 @@ void WebSocketDisasmState::WriteDisasmLine(JsonWriter &json, const DisassemblyLi
 		json.writeBool("enabled", enabled);
 		auto cond = CBreakPoints::GetBreakPointCondition(addr);
 		if (cond)
-			json.writeString("expression", cond->expressionString);
+			json.writeString("condition", cond->expressionString);
 		else
-			json.writeNull("expression");
+			json.writeNull("condition");
 		json.pop();
 	} else {
 		json.writeNull("breakpoint");
@@ -192,6 +196,18 @@ void WebSocketDisasmState::WriteBranchGuide(JsonWriter &json, const BranchLine &
 		json.writeString("direction", "right");
 	json.writeInt("lane", l.laneIndex);
 	json.pop();
+}
+
+uint32_t WebSocketDisasmState::RoundAddressUp(uint32_t addr) {
+	if (addr < PSP_GetScratchpadMemoryBase())
+		return PSP_GetScratchpadMemoryBase();
+	else if (addr >= PSP_GetScratchpadMemoryEnd() && addr < PSP_GetVidMemBase())
+		return PSP_GetVidMemBase();
+	else if (addr >= PSP_GetVidMemEnd() && addr < PSP_GetKernelMemoryBase())
+		return PSP_GetKernelMemoryBase();
+	else if (addr >= PSP_GetUserMemoryEnd())
+		return PSP_GetScratchpadMemoryBase();
+	return addr;
 }
 
 // Request the current PSP memory base address (memory.base)
@@ -306,6 +322,75 @@ void WebSocketDisasmState::Disasm(DebuggerRequest &req) {
 	for (auto bl : branchGuides)
 		WriteBranchGuide(json, bl);
 	json.pop();
+}
+
+void WebSocketDisasmState::SearchDisasm(DebuggerRequest &req) {
+	if (!currentDebugMIPS->isAlive() || !Memory::IsActive()) {
+		return req.Fail("CPU not started");
+	}
+
+	uint32_t start;
+	if (!req.ParamU32("address", &start))
+		return;
+	uint32_t end = start;
+	if (!req.ParamU32("end", &end, false, DebuggerParamType::OPTIONAL))
+		return;
+	std::string match;
+	if (!req.ParamString("match", &match))
+		return;
+	bool displaySymbols = true;
+	if (!req.ParamBool("displaySymbols", &displaySymbols, DebuggerParamType::OPTIONAL))
+		return;
+
+	bool loopSearch = end <= start;
+	start = RoundAddressUp(start);
+	if ((end <= start) != loopSearch) {
+		// We must've passed end by rounding up.
+		JsonWriter &json = req.Respond();
+		json.writeNull("address");
+		return;
+	}
+
+	// We do this after the check in case both were in unused memory.
+	end = RoundAddressUp(end);
+
+	std::transform(match.begin(), match.end(), match.begin(), ::tolower);
+
+	DisassemblyLineInfo line;
+	bool found = false;
+	uint32_t addr = start;
+	do {
+		disasm_.getLine(addr, displaySymbols, line);
+		const std::string addressSymbol = g_symbolMap->GetLabelString(addr);
+
+		std::string mergeForSearch;
+		// Address+space (9) + symbol + colon+space (2) + name + space(1) + params = 12 fixed size worst case.
+		mergeForSearch.resize(12 + addressSymbol.size() + line.name.size() + line.params.size());
+
+		sprintf(&mergeForSearch[0], "%08x ", addr);
+		auto inserter = mergeForSearch.begin() + 9;
+		if (!addressSymbol.empty()) {
+			inserter = std::transform(addressSymbol.begin(), addressSymbol.end(), inserter, ::tolower);
+			*inserter++ = ':';
+			*inserter++ = ' ';
+		}
+		inserter = std::transform(line.name.begin(), line.name.end(), inserter, ::tolower);
+		*inserter++ = ' ';
+		inserter = std::transform(line.params.begin(), line.params.end(), inserter, ::tolower);
+
+		if (mergeForSearch.find(match) != mergeForSearch.npos) {
+			found = true;
+			break;
+		}
+
+		addr = RoundAddressUp(addr + line.totalSize);
+	} while (addr != end);
+
+	JsonWriter &json = req.Respond();
+	if (found)
+		json.writeUint("address", addr);
+	else
+		json.writeNull("address");
 }
 
 void WebSocketDisasmState::Assemble(DebuggerRequest &req) {
