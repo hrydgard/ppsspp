@@ -1404,6 +1404,8 @@ add_library(${CoreLibName} ${CoreLinkType}
 	Core/Debugger/DisassemblyManager.h
 	Core/Debugger/WebSocket.cpp
 	Core/Debugger/WebSocket.h
+	Core/Debugger/WebSocket/BreakpointSubscriber.cpp
+	Core/Debugger/WebSocket/BreakpointSubscriber.h
 	Core/Debugger/WebSocket/CPUCoreSubscriber.cpp
 	Core/Debugger/WebSocket/CPUCoreSubscriber.h
 	Core/Debugger/WebSocket/DisasmSubscriber.cpp

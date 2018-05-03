@@ -47,6 +47,7 @@
 #include "Core/Debugger/WebSocket/LogBroadcaster.h"
 #include "Core/Debugger/WebSocket/SteppingBroadcaster.h"
 
+#include "Core/Debugger/WebSocket/BreakpointSubscriber.h"
 #include "Core/Debugger/WebSocket/CPUCoreSubscriber.h"
 #include "Core/Debugger/WebSocket/DisasmSubscriber.h"
 #include "Core/Debugger/WebSocket/GameSubscriber.h"
@@ -60,6 +61,7 @@ struct SubscriberInfo {
 };
 
 static const std::vector<SubscriberInfo> subscribers({
+	{ &WebSocketBreakpointInit, nullptr },
 	{ &WebSocketCPUCoreInit, nullptr },
 	{ &WebSocketDisasmInit, &WebSocketDisasmShutdown },
 	{ &WebSocketGameInit, nullptr },

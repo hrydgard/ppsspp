@@ -302,6 +302,7 @@ EXEC_AND_LIB_FILES := \
   $(SRC)/Core/Debugger/DisassemblyManager.cpp \
   $(SRC)/Core/Debugger/SymbolMap.cpp \
   $(SRC)/Core/Debugger/WebSocket.cpp \
+  $(SRC)/Core/Debugger/WebSocket/BreakpointSubscriber.cpp \
   $(SRC)/Core/Debugger/WebSocket/CPUCoreSubscriber.cpp \
   $(SRC)/Core/Debugger/WebSocket/DisasmSubscriber.cpp \
   $(SRC)/Core/Debugger/WebSocket/GameBroadcaster.cpp \

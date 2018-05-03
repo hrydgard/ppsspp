@@ -185,6 +185,7 @@
     <ClCompile Include="..\ext\udis86\udis86.c" />
     <ClCompile Include="AVIDump.cpp" />
     <ClCompile Include="Debugger\WebSocket.cpp" />
+    <ClCompile Include="Debugger\WebSocket\BreakpointSubscriber.cpp" />
     <ClCompile Include="Debugger\WebSocket\CPUCoreSubscriber.cpp" />
     <ClCompile Include="Debugger\WebSocket\GameBroadcaster.cpp" />
     <ClCompile Include="Debugger\WebSocket\GameSubscriber.cpp" />
@@ -542,6 +543,7 @@
     <ClInclude Include="..\ext\udis86\udis86.h" />
     <ClInclude Include="AVIDump.h" />
     <ClInclude Include="Debugger\WebSocket.h" />
+    <ClInclude Include="Debugger\WebSocket\BreakpointSubscriber.h" />
     <ClInclude Include="Debugger\WebSocket\GameSubscriber.h" />
     <ClInclude Include="Debugger\WebSocket\DisasmSubscriber.h" />
     <ClInclude Include="Debugger\WebSocket\SteppingSubscriber.h" />

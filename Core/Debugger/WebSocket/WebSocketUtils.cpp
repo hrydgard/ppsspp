@@ -85,6 +85,17 @@ static bool U32FromString(const char *str, uint32_t *out, bool allowFloat) {
 	return false;
 }
 
+bool DebuggerRequest::HasParam(const char *name, bool ignoreNull) {
+	const JsonNode *node = data.get(name);
+	if (!node) {
+		return false;
+	}
+	if (node->value.getTag() == JSON_NULL) {
+		return !ignoreNull;
+	}
+	return true;
+}
+
 bool DebuggerRequest::ParamU32(const char *name, uint32_t *out, bool allowFloatBits, DebuggerParamType type) {
 	bool allowLoose = type == DebuggerParamType::REQUIRED_LOOSE || type == DebuggerParamType::OPTIONAL_LOOSE;
 	bool required = type == DebuggerParamType::REQUIRED || type == DebuggerParamType::REQUIRED_LOOSE;
@@ -136,7 +147,7 @@ bool DebuggerRequest::ParamU32(const char *name, uint32_t *out, bool allowFloatB
 		return false;
 	}
 	if (tag != JSON_STRING) {
-		if (required || tag != JSON_NULL) {
+		if (type == DebuggerParamType::REQUIRED || tag != JSON_NULL) {
 			Fail(StringFromFormat("Invalid '%s' parameter type", name));
 			return false;
 		}
