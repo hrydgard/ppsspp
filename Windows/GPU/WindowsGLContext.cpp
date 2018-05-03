@@ -249,7 +249,7 @@ bool WindowsGLContext::InitFromRenderThread(std::string *error_message) {
 			ExitProcess(1);
 		}
 		const char *defaultError = "Insufficient OpenGL driver support detected!\n\n"
-			"Your GPU reports that it does not support OpenGL 2.0. Would you like to try using DirectX 9 instead?\n\n"
+			"Your GPU reports that it does not support OpenGL 2.0. Would you like to try using DirectX instead?\n\n"
 			"DirectX is currently compatible with less games, but on your GPU it may be the only choice.\n\n"
 			"Visit the forums at http://forums.ppsspp.org for more information.\n\n";
 
@@ -262,7 +262,10 @@ bool WindowsGLContext::InitFromRenderThread(std::string *error_message) {
 
 		if (yes) {
 			// Change the config to D3D and restart.
-			g_Config.iGPUBackend = (int)GPUBackend::DIRECT3D9;
+			const char *d3d9Or11 = "Direct3D 9? (Or no for Direct3D 11)";
+			std::wstring whichD3D9 = ConvertUTF8ToWString(err->T("D3D9or11", d3d9Or11));
+			bool d3d9 = IDYES == MessageBox(hWnd_, whichD3D9.c_str(), title.c_str(), MB_YESNO);
+			g_Config.iGPUBackend = d3d9 ? (int)GPUBackend::DIRECT3D9 : (int)GPUBackend::DIRECT3D11;
 			g_Config.Save();
 
 			W32Util::ExitAndRestart();

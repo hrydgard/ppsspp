@@ -623,7 +623,7 @@ static void RemoveDrawCommands(std::vector<VkRenderData> *cmds) {
 }
 
 static void CleanupRenderCommands(std::vector<VkRenderData> *cmds) {
-	size_t lastCommand[256];
+	size_t lastCommand[(int)VKRRenderCommand::NUM_RENDER_COMMANDS];
 	memset(lastCommand, -1, sizeof(lastCommand));
 
 	// Find any duplicate state commands (likely from RemoveDrawCommands.)
