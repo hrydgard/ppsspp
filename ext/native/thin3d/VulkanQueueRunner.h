@@ -16,6 +16,7 @@ enum {
 };
 
 enum class VKRRenderCommand : uint8_t {
+	REMOVED,
 	BIND_PIPELINE,
 	STENCIL,
 	BLEND,

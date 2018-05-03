@@ -611,6 +611,10 @@ void VulkanQueueRunner::LogRenderPass(const VKRStep &pass) {
 	ILOG("RenderPass Begin(%x)", fb);
 	for (auto &cmd : pass.commands) {
 		switch (cmd.cmd) {
+		case VKRRenderCommand::REMOVED:
+			ILOG("  REMOVED");
+			break;
+
 		case VKRRenderCommand::BIND_PIPELINE:
 			ILOG("  BindPipeline(%x)", (int)(intptr_t)cmd.pipeline.pipeline);
 			break;
@@ -733,6 +737,9 @@ void VulkanQueueRunner::PerformRenderPass(const VKRStep &step, VkCommandBuffer c
 
 	for (const auto &c : commands) {
 		switch (c.cmd) {
+		case VKRRenderCommand::REMOVED:
+			break;
+
 		case VKRRenderCommand::BIND_PIPELINE:
 			if (c.pipeline.pipeline != lastPipeline) {
 				vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, c.pipeline.pipeline);
