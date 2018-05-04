@@ -180,7 +180,10 @@ public:
 
 	void SetLineWidth(float lineWidth);
 	void SetDepalTexture(VkImageView depal) {
-		boundDepal_ = depal;
+		if (boundDepal_ != depal) {
+			boundDepal_ = depal;
+			gstate_c.Dirty(DIRTY_FRAGMENTSHADER_STATE);
+		}
 	}
 
 private:
