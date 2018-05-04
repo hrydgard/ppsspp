@@ -179,6 +179,8 @@ bool TestJit() {
 		std::vector<std::string> lines = DisassembleArm2(block->normalEntry, block->codeSize);
 #elif PPSSPP_ARCH(ARM64)
 		std::vector<std::string> lines = DisassembleArm64(block->normalEntry, block->codeSize);
+#elif defined(__wiiu__)
+		std::vector<std::string> lines = DisassemblePPC(block->normalEntry, block->codeSize);
 #else
 		std::vector<std::string> lines = DisassembleX86(block->normalEntry, block->codeSize);
 #endif

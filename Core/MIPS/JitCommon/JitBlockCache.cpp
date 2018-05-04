@@ -660,6 +660,8 @@ JitBlockDebugInfo JitBlockCache::GetBlockDebugInfo(int blockNum) const {
 	debugInfo.targetDisasm = DisassembleArm64(block->normalEntry, block->codeSize);
 #elif PPSSPP_ARCH(X86) || PPSSPP_ARCH(AMD64)
 	debugInfo.targetDisasm = DisassembleX86(block->normalEntry, block->codeSize);
+#elif defined(__wiiu__)
+	debugInfo.targetDisasm = DisassemblePPC(block->normalEntry, block->codeSize);
 #endif
 
 	return debugInfo;

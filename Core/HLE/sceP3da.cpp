@@ -48,11 +48,11 @@ static u32 sceP3daBridgeCore(u32 p3daCoreAddr, u32 channelsNum, u32 samplesNum, 
 	DEBUG_LOG(SCEAUDIO, "sceP3daBridgeCore(%08x, %08x, %08x, %08x, %08x)", p3daCoreAddr, channelsNum, samplesNum, inputAddr, outputAddr);
 	if (Memory::IsValidAddress(inputAddr) && Memory::IsValidAddress(outputAddr)) {
 		int scaleval = getScaleValue(channelsNum);
-		s16* outbuf = (s16*)Memory::GetPointer(outputAddr);
+		s16_le* outbuf = (s16_le*)Memory::GetPointer(outputAddr);
 		memset(outbuf, 0, samplesNum * sizeof(s16) * 2);
 		for (u32 k = 0; k < channelsNum; k++) {
 			u32 inaddr = Memory::Read_U32(inputAddr + k * 4);
-			s16 *inbuf = (s16*)Memory::GetPointer(inaddr);
+			s16_le *inbuf = (s16_le*)Memory::GetPointer(inaddr);
 			if (!inbuf)
 				continue;
 			for (u32 i = 0; i < samplesNum; i++) {

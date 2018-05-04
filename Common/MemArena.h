@@ -52,6 +52,8 @@ private:
 #elif defined(__APPLE__)
 	size_t vm_size;
 	vm_address_t vm_mem;  // same type as vm_address_t
+#elif defined(__wiiu__)
+	u8 *memblock = nullptr;
 #else
 	int fd;
 #endif

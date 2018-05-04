@@ -277,16 +277,16 @@ static inline u32 LookupColor(unsigned int index, unsigned int level)
 
 	switch (gstate.getClutPaletteFormat()) {
 	case GE_CMODE_16BIT_BGR5650:
-		return RGB565ToRGBA8888(reinterpret_cast<u16*>(clut)[index + clutSharingOffset]);
+		return RGB565ToRGBA8888(reinterpret_cast<u16_le*>(clut)[index + clutSharingOffset]);
 
 	case GE_CMODE_16BIT_ABGR5551:
-		return RGBA5551ToRGBA8888(reinterpret_cast<u16*>(clut)[index + clutSharingOffset]);
+		return RGBA5551ToRGBA8888(reinterpret_cast<u16_le*>(clut)[index + clutSharingOffset]);
 
 	case GE_CMODE_16BIT_ABGR4444:
-		return RGBA4444ToRGBA8888(reinterpret_cast<u16*>(clut)[index + clutSharingOffset]);
+		return RGBA4444ToRGBA8888(reinterpret_cast<u16_le*>(clut)[index + clutSharingOffset]);
 
 	case GE_CMODE_32BIT_ABGR8888:
-		return clut[index + clutSharingOffset];
+		return reinterpret_cast<u32_le*>(clut)[index + clutSharingOffset];
 
 	default:
 		ERROR_LOG_REPORT(G3D, "Software: Unsupported palette format: %x", gstate.getClutPaletteFormat());
@@ -319,35 +319,35 @@ inline static Nearest4 SampleNearest(int u[N], int v[N], const u8 *srcptr, int t
 	case GE_TFMT_4444:
 		for (int i = 0; i < N; ++i) {
 			const u8 *src = srcptr + GetPixelDataOffset<16>(texbufw, u[i], v[i]);
-			res.v[i] = RGBA4444ToRGBA8888(*(const u16 *)src);
+			res.v[i] = RGBA4444ToRGBA8888(*(const u16_le *)src);
 		}
 		return res;
 	
 	case GE_TFMT_5551:
 		for (int i = 0; i < N; ++i) {
 			const u8 *src = srcptr + GetPixelDataOffset<16>(texbufw, u[i], v[i]);
-			res.v[i] = RGBA5551ToRGBA8888(*(const u16 *)src);
+			res.v[i] = RGBA5551ToRGBA8888(*(const u16_le *)src);
 		}
 		return res;
 
 	case GE_TFMT_5650:
 		for (int i = 0; i < N; ++i) {
 			const u8 *src = srcptr + GetPixelDataOffset<16>(texbufw, u[i], v[i]);
-			res.v[i] = RGB565ToRGBA8888(*(const u16 *)src);
+			res.v[i] = RGB565ToRGBA8888(*(const u16_le *)src);
 		}
 		return res;
 
 	case GE_TFMT_8888:
 		for (int i = 0; i < N; ++i) {
 			const u8 *src = srcptr + GetPixelDataOffset<32>(texbufw, u[i], v[i]);
-			res.v[i] = *(const u32 *)src;
+			res.v[i] = *(const u32_le *)src;
 		}
 		return res;
 
 	case GE_TFMT_CLUT32:
 		for (int i = 0; i < N; ++i) {
 			const u8 *src = srcptr + GetPixelDataOffset<32>(texbufw, u[i], v[i]);
-			u32 val = src[0] + (src[1] << 8) + (src[2] << 16) + (src[3] << 24);
+			u32 val = *(u32_le *)src;
 			res.v[i] = LookupColor(gstate.transformClutIndex(val), 0);
 		}
 		return res;
@@ -355,7 +355,7 @@ inline static Nearest4 SampleNearest(int u[N], int v[N], const u8 *srcptr, int t
 	case GE_TFMT_CLUT16:
 		for (int i = 0; i < N; ++i) {
 			const u8 *src = srcptr + GetPixelDataOffset<16>(texbufw, u[i], v[i]);
-			u16 val = src[0] + (src[1] << 8);
+			u16 val = *(u16_le *)src;
 			res.v[i] = LookupColor(gstate.transformClutIndex(val), 0);
 		}
 		return res;
@@ -380,7 +380,7 @@ inline static Nearest4 SampleNearest(int u[N], int v[N], const u8 *srcptr, int t
 	case GE_TFMT_DXT1:
 		for (int i = 0; i < N; ++i) {
 			const DXT1Block *block = (const DXT1Block *)srcptr + (v[i] / 4) * (texbufw / 4) + (u[i] / 4);
-			u32 data[4 * 4];
+			u32_le data[4 * 4];
 			DecodeDXT1Block(data, block, 4, 4, false);
 			res.v[i] = data[4 * (v[i] % 4) + (u[i] % 4)];
 		}
@@ -389,7 +389,7 @@ inline static Nearest4 SampleNearest(int u[N], int v[N], const u8 *srcptr, int t
 	case GE_TFMT_DXT3:
 		for (int i = 0; i < N; ++i) {
 			const DXT3Block *block = (const DXT3Block *)srcptr + (v[i] / 4) * (texbufw / 4) + (u[i] / 4);
-			u32 data[4 * 4];
+			u32_le data[4 * 4];
 			DecodeDXT3Block(data, block, 4, 4);
 			res.v[i] = data[4 * (v[i] % 4) + (u[i] % 4)];
 		}
@@ -398,7 +398,7 @@ inline static Nearest4 SampleNearest(int u[N], int v[N], const u8 *srcptr, int t
 	case GE_TFMT_DXT5:
 		for (int i = 0; i < N; ++i) {
 			const DXT5Block *block = (const DXT5Block *)srcptr + (v[i] / 4) * (texbufw / 4) + (u[i] / 4);
-			u32 data[4 * 4];
+			u32_le data[4 * 4];
 			DecodeDXT5Block(data, block, 4, 4);
 			res.v[i] = data[4 * (v[i] % 4) + (u[i] % 4)];
 		}

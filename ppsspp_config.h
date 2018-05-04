@@ -72,6 +72,10 @@
     #endif
 #endif
 
+#if defined(__PPC__)
+    // we can't use PPC here since it could be pre-defined by the compiler
+    #define PPSSPP_ARCH_POWERPC 1
+#endif
 
 // PLATFORM defines
 #if defined(_WIN32)
@@ -111,12 +115,17 @@
 #elif defined(__ANDROID__)
     #define PPSSPP_PLATFORM_ANDROID 1
     #define PPSSPP_PLATFORM_LINUX 1
+#elif defined(__wiiu__)
+    #define PPSSPP_ARCH_32BIT 1
+    #define PPSSPP_ARCH_PPC750 1
+    #define PPSSPP_PLATFORM_WIIU 1
+    #define PPSSPP_API_GX2 1
 #elif defined(__linux__)
     #define PPSSPP_PLATFORM_LINUX 1
 #endif
 
-// Windows ARM/ARM64, and Windows UWP (all), are the only platform that don't do GL at all (until Apple finally removes it)
-#if !PPSSPP_PLATFORM(WINDOWS) || ((!PPSSPP_ARCH(ARM) && !PPSSPP_ARCH(ARM64)) && !PPSSPP_PLATFORM(UWP))
+// Windows ARM/ARM64, Windows UWP (all), and WiiU are the only platforms that don't do GL at all (until Apple finally removes it)
+#if (!PPSSPP_PLATFORM(WINDOWS) || ((!PPSSPP_ARCH(ARM) && !PPSSPP_ARCH(ARM64)) && !PPSSPP_PLATFORM(UWP))) && !PPSSPP_PLATFORM(WIIU)
 #define PPSSPP_API_ANY_GL 1
 #endif
 

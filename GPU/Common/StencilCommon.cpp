@@ -15,10 +15,11 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
+#include "Common/Swap.h"
 #include "GPU/Common/StencilCommon.h"
 
 u8 StencilBits5551(const u8 *ptr8, u32 numPixels) {
-	const u32 *ptr = (const u32 *)ptr8;
+	const u32_le *ptr = (const u32_le *)ptr8;
 
 	for (u32 i = 0; i < numPixels / 2; ++i) {
 		if (ptr[i] & 0x80008000) {
@@ -29,7 +30,7 @@ u8 StencilBits5551(const u8 *ptr8, u32 numPixels) {
 }
 
 u8 StencilBits4444(const u8 *ptr8, u32 numPixels) {
-	const u32 *ptr = (const u32 *)ptr8;
+	const u32_le *ptr = (const u32_le *)ptr8;
 	u32 bits = 0;
 
 	for (u32 i = 0; i < numPixels / 2; ++i) {
@@ -40,7 +41,7 @@ u8 StencilBits4444(const u8 *ptr8, u32 numPixels) {
 }
 
 u8 StencilBits8888(const u8 *ptr8, u32 numPixels) {
-	const u32 *ptr = (const u32 *)ptr8;
+	const u32_le *ptr = (const u32_le *)ptr8;
 	u32 bits = 0;
 
 	for (u32 i = 0; i < numPixels; ++i) {

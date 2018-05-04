@@ -562,7 +562,7 @@ struct RenderPassInfo {
 class DrawContext {
 public:
 	virtual ~DrawContext();
-	bool CreatePresets();
+	virtual bool CreatePresets();
 	void DestroyPresets();
 
 	Bugs GetBugs() const { return bugs_; }

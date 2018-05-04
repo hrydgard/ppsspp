@@ -221,6 +221,9 @@ void EmuScreen::bootGame(const std::string &filename) {
 
 	CoreParameter coreParam{};
 	coreParam.cpuCore = (CPUCore)g_Config.iCpuCore;
+#if PPSSPP_PLATFORM(WIIU)
+	coreParam.gpuCore = GPUCORE_GX2;
+#else
 	coreParam.gpuCore = GPUCORE_GLES;
 	switch (GetGPUBackend()) {
 	case GPUBackend::DIRECT3D11:
@@ -240,6 +243,7 @@ void EmuScreen::bootGame(const std::string &filename) {
 		break;
 #endif
 	}
+#endif
 
 	// Preserve the existing graphics context.
 	coreParam.graphicsContext = PSP_CoreParameter().graphicsContext;
@@ -578,7 +582,7 @@ void EmuScreen::onVKeyDown(int virtualKeyCode) {
 		if (g_Config.bDumpFrames == g_Config.bDumpAudio) {
 			g_Config.bDumpFrames = !g_Config.bDumpFrames;
 			g_Config.bDumpAudio = !g_Config.bDumpAudio;
-		} else { 
+		} else {
 			// This hotkey should always toggle both audio and video together.
 			// So let's make sure that's the only outcome even if video OR audio was already being dumped.
 			if (g_Config.bDumpFrames) {
@@ -1568,7 +1572,7 @@ void EmuScreen::renderUI() {
 		DrawFrameTimes(ctx, ctx->GetLayoutBounds());
 	}
 
-#if !PPSSPP_PLATFORM(UWP)
+#if !PPSSPP_PLATFORM(UWP) && !defined(NO_VULKAN)
 	if (g_Config.iGPUBackend == (int)GPUBackend::VULKAN && g_Config.bShowAllocatorDebug) {
 		DrawAllocatorVis(ctx, gpu);
 	}

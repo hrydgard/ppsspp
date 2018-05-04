@@ -254,8 +254,8 @@ public:
 		sprintf(ptr, "%sname=%s gp=%08x entry=%08x",
 			isFake ? "faked " : "",
 			nm.name,
-			nm.gp_value,
-			nm.entry_addr);
+			(u32)nm.gp_value,
+			(u32)nm.entry_addr);
 	}
 	static u32 GetMissingErrorCode() { return SCE_KERNEL_ERROR_UNKNOWN_MODULE; }
 	static int GetStaticIDType() { return PPSSPP_KERNEL_TMID_Module; }
@@ -1063,7 +1063,7 @@ static bool KernelImportModuleFuncs(PSPModule *module, u32 *firstImportStubAddr,
 			}
 
 			snprintf(temp, sizeof(temp), "%s ver=%04x, flags=%04x, size=%d, numVars=%d, numFuncs=%d, nidData=%08x, firstSym=%08x, varData=%08x, extra=%08x\n",
-				modulename, entry->version, entry->flags, entry->size, entry->numVars, entry->numFuncs, entry->nidData, entry->firstSymAddr, entry->size >= 6 ? entry->varData : 0, entry->size >= 7 ? entry->extra : 0);
+				modulename, (u16)entry->version, (u16)entry->flags, entry->size, entry->numVars, (u16)entry->numFuncs, (u32)entry->nidData, (u32)entry->firstSymAddr, entry->size >= 6 ? (u32)entry->varData : 0, entry->size >= 7 ? (u32)entry->extra : 0);
 			debugInfo += temp;
 		}
 
@@ -1404,11 +1404,11 @@ static PSPModule *__KernelLoadELFFromPtr(const u8 *ptr, size_t elfSize, u32 load
 			name = "invalid?";
 		}
 
-		INFO_LOG(LOADER, "Exporting ent %d named %s, %d funcs, %d vars, resident %08x", m, name, ent->fcount, ent->vcount, ent->resident);
+		INFO_LOG(LOADER, "Exporting ent %d named %s, %d funcs, %d vars, resident %08x", m, name, (u32)ent->fcount, (u32)ent->vcount, (u32)ent->resident);
 
 		if (!Memory::IsValidAddress(ent->resident)) {
 			if (ent->fcount + variableCount > 0) {
-				WARN_LOG_REPORT(LOADER, "Invalid export resident address %08x", ent->resident);
+				WARN_LOG_REPORT(LOADER, "Invalid export resident address %08x", (u32)ent->resident);
 			}
 			continue;
 		}
@@ -1417,7 +1417,7 @@ static PSPModule *__KernelLoadELFFromPtr(const u8 *ptr, size_t elfSize, u32 load
 		u32_le *exportPtr = residentPtr + ent->fcount + variableCount;
 
 		if (ent->size != 4 && ent->unknown1 != 0 && ent->unknown2 != 0) {
-			WARN_LOG_REPORT(LOADER, "Unexpected export module entry size %d, vcountNew=%08x, unknown1=%08x, unknown2=%08x", ent->size, ent->vcountNew, ent->unknown1, ent->unknown2);
+			WARN_LOG_REPORT(LOADER, "Unexpected export module entry size %d, vcountNew=%08x, unknown1=%08x, unknown2=%08x", ent->size, (u32)ent->vcountNew, ent->unknown1, ent->unknown2);
 		}
 
 		FuncSymbolExport func;

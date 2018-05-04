@@ -1,5 +1,9 @@
 # vim:noexpandtab:
 cmake_minimum_required(VERSION 3.6)
+if (WIIU)
+   set(CMAKE_TOOLCHAIN_FILE ${CMAKE_SOURCE_DIR}/cmake/Toolchains/wiiu.cmake)
+endif()
+
 project(PPSSPP)
 
 #This is supposed to work but doesn't!
@@ -52,6 +56,8 @@ if(CMAKE_SYSTEM_PROCESSOR)
 		set(X86_DEVICE ON)
 	elseif(${CMAKE_SYSTEM_PROCESSOR} MATCHES "^mips")
 		set(MIPS_DEVICE ON)
+	elseif(${CMAKE_SYSTEM_PROCESSOR} MATCHES "^ppc" OR ${CMAKE_SYSTEM_PROCESSOR} MATCHES "^powerpc")
+		set(PPC_DEVICE ON)
 	else()
 		message("Unknown CMAKE_SYSTEM_PROCESSOR: ${CMAKE_SYSTEM_PROCESSOR}")
 	endif()
@@ -102,6 +108,7 @@ option(ARM "Set to ON if targeting an ARM processor" ${ARM_DEVICE})
 option(MIPS "Set to ON if targeting a MIPS processor" ${MIPS_DEVICE})
 option(X86 "Set to ON if targeting an X86 processor" ${X86_DEVICE})
 option(X86_64 "Set to ON if targeting an X86_64 processor" ${X86_64_DEVICE})
+option(PPC "Set to ON if targeting a PPC processor" ${PPC_DEVICE})
 # :: Environments
 option(USING_EGL "Set to ON if target environment uses EGL" ${USING_EGL})
 option(USING_FBDEV "Set to ON if target environment uses fbdev (eg. Pandora)" ${USING_FBDEV})
@@ -170,7 +177,9 @@ include_directories(ext/glslang)
 # Not sure if this is the best way - what about system glew?
 # Anyway, glew will be going away anyway.
 include_directories(ext/glew)
-
+if(WIIU)
+	add_definitions(-DGLEW_NO_GLU)
+else()
 if(NOT OPENGL_LIBRARIES AND USING_GLES2)
 	set(OPENGL_LIBRARIES GLESv2 EGL)
 endif()
@@ -190,6 +199,7 @@ if(NOT LIBRETRO)
 	find_package(SDL2)
 endif()
 include(FindThreads)
+endif()
 
 if(APPLE)
 	find_library(COCOA_LIBRARY Cocoa)
@@ -239,6 +249,9 @@ if(X86_64)
 endif()
 if(ARM64)
 	message("Generating for ARMv8, ${CMAKE_BUILD_TYPE}")
+endif()
+if(PPC)
+	message("Generating for PowerPC, ${CMAKE_BUILD_TYPE}")
 endif()
 
 # It looks like the flags for the selected build type are written to the cache after each run, which causes some of the operations
@@ -396,7 +409,13 @@ set(CommonMIPS
 )
 source_group(MIPS FILES ${CommonMIPS})
 
-if(NOT (X86 OR ARM OR MIPS))
+set(CommonPPC
+	Common/FakeCPUDetect.cpp
+	Common/ppcEmitter.cpp
+	Common/ppcEmitter.h)
+source_group(PPC FILES ${CommonPPC})
+
+if(NOT (X86 OR ARM OR MIPS OR PPC))
 	set(CommonFake
 		Common/FakeCPUDetect.cpp
 		Common/FakeEmitter.h
@@ -418,13 +437,22 @@ if(WIN32)
 	)
 endif()
 
+if(WIIU)
+	set(CommonGX2
+		Common/GPU/GX2/thin3d_gx2.cpp
+		Common/GPU/GX2/GX2Shaders.c
+	)
+endif()
+
 add_library(Common STATIC
 	${CommonX86}
 	${CommonARM}
 	${CommonARM64}
 	${CommonMIPS}
+	${CommonPPC}
 	${CommonFake}
 	${CommonD3D}
+	${CommonGX2}
 	Common/Serialize/Serializer.cpp
 	Common/Serialize/Serializer.h
 	Common/Serialize/SerializeDeque.h
@@ -625,6 +653,7 @@ add_library(Common STATIC
 	Common/MemArenaDarwin.cpp
 	Common/MemArenaPosix.cpp
 	Common/MemArenaWin32.cpp
+	Common/MemArenaWiiU.cpp
 	Common/MemArena.h
 	Common/MemoryUtil.cpp
 	Common/MemoryUtil.h
@@ -670,6 +699,8 @@ if(USE_FFMPEG)
 				set(PLATFORM_ARCH "ios/universal")
 			elseif(MACOSX)
 				set(PLATFORM_ARCH "macosx/x86_64")
+			elseif(WIIU)
+			  set(PLATFORM_ARCH "wiiu")
 			elseif(LINUX)
 				if(ARMV7)
 					set(PLATFORM_ARCH "linux/armv7")
@@ -941,6 +972,16 @@ elseif(IOS)
 	set_source_files_properties(ios/CameraHelper.mm PROPERTIES COMPILE_FLAGS -fobjc-arc)
 	set_source_files_properties(ios/LocationHelper.mm PROPERTIES COMPILE_FLAGS -fobjc-arc)
 
+	set(TargetBin PPSSPP)
+elseif(WIIU)
+	add_definitions(-D_GNU_SOURCE)
+	set(nativeExtra ${nativeExtra}
+		WiiU/WiiUHost.h
+		WiiU/WiiUHost.cpp
+		WiiU/WiiUMain.cpp
+		WiiU/GX2GraphicsContext.h
+		WiiU/GX2GraphicsContext.cpp)
+	set(nativeExtraLibs ${nativeExtraLibs} wiiu fat iosuhax)
 	set(TargetBin PPSSPP)
 elseif(USING_QT_UI)
 	set(CMAKE_AUTOMOC ON)
@@ -1215,8 +1256,27 @@ list(APPEND CoreExtra
 )
 
 list(APPEND CoreExtra
+	Core/MIPS/PPC/PpcAsm.cpp
+	Core/MIPS/PPC/PpcCompAlu.cpp
+	Core/MIPS/PPC/PpcCompBranch.cpp
+	Core/MIPS/PPC/PpcCompFpu.cpp
+	Core/MIPS/PPC/PpcCompLoadStore.cpp
+	Core/MIPS/PPC/PpcCompReplace.cpp
+	Core/MIPS/PPC/PpcCompVFPU.cpp
+	Core/MIPS/PPC/PpcJit.cpp
+	Core/MIPS/PPC/PpcJit.h
+	Core/MIPS/PPC/PpcRegCache.cpp
+	Core/MIPS/PPC/PpcRegCache.h
+	Core/MIPS/PPC/PpcRegCacheFPU.cpp
+	Core/MIPS/PPC/PpcRegCacheFPU.h
+	Core/MIPS/PPC/PpcRegCacheVPU.cpp
+	Core/MIPS/PPC/PpcRegCacheVPU.h)
+
+list(APPEND CoreExtra
 	Core/MIPS/MIPS/MipsJit.cpp
 	Core/MIPS/MIPS/MipsJit.h
+	Core/MIPS/fake/FakeJit.cpp
+	Core/MIPS/fake/FakeJit.h
 	GPU/Common/VertexDecoderFake.cpp
 )
 
@@ -1336,8 +1396,43 @@ set(GPU_D3D11
 	GPU/D3D11/VertexShaderGeneratorD3D11.h
 )
 
-# We build Vulkan even on Apple to avoid annoying build differences.
-set(GPU_IMPLS ${GPU_GLES} ${GPU_VULKAN})
+set(GPU_GX2
+	GPU/GX2/DepalettizeShaderGX2.cpp
+	GPU/GX2/DepalettizeShaderGX2.h
+	GPU/GX2/DrawEngineGX2.cpp
+	GPU/GX2/DrawEngineGX2.h
+	GPU/GX2/FragmentShaderGeneratorGX2.cpp
+	GPU/GX2/FragmentShaderGeneratorGX2.h
+	GPU/GX2/FramebufferManagerGX2.cpp
+	GPU/GX2/FramebufferManagerGX2.h
+	GPU/GX2/GPU_GX2.cpp
+	GPU/GX2/GPU_GX2.h
+	GPU/GX2/GX2Shaders.c
+	GPU/GX2/GX2Shaders.h
+	GPU/GX2/GX2Util.cpp
+	GPU/GX2/GX2Util.h
+	GPU/GX2/ShaderManagerGX2.cpp
+	GPU/GX2/ShaderManagerGX2.h
+	GPU/GX2/StateMappingGX2.cpp
+	GPU/GX2/StateMappingGX2.h
+	GPU/GX2/StencilBufferGX2.cpp
+	GPU/GX2/TextureCacheGX2.cpp
+	GPU/GX2/TextureCacheGX2.h
+	GPU/GX2/TextureScalerGX2.cpp
+	GPU/GX2/TextureScalerGX2.h
+	GPU/GX2/VertexShaderGeneratorGX2.cpp
+	GPU/GX2/VertexShaderGeneratorGX2.h
+)
+
+# We build Vulkan even on Apple and WiiU to avoid annoying build differences.
+set(GPU_IMPLS ${GPU_VULKAN})
+
+if(WIIU)
+	list(APPEND GPU_IMPLS ${GPU_GX2})
+else()
+	list(APPEND GPU_IMPLS ${GPU_GLES})
+endif()
+
 if(WIN32)
 	list(APPEND GPU_IMPLS ${GPU_D3D9} ${GPU_D3D11})
 endif()
@@ -1348,8 +1443,6 @@ endif()
 set(GPU_SOURCES
 	${GPU_IMPLS}
 	${GPU_NEON}
-	GPU/Common/DepalettizeShaderCommon.cpp
-	GPU/Common/DepalettizeShaderCommon.h
 	GPU/Common/FramebufferManagerCommon.cpp
 	GPU/Common/FramebufferManagerCommon.h
 	GPU/Common/GPUDebugInterface.cpp
@@ -1360,14 +1453,6 @@ set(GPU_SOURCES
 	GPU/Common/DrawEngineCommon.h
 	GPU/Common/PresentationCommon.cpp
 	GPU/Common/PresentationCommon.h
-	GPU/Common/ShaderId.cpp
-	GPU/Common/ShaderId.h
-	GPU/Common/ShaderUniforms.cpp
-	GPU/Common/ShaderUniforms.h
-	GPU/Common/ShaderCommon.cpp
-	GPU/Common/ShaderCommon.h
-	GPU/Common/ShaderTranslation.cpp
-	GPU/Common/ShaderTranslation.h
 	GPU/Common/SplineCommon.cpp
 	GPU/Common/SplineCommon.h
 	GPU/Common/StencilCommon.cpp
@@ -1376,6 +1461,16 @@ set(GPU_SOURCES
 	GPU/Common/SoftwareTransformCommon.h
 	GPU/Common/VertexDecoderCommon.cpp
 	GPU/Common/VertexDecoderCommon.h
+	GPU/Common/DepalettizeShaderCommon.cpp
+	GPU/Common/DepalettizeShaderCommon.h
+	GPU/Common/ShaderId.cpp
+	GPU/Common/ShaderId.h
+	GPU/Common/ShaderCommon.cpp
+	GPU/Common/ShaderCommon.h
+	GPU/Common/ShaderUniforms.cpp
+	GPU/Common/ShaderUniforms.h
+	GPU/Common/ShaderTranslation.cpp
+	GPU/Common/ShaderTranslation.h
 	GPU/Common/TransformCommon.cpp
 	GPU/Common/TransformCommon.h
 	GPU/Common/IndexGenerator.cpp
@@ -1805,7 +1900,11 @@ set(CoreExtraLibs ${CoreExtraLibs} armips)
 #	target_link_libraries(native X11-xcb X11)
 #endif()
 
-set(GlslangLibs glslang OGLCompiler OSDependent SPIRV SPVRemapper spirv-cross-glsl)
+if(WIIU)
+   set(CMAKE_DL_LIBS "")
+else()
+   set(GlslangLibs glslang OGLCompiler OSDependent SPIRV SPVRemapper spirv-cross-glsl)
+endif()
 
 if(WIN32)
 	set(GlslangLibs ${GlslangLibs} spirv-cross-hlsl)
@@ -1824,16 +1923,19 @@ if(FFmpeg_FOUND)
 		FFmpeg::swscale
 		${ZLIB_LIBRARY}
 	)
+	if(WIIU)
+		target_link_libraries(${CoreLibName} pthread)
+	endif()
 endif()
 
 # Discord integration
-if(USE_DISCORD AND NOT IOS AND NOT LIBRETRO)
+if(USE_DISCORD AND NOT IOS AND NOT WIIU AND NOT LIBRETRO)
 	add_definitions(-DUSE_DISCORD=1)
 	target_link_libraries(${CoreLibName} discord-rpc)
 endif()
 
 # miniUPnPc integration (MiniUPnPc supposed to works on any POSIX system, not sure if some of these are redundant/not needed tho)
-if(USE_MINIUPNPC)
+if(USE_MINIUPNPC AND NOT WIIU)
 	set (MINIUPNPC_VERSION 2.1) # used by miniupnpcstrings.h.cmake
 	set (MINIUPNPC_API_VERSION 17)
 	option(UPNPC_BUILD_STATIC "Build static library" TRUE)
@@ -2179,4 +2281,8 @@ if(IOS)
 		XCODE_ATTRIBUTE_ENABLE_BITCODE NO
 		XCODE_ATTRIBUTE_CODE_SIGN_IDENTITY "-"
 	)
+endif()
+
+if(WIIU)
+	add_rpx_target(${TargetBin})
 endif()

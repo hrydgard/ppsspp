@@ -22,16 +22,16 @@
 
 struct SceUtilityNetconfData {
 	char groupName[8];
-	int timeout;
+	s32_le timeout;
 };
 
 struct SceUtilityNetconfParam {
 	pspUtilityDialogCommon common;
-	int netAction;				// sets how to connect
+	s32_le netAction;				// sets how to connect
 	PSPPointer<SceUtilityNetconfData> NetconfData;
-	int netHotspot;				// Flag to allow hotspot connections
-	int netHotspotConnected;	// Flag to check if a hotspot connection is active
-	int netWifiSpot;			// Flag to allow WIFI connections
+	s32_le netHotspot;				// Flag to allow hotspot connections
+	s32_le netHotspotConnected;	// Flag to check if a hotspot connection is active
+	s32_le netWifiSpot;			// Flag to allow WIFI connections
 };
 
 

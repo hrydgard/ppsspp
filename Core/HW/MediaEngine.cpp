@@ -953,6 +953,8 @@ int MediaEngine::getAudioSamples(u32 bufferPtr) {
 
 		if (!m_audioContext->Decode(audioFrame, frameSize, buffer, &outbytes)) {
 			ERROR_LOG(ME, "Audio (%s) decode failed during video playback", GetCodecName(m_audioType));
+		} else {
+			ToLEndian((s16*)buffer, outbytes / 2);
 		}
 
 		CBreakPoints::ExecMemCheck(bufferPtr, true, outbytes, currentMIPS->pc);

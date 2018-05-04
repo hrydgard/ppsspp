@@ -40,6 +40,7 @@ enum {
 };
 
 struct TransformedVertex {
+	TransformedVertex() {}
 	union {
 		struct {
 			float x, y, z, fog;     // in case of morph, preblend during decode
@@ -54,11 +55,11 @@ struct TransformedVertex {
 	};
 	union {
 		u8 color0[4];   // prelit
-		u32 color0_32;
+		u32_le color0_32;
 	};
 	union {
 		u8 color1[4];   // prelit
-		u32 color1_32;
+		u32_le color1_32;
 	};
 };
 

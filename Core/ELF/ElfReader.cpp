@@ -357,7 +357,7 @@ void ElfReader::LoadRelocations2(int rel_seg)
 
 int ElfReader::LoadInto(u32 loadAddress, bool fromTop)
 {
-	DEBUG_LOG(LOADER,"String section: %i", header->e_shstrndx);
+	DEBUG_LOG(LOADER,"String section: %i", (int)header->e_shstrndx);
 
 	if (header->e_ident[0] != ELFMAG0 || header->e_ident[1] != ELFMAG1
 		|| header->e_ident[2] != ELFMAG2 || header->e_ident[3] != ELFMAG3)
@@ -450,7 +450,7 @@ int ElfReader::LoadInto(u32 loadAddress, bool fromTop)
 		DEBUG_LOG(LOADER,"Prerelocated executable");
 	}
 
-	DEBUG_LOG(LOADER,"%i segments:", header->e_phnum);
+	DEBUG_LOG(LOADER,"%i segments:", (int)header->e_phnum);
 
 	// First pass : Get the damn bits into RAM
 	u32 baseAddress = bRelocate ? vaddr : 0;
@@ -482,7 +482,7 @@ int ElfReader::LoadInto(u32 loadAddress, bool fromTop)
 	}
 	memblock.ListBlocks();
 
-	DEBUG_LOG(LOADER,"%i sections:", header->e_shnum);
+	DEBUG_LOG(LOADER,"%i sections:", (int)header->e_shnum);
 
 	for (int i = 0; i < GetNumSections(); i++)
 	{
@@ -527,7 +527,7 @@ int ElfReader::LoadInto(u32 loadAddress, bool fromTop)
 
 				Elf32_Rel *rels = (Elf32_Rel *)GetSectionDataPtr(i);
 
-				DEBUG_LOG(LOADER,"%s: Performing %i relocations on %s : offset = %08x", name, numRelocs, GetSectionName(sectionToModify), sections[i].sh_offset);
+				DEBUG_LOG(LOADER,"%s: Performing %i relocations on %s : offset = %08x", name, numRelocs, GetSectionName(sectionToModify), (u32)sections[i].sh_offset);
 				if (!LoadRelocations(rels, numRelocs)) {
 					WARN_LOG(LOADER, "LoadInto: Relocs failed, trying anyway");
 				}			

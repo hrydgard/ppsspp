@@ -21,25 +21,26 @@
 #include "Common/CommonTypes.h"
 #include "Common/Log.h"
 #include "Common/StringUtils.h"
+#include "Common/Swap.h"
 #include "Core/ELF/ParamSFO.h"
 #include "Core/Core.h"
 
 struct Header
 {
-	u32 magic; /* Always PSF */
-	u32 version; /* Usually 1.1 */
-	u32 key_table_start; /* Start position of key_table */
-	u32 data_table_start; /* Start position of data_table */
-	u32 index_table_entries; /* Number of entries in index_table*/
+	u32_le magic; /* Always PSF */
+	u32_le version; /* Usually 1.1 */
+	u32_le key_table_start; /* Start position of key_table */
+	u32_le data_table_start; /* Start position of data_table */
+	u32_le index_table_entries; /* Number of entries in index_table*/
 };
 
 struct IndexTable
 {
-	u16 key_table_offset; /* Offset of the param_key from start of key_table */
-	u16 param_fmt; /* Type of data of param_data in the data_table */
-	u32 param_len; /* Used Bytes by param_data in the data_table */
-	u32 param_max_len; /* Total bytes reserved for param_data in the data_table */
-	u32 data_table_offset; /* Offset of the param_data from start of data_table */
+	u16_le key_table_offset; /* Offset of the param_key from start of key_table */
+	u16_le param_fmt; /* Type of data of param_data in the data_table */
+	u32_le param_len; /* Used Bytes by param_data in the data_table */
+	u32_le param_max_len; /* Total bytes reserved for param_data in the data_table */
+	u32_le data_table_offset; /* Offset of the param_data from start of data_table */
 };
 
 void ParamSFOData::SetValue(std::string key, unsigned int value, int max_size) {
@@ -113,7 +114,7 @@ bool ParamSFOData::ReadSFO(const u8 *paramsfo, size_t size) {
 		case 0x0404:
 			{
 				// Unsigned int
-				const u32 *data = (const u32 *)(data_start + indexTables[i].data_table_offset);
+				const u32_le *data = (const u32_le *)(data_start + indexTables[i].data_table_offset);
 				SetValue(key,*data,indexTables[i].param_max_len);
 				VERBOSE_LOG(LOADER, "%s %08x", key, *data);
 			}
@@ -218,7 +219,7 @@ bool ParamSFOData::WriteSFO(u8 **paramsfo, size_t *size) {
 			index_ptr->param_fmt = 0x0404;
 			index_ptr->param_len = 4;
 
-			*(int*)data_ptr = it->second.i_value;
+			*(s32_le*)data_ptr = it->second.i_value;
 		}
 		else if (it->second.type == VT_UTF8_SPE)
 		{

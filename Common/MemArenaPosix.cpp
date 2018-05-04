@@ -17,7 +17,7 @@
 
 #include "ppsspp_config.h"
 
-#if !defined(_WIN32) && !defined(ANDROID) && !defined(__APPLE__)
+#if !defined(_WIN32) && !defined(ANDROID) && !defined(__APPLE__) && !defined(__wiiu__)
 
 #include <sys/stat.h>
 #include <fcntl.h>

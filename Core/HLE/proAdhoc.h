@@ -32,17 +32,22 @@
 #include <errno.h>
 #endif
 
-#ifdef _MSC_VER
-#define PACK  // on MSVC we use #pragma pack() instead so let's kill this.
-#else
-#define PACK __attribute__((packed))
-#endif
-
 #include <thread>
 #include <mutex>
 
 #include "Common/Net/Resolve.h"
 #include "Common/Serialize/Serializer.h"
+#include "Common/Swap.h"
+
+#ifdef _MSC_VER
+#define PACK  // on MSVC we use #pragma pack() instead so let's kill this.
+#elif defined(__BIG_ENDIAN__)
+// packed cannot be used with non-POD *_le types.
+// TODO: find a real solution for the couple of structs that actually need this
+#define PACK
+#else
+#define PACK __attribute__((packed))
+#endif
 
 #include "Core/Config.h"
 #include "Core/CoreTiming.h"
@@ -81,6 +86,9 @@ inline bool isDisconnected(int errcode) { return (errcode == WSAECONNRESET || er
 #define INVALID_SOCKET -1
 #define SOCKET_ERROR -1
 #define closesocket close
+#ifndef ESHUTDOWN
+#define ESHUTDOWN 110
+#endif
 inline bool connectInProgress(int errcode){ return (errcode == EAGAIN || errcode == EWOULDBLOCK || errcode == EINPROGRESS || errcode == EALREADY); }
 inline bool isDisconnected(int errcode) { return (errcode == EPIPE || errcode == ECONNRESET || errcode == ECONNABORTED || errcode == ESHUTDOWN); }
 #endif
@@ -866,7 +874,7 @@ public:
 	static PSPAction *Create() { return new AfterMatchingMipsCall(); }
 	void DoState(PointerWrap &p) override;
 	void run(MipsCall &call) override;
-	void SetData(int ContextID, int eventId, u32_le BufAddr);
+	void SetData(int ContextID, int eventId, u32 BufAddr);
 
 private:
 	int contextID = -1;

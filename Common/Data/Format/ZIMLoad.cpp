@@ -53,9 +53,9 @@ int LoadZIMPtr(const uint8_t *zim, size_t datasize, int *width, int *height, int
 		ERROR_LOG(IO, "Not a ZIM file");
 		return 0;
 	}
-	memcpy(width, zim + 4, 4);
-	memcpy(height, zim + 8, 4);
-	memcpy(flags, zim + 12, 4);
+	*width = zim[4] << 0 | zim[5] << 8 | zim[6] << 16 | zim[7] << 24;
+	*height = zim[8] << 0 | zim[9] << 8 | zim[10] << 16 | zim[11] << 24;
+	*flags = zim[12] << 0 | zim[13] << 8 | zim[14] << 16 | zim[15] << 24;
 
 	int num_levels = 1;
 	int image_data_size[ZIM_MAX_MIP_LEVELS];

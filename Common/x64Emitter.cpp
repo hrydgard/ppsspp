@@ -22,7 +22,9 @@
 #include "CPUDetect.h"
 #include "MemoryUtil.h"
 
+#ifndef PRIx64
 #define PRIx64 "llx"
+#endif
 
 namespace Gen
 {

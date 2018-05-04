@@ -29,6 +29,7 @@ enum GPUCore {
 	GPUCORE_DIRECTX9,
 	GPUCORE_DIRECTX11,
 	GPUCORE_VULKAN,
+	GPUCORE_GX2,
 };
 
 enum class FPSLimit {

@@ -23,6 +23,7 @@
 #include <vector>
 #include "Common/Common.h"
 #include "Common/MemoryUtil.h"
+#include "Common/Swap.h"
 #include "GPU/ge_constants.h"
 
 class IniFile;
@@ -197,7 +198,7 @@ protected:
 	std::string HashName(u64 cachekey, u32 hash, int level);
 	void PopulateReplacement(ReplacedTexture *result, u64 cachekey, u32 hash, int w, int h);
 
-	SimpleBuf<u32> saveBuf;
+	SimpleBuf<u32_le> saveBuf;
 	bool enabled_ = false;
 	bool allowVideo_ = false;
 	bool ignoreAddress_ = false;

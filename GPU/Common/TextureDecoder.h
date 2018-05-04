@@ -60,11 +60,11 @@ typedef void (*UnswizzleTex16Func)(const u8 *texptr, u32 *ydestp, int bxc, int b
 extern UnswizzleTex16Func DoUnswizzleTex16;
 #endif
 
-CheckAlphaResult CheckAlphaRGBA8888Basic(const u32 *pixelData, int stride, int w, int h);
-CheckAlphaResult CheckAlphaABGR4444Basic(const u32 *pixelData, int stride, int w, int h);
-CheckAlphaResult CheckAlphaRGBA4444Basic(const u32 *pixelData, int stride, int w, int h);
-CheckAlphaResult CheckAlphaABGR1555Basic(const u32 *pixelData, int stride, int w, int h);
-CheckAlphaResult CheckAlphaRGBA5551Basic(const u32 *pixelData, int stride, int w, int h);
+CheckAlphaResult CheckAlphaRGBA8888Basic(const u32_le *pixelData, int stride, int w, int h);
+CheckAlphaResult CheckAlphaABGR4444Basic(const u32_le *pixelData, int stride, int w, int h);
+CheckAlphaResult CheckAlphaRGBA4444Basic(const u32_le *pixelData, int stride, int w, int h);
+CheckAlphaResult CheckAlphaABGR1555Basic(const u32_le *pixelData, int stride, int w, int h);
+CheckAlphaResult CheckAlphaRGBA5551Basic(const u32_le *pixelData, int stride, int w, int h);
 
 // All these DXT structs are in the reverse order, as compared to PC.
 // On PC, alpha comes before color, and interpolants are before the tile data.
@@ -87,9 +87,9 @@ struct DXT5Block {
 	u8 alpha1; u8 alpha2;
 };
 
-void DecodeDXT1Block(u32 *dst, const DXT1Block *src, int pitch, int height, bool ignore1bitAlpha);
-void DecodeDXT3Block(u32 *dst, const DXT3Block *src, int pitch, int height);
-void DecodeDXT5Block(u32 *dst, const DXT5Block *src, int pitch, int height);
+void DecodeDXT1Block(u32_le *dst, const DXT1Block *src, int pitch, int height, bool ignore1bitAlpha);
+void DecodeDXT3Block(u32_le *dst, const DXT3Block *src, int pitch, int height);
+void DecodeDXT5Block(u32_le *dst, const DXT5Block *src, int pitch, int height);
 
 static const u8 textureBitsPerPixel[16] = {
 	16,  //GE_TFMT_5650,
@@ -160,35 +160,23 @@ inline void DeIndexTexture4(ClutT *dest, const u8 *indexed, int length, const Cl
 	}
 }
 
-template <typename ClutT>
-inline void DeIndexTexture4Optimal(ClutT *dest, const u8 *indexed, int length, ClutT color) {
-	for (int i = 0; i < length; i += 2) {
-		u8 index = *indexed++;
-		dest[i + 0] = color | ((index >> 0) & 0xf);
-		dest[i + 1] = color | ((index >> 4) & 0xf);
+inline void DeIndexTexture4Optimal(u16_le *dest, const u8 *indexed, int length, u16 color) {
+	const u16_le *indexed16 = (const u16_le *)indexed;
+	const u64 color64 = ((u64)color << 48) | ((u64)color << 32) | ((u64)color << 16) | (u64)color;
+	u64_le *dest64 = (u64_le *)dest;
+	for (int i = 0; i < length / 4; i ++) {
+		u64 index = *indexed16++;
+		dest64[i] = color64 | ((index & 0xf000) <<  36) | ((index & 0x0f00) << 24) | ((index & 0x00f0) << 12) | ((index & 0x000f) << 0);
 	}
 }
 
-template <>
-inline void DeIndexTexture4Optimal<u16>(u16 *dest, const u8 *indexed, int length, u16 color) {
+inline void DeIndexTexture4OptimalRev(u16_le *dest, const u8 *indexed, int length, u16 color) {
 	const u16_le *indexed16 = (const u16_le *)indexed;
-	const u32 color32 = (color << 16) | color;
-	u32 *dest32 = (u32 *)dest;
-	for (int i = 0; i < length / 2; i += 2) {
-		u16 index = *indexed16++;
-		dest32[i + 0] = color32 | ((index & 0x00f0) << 12) | ((index & 0x000f) >> 0);
-		dest32[i + 1] = color32 | ((index & 0xf000) <<  4) | ((index & 0x0f00) >> 8);
-	}
-}
-
-inline void DeIndexTexture4OptimalRev(u16 *dest, const u8 *indexed, int length, u16 color) {
-	const u16_le *indexed16 = (const u16_le *)indexed;
-	const u32 color32 = (color << 16) | color;
-	u32 *dest32 = (u32 *)dest;
-	for (int i = 0; i < length / 2; i += 2) {
-		u16 index = *indexed16++;
-		dest32[i + 0] = color32 | ((index & 0x00f0) << 24) | ((index & 0x000f) << 12);
-		dest32[i + 1] = color32 | ((index & 0xf000) << 16) | ((index & 0x0f00) <<  4);
+	const u64 color64 = ((u64)color << 48) | ((u64)color << 32) | ((u64)color << 16) | (u64)color;
+	u64_le *dest64 = (u64_le *)dest;
+	for (int i = 0; i < length / 4; i ++) {
+		u64 index = *indexed16++;
+		dest64[i] = color64 | ((index & 0xf000) << 48) | ((index & 0x0f00) <<  36) | ((index & 0x00f0) << 24) | ((index & 0x000f) << 12);
 	}
 }
 
@@ -198,8 +186,7 @@ inline void DeIndexTexture4(ClutT *dest, const u32 texaddr, int length, const Cl
 	DeIndexTexture4(dest, indexed, length, clut);
 }
 
-template <typename ClutT>
-inline void DeIndexTexture4Optimal(ClutT *dest, const u32 texaddr, int length, ClutT color) {
+inline void DeIndexTexture4Optimal(u16_le *dest, const u32 texaddr, int length, u16 color) {
 	const u8 *indexed = (const u8 *) Memory::GetPointer(texaddr);
 	DeIndexTexture4Optimal(dest, indexed, length, color);
 }

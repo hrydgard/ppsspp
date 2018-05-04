@@ -190,6 +190,9 @@ void InputSink::AccountFill(int bytes) {
 		int err = WSAGetLastError();
 		if (err == WSAEWOULDBLOCK)
 			return;
+#elif PPSSPP_PLATFORM(WIIU)
+		if (socketlasterr() == SO_EWOULDBLOCK)
+			return;
 #else
 		if (errno == EWOULDBLOCK || errno == EAGAIN)
 			return;

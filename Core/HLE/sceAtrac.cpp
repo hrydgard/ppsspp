@@ -1226,6 +1226,8 @@ u32 _AtracDecodeData(int atracID, u8 *outbuf, u32 outbufPtr, u32 *SamplesNum, u3
 							}
 							if (avret < 0) {
 								ERROR_LOG(ME, "swr_convert: Error while converting %d", avret);
+							} else {
+								ToLEndian((s16*)out, avret * atrac->outputChannels_);
 							}
 						}
 #endif // USE_FFMPEG
@@ -1569,7 +1571,7 @@ static u32 sceAtracGetNextSample(int atracID, u32 outNAddr) {
 // Obtains the number of frames remaining in the buffer which can be decoded.
 // When no more data would be needed, this returns a negative number.
 static u32 sceAtracGetRemainFrame(int atracID, u32 remainAddr) {
-	auto remainingFrames = PSPPointer<u32>::Create(remainAddr);
+	auto remainingFrames = PSPPointer<u32_le>::Create(remainAddr);
 
 	Atrac *atrac = getAtrac(atracID);
 	u32 err = AtracValidateManaged(atrac);
@@ -1588,8 +1590,8 @@ static u32 sceAtracGetRemainFrame(int atracID, u32 remainAddr) {
 }
 
 static u32 sceAtracGetSecondBufferInfo(int atracID, u32 fileOffsetAddr, u32 desiredSizeAddr) {
-	auto fileOffset = PSPPointer<u32>::Create(fileOffsetAddr);
-	auto desiredSize = PSPPointer<u32>::Create(desiredSizeAddr);
+	auto fileOffset = PSPPointer<u32_le>::Create(fileOffsetAddr);
+	auto desiredSize = PSPPointer<u32_le>::Create(desiredSizeAddr);
 
 	Atrac *atrac = getAtrac(atracID);
 	u32 err = AtracValidateManaged(atrac);
@@ -1624,13 +1626,13 @@ static u32 sceAtracGetSoundSample(int atracID, u32 outEndSampleAddr, u32 outLoop
 		return err;
 	}
 
-	auto outEndSample = PSPPointer<u32>::Create(outEndSampleAddr);
+	auto outEndSample = PSPPointer<u32_le>::Create(outEndSampleAddr);
 	if (outEndSample.IsValid())
 		*outEndSample = atrac->endSample_;
-	auto outLoopStart = PSPPointer<u32>::Create(outLoopStartSampleAddr);
+	auto outLoopStart = PSPPointer<u32_le>::Create(outLoopStartSampleAddr);
 	if (outLoopStart.IsValid())
 		*outLoopStart = atrac->loopStartSample_ == -1 ? -1 : atrac->loopStartSample_ - atrac->firstSampleOffset_ - atrac->FirstOffsetExtra();
-	auto outLoopEnd = PSPPointer<u32>::Create(outLoopEndSampleAddr);
+	auto outLoopEnd = PSPPointer<u32_le>::Create(outLoopEndSampleAddr);
 	if (outLoopEnd.IsValid())
 		*outLoopEnd = atrac->loopEndSample_ == -1 ? -1 : atrac->loopEndSample_ - atrac->firstSampleOffset_ - atrac->FirstOffsetExtra();
 
@@ -2296,7 +2298,7 @@ void _AtracGenerateContext(Atrac *atrac, SceAtracId *context) {
 	context->info.streamDataByte = atrac->first_.size - atrac->dataOff_;
 
 	u8* buf = (u8*)context;
-	*(u32*)(buf + 0xfc) = atrac->atracID_;
+	*(u32_le*)(buf + 0xfc) = atrac->atracID_;
 }
 
 static u32 _sceAtracGetContextAddress(int atracID) {
@@ -2418,9 +2420,9 @@ static int sceAtracLowLevelInitDecoder(int atracID, u32 paramsAddr) {
 
 static int sceAtracLowLevelDecode(int atracID, u32 sourceAddr, u32 sourceBytesConsumedAddr, u32 samplesAddr, u32 sampleBytesAddr) {
 	auto srcp = PSPPointer<u8>::Create(sourceAddr);
-	auto srcConsumed = PSPPointer<u32>::Create(sourceBytesConsumedAddr);
+	auto srcConsumed = PSPPointer<u32_le>::Create(sourceBytesConsumedAddr);
 	auto outp = PSPPointer<u8>::Create(samplesAddr);
-	auto outWritten = PSPPointer<u32>::Create(sampleBytesAddr);
+	auto outWritten = PSPPointer<u32_le>::Create(sampleBytesAddr);
 
 	Atrac *atrac = getAtrac(atracID);
 	if (!atrac) {

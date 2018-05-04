@@ -29,7 +29,7 @@
 HLEHelperThread::HLEHelperThread() : id_(-1), entry_(0) {
 }
 
-HLEHelperThread::HLEHelperThread(const char *threadName, u32 instructions[], u32 instrCount, u32 prio, int stacksize) {
+HLEHelperThread::HLEHelperThread(const char *threadName, u32_le instructions[], u32 instrCount, u32 prio, int stacksize) {
 	u32 instrBytes = instrCount * sizeof(u32);
 	u32 totalBytes = instrBytes + sizeof(u32) * 2;
 	AllocEntry(totalBytes);

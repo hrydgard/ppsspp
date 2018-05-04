@@ -555,6 +555,8 @@ UI::EventReturn GameBrowser::HomeClick(UI::EventParams &e) {
 #elif PPSSPP_PLATFORM(UWP)
 	// TODO UWP
 	SetPath(g_Config.memStickDirectory);
+#elif defined(__wiiu__)
+	path_.SetPath("/");
 #else
 	SetPath(getenv("HOME"));
 #endif

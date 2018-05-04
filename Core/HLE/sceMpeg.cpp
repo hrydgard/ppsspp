@@ -111,10 +111,10 @@ static AVPixelFormat pmp_want_pix_fmt;
 
 struct SceMpegLLI
 {
-	u32 pSrc;
-	u32 pDst;
-	u32 Next;
-	int iSize;
+	u32_le pSrc;
+	u32_le pDst;
+	u32_le Next;
+	s32_le iSize;
 };
 
 void SceMpegAu::read(u32 addr) {
@@ -306,8 +306,8 @@ static void AnalyzeMpeg(u8 *buffer, u32 validSize, MpegContext *ctx) {
 	ctx->mpegMagic = *(u32_le*)buffer;
 	ctx->mpegRawVersion = *(u32_le*)(buffer + PSMF_STREAM_VERSION_OFFSET);
 	ctx->mpegVersion = getMpegVersion(ctx->mpegRawVersion);
-	ctx->mpegOffset = bswap32(*(u32_le*)(buffer + PSMF_STREAM_OFFSET_OFFSET));
-	ctx->mpegStreamSize = bswap32(*(u32_le*)(buffer + PSMF_STREAM_SIZE_OFFSET));
+	ctx->mpegOffset = swap32(*(u32_le*)(buffer + PSMF_STREAM_OFFSET_OFFSET));
+	ctx->mpegStreamSize = swap32(*(u32_le*)(buffer + PSMF_STREAM_SIZE_OFFSET));
 	ctx->mpegFirstTimestamp = getMpegTimeStamp(buffer + PSMF_FIRST_TIMESTAMP_OFFSET);
 	ctx->mpegLastTimestamp = getMpegTimeStamp(buffer + PSMF_LAST_TIMESTAMP_OFFSET);
 	ctx->mpegFirstDate = convertTimestampToDate(ctx->mpegFirstTimestamp);

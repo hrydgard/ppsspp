@@ -35,6 +35,8 @@ void Do(PointerWrap &p, tm &t);
 // Which also can be a problem, for example struct tm is non-POD on linux, for whatever reason...
 #ifdef _MSC_VER
 template<typename T, bool isPOD = std::is_pod<T>::value, bool isPointer = std::is_pointer<T>::value>
+#elif defined (__BIG_ENDIAN__) // treat swapped types as pod.
+template<typename T, bool isPOD = __is_enum(T) || __is_trivially_copyable(T), bool isPointer = std::is_pointer<T>::value>
 #else
 template<typename T, bool isPOD = __is_pod(T), bool isPointer = std::is_pointer<T>::value>
 #endif
@@ -111,9 +113,9 @@ void Do(PointerWrap &p, std::vector<T> &x, T &default_val) {
 	DoVector(p, x, default_val);
 }
 
-template<typename T, typename F>
-void Do(PointerWrap &p, swap_struct_t<T, F> &x) {
-	T v = x.swap();
+template<typename T>
+void Do(PointerWrap &p, swap_t<T> &x) {
+	T v = x;
 	Do(p, v);
 	x = v;
 }

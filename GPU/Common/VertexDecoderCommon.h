@@ -37,9 +37,9 @@
 #include "Common/x64Emitter.h"
 #elif PPSSPP_ARCH(MIPS)
 #include "Common/MipsEmitter.h"
-#else
-#include "Common/FakeEmitter.h"
 #endif
+
+#include "Common/FakeEmitter.h"
 
 // DecVtxFormat - vertex formats for PC
 // Kind of like a D3D VertexDeclaration.
@@ -93,8 +93,8 @@ private:
 	union {
 		const void *indices;
 		const u8 *indices8;
-		const u16 *indices16;
-		const u32 *indices32;
+		const u16_le *indices16;
+		const u32_le *indices32;
 	};
 	u32 indexType;
 

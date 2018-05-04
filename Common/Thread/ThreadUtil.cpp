@@ -18,6 +18,10 @@
 #include <pthread.h>
 #endif
 
+#ifdef __wiiu__
+#include <wiiu/os/thread.h>
+#endif
+
 #ifdef TLS_SUPPORTED
 static thread_local const char *curThreadName;
 #endif
@@ -104,6 +108,8 @@ void setCurrentThreadName(const char* threadName) {
 	pthread_setname_np(threadName);
 // #else
 //	pthread_setname_np(threadName);
+#elif defined(__wiiu__)
+	OSSetThreadName(OSGetCurrentThread(), threadName);
 #endif
 
 	// Do nothing
@@ -115,7 +121,10 @@ void setCurrentThreadName(const char* threadName) {
 }
 
 void AssertCurrentThreadName(const char *threadName) {
-#ifdef TLS_SUPPORTED
+#if defined(TLS_SUPPORTED) || defined(__wiiu__)
+#ifdef __wiiu__
+	const char *curThreadName = OSGetThreadName(OSGetCurrentThread());
+#endif
 	if (strcmp(curThreadName, threadName) != 0) {
 		ERROR_LOG(SYSTEM, "Thread name assert failed: Expected %s, was %s", threadName, curThreadName);
 	}

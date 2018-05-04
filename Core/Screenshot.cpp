@@ -122,9 +122,9 @@ static bool WriteScreenshotToPNG(png_imagep image, const char *filename, int con
 
 static bool ConvertPixelTo8888RGBA(GPUDebugBufferFormat fmt, u8 &r, u8 &g, u8 &b, u8 &a, const void *buffer, int offset, bool rev) {
 	const u8 *buf8 = (const u8 *)buffer;
-	const u16 *buf16 = (const u16 *)buffer;
-	const u32 *buf32 = (const u32 *)buffer;
-	const float *fbuf = (const float *)buffer;
+	const u16_le *buf16 = (const u16_le *)buffer;
+	const u32_le *buf32 = (const u32_le *)buffer;
+	const float_le *fbuf = (const float_le *)buffer;
 
 	// NOTE: a and r might be the same channel.  This is used for RGB.
 
@@ -134,7 +134,7 @@ static bool ConvertPixelTo8888RGBA(GPUDebugBufferFormat fmt, u8 &r, u8 &g, u8 &b
 	case GPU_DBG_FORMAT_565:
 		src = buf16[offset];
 		if (rev) {
-			src = bswap16(src);
+			src = swap16(src);
 		}
 		a = 255;
 		r = Convert5To8((src >> 0) & 0x1F);
@@ -144,7 +144,7 @@ static bool ConvertPixelTo8888RGBA(GPUDebugBufferFormat fmt, u8 &r, u8 &g, u8 &b
 	case GPU_DBG_FORMAT_5551:
 		src = buf16[offset];
 		if (rev) {
-			src = bswap16(src);
+			src = swap16(src);
 		}
 		a = (src >> 15) ? 255 : 0;
 		r = Convert5To8((src >> 0) & 0x1F);
@@ -154,7 +154,7 @@ static bool ConvertPixelTo8888RGBA(GPUDebugBufferFormat fmt, u8 &r, u8 &g, u8 &b
 	case GPU_DBG_FORMAT_4444:
 		src = buf16[offset];
 		if (rev) {
-			src = bswap16(src);
+			src = swap16(src);
 		}
 		a = Convert4To8((src >> 12) & 0xF);
 		r = Convert4To8((src >> 0) & 0xF);
@@ -164,7 +164,7 @@ static bool ConvertPixelTo8888RGBA(GPUDebugBufferFormat fmt, u8 &r, u8 &g, u8 &b
 	case GPU_DBG_FORMAT_8888:
 		src = buf32[offset];
 		if (rev) {
-			src = bswap32(src);
+			src = swap32(src);
 		}
 		a = (src >> 24) & 0xFF;
 		r = (src >> 0) & 0xFF;

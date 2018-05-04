@@ -140,25 +140,27 @@ void SoftGPU::ConvertTextureDescFrom16(Draw::TextureDesc &desc, int srcwidth, in
 	FormatBuffer displayBuffer;
 	displayBuffer.data = overrideData ? overrideData : Memory::GetPointer(displayFramebuf_);
 	for (int y = 0; y < srcheight; ++y) {
-		u32 *buf_line = &fbTexBuffer_[y * srcwidth];
-		const u16 *fb_line = &displayBuffer.as16[y * displayStride_];
+		u32_le *buf_line = &fbTexBuffer_[y * srcwidth];
+		for (u32 x = 0; x < srcwidth; x++) {
+			u16 col = displayBuffer.Get16(x,y,displayStride_);
 
-		switch (displayFormat_) {
-		case GE_FORMAT_565:
-			ConvertRGB565ToRGBA8888(buf_line, fb_line, srcwidth);
-			break;
+			switch (displayFormat_) {
+			case GE_FORMAT_565:
+				buf_line[x] = Convert5To8((col) & 0x1f) | Convert6To8((col >> 5) & 0x3f) << 8 | Convert5To8((col >> 11) & 0x1f) << 16 | 255 << 24;
+				break;
 
-		case GE_FORMAT_5551:
-			ConvertRGBA5551ToRGBA8888(buf_line, fb_line, srcwidth);
-			break;
+			case GE_FORMAT_5551:
+				buf_line[x] = Convert5To8((col) & 0x1f) | Convert5To8((col >> 5) & 0x1f) << 8 | Convert5To8((col >> 10) & 0x1f) << 16 | (col >> 15) ? 255 << 24: 0;
+				break;
 
-		case GE_FORMAT_4444:
-			ConvertRGBA4444ToRGBA8888(buf_line, fb_line, srcwidth);
-			break;
+			case GE_FORMAT_4444:
+				buf_line[x] = Convert4To8(col & 0xf) | Convert4To8((col >> 4) & 0xf) << 8 | Convert4To8((col >> 8) & 0xf) << 16 | Convert4To8(col >> 12) << 24;
+				break;
 
-		default:
-			ERROR_LOG_REPORT(G3D, "Software: Unexpected framebuffer format: %d", displayFormat_);
-			break;
+			default:
+				ERROR_LOG_REPORT(G3D, "Software: Unexpected framebuffer format: %d", displayFormat_);
+				break;
+			}
 		}
 	}
 
@@ -272,6 +274,7 @@ void SoftGPU::CopyToCurrentFboFromDisplayRam(int srcwidth, int srcheight) {
 		break;
 	case GPUBackend::DIRECT3D9:
 	case GPUBackend::DIRECT3D11:
+	case GPUBackend::GX2:
 		outputFlags |= OutputFlags::POSITION_FLIPPED;
 		break;
 	case GPUBackend::VULKAN:
@@ -953,14 +956,20 @@ bool SoftGPU::GetCurrentFramebuffer(GPUDebugBuffer &buffer, GPUDebugFramebufferT
 
 	buffer.Allocate(x2 - x1, y2 - y1, fmt);
 
-	const int depth = fmt == GE_FORMAT_8888 ? 4 : 2;
-	const u8 *src = fb.data + stride * depth * y1;
-	u8 *dst = buffer.GetData();
-	const int byteWidth = (x2 - x1) * depth;
-	for (int y = y1; y < y2; ++y) {
-		memcpy(dst, src + x1, byteWidth);
-		dst += byteWidth;
-		src += stride * depth;
+	if(fmt == GE_FORMAT_8888) {
+		u32_le *dst = (u32_le *)buffer.GetData();
+		for (int y = y1; y < y2; ++y) {
+			for (int x = x1; x < x2; ++x) {
+				*dst++ = fb.Get32(x, y, stride);
+			}
+		}
+	} else {
+		u16_le *dst = (u16_le *)buffer.GetData();
+		for (int y = y1; y < y2; ++y) {
+			for (int x = x1; x < x2; ++x) {
+				*dst++ = fb.Get16(x, y, stride);
+			}
+		}
 	}
 	return true;
 }

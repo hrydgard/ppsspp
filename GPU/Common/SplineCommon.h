@@ -28,6 +28,7 @@
 
 // PSP compatible format so we can use the end of the pipeline in beziers etc
 struct SimpleVertex {
+	SimpleVertex() {}
 	float uv[2];
 	union {
 		u8 color[4];
@@ -41,7 +42,7 @@ class SimpleBufferManager;
 
 namespace Spline {
 
-void BuildIndex(u16 *indices, int &count, int num_u, int num_v, GEPatchPrimType prim_type, int total = 0);
+void BuildIndex(u16_le *indices, int &count, int num_u, int num_v, GEPatchPrimType prim_type, int total = 0);
 
 enum SplineQuality {
 	LOW_QUALITY = 0,
@@ -109,7 +110,7 @@ struct BezierSurface : public SurfaceInfo {
 		return index_v * (tess_u + 1) + index_u + num_verts_per_patch * patch_index;
 	}
 
-	void BuildIndex(u16 *indices, int &count) const {
+	void BuildIndex(u16_le *indices, int &count) const {
 		for (int patch_u = 0; patch_u < num_patches_u; ++patch_u) {
 			for (int patch_v = 0; patch_v < num_patches_v; ++patch_v) {
 				int patch_index = patch_v * num_patches_u + patch_u;
@@ -146,7 +147,7 @@ struct SplineSurface : public SurfaceInfo {
 		return index_v * num_vertices_u + index_u;
 	}
 
-	void BuildIndex(u16 *indices, int &count) const {
+	void BuildIndex(u16_le *indices, int &count) const {
 		Spline::BuildIndex(indices, count, num_patches_u * tess_u, num_patches_v * tess_v, primType);
 	}
 };
@@ -198,7 +199,7 @@ struct ControlPoints {
 
 struct OutputBuffers {
 	SimpleVertex *vertices;
-	u16 *indices;
+	u16_le *indices;
 	int count;
 };
 

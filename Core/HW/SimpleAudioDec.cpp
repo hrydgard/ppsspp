@@ -339,7 +339,8 @@ u32 AuCtx::AuDecode(u32 pcmAddr) {
 	if (!sourcebuff.empty()) {
 		// FFmpeg doesn't seem to search for a sync for us, so let's do that.
 		int nextSync = (int)FindNextMp3Sync();
-		decoder->Decode(&sourcebuff[nextSync], (int)sourcebuff.size() - nextSync, outbuf, &outpcmbufsize);
+		decoder->Decode(&sourcebuff[nextSync], (int)sourcebuff.size() - nextSync, outbuf, &outpcmbufsize);		
+		ToLEndian((u16*)outbuf, outpcmbufsize / 2);
 
 		if (outpcmbufsize == 0) {
 			// Nothing was output, hopefully we're at the end of the stream.

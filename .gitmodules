@@ -31,3 +31,6 @@
 [submodule "ext/miniupnp"]
 	path = ext/miniupnp
 	url = https://github.com/hrydgard/miniupnp.git
+[submodule "ext/wiiu"]
+	path = ext/wiiu
+	url = https://github.com/aliaspider/wiiu.git

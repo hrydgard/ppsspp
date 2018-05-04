@@ -195,8 +195,11 @@ bool DrawEngineCommon::TestBoundingBox(void* control_points, int vertexCount, u3
 
 	// Try to skip NormalizeVertices if it's pure positions. No need to bother with a vertex decoder
 	// and a large vertex format.
-	if ((vertType & 0xFFFFFF) == GE_VTYPE_POS_FLOAT) {
-		verts = (float *)control_points;
+	if ((vertType & 0xFFFFFF) == GE_VTYPE_POS_FLOAT) {		
+		const float_le *vtx = (const float_le*)control_points;
+		for (int i = 0; i < vertexCount * 3; i++) {
+			verts[i] = vtx[i];
+		}
 		*bytesRead = 3 * sizeof(float) * vertexCount;
 	} else if ((vertType & 0xFFFFFF) == GE_VTYPE_POS_8BIT) {
 		const s8 *vtx = (const s8 *)control_points;
@@ -205,7 +208,7 @@ bool DrawEngineCommon::TestBoundingBox(void* control_points, int vertexCount, u3
 		}
 		*bytesRead = 3 * sizeof(s8) * vertexCount;
 	} else if ((vertType & 0xFFFFFF) == GE_VTYPE_POS_16BIT) {
-		const s16 *vtx = (const s16*)control_points;
+		const s16_le *vtx = (const s16_le*)control_points;
 		for (int i = 0; i < vertexCount * 3; i++) {
 			verts[i] = vtx[i] * (1.0f / 32768.0f);
 		}
@@ -270,8 +273,8 @@ bool DrawEngineCommon::GetCurrentSimpleVertices(int count, std::vector<GPUDebugV
 
 	if ((gstate.vertType & GE_VTYPE_IDX_MASK) != GE_VTYPE_IDX_NONE) {
 		const u8 *inds = Memory::GetPointer(gstate_c.indexAddr);
-		const u16 *inds16 = (const u16 *)inds;
-		const u32 *inds32 = (const u32 *)inds;
+		const u16_le *inds16 = (const u16_le *)inds;
+		const u32_le *inds32 = (const u32_le *)inds;
 
 		if (inds) {
 			GetIndexBounds(inds, count, gstate.vertType, &indexLowerBound, &indexUpperBound);

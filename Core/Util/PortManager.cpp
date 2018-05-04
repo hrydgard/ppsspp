@@ -67,7 +67,9 @@ PortManager::~PortManager() {
 void PortManager::Terminate() {
 	VERBOSE_LOG(SCENET, "PortManager::Terminate()");
 	if (urls) {
+#ifndef __wiiu__
 		FreeUPNPUrls(urls);
+#endif
 		free(urls);
 		urls = NULL;
 	}
@@ -126,6 +128,7 @@ bool PortManager::Initialize(const unsigned int timeout) {
 	memset(urls, 0, sizeof(struct UPNPUrls));
 	memset(datas, 0, sizeof(struct IGDdatas));
 
+#ifndef __wiiu__
 	devlist = upnpDiscover(timeout, NULL, NULL, localport, ipv6, ttl, &error);
 	if (devlist)
 	{
@@ -175,6 +178,7 @@ bool PortManager::Initialize(const unsigned int timeout) {
 		RefreshPortList();
 		return true;
 	}
+#endif
 
 	ERROR_LOG(SCENET, "PortManager - upnpDiscover failed (error: %i) or No UPnP device detected", error);
 	auto n = GetI18NCategory("Networking");
@@ -200,6 +204,7 @@ bool PortManager::Add(const char* protocol, unsigned short port, unsigned short 
 		if (g_Config.bEnableUPnP) WARN_LOG(SCENET, "PortManager::Add - the init was not done !");
 		return false;
 	}
+#ifndef __wiiu__
 	sprintf(port_str, "%d", port);
 	sprintf(intport_str, "%d", intport);
 	// Only add new port map if it's not previously created by PPSSPP for current IP
@@ -233,6 +238,7 @@ bool PortManager::Add(const char* protocol, unsigned short port, unsigned short 
 		// Keep tracks of it to be restored later if it belongs to others
 		if (el_it != m_otherPortList.end()) el_it->taken = true;
 	}
+#endif
 	return true;
 }
 
@@ -246,6 +252,7 @@ bool PortManager::Remove(const char* protocol, unsigned short port) {
 		return false;
 	}
 	sprintf(port_str, "%d", port);
+#ifndef __wiiu__
 	int r = UPNP_DeletePortMapping(urls->controlURL, datas->first.servicetype, port_str, protocol, NULL);
 	if (r != 0)
 	{
@@ -257,6 +264,7 @@ bool PortManager::Remove(const char* protocol, unsigned short port) {
 			return false;
 		}
 	}
+#endif
 	for (auto it = m_portList.begin(); it != m_portList.end(); ) {
 		(it->first == port_str && it->second == protocol) ? it = m_portList.erase(it) : ++it;
 	}
@@ -271,6 +279,7 @@ bool PortManager::Restore() {
 		if (g_Config.bEnableUPnP) WARN_LOG(SCENET, "PortManager::Remove - the init was not done !");
 		return false;
 	}
+#ifndef __wiiu__
 	for (auto it = m_otherPortList.begin(); it != m_otherPortList.end(); ++it) {
 		if (it->taken) {
 			auto port_str = it->extPort_str;
@@ -302,6 +311,7 @@ bool PortManager::Restore() {
 			}		
 		}
 	}
+#endif
 	return true;
 }
 
@@ -324,6 +334,7 @@ bool PortManager::Clear() {
 		if (g_Config.bEnableUPnP) WARN_LOG(SCENET, "PortManager::Clear - the init was not done !");
 		return false;
 	}
+#ifndef __wiiu__
 	//unsigned int num = 0;
 	//UPNP_GetPortMappingNumberOfEntries(urls->controlURL, datas->first.servicetype, &num); // Not supported by many routers
 	do {
@@ -356,6 +367,7 @@ bool PortManager::Clear() {
 		}
 		i++;
 	} while (r == 0);
+#endif
 	return true;
 }
 

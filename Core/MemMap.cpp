@@ -165,8 +165,8 @@ static bool Memory_TryBase(u32 flags) {
 		*view.out_ptr = (u8*)g_arena.CreateView(
 			position, view.size, base + view.virtual_address);
 		if (!*view.out_ptr) {
-			goto bail;
 			DEBUG_LOG(MEMMAP, "Failed at view %d", i);
+			goto bail;
 		}
 #else
 		if (CanIgnoreView(view)) {
@@ -296,6 +296,7 @@ bool Init() {
 
 	int flags = 0;
 	if (!MemoryMap_Setup(flags)) {
+		_assert_msg_(0, "MemoryMap_Setup: Failed.");
 		return false;
 	}
 

@@ -110,7 +110,12 @@ bool WaitUntilReady(int fd, double timeout, bool for_write) {
 }
 
 void SetNonBlocking(int sock, bool non_blocking) {
-#ifndef _WIN32
+#if defined(__wiiu__)
+	u32 val = non_blocking ? 1 : 0;
+	if(setsockopt(sock, SOL_SOCKET, SO_NONBLOCK, &val, sizeof(val)) != 0) {
+		ERROR_LOG(IO, "Error setting socket nonblocking status");
+	}
+#elif !defined(_WIN32)
 	int opts = fcntl(sock, F_GETFL);
   if (opts < 0) {
 		perror("fcntl(F_GETFL)");

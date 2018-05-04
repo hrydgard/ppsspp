@@ -39,6 +39,10 @@
 #include "GPU/D3D11/GPU_D3D11.h"
 #endif
 
+#if PPSSPP_API(GX2)
+#include "GPU/GX2/GPU_GX2.h"
+#endif
+
 GPUStatistics gpuStats;
 GPUInterface *gpu;
 GPUDebugInterface *gpuDebug;
@@ -101,6 +105,13 @@ bool GPU_Init(GraphicsContext *ctx, Draw::DrawContext *draw) {
 		}
 		SetGPU(new GPU_Vulkan(ctx, draw));
 		break;
+	case GPUCORE_GX2:
+#if PPSSPP_PLATFORM(WIIU)
+		SetGPU(new GPU_GX2(ctx, draw));
+		break;
+#else
+		return false;
+#endif
 	}
 
 	return gpu != NULL;

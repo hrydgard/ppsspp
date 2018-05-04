@@ -28,7 +28,9 @@
 std::vector<std::string> DisassembleArm2(const u8 *data, int size);
 std::vector<std::string> DisassembleArm64(const u8 *data, int size);
 std::vector<std::string> DisassembleX86(const u8 *data, int size);
-
+#ifdef __wiiu__
+std::vector<std::string> DisassemblePPC(const u8 *data, int size);
+#endif
 struct JitBlock;
 class JitBlockCache;
 class JitBlockCacheDebugInterface;

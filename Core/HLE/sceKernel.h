@@ -500,7 +500,7 @@ public:
 		}
 	}
 
-	int ListIDType(int type, SceUID *uids, int count) const {
+	int ListIDType(int type, SceUID_le *uids, int count) const {
 		int total = 0;
 		for (int i = 0; i < maxCount; i++) {
 			if (!occupied[i]) {

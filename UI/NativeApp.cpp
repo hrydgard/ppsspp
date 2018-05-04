@@ -328,7 +328,7 @@ static void PostLoadConfig() {
 	if (g_Config.currentDirectory.empty()) {
 #if defined(__ANDROID__)
 		g_Config.currentDirectory = g_Config.externalDirectory;
-#elif defined(IOS)
+#elif defined(IOS) || defined(__wiiu__)
 		g_Config.currentDirectory = g_Config.internalDataDirectory;
 #elif PPSSPP_PLATFORM(SWITCH)
 		g_Config.currentDirectory = "/";
@@ -512,6 +512,9 @@ void NativeInit(int argc, const char *argv[], const char *savegame_dir, const ch
 #elif PPSSPP_PLATFORM(SWITCH)
 	g_Config.memStickDirectory = g_Config.internalDataDirectory + "config/ppsspp/";
 	g_Config.flash0Directory = g_Config.internalDataDirectory + "assets/flash0/";
+#elif defined(__wiiu__)
+	g_Config.memStickDirectory = "sd:/ppsspp/";
+	g_Config.flash0Directory = "sd:/ppsspp/assets/flash0/";
 #elif !defined(_WIN32)
 	std::string config;
 	if (getenv("XDG_CONFIG_HOME") != NULL)
@@ -1075,6 +1078,7 @@ void NativeRender(GraphicsContext *graphicsContext) {
 		translation.setTranslation(Vec3(-0.5f * g_dpi_scale_x / g_dpi_scale_real_x, -0.5f * g_dpi_scale_y / g_dpi_scale_real_y, 0.0f));
 		ortho = translation * ortho;
 		break;
+	case GPUBackend::GX2:
 	case GPUBackend::DIRECT3D11:
 		ortho.setOrthoD3D(0.0f, xres, yres, 0.0f, -1.0f, 1.0f);
 		break;

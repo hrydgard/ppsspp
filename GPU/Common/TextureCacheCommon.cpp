@@ -112,8 +112,8 @@ TextureCacheCommon::TextureCacheCommon(Draw::DrawContext *draw)
 	decimationCounter_ = TEXCACHE_DECIMATION_INTERVAL;
 
 	// TODO: Clamp down to 256/1KB?  Need to check mipmapShareClut and clamp loadclut.
-	clutBufRaw_ = (u32 *)AllocateAlignedMemory(1024 * sizeof(u32), 16);  // 4KB
-	clutBufConverted_ = (u32 *)AllocateAlignedMemory(1024 * sizeof(u32), 16);  // 4KB
+	clutBufRaw_ = (u32_le *)AllocateAlignedMemory(1024 * sizeof(u32), 16);  // 4KB
+	clutBufConverted_ = (u32_le *)AllocateAlignedMemory(1024 * sizeof(u32), 16);  // 4KB
 
 	// Zap so we get consistent behavior if the game fails to load some of the CLUT.
 	memset(clutBufRaw_, 0, 1024 * sizeof(u32));
@@ -1220,18 +1220,18 @@ u32 TextureCacheCommon::EstimateTexMemoryUsage(const TexCacheEntry *entry) {
 static void ReverseColors(void *dstBuf, const void *srcBuf, GETextureFormat fmt, int numPixels, bool useBGRA) {
 	switch (fmt) {
 	case GE_TFMT_4444:
-		ConvertRGBA4444ToABGR4444((u16 *)dstBuf, (const u16 *)srcBuf, numPixels);
+		ConvertRGBA4444ToABGR4444((u16_le *)dstBuf, (const u16_le *)srcBuf, numPixels);
 		break;
 	// Final Fantasy 2 uses this heavily in animated textures.
 	case GE_TFMT_5551:
-		ConvertRGBA5551ToABGR1555((u16 *)dstBuf, (const u16 *)srcBuf, numPixels);
+		ConvertRGBA5551ToABGR1555((u16_le *)dstBuf, (const u16_le *)srcBuf, numPixels);
 		break;
 	case GE_TFMT_5650:
-		ConvertRGB565ToBGR565((u16 *)dstBuf, (const u16 *)srcBuf, numPixels);
+		ConvertRGB565ToBGR565((u16_le *)dstBuf, (const u16_le *)srcBuf, numPixels);
 		break;
 	default:
 		if (useBGRA) {
-			ConvertRGBA8888ToBGRA8888((u32 *)dstBuf, (const u32 *)srcBuf, numPixels);
+			ConvertRGBA8888ToBGRA8888((u32_le *)dstBuf, (const u32_le *)srcBuf, numPixels);
 		} else {
 			// No need to convert RGBA8888, right order already
 			if (dstBuf != srcBuf)
@@ -1241,7 +1241,7 @@ static void ReverseColors(void *dstBuf, const void *srcBuf, GETextureFormat fmt,
 	}
 }
 
-static inline void ConvertFormatToRGBA8888(GETextureFormat format, u32 *dst, const u16 *src, u32 numPixels) {
+static inline void ConvertFormatToRGBA8888(GETextureFormat format, u32_le *dst, const u16_le *src, u32 numPixels) {
 	switch (format) {
 	case GE_TFMT_4444:
 		ConvertRGBA4444ToRGBA8888(dst, src, numPixels);
@@ -1258,7 +1258,7 @@ static inline void ConvertFormatToRGBA8888(GETextureFormat format, u32 *dst, con
 	}
 }
 
-static inline void ConvertFormatToRGBA8888(GEPaletteFormat format, u32 *dst, const u16 *src, u32 numPixels) {
+static inline void ConvertFormatToRGBA8888(GEPaletteFormat format, u32_le *dst, const u16_le *src, u32 numPixels) {
 	// The supported values are 1:1 identical.
 	ConvertFormatToRGBA8888(GETextureFormat(format), dst, src, numPixels);
 }
@@ -1300,24 +1300,24 @@ void TextureCacheCommon::DecodeTextureLevel(u8 *out, int outPitch, GETextureForm
 				// Here, reverseColors means the CLUT is already reversed.
 				if (reverseColors) {
 					for (int y = 0; y < h; ++y) {
-						DeIndexTexture4Optimal((u16 *)(out + outPitch * y), texptr + (bufw * y) / 2, w, clutAlphaLinearColor_);
+						DeIndexTexture4Optimal((u16_le *)(out + outPitch * y), texptr + (bufw * y) / 2, w, clutAlphaLinearColor_);
 					}
 				} else {
 					for (int y = 0; y < h; ++y) {
-						DeIndexTexture4OptimalRev((u16 *)(out + outPitch * y), texptr + (bufw * y) / 2, w, clutAlphaLinearColor_);
+						DeIndexTexture4OptimalRev((u16_le *)(out + outPitch * y), texptr + (bufw * y) / 2, w, clutAlphaLinearColor_);
 					}
 				}
 			} else {
-				const u16 *clut = GetCurrentClut<u16>() + clutSharingOffset;
+				const u16_le *clut = GetCurrentClut<u16_le>() + clutSharingOffset;
 				if (expandTo32bit && !reverseColors) {
 					// We simply expand the CLUT to 32-bit, then we deindex as usual. Probably the fastest way.
 					ConvertFormatToRGBA8888(clutformat, expandClut_, clut, 16);
 					for (int y = 0; y < h; ++y) {
-						DeIndexTexture4((u32 *)(out + outPitch * y), texptr + (bufw * y) / 2, w, expandClut_);
+						DeIndexTexture4((u32_le *)(out + outPitch * y), texptr + (bufw * y) / 2, w, expandClut_);
 					}
 				} else {
 					for (int y = 0; y < h; ++y) {
-						DeIndexTexture4((u16 *)(out + outPitch * y), texptr + (bufw * y) / 2, w, clut);
+						DeIndexTexture4((u16_le *)(out + outPitch * y), texptr + (bufw * y) / 2, w, clut);
 					}
 				}
 			}
@@ -1326,9 +1326,9 @@ void TextureCacheCommon::DecodeTextureLevel(u8 *out, int outPitch, GETextureForm
 
 		case GE_CMODE_32BIT_ABGR8888:
 		{
-			const u32 *clut = GetCurrentClut<u32>() + clutSharingOffset;
+			const u32_le *clut = GetCurrentClut<u32_le>() + clutSharingOffset;
 			for (int y = 0; y < h; ++y) {
-				DeIndexTexture4((u32 *)(out + outPitch * y), texptr + (bufw * y) / 2, w, clut);
+				DeIndexTexture4((u32_le *)(out + outPitch * y), texptr + (bufw * y) / 2, w, clut);
 			}
 		}
 		break;
@@ -1363,7 +1363,7 @@ void TextureCacheCommon::DecodeTextureLevel(u8 *out, int outPitch, GETextureForm
 				}
 			} else if (expandTo32bit) {
 				for (int y = 0; y < h; ++y) {
-					ConvertFormatToRGBA8888(format, (u32 *)(out + outPitch * y), (const u16 *)texptr + bufw * y, w);
+					ConvertFormatToRGBA8888(format, (u32_le *)(out + outPitch * y), (const u16_le *)texptr + bufw * y, w);
 				}
 			} else {
 				for (int y = 0; y < h; ++y) {
@@ -1388,7 +1388,7 @@ void TextureCacheCommon::DecodeTextureLevel(u8 *out, int outPitch, GETextureForm
 				}
 			} else if (expandTo32bit) {
 				for (int y = 0; y < h; ++y) {
-					ConvertFormatToRGBA8888(format, (u32 *)(out + outPitch * y), (const u16 *)unswizzled + bufw * y, w);
+					ConvertFormatToRGBA8888(format, (u32_le *)(out + outPitch * y), (const u16_le *)unswizzled + bufw * y, w);
 				}
 			} else {
 				for (int y = 0; y < h; ++y) {
@@ -1435,7 +1435,7 @@ void TextureCacheCommon::DecodeTextureLevel(u8 *out, int outPitch, GETextureForm
 	case GE_TFMT_DXT1:
 	{
 		int minw = std::min(bufw, w);
-		u32 *dst = (u32 *)out;
+		u32_le *dst = (u32_le *)out;
 		int outPitch32 = outPitch / sizeof(u32);
 		DXT1Block *src = (DXT1Block*)texptr;
 
@@ -1457,7 +1457,7 @@ void TextureCacheCommon::DecodeTextureLevel(u8 *out, int outPitch, GETextureForm
 	case GE_TFMT_DXT3:
 	{
 		int minw = std::min(bufw, w);
-		u32 *dst = (u32 *)out;
+		u32_le *dst = (u32_le *)out;
 		int outPitch32 = outPitch / sizeof(u32);
 		DXT3Block *src = (DXT3Block*)texptr;
 
@@ -1479,7 +1479,7 @@ void TextureCacheCommon::DecodeTextureLevel(u8 *out, int outPitch, GETextureForm
 	case GE_TFMT_DXT5:
 	{
 		int minw = std::min(bufw, w);
-		u32 *dst = (u32 *)out;
+		u32_le *dst = (u32_le *)out;
 		int outPitch32 = outPitch / sizeof(u32);
 		DXT5Block *src = (DXT5Block*)texptr;
 
@@ -1516,8 +1516,8 @@ void TextureCacheCommon::ReadIndexedTex(u8 *out, int outPitch, int level, const 
 
 	int palFormat = gstate.getClutPaletteFormat();
 
-	const u16 *clut16 = (const u16 *)clutBuf_;
-	const u32 *clut32 = (const u32 *)clutBuf_;
+	const u16_le *clut16 = (const u16_le *)clutBuf_;
+	const u32_le *clut32 = (const u32_le *)clutBuf_;
 
 	if (expandTo32Bit && palFormat != GE_CMODE_32BIT_ABGR8888) {
 		ConvertFormatToRGBA8888(GEPaletteFormat(palFormat), expandClut_, clut16, 256);
@@ -1533,19 +1533,19 @@ void TextureCacheCommon::ReadIndexedTex(u8 *out, int outPitch, int level, const 
 		switch (bytesPerIndex) {
 		case 1:
 			for (int y = 0; y < h; ++y) {
-				DeIndexTexture((u16 *)(out + outPitch * y), (const u8 *)texptr + bufw * y, w, clut16);
+				DeIndexTexture((u16_le *)(out + outPitch * y), (const u8 *)texptr + bufw * y, w, clut16);
 			}
 			break;
 
 		case 2:
 			for (int y = 0; y < h; ++y) {
-				DeIndexTexture((u16 *)(out + outPitch * y), (const u16_le *)texptr + bufw * y, w, clut16);
+				DeIndexTexture((u16_le *)(out + outPitch * y), (const u16_le *)texptr + bufw * y, w, clut16);
 			}
 			break;
 
 		case 4:
 			for (int y = 0; y < h; ++y) {
-				DeIndexTexture((u16 *)(out + outPitch * y), (const u32_le *)texptr + bufw * y, w, clut16);
+				DeIndexTexture((u16_le *)(out + outPitch * y), (const u32_le *)texptr + bufw * y, w, clut16);
 			}
 			break;
 		}
@@ -1557,19 +1557,19 @@ void TextureCacheCommon::ReadIndexedTex(u8 *out, int outPitch, int level, const 
 		switch (bytesPerIndex) {
 		case 1:
 			for (int y = 0; y < h; ++y) {
-				DeIndexTexture((u32 *)(out + outPitch * y), (const u8 *)texptr + bufw * y, w, clut32);
+				DeIndexTexture((u32_le *)(out + outPitch * y), (const u8 *)texptr + bufw * y, w, clut32);
 			}
 			break;
 
 		case 2:
 			for (int y = 0; y < h; ++y) {
-				DeIndexTexture((u32 *)(out + outPitch * y), (const u16_le *)texptr + bufw * y, w, clut32);
+				DeIndexTexture((u32_le *)(out + outPitch * y), (const u16_le *)texptr + bufw * y, w, clut32);
 			}
 			break;
 
 		case 4:
 			for (int y = 0; y < h; ++y) {
-				DeIndexTexture((u32 *)(out + outPitch * y), (const u32_le *)texptr + bufw * y, w, clut32);
+				DeIndexTexture((u32_le *)(out + outPitch * y), (const u32_le *)texptr + bufw * y, w, clut32);
 			}
 			break;
 		}

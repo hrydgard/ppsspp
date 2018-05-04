@@ -33,13 +33,14 @@ static u8 kirk_buf[0x0814]; // 1DC0 1DD4
 static int do_kirk4(u8 *buf, int size, int type)
 {
 	int retv;
-	u32 *header = (u32*)buf;
+	KIRK_AES128CBC_HEADER *header = (KIRK_AES128CBC_HEADER*)buf;
 
-	header[0] = 4;
-	header[1] = 0;
-	header[2] = 0;
-	header[3] = type;
-	header[4] = size;
+
+	header->mode      = 4;
+	header->unk_4     = 0;
+	header->unk_8     = 0;
+	header->keyseed   = type;
+	header->data_size = size;
 
 	retv = kirk_sceUtilsBufferCopyWithRange(buf, size+0x14, buf, size, 4);
 
@@ -52,13 +53,13 @@ static int do_kirk4(u8 *buf, int size, int type)
 static int do_kirk7(u8 *buf, int size, int type)
 {
 	int retv;
-	u32 *header = (u32*)buf;
+	KIRK_AES128CBC_HEADER *header = (KIRK_AES128CBC_HEADER*)buf;
 
-	header[0] = 5;
-	header[1] = 0;
-	header[2] = 0;
-	header[3] = type;
-	header[4] = size;
+	header->mode      = 5;
+	header->unk_4     = 0;
+	header->unk_8     = 0;
+	header->keyseed   = type;
+	header->data_size = size;
 
 	retv = kirk_sceUtilsBufferCopyWithRange(buf, size+0x14, buf, size, 7);
 	if(retv)
@@ -70,13 +71,13 @@ static int do_kirk7(u8 *buf, int size, int type)
 static int kirk5(u8 *buf, int size)
 {
 	int retv;
-	u32 *header = (u32*)buf;
+	KIRK_AES128CBC_HEADER *header = (KIRK_AES128CBC_HEADER*)buf;
 
-	header[0] = 4;
-	header[1] = 0;
-	header[2] = 0;
-	header[3] = 0x0100;
-	header[4] = size;
+	header->mode      = 4;
+	header->unk_4     = 0;
+	header->unk_8     = 0;
+	header->keyseed   = 0x0100;
+	header->data_size = size;
 
 	retv = kirk_sceUtilsBufferCopyWithRange(buf, size+0x14, buf, size, 5);
 	if(retv)
@@ -88,13 +89,13 @@ static int kirk5(u8 *buf, int size)
 static int kirk8(u8 *buf, int size)
 {
 	int retv;
-	u32 *header = (u32*)buf;
+	KIRK_AES128CBC_HEADER *header = (KIRK_AES128CBC_HEADER*)buf;
 
-	header[0] = 5;
-	header[1] = 0;
-	header[2] = 0;
-	header[3] = 0x0100;
-	header[4] = size;
+	header->mode      = 5;
+	header->unk_4     = 0;
+	header->unk_8     = 0;
+	header->keyseed   = 0x0100;
+	header->data_size = size;
 
 	retv = kirk_sceUtilsBufferCopyWithRange(buf, size+0x14, buf, size, 8);
 	if(retv)
@@ -428,12 +429,12 @@ static int sub_428(u8 *kbuf, u8 *dbuf, int size, CIPHER_KEY *ckey)
 		memset(tmp1, 0, 0x10);
 	}else{
 		memcpy(tmp1, tmp2, 0x10);
-		*(u32*)(tmp1+0x0c) = ckey->seed-1;
+		((KIRK_AES128CBC_BLOCK*)tmp1)->seed = ckey->seed-1;
 	}
 
 	for(i=0; i<size; i+=16){
 		memcpy(kbuf+0x14+i, tmp2, 12);
-		*(u32*)(kbuf+0x14+i+12) = ckey->seed;
+		((KIRK_AES128CBC_BLOCK*)(kbuf+0x14+i))->seed = ckey->seed;
 		ckey->seed += 1;
 	}
 
@@ -600,8 +601,35 @@ int sceNpDrmGetFixedKey(u8 *key, char *npstr, int type)
 static const u8 dnas_key1A90[] = {0xED,0xE2,0x5D,0x2D,0xBB,0xF8,0x12,0xE5,0x3C,0x5C,0x59,0x32,0xFA,0xE3,0xE2,0x43};
 static const u8 dnas_key1AA0[] = {0x27,0x74,0xFB,0xEB,0xA4,0xA0,   1,0xD7,   2,0x56,0x9E,0x33,0x8C,0x19,0x57,0x83};
 
+#ifdef __GNUC__
+#pragma scalar_storage_order little-endian
+#endif
+typedef struct {
+	u8 magic[0x4];       // 0x0
+	u32 key_index;       // 0x4
+	u32 drm_type;        // 0x8
+	u32 unk0C;           // 0xC
+	u8 header_key[0x10]; // 0x10
+	u8 unk20[0x10];      // 0x20
+	struct {
+		u8 dkey[0x10];    // 0x30
+		u32 unk40;        // 0x40
+		u32 data_size;    // 0x44
+		u32 block_size;   // 0x48
+		u32 data_offset;  // 0x4C
+		u8 unk50[0x10];   // 0x50
+	} desc;
+	u8 unk60[0x10];      // 0x60
+	u8 mac_70[0x10];     // 0x70
+	u8 mac_80[0x10];     // 0x80
+} PGD_HEADER;
+#ifdef __GNUC__
+#pragma scalar_storage_order default
+#endif
+
 PGD_DESC *pgd_open(u8 *pgd_buf, int pgd_flag, u8 *pgd_vkey)
 {
+	PGD_HEADER *pgd_header = (PGD_HEADER *)pgd_buf;
 	PGD_DESC *pgd;
 	MAC_KEY mkey;
 	CIPHER_KEY ckey;
@@ -613,8 +641,8 @@ PGD_DESC *pgd_open(u8 *pgd_buf, int pgd_flag, u8 *pgd_vkey)
 	pgd = (PGD_DESC*)malloc(sizeof(PGD_DESC));
 	memset(pgd, 0, sizeof(PGD_DESC));
 
-	pgd->key_index = *(u32*)(pgd_buf+4);
-	pgd->drm_type  = *(u32*)(pgd_buf+8);
+	pgd->key_index = pgd_header->key_index;
+	pgd->drm_type  = pgd_header->drm_type;
 
 	if(pgd->drm_type==1){
 		pgd->mac_type = 1;
@@ -644,8 +672,8 @@ PGD_DESC *pgd_open(u8 *pgd_buf, int pgd_flag, u8 *pgd_vkey)
 
 	// MAC_0x80 check
 	sceDrmBBMacInit(&mkey, pgd->mac_type);
-	sceDrmBBMacUpdate(&mkey, pgd_buf+0x00, 0x80);
-	retv = sceDrmBBMacFinal2(&mkey, pgd_buf+0x80, fkey);
+	sceDrmBBMacUpdate(&mkey, (u8*)pgd_header, 0x80);
+	retv = sceDrmBBMacFinal2(&mkey, pgd_header->mac_80, fkey);
 	if(retv){
 		//ERROR_LOG(HLE, "pgd_open: MAC_80 check failed!: %08x(%d)\n", retv, retv);
 		free(pgd);
@@ -654,10 +682,10 @@ PGD_DESC *pgd_open(u8 *pgd_buf, int pgd_flag, u8 *pgd_vkey)
 
 	// MAC_0x70
 	sceDrmBBMacInit(&mkey, pgd->mac_type);
-	sceDrmBBMacUpdate(&mkey, pgd_buf+0x00, 0x70);
+	sceDrmBBMacUpdate(&mkey, (u8*)pgd_header, 0x70);
 	if(pgd_vkey){
 		// use given vkey
-		retv = sceDrmBBMacFinal2(&mkey, pgd_buf+0x70, pgd_vkey);
+		retv = sceDrmBBMacFinal2(&mkey, pgd_header->mac_70, pgd_vkey);
 		if(retv){
 			//ERROR_LOG(HLE, "pgd_open: MAC_70 check failed!: %08x(%d)\n", retv, retv);
 			free(pgd);
@@ -667,18 +695,18 @@ PGD_DESC *pgd_open(u8 *pgd_buf, int pgd_flag, u8 *pgd_vkey)
 		}
 	}else{
 		// get vkey from MAC_70
-		bbmac_getkey(&mkey, pgd_buf+0x70, pgd->vkey);
+		bbmac_getkey(&mkey, pgd_header->mac_70, pgd->vkey);
 	}
 
 	// decrypt PGD_DESC
-	sceDrmBBCipherInit(&ckey, pgd->cipher_type, 2, pgd_buf+0x10, pgd->vkey, 0);
-	sceDrmBBCipherUpdate(&ckey, pgd_buf+0x30, 0x30);
+	sceDrmBBCipherInit(&ckey, pgd->cipher_type, 2, pgd_header->header_key, pgd->vkey, 0);
+	sceDrmBBCipherUpdate(&ckey, (u8 *)&pgd_header->desc, sizeof(pgd_header->desc));
 	sceDrmBBCipherFinal(&ckey);
 
-	pgd->data_size   = *(u32*)(pgd_buf+0x44);
-	pgd->block_size  = *(u32*)(pgd_buf+0x48);
-	pgd->data_offset = *(u32*)(pgd_buf+0x4c);
-	memcpy(pgd->dkey, pgd_buf+0x30, 16);
+	pgd->data_size   = pgd_header->desc.data_size;
+	pgd->block_size  = pgd_header->desc.block_size;
+	pgd->data_offset = pgd_header->desc.data_offset;
+	memcpy(pgd->dkey, pgd_header->desc.dkey, 16);
 
 	pgd->align_size = (pgd->data_size+15)&~15;
 	pgd->table_offset = pgd->data_offset+pgd->align_size;

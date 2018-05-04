@@ -739,7 +739,7 @@ Draw::Texture *FramebufferManagerCommon::MakePixelTexture(const u8 *srcPixels, G
 		for (int y = 0; y < height; y++) {
 			const u16_le *src16 = (const u16_le *)srcPixels + srcStride * y;
 			const u32_le *src32 = (const u32_le *)srcPixels + srcStride * y;
-			u32 *dst = (u32 *)(data + byteStride * y);
+			u32_le *dst = (u32_le *)(data + byteStride * y);
 			switch (srcPixelFormat) {
 			case GE_FORMAT_565:
 				if (preferredPixelsFormat_ == Draw::DataFormat::B8G8R8A8_UNORM)
@@ -818,7 +818,7 @@ void FramebufferManagerCommon::DrawFramebufferToOutput(const u8 *srcPixels, GEBu
 		flags |= OutputFlags::BACKBUFFER_FLIPPED;
 	}
 	// DrawActiveTexture reverses these, probably to match "up".
-	if (GetGPUBackend() == GPUBackend::DIRECT3D9 || GetGPUBackend() == GPUBackend::DIRECT3D11) {
+	if (GetGPUBackend() == GPUBackend::DIRECT3D9 || GetGPUBackend() == GPUBackend::DIRECT3D11 || GetGPUBackend() == GPUBackend::GX2) {
 		flags |= OutputFlags::POSITION_FLIPPED;
 	}
 
@@ -973,7 +973,7 @@ void FramebufferManagerCommon::CopyDisplayToOutput(bool reallyDirty) {
 			flags |= OutputFlags::BACKBUFFER_FLIPPED;
 		}
 		// DrawActiveTexture reverses these, probably to match "up".
-		if (GetGPUBackend() == GPUBackend::DIRECT3D9 || GetGPUBackend() == GPUBackend::DIRECT3D11) {
+		if (GetGPUBackend() == GPUBackend::DIRECT3D9 || GetGPUBackend() == GPUBackend::DIRECT3D11 || GetGPUBackend() == GPUBackend::GX2) {
 			flags |= OutputFlags::POSITION_FLIPPED;
 		}
 
@@ -1490,9 +1490,9 @@ void FramebufferManagerCommon::ApplyClearToMemory(int x1, int y1, int x2, int y2
 	if (bpp == 2) {
 		u16 clear16 = 0;
 		switch (gstate.FrameBufFormat()) {
-		case GE_FORMAT_565: ConvertRGBA8888ToRGB565(&clear16, &clearColor, 1); break;
-		case GE_FORMAT_5551: ConvertRGBA8888ToRGBA5551(&clear16, &clearColor, 1); break;
-		case GE_FORMAT_4444: ConvertRGBA8888ToRGBA4444(&clear16, &clearColor, 1); break;
+		case GE_FORMAT_565: clear16 = RGBA8888ToRGB565(clearColor); break;
+		case GE_FORMAT_5551: clear16 = RGBA8888ToRGBA5551(clearColor); break;
+		case GE_FORMAT_4444: clear16 = RGBA8888ToRGBA4444(clearColor); break;
 		default: _dbg_assert_(0); break;
 		}
 		clearBits = clear16 | (clear16 << 16);
@@ -1518,7 +1518,7 @@ void FramebufferManagerCommon::ApplyClearToMemory(int x1, int y1, int x2, int y2
 			u64 val64 = clearBits | ((u64)clearBits << 32);
 			int xstride = 8 / bpp;
 
-			u64 *addr64 = (u64 *)addr;
+			u64_le *addr64 = (u64_le *)addr;
 			const int stride64 = stride / xstride;
 			const int x1_64 = x1 / xstride;
 			const int x2_64 = x2 / xstride;
@@ -1528,14 +1528,14 @@ void FramebufferManagerCommon::ApplyClearToMemory(int x1, int y1, int x2, int y2
 				}
 			}
 		} else if (bpp == 4) {
-			u32 *addr32 = (u32 *)addr;
+			u32_le *addr32 = (u32_le *)addr;
 			for (int y = y1; y < y2; ++y) {
 				for (int x = x1; x < x2; ++x) {
 					addr32[y * stride + x] = clearBits;
 				}
 			}
 		} else if (bpp == 2) {
-			u16 *addr16 = (u16 *)addr;
+			u16_le *addr16 = (u16_le *)addr;
 			for (int y = y1; y < y2; ++y) {
 				for (int x = x1; x < x2; ++x) {
 					addr16[y * stride + x] = (u16)clearBits;

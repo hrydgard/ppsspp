@@ -20,6 +20,7 @@
 #include "ppsspp_config.h"
 #include "CommonTypes.h"
 #include "ColorConvNEON.h"
+#include "Swap.h"
 
 void SetupColorConv();
 
@@ -94,46 +95,46 @@ inline u16 RGBA8888ToRGBA4444(u32 value) {
 void convert4444_gl(u16* data, u32* out, int width, int l, int u);
 void convert565_gl(u16* data, u32* out, int width, int l, int u);
 void convert5551_gl(u16* data, u32* out, int width, int l, int u);
-void convert4444_dx9(u16* data, u32* out, int width, int l, int u);
-void convert565_dx9(u16* data, u32* out, int width, int l, int u);
-void convert5551_dx9(u16* data, u32* out, int width, int l, int u);
+void convert4444_dx9(u16_le* data, u32* out, int width, int l, int u);
+void convert565_dx9(u16_le* data, u32* out, int width, int l, int u);
+void convert5551_dx9(u16_le* data, u32* out, int width, int l, int u);
 
 // "Complete" set of color conversion functions between the usual formats.
 
 // TODO: Need to revisit the naming convention of these. Seems totally backwards
 // now that we've standardized on Draw::DataFormat.
 
-typedef void (*Convert16bppTo16bppFunc)(u16 *dst, const u16 *src, u32 numPixels);
-typedef void (*Convert16bppTo32bppFunc)(u32 *dst, const u16 *src, u32 numPixels);
-typedef void (*Convert32bppTo16bppFunc)(u16 *dst, const u32 *src, u32 numPixels);
-typedef void (*Convert32bppTo32bppFunc)(u32 *dst, const u32 *src, u32 numPixels);
+typedef void (*Convert16bppTo16bppFunc)(u16_le *dst, const u16_le *src, u32 numPixels);
+typedef void (*Convert16bppTo32bppFunc)(u32_le *dst, const u16_le *src, u32 numPixels);
+typedef void (*Convert32bppTo16bppFunc)(u16_le *dst, const u32_le *src, u32 numPixels);
+typedef void (*Convert32bppTo32bppFunc)(u32_le *dst, const u32_le *src, u32 numPixels);
 
-void ConvertBGRA8888ToRGBA8888(u32 *dst, const u32 *src, u32 numPixels);
+void ConvertBGRA8888ToRGBA8888(u32_le *dst, const u32_le *src, u32 numPixels);
 #define ConvertRGBA8888ToBGRA8888 ConvertBGRA8888ToRGBA8888
 
-void ConvertRGBA8888ToRGBA5551(u16 *dst, const u32 *src, u32 numPixels);
-void ConvertRGBA8888ToRGB565(u16 *dst, const u32 *src, u32 numPixels);
-void ConvertRGBA8888ToRGBA4444(u16 *dst, const u32 *src, u32 numPixels);
+void ConvertRGBA8888ToRGBA5551(u16_le *dst, const u32_le *src, u32 numPixels);
+void ConvertRGBA8888ToRGB565(u16_le *dst, const u32_le *src, u32 numPixels);
+void ConvertRGBA8888ToRGBA4444(u16_le *dst, const u32_le *src, u32 numPixels);
 
-void ConvertBGRA8888ToRGBA5551(u16 *dst, const u32 *src, u32 numPixels);
-void ConvertBGRA8888ToRGB565(u16 *dst, const u32 *src, u32 numPixels);
-void ConvertBGRA8888ToRGBA4444(u16 *dst, const u32 *src, u32 numPixels);
+void ConvertBGRA8888ToRGBA5551(u16_le *dst, const u32_le *src, u32 numPixels);
+void ConvertBGRA8888ToRGB565(u16_le *dst, const u32_le *src, u32 numPixels);
+void ConvertBGRA8888ToRGBA4444(u16_le *dst, const u32_le *src, u32 numPixels);
 
-void ConvertRGB565ToRGBA8888(u32 *dst, const u16 *src, u32 numPixels);
-void ConvertRGBA5551ToRGBA8888(u32 *dst, const u16 *src, u32 numPixels);
-void ConvertRGBA4444ToRGBA8888(u32 *dst, const u16 *src, u32 numPixels);
+void ConvertRGB565ToRGBA8888(u32_le *dst, const u16_le *src, u32 numPixels);
+void ConvertRGBA5551ToRGBA8888(u32_le *dst, const u16_le *src, u32 numPixels);
+void ConvertRGBA4444ToRGBA8888(u32_le *dst, const u16_le *src, u32 numPixels);
 
-void ConvertBGR565ToRGBA8888(u32 *dst, const u16 *src, u32 numPixels);
-void ConvertABGR1555ToRGBA8888(u32 *dst, const u16 *src, u32 numPixels);
-void ConvertABGR4444ToRGBA8888(u32 *dst, const u16 *src, u32 numPixels);
+void ConvertBGR565ToRGBA8888(u32_le *dst, const u16_le *src, u32 numPixels);
+void ConvertABGR1555ToRGBA8888(u32_le *dst, const u16_le *src, u32 numPixels);
+void ConvertABGR4444ToRGBA8888(u32_le *dst, const u16_le *src, u32 numPixels);
 
-void ConvertRGBA4444ToBGRA8888(u32 *dst, const u16 *src, u32 numPixels);
-void ConvertRGBA5551ToBGRA8888(u32 *dst, const u16 *src, u32 numPixels);
-void ConvertRGB565ToBGRA8888(u32 *dst, const u16 *src, u32 numPixels);
+void ConvertRGBA4444ToBGRA8888(u32_le *dst, const u16_le *src, u32 numPixels);
+void ConvertRGBA5551ToBGRA8888(u32_le *dst, const u16_le *src, u32 numPixels);
+void ConvertRGB565ToBGRA8888(u32_le *dst, const u16_le *src, u32 numPixels);
 
-void ConvertRGBA4444ToABGR4444Basic(u16 *dst, const u16 *src, u32 numPixels);
-void ConvertRGBA5551ToABGR1555Basic(u16 *dst, const u16 *src, u32 numPixels);
-void ConvertRGB565ToBGR565Basic(u16 *dst, const u16 *src, u32 numPixels);
+void ConvertRGBA4444ToABGR4444Basic(u16_le *dst, const u16_le *src, u32 numPixels);
+void ConvertRGBA5551ToABGR1555Basic(u16_le *dst, const u16_le *src, u32 numPixels);
+void ConvertRGB565ToBGR565Basic(u16_le *dst, const u16_le *src, u32 numPixels);
 
 #if PPSSPP_ARCH(ARM64)
 #define ConvertRGBA4444ToABGR4444 ConvertRGBA4444ToABGR4444NEON

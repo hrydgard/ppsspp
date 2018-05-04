@@ -28,7 +28,7 @@
 /**
 * Enumeration for input language
 */
-enum SceUtilityOskInputLanguage
+enum SceUtilityOskInputLanguage : u32
 {
 	PSP_UTILITY_OSK_LANGUAGE_DEFAULT   = 0x00,
 	PSP_UTILITY_OSK_LANGUAGE_JAPANESE  = 0x01,
@@ -46,7 +46,7 @@ enum SceUtilityOskInputLanguage
 /**
 * Enumeration for OSK internal state
 */
-enum SceUtilityOskState
+enum SceUtilityOskState : u32
 {
 	PSP_UTILITY_OSK_DIALOG_NONE     = 0, /**< No OSK is currently active */
 	PSP_UTILITY_OSK_DIALOG_INITING  = 1, /**< The OSK is currently being initialized */
@@ -59,7 +59,7 @@ enum SceUtilityOskState
 /**
 * Enumeration for OSK field results
 */
-enum SceUtilityOskResult
+enum SceUtilityOskResult : u32
 {
 	PSP_UTILITY_OSK_RESULT_UNCHANGED = 0,
 	PSP_UTILITY_OSK_RESULT_CANCELLED = 1,
@@ -94,16 +94,6 @@ enum SceUtilityOskInputType
 	PSP_UTILITY_OSK_INPUTTYPE_URL                    = 0x00080000
 };
 
-#if COMMON_LITTLE_ENDIAN
-typedef SceUtilityOskState SceUtilityOskState_le;
-typedef SceUtilityOskInputLanguage SceUtilityOskInputLanguage_le;
-typedef SceUtilityOskResult SceUtilityOskResult_le;
-#else
-typedef swap_struct_t<SceUtilityOskState, swap_32_t<SceUtilityOskState> > SceUtilityOskState_le;
-typedef swap_struct_t<SceUtilityOskInputLanguage, swap_32_t<SceUtilityOskInputLanguage> > SceUtilityOskInputLanguage_le;
-typedef swap_struct_t<SceUtilityOskResult, swap_32_t<SceUtilityOskResult> > SceUtilityOskResult_le;
-#endif
-
 /**
 * OSK Field data
 */
@@ -114,7 +104,7 @@ struct SceUtilityOskData
 	/** Unknown. Pass 0. */
 	s32_le unk_04;
 	/** One of ::SceUtilityOskInputLanguage */
-	SceUtilityOskInputLanguage_le language;
+	LEndian<SceUtilityOskInputLanguage> language;
 	/** Unknown. Pass 0. */
 	s32_le unk_12;
 	/** One or more of ::SceUtilityOskInputType (types that are selectable by pressing SELECT) */
@@ -132,7 +122,7 @@ struct SceUtilityOskData
 	/** Pointer to the output text */
 	PSPPointer<u16_le> outtext;
 	/** Result. One of ::SceUtilityOskResult */
-	SceUtilityOskResult_le result;
+	LEndian<SceUtilityOskResult> result;
 	// Number of characters to allow, not including terminator (if less than outtextlength - 1.)
 	u32_le outtextlimit;
 };
@@ -145,7 +135,7 @@ struct SceUtilityOskParams
 	s32_le fieldCount;
 	// Pointer to an array of fields (see SceUtilityOskData.)
 	PSPPointer<SceUtilityOskData> fields;
-	SceUtilityOskState_le state;
+	LEndian<SceUtilityOskState> state;
 	// Maybe just padding?
 	s32_le unk_60;
 

@@ -1171,6 +1171,7 @@ EShLanguage FindLanguage(const VkShaderStageFlagBits shader_type) {
 bool GLSLtoSPV(const VkShaderStageFlagBits shader_type,
 	const char *pshader,
 	std::vector<unsigned int> &spirv, std::string *errorMessage) {
+#ifndef __wiiu__
 
 	glslang::TProgram program;
 	const char *shaderStrings[1];
@@ -1217,6 +1218,7 @@ bool GLSLtoSPV(const VkShaderStageFlagBits shader_type,
 	options.optimizeSize = false;
 	options.generateDebugInfo = false;
 	glslang::GlslangToSpv(*program.getIntermediate(stage), spirv, &options);
+#endif
 	return true;
 }
 

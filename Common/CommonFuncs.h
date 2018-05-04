@@ -30,6 +30,10 @@
 
 #if defined(_M_IX86) || defined(_M_X86)
 #define Crash() {asm ("int $3");}
+#elif defined(__wiiu__)
+#include <stdlib.h>
+#include <stdio.h>
+#define Crash() do{printf("Crash@%s:%4d %s().\n", __FILE__, __LINE__, __FUNCTION__);fflush(stdout);*(int*)0=0;}while(0)
 #else
 #include <signal.h>
 #define Crash() {kill(getpid(), SIGINT);}

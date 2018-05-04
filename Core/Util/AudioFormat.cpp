@@ -24,7 +24,7 @@
 #include <emmintrin.h>
 #endif
 
-void AdjustVolumeBlockStandard(s16 *out, s16 *in, size_t size, int leftVol, int rightVol) {
+void AdjustVolumeBlockStandard(s16_le *out, s16_le *in, size_t size, int leftVol, int rightVol) {
 #ifdef _M_SSE
 	if (leftVol <= 0x7fff && -leftVol <= 0x8000 && rightVol <= 0x7fff && -rightVol <= 0x8000) {
 		__m128i volume = _mm_set_epi16(leftVol, rightVol, leftVol, rightVol, leftVol, rightVol, leftVol, rightVol);

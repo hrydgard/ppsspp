@@ -17,9 +17,10 @@
 
 #pragma once
 
-#ifndef _WIN32
+#if !defined(_WIN32) && !defined(__wiiu__)
 #include <sys/mman.h>
 #endif
+#include <stddef.h>
 #include <stdint.h>
 
 // Returns true if we need to avoid setting both writable and executable at the same time (W^X)

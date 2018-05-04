@@ -50,7 +50,7 @@ public:
 
 namespace Spline {
 
-static void CopyQuadIndex(u16 *&indices, GEPatchPrimType type, const int idx0, const int idx1, const int idx2, const int idx3) {
+static void CopyQuadIndex(u16_le *&indices, GEPatchPrimType type, const int idx0, const int idx1, const int idx2, const int idx3) {
 	if (type == GE_PATCHPRIM_LINES) {
 		*(indices++) = idx0;
 		*(indices++) = idx2;
@@ -68,7 +68,7 @@ static void CopyQuadIndex(u16 *&indices, GEPatchPrimType type, const int idx0, c
 	}
 }
 
-void BuildIndex(u16 *indices, int &count, int num_u, int num_v, GEPatchPrimType prim_type, int total) {
+void BuildIndex(u16_le *indices, int &count, int num_u, int num_v, GEPatchPrimType prim_type, int total) {
 	for (int v = 0; v < num_v; ++v) {
 		for (int u = 0; u < num_u; ++u) {
 			int idx0 = v * (num_u + 1) + u + total; // Top left
@@ -543,7 +543,7 @@ void DrawEngineCommon::SubmitCurve(const void *control_points, const void *indic
 
 	OutputBuffers output;
 	output.vertices = (SimpleVertex *)(decoded + DECODED_VERTEX_BUFFER_SIZE / 2);
-	output.indices = decIndex;
+	output.indices = (u16_le*)decIndex;
 	output.count = 0;
 
 	surface.Init(DECODED_VERTEX_BUFFER_SIZE / 2 / vertexSize);

@@ -148,8 +148,8 @@ public:
 	void GetQuickInfo(char *ptr, int size) override {
 		sprintf(ptr, "thread=%i, argument= %08x",
 			//hackAddress,
-			nc.threadId,
-			nc.commonArgument);
+			(s32)nc.threadId,
+			(u32)nc.commonArgument);
 	}
 
 	~PSPCallback() {
@@ -178,19 +178,13 @@ public:
 	NativeCallback nc;
 };
 
-#if COMMON_LITTLE_ENDIAN
-typedef WaitType WaitType_le;
-#else
-typedef swap_struct_t<WaitType, swap_32_t<WaitType> > WaitType_le;
-#endif
-
 // Real PSP struct, don't change the fields.
 struct SceKernelThreadRunStatus
 {
 	SceSize_le size;
 	u32_le status;
 	s32_le currentPriority;
-	WaitType_le waitType;
+	LEndian<WaitType> waitType;
 	SceUID_le waitID;
 	s32_le wakeupCount;
 	SceKernelSysClock runForClocks;
@@ -215,7 +209,7 @@ struct NativeThread
 
 	s32_le initialPriority;
 	s32_le currentPriority;
-	WaitType_le waitType;
+	LEndian<WaitType> waitType;
 	SceUID_le waitID;
 	s32_le wakeupCount;
 	s32_le exitStatus;
@@ -393,7 +387,7 @@ public:
 			(nt.status & THREADSTATUS_DORMANT) ? "DORMANT" : "",
 			(nt.status & THREADSTATUS_DEAD) ? "DEAD" : "",
 			(int)nt.waitType,
-			nt.waitID,
+			(int)nt.waitID,
 			waitInfo.waitValue);
 	}
 
@@ -1195,7 +1189,7 @@ void __KernelThreadingShutdown() {
 
 std::string __KernelThreadingSummary() {
 	PSPThread *t = __GetCurrentThread();
-	return StringFromFormat("Cur thread: %s (attr %08x)", t ? t->GetName() : "(null)", t ? t->nt.attr : 0);
+	return StringFromFormat("Cur thread: %s (attr %08x)", t ? t->GetName() : "(null)", t ? (u32)t->nt.attr : 0);
 }
 
 const char *__KernelGetThreadName(SceUID threadID)
@@ -1403,7 +1397,7 @@ u32 sceKernelGetThreadmanIdList(u32 type, u32 readBufPtr, u32 readBufSize, u32 i
 	}
 
 	u32 total = 0;
-	auto uids = PSPPointer<SceUID>::Create(readBufPtr);
+	auto uids = PSPPointer<SceUID_le>::Create(readBufPtr);
 	u32 error;
 	if (type > 0 && type <= SCE_KERNEL_TMID_Tlspl) {
 		DEBUG_LOG(SCEKERNEL, "sceKernelGetThreadmanIdList(%i, %08x, %i, %08x)", type, readBufPtr, readBufSize, idCountPtr);
@@ -2024,7 +2018,7 @@ int __KernelStartThread(SceUID threadToStartID, int argSize, u32 argBlockPtr, bo
 		return error;
 
 	PSPThread *cur = __GetCurrentThread();
-	__KernelResetThread(startThread, cur ? cur->nt.currentPriority : 0);
+	__KernelResetThread(startThread, cur ? (s32)cur->nt.currentPriority : 0);
 
 	u32 &sp = startThread->context.r[MIPS_REG_SP];
 	// Force args means just use those as a0/a1 without any special treatment.
@@ -3671,12 +3665,12 @@ int LoadExecForUser_362A956B()
 static const SceUID SCE_TE_THREADID_ALL_USER = 0xFFFFFFF0;
 
 struct NativeThreadEventHandler {
-	u32 size;
+	u32_le size;
 	char name[KERNELOBJECT_MAX_NAME_LENGTH + 1];
-	SceUID threadID;
-	u32 mask;
-	u32 handlerPtr;
-	u32 commonArg;
+	SceUID_le threadID;
+	u32_le mask;
+	u32_le handlerPtr;
+	u32_le commonArg;
 };
 
 struct ThreadEventHandler : public KernelObject {

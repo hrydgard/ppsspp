@@ -30,7 +30,7 @@ extern bool currentDialogActive;
 namespace Rasterizer {
 
 // Through mode, with the specific Darkstalker settings.
-inline void DrawSinglePixel5551(u16 *pixel, const u32 color_in) {
+inline void DrawSinglePixel5551(u16_le *pixel, const u32 color_in) {
 	u32 new_color;
 	if ((color_in >> 24) == 255) {
 		new_color = color_in & 0xFFFFFF;
@@ -141,7 +141,7 @@ void DrawSprite(const VertexData& v0, const VertexData& v1) {
 			int t = t_start;
 			for (int y = pos0.y; y < pos1.y; y++) {
 				int s = s_start;
-				u16 *pixel = fb.Get16Ptr(pos0.x, y, gstate.FrameBufStride());
+				u16_le *pixel = fb.Get16Ptr(pos0.x, y, gstate.FrameBufStride());
 				if (isWhite) {
 					for (int x = pos0.x; x < pos1.x; x++) {
 						u32 tex_color = nearestFunc(s, t, texptr, texbufw, 0);
@@ -203,7 +203,7 @@ void DrawSprite(const VertexData& v0, const VertexData& v1) {
 				return;
 
 			for (int y = pos0.y; y < pos1.y; y++) {
-				u16 *pixel = fb.Get16Ptr(pos0.x, y, gstate.FrameBufStride());
+				u16_le *pixel = fb.Get16Ptr(pos0.x, y, gstate.FrameBufStride());
 				for (int x = pos0.x; x < pos1.x; x++) {
 					Vec4<int> prim_color = v0.color0;
 					DrawSinglePixel5551(pixel, prim_color.ToRGBA());

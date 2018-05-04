@@ -16,7 +16,7 @@ typedef char GLchar;
 #include "GL/glew.h"
 #if defined(__APPLE__)
 #include <OpenGL/gl.h>
-#else
+#elif !defined(__wiiu__)
 #include <GL/gl.h>
 #endif
 #endif

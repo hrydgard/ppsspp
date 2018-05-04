@@ -305,7 +305,7 @@ private:
 	u32 execListPos = 0;
 	u32 execListID = 0;
 	const int LIST_BUF_SIZE = 256 * 1024;
-	std::vector<u32> execListQueue;
+	std::vector<u32_le> execListQueue;
 	u16 lastBufw_[8]{};
 
 	const std::vector<u8> &pushbuf_;

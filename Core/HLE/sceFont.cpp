@@ -585,7 +585,7 @@ public:
 	}
 
 	// For FONT_OPEN_USER* modes, the font will automatically be freed.
-	LoadedFont *OpenFont(Font *font, FontOpenMode mode, int &error) {
+	LoadedFont *OpenFont(Font *font, FontOpenMode mode, s32_le &error) {
 		// TODO: Do something with mode, possibly save it where the PSP does in the struct.
 		// Maybe needed in Font, though?  Handlers seem... difficult to emulate.
 		int freeFontIndex = -1;
@@ -944,7 +944,7 @@ static u32 sceFontNewLib(u32 paramPtr, u32 errorCodePtr) {
 	__LoadInternalFonts();
 
 	auto params = PSPPointer<FontNewLibParams>::Create(paramPtr);
-	auto errorCode = PSPPointer<u32>::Create(errorCodePtr);
+	auto errorCode = PSPPointer<u32_le>::Create(errorCodePtr);
 
 	if (!params.IsValid() || !errorCode.IsValid()) {
 		ERROR_LOG_REPORT(SCEFONT, "sceFontNewLib(%08x, %08x): invalid addresses", paramPtr, errorCodePtr);
@@ -979,7 +979,7 @@ static int sceFontDoneLib(u32 fontLibHandle) {
 
 // Open internal font into a FontLib
 static u32 sceFontOpen(u32 libHandle, u32 index, u32 mode, u32 errorCodePtr) {
-	auto errorCode = PSPPointer<int>::Create(errorCodePtr);
+	auto errorCode = PSPPointer<s32_le>::Create(errorCodePtr);
 	if (!errorCode.IsValid()) {
 		// Would crash on the PSP.
 		ERROR_LOG(SCEFONT, "sceFontOpen(%x, %x, %x, %x): invalid pointer", libHandle, index, mode, errorCodePtr);
@@ -1009,7 +1009,7 @@ static u32 sceFontOpen(u32 libHandle, u32 index, u32 mode, u32 errorCodePtr) {
 
 // Open a user font in RAM into a FontLib
 static u32 sceFontOpenUserMemory(u32 libHandle, u32 memoryFontAddrPtr, u32 memoryFontLength, u32 errorCodePtr) {
-	auto errorCode = PSPPointer<int>::Create(errorCodePtr);
+	auto errorCode = PSPPointer<s32_le>::Create(errorCodePtr);
 	if (!errorCode.IsValid()) {
 		ERROR_LOG_REPORT(SCEFONT, "sceFontOpenUserMemory(%08x, %08x, %08x, %08x): invalid error address", libHandle, memoryFontAddrPtr, memoryFontLength, errorCodePtr);
 		return -1;
@@ -1054,7 +1054,7 @@ static u32 sceFontOpenUserMemory(u32 libHandle, u32 memoryFontAddrPtr, u32 memor
 
 // Open a user font in a file into a FontLib
 static u32 sceFontOpenUserFile(u32 libHandle, const char *fileName, u32 mode, u32 errorCodePtr) {
-	auto errorCode = PSPPointer<int>::Create(errorCodePtr);
+	auto errorCode = PSPPointer<s32_le>::Create(errorCodePtr);
 
 	if (!errorCode.IsValid()) {
 		ERROR_LOG_REPORT(SCEFONT, "sceFontOpenUserFile(%08x, %s, %08x, %08x): invalid error address", libHandle, fileName, mode, errorCodePtr);
@@ -1114,7 +1114,7 @@ static int sceFontClose(u32 fontHandle) {
 }
 
 static int sceFontFindOptimumFont(u32 libHandle, u32 fontStylePtr, u32 errorCodePtr) {
-	auto errorCode = PSPPointer<int>::Create(errorCodePtr);
+	auto errorCode = PSPPointer<s32_le>::Create(errorCodePtr);
 	if (!errorCode.IsValid()) {
 		ERROR_LOG_REPORT(SCEFONT, "sceFontFindOptimumFont(%08x, %08x, %08x): invalid error address", libHandle, fontStylePtr, errorCodePtr);
 		return SCE_KERNEL_ERROR_INVALID_ARGUMENT;
@@ -1139,8 +1139,8 @@ static int sceFontFindOptimumFont(u32 libHandle, u32 fontStylePtr, u32 errorCode
 	auto requestedStyle = PSPPointer<const PGFFontStyle>::Create(fontStylePtr);
 
 	// Find the first nearest match for H/V, OR the last exact match for others.
-	float hRes = requestedStyle->fontHRes > 0.0f ? requestedStyle->fontHRes : fontLib->FontHRes();
-	float vRes = requestedStyle->fontVRes > 0.0f ? requestedStyle->fontVRes : fontLib->FontVRes();
+	float hRes = requestedStyle->fontHRes > 0.0f ? (float)requestedStyle->fontHRes : fontLib->FontHRes();
+	float vRes = requestedStyle->fontVRes > 0.0f ? (float)requestedStyle->fontVRes : fontLib->FontVRes();
 	Font *optimumFont = 0;
 	Font *nearestFont = 0;
 	float nearestDist = std::numeric_limits<float>::infinity();
@@ -1182,7 +1182,7 @@ static int sceFontFindOptimumFont(u32 libHandle, u32 fontStylePtr, u32 errorCode
 
 // Returns the font index, not handle
 static int sceFontFindFont(u32 libHandle, u32 fontStylePtr, u32 errorCodePtr) {
-	auto errorCode = PSPPointer<int>::Create(errorCodePtr);
+	auto errorCode = PSPPointer<s32_le>::Create(errorCodePtr);
 	if (!errorCode.IsValid()) {
 		ERROR_LOG_REPORT(SCEFONT, "sceFontFindFont(%x, %x, %x): invalid error address", libHandle, fontStylePtr, errorCodePtr);
 		return SCE_KERNEL_ERROR_INVALID_ARGUMENT;
@@ -1206,8 +1206,8 @@ static int sceFontFindFont(u32 libHandle, u32 fontStylePtr, u32 errorCodePtr) {
 	auto requestedStyle = PSPPointer<const PGFFontStyle>::Create(fontStylePtr);
 
 	// Find the closest exact match for the fields specified.
-	float hRes = requestedStyle->fontHRes > 0.0f ? requestedStyle->fontHRes : fontLib->FontHRes();
-	float vRes = requestedStyle->fontVRes > 0.0f ? requestedStyle->fontVRes : fontLib->FontVRes();
+	float hRes = requestedStyle->fontHRes > 0.0f ? (float)requestedStyle->fontHRes : fontLib->FontHRes();
+	float vRes = requestedStyle->fontVRes > 0.0f ? (float)requestedStyle->fontVRes : fontLib->FontVRes();
 	for (size_t i = 0; i < internalFonts.size(); i++) {
 		if (internalFonts[i]->MatchesStyle(*requestedStyle) != MATCH_NONE) {
 			auto matchStyle = internalFonts[i]->GetFontStyle();
@@ -1462,7 +1462,7 @@ static int sceFontGetFontList(u32 fontLibHandle, u32 fontStylePtr, int numFonts)
 }
 
 static int sceFontGetNumFontList(u32 fontLibHandle, u32 errorCodePtr) {
-	auto errorCode = PSPPointer<int>::Create(errorCodePtr);
+	auto errorCode = PSPPointer<s32_le>::Create(errorCodePtr);
 	if (!errorCode.IsValid()) {
 		ERROR_LOG_REPORT(SCEFONT, "sceFontGetNumFontList(%08x, %08x): invalid error address", fontLibHandle, errorCodePtr);
 		return ERROR_FONT_INVALID_PARAMETER;
@@ -1494,7 +1494,7 @@ static int sceFontSetResolution(u32 fontLibHandle, float hRes, float vRes) {
 }
 
 static float sceFontPixelToPointH(int fontLibHandle, float fontPixelsH, u32 errorCodePtr) {
-	auto errorCode = PSPPointer<int>::Create(errorCodePtr);
+	auto errorCode = PSPPointer<s32_le>::Create(errorCodePtr);
 	if (!errorCode.IsValid()) {
 		ERROR_LOG_REPORT(SCEFONT, "sceFontPixelToPointH(%08x, %f, %08x): invalid error address", fontLibHandle, fontPixelsH, errorCodePtr);
 		return 0.0f;
@@ -1511,7 +1511,7 @@ static float sceFontPixelToPointH(int fontLibHandle, float fontPixelsH, u32 erro
 }
 
 static float sceFontPixelToPointV(int fontLibHandle, float fontPixelsV, u32 errorCodePtr) {
-	auto errorCode = PSPPointer<int>::Create(errorCodePtr);
+	auto errorCode = PSPPointer<s32_le>::Create(errorCodePtr);
 	if (!errorCode.IsValid()) {
 		ERROR_LOG_REPORT(SCEFONT, "sceFontPixelToPointV(%08x, %f, %08x): invalid error address", fontLibHandle, fontPixelsV, errorCodePtr);
 		return 0.0f;
@@ -1528,7 +1528,7 @@ static float sceFontPixelToPointV(int fontLibHandle, float fontPixelsV, u32 erro
 }
 
 static float sceFontPointToPixelH(int fontLibHandle, float fontPointsH, u32 errorCodePtr) {
-	auto errorCode = PSPPointer<int>::Create(errorCodePtr);
+	auto errorCode = PSPPointer<s32_le>::Create(errorCodePtr);
 	if (!errorCode.IsValid()) {
 		ERROR_LOG_REPORT(SCEFONT, "sceFontPointToPixelH(%08x, %f, %08x): invalid error address", fontLibHandle, fontPointsH, errorCodePtr);
 		return 0.0f;
@@ -1545,7 +1545,7 @@ static float sceFontPointToPixelH(int fontLibHandle, float fontPointsH, u32 erro
 }
 
 static float sceFontPointToPixelV(int fontLibHandle, float fontPointsV, u32 errorCodePtr) {
-	auto errorCode = PSPPointer<int>::Create(errorCodePtr);
+	auto errorCode = PSPPointer<s32_le>::Create(errorCodePtr);
 	if (!errorCode.IsValid()) {
 		ERROR_LOG_REPORT(SCEFONT, "sceFontPointToPixelV(%08x, %f, %08x): invalid error address", fontLibHandle, fontPointsV, errorCodePtr);
 		return 0.0f;

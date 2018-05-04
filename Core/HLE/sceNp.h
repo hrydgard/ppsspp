@@ -173,7 +173,7 @@ struct NpAuthHandler {
 };
 
 struct NpAuthArgs {
-	u32_le data[3]; // id, result, ArgAddr
+	u32 data[3]; // id, result, ArgAddr
 };
 
 using SceNpAuthCallback = s32(s32 id, s32 result, PSPPointer<void> arg);
@@ -187,7 +187,7 @@ struct SceNpAuthRequestParameter
 	u32_le cookieSize;
 	u32_le entitlementIdAddr; //PSPPointer<char> entitlementId; // null-terminated string
 	u32_le consumedCount; // related to entitlement?
-	u32 ticketCbAddr; //PSPPointer<SceNpAuthCallback> ticketCb
+	u32_le ticketCbAddr; //PSPPointer<SceNpAuthCallback> ticketCb
 	u32_le cbArgAddr; //PSPPointer<void> cbArg
 };
 

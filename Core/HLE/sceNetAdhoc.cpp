@@ -173,7 +173,7 @@ static void __GameModeNotify(u64 userdata, int cyclesLate) {
 				for (auto& gma : replicaGameModeAreas) {
 					if (IsMatch(gma.mac, sendermac)) {
 						DEBUG_LOG(SCENET, "GameMode Received %d bytes of new Data for Area [%s]", bufsz, mac2str(&sendermac).c_str());
-						memcpy(gma.data, gameModeBuffer, std::min(gma.size, bufsz));
+						memcpy(gma.data, gameModeBuffer, std::min(gma.size, (s32)bufsz));
 						gma.dataUpdated = 1;
 						gma.updateTimestamp = CoreTiming::GetGlobalTimeUsScaled();
 						break;
@@ -1492,8 +1492,8 @@ static int sceNetAdhocPdpRecv(int id, void *addr, void * port, void *buf, void *
 	}
 
 	SceNetEtherAddr *saddr = (SceNetEtherAddr *)addr;
-	uint16_t * sport = (uint16_t *)port; //Looking at Quake3 sourcecode (net_adhoc.c) this is an "int" (32bit) but changing here to 32bit will cause FF-Type0 to see duplicated Host (thinking it was from a different host)
-	int * len = (int *)dataLength;
+	u16_le * sport = (u16_le *)port; //Looking at Quake3 sourcecode (net_adhoc.c) this is an "int" (32bit) but changing here to 32bit will cause FF-Type0 to see duplicated Host (thinking it was from a different host)
+	s32_le * len = (s32_le *)dataLength;
 	if (netAdhocInited) {
 		// Valid Socket ID
 		if (id > 0 && id <= MAX_SOCKET && adhocSockets[id - 1] != NULL) {
@@ -3159,14 +3159,14 @@ static int sceNetAdhocPtpAccept(int id, u32 peerMacAddrPtr, u32 peerPortPtr, int
 	if (Memory::IsValidAddress(peerMacAddrPtr)) {
 		addr = PSPPointer<SceNetEtherAddr>::Create(peerMacAddrPtr);
 	}
-	uint16_t * port = NULL; //
+	u16_le * port = NULL; //
 	if (Memory::IsValidAddress(peerPortPtr)) {
-		port = (uint16_t *)Memory::GetPointer(peerPortPtr);
+		port = (u16_le *)Memory::GetPointer(peerPortPtr);
 	}
 	if (flag == 0) { // Prevent spamming Debug Log with retries of non-bocking socket
-		DEBUG_LOG(SCENET, "sceNetAdhocPtpAccept(%d, [%08x]=%s, [%08x]=%u, %d, %u) at %08x", id, peerMacAddrPtr, mac2str(addr).c_str(), peerPortPtr, port ? *port : -1, timeout, flag, currentMIPS->pc);
+		DEBUG_LOG(SCENET, "sceNetAdhocPtpAccept(%d, [%08x]=%s, [%08x]=%u, %d, %u) at %08x", id, peerMacAddrPtr, mac2str(addr).c_str(), peerPortPtr, port ? (int)*port : -1, timeout, flag, currentMIPS->pc);
 	} else {
-		VERBOSE_LOG(SCENET, "sceNetAdhocPtpAccept(%d, [%08x]=%s, [%08x]=%u, %d, %u) at %08x", id, peerMacAddrPtr, mac2str(addr).c_str(), peerPortPtr, port ? *port : -1, timeout, flag, currentMIPS->pc);
+		VERBOSE_LOG(SCENET, "sceNetAdhocPtpAccept(%d, [%08x]=%s, [%08x]=%u, %d, %u) at %08x", id, peerMacAddrPtr, mac2str(addr).c_str(), peerPortPtr, port ? (int)*port : -1, timeout, flag, currentMIPS->pc);
 	}
 	if (!g_Config.bEnableWlan) {
 		return -1;
@@ -3583,7 +3583,7 @@ static int sceNetAdhocPtpSend(int id, u32 dataAddr, u32 dataSizeAddr, int timeou
 	if (!g_Config.bEnableWlan) {
 		return 0;
 	}
-	int * len = (int *)Memory::GetPointer(dataSizeAddr);
+	s32_le * len = (s32_le *)Memory::GetPointer(dataSizeAddr);
 	const char * data = Memory::GetCharPointer(dataAddr);
 	// Library is initialized
 	if (netAdhocInited) {
@@ -3676,7 +3676,7 @@ static int sceNetAdhocPtpRecv(int id, u32 dataAddr, u32 dataSizeAddr, int timeou
 		return 0;
 	}
 	void * buf = (void *)Memory::GetPointer(dataAddr);
-	int * len = (int *)Memory::GetPointer(dataSizeAddr);
+	s32_le * len = (s32_le *)Memory::GetPointer(dataSizeAddr);
 	// Library is initialized
 	if (netAdhocInited) {
 		// Valid Arguments
@@ -5209,7 +5209,7 @@ void __NetTriggerCallbacks()
 		int newState = adhocctlState;
 		u32 flags = params->first;
 		u32 error = params->second;
-		u32_le args[3] = { 0, 0, 0 };
+		u32 args[3] = { 0, 0, 0 };
 		args[0] = flags;
 		args[1] = error;
 
@@ -5288,7 +5288,9 @@ void __NetMatchingCallbacks() //(int matchingId)
 	auto params = matchingEvents.begin();
 	if (params != matchingEvents.end())
 	{
-		u32_le* args = (u32_le*)&(*params);
+		u32 args[6];
+		for (int i = 0; i < 6; i++)
+			args[i] = params->data[i];
 		//auto context = findMatchingContext(args[0]);
 
 		if (actionAfterMatchingMipsCall < 0) {
@@ -5406,7 +5408,7 @@ static int sceNetAdhocctlGetPeerList(u32 sizeAddr, u32 bufAddr) {
 	SceNetAdhocctlPeerInfoEmu *buf = NULL;
 	if (Memory::IsValidAddress(bufAddr)) buf = (SceNetAdhocctlPeerInfoEmu *)Memory::GetPointer(bufAddr);
 
-	DEBUG_LOG(SCENET, "sceNetAdhocctlGetPeerList([%08x]=%i, %08x) at %08x", sizeAddr, /*buflen ? *buflen : -1*/Memory::Read_U32(sizeAddr), bufAddr, currentMIPS->pc);
+	DEBUG_LOG(SCENET, "sceNetAdhocctlGetPeerList([%08x]=%i, %08x) at %08x", sizeAddr, /*buflen ? (s32)*buflen : -1*/Memory::Read_U32(sizeAddr), bufAddr, currentMIPS->pc);
 	if (!g_Config.bEnableWlan) {
 		return -1;
 	}
@@ -5500,7 +5502,7 @@ static int sceNetAdhocctlGetAddrByName(const char *nickName, u32 sizeAddr, u32 b
 	memcpy(nckName, nickName, ADHOCCTL_NICKNAME_LEN); // Copied to null-terminated var to prevent unexpected behaviour on Logs
 	nckName[ADHOCCTL_NICKNAME_LEN - 1] = 0;
 	
-	WARN_LOG_REPORT_ONCE(sceNetAdhocctlGetAddrByName, SCENET, "UNTESTED sceNetAdhocctlGetAddrByName(%s, [%08x]=%d/%zu, %08x) at %08x", nckName, sizeAddr, buflen ? *buflen : -1, sizeof(SceNetAdhocctlPeerInfoEmu), bufAddr, currentMIPS->pc);
+	WARN_LOG_REPORT_ONCE(sceNetAdhocctlGetAddrByName, SCENET, "UNTESTED sceNetAdhocctlGetAddrByName(%s, [%08x]=%d/%zu, %08x) at %08x", nckName, sizeAddr, buflen ? (int)*buflen : -1, sizeof(SceNetAdhocctlPeerInfoEmu), bufAddr, currentMIPS->pc);
 	
 	// Library initialized
 	if (netAdhocctlInited)
@@ -6686,8 +6688,8 @@ int matchingEventThread(int matchingId)
 
 	// Run while needed...
 	if (context != NULL) {
-		u32 bufLen = context->rxbuflen; //0;
-		u32 bufAddr = 0; //= userMemory.Alloc(bufLen); //context->rxbuf;
+		u32_le bufLen = (u32)context->rxbuflen; //0;
+		u32_le bufAddr = 0; //= userMemory.Alloc(bufLen); //context->rxbuf;
 		u32_le * args = context->handlerArgs; //MatchingArgs
 
 		while (contexts != NULL && context->eventRunning)

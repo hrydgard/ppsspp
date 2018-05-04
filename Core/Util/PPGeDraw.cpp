@@ -274,7 +274,7 @@ void __PPGeInit() {
 	textDrawerImages.clear();
 
 	INFO_LOG(SCEGE, "PPGe drawing library initialized. DL: %08x Data: %08x Atlas: %08x (%i) Args: %08x",
-		dlPtr, dataPtr, atlasPtr, atlasSize, listArgs.ptr);
+		dlPtr, dataPtr, atlasPtr, atlasSize, (u32)listArgs.ptr);
 }
 
 void __PPGeDoState(PointerWrap &p)

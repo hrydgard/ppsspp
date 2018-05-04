@@ -85,7 +85,7 @@ struct DirectoryEntry {
 	u8 identifierLength;            //identifier comes right after
 	u8 firstIdChar;
 
-#if COMMON_LITTLE_ENDIAN
+#if __LITTLE_ENDIAN__
 	u32 firstDataSector() const
 	{
 		return firstDataSectorLE;

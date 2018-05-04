@@ -16,6 +16,7 @@
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
 #include "Common/Serialize/Serializer.h"
+#include "Common/Serialize/SerializeFuncs.h"
 #include "Core/Reporting.h"
 #include "Core/Config.h"
 #include "Core/Core.h"
@@ -51,9 +52,9 @@ void FakeJit::DoState(PointerWrap &p)
 	if (!s)
 		return;
 
-	p.Do(js.startDefaultPrefix);
+	Do(p, js.startDefaultPrefix);
 	if (s >= 2) {
-		p.Do(js.hasSetRounding);
+		Do(p, js.hasSetRounding);
 		js.lastSetRounding = 0;
 	} else {
 		js.hasSetRounding = 1;
@@ -68,11 +69,15 @@ void FakeJit::DoDummyState(PointerWrap &p)
 		return;
 
 	bool dummy = false;
-	p.Do(dummy);
+	Do(p , dummy);
 	if (s >= 2) {
 		dummy = true;
-		p.Do(dummy);
+		Do(p, dummy);
 	}
+}
+
+void FakeJit::UpdateFCR31()
+{
 }
 
 void FakeJit::FlushAll()
@@ -146,6 +151,12 @@ void FakeJit::Comp_RunBlock(MIPSOpcode op)
 	ERROR_LOG(JIT, "Comp_RunBlock should never be reached!");
 }
 
+void FakeJit::LinkBlock(u8 *exitPoint, const u8 *checkedEntry) {
+}
+
+void FakeJit::UnlinkBlock(u8 *checkedEntry, u32 originalAddress) {
+}
+
 bool FakeJit::ReplaceJalTo(u32 dest) {
 	return true;
 }
@@ -211,6 +222,16 @@ void FakeJit::WriteExitDestInR(FakeReg Reg)
 
 void FakeJit::WriteSyscallExit()
 {
+}
+
+MIPSOpcode FakeJit::GetOriginalOp(MIPSOpcode op) {
+	JitBlockCache *bc = GetBlockCache();
+	int block_num = bc->GetBlockNumberFromEmuHackOp(op, true);
+	if (block_num >= 0) {
+		return bc->GetOriginalFirstOp(block_num);
+	} else {
+		return op;
+	}
 }
 
 #define _RS ((op>>21) & 0x1F)

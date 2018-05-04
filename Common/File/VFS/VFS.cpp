@@ -27,11 +27,12 @@ void VFSShutdown() {
 static bool IsLocalPath(const char *path) {
 	bool isUnixLocal = path[0] == '/';
 #ifdef _WIN32
-	bool isWindowsLocal = isalpha(path[0]) && path[1] == ':';
+	return isUnixLocal || (isalpha(path[0]) && path[1] == ':');
+#elif defined(__wiiu__)
+	return isUnixLocal || !strncmp(path, "sd:/", 4) || !strncmp(path, "usb:/", 5);
 #else
-	bool isWindowsLocal = false;
+	return isUnixLocal;
 #endif
-	return isUnixLocal || isWindowsLocal;
 }
 
 // The returned data should be free'd with delete[].

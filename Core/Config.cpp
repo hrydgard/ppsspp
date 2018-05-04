@@ -402,7 +402,7 @@ static int DefaultNumWorkers() {
 }
 
 static int DefaultCpuCore() {
-#if PPSSPP_ARCH(ARM) || PPSSPP_ARCH(ARM64) || PPSSPP_ARCH(X86) || PPSSPP_ARCH(AMD64)
+#if PPSSPP_ARCH(ARM) || PPSSPP_ARCH(ARM64) || PPSSPP_ARCH(X86) || PPSSPP_ARCH(AMD64) || PPSSPP_ARCH(POWERPC)
 	return (int)CPUCore::JIT;
 #else
 	return (int)CPUCore::INTERPRETER;
@@ -687,7 +687,7 @@ bool Config::IsBackendEnabled(GPUBackend backend, bool validate) {
 	if (backend == GPUBackend::OPENGL)
 		return false;
 #endif
-#if !PPSSPP_PLATFORM(IOS)
+#if !PPSSPP_PLATFORM(IOS) && !PPSSPP_PLATFORM(WIIU)
 	if (validate) {
 		if (backend == GPUBackend::VULKAN && !VulkanMayBeAvailable())
 			return false;

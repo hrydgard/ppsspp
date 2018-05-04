@@ -23,7 +23,7 @@
 #include "Core/MemMap.h"
 #include "Core/Reporting.h"
 
-enum SceUtilityScreenshotType {
+enum SceUtilityScreenshotType : u32 {
 	SCE_UTILITY_SCREENSHOT_TYPE_GUI = 0,
 	SCE_UTILITY_SCREENSHOT_TYPE_AUTO = 1,
 	SCE_UTILITY_SCREENSHOT_TYPE_SAVE = 2,
@@ -39,15 +39,9 @@ static const int SCE_UTILITY_SCREENSHOTDIALOG_SIZE_V1 = 436;
 static const int SCE_UTILITY_SCREENSHOTDIALOG_SIZE_V2 = 928;
 static const int SCE_UTILITY_SCREENSHOTDIALOG_SIZE_V3 = 932;
 
-#if COMMON_LITTLE_ENDIAN
-typedef SceUtilityScreenshotType SceUtilityScreenshotType_le;
-#else
-typedef swap_struct_t<SceUtilityScreenshotType, swap_32_t<SceUtilityScreenshotType> > SceUtilityScreenshotType_le;
-#endif
-
 struct SceUtilityScreenshotParams {
 	pspUtilityDialogCommon base;
-	SceUtilityScreenshotType_le mode;
+	LEndian<SceUtilityScreenshotType> mode;
 
 	// TODO
 };

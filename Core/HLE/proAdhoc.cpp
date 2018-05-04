@@ -24,10 +24,12 @@
 #if !defined(_WIN32)
 #include <unistd.h>
 #include <netinet/tcp.h>
-#include <sys/ioctl.h>
 #include <sys/socket.h>
 #include <sys/types.h>
+#if !defined(__wiiu__)
+#include <sys/ioctl.h>
 #include <ifaddrs.h>
+#endif
 #endif
 
 #ifndef MSG_NOSIGNAL
@@ -1120,7 +1122,7 @@ void AfterMatchingMipsCall::run(MipsCall &call) {
 	//call.setReturnValue(v0);
 }
 
-void AfterMatchingMipsCall::SetData(int ContextID, int eventId, u32_le BufAddr) {
+void AfterMatchingMipsCall::SetData(int ContextID, int eventId, u32 BufAddr) {
 	contextID = ContextID;
 	EventID = eventId;
 	bufAddr = BufAddr;
@@ -1198,8 +1200,8 @@ void notifyAdhocctlHandlers(u32 flag, u32 error) {
 void notifyMatchingHandler(SceNetAdhocMatchingContext * context, ThreadMessage * msg, void * opt, u32_le &bufAddr, u32_le &bufLen, u32_le * args) {
 	// Don't share buffer address space with other mipscall in the queue since mipscalls aren't immediately executed
 	MatchingArgs argsNew;
-	u32_le dataBufLen = msg->optlen + 8; //max(bufLen, msg->optlen + 8);
-	u32_le dataBufAddr = userMemory.Alloc(dataBufLen); // We will free this memory after returning from mipscall
+	u32 dataBufLen = msg->optlen + 8; //max(bufLen, msg->optlen + 8);
+	u32 dataBufAddr = userMemory.Alloc(dataBufLen); // We will free this memory after returning from mipscall
 	uint8_t * dataPtr = Memory::GetPointer(dataBufAddr);
 	memcpy(dataPtr, &msg->mac, sizeof(msg->mac));
 	if (msg->optlen > 0) 
@@ -1874,7 +1876,7 @@ u_long getAvailToRecv(int sock) {
 	u_long n = 0; // Typical MTU size is 1500
 #if defined(_WIN32) // May not be available on all platform
 	ioctlsocket(sock, FIONREAD, &n);
-#else
+#elif !defined(__wiiu__)
 	ioctl(sock, FIONREAD, &n);
 #endif
 	return n;

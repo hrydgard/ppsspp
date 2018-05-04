@@ -54,7 +54,7 @@ std::atomic_flag atomicLock_;
 
 // We copy samples as they are written into this simple ring buffer.
 // Might try something more efficient later.
-FixedSizeQueue<s16, 32768 * 8> chanSampleQueues[PSP_AUDIO_CHANNEL_MAX + 1];
+FixedSizeQueue<s16_le, 32768 * 8> chanSampleQueues[PSP_AUDIO_CHANNEL_MAX + 1];
 
 int eventAudioUpdate = -1;
 int eventHostAudioUpdate = -1;
@@ -243,7 +243,7 @@ u32 __AudioEnqueue(AudioChannel &chan, int chanNum, bool blocking) {
 		// Good news: the volume doesn't affect the values at all.
 		// We can just do a direct memory copy.
 		const u32 totalSamples = chan.sampleCount * (chan.format == PSP_AUDIO_FORMAT_STEREO ? 2 : 1);
-		s16 *buf1 = 0, *buf2 = 0;
+		s16_le *buf1 = 0, *buf2 = 0;
 		size_t sz1, sz2;
 		chanSampleQueues[chanNum].pushPointers(totalSamples, &buf1, &sz1, &buf2, &sz2);
 
@@ -265,7 +265,7 @@ u32 __AudioEnqueue(AudioChannel &chan, int chanNum, bool blocking) {
 
 			// Walking a pointer for speed.  But let's make sure we wouldn't trip on an invalid ptr.
 			if (Memory::IsValidAddress(chan.sampleAddress + (totalSamples - 1) * sizeof(s16_le))) {
-				s16 *buf1 = 0, *buf2 = 0;
+				s16_le *buf1 = 0, *buf2 = 0;
 				size_t sz1, sz2;
 				chanSampleQueues[chanNum].pushPointers(totalSamples, &buf1, &sz1, &buf2, &sz2);
 				AdjustVolumeBlock(buf1, sampleData, sz1, leftVol, rightVol);
@@ -337,7 +337,7 @@ void __AudioUpdate(bool resetRecording) {
 	// to the CPU. Much better to throttle the frame rate on frame display and just throw away audio
 	// if the buffer somehow gets full.
 	bool firstChannel = true;
-	std::vector<int16_t> srcBuffer;
+	std::vector<s16_le> srcBuffer;
 
 	for (u32 i = 0; i < PSP_AUDIO_CHANNEL_MAX + 1; i++)	{
 		if (!chans[i].reserved)
@@ -355,7 +355,7 @@ void __AudioUpdate(bool resetRecording) {
 			ERROR_LOG(SCEAUDIO, "Channel %i buffer underrun at %i of %i", i, (int)chanSampleQueues[i].size() / 2, (int)sz / 2);
 		}
 
-		const s16 *buf1 = 0, *buf2 = 0;
+		const s16_le *buf1 = 0, *buf2 = 0;
 		size_t sz1, sz2;
 
 		chanSampleQueues[i].popPointers(sz, &buf1, &sz1, &buf2, &sz2);

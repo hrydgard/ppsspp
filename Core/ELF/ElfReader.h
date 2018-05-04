@@ -49,7 +49,7 @@ class ElfReader {
 public:
 	ElfReader(const void *ptr, size_t size) {
 		base = (const char*)ptr;
-		base32 = (const u32 *)ptr;
+		base32 = (const u32_le *)ptr;
 		header = (const Elf32_Ehdr*)ptr;
 		segments = (const Elf32_Phdr *)(base + header->e_phoff);
 		sections = (const Elf32_Shdr *)(base + header->e_shoff);
@@ -139,7 +139,7 @@ public:
 
 private:
 	const char *base = nullptr;
-	const u32 *base32 = nullptr;
+	const u32_le *base32 = nullptr;
 	const Elf32_Ehdr *header = nullptr;
 	const Elf32_Phdr *segments = nullptr;
 	const Elf32_Shdr *sections = nullptr;

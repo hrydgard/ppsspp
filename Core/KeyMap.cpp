@@ -290,6 +290,29 @@ static const DefMappingStruct defaultXperiaPlay[] = {
 	{VIRTKEY_AXIS_Y_MAX, JOYSTICK_AXIS_Y, +1},
 };
 
+static const DefMappingStruct defaultWiiuGamepadKeyMap[] = {
+	{VIRTKEY_AXIS_X_MIN   , JOYSTICK_AXIS_X, -1},
+	{VIRTKEY_AXIS_X_MAX   , JOYSTICK_AXIS_X, +1},
+	{VIRTKEY_AXIS_Y_MIN   , JOYSTICK_AXIS_Y, -1},
+	{VIRTKEY_AXIS_Y_MAX   , JOYSTICK_AXIS_Y, +1},
+	{CTRL_CIRCLE          , NKCODE_BUTTON_A},
+	{CTRL_CROSS           , NKCODE_BUTTON_B},
+	{CTRL_TRIANGLE        , NKCODE_BUTTON_X},
+	{CTRL_SQUARE          , NKCODE_BUTTON_Y},
+	{CTRL_UP              , NKCODE_DPAD_UP},
+	{CTRL_RIGHT           , NKCODE_DPAD_RIGHT},
+	{CTRL_DOWN            , NKCODE_DPAD_DOWN},
+	{CTRL_LEFT            , NKCODE_DPAD_LEFT},
+	{CTRL_START           , NKCODE_BUTTON_START},
+	{CTRL_SELECT          , NKCODE_BUTTON_SELECT},
+	{CTRL_LTRIGGER        , NKCODE_BUTTON_L1},
+	{CTRL_RTRIGGER        , NKCODE_BUTTON_R1},
+	{VIRTKEY_UNTHROTTLE   , JOYSTICK_AXIS_RTRIGGER, +1},
+	{VIRTKEY_SPEED_TOGGLE , NKCODE_BUTTON_THUMBR},
+	{VIRTKEY_PAUSE        , JOYSTICK_AXIS_LTRIGGER, +1},
+	{VIRTKEY_PAUSE        , NKCODE_HOME},
+};
+
 void KeyCodesFromPspButton(int btn, std::vector<keycode_t> *keycodes) {
 	for (auto i = g_controllerMap[btn].begin(), end = g_controllerMap[btn].end(); i != end; ++i) {
 		keycodes->push_back((keycode_t)i->keyCode);
@@ -420,6 +443,9 @@ void SetDefaultKeyMap(DefaultMaps dmap, bool replace) {
 		break;
 	case DEFAULT_MAPPING_XPERIA_PLAY:
 		SetDefaultKeyMap(DEVICE_ID_DEFAULT, defaultXperiaPlay, ARRAY_SIZE(defaultXperiaPlay), replace);
+		break;
+	case DEFAULT_MAPPING_WIIU:
+		SetDefaultKeyMap(DEVICE_ID_PAD_0, defaultWiiuGamepadKeyMap, ARRAY_SIZE(defaultWiiuGamepadKeyMap), replace);
 		break;
 	}
 
@@ -905,6 +931,8 @@ void RestoreDefault() {
 		INFO_LOG(SYSTEM, "Default pad map");
 		SetDefaultKeyMap(DEFAULT_MAPPING_PAD, true);
 	}
+#elif defined(__wiiu__)
+	SetDefaultKeyMap(DEFAULT_MAPPING_WIIU, false);
 #else
 	SetDefaultKeyMap(DEFAULT_MAPPING_KEYBOARD, true);
 	SetDefaultKeyMap(DEFAULT_MAPPING_PAD, false);

@@ -649,7 +649,7 @@ int SavedataParam::LoadSaveData(SceUtilitySavedataParam *param, const std::strin
 	std::string filename = GetFileName(param);
 	std::string filePath = dirPath + "/" + filename;
 	s64 readSize;
-	INFO_LOG(SCEUTILITY,"Loading file with size %u in %s",param->dataBufSize,filePath.c_str());
+	INFO_LOG(SCEUTILITY,"Loading file with size %u in %s",(u32)param->dataBufSize,filePath.c_str());
 	u8 *saveData = nullptr;
 	int saveSize = -1;
 	if (!ReadPSPFile(filePath, &saveData, saveSize, &readSize)) {

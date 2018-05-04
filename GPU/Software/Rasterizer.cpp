@@ -1457,7 +1457,7 @@ void ClearRectangle(const VertexData &v0, const VertexData &v1)
 			DrawingCoords p = TransformUnit::ScreenToDrawing(pprime);
 
 			if ((z & 0xFF) == (z >> 8)) {
-				u16 *row = &depthbuf.as16[p.x + p.y * stride];
+				void *row = &depthbuf.as16[p.x + p.y * stride];
 				memset(row, z, w * 2);
 			} else {
 				for (int x = 0; x < w; ++x) {
@@ -1511,8 +1511,8 @@ void ClearRectangle(const VertexData &v0, const VertexData &v1)
 		if (gstate.FrameBufFormat() == GE_FORMAT_8888) {
 			for (pprime.y = minY; pprime.y < maxY; pprime.y += 16) {
 				DrawingCoords p = TransformUnit::ScreenToDrawing(pprime);
-				if ((new_color & 0xFF) == (new_color >> 8) && (new_color & 0xFFFF) == (new_color >> 16)) {
-					u32 *row = &fb.as32[p.x + p.y * stride];
+				if ((new_color & 0xFF) == (u8)(new_color >> 8) && (new_color & 0xFFFF) == (new_color >> 16)) {
+					void *row = &fb.as32[p.x + p.y * stride];
 					memset(row, new_color, w * 4);
 				} else {
 					for (int x = 0; x < w; ++x) {
@@ -1524,7 +1524,7 @@ void ClearRectangle(const VertexData &v0, const VertexData &v1)
 			for (pprime.y = minY; pprime.y < maxY; pprime.y += 16) {
 				DrawingCoords p = TransformUnit::ScreenToDrawing(pprime);
 				if ((new_color16 & 0xFF) == (new_color16 >> 8)) {
-					u16 *row = &fb.as16[p.x + p.y * stride];
+					void *row = &fb.as16[p.x + p.y * stride];
 					memset(row, new_color16, w * 2);
 				} else {
 					for (int x = 0; x < w; ++x) {

@@ -447,25 +447,25 @@ void TextureReplacer::NotifyTextureDecoded(const ReplacedTextureDecodeInfo &repl
 		saveBuf.resize((pitch * h) / sizeof(u16));
 		switch (replacedInfo.fmt) {
 		case ReplacedTextureFormat::F_5650:
-			ConvertRGB565ToRGBA8888(saveBuf.data(), (const u16 *)data, (pitch * h) / sizeof(u16));
+			ConvertRGB565ToRGBA8888(saveBuf.data(), (const u16_le *)data, (pitch * h) / sizeof(u16));
 			break;
 		case ReplacedTextureFormat::F_5551:
-			ConvertRGBA5551ToRGBA8888(saveBuf.data(), (const u16 *)data, (pitch * h) / sizeof(u16));
+			ConvertRGBA5551ToRGBA8888(saveBuf.data(), (const u16_le *)data, (pitch * h) / sizeof(u16));
 			break;
 		case ReplacedTextureFormat::F_4444:
-			ConvertRGBA4444ToRGBA8888(saveBuf.data(), (const u16 *)data, (pitch * h) / sizeof(u16));
+			ConvertRGBA4444ToRGBA8888(saveBuf.data(), (const u16_le *)data, (pitch * h) / sizeof(u16));
 			break;
 		case ReplacedTextureFormat::F_0565_ABGR:
-			ConvertBGR565ToRGBA8888(saveBuf.data(), (const u16 *)data, (pitch * h) / sizeof(u16));
+			ConvertBGR565ToRGBA8888(saveBuf.data(), (const u16_le *)data, (pitch * h) / sizeof(u16));
 			break;
 		case ReplacedTextureFormat::F_1555_ABGR:
-			ConvertABGR1555ToRGBA8888(saveBuf.data(), (const u16 *)data, (pitch * h) / sizeof(u16));
+			ConvertABGR1555ToRGBA8888(saveBuf.data(), (const u16_le *)data, (pitch * h) / sizeof(u16));
 			break;
 		case ReplacedTextureFormat::F_4444_ABGR:
-			ConvertABGR4444ToRGBA8888(saveBuf.data(), (const u16 *)data, (pitch * h) / sizeof(u16));
+			ConvertABGR4444ToRGBA8888(saveBuf.data(), (const u16_le *)data, (pitch * h) / sizeof(u16));
 			break;
 		case ReplacedTextureFormat::F_8888_BGRA:
-			ConvertBGRA8888ToRGBA8888(saveBuf.data(), (const u32 *)data, (pitch * h) / sizeof(u32));
+			ConvertBGRA8888ToRGBA8888(saveBuf.data(), (const u32_le *)data, (pitch * h) / sizeof(u32));
 			break;
 		case ReplacedTextureFormat::F_8888:
 			// Impossible.  Just so we can get warnings on other missed formats.
@@ -606,7 +606,7 @@ void ReplacedTexture::Load(int level, void *out, int rowPitch) {
 
 	if (!checkedAlpha) {
 		// This will only check the hashed bits.
-		CheckAlphaResult res = CheckAlphaRGBA8888Basic((u32 *)out, rowPitch / sizeof(u32), png.width, png.height);
+		CheckAlphaResult res = CheckAlphaRGBA8888Basic((u32_le *)out, rowPitch / sizeof(u32), png.width, png.height);
 		if (res == CHECKALPHA_ANY || level == 0) {
 			alphaStatus_ = ReplacedTextureAlpha(res);
 		}

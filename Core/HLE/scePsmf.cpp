@@ -107,8 +107,8 @@ struct PsmfData {
 
 struct PsmfPlayerCreateData {
 	PSPPointer<u8> buffer;
-	u32 bufferSize;
-	int threadPriority;
+	u32_le bufferSize;
+	s32_le threadPriority;
 };
 
 struct PsmfPlayerData {
@@ -889,7 +889,7 @@ static u32 scePsmfQueryStreamOffset(u32 bufferAddr, u32 offsetAddr)
 {
 	WARN_LOG(ME, "scePsmfQueryStreamOffset(%08x, %08x)", bufferAddr, offsetAddr);
 	if (Memory::IsValidAddress(offsetAddr)) {
-		Memory::Write_U32(bswap32(Memory::Read_U32(bufferAddr + PSMF_STREAM_OFFSET_OFFSET)), offsetAddr);
+		Memory::Write_U32(swap32(Memory::Read_U32(bufferAddr + PSMF_STREAM_OFFSET_OFFSET)), offsetAddr);
 	}
 	return 0;
 }
@@ -898,7 +898,7 @@ static u32 scePsmfQueryStreamSize(u32 bufferAddr, u32 sizeAddr)
 {
 	WARN_LOG(ME, "scePsmfQueryStreamSize(%08x, %08x)", bufferAddr, sizeAddr);
 	if (Memory::IsValidAddress(sizeAddr)) {
-		Memory::Write_U32(bswap32(Memory::Read_U32(bufferAddr + PSMF_STREAM_SIZE_OFFSET)), sizeAddr);
+		Memory::Write_U32(swap32(Memory::Read_U32(bufferAddr + PSMF_STREAM_SIZE_OFFSET)), sizeAddr);
 	}
 	return 0;
 }
@@ -1084,7 +1084,7 @@ static u32 scePsmfGetEPidWithTimestamp(u32 psmfStruct, u32 ts)
 
 static int scePsmfPlayerCreate(u32 psmfPlayer, u32 dataPtr)
 {
-	auto player = PSPPointer<u32>::Create(psmfPlayer);
+	auto player = PSPPointer<u32_le>::Create(psmfPlayer);
 	const auto data = PSPPointer<const PsmfPlayerCreateData>::Create(dataPtr);
 
 	if (!player.IsValid() || !data.IsValid()) {

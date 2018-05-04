@@ -261,8 +261,8 @@ typedef struct SceNetApctlInfoInternal { // Using struct instead of union for in
 	char 			name[APCTL_PROFILENAME_MAXLEN];
 	u8 				bssid[ETHER_ADDR_LEN];
 	char 			ssid[APCTL_SSID_MAXLEN];
-	unsigned int 	ssidLength; // ssid string length (excluding null terminator)
-	unsigned int 	securityType; // a value of PSP_NET_APCTL_INFO_SECURITY_TYPE_NONE..PSP_NET_APCTL_INFO_SECURITY_TYPE_WPA?
+	u32_le 	ssidLength; // ssid string length (excluding null terminator)
+	u32_le 	securityType; // a value of PSP_NET_APCTL_INFO_SECURITY_TYPE_NONE..PSP_NET_APCTL_INFO_SECURITY_TYPE_WPA?
 	u8			 	strength; // Signal strength in %
 	u8			 	channel;
 	u8			 	powerSave; // 1 on, 0 off
@@ -271,12 +271,12 @@ typedef struct SceNetApctlInfoInternal { // Using struct instead of union for in
 	char 			gateway[APCTL_IPADDR_MAXLEN];
 	char 			primaryDns[APCTL_IPADDR_MAXLEN];
 	char 			secondaryDns[APCTL_IPADDR_MAXLEN];
-	unsigned int 	useProxy; // 1 for proxy, 0 for no proxy
+	u32_le 	useProxy; // 1 for proxy, 0 for no proxy
 	char 			proxyUrl[APCTL_URL_MAXLEN];
-	unsigned short 	proxyPort;
-	unsigned int 	eapType; // 0 is none, 1 is EAP-MD5
-	unsigned int 	startBrowser; // 1 = start browser
-	unsigned int 	wifisp; // 1 if connection is for Wifi service providers (WISP) for sharing internet connection
+	u16_le 	proxyPort;
+	u32_le 	eapType; // 0 is none, 1 is EAP-MD5
+	u32_le 	startBrowser; // 1 = start browser
+	u32_le 	wifisp; // 1 if connection is for Wifi service providers (WISP) for sharing internet connection
 } SceNetApctlInfoInternal;
 
 struct ApctlHandler {
@@ -285,7 +285,7 @@ struct ApctlHandler {
 };
 
 struct ApctlArgs {
-	u32_le data[5]; // OldState, NewState, Event, Error, ArgsAddr
+	u32 data[5]; // OldState, NewState, Event, Error, ArgsAddr
 };
 
 class PointerWrap;

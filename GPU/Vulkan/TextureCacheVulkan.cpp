@@ -1035,7 +1035,7 @@ VkFormat TextureCacheVulkan::GetDestFormat(GETextureFormat format, GEPaletteForm
 	}
 }
 
-TexCacheEntry::TexStatus TextureCacheVulkan::CheckAlpha(const u32 *pixelData, VkFormat dstFmt, int stride, int w, int h) {
+TexCacheEntry::TexStatus TextureCacheVulkan::CheckAlpha(const u32_le *pixelData, VkFormat dstFmt, int stride, int w, int h) {
 	CheckAlphaResult res;
 	switch (dstFmt) {
 	case VULKAN_4444_FORMAT:
@@ -1087,7 +1087,7 @@ void TextureCacheVulkan::LoadTextureLevel(TexCacheEntry &entry, uint8_t *writePt
 		if ((entry.status & TexCacheEntry::STATUS_CHANGE_FREQUENT) == 0) {
 			// TODO: When we decode directly, this can be more expensive (maybe not on mobile?)
 			// This does allow us to skip alpha testing, though.
-			TexCacheEntry::TexStatus alphaStatus = CheckAlpha(pixelData, dstFmt, decPitch / bpp, w, h);
+			TexCacheEntry::TexStatus alphaStatus = CheckAlpha((u32_le*)pixelData, dstFmt, decPitch / bpp, w, h);
 			entry.SetAlphaStatus(alphaStatus, level);
 		} else {
 			entry.SetAlphaStatus(TexCacheEntry::STATUS_ALPHA_UNKNOWN);

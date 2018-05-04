@@ -28,35 +28,35 @@ void __UsbGpsShutdown();
 #pragma pack(push, 1)
 
 typedef struct {
-	short year;
-	short month;
-	short date;
-	short hour;
-	short minute;
-	short second;
-	float garbage1;
-	float hdop;
-	float garbage2;
-	float latitude;
-	float longitude;
-	float altitude;
-	float garbage3;
-	float speed;
-	float bearing;
+	s16_le year;
+	s16_le month;
+	s16_le date;
+	s16_le hour;
+	s16_le minute;
+	s16_le second;
+	float_le garbage1;
+	float_le hdop;
+	float_le garbage2;
+	float_le latitude;
+	float_le longitude;
+	float_le altitude;
+	float_le garbage3;
+	float_le speed;
+	float_le bearing;
 }  GpsData;
 
 typedef struct {
 	unsigned char   id;
 	unsigned char   elevation;
-	short           azimuth;
+	s16_le          azimuth;
 	unsigned char   snr;
 	unsigned char   good;
-	short           garbage;
+	s16_le          garbage;
 } SatInfo;
 
 typedef struct {
-	short satellites_in_view;
-	short garbage;
+	s16_le satellites_in_view;
+	s16_le garbage;
 	SatInfo satInfo[24];
 } SatData;
 

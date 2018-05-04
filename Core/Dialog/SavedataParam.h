@@ -31,7 +31,7 @@ class PPGeImage;
 struct PSPFileInfo;
 typedef u32_le SceSize_le;
 
-enum SceUtilitySavedataType
+enum SceUtilitySavedataType : u32
 {
 	SCE_UTILITY_SAVEDATA_TYPE_AUTOLOAD        = 0,
 	SCE_UTILITY_SAVEDATA_TYPE_AUTOSAVE        = 1,
@@ -84,7 +84,7 @@ static const char *const utilitySavedataTypeNames[] = {
 	"GETSIZE",
 };
 
-enum SceUtilitySavedataFocus
+enum SceUtilitySavedataFocus : u32
 {
 	SCE_UTILITY_SAVEDATA_FOCUS_NAME       = 0, // specified by saveName[]
 	SCE_UTILITY_SAVEDATA_FOCUS_FIRSTLIST  = 1, // first listed (on screen or of all?)
@@ -96,14 +96,6 @@ enum SceUtilitySavedataFocus
 	SCE_UTILITY_SAVEDATA_FOCUS_FIRSTEMPTY = 7, // first empty (what if no empty?)
 	SCE_UTILITY_SAVEDATA_FOCUS_LASTEMPTY  = 8, // last empty (what if no empty?)
 };
-
-#if COMMON_LITTLE_ENDIAN
-typedef SceUtilitySavedataType SceUtilitySavedataType_le;
-typedef SceUtilitySavedataFocus SceUtilitySavedataFocus_le;
-#else
-typedef swap_struct_t<SceUtilitySavedataType, swap_32_t<SceUtilitySavedataType> > SceUtilitySavedataType_le;
-typedef swap_struct_t<SceUtilitySavedataFocus, swap_32_t<SceUtilitySavedataFocus> > SceUtilitySavedataFocus_le;
-#endif
 
 typedef char SceUtilitySavedataSaveName[20];
 
@@ -215,7 +207,7 @@ struct SceUtilitySavedataParam
 {
 	pspUtilityDialogCommon common;
 
-	SceUtilitySavedataType_le mode;  // 0 to load, 1 to save
+	LEndian<SceUtilitySavedataType> mode;  // 0 to load, 1 to save
 	s32_le bind;
 
 	s32_le overwriteMode;   // use 0x10  ?
@@ -244,7 +236,7 @@ struct SceUtilitySavedataParam
 	PspUtilitySavedataFileData snd0FileData;
 
 	PSPPointer<PspUtilitySavedataFileData> newData;
-	SceUtilitySavedataFocus_le focus;
+	LEndian<SceUtilitySavedataFocus> focus;
 	s32_le abortStatus;
 
 	// Function SCE_UTILITY_SAVEDATA_TYPE_SIZES

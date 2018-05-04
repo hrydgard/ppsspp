@@ -376,7 +376,7 @@ static int sceGeListUpdateStallAddr(u32 displayListID, u32 stallAddress) {
 	hleEatCycles(190);
 	CoreTiming::ForceCheck();
 
-	DEBUG_LOG(SCEGE, "sceGeListUpdateStallAddr(dlid=%i, stalladdr=%08x)", displayListID, stallAddress);
+	DEBUG_LOG(SCEGE, "sceGeListUpdateStallAddr(dlid=%08x, stalladdr=%08x)", displayListID, stallAddress);
 	return gpu->UpdateStall(LIST_ID_MAGIC ^ displayListID, stallAddress);
 }
 

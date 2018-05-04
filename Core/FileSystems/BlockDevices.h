@@ -97,10 +97,10 @@ private:
 
 struct table_info {
 	u8 mac[16];
-	u32 offset;
-	int size;
-	int flag;
-	int unk_1c;
+	u32_le offset;
+	s32_le size;
+	s32_le flag;
+	s32_le unk_1c;
 };
 
 class NPDRMDemoBlockDevice : public BlockDevice {

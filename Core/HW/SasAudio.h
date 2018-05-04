@@ -100,7 +100,7 @@ public:
 	}
 	void Start(u32 dataPtr, u32 vagSize, bool loopEnabled);
 
-	void GetSamples(s16 *outSamples, int numSamples);
+	void GetSamples(s16_le *outSamples, int numSamples);
 
 	void DecodeBlock(u8 *&readp);
 	bool End() const { return end_; }
@@ -133,7 +133,7 @@ public:
 	SasAtrac3() : contextAddr_(0), atracID_(-1), sampleQueue_(0), end_(false) {}
 	~SasAtrac3() { if (sampleQueue_) delete sampleQueue_; }
 	int setContext(u32 context);
-	void getNextSamples(s16 *outbuf, int wantedSamples);
+	void getNextSamples(s16_le *outbuf, int wantedSamples);
 	int addStreamData(u32 bufPtr, u32 addbytes);
 	void DoState(PointerWrap &p);
 	bool End() const {
@@ -235,7 +235,7 @@ struct SasVoice {
 
 	void DoState(PointerWrap &p);
 
-	void ReadSamples(s16 *output, int numSamples);
+	void ReadSamples(s16_le *output, int numSamples);
 	bool HaveSamplesEnded() const;
 
 	bool playing;
@@ -264,7 +264,7 @@ struct SasVoice {
 	// volume to "Send" (audio-lingo) to the effects processing engine, like reverb
 	int effectLeft;
 	int effectRight;
-	s16 resampleHist[2];
+	s16_le resampleHist[2];
 
 	ADSREnvelope envelope;
 
@@ -299,7 +299,7 @@ public:
 	// Applies reverb to send buffer, according to waveformEffect.
 	void ApplyWaveformEffect();
 	void SetWaveformEffectType(int type);
-	void WriteMixedOutput(s16 *outp, const s16 *inp, int leftVol, int rightVol);
+	void WriteMixedOutput(s16_le *outp, const s16_le *inp, int leftVol, int rightVol);
 
 	void GetDebugText(char *text, size_t bufsize);
 
@@ -311,5 +311,5 @@ public:
 private:
 	SasReverb reverb_;
 	int grainSize;
-	int16_t mixTemp_[PSP_SAS_MAX_GRAIN * 4 + 2 + 8];  // some extra margin for very high pitches.
+	s16_le mixTemp_[PSP_SAS_MAX_GRAIN * 4 + 2 + 8];  // some extra margin for very high pitches.
 };

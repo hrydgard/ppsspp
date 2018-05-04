@@ -2,6 +2,7 @@
 
 #include <cstdint>
 #include <cstring>
+#include "Common/Swap.h"
 
 #define ATLAS_MAGIC ('A' + ('T' << 8) + ('L' << 16) | ('A' << 24))
 
@@ -71,28 +72,28 @@ private:
 
 struct AtlasChar {
 	// texcoords
-	float sx, sy, ex, ey;
+	float_le sx, sy, ex, ey;
 	// offset from the origin
-	float ox, oy;
+	float_le ox, oy;
 	// distance to move the origin forward
-	float wx;
+	float_le wx;
 	// size in pixels
-	unsigned short pw, ph;
+	u16_le pw, ph;
 };
 
 struct AtlasCharRange {
-	int start;
-	int end;
-	int result_index;
+	s32_le start;
+	s32_le end;
+	s32_le result_index;
 };
 
 struct AtlasFontHeader {
-	float padding;
-	float height;
-	float ascend;
-	float distslope;
-	int numRanges;
-	int numChars;
+	float_le padding;
+	float_le height;
+	float_le ascend;
+	float_le distslope;
+	s32_le numRanges;
+	s32_le numChars;
 	char name[32];
 };
 
@@ -114,16 +115,16 @@ struct AtlasFont {
 };
 
 struct AtlasImage {
-	float u1, v1, u2, v2;
-	int w, h;
+	float_le u1, v1, u2, v2;
+	s32_le w, h;
 	char name[32];
 };
 
 struct AtlasHeader {
-	int magic;
-	int version;
-	int numFonts;
-	int numImages;
+	s32_le magic;
+	s32_le version;
+	s32_le numFonts;
+	s32_le numImages;
 };
 
 struct Atlas {

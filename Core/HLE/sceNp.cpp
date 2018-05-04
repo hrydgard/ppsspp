@@ -244,7 +244,7 @@ static int sceNpAuthCreateStartRequest(u32 paramAddr)
 		// 2nd Arg seems to be used if not a negative number and exits the handler if it's negative (error code?)
 		// 3rd Arg seems to be a data (ie. 92 bytes of data?) pointer and tested for null within callback handler (optional callback args?)
 		u32 ticketLength = 248; // default ticket length? should be updated using the ticket length returned from login
-		notifyNpAuthHandlers(retval, ticketLength, (params.size >= 36) ? params.cbArgAddr : 0);
+		notifyNpAuthHandlers(retval, ticketLength, (params.size >= 36) ? (u32)params.cbArgAddr : 0);
 	}
 
 	//hleDelayResult(0, "give time", 500000);

@@ -15,8 +15,6 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
-//TODO: Doesn't build, FIXME!
-#if 0
 
 #include "Common/CPUDetect.h"
 #include "Core/Config.h"
@@ -43,18 +41,13 @@ static const JitLookup jitLookup[] = {
 	{&VertexDecoder::Step_WeightsU16Skin, &VertexDecoderJitCache::Jit_WeightsU16Skin},
 	{&VertexDecoder::Step_WeightsFloatSkin, &VertexDecoderJitCache::Jit_WeightsFloatSkin},
 
-	{&VertexDecoder::Step_TcU8, &VertexDecoderJitCache::Jit_TcU8},
-	{&VertexDecoder::Step_TcU16, &VertexDecoderJitCache::Jit_TcU16},
 	{&VertexDecoder::Step_TcFloat, &VertexDecoderJitCache::Jit_TcFloat},
-	{&VertexDecoder::Step_TcU16Double, &VertexDecoderJitCache::Jit_TcU16Double},
 
 	{&VertexDecoder::Step_TcU8Prescale, &VertexDecoderJitCache::Jit_TcU8Prescale},
 	{&VertexDecoder::Step_TcU16Prescale, &VertexDecoderJitCache::Jit_TcU16Prescale},
 	{&VertexDecoder::Step_TcFloatPrescale, &VertexDecoderJitCache::Jit_TcFloatPrescale},
 
-	{&VertexDecoder::Step_TcU16Through, &VertexDecoderJitCache::Jit_TcU16Through},
 	{&VertexDecoder::Step_TcFloatThrough, &VertexDecoderJitCache::Jit_TcFloatThrough},
-	{&VertexDecoder::Step_TcU16ThroughDouble, &VertexDecoderJitCache::Jit_TcU16ThroughDouble},
 
 	{&VertexDecoder::Step_NormalS8, &VertexDecoderJitCache::Jit_NormalS8},
 	{&VertexDecoder::Step_NormalS16, &VertexDecoderJitCache::Jit_NormalS16},
@@ -126,25 +119,10 @@ void VertexDecoderJitCache::Jit_WeightsU16Skin() {
 void VertexDecoderJitCache::Jit_WeightsFloatSkin() {
 }
 
-void VertexDecoderJitCache::Jit_TcU8() {
-}
-
-void VertexDecoderJitCache::Jit_TcU16() {
-}
-
 void VertexDecoderJitCache::Jit_TcFloat() {
 }
 
-void VertexDecoderJitCache::Jit_TcU16Through() {
-}
-
 void VertexDecoderJitCache::Jit_TcFloatThrough() {
-}
-
-void VertexDecoderJitCache::Jit_TcU16Double() {
-}
-
-void VertexDecoderJitCache::Jit_TcU16ThroughDouble() {
 }
 
 void VertexDecoderJitCache::Jit_TcU8Prescale() {
@@ -271,5 +249,3 @@ void VertexDecoderJitCache::Jit_NormalFloatMorph() {
 bool VertexDecoderJitCache::CompileStep(const VertexDecoder &dec, int step) {
 	return false;
 }
-
-#endif

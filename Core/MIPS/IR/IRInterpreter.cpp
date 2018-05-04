@@ -616,45 +616,47 @@ u32 IRInterpret(MIPSState *mips, const IRInst *inst, int count) {
 		case IROp::Mult:
 		{
 			s64 result = (s64)(s32)mips->r[inst->src1] * (s64)(s32)mips->r[inst->src2];
-			memcpy(&mips->lo, &result, 8);
+			mips->lo = (u32)result;
+			mips->hi = (u32)(result >> 32);
 			break;
 		}
 		case IROp::MultU:
 		{
 			u64 result = (u64)mips->r[inst->src1] * (u64)mips->r[inst->src2];
-			memcpy(&mips->lo, &result, 8);
+			mips->lo = (u32)result;
+			mips->hi = (u32)(result >> 32);
 			break;
 		}
 		case IROp::Madd:
 		{
-			s64 result;
-			memcpy(&result, &mips->lo, 8);
+			s64 result = (s64)((u64)mips->lo | ((u64)mips->hi << 32));
 			result += (s64)(s32)mips->r[inst->src1] * (s64)(s32)mips->r[inst->src2];
-			memcpy(&mips->lo, &result, 8);
+			mips->lo = (u32)result;
+			mips->hi = (u32)(result >> 32);
 			break;
 		}
 		case IROp::MaddU:
 		{
-			s64 result;
-			memcpy(&result, &mips->lo, 8);
+			s64 result = (s64)((u64)mips->lo | ((u64)mips->hi << 32));
 			result += (u64)mips->r[inst->src1] * (u64)mips->r[inst->src2];
-			memcpy(&mips->lo, &result, 8);
+			mips->lo = (u32)result;
+			mips->hi = (u32)(result >> 32);
 			break;
 		}
 		case IROp::Msub:
 		{
-			s64 result;
-			memcpy(&result, &mips->lo, 8);
+			s64 result = (s64)((u64)mips->lo | ((u64)mips->hi << 32));
 			result -= (s64)(s32)mips->r[inst->src1] * (s64)(s32)mips->r[inst->src2];
-			memcpy(&mips->lo, &result, 8);
+			mips->lo = (u32)result;
+			mips->hi = (u32)(result >> 32);
 			break;
 		}
 		case IROp::MsubU:
 		{
-			s64 result;
-			memcpy(&result, &mips->lo, 8);
+			s64 result = (s64)((u64)mips->lo | ((u64)mips->hi << 32));
 			result -= (u64)mips->r[inst->src1] * (u64)mips->r[inst->src2];
-			memcpy(&mips->lo, &result, 8);
+			mips->lo = (u32)result;
+			mips->hi = (u32)(result >> 32);
 			break;
 		}
 

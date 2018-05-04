@@ -126,7 +126,7 @@ DepalShaderVulkan *DepalShaderCacheVulkan::GetDepalettizeShader(uint32_t clutMod
 	return depal;
 }
 
-VulkanTexture *DepalShaderCacheVulkan::GetClutTexture(GEPaletteFormat clutFormat, u32 clutHash, u32 *rawClut, bool expandTo32bit) {
+VulkanTexture *DepalShaderCacheVulkan::GetClutTexture(GEPaletteFormat clutFormat, u32 clutHash, u32_le *rawClut, bool expandTo32bit) {
 	u32 clutId = GetClutID(clutFormat, clutHash);
 	auto oldtex = texCache_.find(clutId);
 	if (oldtex != texCache_.end()) {
@@ -141,18 +141,18 @@ VulkanTexture *DepalShaderCacheVulkan::GetClutTexture(GEPaletteFormat clutFormat
 	int texturePixels = clutFormat == GE_CMODE_32BIT_ABGR8888 ? 256 : 512;
 	int bpp = clutFormat == GE_CMODE_32BIT_ABGR8888 ? 4 : 2;
 	VkFormat dstFmt;
-	uint32_t *expanded = nullptr;
+	u32_le *expanded = nullptr;
 	if (expandTo32bit && clutFormat != GE_CMODE_32BIT_ABGR8888) {
-		expanded = new uint32_t[texturePixels];
+		expanded = new u32_le[texturePixels];
 		switch (clutFormat) {
 		case GE_CMODE_16BIT_ABGR4444:
-			ConvertRGBA4444ToRGBA8888(expanded, (const uint16_t *)rawClut, texturePixels);
+			ConvertRGBA4444ToRGBA8888(expanded, (const u16_le *)rawClut, texturePixels);
 			break;
 		case GE_CMODE_16BIT_ABGR5551:
-			ConvertRGBA5551ToRGBA8888(expanded, (const uint16_t *)rawClut, texturePixels);
+			ConvertRGBA5551ToRGBA8888(expanded, (const u16_le *)rawClut, texturePixels);
 			break;
 		case GE_CMODE_16BIT_BGR5650:
-			ConvertRGB565ToRGBA8888(expanded, (const uint16_t *)rawClut, texturePixels);
+			ConvertRGB565ToRGBA8888(expanded, (const u16_le *)rawClut, texturePixels);
 			break;
 		default:
 			break;

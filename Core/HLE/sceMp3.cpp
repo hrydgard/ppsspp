@@ -367,7 +367,7 @@ static int FindMp3Header(AuCtx *ctx, int &header, int end) {
 		for (int offset = 0; offset < end; ++offset) {
 			// If we hit valid sync bits, then we've found a header.
 			if (ptr[offset] == 0xFF && (ptr[offset + 1] & 0xC0) == 0xC0) {
-				header = bswap32(Memory::Read_U32(addr + offset));
+				header = swap32(Memory::Read_U32(addr + offset));
 				return offset;
 			}
 		}
@@ -685,6 +685,7 @@ static u32 sceMp3LowLevelDecode(u32 mp3, u32 sourceAddr, u32 sourceBytesConsumed
 	
 	int outpcmbytes = 0;
 	ctx->decoder->Decode((void*)inbuff, 4096, outbuff, &outpcmbytes);
+	ToLEndian((s16*)outbuff, outpcmbytes / 2);
 	
 	Memory::Write_U32(ctx->decoder->GetSourcePos(), sourceBytesConsumedAddr);
 	Memory::Write_U32(outpcmbytes, sampleBytesAddr);

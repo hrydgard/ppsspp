@@ -15,6 +15,9 @@
 #include <mmsystem.h>
 #include <sys/timeb.h>
 #else
+#if defined __wiiu__
+#include <wiiu/os/time.h>
+#endif
 #include <sys/time.h>
 #include <unistd.h>
 #endif
@@ -39,7 +42,13 @@ double time_now_d() {
 	double elapsed = static_cast<double>(time.QuadPart - startTime.QuadPart);
 	return elapsed * frequencyMult;
 }
-
+#elif defined(__wiiu__)
+double time_now_d() {
+	static OSTime start;
+	if(!start)
+		start = OSGetSystemTime();
+	return (double)(OSGetSystemTime() - start) * (1.0 / (double) wiiu_timer_clock);
+}
 #else
 
 double time_now_d() {

@@ -41,7 +41,7 @@ static int getBits(int numBits, const u8 *buf, size_t pos) {
 	_dbg_assert_msg_(numBits <= 32, "Unable to return more than 32 bits, %d requested", numBits);
 
 	const size_t wordpos = pos >> 5;
-	const u32 *wordbuf = (const u32 *)buf;
+	const u32_le *wordbuf = (const u32_le *)buf;
 	const u8 bitoff = pos & 31;
 
 	// Might just be in one, has to be within two.

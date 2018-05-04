@@ -25,8 +25,8 @@ struct FormatBuffer {
 	FormatBuffer() { data = nullptr; }
 	union {
 		u8 *data;
-		u16 *as16;
-		u32 *as32;
+		u16_le *as16;
+		u32_le *as32;
 	};
 
 	inline void Set16(int x, int y, int stride, u16 v) {
@@ -45,7 +45,7 @@ struct FormatBuffer {
 		return as32[x + y * stride];
 	}
 
-	inline u16 *Get16Ptr(int x, int y, int stride) {
+	inline u16_le *Get16Ptr(int x, int y, int stride) {
 		return &as16[x + y * stride];
 	}
 };
@@ -114,7 +114,7 @@ private:
 	SoftwareDrawEngine *drawEngine_ = nullptr;
 
 	Draw::Texture *fbTex = nullptr;
-	std::vector<u32> fbTexBuffer_;
+	std::vector<u32_le> fbTexBuffer_;
 };
 
 // TODO: These shouldn't be global.

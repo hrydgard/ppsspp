@@ -56,6 +56,7 @@ enum class GPUBackend {
 	DIRECT3D9 = 1,
 	DIRECT3D11 = 2,
 	VULKAN = 3,
+	GX2 = 4,
 };
 
 inline std::string GPUBackendToString(GPUBackend backend) {

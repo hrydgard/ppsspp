@@ -115,7 +115,7 @@ void VagDecoder::DecodeBlock(u8 *&read_pointer) {
 	read_pointer = readp;
 }
 
-void VagDecoder::GetSamples(s16 *outSamples, int numSamples) {
+void VagDecoder::GetSamples(s16_le *outSamples, int numSamples) {
 	if (end_) {
 		memset(outSamples, 0, numSamples * sizeof(s16));
 		return;
@@ -193,7 +193,7 @@ int SasAtrac3::setContext(u32 context) {
 	return 0;
 }
 
-void SasAtrac3::getNextSamples(s16 *outbuf, int wantedSamples) {
+void SasAtrac3::getNextSamples(s16_le *outbuf, int wantedSamples) {
 	if (atracID_ < 0) {
 		end_ = true;
 		return;
@@ -203,7 +203,7 @@ void SasAtrac3::getNextSamples(s16 *outbuf, int wantedSamples) {
 	while (!finish && sampleQueue_->getQueueSize() < wantedbytes) {
 		u32 numSamples = 0;
 		int remains = 0;
-		static s16 buf[0x800];
+		static s16_le buf[0x800];
 		_AtracDecodeData(atracID_, (u8*)buf, 0, &numSamples, &finish, &remains);
 		if (numSamples > 0)
 			sampleQueue_->push((u8*)buf, numSamples * sizeof(s16));
@@ -418,7 +418,7 @@ int SasInstance::EstimateMixUs() {
 	return std::min(cycles, 1200);
 }
 
-void SasVoice::ReadSamples(s16 *output, int numSamples) {
+void SasVoice::ReadSamples(s16_le *output, int numSamples) {
 	// Read N samples into the resample buffer. Could do either PCM or VAG here.
 	switch (type) {
 	case VOICETYPE_VAG:
@@ -427,7 +427,7 @@ void SasVoice::ReadSamples(s16 *output, int numSamples) {
 	case VOICETYPE_PCM:
 		{
 			int needed = numSamples;
-			s16 *out = output;
+			s16_le *out = output;
 			while (needed > 0) {
 				u32 size = std::min(pcmSize - pcmIndex, needed);
 				if (!on) {
@@ -528,7 +528,7 @@ void SasInstance::MixVoice(SasVoice &voice) {
 
 		const bool needsInterp = voicePitch != PSP_SAS_PITCH_BASE || (sampleFrac & PSP_SAS_PITCH_MASK) != 0;
 		for (int i = delay; i < grainSize; i++) {
-			const int16_t *s = mixTemp_ + (sampleFrac >> PSP_SAS_PITCH_BASE_SHIFT);
+			const s16_le *s = mixTemp_ + (sampleFrac >> PSP_SAS_PITCH_BASE_SHIFT);
 
 			// Linear interpolation. Good enough. Need to make resampleHist bigger if we want more.
 			int sample = s[0];
@@ -586,16 +586,16 @@ void SasInstance::Mix(u32 outAddr, u32 inAddr, int leftVol, int rightVol) {
 	// Then mix the send buffer in with the rest.
 
 	// Alright, all voices mixed. Let's convert and clip, and at the same time, wipe mixBuffer for next time. Could also dither.
-	s16 *outp = (s16 *)Memory::GetPointer(outAddr);
-	const s16 *inp = inAddr ? (s16*)Memory::GetPointer(inAddr) : 0;
+	s16_le *outp = (s16_le *)Memory::GetPointer(outAddr);
+	const s16_le *inp = inAddr ? (s16_le *)Memory::GetPointer(inAddr) : 0;
 	if (outputMode == PSP_SAS_OUTPUTMODE_MIXED) {
 		// Okay, apply effects processing to the Send buffer.
 		WriteMixedOutput(outp, inp, leftVol, rightVol);
 	} else {
-		s16 *outpL = outp + grainSize * 0;
-		s16 *outpR = outp + grainSize * 1;
-		s16 *outpSendL = outp + grainSize * 2;
-		s16 *outpSendR = outp + grainSize * 3;
+		s16_le *outpL = outp + grainSize * 0;
+		s16_le *outpR = outp + grainSize * 1;
+		s16_le *outpSendL = outp + grainSize * 2;
+		s16_le *outpSendR = outp + grainSize * 3;
 		WARN_LOG_REPORT_ONCE(sasraw, SASMIX, "sceSasCore: raw outputMode");
 		for (int i = 0; i < grainSize * 2; i += 2) {
 			*outpL++ = clamp_s16(mixBuffer[i + 0]);
@@ -612,7 +612,7 @@ void SasInstance::Mix(u32 outAddr, u32 inAddr, int leftVol, int rightVol) {
 #endif
 }
 
-void SasInstance::WriteMixedOutput(s16 *outp, const s16 *inp, int leftVol, int rightVol) {
+void SasInstance::WriteMixedOutput(s16_le *outp, const s16_le *inp, int leftVol, int rightVol) {
 	const bool dry = waveformEffect.isDryOn != 0;
 	const bool wet = waveformEffect.isWetOn != 0;
 	if (wet) {

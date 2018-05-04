@@ -2467,9 +2467,9 @@ static int __IoIoctl(u32 id, u32 cmd, u32 indataPtr, u32 inlen, u32 outdataPtr, 
 		// Even if the size is 4, it still actually reads a 16 byte struct, it seems.
 		if (Memory::IsValidAddress(indataPtr) && inlen >= 4) {
 			struct SeekInfo {
-				u64 offset;
-				u32 unk;
-				u32 whence;
+				u64_le offset;
+				u32_le unk;
+				u32_le whence;
 			};
 			const auto seekInfo = PSPPointer<SeekInfo>::Create(indataPtr);
 			FileMove seek;
@@ -2571,9 +2571,9 @@ static int __IoIoctl(u32 id, u32 cmd, u32 indataPtr, u32 inlen, u32 outdataPtr, 
 
 		if (Memory::IsValidAddress(indataPtr) && inlen >= 4) {
 			struct SeekInfo {
-				u64 offset;
-				u32 unk;
-				u32 whence;
+				u64_le offset;
+				u32_le unk;
+				u32_le whence;
 			};
 			const auto seekInfo = PSPPointer<SeekInfo>::Create(indataPtr);
 			FileMove seek;
