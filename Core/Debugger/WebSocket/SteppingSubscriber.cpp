@@ -32,6 +32,9 @@ struct WebSocketSteppingState {
 	WebSocketSteppingState() {
 		disasm_.setCpu(currentDebugMIPS);
 	}
+	~WebSocketSteppingState() {
+		disasm_.clear();
+	}
 
 	void Into(DebuggerRequest &req);
 	void Over(DebuggerRequest &req);

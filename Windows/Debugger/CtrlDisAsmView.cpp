@@ -183,6 +183,7 @@ CtrlDisAsmView::~CtrlDisAsmView()
 {
 	DeleteObject(font);
 	DeleteObject(boldfont);
+	manager.clear();
 }
 
 COLORREF scaleColor(COLORREF color, float factor)

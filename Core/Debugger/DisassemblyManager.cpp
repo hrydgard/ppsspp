@@ -346,7 +346,6 @@ u32 DisassemblyManager::getNthNextAddress(u32 address, int n)
 }
 
 DisassemblyManager::~DisassemblyManager() {
-	clear();
 }
 
 void DisassemblyManager::clear()

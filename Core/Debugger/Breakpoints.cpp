@@ -452,15 +452,28 @@ void CBreakPoints::ChangeMemCheckLogFormat(u32 start, u32 end, const std::string
 	}
 }
 
+bool CBreakPoints::GetMemCheck(u32 start, u32 end, MemCheck *check) {
+	std::lock_guard<std::mutex> guard(memCheckMutex_);
+	size_t mc = FindMemCheck(start, end);
+	if (mc != INVALID_MEMCHECK) {
+		*check = memChecks_[mc];
+		return true;
+	}
+	return false;
+}
+
 static inline u32 NotCached(u32 val)
 {
 	// Remove the cached part of the address.
 	return val & ~0x40000000;
 }
 
-MemCheck *CBreakPoints::GetMemCheck(u32 address, int size) {
+bool CBreakPoints::GetMemCheckInRange(u32 address, int size, MemCheck *check) {
 	std::lock_guard<std::mutex> guard(memCheckMutex_);
-	return GetMemCheckLocked(address, size);
+	auto result = GetMemCheckLocked(address, size);
+	if (result)
+		*check = *result;
+	return result != nullptr;
 }
 
 MemCheck *CBreakPoints::GetMemCheckLocked(u32 address, int size) {

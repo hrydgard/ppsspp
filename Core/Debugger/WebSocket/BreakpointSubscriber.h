@@ -25,3 +25,8 @@ void WebSocketCPUBreakpointAdd(DebuggerRequest &req);
 void WebSocketCPUBreakpointUpdate(DebuggerRequest &req);
 void WebSocketCPUBreakpointRemove(DebuggerRequest &req);
 void WebSocketCPUBreakpointList(DebuggerRequest &req);
+
+void WebSocketMemoryBreakpointAdd(DebuggerRequest &req);
+void WebSocketMemoryBreakpointUpdate(DebuggerRequest &req);
+void WebSocketMemoryBreakpointRemove(DebuggerRequest &req);
+void WebSocketMemoryBreakpointList(DebuggerRequest &req);

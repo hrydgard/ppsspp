@@ -149,7 +149,8 @@ public:
 
 	static void ChangeMemCheckLogFormat(u32 start, u32 end, const std::string &fmt);
 
-	static MemCheck *GetMemCheck(u32 address, int size);
+	static bool GetMemCheck(u32 start, u32 end, MemCheck *check);
+	static bool GetMemCheckInRange(u32 address, int size, MemCheck *check);
 	static BreakAction ExecMemCheck(u32 address, bool write, int size, u32 pc);
 	static BreakAction ExecOpMemCheck(u32 address, u32 pc);
 

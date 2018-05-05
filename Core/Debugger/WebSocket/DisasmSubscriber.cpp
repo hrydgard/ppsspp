@@ -31,6 +31,9 @@ struct WebSocketDisasmState {
 	WebSocketDisasmState() {
 		disasm_.setCpu(currentDebugMIPS);
 	}
+	~WebSocketDisasmState() {
+		disasm_.clear();
+	}
 
 	void Base(DebuggerRequest &req);
 	void Disasm(DebuggerRequest &req);
@@ -324,6 +327,16 @@ void WebSocketDisasmState::Disasm(DebuggerRequest &req) {
 	json.pop();
 }
 
+// Search disassembly for some text (cpu.searchDisasm)
+//
+// Parameters:
+//  - address: starting address as a number.
+//  - end: optional end address as a number (otherwise uses start.)
+//  - match: string to search for.
+//  - displaySymbols: optional, specify false to hide symbols in the searched parameters.
+//
+// Response (same event name):
+//  - address: number address of match or null if none was found.
 void WebSocketDisasmState::SearchDisasm(DebuggerRequest &req) {
 	if (!currentDebugMIPS->isAlive() || !Memory::IsActive()) {
 		return req.Fail("CPU not started");
@@ -393,6 +406,14 @@ void WebSocketDisasmState::SearchDisasm(DebuggerRequest &req) {
 		json.writeNull("address");
 }
 
+// Assemble an instruction (cpu.assemble)
+//
+// Parameters:
+//  - address: number indicating the address to write to.
+//  - code: string containing the instruction to assemble.
+//
+// Response (same event name):
+//  - encoding: resulting encoding at this address.  Always returns one value, even for macros.
 void WebSocketDisasmState::Assemble(DebuggerRequest &req) {
 	if (!currentDebugMIPS->isAlive() || !Memory::IsActive()) {
 		return req.Fail("CPU not started");
