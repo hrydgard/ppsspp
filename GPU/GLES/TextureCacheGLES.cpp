@@ -328,7 +328,7 @@ void TextureCacheGLES::BindTexture(TexCacheEntry *entry) {
 		lastBoundTexture = entry->textureName;
 	}
 	UpdateSamplingParams(*entry, false);
-	gstate_c.useShaderDepal = false;
+	gstate_c.SetUseShaderDepal(false);
 }
 
 void TextureCacheGLES::Unbind() {
@@ -461,7 +461,7 @@ void TextureCacheGLES::ApplyTextureFramebuffer(TexCacheEntry *entry, VirtualFram
 
 			// Since we started/ended render passes, might need these.
 			gstate_c.Dirty(DIRTY_DEPAL);
-			gstate_c.useShaderDepal = true;
+			gstate_c.SetUseShaderDepal(true);
 			gstate_c.depalFramebufferFormat = framebuffer->drawnFormat;
 			const u32 bytesPerColor = clutFormat == GE_CMODE_32BIT_ABGR8888 ? sizeof(u32) : sizeof(u16);
 			const u32 clutTotalColors = clutMaxBytes_ / bytesPerColor;

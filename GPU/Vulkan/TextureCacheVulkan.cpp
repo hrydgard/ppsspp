@@ -328,7 +328,7 @@ void TextureCacheVulkan::BindTexture(TexCacheEntry *entry) {
 	UpdateSamplingParams(*entry, key);
 	curSampler_ = samplerCache_.GetOrCreateSampler(key);
 	drawEngine_->SetDepalTexture(VK_NULL_HANDLE);
-	gstate_c.useShaderDepal = false;
+	gstate_c.SetUseShaderDepal(false);
 }
 
 void TextureCacheVulkan::Unbind() {
@@ -344,7 +344,7 @@ void TextureCacheVulkan::ApplyTextureFramebuffer(TexCacheEntry *entry, VirtualFr
 	DepalShaderVulkan *depalShader = nullptr;
 	uint32_t clutMode = gstate.clutformat & 0xFFFFFF;
 
-	bool useShaderDepal = true;
+	bool useShaderDepal = framebufferManager_->GetCurrentRenderVFB() != framebuffer;
 
 	if ((entry->status & TexCacheEntry::STATUS_DEPALETTIZE) && !g_Config.bDisableSlowFramebufEffects) {
 		if (useShaderDepal) {
@@ -356,9 +356,9 @@ void TextureCacheVulkan::ApplyTextureFramebuffer(TexCacheEntry *entry, VirtualFr
 			samplerKey.magFilt = false;
 			samplerKey.minFilt = false;
 			samplerKey.mipFilt = false;
-			// Make sure to update the uniforms.
+			// Make sure to update the uniforms, and also texture - needs a recheck.
 			gstate_c.Dirty(DIRTY_DEPAL);
-			gstate_c.useShaderDepal = true;
+			gstate_c.SetUseShaderDepal(true);
 			gstate_c.depalFramebufferFormat = framebuffer->drawnFormat;
 			const u32 bytesPerColor = clutFormat == GE_CMODE_32BIT_ABGR8888 ? sizeof(u32) : sizeof(u16);
 			const u32 clutTotalColors = clutMaxBytes_ / bytesPerColor;
@@ -370,6 +370,8 @@ void TextureCacheVulkan::ApplyTextureFramebuffer(TexCacheEntry *entry, VirtualFr
 			return;
 		} else {
 			depalShader = depalShaderCache_->GetDepalettizeShader(clutMode, framebuffer->drawnFormat);
+			drawEngine_->SetDepalTexture(VK_NULL_HANDLE);
+			gstate_c.SetUseShaderDepal(false);
 		}
 	}
 	if (depalShader) {
@@ -466,6 +468,8 @@ void TextureCacheVulkan::ApplyTextureFramebuffer(TexCacheEntry *entry, VirtualFr
 
 		framebufferManager_->RebindFramebuffer();  // TODO: This line should usually not be needed.
 		imageView_ = framebufferManagerVulkan_->BindFramebufferAsColorTexture(0, framebuffer, BINDFBCOLOR_MAY_COPY_WITH_UV | BINDFBCOLOR_APPLY_TEX_OFFSET);
+		drawEngine_->SetDepalTexture(VK_NULL_HANDLE);
+		gstate_c.SetUseShaderDepal(false);
 
 		gstate_c.SetTextureFullAlpha(gstate.getTextureFormat() == GE_TFMT_5650);
 	}
