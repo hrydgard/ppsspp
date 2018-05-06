@@ -62,7 +62,6 @@ extern "C" {
 // For headless screenshots.
 #include "Core/HLE/sceDisplay.h"
 
-static const int ERROR_ERRNO_FILE_NOT_FOUND               = 0x80010002;
 static const int ERROR_ERRNO_IO_ERROR                     = 0x80010005;
 static const int ERROR_MEMSTICK_DEVCTL_BAD_PARAMS         = 0x80220081;
 static const int ERROR_MEMSTICK_DEVCTL_TOO_MANY_CALLBACKS = 0x80220082;
@@ -805,7 +804,7 @@ static u32 sceIoGetstat(const char *filename, u32 addr) {
 		}
 	} else {
 		DEBUG_LOG(SCEIO, "sceIoGetstat(%s, %08x) : FILE NOT FOUND", filename, addr);
-		return hleDelayResult(ERROR_ERRNO_FILE_NOT_FOUND, "io getstat", usec);
+		return hleDelayResult(SCE_KERNEL_ERROR_ERRNO_FILE_NOT_FOUND, "io getstat", usec);
 	}
 }
 
@@ -1383,7 +1382,7 @@ static u32 sceIoOpen(const char *filename, int flags, int mode) {
 		else
 		{
 			ERROR_LOG(SCEIO, "ERROR_ERRNO_FILE_NOT_FOUND=sceIoOpen(%s, %08x, %08x) - file not found", filename, flags, mode);
-			return hleDelayResult(ERROR_ERRNO_FILE_NOT_FOUND, "file opened", 10000);
+			return hleDelayResult(SCE_KERNEL_ERROR_ERRNO_FILE_NOT_FOUND, "file opened", 10000);
 		}
 	}
 
@@ -1412,7 +1411,7 @@ static u32 sceIoRemove(const char *filename) {
 
 	// TODO: This timing isn't necessarily accurate, low end for now.
 	if(!pspFileSystem.GetFileInfo(filename).exists)
-		return hleDelayResult(ERROR_ERRNO_FILE_NOT_FOUND, "file removed", 100);
+		return hleDelayResult(SCE_KERNEL_ERROR_ERRNO_FILE_NOT_FOUND, "file removed", 100);
 
 	pspFileSystem.RemoveFile(filename);
 	return hleDelayResult(0, "file removed", 100);
@@ -1433,7 +1432,7 @@ static u32 sceIoRmdir(const char *dirname) {
 	if (pspFileSystem.RmDir(dirname))
 		return hleDelayResult(0, "rmdir", 1000);
 	else
-		return hleDelayResult(ERROR_ERRNO_FILE_NOT_FOUND, "rmdir", 1000);
+		return hleDelayResult(SCE_KERNEL_ERROR_ERRNO_FILE_NOT_FOUND, "rmdir", 1000);
 }
 
 static u32 sceIoSync(const char *devicename, int flag) {
@@ -1855,7 +1854,7 @@ static u32 sceIoRename(const char *from, const char *to) {
 
 	// TODO: Timing isn't terribly accurate.
 	if (!pspFileSystem.GetFileInfo(from).exists)
-		return hleDelayResult(ERROR_ERRNO_FILE_NOT_FOUND, "file renamed", 1000);
+		return hleDelayResult(SCE_KERNEL_ERROR_ERRNO_FILE_NOT_FOUND, "file renamed", 1000);
 
 	int result = pspFileSystem.RenameFile(from, to);
 	if (result < 0)
@@ -1933,7 +1932,7 @@ static u32 sceIoOpenAsync(const char *filename, int flags, int mode)
 		f = new FileNode();
 		f->handle = kernelObjects.Create(f);
 		f->fullpath = filename;
-		f->asyncResult = error == 0 ? ERROR_ERRNO_FILE_NOT_FOUND : error;
+		f->asyncResult = error == 0 ? SCE_KERNEL_ERROR_ERRNO_FILE_NOT_FOUND : error;
 		f->closePending = true;
 
 		fd = __IoAllocFd(f);
@@ -2142,9 +2141,8 @@ public:
 static u32 sceIoDopen(const char *path) {
 	DEBUG_LOG(SCEIO, "sceIoDopen(\"%s\")", path);
 
-	if(!pspFileSystem.GetFileInfo(path).exists)
-	{
-		return ERROR_ERRNO_FILE_NOT_FOUND;
+	if (!pspFileSystem.GetFileInfo(path).exists) {
+		return SCE_KERNEL_ERROR_ERRNO_FILE_NOT_FOUND;
 	}
 
 	DirListing *dir = new DirListing();
