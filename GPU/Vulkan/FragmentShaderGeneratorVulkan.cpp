@@ -194,7 +194,7 @@ bool GenerateVulkanGLSLFragmentShader(const FShaderID &id, char *buffer) {
 				WRITE(p, "  if (bilinear) {\n");
 				WRITE(p, "    uv_round = uv * tsize - vec2(0.5, 0.5);\n");
 				WRITE(p, "    fraction = fract(uv_round);\n");
-				WRITE(p, "    uv_round = (floor(uv_round) + vec2(0.5, 0.5)) / tsize;\n");  // We want to take our four point samples at pixel centers.
+				WRITE(p, "    uv_round = (uv_round - fraction + vec2(0.5, 0.5)) / tsize;\n");  // We want to take our four point samples at pixel centers.
 				WRITE(p, "  } else {\n");
 				WRITE(p, "    uv_round = uv;\n");
 				WRITE(p, "  }\n");
