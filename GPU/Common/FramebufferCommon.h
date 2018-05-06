@@ -153,6 +153,13 @@ enum DrawTextureFlags {
 	DRAWTEX_KEEP_STENCIL_ALPHA = 4,
 };
 
+enum class TempFBO {
+	DEPAL,
+	BLIT,
+	// For copies of framebuffers (e.g. shader blending.)
+	COPY,
+};
+
 inline Draw::DataFormat GEFormatToThin3D(int geFormat) {
 	switch (geFormat) {
 	case GE_FORMAT_4444:
@@ -290,7 +297,7 @@ public:
 
 	virtual void Resized();
 
-	Draw::Framebuffer *GetTempFBO(u16 w, u16 h, Draw::FBColorDepth colorDepth = Draw::FBO_8888);
+	Draw::Framebuffer *GetTempFBO(TempFBO reason, u16 w, u16 h, Draw::FBColorDepth colorDepth = Draw::FBO_8888);
 
 	// Debug features
 	virtual bool GetFramebuffer(u32 fb_address, int fb_stride, GEBufferFormat format, GPUDebugBuffer &buffer, int maxRes);
@@ -400,12 +407,12 @@ protected:
 
 	bool needGLESRebinds_ = false;
 
-	struct TempFBO {
+	struct TempFBOInfo {
 		Draw::Framebuffer *fbo;
 		int last_frame_used;
 	};
 
-	std::map<u64, TempFBO> tempFBOs_;
+	std::map<u64, TempFBOInfo> tempFBOs_;
 
 	std::vector<Draw::Framebuffer *> fbosToDelete_;
 
