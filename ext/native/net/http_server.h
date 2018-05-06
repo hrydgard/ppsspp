@@ -6,6 +6,7 @@
 
 #include "base/buffer.h"
 #include "net/http_headers.h"
+#include "net/resolve.h"
 #include "thread/executor.h"
 
 namespace net {
@@ -73,7 +74,7 @@ public:
 	// May run for (significantly) longer than timeout, but won't wait longer than that
 	// for a new connection to handle.
 	bool RunSlice(double timeout);
-	bool Listen(int port);
+	bool Listen(int port, net::DNSType type = net::DNSType::ANY);
 	void Stop();
 
 	void RegisterHandler(const char *url_path, UrlHandlerFunc handler);
@@ -89,6 +90,9 @@ public:
 	}
 
 private:
+	bool Listen6(int port, bool ipv6_only);
+	bool Listen4(int port);
+
 	void HandleConnection(int conn_fd);
 
 	// Things like default 404, etc.

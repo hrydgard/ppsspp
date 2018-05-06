@@ -69,25 +69,36 @@ static ServerStatus RetrieveStatus() {
 // relay that address to a mobile device searching for the server.
 static void RegisterServer(int port) {
 	http::Client http;
+	Buffer theVoid;
 
-	char resource[1024] = {};
-	// We register both IPv4 and IPv6 in case the other client is using a different one.
-	// Our server is (currently?) ipv4 only, so we always register the ipv4 local for now.
+	char resource4[1024] = {};
 	if (http.Resolve(REPORT_HOSTNAME, REPORT_PORT, net::DNSType::IPV4)) {
-		Buffer theVoid;
 		if (http.Connect(2, 20.0, &scanCancelled)) {
 			std::string ip = fd_util::GetLocalIP(http.sock());
-			snprintf(resource, sizeof(resource) - 1, "/match/update?local=%s&port=%d", ip.c_str(), port);
+			snprintf(resource4, sizeof(resource4) - 1, "/match/update?local=%s&port=%d", ip.c_str(), port);
 
-			http.GET(resource, &theVoid);
+			http.GET(resource4, &theVoid);
+			theVoid.Skip(theVoid.size());
 			http.Disconnect();
 		}
 	}
 
 	if (http.Resolve(REPORT_HOSTNAME, REPORT_PORT, net::DNSType::IPV6)) {
-		Buffer theVoid;
+		// We register both IPv4 and IPv6 in case the other client is using a different one.
+		if (resource4[0] != 0 && http.Connect()) {
+			http.GET(resource4, &theVoid);
+			theVoid.Skip(theVoid.size());
+			http.Disconnect();
+		}
+
+		// Currently, we're not using keepalive, so gotta reconnect...
 		if (http.Connect()) {
-			http.GET(resource, &theVoid);
+			char resource6[1024] = {};
+			std::string ip = fd_util::GetLocalIP(http.sock());
+			snprintf(resource6, sizeof(resource6) - 1, "/match/update?local=%s&port=%d", ip.c_str(), port);
+
+			http.GET(resource6, &theVoid);
+			theVoid.Skip(theVoid.size());
 			http.Disconnect();
 		}
 	}
