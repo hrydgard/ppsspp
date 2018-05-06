@@ -18,7 +18,7 @@ For the latest source code, see [our github page](https://github.com/hrydgard/pp
 
 For build instructions and other development tutorials, see [the wiki](https://github.com/hrydgard/ppsspp/wiki).
 
-For game compatibility, see [community compatibility feedback](http://report.ppsspp.org/games).
+For game compatibility, see [community compatibility feedback](https://report.ppsspp.org/games).
 
 
 What's new in 1.5.4
