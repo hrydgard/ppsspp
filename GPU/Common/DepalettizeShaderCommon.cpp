@@ -36,7 +36,7 @@ void GenerateDepalShader300(char *buffer, GEBufferFormat pixelFormat, ShaderLang
 	if (language == HLSL_D3D11) {
 		WRITE(p, "SamplerState texSamp : register(s0);\n");
 		WRITE(p, "Texture2D<float4> tex : register(t0);\n");
-		WRITE(p, "Texture2D<float4> pal : register(t1);\n");
+		WRITE(p, "Texture2D<float4> pal : register(t3);\n");
 	} else if (language == GLSL_VULKAN) {
 		WRITE(p, "#version 140\n");
 		WRITE(p, "#extension GL_ARB_separate_shader_objects : enable\n");

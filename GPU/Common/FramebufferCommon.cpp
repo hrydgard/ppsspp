@@ -1832,8 +1832,8 @@ void FramebufferManagerCommon::GetCardboardSettings(CardboardSettings *cardboard
 	cardboardSettings->screenHeight = cardboardScreenHeight;
 }
 
-Draw::Framebuffer *FramebufferManagerCommon::GetTempFBO(u16 w, u16 h, Draw::FBColorDepth depth) {
-	u64 key = ((u64)depth << 32) | ((u32)w << 16) | h;
+Draw::Framebuffer *FramebufferManagerCommon::GetTempFBO(TempFBO reason, u16 w, u16 h, Draw::FBColorDepth depth) {
+	u64 key = ((u64)reason << 48) | ((u64)depth << 32) | ((u32)w << 16) | h;
 	auto it = tempFBOs_.find(key);
 	if (it != tempFBOs_.end()) {
 		it->second.last_frame_used = gpuStats.numFlips;
@@ -1845,7 +1845,7 @@ Draw::Framebuffer *FramebufferManagerCommon::GetTempFBO(u16 w, u16 h, Draw::FBCo
 	if (!fbo)
 		return fbo;
 
-	const TempFBO info = { fbo, gpuStats.numFlips };
+	const TempFBOInfo info = { fbo, gpuStats.numFlips };
 	tempFBOs_[key] = info;
 	return fbo;
 }
@@ -1914,7 +1914,7 @@ bool FramebufferManagerCommon::GetFramebuffer(u32 fb_address, int fb_stride, GEB
 			w = vfb->width * maxRes;
 			h = vfb->height * maxRes;
 
-			Draw::Framebuffer *tempFBO = GetTempFBO(w, h);
+			Draw::Framebuffer *tempFBO = GetTempFBO(TempFBO::COPY, w, h);
 			VirtualFramebuffer tempVfb = *vfb;
 			tempVfb.fbo = tempFBO;
 			tempVfb.bufferWidth = vfb->width;

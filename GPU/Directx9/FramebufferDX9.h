@@ -110,16 +110,11 @@ private:
 	ShaderManagerDX9 *shaderManagerDX9_;
 	DrawEngineDX9 *drawEngineD3D9_;
 	
-	struct TempFBO {
-		Draw::Framebuffer *fbo;
-		int last_frame_used;
-	};
 	struct OffscreenSurface {
 		LPDIRECT3DSURFACE9 surface;
 		int last_frame_used;
 	};
 
-	std::map<u64, TempFBO> tempFBOs_;
 	std::map<u64, OffscreenSurface> offscreenSurfaces_;
 
 #if 0

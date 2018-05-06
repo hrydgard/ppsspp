@@ -119,9 +119,6 @@ static const D3DVERTEXELEMENT9 g_FramebufferVertexElements[] = {
 		if (drawPixelsTex_) {
 			drawPixelsTex_->Release();
 		}
-		for (auto it = tempFBOs_.begin(), end = tempFBOs_.end(); it != end; ++it) {
-			it->second.fbo->Release();
-		}
 		for (auto it = offscreenSurfaces_.begin(), end = offscreenSurfaces_.end(); it != end; ++it) {
 			it->second.surface->Release();
 		}
@@ -448,7 +445,7 @@ static const D3DVERTEXELEMENT9 g_FramebufferVertexElements[] = {
 		}
 		if (!skipCopy && currentRenderVfb_ && framebuffer->fb_address == gstate.getFrameBufRawAddress()) {
 			// TODO: Maybe merge with bvfbs_?  Not sure if those could be packing, and they're created at a different size.
-			Draw::Framebuffer *renderCopy = GetTempFBO(framebuffer->renderWidth, framebuffer->renderHeight, (Draw::FBColorDepth)framebuffer->colorDepth);
+			Draw::Framebuffer *renderCopy = GetTempFBO(TempFBO::COPY, framebuffer->renderWidth, framebuffer->renderHeight, (Draw::FBColorDepth)framebuffer->colorDepth);
 			if (renderCopy) {
 				VirtualFramebuffer copyInfo = *framebuffer;
 				copyInfo.fbo = renderCopy;
@@ -514,7 +511,7 @@ static const D3DVERTEXELEMENT9 g_FramebufferVertexElements[] = {
 		// Direct3D 9 doesn't support rect -> self.
 		Draw::Framebuffer *srcFBO = src->fbo;
 		if (src == dst) {
-			Draw::Framebuffer *tempFBO = GetTempFBO(src->renderWidth, src->renderHeight, (Draw::FBColorDepth)src->colorDepth);
+			Draw::Framebuffer *tempFBO = GetTempFBO(TempFBO::BLIT, src->renderWidth, src->renderHeight, (Draw::FBColorDepth)src->colorDepth);
 			bool result = draw_->BlitFramebuffer(
 				src->fbo, srcX1, srcY1, srcX2, srcY2,
 				tempFBO, dstX1, dstY1, dstX2, dstY2,
@@ -709,11 +706,6 @@ static const D3DVERTEXELEMENT9 g_FramebufferVertexElements[] = {
 		}
 		bvfbs_.clear();
 
-		for (auto it = tempFBOs_.begin(), end = tempFBOs_.end(); it != end; ++it) {
-			it->second.fbo->Release();
-		}
-		tempFBOs_.clear();
-
 		for (auto it = offscreenSurfaces_.begin(), end = offscreenSurfaces_.end(); it != end; ++it) {
 			it->second.surface->Release();
 		}
@@ -760,9 +752,6 @@ static const D3DVERTEXELEMENT9 g_FramebufferVertexElements[] = {
 			LPDIRECT3DSURFACE9 offscreen = GetOffscreenSurface(renderTarget, vfb);
 			if (offscreen) {
 				success = GetRenderTargetFramebuffer(renderTarget, offscreen, w, h, buffer);
-			}
-			if (tempFBO) {
-				tempFBO->Release();
 			}
 		}
 
