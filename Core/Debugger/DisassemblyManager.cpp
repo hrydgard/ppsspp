@@ -238,6 +238,8 @@ std::vector<BranchLine> DisassemblyManager::getBranchLines(u32 start, u32 size)
 
 void DisassemblyManager::getLine(u32 address, bool insertSymbols, DisassemblyLineInfo& dest)
 {
+	// This is here really to avoid lock ordering issues.
+	auto memLock = Memory::Lock();
 	std::lock_guard<std::recursive_mutex> guard(entriesLock_);
 	auto it = findDisassemblyEntry(entries,address,false);
 	if (it == entries.end())

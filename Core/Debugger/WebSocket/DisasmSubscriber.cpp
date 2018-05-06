@@ -256,6 +256,7 @@ void WebSocketDisasmState::Base(DebuggerRequest &req) {
 //     - params: formatted parameters for the instruction.
 //     - (other info about the disassembled line.)
 void WebSocketDisasmState::Disasm(DebuggerRequest &req) {
+	auto memLock = Memory::Lock();
 	if (!currentDebugMIPS->isAlive() || !Memory::IsActive()) {
 		return req.Fail("CPU not started");
 	}
@@ -338,6 +339,7 @@ void WebSocketDisasmState::Disasm(DebuggerRequest &req) {
 // Response (same event name):
 //  - address: number address of match or null if none was found.
 void WebSocketDisasmState::SearchDisasm(DebuggerRequest &req) {
+	auto memLock = Memory::Lock();
 	if (!currentDebugMIPS->isAlive() || !Memory::IsActive()) {
 		return req.Fail("CPU not started");
 	}
@@ -415,6 +417,7 @@ void WebSocketDisasmState::SearchDisasm(DebuggerRequest &req) {
 // Response (same event name):
 //  - encoding: resulting encoding at this address.  Always returns one value, even for macros.
 void WebSocketDisasmState::Assemble(DebuggerRequest &req) {
+	auto memLock = Memory::Lock();
 	if (!currentDebugMIPS->isAlive() || !Memory::IsActive()) {
 		return req.Fail("CPU not started");
 	}
