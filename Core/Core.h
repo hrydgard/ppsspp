@@ -45,6 +45,10 @@ enum class CoreLifecycle {
 	STOPPING,
 	// Guaranteed call after STOPPING.
 	STOPPED,
+
+	// Sometimes called for save states.  Guaranteed sequence, and never during STARTING or STOPPING.
+	MEMORY_REINITING,
+	MEMORY_REINITED,
 };
 
 typedef void (* CoreLifecycleFunc)(CoreLifecycle stage);

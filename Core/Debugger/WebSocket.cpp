@@ -20,6 +20,7 @@
 #include "thread/threadutil.h"
 #include "Core/Debugger/WebSocket.h"
 #include "Core/Debugger/WebSocket/WebSocketUtils.h"
+#include "Core/MemMap.h"
 
 // This WebSocket (connected through the same port as disc sharing) allows API/debugger access to PPSSPP.
 // Currently, the only subprotocol "debugger.ppsspp.org" uses a simple JSON based interface.
@@ -88,6 +89,7 @@ static void WebSocketNotifyLifecycle(CoreLifecycle stage) {
 	switch (stage) {
 	case CoreLifecycle::STARTING:
 	case CoreLifecycle::STOPPING:
+	case CoreLifecycle::MEMORY_REINITING:
 		if (debuggersConnected > 0) {
 			DEBUG_LOG(SYSTEM, "Waiting for debugger to complete on shutdown");
 		}
@@ -96,6 +98,7 @@ static void WebSocketNotifyLifecycle(CoreLifecycle stage) {
 
 	case CoreLifecycle::START_COMPLETE:
 	case CoreLifecycle::STOPPED:
+	case CoreLifecycle::MEMORY_REINITED:
 		lifecycleLock.unlock();
 		if (debuggersConnected > 0) {
 			DEBUG_LOG(SYSTEM, "Debugger ready for shutdown");
