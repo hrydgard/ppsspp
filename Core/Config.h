@@ -27,7 +27,7 @@ extern const char *PPSSPP_GIT_VERSION;
 
 const int PSP_MODEL_FAT = 0;
 const int PSP_MODEL_SLIM = 1;
-const int PSP_DEFAULT_FIRMWARE = 150;
+const int PSP_DEFAULT_FIRMWARE = 660;
 static const s8 VOLUME_OFF = 0;
 static const s8 VOLUME_MAX = 10;
 
