@@ -175,29 +175,37 @@ bool GenerateVulkanGLSLFragmentShader(const FShaderID &id, char *buffer) {
 				doTextureProjection = false;
 			}
 
-			if (doTextureProjection) {
-				WRITE(p, "  vec4 t = textureProj(tex, %s);\n", texcoord);
-				if (shaderDepal) {
-					WRITE(p, "  vec4 t1 = textureProjOffset(tex, %s, ivec2(1, 0));\n", texcoord);
-					WRITE(p, "  vec4 t2 = textureProjOffset(tex, %s, ivec2(0, 1));\n", texcoord);
-					WRITE(p, "  vec4 t3 = textureProjOffset(tex, %s, ivec2(1, 1));\n", texcoord);
+			if (!shaderDepal) {
+				if (doTextureProjection) {
+					WRITE(p, "  vec4 t = textureProj(tex, %s);\n", texcoord);
+				} else {
+					WRITE(p, "  vec4 t = texture(tex, %s.xy);\n", texcoord);
 				}
 			} else {
-				WRITE(p, "  vec4 t = texture(tex, %s.xy);\n", texcoord);
-				if (shaderDepal) {
-					WRITE(p, "  vec4 t1 = textureOffset(tex, %s.xy, ivec2(1, 0));\n", texcoord);
-					WRITE(p, "  vec4 t2 = textureOffset(tex, %s.xy, ivec2(0, 1));\n", texcoord);
-					WRITE(p, "  vec4 t3 = textureOffset(tex, %s.xy, ivec2(1, 1));\n", texcoord);
+				if (doTextureProjection) {
+					// We don't use textureProj because we need better control and it's probably not much of a savings anyway.
+					WRITE(p, "  vec2 uv = %s.xy/%s.z;\n  vec2 uv_round;\n", texcoord, texcoord);
+				} else {
+					WRITE(p, "  vec2 uv = %s.xy;\n  vec2 uv_round;\n", texcoord);
 				}
-			}
-
-			if (shaderDepal) {
+				WRITE(p, "  vec2 tsize = textureSize(tex, 0);\n");
+				WRITE(p, "  vec2 fraction;\n");
+				WRITE(p, "  bool bilinear = (base.depal_mask_shift_off_fmt >> 31) != 0;\n");
+				WRITE(p, "  if (bilinear) {\n");
+				WRITE(p, "    uv_round = uv * tsize - vec2(0.5, 0.5);\n");
+				WRITE(p, "    fraction = fract(uv_round);\n");
+				WRITE(p, "    uv_round = (uv_round - fraction + vec2(0.5, 0.5)) / tsize;\n");  // We want to take our four point samples at pixel centers.
+				WRITE(p, "  } else {\n");
+				WRITE(p, "    uv_round = uv;\n");
+				WRITE(p, "  }\n");
+				WRITE(p, "  vec4 t = texture(tex, uv_round);\n");
+				WRITE(p, "  vec4 t1 = textureOffset(tex, uv_round, ivec2(1, 0));\n");
+				WRITE(p, "  vec4 t2 = textureOffset(tex, uv_round, ivec2(0, 1));\n");
+				WRITE(p, "  vec4 t3 = textureOffset(tex, uv_round, ivec2(1, 1));\n");
 				WRITE(p, "  uint depalMask = (base.depal_mask_shift_off_fmt & 0xFF);\n");
 				WRITE(p, "  uint depalShift = (base.depal_mask_shift_off_fmt >> 8) & 0xFF;\n");
 				WRITE(p, "  uint depalOffset = ((base.depal_mask_shift_off_fmt >> 16) & 0xFF) << 4;\n");
 				WRITE(p, "  uint depalFmt = (base.depal_mask_shift_off_fmt >> 24) & 0x3;\n");
-				WRITE(p, "  bool bilinear = (base.depal_mask_shift_off_fmt >> 31) != 0;\n");
-				WRITE(p, "  vec2 fraction = fract(%s.xy * vec2(textureSize(tex, 0).xy));\n", texcoord);
 				WRITE(p, "  uvec4 col; uint index0; uint index1; uint index2; uint index3;\n");
 				WRITE(p, "  switch (depalFmt) {\n");  // We might want to include fmt in the shader ID if this is a performance issue.
 				WRITE(p, "  case 0:\n");  // 565
@@ -251,7 +259,7 @@ bool GenerateVulkanGLSLFragmentShader(const FShaderID &id, char *buffer) {
 				WRITE(p, "  };\n");
 				WRITE(p, "  index0 = ((index0 >> depalShift) & depalMask) | depalOffset;\n");
 				WRITE(p, "  t = texelFetch(pal, ivec2(index0, 0), 0);\n");
-				WRITE(p, "  if (bilinear) {\n");
+				WRITE(p, "  if (bilinear && !(index0 == index1 && index1 == index2 && index2 == index3)) {\n");
 				WRITE(p, "    index1 = ((index1 >> depalShift) & depalMask) | depalOffset;\n");
 				WRITE(p, "    index2 = ((index2 >> depalShift) & depalMask) | depalOffset;\n");
 				WRITE(p, "    index3 = ((index3 >> depalShift) & depalMask) | depalOffset;\n");
