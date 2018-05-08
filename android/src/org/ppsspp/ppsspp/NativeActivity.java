@@ -562,6 +562,12 @@ public abstract class NativeActivity extends Activity implements SurfaceHolder.C
 	}
 
 	@Override
+	public void onWindowFocusChanged(boolean hasFocus) {
+		super.onWindowFocusChanged(hasFocus);
+		updateSustainedPerformanceMode();
+	}
+
+	@Override
 	public void surfaceChanged(SurfaceHolder holder, int format, int width, int height) {
 		Log.v(TAG, "surfaceChanged: isCreating:" + holder.isCreating() + " holder: " + holder.toString());
 		if (holder.isCreating() && desiredSize.x > 0 && desiredSize.y > 0) {
