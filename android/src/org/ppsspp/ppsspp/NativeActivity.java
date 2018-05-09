@@ -584,6 +584,7 @@ public abstract class NativeActivity extends Activity implements SurfaceHolder.C
 				ensureRenderLoop();
 			}
 		}
+		updateSustainedPerformanceMode();
 	}
 
 	@Override
