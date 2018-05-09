@@ -491,6 +491,13 @@ Q_DECL_EXPORT
 #endif
 int main(int argc, char *argv[])
 {
+	for (int i = 1; i < argc; i++) {
+		if (!strcmp(argv[i], "--version")) {
+			printf("%s\n", PPSSPP_GIT_VERSION);
+			return 0;
+		}
+	}
+
 	glslang::InitializeProcess();
 #if defined(Q_OS_LINUX)
 	QApplication::setAttribute(Qt::AA_X11InitThreads, true);
