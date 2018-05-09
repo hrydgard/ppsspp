@@ -252,7 +252,7 @@ bool DirectoryFileHandle::Open(std::string &basePath, std::string &fileName, Fil
 			I18NCategory *err = GetI18NCategory("Error");
 			host->NotifyUserMessage(err->T("Disk full while writing data"));
 			error = SCE_KERNEL_ERROR_ERRNO_NO_PERM;
-		} else {
+		} else if (!success) {
 			error = SCE_KERNEL_ERROR_ERRNO_FILE_NOT_FOUND;
 		}
 	}
