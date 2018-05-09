@@ -30,6 +30,7 @@
 #include <condition_variable>
 
 #include "base/timeutil.h"
+#include "base/NativeApp.h"
 #include "math/math_util.h"
 #include "thread/threadutil.h"
 #include "util/text/utf8.h"
@@ -106,6 +107,16 @@ void UpdateUIState(GlobalUIState newState) {
 	if (globalUIState != newState && globalUIState != UISTATE_EXIT) {
 		globalUIState = newState;
 		host->UpdateDisassembly();
+		const char *state = nullptr;
+		switch (globalUIState) {
+		case UISTATE_EXIT: state = "exit";  break;
+		case UISTATE_INGAME: state = "ingame"; break;
+		case UISTATE_MENU: state = "menu"; break;
+		case UISTATE_PAUSEMENU: state = "pausemenu"; break;
+		}
+		if (state) {
+			System_SendMessage("uistate", state);
+		}
 	}
 }
 

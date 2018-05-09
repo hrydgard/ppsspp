@@ -476,9 +476,6 @@ public abstract class NativeActivity extends Activity implements SurfaceHolder.C
 		updateScreenRotation("onCreate");
 		updateSustainedPerformanceMode();
 
-		// Keep the screen bright - very annoying if it goes dark when tilting away
-		Window window = this.getWindow();
-		window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
 		setVolumeControlStream(AudioManager.STREAM_MUSIC);
 
 		gainAudioFocus(this.audioManager, this.audioFocusChangeListener);
@@ -1295,6 +1292,15 @@ public abstract class NativeActivity extends Activity implements SurfaceHolder.C
 				}
 			} else if (mCameraHelper != null && params.equals("stopVideo")) {
 				mCameraHelper.stopCamera();
+			}
+		} else if (command.equals("uistate")) {
+			Window window = this.getWindow();
+			if (params.equals("ingame")) {
+				// Keep the screen bright - very annoying if it goes dark when tilting away
+				window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
+			} else {
+				// Only keep the screen bright ingame.
+				window.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
 			}
 		}
     	return false;
