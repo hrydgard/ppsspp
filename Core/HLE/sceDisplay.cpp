@@ -937,7 +937,8 @@ u32 sceDisplaySetFramebuf(u32 topaddr, int linesize, int pixelformat, int sync) 
 
 	__DisplaySetFramebuf(topaddr, linesize, pixelformat, sync);
 
-	if (delayCycles > 0) {
+	// No delaying while inside an interrupt.  It'll cause idle threads to starve.
+	if (delayCycles > 0 && !__IsInInterrupt()) {
 		// Okay, the game is going at too high a frame rate.  God of War and Fat Princess both do this.
 		// Simply eating the cycles works and is fast, but breaks other games (like Jeanne d'Arc.)
 		// So, instead, we delay this HLE thread only (a small deviation from correct behavior.)
