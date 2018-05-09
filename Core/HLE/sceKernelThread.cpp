@@ -15,10 +15,11 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
-#include <set>
-#include <map>
-#include <queue>
 #include <algorithm>
+#include <map>
+#include <mutex>
+#include <set>
+#include <queue>
 
 #include "base/logging.h"
 
@@ -647,6 +648,8 @@ static std::vector<SceUID> pendingDeleteThreads;
 
 // Lists all thread ids that aren't deleted/etc.
 std::vector<SceUID> threadqueue;
+// Only for debugger, so not needed to read, just write.
+std::mutex threadqueueLock;
 
 // Lists only ready thread ids.
 ThreadQueueList threadReadyQueue;
@@ -1154,8 +1157,9 @@ void __KernelIdle()
 	__KernelReSchedule("idle");
 }
 
-void __KernelThreadingShutdown()
-{
+void __KernelThreadingShutdown() {
+	std::lock_guard<std::mutex> guard(threadqueueLock);
+
 	kernelMemory.Free(threadReturnHackAddr);
 	threadqueue.clear();
 	threadReadyQueue.clear();
@@ -1590,8 +1594,9 @@ void __KernelCancelThreadEndTimeout(SceUID threadID)
 	CoreTiming::UnscheduleEvent(eventThreadEndTimeout, threadID);
 }
 
-static void __KernelRemoveFromThreadQueue(SceUID threadID)
-{
+static void __KernelRemoveFromThreadQueue(SceUID threadID) {
+	std::lock_guard<std::mutex> guard(threadqueueLock);
+
 	int prio = __KernelGetThreadPrio(threadID);
 	if (prio != 0)
 		threadReadyQueue.remove(prio, threadID);
@@ -1850,8 +1855,9 @@ void __KernelResetThread(Thread *t, int lowestPriority)
 		ERROR_LOG_REPORT(SCEKERNEL, "Resetting thread with threads waiting on end?");
 }
 
-Thread *__KernelCreateThread(SceUID &id, SceUID moduleId, const char *name, u32 entryPoint, u32 priority, int stacksize, u32 attr)
-{
+Thread *__KernelCreateThread(SceUID &id, SceUID moduleId, const char *name, u32 entryPoint, u32 priority, int stacksize, u32 attr) {
+	std::lock_guard<std::mutex> guard(threadqueueLock);
+
 	Thread *t = new Thread;
 	id = kernelObjects.Create(t);
 
@@ -3508,8 +3514,8 @@ void __KernelRegisterWaitTypeFuncs(WaitType type, WaitBeginCallbackFunc beginFun
 	waitTypeFuncs[type].endFunc = endFunc;
 }
 
-std::vector<DebugThreadInfo> GetThreadsInfo()
-{
+std::vector<DebugThreadInfo> GetThreadsInfo() {
+	std::lock_guard<std::mutex> guard(threadqueueLock);
 	std::vector<DebugThreadInfo> threadList;
 
 	u32 error;

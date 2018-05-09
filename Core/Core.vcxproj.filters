@@ -725,6 +725,9 @@
     <ClCompile Include="Debugger\WebSocket\BreakpointSubscriber.cpp">
       <Filter>Debugger\WebSocket</Filter>
     </ClCompile>
+    <ClCompile Include="Debugger\WebSocket\HLESubscriber.cpp">
+      <Filter>Debugger\WebSocket</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="ELF\ElfReader.h">
@@ -1339,6 +1342,9 @@
     </ClInclude>
     <ClInclude Include="HLE\KernelThreadDebugInterface.h">
       <Filter>HLE\Kernel</Filter>
+    </ClInclude>
+    <ClInclude Include="Debugger\WebSocket\HLESubscriber.h">
+      <Filter>Debugger\WebSocket</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
