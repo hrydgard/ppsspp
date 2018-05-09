@@ -500,12 +500,22 @@ void NativeInit(int argc, const char *argv[], const char *savegame_dir, const ch
 					std::unique_ptr<FileLoader> fileLoader(ConstructFileLoader(boot_filename));
 					if (!fileLoader->Exists()) {
 						fprintf(stderr, "File not found: %s\n", boot_filename.c_str());
+#ifdef _WIN32
+						// Ignore and proceed.
+#else
+						// Bail.
 						exit(1);
+#endif
 					}
 				}
 			} else {
 				fprintf(stderr, "Can only boot one file");
+#ifdef _WIN32
+				// Ignore and proceed.
+#else
+				// Bail.
 				exit(1);
+#endif
 			}
 		}
 	}
