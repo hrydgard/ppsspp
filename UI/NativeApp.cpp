@@ -330,10 +330,12 @@ void CreateDirectoriesAndroid() {
 	// On Android, create a PSP directory tree in the external_dir,
 	// to hopefully reduce confusion a bit.
 	ILOG("Creating %s", (g_Config.memStickDirectory + "PSP").c_str());
-	File::CreateDir((g_Config.memStickDirectory + "PSP").c_str());
-	File::CreateDir((g_Config.memStickDirectory + "PSP/SAVEDATA").c_str());
-	File::CreateDir((g_Config.memStickDirectory + "PSP/PPSSPP_STATE").c_str());
-	File::CreateDir((g_Config.memStickDirectory + "PSP/GAME").c_str());
+	File::CreateDir(g_Config.memStickDirectory + "PSP");
+	File::CreateDir(g_Config.memStickDirectory + "PSP/SAVEDATA");
+	File::CreateDir(g_Config.memStickDirectory + "PSP/PPSSPP_STATE");
+	File::CreateDir(g_Config.memStickDirectory + "PSP/GAME");
+	File::CreateDir(g_Config.memStickDirectory + "PSP/SYSTEM");
+
 	// Avoid media scanners in PPSSPP_STATE and SAVEDATA directories
 	File::CreateEmptyFile(g_Config.memStickDirectory + "PSP/PPSSPP_STATE/.nomedia");
 	File::CreateEmptyFile(g_Config.memStickDirectory + "PSP/SAVEDATA/.nomedia");
