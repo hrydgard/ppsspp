@@ -23,6 +23,7 @@
 #include "Core/Debugger/DisassemblyManager.h"
 #include "Core/Debugger/WebSocket/DisasmSubscriber.h"
 #include "Core/Debugger/WebSocket/WebSocketUtils.h"
+#include "Core/HLE/sceKernelThread.h"
 #include "Core/MemMap.h"
 #include "Core/MIPS/MIPSAsm.h"
 #include "Core/MIPS/MIPSDebugInterface.h"
@@ -60,6 +61,20 @@ void *WebSocketDisasmInit(DebuggerEventHandlerMap &map) {
 
 void WebSocketDisasmShutdown(void *p) {
 	delete static_cast<WebSocketDisasmState *>(p);
+}
+
+static DebugInterface *CPUFromRequest(DebuggerRequest &req) {
+	if (!req.HasParam("thread"))
+		return currentDebugMIPS;
+
+	u32 uid;
+	if (!req.ParamU32("thread", &uid))
+		return nullptr;
+
+	DebugInterface *cpuDebug = KernelDebugThread((SceUID)uid);
+	if (!cpuDebug)
+		req.Fail("Thread could not be found");
+	return cpuDebug;
 }
 
 void WebSocketDisasmState::WriteDisasmLine(JsonWriter &json, const DisassemblyLineInfo &l) {
@@ -112,6 +127,7 @@ void WebSocketDisasmState::WriteDisasmLine(JsonWriter &json, const DisassemblyLi
 		json.writeNull("breakpoint");
 	}
 
+	// This is always the current execution's PC.
 	json.writeBool("isCurrentPC", currentDebugMIPS->GetPC() == addr);
 	if (l.info.isBranch) {
 		json.pushDict("branch");
@@ -229,11 +245,13 @@ void WebSocketDisasmState::Base(DebuggerRequest &req) {
 // Disassemble a range of memory as CPU instructions (memory.disasm)
 //
 // Parameters (by count):
+//  - thread: optional number indicating the thread id for branch info.
 //  - address: number specifying the start address.
 //  - count: number of lines to return (may be clamped to an internal limit.)
 //  - displaySymbols: boolean true to show symbol names in instruction params.
 //
 // Parameters (by end address):
+//  - thread: optional number indicating the thread id for branch info.
 //  - address: number specifying the start address.
 //  - end: number which must be after the start address (may be clamped to an internal limit.)
 //  - displaySymbols: boolean true to show symbol names in instruction params.
@@ -256,9 +274,11 @@ void WebSocketDisasmState::Base(DebuggerRequest &req) {
 //     - params: formatted parameters for the instruction.
 //     - (other info about the disassembled line.)
 void WebSocketDisasmState::Disasm(DebuggerRequest &req) {
-	if (!currentDebugMIPS->isAlive() || !Memory::IsActive()) {
+	if (!currentDebugMIPS->isAlive() || !Memory::IsActive())
 		return req.Fail("CPU not started");
-	}
+	auto cpuDebug = CPUFromRequest(req);
+	if (!cpuDebug)
+		return;
 
 	// In case of client errors, we limit the range to something that won't make us crash.
 	static const uint32_t MAX_RANGE = 10000;
@@ -310,7 +330,7 @@ void WebSocketDisasmState::Disasm(DebuggerRequest &req) {
 	DisassemblyLineInfo line;
 	uint32_t addr = start;
 	for (uint32_t i = 0; i < count; ++i) {
-		disasm_.getLine(addr, displaySymbols, line);
+		disasm_.getLine(addr, displaySymbols, line, cpuDebug);
 		WriteDisasmLine(json, line);
 		addr += line.totalSize;
 
@@ -330,6 +350,7 @@ void WebSocketDisasmState::Disasm(DebuggerRequest &req) {
 // Search disassembly for some text (cpu.searchDisasm)
 //
 // Parameters:
+//  - thread: optional number indicating the thread id (may not affect search much.)
 //  - address: starting address as a number.
 //  - end: optional end address as a number (otherwise uses start.)
 //  - match: string to search for.
@@ -338,9 +359,11 @@ void WebSocketDisasmState::Disasm(DebuggerRequest &req) {
 // Response (same event name):
 //  - address: number address of match or null if none was found.
 void WebSocketDisasmState::SearchDisasm(DebuggerRequest &req) {
-	if (!currentDebugMIPS->isAlive() || !Memory::IsActive()) {
+	if (!currentDebugMIPS->isAlive() || !Memory::IsActive())
 		return req.Fail("CPU not started");
-	}
+	auto cpuDebug = CPUFromRequest(req);
+	if (!cpuDebug)
+		return;
 
 	uint32_t start;
 	if (!req.ParamU32("address", &start))
@@ -373,7 +396,7 @@ void WebSocketDisasmState::SearchDisasm(DebuggerRequest &req) {
 	bool found = false;
 	uint32_t addr = start;
 	do {
-		disasm_.getLine(addr, displaySymbols, line);
+		disasm_.getLine(addr, displaySymbols, line, cpuDebug);
 		const std::string addressSymbol = g_symbolMap->GetLabelString(addr);
 
 		std::string mergeForSearch;

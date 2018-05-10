@@ -29,6 +29,7 @@
 #include "Core/MIPS/MIPSAnalyst.h"
 #include "Core/MIPS/MIPSCodeUtils.h"
 #include "Core/MIPS/MIPS.h"
+#include "Core/MIPS/MIPSDebugInterface.h"
 #include "Core/CoreTiming.h"
 #include "Core/MemMapHelpers.h"
 #include "Core/MIPS/JitCommon/JitCommon.h"
@@ -41,6 +42,7 @@
 #include "Core/HLE/sceKernelThread.h"
 #include "Core/HLE/sceKernelModule.h"
 #include "Core/HLE/sceKernelInterrupt.h"
+#include "Core/HLE/KernelThreadDebugInterface.h"
 #include "Core/HLE/KernelWaitHelpers.h"
 #include "Core/HLE/ThreadQueueList.h"
 
@@ -493,7 +495,7 @@ public:
 		return true;
 	}
 
-	Thread()
+	Thread() : debug(currentMIPS, context)
 	{
 		currentStack.start = 0;
 	}
@@ -586,6 +588,7 @@ public:
 	SceUID currentCallbackId;
 
 	ThreadContext context;
+	KernelThreadDebugInterface debug;
 
 	std::vector<SceUID> callbacks;
 
@@ -3510,14 +3513,13 @@ std::vector<DebugThreadInfo> GetThreadsInfo()
 	std::vector<DebugThreadInfo> threadList;
 
 	u32 error;
-	for (auto iter = threadqueue.begin(); iter != threadqueue.end(); ++iter)
-	{
-		Thread *t = kernelObjects.Get<Thread>(*iter, error);
+	for (const auto uid : threadqueue) {
+		Thread *t = kernelObjects.Get<Thread>(uid, error);
 		if (!t)
 			continue;
 
 		DebugThreadInfo info;
-		info.id = *iter;
+		info.id = uid;
 		strncpy(info.name,t->GetName(),KERNELOBJECT_MAX_NAME_LENGTH);
 		info.name[KERNELOBJECT_MAX_NAME_LENGTH] = 0;
 		info.status = t->nt.status;
@@ -3526,15 +3528,29 @@ std::vector<DebugThreadInfo> GetThreadsInfo()
 		info.stackSize = (u32)t->nt.stackSize;
 		info.priority = t->nt.currentPriority;
 		info.waitType = (WaitType)(u32)t->nt.waitType;
-		if(*iter == currentThread)
+		info.isCurrent = uid == currentThread;
+		if (info.isCurrent)
 			info.curPC = currentMIPS->pc;
 		else
 			info.curPC = t->context.pc;
-		info.isCurrent = (*iter == currentThread);
 		threadList.push_back(info);
 	}
 
 	return threadList;
+}
+
+DebugInterface *KernelDebugThread(SceUID threadID) {
+	if (threadID == currentThread) {
+		return currentDebugMIPS;
+	}
+
+	u32 error;
+	Thread *t = kernelObjects.Get<Thread>(threadID, error);
+	if (t) {
+		return &t->debug;
+	}
+
+	return nullptr;
 }
 
 void __KernelChangeThreadState(SceUID threadId, ThreadStatus newStatus)

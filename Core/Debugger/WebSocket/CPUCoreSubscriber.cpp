@@ -21,6 +21,7 @@
 #include "Core/Debugger/Breakpoints.h"
 #include "Core/Debugger/WebSocket/CPUCoreSubscriber.h"
 #include "Core/Debugger/WebSocket/WebSocketUtils.h"
+#include "Core/HLE/sceKernelThread.h"
 #include "Core/MIPS/MIPS.h"
 #include "Core/MIPS/MIPSDebugInterface.h"
 
@@ -43,6 +44,20 @@ static std::string RegValueAsFloat(uint32_t u) {
 		float f;
 	} bits = { u };
 	return StringFromFormat("%f", bits.f);
+}
+
+static DebugInterface *CPUFromRequest(DebuggerRequest &req) {
+	if (!req.HasParam("thread"))
+		return currentDebugMIPS;
+
+	u32 uid;
+	if (!req.ParamU32("thread", &uid))
+		return nullptr;
+
+	DebugInterface *cpuDebug = KernelDebugThread((SceUID)uid);
+	if (!cpuDebug)
+		req.Fail("Thread could not be found");
+	return cpuDebug;
 }
 
 // Begin stepping and pause the CPU (cpu.stepping)
@@ -100,7 +115,8 @@ void WebSocketCPUStatus(DebuggerRequest &req) {
 
 // Retrieve all regs and their values (cpu.getAllRegs)
 //
-// No parameters.
+// Parameters:
+//  - thread: optional number indicating the thread id to get regs for.
 //
 // Response (same event name):
 //  - categories: array of objects:
@@ -110,19 +126,23 @@ void WebSocketCPUStatus(DebuggerRequest &req) {
 //     - uintValues: array of unsigned integer values for the registers.
 //     - floatValues: array of strings showing float representation.  May be "nan", "inf", or "-inf".
 void WebSocketCPUGetAllRegs(DebuggerRequest &req) {
+	auto cpuDebug = CPUFromRequest(req);
+	if (!cpuDebug)
+		return;
+
 	JsonWriter &json = req.Respond();
 
 	json.pushArray("categories");
-	for (int c = 0; c < currentDebugMIPS->GetNumCategories(); ++c) {
+	for (int c = 0; c < cpuDebug->GetNumCategories(); ++c) {
 		json.pushDict();
 		json.writeInt("id", c);
-		json.writeString("name", currentDebugMIPS->GetCategoryName(c));
+		json.writeString("name", cpuDebug->GetCategoryName(c));
 
-		int total = currentDebugMIPS->GetNumRegsInCategory(c);
+		int total = cpuDebug->GetNumRegsInCategory(c);
 
 		json.pushArray("registerNames");
 		for (int r = 0; r < total; ++r)
-			json.writeString(currentDebugMIPS->GetRegName(c, r));
+			json.writeString(cpuDebug->GetRegName(c, r));
 		if (c == 0) {
 			json.writeString("pc");
 			json.writeString("hi");
@@ -133,22 +153,22 @@ void WebSocketCPUGetAllRegs(DebuggerRequest &req) {
 		json.pushArray("uintValues");
 		// Writing as floating point to avoid negatives.  Actually double, so safe.
 		for (int r = 0; r < total; ++r)
-			json.writeUint(currentDebugMIPS->GetRegValue(c, r));
+			json.writeUint(cpuDebug->GetRegValue(c, r));
 		if (c == 0) {
-			json.writeUint(currentDebugMIPS->GetPC());
-			json.writeUint(currentDebugMIPS->GetHi());
-			json.writeUint(currentDebugMIPS->GetLo());
+			json.writeUint(cpuDebug->GetPC());
+			json.writeUint(cpuDebug->GetHi());
+			json.writeUint(cpuDebug->GetLo());
 		}
 		json.pop();
 
 		json.pushArray("floatValues");
 		// Note: String so it can have Infinity and NaN.
 		for (int r = 0; r < total; ++r)
-			json.writeString(RegValueAsFloat(currentDebugMIPS->GetRegValue(c, r)));
+			json.writeString(RegValueAsFloat(cpuDebug->GetRegValue(c, r)));
 		if (c == 0) {
-			json.writeString(RegValueAsFloat(currentDebugMIPS->GetPC()));
-			json.writeString(RegValueAsFloat(currentDebugMIPS->GetHi()));
-			json.writeString(RegValueAsFloat(currentDebugMIPS->GetLo()));
+			json.writeString(RegValueAsFloat(cpuDebug->GetPC()));
+			json.writeString(RegValueAsFloat(cpuDebug->GetHi()));
+			json.writeString(RegValueAsFloat(cpuDebug->GetLo()));
 		}
 		json.pop();
 
@@ -232,9 +252,11 @@ static DebuggerRegType ValidateCatReg(DebuggerRequest &req, int *cat, int *reg) 
 // Retrieve the value of a single register (cpu.getReg)
 //
 // Parameters (by name):
+//  - thread: optional number indicating the thread id to get from.
 //  - name: string name of register to lookup.
 //
 // Parameters (by category id and index, ignored if name specified):
+//  - thread: optional number indicating the thread id to get from.
 //  - category: id of category for the register.
 //  - register: index into array of registers.
 //
@@ -244,21 +266,25 @@ static DebuggerRegType ValidateCatReg(DebuggerRequest &req, int *cat, int *reg) 
 //  - uintValue: value in register.
 //  - floatValue: string showing float representation.  May be "nan", "inf", or "-inf".
 void WebSocketCPUGetReg(DebuggerRequest &req) {
+	auto cpuDebug = CPUFromRequest(req);
+	if (!cpuDebug)
+		return;
+
 	int cat, reg;
 	uint32_t val;
 	switch (ValidateCatReg(req, &cat, &reg)) {
 	case DebuggerRegType::NORMAL:
-		val = currentDebugMIPS->GetRegValue(cat, reg);
+		val = cpuDebug->GetRegValue(cat, reg);
 		break;
 
 	case DebuggerRegType::PC:
-		val = currentDebugMIPS->GetPC();
+		val = cpuDebug->GetPC();
 		break;
 	case DebuggerRegType::HI:
-		val = currentDebugMIPS->GetHi();
+		val = cpuDebug->GetHi();
 		break;
 	case DebuggerRegType::LO:
-		val = currentDebugMIPS->GetLo();
+		val = cpuDebug->GetLo();
 		break;
 
 	case DebuggerRegType::INVALID:
@@ -276,11 +302,13 @@ void WebSocketCPUGetReg(DebuggerRequest &req) {
 // Update the value of a single register (cpu.setReg)
 //
 // Parameters (by name):
+//  - thread: optional number indicating the thread id to update.
 //  - name: string name of register to lookup.
 //  - value: number (uint values only) or string to set to.  Values may include
 //    "0x1234", "1.5", "nan", "-inf", etc.  For a float, use a string with decimal e.g. "1.0".
 //
 // Parameters (by category id and index, ignored if name specified):
+//  - thread: optional number indicating the thread id to update.
 //  - category: id of category for the register.
 //  - register: index into array of registers.
 //  - value: number (uint values only) or string to set to.  Values may include
@@ -301,6 +329,10 @@ void WebSocketCPUSetReg(DebuggerRequest &req) {
 		return req.Fail("CPU currently running (cpu.stepping first)");
 	}
 
+	auto cpuDebug = CPUFromRequest(req);
+	if (!cpuDebug)
+		return;
+
 	uint32_t val;
 	if (!req.ParamU32("value", &val, true)) {
 		// Already sent error.
@@ -313,19 +345,19 @@ void WebSocketCPUSetReg(DebuggerRequest &req) {
 		if (cat == 0 && reg == 0 && val != 0) {
 			return req.Fail("Cannot change reg zero");
 		}
-		currentDebugMIPS->SetRegValue(cat, reg, val);
+		cpuDebug->SetRegValue(cat, reg, val);
 		// In case part of it was ignored (e.g. flags reg.)
-		val = currentDebugMIPS->GetRegValue(cat, reg);
+		val = cpuDebug->GetRegValue(cat, reg);
 		break;
 
 	case DebuggerRegType::PC:
-		currentDebugMIPS->SetPC(val);
+		cpuDebug->SetPC(val);
 		break;
 	case DebuggerRegType::HI:
-		currentDebugMIPS->SetHi(val);
+		cpuDebug->SetHi(val);
 		break;
 	case DebuggerRegType::LO:
-		currentDebugMIPS->SetLo(val);
+		cpuDebug->SetLo(val);
 		break;
 
 	case DebuggerRegType::INVALID:
@@ -344,6 +376,7 @@ void WebSocketCPUSetReg(DebuggerRequest &req) {
 // Evaluate an expression (cpu.evaluate)
 //
 // Parameters:
+//  - thread: optional number indicating the thread id to update.
 //  - expression: string containing labels, operators, regs, etc.
 //
 // Response (same event name):
@@ -354,6 +387,10 @@ void WebSocketCPUEvaluate(DebuggerRequest &req) {
 		return req.Fail("CPU not started");
 	}
 
+	auto cpuDebug = CPUFromRequest(req);
+	if (!cpuDebug)
+		return;
+
 	std::string exp;
 	if (!req.ParamString("expression", &exp)) {
 		// Already sent error.
@@ -362,10 +399,10 @@ void WebSocketCPUEvaluate(DebuggerRequest &req) {
 
 	u32 val;
 	PostfixExpression postfix;
-	if (!currentDebugMIPS->initExpression(exp.c_str(), postfix)) {
+	if (!cpuDebug->initExpression(exp.c_str(), postfix)) {
 		return req.Fail(StringFromFormat("Could not parse expression syntax: %s", getExpressionError()));
 	}
-	if (!currentDebugMIPS->parseExpression(postfix, val)) {
+	if (!cpuDebug->parseExpression(postfix, val)) {
 		return req.Fail(StringFromFormat("Could not evaluate expression: %s", getExpressionError()));
 	}
 

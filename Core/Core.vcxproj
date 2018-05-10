@@ -553,6 +553,7 @@
     <ClInclude Include="Debugger\WebSocket\LogBroadcaster.h" />
     <ClInclude Include="Debugger\WebSocket\SteppingBroadcaster.h" />
     <ClInclude Include="FileSystems\BlobFileSystem.h" />
+    <ClInclude Include="HLE\KernelThreadDebugInterface.h" />
     <ClInclude Include="HLE\KUBridge.h" />
     <ClInclude Include="HLE\sceUsbCam.h" />
     <ClInclude Include="MIPS\IR\IRFrontend.h" />
