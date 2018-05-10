@@ -727,6 +727,7 @@ public abstract class NativeActivity extends Activity implements SurfaceHolder.C
 	@Override
 	protected void onResume() {
 		super.onResume();
+		updateSustainedPerformanceMode();
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.ICE_CREAM_SANDWICH) {
             updateSystemUiVisibility();
         }
