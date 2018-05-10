@@ -564,10 +564,6 @@ void InitSysDirectories() {
 	File::CreateDir(g_Config.memStickDirectory + "PSP/GAME");
 	File::CreateDir(g_Config.memStickDirectory + "PSP/SAVEDATA");
 	File::CreateDir(g_Config.memStickDirectory + "PSP/PPSSPP_STATE");
-#ifdef ANDROID
-	// Avoid media scanners in PPSSPP_STATE directory
-	File::CreateEmptyFile(g_Config.memStickDirectory + "PSP/PPSSPP_STATE/.nomedia");
-#endif
 
 	if (g_Config.currentDirectory.empty()) {
 		g_Config.currentDirectory = GetSysDirectory(DIRECTORY_GAME);
