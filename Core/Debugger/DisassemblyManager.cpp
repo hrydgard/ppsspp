@@ -150,6 +150,7 @@ void DisassemblyManager::analyze(u32 address, u32 size = 1024)
 		if (!PSP_IsInited())
 			return;
 
+		auto memLock = Memory::Lock();
 		std::lock_guard<std::recursive_mutex> guard(entriesLock_);
 		auto it = findDisassemblyEntry(entries, address, false);
 		if (it != entries.end())
@@ -272,6 +273,7 @@ void DisassemblyManager::getLine(u32 address, bool insertSymbols, DisassemblyLin
 
 u32 DisassemblyManager::getStartAddress(u32 address)
 {
+	auto memLock = Memory::Lock();
 	std::lock_guard<std::recursive_mutex> guard(entriesLock_);
 	auto it = findDisassemblyEntry(entries,address,false);
 	if (it == entries.end())
@@ -289,6 +291,7 @@ u32 DisassemblyManager::getStartAddress(u32 address)
 
 u32 DisassemblyManager::getNthPreviousAddress(u32 address, int n)
 {
+	auto memLock = Memory::Lock();
 	std::lock_guard<std::recursive_mutex> guard(entriesLock_);
 	while (Memory::IsValidAddress(address))
 	{
@@ -318,6 +321,7 @@ u32 DisassemblyManager::getNthPreviousAddress(u32 address, int n)
 
 u32 DisassemblyManager::getNthNextAddress(u32 address, int n)
 {
+	auto memLock = Memory::Lock();
 	std::lock_guard<std::recursive_mutex> guard(entriesLock_);
 	while (Memory::IsValidAddress(address))
 	{
@@ -352,6 +356,7 @@ DisassemblyManager::~DisassemblyManager() {
 
 void DisassemblyManager::clear()
 {
+	auto memLock = Memory::Lock();
 	std::lock_guard<std::recursive_mutex> guard(entriesLock_);
 	for (auto it = entries.begin(); it != entries.end(); it++)
 	{
