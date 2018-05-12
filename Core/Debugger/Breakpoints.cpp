@@ -297,7 +297,7 @@ void CBreakPoints::ClearTemporaryBreakPoints()
 void CBreakPoints::ChangeBreakPointAddCond(u32 addr, const BreakPointCond &cond)
 {
 	std::unique_lock<std::mutex> guard(breakPointsMutex_);
-	size_t bp = FindBreakpoint(addr, true, false);
+	size_t bp = FindBreakpoint(addr);
 	if (bp != INVALID_BREAKPOINT)
 	{
 		breakPoints_[bp].hasCond = true;
@@ -310,7 +310,7 @@ void CBreakPoints::ChangeBreakPointAddCond(u32 addr, const BreakPointCond &cond)
 void CBreakPoints::ChangeBreakPointRemoveCond(u32 addr)
 {
 	std::unique_lock<std::mutex> guard(breakPointsMutex_);
-	size_t bp = FindBreakpoint(addr, true, false);
+	size_t bp = FindBreakpoint(addr);
 	if (bp != INVALID_BREAKPOINT)
 	{
 		breakPoints_[bp].hasCond = false;
@@ -322,7 +322,7 @@ void CBreakPoints::ChangeBreakPointRemoveCond(u32 addr)
 BreakPointCond *CBreakPoints::GetBreakPointCondition(u32 addr)
 {
 	std::lock_guard<std::mutex> guard(breakPointsMutex_);
-	size_t bp = FindBreakpoint(addr, true, false);
+	size_t bp = FindBreakpoint(addr);
 	if (bp != INVALID_BREAKPOINT && breakPoints_[bp].hasCond)
 		return &breakPoints_[bp].cond;
 	return NULL;

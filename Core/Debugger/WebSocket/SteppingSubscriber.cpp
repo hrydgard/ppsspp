@@ -43,9 +43,10 @@ struct WebSocketSteppingState {
 	void HLE(DebuggerRequest &req);
 
 protected:
-	u32 GetNextAddress(DebugInterface *cpuDebug);
+	uint32_t GetNextAddress(DebugInterface *cpuDebug);
 	int GetNextInstructionCount(DebugInterface *cpuDebug);
 	void PrepareResume();
+	void AddThreadCondition(uint32_t breakpointAddress, uint32_t threadID);
 
 	DisassemblyManager disasm_;
 };
@@ -65,14 +66,14 @@ void WebSocketSteppingShutdown(void *p) {
 	delete static_cast<WebSocketSteppingState *>(p);
 }
 
-static DebugInterface *CPUFromRequest(DebuggerRequest &req, u32 *threadID = nullptr) {
+static DebugInterface *CPUFromRequest(DebuggerRequest &req, uint32_t *threadID = nullptr) {
 	if (!req.HasParam("thread")) {
 		if (threadID)
 			*threadID = -1;
 		return currentDebugMIPS;
 	}
 
-	u32 uid;
+	uint32_t uid;
 	if (!req.ParamU32("thread", &uid))
 		return nullptr;
 
@@ -100,7 +101,8 @@ void WebSocketSteppingState::Into(DebuggerRequest &req) {
 		return;
 	}
 
-	auto cpuDebug = CPUFromRequest(req);
+	uint32_t threadID;
+	auto cpuDebug = CPUFromRequest(req, &threadID);
 	if (!cpuDebug)
 		return;
 
@@ -113,13 +115,14 @@ void WebSocketSteppingState::Into(DebuggerRequest &req) {
 			Core_DoSingleStep();
 		}
 	} else {
-		u32 breakpointAddress = cpuDebug->GetPC();
+		uint32_t breakpointAddress = cpuDebug->GetPC();
 		PrepareResume();
 		// Could have advanced to the breakpoint already in PrepareResume().
 		// Note: we need to get cpuDebug again anyway (in case we ran some HLE above.)
 		cpuDebug = CPUFromRequest(req);
 		if (cpuDebug != currentDebugMIPS) {
 			CBreakPoints::AddBreakPoint(breakpointAddress, true);
+			AddThreadCondition(breakpointAddress, threadID);
 			Core_EnableStepping(false);
 		}
 	}
@@ -140,12 +143,14 @@ void WebSocketSteppingState::Over(DebuggerRequest &req) {
 		return req.Fail("CPU not started");
 	if (!Core_IsStepping())
 		return req.Fail("CPU currently running (cpu.stepping first)");
-	auto cpuDebug = CPUFromRequest(req);
+
+	uint32_t threadID;
+	auto cpuDebug = CPUFromRequest(req, &threadID);
 	if (!cpuDebug)
 		return;
 
 	MipsOpcodeInfo info = GetOpcodeInfo(cpuDebug, cpuDebug->GetPC());
-	u32 breakpointAddress = GetNextAddress(cpuDebug);
+	uint32_t breakpointAddress = GetNextAddress(cpuDebug);
 	if (info.isBranch) {
 		if (info.isConditional && !info.isLinkedBranch) {
 			if (info.conditionMet) {
@@ -170,6 +175,8 @@ void WebSocketSteppingState::Over(DebuggerRequest &req) {
 	cpuDebug = CPUFromRequest(req);
 	if (cpuDebug->GetPC() != breakpointAddress) {
 		CBreakPoints::AddBreakPoint(breakpointAddress, true);
+		if (cpuDebug != currentDebugMIPS)
+			AddThreadCondition(breakpointAddress, threadID);
 		Core_EnableStepping(false);
 	}
 }
@@ -187,14 +194,15 @@ void WebSocketSteppingState::Out(DebuggerRequest &req) {
 		return req.Fail("CPU not started");
 	if (!Core_IsStepping())
 		return req.Fail("CPU currently running (cpu.stepping first)");
-	u32 threadID;
+
+	uint32_t threadID;
 	auto cpuDebug = CPUFromRequest(req, &threadID);
 	if (!cpuDebug)
 		return;
 
 	auto threads = GetThreadsInfo();
-	u32 entry = cpuDebug->GetPC();
-	u32 stackTop = 0;
+	uint32_t entry = cpuDebug->GetPC();
+	uint32_t stackTop = 0;
 	for (const DebugThreadInfo &th : threads) {
 		if ((threadID == -1 && th.isCurrent) || th.id == threadID) {
 			entry = th.entrypoint;
@@ -203,20 +211,21 @@ void WebSocketSteppingState::Out(DebuggerRequest &req) {
 		}
 	}
 
-	u32 ra = cpuDebug->GetRegValue(0, MIPS_REG_RA);
-	u32 sp = cpuDebug->GetRegValue(0, MIPS_REG_SP);
+	uint32_t ra = cpuDebug->GetRegValue(0, MIPS_REG_RA);
+	uint32_t sp = cpuDebug->GetRegValue(0, MIPS_REG_SP);
 	auto frames = MIPSStackWalk::Walk(cpuDebug->GetPC(), ra, sp, entry, stackTop);
 	if (frames.size() < 2) {
-		// TODO: Respond in some way?
-		return;
+		return req.Fail("Could not find function call to step out into");
 	}
 
-	u32 breakpointAddress = frames[1].pc;
+	uint32_t breakpointAddress = frames[1].pc;
 	PrepareResume();
 	// Could have advanced to the breakpoint already in PrepareResume().
 	cpuDebug = CPUFromRequest(req);
 	if (cpuDebug->GetPC() != breakpointAddress) {
 		CBreakPoints::AddBreakPoint(breakpointAddress, true);
+		if (cpuDebug != currentDebugMIPS)
+			AddThreadCondition(breakpointAddress, threadID);
 		Core_EnableStepping(false);
 	}
 }
@@ -232,7 +241,7 @@ void WebSocketSteppingState::RunUntil(DebuggerRequest &req) {
 		return req.Fail("CPU not started");
 	}
 
-	u32 address = 0;
+	uint32_t address = 0;
 	if (!req.ParamU32("address", &address)) {
 		// Error already sent.
 		return;
@@ -262,8 +271,8 @@ void WebSocketSteppingState::HLE(DebuggerRequest &req) {
 	Core_EnableStepping(false);
 }
 
-u32 WebSocketSteppingState::GetNextAddress(DebugInterface *cpuDebug) {
-	u32 current = disasm_.getStartAddress(cpuDebug->GetPC());
+uint32_t WebSocketSteppingState::GetNextAddress(DebugInterface *cpuDebug) {
+	uint32_t current = disasm_.getStartAddress(cpuDebug->GetPC());
 	return disasm_.getNthNextAddress(current, 1);
 }
 
@@ -280,3 +289,10 @@ void WebSocketSteppingState::PrepareResume() {
 	}
 }
 
+void WebSocketSteppingState::AddThreadCondition(uint32_t breakpointAddress, uint32_t threadID) {
+	BreakPointCond cond;
+	cond.debug = currentDebugMIPS;
+	cond.expressionString = StringFromFormat("threadid == 0x%08x", threadID);
+	if (currentDebugMIPS->initExpression(cond.expressionString.c_str(), cond.expression))
+		CBreakPoints::ChangeBreakPointAddCond(breakpointAddress, cond);
+}

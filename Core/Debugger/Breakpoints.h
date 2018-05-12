@@ -133,7 +133,7 @@ public:
 	static void ClearAllBreakPoints();
 	static void ClearTemporaryBreakPoints();
 
-	// Makes a copy.  Temporary breakpoints can't have conditions.
+	// Makes a copy of the condition.
 	static void ChangeBreakPointAddCond(u32 addr, const BreakPointCond &cond);
 	static void ChangeBreakPointRemoveCond(u32 addr);
 	static BreakPointCond *GetBreakPointCondition(u32 addr);
