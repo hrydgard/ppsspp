@@ -43,8 +43,8 @@ struct WebSocketSteppingState {
 	void HLE(DebuggerRequest &req);
 
 protected:
-	u32 GetNextAddress();
-	int GetNextInstructionCount();
+	u32 GetNextAddress(DebugInterface *cpuDebug);
+	int GetNextInstructionCount(DebugInterface *cpuDebug);
 	void PrepareResume();
 
 	DisassemblyManager disasm_;
@@ -65,27 +65,63 @@ void WebSocketSteppingShutdown(void *p) {
 	delete static_cast<WebSocketSteppingState *>(p);
 }
 
-// Single step into the next instruction (cpu.stepInto)
-//
-// No parameters.
-//
-// No immediate response.  A cpu.stepping event will be sent once complete.
-void WebSocketSteppingState::Into(DebuggerRequest &req) {
-	if (!currentDebugMIPS->isAlive()) {
-		return req.Fail("CPU not started");
+static DebugInterface *CPUFromRequest(DebuggerRequest &req, u32 *threadID = nullptr) {
+	if (!req.HasParam("thread")) {
+		if (threadID)
+			*threadID = -1;
+		return currentDebugMIPS;
 	}
 
+	u32 uid;
+	if (!req.ParamU32("thread", &uid))
+		return nullptr;
+
+	DebugInterface *cpuDebug = KernelDebugThread((SceUID)uid);
+	if (!cpuDebug)
+		req.Fail("Thread could not be found");
+	if (threadID)
+		*threadID = uid;
+	return cpuDebug;
+}
+
+// Single step into the next instruction (cpu.stepInto)
+//
+// Parameters:
+//  - thread: optional number indicating the thread id to plan stepping on.
+//
+// No immediate response.  A cpu.stepping event will be sent once complete.
+//
+// Note: any thread can wake the cpu when it hits the next instruction currently.
+void WebSocketSteppingState::Into(DebuggerRequest &req) {
+	if (!currentDebugMIPS->isAlive())
+		return req.Fail("CPU not started");
 	if (!Core_IsStepping()) {
 		Core_EnableStepping(true);
 		return;
 	}
 
-	// If the current PC is on a breakpoint, the user doesn't want to do nothing.
-	CBreakPoints::SetSkipFirst(currentMIPS->pc);
+	auto cpuDebug = CPUFromRequest(req);
+	if (!cpuDebug)
+		return;
 
-	int c = GetNextInstructionCount();
-	for (int i = 0; i < c; ++i) {
-		Core_DoSingleStep();
+	if (cpuDebug == currentDebugMIPS) {
+		// If the current PC is on a breakpoint, the user doesn't want to do nothing.
+		CBreakPoints::SetSkipFirst(currentMIPS->pc);
+
+		int c = GetNextInstructionCount(cpuDebug);
+		for (int i = 0; i < c; ++i) {
+			Core_DoSingleStep();
+		}
+	} else {
+		u32 breakpointAddress = cpuDebug->GetPC();
+		PrepareResume();
+		// Could have advanced to the breakpoint already in PrepareResume().
+		// Note: we need to get cpuDebug again anyway (in case we ran some HLE above.)
+		cpuDebug = CPUFromRequest(req);
+		if (cpuDebug != currentDebugMIPS) {
+			CBreakPoints::AddBreakPoint(breakpointAddress, true);
+			Core_EnableStepping(false);
+		}
 	}
 }
 
@@ -93,16 +129,23 @@ void WebSocketSteppingState::Into(DebuggerRequest &req) {
 //
 // Note: this jumps over function calls, but also delay slots.
 //
-// No parameters.
+// Parameters:
+//  - thread: optional number indicating the thread id to plan stepping on.
 //
 // No immediate response.  A cpu.stepping event will be sent once complete.
+//
+// Note: any thread can wake the cpu when it hits the next instruction currently.
 void WebSocketSteppingState::Over(DebuggerRequest &req) {
-	if (!currentDebugMIPS->isAlive()) {
+	if (!currentDebugMIPS->isAlive())
 		return req.Fail("CPU not started");
-	}
+	if (!Core_IsStepping())
+		return req.Fail("CPU currently running (cpu.stepping first)");
+	auto cpuDebug = CPUFromRequest(req);
+	if (!cpuDebug)
+		return;
 
-	MipsOpcodeInfo info = GetOpcodeInfo(currentDebugMIPS, currentMIPS->pc);
-	u32 breakpointAddress = GetNextAddress();
+	MipsOpcodeInfo info = GetOpcodeInfo(cpuDebug, cpuDebug->GetPC());
+	u32 breakpointAddress = GetNextAddress(cpuDebug);
 	if (info.isBranch) {
 		if (info.isConditional && !info.isLinkedBranch) {
 			if (info.conditionMet) {
@@ -124,7 +167,8 @@ void WebSocketSteppingState::Over(DebuggerRequest &req) {
 
 	PrepareResume();
 	// Could have advanced to the breakpoint already in PrepareResume().
-	if (currentMIPS->pc != breakpointAddress) {
+	cpuDebug = CPUFromRequest(req);
+	if (cpuDebug->GetPC() != breakpointAddress) {
 		CBreakPoints::AddBreakPoint(breakpointAddress, true);
 		Core_EnableStepping(false);
 	}
@@ -132,26 +176,36 @@ void WebSocketSteppingState::Over(DebuggerRequest &req) {
 
 // Step out of a function based on a stack walk (cpu.stepOut)
 //
-// No parameters.
+// Parameters:
+//  - thread: optional number indicating the thread id to plan stepping on.
 //
 // No immediate response.  A cpu.stepping event will be sent once complete.
+//
+// Note: any thread can wake the cpu when it hits the next instruction currently.
 void WebSocketSteppingState::Out(DebuggerRequest &req) {
-	if (!currentDebugMIPS->isAlive()) {
+	if (!currentDebugMIPS->isAlive())
 		return req.Fail("CPU not started");
-	}
+	if (!Core_IsStepping())
+		return req.Fail("CPU currently running (cpu.stepping first)");
+	u32 threadID;
+	auto cpuDebug = CPUFromRequest(req, &threadID);
+	if (!cpuDebug)
+		return;
 
 	auto threads = GetThreadsInfo();
-	u32 entry = currentMIPS->pc;
+	u32 entry = cpuDebug->GetPC();
 	u32 stackTop = 0;
 	for (const DebugThreadInfo &th : threads) {
-		if (th.isCurrent) {
+		if ((threadID == -1 && th.isCurrent) || th.id == threadID) {
 			entry = th.entrypoint;
 			stackTop = th.initialStack;
 			break;
 		}
 	}
 
-	auto frames = MIPSStackWalk::Walk(currentMIPS->pc, currentMIPS->r[MIPS_REG_RA], currentMIPS->r[MIPS_REG_SP], entry, stackTop);
+	u32 ra = cpuDebug->GetRegValue(0, MIPS_REG_RA);
+	u32 sp = cpuDebug->GetRegValue(0, MIPS_REG_SP);
+	auto frames = MIPSStackWalk::Walk(cpuDebug->GetPC(), ra, sp, entry, stackTop);
 	if (frames.size() < 2) {
 		// TODO: Respond in some way?
 		return;
@@ -160,13 +214,14 @@ void WebSocketSteppingState::Out(DebuggerRequest &req) {
 	u32 breakpointAddress = frames[1].pc;
 	PrepareResume();
 	// Could have advanced to the breakpoint already in PrepareResume().
-	if (currentMIPS->pc != breakpointAddress) {
+	cpuDebug = CPUFromRequest(req);
+	if (cpuDebug->GetPC() != breakpointAddress) {
 		CBreakPoints::AddBreakPoint(breakpointAddress, true);
 		Core_EnableStepping(false);
 	}
 }
 
-// Run until a certain address (cpu.stepOut)
+// Run until a certain address (cpu.runUntil)
 //
 // Parameters:
 //  - address: number parameter for destination.
@@ -207,13 +262,13 @@ void WebSocketSteppingState::HLE(DebuggerRequest &req) {
 	Core_EnableStepping(false);
 }
 
-u32 WebSocketSteppingState::GetNextAddress() {
-	u32 current = disasm_.getStartAddress(currentMIPS->pc);
+u32 WebSocketSteppingState::GetNextAddress(DebugInterface *cpuDebug) {
+	u32 current = disasm_.getStartAddress(cpuDebug->GetPC());
 	return disasm_.getNthNextAddress(current, 1);
 }
 
-int WebSocketSteppingState::GetNextInstructionCount() {
-	return (GetNextAddress() - currentMIPS->pc) / 4;
+int WebSocketSteppingState::GetNextInstructionCount(DebugInterface *cpuDebug) {
+	return (GetNextAddress(cpuDebug) - cpuDebug->GetPC()) / 4;
 }
 
 void WebSocketSteppingState::PrepareResume() {
