@@ -37,7 +37,7 @@
 #include "GPU/Vulkan/ShaderManagerVulkan.h"
 
 static const char *vulkan_glsl_preamble =
-"#version 430\n"
+"#version 450\n"
 "#extension GL_ARB_separate_shader_objects : enable\n"
 "#extension GL_ARB_shading_language_420pack : enable\n\n";
 

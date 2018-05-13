@@ -227,7 +227,7 @@ static const std::vector<ShaderSource> vsCol = {
 	"}\n"
 	},
 	{ ShaderLanguage::GLSL_VULKAN,
-	"#version 400\n"
+	"#version 450\n"
 	"#extension GL_ARB_separate_shader_objects : enable\n"
 	"#extension GL_ARB_shading_language_420pack : enable\n"
 	"layout (std140, set = 0, binding = 0) uniform bufferVals {\n"
@@ -293,7 +293,7 @@ static const std::vector<ShaderSource> vsTexCol = {
 	"}\n"
 	},
 	{ ShaderLanguage::GLSL_VULKAN,
-	"#version 400\n"
+	"#version 450\n"
 	"#extension GL_ARB_separate_shader_objects : enable\n"
 	"#extension GL_ARB_shading_language_420pack : enable\n"
 	"layout (std140, set = 0, binding = 0) uniform bufferVals {\n"

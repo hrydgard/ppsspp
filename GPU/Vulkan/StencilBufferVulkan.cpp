@@ -27,7 +27,7 @@
 #include "GPU/Vulkan/TextureCacheVulkan.h"
 #include "GPU/Vulkan/VulkanUtil.h"
 
-static const char *stencil_fs = R"(#version 400
+static const char *stencil_fs = R"(#version 450
 #extension GL_ARB_separate_shader_objects : enable
 #extension GL_ARB_shading_language_420pack : enable
 layout (binding = 0) uniform sampler2D tex;
@@ -50,7 +50,7 @@ void main() {
 }
 )";
 
-static const char stencil_vs[] = R"(#version 400
+static const char stencil_vs[] = R"(#version 450
 #extension GL_ARB_separate_shader_objects : enable
 #extension GL_ARB_shading_language_420pack : enable
 layout (location = 0) out vec2 v_texcoord0;
