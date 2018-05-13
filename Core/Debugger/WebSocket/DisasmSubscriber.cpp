@@ -112,6 +112,30 @@ void WebSocketDisasmState::WriteDisasmLine(JsonWriter &json, const DisassemblyLi
 	else
 		json.writeString("symbol", addressSymbol);
 
+	const u32 funcAddress = g_symbolMap->GetFunctionStart(addr);
+	const std::string funcName = g_symbolMap->GetLabelString(funcAddress);
+	if (funcName.empty())
+		json.writeNull("function");
+	else
+		json.writeString("function", funcName);
+
+	if (l.type == DISTYPE_DATA) {
+		u32 dataStart = g_symbolMap->GetDataStart(addr);
+		if (dataStart == -1)
+			dataStart = addr;
+		const std::string dataLabel = g_symbolMap->GetLabelString(dataStart);
+
+		json.pushDict("dataSymbol");
+		json.writeUint("start", dataStart);
+		if (dataLabel.empty())
+			json.writeNull("label");
+		else
+			json.writeString("label", dataLabel);
+		json.pop();
+	} else {
+		json.writeNull("dataSymbol");
+	}
+
 	bool enabled;
 	// TODO: Account for bp inside macro?
 	if (CBreakPoints::IsAddressBreakPoint(addr, &enabled)) {
