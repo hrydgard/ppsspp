@@ -491,11 +491,12 @@ void DisassemblyFunction::generateBranchLines()
 		MIPSAnalyst::MipsOpcodeInfo opInfo = MIPSAnalyst::GetOpcodeInfo(cpu,funcPos);
 
 		bool inFunction = (opInfo.branchTarget >= address && opInfo.branchTarget < end);
-		if (opInfo.isBranch && !opInfo.isBranchToRegister && !opInfo.isLinkedBranch && inFunction)
-		{
+		if (opInfo.isBranch && !opInfo.isBranchToRegister && !opInfo.isLinkedBranch && inFunction) {
+			if (!Memory::IsValidAddress(opInfo.branchTarget))
+				continue;
+
 			BranchLine line;
-			if (opInfo.branchTarget < funcPos)
-			{
+			if (opInfo.branchTarget < funcPos) {
 				line.first = opInfo.branchTarget;
 				line.second = funcPos;
 				line.type = LINE_UP;
@@ -756,13 +757,14 @@ void DisassemblyOpcode::getBranchLines(u32 start, u32 size, std::vector<BranchLi
 	for (u32 pos = start; pos < start+size; pos += 4)
 	{
 		MIPSAnalyst::MipsOpcodeInfo info = MIPSAnalyst::GetOpcodeInfo(DisassemblyManager::getCpu(),pos);
-		if (info.isBranch && !info.isBranchToRegister && !info.isLinkedBranch)
-		{
+		if (info.isBranch && !info.isBranchToRegister && !info.isLinkedBranch) {
+			if (!Memory::IsValidAddress(info.branchTarget))
+				continue;
+
 			BranchLine line;
 			line.laneIndex = lane++;
 
-			if (info.branchTarget < pos)
-			{
+			if (info.branchTarget < pos) {
 				line.first = info.branchTarget;
 				line.second = pos;
 				line.type = LINE_UP;
