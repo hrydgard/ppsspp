@@ -174,7 +174,7 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, uint64_t *uniform
 
 	bool isModeClear = id.Bit(FS_BIT_CLEARMODE);
 
-	if (shaderDepal) {
+	if (shaderDepal && gl_extensions.IsGLES) {
 		WRITE(p, "precision highp int;\n");
 	}
 
