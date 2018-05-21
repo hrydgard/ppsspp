@@ -423,6 +423,28 @@ namespace SaveState
 		}
 	}
 
+	static void DeleteIfExists(const std::string &fn) {
+		// Just avoiding error messages.
+		if (File::Exists(fn)) {
+			File::Delete(fn);
+		}
+	}
+
+	static void RenameIfExists(const std::string &from, const std::string &to) {
+		if (File::Exists(from)) {
+			File::Rename(from, to);
+		}
+	}
+
+	static void SwapIfExists(const std::string &from, const std::string &to) {
+		std::string temp = from + ".tmp";
+		if (File::Exists(from)) {
+			File::Rename(from, temp);
+			File::Rename(to, from);
+			File::Rename(temp, to);
+		}
+	}
+
 	void SaveSlot(const std::string &gameFilename, int slot, Callback callback, void *cbUserData)
 	{
 		std::string fn = GenerateSaveSlotFilename(gameFilename, slot, STATE_EXTENSION);
@@ -432,11 +454,11 @@ namespace SaveState
 		if (!fn.empty()) {
 			auto renameCallback = [=](bool status, const std::string &message, void *data) {
 				if (status) {
-					if (File::Exists(fnUndo) && g_Config.bEnableStateUndo) {
-						File::Delete(fnUndo);
-					}
-					if (File::Exists(fn) && g_Config.bEnableStateUndo) {
-						File::Rename(fn, fnUndo);
+					if (g_Config.bEnableStateUndo) {
+						DeleteIfExists(fnUndo);
+						RenameIfExists(fn, fnUndo);
+					} else {
+						DeleteIfExists(fn);
 					}
 					File::Rename(fn + ".tmp", fn);
 				}
@@ -445,8 +467,9 @@ namespace SaveState
 				}
 			};
 			// Let's also create a screenshot.
-			if (File::Exists(shot) && g_Config.bEnableStateUndo) {
-				File::Rename(shot, shotUndo);
+			if (g_Config.bEnableStateUndo) {
+				DeleteIfExists(shotUndo);
+				RenameIfExists(shot, shotUndo);
 			}
 			SaveScreenshot(shot, Callback(), 0);
 			Save(fn + ".tmp", renameCallback, cbUserData);
@@ -466,15 +489,8 @@ namespace SaveState
 		// Do nothing if there's no undo.
 		if (File::Exists(fnUndo)) {
 			// Swap them so they can undo again to redo.  Mistakes happen.
-			if (File::Exists(shotUndo)) {
-				File::Rename(shot, shot + ".tmp");
-				File::Rename(shotUndo, shot);
-				File::Rename(shot + ".tmp", shotUndo);
-			}
-
-			File::Rename(fn, fn + ".tmp");
-			File::Rename(fnUndo, fn);
-			File::Rename(fn + ".tmp", fnUndo);
+			SwapIfExists(shotUndo, shot);
+			SwapIfExists(fnUndo, fn);
 
 			return true;
 		}
