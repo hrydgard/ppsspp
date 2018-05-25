@@ -415,6 +415,7 @@ public abstract class NativeActivity extends Activity implements SurfaceHolder.C
 		} else {
 			Log.e(TAG, "updateSystemUiVisibility: decor view not yet created, ignoring");
 		}
+		updateDisplayMeasurements();
 	}
 
 	// Need API 11 to check for existence of a vibrator? Zany.
@@ -450,22 +451,34 @@ public abstract class NativeActivity extends Activity implements SurfaceHolder.C
 		sz.y = NativeApp.getDesiredBackbufferHeight();
 	}
 
+	@TargetApi(17)
+	public void updateDisplayMeasurements() {
+		Display display = getWindowManager().getDefaultDisplay();
+
+
+		DisplayMetrics metrics = new DisplayMetrics();
+		if (useImmersive() && Build.VERSION.SDK_INT >= 17) {
+			display.getRealMetrics(metrics);
+		} else {
+			display.getMetrics(metrics);
+		}
+		densityDpi = metrics.densityDpi;
+		refreshRate = display.getRefreshRate();
+
+		NativeApp.setDisplayParameters(metrics.widthPixels, metrics.heightPixels, (int)densityDpi, refreshRate);
+	}
+
 	@Override
-    public void onCreate(Bundle savedInstanceState) {
+	public void onCreate(Bundle savedInstanceState) {
 		super.onCreate(savedInstanceState);
 		TextRenderer.init(this);
 		shuttingDown = false;
 		registerCallbacks();
 
-		Display display = getWindowManager().getDefaultDisplay();
-		DisplayMetrics metrics = new DisplayMetrics();
-		display.getMetrics(metrics);
-		densityDpi = metrics.densityDpi;
-		refreshRate = display.getRefreshRate();
-
-		// Set early to be able to set defaults when loading config for the first time. Like figuring out
+		// This calls NativeApp.setDisplayParameters. Make sure that's done early in order
+		// to be able to set defaults when loading config for the first time. Like figuring out
 		// whether to start at 1x or 2x.
-		NativeApp.setDisplayParameters(metrics.widthPixels, metrics.heightPixels, (int)densityDpi, refreshRate);
+		updateDisplayMeasurements();
 
 		if (!initialized) {
 			Initialize();
