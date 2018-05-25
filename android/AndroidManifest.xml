@@ -47,7 +47,7 @@
             android:name=".PpssppActivity"
             android:configChanges="locale|keyboard|keyboardHidden|navigation|uiMode"
             android:label="@string/app_name"
-            android:theme="@android:style/Theme.NoTitleBar.Fullscreen">
+            android:theme="@style/ppsspp_style">
 
             <!-- android:screenOrientation="landscape" -->
             <intent-filter>
