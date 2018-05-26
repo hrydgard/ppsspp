@@ -165,7 +165,7 @@ u32 CGEDebugger::PrimPreviewOp() {
 	return 0;
 }
 
-static void ExpandBezier(int &count, int op, std::vector<GPUDebugVertex> &vertices, std::vector<u16> &indices) {
+static void ExpandBezier(int &count, int op, const std::vector<SimpleVertex> &simpleVerts, const std::vector<u16> &indices, std::vector<SimpleVertex> &generatedVerts, std::vector<u16> &generatedInds) {
 	int count_u = (op & 0x00FF) >> 0;
 	int count_v = (op & 0xFF00) >> 8;
 
@@ -176,15 +176,6 @@ static void ExpandBezier(int &count, int op, std::vector<GPUDebugVertex> &vertic
 	}
 	if (tess_v < 1) {
 		tess_v = 1;
-	}
-
-	std::vector<SimpleVertex> simpleVerts;
-	simpleVerts.resize(vertices.size());
-	for (size_t i = 0; i < vertices.size(); ++i) {
-		// For now, let's just copy back so we can use TessellateBezierPatch...
-		simpleVerts[i].uv[0] = vertices[i].u;
-		simpleVerts[i].uv[1] = vertices[i].v;
-		simpleVerts[i].pos = Vec3Packedf(vertices[i].x, vertices[i].y, vertices[i].z);
 	}
 
 	// Bezier patches share less control points than spline patches. Otherwise they are pretty much the same (except bezier don't support the open/close thing)
@@ -209,8 +200,6 @@ static void ExpandBezier(int &count, int op, std::vector<GPUDebugVertex> &vertic
 		}
 	}
 
-	std::vector<SimpleVertex> generatedVerts;
-	std::vector<u16> generatedInds;
 	generatedVerts.resize((tess_u + 1) * (tess_v + 1) * total_patches);
 	generatedInds.resize(tess_u * tess_v * 6);
 
@@ -221,19 +210,9 @@ static void ExpandBezier(int &count, int op, std::vector<GPUDebugVertex> &vertic
 		const BezierPatch &patch = patches[patch_idx];
 		TessellateBezierPatch(dest, inds, count, tess_u, tess_v, patch, gstate.vertType);
 	}
-
-	vertices.resize(generatedVerts.size());
-	for (size_t i = 0; i < vertices.size(); ++i) {
-		vertices[i].u = generatedVerts[i].uv[0];
-		vertices[i].v = generatedVerts[i].uv[1];
-		vertices[i].x = generatedVerts[i].pos.x;
-		vertices[i].y = generatedVerts[i].pos.y;
-		vertices[i].z = generatedVerts[i].pos.z;
-	}
-	indices = generatedInds;
 }
 
-static void ExpandSpline(int &count, int op, std::vector<GPUDebugVertex> &vertices, std::vector<u16> &indices) {
+static void ExpandSpline(int &count, int op, const std::vector<SimpleVertex> &simpleVerts, const std::vector<u16> &indices, std::vector<SimpleVertex> &generatedVerts, std::vector<u16> &generatedInds) {
 	SplinePatchLocal patch;
 	patch.computeNormals = false;
 	patch.primType = gstate.getPatchPrimitiveType();
@@ -258,16 +237,7 @@ static void ExpandSpline(int &count, int op, std::vector<GPUDebugVertex> &vertic
 		return;
 	}
 
-	std::vector<SimpleVertex> simpleVerts;
-	simpleVerts.resize(vertices.size());
-	for (size_t i = 0; i < vertices.size(); ++i) {
-		// For now, let's just copy back so we can use TessellateBezierPatch...
-		simpleVerts[i].uv[0] = vertices[i].u;
-		simpleVerts[i].uv[1] = vertices[i].v;
-		simpleVerts[i].pos = Vec3Packedf(vertices[i].x, vertices[i].y, vertices[i].z);
-	}
-
-	std::vector<SimpleVertex *> points;
+	std::vector<const SimpleVertex *> points;
 	points.resize(patch.count_u * patch.count_v);
 
 	// Make an array of pointers to the control points, to get rid of indices.
@@ -280,24 +250,12 @@ static void ExpandSpline(int &count, int op, std::vector<GPUDebugVertex> &vertic
 	int patch_div_t = (patch.count_v - 3) * patch.tess_v;
 	int maxVertexCount = (patch_div_s + 1) * (patch_div_t + 1);
 
-	std::vector<SimpleVertex> generatedVerts;
-	std::vector<u16> generatedInds;
 	generatedVerts.resize(maxVertexCount);
 	generatedInds.resize(patch_div_s * patch_div_t * 6);
 
 	count = 0;
 	u8 *dest = (u8 *)&generatedVerts[0];
 	TessellateSplinePatch(dest, &generatedInds[0], count, patch, gstate.vertType, maxVertexCount);
-
-	vertices.resize(generatedVerts.size());
-	for (size_t i = 0; i < vertices.size(); ++i) {
-		vertices[i].u = generatedVerts[i].uv[0];
-		vertices[i].v = generatedVerts[i].uv[1];
-		vertices[i].x = generatedVerts[i].pos.x;
-		vertices[i].y = generatedVerts[i].pos.y;
-		vertices[i].z = generatedVerts[i].pos.z;
-	}
-	indices = generatedInds;
 }
 
 void CGEDebugger::UpdatePrimPreview(u32 op, int which) {
@@ -341,10 +299,34 @@ void CGEDebugger::UpdatePrimPreview(u32 op, int which) {
 		return;
 	}
 
-	if (cmd == GE_CMD_BEZIER) {
-		ExpandBezier(count, op, vertices, indices);
-	} else if (cmd == GE_CMD_SPLINE) {
-		ExpandSpline(count, op, vertices, indices);
+	if (cmd != GE_CMD_PRIM) {
+		static std::vector<SimpleVertex> generatedVerts;
+		static std::vector<u16> generatedInds;
+
+		static std::vector<SimpleVertex> simpleVerts;
+		simpleVerts.resize(vertices.size());
+		for (size_t i = 0; i < vertices.size(); ++i) {
+			// For now, let's just copy back so we can use TessellateBezierPatch/TessellateSplinePatch...
+			simpleVerts[i].uv[0] = vertices[i].u;
+			simpleVerts[i].uv[1] = vertices[i].v;
+			simpleVerts[i].pos = Vec3Packedf(vertices[i].x, vertices[i].y, vertices[i].z);
+		}
+
+		if (cmd == GE_CMD_BEZIER) {
+			ExpandBezier(count, op, simpleVerts, indices, generatedVerts, generatedInds);
+		} else if (cmd == GE_CMD_SPLINE) {
+			ExpandSpline(count, op, simpleVerts, indices, generatedVerts, generatedInds);
+		}
+
+		vertices.resize(generatedVerts.size());
+		for (size_t i = 0; i < vertices.size(); ++i) {
+			vertices[i].u = generatedVerts[i].uv[0];
+			vertices[i].v = generatedVerts[i].uv[1];
+			vertices[i].x = generatedVerts[i].pos.x;
+			vertices[i].y = generatedVerts[i].pos.y;
+			vertices[i].z = generatedVerts[i].pos.z;
+		}
+		indices = generatedInds;
 	}
 
 	if (prim == GE_PRIM_RECTANGLES) {
