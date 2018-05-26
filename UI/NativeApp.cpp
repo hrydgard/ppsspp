@@ -1004,6 +1004,11 @@ void NativeUpdate() {
 }
 
 bool NativeIsAtTopLevel() {
+	// This might need some synchronization?
+	if (!screenManager) {
+		ELOG("No screen manager active");
+		return false;
+	}
 	Screen *currentScreen = screenManager->topScreen();
 	if (currentScreen) {
 		bool top = currentScreen->isTopLevel();
