@@ -281,6 +281,10 @@ int CtrlVertexList::GetRowCount() {
 		u32 cmd = Memory::Read_U32(list.pc);
 		if ((cmd >> 24) == GE_CMD_PRIM) {
 			rowCount_ = cmd & 0xFFFF;
+		} else if ((cmd >> 24) == GE_CMD_BEZIER || (cmd >> 24) == GE_CMD_SPLINE) {
+			u32 u = (cmd & 0x00FF) >> 0;
+			u32 v = (cmd & 0xFF00) >> 8;
+			rowCount_ = u * v;
 		}
 	}
 
