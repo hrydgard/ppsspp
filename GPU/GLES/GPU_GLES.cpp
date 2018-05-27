@@ -351,7 +351,7 @@ void GPU_GLES::DeviceRestore() {
 
 	textureCacheGL_->DeviceRestore(draw_);
 	framebufferManagerGL_->DeviceRestore(draw_);
-	drawEngine_.DeviceRestore();
+	drawEngine_.DeviceRestore(draw_);
 }
 
 void GPU_GLES::Reinitialize() {

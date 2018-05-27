@@ -323,6 +323,8 @@ bool System_GetPropertyBool(SystemProperty prop) {
 }
 
 std::string GetJavaString(JNIEnv *env, jstring jstr) {
+	if (!jstr)
+		return "";
 	const char *str = env->GetStringUTFChars(jstr, 0);
 	std::string cpp_string = std::string(str);
 	env->ReleaseStringUTFChars(jstr, str);
@@ -397,7 +399,9 @@ extern "C" void Java_org_ppsspp_ppsspp_NativeApp_init
 	langRegion = GetJavaString(env, jlangRegion);
 
 	std::string externalDir = GetJavaString(env, jexternalDir);
-	std::string user_data_path = GetJavaString(env, jdataDir) + "/";
+	std::string user_data_path = GetJavaString(env, jdataDir);
+	if (user_data_path.size() > 0)
+		user_data_path += "/";
 	library_path = GetJavaString(env, jlibraryDir) + "/";
 	std::string shortcut_param = GetJavaString(env, jshortcutParam);
 	std::string cacheDir = GetJavaString(env, jcacheDir);
@@ -650,7 +654,8 @@ extern "C" void Java_org_ppsspp_ppsspp_NativeRenderer_displayRender(JNIEnv *env,
 	
 	if (useCPUThread) {
 		// This is the "GPU thread".
-		graphicsContext->ThreadFrame();
+		if (graphicsContext)
+			graphicsContext->ThreadFrame();
 	} else {
 		UpdateRunLoopAndroid(env);
 	}

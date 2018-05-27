@@ -856,13 +856,16 @@ public:
 
 		// PIC1 is the loading image, so let's only draw if it's available.
 		if (ginfo && ginfo->pic1.texture) {
-			dc.GetDrawContext()->BindTexture(0, ginfo->pic1.texture->GetTexture());
+			Draw::Texture *texture = ginfo->pic1.texture->GetTexture();
+			if (texture) {
+				dc.GetDrawContext()->BindTexture(0, texture);
 
-			double loadTime = ginfo->pic1.timeLoaded;
-			uint32_t color = alphaMul(color_, ease((time_now_d() - loadTime) * 3));
-			dc.Draw()->DrawTexRect(dc.GetBounds(), 0, 0, 1, 1, color);
-			dc.Flush();
-			dc.RebindTexture();
+				double loadTime = ginfo->pic1.timeLoaded;
+				uint32_t color = alphaMul(color_, ease((time_now_d() - loadTime) * 3));
+				dc.Draw()->DrawTexRect(dc.GetBounds(), 0, 0, 1, 1, color);
+				dc.Flush();
+				dc.RebindTexture();
+			}
 		}
 	}
 
@@ -1154,6 +1157,8 @@ void EmuScreen::render() {
 	using namespace Draw;
 
 	DrawContext *thin3d = screenManager()->getDrawContext();
+	if (!thin3d)
+		return;  // shouldn't really happen but I've seen a suspicious stack trace..
 
 	if (invalid_) {
 		// Loading, or after shutdown?

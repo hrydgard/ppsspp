@@ -296,7 +296,12 @@ public abstract class NativeActivity extends Activity implements SurfaceHolder.C
 	    File sdcard = Environment.getExternalStorageDirectory();
 
 	    String externalStorageDir = sdcard.getAbsolutePath();
-	    String dataDir = this.getFilesDir().getAbsolutePath();
+	    File filesDir = this.getFilesDir();
+		String dataDir = null;
+	    if (filesDir != null) {
+	    	// Null has been seen in Google Play stacktraces
+			dataDir = filesDir.getAbsolutePath();
+		}
 		String apkFilePath = appInfo.sourceDir;
 		String cacheDir = getCacheDir().getAbsolutePath();
 

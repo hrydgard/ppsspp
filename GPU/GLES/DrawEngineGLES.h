@@ -130,7 +130,7 @@ public:
 	}
 
 	void DeviceLost();
-	void DeviceRestore();
+	void DeviceRestore(Draw::DrawContext *draw);
 
 	void ClearTrackedVertexArrays() override;
 	void DecimateTrackedVertexArrays();

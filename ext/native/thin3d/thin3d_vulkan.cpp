@@ -312,8 +312,13 @@ public:
 	}
 
 	VkImageView GetImageView() {
-		vkTex_->Touch();
-		return vkTex_->GetImageView();
+		if (vkTex_) {
+			vkTex_->Touch();
+			return vkTex_->GetImageView();
+		} else {
+			// This would be bad.
+			return VK_NULL_HANDLE;
+		}
 	}
 
 private:
