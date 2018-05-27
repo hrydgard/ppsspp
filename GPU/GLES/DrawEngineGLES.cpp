@@ -103,7 +103,8 @@ void DrawEngineGLES::DeviceLost() {
 	DestroyDeviceObjects();
 }
 
-void DrawEngineGLES::DeviceRestore() {
+void DrawEngineGLES::DeviceRestore(Draw::DrawContext *draw) {
+	draw_ = draw;
 	InitDeviceObjects();
 }
 
