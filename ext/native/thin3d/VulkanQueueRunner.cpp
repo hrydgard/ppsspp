@@ -353,8 +353,6 @@ void VulkanQueueRunner::RunSteps(VkCommandBuffer cmd, std::vector<VKRStep *> &st
 	//  * Create copies of render target that are rendered to multiple times and textured from in sequence, and push those render passes
 	//    as early as possible in the frame (Wipeout billboards).
 
-	// Push down empty "Clear/Store" renderpasses, and merge them with the first "Load/Store" to the same framebuffer.
-	// Actually let's just bother with the first one for now. This affects Wipeout Pure.
 	for (int j = 0; j < (int)steps.size() - 1; j++) {
 		if (steps[j]->stepType == VKRStepType::RENDER &&
 			steps[j]->render.finalColorLayout == VK_IMAGE_LAYOUT_UNDEFINED) {
@@ -362,6 +360,8 @@ void VulkanQueueRunner::RunSteps(VkCommandBuffer cmd, std::vector<VKRStep *> &st
 			steps[j]->render.finalColorLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
 		}
 
+		// Push down empty "Clear/Store" renderpasses, and merge them with the first "Load/Store" to the same framebuffer.
+		// Actually let's just bother with the first one for now. This affects Wipeout Pure.
 		if (steps.size() > 1 && steps[j]->stepType == VKRStepType::RENDER &&
 			steps[j]->render.numDraws == 0 &&
 			steps[j]->render.color == VKRRenderPassAction::CLEAR &&

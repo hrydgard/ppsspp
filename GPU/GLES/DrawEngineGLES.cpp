@@ -108,10 +108,11 @@ void DrawEngineGLES::DeviceRestore() {
 }
 
 void DrawEngineGLES::InitDeviceObjects() {
+	_assert_msg_(G3D, render_ != nullptr, "Render manager must be set");
+
 	for (int i = 0; i < GLRenderManager::MAX_INFLIGHT_FRAMES; i++) {
 		frameData_[i].pushVertex = render_->CreatePushBuffer(i, GL_ARRAY_BUFFER, 1024 * 1024);
 		frameData_[i].pushIndex = render_->CreatePushBuffer(i, GL_ELEMENT_ARRAY_BUFFER, 256 * 1024);
-
 	}
 
 	int vertexSize = sizeof(TransformedVertex);
@@ -129,8 +130,10 @@ void DrawEngineGLES::DestroyDeviceObjects() {
 		if (!frameData_[i].pushVertex && !frameData_[i].pushIndex)
 			continue;
 
-		render_->DeletePushBuffer(frameData_[i].pushVertex);
-		render_->DeletePushBuffer(frameData_[i].pushIndex);
+		if (frameData_[i].pushVertex)
+			render_->DeletePushBuffer(frameData_[i].pushVertex);
+		if (frameData_[i].pushIndex)
+			render_->DeletePushBuffer(frameData_[i].pushIndex);
 		frameData_[i].pushVertex = nullptr;
 		frameData_[i].pushIndex = nullptr;
 	}
