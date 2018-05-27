@@ -342,7 +342,8 @@ static u32 sceUmdGetDriveStat()
 	}
 	//u32 retVal = PSP_UMD_INITED | PSP_UMD_READY | PSP_UMD_PRESENT;
 	u32 retVal = __KernelUmdGetState();
-	DEBUG_LOG(SCEIO,"0x%02x=sceUmdGetDriveStat()", retVal);
+	// This one can be very spammy.
+	VERBOSE_LOG(SCEIO,"0x%02x=sceUmdGetDriveStat()", retVal);
 	return retVal;
 }
 
