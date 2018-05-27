@@ -364,6 +364,7 @@ void VulkanQueueRunner::RunSteps(VkCommandBuffer cmd, std::vector<VKRStep *> &st
 
 		if (steps.size() > 1 && steps[j]->stepType == VKRStepType::RENDER &&
 			steps[j]->render.numDraws == 0 &&
+			steps[j]->render.numReads == 0 &&
 			steps[j]->render.color == VKRRenderPassAction::CLEAR &&
 			steps[j]->render.stencil == VKRRenderPassAction::CLEAR &&
 			steps[j]->render.depth == VKRRenderPassAction::CLEAR) {
@@ -391,6 +392,7 @@ void VulkanQueueRunner::RunSteps(VkCommandBuffer cmd, std::vector<VKRStep *> &st
 					steps[i]->copy.src == steps[j]->render.framebuffer) {
 					// Can't eliminate the clear if a game copies from it before it's
 					// rendered to. However this should be rare.
+					// TODO: This should never happen when we check numReads now.
 					break;
 				}
 			}
