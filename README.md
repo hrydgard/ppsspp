@@ -20,6 +20,11 @@ For build instructions and other development tutorials, see [the wiki](https://g
 
 For game compatibility, see [community compatibility feedback](https://report.ppsspp.org/games).
 
+What's new in 1.6.1
+-------------------
+* Crashfixes
+* Fix broken graphics in flOw.
+
 What's new in 1.6.0
 -------------------
 * OpenGL backend now properly multithreaded, giving a good speed boost.
