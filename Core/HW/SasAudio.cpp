@@ -65,6 +65,11 @@ void VagDecoder::Start(u32 data, u32 vagSize, bool loopEnabled) {
 }
 
 void VagDecoder::DecodeBlock(u8 *&read_pointer) {
+	if (curBlock_ == numBlocks_ - 1) {
+		end_ = true;
+		return;
+	}
+
 	u8 *readp = read_pointer;
 	int predict_nr = *readp++;
 	int shift_factor = predict_nr & 0xf;
@@ -106,9 +111,6 @@ void VagDecoder::DecodeBlock(u8 *&read_pointer) {
 	s_2 = s2;
 	curSample = 0;
 	curBlock_++;
-	if (curBlock_ == numBlocks_) {
-		end_ = true;
-	}
 
 	read_pointer = readp;
 }
