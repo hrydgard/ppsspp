@@ -374,6 +374,7 @@ int main(int argc, const char* argv[])
 	g_Config.bBlockTransferGPU = true;
 	g_Config.iSplineBezierQuality = 2;
 	g_Config.bHighQualityDepth = true;
+	g_Config.bMemStickInserted = true;
 
 #ifdef _WIN32
 	InitSysDirectories();
