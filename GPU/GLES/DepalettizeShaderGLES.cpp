@@ -70,6 +70,10 @@ DepalShaderCacheGLES::~DepalShaderCacheGLES() {
 	Clear();
 }
 
+void DepalShaderCacheGLES::DeviceRestore(Draw::DrawContext *draw) {
+	render_ = (GLRenderManager *)draw->GetNativeObject(Draw::NativeObject::RENDER_MANAGER);
+}
+
 bool DepalShaderCacheGLES::CreateVertexShader() {
 	std::string src(useGL3_ ? depalVShader300 : depalVShader100);
 	vertexShader_ = render_->CreateShader(GL_VERTEX_SHADER, src, "depal");

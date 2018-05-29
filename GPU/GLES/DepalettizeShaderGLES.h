@@ -54,6 +54,11 @@ public:
 	std::vector<std::string> DebugGetShaderIDs(DebugShaderType type);
 	std::string DebugGetShaderString(std::string id, DebugShaderType type, DebugShaderStringType stringType);
 
+	void DeviceLost() {
+		Clear();
+	}
+	void DeviceRestore(Draw::DrawContext *draw);
+
 private:
 	bool CreateVertexShader();
 
