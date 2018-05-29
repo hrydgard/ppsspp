@@ -57,7 +57,7 @@ endif()
 
 if(NOT ANDROID AND NOT IOS)
 	if(ARM OR SIMULATOR)
-		set(USING_EGL ON)
+		set(USING_EGL ON CACHE BOOL "Prefer EGL on desktop ARM")
 	endif()
 endif()
 
