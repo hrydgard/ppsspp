@@ -730,7 +730,6 @@ VKContext::VKContext(VulkanContext *vulkan, bool splitSubmit)
 
 	queue_ = vulkan->GetGraphicsQueue();
 	queueFamilyIndex_ = vulkan->GetGraphicsQueueFamilyIndex();
-	memset(boundTextures_, 0, sizeof(boundTextures_));
 
 	VkDescriptorPoolSize dpTypes[2];
 	dpTypes[0].descriptorCount = 200;
@@ -873,8 +872,8 @@ VkDescriptorSet VKContext::GetOrCreateDescriptorSet(VkBuffer buf) {
 	bufferDesc.range = curPipeline_->GetUBOSize();
 
 	VkDescriptorImageInfo imageDesc;
-	imageDesc.imageView = boundTextures_[0]->GetImageView();
-	imageDesc.sampler = boundSamplers_[0]->GetSampler();
+	imageDesc.imageView = boundTextures_[0] ? boundTextures_[0]->GetImageView() : VK_NULL_HANDLE;
+	imageDesc.sampler = boundSamplers_[0] ? boundSamplers_[0]->GetSampler() : VK_NULL_HANDLE;
 #ifdef VULKAN_USE_GENERAL_LAYOUT_FOR_COLOR
 	imageDesc.imageLayout = VK_IMAGE_LAYOUT_GENERAL;
 #else
@@ -1122,7 +1121,7 @@ void VKContext::UpdateBuffer(Buffer *buffer, const uint8_t *data, size_t offset,
 void VKContext::BindTextures(int start, int count, Texture **textures) {
 	for (int i = start; i < start + count; i++) {
 		boundTextures_[i] = static_cast<VKTexture *>(textures[i]);
-		boundImageView_[i] = boundTextures_[i]->GetImageView();
+		boundImageView_[i] = boundTextures_[i] ? boundTextures_[i]->GetImageView() : VK_NULL_HANDLE;
 	}
 }
 

@@ -152,7 +152,7 @@ private:
 
 class ShaderManagerGLES : public ShaderManagerCommon {
 public:
-	ShaderManagerGLES(GLRenderManager *render);
+	ShaderManagerGLES(Draw::DrawContext *draw);
 	~ShaderManagerGLES();
 
 	void ClearCache(bool deleteThem);  // TODO: deleteThem currently not respected
@@ -161,6 +161,9 @@ public:
 	// If you call ApplyVertexShader, you MUST call ApplyFragmentShader soon afterwards.
 	Shader *ApplyVertexShader(int prim, u32 vertType, VShaderID *VSID);
 	LinkedShader *ApplyFragmentShader(VShaderID VSID, Shader *vs, u32 vertType, int prim);
+
+	void DeviceLost();
+	void DeviceRestore(Draw::DrawContext *draw);
 
 	void DirtyShader();
 	void DirtyLastShader() override;  // disables vertex arrays

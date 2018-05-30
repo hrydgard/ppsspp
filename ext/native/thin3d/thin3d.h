@@ -2,7 +2,7 @@
 // Does not involve context creation etc, that should be handled separately - only does drawing.
 
 // The goals may change in the future though.
-// MIT licensed, by Henrik Rydgård 2014.
+// MIT licensed, by Henrik RydgÃ¥rd 2014.
 
 #pragma once
 
@@ -597,7 +597,8 @@ public:
 	virtual void UpdateDynamicUniformBuffer(const void *ub, size_t size) = 0;
 
 	void BindTexture(int stage, Texture *texture) {
-		BindTextures(stage, 1, &texture);
+		Texture *textures[1] = { texture };
+		BindTextures(stage, 1, textures);
 	}  // from sampler 0 and upwards
 
 	// Call this with 0 to signal that you have been drawing on your own, and need the state reset on the next pipeline bind.

@@ -35,6 +35,10 @@ FragmentTestCacheGLES::~FragmentTestCacheGLES() {
 	Clear();
 }
 
+void FragmentTestCacheGLES::DeviceRestore(Draw::DrawContext *draw) {
+	render_ = (GLRenderManager *)draw->GetNativeObject(Draw::NativeObject::RENDER_MANAGER);
+}
+
 void FragmentTestCacheGLES::BindTestTexture(int slot) {
 	if (!g_Config.bFragmentTestCache) {
 		return;

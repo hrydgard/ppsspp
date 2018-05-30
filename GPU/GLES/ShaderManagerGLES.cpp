@@ -574,8 +574,9 @@ void LinkedShader::UpdateUniforms(u32 vertType, const ShaderID &vsid) {
 	}
 }
 
-ShaderManagerGLES::ShaderManagerGLES(GLRenderManager *render)
-		: render_(render), lastShader_(nullptr), shaderSwitchDirtyUniforms_(0), diskCacheDirty_(false), fsCache_(16), vsCache_(16) {
+ShaderManagerGLES::ShaderManagerGLES(Draw::DrawContext *draw)
+		: lastShader_(nullptr), shaderSwitchDirtyUniforms_(0), diskCacheDirty_(false), fsCache_(16), vsCache_(16) {
+	render_ = (GLRenderManager *)draw->GetNativeObject(Draw::NativeObject::RENDER_MANAGER);
 	codeBuffer_ = new char[16384];
 	lastFSID_.set_invalid();
 	lastVSID_.set_invalid();
@@ -605,6 +606,14 @@ void ShaderManagerGLES::Clear() {
 void ShaderManagerGLES::ClearCache(bool deleteThem) {
 	// TODO: Recreate all from the diskcache when we come back.
 	Clear();
+}
+
+void ShaderManagerGLES::DeviceLost() {
+	Clear();
+}
+
+void ShaderManagerGLES::DeviceRestore(Draw::DrawContext *draw) {
+	render_ = (GLRenderManager *)draw->GetNativeObject(Draw::NativeObject::RENDER_MANAGER);
 }
 
 void ShaderManagerGLES::DirtyShader() {

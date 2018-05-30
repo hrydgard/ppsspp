@@ -58,7 +58,7 @@ GPU_GLES::GPU_GLES(GraphicsContext *gfxCtx, Draw::DrawContext *draw)
 
 	GLRenderManager *render = (GLRenderManager *)draw->GetNativeObject(Draw::NativeObject::RENDER_MANAGER);
 
-	shaderManagerGL_ = new ShaderManagerGLES(render);
+	shaderManagerGL_ = new ShaderManagerGLES(draw);
 	framebufferManagerGL_ = new FramebufferManagerGLES(draw, render);
 	framebufferManager_ = framebufferManagerGL_;
 	textureCacheGL_ = new TextureCacheGLES(draw);
@@ -331,11 +331,10 @@ void GPU_GLES::DeviceLost() {
 	// Simply drop all caches and textures.
 	// FBOs appear to survive? Or no?
 	// TransformDraw has registered as a GfxResourceHolder.
-	drawEngine_.ClearInputLayoutMap();
-	shaderManagerGL_->ClearCache(false);
+	shaderManagerGL_->DeviceLost();
 	textureCacheGL_->DeviceLost();
-	fragmentTestCache_.Clear(false);
-	depalShaderCache_.Clear();
+	fragmentTestCache_.DeviceLost();
+	depalShaderCache_.DeviceLost();
 	drawEngine_.DeviceLost();
 	framebufferManagerGL_->DeviceLost();
 	// Don't even try to access the lost device.
@@ -349,9 +348,12 @@ void GPU_GLES::DeviceRestore() {
 	UpdateCmdInfo();
 	UpdateVsyncInterval(true);
 
+	shaderManagerGL_->DeviceRestore(draw_);
 	textureCacheGL_->DeviceRestore(draw_);
 	framebufferManagerGL_->DeviceRestore(draw_);
 	drawEngine_.DeviceRestore(draw_);
+	fragmentTestCache_.DeviceRestore(draw_);
+	depalShaderCache_.DeviceRestore(draw_);
 }
 
 void GPU_GLES::Reinitialize() {
