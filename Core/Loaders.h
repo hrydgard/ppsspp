@@ -110,6 +110,7 @@ IdentifiedFileType Identify_File(FileLoader *fileLoader);
 
 class FileLoaderFactory {
 public:
+	virtual ~FileLoaderFactory() {}
 	virtual FileLoader *ConstructFileLoader(const std::string &filename) = 0;
 };
 void RegisterFileLoaderFactory(std::string name, std::unique_ptr<FileLoaderFactory> factory);
