@@ -105,6 +105,7 @@ void DrawEngineGLES::DeviceLost() {
 
 void DrawEngineGLES::DeviceRestore(Draw::DrawContext *draw) {
 	draw_ = draw;
+	render_ = (GLRenderManager *)draw_->GetNativeObject(Draw::NativeObject::RENDER_MANAGER);
 	InitDeviceObjects();
 }
 
