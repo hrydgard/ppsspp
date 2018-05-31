@@ -1363,15 +1363,16 @@ bool D3D11DrawContext::CopyFramebufferToMemorySync(Framebuffer *src, int channel
 
 	if (fb) {
 		assert(fb->colorFormat == DXGI_FORMAT_R8G8B8A8_UNORM);
+
+		// TODO: Figure out where the badness really comes from.
+		if (bx + bw > fb->width) {
+			bw -= (bx + bw) - fb->width;
+		}
+		if (by + bh > fb->height) {
+			bh -= (by + bh) - fb->height;
+		}
 	}
 
-	// TODO: Figure out where the badness really comes from.
-	if (bx + bw > fb->width) {
-		bw -= (bx + bw) - fb->width;
-	}
-	if (by + bh > fb->height) {
-		bh -= (by + bh) - fb->height;
-	}
 	if (bh <= 0 || bw <= 0)
 		return true;
 
