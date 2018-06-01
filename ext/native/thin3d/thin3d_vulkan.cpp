@@ -482,7 +482,7 @@ public:
 		case NativeObject::RENDER_MANAGER:
 			return (uintptr_t)&renderManager_;
 		case NativeObject::NULL_IMAGEVIEW:
-			return (uintptr_t)GetNullTexture();
+			return (uintptr_t)GetNullTexture()->GetImageView();
 		default:
 			Crash();
 			return 0;
