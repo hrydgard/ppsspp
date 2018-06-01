@@ -49,6 +49,7 @@ void GenerateDepalShader300(char *buffer, GEBufferFormat pixelFormat, ShaderLang
 		if (gl_extensions.IsGLES) {
 			WRITE(p, "#version 300 es\n");
 			WRITE(p, "precision mediump float;\n");
+			WRITE(p, "precision highp int;\n");
 		} else {
 			WRITE(p, "#version 330\n");
 		}
