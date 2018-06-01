@@ -265,7 +265,7 @@ void hleCheckCurrentCallbacks()
 void hleReSchedule(const char *reason)
 {
 #ifdef _DEBUG
-	_dbg_assert_msg_(HLE, reason != 0 && strlen(reason) < 256, "hleReSchedule: Invalid or too long reason.");
+	_dbg_assert_msg_(HLE, reason != nullptr && strlen(reason) < 256, "hleReSchedule: Invalid or too long reason.");
 #endif
 
 	hleAfterSyscall |= HLE_AFTER_RESCHED;
