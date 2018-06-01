@@ -1079,8 +1079,8 @@ void GLQueueRunner::PerformReadback(const GLRStep &pass) {
 
 	fbo_bind_fb_target(true, fb ? fb->handle : 0);
 
-	// Reads from the "bound for read" framebuffer.
-	if (gl_extensions.GLES3 || !gl_extensions.IsGLES)
+	// Reads from the "bound for read" framebuffer. Note that if there's no fb, it's not valid to call this.
+	if (fb && (gl_extensions.GLES3 || !gl_extensions.IsGLES))
 		glReadBuffer(GL_COLOR_ATTACHMENT0);
 
 	CHECK_GL_ERROR_IF_DEBUG();
