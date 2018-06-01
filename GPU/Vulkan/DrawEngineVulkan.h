@@ -267,8 +267,7 @@ private:
 	VkImageView imageView = VK_NULL_HANDLE;
 	VkSampler sampler = VK_NULL_HANDLE;
 
-	// Null texture
-	VulkanTexture *nullTexture_ = nullptr;
+	// For null texture
 	VkSampler nullSampler_ = VK_NULL_HANDLE;
 
 	DrawEngineVulkanStats stats_;

@@ -481,6 +481,8 @@ public:
 			return (uintptr_t)boundImageView_[1];
 		case NativeObject::RENDER_MANAGER:
 			return (uintptr_t)&renderManager_;
+		case NativeObject::NULL_IMAGEVIEW:
+			return (uintptr_t)GetNullTexture();
 		default:
 			Crash();
 			return 0;
@@ -490,11 +492,14 @@ public:
 	void HandleEvent(Event ev, int width, int height, void *param1, void *param2) override;
 
 private:
+	VulkanTexture *GetNullTexture();
 	VulkanContext *vulkan_ = nullptr;
 
 	VulkanRenderManager renderManager_;
 
 	VulkanDeviceAllocator *allocator_ = nullptr;
+
+	VulkanTexture *nullTexture_ = nullptr;
 
 	VKPipeline *curPipeline_ = nullptr;
 	VKBuffer *curVBuffers_[4]{};
@@ -607,6 +612,32 @@ static inline VkSamplerAddressMode AddressModeToVulkan(Draw::TextureAddressMode 
 	default:
 	case TextureAddressMode::REPEAT: return VK_SAMPLER_ADDRESS_MODE_REPEAT;
 	}
+}
+
+VulkanTexture *VKContext::GetNullTexture() {
+	if (!nullTexture_) {
+		VkCommandBuffer cmdInit = renderManager_.GetInitCmd();
+		nullTexture_ = new VulkanTexture(vulkan_, allocator_);
+		nullTexture_->SetTag("Null");
+		int w = 8;
+		int h = 8;
+		nullTexture_->CreateDirect(cmdInit, w, h, 1, VK_FORMAT_A8B8G8R8_UNORM_PACK32, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+			VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT);
+		uint32_t bindOffset;
+		VkBuffer bindBuf;
+		uint32_t *data = (uint32_t *)push_->Push(w * h * 4, &bindOffset, &bindBuf);
+		for (int y = 0; y < h; y++) {
+			for (int x = 0; x < w; x++) {
+				// data[y*w + x] = ((x ^ y) & 1) ? 0xFF808080 : 0xFF000000;   // gray/black checkerboard
+				data[y*w + x] = 0;  // black
+			}
+		}
+		nullTexture_->UploadMip(cmdInit, 0, w, h, bindBuf, bindOffset, w);
+		nullTexture_->EndCreate(cmdInit);
+	} else {
+		nullTexture_->Touch();
+	}
+	return nullTexture_;
 }
 
 class VKSamplerState : public SamplerState {
@@ -791,6 +822,7 @@ VKContext::VKContext(VulkanContext *vulkan, bool splitSubmit)
 }
 
 VKContext::~VKContext() {
+	delete nullTexture_;
 	allocator_->Destroy();
 	// We have to delete on queue, so this can free its queued deletions.
 	vulkan_->Delete().QueueCallback([](void *ptr) {
@@ -1121,7 +1153,7 @@ void VKContext::UpdateBuffer(Buffer *buffer, const uint8_t *data, size_t offset,
 void VKContext::BindTextures(int start, int count, Texture **textures) {
 	for (int i = start; i < start + count; i++) {
 		boundTextures_[i] = static_cast<VKTexture *>(textures[i]);
-		boundImageView_[i] = boundTextures_[i] ? boundTextures_[i]->GetImageView() : VK_NULL_HANDLE;
+		boundImageView_[i] = boundTextures_[i] ? boundTextures_[i]->GetImageView() : GetNullTexture()->GetImageView();
 	}
 }
 

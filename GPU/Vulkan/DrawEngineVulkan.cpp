@@ -215,11 +215,6 @@ void DrawEngineVulkan::DestroyDeviceObjects() {
 		vulkan_->Delete().QueueDeletePipelineLayout(pipelineLayout_);
 	if (descriptorSetLayout_ != VK_NULL_HANDLE)
 		vulkan_->Delete().QueueDeleteDescriptorSetLayout(descriptorSetLayout_);
-	if (nullTexture_) {
-		nullTexture_->Destroy();
-		delete nullTexture_;
-		nullTexture_ = nullptr;
-	}
 	if (vertexCache_) {
 		vertexCache_->Destroy(vulkan_);
 		delete vertexCache_;
@@ -264,29 +259,6 @@ void DrawEngineVulkan::BeginFrame() {
 
 	// TODO: How can we make this nicer...
 	((TessellationDataTransferVulkan *)tessDataTransfer)->SetPushBuffer(frame->pushUBO);
-
-	if (!nullTexture_) {
-		VkCommandBuffer cmdInit = (VkCommandBuffer)draw_->GetNativeObject(Draw::NativeObject::INIT_COMMANDBUFFER);
-		nullTexture_ = new VulkanTexture(vulkan_, textureCache_->GetAllocator());
-		nullTexture_->SetTag("Null");
-		int w = 8;
-		int h = 8;
-		nullTexture_->CreateDirect(cmdInit, w, h, 1, VK_FORMAT_A8B8G8R8_UNORM_PACK32, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
-			VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT);
-		uint32_t bindOffset;
-		VkBuffer bindBuf;
-		uint32_t *data = (uint32_t *)frame->pushUBO->Push(w * h * 4, &bindOffset, &bindBuf);
-		for (int y = 0; y < h; y++) {
-			for (int x = 0; x < w; x++) {
-				// data[y*w + x] = ((x ^ y) & 1) ? 0xFF808080 : 0xFF000000;   // gray/black checkerboard
-				data[y*w + x] = 0;  // black
-			}
-		}
-		nullTexture_->UploadMip(cmdInit, 0, w, h, bindBuf, bindOffset, w);
-		nullTexture_->EndCreate(cmdInit);
-	} else {
-		nullTexture_->Touch();
-	}
 
 	DirtyAllUBOs();
 
@@ -796,7 +768,7 @@ void DrawEngineVulkan::DoFlush() {
 			textureCache_->ApplyTexture();
 			textureCache_->GetVulkanHandles(imageView, sampler);
 			if (imageView == VK_NULL_HANDLE)
-				imageView = nullTexture_->GetImageView();
+				imageView = (VkImageView)draw_->GetNativeObject(Draw::NativeObject::NULL_IMAGEVIEW);
 			if (sampler == VK_NULL_HANDLE)
 				sampler = nullSampler_;
 		}
@@ -902,7 +874,7 @@ void DrawEngineVulkan::DoFlush() {
 				textureCache_->ApplyTexture();
 				textureCache_->GetVulkanHandles(imageView, sampler);
 				if (imageView == VK_NULL_HANDLE)
-					imageView = nullTexture_->GetImageView();
+					imageView = (VkImageView)draw_->GetNativeObject(Draw::NativeObject::NULL_IMAGEVIEW);
 				if (sampler == VK_NULL_HANDLE)
 					sampler = nullSampler_;
 			}
