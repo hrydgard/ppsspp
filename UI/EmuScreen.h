@@ -56,6 +56,7 @@ private:
 	void bootGame(const std::string &filename);
 	bool bootAllowStorage(const std::string &filename);
 	void bootComplete();
+	bool hasVisibleUI();
 	void renderUI();
 	void processAxis(const AxisInput &axis, int direction);
 
@@ -79,6 +80,7 @@ private:
 	bool invalid_;
 	bool quit_;
 	bool stopRender_ = false;
+	bool hasVisibleUI_ = true;
 	std::string errorMessage_;
 
 	// If set, pauses at the end of the frame.
