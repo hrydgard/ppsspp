@@ -579,7 +579,7 @@ bool FramebufferManagerGLES::CreateDownloadTempBuffer(VirtualFramebuffer *nvfb) 
 		}
 	}
 
-	nvfb->fbo = draw_->CreateFramebuffer({ nvfb->width, nvfb->height, 1, 1, false, (Draw::FBColorDepth)nvfb->colorDepth });
+	nvfb->fbo = draw_->CreateFramebuffer({ nvfb->bufferWidth, nvfb->bufferHeight, 1, 1, false, (Draw::FBColorDepth)nvfb->colorDepth });
 	if (!nvfb->fbo) {
 		ERROR_LOG(FRAMEBUF, "Error creating GL FBO! %i x %i", nvfb->renderWidth, nvfb->renderHeight);
 		return false;

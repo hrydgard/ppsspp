@@ -858,8 +858,14 @@ Pipeline *OpenGLContext::CreateGraphicsPipeline(const PipelineDesc &desc) {
 	}
 	OpenGLPipeline *pipeline = new OpenGLPipeline(&renderManager_);
 	for (auto iter : desc.shaders) {
-		iter->AddRef();
-		pipeline->shaders.push_back(static_cast<OpenGLShaderModule *>(iter));
+		if (iter) {
+			iter->AddRef();
+			pipeline->shaders.push_back(static_cast<OpenGLShaderModule *>(iter));
+		} else {
+			ELOG("ERROR: Tried to create graphics pipeline with a null shader module");
+			delete pipeline;
+			return nullptr;
+		}
 	}
 	if (pipeline->LinkShaders()) {
 		// Build the rest of the virtual pipeline object.
@@ -878,7 +884,7 @@ Pipeline *OpenGLContext::CreateGraphicsPipeline(const PipelineDesc &desc) {
 	} else {
 		ELOG("Failed to create pipeline - shaders failed to link");
 		delete pipeline;
-		return NULL;
+		return nullptr;
 	}
 }
 

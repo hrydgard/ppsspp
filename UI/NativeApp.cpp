@@ -691,6 +691,9 @@ bool NativeInitGraphics(GraphicsContext *graphicsContext) {
 	colorPipeline = g_draw->CreateGraphicsPipeline(colorDesc);
 	texColorPipeline = g_draw->CreateGraphicsPipeline(texColorDesc);
 
+	_assert_(colorPipeline);
+	_assert_(texColorPipeline);
+
 	// Release these now, reference counting should ensure that they get completely released
 	// once we delete both pipelines.
 	inputLayout->Release();
@@ -1159,7 +1162,8 @@ bool NativeIsRestarting() {
 }
 
 void NativeShutdown() {
-	screenManager->shutdown();
+	if (screenManager)
+		screenManager->shutdown();
 	delete screenManager;
 	screenManager = nullptr;
 
