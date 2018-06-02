@@ -1116,6 +1116,11 @@ void EmuScreen::preRender() {
 	using namespace Draw;
 	DrawContext *draw = screenManager()->getDrawContext();
 	draw->BeginFrame();
+	// Let's be consistent for the entire frame.  We skip the UI texture if we don't need it.
+	hasVisibleUI_ = hasVisibleUI();
+	if (hasVisibleUI_) {
+		screenManager()->getUIContext()->BeginFrame();
+	}
 	// Here we do NOT bind the backbuffer or clear the screen, unless non-buffered.
 	// The emuscreen is different than the others - we really want to allow the game to render to framebuffers
 	// before we ever bind the backbuffer for rendering. On mobile GPUs, switching back and forth between render
@@ -1216,9 +1221,7 @@ void EmuScreen::render() {
 	if (invalid_)
 		return;
 
-	const bool hasVisibleUI = !osm.IsEmpty() || saveStatePreview_->GetVisibility() != UI::V_GONE || g_Config.bShowTouchControls || loadingSpinner_->GetVisibility() == UI::V_VISIBLE;
-	const bool showDebugUI = g_Config.bShowDebugStats || g_Config.bShowDeveloperMenu || g_Config.bShowAudioDebug || g_Config.bShowFrameProfiler;
-	if (hasVisibleUI || showDebugUI || g_Config.iShowFPSCounter != 0) {
+	if (hasVisibleUI_) {
 		renderUI();
 	}
 
@@ -1238,6 +1241,20 @@ void EmuScreen::render() {
 #endif
 	}
 	*/
+}
+
+bool EmuScreen::hasVisibleUI() {
+	// Regular but uncommon UI.
+	if (saveStatePreview_->GetVisibility() != UI::V_GONE || loadingSpinner_->GetVisibility() == UI::V_VISIBLE)
+		return true;
+	if (!osm.IsEmpty() || g_Config.bShowTouchControls || g_Config.iShowFPSCounter != 0)
+		return true;
+
+	// Debug UI.
+	if (g_Config.bShowDebugStats || g_Config.bShowDeveloperMenu || g_Config.bShowAudioDebug || g_Config.bShowFrameProfiler)
+		return true;
+
+	return false;
 }
 
 void EmuScreen::renderUI() {
