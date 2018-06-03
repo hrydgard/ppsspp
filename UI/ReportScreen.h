@@ -38,6 +38,7 @@ public:
 
 protected:
 	void update() override;
+	void resized() override;
 	void CreateViews() override;
 	void UpdateSubmit();
 	void UpdateOverallDescription();

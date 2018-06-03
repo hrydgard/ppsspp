@@ -170,6 +170,11 @@ void ReportScreen::update() {
 	UIDialogScreenWithGameBackground::update();
 }
 
+void ReportScreen::resized() {
+	UIDialogScreenWithGameBackground::resized();
+	RecreateViews();
+}
+
 EventReturn ReportScreen::HandleChoice(EventParams &e) {
 	if (overall_ == ReportingOverallScore::NONE) {
 		graphics_ = 0;
@@ -218,6 +223,7 @@ void ReportScreen::CreateViews() {
 
 	Margins actionMenuMargins(0, 20, 15, 0);
 	Margins contentMargins(0, 20, 5, 5);
+	float leftColumnWidth = dp_xres - actionMenuMargins.horiz() - contentMargins.horiz() - 300.0f;
 	ViewGroup *leftColumn = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(WRAP_CONTENT, FILL_PARENT, 0.4f, contentMargins));
 	LinearLayout *leftColumnItems = new LinearLayout(ORIENT_VERTICAL, new LayoutParams(WRAP_CONTENT, FILL_PARENT));
 	ViewGroup *rightColumn = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(300, FILL_PARENT, actionMenuMargins));
@@ -259,9 +265,13 @@ void ReportScreen::CreateViews() {
 	leftColumnItems->Add(new CompatRatingChoice("Overall", (int *)&overall_))->SetEnabledPtr(&enableReporting_)->OnChoice.Handle(this, &ReportScreen::HandleChoice);
 	overallDescription_ = leftColumnItems->Add(new TextView("", new LinearLayoutParams(Margins(10, 0))));
 	overallDescription_->SetShadow(true);
-	leftColumnItems->Add(new RatingChoice("Graphics", &graphics_))->SetEnabledPtr(&ratingEnabled_)->OnChoice.Handle(this, &ReportScreen::HandleChoice);
-	leftColumnItems->Add(new RatingChoice("Speed", &speed_))->SetEnabledPtr(&ratingEnabled_)->OnChoice.Handle(this, &ReportScreen::HandleChoice);
-	leftColumnItems->Add(new RatingChoice("Gameplay", &gameplay_))->SetEnabledPtr(&ratingEnabled_)->OnChoice.Handle(this, &ReportScreen::HandleChoice);
+
+	UI::Orientation ratingsOrient = leftColumnWidth >= 750.0f ? ORIENT_HORIZONTAL : ORIENT_VERTICAL;
+	UI::LinearLayout *ratingsHolder = new LinearLayout(ratingsOrient, new LinearLayoutParams(WRAP_CONTENT, WRAP_CONTENT));
+	leftColumnItems->Add(ratingsHolder);
+	ratingsHolder->Add(new RatingChoice("Graphics", &graphics_))->SetEnabledPtr(&ratingEnabled_)->OnChoice.Handle(this, &ReportScreen::HandleChoice);
+	ratingsHolder->Add(new RatingChoice("Speed", &speed_))->SetEnabledPtr(&ratingEnabled_)->OnChoice.Handle(this, &ReportScreen::HandleChoice);
+	ratingsHolder->Add(new RatingChoice("Gameplay", &gameplay_))->SetEnabledPtr(&ratingEnabled_)->OnChoice.Handle(this, &ReportScreen::HandleChoice);
 
 	rightColumnItems->SetSpacing(0.0f);
 	rightColumnItems->Add(new Choice(rp->T("Open Browser")))->OnClick.Handle(this, &ReportScreen::HandleBrowser);
@@ -288,16 +298,18 @@ void ReportScreen::UpdateSubmit() {
 void ReportScreen::UpdateOverallDescription() {
 	I18NCategory *rp = GetI18NCategory("Reporting");
 	const char *desc;
+	uint32_t c = 0xFFFFFFFF;
 	switch (overall_) {
 	case ReportingOverallScore::PERFECT: desc = rp->T("Perfect Description", "Flawless emulation for the entire game - great!"); break;
 	case ReportingOverallScore::PLAYABLE: desc = rp->T("Plays Description", "Fully playable but might be with glitches"); break;
 	case ReportingOverallScore::INGAME: desc = rp->T("In-game Description", "Gets into gameplay, but too buggy too complete"); break;
 	case ReportingOverallScore::MENU: desc = rp->T("Menu/Intro Description", "Can't get into the game itself"); break;
-	case ReportingOverallScore::NONE: desc = rp->T("Nothing Description", "Completely broken"); break;
+	case ReportingOverallScore::NONE: desc = rp->T("Nothing Description", "Completely broken"); c = 0xFF0000FF; break;
 	default: desc = rp->T("Unselected Overall Description", "How well does this game emulate?"); break;
 	}
 
 	overallDescription_->SetText(desc);
+	overallDescription_->SetTextColor(c);
 }
 
 EventReturn ReportScreen::HandleSubmit(EventParams &e) {
