@@ -36,14 +36,14 @@ void IndexGenerator::Setup(u16 *inds) {
 	Reset();
 }
 
-void IndexGenerator::AddPrim(int prim, int vertexCount) {
+void IndexGenerator::AddPrim(int prim, int vertexCount, bool clockwise) {
 	switch (prim) {
 	case GE_PRIM_POINTS: AddPoints(vertexCount); break;
 	case GE_PRIM_LINES: AddLineList(vertexCount); break;
 	case GE_PRIM_LINE_STRIP: AddLineStrip(vertexCount); break;
 	case GE_PRIM_TRIANGLES: AddList(vertexCount); break;
-	case GE_PRIM_TRIANGLE_STRIP: AddStrip(vertexCount); break;
-	case GE_PRIM_TRIANGLE_FAN: AddFan(vertexCount); break;
+	case GE_PRIM_TRIANGLE_STRIP: AddStrip(vertexCount, clockwise); break;
+	case GE_PRIM_TRIANGLE_FAN: AddFan(vertexCount, clockwise); break;
 	case GE_PRIM_RECTANGLES: AddRectangles(vertexCount); break;  // Same
 	}
 }
@@ -77,8 +77,8 @@ void IndexGenerator::AddList(int numVerts) {
 	seenPrims_ |= 1 << GE_PRIM_TRIANGLES;
 }
 
-void IndexGenerator::AddStrip(int numVerts) {
-	int wind = 1;
+void IndexGenerator::AddStrip(int numVerts, bool clockwise) {
+	int wind = clockwise ? 1 : 2;
 	const int numTris = numVerts - 2;
 	u16 *outInds = inds_;
 	int ibase = index_;
@@ -105,14 +105,16 @@ void IndexGenerator::AddStrip(int numVerts) {
 	}
 }
 
-void IndexGenerator::AddFan(int numVerts) {
+void IndexGenerator::AddFan(int numVerts, bool clockwise) {
 	const int numTris = numVerts - 2;
 	u16 *outInds = inds_;
 	const int startIndex = index_;
+	const int v1 = clockwise ? 1 : 2;
+	const int v2 = clockwise ? 2 : 1;
 	for (int i = 0; i < numTris; i++) {
 		*outInds++ = startIndex;
-		*outInds++ = startIndex + i + 1;
-		*outInds++ = startIndex + i + 2;
+		*outInds++ = startIndex + i + v1;
+		*outInds++ = startIndex + i + v2;
 	}
 	inds_ = outInds;
 	index_ += numVerts;
@@ -253,11 +255,13 @@ void IndexGenerator::TranslateStrip(int numInds, const ITypeLE *inds, int indexO
 }
 
 template <class ITypeLE, int flag>
-void IndexGenerator::TranslateFan(int numInds, const ITypeLE *inds, int indexOffset) {
+void IndexGenerator::TranslateFan(int numInds, const ITypeLE *inds, int indexOffset, bool clockwise) {
 	if (numInds <= 0) return;
 	indexOffset = index_ - indexOffset;
 	int numTris = numInds - 2;
 	u16 *outInds = inds_;
+	const int v1 = clockwise ? 1 : 2;
+	const int v2 = clockwise ? 2 : 1;
 	for (int i = 0; i < numTris; i++) {
 		*outInds++ = indexOffset + inds[0];
 		*outInds++ = indexOffset + inds[i + 1];
@@ -293,7 +297,7 @@ void IndexGenerator::TranslatePrim(int prim, int numInds, const u8 *inds, int in
 	case GE_PRIM_LINE_STRIP: TranslateLineStrip<u8, SEEN_INDEX8>(numInds, inds, indexOffset); break;
 	case GE_PRIM_TRIANGLES: TranslateList<u8, SEEN_INDEX8>(numInds, inds, indexOffset); break;
 	case GE_PRIM_TRIANGLE_STRIP: TranslateStrip<u8, SEEN_INDEX8>(numInds, inds, indexOffset, clockwise); break;
-	case GE_PRIM_TRIANGLE_FAN: TranslateFan<u8, SEEN_INDEX8>(numInds, inds, indexOffset); break;
+	case GE_PRIM_TRIANGLE_FAN: TranslateFan<u8, SEEN_INDEX8>(numInds, inds, indexOffset, clockwise); break;
 	case GE_PRIM_RECTANGLES: TranslateRectangles<u8, SEEN_INDEX8>(numInds, inds, indexOffset); break;  // Same
 	}
 }
@@ -305,7 +309,7 @@ void IndexGenerator::TranslatePrim(int prim, int numInds, const u16_le *inds, in
 	case GE_PRIM_LINE_STRIP: TranslateLineStrip<u16_le, SEEN_INDEX16>(numInds, inds, indexOffset); break;
 	case GE_PRIM_TRIANGLES: TranslateList<u16_le, SEEN_INDEX16>(numInds, inds, indexOffset); break;
 	case GE_PRIM_TRIANGLE_STRIP: TranslateStrip<u16_le, SEEN_INDEX16>(numInds, inds, indexOffset, clockwise); break;
-	case GE_PRIM_TRIANGLE_FAN: TranslateFan<u16_le, SEEN_INDEX16>(numInds, inds, indexOffset); break;
+	case GE_PRIM_TRIANGLE_FAN: TranslateFan<u16_le, SEEN_INDEX16>(numInds, inds, indexOffset, clockwise); break;
 	case GE_PRIM_RECTANGLES: TranslateRectangles<u16_le, SEEN_INDEX16>(numInds, inds, indexOffset); break;  // Same
 	}
 }
@@ -317,7 +321,7 @@ void IndexGenerator::TranslatePrim(int prim, int numInds, const u32_le *inds, in
 	case GE_PRIM_LINE_STRIP: TranslateLineStrip<u32_le, SEEN_INDEX32>(numInds, inds, indexOffset); break;
 	case GE_PRIM_TRIANGLES: TranslateList<u32_le, SEEN_INDEX32>(numInds, inds, indexOffset); break;
 	case GE_PRIM_TRIANGLE_STRIP: TranslateStrip<u32_le, SEEN_INDEX32>(numInds, inds, indexOffset, clockwise); break;
-	case GE_PRIM_TRIANGLE_FAN: TranslateFan<u32_le, SEEN_INDEX32>(numInds, inds, indexOffset); break;
+	case GE_PRIM_TRIANGLE_FAN: TranslateFan<u32_le, SEEN_INDEX32>(numInds, inds, indexOffset, clockwise); break;
 	case GE_PRIM_RECTANGLES: TranslateRectangles<u32_le, SEEN_INDEX32>(numInds, inds, indexOffset); break;  // Same
 	}
 }

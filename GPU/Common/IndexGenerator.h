@@ -49,7 +49,7 @@ public:
 
 	GEPrimitiveType Prim() const { return prim_; }
 
-	void AddPrim(int prim, int vertexCount);
+	void AddPrim(int prim, int vertexCount, bool clockwise = true);
 	void TranslatePrim(int prim, int numInds, const u8 *inds, int indexOffset, bool clockwise);
 	void TranslatePrim(int prim, int numInds, const u16_le *inds, int indexOffset, bool clockwise);
 	void TranslatePrim(int prim, int numInds, const u32_le *inds, int indexOffset, bool clockwise);
@@ -76,8 +76,8 @@ private:
 	void AddPoints(int numVerts);
 	// Triangles
 	void AddList(int numVerts);
-	void AddStrip(int numVerts);
-	void AddFan(int numVerts);
+	void AddStrip(int numVerts, bool clockwise);
+	void AddFan(int numVerts, bool clockwise);
 	// Lines
 	void AddLineList(int numVerts);
 	void AddLineStrip(int numVerts);
@@ -97,7 +97,7 @@ private:
 	template <class ITypeLE, int flag>
 	void TranslateStrip(int numVerts, const ITypeLE *inds, int indexOffset, bool clockwise);
 	template <class ITypeLE, int flag>
-	void TranslateFan(int numVerts, const ITypeLE *inds, int indexOffset);
+	void TranslateFan(int numVerts, const ITypeLE *inds, int indexOffset, bool clockwise);
 
 	template <class ITypeLE, int flag>
 	inline void TranslateRectangles(int numVerts, const ITypeLE *inds, int indexOffset);
