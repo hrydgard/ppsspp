@@ -82,14 +82,7 @@ void main() {
 
 FramebufferManagerVulkan::FramebufferManagerVulkan(Draw::DrawContext *draw, VulkanContext *vulkan) :
 	FramebufferManagerCommon(draw),
-	vulkan_(vulkan),
-	drawPixelsTex_(nullptr),
-	drawPixelsTexFormat_(GE_FORMAT_INVALID),
-	convBuf_(nullptr),
-	convBufSize_(0),
-	textureCacheVulkan_(nullptr),
-	shaderManagerVulkan_(nullptr),
-	pipelinePostShader_(VK_NULL_HANDLE) {
+	vulkan_(vulkan) {
 
 	InitDeviceObjects();
 
@@ -215,7 +208,7 @@ void FramebufferManagerVulkan::MakePixelTexture(const u8 *srcPixels, GEBufferFor
 
 	// TODO: We can just change the texture format and flip some bits around instead of this.
 	// Could share code with the texture cache perhaps.
-	// Could also convert directly into the pushbuffer easily.
+	// TODO: Could also convert directly into the pushbuffer easily.
 	const uint8_t *data = srcPixels;
 	if (srcPixelFormat != GE_FORMAT_8888 || srcStride != width) {
 		u32 neededSize = width * height * 4;
@@ -226,38 +219,25 @@ void FramebufferManagerVulkan::MakePixelTexture(const u8 *srcPixels, GEBufferFor
 		}
 		data = convBuf_;
 		for (int y = 0; y < height; y++) {
+			const u16_le *src16 = (const u16_le *)srcPixels + srcStride * y;
+			const u32_le *src32 = (const u32_le *)srcPixels + srcStride * y;
+			u32 *dst = (u32 *)convBuf_ + width * y;
 			switch (srcPixelFormat) {
 			case GE_FORMAT_565:
-			{
-				const u16 *src = (const u16 *)srcPixels + srcStride * y;
-				u8 *dst = convBuf_ + 4 * width * y;
-				ConvertRGBA565ToRGBA8888((u32 *)dst, src, width);
-			}
-			break;
+				ConvertRGBA565ToRGBA8888((u32 *)dst, src16, width);
+				break;
 
 			case GE_FORMAT_5551:
-			{
-				const u16 *src = (const u16 *)srcPixels + srcStride * y;
-				u8 *dst = convBuf_ + 4 * width * y;
-				ConvertRGBA5551ToRGBA8888((u32 *)dst, src, width);
-			}
-			break;
+				ConvertRGBA5551ToRGBA8888((u32 *)dst, src16, width);
+				break;
 
 			case GE_FORMAT_4444:
-			{
-				const u16 *src = (const u16 *)srcPixels + srcStride * y;
-				u8 *dst = convBuf_ + 4 * width * y;
-				ConvertRGBA4444ToRGBA8888((u32 *)dst, src, width);
-			}
-			break;
+				ConvertRGBA4444ToRGBA8888((u32 *)dst, src16, width);
+				break;
 
 			case GE_FORMAT_8888:
-			{
-				const u8 *src = srcPixels + srcStride * 4 * y;
-				u8 *dst = convBuf_ + 4 * width * y;
-				memcpy(dst, src, 4 * width);
-			}
-			break;
+				memcpy(dst, src32, 4 * width);
+				break;
 
 			case GE_FORMAT_INVALID:
 				_dbg_assert_msg_(G3D, false, "Invalid pixelFormat passed to DrawPixels().");
@@ -571,8 +551,8 @@ void FramebufferManagerVulkan::DestroyAllFBOs() {
 	}
 	bvfbs_.clear();
 
-	for (auto it = tempFBOs_.begin(), end = tempFBOs_.end(); it != end; ++it) {
-		it->second.fbo->Release();
+	for (auto &tempFB : tempFBOs_) {
+		tempFB.second.fbo->Release();
 	}
 	tempFBOs_.clear();
 

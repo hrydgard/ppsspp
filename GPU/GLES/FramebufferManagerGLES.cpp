@@ -76,8 +76,6 @@ static const char basic_vs[] =
 	"  gl_Position = a_position;\n"
 	"}\n";
 
-const int MAX_PBO = 2;
-
 void FramebufferManagerGLES::CompileDraw2DProgram() {
 	if (!draw2dprogram_) {
 		std::string errorString;
@@ -359,37 +357,24 @@ void FramebufferManagerGLES::MakePixelTexture(const u8 *srcPixels, GEBufferForma
 	u32 neededSize = texWidth * height * 4;
 	u8 *convBuf = new u8[neededSize];
 	for (int y = 0; y < height; y++) {
+		const u16_le *src16 = (const u16_le *)srcPixels + srcStride * y;
+		const u32_le *src32 = (const u32_le *)srcPixels + srcStride * y;
+		u32 *dst = (u32 *)convBuf + texWidth * y;
 		switch (srcPixelFormat) {
 		case GE_FORMAT_565:
-			{
-				const u16 *src = (const u16 *)srcPixels + srcStride * y;
-				u8 *dst = convBuf + 4 * texWidth * y;
-				ConvertRGBA565ToRGBA8888((u32 *)dst, src, width);
-			}
+			ConvertRGBA565ToRGBA8888((u32 *)dst, src16, width);
 			break;
 
 		case GE_FORMAT_5551:
-			{
-				const u16 *src = (const u16 *)srcPixels + srcStride * y;
-				u8 *dst = convBuf + 4 * texWidth * y;
-				ConvertRGBA5551ToRGBA8888((u32 *)dst, src, width);
-			}
+			ConvertRGBA5551ToRGBA8888((u32 *)dst, src16, width);
 			break;
 
 		case GE_FORMAT_4444:
-			{
-				const u16 *src = (const u16 *)srcPixels + srcStride * y;
-				u8 *dst = convBuf + 4 * texWidth * y;
-				ConvertRGBA4444ToRGBA8888((u32 *)dst, src, width);
-			}
+			ConvertRGBA4444ToRGBA8888((u32 *)dst, src16, width);
 			break;
 
 		case GE_FORMAT_8888:
-			{
-				const u8 *src = srcPixels + srcStride * 4 * y;
-				u8 *dst = convBuf + 4 * texWidth * y;
-				memcpy(dst, src, 4 * width);
-			}
+			memcpy(dst, src32, 4 * width);
 			break;
 
 		case GE_FORMAT_INVALID:
@@ -752,8 +737,8 @@ void FramebufferManagerGLES::DestroyAllFBOs() {
 	}
 	bvfbs_.clear();
 
-	for (auto it = tempFBOs_.begin(), end = tempFBOs_.end(); it != end; ++it) {
-		it->second.fbo->Release();
+	for (auto &tempFB : tempFBOs_) {
+		tempFB.second.fbo->Release();
 	}
 	tempFBOs_.clear();
 

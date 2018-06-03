@@ -96,9 +96,9 @@ private:
 	u8 *convBuf_ = nullptr;
 	u32 convBufSize_ = 0;
 
-	TextureCacheVulkan *textureCacheVulkan_;
-	ShaderManagerVulkan *shaderManagerVulkan_;
-	DrawEngineVulkan *drawEngineVulkan_;
+	TextureCacheVulkan *textureCacheVulkan_ = nullptr;
+	ShaderManagerVulkan *shaderManagerVulkan_ = nullptr;
+	DrawEngineVulkan *drawEngineVulkan_ = nullptr;
 	VulkanPushBuffer *push_;
 
 	enum {
