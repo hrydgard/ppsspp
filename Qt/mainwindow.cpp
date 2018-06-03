@@ -21,7 +21,6 @@ MainWindow::MainWindow(QWidget *parent, bool fullscreen) :
 	currentLanguage("en"),
 	nextState(CORE_POWERDOWN),
 	lastUIState(UISTATE_MENU),
-	dialogDisasm(0),
 	memoryWindow(0),
 	memoryTexWindow(0),
 	displaylistWindow(0)
@@ -145,10 +144,6 @@ void MainWindow::updateMenus()
 
 void MainWindow::bootDone()
 {
-	dialogDisasm = new Debugger_Disasm(currentDebugMIPS, this, this);
-	if(g_Config.bShowDebuggerOnLoad)
-		dialogDisasm->show();
-
 	if(g_Config.bFullScreen != isFullScreen())
 		fullscrAct();
 
@@ -177,11 +172,8 @@ void MainWindow::openAct()
 
 void MainWindow::closeAct()
 {
-	if(dialogDisasm)
-		dialogDisasm->Stop();
+	updateMenus();
 
-	if(dialogDisasm && dialogDisasm->isVisible())
-		dialogDisasm->close();
 	if(memoryWindow && memoryWindow->isVisible())
 		memoryWindow->close();
 	if(memoryTexWindow && memoryTexWindow->isVisible())
@@ -266,11 +258,8 @@ void MainWindow::pauseAct()
 
 void MainWindow::resetAct()
 {
-	if(dialogDisasm)
-		dialogDisasm->Stop();
+	updateMenus();
 
-	if(dialogDisasm)
-		dialogDisasm->close();
 	if(memoryWindow)
 		memoryWindow->close();
 	if(memoryTexWindow)
@@ -331,12 +320,6 @@ void MainWindow::resetTableAct()
 void MainWindow::dumpNextAct()
 {
 	gpu->DumpNextFrame();
-}
-
-void MainWindow::disasmAct()
-{
-	if(dialogDisasm)
-		dialogDisasm->show();
 }
 
 void MainWindow::dpyListAct()
@@ -537,8 +520,6 @@ void MainWindow::createMenus()
 	debugMenu->add(new MenuAction(this, SLOT(takeScreen()),  QT_TR_NOOP("Take Screenshot"), Qt::Key_F12))
 		->addDisableState(UISTATE_MENU);
 	debugMenu->addSeparator();
-	debugMenu->add(new MenuAction(this, SLOT(disasmAct()),    QT_TR_NOOP("Disassembly"), Qt::CTRL + Qt::Key_D))
-		->addDisableState(UISTATE_MENU);
 	//commented out until someone bothers to maintain it
 	//debugMenu->add(new MenuAction(this, SLOT(dpyListAct()),   QT_TR_NOOP("Display List...")))
 	//	->addDisableState(UISTATE_MENU);
@@ -671,8 +652,6 @@ void MainWindow::createMenus()
 
 void MainWindow::notifyMapsLoaded()
 {
-	if (dialogDisasm)
-		dialogDisasm->NotifyMapLoaded();
 	if (memoryWindow)
 		memoryWindow->NotifyMapLoaded();
 }

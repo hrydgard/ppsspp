@@ -41,15 +41,12 @@ public:
 			mainWindow->GetDialogMemory()->Update();
 	}
 	virtual void UpdateDisassembly() override {
-		if(mainWindow->GetDialogDisasm())
-			mainWindow->GetDialogDisasm()->Update();
+		mainWindow->updateMenus();
 		if(mainWindow->GetDialogDisplaylist())
 			mainWindow->GetDialogDisplaylist()->Update();
 	}
 
 	virtual void SetDebugMode(bool mode) override {
-		if(mainWindow->GetDialogDisasm())
-			mainWindow->GetDialogDisasm()->SetDebugMode(mode);
 	}
 
 	virtual bool InitGraphics(std::string *error_message, GraphicsContext **ctx) override { return true; }

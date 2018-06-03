@@ -12,7 +12,6 @@
 #include "Core/Core.h"
 #include "Core/Config.h"
 #include "Core/System.h"
-#include "Debugger/debugger_disasm.h"
 #include "Debugger/debugger_memory.h"
 #include "Debugger/debugger_memorytex.h"
 #include "Debugger/debugger_displaylist.h"
@@ -37,7 +36,6 @@ public:
 	explicit MainWindow(QWidget *parent = 0, bool fullscreen=false);
 	~MainWindow() { };
 
-	Debugger_Disasm* GetDialogDisasm() { return dialogDisasm; }
 	Debugger_Memory* GetDialogMemory() { return memoryWindow; }
 	Debugger_MemoryTex* GetDialogMemoryTex() { return memoryTexWindow; }
 	Debugger_DisplayList* GetDialogDisplaylist() { return displaylistWindow; }
@@ -97,7 +95,6 @@ private slots:
 	void resetTableAct();
 	void dumpNextAct();
 	void takeScreen() { g_TakeScreenshot = true; }
-	void disasmAct();
 	void dpyListAct();
 	void consoleAct();
 	void memviewAct();
@@ -167,7 +164,6 @@ private:
 	CoreState nextState;
 	GlobalUIState lastUIState;
 
-	Debugger_Disasm *dialogDisasm;
 	Debugger_Memory *memoryWindow;
 	Debugger_MemoryTex *memoryTexWindow;
 	Debugger_DisplayList *displaylistWindow;

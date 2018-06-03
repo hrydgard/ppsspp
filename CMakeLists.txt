@@ -757,7 +757,6 @@ elseif(USING_QT_UI)
         find_package(Qt5 COMPONENTS Multimedia)
     endif(NOT SDL2_FOUND)
     set(Qt_UI
-      Qt/Debugger/debugger_disasm.ui
       Qt/Debugger/debugger_displaylist.ui
       Qt/Debugger/debugger_memory.ui
       Qt/Debugger/debugger_memorytex.ui
@@ -771,14 +770,8 @@ elseif(USING_QT_UI)
       Qt/QtHost.h
       Qt/mainwindow.cpp
       Qt/mainwindow.h
-      Qt/Debugger/ctrldisasmview.cpp
-      Qt/Debugger/ctrldisasmview.h
       Qt/Debugger/ctrlmemview.cpp
       Qt/Debugger/ctrlmemview.h
-      Qt/Debugger/ctrlregisterlist.cpp
-      Qt/Debugger/ctrlregisterlist.h
-      Qt/Debugger/debugger_disasm.cpp
-      Qt/Debugger/debugger_disasm.h
       Qt/Debugger/debugger_displaylist.cpp
       Qt/Debugger/debugger_displaylist.h
       Qt/Debugger/debugger_memory.cpp
