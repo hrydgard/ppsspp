@@ -35,8 +35,6 @@ public:
 	}
 
 	virtual void UpdateMemView() override {
-		if(mainWindow->GetDialogMemory())
-			mainWindow->GetDialogMemory()->Update();
 	}
 	virtual void UpdateDisassembly() override {
 		mainWindow->updateMenus();

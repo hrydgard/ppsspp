@@ -757,7 +757,6 @@ elseif(USING_QT_UI)
         find_package(Qt5 COMPONENTS Multimedia)
     endif(NOT SDL2_FOUND)
     set(Qt_UI
-      Qt/Debugger/debugger_memory.ui
       Qt/Debugger/debugger_memorytex.ui
     )
     qt5_wrap_ui(QT_UI_GEN ${Qt_UI})
@@ -769,10 +768,6 @@ elseif(USING_QT_UI)
       Qt/QtHost.h
       Qt/mainwindow.cpp
       Qt/mainwindow.h
-      Qt/Debugger/ctrlmemview.cpp
-      Qt/Debugger/ctrlmemview.h
-      Qt/Debugger/debugger_memory.cpp
-      Qt/Debugger/debugger_memory.h
       Qt/Debugger/debugger_memorytex.cpp
       Qt/Debugger/debugger_memorytex.h
     )

@@ -12,7 +12,6 @@
 #include "Core/Core.h"
 #include "Core/Config.h"
 #include "Core/System.h"
-#include "Debugger/debugger_memory.h"
 #include "Debugger/debugger_memorytex.h"
 #include "Qt/QtMain.h"
 
@@ -35,11 +34,9 @@ public:
 	explicit MainWindow(QWidget *parent = 0, bool fullscreen=false);
 	~MainWindow() { };
 
-	Debugger_Memory* GetDialogMemory() { return memoryWindow; }
 	Debugger_MemoryTex* GetDialogMemoryTex() { return memoryTexWindow; }
 	CoreState GetNextState() { return nextState; }
 
-	void ShowMemory(u32 addr);
 	void updateMenus();
 
 	void Notify(MainWindowMsg msg) {
@@ -94,7 +91,6 @@ private slots:
 	void dumpNextAct();
 	void takeScreen() { g_TakeScreenshot = true; }
 	void consoleAct();
-	void memviewAct();
 	void memviewTexAct();
 
 	// Options
@@ -153,7 +149,6 @@ private:
 	void SetGameTitle(QString text);
 	void loadLanguage(const QString &language, bool retranslate);
 	void createMenus();
-	void notifyMapsLoaded();
 
 	QTranslator translator;
 	QString currentLanguage;
@@ -161,7 +156,6 @@ private:
 	CoreState nextState;
 	GlobalUIState lastUIState;
 
-	Debugger_Memory *memoryWindow;
 	Debugger_MemoryTex *memoryTexWindow;
 
 	QActionGroup *anisotropicGroup, *screenGroup, *displayLayoutGroup,

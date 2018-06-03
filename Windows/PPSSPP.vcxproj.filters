@@ -161,13 +161,7 @@
     <ClCompile Include="..\Qt\mainwindow.cpp">
       <Filter>Other Platforms\Qt</Filter>
     </ClCompile>
-    <ClCompile Include="..\Qt\Debugger\debugger_memory.cpp">
-      <Filter>Other Platforms\Qt\Debugger</Filter>
-    </ClCompile>
     <ClCompile Include="..\Qt\Debugger\debugger_memorytex.cpp">
-      <Filter>Other Platforms\Qt\Debugger</Filter>
-    </ClCompile>
-    <ClCompile Include="..\Qt\Debugger\ctrlmemview.cpp">
       <Filter>Other Platforms\Qt\Debugger</Filter>
     </ClCompile>
     <ClCompile Include="GPU\D3D11Context.cpp">
@@ -323,13 +317,7 @@
     <ClInclude Include="..\Qt\Debugger\ctrlvfpuview.h">
       <Filter>Other Platforms\Qt\Debugger</Filter>
     </ClInclude>
-    <ClInclude Include="..\Qt\Debugger\debugger_memory.h">
-      <Filter>Other Platforms\Qt\Debugger</Filter>
-    </ClInclude>
     <ClInclude Include="..\Qt\Debugger\debugger_memorytex.h">
-      <Filter>Other Platforms\Qt\Debugger</Filter>
-    </ClInclude>
-    <ClInclude Include="..\Qt\Debugger\ctrlmemview.h">
       <Filter>Other Platforms\Qt\Debugger</Filter>
     </ClInclude>
     <ClInclude Include="GPU\D3D11Context.h">
@@ -434,9 +422,6 @@
     </None>
     <None Include="..\Qt\assets.qrc">
       <Filter>Other Platforms\Qt</Filter>
-    </None>
-    <None Include="..\Qt\Debugger\debugger_memory.ui">
-      <Filter>Other Platforms\Qt\Debugger</Filter>
     </None>
     <None Include="..\Qt\Debugger\debugger_memorytex.ui">
       <Filter>Other Platforms\Qt\Debugger</Filter>

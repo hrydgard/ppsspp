@@ -21,7 +21,6 @@ MainWindow::MainWindow(QWidget *parent, bool fullscreen) :
 	currentLanguage("en"),
 	nextState(CORE_POWERDOWN),
 	lastUIState(UISTATE_MENU),
-	memoryWindow(0),
 	memoryTexWindow(0)
 {
 	QDesktopWidget *desktop = QApplication::desktop();
@@ -45,12 +44,6 @@ MainWindow::MainWindow(QWidget *parent, bool fullscreen) :
 
 	QObject::connect(emugl, SIGNAL(doubleClick()), this, SLOT(fullscrAct()));
 	QObject::connect(emugl, SIGNAL(newFrame()), this, SLOT(newFrame()));
-}
-
-void MainWindow::ShowMemory(u32 addr)
-{
-	if(memoryWindow)
-		memoryWindow->Goto(addr);
 }
 
 inline float clamp1(float x) {
@@ -146,10 +139,7 @@ void MainWindow::bootDone()
 	if(g_Config.bFullScreen != isFullScreen())
 		fullscrAct();
 
-	memoryWindow = new Debugger_Memory(currentDebugMIPS, this, this);
 	memoryTexWindow = new Debugger_MemoryTex(this);
-
-	notifyMapsLoaded();
 
 	if (nextState == CORE_RUNNING)
 		runAct();
@@ -172,8 +162,6 @@ void MainWindow::closeAct()
 {
 	updateMenus();
 
-	if(memoryWindow && memoryWindow->isVisible())
-		memoryWindow->close();
 	if(memoryTexWindow && memoryTexWindow->isVisible())
 		memoryTexWindow->close();
 
@@ -256,8 +244,6 @@ void MainWindow::resetAct()
 {
 	updateMenus();
 
-	if(memoryWindow)
-		memoryWindow->close();
 	if(memoryTexWindow)
 		memoryTexWindow->close();
 
@@ -285,7 +271,6 @@ void MainWindow::lmapAct()
 	{
 		QString fileName = QFileInfo(fileNames[0]).absoluteFilePath();
 		g_symbolMap->LoadSymbolMap(fileName.toStdString().c_str());
-		notifyMapsLoaded();
 	}
 }
 
@@ -308,7 +293,6 @@ void MainWindow::smapAct()
 void MainWindow::resetTableAct()
 {
 	g_symbolMap->Clear();
-	notifyMapsLoaded();
 }
 
 void MainWindow::dumpNextAct()
@@ -319,12 +303,6 @@ void MainWindow::dumpNextAct()
 void MainWindow::consoleAct()
 {
 	LogManager::GetInstance()->GetConsoleListener()->Show(LogManager::GetInstance()->GetConsoleListener()->Hidden());
-}
-
-void MainWindow::memviewAct()
-{
-	if (memoryWindow)
-		memoryWindow->show();
 }
 
 void MainWindow::memviewTexAct()
@@ -510,8 +488,6 @@ void MainWindow::createMenus()
 	debugMenu->addSeparator();
 	debugMenu->add(new MenuAction(this, SLOT(consoleAct()),   QT_TR_NOOP("Log Console")))
 		->addDisableState(UISTATE_MENU);
-	debugMenu->add(new MenuAction(this, SLOT(memviewAct()),   QT_TR_NOOP("Memory View")))
-		->addDisableState(UISTATE_MENU);
 	debugMenu->add(new MenuAction(this, SLOT(memviewTexAct()),QT_TR_NOOP("Memory View Texture")))
 		->addDisableState(UISTATE_MENU);
 
@@ -633,10 +609,4 @@ void MainWindow::createMenus()
 	helpMenu->add(new MenuAction(this, SLOT(aboutAct()),      QT_TR_NOOP("&About PPSSPP..."), QKeySequence::WhatsThis));
 
 	retranslate();
-}
-
-void MainWindow::notifyMapsLoaded()
-{
-	if (memoryWindow)
-		memoryWindow->NotifyMapLoaded();
 }
