@@ -347,12 +347,6 @@
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
     </ClCompile>
-    <ClCompile Include="..\Qt\Debugger\debugger_displaylist.cpp">
-      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
-      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">true</ExcludedFromBuild>
-      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
-      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
-    </ClCompile>
     <ClCompile Include="..\Qt\Debugger\debugger_memory.cpp">
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">true</ExcludedFromBuild>
@@ -465,7 +459,6 @@
     <ClInclude Include="..\android\jni\TestRunner.h" />
     <ClInclude Include="..\ios\ViewController.h" />
     <ClInclude Include="..\Qt\Debugger\ctrlmemview.h" />
-    <ClInclude Include="..\Qt\Debugger\debugger_displaylist.h" />
     <ClInclude Include="..\Qt\Debugger\debugger_memory.h" />
     <ClInclude Include="..\Qt\Debugger\debugger_memorytex.h" />
     <ClInclude Include="..\Qt\mainwindow.h" />
@@ -527,7 +520,6 @@
     <None Include="..\Qt\assets.qrc" />
     <None Include="..\Qt\Common.pro" />
     <None Include="..\Qt\Core.pro" />
-    <None Include="..\Qt\Debugger\debugger_displaylist.ui" />
     <None Include="..\Qt\Debugger\debugger_memory.ui" />
     <None Include="..\Qt\Debugger\debugger_memorytex.ui" />
     <None Include="..\Qt\GPU.pro" />

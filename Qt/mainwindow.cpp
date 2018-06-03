@@ -22,8 +22,7 @@ MainWindow::MainWindow(QWidget *parent, bool fullscreen) :
 	nextState(CORE_POWERDOWN),
 	lastUIState(UISTATE_MENU),
 	memoryWindow(0),
-	memoryTexWindow(0),
-	displaylistWindow(0)
+	memoryTexWindow(0)
 {
 	QDesktopWidget *desktop = QApplication::desktop();
 	int screenNum = QProcessEnvironment::systemEnvironment().value("SDL_VIDEO_FULLSCREEN_HEAD", "0").toInt();
@@ -149,7 +148,6 @@ void MainWindow::bootDone()
 
 	memoryWindow = new Debugger_Memory(currentDebugMIPS, this, this);
 	memoryTexWindow = new Debugger_MemoryTex(this);
-	displaylistWindow = new Debugger_DisplayList(currentDebugMIPS, gpu->GetDrawContext(), this, this);
 
 	notifyMapsLoaded();
 
@@ -178,8 +176,6 @@ void MainWindow::closeAct()
 		memoryWindow->close();
 	if(memoryTexWindow && memoryTexWindow->isVisible())
 		memoryTexWindow->close();
-	if(displaylistWindow && displaylistWindow->isVisible())
-		displaylistWindow->close();
 
 	NativeMessageReceived("stop", "");
 	SetGameTitle("");
@@ -264,8 +260,6 @@ void MainWindow::resetAct()
 		memoryWindow->close();
 	if(memoryTexWindow)
 		memoryTexWindow->close();
-	if(displaylistWindow)
-		displaylistWindow->close();
 
 	NativeMessageReceived("reset", "");
 }
@@ -320,12 +314,6 @@ void MainWindow::resetTableAct()
 void MainWindow::dumpNextAct()
 {
 	gpu->DumpNextFrame();
-}
-
-void MainWindow::dpyListAct()
-{
-	if(displaylistWindow)
-		displaylistWindow->show();
 }
 
 void MainWindow::consoleAct()
@@ -520,9 +508,6 @@ void MainWindow::createMenus()
 	debugMenu->add(new MenuAction(this, SLOT(takeScreen()),  QT_TR_NOOP("Take Screenshot"), Qt::Key_F12))
 		->addDisableState(UISTATE_MENU);
 	debugMenu->addSeparator();
-	//commented out until someone bothers to maintain it
-	//debugMenu->add(new MenuAction(this, SLOT(dpyListAct()),   QT_TR_NOOP("Display List...")))
-	//	->addDisableState(UISTATE_MENU);
 	debugMenu->add(new MenuAction(this, SLOT(consoleAct()),   QT_TR_NOOP("Log Console")))
 		->addDisableState(UISTATE_MENU);
 	debugMenu->add(new MenuAction(this, SLOT(memviewAct()),   QT_TR_NOOP("Memory View")))

@@ -28,8 +28,6 @@ public:
 	QtHost(MainWindow *mainWindow_)
 	{
 		mainWindow = mainWindow_;
-		m_GPUStep = false;
-		m_GPUFlag = 0;
 	}
 
 	virtual void UpdateUI() override {
@@ -42,8 +40,6 @@ public:
 	}
 	virtual void UpdateDisassembly() override {
 		mainWindow->updateMenus();
-		if(mainWindow->GetDialogDisplaylist())
-			mainWindow->GetDialogDisplaylist()->Update();
 	}
 
 	virtual void SetDebugMode(bool mode) override {
@@ -97,24 +93,9 @@ public:
 	}
 
 	bool GPUDebuggingActive() override {
-		auto dialogDisplayList = mainWindow->GetDialogDisplaylist();
-		if (dialogDisplayList && dialogDisplayList->isVisible()) {
-			if (m_GPUStep && m_GPUFlag == -1)
-				m_GPUFlag = 0;
-
-			return true;
-		}
 		return false;
-	}
-	void SetGPUStep(bool value, int flag = 0, u32 data = 0) {
-		m_GPUStep = value;
-		m_GPUFlag = flag;
-		m_GPUData = data;
 	}
 private:
 	const char* SymbolMapFilename(std::string currentFilename);
 	MainWindow* mainWindow;
-	bool m_GPUStep;
-	int m_GPUFlag;
-	u32 m_GPUData;
 };

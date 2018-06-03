@@ -161,9 +161,6 @@
     <ClCompile Include="..\Qt\mainwindow.cpp">
       <Filter>Other Platforms\Qt</Filter>
     </ClCompile>
-    <ClCompile Include="..\Qt\Debugger\debugger_displaylist.cpp">
-      <Filter>Other Platforms\Qt\Debugger</Filter>
-    </ClCompile>
     <ClCompile Include="..\Qt\Debugger\debugger_memory.cpp">
       <Filter>Other Platforms\Qt\Debugger</Filter>
     </ClCompile>
@@ -326,9 +323,6 @@
     <ClInclude Include="..\Qt\Debugger\ctrlvfpuview.h">
       <Filter>Other Platforms\Qt\Debugger</Filter>
     </ClInclude>
-    <ClInclude Include="..\Qt\Debugger\debugger_displaylist.h">
-      <Filter>Other Platforms\Qt\Debugger</Filter>
-    </ClInclude>
     <ClInclude Include="..\Qt\Debugger\debugger_memory.h">
       <Filter>Other Platforms\Qt\Debugger</Filter>
     </ClInclude>
@@ -440,9 +434,6 @@
     </None>
     <None Include="..\Qt\assets.qrc">
       <Filter>Other Platforms\Qt</Filter>
-    </None>
-    <None Include="..\Qt\Debugger\debugger_displaylist.ui">
-      <Filter>Other Platforms\Qt\Debugger</Filter>
     </None>
     <None Include="..\Qt\Debugger\debugger_memory.ui">
       <Filter>Other Platforms\Qt\Debugger</Filter>

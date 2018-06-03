@@ -14,7 +14,6 @@
 #include "Core/System.h"
 #include "Debugger/debugger_memory.h"
 #include "Debugger/debugger_memorytex.h"
-#include "Debugger/debugger_displaylist.h"
 #include "Qt/QtMain.h"
 
 extern bool g_TakeScreenshot;
@@ -38,7 +37,6 @@ public:
 
 	Debugger_Memory* GetDialogMemory() { return memoryWindow; }
 	Debugger_MemoryTex* GetDialogMemoryTex() { return memoryTexWindow; }
-	Debugger_DisplayList* GetDialogDisplaylist() { return displaylistWindow; }
 	CoreState GetNextState() { return nextState; }
 
 	void ShowMemory(u32 addr);
@@ -95,7 +93,6 @@ private slots:
 	void resetTableAct();
 	void dumpNextAct();
 	void takeScreen() { g_TakeScreenshot = true; }
-	void dpyListAct();
 	void consoleAct();
 	void memviewAct();
 	void memviewTexAct();
@@ -166,7 +163,6 @@ private:
 
 	Debugger_Memory *memoryWindow;
 	Debugger_MemoryTex *memoryTexWindow;
-	Debugger_DisplayList *displaylistWindow;
 
 	QActionGroup *anisotropicGroup, *screenGroup, *displayLayoutGroup,
 	             *defaultLogGroup, *g3dLogGroup, *hleLogGroup;
