@@ -65,14 +65,17 @@ protected:
 
 class ReportFinishScreen : public UIDialogScreenWithGameBackground {
 public:
-	ReportFinishScreen(const std::string &gamePath);
+	ReportFinishScreen(const std::string &gamePath, ReportingOverallScore score);
 
 protected:
 	void update() override;
 	void CreateViews() override;
+	void ShowSuggestions();
 
 	UI::EventReturn HandleViewFeedback(UI::EventParams &e);
 
-	UI::TextView *resultNotice_;
-	bool setStatus_;
+	UI::TextView *resultNotice_ = nullptr;
+	UI::LinearLayout *resultItems_ = nullptr;
+	ReportingOverallScore score_;
+	bool setStatus_ = false;
 };

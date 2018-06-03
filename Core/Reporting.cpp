@@ -67,6 +67,8 @@ namespace Reporting
 	static bool currentSupported = false;
 	// Whether the most recent server request seemed successful.
 	static bool serverWorking = true;
+	// The latest compatibility result from the server.
+	static std::vector<std::string> lastCompatResult;
 
 	enum class RequestType
 	{
@@ -423,6 +425,7 @@ namespace Reporting
 			postdata.Add("speed", StringFromFormat("%d", payload.int2));
 			postdata.Add("gameplay", StringFromFormat("%d", payload.int3));
 			postdata.Add("crc", StringFromFormat("%08x", Core_GetPowerSaving() ? 0 : RetrieveCRC()));
+			postdata.Add("suggestions", payload.string1 != "perfect" && payload.string1 != "playable" ? "1" : "0");
 			AddScreenshotData(postdata, payload.string2);
 			payload.string1.clear();
 			payload.string2.clear();
@@ -432,12 +435,14 @@ namespace Reporting
 			if (!SendReportRequest("/report/compat", postdata.ToString(), postdata.GetMimeType(), &output)) {
 				serverWorking = false;
 			} else {
-				char res = 0;
-				if (!output.empty()) {
-					output.Take(1, &res);
-				}
-				if (res == 0)
+				std::string result;
+				output.TakeAll(&result);
+
+				lastCompatResult.clear();
+				if (result.empty() || result[0] == '0')
 					serverWorking = false;
+				else if (result[0] != '1')
+					SplitString(result, '\n', lastCompatResult);
 			}
 			break;
 
@@ -593,5 +598,9 @@ namespace Reporting
 
 		std::thread th(Process, pos);
 		th.detach();
+	}
+
+	std::vector<std::string> CompatibilitySuggestions() {
+		return lastCompatResult;
 	}
 }
