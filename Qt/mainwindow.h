@@ -12,7 +12,6 @@
 #include "Core/Core.h"
 #include "Core/Config.h"
 #include "Core/System.h"
-#include "Debugger/debugger_memorytex.h"
 #include "Qt/QtMain.h"
 
 extern bool g_TakeScreenshot;
@@ -34,7 +33,6 @@ public:
 	explicit MainWindow(QWidget *parent = 0, bool fullscreen=false);
 	~MainWindow() { };
 
-	Debugger_MemoryTex* GetDialogMemoryTex() { return memoryTexWindow; }
 	CoreState GetNextState() { return nextState; }
 
 	void updateMenus();
@@ -91,7 +89,6 @@ private slots:
 	void dumpNextAct();
 	void takeScreen() { g_TakeScreenshot = true; }
 	void consoleAct();
-	void memviewTexAct();
 
 	// Options
 	// Core
@@ -155,8 +152,6 @@ private:
 
 	CoreState nextState;
 	GlobalUIState lastUIState;
-
-	Debugger_MemoryTex *memoryTexWindow;
 
 	QActionGroup *anisotropicGroup, *screenGroup, *displayLayoutGroup,
 	             *defaultLogGroup, *g3dLogGroup, *hleLogGroup;

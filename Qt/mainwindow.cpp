@@ -20,8 +20,7 @@ MainWindow::MainWindow(QWidget *parent, bool fullscreen) :
 	QMainWindow(parent),
 	currentLanguage("en"),
 	nextState(CORE_POWERDOWN),
-	lastUIState(UISTATE_MENU),
-	memoryTexWindow(0)
+	lastUIState(UISTATE_MENU)
 {
 	QDesktopWidget *desktop = QApplication::desktop();
 	int screenNum = QProcessEnvironment::systemEnvironment().value("SDL_VIDEO_FULLSCREEN_HEAD", "0").toInt();
@@ -139,8 +138,6 @@ void MainWindow::bootDone()
 	if(g_Config.bFullScreen != isFullScreen())
 		fullscrAct();
 
-	memoryTexWindow = new Debugger_MemoryTex(this);
-
 	if (nextState == CORE_RUNNING)
 		runAct();
 	updateMenus();
@@ -161,9 +158,6 @@ void MainWindow::openAct()
 void MainWindow::closeAct()
 {
 	updateMenus();
-
-	if(memoryTexWindow && memoryTexWindow->isVisible())
-		memoryTexWindow->close();
 
 	NativeMessageReceived("stop", "");
 	SetGameTitle("");
@@ -244,9 +238,6 @@ void MainWindow::resetAct()
 {
 	updateMenus();
 
-	if(memoryTexWindow)
-		memoryTexWindow->close();
-
 	NativeMessageReceived("reset", "");
 }
 
@@ -305,15 +296,8 @@ void MainWindow::consoleAct()
 	LogManager::GetInstance()->GetConsoleListener()->Show(LogManager::GetInstance()->GetConsoleListener()->Hidden());
 }
 
-void MainWindow::memviewTexAct()
-{
-	if(memoryTexWindow)
-		memoryTexWindow->show();
-}
-
 void MainWindow::raiseTopMost()
 {
-	
 	setWindowState( (windowState() & ~Qt::WindowMinimized) | Qt::WindowActive);
 	raise();  
 	activateWindow(); 
@@ -487,8 +471,6 @@ void MainWindow::createMenus()
 		->addDisableState(UISTATE_MENU);
 	debugMenu->addSeparator();
 	debugMenu->add(new MenuAction(this, SLOT(consoleAct()),   QT_TR_NOOP("Log Console")))
-		->addDisableState(UISTATE_MENU);
-	debugMenu->add(new MenuAction(this, SLOT(memviewTexAct()),QT_TR_NOOP("Memory View Texture")))
 		->addDisableState(UISTATE_MENU);
 
 	// Options

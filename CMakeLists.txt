@@ -756,20 +756,13 @@ elseif(USING_QT_UI)
     if(NOT SDL2_FOUND)
         find_package(Qt5 COMPONENTS Multimedia)
     endif(NOT SDL2_FOUND)
-    set(Qt_UI
-      Qt/Debugger/debugger_memorytex.ui
-    )
-    qt5_wrap_ui(QT_UI_GEN ${Qt_UI})
     list(APPEND NativeAppSource
-      ${QT_UI_GEN}
       Qt/QtMain.cpp
       Qt/QtMain.h
       Qt/QtHost.cpp
       Qt/QtHost.h
       Qt/mainwindow.cpp
       Qt/mainwindow.h
-      Qt/Debugger/debugger_memorytex.cpp
-      Qt/Debugger/debugger_memorytex.h
     )
     add_definitions(-DUSING_QT_UI)
     include_directories(${CMAKE_CURRENT_BINARY_DIR} Qt Qt/Debugger)

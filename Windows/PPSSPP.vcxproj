@@ -341,12 +341,6 @@
       <ForcedIncludeFiles Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
       </ForcedIncludeFiles>
     </ClCompile>
-    <ClCompile Include="..\Qt\Debugger\debugger_memorytex.cpp">
-      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
-      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">true</ExcludedFromBuild>
-      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
-      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
-    </ClCompile>
     <ClCompile Include="..\Qt\mainwindow.cpp">
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">true</ExcludedFromBuild>
@@ -446,7 +440,6 @@
     </ClInclude>
     <ClInclude Include="..\android\jni\TestRunner.h" />
     <ClInclude Include="..\ios\ViewController.h" />
-    <ClInclude Include="..\Qt\Debugger\debugger_memorytex.h" />
     <ClInclude Include="..\Qt\mainwindow.h" />
     <ClInclude Include="GPU\D3D11Context.h" />
     <ClInclude Include="GPU\D3D9Context.h" />
@@ -506,7 +499,6 @@
     <None Include="..\Qt\assets.qrc" />
     <None Include="..\Qt\Common.pro" />
     <None Include="..\Qt\Core.pro" />
-    <None Include="..\Qt\Debugger\debugger_memorytex.ui" />
     <None Include="..\Qt\GPU.pro" />
     <None Include="..\Qt\Native.pro" />
     <None Include="..\Qt\PPSSPP.pro" />
