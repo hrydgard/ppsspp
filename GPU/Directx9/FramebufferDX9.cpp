@@ -529,16 +529,7 @@ static const D3DVERTEXELEMENT9 g_FramebufferVertexElements[] = {
 		const u32 *src32 = (const u32 *)src;
 
 		if (format == GE_FORMAT_8888) {
-			u32 *dst32 = (u32 *)dst;
-			if (src == dst) {
-				return;
-			} else {
-				for (u32 y = 0; y < height; ++y) {
-					ConvertBGRA8888ToRGBA8888(dst32, src32, width);
-					src32 += srcStride;
-					dst32 += dstStride;
-				}
-			}
+			ConvertFromBGRA8888(dst, src, dstStride, srcStride, width, height, Draw::DataFormat::R8G8B8A8_UNORM);
 		} else {
 			// But here it shouldn't matter if they do intersect
 			u16 *dst16 = (u16 *)dst;
