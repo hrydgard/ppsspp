@@ -4,7 +4,6 @@
 #include "Core/MIPS/MIPSStackWalk.h"
 #include "Core/HLE/sceKernelThread.h"
 #include "Core/Debugger/DebugInterface.h"
-#include "debugger_vfpu.h"
 #include <QDialog>
 #include <QListWidgetItem>
 #include <QTreeWidgetItem>
@@ -24,7 +23,6 @@ public:
 	~Debugger_Disasm();
 	void SetDebugMode(bool _bDebug);
 
-	void ShowVFPU();
 	void Go();
 	void Step();
 	void StepOver();
@@ -73,7 +71,6 @@ private slots:
 	void on_DisasmView_customContextMenuRequested(const QPoint &pos);
 
 	void on_RegList_customContextMenuRequested(const QPoint &pos);
-	void on_vfpu_clicked();
 	void on_FuncList_itemClicked(QListWidgetItem *item);
 	void on_breakpointsList_itemClicked(QTreeWidgetItem *item, int column);
 	void on_breakpointsList_customContextMenuRequested(const QPoint &pos);
@@ -92,7 +89,6 @@ private:
 	Ui::Debugger_Disasm *ui;
 	DebugInterface* cpu;
 	MainWindow* mainWindow;
-	Debugger_VFPU* vfpudlg;
 	u32 breakpointAddr;
 	QTreeWidgetItem* threadRowSelected;
 	QTreeWidgetItem* displayListRowSelected;

@@ -122,13 +122,6 @@
            </property>
           </spacer>
          </item>
-         <item>
-          <widget class="QPushButton" name="vfpu">
-           <property name="text">
-            <string>Show VFPU</string>
-           </property>
-          </widget>
-         </item>
         </layout>
        </item>
        <item>

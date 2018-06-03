@@ -29,8 +29,6 @@ Debugger_Disasm::Debugger_Disasm(DebugInterface *_cpu, MainWindow* mainWindow_, 
 {
 	ui->setupUi(this);
 
-	vfpudlg = new Debugger_VFPU(_cpu, mainWindow, this);
-
 	ui->DisasmView->setWindowTitle(_cpu->GetName());
 
 	QObject::connect(ui->RegListScroll,SIGNAL(actionTriggered(int)), ui->RegList, SLOT(scrollChanged(int)));
@@ -56,11 +54,6 @@ Debugger_Disasm::Debugger_Disasm(DebugInterface *_cpu, MainWindow* mainWindow_, 
 Debugger_Disasm::~Debugger_Disasm()
 {
 	delete ui;
-}
-
-void Debugger_Disasm::ShowVFPU()
-{
-	vfpudlg->show();
 }
 
 void Debugger_Disasm::Update()
@@ -108,7 +101,6 @@ void Debugger_Disasm::UpdateDialog()
 	ui->DisasmView->setAlign(cpu->getInstructionSize(0));
 	ui->DisasmView->redraw();
 	ui->RegList->redraw();
-	vfpudlg->Update();
 	UpdateBreakpoints();
 	UpdateThread();
 	UpdateDisplayList();
@@ -265,11 +257,6 @@ void Debugger_Disasm::on_RegList_customContextMenuRequested(const QPoint &pos)
 void Debugger_Disasm::ShowMemory(u32 addr)
 {
 	mainWindow->ShowMemory(addr);
-}
-
-void Debugger_Disasm::on_vfpu_clicked()
-{
-	ShowVFPU();
 }
 
 void Debugger_Disasm::on_FuncList_itemClicked(QListWidgetItem *item)

@@ -761,7 +761,6 @@ elseif(USING_QT_UI)
       Qt/Debugger/debugger_displaylist.ui
       Qt/Debugger/debugger_memory.ui
       Qt/Debugger/debugger_memorytex.ui
-      Qt/Debugger/debugger_vfpu.ui
     )
     qt5_wrap_ui(QT_UI_GEN ${Qt_UI})
     list(APPEND NativeAppSource
@@ -778,8 +777,6 @@ elseif(USING_QT_UI)
       Qt/Debugger/ctrlmemview.h
       Qt/Debugger/ctrlregisterlist.cpp
       Qt/Debugger/ctrlregisterlist.h
-      Qt/Debugger/ctrlvfpuview.cpp
-      Qt/Debugger/ctrlvfpuview.h
       Qt/Debugger/debugger_disasm.cpp
       Qt/Debugger/debugger_disasm.h
       Qt/Debugger/debugger_displaylist.cpp
@@ -788,8 +785,6 @@ elseif(USING_QT_UI)
       Qt/Debugger/debugger_memory.h
       Qt/Debugger/debugger_memorytex.cpp
       Qt/Debugger/debugger_memorytex.h
-      Qt/Debugger/debugger_vfpu.cpp
-      Qt/Debugger/debugger_vfpu.h
     )
     add_definitions(-DUSING_QT_UI)
     include_directories(${CMAKE_CURRENT_BINARY_DIR} Qt Qt/Debugger)
