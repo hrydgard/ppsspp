@@ -82,12 +82,7 @@ static const D3DVERTEXELEMENT9 g_FramebufferVertexElements[] = {
 };
 
 	FramebufferManagerDX9::FramebufferManagerDX9(Draw::DrawContext *draw)
-		: FramebufferManagerCommon(draw),
-			drawPixelsTex_(0),
-			convBuf(0),
-			stencilUploadPS_(nullptr),
-			stencilUploadVS_(nullptr),
-			stencilUploadFailed_(false) {
+		: FramebufferManagerCommon(draw) {
 
 		device_ = (LPDIRECT3DDEVICE9)draw->GetNativeObject(Draw::NativeObject::DEVICE);
 		deviceEx_ = (LPDIRECT3DDEVICE9)draw->GetNativeObject(Draw::NativeObject::DEVICE_EX);
@@ -119,8 +114,8 @@ static const D3DVERTEXELEMENT9 g_FramebufferVertexElements[] = {
 		if (drawPixelsTex_) {
 			drawPixelsTex_->Release();
 		}
-		for (auto it = offscreenSurfaces_.begin(), end = offscreenSurfaces_.end(); it != end; ++it) {
-			it->second.surface->Release();
+		for (auto &it : offscreenSurfaces_) {
+			it.second.surface->Release();
 		}
 		delete [] convBuf;
 		if (stencilUploadPS_) {
@@ -680,7 +675,7 @@ static const D3DVERTEXELEMENT9 g_FramebufferVertexElements[] = {
 			int age = frameLastFramebufUsed_ - it->second.last_frame_used;
 			if (age > FBO_OLD_AGE) {
 				it->second.surface->Release();
-				offscreenSurfaces_.erase(it++);
+				it = offscreenSurfaces_.erase(it);
 			} else {
 				++it;
 			}
@@ -706,8 +701,8 @@ static const D3DVERTEXELEMENT9 g_FramebufferVertexElements[] = {
 		}
 		bvfbs_.clear();
 
-		for (auto it = offscreenSurfaces_.begin(), end = offscreenSurfaces_.end(); it != end; ++it) {
-			it->second.surface->Release();
+		for (auto &it : offscreenSurfaces_) {
+			it.second.surface->Release();
 		}
 		offscreenSurfaces_.clear();
 
