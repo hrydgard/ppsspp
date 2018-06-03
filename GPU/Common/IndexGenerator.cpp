@@ -264,8 +264,8 @@ void IndexGenerator::TranslateFan(int numInds, const ITypeLE *inds, int indexOff
 	const int v2 = clockwise ? 2 : 1;
 	for (int i = 0; i < numTris; i++) {
 		*outInds++ = indexOffset + inds[0];
-		*outInds++ = indexOffset + inds[i + 1];
-		*outInds++ = indexOffset + inds[i + 2];
+		*outInds++ = indexOffset + inds[i + v1];
+		*outInds++ = indexOffset + inds[i + v2];
 	}
 	inds_ = outInds;
 	count_ += numTris * 3;
