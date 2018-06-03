@@ -1701,7 +1701,6 @@ add_library(${CoreLibName} ${CoreLinkType}
 	Core/Util/ppge_atlas.h
 	${CORE_NEON}
 	${GPU_SOURCES}
-	git-version.cpp
 	ext/disarm.cpp
 	git-version.cpp)
 
@@ -1751,7 +1750,8 @@ add_custom_command(OUTPUT something_that_never_exists
 		-P ${CMAKE_CURRENT_SOURCE_DIR}/git-version.cmake)
 
 set_source_files_properties(${CMAKE_CURRENT_SOURCE_DIR}/git-version.cpp
-	PROPERTIES GENERATED TRUE)
+	PROPERTIES GENERATED TRUE
+	SKIP_AUTOMOC ON)
 add_dependencies(${CoreLibName} GitVersion)
 
 set(WindowsFiles
