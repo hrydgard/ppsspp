@@ -428,12 +428,22 @@ void ConvertFromBGRA8888(uint8_t *dst, const uint8_t *src, uint32_t dstStride, u
 			src32 += srcStride;
 			dst32 += dstStride;
 		}
-	}
-	else {
-		// Don't even bother with these, this path only happens in screenshots and we don't save those to 16-bit.
-		assert(false);
+	} else if (format == Draw::DataFormat::R8G8B8_UNORM) {
+		for (uint32_t y = 0; y < height; ++y) {
+			for (uint32_t x = 0; x < width; ++x) {
+				uint32_t c = src32[x];
+				dst[x * 3 + 0] = (c >> 16) & 0xFF;
+				dst[x * 3 + 1] = (c >> 8) & 0xFF;
+				dst[x * 3 + 2] = (c >> 0) & 0xFF;
+			}
+			src32 += srcStride;
+			dst += dstStride * 3;
+		}
+	} else {
+		WARN_LOG_REPORT_ONCE(convFromBGRA, G3D, "Unable to convert from format to BGRA: %d", (int)format);
 	}
 }
+
 void ConvertToD32F(uint8_t *dst, const uint8_t *src, uint32_t dstStride, uint32_t srcStride, uint32_t width, uint32_t height, DataFormat format) {
 	if (format == Draw::DataFormat::D32F) {
 		const float *src32 = (const float *)src;
