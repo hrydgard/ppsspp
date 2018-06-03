@@ -332,34 +332,24 @@ FramebufferManagerGLES::~FramebufferManagerGLES() {
 }
 
 void FramebufferManagerGLES::MakePixelTexture(const u8 *srcPixels, GEBufferFormat srcPixelFormat, int srcStride, int width, int height, float &u1, float &v1) {
-	// Optimization: skip a copy if possible in a common case.
-	int texWidth = width;
-	if (srcPixelFormat == GE_FORMAT_8888 && width < srcStride) {
-		// Don't up the upload requirements too much if subimages are unsupported.
-		if (gstate_c.Supports(GPU_SUPPORTS_UNPACK_SUBIMAGE) || width >= 480) {
-			texWidth = srcStride;
-			u1 *= (float)width / texWidth;
-		}
-	}
-
 	if (drawPixelsTex_) {
 		render_->DeleteTexture(drawPixelsTex_);
 	}
 
 	drawPixelsTex_ = render_->CreateTexture(GL_TEXTURE_2D);
-	drawPixelsTexW_ = texWidth;
+	drawPixelsTexW_ = width;
 	drawPixelsTexH_ = height;
 
 	drawPixelsTexFormat_ = srcPixelFormat;
 
 	// TODO: We can just change the texture format and flip some bits around instead of this.
 	// Could share code with the texture cache perhaps.
-	u32 neededSize = texWidth * height * 4;
+	u32 neededSize = width * height * 4;
 	u8 *convBuf = new u8[neededSize];
 	for (int y = 0; y < height; y++) {
 		const u16_le *src16 = (const u16_le *)srcPixels + srcStride * y;
 		const u32_le *src32 = (const u32_le *)srcPixels + srcStride * y;
-		u32 *dst = (u32 *)convBuf + texWidth * y;
+		u32 *dst = (u32 *)convBuf + width * y;
 		switch (srcPixelFormat) {
 		case GE_FORMAT_565:
 			ConvertRGBA565ToRGBA8888((u32 *)dst, src16, width);
@@ -382,7 +372,7 @@ void FramebufferManagerGLES::MakePixelTexture(const u8 *srcPixels, GEBufferForma
 			break;
 		}
 	}
-	render_->TextureImage(drawPixelsTex_, 0, texWidth, height, GL_RGBA, GL_RGBA, GL_UNSIGNED_BYTE, convBuf, GLRAllocType::NEW, false);
+	render_->TextureImage(drawPixelsTex_, 0, width, height, GL_RGBA, GL_RGBA, GL_UNSIGNED_BYTE, convBuf, GLRAllocType::NEW, false);
 	render_->FinalizeTexture(drawPixelsTex_, 0, false);
 
 	// TODO: Return instead?
