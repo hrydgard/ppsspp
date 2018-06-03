@@ -19,7 +19,7 @@
 
 #include <set>
 #include <vector>
-#include <map>
+#include <unordered_map>
 
 #include "Common/CommonTypes.h"
 #include "Core/MemMap.h"
@@ -412,7 +412,7 @@ protected:
 		int last_frame_used;
 	};
 
-	std::map<u64, TempFBOInfo> tempFBOs_;
+	std::unordered_map<u64, TempFBOInfo> tempFBOs_;
 
 	std::vector<Draw::Framebuffer *> fbosToDelete_;
 
