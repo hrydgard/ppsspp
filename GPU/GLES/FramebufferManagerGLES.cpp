@@ -78,8 +78,6 @@ static const char basic_vs[] =
 
 const int MAX_PBO = 2;
 
-void ConvertFromRGBA8888(u8 *dst, const u8 *src, u32 dstStride, u32 srcStride, u32 width, u32 height, GEBufferFormat format);
-
 void FramebufferManagerGLES::CompileDraw2DProgram() {
 	if (!draw2dprogram_) {
 		std::string errorString;
@@ -677,61 +675,6 @@ void FramebufferManagerGLES::BlitFramebuffer(VirtualFramebuffer *dst, int dstX, 
 	}
 
 	gstate_c.Dirty(DIRTY_VIEWPORTSCISSOR_STATE | DIRTY_BLEND_STATE | DIRTY_RASTER_STATE);
-}
-
-void ConvertFromRGBA8888(u8 *dst, const u8 *src, u32 dstStride, u32 srcStride, u32 width, u32 height, GEBufferFormat format) {
-	// Must skip stride in the cases below.  Some games pack data into the cracks, like MotoGP.
-	const u32 *src32 = (const u32 *)src;
-
-	if (format == GE_FORMAT_8888) {
-		u32 *dst32 = (u32 *)dst;
-		if (src == dst) {
-			return;
-		} else {
-			// Here let's assume they don't intersect
-			for (u32 y = 0; y < height; ++y) {
-				memcpy(dst32, src32, width * 4);
-				src32 += srcStride;
-				dst32 += dstStride;
-			}
-		}
-	} else {
-		// But here it shouldn't matter if they do intersect
-		u16 *dst16 = (u16 *)dst;
-		switch (format) {
-			case GE_FORMAT_565: // BGR 565
-				{
-					for (u32 y = 0; y < height; ++y) {
-						ConvertRGBA8888ToRGB565(dst16, src32, width);
-						src32 += srcStride;
-						dst16 += dstStride;
-					}
-				}
-				break;
-			case GE_FORMAT_5551: // ABGR 1555
-				{
-					for (u32 y = 0; y < height; ++y) {
-						ConvertRGBA8888ToRGBA5551(dst16, src32, width);
-						src32 += srcStride;
-						dst16 += dstStride;
-					}
-				}
-				break;
-			case GE_FORMAT_4444: // ABGR 4444
-				{
-					for (u32 y = 0; y < height; ++y) {
-						ConvertRGBA8888ToRGBA4444(dst16, src32, width);
-						src32 += srcStride;
-						dst16 += dstStride;
-					}
-				}
-				break;
-			case GE_FORMAT_8888:
-			case GE_FORMAT_INVALID:
-				// Not possible.
-				break;
-		}
-	}
 }
 
 void FramebufferManagerGLES::PackDepthbuffer(VirtualFramebuffer *vfb, int x, int y, int w, int h) {
