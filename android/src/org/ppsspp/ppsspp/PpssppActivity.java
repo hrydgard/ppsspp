@@ -7,7 +7,6 @@ import android.os.Build;
 import android.os.Bundle;
 import android.os.Looper;
 import android.util.Log;
-import android.widget.Toast;
 
 public class PpssppActivity extends NativeActivity {
 	private static final String TAG = "PpssppActivity";
@@ -58,7 +57,6 @@ public class PpssppActivity extends NativeActivity {
 					}
 					Looper.loop();
 				}
-
 			}.start();
 
 			try {
@@ -94,7 +92,6 @@ public class PpssppActivity extends NativeActivity {
 		}
 		super.onCreate(savedInstanceState);
 	}
-
 
 	// called by the C++ code through JNI. Dispatch anything we can't directly handle
 	// on the gfx thread to the UI thread.

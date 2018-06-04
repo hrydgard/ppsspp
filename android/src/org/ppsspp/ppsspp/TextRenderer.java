@@ -1,21 +1,22 @@
 package org.ppsspp.ppsspp;
+
 import android.content.Context;
 import android.graphics.*;
 import android.util.Log;
-
-import java.nio.ByteBuffer;
 
 public class TextRenderer {
 	private static Paint p;
 	private static Paint bg;
 	private static Typeface robotoCondensed;
 	private static final String TAG = "TextRenderer";
+
 	static {
 		p = new Paint(Paint.SUBPIXEL_TEXT_FLAG | Paint.ANTI_ALIAS_FLAG);
 		p.setColor(Color.WHITE);
 		bg = new Paint();
 		bg.setColor(Color.BLACK);
 	}
+
 	public static void init(Context ctx) {
 		robotoCondensed = Typeface.createFromAsset(ctx.getAssets(), "Roboto-Condensed.ttf");
 		if (robotoCondensed != null) {
@@ -25,23 +26,25 @@ public class TextRenderer {
 			Log.e(TAG, "Failed to load Roboto Condensed");
 		}
 	}
+
 	private static Point measureLine(String string, double textSize) {
 		int w;
 		if (string.length() > 0) {
-			p.setTextSize((float)textSize);
-			w = (int)p.measureText(string);
-			// Round width up to even already here to avoid annoyances from odd-width 16-bit textures which
-			// OpenGL does not like - each line must be 4-byte aligned
+			p.setTextSize((float) textSize);
+			w = (int) p.measureText(string);
+			// Round width up to even already here to avoid annoyances from odd-width 16-bit textures
+			// which OpenGL does not like - each line must be 4-byte aligned
 			w = (w + 5) & ~1;
 		} else {
 			w = 1;
 		}
-		int h = (int)(p.descent() - p.ascent() + 2.0f);
+		int h = (int) (p.descent() - p.ascent() + 2.0f);
 		Point p = new Point();
 		p.x = w;
 		p.y = h;
 		return p;
 	}
+
 	private static Point measure(String string, double textSize) {
 		String lines[] = string.replaceAll("\\r", "").split("\n");
 		Point total = new Point();
@@ -50,13 +53,15 @@ public class TextRenderer {
 			Point sz = measureLine(line, textSize);
 			total.x = Math.max(sz.x, total.x);
 		}
-		total.y = (int)(p.descent() - p.ascent()) * lines.length + 2;
+		total.y = (int) (p.descent() - p.ascent()) * lines.length + 2;
 		return total;
 	}
+
 	public static int measureText(String string, double textSize) {
 		Point s = measure(string, textSize);
 		return (s.x << 16) | s.y;
 	}
+
 	public static int[] renderText(String string, double textSize) {
 		Point s = measure(string, textSize);
 
@@ -79,7 +84,7 @@ public class TextRenderer {
 			y += p.descent() - p.ascent();
 		}
 
-		int [] pixels = new int[w * h];
+		int[] pixels = new int[w * h];
 		bmp.getPixels(pixels, 0, w, 0, 0, w, h);
 		bmp.recycle();
 		return pixels;

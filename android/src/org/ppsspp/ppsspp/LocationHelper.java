@@ -48,12 +48,12 @@ class LocationHelper implements LocationListener {
 
 	@Override
 	public void onLocationChanged(Location location) {
-		float latitude  = (float)location.getLatitude();
-		float longitude = (float)location.getLongitude();
-		float altitude  = (float)location.getAltitude();
-		float speed     = location.getSpeed();
-		float bearing   = location.getBearing();
-		long time       = location.getTime() / 1000; // ms to s !!
+		float latitude = (float) location.getLatitude();
+		float longitude = (float) location.getLongitude();
+		float altitude = (float) location.getAltitude();
+		float speed = location.getSpeed();
+		float bearing = location.getBearing();
+		long time = location.getTime() / 1000; // ms to s !!
 
 		NativeApp.pushNewGpsData(latitude, longitude, altitude, speed, bearing, time);
 	}
