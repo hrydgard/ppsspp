@@ -128,13 +128,15 @@ GPU_GLES::~GPU_GLES() {
 	// If we're here during app shutdown (exiting the Windows app in-game, for example)
 	// everything should already be cleared since DeviceLost has been run.
 
+	if (!shaderCachePath_.empty() && draw_) {
+		shaderManagerGL_->Save(shaderCachePath_);
+	}
+
 	framebufferManagerGL_->DestroyAllFBOs();
 	shaderManagerGL_->ClearCache(true);
 	depalShaderCache_.Clear();
 	fragmentTestCache_.Clear();
-	if (!shaderCachePath_.empty() && draw_) {
-		shaderManagerGL_->Save(shaderCachePath_);
-	}
+	
 	delete shaderManagerGL_;
 	shaderManagerGL_ = nullptr;
 	delete framebufferManagerGL_;
