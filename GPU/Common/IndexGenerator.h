@@ -75,7 +75,7 @@ private:
 	// Points (why index these? code simplicity)
 	void AddPoints(int numVerts);
 	// Triangles
-	void AddList(int numVerts);
+	void AddList(int numVerts, bool clockwise);
 	void AddStrip(int numVerts, bool clockwise);
 	void AddFan(int numVerts, bool clockwise);
 	// Lines
@@ -88,7 +88,7 @@ private:
 	template <class ITypeLE, int flag>
 	void TranslatePoints(int numVerts, const ITypeLE *inds, int indexOffset);
 	template <class ITypeLE, int flag>
-	void TranslateList(int numVerts, const ITypeLE *inds, int indexOffset);
+	void TranslateList(int numVerts, const ITypeLE *inds, int indexOffset, bool clockwise);
 	template <class ITypeLE, int flag>
 	inline void TranslateLineList(int numVerts, const ITypeLE *inds, int indexOffset);
 	template <class ITypeLE, int flag>
