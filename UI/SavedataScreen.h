@@ -42,6 +42,7 @@ public:
 private:
 	static bool ByFilename(const UI::View *, const UI::View *);
 	static bool BySize(const UI::View *, const UI::View *);
+	static bool SortDone();
 
 	void Refresh();
 	UI::EventReturn SavedataButtonClick(UI::EventParams &e);
