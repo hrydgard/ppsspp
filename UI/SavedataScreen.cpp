@@ -23,6 +23,7 @@
 #include "gfx_es2/draw_buffer.h"
 #include "i18n/i18n.h"
 #include "math/curves.h"
+#include "thread/prioritizedworkqueue.h"
 #include "util/text/utf8.h"
 #include "ui/ui_context.h"
 #include "ui/view.h"
@@ -125,12 +126,13 @@ private:
 class SortedLinearLayout : public UI::LinearLayout {
 public:
 	typedef std::function<bool(const View *, const View *)> CompareFunc;
+	typedef std::function<bool()> DoneFunc;
 
 	SortedLinearLayout(UI::Orientation orientation, UI::LayoutParams *layoutParams = nullptr)
 		: UI::LinearLayout(orientation, layoutParams) {
 	}
 
-	void SetCompare(CompareFunc lessFunc) {
+	void SetCompare(CompareFunc lessFunc, DoneFunc) {
 		lessFunc_ = lessFunc;
 	}
 
@@ -138,11 +140,15 @@ public:
 
 private:
 	CompareFunc lessFunc_;
+	DoneFunc doneFunc_;
 };
 
 void SortedLinearLayout::Update() {
 	if (lessFunc_) {
 		std::stable_sort(views_.begin(), views_.end(), lessFunc_);
+	}
+	if (doneFunc_ && doneFunc_()) {
+		lessFunc_ = CompareFunc();
 	}
 	UI::LinearLayout::Update();
 }
@@ -314,9 +320,9 @@ void SavedataBrowser::SetSortOption(SavedataSortOption opt) {
 	if (gameList_) {
 		SortedLinearLayout *gl = static_cast<SortedLinearLayout *>(gameList_);
 		if (sortOption_ == SavedataSortOption::FILENAME) {
-			gl->SetCompare(&ByFilename);
+			gl->SetCompare(&ByFilename, &SortDone);
 		} else if (sortOption_ == SavedataSortOption::SIZE) {
-			gl->SetCompare(&BySize);
+			gl->SetCompare(&BySize, &SortDone);
 		}
 	}
 }
@@ -337,6 +343,11 @@ bool SavedataBrowser::BySize(const UI::View *v1, const UI::View *v2) {
 
 	// They might be zero, but that's fine.
 	return g1info->gameSize > g2info->gameSize;
+}
+
+bool SavedataBrowser::SortDone() {
+	PrioritizedWorkQueue *wq = g_gameInfoCache->WorkQueue();
+	return wq->Done();
 }
 
 void SavedataBrowser::Refresh() {
