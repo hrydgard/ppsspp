@@ -20,6 +20,11 @@ For build instructions and other development tutorials, see [the wiki](https://g
 
 For game compatibility, see [community compatibility feedback](https://report.ppsspp.org/games).
 
+What's new in 1.6.3
+-------------------
+* Crashfixes, task switching and one in Phantasy Star Portable
+* Improve graphics in PoP on some devices
+
 What's new in 1.6.1, 1.6.2
 --------------------------
 * Crashfixes
