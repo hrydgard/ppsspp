@@ -555,6 +555,13 @@ int main(int argc, char *argv[]) {
 		mode |= SDL_WINDOW_FULLSCREEN_DESKTOP;
 	}
 
+	// If we're on mobile, don't try for windowed either.
+#if defined(USING_GLES2) || defined(MOBILE_DEVICE)
+    mode |= SDL_WINDOW_FULLSCREEN;
+#else
+    mode |= SDL_WINDOW_RESIZABLE;
+#endif
+
 	if (mode & SDL_WINDOW_FULLSCREEN_DESKTOP) {
 		pixel_xres = g_DesktopWidth;
 		pixel_yres = g_DesktopHeight;
