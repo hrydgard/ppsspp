@@ -12,10 +12,6 @@
 #include "Core/Core.h"
 #include "Core/Config.h"
 #include "Core/System.h"
-#include "Debugger/debugger_disasm.h"
-#include "Debugger/debugger_memory.h"
-#include "Debugger/debugger_memorytex.h"
-#include "Debugger/debugger_displaylist.h"
 #include "Qt/QtMain.h"
 
 extern bool g_TakeScreenshot;
@@ -37,13 +33,8 @@ public:
 	explicit MainWindow(QWidget *parent = 0, bool fullscreen=false);
 	~MainWindow() { };
 
-	Debugger_Disasm* GetDialogDisasm() { return dialogDisasm; }
-	Debugger_Memory* GetDialogMemory() { return memoryWindow; }
-	Debugger_MemoryTex* GetDialogMemoryTex() { return memoryTexWindow; }
-	Debugger_DisplayList* GetDialogDisplaylist() { return displaylistWindow; }
 	CoreState GetNextState() { return nextState; }
 
-	void ShowMemory(u32 addr);
 	void updateMenus();
 
 	void Notify(MainWindowMsg msg) {
@@ -97,11 +88,7 @@ private slots:
 	void resetTableAct();
 	void dumpNextAct();
 	void takeScreen() { g_TakeScreenshot = true; }
-	void disasmAct();
-	void dpyListAct();
 	void consoleAct();
-	void memviewAct();
-	void memviewTexAct();
 
 	// Options
 	// Core
@@ -159,18 +146,12 @@ private:
 	void SetGameTitle(QString text);
 	void loadLanguage(const QString &language, bool retranslate);
 	void createMenus();
-	void notifyMapsLoaded();
 
 	QTranslator translator;
 	QString currentLanguage;
 
 	CoreState nextState;
 	GlobalUIState lastUIState;
-
-	Debugger_Disasm *dialogDisasm;
-	Debugger_Memory *memoryWindow;
-	Debugger_MemoryTex *memoryTexWindow;
-	Debugger_DisplayList *displaylistWindow;
 
 	QActionGroup *anisotropicGroup, *screenGroup, *displayLayoutGroup,
 	             *defaultLogGroup, *g3dLogGroup, *hleLogGroup;

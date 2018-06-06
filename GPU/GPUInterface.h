@@ -241,6 +241,7 @@ public:
 	virtual void DumpNextFrame() = 0;
 	virtual void GetReportingInfo(std::string &primaryInfo, std::string &fullInfo) = 0;
 	virtual const std::list<int>& GetDisplayLists() = 0;
+	// TODO: Currently Qt only, needs to be cleaned up.
 	virtual std::vector<FramebufferInfo> GetFramebufferList() = 0;
 	virtual s64 GetListTicks(int listid) = 0;
 

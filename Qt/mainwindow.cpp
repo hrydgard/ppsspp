@@ -20,11 +20,7 @@ MainWindow::MainWindow(QWidget *parent, bool fullscreen) :
 	QMainWindow(parent),
 	currentLanguage("en"),
 	nextState(CORE_POWERDOWN),
-	lastUIState(UISTATE_MENU),
-	dialogDisasm(0),
-	memoryWindow(0),
-	memoryTexWindow(0),
-	displaylistWindow(0)
+	lastUIState(UISTATE_MENU)
 {
 	QDesktopWidget *desktop = QApplication::desktop();
 	int screenNum = QProcessEnvironment::systemEnvironment().value("SDL_VIDEO_FULLSCREEN_HEAD", "0").toInt();
@@ -47,12 +43,6 @@ MainWindow::MainWindow(QWidget *parent, bool fullscreen) :
 
 	QObject::connect(emugl, SIGNAL(doubleClick()), this, SLOT(fullscrAct()));
 	QObject::connect(emugl, SIGNAL(newFrame()), this, SLOT(newFrame()));
-}
-
-void MainWindow::ShowMemory(u32 addr)
-{
-	if(memoryWindow)
-		memoryWindow->Goto(addr);
 }
 
 inline float clamp1(float x) {
@@ -145,18 +135,8 @@ void MainWindow::updateMenus()
 
 void MainWindow::bootDone()
 {
-	dialogDisasm = new Debugger_Disasm(currentDebugMIPS, this, this);
-	if(g_Config.bShowDebuggerOnLoad)
-		dialogDisasm->show();
-
 	if(g_Config.bFullScreen != isFullScreen())
 		fullscrAct();
-
-	memoryWindow = new Debugger_Memory(currentDebugMIPS, this, this);
-	memoryTexWindow = new Debugger_MemoryTex(this);
-	displaylistWindow = new Debugger_DisplayList(currentDebugMIPS, gpu->GetDrawContext(), this, this);
-
-	notifyMapsLoaded();
 
 	if (nextState == CORE_RUNNING)
 		runAct();
@@ -177,17 +157,7 @@ void MainWindow::openAct()
 
 void MainWindow::closeAct()
 {
-	if(dialogDisasm)
-		dialogDisasm->Stop();
-
-	if(dialogDisasm && dialogDisasm->isVisible())
-		dialogDisasm->close();
-	if(memoryWindow && memoryWindow->isVisible())
-		memoryWindow->close();
-	if(memoryTexWindow && memoryTexWindow->isVisible())
-		memoryTexWindow->close();
-	if(displaylistWindow && displaylistWindow->isVisible())
-		displaylistWindow->close();
+	updateMenus();
 
 	NativeMessageReceived("stop", "");
 	SetGameTitle("");
@@ -266,17 +236,7 @@ void MainWindow::pauseAct()
 
 void MainWindow::resetAct()
 {
-	if(dialogDisasm)
-		dialogDisasm->Stop();
-
-	if(dialogDisasm)
-		dialogDisasm->close();
-	if(memoryWindow)
-		memoryWindow->close();
-	if(memoryTexWindow)
-		memoryTexWindow->close();
-	if(displaylistWindow)
-		displaylistWindow->close();
+	updateMenus();
 
 	NativeMessageReceived("reset", "");
 }
@@ -302,7 +262,6 @@ void MainWindow::lmapAct()
 	{
 		QString fileName = QFileInfo(fileNames[0]).absoluteFilePath();
 		g_symbolMap->LoadSymbolMap(fileName.toStdString().c_str());
-		notifyMapsLoaded();
 	}
 }
 
@@ -325,7 +284,6 @@ void MainWindow::smapAct()
 void MainWindow::resetTableAct()
 {
 	g_symbolMap->Clear();
-	notifyMapsLoaded();
 }
 
 void MainWindow::dumpNextAct()
@@ -333,38 +291,13 @@ void MainWindow::dumpNextAct()
 	gpu->DumpNextFrame();
 }
 
-void MainWindow::disasmAct()
-{
-	if(dialogDisasm)
-		dialogDisasm->show();
-}
-
-void MainWindow::dpyListAct()
-{
-	if(displaylistWindow)
-		displaylistWindow->show();
-}
-
 void MainWindow::consoleAct()
 {
 	LogManager::GetInstance()->GetConsoleListener()->Show(LogManager::GetInstance()->GetConsoleListener()->Hidden());
 }
 
-void MainWindow::memviewAct()
-{
-	if (memoryWindow)
-		memoryWindow->show();
-}
-
-void MainWindow::memviewTexAct()
-{
-	if(memoryTexWindow)
-		memoryTexWindow->show();
-}
-
 void MainWindow::raiseTopMost()
 {
-	
 	setWindowState( (windowState() & ~Qt::WindowMinimized) | Qt::WindowActive);
 	raise();  
 	activateWindow(); 
@@ -537,16 +470,7 @@ void MainWindow::createMenus()
 	debugMenu->add(new MenuAction(this, SLOT(takeScreen()),  QT_TR_NOOP("Take Screenshot"), Qt::Key_F12))
 		->addDisableState(UISTATE_MENU);
 	debugMenu->addSeparator();
-	debugMenu->add(new MenuAction(this, SLOT(disasmAct()),    QT_TR_NOOP("Disassembly"), Qt::CTRL + Qt::Key_D))
-		->addDisableState(UISTATE_MENU);
-	//commented out until someone bothers to maintain it
-	//debugMenu->add(new MenuAction(this, SLOT(dpyListAct()),   QT_TR_NOOP("Display List...")))
-	//	->addDisableState(UISTATE_MENU);
 	debugMenu->add(new MenuAction(this, SLOT(consoleAct()),   QT_TR_NOOP("Log Console")))
-		->addDisableState(UISTATE_MENU);
-	debugMenu->add(new MenuAction(this, SLOT(memviewAct()),   QT_TR_NOOP("Memory View")))
-		->addDisableState(UISTATE_MENU);
-	debugMenu->add(new MenuAction(this, SLOT(memviewTexAct()),QT_TR_NOOP("Memory View Texture")))
 		->addDisableState(UISTATE_MENU);
 
 	// Options
@@ -667,12 +591,4 @@ void MainWindow::createMenus()
 	helpMenu->add(new MenuAction(this, SLOT(aboutAct()),      QT_TR_NOOP("&About PPSSPP..."), QKeySequence::WhatsThis));
 
 	retranslate();
-}
-
-void MainWindow::notifyMapsLoaded()
-{
-	if (dialogDisasm)
-		dialogDisasm->NotifyMapLoaded();
-	if (memoryWindow)
-		memoryWindow->NotifyMapLoaded();
 }

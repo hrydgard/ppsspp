@@ -273,8 +273,13 @@ if(NOT MSVC)
 	if(IOS)
 	elseif(APPLE AND NOT CMAKE_CROSSCOMPILING)
 		# We want C++11, so target 10.7+
-		set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -mmacosx-version-min=10.7")
-		set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -mmacosx-version-min=10.7 -stdlib=libc++ -U__STRICT_ANSI__")
+		if(USING_QT_UI)
+			set(MACOSX_VERSION_MIN "10.8")
+		else()
+			set(MACOSX_VERSION_MIN "10.7")
+		endif()
+		set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -mmacosx-version-min=${MACOSX_VERSION_MIN}")
+		set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -mmacosx-version-min=${MACOSX_VERSION_MIN} -stdlib=libc++ -U__STRICT_ANSI__")
 		set(CMAKE_XCODE_ATTRIBUTE_CLANG_CXX_LIBRARY "libc++")
 	elseif(NOT ANDROID)
 		# TODO: See if we can get rid of no-psabi
@@ -751,40 +756,13 @@ elseif(USING_QT_UI)
     if(NOT SDL2_FOUND)
         find_package(Qt5 COMPONENTS Multimedia)
     endif(NOT SDL2_FOUND)
-    set(Qt_UI
-      Qt/Debugger/debugger_disasm.ui
-      Qt/Debugger/debugger_displaylist.ui
-      Qt/Debugger/debugger_memory.ui
-      Qt/Debugger/debugger_memorytex.ui
-      Qt/Debugger/debugger_vfpu.ui
-    )
-    qt5_wrap_ui(QT_UI_GEN ${Qt_UI})
     list(APPEND NativeAppSource
-      ${QT_UI_GEN}
       Qt/QtMain.cpp
       Qt/QtMain.h
       Qt/QtHost.cpp
       Qt/QtHost.h
       Qt/mainwindow.cpp
       Qt/mainwindow.h
-      Qt/Debugger/ctrldisasmview.cpp
-      Qt/Debugger/ctrldisasmview.h
-      Qt/Debugger/ctrlmemview.cpp
-      Qt/Debugger/ctrlmemview.h
-      Qt/Debugger/ctrlregisterlist.cpp
-      Qt/Debugger/ctrlregisterlist.h
-      Qt/Debugger/ctrlvfpuview.cpp
-      Qt/Debugger/ctrlvfpuview.h
-      Qt/Debugger/debugger_disasm.cpp
-      Qt/Debugger/debugger_disasm.h
-      Qt/Debugger/debugger_displaylist.cpp
-      Qt/Debugger/debugger_displaylist.h
-      Qt/Debugger/debugger_memory.cpp
-      Qt/Debugger/debugger_memory.h
-      Qt/Debugger/debugger_memorytex.cpp
-      Qt/Debugger/debugger_memorytex.h
-      Qt/Debugger/debugger_vfpu.cpp
-      Qt/Debugger/debugger_vfpu.h
     )
     add_definitions(-DUSING_QT_UI)
     include_directories(${CMAKE_CURRENT_BINARY_DIR} Qt Qt/Debugger)
@@ -1701,7 +1679,6 @@ add_library(${CoreLibName} ${CoreLinkType}
 	Core/Util/ppge_atlas.h
 	${CORE_NEON}
 	${GPU_SOURCES}
-	git-version.cpp
 	ext/disarm.cpp
 	git-version.cpp)
 
@@ -1751,7 +1728,8 @@ add_custom_command(OUTPUT something_that_never_exists
 		-P ${CMAKE_CURRENT_SOURCE_DIR}/git-version.cmake)
 
 set_source_files_properties(${CMAKE_CURRENT_SOURCE_DIR}/git-version.cpp
-	PROPERTIES GENERATED TRUE)
+	PROPERTIES GENERATED TRUE
+	SKIP_AUTOMOC ON)
 add_dependencies(${CoreLibName} GitVersion)
 
 set(WindowsFiles
