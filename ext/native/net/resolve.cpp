@@ -77,7 +77,7 @@ char *DNSResolve(const char *host)
 	return ip;
 }
 
-bool DNSResolve(const std::string &host, const std::string &service, addrinfo **res, std::string &error)
+bool DNSResolve(const std::string &host, const std::string &service, addrinfo **res, std::string &error, DNSType type)
 {
 	addrinfo hints = {0};
 	// TODO: Might be uses to lookup other values.
@@ -89,7 +89,11 @@ bool DNSResolve(const std::string &host, const std::string &service, addrinfo **
 	// http://stackoverflow.com/questions/1408030/what-is-the-purpose-of-the-ai-v4mapped-flag-in-getaddrinfo
 	hints.ai_flags = /*AI_V4MAPPED |*/ AI_ADDRCONFIG;
 #endif
-	hints.ai_protocol = IPPROTO_TCP;
+	hints.ai_protocol = 0;
+	if (type == DNSType::IPV4)
+		hints.ai_family = AF_INET;
+	else if (type == DNSType::IPV6)
+		hints.ai_family = AF_INET6;
 
 	const char *servicep = service.length() == 0 ? NULL : service.c_str();
 

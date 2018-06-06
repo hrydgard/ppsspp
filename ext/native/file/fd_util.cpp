@@ -133,11 +133,22 @@ void SetNonBlocking(int sock, bool non_blocking) {
 }
 
 std::string GetLocalIP(int sock) {
-	struct sockaddr_in server_addr;
+	union {
+		struct sockaddr sa;
+		struct sockaddr_in ipv4;
+		struct sockaddr_in6 ipv6;
+	} server_addr;
 	memset(&server_addr, 0, sizeof(server_addr));
 	socklen_t len = sizeof(server_addr);
 	if (getsockname(sock, (struct sockaddr *)&server_addr, &len) == 0) {
-		char *result = inet_ntoa(*(in_addr *)&server_addr.sin_addr);
+		char temp[64];
+		void *addr;
+		if (server_addr.sa.sa_family == AF_INET6) {
+			addr = &server_addr.ipv6.sin6_addr;
+		} else {
+			addr = &server_addr.ipv4.sin_addr;
+		}
+		const char *result = inet_ntop(server_addr.sa.sa_family, addr, temp, sizeof(temp));
 		if (result) {
 			return result;
 		}
