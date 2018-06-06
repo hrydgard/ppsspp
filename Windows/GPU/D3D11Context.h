@@ -40,7 +40,7 @@ public:
 	Draw::DrawContext *GetDrawContext() override { return draw_; }
 
 private:
-	HRESULT CreateTheDevice();
+	HRESULT CreateTheDevice(IDXGIAdapter *adapter);
 
 	void LostBackbuffer();
 	void GotBackbuffer();
@@ -60,7 +60,6 @@ private:
 	ID3D11InfoQueue *d3dInfoQueue_ = nullptr;
 #endif
 
-	D3D_DRIVER_TYPE driverType_;
 	D3D_FEATURE_LEVEL featureLevel_ = D3D_FEATURE_LEVEL_11_0;
 	int adapterId;
 	HDC hDC;     // Private GDI Device Context

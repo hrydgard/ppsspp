@@ -202,6 +202,24 @@ void GameSettingsScreen::CreateViews() {
 		renderingBackendChoice->HideChoice(3);
 	}
 #endif
+	Draw::DrawContext *draw = screenManager()->getDrawContext();
+
+	// Backends that don't allow a device choice will only expose one device.
+	if (draw->GetDeviceList().size() > 1) {
+		std::string *deviceNameSetting = nullptr;
+		if (g_Config.iGPUBackend == (int)GPUBackend::VULKAN) {
+			deviceNameSetting = &g_Config.sVulkanDevice;
+		}
+#ifdef _WIN32
+		if (g_Config.iGPUBackend == (int)GPUBackend::DIRECT3D11) {
+			deviceNameSetting = &g_Config.sD3D11Device;
+		}
+#endif
+		if (deviceNameSetting) {
+			PopupMultiChoiceDynamic *deviceChoice = graphicsSettings->Add(new PopupMultiChoiceDynamic(deviceNameSetting, gr->T("Device"), draw->GetDeviceList(), nullptr, screenManager()));
+			deviceChoice->OnChoice.Handle(this, &GameSettingsScreen::OnRenderingBackend);
+		}
+	}
 
 	static const char *renderingMode[] = { "Non-Buffered Rendering", "Buffered Rendering"};
 	PopupMultiChoice *renderingModeChoice = graphicsSettings->Add(new PopupMultiChoice(&g_Config.iRenderingMode, gr->T("Mode"), renderingMode, 0, ARRAY_SIZE(renderingMode), gr->GetName(), screenManager()));

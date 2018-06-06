@@ -175,7 +175,7 @@ GPU_Vulkan::~GPU_Vulkan() {
 void GPU_Vulkan::CheckGPUFeatures() {
 	uint32_t features = 0;
 
-	switch (vulkan_->GetPhysicalDeviceProperties().vendorID) {
+	switch (vulkan_->GetPhysicalDeviceProperties(vulkan_->GetCurrentPhysicalDevice()).vendorID) {
 	case VULKAN_VENDOR_AMD:
 		// Accurate depth is required on AMD (due to reverse-Z driver bug) so we ignore the compat flag to disable it on those. See #9545
 		features |= GPU_SUPPORTS_ACCURATE_DEPTH;
@@ -183,7 +183,7 @@ void GPU_Vulkan::CheckGPUFeatures() {
 	case VULKAN_VENDOR_ARM:
 		// Also required on older ARM Mali drivers, like the one on many Galaxy S7.
 		if (!PSP_CoreParameter().compat.flags().DisableAccurateDepth ||
-			  vulkan_->GetPhysicalDeviceProperties().driverVersion <= VK_MAKE_VERSION(428, 811, 2674)) {
+			  vulkan_->GetPhysicalDeviceProperties(vulkan_->GetCurrentPhysicalDevice()).driverVersion <= VK_MAKE_VERSION(428, 811, 2674)) {
 			features |= GPU_SUPPORTS_ACCURATE_DEPTH;
 		}
 		break;
@@ -212,7 +212,7 @@ void GPU_Vulkan::CheckGPUFeatures() {
 		features |= GPU_SUPPORTS_DEPTH_CLAMP;
 	}
 	if (vulkan_->GetFeaturesEnabled().dualSrcBlend) {
-		switch (vulkan_->GetPhysicalDeviceProperties().vendorID) {
+		switch (vulkan_->GetPhysicalDeviceProperties(vulkan_->GetCurrentPhysicalDevice()).vendorID) {
 		// We thought we had a bug here on nVidia but turns out we accidentally #ifdef-ed out crucial
 		// code on Android.
 		case VULKAN_VENDOR_INTEL:
@@ -220,7 +220,7 @@ void GPU_Vulkan::CheckGPUFeatures() {
 			break;
 		case VULKAN_VENDOR_AMD:
 			// See issue #10074, and also #10065 (AMD) and #10109 for the choice of the driver version to check for
-			if (vulkan_->GetPhysicalDeviceProperties().driverVersion >= 0x00407000)
+			if (vulkan_->GetPhysicalDeviceProperties(vulkan_->GetCurrentPhysicalDevice()).driverVersion >= 0x00407000)
 				features |= GPU_SUPPORTS_DUALSOURCE_BLEND;
 			break;
 		default:
@@ -310,7 +310,7 @@ void GPU_Vulkan::EndHostFrame() {
 
 // Needs to be called on GPU thread, not reporting thread.
 void GPU_Vulkan::BuildReportingInfo() {
-	const auto &props = vulkan_->GetPhysicalDeviceProperties();
+	const auto &props = vulkan_->GetPhysicalDeviceProperties(vulkan_->GetCurrentPhysicalDevice());
 	const auto &features = vulkan_->GetFeaturesAvailable();
 
 #define CHECK_BOOL_FEATURE(n) do { if (features.n) { featureNames += ", " #n; } } while (false)

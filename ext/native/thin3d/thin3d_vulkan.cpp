@@ -261,7 +261,7 @@ public:
 
 	// Returns the binding offset, and the VkBuffer to bind.
 	size_t PushUBO(VulkanPushBuffer *buf, VulkanContext *vulkan, VkBuffer *vkbuf) {
-		return buf->PushAligned(ubo_, uboSize_, vulkan->GetPhysicalDeviceProperties().limits.minUniformBufferOffsetAlignment, vkbuf);
+		return buf->PushAligned(ubo_, uboSize_, vulkan->GetPhysicalDeviceProperties(vulkan_->GetCurrentPhysicalDevice()).limits.minUniformBufferOffsetAlignment, vkbuf);
 	}
 
 	int GetUniformLoc(const char *name);
@@ -349,6 +349,13 @@ public:
 
 	const DeviceCaps &GetDeviceCaps() const override {
 		return caps_;
+	}
+	std::vector<std::string> GetDeviceList() const override {
+		std::vector<std::string> list;
+		for (int i = 0; i < vulkan_->GetNumPhysicalDevices(); i++) {
+			list.push_back(vulkan_->GetPhysicalDeviceProperties(i).deviceName);
+		}
+		return list;
 	}
 	uint32_t GetSupportedShaderLanguages() const override {
 		return (uint32_t)ShaderLanguage::GLSL_VULKAN | (uint32_t)ShaderLanguage::SPIRV_VULKAN;
@@ -446,13 +453,13 @@ public:
 		// TODO: Make these actually query the right information
 		switch (info) {
 		case APINAME: return "Vulkan";
-		case VENDORSTRING: return vulkan_->GetPhysicalDeviceProperties().deviceName;
-		case VENDOR: return VulkanVendorString(vulkan_->GetPhysicalDeviceProperties().vendorID);
-		case DRIVER: return FormatDriverVersion(vulkan_->GetPhysicalDeviceProperties());
+		case VENDORSTRING: return vulkan_->GetPhysicalDeviceProperties(vulkan_->GetCurrentPhysicalDevice()).deviceName;
+		case VENDOR: return VulkanVendorString(vulkan_->GetPhysicalDeviceProperties(vulkan_->GetCurrentPhysicalDevice()).vendorID);
+		case DRIVER: return FormatDriverVersion(vulkan_->GetPhysicalDeviceProperties(vulkan_->GetCurrentPhysicalDevice()));
 		case SHADELANGVERSION: return "N/A";;
 		case APIVERSION: 
 		{
-			uint32_t ver = vulkan_->GetPhysicalDeviceProperties().apiVersion;
+			uint32_t ver = vulkan_->GetPhysicalDeviceProperties(vulkan_->GetCurrentPhysicalDevice()).apiVersion;
 			return StringFromFormat("%d.%d.%d", ver >> 22, (ver >> 12) & 0x3ff, ver & 0xfff);
 		}
 		default: return "?";
@@ -746,7 +753,7 @@ VKContext::VKContext(VulkanContext *vulkan, bool splitSubmit)
 	caps_.framebufferDepthCopySupported = true;   // Will pretty much always be the case.
 	caps_.preferredDepthBufferFormat = DataFormat::D24_S8;  // TODO: Ask vulkan.
 
-	switch (vulkan->GetPhysicalDeviceProperties().vendorID) {
+	switch (vulkan->GetPhysicalDeviceProperties(vulkan_->GetCurrentPhysicalDevice()).vendorID) {
 	case VULKAN_VENDOR_AMD: caps_.vendor = GPUVendor::VENDOR_AMD; break;
 	case VULKAN_VENDOR_ARM: caps_.vendor = GPUVendor::VENDOR_ARM; break;
 	case VULKAN_VENDOR_IMGTEC: caps_.vendor = GPUVendor::VENDOR_IMGTEC; break;
