@@ -20,6 +20,7 @@
 #include "Common/CommonTypes.h"
 #include "Common/Log.h"
 #include <string>
+#include <vector>
 
 #define DEBUG_LOG_REPORT(t,...)   do { DEBUG_LOG(t, __VA_ARGS__);  Reporting::ReportMessage(__VA_ARGS__); } while (false)
 #define ERROR_LOG_REPORT(t,...)   do { ERROR_LOG(t, __VA_ARGS__);  Reporting::ReportMessage(__VA_ARGS__); } while (false)
@@ -73,6 +74,9 @@ namespace Reporting
 
 	// Report the compatibility of the current game / configuration.
 	void ReportCompatibility(const char *compat, int graphics, int speed, int gameplay, const std::string &screenshotFilename);
+
+	// Get the latest compatibility result.  Only valid when GetStatus() is not BUSY.
+	std::vector<std::string> CompatibilitySuggestions();
 
 	// Returns true if that identifier has not been logged yet.
 	bool ShouldLogOnce(const char *identifier);
