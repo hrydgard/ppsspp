@@ -27,9 +27,6 @@
 // possible hash functions, by using SIMD instructions, or by
 // compromising on hash quality.
 
-#ifdef __ANDROID__
-#undef __SSE4_2__
-#endif
 #include "city.h"
 
 #include <algorithm>
@@ -521,7 +518,7 @@ uint128 CityHash128(const char *s, size_t len) {
       CityHash128WithSeed(s, len, uint128(k0, k1));
 }
 
-#ifdef __SSE4_2__
+#if defined(__x86_64__) && defined(__SSE4_2__)
 #include "citycrc.h"
 #include <nmmintrin.h>
 
