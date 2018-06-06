@@ -17,6 +17,7 @@
 
 #pragma once
 
+#include <mutex>
 #include "Common/CommonTypes.h"
 #include "Core/Debugger/SymbolMap.h"
 #include "Core/MIPS/MIPSAnalyst.h"
@@ -91,6 +92,7 @@ private:
 	std::vector<BranchLine> lines;
 	std::map<u32,DisassemblyEntry*> entries;
 	std::vector<u32> lineAddresses;
+	std::recursive_mutex lock_;
 };
 
 class DisassemblyOpcode: public DisassemblyEntry
@@ -169,6 +171,7 @@ private:
 	DataType type;
 	std::map<u32,DataEntry> lines;
 	std::vector<u32> lineAddresses;
+	std::recursive_mutex lock_;
 };
 
 class DisassemblyComment: public DisassemblyEntry
@@ -214,6 +217,7 @@ public:
 	static int getMaxParamChars() { return maxParamChars; };
 private:
 	static std::map<u32,DisassemblyEntry*> entries;
+	static std::recursive_mutex entriesLock_;
 	static DebugInterface* cpu;
 	static int maxParamChars;
 };

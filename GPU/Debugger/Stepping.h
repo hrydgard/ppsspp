@@ -20,6 +20,7 @@
 #include <functional>
 
 #include "Common/CommonTypes.h"
+#include "Core/Core.h"
 #include "GPU/Common/GPUDebugInterface.h"
 
 namespace GPUStepping {
@@ -37,5 +38,5 @@ namespace GPUStepping {
 	bool GPU_SetCmdValue(u32 op);
 
 	void ResumeFromStepping();
-	void ForceUnpause();
+	void ForceUnpause(CoreLifecycle stage);
 };

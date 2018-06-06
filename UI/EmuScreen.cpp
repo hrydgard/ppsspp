@@ -399,15 +399,15 @@ void EmuScreen::sendMessage(const char *message, const char *value) {
 		// In case we need to position touch controls differently.
 		RecreateViews();
 	} else if (!strcmp(message, "control mapping") && screenManager()->topScreen() == this) {
-		UpdateUIState(UISTATE_MENU);
+		UpdateUIState(UISTATE_PAUSEMENU);
 		releaseButtons();
 		screenManager()->push(new ControlMappingScreen());
 	} else if (!strcmp(message, "display layout editor") && screenManager()->topScreen() == this) {
-		UpdateUIState(UISTATE_MENU);
+		UpdateUIState(UISTATE_PAUSEMENU);
 		releaseButtons();
 		screenManager()->push(new DisplayLayoutScreen());
 	} else if (!strcmp(message, "settings") && screenManager()->topScreen() == this) {
-		UpdateUIState(UISTATE_MENU);
+		UpdateUIState(UISTATE_PAUSEMENU);
 		releaseButtons();
 		screenManager()->push(new GameSettingsScreen(gamePath_));
 	} else if (!strcmp(message, "gpu dump next frame")) {

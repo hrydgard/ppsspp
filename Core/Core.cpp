@@ -28,22 +28,21 @@
 #include "thread/threadutil.h"
 #include "profiler/profiler.h"
 
+#include "Common/GraphicsContext.h"
 #include "Core/Core.h"
 #include "Core/Config.h"
+#include "Core/Host.h"
 #include "Core/MemMap.h"
 #include "Core/SaveState.h"
 #include "Core/System.h"
+#include "Core/Debugger/Breakpoints.h"
 #include "Core/MIPS/MIPS.h"
-#include "Common/GraphicsContext.h"
 
 #ifdef _WIN32
 #include "Common/CommonWindows.h"
 #include "Windows/InputDevice.h"
 #endif
 
-#include "Host.h"
-
-#include "Core/Debugger/Breakpoints.h"
 
 // Time until we stop considering the core active without user input.
 // Should this be configurable?  2 hours currently.
@@ -54,7 +53,8 @@ static std::mutex m_hStepMutex;
 static std::condition_variable m_InactiveCond;
 static std::mutex m_hInactiveMutex;
 static bool singleStepPending = false;
-static std::set<Core_ShutdownFunc> shutdownFuncs;
+static int steppingCounter = 0;
+static std::set<CoreLifecycleFunc> shutdownFuncs;
 static bool windowHidden = false;
 static double lastActivity = 0.0;
 static double lastKeepAwake = 0.0;
@@ -75,30 +75,19 @@ void Core_NotifyActivity() {
 	lastActivity = time_now_d();
 }
 
-void Core_ListenShutdown(Core_ShutdownFunc func) {
+void Core_ListenLifecycle(CoreLifecycleFunc func) {
 	shutdownFuncs.insert(func);
 }
 
-void Core_NotifyShutdown() {
+void Core_NotifyLifecycle(CoreLifecycle stage) {
 	for (auto it = shutdownFuncs.begin(); it != shutdownFuncs.end(); ++it) {
-		(*it)();
+		(*it)(stage);
 	}
-}
-
-void Core_ErrorPause() {
-	Core_UpdateState(CORE_ERROR);
-}
-
-void Core_Halt(const char *msg)  {
-	Core_EnableStepping(true);
-	ERROR_LOG(CPU, "CPU HALTED : %s",msg);
-	_dbg_update_();
 }
 
 void Core_Stop() {
 	Core_UpdateState(CORE_POWERDOWN);
-	Core_NotifyShutdown();
-	m_StepCond.notify_one();
+	m_StepCond.notify_all();
 }
 
 bool Core_IsStepping() {
@@ -239,11 +228,11 @@ void Core_RunLoop(GraphicsContext *ctx) {
 
 void Core_DoSingleStep() {
 	singleStepPending = true;
-	m_StepCond.notify_one();
+	m_StepCond.notify_all();
 }
 
 void Core_UpdateSingleStep() {
-	m_StepCond.notify_one();
+	m_StepCond.notify_all();
 }
 
 void Core_SingleStep() {
@@ -253,7 +242,7 @@ void Core_SingleStep() {
 static inline void CoreStateProcessed() {
 	if (coreStatePending) {
 		coreStatePending = false;
-		m_InactiveCond.notify_one();
+		m_InactiveCond.notify_all();
 	}
 }
 
@@ -334,10 +323,15 @@ void Core_EnableStepping(bool step) {
 		sleep_ms(1);
 		host->SetDebugMode(true);
 		Core_UpdateState(CORE_STEPPING);
+		steppingCounter++;
 	} else {
 		host->SetDebugMode(false);
 		coreState = CORE_RUNNING;
 		coreStatePending = false;
-		m_StepCond.notify_one();
+		m_StepCond.notify_all();
 	}
+}
+
+int Core_GetSteppingCounter() {
+	return steppingCounter;
 }
