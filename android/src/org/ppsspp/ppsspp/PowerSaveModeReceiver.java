@@ -55,7 +55,7 @@ public class PowerSaveModeReceiver extends BroadcastReceiver {
 
 	@TargetApi(21)
 	private static boolean getNativePowerSaving(final Context context) {
-		final PowerManager pm = (PowerManager)context.getSystemService(Context.POWER_SERVICE);
+		final PowerManager pm = (PowerManager) context.getSystemService(Context.POWER_SERVICE);
 		return pm.isPowerSaveMode();
 	}
 

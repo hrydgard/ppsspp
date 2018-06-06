@@ -1,11 +1,10 @@
 package org.ppsspp.ppsspp;
 
+import android.opengl.GLSurfaceView.EGLConfigChooser;
+import android.util.Log;
 import javax.microedition.khronos.egl.EGL10;
 import javax.microedition.khronos.egl.EGLConfig;
 import javax.microedition.khronos.egl.EGLDisplay;
-
-import android.opengl.GLSurfaceView.EGLConfigChooser;
-import android.util.Log;
 
 public class NativeEGLConfigChooser implements EGLConfigChooser {
 	private static final String TAG = "NativeEGLConfigChooser";
@@ -24,6 +23,7 @@ public class NativeEGLConfigChooser implements EGLConfigChooser {
 		public int stencil;
 		public int depth;
 		public int samples;
+
 		public void Log() {
 			Log.i(TAG, "EGLConfig: red=" + red + " green=" + green + " blue=" + blue + " alpha=" + alpha + " depth=" + depth + " stencil=" + stencil + " samples=" + samples);
 		}
@@ -79,22 +79,22 @@ public class NativeEGLConfigChooser implements EGLConfigChooser {
 		};
 
 		int[] num_config = new int[1];
-        if (!egl.eglChooseConfig(display, configSpec, null, 0, num_config)) {
-            throw new IllegalArgumentException("eglChooseConfig failed when counting");
-        }
+		if (!egl.eglChooseConfig(display, configSpec, null, 0, num_config)) {
+			throw new IllegalArgumentException("eglChooseConfig failed when counting");
+		}
 
-        int numConfigs = num_config[0];
-        Log.i(TAG, "There are " + numConfigs + " egl configs");
-        if (numConfigs <= 0) {
-            throw new IllegalArgumentException("No configs match configSpec");
-        }
+		int numConfigs = num_config[0];
+		Log.i(TAG, "There are " + numConfigs + " egl configs");
+		if (numConfigs <= 0) {
+			throw new IllegalArgumentException("No configs match configSpec");
+		}
 
 		EGLConfig[] eglConfigs = new EGLConfig[numConfigs];
 		if (!egl.eglChooseConfig(display, configSpec, eglConfigs, numConfigs, num_config)) {
-            throw new IllegalArgumentException("eglChooseConfig failed when retrieving");
-        }
+			throw new IllegalArgumentException("eglChooseConfig failed when retrieving");
+		}
 
-		ConfigAttribs [] configs = getConfigAttribs(egl, display, eglConfigs);
+		ConfigAttribs[] configs = getConfigAttribs(egl, display, eglConfigs);
 
 		ConfigAttribs chosen = null;
 
@@ -102,7 +102,6 @@ public class NativeEGLConfigChooser implements EGLConfigChooser {
 		for (int i = 0; i < configs.length; i++) {
 			configs[i].Log();
 		}
-
 
 		// We now ignore destination alpha as a workaround for the Mali issue
 		// where we get badly composited if we use it.
@@ -201,12 +200,11 @@ public class NativeEGLConfigChooser implements EGLConfigChooser {
 		}
 
 		if (chosen == null) {
-            throw new IllegalArgumentException("Failed to find a valid EGL config");
+			throw new IllegalArgumentException("Failed to find a valid EGL config");
 		}
 
 		Log.i(TAG, "Final chosen config: ");
 		chosen.Log();
 		return chosen.config;
 	}
-
 }

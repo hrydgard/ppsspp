@@ -18,8 +18,6 @@ import android.os.Build;
 import android.os.Handler;
 import android.util.Log;
 import android.view.MotionEvent;
-import android.view.View;
-
 import com.bda.controller.*;
 
 public class NativeGLView extends GLSurfaceView implements SensorEventListener, ControllerListener {
@@ -37,7 +35,7 @@ public class NativeGLView extends GLSurfaceView implements SensorEventListener, 
 		super(activity);
 		mActivity = activity;
 
-		mSensorManager = (SensorManager)activity.getSystemService(Activity.SENSOR_SERVICE);
+		mSensorManager = (SensorManager) activity.getSystemService(Activity.SENSOR_SERVICE);
 		mAccelerometer = mSensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER);
 
 		mController = Controller.getInstance(activity);
@@ -89,7 +87,7 @@ public class NativeGLView extends GLSurfaceView implements SensorEventListener, 
 			if (code != 0) {
 				if (canReadToolType) {
 					int tool = getToolType(ev, i);
-					code |= tool << 10;  // We use the Android tool type codes
+					code |= tool << 10; // We use the Android tool type codes
 				}
 				// Can't use || due to short circuit evaluation
 				numTouchesHandled += NativeApp.touch(ev.getX(i), ev.getY(i), code, pid) ? 1 : 0;
@@ -161,7 +159,7 @@ public class NativeGLView extends GLSurfaceView implements SensorEventListener, 
 			}
 		}
 
-		boolean repeat = false;  // Moga has no repeats?
+		boolean repeat = false; // Moga has no repeats?
 		switch (event.getAction()) {
 		case KeyEvent.ACTION_DOWN:
 			NativeApp.keyDown(NativeApp.DEVICE_ID_PAD_0, event.getKeyCode(), repeat);
