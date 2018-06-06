@@ -21,9 +21,9 @@
 #include <condition_variable>
 
 #include "base/timeutil.h"
-#include "ext/vjson/json.h"
 #include "file/fd_util.h"
 #include "i18n/i18n.h"
+#include "json/json_reader.h"
 #include "net/http_client.h"
 #include "net/http_server.h"
 #include "net/resolve.h"
@@ -252,16 +252,19 @@ static bool FindServer(std::string &resultHost, int &resultPort) {
 		return false;
 	}
 
-	const json_value *entries = reader.root();
-	if (!entries) {
+	const JsonValue entries = reader.rootArray();
+	if (entries.getTag() != JSON_ARRAY) {
 		return false;
 	}
 
 	std::vector<std::string> servers;
-	const json_value *entry = entries->first_child;
-	while (entry && !scanCancelled) {
-		const char *host = entry->getString("ip", "");
-		int port = entry->getInt("p", 0);
+	for (const auto pentry : entries) {
+		JsonGet entry = pentry->value;
+		if (scanCancelled)
+			return false;
+
+		const char *host = entry.getString("ip", "");
+		int port = entry.getInt("p", 0);
 
 		char url[1024] = {};
 		snprintf(url, sizeof(url), "http://%s:%d", host, port);
@@ -270,8 +273,6 @@ static bool FindServer(std::string &resultHost, int &resultPort) {
 		if (TryServer(host, port)) {
 			return true;
 		}
-
-		entry = entry->next_sibling;
 	}
 
 	// None of the local IPs were reachable.

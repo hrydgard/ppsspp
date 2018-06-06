@@ -125,8 +125,7 @@ SOURCES_CXX += \
 SOURCES_CXX += $(EXTDIR)/xbrz/xbrz.cpp
 
 SOURCES_CXX += \
-	$(NATIVEDIR)/ext/vjson/json.cpp \
-	$(NATIVEDIR)/ext/vjson/block_allocator.cpp
+	$(NATIVEDIR)/ext/gason/gason.cpp
 
 SOURCES_CXX += $(NATIVEDIR)/ext/cityhash/city.cpp
 
@@ -203,10 +202,11 @@ SOURCES_CXX += \
 	$(EXTDIR)/native/base/buffer.cpp \
 	$(EXTDIR)/native/base/colorutil.cpp \
 	$(EXTDIR)/native/base/display.cpp \
-   $(EXTDIR)/native/base/logging.cpp \
+	$(EXTDIR)/native/base/logging.cpp \
 	$(EXTDIR)/native/base/stringutil.cpp \
 	$(EXTDIR)/native/base/timeutil.cpp \
 	$(EXTDIR)/native/data/compression.cpp \
+	$(EXTDIR)/native/json/json_reader.cpp \
 	$(EXTDIR)/glslang/OGLCompilersDLL/InitializeDll.cpp \
 	$(EXTDIR)/glslang/glslang/GenericCodeGen/CodeGen.cpp \
 	$(EXTDIR)/glslang/glslang/GenericCodeGen/Link.cpp \

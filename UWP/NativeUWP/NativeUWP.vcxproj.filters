@@ -37,9 +37,6 @@
     <Filter Include="ext">
       <UniqueIdentifier>{2be24387-0b6a-4253-97fa-b8b6f75a8a4c}</UniqueIdentifier>
     </Filter>
-    <Filter Include="ext\vjson">
-      <UniqueIdentifier>{7fdd3320-a8e0-42ed-b08b-2d86ba2ff414}</UniqueIdentifier>
-    </Filter>
     <Filter Include="ext\libzip">
       <UniqueIdentifier>{1a486fc4-bac0-4b33-9139-262272690c74}</UniqueIdentifier>
     </Filter>
@@ -213,12 +210,6 @@
     </ClCompile>
     <ClCompile Include="..\..\ext\native\i18n\i18n.cpp">
       <Filter>i18n</Filter>
-    </ClCompile>
-    <ClCompile Include="..\..\ext\native\ext\vjson\block_allocator.cpp">
-      <Filter>ext\vjson</Filter>
-    </ClCompile>
-    <ClCompile Include="..\..\ext\native\ext\vjson\json.cpp">
-      <Filter>ext\vjson</Filter>
     </ClCompile>
     <ClCompile Include="..\..\ext\native\ext\libzip\mkstemp.c">
       <Filter>ext\libzip</Filter>
@@ -655,12 +646,6 @@
     </ClInclude>
     <ClInclude Include="..\..\ext\native\i18n\i18n.h">
       <Filter>i18n</Filter>
-    </ClInclude>
-    <ClInclude Include="..\..\ext\native\ext\vjson\block_allocator.h">
-      <Filter>ext\vjson</Filter>
-    </ClInclude>
-    <ClInclude Include="..\..\ext\native\ext\vjson\json.h">
-      <Filter>ext\vjson</Filter>
     </ClInclude>
     <ClInclude Include="..\..\ext\native\ext\libzip\config.h">
       <Filter>ext\libzip</Filter>
