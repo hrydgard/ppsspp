@@ -1089,10 +1089,6 @@ include_directories(ext/xxhash)
 set(CoreExtra)
 set(CoreExtraLibs)
 
-if(WIN32 OR ANDROID)
-	set(CoreExtraLibs ${CoreExtraLibs} armips)
-endif()
-
 set(CoreExtra ${CoreExtra}
 	Core/MIPS/IR/IRCompALU.cpp
 	Core/MIPS/IR/IRCompBranch.cpp

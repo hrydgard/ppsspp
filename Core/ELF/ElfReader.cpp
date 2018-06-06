@@ -18,7 +18,7 @@
 #include "Core/MemMap.h"
 #include "Core/Reporting.h"
 #include "Core/MIPS/MIPSTables.h"
-#include "ElfReader.h"
+#include "Core/ELF/ElfReader.h"
 #include "Core/Debugger/Breakpoints.h"
 #include "Core/Debugger/SymbolMap.h"
 #include "Core/HLE/sceKernelMemory.h"
