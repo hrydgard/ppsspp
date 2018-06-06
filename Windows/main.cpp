@@ -73,6 +73,11 @@ extern "C" {
 	__declspec(dllexport) DWORD NvOptimusEnablement = 1;
 }
 
+// Also on AMD PowerExpress: https://community.amd.com/thread/169965
+extern "C" {
+	__declspec(dllexport) int AmdPowerXpressRequestHighPerformance = 1;
+}
+
 CDisasm *disasmWindow[MAX_CPUCOUNT] = {0};
 CGEDebugger *geDebuggerWindow = 0;
 CMemoryDlg *memoryWindow[MAX_CPUCOUNT] = {0};
