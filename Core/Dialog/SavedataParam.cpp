@@ -611,7 +611,9 @@ bool SavedataParam::LoadSaveData(SceUtilitySavedataParam *param, const std::stri
 
 int SavedataParam::DetermineCryptMode(const SceUtilitySavedataParam *param) const {
 	int decryptMode = 1;
-	if (HasKey(param)) {
+	if (param->secureVersion != 0) {
+		decryptMode = param->secureVersion;
+	} else if (HasKey(param)) {
 		decryptMode = GetSDKMainVersion(sceKernelGetCompiledSdkVersion()) >= 4 ? 5 : 3;
 	}
 	return decryptMode;
@@ -623,19 +625,18 @@ void SavedataParam::LoadCryptedSave(SceUtilitySavedataParam *param, u8 *data, u8
 	u8 *cryptKey = new u8[0x10];
 	memset(cryptKey, 0, 0x10);
 
-	bool hasKey = HasKey(param);
+	int decryptMode = DetermineCryptMode(param);
+	bool hasKey = decryptMode > 1;
 	if (hasKey) {
 		memcpy(cryptKey, param->key, 0x10);
 	}
 	memset(data_base + saveSize, 0, align_len - saveSize);
 	memcpy(data_base, saveData, saveSize);
 
-	int decryptMode = DetermineCryptMode(param);
 	if (decryptMode != prevCryptMode) {
 		if (prevCryptMode == 1 && param->key[0] == 0) {
 			// Backwards compat for a bug we used to have.
 			WARN_LOG(SCEUTILITY, "Savedata loading with hashmode %d instead of detected %d", prevCryptMode, decryptMode);
-			hasKey = false;
 			decryptMode = prevCryptMode;
 
 			// Don't notify the user if we're not going to upgrade the save.
@@ -657,6 +658,7 @@ void SavedataParam::LoadCryptedSave(SceUtilitySavedataParam *param, u8 *data, u8
 				host->NotifyUserMessage(di->T("Old savedata detected"), 6.0f);
 			}
 		}
+		hasKey = decryptMode > 1;
 	}
 
 	if (DecryptSave(decryptMode, data_base, &saveSize, &align_len, (hasKey?cryptKey:0)) == 0) {
