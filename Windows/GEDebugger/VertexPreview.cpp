@@ -24,6 +24,7 @@
 #include "Core/Config.h"
 #include "GPU/GPUInterface.h"
 #include "GPU/Common/GPUDebugInterface.h"
+#include "GPU/Common/SplineCommon.h"
 #include "GPU/GPUState.h"
 
 static const char preview_fs[] =
@@ -153,11 +154,10 @@ static void ExpandRectangles(std::vector<GPUDebugVertex> &vertices, std::vector<
 
 u32 CGEDebugger::PrimPreviewOp() {
 	DisplayList list;
-	if (gpuDebug != nullptr && gpuDebug->GetCurrentDisplayList(list)) {
+	if (gpuDebug != nullptr && gpuDebug->GetCurrentDisplayList(list) && !showClut_) {
 		const u32 op = Memory::Read_U32(list.pc);
 		const u32 cmd = op >> 24;
-		// TODO: Bezier/spline?
-		if (cmd == GE_CMD_PRIM && !showClut_) {
+		if (cmd == GE_CMD_PRIM || cmd == GE_CMD_BEZIER || cmd == GE_CMD_SPLINE) {
 			return op;
 		}
 	}
@@ -165,9 +165,118 @@ u32 CGEDebugger::PrimPreviewOp() {
 	return 0;
 }
 
+static void ExpandBezier(int &count, int op, const std::vector<SimpleVertex> &simpleVerts, const std::vector<u16> &indices, std::vector<SimpleVertex> &generatedVerts, std::vector<u16> &generatedInds) {
+	int count_u = (op & 0x00FF) >> 0;
+	int count_v = (op & 0xFF00) >> 8;
+
+	int tess_u = gstate.getPatchDivisionU();
+	int tess_v = gstate.getPatchDivisionV();
+	if (tess_u < 1) {
+		tess_u = 1;
+	}
+	if (tess_v < 1) {
+		tess_v = 1;
+	}
+
+	// Bezier patches share less control points than spline patches. Otherwise they are pretty much the same (except bezier don't support the open/close thing)
+	int num_patches_u = (count_u - 1) / 3;
+	int num_patches_v = (count_v - 1) / 3;
+	int total_patches = num_patches_u * num_patches_v;
+	std::vector<BezierPatch> patches;
+	patches.resize(total_patches);
+	for (int patch_u = 0; patch_u < num_patches_u; patch_u++) {
+		for (int patch_v = 0; patch_v < num_patches_v; patch_v++) {
+			BezierPatch &patch = patches[patch_u + patch_v * num_patches_u];
+			for (int point = 0; point < 16; ++point) {
+				int idx = (patch_u * 3 + point % 4) + (patch_v * 3 + point / 4) * count_u;
+				patch.points[point] = &simpleVerts[0] + (!indices.empty() ? indices[idx] : idx);
+			}
+			patch.u_index = patch_u * 3;
+			patch.v_index = patch_v * 3;
+			patch.index = patch_v * num_patches_u + patch_u;
+			patch.primType = gstate.getPatchPrimitiveType();
+			patch.computeNormals = false;
+			patch.patchFacing = false;
+		}
+	}
+
+	generatedVerts.resize((tess_u + 1) * (tess_v + 1) * total_patches);
+	generatedInds.resize(tess_u * tess_v * 6);
+
+	count = 0;
+	u8 *dest = (u8 *)&generatedVerts[0];
+	u16 *inds = &generatedInds[0];
+	for (int patch_idx = 0; patch_idx < total_patches; ++patch_idx) {
+		const BezierPatch &patch = patches[patch_idx];
+		TessellateBezierPatch(dest, inds, count, tess_u, tess_v, patch, gstate.vertType);
+	}
+}
+
+static void ExpandSpline(int &count, int op, const std::vector<SimpleVertex> &simpleVerts, const std::vector<u16> &indices, std::vector<SimpleVertex> &generatedVerts, std::vector<u16> &generatedInds) {
+	SplinePatchLocal patch;
+	patch.computeNormals = false;
+	patch.primType = gstate.getPatchPrimitiveType();
+	patch.patchFacing = false;
+
+	patch.count_u = (op & 0x00FF) >> 0;
+	patch.count_v = (op & 0xFF00) >> 8;
+	patch.type_u = (op >> 16) & 0x3;
+	patch.type_v = (op >> 18) & 0x3;
+
+	patch.tess_u = gstate.getPatchDivisionU();
+	patch.tess_v = gstate.getPatchDivisionV();
+	if (patch.tess_u < 1) {
+		patch.tess_u = 1;
+	}
+	if (patch.tess_v < 1) {
+		patch.tess_v = 1;
+	}
+
+	// Real hardware seems to draw nothing when given < 4 either U or V.
+	if (patch.count_u < 4 || patch.count_v < 4) {
+		return;
+	}
+
+	std::vector<const SimpleVertex *> points;
+	points.resize(patch.count_u * patch.count_v);
+
+	// Make an array of pointers to the control points, to get rid of indices.
+	for (int idx = 0; idx < patch.count_u * patch.count_v; idx++) {
+		points[idx] = &simpleVerts[0] + (!indices.empty() ? indices[idx] : idx);
+	}
+	patch.points = &points[0];
+
+	int patch_div_s = (patch.count_u - 3) * patch.tess_u;
+	int patch_div_t = (patch.count_v - 3) * patch.tess_v;
+	int maxVertexCount = (patch_div_s + 1) * (patch_div_t + 1);
+
+	generatedVerts.resize(maxVertexCount);
+	generatedInds.resize(patch_div_s * patch_div_t * 6);
+
+	count = 0;
+	u8 *dest = (u8 *)&generatedVerts[0];
+	TessellateSplinePatch(dest, &generatedInds[0], count, patch, gstate.vertType, maxVertexCount);
+}
+
 void CGEDebugger::UpdatePrimPreview(u32 op, int which) {
-	const u32 prim_type = (op >> 16) & 0x7;
-	int count = op & 0xFFFF;
+	u32 prim_type = GE_PRIM_INVALID;
+	int count = 0;
+	int count_u = 0;
+	int count_v = 0;
+
+	const u32 cmd = op >> 24;
+	if (cmd == GE_CMD_PRIM) {
+		prim_type = (op >> 16) & 0x7;
+		count = op & 0xFFFF;
+	} else {
+		const GEPrimitiveType primLookup[] = { GE_PRIM_TRIANGLES, GE_PRIM_LINES, GE_PRIM_POINTS, GE_PRIM_POINTS };
+		if (gstate.getPatchPrimitiveType() < ARRAY_SIZE(primLookup))
+			prim_type = primLookup[gstate.getPatchPrimitiveType()];
+		count_u = (op & 0x00FF) >> 0;
+		count_v = (op & 0xFF00) >> 8;
+		count = count_u * count_v;
+	}
+
 	if (prim_type >= 7) {
 		ERROR_LOG(G3D, "Unsupported prim type: %x", op);
 		return;
@@ -188,6 +297,36 @@ void CGEDebugger::UpdatePrimPreview(u32 op, int which) {
 	if (!gpuDebug->GetCurrentSimpleVertices(count, vertices, indices)) {
 		ERROR_LOG(G3D, "Vertex preview not yet supported");
 		return;
+	}
+
+	if (cmd != GE_CMD_PRIM) {
+		static std::vector<SimpleVertex> generatedVerts;
+		static std::vector<u16> generatedInds;
+
+		static std::vector<SimpleVertex> simpleVerts;
+		simpleVerts.resize(vertices.size());
+		for (size_t i = 0; i < vertices.size(); ++i) {
+			// For now, let's just copy back so we can use TessellateBezierPatch/TessellateSplinePatch...
+			simpleVerts[i].uv[0] = vertices[i].u;
+			simpleVerts[i].uv[1] = vertices[i].v;
+			simpleVerts[i].pos = Vec3Packedf(vertices[i].x, vertices[i].y, vertices[i].z);
+		}
+
+		if (cmd == GE_CMD_BEZIER) {
+			ExpandBezier(count, op, simpleVerts, indices, generatedVerts, generatedInds);
+		} else if (cmd == GE_CMD_SPLINE) {
+			ExpandSpline(count, op, simpleVerts, indices, generatedVerts, generatedInds);
+		}
+
+		vertices.resize(generatedVerts.size());
+		for (size_t i = 0; i < vertices.size(); ++i) {
+			vertices[i].u = generatedVerts[i].uv[0];
+			vertices[i].v = generatedVerts[i].uv[1];
+			vertices[i].x = generatedVerts[i].pos.x;
+			vertices[i].y = generatedVerts[i].pos.y;
+			vertices[i].z = generatedVerts[i].pos.z;
+		}
+		indices = generatedInds;
 	}
 
 	if (prim == GE_PRIM_RECTANGLES) {

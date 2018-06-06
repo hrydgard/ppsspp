@@ -162,9 +162,9 @@ void GeDisassembleOp(u32 pc, u32 op, u32 prev, char *buffer, int bufsize) {
 			int sp_utype = (data >> 16) & 0x3;
 			int sp_vtype = (data >> 18) & 0x3;
 			if (data & 0xF00000)
-				snprintf(buffer, bufsize, "DRAW SPLINE: %i x %i, %i x %i (extra %x)", sp_ucount, sp_vcount, sp_utype, sp_vtype, data >> 20);
+				snprintf(buffer, bufsize, "DRAW SPLINE: %i x %i (type %ix%i, extra %x)", sp_ucount, sp_vcount, sp_utype, sp_vtype, data >> 20);
 			else
-				snprintf(buffer, bufsize, "DRAW SPLINE: %i x %i, %i x %i", sp_ucount, sp_vcount, sp_utype, sp_vtype);
+				snprintf(buffer, bufsize, "DRAW SPLINE: %i x %i (type %ix%i)", sp_ucount, sp_vcount, sp_utype, sp_vtype);
 		}
 		break;
 

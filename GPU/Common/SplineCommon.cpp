@@ -79,7 +79,7 @@ inline __m128 SSENormalizeMultiplier(bool useSSE4, __m128 v)
 
 
 
-static void CopyQuad(u8 *&dest, const SimpleVertex *v1, const SimpleVertex *v2, const SimpleVertex* v3, const SimpleVertex *v4) {
+static void CopyQuad(u8 *&dest, const SimpleVertex *v1, const SimpleVertex *v2, const SimpleVertex *v3, const SimpleVertex *v4) {
 	int vertexSize = sizeof(SimpleVertex);
 	memcpy(dest, v1, vertexSize);
 	dest += vertexSize;
@@ -458,7 +458,7 @@ static void SplinePatchFullQuality(u8 *&dest, u16 *indices, int &count, const Sp
 							OutputDebugStringA(temp);
 							Crash();
 						}*/
-						SimpleVertex *a = spatch.points[idx];
+						const SimpleVertex *a = spatch.points[idx];
 						AccumulateWeighted(vert_pos, a->pos, fv);
 						if (origTc) {
 							vert->uv[0] += a->uv[0] * f;
@@ -877,7 +877,7 @@ void DrawEngineCommon::SubmitSpline(const void *control_points, const void *indi
 	}
 
 	// TODO: Do something less idiotic to manage this buffer
-	SimpleVertex **points = new SimpleVertex *[count_u * count_v];
+	auto points = new const SimpleVertex *[count_u * count_v];
 
 	// Make an array of pointers to the control points, to get rid of indices.
 	for (int idx = 0; idx < count_u * count_v; idx++) {
@@ -1013,7 +1013,7 @@ void DrawEngineCommon::SubmitBezier(const void *control_points, const void *indi
 		float *t = tex;
 		float *c = col;
 		for (int idx = 0; idx < count_u * count_v; idx++) {
-			SimpleVertex *point = simplified_control_points + (indices ? idxConv.convert(idx) : idx);
+			const SimpleVertex *point = simplified_control_points + (indices ? idxConv.convert(idx) : idx);
 			memcpy(p, point->pos.AsArray(), 3 * sizeof(float));
 			p += posStride;
 			if (hasTexCoords) {
@@ -1026,7 +1026,7 @@ void DrawEngineCommon::SubmitBezier(const void *control_points, const void *indi
 			}
 		}
 		if (!hasColor) {
-			SimpleVertex *point = simplified_control_points + (indices ? idxConv.convert(0) : 0);
+			const SimpleVertex *point = simplified_control_points + (indices ? idxConv.convert(0) : 0);
 			memcpy(col, Vec4f::FromRGBA(point->color_32).AsArray(), 4 * sizeof(float));
 		}
 	} else {
