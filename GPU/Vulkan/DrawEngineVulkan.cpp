@@ -574,7 +574,8 @@ void DrawEngineVulkan::DoFlush() {
 
 	GEPrimitiveType prim = prevPrim_;
 
-	bool useHWTransform = CanUseHardwareTransform(prim);
+	// Always use software for flat shading to fix the provoking index.
+	bool useHWTransform = CanUseHardwareTransform(prim) && gstate.getShadeMode() != GE_SHADE_FLAT;
 
 	VulkanVertexShader *vshader = nullptr;
 	VulkanFragmentShader *fshader = nullptr;
@@ -860,6 +861,7 @@ void DrawEngineVulkan::DoFlush() {
 		// do not respect scissor rects.
 		params.allowClear = g_Config.iRenderingMode != 0;
 		params.allowSeparateAlphaClear = false;
+		params.provokeFlatFirst = true;
 
 		int maxIndex = indexGen.MaxIndex();
 		SoftwareTransform(
