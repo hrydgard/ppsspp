@@ -65,6 +65,11 @@ void VagDecoder::Start(u32 data, u32 vagSize, bool loopEnabled) {
 }
 
 void VagDecoder::DecodeBlock(u8 *&read_pointer) {
+	if (curBlock_ == numBlocks_ - 1) {
+		end_ = true;
+		return;
+	}
+
 	u8 *readp = read_pointer;
 	int predict_nr = *readp++;
 	int shift_factor = predict_nr & 0xf;
@@ -106,9 +111,6 @@ void VagDecoder::DecodeBlock(u8 *&read_pointer) {
 	s_2 = s2;
 	curSample = 0;
 	curBlock_++;
-	if (curBlock_ == numBlocks_) {
-		end_ = true;
-	}
 
 	read_pointer = readp;
 }
@@ -508,15 +510,30 @@ void SasInstance::MixVoice(SasVoice &voice) {
 			ERROR_LOG(SCESAS, "Too many samples to read (%d)! This shouldn't happen.", samplesToRead);
 			samplesToRead = ARRAY_SIZE(mixTemp_) - 2;
 		}
-		voice.ReadSamples(&mixTemp_[2], samplesToRead);
-		int tempPos = 2 + samplesToRead;
+		int readPos = 2;
+		if (voice.envelope.NeedsKeyOn()) {
+			readPos = 0;
+			samplesToRead += 2;
+		}
+		voice.ReadSamples(&mixTemp_[readPos], samplesToRead);
+		int tempPos = readPos + samplesToRead;
 
+		for (int i = 0; i < delay; ++i) {
+			// Walk the curve.  This means we'll reach ATTACK already, likely.
+			// This matches the results of tests (but maybe we can just remove the STATE_KEYON_STEP hack.)
+			voice.envelope.Step();
+		}
+
+		const bool needsInterp = voicePitch != PSP_SAS_PITCH_BASE || (sampleFrac & PSP_SAS_PITCH_MASK) != 0;
 		for (int i = delay; i < grainSize; i++) {
 			const int16_t *s = mixTemp_ + (sampleFrac >> PSP_SAS_PITCH_BASE_SHIFT);
 
 			// Linear interpolation. Good enough. Need to make resampleHist bigger if we want more.
-			int f = sampleFrac & PSP_SAS_PITCH_MASK;
-			int sample = (s[0] * (PSP_SAS_PITCH_MASK - f) + s[1] * f) >> PSP_SAS_PITCH_BASE_SHIFT;
+			int sample = s[0];
+			if (needsInterp) {
+				int f = sampleFrac & PSP_SAS_PITCH_MASK;
+				sample = (s[0] * (PSP_SAS_PITCH_MASK - f) + s[1] * f) >> PSP_SAS_PITCH_BASE_SHIFT;
+			}
 			sampleFrac += voicePitch;
 
 			// The maximum envelope height (PSP_SAS_ENVELOPE_HEIGHT_MAX) is (1 << 30) - 1.
@@ -541,7 +558,7 @@ void SasInstance::MixVoice(SasVoice &voice) {
 		voice.resampleHist[0] = mixTemp_[tempPos - 2];
 		voice.resampleHist[1] = mixTemp_[tempPos - 1];
 
-		voice.sampleFrac = sampleFrac - (tempPos - 2) * PSP_SAS_PITCH_BASE;;
+		voice.sampleFrac = sampleFrac - (tempPos - 2) * PSP_SAS_PITCH_BASE;
 
 		if (voice.HaveSamplesEnded())
 			voice.envelope.End();
