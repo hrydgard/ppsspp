@@ -115,7 +115,7 @@ bool D3D11Context::Init(HINSTANCE hInst, HWND wnd, std::string *error_message) {
 			pAdapter->GetDesc(&desc);
 			std::string str = ConvertWStringToUTF8(desc.Description);
 			adapterNames.push_back(str);
-			if (str == g_Config.D3D11Device) {
+			if (str == g_Config.sD3D11Device) {
 				chosenAdapter = i;
 			}
 		}

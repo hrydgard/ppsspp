@@ -203,15 +203,16 @@ void GameSettingsScreen::CreateViews() {
 	}
 #endif
 	Draw::DrawContext *draw = screenManager()->getDrawContext();
+
+	// Backends that don't allow a device choice will only expose one device.
 	if (draw->GetDeviceList().size() > 1) {
-		// Some backends don't support switching so no point in showing multiple devices.
 		std::string *deviceNameSetting = nullptr;
 		if (g_Config.iGPUBackend == (int)GPUBackend::VULKAN) {
-			deviceNameSetting = &g_Config.VulkanDevice;
+			deviceNameSetting = &g_Config.sVulkanDevice;
 		}
 #ifdef _WIN32
 		if (g_Config.iGPUBackend == (int)GPUBackend::DIRECT3D11) {
-			deviceNameSetting = &g_Config.D3D11Device;
+			deviceNameSetting = &g_Config.sD3D11Device;
 		}
 #endif
 		if (deviceNameSetting) {
