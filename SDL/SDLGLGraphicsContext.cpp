@@ -45,8 +45,9 @@ int SDLGLGraphicsContext::Init(SDL_Window *&window, int x, int y, int mode, std:
 
 		window = SDL_CreateWindow("PPSSPP", x,y, pixel_xres, pixel_yres, mode);
 		if (!window) {
-			NativeShutdown();
-			fprintf(stderr, "SDL_CreateWindow failed: %s\n", SDL_GetError());
+			// Definitely don't shutdown here: we'll keep trying more GL versions.
+			fprintf(stderr, "SDL_CreateWindow failed for GL %d.%d: %s\n", ver.major, ver.minor, SDL_GetError());
+			// Skip the DestroyWindow.
 			continue;
 		}
 
