@@ -7,6 +7,9 @@
 #include "gfx/gl_common.h"
 #include "Common/GraphicsContext.h"
 
+// TODO: Move this to a better place.
+void EGL_Open();
+
 class SDLGLGraphicsContext : public DummyGraphicsContext {
 public:
 	SDLGLGraphicsContext() {
