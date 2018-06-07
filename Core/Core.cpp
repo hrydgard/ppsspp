@@ -87,7 +87,6 @@ void Core_NotifyLifecycle(CoreLifecycle stage) {
 
 void Core_Stop() {
 	Core_UpdateState(CORE_POWERDOWN);
-	m_StepCond.notify_all();
 }
 
 bool Core_IsStepping() {
@@ -100,6 +99,14 @@ bool Core_IsActive() {
 
 bool Core_IsInactive() {
 	return coreState != CORE_RUNNING && coreState != CORE_NEXTFRAME && !coreStatePending;
+}
+
+static inline void Core_StateProcessed() {
+	if (coreStatePending) {
+		std::lock_guard<std::mutex> guard(m_hInactiveMutex);
+		coreStatePending = false;
+		m_InactiveCond.notify_all();
+	}
 }
 
 void Core_WaitInactive() {
@@ -173,6 +180,7 @@ bool UpdateScreenScale(int width, int height) {
 	return false;
 }
 
+// Note: not used on Android.
 void UpdateRunLoop() {
 	if (windowHidden && g_Config.bPauseWhenMinimized) {
 		sleep_ms(16);
@@ -191,6 +199,8 @@ void KeepScreenAwake() {
 void Core_RunLoop(GraphicsContext *ctx) {
 	graphicsContext = ctx;
 	while ((GetUIState() != UISTATE_INGAME || !PSP_IsInited()) && GetUIState() != UISTATE_EXIT) {
+		// In case it was pending, we're not in game anymore.  We won't get to Core_Run().
+		Core_StateProcessed();
 		time_update();
 		double startTime = time_now_d();
 		UpdateRunLoop();
@@ -227,22 +237,55 @@ void Core_RunLoop(GraphicsContext *ctx) {
 }
 
 void Core_DoSingleStep() {
+	std::lock_guard<std::mutex> guard(m_hStepMutex);
 	singleStepPending = true;
 	m_StepCond.notify_all();
 }
 
 void Core_UpdateSingleStep() {
+	std::lock_guard<std::mutex> guard(m_hStepMutex);
 	m_StepCond.notify_all();
 }
 
 void Core_SingleStep() {
 	currentMIPS->SingleStep();
+	if (coreState == CORE_STEPPING)
+		steppingCounter++;
 }
 
-static inline void CoreStateProcessed() {
-	if (coreStatePending) {
-		coreStatePending = false;
-		m_InactiveCond.notify_all();
+static inline bool Core_WaitStepping() {
+	std::unique_lock<std::mutex> guard(m_hStepMutex);
+	if (!singleStepPending && coreState == CORE_STEPPING)
+		m_StepCond.wait(guard);
+
+	bool result = singleStepPending;
+	singleStepPending = false;
+	return result;
+}
+
+void Core_ProcessStepping() {
+	Core_StateProcessed();
+
+	// Check if there's any pending save state actions.
+	SaveState::Process();
+	if (coreState != CORE_STEPPING) {
+		return;
+	}
+
+	// We're not inside jit now, so it's safe to clear the breakpoints.
+	CBreakPoints::ClearTemporaryBreakPoints();
+	host->UpdateDisassembly();
+	host->UpdateMemView();
+
+	// Need to check inside the lock to avoid races.
+	bool doStep = Core_WaitStepping();
+
+	// We may still be stepping without singleStepPending to process a save state.
+	if (doStep && coreState == CORE_STEPPING) {
+		Core_SingleStep();
+		// Update disasm dialog.
+		host->UpdateDisassembly();
+		host->UpdateMemView();
 	}
 }
 
@@ -251,9 +294,8 @@ static inline void CoreStateProcessed() {
 void Core_Run(GraphicsContext *ctx) {
 	host->UpdateDisassembly();
 	while (true) {
-reswitch:
 		if (GetUIState() != UISTATE_INGAME) {
-			CoreStateProcessed();
+			Core_StateProcessed();
 			if (GetUIState() == UISTATE_EXIT) {
 				UpdateRunLoop();
 				return;
@@ -264,51 +306,20 @@ reswitch:
 
 		switch (coreState) {
 		case CORE_RUNNING:
+		case CORE_STEPPING:
 			// enter a fast runloop
 			Core_RunLoop(ctx);
-			break;
-
-		// We should never get here on Android.
-		case CORE_STEPPING:
-			singleStepPending = false;
-			CoreStateProcessed();
-
-			// Check if there's any pending savestate actions.
-			SaveState::Process();
 			if (coreState == CORE_POWERDOWN) {
+				Core_StateProcessed();
 				return;
 			}
-
-			// wait for step command..
-			host->UpdateDisassembly();
-			host->UpdateMemView();
-			host->SendCoreWait(true);
-
-			{
-				std::unique_lock<std::mutex> guard(m_hStepMutex);
-				m_StepCond.wait(guard);
-			}
-
-			host->SendCoreWait(false);
-			// No step pending?  Let's go back to the wait.
-			if (!singleStepPending || coreState != CORE_STEPPING) {
-				if (coreState == CORE_POWERDOWN) {
-					return;
-				}
-				goto reswitch;
-			}
-
-			Core_SingleStep();
-			// update disasm dialog
-			host->UpdateDisassembly();
-			host->UpdateMemView();
 			break;
 
 		case CORE_POWERUP:
 		case CORE_POWERDOWN:
 		case CORE_ERROR:
 			// Exit loop!!
-			CoreStateProcessed();
+			Core_StateProcessed();
 
 			return;
 
@@ -320,7 +331,6 @@ reswitch:
 
 void Core_EnableStepping(bool step) {
 	if (step) {
-		sleep_ms(1);
 		host->SetDebugMode(true);
 		Core_UpdateState(CORE_STEPPING);
 		steppingCounter++;

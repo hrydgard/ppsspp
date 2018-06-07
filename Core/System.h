@@ -70,6 +70,7 @@ void PSP_Shutdown();
 
 void PSP_BeginHostFrame();
 void PSP_EndHostFrame();
+void PSP_RunLoopWhileState();
 void PSP_RunLoopUntil(u64 globalticks);
 void PSP_RunLoopFor(int cycles);
 

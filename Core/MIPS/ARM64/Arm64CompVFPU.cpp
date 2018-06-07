@@ -202,6 +202,7 @@ namespace MIPSComp {
 
 	void Arm64Jit::Comp_SV(MIPSOpcode op) {
 		CONDITIONAL_DISABLE;
+		CheckMemoryBreakpoint();
 
 		s32 offset = (signed short)(op & 0xFFFC);
 		int vt = ((op >> 16) & 0x1f) | ((op & 3) << 5);
@@ -275,6 +276,7 @@ namespace MIPSComp {
 
 	void Arm64Jit::Comp_SVQ(MIPSOpcode op) {
 		CONDITIONAL_DISABLE;
+		CheckMemoryBreakpoint();
 
 		int imm = (signed short)(op&0xFFFC);
 		int vt = (((op >> 16) & 0x1f)) | ((op&1) << 5);

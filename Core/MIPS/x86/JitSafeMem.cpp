@@ -376,17 +376,10 @@ void JitSafeMem::MemCheckImm(MemoryOpType type)
 
 void JitSafeMem::MemCheckAsm(MemoryOpType type)
 {
-	const auto memchecks = CBreakPoints::GetMemCheckRanges();
-	bool possible = false;
+	const auto memchecks = CBreakPoints::GetMemCheckRanges(type == MEM_WRITE);
+	bool possible = !memchecks.empty();
 	for (auto it = memchecks.begin(), end = memchecks.end(); it != end; ++it)
 	{
-		if (!(it->cond & MEMCHECK_READ) && type == MEM_READ)
-			continue;
-		if (!(it->cond & MEMCHECK_WRITE) && type == MEM_WRITE)
-			continue;
-
-		possible = true;
-
 		FixupBranch skipNext, skipNextRange;
 		if (it->end != 0)
 		{

@@ -809,7 +809,6 @@ void CDisasm::SetDebugMode(bool _bDebug, bool switchPC)
 	if (_bDebug && GetUIState() == UISTATE_INGAME && PSP_IsInited())
 	{
 		Core_WaitInactive(TEMP_BREAKPOINT_WAIT_MS);
-		CBreakPoints::ClearTemporaryBreakPoints();
 		breakpointList->reloadBreakpoints();
 		threadList->reloadThreads();
 		stackTraceView->loadStackTrace();

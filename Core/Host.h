@@ -50,8 +50,6 @@ public:
 	virtual void SaveSymbolMap() {}
 	virtual void SetWindowTitle(const char *message) {}
 
-	virtual void SendCoreWait(bool) {}
-
 	// While debugging is active, it's perfectly fine for these to block.
 	virtual bool GPUDebuggingActive() { return false; }
 	virtual void GPUNotifyCommand(u32 pc) {}
