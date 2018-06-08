@@ -1,6 +1,7 @@
 #include <algorithm>
 #include <cassert>
 #include <cctype>
+#include <cmath>
 #include <cstring>
 #ifndef _WIN32
 #include <arpa/inet.h>
