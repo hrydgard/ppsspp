@@ -689,6 +689,9 @@
     <ClCompile Include="Replay.cpp">
       <Filter>Core</Filter>
     </ClCompile>
+    <ClCompile Include="WebServer.cpp">
+      <Filter>Core</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="ELF\ElfReader.h">
@@ -1266,6 +1269,9 @@
       <Filter>HLE\Libraries</Filter>
     </ClInclude>
     <ClInclude Include="Replay.h">
+      <Filter>Core</Filter>
+    </ClInclude>
+    <ClInclude Include="WebServer.h">
       <Filter>Core</Filter>
     </ClInclude>
   </ItemGroup>

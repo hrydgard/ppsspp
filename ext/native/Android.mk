@@ -13,6 +13,7 @@ LOCAL_SRC_FILES :=\
     base/timeutil.cpp \
     base/colorutil.cpp \
     base/stringutil.cpp \
+    data/base64.cpp \
     data/compression.cpp \
     ext/rg_etc1/rg_etc1.cpp \
     ext/cityhash/city.cpp \
@@ -64,6 +65,7 @@ LOCAL_SRC_FILES :=\
     net/resolve.cpp \
     net/sinks.cpp \
     net/url.cpp \
+    net/websocket_server.cpp \
     profiler/profiler.cpp \
     thread/executor.cpp \
     thread/threadutil.cpp \

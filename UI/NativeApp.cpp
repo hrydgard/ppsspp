@@ -84,6 +84,7 @@
 #include "Core/HLE/sceUsbGps.h"
 #include "Core/Util/GameManager.h"
 #include "Core/Util/AudioFormat.h"
+#include "Core/WebServer.h"
 #include "GPU/GPUInterface.h"
 
 #include "ui_atlas.h"
@@ -587,7 +588,8 @@ void NativeInit(int argc, const char *argv[], const char *savegame_dir, const ch
 	}
 
 	if (g_Config.bRemoteShareOnStartup) {
-		StartRemoteISOSharing();
+		// TODO: Separate config options.
+		StartWebServer(WebServerFlags::ALL);
 	}
 
 	std::string sysName = System_GetProperty(SYSPROP_NAME);

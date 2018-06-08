@@ -202,6 +202,7 @@
     <ClInclude Include="base\NativeApp.h" />
     <ClInclude Include="base\stringutil.h" />
     <ClInclude Include="base\timeutil.h" />
+    <ClInclude Include="data\base64.h" />
     <ClInclude Include="data\compression.h" />
     <ClInclude Include="data\listable.h" />
     <ClInclude Include="ext\cityhash\city.h" />
@@ -238,6 +239,7 @@
     <ClInclude Include="gfx_es2\draw_text_qt.h" />
     <ClInclude Include="gfx_es2\draw_text_win.h" />
     <ClInclude Include="json\json_reader.h" />
+    <ClInclude Include="net\websocket_server.h" />
     <ClInclude Include="thin3d\d3d11_loader.h" />
     <ClInclude Include="thin3d\DataFormat.h" />
     <ClInclude Include="thin3d\DataFormatGL.h" />
@@ -317,6 +319,7 @@
     </ClCompile>
     <ClCompile Include="base\stringutil.cpp" />
     <ClCompile Include="base\timeutil.cpp" />
+    <ClCompile Include="data\base64.cpp" />
     <ClCompile Include="data\compression.cpp" />
     <ClCompile Include="ext\cityhash\city.cpp">
       <InlineFunctionExpansion Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">AnySuitable</InlineFunctionExpansion>
@@ -700,6 +703,7 @@
     <ClCompile Include="gfx_es2\draw_text_win.cpp" />
     <ClCompile Include="json\json_reader.cpp" />
     <ClCompile Include="math\dataconv.cpp" />
+    <ClCompile Include="net\websocket_server.cpp" />
     <ClCompile Include="thin3d\d3d11_loader.cpp" />
     <ClCompile Include="thin3d\DataFormatGL.cpp" />
     <ClCompile Include="thin3d\GLQueueRunner.cpp" />
