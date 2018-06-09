@@ -1,3 +1,4 @@
+#include <vector>
 #include "SDLGLGraphicsContext.h"
 #include "Core/Config.h"
 #include "Core/System.h"
@@ -72,34 +73,94 @@ int8_t EGL_Open() {
 	return 0;
 }
 
-int8_t EGL_Init() {
-	EGLConfig g_eglConfig;
-	EGLint g_numConfigs = 0;
-	EGLint attrib_list[]= {
-	// TODO: Should cycle through fallbacks, like on Android
-#ifdef USING_FBDEV
-		EGL_RED_SIZE,        5,
-		EGL_GREEN_SIZE,      6,
-		EGL_BLUE_SIZE,       5,
+#ifndef EGL_OPENGL_ES3_BIT_KHR
+#define EGL_OPENGL_ES3_BIT_KHR (1 << 6)
 #endif
-		EGL_DEPTH_SIZE,      16,
-		EGL_SURFACE_TYPE,    EGL_WINDOW_BIT,
+
+EGLConfig EGL_FindConfig(int &contextVersion) {
+	std::vector<EGLConfig> configs;
+	EGLint numConfigs = 0;
+
+	EGLBoolean result = eglGetConfigs(g_eglDisplay, nullptr, 0, &numConfigs);
+	if (result != EGL_TRUE || numConfigs == 0) {
+		return nullptr;
+	}
+
+	configs.resize(numConfigs);
+	EGLBoolean result = eglGetConfigs(g_eglDisplay, &configs[0], numConfigs, &numConfigs);
+	if (result != EGL_TRUE || numConfigs == 0) {
+		return nullptr;
+	}
+
+	EGLConfig best = nullptr;
+	int bestScore = 0;
+	int bestContextVersion = 0;
+	for (const EGLConfig &config : configs) {
+		auto readConfig = [&](EGLint attr) -> EGLint {
+			EGLint val = 0;
+			eglGetConfigAttrib(g_eglDisplay, config, attr, &val);
+			return val;
+		};
+
+		int colorScore = readConfig(EGL_RED_SIZE) + readConfig(EGL_BLUE_SIZE) + readConfig(EGL_GREEN_SIZE);
+		int alphaScore = readConfig(EGL_ALPHA_SIZE);
+		int depthScore = readConfig(EGL_DEPTH_SIZE);
+		int levelScore = readConfig(EGL_LEVEL) == 0 ? 100 : 0;
+		int samplesScore = readConfig(EGL_SAMPLES) == 0 ? 100 : 0;
+		int sampleBufferScore = readConfig(EGL_SAMPLE_BUFFERS) == 0 ? 100 : 0;
+		int stencilScore = readConfig(EGL_STENCIL_SIZE);
+		int transparentScore = readConfig(EGL_TRANSPARENT_TYPE) == EGL_NONE ? 50 : 0;
+
+		EGLint caveat = readConfig(EGL_CONFIG_CAVEAT);
+		int caveatScore = caveat == EGL_NONE ? 100 : (caveat == EGL_NON_CONFORMANT ? 50 : 0);
+
+		EGLint renderable = readConfig(EGL_RENDERABLE_TYPE);
+		bool renderableGLES3 = (renderable & EGL_OPENGL_ES3_BIT_KHR) != 0;
+		bool renderableGLES2 = (renderable & EGL_OPENGL_ES2_BIT) != 0;
+		bool renderableGL = (renderable & EGL_OPENGL_BIT) != 0;
 #ifdef USING_GLES2
-		EGL_RENDERABLE_TYPE, EGL_OPENGL_ES2_BIT,
+		int renderableScore = renderableGLES3 ? 100 : (renderableGLES2 ? 80 : 0);
 #else
-		EGL_RENDERABLE_TYPE, EGL_OPENGL_BIT,
+		int renderableScore = renderableGL ? 100 : (renderableGLES3 ? 80 : 0);
 #endif
-		EGL_SAMPLE_BUFFERS,  0,
-		EGL_SAMPLES,         0,
-		EGL_NONE};
 
-	const EGLint attributes[] = { EGL_CONTEXT_CLIENT_VERSION, 2, EGL_NONE };
+		int score = 0;
+		// Here's a good place to play with the weights to pick a better config.
+		score += (colorScore + alphaScore) * 10;
+		score += depthScore * 5 + stencilScore;
+		score += levelScore + samplesScore + sampleBufferScore + transparentScore;
+		score += caveatScore + renderableScore;
 
-	EGLBoolean result = eglChooseConfig(g_eglDisplay, attrib_list, &g_eglConfig, 1, &g_numConfigs);
-	if (result != EGL_TRUE || g_numConfigs == 0) EGL_ERROR("Unable to query for available configs.", true);
+		if (score > bestScore) {
+			bestScore = score;
+			best = config;
+			bestContextVersion = renderableGLES3 ? 3 : (renderableGLES2 ? 2 : 0);
+		}
+	}
 
-	g_eglContext = eglCreateContext(g_eglDisplay, g_eglConfig, NULL, attributes );
-	if (g_eglContext == EGL_NO_CONTEXT) EGL_ERROR("Unable to create GLES context!", true);
+	contextVersion = bestContextVersion;
+	return best;
+}
+
+int8_t EGL_Init() {
+	int contextVersion = 0;
+	EGLConfig eglConfig = EGL_FindConfig();
+	if (!eglConfig) {
+		EGL_ERROR("Unable to find a usable EGL config.", true);
+	}
+
+	EGLint contextAttributes[] = {
+		EGL_CONTEXT_CLIENT_VERSION, contextVersion,
+		EGL_NONE,
+	};
+	if (contextVersion == 0) {
+		ctx_attributes[0] = EGL_NONE;
+	}
+
+	g_eglContext = eglCreateContext(g_eglDisplay, eglConfig, nullptr, contextAttributes);
+	if (g_eglContext == EGL_NO_CONTEXT) {
+		EGL_ERROR("Unable to create GLES context!", true);
+	}
 
 #if !defined(USING_FBDEV) && !defined(__APPLE__)
 	//Get the SDL window handle
@@ -109,7 +170,7 @@ int8_t EGL_Init() {
 #else
 	g_Window = (NativeWindowType)NULL;
 #endif
-	g_eglSurface = eglCreateWindowSurface(g_eglDisplay, g_eglConfig, g_Window, 0);
+	g_eglSurface = eglCreateWindowSurface(g_eglDisplay, eglConfig, g_Window, nullptr);
 	if (g_eglSurface == EGL_NO_SURFACE)
 		EGL_ERROR("Unable to create EGL surface!", true);
 
