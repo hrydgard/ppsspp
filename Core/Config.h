@@ -106,9 +106,11 @@ public:
 #if defined(USING_WIN_UI)
 	bool bPauseOnLostFocus;
 	bool bTopMost;
-	std::string sFont;
 	bool bIgnoreWindowsKey;
 	bool bRestartRequired;
+#endif
+#if defined(USING_WIN_UI) || defined(USING_QT_UI)
+	std::string sFont;
 #endif
 
 	bool bPauseWhenMinimized;

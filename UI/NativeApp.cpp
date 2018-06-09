@@ -105,6 +105,9 @@
 #if !defined(MOBILE_DEVICE) && defined(USING_QT_UI)
 #include "Qt/QtHost.h"
 #endif
+#if defined(USING_QT_UI)
+#include <QFontDatabase>
+#endif
 
 // The new UI framework, for initialization
 
@@ -276,7 +279,7 @@ void NativeGetAppInfo(std::string *app_dir_name, std::string *app_nice_name, boo
 #endif
 }
 
-#if defined(_WIN32) && !PPSSPP_PLATFORM(UWP)
+#if defined(USING_WIN_UI) && !PPSSPP_PLATFORM(UWP)
 static bool CheckFontIsUsable(const wchar_t *fontFace) {
 	wchar_t actualFontFace[1024] = { 0 };
 
@@ -558,7 +561,7 @@ void NativeInit(int argc, const char *argv[], const char *savegame_dir, const ch
 	// Note to translators: do not translate this/add this to PPSSPP-lang's files.
 	// It's intended to be custom for every user.
 	// Only add it to your own personal copies of PPSSPP.
-#if defined(_WIN32) && !PPSSPP_PLATFORM(UWP)
+#if defined(USING_WIN_UI) && !PPSSPP_PLATFORM(UWP)
 	// TODO: Could allow a setting to specify a font file to load?
 	// TODO: Make this a constant if we can sanely load the font on other systems?
 	AddFontResourceEx(L"assets/Roboto-Condensed.ttf", FR_PRIVATE, NULL);
@@ -567,6 +570,22 @@ void NativeInit(int argc, const char *argv[], const char *savegame_dir, const ch
 		g_Config.sFont = des->T("Font", "Roboto Condensed");
 	} else {
 		g_Config.sFont = des->T("Font", "Roboto");
+	}
+#elif defined(USING_QT_UI)
+	size_t fontSize = 0;
+	uint8_t *fontData = VFSReadFile("Roboto-Condensed.ttf", &fontSize);
+	if (fontData) {
+		int fontID = QFontDatabase::addApplicationFontFromData(QByteArray((const char *)fontData, fontSize));
+		delete [] fontData;
+
+		QStringList fontsFound = QFontDatabase::applicationFontFamilies(fontID);
+		if (fontsFound.size() >= 1) {
+			// Might be "Roboto" or "Roboto Condensed".
+			g_Config.sFont = des->T("Font", fontsFound.at(0).toUtf8().constData());
+		}
+	} else {
+		// Let's try for it being a system font.
+		g_Config.sFont = des->T("Font", "Roboto Condensed");
 	}
 #endif
 
@@ -618,7 +637,7 @@ static UI::Style MakeStyle(uint32_t fg, uint32_t bg) {
 }
 
 static void UIThemeInit() {
-#if defined(_WIN32) && !PPSSPP_PLATFORM(UWP)
+#if (defined(USING_WIN_UI) && !PPSSPP_PLATFORM(UWP)) || defined(USING_QT_UI)
 	ui_theme.uiFont = UI::FontStyle(UBUNTU24, g_Config.sFont.c_str(), 22);
 	ui_theme.uiFontSmall = UI::FontStyle(UBUNTU24, g_Config.sFont.c_str(), 15);
 	ui_theme.uiFontSmaller = UI::FontStyle(UBUNTU24, g_Config.sFont.c_str(), 12);
