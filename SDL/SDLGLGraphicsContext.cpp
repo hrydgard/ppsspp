@@ -158,7 +158,9 @@ int SDLGLGraphicsContext::Init(SDL_Window *&window, int x, int y, int mode, std:
 #endif
 	};
 
-	mode |= SDL_WINDOW_OPENGL;
+	// We start hidden because we have to try several windows.
+	// On Mac, full screen animates so each attempt is slow.
+	mode |= SDL_WINDOW_OPENGL | SDL_WINDOW_HIDDEN;
 
 	SDL_GLContext glContext = nullptr;
 	for (size_t i = 0; i < ARRAY_SIZE(attemptVersions); ++i) {
@@ -216,6 +218,9 @@ int SDLGLGraphicsContext::Init(SDL_Window *&window, int x, int y, int mode, std:
 			return 2;
 		}
 	}
+
+	// At this point, we have a window that we can show finally.
+	SDL_ShowWindow(window);
 
 #ifdef USING_EGL
 	EGL_Init();
