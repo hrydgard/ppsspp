@@ -763,7 +763,7 @@ elseif(USING_QT_UI)
       Qt/mainwindow.h
     )
     add_definitions(-DUSING_QT_UI)
-    include_directories(${CMAKE_CURRENT_BINARY_DIR} Qt Qt/Debugger)
+    include_directories(${CMAKE_CURRENT_BINARY_DIR} Qt)
 	set(nativeExtraLibs ${nativeExtraLibs} Qt5::OpenGL Qt5::Gui Qt5::Core)
 	set(TargetBin PPSSPPQt)
 

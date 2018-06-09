@@ -360,9 +360,7 @@ void NativeInit(int argc, const char *argv[], const char *savegame_dir, const ch
 #endif
 
 	// We want this to be FIRST.
-#ifdef USING_QT_UI
-	VFSRegister("", new AssetsAssetReader());
-#elif defined(IOS)
+#if defined(IOS)
 	// Packed assets are included in app
 	VFSRegister("", new DirectoryAssetReader(external_dir));
 #endif
