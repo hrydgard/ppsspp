@@ -150,6 +150,7 @@ void DisassemblyManager::analyze(u32 address, u32 size = 1024)
 		if (!PSP_IsInited())
 			return;
 
+		auto memLock = Memory::Lock();
 		std::lock_guard<std::recursive_mutex> guard(entriesLock_);
 		auto it = findDisassemblyEntry(entries, address, false);
 		if (it != entries.end())
@@ -236,8 +237,10 @@ std::vector<BranchLine> DisassemblyManager::getBranchLines(u32 start, u32 size)
 	return result;
 }
 
-void DisassemblyManager::getLine(u32 address, bool insertSymbols, DisassemblyLineInfo& dest)
+void DisassemblyManager::getLine(u32 address, bool insertSymbols, DisassemblyLineInfo &dest, DebugInterface *cpuDebug)
 {
+	// This is here really to avoid lock ordering issues.
+	auto memLock = Memory::Lock();
 	std::lock_guard<std::recursive_mutex> guard(entriesLock_);
 	auto it = findDisassemblyEntry(entries,address,false);
 	if (it == entries.end())
@@ -248,7 +251,7 @@ void DisassemblyManager::getLine(u32 address, bool insertSymbols, DisassemblyLin
 
 	if (it != entries.end()) {
 		DisassemblyEntry *entry = it->second;
-		if (entry->disassemble(address, dest, insertSymbols))
+		if (entry->disassemble(address, dest, insertSymbols, cpuDebug))
 			return;
 	}
 
@@ -270,6 +273,7 @@ void DisassemblyManager::getLine(u32 address, bool insertSymbols, DisassemblyLin
 
 u32 DisassemblyManager::getStartAddress(u32 address)
 {
+	auto memLock = Memory::Lock();
 	std::lock_guard<std::recursive_mutex> guard(entriesLock_);
 	auto it = findDisassemblyEntry(entries,address,false);
 	if (it == entries.end())
@@ -287,6 +291,7 @@ u32 DisassemblyManager::getStartAddress(u32 address)
 
 u32 DisassemblyManager::getNthPreviousAddress(u32 address, int n)
 {
+	auto memLock = Memory::Lock();
 	std::lock_guard<std::recursive_mutex> guard(entriesLock_);
 	while (Memory::IsValidAddress(address))
 	{
@@ -316,6 +321,7 @@ u32 DisassemblyManager::getNthPreviousAddress(u32 address, int n)
 
 u32 DisassemblyManager::getNthNextAddress(u32 address, int n)
 {
+	auto memLock = Memory::Lock();
 	std::lock_guard<std::recursive_mutex> guard(entriesLock_);
 	while (Memory::IsValidAddress(address))
 	{
@@ -346,11 +352,11 @@ u32 DisassemblyManager::getNthNextAddress(u32 address, int n)
 }
 
 DisassemblyManager::~DisassemblyManager() {
-	clear();
 }
 
 void DisassemblyManager::clear()
 {
+	auto memLock = Memory::Lock();
 	std::lock_guard<std::recursive_mutex> guard(entriesLock_);
 	for (auto it = entries.begin(); it != entries.end(); it++)
 	{
@@ -431,14 +437,14 @@ u32 DisassemblyFunction::getLineAddress(int line)
 	return lineAddresses[line];
 }
 
-bool DisassemblyFunction::disassemble(u32 address, DisassemblyLineInfo& dest, bool insertSymbols)
+bool DisassemblyFunction::disassemble(u32 address, DisassemblyLineInfo &dest, bool insertSymbols, DebugInterface *cpuDebug)
 {
 	std::lock_guard<std::recursive_mutex> guard(lock_);
 	auto it = findDisassemblyEntry(entries,address,false);
 	if (it == entries.end())
 		return false;
 
-	return it->second->disassemble(address,dest,insertSymbols);
+	return it->second->disassemble(address, dest, insertSymbols, cpuDebug);
 }
 
 void DisassemblyFunction::getBranchLines(u32 start, u32 size, std::vector<BranchLine>& dest)
@@ -485,11 +491,12 @@ void DisassemblyFunction::generateBranchLines()
 		MIPSAnalyst::MipsOpcodeInfo opInfo = MIPSAnalyst::GetOpcodeInfo(cpu,funcPos);
 
 		bool inFunction = (opInfo.branchTarget >= address && opInfo.branchTarget < end);
-		if (opInfo.isBranch && !opInfo.isBranchToRegister && !opInfo.isLinkedBranch && inFunction)
-		{
+		if (opInfo.isBranch && !opInfo.isBranchToRegister && !opInfo.isLinkedBranch && inFunction) {
+			if (!Memory::IsValidAddress(opInfo.branchTarget))
+				continue;
+
 			BranchLine line;
-			if (opInfo.branchTarget < funcPos)
-			{
+			if (opInfo.branchTarget < funcPos) {
 				line.first = opInfo.branchTarget;
 				line.second = funcPos;
 				line.type = LINE_UP;
@@ -524,7 +531,8 @@ void DisassemblyFunction::generateBranchLines()
 
 		if (lane == -1)
 		{
-			// error
+			// Let's just pile on.
+			lines[i].laneIndex = 15;
 			continue;
 		}
 
@@ -718,16 +726,19 @@ void DisassemblyFunction::clear()
 	hash = 0;
 }
 
-bool DisassemblyOpcode::disassemble(u32 address, DisassemblyLineInfo& dest, bool insertSymbols)
+bool DisassemblyOpcode::disassemble(u32 address, DisassemblyLineInfo &dest, bool insertSymbols, DebugInterface *cpuDebug)
 {
+	if (!cpuDebug)
+		cpuDebug = DisassemblyManager::getCpu();
+
 	char opcode[64],arguments[256];
-	const char *dizz = DisassemblyManager::getCpu()->disasm(address,4);
+	const char *dizz = cpuDebug->disasm(address, 4);
 	parseDisasm(dizz,opcode,arguments,insertSymbols);
 	dest.type = DISTYPE_OPCODE;
 	dest.name = opcode;
 	dest.params = arguments;
 	dest.totalSize = 4;
-	dest.info = MIPSAnalyst::GetOpcodeInfo(DisassemblyManager::getCpu(),address);
+	dest.info = MIPSAnalyst::GetOpcodeInfo(cpuDebug, address);
 	return true;
 }
 
@@ -746,13 +757,14 @@ void DisassemblyOpcode::getBranchLines(u32 start, u32 size, std::vector<BranchLi
 	for (u32 pos = start; pos < start+size; pos += 4)
 	{
 		MIPSAnalyst::MipsOpcodeInfo info = MIPSAnalyst::GetOpcodeInfo(DisassemblyManager::getCpu(),pos);
-		if (info.isBranch && !info.isBranchToRegister && !info.isLinkedBranch)
-		{
+		if (info.isBranch && !info.isBranchToRegister && !info.isLinkedBranch) {
+			if (!Memory::IsValidAddress(info.branchTarget))
+				continue;
+
 			BranchLine line;
 			line.laneIndex = lane++;
 
-			if (info.branchTarget < pos)
-			{
+			if (info.branchTarget < pos) {
 				line.first = info.branchTarget;
 				line.second = pos;
 				line.type = LINE_UP;
@@ -787,11 +799,14 @@ void DisassemblyMacro::setMacroMemory(std::string _name, u32 _immediate, u8 _rt,
 	numOpcodes = 2;
 }
 
-bool DisassemblyMacro::disassemble(u32 address, DisassemblyLineInfo& dest, bool insertSymbols)
+bool DisassemblyMacro::disassemble(u32 address, DisassemblyLineInfo &dest, bool insertSymbols, DebugInterface *cpuDebug)
 {
+	if (!cpuDebug)
+		cpuDebug = DisassemblyManager::getCpu();
+
 	char buffer[64];
 	dest.type = DISTYPE_MACRO;
-	dest.info = MIPSAnalyst::GetOpcodeInfo(DisassemblyManager::getCpu(),address);
+	dest.info = MIPSAnalyst::GetOpcodeInfo(cpuDebug, address);
 
 	std::string addressSymbol;
 	switch (type)
@@ -800,11 +815,10 @@ bool DisassemblyMacro::disassemble(u32 address, DisassemblyLineInfo& dest, bool 
 		dest.name = name;
 		
 		addressSymbol = g_symbolMap->GetLabelString(immediate);
-		if (!addressSymbol.empty() && insertSymbols)
-		{
-			sprintf(buffer,"%s,%s",DisassemblyManager::getCpu()->GetRegName(0,rt),addressSymbol.c_str());
+		if (!addressSymbol.empty() && insertSymbols) {
+			sprintf(buffer, "%s,%s", cpuDebug->GetRegName(0, rt), addressSymbol.c_str());
 		} else {
-			sprintf(buffer,"%s,0x%08X",DisassemblyManager::getCpu()->GetRegName(0,rt),immediate);
+			sprintf(buffer, "%s,0x%08X", cpuDebug->GetRegName(0, rt), immediate);
 		}
 
 		dest.params = buffer;
@@ -816,11 +830,10 @@ bool DisassemblyMacro::disassemble(u32 address, DisassemblyLineInfo& dest, bool 
 		dest.name = name;
 
 		addressSymbol = g_symbolMap->GetLabelString(immediate);
-		if (!addressSymbol.empty() && insertSymbols)
-		{
-			sprintf(buffer,"%s,%s",DisassemblyManager::getCpu()->GetRegName(0,rt),addressSymbol.c_str());
+		if (!addressSymbol.empty() && insertSymbols) {
+			sprintf(buffer, "%s,%s", cpuDebug->GetRegName(0, rt), addressSymbol.c_str());
 		} else {
-			sprintf(buffer,"%s,0x%08X",DisassemblyManager::getCpu()->GetRegName(0,rt),immediate);
+			sprintf(buffer, "%s,0x%08X", cpuDebug->GetRegName(0, rt), immediate);
 		}
 
 		dest.params = buffer;
@@ -865,7 +878,7 @@ void DisassemblyData::recheck()
 	}
 }
 
-bool DisassemblyData::disassemble(u32 address, DisassemblyLineInfo& dest, bool insertSymbols)
+bool DisassemblyData::disassemble(u32 address, DisassemblyLineInfo &dest, bool insertSymbols, DebugInterface *cpuDebug)
 {
 	dest.type = DISTYPE_DATA;
 
@@ -1063,7 +1076,7 @@ DisassemblyComment::DisassemblyComment(u32 _address, u32 _size, std::string _nam
 
 }
 
-bool DisassemblyComment::disassemble(u32 address, DisassemblyLineInfo& dest, bool insertSymbols)
+bool DisassemblyComment::disassemble(u32 address, DisassemblyLineInfo &dest, bool insertSymbols, DebugInterface *cpuDebug)
 {
 	dest.type = DISTYPE_OTHER;
 	dest.name = name;

@@ -72,7 +72,7 @@ const char *JsonWriter::comma() const {
 
 const char *JsonWriter::arrayComma() const {
 	if (stack_.back().first) {
-		return "\n";
+		return pretty_ ? "\n" : "";
 	} else {
 		return pretty_ ? ", " : ",";
 	}
@@ -84,10 +84,10 @@ void JsonWriter::pushDict() {
 	stack_.push_back(StackEntry(DICT));
 }
 
-void JsonWriter::pushDict(const char *name) {
+void JsonWriter::pushDict(const std::string &name) {
 	str_ << comma() << indent() << "\"";
 	writeEscapedString(name);
-	str_ << "\": {";
+	str_ << (pretty_ ? "\": {" : "\":{");
 	stack_.back().first = false;
 	stack_.push_back(StackEntry(DICT));
 }
@@ -98,10 +98,10 @@ void JsonWriter::pushArray() {
 	stack_.push_back(StackEntry(ARRAY));
 }
 
-void JsonWriter::pushArray(const char *name) {
+void JsonWriter::pushArray(const std::string &name) {
 	str_ << comma() << indent() << "\"";
 	writeEscapedString(name);
-	str_ << "\": [";
+	str_ << (pretty_ ? "\": [" : "\":[");
 	stack_.push_back(StackEntry(ARRAY));
 }
 
@@ -110,10 +110,10 @@ void JsonWriter::writeBool(bool value) {
 	stack_.back().first = false;
 }
 
-void JsonWriter::writeBool(const char *name, bool value) {
+void JsonWriter::writeBool(const std::string &name, bool value) {
 	str_ << comma() << indent() << "\"";
 	writeEscapedString(name);
-	str_ << "\": " << (value ? "true" : "false");
+	str_ << (pretty_ ? "\": " : "\":") << (value ? "true" : "false");
 	stack_.back().first = false;
 }
 
@@ -122,10 +122,22 @@ void JsonWriter::writeInt(int value) {
 	stack_.back().first = false;
 }
 
-void JsonWriter::writeInt(const char *name, int value) {
+void JsonWriter::writeInt(const std::string &name, int value) {
 	str_ << comma() << indent() << "\"";
 	writeEscapedString(name);
-	str_ << "\": " << value;
+	str_ << (pretty_ ? "\": " : "\":") << value;
+	stack_.back().first = false;
+}
+
+void JsonWriter::writeUint(uint32_t value) {
+	str_ << arrayComma() << arrayIndent() << value;
+	stack_.back().first = false;
+}
+
+void JsonWriter::writeUint(const std::string &name, uint32_t value) {
+	str_ << comma() << indent() << "\"";
+	writeEscapedString(name);
+	str_ << (pretty_ ? "\": " : "\":") << value;
 	stack_.back().first = false;
 }
 
@@ -138,10 +150,10 @@ void JsonWriter::writeFloat(double value) {
 	stack_.back().first = false;
 }
 
-void JsonWriter::writeFloat(const char *name, double value) {
+void JsonWriter::writeFloat(const std::string &name, double value) {
 	str_ << comma() << indent() << "\"";
 	writeEscapedString(name);
-	str_ << "\": ";
+	str_ << (pretty_ ? "\": " : "\":");
 	if (std::isfinite(value))
 		str_ << value;
 	else
@@ -149,32 +161,44 @@ void JsonWriter::writeFloat(const char *name, double value) {
 	stack_.back().first = false;
 }
 
-void JsonWriter::writeString(const char *value) {
+void JsonWriter::writeString(const std::string &value) {
 	str_ << arrayComma() << arrayIndent() << "\"";
 	writeEscapedString(value);
 	str_ << "\"";
 	stack_.back().first = false;
 }
 
-void JsonWriter::writeString(const char *name, const char *value) {
+void JsonWriter::writeString(const std::string &name, const std::string &value) {
 	str_ << comma() << indent() << "\"";
 	writeEscapedString(name);
-	str_ << "\": \"";
+	str_ << (pretty_ ? "\": \"" : "\":\"");
 	writeEscapedString(value);
 	str_ << "\"";
 	stack_.back().first = false;
 }
 
-void JsonWriter::writeRaw(const char *value) {
+void JsonWriter::writeRaw(const std::string &value) {
 	str_ << arrayComma() << arrayIndent() << value;
 	stack_.back().first = false;
 }
 
-void JsonWriter::writeRaw(const char *name, const char *value) {
+void JsonWriter::writeRaw(const std::string &name, const std::string &value) {
 	str_ << comma() << indent() << "\"";
 	writeEscapedString(name);
 	str_ << (pretty_ ? "\": " : "\":");
 	str_ << value;
+	stack_.back().first = false;
+}
+
+void JsonWriter::writeNull() {
+	str_ << arrayComma() << arrayIndent() << "null";
+	stack_.back().first = false;
+}
+
+void JsonWriter::writeNull(const std::string &name) {
+	str_ << comma() << indent() << "\"";
+	writeEscapedString(name);
+	str_ << (pretty_ ? "\": " : "\":") << "null";
 	stack_.back().first = false;
 }
 
@@ -197,33 +221,53 @@ void JsonWriter::pop() {
 		stack_.back().first = false;
 }
 
-void JsonWriter::writeEscapedString(const char *str) {
+void JsonWriter::writeEscapedString(const std::string &str) {
 	size_t pos = 0;
-	size_t len = strlen(str);
+	const size_t len = str.size();
 
 	auto update = [&](size_t current, size_t skip = 0) {
 		size_t end = current;
 		if (pos < end)
-			str_ << std::string(str + pos, end - pos);
+			str_ << str.substr(pos, end - pos);
 		pos = end + skip;
 	};
 
 	for (size_t i = 0; i < len; ++i) {
-		if (str[i] == '\\' || str[i] == '"' || str[i] == '/') {
+		switch (str[i]) {
+		case '\\':
+		case '"':
+		case '/':
 			update(i);
 			str_ << '\\';
-		} else if (str[i] == '\r') {
+			break;
+
+		case '\r':
 			update(i, 1);
 			str_ << "\\r";
-		} else if (str[i] == '\n') {
+			break;
+			break;
+
+		case '\n':
 			update(i, 1);
 			str_ << "\\n";
-		} else if (str[i] == '\t') {
+			break;
+			break;
+
+		case '\t':
 			update(i, 1);
 			str_ << "\\t";
-		} else if (str[i] < 32) {
+			break;
+
+		case 1: case 2: case 3: case 4: case 5: case 6: case 7: case 8: case 11:
+		case 12: case 14: case 15: case 16: case 17: case 18: case 19: case 20:
+		case 21: case 22: case 23: case 24: case 25: case 26: case 27: case 28:
+		case 29: case 30: case 31:
 			update(i, 1);
 			str_ << "\\u" << std::hex << std::setw(4) << std::setfill('0') << (int)str[i] << std::dec << std::setw(0);
+			break;
+
+		default:
+			break;
 		}
 	}
 
@@ -273,7 +317,7 @@ std::string json_stringify(const JsonNode *node) {
 static void json_stringify_object(JsonWriter &writer, const JsonNode *node) {
 	switch (node->value.getTag()) {
 	case JSON_NULL:
-		writer.writeRaw(node->key, "null");
+		writer.writeNull(node->key);
 		break;
 	case JSON_STRING:
 		writer.writeString(node->key, node->value.toString());

@@ -346,14 +346,12 @@ void JitSafeMem::Finish()
 		jit_->SetJumpTarget(*it);
 }
 
-void JitSafeMem::MemCheckImm(MemoryOpType type)
-{
-	MemCheck *check = CBreakPoints::GetMemCheck(iaddr_, size_);
-	if (check)
-	{
-		if (!(check->cond & MEMCHECK_READ) && type == MEM_READ)
+void JitSafeMem::MemCheckImm(MemoryOpType type) {
+	MemCheck check;
+	if (CBreakPoints::GetMemCheckInRange(iaddr_, size_, &check)) {
+		if (!(check.cond & MEMCHECK_READ) && type == MEM_READ)
 			return;
-		if (!(check->cond & MEMCHECK_WRITE) && type == MEM_WRITE)
+		if (!(check.cond & MEMCHECK_WRITE) && type == MEM_WRITE)
 			return;
 
 		jit_->MOV(32, MIPSSTATE_VAR(pc), Imm32(jit_->GetCompilerPC()));

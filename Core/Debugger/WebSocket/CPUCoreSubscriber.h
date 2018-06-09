@@ -1,4 +1,4 @@
-// Copyright (c) 2014- PPSSPP Project.
+// Copyright (c) 2018- PPSSPP Project.
 
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
@@ -15,14 +15,16 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
-enum class WebServerFlags {
-	DISCS = 1,
-	DEBUGGER = 2,
+#pragma once
 
-	ALL =  1 | 2,
-};
+#include "Core/Debugger/WebSocket/WebSocketUtils.h"
 
-bool StartWebServer(WebServerFlags flags);
-bool StopWebServer(WebServerFlags flags);
-bool WebServerStopping(WebServerFlags flags);
-bool WebServerStopped(WebServerFlags flags);
+void *WebSocketCPUCoreInit(DebuggerEventHandlerMap &map);
+
+void WebSocketCPUStepping(DebuggerRequest &req);
+void WebSocketCPUResume(DebuggerRequest &req);
+void WebSocketCPUStatus(DebuggerRequest &req);
+void WebSocketCPUGetAllRegs(DebuggerRequest &req);
+void WebSocketCPUGetReg(DebuggerRequest &req);
+void WebSocketCPUSetReg(DebuggerRequest &req);
+void WebSocketCPUEvaluate(DebuggerRequest &req);

@@ -29,6 +29,7 @@
 #include "Common/FileUtil.h"
 #include "Common/Log.h"
 #include "Core/Config.h"
+#include "Core/Debugger/WebSocket.h"
 #include "Core/WebServer.h"
 
 enum class ServerStatus {
@@ -188,6 +189,9 @@ static void ExecuteWebServer() {
 	if (serverFlags & (int)WebServerFlags::DISCS) {
 		RegisterDiscHandlers(http, &discPaths);
 	}
+	if (serverFlags & (int)WebServerFlags::DEBUGGER) {
+		http->RegisterHandler("/debugger", &HandleDebuggerRequest);
+	}
 
 	if (!http->Listen(g_Config.iRemoteISOPort)) {
 		if (!http->Listen(0)) {
@@ -212,6 +216,8 @@ static void ExecuteWebServer() {
 	}
 
 	http->Stop();
+	StopAllDebuggers();
+	delete http;
 
 	// Move to STARTING to lock flags/STOPPING.
 	if (UpdateStatus(ServerStatus::STARTING, ServerStatus::RESTARTING)) {

@@ -1402,6 +1402,28 @@ add_library(${CoreLibName} ${CoreLinkType}
 	Core/Debugger/SymbolMap.h
 	Core/Debugger/DisassemblyManager.cpp
 	Core/Debugger/DisassemblyManager.h
+	Core/Debugger/WebSocket.cpp
+	Core/Debugger/WebSocket.h
+	Core/Debugger/WebSocket/BreakpointSubscriber.cpp
+	Core/Debugger/WebSocket/BreakpointSubscriber.h
+	Core/Debugger/WebSocket/CPUCoreSubscriber.cpp
+	Core/Debugger/WebSocket/CPUCoreSubscriber.h
+	Core/Debugger/WebSocket/DisasmSubscriber.cpp
+	Core/Debugger/WebSocket/DisasmSubscriber.h
+	Core/Debugger/WebSocket/GameBroadcaster.cpp
+	Core/Debugger/WebSocket/GameBroadcaster.h
+	Core/Debugger/WebSocket/GameSubscriber.cpp
+	Core/Debugger/WebSocket/GameSubscriber.h
+	Core/Debugger/WebSocket/HLESubscriber.cpp
+	Core/Debugger/WebSocket/HLESubscriber.h
+	Core/Debugger/WebSocket/LogBroadcaster.cpp
+	Core/Debugger/WebSocket/LogBroadcaster.h
+	Core/Debugger/WebSocket/SteppingBroadcaster.cpp
+	Core/Debugger/WebSocket/SteppingBroadcaster.h
+	Core/Debugger/WebSocket/SteppingSubscriber.cpp
+	Core/Debugger/WebSocket/SteppingSubscriber.h
+	Core/Debugger/WebSocket/WebSocketUtils.cpp
+	Core/Debugger/WebSocket/WebSocketUtils.h
 	Core/Dialog/PSPDialog.cpp
 	Core/Dialog/PSPDialog.h
 	Core/Dialog/PSPGamedataInstallDialog.cpp

@@ -604,10 +604,12 @@ void NativeInit(int argc, const char *argv[], const char *savegame_dir, const ch
 		screenManager->switchScreen(new LogoScreen());
 	}
 
-	if (g_Config.bRemoteShareOnStartup) {
-		// TODO: Separate config options.
+	if (g_Config.bRemoteShareOnStartup && g_Config.bRemoteDebuggerOnStartup)
 		StartWebServer(WebServerFlags::ALL);
-	}
+	else if (g_Config.bRemoteShareOnStartup)
+		StartWebServer(WebServerFlags::DISCS);
+	else if (g_Config.bRemoteDebuggerOnStartup)
+		StartWebServer(WebServerFlags::DEBUGGER);
 
 	std::string sysName = System_GetProperty(SYSPROP_NAME);
 	isOuya = KeyMap::IsOuya(sysName);

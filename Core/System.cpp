@@ -385,6 +385,10 @@ bool PSP_IsInited() {
 	return pspIsInited && !pspIsQuitting;
 }
 
+bool PSP_IsQuitting() {
+	return pspIsQuitting;
+}
+
 void PSP_Shutdown() {
 	// Do nothing if we never inited.
 	if (!pspIsInited && !pspIsIniting && !pspIsQuitting) {

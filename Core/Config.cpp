@@ -380,6 +380,7 @@ static ConfigSetting generalSettings[] = {
 	ConfigSetting("RemoteISOManualConfig", &g_Config.bRemoteISOManual, false),
 	ConfigSetting("RemoteShareOnStartup", &g_Config.bRemoteShareOnStartup, false),
 	ConfigSetting("RemoteISOSubdir", &g_Config.sRemoteISOSubdir, "/"),
+	ConfigSetting("RemoteDebuggerOnStartup", &g_Config.bRemoteDebuggerOnStartup, false),
 
 #ifdef __ANDROID__
 	ConfigSetting("ScreenRotation", &g_Config.iScreenRotation, 1),
