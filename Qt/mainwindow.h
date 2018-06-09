@@ -30,7 +30,7 @@ class MainWindow : public QMainWindow
 	Q_OBJECT
 
 public:
-	explicit MainWindow(QWidget *parent = 0, bool fullscreen=false);
+	explicit MainWindow(QWidget *parent = nullptr, bool fullscreen = false);
 	~MainWindow() { };
 
 	CoreState GetNextState() { return nextState; }
@@ -144,6 +144,7 @@ private:
 	void bootDone();
 	void SetWindowScale(int zoom);
 	void SetGameTitle(QString text);
+	void SetFullScreen(bool fullscreen);
 	void loadLanguage(const QString &language, bool retranslate);
 	void createMenus();
 

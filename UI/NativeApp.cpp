@@ -345,7 +345,7 @@ void CreateDirectoriesAndroid() {
 	File::CreateEmptyFile(g_Config.memStickDirectory + "PSP/SAVEDATA/.nomedia");
 }
 
-void NativeInit(int argc, const char *argv[], const char *savegame_dir, const char *external_dir, const char *cache_dir, bool fs) {
+void NativeInit(int argc, const char *argv[], const char *savegame_dir, const char *external_dir, const char *cache_dir) {
 	net::Init();  // This needs to happen before we load the config. So on Windows we also run it in Main. It's fine to call multiple times.
 
 	InitFastMath(cpu_info.bNEON);
@@ -474,6 +474,8 @@ void NativeInit(int argc, const char *argv[], const char *savegame_dir, const ch
 #endif
 				if (!strncmp(argv[i], "--pause-menu-exit", strlen("--pause-menu-exit")))
 					g_Config.bPauseMenuExitsEmulator = true;
+				if (!strcmp(argv[i], "--fullscreen"))
+					g_Config.bFullScreen = true;
 				break;
 			}
 		} else {
@@ -615,7 +617,7 @@ void NativeInit(int argc, const char *argv[], const char *savegame_dir, const ch
 	isOuya = KeyMap::IsOuya(sysName);
 
 #if !defined(MOBILE_DEVICE) && defined(USING_QT_UI)
-	MainWindow* mainWindow = new MainWindow(0,fs);
+	MainWindow *mainWindow = new MainWindow(nullptr, g_Config.bFullScreen);
 	mainWindow->show();
 	if (host == nullptr) {
 		host = new QtHost(mainWindow);

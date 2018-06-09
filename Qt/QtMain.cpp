@@ -528,12 +528,7 @@ int main(int argc, char *argv[])
 	savegame_dir += "/";
 	external_dir += "/";
 
-	bool fullscreenCLI=false;
-	for (int i = 1; i < argc; i++) {
-		if (!strcmp(argv[i],"--fullscreen"))
-			fullscreenCLI=true;
-	}
-	NativeInit(argc, (const char **)argv, savegame_dir.c_str(), external_dir.c_str(), nullptr, fullscreenCLI);
+	NativeInit(argc, (const char **)argv, savegame_dir.c_str(), external_dir.c_str(), nullptr);
 
 	// TODO: Support other backends than GL, like Vulkan, in the Qt backend.
 	g_Config.iGPUBackend = (int)GPUBackend::OPENGL;

@@ -36,10 +36,7 @@ MainWindow::MainWindow(QWidget *parent, bool fullscreen) :
 	createMenus();
 	updateMenus();
 
-	SetWindowScale(-1);
-	
-	if(fullscreen)
-	  fullscrAct();
+	SetFullScreen(fullscreen);
 
 	QObject::connect(emugl, SIGNAL(doubleClick()), this, SLOT(fullscrAct()));
 	QObject::connect(emugl, SIGNAL(newFrame()), this, SLOT(newFrame()));
@@ -99,9 +96,6 @@ void MainWindow::updateMenus()
 
 	foreach(QAction * action, displayLayoutGroup->actions()) {
 		if (g_Config.iSmallDisplayZoomType == action->data().toInt()) {
-
-			NativeMessageReceived("gpu_resized", "");
-
 			action->setChecked(true);
 			break;
 		}
@@ -135,8 +129,8 @@ void MainWindow::updateMenus()
 
 void MainWindow::bootDone()
 {
-	if(g_Config.bFullScreen != isFullScreen())
-		fullscrAct();
+	if (g_Config.bFullScreen != isFullScreen())
+		SetFullScreen(g_Config.bFullScreen);
 
 	if (nextState == CORE_RUNNING)
 		runAct();
@@ -300,40 +294,43 @@ void MainWindow::raiseTopMost()
 {
 	setWindowState( (windowState() & ~Qt::WindowMinimized) | Qt::WindowActive);
 	raise();  
-	activateWindow(); 
-	
+	activateWindow();
 }
 
-void MainWindow::fullscrAct()
-{
-	if(isFullScreen()) {
-		g_Config.bFullScreen = false;
+void MainWindow::SetFullScreen(bool fullscreen) {
+	if (fullscreen) {
+		menuBar()->hide();
+		
+		emugl->setFixedSize(QWIDGETSIZE_MAX, QWIDGETSIZE_MAX);
+		emugl->resizeGL(emugl->size().width(), emugl->size().height());
+		// TODO: Won't showFullScreen do this for us?
+		setMaximumSize(QWIDGETSIZE_MAX, QWIDGETSIZE_MAX);
+		setFixedSize(QWIDGETSIZE_MAX, QWIDGETSIZE_MAX);
+
+		showFullScreen();
+		InitPadLayout(dp_xres, dp_yres);
+
+		if (GetUIState() == UISTATE_INGAME && !g_Config.bShowTouchControls)
+			QApplication::setOverrideCursor(QCursor(Qt::BlankCursor));
+	} else {
 		menuBar()->show();
 		updateMenus();
 
 		showNormal();
 		SetWindowScale(-1);
 		InitPadLayout(dp_xres, dp_yres);
+
 		if (GetUIState() == UISTATE_INGAME && QApplication::overrideCursor())
 			QApplication::restoreOverrideCursor();
 	}
-	else {
-		g_Config.bFullScreen = true;
-		menuBar()->hide();
+}
 
-		emugl->setFixedSize(QWIDGETSIZE_MAX, QWIDGETSIZE_MAX);
-		setMaximumSize(QWIDGETSIZE_MAX, QWIDGETSIZE_MAX);
-		setFixedSize(QWIDGETSIZE_MAX, QWIDGETSIZE_MAX);
+void MainWindow::fullscrAct()
+{
+	// Toggle the current state.
+	g_Config.bFullScreen = !isFullScreen();
+	SetFullScreen(g_Config.bFullScreen);
 
-		showFullScreen();
-
-		NativeMessageReceived("gpu_resized", "");
-		InitPadLayout(dp_xres, dp_yres);
-		if (GetUIState() == UISTATE_INGAME && !g_Config.bShowTouchControls)
-			QApplication::setOverrideCursor(QCursor(Qt::BlankCursor));
-
-	}
-	
 	QTimer::singleShot(1000, this, SLOT(raiseTopMost()));
 }
 
@@ -396,6 +393,7 @@ void MainWindow::SetWindowScale(int zoom) {
 	g_Config.iWindowHeight = height;
 
 	emugl->setFixedSize(g_Config.iWindowWidth, g_Config.iWindowHeight);
+	emugl->resizeGL(g_Config.iWindowWidth, g_Config.iWindowHeight);
 	setFixedSize(sizeHint());
 }
 
