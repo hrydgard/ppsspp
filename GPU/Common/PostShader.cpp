@@ -113,7 +113,7 @@ void LoadPostShaderInfo(std::vector<std::string> directories) {
 // Scans the directories for shader ini files and collects info about all the shaders found.
 void ReloadAllPostShaderInfo() {
 	std::vector<std::string> directories;
-	directories.push_back("shaders");
+	directories.push_back("assets/shaders");
 	directories.push_back(g_Config.memStickDirectory + "PSP/shaders");
 	LoadPostShaderInfo(directories);
 }
