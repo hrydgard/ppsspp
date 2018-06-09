@@ -382,8 +382,8 @@ void MainWindow::SetWindowScale(int zoom) {
 		// Update to the specified factor.  Let's clamp first.
 		if (zoom < 1)
 			zoom = 1;
-		if (zoom > 4)
-			zoom = 4;
+		if (zoom > 10)
+			zoom = 10;
 
 		width = (g_Config.IsPortrait() ? 272 : 480) * zoom;
 		height = (g_Config.IsPortrait() ? 480 : 272) * zoom;
@@ -496,8 +496,8 @@ void MainWindow::createMenus()
 	// - Screen Size
 	MenuTree* screenMenu = new MenuTree(this, videoMenu,          QT_TR_NOOP("&Screen Size"));
 	screenGroup = new MenuActionGroup(this, screenMenu, SLOT(screenGroup_triggered(QAction *)),
-		QStringList() << "1x" << "2x" << "3x" << "4x",
-		QList<int>()  << 1    << 2    << 3    << 4,
+		QStringList() << "1x" << "2x" << "3x" << "4x" << "5x" << "6x" << "7x" << "8x" << "9x" << "10x",
+		QList<int>()  << 1    << 2    << 3    << 4    << 5    << 6    << 7    << 8    << 9    << 10,
 		QList<int>() << Qt::CTRL + Qt::Key_1 << Qt::CTRL + Qt::Key_2 << Qt::CTRL + Qt::Key_3 << Qt::CTRL + Qt::Key_4);
 
 	MenuTree* displayLayoutMenu = new MenuTree(this, videoMenu, QT_TR_NOOP("&Display Layout Options"));
