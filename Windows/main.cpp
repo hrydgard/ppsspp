@@ -458,9 +458,6 @@ int WINAPI WinMain(HINSTANCE _hInstance, HINSTANCE hPrevInstance, LPSTR szCmdLin
 				break;
 			}
 
-			if (wideArgs[i] == L"--fullscreen")
-				g_Config.bFullScreen = true;
-
 			if (wideArgs[i] == L"--windowed")
 				g_Config.bFullScreen = false;
 

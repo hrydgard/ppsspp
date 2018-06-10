@@ -110,6 +110,8 @@ public:
 	explicit MainUI(QWidget *parent = 0);
 	~MainUI();
 
+	void resizeGL(int w, int h);
+
 public slots:
 	QString InputBoxGetQString(QString title, QString defaultValue);
 
@@ -123,7 +125,6 @@ protected:
 	bool event(QEvent *e);
 
 	void initializeGL();
-	void resizeGL(int w, int h);
 	void paintGL();
 
 	void updateAccelerometer();

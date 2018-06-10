@@ -30,7 +30,7 @@ class MainWindow : public QMainWindow
 	Q_OBJECT
 
 public:
-	explicit MainWindow(QWidget *parent = 0, bool fullscreen=false);
+	explicit MainWindow(QWidget *parent = nullptr, bool fullscreen = false);
 	~MainWindow() { };
 
 	CoreState GetNextState() { return nextState; }
@@ -99,12 +99,18 @@ private slots:
 	// Video
 	void anisotropicGroup_triggered(QAction *action) { g_Config.iAnisotropyLevel = action->data().toInt(); }
 
-	void bufferRenderAct() { g_Config.iRenderingMode = !g_Config.iRenderingMode; }
+	void bufferRenderAct() {
+		g_Config.iRenderingMode = !g_Config.iRenderingMode;
+		NativeMessageReceived("gpu_resized", "");
+	}
 	void linearAct() { g_Config.iTexFiltering = (g_Config.iTexFiltering != 0) ? 0 : 3; }
 
 	void screenGroup_triggered(QAction *action) { SetWindowScale(action->data().toInt()); }
 
-	void displayLayoutGroup_triggered(QAction *action) { g_Config.iSmallDisplayZoomType = action->data().toInt(); }
+	void displayLayoutGroup_triggered(QAction *action) {
+		g_Config.iSmallDisplayZoomType = action->data().toInt();
+		NativeMessageReceived("gpu_resized", "");
+	}
 	void transformAct() { g_Config.bHardwareTransform = !g_Config.bHardwareTransform; }
 	void vertexCacheAct() { g_Config.bVertexCache = !g_Config.bVertexCache; }
 	void frameskipAct() { g_Config.iFrameSkip = !g_Config.iFrameSkip; }
@@ -114,7 +120,10 @@ private slots:
 
 	void fullscrAct();
 	void raiseTopMost();
-	void statsAct() { g_Config.bShowDebugStats = !g_Config.bShowDebugStats; }
+	void statsAct() {
+		g_Config.bShowDebugStats = !g_Config.bShowDebugStats;
+		NativeMessageReceived("clear jit", "");
+	}
 	void showFPSAct() { g_Config.iShowFPSCounter = !g_Config.iShowFPSCounter; }
 
 	// Logs
@@ -144,6 +153,7 @@ private:
 	void bootDone();
 	void SetWindowScale(int zoom);
 	void SetGameTitle(QString text);
+	void SetFullScreen(bool fullscreen);
 	void loadLanguage(const QString &language, bool retranslate);
 	void createMenus();
 

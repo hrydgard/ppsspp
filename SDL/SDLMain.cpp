@@ -602,11 +602,9 @@ int main(int argc, char *argv[]) {
 					Uint32 window_flags = SDL_GetWindowFlags(window);
 					bool fullscreen = (window_flags & SDL_WINDOW_FULLSCREEN);
 
-					pixel_xres = event.window.data1;
-					pixel_yres = event.window.data2;
-					dp_xres = (float)pixel_xres * dpi_scale;
-					dp_yres = (float)pixel_yres * dpi_scale;
-					NativeResized();
+					if (UpdateScreenScale(event.window.data1, event.window.data2)) {
+						NativeMessageReceived("gpu_resized", "");
+					}
 
 					// Set variable here in case fullscreen was toggled by hotkey
 					g_Config.bFullScreen = fullscreen;
@@ -760,7 +758,7 @@ int main(int argc, char *argv[]) {
 			lastUIState = GetUIState();
 			if (lastUIState == UISTATE_INGAME && g_Config.bFullScreen && !g_Config.bShowTouchControls)
 				SDL_ShowCursor(SDL_DISABLE);
-			if (lastUIState != UISTATE_INGAME && g_Config.bFullScreen)
+			if (lastUIState != UISTATE_INGAME || !g_Config.bFullScreen)
 				SDL_ShowCursor(SDL_ENABLE);
 		}
 #endif

@@ -36,10 +36,7 @@ MainWindow::MainWindow(QWidget *parent, bool fullscreen) :
 	createMenus();
 	updateMenus();
 
-	SetWindowScale(-1);
-	
-	if(fullscreen)
-	  fullscrAct();
+	SetFullScreen(fullscreen);
 
 	QObject::connect(emugl, SIGNAL(doubleClick()), this, SLOT(fullscrAct()));
 	QObject::connect(emugl, SIGNAL(newFrame()), this, SLOT(newFrame()));
@@ -99,9 +96,6 @@ void MainWindow::updateMenus()
 
 	foreach(QAction * action, displayLayoutGroup->actions()) {
 		if (g_Config.iSmallDisplayZoomType == action->data().toInt()) {
-
-			NativeMessageReceived("gpu_resized", "");
-
 			action->setChecked(true);
 			break;
 		}
@@ -135,8 +129,8 @@ void MainWindow::updateMenus()
 
 void MainWindow::bootDone()
 {
-	if(g_Config.bFullScreen != isFullScreen())
-		fullscrAct();
+	if (g_Config.bFullScreen != isFullScreen())
+		SetFullScreen(g_Config.bFullScreen);
 
 	if (nextState == CORE_RUNNING)
 		runAct();
@@ -300,40 +294,43 @@ void MainWindow::raiseTopMost()
 {
 	setWindowState( (windowState() & ~Qt::WindowMinimized) | Qt::WindowActive);
 	raise();  
-	activateWindow(); 
-	
+	activateWindow();
 }
 
-void MainWindow::fullscrAct()
-{
-	if(isFullScreen()) {
-		g_Config.bFullScreen = false;
+void MainWindow::SetFullScreen(bool fullscreen) {
+	if (fullscreen) {
+		menuBar()->hide();
+		
+		emugl->setFixedSize(QWIDGETSIZE_MAX, QWIDGETSIZE_MAX);
+		emugl->resizeGL(emugl->size().width(), emugl->size().height());
+		// TODO: Won't showFullScreen do this for us?
+		setMaximumSize(QWIDGETSIZE_MAX, QWIDGETSIZE_MAX);
+		setFixedSize(QWIDGETSIZE_MAX, QWIDGETSIZE_MAX);
+
+		showFullScreen();
+		InitPadLayout(dp_xres, dp_yres);
+
+		if (GetUIState() == UISTATE_INGAME && !g_Config.bShowTouchControls)
+			QApplication::setOverrideCursor(QCursor(Qt::BlankCursor));
+	} else {
 		menuBar()->show();
 		updateMenus();
 
 		showNormal();
 		SetWindowScale(-1);
 		InitPadLayout(dp_xres, dp_yres);
+
 		if (GetUIState() == UISTATE_INGAME && QApplication::overrideCursor())
 			QApplication::restoreOverrideCursor();
 	}
-	else {
-		g_Config.bFullScreen = true;
-		menuBar()->hide();
+}
 
-		emugl->setFixedSize(QWIDGETSIZE_MAX, QWIDGETSIZE_MAX);
-		setMaximumSize(QWIDGETSIZE_MAX, QWIDGETSIZE_MAX);
-		setFixedSize(QWIDGETSIZE_MAX, QWIDGETSIZE_MAX);
+void MainWindow::fullscrAct()
+{
+	// Toggle the current state.
+	g_Config.bFullScreen = !isFullScreen();
+	SetFullScreen(g_Config.bFullScreen);
 
-		showFullScreen();
-
-		NativeMessageReceived("gpu_resized", "");
-		InitPadLayout(dp_xres, dp_yres);
-		if (GetUIState() == UISTATE_INGAME && !g_Config.bShowTouchControls)
-			QApplication::setOverrideCursor(QCursor(Qt::BlankCursor));
-
-	}
-	
 	QTimer::singleShot(1000, this, SLOT(raiseTopMost()));
 }
 
@@ -385,8 +382,8 @@ void MainWindow::SetWindowScale(int zoom) {
 		// Update to the specified factor.  Let's clamp first.
 		if (zoom < 1)
 			zoom = 1;
-		if (zoom > 4)
-			zoom = 4;
+		if (zoom > 10)
+			zoom = 10;
 
 		width = (g_Config.IsPortrait() ? 272 : 480) * zoom;
 		height = (g_Config.IsPortrait() ? 480 : 272) * zoom;
@@ -396,6 +393,7 @@ void MainWindow::SetWindowScale(int zoom) {
 	g_Config.iWindowHeight = height;
 
 	emugl->setFixedSize(g_Config.iWindowWidth, g_Config.iWindowHeight);
+	emugl->resizeGL(g_Config.iWindowWidth, g_Config.iWindowHeight);
 	setFixedSize(sizeHint());
 }
 
@@ -498,8 +496,8 @@ void MainWindow::createMenus()
 	// - Screen Size
 	MenuTree* screenMenu = new MenuTree(this, videoMenu,          QT_TR_NOOP("&Screen Size"));
 	screenGroup = new MenuActionGroup(this, screenMenu, SLOT(screenGroup_triggered(QAction *)),
-		QStringList() << "1x" << "2x" << "3x" << "4x",
-		QList<int>()  << 1    << 2    << 3    << 4,
+		QStringList() << "1x" << "2x" << "3x" << "4x" << "5x" << "6x" << "7x" << "8x" << "9x" << "10x",
+		QList<int>()  << 1    << 2    << 3    << 4    << 5    << 6    << 7    << 8    << 9    << 10,
 		QList<int>() << Qt::CTRL + Qt::Key_1 << Qt::CTRL + Qt::Key_2 << Qt::CTRL + Qt::Key_3 << Qt::CTRL + Qt::Key_4);
 
 	MenuTree* displayLayoutMenu = new MenuTree(this, videoMenu, QT_TR_NOOP("&Display Layout Options"));
