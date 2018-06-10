@@ -77,7 +77,7 @@ int8_t EGL_Open() {
 #define EGL_OPENGL_ES3_BIT_KHR (1 << 6)
 #endif
 
-EGLConfig EGL_FindConfig(int &contextVersion) {
+EGLConfig EGL_FindConfig(int *contextVersion) {
 	std::vector<EGLConfig> configs;
 	EGLint numConfigs = 0;
 
@@ -87,7 +87,7 @@ EGLConfig EGL_FindConfig(int &contextVersion) {
 	}
 
 	configs.resize(numConfigs);
-	EGLBoolean result = eglGetConfigs(g_eglDisplay, &configs[0], numConfigs, &numConfigs);
+	result = eglGetConfigs(g_eglDisplay, &configs[0], numConfigs, &numConfigs);
 	if (result != EGL_TRUE || numConfigs == 0) {
 		return nullptr;
 	}
@@ -112,7 +112,7 @@ EGLConfig EGL_FindConfig(int &contextVersion) {
 		int transparentScore = readConfig(EGL_TRANSPARENT_TYPE) == EGL_NONE ? 50 : 0;
 
 		EGLint caveat = readConfig(EGL_CONFIG_CAVEAT);
-		int caveatScore = caveat == EGL_NONE ? 100 : (caveat == EGL_NON_CONFORMANT ? 50 : 0);
+		int caveatScore = caveat == EGL_NONE ? 100 : (caveat == EGL_NON_CONFORMANT_CONFIG ? 50 : 0);
 
 		EGLint renderable = readConfig(EGL_RENDERABLE_TYPE);
 		bool renderableGLES3 = (renderable & EGL_OPENGL_ES3_BIT_KHR) != 0;
@@ -138,13 +138,13 @@ EGLConfig EGL_FindConfig(int &contextVersion) {
 		}
 	}
 
-	contextVersion = bestContextVersion;
+	*contextVersion = bestContextVersion;
 	return best;
 }
 
 int8_t EGL_Init() {
 	int contextVersion = 0;
-	EGLConfig eglConfig = EGL_FindConfig();
+	EGLConfig eglConfig = EGL_FindConfig(&contextVersion);
 	if (!eglConfig) {
 		EGL_ERROR("Unable to find a usable EGL config.", true);
 	}
@@ -154,7 +154,7 @@ int8_t EGL_Init() {
 		EGL_NONE,
 	};
 	if (contextVersion == 0) {
-		ctx_attributes[0] = EGL_NONE;
+		contextAttributes[0] = EGL_NONE;
 	}
 
 	g_eglContext = eglCreateContext(g_eglDisplay, eglConfig, nullptr, contextAttributes);
