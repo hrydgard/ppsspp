@@ -526,7 +526,7 @@ void WebSocketServer::SendFlush() {
 
 	// Drain out as much of our buffer as possible.
 	size_t totalPushed = 0;
-	while (!outBuf_.empty()) {
+	while (outBuf_.size() - totalPushed != 0) {
 		size_t pushed = out_->PushAtMost((const char *)&outBuf_[totalPushed], outBuf_.size() - totalPushed);
 		if (pushed == 0)
 			break;
