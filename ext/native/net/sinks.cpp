@@ -333,6 +333,8 @@ bool OutputSink::Flush(bool allowBlock) {
 			if (!allowBlock || !Block()) {
 				return false;
 			}
+		} else if (bytes < 0) {
+			return false;
 		}
 	}
 
