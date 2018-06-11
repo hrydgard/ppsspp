@@ -86,12 +86,35 @@ static std::vector<u32> lastRegisters;
 static std::vector<u32> lastTextures;
 
 // TODO: Maybe move execute to another file?
-static u32 execMemcpyDest;
-static u32 execListBuf;
-static u32 execListPos;
-static u32 execListID;
-static const int LIST_BUF_SIZE = 256 * 1024;
-static std::vector<u32> execListQueue;
+class DumpExecute {
+public:
+	~DumpExecute();
+
+	bool Run();
+
+private:
+	bool SubmitCmds(void *p, u32 sz);
+	void SubmitListEnd();
+
+	void Init(u32 ptr, u32 sz);
+	void Registers(u32 ptr, u32 sz);
+	void Vertices(u32 ptr, u32 sz);
+	void Indices(u32 ptr, u32 sz);
+	void Clut(u32 ptr, u32 sz);
+	void TransferSrc(u32 ptr, u32 sz);
+	void Memset(u32 ptr, u32 sz);
+	void MemcpyDest(u32 ptr, u32 sz);
+	void Memcpy(u32 ptr, u32 sz);
+	void Texture(int level, u32 ptr, u32 sz);
+	void Display(u32 ptr, u32 sz);
+
+	u32 execMemcpyDest = 0;
+	u32 execListBuf = 0;
+	u32 execListPos = 0;
+	u32 execListID = 0;
+	const int LIST_BUF_SIZE = 256 * 1024;
+	std::vector<u32> execListQueue;
+};
 
 // This class maps pushbuffer (dump data) sections to PSP memory.
 // Dumps can be larger than available PSP memory, because they include generated data too.
@@ -731,7 +754,7 @@ void NotifyFrame() {
 	}
 }
 
-static bool ExecuteSubmitCmds(void *p, u32 sz) {
+bool DumpExecute::SubmitCmds(void *p, u32 sz) {
 	if (execListBuf == 0) {
 		u32 allocSize = LIST_BUF_SIZE;
 		execListBuf = userMemory.Alloc(allocSize, "List buf");
@@ -781,7 +804,7 @@ static bool ExecuteSubmitCmds(void *p, u32 sz) {
 	return true;
 }
 
-static void ExecuteSubmitListEnd() {
+void DumpExecute::SubmitListEnd() {
 	if (execListPos == 0) {
 		return;
 	}
@@ -800,16 +823,16 @@ static void ExecuteSubmitListEnd() {
 	CoreTiming::ForceCheck();
 }
 
-static void ExecuteInit(u32 ptr, u32 sz) {
+void DumpExecute::Init(u32 ptr, u32 sz) {
 	gstate.Restore((u32_le *)(pushbuf.data() + ptr));
 	gpu->ReapplyGfxState();
 }
 
-static void ExecuteRegisters(u32 ptr, u32 sz) {
-	ExecuteSubmitCmds(pushbuf.data() + ptr, sz);
+void DumpExecute::Registers(u32 ptr, u32 sz) {
+	SubmitCmds(pushbuf.data() + ptr, sz);
 }
 
-static void ExecuteVertices(u32 ptr, u32 sz) {
+void DumpExecute::Vertices(u32 ptr, u32 sz) {
 	u32 psp = execMapping.Map(ptr, sz);
 	if (psp == 0) {
 		ERROR_LOG(SYSTEM, "Unable to allocate for vertices");
@@ -820,7 +843,7 @@ static void ExecuteVertices(u32 ptr, u32 sz) {
 	execListQueue.push_back((GE_CMD_VADDR << 24) | (psp & 0x00FFFFFF));
 }
 
-static void ExecuteIndices(u32 ptr, u32 sz) {
+void DumpExecute::Indices(u32 ptr, u32 sz) {
 	u32 psp = execMapping.Map(ptr, sz);
 	if (psp == 0) {
 		ERROR_LOG(SYSTEM, "Unable to allocate for indices");
@@ -831,7 +854,7 @@ static void ExecuteIndices(u32 ptr, u32 sz) {
 	execListQueue.push_back((GE_CMD_IADDR << 24) | (psp & 0x00FFFFFF));
 }
 
-static void ExecuteClut(u32 ptr, u32 sz) {
+void DumpExecute::Clut(u32 ptr, u32 sz) {
 	u32 psp = execMapping.Map(ptr, sz);
 	if (psp == 0) {
 		ERROR_LOG(SYSTEM, "Unable to allocate for clut");
@@ -842,7 +865,7 @@ static void ExecuteClut(u32 ptr, u32 sz) {
 	execListQueue.push_back((GE_CMD_CLUTADDR << 24) | (psp & 0x00FFFFFF));
 }
 
-static void ExecuteTransferSrc(u32 ptr, u32 sz) {
+void DumpExecute::TransferSrc(u32 ptr, u32 sz) {
 	u32 psp = execMapping.Map(ptr, sz);
 	if (psp == 0) {
 		ERROR_LOG(SYSTEM, "Unable to allocate for transfer");
@@ -853,7 +876,7 @@ static void ExecuteTransferSrc(u32 ptr, u32 sz) {
 	execListQueue.push_back(((GE_CMD_TRANSFERSRC) << 24) | (psp & 0x00FFFFFF));
 }
 
-static void ExecuteMemset(u32 ptr, u32 sz) {
+void DumpExecute::Memset(u32 ptr, u32 sz) {
 	struct MemsetCommand {
 		u32 dest;
 		int value;
@@ -867,18 +890,18 @@ static void ExecuteMemset(u32 ptr, u32 sz) {
 	}
 }
 
-static void ExecuteMemcpyDest(u32 ptr, u32 sz) {
+void DumpExecute::MemcpyDest(u32 ptr, u32 sz) {
 	execMemcpyDest = *(const u32 *)(pushbuf.data() + ptr);
 }
 
-static void ExecuteMemcpy(u32 ptr, u32 sz) {
+void DumpExecute::Memcpy(u32 ptr, u32 sz) {
 	if (Memory::IsVRAMAddress(execMemcpyDest)) {
 		Memory::MemcpyUnchecked(execMemcpyDest, pushbuf.data() + ptr, sz);
 		gpu->PerformMemoryUpload(execMemcpyDest, sz);
 	}
 }
 
-static void ExecuteTexture(int level, u32 ptr, u32 sz) {
+void DumpExecute::Texture(int level, u32 ptr, u32 sz) {
 	u32 psp = execMapping.Map(ptr, sz);
 	if (psp == 0) {
 		ERROR_LOG(SYSTEM, "Unable to allocate for texture");
@@ -889,7 +912,7 @@ static void ExecuteTexture(int level, u32 ptr, u32 sz) {
 	execListQueue.push_back(((GE_CMD_TEXADDR0 + level) << 24) | (psp & 0x00FFFFFF));
 }
 
-static void ExecuteDisplay(u32 ptr, u32 sz) {
+void DumpExecute::Display(u32 ptr, u32 sz) {
 	struct DisplayBufData {
 		PSPPointer<u8> topaddr;
 		u32 linesize, pixelFormat;
@@ -901,7 +924,7 @@ static void ExecuteDisplay(u32 ptr, u32 sz) {
 	__DisplaySetFramebuf(disp->topaddr.ptr, disp->linesize, disp->pixelFormat, 0);
 }
 
-static void ExecuteFree() {
+DumpExecute::~DumpExecute() {
 	execMemcpyDest = 0;
 	if (execListBuf) {
 		userMemory.Free(execListBuf);
@@ -914,43 +937,43 @@ static void ExecuteFree() {
 	pushbuf.clear();
 }
 
-static bool ExecuteCommands() {
+bool DumpExecute::Run() {
 	for (const Command &cmd : commands) {
 		switch (cmd.type) {
 		case CommandType::INIT:
-			ExecuteInit(cmd.ptr, cmd.sz);
+			Init(cmd.ptr, cmd.sz);
 			break;
 
 		case CommandType::REGISTERS:
-			ExecuteRegisters(cmd.ptr, cmd.sz);
+			Registers(cmd.ptr, cmd.sz);
 			break;
 
 		case CommandType::VERTICES:
-			ExecuteVertices(cmd.ptr, cmd.sz);
+			Vertices(cmd.ptr, cmd.sz);
 			break;
 
 		case CommandType::INDICES:
-			ExecuteIndices(cmd.ptr, cmd.sz);
+			Indices(cmd.ptr, cmd.sz);
 			break;
 
 		case CommandType::CLUT:
-			ExecuteClut(cmd.ptr, cmd.sz);
+			Clut(cmd.ptr, cmd.sz);
 			break;
 
 		case CommandType::TRANSFERSRC:
-			ExecuteTransferSrc(cmd.ptr, cmd.sz);
+			TransferSrc(cmd.ptr, cmd.sz);
 			break;
 
 		case CommandType::MEMSET:
-			ExecuteMemset(cmd.ptr, cmd.sz);
+			Memset(cmd.ptr, cmd.sz);
 			break;
 
 		case CommandType::MEMCPYDEST:
-			ExecuteMemcpyDest(cmd.ptr, cmd.sz);
+			MemcpyDest(cmd.ptr, cmd.sz);
 			break;
 
 		case CommandType::MEMCPYDATA:
-			ExecuteMemcpy(cmd.ptr, cmd.sz);
+			Memcpy(cmd.ptr, cmd.sz);
 			break;
 
 		case CommandType::TEXTURE0:
@@ -961,11 +984,11 @@ static bool ExecuteCommands() {
 		case CommandType::TEXTURE5:
 		case CommandType::TEXTURE6:
 		case CommandType::TEXTURE7:
-			ExecuteTexture((int)cmd.type - (int)CommandType::TEXTURE0, cmd.ptr, cmd.sz);
+			Texture((int)cmd.type - (int)CommandType::TEXTURE0, cmd.ptr, cmd.sz);
 			break;
 
 		case CommandType::DISPLAY:
-			ExecuteDisplay(cmd.ptr, cmd.sz);
+			Display(cmd.ptr, cmd.sz);
 			break;
 
 		default:
@@ -974,7 +997,7 @@ static bool ExecuteCommands() {
 		}
 	}
 
-	ExecuteSubmitListEnd();
+	SubmitListEnd();
 	return true;
 }
 
@@ -1028,13 +1051,11 @@ bool RunMountedReplay(const std::string &filename) {
 
 	if (truncated) {
 		ERROR_LOG(SYSTEM, "Truncated GE dump");
-		ExecuteFree();
 		return false;
 	}
 
-	bool success = ExecuteCommands();
-	ExecuteFree();
-	return success;
+	DumpExecute executor;
+	return executor.Run();
 }
 
 };
