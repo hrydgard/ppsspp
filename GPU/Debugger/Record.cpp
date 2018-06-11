@@ -17,6 +17,7 @@
 
 #include <algorithm>
 #include <cstring>
+#include <functional>
 #include <vector>
 #include <snappy-c.h>
 #include "base/stringutil.h"
@@ -93,6 +94,7 @@ public:
 	bool Run();
 
 private:
+	void SyncStall();
 	bool SubmitCmds(void *p, u32 sz);
 	void SubmitListEnd();
 
@@ -114,6 +116,7 @@ private:
 	u32 execListID = 0;
 	const int LIST_BUF_SIZE = 256 * 1024;
 	std::vector<u32> execListQueue;
+	u16 lastBufw_[8]{};
 };
 
 // This class maps pushbuffer (dump data) sections to PSP memory.
@@ -125,7 +128,7 @@ private:
 class BufMapping {
 public:
 	// Returns a pointer to contiguous memory for this access, or else 0 (failure).
-	u32 Map(u32 bufpos, u32 sz);
+	u32 Map(u32 bufpos, u32 sz, const std::function<void()> &flush);
 
 	// Clear and reset allocations made.
 	void Reset() {
@@ -140,8 +143,8 @@ public:
 	}
 
 protected:
-	u32 MapSlab(u32 bufpos);
-	u32 MapExtra(u32 bufpos, u32 sz);
+	u32 MapSlab(u32 bufpos, const std::function<void()> &flush);
+	u32 MapExtra(u32 bufpos, u32 sz, const std::function<void()> &flush);
 
 	enum {
 		// These numbers kept low because we only have 24 MB of user memory to map into.
@@ -212,20 +215,20 @@ protected:
 
 static BufMapping execMapping;
 
-u32 BufMapping::Map(u32 bufpos, u32 sz) {
+u32 BufMapping::Map(u32 bufpos, u32 sz, const std::function<void()> &flush) {
 	int slab1 = bufpos / SLAB_SIZE;
 	int slab2 = (bufpos + sz - 1) / SLAB_SIZE;
 
 	if (slab1 == slab2) {
 		// Doesn't straddle, so we can just map to a slab.
-		return MapSlab(bufpos);
+		return MapSlab(bufpos, flush);
 	} else {
 		// We need contiguous, so we'll just allocate separately.
-		return MapExtra(bufpos, sz);
+		return MapExtra(bufpos, sz, flush);
 	}
 }
 
-u32 BufMapping::MapSlab(u32 bufpos) {
+u32 BufMapping::MapSlab(u32 bufpos, const std::function<void()> &flush) {
 	u32 slab_pos = (bufpos / SLAB_SIZE) * SLAB_SIZE;
 
 	int best = 0;
@@ -239,6 +242,9 @@ u32 BufMapping::MapSlab(u32 bufpos) {
 		}
 	}
 
+	// Stall before mapping a new slab.
+	flush();
+
 	// Okay, we need to allocate.
 	if (!slabs_[best].Setup(slab_pos)) {
 		return 0;
@@ -246,13 +252,16 @@ u32 BufMapping::MapSlab(u32 bufpos) {
 	return slabs_[best].Ptr(bufpos);
 }
 
-u32 BufMapping::MapExtra(u32 bufpos, u32 sz) {
+u32 BufMapping::MapExtra(u32 bufpos, u32 sz, const std::function<void()> &flush) {
 	for (int i = 0; i < EXTRA_COUNT; ++i) {
 		// Might be likely to reuse larger buffers straddling slabs.
 		if (extra_[i].Matches(bufpos, sz)) {
 			return extra_[i].Ptr();
 		}
 	}
+
+	// Stall first, so we don't stomp existing RAM.
+	flush();
 
 	int i = extraOffset_;
 	extraOffset_ = (extraOffset_ + 1) % EXTRA_COUNT;
@@ -754,6 +763,17 @@ void NotifyFrame() {
 	}
 }
 
+void DumpExecute::SyncStall() {
+	gpu->UpdateStall(execListID, execListPos);
+	s64 listTicks = gpu->GetListTicks(execListID);
+	if (listTicks != -1) {
+		currentMIPS->downcount -= listTicks - CoreTiming::GetTicks();
+	}
+
+	// Make sure downcount doesn't overflow.
+	CoreTiming::ForceCheck();
+}
+
 bool DumpExecute::SubmitCmds(void *p, u32 sz) {
 	if (execListBuf == 0) {
 		u32 allocSize = LIST_BUF_SIZE;
@@ -784,22 +804,42 @@ bool DumpExecute::SubmitCmds(void *p, u32 sz) {
 		Memory::Write_U32((GE_CMD_JUMP << 24) | (execListBuf & 0x00FFFFFF), execListPos + 4);
 
 		execListPos = execListBuf;
+
+		// Don't continue until we've stalled.
+		SyncStall();
 	}
 
 	Memory::MemcpyUnchecked(execListPos, execListQueue.data(), pendingSize);
 	execListPos += pendingSize;
+	u32 writePos = execListPos;
 	Memory::MemcpyUnchecked(execListPos, p, sz);
 	execListPos += sz;
 
-	execListQueue.clear();
-	gpu->UpdateStall(execListID, execListPos);
-	s64 listTicks = gpu->GetListTicks(execListID);
-	if (listTicks != -1) {
-		currentMIPS->downcount -= listTicks - CoreTiming::GetTicks();
+	// TODO: Unfortunate.  Maybe Texture commands should contain the bufw instead.
+	// The goal here is to realistically combine prims in dumps.  Stalling for the bufw flushes.
+	u32_le *ops = (u32_le *)Memory::GetPointer(writePos);
+	for (u32 i = 0; i < sz / 4; ++i) {
+		u32 cmd = ops[i] >> 24;
+		if (cmd >= GE_CMD_TEXBUFWIDTH0 && cmd <= GE_CMD_TEXBUFWIDTH7) {
+			int level = cmd - GE_CMD_TEXBUFWIDTH0;
+			u16 bufw = ops[i] & 0xFFFF;
+
+			// NOP the address part of the command to avoid a flush too.
+			if (bufw == lastBufw_[level])
+				ops[i] = GE_CMD_NOP << 24;
+			else
+				ops[i] = (gstate.texbufwidth[level] & 0xFFFF0000) | bufw;
+			lastBufw_[level] = bufw;
+		}
+
+		// Since we're here anyway, also NOP out texture addresses.
+		// This makes Step Tex not hit phantom textures.
+		if (cmd >= GE_CMD_TEXADDR0 && cmd <= GE_CMD_TEXADDR7) {
+			ops[i] = GE_CMD_NOP << 24;
+		}
 	}
 
-	// Make sure downcount doesn't overflow.
-	CoreTiming::ForceCheck();
+	execListQueue.clear();
 
 	return true;
 }
@@ -814,13 +854,8 @@ void DumpExecute::SubmitListEnd() {
 	Memory::Write_U32(GE_CMD_END << 24, execListPos + 4);
 	execListPos += 8;
 
-	gpu->UpdateStall(execListID, execListPos);
-	currentMIPS->downcount -= gpu->GetListTicks(execListID) - CoreTiming::GetTicks();
-
+	SyncStall();
 	gpu->ListSync(execListID, 0);
-
-	// Make sure downcount doesn't overflow.
-	CoreTiming::ForceCheck();
 }
 
 void DumpExecute::Init(u32 ptr, u32 sz) {
@@ -833,7 +868,7 @@ void DumpExecute::Registers(u32 ptr, u32 sz) {
 }
 
 void DumpExecute::Vertices(u32 ptr, u32 sz) {
-	u32 psp = execMapping.Map(ptr, sz);
+	u32 psp = execMapping.Map(ptr, sz, std::bind(&DumpExecute::SyncStall, this));
 	if (psp == 0) {
 		ERROR_LOG(SYSTEM, "Unable to allocate for vertices");
 		return;
@@ -844,7 +879,7 @@ void DumpExecute::Vertices(u32 ptr, u32 sz) {
 }
 
 void DumpExecute::Indices(u32 ptr, u32 sz) {
-	u32 psp = execMapping.Map(ptr, sz);
+	u32 psp = execMapping.Map(ptr, sz, std::bind(&DumpExecute::SyncStall, this));
 	if (psp == 0) {
 		ERROR_LOG(SYSTEM, "Unable to allocate for indices");
 		return;
@@ -855,7 +890,7 @@ void DumpExecute::Indices(u32 ptr, u32 sz) {
 }
 
 void DumpExecute::Clut(u32 ptr, u32 sz) {
-	u32 psp = execMapping.Map(ptr, sz);
+	u32 psp = execMapping.Map(ptr, sz, std::bind(&DumpExecute::SyncStall, this));
 	if (psp == 0) {
 		ERROR_LOG(SYSTEM, "Unable to allocate for clut");
 		return;
@@ -866,11 +901,14 @@ void DumpExecute::Clut(u32 ptr, u32 sz) {
 }
 
 void DumpExecute::TransferSrc(u32 ptr, u32 sz) {
-	u32 psp = execMapping.Map(ptr, sz);
+	u32 psp = execMapping.Map(ptr, sz, std::bind(&DumpExecute::SyncStall, this));
 	if (psp == 0) {
 		ERROR_LOG(SYSTEM, "Unable to allocate for transfer");
 		return;
 	}
+
+	// Need to sync in order to access gstate.transfersrcw.
+	SyncStall();
 
 	execListQueue.push_back((gstate.transfersrcw & 0xFF00FFFF) | ((psp >> 8) & 0x00FF0000));
 	execListQueue.push_back(((GE_CMD_TRANSFERSRC) << 24) | (psp & 0x00FFFFFF));
@@ -886,6 +924,7 @@ void DumpExecute::Memset(u32 ptr, u32 sz) {
 	const MemsetCommand *data = (const MemsetCommand *)(pushbuf.data() + ptr);
 
 	if (Memory::IsVRAMAddress(data->dest)) {
+		SyncStall();
 		gpu->PerformMemorySet(data->dest, (u8)data->value, data->sz);
 	}
 }
@@ -896,20 +935,23 @@ void DumpExecute::MemcpyDest(u32 ptr, u32 sz) {
 
 void DumpExecute::Memcpy(u32 ptr, u32 sz) {
 	if (Memory::IsVRAMAddress(execMemcpyDest)) {
+		SyncStall();
 		Memory::MemcpyUnchecked(execMemcpyDest, pushbuf.data() + ptr, sz);
 		gpu->PerformMemoryUpload(execMemcpyDest, sz);
 	}
 }
 
 void DumpExecute::Texture(int level, u32 ptr, u32 sz) {
-	u32 psp = execMapping.Map(ptr, sz);
+	u32 psp = execMapping.Map(ptr, sz, std::bind(&DumpExecute::SyncStall, this));
 	if (psp == 0) {
 		ERROR_LOG(SYSTEM, "Unable to allocate for texture");
 		return;
 	}
 
-	execListQueue.push_back((gstate.texbufwidth[level] & 0xFF00FFFF) | ((psp >> 8) & 0x00FF0000));
-	execListQueue.push_back(((GE_CMD_TEXADDR0 + level) << 24) | (psp & 0x00FFFFFF));
+	u32 bufwCmd = GE_CMD_TEXBUFWIDTH0 + level;
+	u32 addrCmd = GE_CMD_TEXADDR0 + level;
+	execListQueue.push_back((bufwCmd << 24) | ((psp >> 8) & 0x00FF0000) | lastBufw_[level]);
+	execListQueue.push_back((addrCmd << 24) | (psp & 0x00FFFFFF));
 }
 
 void DumpExecute::Display(u32 ptr, u32 sz) {
@@ -919,6 +961,9 @@ void DumpExecute::Display(u32 ptr, u32 sz) {
 	};
 
 	DisplayBufData *disp = (DisplayBufData *)(pushbuf.data() + ptr);
+
+	// Sync up drawing.
+	SyncStall();
 
 	__DisplaySetFramebuf(disp->topaddr.ptr, disp->linesize, disp->pixelFormat, 1);
 	__DisplaySetFramebuf(disp->topaddr.ptr, disp->linesize, disp->pixelFormat, 0);
