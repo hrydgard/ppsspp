@@ -51,9 +51,14 @@ enum class CoreLifecycle {
 	MEMORY_REINITED,
 };
 
+// Callback is called on the Emu thread.
 typedef void (* CoreLifecycleFunc)(CoreLifecycle stage);
 void Core_ListenLifecycle(CoreLifecycleFunc func);
 void Core_NotifyLifecycle(CoreLifecycle stage);
+
+// Callback is executed on requesting thread.
+typedef void (* CoreStopRequestFunc)();
+void Core_ListenStopRequest(CoreStopRequestFunc callback);
 
 bool Core_IsStepping();
 

@@ -197,12 +197,10 @@ void ResumeFromStepping() {
 	SetPauseAction(PAUSE_CONTINUE, false);
 }
 
-void ForceUnpause(CoreLifecycle stage) {
-	if (stage == CoreLifecycle::STOPPING) {
-		SetPauseAction(PAUSE_CONTINUE, false);
-		actionComplete = true;
-		actionWait.notify_all();
-	}
+void ForceUnpause() {
+	SetPauseAction(PAUSE_CONTINUE, false);
+	actionComplete = true;
+	actionWait.notify_all();
 }
 
 }  // namespace
