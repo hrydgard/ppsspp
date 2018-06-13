@@ -455,6 +455,14 @@ bool MediaEngine::setVideoStream(int streamNum, bool force) {
 			return false;
 		}
 		AVCodecContext *m_pCodecCtx = m_pFormatCtx->streams[streamNum]->codec;
+#if LIBAVFORMAT_VERSION_INT >= AV_VERSION_INT(57,33,100)
+		AVCodecParameters *m_pCodecPar = m_pFormatCtx->streams[streamNum]->codecpar;
+
+		// Update from deprecated public codec context
+		if (avcodec_parameters_from_context(m_pCodecPar, m_pCodecCtx) < 0) {
+			return false;
+		}
+#endif
 
 		// Find the decoder for the video stream
 		AVCodec *pCodec = avcodec_find_decoder(m_pCodecCtx->codec_id);
