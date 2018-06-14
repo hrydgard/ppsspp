@@ -38,5 +38,5 @@ namespace GPUStepping {
 	bool GPU_SetCmdValue(u32 op);
 
 	void ResumeFromStepping();
-	void ForceUnpause(CoreLifecycle stage);
+	void ForceUnpause();
 };
