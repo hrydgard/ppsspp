@@ -268,7 +268,6 @@ namespace SaveState
 			p.Do(saveStateInitialGitVersion);
 		} else {
 			saveStateGeneration = 1;
-			saveStateInitialGitVersion = "v0.0.1";
 		}
 
 		// Gotta do CoreTiming first since we'll restore into it.
@@ -699,7 +698,8 @@ namespace SaveState
 			{
 			case SAVESTATE_LOAD:
 				INFO_LOG(SAVESTATE, "Loading state from %s", op.filename.c_str());
-				result = CChunkFileReader::Load(op.filename, PPSSPP_GIT_VERSION, state, &reason);
+				// Use the state's latest version as a guess for saveStateInitialGitVersion.
+				result = CChunkFileReader::Load(op.filename, &saveStateInitialGitVersion, state, &reason);
 				if (result == CChunkFileReader::ERROR_NONE) {
 					callbackMessage = sc->T("Loaded State");
 					callbackResult = Status::SUCCESS;
