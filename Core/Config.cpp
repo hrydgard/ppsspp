@@ -416,6 +416,7 @@ static ConfigSetting cpuSettings[] = {
 	ConfigSetting("FastMemoryAccess", &g_Config.bFastMemory, true, true, true),
 	ReportedConfigSetting("FuncReplacements", &g_Config.bFuncReplacements, true, true, true),
 	ConfigSetting("HideSlowWarnings", &g_Config.bHideSlowWarnings, false, true, false),
+	ConfigSetting("HideStateWarnings", &g_Config.bHideStateWarnings, false, true, true),
 	ConfigSetting("PreloadFunctions", &g_Config.bPreloadFunctions, false, true, true),
 	ReportedConfigSetting("CPUSpeed", &g_Config.iLockedCPUSpeed, 0, true, true),
 

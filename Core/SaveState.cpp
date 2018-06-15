@@ -705,14 +705,14 @@ namespace SaveState
 					callbackResult = Status::SUCCESS;
 					hasLoadedState = true;
 
-					if (IsStale()) {
+					if (!g_Config.bHideStateWarnings && IsStale()) {
 						// For anyone wondering why (too long to put on the screen in an osm):
 						// Using save states instead of saves simulates many hour play sessions.
 						// Sometimes this exposes game bugs that were rarely seen on real devices,
 						// because few people played on a real PSP for 10 hours straight.
 						callbackMessage = sc->T("Loaded.  Save in game, restart, and load for less bugs.");
 						callbackResult = Status::WARNING;
-					} else if (IsOldVersion()) {
+					} else if (!g_Config.bHideStateWarnings && IsOldVersion()) {
 						// Save states also preserve bugs from old PPSSPP versions, so warn.
 						callbackMessage = sc->T("Loaded.  Save in game, restart, and load for less bugs.");
 						callbackResult = Status::WARNING;
