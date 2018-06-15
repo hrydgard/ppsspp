@@ -19,6 +19,11 @@ if(${CMAKE_CXX_COMPILER_ID} STREQUAL "Clang")
   message("Clang enabled")
 endif()
 
+if(FORCED_CPU)
+  message("Detected CPU (${CMAKE_SYSTEM_PROCESSOR}) overridden as: ${FORCED_CPU}")
+  set(CMAKE_SYSTEM_PROCESSOR ${FORCED_CPU})
+endif()
+
 # Detect CPU from CMAKE configuration. Toolchains should set this up
 if(CMAKE_SYSTEM_PROCESSOR)
 	if(${CMAKE_SYSTEM_PROCESSOR} MATCHES "^arm")
@@ -75,10 +80,15 @@ if(${CMAKE_SYSTEM_NAME} MATCHES "Android")
 endif()
 
 # We only support Vulkan on Unix, Android and Windows.
-if(ANDROID OR WIN32 OR (UNIX AND NOT APPLE))
-  set(VULKAN ON)
+if(DISABLE_VULKAN)
+  set(VULKAN OFF)
+  message("Vulkan disabled")
 else()
-  add_definitions(-DNO_VULKAN)
+  if(ANDROID OR WIN32 OR (UNIX AND NOT APPLE))
+    set(VULKAN ON)
+  else()
+    add_definitions(-DNO_VULKAN)
+  endif()
 endif()
 
 if(NOT DEFINED HEADLESS)
@@ -122,6 +132,7 @@ option(USE_SYSTEM_FFMPEG "Dynamically link against system FFMPEG" ${USE_SYSTEM_F
 option(USE_SYSTEM_LIBZIP "Dynamically link against system libzip" ${USE_SYSTEM_LIBZIP})
 option(USE_WAYLAND_WSI "Set to ON to require Wayland support for Vulkan" ${USE_WAYLAND_WSI})
 option(USE_ADDRESS_SANITIZER "Use Clang memory sanitizer" ${USE_ADDRESS_SANITIZER})
+option(DISABLE_VULKAN "Set to ON to if building for Vulkan is unsupported" ${DISABLE_VULKAN})
 
 if(UNIX AND NOT (APPLE OR ANDROID) AND VULKAN)
 	add_definitions(-DVK_USE_PLATFORM_XLIB_KHR)
