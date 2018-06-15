@@ -590,9 +590,9 @@ void NativeInit(int argc, const char *argv[], const char *savegame_dir, const ch
 #endif
 
 	if (!boot_filename.empty() && stateToLoad != NULL) {
-		SaveState::Load(stateToLoad, [](bool status, const std::string &message, void *) {
+		SaveState::Load(stateToLoad, [](SaveState::Status status, const std::string &message, void *) {
 			if (!message.empty()) {
-				osm.Show(message, 2.0);
+				osm.Show(message, status == SaveState::Status::SUCCESS ? 2.0 : 5.0);
 			}
 		});
 	}

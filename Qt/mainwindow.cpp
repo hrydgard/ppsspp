@@ -163,10 +163,10 @@ void MainWindow::closeAct()
 	SetGameTitle("");
 }
 
-void SaveStateActionFinished(bool result, const std::string &message, void *userdata)
+void SaveStateActionFinished(SaveState::Status status, const std::string &message, void *userdata)
 {
 	// TODO: Improve messaging?
-	if (!result)
+	if (status == SaveState::Status::FAILURE)
 	{
 		QMessageBox msgBox;
 		msgBox.setWindowTitle("Load Save State");

@@ -346,14 +346,14 @@ void EmuScreen::dialogFinished(const Screen *dialog, DialogResult result) {
 	RecreateViews();
 }
 
-static void AfterSaveStateAction(bool success, const std::string &message, void *) {
+static void AfterSaveStateAction(SaveState::Status status, const std::string &message, void *) {
 	if (!message.empty()) {
-		osm.Show(message, 2.0);
+		osm.Show(message, status == SaveState::Status::SUCCESS ? 2.0 : 5.0);
 	}
 }
 
-static void AfterStateBoot(bool success, const std::string &message, void *ignored) {
-	AfterSaveStateAction(success, message, ignored);
+static void AfterStateBoot(SaveState::Status status, const std::string &message, void *ignored) {
+	AfterSaveStateAction(status, message, ignored);
 	Core_EnableStepping(false);
 	host->UpdateDisassembly();
 }
