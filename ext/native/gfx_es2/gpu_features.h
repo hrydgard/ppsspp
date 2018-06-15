@@ -103,6 +103,7 @@ struct GLExtensions {
 
 	// greater-or-equal than
 	bool VersionGEThan(int major, int minor, int sub = 0);
+	int GLSLVersion();
 };
 
 extern GLExtensions gl_extensions;
