@@ -622,7 +622,7 @@ public:
 
 	// Load file template
 	template<class T>
-	static Error Load(const std::string &filename, const char *gitVersion, T& _class, std::string *failureReason)
+	static Error Load(const std::string &filename, std::string *gitVersion, T& _class, std::string *failureReason)
 	{
 		*failureReason = "LoadStateWrongVersion";
 
@@ -700,7 +700,7 @@ private:
 		REVISION_CURRENT = REVISION_TITLE,
 	};
 
-	static Error LoadFile(const std::string &filename, const char *gitVersion, u8 *&buffer, size_t &sz, std::string *failureReason);
+	static Error LoadFile(const std::string &filename, std::string *gitVersion, u8 *&buffer, size_t &sz, std::string *failureReason);
 	static Error SaveFile(const std::string &filename, const std::string &title, const char *gitVersion, u8 *buffer, size_t sz);
 	static Error LoadFileHeader(File::IOFile &pFile, SChunkHeader &header, std::string *title);
 };

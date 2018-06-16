@@ -225,7 +225,7 @@ CChunkFileReader::Error CChunkFileReader::GetFileTitle(const std::string &filena
 	return LoadFileHeader(pFile, header, title);
 }
 
-CChunkFileReader::Error CChunkFileReader::LoadFile(const std::string &filename, const char *gitVersion, u8 *&_buffer, size_t &sz, std::string *failureReason) {
+CChunkFileReader::Error CChunkFileReader::LoadFile(const std::string &filename, std::string *gitVersion, u8 *&_buffer, size_t &sz, std::string *failureReason) {
 	if (!File::Exists(filename)) {
 		*failureReason = "LoadStateDoesntExist";
 		ERROR_LOG(SAVESTATE, "ChunkReader: File doesn't exist");
@@ -262,6 +262,12 @@ CChunkFileReader::Error CChunkFileReader::LoadFile(const std::string &filename, 
 		_buffer = uncomp_buffer;
 		sz = uncomp_size;
 		delete [] buffer;
+	}
+
+	if (header.GitVersion[31]) {
+		*gitVersion = std::string(header.GitVersion, 32);
+	} else {
+		*gitVersion = header.GitVersion;
 	}
 
 	return ERROR_NONE;

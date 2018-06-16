@@ -470,9 +470,9 @@ namespace MainWindow {
 		g_Config.iInternalScreenRotation = rotation;
 	}
 
-	static void SaveStateActionFinished(bool result, const std::string &message, void *userdata) {
+	static void SaveStateActionFinished(SaveState::Status status, const std::string &message, void *userdata) {
 		if (!message.empty()) {
-			osm.Show(message, 2.0);
+			osm.Show(message, status == SaveState::Status::SUCCESS ? 2.0 : 5.0);
 		}
 		PostMessage(MainWindow::GetHWND(), WM_USER_SAVESTATE_FINISH, 0, 0);
 	}
