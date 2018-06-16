@@ -92,6 +92,11 @@ EGLConfig EGL_FindConfig(int *contextVersion) {
 		return nullptr;
 	}
 
+	// Mali (ARM) seems to have compositing issues with alpha backbuffers.
+	// EGL_TRANSPARENT_TYPE doesn't help.
+	const char *vendorName = eglQueryString(g_eglDisplay, EGL_VENDOR);
+	const bool avoidAlphaGLES = vendorName && !strcmp(vendorName, "ARM");
+
 	EGLConfig best = nullptr;
 	int bestScore = 0;
 	int bestContextVersion = 0;
@@ -119,17 +124,23 @@ EGLConfig EGL_FindConfig(int *contextVersion) {
 		bool renderableGLES2 = (renderable & EGL_OPENGL_ES2_BIT) != 0;
 		bool renderableGL = (renderable & EGL_OPENGL_BIT) != 0;
 #ifdef USING_GLES2
-		int renderableScore = renderableGLES3 ? 100 : (renderableGLES2 ? 80 : 0);
+		int renderableScoreGLES = renderableGLES3 ? 100 : (renderableGLES2 ? 80 : 0);
+		int renderableScoreGL = 0;
 #else
-		int renderableScore = renderableGL ? 100 : (renderableGLES3 ? 80 : 0);
+		int renderableScoreGLES = 0;
+		int renderableScoreGL = renderableGL ? 100 : (renderableGLES3 ? 80 : 0);
 #endif
+
+		if (avoidAlphaGLES && renderableScoreGLES > 0) {
+			alphaScore = 8 - alphaScore;
+		}
 
 		int score = 0;
 		// Here's a good place to play with the weights to pick a better config.
 		score += (colorScore + alphaScore) * 10;
 		score += depthScore * 5 + stencilScore;
 		score += levelScore + samplesScore + sampleBufferScore + transparentScore;
-		score += caveatScore + renderableScore;
+		score += caveatScore + renderableScoreGLES + renderableScoreGL;
 
 		if (score > bestScore) {
 			bestScore = score;
