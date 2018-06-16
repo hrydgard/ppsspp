@@ -733,8 +733,8 @@ void Button::GetContentDimensions(const UIContext &dc, float &w, float &h) const
 		dc.MeasureText(dc.theme->uiFont, 1.0f, 1.0f, text_.c_str(), &w, &h);
 	}
 	// Add some internal padding to not look totally ugly
-	w += 16;
-	h += 8;
+	w += paddingW_;
+	h += paddingH_;
 }
 
 void Button::Draw(UIContext &dc) {
