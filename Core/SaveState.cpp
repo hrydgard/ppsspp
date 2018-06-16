@@ -241,7 +241,9 @@ namespace SaveState
 	static std::vector<Operation> pending;
 	static std::mutex mutex;
 	static bool hasLoadedState = false;
-	static const int STALE_STATE_USES = 10;
+	static const int STALE_STATE_USES = 2;
+	// 4 hours of total gameplay since the virtual PSP started the game.
+	static const u64 STALE_STATE_TIME = 4 * 3600 * 1000;
 	static int saveStateGeneration = 0;
 	static std::string saveStateInitialGitVersion = "";
 
@@ -261,8 +263,10 @@ namespace SaveState
 			return;
 
 		if (s >= 2) {
+			// This only increments on save, of course.
 			++saveStateGeneration;
 			p.Do(saveStateGeneration);
+			// This saves the first git version to create this save state (or generation of save states.)
 			if (saveStateInitialGitVersion.empty())
 				saveStateInitialGitVersion = PPSSPP_GIT_VERSION;
 			p.Do(saveStateInitialGitVersion);
@@ -638,8 +642,7 @@ namespace SaveState
 
 	bool IsStale() {
 		if (saveStateGeneration >= STALE_STATE_USES) {
-			// Don't show it every time.
-			return saveStateGeneration % 5 == 0;
+			return CoreTiming::GetGlobalTimeUs() > STALE_STATE_TIME;
 		}
 		return false;
 	}
