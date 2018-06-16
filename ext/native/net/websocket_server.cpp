@@ -259,6 +259,8 @@ bool WebSocketServer::Process(float timeout) {
 			// Since select said it was readable, we assume this means disconnect.
 			closeReason_ = WebSocketClose::ABNORMAL;
 			open_ = false;
+			// Kill any remaining output too.
+			out_->Discard();
 			return false;
 		}
 
