@@ -31,6 +31,7 @@ namespace GPUStepping {
 	bool SingleStep();
 	bool IsStepping();
 
+	bool GPU_GetOutputFramebuffer(const GPUDebugBuffer *&buffer);
 	bool GPU_GetCurrentFramebuffer(const GPUDebugBuffer *&buffer, GPUDebugFramebufferType type);
 	bool GPU_GetCurrentDepthbuffer(const GPUDebugBuffer *&buffer);
 	bool GPU_GetCurrentStencilbuffer(const GPUDebugBuffer *&buffer);

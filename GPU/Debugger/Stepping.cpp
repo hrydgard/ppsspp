@@ -28,6 +28,7 @@ namespace GPUStepping {
 enum PauseAction {
 	PAUSE_CONTINUE,
 	PAUSE_BREAK,
+	PAUSE_GETOUTPUTBUF,
 	PAUSE_GETFRAMEBUF,
 	PAUSE_GETDEPTHBUF,
 	PAUSE_GETSTENCILBUF,
@@ -85,6 +86,10 @@ static void RunPauseAction() {
 		return;
 
 	case PAUSE_BREAK:
+		break;
+
+	case PAUSE_GETOUTPUTBUF:
+		bufferResult = gpuDebug->GetOutputFramebuffer(bufferFrame);
 		break;
 
 	case PAUSE_GETFRAMEBUF:
@@ -190,6 +195,10 @@ static bool GetBuffer(const GPUDebugBuffer *&buffer, PauseAction type, const GPU
 	SetPauseAction(type);
 	buffer = &resultBuffer;
 	return bufferResult;
+}
+
+bool GPU_GetOutputFramebuffer(const GPUDebugBuffer *&buffer) {
+	return GetBuffer(buffer, PAUSE_GETOUTPUTBUF, bufferFrame);
 }
 
 bool GPU_GetCurrentFramebuffer(const GPUDebugBuffer *&buffer, GPUDebugFramebufferType type) {
