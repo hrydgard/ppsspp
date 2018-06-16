@@ -720,6 +720,10 @@ static void LogReadPixelsError(GLenum error) {
 #endif
 
 bool OpenGLContext::CopyFramebufferToMemorySync(Framebuffer *src, int channelBits, int x, int y, int w, int h, Draw::DataFormat dataFormat, void *pixels, int pixelStride) {
+	if (gl_extensions.IsGLES && (channelBits & FB_COLOR_BIT) == 0) {
+		// Can't readback depth or stencil on GLES.
+		return false;
+	}
 	OpenGLFramebuffer *fb = (OpenGLFramebuffer *)src;
 	GLuint aspect = 0;
 	if (channelBits & FB_COLOR_BIT)
