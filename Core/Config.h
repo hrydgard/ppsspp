@@ -32,6 +32,14 @@ namespace http {
 
 struct UrlEncoder;
 
+struct ConfigTouchPos {
+	float x;
+	float y;
+	float scale;
+	// Note: Show is not used for all settings.
+	bool show;
+};
+
 struct Config {
 public:
 	Config();
@@ -267,46 +275,25 @@ public:
 
 	//space between PSP buttons
 	//the PSP button's center (triangle, circle, square, cross)
-	float fActionButtonCenterX, fActionButtonCenterY;
-	float fActionButtonScale;
+	ConfigTouchPos touchActionButtonCenter;
 	float fActionButtonSpacing;
 	//radius of the D-pad (PSP cross)
 	// int iDpadRadius;
 	//the D-pad (PSP cross) position
-	float fDpadX, fDpadY;
-	float fDpadScale;
+	ConfigTouchPos touchDpad;
 	float fDpadSpacing;
-	//the start key position
-	float fStartKeyX, fStartKeyY;
-	float fStartKeyScale;
-	//the select key position;
-	float fSelectKeyX, fSelectKeyY;
-	float fSelectKeyScale;
+	ConfigTouchPos touchStartKey;
+	ConfigTouchPos touchSelectKey;
+	ConfigTouchPos touchUnthrottleKey;
+	ConfigTouchPos touchLKey;
+	ConfigTouchPos touchRKey;
+	ConfigTouchPos touchAnalogStick;
 
-	float fUnthrottleKeyX, fUnthrottleKeyY;
-	float fUnthrottleKeyScale;
-
-	float fLKeyX, fLKeyY;
-	float fLKeyScale;
-
-	float fRKeyX, fRKeyY;
-	float fRKeyScale;
-
-	//position of the analog stick
-	float fAnalogStickX, fAnalogStickY;
-	float fAnalogStickScale;
-
-	//the Combo Button position
-	float fcombo0X, fcombo0Y;
-	float fcomboScale0;
-	float fcombo1X, fcombo1Y;
-	float fcomboScale1;
-	float fcombo2X, fcombo2Y;
-	float fcomboScale2;
-	float fcombo3X, fcombo3Y;
-	float fcomboScale3;
-	float fcombo4X, fcombo4Y;
-	float fcomboScale4;
+	ConfigTouchPos touchCombo0;
+	ConfigTouchPos touchCombo1;
+	ConfigTouchPos touchCombo2;
+	ConfigTouchPos touchCombo3;
+	ConfigTouchPos touchCombo4;
 
 	// Controls Visibility
 	bool bShowTouchControls;
@@ -315,23 +302,6 @@ public:
 	bool bShowTouchCross;
 	bool bShowTouchTriangle;
 	bool bShowTouchSquare;
-
-	bool bShowTouchStart;
-	bool bShowTouchSelect;
-	bool bShowTouchUnthrottle;
-
-	bool bShowTouchLTrigger;
-	bool bShowTouchRTrigger;
-
-	bool bShowTouchAnalogStick;
-	bool bShowTouchDpad;
-
-	//Combo Button Visibility
-	bool bShowComboKey0;
-	bool bShowComboKey1;
-	bool bShowComboKey2;
-	bool bShowComboKey3;
-	bool bShowComboKey4;
 
 	// Combo_key mapping. These are bitfields.
 	int iCombokey0;

@@ -62,18 +62,18 @@ void TouchControlVisibilityScreen::CreateViews() {
 	keyToggles["Cross"] = &g_Config.bShowTouchCross;
 	keyToggles["Square"] = &g_Config.bShowTouchSquare;
 	keyToggles["Triangle"] = &g_Config.bShowTouchTriangle;
-	keyToggles["L"] = &g_Config.bShowTouchLTrigger;
-	keyToggles["R"] = &g_Config.bShowTouchRTrigger;
-	keyToggles["Start"] = &g_Config.bShowTouchStart;
-	keyToggles["Select"] = &g_Config.bShowTouchSelect;
-	keyToggles["Dpad"] = &g_Config.bShowTouchDpad;
-	keyToggles["Analog Stick"] = &g_Config.bShowTouchAnalogStick;
-	keyToggles["Unthrottle"] = &g_Config.bShowTouchUnthrottle;
-	keyToggles["Combo0"] = &g_Config.bShowComboKey0;
-	keyToggles["Combo1"] = &g_Config.bShowComboKey1;
-	keyToggles["Combo2"] = &g_Config.bShowComboKey2;
-	keyToggles["Combo3"] = &g_Config.bShowComboKey3;
-	keyToggles["Combo4"] = &g_Config.bShowComboKey4;
+	keyToggles["L"] = &g_Config.touchLKey.show;
+	keyToggles["R"] = &g_Config.touchRKey.show;
+	keyToggles["Start"] = &g_Config.touchStartKey.show;
+	keyToggles["Select"] = &g_Config.touchSelectKey.show;
+	keyToggles["Dpad"] = &g_Config.touchDpad.show;
+	keyToggles["Analog Stick"] = &g_Config.touchAnalogStick.show;
+	keyToggles["Unthrottle"] = &g_Config.touchUnthrottleKey.show;
+	keyToggles["Combo0"] = &g_Config.touchCombo0.show;
+	keyToggles["Combo1"] = &g_Config.touchCombo1.show;
+	keyToggles["Combo2"] = &g_Config.touchCombo2.show;
+	keyToggles["Combo3"] = &g_Config.touchCombo3.show;
+	keyToggles["Combo4"] = &g_Config.touchCombo4.show;
 
 	std::map<std::string, int>::iterator imageFinder;
 

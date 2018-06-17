@@ -64,6 +64,7 @@ struct ConfigSetting {
 		TYPE_UINT32,
 		TYPE_FLOAT,
 		TYPE_STRING,
+		TYPE_TOUCH_POS,
 	};
 	union Value {
 		bool b;
@@ -71,6 +72,7 @@ struct ConfigSetting {
 		uint32_t u;
 		float f;
 		const char *s;
+		ConfigTouchPos touchPos;
 	};
 	union SettingPtr {
 		bool *b;
@@ -78,6 +80,7 @@ struct ConfigSetting {
 		uint32_t *u;
 		float *f;
 		std::string *s;
+		ConfigTouchPos *touchPos;
 	};
 
 	typedef bool (*BoolDefaultCallback)();
@@ -85,6 +88,7 @@ struct ConfigSetting {
 	typedef uint32_t (*Uint32DefaultCallback)();
 	typedef float (*FloatDefaultCallback)();
 	typedef const char *(*StringDefaultCallback)();
+	typedef ConfigTouchPos (*TouchPosDefaultCallback)();
 
 	union Callback {
 		BoolDefaultCallback b;
@@ -92,6 +96,7 @@ struct ConfigSetting {
 		Uint32DefaultCallback u;
 		FloatDefaultCallback f;
 		StringDefaultCallback s;
+		TouchPosDefaultCallback touchPos;
 	};
 
 	ConfigSetting(bool v)
@@ -135,6 +140,13 @@ struct ConfigSetting {
 		default_.s = def;
 	}
 
+	ConfigSetting(const char *iniX, const char *iniY, const char *iniScale, const char *iniShow, ConfigTouchPos *v, ConfigTouchPos def, bool save = true, bool perGame = false)
+		: ini_(iniX), ini2_(iniY), ini3_(iniScale), ini4_(iniShow), type_(TYPE_TOUCH_POS), report_(false), save_(save), perGame_(perGame) {
+		ptr_.touchPos = v;
+		cb_.touchPos = nullptr;
+		default_.touchPos = def;
+	}
+
 	ConfigSetting(const char *ini, bool *v, BoolDefaultCallback def, bool save = true, bool perGame = false)
 		: ini_(ini), type_(TYPE_BOOL), report_(false), save_(save), perGame_(perGame) {
 		ptr_.b = v;
@@ -163,6 +175,12 @@ struct ConfigSetting {
 		: ini_(ini), type_(TYPE_STRING), report_(false), save_(save), perGame_(perGame) {
 		ptr_.s = v;
 		cb_.s = def;
+	}
+
+	ConfigSetting(const char *iniX, const char *iniY, const char *iniScale, const char *iniShow, ConfigTouchPos *v, TouchPosDefaultCallback def, bool save = true, bool perGame = false)
+		: ini_(iniX), ini2_(iniY), ini3_(iniScale), ini4_(iniShow), type_(TYPE_TOUCH_POS), report_(false), save_(save), perGame_(perGame) {
+		ptr_.touchPos = v;
+		cb_.touchPos = def;
 	}
 
 	bool HasMore() const {
@@ -196,6 +214,19 @@ struct ConfigSetting {
 				default_.s = cb_.s();
 			}
 			return section->Get(ini_, ptr_.s, default_.s);
+		case TYPE_TOUCH_POS:
+			if (cb_.touchPos) {
+				default_.touchPos = cb_.touchPos();
+			}
+			section->Get(ini_, &ptr_.touchPos->x, default_.touchPos.x);
+			section->Get(ini2_, &ptr_.touchPos->y, default_.touchPos.y);
+			section->Get(ini3_, &ptr_.touchPos->scale, default_.touchPos.scale);
+			if (ini4_) {
+				section->Get(ini4_, &ptr_.touchPos->show, default_.touchPos.show);
+			} else {
+				ptr_.touchPos->show = default_.touchPos.show;
+			}
+			return true;
 		default:
 			_dbg_assert_msg_(LOADER, false, "Unexpected ini setting type");
 			return false;
@@ -217,6 +248,14 @@ struct ConfigSetting {
 			return section->Set(ini_, *ptr_.f);
 		case TYPE_STRING:
 			return section->Set(ini_, *ptr_.s);
+		case TYPE_TOUCH_POS:
+			section->Set(ini_, ptr_.touchPos->x);
+			section->Set(ini2_, ptr_.touchPos->y);
+			section->Set(ini3_, ptr_.touchPos->scale);
+			if (ini4_) {
+				section->Set(ini4_, ptr_.touchPos->show);
+			}
+			return;
 		default:
 			_dbg_assert_msg_(LOADER, false, "Unexpected ini setting type");
 			return;
@@ -238,6 +277,9 @@ struct ConfigSetting {
 			return data.Add(prefix + ini_, *ptr_.f);
 		case TYPE_STRING:
 			return data.Add(prefix + ini_, *ptr_.s);
+		case TYPE_TOUCH_POS:
+			// Doesn't report.
+			return;
 		default:
 			_dbg_assert_msg_(LOADER, false, "Unexpected ini setting type");
 			return;
@@ -245,6 +287,9 @@ struct ConfigSetting {
 	}
 
 	const char *ini_;
+	const char *ini2_;
+	const char *ini3_;
+	const char *ini4_;
 	Type type_;
 	bool report_;
 	bool save_;
@@ -612,6 +657,8 @@ static bool DefaultShowTouchControls() {
 }
 
 static const float defaultControlScale = 1.15f;
+static const ConfigTouchPos defaultTouchPosShow = { -1.0f, -1.0f, defaultControlScale, true };
+static const ConfigTouchPos defaultTouchPosHide = { -1.0f, -1.0f, defaultControlScale, false };
 
 static ConfigSetting controlSettings[] = {
 	ConfigSetting("HapticFeedback", &g_Config.bHapticFeedback, false, true, true),
@@ -619,19 +666,7 @@ static ConfigSetting controlSettings[] = {
 	ConfigSetting("ShowTouchCircle", &g_Config.bShowTouchCircle, true, true, true),
 	ConfigSetting("ShowTouchSquare", &g_Config.bShowTouchSquare, true, true, true),
 	ConfigSetting("ShowTouchTriangle", &g_Config.bShowTouchTriangle, true, true, true),
-	ConfigSetting("ShowTouchStart", &g_Config.bShowTouchStart, true, true, true),
-	ConfigSetting("ShowTouchSelect", &g_Config.bShowTouchSelect, true, true, true),
-	ConfigSetting("ShowTouchLTrigger", &g_Config.bShowTouchLTrigger, true, true, true),
-	ConfigSetting("ShowTouchRTrigger", &g_Config.bShowTouchRTrigger, true, true, true),
-	ConfigSetting("ShowAnalogStick", &g_Config.bShowTouchAnalogStick, true, true, true),
-	ConfigSetting("ShowTouchDpad", &g_Config.bShowTouchDpad, true, true, true),
-	ConfigSetting("ShowTouchUnthrottle", &g_Config.bShowTouchUnthrottle, true, true, true),
 
-	ConfigSetting("ShowComboKey0", &g_Config.bShowComboKey0, false, true, true),
-	ConfigSetting("ShowComboKey1", &g_Config.bShowComboKey1, false, true, true),
-	ConfigSetting("ShowComboKey2", &g_Config.bShowComboKey2, false, true, true),
-	ConfigSetting("ShowComboKey3", &g_Config.bShowComboKey3, false, true, true),
-	ConfigSetting("ShowComboKey4", &g_Config.bShowComboKey4, false, true, true),
 	ConfigSetting("ComboKey0Mapping", &g_Config.iCombokey0, 0, true, true),
 	ConfigSetting("ComboKey1Mapping", &g_Config.iCombokey1, 0, true, true),
 	ConfigSetting("ComboKey2Mapping", &g_Config.iCombokey2, 0, true, true),
@@ -671,49 +706,24 @@ static ConfigSetting controlSettings[] = {
 
 	// -1.0f means uninitialized, set in GamepadEmu::CreatePadLayout().
 	ConfigSetting("ActionButtonSpacing2", &g_Config.fActionButtonSpacing, 1.0f, true, true),
-	ConfigSetting("ActionButtonCenterX", &g_Config.fActionButtonCenterX, -1.0f, true, true),
-	ConfigSetting("ActionButtonCenterY", &g_Config.fActionButtonCenterY, -1.0f, true, true),
-	ConfigSetting("ActionButtonScale", &g_Config.fActionButtonScale, defaultControlScale, true, true),
-	ConfigSetting("DPadX", &g_Config.fDpadX, -1.0f, true, true),
-	ConfigSetting("DPadY", &g_Config.fDpadY, -1.0f, true, true),
+	ConfigSetting("ActionButtonCenterX", "ActionButtonCenterY", "ActionButtonScale", nullptr, &g_Config.touchActionButtonCenter, defaultTouchPosShow, true, true),
+	ConfigSetting("DPadX", "DPadY", "DPadScale", "ShowTouchDpad", &g_Config.touchDpad, defaultTouchPosShow, true, true),
 
 	// Note: these will be overwritten if DPadRadius is set.
-	ConfigSetting("DPadScale", &g_Config.fDpadScale, defaultControlScale, true, true),
 	ConfigSetting("DPadSpacing", &g_Config.fDpadSpacing, 1.0f, true, true),
-	ConfigSetting("StartKeyX", &g_Config.fStartKeyX, -1.0f, true, true),
-	ConfigSetting("StartKeyY", &g_Config.fStartKeyY, -1.0f, true, true),
-	ConfigSetting("StartKeyScale", &g_Config.fStartKeyScale, defaultControlScale, true, true),
-	ConfigSetting("SelectKeyX", &g_Config.fSelectKeyX, -1.0f, true, true),
-	ConfigSetting("SelectKeyY", &g_Config.fSelectKeyY, -1.0f, true, true),
-	ConfigSetting("SelectKeyScale", &g_Config.fSelectKeyScale, defaultControlScale, true, true),
-	ConfigSetting("UnthrottleKeyX", &g_Config.fUnthrottleKeyX, -1.0f, true, true),
-	ConfigSetting("UnthrottleKeyY", &g_Config.fUnthrottleKeyY, -1.0f, true, true),
-	ConfigSetting("UnthrottleKeyScale", &g_Config.fUnthrottleKeyScale, defaultControlScale, true, true),
-	ConfigSetting("LKeyX", &g_Config.fLKeyX, -1.0f, true, true),
-	ConfigSetting("LKeyY", &g_Config.fLKeyY, -1.0f, true, true),
-	ConfigSetting("LKeyScale", &g_Config.fLKeyScale, defaultControlScale, true, true),
-	ConfigSetting("RKeyX", &g_Config.fRKeyX, -1.0f, true, true),
-	ConfigSetting("RKeyY", &g_Config.fRKeyY, -1.0f, true, true),
-	ConfigSetting("RKeyScale", &g_Config.fRKeyScale, defaultControlScale, true, true),
-	ConfigSetting("AnalogStickX", &g_Config.fAnalogStickX, -1.0f, true, true),
-	ConfigSetting("AnalogStickY", &g_Config.fAnalogStickY, -1.0f, true, true),
-	ConfigSetting("AnalogStickScale", &g_Config.fAnalogStickScale, defaultControlScale, true, true),
+	ConfigSetting("StartKeyX", "StartKeyY", "StartKeyScale", "ShowTouchStart", &g_Config.touchStartKey, defaultTouchPosShow, true, true),
+	ConfigSetting("SelectKeyX", "SelectKeyY", "SelectKeyScale", "ShowTouchSelect", &g_Config.touchSelectKey, defaultTouchPosShow, true, true),
+	ConfigSetting("UnthrottleKeyX", "UnthrottleKeyY", "UnthrottleKeyScale", "ShowTouchUnthrottle", &g_Config.touchUnthrottleKey, defaultTouchPosShow, true, true),
+	ConfigSetting("LKeyX", "LKeyY", "LKeyScale", "ShowTouchLTrigger", &g_Config.touchLKey, defaultTouchPosShow, true, true),
+	ConfigSetting("RKeyX", "RKeyY", "RKeyScale", "ShowTouchRTrigger", &g_Config.touchRKey, defaultTouchPosShow, true, true),
+	ConfigSetting("AnalogStickX", "AnalogStickY", "AnalogStickScale", "ShowAnalogStick", &g_Config.touchAnalogStick, defaultTouchPosShow, true, true),
 
-	ConfigSetting("fcombo0X", &g_Config.fcombo0X, -1.0f, true, true),
-	ConfigSetting("fcombo0Y", &g_Config.fcombo0Y, -1.0f, true, true),
-	ConfigSetting("comboKeyScale0", &g_Config.fcomboScale0, defaultControlScale, true, true),
-	ConfigSetting("fcombo1X", &g_Config.fcombo1X, -1.0f, true, true),
-	ConfigSetting("fcombo1Y", &g_Config.fcombo1Y, -1.0f, true, true),
-	ConfigSetting("comboKeyScale1", &g_Config.fcomboScale1, defaultControlScale, true, true),
-	ConfigSetting("fcombo2X", &g_Config.fcombo2X, -1.0f, true, true),
-	ConfigSetting("fcombo2Y", &g_Config.fcombo2Y, -1.0f, true, true),
-	ConfigSetting("comboKeyScale2", &g_Config.fcomboScale2, defaultControlScale, true, true),
-	ConfigSetting("fcombo3X", &g_Config.fcombo3X, -1.0f, true, true),
-	ConfigSetting("fcombo3Y", &g_Config.fcombo3Y, -1.0f, true, true),
-	ConfigSetting("comboKeyScale3", &g_Config.fcomboScale3, defaultControlScale, true, true),
-	ConfigSetting("fcombo4X", &g_Config.fcombo4X, -1.0f, true, true),
-	ConfigSetting("fcombo4Y", &g_Config.fcombo4Y, -1.0f, true, true),
-	ConfigSetting("comboKeyScale4", &g_Config.fcomboScale4, defaultControlScale, true, true),
+	ConfigSetting("fcombo0X", "fcombo0Y", "comboKeyScale0", "ShowComboKey0", &g_Config.touchCombo0, defaultTouchPosHide, true, true),
+	ConfigSetting("fcombo1X", "fcombo1Y", "comboKeyScale1", "ShowComboKey1", &g_Config.touchCombo1, defaultTouchPosHide, true, true),
+	ConfigSetting("fcombo2X", "fcombo2Y", "comboKeyScale2", "ShowComboKey2", &g_Config.touchCombo2, defaultTouchPosHide, true, true),
+	ConfigSetting("fcombo3X", "fcombo3Y", "comboKeyScale3", "ShowComboKey3", &g_Config.touchCombo3, defaultTouchPosHide, true, true),
+	ConfigSetting("fcombo4X", "fcombo4Y", "comboKeyScale4", "ShowComboKey4", &g_Config.touchCombo4, defaultTouchPosHide, true, true),
+
 #ifdef _WIN32
 	ConfigSetting("DInputAnalogDeadzone", &g_Config.fDInputAnalogDeadzone, 0.1f, true, true),
 	ConfigSetting("DInputAnalogInverseMode", &g_Config.iDInputAnalogInverseMode, 0, true, true),
@@ -999,40 +1009,6 @@ void Config::Load(const char *iniFileName, const char *controllerIniFilename) {
 	control->Get("DPadRadius", &f, 0.0f);
 	if (f > 0.0f) {
 		ResetControlLayout();
-	}
-
-	// MIGRATION: For users who had the old static touch layout, aren't I nice?
-	// We can probably kill this in 0.9.8 or something.
-	if (fDpadX > 1.0 || fDpadY > 1.0) { // Likely the rest are too!
-		float screen_width = dp_xres;
-		float screen_height = dp_yres;
-
-		fActionButtonCenterX /= screen_width;
-		fActionButtonCenterY /= screen_height;
-		fDpadX /= screen_width;
-		fDpadY /= screen_height;
-		fStartKeyX /= screen_width;
-		fStartKeyY /= screen_height;
-		fSelectKeyX /= screen_width;
-		fSelectKeyY /= screen_height;
-		fUnthrottleKeyX /= screen_width;
-		fUnthrottleKeyY /= screen_height;
-		fLKeyX /= screen_width;
-		fLKeyY /= screen_height;
-		fRKeyX /= screen_width;
-		fRKeyY /= screen_height;
-		fAnalogStickX /= screen_width;
-		fAnalogStickY /= screen_height;
-		fcombo0X /= screen_width;
-		fcombo0Y /= screen_height;
-		fcombo1X /= screen_width;
-		fcombo1Y /= screen_height;
-		fcombo2X /= screen_width;
-		fcombo2Y /= screen_height;
-		fcombo3X /= screen_width;
-		fcombo3Y /= screen_height;
-		fcombo4X /= screen_width;
-		fcombo4Y /= screen_height;
 	}
 
 	const char *gitVer = PPSSPP_GIT_VERSION;
@@ -1432,47 +1408,26 @@ void Config::LoadStandardControllerIni() {
 }
 
 void Config::ResetControlLayout() {
-	g_Config.fActionButtonScale = defaultControlScale;
+	auto reset = [](ConfigTouchPos &pos) {
+		pos.x = defaultTouchPosShow.x;
+		pos.y = defaultTouchPosShow.y;
+		pos.scale = defaultTouchPosShow.scale;
+	};
+	reset(g_Config.touchActionButtonCenter);
 	g_Config.fActionButtonSpacing = 1.0f;
-	g_Config.fActionButtonCenterX = -1.0;
-	g_Config.fActionButtonCenterY = -1.0;
-	g_Config.fDpadScale = defaultControlScale;
+	reset(g_Config.touchDpad);
 	g_Config.fDpadSpacing = 1.0f;
-	g_Config.fDpadX = -1.0;
-	g_Config.fDpadY = -1.0;
-	g_Config.fStartKeyX = -1.0;
-	g_Config.fStartKeyY = -1.0;
-	g_Config.fStartKeyScale = defaultControlScale;
-	g_Config.fSelectKeyX = -1.0;
-	g_Config.fSelectKeyY = -1.0;
-	g_Config.fSelectKeyScale = defaultControlScale;
-	g_Config.fUnthrottleKeyX = -1.0;
-	g_Config.fUnthrottleKeyY = -1.0;
-	g_Config.fUnthrottleKeyScale = defaultControlScale;
-	g_Config.fLKeyX = -1.0;
-	g_Config.fLKeyY = -1.0;
-	g_Config.fLKeyScale = defaultControlScale;
-	g_Config.fRKeyX = -1.0;
-	g_Config.fRKeyY = -1.0;
-	g_Config.fRKeyScale = defaultControlScale;
-	g_Config.fAnalogStickX = -1.0;
-	g_Config.fAnalogStickY = -1.0;
-	g_Config.fAnalogStickScale = defaultControlScale;
-	g_Config.fcombo0X = -1.0;
-	g_Config.fcombo0Y = -1.0;
-	g_Config.fcomboScale0 = defaultControlScale;
-	g_Config.fcombo1X = -1.0f;
-	g_Config.fcombo1Y = -1.0f;
-	g_Config.fcomboScale1 = defaultControlScale;
-	g_Config.fcombo2X = -1.0f;
-	g_Config.fcombo2Y = -1.0f;
-	g_Config.fcomboScale2 = defaultControlScale;
-	g_Config.fcombo3X = -1.0f;
-	g_Config.fcombo3Y = -1.0f;
-	g_Config.fcomboScale3 = defaultControlScale;
-	g_Config.fcombo4X = -1.0f;
-	g_Config.fcombo4Y = -1.0f;
-	g_Config.fcomboScale4 = defaultControlScale;
+	reset(g_Config.touchStartKey);
+	reset(g_Config.touchSelectKey);
+	reset(g_Config.touchUnthrottleKey);
+	reset(g_Config.touchLKey);
+	reset(g_Config.touchRKey);
+	reset(g_Config.touchAnalogStick);
+	reset(g_Config.touchCombo0);
+	reset(g_Config.touchCombo1);
+	reset(g_Config.touchCombo2);
+	reset(g_Config.touchCombo3);
+	reset(g_Config.touchCombo4);
 }
 
 void Config::GetReportingInfo(UrlEncoder &data) {

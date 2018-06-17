@@ -42,9 +42,9 @@ static u32 GetButtonColor() {
 
 class DragDropButton : public MultiTouchButton {
 public:
-	DragDropButton(float &x, float &y, int bgImg, int img, float &scale)
-	: MultiTouchButton(bgImg, img, scale, new UI::AnchorLayoutParams(fromFullscreenCoord(x), y*local_dp_yres, UI::NONE, UI::NONE, true)),
-		x_(x), y_(y), theScale_(scale) {
+	DragDropButton(ConfigTouchPos &pos, int bgImg, int img)
+	: MultiTouchButton(bgImg, img, pos.scale, new UI::AnchorLayoutParams(fromFullscreenCoord(pos.x), pos.y * local_dp_yres, UI::NONE, UI::NONE, true)),
+		x_(pos.x), y_(pos.y), theScale_(pos.scale) {
 		scale_ = theScale_;
 	}
 
@@ -89,8 +89,8 @@ private:
 
 class PSPActionButtons : public DragDropButton {
 public:
-	PSPActionButtons(float &x, float &y, float &scale, float &spacing)
-	: DragDropButton(x, y, -1, -1, scale), spacing_(spacing) {
+	PSPActionButtons(ConfigTouchPos &pos, float &spacing)
+	: DragDropButton(pos, -1, -1), spacing_(spacing) {
 		using namespace UI;
 		roundId_ = g_Config.iTouchButtonStyle ? I_ROUND_LINE : I_ROUND;
 
@@ -172,8 +172,8 @@ private:
 
 class PSPDPadButtons : public DragDropButton {
 public:
-	PSPDPadButtons(float &x, float &y, float &scale, float &spacing)
-		: DragDropButton(x, y, -1, -1, scale), spacing_(spacing) {
+	PSPDPadButtons(ConfigTouchPos &pos, float &spacing)
+		: DragDropButton(pos, -1, -1), spacing_(spacing) {
 	}
 
 	void Draw(UIContext &dc) override {
@@ -361,7 +361,7 @@ void TouchControlLayoutScreen::CreateViews() {
 
 	controls_.clear();
 
-	PSPActionButtons *actionButtons = new PSPActionButtons(g_Config.fActionButtonCenterX, g_Config.fActionButtonCenterY, g_Config.fActionButtonScale, g_Config.fActionButtonSpacing);
+	PSPActionButtons *actionButtons = new PSPActionButtons(g_Config.touchActionButtonCenter, g_Config.fActionButtonSpacing);
 	actionButtons->setCircleVisibility(g_Config.bShowTouchCircle);
 	actionButtons->setCrossVisibility(g_Config.bShowTouchCross);
 	actionButtons->setTriangleVisibility(g_Config.bShowTouchTriangle);
@@ -378,51 +378,51 @@ void TouchControlLayoutScreen::CreateViews() {
 
 	const int comboKeyImages[5] = { I_1, I_2, I_3, I_4, I_5 };
 
-	if (g_Config.bShowTouchDpad) {
-		controls_.push_back(new PSPDPadButtons(g_Config.fDpadX, g_Config.fDpadY, g_Config.fDpadScale, g_Config.fDpadSpacing));
+	if (g_Config.touchDpad.show) {
+		controls_.push_back(new PSPDPadButtons(g_Config.touchDpad, g_Config.fDpadSpacing));
 	}
 
-	if (g_Config.bShowTouchSelect) {
-		controls_.push_back(new DragDropButton(g_Config.fSelectKeyX, g_Config.fSelectKeyY, rectImage, I_SELECT, g_Config.fSelectKeyScale));
+	if (g_Config.touchSelectKey.show) {
+		controls_.push_back(new DragDropButton(g_Config.touchSelectKey, rectImage, I_SELECT));
 	}
 
-	if (g_Config.bShowTouchStart) {
-		controls_.push_back(new DragDropButton(g_Config.fStartKeyX, g_Config.fStartKeyY, rectImage, I_START, g_Config.fStartKeyScale));
+	if (g_Config.touchStartKey.show) {
+		controls_.push_back(new DragDropButton(g_Config.touchStartKey, rectImage, I_START));
 	}
 
-	if (g_Config.bShowTouchUnthrottle) {
-		DragDropButton *unthrottle = new DragDropButton(g_Config.fUnthrottleKeyX, g_Config.fUnthrottleKeyY, rectImage, I_ARROW, g_Config.fUnthrottleKeyScale);
+	if (g_Config.touchUnthrottleKey.show) {
+		DragDropButton *unthrottle = new DragDropButton(g_Config.touchUnthrottleKey, rectImage, I_ARROW);
 		unthrottle->SetAngle(180.0f);
 		controls_.push_back(unthrottle);
 	}
 
-	if (g_Config.bShowTouchLTrigger) {
-		controls_.push_back(new DragDropButton(g_Config.fLKeyX, g_Config.fLKeyY, shoulderImage, I_L, g_Config.fLKeyScale));
+	if (g_Config.touchLKey.show) {
+		controls_.push_back(new DragDropButton(g_Config.touchLKey, shoulderImage, I_L));
 	}
 
-	if (g_Config.bShowTouchRTrigger) {
-		DragDropButton *rbutton = new DragDropButton(g_Config.fRKeyX, g_Config.fRKeyY, shoulderImage, I_R, g_Config.fRKeyScale);
+	if (g_Config.touchRKey.show) {
+		DragDropButton *rbutton = new DragDropButton(g_Config.touchRKey, shoulderImage, I_R);
 		rbutton->FlipImageH(true);
 		controls_.push_back(rbutton);
 	}
 
-	if (g_Config.bShowTouchAnalogStick) {
-		controls_.push_back(new DragDropButton(g_Config.fAnalogStickX, g_Config.fAnalogStickY, stickBg, stickImage, g_Config.fAnalogStickScale));
+	if (g_Config.touchAnalogStick.show) {
+		controls_.push_back(new DragDropButton(g_Config.touchAnalogStick, stickBg, stickImage));
 	}
-	if (g_Config.bShowComboKey0) {
-		controls_.push_back(new DragDropButton(g_Config.fcombo0X, g_Config.fcombo0Y, roundImage, comboKeyImages[0], g_Config.fcomboScale0));
+	if (g_Config.touchCombo0.show) {
+		controls_.push_back(new DragDropButton(g_Config.touchCombo0, roundImage, comboKeyImages[0]));
 	}
-	if (g_Config.bShowComboKey1) {
-		controls_.push_back(new DragDropButton(g_Config.fcombo1X, g_Config.fcombo1Y, roundImage, comboKeyImages[1], g_Config.fcomboScale1));
+	if (g_Config.touchCombo1.show) {
+		controls_.push_back(new DragDropButton(g_Config.touchCombo1, roundImage, comboKeyImages[1]));
 	}
-	if (g_Config.bShowComboKey2) {
-		controls_.push_back(new DragDropButton(g_Config.fcombo2X, g_Config.fcombo2Y, roundImage, comboKeyImages[2], g_Config.fcomboScale2));
+	if (g_Config.touchCombo2.show) {
+		controls_.push_back(new DragDropButton(g_Config.touchCombo2, roundImage, comboKeyImages[2]));
 	}
-	if (g_Config.bShowComboKey3) {
-		controls_.push_back(new DragDropButton(g_Config.fcombo3X, g_Config.fcombo3Y, roundImage, comboKeyImages[3], g_Config.fcomboScale3));
+	if (g_Config.touchCombo3.show) {
+		controls_.push_back(new DragDropButton(g_Config.touchCombo3, roundImage, comboKeyImages[3]));
 	}
-	if (g_Config.bShowComboKey4) {
-		controls_.push_back(new DragDropButton(g_Config.fcombo4X, g_Config.fcombo4Y, roundImage, comboKeyImages[4], g_Config.fcomboScale4));
+	if (g_Config.touchCombo4.show) {
+		controls_.push_back(new DragDropButton(g_Config.touchCombo4, roundImage, comboKeyImages[4]));
 	};
 
 	for (size_t i = 0; i < controls_.size(); i++) {
