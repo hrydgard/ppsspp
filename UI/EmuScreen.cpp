@@ -474,10 +474,16 @@ void EmuScreen::onVKeyDown(int virtualKeyCode) {
 		if (PSP_CoreParameter().fpsLimit == 0) {
 			PSP_CoreParameter().fpsLimit = 1;
 			osm.Show(sc->T("fixed", "Speed: alternate"), 1.0);
-		}
-		else if (PSP_CoreParameter().fpsLimit == 1) {
+		} else if (PSP_CoreParameter().fpsLimit == 1) {
 			PSP_CoreParameter().fpsLimit = 0;
 			osm.Show(sc->T("standard", "Speed: standard"), 1.0);
+		}
+		break;
+
+	case VIRTKEY_SPEED_PRESS:
+		if (PSP_CoreParameter().fpsLimit == 0) {
+			PSP_CoreParameter().fpsLimit = 1;
+			osm.Show(sc->T("fixed", "Speed: alternate"), 1.0);
 		}
 		break;
 
@@ -580,9 +586,18 @@ void EmuScreen::onVKeyDown(int virtualKeyCode) {
 }
 
 void EmuScreen::onVKeyUp(int virtualKeyCode) {
+	I18NCategory *sc = GetI18NCategory("Screen");
+
 	switch (virtualKeyCode) {
 	case VIRTKEY_UNTHROTTLE:
 		PSP_CoreParameter().unthrottle = false;
+		break;
+
+	case VIRTKEY_SPEED_PRESS:
+		if (PSP_CoreParameter().fpsLimit == 1) {
+			PSP_CoreParameter().fpsLimit = 0;
+			osm.Show(sc->T("standard", "Speed: standard"), 1.0);
+		}
 		break;
 
 	case VIRTKEY_AXIS_X_MIN:
