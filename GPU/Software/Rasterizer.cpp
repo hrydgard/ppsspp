@@ -28,6 +28,7 @@
 #include "Core/Reporting.h"
 #include "GPU/GPUState.h"
 
+#include "GPU/Common/TextureCacheCommon.h"
 #include "GPU/Common/TextureDecoder.h"
 #include "GPU/Software/SoftGpu.h"
 #include "GPU/Software/Rasterizer.h"
@@ -1081,9 +1082,9 @@ static inline void CalculateSamplingParams(const float ds, const float dt, const
 		levelFrac = 0;
 	}
 
-	if (g_Config.iTexFiltering == 3) {
+	if (g_Config.iTexFiltering == TEX_FILTER_LINEAR) {
 		filt = true;
-	} else if (g_Config.iTexFiltering == 2) {
+	} else if (g_Config.iTexFiltering == TEX_FILTER_NEAREST) {
 		filt = false;
 	} else {
 		filt = detail > 0 ? gstate.isMinifyFilteringEnabled() : gstate.isMagnifyFilteringEnabled();

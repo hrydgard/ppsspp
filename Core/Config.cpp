@@ -384,9 +384,9 @@ static ConfigSetting generalSettings[] = {
 	ConfigSetting("RemoteDebuggerOnStartup", &g_Config.bRemoteDebuggerOnStartup, false),
 
 #ifdef __ANDROID__
-	ConfigSetting("ScreenRotation", &g_Config.iScreenRotation, 1),
+	ConfigSetting("ScreenRotation", &g_Config.iScreenRotation, ROTATION_LOCKED_HORIZONTAL),
 #endif
-	ConfigSetting("InternalScreenRotation", &g_Config.iInternalScreenRotation, 1),
+	ConfigSetting("InternalScreenRotation", &g_Config.iInternalScreenRotation, ROTATION_LOCKED_HORIZONTAL),
 
 #if defined(USING_WIN_UI)
 	ConfigSetting("TopMost", &g_Config.bTopMost, false),
@@ -454,7 +454,7 @@ static bool DefaultFrameskipUnthrottle() {
 }
 
 static int DefaultZoomType() {
-	return 2;
+	return (int)SmallDisplayZoom::AUTO;
 }
 
 static bool DefaultTimerHack() {
@@ -519,7 +519,7 @@ static ConfigSetting graphicsSettings[] = {
 	ReportedConfigSetting("HardwareTransform", &g_Config.bHardwareTransform, true, true, true),
 	ReportedConfigSetting("SoftwareSkinning", &g_Config.bSoftwareSkinning, true, true, true),
 	ReportedConfigSetting("TextureFiltering", &g_Config.iTexFiltering, 1, true, true),
-	ReportedConfigSetting("BufferFiltering", &g_Config.iBufFilter, 1, true, true),
+	ReportedConfigSetting("BufferFiltering", &g_Config.iBufFilter, SCALE_LINEAR, true, true),
 	ReportedConfigSetting("InternalResolution", &g_Config.iInternalResolution, &DefaultInternalResolution, true, true),
 	ReportedConfigSetting("AndroidHwScale", &g_Config.iAndroidHwScale, &DefaultAndroidHwScale),
 	ReportedConfigSetting("HighQualityDepth", &g_Config.bHighQualityDepth, true, true, true),
@@ -1484,5 +1484,5 @@ void Config::GetReportingInfo(UrlEncoder &data) {
 }
 
 bool Config::IsPortrait() const {
-	return (iInternalScreenRotation == ROTATION_LOCKED_VERTICAL || iInternalScreenRotation == ROTATION_LOCKED_VERTICAL180) && iRenderingMode != 0;
+	return (iInternalScreenRotation == ROTATION_LOCKED_VERTICAL || iInternalScreenRotation == ROTATION_LOCKED_VERTICAL180) && iRenderingMode != FB_NON_BUFFERED_MODE;
 }

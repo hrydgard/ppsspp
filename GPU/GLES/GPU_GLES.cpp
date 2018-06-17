@@ -459,7 +459,7 @@ void GPU_GLES::CopyDisplayToOutput() {
 	// If buffered, discard the depth buffer of the backbuffer. Don't even know if we need one.
 #if 0
 #ifdef USING_GLES2
-	if (gl_extensions.EXT_discard_framebuffer && g_Config.iRenderingMode != 0) {
+	if (gl_extensions.EXT_discard_framebuffer && g_Config.iRenderingMode != FB_NON_BUFFERED_MODE) {
 		GLenum attachments[] = {GL_DEPTH_EXT, GL_STENCIL_EXT};
 		glDiscardFramebufferEXT(GL_FRAMEBUFFER, 2, attachments);
 	}
