@@ -1,6 +1,7 @@
 #include <vector>
 #include "SDLGLGraphicsContext.h"
 #include "Core/Config.h"
+#include "Core/ConfigValues.h"
 #include "Core/System.h"
 #include "base/NativeApp.h"
 #include "base/display.h"

@@ -10,6 +10,7 @@
 #include "i18n/i18n.h"
 
 #include "Core/Config.h"
+#include "Core/ConfigValues.h"
 #include "Core/Reporting.h"
 #include "Core/System.h"
 #include "Windows/GPU/D3D11Context.h"

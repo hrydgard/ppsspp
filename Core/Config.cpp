@@ -38,6 +38,7 @@
 #include "Common/StringUtils.h"
 #include "Common/Vulkan/VulkanLoader.h"
 #include "Core/Config.h"
+#include "Core/ConfigValues.h"
 #include "Core/Loaders.h"
 #include "Core/HLE/sceUtility.h"
 #include "GPU/Common/FramebufferCommon.h"
@@ -1480,4 +1481,8 @@ void Config::GetReportingInfo(UrlEncoder &data) {
 			setting->Report(data, prefix);
 		}
 	}
+}
+
+bool Config::IsPortrait() const {
+	return (iInternalScreenRotation == ROTATION_LOCKED_VERTICAL || iInternalScreenRotation == ROTATION_LOCKED_VERTICAL180) && iRenderingMode != 0;
 }

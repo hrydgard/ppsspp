@@ -3,6 +3,7 @@
 #include "AndroidJavaGLContext.h"
 #include "base/NativeApp.h"
 #include "gfx_es2/gpu_features.h"
+#include "Core/ConfigValues.h"
 #include "Core/System.h"
 
 AndroidJavaEGLGraphicsContext::AndroidJavaEGLGraphicsContext() {

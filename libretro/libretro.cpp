@@ -8,6 +8,7 @@
 #include "base/timeutil.h"
 #include "Common/ChunkFile.h"
 #include "Core/Config.h"
+#include "Core/ConfigValues.h"
 #include "Core/Core.h"
 #include "Core/HLE/sceCtrl.h"
 #include "Core/HLE/sceUtility.h"

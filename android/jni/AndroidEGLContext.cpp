@@ -6,6 +6,7 @@
 
 #include "AndroidEGLContext.h"
 #include "GL/GLInterface/EGLAndroid.h"
+#include "Core/ConfigValues.h"
 #include "Core/System.h"
 
 bool AndroidEGLGraphicsContext::InitFromRenderThread(ANativeWindow *wnd, int desiredBackbufferSizeX, int desiredBackbufferSizeY, int backbufferFormat, int androidVersion) {

@@ -25,52 +25,6 @@
 
 extern const char *PPSSPP_GIT_VERSION;
 
-const int PSP_MODEL_FAT = 0;
-const int PSP_MODEL_SLIM = 1;
-const int PSP_DEFAULT_FIRMWARE = 660;
-static const s8 VOLUME_OFF = 0;
-static const s8 VOLUME_MAX = 10;
-
-enum class CPUCore {
-	INTERPRETER = 0,
-	JIT = 1,
-	IR_JIT = 2,
-};
-
-enum {
-	ROTATION_AUTO = 0,
-	ROTATION_LOCKED_HORIZONTAL = 1,
-	ROTATION_LOCKED_VERTICAL = 2,
-	ROTATION_LOCKED_HORIZONTAL180 = 3,
-	ROTATION_LOCKED_VERTICAL180 = 4,
-};
-
-enum BufferFilter {
-	SCALE_LINEAR = 1,
-	SCALE_NEAREST = 2,
-};
-
-// Software is not among these because it will have one of these perform the blit to display.
-enum class GPUBackend {
-	OPENGL = 0,
-	DIRECT3D9 = 1,
-	DIRECT3D11 = 2,
-	VULKAN = 3,
-};
-
-enum AudioBackendType {
-	AUDIO_BACKEND_AUTO,
-	AUDIO_BACKEND_DSOUND,
-	AUDIO_BACKEND_WASAPI,
-};
-
-// For iIOTimingMethod.
-enum IOTimingMethods {
-	IOTIMING_FAST = 0,
-	IOTIMING_HOST = 1,
-	IOTIMING_REALISTIC = 2,
-};
-
 namespace http {
 	class Download;
 	class Downloader;
@@ -510,9 +464,7 @@ public:
 
 	void GetReportingInfo(UrlEncoder &data);
 
-	bool IsPortrait() const {
-		return (iInternalScreenRotation == ROTATION_LOCKED_VERTICAL || iInternalScreenRotation == ROTATION_LOCKED_VERTICAL180) && iRenderingMode != 0;
-	}
+	bool IsPortrait() const;
 
 protected:
 	void LoadStandardControllerIni();

@@ -23,6 +23,7 @@
 #include "gfx_es2/gpu_features.h"
 
 #include "Core/Config.h"
+#include "Core/ConfigValues.h"
 #include "Core/System.h"
 #include "Common/GraphicsContext.h"
 

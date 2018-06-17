@@ -22,6 +22,7 @@
 
 #include "Common.h"
 #include "Common/ChunkFile.h"
+#include "Core/ConfigValues.h"
 #include "Core/MIPS/MIPS.h"
 #include "Core/MIPS/MIPSInt.h"
 #include "Core/MIPS/MIPSTables.h"

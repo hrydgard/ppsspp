@@ -544,6 +544,7 @@
     <ClInclude Include="..\ext\udis86\udint.h" />
     <ClInclude Include="..\ext\udis86\udis86.h" />
     <ClInclude Include="AVIDump.h" />
+    <ClInclude Include="ConfigValues.h" />
     <ClInclude Include="Debugger\WebSocket.h" />
     <ClInclude Include="Debugger\WebSocket\BreakpointSubscriber.h" />
     <ClInclude Include="Debugger\WebSocket\GameSubscriber.h" />

@@ -41,6 +41,7 @@
 #include "Core/AVIDump.h"
 #endif
 #include "Core/Config.h"
+#include "Core/ConfigValues.h"
 #include "Core/CoreTiming.h"
 #include "Core/CoreParameter.h"
 #include "Core/Core.h"

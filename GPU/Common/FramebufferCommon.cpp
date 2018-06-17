@@ -28,6 +28,7 @@
 #include "Common/ColorConv.h"
 #include "Common/Common.h"
 #include "Core/Config.h"
+#include "Core/ConfigValues.h"
 #include "Core/CoreParameter.h"
 #include "Core/Host.h"
 #include "Core/Reporting.h"

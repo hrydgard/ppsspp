@@ -11,6 +11,7 @@
 #include "Common/FileUtil.h"
 #include "Common/GraphicsContext.h"
 #include "Core/Config.h"
+#include "Core/ConfigValues.h"
 #include "Core/Core.h"
 #include "Core/CoreTiming.h"
 #include "Core/System.h"

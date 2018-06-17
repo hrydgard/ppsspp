@@ -1352,6 +1352,9 @@
     <ClInclude Include="Debugger\WebSocket\GPUBufferSubscriber.h">
       <Filter>Debugger\WebSocket</Filter>
     </ClInclude>
+    <ClInclude Include="ConfigValues.h">
+      <Filter>Core</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <None Include="CMakeLists.txt" />

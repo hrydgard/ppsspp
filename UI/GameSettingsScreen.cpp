@@ -49,6 +49,7 @@
 #include "Common/FileUtil.h"
 #include "Common/OSVersion.h"
 #include "Core/Config.h"
+#include "Core/ConfigValues.h"
 #include "Core/Host.h"
 #include "Core/System.h"
 #include "Core/Reporting.h"

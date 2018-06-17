@@ -20,6 +20,7 @@
 #include "GPU/Common/PostShader.h"
 #include "GPU/GLES/FramebufferManagerGLES.h"
 #include "Core/Config.h"
+#include "Core/ConfigValues.h"
 #include "Core/FileSystems/MetaFileSystem.h"
 #include "UI/OnScreenDisplay.h"
 #include "Windows/MainWindowMenu.h"
