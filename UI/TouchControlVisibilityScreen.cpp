@@ -42,59 +42,40 @@ void TouchControlVisibilityScreen::CreateViews() {
 	gridsettings.fillCells = true;
 	GridLayout *grid = vert->Add(new GridLayout(gridsettings, new LayoutParams(FILL_PARENT, WRAP_CONTENT)));
 
-	std::map<std::string, int> keyImages;
-	keyImages["Circle"] = I_CIRCLE;
-	keyImages["Cross"] = I_CROSS;
-	keyImages["Square"] = I_SQUARE;
-	keyImages["Triangle"] = I_TRIANGLE;
-	keyImages["Start"] = I_START;
-	keyImages["Select"] = I_SELECT;
-	keyImages["L"] = I_L;
-	keyImages["R"] = I_R;
-	keyImages["Combo0"] = I_1;
-	keyImages["Combo1"] = I_2;
-	keyImages["Combo2"] = I_3;
-	keyImages["Combo3"] = I_4;
-	keyImages["Combo4"] = I_5;
-
-	keyToggles.clear();
-	keyToggles["Circle"] = &g_Config.bShowTouchCircle;
-	keyToggles["Cross"] = &g_Config.bShowTouchCross;
-	keyToggles["Square"] = &g_Config.bShowTouchSquare;
-	keyToggles["Triangle"] = &g_Config.bShowTouchTriangle;
-	keyToggles["L"] = &g_Config.touchLKey.show;
-	keyToggles["R"] = &g_Config.touchRKey.show;
-	keyToggles["Start"] = &g_Config.touchStartKey.show;
-	keyToggles["Select"] = &g_Config.touchSelectKey.show;
-	keyToggles["Dpad"] = &g_Config.touchDpad.show;
-	keyToggles["Analog Stick"] = &g_Config.touchAnalogStick.show;
-	keyToggles["Unthrottle"] = &g_Config.touchUnthrottleKey.show;
-	keyToggles["Combo0"] = &g_Config.touchCombo0.show;
-	keyToggles["Combo1"] = &g_Config.touchCombo1.show;
-	keyToggles["Combo2"] = &g_Config.touchCombo2.show;
-	keyToggles["Combo3"] = &g_Config.touchCombo3.show;
-	keyToggles["Combo4"] = &g_Config.touchCombo4.show;
-	keyToggles["Alt speed 1"] = &g_Config.touchSpeed1Key.show;
-	keyToggles["Alt speed 2"] = &g_Config.touchSpeed2Key.show;
-
-	std::map<std::string, int>::iterator imageFinder;
+	toggles_.clear();
+	toggles_.push_back({ "Circle", &g_Config.bShowTouchCircle, I_CIRCLE });
+	toggles_.push_back({ "Cross", &g_Config.bShowTouchCross, I_CROSS });
+	toggles_.push_back({ "Square", &g_Config.bShowTouchSquare, I_SQUARE });
+	toggles_.push_back({ "Triangle", &g_Config.bShowTouchTriangle, I_TRIANGLE });
+	toggles_.push_back({ "L", &g_Config.touchLKey.show, I_L });
+	toggles_.push_back({ "R", &g_Config.touchRKey.show, I_R });
+	toggles_.push_back({ "Start", &g_Config.touchStartKey.show, I_START });
+	toggles_.push_back({ "Select", &g_Config.touchSelectKey.show, I_SELECT });
+	toggles_.push_back({ "Dpad", &g_Config.touchDpad.show, -1 });
+	toggles_.push_back({ "Analog Stick", &g_Config.touchAnalogStick.show, -1 });
+	toggles_.push_back({ "Unthrottle", &g_Config.touchUnthrottleKey.show, -1 });
+	toggles_.push_back({ "Combo0", &g_Config.touchCombo0.show, I_1 });
+	toggles_.push_back({ "Combo1", &g_Config.touchCombo1.show, I_2 });
+	toggles_.push_back({ "Combo2", &g_Config.touchCombo2.show, I_3 });
+	toggles_.push_back({ "Combo3", &g_Config.touchCombo3.show, I_4 });
+	toggles_.push_back({ "Combo4", &g_Config.touchCombo4.show, I_5 });
+	toggles_.push_back({ "Alt speed 1", &g_Config.touchSpeed1Key.show, -1 });
+	toggles_.push_back({ "Alt speed 2", &g_Config.touchSpeed2Key.show, -1 });
 
 	I18NCategory *mc = GetI18NCategory("MappableControls");
 
-	for (auto i = keyToggles.begin(); i != keyToggles.end(); ++i) {
+	for (auto toggle : toggles_) {
 		LinearLayout *row = new LinearLayout(ORIENT_HORIZONTAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT));
 		row->SetSpacing(0);
 
-		CheckBox *checkbox = new CheckBox(i->second, "", "", new LinearLayoutParams(50, WRAP_CONTENT));
+		CheckBox *checkbox = new CheckBox(toggle.show, "", "", new LinearLayoutParams(50, WRAP_CONTENT));
 		row->Add(checkbox);
 
-		imageFinder = keyImages.find(i->first);
 		Choice *choice;
-
-		if (imageFinder != keyImages.end()) {
-			choice = new Choice(keyImages[imageFinder->first], new LinearLayoutParams(1.0f));	
+		if (toggle.img != -1) {
+			choice = new Choice(toggle.img, new LinearLayoutParams(1.0f));
 		} else {
-			choice = new Choice(mc->T(i->first.c_str()), new LinearLayoutParams(1.0f));
+			choice = new Choice(mc->T(toggle.key), new LinearLayoutParams(1.0f));
 		}
 
 		ChoiceEventHandler *choiceEventHandler = new ChoiceEventHandler(checkbox);
@@ -112,11 +93,10 @@ void TouchControlVisibilityScreen::onFinish(DialogResult result) {
 }
 
 UI::EventReturn TouchControlVisibilityScreen::OnToggleAll(UI::EventParams &e) {
-	for (auto i = keyToggles.begin(); i != keyToggles.end(); ++i) {
-		*i->second = toggleSwitch;
+	for (auto toggle : toggles_) {
+		*toggle.show = nextToggleAll_;
 	}
-
-	toggleSwitch = !toggleSwitch;
+	nextToggleAll_ = !nextToggleAll_;
 
 	return UI::EVENT_DONE;
 }
