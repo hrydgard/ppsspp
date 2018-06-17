@@ -169,8 +169,13 @@ namespace UI {
 class SliderPopupScreen : public PopupScreen {
 public:
 	SliderPopupScreen(int *value, int minValue, int maxValue, const std::string &title, int step = 1, const std::string &units = "")
-	: PopupScreen(title, "OK", "Cancel"), units_(units), value_(value), minValue_(minValue), maxValue_(maxValue), step_(step), changing_(false) {}
+	: PopupScreen(title, "OK", "Cancel"), units_(units), value_(value), minValue_(minValue), maxValue_(maxValue), step_(step) {}
 	virtual void CreatePopupContents(ViewGroup *parent) override;
+
+	void SetNegativeDisable(const std::string &str) {
+		negativeLabel_ = str;
+		disabled_ = *value_ < 0;
+	}
 
 	Event OnChange;
 
@@ -183,12 +188,14 @@ private:
 	Slider *slider_;
 	UI::TextEdit *edit_;
 	std::string units_;
+	std::string negativeLabel_;
 	int *value_;
 	int sliderValue_;
 	int minValue_;
 	int maxValue_;
 	int step_;
-	bool changing_;
+	bool changing_ = false;
+	bool disabled_ = false;
 };
 
 class SliderFloatPopupScreen : public PopupScreen {
@@ -325,6 +332,9 @@ public:
 	void SetZeroLabel(const std::string &str) {
 		zeroLabel_ = str;
 	}
+	void SetNegativeDisable(const std::string &str) {
+		negativeLabel_ = str;
+	}
 
 	Event OnChange;
 
@@ -338,6 +348,7 @@ private:
 	int step_;
 	const char *fmt_;
 	std::string zeroLabel_;
+	std::string negativeLabel_;
 	std::string units_;
 	ScreenManager *screenManager_;
 	bool restoreFocus_;
