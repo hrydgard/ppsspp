@@ -392,9 +392,10 @@ inline void GPU_GLES::UpdateVsyncInterval(bool force) {
 	if (PSP_CoreParameter().unthrottle) {
 		desiredVSyncInterval = 0;
 	}
-	if (PSP_CoreParameter().fpsLimit == 1) {
+	if (PSP_CoreParameter().fpsLimit != FPSLimit::NORMAL) {
+		int limit = PSP_CoreParameter().fpsLimit == FPSLimit::CUSTOM1 ? g_Config.iFpsLimit1 : g_Config.iFpsLimit2;
 		// For an alternative speed that is a clean factor of 60, the user probably still wants vsync.
-		if (g_Config.iFpsLimit == 0 || (g_Config.iFpsLimit != 15 && g_Config.iFpsLimit != 30 && g_Config.iFpsLimit != 60)) {
+		if (limit == 0 || (limit >= 0 && limit != 15 && limit != 30 && limit != 60)) {
 			desiredVSyncInterval = 0;
 		}
 	}

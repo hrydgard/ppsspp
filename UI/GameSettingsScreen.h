@@ -106,7 +106,8 @@ private:
 
 	// Temporaries to convert bools to int settings
 	bool cap60FPS_;
-	int iAlternateSpeedPercent_;
+	int iAlternateSpeedPercent1_;
+	int iAlternateSpeedPercent2_;
 	bool enableReports_;
 
 	//edit the game-specific settings and restore the global settings after exiting

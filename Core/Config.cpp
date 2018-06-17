@@ -525,7 +525,8 @@ static ConfigSetting graphicsSettings[] = {
 	ReportedConfigSetting("HighQualityDepth", &g_Config.bHighQualityDepth, true, true, true),
 	ReportedConfigSetting("FrameSkip", &g_Config.iFrameSkip, 0, true, true),
 	ReportedConfigSetting("AutoFrameSkip", &g_Config.bAutoFrameSkip, false, true, true),
-	ConfigSetting("FrameRate", &g_Config.iFpsLimit, 0, true, true),
+	ConfigSetting("FrameRate", &g_Config.iFpsLimit1, 0, true, true),
+	ConfigSetting("FrameRate2", &g_Config.iFpsLimit2, -1, true, true),
 	ConfigSetting("FrameSkipUnthrottle", &g_Config.bFrameSkipUnthrottle, &DefaultFrameskipUnthrottle, true, false),
 #if defined(USING_WIN_UI)
 	ConfigSetting("RestartRequired", &g_Config.bRestartRequired, false, false),

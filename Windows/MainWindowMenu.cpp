@@ -515,10 +515,6 @@ namespace MainWindow {
 		NativeMessageReceived("gpu_resized", "");
 	}
 
-	static void setFpsLimit(int fps) {
-		g_Config.iFpsLimit = fps;
-	}
-
 	static void setFrameSkipping(int framesToSkip = -1) {
 		if (framesToSkip >= FRAMESKIP_OFF)
 			g_Config.iFrameSkip = framesToSkip;

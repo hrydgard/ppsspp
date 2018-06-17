@@ -472,19 +472,29 @@ void EmuScreen::onVKeyDown(int virtualKeyCode) {
 		break;
 
 	case VIRTKEY_SPEED_TOGGLE:
-		if (PSP_CoreParameter().fpsLimit == 0) {
-			PSP_CoreParameter().fpsLimit = 1;
+		// Cycle through enabled speeds.
+		if (PSP_CoreParameter().fpsLimit == FPSLimit::NORMAL && g_Config.iFpsLimit1 >= 0) {
+			PSP_CoreParameter().fpsLimit = FPSLimit::CUSTOM1;
 			osm.Show(sc->T("fixed", "Speed: alternate"), 1.0);
-		} else if (PSP_CoreParameter().fpsLimit == 1) {
-			PSP_CoreParameter().fpsLimit = 0;
+		} else if (PSP_CoreParameter().fpsLimit != FPSLimit::CUSTOM2 && g_Config.iFpsLimit2 >= 0) {
+			PSP_CoreParameter().fpsLimit = FPSLimit::CUSTOM2;
+			osm.Show(sc->T("SpeedCustom2", "Speed: alternate 2"), 1.0);
+		} else if (PSP_CoreParameter().fpsLimit != FPSLimit::NORMAL) {
+			PSP_CoreParameter().fpsLimit = FPSLimit::NORMAL;
 			osm.Show(sc->T("standard", "Speed: standard"), 1.0);
 		}
 		break;
 
-	case VIRTKEY_SPEED_PRESS:
-		if (PSP_CoreParameter().fpsLimit == 0) {
-			PSP_CoreParameter().fpsLimit = 1;
+	case VIRTKEY_SPEED_CUSTOM1:
+		if (PSP_CoreParameter().fpsLimit == FPSLimit::NORMAL) {
+			PSP_CoreParameter().fpsLimit = FPSLimit::CUSTOM1;
 			osm.Show(sc->T("fixed", "Speed: alternate"), 1.0);
+		}
+		break;
+	case VIRTKEY_SPEED_CUSTOM2:
+		if (PSP_CoreParameter().fpsLimit == FPSLimit::NORMAL) {
+			PSP_CoreParameter().fpsLimit = FPSLimit::CUSTOM2;
+			osm.Show(sc->T("SpeedCustom2", "Speed: alternate 2"), 1.0);
 		}
 		break;
 
@@ -594,9 +604,15 @@ void EmuScreen::onVKeyUp(int virtualKeyCode) {
 		PSP_CoreParameter().unthrottle = false;
 		break;
 
-	case VIRTKEY_SPEED_PRESS:
-		if (PSP_CoreParameter().fpsLimit == 1) {
-			PSP_CoreParameter().fpsLimit = 0;
+	case VIRTKEY_SPEED_CUSTOM1:
+		if (PSP_CoreParameter().fpsLimit == FPSLimit::CUSTOM1) {
+			PSP_CoreParameter().fpsLimit = FPSLimit::NORMAL;
+			osm.Show(sc->T("standard", "Speed: standard"), 1.0);
+		}
+		break;
+	case VIRTKEY_SPEED_CUSTOM2:
+		if (PSP_CoreParameter().fpsLimit == FPSLimit::CUSTOM2) {
+			PSP_CoreParameter().fpsLimit = FPSLimit::NORMAL;
 			osm.Show(sc->T("standard", "Speed: standard"), 1.0);
 		}
 		break;
@@ -1021,11 +1037,6 @@ void EmuScreen::update() {
 
 	// Virtual keys.
 	__CtrlSetRapidFire(virtKeys[VIRTKEY_RAPID_FIRE - VIRTKEY_FIRST]);
-
-	// Make sure fpsLimit starts at 0
-	if (PSP_CoreParameter().fpsLimit != 0 && PSP_CoreParameter().fpsLimit != 1) {
-		PSP_CoreParameter().fpsLimit = 0;
-	}
 
 	// This is here to support the iOS on screen back button.
 	if (pauseTrigger_) {
