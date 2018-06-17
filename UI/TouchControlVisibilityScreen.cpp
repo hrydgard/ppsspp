@@ -22,6 +22,23 @@
 
 static const int leftColumnWidth = 140;
 
+class CheckBoxChoice : public UI::Choice {
+public:
+	CheckBoxChoice(const std::string &text, UI::CheckBox *checkbox, UI::LayoutParams *lp)
+		: Choice(text, lp), checkbox_(checkbox) {
+		OnClick.Handle(this, &CheckBoxChoice::HandleClick);
+	}
+	CheckBoxChoice(ImageID imgID, UI::CheckBox *checkbox, UI::LayoutParams *lp)
+		: Choice(imgID, lp), checkbox_(checkbox) {
+		OnClick.Handle(this, &CheckBoxChoice::HandleClick);
+	}
+
+private:
+	UI::EventReturn HandleClick(UI::EventParams &e);
+
+	UI::CheckBox *checkbox_;
+};
+
 void TouchControlVisibilityScreen::CreateViews() {
 	using namespace UI;
 
@@ -83,13 +100,10 @@ void TouchControlVisibilityScreen::CreateViews() {
 
 		Choice *choice;
 		if (toggle.img != -1) {
-			choice = new Choice(toggle.img, new LinearLayoutParams(1.0f));
+			choice = new CheckBoxChoice(toggle.img, checkbox, new LinearLayoutParams(1.0f));
 		} else {
-			choice = new Choice(mc->T(toggle.key), new LinearLayoutParams(1.0f));
+			choice = new CheckBoxChoice(mc->T(toggle.key), checkbox, new LinearLayoutParams(1.0f));
 		}
-
-		ChoiceEventHandler *choiceEventHandler = new ChoiceEventHandler(checkbox);
-		choice->OnClick.Handle(choiceEventHandler, &ChoiceEventHandler::onChoiceClick);
 
 		choice->SetCentered(true);
 		
@@ -111,7 +125,7 @@ UI::EventReturn TouchControlVisibilityScreen::OnToggleAll(UI::EventParams &e) {
 	return UI::EVENT_DONE;
 }
 
-UI::EventReturn TouchControlVisibilityScreen::ChoiceEventHandler::onChoiceClick(UI::EventParams &e){
+UI::EventReturn CheckBoxChoice::HandleClick(UI::EventParams &e) {
 	checkbox_->Toggle();
 
 	return UI::EVENT_DONE;
