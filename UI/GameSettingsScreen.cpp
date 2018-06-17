@@ -104,8 +104,9 @@ bool DoesBackendSupportHWTess() {
 	case GPUBackend::VULKAN:
 	case GPUBackend::DIRECT3D11:
 		return true;
+	default:
+		return false;
 	}
-	return false;
 }
 
 static std::string PostShaderTranslateName(const char *value) {
