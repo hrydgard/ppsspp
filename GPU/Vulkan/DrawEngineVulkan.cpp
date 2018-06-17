@@ -167,7 +167,7 @@ void DrawEngineVulkan::InitDeviceObjects() {
 
 	vertexCache_ = new VulkanPushBuffer(vulkan_, VERTEX_CACHE_SIZE);
 
-	tessDataTransfer = new TessellationDataTransferVulkan(vulkan_, draw_);
+	tessDataTransfer = new TessellationDataTransferVulkan(vulkan_);
 }
 
 DrawEngineVulkan::~DrawEngineVulkan() {
@@ -994,8 +994,8 @@ void DrawEngineVulkan::UpdateUBOs(FrameData *frame) {
 	}
 }
 
-DrawEngineVulkan::TessellationDataTransferVulkan::TessellationDataTransferVulkan(VulkanContext *vulkan, Draw::DrawContext *draw)
-	: TessellationDataTransfer(), vulkan_(vulkan), draw_(draw) {
+DrawEngineVulkan::TessellationDataTransferVulkan::TessellationDataTransferVulkan(VulkanContext *vulkan)
+	: TessellationDataTransfer(), vulkan_(vulkan) {
 }
 
 DrawEngineVulkan::TessellationDataTransferVulkan::~TessellationDataTransferVulkan() {

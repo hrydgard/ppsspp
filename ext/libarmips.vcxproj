@@ -234,9 +234,10 @@
   <ItemGroup>
     <ClCompile Include="armips\Archs\Architecture.cpp" />
     <ClCompile Include="armips\Archs\ARM\Arm.cpp" />
+    <ClCompile Include="armips\Archs\ARM\ArmElfRelocator.cpp" />
+    <ClCompile Include="armips\Archs\ARM\ArmExpressionFunctions.cpp" />
     <ClCompile Include="armips\Archs\ARM\ArmOpcodes.cpp" />
     <ClCompile Include="armips\Archs\ARM\ArmParser.cpp" />
-    <ClCompile Include="armips\Archs\ARM\ArmRelocator.cpp" />
     <ClCompile Include="armips\Archs\ARM\CArmInstruction.cpp" />
     <ClCompile Include="armips\Archs\ARM\CThumbInstruction.cpp" />
     <ClCompile Include="armips\Archs\ARM\Pool.cpp" />
@@ -244,6 +245,8 @@
     <ClCompile Include="armips\Archs\MIPS\CMipsInstruction.cpp" />
     <ClCompile Include="armips\Archs\MIPS\Mips.cpp" />
     <ClCompile Include="armips\Archs\MIPS\MipsElfFile.cpp" />
+    <ClCompile Include="armips\Archs\MIPS\MipsElfRelocator.cpp" />
+    <ClCompile Include="armips\Archs\MIPS\MipsExpressionFunctions.cpp" />
     <ClCompile Include="armips\Archs\MIPS\MipsMacros.cpp" />
     <ClCompile Include="armips\Archs\MIPS\MipsOpcodes.cpp" />
     <ClCompile Include="armips\Archs\MIPS\MipsParser.cpp" />
@@ -287,9 +290,10 @@
   <ItemGroup>
     <ClInclude Include="armips\Archs\Architecture.h" />
     <ClInclude Include="armips\Archs\ARM\Arm.h" />
+    <ClInclude Include="armips\Archs\ARM\ArmElfRelocator.h" />
+    <ClInclude Include="armips\Archs\ARM\ArmExpressionFunctions.h" />
     <ClInclude Include="armips\Archs\ARM\ArmOpcodes.h" />
     <ClInclude Include="armips\Archs\ARM\ArmParser.h" />
-    <ClInclude Include="armips\Archs\ARM\ArmRelocator.h" />
     <ClInclude Include="armips\Archs\ARM\CArmInstruction.h" />
     <ClInclude Include="armips\Archs\ARM\CThumbInstruction.h" />
     <ClInclude Include="armips\Archs\ARM\Pool.h" />
@@ -297,6 +301,8 @@
     <ClInclude Include="armips\Archs\MIPS\CMipsInstruction.h" />
     <ClInclude Include="armips\Archs\MIPS\Mips.h" />
     <ClInclude Include="armips\Archs\MIPS\MipsElfFile.h" />
+    <ClInclude Include="armips\Archs\MIPS\MipsElfRelocator.h" />
+    <ClInclude Include="armips\Archs\MIPS\MipsExpressionFunctions.h" />
     <ClInclude Include="armips\Archs\MIPS\MipsMacros.h" />
     <ClInclude Include="armips\Archs\MIPS\MipsOpcodes.h" />
     <ClInclude Include="armips\Archs\MIPS\MipsParser.h" />

@@ -313,6 +313,8 @@ bool VulkanMayBeAvailable() {
 		case VK_PHYSICAL_DEVICE_TYPE_VIRTUAL_GPU:
 			anyGood = true;
 			break;
+		default:
+			break;
 		}
 		// TODO: Should also check queuefamilyproperties for a GRAPHICS queue family? Oh well.
 	}

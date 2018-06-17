@@ -71,7 +71,9 @@ void HeadlessHost::SendDebugScreenshot(const u8 *pixbuf, u32 w, u32 h)
 		FILE *bmp = File::OpenCFile(comparisonScreenshot_, "rb");
 		if (bmp)
 		{
-			fread(&header, sizeof(header), 1, bmp);
+			if (fread(&header, sizeof(header), 1, bmp) != 1) {
+				SendOrCollectDebugOutput("Failed to read original screenshot header.\n");
+			}
 			fclose(bmp);
 		}
 

@@ -92,5 +92,4 @@ private:
 #ifdef _WIN32
 	int lastVsync_;
 #endif
-	int vertexCost_ = 0;
 };

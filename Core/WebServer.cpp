@@ -163,7 +163,8 @@ static void RegisterDiscHandlers(http::Server *http, std::unordered_map<std::str
 			char *buf = new char[CHUNK_SIZE];
 			for (s64 pos = 0; pos < len; pos += CHUNK_SIZE) {
 				s64 chunklen = std::min(len - pos, (s64)CHUNK_SIZE);
-				fread(buf, chunklen, 1, fp);
+				if (fread(buf, chunklen, 1, fp) != 1)
+					break;
 				request.Out()->Push(buf, chunklen);
 			}
 			fclose(fp);

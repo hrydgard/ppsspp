@@ -444,11 +444,16 @@ int VulkanContext::GetBestPhysicalDevice() {
 		case VK_PHYSICAL_DEVICE_TYPE_CPU:
 			score += 1;
 			break;
+		case VK_PHYSICAL_DEVICE_TYPE_VIRTUAL_GPU:
+			score += 2;
+			break;
 		case VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU:
 			score += 20;
 			break;
 		case VK_PHYSICAL_DEVICE_TYPE_INTEGRATED_GPU:
 			score += 10;
+			break;
+		default:
 			break;
 		}
 		if (props.vendorID == VULKAN_VENDOR_AMD) {

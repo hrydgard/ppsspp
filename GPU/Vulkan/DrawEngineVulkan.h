@@ -280,7 +280,7 @@ private:
 	// Hardware tessellation
 	class TessellationDataTransferVulkan : public TessellationDataTransfer {
 	public:
-		TessellationDataTransferVulkan(VulkanContext *vulkan, Draw::DrawContext *draw);
+		TessellationDataTransferVulkan(VulkanContext *vulkan);
 		~TessellationDataTransferVulkan();
 
 		void SetPushBuffer(VulkanPushBuffer *push) { push_ = push; }
@@ -299,10 +299,8 @@ private:
 
 	private:
 		VulkanContext *vulkan_;
-		Draw::DrawContext *draw_;
 		VulkanPushBuffer *push_;  // Updated each frame.
 
-		int size_ = 0;
 		uint32_t offset_ = 0;
 		uint32_t range_ = 0;
 		VkBuffer buf_ = VK_NULL_HANDLE;

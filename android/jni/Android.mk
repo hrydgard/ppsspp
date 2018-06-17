@@ -421,7 +421,8 @@ LIBARMIPS_FILES := \
   $(SRC)/ext/armips/Archs/ARM/Arm.cpp \
   $(SRC)/ext/armips/Archs/ARM/ArmOpcodes.cpp \
   $(SRC)/ext/armips/Archs/ARM/ArmParser.cpp \
-  $(SRC)/ext/armips/Archs/ARM/ArmRelocator.cpp \
+  $(SRC)/ext/armips/Archs/ARM/ArmElfRelocator.cpp \
+  $(SRC)/ext/armips/Archs/ARM/ArmExpressionFunctions.cpp \
   $(SRC)/ext/armips/Archs/ARM/CArmInstruction.cpp \
   $(SRC)/ext/armips/Archs/ARM/CThumbInstruction.cpp \
   $(SRC)/ext/armips/Archs/ARM/Pool.cpp \
@@ -429,6 +430,8 @@ LIBARMIPS_FILES := \
   $(SRC)/ext/armips/Archs/MIPS/CMipsInstruction.cpp \
   $(SRC)/ext/armips/Archs/MIPS/Mips.cpp \
   $(SRC)/ext/armips/Archs/MIPS/MipsElfFile.cpp \
+  $(SRC)/ext/armips/Archs/MIPS/MipsElfRelocator.cpp \
+  $(SRC)/ext/armips/Archs/MIPS/MipsExpressionFunctions.cpp \
   $(SRC)/ext/armips/Archs/MIPS/MipsMacros.cpp \
   $(SRC)/ext/armips/Archs/MIPS/MipsOpcodes.cpp \
   $(SRC)/ext/armips/Archs/MIPS/MipsParser.cpp \
