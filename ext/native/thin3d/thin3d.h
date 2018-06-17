@@ -567,6 +567,9 @@ public:
 	virtual bool CopyFramebufferToMemorySync(Framebuffer *src, int channelBits, int x, int y, int w, int h, Draw::DataFormat format, void *pixels, int pixelStride) {
 		return false;
 	}
+	virtual DataFormat PreferredFramebufferReadbackFormat(Framebuffer *src) {
+		return DataFormat::R8G8B8A8_UNORM;
+	}
 
 	// These functions should be self explanatory.
 	// Binding a zero render target means binding the backbuffer.

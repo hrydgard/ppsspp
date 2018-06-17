@@ -341,6 +341,12 @@ bool OutputSink::Flush(bool allowBlock) {
 	return true;
 }
 
+void OutputSink::Discard() {
+	read_ = 0;
+	write_ = 0;
+	valid_ = 0;
+}
+
 void OutputSink::Drain() {
 	// Avoid small reads if possible.
 	if (valid_ > PRESSURE) {

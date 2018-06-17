@@ -1085,12 +1085,26 @@ void GLQueueRunner::PerformReadback(const GLRStep &pass) {
 
 	CHECK_GL_ERROR_IF_DEBUG();
 
-	// Always read back in 8888 format.
-	const GLuint internalFormat = GL_RGBA;
-	const GLuint format = GL_RGBA;
-	const GLuint type = GL_UNSIGNED_BYTE;
-	const int srcAlignment = 4;
+	// Always read back in 8888 format for the color aspect.
+	GLuint internalFormat = GL_RGBA;
+	GLuint format = GL_RGBA;
+	GLuint type = GL_UNSIGNED_BYTE;
+	int srcAlignment = 4;
 	int dstAlignment = (int)DataFormatSizeInBytes(pass.readback.dstFormat);
+
+#ifndef USING_GLES2
+	if (pass.readback.aspectMask & GL_DEPTH_BUFFER_BIT) {
+		internalFormat = GL_DEPTH_COMPONENT;
+		format = GL_DEPTH_COMPONENT;
+		type = GL_FLOAT;
+		srcAlignment = 4;
+	} else if (pass.readback.aspectMask & GL_STENCIL_BUFFER_BIT) {
+		internalFormat = GL_STENCIL_INDEX;
+		format = GL_STENCIL_INDEX;
+		type = GL_UNSIGNED_BYTE;
+		srcAlignment = 1;
+	}
+#endif
 
 	int pixelStride = pass.readback.srcRect.w;
 	// Apply the correct alignment.
@@ -1102,7 +1116,7 @@ void GLQueueRunner::PerformReadback(const GLRStep &pass) {
 
 	GLRect2D rect = pass.readback.srcRect;
 
-	bool convert = pass.readback.dstFormat != DataFormat::R8G8B8A8_UNORM;
+	bool convert = internalFormat == GL_RGBA && pass.readback.dstFormat != DataFormat::R8G8B8A8_UNORM;
 
 	int tempSize = srcAlignment * rect.w * rect.h;
 	int readbackSize = dstAlignment * rect.w * rect.h;

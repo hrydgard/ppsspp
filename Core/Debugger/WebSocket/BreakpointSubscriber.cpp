@@ -121,6 +121,18 @@ struct WebSocketCPUBreakpointParams {
 	}
 };
 
+// Add a new CPU instruction breakpoint (cpu.breakpoint.add)
+//
+// Parameters:
+//  - address: unsigned integer address of instruction to break at.
+//  - enabled: optional boolean, whether to actually enter stepping when this breakpoint trips.
+//  - log: optional boolean, whether to log when this breakpoint trips.
+//  - condition: optional string expression to evaluate - breakpoint does not trip if false.
+//  - logFormat: optional string to log when breakpoint trips, may include {expression} parts.
+//
+// Response (same event name) with no extra data.
+//
+// Note: will replace any breakpoint at the same address.
 void WebSocketCPUBreakpointAdd(DebuggerRequest &req) {
 	WebSocketCPUBreakpointParams params;
 	if (!params.Parse(req))
@@ -131,6 +143,16 @@ void WebSocketCPUBreakpointAdd(DebuggerRequest &req) {
 	req.Respond();
 }
 
+// Update a CPU instruction breakpoint (cpu.breakpoint.update)
+//
+// Parameters:
+//  - address: unsigned integer address of instruction to break at.
+//  - enabled: optional boolean, whether to actually enter stepping when this breakpoint trips.
+//  - log: optional boolean, whether to log when this breakpoint trips.
+//  - condition: optional string expression to evaluate - breakpoint does not trip if false.
+//  - logFormat: optional string to log when breakpoint trips, may include {expression} parts.
+//
+// Response (same event name) with no extra data.
 void WebSocketCPUBreakpointUpdate(DebuggerRequest &req) {
 	WebSocketCPUBreakpointParams params;
 	if (!params.Parse(req))
@@ -143,6 +165,12 @@ void WebSocketCPUBreakpointUpdate(DebuggerRequest &req) {
 	req.Respond();
 }
 
+// Remove a CPU instruction breakpoint (cpu.breakpoint.remove)
+//
+// Parameters:
+//  - address: unsigned integer address of instruction to break at.
+//
+// Response (same event name) with no extra data.
 void WebSocketCPUBreakpointRemove(DebuggerRequest &req) {
 	if (!currentDebugMIPS->isAlive()) {
 		return req.Fail("CPU not started");
@@ -156,6 +184,19 @@ void WebSocketCPUBreakpointRemove(DebuggerRequest &req) {
 	req.Respond();
 }
 
+// List all CPU instruction breakpoints (cpu.breakpoint.list)
+//
+// No parameters.
+//
+// Response (same event name):
+//  - breakpoints: array of objects, each with properties:
+//     - address: unsigned integer address of instruction to break at.
+//     - enabled: boolean, whether to actually enter stepping when this breakpoint trips.
+//     - log: optional boolean, whether to log when this breakpoint trips.
+//     - condition: null, or string expression to evaluate - breakpoint does not trip if false.
+//     - logFormat: null, or string to log when breakpoint trips, may include {expression} parts.
+//     - symbol: null, or string label or symbol at breakpoint address.
+//     - code: string disassembly of breakpoint address.
 void WebSocketCPUBreakpointList(DebuggerRequest &req) {
 	if (!currentDebugMIPS->isAlive()) {
 		return req.Fail("CPU not started");
@@ -278,6 +319,22 @@ struct WebSocketMemoryBreakpointParams {
 	}
 };
 
+// Add a new memory breakpoint (memory.breakpoint.add)
+//
+// Parameters:
+//  - address: unsigned integer address for the start of the memory range.
+//  - size: unsigned integer specifying size of memory range.
+//  - enabled: optional boolean, whether to actually enter stepping when this breakpoint trips.
+//  - log: optional boolean, whether to log when this breakpoint trips.
+//  - read: optional boolean, whether to trip on any read to this address.
+//  - write: optional boolean, whether to trip on any write to this address.
+//  - change: optional boolean, whether to trip on a write to this address which modifies data
+//    (or any write that may modify data.)
+//  - logFormat: optional string to log when breakpoint trips, may include {expression} parts.
+//
+// Response (same event name) with no extra data.
+//
+// Note: will replace any breakpoint that has the same start address and size.
 void WebSocketMemoryBreakpointAdd(DebuggerRequest &req) {
 	WebSocketMemoryBreakpointParams params;
 	if (!params.Parse(req))
@@ -288,6 +345,20 @@ void WebSocketMemoryBreakpointAdd(DebuggerRequest &req) {
 	req.Respond();
 }
 
+// Update a memory breakpoint (memory.breakpoint.update)
+//
+// Parameters:
+//  - address: unsigned integer address for the start of the memory range.
+//  - size: unsigned integer specifying size of memory range.
+//  - enabled: optional boolean, whether to actually enter stepping when this breakpoint trips.
+//  - log: optional boolean, whether to log when this breakpoint trips.
+//  - read: optional boolean, whether to trip on any read to this address.
+//  - write: optional boolean, whether to trip on any write to this address.
+//  - change: optional boolean, whether to trip on a write to this address which modifies data
+//    (or any write that may modify data.)
+//  - logFormat: optional string to log when breakpoint trips, may include {expression} parts.
+//
+// Response (same event name) with no extra data.
 void WebSocketMemoryBreakpointUpdate(DebuggerRequest &req) {
 	WebSocketMemoryBreakpointParams params;
 	if (!params.Parse(req))
@@ -302,6 +373,13 @@ void WebSocketMemoryBreakpointUpdate(DebuggerRequest &req) {
 	req.Respond();
 }
 
+// Remove a memory breakpoint (memory.breakpoint.remove)
+//
+// Parameters:
+//  - address: unsigned integer address for the start of the memory range.
+//  - size: unsigned integer specifying size of memory range.
+//
+// Response (same event name) with no extra data.
 void WebSocketMemoryBreakpointRemove(DebuggerRequest &req) {
 	if (!currentDebugMIPS->isAlive()) {
 		return req.Fail("CPU not started");
@@ -318,6 +396,22 @@ void WebSocketMemoryBreakpointRemove(DebuggerRequest &req) {
 	req.Respond();
 }
 
+// List all memory breakpoints (memory.breakpoint.list)
+//
+// No parameters.
+//
+// Response (same event name):
+//  - breakpoints: array of objects, each with properties:
+//     - address: unsigned integer address for the start of the memory range.
+//     - size: unsigned integer specifying size of memory range.
+//     - enabled: boolean, whether to actually enter stepping when this breakpoint trips.
+//     - log: optional boolean, whether to log when this breakpoint trips.
+//     - read: optional boolean, whether to trip on any read to this address.
+//     - write: optional boolean, whether to trip on any write to this address.
+//     - change: optional boolean, whether to trip on a write to this address which modifies data
+//       (or any write that may modify data.)
+//     - logFormat: null, or string to log when breakpoint trips, may include {expression} parts.
+//     - symbol: null, or string label or symbol at breakpoint address.
 void WebSocketMemoryBreakpointList(DebuggerRequest &req) {
 	if (!currentDebugMIPS->isAlive()) {
 		return req.Fail("CPU not started");

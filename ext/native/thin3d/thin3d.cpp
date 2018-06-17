@@ -421,7 +421,18 @@ void ConvertFromBGRA8888(uint8_t *dst, const uint8_t *src, uint32_t dstStride, u
 	// Must skip stride in the cases below.  Some games pack data into the cracks, like MotoGP.
 	const uint32_t *src32 = (const uint32_t *)src;
 
-	if (format == Draw::DataFormat::R8G8B8A8_UNORM) {
+	if (format == Draw::DataFormat::B8G8R8A8_UNORM) {
+		uint32_t *dst32 = (uint32_t *)dst;
+		if (src == dst) {
+			return;
+		} else {
+			for (uint32_t y = 0; y < height; ++y) {
+				memcpy(dst32, src32, width * 4);
+				src32 += srcStride;
+				dst32 += dstStride;
+			}
+		}
+	} else if (format == Draw::DataFormat::R8G8B8A8_UNORM) {
 		uint32_t *dst32 = (uint32_t *)dst;
 		for (uint32_t y = 0; y < height; ++y) {
 			ConvertBGRA8888ToRGBA8888(dst32, src32, width);

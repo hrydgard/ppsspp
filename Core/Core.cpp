@@ -37,6 +37,7 @@
 #include "Core/System.h"
 #include "Core/Debugger/Breakpoints.h"
 #include "Core/MIPS/MIPS.h"
+#include "GPU/Debugger/Stepping.h"
 
 #ifdef _WIN32
 #include "Common/CommonWindows.h"
@@ -279,6 +280,9 @@ void Core_ProcessStepping() {
 	if (coreState != CORE_STEPPING) {
 		return;
 	}
+
+	// Or any GPU actions.
+	GPUStepping::SingleStep();
 
 	// We're not inside jit now, so it's safe to clear the breakpoints.
 	CBreakPoints::ClearTemporaryBreakPoints();

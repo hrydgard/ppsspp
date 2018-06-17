@@ -4,7 +4,7 @@
 std::string Base64Encode(const uint8_t *p, size_t sz) {
 	const char digits[] = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
 
-	size_t unpaddedLength = (4 * sz + 3) / 3;
+	size_t unpaddedLength = (4 * sz + 2) / 3;
 	std::string result;
 	result.resize((unpaddedLength + 3) & ~3, '=');
 

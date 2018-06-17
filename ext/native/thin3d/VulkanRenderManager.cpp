@@ -457,8 +457,7 @@ bool VulkanRenderManager::CopyFramebufferToMemorySync(VKRFramebuffer *src, int a
 			case VK_FORMAT_R8G8B8A8_UNORM: srcFormat = Draw::DataFormat::R8G8B8A8_UNORM; break;
 			default: _assert_(false);
 			}
-		}
-		else {
+		} else {
 			// Backbuffer.
 			if (!(vulkan_->GetSurfaceCapabilities().supportedUsageFlags & VK_IMAGE_USAGE_TRANSFER_SRC_BIT)) {
 				ELOG("Copying from backbuffer not supported, can't take screenshots");

@@ -51,6 +51,7 @@ public:
 	bool Printf(const char *fmt, ...);
 
 	bool Flush(bool allowBlock = true);
+	void Discard();
 
 	bool Empty();
 

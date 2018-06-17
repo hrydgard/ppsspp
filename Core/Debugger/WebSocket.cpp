@@ -52,6 +52,7 @@
 #include "Core/Debugger/WebSocket/CPUCoreSubscriber.h"
 #include "Core/Debugger/WebSocket/DisasmSubscriber.h"
 #include "Core/Debugger/WebSocket/GameSubscriber.h"
+#include "Core/Debugger/WebSocket/GPUBufferSubscriber.h"
 #include "Core/Debugger/WebSocket/HLESubscriber.h"
 #include "Core/Debugger/WebSocket/SteppingSubscriber.h"
 
@@ -67,6 +68,7 @@ static const std::vector<SubscriberInfo> subscribers({
 	{ &WebSocketCPUCoreInit, nullptr },
 	{ &WebSocketDisasmInit, &WebSocketDisasmShutdown },
 	{ &WebSocketGameInit, nullptr },
+	{ &WebSocketGPUBufferInit, nullptr },
 	{ &WebSocketHLEInit, nullptr },
 	{ &WebSocketSteppingInit, &WebSocketSteppingShutdown },
 });
