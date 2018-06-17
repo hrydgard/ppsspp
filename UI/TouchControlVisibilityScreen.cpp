@@ -20,23 +20,33 @@
 #include "UI/ui_atlas.h"
 #include "i18n/i18n.h"
 
+static const int leftColumnWidth = 140;
+
 void TouchControlVisibilityScreen::CreateViews() {
 	using namespace UI;
 
-	root_ = new ScrollView(ORIENT_VERTICAL);
-	LinearLayout *vert = root_->Add(new LinearLayout(ORIENT_VERTICAL, new LayoutParams(FILL_PARENT, FILL_PARENT)));
+	I18NCategory *di = GetI18NCategory("Dialog");
+	I18NCategory *co = GetI18NCategory("Controls");
+
+	root_ = new AnchorLayout(new LayoutParams(FILL_PARENT, FILL_PARENT));
+
+	Choice *back = new Choice(di->T("Back"), "", false, new AnchorLayoutParams(leftColumnWidth - 10, WRAP_CONTENT, 10, NONE, NONE, 10));
+	root_->Add(back)->OnClick.Handle<UIScreen>(this, &UIScreen::OnBack);
+	Choice *toggleAll = new Choice(di->T("Toggle All"), "", false, new AnchorLayoutParams(leftColumnWidth - 10, WRAP_CONTENT, 10, NONE, NONE, 84));
+	root_->Add(toggleAll)->OnClick.Handle(this, &TouchControlVisibilityScreen::OnToggleAll);
+
+	TabHolder *tabHolder = new TabHolder(ORIENT_VERTICAL, leftColumnWidth, new AnchorLayoutParams(10, 0, 10, 0, false));
+	tabHolder->SetTag("TouchControlVisibility");
+	root_->Add(tabHolder);
+	ScrollView *rightPanel = new ScrollView(ORIENT_VERTICAL);
+	tabHolder->AddTab(co->T("Visibility"), rightPanel);
+
+	LinearLayout *vert = rightPanel->Add(new LinearLayout(ORIENT_VERTICAL, new LayoutParams(FILL_PARENT, FILL_PARENT)));
 	vert->SetSpacing(0);
 
-	LinearLayout *topBar = new LinearLayout(ORIENT_HORIZONTAL);
-	I18NCategory *di = GetI18NCategory("Dialog");
-	topBar->Add(new Choice(di->T("Back")))->OnClick.Handle<UIScreen>(this, &UIScreen::OnBack);
-	topBar->Add(new Choice(di->T("Toggle All")))->OnClick.Handle(this, &TouchControlVisibilityScreen::OnToggleAll);
-
-	vert->Add(topBar);
-	I18NCategory *co = GetI18NCategory("Controls");
 	vert->Add(new ItemHeader(co->T("Touch Control Visibility")));
 
-	const int cellSize = 400;
+	const int cellSize = 380;
 
 	UI::GridLayoutSettings gridsettings(cellSize, 64, 5);
 	gridsettings.fillCells = true;
