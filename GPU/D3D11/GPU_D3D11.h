@@ -83,5 +83,4 @@ private:
 	ShaderManagerD3D11 *shaderManagerD3D11_;
 
 	int lastVsync_;
-	int vertexCost_ = 0;
 };

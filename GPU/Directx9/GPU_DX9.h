@@ -82,7 +82,6 @@ private:
 	ShaderManagerDX9 *shaderManagerDX9_;
 
 	int lastVsync_;
-	int vertexCost_ = 0;
 };
 
 }  // namespace DX9
