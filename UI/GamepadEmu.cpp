@@ -107,7 +107,7 @@ void MultiTouchButton::Draw(UIContext &dc) {
 	uint32_t colorBg = colorAlpha(GetButtonColor(), opacity);
 	uint32_t color = colorAlpha(0xFFFFFF, opacity);
 
-	dc.Draw()->DrawImageRotated(bgImg_, bounds_.centerX(), bounds_.centerY(), scale, angle_ * (M_PI * 2 / 360.0f), colorBg, flipImageH_);
+	dc.Draw()->DrawImageRotated(bgImg_, bounds_.centerX(), bounds_.centerY(), scale, bgAngle_ * (M_PI * 2 / 360.0f), colorBg, flipImageH_);
 
 	int y = bounds_.centerY();
 	// Hack round the fact that the center of the rectangular picture the triangle is contained in
@@ -125,6 +125,26 @@ void BoolButton::Touch(const TouchInput &input) {
 	if (down != lastDown) {
 		*value_ = down;
 	}
+}
+
+void FPSLimitButton::Touch(const TouchInput &input) {
+	bool lastDown = pointerDownMask_ != 0;
+	MultiTouchButton::Touch(input);
+	bool down = pointerDownMask_ != 0;
+
+	if (!down && lastDown && IsDown()) {
+		PSP_CoreParameter().fpsLimit = FPSLimit::NORMAL;
+	} else if (down && !lastDown && PSP_CoreParameter().fpsLimit == FPSLimit::NORMAL) {
+		int limit = limit_ == FPSLimit::CUSTOM1 ? g_Config.iFpsLimit1 : g_Config.iFpsLimit2;
+		// Validate it actually has a setting (may this should override visible?)
+		if (limit >= 0) {
+			PSP_CoreParameter().fpsLimit = limit_;
+		}
+	}
+}
+
+bool FPSLimitButton::IsDown() {
+	return PSP_CoreParameter().fpsLimit == limit_;
 }
 
 void PSPButton::Touch(const TouchInput &input) {
@@ -445,6 +465,9 @@ void InitPadLayout(float xres, float yres, float globalScale) {
 	int unthrottle_key_Y = yres - 60 * scale;
 	initTouchPos(g_Config.touchUnthrottleKey, unthrottle_key_X, unthrottle_key_Y);
 
+	initTouchPos(g_Config.touchSpeed1Key, unthrottle_key_X, unthrottle_key_Y - 60 * scale);
+	initTouchPos(g_Config.touchSpeed2Key, unthrottle_key_X + bottom_key_spacing * scale, unthrottle_key_Y - 60 * scale);
+
 	// L and R------------------------------------------------------------
 	// Put them above the analog stick / above the buttons to the right.
 	// The corners were very hard to reach..
@@ -532,6 +555,12 @@ UI::ViewGroup *CreatePadLayout(float xres, float yres, bool *pause) {
 		}
 		return nullptr;
 	};
+	auto addFPSLimitButton = [=](FPSLimit value, int bgImg, int img, const ConfigTouchPos &touch) -> FPSLimitButton * {
+		if (touch.show) {
+			return root->Add(new FPSLimitButton(value, bgImg, img, touch.scale, buttonLayoutParams(touch)));
+		}
+		return nullptr;
+	};
 
 	if (!System_GetPropertyBool(SYSPROP_HAS_BACK_BUTTON) || g_Config.bShowTouchPause) {
 		root->Add(new BoolButton(pause, roundImage, I_ARROW, 1.0f, new AnchorLayoutParams(halfW, 20, NONE, NONE, true)))->SetAngle(90);
@@ -552,7 +581,14 @@ UI::ViewGroup *CreatePadLayout(float xres, float yres, bool *pause) {
 
 	BoolButton *unthrottle = addBoolButton(&PSP_CoreParameter().unthrottle, rectImage, I_ARROW, g_Config.touchUnthrottleKey);
 	if (unthrottle)
-		unthrottle->SetAngle(180);
+		unthrottle->SetAngle(180.0f);
+
+	FPSLimitButton *speed1 = addFPSLimitButton(FPSLimit::CUSTOM1, rectImage, I_ARROW, g_Config.touchSpeed1Key);
+	if (speed1)
+		speed1->SetAngle(170.0f, 180.0f);
+	FPSLimitButton *speed2 = addFPSLimitButton(FPSLimit::CUSTOM2, rectImage, I_ARROW, g_Config.touchSpeed2Key);
+	if (speed2)
+		speed2->SetAngle(190.0f, 180.0f);
 
 	addPSPButton(CTRL_LTRIGGER, shoulderImage, I_L, g_Config.touchLKey);
 	PSPButton *rTrigger = addPSPButton(CTRL_RTRIGGER, shoulderImage, I_R, g_Config.touchRKey);

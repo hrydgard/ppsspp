@@ -396,6 +396,18 @@ void TouchControlLayoutScreen::CreateViews() {
 		controls_.push_back(unthrottle);
 	}
 
+	if (g_Config.touchSpeed1Key.show) {
+		DragDropButton *speed1 = new DragDropButton(g_Config.touchSpeed1Key, rectImage, I_ARROW);
+		speed1->SetAngle(170.0f, 180.0f);
+		controls_.push_back(speed1);
+	}
+
+	if (g_Config.touchSpeed2Key.show) {
+		DragDropButton *speed2 = new DragDropButton(g_Config.touchSpeed2Key, rectImage, I_ARROW);
+		speed2->SetAngle(190.0f, 180.0f);
+		controls_.push_back(speed2);
+	}
+
 	if (g_Config.touchLKey.show) {
 		controls_.push_back(new DragDropButton(g_Config.touchLKey, shoulderImage, I_L));
 	}

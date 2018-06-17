@@ -294,6 +294,8 @@ public:
 	ConfigTouchPos touchCombo2;
 	ConfigTouchPos touchCombo3;
 	ConfigTouchPos touchCombo4;
+	ConfigTouchPos touchSpeed1Key;
+	ConfigTouchPos touchSpeed2Key;
 
 	// Controls Visibility
 	bool bShowTouchControls;
