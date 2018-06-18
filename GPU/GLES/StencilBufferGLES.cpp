@@ -146,27 +146,28 @@ bool FramebufferManagerGLES::NotifyStencilUpload(u32 addr, int size, bool skipZe
 
 	// Our fragment shader (and discard) is slow.  Since the source is 1x, we can stencil to 1x.
 	// Then after we're done, we'll just blit it across and stretch it there.
-	if (dstBuffer->bufferWidth == dstBuffer->renderWidth || !dstBuffer->fbo) {
+	if (dstBuffer->width == dstBuffer->renderWidth || !dstBuffer->fbo) {
 		useBlit = false;
 	}
-	u16 w = useBlit ? dstBuffer->bufferWidth : dstBuffer->renderWidth;
-	u16 h = useBlit ? dstBuffer->bufferHeight : dstBuffer->renderHeight;
+	u16 w = useBlit ? dstBuffer->width : dstBuffer->renderWidth;
+	u16 h = useBlit ? dstBuffer->height : dstBuffer->renderHeight;
 
 	Draw::Framebuffer *blitFBO = nullptr;
 	if (useBlit) {
 		blitFBO = GetTempFBO(TempFBO::COPY, w, h, Draw::FBO_8888);
 		draw_->BindFramebufferAsRenderTarget(blitFBO, { Draw::RPAction::DONT_CARE, Draw::RPAction::DONT_CARE, Draw::RPAction::DONT_CARE });
 	} else if (dstBuffer->fbo) {
-		draw_->BindFramebufferAsRenderTarget(dstBuffer->fbo, { Draw::RPAction::KEEP, Draw::RPAction::KEEP, Draw::RPAction::CLEAR });
+		draw_->BindFramebufferAsRenderTarget(dstBuffer->fbo, { Draw::RPAction::KEEP, Draw::RPAction::KEEP, Draw::RPAction::DONT_CARE });
 	}
 	render_->SetViewport({ 0, 0, (float)w, (float)h, 0.0f, 1.0f });
 
 	float u1 = 1.0f;
 	float v1 = 1.0f;
-	MakePixelTexture(src, dstBuffer->format, dstBuffer->fb_stride, dstBuffer->bufferWidth, dstBuffer->bufferHeight, u1, v1);
+	MakePixelTexture(src, dstBuffer->format, dstBuffer->fb_stride, dstBuffer->width, dstBuffer->height, u1, v1);
 	textureCacheGL_->ForgetLastTexture();
 
 	// We must bind the program after starting the render pass, and set the color mask after clearing.
+	render_->SetScissor({ 0, 0, w, h });
 	render_->SetDepth(false, false, GL_ALWAYS);
 	render_->Clear(0, 0, 0, GL_COLOR_BUFFER_BIT | GL_STENCIL_BUFFER_BIT, 0x8, 0, 0, 0, 0);
 	render_->SetStencilFunc(GL_TRUE, GL_ALWAYS, 0xFF, 0xFF);
