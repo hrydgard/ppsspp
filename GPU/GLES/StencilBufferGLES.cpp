@@ -126,12 +126,15 @@ bool FramebufferManagerGLES::NotifyStencilUpload(u32 addr, int size, bool skipZe
 		std::vector<GLRShader *> shaders;
 		shaders.push_back(render_->CreateShader(GL_VERTEX_SHADER, vs_code, "stencil"));
 		shaders.push_back(render_->CreateShader(GL_FRAGMENT_SHADER, fs_code, "stencil"));
+		std::vector<GLRProgram::Semantic> semantics;
+		semantics.push_back({ 0, "a_position" });
+		semantics.push_back({ 1, "a_texcoord0" });
 		std::vector<GLRProgram::UniformLocQuery> queries;
 		queries.push_back({ &u_stencilUploadTex, "tex" });
 		queries.push_back({ &u_stencilValue, "u_stencilValue" });
 		std::vector<GLRProgram::Initializer> inits;
 		inits.push_back({ &u_stencilUploadTex, 0, 0 });
-		stencilUploadProgram_ = render_->CreateProgram(shaders, {}, queries, inits, false);
+		stencilUploadProgram_ = render_->CreateProgram(shaders, semantics, queries, inits, false);
 		for (auto iter : shaders) {
 			render_->DeleteShader(iter);
 		}
