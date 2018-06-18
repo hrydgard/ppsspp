@@ -22,7 +22,7 @@ bool AndroidEGLGraphicsContext::InitFromRenderThread(ANativeWindow *wnd, int des
 
 	// Apparently we still have to set this through Java through setFixedSize on the bufferHolder for it to take effect...
 	gl->SetBackBufferDimensions(backbufferWidth, backbufferHeight);
-	gl->SetMode(MODE_DETECT_ES);
+	gl->SetMode(MODE_DETECT);
 
 	bool use565 = false;
 
@@ -44,6 +44,8 @@ bool AndroidEGLGraphicsContext::InitFromRenderThread(ANativeWindow *wnd, int des
 		return false;
 	}
 	gl->MakeCurrent();
+	if (gl->GetMode() == GLInterfaceMode::MODE_OPENGL)
+		SetGLCoreContext(true);
 	CheckGLExtensions();
 	draw_ = Draw::T3DCreateGLContext();
 	SetGPUBackend(GPUBackend::OPENGL);

@@ -116,7 +116,7 @@ void CheckGLExtensions() {
 	gl_extensions.IsCoreContext = useCoreContext;
 
 #ifdef USING_GLES2
-	gl_extensions.IsGLES = true;
+	gl_extensions.IsGLES = !useCoreContext;
 #endif
 
 	const char *renderer = (const char *)glGetString(GL_RENDERER);
@@ -201,6 +201,10 @@ void CheckGLExtensions() {
 		// Most of it could be enabled on lower GPUs as well, but let's start this way.
 		if (gl_extensions.VersionGEThan(4, 3, 0)) {
 			gl_extensions.GLES3 = true;
+#ifdef USING_GLES2
+			// Try to load up the other funcs if we're not using glew.
+			gl3stubInit();
+#endif
 		}
 	} else {
 		// Start by assuming we're at 2.0.
