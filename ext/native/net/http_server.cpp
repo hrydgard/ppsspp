@@ -59,7 +59,9 @@ Request::~Request() {
 
 	CHECK(in_->Empty());
 	delete in_;
-	CHECK(out_->Empty());
+	if (!out_->Empty()) {
+		ELOG("Output not empty - connection abort?");
+	}
 	delete out_;
 }
 
