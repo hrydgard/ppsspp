@@ -36,9 +36,7 @@ static const char preview_fs[] =
 	"}\n";
 
 static const char preview_vs[] =
-#ifndef USING_GLES2
 	"#version 120\n"
-#endif
 	"attribute vec4 a_position;\n"
 	"uniform mat4 u_viewproj;\n"
 	"void main() {\n"

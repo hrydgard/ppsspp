@@ -347,11 +347,10 @@ public:
 		return caps_;
 	}
 	uint32_t GetSupportedShaderLanguages() const override {
-#if defined(USING_GLES2)
-		return (uint32_t)ShaderLanguage::GLSL_ES_200 | (uint32_t)ShaderLanguage::GLSL_ES_300;
-#else
-		return (uint32_t)ShaderLanguage::GLSL_ES_200 | (uint32_t)ShaderLanguage::GLSL_410;
-#endif
+		if (gl_extensions.IsGLES)
+			return (uint32_t)ShaderLanguage::GLSL_ES_200 | (uint32_t)ShaderLanguage::GLSL_ES_300;
+		else
+			return (uint32_t)ShaderLanguage::GLSL_ES_200 | (uint32_t)ShaderLanguage::GLSL_410;
 	}
 	uint32_t GetDataFormatSupport(DataFormat fmt) const override;
 
@@ -1163,11 +1162,8 @@ uint32_t OpenGLContext::GetDataFormatSupport(DataFormat fmt) const {
 	case DataFormat::B4G4R4A4_UNORM_PACK16:
 		return FMT_RENDERTARGET | FMT_TEXTURE | FMT_AUTOGEN_MIPS;  // native support
 	case DataFormat::A4R4G4B4_UNORM_PACK16:
-#ifndef USING_GLES2
 		// Can support this if _REV formats are supported.
-		return FMT_TEXTURE;
-#endif
-		return 0;
+		return gl_extensions.IsGLES ? 0 : FMT_TEXTURE;
 
 	case DataFormat::R8G8B8A8_UNORM:
 		return FMT_RENDERTARGET | FMT_TEXTURE | FMT_INPUTLAYOUT | FMT_AUTOGEN_MIPS;

@@ -54,9 +54,9 @@ static const char tex_fs[] =
 	"#define gl_FragColor fragColor0\n"
 	"out vec4 fragColor0;\n"
 	"#endif\n"
-#ifdef USING_GLES2
+	"#ifdef GL_ES\n"
 	"precision mediump float;\n"
-#endif
+	"#endif\n"
 	"uniform sampler2D sampler0;\n"
 	"varying vec2 v_texcoord0;\n"
 	"void main() {\n"
