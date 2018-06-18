@@ -442,9 +442,12 @@ retry:
 	switch (g_Config.iGPUBackend) {
 	case (int)GPUBackend::OPENGL:
 		useCPUThread = true;
-		_assert_(javaGL);
-		ILOG("NativeApp.init() -- creating OpenGL context (JavaGL)");
-		graphicsContext = new AndroidJavaEGLGraphicsContext();
+		if (javaGL) {
+			ILOG("NativeApp.init() -- creating OpenGL context (JavaGL)");
+			graphicsContext = new AndroidJavaEGLGraphicsContext();
+		} else {
+			graphicsContext = new AndroidEGLGraphicsContext();
+		}
 		break;
 	case (int)GPUBackend::VULKAN:
 	{
@@ -521,7 +524,8 @@ extern "C" void Java_org_ppsspp_ppsspp_NativeApp_pause(JNIEnv *, jclass) {
 }
 
 extern "C" void Java_org_ppsspp_ppsspp_NativeApp_shutdown(JNIEnv *, jclass) {
-	if (useCPUThread && graphicsContext) {
+	if (renderer_inited && useCPUThread && graphicsContext) {
+		// Only used in Java EGL path.
 		EmuThreadStop();
 		while (graphicsContext->ThreadFrame()) {
 			continue;
@@ -963,31 +967,54 @@ retry:
 	}
 
 	if (!exitRenderLoop) {
-		NativeInitGraphics(graphicsContext);
+		if (!useCPUThread) {
+			NativeInitGraphics(graphicsContext);
+		}
+		graphicsContext->ThreadStart();
 		renderer_inited = true;
 	}
 
-	while (!exitRenderLoop) {
+	if (!exitRenderLoop) {
 		static bool hasSetThreadName = false;
 		if (!hasSetThreadName) {
 			hasSetThreadName = true;
 			setCurrentThreadName("AndroidRender");
 		}
+	}
 
-		NativeUpdate();
+	if (useCPUThread) {
+		ELOG("Running graphics loop");
+		while (!exitRenderLoop) {
+			// This is the "GPU thread".
+			graphicsContext->ThreadFrame();
+			graphicsContext->SwapBuffers();
+		}
+	} else {
+		while (!exitRenderLoop) {
+			NativeUpdate();
 
-		NativeRender(graphicsContext);
-		time_update();
+			NativeRender(graphicsContext);
+			time_update();
 
-		graphicsContext->SwapBuffers();
+			graphicsContext->SwapBuffers();
 
-		ProcessFrameCommands(env);
+			ProcessFrameCommands(env);
+		}
 	}
 
 	ILOG("Leaving EGL/Vulkan render loop.");
 
-	NativeShutdownGraphics();
+	if (useCPUThread) {
+		EmuThreadStop();
+		while (graphicsContext->ThreadFrame()) {
+			continue;
+		}
+		EmuThreadJoin();
+	} else {
+		NativeShutdownGraphics();
+	}
 	renderer_inited = false;
+	graphicsContext->ThreadEnd();
 
 	// Shut the graphics context down to the same state it was in when we entered the render thread.
 	ILOG("Shutting down graphics context from render thread...");

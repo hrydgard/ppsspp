@@ -47,15 +47,21 @@ bool AndroidEGLGraphicsContext::InitFromRenderThread(ANativeWindow *wnd, int des
 	CheckGLExtensions();
 	draw_ = Draw::T3DCreateGLContext();
 	SetGPUBackend(GPUBackend::OPENGL);
+	renderManager_ = (GLRenderManager *)draw_->GetNativeObject(Draw::NativeObject::RENDER_MANAGER);
 	bool success = draw_->CreatePresets();  // There will always be a GLSL compiler capable of compiling these.
 	assert(success);
 	return true;
 }
 
-void AndroidEGLGraphicsContext::Shutdown() {
+void AndroidEGLGraphicsContext::ShutdownFromRenderThread() {
+	ILOG("AndroidEGLGraphicsContext::Shutdown");
+	renderManager_->WaitUntilQueueIdle();
+	renderManager_ = nullptr;  // owned by draw_.
 	delete draw_;
 	draw_ = nullptr;
-	NativeShutdownGraphics();
+}
+
+void AndroidEGLGraphicsContext::Shutdown() {
 	gl->ClearCurrent();
 	gl->Shutdown();
 	delete gl;
