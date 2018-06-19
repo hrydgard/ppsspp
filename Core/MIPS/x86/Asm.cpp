@@ -211,11 +211,6 @@ void Jit::GenerateFixedCode(JitOptions &jo) {
 	ABI_PopAllCalleeSavedRegsAndAdjustStack();
 	RET();
 
-	breakpointBailout = GetCodePtr();
-	RestoreRoundingMode(true);
-	ABI_PopAllCalleeSavedRegsAndAdjustStack();
-	RET();
-
 	// Let's spare the pre-generated code from unprotect-reprotect.
 	endOfPregeneratedCode = AlignCodePage();
 	EndWrite();

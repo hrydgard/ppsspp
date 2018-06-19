@@ -545,6 +545,7 @@ rotateVBO:
 		params.texCache = textureCache_;
 		params.allowClear = true;
 		params.allowSeparateAlphaClear = true;
+		params.provokeFlatFirst = true;
 
 		int maxIndex = indexGen.MaxIndex();
 		SoftwareTransform(

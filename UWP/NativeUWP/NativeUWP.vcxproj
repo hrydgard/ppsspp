@@ -328,8 +328,6 @@
     <ClInclude Include="..\..\ext\native\ext\libzip\config.h" />
     <ClInclude Include="..\..\ext\native\ext\libzip\zip.h" />
     <ClInclude Include="..\..\ext\native\ext\libzip\zipint.h" />
-    <ClInclude Include="..\..\ext\native\ext\vjson\block_allocator.h" />
-    <ClInclude Include="..\..\ext\native\ext\vjson\json.h" />
     <ClInclude Include="..\..\ext\native\file\chunk_file.h" />
     <ClInclude Include="..\..\ext\native\file\fd_util.h" />
     <ClInclude Include="..\..\ext\native\file\file_util.h" />
@@ -338,6 +336,8 @@
     <ClInclude Include="..\..\ext\native\file\path.h" />
     <ClInclude Include="..\..\ext\native\file\vfs.h" />
     <ClInclude Include="..\..\ext\native\file\zip_read.h" />
+    <ClInclude Include="..\..\ext\native\json\json_reader.h" />
+    <ClInclude Include="..\..\ext\native\json\json_writer.h" />
     <ClInclude Include="..\..\ext\native\gfx\texture_atlas.h" />
     <ClInclude Include="..\..\ext\native\gfx_es2\draw_buffer.h" />
     <ClInclude Include="..\..\ext\native\gfx_es2\draw_text.h" />
@@ -1160,8 +1160,6 @@
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|x64'">NotUsing</PrecompiledHeader>
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='UWP Gold|x64'">NotUsing</PrecompiledHeader>
     </ClCompile>
-    <ClCompile Include="..\..\ext\native\ext\vjson\block_allocator.cpp" />
-    <ClCompile Include="..\..\ext\native\ext\vjson\json.cpp" />
     <ClCompile Include="..\..\ext\native\file\chunk_file.cpp" />
     <ClCompile Include="..\..\ext\native\file\fd_util.cpp" />
     <ClCompile Include="..\..\ext\native\file\file_util.cpp" />
@@ -1169,6 +1167,8 @@
     <ClCompile Include="..\..\ext\native\file\ini_file.cpp" />
     <ClCompile Include="..\..\ext\native\file\path.cpp" />
     <ClCompile Include="..\..\ext\native\file\zip_read.cpp" />
+    <ClCompile Include="..\..\ext\native\json\json_reader.cpp" />
+    <ClCompile Include="..\..\ext\native\json\json_writer.cpp" />
     <ClCompile Include="..\..\ext\native\gfx\texture_atlas.cpp" />
     <ClCompile Include="..\..\ext\native\gfx_es2\draw_buffer.cpp" />
     <ClCompile Include="..\..\ext\native\gfx_es2\draw_text.cpp" />

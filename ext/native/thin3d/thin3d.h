@@ -491,6 +491,7 @@ struct DeviceCaps {
 	bool framebufferBlitSupported;
 	bool framebufferDepthCopySupported;
 	bool framebufferDepthBlitSupported;
+	std::string deviceName;  // The device name to use when creating the thin3d context, to get the same one.
 };
 
 struct TextureDesc {
@@ -532,6 +533,7 @@ public:
 	virtual uint32_t GetDataFormatSupport(DataFormat fmt) const = 0;
 	virtual std::vector<std::string> GetFeatureList() const { return std::vector<std::string>(); }
 	virtual std::vector<std::string> GetExtensionList() const { return std::vector<std::string>(); }
+	virtual std::vector<std::string> GetDeviceList() const { return std::vector<std::string>(); }
 
 	virtual uint32_t GetSupportedShaderLanguages() const = 0;
 
@@ -564,6 +566,9 @@ public:
 	virtual bool BlitFramebuffer(Framebuffer *src, int srcX1, int srcY1, int srcX2, int srcY2, Framebuffer *dst, int dstX1, int dstY1, int dstX2, int dstY2, int channelBits, FBBlitFilter filter) = 0;
 	virtual bool CopyFramebufferToMemorySync(Framebuffer *src, int channelBits, int x, int y, int w, int h, Draw::DataFormat format, void *pixels, int pixelStride) {
 		return false;
+	}
+	virtual DataFormat PreferredFramebufferReadbackFormat(Framebuffer *src) {
+		return DataFormat::R8G8B8A8_UNORM;
 	}
 
 	// These functions should be self explanatory.

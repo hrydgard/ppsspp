@@ -21,8 +21,7 @@
 
 #include "Core/Debugger/DebugInterface.h"
 
-enum BreakAction
-{
+enum BreakAction {
 	BREAK_ACTION_IGNORE = 0x00,
 	BREAK_ACTION_LOG = 0x01,
 	BREAK_ACTION_PAUSE = 0x02,
@@ -37,35 +36,27 @@ static inline BreakAction operator | (const BreakAction &lhs, const BreakAction 
 	return BreakAction((u32)lhs | (u32)rhs);
 }
 
-struct BreakPointCond
-{
-	DebugInterface *debug;
+struct BreakPointCond {
+	DebugInterface *debug = nullptr;
 	PostfixExpression expression;
 	std::string expressionString;
 
-	BreakPointCond() : debug(nullptr)
-	{
-	}
-
-	u32 Evaluate()
-	{
+	u32 Evaluate() {
 		u32 result;
-		if (debug->parseExpression(expression,result) == false) return 0;
+		if (debug->parseExpression(expression, result) == false)
+			return 0;
 		return result;
 	}
 };
 
-struct BreakPoint
-{
-	BreakPoint() : hasCond(false) {}
-
+struct BreakPoint {
 	u32	addr;
 	bool temporary;
 
-	BreakAction result;
+	BreakAction result = BREAK_ACTION_IGNORE;
 	std::string logFormat;
 
-	bool hasCond;
+	bool hasCond = false;
 	BreakPointCond cond;
 
 	bool IsEnabled() const {
@@ -80,8 +71,7 @@ struct BreakPoint
 	}
 };
 
-enum MemCheckCondition
-{
+enum MemCheckCondition {
 	MEMCHECK_READ = 0x01,
 	MEMCHECK_WRITE = 0x02,
 	MEMCHECK_WRITE_ONCHANGE = 0x04,
@@ -89,25 +79,28 @@ enum MemCheckCondition
 	MEMCHECK_READWRITE = 0x03,
 };
 
-struct MemCheck
-{
-	MemCheck();
+struct MemCheck {
 	u32 start;
 	u32 end;
 
-	MemCheckCondition cond;
-	BreakAction result;
+	MemCheckCondition cond = MEMCHECK_READ;
+	BreakAction result = BREAK_ACTION_IGNORE;
 	std::string logFormat;
 
-	u32 numHits;
+	u32 numHits = 0;
 
-	u32 lastPC;
-	u32 lastAddr;
-	int lastSize;
+	u32 lastPC = 0;
+	u32 lastAddr = 0;
+	int lastSize = 0;
 
+	// Called on the stored memcheck (affects numHits, etc.)
+	BreakAction Apply(u32 addr, bool write, int size, u32 pc);
+	// Called on a copy.
 	BreakAction Action(u32 addr, bool write, int size, u32 pc);
-	void JitBefore(u32 addr, bool write, int size, u32 pc);
-	void JitCleanup();
+	void JitBeforeApply(u32 addr, bool write, int size, u32 pc);
+	void JitBeforeAction(u32 addr, bool write, int size, u32 pc);
+	bool JitApplyChanged();
+	void JitCleanup(bool changed);
 
 	void Log(u32 addr, bool write, int size, u32 pc);
 
@@ -140,7 +133,7 @@ public:
 	static void ClearAllBreakPoints();
 	static void ClearTemporaryBreakPoints();
 
-	// Makes a copy.  Temporary breakpoints can't have conditions.
+	// Makes a copy of the condition.
 	static void ChangeBreakPointAddCond(u32 addr, const BreakPointCond &cond);
 	static void ChangeBreakPointRemoveCond(u32 addr);
 	static BreakPointCond *GetBreakPointCondition(u32 addr);
@@ -156,7 +149,8 @@ public:
 
 	static void ChangeMemCheckLogFormat(u32 start, u32 end, const std::string &fmt);
 
-	static MemCheck *GetMemCheck(u32 address, int size);
+	static bool GetMemCheck(u32 start, u32 end, MemCheck *check);
+	static bool GetMemCheckInRange(u32 address, int size, MemCheck *check);
 	static BreakAction ExecMemCheck(u32 address, bool write, int size, u32 pc);
 	static BreakAction ExecOpMemCheck(u32 address, u32 pc);
 
@@ -168,7 +162,7 @@ public:
 	static u32 CheckSkipFirst();
 
 	// Includes uncached addresses.
-	static const std::vector<MemCheck> GetMemCheckRanges();
+	static const std::vector<MemCheck> GetMemCheckRanges(bool write);
 
 	static const std::vector<MemCheck> GetMemChecks();
 	static const std::vector<BreakPoint> GetBreakpoints();
@@ -184,6 +178,7 @@ private:
 	static size_t FindBreakpoint(u32 addr, bool matchTemp = false, bool temp = false);
 	// Finds exactly, not using a range check.
 	static size_t FindMemCheck(u32 start, u32 end);
+	static MemCheck *GetMemCheckLocked(u32 address, int size);
 
 	static std::vector<BreakPoint> breakPoints_;
 	static u32 breakSkipFirstAt_;

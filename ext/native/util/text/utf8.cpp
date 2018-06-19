@@ -463,6 +463,20 @@ std::wstring ConvertUTF8ToWString(const std::string &source) {
 
 #else
 
+std::string ConvertWStringToUTF8(const std::wstring &wstr) {
+	std::string s;
+	// Worst case.
+	s.resize(wstr.size() * 4);
+
+	size_t pos = 0;
+	for (wchar_t c : wstr) {
+		pos += UTF8::encode(&s[pos], c);
+	}
+
+	s.resize(pos);
+	return s;
+}
+
 static size_t ConvertUTF8ToWStringInternal(wchar_t *dest, size_t destSize, const std::string &source) {
 	const wchar_t *const orig = dest;
 	const wchar_t *const destEnd = dest + destSize;

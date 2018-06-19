@@ -18,7 +18,7 @@
 #include <functional>
 
 #include "base/basictypes.h"
-#include "ext/vjson/json.h"
+#include "json/json_reader.h"
 
 #include "i18n/i18n.h"
 #include "ui/screen.h"
@@ -392,33 +392,32 @@ void StoreScreen::update() {
 
 void StoreScreen::ParseListing(std::string json) {
 	JsonReader reader(json.c_str(), json.size());
-	if (!reader.ok()) {
+	if (!reader.ok() || !reader.root()) {
 		ELOG("Error parsing JSON from store");
 		connectionError_ = true;
 		RecreateViews();
 		return;
 	}
-	json_value *root = reader.root();
-	const json_value *entries = root->getArray("entries");
+	const JsonGet root = reader.root();
+	const JsonNode *entries = root.getArray("entries");
 	if (entries) {
 		entries_.clear();
-		const json_value *game = entries->first_child;
-		while (game) {
+		for (const JsonNode *pgame : entries->value) {
+			JsonGet game = pgame->value;
 			StoreEntry e;
 			e.type = ENTRY_PBPZIP;
 			e.name = GetTranslatedString(game, "name");
 			e.description = GetTranslatedString(game, "description", "");
-			e.author = game->getString("author", "?");
-			e.size = game->getInt("size");
-			e.downloadURL = game->getString("download-url", "");
-			e.iconURL = game->getString("icon-url", "");
-			e.hidden = game->getBool("hidden", false);
-			const char *file = game->getString("file", 0);
+			e.author = game.getString("author", "?");
+			e.size = game.getInt("size");
+			e.downloadURL = game.getString("download-url", "");
+			e.iconURL = game.getString("icon-url", "");
+			e.hidden = game.getBool("hidden", false);
+			const char *file = game.getString("file", nullptr);
 			if (!file)
 				continue;
 			e.file = file;
 			entries_.push_back(e);
-			game = game->next_sibling;
 		}
 	}
 }
@@ -541,16 +540,16 @@ std::string StoreScreen::GetStoreJsonURL(std::string storePath) const {
 	return path;
 }
 
-std::string StoreScreen::GetTranslatedString(const json_value *json, std::string key, const char *fallback) const {
-	const json_value *dict = json->getDict("en_US");
-	if (dict && json->hasChild(lang_.c_str(), JSON_OBJECT)) {
-		if (json->getDict(lang_.c_str())->hasChild(key.c_str(), JSON_STRING)) {
-			dict = json->getDict(lang_.c_str());
+std::string StoreScreen::GetTranslatedString(const JsonGet json, std::string key, const char *fallback) const {
+	JsonGet dict = json.getDict("en_US");
+	if (dict && json.hasChild(lang_.c_str(), JSON_OBJECT)) {
+		if (json.getDict(lang_.c_str()).hasChild(key.c_str(), JSON_STRING)) {
+			dict = json.getDict(lang_.c_str());
 		}
 	}
-	const char *str = 0;
+	const char *str = nullptr;
 	if (dict) {
-		str = dict->getString(key.c_str(), 0);
+		str = dict.getString(key.c_str(), nullptr);
 	}
 	if (str) {
 		return std::string(str);

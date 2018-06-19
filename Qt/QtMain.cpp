@@ -11,6 +11,7 @@
 #include <QDesktopWidget>
 #include <QDesktopServices>
 #include <QLocale>
+#include <QScreen>
 #include <QThread>
 
 #include "ext/glslang/glslang/Public/ShaderLang.h"
@@ -34,6 +35,7 @@
 #include <string.h>
 
 MainUI *emugl = NULL;
+static int refreshRate = 60000;
 
 #ifdef SDL
 extern void mixaudio(void *userdata, Uint8 *stream, int len) {
@@ -67,7 +69,7 @@ int System_GetPropertyInt(SystemProperty prop) {
 	case SYSPROP_AUDIO_SAMPLE_RATE:
 		return 44100;
 	case SYSPROP_DISPLAY_REFRESH_RATE:
-		return 60000;
+		return refreshRate;
 	case SYSPROP_DEVICE_TYPE:
 #if defined(__ANDROID__)
 		return DEVICE_TYPE_MOBILE;
@@ -514,6 +516,9 @@ int main(int argc, char *argv[])
 	g_dpi_scale_real_y = g_dpi_scale_y;
 	dp_xres = (int)(pixel_xres * g_dpi_scale_x);
 	dp_yres = (int)(pixel_yres * g_dpi_scale_y);
+
+	refreshRate = (int)(a.primaryScreen()->refreshRate() * 1000);
+
 	std::string savegame_dir = ".";
 	std::string external_dir = ".";
 #if QT_VERSION > QT_VERSION_CHECK(5, 0, 0)
@@ -523,12 +528,7 @@ int main(int argc, char *argv[])
 	savegame_dir += "/";
 	external_dir += "/";
 
-	bool fullscreenCLI=false;
-	for (int i = 1; i < argc; i++) {
-		if (!strcmp(argv[i],"--fullscreen"))
-			fullscreenCLI=true;
-	}
-	NativeInit(argc, (const char **)argv, savegame_dir.c_str(), external_dir.c_str(), nullptr, fullscreenCLI);
+	NativeInit(argc, (const char **)argv, savegame_dir.c_str(), external_dir.c_str(), nullptr);
 
 	// TODO: Support other backends than GL, like Vulkan, in the Qt backend.
 	g_Config.iGPUBackend = (int)GPUBackend::OPENGL;

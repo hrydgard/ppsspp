@@ -496,10 +496,12 @@ static void __IoManagerThread() {
 	}
 }
 
-static void __IoWakeManager() {
+static void __IoWakeManager(CoreLifecycle stage) {
 	// Ping the thread so that it knows to check coreState.
-	ioManagerThreadEnabled = false;
-	ioManager.FinishEventLoop();
+	if (stage == CoreLifecycle::STOPPING) {
+		ioManagerThreadEnabled = false;
+		ioManager.FinishEventLoop();
+	}
 }
 
 static void __IoVblank() {
@@ -586,7 +588,7 @@ void __IoInit() {
 	ioManagerThreadEnabled = g_Config.bSeparateIOThread;
 	ioManager.SetThreadEnabled(ioManagerThreadEnabled);
 	if (ioManagerThreadEnabled) {
-		Core_ListenShutdown(&__IoWakeManager);
+		Core_ListenLifecycle(&__IoWakeManager);
 		ioManagerThread = new std::thread(&__IoManagerThread);
 		ioManagerThread->detach();
 	}

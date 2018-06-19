@@ -17,10 +17,6 @@
 
 #pragma once
 
-#include <list>
-#include <set>
-#include <map>
-
 #include <d3d11.h>
 
 // Keeps track of allocated FBOs.
@@ -122,9 +118,4 @@ private:
 	ID3D11InputLayout *postInputLayout_ = nullptr;
 	ID3D11Buffer *postConstants_ = nullptr;
 	static const D3D11_INPUT_ELEMENT_DESC g_PostVertexElements[2];
-
-#if 0
-	AsyncPBO *pixelBufObj_; //this isn't that large
-	u8 currentPBO_;
-#endif
 };

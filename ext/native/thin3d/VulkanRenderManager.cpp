@@ -136,7 +136,7 @@ VulkanRenderManager::VulkanRenderManager(VulkanContext *vulkan) : vulkan_(vulkan
 	queueRunner_.CreateDeviceObjects();
 
 	// Temporary AMD hack for issue #10097
-	if (vulkan_->GetPhysicalDeviceProperties().vendorID == VULKAN_VENDOR_AMD) {
+	if (vulkan_->GetPhysicalDeviceProperties(vulkan_->GetCurrentPhysicalDevice()).vendorID == VULKAN_VENDOR_AMD) {
 		useThread_ = false;
 	}
 }
@@ -457,8 +457,7 @@ bool VulkanRenderManager::CopyFramebufferToMemorySync(VKRFramebuffer *src, int a
 			case VK_FORMAT_R8G8B8A8_UNORM: srcFormat = Draw::DataFormat::R8G8B8A8_UNORM; break;
 			default: _assert_(false);
 			}
-		}
-		else {
+		} else {
 			// Backbuffer.
 			if (!(vulkan_->GetSurfaceCapabilities().supportedUsageFlags & VK_IMAGE_USAGE_TRANSFER_SRC_BIT)) {
 				ELOG("Copying from backbuffer not supported, can't take screenshots");

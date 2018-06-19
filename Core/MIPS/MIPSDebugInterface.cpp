@@ -23,6 +23,7 @@
 #include "Core/Debugger/DebugInterface.h"
 #include "Core/MIPS/MIPSDebugInterface.h"
 
+#include "Core/HLE/sceKernelThread.h"
 #include "Core/MemMap.h"
 #include "Core/MIPS/MIPSTables.h"
 #include "Core/MIPS/MIPS.h"
@@ -37,13 +38,16 @@ enum ReferenceIndexType {
 	REF_INDEX_VFPU     = 0x4000,
 	REF_INDEX_VFPU_INT = 0x8000,
 	REF_INDEX_IS_FLOAT = REF_INDEX_FPU | REF_INDEX_VFPU,
+	REF_INDEX_HLE      = 0x10000,
+	REF_INDEX_THREAD   = REF_INDEX_HLE | 0,
+	REF_INDEX_MODULE   = REF_INDEX_HLE | 1,
 };
 
 
 class MipsExpressionFunctions: public IExpressionFunctions
 {
 public:
-	MipsExpressionFunctions(DebugInterface* cpu): cpu(cpu) { };
+	MipsExpressionFunctions(DebugInterface* cpu): cpu(cpu) { }
 
 	bool parseReference(char* str, uint32_t& referenceIndex) override
 	{
@@ -106,6 +110,15 @@ public:
 			return true;
 		}
 
+		if (strcasecmp(str, "threadid") == 0) {
+			referenceIndex = REF_INDEX_THREAD;
+			return true;
+		}
+		if (strcasecmp(str, "moduleid") == 0) {
+			referenceIndex = REF_INDEX_MODULE;
+			return true;
+		}
+
 		return false;
 	}
 
@@ -124,6 +137,10 @@ public:
 			return cpu->GetHi();
 		if (referenceIndex == REF_INDEX_LO)
 			return cpu->GetLo();
+		if (referenceIndex == REF_INDEX_THREAD)
+			return __KernelGetCurThread();
+		if (referenceIndex == REF_INDEX_MODULE)
+			return __KernelGetCurThreadModuleId();
 		if ((referenceIndex & ~(REF_INDEX_FPU | REF_INDEX_FPU_INT)) < 32)
 			return cpu->GetRegValue(1, referenceIndex & ~(REF_INDEX_FPU | REF_INDEX_FPU_INT));
 		if ((referenceIndex & ~(REF_INDEX_VFPU | REF_INDEX_VFPU_INT)) < 128)

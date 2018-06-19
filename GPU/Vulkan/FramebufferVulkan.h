@@ -24,27 +24,11 @@
 #include "GPU/Vulkan/VulkanUtil.h"
 #include "GPU/Vulkan/DepalettizeShaderVulkan.h"
 
-// TODO: Remove?
-enum VulkanFBOColorDepth {
-	VK_FBO_8888,
-	VK_FBO_565,
-	VK_FBO_4444,
-	VK_FBO_5551,
-};
-
 class TextureCacheVulkan;
 class DrawEngineVulkan;
 class VulkanContext;
 class ShaderManagerVulkan;
 class VulkanTexture;
-class VulkanPushBuffer;
-
-static const char *ub_post_shader =
-R"(	vec2 texelDelta;
-	vec2 pixelDelta;
-	vec4 time;
-)";
-
 class VulkanPushBuffer;
 
 class FramebufferManagerVulkan : public FramebufferManagerCommon {
@@ -112,9 +96,9 @@ private:
 	u8 *convBuf_ = nullptr;
 	u32 convBufSize_ = 0;
 
-	TextureCacheVulkan *textureCacheVulkan_;
-	ShaderManagerVulkan *shaderManagerVulkan_;
-	DrawEngineVulkan *drawEngineVulkan_;
+	TextureCacheVulkan *textureCacheVulkan_ = nullptr;
+	ShaderManagerVulkan *shaderManagerVulkan_ = nullptr;
+	DrawEngineVulkan *drawEngineVulkan_ = nullptr;
 	VulkanPushBuffer *push_;
 
 	enum {

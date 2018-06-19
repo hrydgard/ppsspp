@@ -54,9 +54,9 @@ static const char tex_fs[] =
 	"#define gl_FragColor fragColor0\n"
 	"out vec4 fragColor0;\n"
 	"#endif\n"
-#ifdef USING_GLES2
+	"#ifdef GL_ES\n"
 	"precision mediump float;\n"
-#endif
+	"#endif\n"
 	"uniform sampler2D sampler0;\n"
 	"varying vec2 v_texcoord0;\n"
 	"void main() {\n"
@@ -75,10 +75,6 @@ static const char basic_vs[] =
 	"  v_texcoord0 = a_texcoord0;\n"
 	"  gl_Position = a_position;\n"
 	"}\n";
-
-const int MAX_PBO = 2;
-
-void ConvertFromRGBA8888(u8 *dst, const u8 *src, u32 dstStride, u32 srcStride, u32 width, u32 height, GEBufferFormat format);
 
 void FramebufferManagerGLES::CompileDraw2DProgram() {
 	if (!draw2dprogram_) {
@@ -336,62 +332,39 @@ FramebufferManagerGLES::~FramebufferManagerGLES() {
 }
 
 void FramebufferManagerGLES::MakePixelTexture(const u8 *srcPixels, GEBufferFormat srcPixelFormat, int srcStride, int width, int height, float &u1, float &v1) {
-	// Optimization: skip a copy if possible in a common case.
-	int texWidth = width;
-	if (srcPixelFormat == GE_FORMAT_8888 && width < srcStride) {
-		// Don't up the upload requirements too much if subimages are unsupported.
-		if (gstate_c.Supports(GPU_SUPPORTS_UNPACK_SUBIMAGE) || width >= 480) {
-			texWidth = srcStride;
-			u1 *= (float)width / texWidth;
-		}
-	}
-
 	if (drawPixelsTex_) {
 		render_->DeleteTexture(drawPixelsTex_);
 	}
 
 	drawPixelsTex_ = render_->CreateTexture(GL_TEXTURE_2D);
-	drawPixelsTexW_ = texWidth;
+	drawPixelsTexW_ = width;
 	drawPixelsTexH_ = height;
 
 	drawPixelsTexFormat_ = srcPixelFormat;
 
 	// TODO: We can just change the texture format and flip some bits around instead of this.
 	// Could share code with the texture cache perhaps.
-	u32 neededSize = texWidth * height * 4;
+	u32 neededSize = width * height * 4;
 	u8 *convBuf = new u8[neededSize];
 	for (int y = 0; y < height; y++) {
+		const u16_le *src16 = (const u16_le *)srcPixels + srcStride * y;
+		const u32_le *src32 = (const u32_le *)srcPixels + srcStride * y;
+		u32 *dst = (u32 *)convBuf + width * y;
 		switch (srcPixelFormat) {
 		case GE_FORMAT_565:
-			{
-				const u16 *src = (const u16 *)srcPixels + srcStride * y;
-				u8 *dst = convBuf + 4 * texWidth * y;
-				ConvertRGBA565ToRGBA8888((u32 *)dst, src, width);
-			}
+			ConvertRGBA565ToRGBA8888((u32 *)dst, src16, width);
 			break;
 
 		case GE_FORMAT_5551:
-			{
-				const u16 *src = (const u16 *)srcPixels + srcStride * y;
-				u8 *dst = convBuf + 4 * texWidth * y;
-				ConvertRGBA5551ToRGBA8888((u32 *)dst, src, width);
-			}
+			ConvertRGBA5551ToRGBA8888((u32 *)dst, src16, width);
 			break;
 
 		case GE_FORMAT_4444:
-			{
-				const u16 *src = (const u16 *)srcPixels + srcStride * y;
-				u8 *dst = convBuf + 4 * texWidth * y;
-				ConvertRGBA4444ToRGBA8888((u32 *)dst, src, width);
-			}
+			ConvertRGBA4444ToRGBA8888((u32 *)dst, src16, width);
 			break;
 
 		case GE_FORMAT_8888:
-			{
-				const u8 *src = srcPixels + srcStride * 4 * y;
-				u8 *dst = convBuf + 4 * texWidth * y;
-				memcpy(dst, src, 4 * width);
-			}
+			memcpy(dst, src32, 4 * width);
 			break;
 
 		case GE_FORMAT_INVALID:
@@ -399,7 +372,7 @@ void FramebufferManagerGLES::MakePixelTexture(const u8 *srcPixels, GEBufferForma
 			break;
 		}
 	}
-	render_->TextureImage(drawPixelsTex_, 0, texWidth, height, GL_RGBA, GL_RGBA, GL_UNSIGNED_BYTE, convBuf, GLRAllocType::NEW, false);
+	render_->TextureImage(drawPixelsTex_, 0, width, height, GL_RGBA, GL_RGBA, GL_UNSIGNED_BYTE, convBuf, GLRAllocType::NEW, false);
 	render_->FinalizeTexture(drawPixelsTex_, 0, false);
 
 	// TODO: Return instead?
@@ -679,61 +652,6 @@ void FramebufferManagerGLES::BlitFramebuffer(VirtualFramebuffer *dst, int dstX, 
 	gstate_c.Dirty(DIRTY_VIEWPORTSCISSOR_STATE | DIRTY_BLEND_STATE | DIRTY_RASTER_STATE);
 }
 
-void ConvertFromRGBA8888(u8 *dst, const u8 *src, u32 dstStride, u32 srcStride, u32 width, u32 height, GEBufferFormat format) {
-	// Must skip stride in the cases below.  Some games pack data into the cracks, like MotoGP.
-	const u32 *src32 = (const u32 *)src;
-
-	if (format == GE_FORMAT_8888) {
-		u32 *dst32 = (u32 *)dst;
-		if (src == dst) {
-			return;
-		} else {
-			// Here let's assume they don't intersect
-			for (u32 y = 0; y < height; ++y) {
-				memcpy(dst32, src32, width * 4);
-				src32 += srcStride;
-				dst32 += dstStride;
-			}
-		}
-	} else {
-		// But here it shouldn't matter if they do intersect
-		u16 *dst16 = (u16 *)dst;
-		switch (format) {
-			case GE_FORMAT_565: // BGR 565
-				{
-					for (u32 y = 0; y < height; ++y) {
-						ConvertRGBA8888ToRGB565(dst16, src32, width);
-						src32 += srcStride;
-						dst16 += dstStride;
-					}
-				}
-				break;
-			case GE_FORMAT_5551: // ABGR 1555
-				{
-					for (u32 y = 0; y < height; ++y) {
-						ConvertRGBA8888ToRGBA5551(dst16, src32, width);
-						src32 += srcStride;
-						dst16 += dstStride;
-					}
-				}
-				break;
-			case GE_FORMAT_4444: // ABGR 4444
-				{
-					for (u32 y = 0; y < height; ++y) {
-						ConvertRGBA8888ToRGBA4444(dst16, src32, width);
-						src32 += srcStride;
-						dst16 += dstStride;
-					}
-				}
-				break;
-			case GE_FORMAT_8888:
-			case GE_FORMAT_INVALID:
-				// Not possible.
-				break;
-		}
-	}
-}
-
 void FramebufferManagerGLES::PackDepthbuffer(VirtualFramebuffer *vfb, int x, int y, int w, int h) {
 	if (!vfb->fbo) {
 		ERROR_LOG_REPORT_ONCE(vfbfbozero, SCEGE, "PackDepthbuffer: vfb->fbo == 0");
@@ -809,8 +727,8 @@ void FramebufferManagerGLES::DestroyAllFBOs() {
 	}
 	bvfbs_.clear();
 
-	for (auto it = tempFBOs_.begin(), end = tempFBOs_.end(); it != end; ++it) {
-		it->second.fbo->Release();
+	for (auto &tempFB : tempFBOs_) {
+		tempFB.second.fbo->Release();
 	}
 	tempFBOs_.clear();
 

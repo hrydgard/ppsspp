@@ -20,11 +20,7 @@ MainWindow::MainWindow(QWidget *parent, bool fullscreen) :
 	QMainWindow(parent),
 	currentLanguage("en"),
 	nextState(CORE_POWERDOWN),
-	lastUIState(UISTATE_MENU),
-	dialogDisasm(0),
-	memoryWindow(0),
-	memoryTexWindow(0),
-	displaylistWindow(0)
+	lastUIState(UISTATE_MENU)
 {
 	QDesktopWidget *desktop = QApplication::desktop();
 	int screenNum = QProcessEnvironment::systemEnvironment().value("SDL_VIDEO_FULLSCREEN_HEAD", "0").toInt();
@@ -40,19 +36,10 @@ MainWindow::MainWindow(QWidget *parent, bool fullscreen) :
 	createMenus();
 	updateMenus();
 
-	SetWindowScale(-1);
-	
-	if(fullscreen)
-	  fullscrAct();
+	SetFullScreen(fullscreen);
 
 	QObject::connect(emugl, SIGNAL(doubleClick()), this, SLOT(fullscrAct()));
 	QObject::connect(emugl, SIGNAL(newFrame()), this, SLOT(newFrame()));
-}
-
-void MainWindow::ShowMemory(u32 addr)
-{
-	if(memoryWindow)
-		memoryWindow->Goto(addr);
 }
 
 inline float clamp1(float x) {
@@ -109,9 +96,6 @@ void MainWindow::updateMenus()
 
 	foreach(QAction * action, displayLayoutGroup->actions()) {
 		if (g_Config.iSmallDisplayZoomType == action->data().toInt()) {
-
-			NativeMessageReceived("gpu_resized", "");
-
 			action->setChecked(true);
 			break;
 		}
@@ -145,18 +129,8 @@ void MainWindow::updateMenus()
 
 void MainWindow::bootDone()
 {
-	dialogDisasm = new Debugger_Disasm(currentDebugMIPS, this, this);
-	if(g_Config.bShowDebuggerOnLoad)
-		dialogDisasm->show();
-
-	if(g_Config.bFullScreen != isFullScreen())
-		fullscrAct();
-
-	memoryWindow = new Debugger_Memory(currentDebugMIPS, this, this);
-	memoryTexWindow = new Debugger_MemoryTex(this);
-	displaylistWindow = new Debugger_DisplayList(currentDebugMIPS, gpu->GetDrawContext(), this, this);
-
-	notifyMapsLoaded();
+	if (g_Config.bFullScreen != isFullScreen())
+		SetFullScreen(g_Config.bFullScreen);
 
 	if (nextState == CORE_RUNNING)
 		runAct();
@@ -177,26 +151,16 @@ void MainWindow::openAct()
 
 void MainWindow::closeAct()
 {
-	if(dialogDisasm)
-		dialogDisasm->Stop();
-
-	if(dialogDisasm && dialogDisasm->isVisible())
-		dialogDisasm->close();
-	if(memoryWindow && memoryWindow->isVisible())
-		memoryWindow->close();
-	if(memoryTexWindow && memoryTexWindow->isVisible())
-		memoryTexWindow->close();
-	if(displaylistWindow && displaylistWindow->isVisible())
-		displaylistWindow->close();
+	updateMenus();
 
 	NativeMessageReceived("stop", "");
 	SetGameTitle("");
 }
 
-void SaveStateActionFinished(bool result, const std::string &message, void *userdata)
+void SaveStateActionFinished(SaveState::Status status, const std::string &message, void *userdata)
 {
 	// TODO: Improve messaging?
-	if (!result)
+	if (status == SaveState::Status::FAILURE)
 	{
 		QMessageBox msgBox;
 		msgBox.setWindowTitle("Load Save State");
@@ -266,17 +230,7 @@ void MainWindow::pauseAct()
 
 void MainWindow::resetAct()
 {
-	if(dialogDisasm)
-		dialogDisasm->Stop();
-
-	if(dialogDisasm)
-		dialogDisasm->close();
-	if(memoryWindow)
-		memoryWindow->close();
-	if(memoryTexWindow)
-		memoryTexWindow->close();
-	if(displaylistWindow)
-		displaylistWindow->close();
+	updateMenus();
 
 	NativeMessageReceived("reset", "");
 }
@@ -302,7 +256,6 @@ void MainWindow::lmapAct()
 	{
 		QString fileName = QFileInfo(fileNames[0]).absoluteFilePath();
 		g_symbolMap->LoadSymbolMap(fileName.toStdString().c_str());
-		notifyMapsLoaded();
 	}
 }
 
@@ -325,7 +278,6 @@ void MainWindow::smapAct()
 void MainWindow::resetTableAct()
 {
 	g_symbolMap->Clear();
-	notifyMapsLoaded();
 }
 
 void MainWindow::dumpNextAct()
@@ -333,74 +285,52 @@ void MainWindow::dumpNextAct()
 	gpu->DumpNextFrame();
 }
 
-void MainWindow::disasmAct()
-{
-	if(dialogDisasm)
-		dialogDisasm->show();
-}
-
-void MainWindow::dpyListAct()
-{
-	if(displaylistWindow)
-		displaylistWindow->show();
-}
-
 void MainWindow::consoleAct()
 {
 	LogManager::GetInstance()->GetConsoleListener()->Show(LogManager::GetInstance()->GetConsoleListener()->Hidden());
 }
 
-void MainWindow::memviewAct()
-{
-	if (memoryWindow)
-		memoryWindow->show();
-}
-
-void MainWindow::memviewTexAct()
-{
-	if(memoryTexWindow)
-		memoryTexWindow->show();
-}
-
 void MainWindow::raiseTopMost()
 {
-	
 	setWindowState( (windowState() & ~Qt::WindowMinimized) | Qt::WindowActive);
 	raise();  
-	activateWindow(); 
-	
+	activateWindow();
 }
 
-void MainWindow::fullscrAct()
-{
-	if(isFullScreen()) {
-		g_Config.bFullScreen = false;
+void MainWindow::SetFullScreen(bool fullscreen) {
+	if (fullscreen) {
+		menuBar()->hide();
+		
+		emugl->setFixedSize(QWIDGETSIZE_MAX, QWIDGETSIZE_MAX);
+		emugl->resizeGL(emugl->size().width(), emugl->size().height());
+		// TODO: Won't showFullScreen do this for us?
+		setMaximumSize(QWIDGETSIZE_MAX, QWIDGETSIZE_MAX);
+		setFixedSize(QWIDGETSIZE_MAX, QWIDGETSIZE_MAX);
+
+		showFullScreen();
+		InitPadLayout(dp_xres, dp_yres);
+
+		if (GetUIState() == UISTATE_INGAME && !g_Config.bShowTouchControls)
+			QApplication::setOverrideCursor(QCursor(Qt::BlankCursor));
+	} else {
 		menuBar()->show();
 		updateMenus();
 
 		showNormal();
 		SetWindowScale(-1);
 		InitPadLayout(dp_xres, dp_yres);
+
 		if (GetUIState() == UISTATE_INGAME && QApplication::overrideCursor())
 			QApplication::restoreOverrideCursor();
 	}
-	else {
-		g_Config.bFullScreen = true;
-		menuBar()->hide();
+}
 
-		emugl->setFixedSize(QWIDGETSIZE_MAX, QWIDGETSIZE_MAX);
-		setMaximumSize(QWIDGETSIZE_MAX, QWIDGETSIZE_MAX);
-		setFixedSize(QWIDGETSIZE_MAX, QWIDGETSIZE_MAX);
+void MainWindow::fullscrAct()
+{
+	// Toggle the current state.
+	g_Config.bFullScreen = !isFullScreen();
+	SetFullScreen(g_Config.bFullScreen);
 
-		showFullScreen();
-
-		NativeMessageReceived("gpu_resized", "");
-		InitPadLayout(dp_xres, dp_yres);
-		if (GetUIState() == UISTATE_INGAME && !g_Config.bShowTouchControls)
-			QApplication::setOverrideCursor(QCursor(Qt::BlankCursor));
-
-	}
-	
 	QTimer::singleShot(1000, this, SLOT(raiseTopMost()));
 }
 
@@ -452,8 +382,8 @@ void MainWindow::SetWindowScale(int zoom) {
 		// Update to the specified factor.  Let's clamp first.
 		if (zoom < 1)
 			zoom = 1;
-		if (zoom > 4)
-			zoom = 4;
+		if (zoom > 10)
+			zoom = 10;
 
 		width = (g_Config.IsPortrait() ? 272 : 480) * zoom;
 		height = (g_Config.IsPortrait() ? 480 : 272) * zoom;
@@ -463,6 +393,7 @@ void MainWindow::SetWindowScale(int zoom) {
 	g_Config.iWindowHeight = height;
 
 	emugl->setFixedSize(g_Config.iWindowWidth, g_Config.iWindowHeight);
+	emugl->resizeGL(g_Config.iWindowWidth, g_Config.iWindowHeight);
 	setFixedSize(sizeHint());
 }
 
@@ -537,16 +468,7 @@ void MainWindow::createMenus()
 	debugMenu->add(new MenuAction(this, SLOT(takeScreen()),  QT_TR_NOOP("Take Screenshot"), Qt::Key_F12))
 		->addDisableState(UISTATE_MENU);
 	debugMenu->addSeparator();
-	debugMenu->add(new MenuAction(this, SLOT(disasmAct()),    QT_TR_NOOP("Disassembly"), Qt::CTRL + Qt::Key_D))
-		->addDisableState(UISTATE_MENU);
-	//commented out until someone bothers to maintain it
-	//debugMenu->add(new MenuAction(this, SLOT(dpyListAct()),   QT_TR_NOOP("Display List...")))
-	//	->addDisableState(UISTATE_MENU);
 	debugMenu->add(new MenuAction(this, SLOT(consoleAct()),   QT_TR_NOOP("Log Console")))
-		->addDisableState(UISTATE_MENU);
-	debugMenu->add(new MenuAction(this, SLOT(memviewAct()),   QT_TR_NOOP("Memory View")))
-		->addDisableState(UISTATE_MENU);
-	debugMenu->add(new MenuAction(this, SLOT(memviewTexAct()),QT_TR_NOOP("Memory View Texture")))
 		->addDisableState(UISTATE_MENU);
 
 	// Options
@@ -574,8 +496,8 @@ void MainWindow::createMenus()
 	// - Screen Size
 	MenuTree* screenMenu = new MenuTree(this, videoMenu,          QT_TR_NOOP("&Screen Size"));
 	screenGroup = new MenuActionGroup(this, screenMenu, SLOT(screenGroup_triggered(QAction *)),
-		QStringList() << "1x" << "2x" << "3x" << "4x",
-		QList<int>()  << 1    << 2    << 3    << 4,
+		QStringList() << "1x" << "2x" << "3x" << "4x" << "5x" << "6x" << "7x" << "8x" << "9x" << "10x",
+		QList<int>()  << 1    << 2    << 3    << 4    << 5    << 6    << 7    << 8    << 9    << 10,
 		QList<int>() << Qt::CTRL + Qt::Key_1 << Qt::CTRL + Qt::Key_2 << Qt::CTRL + Qt::Key_3 << Qt::CTRL + Qt::Key_4);
 
 	MenuTree* displayLayoutMenu = new MenuTree(this, videoMenu, QT_TR_NOOP("&Display Layout Options"));
@@ -667,12 +589,4 @@ void MainWindow::createMenus()
 	helpMenu->add(new MenuAction(this, SLOT(aboutAct()),      QT_TR_NOOP("&About PPSSPP..."), QKeySequence::WhatsThis));
 
 	retranslate();
-}
-
-void MainWindow::notifyMapsLoaded()
-{
-	if (dialogDisasm)
-		dialogDisasm->NotifyMapLoaded();
-	if (memoryWindow)
-		memoryWindow->NotifyMapLoaded();
 }

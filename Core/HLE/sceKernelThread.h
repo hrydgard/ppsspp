@@ -27,6 +27,7 @@
 // http://code.google.com/p/jpcsp/source/browse/trunk/src/jpcsp/HLE/modules150/ThreadManForUser.java
 
 class Thread;
+class DebugInterface;
 
 int sceKernelChangeThreadPriority(SceUID threadID, int priority);
 SceUID __KernelCreateThreadInternal(const char *threadName, SceUID moduleID, u32 entry, u32 prio, int stacksize, u32 attr);
@@ -316,6 +317,7 @@ struct DebugThreadInfo
 };
 
 std::vector<DebugThreadInfo> GetThreadsInfo();
+DebugInterface *KernelDebugThread(SceUID threadID);
 void __KernelChangeThreadState(SceUID threadId, ThreadStatus newStatus);
 
 int LoadExecForUser_362A956B();

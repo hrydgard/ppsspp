@@ -683,7 +683,7 @@ void TextureCacheVulkan::BuildTexture(TexCacheEntry *const entry) {
 			uint32_t bufferOffset;
 			VkBuffer texBuf;
 			// nvidia returns 1 but that can't be healthy... let's align by 16 as a minimum.
-			int pushAlignment = std::max(16, (int)vulkan_->GetPhysicalDeviceProperties().limits.optimalBufferCopyOffsetAlignment);
+			int pushAlignment = std::max(16, (int)vulkan_->GetPhysicalDeviceProperties(vulkan_->GetCurrentPhysicalDevice()).limits.optimalBufferCopyOffsetAlignment);
 			void *data = drawEngine_->GetPushBufferForTextureData()->PushAligned(size, &bufferOffset, &texBuf, pushAlignment);
 			if (replaced.Valid()) {
 				replaced.Load(i, data, stride);

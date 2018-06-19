@@ -311,6 +311,9 @@ void DrawEngineGLES::DoFlush() {
 		textureCache_->SetTexture();
 		gstate_c.Clean(DIRTY_TEXTURE_IMAGE | DIRTY_TEXTURE_PARAMS);
 		textureNeedsApply = true;
+	} else if (gstate.getTextureAddress(0) == ((gstate.getFrameBufRawAddress() | 0x04000000) & 0x3FFFFFFF)) {
+		// This catches the case of clearing a texture.
+		gstate_c.Dirty(DIRTY_TEXTURE_IMAGE);
 	}
 
 	GEPrimitiveType prim = prevPrim_;
@@ -553,6 +556,7 @@ rotateVBO:
 		params.texCache = textureCache_;
 		params.allowClear = true;
 		params.allowSeparateAlphaClear = true;
+		params.provokeFlatFirst = false;
 
 		int maxIndex = indexGen.MaxIndex();
 		int vertexCount = indexGen.VertexCount();

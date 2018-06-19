@@ -261,7 +261,7 @@ public:
 
 	// Returns the binding offset, and the VkBuffer to bind.
 	size_t PushUBO(VulkanPushBuffer *buf, VulkanContext *vulkan, VkBuffer *vkbuf) {
-		return buf->PushAligned(ubo_, uboSize_, vulkan->GetPhysicalDeviceProperties().limits.minUniformBufferOffsetAlignment, vkbuf);
+		return buf->PushAligned(ubo_, uboSize_, vulkan->GetPhysicalDeviceProperties(vulkan_->GetCurrentPhysicalDevice()).limits.minUniformBufferOffsetAlignment, vkbuf);
 	}
 
 	int GetUniformLoc(const char *name);
@@ -350,6 +350,13 @@ public:
 	const DeviceCaps &GetDeviceCaps() const override {
 		return caps_;
 	}
+	std::vector<std::string> GetDeviceList() const override {
+		std::vector<std::string> list;
+		for (int i = 0; i < vulkan_->GetNumPhysicalDevices(); i++) {
+			list.push_back(vulkan_->GetPhysicalDeviceProperties(i).deviceName);
+		}
+		return list;
+	}
 	uint32_t GetSupportedShaderLanguages() const override {
 		return (uint32_t)ShaderLanguage::GLSL_VULKAN | (uint32_t)ShaderLanguage::SPIRV_VULKAN;
 	}
@@ -372,6 +379,7 @@ public:
 	void CopyFramebufferImage(Framebuffer *src, int level, int x, int y, int z, Framebuffer *dst, int dstLevel, int dstX, int dstY, int dstZ, int width, int height, int depth, int channelBits) override;
 	bool BlitFramebuffer(Framebuffer *src, int srcX1, int srcY1, int srcX2, int srcY2, Framebuffer *dst, int dstX1, int dstY1, int dstX2, int dstY2, int channelBits, FBBlitFilter filter) override;
 	bool CopyFramebufferToMemorySync(Framebuffer *src, int channelBits, int x, int y, int w, int h, Draw::DataFormat format, void *pixels, int pixelStride) override;
+	DataFormat PreferredFramebufferReadbackFormat(Framebuffer *src) override;
 
 	// These functions should be self explanatory.
 	void BindFramebufferAsRenderTarget(Framebuffer *fbo, const RenderPassInfo &rp) override;
@@ -446,13 +454,13 @@ public:
 		// TODO: Make these actually query the right information
 		switch (info) {
 		case APINAME: return "Vulkan";
-		case VENDORSTRING: return vulkan_->GetPhysicalDeviceProperties().deviceName;
-		case VENDOR: return VulkanVendorString(vulkan_->GetPhysicalDeviceProperties().vendorID);
-		case DRIVER: return FormatDriverVersion(vulkan_->GetPhysicalDeviceProperties());
+		case VENDORSTRING: return vulkan_->GetPhysicalDeviceProperties(vulkan_->GetCurrentPhysicalDevice()).deviceName;
+		case VENDOR: return VulkanVendorString(vulkan_->GetPhysicalDeviceProperties(vulkan_->GetCurrentPhysicalDevice()).vendorID);
+		case DRIVER: return FormatDriverVersion(vulkan_->GetPhysicalDeviceProperties(vulkan_->GetCurrentPhysicalDevice()));
 		case SHADELANGVERSION: return "N/A";;
 		case APIVERSION: 
 		{
-			uint32_t ver = vulkan_->GetPhysicalDeviceProperties().apiVersion;
+			uint32_t ver = vulkan_->GetPhysicalDeviceProperties(vulkan_->GetCurrentPhysicalDevice()).apiVersion;
 			return StringFromFormat("%d.%d.%d", ver >> 22, (ver >> 12) & 0x3ff, ver & 0xfff);
 		}
 		default: return "?";
@@ -746,7 +754,7 @@ VKContext::VKContext(VulkanContext *vulkan, bool splitSubmit)
 	caps_.framebufferDepthCopySupported = true;   // Will pretty much always be the case.
 	caps_.preferredDepthBufferFormat = DataFormat::D24_S8;  // TODO: Ask vulkan.
 
-	switch (vulkan->GetPhysicalDeviceProperties().vendorID) {
+	switch (vulkan->GetPhysicalDeviceProperties(vulkan_->GetCurrentPhysicalDevice()).vendorID) {
 	case VULKAN_VENDOR_AMD: caps_.vendor = GPUVendor::VENDOR_AMD; break;
 	case VULKAN_VENDOR_ARM: caps_.vendor = GPUVendor::VENDOR_ARM; break;
 	case VULKAN_VENDOR_IMGTEC: caps_.vendor = GPUVendor::VENDOR_IMGTEC; break;
@@ -1398,6 +1406,17 @@ bool VKContext::CopyFramebufferToMemorySync(Framebuffer *srcfb, int channelBits,
 	if (channelBits & FBChannel::FB_STENCIL_BIT) aspectMask |= VK_IMAGE_ASPECT_STENCIL_BIT;
 
 	return renderManager_.CopyFramebufferToMemorySync(src ? src->GetFB() : nullptr, aspectMask, x, y, w, h, format, (uint8_t *)pixels, pixelStride);
+}
+
+DataFormat VKContext::PreferredFramebufferReadbackFormat(Framebuffer *src) {
+	if (src) {
+		return DrawContext::PreferredFramebufferReadbackFormat(src);
+	}
+
+	if (vulkan_->GetSwapchainFormat() == VK_FORMAT_B8G8R8A8_UNORM) {
+		return Draw::DataFormat::B8G8R8A8_UNORM;
+	}
+	return DrawContext::PreferredFramebufferReadbackFormat(src);
 }
 
 void VKContext::BindFramebufferAsRenderTarget(Framebuffer *fbo, const RenderPassInfo &rp) {

@@ -202,10 +202,12 @@
     <ClInclude Include="base\NativeApp.h" />
     <ClInclude Include="base\stringutil.h" />
     <ClInclude Include="base\timeutil.h" />
+    <ClInclude Include="data\base64.h" />
     <ClInclude Include="data\compression.h" />
     <ClInclude Include="data\listable.h" />
     <ClInclude Include="ext\cityhash\city.h" />
     <ClInclude Include="ext\cityhash\citycrc.h" />
+    <ClInclude Include="ext\gason\gason.h" />
     <ClInclude Include="ext\jpge\jpgd.h" />
     <ClInclude Include="ext\jpge\jpge.h" />
     <ClInclude Include="ext\libpng17\png.h" />
@@ -220,8 +222,6 @@
     <ClInclude Include="ext\libzip\zipint.h" />
     <ClInclude Include="ext\rg_etc1\rg_etc1.h" />
     <ClInclude Include="ext\sha1\sha1.h" />
-    <ClInclude Include="ext\vjson\block_allocator.h" />
-    <ClInclude Include="ext\vjson\json.h" />
     <ClInclude Include="file\chunk_file.h" />
     <ClInclude Include="file\fd_util.h" />
     <ClInclude Include="file\file_util.h" />
@@ -238,6 +238,8 @@
     <ClInclude Include="gfx_es2\draw_text_android.h" />
     <ClInclude Include="gfx_es2\draw_text_qt.h" />
     <ClInclude Include="gfx_es2\draw_text_win.h" />
+    <ClInclude Include="json\json_reader.h" />
+    <ClInclude Include="net\websocket_server.h" />
     <ClInclude Include="thin3d\d3d11_loader.h" />
     <ClInclude Include="thin3d\DataFormat.h" />
     <ClInclude Include="thin3d\DataFormatGL.h" />
@@ -317,6 +319,7 @@
     </ClCompile>
     <ClCompile Include="base\stringutil.cpp" />
     <ClCompile Include="base\timeutil.cpp" />
+    <ClCompile Include="data\base64.cpp" />
     <ClCompile Include="data\compression.cpp" />
     <ClCompile Include="ext\cityhash\city.cpp">
       <InlineFunctionExpansion Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">AnySuitable</InlineFunctionExpansion>
@@ -340,6 +343,7 @@
       <BasicRuntimeChecks Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">Default</BasicRuntimeChecks>
       <BasicRuntimeChecks Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Default</BasicRuntimeChecks>
     </ClCompile>
+    <ClCompile Include="ext\gason\gason.cpp" />
     <ClCompile Include="ext\jpge\jpgd.cpp" />
     <ClCompile Include="ext\jpge\jpge.cpp" />
     <ClCompile Include="ext\libpng17\png.c" />
@@ -683,8 +687,6 @@
     </ClCompile>
     <ClCompile Include="ext\rg_etc1\rg_etc1.cpp" />
     <ClCompile Include="ext\sha1\sha1.cpp" />
-    <ClCompile Include="ext\vjson\block_allocator.cpp" />
-    <ClCompile Include="ext\vjson\json.cpp" />
     <ClCompile Include="file\chunk_file.cpp" />
     <ClCompile Include="file\fd_util.cpp" />
     <ClCompile Include="file\file_util.cpp" />
@@ -699,7 +701,9 @@
     <ClCompile Include="gfx_es2\draw_text_android.cpp" />
     <ClCompile Include="gfx_es2\draw_text_qt.cpp" />
     <ClCompile Include="gfx_es2\draw_text_win.cpp" />
+    <ClCompile Include="json\json_reader.cpp" />
     <ClCompile Include="math\dataconv.cpp" />
+    <ClCompile Include="net\websocket_server.cpp" />
     <ClCompile Include="thin3d\d3d11_loader.cpp" />
     <ClCompile Include="thin3d\DataFormatGL.cpp" />
     <ClCompile Include="thin3d\GLQueueRunner.cpp" />

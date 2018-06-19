@@ -2,9 +2,9 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     package="org.ppsspp.ppsspp"
     android:installLocation="auto"
-    android:versionCode="16020000"
-    android:versionName="1.6.2.0">
-    <!-- Note that versionCode should be in the format xyzzrrrr -->
+    android:versionCode="16030000"
+    android:versionName="1.6.3.0">
+    <!-- Note that versionCode should be in the format xyzzrrrr. Example: 16030000 -->
 
     <uses-sdk
         android:minSdkVersion="9"

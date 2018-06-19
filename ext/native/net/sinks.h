@@ -21,6 +21,7 @@ public:
 	bool Skip(size_t bytes);
 
 	bool Empty();
+	bool TryFill();
 
 private:
 	void Fill();
@@ -49,7 +50,8 @@ public:
 	bool PushCRLF(const std::string &s);
 	bool Printf(const char *fmt, ...);
 
-	bool Flush();
+	bool Flush(bool allowBlock = true);
+	void Discard();
 
 	bool Empty();
 

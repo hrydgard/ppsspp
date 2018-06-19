@@ -238,9 +238,9 @@ void SaveSlotView::Draw(UIContext &dc) {
 	UI::LinearLayout::Draw(dc);
 }
 
-static void AfterSaveStateAction(bool status, const std::string &message, void *) {
+static void AfterSaveStateAction(SaveState::Status status, const std::string &message, void *) {
 	if (!message.empty()) {
-		osm.Show(message, 2.0);
+		osm.Show(message, status == SaveState::Status::SUCCESS ? 2.0 : 5.0);
 	}
 }
 
@@ -373,7 +373,7 @@ void GamePauseScreen::dialogFinished(const Screen *dialog, DialogResult dr) {
 		ScreenshotViewScreen *s = (ScreenshotViewScreen *)dialog;
 		int slot = s->GetSlot();
 		g_Config.iCurrentStateSlot = slot;
-		SaveState::LoadSlot(gamePath_, slot, SaveState::Callback(), 0);
+		SaveState::LoadSlot(gamePath_, slot, &AfterSaveStateAction);
 
 		finishNextFrame_ = true;
 	} else {

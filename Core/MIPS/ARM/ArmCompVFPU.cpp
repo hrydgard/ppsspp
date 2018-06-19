@@ -226,6 +226,7 @@ namespace MIPSComp
 	void ArmJit::Comp_SV(MIPSOpcode op) {
 		NEON_IF_AVAILABLE(CompNEON_SV);
 		CONDITIONAL_DISABLE;
+		CheckMemoryBreakpoint();
 
 		s32 offset = (signed short)(op & 0xFFFC);
 		int vt = ((op >> 16) & 0x1f) | ((op & 3) << 5);
@@ -332,6 +333,7 @@ namespace MIPSComp
 	{
 		NEON_IF_AVAILABLE(CompNEON_SVQ);
 		CONDITIONAL_DISABLE;
+		CheckMemoryBreakpoint();
 
 		int imm = (signed short)(op&0xFFFC);
 		int vt = (((op >> 16) & 0x1f)) | ((op&1) << 5);

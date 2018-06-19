@@ -1415,6 +1415,7 @@ skip:
 		memset(&info, 0, sizeof(info));
 
 		if (!Memory::IsValidAddress(address)) {
+			info.opcodeAddress = address;
 			return info;
 		}
 

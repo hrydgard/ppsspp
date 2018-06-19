@@ -80,18 +80,9 @@ void main() {
 }
 )";
 
-void ConvertFromRGBA8888_Vulkan(u8 *dst, const u8 *src, u32 dstStride, u32 srcStride, u32 width, u32 height, GEBufferFormat format);
-
 FramebufferManagerVulkan::FramebufferManagerVulkan(Draw::DrawContext *draw, VulkanContext *vulkan) :
 	FramebufferManagerCommon(draw),
-	vulkan_(vulkan),
-	drawPixelsTex_(nullptr),
-	drawPixelsTexFormat_(GE_FORMAT_INVALID),
-	convBuf_(nullptr),
-	convBufSize_(0),
-	textureCacheVulkan_(nullptr),
-	shaderManagerVulkan_(nullptr),
-	pipelinePostShader_(VK_NULL_HANDLE) {
+	vulkan_(vulkan) {
 
 	InitDeviceObjects();
 
@@ -217,7 +208,7 @@ void FramebufferManagerVulkan::MakePixelTexture(const u8 *srcPixels, GEBufferFor
 
 	// TODO: We can just change the texture format and flip some bits around instead of this.
 	// Could share code with the texture cache perhaps.
-	// Could also convert directly into the pushbuffer easily.
+	// TODO: Could also convert directly into the pushbuffer easily.
 	const uint8_t *data = srcPixels;
 	if (srcPixelFormat != GE_FORMAT_8888 || srcStride != width) {
 		u32 neededSize = width * height * 4;
@@ -228,38 +219,25 @@ void FramebufferManagerVulkan::MakePixelTexture(const u8 *srcPixels, GEBufferFor
 		}
 		data = convBuf_;
 		for (int y = 0; y < height; y++) {
+			const u16_le *src16 = (const u16_le *)srcPixels + srcStride * y;
+			const u32_le *src32 = (const u32_le *)srcPixels + srcStride * y;
+			u32 *dst = (u32 *)convBuf_ + width * y;
 			switch (srcPixelFormat) {
 			case GE_FORMAT_565:
-			{
-				const u16 *src = (const u16 *)srcPixels + srcStride * y;
-				u8 *dst = convBuf_ + 4 * width * y;
-				ConvertRGBA565ToRGBA8888((u32 *)dst, src, width);
-			}
-			break;
+				ConvertRGBA565ToRGBA8888((u32 *)dst, src16, width);
+				break;
 
 			case GE_FORMAT_5551:
-			{
-				const u16 *src = (const u16 *)srcPixels + srcStride * y;
-				u8 *dst = convBuf_ + 4 * width * y;
-				ConvertRGBA5551ToRGBA8888((u32 *)dst, src, width);
-			}
-			break;
+				ConvertRGBA5551ToRGBA8888((u32 *)dst, src16, width);
+				break;
 
 			case GE_FORMAT_4444:
-			{
-				const u16 *src = (const u16 *)srcPixels + srcStride * y;
-				u8 *dst = convBuf_ + 4 * width * y;
-				ConvertRGBA4444ToRGBA8888((u32 *)dst, src, width);
-			}
-			break;
+				ConvertRGBA4444ToRGBA8888((u32 *)dst, src16, width);
+				break;
 
 			case GE_FORMAT_8888:
-			{
-				const u8 *src = srcPixels + srcStride * 4 * y;
-				u8 *dst = convBuf_ + 4 * width * y;
-				memcpy(dst, src, 4 * width);
-			}
-			break;
+				memcpy(dst, src32, 4 * width);
+				break;
 
 			case GE_FORMAT_INVALID:
 				_dbg_assert_msg_(G3D, false, "Invalid pixelFormat passed to DrawPixels().");
@@ -535,57 +513,6 @@ void FramebufferManagerVulkan::BlitFramebuffer(VirtualFramebuffer *dst, int dstX
 	}
 }
 
-// TODO: SSE/NEON
-// Could also make C fake-simd for 64-bit, two 8888 pixels fit in a register :)
-void ConvertFromRGBA8888_Vulkan(u8 *dst, const u8 *src, u32 dstStride, u32 srcStride, u32 width, u32 height, GEBufferFormat format) {
-	// Must skip stride in the cases below.  Some games pack data into the cracks, like MotoGP.
-	const u32 *src32 = (const u32 *)src;
-
-	if (format == GE_FORMAT_8888) {
-		u32 *dst32 = (u32 *)dst;
-		if (src == dst) {
-			return;
-		} else {
-			// Here let's assume they don't intersect
-			for (u32 y = 0; y < height; ++y) {
-				memcpy(dst32, src32, width * 4);
-				src32 += srcStride;
-				dst32 += dstStride;
-			}
-		}
-	} else {
-		// But here it shouldn't matter if they do intersect
-		u16 *dst16 = (u16 *)dst;
-		switch (format) {
-		case GE_FORMAT_565: // BGR 565
-			for (u32 y = 0; y < height; ++y) {
-				ConvertRGBA8888ToRGB565(dst16, src32, width);
-				src32 += srcStride;
-				dst16 += dstStride;
-			}
-			break;
-		case GE_FORMAT_5551: // ABGR 1555
-			for (u32 y = 0; y < height; ++y) {
-				ConvertBGRA8888ToRGBA5551(dst16, src32, width);
-				src32 += srcStride;
-				dst16 += dstStride;
-			}
-			break;
-		case GE_FORMAT_4444: // ABGR 4444
-			for (u32 y = 0; y < height; ++y) {
-				ConvertRGBA8888ToRGBA4444(dst16, src32, width);
-				src32 += srcStride;
-				dst16 += dstStride;
-			}
-			break;
-		case GE_FORMAT_8888:
-		case GE_FORMAT_INVALID:
-			// Not possible.
-			break;
-		}
-	}
-}
-
 void FramebufferManagerVulkan::BeginFrameVulkan() {
 	BeginFrame();
 }
@@ -624,8 +551,8 @@ void FramebufferManagerVulkan::DestroyAllFBOs() {
 	}
 	bvfbs_.clear();
 
-	for (auto it = tempFBOs_.begin(), end = tempFBOs_.end(); it != end; ++it) {
-		it->second.fbo->Release();
+	for (auto &tempFB : tempFBOs_) {
+		tempFB.second.fbo->Release();
 	}
 	tempFBOs_.clear();
 

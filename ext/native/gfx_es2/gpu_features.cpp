@@ -54,6 +54,23 @@ bool GLExtensions::VersionGEThan(int major, int minor, int sub) {
 	return gl_extensions.ver[2] >= sub;
 }
 
+int GLExtensions::GLSLVersion() {
+	// Used for shader translation and core contexts (Apple drives fail without an exact match.)
+	if (gl_extensions.VersionGEThan(3, 3)) {
+		return gl_extensions.ver[0] * 100 + gl_extensions.ver[1] * 10;
+	} else if (gl_extensions.VersionGEThan(3, 2)) {
+		return 150;
+	} else if (gl_extensions.VersionGEThan(3, 1)) {
+		return 140;
+	} else if (gl_extensions.VersionGEThan(3, 0)) {
+		return 130;
+	} else if (gl_extensions.VersionGEThan(2, 1)) {
+		return 120;
+	} else {
+		return 110;
+	}
+}
+
 void ProcessGPUFeatures() {
 	gl_extensions.bugs = 0;
 
@@ -99,7 +116,7 @@ void CheckGLExtensions() {
 	gl_extensions.IsCoreContext = useCoreContext;
 
 #ifdef USING_GLES2
-	gl_extensions.IsGLES = true;
+	gl_extensions.IsGLES = !useCoreContext;
 #endif
 
 	const char *renderer = (const char *)glGetString(GL_RENDERER);
@@ -184,6 +201,10 @@ void CheckGLExtensions() {
 		// Most of it could be enabled on lower GPUs as well, but let's start this way.
 		if (gl_extensions.VersionGEThan(4, 3, 0)) {
 			gl_extensions.GLES3 = true;
+#ifdef USING_GLES2
+			// Try to load up the other funcs if we're not using glew.
+			gl3stubInit();
+#endif
 		}
 	} else {
 		// Start by assuming we're at 2.0.
@@ -505,15 +526,7 @@ std::string ApplyGLSLPrelude(const std::string &source, uint32_t stage) {
 	std::string version = "";
 	if (!gl_extensions.IsGLES && gl_extensions.IsCoreContext) {
 		// We need to add a corresponding #version.  Apple drives fail without an exact match.
-		if (gl_extensions.VersionGEThan(3, 3)) {
-			version = StringFromFormat("#version %d%d0\n", gl_extensions.ver[0], gl_extensions.ver[1]);
-		} else if (gl_extensions.VersionGEThan(3, 2)) {
-			version = "#version 150\n";
-		} else if (gl_extensions.VersionGEThan(3, 1)) {
-			version = "#version 140\n";
-		} else {
-			version = "#version 130\n";
-		}
+		version = StringFromFormat("#version %d\n", gl_extensions.GLSLVersion());
 	}
 	if (stage == GL_FRAGMENT_SHADER) {
 		temp = version + glsl_fragment_prelude + source;

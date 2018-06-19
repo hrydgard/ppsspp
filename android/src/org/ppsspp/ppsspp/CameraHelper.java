@@ -8,7 +8,6 @@ import android.graphics.SurfaceTexture;
 import android.graphics.YuvImage;
 import android.hardware.Camera;
 import android.util.Log;
-
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.util.List;
@@ -42,10 +41,10 @@ class CameraHelper {
 
 			// crop to expected size and convert to Jpeg
 			Rect rect = new Rect(
-					(previewWidth-targetW)/2,
-					(previewHeight-targetH)/2,
-					previewWidth-(previewWidth-targetW)/2,
-					previewHeight-(previewHeight-targetH)/2
+				(previewWidth - targetW) / 2,
+				(previewHeight - targetH) / 2,
+				previewWidth - (previewWidth - targetW) / 2,
+				previewHeight - (previewHeight - targetH) / 2
 			);
 			yuvImage.compressToJpeg(rect, 80, baos);
 			NativeApp.pushCameraImage(baos.toByteArray());

@@ -350,11 +350,7 @@ int main(int argc, const char* argv[])
 	g_Config.bAutoSaveSymbolMap = false;
 	g_Config.iRenderingMode = 1;
 	g_Config.bHardwareTransform = true;
-#ifdef USING_GLES2
-	g_Config.iAnisotropyLevel = 0;
-#else
 	g_Config.iAnisotropyLevel = 0;  // When testing mipmapping we really don't want this.
-#endif
 	g_Config.bVertexCache = true;
 	g_Config.bTrueColor = true;
 	g_Config.iLanguage = PSP_SYSTEMPARAM_LANGUAGE_ENGLISH;
@@ -374,6 +370,7 @@ int main(int argc, const char* argv[])
 	g_Config.bBlockTransferGPU = true;
 	g_Config.iSplineBezierQuality = 2;
 	g_Config.bHighQualityDepth = true;
+	g_Config.bMemStickInserted = true;
 
 #ifdef _WIN32
 	InitSysDirectories();

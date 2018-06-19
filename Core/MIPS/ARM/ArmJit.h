@@ -215,6 +215,8 @@ private:
 	void WriteExit(u32 destination, int exit_num);
 	void WriteExitDestInR(ArmGen::ARMReg Reg);
 	void WriteSyscallExit();
+	bool CheckJitBreakpoint(u32 addr, int downcountOffset);
+	bool CheckMemoryBreakpoint(int instructionOffset = 0);
 
 	// Utility compilation functions
 	void BranchFPFlag(MIPSOpcode op, CCFlags cc, bool likely);
@@ -311,8 +313,6 @@ public:
 
 	const u8 *restoreRoundingMode;
 	const u8 *applyRoundingMode;
-
-	const u8 *breakpointBailout;
 };
 
 }	// namespace MIPSComp

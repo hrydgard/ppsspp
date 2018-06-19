@@ -158,12 +158,18 @@ inline int GetMtx(int matrixReg) {
 	return (matrixReg >> 2) & 7;
 }
 
+VectorSize GetVecSizeSafe(MIPSOpcode op);
 VectorSize GetVecSize(MIPSOpcode op);
+MatrixSize GetMtxSizeSafe(MIPSOpcode op);
 MatrixSize GetMtxSize(MIPSOpcode op);
+VectorSize GetHalfVectorSizeSafe(VectorSize sz);
 VectorSize GetHalfVectorSize(VectorSize sz);
+VectorSize GetDoubleVectorSizeSafe(VectorSize sz);
 VectorSize GetDoubleVectorSize(VectorSize sz);
+VectorSize MatrixVectorSizeSafe(MatrixSize sz);
 VectorSize MatrixVectorSize(MatrixSize sz);
 int GetNumVectorElements(VectorSize sz);
+int GetMatrixSideSafe(MatrixSize sz);
 int GetMatrixSide(MatrixSize sz);
 const char *GetVectorNotation(int reg, VectorSize size);
 const char *GetMatrixNotation(int reg, MatrixSize size);

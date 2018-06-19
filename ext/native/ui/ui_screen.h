@@ -237,11 +237,13 @@ private:
 class PopupMultiChoice : public UI::Choice {
 public:
 	PopupMultiChoice(int *value, const std::string &text, const char **choices, int minVal, int numChoices,
-		const char *category, ScreenManager *screenManager, UI::LayoutParams *layoutParams = 0)
+		const char *category, ScreenManager *screenManager, UI::LayoutParams *layoutParams = nullptr)
 		: UI::Choice(text, "", false, layoutParams), value_(value), choices_(choices), minVal_(minVal), numChoices_(numChoices), 
 		category_(category), screenManager_(screenManager) {
-		if (*value >= numChoices+minVal) *value = numChoices+minVal-1;
-		if (*value < minVal) *value = minVal;
+		if (*value >= numChoices + minVal)
+			*value = numChoices + minVal - 1;
+		if (*value < minVal)
+			*value = minVal;
 		OnClick.Handle(this, &PopupMultiChoice::HandleClick);
 		UpdateText();
 	}
@@ -255,16 +257,19 @@ public:
 
 	UI::Event OnChoice;
 
-private:
-	void UpdateText();
-	UI::EventReturn HandleClick(UI::EventParams &e);
-
-	void ChoiceCallback(int num);
-
+protected:
 	int *value_;
 	const char **choices_;
 	int minVal_;
 	int numChoices_;
+	void UpdateText();
+
+private:
+	UI::EventReturn HandleClick(UI::EventParams &e);
+
+	void ChoiceCallback(int num);
+	virtual void PostChoiceCallback(int num) {}
+
 	const char *category_;
 	ScreenManager *screenManager_;
 	std::string valueText_;
@@ -272,6 +277,40 @@ private:
 	std::set<int> hidden_;
 };
 
+// Allows passing in a dynamic vector of strings. Saves the string.
+class PopupMultiChoiceDynamic : public PopupMultiChoice {
+public:
+	PopupMultiChoiceDynamic(std::string *value, const std::string &text, std::vector<std::string> choices,
+		const char *category, ScreenManager *screenManager, UI::LayoutParams *layoutParams = nullptr)
+		: UI::PopupMultiChoice(&valueInt_, text, nullptr, 0, (int)choices.size(), category, screenManager, layoutParams),
+		  valueStr_(value) {
+		choices_ = new const char *[numChoices_];
+		valueInt_ = 0;
+		for (int i = 0; i < numChoices_; i++) {
+			choices_[i] = new char[choices[i].size() + 1];
+			memcpy((char *)choices_[i], choices[i].c_str(), choices[i].size() + 1);
+			if (*value == choices_[i])
+				valueInt_ = i;
+		}
+		value_ = &valueInt_;
+		UpdateText();
+	}
+	~PopupMultiChoiceDynamic() {
+		for (int i = 0; i < numChoices_; i++) {
+			delete[] choices_[i];
+		}
+		delete[] choices_;
+	}
+
+protected:
+	void PostChoiceCallback(int num) {
+		*valueStr_ = choices_[num];
+	}
+
+private:
+	int valueInt_;
+	std::string *valueStr_;
+};
 
 class PopupSliderChoice : public Choice {
 public:

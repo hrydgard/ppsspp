@@ -13,6 +13,7 @@ LOCAL_SRC_FILES :=\
     base/timeutil.cpp \
     base/colorutil.cpp \
     base/stringutil.cpp \
+    data/base64.cpp \
     data/compression.cpp \
     ext/rg_etc1/rg_etc1.cpp \
     ext/cityhash/city.cpp \
@@ -35,8 +36,7 @@ LOCAL_SRC_FILES :=\
     ext/jpge/jpgd.cpp \
     ext/jpge/jpge.cpp \
     ext/sha1/sha1.cpp \
-    ext/vjson/json.cpp \
-    ext/vjson/block_allocator.cpp \
+    ext/gason/gason.cpp \
     file/fd_util.cpp \
     file/chunk_file.cpp \
     file/file_util.cpp \
@@ -44,6 +44,7 @@ LOCAL_SRC_FILES :=\
     file/path.cpp \
     file/ini_file.cpp \
     file/zip_read.cpp \
+    json/json_reader.cpp \
     json/json_writer.cpp \
     i18n/i18n.cpp \
     input/gesture_detector.cpp \
@@ -64,6 +65,7 @@ LOCAL_SRC_FILES :=\
     net/resolve.cpp \
     net/sinks.cpp \
     net/url.cpp \
+    net/websocket_server.cpp \
     profiler/profiler.cpp \
     thread/executor.cpp \
     thread/threadutil.cpp \

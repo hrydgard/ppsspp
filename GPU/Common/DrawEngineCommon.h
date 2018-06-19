@@ -67,12 +67,12 @@ public:
 	// is different. Should probably refactor that.
 	// Note that vertTypeID should be computed using GetVertTypeID().
 	virtual void DispatchSubmitPrim(void *verts, void *inds, GEPrimitiveType prim, int vertexCount, u32 vertTypeID, int *bytesRead) {
-		SubmitPrim(verts, inds, prim, vertexCount, vertTypeID, bytesRead);
+		SubmitPrim(verts, inds, prim, vertexCount, vertTypeID, -1, bytesRead);
 	}
 
 	bool TestBoundingBox(void* control_points, int vertexCount, u32 vertType, int *bytesRead);
 
-	void SubmitPrim(void *verts, void *inds, GEPrimitiveType prim, int vertexCount, u32 vertTypeID, int *bytesRead);
+	void SubmitPrim(void *verts, void *inds, GEPrimitiveType prim, int vertexCount, u32 vertTypeID, int cullMode, int *bytesRead);
 	void SubmitSpline(const void *control_points, const void *indices, int tess_u, int tess_v, int count_u, int count_v, int type_u, int type_v, GEPatchPrimType prim_type, bool computeNormals, bool patchFacing, u32 vertType, int *bytesRead);
 	void SubmitBezier(const void *control_points, const void *indices, int tess_u, int tess_v, int count_u, int count_v, GEPatchPrimType prim_type, bool computeNormals, bool patchFacing, u32 vertType, int *bytesRead);
 
@@ -143,6 +143,7 @@ protected:
 		u16 indexLowerBound;
 		u16 indexUpperBound;
 		UVScale uvScale;
+		int cullMode;
 	};
 
 	enum { MAX_DEFERRED_DRAW_CALLS = 128 };

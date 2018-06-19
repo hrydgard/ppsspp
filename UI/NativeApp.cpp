@@ -84,6 +84,7 @@
 #include "Core/HLE/sceUsbGps.h"
 #include "Core/Util/GameManager.h"
 #include "Core/Util/AudioFormat.h"
+#include "Core/WebServer.h"
 #include "GPU/GPUInterface.h"
 
 #include "ui_atlas.h"
@@ -103,6 +104,9 @@
 
 #if !defined(MOBILE_DEVICE) && defined(USING_QT_UI)
 #include "Qt/QtHost.h"
+#endif
+#if defined(USING_QT_UI)
+#include <QFontDatabase>
 #endif
 
 // The new UI framework, for initialization
@@ -275,7 +279,7 @@ void NativeGetAppInfo(std::string *app_dir_name, std::string *app_nice_name, boo
 #endif
 }
 
-#if defined(_WIN32) && !PPSSPP_PLATFORM(UWP)
+#if defined(USING_WIN_UI) && !PPSSPP_PLATFORM(UWP)
 static bool CheckFontIsUsable(const wchar_t *fontFace) {
 	wchar_t actualFontFace[1024] = { 0 };
 
@@ -341,7 +345,7 @@ void CreateDirectoriesAndroid() {
 	File::CreateEmptyFile(g_Config.memStickDirectory + "PSP/SAVEDATA/.nomedia");
 }
 
-void NativeInit(int argc, const char *argv[], const char *savegame_dir, const char *external_dir, const char *cache_dir, bool fs) {
+void NativeInit(int argc, const char *argv[], const char *savegame_dir, const char *external_dir, const char *cache_dir) {
 	net::Init();  // This needs to happen before we load the config. So on Windows we also run it in Main. It's fine to call multiple times.
 
 	InitFastMath(cpu_info.bNEON);
@@ -359,9 +363,7 @@ void NativeInit(int argc, const char *argv[], const char *savegame_dir, const ch
 #endif
 
 	// We want this to be FIRST.
-#ifdef USING_QT_UI
-	VFSRegister("", new AssetsAssetReader());
-#elif defined(IOS)
+#if defined(IOS)
 	// Packed assets are included in app
 	VFSRegister("", new DirectoryAssetReader(external_dir));
 #endif
@@ -472,6 +474,8 @@ void NativeInit(int argc, const char *argv[], const char *savegame_dir, const ch
 #endif
 				if (!strncmp(argv[i], "--pause-menu-exit", strlen("--pause-menu-exit")))
 					g_Config.bPauseMenuExitsEmulator = true;
+				if (!strcmp(argv[i], "--fullscreen"))
+					g_Config.bFullScreen = true;
 				break;
 			}
 		} else {
@@ -559,7 +563,7 @@ void NativeInit(int argc, const char *argv[], const char *savegame_dir, const ch
 	// Note to translators: do not translate this/add this to PPSSPP-lang's files.
 	// It's intended to be custom for every user.
 	// Only add it to your own personal copies of PPSSPP.
-#if defined(_WIN32) && !PPSSPP_PLATFORM(UWP)
+#if defined(USING_WIN_UI) && !PPSSPP_PLATFORM(UWP)
 	// TODO: Could allow a setting to specify a font file to load?
 	// TODO: Make this a constant if we can sanely load the font on other systems?
 	AddFontResourceEx(L"assets/Roboto-Condensed.ttf", FR_PRIVATE, NULL);
@@ -569,12 +573,28 @@ void NativeInit(int argc, const char *argv[], const char *savegame_dir, const ch
 	} else {
 		g_Config.sFont = des->T("Font", "Roboto");
 	}
+#elif defined(USING_QT_UI)
+	size_t fontSize = 0;
+	uint8_t *fontData = VFSReadFile("Roboto-Condensed.ttf", &fontSize);
+	if (fontData) {
+		int fontID = QFontDatabase::addApplicationFontFromData(QByteArray((const char *)fontData, fontSize));
+		delete [] fontData;
+
+		QStringList fontsFound = QFontDatabase::applicationFontFamilies(fontID);
+		if (fontsFound.size() >= 1) {
+			// Might be "Roboto" or "Roboto Condensed".
+			g_Config.sFont = des->T("Font", fontsFound.at(0).toUtf8().constData());
+		}
+	} else {
+		// Let's try for it being a system font.
+		g_Config.sFont = des->T("Font", "Roboto Condensed");
+	}
 #endif
 
 	if (!boot_filename.empty() && stateToLoad != NULL) {
-		SaveState::Load(stateToLoad, [](bool status, const std::string &message, void *) {
+		SaveState::Load(stateToLoad, [](SaveState::Status status, const std::string &message, void *) {
 			if (!message.empty()) {
-				osm.Show(message, 2.0);
+				osm.Show(message, status == SaveState::Status::SUCCESS ? 2.0 : 5.0);
 			}
 		});
 	}
@@ -586,15 +606,18 @@ void NativeInit(int argc, const char *argv[], const char *savegame_dir, const ch
 		screenManager->switchScreen(new LogoScreen());
 	}
 
-	if (g_Config.bRemoteShareOnStartup) {
-		StartRemoteISOSharing();
-	}
+	if (g_Config.bRemoteShareOnStartup && g_Config.bRemoteDebuggerOnStartup)
+		StartWebServer(WebServerFlags::ALL);
+	else if (g_Config.bRemoteShareOnStartup)
+		StartWebServer(WebServerFlags::DISCS);
+	else if (g_Config.bRemoteDebuggerOnStartup)
+		StartWebServer(WebServerFlags::DEBUGGER);
 
 	std::string sysName = System_GetProperty(SYSPROP_NAME);
 	isOuya = KeyMap::IsOuya(sysName);
 
 #if !defined(MOBILE_DEVICE) && defined(USING_QT_UI)
-	MainWindow* mainWindow = new MainWindow(0,fs);
+	MainWindow *mainWindow = new MainWindow(nullptr, g_Config.bFullScreen);
 	mainWindow->show();
 	if (host == nullptr) {
 		host = new QtHost(mainWindow);
@@ -618,7 +641,7 @@ static UI::Style MakeStyle(uint32_t fg, uint32_t bg) {
 }
 
 static void UIThemeInit() {
-#if defined(_WIN32) && !PPSSPP_PLATFORM(UWP)
+#if (defined(USING_WIN_UI) && !PPSSPP_PLATFORM(UWP)) || defined(USING_QT_UI)
 	ui_theme.uiFont = UI::FontStyle(UBUNTU24, g_Config.sFont.c_str(), 22);
 	ui_theme.uiFontSmall = UI::FontStyle(UBUNTU24, g_Config.sFont.c_str(), 15);
 	ui_theme.uiFontSmaller = UI::FontStyle(UBUNTU24, g_Config.sFont.c_str(), 12);

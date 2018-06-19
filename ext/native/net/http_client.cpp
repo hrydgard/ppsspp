@@ -46,7 +46,7 @@ inline unsigned short myhtons(unsigned short x) {
 	return (x >> 8) | (x << 8);
 }
 
-bool Connection::Resolve(const char *host, int port) {
+bool Connection::Resolve(const char *host, int port, DNSType type) {
 	if ((intptr_t)sock_ != -1) {
 		ELOG("Resolve: Already have a socket");
 		return false;
@@ -63,7 +63,7 @@ bool Connection::Resolve(const char *host, int port) {
 	snprintf(port_str, sizeof(port_str), "%d", port);
 
 	std::string err;
-	if (!net::DNSResolve(host, port_str, &resolved_, err)) {
+	if (!net::DNSResolve(host, port_str, &resolved_, err, type)) {
 		ELOG("Failed to resolve host %s: %s", host, err.c_str());
 		// So that future calls fail.
 		port_ = 0;
@@ -87,10 +87,10 @@ bool Connection::Connect(int maxTries, double timeout, bool *cancelConnect) {
 		FD_ZERO(&fds);
 		for (addrinfo *possible = resolved_; possible != nullptr; possible = possible->ai_next) {
 			// TODO: Could support ipv6 without huge difficulty...
-			if (possible->ai_family != AF_INET)
+			if (possible->ai_family != AF_INET && possible->ai_family != AF_INET6)
 				continue;
 
-			int sock = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
+			int sock = socket(possible->ai_family, SOCK_STREAM, IPPROTO_TCP);
 			if ((intptr_t)sock == -1) {
 				ELOG("Bad socket");
 				continue;

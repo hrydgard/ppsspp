@@ -72,7 +72,8 @@ const CommonCommandTableEntry commonCommandTable[] = {
 	{ GE_CMD_FOGENABLE, FLAG_FLUSHBEFOREONCHANGE, DIRTY_VERTEXSHADER_STATE | DIRTY_FRAGMENTSHADER_STATE},
 	{ GE_CMD_TEXMODE, FLAG_FLUSHBEFOREONCHANGE, DIRTY_TEXTURE_PARAMS | DIRTY_FRAGMENTSHADER_STATE },
 	{ GE_CMD_TEXSHADELS, FLAG_FLUSHBEFOREONCHANGE, DIRTY_VERTEXSHADER_STATE },
-	{ GE_CMD_SHADEMODE, FLAG_FLUSHBEFOREONCHANGE, DIRTY_VERTEXSHADER_STATE | DIRTY_FRAGMENTSHADER_STATE },
+	// Raster state for Direct3D 9, uncommon.
+	{ GE_CMD_SHADEMODE, FLAG_FLUSHBEFOREONCHANGE, DIRTY_VERTEXSHADER_STATE | DIRTY_FRAGMENTSHADER_STATE | DIRTY_RASTER_STATE },
 	{ GE_CMD_TEXFUNC, FLAG_FLUSHBEFOREONCHANGE, DIRTY_FRAGMENTSHADER_STATE },
 	{ GE_CMD_COLORTEST, FLAG_FLUSHBEFOREONCHANGE, DIRTY_FRAGMENTSHADER_STATE },
 	{ GE_CMD_ALPHATESTENABLE, FLAG_FLUSHBEFOREONCHANGE, DIRTY_FRAGMENTSHADER_STATE },
@@ -1530,8 +1531,11 @@ void GPUCommon::Execute_Prim(u32 op, u32 diff) {
 	int bytesRead = 0;
 	UpdateUVScaleOffset();
 
+	// cull mode
+	int cullMode = gstate.isCullEnabled() ? gstate.getCullMode() : -1;
+
 	uint32_t vertTypeID = GetVertTypeID(vertexType, gstate.getUVGenMode());
-	drawEngineCommon_->SubmitPrim(verts, inds, prim, count, vertTypeID, &bytesRead);
+	drawEngineCommon_->SubmitPrim(verts, inds, prim, count, vertTypeID, cullMode, &bytesRead);
 	// After drawing, we advance the vertexAddr (when non indexed) or indexAddr (when indexed).
 	// Some games rely on this, they don't bother reloading VADDR and IADDR.
 	// The VADDR/IADDR registers are NOT updated.
@@ -1577,7 +1581,14 @@ void GPUCommon::Execute_Prim(u32 op, u32 diff) {
 				inds = Memory::GetPointerUnchecked(gstate_c.indexAddr);
 			}
 
-			drawEngineCommon_->SubmitPrim(verts, inds, newPrim, count, vertTypeID, &bytesRead);
+			if (newPrim != GE_PRIM_TRIANGLE_STRIP && cullMode != -1 && cullMode != gstate.getCullMode()) {
+				DEBUG_LOG(G3D, "flush cull mode before prim: %d", newPrim);
+				drawEngineCommon_->DispatchFlush();
+				gstate.cmdmem[GE_CMD_CULL] ^= 1;
+				gstate_c.Dirty(DIRTY_RASTER_STATE);
+			}
+
+			drawEngineCommon_->SubmitPrim(verts, inds, newPrim, count, vertTypeID, cullMode, &bytesRead);
 			AdvanceVerts(vertexType, count, bytesRead);
 			totalVertCount += count;
 			break;
@@ -1604,6 +1615,10 @@ void GPUCommon::Execute_Prim(u32 op, u32 diff) {
 		case GE_CMD_BASE:
 			gstate.cmdmem[GE_CMD_BASE] = data;
 			break;
+		case GE_CMD_CULL:
+			// flip face by indices for GE_PRIM_TRIANGLE_STRIP
+			cullMode = data & 1;
+			break;
 		case GE_CMD_NOP:
 		case GE_CMD_NOP_FF:
 			break;
@@ -1617,6 +1632,14 @@ void GPUCommon::Execute_Prim(u32 op, u32 diff) {
 		case GE_CMD_TEXSCALEV:
 			gstate.cmdmem[GE_CMD_TEXSCALEV] = data;
 			gstate_c.uv.vScale = getFloat24(data);
+			break;
+		case GE_CMD_TEXOFFSETU:
+			gstate.cmdmem[GE_CMD_TEXOFFSETU] = data;
+			gstate_c.uv.uOff = getFloat24(data);
+			break;
+		case GE_CMD_TEXOFFSETV:
+			gstate.cmdmem[GE_CMD_TEXOFFSETV] = data;
+			gstate_c.uv.vOff = getFloat24(data);
 			break;
 		case GE_CMD_TEXLEVEL:
 			// Same Gran Turismo hack from Execute_TexLevel
@@ -1654,6 +1677,12 @@ bail:
 	if (cmdCount > 0) {
 		UpdatePC(currentList->pc, currentList->pc + cmdCount * 4);
 		currentList->pc += cmdCount * 4;
+		// flush back cull mode
+		if (cullMode != -1 && cullMode != gstate.getCullMode()) {
+			drawEngineCommon_->DispatchFlush();
+			gstate.cmdmem[GE_CMD_CULL] ^= 1;
+			gstate_c.Dirty(DIRTY_RASTER_STATE);
+		}
 	}
 
 	gpuStats.vertexGPUCycles += vertexCost_ * totalVertCount;
@@ -2575,10 +2604,8 @@ void GPUCommon::DoBlockTransfer(u32 skipDrawReason) {
 		framebufferManager_->NotifyBlockTransferAfter(dstBasePtr, dstStride, dstX, dstY, srcBasePtr, srcStride, srcX, srcY, width, height, bpp, skipDrawReason);
 	}
 
-#ifndef MOBILE_DEVICE
 	CBreakPoints::ExecMemCheck(srcBasePtr + (srcY * srcStride + srcX) * bpp, false, height * srcStride * bpp, currentMIPS->pc);
 	CBreakPoints::ExecMemCheck(dstBasePtr + (dstY * dstStride + dstX) * bpp, true, height * dstStride * bpp, currentMIPS->pc);
-#endif
 
 	// TODO: Correct timing appears to be 1.9, but erring a bit low since some of our other timing is inaccurate.
 	cyclesExecuted += ((height * width * bpp) * 16) / 10;

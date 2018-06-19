@@ -22,9 +22,9 @@
 
 #include "base/display.h"
 #include "base/NativeApp.h"
-#include "ext/vjson/json.h"
 #include "file/ini_file.h"
 #include "i18n/i18n.h"
+#include "json/json_reader.h"
 #include "gfx_es2/gpu_features.h"
 #include "net/http_client.h"
 #include "util/text/parsers.h"
@@ -380,6 +380,7 @@ static ConfigSetting generalSettings[] = {
 	ConfigSetting("RemoteISOManualConfig", &g_Config.bRemoteISOManual, false),
 	ConfigSetting("RemoteShareOnStartup", &g_Config.bRemoteShareOnStartup, false),
 	ConfigSetting("RemoteISOSubdir", &g_Config.sRemoteISOSubdir, "/"),
+	ConfigSetting("RemoteDebuggerOnStartup", &g_Config.bRemoteDebuggerOnStartup, false),
 
 #ifdef __ANDROID__
 	ConfigSetting("ScreenRotation", &g_Config.iScreenRotation, 1),
@@ -415,6 +416,7 @@ static ConfigSetting cpuSettings[] = {
 	ConfigSetting("FastMemoryAccess", &g_Config.bFastMemory, true, true, true),
 	ReportedConfigSetting("FuncReplacements", &g_Config.bFuncReplacements, true, true, true),
 	ConfigSetting("HideSlowWarnings", &g_Config.bHideSlowWarnings, false, true, false),
+	ConfigSetting("HideStateWarnings", &g_Config.bHideStateWarnings, false, true, true),
 	ConfigSetting("PreloadFunctions", &g_Config.bPreloadFunctions, false, true, true),
 	ReportedConfigSetting("CPUSpeed", &g_Config.iLockedCPUSpeed, 0, true, true),
 
@@ -507,6 +509,10 @@ static ConfigSetting graphicsSettings[] = {
 	ConfigSetting("CardboardYShift", &g_Config.iCardboardXShift, 0, true, true),
 	ConfigSetting("ShowFPSCounter", &g_Config.iShowFPSCounter, 0, true, true),
 	ReportedConfigSetting("GraphicsBackend", &g_Config.iGPUBackend, &DefaultGPUBackend),
+	ConfigSetting("VulkanDevice", &g_Config.sVulkanDevice, "", true, false),
+#ifdef _WIN32
+	ConfigSetting("D3D11Device", &g_Config.sD3D11Device, "", true, false),
+#endif
 	ReportedConfigSetting("RenderingMode", &g_Config.iRenderingMode, &DefaultRenderingMode, true, true),
 	ConfigSetting("SoftwareRenderer", &g_Config.bSoftwareRendering, false, true, true),
 	ReportedConfigSetting("HardwareTransform", &g_Config.bHardwareTransform, true, true, true),
@@ -1177,13 +1183,13 @@ void Config::DownloadCompletedCallback(http::Download &download) {
 	}
 
 	JsonReader reader(data.c_str(), data.size());
-	const json_value *root = reader.root();
+	const JsonGet root = reader.root();
 	if (!root) {
 		ERROR_LOG(LOADER, "Failed to parse json");
 		return;
 	}
 
-	std::string version = root->getString("version", "");
+	std::string version = root.getString("version", "");
 
 	const char *gitVer = PPSSPP_GIT_VERSION;
 	Version installed(gitVer);

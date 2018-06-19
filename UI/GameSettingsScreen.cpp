@@ -52,6 +52,7 @@
 #include "Core/Host.h"
 #include "Core/System.h"
 #include "Core/Reporting.h"
+#include "Core/WebServer.h"
 #include "GPU/Common/PostShader.h"
 #include "android/jni/TestRunner.h"
 #include "GPU/GPUInterface.h"
@@ -103,8 +104,9 @@ bool DoesBackendSupportHWTess() {
 	case GPUBackend::VULKAN:
 	case GPUBackend::DIRECT3D11:
 		return true;
+	default:
+		return false;
 	}
-	return false;
 }
 
 static std::string PostShaderTranslateName(const char *value) {
@@ -202,6 +204,24 @@ void GameSettingsScreen::CreateViews() {
 		renderingBackendChoice->HideChoice(3);
 	}
 #endif
+	Draw::DrawContext *draw = screenManager()->getDrawContext();
+
+	// Backends that don't allow a device choice will only expose one device.
+	if (draw->GetDeviceList().size() > 1) {
+		std::string *deviceNameSetting = nullptr;
+		if (g_Config.iGPUBackend == (int)GPUBackend::VULKAN) {
+			deviceNameSetting = &g_Config.sVulkanDevice;
+		}
+#ifdef _WIN32
+		if (g_Config.iGPUBackend == (int)GPUBackend::DIRECT3D11) {
+			deviceNameSetting = &g_Config.sD3D11Device;
+		}
+#endif
+		if (deviceNameSetting) {
+			PopupMultiChoiceDynamic *deviceChoice = graphicsSettings->Add(new PopupMultiChoiceDynamic(deviceNameSetting, gr->T("Device"), draw->GetDeviceList(), nullptr, screenManager()));
+			deviceChoice->OnChoice.Handle(this, &GameSettingsScreen::OnRenderingBackend);
+		}
+	}
 
 	static const char *renderingMode[] = { "Non-Buffered Rendering", "Buffered Rendering"};
 	PopupMultiChoice *renderingModeChoice = graphicsSettings->Add(new PopupMultiChoice(&g_Config.iRenderingMode, gr->T("Mode"), renderingMode, 0, ARRAY_SIZE(renderingMode), gr->GetName(), screenManager()));
@@ -1252,6 +1272,12 @@ void DeveloperToolsScreen::CreateViews() {
 		createTextureIni->SetEnabled(false);
 	}
 #endif
+
+	allowDebugger_ = !WebServerStopped(WebServerFlags::DEBUGGER);
+	canAllowDebugger_ = !WebServerStopping(WebServerFlags::DEBUGGER);
+	CheckBox *allowDebugger = new CheckBox(&allowDebugger_, dev->T("Allow remote debugger"));
+	list->Add(allowDebugger)->OnClick.Handle(this, &DeveloperToolsScreen::OnRemoteDebugger);
+	allowDebugger->SetEnabledPtr(&canAllowDebugger_);
 }
 
 void DeveloperToolsScreen::onFinish(DialogResult result) {
@@ -1351,6 +1377,23 @@ UI::EventReturn DeveloperToolsScreen::OnLogConfig(UI::EventParams &e) {
 UI::EventReturn DeveloperToolsScreen::OnJitAffectingSetting(UI::EventParams &e) {
 	NativeMessageReceived("clear jit", "");
 	return UI::EVENT_DONE;
+}
+
+UI::EventReturn DeveloperToolsScreen::OnRemoteDebugger(UI::EventParams &e) {
+	if (allowDebugger_) {
+		StartWebServer(WebServerFlags::DEBUGGER);
+	} else {
+		StopWebServer(WebServerFlags::DEBUGGER);
+	}
+	// Persist the setting.  Maybe should separate?
+	g_Config.bRemoteDebuggerOnStartup = allowDebugger_;
+	return UI::EVENT_CONTINUE;
+}
+
+void DeveloperToolsScreen::update() {
+	UIDialogScreenWithBackground::update();
+	allowDebugger_ = !WebServerStopped(WebServerFlags::DEBUGGER);
+	canAllowDebugger_ = !WebServerStopping(WebServerFlags::DEBUGGER);
 }
 
 void ProAdhocServerScreen::CreateViews() {

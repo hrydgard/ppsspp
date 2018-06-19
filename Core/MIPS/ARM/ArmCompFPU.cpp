@@ -93,6 +93,7 @@ extern int logBlocks;
 void ArmJit::Comp_FPULS(MIPSOpcode op)
 {
 	CONDITIONAL_DISABLE;
+	CheckMemoryBreakpoint();
 
 	s32 offset = (s16)(op & 0xFFFF);
 	int ft = _FT;

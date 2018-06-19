@@ -1,21 +1,17 @@
 package org.ppsspp.ppsspp;
 
+import android.app.Activity;
+import android.app.AlertDialog;
+import android.content.DialogInterface;
+import android.os.Environment;
 import java.io.File;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Comparator;
 import java.util.List;
 
-import android.app.Activity;
-import android.app.AlertDialog;
-import android.content.DialogInterface;
-import android.os.Environment;
-
-/**
- * Simple dialog to pick file. 
- */
+/** Simple dialog to pick file. */
 public class SimpleFileChooser {
-
 	public interface FileSelectedListener {
 		void onFileSelected(File file);
 	}
@@ -27,8 +23,7 @@ public class SimpleFileChooser {
 	private String[] mFileList;
 	private File mCurrentPath;
 
-	public SimpleFileChooser(Activity activity, File path,
-			FileSelectedListener listener) {
+	public SimpleFileChooser(Activity activity, File path, FileSelectedListener listener) {
 		this.mActivity = activity;
 		this.mFileListener = listener;
 		if (!path.exists())
@@ -83,8 +78,7 @@ public class SimpleFileChooser {
 				return 1;
 			else
 				// when both are folders or both are files, sort by name
-				return file1.getName().toUpperCase()
-						.compareTo(file2.getName().toUpperCase());
+				return file1.getName().toUpperCase().compareTo(file2.getName().toUpperCase());
 		}
 	};
 
@@ -107,5 +101,4 @@ public class SimpleFileChooser {
 			}
 		}
 	};
-
 }

@@ -34,7 +34,8 @@ extern const char *hleCurrentThreadName;
 // Struct that listeners can output how they want. For example, on Android we don't want to add
 // timestamp or write the level as a string, those already exist.
 struct LogMessage {
-	char header[64];  // timestamp and the other stuff in front...
+	char timestamp[16];
+	char header[64];  // Filename/thread/etc. in front.
 	LogTypes::LOG_LEVELS level;
 	const char *log;
 	std::string msg;  // The actual log message.

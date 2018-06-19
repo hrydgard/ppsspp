@@ -841,6 +841,8 @@ bool TextureCacheGLES::GetCurrentTextureDebug(GPUDebugBuffer &buffer, int level)
 
 	// Apply texture may need to rebuild the texture if we're about to render, or bind a framebuffer.
 	TexCacheEntry *entry = nextTexture_;
+	// We might need a render pass to set the sampling params, unfortunately.  Otherwise BuildTexture may crash.
+	framebufferManagerGL_->RebindFramebuffer();
 	ApplyTexture();
 
 	// TODO: Centralize?

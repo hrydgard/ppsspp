@@ -167,7 +167,7 @@ void DrawEngineVulkan::InitDeviceObjects() {
 
 	vertexCache_ = new VulkanPushBuffer(vulkan_, VERTEX_CACHE_SIZE);
 
-	tessDataTransfer = new TessellationDataTransferVulkan(vulkan_, draw_);
+	tessDataTransfer = new TessellationDataTransferVulkan(vulkan_);
 }
 
 DrawEngineVulkan::~DrawEngineVulkan() {
@@ -570,11 +570,15 @@ void DrawEngineVulkan::DoFlush() {
 		textureCache_->SetTexture();
 		gstate_c.Clean(DIRTY_TEXTURE_IMAGE | DIRTY_TEXTURE_PARAMS);
 		textureNeedsApply = true;
+	} else if (gstate.getTextureAddress(0) == ((gstate.getFrameBufRawAddress() | 0x04000000) & 0x3FFFFFFF)) {
+		// This catches the case of clearing a texture.
+		gstate_c.Dirty(DIRTY_TEXTURE_IMAGE);
 	}
 
 	GEPrimitiveType prim = prevPrim_;
 
-	bool useHWTransform = CanUseHardwareTransform(prim);
+	// Always use software for flat shading to fix the provoking index.
+	bool useHWTransform = CanUseHardwareTransform(prim) && gstate.getShadeMode() != GE_SHADE_FLAT;
 
 	VulkanVertexShader *vshader = nullptr;
 	VulkanFragmentShader *fshader = nullptr;
@@ -860,6 +864,7 @@ void DrawEngineVulkan::DoFlush() {
 		// do not respect scissor rects.
 		params.allowClear = g_Config.iRenderingMode != 0;
 		params.allowSeparateAlphaClear = false;
+		params.provokeFlatFirst = true;
 
 		int maxIndex = indexGen.MaxIndex();
 		SoftwareTransform(
@@ -989,8 +994,8 @@ void DrawEngineVulkan::UpdateUBOs(FrameData *frame) {
 	}
 }
 
-DrawEngineVulkan::TessellationDataTransferVulkan::TessellationDataTransferVulkan(VulkanContext *vulkan, Draw::DrawContext *draw)
-	: TessellationDataTransfer(), vulkan_(vulkan), draw_(draw) {
+DrawEngineVulkan::TessellationDataTransferVulkan::TessellationDataTransferVulkan(VulkanContext *vulkan)
+	: TessellationDataTransfer(), vulkan_(vulkan) {
 }
 
 DrawEngineVulkan::TessellationDataTransferVulkan::~TessellationDataTransferVulkan() {
@@ -1007,7 +1012,7 @@ void DrawEngineVulkan::TessellationDataTransferVulkan::PrepareBuffers(float *&po
 		float color[4];
 	};
 
-	int ssboAlignment = vulkan_->GetPhysicalDeviceProperties().limits.minStorageBufferOffsetAlignment;
+	int ssboAlignment = vulkan_->GetPhysicalDeviceProperties(vulkan_->GetCurrentPhysicalDevice()).limits.minStorageBufferOffsetAlignment;
 	uint8_t *data = (uint8_t *)push_->PushAligned(size * sizeof(TessData), &offset_, &buf_, ssboAlignment);
 	range_ = size * sizeof(TessData);
 

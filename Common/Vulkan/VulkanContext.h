@@ -128,6 +128,7 @@ public:
 	void DestroyInstance();
 
 	int GetBestPhysicalDevice();
+	int GetPhysicalDeviceByName(std::string name);
 	void ChooseDevice(int physical_device);
 	bool EnableDeviceExtension(const char *extension);
 	VkResult CreateDevice();
@@ -173,6 +174,12 @@ public:
 	VkPhysicalDevice GetPhysicalDevice(int n = 0) const {
 		return physical_devices_[n];
 	}
+	int GetCurrentPhysicalDevice() const {
+		return physical_device_;
+	}
+	int GetNumPhysicalDevices() const {
+		return (int)physical_devices_.size();
+	}
 
 	VkQueue GetGraphicsQueue() const {
 		return gfx_queue_;
@@ -182,8 +189,8 @@ public:
 		return graphics_queue_family_index_;
 	}
 
-	const VkPhysicalDeviceProperties &GetPhysicalDeviceProperties() {
-		return gpu_props;
+	const VkPhysicalDeviceProperties &GetPhysicalDeviceProperties(int i) const {
+		return physicalDeviceProperties_[i];
 	}
 
 	VkResult GetInstanceLayerExtensionList(const char *layerName, std::vector<VkExtensionProperties> &extensions);
@@ -281,7 +288,7 @@ private:
 	int physical_device_ = -1;
 
 	uint32_t graphics_queue_family_index_ = -1;
-	VkPhysicalDeviceProperties gpu_props{};
+	std::vector<VkPhysicalDeviceProperties> physicalDeviceProperties_{};
 	std::vector<VkQueueFamilyProperties> queue_props;
 	VkPhysicalDeviceMemoryProperties memory_properties{};
 

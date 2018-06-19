@@ -19,7 +19,7 @@
 
 #include <set>
 #include <vector>
-#include <map>
+#include <unordered_map>
 
 #include "Common/CommonTypes.h"
 #include "Core/MemMap.h"
@@ -86,10 +86,13 @@ struct VirtualFramebuffer {
 	// width/height: The detected size of the current framebuffer.
 	u16 width;
 	u16 height;
-	// renderWidth/renderHeight: The actual size we render at. May be scaled to render at higher resolutions.
+	// renderWidth/renderHeight: The scaled size we render at. May be scaled to render at higher resolutions.
+	// The physical buffer may be larger than renderWidth/renderHeight.
 	u16 renderWidth;
 	u16 renderHeight;
-	// bufferWidth/bufferHeight: The actual (but non scaled) size of the buffer we render to. May only be bigger than width/height.
+	// bufferWidth/bufferHeight: The pre-scaling size of the buffer itself. May only be bigger than width/height.
+	// Actual physical buffer is this size times the render resolution multiplier.
+	// The buffer may be used to render a width or height from 0 to these values without being recreated.
 	u16 bufferWidth;
 	u16 bufferHeight;
 
@@ -412,7 +415,7 @@ protected:
 		int last_frame_used;
 	};
 
-	std::map<u64, TempFBOInfo> tempFBOs_;
+	std::unordered_map<u64, TempFBOInfo> tempFBOs_;
 
 	std::vector<Draw::Framebuffer *> fbosToDelete_;
 
