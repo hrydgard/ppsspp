@@ -32,15 +32,17 @@
 static const char *stencil_fs = R"(#version 450
 #extension GL_ARB_separate_shader_objects : enable
 #extension GL_ARB_shading_language_420pack : enable
+#extension GL_ARB_conservative_depth : enable
+layout (depth_unchanged) out float gl_FragDepth;
 layout (binding = 0) uniform sampler2D tex;
-layout(push_constant) uniform params {
+layout (push_constant) uniform params {
 	int u_stencilValue;
 };
 layout (location = 0) in vec2 v_texcoord0;
 layout (location = 0) out vec4 fragColor0;
 
 void main() {
-	gl_FragDepth = 0.0;
+	gl_FragDepth = gl_FragCoord.z;
 
 	if (u_stencilValue == 0) {
 		fragColor0 = vec4(0.0);

@@ -36,7 +36,9 @@
 static const char *vulkan_glsl_preamble =
 	"#version 450\n"
 	"#extension GL_ARB_separate_shader_objects : enable\n"
-	"#extension GL_ARB_shading_language_420pack : enable\n\n";
+	"#extension GL_ARB_shading_language_420pack : enable\n"
+	"#extension GL_ARB_conservative_depth : enable\n"
+	"#extension GL_ARB_shader_image_load_store : enable\n\n";
 
 #define WRITE p+=sprintf
 
@@ -80,6 +82,13 @@ bool GenerateVulkanGLSLFragmentShader(const FShaderID &id, char *buffer) {
 	bool isModeClear = id.Bit(FS_BIT_CLEARMODE);
 
 	const char *shading = doFlatShading ? "flat" : "";
+	bool earlyFragmentTests = !enableAlphaTest && !enableColorTest && !gstate_c.Supports(GPU_ROUND_FRAGMENT_DEPTH_TO_16BIT);
+
+	if (earlyFragmentTests) {
+		WRITE(p, "layout (early_fragment_tests) in;\n");
+	} else {
+		WRITE(p, "layout (depth_unchanged) out float gl_FragDepth;\n");
+	}
 
 	WRITE(p, "layout (std140, set = 0, binding = 3) uniform baseUBO {\n%s} base;\n", ub_baseStr);
 	if (doTexture) {
@@ -570,6 +579,10 @@ bool GenerateVulkanGLSLFragmentShader(const FShaderID &id, char *buffer) {
 			WRITE(p, "  z = (1.0/65535.0) * floor(z * 65535.0);\n");
 		}
 		WRITE(p, "  gl_FragDepth = z;\n");
+	} else if (!earlyFragmentTests) {
+		// Adreno (and possibly MESA/others) apply early frag tests even with discard in the shader.
+		// Writing depth prevents the bug, even with depth_unchanged specified.
+		WRITE(p, "  gl_FragDepth = gl_FragCoord.z;\n");
 	}
 
 	WRITE(p, "}\n");
