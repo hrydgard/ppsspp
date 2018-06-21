@@ -550,6 +550,27 @@ namespace SaveState
 		return false;
 	}
 
+	bool operator > (const tm &t1, const tm &t2) {
+		if (t1.tm_year > t2.tm_year) return true;
+		if (t1.tm_year < t2.tm_year) return false;
+		if (t1.tm_mon > t2.tm_mon) return true;
+		if (t1.tm_mon < t2.tm_mon) return false;
+		if (t1.tm_mday > t2.tm_mday) return true;
+		if (t1.tm_mday < t2.tm_mday) return false;
+		if (t1.tm_hour > t2.tm_hour) return true;
+		if (t1.tm_hour < t2.tm_hour) return false;
+		if (t1.tm_min > t2.tm_min) return true;
+		if (t1.tm_min < t2.tm_min) return false;
+		if (t1.tm_sec > t2.tm_sec) return true;
+		if (t1.tm_sec < t2.tm_sec) return false;
+		return false;
+	}
+
+	bool operator ! (const tm &t1) {
+		if (t1.tm_year || t1.tm_mon || t1.tm_mday || t1.tm_hour || t1.tm_min || t1.tm_sec) return false;
+		return true;
+	}
+
 	int GetNewestSlot(const std::string &gameFilename) {
 		int newestSlot = -1;
 		tm newestDate = {0};
@@ -565,6 +586,23 @@ namespace SaveState
 			}
 		}
 		return newestSlot;
+	}
+
+	int GetOldestSlot(const std::string &gameFilename) {
+		int oldestSlot = -1;
+		tm oldestDate = {0};
+		for (int i = 0; i < NUM_SLOTS; i++) {
+			std::string fn = GenerateSaveSlotFilename(gameFilename, i, STATE_EXTENSION);
+			if (File::Exists(fn)) {
+				tm time;
+				bool success = File::GetModifTime(fn, time);
+				if (success && (!oldestDate || oldestDate > time)) {
+					oldestDate = time;
+					oldestSlot = i;
+				}
+			}
+		}
+		return oldestSlot;
 	}
 
 	std::string GetSlotDateAsString(const std::string &gameFilename, int slot) {

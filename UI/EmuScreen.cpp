@@ -1337,11 +1337,26 @@ void EmuScreen::renderUI() {
 }
 
 void EmuScreen::autoLoad() {
+	int autoSlot = -1;
+
 	//check if save state has save, if so, load
-	int lastSlot = SaveState::GetNewestSlot(gamePath_);
-	if (g_Config.bEnableAutoLoad && lastSlot != -1) {
-		SaveState::LoadSlot(gamePath_, lastSlot, &AfterSaveStateAction);
-		g_Config.iCurrentStateSlot = lastSlot;
+	switch (g_Config.iAutoLoadSaveState) {
+	case AutoLoadSaveState::OFF: // "AutoLoad Off"
+		return;
+	case AutoLoadSaveState::OLDEST: // "Oldest Save"
+		autoSlot = SaveState::GetOldestSlot(gamePath_);
+		break;
+	case AutoLoadSaveState::NEWEST: // "Newest Save"
+		autoSlot = SaveState::GetNewestSlot(gamePath_);
+		break;
+	default: // try the specific save state slot specified
+		autoSlot = (SaveState::HasSaveInSlot(gamePath_, g_Config.iAutoLoadSaveState - 3)) ? (g_Config.iAutoLoadSaveState - 3) : -1;
+		break;
+	}
+
+	if (g_Config.iAutoLoadSaveState && autoSlot != -1) {
+		SaveState::LoadSlot(gamePath_, autoSlot, &AfterSaveStateAction);
+		g_Config.iCurrentStateSlot = autoSlot;
 	}
 }
 

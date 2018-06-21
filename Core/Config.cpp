@@ -398,7 +398,7 @@ static ConfigSetting generalSettings[] = {
 	ConfigSetting("ForceLagSync", &g_Config.bForceLagSync, false, true, true),
 
 	ReportedConfigSetting("NumWorkerThreads", &g_Config.iNumWorkerThreads, &DefaultNumWorkers, true, true),
-	ConfigSetting("EnableAutoLoad", &g_Config.bEnableAutoLoad, false, true, true),
+	ConfigSetting("AutoLoadSaveState", &g_Config.iAutoLoadSaveState, 0, true, true),
 	ReportedConfigSetting("EnableCheats", &g_Config.bEnableCheats, false, true, true),
 	ConfigSetting("CwCheatRefreshRate", &g_Config.iCwCheatRefreshRate, 77, true, true),
 
