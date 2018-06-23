@@ -544,7 +544,7 @@ public:
 		p.Do(currentMipscallId);
 		p.Do(currentCallbackId);
 
-		// TODO: How do I "version" adding a DoState method to ThreadContext?
+		// TODO: If we want to "version" a DoState method here, we can just use minVer = 0.
 		p.Do(context);
 
 		if (s <= 3)
@@ -1824,6 +1824,8 @@ void ThreadContext::reset()
 	fcr31 = 0x00000e00;
 	hi = 0xDEADBEEF;
 	lo = 0xDEADBEEF;
+	// Just for a clean state.
+	other[5] = 0;
 }
 
 void __KernelResetThread(Thread *t, int lowestPriority)

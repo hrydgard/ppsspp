@@ -46,6 +46,8 @@ public:
 		head_ = 0;
 		tail_ = 0;
 		count_ = 0;
+		// Not entirely necessary, but keeps things clean.
+		memset(storage_, 0, sizeof(T) * N);
 	}
 
 	void push(T t) {

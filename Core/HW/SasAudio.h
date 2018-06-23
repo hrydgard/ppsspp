@@ -111,21 +111,21 @@ public:
 
 private:
 	s16 samples[28];
-	int curSample;
+	int curSample = 0;
 
-	u32 data_;
-	u32 read_;
-	int curBlock_;
-	int loopStartBlock_;
-	int numBlocks_;
+	u32 data_ = 0;
+	u32 read_ = 0;
+	int curBlock_ = -1;
+	int loopStartBlock_ = -1;
+	int numBlocks_ = 0;
 
 	// rolling state. start at 0, should probably reset to 0 on loops?
-	int s_1;
-	int s_2;
+	int s_1 = 0;
+	int s_2 = 0;
 
-	bool loopEnabled_;
-	bool loopAtNextBlock_;
-	bool end_;
+	bool loopEnabled_ = false;
+	bool loopAtNextBlock_ = false;
+	bool end_ = false;
 };
 
 class SasAtrac3 {
