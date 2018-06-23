@@ -176,7 +176,7 @@
 #define ID_DISASM_COPYINSTRUCTIONDISASM  40006
 #define ID_DISASM_COPYINSTRUCTIONHEX     40007
 #define ID_EMULATION_SPEEDLIMIT          40008
-#define ID_TOGGLE_PAUSE                  40009
+#define ID_TOGGLE_BREAK                  40009
 #define ID_EMULATION_STOP                40010
 #define ID_FILE_LOAD                     40011
 #define ID_HELP_ABOUT                    40012
@@ -205,7 +205,7 @@
 #define ID_FILE_QUICKSAVESTATE_HC        40036
 #define ID_FILE_QUICKLOADSTATE_HC        40037
 #define ID_OPTIONS_CONTROLS              40038
-#define ID_DEBUG_RUNONLOAD               40039
+#define ID_DEBUG_BREAKONLOAD             40039
 #define ID_DEBUG_DUMPNEXTFRAME           40040
 #define ID_OPTIONS_VERTEXCACHE           40041
 #define ID_OPTIONS_SHOWFPS               40042
@@ -339,6 +339,7 @@
 #define ID_OPTIONS_WINDOW8X              40174
 #define ID_OPTIONS_WINDOW9X              40175
 #define ID_OPTIONS_WINDOW10X             40176
+#define ID_EMULATION_PAUSE               40177
 
 // Dummy option to let the buffered rendering hotkey cycle through all the options.
 #define ID_OPTIONS_BUFFEREDRENDERINGDUMMY 40500
@@ -351,7 +352,7 @@
 #ifdef APSTUDIO_INVOKED
 #ifndef APSTUDIO_READONLY_SYMBOLS
 #define _APS_NEXT_RESOURCE_VALUE        256
-#define _APS_NEXT_COMMAND_VALUE         40177
+#define _APS_NEXT_COMMAND_VALUE         40178
 #define _APS_NEXT_CONTROL_VALUE         1200
 #define _APS_NEXT_SYMED_VALUE           101
 #endif

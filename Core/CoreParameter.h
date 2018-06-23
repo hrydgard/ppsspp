@@ -56,7 +56,7 @@ struct CoreParameter {
 	std::string mountRoot;  // If non-empty, and fileToStart is an ELF or PBP, mount this as host0: / umd0:.
 	std::string errorString;
 
-	bool startPaused;
+	bool startBreak;
 	bool printfEmuLog;  // writes "emulator:" logging to stdout
 	std::string *collectEmuLog;
 	bool headLess;   // Try to avoid messageboxes etc

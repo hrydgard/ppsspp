@@ -393,10 +393,9 @@ BOOL CDisasm::DlgProc(UINT message, WPARAM wParam, LPARAM lParam)
 		{
 			CtrlDisAsmView *ptr = CtrlDisAsmView::getFrom(GetDlgItem(m_hDlg,IDC_DISASMVIEW));
 			CtrlRegisterList *reglist = CtrlRegisterList::getFrom(GetDlgItem(m_hDlg,IDC_REGLIST));
-			switch(LOWORD(wParam))
-			{
-			case ID_TOGGLE_PAUSE:
-				SendMessage(MainWindow::GetHWND(),WM_COMMAND,ID_TOGGLE_PAUSE,0);
+			switch (LOWORD(wParam)) {
+			case ID_TOGGLE_BREAK:
+				SendMessage(MainWindow::GetHWND(), WM_COMMAND, ID_TOGGLE_BREAK, 0);
 				break;
 				
 			case ID_DEBUG_DISPLAYMEMVIEW:
@@ -842,7 +841,7 @@ void CDisasm::SetDebugMode(bool _bDebug, bool switchPC)
 		
 		if (GetUIState() == UISTATE_INGAME && PSP_IsInited())
 		{
-			SetDlgItemText(m_hDlg, IDC_STOPGO, L"Stop");
+			SetDlgItemText(m_hDlg, IDC_STOPGO, L"Break");
 			EnableWindow(GetDlgItem(hDlg, IDC_STOPGO), TRUE);
 		}
 		else

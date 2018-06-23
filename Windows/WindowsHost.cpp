@@ -244,7 +244,6 @@ void WindowsHost::BootDone() {
 	PostMessage(mainWindow_, WM_USER + 1, 0, 0);
 
 	SetDebugMode(!g_Config.bAutoRun);
-	Core_EnableStepping(!g_Config.bAutoRun);
 }
 
 static std::string SymbolMapFilename(const char *currentFilename, const char* ext) {
