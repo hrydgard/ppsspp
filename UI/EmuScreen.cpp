@@ -224,7 +224,7 @@ void EmuScreen::bootGame(const std::string &filename) {
 	coreParam.fileToStart = filename;
 	coreParam.mountIso = "";
 	coreParam.mountRoot = "";
-	coreParam.startPaused = false;
+	coreParam.startBreak = !g_Config.bAutoRun;
 	coreParam.printfEmuLog = false;
 	coreParam.headLess = false;
 

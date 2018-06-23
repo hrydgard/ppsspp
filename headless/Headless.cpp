@@ -333,7 +333,7 @@ int main(int argc, const char* argv[])
 	coreParameter.enableSound = false;
 	coreParameter.mountIso = mountIso ? mountIso : "";
 	coreParameter.mountRoot = mountRoot ? mountRoot : "";
-	coreParameter.startPaused = false;
+	coreParameter.startBreak = false;
 	coreParameter.printfEmuLog = !autoCompare;
 	coreParameter.headLess = true;
 	coreParameter.renderWidth = 480;
