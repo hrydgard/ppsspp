@@ -841,7 +841,7 @@ void CDisasm::SetDebugMode(bool _bDebug, bool switchPC)
 		
 		if (GetUIState() == UISTATE_INGAME && PSP_IsInited())
 		{
-			SetDlgItemText(m_hDlg, IDC_STOPGO, L"Stop");
+			SetDlgItemText(m_hDlg, IDC_STOPGO, L"Break");
 			EnableWindow(GetDlgItem(hDlg, IDC_STOPGO), TRUE);
 		}
 		else
