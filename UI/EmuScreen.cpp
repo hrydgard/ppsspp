@@ -464,6 +464,9 @@ void EmuScreen::onVKeyDown(int virtualKeyCode) {
 
 	switch (virtualKeyCode) {
 	case VIRTKEY_UNTHROTTLE:
+		if (coreState == CORE_STEPPING) {
+			Core_EnableStepping(false);
+		}
 		PSP_CoreParameter().unthrottle = true;
 		break;
 
