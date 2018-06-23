@@ -225,7 +225,7 @@ void Core_RunLoop(GraphicsContext *ctx) {
 		}
 	}
 
-	while (!coreState && GetUIState() == UISTATE_INGAME) {
+	while ((coreState == CORE_RUNNING || coreState == CORE_STEPPING) && GetUIState() == UISTATE_INGAME) {
 		time_update();
 		UpdateRunLoop();
 		if (!windowHidden && !Core_IsStepping()) {
@@ -264,8 +264,9 @@ void Core_SingleStep() {
 
 static inline bool Core_WaitStepping() {
 	std::unique_lock<std::mutex> guard(m_hStepMutex);
+	// We only wait 16ms so that we can still draw UI or react to events.
 	if (!singleStepPending && coreState == CORE_STEPPING)
-		m_StepCond.wait(guard);
+		m_StepCond.wait_for(guard, std::chrono::milliseconds(16));
 
 	bool result = singleStepPending;
 	singleStepPending = false;
@@ -285,9 +286,13 @@ void Core_ProcessStepping() {
 	GPUStepping::SingleStep();
 
 	// We're not inside jit now, so it's safe to clear the breakpoints.
-	CBreakPoints::ClearTemporaryBreakPoints();
-	host->UpdateDisassembly();
-	host->UpdateMemView();
+	static int lastSteppingCounter = -1;
+	if (lastSteppingCounter != steppingCounter) {
+		CBreakPoints::ClearTemporaryBreakPoints();
+		host->UpdateDisassembly();
+		host->UpdateMemView();
+		lastSteppingCounter = steppingCounter;
+	}
 
 	// Need to check inside the lock to avoid races.
 	bool doStep = Core_WaitStepping();
