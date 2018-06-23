@@ -77,6 +77,8 @@ public:
 	void Touch(const TouchInput &input) override;
 	bool IsDown() override { return *value_; }
 
+	UI::Event OnChange;
+
 private:
 	bool *value_;
 };

@@ -18,6 +18,7 @@
 #include <algorithm>
 #include "Common/Log.h"
 #include "Core/Config.h"
+#include "Core/Core.h"
 #include "Core/System.h"
 #include "Core/HLE/sceCtrl.h"
 #include "UI/GamepadEmu.h"
@@ -124,6 +125,9 @@ void BoolButton::Touch(const TouchInput &input) {
 
 	if (down != lastDown) {
 		*value_ = down;
+		UI::EventParams params{ this };
+		params.a = down;
+		OnChange.Trigger(params);
 	}
 }
 
@@ -580,8 +584,15 @@ UI::ViewGroup *CreatePadLayout(float xres, float yres, bool *pause) {
 	addPSPButton(CTRL_SELECT, rectImage, I_SELECT, g_Config.touchSelectKey);
 
 	BoolButton *unthrottle = addBoolButton(&PSP_CoreParameter().unthrottle, rectImage, I_ARROW, g_Config.touchUnthrottleKey);
-	if (unthrottle)
+	if (unthrottle) {
 		unthrottle->SetAngle(180.0f);
+		unthrottle->OnChange.Add([](UI::EventParams &e) {
+			if (e.a) {
+				Core_EnableStepping(false);
+			}
+			return UI::EVENT_DONE;
+		});
+	}
 
 	FPSLimitButton *speed1 = addFPSLimitButton(FPSLimit::CUSTOM1, rectImage, I_ARROW, g_Config.touchSpeed1Key);
 	if (speed1)
