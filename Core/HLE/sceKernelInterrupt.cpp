@@ -317,6 +317,7 @@ void InterruptState::restore()
 
 void InterruptState::clear()
 {
+	savedCpu.reset();
 }
 
 // http://forums.ps2dev.org/viewtopic.php?t=5687

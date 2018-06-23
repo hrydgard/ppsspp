@@ -300,7 +300,7 @@ CChunkFileReader::Error CChunkFileReader::SaveFile(const std::string &filename, 
 	}
 
 	// Create header
-	SChunkHeader header;
+	SChunkHeader header{};
 	header.Compress = compressed_buffer ? 1 : 0;
 	header.Revision = REVISION_CURRENT;
 	header.ExpectedSize = (u32)write_len;
@@ -308,7 +308,7 @@ CChunkFileReader::Error CChunkFileReader::SaveFile(const std::string &filename, 
 	truncate_cpy(header.GitVersion, gitVersion);
 
 	// Setup the fixed-length title.
-	char titleFixed[128];
+	char titleFixed[128]{};
 	truncate_cpy(titleFixed, title.c_str());
 
 	// Now let's start writing out the file...

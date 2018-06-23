@@ -34,6 +34,7 @@
 #include "Core/Reporting.h"
 #include "Common/ChunkFile.h"
 
+static const int initialHz = 222000000;
 int CPU_HZ = 222000000;
 
 // is this really necessary?
@@ -211,6 +212,7 @@ void Init()
 	lastGlobalTimeUs = 0;
 	hasTsEvents = 0;
 	mhzChangeCallbacks.clear();
+	CPU_HZ = initialHz;
 }
 
 void Shutdown()
