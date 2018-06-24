@@ -358,9 +358,9 @@ int  SavedataParam::DeleteData(SceUtilitySavedataParam* param) {
 	return 0;
 }
 
-bool SavedataParam::Save(SceUtilitySavedataParam* param, const std::string &saveDirName, bool secureMode) {
+int SavedataParam::Save(SceUtilitySavedataParam* param, const std::string &saveDirName, bool secureMode) {
 	if (!param) {
-		return false;
+		return SCE_UTILITY_SAVEDATA_ERROR_SAVE_MS_NOSPACE;
 	}
 
 	std::string dirPath = GetSaveFilePath(param, GetSaveDir(param, saveDirName));
@@ -502,11 +502,8 @@ bool SavedataParam::Save(SceUtilitySavedataParam* param, const std::string &save
 		if (!WritePSPFile(filePath, data_, saveSize))
 		{
 			ERROR_LOG(SCEUTILITY,"Error writing file %s",filePath.c_str());
-			if(cryptedData != 0)
-			{
-				delete[] cryptedData;
-			}
-			return false;
+			delete[] cryptedData;
+			return SCE_UTILITY_SAVEDATA_ERROR_SAVE_MS_NOSPACE;
 		}
 		delete[] cryptedData;
 	}
@@ -538,23 +535,23 @@ bool SavedataParam::Save(SceUtilitySavedataParam* param, const std::string &save
 		WritePSPFile(snd0path, param->snd0FileData.buf, param->snd0FileData.bufSize);
 	}
 
-	return true;
+	return 0;
 }
 
-bool SavedataParam::Load(SceUtilitySavedataParam *param, const std::string &saveDirName, int saveId, bool secureMode)
-{
+int SavedataParam::Load(SceUtilitySavedataParam *param, const std::string &saveDirName, int saveId, bool secureMode) {
 	if (!param) {
-		return false;
+		return SCE_UTILITY_SAVEDATA_ERROR_LOAD_NO_DATA;
 	}
 
 	std::string dirPath = GetSaveFilePath(param, GetSaveDir(param, saveDirName));
 	std::string filePath = dirPath + "/" + GetFileName(param);
 	if (!pspFileSystem.GetFileInfo(filePath).exists) {
-		return false;
+		return SCE_UTILITY_SAVEDATA_ERROR_LOAD_NO_DATA;
 	}
 
-	if(!LoadSaveData(param, saveDirName, dirPath, secureMode)) // Load main savedata
-		return false;
+	int result = LoadSaveData(param, saveDirName, dirPath, secureMode);
+	if (result != 0)
+		return result;
 
 	LoadSFO(param, dirPath);  // Load sfo
 
@@ -572,10 +569,10 @@ bool SavedataParam::Load(SceUtilitySavedataParam *param, const std::string &save
 	// Load SND0.AT3
 	LoadFile(dirPath, SND0_FILENAME, &param->snd0FileData);
 
-	return true;
+	return 0;
 }
 
-bool SavedataParam::LoadSaveData(SceUtilitySavedataParam *param, const std::string &saveDirName, const std::string& dirPath, bool secureMode) {
+int SavedataParam::LoadSaveData(SceUtilitySavedataParam *param, const std::string &saveDirName, const std::string &dirPath, bool secureMode) {
 	if (param->secureVersion != 0) {
 		WARN_LOG_REPORT(SCEUTILITY, "Savedata version requested: %d", param->secureVersion);
 	}
@@ -587,7 +584,7 @@ bool SavedataParam::LoadSaveData(SceUtilitySavedataParam *param, const std::stri
 	int saveSize = -1;
 	if (!ReadPSPFile(filePath, &saveData, saveSize, &readSize)) {
 		ERROR_LOG(SCEUTILITY,"Error reading file %s",filePath.c_str());
-		return false;
+		return SCE_UTILITY_SAVEDATA_ERROR_LOAD_NO_DATA;
 	}
 	saveSize = (int)readSize;
 
@@ -606,7 +603,7 @@ bool SavedataParam::LoadSaveData(SceUtilitySavedataParam *param, const std::stri
 	param->dataSize = (SceSize)saveSize;
 	delete[] saveData;
 
-	return true;
+	return 0;
 }
 
 int SavedataParam::DetermineCryptMode(const SceUtilitySavedataParam *param) const {

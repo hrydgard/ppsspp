@@ -306,8 +306,8 @@ public:
 	std::string GetSaveDir(const SceUtilitySavedataParam *param, const std::string &saveDirName) const;
 	bool Delete(SceUtilitySavedataParam* param, int saveId = -1);
 	int DeleteData(SceUtilitySavedataParam* param);
-	bool Save(SceUtilitySavedataParam* param, const std::string &saveDirName, bool secureMode = true);
-	bool Load(SceUtilitySavedataParam* param, const std::string &saveDirName, int saveId = -1, bool secureMode = true);
+	int Save(SceUtilitySavedataParam* param, const std::string &saveDirName, bool secureMode = true);
+	int Load(SceUtilitySavedataParam* param, const std::string &saveDirName, int saveId = -1, bool secureMode = true);
 	int GetSizes(SceUtilitySavedataParam* param);
 	bool GetList(SceUtilitySavedataParam* param);
 	int GetFilesList(SceUtilitySavedataParam* param);
@@ -354,7 +354,7 @@ private:
 	void SetFileInfo(SaveFileInfo &saveInfo, PSPFileInfo &info, std::string saveName);
 	void ClearFileInfo(SaveFileInfo &saveInfo, const std::string &saveName);
 
-	bool LoadSaveData(SceUtilitySavedataParam *param, const std::string &saveDirName, const std::string& dirPath, bool secureMode);
+	int LoadSaveData(SceUtilitySavedataParam *param, const std::string &saveDirName, const std::string& dirPath, bool secureMode);
 	void LoadCryptedSave(SceUtilitySavedataParam *param, u8 *data, u8 *saveData, int &saveSize, int prevCryptMode, bool &saveDone);
 	void LoadNotCryptedSave(SceUtilitySavedataParam *param, u8 *data, u8 *saveData, int &saveSize);
 	void LoadSFO(SceUtilitySavedataParam *param, const std::string& dirPath);
