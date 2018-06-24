@@ -28,6 +28,7 @@
 #include "Core/MIPS/MIPS.h"
 #include "Core/Host.h"
 #include "Core/Config.h"
+#include "Core/ConfigValues.h"
 #include "Core/Reporting.h"
 #include "Core/System.h"
 
@@ -210,7 +211,7 @@ void GPU_DX9::ReapplyGfxState() {
 void GPU_DX9::BeginFrame() {
 	// Turn off vsync when unthrottled
 	int desiredVSyncInterval = g_Config.bVSync ? 1 : 0;
-	if ((PSP_CoreParameter().unthrottle) || (PSP_CoreParameter().fpsLimit == 1))
+	if (PSP_CoreParameter().unthrottle || PSP_CoreParameter().fpsLimit != FPSLimit::NORMAL)
 		desiredVSyncInterval = 0;
 	if (desiredVSyncInterval != lastVsync_) {
 		dxstate.SetVSyncInterval(desiredVSyncInterval);

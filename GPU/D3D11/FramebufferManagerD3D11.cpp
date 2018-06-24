@@ -31,6 +31,7 @@
 #include "Core/Host.h"
 #include "Core/MemMap.h"
 #include "Core/Config.h"
+#include "Core/ConfigValues.h"
 #include "Core/System.h"
 #include "Core/Reporting.h"
 #include "GPU/ge_constants.h"

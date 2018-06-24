@@ -21,6 +21,7 @@
 #include "Common/ColorConv.h"
 #include "Common/GraphicsContext.h"
 #include "Core/Config.h"
+#include "Core/ConfigValues.h"
 #include "Core/Debugger/Breakpoints.h"
 #include "Core/Host.h"
 #include "Core/MemMap.h"

@@ -36,6 +36,7 @@
 #include "net/resolve.h"
 
 #include "Core/Config.h"
+#include "Core/ConfigValues.h"
 #include "Core/SaveState.h"
 #include "Windows/EmuThread.h"
 #include "Windows/DSoundStream.h"

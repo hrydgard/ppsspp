@@ -516,6 +516,8 @@ EventReturn PopupSliderChoice::HandleClick(EventParams &e) {
 	restoreFocus_ = HasFocus();
 
 	SliderPopupScreen *popupScreen = new SliderPopupScreen(value_, minValue_, maxValue_, ChopTitle(text_), step_, units_);
+	if (!negativeLabel_.empty())
+		popupScreen->SetNegativeDisable(negativeLabel_);
 	popupScreen->OnChange.Handle(this, &PopupSliderChoice::HandleChange);
 	if (e.v)
 		popupScreen->SetPopupOrigin(e.v);
@@ -541,9 +543,12 @@ void PopupSliderChoice::Draw(UIContext &dc) {
 	int paddingX = 12;
 	dc.SetFontStyle(dc.theme->uiFont);
 
-	char temp[32];
+	// Always good to have space for Unicode.
+	char temp[256];
 	if (zeroLabel_.size() && *value_ == 0) {
 		strcpy(temp, zeroLabel_.c_str());
+	} else if (negativeLabel_.size() && *value_ < 0) {
+		strcpy(temp, negativeLabel_.c_str());
 	} else {
 		sprintf(temp, fmt_, *value_);
 	}
@@ -585,7 +590,7 @@ void PopupSliderChoiceFloat::Draw(UIContext &dc) {
 	int paddingX = 12;
 	dc.SetFontStyle(dc.theme->uiFont);
 
-	char temp[32];
+	char temp[256];
 	if (zeroLabel_.size() && *value_ == 0.0f) {
 		strcpy(temp, zeroLabel_.c_str());
 	} else {
@@ -611,6 +616,7 @@ EventReturn SliderPopupScreen::OnDecrease(EventParams &params) {
 	sprintf(temp, "%d", sliderValue_);
 	edit_->SetText(temp);
 	changing_ = false;
+	disabled_ = false;
 	return EVENT_DONE;
 }
 
@@ -625,6 +631,7 @@ EventReturn SliderPopupScreen::OnIncrease(EventParams &params) {
 	sprintf(temp, "%d", sliderValue_);
 	edit_->SetText(temp);
 	changing_ = false;
+	disabled_ = false;
 	return EVENT_DONE;
 }
 
@@ -634,12 +641,14 @@ EventReturn SliderPopupScreen::OnSliderChange(EventParams &params) {
 	sprintf(temp, "%d", sliderValue_);
 	edit_->SetText(temp);
 	changing_ = false;
+	disabled_ = false;
 	return EVENT_DONE;
 }
 
 EventReturn SliderPopupScreen::OnTextChange(EventParams &params) {
 	if (!changing_) {
 		sliderValue_ = atoi(edit_->GetText().c_str());
+		disabled_ = false;
 		slider_->Clamp();
 	}
 	return EVENT_DONE;
@@ -650,6 +659,8 @@ void SliderPopupScreen::CreatePopupContents(UI::ViewGroup *parent) {
 	UIContext &dc = *screenManager()->getUIContext();
 
 	sliderValue_ = *value_;
+	if (disabled_ && sliderValue_ < 0)
+		sliderValue_ = 0;
 	LinearLayout *vert = parent->Add(new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(UI::Margins(10, 10))));
 	slider_ = new Slider(&sliderValue_, minValue_, maxValue_, new LinearLayoutParams(UI::Margins(10, 10)));
 	slider_->OnChange.Handle(this, &SliderPopupScreen::OnSliderChange);
@@ -671,6 +682,9 @@ void SliderPopupScreen::CreatePopupContents(UI::ViewGroup *parent) {
 
 	if (!units_.empty())
 		lin->Add(new TextView(units_, new LinearLayoutParams(10.0f)))->SetTextColor(dc.theme->popupStyle.fgColor);
+
+	if (!negativeLabel_.empty())
+		vert->Add(new CheckBox(&disabled_, negativeLabel_));
 
 	if (IsFocusMovementEnabled())
 		UI::SetFocusedView(slider_);
@@ -754,7 +768,7 @@ EventReturn SliderFloatPopupScreen::OnTextChange(EventParams &params) {
 
 void SliderPopupScreen::OnCompleted(DialogResult result) {
 	if (result == DR_OK) {
-		*value_ = sliderValue_;
+		*value_ = disabled_ ? -1 : sliderValue_;
 		EventParams e{};
 		e.v = nullptr;
 		e.a = *value_;

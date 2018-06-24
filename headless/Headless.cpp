@@ -11,12 +11,14 @@
 #include "Common/FileUtil.h"
 #include "Common/GraphicsContext.h"
 #include "Core/Config.h"
+#include "Core/ConfigValues.h"
 #include "Core/Core.h"
 #include "Core/CoreTiming.h"
 #include "Core/System.h"
 #include "Core/HLE/sceUtility.h"
 #include "Core/Host.h"
 #include "Core/SaveState.h"
+#include "GPU/Common/FramebufferCommon.h"
 #include "Log.h"
 #include "LogManager.h"
 #include "base/NativeApp.h"
@@ -348,7 +350,7 @@ int main(int argc, const char* argv[])
 	// Never report from tests.
 	g_Config.sReportHost = "";
 	g_Config.bAutoSaveSymbolMap = false;
-	g_Config.iRenderingMode = 1;
+	g_Config.iRenderingMode = FB_BUFFERED_MODE;
 	g_Config.bHardwareTransform = true;
 	g_Config.iAnisotropyLevel = 0;  // When testing mipmapping we really don't want this.
 	g_Config.bVertexCache = true;

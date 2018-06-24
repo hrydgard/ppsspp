@@ -28,6 +28,7 @@
 #include "Common/ColorConv.h"
 #include "Common/Common.h"
 #include "Core/Config.h"
+#include "Core/ConfigValues.h"
 #include "Core/CoreParameter.h"
 #include "Core/Host.h"
 #include "Core/Reporting.h"
@@ -47,11 +48,11 @@ void CenterDisplayOutputRect(float *x, float *y, float *w, float *h, float origW
 
 	bool rotated = rotation == ROTATION_LOCKED_VERTICAL || rotation == ROTATION_LOCKED_VERTICAL180;
 
-	if (g_Config.iSmallDisplayZoomType == 0) { // Stretching
+	if (g_Config.iSmallDisplayZoomType == (int)SmallDisplayZoom::STRETCH) {
 		outW = frameW;
 		outH = frameH;
 	} else {
-		if (g_Config.iSmallDisplayZoomType == 3) { // Manual Scaling
+		if (g_Config.iSmallDisplayZoomType == (int)SmallDisplayZoom::MANUAL) {
 			float offsetX = (g_Config.fSmallDisplayOffsetX - 0.5f) * 2.0f * frameW;
 			float offsetY = (g_Config.fSmallDisplayOffsetY - 0.5f) * 2.0f * frameH;
 			// Have to invert Y for GL
@@ -74,7 +75,7 @@ void CenterDisplayOutputRect(float *x, float *y, float *w, float *h, float origW
 				*h = floorf(smallDisplayW);
 				return;
 			}
-		} else if (g_Config.iSmallDisplayZoomType == 2) { // Auto Scaling
+		} else if (g_Config.iSmallDisplayZoomType == (int)SmallDisplayZoom::AUTO) {
 			// Stretch to 1080 for 272*4.  But don't distort if not widescreen (i.e. ultrawide of halfwide.)
 			float pixelCrop = frameH / 270.0f;
 			float resCommonWidescreen = pixelCrop - floor(pixelCrop);
@@ -95,13 +96,13 @@ void CenterDisplayOutputRect(float *x, float *y, float *w, float *h, float origW
 			outW = frameW;
 			outH = frameW / origRatio;
 			// Stretch a little bit
-			if (!rotated && g_Config.iSmallDisplayZoomType == 1) // Partial Stretch
+			if (!rotated && g_Config.iSmallDisplayZoomType == (int)SmallDisplayZoom::PARTIAL_STRETCH)
 				outH = (frameH + outH) / 2.0f; // (408 + 720) / 2 = 564
 		} else {
 			// Image is taller than frame. Center horizontally.
 			outW = frameH * origRatio;
 			outH = frameH;
-			if (rotated && g_Config.iSmallDisplayZoomType == 1) // Partial Stretch
+			if (rotated && g_Config.iSmallDisplayZoomType == (int)SmallDisplayZoom::PARTIAL_STRETCH)
 				outW = (frameH + outH) / 2.0f; // (408 + 720) / 2 = 564
 		}
 	}

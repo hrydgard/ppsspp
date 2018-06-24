@@ -20,6 +20,7 @@
 #include "GPU/Common/PostShader.h"
 #include "GPU/GLES/FramebufferManagerGLES.h"
 #include "Core/Config.h"
+#include "Core/ConfigValues.h"
 #include "Core/FileSystems/MetaFileSystem.h"
 #include "UI/OnScreenDisplay.h"
 #include "Windows/MainWindowMenu.h"
@@ -514,10 +515,6 @@ namespace MainWindow {
 		}
 
 		NativeMessageReceived("gpu_resized", "");
-	}
-
-	static void setFpsLimit(int fps) {
-		g_Config.iFpsLimit = fps;
 	}
 
 	static void setFrameSkipping(int framesToSkip = -1) {
@@ -1066,7 +1063,7 @@ namespace MainWindow {
 		CHECKITEM(ID_OPTIONS_VERTEXCACHE, g_Config.bVertexCache);
 		CHECKITEM(ID_OPTIONS_SHOWFPS, g_Config.iShowFPSCounter);
 		CHECKITEM(ID_OPTIONS_FRAMESKIP_AUTO, g_Config.bAutoFrameSkip);
-		CHECKITEM(ID_OPTIONS_FRAMESKIP, g_Config.iFrameSkip != 0);
+		CHECKITEM(ID_OPTIONS_FRAMESKIP, g_Config.iFrameSkip != FRAMESKIP_OFF);
 		CHECKITEM(ID_OPTIONS_VSYNC, g_Config.bVSync);
 		CHECKITEM(ID_OPTIONS_TOPMOST, g_Config.bTopMost);
 		CHECKITEM(ID_OPTIONS_PAUSE_FOCUS, g_Config.bPauseOnLostFocus);

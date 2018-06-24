@@ -38,6 +38,7 @@ QTM_USE_NAMESPACE
 #include "Common/GraphicsContext.h"
 #include "Core/Core.h"
 #include "Core/Config.h"
+#include "Core/ConfigValues.h"
 #include "Core/System.h"
 #include "thin3d/thin3d_create.h"
 #include "thin3d/GLRenderManager.h"

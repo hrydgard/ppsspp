@@ -18,6 +18,7 @@
 #include "base/timeutil.h"
 #include "Common/Common.h"
 #include "Core/Config.h"
+#include "Core/ConfigValues.h"
 #include "GPU/Common/VertexDecoderCommon.h"
 #include "GPU/ge_constants.h"
 #include "GPU/GPUState.h"

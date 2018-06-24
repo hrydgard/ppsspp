@@ -42,6 +42,7 @@
 #include "Common/StringUtils.h"
 #include "Core/Core.h"
 #include "Core/Config.h"
+#include "Core/ConfigValues.h"
 #include "Core/CoreParameter.h"
 #include "Core/System.h"
 #include "Core/Debugger/SymbolMap.h"

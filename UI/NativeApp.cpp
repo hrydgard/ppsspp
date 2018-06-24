@@ -71,6 +71,7 @@
 #include "Common/MemArena.h"
 #include "Common/GraphicsContext.h"
 #include "Core/Config.h"
+#include "Core/ConfigValues.h"
 #include "Core/Core.h"
 #include "Core/FileLoaders/DiskCachingFileLoader.h"
 #include "Core/Host.h"

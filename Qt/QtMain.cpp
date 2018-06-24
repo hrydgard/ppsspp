@@ -31,6 +31,8 @@
 #include "gfx_es2/gpu_features.h"
 #include "math/math_util.h"
 #include "thread/threadutil.h"
+#include "Core/Config.h"
+#include "Core/ConfigValues.h"
 
 #include <string.h>
 

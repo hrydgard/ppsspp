@@ -43,6 +43,7 @@
 #include "AndroidJavaGLContext.h"
 
 #include "Core/Config.h"
+#include "Core/ConfigValues.h"
 #include "Core/Loaders.h"
 #include "Core/System.h"
 #include "Common/CPUDetect.h"

@@ -19,6 +19,7 @@
 
 #include "base/timeutil.h"
 #include "base/NativeApp.h"
+#include "Core/ConfigValues.h"
 #include "Core/MIPS/JitCommon/JitCommon.h"
 #include "Core/MIPS/JitCommon/JitBlockCache.h"
 #include "Core/MIPS/MIPSCodeUtils.h"

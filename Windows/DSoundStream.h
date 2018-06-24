@@ -2,6 +2,7 @@
 
 #include "Common/CommonWindows.h"
 #include "Core/Config.h"
+#include "Core/ConfigValues.h"
 
 typedef int (*StreamCallback)(short *buffer, int numSamples, int bits, int rate, int channels);
 

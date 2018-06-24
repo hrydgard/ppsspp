@@ -24,6 +24,7 @@
 #include "Common/CPUDetect.h"
 #include "Common/ColorConv.h"
 #include "Core/Config.h"
+#include "Core/ConfigValues.h"
 #include "Core/MemMap.h"
 #include "Core/HDRemaster.h"
 #include "Core/Reporting.h"

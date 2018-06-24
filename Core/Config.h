@@ -25,58 +25,20 @@
 
 extern const char *PPSSPP_GIT_VERSION;
 
-const int PSP_MODEL_FAT = 0;
-const int PSP_MODEL_SLIM = 1;
-const int PSP_DEFAULT_FIRMWARE = 660;
-static const s8 VOLUME_OFF = 0;
-static const s8 VOLUME_MAX = 10;
-
-enum class CPUCore {
-	INTERPRETER = 0,
-	JIT = 1,
-	IR_JIT = 2,
-};
-
-enum {
-	ROTATION_AUTO = 0,
-	ROTATION_LOCKED_HORIZONTAL = 1,
-	ROTATION_LOCKED_VERTICAL = 2,
-	ROTATION_LOCKED_HORIZONTAL180 = 3,
-	ROTATION_LOCKED_VERTICAL180 = 4,
-};
-
-enum BufferFilter {
-	SCALE_LINEAR = 1,
-	SCALE_NEAREST = 2,
-};
-
-// Software is not among these because it will have one of these perform the blit to display.
-enum class GPUBackend {
-	OPENGL = 0,
-	DIRECT3D9 = 1,
-	DIRECT3D11 = 2,
-	VULKAN = 3,
-};
-
-enum AudioBackendType {
-	AUDIO_BACKEND_AUTO,
-	AUDIO_BACKEND_DSOUND,
-	AUDIO_BACKEND_WASAPI,
-};
-
-// For iIOTimingMethod.
-enum IOTimingMethods {
-	IOTIMING_FAST = 0,
-	IOTIMING_HOST = 1,
-	IOTIMING_REALISTIC = 2,
-};
-
 namespace http {
 	class Download;
 	class Downloader;
 }
 
 struct UrlEncoder;
+
+struct ConfigTouchPos {
+	float x;
+	float y;
+	float scale;
+	// Note: Show is not used for all settings.
+	bool show;
+};
 
 struct Config {
 public:
@@ -203,10 +165,11 @@ public:
 	bool bTrueColor;
 	bool bReplaceTextures;
 	bool bSaveNewTextures;
-	int iTexScalingLevel; // 1 = off, 2 = 2x, ..., 5 = 5x
+	int iTexScalingLevel; // 0 = auto, 1 = off, 2 = 2x, ..., 5 = 5x
 	int iTexScalingType; // 0 = xBRZ, 1 = Hybrid
 	bool bTexDeposterize;
-	int iFpsLimit;
+	int iFpsLimit1;
+	int iFpsLimit2;
 	int iForceMaxEmulatedFPS;
 	int iMaxRecent;
 	int iCurrentStateSlot;
@@ -312,46 +275,27 @@ public:
 
 	//space between PSP buttons
 	//the PSP button's center (triangle, circle, square, cross)
-	float fActionButtonCenterX, fActionButtonCenterY;
-	float fActionButtonScale;
+	ConfigTouchPos touchActionButtonCenter;
 	float fActionButtonSpacing;
 	//radius of the D-pad (PSP cross)
 	// int iDpadRadius;
 	//the D-pad (PSP cross) position
-	float fDpadX, fDpadY;
-	float fDpadScale;
+	ConfigTouchPos touchDpad;
 	float fDpadSpacing;
-	//the start key position
-	float fStartKeyX, fStartKeyY;
-	float fStartKeyScale;
-	//the select key position;
-	float fSelectKeyX, fSelectKeyY;
-	float fSelectKeyScale;
+	ConfigTouchPos touchStartKey;
+	ConfigTouchPos touchSelectKey;
+	ConfigTouchPos touchUnthrottleKey;
+	ConfigTouchPos touchLKey;
+	ConfigTouchPos touchRKey;
+	ConfigTouchPos touchAnalogStick;
 
-	float fUnthrottleKeyX, fUnthrottleKeyY;
-	float fUnthrottleKeyScale;
-
-	float fLKeyX, fLKeyY;
-	float fLKeyScale;
-
-	float fRKeyX, fRKeyY;
-	float fRKeyScale;
-
-	//position of the analog stick
-	float fAnalogStickX, fAnalogStickY;
-	float fAnalogStickScale;
-
-	//the Combo Button position
-	float fcombo0X, fcombo0Y;
-	float fcomboScale0;
-	float fcombo1X, fcombo1Y;
-	float fcomboScale1;
-	float fcombo2X, fcombo2Y;
-	float fcomboScale2;
-	float fcombo3X, fcombo3Y;
-	float fcomboScale3;
-	float fcombo4X, fcombo4Y;
-	float fcomboScale4;
+	ConfigTouchPos touchCombo0;
+	ConfigTouchPos touchCombo1;
+	ConfigTouchPos touchCombo2;
+	ConfigTouchPos touchCombo3;
+	ConfigTouchPos touchCombo4;
+	ConfigTouchPos touchSpeed1Key;
+	ConfigTouchPos touchSpeed2Key;
 
 	// Controls Visibility
 	bool bShowTouchControls;
@@ -360,23 +304,6 @@ public:
 	bool bShowTouchCross;
 	bool bShowTouchTriangle;
 	bool bShowTouchSquare;
-
-	bool bShowTouchStart;
-	bool bShowTouchSelect;
-	bool bShowTouchUnthrottle;
-
-	bool bShowTouchLTrigger;
-	bool bShowTouchRTrigger;
-
-	bool bShowTouchAnalogStick;
-	bool bShowTouchDpad;
-
-	//Combo Button Visibility
-	bool bShowComboKey0;
-	bool bShowComboKey1;
-	bool bShowComboKey2;
-	bool bShowComboKey3;
-	bool bShowComboKey4;
 
 	// Combo_key mapping. These are bitfields.
 	int iCombokey0;
@@ -510,9 +437,7 @@ public:
 
 	void GetReportingInfo(UrlEncoder &data);
 
-	bool IsPortrait() const {
-		return (iInternalScreenRotation == ROTATION_LOCKED_VERTICAL || iInternalScreenRotation == ROTATION_LOCKED_VERTICAL180) && iRenderingMode != 0;
-	}
+	bool IsPortrait() const;
 
 protected:
 	void LoadStandardControllerIni();

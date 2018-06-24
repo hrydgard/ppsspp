@@ -49,6 +49,7 @@
 #include "Common/FileUtil.h"
 #include "Common/OSVersion.h"
 #include "Core/Config.h"
+#include "Core/ConfigValues.h"
 #include "Core/Host.h"
 #include "Core/System.h"
 #include "Core/Reporting.h"
@@ -126,7 +127,8 @@ void GameSettingsScreen::CreateViews() {
 
 	cap60FPS_ = g_Config.iForceMaxEmulatedFPS == 60;
 
-	iAlternateSpeedPercent_ = (g_Config.iFpsLimit * 100) / 60;
+	iAlternateSpeedPercent1_ = g_Config.iFpsLimit1 < 0 ? -1 : (g_Config.iFpsLimit1 * 100) / 60;
+	iAlternateSpeedPercent2_ = g_Config.iFpsLimit2 < 0 ? -1 : (g_Config.iFpsLimit2 * 100) / 60;
 
 	bool vertical = UseVerticalLayout();
 
@@ -270,9 +272,15 @@ void GameSettingsScreen::CreateViews() {
 	frameSkipAuto_->OnClick.Handle(this, &GameSettingsScreen::OnAutoFrameskip);
 	graphicsSettings->Add(new CheckBox(&cap60FPS_, gr->T("Force max 60 FPS (helps GoW)")));
 
-	PopupSliderChoice *altSpeed = graphicsSettings->Add(new PopupSliderChoice(&iAlternateSpeedPercent_, 0, 1000, gr->T("Alternative Speed", "Alternative speed"), 5, screenManager(), gr->T("%, 0:unlimited")));
-	altSpeed->SetFormat("%i%%");
-	altSpeed->SetZeroLabel(gr->T("Unlimited"));
+	PopupSliderChoice *altSpeed1 = graphicsSettings->Add(new PopupSliderChoice(&iAlternateSpeedPercent1_, 0, 1000, gr->T("Alternative Speed", "Alternative speed"), 5, screenManager(), gr->T("%, 0:unlimited")));
+	altSpeed1->SetFormat("%i%%");
+	altSpeed1->SetZeroLabel(gr->T("Unlimited"));
+	altSpeed1->SetNegativeDisable(gr->T("Disabled"));
+
+	PopupSliderChoice *altSpeed2 = graphicsSettings->Add(new PopupSliderChoice(&iAlternateSpeedPercent2_, 0, 1000, gr->T("Alternative Speed 2", "Alternative speed 2 (in %, 0 = unlimited)"), 5, screenManager(), gr->T("%, 0:unlimited")));
+	altSpeed2->SetFormat("%i%%");
+	altSpeed2->SetZeroLabel(gr->T("Unlimited"));
+	altSpeed2->SetNegativeDisable(gr->T("Disabled"));
 
 	graphicsSettings->Add(new ItemHeader(gr->T("Features")));
 	// Hide postprocess option on unsupported backends to avoid confusion.
@@ -1032,7 +1040,8 @@ void GameSettingsScreen::update() {
 	UIScreen::update();
 	g_Config.iForceMaxEmulatedFPS = cap60FPS_ ? 60 : 0;
 
-	g_Config.iFpsLimit = (iAlternateSpeedPercent_ * 60) / 100;
+	g_Config.iFpsLimit1 = iAlternateSpeedPercent1_ < 0 ? -1 : (iAlternateSpeedPercent1_ * 60) / 100;
+	g_Config.iFpsLimit2 = iAlternateSpeedPercent2_ < 0 ? -1 : (iAlternateSpeedPercent2_ * 60) / 100;
 
 	bool vertical = UseVerticalLayout();
 	if (vertical != lastVertical_) {

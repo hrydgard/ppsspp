@@ -26,6 +26,7 @@
 #include "GL/gl.h"
 #include "GL/wglew.h"
 #include "Core/Config.h"
+#include "Core/ConfigValues.h"
 #include "Core/Core.h"
 #include "util/text/utf8.h"
 #include "i18n/i18n.h"

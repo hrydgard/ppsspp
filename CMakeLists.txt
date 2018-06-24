@@ -1381,6 +1381,7 @@ add_library(${CoreLibName} ${CoreLinkType}
 	${CoreExtra}
 	Core/Config.cpp
 	Core/Config.h
+	Core/ConfigValues.h
 	Core/Core.cpp
 	Core/Core.h
 	Core/Compatibility.cpp

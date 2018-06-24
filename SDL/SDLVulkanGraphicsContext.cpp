@@ -1,4 +1,5 @@
 #include "Core/Config.h"
+#include "Core/ConfigValues.h"
 #include "base/NativeApp.h"
 #include "base/display.h"
 #include "thin3d/thin3d.h"

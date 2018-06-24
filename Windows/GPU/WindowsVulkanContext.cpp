@@ -51,6 +51,7 @@
 #include <sstream>
 
 #include "Core/Config.h"
+#include "Core/ConfigValues.h"
 #include "Core/System.h"
 #include "Common/Vulkan/VulkanLoader.h"
 #include "Common/Vulkan/VulkanContext.h"

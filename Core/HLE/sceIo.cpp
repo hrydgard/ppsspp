@@ -24,6 +24,7 @@
 
 #include "Core/Core.h"
 #include "Core/Config.h"
+#include "Core/ConfigValues.h"
 #include "Core/Debugger/Breakpoints.h"
 #include "Core/ELF/ParamSFO.h"
 #include "Core/MemMapHelpers.h"
