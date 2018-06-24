@@ -102,7 +102,6 @@ const char *GetFn(const char *fn);
 #define ELOG(...) XLOG_IMPL("E", __VA_ARGS__)
 #define FLOG(...) do {XLOG_IMPL("F", __VA_ARGS__); Crash();} while (false)
 
-// TODO: Win32 version using OutputDebugString
 #else
 
 #include <stdio.h>

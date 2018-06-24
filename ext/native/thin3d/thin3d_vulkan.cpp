@@ -661,7 +661,7 @@ public:
 		s.mipmapMode = desc.mipFilter == TextureFilter::LINEAR ? VK_SAMPLER_MIPMAP_MODE_LINEAR : VK_SAMPLER_MIPMAP_MODE_NEAREST;
 		s.maxLod = desc.maxLod;
 		VkResult res = vkCreateSampler(vulkan_->GetDevice(), &s, nullptr, &sampler_);
-		assert(VK_SUCCESS == res);
+		_assert_(VK_SUCCESS == res);
 	}
 	~VKSamplerState() {
 		vulkan_->Delete().QueueDeleteSampler(sampler_);
@@ -707,7 +707,6 @@ bool VKTexture::Create(VkCommandBuffer cmd, VulkanPushBuffer *push, const Textur
 	vkTex_ = new VulkanTexture(vulkan_, alloc);
 	vkTex_->SetTag(desc.tag);
 	VkFormat vulkanFormat = DataFormatToVulkan(format_);
-	int stride = desc.width * (int)DataFormatSizeInBytes(format_);
 	int bpp = GetBpp(vulkanFormat);
 	int bytesPerPixel = bpp / 8;
 	int usageBits = VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
@@ -789,7 +788,7 @@ VKContext::VKContext(VulkanContext *vulkan, bool splitSubmit)
 	for (int i = 0; i < VulkanContext::MAX_INFLIGHT_FRAMES; i++) {
 		frame_[i].pushBuffer = new VulkanPushBuffer(vulkan_, 1024 * 1024);
 		VkResult res = vkCreateDescriptorPool(device_, &dp, nullptr, &frame_[i].descriptorPool);
-		assert(res == VK_SUCCESS);
+		_assert_(res == VK_SUCCESS);
 	}
 
 	// binding 0 - uniform data
@@ -863,7 +862,7 @@ void VKContext::BeginFrame() {
 
 	frame.descSets_.clear();
 	VkResult result = vkResetDescriptorPool(device_, frame.descriptorPool, 0);
-	assert(result == VK_SUCCESS);
+	_assert_(result == VK_SUCCESS);
 }
 
 void VKContext::WaitRenderCompletion(Framebuffer *fbo) {
@@ -904,7 +903,7 @@ VkDescriptorSet VKContext::GetOrCreateDescriptorSet(VkBuffer buf) {
 	alloc.pSetLayouts = &descriptorSetLayout_;
 	alloc.descriptorSetCount = 1;
 	VkResult res = vkAllocateDescriptorSets(device_, &alloc, &descSet);
-	assert(VK_SUCCESS == res);
+	_assert_(VK_SUCCESS == res);
 
 	VkDescriptorBufferInfo bufferDesc;
 	bufferDesc.buffer = buf;
