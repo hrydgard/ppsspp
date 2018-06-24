@@ -1230,8 +1230,13 @@ void EmuScreen::render() {
 		// set back to running for the next frame
 		coreState = CORE_RUNNING;
 	} else if (coreState == CORE_STEPPING) {
-		// If we're stepping, it's convenient not to clear the screen.
-		thin3d->BindFramebufferAsRenderTarget(nullptr, { RPAction::KEEP, RPAction::DONT_CARE, RPAction::DONT_CARE });
+		// If we're stepping, it's convenient not to clear the screen entirely, so we copy display to output.
+		// This won't work in non-buffered, but that's fine.
+		thin3d->BindFramebufferAsRenderTarget(nullptr, { RPAction::CLEAR, RPAction::DONT_CARE, RPAction::DONT_CARE });
+		// Just to make sure.
+		if (PSP_IsInited()) {
+			gpu->CopyDisplayToOutput();
+		}
 	} else {
 		// Didn't actually reach the end of the frame, ran out of the blockTicks cycles.
 		// In this case we need to bind and wipe the backbuffer, at least.

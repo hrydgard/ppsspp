@@ -442,6 +442,10 @@ void PSP_RunLoopWhileState() {
 	// Run until CORE_NEXTFRAME
 	while (coreState == CORE_RUNNING || coreState == CORE_STEPPING) {
 		PSP_RunLoopFor(blockTicks);
+		if (coreState == CORE_STEPPING) {
+			// Keep the UI responsive.
+			break;
+		}
 	}
 }
 
