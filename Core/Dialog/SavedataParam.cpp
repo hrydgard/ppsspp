@@ -400,8 +400,13 @@ int SavedataParam::Save(SceUtilitySavedataParam* param, const std::string &saveD
 		memcpy(cryptedData, data_, cryptedSize);
 
 		int decryptMode = DetermineCryptMode(param);
-		if (EncryptData(decryptMode, cryptedData, &cryptedSize, &aligned_len, cryptedHash, (HasKey(param) ? param->key : 0)) != 0)
-		{
+		bool hasKey = decryptMode > 1;
+		if (hasKey && !HasKey(param)) {
+			delete[] cryptedData;
+			return SCE_UTILITY_SAVEDATA_ERROR_SAVE_PARAM;
+		}
+
+		if (EncryptData(decryptMode, cryptedData, &cryptedSize, &aligned_len, cryptedHash, (hasKey ? param->key : 0)) != 0) {
 			I18NCategory *err = GetI18NCategory("Error");
 			host->NotifyUserMessage(err->T("Save encryption failed. This save won't work on real PSP"), 6.0f);
 			ERROR_LOG(SCEUTILITY,"Save encryption failed. This save won't work on real PSP");
@@ -612,7 +617,10 @@ int SavedataParam::LoadSaveData(SceUtilitySavedataParam *param, const std::strin
 	bool isCrypted = prevCryptMode != 0 && secureMode;
 	bool saveDone = false;
 	if (isCrypted) {
+		if (DetermineCryptMode(param) > 1 && !HasKey(param))
+			return SCE_UTILITY_SAVEDATA_ERROR_LOAD_PARAM;
 		LoadCryptedSave(param, data_, saveData, saveSize, prevCryptMode, saveDone);
+		// TODO: Should return SCE_UTILITY_SAVEDATA_ERROR_LOAD_DATA_BROKEN here if !saveDone.
 	}
 	if (!saveDone) {
 		LoadNotCryptedSave(param, data_, saveData, saveSize);
@@ -625,9 +633,14 @@ int SavedataParam::LoadSaveData(SceUtilitySavedataParam *param, const std::strin
 
 int SavedataParam::DetermineCryptMode(const SceUtilitySavedataParam *param) const {
 	int decryptMode = 1;
-	if (param->secureVersion != 0) {
-		decryptMode = param->secureVersion;
+	if (param->secureVersion == 1) {
+		decryptMode = 1;
+	} else if (param->secureVersion == 2) {
+		decryptMode = 3;
+	} else if (param->secureVersion == 3) {
+		decryptMode = GetSDKMainVersion(sceKernelGetCompiledSdkVersion()) >= 4 ? 5 : 1;
 	} else if (HasKey(param)) {
+		// TODO: This should ignore HasKey(), which would trigger errors.  Not doing that yet to play it safe.
 		decryptMode = GetSDKMainVersion(sceKernelGetCompiledSdkVersion()) >= 4 ? 5 : 3;
 	}
 	return decryptMode;
