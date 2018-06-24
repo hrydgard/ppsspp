@@ -248,7 +248,6 @@ private:
 
 	VkFramebuffer backbuffer_;
 	VkImage backbufferImage_;
-	VkFramebuffer curFramebuffer_ = VK_NULL_HANDLE;
 
 	VkRenderPass backbufferRenderPass_ = VK_NULL_HANDLE;
 	VkRenderPass framebufferRenderPass_ = VK_NULL_HANDLE;

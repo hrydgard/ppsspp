@@ -240,7 +240,7 @@ void GLQueueRunner::RunInitSteps(const std::vector<GLRInitStep> &steps) {
 		}
 		case GLRInitStepType::CREATE_INPUT_LAYOUT:
 		{
-			GLRInputLayout *layout = step.create_input_layout.inputLayout;
+			// GLRInputLayout *layout = step.create_input_layout.inputLayout;
 			// Nothing to do unless we want to create vertexbuffer objects (GL 4.5)
 			break;
 		}
@@ -537,7 +537,6 @@ void GLQueueRunner::PerformRenderPass(const GLRStep &step) {
 		glBindVertexArray(globalVAO_);
 	}
 
-	GLRFramebuffer *fb = step.render.framebuffer;
 	GLRProgram *curProgram = nullptr;
 	int activeSlot = 0;
 	glActiveTexture(GL_TEXTURE0 + activeSlot);
@@ -547,7 +546,6 @@ void GLQueueRunner::PerformRenderPass(const GLRStep &step) {
 	int colorMask = -1;
 	int depthMask = -1;
 	int depthFunc = -1;
-	int logicOp = -1;
 	GLuint curArrayBuffer = (GLuint)-1;
 	GLuint curElemArrayBuffer = (GLuint)-1;
 	bool depthEnabled = false;
@@ -555,7 +553,10 @@ void GLQueueRunner::PerformRenderPass(const GLRStep &step) {
 	bool blendEnabled = false;
 	bool cullEnabled = false;
 	bool ditherEnabled = false;
+#ifndef USING_GLES2
+	int logicOp = -1;
 	bool logicEnabled = false;
+#endif
 	GLuint blendEqColor = (GLuint)-1;
 	GLuint blendEqAlpha = (GLuint)-1;
 

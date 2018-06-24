@@ -260,7 +260,6 @@ private:
 	ShaderLanguage language_;
 	GLRShader *shader_ = nullptr;
 	GLuint glstage_ = 0;
-	bool ok_ = false;
 	std::string source_;  // So we can recompile in case of context loss.
 };
 
@@ -1039,8 +1038,6 @@ OpenGLInputLayout::~OpenGLInputLayout() {
 }
 
 void OpenGLInputLayout::Compile(const InputLayoutDesc &desc) {
-	int semMask = 0;
-
 	// TODO: This is only accurate if there's only one stream. But whatever, for now we
 	// never use multiple streams anyway.
 	stride = (GLsizei)desc.bindings[0].stride;

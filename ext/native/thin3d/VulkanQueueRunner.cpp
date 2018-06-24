@@ -64,7 +64,6 @@ void VulkanQueueRunner::ResizeReadbackBuffer(VkDeviceSize requiredSize) {
 
 void VulkanQueueRunner::DestroyDeviceObjects() {
 	ILOG("VulkanQueueRunner::DestroyDeviceObjects");
-	VkDevice device = vulkan_->GetDevice();
 	vulkan_->Delete().QueueDeleteDeviceMemory(readbackMemory_);
 	vulkan_->Delete().QueueDeleteBuffer(readbackBuffer_);
 	readbackBufferSize_ = 0;
@@ -675,9 +674,8 @@ void VulkanQueueRunner::PerformRenderPass(const VKRStep &step, VkCommandBuffer c
 			barrier.subresourceRange.layerCount = 1;
 			barrier.subresourceRange.levelCount = 1;
 			barrier.image = iter.fb->color.image;
-			barrier.srcAccessMask = 0;
-			VkPipelineStageFlags srcStage;
-			VkPipelineStageFlags dstStage;
+			VkPipelineStageFlags srcStage{};
+			VkPipelineStageFlags dstStage{};
 			switch (barrier.oldLayout) {
 			case VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL:
 				barrier.srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT | VK_ACCESS_COLOR_ATTACHMENT_READ_BIT;
@@ -729,7 +727,6 @@ void VulkanQueueRunner::PerformRenderPass(const VKRStep &step, VkCommandBuffer c
 	VKRFramebuffer *fb = step.render.framebuffer;
 
 	VkPipeline lastPipeline = VK_NULL_HANDLE;
-	VkDescriptorSet lastDescSet = VK_NULL_HANDLE;
 
 	auto &commands = step.commands;
 
