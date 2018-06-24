@@ -384,7 +384,7 @@ VkCommandBuffer VulkanRenderManager::GetInitCmd() {
 			VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT
 		};
 		VkResult res = vkBeginCommandBuffer(frameData.initCmd, &begin);
-		assert(res == VK_SUCCESS);
+		_assert_(res == VK_SUCCESS);
 		frameData.hasInitCommands = true;
 	}
 	return frameData_[curFrame].initCmd;
@@ -1008,7 +1008,7 @@ void VulkanRenderManager::EndSyncFrame(int frame) {
 		VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT
 	};
 	VkResult res = vkBeginCommandBuffer(frameData.mainCmd, &begin);
-	assert(res == VK_SUCCESS);
+	_assert_(res == VK_SUCCESS);
 
 	if (useThread_) {
 		std::unique_lock<std::mutex> lock(frameData.push_mutex);

@@ -578,7 +578,7 @@ void GLRenderManager::WaitUntilQueueIdle() {
 
 GLPushBuffer::GLPushBuffer(GLRenderManager *render, GLuint target, size_t size) : render_(render), target_(target), size_(size) {
 	bool res = AddBuffer();
-	assert(res);
+	_assert_(res);
 }
 
 GLPushBuffer::~GLPushBuffer() {
@@ -720,7 +720,7 @@ void GLPushBuffer::Defragment() {
 
 	size_ = newSize;
 	bool res = AddBuffer();
-	assert(res);
+	_assert_(res);
 }
 
 size_t GLPushBuffer::GetTotalSize() const {

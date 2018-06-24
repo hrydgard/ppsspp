@@ -55,7 +55,7 @@ void VulkanQueueRunner::ResizeReadbackBuffer(VkDeviceSize requiredSize) {
 
 	VkFlags typeReqs = VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT;
 	bool success = vulkan_->MemoryTypeFromProperties(reqs.memoryTypeBits, typeReqs, &alloc.memoryTypeIndex);
-	assert(success);
+	_assert_(success);
 	vkAllocateMemory(device, &alloc, nullptr, &readbackMemory_);
 
 	uint32_t offset = 0;
@@ -149,7 +149,7 @@ void VulkanQueueRunner::InitBackbufferRenderPass() {
 	rp_info.pDependencies = &dep;
 
 	VkResult res = vkCreateRenderPass(vulkan_->GetDevice(), &rp_info, nullptr, &backbufferRenderPass_);
-	assert(res == VK_SUCCESS);
+	_assert_(res == VK_SUCCESS);
 }
 
 VkRenderPass VulkanQueueRunner::GetRenderPass(const RPKey &key) {
@@ -317,6 +317,9 @@ VkRenderPass VulkanQueueRunner::GetRenderPass(const RPKey &key) {
 	case VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL:
 		// Nothing to do.
 		break;
+	default:
+		_dbg_assert_msg_(G3D, false, "GetRenderPass: Unexpected final color layout %d", (int)key.finalColorLayout);
+		break;
 	}
 
 	if (deps[numDeps].dstAccessMask) {
@@ -462,6 +465,8 @@ void VulkanQueueRunner::ApplyMGSHack(std::vector<VKRStep *> &steps) {
 				if (steps[j]->copy.dst != steps[i]->copy.dst)
 					last = j - 1;
 				break;
+			default:
+				break;
 			}
 			if (last != -1)
 				break;
@@ -534,6 +539,9 @@ void VulkanQueueRunner::ApplySonicHack(std::vector<VKRStep *> &steps) {
 					if (steps[j]->render.numDraws != 3 && steps[j]->render.numDraws != 6)
 						last = j - 1;
 				}
+				break;
+			default:
+				break;
 			}
 			if (last != -1)
 				break;
@@ -643,6 +651,9 @@ void VulkanQueueRunner::LogRenderPass(const VKRStep &pass) {
 		case VKRRenderCommand::PUSH_CONSTANTS:
 			ILOG("  PushConstants(%d)", cmd.push.size);
 			break;
+
+		case VKRRenderCommand::NUM_RENDER_COMMANDS:
+			break;
 		}
 	}
 	ILOG("RenderPass End(%x)", fb);
@@ -690,7 +701,7 @@ void VulkanQueueRunner::PerformRenderPass(const VKRStep &step, VkCommandBuffer c
 				srcStage = VK_PIPELINE_STAGE_TRANSFER_BIT;
 				break;
 			default:
-				Crash();
+				_assert_msg_(G3D, false, "PerformRenderPass: Unexpected oldLayout: %d", (int)barrier.oldLayout);
 				break;
 			}
 			barrier.newLayout = iter.targetLayout;
@@ -700,7 +711,7 @@ void VulkanQueueRunner::PerformRenderPass(const VKRStep &step, VkCommandBuffer c
 				dstStage = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
 				break;
 			default:
-				Crash();
+				_assert_msg_(G3D, false, "PerformRenderPass: Unexpected newLayout: %d", (int)barrier.newLayout);
 				break;
 			}
 			barrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
