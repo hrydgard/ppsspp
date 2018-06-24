@@ -253,7 +253,7 @@ struct SceUtilitySavedataParam
 
 	u8 key[16];
 
-	s32_le secureVersion;
+	u32_le secureVersion;
 	s32_le multiStatus;
 
 	// Function 11 LIST

@@ -362,6 +362,16 @@ int SavedataParam::Save(SceUtilitySavedataParam* param, const std::string &saveD
 	if (!param) {
 		return SCE_UTILITY_SAVEDATA_ERROR_SAVE_MS_NOSPACE;
 	}
+	if (param->secureVersion > 3) {
+		ERROR_LOG_REPORT(SCEUTILITY, "Savedata version requested on save: %d", param->secureVersion);
+		return SCE_UTILITY_SAVEDATA_ERROR_SAVE_PARAM;
+	} else if (param->secureVersion != 0) {
+		if (param->secureVersion != 1 && !HasKey(param)) {
+			ERROR_LOG_REPORT(SCEUTILITY, "Savedata version with missing key on save: %d", param->secureVersion);
+			return SCE_UTILITY_SAVEDATA_ERROR_SAVE_PARAM;
+		}
+		WARN_LOG_REPORT(SCEUTILITY, "Savedata version requested on save: %d", param->secureVersion);
+	}
 
 	std::string dirPath = GetSaveFilePath(param, GetSaveDir(param, saveDirName));
 
@@ -573,7 +583,14 @@ int SavedataParam::Load(SceUtilitySavedataParam *param, const std::string &saveD
 }
 
 int SavedataParam::LoadSaveData(SceUtilitySavedataParam *param, const std::string &saveDirName, const std::string &dirPath, bool secureMode) {
-	if (param->secureVersion != 0) {
+	if (param->secureVersion > 3) {
+		ERROR_LOG_REPORT(SCEUTILITY, "Savedata version requested: %d", param->secureVersion);
+		return SCE_UTILITY_SAVEDATA_ERROR_LOAD_PARAM;
+	} else if (param->secureVersion != 0) {
+		if (param->secureVersion != 1 && !HasKey(param)) {
+			ERROR_LOG_REPORT(SCEUTILITY, "Savedata version with missing key: %d", param->secureVersion);
+			return SCE_UTILITY_SAVEDATA_ERROR_LOAD_PARAM;
+		}
 		WARN_LOG_REPORT(SCEUTILITY, "Savedata version requested: %d", param->secureVersion);
 	}
 	u8 *data_ = param->dataBuf;
