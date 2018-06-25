@@ -358,9 +358,19 @@ int  SavedataParam::DeleteData(SceUtilitySavedataParam* param) {
 	return 0;
 }
 
-bool SavedataParam::Save(SceUtilitySavedataParam* param, const std::string &saveDirName, bool secureMode) {
+int SavedataParam::Save(SceUtilitySavedataParam* param, const std::string &saveDirName, bool secureMode) {
 	if (!param) {
-		return false;
+		return SCE_UTILITY_SAVEDATA_ERROR_SAVE_MS_NOSPACE;
+	}
+	if (param->secureVersion > 3) {
+		ERROR_LOG_REPORT(SCEUTILITY, "Savedata version requested on save: %d", param->secureVersion);
+		return SCE_UTILITY_SAVEDATA_ERROR_SAVE_PARAM;
+	} else if (param->secureVersion != 0) {
+		if (param->secureVersion != 1 && !HasKey(param)) {
+			ERROR_LOG_REPORT(SCEUTILITY, "Savedata version with missing key on save: %d", param->secureVersion);
+			return SCE_UTILITY_SAVEDATA_ERROR_SAVE_PARAM;
+		}
+		WARN_LOG_REPORT(SCEUTILITY, "Savedata version requested on save: %d", param->secureVersion);
 	}
 
 	std::string dirPath = GetSaveFilePath(param, GetSaveDir(param, saveDirName));
@@ -390,8 +400,13 @@ bool SavedataParam::Save(SceUtilitySavedataParam* param, const std::string &save
 		memcpy(cryptedData, data_, cryptedSize);
 
 		int decryptMode = DetermineCryptMode(param);
-		if (EncryptData(decryptMode, cryptedData, &cryptedSize, &aligned_len, cryptedHash, (HasKey(param) ? param->key : 0)) != 0)
-		{
+		bool hasKey = decryptMode > 1;
+		if (hasKey && !HasKey(param)) {
+			delete[] cryptedData;
+			return SCE_UTILITY_SAVEDATA_ERROR_SAVE_PARAM;
+		}
+
+		if (EncryptData(decryptMode, cryptedData, &cryptedSize, &aligned_len, cryptedHash, (hasKey ? param->key : 0)) != 0) {
 			I18NCategory *err = GetI18NCategory("Error");
 			host->NotifyUserMessage(err->T("Save encryption failed. This save won't work on real PSP"), 6.0f);
 			ERROR_LOG(SCEUTILITY,"Save encryption failed. This save won't work on real PSP");
@@ -502,11 +517,8 @@ bool SavedataParam::Save(SceUtilitySavedataParam* param, const std::string &save
 		if (!WritePSPFile(filePath, data_, saveSize))
 		{
 			ERROR_LOG(SCEUTILITY,"Error writing file %s",filePath.c_str());
-			if(cryptedData != 0)
-			{
-				delete[] cryptedData;
-			}
-			return false;
+			delete[] cryptedData;
+			return SCE_UTILITY_SAVEDATA_ERROR_SAVE_MS_NOSPACE;
 		}
 		delete[] cryptedData;
 	}
@@ -538,23 +550,23 @@ bool SavedataParam::Save(SceUtilitySavedataParam* param, const std::string &save
 		WritePSPFile(snd0path, param->snd0FileData.buf, param->snd0FileData.bufSize);
 	}
 
-	return true;
+	return 0;
 }
 
-bool SavedataParam::Load(SceUtilitySavedataParam *param, const std::string &saveDirName, int saveId, bool secureMode)
-{
+int SavedataParam::Load(SceUtilitySavedataParam *param, const std::string &saveDirName, int saveId, bool secureMode) {
 	if (!param) {
-		return false;
+		return SCE_UTILITY_SAVEDATA_ERROR_LOAD_NO_DATA;
 	}
 
 	std::string dirPath = GetSaveFilePath(param, GetSaveDir(param, saveDirName));
 	std::string filePath = dirPath + "/" + GetFileName(param);
 	if (!pspFileSystem.GetFileInfo(filePath).exists) {
-		return false;
+		return SCE_UTILITY_SAVEDATA_ERROR_LOAD_NO_DATA;
 	}
 
-	if(!LoadSaveData(param, saveDirName, dirPath, secureMode)) // Load main savedata
-		return false;
+	int result = LoadSaveData(param, saveDirName, dirPath, secureMode);
+	if (result != 0)
+		return result;
 
 	LoadSFO(param, dirPath);  // Load sfo
 
@@ -572,11 +584,18 @@ bool SavedataParam::Load(SceUtilitySavedataParam *param, const std::string &save
 	// Load SND0.AT3
 	LoadFile(dirPath, SND0_FILENAME, &param->snd0FileData);
 
-	return true;
+	return 0;
 }
 
-bool SavedataParam::LoadSaveData(SceUtilitySavedataParam *param, const std::string &saveDirName, const std::string& dirPath, bool secureMode) {
-	if (param->secureVersion != 0) {
+int SavedataParam::LoadSaveData(SceUtilitySavedataParam *param, const std::string &saveDirName, const std::string &dirPath, bool secureMode) {
+	if (param->secureVersion > 3) {
+		ERROR_LOG_REPORT(SCEUTILITY, "Savedata version requested: %d", param->secureVersion);
+		return SCE_UTILITY_SAVEDATA_ERROR_LOAD_PARAM;
+	} else if (param->secureVersion != 0) {
+		if (param->secureVersion != 1 && !HasKey(param)) {
+			ERROR_LOG_REPORT(SCEUTILITY, "Savedata version with missing key: %d", param->secureVersion);
+			return SCE_UTILITY_SAVEDATA_ERROR_LOAD_PARAM;
+		}
 		WARN_LOG_REPORT(SCEUTILITY, "Savedata version requested: %d", param->secureVersion);
 	}
 	u8 *data_ = param->dataBuf;
@@ -587,7 +606,7 @@ bool SavedataParam::LoadSaveData(SceUtilitySavedataParam *param, const std::stri
 	int saveSize = -1;
 	if (!ReadPSPFile(filePath, &saveData, saveSize, &readSize)) {
 		ERROR_LOG(SCEUTILITY,"Error reading file %s",filePath.c_str());
-		return false;
+		return SCE_UTILITY_SAVEDATA_ERROR_LOAD_NO_DATA;
 	}
 	saveSize = (int)readSize;
 
@@ -598,7 +617,10 @@ bool SavedataParam::LoadSaveData(SceUtilitySavedataParam *param, const std::stri
 	bool isCrypted = prevCryptMode != 0 && secureMode;
 	bool saveDone = false;
 	if (isCrypted) {
+		if (DetermineCryptMode(param) > 1 && !HasKey(param))
+			return SCE_UTILITY_SAVEDATA_ERROR_LOAD_PARAM;
 		LoadCryptedSave(param, data_, saveData, saveSize, prevCryptMode, saveDone);
+		// TODO: Should return SCE_UTILITY_SAVEDATA_ERROR_LOAD_DATA_BROKEN here if !saveDone.
 	}
 	if (!saveDone) {
 		LoadNotCryptedSave(param, data_, saveData, saveSize);
@@ -606,14 +628,19 @@ bool SavedataParam::LoadSaveData(SceUtilitySavedataParam *param, const std::stri
 	param->dataSize = (SceSize)saveSize;
 	delete[] saveData;
 
-	return true;
+	return 0;
 }
 
 int SavedataParam::DetermineCryptMode(const SceUtilitySavedataParam *param) const {
 	int decryptMode = 1;
-	if (param->secureVersion != 0) {
-		decryptMode = param->secureVersion;
+	if (param->secureVersion == 1) {
+		decryptMode = 1;
+	} else if (param->secureVersion == 2) {
+		decryptMode = 3;
+	} else if (param->secureVersion == 3) {
+		decryptMode = GetSDKMainVersion(sceKernelGetCompiledSdkVersion()) >= 4 ? 5 : 1;
 	} else if (HasKey(param)) {
+		// TODO: This should ignore HasKey(), which would trigger errors.  Not doing that yet to play it safe.
 		decryptMode = GetSDKMainVersion(sceKernelGetCompiledSdkVersion()) >= 4 ? 5 : 3;
 	}
 	return decryptMode;
