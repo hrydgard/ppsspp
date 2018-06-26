@@ -72,7 +72,7 @@ enum class SmallDisplayZoom {
 	MANUAL = 3,
 };
 
-enum AutoLoadSaveState {
+enum class AutoLoadSaveState {
 	OFF = 0,
 	OLDEST = 1,
 	NEWEST = 2,
