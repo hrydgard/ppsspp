@@ -137,9 +137,9 @@ protected:
 	struct DeferredDrawCall {
 		void *verts;
 		void *inds;
+		u32 vertexCount;
 		u8 indexType;
 		s8 prim;
-		u16 vertexCount;
 		u16 indexLowerBound;
 		u16 indexUpperBound;
 		UVScale uvScale;
