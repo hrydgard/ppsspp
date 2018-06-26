@@ -242,7 +242,16 @@ bool TranslateShader(std::string *dest, ShaderLanguage destLang, TranslatedShade
 
 	std::vector<unsigned int> spirv;
 	// Can't fail, parsing worked, "linking" worked.
-	glslang::GlslangToSpv(*program.getIntermediate(shaderStage), spirv);
+	glslang::SpvOptions options;
+	options.disableOptimizer = false;
+	options.optimizeSize = false;
+	options.generateDebugInfo = false;
+	glslang::GlslangToSpv(*program.getIntermediate(shaderStage), spirv, &options);
+
+	// For whatever reason, with our config, the above outputs an invalid SPIR-V version, 0.
+	// Patch it up so spirv-cross accepts it.
+	spirv[1] = glslang::EShTargetSpv_1_0;
+
 
 	// Alright, step 1 done. Now let's take this SPIR-V shader and output in our desired format.
 
