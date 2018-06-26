@@ -51,9 +51,10 @@ namespace SaveState
 
 	int GetCurrentSlot();
 
-	// Returns -1 if there's no newest slot.
+	// Returns -1 if there's no oldest/newest slot.
 	int GetNewestSlot(const std::string &gameFilename);
-
+	int GetOldestSlot(const std::string &gameFilename);
+	
 	std::string GetSlotDateAsString(const std::string &gameFilename, int slot);
 	std::string GenerateSaveSlotFilename(const std::string &gameFilename, int slot, const char *extension);
 
