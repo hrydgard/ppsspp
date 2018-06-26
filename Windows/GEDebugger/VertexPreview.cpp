@@ -199,7 +199,7 @@ static void ExpandBezier(int &count, int op, const std::vector<SimpleVertex> &si
 	}
 
 	generatedVerts.resize((tess_u + 1) * (tess_v + 1) * total_patches);
-	generatedInds.resize(tess_u * tess_v * 6);
+	generatedInds.resize(tess_u * tess_v * 6 * total_patches);
 
 	count = 0;
 	u8 *dest = (u8 *)&generatedVerts[0];
