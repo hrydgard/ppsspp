@@ -903,7 +903,7 @@ void DrawEngineCommon::SubmitSpline(const void *control_points, const void *indi
 	}
 
 	// Make an array of pointers to the control points, to get rid of indices.
-	SimpleVertex **points = (SimpleVertex **)managedBuf.Allocate(sizeof(SimpleVertex *) * count_u * count_v);
+	const SimpleVertex **points = (const SimpleVertex **)managedBuf.Allocate(sizeof(SimpleVertex *) * count_u * count_v);
 	for (int idx = 0; idx < count_u * count_v; idx++)
 		points[idx] = simplified_control_points + (indices ? idxConv.convert(idx) : idx);
 
@@ -1021,7 +1021,7 @@ void DrawEngineCommon::SubmitBezier(const void *control_points, const void *indi
 	if (tess_v < 1) tess_v = 1;
 
 	// Make an array of pointers to the control points, to get rid of indices.
-	SimpleVertex **points = (SimpleVertex **)managedBuf.Allocate(sizeof(SimpleVertex *) * count_u * count_v);
+	const SimpleVertex **points = (const SimpleVertex **)managedBuf.Allocate(sizeof(SimpleVertex *) * count_u * count_v);
 	for (int idx = 0; idx < count_u * count_v; idx++)
 		points[idx] = simplified_control_points + (indices ? idxConv.convert(idx) : idx);
 
