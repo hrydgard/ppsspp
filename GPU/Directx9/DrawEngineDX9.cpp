@@ -624,8 +624,7 @@ rotateVBO:
 	GPUDebug::NotifyDraw();
 }
 
-void DrawEngineDX9::TessellationDataTransferDX9::SendDataToShader(const float * pos, const float * tex, const float * col, int size, bool hasColor, bool hasTexCoords)
-{
+void DrawEngineDX9::TessellationDataTransferDX9::SendDataToShader(const SimpleVertex *const *points, int size, u32 vertType) {
 }
 
 }  // namespace

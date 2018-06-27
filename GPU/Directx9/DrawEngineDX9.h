@@ -166,7 +166,7 @@ private:
 		}
 		~TessellationDataTransferDX9() {
 		}
-		void SendDataToShader(const float *pos, const float *tex, const float *col, int size, bool hasColor, bool hasTexCoords) override;
+		void SendDataToShader(const SimpleVertex *const *points, int size, u32 vertType) override;
 	};
 };
 

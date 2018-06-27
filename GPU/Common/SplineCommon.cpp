@@ -940,16 +940,7 @@ void DrawEngineCommon::SubmitSpline(const void *control_points, const void *indi
 	patch.patchFacing = patchFacing;
 
 	if (CanUseHardwareTessellation(prim_type)) {
-		float *pos = (float*)managedBuf.Allocate(sizeof(float) * count_u * count_v * 4); // Size 4 float
-		float *tex = (float*)managedBuf.Allocate(sizeof(float) * count_u * count_v * 4); // Size 4 float
-		float *col = (float*)managedBuf.Allocate(sizeof(float) * count_u * count_v * 4); // Size 4 float
-		const bool hasColor = (origVertType & GE_VTYPE_COL_MASK) != 0;
-		const bool hasTexCoords = (origVertType & GE_VTYPE_TC_MASK) != 0;
-
-		int posStride, texStride, colStride;
-		tessDataTransfer->PrepareBuffers(pos, tex, col, posStride, texStride, colStride, count_u * count_v, hasColor, hasTexCoords);
-		CopyControlPoints(points, pos, tex, col, posStride, texStride, colStride, count_u * count_v, hasColor, hasTexCoords);
-		tessDataTransfer->SendDataToShader(pos, tex, col, count_u * count_v, hasColor, hasTexCoords);
+		tessDataTransfer->SendDataToShader(points, count_u * count_v, origVertType);
 		TessellateSplinePatchHardware(dest, quadIndices_, count, patch);
 		numPatches = (count_u - 3) * (count_v - 3);
 	} else {
@@ -1033,16 +1024,7 @@ void DrawEngineCommon::SubmitBezier(const void *control_points, const void *indi
 	int num_patches_u = (count_u - 1) / 3;
 	int num_patches_v = (count_v - 1) / 3;
 	if (CanUseHardwareTessellation(prim_type)) {
-		float *pos = (float*)managedBuf.Allocate(sizeof(float) * count_u * count_v * 4); // Size 4 float
-		float *tex = (float*)managedBuf.Allocate(sizeof(float) * count_u * count_v * 4); // Size 4 float
-		float *col = (float*)managedBuf.Allocate(sizeof(float) * count_u * count_v * 4); // Size 4 float
-		const bool hasColor = (origVertType & GE_VTYPE_COL_MASK) != 0;
-		const bool hasTexCoords = (origVertType & GE_VTYPE_TC_MASK) != 0;
-
-		int posStride, texStride, colStride;
-		tessDataTransfer->PrepareBuffers(pos, tex, col, posStride, texStride, colStride, count_u * count_v, hasColor, hasTexCoords);
-		CopyControlPoints(points, pos, tex, col, posStride, texStride, colStride, count_u * count_v, hasColor, hasTexCoords);
-		tessDataTransfer->SendDataToShader(pos, tex, col, count_u * count_v, hasColor, hasTexCoords);
+		tessDataTransfer->SendDataToShader(points, count_u * count_v, origVertType);
 		TessellateBezierPatchHardware(dest, inds, count, tess_u, tess_v, prim_type);
 		numPatches = num_patches_u * num_patches_v;
 	} else {

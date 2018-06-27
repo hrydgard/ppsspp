@@ -284,8 +284,7 @@ private:
 		~TessellationDataTransferVulkan();
 
 		void SetPushBuffer(VulkanPushBuffer *push) { push_ = push; }
-		void SendDataToShader(const float *pos, const float *tex, const float *col, int size, bool hasColor, bool hasTexCoords) override;
-		void PrepareBuffers(float *&pos, float *&tex, float *&col, int &posStride, int &texStride, int &colStride, int size, bool hasColor, bool hasTexCoords) override;
+		void SendDataToShader(const SimpleVertex *const *points, int size, u32 vertType) override;
 
 		void GetBufferAndOffset(VkBuffer *buf, VkDeviceSize *offset, VkDeviceSize *range) {
 			*buf = buf_;

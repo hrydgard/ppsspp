@@ -655,37 +655,45 @@ bool DrawEngineGLES::IsCodePtrVertexDecoder(const u8 *ptr) const {
 	return decJitCache_->IsInSpace(ptr);
 }
 
-void DrawEngineGLES::TessellationDataTransferGLES::SendDataToShader(const float *pos, const float *tex, const float *col, int size, bool hasColor, bool hasTexCoords) {
+void DrawEngineGLES::TessellationDataTransferGLES::SendDataToShader(const SimpleVertex *const *points, int size, u32 vertType) {
+	bool hasColor = (vertType & GE_VTYPE_COL_MASK) != 0;
+	bool hasTexCoord = (vertType & GE_VTYPE_TC_MASK) != 0;
+	int sizeColor = hasColor ? size : 1;
+
+	float *pos = new float[size * 4];
+	float *tex = nullptr;
+	if (hasTexCoord)
+		tex = new float[size * 4];
+	float *col = new float[sizeColor * 4];
+	int stride = 4;
+
+	CopyControlPoints(pos, tex, col, stride, stride, stride, points, size, vertType);
+
 	// Removed the 1D texture support, it's unlikely to be relevant for performance.
+
+	// Position
 	if (data_tex[0])
 		renderManager_->DeleteTexture(data_tex[0]);
-	uint8_t *pos_data = new uint8_t[size * sizeof(float) * 4];
-	memcpy(pos_data, pos, size * sizeof(float) * 4);
 	data_tex[0] = renderManager_->CreateTexture(GL_TEXTURE_2D);
-	renderManager_->TextureImage(data_tex[0], 0, size, 1, GL_RGBA32F, GL_RGBA, GL_FLOAT, pos_data, GLRAllocType::NEW, false);
+	renderManager_->TextureImage(data_tex[0], 0, size, 1, GL_RGBA32F, GL_RGBA, GL_FLOAT, (u8 *)pos, GLRAllocType::NEW, false);
 	renderManager_->FinalizeTexture(data_tex[0], 0, false);
 	renderManager_->BindTexture(TEX_SLOT_SPLINE_POS, data_tex[0]);
 
-	// Texcoords
-	if (hasTexCoords) {
+	// Texcoord
+	if (hasTexCoord) {
 		if (data_tex[1])
 			renderManager_->DeleteTexture(data_tex[1]);
-		uint8_t *tex_data = new uint8_t[size * sizeof(float) * 4];
-		memcpy(tex_data, tex, size * sizeof(float) * 4);
 		data_tex[1] = renderManager_->CreateTexture(GL_TEXTURE_2D);
-		renderManager_->TextureImage(data_tex[1], 0, size, 1, GL_RGBA32F, GL_RGBA, GL_FLOAT, tex_data, GLRAllocType::NEW, false);
+		renderManager_->TextureImage(data_tex[1], 0, size, 1, GL_RGBA32F, GL_RGBA, GL_FLOAT, (u8 *)tex, GLRAllocType::NEW, false);
 		renderManager_->FinalizeTexture(data_tex[1], 0, false);
-		renderManager_->BindTexture(TEX_SLOT_SPLINE_NRM, data_tex[1]);
+		renderManager_->BindTexture(TEX_SLOT_SPLINE_TEX, data_tex[1]);
 	}
 
+	// Color
 	if (data_tex[2])
 		renderManager_->DeleteTexture(data_tex[2]);
 	data_tex[2] = renderManager_->CreateTexture(GL_TEXTURE_2D);
-	int sizeColor = hasColor ? size : 1;
-	uint8_t *col_data = new uint8_t[sizeColor * sizeof(float) * 4];
-	memcpy(col_data, col, sizeColor * sizeof(float) * 4);
-
-	renderManager_->TextureImage(data_tex[2], 0, sizeColor, 1, GL_RGBA32F, GL_RGBA, GL_FLOAT, col_data, GLRAllocType::NEW, false);
+	renderManager_->TextureImage(data_tex[2], 0, sizeColor, 1, GL_RGBA32F, GL_RGBA, GL_FLOAT, (u8 *)col, GLRAllocType::NEW, false);
 	renderManager_->FinalizeTexture(data_tex[2], 0, false);
 	renderManager_->BindTexture(TEX_SLOT_SPLINE_COL, data_tex[2]);
 }

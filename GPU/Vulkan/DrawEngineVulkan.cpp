@@ -1001,9 +1001,7 @@ DrawEngineVulkan::TessellationDataTransferVulkan::TessellationDataTransferVulkan
 DrawEngineVulkan::TessellationDataTransferVulkan::~TessellationDataTransferVulkan() {
 }
 
-void DrawEngineVulkan::TessellationDataTransferVulkan::PrepareBuffers(float *&pos, float *&tex, float *&col, int &posStride, int &texStride, int &colStride, int size, bool hasColor, bool hasTexCoords) {
-	colStride = 4;
-
+void DrawEngineVulkan::TessellationDataTransferVulkan::SendDataToShader(const SimpleVertex *const *points, int size, u32 vertType) {
 	// SSBOs that are not simply float1 or float2 need to be padded up to a float4 size. vec3 members
 	// also need to be 16-byte aligned, hence the padding.
 	struct TessData {
@@ -1016,14 +1014,10 @@ void DrawEngineVulkan::TessellationDataTransferVulkan::PrepareBuffers(float *&po
 	uint8_t *data = (uint8_t *)push_->PushAligned(size * sizeof(TessData), &offset_, &buf_, ssboAlignment);
 	range_ = size * sizeof(TessData);
 
-	pos = (float *)(data);
-	tex = (float *)(data + offsetof(TessData, uv));
-	col = (float *)(data + offsetof(TessData, color));
-	posStride = sizeof(TessData) / sizeof(float);
-	colStride = hasColor ? (sizeof(TessData) / sizeof(float)) : 0;
-	texStride = sizeof(TessData) / sizeof(float);
-}
+	float *pos = (float *)(data);
+	float *tex = (float *)(data + offsetof(TessData, uv));
+	float *col = (float *)(data + offsetof(TessData, color));
+	int stride = sizeof(TessData) / sizeof(float);
 
-void DrawEngineVulkan::TessellationDataTransferVulkan::SendDataToShader(const float *pos, const float *tex, const float *col, int size, bool hasColor, bool hasTexCoords) {
-	// Nothing to do here! The caller will write directly to the pushbuffer through the pointers it got through PrepareBuffers.
+	CopyControlPoints(pos, tex, col, stride, stride, stride, points, size, vertType);
 }

@@ -47,7 +47,7 @@ enum {
 	TEX_SLOT_ALPHATEST = 2,
 	TEX_SLOT_CLUT = 3,
 	TEX_SLOT_SPLINE_POS = 4,
-	TEX_SLOT_SPLINE_NRM = 5,
+	TEX_SLOT_SPLINE_TEX = 5,
 	TEX_SLOT_SPLINE_COL = 6,
 };
 
@@ -218,7 +218,7 @@ private:
 		~TessellationDataTransferGLES() {
 			EndFrame();
 		}
-		void SendDataToShader(const float *pos, const float *tex, const float *col, int size, bool hasColor, bool hasTexCoords) override;
+		void SendDataToShader(const SimpleVertex *const *points, int size, u32 vertType) override;
 		void EndFrame() override;  // Queues textures for deletion.
 	};
 };

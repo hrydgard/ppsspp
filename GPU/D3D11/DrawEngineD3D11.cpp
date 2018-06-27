@@ -692,7 +692,7 @@ rotateVBO:
 	GPUDebug::NotifyDraw();
 }
 
-void DrawEngineD3D11::TessellationDataTransferD3D11::PrepareBuffers(float *&pos, float *&tex, float *&col, int &posStride, int &texStride, int &colStride, int size, bool hasColor, bool hasTexCoords) {
+void DrawEngineD3D11::TessellationDataTransferD3D11::SendDataToShader(const SimpleVertex *const *points, int size, u32 vertType) {
 	struct TessData {
 		float pos[3]; float pad1;
 		float uv[2]; float pad2[2];
@@ -716,14 +716,14 @@ void DrawEngineD3D11::TessellationDataTransferD3D11::PrepareBuffers(float *&pos,
 	context_->Map(buf, 0, D3D11_MAP_WRITE_DISCARD, 0, &map);
 	uint8_t *data = (uint8_t *)map.pData;
 
-	pos = (float *)(data);
-	tex = (float *)(data + offsetof(TessData, uv));
-	col = (float *)(data + offsetof(TessData, color));
-	posStride = sizeof(TessData) / sizeof(float);
-	colStride = hasColor ? (sizeof(TessData) / sizeof(float)) : 0;
-	texStride = sizeof(TessData) / sizeof(float);
-}
+	float *pos = (float *)(data);
+	float *tex = (float *)(data + offsetof(TessData, uv));
+	float *col = (float *)(data + offsetof(TessData, color));
+	int stride = sizeof(TessData) / sizeof(float);
+	bool hasColor = (vertType & GE_VTYPE_COL_MASK) != 0;
+	bool hasTexCoord = (vertType & GE_VTYPE_TC_MASK) != 0;
 
-void DrawEngineD3D11::TessellationDataTransferD3D11::SendDataToShader(const float * pos, const float * tex, const float * col, int size, bool hasColor, bool hasTexCoords) {
+	CopyControlPoints(pos, tex, col, stride, stride, stride, points, size, vertType);
+
 	context_->Unmap(buf, 0);
 }
