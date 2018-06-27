@@ -19,6 +19,11 @@ if(${CMAKE_CXX_COMPILER_ID} STREQUAL "Clang")
   message("Clang enabled")
 endif()
 
+if(FORCED_CPU)
+  message("Detected CPU (${CMAKE_SYSTEM_PROCESSOR}) overridden as: ${FORCED_CPU}")
+  set(CMAKE_SYSTEM_PROCESSOR ${FORCED_CPU})
+endif()
+
 # Detect CPU from CMAKE configuration. Toolchains should set this up
 if(CMAKE_SYSTEM_PROCESSOR)
 	if(${CMAKE_SYSTEM_PROCESSOR} MATCHES "^arm")
@@ -109,6 +114,7 @@ option(USING_EGL "Set to ON if target environment uses EGL" ${USING_EGL})
 option(USING_FBDEV "Set to ON if target environment uses fbdev (eg. Pandora)" ${USING_FBDEV})
 option(USING_GLES2 "Set to ON if target device uses OpenGL ES 2.0" ${USING_GLES2})
 option(RASPBIAN "Set to ON to workaround threading issues when building for ARMV7 on Raspbian" ${RASPBIAN})
+option(USING_X11_VULKAN "Set to OFF if target environment doesn't use X11 for Vulkan" ON)
 # :: Frontends
 option(USING_QT_UI "Set to ON if you wish to use the Qt frontend wrapper" ${USING_QT_UI})
 option(MOBILE_DEVICE "Set to ON when targeting a mobile device" ${MOBILE_DEVICE})
@@ -124,7 +130,12 @@ option(USE_WAYLAND_WSI "Set to ON to require Wayland support for Vulkan" ${USE_W
 option(USE_ADDRESS_SANITIZER "Use Clang memory sanitizer" ${USE_ADDRESS_SANITIZER})
 
 if(UNIX AND NOT (APPLE OR ANDROID) AND VULKAN)
-	add_definitions(-DVK_USE_PLATFORM_XLIB_KHR)
+	if(USING_X11_VULKAN)
+		message("Using X11 for Vulkan")
+		add_definitions(-DVK_USE_PLATFORM_XLIB_KHR)
+	else()
+		message("NOT using X11 for Vulkan")
+	endif()
 	# add_definitions(-DVK_USE_PLATFORM_XCB_KHR)
 	find_package(Wayland)
 	if (USE_WAYLAND_WSI AND NOT WAYLAND_FOUND)
