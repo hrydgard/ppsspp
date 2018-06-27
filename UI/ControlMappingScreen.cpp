@@ -381,7 +381,7 @@ bool KeyMappingNewKeyDialog::axis(const AxisInput &axis) {
 	if (IgnoreAxisForMapping(axis.axisId))
 		return false;
 
-	if (axis.value > AXIS_BIND_THRESHOLD) {
+	if (axis.value > g_Config.fAxisBindThreshold) {
 		mapped_ = true;
 		KeyDef kdf(axis.deviceId, KeyMap::TranslateKeyCodeFromAxis(axis.axisId, 1));
 		TriggerFinish(DR_OK);
@@ -389,7 +389,7 @@ bool KeyMappingNewKeyDialog::axis(const AxisInput &axis) {
 			callback_(kdf);
 	}
 
-	if (axis.value < -AXIS_BIND_THRESHOLD) {
+	if (axis.value < -g_Config.fAxisBindThreshold) {
 		mapped_ = true;
 		KeyDef kdf(axis.deviceId, KeyMap::TranslateKeyCodeFromAxis(axis.axisId, -1));
 		TriggerFinish(DR_OK);
@@ -405,7 +405,7 @@ bool KeyMappingNewMouseKeyDialog::axis(const AxisInput &axis) {
 	if (IgnoreAxisForMapping(axis.axisId))
 		return false;
 
-	if (axis.value > AXIS_BIND_THRESHOLD) {
+	if (axis.value > g_Config.fAxisBindThreshold) {
 		mapped_ = true;
 		KeyDef kdf(axis.deviceId, KeyMap::TranslateKeyCodeFromAxis(axis.axisId, 1));
 		TriggerFinish(DR_OK);
@@ -413,7 +413,7 @@ bool KeyMappingNewMouseKeyDialog::axis(const AxisInput &axis) {
 			callback_(kdf);
 	}
 
-	if (axis.value < -AXIS_BIND_THRESHOLD) {
+	if (axis.value < -g_Config.fAxisBindThreshold) {
 		mapped_ = true;
 		KeyDef kdf(axis.deviceId, KeyMap::TranslateKeyCodeFromAxis(axis.axisId, -1));
 		TriggerFinish(DR_OK);
@@ -525,7 +525,7 @@ bool AnalogTestScreen::axis(const AxisInput &axis) {
 	if (IgnoreAxisForMapping(axis.axisId))
 		return false;
 
-	if (axis.value > AXIS_BIND_THRESHOLD || axis.value < -AXIS_BIND_THRESHOLD) {
+	if (axis.value > g_Config.fAxisBindThreshold || axis.value < -g_Config.fAxisBindThreshold) {
 		snprintf(buf, sizeof(buf), "Axis: %d (value %1.3f) Device ID: %d",
 			axis.axisId, axis.value, axis.deviceId);
 		// Null-check just in case they weren't created yet.

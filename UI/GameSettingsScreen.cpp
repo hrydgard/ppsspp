@@ -534,6 +534,12 @@ void GameSettingsScreen::CreateViews() {
 #if defined(USING_WIN_UI)
 	controlsSettings->Add(new CheckBox(&g_Config.bGamepadOnlyFocused, co->T("Ignore gamepads when not focused")));
 #endif
+	auto axisToButton = new PopupSliderChoiceFloat(&g_Config.fAxisBindThreshold, 0.01f, 0.96f, co->T("Axis to button threshold"), 0.05f, screenManager());
+	controlsSettings->Add(axisToButton);
+	axisToButton->OnChange.Add([=](EventParams &e) {
+		settingInfo_->Show(co->T("AxisToButton Tip", "Affects how far you have to push the stick(or move mouse on supported platforms) to trigger button mapped to it."), e.v);
+		return UI::EVENT_CONTINUE;
+	});
 
 #if defined(MOBILE_DEVICE)
 	controlsSettings->Add(new CheckBox(&g_Config.bHapticFeedback, co->T("HapticFeedback", "Haptic Feedback (vibration)")));
