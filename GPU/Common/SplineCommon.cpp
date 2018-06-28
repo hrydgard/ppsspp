@@ -592,23 +592,6 @@ void TessellateBezierPatch(u8 *&dest, u16 *&indices, int &count, int tess_u, int
 	_BezierPatchHighQuality(dest, indices, count, tess_u, tess_v, patch, origVertType);
 }
 
-static void CopyControlPoints(const SimpleVertex *const *points, float *pos, float *tex, float *col, int posStride, int texStride, int colStride, int size, bool hasColor, bool hasTexCoords) {
-	for (int idx = 0; idx < size; idx++) {
-		memcpy(pos, points[idx]->pos.AsArray(), 3 * sizeof(float));
-		pos += posStride;
-		if (hasTexCoords) {
-			memcpy(tex, points[idx]->uv, 2 * sizeof(float));
-			tex += texStride;
-		}
-		if (hasColor) {
-			memcpy(col, Vec4f::FromRGBA(points[idx]->color_32).AsArray(), 4 * sizeof(float));
-			col += colStride;
-		}
-	}
-	if (!hasColor)
-		memcpy(col, Vec4f::FromRGBA(points[0]->color_32).AsArray(), 4 * sizeof(float));
-}
-
 class SimpleBufferManager {
 private:
 	u8 *buf_;
