@@ -180,22 +180,28 @@ static void ExpandBezier(int &count, int op, const std::vector<SimpleVertex> &si
 	int num_patches_u = (count_u - 1) / 3;
 	int num_patches_v = (count_v - 1) / 3;
 	int total_patches = num_patches_u * num_patches_v;
-	std::vector<BezierPatch> patches;
-	patches.resize(total_patches);
-	for (int patch_u = 0; patch_u < num_patches_u; patch_u++) {
-		for (int patch_v = 0; patch_v < num_patches_v; patch_v++) {
-			BezierPatch &patch = patches[patch_u + patch_v * num_patches_u];
-			for (int point = 0; point < 16; ++point) {
-				int idx = (patch_u * 3 + point % 4) + (patch_v * 3 + point / 4) * count_u;
-				patch.points[point] = &simpleVerts[0] + (!indices.empty() ? indices[idx] : idx);
-			}
-			patch.u_index = patch_u * 3;
-			patch.v_index = patch_v * 3;
-			patch.index = patch_v * num_patches_u + patch_u;
-			patch.primType = gstate.getPatchPrimitiveType();
-			patch.computeNormals = false;
-			patch.patchFacing = false;
-		}
+
+	std::vector<const SimpleVertex *> points(count_u * count_v);
+	for (int idx = 0; idx < count_u * count_v; idx++)
+		points[idx] = &simpleVerts[0] + (!indices.empty() ? indices[idx] : idx);
+
+	BezierPatch patch;
+	patch.count_u = count_u;
+	patch.count_v = count_v;
+	patch.primType = gstate.getPatchPrimitiveType();
+	patch.patchFacing = false;
+	patch.defcolor = 0xFFFFFFFF;
+
+	std::vector<Vec3f> pos(patch.count_u * patch.count_v);
+	std::vector<Vec2f> tex(patch.count_u * patch.count_v);
+	std::vector<Vec4f> col(patch.count_u * patch.count_v);
+	patch.pos = pos.data();
+	patch.tex = tex.data();
+	patch.col = col.data();
+	for (int idx = 0; idx < count_u * count_v; idx++) {
+		patch.pos[idx] = Vec3f(points[idx]->pos);
+		patch.tex[idx] = Vec2f(points[idx]->uv);
+		patch.col[idx] = Vec4f::FromRGBA(points[idx]->color_32);
 	}
 
 	generatedVerts.resize((tess_u + 1) * (tess_v + 1) * total_patches);
@@ -204,15 +210,11 @@ static void ExpandBezier(int &count, int op, const std::vector<SimpleVertex> &si
 	count = 0;
 	u8 *dest = (u8 *)&generatedVerts[0];
 	u16 *inds = &generatedInds[0];
-	for (int patch_idx = 0; patch_idx < total_patches; ++patch_idx) {
-		const BezierPatch &patch = patches[patch_idx];
-		TessellateBezierPatch(dest, inds, count, tess_u, tess_v, patch, gstate.vertType);
-	}
+	TessellateBezierPatch(dest, inds, count, tess_u, tess_v, patch, gstate.vertType, generatedVerts.size());
 }
 
 static void ExpandSpline(int &count, int op, const std::vector<SimpleVertex> &simpleVerts, const std::vector<u16> &indices, std::vector<SimpleVertex> &generatedVerts, std::vector<u16> &generatedInds) {
 	SplinePatchLocal patch;
-	patch.computeNormals = false;
 	patch.primType = gstate.getPatchPrimitiveType();
 	patch.patchFacing = false;
 
@@ -235,25 +237,33 @@ static void ExpandSpline(int &count, int op, const std::vector<SimpleVertex> &si
 		return;
 	}
 
-	std::vector<const SimpleVertex *> points;
-	points.resize(patch.count_u * patch.count_v);
+	std::vector<const SimpleVertex *> points(patch.count_u * patch.count_v);
 
 	// Make an array of pointers to the control points, to get rid of indices.
 	for (int idx = 0; idx < patch.count_u * patch.count_v; idx++) {
 		points[idx] = &simpleVerts[0] + (!indices.empty() ? indices[idx] : idx);
 	}
-	patch.points = &points[0];
+	std::vector<Vec3f> pos(patch.count_u * patch.count_v);
+	std::vector<Vec2f> tex(patch.count_u * patch.count_v);
+	std::vector<Vec4f> col(patch.count_u * patch.count_v);
+	patch.pos = pos.data();
+	patch.tex = tex.data();
+	patch.col = col.data();
+	for (int idx = 0; idx < patch.count_u * patch.count_v; idx++) {
+		patch.pos[idx] = Vec3f(points[idx]->pos);
+		patch.tex[idx] = Vec2f(points[idx]->uv);
+		patch.col[idx] = Vec4f::FromRGBA(points[idx]->color_32);
+	}
 
 	int patch_div_s = (patch.count_u - 3) * patch.tess_u;
 	int patch_div_t = (patch.count_v - 3) * patch.tess_v;
-	int maxVertexCount = (patch_div_s + 1) * (patch_div_t + 1);
 
-	generatedVerts.resize(maxVertexCount);
+	generatedVerts.resize((patch_div_s + 1) * (patch_div_t + 1));
 	generatedInds.resize(patch_div_s * patch_div_t * 6);
 
 	count = 0;
 	u8 *dest = (u8 *)&generatedVerts[0];
-	TessellateSplinePatch(dest, &generatedInds[0], count, patch, gstate.vertType, maxVertexCount);
+	TessellateSplinePatch(dest, &generatedInds[0], count, patch, gstate.vertType, generatedVerts.size());
 }
 
 void CGEDebugger::UpdatePrimPreview(u32 op, int which) {
