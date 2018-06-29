@@ -159,9 +159,9 @@ LinkedShader::LinkedShader(GLRenderManager *render, VShaderID VSID, Shader *vs, 
 
 	// We need to fetch these unconditionally, gstate_c.spline or bezier will not be set if we
 	// create this shader at load time from the shader cache.
-	queries.push_back({ &u_tess_pos_tex, "u_tess_pos_tex" });
-	queries.push_back({ &u_tess_tex_tex, "u_tess_tex_tex" });
-	queries.push_back({ &u_tess_col_tex, "u_tess_col_tex" });
+	queries.push_back({ &u_tess_points, "u_tess_points" });
+	queries.push_back({ &u_tess_weights_u, "u_tess_weights_u" });
+	queries.push_back({ &u_tess_weights_v, "u_tess_weights_v" });
 	queries.push_back({ &u_spline_count_u, "u_spline_count_u" });
 	queries.push_back({ &u_spline_count_v, "u_spline_count_v" });
 	queries.push_back({ &u_spline_type_u, "u_spline_type_u" });
@@ -176,9 +176,9 @@ LinkedShader::LinkedShader(GLRenderManager *render, VShaderID VSID, Shader *vs, 
 	initialize.push_back({ &u_fbotex,       0, 1 });
 	initialize.push_back({ &u_testtex,      0, 2 });
 	initialize.push_back({ &u_pal,          0, 3 }); // CLUT
-	initialize.push_back({ &u_tess_pos_tex, 0, 4 }); // Texture unit 4
-	initialize.push_back({ &u_tess_tex_tex, 0, 5 }); // Texture unit 5
-	initialize.push_back({ &u_tess_col_tex, 0, 6 }); // Texture unit 6
+	initialize.push_back({ &u_tess_points,  0, 4 }); // Control Points
+	initialize.push_back({ &u_tess_weights_u, 0, 5 });
+	initialize.push_back({ &u_tess_weights_v, 0, 6 });
 
 	program = render->CreateProgram(shaders, semantics, queries, initialize, gstate_c.featureFlags & GPU_SUPPORTS_DUALSOURCE_BLEND);
 

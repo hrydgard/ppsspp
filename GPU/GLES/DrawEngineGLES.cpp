@@ -661,41 +661,28 @@ void DrawEngineGLES::TessellationDataTransferGLES::SendDataToShader(const Simple
 	int sizeColor = hasColor ? size : 1;
 
 	float *pos = new float[size * 4];
-	float *tex = nullptr;
-	if (hasTexCoord)
-		tex = new float[size * 4];
+	float *tex = hasTexCoord ? new float[size * 4] : nullptr;
 	float *col = new float[sizeColor * 4];
 	int stride = 4;
 
 	CopyControlPoints(pos, tex, col, stride, stride, stride, points, size, vertType);
 
 	// Removed the 1D texture support, it's unlikely to be relevant for performance.
-
-	// Position
+	// Control Points
 	if (data_tex[0])
 		renderManager_->DeleteTexture(data_tex[0]);
 	data_tex[0] = renderManager_->CreateTexture(GL_TEXTURE_2D);
-	renderManager_->TextureImage(data_tex[0], 0, size, 1, GL_RGBA32F, GL_RGBA, GL_FLOAT, (u8 *)pos, GLRAllocType::NEW, false);
+	renderManager_->TextureImage(data_tex[0], 0, size, 3, GL_RGBA32F, GL_RGBA, GL_FLOAT, (u8 *)nullptr, GLRAllocType::NONE, false);
 	renderManager_->FinalizeTexture(data_tex[0], 0, false);
-	renderManager_->BindTexture(TEX_SLOT_SPLINE_POS, data_tex[0]);
+	renderManager_->BindTexture(TEX_SLOT_SPLINE_POINTS, data_tex[0]);
 
+	// Position
+	renderManager_->TextureSubImage(data_tex[0], 0, 0, 0, size, 1, GL_RGBA, GL_FLOAT, (u8 *)pos, GLRAllocType::NEW);
 	// Texcoord
-	if (hasTexCoord) {
-		if (data_tex[1])
-			renderManager_->DeleteTexture(data_tex[1]);
-		data_tex[1] = renderManager_->CreateTexture(GL_TEXTURE_2D);
-		renderManager_->TextureImage(data_tex[1], 0, size, 1, GL_RGBA32F, GL_RGBA, GL_FLOAT, (u8 *)tex, GLRAllocType::NEW, false);
-		renderManager_->FinalizeTexture(data_tex[1], 0, false);
-		renderManager_->BindTexture(TEX_SLOT_SPLINE_TEX, data_tex[1]);
-	}
-
+	if (hasTexCoord)
+		renderManager_->TextureSubImage(data_tex[0], 0, 0, 1, size, 1, GL_RGBA, GL_FLOAT, (u8 *)tex, GLRAllocType::NEW);
 	// Color
-	if (data_tex[2])
-		renderManager_->DeleteTexture(data_tex[2]);
-	data_tex[2] = renderManager_->CreateTexture(GL_TEXTURE_2D);
-	renderManager_->TextureImage(data_tex[2], 0, sizeColor, 1, GL_RGBA32F, GL_RGBA, GL_FLOAT, (u8 *)col, GLRAllocType::NEW, false);
-	renderManager_->FinalizeTexture(data_tex[2], 0, false);
-	renderManager_->BindTexture(TEX_SLOT_SPLINE_COL, data_tex[2]);
+	renderManager_->TextureSubImage(data_tex[0], 0, 0, 2, sizeColor, 1, GL_RGBA, GL_FLOAT, (u8 *)col, GLRAllocType::NEW);
 }
 
 void DrawEngineGLES::TessellationDataTransferGLES::EndFrame() {

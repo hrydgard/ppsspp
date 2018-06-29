@@ -379,9 +379,9 @@ void GenerateVertexShader(const VShaderID &id, char *buffer, uint32_t *attrMask,
 	if (doBezier || doSpline) {
 		*uniformMask |= DIRTY_BEZIERSPLINE;
 
-		WRITE(p, "uniform sampler2D u_tess_pos_tex;\n");
-		WRITE(p, "uniform sampler2D u_tess_tex_tex;\n");
-		WRITE(p, "uniform sampler2D u_tess_col_tex;\n");
+		WRITE(p, "uniform sampler2D u_tess_points;\n"); // Control Points
+		WRITE(p, "uniform sampler2D u_tess_weights_u;\n");
+		WRITE(p, "uniform sampler2D u_tess_weights_v;\n");
 
 		WRITE(p, "uniform int u_spline_count_u;\n");
 
@@ -506,11 +506,11 @@ void GenerateVertexShader(const VShaderID &id, char *buffer, uint32_t *attrMask,
 				WRITE(p, "  for (int i = 0; i < 4; i++) {\n");
 				WRITE(p, "    for (int j = 0; j < 4; j++) {\n");
 				WRITE(p, "      int index = (i + v%s) * u_spline_count_u + (j + u%s);\n", doBezier ? " * 3" : "", doBezier ? " * 3" : "");
-				WRITE(p, "      _pos[i * 4 + j] = %s(u_tess_pos_tex, ivec2(index, 0), 0).xyz;\n", texelFetch);
+				WRITE(p, "      _pos[i * 4 + j] = %s(u_tess_points, ivec2(index, 0), 0).xyz;\n", texelFetch);
 				if (doTexture && hasTexcoord && hasTexcoordTess)
-					WRITE(p, "      _tex[i * 4 + j] = %s(u_tess_tex_tex, ivec2(index, 0), 0).xy;\n", texelFetch);
+					WRITE(p, "      _tex[i * 4 + j] = %s(u_tess_points, ivec2(index, 1), 0).xy;\n", texelFetch);
 				if (hasColor && hasColorTess)
-					WRITE(p, "      _col[i * 4 + j] = %s(u_tess_col_tex, ivec2(index, 0), 0).rgba;\n", texelFetch);
+					WRITE(p, "      _col[i * 4 + j] = %s(u_tess_points, ivec2(index, 2), 0).rgba;\n", texelFetch);
 				WRITE(p, "    }\n");
 				WRITE(p, "  }\n");
 				WRITE(p, "  vec2 tess_pos = position.xy;\n");
@@ -539,7 +539,7 @@ void GenerateVertexShader(const VShaderID &id, char *buffer, uint32_t *attrMask,
 					if (hasColorTess)
 						WRITE(p, "  vec4 col = tess_sample(_col, weights);\n");
 					else
-						WRITE(p, "  vec4 col = %s(u_tess_col_tex, ivec2(0, 0), 0).rgba;\n", texelFetch);
+						WRITE(p, "  vec4 col = %s(u_tess_points, ivec2(0, 2), 0).rgba;\n", texelFetch);
 				}
 				if (hasNormal) {
 					// Curved surface is probably always need to compute normal(not sampling from control points)
