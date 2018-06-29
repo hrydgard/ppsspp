@@ -530,6 +530,21 @@ public:
 		initSteps_.push_back(step);
 	}
 
+	void TextureSubImage(GLRTexture *texture, int level, int x, int y, int width, int height, GLenum format, GLenum type, uint8_t *data, GLRAllocType allocType = GLRAllocType::NEW) {
+		GLRInitStep step{ GLRInitStepType::TEXTURE_SUBIMAGE };
+		step.texture_subimage.texture = texture;
+		step.texture_subimage.data = data;
+		step.texture_subimage.format = format;
+		step.texture_subimage.type = type;
+		step.texture_subimage.level = level;
+		step.texture_subimage.x = x;
+		step.texture_subimage.y = y;
+		step.texture_subimage.width = width;
+		step.texture_subimage.height = height;
+		step.texture_subimage.allocType = allocType;
+		initSteps_.push_back(step);
+	}
+
 	void FinalizeTexture(GLRTexture *texture, int maxLevels, bool genMips) {
 		GLRInitStep step{ GLRInitStepType::TEXTURE_FINALIZE };
 		step.texture_finalize.texture = texture;

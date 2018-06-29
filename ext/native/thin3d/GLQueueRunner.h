@@ -20,6 +20,7 @@ struct GLOffset2D {
 };
 
 enum class GLRAllocType {
+	NONE,
 	NEW,
 	ALIGNED,
 };
@@ -196,6 +197,7 @@ enum class GLRInitStepType : uint8_t {
 	CREATE_FRAMEBUFFER,
 
 	TEXTURE_IMAGE,
+	TEXTURE_SUBIMAGE,
 	TEXTURE_FINALIZE,
 	BUFFER_SUBDATA,
 };
@@ -250,6 +252,18 @@ struct GLRInitStep {
 			bool linearFilter;
 			uint8_t *data;  // owned, delete[]-d
 		} texture_image;
+		struct {
+			GLRTexture *texture;
+			GLenum format;
+			GLenum type;
+			int level;
+			int x;
+			int y;
+			int width;
+			int height;
+			GLRAllocType allocType;
+			uint8_t *data;  // owned, delete[]-d
+		} texture_subimage;
 		struct {
 			GLRTexture *texture;
 			int maxLevel;

@@ -306,14 +306,14 @@ void GLQueueRunner::RunInitSteps(const std::vector<GLRInitStep> &steps, bool ski
 				glBindTexture(tex->target, tex->texture);
 				boundTexture = tex->texture;
 			}
-			if (!step.texture_image.data)
+			if (!step.texture_image.data && step.texture_image.allocType != GLRAllocType::NONE)
 				Crash();
 			// For things to show in RenderDoc, need to split into glTexImage2D(..., nullptr) and glTexSubImage.
 			glTexImage2D(tex->target, step.texture_image.level, step.texture_image.internalFormat, step.texture_image.width, step.texture_image.height, 0, step.texture_image.format, step.texture_image.type, step.texture_image.data);
 			allocatedTextures = true;
 			if (step.texture_image.allocType == GLRAllocType::ALIGNED) {
 				FreeAlignedMemory(step.texture_image.data);
-			} else {
+			} else if (step.texture_image.allocType == GLRAllocType::NEW) {
 				delete[] step.texture_image.data;
 			}
 			CHECK_GL_ERROR_IF_DEBUG();
@@ -325,6 +325,26 @@ void GLQueueRunner::RunInitSteps(const std::vector<GLRInitStep> &steps, bool ski
 			glTexParameteri(tex->target, GL_TEXTURE_WRAP_T, tex->wrapT);
 			glTexParameteri(tex->target, GL_TEXTURE_MAG_FILTER, tex->magFilter);
 			glTexParameteri(tex->target, GL_TEXTURE_MIN_FILTER, tex->minFilter);
+			CHECK_GL_ERROR_IF_DEBUG();
+			break;
+		}
+		case GLRInitStepType::TEXTURE_SUBIMAGE:
+		{
+			GLRTexture *tex = step.texture_subimage.texture;
+			CHECK_GL_ERROR_IF_DEBUG();
+			if (boundTexture != tex->texture) {
+				glBindTexture(tex->target, tex->texture);
+				boundTexture = tex->texture;
+			}
+			if (!step.texture_subimage.data)
+				Crash();
+			// For things to show in RenderDoc, need to split into glTexImage2D(..., nullptr) and glTexSubImage.
+			glTexSubImage2D(tex->target, step.texture_subimage.level, step.texture_subimage.x, step.texture_subimage.y, step.texture_subimage.width, step.texture_subimage.height, step.texture_subimage.format, step.texture_subimage.type, step.texture_subimage.data);
+			if (step.texture_subimage.allocType == GLRAllocType::ALIGNED) {
+				FreeAlignedMemory(step.texture_subimage.data);
+			} else if (step.texture_subimage.allocType == GLRAllocType::NEW) {
+				delete[] step.texture_subimage.data;
+			}
 			CHECK_GL_ERROR_IF_DEBUG();
 			break;
 		}
