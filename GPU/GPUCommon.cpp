@@ -24,9 +24,10 @@
 #include "Core/HLE/sceGe.h"
 #include "Core/Debugger/Breakpoints.h"
 #include "Core/MemMapHelpers.h"
-#include "GPU/Common/FramebufferCommon.h"
-#include "GPU/Common/TextureCacheCommon.h"
 #include "GPU/Common/DrawEngineCommon.h"
+#include "GPU/Common/FramebufferCommon.h"
+#include "GPU/Common/SplineCommon.h"
+#include "GPU/Common/TextureCacheCommon.h"
 #include "GPU/Debugger/Record.h"
 
 const CommonCommandTableEntry commonCommandTable[] = {
@@ -1729,7 +1730,7 @@ void GPUCommon::Execute_Bezier(u32 op, u32 diff) {
 	bool computeNormals = gstate.isLightingEnabled();
 	bool patchFacing = gstate.patchfacing & 1;
 
-	if (g_Config.bHardwareTessellation && g_Config.bHardwareTransform && !g_Config.bSoftwareRendering) {
+	if (CanUseHardwareTessellation(patchPrim)) {
 		gstate_c.Dirty(DIRTY_VERTEXSHADER_STATE);
 		gstate_c.bezier = true;
 		if (gstate_c.spline_count_u != bz_ucount) {
@@ -1793,7 +1794,7 @@ void GPUCommon::Execute_Spline(u32 op, u32 diff) {
 	bool patchFacing = gstate.patchfacing & 1;
 	u32 vertType = gstate.vertType;
 
-	if (g_Config.bHardwareTessellation && g_Config.bHardwareTransform && !g_Config.bSoftwareRendering) {
+	if (CanUseHardwareTessellation(patchPrim)) {
 		gstate_c.Dirty(DIRTY_VERTEXSHADER_STATE);
 		gstate_c.spline = true;
 		bool countsChanged = gstate_c.spline_count_u != sp_ucount || gstate_c.spline_count_v != sp_vcount;
