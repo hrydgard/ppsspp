@@ -325,14 +325,15 @@ void DrawEngineD3D11::DoFlush() {
 	gpuStats.numFlushes++;
 	gpuStats.numTrackedVertexArrays = (int)vai_.size();
 
-	// This is not done on every drawcall, we should collect vertex data
+	// This is not done on every drawcall, we collect vertex data
 	// until critical state changes. That's when we draw (flush).
 
 	GEPrimitiveType prim = prevPrim_;
 	ApplyDrawState(prim);
 
 	// Always use software for flat shading to fix the provoking index.
-	bool useHWTransform = CanUseHardwareTransform(prim) && gstate.getShadeMode() != GE_SHADE_FLAT;
+	bool tess = gstate_c.bezier || gstate_c.spline;
+	bool useHWTransform = CanUseHardwareTransform(prim) && (tess || gstate.getShadeMode() != GE_SHADE_FLAT);
 
 	if (useHWTransform) {
 		ID3D11Buffer *vb_ = nullptr;
@@ -539,7 +540,7 @@ rotateVBO:
 				memcpy(iptr, decIndex, iSize);
 				pushInds_->EndPush(context_);
 				context_->IASetIndexBuffer(pushInds_->Buf(), DXGI_FORMAT_R16_UINT, iOffset);
-				if (gstate_c.bezier || gstate_c.spline)
+				if (tess)
 					context_->DrawIndexedInstanced(vertexCount, numPatches, 0, 0, 0);
 				else
 					context_->DrawIndexed(vertexCount, 0, 0);
@@ -551,7 +552,7 @@ rotateVBO:
 			context_->IASetVertexBuffers(0, 1, &vb_, &stride, &offset);
 			if (useElements) {
 				context_->IASetIndexBuffer(ib_, DXGI_FORMAT_R16_UINT, 0);
-				if (gstate_c.bezier || gstate_c.spline)
+				if (tess)
 					context_->DrawIndexedInstanced(vertexCount, numPatches, 0, 0, 0);
 				else
 					context_->DrawIndexed(vertexCount, 0, 0);
