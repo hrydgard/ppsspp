@@ -24,6 +24,7 @@
 #include "Common/MemoryUtil.h"
 #include "Core/Config.h"
 
+#include "GPU/Common/GPUStateUtils.h"
 #include "GPU/Common/SplineCommon.h"
 #include "GPU/Common/DrawEngineCommon.h"
 #include "GPU/ge_constants.h"
@@ -221,6 +222,13 @@ static void spline_knot(int n, int type, float *knot) {
 		knot[n + 3] = (float)(n - 2);
 		knot[n + 4] = (float)(n - 2);
 	}
+}
+
+bool CanUseHardwareTessellation(GEPatchPrimType prim) {
+	if (g_Config.bHardwareTessellation && !g_Config.bSoftwareRendering) {
+		return CanUseHardwareTransform(PatchPrimToPrim(prim));
+	}
+	return false;
 }
 
 // Prepare mesh of one patch for "Instanced Tessellation".
@@ -841,9 +849,6 @@ void TessellateBezierPatch(u8 *&dest, u16 *&indices, int &count, int tess_u, int
 	}
 }
 
-// This maps GEPatchPrimType to GEPrimitiveType.
-const GEPrimitiveType primType[] = { GE_PRIM_TRIANGLES, GE_PRIM_LINES, GE_PRIM_POINTS, GE_PRIM_POINTS };
-
 void DrawEngineCommon::SubmitSpline(const void *control_points, const void *indices, int tess_u, int tess_v, int count_u, int count_v, int type_u, int type_v, GEPatchPrimType prim_type, bool computeNormals, bool patchFacing, u32 vertType, int *bytesRead) {
 	PROFILE_THIS_SCOPE("spline");
 	DispatchFlush();
@@ -900,8 +905,7 @@ void DrawEngineCommon::SubmitSpline(const void *control_points, const void *indi
 	patch.primType = prim_type;
 	patch.patchFacing = patchFacing;
 
-	if (g_Config.bHardwareTessellation && g_Config.bHardwareTransform && !g_Config.bSoftwareRendering) {
-	
+	if (CanUseHardwareTessellation(prim_type)) {
 		float *pos = (float*)(decoded + 65536 * 18); // Size 4 float
 		float *tex = pos + count_u * count_v * 4; // Size 4 float
 		float *col = tex + count_u * count_v * 4; // Size 4 float
@@ -952,7 +956,7 @@ void DrawEngineCommon::SubmitSpline(const void *control_points, const void *indi
 	uint32_t vertTypeID = GetVertTypeID(vertTypeWithIndex16, gstate.getUVGenMode());
 
 	int generatedBytesRead;
-	DispatchSubmitPrim(splineBuffer, quadIndices_, primType[prim_type], count, vertTypeID, &generatedBytesRead);
+	DispatchSubmitPrim(splineBuffer, quadIndices_, PatchPrimToPrim(prim_type), count, vertTypeID, &generatedBytesRead);
 
 	DispatchFlush();
 
@@ -1006,7 +1010,7 @@ void DrawEngineCommon::SubmitBezier(const void *control_points, const void *indi
 	int num_patches_u = (count_u - 1) / 3;
 	int num_patches_v = (count_v - 1) / 3;
 	BezierPatch *patches = nullptr;
-	if (g_Config.bHardwareTessellation && g_Config.bHardwareTransform && !g_Config.bSoftwareRendering) {
+	if (CanUseHardwareTessellation(prim_type)) {
 		int posStride, texStride, colStride;
 		tessDataTransfer->PrepareBuffers(pos, tex, col, posStride, texStride, colStride, count_u * count_v, hasColor, hasTexCoords);
 		float *p = pos;
@@ -1063,7 +1067,7 @@ void DrawEngineCommon::SubmitBezier(const void *control_points, const void *indi
 	}
 
 	u16 *inds = quadIndices_;
-	if (g_Config.bHardwareTessellation && g_Config.bHardwareTransform && !g_Config.bSoftwareRendering) {
+	if (CanUseHardwareTessellation(prim_type)) {
 		tessDataTransfer->SendDataToShader(pos, tex, col, count_u * count_v, hasColor, hasTexCoords);
 		TessellateBezierPatchHardware(dest, inds, count, tess_u, tess_v, prim_type);
 		numPatches = num_patches_u * num_patches_v;
@@ -1095,7 +1099,7 @@ void DrawEngineCommon::SubmitBezier(const void *control_points, const void *indi
 
 	uint32_t vertTypeID = GetVertTypeID(vertTypeWithIndex16, gstate.getUVGenMode());
 	int generatedBytesRead;
-	DispatchSubmitPrim(splineBuffer, quadIndices_, primType[prim_type], count, vertTypeID, &generatedBytesRead);
+	DispatchSubmitPrim(splineBuffer, quadIndices_, PatchPrimToPrim(prim_type), count, vertTypeID, &generatedBytesRead);
 
 	DispatchFlush();
 
