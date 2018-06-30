@@ -293,6 +293,12 @@ struct SaveFileInfo
 	void DoState(PointerWrap &p);
 };
 
+struct SaveSFOFileListEntry {
+	char filename[13];
+	u8 hash[16];
+	u8 pad[3];
+};
+
 class SavedataParam
 {
 public:
@@ -355,18 +361,20 @@ private:
 	void ClearFileInfo(SaveFileInfo &saveInfo, const std::string &saveName);
 
 	int LoadSaveData(SceUtilitySavedataParam *param, const std::string &saveDirName, const std::string& dirPath, bool secureMode);
-	void LoadCryptedSave(SceUtilitySavedataParam *param, u8 *data, u8 *saveData, int &saveSize, int prevCryptMode, bool &saveDone);
+	void LoadCryptedSave(SceUtilitySavedataParam *param, u8 *data, u8 *saveData, int &saveSize, int prevCryptMode, const u8 *expectedHash, bool &saveDone);
 	void LoadNotCryptedSave(SceUtilitySavedataParam *param, u8 *data, u8 *saveData, int &saveSize);
 	void LoadSFO(SceUtilitySavedataParam *param, const std::string& dirPath);
 	void LoadFile(const std::string& dirPath, const std::string& filename, PspUtilitySavedataFileData *fileData);
 
-	int DecryptSave(unsigned int mode, unsigned char *data, int *dataLen, int *alignedLen, unsigned char *cryptkey);
+	int DecryptSave(unsigned int mode, unsigned char *data, int *dataLen, int *alignedLen, unsigned char *cryptkey, const u8 *expectedHash);
 	int EncryptData(unsigned int mode, unsigned char *data, int *dataLen, int *alignedLen, unsigned char *hash, unsigned char *cryptkey);
 	int UpdateHash(u8* sfoData, int sfoSize, int sfoDataParamsOffset, int encryptmode);
 	int BuildHash(unsigned char *output, unsigned char *data, unsigned int len,  unsigned int alignedLen, int mode, unsigned char *cryptkey);
 	int DetermineCryptMode(const SceUtilitySavedataParam *param) const;
 
-	std::set<std::string> getSecureFileNames(std::string dirPath);
+	std::vector<SaveSFOFileListEntry> GetSFOEntries(const std::string &dirPath);
+	std::set<std::string> GetSecureFileNames(const std::string &dirPath);
+	bool GetExpectedHash(const std::string &dirPath, const std::string &filename, u8 hash[16]);
 
 	SceUtilitySavedataParam* pspParam;
 	int selectedSave;
