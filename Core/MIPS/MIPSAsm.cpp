@@ -3,6 +3,7 @@
 #endif
 #include <cstdarg>
 #include <cstring>
+#include <memory>
 #include <vector>
 
 #include "Common/CommonTypes.h"
@@ -66,7 +67,6 @@ private:
 
 bool MipsAssembleOpcode(const char* line, DebugInterface* cpu, u32 address)
 {
-	PspAssemblerFile file;
 	StringList errors;
 
 	wchar_t str[64];
@@ -76,7 +76,7 @@ bool MipsAssembleOpcode(const char* line, DebugInterface* cpu, u32 address)
 	args.mode = ArmipsMode::MEMORY;
 	args.content = str + ConvertUTF8ToWString(line);
 	args.silent = true;
-	args.memoryFile = &file;
+	args.memoryFile.reset(new PspAssemblerFile());
 	args.errorsResult = &errors;
 
 	if (g_symbolMap) {

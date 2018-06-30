@@ -29,6 +29,7 @@
 #endif
 
 #include <algorithm>
+#include <memory>
 
 #include "util/text/utf8.h"
 #include "zlib.h"
