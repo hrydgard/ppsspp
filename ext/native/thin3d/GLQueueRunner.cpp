@@ -72,6 +72,24 @@ void GLQueueRunner::DestroyDeviceObjects() {
 	CHECK_GL_ERROR_IF_DEBUG();
 }
 
+template <typename Getiv, typename GetLog>
+static std::string GetInfoLog(GLuint name, Getiv getiv, GetLog getLog) {
+	GLint bufLength = 0;
+	getiv(name, GL_INFO_LOG_LENGTH, &bufLength);
+	if (bufLength <= 0)
+		bufLength = 2048;
+
+	std::string infoLog;
+	infoLog.resize(bufLength);
+	GLsizei len = 0;
+	getLog(name, (GLsizei)infoLog.size(), &len, &infoLog[0]);
+	if (len <= 0)
+		return "(unknown reason)";
+
+	infoLog.resize(len);
+	return infoLog;
+}
+
 void GLQueueRunner::RunInitSteps(const std::vector<GLRInitStep> &steps) {
 	CHECK_GL_ERROR_IF_DEBUG();
 	glActiveTexture(GL_TEXTURE0);
@@ -143,36 +161,28 @@ void GLQueueRunner::RunInitSteps(const std::vector<GLRInitStep> &steps) {
 			GLint linkStatus = GL_FALSE;
 			glGetProgramiv(program->program, GL_LINK_STATUS, &linkStatus);
 			if (linkStatus != GL_TRUE) {
-				GLint bufLength = 0;
-				glGetProgramiv(program->program, GL_INFO_LOG_LENGTH, &bufLength);
-				if (bufLength) {
-					char *buf = new char[bufLength];
-					glGetProgramInfoLog(program->program, bufLength, nullptr, buf);
+				std::string infoLog = GetInfoLog(program->program, glGetProgramiv, glGetProgramInfoLog);
 
-					// TODO: Could be other than vs/fs.  Also, we're assuming order here...
-					const char *vsDesc = step.create_program.shaders[0]->desc.c_str();
-					const char *fsDesc = step.create_program.num_shaders > 1 ? step.create_program.shaders[1]->desc.c_str() : nullptr;
-					const char *vsCode = step.create_program.shaders[0]->code.c_str();
-					const char *fsCode = step.create_program.num_shaders > 1 ? step.create_program.shaders[1]->code.c_str() : nullptr;
-					Reporting::ReportMessage("Error in shader program link: info: %s\nfs: %s\n%s\nvs: %s\n%s", buf, fsDesc, fsCode, vsDesc, vsCode);
+				// TODO: Could be other than vs/fs.  Also, we're assuming order here...
+				const char *vsDesc = step.create_program.shaders[0]->desc.c_str();
+				const char *fsDesc = step.create_program.num_shaders > 1 ? step.create_program.shaders[1]->desc.c_str() : nullptr;
+				const char *vsCode = step.create_program.shaders[0]->code.c_str();
+				const char *fsCode = step.create_program.num_shaders > 1 ? step.create_program.shaders[1]->code.c_str() : nullptr;
+				Reporting::ReportMessage("Error in shader program link: info: %s\nfs: %s\n%s\nvs: %s\n%s", infoLog.c_str(), fsDesc, fsCode, vsDesc, vsCode);
 
-					ELOG("Could not link program:\n %s", buf);
-					ERROR_LOG(G3D, "VS desc:\n%s", vsDesc);
-					ERROR_LOG(G3D, "FS desc:\n%s", fsDesc);
-					ERROR_LOG(G3D, "VS:\n%s\n", vsCode);
-					ERROR_LOG(G3D, "FS:\n%s\n", fsCode);
+				ELOG("Could not link program:\n %s", infoLog.c_str());
+				ERROR_LOG(G3D, "VS desc:\n%s", vsDesc);
+				ERROR_LOG(G3D, "FS desc:\n%s", fsDesc);
+				ERROR_LOG(G3D, "VS:\n%s\n", vsCode);
+				ERROR_LOG(G3D, "FS:\n%s\n", fsCode);
 
 #ifdef _WIN32
-					OutputDebugStringUTF8(buf);
-					if (vsCode)
-						OutputDebugStringUTF8(LineNumberString(vsCode).c_str());
-					if (fsCode)
-						OutputDebugStringUTF8(LineNumberString(fsCode).c_str());
+				OutputDebugStringUTF8(infoLog.c_str());
+				if (vsCode)
+					OutputDebugStringUTF8(LineNumberString(vsCode).c_str());
+				if (fsCode)
+					OutputDebugStringUTF8(LineNumberString(fsCode).c_str());
 #endif
-					delete[] buf;
-				} else {
-					ELOG("Could not link program with %d shaders for unknown reason:", step.create_program.num_shaders);
-				}
 				CHECK_GL_ERROR_IF_DEBUG();
 				break;
 			}
@@ -211,23 +221,18 @@ void GLQueueRunner::RunInitSteps(const std::vector<GLRInitStep> &steps) {
 			GLint success = 0;
 			glGetShaderiv(shader, GL_COMPILE_STATUS, &success);
 			if (!success) {
-#define MAX_INFO_LOG_SIZE 2048
-				GLchar infoLog[MAX_INFO_LOG_SIZE];
-				GLsizei len = 0;
-				glGetShaderInfoLog(shader, MAX_INFO_LOG_SIZE, &len, infoLog);
-				infoLog[len] = '\0';
+				std::string infoLog = GetInfoLog(shader, glGetShaderiv, glGetShaderInfoLog);
 #ifdef __ANDROID__
-				ELOG("Error in shader compilation! %s\n", infoLog);
+				ELOG("Error in shader compilation! %s\n", infoLog.c_str());
 				ELOG("Shader source:\n%s\n", (const char *)code);
 #endif
 				ERROR_LOG(G3D, "Error in shader compilation for: %s", step.create_shader.shader->desc.c_str());
-				ERROR_LOG(G3D, "Info log: %s", infoLog);
+				ERROR_LOG(G3D, "Info log: %s", infoLog.c_str());
 				ERROR_LOG(G3D, "Shader source:\n%s\n", (const char *)code);
-				Reporting::ReportMessage("Error in shader compilation: info: %s\n%s\n%s", infoLog, step.create_shader.shader->desc.c_str(), (const char *)code);
+				Reporting::ReportMessage("Error in shader compilation: info: %s\n%s\n%s", infoLog.c_str(), step.create_shader.shader->desc.c_str(), (const char *)code);
 #ifdef SHADERLOG
-				OutputDebugStringUTF8(infoLog);
+				OutputDebugStringUTF8(infoLog.c_str());
 #endif
-				step.create_shader.shader->valid = false;
 				step.create_shader.shader->failed = true;
 				step.create_shader.shader->error = infoLog;
 			}
