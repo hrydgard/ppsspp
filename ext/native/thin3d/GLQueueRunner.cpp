@@ -164,15 +164,17 @@ void GLQueueRunner::RunInitSteps(const std::vector<GLRInitStep> &steps) {
 				std::string infoLog = GetInfoLog(program->program, glGetProgramiv, glGetProgramInfoLog);
 
 				// TODO: Could be other than vs/fs.  Also, we're assuming order here...
-				const char *vsDesc = step.create_program.shaders[0]->desc.c_str();
-				const char *fsDesc = step.create_program.num_shaders > 1 ? step.create_program.shaders[1]->desc.c_str() : nullptr;
-				const char *vsCode = step.create_program.shaders[0]->code.c_str();
-				const char *fsCode = step.create_program.num_shaders > 1 ? step.create_program.shaders[1]->code.c_str() : nullptr;
-				Reporting::ReportMessage("Error in shader program link: info: %s\nfs: %s\n%s\nvs: %s\n%s", infoLog.c_str(), fsDesc, fsCode, vsDesc, vsCode);
+				GLRShader *vs = step.create_program.shaders[0];
+				GLRShader *fs = step.create_program.num_shaders > 1 ? step.create_program.shaders[1] : nullptr;
+				std::string vsDesc = vs->desc + (vs->failed ? " (failed)" : "");
+				std::string fsDesc = fs ? (fs->desc + (fs->failed ? " (failed)" : "")) : "(none)";
+				const char *vsCode = vs->code.c_str();
+				const char *fsCode = fs ? fs->code.c_str() : "(none)";
+				Reporting::ReportMessage("Error in shader program link: info: %s\nfs: %s\n%s\nvs: %s\n%s", infoLog.c_str(), fsDesc.c_str(), fsCode, vsDesc.c_str(), vsCode);
 
 				ELOG("Could not link program:\n %s", infoLog.c_str());
-				ERROR_LOG(G3D, "VS desc:\n%s", vsDesc);
-				ERROR_LOG(G3D, "FS desc:\n%s", fsDesc);
+				ERROR_LOG(G3D, "VS desc:\n%s", vsDesc.c_str());
+				ERROR_LOG(G3D, "FS desc:\n%s", fsDesc.c_str());
 				ERROR_LOG(G3D, "VS:\n%s\n", vsCode);
 				ERROR_LOG(G3D, "FS:\n%s\n", fsCode);
 
