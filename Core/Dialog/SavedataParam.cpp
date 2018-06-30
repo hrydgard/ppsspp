@@ -435,39 +435,31 @@ int SavedataParam::Save(SceUtilitySavedataParam* param, const std::string &saveD
 	sfoFile.SetValue("SAVEDATA_DIRECTORY", GetSaveDir(param, saveDirName), 64);
 
 	// For each file, 13 bytes for filename, 16 bytes for file hash (0 in PPSSPP), 3 byte for padding
-	if (secureMode)
-	{
-		const int FILE_LIST_ITEM_SIZE = 13 + 16 + 3;
+	if (secureMode) {
 		const int FILE_LIST_COUNT_MAX = 99;
-		const u32 FILE_LIST_TOTAL_SIZE = FILE_LIST_ITEM_SIZE * FILE_LIST_COUNT_MAX;
+		const u32 FILE_LIST_TOTAL_SIZE = sizeof(SaveSFOFileListEntry) * FILE_LIST_COUNT_MAX;
 		u32 tmpDataSize = 0;
-		u8 *tmpDataOrig = sfoFile.GetValueData("SAVEDATA_FILE_LIST", &tmpDataSize);
-		u8 *tmpData = new u8[FILE_LIST_TOTAL_SIZE];
+		SaveSFOFileListEntry *tmpDataOrig = (SaveSFOFileListEntry *)sfoFile.GetValueData("SAVEDATA_FILE_LIST", &tmpDataSize);
+		SaveSFOFileListEntry *updatedList = new SaveSFOFileListEntry[FILE_LIST_COUNT_MAX];
+		if (tmpDataSize != 0)
+			memcpy(updatedList, tmpDataOrig, std::min(tmpDataSize, FILE_LIST_TOTAL_SIZE));
+		if (tmpDataSize < FILE_LIST_TOTAL_SIZE)
+			memset(updatedList + tmpDataSize, 0, FILE_LIST_TOTAL_SIZE - tmpDataSize);
 
-		if (tmpDataOrig != NULL)
-			memcpy(tmpData, tmpDataOrig, tmpDataSize > FILE_LIST_TOTAL_SIZE ? FILE_LIST_TOTAL_SIZE : tmpDataSize);
-		else
-			memset(tmpData, 0, FILE_LIST_TOTAL_SIZE);
+		if (param->dataBuf.IsValid()) {
+			const std::string saveFilename = GetFileName(param);
+			for (auto entry = updatedList; entry < updatedList + FILE_LIST_COUNT_MAX; ++entry) {
+				if (entry->filename[0] != '\0') {
+					if (strncmp(entry->filename, saveFilename.c_str(), sizeof(entry->filename)) != 0)
+						continue;
+				}
 
-		if (param->dataBuf.IsValid())
-		{
-			char *fName = (char*)tmpData;
-			for(int i = 0; i < FILE_LIST_COUNT_MAX; i++)
-			{
-				if(fName[0] == 0)
-					break; // End of list
-				if(strncmp(fName,GetFileName(param).c_str(),20) == 0)
-					break;
-				fName += FILE_LIST_ITEM_SIZE;
+				snprintf(entry->filename, sizeof(entry->filename), "%s", saveFilename.c_str());
+				memcpy(entry->hash, cryptedHash, 16);
 			}
-
-			if (fName + 13 <= (char*)tmpData + FILE_LIST_TOTAL_SIZE)
-				snprintf(fName, 13, "%s",GetFileName(param).c_str());
-			if (fName + 13 + 16 <= (char*)tmpData + FILE_LIST_TOTAL_SIZE)
-				memcpy(fName+13, cryptedHash, 16);
 		}
-		sfoFile.SetValue("SAVEDATA_FILE_LIST", tmpData, FILE_LIST_TOTAL_SIZE, (int)FILE_LIST_TOTAL_SIZE);
-		delete[] tmpData;
+		sfoFile.SetValue("SAVEDATA_FILE_LIST", (u8 *)updatedList, FILE_LIST_TOTAL_SIZE, (int)FILE_LIST_TOTAL_SIZE);
+		delete[] updatedList;
 	}
 
 	// Init param with 0. This will be used to detect crypted save or not on loading
@@ -599,10 +591,11 @@ int SavedataParam::LoadSaveData(SceUtilitySavedataParam *param, const std::strin
 		WARN_LOG_REPORT(SCEUTILITY, "Savedata version requested: %d", param->secureVersion);
 	}
 	u8 *data_ = param->dataBuf;
-	std::string filePath = dirPath+"/"+GetFileName(param);
+	std::string filename = GetFileName(param);
+	std::string filePath = dirPath + "/" + filename;
 	s64 readSize;
 	INFO_LOG(SCEUTILITY,"Loading file with size %u in %s",param->dataBufSize,filePath.c_str());
-	u8* saveData = 0;
+	u8 *saveData = nullptr;
 	int saveSize = -1;
 	if (!ReadPSPFile(filePath, &saveData, saveSize, &readSize)) {
 		ERROR_LOG(SCEUTILITY,"Error reading file %s",filePath.c_str());
@@ -619,7 +612,10 @@ int SavedataParam::LoadSaveData(SceUtilitySavedataParam *param, const std::strin
 	if (isCrypted) {
 		if (DetermineCryptMode(param) > 1 && !HasKey(param))
 			return SCE_UTILITY_SAVEDATA_ERROR_LOAD_PARAM;
-		LoadCryptedSave(param, data_, saveData, saveSize, prevCryptMode, saveDone);
+
+		u8 hash[16];
+		bool hasExpectedHash = GetExpectedHash(dirPath, filename, hash);
+		LoadCryptedSave(param, data_, saveData, saveSize, prevCryptMode, hasExpectedHash ? hash : nullptr, saveDone);
 		// TODO: Should return SCE_UTILITY_SAVEDATA_ERROR_LOAD_DATA_BROKEN here if !saveDone.
 	}
 	if (!saveDone) {
@@ -646,13 +642,14 @@ int SavedataParam::DetermineCryptMode(const SceUtilitySavedataParam *param) cons
 	return decryptMode;
 }
 
-void SavedataParam::LoadCryptedSave(SceUtilitySavedataParam *param, u8 *data, u8 *saveData, int &saveSize, int prevCryptMode, bool &saveDone) {
+void SavedataParam::LoadCryptedSave(SceUtilitySavedataParam *param, u8 *data, u8 *saveData, int &saveSize, int prevCryptMode, const u8 *expectedHash, bool &saveDone) {
 	int align_len = align16(saveSize);
 	u8 *data_base = new u8[align_len];
 	u8 *cryptKey = new u8[0x10];
 	memset(cryptKey, 0, 0x10);
 
 	int decryptMode = DetermineCryptMode(param);
+	const int detectedMode = decryptMode;
 	bool hasKey = decryptMode > 1;
 	if (hasKey) {
 		memcpy(cryptKey, param->key, 0x10);
@@ -688,7 +685,19 @@ void SavedataParam::LoadCryptedSave(SceUtilitySavedataParam *param, u8 *data, u8
 		hasKey = decryptMode > 1;
 	}
 
-	if (DecryptSave(decryptMode, data_base, &saveSize, &align_len, (hasKey?cryptKey:0)) == 0) {
+	int err = DecryptSave(decryptMode, data_base, &saveSize, &align_len, hasKey ? cryptKey : nullptr, expectedHash);
+	// Perhaps the file had the wrong mode....
+	if (err != 0 && detectedMode != decryptMode) {
+		hasKey = detectedMode > 1;
+		err = DecryptSave(detectedMode, data_base, &saveSize, &align_len, hasKey ? cryptKey : nullptr, expectedHash);
+	}
+	// TODO: Should return an error, but let's just try with a bad hash.
+	if (err != 0 && expectedHash != nullptr) {
+		WARN_LOG(SCEUTILITY, "Incorrect hash on save data, likely corrupt");
+		err = DecryptSave(decryptMode, data_base, &saveSize, &align_len, hasKey ? cryptKey : nullptr, nullptr);
+	}
+
+	if (err == 0) {
 		if (param->dataBuf.IsValid())
 			memcpy(data, data_base, std::min((u32)saveSize, (u32)param->dataBufSize));
 		saveDone = true;
@@ -721,37 +730,52 @@ void SavedataParam::LoadSFO(SceUtilitySavedataParam *param, const std::string& d
 	}
 }
 
-std::set<std::string> SavedataParam::getSecureFileNames(std::string dirPath) {
-	PSPFileInfo sfoFileInfo = pspFileSystem.GetFileInfo(dirPath + "/" + SFO_FILENAME);
-	std::set<std::string> secureFileNames;
-	if (!sfoFileInfo.exists)
-		return secureFileNames;
+std::vector<SaveSFOFileListEntry> SavedataParam::GetSFOEntries(const std::string &dirPath) {
+	std::vector<SaveSFOFileListEntry> result;
+	const std::string sfoPath = dirPath + "/" + SFO_FILENAME;
+	if (!pspFileSystem.GetFileInfo(sfoPath).exists)
+		return result;
 
 	ParamSFOData sfoFile;
 	std::vector<u8> sfoData;
-	if (pspFileSystem.ReadEntireFile(dirPath + "/" + SFO_FILENAME, sfoData) >= 0) {
+	if (pspFileSystem.ReadEntireFile(dirPath + "/" + SFO_FILENAME, sfoData) >= 0)
 		sfoFile.ReadSFO(sfoData);
+
+	const int FILE_LIST_COUNT_MAX = 99;
+	u32 sfoFileListSize = 0;
+	SaveSFOFileListEntry *sfoFileList = (SaveSFOFileListEntry *)sfoFile.GetValueData("SAVEDATA_FILE_LIST", &sfoFileListSize);
+	const u32 count = std::min((u32)FILE_LIST_COUNT_MAX, sfoFileListSize / (u32)sizeof(SaveSFOFileListEntry));
+
+	for (u32 i = 0; i < count; ++i) {
+		if (sfoFileList[i].filename[0] != '\0')
+			result.push_back(sfoFileList[i]);
 	}
 
-	u32 sfoFileListSize = 0;
-	char *sfoFileList = (char *)sfoFile.GetValueData("SAVEDATA_FILE_LIST", &sfoFileListSize);
-	const int FILE_LIST_ITEM_SIZE = 13 + 16 + 3;
-	const u32 FILE_LIST_COUNT_MAX = 99;
+	return result;
+}
 
-	// Filenames are 13 bytes long at most.  Add a NULL so there's no surprises.
-	char temp[14];
-	temp[13] = '\0';
+std::set<std::string> SavedataParam::GetSecureFileNames(const std::string &dirPath) {
+	auto entries = GetSFOEntries(dirPath);
 
-	for (u32 i = 0; i < FILE_LIST_COUNT_MAX; ++i) {
-		// Ends at a NULL filename.
-		if (i * FILE_LIST_ITEM_SIZE >= sfoFileListSize || sfoFileList[i * FILE_LIST_ITEM_SIZE] == '\0') {
-			break;
-		}
-
-		strncpy(temp, &sfoFileList[i * FILE_LIST_ITEM_SIZE], 13);
+	std::set<std::string> secureFileNames;
+	for (auto entry : entries) {
+		char temp[14];
+		truncate_cpy(temp, entry.filename);
 		secureFileNames.insert(temp);
 	}
 	return secureFileNames;
+}
+
+bool SavedataParam::GetExpectedHash(const std::string &dirPath, const std::string &filename, u8 hash[16]) {
+	auto entries = GetSFOEntries(dirPath);
+
+	for (auto entry : entries) {
+		if (strncmp(entry.filename, filename.c_str(), sizeof(entry.filename)) == 0) {
+			memcpy(hash, entry.hash, sizeof(entry.hash));
+			return true;
+		}
+	}
+	return false;
 }
 
 void SavedataParam::LoadFile(const std::string& dirPath, const std::string& filename, PspUtilitySavedataFileData *fileData) {
@@ -816,13 +840,7 @@ int SavedataParam::EncryptData(unsigned int mode,
 	return 0;
 }
 
-int SavedataParam::DecryptSave(unsigned int mode,
-		 unsigned char *data,
-		 int *dataLen,
-		 int *alignedLen,
-		 unsigned char *cryptkey)
-{
-
+int SavedataParam::DecryptSave(unsigned int mode, unsigned char *data, int *dataLen, int *alignedLen, unsigned char *cryptkey, const u8 *expectedHash) {
 	pspChnnlsvContext1 ctx1;
 	pspChnnlsvContext2 ctx2;
 
@@ -851,6 +869,14 @@ int SavedataParam::DecryptSave(unsigned int mode,
 	/* Verify that it decrypted correctly */
 	if (sceChnnlsv_21BE78B4_(ctx2) < 0)
 		return -7;
+
+	if (expectedHash) {
+		u8 hash[16];
+		if (sceSdGetLastIndex_(ctx1, hash, cryptkey) < 0)
+			return -7;
+		if (memcmp(hash, expectedHash, sizeof(hash)) != 0)
+			return -8;
+	}
 
 	/* The decrypted data starts at data + 0x10, so shift it back. */
 	memmove(data, data + 0x10, *dataLen);
@@ -1154,7 +1180,7 @@ int SavedataParam::GetFilesList(SceUtilitySavedataParam *param)
 	std::set<std::string> secureFilenames;
 
 	if (sfoFileInfo.exists) {
-		secureFilenames = getSecureFileNames(dirPath);
+		secureFilenames = GetSecureFileNames(dirPath);
 	} else {
 		return SCE_UTILITY_SAVEDATA_ERROR_RW_DATA_BROKEN;
 	}
