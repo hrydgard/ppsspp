@@ -23,4 +23,7 @@ void *WebSocketHLEInit(DebuggerEventHandlerMap &map);
 
 void WebSocketHLEThreadList(DebuggerRequest &req);
 void WebSocketHLEFuncList(DebuggerRequest &req);
+void WebSocketHLEFuncAdd(DebuggerRequest &req);
+void WebSocketHLEFuncRemove(DebuggerRequest &req);
+void WebSocketHLEFuncRename(DebuggerRequest &req);
 void WebSocketHLEModuleList(DebuggerRequest &req);
