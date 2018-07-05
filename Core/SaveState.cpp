@@ -243,7 +243,7 @@ namespace SaveState
 	static bool hasLoadedState = false;
 	static const int STALE_STATE_USES = 2;
 	// 4 hours of total gameplay since the virtual PSP started the game.
-	static const u64 STALE_STATE_TIME = 4 * 3600 * 1000;
+	static const u64 STALE_STATE_TIME = 4 * 3600 * 1000000ULL;
 	static int saveStateGeneration = 0;
 	static std::string saveStateInitialGitVersion = "";
 
