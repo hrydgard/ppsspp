@@ -841,7 +841,7 @@ void TessellateBezierPatch(u8 *&dest, u16 *&indices, int &count, int tess_u, int
 		_BezierPatchLowQuality(dest, indices, count, tess_u, tess_v, patch, origVertType);
 		break;
 	case MEDIUM_QUALITY:
-		_BezierPatchHighQuality(dest, indices, count, tess_u / 2, tess_v / 2, patch, origVertType);
+		_BezierPatchHighQuality(dest, indices, count, std::max(tess_u / 2, 1), std::max(tess_v / 2, 1), patch, origVertType);
 		break;
 	case HIGH_QUALITY:
 		_BezierPatchHighQuality(dest, indices, count, tess_u, tess_v, patch, origVertType);
