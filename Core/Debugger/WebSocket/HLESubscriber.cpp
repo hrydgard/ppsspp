@@ -29,6 +29,8 @@
 
 void *WebSocketHLEInit(DebuggerEventHandlerMap &map) {
 	map["hle.thread.list"] = &WebSocketHLEThreadList;
+	map["hle.thread.wake"] = &WebSocketHLEThreadWake;
+	map["hle.thread.stop"] = &WebSocketHLEThreadStop;
 	map["hle.func.list"] = &WebSocketHLEFuncList;
 	map["hle.func.add"] = &WebSocketHLEFuncAdd;
 	map["hle.func.remove"] = &WebSocketHLEFuncRemove;
@@ -91,6 +93,98 @@ void WebSocketHLEThreadList(DebuggerRequest &req) {
 		json.pop();
 	}
 	json.pop();
+}
+
+static bool ThreadInfoForStatus(DebuggerRequest &req, DebugThreadInfo *result) {
+	if (!PSP_IsInited()) {
+		req.Fail("CPU not active");
+		return false;
+	}
+	if (!Core_IsStepping()) {
+		req.Fail("CPU currently running (cpu.stepping first)");
+		return false;
+	}
+
+	uint32_t threadID;
+	if (!req.ParamU32("thread", &threadID))
+		return false;
+
+	auto threads = GetThreadsInfo();
+	for (auto t : threads) {
+		if (t.id == threadID) {
+			*result = t;
+			return true;
+		}
+	}
+
+	req.Fail("Thread could not be found");
+	return false;
+}
+
+// Force resume a thread (hle.thread.wake)
+//
+// Parameters:
+//  - thread: number indicating the thread id to resume.
+//
+// Response (same event name):
+//  - thread: id repeated back.
+//  - status: string 'ready'.
+void WebSocketHLEThreadWake(DebuggerRequest &req) {
+	DebugThreadInfo threadInfo{ -1 };
+	if (!ThreadInfoForStatus(req, &threadInfo))
+		return;
+
+	switch (threadInfo.status) {
+	case THREADSTATUS_SUSPEND:
+	case THREADSTATUS_WAIT:
+	case THREADSTATUS_WAITSUSPEND:
+		if (__KernelResumeThreadFromWait(threadInfo.id, 0) != 0)
+			return req.Fail("Failed to resume thread");
+		break;
+
+	default:
+		return req.Fail("Cannot force run thread based on current status");
+	}
+
+	JsonWriter &json = req.Respond();
+	json.writeUint("thread", threadInfo.id);
+	json.writeString("status", "ready");
+}
+
+// Force stop a thread (hle.thread.stop)
+//
+// Parameters:
+//  - thread: number indicating the thread id to stop.
+//
+// Response (same event name):
+//  - thread: id repeated back.
+//  - status: string 'dormant'.
+void WebSocketHLEThreadStop(DebuggerRequest &req) {
+	DebugThreadInfo threadInfo{ -1 };
+	if (!ThreadInfoForStatus(req, &threadInfo))
+		return;
+
+	switch (threadInfo.status) {
+	case THREADSTATUS_SUSPEND:
+	case THREADSTATUS_WAIT:
+	case THREADSTATUS_WAITSUSPEND:
+	case THREADSTATUS_READY:
+		__KernelStopThread(threadInfo.id, 0, "stopped from debugger");
+		break;
+
+	default:
+		return req.Fail("Cannot force run thread based on current status");
+	}
+
+	// Get it again to verify.
+	if (!ThreadInfoForStatus(req, &threadInfo))
+		return;
+	if ((threadInfo.status & THREADSTATUS_DORMANT) == 0)
+		return req.Fail("Failed to stop thread");
+
+	JsonWriter &json = req.Respond();
+	json.writeUint("thread", threadInfo.id);
+	json.writeString("status", "dormant");
 }
 
 // List all current known function symbols (hle.func.list)
@@ -336,7 +430,7 @@ void WebSocketHLEModuleList(DebuggerRequest &req) {
 // Walk the stack and list stack frames (hle.backtrace)
 //
 // Parameters:
-//  - thread: optional number indicating the thread id to plan stepping on.
+//  - thread: optional number indicating the thread id to backtrace, default current.
 //
 // Response (same event name):
 //  - frames: array of objects, each with properties:
