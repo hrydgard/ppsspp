@@ -23,6 +23,8 @@
 #include "Core/Debugger/WebSocket/HLESubscriber.h"
 #include "Core/Debugger/WebSocket/WebSocketUtils.h"
 #include "Core/MIPS/MIPSAnalyst.h"
+#include "Core/MIPS/MIPSDebugInterface.h"
+#include "Core/MIPS/MIPSStackWalk.h"
 #include "Core/HLE/sceKernelThread.h"
 
 void *WebSocketHLEInit(DebuggerEventHandlerMap &map) {
@@ -32,6 +34,7 @@ void *WebSocketHLEInit(DebuggerEventHandlerMap &map) {
 	map["hle.func.remove"] = &WebSocketHLEFuncRemove;
 	map["hle.func.rename"] = &WebSocketHLEFuncRename;
 	map["hle.module.list"] = &WebSocketHLEModuleList;
+	map["hle.backtrace"] = &WebSocketHLEBacktrace;
 
 	return nullptr;
 }
@@ -325,6 +328,69 @@ void WebSocketHLEModuleList(DebuggerRequest &req) {
 		json.writeUint("address", m.address);
 		json.writeUint("size", m.size);
 		json.writeBool("isActive", m.active);
+		json.pop();
+	}
+	json.pop();
+}
+
+// Walk the stack and list stack frames (hle.backtrace)
+//
+// Parameters:
+//  - thread: optional number indicating the thread id to plan stepping on.
+//
+// Response (same event name):
+//  - frames: array of objects, each with properties:
+//     - entry: unsigned integer address of function start (may be estimated.)
+//     - pc: unsigned integer next execution address.
+//     - sp: unsigned integer stack address in this func (beware of alloca().)
+//     - stackSize: integer size of stack frame.
+//     - code: string disassembly of pc.
+void WebSocketHLEBacktrace(DebuggerRequest &req) {
+	if (!g_symbolMap)
+		return req.Fail("CPU not active");
+	if (!Core_IsStepping())
+		return req.Fail("CPU currently running (cpu.stepping first)");
+
+	uint32_t threadID = -1;
+	DebugInterface *cpuDebug = currentDebugMIPS;
+	if (req.HasParam("thread")) {
+		if (!req.ParamU32("thread", &threadID))
+			return;
+
+		cpuDebug = KernelDebugThread((SceUID)threadID);
+		if (!cpuDebug)
+			return req.Fail("Thread could not be found");
+	}
+
+	auto threads = GetThreadsInfo();
+	uint32_t entry = cpuDebug->GetPC();
+	uint32_t stackTop = 0;
+	for (const DebugThreadInfo &th : threads) {
+		if ((threadID == -1 && th.isCurrent) || th.id == threadID) {
+			entry = th.entrypoint;
+			stackTop = th.initialStack;
+			break;
+		}
+	}
+
+	uint32_t ra = cpuDebug->GetRegValue(0, MIPS_REG_RA);
+	uint32_t sp = cpuDebug->GetRegValue(0, MIPS_REG_SP);
+	auto frames = MIPSStackWalk::Walk(cpuDebug->GetPC(), ra, sp, entry, stackTop);
+
+	JsonWriter &json = req.Respond();
+	json.pushArray("frames");
+	for (auto f : frames) {
+		json.pushDict();
+		json.writeUint("entry", f.entry);
+		json.writeUint("pc", f.pc);
+		json.writeUint("sp", f.sp);
+		json.writeUint("stackSize", f.stackSize);
+
+		DisassemblyManager manager;
+		DisassemblyLineInfo line;
+		manager.getLine(manager.getStartAddress(f.pc), true, line, cpuDebug);
+		json.writeString("code", line.name + " " + line.params);
+
 		json.pop();
 	}
 	json.pop();
