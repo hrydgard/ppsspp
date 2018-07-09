@@ -851,13 +851,15 @@ namespace SaveState
 				break;
 
 			case SAVESTATE_SAVE_SCREENSHOT:
-				tempResult = TakeGameScreenshot(op.filename.c_str(), ScreenshotFormat::JPG, SCREENSHOT_DISPLAY);
+			{
+				int maxRes = g_Config.iInternalResolution > 2 ? 2 : -1;
+				tempResult = TakeGameScreenshot(op.filename.c_str(), ScreenshotFormat::JPG, SCREENSHOT_DISPLAY, nullptr, nullptr, maxRes);
 				callbackResult = tempResult ? Status::SUCCESS : Status::FAILURE;
 				if (!tempResult) {
 					ERROR_LOG(SAVESTATE, "Failed to take a screenshot for the savestate! %s", op.filename.c_str());
 				}
 				break;
-
+			}
 			default:
 				ERROR_LOG(SAVESTATE, "Savestate failure: unknown operation type %d", op.type);
 				callbackResult = Status::FAILURE;
