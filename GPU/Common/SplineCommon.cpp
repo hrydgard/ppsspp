@@ -22,7 +22,6 @@
 
 #include "Common/CPUDetect.h"
 #include "Common/MemoryUtil.h"
-#include "Core/Config.h"
 
 #include "GPU/Common/GPUStateUtils.h"
 #include "GPU/Common/SplineCommon.h"
@@ -60,32 +59,28 @@ static void BuildIndex(u16 *indices, int &count, int num_u, int num_v, GEPatchPr
 	}
 }
 
-struct Weight {
-	float weights[4], derivs[4];
-};
-
 class Bezier3DWeight {
 private:
 	void CalcWeights(float t, Weight &w) {
 		// Bernstein 3D basis polynomial
-		w.weights[0] = (1 - t) * (1 - t) * (1 - t);
-		w.weights[1] = 3 * t * (1 - t) * (1 - t);
-		w.weights[2] = 3 * t * t * (1 - t);
-		w.weights[3] = t * t * t;
+		w.basis[0] = (1 - t) * (1 - t) * (1 - t);
+		w.basis[1] = 3 * t * (1 - t) * (1 - t);
+		w.basis[2] = 3 * t * t * (1 - t);
+		w.basis[3] = t * t * t;
 
 		// Derivative
-		w.derivs[0] = -3 * (1 - t) * (1 - t);
-		w.derivs[1] = 9 * t * t - 12 * t + 3;
-		w.derivs[2] = 3 * (2 - 3 * t) * t;
-		w.derivs[3] = 3 * t * t;
+		w.deriv[0] = -3 * (1 - t) * (1 - t);
+		w.deriv[1] = 9 * t * t - 12 * t + 3;
+		w.deriv[2] = 3 * (2 - 3 * t) * t;
+		w.deriv[3] = 3 * t * t;
 	}
 public:
 	Weight *CalcWeightsAll(u32 key) {
 		int tess = (int)key;
 		Weight *weights = new Weight[tess + 1];
-		const float inv_u = 1.0f / (float)tess;
+		const float inv_tess = 1.0f / (float)tess;
 		for (int i = 0; i < tess + 1; ++i) {
-			const float t = (float)i * inv_u;
+			const float t = (float)i * inv_tess;
 			CalcWeights(t, weights[i]);
 		}
 		return weights;
@@ -182,10 +177,10 @@ private:
 		float c = (1 - f41) * (1 - f42);
 		float d = (f42 * f52);
 #endif
-		w.weights[0] = a * (1 - f32); // (1-f30)*(1-f31)*(1-f32)
-		w.weights[1] = 1 - a - b + ((a + b + c - 1) * f32);
-		w.weights[2] = b + ((1 - b - c - d) * f32);
-		w.weights[3] = d * f32; // f32*f42*f52
+		w.basis[0] = a * (1 - f32); // (1-f30)*(1-f31)*(1-f32)
+		w.basis[1] = 1 - a - b + ((a + b + c - 1) * f32);
+		w.basis[2] = b + ((1 - b - c - d) * f32);
+		w.basis[3] = d * f32; // f32*f42*f52
 
 		// Derivative
 		float i1 = (1 - f31) * (1 - f32);
@@ -196,10 +191,10 @@ private:
 		float f241 = i2 * div._4_1;
 		float f352 = i3 * div._5_2;
 
-		w.derivs[0] = 3 * (0 - f130);
-		w.derivs[1] = 3 * (f130 - f241);
-		w.derivs[2] = 3 * (f241 - f352);
-		w.derivs[3] = 3 * (f352 - 0);
+		w.deriv[0] = 3 * (0 - f130);
+		w.deriv[1] = 3 * (f130 - f241);
+		w.deriv[2] = 3 * (f241 - f352);
+		w.deriv[3] = 3 * (f352 - 0);
 	}
 public:
 	Weight *CalcWeightsAll(u32 key) {
@@ -238,37 +233,8 @@ public:
 	}
 };
 
-template<class T>
-class WeightCache : public T {
-private:
-	std::unordered_map<u32, Weight*> weightsCache;
-public:
-	Weight* operator [] (u32 key) {
-		Weight *&weights = weightsCache[key];
-		if (!weights)
-			weights = CalcWeightsAll(key);
-		return weights;
-	}
-
-	void Clear() {
-		for (auto it : weightsCache)
-			delete[] it.second;
-		weightsCache.clear();
-	}
-};
-
 static WeightCache<Bezier3DWeight> bezierWeightsCache;
 static WeightCache<Spline3DWeight> splineWeightsCache;
-
-struct Weight2D {
-	const Weight *u, *v;
-
-	template<class T>
-	Weight2D(WeightCache<T> &cache, u32 key_u, u32 key_v) {
-		u = cache[key_u];
-		v = (key_u != key_v) ? cache[key_v] : u; // Use same weights if u == v
-	}
-};
 
 void DrawEngineCommon::ClearSplineBezierWeights() {
 	bezierWeightsCache.Clear();
@@ -293,13 +259,11 @@ static void TessellateSplinePatchHardware(u8 *&dest, u16 *indices, int &count, c
 	for (int tile_v = 0; tile_v < spatch.tess_v + 1; ++tile_v) {
 		for (int tile_u = 0; tile_u < spatch.tess_u + 1; ++tile_u) {
 			SimpleVertex &vert = vertices[tile_v * (spatch.tess_u + 1) + tile_u];
-			vert.pos.x = (float)tile_u * inv_u;
-			vert.pos.y = (float)tile_v * inv_v;
-
-			// TODO: Move to shader uniform and unify this method spline and bezier if necessary.
-			// For compute normal
-			vert.nrm.x = inv_u;
-			vert.nrm.y = inv_v;
+			vert.pos.x = (float)tile_u;
+			vert.pos.y = (float)tile_v;
+			// For texcoord generation
+			vert.nrm.x = (float)tile_u * inv_u;
+			vert.nrm.y = (float)tile_v * inv_v;
 		}
 	}
 
@@ -357,8 +321,11 @@ static void TessellateBezierPatchHardware(u8 *&dest, u16 *indices, int &count, i
 		for (int tile_u = 0; tile_u < tess_u + 1; ++tile_u) {
 			SimpleVertex &vert = vertices[tile_v * (tess_u + 1) + tile_u];
 
-			vert.pos.x = (float)tile_u * inv_u;
-			vert.pos.y = (float)tile_v * inv_v;
+			vert.pos.x = (float)tile_u;
+			vert.pos.y = (float)tile_v;
+			// For texcoord generation
+			vert.nrm.x = (float)tile_u * inv_u;
+			vert.nrm.y = (float)tile_v * inv_v;
 		}
 	}
 
@@ -433,13 +400,13 @@ public:
 					const Weight &wu = weights.u[index_u];
 
 					// Pre-tessellate U lines
-					tess_pos.SampleU(wu.weights);
+					tess_pos.SampleU(wu.basis);
 					if (sampleCol)
-						tess_col.SampleU(wu.weights);
+						tess_col.SampleU(wu.basis);
 					if (sampleTex)
-						tess_tex.SampleU(wu.weights);
+						tess_tex.SampleU(wu.basis);
 					if (sampleNrm)
-						tess_nrm.SampleU(wu.derivs);
+						tess_nrm.SampleU(wu.deriv);
 
 					for (int tile_v = 0; tile_v < tess_v; ++tile_v) {
 						const int index_v = patch.GetIndexV(patch_v, tile_v);
@@ -448,22 +415,22 @@ public:
 						SimpleVertex &vert = vertices[patch.GetIndex(index_u, index_v, patch_u, patch_v)];
 
 						// Tessellate
-						vert.pos = tess_pos.SampleV(wv.weights);
+						vert.pos = tess_pos.SampleV(wv.basis);
 						if (sampleCol) {
-							vert.color_32 = tess_col.SampleV(wv.weights).ToRGBA();
+							vert.color_32 = tess_col.SampleV(wv.basis).ToRGBA();
 						} else {
 							vert.color_32 = defcolor;
 						}
 						if (sampleTex) {
-							tess_tex.SampleV(wv.weights).Write(vert.uv);
+							tess_tex.SampleV(wv.basis).Write(vert.uv);
 						} else {
 							// Generate texcoord
 							vert.uv[0] = patch_u + tile_u * inv_u;
 							vert.uv[1] = patch_v + tile_v * inv_v;
 						}
 						if (sampleNrm) {
-							const Vec3f derivU = tess_nrm.SampleV(wv.weights);
-							const Vec3f derivV = tess_pos.SampleV(wv.derivs);
+							const Vec3f derivU = tess_nrm.SampleV(wv.basis);
+							const Vec3f derivV = tess_pos.SampleV(wv.deriv);
 
 							vert.nrm = Cross(derivU, derivV).Normalized(useSSE4);
 							if (patch.patchFacing)
@@ -569,7 +536,12 @@ void DrawEngineCommon::SubmitSpline(const void *control_points, const void *indi
 	patch.patchFacing = patchFacing;
 
 	if (CanUseHardwareTessellation(prim_type)) {
-		tessDataTransfer->SendDataToShader(points, count_u * count_v, origVertType);
+		const u32 key_u = splineWeightsCache.ToKey(tess_u, count_u, type_u);
+		const u32 key_v = splineWeightsCache.ToKey(tess_v, count_v, type_v);
+		Weight2D weights(splineWeightsCache, key_u, key_v);
+		weights.size_u = (count_u - 3) * tess_u + 1;
+		weights.size_v = (count_v - 3) * tess_v + 1;
+		tessDataTransfer->SendDataToShader(points, count_u * count_v, origVertType, weights);
 		TessellateSplinePatchHardware(dest, quadIndices_, count, patch);
 		numPatches = (count_u - 3) * (count_v - 3);
 	} else {
@@ -653,7 +625,10 @@ void DrawEngineCommon::SubmitBezier(const void *control_points, const void *indi
 	int num_patches_u = (count_u - 1) / 3;
 	int num_patches_v = (count_v - 1) / 3;
 	if (CanUseHardwareTessellation(prim_type)) {
-		tessDataTransfer->SendDataToShader(points, count_u * count_v, origVertType);
+		Weight2D weights(bezierWeightsCache, tess_u, tess_v);
+		weights.size_u = tess_u + 1;
+		weights.size_v = tess_v + 1;
+		tessDataTransfer->SendDataToShader(points, count_u * count_v, origVertType, weights);
 		TessellateBezierPatchHardware(dest, inds, count, tess_u, tess_v, prim_type);
 		numPatches = num_patches_u * num_patches_v;
 	} else {

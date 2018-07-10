@@ -218,7 +218,8 @@ private:
 		~TessellationDataTransferGLES() {
 			EndFrame();
 		}
-		void SendDataToShader(const SimpleVertex *const *points, int size, u32 vertType) override;
-		void EndFrame() override;  // Queues textures for deletion.
+		void SendDataToShader(const SimpleVertex *const *points, int size, u32 vertType, const Weight2D &weights) override;
+		void EndFrame();  // Queues textures for deletion.
 	};
+	TessellationDataTransferGLES *tessDataTransferGLES;
 };

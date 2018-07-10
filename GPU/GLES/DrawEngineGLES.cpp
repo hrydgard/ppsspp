@@ -87,7 +87,8 @@ DrawEngineGLES::DrawEngineGLES(Draw::DrawContext *draw) : vai_(256), draw_(draw)
 
 	InitDeviceObjects();
 
-	tessDataTransfer = new TessellationDataTransferGLES(render_);
+	tessDataTransferGLES = new TessellationDataTransferGLES(render_);
+	tessDataTransfer = tessDataTransferGLES;
 }
 
 DrawEngineGLES::~DrawEngineGLES() {
@@ -166,7 +167,7 @@ void DrawEngineGLES::EndFrame() {
 	FrameData &frameData = frameData_[render_->GetCurFrame()];
 	render_->EndPushBuffer(frameData.pushIndex);
 	render_->EndPushBuffer(frameData.pushVertex);
-	tessDataTransfer->EndFrame();
+	tessDataTransferGLES->EndFrame();
 }
 
 struct GlTypeInfo {
@@ -655,7 +656,7 @@ bool DrawEngineGLES::IsCodePtrVertexDecoder(const u8 *ptr) const {
 	return decJitCache_->IsInSpace(ptr);
 }
 
-void DrawEngineGLES::TessellationDataTransferGLES::SendDataToShader(const SimpleVertex *const *points, int size, u32 vertType) {
+void DrawEngineGLES::TessellationDataTransferGLES::SendDataToShader(const SimpleVertex *const *points, int size, u32 vertType, const Weight2D &weights) {
 	bool hasColor = (vertType & GE_VTYPE_COL_MASK) != 0;
 	bool hasTexCoord = (vertType & GE_VTYPE_TC_MASK) != 0;
 	int sizeColor = hasColor ? size : 1;
@@ -683,6 +684,23 @@ void DrawEngineGLES::TessellationDataTransferGLES::SendDataToShader(const Simple
 		renderManager_->TextureSubImage(data_tex[0], 0, 0, 1, size, 1, GL_RGBA, GL_FLOAT, (u8 *)tex, GLRAllocType::NEW);
 	// Color
 	renderManager_->TextureSubImage(data_tex[0], 0, 0, 2, sizeColor, 1, GL_RGBA, GL_FLOAT, (u8 *)col, GLRAllocType::NEW);
+
+	// Weight U
+	if (data_tex[1])
+		renderManager_->DeleteTexture(data_tex[1]);
+	data_tex[1] = renderManager_->CreateTexture(GL_TEXTURE_2D);
+	renderManager_->TextureImage(data_tex[1], 0, weights.size_u * 2, 1, GL_RGBA32F, GL_RGBA, GL_FLOAT, (uint8_t *)weights.u, GLRAllocType::NONE, false);
+	renderManager_->FinalizeTexture(data_tex[1], 0, false);
+	renderManager_->BindTexture(TEX_SLOT_SPLINE_WEIGHTS_U, data_tex[1]);
+
+	// Weight V
+	if (data_tex[2])
+		renderManager_->DeleteTexture(data_tex[2]);
+	data_tex[2] = renderManager_->CreateTexture(GL_TEXTURE_2D);
+	renderManager_->TextureImage(data_tex[2], 0, weights.size_v * 2, 1, GL_RGBA32F, GL_RGBA, GL_FLOAT, (uint8_t *)weights.v, GLRAllocType::NONE, false);
+	renderManager_->FinalizeTexture(data_tex[2], 0, false);
+	renderManager_->BindTexture(TEX_SLOT_SPLINE_WEIGHTS_V, data_tex[2]);
+
 }
 
 void DrawEngineGLES::TessellationDataTransferGLES::EndFrame() {

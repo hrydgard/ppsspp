@@ -383,77 +383,21 @@ void GenerateVertexShader(const VShaderID &id, char *buffer, uint32_t *attrMask,
 		WRITE(p, "uniform sampler2D u_tess_weights_u;\n");
 		WRITE(p, "uniform sampler2D u_tess_weights_v;\n");
 
-		WRITE(p, "uniform int u_spline_count_u;\n");
+		WRITE(p, "uniform ivec2 u_spline_num_patches;\n");
+		WRITE(p, "uniform ivec2 u_spline_tess;\n");
 
 		for (int i = 2; i <= 4; i++) {
 			// Define 3 types vec2, vec3, vec4
-			WRITE(p, "vec%d tess_sample(in vec%d points[16], in vec2 weights[4]) {\n", i, i);
+			WRITE(p, "vec%d tess_sample(in vec%d points[16], vec4 weights_u, vec4 weights_v) {\n", i, i);
 			WRITE(p, "  vec%d pos = vec%d(0.0);\n", i, i);
-			WRITE(p, "  for (int i = 0; i < 4; ++i) {\n");
-			WRITE(p, "    for (int j = 0; j < 4; ++j) {\n");
-			WRITE(p, "      float f = weights[j].x * weights[i].y;\n");
+			WRITE(p, "  for (int v = 0; v < 4; ++v) {\n");
+			WRITE(p, "    for (int u = 0; u < 4; ++u) {\n");
+			WRITE(p, "      float f = weights_u[u] * weights_v[v];\n");
 			WRITE(p, "      if (f != 0.0)\n");
-			WRITE(p, "        pos = pos + f * points[i * 4 + j];\n");
+			WRITE(p, "        pos += f * points[v * 4 + u];\n");
 			WRITE(p, "    }\n");
 			WRITE(p, "  }\n");
 			WRITE(p, "  return pos;\n");
-			WRITE(p, "}\n");
-		}
-		if (doSpline) {
-			WRITE(p, "uniform int u_spline_count_v;\n");
-			WRITE(p, "uniform int u_spline_type_u;\n");
-			WRITE(p, "uniform int u_spline_type_v;\n");
-
-			WRITE(p, "void spline_knot(ivec2 num_patches, ivec2 type, out vec2 knot[6], ivec2 patch_pos) {\n");
-			WRITE(p, "  for (int i = 0; i < 6; ++i) {\n");
-			WRITE(p, "    knot[i] = vec2(float(i + patch_pos.x - 2), float(i + patch_pos.y - 2));\n");
-			WRITE(p, "  }\n");
-			WRITE(p, "  if ((type.x & 1) != 0) {\n");
-			WRITE(p, "    if (patch_pos.x <= 2)\n");
-			WRITE(p, "      knot[0].x = 0.0;\n");
-			WRITE(p, "    if (patch_pos.x <= 1)\n");
-			WRITE(p, "      knot[1].x = 0.0;\n");
-			WRITE(p, "  }\n");
-			WRITE(p, "  if ((type.x & 2) != 0) {\n");
-			WRITE(p, "    if (patch_pos.x >= (num_patches.x - 2))\n");
-			WRITE(p, "      knot[5].x = float(num_patches.x);\n");
-			WRITE(p, "    if (patch_pos.x == (num_patches.x - 1))\n");
-			WRITE(p, "      knot[4].x = float(num_patches.x);\n");
-			WRITE(p, "  }\n");
-			WRITE(p, "  if ((type.y & 1) != 0) {\n");
-			WRITE(p, "    if (patch_pos.y <= 2)\n");
-			WRITE(p, "      knot[0].y = 0.0;\n");
-			WRITE(p, "    if (patch_pos.y <= 1)\n");
-			WRITE(p, "      knot[1].y = 0.0;\n");
-			WRITE(p, "  }\n");
-			WRITE(p, "  if ((type.y & 2) != 0) {\n");
-			WRITE(p, "    if (patch_pos.y >= (num_patches.y - 2))\n");
-			WRITE(p, "      knot[5].y = float(num_patches.y);\n");
-			WRITE(p, "    if (patch_pos.y == (num_patches.y - 1))\n");
-			WRITE(p, "      knot[4].y = float(num_patches.y);\n");
-			WRITE(p, "  }\n");
-			WRITE(p, "}\n");
-
-			WRITE(p, "void spline_weight(vec2 t, in vec2 knot[6], out vec2 weights[4]) {\n");
-			// TODO: Maybe compilers could be coaxed into vectorizing this code without the above explicitly...
-			WRITE(p, "  vec2 t0 = (t - knot[0]);\n");
-			WRITE(p, "  vec2 t1 = (t - knot[1]);\n");
-			WRITE(p, "  vec2 t2 = (t - knot[2]);\n");
-			// TODO: All our knots are integers so we should be able to get rid of these divisions (How?)
-			WRITE(p, "  vec2 f30 = t0 / (knot[3] - knot[0]);\n");
-			WRITE(p, "  vec2 f41 = t1 / (knot[4] - knot[1]);\n");
-			WRITE(p, "  vec2 f52 = t2 / (knot[5] - knot[2]);\n");
-			WRITE(p, "  vec2 f31 = t1 / (knot[3] - knot[1]);\n");
-			WRITE(p, "  vec2 f42 = t2 / (knot[4] - knot[2]);\n");
-			WRITE(p, "  vec2 f32 = t2 / (knot[3] - knot[2]);\n");
-			WRITE(p, "  vec2 a = (1.0 - f30)*(1.0 - f31);\n");
-			WRITE(p, "  vec2 b = (f31*f41);\n");
-			WRITE(p, "  vec2 c = (1.0 - f41)*(1.0 - f42);\n");
-			WRITE(p, "  vec2 d = (f42*f52);\n");
-			WRITE(p, "  weights[0] = a - (a*f32);\n");
-			WRITE(p, "  weights[1] = vec2(1.0) - a - b + ((a + b + c - vec2(1.0))*f32);\n");
-			WRITE(p, "  weights[2] = b + ((vec2(1.0) - b - c - d)*f32);\n");
-			WRITE(p, "  weights[3] = d*f32;\n");
 			WRITE(p, "}\n");
 		}
 	}
@@ -496,16 +440,25 @@ void GenerateVertexShader(const VShaderID &id, char *buffer, uint32_t *attrMask,
 		if (!enableBones) {
 			// Hardware tessellation
 			if (doBezier || doSpline) {
+				WRITE(p, "  int spline_count_u = %s;\n", doBezier ? "u_spline_num_patches.x * 3 + 1" : "u_spline_num_patches.x + 3");
+				WRITE(p, "  int u = gl_InstanceID %% u_spline_num_patches.x;\n");
+				WRITE(p, "  int v = gl_InstanceID / u_spline_num_patches.x;\n");
+				WRITE(p, "  ivec2 patch_pos = ivec2(u, v);\n");
+				WRITE(p, "  ivec2 vertex_pos = ivec2(position.xy);\n");
+				if (doSpline) {
+					WRITE(p, "  if ((vertex_pos.x == u_spline_tess.x) && (u < u_spline_num_patches.x - 1))\n");
+					WRITE(p, "    u++;\n"); // Use next patch position
+					WRITE(p, "  if ((vertex_pos.y == u_spline_tess.y) && (v < u_spline_num_patches.y - 1))\n");
+					WRITE(p, "    v++;\n"); // Use next patch position
+					WRITE(p, "  vertex_pos += patch_pos * u_spline_tess;\n");
+				}
+				// Load 4x4 control points
 				WRITE(p, "  vec3 _pos[16];\n");
 				WRITE(p, "  vec2 _tex[16];\n");
 				WRITE(p, "  vec4 _col[16];\n");
-				WRITE(p, "  int num_patches_u = %s;\n", doBezier ? "(u_spline_count_u - 1) / 3" : "u_spline_count_u - 3");
-				WRITE(p, "  int u = int(mod(float(gl_InstanceID), float(num_patches_u)));\n");
-				WRITE(p, "  int v = gl_InstanceID / num_patches_u;\n");
-				WRITE(p, "  ivec2 patch_pos = ivec2(u, v);\n");
 				WRITE(p, "  for (int i = 0; i < 4; i++) {\n");
 				WRITE(p, "    for (int j = 0; j < 4; j++) {\n");
-				WRITE(p, "      int index = (i + v%s) * u_spline_count_u + (j + u%s);\n", doBezier ? " * 3" : "", doBezier ? " * 3" : "");
+				WRITE(p, "      int index = (i + v%s) * spline_count_u + (j + u%s);\n", doBezier ? " * 3" : "", doBezier ? " * 3" : "");
 				WRITE(p, "      _pos[i * 4 + j] = %s(u_tess_points, ivec2(index, 0), 0).xyz;\n", texelFetch);
 				if (doTexture && hasTexcoord && hasTexcoordTess)
 					WRITE(p, "      _tex[i * 4 + j] = %s(u_tess_points, ivec2(index, 1), 0).xy;\n", texelFetch);
@@ -513,76 +466,32 @@ void GenerateVertexShader(const VShaderID &id, char *buffer, uint32_t *attrMask,
 					WRITE(p, "      _col[i * 4 + j] = %s(u_tess_points, ivec2(index, 2), 0).rgba;\n", texelFetch);
 				WRITE(p, "    }\n");
 				WRITE(p, "  }\n");
-				WRITE(p, "  vec2 tess_pos = position.xy;\n");
-				WRITE(p, "  vec2 weights[4];\n");
-				if (doBezier) {
-					// Bernstein 3D
-					WRITE(p, "  weights[0] = (1.0 - tess_pos) * (1.0 - tess_pos) * (1.0 - tess_pos);\n");
-					WRITE(p, "  weights[1] = 3.0 * tess_pos * (1.0 - tess_pos) * (1.0 - tess_pos);\n");
-					WRITE(p, "  weights[2] = 3.0 * tess_pos * tess_pos * (1.0 - tess_pos);\n");
-					WRITE(p, "  weights[3] = tess_pos * tess_pos * tess_pos;\n");
-				} else { // Spline
-					WRITE(p, "  ivec2 spline_num_patches = ivec2(u_spline_count_u - 3, u_spline_count_v - 3);\n");
-					WRITE(p, "  ivec2 spline_type = ivec2(u_spline_type_u, u_spline_type_v);\n");
-					WRITE(p, "  vec2 knots[6];\n");
-					WRITE(p, "  spline_knot(spline_num_patches, spline_type, knots, patch_pos);\n");
-					WRITE(p, "  spline_weight(tess_pos + vec2(patch_pos), knots, weights);\n");
-				}
-				WRITE(p, "  vec3 pos = tess_sample(_pos, weights);\n");
+
+				// Basis polynomials as weight coefficients
+				WRITE(p, "  vec4 basis_u = %s(u_tess_weights_u, %s, 0);\n", texelFetch, "ivec2(vertex_pos.x * 2, 0)");
+				WRITE(p, "  vec4 basis_v = %s(u_tess_weights_v, %s, 0);\n", texelFetch, "ivec2(vertex_pos.y * 2, 0)");
+
+				// Tessellate
+				WRITE(p, "  vec3 pos = tess_sample(_pos, basis_u, basis_v);\n");
 				if (doTexture && hasTexcoord) {
 					if (hasTexcoordTess)
-						WRITE(p, "  vec2 tex = tess_sample(_tex, weights);\n");
+						WRITE(p, "  vec2 tex = tess_sample(_tex, basis_u, basis_v);\n");
 					else
-						WRITE(p, "  vec2 tex = tess_pos + vec2(patch_pos);\n");
+						WRITE(p, "  vec2 tex = normal.xy + vec2(patch_pos);\n");
 				}
 				if (hasColor) {
 					if (hasColorTess)
-						WRITE(p, "  vec4 col = tess_sample(_col, weights);\n");
+						WRITE(p, "  vec4 col = tess_sample(_col, basis_u, basis_v);\n");
 					else
 						WRITE(p, "  vec4 col = %s(u_tess_points, ivec2(0, 2), 0).rgba;\n", texelFetch);
 				}
 				if (hasNormal) {
-					// Curved surface is probably always need to compute normal(not sampling from control points)
-					if (doBezier) {
-						// Bernstein derivative
-						WRITE(p, "  vec2 bernderiv[4];\n");
-						WRITE(p, "  bernderiv[0] = -3.0 * (tess_pos - 1.0) * (tess_pos - 1.0); \n");
-						WRITE(p, "  bernderiv[1] = 9.0 * tess_pos * tess_pos - 12.0 * tess_pos + 3.0; \n");
-						WRITE(p, "  bernderiv[2] = 3.0 * (2.0 - 3.0 * tess_pos) * tess_pos; \n");
-						WRITE(p, "  bernderiv[3] = 3.0 * tess_pos * tess_pos; \n");
+					// Derivatives as weight coefficients
+					WRITE(p, "  vec4 deriv_u = %s(u_tess_weights_u, %s, 0);\n", texelFetch, "ivec2(vertex_pos.x * 2 + 1, 0)");
+					WRITE(p, "  vec4 deriv_v = %s(u_tess_weights_v, %s, 0);\n", texelFetch, "ivec2(vertex_pos.y * 2 + 1, 0)");
 
-						WRITE(p, "  vec2 bernderiv_u[4];\n");
-						WRITE(p, "  vec2 bernderiv_v[4];\n");
-						WRITE(p, "  for (int i = 0; i < 4; i++) {\n");
-						WRITE(p, "    bernderiv_u[i] = vec2(bernderiv[i].x, weights[i].y);\n");
-						WRITE(p, "    bernderiv_v[i] = vec2(weights[i].x, bernderiv[i].y);\n");
-						WRITE(p, "  }\n");
-
-						WRITE(p, "  vec3 du = tess_sample(_pos, bernderiv_u);\n");
-						WRITE(p, "  vec3 dv = tess_sample(_pos, bernderiv_v);\n");
-					} else { // Spline
-						WRITE(p, "  vec2 tess_next_u = vec2(normal.x, 0.0);\n");
-						WRITE(p, "  vec2 tess_next_v = vec2(0.0, normal.y);\n");
-						// Right
-						WRITE(p, "  vec2 tess_pos_r = tess_pos + tess_next_u;\n");
-						WRITE(p, "  spline_weight(tess_pos_r + vec2(patch_pos), knots, weights);\n");
-						WRITE(p, "  vec3 pos_r = tess_sample(_pos, weights);\n");
-						// Left
-						WRITE(p, "  vec2 tess_pos_l = tess_pos - tess_next_u;\n");
-						WRITE(p, "  spline_weight(tess_pos_l + vec2(patch_pos), knots, weights);\n");
-						WRITE(p, "  vec3 pos_l = tess_sample(_pos, weights);\n");
-						// Down
-						WRITE(p, "  vec2 tess_pos_d = tess_pos + tess_next_v;\n");
-						WRITE(p, "  spline_weight(tess_pos_d + vec2(patch_pos), knots, weights);\n");
-						WRITE(p, "  vec3 pos_d = tess_sample(_pos, weights);\n");
-						// Up
-						WRITE(p, "  vec2 tess_pos_u = tess_pos - tess_next_v;\n");
-						WRITE(p, "  spline_weight(tess_pos_u + vec2(patch_pos), knots, weights);\n");
-						WRITE(p, "  vec3 pos_u = tess_sample(_pos, weights);\n");
-
-						WRITE(p, "  vec3 du = pos_r - pos_l;\n");
-						WRITE(p, "  vec3 dv = pos_d - pos_u;\n");
-					}
+					WRITE(p, "  vec3 du = tess_sample(_pos, deriv_u, basis_v);\n");
+					WRITE(p, "  vec3 dv = tess_sample(_pos, basis_u, deriv_v);\n");
 					WRITE(p, "  vec3 nrm = cross(du, dv);\n");
 					WRITE(p, "  nrm = normalize(nrm);\n");
 				}

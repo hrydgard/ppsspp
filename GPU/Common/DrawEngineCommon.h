@@ -27,6 +27,7 @@
 #include "GPU/Common/GPUDebugInterface.h"
 #include "GPU/Common/IndexGenerator.h"
 #include "GPU/Common/VertexDecoderCommon.h"
+#include "GPU/Common/SplineCommon.h"
 
 class VertexDecoder;
 
@@ -173,17 +174,11 @@ protected:
 	// Hardware tessellation
 	int numPatches;
 	class TessellationDataTransfer {
-	protected:
-		// TODO: These aren't used by all backends.
-		int prevSize;
-		int prevSizeTex;
-		int prevSizeCol;
 	public:
 		virtual ~TessellationDataTransfer() {}
 		void CopyControlPoints(float *pos, float *tex, float *col, int posStride, int texStride, int colStride, const SimpleVertex *const *points, int size, u32 vertType);
 		// Send spline/bezier's control points to vertex shader through floating point texture.
-		virtual void SendDataToShader(const SimpleVertex *const *points, int size, u32 vertType) = 0;
-		virtual void EndFrame() {}
+		virtual void SendDataToShader(const SimpleVertex *const *points, int size, u32 vertType, const Weight2D &weights) = 0;
 	};
 	TessellationDataTransfer *tessDataTransfer;
 };

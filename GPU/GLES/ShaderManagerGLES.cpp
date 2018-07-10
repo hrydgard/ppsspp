@@ -162,10 +162,8 @@ LinkedShader::LinkedShader(GLRenderManager *render, VShaderID VSID, Shader *vs, 
 	queries.push_back({ &u_tess_points, "u_tess_points" });
 	queries.push_back({ &u_tess_weights_u, "u_tess_weights_u" });
 	queries.push_back({ &u_tess_weights_v, "u_tess_weights_v" });
-	queries.push_back({ &u_spline_count_u, "u_spline_count_u" });
-	queries.push_back({ &u_spline_count_v, "u_spline_count_v" });
-	queries.push_back({ &u_spline_type_u, "u_spline_type_u" });
-	queries.push_back({ &u_spline_type_v, "u_spline_type_v" });
+	queries.push_back({ &u_spline_tess, "u_spline_tess" });
+	queries.push_back({ &u_spline_num_patches, "u_spline_num_patches" });
 	queries.push_back({ &u_depal, "u_depal" });
 
 	attrMask = vs->GetAttrMask();
@@ -567,13 +565,14 @@ void LinkedShader::UpdateUniforms(u32 vertType, const ShaderID &vsid) {
 	}
 
 	if (dirty & DIRTY_BEZIERSPLINE) {
-		render_->SetUniformI1(&u_spline_count_u, gstate_c.spline_count_u);
-		if (u_spline_count_v != -1)
-			render_->SetUniformI1(&u_spline_count_v, gstate_c.spline_count_v);
-		if (u_spline_type_u != -1)
-			render_->SetUniformI1(&u_spline_type_u, gstate_c.spline_type_u);
-		if (u_spline_type_v != -1)
-			render_->SetUniformI1(&u_spline_type_v, gstate_c.spline_type_v);
+		if (u_spline_tess != -1) {
+			int tess[] = { gstate_c.spline_tess_u, gstate_c.spline_tess_v };
+			render_->SetUniformI(&u_spline_tess, 2, tess);
+		}
+		if (u_spline_num_patches != -1) {
+			int num_patches[] = { gstate_c.spline_num_patches_u, gstate_c.spline_num_patches_v };
+			render_->SetUniformI(&u_spline_num_patches, 2, num_patches);
+		}
 	}
 }
 

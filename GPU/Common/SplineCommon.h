@@ -16,11 +16,13 @@
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
 #pragma once
+#include <unordered_map>
 
 #include "Common/CommonTypes.h"
 #include "Common/Swap.h"
 #include "GPU/Math3D.h"
 #include "GPU/ge_constants.h"
+#include "Core/Config.h"
 
 #define HALF_CEIL(x) (x + 1) / 2 // Integer ceil = (int)ceil((float)x / 2.0f)
 
@@ -157,7 +159,43 @@ struct SplinePatchLocal {
 	}
 };
 
-bool CanUseHardwareTessellation(GEPatchPrimType prim);void TessellateSplinePatch(u8 *&dest, u16 *indices, int &count, SplinePatchLocal &spatch, u32 origVertType, int maxVertices);void TessellateBezierPatch(u8 *&dest, u16 *&indices, int &count, int tess_u, int tess_v, const BezierPatch &patch, u32 origVertType, int maxVertices);
+struct Weight {
+	float basis[4], deriv[4];
+};
+
+template<class T>
+class WeightCache : public T {
+private:
+	std::unordered_map<u32, Weight*> weightsCache;
+public:
+	Weight* operator [] (u32 key) {
+		Weight *&weights = weightsCache[key];
+		if (!weights)
+			weights = CalcWeightsAll(key);
+		return weights;
+	}
+
+	void Clear() {
+		for (auto it : weightsCache)
+			delete[] it.second;
+		weightsCache.clear();
+	}
+};
+
+struct Weight2D {
+	const Weight *u, *v;
+	int size_u, size_v;
+
+	template<class T>
+	Weight2D(WeightCache<T> &cache, u32 key_u, u32 key_v) {
+		u = cache[key_u];
+		v = (key_u != key_v) ? cache[key_v] : u; // Use same weights if u == v
+	}
+};
+
+bool CanUseHardwareTessellation(GEPatchPrimType prim);
+void TessellateSplinePatch(u8 *&dest, u16 *indices, int &count, SplinePatchLocal &spatch, u32 origVertType, int maxVertices);
+void TessellateBezierPatch(u8 *&dest, u16 *&indices, int &count, int tess_u, int tess_v, const BezierPatch &patch, u32 origVertType, int maxVertices);
 
 #define TEMPLATE_PARAMETER_DISPATCHER(NAME, FUNCNAME) \
 template<typename Func, int NumParams> \

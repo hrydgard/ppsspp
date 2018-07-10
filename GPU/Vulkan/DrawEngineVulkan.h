@@ -284,24 +284,13 @@ private:
 		~TessellationDataTransferVulkan();
 
 		void SetPushBuffer(VulkanPushBuffer *push) { push_ = push; }
-		void SendDataToShader(const SimpleVertex *const *points, int size, u32 vertType) override;
-
-		void GetBufferAndOffset(VkBuffer *buf, VkDeviceSize *offset, VkDeviceSize *range) {
-			*buf = buf_;
-			*offset = (VkDeviceSize)offset_;
-			*range = (VkDeviceSize)range_;
-
-			buf_ = 0;
-			offset_ = 0;
-			range_ = 0;
-		}
-
+		void SendDataToShader(const SimpleVertex *const *points, int size, u32 vertType, const Weight2D &weights) override;
+		const VkDescriptorBufferInfo *GetBufferInfo() { return bufInfo_; }
 	private:
 		VulkanContext *vulkan_;
 		VulkanPushBuffer *push_;  // Updated each frame.
 
-		uint32_t offset_ = 0;
-		uint32_t range_ = 0;
-		VkBuffer buf_ = VK_NULL_HANDLE;
+		VkDescriptorBufferInfo bufInfo_[3] = {};
 	};
+	TessellationDataTransferVulkan *tessDataTransferVulkan;
 };

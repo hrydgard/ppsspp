@@ -203,9 +203,11 @@ private:
 	private:
 		ID3D11DeviceContext *context_;
 		ID3D11Device *device_;
-		ID3D11Buffer *buf;
-		ID3D11ShaderResourceView *view;
+		ID3D11Buffer *buf[3];
+		ID3D11ShaderResourceView *view[3];
 		D3D11_BUFFER_DESC desc;
+		int prevSize = 0;
+		int prevSizeWeights[2] = {};
 	public:
 		TessellationDataTransferD3D11(ID3D11DeviceContext *context, ID3D11Device *device)
 			: TessellationDataTransfer(), context_(context), device_(device), buf(), view(), desc() {
@@ -215,12 +217,14 @@ private:
 			desc.MiscFlags = D3D11_RESOURCE_MISC_BUFFER_STRUCTURED;
 		}
 		~TessellationDataTransferD3D11() {
-			if (buf) {
-				buf->Release();
-				view->Release();
+			for (int i = 0; i < 3; ++i) {
+				if (buf[i]) {
+					buf[i]->Release();
+					view[i]->Release();
+				}
 			}
 		}
 
-		void SendDataToShader(const SimpleVertex *const *points, int size, u32 vertType) override;
+		void SendDataToShader(const SimpleVertex *const *points, int size, u32 vertType, const Weight2D &weights) override;
 	};
 };

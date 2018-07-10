@@ -69,6 +69,8 @@ enum {
 	DRAW_BINDING_DYNUBO_LIGHT = 4,
 	DRAW_BINDING_DYNUBO_BONE = 5,
 	DRAW_BINDING_TESS_STORAGE_BUF = 6,
+	DRAW_BINDING_TESS_STORAGE_BUF_WU = 7,
+	DRAW_BINDING_TESS_STORAGE_BUF_WV = 8,
 };
 
 enum {
@@ -96,7 +98,7 @@ DrawEngineVulkan::DrawEngineVulkan(VulkanContext *vulkan, Draw::DrawContext *dra
 
 void DrawEngineVulkan::InitDeviceObjects() {
 	// All resources we need for PSP drawing. Usually only bindings 0 and 2-4 are populated.
-	VkDescriptorSetLayoutBinding bindings[7]{};
+	VkDescriptorSetLayoutBinding bindings[9]{};
 	bindings[0].descriptorCount = 1;
 	bindings[0].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
 	bindings[0].stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
@@ -126,6 +128,14 @@ void DrawEngineVulkan::InitDeviceObjects() {
 	bindings[6].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
 	bindings[6].stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
 	bindings[6].binding = DRAW_BINDING_TESS_STORAGE_BUF;
+	bindings[7].descriptorCount = 1;
+	bindings[7].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+	bindings[7].stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
+	bindings[7].binding = DRAW_BINDING_TESS_STORAGE_BUF_WU;
+	bindings[8].descriptorCount = 1;
+	bindings[8].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+	bindings[8].stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
+	bindings[8].binding = DRAW_BINDING_TESS_STORAGE_BUF_WV;
 
 	VkDevice device = vulkan_->GetDevice();
 
@@ -167,7 +177,8 @@ void DrawEngineVulkan::InitDeviceObjects() {
 
 	vertexCache_ = new VulkanPushBuffer(vulkan_, VERTEX_CACHE_SIZE);
 
-	tessDataTransfer = new TessellationDataTransferVulkan(vulkan_);
+	tessDataTransferVulkan = new TessellationDataTransferVulkan(vulkan_);
+	tessDataTransfer = tessDataTransferVulkan;
 }
 
 DrawEngineVulkan::~DrawEngineVulkan() {
@@ -202,7 +213,7 @@ void DrawEngineVulkan::FrameData::Destroy(VulkanContext *vulkan) {
 
 void DrawEngineVulkan::DestroyDeviceObjects() {
 	delete tessDataTransfer;
-	tessDataTransfer = nullptr;
+	tessDataTransfer = tessDataTransferVulkan = nullptr;
 
 	for (int i = 0; i < VulkanContext::MAX_INFLIGHT_FRAMES; i++) {
 		frame_[i].Destroy(vulkan_);
@@ -258,7 +269,7 @@ void DrawEngineVulkan::BeginFrame() {
 	frame->pushIndex->Begin(vulkan_);
 
 	// TODO: How can we make this nicer...
-	((TessellationDataTransferVulkan *)tessDataTransfer)->SetPushBuffer(frame->pushUBO);
+	tessDataTransferVulkan->SetPushBuffer(frame->pushUBO);
 
 	DirtyAllUBOs();
 
@@ -470,23 +481,32 @@ VkDescriptorSet DrawEngineVulkan::GetOrCreateDescriptorSet(VkImageView imageView
 		n++;
 	}
 
-	// Tessellation data buffer. Make sure this is declared outside the if to avoid optimizer
-	// shenanigans.
-	VkDescriptorBufferInfo tess_buf{};
+	// Tessellation data buffer.
 	if (tess) {
-		VkBuffer buf;
-		VkDeviceSize offset;
-		VkDeviceSize range;
-		((TessellationDataTransferVulkan *)tessDataTransfer)->GetBufferAndOffset(&buf, &offset, &range);
-		assert(buf);
-		tess_buf.buffer = buf;
-		tess_buf.offset = offset;
-		tess_buf.range = range;
-		tessOffset_ = offset;
+		const VkDescriptorBufferInfo *bufInfo = tessDataTransferVulkan->GetBufferInfo();
+		// Control Points
 		writes[n].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
 		writes[n].pNext = nullptr;
 		writes[n].dstBinding = DRAW_BINDING_TESS_STORAGE_BUF;
-		writes[n].pBufferInfo = &tess_buf;
+		writes[n].pBufferInfo = &bufInfo[0];
+		writes[n].descriptorCount = 1;
+		writes[n].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+		writes[n].dstSet = desc;
+		n++;
+		// Weights U
+		writes[n].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+		writes[n].pNext = nullptr;
+		writes[n].dstBinding = DRAW_BINDING_TESS_STORAGE_BUF_WU;
+		writes[n].pBufferInfo = &bufInfo[1];
+		writes[n].descriptorCount = 1;
+		writes[n].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+		writes[n].dstSet = desc;
+		n++;
+		// Weights V
+		writes[n].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+		writes[n].pNext = nullptr;
+		writes[n].dstBinding = DRAW_BINDING_TESS_STORAGE_BUF_WV;
+		writes[n].pBufferInfo = &bufInfo[2];
 		writes[n].descriptorCount = 1;
 		writes[n].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
 		writes[n].dstSet = desc;
@@ -1001,7 +1021,7 @@ DrawEngineVulkan::TessellationDataTransferVulkan::TessellationDataTransferVulkan
 DrawEngineVulkan::TessellationDataTransferVulkan::~TessellationDataTransferVulkan() {
 }
 
-void DrawEngineVulkan::TessellationDataTransferVulkan::SendDataToShader(const SimpleVertex *const *points, int size, u32 vertType) {
+void DrawEngineVulkan::TessellationDataTransferVulkan::SendDataToShader(const SimpleVertex *const *points, int size, u32 vertType, const Weight2D &weights) {
 	// SSBOs that are not simply float1 or float2 need to be padded up to a float4 size. vec3 members
 	// also need to be 16-byte aligned, hence the padding.
 	struct TessData {
@@ -1011,8 +1031,8 @@ void DrawEngineVulkan::TessellationDataTransferVulkan::SendDataToShader(const Si
 	};
 
 	int ssboAlignment = vulkan_->GetPhysicalDeviceProperties(vulkan_->GetCurrentPhysicalDevice()).limits.minStorageBufferOffsetAlignment;
-	uint8_t *data = (uint8_t *)push_->PushAligned(size * sizeof(TessData), &offset_, &buf_, ssboAlignment);
-	range_ = size * sizeof(TessData);
+	uint8_t *data = (uint8_t *)push_->PushAligned(size * sizeof(TessData), (uint32_t *)&bufInfo_[0].offset, &bufInfo_[0].buffer, ssboAlignment);
+	bufInfo_[0].range = size * sizeof(TessData);
 
 	float *pos = (float *)(data);
 	float *tex = (float *)(data + offsetof(TessData, uv));
@@ -1020,4 +1040,14 @@ void DrawEngineVulkan::TessellationDataTransferVulkan::SendDataToShader(const Si
 	int stride = sizeof(TessData) / sizeof(float);
 
 	CopyControlPoints(pos, tex, col, stride, stride, stride, points, size, vertType);
+
+	// Weights U
+	data = (uint8_t *)push_->PushAligned(weights.size_u * sizeof(Weight), (uint32_t *)&bufInfo_[1].offset, &bufInfo_[1].buffer, ssboAlignment);
+	memcpy(data, weights.u, weights.size_u * sizeof(Weight));
+	bufInfo_[1].range = weights.size_u * sizeof(Weight);
+
+	// Weights V
+	data = (uint8_t *)push_->PushAligned(weights.size_v * sizeof(Weight), (uint32_t *)&bufInfo_[2].offset, &bufInfo_[2].buffer, ssboAlignment);
+	memcpy(data, weights.v, weights.size_v * sizeof(Weight));
+	bufInfo_[2].range = weights.size_v * sizeof(Weight);
 }

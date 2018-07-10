@@ -1760,9 +1760,10 @@ void GPUCommon::Execute_Bezier(u32 op, u32 diff) {
 	if (CanUseHardwareTessellation(patchPrim)) {
 		gstate_c.Dirty(DIRTY_VERTEXSHADER_STATE);
 		gstate_c.bezier = true;
-		if (gstate_c.spline_count_u != bz_ucount) {
+		int num_patches_u = (bz_ucount - 1) / 3;
+		if (gstate_c.spline_num_patches_u != num_patches_u) {
 			gstate_c.Dirty(DIRTY_BEZIERSPLINE);
-			gstate_c.spline_count_u = bz_ucount;
+			gstate_c.spline_num_patches_u = num_patches_u;
 		}
 	}
 
@@ -1824,14 +1825,18 @@ void GPUCommon::Execute_Spline(u32 op, u32 diff) {
 	if (CanUseHardwareTessellation(patchPrim)) {
 		gstate_c.Dirty(DIRTY_VERTEXSHADER_STATE);
 		gstate_c.spline = true;
-		bool countsChanged = gstate_c.spline_count_u != sp_ucount || gstate_c.spline_count_v != sp_vcount;
-		bool typesChanged = gstate_c.spline_type_u != sp_utype || gstate_c.spline_type_v != sp_vtype;
-		if (countsChanged || typesChanged) {
+		int tess_u = gstate.getPatchDivisionU();
+		int tess_v = gstate.getPatchDivisionV();
+		int num_patches_u = sp_ucount - 3;
+		int num_patches_v = sp_vcount - 3;
+		bool divsChanged = gstate_c.spline_tess_u != tess_u || gstate_c.spline_tess_v != tess_v;
+		bool patchesChanged = gstate_c.spline_num_patches_u != num_patches_u || gstate_c.spline_num_patches_v != num_patches_v;
+		if (divsChanged || patchesChanged) {
 			gstate_c.Dirty(DIRTY_BEZIERSPLINE);
-			gstate_c.spline_count_u = sp_ucount;
-			gstate_c.spline_count_v = sp_vcount;
-			gstate_c.spline_type_u = sp_utype;
-			gstate_c.spline_type_v = sp_vtype;
+			gstate_c.spline_tess_u = tess_u;
+			gstate_c.spline_tess_v = tess_v;
+			gstate_c.spline_num_patches_u = num_patches_u;
+			gstate_c.spline_num_patches_v = num_patches_v;
 		}
 	}
 
