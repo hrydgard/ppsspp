@@ -408,6 +408,7 @@ static ConfigSetting generalSettings[] = {
 
 	ConfigSetting("ScreenshotsAsPNG", &g_Config.bScreenshotsAsPNG, false, true, true),
 	ConfigSetting("ScreenshotsAtRenderRes", &g_Config.bScreenshotsAtRenderRes, false, true, true),
+	ConfigSetting("SavestateScreenshotResLimit", &g_Config.bSavestateScreenshotResLimit, false, false, false),
 	ConfigSetting("UseFFV1", &g_Config.bUseFFV1, false),
 	ConfigSetting("DumpFrames", &g_Config.bDumpFrames, false),
 	ConfigSetting("DumpAudio", &g_Config.bDumpAudio, false),

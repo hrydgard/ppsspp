@@ -109,7 +109,6 @@ private:
 	bool cap60FPS_;
 	int iAlternateSpeedPercent1_;
 	int iAlternateSpeedPercent2_;
-	int iAlternateSpeedPercent2_;
 	bool enableReports_;
 
 	//edit the game-specific settings and restore the global settings after exiting

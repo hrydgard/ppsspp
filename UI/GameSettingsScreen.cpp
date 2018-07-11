@@ -202,42 +202,30 @@ void GameSettingsScreen::CreateViews() {
 #ifndef IOS
 		vulkanAvailable = VulkanMayBeAvailable();
 #endif
-	if (!vulkanAvailable) {
-		renderingBackendChoice->HideChoice(3);
-	}
-#endif
-	Draw::DrawContext *draw = screenManager()->getDrawContext();
-
-	// Backends that don't allow a device choice will only expose one device.
-	if (draw->GetDeviceList().size() > 1) {
-		std::string *deviceNameSetting = nullptr;
-		if (g_Config.iGPUBackend == (int)GPUBackend::VULKAN) {
-			deviceNameSetting = &g_Config.sVulkanDevice;
+		if (!vulkanAvailable) {
+			renderingBackendChoice->HideChoice(3);
 		}
+#endif
+		Draw::DrawContext *draw = screenManager()->getDrawContext();
+
+		// Backends that don't allow a device choice will only expose one device.
+		if (draw->GetDeviceList().size() > 1) {
+			std::string *deviceNameSetting = nullptr;
+			if (g_Config.iGPUBackend == (int)GPUBackend::VULKAN) {
+				deviceNameSetting = &g_Config.sVulkanDevice;
+			}
 #ifdef _WIN32
-		if (g_Config.iGPUBackend == (int)GPUBackend::DIRECT3D11) {
-			deviceNameSetting = &g_Config.sD3D11Device;
-		}
+			if (g_Config.iGPUBackend == (int)GPUBackend::DIRECT3D11) {
+				deviceNameSetting = &g_Config.sD3D11Device;
+			}
 #endif
-		if (deviceNameSetting) {
-			PopupMultiChoiceDynamic *deviceChoice = graphicsSettings->Add(new PopupMultiChoiceDynamic(deviceNameSetting, gr->T("Device"), draw->GetDeviceList(), nullptr, screenManager()));
-			deviceChoice->OnChoice.Handle(this, &GameSettingsScreen::OnRenderingBackend);
+			if (deviceNameSetting) {
+				PopupMultiChoiceDynamic *deviceChoice = graphicsSettings->Add(new PopupMultiChoiceDynamic(deviceNameSetting, gr->T("Device"), draw->GetDeviceList(), nullptr, screenManager()));
+				deviceChoice->OnChoice.Handle(this, &GameSettingsScreen::OnRenderingBackend);
+			}
 		}
-	}
 
-	static const char *renderingMode[] = { "Non-Buffered Rendering", "Buffered Rendering"};
-	PopupMultiChoice *renderingModeChoice = graphicsSettings->Add(new PopupMultiChoice(&g_Config.iRenderingMode, gr->T("Mode"), renderingMode, 0, ARRAY_SIZE(renderingMode), gr->GetName(), screenManager()));
-	renderingModeChoice->OnChoice.Add([=](EventParams &e) {
-		switch (g_Config.iRenderingMode) {
-		case FB_NON_BUFFERED_MODE:
-			settingInfo_->Show(gr->T("RenderingMode NonBuffered Tip", "Faster, but graphics may be missing in some games"), e.v);
-			break;
-		case FB_BUFFERED_MODE:
-			break;
-		}
-#endif
-	
-		static const char *renderingMode[] = { "Non-Buffered Rendering", "Buffered Rendering"};
+		static const char *renderingMode[] = { "Non-Buffered Rendering", "Buffered Rendering" };
 		PopupMultiChoice *renderingModeChoice = graphicsSettings->Add(new PopupMultiChoice(&g_Config.iRenderingMode, gr->T("Mode"), renderingMode, 0, ARRAY_SIZE(renderingMode), gr->GetName(), screenManager()));
 		renderingModeChoice->OnChoice.Add([=](EventParams &e) {
 			switch (g_Config.iRenderingMode) {
@@ -276,13 +264,15 @@ void GameSettingsScreen::CreateViews() {
 			if (PSP_IsInited())
 				softwareGPU->SetEnabled(false);
 		}
-	
+
 		graphicsSettings->Add(new ItemHeader(gr->T("Frame Rate Control")));
-		static const char *frameSkip[] = {"Off", "1", "2", "3", "4", "5", "6", "7", "8"};
+		static const char *frameSkip[] = { "Off", "1", "2", "3", "4", "5", "6", "7", "8" };
 		graphicsSettings->Add(new PopupMultiChoice(&g_Config.iFrameSkip, gr->T("Frame Skipping"), frameSkip, 0, ARRAY_SIZE(frameSkip), gr->GetName(), screenManager()));
 		frameSkipAuto_ = graphicsSettings->Add(new CheckBox(&g_Config.bAutoFrameSkip, gr->T("Auto FrameSkip")));
 		frameSkipAuto_->OnClick.Handle(this, &GameSettingsScreen::OnAutoFrameskip);
 		graphicsSettings->Add(new CheckBox(&cap60FPS_, gr->T("Force max 60 FPS (helps GoW)")));
+
+	}
 
 	PopupSliderChoice *altSpeed1 = graphicsSettings->Add(new PopupSliderChoice(&iAlternateSpeedPercent1_, 0, 1000, gr->T("Alternative Speed", "Alternative speed"), 5, screenManager(), gr->T("%, 0:unlimited")));
 	altSpeed1->SetFormat("%i%%");
@@ -1392,6 +1382,7 @@ void OtherSettingsScreen::CreateViews() {
 	list->Add(new CheckBox(&g_Config.bShowFrameProfiler, gr->T("Display frame profiler(heavy!)")));
 	list->Add(new CheckBox(&g_Config.bSimpleFrameStats, gr->T("Display simple frame stats(heavy!)")));
 	list->Add(new CheckBox(&g_Config.bRefreshAt60Hz, gr->T("Refresh at 60Hz(gamebreaking, but might be needed for NVidia stutter)")));
+	list->Add(new CheckBox(&g_Config.bSavestateScreenshotResLimit, gr->T("Limit resolution of savestates screenshots")));
 }
 
 void OtherSettingsScreen::onFinish(DialogResult result) {

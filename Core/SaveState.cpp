@@ -853,8 +853,12 @@ namespace SaveState
 
 			case SAVESTATE_SAVE_SCREENSHOT:
 			{
-				int maxRes = g_Config.iInternalResolution > 2 ? 2 : -1;
-				tempResult = TakeGameScreenshot(op.filename.c_str(), ScreenshotFormat::JPG, SCREENSHOT_DISPLAY, nullptr, nullptr, maxRes);
+				if (g_Config.bSavestateScreenshotResLimit) {
+					int maxRes = g_Config.iInternalResolution > 2 ? 2 : -1;
+					tempResult = TakeGameScreenshot(op.filename.c_str(), ScreenshotFormat::JPG, SCREENSHOT_DISPLAY, nullptr, nullptr, maxRes);
+				} else {
+					tempResult = TakeGameScreenshot(op.filename.c_str(), ScreenshotFormat::JPG, SCREENSHOT_DISPLAY);
+				}
 				callbackResult = tempResult ? Status::SUCCESS : Status::FAILURE;
 				if (!tempResult) {
 					ERROR_LOG(SAVESTATE, "Failed to take a screenshot for the savestate! %s", op.filename.c_str());

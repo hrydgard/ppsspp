@@ -24,6 +24,7 @@
 #include "Common/CommonTypes.h"
 
 extern const char *PPSSPP_GIT_VERSION;
+const int MAX_CONFIG_VOLUME = 8;
 
 namespace http {
 	class Download;
@@ -59,6 +60,7 @@ public:
 	int iNumWorkerThreads;
 	bool bScreenshotsAsPNG;
 	bool bScreenshotsAtRenderRes;
+	bool bSavestateScreenshotResLimit;
 	bool bUseFFV1;
 	bool bDumpFrames;
 	bool bDumpAudio;
