@@ -320,8 +320,8 @@ protected:
 	DisplayList *currentList;
 	DisplayListQueue dlQueue;
 
-	bool interruptRunning;
-	GPURunState gpuState;
+	bool interruptRunning = false;
+	GPURunState gpuState = GPUSTATE_RUNNING;
 	bool isbreak;
 	u64 drawCompleteTicks;
 	u64 busyTicks;

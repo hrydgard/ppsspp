@@ -58,7 +58,7 @@ GPU_GLES::GPU_GLES(GraphicsContext *gfxCtx, Draw::DrawContext *draw)
 
 	GLRenderManager *render = (GLRenderManager *)draw->GetNativeObject(Draw::NativeObject::RENDER_MANAGER);
 
-	shaderManagerGL_ = new ShaderManagerGLES(render);
+	shaderManagerGL_ = new ShaderManagerGLES(draw);
 	framebufferManagerGL_ = new FramebufferManagerGLES(draw, render);
 	framebufferManager_ = framebufferManagerGL_;
 	textureCacheGL_ = new TextureCacheGLES(draw);
@@ -128,13 +128,15 @@ GPU_GLES::~GPU_GLES() {
 	// If we're here during app shutdown (exiting the Windows app in-game, for example)
 	// everything should already be cleared since DeviceLost has been run.
 
+	if (!shaderCachePath_.empty() && draw_) {
+		shaderManagerGL_->Save(shaderCachePath_);
+	}
+
 	framebufferManagerGL_->DestroyAllFBOs();
 	shaderManagerGL_->ClearCache(true);
 	depalShaderCache_.Clear();
 	fragmentTestCache_.Clear();
-	if (!shaderCachePath_.empty() && draw_) {
-		shaderManagerGL_->Save(shaderCachePath_);
-	}
+	
 	delete shaderManagerGL_;
 	shaderManagerGL_ = nullptr;
 	delete framebufferManagerGL_;
@@ -331,11 +333,10 @@ void GPU_GLES::DeviceLost() {
 	// Simply drop all caches and textures.
 	// FBOs appear to survive? Or no?
 	// TransformDraw has registered as a GfxResourceHolder.
-	drawEngine_.ClearInputLayoutMap();
-	shaderManagerGL_->ClearCache(false);
+	shaderManagerGL_->DeviceLost();
 	textureCacheGL_->DeviceLost();
-	fragmentTestCache_.Clear(false);
-	depalShaderCache_.Clear();
+	fragmentTestCache_.DeviceLost();
+	depalShaderCache_.DeviceLost();
 	drawEngine_.DeviceLost();
 	framebufferManagerGL_->DeviceLost();
 	// Don't even try to access the lost device.
@@ -349,9 +350,12 @@ void GPU_GLES::DeviceRestore() {
 	UpdateCmdInfo();
 	UpdateVsyncInterval(true);
 
+	shaderManagerGL_->DeviceRestore(draw_);
 	textureCacheGL_->DeviceRestore(draw_);
 	framebufferManagerGL_->DeviceRestore(draw_);
-	drawEngine_.DeviceRestore();
+	drawEngine_.DeviceRestore(draw_);
+	fragmentTestCache_.DeviceRestore(draw_);
+	depalShaderCache_.DeviceRestore(draw_);
 }
 
 void GPU_GLES::Reinitialize() {
@@ -388,9 +392,10 @@ inline void GPU_GLES::UpdateVsyncInterval(bool force) {
 	if (PSP_CoreParameter().unthrottle) {
 		desiredVSyncInterval = 0;
 	}
-	if (PSP_CoreParameter().fpsLimit == 1) {
+	if (PSP_CoreParameter().fpsLimit != FPSLimit::NORMAL) {
+		int limit = PSP_CoreParameter().fpsLimit == FPSLimit::CUSTOM1 ? g_Config.iFpsLimit1 : g_Config.iFpsLimit2;
 		// For an alternative speed that is a clean factor of 60, the user probably still wants vsync.
-		if (g_Config.iFpsLimit == 0 || (g_Config.iFpsLimit != 15 && g_Config.iFpsLimit != 30 && g_Config.iFpsLimit != 60)) {
+		if (limit == 0 || (limit >= 0 && limit != 15 && limit != 30 && limit != 60)) {
 			desiredVSyncInterval = 0;
 		}
 	}
@@ -455,7 +460,7 @@ void GPU_GLES::CopyDisplayToOutput() {
 	// If buffered, discard the depth buffer of the backbuffer. Don't even know if we need one.
 #if 0
 #ifdef USING_GLES2
-	if (gl_extensions.EXT_discard_framebuffer && g_Config.iRenderingMode != 0) {
+	if (gl_extensions.EXT_discard_framebuffer && g_Config.iRenderingMode != FB_NON_BUFFERED_MODE) {
 		GLenum attachments[] = {GL_DEPTH_EXT, GL_STENCIL_EXT};
 		glDiscardFramebufferEXT(GL_FRAMEBUFFER, 2, attachments);
 	}

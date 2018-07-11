@@ -7,6 +7,7 @@
 #include "math/math_util.h"
 #include "math/lin/vec3.h"
 #include "GPU/GPUState.h"
+#include "GPU/Common/FramebufferCommon.h"
 #include "GPU/Common/GPUStateUtils.h"
 #include "GPU/Math3D.h"
 #include "Core/Reporting.h"
@@ -105,7 +106,7 @@ void BaseUpdateUniforms(UB_VS_FS_Base *ub, uint64_t dirtyUniforms, bool flipView
 			ConvertProjMatrixToVulkan(flippedMatrix);
 		}
 
-		if (g_Config.iRenderingMode == 0 && g_display_rotation != DisplayRotation::ROTATE_0) {
+		if (g_Config.iRenderingMode == FB_NON_BUFFERED_MODE && g_display_rotation != DisplayRotation::ROTATE_0) {
 			flippedMatrix = flippedMatrix * g_display_rot_matrix;
 		}
 
@@ -119,7 +120,7 @@ void BaseUpdateUniforms(UB_VS_FS_Base *ub, uint64_t dirtyUniforms, bool flipView
 		} else {
 			proj_through.setOrthoVulkan(0.0f, gstate_c.curRTWidth, 0, gstate_c.curRTHeight, 0, 1);
 		}
-		if (g_Config.iRenderingMode == 0 && g_display_rotation != DisplayRotation::ROTATE_0) {
+		if (g_Config.iRenderingMode == FB_NON_BUFFERED_MODE && g_display_rotation != DisplayRotation::ROTATE_0) {
 			proj_through = proj_through * g_display_rot_matrix;
 		}
 		// proj_through.translateAndScale(Vec3(0, 0, 0), Vec3(1.0f / debugscale, 1.0f / debugscale, 0));

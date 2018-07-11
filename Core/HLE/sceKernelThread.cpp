@@ -15,10 +15,11 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
-#include <set>
-#include <map>
-#include <queue>
 #include <algorithm>
+#include <map>
+#include <mutex>
+#include <set>
+#include <queue>
 
 #include "base/logging.h"
 
@@ -29,6 +30,7 @@
 #include "Core/MIPS/MIPSAnalyst.h"
 #include "Core/MIPS/MIPSCodeUtils.h"
 #include "Core/MIPS/MIPS.h"
+#include "Core/MIPS/MIPSDebugInterface.h"
 #include "Core/CoreTiming.h"
 #include "Core/MemMapHelpers.h"
 #include "Core/MIPS/JitCommon/JitCommon.h"
@@ -42,6 +44,7 @@
 #include "Core/HLE/sceKernelThread.h"
 #include "Core/HLE/sceKernelModule.h"
 #include "Core/HLE/sceKernelInterrupt.h"
+#include "Core/HLE/KernelThreadDebugInterface.h"
 #include "Core/HLE/KernelWaitHelpers.h"
 #include "Core/HLE/ThreadQueueList.h"
 
@@ -494,7 +497,7 @@ public:
 		return true;
 	}
 
-	Thread()
+	Thread() : debug(currentMIPS, context)
 	{
 		currentStack.start = 0;
 	}
@@ -542,7 +545,7 @@ public:
 		p.Do(currentMipscallId);
 		p.Do(currentCallbackId);
 
-		// TODO: How do I "version" adding a DoState method to ThreadContext?
+		// TODO: If we want to "version" a DoState method here, we can just use minVer = 0.
 		p.Do(context);
 
 		if (s <= 3)
@@ -587,6 +590,7 @@ public:
 	SceUID currentCallbackId;
 
 	ThreadContext context;
+	KernelThreadDebugInterface debug;
 
 	std::vector<SceUID> callbacks;
 
@@ -645,6 +649,8 @@ static std::vector<SceUID> pendingDeleteThreads;
 
 // Lists all thread ids that aren't deleted/etc.
 std::vector<SceUID> threadqueue;
+// Only for debugger, so not needed to read, just write.
+std::mutex threadqueueLock;
 
 // Lists only ready thread ids.
 ThreadQueueList threadReadyQueue;
@@ -1152,8 +1158,9 @@ void __KernelIdle()
 	__KernelReSchedule("idle");
 }
 
-void __KernelThreadingShutdown()
-{
+void __KernelThreadingShutdown() {
+	std::lock_guard<std::mutex> guard(threadqueueLock);
+
 	kernelMemory.Free(threadReturnHackAddr);
 	threadqueue.clear();
 	threadReadyQueue.clear();
@@ -1588,8 +1595,9 @@ void __KernelCancelThreadEndTimeout(SceUID threadID)
 	CoreTiming::UnscheduleEvent(eventThreadEndTimeout, threadID);
 }
 
-static void __KernelRemoveFromThreadQueue(SceUID threadID)
-{
+static void __KernelRemoveFromThreadQueue(SceUID threadID) {
+	std::lock_guard<std::mutex> guard(threadqueueLock);
+
 	int prio = __KernelGetThreadPrio(threadID);
 	if (prio != 0)
 		threadReadyQueue.remove(prio, threadID);
@@ -1817,6 +1825,8 @@ void ThreadContext::reset()
 	fcr31 = 0x00000e00;
 	hi = 0xDEADBEEF;
 	lo = 0xDEADBEEF;
+	// Just for a clean state.
+	other[5] = 0;
 }
 
 void __KernelResetThread(Thread *t, int lowestPriority)
@@ -1848,8 +1858,9 @@ void __KernelResetThread(Thread *t, int lowestPriority)
 		ERROR_LOG_REPORT(SCEKERNEL, "Resetting thread with threads waiting on end?");
 }
 
-Thread *__KernelCreateThread(SceUID &id, SceUID moduleId, const char *name, u32 entryPoint, u32 priority, int stacksize, u32 attr)
-{
+Thread *__KernelCreateThread(SceUID &id, SceUID moduleId, const char *name, u32 entryPoint, u32 priority, int stacksize, u32 attr) {
+	std::lock_guard<std::mutex> guard(threadqueueLock);
+
 	Thread *t = new Thread;
 	id = kernelObjects.Create(t);
 
@@ -3511,19 +3522,18 @@ void __KernelRegisterWaitTypeFuncs(WaitType type, WaitBeginCallbackFunc beginFun
 	waitTypeFuncs[type].endFunc = endFunc;
 }
 
-std::vector<DebugThreadInfo> GetThreadsInfo()
-{
+std::vector<DebugThreadInfo> GetThreadsInfo() {
+	std::lock_guard<std::mutex> guard(threadqueueLock);
 	std::vector<DebugThreadInfo> threadList;
 
 	u32 error;
-	for (auto iter = threadqueue.begin(); iter != threadqueue.end(); ++iter)
-	{
-		Thread *t = kernelObjects.Get<Thread>(*iter, error);
+	for (const auto uid : threadqueue) {
+		Thread *t = kernelObjects.Get<Thread>(uid, error);
 		if (!t)
 			continue;
 
 		DebugThreadInfo info;
-		info.id = *iter;
+		info.id = uid;
 		strncpy(info.name,t->GetName(),KERNELOBJECT_MAX_NAME_LENGTH);
 		info.name[KERNELOBJECT_MAX_NAME_LENGTH] = 0;
 		info.status = t->nt.status;
@@ -3532,15 +3542,29 @@ std::vector<DebugThreadInfo> GetThreadsInfo()
 		info.stackSize = (u32)t->nt.stackSize;
 		info.priority = t->nt.currentPriority;
 		info.waitType = (WaitType)(u32)t->nt.waitType;
-		if(*iter == currentThread)
+		info.isCurrent = uid == currentThread;
+		if (info.isCurrent)
 			info.curPC = currentMIPS->pc;
 		else
 			info.curPC = t->context.pc;
-		info.isCurrent = (*iter == currentThread);
 		threadList.push_back(info);
 	}
 
 	return threadList;
+}
+
+DebugInterface *KernelDebugThread(SceUID threadID) {
+	if (threadID == currentThread) {
+		return currentDebugMIPS;
+	}
+
+	u32 error;
+	Thread *t = kernelObjects.Get<Thread>(threadID, error);
+	if (t) {
+		return &t->debug;
+	}
+
+	return nullptr;
 }
 
 void __KernelChangeThreadState(SceUID threadId, ThreadStatus newStatus)

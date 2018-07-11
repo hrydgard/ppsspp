@@ -517,6 +517,12 @@ struct GPUStateCache {
 	bool IsDirty(u64 what) const {
 		return (dirty & what) != 0ULL;
 	}
+	void SetUseShaderDepal(bool depal) {
+		if (depal != useShaderDepal) {
+			useShaderDepal = depal;
+			Dirty(DIRTY_FRAGMENTSHADER_STATE);
+		}
+	}
 	void SetTextureFullAlpha(bool fullAlpha) {
 		if (fullAlpha != textureFullAlpha) {
 			textureFullAlpha = fullAlpha;

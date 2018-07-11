@@ -455,6 +455,7 @@ public:
 	BoolUnused dither;
 
 	CullMode cullMode;
+	DxState1<D3DRS_SHADEMODE, D3DSHADE_GOURAUD> shadeMode;
 
 	BoolState<D3DRS_ZENABLE, false> depthTest;
 

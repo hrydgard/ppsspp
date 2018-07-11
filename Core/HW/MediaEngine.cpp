@@ -477,6 +477,14 @@ bool MediaEngine::setVideoStream(int streamNum, bool force) {
 			return false;
 		}
 		AVCodecContext *m_pCodecCtx = m_pFormatCtx->streams[streamNum]->codec;
+#if LIBAVFORMAT_VERSION_INT >= AV_VERSION_INT(57,33,100)
+		AVCodecParameters *m_pCodecPar = m_pFormatCtx->streams[streamNum]->codecpar;
+
+		// Update from deprecated public codec context
+		if (avcodec_parameters_from_context(m_pCodecPar, m_pCodecCtx) < 0) {
+			return false;
+		}
+#endif
 
 		// Find the decoder for the video stream
 		AVCodec *pCodec = avcodec_find_decoder(m_pCodecCtx->codec_id);
@@ -788,9 +796,8 @@ int MediaEngine::writeVideoImage(u32 bufferPtr, int frameWidth, int videoPixelMo
 		delete [] imgbuf;
 	}
 
-#ifndef MOBILE_DEVICE
 	CBreakPoints::ExecMemCheck(bufferPtr, true, videoImageSize, currentMIPS->pc);
-#endif
+
 	return videoImageSize;
 #endif // USE_FFMPEG
 	return 0;
@@ -844,9 +851,7 @@ int MediaEngine::writeVideoImageWithRange(u32 bufferPtr, int frameWidth, int vid
 			writeVideoLineRGBA(imgbuf, data, width);
 			data += m_desWidth * sizeof(u32);
 			imgbuf += videoLineSize;
-#ifndef MOBILE_DEVICE
 			CBreakPoints::ExecMemCheck(bufferPtr + y * frameWidth * sizeof(u32), true, width * sizeof(u32), currentMIPS->pc);
-#endif
 		}
 		break;
 
@@ -856,9 +861,7 @@ int MediaEngine::writeVideoImageWithRange(u32 bufferPtr, int frameWidth, int vid
 			writeVideoLineABGR5650(imgbuf, data, width);
 			data += m_desWidth * sizeof(u16);
 			imgbuf += videoLineSize;
-#ifndef MOBILE_DEVICE
 			CBreakPoints::ExecMemCheck(bufferPtr + y * frameWidth * sizeof(u16), true, width * sizeof(u16), currentMIPS->pc);
-#endif
 		}
 		break;
 
@@ -868,9 +871,7 @@ int MediaEngine::writeVideoImageWithRange(u32 bufferPtr, int frameWidth, int vid
 			writeVideoLineABGR5551(imgbuf, data, width);
 			data += m_desWidth * sizeof(u16);
 			imgbuf += videoLineSize;
-#ifndef MOBILE_DEVICE
 			CBreakPoints::ExecMemCheck(bufferPtr + y * frameWidth * sizeof(u16), true, width * sizeof(u16), currentMIPS->pc);
-#endif
 		}
 		break;
 
@@ -880,9 +881,7 @@ int MediaEngine::writeVideoImageWithRange(u32 bufferPtr, int frameWidth, int vid
 			writeVideoLineABGR4444(imgbuf, data, width);
 			data += m_desWidth * sizeof(u16);
 			imgbuf += videoLineSize;
-#ifndef MOBILE_DEVICE
 			CBreakPoints::ExecMemCheck(bufferPtr + y * frameWidth * sizeof(u16), true, width * sizeof(u16), currentMIPS->pc);
-#endif
 		}
 		break;
 
@@ -976,9 +975,8 @@ int MediaEngine::getAudioSamples(u32 bufferPtr) {
 		if (!m_audioContext->Decode(audioFrame, frameSize, buffer, &outbytes)) {
 			ERROR_LOG(ME, "Audio (%s) decode failed during video playback", GetCodecName(m_audioType));
 		}
-#ifndef MOBILE_DEVICE
+
 		CBreakPoints::ExecMemCheck(bufferPtr, true, outbytes, currentMIPS->pc);
-#endif
 	}
 
 	return 0x2000;

@@ -880,7 +880,7 @@ void CtrlStateValues::OnRightClick(int row, int column, const POINT &point) {
 	SetMenuDefaultItem(subMenu, ID_REGLIST_CHANGE, FALSE);
 
 	// Ehh, kinda ugly.
-	if (rows_ == &watchList[0]) {
+	if (!watchList.empty() && rows_ == &watchList[0]) {
 		ModifyMenu(subMenu, ID_GEDBG_WATCH, MF_BYCOMMAND | MF_STRING, ID_GEDBG_WATCH, L"Remove Watch");
 	} else {
 		ModifyMenu(subMenu, ID_GEDBG_WATCH, MF_BYCOMMAND | MF_STRING, ID_GEDBG_WATCH, L"Add Watch");

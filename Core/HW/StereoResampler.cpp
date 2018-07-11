@@ -37,6 +37,7 @@
 #include "Common/MathUtil.h"
 #include "Common/Atomics.h"
 #include "Core/Config.h"
+#include "Core/ConfigValues.h"
 #include "Core/HW/StereoResampler.h"
 #include "Core/HLE/__sceAudio.h"
 #include "Core/Util/AudioFormat.h"  // for clamp_u8

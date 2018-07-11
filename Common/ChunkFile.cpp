@@ -225,7 +225,7 @@ CChunkFileReader::Error CChunkFileReader::GetFileTitle(const std::string &filena
 	return LoadFileHeader(pFile, header, title);
 }
 
-CChunkFileReader::Error CChunkFileReader::LoadFile(const std::string &filename, const char *gitVersion, u8 *&_buffer, size_t &sz, std::string *failureReason) {
+CChunkFileReader::Error CChunkFileReader::LoadFile(const std::string &filename, std::string *gitVersion, u8 *&_buffer, size_t &sz, std::string *failureReason) {
 	if (!File::Exists(filename)) {
 		*failureReason = "LoadStateDoesntExist";
 		ERROR_LOG(SAVESTATE, "ChunkReader: File doesn't exist");
@@ -264,6 +264,12 @@ CChunkFileReader::Error CChunkFileReader::LoadFile(const std::string &filename, 
 		delete [] buffer;
 	}
 
+	if (header.GitVersion[31]) {
+		*gitVersion = std::string(header.GitVersion, 32);
+	} else {
+		*gitVersion = header.GitVersion;
+	}
+
 	return ERROR_NONE;
 }
 
@@ -294,7 +300,7 @@ CChunkFileReader::Error CChunkFileReader::SaveFile(const std::string &filename, 
 	}
 
 	// Create header
-	SChunkHeader header;
+	SChunkHeader header{};
 	header.Compress = compressed_buffer ? 1 : 0;
 	header.Revision = REVISION_CURRENT;
 	header.ExpectedSize = (u32)write_len;
@@ -302,7 +308,7 @@ CChunkFileReader::Error CChunkFileReader::SaveFile(const std::string &filename, 
 	truncate_cpy(header.GitVersion, gitVersion);
 
 	// Setup the fixed-length title.
-	char titleFixed[128];
+	char titleFixed[128]{};
 	truncate_cpy(titleFixed, title.c_str());
 
 	// Now let's start writing out the file...

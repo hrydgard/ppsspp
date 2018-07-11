@@ -9,6 +9,7 @@
 #include "thin3d/thin3d_create.h"
 #include "util/text/parsers.h"
 #include "Core/Config.h"
+#include "Core/ConfigValues.h"
 #include "Core/System.h"
 
 static VulkanLogOptions g_LogOptions;

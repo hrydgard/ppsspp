@@ -174,6 +174,8 @@ CtrlMemView *CtrlMemView::getFrom(HWND hwnd)
 
 void CtrlMemView::onPaint(WPARAM wParam, LPARAM lParam)
 {
+	auto memLock = Memory::Lock();
+
 	// draw to a bitmap for double buffering
 	PAINTSTRUCT ps;	
 	HDC actualHdc = BeginPaint(wnd, &ps);
@@ -445,6 +447,7 @@ void CtrlMemView::onMouseUp(WPARAM wParam, LPARAM lParam, int button)
 			
 		case ID_MEMVIEW_COPYVALUE_8:
 			{
+				auto memLock = Memory::Lock();
 				char temp[24];
 
 				// it's admittedly not really useful like this
@@ -462,6 +465,7 @@ void CtrlMemView::onMouseUp(WPARAM wParam, LPARAM lParam, int button)
 			
 		case ID_MEMVIEW_COPYVALUE_16:
 			{
+				auto memLock = Memory::Lock();
 				char temp[24];
 
 				sprintf(temp,"%04X",Memory::IsValidAddress(curAddress) ? Memory::Read_U16(curAddress) : 0xFFFF);
@@ -471,6 +475,7 @@ void CtrlMemView::onMouseUp(WPARAM wParam, LPARAM lParam, int button)
 			
 		case ID_MEMVIEW_COPYVALUE_32:
 			{
+				auto memLock = Memory::Lock();
 				char temp[24];
 
 				sprintf(temp,"%08X",Memory::IsValidAddress(curAddress) ? Memory::Read_U32(curAddress) : 0xFFFFFFFF);

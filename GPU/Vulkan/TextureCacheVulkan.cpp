@@ -328,7 +328,7 @@ void TextureCacheVulkan::BindTexture(TexCacheEntry *entry) {
 	UpdateSamplingParams(*entry, key);
 	curSampler_ = samplerCache_.GetOrCreateSampler(key);
 	drawEngine_->SetDepalTexture(VK_NULL_HANDLE);
-	gstate_c.useShaderDepal = false;
+	gstate_c.SetUseShaderDepal(false);
 }
 
 void TextureCacheVulkan::Unbind() {
@@ -344,7 +344,7 @@ void TextureCacheVulkan::ApplyTextureFramebuffer(TexCacheEntry *entry, VirtualFr
 	DepalShaderVulkan *depalShader = nullptr;
 	uint32_t clutMode = gstate.clutformat & 0xFFFFFF;
 
-	bool useShaderDepal = true;
+	bool useShaderDepal = framebufferManager_->GetCurrentRenderVFB() != framebuffer;
 
 	if ((entry->status & TexCacheEntry::STATUS_DEPALETTIZE) && !g_Config.bDisableSlowFramebufEffects) {
 		if (useShaderDepal) {
@@ -356,9 +356,9 @@ void TextureCacheVulkan::ApplyTextureFramebuffer(TexCacheEntry *entry, VirtualFr
 			samplerKey.magFilt = false;
 			samplerKey.minFilt = false;
 			samplerKey.mipFilt = false;
-			// Make sure to update the uniforms.
+			// Make sure to update the uniforms, and also texture - needs a recheck.
 			gstate_c.Dirty(DIRTY_DEPAL);
-			gstate_c.useShaderDepal = true;
+			gstate_c.SetUseShaderDepal(true);
 			gstate_c.depalFramebufferFormat = framebuffer->drawnFormat;
 			const u32 bytesPerColor = clutFormat == GE_CMODE_32BIT_ABGR8888 ? sizeof(u32) : sizeof(u16);
 			const u32 clutTotalColors = clutMaxBytes_ / bytesPerColor;
@@ -370,6 +370,8 @@ void TextureCacheVulkan::ApplyTextureFramebuffer(TexCacheEntry *entry, VirtualFr
 			return;
 		} else {
 			depalShader = depalShaderCache_->GetDepalettizeShader(clutMode, framebuffer->drawnFormat);
+			drawEngine_->SetDepalTexture(VK_NULL_HANDLE);
+			gstate_c.SetUseShaderDepal(false);
 		}
 	}
 	if (depalShader) {
@@ -377,8 +379,7 @@ void TextureCacheVulkan::ApplyTextureFramebuffer(TexCacheEntry *entry, VirtualFr
 		const GEPaletteFormat clutFormat = gstate.getClutPaletteFormat();
 		VulkanTexture *clutTexture = depalShaderCache_->GetClutTexture(clutFormat, clutHash_, clutBuf_);
 
-		Draw::Framebuffer *depalFBO = framebufferManager_->GetTempFBO(
-			framebuffer->renderWidth, framebuffer->renderHeight, Draw::FBO_8888);
+		Draw::Framebuffer *depalFBO = framebufferManager_->GetTempFBO(TempFBO::DEPAL, framebuffer->renderWidth, framebuffer->renderHeight, Draw::FBO_8888);
 		draw_->BindFramebufferAsRenderTarget(depalFBO, { Draw::RPAction::DONT_CARE, Draw::RPAction::DONT_CARE, Draw::RPAction::DONT_CARE });
 
 		Vulkan2D::Vertex verts[4] = {
@@ -466,6 +467,8 @@ void TextureCacheVulkan::ApplyTextureFramebuffer(TexCacheEntry *entry, VirtualFr
 
 		framebufferManager_->RebindFramebuffer();  // TODO: This line should usually not be needed.
 		imageView_ = framebufferManagerVulkan_->BindFramebufferAsColorTexture(0, framebuffer, BINDFBCOLOR_MAY_COPY_WITH_UV | BINDFBCOLOR_APPLY_TEX_OFFSET);
+		drawEngine_->SetDepalTexture(VK_NULL_HANDLE);
+		gstate_c.SetUseShaderDepal(false);
 
 		gstate_c.SetTextureFullAlpha(gstate.getTextureFormat() == GE_TFMT_5650);
 	}
@@ -685,7 +688,7 @@ void TextureCacheVulkan::BuildTexture(TexCacheEntry *const entry) {
 			uint32_t bufferOffset;
 			VkBuffer texBuf;
 			// nvidia returns 1 but that can't be healthy... let's align by 16 as a minimum.
-			int pushAlignment = std::max(16, (int)vulkan_->GetPhysicalDeviceProperties().limits.optimalBufferCopyOffsetAlignment);
+			int pushAlignment = std::max(16, (int)vulkan_->GetPhysicalDeviceProperties(vulkan_->GetCurrentPhysicalDevice()).limits.optimalBufferCopyOffsetAlignment);
 			void *data = drawEngine_->GetPushBufferForTextureData()->PushAligned(size, &bufferOffset, &texBuf, pushAlignment);
 			if (replaced.Valid()) {
 				replaced.Load(i, data, stride);

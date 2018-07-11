@@ -23,6 +23,7 @@
 #include "base/timeutil.h"
 #include "i18n/i18n.h"
 #include "thread/threadutil.h"
+#include "util/text/parsers.h"
 
 #include "Common/FileUtil.h"
 #include "Common/ChunkFile.h"
@@ -241,6 +242,11 @@ namespace SaveState
 	static std::vector<Operation> pending;
 	static std::mutex mutex;
 	static bool hasLoadedState = false;
+	static const int STALE_STATE_USES = 2;
+	// 4 hours of total gameplay since the virtual PSP started the game.
+	static const u64 STALE_STATE_TIME = 4 * 3600 * 1000000ULL;
+	static int saveStateGeneration = 0;
+	static std::string saveStateInitialGitVersion = "";
 
 	// TODO: Should this be configurable?
 	static const int REWIND_NUM_STATES = 20;
@@ -253,9 +259,21 @@ namespace SaveState
 
 	void SaveStart::DoState(PointerWrap &p)
 	{
-		auto s = p.Section("SaveStart", 1);
+		auto s = p.Section("SaveStart", 1, 2);
 		if (!s)
 			return;
+
+		if (s >= 2) {
+			// This only increments on save, of course.
+			++saveStateGeneration;
+			p.Do(saveStateGeneration);
+			// This saves the first git version to create this save state (or generation of save states.)
+			if (saveStateInitialGitVersion.empty())
+				saveStateInitialGitVersion = PPSSPP_GIT_VERSION;
+			p.Do(saveStateInitialGitVersion);
+		} else {
+			saveStateGeneration = 1;
+		}
 
 		// Gotta do CoreTiming first since we'll restore into it.
 		CoreTiming::DoState(p);
@@ -420,7 +438,29 @@ namespace SaveState
 		} else {
 			I18NCategory *sy = GetI18NCategory("System");
 			if (callback)
-				callback(false, sy->T("Failed to load state. Error in the file system."), cbUserData);
+				callback(Status::FAILURE, sy->T("Failed to load state. Error in the file system."), cbUserData);
+		}
+	}
+
+	static void DeleteIfExists(const std::string &fn) {
+		// Just avoiding error messages.
+		if (File::Exists(fn)) {
+			File::Delete(fn);
+		}
+	}
+
+	static void RenameIfExists(const std::string &from, const std::string &to) {
+		if (File::Exists(from)) {
+			File::Rename(from, to);
+		}
+	}
+
+	static void SwapIfExists(const std::string &from, const std::string &to) {
+		std::string temp = from + ".tmp";
+		if (File::Exists(from)) {
+			File::Rename(from, temp);
+			File::Rename(to, from);
+			File::Rename(temp, to);
 		}
 	}
 
@@ -431,13 +471,13 @@ namespace SaveState
 		std::string fnUndo = GenerateSaveSlotFilename(gameFilename, slot, UNDO_STATE_EXTENSION);
 		std::string shotUndo = GenerateSaveSlotFilename(gameFilename, slot, UNDO_SCREENSHOT_EXTENSION);
 		if (!fn.empty()) {
-			auto renameCallback = [=](bool status, const std::string &message, void *data) {
-				if (status) {
-					if (File::Exists(fnUndo) && g_Config.bEnableStateUndo) {
-						File::Delete(fnUndo);
-					}
-					if (File::Exists(fn) && g_Config.bEnableStateUndo) {
-						File::Rename(fn, fnUndo);
+			auto renameCallback = [=](Status status, const std::string &message, void *data) {
+				if (status != Status::FAILURE) {
+					if (g_Config.bEnableStateUndo) {
+						DeleteIfExists(fnUndo);
+						RenameIfExists(fn, fnUndo);
+					} else {
+						DeleteIfExists(fn);
 					}
 					File::Rename(fn + ".tmp", fn);
 				}
@@ -446,15 +486,16 @@ namespace SaveState
 				}
 			};
 			// Let's also create a screenshot.
-			if (File::Exists(shot) && g_Config.bEnableStateUndo) {
-				File::Rename(shot, shotUndo);
+			if (g_Config.bEnableStateUndo) {
+				DeleteIfExists(shotUndo);
+				RenameIfExists(shot, shotUndo);
 			}
 			SaveScreenshot(shot, Callback(), 0);
 			Save(fn + ".tmp", renameCallback, cbUserData);
 		} else {
 			I18NCategory *sy = GetI18NCategory("System");
 			if (callback)
-				callback(false, sy->T("Failed to save state. Error in the file system."), cbUserData);
+				callback(Status::FAILURE, sy->T("Failed to save state. Error in the file system."), cbUserData);
 		}
 	}
 
@@ -467,15 +508,8 @@ namespace SaveState
 		// Do nothing if there's no undo.
 		if (File::Exists(fnUndo)) {
 			// Swap them so they can undo again to redo.  Mistakes happen.
-			if (File::Exists(shotUndo)) {
-				File::Rename(shot, shot + ".tmp");
-				File::Rename(shotUndo, shot);
-				File::Rename(shot + ".tmp", shotUndo);
-			}
-
-			File::Rename(fn, fn + ".tmp");
-			File::Rename(fnUndo, fn);
-			File::Rename(fn + ".tmp", fnUndo);
+			SwapIfExists(shotUndo, shot);
+			SwapIfExists(fnUndo, fn);
 
 			return true;
 		}
@@ -517,6 +551,27 @@ namespace SaveState
 		return false;
 	}
 
+	bool operator > (const tm &t1, const tm &t2) {
+		if (t1.tm_year > t2.tm_year) return true;
+		if (t1.tm_year < t2.tm_year) return false;
+		if (t1.tm_mon > t2.tm_mon) return true;
+		if (t1.tm_mon < t2.tm_mon) return false;
+		if (t1.tm_mday > t2.tm_mday) return true;
+		if (t1.tm_mday < t2.tm_mday) return false;
+		if (t1.tm_hour > t2.tm_hour) return true;
+		if (t1.tm_hour < t2.tm_hour) return false;
+		if (t1.tm_min > t2.tm_min) return true;
+		if (t1.tm_min < t2.tm_min) return false;
+		if (t1.tm_sec > t2.tm_sec) return true;
+		if (t1.tm_sec < t2.tm_sec) return false;
+		return false;
+	}
+
+	bool operator ! (const tm &t1) {
+		if (t1.tm_year || t1.tm_mon || t1.tm_mday || t1.tm_hour || t1.tm_min || t1.tm_sec) return false;
+		return true;
+	}
+
 	int GetNewestSlot(const std::string &gameFilename) {
 		int newestSlot = -1;
 		tm newestDate = {0};
@@ -532,6 +587,23 @@ namespace SaveState
 			}
 		}
 		return newestSlot;
+	}
+
+	int GetOldestSlot(const std::string &gameFilename) {
+		int oldestSlot = -1;
+		tm oldestDate = {0};
+		for (int i = 0; i < NUM_SLOTS; i++) {
+			std::string fn = GenerateSaveSlotFilename(gameFilename, i, STATE_EXTENSION);
+			if (File::Exists(fn)) {
+				tm time;
+				bool success = File::GetModifTime(fn, time);
+				if (success && (!oldestDate || oldestDate > time)) {
+					oldestDate = time;
+					oldestSlot = i;
+				}
+			}
+		}
+		return oldestSlot;
 	}
 
 	std::string GetSlotDateAsString(const std::string &gameFilename, int slot) {
@@ -603,9 +675,27 @@ namespace SaveState
 	}
 #endif
 
-	bool HasLoadedState()
-	{
+	bool HasLoadedState() {
 		return hasLoadedState;
+	}
+
+	bool IsStale() {
+		if (saveStateGeneration >= STALE_STATE_USES) {
+			return CoreTiming::GetGlobalTimeUs() > STALE_STATE_TIME;
+		}
+		return false;
+	}
+
+	bool IsOldVersion() {
+		if (saveStateInitialGitVersion.empty())
+			return false;
+
+		Version state(saveStateInitialGitVersion);
+		Version gitVer(PPSSPP_GIT_VERSION);
+		if (!state.IsValid() || !gitVer.IsValid())
+			return false;
+
+		return state < gitVer;
 	}
 
 	void Process()
@@ -632,7 +722,8 @@ namespace SaveState
 		{
 			Operation &op = operations[i];
 			CChunkFileReader::Error result;
-			bool callbackResult;
+			Status callbackResult;
+			bool tempResult;
 			std::string callbackMessage;
 			std::string reason;
 			std::string title;
@@ -649,11 +740,26 @@ namespace SaveState
 			{
 			case SAVESTATE_LOAD:
 				INFO_LOG(SAVESTATE, "Loading state from %s", op.filename.c_str());
-				result = CChunkFileReader::Load(op.filename, PPSSPP_GIT_VERSION, state, &reason);
+				// Use the state's latest version as a guess for saveStateInitialGitVersion.
+				result = CChunkFileReader::Load(op.filename, &saveStateInitialGitVersion, state, &reason);
 				if (result == CChunkFileReader::ERROR_NONE) {
 					callbackMessage = sc->T("Loaded State");
-					callbackResult = true;
+					callbackResult = Status::SUCCESS;
 					hasLoadedState = true;
+
+					if (!g_Config.bHideStateWarnings && IsStale()) {
+						// For anyone wondering why (too long to put on the screen in an osm):
+						// Using save states instead of saves simulates many hour play sessions.
+						// Sometimes this exposes game bugs that were rarely seen on real devices,
+						// because few people played on a real PSP for 10 hours straight.
+						callbackMessage = sc->T("Loaded.  Save in game, restart, and load for less bugs.");
+						callbackResult = Status::WARNING;
+					} else if (!g_Config.bHideStateWarnings && IsOldVersion()) {
+						// Save states also preserve bugs from old PPSSPP versions, so warn.
+						callbackMessage = sc->T("Loaded.  Save in game, restart, and load for less bugs.");
+						callbackResult = Status::WARNING;
+					}
+
 #ifndef MOBILE_DEVICE
 					if (g_Config.bSaveLoadResetsAVdumping) {
 						if (g_Config.bDumpFrames) {
@@ -669,10 +775,10 @@ namespace SaveState
 					HandleFailure();
 					callbackMessage = i18nLoadFailure;
 					ERROR_LOG(SAVESTATE, "Load state failure: %s", reason.c_str());
-					callbackResult = false;
+					callbackResult = Status::FAILURE;
 				} else {
 					callbackMessage = sc->T(reason.c_str(), i18nLoadFailure);
-					callbackResult = false;
+					callbackResult = Status::FAILURE;
 				}
 				break;
 
@@ -688,7 +794,7 @@ namespace SaveState
 				result = CChunkFileReader::Save(op.filename, title, PPSSPP_GIT_VERSION, state);
 				if (result == CChunkFileReader::ERROR_NONE) {
 					callbackMessage = sc->T("Saved State");
-					callbackResult = true;
+					callbackResult = Status::SUCCESS;
 #ifndef MOBILE_DEVICE
 					if (g_Config.bSaveLoadResetsAVdumping) {
 						if (g_Config.bDumpFrames) {
@@ -704,16 +810,17 @@ namespace SaveState
 					HandleFailure();
 					callbackMessage = i18nSaveFailure;
 					ERROR_LOG(SAVESTATE, "Save state failure: %s", reason.c_str());
-					callbackResult = false;
+					callbackResult = Status::FAILURE;
 				} else {
 					callbackMessage = i18nSaveFailure;
-					callbackResult = false;
+					callbackResult = Status::FAILURE;
 				}
 				break;
 
 			case SAVESTATE_VERIFY:
-				callbackResult = CChunkFileReader::Verify(state) == CChunkFileReader::ERROR_NONE;
-				if (callbackResult) {
+				tempResult = CChunkFileReader::Verify(state) == CChunkFileReader::ERROR_NONE;
+				callbackResult = tempResult ? Status::SUCCESS : Status::FAILURE;
+				if (tempResult) {
 					INFO_LOG(SAVESTATE, "Verified save state system");
 				} else {
 					ERROR_LOG(SAVESTATE, "Save state system verification failed");
@@ -725,35 +832,38 @@ namespace SaveState
 				result = rewindStates.Restore();
 				if (result == CChunkFileReader::ERROR_NONE) {
 					callbackMessage = sc->T("Loaded State");
-					callbackResult = true;
+					callbackResult = Status::SUCCESS;
 					hasLoadedState = true;
 				} else if (result == CChunkFileReader::ERROR_BROKEN_STATE) {
 					// Cripes.  Good news is, we might have more.  Let's try those too, better than a reset.
 					if (HandleFailure()) {
 						// Well, we did rewind, even if too much...
 						callbackMessage = sc->T("Loaded State");
-						callbackResult = true;
+						callbackResult = Status::SUCCESS;
 						hasLoadedState = true;
 					} else {
 						callbackMessage = i18nLoadFailure;
-						callbackResult = false;
+						callbackResult = Status::FAILURE;
 					}
 				} else {
 					callbackMessage = i18nLoadFailure;
-					callbackResult = false;
+					callbackResult = Status::FAILURE;
 				}
 				break;
 
 			case SAVESTATE_SAVE_SCREENSHOT:
-				callbackResult = TakeGameScreenshot(op.filename.c_str(), ScreenshotFormat::JPG, SCREENSHOT_DISPLAY);
-				if (!callbackResult) {
+			{
+				int maxRes = g_Config.iInternalResolution > 2 ? 2 : -1;
+				tempResult = TakeGameScreenshot(op.filename.c_str(), ScreenshotFormat::JPG, SCREENSHOT_DISPLAY, nullptr, nullptr, maxRes);
+				callbackResult = tempResult ? Status::SUCCESS : Status::FAILURE;
+				if (!tempResult) {
 					ERROR_LOG(SAVESTATE, "Failed to take a screenshot for the savestate! %s", op.filename.c_str());
 				}
 				break;
-
+			}
 			default:
 				ERROR_LOG(SAVESTATE, "Savestate failure: unknown operation type %d", op.type);
-				callbackResult = false;
+				callbackResult = Status::FAILURE;
 				break;
 			}
 
@@ -775,6 +885,8 @@ namespace SaveState
 		rewindStates.Clear();
 
 		hasLoadedState = false;
+		saveStateGeneration = 0;
+		saveStateInitialGitVersion.clear();
 	}
 
 	void Shutdown()

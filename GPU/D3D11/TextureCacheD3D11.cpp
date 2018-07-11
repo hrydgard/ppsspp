@@ -387,7 +387,7 @@ void TextureCacheD3D11::ApplyTextureFramebuffer(TexCacheEntry *entry, VirtualFra
 		const GEPaletteFormat clutFormat = gstate.getClutPaletteFormat();
 		ID3D11ShaderResourceView *clutTexture = depalShaderCache_->GetClutTexture(clutFormat, clutHash_, clutBuf_, expand32);
 
-		Draw::Framebuffer *depalFBO = framebufferManagerD3D11_->GetTempFBO(framebuffer->renderWidth, framebuffer->renderHeight, Draw::FBO_8888);
+		Draw::Framebuffer *depalFBO = framebufferManagerD3D11_->GetTempFBO(TempFBO::DEPAL, framebuffer->renderWidth, framebuffer->renderHeight, Draw::FBO_8888);
 		shaderManager_->DirtyLastShader();
 		draw_->BindPipeline(nullptr);
 
@@ -398,7 +398,8 @@ void TextureCacheD3D11::ApplyTextureFramebuffer(TexCacheEntry *entry, VirtualFra
 		shaderApply.ApplyBounds(gstate_c.vertBounds, gstate_c.curTextureXOffset, gstate_c.curTextureYOffset, xoff, yoff);
 		shaderApply.Use(depalShaderCache_->GetDepalettizeVertexShader(), depalShaderCache_->GetInputLayout());
 
-		context_->PSSetShaderResources(1, 1, &clutTexture);
+		context_->PSSetShaderResources(3, 1, &clutTexture);
+		context_->PSSetSamplers(3, 1, &stockD3D11.samplerPoint2DWrap);
 		framebufferManagerD3D11_->BindFramebufferAsColorTexture(0, framebuffer, BINDFBCOLOR_SKIP_COPY);
 		context_->PSSetSamplers(0, 1, &stockD3D11.samplerPoint2DWrap);
 		draw_->BindFramebufferAsRenderTarget(depalFBO, { Draw::RPAction::DONT_CARE, Draw::RPAction::DONT_CARE, Draw::RPAction::DONT_CARE });

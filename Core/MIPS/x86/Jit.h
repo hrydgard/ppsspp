@@ -320,8 +320,6 @@ private:
 	const u8 *dispatcherNoCheck;
 	const u8 *dispatcherInEAXNoCheck;
 
-	const u8 *breakpointBailout;
-
 	const u8 *restoreRoundingMode;
 	const u8 *applyRoundingMode;
 

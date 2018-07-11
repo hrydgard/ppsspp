@@ -253,7 +253,7 @@ struct SceUtilitySavedataParam
 
 	u8 key[16];
 
-	s32_le secureVersion;
+	u32_le secureVersion;
 	s32_le multiStatus;
 
 	// Function 11 LIST
@@ -293,6 +293,12 @@ struct SaveFileInfo
 	void DoState(PointerWrap &p);
 };
 
+struct SaveSFOFileListEntry {
+	char filename[13];
+	u8 hash[16];
+	u8 pad[3];
+};
+
 class SavedataParam
 {
 public:
@@ -306,8 +312,8 @@ public:
 	std::string GetSaveDir(const SceUtilitySavedataParam *param, const std::string &saveDirName) const;
 	bool Delete(SceUtilitySavedataParam* param, int saveId = -1);
 	int DeleteData(SceUtilitySavedataParam* param);
-	bool Save(SceUtilitySavedataParam* param, const std::string &saveDirName, bool secureMode = true);
-	bool Load(SceUtilitySavedataParam* param, const std::string &saveDirName, int saveId = -1, bool secureMode = true);
+	int Save(SceUtilitySavedataParam* param, const std::string &saveDirName, bool secureMode = true);
+	int Load(SceUtilitySavedataParam* param, const std::string &saveDirName, int saveId = -1, bool secureMode = true);
 	int GetSizes(SceUtilitySavedataParam* param);
 	bool GetList(SceUtilitySavedataParam* param);
 	int GetFilesList(SceUtilitySavedataParam* param);
@@ -354,19 +360,21 @@ private:
 	void SetFileInfo(SaveFileInfo &saveInfo, PSPFileInfo &info, std::string saveName);
 	void ClearFileInfo(SaveFileInfo &saveInfo, const std::string &saveName);
 
-	bool LoadSaveData(SceUtilitySavedataParam *param, const std::string &saveDirName, const std::string& dirPath, bool secureMode);
-	void LoadCryptedSave(SceUtilitySavedataParam *param, u8 *data, u8 *saveData, int &saveSize, int prevCryptMode, bool &saveDone);
+	int LoadSaveData(SceUtilitySavedataParam *param, const std::string &saveDirName, const std::string& dirPath, bool secureMode);
+	void LoadCryptedSave(SceUtilitySavedataParam *param, u8 *data, u8 *saveData, int &saveSize, int prevCryptMode, const u8 *expectedHash, bool &saveDone);
 	void LoadNotCryptedSave(SceUtilitySavedataParam *param, u8 *data, u8 *saveData, int &saveSize);
 	void LoadSFO(SceUtilitySavedataParam *param, const std::string& dirPath);
 	void LoadFile(const std::string& dirPath, const std::string& filename, PspUtilitySavedataFileData *fileData);
 
-	int DecryptSave(unsigned int mode, unsigned char *data, int *dataLen, int *alignedLen, unsigned char *cryptkey);
+	int DecryptSave(unsigned int mode, unsigned char *data, int *dataLen, int *alignedLen, unsigned char *cryptkey, const u8 *expectedHash);
 	int EncryptData(unsigned int mode, unsigned char *data, int *dataLen, int *alignedLen, unsigned char *hash, unsigned char *cryptkey);
 	int UpdateHash(u8* sfoData, int sfoSize, int sfoDataParamsOffset, int encryptmode);
 	int BuildHash(unsigned char *output, unsigned char *data, unsigned int len,  unsigned int alignedLen, int mode, unsigned char *cryptkey);
 	int DetermineCryptMode(const SceUtilitySavedataParam *param) const;
 
-	std::set<std::string> getSecureFileNames(std::string dirPath);
+	std::vector<SaveSFOFileListEntry> GetSFOEntries(const std::string &dirPath);
+	std::set<std::string> GetSecureFileNames(const std::string &dirPath);
+	bool GetExpectedHash(const std::string &dirPath, const std::string &filename, u8 hash[16]);
 
 	SceUtilitySavedataParam* pspParam;
 	int selectedSave;

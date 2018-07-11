@@ -36,9 +36,9 @@ void GenerateDepalShader300(char *buffer, GEBufferFormat pixelFormat, ShaderLang
 	if (language == HLSL_D3D11) {
 		WRITE(p, "SamplerState texSamp : register(s0);\n");
 		WRITE(p, "Texture2D<float4> tex : register(t0);\n");
-		WRITE(p, "Texture2D<float4> pal : register(t1);\n");
+		WRITE(p, "Texture2D<float4> pal : register(t3);\n");
 	} else if (language == GLSL_VULKAN) {
-		WRITE(p, "#version 140\n");
+		WRITE(p, "#version 450\n");
 		WRITE(p, "#extension GL_ARB_separate_shader_objects : enable\n");
 		WRITE(p, "#extension GL_ARB_shading_language_420pack : enable\n");
 		WRITE(p, "layout(set = 0, binding = 0) uniform sampler2D tex;\n");
@@ -49,6 +49,7 @@ void GenerateDepalShader300(char *buffer, GEBufferFormat pixelFormat, ShaderLang
 		if (gl_extensions.IsGLES) {
 			WRITE(p, "#version 300 es\n");
 			WRITE(p, "precision mediump float;\n");
+			WRITE(p, "precision highp int;\n");
 		} else {
 			WRITE(p, "#version 330\n");
 		}
@@ -113,7 +114,7 @@ void GenerateDepalShader300(char *buffer, GEBufferFormat pixelFormat, ShaderLang
 		texturePixels = 512;
 
 	if (shift) {
-		WRITE(p, "  index = (int(uint(index) >> %i) & 0x%02x)", shift, mask);
+		WRITE(p, "  index = (int(uint(index) >> uint(%i)) & 0x%02x)", shift, mask);
 	} else {
 		WRITE(p, "  index = (index & 0x%02x)", mask);
 	}
@@ -285,6 +286,9 @@ void GenerateDepalShader(char *buffer, GEBufferFormat pixelFormat, ShaderLanguag
 	case HLSL_DX9:
 		GenerateDepalShaderFloat(buffer, pixelFormat, language);
 		break;
+	case HLSL_D3D11_LEVEL9:
+	default:
+		_assert_msg_(G3D, false, "Depal shader language not supported: %d", (int)language);
 	}
 }
 

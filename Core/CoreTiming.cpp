@@ -34,6 +34,7 @@
 #include "Core/Reporting.h"
 #include "Common/ChunkFile.h"
 
+static const int initialHz = 222000000;
 int CPU_HZ = 222000000;
 
 // is this really necessary?
@@ -182,7 +183,7 @@ int RegisterEvent(const char *name, TimedCallback callback)
 void AntiCrashCallback(u64 userdata, int cyclesLate)
 {
 	ERROR_LOG(SAVESTATE, "Savestate broken: an unregistered event was called.");
-	Core_Halt("invalid timing events");
+	Core_EnableStepping(true);
 }
 
 void RestoreRegisterEvent(int event_type, const char *name, TimedCallback callback)
@@ -211,6 +212,7 @@ void Init()
 	lastGlobalTimeUs = 0;
 	hasTsEvents = 0;
 	mhzChangeCallbacks.clear();
+	CPU_HZ = initialHz;
 }
 
 void Shutdown()

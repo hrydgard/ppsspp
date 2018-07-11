@@ -275,7 +275,6 @@ void Arm64Jit::GenerateFixedCode(const JitOptions &jo) {
 		B(CC_EQ, outerLoop);
 
 	SetJumpTarget(badCoreState);
-	breakpointBailout = GetCodePtr();
 
 	SaveStaticRegisters();
 	RestoreRoundingMode(true);

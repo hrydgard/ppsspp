@@ -203,27 +203,25 @@ private:
 	private:
 		ID3D11DeviceContext *context_;
 		ID3D11Device *device_;
-		ID3D11Texture1D *data_tex[3];
-		ID3D11ShaderResourceView *view[3];
-		D3D11_TEXTURE1D_DESC desc;
-		D3D11_BOX dstBox;
+		ID3D11Buffer *buf;
+		ID3D11ShaderResourceView *view;
+		D3D11_BUFFER_DESC desc;
 	public:
-		TessellationDataTransferD3D11(ID3D11DeviceContext *context_, ID3D11Device *device_)
-			: TessellationDataTransfer(), context_(context_), device_(device_), data_tex(), view(), desc(), dstBox{0, 0, 0, 1, 1, 1} {
-			desc.CPUAccessFlags = 0;
-			desc.Usage = D3D11_USAGE_DEFAULT;
-			desc.ArraySize = 1;
-			desc.MipLevels = 1;
+		TessellationDataTransferD3D11(ID3D11DeviceContext *context, ID3D11Device *device)
+			: TessellationDataTransfer(), context_(context), device_(device), buf(), view(), desc() {
+			desc.Usage = D3D11_USAGE_DYNAMIC;
 			desc.BindFlags = D3D11_BIND_SHADER_RESOURCE;
+			desc.CPUAccessFlags = D3D11_CPU_ACCESS_WRITE;
+			desc.MiscFlags = D3D11_RESOURCE_MISC_BUFFER_STRUCTURED;
 		}
 		~TessellationDataTransferD3D11() {
-			for (int i = 0; i < 3; i++) {
-				if (data_tex[i]) {
-					data_tex[i]->Release();
-					view[i]->Release();
-				}
+			if (buf) {
+				buf->Release();
+				view->Release();
 			}
 		}
+
+		void PrepareBuffers(float *&pos, float *&tex, float *&col, int &posStride, int &texStride, int &colStride, int size, bool hasColor, bool hasTexCoords) override;
 		void SendDataToShader(const float *pos, const float *tex, const float *col, int size, bool hasColor, bool hasTexCoords) override;
 	};
 };

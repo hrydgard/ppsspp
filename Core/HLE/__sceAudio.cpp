@@ -160,6 +160,7 @@ void __AudioDoState(PointerWrap &p) {
 
 	p.Do(mixFrequency);
 
+	// TODO: This never happens because maxVer=1.
 	if (s >= 2) {
 		resampler.DoState(p);
 	} else {

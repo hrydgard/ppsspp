@@ -2,7 +2,7 @@
 // Does not involve context creation etc, that should be handled separately - only does drawing.
 
 // The goals may change in the future though.
-// MIT licensed, by Henrik Rydgård 2014.
+// MIT licensed, by Henrik RydgÃ¥rd 2014.
 
 #pragma once
 
@@ -258,6 +258,7 @@ enum class NativeObject {
 	BOUND_TEXTURE0_IMAGEVIEW,
 	BOUND_TEXTURE1_IMAGEVIEW,
 	RENDER_MANAGER,
+	NULL_IMAGEVIEW,
 };
 
 enum FBColorDepth {
@@ -490,6 +491,7 @@ struct DeviceCaps {
 	bool framebufferBlitSupported;
 	bool framebufferDepthCopySupported;
 	bool framebufferDepthBlitSupported;
+	std::string deviceName;  // The device name to use when creating the thin3d context, to get the same one.
 };
 
 struct TextureDesc {
@@ -531,6 +533,7 @@ public:
 	virtual uint32_t GetDataFormatSupport(DataFormat fmt) const = 0;
 	virtual std::vector<std::string> GetFeatureList() const { return std::vector<std::string>(); }
 	virtual std::vector<std::string> GetExtensionList() const { return std::vector<std::string>(); }
+	virtual std::vector<std::string> GetDeviceList() const { return std::vector<std::string>(); }
 
 	virtual uint32_t GetSupportedShaderLanguages() const = 0;
 
@@ -563,6 +566,9 @@ public:
 	virtual bool BlitFramebuffer(Framebuffer *src, int srcX1, int srcY1, int srcX2, int srcY2, Framebuffer *dst, int dstX1, int dstY1, int dstX2, int dstY2, int channelBits, FBBlitFilter filter) = 0;
 	virtual bool CopyFramebufferToMemorySync(Framebuffer *src, int channelBits, int x, int y, int w, int h, Draw::DataFormat format, void *pixels, int pixelStride) {
 		return false;
+	}
+	virtual DataFormat PreferredFramebufferReadbackFormat(Framebuffer *src) {
+		return DataFormat::R8G8B8A8_UNORM;
 	}
 
 	// These functions should be self explanatory.
@@ -597,7 +603,8 @@ public:
 	virtual void UpdateDynamicUniformBuffer(const void *ub, size_t size) = 0;
 
 	void BindTexture(int stage, Texture *texture) {
-		BindTextures(stage, 1, &texture);
+		Texture *textures[1] = { texture };
+		BindTextures(stage, 1, textures);
 	}  // from sampler 0 and upwards
 
 	// Call this with 0 to signal that you have been drawing on your own, and need the state reset on the next pipeline bind.

@@ -503,18 +503,20 @@ static int sceCtrlPeekBufferNegative(u32 ctrlDataPtr, u32 nBufs)
 	return done;
 }
 
-void __CtrlWriteUserLatch(CtrlLatch *userLatch) {
+static void __CtrlWriteUserLatch(CtrlLatch *userLatch, int bufs) {
 	*userLatch = latch;
 	userLatch->btnBreak &= CTRL_MASK_USER;
 	userLatch->btnMake &= CTRL_MASK_USER;
 	userLatch->btnPress &= CTRL_MASK_USER;
-	userLatch->btnRelease &= CTRL_MASK_USER;
+	if (bufs > 0) {
+		userLatch->btnRelease |= CTRL_MASK_USER;
+	}
 }
 
 static u32 sceCtrlPeekLatch(u32 latchDataPtr) {
 	auto userLatch = PSPPointer<CtrlLatch>::Create(latchDataPtr);
 	if (userLatch.IsValid()) {
-		__CtrlWriteUserLatch(userLatch);
+		__CtrlWriteUserLatch(userLatch, ctrlLatchBufs);
 	}
 	return hleLogSuccessI(SCECTRL, ctrlLatchBufs);
 }
@@ -522,7 +524,7 @@ static u32 sceCtrlPeekLatch(u32 latchDataPtr) {
 static u32 sceCtrlReadLatch(u32 latchDataPtr) {
 	auto userLatch = PSPPointer<CtrlLatch>::Create(latchDataPtr);
 	if (userLatch.IsValid()) {
-		__CtrlWriteUserLatch(userLatch);
+		__CtrlWriteUserLatch(userLatch, ctrlLatchBufs);
 	}
 	return hleLogSuccessI(SCECTRL, __CtrlResetLatch());
 }

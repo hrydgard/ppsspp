@@ -214,6 +214,8 @@ private:
 	void WriteExit(u32 destination, int exit_num);
 	void WriteExitDestInR(Arm64Gen::ARM64Reg Reg);
 	void WriteSyscallExit();
+	bool CheckJitBreakpoint(u32 addr, int downcountOffset);
+	bool CheckMemoryBreakpoint(int instructionOffset = 0);
 
 	// Utility compilation functions
 	void BranchFPFlag(MIPSOpcode op, CCFlags cc, bool likely);
@@ -271,8 +273,6 @@ public:
 	const u8 *dispatcherPCInSCRATCH1;
 	const u8 *dispatcher;
 	const u8 *dispatcherNoCheck;
-
-	const u8 *breakpointBailout;
 
 	const u8 *saveStaticRegisters;
 	const u8 *loadStaticRegisters;

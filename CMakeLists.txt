@@ -19,6 +19,11 @@ if(${CMAKE_CXX_COMPILER_ID} STREQUAL "Clang")
   message("Clang enabled")
 endif()
 
+if(FORCED_CPU)
+  message("Detected CPU (${CMAKE_SYSTEM_PROCESSOR}) overridden as: ${FORCED_CPU}")
+  set(CMAKE_SYSTEM_PROCESSOR ${FORCED_CPU})
+endif()
+
 # Detect CPU from CMAKE configuration. Toolchains should set this up
 if(CMAKE_SYSTEM_PROCESSOR)
 	if(${CMAKE_SYSTEM_PROCESSOR} MATCHES "^arm")
@@ -109,6 +114,7 @@ option(USING_EGL "Set to ON if target environment uses EGL" ${USING_EGL})
 option(USING_FBDEV "Set to ON if target environment uses fbdev (eg. Pandora)" ${USING_FBDEV})
 option(USING_GLES2 "Set to ON if target device uses OpenGL ES 2.0" ${USING_GLES2})
 option(RASPBIAN "Set to ON to workaround threading issues when building for ARMV7 on Raspbian" ${RASPBIAN})
+option(USING_X11_VULKAN "Set to OFF if target environment doesn't use X11 for Vulkan" ON)
 # :: Frontends
 option(USING_QT_UI "Set to ON if you wish to use the Qt frontend wrapper" ${USING_QT_UI})
 option(MOBILE_DEVICE "Set to ON when targeting a mobile device" ${MOBILE_DEVICE})
@@ -124,7 +130,12 @@ option(USE_WAYLAND_WSI "Set to ON to require Wayland support for Vulkan" ${USE_W
 option(USE_ADDRESS_SANITIZER "Use Clang memory sanitizer" ${USE_ADDRESS_SANITIZER})
 
 if(UNIX AND NOT (APPLE OR ANDROID) AND VULKAN)
-	add_definitions(-DVK_USE_PLATFORM_XLIB_KHR)
+	if(USING_X11_VULKAN)
+		message("Using X11 for Vulkan")
+		add_definitions(-DVK_USE_PLATFORM_XLIB_KHR)
+	else()
+		message("NOT using X11 for Vulkan")
+	endif()
 	# add_definitions(-DVK_USE_PLATFORM_XCB_KHR)
 	find_package(Wayland)
 	if (USE_WAYLAND_WSI AND NOT WAYLAND_FOUND)
@@ -273,8 +284,13 @@ if(NOT MSVC)
 	if(IOS)
 	elseif(APPLE AND NOT CMAKE_CROSSCOMPILING)
 		# We want C++11, so target 10.7+
-		set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -mmacosx-version-min=10.7")
-		set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -mmacosx-version-min=10.7 -stdlib=libc++ -U__STRICT_ANSI__")
+		if(USING_QT_UI)
+			set(MACOSX_VERSION_MIN "10.8")
+		else()
+			set(MACOSX_VERSION_MIN "10.7")
+		endif()
+		set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -mmacosx-version-min=${MACOSX_VERSION_MIN}")
+		set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -mmacosx-version-min=${MACOSX_VERSION_MIN} -stdlib=libc++ -U__STRICT_ANSI__")
 		set(CMAKE_XCODE_ATTRIBUTE_CLANG_CXX_LIBRARY "libc++")
 	elseif(NOT ANDROID)
 		# TODO: See if we can get rid of no-psabi
@@ -458,11 +474,9 @@ if(USING_GLES2)
 	find_package(X11)
 endif()
 
-add_library(vjson STATIC
-	ext/native/ext/vjson/json.cpp
-	ext/native/ext/vjson/json.h
-	ext/native/ext/vjson/block_allocator.cpp
-	ext/native/ext/vjson/block_allocator.h
+add_library(gason STATIC
+	ext/native/ext/gason/gason.cpp
+	ext/native/ext/gason/gason.h
 )
 
 add_library(rg_etc1 STATIC
@@ -751,43 +765,16 @@ elseif(USING_QT_UI)
     if(NOT SDL2_FOUND)
         find_package(Qt5 COMPONENTS Multimedia)
     endif(NOT SDL2_FOUND)
-    set(Qt_UI
-      Qt/Debugger/debugger_disasm.ui
-      Qt/Debugger/debugger_displaylist.ui
-      Qt/Debugger/debugger_memory.ui
-      Qt/Debugger/debugger_memorytex.ui
-      Qt/Debugger/debugger_vfpu.ui
-    )
-    qt5_wrap_ui(QT_UI_GEN ${Qt_UI})
     list(APPEND NativeAppSource
-      ${QT_UI_GEN}
       Qt/QtMain.cpp
       Qt/QtMain.h
       Qt/QtHost.cpp
       Qt/QtHost.h
       Qt/mainwindow.cpp
       Qt/mainwindow.h
-      Qt/Debugger/ctrldisasmview.cpp
-      Qt/Debugger/ctrldisasmview.h
-      Qt/Debugger/ctrlmemview.cpp
-      Qt/Debugger/ctrlmemview.h
-      Qt/Debugger/ctrlregisterlist.cpp
-      Qt/Debugger/ctrlregisterlist.h
-      Qt/Debugger/ctrlvfpuview.cpp
-      Qt/Debugger/ctrlvfpuview.h
-      Qt/Debugger/debugger_disasm.cpp
-      Qt/Debugger/debugger_disasm.h
-      Qt/Debugger/debugger_displaylist.cpp
-      Qt/Debugger/debugger_displaylist.h
-      Qt/Debugger/debugger_memory.cpp
-      Qt/Debugger/debugger_memory.h
-      Qt/Debugger/debugger_memorytex.cpp
-      Qt/Debugger/debugger_memorytex.h
-      Qt/Debugger/debugger_vfpu.cpp
-      Qt/Debugger/debugger_vfpu.h
     )
     add_definitions(-DUSING_QT_UI)
-    include_directories(${CMAKE_CURRENT_BINARY_DIR} Qt Qt/Debugger)
+    include_directories(${CMAKE_CURRENT_BINARY_DIR} Qt)
 	set(nativeExtraLibs ${nativeExtraLibs} Qt5::OpenGL Qt5::Gui Qt5::Core)
 	set(TargetBin PPSSPPQt)
 
@@ -917,12 +904,10 @@ add_library(native STATIC
 	ext/native/base/stringutil.h
 	ext/native/base/timeutil.cpp
 	ext/native/base/timeutil.h
+	ext/native/data/base64.cpp
+	ext/native/data/base64.h
 	ext/native/data/compression.cpp
 	ext/native/data/compression.h
-	ext/native/ext/vjson/json.cpp
-	ext/native/ext/vjson/json.h
-	ext/native/ext/vjson/block_allocator.cpp
-	ext/native/ext/vjson/block_allocator.h
 	ext/native/file/chunk_file.cpp
 	ext/native/file/chunk_file.h
 	ext/native/file/fd_util.cpp
@@ -976,6 +961,10 @@ add_library(native STATIC
 	ext/native/input/keycodes.h
 	ext/native/input/input_state.h
 	ext/native/input/input_state.cpp
+	ext/native/json/json_reader.h
+	ext/native/json/json_reader.cpp
+	ext/native/json/json_writer.h
+	ext/native/json/json_writer.cpp
 	ext/native/math/fast/fast_math.c
 	ext/native/math/fast/fast_matrix.c
 	ext/native/math/fast/fast_matrix_neon.S
@@ -1009,6 +998,8 @@ add_library(native STATIC
 	ext/native/net/sinks.h
 	ext/native/net/url.cpp
 	ext/native/net/url.h
+	ext/native/net/websocket_server.cpp
+	ext/native/net/websocket_server.h
 	ext/native/profiler/profiler.cpp
 	ext/native/profiler/profiler.h
 	ext/native/thin3d/thin3d.cpp
@@ -1062,7 +1053,7 @@ if(ANDROID)
 	SET(ATOMIC_LIB atomic)
 endif()
 
-target_link_libraries(native ${LIBZIP_LIBRARY} ${PNG_LIBRARY} ${ZLIB_LIBRARY} rg_etc1 vjson udis86 ${RT_LIB} ${nativeExtraLibs} ${ATOMIC_LIB})
+target_link_libraries(native ${LIBZIP_LIBRARY} ${PNG_LIBRARY} ${ZLIB_LIBRARY} rg_etc1 gason udis86 ${RT_LIB} ${nativeExtraLibs} ${ATOMIC_LIB})
 if(TARGET Ext::GLEW)
   target_link_libraries(native Ext::GLEW)
 endif()
@@ -1110,10 +1101,6 @@ include_directories(ext/xxhash)
 
 set(CoreExtra)
 set(CoreExtraLibs)
-
-if(WIN32 OR ANDROID)
-	set(CoreExtraLibs ${CoreExtraLibs} armips)
-endif()
 
 set(CoreExtra ${CoreExtra}
 	Core/MIPS/IR/IRCompALU.cpp
@@ -1405,6 +1392,7 @@ add_library(${CoreLibName} ${CoreLinkType}
 	${CoreExtra}
 	Core/Config.cpp
 	Core/Config.h
+	Core/ConfigValues.h
 	Core/Core.cpp
 	Core/Core.h
 	Core/Compatibility.cpp
@@ -1417,6 +1405,8 @@ add_library(${CoreLibName} ${CoreLinkType}
 	Core/HDRemaster.cpp
 	Core/HDRemaster.h
 	Core/ThreadEventQueue.h
+	Core/WebServer.cpp
+	Core/WebServer.h
 	Core/Debugger/Breakpoints.cpp
 	Core/Debugger/Breakpoints.h
 	Core/Debugger/DebugInterface.h
@@ -1424,6 +1414,30 @@ add_library(${CoreLibName} ${CoreLinkType}
 	Core/Debugger/SymbolMap.h
 	Core/Debugger/DisassemblyManager.cpp
 	Core/Debugger/DisassemblyManager.h
+	Core/Debugger/WebSocket.cpp
+	Core/Debugger/WebSocket.h
+	Core/Debugger/WebSocket/BreakpointSubscriber.cpp
+	Core/Debugger/WebSocket/BreakpointSubscriber.h
+	Core/Debugger/WebSocket/CPUCoreSubscriber.cpp
+	Core/Debugger/WebSocket/CPUCoreSubscriber.h
+	Core/Debugger/WebSocket/DisasmSubscriber.cpp
+	Core/Debugger/WebSocket/DisasmSubscriber.h
+	Core/Debugger/WebSocket/GameBroadcaster.cpp
+	Core/Debugger/WebSocket/GameBroadcaster.h
+	Core/Debugger/WebSocket/GameSubscriber.cpp
+	Core/Debugger/WebSocket/GameSubscriber.h
+	Core/Debugger/WebSocket/GPUBufferSubscriber.cpp
+	Core/Debugger/WebSocket/GPUBufferSubscriber.h
+	Core/Debugger/WebSocket/HLESubscriber.cpp
+	Core/Debugger/WebSocket/HLESubscriber.h
+	Core/Debugger/WebSocket/LogBroadcaster.cpp
+	Core/Debugger/WebSocket/LogBroadcaster.h
+	Core/Debugger/WebSocket/SteppingBroadcaster.cpp
+	Core/Debugger/WebSocket/SteppingBroadcaster.h
+	Core/Debugger/WebSocket/SteppingSubscriber.cpp
+	Core/Debugger/WebSocket/SteppingSubscriber.h
+	Core/Debugger/WebSocket/WebSocketUtils.cpp
+	Core/Debugger/WebSocket/WebSocketUtils.h
 	Core/Dialog/PSPDialog.cpp
 	Core/Dialog/PSPDialog.h
 	Core/Dialog/PSPGamedataInstallDialog.cpp
@@ -1701,7 +1715,6 @@ add_library(${CoreLibName} ${CoreLinkType}
 	Core/Util/ppge_atlas.h
 	${CORE_NEON}
 	${GPU_SOURCES}
-	git-version.cpp
 	ext/disarm.cpp
 	git-version.cpp)
 
@@ -1751,7 +1764,8 @@ add_custom_command(OUTPUT something_that_never_exists
 		-P ${CMAKE_CURRENT_SOURCE_DIR}/git-version.cmake)
 
 set_source_files_properties(${CMAKE_CURRENT_SOURCE_DIR}/git-version.cpp
-	PROPERTIES GENERATED TRUE)
+	PROPERTIES GENERATED TRUE
+	SKIP_AUTOMOC ON)
 add_dependencies(${CoreLibName} GitVersion)
 
 set(WindowsFiles

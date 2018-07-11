@@ -870,25 +870,25 @@ void CWCheatEngine::ExecuteOp(const CheatOperation &op, const CheatCode &cheat, 
 		break;
 
 	case CheatOp::IfAddrEqual:
-		if (!TestIf(op, [](int a, int b) { return a == b; })) {
+		if (!TestIfAddr(op, [](int a, int b) { return a == b; })) {
 			i += (size_t)op.ifAddrTypes.skip;
 		}
 		break;
 
 	case CheatOp::IfAddrNotEqual:
-		if (!TestIf(op, [](int a, int b) { return a != b; })) {
+		if (!TestIfAddr(op, [](int a, int b) { return a != b; })) {
 			i += (size_t)op.ifAddrTypes.skip;
 		}
 		break;
 
 	case CheatOp::IfAddrLess:
-		if (!TestIf(op, [](int a, int b) { return a < b; })) {
+		if (!TestIfAddr(op, [](int a, int b) { return a < b; })) {
 			i += (size_t)op.ifAddrTypes.skip;
 		}
 		break;
 
 	case CheatOp::IfAddrGreater:
-		if (!TestIf(op, [](int a, int b) { return a > b; })) {
+		if (!TestIfAddr(op, [](int a, int b) { return a > b; })) {
 			i += (size_t)op.ifAddrTypes.skip;
 		}
 		break;

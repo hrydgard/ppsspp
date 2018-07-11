@@ -48,6 +48,7 @@
 #include "Host.h"
 
 #include "Core/Config.h"
+#include "Core/ConfigValues.h"
 #include "Core/System.h"
 #include "Core/PSPLoaders.h"
 #include "Core/HLE/HLE.h"
@@ -260,7 +261,7 @@ bool Load_PSP_ISO(FileLoader *fileLoader, std::string *error_string) {
 		// TODO: We can't use the initial error_string pointer.
 		bool success = __KernelLoadExec(bootpath.c_str(), 0, &PSP_CoreParameter().errorString);
 		if (success && coreState == CORE_POWERUP) {
-			coreState = PSP_CoreParameter().startPaused ? CORE_STEPPING : CORE_RUNNING;
+			coreState = PSP_CoreParameter().startBreak ? CORE_STEPPING : CORE_RUNNING;
 		} else {
 			coreState = CORE_ERROR;
 			// TODO: This is a crummy way to communicate the error...
@@ -375,7 +376,7 @@ bool Load_PSP_ELF_PBP(FileLoader *fileLoader, std::string *error_string) {
 	std::thread th([finalName] {
 		bool success = __KernelLoadExec(finalName.c_str(), 0, &PSP_CoreParameter().errorString);
 		if (success && coreState == CORE_POWERUP) {
-			coreState = PSP_CoreParameter().startPaused ? CORE_STEPPING : CORE_RUNNING;
+			coreState = PSP_CoreParameter().startBreak ? CORE_STEPPING : CORE_RUNNING;
 		} else {
 			coreState = CORE_ERROR;
 			// TODO: This is a crummy way to communicate the error...
@@ -393,7 +394,7 @@ bool Load_PSP_GE_Dump(FileLoader *fileLoader, std::string *error_string) {
 	std::thread th([] {
 		bool success = __KernelLoadGEDump("disc0:/data.ppdmp", &PSP_CoreParameter().errorString);
 		if (success && coreState == CORE_POWERUP) {
-			coreState = PSP_CoreParameter().startPaused ? CORE_STEPPING : CORE_RUNNING;
+			coreState = PSP_CoreParameter().startBreak ? CORE_STEPPING : CORE_RUNNING;
 		} else {
 			coreState = CORE_ERROR;
 			// TODO: This is a crummy way to communicate the error...

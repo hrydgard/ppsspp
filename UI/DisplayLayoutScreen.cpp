@@ -26,6 +26,7 @@
 
 #include "DisplayLayoutScreen.h"
 #include "Core/Config.h"
+#include "Core/ConfigValues.h"
 #include "Core/System.h"
 #include "DisplayLayoutEditor.h"
 #include "GPU/Common/FramebufferCommon.h"
@@ -72,7 +73,7 @@ bool DisplayLayoutScreen::touch(const TouchInput &touch) {
 	using namespace UI;
 
 	int mode = mode_ ? mode_->GetSelection() : 0;
-	if (g_Config.iSmallDisplayZoomType == 2) { mode = -1; }
+	if (g_Config.iSmallDisplayZoomType == (int)SmallDisplayZoom::AUTO) { mode = -1; }
 
 	const Bounds &screen_bounds = screenManager()->getUIContext()->GetBounds();
 	if ((touch.flags & TOUCH_MOVE) && picked_ != 0) {
@@ -185,7 +186,7 @@ UI::EventReturn DisplayLayoutScreen::OnCenter(UI::EventParams &e) {
 };
 
 UI::EventReturn DisplayLayoutScreen::OnZoomTypeChange(UI::EventParams &e) {
-	if (g_Config.iSmallDisplayZoomType < 3) {
+	if (g_Config.iSmallDisplayZoomType < (int)SmallDisplayZoom::MANUAL) {
 		const Bounds &bounds = screenManager()->getUIContext()->GetBounds();
 		float autoBound = bounds.w / 480.0f;
 		g_Config.fSmallDisplayZoomLevel = autoBound;
@@ -268,8 +269,8 @@ void DisplayLayoutScreen::CreateViews() {
 
 	HighlightLabel *label = nullptr;
 	mode_ = nullptr;
-	if (g_Config.iSmallDisplayZoomType > 1) { // Scaling
-		if (g_Config.iSmallDisplayZoomType == 2) { // Auto Scaling
+	if (g_Config.iSmallDisplayZoomType >= (int)SmallDisplayZoom::AUTO) { // Scaling
+		if (g_Config.iSmallDisplayZoomType == (int)SmallDisplayZoom::AUTO) {
 			label = new HighlightLabel(gr->T("Auto Scaling"), new AnchorLayoutParams(WRAP_CONTENT, 64.0f, local_dp_xres / 2.0f, local_dp_yres / 2.0f, NONE, NONE, true));
 			float autoBound = local_dp_yres / 270.0f;
 			// Case of screen rotated ~ only works with buffered rendering
@@ -311,7 +312,7 @@ void DisplayLayoutScreen::CreateViews() {
 		displayRepresentation_->SetVisibility(V_INVISIBLE);
 		float width = previewWidth;
 		float height = previewHeight;
-		if (g_Config.iSmallDisplayZoomType == 0) { // Stretched
+		if (g_Config.iSmallDisplayZoomType == (int)SmallDisplayZoom::STRETCH) {
 			Choice *stretched = new Choice("", "", false, new AnchorLayoutParams(width, height, width - width / 2.0f, NONE, NONE, height - height / 2.0f));
 			stretched->SetEnabled(false);
 			root_->Add(stretched);
@@ -320,12 +321,12 @@ void DisplayLayoutScreen::CreateViews() {
 			float frameRatio = width / height;
 			if (origRatio > frameRatio) {
 				height = width / origRatio;
-				if (!bRotated && g_Config.iSmallDisplayZoomType == 1) {
+				if (!bRotated && g_Config.iSmallDisplayZoomType == (int)SmallDisplayZoom::PARTIAL_STRETCH) {
 					height = (272.0f + height) / 2.0f;
 				}
 			} else {
 				width = height * origRatio;
-				if (bRotated && g_Config.iSmallDisplayZoomType == 1) {
+				if (bRotated && g_Config.iSmallDisplayZoomType == (int)SmallDisplayZoom::PARTIAL_STRETCH) {
 					width = (272.0f + height) / 2.0f;
 				}
 			}

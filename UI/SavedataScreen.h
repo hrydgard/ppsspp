@@ -26,17 +26,29 @@
 
 #include "UI/MiscScreens.h"
 
+enum class SavedataSortOption {
+	FILENAME,
+	SIZE,
+};
+
 class SavedataBrowser : public UI::LinearLayout {
 public:
 	SavedataBrowser(std::string path, UI::LayoutParams *layoutParams = 0);
 
+	void SetSortOption(SavedataSortOption opt);
+
 	UI::Event OnChoice;
 
 private:
+	static bool ByFilename(const UI::View *, const UI::View *);
+	static bool BySize(const UI::View *, const UI::View *);
+	static bool SortDone();
+
 	void Refresh();
 	UI::EventReturn SavedataButtonClick(UI::EventParams &e);
 
-	UI::ViewGroup *gameList_;
+	SavedataSortOption sortOption_ = SavedataSortOption::FILENAME;
+	UI::ViewGroup *gameList_ = nullptr;
 	std::string path_;
 };
 
@@ -50,7 +62,10 @@ public:
 
 protected:
 	UI::EventReturn OnSavedataButtonClick(UI::EventParams &e);
+	UI::EventReturn OnSortClick(UI::EventParams &e);
 	void CreateViews() override;
 	bool gridStyle_;
-	SavedataBrowser *browser_;
+	SavedataSortOption sortOption_ = SavedataSortOption::FILENAME;
+	SavedataBrowser *dataBrowser_;
+	SavedataBrowser *stateBrowser_;
 };

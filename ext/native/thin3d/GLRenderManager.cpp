@@ -14,9 +14,11 @@
 #endif
 
 static std::thread::id renderThreadId;
+#if MAX_LOGLEVEL >= DEBUG_LEVEL
 static bool OnRenderThread() {
 	return std::this_thread::get_id() == renderThreadId;
 }
+#endif
 
 // Runs on the GPU thread.
 void GLDeleter::Perform(GLRenderManager *renderManager) {
@@ -576,7 +578,7 @@ void GLRenderManager::WaitUntilQueueIdle() {
 
 GLPushBuffer::GLPushBuffer(GLRenderManager *render, GLuint target, size_t size) : render_(render), target_(target), size_(size) {
 	bool res = AddBuffer();
-	assert(res);
+	_assert_(res);
 }
 
 GLPushBuffer::~GLPushBuffer() {
@@ -698,7 +700,7 @@ void GLPushBuffer::NextBuffer(size_t minSize) {
 }
 
 void GLPushBuffer::Defragment() {
-	_dbg_assert_(G3D, std::this_thread::get_id() != renderThreadId);
+	_dbg_assert_(G3D, !OnRenderThread());
 
 	if (buffers_.size() <= 1) {
 		// Let's take this chance to jetison localMemory we don't need.
@@ -718,7 +720,7 @@ void GLPushBuffer::Defragment() {
 
 	size_ = newSize;
 	bool res = AddBuffer();
-	assert(res);
+	_assert_(res);
 }
 
 size_t GLPushBuffer::GetTotalSize() const {

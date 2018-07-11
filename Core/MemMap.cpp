@@ -38,6 +38,7 @@
 #include "Core/Debugger/SymbolMap.h"
 #include "Core/Debugger/Breakpoints.h"
 #include "Core/Config.h"
+#include "Core/ConfigValues.h"
 #include "Core/HLE/ReplaceTables.h"
 #include "Core/MIPS/JitCommon/JitBlockCache.h"
 
@@ -291,6 +292,14 @@ void Init() {
 		base, m_pPhysicalRAM, m_pUncachedRAM);
 }
 
+void Reinit() {
+	_assert_msg_(SYSTEM, PSP_IsInited(), "Cannot reinit during startup/shutdown");
+	Core_NotifyLifecycle(CoreLifecycle::MEMORY_REINITING);
+	Shutdown();
+	Init();
+	Core_NotifyLifecycle(CoreLifecycle::MEMORY_REINITED);
+}
+
 void DoState(PointerWrap &p) {
 	auto s = p.Section("Memory", 1, 3);
 	if (!s)
@@ -308,8 +317,7 @@ void DoState(PointerWrap &p) {
 		if (!g_RemasterMode) {
 			g_MemorySize = g_PSPModel == PSP_MODEL_FAT ? RAM_NORMAL_SIZE : RAM_DOUBLE_SIZE;
 			if (oldMemorySize < g_MemorySize) {
-				Shutdown();
-				Init();
+				Reinit();
 			}
 		}
 	} else {
@@ -320,8 +328,7 @@ void DoState(PointerWrap &p) {
 		p.DoMarker("PSPModel");
 		p.Do(g_MemorySize);
 		if (oldMemorySize != g_MemorySize) {
-			Shutdown();
-			Init();
+			Reinit();
 		}
 	}
 
@@ -446,9 +453,8 @@ void Memset(const u32 _Address, const u8 _iValue, const u32 _iLength) {
 		for (size_t i = 0; i < _iLength; i++)
 			Write_U8(_iValue, (u32)(_Address + i));
 	}
-#ifndef MOBILE_DEVICE
+
 	CBreakPoints::ExecMemCheck(_Address, true, _iLength, currentMIPS->pc);
-#endif
 }
 
 } // namespace

@@ -181,8 +181,6 @@ public:
 	const u8 *dispatcherPCInR0;
 	const u8 *dispatcher;
 	const u8 *dispatcherNoCheck;
-
-	const u8 *breakpointBailout;
 };
 
 typedef void (MipsJit::*MIPSCompileFunc)(MIPSOpcode opcode);

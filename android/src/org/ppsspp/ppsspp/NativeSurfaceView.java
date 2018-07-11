@@ -13,12 +13,9 @@ import android.hardware.SensorEventListener;
 import android.hardware.SensorManager;
 import android.os.Build;
 import android.os.Handler;
-// import android.os.Build;
-// import android.util.Log;
 import android.util.Log;
 import android.view.MotionEvent;
 import android.view.SurfaceView;
-
 import com.bda.controller.*;
 
 public class NativeSurfaceView extends SurfaceView implements SensorEventListener, ControllerListener {
@@ -35,7 +32,7 @@ public class NativeSurfaceView extends SurfaceView implements SensorEventListene
 
 		Log.i(TAG, "NativeSurfaceView");
 
-		mSensorManager = (SensorManager)activity.getSystemService(Activity.SENSOR_SERVICE);
+		mSensorManager = (SensorManager) activity.getSystemService(Activity.SENSOR_SERVICE);
 		mAccelerometer = mSensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER);
 
 		mController = Controller.getInstance(activity);
@@ -62,8 +59,6 @@ public class NativeSurfaceView extends SurfaceView implements SensorEventListene
 		boolean canReadToolType = Build.VERSION.SDK_INT >= Build.VERSION_CODES.ICE_CREAM_SANDWICH;
 
 		int numTouchesHandled = 0;
-		//float scaleX = (float)mActivity.getRenderer().getDpiScaleX();
-		//float scaleY = (float)mActivity.getRenderer().getDpiScaleY();
 		for (int i = 0; i < ev.getPointerCount(); i++) {
 			int pid = ev.getPointerId(i);
 			int code = 0;
@@ -92,7 +87,7 @@ public class NativeSurfaceView extends SurfaceView implements SensorEventListene
 			if (code != 0) {
 				if (canReadToolType) {
 					int tool = getToolType(ev, i);
-					code |= tool << 10;  // We use the Android tool type codes
+					code |= tool << 10; // We use the Android tool type codes
 				}
 				// Can't use || due to short circuit evaluation
 				numTouchesHandled += NativeApp.touch(ev.getX(i), ev.getY(i), code, pid) ? 1 : 0;
@@ -157,7 +152,7 @@ public class NativeSurfaceView extends SurfaceView implements SensorEventListene
 			}
 		}
 
-		boolean repeat = false;  // Moga has no repeats?
+		boolean repeat = false; // Moga has no repeats?
 		switch (event.getAction()) {
 		case KeyEvent.ACTION_DOWN:
 			NativeApp.keyDown(NativeApp.DEVICE_ID_PAD_0, event.getKeyCode(), repeat);

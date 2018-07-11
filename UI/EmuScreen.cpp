@@ -41,6 +41,7 @@
 #include "Core/AVIDump.h"
 #endif
 #include "Core/Config.h"
+#include "Core/ConfigValues.h"
 #include "Core/CoreTiming.h"
 #include "Core/CoreParameter.h"
 #include "Core/Core.h"
@@ -224,7 +225,7 @@ void EmuScreen::bootGame(const std::string &filename) {
 	coreParam.fileToStart = filename;
 	coreParam.mountIso = "";
 	coreParam.mountRoot = "";
-	coreParam.startPaused = false;
+	coreParam.startBreak = !g_Config.bAutoRun;
 	coreParam.printfEmuLog = false;
 	coreParam.headLess = false;
 
@@ -346,14 +347,14 @@ void EmuScreen::dialogFinished(const Screen *dialog, DialogResult result) {
 	RecreateViews();
 }
 
-static void AfterSaveStateAction(bool success, const std::string &message, void *) {
+static void AfterSaveStateAction(SaveState::Status status, const std::string &message, void *) {
 	if (!message.empty()) {
-		osm.Show(message, 2.0);
+		osm.Show(message, status == SaveState::Status::SUCCESS ? 2.0 : 5.0);
 	}
 }
 
-static void AfterStateBoot(bool success, const std::string &message, void *ignored) {
-	AfterSaveStateAction(success, message, ignored);
+static void AfterStateBoot(SaveState::Status status, const std::string &message, void *ignored) {
+	AfterSaveStateAction(status, message, ignored);
 	Core_EnableStepping(false);
 	host->UpdateDisassembly();
 }
@@ -399,15 +400,15 @@ void EmuScreen::sendMessage(const char *message, const char *value) {
 		// In case we need to position touch controls differently.
 		RecreateViews();
 	} else if (!strcmp(message, "control mapping") && screenManager()->topScreen() == this) {
-		UpdateUIState(UISTATE_MENU);
+		UpdateUIState(UISTATE_PAUSEMENU);
 		releaseButtons();
 		screenManager()->push(new ControlMappingScreen());
 	} else if (!strcmp(message, "display layout editor") && screenManager()->topScreen() == this) {
-		UpdateUIState(UISTATE_MENU);
+		UpdateUIState(UISTATE_PAUSEMENU);
 		releaseButtons();
 		screenManager()->push(new DisplayLayoutScreen());
 	} else if (!strcmp(message, "settings") && screenManager()->topScreen() == this) {
-		UpdateUIState(UISTATE_MENU);
+		UpdateUIState(UISTATE_PAUSEMENU);
 		releaseButtons();
 		screenManager()->push(new GameSettingsScreen(gamePath_));
 	} else if (!strcmp(message, "gpu dump next frame")) {
@@ -464,20 +465,35 @@ void EmuScreen::onVKeyDown(int virtualKeyCode) {
 
 	switch (virtualKeyCode) {
 	case VIRTKEY_UNTHROTTLE:
+		if (coreState == CORE_STEPPING) {
+			Core_EnableStepping(false);
+		}
 		PSP_CoreParameter().unthrottle = true;
 		break;
 
 	case VIRTKEY_SPEED_TOGGLE:
-		if (!g_Config.bUnToggleFpsLimit) {
-			if (PSP_CoreParameter().fpsLimit == 0) {
-				PSP_CoreParameter().fpsLimit = 1;
-				osm.Show(sc->T("fixed", "Speed: alternate"), 1.0);
-			} else if (PSP_CoreParameter().fpsLimit == 1) {
-				PSP_CoreParameter().fpsLimit = 0;
-				osm.Show(sc->T("standard", "Speed: standard"), 1.0);
-			}
-		} else {
-			PSP_CoreParameter().fpsLimit = 1;
+		// Cycle through enabled speeds.
+		if (PSP_CoreParameter().fpsLimit == FPSLimit::NORMAL && g_Config.iFpsLimit1 >= 0) {
+			PSP_CoreParameter().fpsLimit = FPSLimit::CUSTOM1;
+		} else if (PSP_CoreParameter().fpsLimit != FPSLimit::CUSTOM2 && g_Config.iFpsLimit2 >= 0) {
+			PSP_CoreParameter().fpsLimit = FPSLimit::CUSTOM2;
+			osm.Show(sc->T("SpeedCustom2", "Speed: alternate 2"), 1.0);
+		} else if (PSP_CoreParameter().fpsLimit != FPSLimit::NORMAL) {
+			PSP_CoreParameter().fpsLimit = FPSLimit::NORMAL;
+			osm.Show(sc->T("standard", "Speed: standard"), 1.0);
+		}
+		break;
+
+	case VIRTKEY_SPEED_CUSTOM1:
+		if (PSP_CoreParameter().fpsLimit == FPSLimit::NORMAL) {
+			PSP_CoreParameter().fpsLimit = FPSLimit::CUSTOM1;
+			osm.Show(sc->T("fixed", "Speed: alternate"), 1.0);
+		}
+		break;
+	case VIRTKEY_SPEED_CUSTOM2:
+		if (PSP_CoreParameter().fpsLimit == FPSLimit::NORMAL) {
+			PSP_CoreParameter().fpsLimit = FPSLimit::CUSTOM2;
+			osm.Show(sc->T("SpeedCustom2", "Speed: alternate 2"), 1.0);
 		}
 		break;
 
@@ -580,14 +596,23 @@ void EmuScreen::onVKeyDown(int virtualKeyCode) {
 }
 
 void EmuScreen::onVKeyUp(int virtualKeyCode) {
+	I18NCategory *sc = GetI18NCategory("Screen");
+
 	switch (virtualKeyCode) {
 	case VIRTKEY_UNTHROTTLE:
 		PSP_CoreParameter().unthrottle = false;
 		break;
 
-	case VIRTKEY_SPEED_TOGGLE:
-		if (g_Config.bUnToggleFpsLimit) {
-			PSP_CoreParameter().fpsLimit = 0;
+	case VIRTKEY_SPEED_CUSTOM1:
+		if (PSP_CoreParameter().fpsLimit == FPSLimit::CUSTOM1) {
+			PSP_CoreParameter().fpsLimit = FPSLimit::NORMAL;
+			osm.Show(sc->T("standard", "Speed: standard"), 1.0);
+		}
+		break;
+	case VIRTKEY_SPEED_CUSTOM2:
+		if (PSP_CoreParameter().fpsLimit == FPSLimit::CUSTOM2) {
+			PSP_CoreParameter().fpsLimit = FPSLimit::NORMAL;
+			osm.Show(sc->T("standard", "Speed: standard"), 1.0);
 		}
 		break;
 
@@ -888,13 +913,16 @@ public:
 
 		// PIC1 is the loading image, so let's only draw if it's available.
 		if (ginfo && ginfo->pic1.texture) {
-			dc.GetDrawContext()->BindTexture(0, ginfo->pic1.texture->GetTexture());
+			Draw::Texture *texture = ginfo->pic1.texture->GetTexture();
+			if (texture) {
+				dc.GetDrawContext()->BindTexture(0, texture);
 
-			double loadTime = ginfo->pic1.timeLoaded;
-			uint32_t color = alphaMul(color_, ease((time_now_d() - loadTime) * 3));
-			dc.Draw()->DrawTexRect(dc.GetBounds(), 0, 0, 1, 1, color);
-			dc.Flush();
-			dc.RebindTexture();
+				double loadTime = ginfo->pic1.timeLoaded;
+				uint32_t color = alphaMul(color_, ease((time_now_d() - loadTime) * 3));
+				dc.Draw()->DrawTexRect(dc.GetBounds(), 0, 0, 1, 1, color);
+				dc.Flush();
+				dc.RebindTexture();
+			}
 		}
 	}
 
@@ -929,9 +957,7 @@ void EmuScreen::CreateViews() {
 
 	GameInfoBGView *loadingBG = root_->Add(new GameInfoBGView(gamePath_, new AnchorLayoutParams(FILL_PARENT, FILL_PARENT)));
 	TextView *loadingTextView = root_->Add(new TextView(sc->T(PSP_GetLoading()), new AnchorLayoutParams(bounds.centerX(), NONE, NONE, 40, true)));
-
-	// Don't really need this, and it creates a lot of strings to translate...
-	loadingTextView->SetVisibility(V_INVISIBLE);
+	loadingTextView_ = loadingTextView;
 
 	static const int symbols[4] = {
 		I_CROSS,
@@ -941,10 +967,17 @@ void EmuScreen::CreateViews() {
 	};
 	Spinner *loadingSpinner = root_->Add(new Spinner(symbols, ARRAY_SIZE(symbols), new AnchorLayoutParams(NONE, NONE, 45, 45, true)));
 	loadingSpinner_ = loadingSpinner;
-	loadingTextView->SetShadow(true);
-	loadingTextView_ = loadingTextView;
 
-	loadingViewColor_ = loadingTextView->AddTween(new CallbackColorTween(0x00FFFFFF, 0x00FFFFFF, 0.2f, &bezierEaseInOut));
+	loadingBG->SetTag("LoadingBG");
+	loadingTextView->SetTag("LoadingText");
+	loadingSpinner->SetTag("LoadingSpinner");
+
+	// Don't really need this, and it creates a lot of strings to translate...
+	// Maybe just show "Loading game..." only?
+	loadingTextView->SetVisibility(V_GONE);
+	loadingTextView->SetShadow(true);
+
+	loadingViewColor_ = loadingSpinner->AddTween(new CallbackColorTween(0x00FFFFFF, 0x00FFFFFF, 0.2f, &bezierEaseInOut));
 	loadingViewColor_->SetCallback([loadingBG, loadingTextView, loadingSpinner](View *v, uint32_t c) {
 		loadingBG->SetColor(c & 0xFFC0C0C0);
 		loadingTextView->SetTextColor(c);
@@ -953,15 +986,18 @@ void EmuScreen::CreateViews() {
 	loadingViewColor_->Persist();
 
 	// We start invisible here, in case of recreated views.
-	loadingViewVisible_ = loadingTextView->AddTween(new VisibilityTween(UI::V_INVISIBLE, UI::V_INVISIBLE, 0.2f, &bezierEaseInOut));
+	loadingViewVisible_ = loadingSpinner->AddTween(new VisibilityTween(UI::V_INVISIBLE, UI::V_INVISIBLE, 0.2f, &bezierEaseInOut));
 	loadingViewVisible_->Persist();
-	loadingViewVisible_->Finish.Add([loadingBG](EventParams &p) {
+	loadingViewVisible_->Finish.Add([loadingBG, loadingSpinner](EventParams &p) {
 		loadingBG->SetVisibility(p.v->GetVisibility());
 
 		// If we just became invisible, flush BGs since we don't need them anymore.
 		// Saves some VRAM for the game, but don't do it before we fade out...
 		if (p.v->GetVisibility() == V_INVISIBLE) {
 			g_gameInfoCache->FlushBGs();
+			// And we can go away too.  This means the tween will never run again.
+			loadingBG->SetVisibility(V_GONE);
+			loadingSpinner->SetVisibility(V_GONE);
 		}
 		return EVENT_DONE;
 	});
@@ -1023,11 +1059,6 @@ void EmuScreen::update() {
 
 	// Virtual keys.
 	__CtrlSetRapidFire(virtKeys[VIRTKEY_RAPID_FIRE - VIRTKEY_FIRST]);
-
-	// Make sure fpsLimit starts at 0
-	if (PSP_CoreParameter().fpsLimit != 0 && PSP_CoreParameter().fpsLimit != 1) {
-		PSP_CoreParameter().fpsLimit = 0;
-	}
 
 	// This is here to support the iOS on screen back button.
 	if (pauseTrigger_) {
@@ -1137,6 +1168,11 @@ void EmuScreen::preRender() {
 	using namespace Draw;
 	DrawContext *draw = screenManager()->getDrawContext();
 	draw->BeginFrame();
+	// Let's be consistent for the entire frame.  We skip the UI texture if we don't need it.
+	hasVisibleUI_ = hasVisibleUI();
+	if (hasVisibleUI_) {
+		screenManager()->getUIContext()->BeginFrame();
+	}
 	// Here we do NOT bind the backbuffer or clear the screen, unless non-buffered.
 	// The emuscreen is different than the others - we really want to allow the game to render to framebuffers
 	// before we ever bind the backbuffer for rendering. On mobile GPUs, switching back and forth between render
@@ -1178,6 +1214,8 @@ void EmuScreen::render() {
 	using namespace Draw;
 
 	DrawContext *thin3d = screenManager()->getDrawContext();
+	if (!thin3d)
+		return;  // shouldn't really happen but I've seen a suspicious stack trace..
 
 	if (invalid_) {
 		// Loading, or after shutdown?
@@ -1207,22 +1245,20 @@ void EmuScreen::render() {
 
 	PSP_BeginHostFrame();
 
-	// We just run the CPU until we get to vblank. This will quickly sync up pretty nicely.
-	// The actual number of cycles doesn't matter so much here as we will break due to CORE_NEXTFRAME, most of the time hopefully...
-	int blockTicks = usToCycles(1000000 / 10);
-
-	// Run until CORE_NEXTFRAME
-	while (coreState == CORE_RUNNING) {
-		PSP_RunLoopFor(blockTicks);
-	}
+	PSP_RunLoopWhileState();
 
 	// Hopefully coreState is now CORE_NEXTFRAME
 	if (coreState == CORE_NEXTFRAME) {
 		// set back to running for the next frame
 		coreState = CORE_RUNNING;
 	} else if (coreState == CORE_STEPPING) {
-		// If we're stepping, it's convenient not to clear the screen.
-		thin3d->BindFramebufferAsRenderTarget(nullptr, { RPAction::KEEP, RPAction::DONT_CARE, RPAction::DONT_CARE });
+		// If we're stepping, it's convenient not to clear the screen entirely, so we copy display to output.
+		// This won't work in non-buffered, but that's fine.
+		thin3d->BindFramebufferAsRenderTarget(nullptr, { RPAction::CLEAR, RPAction::DONT_CARE, RPAction::DONT_CARE });
+		// Just to make sure.
+		if (PSP_IsInited()) {
+			gpu->CopyDisplayToOutput();
+		}
 	} else {
 		// Didn't actually reach the end of the frame, ran out of the blockTicks cycles.
 		// In this case we need to bind and wipe the backbuffer, at least.
@@ -1235,9 +1271,7 @@ void EmuScreen::render() {
 	if (invalid_)
 		return;
 
-	const bool hasVisibleUI = !osm.IsEmpty() || saveStatePreview_->GetVisibility() != UI::V_GONE || g_Config.bShowTouchControls || loadingTextView_->GetVisibility() == UI::V_VISIBLE;
-	const bool showDebugUI = g_Config.bShowDebugStats || g_Config.bShowDeveloperMenu || g_Config.bShowAudioDebug || g_Config.bShowFrameProfiler || g_Config.bSimpleFrameStats;
-	if (hasVisibleUI || showDebugUI || g_Config.iShowFPSCounter != 0) {
+	if (hasVisibleUI_) {
 		renderUI();
 	}
 
@@ -1257,6 +1291,20 @@ void EmuScreen::render() {
 #endif
 	}
 	*/
+}
+
+bool EmuScreen::hasVisibleUI() {
+	// Regular but uncommon UI.
+	if (saveStatePreview_->GetVisibility() != UI::V_GONE || loadingSpinner_->GetVisibility() == UI::V_VISIBLE)
+		return true;
+	if (!osm.IsEmpty() || g_Config.bShowTouchControls || g_Config.iShowFPSCounter != 0)
+		return true;
+
+	// Debug UI.
+	if (g_Config.bShowDebugStats || g_Config.bShowDeveloperMenu || g_Config.bShowAudioDebug || g_Config.bShowFrameProfiler || g_Config.bSimpleFrameStats)
+		return true;
+
+	return false;
 }
 
 void EmuScreen::renderUI() {
@@ -1309,11 +1357,26 @@ void EmuScreen::renderUI() {
 }
 
 void EmuScreen::autoLoad() {
+	int autoSlot = -1;
+
 	//check if save state has save, if so, load
-	int lastSlot = SaveState::GetNewestSlot(gamePath_);
-	if (g_Config.bEnableAutoLoad && lastSlot != -1) {
-		SaveState::LoadSlot(gamePath_, lastSlot, &AfterSaveStateAction);
-		g_Config.iCurrentStateSlot = lastSlot;
+	switch (g_Config.iAutoLoadSaveState) {
+	case (int)AutoLoadSaveState::OFF: // "AutoLoad Off"
+		return;
+	case (int)AutoLoadSaveState::OLDEST: // "Oldest Save"
+		autoSlot = SaveState::GetOldestSlot(gamePath_);
+		break;
+	case (int)AutoLoadSaveState::NEWEST: // "Newest Save"
+		autoSlot = SaveState::GetNewestSlot(gamePath_);
+		break;
+	default: // try the specific save state slot specified
+		autoSlot = (SaveState::HasSaveInSlot(gamePath_, g_Config.iAutoLoadSaveState - 3)) ? (g_Config.iAutoLoadSaveState - 3) : -1;
+		break;
+	}
+
+	if (g_Config.iAutoLoadSaveState && autoSlot != -1) {
+		SaveState::LoadSlot(gamePath_, autoSlot, &AfterSaveStateAction);
+		g_Config.iCurrentStateSlot = autoSlot;
 	}
 }
 

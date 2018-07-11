@@ -59,7 +59,9 @@ Request::~Request() {
 
 	CHECK(in_->Empty());
 	delete in_;
-	CHECK(out_->Empty());
+	if (!out_->Empty()) {
+		ELOG("Output not empty - connection abort?");
+	}
 	delete out_;
 }
 
@@ -87,8 +89,10 @@ void Request::WriteHttpResponseHeader(int status, int64_t size, const char *mime
 	net::OutputSink *buffer = Out();
 	buffer->Printf("HTTP/1.0 %03d %s\r\n", status, statusStr);
 	buffer->Push("Server: PPSSPPServer v0.1\r\n");
-	buffer->Printf("Content-Type: %s\r\n", mimeType ? mimeType : DEFAULT_MIME_TYPE);
-	buffer->Push("Connection: close\r\n");
+	if (!mimeType || strcmp(mimeType, "websocket") != 0) {
+		buffer->Printf("Content-Type: %s\r\n", mimeType ? mimeType : DEFAULT_MIME_TYPE);
+		buffer->Push("Connection: close\r\n");
+	}
 	if (size >= 0) {
 		buffer->Printf("Content-Length: %llu\r\n", size);
 	}
@@ -130,9 +134,21 @@ void Server::SetFallbackHandler(UrlHandlerFunc handler) {
 	fallback_ = handler;
 }
 
-bool Server::Listen(int port) {
+bool Server::Listen(int port, net::DNSType type) {
+	bool success = false;
+	if (type == net::DNSType::ANY || type == net::DNSType::IPV6) {
+		success = Listen6(port, type == net::DNSType::IPV6);
+	}
+	if (!success && (type == net::DNSType::ANY || type == net::DNSType::IPV4)) {
+		success = Listen4(port);
+	}
+	return success;
+}
+
+bool Server::Listen4(int port) {
 	listener_ = socket(AF_INET, SOCK_STREAM, 0);
-	CHECK_GE(listener_, 0);
+	if (listener_ < 0)
+		return false;
 
 	struct sockaddr_in server_addr;
 	memset(&server_addr, 0, sizeof(server_addr));
@@ -145,6 +161,7 @@ bool Server::Listen(int port) {
 	setsockopt(listener_, SOL_SOCKET, SO_REUSEADDR, (const char *)&opt, sizeof(opt));
 
 	if (bind(listener_, (struct sockaddr *)&server_addr, sizeof(server_addr)) < 0) {
+		closesocket(listener_);
 		ELOG("Failed to bind to port %i. Bailing.", port);
 		return false;
 	}
@@ -152,11 +169,58 @@ bool Server::Listen(int port) {
 	fd_util::SetNonBlocking(listener_, true);
 
 	// 1024 is the max number of queued requests.
-	CHECK_GE(listen(listener_, 1024), 0);
+	if (listen(listener_, 1024) < 0) {
+		closesocket(listener_);
+		return false;
+	}
 
 	socklen_t len = sizeof(server_addr);
 	if (getsockname(listener_, (struct sockaddr *)&server_addr, &len) == 0) {
 		port = ntohs(server_addr.sin_port);
+	}
+
+	ILOG("HTTP server started on port %i", port);
+	port_ = port;
+
+	return true;
+}
+
+bool Server::Listen6(int port, bool ipv6_only) {
+	listener_ = socket(AF_INET6, SOCK_STREAM, 0);
+	if (listener_ < 0)
+		return false;
+
+	struct sockaddr_in6 server_addr;
+	memset(&server_addr, 0, sizeof(server_addr));
+	server_addr.sin6_family = AF_INET6;
+	server_addr.sin6_addr = in6addr_any;
+	server_addr.sin6_port = htons(port);
+
+	int opt = 1;
+	// Enable re-binding to avoid the pain when restarting the server quickly.
+	setsockopt(listener_, SOL_SOCKET, SO_REUSEADDR, (const char *)&opt, sizeof(opt));
+
+	// Enable listening on IPv6 and IPv4?
+	opt = ipv6_only ? 1 : 0;
+	setsockopt(listener_, IPPROTO_IPV6, IPV6_V6ONLY, (const char *)&opt, sizeof(opt));
+
+	if (bind(listener_, (struct sockaddr *)&server_addr, sizeof(server_addr)) < 0) {
+		closesocket(listener_);
+		ELOG("Failed to bind to port %i. Bailing.", port);
+		return false;
+	}
+
+	fd_util::SetNonBlocking(listener_, true);
+
+	// 1024 is the max number of queued requests.
+	if (listen(listener_, 1024) < 0) {
+		closesocket(listener_);
+		return false;
+	}
+
+	socklen_t len = sizeof(server_addr);
+	if (getsockname(listener_, (struct sockaddr *)&server_addr, &len) == 0) {
+		port = ntohs(server_addr.sin6_port);
 	}
 
 	ILOG("HTTP server started on port %i", port);
@@ -177,9 +241,13 @@ bool Server::RunSlice(double timeout) {
 		return false;
 	}
 
-	sockaddr client_addr;
+	union {
+		struct sockaddr sa;
+		struct sockaddr_in ipv4;
+		struct sockaddr_in6 ipv6;
+	} client_addr;
 	socklen_t client_addr_size = sizeof(client_addr);
-	int conn_fd = accept(listener_, &client_addr, &client_addr_size);
+	int conn_fd = accept(listener_, &client_addr.sa, &client_addr_size);
 	if (conn_fd >= 0) {
 		executor_->Run(std::bind(&Server::HandleConnection, this, conn_fd));
 		return true;
@@ -213,7 +281,7 @@ void Server::HandleConnection(int conn_fd) {
     WLOG("Bad request, ignoring.");
     return;
   }
-  HandleRequestDefault(request);
+  HandleRequest(request);
 
   // TODO: Way to mark the content body as read, read it here if never read.
   // This allows the handler to stream if need be.

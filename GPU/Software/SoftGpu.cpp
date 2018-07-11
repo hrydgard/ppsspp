@@ -21,6 +21,7 @@
 #include "Common/ColorConv.h"
 #include "Common/GraphicsContext.h"
 #include "Core/Config.h"
+#include "Core/ConfigValues.h"
 #include "Core/Debugger/Breakpoints.h"
 #include "Core/Host.h"
 #include "Core/MemMap.h"
@@ -648,10 +649,8 @@ void SoftGPU::ExecuteOp(u32 op, u32 diff) {
 				memcpy(dst, src, width * bpp);
 			}
 
-#ifndef MOBILE_DEVICE
 			CBreakPoints::ExecMemCheck(srcBasePtr + (srcY * srcStride + srcX) * bpp, false, height * srcStride * bpp, currentMIPS->pc);
 			CBreakPoints::ExecMemCheck(dstBasePtr + (srcY * dstStride + srcX) * bpp, true, height * dstStride * bpp, currentMIPS->pc);
-#endif
 
 			// TODO: Correct timing appears to be 1.9, but erring a bit low since some of our other timing is inaccurate.
 			cyclesExecuted += ((height * width * bpp) * 16) / 10;

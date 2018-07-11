@@ -1019,14 +1019,14 @@ void PSPSaveDialog::ExecuteIOAction() {
 	std::lock_guard<std::mutex> guard(paramLock);
 	switch (display) {
 	case DS_LOAD_LOADING:
-		if (param.Load(param.GetPspParam(), GetSelectedSaveDirName(), currentSelectedSave)) {
+		if (param.Load(param.GetPspParam(), GetSelectedSaveDirName(), currentSelectedSave) == 0) {
 			display = DS_LOAD_DONE;
 		} else {
 			display = DS_LOAD_FAILED;
 		}
 		break;
 	case DS_SAVE_SAVING:
-		if (param.Save(param.GetPspParam(), GetSelectedSaveDirName())) {
+		if (param.Save(param.GetPspParam(), GetSelectedSaveDirName()) == 0) {
 			display = DS_SAVE_DONE;
 		} else {
 			display = DS_SAVE_FAILED;
@@ -1052,87 +1052,81 @@ void PSPSaveDialog::ExecuteIOAction() {
 }
 
 void PSPSaveDialog::ExecuteNotVisibleIOAction() {
+	auto &result = param.GetPspParam()->common.result;
+
 	switch ((SceUtilitySavedataType)(u32)param.GetPspParam()->mode) {
 	case SCE_UTILITY_SAVEDATA_TYPE_LOAD: // Only load and exit
 	case SCE_UTILITY_SAVEDATA_TYPE_AUTOLOAD:
-		if (param.Load(param.GetPspParam(), GetSelectedSaveDirName(), currentSelectedSave)) {
-			param.GetPspParam()->common.result = 0;
-		} else {
-			param.GetPspParam()->common.result = SCE_UTILITY_SAVEDATA_ERROR_LOAD_NO_DATA;
-		}
+		result = param.Load(param.GetPspParam(), GetSelectedSaveDirName(), currentSelectedSave);
 		break;
 	case SCE_UTILITY_SAVEDATA_TYPE_SAVE: // Only save and exit
 	case SCE_UTILITY_SAVEDATA_TYPE_AUTOSAVE:
-		if (param.Save(param.GetPspParam(), GetSelectedSaveDirName())) {
-			param.GetPspParam()->common.result = 0;
-		} else {
-			param.GetPspParam()->common.result = SCE_UTILITY_SAVEDATA_ERROR_SAVE_MS_NOSPACE;
-		}
+		result = param.Save(param.GetPspParam(), GetSelectedSaveDirName());
 		break;
 	case SCE_UTILITY_SAVEDATA_TYPE_SIZES:
-		param.GetPspParam()->common.result = param.GetSizes(param.GetPspParam());
+		result = param.GetSizes(param.GetPspParam());
 		break;
 	case SCE_UTILITY_SAVEDATA_TYPE_LIST:
 		param.GetList(param.GetPspParam());
-		param.GetPspParam()->common.result = 0;
+		result = 0;
 		break;
 	case SCE_UTILITY_SAVEDATA_TYPE_FILES:
-		param.GetPspParam()->common.result = param.GetFilesList(param.GetPspParam());
+		result = param.GetFilesList(param.GetPspParam());
 		break;
 	case SCE_UTILITY_SAVEDATA_TYPE_GETSIZE:
 		{
-			bool result = param.GetSize(param.GetPspParam());
+			bool sizeResult = param.GetSize(param.GetPspParam());
 			// TODO: According to JPCSP, should test/verify this part but seems edge casey.
 			if (MemoryStick_State() != PSP_MEMORYSTICK_STATE_INSERTED) {
-				param.GetPspParam()->common.result = SCE_UTILITY_SAVEDATA_ERROR_RW_NO_MEMSTICK;
-			} else if (result) {
-				param.GetPspParam()->common.result = 0;
+				result = SCE_UTILITY_SAVEDATA_ERROR_RW_NO_MEMSTICK;
+			} else if (sizeResult) {
+				result = 0;
 			} else {
-				param.GetPspParam()->common.result = SCE_UTILITY_SAVEDATA_ERROR_RW_NO_DATA;
+				result = SCE_UTILITY_SAVEDATA_ERROR_RW_NO_DATA;
 			}
 		}
 		break;
 	case SCE_UTILITY_SAVEDATA_TYPE_DELETEDATA:
 		DEBUG_LOG(SCEUTILITY, "sceUtilitySavedata DELETEDATA: %s", param.GetPspParam()->saveName);
-		param.GetPspParam()->common.result = param.DeleteData(param.GetPspParam());
+		result = param.DeleteData(param.GetPspParam());
 		break;
 	//case SCE_UTILITY_SAVEDATA_TYPE_AUTODELETE:
 	case SCE_UTILITY_SAVEDATA_TYPE_SINGLEDELETE:
 		if (param.Delete(param.GetPspParam(), param.GetSelectedSave())) {
-			param.GetPspParam()->common.result = 0;
+			result = 0;
 		} else {
-			param.GetPspParam()->common.result = SCE_UTILITY_SAVEDATA_ERROR_DELETE_NO_DATA;
+			result = SCE_UTILITY_SAVEDATA_ERROR_DELETE_NO_DATA;
 		}
 		break;
 	// TODO: Should reset the directory's other files.
 	case SCE_UTILITY_SAVEDATA_TYPE_MAKEDATA:
 	case SCE_UTILITY_SAVEDATA_TYPE_MAKEDATASECURE:
-		if (param.Save(param.GetPspParam(), GetSelectedSaveDirName(), param.GetPspParam()->mode == SCE_UTILITY_SAVEDATA_TYPE_MAKEDATASECURE)) {
-			param.GetPspParam()->common.result = 0;
+		if (param.Save(param.GetPspParam(), GetSelectedSaveDirName(), param.GetPspParam()->mode == SCE_UTILITY_SAVEDATA_TYPE_MAKEDATASECURE) == 0) {
+			result = 0;
 		} else if (MemoryStick_FreeSpace() == 0) {
-			param.GetPspParam()->common.result = SCE_UTILITY_SAVEDATA_ERROR_RW_MEMSTICK_FULL;
+			result = SCE_UTILITY_SAVEDATA_ERROR_RW_MEMSTICK_FULL;
 		} else {
-			param.GetPspParam()->common.result = SCE_UTILITY_SAVEDATA_ERROR_RW_NO_DATA;
+			result = SCE_UTILITY_SAVEDATA_ERROR_RW_NO_DATA;
 		}
 		break;
 	case SCE_UTILITY_SAVEDATA_TYPE_WRITEDATA:
 	case SCE_UTILITY_SAVEDATA_TYPE_WRITEDATASECURE:
-		if (param.Save(param.GetPspParam(), GetSelectedSaveDirName(), param.GetPspParam()->mode == SCE_UTILITY_SAVEDATA_TYPE_WRITEDATASECURE)) {
-			param.GetPspParam()->common.result = 0;
+		if (param.Save(param.GetPspParam(), GetSelectedSaveDirName(), param.GetPspParam()->mode == SCE_UTILITY_SAVEDATA_TYPE_WRITEDATASECURE) == 0) {
+			result = 0;
 		} else {
-			param.GetPspParam()->common.result = SCE_UTILITY_SAVEDATA_ERROR_RW_NO_DATA;
+			result = SCE_UTILITY_SAVEDATA_ERROR_RW_NO_DATA;
 		}
 		break;
 	case SCE_UTILITY_SAVEDATA_TYPE_READDATA:
 	case SCE_UTILITY_SAVEDATA_TYPE_READDATASECURE:
 		if (!param.IsSaveDirectoryExist(param.GetPspParam())){
-			param.GetPspParam()->common.result = SCE_UTILITY_SAVEDATA_ERROR_RW_NO_DATA;
+			result = SCE_UTILITY_SAVEDATA_ERROR_RW_NO_DATA;
 		} else if (!param.IsSfoFileExist(param.GetPspParam())) {
-			param.GetPspParam()->common.result = SCE_UTILITY_SAVEDATA_ERROR_RW_DATA_BROKEN;
-		} else if (param.Load(param.GetPspParam(), GetSelectedSaveDirName(), currentSelectedSave, param.GetPspParam()->mode == SCE_UTILITY_SAVEDATA_TYPE_READDATASECURE)) {
-			param.GetPspParam()->common.result = 0;
+			result = SCE_UTILITY_SAVEDATA_ERROR_RW_DATA_BROKEN;
+		} else if (param.Load(param.GetPspParam(), GetSelectedSaveDirName(), currentSelectedSave, param.GetPspParam()->mode == SCE_UTILITY_SAVEDATA_TYPE_READDATASECURE) == 0) {
+			result = 0;
 		} else {
-			param.GetPspParam()->common.result = SCE_UTILITY_SAVEDATA_ERROR_RW_FILE_NOT_FOUND;
+			result = SCE_UTILITY_SAVEDATA_ERROR_RW_FILE_NOT_FOUND;
 		}
 		break;
 	default:

@@ -476,17 +476,17 @@ void __DisplayGetDebugStats(char *stats, size_t bufsize) {
 		statbuf);
 }
 
-enum {
-	FPS_LIMIT_NORMAL = 0,
-	FPS_LIMIT_CUSTOM = 1,
-};
+
 
 void __DisplaySetWasPaused() {
 	wasPaused = true;
 }
 
 static bool FrameTimingThrottled() {
-	if (PSP_CoreParameter().fpsLimit == FPS_LIMIT_CUSTOM && g_Config.iFpsLimit == 0) {
+	if (PSP_CoreParameter().fpsLimit == FPSLimit::CUSTOM1 && g_Config.iFpsLimit1 == 0) {
+		return false;
+	}
+	if (PSP_CoreParameter().fpsLimit == FPSLimit::CUSTOM2 && g_Config.iFpsLimit2 == 0) {
 		return false;
 	}
 	return !PSP_CoreParameter().unthrottle;
@@ -505,7 +505,7 @@ static void DoFrameDropLogging(float scaledTimestep) {
 // Let's collect all the throttling and frameskipping logic here.
 static void DoFrameTiming(bool &throttle, bool &skipFrame, float timestep) {
 	PROFILE_THIS_SCOPE("timing");
-	int fpsLimiter = PSP_CoreParameter().fpsLimit;
+	FPSLimit fpsLimiter = PSP_CoreParameter().fpsLimit;
 	throttle = FrameTimingThrottled();
 	skipFrame = false;
 
@@ -528,8 +528,10 @@ static void DoFrameTiming(bool &throttle, bool &skipFrame, float timestep) {
 	time_update();
 
 	float scaledTimestep = timestep;
-	if (fpsLimiter == FPS_LIMIT_CUSTOM && g_Config.iFpsLimit != 0) {
-		scaledTimestep *= 60.0f / g_Config.iFpsLimit;
+	if (fpsLimiter == FPSLimit::CUSTOM1 && g_Config.iFpsLimit1 > 0) {
+		scaledTimestep *= 60.0f / g_Config.iFpsLimit1;
+	} else if (fpsLimiter == FPSLimit::CUSTOM2 && g_Config.iFpsLimit2 > 0) {
+		scaledTimestep *= 60.0f / g_Config.iFpsLimit2;
 	}
 
 	if (lastFrameTime == 0.0 || wasPaused) {
@@ -549,7 +551,8 @@ static void DoFrameTiming(bool &throttle, bool &skipFrame, float timestep) {
 
 	// Auto-frameskip automatically if speed limit is set differently than the default.
 	bool useAutoFrameskip = g_Config.bAutoFrameSkip && g_Config.iRenderingMode != FB_NON_BUFFERED_MODE;
-	if (g_Config.bAutoFrameSkip || (g_Config.iFrameSkip == 0 && fpsLimiter == FPS_LIMIT_CUSTOM && g_Config.iFpsLimit > 60)) {
+	bool forceFrameskip = (fpsLimiter == FPSLimit::CUSTOM1 && g_Config.iFpsLimit1 > 60) || (fpsLimiter == FPSLimit::CUSTOM2 && g_Config.iFpsLimit2 > 60);
+	if (g_Config.bAutoFrameSkip || forceFrameskip) {
 		// autoframeskip
 		// Argh, we are falling behind! Let's skip a frame and see if we catch up.
 		if (curFrameTime > nextFrameTime && doFrameSkip) {
@@ -601,9 +604,11 @@ static void DoFrameIdleTiming() {
 	}
 
 	float scaledVblank = timePerVblank;
-	if (PSP_CoreParameter().fpsLimit == FPS_LIMIT_CUSTOM) {
+	if (PSP_CoreParameter().fpsLimit == FPSLimit::CUSTOM1 && g_Config.iFpsLimit1 > 0) {
 		// 0 is handled in FrameTimingThrottled().
-		scaledVblank *= 60.0f / g_Config.iFpsLimit;
+		scaledVblank *= 60.0f / g_Config.iFpsLimit1;
+	} else if (PSP_CoreParameter().fpsLimit == FPSLimit::CUSTOM2 && g_Config.iFpsLimit2 > 0) {
+		scaledVblank *= 60.0f / g_Config.iFpsLimit2;
 	}
 
 	// If we have over at least a vblank of spare time, maintain at least 30fps in delay.
@@ -695,7 +700,7 @@ void __DisplayFlip(int cyclesLate) {
 		// Let the user know if we're running slow, so they know to adjust settings.
 		// Sometimes users just think the sound emulation is broken.
 		static bool hasNotifiedSlow = false;
-		if (!g_Config.bHideSlowWarnings && !hasNotifiedSlow && PSP_CoreParameter().fpsLimit == FPS_LIMIT_NORMAL && IsRunningSlow()) {
+		if (!g_Config.bHideSlowWarnings && !hasNotifiedSlow && PSP_CoreParameter().fpsLimit == FPSLimit::NORMAL && IsRunningSlow()) {
 #ifndef _DEBUG
 			I18NCategory *err = GetI18NCategory("Error");
 			if (g_Config.bSoftwareRendering) {
@@ -787,9 +792,11 @@ void hleLagSync(u64 userdata, int cyclesLate) {
 	}
 
 	float scale = 1.0f;
-	if (PSP_CoreParameter().fpsLimit == FPS_LIMIT_CUSTOM) {
+	if (PSP_CoreParameter().fpsLimit == FPSLimit::CUSTOM1 && g_Config.iFpsLimit1 > 0) {
 		// 0 is handled in FrameTimingThrottled().
-		scale = 60.0f / g_Config.iFpsLimit;
+		scale = 60.0f / g_Config.iFpsLimit1;
+	} else if (PSP_CoreParameter().fpsLimit == FPSLimit::CUSTOM2 && g_Config.iFpsLimit2 > 0) {
+		scale = 60.0f / g_Config.iFpsLimit2;
 	}
 
 	const double goal = lastLagSync + (scale / 1000.0f);
@@ -937,7 +944,8 @@ u32 sceDisplaySetFramebuf(u32 topaddr, int linesize, int pixelformat, int sync) 
 
 	__DisplaySetFramebuf(topaddr, linesize, pixelformat, sync);
 
-	if (delayCycles > 0) {
+	// No delaying while inside an interrupt.  It'll cause idle threads to starve.
+	if (delayCycles > 0 && !__IsInInterrupt()) {
 		// Okay, the game is going at too high a frame rate.  God of War and Fat Princess both do this.
 		// Simply eating the cycles works and is fast, but breaks other games (like Jeanne d'Arc.)
 		// So, instead, we delay this HLE thread only (a small deviation from correct behavior.)

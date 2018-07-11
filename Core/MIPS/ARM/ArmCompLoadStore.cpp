@@ -112,6 +112,7 @@ namespace MIPSComp
 
 	void ArmJit::Comp_ITypeMemLR(MIPSOpcode op, bool load) {
 		CONDITIONAL_DISABLE;
+		CheckMemoryBreakpoint();
 		int offset = (signed short)(op & 0xFFFF);
 		MIPSGPReg rt = _RT;
 		MIPSGPReg rs = _RS;
@@ -120,6 +121,7 @@ namespace MIPSComp
 		if (!js.inDelaySlot) {
 			// Optimisation: Combine to single unaligned load/store
 			bool isLeft = (o == 34 || o == 42);
+			CheckMemoryBreakpoint(1);
 			MIPSOpcode nextOp = GetOffsetInstruction(1);
 			// Find a matching shift in opposite direction with opposite offset.
 			if (nextOp == (isLeft ? (op.encoding + (4<<26) - 3)
@@ -259,6 +261,7 @@ namespace MIPSComp
 	void ArmJit::Comp_ITypeMem(MIPSOpcode op)
 	{
 		CONDITIONAL_DISABLE;
+		CheckMemoryBreakpoint();
 		int offset = (signed short)(op&0xFFFF);
 		bool load = false;
 		MIPSGPReg rt = _RT;

@@ -27,26 +27,44 @@ void UpdateRunLoop();
 
 void Core_Run(GraphicsContext *ctx);
 void Core_Stop();
-void Core_ErrorPause();
 // For platforms that don't call Core_Run
 void Core_SetGraphicsContext(GraphicsContext *ctx);
-
-void Core_RunRenderThreadFrame();
 
 // called from gui
 void Core_EnableStepping(bool step);
 void Core_DoSingleStep();
 void Core_UpdateSingleStep();
+void Core_ProcessStepping();
+// Changes every time we enter stepping.
+int Core_GetSteppingCounter();
 
-typedef void (* Core_ShutdownFunc)();
-void Core_ListenShutdown(Core_ShutdownFunc func);
-void Core_NotifyShutdown();
-void Core_Halt(const char *msg);
+enum class CoreLifecycle {
+	STARTING,
+	// Note: includes failure cases.  Guaranteed call after STARTING.
+	START_COMPLETE,
+	STOPPING,
+	// Guaranteed call after STOPPING.
+	STOPPED,
+
+	// Sometimes called for save states.  Guaranteed sequence, and never during STARTING or STOPPING.
+	MEMORY_REINITING,
+	MEMORY_REINITED,
+};
+
+// Callback is called on the Emu thread.
+typedef void (* CoreLifecycleFunc)(CoreLifecycle stage);
+void Core_ListenLifecycle(CoreLifecycleFunc func);
+void Core_NotifyLifecycle(CoreLifecycle stage);
+
+// Callback is executed on requesting thread.
+typedef void (* CoreStopRequestFunc)();
+void Core_ListenStopRequest(CoreStopRequestFunc callback);
 
 bool Core_IsStepping();
 
 bool Core_IsActive();
 bool Core_IsInactive();
+// Warning: these currently work only on Windows.
 void Core_WaitInactive();
 void Core_WaitInactive(int milliseconds);
 

@@ -211,11 +211,18 @@ LinearFunc SamplerJitCache::CompileLinear(const SamplerID &id) {
 	CVTDQ2PS(fpScratchReg5, R(fpScratchReg5));
 	SHUFPS(fpScratchReg5, R(fpScratchReg5), _MM_SHUFFLE(0, 0, 0, 0));
 	if (RipAccessible(by256)) {
-		MULPS(fpScratchReg5, M(by256));  // rip accessible
+		MULPS(fpScratchReg5, M(by256));
 	} else {
-		Crash();  // TODO
+		MOV(PTRBITS, R(tempReg1), ImmPtr(by256));
+		MULPS(fpScratchReg5, MatR(tempReg1));
 	}
-	MOVAPS(XMM0, M(ones));
+
+	if (RipAccessible(ones)) {
+		MOVAPS(XMM0, M(ones));
+	} else {
+		MOV(PTRBITS, R(tempReg1), ImmPtr(ones));
+		MOVAPS(XMM0, MatR(tempReg1));
+	}
 	SUBPS(XMM0, R(fpScratchReg5));
 
 	MULPS(fpScratchReg1, R(XMM0));
@@ -231,8 +238,18 @@ LinearFunc SamplerJitCache::CompileLinear(const SamplerID &id) {
 	MOVD_xmm(fpScratchReg5, MDisp(RSP, 32));
 	CVTDQ2PS(fpScratchReg5, R(fpScratchReg5));
 	SHUFPS(fpScratchReg5, R(fpScratchReg5), _MM_SHUFFLE(0, 0, 0, 0));
-	MULPS(fpScratchReg5, M(by256));
-	MOVAPS(XMM0, M(ones));
+	if (RipAccessible(ones)) {
+		MULPS(fpScratchReg5, M(by256));
+	} else {
+		MOV(PTRBITS, R(tempReg1), ImmPtr(by256));
+		MULPS(fpScratchReg5, MatR(tempReg1));
+	}
+	if (RipAccessible(ones)) {
+		MOVAPS(XMM0, M(ones));
+	} else {
+		MOV(PTRBITS, R(tempReg1), ImmPtr(ones));
+		MOVAPS(XMM0, MatR(tempReg1));
+	}
 	SUBPS(XMM0, R(fpScratchReg5));
 
 	MULPS(fpScratchReg1, R(XMM0));
@@ -556,9 +573,10 @@ bool SamplerJitCache::Jit_Decode4444() {
 	MOVD_xmm(fpScratchReg1, R(resultReg));
 	PUNPCKLBW(fpScratchReg1, R(fpScratchReg1));
 	if (RipAccessible(color4444mask)) {
-		PAND(fpScratchReg1, M(color4444mask));  // rip accessible
+		PAND(fpScratchReg1, M(color4444mask));
 	} else {
-		Crash();
+		MOV(PTRBITS, R(tempReg1), ImmPtr(color4444mask));
+		PAND(fpScratchReg1, MatR(tempReg1));
 	}
 	MOVSS(fpScratchReg2, R(fpScratchReg1));
 	MOVSS(fpScratchReg3, R(fpScratchReg1));

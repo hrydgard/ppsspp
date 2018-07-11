@@ -325,13 +325,15 @@ void DrawEngineD3D11::DoFlush() {
 	gpuStats.numFlushes++;
 	gpuStats.numTrackedVertexArrays = (int)vai_.size();
 
-	// This is not done on every drawcall, we should collect vertex data
+	// This is not done on every drawcall, we collect vertex data
 	// until critical state changes. That's when we draw (flush).
 
 	GEPrimitiveType prim = prevPrim_;
 	ApplyDrawState(prim);
 
-	bool useHWTransform = CanUseHardwareTransform(prim);
+	// Always use software for flat shading to fix the provoking index.
+	bool tess = gstate_c.bezier || gstate_c.spline;
+	bool useHWTransform = CanUseHardwareTransform(prim) && (tess || gstate.getShadeMode() != GE_SHADE_FLAT);
 
 	if (useHWTransform) {
 		ID3D11Buffer *vb_ = nullptr;
@@ -538,7 +540,7 @@ rotateVBO:
 				memcpy(iptr, decIndex, iSize);
 				pushInds_->EndPush(context_);
 				context_->IASetIndexBuffer(pushInds_->Buf(), DXGI_FORMAT_R16_UINT, iOffset);
-				if (gstate_c.bezier || gstate_c.spline)
+				if (tess)
 					context_->DrawIndexedInstanced(vertexCount, numPatches, 0, 0, 0);
 				else
 					context_->DrawIndexed(vertexCount, 0, 0);
@@ -550,7 +552,7 @@ rotateVBO:
 			context_->IASetVertexBuffers(0, 1, &vb_, &stride, &offset);
 			if (useElements) {
 				context_->IASetIndexBuffer(ib_, DXGI_FORMAT_R16_UINT, 0);
-				if (gstate_c.bezier || gstate_c.spline)
+				if (tess)
 					context_->DrawIndexedInstanced(vertexCount, numPatches, 0, 0, 0);
 				else
 					context_->DrawIndexed(vertexCount, 0, 0);
@@ -587,6 +589,7 @@ rotateVBO:
 		params.texCache = textureCache_;
 		params.allowClear = true;
 		params.allowSeparateAlphaClear = false;  // D3D11 doesn't support separate alpha clears
+		params.provokeFlatFirst = true;
 
 		int maxIndex = indexGen.MaxIndex();
 		SoftwareTransform(
@@ -693,71 +696,38 @@ rotateVBO:
 #endif
 }
 
-void DrawEngineD3D11::TessellationDataTransferD3D11::SendDataToShader(const float * pos, const float * tex, const float * col, int size, bool hasColor, bool hasTexCoords) {
-	// Position
+void DrawEngineD3D11::TessellationDataTransferD3D11::PrepareBuffers(float *&pos, float *&tex, float *&col, int &posStride, int &texStride, int &colStride, int size, bool hasColor, bool hasTexCoords) {
+	struct TessData {
+		float pos[3]; float pad1;
+		float uv[2]; float pad2[2];
+		float color[4];
+	};
+
 	if (prevSize < size) {
 		prevSize = size;
-		if (data_tex[0]) {
-			data_tex[0]->Release();
-			view[0]->Release();
+		if (buf) {
+			buf->Release();
+			view->Release();
 		}
-		desc.Width = size;
-		desc.Format = DXGI_FORMAT_R32G32B32A32_FLOAT;
-		HRESULT hr = device_->CreateTexture1D(&desc, nullptr, &data_tex[0]);
-		if (FAILED(hr)) {
-			INFO_LOG(G3D, "Failed to create D3D texture for HW tessellation");
-			data_tex[0]->Release();
-			return; // TODO: Turn off HW tessellation if texture creation error occured.
-		}
-		hr = device_->CreateShaderResourceView(data_tex[0], nullptr, &view[0]);
-		ASSERT_SUCCESS(hr);
-		context_->VSSetShaderResources(0, 1, &view[0]);
-	}
-	dstBox.right = size;
-	context_->UpdateSubresource(data_tex[0], 0, &dstBox, pos, 0, 0);
+		desc.ByteWidth = size * sizeof(TessData);
+		desc.StructureByteStride = sizeof(TessData);
 
-	// Texcoords
-	if (hasTexCoords) {
-		if (prevSizeTex < size) {
-			prevSizeTex = size;
-			if (data_tex[1]) {
-				data_tex[1]->Release();
-				view[1]->Release();
-			}
-			desc.Width = size;
-			desc.Format = DXGI_FORMAT_R32G32B32A32_FLOAT;
-			HRESULT hr = device_->CreateTexture1D(&desc, nullptr, &data_tex[1]);
-			if (FAILED(hr)) {
-				INFO_LOG(G3D, "Failed to create D3D texture for HW tessellation");
-				data_tex[1]->Release();
-				return;
-			}
-			hr = device_->CreateShaderResourceView(data_tex[1], nullptr, &view[1]);
-			context_->VSSetShaderResources(1, 1, &view[1]);
-		}
-		dstBox.right = size;
-		context_->UpdateSubresource(data_tex[1], 0, &dstBox, tex, 0, 0);
+		device_->CreateBuffer(&desc, nullptr, &buf);
+		device_->CreateShaderResourceView(buf, 0, &view);
+		context_->VSSetShaderResources(0, 1, &view);
 	}
+	D3D11_MAPPED_SUBRESOURCE map;
+	context_->Map(buf, 0, D3D11_MAP_WRITE_DISCARD, 0, &map);
+	uint8_t *data = (uint8_t *)map.pData;
 
-	// Color
-	int sizeColor = hasColor ? size : 1;
-	if (prevSizeCol < sizeColor) {
-		prevSizeCol = sizeColor;
-		if (data_tex[2]) {
-			data_tex[2]->Release();
-			view[2]->Release();
-		}
-		desc.Width = sizeColor;
-		desc.Format = DXGI_FORMAT_R32G32B32A32_FLOAT;
-		HRESULT hr = device_->CreateTexture1D(&desc, nullptr, &data_tex[2]);
-		if (FAILED(hr)) {
-			INFO_LOG(G3D, "Failed to create D3D texture for HW tessellation");
-			data_tex[2]->Release();
-			return;
-		}
-		hr = device_->CreateShaderResourceView(data_tex[2], nullptr, &view[2]);
-		context_->VSSetShaderResources(2, 1, &view[2]);
-	}
-	dstBox.right = sizeColor;
-	context_->UpdateSubresource(data_tex[2], 0, &dstBox, col, 0, 0);
+	pos = (float *)(data);
+	tex = (float *)(data + offsetof(TessData, uv));
+	col = (float *)(data + offsetof(TessData, color));
+	posStride = sizeof(TessData) / sizeof(float);
+	colStride = hasColor ? (sizeof(TessData) / sizeof(float)) : 0;
+	texStride = sizeof(TessData) / sizeof(float);
+}
+
+void DrawEngineD3D11::TessellationDataTransferD3D11::SendDataToShader(const float * pos, const float * tex, const float * col, int size, bool hasColor, bool hasTexCoords) {
+	context_->Unmap(buf, 0);
 }

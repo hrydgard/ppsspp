@@ -202,14 +202,21 @@ bool cInterfaceEGL::ChooseAndCreate(void *window_handle, bool core, bool use565)
 
 	EGLint ctx_attribs[] = {
 		EGL_CONTEXT_CLIENT_VERSION, 2,
-		EGL_NONE, 0
+		EGL_NONE, 0,
+		EGL_NONE, 0,
+		EGL_NONE, 0,
+		EGL_NONE, 0,
 	};
 
 	switch (s_opengl_mode) {
 	case MODE_OPENGL:
 		EGL_ILOG("Setting RENDERABLE_TYPE to EGL_OPENGL_BIT");
 		attribs[1] = EGL_OPENGL_BIT;
-		ctx_attribs[0] = EGL_NONE;
+		// 1 will be major version, and 3 the minor version.
+		ctx_attribs[2] = 0x30FB; /* EGL_CONTEXT_MINOR_VERSION_KHR */
+		// Let's always use a core profile here.
+		ctx_attribs[4] = 0x30FD; /* EGL_CONTEXT_OPENGL_PROFILE_MASK_KHR */
+		ctx_attribs[5] = 1; /* EGL_CONTEXT_OPENGL_CORE_PROFILE_BIT_KHR */
 		break;
 	case MODE_OPENGLES2:
 		EGL_ILOG("Setting RENDERABLE_TYPE to EGL_OPENGL_ES2_BIT");
@@ -230,7 +237,7 @@ bool cInterfaceEGL::ChooseAndCreate(void *window_handle, bool core, bool use565)
 	EGL_ILOG("Calling eglChooseConfig to get number of configs (use16bit=%d)...", (int)use565);
 
 	EGLConfig *configs;
-	EGLint num_configs;
+	EGLint num_configs = 0;
 	if (!eglChooseConfig(egl_dpy, attribs, NULL, 0, &num_configs) || num_configs == 0) {
 		EGL_ILOG("Error: couldn't get a number of configs. Trying with fallback config (no stencil, not specifying transparent:none)\n");
 		attribsFallback[1] = attribs[1];
@@ -298,7 +305,23 @@ bool cInterfaceEGL::ChooseAndCreate(void *window_handle, bool core, bool use565)
 	s = eglQueryString(egl_dpy, EGL_CLIENT_APIS);
 	EGL_ILOG("EGL_CLIENT_APIS = %s\n", s);
 
-	egl_ctx = eglCreateContext(egl_dpy, configs[chosenConfig], EGL_NO_CONTEXT, ctx_attribs);
+
+	if (s_opengl_mode == MODE_OPENGL) {
+		EGL_ILOG("Finding a good GL version");
+		egl_ctx = nullptr;
+		for (int minor = 6; minor >= 0 && !egl_ctx; --minor) {
+			ctx_attribs[1] = 4;
+			ctx_attribs[3] = minor;
+			egl_ctx = eglCreateContext(egl_dpy, configs[chosenConfig], EGL_NO_CONTEXT, ctx_attribs);
+		}
+		if (!egl_ctx) {
+			ctx_attribs[1] = 3;
+			ctx_attribs[3] = 3;
+			egl_ctx = eglCreateContext(egl_dpy, configs[chosenConfig], EGL_NO_CONTEXT, ctx_attribs);
+		}
+	} else {
+		egl_ctx = eglCreateContext(egl_dpy, configs[chosenConfig], EGL_NO_CONTEXT, ctx_attribs);
+	}
 	if (!egl_ctx) {
 		EGL_ILOG("Error: eglCreateContext failed: %s\n", EGLGetErrorString(eglGetError()));
 		delete[] configs;
@@ -339,7 +362,7 @@ bool cInterfaceEGL::Create(void *window_handle, bool core, bool use565) {
 	if (s_opengl_mode == MODE_DETECT || s_opengl_mode == MODE_DETECT_ES)
 		DetectMode();
 
-	if (!ChooseAndCreate(window_handle, core, use565) && s_opengl_mode == MODE_OPENGLES3) {
+	if (!ChooseAndCreate(window_handle, core, use565) && (s_opengl_mode == MODE_OPENGLES3 || s_opengl_mode == MODE_OPENGL)) {
 		// Fallback to ES 2.0 and try again.
 		s_opengl_mode = MODE_OPENGLES2;
 		if (!ChooseAndCreate(window_handle, core, use565)) {

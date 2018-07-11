@@ -30,6 +30,7 @@
 
 #include "Core/MemMap.h"
 #include "Core/Config.h"
+#include "Core/ConfigValues.h"
 #include "Core/System.h"
 #include "Core/CoreParameter.h"
 #include "Core/MIPS/MIPSTables.h"

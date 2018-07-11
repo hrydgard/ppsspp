@@ -17,10 +17,6 @@
 
 #pragma once
 
-#include <list>
-#include <set>
-#include <algorithm>
-
 #include "ext/native/thin3d/thin3d.h"
 // Keeps track of allocated FBOs.
 // Also provides facilities for drawing and later converting raw

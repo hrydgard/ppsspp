@@ -201,6 +201,11 @@ bool InputSink::Empty() {
 	return valid_ == 0;
 }
 
+bool InputSink::TryFill() {
+	Fill();
+	return !Empty();
+}
+
 OutputSink::OutputSink(size_t fd) : fd_(fd), read_(0), write_(0), valid_(0) {
 	fd_util::SetNonBlocking((int)fd_, true);
 }
@@ -316,7 +321,7 @@ bool OutputSink::Block() {
 	return true;
 }
 
-bool OutputSink::Flush() {
+bool OutputSink::Flush(bool allowBlock) {
 	while (valid_ > 0) {
 		size_t avail = std::min(BUFFER_SIZE - read_, valid_);
 
@@ -325,13 +330,21 @@ bool OutputSink::Flush() {
 
 		if (bytes == 0) {
 			// This may also drain.  Either way, keep looping.
-			if (!Block()) {
+			if (!allowBlock || !Block()) {
 				return false;
 			}
+		} else if (bytes < 0) {
+			return false;
 		}
 	}
 
 	return true;
+}
+
+void OutputSink::Discard() {
+	read_ = 0;
+	write_ = 0;
+	valid_ = 0;
 }
 
 void OutputSink::Drain() {

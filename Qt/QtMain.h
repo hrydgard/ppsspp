@@ -38,6 +38,7 @@ QTM_USE_NAMESPACE
 #include "Common/GraphicsContext.h"
 #include "Core/Core.h"
 #include "Core/Config.h"
+#include "Core/ConfigValues.h"
 #include "Core/System.h"
 #include "thin3d/thin3d_create.h"
 #include "thin3d/GLRenderManager.h"
@@ -110,6 +111,8 @@ public:
 	explicit MainUI(QWidget *parent = 0);
 	~MainUI();
 
+	void resizeGL(int w, int h);
+
 public slots:
 	QString InputBoxGetQString(QString title, QString defaultValue);
 
@@ -123,7 +126,6 @@ protected:
 	bool event(QEvent *e);
 
 	void initializeGL();
-	void resizeGL(int w, int h);
 	void paintGL();
 
 	void updateAccelerometer();

@@ -20,6 +20,7 @@
 #include <functional>
 
 #include "Common/CommonTypes.h"
+#include "Core/Core.h"
 #include "GPU/Common/GPUDebugInterface.h"
 
 namespace GPUStepping {
@@ -27,8 +28,10 @@ namespace GPUStepping {
 	// Begins stepping and calls callback while inside a lock preparing stepping.
 	// This would be a good place to deliver a message to code that stepping is ready.
 	bool EnterStepping(std::function<void()> callback);
+	bool SingleStep();
 	bool IsStepping();
 
+	bool GPU_GetOutputFramebuffer(const GPUDebugBuffer *&buffer);
 	bool GPU_GetCurrentFramebuffer(const GPUDebugBuffer *&buffer, GPUDebugFramebufferType type);
 	bool GPU_GetCurrentDepthbuffer(const GPUDebugBuffer *&buffer);
 	bool GPU_GetCurrentStencilbuffer(const GPUDebugBuffer *&buffer);

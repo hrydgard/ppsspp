@@ -24,9 +24,10 @@
 #include "Core/HLE/sceGe.h"
 #include "Core/Debugger/Breakpoints.h"
 #include "Core/MemMapHelpers.h"
-#include "GPU/Common/FramebufferCommon.h"
-#include "GPU/Common/TextureCacheCommon.h"
 #include "GPU/Common/DrawEngineCommon.h"
+#include "GPU/Common/FramebufferCommon.h"
+#include "GPU/Common/SplineCommon.h"
+#include "GPU/Common/TextureCacheCommon.h"
 #include "GPU/Debugger/Record.h"
 
 const CommonCommandTableEntry commonCommandTable[] = {
@@ -72,7 +73,8 @@ const CommonCommandTableEntry commonCommandTable[] = {
 	{ GE_CMD_FOGENABLE, FLAG_FLUSHBEFOREONCHANGE, DIRTY_VERTEXSHADER_STATE | DIRTY_FRAGMENTSHADER_STATE},
 	{ GE_CMD_TEXMODE, FLAG_FLUSHBEFOREONCHANGE, DIRTY_TEXTURE_PARAMS | DIRTY_FRAGMENTSHADER_STATE },
 	{ GE_CMD_TEXSHADELS, FLAG_FLUSHBEFOREONCHANGE, DIRTY_VERTEXSHADER_STATE },
-	{ GE_CMD_SHADEMODE, FLAG_FLUSHBEFOREONCHANGE, DIRTY_VERTEXSHADER_STATE | DIRTY_FRAGMENTSHADER_STATE },
+	// Raster state for Direct3D 9, uncommon.
+	{ GE_CMD_SHADEMODE, FLAG_FLUSHBEFOREONCHANGE, DIRTY_VERTEXSHADER_STATE | DIRTY_FRAGMENTSHADER_STATE | DIRTY_RASTER_STATE },
 	{ GE_CMD_TEXFUNC, FLAG_FLUSHBEFOREONCHANGE, DIRTY_FRAGMENTSHADER_STATE },
 	{ GE_CMD_COLORTEST, FLAG_FLUSHBEFOREONCHANGE, DIRTY_FRAGMENTSHADER_STATE },
 	{ GE_CMD_ALPHATESTENABLE, FLAG_FLUSHBEFOREONCHANGE, DIRTY_FRAGMENTSHADER_STATE },
@@ -1735,7 +1737,7 @@ void GPUCommon::Execute_Bezier(u32 op, u32 diff) {
 	bool computeNormals = gstate.isLightingEnabled();
 	bool patchFacing = gstate.patchfacing & 1;
 
-	if (g_Config.bHardwareTessellation && g_Config.bHardwareTransform && !g_Config.bSoftwareRendering) {
+	if (CanUseHardwareTessellation(patchPrim)) {
 		gstate_c.Dirty(DIRTY_VERTEXSHADER_STATE);
 		gstate_c.bezier = true;
 		if (gstate_c.spline_count_u != bz_ucount) {
@@ -1799,7 +1801,7 @@ void GPUCommon::Execute_Spline(u32 op, u32 diff) {
 	bool patchFacing = gstate.patchfacing & 1;
 	u32 vertType = gstate.vertType;
 
-	if (g_Config.bHardwareTessellation && g_Config.bHardwareTransform && !g_Config.bSoftwareRendering) {
+	if (CanUseHardwareTessellation(patchPrim)) {
 		gstate_c.Dirty(DIRTY_VERTEXSHADER_STATE);
 		gstate_c.spline = true;
 		bool countsChanged = gstate_c.spline_count_u != sp_ucount || gstate_c.spline_count_v != sp_vcount;
@@ -2610,10 +2612,8 @@ void GPUCommon::DoBlockTransfer(u32 skipDrawReason) {
 		framebufferManager_->NotifyBlockTransferAfter(dstBasePtr, dstStride, dstX, dstY, srcBasePtr, srcStride, srcX, srcY, width, height, bpp, skipDrawReason);
 	}
 
-#ifndef MOBILE_DEVICE
 	CBreakPoints::ExecMemCheck(srcBasePtr + (srcY * srcStride + srcX) * bpp, false, height * srcStride * bpp, currentMIPS->pc);
 	CBreakPoints::ExecMemCheck(dstBasePtr + (dstY * dstStride + dstX) * bpp, true, height * dstStride * bpp, currentMIPS->pc);
-#endif
 
 	// TODO: Correct timing appears to be 1.9, but erring a bit low since some of our other timing is inaccurate.
 	cyclesExecuted += ((height * width * bpp) * 16) / 10;

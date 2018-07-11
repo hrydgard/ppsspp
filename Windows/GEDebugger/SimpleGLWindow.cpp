@@ -55,9 +55,7 @@ static const char tex_fs[] =
 	"}\n";
 
 static const char basic_vs[] =
-#ifndef USING_GLES2
 	"#version 120\n"
-#endif
 	"attribute vec4 a_position;\n"
 	"attribute vec2 a_texcoord0;\n"
 	"uniform mat4 u_viewproj;\n"

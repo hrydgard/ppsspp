@@ -23,8 +23,7 @@ TextDrawerQt::~TextDrawerQt() {
 }
 
 uint32_t TextDrawerQt::SetFont(const char *fontName, int size, int flags) {
-	// We will only use the default font
-	uint32_t fontHash = 0; //hash::Adler32((const uint8_t *)fontName, strlen(fontName));
+	uint32_t fontHash = fontName && strlen(fontName) ? hash::Adler32((const uint8_t *)fontName, strlen(fontName)) : 0;
 	fontHash ^= size;
 	fontHash ^= flags << 10;
 
@@ -34,7 +33,7 @@ uint32_t TextDrawerQt::SetFont(const char *fontName, int size, int flags) {
 		return fontHash;
 	}
 
-	QFont* font = new QFont();
+	QFont* font = fontName ? new QFont(fontName) : new QFont();
 	font->setPixelSize(size + 6);
 	fontMap_[fontHash] = font;
 	fontHash_ = fontHash;

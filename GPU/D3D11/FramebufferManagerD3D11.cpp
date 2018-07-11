@@ -31,6 +31,7 @@
 #include "Core/Host.h"
 #include "Core/MemMap.h"
 #include "Core/Config.h"
+#include "Core/ConfigValues.h"
 #include "Core/System.h"
 #include "Core/Reporting.h"
 #include "GPU/ge_constants.h"
@@ -161,10 +162,7 @@ FramebufferManagerD3D11::~FramebufferManagerD3D11() {
 		postInputLayout_->Release();
 	}
 
-	// FBO cleanup
-	for (auto it = tempFBOs_.begin(), end = tempFBOs_.end(); it != end; ++it) {
-		it->second.fbo->Release();
-	}
+	// Temp FBOs cleared by FramebufferCommon.
 	delete[] convBuf;
 
 	// Stencil cleanup
@@ -266,8 +264,6 @@ void FramebufferManagerD3D11::CompilePostShader() {
 }
 
 void FramebufferManagerD3D11::MakePixelTexture(const u8 *srcPixels, GEBufferFormat srcPixelFormat, int srcStride, int width, int height, float &u1, float &v1) {
-	u8 *convBuf = nullptr;
-
 	// TODO: Check / use D3DCAPS2_DYNAMICTEXTURES?
 	if (drawPixelsTex_ && (drawPixelsTexW_ != width || drawPixelsTexH_ != height)) {
 		drawPixelsTex_->Release();
@@ -301,54 +297,35 @@ void FramebufferManagerD3D11::MakePixelTexture(const u8 *srcPixels, GEBufferForm
 	D3D11_MAPPED_SUBRESOURCE map;
 	context_->Map(drawPixelsTex_, 0, D3D11_MAP_WRITE_DISCARD, 0, &map);
 
-	convBuf = (u8*)map.pData;
-
-	if (srcPixelFormat != GE_FORMAT_8888 || srcStride != 512) {
-		for (int y = 0; y < height; y++) {
-			switch (srcPixelFormat) {
-			case GE_FORMAT_565:
-			{
-				const u16_le *src = (const u16_le *)srcPixels + srcStride * y;
-				u32 *dst = (u32 *)(convBuf + map.RowPitch * y);
-				ConvertRGB565ToBGRA8888(dst, src, width);
-			}
-			break;
-			// faster
-			case GE_FORMAT_5551:
-			{
-				const u16_le *src = (const u16_le *)srcPixels + srcStride * y;
-				u32 *dst = (u32 *)(convBuf + map.RowPitch * y);
-				ConvertRGBA5551ToBGRA8888(dst, src, width);
-			}
-			break;
-			case GE_FORMAT_4444:
-			{
-				const u16_le *src = (const u16_le *)srcPixels + srcStride * y;
-				u8 *dst = (u8 *)(convBuf + map.RowPitch * y);
-				ConvertRGBA4444ToBGRA8888((u32 *)dst, src, width);
-			}
+	for (int y = 0; y < height; y++) {
+		const u16_le *src16 = (const u16_le *)srcPixels + srcStride * y;
+		const u32_le *src32 = (const u32_le *)srcPixels + srcStride * y;
+		u32 *dst = (u32 *)((u8 *)map.pData + map.RowPitch * y);
+		switch (srcPixelFormat) {
+		case GE_FORMAT_565:
+			ConvertRGB565ToBGRA8888(dst, src16, width);
 			break;
 
-			case GE_FORMAT_8888:
-			{
-				const u32_le *src = (const u32_le *)srcPixels + srcStride * y;
-				u32 *dst = (u32 *)(convBuf + map.RowPitch * y);
-				ConvertRGBA8888ToBGRA8888(dst, src, width);
-			}
+		case GE_FORMAT_5551:
+			ConvertRGBA5551ToBGRA8888(dst, src16, width);
 			break;
-			}
-		}
-	} else {
-		for (int y = 0; y < height; y++) {
-			const u32_le *src = (const u32_le *)srcPixels + srcStride * y;
-			u32 *dst = (u32 *)(convBuf + map.RowPitch * y);
-			ConvertRGBA8888ToBGRA8888(dst, src, width);
+
+		case GE_FORMAT_4444:
+			ConvertRGBA4444ToBGRA8888(dst, src16, width);
+			break;
+
+		case GE_FORMAT_8888:
+			ConvertRGBA8888ToBGRA8888(dst, src32, width);
+			break;
+
+		case GE_FORMAT_INVALID:
+			_dbg_assert_msg_(G3D, false, "Invalid pixelFormat passed to DrawPixels().");
+			break;
 		}
 	}
 
 	context_->Unmap(drawPixelsTex_, 0);
 	context_->PSSetShaderResources(0, 1, &drawPixelsTexView_);
-	// D3DXSaveTextureToFile("game:\\cc.png", D3DXIFF_PNG, drawPixelsTex_, NULL);
 }
 
 void FramebufferManagerD3D11::DrawActiveTexture(float x, float y, float w, float h, float destW, float destH, float u0, float v0, float u1, float v1, int uvRotation, int flags) {
@@ -544,7 +521,7 @@ void FramebufferManagerD3D11::BindFramebufferAsColorTexture(int stage, VirtualFr
 	// Currently rendering to this framebuffer. Need to make a copy.
 	if (!skipCopy && framebuffer == currentRenderVfb_) {
 		// TODO: Maybe merge with bvfbs_?  Not sure if those could be packing, and they're created at a different size.
-		Draw::Framebuffer *renderCopy = GetTempFBO(framebuffer->renderWidth, framebuffer->renderHeight, (Draw::FBColorDepth)framebuffer->colorDepth);
+		Draw::Framebuffer *renderCopy = GetTempFBO(TempFBO::COPY, framebuffer->renderWidth, framebuffer->renderHeight, (Draw::FBColorDepth)framebuffer->colorDepth);
 		if (renderCopy) {
 			VirtualFramebuffer copyInfo = *framebuffer;
 			copyInfo.fbo = renderCopy;
@@ -569,7 +546,7 @@ void FramebufferManagerD3D11::BindFramebufferAsColorTexture(int stage, VirtualFr
 bool FramebufferManagerD3D11::CreateDownloadTempBuffer(VirtualFramebuffer *nvfb) {
 	nvfb->colorDepth = Draw::FBO_8888;
 
-	nvfb->fbo = draw_->CreateFramebuffer({ nvfb->width, nvfb->height, 1, 1, true, (Draw::FBColorDepth)nvfb->colorDepth });
+	nvfb->fbo = draw_->CreateFramebuffer({ nvfb->bufferWidth, nvfb->bufferHeight, 1, 1, true, (Draw::FBColorDepth)nvfb->colorDepth });
 	if (!(nvfb->fbo)) {
 		ERROR_LOG(FRAMEBUF, "Error creating FBO! %i x %i", nvfb->renderWidth, nvfb->renderHeight);
 		return false;
@@ -671,7 +648,7 @@ void FramebufferManagerD3D11::BlitFramebuffer(VirtualFramebuffer *dst, int dstX,
 	// Direct3D doesn't support rect -> self.
 	Draw::Framebuffer *srcFBO = src->fbo;
 	if (src == dst) {
-		Draw::Framebuffer *tempFBO = GetTempFBO(src->renderWidth, src->renderHeight, (Draw::FBColorDepth)src->colorDepth);
+		Draw::Framebuffer *tempFBO = GetTempFBO(TempFBO::BLIT, src->renderWidth, src->renderHeight, (Draw::FBColorDepth)src->colorDepth);
 		SimpleBlit(tempFBO, dstX1, dstY1, dstX2, dstY2, src->fbo, srcX1, srcY1, srcX2, srcY2, false);
 		srcFBO = tempFBO;
 	}
@@ -718,8 +695,8 @@ void FramebufferManagerD3D11::DestroyAllFBOs() {
 	}
 	bvfbs_.clear();
 
-	for (auto it = tempFBOs_.begin(), end = tempFBOs_.end(); it != end; ++it) {
-		it->second.fbo->Release();
+	for (auto &tempFB : tempFBOs_) {
+		tempFB.second.fbo->Release();
 	}
 	tempFBOs_.clear();
 

@@ -328,7 +328,7 @@ void TextureCacheGLES::BindTexture(TexCacheEntry *entry) {
 		lastBoundTexture = entry->textureName;
 	}
 	UpdateSamplingParams(*entry, false);
-	gstate_c.useShaderDepal = false;
+	gstate_c.SetUseShaderDepal(false);
 }
 
 void TextureCacheGLES::Unbind() {
@@ -459,7 +459,7 @@ void TextureCacheGLES::ApplyTextureFramebuffer(TexCacheEntry *entry, VirtualFram
 
 			// Since we started/ended render passes, might need these.
 			gstate_c.Dirty(DIRTY_DEPAL);
-			gstate_c.useShaderDepal = true;
+			gstate_c.SetUseShaderDepal(true);
 			gstate_c.depalFramebufferFormat = framebuffer->drawnFormat;
 			const u32 bytesPerColor = clutFormat == GE_CMODE_32BIT_ABGR8888 ? sizeof(u32) : sizeof(u16);
 			const u32 clutTotalColors = clutMaxBytes_ / bytesPerColor;
@@ -473,7 +473,7 @@ void TextureCacheGLES::ApplyTextureFramebuffer(TexCacheEntry *entry, VirtualFram
 	if (depal) {
 		const GEPaletteFormat clutFormat = gstate.getClutPaletteFormat();
 		GLRTexture *clutTexture = depalShaderCache_->GetClutTexture(clutFormat, clutHash_, clutBuf_);
-		Draw::Framebuffer *depalFBO = framebufferManagerGL_->GetTempFBO(framebuffer->renderWidth, framebuffer->renderHeight, Draw::FBO_8888);
+		Draw::Framebuffer *depalFBO = framebufferManagerGL_->GetTempFBO(TempFBO::DEPAL, framebuffer->renderWidth, framebuffer->renderHeight, Draw::FBO_8888);
 		draw_->BindFramebufferAsRenderTarget(depalFBO, { Draw::RPAction::DONT_CARE, Draw::RPAction::DONT_CARE, Draw::RPAction::DONT_CARE });
 		shaderManager_->DirtyLastShader();
 
@@ -846,6 +846,8 @@ bool TextureCacheGLES::GetCurrentTextureDebug(GPUDebugBuffer &buffer, int level)
 
 	// Apply texture may need to rebuild the texture if we're about to render, or bind a framebuffer.
 	TexCacheEntry *entry = nextTexture_;
+	// We might need a render pass to set the sampling params, unfortunately.  Otherwise BuildTexture may crash.
+	framebufferManagerGL_->RebindFramebuffer();
 	ApplyTexture();
 
 	// TODO: Centralize?

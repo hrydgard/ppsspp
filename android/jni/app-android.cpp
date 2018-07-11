@@ -43,6 +43,7 @@
 #include "AndroidJavaGLContext.h"
 
 #include "Core/Config.h"
+#include "Core/ConfigValues.h"
 #include "Core/Loaders.h"
 #include "Core/System.h"
 #include "Common/CPUDetect.h"
@@ -323,6 +324,8 @@ bool System_GetPropertyBool(SystemProperty prop) {
 }
 
 std::string GetJavaString(JNIEnv *env, jstring jstr) {
+	if (!jstr)
+		return "";
 	const char *str = env->GetStringUTFChars(jstr, 0);
 	std::string cpp_string = std::string(str);
 	env->ReleaseStringUTFChars(jstr, str);
@@ -397,7 +400,9 @@ extern "C" void Java_org_ppsspp_ppsspp_NativeApp_init
 	langRegion = GetJavaString(env, jlangRegion);
 
 	std::string externalDir = GetJavaString(env, jexternalDir);
-	std::string user_data_path = GetJavaString(env, jdataDir) + "/";
+	std::string user_data_path = GetJavaString(env, jdataDir);
+	if (user_data_path.size() > 0)
+		user_data_path += "/";
 	library_path = GetJavaString(env, jlibraryDir) + "/";
 	std::string shortcut_param = GetJavaString(env, jshortcutParam);
 	std::string cacheDir = GetJavaString(env, jcacheDir);
@@ -438,9 +443,12 @@ retry:
 	switch (g_Config.iGPUBackend) {
 	case (int)GPUBackend::OPENGL:
 		useCPUThread = true;
-		_assert_(javaGL);
-		ILOG("NativeApp.init() -- creating OpenGL context (JavaGL)");
-		graphicsContext = new AndroidJavaEGLGraphicsContext();
+		if (javaGL) {
+			ILOG("NativeApp.init() -- creating OpenGL context (JavaGL)");
+			graphicsContext = new AndroidJavaEGLGraphicsContext();
+		} else {
+			graphicsContext = new AndroidEGLGraphicsContext();
+		}
 		break;
 	case (int)GPUBackend::VULKAN:
 	{
@@ -517,7 +525,8 @@ extern "C" void Java_org_ppsspp_ppsspp_NativeApp_pause(JNIEnv *, jclass) {
 }
 
 extern "C" void Java_org_ppsspp_ppsspp_NativeApp_shutdown(JNIEnv *, jclass) {
-	if (useCPUThread && graphicsContext) {
+	if (renderer_inited && useCPUThread && graphicsContext) {
+		// Only used in Java EGL path.
 		EmuThreadStop();
 		while (graphicsContext->ThreadFrame()) {
 			continue;
@@ -650,7 +659,8 @@ extern "C" void Java_org_ppsspp_ppsspp_NativeRenderer_displayRender(JNIEnv *env,
 	
 	if (useCPUThread) {
 		// This is the "GPU thread".
-		graphicsContext->ThreadFrame();
+		if (graphicsContext)
+			graphicsContext->ThreadFrame();
 	} else {
 		UpdateRunLoopAndroid(env);
 	}
@@ -958,31 +968,54 @@ retry:
 	}
 
 	if (!exitRenderLoop) {
-		NativeInitGraphics(graphicsContext);
+		if (!useCPUThread) {
+			NativeInitGraphics(graphicsContext);
+		}
+		graphicsContext->ThreadStart();
 		renderer_inited = true;
 	}
 
-	while (!exitRenderLoop) {
+	if (!exitRenderLoop) {
 		static bool hasSetThreadName = false;
 		if (!hasSetThreadName) {
 			hasSetThreadName = true;
 			setCurrentThreadName("AndroidRender");
 		}
+	}
 
-		NativeUpdate();
+	if (useCPUThread) {
+		ELOG("Running graphics loop");
+		while (!exitRenderLoop) {
+			// This is the "GPU thread".
+			graphicsContext->ThreadFrame();
+			graphicsContext->SwapBuffers();
+		}
+	} else {
+		while (!exitRenderLoop) {
+			NativeUpdate();
 
-		NativeRender(graphicsContext);
-		time_update();
+			NativeRender(graphicsContext);
+			time_update();
 
-		graphicsContext->SwapBuffers();
+			graphicsContext->SwapBuffers();
 
-		ProcessFrameCommands(env);
+			ProcessFrameCommands(env);
+		}
 	}
 
 	ILOG("Leaving EGL/Vulkan render loop.");
 
-	NativeShutdownGraphics();
+	if (useCPUThread) {
+		EmuThreadStop();
+		while (graphicsContext->ThreadFrame()) {
+			continue;
+		}
+		EmuThreadJoin();
+	} else {
+		NativeShutdownGraphics();
+	}
 	renderer_inited = false;
+	graphicsContext->ThreadEnd();
 
 	// Shut the graphics context down to the same state it was in when we entered the render thread.
 	ILOG("Shutting down graphics context from render thread...");

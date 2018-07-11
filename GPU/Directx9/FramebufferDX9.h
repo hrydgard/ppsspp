@@ -17,9 +17,7 @@
 
 #pragma once
 
-#include <list>
-#include <set>
-#include <map>
+#include <unordered_map>
 
 #include <d3d9.h>
 
@@ -91,41 +89,31 @@ private:
 	LPDIRECT3DDEVICE9 deviceEx_;
 
 	// Used by DrawPixels
-	LPDIRECT3DTEXTURE9 drawPixelsTex_;
+	LPDIRECT3DTEXTURE9 drawPixelsTex_ = nullptr;
 	int drawPixelsTexW_;
 	int drawPixelsTexH_;
 
-	LPDIRECT3DVERTEXSHADER9 pFramebufferVertexShader;
-	LPDIRECT3DPIXELSHADER9 pFramebufferPixelShader;
-	LPDIRECT3DVERTEXDECLARATION9 pFramebufferVertexDecl;
+	LPDIRECT3DVERTEXSHADER9 pFramebufferVertexShader = nullptr;
+	LPDIRECT3DPIXELSHADER9 pFramebufferPixelShader = nullptr;
+	LPDIRECT3DVERTEXDECLARATION9 pFramebufferVertexDecl = nullptr;
 
-	u8 *convBuf;
+	u8 *convBuf = nullptr;
 
 	int plainColorLoc_;
-	LPDIRECT3DPIXELSHADER9 stencilUploadPS_;
-	LPDIRECT3DVERTEXSHADER9 stencilUploadVS_;
-	bool stencilUploadFailed_;
+	LPDIRECT3DPIXELSHADER9 stencilUploadPS_ = nullptr;
+	LPDIRECT3DVERTEXSHADER9 stencilUploadVS_ = nullptr;
+	bool stencilUploadFailed_ = false;
 
 	TextureCacheDX9 *textureCacheDX9_;
 	ShaderManagerDX9 *shaderManagerDX9_;
 	DrawEngineDX9 *drawEngineD3D9_;
 	
-	struct TempFBO {
-		Draw::Framebuffer *fbo;
-		int last_frame_used;
-	};
 	struct OffscreenSurface {
 		LPDIRECT3DSURFACE9 surface;
 		int last_frame_used;
 	};
 
-	std::map<u64, TempFBO> tempFBOs_;
-	std::map<u64, OffscreenSurface> offscreenSurfaces_;
-
-#if 0
-	AsyncPBO *pixelBufObj_; //this isn't that large
-	u8 currentPBO_;
-#endif
+	std::unordered_map<u64, OffscreenSurface> offscreenSurfaces_;
 };
 
 };

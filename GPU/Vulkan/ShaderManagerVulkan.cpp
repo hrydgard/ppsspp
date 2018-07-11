@@ -159,7 +159,7 @@ std::string VulkanVertexShader::GetShaderString(DebugShaderStringType type) cons
 ShaderManagerVulkan::ShaderManagerVulkan(VulkanContext *vulkan)
 	: vulkan_(vulkan), lastVShader_(nullptr), lastFShader_(nullptr), fsCache_(16), vsCache_(16) {
 	codeBuffer_ = new char[16384];
-	uboAlignment_ = vulkan_->GetPhysicalDeviceProperties().limits.minUniformBufferOffsetAlignment;
+	uboAlignment_ = vulkan_->GetPhysicalDeviceProperties(vulkan_->GetCurrentPhysicalDevice()).limits.minUniformBufferOffsetAlignment;
 	memset(&ub_base, 0, sizeof(ub_base));
 	memset(&ub_lights, 0, sizeof(ub_lights));
 	memset(&ub_bones, 0, sizeof(ub_bones));
@@ -176,7 +176,7 @@ ShaderManagerVulkan::~ShaderManagerVulkan() {
 
 void ShaderManagerVulkan::DeviceRestore(VulkanContext *vulkan) {
 	vulkan_ = vulkan;
-	uboAlignment_ = vulkan_->GetPhysicalDeviceProperties().limits.minUniformBufferOffsetAlignment;
+	uboAlignment_ = vulkan_->GetPhysicalDeviceProperties(vulkan_->GetCurrentPhysicalDevice()).limits.minUniformBufferOffsetAlignment;
 }
 
 void ShaderManagerVulkan::Clear() {
@@ -358,7 +358,7 @@ VulkanFragmentShader *ShaderManagerVulkan::GetFragmentShaderFromModule(VkShaderM
 // instantaneous.
 
 #define CACHE_HEADER_MAGIC 0xff51f420 
-#define CACHE_VERSION 13
+#define CACHE_VERSION 14
 struct VulkanCacheHeader {
 	uint32_t magic;
 	uint32_t version;

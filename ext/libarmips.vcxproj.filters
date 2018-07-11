@@ -42,9 +42,6 @@
     <ClCompile Include="armips\Archs\ARM\ArmOpcodes.cpp">
       <Filter>Archs\ARM</Filter>
     </ClCompile>
-    <ClCompile Include="armips\Archs\ARM\ArmRelocator.cpp">
-      <Filter>Archs\ARM</Filter>
-    </ClCompile>
     <ClCompile Include="armips\Archs\ARM\CArmInstruction.cpp">
       <Filter>Archs\ARM</Filter>
     </ClCompile>
@@ -163,6 +160,18 @@
     <ClCompile Include="armips\Core\ExpressionFunctions.cpp">
       <Filter>Core</Filter>
     </ClCompile>
+    <ClCompile Include="armips\Archs\ARM\ArmElfRelocator.cpp">
+      <Filter>Archs\ARM</Filter>
+    </ClCompile>
+    <ClCompile Include="armips\Archs\MIPS\MipsElfRelocator.cpp">
+      <Filter>Archs\MIPS</Filter>
+    </ClCompile>
+    <ClCompile Include="armips\Archs\ARM\ArmExpressionFunctions.cpp">
+      <Filter>Archs\ARM</Filter>
+    </ClCompile>
+    <ClCompile Include="armips\Archs\MIPS\MipsExpressionFunctions.cpp">
+      <Filter>Archs\MIPS</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="armips\Archs\Architecture.h">
@@ -172,9 +181,6 @@
       <Filter>Archs\ARM</Filter>
     </ClInclude>
     <ClInclude Include="armips\Archs\ARM\ArmOpcodes.h">
-      <Filter>Archs\ARM</Filter>
-    </ClInclude>
-    <ClInclude Include="armips\Archs\ARM\ArmRelocator.h">
       <Filter>Archs\ARM</Filter>
     </ClInclude>
     <ClInclude Include="armips\Archs\ARM\CArmInstruction.h">
@@ -300,6 +306,18 @@
     </ClInclude>
     <ClInclude Include="armips\Core\ExpressionFunctions.h">
       <Filter>Core</Filter>
+    </ClInclude>
+    <ClInclude Include="armips\Archs\ARM\ArmElfRelocator.h">
+      <Filter>Archs\ARM</Filter>
+    </ClInclude>
+    <ClInclude Include="armips\Archs\MIPS\MipsElfRelocator.h">
+      <Filter>Archs\MIPS</Filter>
+    </ClInclude>
+    <ClInclude Include="armips\Archs\ARM\ArmExpressionFunctions.h">
+      <Filter>Archs\ARM</Filter>
+    </ClInclude>
+    <ClInclude Include="armips\Archs\MIPS\MipsExpressionFunctions.h">
+      <Filter>Archs\MIPS</Filter>
     </ClInclude>
   </ItemGroup>
 </Project>

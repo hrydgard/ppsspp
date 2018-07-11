@@ -22,6 +22,7 @@
 #include "Core/Host.h"
 #include "Core/MemMap.h"
 #include "Core/Config.h"
+#include "Core/ConfigValues.h"
 #include "Core/System.h"
 #include "Core/Reporting.h"
 #include "GPU/ge_constants.h"
@@ -82,12 +83,7 @@ static const D3DVERTEXELEMENT9 g_FramebufferVertexElements[] = {
 };
 
 	FramebufferManagerDX9::FramebufferManagerDX9(Draw::DrawContext *draw)
-		: FramebufferManagerCommon(draw),
-			drawPixelsTex_(0),
-			convBuf(0),
-			stencilUploadPS_(nullptr),
-			stencilUploadVS_(nullptr),
-			stencilUploadFailed_(false) {
+		: FramebufferManagerCommon(draw) {
 
 		device_ = (LPDIRECT3DDEVICE9)draw->GetNativeObject(Draw::NativeObject::DEVICE);
 		deviceEx_ = (LPDIRECT3DDEVICE9)draw->GetNativeObject(Draw::NativeObject::DEVICE_EX);
@@ -119,11 +115,8 @@ static const D3DVERTEXELEMENT9 g_FramebufferVertexElements[] = {
 		if (drawPixelsTex_) {
 			drawPixelsTex_->Release();
 		}
-		for (auto it = tempFBOs_.begin(), end = tempFBOs_.end(); it != end; ++it) {
-			it->second.fbo->Release();
-		}
-		for (auto it = offscreenSurfaces_.begin(), end = offscreenSurfaces_.end(); it != end; ++it) {
-			it->second.surface->Release();
+		for (auto &it : offscreenSurfaces_) {
+			it.second.surface->Release();
 		}
 		delete [] convBuf;
 		if (stencilUploadPS_) {
@@ -448,7 +441,7 @@ static const D3DVERTEXELEMENT9 g_FramebufferVertexElements[] = {
 		}
 		if (!skipCopy && currentRenderVfb_ && framebuffer->fb_address == gstate.getFrameBufRawAddress()) {
 			// TODO: Maybe merge with bvfbs_?  Not sure if those could be packing, and they're created at a different size.
-			Draw::Framebuffer *renderCopy = GetTempFBO(framebuffer->renderWidth, framebuffer->renderHeight, (Draw::FBColorDepth)framebuffer->colorDepth);
+			Draw::Framebuffer *renderCopy = GetTempFBO(TempFBO::COPY, framebuffer->renderWidth, framebuffer->renderHeight, (Draw::FBColorDepth)framebuffer->colorDepth);
 			if (renderCopy) {
 				VirtualFramebuffer copyInfo = *framebuffer;
 				copyInfo.fbo = renderCopy;
@@ -467,7 +460,7 @@ static const D3DVERTEXELEMENT9 g_FramebufferVertexElements[] = {
 	bool FramebufferManagerDX9::CreateDownloadTempBuffer(VirtualFramebuffer *nvfb) {
 		nvfb->colorDepth = Draw::FBO_8888;
 
-		nvfb->fbo = draw_->CreateFramebuffer({ nvfb->width, nvfb->height, 1, 1, true, (Draw::FBColorDepth)nvfb->colorDepth });
+		nvfb->fbo = draw_->CreateFramebuffer({ nvfb->bufferWidth, nvfb->bufferHeight, 1, 1, true, (Draw::FBColorDepth)nvfb->colorDepth });
 		if (!(nvfb->fbo)) {
 			ERROR_LOG(FRAMEBUF, "Error creating FBO! %i x %i", nvfb->renderWidth, nvfb->renderHeight);
 			return false;
@@ -514,7 +507,7 @@ static const D3DVERTEXELEMENT9 g_FramebufferVertexElements[] = {
 		// Direct3D 9 doesn't support rect -> self.
 		Draw::Framebuffer *srcFBO = src->fbo;
 		if (src == dst) {
-			Draw::Framebuffer *tempFBO = GetTempFBO(src->renderWidth, src->renderHeight, (Draw::FBColorDepth)src->colorDepth);
+			Draw::Framebuffer *tempFBO = GetTempFBO(TempFBO::BLIT, src->renderWidth, src->renderHeight, (Draw::FBColorDepth)src->colorDepth);
 			bool result = draw_->BlitFramebuffer(
 				src->fbo, srcX1, srcY1, srcX2, srcY2,
 				tempFBO, dstX1, dstY1, dstX2, dstY2,
@@ -537,16 +530,7 @@ static const D3DVERTEXELEMENT9 g_FramebufferVertexElements[] = {
 		const u32 *src32 = (const u32 *)src;
 
 		if (format == GE_FORMAT_8888) {
-			u32 *dst32 = (u32 *)dst;
-			if (src == dst) {
-				return;
-			} else {
-				for (u32 y = 0; y < height; ++y) {
-					ConvertBGRA8888ToRGBA8888(dst32, src32, width);
-					src32 += srcStride;
-					dst32 += dstStride;
-				}
-			}
+			ConvertFromBGRA8888(dst, src, dstStride, srcStride, width, height, Draw::DataFormat::R8G8B8A8_UNORM);
 		} else {
 			// But here it shouldn't matter if they do intersect
 			u16 *dst16 = (u16 *)dst;
@@ -683,7 +667,7 @@ static const D3DVERTEXELEMENT9 g_FramebufferVertexElements[] = {
 			int age = frameLastFramebufUsed_ - it->second.last_frame_used;
 			if (age > FBO_OLD_AGE) {
 				it->second.surface->Release();
-				offscreenSurfaces_.erase(it++);
+				it = offscreenSurfaces_.erase(it);
 			} else {
 				++it;
 			}
@@ -709,13 +693,8 @@ static const D3DVERTEXELEMENT9 g_FramebufferVertexElements[] = {
 		}
 		bvfbs_.clear();
 
-		for (auto it = tempFBOs_.begin(), end = tempFBOs_.end(); it != end; ++it) {
-			it->second.fbo->Release();
-		}
-		tempFBOs_.clear();
-
-		for (auto it = offscreenSurfaces_.begin(), end = offscreenSurfaces_.end(); it != end; ++it) {
-			it->second.surface->Release();
+		for (auto &it : offscreenSurfaces_) {
+			it.second.surface->Release();
 		}
 		offscreenSurfaces_.clear();
 
@@ -760,9 +739,6 @@ static const D3DVERTEXELEMENT9 g_FramebufferVertexElements[] = {
 			LPDIRECT3DSURFACE9 offscreen = GetOffscreenSurface(renderTarget, vfb);
 			if (offscreen) {
 				success = GetRenderTargetFramebuffer(renderTarget, offscreen, w, h, buffer);
-			}
-			if (tempFBO) {
-				tempFBO->Release();
 			}
 		}
 

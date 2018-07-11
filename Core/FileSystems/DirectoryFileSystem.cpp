@@ -181,8 +181,10 @@ bool DirectoryFileHandle::Open(std::string &basePath, std::string &fileName, Fil
 #if HOST_IS_CASE_SENSITIVE
 	if (access & (FILEACCESS_APPEND|FILEACCESS_CREATE|FILEACCESS_WRITE)) {
 		DEBUG_LOG(FILESYS, "Checking case for path %s", fileName.c_str());
-		if (!FixPathCase(basePath, fileName, FPC_PATH_MUST_EXIST) )
+		if (!FixPathCase(basePath, fileName, FPC_PATH_MUST_EXIST)) {
+			error = SCE_KERNEL_ERROR_ERRNO_FILE_NOT_FOUND;
 			return false;  // or go on and attempt (for a better error code than just 0?)
+		}
 	}
 	// else we try fopen first (in case we're lucky) before simulating case insensitivity
 #endif
@@ -250,6 +252,8 @@ bool DirectoryFileHandle::Open(std::string &basePath, std::string &fileName, Fil
 			I18NCategory *err = GetI18NCategory("Error");
 			host->NotifyUserMessage(err->T("Disk full while writing data"));
 			error = SCE_KERNEL_ERROR_ERRNO_NO_PERM;
+		} else if (!success) {
+			error = SCE_KERNEL_ERROR_ERRNO_FILE_NOT_FOUND;
 		}
 	}
 #else
@@ -310,6 +314,8 @@ bool DirectoryFileHandle::Open(std::string &basePath, std::string &fileName, Fil
 		I18NCategory *err = GetI18NCategory("Error");
 		host->NotifyUserMessage(err->T("Disk full while writing data"));
 		error = SCE_KERNEL_ERROR_ERRNO_NO_PERM;
+	} else {
+		error = SCE_KERNEL_ERROR_ERRNO_FILE_NOT_FOUND;
 	}
 #endif
 
@@ -597,7 +603,7 @@ u32 DirectoryFileSystem::OpenFile(std::string filename, FileAccess access, const
 	u32 err = 0;
 	bool success = entry.hFile.Open(basePath, filename, access, err);
 	if (err == 0 && !success) {
-		err = -1;
+		err = SCE_KERNEL_ERROR_ERRNO_FILE_NOT_FOUND;
 	}
 
 	err = ReplayApplyDisk(ReplayAction::FILE_OPEN, err, CoreTiming::GetGlobalTimeUs());

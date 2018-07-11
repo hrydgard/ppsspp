@@ -176,7 +176,7 @@
 #define ID_DISASM_COPYINSTRUCTIONDISASM  40006
 #define ID_DISASM_COPYINSTRUCTIONHEX     40007
 #define ID_EMULATION_SPEEDLIMIT          40008
-#define ID_TOGGLE_PAUSE                  40009
+#define ID_TOGGLE_BREAK                  40009
 #define ID_EMULATION_STOP                40010
 #define ID_FILE_LOAD                     40011
 #define ID_HELP_ABOUT                    40012
@@ -205,7 +205,7 @@
 #define ID_FILE_QUICKSAVESTATE_HC        40036
 #define ID_FILE_QUICKLOADSTATE_HC        40037
 #define ID_OPTIONS_CONTROLS              40038
-#define ID_DEBUG_RUNONLOAD               40039
+#define ID_DEBUG_BREAKONLOAD             40039
 #define ID_DEBUG_DUMPNEXTFRAME           40040
 #define ID_OPTIONS_VERTEXCACHE           40041
 #define ID_OPTIONS_SHOWFPS               40042
@@ -342,14 +342,15 @@
 #define ID_GEDBG_REPLACEMENT_FILENAME    40199
 #define ID_SIMPLEUI_TOGGLE               40200
 #define ID_SIMPLEUI_HIDE                 40201
+#define ID_EMULATION_PAUSE               40177
 
-#define ID_TEXTURESCALING_REALTIME       40177
-#define ID_TEXTURESCALING_REALTIME_HC    40178
-#define ID_TEXTURESCALING_4XBRZ          40179
-#define ID_TEXTURESCALING_XBR            40180
-#define ID_TEXTURESCALING_SABR           40181
-#define ID_TEXTURESCALING_GAUSSIAN       40182
-#define ID_TEXTURESCALING_COSINE         40183
+#define ID_TEXTURESCALING_REALTIME       40178
+#define ID_TEXTURESCALING_REALTIME_HC    40179
+#define ID_TEXTURESCALING_4XBRZ          40180
+#define ID_TEXTURESCALING_XBR            40181
+#define ID_TEXTURESCALING_SABR           40182
+#define ID_TEXTURESCALING_GAUSSIAN       40183
+#define ID_TEXTURESCALING_COSINE         40184
 
 // Dummy option to let the buffered rendering hotkey cycle through all the options.
 #define ID_OPTIONS_BUFFEREDRENDERINGDUMMY 40500
@@ -362,7 +363,7 @@
 #ifdef APSTUDIO_INVOKED
 #ifndef APSTUDIO_READONLY_SYMBOLS
 #define _APS_NEXT_RESOURCE_VALUE        256
-#define _APS_NEXT_COMMAND_VALUE         40177
+#define _APS_NEXT_COMMAND_VALUE         40185
 #define _APS_NEXT_CONTROL_VALUE         1200
 #define _APS_NEXT_SYMED_VALUE           101
 #endif

@@ -48,7 +48,6 @@ import android.view.inputmethod.InputMethodManager;
 import android.widget.EditText;
 import android.widget.FrameLayout;
 import android.widget.Toast;
-
 import java.io.File;
 import java.lang.reflect.Field;
 import java.util.List;
@@ -116,14 +115,14 @@ public abstract class NativeActivity extends Activity implements SurfaceHolder.C
 	private int pixelHeight;
 
 	private static final String[] permissionsForStorage = {
-			Manifest.permission.WRITE_EXTERNAL_STORAGE
+		Manifest.permission.WRITE_EXTERNAL_STORAGE,
 	};
 	private static final String[] permissionsForLocation = {
-			Manifest.permission.ACCESS_FINE_LOCATION,
-			Manifest.permission.ACCESS_COARSE_LOCATION
+		Manifest.permission.ACCESS_FINE_LOCATION,
+		Manifest.permission.ACCESS_COARSE_LOCATION,
 	};
 	private static final String[] permissionsForCamera = {
-			Manifest.permission.CAMERA
+		Manifest.permission.CAMERA
 	};
 
 	public static final int REQUEST_CODE_STORAGE_PERMISSION = 1;
@@ -132,12 +131,12 @@ public abstract class NativeActivity extends Activity implements SurfaceHolder.C
 
 	// Functions for the app activity to override to change behaviour.
 
-    public native void registerCallbacks();
-    public native void unregisterCallbacks();
+	public native void registerCallbacks();
+	public native void unregisterCallbacks();
 
-    public boolean useLowProfileButtons() {
-    	return true;
-    }
+	public boolean useLowProfileButtons() {
+		return true;
+	}
 
 	NativeRenderer getRenderer() {
 		return nativeRenderer;
@@ -158,21 +157,21 @@ public abstract class NativeActivity extends Activity implements SurfaceHolder.C
 	}
 
 	String getApplicationLibraryDir(ApplicationInfo application) {
-	    String libdir = null;
-	    try {
-	        // Starting from Android 2.3, nativeLibraryDir is available:
-	        Field field = ApplicationInfo.class.getField("nativeLibraryDir");
-	        libdir = (String) field.get(application);
-	    } catch (SecurityException e1) {
-	    } catch (NoSuchFieldException e1) {
-	    } catch (IllegalArgumentException e) {
-	    } catch (IllegalAccessException e) {
-	    }
-	    if (libdir == null) {
-	        // Fallback for Android < 2.3:
-	        libdir = application.dataDir + "/lib";
-	    }
-	    return libdir;
+		String libdir = null;
+		try {
+			// Starting from Android 2.3, nativeLibraryDir is available:
+			Field field = ApplicationInfo.class.getField("nativeLibraryDir");
+			libdir = (String) field.get(application);
+		} catch (SecurityException e1) {
+		} catch (NoSuchFieldException e1) {
+		} catch (IllegalArgumentException e) {
+		} catch (IllegalAccessException e) {
+		}
+		if (libdir == null) {
+			// Fallback for Android < 2.3:
+			libdir = application.dataDir + "/lib";
+		}
+		return libdir;
 	}
 
 	@TargetApi(23)
@@ -212,27 +211,26 @@ public abstract class NativeActivity extends Activity implements SurfaceHolder.C
 	}
 
 	@Override
-	public void onRequestPermissionsResult(int requestCode,
-	        String permissions[], int[] grantResults) {
+	public void onRequestPermissionsResult(int requestCode, String permissions[], int[] grantResults) {
 		switch (requestCode) {
-			case REQUEST_CODE_STORAGE_PERMISSION:
-				if (permissionsGranted(permissions, grantResults)) {
-					NativeApp.sendMessage("permission_granted", "storage");
-				} else {
-					NativeApp.sendMessage("permission_denied", "storage");
-				}
-				break;
-			case REQUEST_CODE_LOCATION_PERMISSION:
-				if (permissionsGranted(permissions, grantResults)) {
-					mLocationHelper.startLocationUpdates();
-				}
-				break;
-			case REQUEST_CODE_CAMERA_PERMISSION:
-				if (mCameraHelper != null && permissionsGranted(permissions, grantResults)) {
-					mCameraHelper.startCamera();
-				}
-				break;
-			default:
+		case REQUEST_CODE_STORAGE_PERMISSION:
+			if (permissionsGranted(permissions, grantResults)) {
+				NativeApp.sendMessage("permission_granted", "storage");
+			} else {
+				NativeApp.sendMessage("permission_denied", "storage");
+			}
+			break;
+		case REQUEST_CODE_LOCATION_PERMISSION:
+			if (permissionsGranted(permissions, grantResults)) {
+				mLocationHelper.startLocationUpdates();
+			}
+			break;
+		case REQUEST_CODE_CAMERA_PERMISSION:
+			if (mCameraHelper != null && permissionsGranted(permissions, grantResults)) {
+				mCameraHelper.startCamera();
+			}
+			break;
+		default:
 		}
 	}
 
@@ -241,62 +239,65 @@ public abstract class NativeActivity extends Activity implements SurfaceHolder.C
 	}
 
 	public void Initialize() {
-    	// Initialize audio classes. Do this here since detectOptimalAudioSettings()
+		// Initialize audio classes. Do this here since detectOptimalAudioSettings()
 		// needs audioManager
-        this.audioManager = (AudioManager)getSystemService(Context.AUDIO_SERVICE);
+		this.audioManager = (AudioManager) getSystemService(Context.AUDIO_SERVICE);
 		this.audioFocusChangeListener = new AudioFocusChangeListener();
 
-        if (Build.VERSION.SDK_INT >= 17) {
-        	// Get the optimal buffer sz
-        	detectOptimalAudioSettings();
-        }
-		powerManager = (PowerManager)getSystemService(Context.POWER_SERVICE);
-        if (Build.VERSION.SDK_INT >= 24) {
+		if (Build.VERSION.SDK_INT >= 17) {
+			// Get the optimal buffer sz
+			detectOptimalAudioSettings();
+		}
+		powerManager = (PowerManager) getSystemService(Context.POWER_SERVICE);
+		if (Build.VERSION.SDK_INT >= 24) {
 			if (powerManager.isSustainedPerformanceModeSupported()) {
 				sustainedPerfSupported = true;
 				NativeApp.sendMessage("sustained_perf_supported", "1");
 			}
-        }
+		}
 
-        // isLandscape is used to trigger GetAppInfo currently, we
-        boolean landscape = NativeApp.isLandscape();
-        Log.d(TAG, "Landscape: " + landscape);
+		// isLandscape is used to trigger GetAppInfo currently, we
+		boolean landscape = NativeApp.isLandscape();
+		Log.d(TAG, "Landscape: " + landscape);
 
-    	// Get system information
+		// Get system information
 		ApplicationInfo appInfo = null;
 
 		PackageManager packMgmr = getPackageManager();
 		String packageName = getPackageName();
 		try {
-		    appInfo = packMgmr.getApplicationInfo(packageName, 0);
-	    } catch (NameNotFoundException e) {
-		    e.printStackTrace();
-		    throw new RuntimeException("Unable to locate assets, aborting...");
-	    }
+			appInfo = packMgmr.getApplicationInfo(packageName, 0);
+		} catch (NameNotFoundException e) {
+			e.printStackTrace();
+			throw new RuntimeException("Unable to locate assets, aborting...");
+		}
 
 		int deviceType = NativeApp.DEVICE_TYPE_MOBILE;
 		UiModeManager uiModeManager = (UiModeManager) getSystemService(UI_MODE_SERVICE);
 		switch (uiModeManager.getCurrentModeType()) {
 		case Configuration.UI_MODE_TYPE_TELEVISION:
 			deviceType = NativeApp.DEVICE_TYPE_TV;
-		    Log.i(TAG, "Running on an Android TV Device");
+			Log.i(TAG, "Running on an Android TV Device");
 			break;
 		case Configuration.UI_MODE_TYPE_DESK:
 			deviceType = NativeApp.DEVICE_TYPE_DESKTOP;
-		    Log.i(TAG, "Running on an Android desktop computer (!)");
+			Log.i(TAG, "Running on an Android desktop computer (!)");
 			break;
 		// All other device types are treated the same.
 		}
 
-
-
-	    isXperiaPlay = IsXperiaPlay();
+		isXperiaPlay = IsXperiaPlay();
 
 		String libraryDir = getApplicationLibraryDir(appInfo);
-	    File sdcard = Environment.getExternalStorageDirectory();
+		File sdcard = Environment.getExternalStorageDirectory();
 
-	    String externalStorageDir = sdcard.getAbsolutePath();
-	    String dataDir = this.getFilesDir().getAbsolutePath();
+		String externalStorageDir = sdcard.getAbsolutePath();
+		File filesDir = this.getFilesDir();
+		String dataDir = null;
+		if (filesDir != null) {
+			// Null has been seen in Google Play stacktraces
+			dataDir = filesDir.getAbsolutePath();
+		}
 		String apkFilePath = appInfo.sourceDir;
 		String cacheDir = getCacheDir().getAbsolutePath();
 
@@ -317,27 +318,26 @@ public abstract class NativeActivity extends Activity implements SurfaceHolder.C
 			updateScreenRotation("Initialize");
 		}
 
-	    // Detect OpenGL support.
-	    // We don't currently use this detection for anything but good to have in the log.
-        if (!detectOpenGLES20()) {
-        	Log.i(TAG, "OpenGL ES 2.0 NOT detected. Things will likely go badly.");
-        } else {
-        	if (detectOpenGLES30()) {
-            	Log.i(TAG, "OpenGL ES 3.0 detected.");
-        	}
-        	else {
-            	Log.i(TAG, "OpenGL ES 2.0 detected.");
-        	}
-        }
+		// Detect OpenGL support.
+		// We don't currently use this detection for anything but good to have in the log.
+		if (!detectOpenGLES20()) {
+			Log.i(TAG, "OpenGL ES 2.0 NOT detected. Things will likely go badly.");
+		} else {
+			if (detectOpenGLES30()) {
+				Log.i(TAG, "OpenGL ES 3.0 detected.");
+			} else {
+				Log.i(TAG, "OpenGL ES 2.0 detected.");
+			}
+		}
 
-        vibrator = (Vibrator)getSystemService(VIBRATOR_SERVICE);
-        if (Build.VERSION.SDK_INT >= 11) {
-        	checkForVibrator();
-        }
+		vibrator = (Vibrator) getSystemService(VIBRATOR_SERVICE);
+		if (Build.VERSION.SDK_INT >= 11) {
+			checkForVibrator();
+		}
 
 		mLocationHelper = new LocationHelper(this);
-        if (Build.VERSION.SDK_INT >= 11) {
-        	// android.graphics.SurfaceTexture is not available before version 11.
+		if (Build.VERSION.SDK_INT >= 11) {
+			// android.graphics.SurfaceTexture is not available before version 11.
 			mCameraHelper = new CameraHelper(this);
 		}
 	}
@@ -415,16 +415,17 @@ public abstract class NativeActivity extends Activity implements SurfaceHolder.C
 		} else {
 			Log.e(TAG, "updateSystemUiVisibility: decor view not yet created, ignoring");
 		}
+		updateDisplayMeasurements();
 	}
 
 	// Need API 11 to check for existence of a vibrator? Zany.
 	@TargetApi(11)
 	public void checkForVibrator() {
-        if (Build.VERSION.SDK_INT >= 11) {
-	        if (!vibrator.hasVibrator()) {
-	        	vibrator = null;
-	        }
-        }
+		if (Build.VERSION.SDK_INT >= 11) {
+			if (!vibrator.hasVibrator()) {
+				vibrator = null;
+			}
+		}
 	}
 
 	private Runnable mEmulationRunner = new Runnable() {
@@ -450,22 +451,33 @@ public abstract class NativeActivity extends Activity implements SurfaceHolder.C
 		sz.y = NativeApp.getDesiredBackbufferHeight();
 	}
 
+	@TargetApi(17)
+	public void updateDisplayMeasurements() {
+		Display display = getWindowManager().getDefaultDisplay();
+
+		DisplayMetrics metrics = new DisplayMetrics();
+		if (useImmersive() && Build.VERSION.SDK_INT >= 17) {
+			display.getRealMetrics(metrics);
+		} else {
+			display.getMetrics(metrics);
+		}
+		densityDpi = metrics.densityDpi;
+		refreshRate = display.getRefreshRate();
+
+		NativeApp.setDisplayParameters(metrics.widthPixels, metrics.heightPixels, (int) densityDpi, refreshRate);
+	}
+
 	@Override
-    public void onCreate(Bundle savedInstanceState) {
+	public void onCreate(Bundle savedInstanceState) {
 		super.onCreate(savedInstanceState);
 		TextRenderer.init(this);
 		shuttingDown = false;
 		registerCallbacks();
 
-		Display display = getWindowManager().getDefaultDisplay();
-		DisplayMetrics metrics = new DisplayMetrics();
-		display.getMetrics(metrics);
-		densityDpi = metrics.densityDpi;
-		refreshRate = display.getRefreshRate();
-
-		// Set early to be able to set defaults when loading config for the first time. Like figuring out
+		// This calls NativeApp.setDisplayParameters. Make sure that's done early in order
+		// to be able to set defaults when loading config for the first time. Like figuring out
 		// whether to start at 1x or 2x.
-		NativeApp.setDisplayParameters(metrics.widthPixels, metrics.heightPixels, (int)densityDpi, refreshRate);
+		updateDisplayMeasurements();
 
 		if (!initialized) {
 			Initialize();
@@ -476,43 +488,40 @@ public abstract class NativeActivity extends Activity implements SurfaceHolder.C
 		updateScreenRotation("onCreate");
 		updateSustainedPerformanceMode();
 
-		// Keep the screen bright - very annoying if it goes dark when tilting away
-		Window window = this.getWindow();
-		window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
 		setVolumeControlStream(AudioManager.STREAM_MUSIC);
 
 		gainAudioFocus(this.audioManager, this.audioFocusChangeListener);
-        NativeApp.audioInit();
+		NativeApp.audioInit();
 
-        if (javaGL) {
-	        mGLSurfaceView = new NativeGLView(this);
+		if (javaGL) {
+			mGLSurfaceView = new NativeGLView(this);
 			nativeRenderer = new NativeRenderer(this);
 			mGLSurfaceView.setEGLContextClientVersion(2);
 			mGLSurfaceView.getHolder().addCallback(NativeActivity.this);
 
-	        // Setup the GLSurface and ask android for the correct
-	        // Number of bits for r, g, b, a, depth and stencil components
-	        // The PSP only has 16-bit Z so that should be enough.
-	        // Might want to change this for other apps (24-bit might be useful).
-	        // Actually, we might be able to do without both stencil and depth in
-	        // the back buffer, but that would kill non-buffered rendering.
+			// Setup the GLSurface and ask android for the correct
+			// Number of bits for r, g, b, a, depth and stencil components
+			// The PSP only has 16-bit Z so that should be enough.
+			// Might want to change this for other apps (24-bit might be useful).
+			// Actually, we might be able to do without both stencil and depth in
+			// the back buffer, but that would kill non-buffered rendering.
 
-	        // It appears some gingerbread devices blow up if you use a config chooser at all ????  (Xperia Play)
-	        //if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.HONEYCOMB) {
+			// It appears some gingerbread devices blow up if you use a config chooser at all ???? (Xperia Play)
+			//if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.HONEYCOMB) {
 
-	        // On some (especially older devices), things blow up later (EGL_BAD_MATCH) if we don't set the format here,
-	        // if we specify that we want destination alpha in the config chooser, which we do.
-	        // http://grokbase.com/t/gg/android-developers/11bj40jm4w/fall-back
+			// On some (especially older devices), things blow up later (EGL_BAD_MATCH) if we don't set
+			// the format here, if we specify that we want destination alpha in the config chooser, which we do.
+			// http://grokbase.com/t/gg/android-developers/11bj40jm4w/fall-back
 
-	        // Needed to avoid banding on Ouya?
-	        if (Build.MANUFACTURER == "OUYA") {
-	        	mGLSurfaceView.getHolder().setFormat(PixelFormat.RGBX_8888);
-	        	mGLSurfaceView.setEGLConfigChooser(new NativeEGLConfigChooser());
-	        }
-	        // Tried to mess around with config choosers here but fail completely on Xperia Play.
+			// Needed to avoid banding on Ouya?
+			if (Build.MANUFACTURER == "OUYA") {
+				mGLSurfaceView.getHolder().setFormat(PixelFormat.RGBX_8888);
+				mGLSurfaceView.setEGLConfigChooser(new NativeEGLConfigChooser());
+			}
+			// Tried to mess around with config choosers here but fail completely on Xperia Play.
 			mGLSurfaceView.setRenderer(nativeRenderer);
 			setContentView(mGLSurfaceView);
-        } else {
+		} else {
 			if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.ICE_CREAM_SANDWICH) {
 				updateSystemUiVisibility();
 				if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.KITKAT) {
@@ -521,16 +530,17 @@ public abstract class NativeActivity extends Activity implements SurfaceHolder.C
 			}
 
 			mSurfaceView = new NativeSurfaceView(NativeActivity.this);
-	        mSurfaceView.getHolder().addCallback(NativeActivity.this);
-	        Log.i(TAG, "setcontentview before");
+			mSurfaceView.getHolder().addCallback(NativeActivity.this);
+			Log.i(TAG, "setcontentview before");
 			setContentView(mSurfaceView);
 			Log.i(TAG, "setcontentview after");
 			ensureRenderLoop();
-        }
-    }
+		}
+	}
 
 	private Point desiredSize = new Point();
 	private int badOrientationCount = 0;
+
 	@Override
 	public void surfaceCreated(SurfaceHolder holder) {
 		pixelWidth = holder.getSurfaceFrame().width();
@@ -553,7 +563,7 @@ public abstract class NativeActivity extends Activity implements SurfaceHolder.C
 		}
 
 		Log.d(TAG, "Surface created. pixelWidth=" + pixelWidth + ", pixelHeight=" + pixelHeight + " holder: " + holder.toString() + " or: " + requestedOr);
-		NativeApp.setDisplayParameters(pixelWidth, pixelHeight, (int)densityDpi, refreshRate);
+		NativeApp.setDisplayParameters(pixelWidth, pixelHeight, (int) densityDpi, refreshRate);
 		getDesiredBackbufferSize(desiredSize);
 
 		// Note that desiredSize might be 0,0 here - but that's fine when calling setFixedSize! It means auto.
@@ -562,18 +572,24 @@ public abstract class NativeActivity extends Activity implements SurfaceHolder.C
 	}
 
 	@Override
+	public void onWindowFocusChanged(boolean hasFocus) {
+		super.onWindowFocusChanged(hasFocus);
+		updateSustainedPerformanceMode();
+	}
+
+	@Override
 	public void surfaceChanged(SurfaceHolder holder, int format, int width, int height) {
 		Log.v(TAG, "surfaceChanged: isCreating:" + holder.isCreating() + " holder: " + holder.toString());
 		if (holder.isCreating() && desiredSize.x > 0 && desiredSize.y > 0) {
-			// We have called setFixedSize which will trigger another surfaceChanged after the initial one. This one is the original one
-			// and we don't care about it.
+			// We have called setFixedSize which will trigger another surfaceChanged after the initial
+			// one. This one is the original one and we don't care about it.
 			Log.w(TAG, "holder.isCreating = true, ignoring. width=" + width + " height=" + height + " desWidth=" + desiredSize.x + " desHeight=" + desiredSize.y);
 			return;
 		}
 		Log.w(TAG, "Surface changed. Resolution: " + width + "x" + height + " Format: " + format);
 		NativeApp.backbufferResize(width, height, format);
 		mSurface = holder.getSurface();
-	    if (!javaGL) {
+		if (!javaGL) {
 			// If we got a surface, this starts the thread. If not, it doesn't.
 			if (mSurface == null) {
 				joinRenderLoopThread();
@@ -581,6 +597,7 @@ public abstract class NativeActivity extends Activity implements SurfaceHolder.C
 				ensureRenderLoop();
 			}
 		}
+		updateSustainedPerformanceMode();
 	}
 
 	@Override
@@ -597,8 +614,8 @@ public abstract class NativeActivity extends Activity implements SurfaceHolder.C
 	// Invariants: After this, mRenderLoopThread will be set, and the thread will be running.
 	protected synchronized void ensureRenderLoop() {
 		if (javaGL) {
-	    	Log.e(TAG, "JavaGL - should not get into ensureRenderLoop.");
-	    	return;
+			Log.e(TAG, "JavaGL - should not get into ensureRenderLoop.");
+			return;
 		}
 		if (mSurface == null) {
 			Log.w(TAG, "ensureRenderLoop - not starting thread, needs surface");
@@ -615,8 +632,8 @@ public abstract class NativeActivity extends Activity implements SurfaceHolder.C
 	// Invariants: After this, mRenderLoopThread will be null, and the thread has exited.
 	private synchronized void joinRenderLoopThread() {
 		if (javaGL) {
-	    	Log.e(TAG, "JavaGL - should not get into joinRenderLoopThread.");
-	    	return;
+			Log.e(TAG, "JavaGL - should not get into joinRenderLoopThread.");
+			return;
 		}
 
 		if (mRenderLoopThread != null) {
@@ -634,23 +651,23 @@ public abstract class NativeActivity extends Activity implements SurfaceHolder.C
 		}
 	}
 
-    @TargetApi(19)
+	@TargetApi(19)
 	void setupSystemUiCallback() {
-        getWindow().getDecorView().setOnSystemUiVisibilityChangeListener(new OnSystemUiVisibilityChangeListener() {
-            @Override
-            public void onSystemUiVisibilityChange(int visibility) {
-                if (visibility == 0) {
-                	updateSystemUiVisibility();
-                }
-            }
-        });
-    }
+		getWindow().getDecorView().setOnSystemUiVisibilityChangeListener(new OnSystemUiVisibilityChangeListener() {
+			@Override
+			public void onSystemUiVisibilityChange(int visibility) {
+				if (visibility == 0) {
+					updateSystemUiVisibility();
+				}
+			}
+		});
+	}
 
-    @Override
-    protected void onStop() {
-    	super.onStop();
-    	Log.i(TAG, "onStop - do nothing special");
-    }
+	@Override
+	protected void onStop() {
+		super.onStop();
+		Log.i(TAG, "onStop - do nothing special");
+	}
 
 	@Override
 	protected void onDestroy() {
@@ -687,45 +704,46 @@ public abstract class NativeActivity extends Activity implements SurfaceHolder.C
 		}
 	}
 
-    @Override
-    protected void onPause() {
+	@Override
+	protected void onPause() {
 		super.onPause();
 		Log.i(TAG, "onPause");
 		loseAudioFocus(this.audioManager, this.audioFocusChangeListener);
 		NativeApp.pause();
-	    if (!javaGL) {
+		if (!javaGL) {
 			mSurfaceView.onPause();
 			Log.i(TAG, "Joining render thread...");
 			joinRenderLoopThread();
 			Log.i(TAG, "Joined render thread");
-	    } else {
+		} else {
 			if (mGLSurfaceView != null) {
 				mGLSurfaceView.onPause();
 			} else {
 				Log.e(TAG, "mGLSurfaceView really shouldn't be null in onPause");
 			}
-	    }
+		}
 		Log.i(TAG, "onPause completed");
 	}
 
-    private boolean detectOpenGLES20() {
-        ActivityManager am = (ActivityManager) getSystemService(Context.ACTIVITY_SERVICE);
-        ConfigurationInfo info = am.getDeviceConfigurationInfo();
-        return info.reqGlEsVersion >= 0x20000;
-    }
+	private boolean detectOpenGLES20() {
+		ActivityManager am = (ActivityManager) getSystemService(Context.ACTIVITY_SERVICE);
+		ConfigurationInfo info = am.getDeviceConfigurationInfo();
+		return info.reqGlEsVersion >= 0x20000;
+	}
 
-    private boolean detectOpenGLES30() {
-        ActivityManager am = (ActivityManager) getSystemService(Context.ACTIVITY_SERVICE);
-        ConfigurationInfo info = am.getDeviceConfigurationInfo();
-        return info.reqGlEsVersion >= 0x30000;
-    }
+	private boolean detectOpenGLES30() {
+		ActivityManager am = (ActivityManager) getSystemService(Context.ACTIVITY_SERVICE);
+		ConfigurationInfo info = am.getDeviceConfigurationInfo();
+		return info.reqGlEsVersion >= 0x30000;
+	}
 
 	@Override
 	protected void onResume() {
 		super.onResume();
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.ICE_CREAM_SANDWICH) {
-            updateSystemUiVisibility();
-        }
+		updateSustainedPerformanceMode();
+		if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.ICE_CREAM_SANDWICH) {
+			updateSystemUiVisibility();
+		}
 		// OK, config should be initialized, we can query for screen rotation.
 		if (javaGL || Build.VERSION.SDK_INT >= 9) {
 			updateScreenRotation("onResume");
@@ -753,80 +771,79 @@ public abstract class NativeActivity extends Activity implements SurfaceHolder.C
 		}
 	}
 
-    @Override
-    public void onConfigurationChanged(Configuration newConfig) {
-    	Log.i(TAG, "onConfigurationChanged");
-    	super.onConfigurationChanged(newConfig);
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.ICE_CREAM_SANDWICH) {
-            updateSystemUiVisibility();
-        }
-        densityDpi = (float)newConfig.densityDpi;
-    }
+	@Override
+	public void onConfigurationChanged(Configuration newConfig) {
+		Log.i(TAG, "onConfigurationChanged");
+		super.onConfigurationChanged(newConfig);
+		if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.ICE_CREAM_SANDWICH) {
+			updateSystemUiVisibility();
+		}
+		densityDpi = (float) newConfig.densityDpi;
+	}
 
-	//keep this static so we can call this even if we don't
-	//instantiate NativeAudioPlayer
+	// keep this static so we can call this even if we don't
+	// instantiate NativeAudioPlayer
 	public static void gainAudioFocus(AudioManager audioManager, AudioFocusChangeListener focusChangeListener) {
 		if (audioManager != null) {
-			audioManager.requestAudioFocus(focusChangeListener,
-					AudioManager.STREAM_MUSIC, AudioManager.AUDIOFOCUS_GAIN);
+			audioManager.requestAudioFocus(focusChangeListener, AudioManager.STREAM_MUSIC, AudioManager.AUDIOFOCUS_GAIN);
 		}
 	}
 
-	//keep this static so we can call this even if we don't
-	//instantiate NativeAudioPlayer
-	public static void loseAudioFocus(AudioManager audioManager,AudioFocusChangeListener focusChangeListener){
+	// keep this static so we can call this even if we don't
+	// instantiate NativeAudioPlayer
+	public static void loseAudioFocus(AudioManager audioManager, AudioFocusChangeListener focusChangeListener) {
 		if (audioManager != null) {
 			audioManager.abandonAudioFocus(focusChangeListener);
 		}
 	}
 
-    // We simply grab the first input device to produce an event and ignore all others that are connected.
-    @TargetApi(Build.VERSION_CODES.GINGERBREAD)
+	// We simply grab the first input device to produce an event and ignore all others that are connected.
+	@TargetApi(Build.VERSION_CODES.GINGERBREAD)
 	private InputDeviceState getInputDeviceState(InputEvent event) {
-        InputDevice device = event.getDevice();
-        if (device == null) {
-            return null;
-        }
-        if (inputPlayerA == null) {
-            inputPlayerADesc = getInputDesc(device);
-            Log.i(TAG, "Input player A registered: desc = " + inputPlayerADesc);
-            inputPlayerA = new InputDeviceState(device);
-        }
+		InputDevice device = event.getDevice();
+		if (device == null) {
+			return null;
+		}
+		if (inputPlayerA == null) {
+			inputPlayerADesc = getInputDesc(device);
+			Log.i(TAG, "Input player A registered: desc = " + inputPlayerADesc);
+			inputPlayerA = new InputDeviceState(device);
+		}
 
-        if (inputPlayerA.getDevice() == device) {
-            return inputPlayerA;
-        }
+		if (inputPlayerA.getDevice() == device) {
+			return inputPlayerA;
+		}
 
-        if (inputPlayerB == null) {
-            Log.i(TAG, "Input player B registered: desc = " + getInputDesc(device));
-            inputPlayerB = new InputDeviceState(device);
-        }
+		if (inputPlayerB == null) {
+			Log.i(TAG, "Input player B registered: desc = " + getInputDesc(device));
+			inputPlayerB = new InputDeviceState(device);
+		}
 
-        if (inputPlayerB.getDevice() == device) {
-            return inputPlayerB;
-        }
+		if (inputPlayerB.getDevice() == device) {
+			return inputPlayerB;
+		}
 
-        if (inputPlayerC == null) {
-            Log.i(TAG, "Input player C registered");
-            inputPlayerC = new InputDeviceState(device);
-        }
+		if (inputPlayerC == null) {
+			Log.i(TAG, "Input player C registered");
+			inputPlayerC = new InputDeviceState(device);
+		}
 
-        if (inputPlayerC.getDevice() == device) {
-            return inputPlayerC;
-        }
+		if (inputPlayerC.getDevice() == device) {
+			return inputPlayerC;
+		}
 
-        return inputPlayerA;
-    }
+		return inputPlayerA;
+	}
 
-    public boolean IsXperiaPlay() {
-        return android.os.Build.MODEL.equals("R800a") || android.os.Build.MODEL.equals("R800i") || android.os.Build.MODEL.equals("R800x") || android.os.Build.MODEL.equals("R800at") || android.os.Build.MODEL.equals("SO-01D") || android.os.Build.MODEL.equals("zeus");
-    }
+	public boolean IsXperiaPlay() {
+		return android.os.Build.MODEL.equals("R800a") || android.os.Build.MODEL.equals("R800i") || android.os.Build.MODEL.equals("R800x") || android.os.Build.MODEL.equals("R800at") || android.os.Build.MODEL.equals("SO-01D") || android.os.Build.MODEL.equals("zeus");
+	}
 
-    // We grab the keys before onKeyDown/... even see them. This is also better because it lets us
-    // distinguish devices.
-    @Override
-    public boolean dispatchKeyEvent(KeyEvent event) {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.HONEYCOMB_MR1 && !isXperiaPlay) {
+	// We grab the keys before onKeyDown/... even see them. This is also better because it lets us
+	// distinguish devices.
+	@Override
+	public boolean dispatchKeyEvent(KeyEvent event) {
+		if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.HONEYCOMB_MR1 && !isXperiaPlay) {
 			InputDeviceState state = getInputDeviceState(event);
 			if (state == null) {
 				return super.dispatchKeyEvent(event);
@@ -869,14 +886,14 @@ public abstract class NativeActivity extends Activity implements SurfaceHolder.C
 					break;
 				}
 			}
-        }
+		}
 
-        // Let's go through the old path (onKeyUp, onKeyDown).
+		// Let's go through the old path (onKeyUp, onKeyDown).
 		return super.dispatchKeyEvent(event);
-    }
+	}
 
 	@TargetApi(16)
-	static public String getInputDesc(InputDevice input) {
+	public static String getInputDesc(InputDevice input) {
 		if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.JELLY_BEAN) {
 			return input.getDescriptor();
 		} else {
@@ -893,27 +910,27 @@ public abstract class NativeActivity extends Activity implements SurfaceHolder.C
 	public boolean onGenericMotionEvent(MotionEvent event) {
 		// Log.d(TAG, "onGenericMotionEvent: " + event);
 		if ((event.getSource() & InputDevice.SOURCE_JOYSTICK) != 0) {
-	        if (Build.VERSION.SDK_INT >= 12) {
-	        	InputDeviceState state = getInputDeviceState(event);
-	        	if (state == null) {
-	        		Log.w(TAG, "Joystick event but failed to get input device state.");
-	        		return super.onGenericMotionEvent(event);
-	        	}
-	        	state.onJoystickMotion(event);
-	        	return true;
-	        }
+			if (Build.VERSION.SDK_INT >= 12) {
+				InputDeviceState state = getInputDeviceState(event);
+				if (state == null) {
+					Log.w(TAG, "Joystick event but failed to get input device state.");
+					return super.onGenericMotionEvent(event);
+				}
+				state.onJoystickMotion(event);
+				return true;
+			}
 		}
 
 		if ((event.getSource() & InputDevice.SOURCE_CLASS_POINTER) != 0) {
-	         switch (event.getAction()) {
-	             case MotionEvent.ACTION_HOVER_MOVE:
-	                 // process the mouse hover movement...
-	                 return true;
-	             case MotionEvent.ACTION_SCROLL:
-	                 NativeApp.mouseWheelEvent(event.getX(), event.getY());
-	                 return true;
-	         }
-	    }
+			switch (event.getAction()) {
+			case MotionEvent.ACTION_HOVER_MOVE:
+				// process the mouse hover movement...
+				return true;
+			case MotionEvent.ACTION_SCROLL:
+				NativeApp.mouseWheelEvent(event.getX(), event.getY());
+				return true;
+			}
+		}
 		return super.onGenericMotionEvent(event);
 	}
 
@@ -992,19 +1009,19 @@ public abstract class NativeActivity extends Activity implements SurfaceHolder.C
 			return NativeApp.keyUp(0, keyCode);
 		}
 	}
+
 	@Override
 	protected void onActivityResult(int requestCode, int resultCode, Intent data) {
 		super.onActivityResult(requestCode, resultCode, data);
 		if (requestCode == RESULT_LOAD_IMAGE && resultCode == RESULT_OK && null != data) {
 			Uri selectedImage = data.getData();
-			String[] filePathColumn = { MediaStore.Images.Media.DATA };
-			Cursor cursor = getContentResolver().query(selectedImage,
-					filePathColumn, null, null, null);
+			String[] filePathColumn = {MediaStore.Images.Media.DATA};
+			Cursor cursor = getContentResolver().query(selectedImage, filePathColumn, null, null, null);
 			cursor.moveToFirst();
 			int columnIndex = cursor.getColumnIndex(filePathColumn[0]);
 			String picturePath = cursor.getString(columnIndex);
 			cursor.close();
-			NativeApp.sendMessage("bgImage_updated" , picturePath);
+			NativeApp.sendMessage("bgImage_updated", picturePath);
 		}
 	}
 
@@ -1047,17 +1064,17 @@ public abstract class NativeActivity extends Activity implements SurfaceHolder.C
 
 	// The return value is sent elsewhere. TODO in java, in SendMessage in C++.
 	public void inputBox(final String title, String defaultText, String defaultAction) {
-    	final FrameLayout fl = new FrameLayout(this);
-    	final EditText input = new EditText(this);
-    	input.setGravity(Gravity.CENTER);
+		final FrameLayout fl = new FrameLayout(this);
+		final EditText input = new EditText(this);
+		input.setGravity(Gravity.CENTER);
 
-    	FrameLayout.LayoutParams editBoxLayout = new FrameLayout.LayoutParams(FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.WRAP_CONTENT);
-    	editBoxLayout.setMargins(2, 20, 2, 20);
-    	fl.addView(input, editBoxLayout);
+		FrameLayout.LayoutParams editBoxLayout = new FrameLayout.LayoutParams(FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.WRAP_CONTENT);
+		editBoxLayout.setMargins(2, 20, 2, 20);
+		fl.addView(input, editBoxLayout);
 
-    	input.setInputType(InputType.TYPE_CLASS_TEXT);
-    	input.setText(defaultText);
-    	input.selectAll();
+		input.setInputType(InputType.TYPE_CLASS_TEXT);
+		input.setText(defaultText);
+		input.selectAll();
 
 		// Lovely!
 		AlertDialog.Builder bld;
@@ -1072,30 +1089,31 @@ public abstract class NativeActivity extends Activity implements SurfaceHolder.C
 		else
 			bld = createDialogBuilderNew();
 
-    	AlertDialog dlg = bld
-    		.setView(fl)
-    		.setTitle(title)
-    		.setPositiveButton(defaultAction, new DialogInterface.OnClickListener(){
-    			@Override
-    			public void onClick(DialogInterface d, int which) {
-    	    		NativeApp.sendMessage("inputbox_completed", title + ":" + input.getText().toString());
-    				d.dismiss();
-    			}
-    		})
-    		.setNegativeButton("Cancel", new DialogInterface.OnClickListener(){
-    			@Override
-    			public void onClick(DialogInterface d, int which) {
-    	    		NativeApp.sendMessage("inputbox_failed", "");
-    				d.cancel();
-    			}
-    		}).create();
+		AlertDialog dlg = bld
+			.setView(fl)
+			.setTitle(title)
+			.setPositiveButton(defaultAction, new DialogInterface.OnClickListener() {
+				@Override
+				public void onClick(DialogInterface d, int which) {
+					NativeApp.sendMessage("inputbox_completed", title + ":" + input.getText().toString());
+					d.dismiss();
+				}
+			})
+			.setNegativeButton("Cancel", new DialogInterface.OnClickListener() {
+				@Override
+				public void onClick(DialogInterface d, int which) {
+					NativeApp.sendMessage("inputbox_failed", "");
+					d.cancel();
+				}
+			})
+			.create();
 
-    	dlg.setCancelable(true);
-    	dlg.show();
-    }
+		dlg.setCancelable(true);
+		dlg.show();
+	}
 
-    public boolean processCommand(String command, String params) {
-    	SurfaceView surfView = javaGL ? mGLSurfaceView : mSurfaceView;
+	public boolean processCommand(String command, String params) {
+		SurfaceView surfView = javaGL ? mGLSurfaceView : mSurfaceView;
 		if (command.equals("launchBrowser")) {
 			try {
 				Intent i = new Intent(Intent.ACTION_VIEW, Uri.parse(params));
@@ -1110,24 +1128,22 @@ public abstract class NativeActivity extends Activity implements SurfaceHolder.C
 			try {
 				Intent send = new Intent(Intent.ACTION_SENDTO);
 				String uriText;
-				uriText = "mailto:email@gmail.com" + "?subject=Your app is..."
-						+ "&body=great! Or?";
+				uriText = "mailto:email@gmail.com" + "?subject=Your app is..." + "&body=great! Or?";
 				uriText = uriText.replace(" ", "%20");
 				Uri uri = Uri.parse(uriText);
 				send.setData(uri);
 				startActivity(Intent.createChooser(send, "E-mail the app author!"));
 				return true;
-			} catch (Exception e) {  // For example, android.content.ActivityNotFoundException
+			} catch (Exception e) { // For example, android.content.ActivityNotFoundException
 				Log.e(TAG, e.toString());
 				return false;
 			}
 		} else if (command.equals("bgImage_browse")) {
 			try {
-				Intent i = new Intent(Intent.ACTION_PICK,
-						android.provider.MediaStore.Images.Media.EXTERNAL_CONTENT_URI);
+				Intent i = new Intent(Intent.ACTION_PICK, MediaStore.Images.Media.EXTERNAL_CONTENT_URI);
 				startActivityForResult(i, RESULT_LOAD_IMAGE);
 				return true;
-			} catch (Exception e) {  // For example, android.content.ActivityNotFoundException
+			} catch (Exception e) { // For example, android.content.ActivityNotFoundException
 				Log.e(TAG, e.toString());
 				return false;
 			}
@@ -1138,7 +1154,7 @@ public abstract class NativeActivity extends Activity implements SurfaceHolder.C
 				share.putExtra(Intent.EXTRA_STREAM, Uri.parse("file://" + params));
 				startActivity(Intent.createChooser(share, "Share Picture"));
 				return true;
-			} catch (Exception e) {  // For example, android.content.ActivityNotFoundException
+			} catch (Exception e) { // For example, android.content.ActivityNotFoundException
 				Log.e(TAG, e.toString());
 				return false;
 			}
@@ -1150,7 +1166,7 @@ public abstract class NativeActivity extends Activity implements SurfaceHolder.C
 				sendIntent.setAction(Intent.ACTION_SEND);
 				startActivity(sendIntent);
 				return true;
-			} catch (Exception e) {  // For example, android.content.ActivityNotFoundException
+			} catch (Exception e) { // For example, android.content.ActivityNotFoundException
 				Log.e(TAG, e.toString());
 				return false;
 			}
@@ -1158,16 +1174,12 @@ public abstract class NativeActivity extends Activity implements SurfaceHolder.C
 			try {
 				String twitter_user_name = params;
 				try {
-					startActivity(new Intent(Intent.ACTION_VIEW,
-							Uri.parse("twitter://user?screen_name="
-									+ twitter_user_name)));
+					startActivity(new Intent(Intent.ACTION_VIEW, Uri.parse("twitter://user?screen_name=" + twitter_user_name)));
 				} catch (Exception e) {
-					startActivity(new Intent(
-							Intent.ACTION_VIEW,
-							Uri.parse("https://twitter.com/#!/" + twitter_user_name)));
+					startActivity(new Intent(Intent.ACTION_VIEW, Uri.parse("https://twitter.com/#!/" + twitter_user_name)));
 				}
 				return true;
-			} catch (Exception e) {  // For example, android.content.ActivityNotFoundException
+			} catch (Exception e) { // For example, android.content.ActivityNotFoundException
 				Log.e(TAG, e.toString());
 				return false;
 			}
@@ -1185,15 +1197,11 @@ public abstract class NativeActivity extends Activity implements SurfaceHolder.C
 			InputMethodManager inputMethodManager = (InputMethodManager) getSystemService(Context.INPUT_METHOD_SERVICE);
 			// No idea what the point of the ApplicationWindowToken is or if it
 			// matters where we get it from...
-			inputMethodManager.toggleSoftInputFromWindow(
-					surfView.getApplicationWindowToken(),
-					InputMethodManager.SHOW_FORCED, 0);
+			inputMethodManager.toggleSoftInputFromWindow(surfView.getApplicationWindowToken(), InputMethodManager.SHOW_FORCED, 0);
 			return true;
 		} else if (command.equals("hideKeyboard") && surfView != null) {
 			InputMethodManager inputMethodManager = (InputMethodManager) getSystemService(Context.INPUT_METHOD_SERVICE);
-			inputMethodManager.toggleSoftInputFromWindow(
-					surfView.getApplicationWindowToken(),
-					InputMethodManager.SHOW_FORCED, 0);
+			inputMethodManager.toggleSoftInputFromWindow(surfView.getApplicationWindowToken(), InputMethodManager.SHOW_FORCED, 0);
 			return true;
 		} else if (command.equals("inputbox")) {
 			String title = "Input";
@@ -1223,19 +1231,19 @@ public abstract class NativeActivity extends Activity implements SurfaceHolder.C
 			// permission.
 			if (surfView != null) {
 				switch (milliseconds) {
-					case -1:
-						surfView.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP, HapticFeedbackConstants.FLAG_IGNORE_GLOBAL_SETTING);
-						break;
-					case -2:
-						surfView.performHapticFeedback(HapticFeedbackConstants.VIRTUAL_KEY, HapticFeedbackConstants.FLAG_IGNORE_GLOBAL_SETTING);
-						break;
-					case -3:
-						surfView.performHapticFeedback(HapticFeedbackConstants.LONG_PRESS, HapticFeedbackConstants.FLAG_IGNORE_GLOBAL_SETTING);
-						break;
-					default:
-						// Requires the vibrate permission, which we don't have, so disabled.
-						// vibrator.vibrate(milliseconds);
-						break;
+				case -1:
+					surfView.performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP, HapticFeedbackConstants.FLAG_IGNORE_GLOBAL_SETTING);
+					break;
+				case -2:
+					surfView.performHapticFeedback(HapticFeedbackConstants.VIRTUAL_KEY, HapticFeedbackConstants.FLAG_IGNORE_GLOBAL_SETTING);
+					break;
+				case -3:
+					surfView.performHapticFeedback(HapticFeedbackConstants.LONG_PRESS, HapticFeedbackConstants.FLAG_IGNORE_GLOBAL_SETTING);
+					break;
+				default:
+					// Requires the vibrate permission, which we don't have, so disabled.
+					// vibrator.vibrate(milliseconds);
+					break;
 				}
 			} else {
 				Log.e(TAG, "Can't vibrate, no surface view");
@@ -1290,22 +1298,27 @@ public abstract class NativeActivity extends Activity implements SurfaceHolder.C
 			} else if (mCameraHelper != null && params.equals("stopVideo")) {
 				mCameraHelper.stopCamera();
 			}
+		} else if (command.equals("uistate")) {
+			Window window = this.getWindow();
+			if (params.equals("ingame")) {
+				// Keep the screen bright - very annoying if it goes dark when tilting away
+				window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
+			} else {
+				// Only keep the screen bright ingame.
+				window.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
+			}
 		}
-    	return false;
-    }
+		return false;
+	}
 
-    @SuppressLint("NewApi")
+	@SuppressLint("NewApi")
 	@Override
-    public void recreate()
-    {
-        if (android.os.Build.VERSION.SDK_INT >= Build.VERSION_CODES.HONEYCOMB)
-        {
-            super.recreate();
-        }
-        else
-        {
-            startActivity(getIntent());
-            finish();
-        }
-    }
+	public void recreate() {
+		if (android.os.Build.VERSION.SDK_INT >= Build.VERSION_CODES.HONEYCOMB) {
+			super.recreate();
+		} else {
+			startActivity(getIntent());
+			finish();
+		}
+	}
 }

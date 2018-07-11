@@ -19,16 +19,18 @@
 
 #include "MiscScreens.h"
 
-#include <map>
-
 namespace UI {
 	class CheckBox;
 }
 
+struct TouchButtonToggle {
+	const char *key;
+	bool *show;
+	int img;
+};
+
 class TouchControlVisibilityScreen : public UIDialogScreenWithBackground {
 public:
-	TouchControlVisibilityScreen() : toggleSwitch(true){ }
-
 	void CreateViews() override;
 	void onFinish(DialogResult result) override;
 
@@ -36,14 +38,6 @@ protected:
 	UI::EventReturn OnToggleAll(UI::EventParams &e);
 
 private:
-	std::map<std::string, bool *> keyToggles;
-	bool toggleSwitch;
-
-	class ChoiceEventHandler{
-	public:
-		ChoiceEventHandler(UI::CheckBox *checkbox) : checkbox_(checkbox) {}
-		UI::EventReturn onChoiceClick(UI::EventParams &e);
-	private:
-		UI::CheckBox *checkbox_;
-	};
+	std::vector<TouchButtonToggle> toggles_;
+	bool nextToggleAll_ = true;
 };

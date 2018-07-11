@@ -49,9 +49,11 @@
 #include "Common/FileUtil.h"
 #include "Common/OSVersion.h"
 #include "Core/Config.h"
+#include "Core/ConfigValues.h"
 #include "Core/Host.h"
 #include "Core/System.h"
 #include "Core/Reporting.h"
+#include "Core/WebServer.h"
 #include "GPU/Common/PostShader.h"
 #include "android/jni/TestRunner.h"
 #include "GPU/GPUInterface.h"
@@ -103,8 +105,9 @@ bool DoesBackendSupportHWTess() {
 	case GPUBackend::VULKAN:
 	case GPUBackend::DIRECT3D11:
 		return true;
+	default:
+		return false;
 	}
-	return false;
 }
 
 static std::string PostShaderTranslateName(const char *value) {
@@ -124,7 +127,8 @@ void GameSettingsScreen::CreateViews() {
 
 	cap60FPS_ = g_Config.iForceMaxEmulatedFPS == 60;
 
-	iAlternateSpeedPercent_ = (g_Config.iFpsLimit * 100) / 60;
+	iAlternateSpeedPercent1_ = g_Config.iFpsLimit1 < 0 ? -1 : (g_Config.iFpsLimit1 * 100) / 60;
+	iAlternateSpeedPercent2_ = g_Config.iFpsLimit2 < 0 ? -1 : (g_Config.iFpsLimit2 * 100) / 60;
 
 	bool vertical = UseVerticalLayout();
 
@@ -198,8 +202,38 @@ void GameSettingsScreen::CreateViews() {
 #ifndef IOS
 		vulkanAvailable = VulkanMayBeAvailable();
 #endif
-		if (!vulkanAvailable) {
-			renderingBackendChoice->HideChoice(3);
+	if (!vulkanAvailable) {
+		renderingBackendChoice->HideChoice(3);
+	}
+#endif
+	Draw::DrawContext *draw = screenManager()->getDrawContext();
+
+	// Backends that don't allow a device choice will only expose one device.
+	if (draw->GetDeviceList().size() > 1) {
+		std::string *deviceNameSetting = nullptr;
+		if (g_Config.iGPUBackend == (int)GPUBackend::VULKAN) {
+			deviceNameSetting = &g_Config.sVulkanDevice;
+		}
+#ifdef _WIN32
+		if (g_Config.iGPUBackend == (int)GPUBackend::DIRECT3D11) {
+			deviceNameSetting = &g_Config.sD3D11Device;
+		}
+#endif
+		if (deviceNameSetting) {
+			PopupMultiChoiceDynamic *deviceChoice = graphicsSettings->Add(new PopupMultiChoiceDynamic(deviceNameSetting, gr->T("Device"), draw->GetDeviceList(), nullptr, screenManager()));
+			deviceChoice->OnChoice.Handle(this, &GameSettingsScreen::OnRenderingBackend);
+		}
+	}
+
+	static const char *renderingMode[] = { "Non-Buffered Rendering", "Buffered Rendering"};
+	PopupMultiChoice *renderingModeChoice = graphicsSettings->Add(new PopupMultiChoice(&g_Config.iRenderingMode, gr->T("Mode"), renderingMode, 0, ARRAY_SIZE(renderingMode), gr->GetName(), screenManager()));
+	renderingModeChoice->OnChoice.Add([=](EventParams &e) {
+		switch (g_Config.iRenderingMode) {
+		case FB_NON_BUFFERED_MODE:
+			settingInfo_->Show(gr->T("RenderingMode NonBuffered Tip", "Faster, but graphics may be missing in some games"), e.v);
+			break;
+		case FB_BUFFERED_MODE:
+			break;
 		}
 #endif
 	
@@ -250,11 +284,16 @@ void GameSettingsScreen::CreateViews() {
 		frameSkipAuto_->OnClick.Handle(this, &GameSettingsScreen::OnAutoFrameskip);
 		graphicsSettings->Add(new CheckBox(&cap60FPS_, gr->T("Force max 60 FPS (helps GoW)")));
 
-		PopupSliderChoice *altSpeed = graphicsSettings->Add(new PopupSliderChoice(&iAlternateSpeedPercent_, 0, 1000, gr->T("Alternative Speed", "Alternative speed"), 5, screenManager(), gr->T("%, 0:unlimited")));
-		altSpeed->SetFormat("%i%%");
-		altSpeed->SetZeroLabel(gr->T("Unlimited"));
-		CheckBox *untoggleFpsLimit = graphicsSettings->Add(new CheckBox(&g_Config.bUnToggleFpsLimit, gr->T("Unthrottle-like Alternative Speed")));
-	}
+	PopupSliderChoice *altSpeed1 = graphicsSettings->Add(new PopupSliderChoice(&iAlternateSpeedPercent1_, 0, 1000, gr->T("Alternative Speed", "Alternative speed"), 5, screenManager(), gr->T("%, 0:unlimited")));
+	altSpeed1->SetFormat("%i%%");
+	altSpeed1->SetZeroLabel(gr->T("Unlimited"));
+	altSpeed1->SetNegativeDisable(gr->T("Disabled"));
+
+	PopupSliderChoice *altSpeed2 = graphicsSettings->Add(new PopupSliderChoice(&iAlternateSpeedPercent2_, 0, 1000, gr->T("Alternative Speed 2", "Alternative speed 2 (in %, 0 = unlimited)"), 5, screenManager(), gr->T("%, 0:unlimited")));
+	altSpeed2->SetFormat("%i%%");
+	altSpeed2->SetZeroLabel(gr->T("Unlimited"));
+	altSpeed2->SetNegativeDisable(gr->T("Disabled"));
+
 	graphicsSettings->Add(new ItemHeader(gr->T("Features")));
 	// Hide postprocess option on unsupported backends to avoid confusion.
 	if (GetGPUBackend() != GPUBackend::DIRECT3D9) {
@@ -749,8 +788,8 @@ void GameSettingsScreen::CreateViews() {
 	systemSettings->Add(new Choice(sy->T("Restore Default Settings")))->OnClick.Handle(this, &GameSettingsScreen::OnRestoreDefaultSettings);
 	if (!g_Config.bSimpleUI) {
 		systemSettings->Add(new CheckBox(&g_Config.bEnableStateUndo, sy->T("Savestate slot backups")));
-		systemSettings->Add(new CheckBox(&g_Config.bEnableAutoLoad, sy->T("Auto Load Newest Savestate")));
-
+		static const char *autoLoadSaveStateChoices[] = { "Off", "Oldest Save", "Newest Save", "Slot 1", "Slot 2", "Slot 3", "Slot 4", "Slot 5" };
+		systemSettings->Add(new PopupMultiChoice(&g_Config.iAutoLoadSaveState, sy->T("Auto Load Savestate"), autoLoadSaveStateChoices, 0, ARRAY_SIZE(autoLoadSaveStateChoices), sy->GetName(), screenManager()));
 #if defined(USING_WIN_UI)
 		systemSettings->Add(new CheckBox(&g_Config.bBypassOSKWithKeyboard, sy->T("Enable Windows native keyboard", "Enable Windows native keyboard")));
 #endif
@@ -1067,7 +1106,8 @@ void GameSettingsScreen::update() {
 	else
 		cap60FPS_ = false;
 
-	g_Config.iFpsLimit = (iAlternateSpeedPercent_ * 60) / 100;
+	g_Config.iFpsLimit1 = iAlternateSpeedPercent1_ < 0 ? -1 : (iAlternateSpeedPercent1_ * 60) / 100;
+	g_Config.iFpsLimit2 = iAlternateSpeedPercent2_ < 0 ? -1 : (iAlternateSpeedPercent2_ * 60) / 100;
 
 	bool vertical = UseVerticalLayout();
 	if (vertical != lastVertical_) {
@@ -1313,6 +1353,12 @@ void DeveloperToolsScreen::CreateViews() {
 		createTextureIni->SetEnabled(false);
 	}
 #endif
+
+	allowDebugger_ = !WebServerStopped(WebServerFlags::DEBUGGER);
+	canAllowDebugger_ = !WebServerStopping(WebServerFlags::DEBUGGER);
+	CheckBox *allowDebugger = new CheckBox(&allowDebugger_, dev->T("Allow remote debugger"));
+	list->Add(allowDebugger)->OnClick.Handle(this, &DeveloperToolsScreen::OnRemoteDebugger);
+	allowDebugger->SetEnabledPtr(&canAllowDebugger_);
 }
 
 void DeveloperToolsScreen::onFinish(DialogResult result) {
@@ -1445,6 +1491,23 @@ UI::EventReturn DeveloperToolsScreen::OnLogConfig(UI::EventParams &e) {
 UI::EventReturn DeveloperToolsScreen::OnJitAffectingSetting(UI::EventParams &e) {
 	NativeMessageReceived("clear jit", "");
 	return UI::EVENT_DONE;
+}
+
+UI::EventReturn DeveloperToolsScreen::OnRemoteDebugger(UI::EventParams &e) {
+	if (allowDebugger_) {
+		StartWebServer(WebServerFlags::DEBUGGER);
+	} else {
+		StopWebServer(WebServerFlags::DEBUGGER);
+	}
+	// Persist the setting.  Maybe should separate?
+	g_Config.bRemoteDebuggerOnStartup = allowDebugger_;
+	return UI::EVENT_CONTINUE;
+}
+
+void DeveloperToolsScreen::update() {
+	UIDialogScreenWithBackground::update();
+	allowDebugger_ = !WebServerStopped(WebServerFlags::DEBUGGER);
+	canAllowDebugger_ = !WebServerStopping(WebServerFlags::DEBUGGER);
 }
 
 void ProAdhocServerScreen::CreateViews() {

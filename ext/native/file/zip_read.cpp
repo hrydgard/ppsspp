@@ -3,11 +3,6 @@
 #include <set>
 #include <stdio.h>
 
-#ifdef USING_QT_UI
-#include <QFileInfo>
-#include <QDir>
-#endif
-
 #ifdef __ANDROID__
 #include <zip.h>
 #endif
@@ -65,58 +60,6 @@ uint8_t *ReadLocalFile(const char *filename, size_t *size) {
 	fclose(file);
 	return contents;
 }
-
-#ifdef USING_QT_UI
-uint8_t *AssetsAssetReader::ReadAsset(const char *path, size_t *size) {
-	QFile asset(QString(":/assets/") + path);
-	if (!asset.open(QIODevice::ReadOnly))
-		return 0;
-
-	uint8_t *contents = new uint8_t[asset.size()+1];
-	memcpy(contents, (uint8_t*)asset.readAll().data(), asset.size());
-	contents[asset.size()] = 0;
-	*size = asset.size();
-	asset.close();
-	return contents;
-}
-
-bool AssetsAssetReader::GetFileListing(const char *path, std::vector<FileInfo> *listing, const char *filter = 0)
-{
-	QDir assetDir(QString(":/assets/") + path);
-	QStringList filters = QString(filter).split(':', QString::SkipEmptyParts);
-	for (int i = 0; i < filters.count(); i++)
-		filters[i].prepend("*.");
-
-	QFileInfoList infoList = assetDir.entryInfoList(filters, QDir::AllDirs | QDir::NoDotAndDotDot | QDir::Files, QDir::Name);
-	foreach(QFileInfo qinfo, infoList) {
-		FileInfo info;
-		info.name = qinfo.fileName().toStdString();
-		info.fullName = qinfo.absoluteFilePath().remove(":/assets/").toStdString();
-		info.exists = true;
-		info.isWritable = false;
-		info.isDirectory = qinfo.isDir();
-		listing->push_back(info);
-	}
-	return true;
-}
-
-bool AssetsAssetReader::GetFileInfo(const char *path, FileInfo *info) {
-	QFileInfo qinfo(QString(":/assets/") + path);
-	if (!qinfo.exists()) {
-		info->exists = false;
-		info->size = 0;
-		return false;
-	}
-
-	info->fullName = path;
-	info->exists = true;
-	info->isWritable = false;
-	info->isDirectory = qinfo.isDir();
-	info->size = qinfo.size();
-	return true;
-}
-
-#endif
 
 #ifdef __ANDROID__
 

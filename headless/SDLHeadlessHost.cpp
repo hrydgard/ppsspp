@@ -27,6 +27,7 @@
 #include "Common/GraphicsContext.h"
 
 #include "Core/CoreParameter.h"
+#include "Core/ConfigValues.h"
 #include "Core/System.h"
 #include "GPU/Common/GPUDebugInterface.h"
 #include "GPU/GPUState.h"

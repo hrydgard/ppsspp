@@ -501,5 +501,10 @@ void BlockAllocator::Block::DoState(PointerWrap &p)
 	p.Do(start);
 	p.Do(size);
 	p.Do(taken);
+	// Since we use truncate_cpy, the empty space is not zeroed.  Zero it now.
+	// This avoids saving uninitialized memory.
+	size_t tagLen = strlen(tag);
+	if (tagLen != sizeof(tag))
+		memset(tag + tagLen, 0, sizeof(tag) - tagLen);
 	p.DoArray(tag, sizeof(tag));
 }

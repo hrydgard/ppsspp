@@ -30,6 +30,7 @@
 #include <condition_variable>
 
 #include "base/timeutil.h"
+#include "base/NativeApp.h"
 #include "math/math_util.h"
 #include "thread/threadutil.h"
 #include "util/text/utf8.h"
@@ -106,6 +107,16 @@ void UpdateUIState(GlobalUIState newState) {
 	if (globalUIState != newState && globalUIState != UISTATE_EXIT) {
 		globalUIState = newState;
 		host->UpdateDisassembly();
+		const char *state = nullptr;
+		switch (globalUIState) {
+		case UISTATE_EXIT: state = "exit";  break;
+		case UISTATE_INGAME: state = "ingame"; break;
+		case UISTATE_MENU: state = "menu"; break;
+		case UISTATE_PAUSEMENU: state = "pausemenu"; break;
+		}
+		if (state) {
+			System_SendMessage("uistate", state);
+		}
 	}
 }
 
@@ -306,6 +317,7 @@ bool PSP_InitStart(const CoreParameter &coreParam, std::string *error_string) {
 	INFO_LOG(BOOT, "PPSSPP %s", PPSSPP_GIT_VERSION);
 #endif
 
+	Core_NotifyLifecycle(CoreLifecycle::STARTING);
 	GraphicsContext *temp = coreParameter.graphicsContext;
 	coreParameter = coreParam;
 	if (coreParameter.graphicsContext == nullptr) {
@@ -320,6 +332,7 @@ bool PSP_InitStart(const CoreParameter &coreParam, std::string *error_string) {
 	*error_string = coreParameter.errorString;
 	bool success = coreParameter.fileToStart != "";
 	if (!success) {
+		Core_NotifyLifecycle(CoreLifecycle::START_COMPLETE);
 		pspIsIniting = false;
 	}
 	return success;
@@ -340,13 +353,20 @@ bool PSP_InitUpdate(std::string *error_string) {
 		PSP_SetLoading("Starting graphics...");
 		success = GPU_Init(coreParameter.graphicsContext, coreParameter.thin3d);
 		if (!success) {
-			PSP_Shutdown();
 			*error_string = "Unable to initialize rendering engine.";
 		}
 	}
-	pspIsInited = success && GPU_IsReady();
-	pspIsIniting = success && !pspIsInited;
-	return !success || pspIsInited;
+	if (!success) {
+		PSP_Shutdown();
+		return true;
+	}
+
+	pspIsInited = GPU_IsReady();
+	pspIsIniting = !pspIsInited;
+	if (pspIsInited) {
+		Core_NotifyLifecycle(CoreLifecycle::START_COMPLETE);
+	}
+	return pspIsInited;
 }
 
 bool PSP_Init(const CoreParameter &coreParam, std::string *error_string) {
@@ -365,11 +385,20 @@ bool PSP_IsInited() {
 	return pspIsInited && !pspIsQuitting;
 }
 
+bool PSP_IsQuitting() {
+	return pspIsQuitting;
+}
+
 void PSP_Shutdown() {
 	// Do nothing if we never inited.
 	if (!pspIsInited && !pspIsIniting && !pspIsQuitting) {
 		return;
 	}
+
+	// Make sure things know right away that PSP memory, etc. is going away.
+	pspIsQuitting = true;
+	if (coreState == CORE_RUNNING)
+		Core_UpdateState(CORE_ERROR);
 
 #ifndef MOBILE_DEVICE
 	if (g_Config.bFuncHashMap) {
@@ -377,11 +406,9 @@ void PSP_Shutdown() {
 	}
 #endif
 
-	// Make sure things know right away that PSP memory, etc. is going away.
-	pspIsQuitting = true;
-	if (coreState == CORE_RUNNING)
-		Core_UpdateState(CORE_ERROR);
-	Core_NotifyShutdown();
+	if (pspIsIniting)
+		Core_NotifyLifecycle(CoreLifecycle::START_COMPLETE);
+	Core_NotifyLifecycle(CoreLifecycle::STOPPING);
 	CPU_Shutdown();
 	GPU_Shutdown();
 	g_paramSFO.Clear();
@@ -391,6 +418,7 @@ void PSP_Shutdown() {
 	pspIsIniting = false;
 	pspIsQuitting = false;
 	g_Config.unloadGameConfig();
+	Core_NotifyLifecycle(CoreLifecycle::STOPPED);
 }
 
 void PSP_BeginHostFrame() {
@@ -406,9 +434,27 @@ void PSP_EndHostFrame() {
 	}
 }
 
+void PSP_RunLoopWhileState() {
+	// We just run the CPU until we get to vblank. This will quickly sync up pretty nicely.
+	// The actual number of cycles doesn't matter so much here as we will break due to CORE_NEXTFRAME, most of the time hopefully...
+	int blockTicks = usToCycles(1000000 / 10);
+
+	// Run until CORE_NEXTFRAME
+	while (coreState == CORE_RUNNING || coreState == CORE_STEPPING) {
+		PSP_RunLoopFor(blockTicks);
+		if (coreState == CORE_STEPPING) {
+			// Keep the UI responsive.
+			break;
+		}
+	}
+}
+
 void PSP_RunLoopUntil(u64 globalticks) {
 	SaveState::Process();
 	if (coreState == CORE_POWERDOWN || coreState == CORE_ERROR) {
+		return;
+	} else if (coreState == CORE_STEPPING) {
+		Core_ProcessStepping();
 		return;
 	}
 
@@ -553,10 +599,6 @@ void InitSysDirectories() {
 	File::CreateDir(g_Config.memStickDirectory + "PSP/GAME");
 	File::CreateDir(g_Config.memStickDirectory + "PSP/SAVEDATA");
 	File::CreateDir(g_Config.memStickDirectory + "PSP/PPSSPP_STATE");
-#ifdef ANDROID
-	// Avoid media scanners in PPSSPP_STATE directory
-	File::CreateEmptyFile(g_Config.memStickDirectory + "PSP/PPSSPP_STATE/.nomedia");
-#endif
 
 	if (g_Config.currentDirectory.empty()) {
 		g_Config.currentDirectory = GetSysDirectory(DIRECTORY_GAME);

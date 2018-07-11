@@ -4,6 +4,7 @@
 #include "Common/Vulkan/VulkanDebug.h"
 #include "Common/Log.h"
 #include "Core/Config.h"
+#include "Core/ConfigValues.h"
 #include "Core/System.h"
 #include "GPU/GPUInterface.h"
 #include "util/text/parsers.h"

@@ -1811,8 +1811,7 @@ u32 sceKernelLoadModule(const char *name, u32 flags, u32 optionAddr) {
 	s64 size = (s64)info.size;
 
 	if (!info.exists) {
-		const int ERROR_ERRNO_FILE_NOT_FOUND = 0x80010002;
-		const u32 error = hleLogError(LOADER, ERROR_ERRNO_FILE_NOT_FOUND, "file does not exist");
+		const u32 error = hleLogError(LOADER, SCE_KERNEL_ERROR_ERRNO_FILE_NOT_FOUND, "file does not exist");
 		return hleDelayResult(error, "module loaded", 500);
 	}
 

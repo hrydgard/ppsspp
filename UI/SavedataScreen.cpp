@@ -16,12 +16,14 @@
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
 #include <algorithm>
+#include <functional>
 
 #include "base/colorutil.h"
 #include "base/timeutil.h"
 #include "gfx_es2/draw_buffer.h"
 #include "i18n/i18n.h"
 #include "math/curves.h"
+#include "thread/prioritizedworkqueue.h"
 #include "util/text/utf8.h"
 #include "ui/ui_context.h"
 #include "ui/view.h"
@@ -121,10 +123,42 @@ private:
 	std::string savePath_;
 };
 
+class SortedLinearLayout : public UI::LinearLayout {
+public:
+	typedef std::function<bool(const View *, const View *)> CompareFunc;
+	typedef std::function<bool()> DoneFunc;
+
+	SortedLinearLayout(UI::Orientation orientation, UI::LayoutParams *layoutParams = nullptr)
+		: UI::LinearLayout(orientation, layoutParams) {
+	}
+
+	void SetCompare(CompareFunc lessFunc, DoneFunc) {
+		lessFunc_ = lessFunc;
+	}
+
+	void Update() override;
+
+private:
+	CompareFunc lessFunc_;
+	DoneFunc doneFunc_;
+};
+
+void SortedLinearLayout::Update() {
+	if (lessFunc_) {
+		std::stable_sort(views_.begin(), views_.end(), lessFunc_);
+	}
+	if (doneFunc_ && doneFunc_()) {
+		lessFunc_ = CompareFunc();
+	}
+	UI::LinearLayout::Update();
+}
+
 class SavedataButton : public UI::Clickable {
 public:
 	SavedataButton(const std::string &gamePath, UI::LayoutParams *layoutParams = 0)
-		: UI::Clickable(layoutParams), savePath_(gamePath) {}
+		: UI::Clickable(layoutParams), savePath_(gamePath) {
+		SetTag(gamePath);
+	}
 
 	void Draw(UIContext &dc) override;
 	void GetContentDimensions(const UIContext &dc, float &w, float &h) const override {
@@ -133,8 +167,6 @@ public:
 	}
 
 	const std::string &GamePath() const { return savePath_; }
-
-	std::string GetGamePath() const { return savePath_; }
 
 private:
 	std::string savePath_;
@@ -279,8 +311,43 @@ void SavedataButton::Draw(UIContext &dc) {
 }
 
 SavedataBrowser::SavedataBrowser(std::string path, UI::LayoutParams *layoutParams)
-	: LinearLayout(UI::ORIENT_VERTICAL, layoutParams), gameList_(0), path_(path) {
+	: LinearLayout(UI::ORIENT_VERTICAL, layoutParams), path_(path) {
 	Refresh();
+}
+
+void SavedataBrowser::SetSortOption(SavedataSortOption opt) {
+	sortOption_ = opt;
+	if (gameList_) {
+		SortedLinearLayout *gl = static_cast<SortedLinearLayout *>(gameList_);
+		if (sortOption_ == SavedataSortOption::FILENAME) {
+			gl->SetCompare(&ByFilename, &SortDone);
+		} else if (sortOption_ == SavedataSortOption::SIZE) {
+			gl->SetCompare(&BySize, &SortDone);
+		}
+	}
+}
+
+bool SavedataBrowser::ByFilename(const UI::View *v1, const UI::View *v2) {
+	const SavedataButton *b1 = static_cast<const SavedataButton *>(v1);
+	const SavedataButton *b2 = static_cast<const SavedataButton *>(v2);
+
+	return strcmp(b1->GamePath().c_str(), b2->GamePath().c_str()) < 0;
+}
+
+bool SavedataBrowser::BySize(const UI::View *v1, const UI::View *v2) {
+	const SavedataButton *b1 = static_cast<const SavedataButton *>(v1);
+	const SavedataButton *b2 = static_cast<const SavedataButton *>(v2);
+
+	std::shared_ptr<GameInfo> g1info = g_gameInfoCache->GetInfo(nullptr, b1->GamePath(), GAMEINFO_WANTSIZE);
+	std::shared_ptr<GameInfo> g2info = g_gameInfoCache->GetInfo(nullptr, b2->GamePath(), GAMEINFO_WANTSIZE);
+
+	// They might be zero, but that's fine.
+	return g1info->gameSize > g2info->gameSize;
+}
+
+bool SavedataBrowser::SortDone() {
+	PrioritizedWorkQueue *wq = g_gameInfoCache->WorkQueue();
+	return wq->Done();
 }
 
 void SavedataBrowser::Refresh() {
@@ -293,7 +360,7 @@ void SavedataBrowser::Refresh() {
 	I18NCategory *mm = GetI18NCategory("MainMenu");
 	I18NCategory *sa = GetI18NCategory("Savedata");
 
-	UI::LinearLayout *gl = new UI::LinearLayout(UI::ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT));
+	SortedLinearLayout *gl = new SortedLinearLayout(UI::ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT));
 	gl->SetSpacing(4.0f);
 	gameList_ = gl;
 	Add(gameList_);
@@ -327,6 +394,9 @@ void SavedataBrowser::Refresh() {
 		group->Add(new TextView(sa->T("None yet.  Things will appear here after you save.")));
 		gameList_->Add(group);
 	}
+
+	// Reapply.
+	SetSortOption(sortOption_);
 }
 
 UI::EventReturn SavedataBrowser::SavedataButtonClick(UI::EventParams &e) {
@@ -357,25 +427,47 @@ void SavedataScreen::CreateViews() {
 	std::string savestate_dir = GetSysDirectory(DIRECTORY_SAVESTATE);
 
 	gridStyle_ = false;
-	root_ = new LinearLayout(ORIENT_VERTICAL);
+	root_ = new AnchorLayout();
+
+	LinearLayout *main = new LinearLayout(ORIENT_VERTICAL, new AnchorLayoutParams(FILL_PARENT, FILL_PARENT));
 
 	TabHolder *tabs = new TabHolder(ORIENT_HORIZONTAL, 64, new LinearLayoutParams(FILL_PARENT, FILL_PARENT, 1.0f));
 	tabs->SetTag("Savedata");
 	ScrollView *scroll = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT));
 	scroll->SetTag("SavedataBrowser");
-	browser_ = scroll->Add(new SavedataBrowser(savedata_dir, new LayoutParams(FILL_PARENT, FILL_PARENT)));
-	browser_->OnChoice.Handle(this, &SavedataScreen::OnSavedataButtonClick);
+	dataBrowser_ = scroll->Add(new SavedataBrowser(savedata_dir, new LayoutParams(FILL_PARENT, FILL_PARENT)));
+	dataBrowser_->SetSortOption(sortOption_);
+	dataBrowser_->OnChoice.Handle(this, &SavedataScreen::OnSavedataButtonClick);
 
 	tabs->AddTab(sa->T("Save Data"), scroll);
 
 	ScrollView *scroll2 = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT));
 	scroll2->SetTag("SavedataStatesBrowser");
-	SavedataBrowser *browser2 = scroll2->Add(new SavedataBrowser(savestate_dir));
-	browser2->OnChoice.Handle(this, &SavedataScreen::OnSavedataButtonClick);
+	stateBrowser_ = scroll2->Add(new SavedataBrowser(savestate_dir));
+	stateBrowser_->SetSortOption(sortOption_);
+	stateBrowser_->OnChoice.Handle(this, &SavedataScreen::OnSavedataButtonClick);
 	tabs->AddTab(sa->T("Save States"), scroll2);
 
-	root_->Add(tabs);
-	root_->Add(new Button(di->T("Back")))->OnClick.Handle<UIScreen>(this, &UIScreen::OnBack);
+	main->Add(tabs);
+	main->Add(new Button(di->T("Back"), new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT, 0.0f)))->OnClick.Handle<UIScreen>(this, &UIScreen::OnBack);
+
+	ChoiceStrip *sortStrip = new ChoiceStrip(ORIENT_HORIZONTAL, new AnchorLayoutParams(NONE, 0, 0, NONE));
+	sortStrip->AddChoice(sa->T("Filename"));
+	sortStrip->AddChoice(sa->T("Size"));
+	sortStrip->SetSelection((int)sortOption_);
+	sortStrip->OnChoice.Handle<SavedataScreen>(this, &SavedataScreen::OnSortClick);
+
+	root_->Add(main);
+	root_->Add(sortStrip);
+}
+
+UI::EventReturn SavedataScreen::OnSortClick(UI::EventParams &e) {
+	sortOption_ = SavedataSortOption(e.a);
+
+	dataBrowser_->SetSortOption(sortOption_);
+	stateBrowser_->SetSortOption(sortOption_);
+
+	return UI::EVENT_DONE;
 }
 
 UI::EventReturn SavedataScreen::OnSavedataButtonClick(UI::EventParams &e) {

@@ -2,13 +2,13 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     package="org.ppsspp.ppsspp"
     android:installLocation="auto"
-    android:versionCode="15040000"
-    android:versionName="1.5.4.0">
-    <!-- Note that versionCode should be in the format xyzzrrrr -->
+    android:versionCode="16030000"
+    android:versionName="1.6.3.0">
+    <!-- Note that versionCode should be in the format xyzzrrrr. Example: 16030000 -->
 
     <uses-sdk
         android:minSdkVersion="9"
-        android:targetSdkVersion="26" />
+        android:targetSdkVersion="28" />
 
     <uses-feature android:glEsVersion="0x00020000" />
     <uses-feature android:name="android.hardware.screen.landscape" android:required="false" />
@@ -47,7 +47,7 @@
             android:name=".PpssppActivity"
             android:configChanges="locale|keyboard|keyboardHidden|navigation|uiMode"
             android:label="@string/app_name"
-            android:theme="@android:style/Theme.NoTitleBar.Fullscreen">
+            android:theme="@style/ppsspp_style">
 
             <!-- android:screenOrientation="landscape" -->
             <intent-filter>

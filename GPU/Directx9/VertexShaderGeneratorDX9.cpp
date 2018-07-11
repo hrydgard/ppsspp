@@ -253,7 +253,8 @@ void GenerateVertexShaderHLSL(const VShaderID &id, char *buffer, ShaderLanguage 
 	if (doTexture) {
 		WRITE(p, "  float3 v_texcoord : TEXCOORD0;\n");
 	}
-	WRITE(p, "  float4 v_color0    : COLOR0;\n");
+	const char *colorInterpolation = doFlatShading && lang == HLSL_D3D11 ? "nointerpolation " : "";
+	WRITE(p, "  %sfloat4 v_color0    : COLOR0;\n", colorInterpolation);
 	if (lmode)
 		WRITE(p, "  float3 v_color1    : COLOR1;\n");
 
@@ -287,9 +288,12 @@ void GenerateVertexShaderHLSL(const VShaderID &id, char *buffer, ShaderLanguage 
 	// Hardware tessellation
 	if (doSpline || doBezier) {
 		if (lang == HLSL_D3D11 || lang == HLSL_D3D11_LEVEL9) {
-			WRITE(p, "Texture1D<float3> u_tess_pos_tex : register(t0);\n");
-			WRITE(p, "Texture1D<float3> u_tess_tex_tex : register(t1);\n");
-			WRITE(p, "Texture1D<float4> u_tess_col_tex : register(t2);\n");
+			WRITE(p, "struct TessData {\n");
+			WRITE(p, "  float3 pos; float pad1;\n");
+			WRITE(p, "  float2 tex; float2 pad2;\n");
+			WRITE(p, "  float4 col;\n");
+			WRITE(p, "};");
+			WRITE(p, "StructuredBuffer<TessData> tess_data : register(t0);\n");
 		}
 
 		const char *init[3] = { "0.0, 0.0", "0.0, 0.0, 0.0", "0.0, 0.0, 0.0, 0.0" };
@@ -433,17 +437,15 @@ void GenerateVertexShaderHLSL(const VShaderID &id, char *buffer, ShaderLanguage 
 				WRITE(p, "  float3 _pos[16];\n");
 				WRITE(p, "  float2 _tex[16];\n");
 				WRITE(p, "  float4 _col[16];\n");
-				WRITE(p, "  int idx;\n");
-				WRITE(p, "  int2 index;\n");
+				WRITE(p, "  int index;\n");
 				for (int i = 0; i < 4; i++) {
 					for (int j = 0; j < 4; j++) {
-						WRITE(p, "  idx = (%i + v%s) * u_spline_count_u + (%i + u%s);\n", i, doBezier ? " * 3" : "", j, doBezier ? " * 3" : "");
-						WRITE(p, "  index = int2(idx, 0);\n");
-						WRITE(p, "  _pos[%i] = u_tess_pos_tex.Load(index).xyz;\n", i * 4 + j);
+						WRITE(p, "  index = (%i + v%s) * u_spline_count_u + (%i + u%s);\n", i, doBezier ? " * 3" : "", j, doBezier ? " * 3" : "");
+						WRITE(p, "  _pos[%i] = tess_data[index].pos;\n", i * 4 + j);
 						if (doTexture && hasTexcoord && hasTexcoordTess)
-							WRITE(p, "  _tex[%i] = u_tess_tex_tex.Load(index).xy;\n", i * 4 + j);
+							WRITE(p, "  _tex[%i] = tess_data[index].tex;\n", i * 4 + j);
 						if (hasColor && hasColorTess)
-							WRITE(p, "  _col[%i] = u_tess_col_tex.Load(index).rgba;\n", i * 4 + j);
+							WRITE(p, "  _col[%i] = tess_data[index].col;\n", i * 4 + j);
 					}
 				}
 				WRITE(p, "  float2 weights[4];\n");
@@ -473,7 +475,7 @@ void GenerateVertexShaderHLSL(const VShaderID &id, char *buffer, ShaderLanguage 
 					if (hasColorTess)
 						WRITE(p, "  float4 col = tess_sample(_col, weights);\n");
 					else
-						WRITE(p, "  float4 col = u_tess_col_tex.Load(int2(0, 0)).rgba;\n");
+						WRITE(p, "  float4 col = tess_data[0].col;\n");
 				}
 				if (hasNormal) {
 					// Curved surface is probably always need to compute normal(not sampling from control points)

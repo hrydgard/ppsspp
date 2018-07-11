@@ -563,7 +563,7 @@ inline GEPrimitiveType PatchPrimToPrim(GEPatchPrimType type) {
 	case GE_PATCHPRIM_TRIANGLES: return GE_PRIM_TRIANGLES;
 	case GE_PATCHPRIM_LINES: return GE_PRIM_LINES;
 	case GE_PATCHPRIM_POINTS: return GE_PRIM_POINTS;
-	case GE_PATCHPRIM_UNKNOWN: default: return GE_PRIM_KEEP_PREVIOUS;  // just something
+	case GE_PATCHPRIM_UNKNOWN: default: return GE_PRIM_POINTS; // Treated as points.
 	}
 }
 

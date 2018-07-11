@@ -67,6 +67,10 @@ public:
 
 	void BindTestTexture(int slot);
 
+	void DeviceLost() {
+		Clear(false);
+	}
+	void DeviceRestore(Draw::DrawContext *draw);
 	void Clear(bool deleteThem = true);
 	void Decimate();
 

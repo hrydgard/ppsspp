@@ -38,11 +38,14 @@ class D3D11RasterState;
 
 class D3D11DrawContext : public DrawContext {
 public:
-	D3D11DrawContext(ID3D11Device *device, ID3D11DeviceContext *deviceContext, ID3D11Device1 *device1, ID3D11DeviceContext1 *deviceContext1, D3D_FEATURE_LEVEL featureLevel, HWND hWnd);
+	D3D11DrawContext(ID3D11Device *device, ID3D11DeviceContext *deviceContext, ID3D11Device1 *device1, ID3D11DeviceContext1 *deviceContext1, D3D_FEATURE_LEVEL featureLevel, HWND hWnd, std::vector<std::string> deviceList);
 	~D3D11DrawContext();
 
 	const DeviceCaps &GetDeviceCaps() const override {
 		return caps_;
+	}
+	std::vector<std::string> GetDeviceList() const override {
+		return deviceList_;
 	}
 	uint32_t GetSupportedShaderLanguages() const override {
 		return (uint32_t)ShaderLanguage::HLSL_D3D11 | (uint32_t)ShaderLanguage::HLSL_D3D11_BYTECODE;
@@ -210,15 +213,17 @@ private:
 	// System info
 	D3D_FEATURE_LEVEL featureLevel_;
 	std::string adapterDesc_;
+	std::vector<std::string> deviceList_;
 };
 
-D3D11DrawContext::D3D11DrawContext(ID3D11Device *device, ID3D11DeviceContext *deviceContext, ID3D11Device1 *device1, ID3D11DeviceContext1 *deviceContext1, D3D_FEATURE_LEVEL featureLevel, HWND hWnd)
+D3D11DrawContext::D3D11DrawContext(ID3D11Device *device, ID3D11DeviceContext *deviceContext, ID3D11Device1 *device1, ID3D11DeviceContext1 *deviceContext1, D3D_FEATURE_LEVEL featureLevel, HWND hWnd, std::vector<std::string> deviceList)
 	: device_(device),
 		context_(deviceContext1),
 		device1_(device1),
 		context1_(deviceContext1),
 		featureLevel_(featureLevel),
-		hWnd_(hWnd) {
+		hWnd_(hWnd),
+		deviceList_(deviceList) {
 
 	// Seems like a fair approximation...
 	caps_.dualSourceBlend = featureLevel_ >= D3D_FEATURE_LEVEL_10_0;
@@ -229,7 +234,6 @@ D3D11DrawContext::D3D11DrawContext(ID3D11Device *device, ID3D11DeviceContext *de
 	caps_.framebufferDepthBlitSupported = false;
 	caps_.framebufferDepthCopySupported = true;
 
-
 	D3D11_FEATURE_DATA_D3D11_OPTIONS options{};
 	HRESULT result = device_->CheckFeatureSupport(D3D11_FEATURE_D3D11_OPTIONS, &options, sizeof(options));
 	if (SUCCEEDED(result)) {
@@ -239,8 +243,6 @@ D3D11DrawContext::D3D11DrawContext(ID3D11Device *device, ID3D11DeviceContext *de
 			// caps_.logicOpSupported = true;
 		}
 	}
-	// Obtain DXGI factory from device (since we used nullptr for pAdapter above)
-	IDXGIFactory1* dxgiFactory = nullptr;
 	IDXGIDevice* dxgiDevice = nullptr;
 	IDXGIAdapter* adapter = nullptr;
 	HRESULT hr = device_->QueryInterface(__uuidof(IDXGIDevice), reinterpret_cast<void**>(&dxgiDevice));
@@ -1363,7 +1365,18 @@ bool D3D11DrawContext::CopyFramebufferToMemorySync(Framebuffer *src, int channel
 
 	if (fb) {
 		assert(fb->colorFormat == DXGI_FORMAT_R8G8B8A8_UNORM);
+
+		// TODO: Figure out where the badness really comes from.
+		if (bx + bw > fb->width) {
+			bw -= (bx + bw) - fb->width;
+		}
+		if (by + bh > fb->height) {
+			bh -= (by + bh) - fb->height;
+		}
 	}
+
+	if (bh <= 0 || bw <= 0)
+		return true;
 
 	bool useGlobalPacktex = (bx + bw <= 512 && by + bh <= 512) && channelBits == FB_COLOR_BIT;
 
@@ -1541,8 +1554,8 @@ void D3D11DrawContext::GetFramebufferDimensions(Framebuffer *fbo, int *w, int *h
 	}
 }
 
-DrawContext *T3DCreateD3D11Context(ID3D11Device *device, ID3D11DeviceContext *context, ID3D11Device1 *device1, ID3D11DeviceContext1 *context1, D3D_FEATURE_LEVEL featureLevel, HWND hWnd) {
-	return new D3D11DrawContext(device, context, device1, context1, featureLevel, hWnd);
+DrawContext *T3DCreateD3D11Context(ID3D11Device *device, ID3D11DeviceContext *context, ID3D11Device1 *device1, ID3D11DeviceContext1 *context1, D3D_FEATURE_LEVEL featureLevel, HWND hWnd, std::vector<std::string> adapterNames) {
+	return new D3D11DrawContext(device, context, device1, context1, featureLevel, hWnd, adapterNames);
 }
 
 }  // namespace Draw

@@ -1,3 +1,4 @@
+#include <algorithm>
 #include <cstdint>
 
 #include "Common/Log.h"
@@ -91,7 +92,7 @@ void CreateImage(VulkanContext *vulkan, VkCommandBuffer cmd, VKRImage &img, int 
 		break;
 	default:
 		Crash();
-		break;
+		return;
 	}
 
 	TransitionImageLayout2(cmd, img.image, 0, 1, aspects,
@@ -136,7 +137,7 @@ VulkanRenderManager::VulkanRenderManager(VulkanContext *vulkan) : vulkan_(vulkan
 	queueRunner_.CreateDeviceObjects();
 
 	// Temporary AMD hack for issue #10097
-	if (vulkan_->GetPhysicalDeviceProperties().vendorID == VULKAN_VENDOR_AMD) {
+	if (vulkan_->GetPhysicalDeviceProperties(vulkan_->GetCurrentPhysicalDevice()).vendorID == VULKAN_VENDOR_AMD) {
 		if (!g_Config.bVulkanMultithreading) {
 			useThread_ = false;
 		}
@@ -265,7 +266,6 @@ void VulkanRenderManager::DestroyBackbuffers() {
 	StopThread();
 	vulkan_->WaitUntilQueueIdle();
 
-	VkDevice device = vulkan_->GetDevice();
 	for (uint32_t i = 0; i < swapchainImageCount_; i++) {
 		vulkan_->Delete().QueueDeleteImageView(swapchainImages_[i].view);
 	}
@@ -291,7 +291,6 @@ VulkanRenderManager::~VulkanRenderManager() {
 	vkDestroySemaphore(device, acquireSemaphore_, nullptr);
 	vkDestroySemaphore(device, renderingCompleteSemaphore_, nullptr);
 	for (int i = 0; i < vulkan_->GetInflightFrames(); i++) {
-		VkCommandBuffer cmdBuf[2]{ frameData_[i].mainCmd, frameData_[i].initCmd };
 		vkFreeCommandBuffers(device, frameData_[i].cmdPoolInit, 1, &frameData_[i].initCmd);
 		vkFreeCommandBuffers(device, frameData_[i].cmdPoolMain, 1, &frameData_[i].mainCmd);
 		vkDestroyCommandPool(device, frameData_[i].cmdPoolInit, nullptr);
@@ -388,7 +387,7 @@ VkCommandBuffer VulkanRenderManager::GetInitCmd() {
 			VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT
 		};
 		VkResult res = vkBeginCommandBuffer(frameData.initCmd, &begin);
-		assert(res == VK_SUCCESS);
+		_assert_(res == VK_SUCCESS);
 		frameData.hasInitCommands = true;
 	}
 	return frameData_[curFrame].initCmd;
@@ -424,6 +423,7 @@ void VulkanRenderManager::BindFramebufferAsRenderTarget(VKRFramebuffer *fb, VKRR
 	step->render.clearDepth = clearDepth;
 	step->render.clearStencil = clearStencil;
 	step->render.numDraws = 0;
+	step->render.numReads = 0;
 	step->render.finalColorLayout = !fb ? VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL : VK_IMAGE_LAYOUT_UNDEFINED;
 	steps_.push_back(step);
 
@@ -433,6 +433,13 @@ void VulkanRenderManager::BindFramebufferAsRenderTarget(VKRFramebuffer *fb, VKRR
 }
 
 bool VulkanRenderManager::CopyFramebufferToMemorySync(VKRFramebuffer *src, int aspectBits, int x, int y, int w, int h, Draw::DataFormat destFormat, uint8_t *pixels, int pixelStride) {
+	for (int i = (int)steps_.size() - 1; i >= 0; i--) {
+		if (steps_[i]->stepType == VKRStepType::RENDER && steps_[i]->render.framebuffer == src) {
+			steps_[i]->render.numReads++;
+			break;
+		}
+	}
+
 	VKRStep *step = new VKRStep{ VKRStepType::READBACK };
 	step->readback.aspectMask = aspectBits;
 	step->readback.src = src;
@@ -444,15 +451,14 @@ bool VulkanRenderManager::CopyFramebufferToMemorySync(VKRFramebuffer *src, int a
 
 	FlushSync();
 
-	Draw::DataFormat srcFormat;
+	Draw::DataFormat srcFormat = Draw::DataFormat::UNDEFINED;
 	if (aspectBits & VK_IMAGE_ASPECT_COLOR_BIT) {
 		if (src) {
 			switch (src->color.format) {
 			case VK_FORMAT_R8G8B8A8_UNORM: srcFormat = Draw::DataFormat::R8G8B8A8_UNORM; break;
 			default: _assert_(false);
 			}
-		}
-		else {
+		} else {
 			// Backbuffer.
 			if (!(vulkan_->GetSurfaceCapabilities().supportedUsageFlags & VK_IMAGE_USAGE_TRANSFER_SRC_BIT)) {
 				ELOG("Copying from backbuffer not supported, can't take screenshots");
@@ -615,18 +621,84 @@ bool VulkanRenderManager::InitDepthStencilBuffer(VkCommandBuffer cmd) {
 	return true;
 }
 
+static void RemoveDrawCommands(std::vector<VkRenderData> *cmds) {
+	// Here we remove any DRAW type commands when we hit a CLEAR.
+	for (auto &c : *cmds) {
+		if (c.cmd == VKRRenderCommand::DRAW || c.cmd == VKRRenderCommand::DRAW_INDEXED) {
+			c.cmd = VKRRenderCommand::REMOVED;
+		}
+	}
+}
+
+static void CleanupRenderCommands(std::vector<VkRenderData> *cmds) {
+	size_t lastCommand[(int)VKRRenderCommand::NUM_RENDER_COMMANDS];
+	memset(lastCommand, -1, sizeof(lastCommand));
+
+	// Find any duplicate state commands (likely from RemoveDrawCommands.)
+	for (size_t i = 0; i < cmds->size(); ++i) {
+		auto &c = cmds->at(i);
+		auto &lastOfCmd = lastCommand[(uint8_t)c.cmd];
+
+		switch (c.cmd) {
+		case VKRRenderCommand::REMOVED:
+			continue;
+
+		case VKRRenderCommand::BIND_PIPELINE:
+		case VKRRenderCommand::VIEWPORT:
+		case VKRRenderCommand::SCISSOR:
+		case VKRRenderCommand::BLEND:
+		case VKRRenderCommand::STENCIL:
+			if (lastOfCmd != -1) {
+				cmds->at(lastOfCmd).cmd = VKRRenderCommand::REMOVED;
+			}
+			break;
+
+		case VKRRenderCommand::PUSH_CONSTANTS:
+			// TODO: For now, we have to keep this one (it has an offset.)  Still update lastCommand.
+			break;
+
+		case VKRRenderCommand::CLEAR:
+			// Ignore, doesn't participate in state.
+			continue;
+
+		case VKRRenderCommand::DRAW_INDEXED:
+		case VKRRenderCommand::DRAW:
+		default:
+			// Boundary - must keep state before this.
+			memset(lastCommand, -1, sizeof(lastCommand));
+			continue;
+		}
+
+		lastOfCmd = i;
+	}
+
+	// At this point, anything in lastCommand can be cleaned up too.
+	// Note that it's safe to remove the last unused PUSH_CONSTANTS here.
+	for (size_t i = 0; i < ARRAY_SIZE(lastCommand); ++i) {
+		auto &lastOfCmd = lastCommand[i];
+		if (lastOfCmd != -1) {
+			cmds->at(lastOfCmd).cmd = VKRRenderCommand::REMOVED;
+		}
+	}
+}
+
 void VulkanRenderManager::Clear(uint32_t clearColor, float clearZ, int clearStencil, int clearMask) {
 	_dbg_assert_(G3D, curRenderStep_ && curRenderStep_->stepType == VKRStepType::RENDER);
 	if (!clearMask)
 		return;
-	// If this is the first drawing command, merge it into the pass.
-	if (curRenderStep_->render.numDraws == 0) {
+	// If this is the first drawing command or clears everything, merge it into the pass.
+	int allAspects = VK_IMAGE_ASPECT_COLOR_BIT | VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT;
+	if (curRenderStep_->render.numDraws == 0 || clearMask == allAspects) {
 		curRenderStep_->render.clearColor = clearColor;
 		curRenderStep_->render.clearDepth = clearZ;
 		curRenderStep_->render.clearStencil = clearStencil;
 		curRenderStep_->render.color = (clearMask & VK_IMAGE_ASPECT_COLOR_BIT) ? VKRRenderPassAction::CLEAR : VKRRenderPassAction::KEEP;
 		curRenderStep_->render.depth = (clearMask & VK_IMAGE_ASPECT_DEPTH_BIT) ? VKRRenderPassAction::CLEAR : VKRRenderPassAction::KEEP;
 		curRenderStep_->render.stencil = (clearMask & VK_IMAGE_ASPECT_STENCIL_BIT) ? VKRRenderPassAction::CLEAR : VKRRenderPassAction::KEEP;
+
+		// In case there were commands already.
+		curRenderStep_->render.numDraws = 0;
+		RemoveDrawCommands(&curRenderStep_->commands);
 	} else {
 		VkRenderData data{ VKRRenderCommand::CLEAR };
 		data.clear.clearColor = clearColor;
@@ -656,6 +728,7 @@ void VulkanRenderManager::CopyFramebuffer(VKRFramebuffer *src, VkRect2D srcRect,
 			if (steps_[i]->render.finalColorLayout == VK_IMAGE_LAYOUT_UNDEFINED) {
 				steps_[i]->render.finalColorLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
 			}
+			steps_[i]->render.numReads++;
 			break;
 		}
 	}
@@ -698,6 +771,13 @@ void VulkanRenderManager::BlitFramebuffer(VKRFramebuffer *src, VkRect2D srcRect,
 	_dbg_assert_msg_(G3D, dstRect.extent.width > 0, "blit dstwidth == 0");
 	_dbg_assert_msg_(G3D, dstRect.extent.height > 0, "blit dstheight == 0");
 
+	for (int i = (int)steps_.size() - 1; i >= 0; i--) {
+		if (steps_[i]->stepType == VKRStepType::RENDER && steps_[i]->render.framebuffer == src) {
+			steps_[i]->render.numReads++;
+			break;
+		}
+	}
+
 	VKRStep *step = new VKRStep{ VKRStepType::BLIT };
 
 	step->blit.aspectMask = aspectMask;
@@ -720,6 +800,7 @@ VkImageView VulkanRenderManager::BindFramebufferAsTexture(VKRFramebuffer *fb, in
 			if (steps_[i]->render.finalColorLayout == VK_IMAGE_LAYOUT_UNDEFINED) {
 				steps_[i]->render.finalColorLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
 			}
+			steps_[i]->render.numReads++;
 			break;
 		}
 	}
@@ -736,6 +817,14 @@ VkImageView VulkanRenderManager::BindFramebufferAsTexture(VKRFramebuffer *fb, in
 
 void VulkanRenderManager::Finish() {
 	curRenderStep_ = nullptr;
+
+	// Let's do just a bit of cleanup on render commands now.
+	for (auto &step : steps_) {
+		if (step->stepType == VKRStepType::RENDER) {
+			CleanupRenderCommands(&step->commands);
+		}
+	}
+
 	int curFrame = vulkan_->GetCurFrame();
 	FrameData &frameData = frameData_[curFrame];
 	if (!useThread_) {
@@ -922,7 +1011,7 @@ void VulkanRenderManager::EndSyncFrame(int frame) {
 		VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT
 	};
 	VkResult res = vkBeginCommandBuffer(frameData.mainCmd, &begin);
-	assert(res == VK_SUCCESS);
+	_assert_(res == VK_SUCCESS);
 
 	if (useThread_) {
 		std::unique_lock<std::mutex> lock(frameData.push_mutex);

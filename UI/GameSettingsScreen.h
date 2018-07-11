@@ -107,7 +107,8 @@ private:
 
 	// Temporaries to convert bools to int settings
 	bool cap60FPS_;
-	int iAlternateSpeedPercent_;
+	int iAlternateSpeedPercent1_;
+	int iAlternateSpeedPercent2_;
 	int iAlternateSpeedPercent2_;
 	bool enableReports_;
 
@@ -142,13 +143,13 @@ private:
 class DeveloperToolsScreen : public UIDialogScreenWithBackground {
 public:
 	DeveloperToolsScreen() {}
+	void update() override;
 	void onFinish(DialogResult result) override;
 
 protected:
 	void CreateViews() override;
 
 private:
-	UI::EventReturn OnBack(UI::EventParams &e);
 	UI::EventReturn OnRunCPUTests(UI::EventParams &e);
 	UI::EventReturn OnLoggingChanged(UI::EventParams &e);
 	UI::EventReturn OnLoadLanguageIni(UI::EventParams &e);
@@ -156,6 +157,10 @@ private:
 	UI::EventReturn OnOpenTexturesIniFile(UI::EventParams &e);
 	UI::EventReturn OnLogConfig(UI::EventParams &e);
 	UI::EventReturn OnJitAffectingSetting(UI::EventParams &e);
+	UI::EventReturn OnRemoteDebugger(UI::EventParams &e);
+
+	bool allowDebugger_ = false;
+	bool canAllowDebugger_ = true;
 };
 
 class OtherSettingsScreen : public UIDialogScreenWithBackground {

@@ -310,11 +310,7 @@ bool TranslateShader(std::string *dest, ShaderLanguage destLang, TranslatedShade
 		spirv_cross::ShaderResources resources = glsl.get_shader_resources();
 		// Set some options.
 		spirv_cross::CompilerGLSL::Options options;
-		if (gl_extensions.ver[0] >= 4) {
-			options.version = 400;
-		} else {
-			options.version = 300;
-		}
+		options.version = gl_extensions.GLSLVersion();
 		glsl.set_options(options);
 		// Compile to GLSL, ready to give to GL driver.
 		*dest = glsl.compile();

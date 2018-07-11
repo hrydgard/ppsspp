@@ -8,6 +8,7 @@
 #include "base/timeutil.h"
 #include "Common/ChunkFile.h"
 #include "Core/Config.h"
+#include "Core/ConfigValues.h"
 #include "Core/Core.h"
 #include "Core/HLE/sceCtrl.h"
 #include "Core/HLE/sceUtility.h"
@@ -552,7 +553,7 @@ bool retro_load_game(const struct retro_game_info *game) {
 	coreParam.enableSound = true;
 	coreParam.fileToStart = std::string(game->path);
 	coreParam.mountIso = "";
-	coreParam.startPaused = false;
+	coreParam.startBreak = false;
 	coreParam.printfEmuLog = true;
 	coreParam.headLess = true;
 	coreParam.unthrottle = true;

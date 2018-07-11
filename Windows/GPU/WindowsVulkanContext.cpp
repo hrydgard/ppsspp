@@ -51,6 +51,7 @@
 #include <sstream>
 
 #include "Core/Config.h"
+#include "Core/ConfigValues.h"
 #include "Core/System.h"
 #include "Common/Vulkan/VulkanLoader.h"
 #include "Common/Vulkan/VulkanContext.h"
@@ -109,7 +110,12 @@ bool WindowsVulkanContext::Init(HINSTANCE hInst, HWND hWnd, std::string *error_m
 		g_Vulkan = nullptr;
 		return false;
 	}
-	g_Vulkan->ChooseDevice(g_Vulkan->GetBestPhysicalDevice());
+	int deviceNum = g_Vulkan->GetPhysicalDeviceByName(g_Config.sVulkanDevice);
+	if (deviceNum < 0) {
+		deviceNum = g_Vulkan->GetBestPhysicalDevice();
+		g_Config.sVulkanDevice = g_Vulkan->GetPhysicalDeviceProperties(deviceNum).deviceName;
+	}
+	g_Vulkan->ChooseDevice(deviceNum);
 	if (g_Vulkan->EnableDeviceExtension(VK_NV_DEDICATED_ALLOCATION_EXTENSION_NAME)) {
 		supportsDedicatedAlloc_ = true;
 	}

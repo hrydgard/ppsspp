@@ -139,7 +139,8 @@ bool GenerateFragmentShaderHLSL(const FShaderID &id, char *buffer, char* scalerC
 	if (doTexture) {
 		WRITE(p, "  float3 v_texcoord: TEXCOORD0;\n");
 	}
-	WRITE(p, "  float4 v_color0: COLOR0;\n");
+	const char *colorInterpolation = doFlatShading && lang == HLSL_D3D11 ? "nointerpolation " : "";
+	WRITE(p, "  %sfloat4 v_color0: COLOR0;\n", colorInterpolation);
 	if (lmode) {
 		WRITE(p, "  float3 v_color1: COLOR1;\n");
 	}
