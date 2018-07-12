@@ -25,3 +25,5 @@ void WebSocketGPUBufferScreenshot(DebuggerRequest &req);
 void WebSocketGPUBufferRenderColor(DebuggerRequest &req);
 void WebSocketGPUBufferRenderDepth(DebuggerRequest &req);
 void WebSocketGPUBufferRenderStencil(DebuggerRequest &req);
+void WebSocketGPUBufferTexture(DebuggerRequest &req);
+void WebSocketGPUBufferClut(DebuggerRequest &req);
