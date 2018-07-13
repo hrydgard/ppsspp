@@ -249,6 +249,87 @@ bool GenerateVulkanGLSLVertexShader(const VShaderID &id, char *buffer) {
 			WRITE(p, "  return pos;\n");
 			WRITE(p, "}\n");
 		}
+
+		WRITE(p, "struct Tess {\n");
+		WRITE(p, "  vec3 pos;\n");
+		if (doTexture && hasTexcoord)
+			WRITE(p, "  vec2 tex;\n");
+		if (hasColor)
+			WRITE(p, "  vec4 col;\n");
+		if (hasNormal)
+			WRITE(p, "  vec3 nrm;\n");
+		WRITE(p, "};\n");
+
+		WRITE(p, "void tessellate(out Tess tess) {\n");
+		// Calculate current patch position and vertex position(index for the weights)
+		WRITE(p, "  ivec2 spline_num_patches = ivec2((base.spline_counts >> 0) & 0xff, (base.spline_counts >> 8) & 0xff);\n");
+		WRITE(p, "  ivec2 spline_tess = ivec2((base.spline_counts >> 16) & 0xff, (base.spline_counts >> 24) & 0xff);\n");
+
+		WRITE(p, "  int spline_count_u = %s;\n", doBezier ? "spline_num_patches.x * 3 + 1" : "spline_num_patches.x + 3");
+		WRITE(p, "  int u = gl_InstanceIndex %% spline_num_patches.x;\n");
+		WRITE(p, "  int v = gl_InstanceIndex / spline_num_patches.x;\n");
+		WRITE(p, "  ivec2 patch_pos = ivec2(u, v);\n");
+		WRITE(p, "  ivec2 vertex_pos = ivec2(position.xy);\n");
+		if (doSpline) {
+			WRITE(p, "  bvec2 isFirstEdge = not(bvec2(vertex_pos));\n"); // vertex_pos == 0
+			WRITE(p, "  bvec2 isNotFirstPatch = bvec2(patch_pos);\n"); // patch_pos > 0
+			WRITE(p, "  vertex_pos += patch_pos * spline_tess;\n");
+		}
+		// Load 4x4 control points
+		WRITE(p, "  vec3 _pos[16];\n");
+		WRITE(p, "  vec2 _tex[16];\n");
+		WRITE(p, "  vec4 _col[16];\n");
+		WRITE(p, "  for (int i = 0; i < 4; i++) {\n");
+		WRITE(p, "    for (int j = 0; j < 4; j++) {\n");
+		WRITE(p, "      int idx = (i + v%s) * spline_count_u + (j + u%s);\n", doBezier ? " * 3" : "", doBezier ? " * 3" : "");
+		WRITE(p, "      _pos[i * 4 + j] = tess_data.data[idx].pos.xyz;\n");
+		if (doTexture && hasTexcoord && hasTexcoordTess)
+			WRITE(p, "      _tex[i * 4 + j] = tess_data.data[idx].uv.xy;\n");
+		if (hasColor && hasColorTess)
+			WRITE(p, "      _col[i * 4 + j] = tess_data.data[idx].color;\n");
+		WRITE(p, "    }\n");
+		WRITE(p, "  }\n");
+
+		// Basis polynomials as weight coefficients
+		WRITE(p, "  vec4 basis_u = tess_weights_u.data[vertex_pos.x].basis;\n");
+		WRITE(p, "  vec4 basis_v = tess_weights_v.data[vertex_pos.y].basis;\n");
+		if (doSpline) {
+			WRITE(p, "  if (isFirstEdge.x && isNotFirstPatch.x)\n");
+			WRITE(p, "    basis_u = vec4(basis_u.yzw, 0);\n");
+			WRITE(p, "  if (isFirstEdge.y && isNotFirstPatch.y)\n");
+			WRITE(p, "    basis_v = vec4(basis_v.yzw, 0);\n");
+		}
+
+		// Tessellate
+		WRITE(p, "  tess.pos = tess_sample(_pos, basis_u, basis_v);\n");
+		if (doTexture && hasTexcoord) {
+			if (hasTexcoordTess)
+				WRITE(p, "  tess.tex = tess_sample(_tex, basis_u, basis_v);\n");
+			else
+				WRITE(p, "  tess.tex = normal.xy + vec2(patch_pos);\n");
+		}
+		if (hasColor) {
+			if (hasColorTess)
+				WRITE(p, "  tess.col = tess_sample(_col, basis_u, basis_v);\n");
+			else
+				WRITE(p, "  tess.col = tess_data.data[0].color;\n");
+		}
+		if (hasNormal) {
+			// Derivatives as weight coefficients
+			WRITE(p, "  vec4 deriv_u = tess_weights_u.data[vertex_pos.x].deriv;\n");
+			WRITE(p, "  vec4 deriv_v = tess_weights_v.data[vertex_pos.y].deriv;\n");
+			if (doSpline) {
+				WRITE(p, "  if (isFirstEdge.x && isNotFirstPatch.x)\n");
+				WRITE(p, "    deriv_u = vec4(deriv_u.yzw, 0);\n");
+				WRITE(p, "  if (isFirstEdge.y && isNotFirstPatch.y)\n");
+				WRITE(p, "    deriv_v = vec4(deriv_v.yzw, 0);\n");
+			}
+
+			WRITE(p, "  vec3 du = tess_sample(_pos, deriv_u, basis_v);\n");
+			WRITE(p, "  vec3 dv = tess_sample(_pos, basis_u, deriv_v);\n");
+			WRITE(p, "  tess.nrm = normalize(cross(du, dv));\n");
+		}
+		WRITE(p, "}\n");
 	}
 
 	WRITE(p, "void main() {\n");
@@ -288,77 +369,13 @@ bool GenerateVulkanGLSLVertexShader(const VShaderID &id, char *buffer) {
 		// Step 1: World Transform / Skinning
 		if (!enableBones) {
 			if (doBezier || doSpline) {
-				WRITE(p, "  ivec2 spline_num_patches = ivec2((base.spline_counts >> 0) & 0xff, (base.spline_counts >> 8) & 0xff);\n");
-				WRITE(p, "  ivec2 spline_tess = ivec2((base.spline_counts >> 16) & 0xff, (base.spline_counts >> 24) & 0xff);\n");
+				// Hardware tessellation
+				WRITE(p, "  Tess tess;\n");
+				WRITE(p, "  tessellate(tess);\n");
 
-				WRITE(p, "  int spline_count_u = %s;\n", doBezier ? "spline_num_patches.x * 3 + 1" : "spline_num_patches.x + 3");
-				WRITE(p, "  int u = gl_InstanceIndex %% spline_num_patches.x;\n");
-				WRITE(p, "  int v = gl_InstanceIndex / spline_num_patches.x;\n");
-				WRITE(p, "  ivec2 patch_pos = ivec2(u, v);\n");
-				WRITE(p, "  ivec2 vertex_pos = ivec2(position.xy);\n");
-				if (doSpline) {
-					WRITE(p, "  bvec2 isFirstEdge = not(bvec2(vertex_pos));\n"); // vertex_pos == 0
-					WRITE(p, "  bvec2 isNotFirstPatch = bvec2(patch_pos);\n"); // patch_pos > 0
-					WRITE(p, "  vertex_pos += patch_pos * spline_tess;\n");
-				}
-				// Load 4x4 control points
-				WRITE(p, "  vec3 _pos[16];\n");
-				WRITE(p, "  vec2 _tex[16];\n");
-				WRITE(p, "  vec4 _col[16];\n");
-				WRITE(p, "  for (int i = 0; i < 4; i++) {\n");
-				WRITE(p, "    for (int j = 0; j < 4; j++) {\n");
-				WRITE(p, "      int idx = (i + v%s) * spline_count_u + (j + u%s);\n", doBezier ? " * 3" : "", doBezier ? " * 3" : "");
-				WRITE(p, "      _pos[i * 4 + j] = tess_data.data[idx].pos.xyz;\n");
-				if (doTexture && hasTexcoord && hasTexcoordTess)
-					WRITE(p, "      _tex[i * 4 + j] = tess_data.data[idx].uv.xy;\n");
-				if (hasColor && hasColorTess)
-					WRITE(p, "      _col[i * 4 + j] = tess_data.data[idx].color;\n");
-				WRITE(p, "    }\n");
-				WRITE(p, "  }\n");
-
-				// Basis polynomials as weight coefficients
-				WRITE(p, "  vec4 basis_u = tess_weights_u.data[vertex_pos.x].basis;\n");
-				WRITE(p, "  vec4 basis_v = tess_weights_v.data[vertex_pos.y].basis;\n");
-				if (doSpline) {
-					WRITE(p, "  if (isFirstEdge.x && isNotFirstPatch.x)\n");
-					WRITE(p, "    basis_u = vec4(basis_u.yzw, 0);\n");
-					WRITE(p, "  if (isFirstEdge.y && isNotFirstPatch.y)\n");
-					WRITE(p, "    basis_v = vec4(basis_v.yzw, 0);\n");
-				}
-
-				// Tessellate
-				WRITE(p, "  vec3 pos = tess_sample(_pos, basis_u, basis_v);\n");
-				if (doTexture && hasTexcoord) {
-					if (hasTexcoordTess)
-						WRITE(p, "  vec2 tex = tess_sample(_tex, basis_u, basis_v);\n");
-					else
-						WRITE(p, "  vec2 tex = normal.xy + vec2(patch_pos);\n");
-				}
-				if (hasColor) {
-					if (hasColorTess)
-						WRITE(p, "  vec4 col = tess_sample(_col, basis_u, basis_v);\n");
-					else
-						WRITE(p, "  vec4 col = tess_data.data[0].color;\n");
-				}
+				WRITE(p, "  vec3 worldpos = vec4(tess.pos.xyz, 1.0) * base.world_mtx;\n");
 				if (hasNormal) {
-					// Derivatives as weight coefficients
-					WRITE(p, "  vec4 deriv_u = tess_weights_u.data[vertex_pos.x].deriv;\n");
-					WRITE(p, "  vec4 deriv_v = tess_weights_v.data[vertex_pos.y].deriv;\n");
-					if (doSpline) {
-						WRITE(p, "  if (isFirstEdge.x && isNotFirstPatch.x)\n");
-						WRITE(p, "    deriv_u = vec4(deriv_u.yzw, 0);\n");
-						WRITE(p, "  if (isFirstEdge.y && isNotFirstPatch.y)\n");
-						WRITE(p, "    deriv_v = vec4(deriv_v.yzw, 0);\n");
-					}
-
-					WRITE(p, "  vec3 du = tess_sample(_pos, deriv_u, basis_v);\n");
-					WRITE(p, "  vec3 dv = tess_sample(_pos, basis_u, deriv_v);\n");
-					WRITE(p, "  vec3 nrm = cross(du, dv);\n");
-					WRITE(p, "  nrm = normalize(nrm);\n");
-				}
-				WRITE(p, "  vec3 worldpos = vec4(pos.xyz, 1.0) * base.world_mtx;\n");
-				if (hasNormal) {
-					WRITE(p, "  mediump vec3 worldnormal = normalize(vec4(%snrm, 0.0) * base.world_mtx);\n", flipNormalTess ? "-" : "");
+					WRITE(p, "  mediump vec3 worldnormal = normalize(vec4(%stess.nrm, 0.0) * base.world_mtx);\n", flipNormalTess ? "-" : "");
 				} else {
 					WRITE(p, "  mediump vec3 worldnormal = vec3(0.0, 0.0, 1.0);\n");
 				}
@@ -415,9 +432,9 @@ bool GenerateVulkanGLSLVertexShader(const VShaderID &id, char *buffer) {
 		const char *diffuseStr = ((matUpdate & 2) && hasColor) ? "color0.rgb" : "light.matdiffuse";
 		const char *specularStr = ((matUpdate & 4) && hasColor) ? "color0.rgb" : "light.matspecular.rgb";
 		if (doBezier || doSpline) {
-			ambientStr = (matUpdate & 1) && hasColor ? "col" : "base.matambientalpha";
-			diffuseStr = (matUpdate & 2) && hasColor ? "col.rgb" : "light.matdiffuse";
-			specularStr = (matUpdate & 4) && hasColor ? "col.rgb" : "light.matspecular.rgb";
+			ambientStr = (matUpdate & 1) && hasColor ? "tess.col" : "base.matambientalpha";
+			diffuseStr = (matUpdate & 2) && hasColor ? "tess.col.rgb" : "light.matdiffuse";
+			specularStr = (matUpdate & 4) && hasColor ? "tess.col.rgb" : "light.matspecular.rgb";
 		}
 
 		bool diffuseIsZero = true;
@@ -538,7 +555,7 @@ bool GenerateVulkanGLSLVertexShader(const VShaderID &id, char *buffer) {
 			// Lighting doesn't affect color.
 			if (hasColor) {
 				if (doBezier || doSpline)
-					WRITE(p, "  v_color0 = col;\n");
+					WRITE(p, "  v_color0 = tess.col;\n");
 				else
 					WRITE(p, "  v_color0 = color0;\n");
 			} else {
@@ -559,7 +576,7 @@ bool GenerateVulkanGLSLVertexShader(const VShaderID &id, char *buffer) {
 				if (scaleUV) {
 					if (hasTexcoord) {
 						if (doBezier || doSpline)
-							WRITE(p, "  v_texcoord = vec3(tex.xy * base.uvscaleoffset.xy + base.uvscaleoffset.zw, 0.0);\n");
+							WRITE(p, "  v_texcoord = vec3(tess.tex.xy * base.uvscaleoffset.xy + base.uvscaleoffset.zw, 0.0);\n");
 						else
 							WRITE(p, "  v_texcoord = vec3(texcoord.xy * base.uvscaleoffset.xy, 0.0);\n");
 					} else {
@@ -568,7 +585,7 @@ bool GenerateVulkanGLSLVertexShader(const VShaderID &id, char *buffer) {
 				} else {
 					if (hasTexcoord) {
 						if (doBezier || doSpline)
-							WRITE(p, "  v_texcoord = vec3(tex.xy * base.uvscaleoffset.xy + base.uvscaleoffset.zw, 0.0);\n");
+							WRITE(p, "  v_texcoord = vec3(tess.tex.xy * base.uvscaleoffset.xy + base.uvscaleoffset.zw, 0.0);\n");
 						else
 							WRITE(p, "  v_texcoord = vec3(texcoord.xy * base.uvscaleoffset.xy + base.uvscaleoffset.zw, 0.0);\n");
 					} else {
