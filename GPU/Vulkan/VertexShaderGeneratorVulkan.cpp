@@ -239,11 +239,10 @@ bool GenerateVulkanGLSLVertexShader(const VShaderID &id, char *buffer) {
 			// Define 3 types vec2, vec3, vec4
 			WRITE(p, "vec%d tess_sample(in vec%d points[16], vec4 weights_u, vec4 weights_v) {\n", i, i);
 			WRITE(p, "  vec%d pos = vec%d(0.0);\n", i, i);
+			WRITE(p, "  int idx = 0;\n");
 			WRITE(p, "  for (int v = 0; v < 4; ++v) {\n");
 			WRITE(p, "    for (int u = 0; u < 4; ++u) {\n");
-			WRITE(p, "      float f = weights_u[u] * weights_v[v];\n");
-			WRITE(p, "      if (f != 0.0)\n");
-			WRITE(p, "        pos += f * points[v * 4 + u];\n");
+			WRITE(p, "      pos += weights_u[u] * weights_v[v] * points[idx++];\n");
 			WRITE(p, "    }\n");
 			WRITE(p, "  }\n");
 			WRITE(p, "  return pos;\n");
