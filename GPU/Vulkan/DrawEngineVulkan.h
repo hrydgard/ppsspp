@@ -117,6 +117,20 @@ public:
 
 class VulkanRenderManager;
 
+class TessellationDataTransferVulkan : public TessellationDataTransfer  {
+public:
+	TessellationDataTransferVulkan(VulkanContext *vulkan) : vulkan_(vulkan) {}
+
+	void SetPushBuffer(VulkanPushBuffer *push) { push_ = push; }
+	// Send spline/bezier's control points and weights to vertex shader through structured shader buffer.
+	void SendDataToShader(const SimpleVertex *const *points, int size, u32 vertType, const Weight2D &weights) override;
+	const VkDescriptorBufferInfo *GetBufferInfo() { return bufInfo_; }
+private:
+	VulkanContext *vulkan_;
+	VulkanPushBuffer *push_;  // Updated each frame.
+	VkDescriptorBufferInfo bufInfo_[3]{};
+};
+
 // Handles transform, lighting and drawing.
 class DrawEngineVulkan : public DrawEngineCommon {
 public:
@@ -278,19 +292,5 @@ private:
 	int tessOffset_ = 0;
 
 	// Hardware tessellation
-	class TessellationDataTransferVulkan : public TessellationDataTransfer {
-	public:
-		TessellationDataTransferVulkan(VulkanContext *vulkan);
-		~TessellationDataTransferVulkan();
-
-		void SetPushBuffer(VulkanPushBuffer *push) { push_ = push; }
-		void SendDataToShader(const SimpleVertex *const *points, int size, u32 vertType, const Weight2D &weights) override;
-		const VkDescriptorBufferInfo *GetBufferInfo() { return bufInfo_; }
-	private:
-		VulkanContext *vulkan_;
-		VulkanPushBuffer *push_;  // Updated each frame.
-
-		VkDescriptorBufferInfo bufInfo_[3] = {};
-	};
 	TessellationDataTransferVulkan *tessDataTransferVulkan;
 };

@@ -101,7 +101,8 @@ DrawEngineDX9::DrawEngineDX9(Draw::DrawContext *draw) : vai_(256), vertexDeclMap
 
 	InitDeviceObjects();
 
-	tessDataTransfer = new TessellationDataTransferDX9();
+	tessDataTransferDX9 = new TessellationDataTransferDX9();
+	tessDataTransfer = tessDataTransferDX9;
 
 	device_->CreateVertexDeclaration(TransformedVertexElements, &transformedVertexDecl_);
 }
@@ -121,7 +122,7 @@ DrawEngineDX9::~DrawEngineDX9() {
 		}
 	});
 	vertexDeclMap_.Clear();
-	delete tessDataTransfer;
+	delete tessDataTransferDX9;
 }
 
 void DrawEngineDX9::InitDeviceObjects() {
@@ -624,7 +625,8 @@ rotateVBO:
 	GPUDebug::NotifyDraw();
 }
 
-void DrawEngineDX9::TessellationDataTransferDX9::SendDataToShader(const SimpleVertex *const *points, int size, u32 vertType, const Weight2D &weights) {
+void TessellationDataTransferDX9::SendDataToShader(const SimpleVertex *const *points, int size, u32 vertType, const Weight2D &weights) {
+	// TODO
 }
 
 }  // namespace

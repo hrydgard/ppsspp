@@ -110,6 +110,21 @@ public:
 	u8 flags;
 };
 
+class TessellationDataTransferGLES : public TessellationDataTransfer {
+private:
+	GLRTexture *data_tex[3]{};
+	GLRenderManager *renderManager_;
+public:
+	TessellationDataTransferGLES(GLRenderManager *renderManager)
+			: renderManager_(renderManager) { }
+	~TessellationDataTransferGLES() {
+		EndFrame();
+	}
+	// Send spline/bezier's control points and weights to vertex shader through floating point texture.
+	void SendDataToShader(const SimpleVertex *const *points, int size, u32 vertType, const Weight2D &weights) override;
+	void EndFrame();  // Queues textures for deletion.
+};
+
 // Handles transform, lighting and drawing.
 class DrawEngineGLES : public DrawEngineCommon {
 public:
@@ -208,18 +223,5 @@ private:
 	int bufferDecimationCounter_ = 0;
 
 	// Hardware tessellation
-	class TessellationDataTransferGLES : public TessellationDataTransfer {
-	private:
-		GLRTexture *data_tex[3]{};
-		GLRenderManager *renderManager_;
-	public:
-		TessellationDataTransferGLES(GLRenderManager *renderManager)
-			  : renderManager_(renderManager) { }
-		~TessellationDataTransferGLES() {
-			EndFrame();
-		}
-		void SendDataToShader(const SimpleVertex *const *points, int size, u32 vertType, const Weight2D &weights) override;
-		void EndFrame();  // Queues textures for deletion.
-	};
 	TessellationDataTransferGLES *tessDataTransferGLES;
 };

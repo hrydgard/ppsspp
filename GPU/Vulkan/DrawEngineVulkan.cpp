@@ -212,7 +212,7 @@ void DrawEngineVulkan::FrameData::Destroy(VulkanContext *vulkan) {
 }
 
 void DrawEngineVulkan::DestroyDeviceObjects() {
-	delete tessDataTransfer;
+	delete tessDataTransferVulkan;
 	tessDataTransfer = tessDataTransferVulkan = nullptr;
 
 	for (int i = 0; i < VulkanContext::MAX_INFLIGHT_FRAMES; i++) {
@@ -1014,14 +1014,7 @@ void DrawEngineVulkan::UpdateUBOs(FrameData *frame) {
 	}
 }
 
-DrawEngineVulkan::TessellationDataTransferVulkan::TessellationDataTransferVulkan(VulkanContext *vulkan)
-	: TessellationDataTransfer(), vulkan_(vulkan) {
-}
-
-DrawEngineVulkan::TessellationDataTransferVulkan::~TessellationDataTransferVulkan() {
-}
-
-void DrawEngineVulkan::TessellationDataTransferVulkan::SendDataToShader(const SimpleVertex *const *points, int size, u32 vertType, const Weight2D &weights) {
+void TessellationDataTransferVulkan::SendDataToShader(const SimpleVertex *const *points, int size, u32 vertType, const Weight2D &weights) {
 	// SSBOs that are not simply float1 or float2 need to be padded up to a float4 size. vec3 members
 	// also need to be 16-byte aligned, hence the padding.
 	struct TessData {

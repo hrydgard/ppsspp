@@ -97,7 +97,7 @@ DrawEngineGLES::~DrawEngineGLES() {
 	FreeMemoryPages(decIndex, DECODED_INDEX_BUFFER_SIZE);
 	FreeMemoryPages(splineBuffer, SPLINE_BUFFER_SIZE);
 
-	delete tessDataTransfer;
+	delete tessDataTransferGLES;
 }
 
 void DrawEngineGLES::DeviceLost() {
@@ -656,7 +656,7 @@ bool DrawEngineGLES::IsCodePtrVertexDecoder(const u8 *ptr) const {
 	return decJitCache_->IsInSpace(ptr);
 }
 
-void DrawEngineGLES::TessellationDataTransferGLES::SendDataToShader(const SimpleVertex *const *points, int size, u32 vertType, const Weight2D &weights) {
+void TessellationDataTransferGLES::SendDataToShader(const SimpleVertex *const *points, int size, u32 vertType, const Weight2D &weights) {
 	bool hasColor = (vertType & GE_VTYPE_COL_MASK) != 0;
 	bool hasTexCoord = (vertType & GE_VTYPE_TC_MASK) != 0;
 	int sizeColor = hasColor ? size : 1;
@@ -703,7 +703,7 @@ void DrawEngineGLES::TessellationDataTransferGLES::SendDataToShader(const Simple
 
 }
 
-void DrawEngineGLES::TessellationDataTransferGLES::EndFrame() {
+void TessellationDataTransferGLES::EndFrame() {
 	for (int i = 0; i < 3; i++) {
 		if (data_tex[i]) {
 			renderManager_->DeleteTexture(data_tex[i]);

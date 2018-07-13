@@ -741,7 +741,7 @@ void DrawEngineCommon::SubmitPrim(void *verts, void *inds, GEPrimitiveType prim,
 	}
 }
 
-void DrawEngineCommon::TessellationDataTransfer::CopyControlPoints(float *pos, float *tex, float *col, int posStride, int texStride, int colStride, const SimpleVertex *const *points, int size, u32 vertType) {
+void TessellationDataTransfer::CopyControlPoints(float *pos, float *tex, float *col, int posStride, int texStride, int colStride, const SimpleVertex *const *points, int size, u32 vertType) {
 	bool hasColor = (vertType & GE_VTYPE_COL_MASK) != 0;
 	bool hasTexCoord = (vertType & GE_VTYPE_TC_MASK) != 0;
 

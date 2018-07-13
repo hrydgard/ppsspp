@@ -111,7 +111,8 @@ void DrawEngineD3D11::InitDeviceObjects() {
 	pushVerts_ = new PushBufferD3D11(device_, VERTEX_PUSH_SIZE, D3D11_BIND_VERTEX_BUFFER);
 	pushInds_ = new PushBufferD3D11(device_, INDEX_PUSH_SIZE, D3D11_BIND_INDEX_BUFFER);
 
-	tessDataTransfer = new TessellationDataTransferD3D11(context_, device_);
+	tessDataTransferD3D11 = new TessellationDataTransferD3D11(context_, device_);
+	tessDataTransfer = tessDataTransferD3D11;
 }
 
 void DrawEngineD3D11::ClearTrackedVertexArrays() {
@@ -137,7 +138,7 @@ void DrawEngineD3D11::Resized() {
 void DrawEngineD3D11::DestroyDeviceObjects() {
 	ClearTrackedVertexArrays();
 	ClearInputLayoutMap();
-	delete tessDataTransfer;
+	delete tessDataTransferD3D11;
 	delete pushVerts_;
 	delete pushInds_;
 	depthStencilCache_.Iterate([&](const uint64_t &key, ID3D11DepthStencilState *ds) {
@@ -692,7 +693,22 @@ rotateVBO:
 	GPUDebug::NotifyDraw();
 }
 
-void DrawEngineD3D11::TessellationDataTransferD3D11::SendDataToShader(const SimpleVertex *const *points, int size, u32 vertType, const Weight2D &weights) {
+TessellationDataTransferD3D11::TessellationDataTransferD3D11(ID3D11DeviceContext *context, ID3D11Device *device)
+	: context_(context), device_(device) {
+	desc.Usage = D3D11_USAGE_DYNAMIC;
+	desc.BindFlags = D3D11_BIND_SHADER_RESOURCE;
+	desc.CPUAccessFlags = D3D11_CPU_ACCESS_WRITE;
+	desc.MiscFlags = D3D11_RESOURCE_MISC_BUFFER_STRUCTURED;
+}
+
+TessellationDataTransferD3D11::~TessellationDataTransferD3D11() {
+	for (int i = 0; i < 3; ++i) {
+		if (buf[i]) buf[i]->Release();
+		if (view[i]) view[i]->Release();
+	}
+}
+
+void TessellationDataTransferD3D11::SendDataToShader(const SimpleVertex *const *points, int size, u32 vertType, const Weight2D &weights) {
 	struct TessData {
 		float pos[3]; float pad1;
 		float uv[2]; float pad2[2];
@@ -701,13 +717,11 @@ void DrawEngineD3D11::TessellationDataTransferD3D11::SendDataToShader(const Simp
 
 	if (prevSize < size) {
 		prevSize = size;
-		if (buf[0]) {
-			buf[0]->Release();
-			view[0]->Release();
-		}
+		if (buf[0]) buf[0]->Release();
+		if (view[0]) view[0]->Release();
+
 		desc.ByteWidth = size * sizeof(TessData);
 		desc.StructureByteStride = sizeof(TessData);
-
 		device_->CreateBuffer(&desc, nullptr, &buf[0]);
 		device_->CreateShaderResourceView(buf[0], nullptr, &view[0]);
 		context_->VSSetShaderResources(0, 1, &view[0]);
@@ -727,17 +741,14 @@ void DrawEngineD3D11::TessellationDataTransferD3D11::SendDataToShader(const Simp
 
 	context_->Unmap(buf[0], 0);
 
-
 	// Weights U
-	if (prevSizeWeights[0] < weights.size_u) {
-		prevSizeWeights[0] = weights.size_u;
-		if (buf[1]) {
-			buf[1]->Release();
-			view[1]->Release();
-		}
+	if (prevSizeWU < weights.size_u) {
+		prevSizeWU = weights.size_u;
+		if (buf[1]) buf[1]->Release();
+		if (view[1]) view[1]->Release();
+
 		desc.ByteWidth = weights.size_u * sizeof(Weight);
 		desc.StructureByteStride = sizeof(Weight);
-
 		device_->CreateBuffer(&desc, nullptr, &buf[1]);
 		device_->CreateShaderResourceView(buf[1], nullptr, &view[1]);
 		context_->VSSetShaderResources(1, 1, &view[1]);
@@ -747,15 +758,13 @@ void DrawEngineD3D11::TessellationDataTransferD3D11::SendDataToShader(const Simp
 	context_->Unmap(buf[1], 0);
 
 	// Weights V
-	if (prevSizeWeights[1] < weights.size_v) {
-		prevSizeWeights[1] = weights.size_v;
-		if (buf[2]) {
-			buf[2]->Release();
-			view[2]->Release();
-		}
+	if (prevSizeWV < weights.size_v) {
+		prevSizeWV = weights.size_v;
+		if (buf[2]) buf[2]->Release();
+		if (view[2]) view[2]->Release();
+
 		desc.ByteWidth = weights.size_v * sizeof(Weight);
 		desc.StructureByteStride = sizeof(Weight);
-
 		device_->CreateBuffer(&desc, nullptr, &buf[2]);
 		device_->CreateShaderResourceView(buf[2], nullptr, &view[2]);
 		context_->VSSetShaderResources(2, 1, &view[2]);

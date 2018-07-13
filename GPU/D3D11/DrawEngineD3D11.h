@@ -99,6 +99,22 @@ public:
 	u8 flags;
 };
 
+class TessellationDataTransferD3D11 : public TessellationDataTransfer {
+private:
+	ID3D11DeviceContext *context_;
+	ID3D11Device *device_;
+	ID3D11Buffer *buf[3]{};
+	ID3D11ShaderResourceView *view[3]{};
+	D3D11_BUFFER_DESC desc{};
+	int prevSize = 0;
+	int prevSizeWU = 0, prevSizeWV = 0;
+public:
+	TessellationDataTransferD3D11(ID3D11DeviceContext *context, ID3D11Device *device);
+	~TessellationDataTransferD3D11();
+	// Send spline/bezier's control points and weights to vertex shader through structured shader buffer.
+	void SendDataToShader(const SimpleVertex *const *points, int size, u32 vertType, const Weight2D &weights) override;
+};
+
 // Handles transform, lighting and drawing.
 class DrawEngineD3D11 : public DrawEngineCommon {
 public:
@@ -199,32 +215,5 @@ private:
 	D3D11DynamicState dynState_{};
 
 	// Hardware tessellation
-	class TessellationDataTransferD3D11 : public TessellationDataTransfer {
-	private:
-		ID3D11DeviceContext *context_;
-		ID3D11Device *device_;
-		ID3D11Buffer *buf[3];
-		ID3D11ShaderResourceView *view[3];
-		D3D11_BUFFER_DESC desc;
-		int prevSize = 0;
-		int prevSizeWeights[2] = {};
-	public:
-		TessellationDataTransferD3D11(ID3D11DeviceContext *context, ID3D11Device *device)
-			: TessellationDataTransfer(), context_(context), device_(device), buf(), view(), desc() {
-			desc.Usage = D3D11_USAGE_DYNAMIC;
-			desc.BindFlags = D3D11_BIND_SHADER_RESOURCE;
-			desc.CPUAccessFlags = D3D11_CPU_ACCESS_WRITE;
-			desc.MiscFlags = D3D11_RESOURCE_MISC_BUFFER_STRUCTURED;
-		}
-		~TessellationDataTransferD3D11() {
-			for (int i = 0; i < 3; ++i) {
-				if (buf[i]) {
-					buf[i]->Release();
-					view[i]->Release();
-				}
-			}
-		}
-
-		void SendDataToShader(const SimpleVertex *const *points, int size, u32 vertType, const Weight2D &weights) override;
-	};
+	TessellationDataTransferD3D11 *tessDataTransferD3D11;
 };

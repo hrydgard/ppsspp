@@ -53,6 +53,12 @@ inline uint32_t GetVertTypeID(uint32_t vertType, int uvGenMode) {
 
 struct SimpleVertex;
 
+class TessellationDataTransfer {
+public:
+	void CopyControlPoints(float *pos, float *tex, float *col, int posStride, int texStride, int colStride, const SimpleVertex *const *points, int size, u32 vertType);
+	virtual void SendDataToShader(const SimpleVertex *const *points, int size, u32 vertType, const Weight2D &weights) = 0;
+};
+
 class DrawEngineCommon {
 public:
 	DrawEngineCommon();
@@ -173,12 +179,5 @@ protected:
 
 	// Hardware tessellation
 	int numPatches;
-	class TessellationDataTransfer {
-	public:
-		virtual ~TessellationDataTransfer() {}
-		void CopyControlPoints(float *pos, float *tex, float *col, int posStride, int texStride, int colStride, const SimpleVertex *const *points, int size, u32 vertType);
-		// Send spline/bezier's control points to vertex shader through floating point texture.
-		virtual void SendDataToShader(const SimpleVertex *const *points, int size, u32 vertType, const Weight2D &weights) = 0;
-	};
 	TessellationDataTransfer *tessDataTransfer;
 };
