@@ -289,8 +289,9 @@ void GenerateVertexShaderHLSL(const VShaderID &id, char *buffer, ShaderLanguage 
 			WRITE(p, "  float%d pos = float%d(%s);\n", i, i, init[i - 2]);
 			WRITE(p, "  int idx = 0;\n");
 			WRITE(p, "  for (int v = 0; v < 4; ++v) {\n");
+			WRITE(p, "    float4 w = weights_u * weights_v[v];\n");
 			WRITE(p, "    for (int u = 0; u < 4; ++u) {\n");
-			WRITE(p, "      pos += weights_u[u] * weights_v[v] * points[idx++];\n");
+			WRITE(p, "      pos += w[u] * points[idx++];\n");
 			WRITE(p, "    }\n");
 			WRITE(p, "  }\n");
 			WRITE(p, "  return pos;\n");

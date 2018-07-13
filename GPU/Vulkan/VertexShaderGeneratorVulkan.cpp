@@ -241,8 +241,9 @@ bool GenerateVulkanGLSLVertexShader(const VShaderID &id, char *buffer) {
 			WRITE(p, "  vec%d pos = vec%d(0.0);\n", i, i);
 			WRITE(p, "  int idx = 0;\n");
 			WRITE(p, "  for (int v = 0; v < 4; ++v) {\n");
+			WRITE(p, "    vec4 w = weights_u * weights_v[v];\n");
 			WRITE(p, "    for (int u = 0; u < 4; ++u) {\n");
-			WRITE(p, "      pos += weights_u[u] * weights_v[v] * points[idx++];\n");
+			WRITE(p, "      pos += w[u] * points[idx++];\n");
 			WRITE(p, "    }\n");
 			WRITE(p, "  }\n");
 			WRITE(p, "  return pos;\n");
