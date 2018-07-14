@@ -605,7 +605,7 @@ struct GPUStateCache {
 	int spline_tess_u;
 	int spline_tess_v;
 	int spline_num_patches_u;
-	int spline_num_patches_v;
+	int spline_num_points_u;
 
 	bool useShaderDepal;
 	GEBufferFormat depalFramebufferFormat;

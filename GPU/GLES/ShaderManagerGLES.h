@@ -122,7 +122,7 @@ public:
 	int u_tess_weights_u;
 	int u_tess_weights_v;
 	int u_spline_tess;
-	int u_spline_num_patches;
+	int u_spline_counts;
 };
 
 // Real public interface

@@ -309,12 +309,12 @@ void GenerateVertexShaderHLSL(const VShaderID &id, char *buffer, ShaderLanguage 
 		WRITE(p, "};\n");
 
 		WRITE(p, "void tessellate(in VS_IN In, out Tess tess) {\n");
-		WRITE(p, "  int2 spline_num_patches = int2((u_spline_counts >> 0) & 0xFF, (u_spline_counts >> 8) & 0xFF);\n");
+		WRITE(p, "  int spline_num_patches_u = int(u_spline_counts & 0xff);\n");
+		WRITE(p, "  int spline_num_points_u = int((u_spline_counts >> 8) & 0xff);\n");
 		WRITE(p, "  int2 spline_tess = int2((u_spline_counts >> 16) & 0xFF, (u_spline_counts >> 24) & 0xFF);\n");
 		// Calculate current patch position and vertex position(index for the weights)
-		WRITE(p, "  int spline_count_u = %s;\n", doBezier ? "spline_num_patches.x * 3 + 1" : "spline_num_patches.x + 3");
-		WRITE(p, "  int u = In.instanceId %% spline_num_patches.x;\n");
-		WRITE(p, "  int v = In.instanceId / spline_num_patches.x;\n");
+		WRITE(p, "  int u = In.instanceId %% spline_num_patches_u;\n");
+		WRITE(p, "  int v = In.instanceId / spline_num_patches_u;\n");
 		WRITE(p, "  int2 patch_pos = int2(u, v);\n");
 		WRITE(p, "  int2 vertex_pos = int2(In.position.xy);\n");
 		if (doSpline) {
@@ -329,7 +329,7 @@ void GenerateVertexShaderHLSL(const VShaderID &id, char *buffer, ShaderLanguage 
 		WRITE(p, "  int index;\n");
 		for (int i = 0; i < 4; i++) {
 			for (int j = 0; j < 4; j++) {
-				WRITE(p, "  index = (%i + v%s) * spline_count_u + (%i + u%s);\n", i, doBezier ? " * 3" : "", j, doBezier ? " * 3" : "");
+				WRITE(p, "  index = (%i + v%s) * spline_num_points_u + (%i + u%s);\n", i, doBezier ? " * 3" : "", j, doBezier ? " * 3" : "");
 				WRITE(p, "  _pos[%i] = tess_data[index].pos;\n", i * 4 + j);
 				if (doTexture && hasTexcoord && hasTexcoordTess)
 					WRITE(p, "  _tex[%i] = tess_data[index].tex;\n", i * 4 + j);

@@ -261,13 +261,12 @@ bool GenerateVulkanGLSLVertexShader(const VShaderID &id, char *buffer) {
 		WRITE(p, "};\n");
 
 		WRITE(p, "void tessellate(out Tess tess) {\n");
-		// Calculate current patch position and vertex position(index for the weights)
-		WRITE(p, "  ivec2 spline_num_patches = ivec2((base.spline_counts >> 0) & 0xff, (base.spline_counts >> 8) & 0xff);\n");
+		WRITE(p, "  int spline_num_patches_u = int(base.spline_counts & 0xff);\n");
+		WRITE(p, "  int spline_num_points_u = int((base.spline_counts >> 8) & 0xff);\n");
 		WRITE(p, "  ivec2 spline_tess = ivec2((base.spline_counts >> 16) & 0xff, (base.spline_counts >> 24) & 0xff);\n");
-
-		WRITE(p, "  int spline_count_u = %s;\n", doBezier ? "spline_num_patches.x * 3 + 1" : "spline_num_patches.x + 3");
-		WRITE(p, "  int u = gl_InstanceIndex %% spline_num_patches.x;\n");
-		WRITE(p, "  int v = gl_InstanceIndex / spline_num_patches.x;\n");
+		// Calculate current patch position and vertex position(index for the weights)
+		WRITE(p, "  int u = gl_InstanceIndex %% spline_num_patches_u;\n");
+		WRITE(p, "  int v = gl_InstanceIndex / spline_num_patches_u;\n");
 		WRITE(p, "  ivec2 patch_pos = ivec2(u, v);\n");
 		WRITE(p, "  ivec2 vertex_pos = ivec2(position.xy);\n");
 		if (doSpline) {
@@ -281,7 +280,7 @@ bool GenerateVulkanGLSLVertexShader(const VShaderID &id, char *buffer) {
 		WRITE(p, "  vec4 _col[16];\n");
 		WRITE(p, "  for (int i = 0; i < 4; i++) {\n");
 		WRITE(p, "    for (int j = 0; j < 4; j++) {\n");
-		WRITE(p, "      int idx = (i + v%s) * spline_count_u + (j + u%s);\n", doBezier ? " * 3" : "", doBezier ? " * 3" : "");
+		WRITE(p, "      int idx = (i + v%s) * spline_num_points_u + (j + u%s);\n", doBezier ? " * 3" : "", doBezier ? " * 3" : "");
 		WRITE(p, "      _pos[i * 4 + j] = tess_data.data[idx].pos.xyz;\n");
 		if (doTexture && hasTexcoord && hasTexcoordTess)
 			WRITE(p, "      _tex[i * 4 + j] = tess_data.data[idx].uv.xy;\n");

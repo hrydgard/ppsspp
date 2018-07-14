@@ -383,7 +383,7 @@ void GenerateVertexShader(const VShaderID &id, char *buffer, uint32_t *attrMask,
 		WRITE(p, "uniform sampler2D u_tess_weights_u;\n");
 		WRITE(p, "uniform sampler2D u_tess_weights_v;\n");
 
-		WRITE(p, "uniform ivec2 u_spline_num_patches;\n");
+		WRITE(p, "uniform ivec2 u_spline_counts;\n");
 		WRITE(p, "uniform ivec2 u_spline_tess;\n");
 
 		for (int i = 2; i <= 4; i++) {
@@ -412,10 +412,11 @@ void GenerateVertexShader(const VShaderID &id, char *buffer, uint32_t *attrMask,
 		WRITE(p, "};\n");
 
 		WRITE(p, "void tessellate(out Tess tess) {\n");
+		WRITE(p, "  int spline_num_patches_u = u_spline_counts[0];\n");
+		WRITE(p, "  int spline_num_points_u = u_spline_counts[1];\n");
 		// Calculate current patch position and vertex position(index for the weights)
-		WRITE(p, "  int spline_count_u = %s;\n", doBezier ? "u_spline_num_patches.x * 3 + 1" : "u_spline_num_patches.x + 3");
-		WRITE(p, "  int u = gl_InstanceID %% u_spline_num_patches.x;\n");
-		WRITE(p, "  int v = gl_InstanceID / u_spline_num_patches.x;\n");
+		WRITE(p, "  int u = gl_InstanceID %% spline_num_patches_u;\n");
+		WRITE(p, "  int v = gl_InstanceID / spline_num_patches_u;\n");
 		WRITE(p, "  ivec2 patch_pos = ivec2(u, v);\n");
 		WRITE(p, "  ivec2 vertex_pos = ivec2(position.xy);\n");
 		if (doSpline) {
@@ -429,7 +430,7 @@ void GenerateVertexShader(const VShaderID &id, char *buffer, uint32_t *attrMask,
 		WRITE(p, "  vec4 _col[16];\n");
 		WRITE(p, "  for (int i = 0; i < 4; i++) {\n");
 		WRITE(p, "    for (int j = 0; j < 4; j++) {\n");
-		WRITE(p, "      int index = (i + v%s) * spline_count_u + (j + u%s);\n", doBezier ? " * 3" : "", doBezier ? " * 3" : "");
+		WRITE(p, "      int index = (i + v%s) * spline_num_points_u + (j + u%s);\n", doBezier ? " * 3" : "", doBezier ? " * 3" : "");
 		WRITE(p, "      _pos[i * 4 + j] = %s(u_tess_points, ivec2(index, 0), 0).xyz;\n", texelFetch);
 		if (doTexture && hasTexcoord && hasTexcoordTess)
 			WRITE(p, "      _tex[i * 4 + j] = %s(u_tess_points, ivec2(index, 1), 0).xy;\n", texelFetch);
