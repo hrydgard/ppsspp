@@ -9,6 +9,7 @@ LOCAL_ARM_MODE := arm
 LOCAL_SRC_FILES := \
     ../glslang/glslang/GenericCodeGen/CodeGen.cpp \
     ../glslang/glslang/GenericCodeGen/Link.cpp \
+    ../glslang/glslang/MachineIndependent/attribute.cpp \
     ../glslang/glslang/MachineIndependent/Constant.cpp \
     ../glslang/glslang/MachineIndependent/glslang_tab.cpp \
     ../glslang/glslang/MachineIndependent/InfoSink.cpp \

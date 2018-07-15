@@ -137,6 +137,9 @@
     <ClCompile Include="glslang\hlsl\hlslTokenStream.cpp">
       <Filter>HLSL</Filter>
     </ClCompile>
+    <ClCompile Include="glslang\glslang\MachineIndependent\attribute.cpp">
+      <Filter>glslang</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="glslang\SPIRV\disassemble.h">
@@ -289,6 +292,9 @@
     </ClInclude>
     <ClInclude Include="glslang\hlsl\hlslTokenStream.h">
       <Filter>HLSL</Filter>
+    </ClInclude>
+    <ClInclude Include="glslang\glslang\MachineIndependent\attribute.h">
+      <Filter>glslang</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
