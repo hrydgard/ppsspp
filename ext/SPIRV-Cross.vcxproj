@@ -22,7 +22,8 @@
     <ProjectGuid>{4328A62C-F1E9-47ED-B816-A1A81DAF4363}</ProjectGuid>
     <Keyword>Win32Proj</Keyword>
     <RootNamespace>SPIRVCross</RootNamespace>
-    <WindowsTargetPlatformVersion></WindowsTargetPlatformVersion>
+    <WindowsTargetPlatformVersion>
+    </WindowsTargetPlatformVersion>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" Label="Configuration">
@@ -153,6 +154,7 @@
     <ClInclude Include="SPIRV-Cross\spirv_common.hpp" />
     <ClInclude Include="SPIRV-Cross\spirv_cpp.hpp" />
     <ClInclude Include="SPIRV-Cross\spirv_cross.hpp" />
+    <ClInclude Include="SPIRV-Cross\spirv_cross_util.hpp" />
     <ClInclude Include="SPIRV-Cross\spirv_glsl.hpp" />
     <ClInclude Include="SPIRV-Cross\spirv_hlsl.hpp" />
     <ClInclude Include="SPIRV-Cross\spirv_msl.hpp" />
@@ -161,6 +163,7 @@
     <ClCompile Include="SPIRV-Cross\spirv_cfg.cpp" />
     <ClCompile Include="SPIRV-Cross\spirv_cpp.cpp" />
     <ClCompile Include="SPIRV-Cross\spirv_cross.cpp" />
+    <ClCompile Include="SPIRV-Cross\spirv_cross_util.cpp" />
     <ClCompile Include="SPIRV-Cross\spirv_glsl.cpp" />
     <ClCompile Include="SPIRV-Cross\spirv_hlsl.cpp" />
     <ClCompile Include="SPIRV-Cross\spirv_msl.cpp" />

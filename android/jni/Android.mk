@@ -149,6 +149,7 @@ VULKAN_FILES := \
 SPIRV_CROSS_FILES := \
   $(SRC)/ext/SPIRV-Cross/spirv_cfg.cpp \
   $(SRC)/ext/SPIRV-Cross/spirv_cross.cpp \
+  $(SRC)/ext/SPIRV-Cross/spirv_cross_util.cpp \
   $(SRC)/ext/SPIRV-Cross/spirv_glsl.cpp
 
 EXEC_AND_LIB_FILES := \
