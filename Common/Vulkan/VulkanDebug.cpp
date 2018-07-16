@@ -77,7 +77,8 @@ VkBool32 VKAPI_CALL Vulkan_Dbg(VkDebugReportFlagsEXT msgFlags, VkDebugReportObje
 		return false;
 	if (msgCode == 64)  // Another useless perf warning that will be seen less and less as we optimize -  vkCmdClearAttachments() issued on command buffer object 0x00000195296C6D40 prior to any Draw Cmds. It is recommended you use RenderPass LOAD_OP_CLEAR on Attachments prior to any Draw.
 		return false;
-
+	if (msgCode == 5)
+		return false;  // Not exactly a false positive, see https://github.com/KhronosGroup/glslang/issues/1418
 #ifdef _WIN32
 	std::string msg = message.str();
 	OutputDebugStringA(msg.c_str());
