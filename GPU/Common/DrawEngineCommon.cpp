@@ -760,7 +760,5 @@ void TessellationDataTransfer::CopyControlPoints(float *pos, float *tex, float *
 			memcpy(col, Vec4f::FromRGBA(points[i]->color_32).AsArray(), 4 * sizeof(float));
 			col += colStride;
 		}
-	} else {
-		memcpy(col, Vec4f::FromRGBA(points[0]->color_32).AsArray(), 4 * sizeof(float));
 	}
 }

@@ -659,11 +659,10 @@ bool DrawEngineGLES::IsCodePtrVertexDecoder(const u8 *ptr) const {
 void TessellationDataTransferGLES::SendDataToShader(const SimpleVertex *const *points, int size, u32 vertType, const Weight2D &weights) {
 	bool hasColor = (vertType & GE_VTYPE_COL_MASK) != 0;
 	bool hasTexCoord = (vertType & GE_VTYPE_TC_MASK) != 0;
-	int sizeColor = hasColor ? size : 1;
 
 	float *pos = new float[size * 4];
 	float *tex = hasTexCoord ? new float[size * 4] : nullptr;
-	float *col = new float[sizeColor * 4];
+	float *col = hasColor ? new float[size * 4] : nullptr;
 	int stride = 4;
 
 	CopyControlPoints(pos, tex, col, stride, stride, stride, points, size, vertType);
@@ -683,7 +682,8 @@ void TessellationDataTransferGLES::SendDataToShader(const SimpleVertex *const *p
 	if (hasTexCoord)
 		renderManager_->TextureSubImage(data_tex[0], 0, 0, 1, size, 1, GL_RGBA, GL_FLOAT, (u8 *)tex, GLRAllocType::NEW);
 	// Color
-	renderManager_->TextureSubImage(data_tex[0], 0, 0, 2, sizeColor, 1, GL_RGBA, GL_FLOAT, (u8 *)col, GLRAllocType::NEW);
+	if (hasColor)
+		renderManager_->TextureSubImage(data_tex[0], 0, 0, 2, size, 1, GL_RGBA, GL_FLOAT, (u8 *)col, GLRAllocType::NEW);
 
 	// Weight U
 	if (data_tex[1])
@@ -700,7 +700,6 @@ void TessellationDataTransferGLES::SendDataToShader(const SimpleVertex *const *p
 	renderManager_->TextureImage(data_tex[2], 0, weights.size_v * 2, 1, GL_RGBA32F, GL_RGBA, GL_FLOAT, (uint8_t *)weights.v, GLRAllocType::NONE, false);
 	renderManager_->FinalizeTexture(data_tex[2], 0, false);
 	renderManager_->BindTexture(TEX_SLOT_SPLINE_WEIGHTS_V, data_tex[2]);
-
 }
 
 void TessellationDataTransferGLES::EndFrame() {

@@ -193,6 +193,7 @@ void GenerateVertexShader(const VShaderID &id, char *buffer, uint32_t *attrMask,
 	bool doSpline = id.Bit(VS_BIT_SPLINE);
 	bool hasColorTess = id.Bit(VS_BIT_HAS_COLOR_TESS);
 	bool hasTexcoordTess = id.Bit(VS_BIT_HAS_TEXCOORD_TESS);
+	bool hasNormalTess = id.Bit(VS_BIT_HAS_NORMAL_TESS);
 	bool flipNormalTess = id.Bit(VS_BIT_NORM_REVERSE_TESS);
 
 	const char *shading = "";
@@ -403,11 +404,10 @@ void GenerateVertexShader(const VShaderID &id, char *buffer, uint32_t *attrMask,
 
 		WRITE(p, "struct Tess {\n");
 		WRITE(p, "  vec3 pos;\n");
-		if (doTexture && hasTexcoord)
+		if (doTexture)
 			WRITE(p, "  vec2 tex;\n");
-		if (hasColor)
-			WRITE(p, "  vec4 col;\n");
-		if (hasNormal)
+		WRITE(p, "  vec4 col;\n");
+		if (hasNormalTess)
 			WRITE(p, "  vec3 nrm;\n");
 		WRITE(p, "};\n");
 
@@ -432,9 +432,9 @@ void GenerateVertexShader(const VShaderID &id, char *buffer, uint32_t *attrMask,
 		WRITE(p, "    for (int j = 0; j < 4; j++) {\n");
 		WRITE(p, "      int index = (i + v%s) * spline_num_points_u + (j + u%s);\n", doBezier ? " * 3" : "", doBezier ? " * 3" : "");
 		WRITE(p, "      _pos[i * 4 + j] = %s(u_tess_points, ivec2(index, 0), 0).xyz;\n", texelFetch);
-		if (doTexture && hasTexcoord && hasTexcoordTess)
+		if (doTexture && hasTexcoordTess)
 			WRITE(p, "      _tex[i * 4 + j] = %s(u_tess_points, ivec2(index, 1), 0).xy;\n", texelFetch);
-		if (hasColor && hasColorTess)
+		if (hasColorTess)
 			WRITE(p, "      _col[i * 4 + j] = %s(u_tess_points, ivec2(index, 2), 0).rgba;\n", texelFetch);
 		WRITE(p, "    }\n");
 		WRITE(p, "  }\n");
@@ -451,19 +451,17 @@ void GenerateVertexShader(const VShaderID &id, char *buffer, uint32_t *attrMask,
 
 		// Tessellate
 		WRITE(p, "  tess.pos = tess_sample(_pos, basis_u, basis_v);\n");
-		if (doTexture && hasTexcoord) {
+		if (doTexture) {
 			if (hasTexcoordTess)
 				WRITE(p, "  tess.tex = tess_sample(_tex, basis_u, basis_v);\n");
 			else
 				WRITE(p, "  tess.tex = normal.xy + vec2(patch_pos);\n");
 		}
-		if (hasColor) {
-			if (hasColorTess)
-				WRITE(p, "  tess.col = tess_sample(_col, basis_u, basis_v);\n");
-			else
-				WRITE(p, "  tess.col = %s(u_tess_points, ivec2(0, 2), 0).rgba;\n", texelFetch);
-		}
-		if (hasNormal) {
+		if (hasColorTess)
+			WRITE(p, "  tess.col = tess_sample(_col, basis_u, basis_v);\n");
+		else
+			WRITE(p, "  tess.col = u_matambientalpha;\n");
+		if (hasNormalTess) {
 			// Derivatives as weight coefficients
 			WRITE(p, "  vec4 deriv_u = %s(u_tess_weights_u, %s, 0);\n", texelFetch, "ivec2(vertex_pos.x * 2 + 1, 0)");
 			WRITE(p, "  vec4 deriv_v = %s(u_tess_weights_v, %s, 0);\n", texelFetch, "ivec2(vertex_pos.y * 2 + 1, 0)");
@@ -523,7 +521,7 @@ void GenerateVertexShader(const VShaderID &id, char *buffer, uint32_t *attrMask,
 				WRITE(p, "  tessellate(tess);\n");
 
 				WRITE(p, "  vec3 worldpos = (u_world * vec4(tess.pos.xyz, 1.0)).xyz;\n");
-				if (hasNormal) {
+				if (hasNormalTess) {
 					WRITE(p, "  mediump vec3 worldnormal = normalize((u_world * vec4(%stess.nrm, 0.0)).xyz);\n", flipNormalTess ? "-" : "");
 				} else {
 					WRITE(p, "  mediump vec3 worldnormal = vec3(0.0, 0.0, 1.0);\n");
@@ -628,6 +626,7 @@ void GenerateVertexShader(const VShaderID &id, char *buffer, uint32_t *attrMask,
 		const char *diffuseStr = (matUpdate & 2) && hasColor ? "color0.rgb" : "u_matdiffuse";
 		const char *specularStr = (matUpdate & 4) && hasColor ? "color0.rgb" : "u_matspecular.rgb";
 		if (doBezier || doSpline) {
+			// TODO: Probably, should use hasColorTess but FF4 has a problem with drawing the background.
 			ambientStr = (matUpdate & 1) && hasColor ? "tess.col" : "u_matambientalpha";
 			diffuseStr = (matUpdate & 2) && hasColor ? "tess.col.rgb" : "u_matdiffuse";
 			specularStr = (matUpdate & 4) && hasColor ? "tess.col.rgb" : "u_matspecular.rgb";
@@ -775,8 +774,6 @@ void GenerateVertexShader(const VShaderID &id, char *buffer, uint32_t *attrMask,
 				if (scaleUV) {
 					if (hasTexcoord) {
 						if (doBezier || doSpline)
-							// TODO: Need fix?
-							// Fix to avoid temporarily texture animation bug with hardware tessellation.
 							WRITE(p, "  v_texcoord = vec3(tess.tex * u_uvscaleoffset.xy + u_uvscaleoffset.zw, 0.0);\n");
 						else
 							WRITE(p, "  v_texcoord = vec3(texcoord.xy * u_uvscaleoffset.xy, 0.0);\n");
@@ -785,10 +782,7 @@ void GenerateVertexShader(const VShaderID &id, char *buffer, uint32_t *attrMask,
 					}
 				} else {
 					if (hasTexcoord) {
-						if (doBezier || doSpline)
-							WRITE(p, "  v_texcoord = vec3(tess.tex * u_uvscaleoffset.xy + u_uvscaleoffset.zw, 0.0);\n");
-						else
-							WRITE(p, "  v_texcoord = vec3(texcoord.xy * u_uvscaleoffset.xy + u_uvscaleoffset.zw, 0.0);\n");
+						WRITE(p, "  v_texcoord = vec3(texcoord.xy * u_uvscaleoffset.xy + u_uvscaleoffset.zw, 0.0);\n");
 					} else {
 						WRITE(p, "  v_texcoord = vec3(u_uvscaleoffset.zw, 0.0);\n");
 					}

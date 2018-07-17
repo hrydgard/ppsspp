@@ -86,6 +86,7 @@ void GenerateVertexShaderHLSL(const VShaderID &id, char *buffer, ShaderLanguage 
 	bool doSpline = id.Bit(VS_BIT_SPLINE);
 	bool hasColorTess = id.Bit(VS_BIT_HAS_COLOR_TESS);
 	bool hasTexcoordTess = id.Bit(VS_BIT_HAS_TEXCOORD_TESS);
+	bool hasNormalTess = id.Bit(VS_BIT_HAS_NORMAL_TESS);
 	bool flipNormalTess = id.Bit(VS_BIT_NORM_REVERSE_TESS);
 
 	DoLightComputation doLight[4] = { LIGHT_OFF, LIGHT_OFF, LIGHT_OFF, LIGHT_OFF };
@@ -300,11 +301,10 @@ void GenerateVertexShaderHLSL(const VShaderID &id, char *buffer, ShaderLanguage 
 
 		WRITE(p, "struct Tess {\n");
 		WRITE(p, "  float3 pos;\n");
-		if (doTexture && hasTexcoord)
+		if (doTexture)
 			WRITE(p, "  float2 tex;\n");
-		if (hasColor)
-			WRITE(p, "  float4 col;\n");
-		if (hasNormal)
+		WRITE(p, "  float4 col;\n");
+		if (hasNormalTess)
 			WRITE(p, "  float3 nrm;\n");
 		WRITE(p, "};\n");
 
@@ -331,9 +331,9 @@ void GenerateVertexShaderHLSL(const VShaderID &id, char *buffer, ShaderLanguage 
 			for (int j = 0; j < 4; j++) {
 				WRITE(p, "  index = (%i + v%s) * spline_num_points_u + (%i + u%s);\n", i, doBezier ? " * 3" : "", j, doBezier ? " * 3" : "");
 				WRITE(p, "  _pos[%i] = tess_data[index].pos;\n", i * 4 + j);
-				if (doTexture && hasTexcoord && hasTexcoordTess)
+				if (doTexture && hasTexcoordTess)
 					WRITE(p, "  _tex[%i] = tess_data[index].tex;\n", i * 4 + j);
-				if (hasColor && hasColorTess)
+				if (hasColorTess)
 					WRITE(p, "  _col[%i] = tess_data[index].col;\n", i * 4 + j);
 			}
 		}
@@ -350,19 +350,17 @@ void GenerateVertexShaderHLSL(const VShaderID &id, char *buffer, ShaderLanguage 
 
 		// Tessellate
 		WRITE(p, "  tess.pos = tess_sample(_pos, basis_u, basis_v);\n");
-		if (doTexture && hasTexcoord) {
+		if (doTexture) {
 			if (hasTexcoordTess)
 				WRITE(p, "  tess.tex = tess_sample(_tex, basis_u, basis_v);\n");
 			else
 				WRITE(p, "  tess.tex = In.normal.xy + float2(patch_pos);\n");
 		}
-		if (hasColor) {
-			if (hasColorTess)
-				WRITE(p, "  tess.col = tess_sample(_col, basis_u, basis_v);\n");
-			else
-				WRITE(p, "  tess.col = tess_data[0].col;\n");
-		}
-		if (hasNormal) {
+		if (hasColorTess)
+			WRITE(p, "  tess.col = tess_sample(_col, basis_u, basis_v);\n");
+		else
+			WRITE(p, "  tess.col = u_matambientalpha;\n");
+		if (hasNormalTess) {
 			// Derivatives as weight coefficients
 			WRITE(p, "  float4 deriv_u = tess_weights_u[vertex_pos.x].deriv;\n");
 			WRITE(p, "  float4 deriv_v = tess_weights_v[vertex_pos.y].deriv;\n");
@@ -433,7 +431,7 @@ void GenerateVertexShaderHLSL(const VShaderID &id, char *buffer, ShaderLanguage 
 				WRITE(p, "  tessellate(In, tess);\n");
 
 				WRITE(p, "  float3 worldpos = mul(float4(tess.pos.xyz, 1.0), u_world);\n");
-				if (hasNormal)
+				if (hasNormalTess)
 					WRITE(p, "  float3 worldnormal = normalize(mul(float4(%stess.nrm, 0.0), u_world));\n", flipNormalTess ? "-" : "");
 				else
 					WRITE(p, "  float3 worldnormal = float3(0.0, 0.0, 1.0);\n");
@@ -539,6 +537,7 @@ void GenerateVertexShaderHLSL(const VShaderID &id, char *buffer, ShaderLanguage 
 		const char *diffuseStr = (matUpdate & 2) && hasColor ? "In.color0.rgb" : "u_matdiffuse";
 		const char *specularStr = (matUpdate & 4) && hasColor ? "In.color0.rgb" : "u_matspecular.rgb";
 		if (doBezier || doSpline) {
+			// TODO: Probably, should use hasColorTess but FF4 has a problem with drawing the background.
 			ambientStr = (matUpdate & 1) && hasColor ? "tess.col" : "u_matambientalpha";
 			diffuseStr = (matUpdate & 2) && hasColor ? "tess.col.rgb" : "u_matdiffuse";
 			specularStr = (matUpdate & 4) && hasColor ? "tess.col.rgb" : "u_matspecular.rgb";
@@ -694,10 +693,7 @@ void GenerateVertexShaderHLSL(const VShaderID &id, char *buffer, ShaderLanguage 
 					}
 				} else {
 					if (hasTexcoord) {
-						if (doBezier || doSpline)
-							WRITE(p, "  Out.v_texcoord = float3(tess.tex.xy * u_uvscaleoffset.xy + u_uvscaleoffset.zw, 0.0);\n");
-						else
-							WRITE(p, "  Out.v_texcoord = float3(In.texcoord.xy * u_uvscaleoffset.xy + u_uvscaleoffset.zw, 0.0);\n");
+						WRITE(p, "  Out.v_texcoord = float3(In.texcoord.xy * u_uvscaleoffset.xy + u_uvscaleoffset.zw, 0.0);\n");
 					} else {
 						WRITE(p, "  Out.v_texcoord = float3(u_uvscaleoffset.zw, 0.0);\n");
 					}

@@ -734,8 +734,6 @@ void TessellationDataTransferD3D11::SendDataToShader(const SimpleVertex *const *
 	float *tex = (float *)(data + offsetof(TessData, uv));
 	float *col = (float *)(data + offsetof(TessData, color));
 	int stride = sizeof(TessData) / sizeof(float);
-	bool hasColor = (vertType & GE_VTYPE_COL_MASK) != 0;
-	bool hasTexCoord = (vertType & GE_VTYPE_TC_MASK) != 0;
 
 	CopyControlPoints(pos, tex, col, stride, stride, stride, points, size, vertType);
 
