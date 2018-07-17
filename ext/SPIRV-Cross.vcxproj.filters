@@ -9,6 +9,7 @@
     <ClInclude Include="SPIRV-Cross\spirv_glsl.hpp" />
     <ClInclude Include="SPIRV-Cross\spirv_hlsl.hpp" />
     <ClInclude Include="SPIRV-Cross\spirv_msl.hpp" />
+    <ClInclude Include="SPIRV-Cross\spirv_cross_util.hpp" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="SPIRV-Cross\spirv_cfg.cpp" />
@@ -17,5 +18,6 @@
     <ClCompile Include="SPIRV-Cross\spirv_glsl.cpp" />
     <ClCompile Include="SPIRV-Cross\spirv_hlsl.cpp" />
     <ClCompile Include="SPIRV-Cross\spirv_msl.cpp" />
+    <ClCompile Include="SPIRV-Cross\spirv_cross_util.cpp" />
   </ItemGroup>
 </Project>
