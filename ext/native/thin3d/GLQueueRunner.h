@@ -58,6 +58,7 @@ enum class GLRRenderCommand : uint8_t {
 	DRAW,
 	DRAW_INDEXED,
 	PUSH_CONSTANTS,
+	TEXTURE_SUBIMAGE,
 };
 
 // TODO: Bloated since the biggest struct decides the size. Will need something more efficient (separate structs with shared
@@ -140,6 +141,18 @@ struct GLRRenderData {
 			GLRTexture *texture;
 		} texture;
 		struct {
+			GLRTexture *texture;
+			GLenum format;
+			GLenum type;
+			int level;
+			int x;
+			int y;
+			int width;
+			int height;
+			GLRAllocType allocType;
+			uint8_t *data;  // owned, delete[]-d
+		} texture_subimage;
+		struct {
 			int slot;
 			GLRFramebuffer *framebuffer;
 			int aspect;
@@ -197,7 +210,6 @@ enum class GLRInitStepType : uint8_t {
 	CREATE_FRAMEBUFFER,
 
 	TEXTURE_IMAGE,
-	TEXTURE_SUBIMAGE,
 	TEXTURE_FINALIZE,
 	BUFFER_SUBDATA,
 };
@@ -252,18 +264,6 @@ struct GLRInitStep {
 			bool linearFilter;
 			uint8_t *data;  // owned, delete[]-d
 		} texture_image;
-		struct {
-			GLRTexture *texture;
-			GLenum format;
-			GLenum type;
-			int level;
-			int x;
-			int y;
-			int width;
-			int height;
-			GLRAllocType allocType;
-			uint8_t *data;  // owned, delete[]-d
-		} texture_subimage;
 		struct {
 			GLRTexture *texture;
 			int maxLevel;

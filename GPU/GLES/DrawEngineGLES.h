@@ -113,6 +113,7 @@ public:
 class TessellationDataTransferGLES : public TessellationDataTransfer {
 private:
 	GLRTexture *data_tex[3]{};
+	int prevSize = 0, prevSizeWU = 0, prevSizeWV = 0;
 	GLRenderManager *renderManager_;
 public:
 	TessellationDataTransferGLES(GLRenderManager *renderManager)

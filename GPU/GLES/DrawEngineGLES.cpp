@@ -669,13 +669,14 @@ void TessellationDataTransferGLES::SendDataToShader(const SimpleVertex *const *p
 
 	// Removed the 1D texture support, it's unlikely to be relevant for performance.
 	// Control Points
-	if (data_tex[0])
-		renderManager_->DeleteTexture(data_tex[0]);
-	data_tex[0] = renderManager_->CreateTexture(GL_TEXTURE_2D);
-	renderManager_->TextureImage(data_tex[0], 0, size, 3, GL_RGBA32F, GL_RGBA, GL_FLOAT, (u8 *)nullptr, GLRAllocType::NONE, false);
-	renderManager_->FinalizeTexture(data_tex[0], 0, false);
+	if (prevSize < size) {
+		prevSize = size;
+		if (!data_tex[0])
+			data_tex[0] = renderManager_->CreateTexture(GL_TEXTURE_2D);
+		renderManager_->TextureImage(data_tex[0], 0, size, 3, GL_RGBA32F, GL_RGBA, GL_FLOAT, nullptr, GLRAllocType::NONE, false);
+		renderManager_->FinalizeTexture(data_tex[0], 0, false);
+	}
 	renderManager_->BindTexture(TEX_SLOT_SPLINE_POINTS, data_tex[0]);
-
 	// Position
 	renderManager_->TextureSubImage(data_tex[0], 0, 0, 0, size, 1, GL_RGBA, GL_FLOAT, (u8 *)pos, GLRAllocType::NEW);
 	// Texcoord
@@ -686,20 +687,26 @@ void TessellationDataTransferGLES::SendDataToShader(const SimpleVertex *const *p
 		renderManager_->TextureSubImage(data_tex[0], 0, 0, 2, size, 1, GL_RGBA, GL_FLOAT, (u8 *)col, GLRAllocType::NEW);
 
 	// Weight U
-	if (data_tex[1])
-		renderManager_->DeleteTexture(data_tex[1]);
-	data_tex[1] = renderManager_->CreateTexture(GL_TEXTURE_2D);
-	renderManager_->TextureImage(data_tex[1], 0, weights.size_u * 2, 1, GL_RGBA32F, GL_RGBA, GL_FLOAT, (uint8_t *)weights.u, GLRAllocType::NONE, false);
-	renderManager_->FinalizeTexture(data_tex[1], 0, false);
+	if (prevSizeWU < weights.size_u) {
+		prevSizeWU = weights.size_u;
+		if (!data_tex[1])
+			data_tex[1] = renderManager_->CreateTexture(GL_TEXTURE_2D);
+		renderManager_->TextureImage(data_tex[1], 0, weights.size_u * 2, 1, GL_RGBA32F, GL_RGBA, GL_FLOAT, nullptr, GLRAllocType::NONE, false);
+		renderManager_->FinalizeTexture(data_tex[1], 0, false);
+	}
 	renderManager_->BindTexture(TEX_SLOT_SPLINE_WEIGHTS_U, data_tex[1]);
+	renderManager_->TextureSubImage(data_tex[1], 0, 0, 0, weights.size_u * 2, 1, GL_RGBA, GL_FLOAT, (u8 *)weights.u, GLRAllocType::NONE);
 
 	// Weight V
-	if (data_tex[2])
-		renderManager_->DeleteTexture(data_tex[2]);
-	data_tex[2] = renderManager_->CreateTexture(GL_TEXTURE_2D);
-	renderManager_->TextureImage(data_tex[2], 0, weights.size_v * 2, 1, GL_RGBA32F, GL_RGBA, GL_FLOAT, (uint8_t *)weights.v, GLRAllocType::NONE, false);
-	renderManager_->FinalizeTexture(data_tex[2], 0, false);
+	if (prevSizeWV < weights.size_v) {
+		prevSizeWV = weights.size_v;
+		if (!data_tex[2])
+			data_tex[2] = renderManager_->CreateTexture(GL_TEXTURE_2D);
+		renderManager_->TextureImage(data_tex[2], 0, weights.size_v * 2, 1, GL_RGBA32F, GL_RGBA, GL_FLOAT, nullptr, GLRAllocType::NONE, false);
+		renderManager_->FinalizeTexture(data_tex[2], 0, false);
+	}
 	renderManager_->BindTexture(TEX_SLOT_SPLINE_WEIGHTS_V, data_tex[2]);
+	renderManager_->TextureSubImage(data_tex[2], 0, 0, 0, weights.size_v * 2, 1, GL_RGBA, GL_FLOAT, (u8 *)weights.v, GLRAllocType::NONE);
 }
 
 void TessellationDataTransferGLES::EndFrame() {
@@ -709,4 +716,5 @@ void TessellationDataTransferGLES::EndFrame() {
 			data_tex[i] = nullptr;
 		}
 	}
+	prevSize = prevSizeWU = prevSizeWV = 0;
 }
