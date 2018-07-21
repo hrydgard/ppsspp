@@ -1079,17 +1079,20 @@ bool MainScreen::DrawBackgroundFor(UIContext &dc, const std::string &gamePath, f
 		return false;
 	}
 
+	Draw::Texture *texture = nullptr;
 	if (ginfo->pic1.texture) {
-		dc.GetDrawContext()->BindTexture(0, ginfo->pic1.texture->GetTexture());
+		texture = ginfo->pic1.texture->GetTexture();
 	} else if (ginfo->pic0.texture) {
-		dc.GetDrawContext()->BindTexture(0, ginfo->pic0.texture->GetTexture());
+		texture = ginfo->pic0.texture->GetTexture();
 	}
 
 	uint32_t color = whiteAlpha(ease(progress)) & 0xFFc0c0c0;
-	dc.Draw()->DrawTexRect(dc.GetBounds(), 0,0,1,1, color);
-	dc.Flush();
-	dc.RebindTexture();
-
+	if (texture) {
+		dc.GetDrawContext()->BindTexture(0, texture);
+		dc.Draw()->DrawTexRect(dc.GetBounds(), 0, 0, 1, 1, color);
+		dc.Flush();
+		dc.RebindTexture();
+	}
 	return true;
 }
 
