@@ -240,12 +240,11 @@ bool GenerateVulkanGLSLVertexShader(const VShaderID &id, char *buffer) {
 			// Define 3 types vec2, vec3, vec4
 			WRITE(p, "vec%d tess_sample(in vec%d points[16], mat4 weights) {\n", i, i);
 			WRITE(p, "  vec%d pos = vec%d(0.0);\n", i, i);
-			WRITE(p, "  int idx = 0;\n");
-			WRITE(p, "  for (int v = 0; v < 4; ++v) {\n");
-			WRITE(p, "    for (int u = 0; u < 4; ++u) {\n");
-			WRITE(p, "      pos += weights[v][u] * points[idx++];\n");
-			WRITE(p, "    }\n");
-			WRITE(p, "  }\n");
+			for (int v = 0; v < 4; ++v) {
+				for (int u = 0; u < 4; ++u) {
+					WRITE(p, "  pos += weights[%i][%i] * points[%i];\n", v, u, v * 4 + u);
+				}
+			}
 			WRITE(p, "  return pos;\n");
 			WRITE(p, "}\n");
 		}
@@ -277,16 +276,17 @@ bool GenerateVulkanGLSLVertexShader(const VShaderID &id, char *buffer) {
 		WRITE(p, "  vec3 _pos[16];\n");
 		WRITE(p, "  vec2 _tex[16];\n");
 		WRITE(p, "  vec4 _col[16];\n");
-		WRITE(p, "  for (int i = 0; i < 4; i++) {\n");
-		WRITE(p, "    for (int j = 0; j < 4; j++) {\n");
-		WRITE(p, "      int idx = (i + v%s) * spline_num_points_u + (j + u%s);\n", doBezier ? " * 3" : "", doBezier ? " * 3" : "");
-		WRITE(p, "      _pos[i * 4 + j] = tess_data.data[idx].pos.xyz;\n");
-		if (doTexture && hasTexcoordTess)
-			WRITE(p, "      _tex[i * 4 + j] = tess_data.data[idx].uv.xy;\n");
-		if (hasColorTess)
-			WRITE(p, "      _col[i * 4 + j] = tess_data.data[idx].color;\n");
-		WRITE(p, "    }\n");
-		WRITE(p, "  }\n");
+		WRITE(p, "  int index;\n");
+		for (int i = 0; i < 4; i++) {
+			for (int j = 0; j < 4; j++) {
+				WRITE(p, "  index = (%i + v%s) * spline_num_points_u + (%i + u%s);\n", i, doBezier ? " * 3" : "", j, doBezier ? " * 3" : "");
+				WRITE(p, "  _pos[%i] = tess_data.data[index].pos.xyz;\n", i * 4 + j);
+				if (doTexture && hasTexcoordTess)
+					WRITE(p, "  _tex[%i] = tess_data.data[index].uv.xy;\n", i * 4 + j);
+				if (hasColorTess)
+					WRITE(p, "  _col[%i] = tess_data.data[index].color;\n", i * 4 + j);
+			}
+		}
 
 		// Basis polynomials as weight coefficients
 		WRITE(p, "  vec4 basis_u = tess_weights_u.data[vertex_pos.x].basis;\n");

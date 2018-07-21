@@ -288,12 +288,11 @@ void GenerateVertexShaderHLSL(const VShaderID &id, char *buffer, ShaderLanguage 
 			// Define 3 types float2, float3, float4
 			WRITE(p, "float%d tess_sample(in float%d points[16], float4x4 weights) {\n", i, i);
 			WRITE(p, "  float%d pos = float%d(%s);\n", i, i, init[i - 2]);
-			WRITE(p, "  int idx = 0;\n");
-			WRITE(p, "  for (int v = 0; v < 4; ++v) {\n");
-			WRITE(p, "    for (int u = 0; u < 4; ++u) {\n");
-			WRITE(p, "      pos += weights[v][u] * points[idx++];\n");
-			WRITE(p, "    }\n");
-			WRITE(p, "  }\n");
+			for (int v = 0; v < 4; ++v) {
+				for (int u = 0; u < 4; ++u) {
+					WRITE(p, "  pos += weights[%i][%i] * points[%i];\n", v, u, v * 4 + u);
+				}
+			}
 			WRITE(p, "  return pos;\n");
 			WRITE(p, "}\n");
 		}
