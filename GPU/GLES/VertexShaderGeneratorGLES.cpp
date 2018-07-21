@@ -389,16 +389,24 @@ void GenerateVertexShader(const VShaderID &id, char *buffer, uint32_t *attrMask,
 
 		for (int i = 2; i <= 4; i++) {
 			// Define 3 types vec2, vec3, vec4
-			WRITE(p, "vec%d tess_sample(in vec%d points[16], vec4 weights_u, vec4 weights_v) {\n", i, i);
+			WRITE(p, "vec%d tess_sample(in vec%d points[16], mat4 weights) {\n", i, i);
 			WRITE(p, "  vec%d pos = vec%d(0.0);\n", i, i);
 			WRITE(p, "  int idx = 0;\n");
 			WRITE(p, "  for (int v = 0; v < 4; ++v) {\n");
-			WRITE(p, "    vec4 w = weights_u * weights_v[v];\n");
 			WRITE(p, "    for (int u = 0; u < 4; ++u) {\n");
-			WRITE(p, "      pos += w[u] * points[idx++];\n");
+			WRITE(p, "      pos += weights[v][u] * points[idx++];\n");
 			WRITE(p, "    }\n");
 			WRITE(p, "  }\n");
 			WRITE(p, "  return pos;\n");
+			WRITE(p, "}\n");
+		}
+
+		if (!gl_extensions.VersionGEThan(3, 0, 0)) { // For glsl version 1.10
+			WRITE(p, "mat4 outerProduct(vec4 u, vec4 v) {\n");
+			WRITE(p, "  mat4 mat;\n");
+			for (int v = 0; v < 4; ++v)
+				WRITE(p, "  mat[%d] = u * v[%d];\n", v, v);
+			WRITE(p, "  return mat;\n");
 			WRITE(p, "}\n");
 		}
 
@@ -448,17 +456,18 @@ void GenerateVertexShader(const VShaderID &id, char *buffer, uint32_t *attrMask,
 			WRITE(p, "  if (isFirstEdge.y && isNotFirstPatch.y)\n");
 			WRITE(p, "    basis_v = vec4(basis_v.yzw, 0);\n");
 		}
+		WRITE(p, "  mat4 basis = outerProduct(basis_u, basis_v);\n");
 
 		// Tessellate
-		WRITE(p, "  tess.pos = tess_sample(_pos, basis_u, basis_v);\n");
+		WRITE(p, "  tess.pos = tess_sample(_pos, basis);\n");
 		if (doTexture) {
 			if (hasTexcoordTess)
-				WRITE(p, "  tess.tex = tess_sample(_tex, basis_u, basis_v);\n");
+				WRITE(p, "  tess.tex = tess_sample(_tex, basis);\n");
 			else
 				WRITE(p, "  tess.tex = normal.xy + vec2(patch_pos);\n");
 		}
 		if (hasColorTess)
-			WRITE(p, "  tess.col = tess_sample(_col, basis_u, basis_v);\n");
+			WRITE(p, "  tess.col = tess_sample(_col, basis);\n");
 		else
 			WRITE(p, "  tess.col = u_matambientalpha;\n");
 		if (hasNormalTess) {
@@ -472,8 +481,8 @@ void GenerateVertexShader(const VShaderID &id, char *buffer, uint32_t *attrMask,
 				WRITE(p, "    deriv_v = vec4(deriv_v.yzw, 0);\n");
 			}
 
-			WRITE(p, "  vec3 du = tess_sample(_pos, deriv_u, basis_v);\n");
-			WRITE(p, "  vec3 dv = tess_sample(_pos, basis_u, deriv_v);\n");
+			WRITE(p, "  vec3 du = tess_sample(_pos, outerProduct(deriv_u, basis_v));\n");
+			WRITE(p, "  vec3 dv = tess_sample(_pos, outerProduct(basis_u, deriv_v));\n");
 			WRITE(p, "  tess.nrm = normalize(cross(du, dv));\n");
 		}
 		WRITE(p, "}\n");

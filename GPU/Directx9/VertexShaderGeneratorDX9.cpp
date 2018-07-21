@@ -286,18 +286,21 @@ void GenerateVertexShaderHLSL(const VShaderID &id, char *buffer, ShaderLanguage 
 		const char *init[3] = { "0.0, 0.0", "0.0, 0.0, 0.0", "0.0, 0.0, 0.0, 0.0" };
 		for (int i = 2; i <= 4; i++) {
 			// Define 3 types float2, float3, float4
-			WRITE(p, "float%d tess_sample(in float%d points[16], float4 weights_u, float4 weights_v) {\n", i, i);
+			WRITE(p, "float%d tess_sample(in float%d points[16], float4x4 weights) {\n", i, i);
 			WRITE(p, "  float%d pos = float%d(%s);\n", i, i, init[i - 2]);
 			WRITE(p, "  int idx = 0;\n");
 			WRITE(p, "  for (int v = 0; v < 4; ++v) {\n");
-			WRITE(p, "    float4 w = weights_u * weights_v[v];\n");
 			WRITE(p, "    for (int u = 0; u < 4; ++u) {\n");
-			WRITE(p, "      pos += w[u] * points[idx++];\n");
+			WRITE(p, "      pos += weights[v][u] * points[idx++];\n");
 			WRITE(p, "    }\n");
 			WRITE(p, "  }\n");
 			WRITE(p, "  return pos;\n");
 			WRITE(p, "}\n");
 		}
+
+		WRITE(p, "float4x4 outerProduct(float4 u, float4 v) {\n");
+		WRITE(p, "  return mul((float4x1)v, (float1x4)u);\n");
+		WRITE(p, "}\n");
 
 		WRITE(p, "struct Tess {\n");
 		WRITE(p, "  float3 pos;\n");
@@ -347,17 +350,18 @@ void GenerateVertexShaderHLSL(const VShaderID &id, char *buffer, ShaderLanguage 
 			WRITE(p, "  if (isFirstEdge.y && isNotFirstPatch.y)\n");
 			WRITE(p, "    basis_v = float4(basis_v.yzw, 0);\n");
 		}
+		WRITE(p, "  float4x4 basis = outerProduct(basis_u, basis_v);\n");
 
 		// Tessellate
-		WRITE(p, "  tess.pos = tess_sample(_pos, basis_u, basis_v);\n");
+		WRITE(p, "  tess.pos = tess_sample(_pos, basis);\n");
 		if (doTexture) {
 			if (hasTexcoordTess)
-				WRITE(p, "  tess.tex = tess_sample(_tex, basis_u, basis_v);\n");
+				WRITE(p, "  tess.tex = tess_sample(_tex, basis);\n");
 			else
 				WRITE(p, "  tess.tex = In.normal.xy + float2(patch_pos);\n");
 		}
 		if (hasColorTess)
-			WRITE(p, "  tess.col = tess_sample(_col, basis_u, basis_v);\n");
+			WRITE(p, "  tess.col = tess_sample(_col, basis);\n");
 		else
 			WRITE(p, "  tess.col = u_matambientalpha;\n");
 		if (hasNormalTess) {
@@ -371,8 +375,8 @@ void GenerateVertexShaderHLSL(const VShaderID &id, char *buffer, ShaderLanguage 
 				WRITE(p, "    deriv_v = float4(deriv_v.yzw, 0);\n");
 			}
 
-			WRITE(p, "  float3 du = tess_sample(_pos, deriv_u, basis_v);\n");
-			WRITE(p, "  float3 dv = tess_sample(_pos, basis_u, deriv_v);\n");
+			WRITE(p, "  float3 du = tess_sample(_pos, outerProduct(deriv_u, basis_v));\n");
+			WRITE(p, "  float3 dv = tess_sample(_pos, outerProduct(basis_u, deriv_v));\n");
 			WRITE(p, "  tess.nrm = normalize(cross(du, dv));\n");
 		}
 		WRITE(p, "}\n");
