@@ -409,13 +409,12 @@ public:
 		patch.BuildIndex(indices, count);
 	}
 
-	// Define class TemplateParameterDispatcherTess
-	TEMPLATE_PARAMETER_DISPATCHER(Tess, SubdivisionSurface::Tessellate);
+	TEMPLATE_PARAMETER_DISPATCHER_FUNCTION(Tess, SubdivisionSurface::Tessellate);
 
 	void Tessellate(SimpleVertex *vertices, u16 *indices, int &count, u32 origVertType) {
 		using TessFunc = void(SubdivisionSurface::*)(SimpleVertex *, u16 *, int &);
 		constexpr int NumParams = 5;
-		static TemplateParameterDispatcherTess<TessFunc, NumParams> dispatcher; // Initialize only once
+		static TemplateParameterDispatcher<TessFunc, NumParams, Tess> dispatcher; // Initialize only once
 
 		const bool params[NumParams] = {
 			(origVertType & GE_VTYPE_NRM_MASK) != 0,

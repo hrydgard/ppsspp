@@ -195,38 +195,47 @@ bool CanUseHardwareTessellation(GEPatchPrimType prim);
 void TessellateSplinePatch(u8 *&dest, u16 *indices, int &count, SplinePatchLocal &spatch, u32 origVertType, int maxVertices);
 void TessellateBezierPatch(u8 *&dest, u16 *&indices, int &count, int tess_u, int tess_v, const BezierPatch &patch, u32 origVertType, int maxVertices);
 
-#define TEMPLATE_PARAMETER_DISPATCHER(NAME, FUNCNAME) \
-template<typename Func, int NumParams> \
-class TemplateParameterDispatcher##NAME { \
- 	/* Store all combinations of template functions into an array */ \
-	template<int LoopCount, int Index = 0, bool ...Params> \
-	struct Initializer { \
-		Initializer(Func funcs[]) { \
-			Initializer<LoopCount - 1, (Index << 1) + 1, true, Params...> _true(funcs); \
-			Initializer<LoopCount - 1, (Index << 1) + 0, false, Params...> _false(funcs); \
-		} \
-	}; \
- 	/* Specialized for terminates the recursive loop */ \
-	template<int Index, bool ...Params> \
-	struct Initializer<0, Index, Params...> { \
-		Initializer(Func funcs[]) { \
-			funcs[Index] = &FUNCNAME<Params...>; \
-		} \
-	}; \
- \
-private: \
-	Func funcs[1 << NumParams]; /* Function pointers array */ \
-public: \
-	TemplateParameterDispatcher##NAME() { \
-		Initializer<NumParams>::Initializer(funcs); \
+// Define function object for TemplateParameterDispatcher
+#define TEMPLATE_PARAMETER_DISPATCHER_FUNCTION(NAME, FUNCNAME) \
+struct NAME { \
+	template<bool ...Params> \
+	static auto GetFunc() { \
+		return &FUNCNAME<Params...>; \
 	} \
- \
-	Func GetFunc(const bool params[]) const { \
- 		/* Convert bool parameters to index of the array */ \
-		int param = 0; \
-		for (int i = 0; i < NumParams; ++i) \
-			param |= params[i] << i; \
- \
-		return funcs[param]; \
-	} \
+};
+
+template<typename Func, int NumParams, class Dispatcher> 
+class TemplateParameterDispatcher {
+
+	/* Store all combinations of template functions into an array */
+	template<int LoopCount, int Index = 0, bool ...Params>
+	struct Initializer {
+		static void Init(Func funcs[]) {
+			Initializer<LoopCount - 1, (Index << 1) + 1, true, Params...>::Init(funcs); // true
+			Initializer<LoopCount - 1, (Index << 1) + 0, false, Params...>::Init(funcs); // false
+		}
+	};
+ 	/* Specialized for terminates the recursive loop */
+	template<int Index, bool ...Params>
+	struct Initializer<0, Index, Params...> {
+		static void Init(Func funcs[]) {
+			funcs[Index] = Dispatcher::GetFunc<Params...>();
+		}
+	};
+
+private: 
+	Func funcs[1 << NumParams]; /* Function pointers array */ 
+public: 
+	TemplateParameterDispatcher() { 
+		Initializer<NumParams>::Init(funcs); 
+	} 
+ 
+	Func GetFunc(const bool params[]) const { 
+ 		/* Convert bool parameters to index of the array */ 
+		int index = 0; 
+		for (int i = 0; i < NumParams; ++i) 
+			index |= params[i] << i; 
+ 
+		return funcs[index]; 
+	} 
 };
