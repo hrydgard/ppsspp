@@ -339,6 +339,7 @@ public:
 	float fXInputAnalogSensitivity;
 
 	float fAnalogLimiterDeadzone;
+	float fAxisBindThreshold;
 
 	bool bMouseControl;
 	bool bMapMouse; // Workaround for mapping screen:|

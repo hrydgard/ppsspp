@@ -67,8 +67,6 @@ enum DefaultMaps {
 	DEFAULT_MAPPING_XPERIA_PLAY,
 };
 
-const float AXIS_BIND_THRESHOLD = 0.75f;
-
 typedef std::map<int, std::vector<KeyDef>> KeyMapping;
 
 // KeyMap
