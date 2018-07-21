@@ -464,7 +464,7 @@ int GPUCommon::EstimatePerVertexCost() {
 
 		for (int i = 0; i < 4; i++) {
 			if (gstate.isLightChanEnabled(i))
-				cost += 10;
+				cost += 7;
 		}
 	}
 

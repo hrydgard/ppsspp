@@ -242,6 +242,7 @@ SOURCES_CXX += \
 	$(EXTDIR)/glslang/SPIRV/SpvBuilder.cpp \
 	$(EXTDIR)/SPIRV-Cross/spirv_cfg.cpp \
 	$(EXTDIR)/SPIRV-Cross/spirv_cross.cpp \
+	$(EXTDIR)/SPIRV-Cross/spirv_cross_util.cpp \
 	$(EXTDIR)/SPIRV-Cross/spirv_glsl.cpp \
    $(EXTDIR)/SPIRV-Cross/spirv_hlsl.cpp
 

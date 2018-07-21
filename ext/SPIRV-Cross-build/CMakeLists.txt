@@ -26,6 +26,7 @@ add_library(spirv-cross-core STATIC
 		${SRCDIR}/spirv.hpp
 		${SRCDIR}/spirv_cross.hpp
 		${SRCDIR}/spirv_cross.cpp
+		${SRCDIR}/spirv_cross_util.cpp
 		${SRCDIR}/spirv_cfg.hpp
 		${SRCDIR}/spirv_cfg.cpp)
 
