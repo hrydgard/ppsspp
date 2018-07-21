@@ -340,7 +340,7 @@ public:
 		defcolor = points[0]->color_32;
 	}
 
-	template <bool sampleNrm, bool sampleCol, bool sampleTex, bool useSSE4>
+	template <bool sampleNrm, bool sampleCol, bool sampleTex, bool useSSE4, bool patchFacing>
 	void Tessellate(SimpleVertex *vertices, u16 *indices, int &count) {
 		const float inv_u = 1.0f / (float)patch.tess_u;
 		const float inv_v = 1.0f / (float)patch.tess_v;
@@ -396,7 +396,7 @@ public:
 							const Vec3f derivV = tess_pos.SampleV(wv.deriv);
 
 							vert.nrm = Cross(derivU, derivV).Normalized(useSSE4);
-							if (patch.patchFacing)
+							if (patchFacing)
 								vert.nrm *= -1.0f;
 						} else {
 							vert.nrm.SetZero();
@@ -414,7 +414,7 @@ public:
 
 	void Tessellate(SimpleVertex *vertices, u16 *indices, int &count, u32 origVertType) {
 		using TessFunc = void(SubdivisionSurface::*)(SimpleVertex *, u16 *, int &);
-		constexpr int NumParams = 4;
+		constexpr int NumParams = 5;
 		static TemplateParameterDispatcherTess<TessFunc, NumParams> dispatcher; // Initialize only once
 
 		const bool params[NumParams] = {
@@ -422,6 +422,7 @@ public:
 			(origVertType & GE_VTYPE_COL_MASK) != 0,
 			(origVertType & GE_VTYPE_TC_MASK) != 0,
 			cpu_info.bSSE4_1,
+			patch.patchFacing,
 		};
 		TessFunc func = dispatcher.GetFunc(params);
 		(this->*func)(vertices, indices, count);
