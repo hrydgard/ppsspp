@@ -752,7 +752,7 @@ static ConfigSetting controlSettings[] = {
 	// Also reused as generic analog sensitivity
 	ConfigSetting("XInputAnalogSensitivity", &g_Config.fXInputAnalogSensitivity, 1.0f, true, true),
 	ConfigSetting("AnalogLimiterDeadzone", &g_Config.fAnalogLimiterDeadzone, 0.6f, true, true),
-	ConfigSetting("AxisBindThreshold", &g_Config.fAxisBindThreshold, 0.75f, true, true),
+	ConfigSetting("AxisBindThreshold", &g_Config.fAxisBindThreshold, 0.25f, true, true),
 
 	ConfigSetting("UseMouse", &g_Config.bMouseControl, false, true, true),
 	ConfigSetting("MapMouse", &g_Config.bMapMouse, false, true, true),
