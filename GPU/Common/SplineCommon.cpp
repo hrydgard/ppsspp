@@ -341,7 +341,7 @@ public:
 	}
 
 	template <bool sampleNrm, bool sampleCol, bool sampleTex, bool useSSE4, bool patchFacing>
-	void Tessellate(SimpleVertex *vertices, u16 *indices, int &count) {
+	void Tessellate(OutputBuffers &output) {
 		const float inv_u = 1.0f / (float)patch.tess_u;
 		const float inv_v = 1.0f / (float)patch.tess_v;
 
@@ -375,7 +375,7 @@ public:
 						const int index_v = patch.GetIndexV(patch_v, tile_v);
 						const Weight &wv = weights.v[index_v];
 
-						SimpleVertex &vert = vertices[patch.GetIndex(index_u, index_v, patch_u, patch_v)];
+						SimpleVertex &vert = output.vertices[patch.GetIndex(index_u, index_v, patch_u, patch_v)];
 
 						// Tessellate
 						vert.pos = tess_pos.SampleV(wv.basis);
@@ -406,13 +406,13 @@ public:
 			}
 		}
 
-		patch.BuildIndex(indices, count);
+		patch.BuildIndex(output.indices, output.count);
 	}
 
 	TEMPLATE_PARAMETER_DISPATCHER_FUNCTION(Tess, SubdivisionSurface::Tessellate);
 
-	void Tessellate(SimpleVertex *vertices, u16 *indices, int &count, u32 origVertType) {
-		using TessFunc = void(SubdivisionSurface::*)(SimpleVertex *, u16 *, int &);
+	void Tessellate(OutputBuffers &output, u32 origVertType) {
+		using TessFunc = void(SubdivisionSurface::*)(OutputBuffers &);
 		constexpr int NumParams = 5;
 		static TemplateParameterDispatcher<TessFunc, NumParams, Tess> dispatcher; // Initialize only once
 
@@ -424,23 +424,23 @@ public:
 			patch.patchFacing,
 		};
 		TessFunc func = dispatcher.GetFunc(params);
-		(this->*func)(vertices, indices, count);
+		(this->*func)(output);
 	}
 };
 
 template<class Patch, class Cache>
-static void SoftwareTessellation(SimpleVertex *vertices, u16 *indices, int &count, const Patch &patch, u32 origVertType,
+static void SoftwareTessellation(OutputBuffers &output, const Patch &patch, u32 origVertType,
 	const SimpleVertex *const *points, SimpleBufferManager &managedBuf, Cache &weightsCache) {
 	u32 key_u = weightsCache.ToKey(patch.tess_u, patch.count_u, patch.type_u);
 	u32 key_v = weightsCache.ToKey(patch.tess_v, patch.count_v, patch.type_v);
 	Weight2D weights(weightsCache, key_u, key_v);
 
 	SubdivisionSurface<Patch> surface(managedBuf, points, patch, weights);
-	surface.Tessellate(vertices, indices, count, origVertType);
+	surface.Tessellate(output, origVertType);
 }
 
 template<class Patch, class Cache>
-static void HardwareTessellation(SimpleVertex *vertices, u16 *indices, int &count, const Patch &patch, u32 origVertType,
+static void HardwareTessellation(OutputBuffers &output, const Patch &patch, u32 origVertType,
 	const SimpleVertex *const *points, Cache &weightsCache, TessellationDataTransfer *tessDataTransfer) {
 	u32 key_u = weightsCache.ToKey(patch.tess_u, patch.count_u, patch.type_u);
 	u32 key_v = weightsCache.ToKey(patch.tess_v, patch.count_v, patch.type_v);
@@ -454,7 +454,7 @@ static void HardwareTessellation(SimpleVertex *vertices, u16 *indices, int &coun
 	float inv_v = 1.0f / (float)patch.tess_v;
 	for (int tile_v = 0; tile_v <= patch.tess_v; ++tile_v) {
 		for (int tile_u = 0; tile_u <= patch.tess_u; ++tile_u) {
-			SimpleVertex &vert = vertices[tile_v * (patch.tess_u + 1) + tile_u];
+			SimpleVertex &vert = output.vertices[tile_v * (patch.tess_u + 1) + tile_u];
 			vert.pos.x = (float)tile_u;
 			vert.pos.y = (float)tile_v;
 			// For texcoord generation
@@ -462,7 +462,7 @@ static void HardwareTessellation(SimpleVertex *vertices, u16 *indices, int &coun
 			vert.nrm.y = (float)tile_v * inv_v;
 		}
 	}
-	BuildIndex(indices, count, patch.tess_u, patch.tess_v, patch.primType);
+	BuildIndex(output.indices, output.count, patch.tess_u, patch.tess_v, patch.primType);
 }
 
 void DrawEngineCommon::SubmitSpline(const void *control_points, const void *indices, int tess_u, int tess_v, int count_u, int count_v, int type_u, int type_v, GEPatchPrimType prim_type, bool computeNormals, bool patchFacing, u32 vertType, int *bytesRead) {
@@ -507,8 +507,10 @@ void DrawEngineCommon::SubmitSpline(const void *control_points, const void *indi
 	for (int idx = 0; idx < count_u * count_v; idx++)
 		points[idx] = simplified_control_points + (indices ? ConvertIndex(idx) : idx);
 
-	int count = 0;
-	u8 *dest = splineBuffer;
+	OutputBuffers output;
+	output.vertices = (SimpleVertex *)splineBuffer;
+	output.indices = quadIndices_;
+	output.count = 0;
 
 	SplinePatchLocal patch;
 	patch.tess_u = tess_u;
@@ -523,11 +525,11 @@ void DrawEngineCommon::SubmitSpline(const void *control_points, const void *indi
 	patch.patchFacing = patchFacing;
 
 	if (CanUseHardwareTessellation(prim_type)) {
-		HardwareTessellation((SimpleVertex *)splineBuffer, quadIndices_, count, patch, origVertType, points, splineWeightsCache, tessDataTransfer);
+		HardwareTessellation(output, patch, origVertType, points, splineWeightsCache, tessDataTransfer);
 		numPatches = patch.num_patches_u * patch.num_patches_v;
 	} else {
 		patch.Init(SPLINE_BUFFER_SIZE / vertexSize);
-		SoftwareTessellation((SimpleVertex *)splineBuffer, quadIndices_, count, patch, origVertType, points, managedBuf, splineWeightsCache);
+		SoftwareTessellation(output, patch, origVertType, points, managedBuf, splineWeightsCache);
 	}
 
 	u32 vertTypeWithIndex16 = (vertType & ~GE_VTYPE_IDX_MASK) | GE_VTYPE_IDX_16BIT;
@@ -545,7 +547,7 @@ void DrawEngineCommon::SubmitSpline(const void *control_points, const void *indi
 	uint32_t vertTypeID = GetVertTypeID(vertTypeWithIndex16, gstate.getUVGenMode());
 
 	int generatedBytesRead;
-	DispatchSubmitPrim(splineBuffer, quadIndices_, PatchPrimToPrim(prim_type), count, vertTypeID, &generatedBytesRead);
+	DispatchSubmitPrim(output.vertices, output.indices, PatchPrimToPrim(prim_type), output.count, vertTypeID, &generatedBytesRead);
 
 	DispatchFlush();
 
@@ -598,9 +600,10 @@ void DrawEngineCommon::SubmitBezier(const void *control_points, const void *indi
 	for (int idx = 0; idx < count_u * count_v; idx++)
 		points[idx] = simplified_control_points + (indices ? ConvertIndex(idx) : idx);
 
-	int count = 0;
-	u8 *dest = splineBuffer;
-	u16 *inds = quadIndices_;
+	OutputBuffers output;
+	output.vertices = (SimpleVertex *)splineBuffer;
+	output.indices = quadIndices_;
+	output.count = 0;
 
 	BezierPatch patch;
 	patch.tess_u = tess_u;
@@ -613,11 +616,11 @@ void DrawEngineCommon::SubmitBezier(const void *control_points, const void *indi
 	patch.patchFacing = patchFacing;
 
 	if (CanUseHardwareTessellation(prim_type)) {
-		HardwareTessellation((SimpleVertex *)splineBuffer, quadIndices_, count, patch, origVertType, points, bezierWeightsCache, tessDataTransfer);
+		HardwareTessellation(output, patch, origVertType, points, bezierWeightsCache, tessDataTransfer);
 		numPatches = patch.num_patches_u * patch.num_patches_v;
 	} else {
 		patch.Init(SPLINE_BUFFER_SIZE / vertexSize);
-		SoftwareTessellation((SimpleVertex *)splineBuffer, quadIndices_, count, patch, origVertType, points, managedBuf, bezierWeightsCache);
+		SoftwareTessellation(output, patch, origVertType, points, managedBuf, bezierWeightsCache);
 	}
 
 	u32 vertTypeWithIndex16 = (vertType & ~GE_VTYPE_IDX_MASK) | GE_VTYPE_IDX_16BIT;
@@ -634,7 +637,7 @@ void DrawEngineCommon::SubmitBezier(const void *control_points, const void *indi
 
 	uint32_t vertTypeID = GetVertTypeID(vertTypeWithIndex16, gstate.getUVGenMode());
 	int generatedBytesRead;
-	DispatchSubmitPrim(splineBuffer, quadIndices_, PatchPrimToPrim(prim_type), count, vertTypeID, &generatedBytesRead);
+	DispatchSubmitPrim(output.vertices, output.indices, PatchPrimToPrim(prim_type), output.count, vertTypeID, &generatedBytesRead);
 
 	DispatchFlush();
 

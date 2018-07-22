@@ -191,6 +191,12 @@ struct Weight2D {
 	}
 };
 
+struct OutputBuffers {
+	SimpleVertex *vertices;
+	u16 *indices;
+	int count;
+};
+
 bool CanUseHardwareTessellation(GEPatchPrimType prim);
 void TessellateSplinePatch(u8 *&dest, u16 *indices, int &count, SplinePatchLocal &spatch, u32 origVertType, int maxVertices);
 void TessellateBezierPatch(u8 *&dest, u16 *&indices, int &count, int tess_u, int tess_v, const BezierPatch &patch, u32 origVertType, int maxVertices);
