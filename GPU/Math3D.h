@@ -1087,31 +1087,6 @@ __forceinline void Vec4<T>::ToRGBA(u8 *rgba) const
 #if defined(_M_SSE)
 // Specialized for SIMD optimization
 
-// Vec2<float> operation
-template<>
-inline void Vec2<float>::operator += (const Vec2<float> &other)
-{
-	vec = _mm_add_ps(vec, other.vec);
-}
-
-template<>
-inline Vec2<float> Vec2<float>::operator + (const Vec2 &other) const
-{
-	return Vec2<float>(_mm_add_ps(vec, other.vec));
-}
-
-template<>
-inline Vec2<float> Vec2<float>::operator * (const Vec2 &other) const
-{
-	return Vec2<float>(_mm_mul_ps(vec, other.vec));
-}
-
-template<> template<>
-inline Vec2<float> Vec2<float>::operator * (const float &other) const
-{
-	return Vec2<float>(_mm_mul_ps(vec, _mm_set_ps1(other)));
-}
-
 // Vec3<float> operation
 template<>
 inline void Vec3<float>::operator += (const Vec3<float> &other)
