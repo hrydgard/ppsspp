@@ -151,6 +151,7 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, uint64_t *uniform
 	bool enableAlphaTest = id.Bit(FS_BIT_ALPHA_TEST);
 
 	bool alphaTestAgainstZero = id.Bit(FS_BIT_ALPHA_AGAINST_ZERO);
+	bool testForceToZero = id.Bit(FS_BIT_TEST_DISCARD_TO_ZERO);
 	bool enableColorTest = id.Bit(FS_BIT_COLOR_TEST);
 	bool colorTestAgainstZero = id.Bit(FS_BIT_COLOR_AGAINST_ZERO);
 	bool enableColorDoubling = id.Bit(FS_BIT_COLOR_DOUBLE);
@@ -510,39 +511,40 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, uint64_t *uniform
 			}
 		}
 
+		const char *discardStatement = testForceToZero ? "v.a = 0.0;" : "discard;";
 		if (enableAlphaTest) {
 			if (alphaTestAgainstZero) {
 				// When testing against 0 (extremely common), we can avoid some math.
 				// 0.002 is approximately half of 1.0 / 255.0.
 				if (alphaTestFunc == GE_COMP_NOTEQUAL || alphaTestFunc == GE_COMP_GREATER) {
-					WRITE(p, "  if (v.a < 0.002) discard;\n");
+					WRITE(p, "  if (v.a < 0.002) %s\n", discardStatement);
 				} else if (alphaTestFunc != GE_COMP_NEVER) {
 					// Anything else is a test for == 0.  Happens sometimes, actually...
-					WRITE(p, "  if (v.a > 0.002) discard;\n");
+					WRITE(p, "  if (v.a > 0.002) %s\n", discardStatement);
 				} else {
 					// NEVER has been logged as used by games, although it makes little sense - statically failing.
 					// Maybe we could discard the drawcall, but it's pretty rare.  Let's just statically discard here.
-					WRITE(p, "  discard;\n");
+					WRITE(p, "  %s\n", discardStatement);
 				}
 			} else if (g_Config.bFragmentTestCache) {
 				WRITE(p, "  float aResult = %s(testtex, vec2(%s, 0)).a;\n", texture, alphaTestXCoord.c_str());
-				WRITE(p, "  if (aResult < 0.5) discard;\n");
+				WRITE(p, "  if (aResult < 0.5) %s\n", discardStatement);
 			} else {
 				const char *alphaTestFuncs[] = { "#", "#", " != ", " == ", " >= ", " > ", " <= ", " < " };
 				if (alphaTestFuncs[alphaTestFunc][0] != '#') {
 					if (bitwiseOps) {
-						WRITE(p, "  if ((roundAndScaleTo255i(v.a) & u_alphacolormask.a) %s int(u_alphacolorref.a)) discard;\n", alphaTestFuncs[alphaTestFunc]);
+						WRITE(p, "  if ((roundAndScaleTo255i(v.a) & u_alphacolormask.a) %s int(u_alphacolorref.a)) %s\n", alphaTestFuncs[alphaTestFunc], discardStatement);
 					} else if (gl_extensions.gpuVendor == GPU_VENDOR_IMGTEC) {
 						// Work around bad PVR driver problem where equality check + discard just doesn't work.
 						if (alphaTestFunc != GE_COMP_NOTEQUAL) {
-							WRITE(p, "  if (roundTo255thf(v.a) %s u_alphacolorref.a) discard;\n", alphaTestFuncs[alphaTestFunc]);
+							WRITE(p, "  if (roundTo255thf(v.a) %s u_alphacolorref.a) %s\n", alphaTestFuncs[alphaTestFunc], discardStatement);
 						}
 					} else {
-						WRITE(p, "  if (roundAndScaleTo255f(v.a) %s u_alphacolorref.a) discard;\n", alphaTestFuncs[alphaTestFunc]);
+						WRITE(p, "  if (roundAndScaleTo255f(v.a) %s u_alphacolorref.a) %s\n", alphaTestFuncs[alphaTestFunc], discardStatement);
 					}
 				} else {
 					// This means NEVER.  See above.
-					WRITE(p, "  discard;\n");
+					WRITE(p, "  %s\n", discardStatement);
 				}
 			}
 		}
@@ -552,14 +554,14 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, uint64_t *uniform
 				// When testing against 0 (common), we can avoid some math.
 				// 0.002 is approximately half of 1.0 / 255.0.
 				if (colorTestFunc == GE_COMP_NOTEQUAL) {
-					WRITE(p, "  if (v.r < 0.002 && v.g < 0.002 && v.b < 0.002) discard;\n");
+					WRITE(p, "  if (v.r < 0.002 && v.g < 0.002 && v.b < 0.002) %s\n", discardStatement);
 				} else if (colorTestFunc != GE_COMP_NEVER) {
 					// Anything else is a test for == 0.
-					WRITE(p, "  if (v.r > 0.002 || v.g > 0.002 || v.b > 0.002) discard;\n");
+					WRITE(p, "  if (v.r > 0.002 || v.g > 0.002 || v.b > 0.002) %s\n", discardStatement);
 				} else {
 					// NEVER has been logged as used by games, although it makes little sense - statically failing.
 					// Maybe we could discard the drawcall, but it's pretty rare.  Let's just statically discard here.
-					WRITE(p, "  discard;\n");
+					WRITE(p, "  %s\n", discardStatement);
 				}
 			} else if (g_Config.bFragmentTestCache) {
 				WRITE(p, "  float rResult = %s(testtex, vec2(vScale256.r, 0)).r;\n", texture);
@@ -567,10 +569,10 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, uint64_t *uniform
 				WRITE(p, "  float bResult = %s(testtex, vec2(vScale256.b, 0)).b;\n", texture);
 				if (colorTestFunc == GE_COMP_EQUAL) {
 					// Equal means all parts must be equal.
-					WRITE(p, "  if (rResult < 0.5 || gResult < 0.5 || bResult < 0.5) discard;\n");
+					WRITE(p, "  if (rResult < 0.5 || gResult < 0.5 || bResult < 0.5) %s\n", discardStatement);
 				} else {
 					// Not equal means any part must be not equal.
-					WRITE(p, "  if (rResult < 0.5 && gResult < 0.5 && bResult < 0.5) discard;\n");
+					WRITE(p, "  if (rResult < 0.5 && gResult < 0.5 && bResult < 0.5) %s\n", discardStatement);
 				}
 			} else {
 				const char *colorTestFuncs[] = { "#", "#", " != ", " == " };
@@ -580,14 +582,14 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, uint64_t *uniform
 						WRITE(p, "  ivec3 v_scaled = roundAndScaleTo255iv(v.rgb);\n");
 						const char *maskedFragColor = "ivec3(v_scaled.r & u_alphacolormask.r, v_scaled.g & u_alphacolormask.g, v_scaled.b & u_alphacolormask.b)";
 						const char *maskedColorRef = "ivec3(int(u_alphacolorref.r) & u_alphacolormask.r, int(u_alphacolorref.g) & u_alphacolormask.g, int(u_alphacolorref.b) & u_alphacolormask.b)";
-						WRITE(p, "  if (%s %s %s) discard;\n", maskedFragColor, colorTestFuncs[colorTestFunc], maskedColorRef);
+						WRITE(p, "  if (%s %s %s) %s\n", maskedFragColor, colorTestFuncs[colorTestFunc], maskedColorRef, discardStatement);
 					} else if (gl_extensions.gpuVendor == GPU_VENDOR_IMGTEC) {
-						WRITE(p, "  if (roundTo255thv(v.rgb) %s u_alphacolorref.rgb) discard;\n", colorTestFuncs[colorTestFunc]);
+						WRITE(p, "  if (roundTo255thv(v.rgb) %s u_alphacolorref.rgb) %s\n", colorTestFuncs[colorTestFunc], discardStatement);
 					} else {
-						WRITE(p, "  if (roundAndScaleTo255v(v.rgb) %s u_alphacolorref.rgb) discard;\n", colorTestFuncs[colorTestFunc]);
+						WRITE(p, "  if (roundAndScaleTo255v(v.rgb) %s u_alphacolorref.rgb) %s\n", colorTestFuncs[colorTestFunc], discardStatement);
 					}
 				} else {
-					WRITE(p, "  discard;\n");
+					WRITE(p, "  %s\n", discardStatement);
 				}
 			}
 		}
