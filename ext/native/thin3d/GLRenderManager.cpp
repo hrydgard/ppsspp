@@ -228,6 +228,9 @@ void GLRenderManager::StopThread() {
 
 void GLRenderManager::BindFramebufferAsRenderTarget(GLRFramebuffer *fb, GLRRenderPassAction color, GLRRenderPassAction depth, GLRRenderPassAction stencil, uint32_t clearColor, float clearDepth, uint8_t clearStencil) {
 	assert(insideFrame_);
+#ifdef _DEBUG
+	curProgram_ = nullptr;
+#endif
 	// Eliminate dupes.
 	if (steps_.size() && steps_.back()->render.framebuffer == fb && steps_.back()->stepType == GLRStepType::RENDER) {
 		if (color != GLRRenderPassAction::CLEAR && depth != GLRRenderPassAction::CLEAR && stencil != GLRRenderPassAction::CLEAR) {
@@ -359,6 +362,10 @@ void GLRenderManager::CopyImageToMemorySync(GLRTexture *texture, int mipLevel, i
 
 void GLRenderManager::BeginFrame() {
 	VLOG("BeginFrame");
+
+#ifdef _DEBUG
+	curProgram_ = nullptr;
+#endif
 
 	int curFrame = GetCurFrame();
 	FrameData &frameData = frameData_[curFrame];
