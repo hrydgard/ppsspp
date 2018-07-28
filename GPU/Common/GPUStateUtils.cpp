@@ -115,7 +115,9 @@ bool IsAlphaTestTriviallyTrue() {
 
 bool NeedsTestDiscard() {
 	// We assume this is called only when enabled and not trivially true (may also be for color testing.)
-	if (gstate.isStencilTestEnabled() || gstate.isDepthTestEnabled())
+	if (gstate.isStencilTestEnabled() && (gstate.pmska & 0xFF) != 0xFF)
+		return true;
+	if (gstate.isDepthTestEnabled() && gstate.isDepthWriteEnabled())
 		return true;
 	if (!gstate.isAlphaBlendEnabled())
 		return true;
