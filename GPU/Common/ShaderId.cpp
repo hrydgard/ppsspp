@@ -268,12 +268,15 @@ void ComputeFragmentShaderID(ShaderID *id_out) {
 			id.SetBit(FS_BIT_ALPHA_TEST);
 			id.SetBits(FS_BIT_ALPHA_TEST_FUNC, 3, gstate.getAlphaTestFunction());
 			id.SetBit(FS_BIT_ALPHA_AGAINST_ZERO, IsAlphaTestAgainstZero());
+			id.SetBit(FS_BIT_TEST_DISCARD_TO_ZERO, !NeedsTestDiscard());
 		}
 		if (enableColorTest) {
 			// 4 bits total.
 			id.SetBit(FS_BIT_COLOR_TEST);
 			id.SetBits(FS_BIT_COLOR_TEST_FUNC, 2, gstate.getColorTestFunction());
 			id.SetBit(FS_BIT_COLOR_AGAINST_ZERO, IsColorTestAgainstZero());
+			// This is alos set in enableAlphaTest - color test is uncommon, but we can skip discard the same way.
+			id.SetBit(FS_BIT_TEST_DISCARD_TO_ZERO, !NeedsTestDiscard());
 		}
 
 		id.SetBit(FS_BIT_ENABLE_FOG, enableFog);
