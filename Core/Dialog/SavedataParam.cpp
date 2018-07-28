@@ -642,20 +642,28 @@ int SavedataParam::DetermineCryptMode(const SceUtilitySavedataParam *param) cons
 	return decryptMode;
 }
 
-void SavedataParam::LoadCryptedSave(SceUtilitySavedataParam *param, u8 *data, u8 *saveData, int &saveSize, int prevCryptMode, const u8 *expectedHash, bool &saveDone) {
+void SavedataParam::LoadCryptedSave(SceUtilitySavedataParam *param, u8 *data, const u8 *saveData, int &saveSize, int prevCryptMode, const u8 *expectedHash, bool &saveDone) {
+	int orig_size = saveSize;
 	int align_len = align16(saveSize);
 	u8 *data_base = new u8[align_len];
 	u8 *cryptKey = new u8[0x10];
-	memset(cryptKey, 0, 0x10);
 
 	int decryptMode = DetermineCryptMode(param);
 	const int detectedMode = decryptMode;
-	bool hasKey = decryptMode > 1;
-	if (hasKey) {
-		memcpy(cryptKey, param->key, 0x10);
-	}
-	memset(data_base + saveSize, 0, align_len - saveSize);
-	memcpy(data_base, saveData, saveSize);
+	bool hasKey;
+
+	auto resetData = [&](int mode) {
+		saveSize = orig_size;
+		align_len = align16(saveSize);
+		hasKey = mode > 1;
+
+		if (hasKey) {
+			memcpy(cryptKey, param->key, 0x10);
+		}
+		memcpy(data_base, saveData, saveSize);
+		memset(data_base + saveSize, 0, align_len - saveSize);
+	};
+	resetData(decryptMode);
 
 	if (decryptMode != prevCryptMode) {
 		if (prevCryptMode == 1 && param->key[0] == 0) {
@@ -688,12 +696,13 @@ void SavedataParam::LoadCryptedSave(SceUtilitySavedataParam *param, u8 *data, u8
 	int err = DecryptSave(decryptMode, data_base, &saveSize, &align_len, hasKey ? cryptKey : nullptr, expectedHash);
 	// Perhaps the file had the wrong mode....
 	if (err != 0 && detectedMode != decryptMode) {
-		hasKey = detectedMode > 1;
+		resetData(detectedMode);
 		err = DecryptSave(detectedMode, data_base, &saveSize, &align_len, hasKey ? cryptKey : nullptr, expectedHash);
 	}
 	// TODO: Should return an error, but let's just try with a bad hash.
 	if (err != 0 && expectedHash != nullptr) {
 		WARN_LOG(SCEUTILITY, "Incorrect hash on save data, likely corrupt");
+		resetData(decryptMode);
 		err = DecryptSave(decryptMode, data_base, &saveSize, &align_len, hasKey ? cryptKey : nullptr, nullptr);
 	}
 
