@@ -125,7 +125,12 @@ bool NeedsTestDiscard() {
 		return true;
 	if (gstate.getBlendFuncA() != GE_SRCBLEND_SRCALPHA && gstate.getBlendFuncA() != GE_DSTBLEND_DOUBLESRCALPHA)
 		return true;
-	if (!safeDestFactors[(int)gstate.getBlendFuncB()])
+	// GE_DSTBLEND_DOUBLEINVSRCALPHA is actually inverse double src alpha, and doubling zero is still zero.
+	if (gstate.getBlendFuncB() != GE_DSTBLEND_INVSRCALPHA && gstate.getBlendFuncB() != GE_DSTBLEND_DOUBLEINVSRCALPHA) {
+		if (gstate.getBlendFuncB() != GE_DSTBLEND_FIXB || gstate.getFixB() != 0xFFFFFF)
+			return true;
+	}
+	if (gstate.getBlendEq() != GE_BLENDMODE_MUL_AND_ADD && gstate.getBlendEq() != GE_BLENDMODE_MUL_AND_SUBTRACT_REVERSE)
 		return true;
 
 	return false;
