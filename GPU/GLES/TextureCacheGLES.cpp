@@ -862,6 +862,7 @@ bool TextureCacheGLES::GetCurrentTextureDebug(GPUDebugBuffer &buffer, int level)
 	GLRenderManager *renderManager = (GLRenderManager *)draw_->GetNativeObject(Draw::NativeObject::RENDER_MANAGER);
 
 	// Not a framebuffer, so let's assume these are right.
+	// TODO: But they may definitely not be, if the texture was scaled.
 	int w = gstate.getTextureWidth(level);
 	int h = gstate.getTextureHeight(level);
 
