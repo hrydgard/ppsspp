@@ -113,6 +113,24 @@ bool IsAlphaTestTriviallyTrue() {
 	}
 }
 
+bool NeedsTestDiscard() {
+	// We assume this is called only when enabled and not trivially true (may also be for color testing.)
+	if (gstate.isStencilTestEnabled() && (gstate.pmska & 0xFF) != 0xFF)
+		return true;
+	if (gstate.isDepthTestEnabled() && gstate.isDepthWriteEnabled())
+		return true;
+	if (!gstate.isAlphaBlendEnabled())
+		return true;
+	if (gstate.isLogicOpEnabled() && gstate.getLogicOp() != GE_LOGIC_COPY)
+		return true;
+	if (gstate.getBlendFuncA() != GE_SRCBLEND_SRCALPHA && gstate.getBlendFuncA() != GE_DSTBLEND_DOUBLESRCALPHA)
+		return true;
+	if (!safeDestFactors[(int)gstate.getBlendFuncB()])
+		return true;
+
+	return false;
+}
+
 bool IsAlphaTestAgainstZero() {
 	return gstate.getAlphaTestRef() == 0 && gstate.getAlphaTestMask() == 0xFF;
 }
