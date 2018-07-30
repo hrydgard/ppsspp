@@ -40,20 +40,28 @@ bool CanUseHardwareTransform(int prim) {
 	return !gstate.isModeThrough() && prim != GE_PRIM_RECTANGLES;
 }
 
-// Dest factors where it's safe to eliminate the alpha test under certain conditions
-static const bool safeDestFactors[16] = {
-	true, // GE_DSTBLEND_SRCCOLOR,
-	true, // GE_DSTBLEND_INVSRCCOLOR,
-	false, // GE_DSTBLEND_SRCALPHA,
-	true, // GE_DSTBLEND_INVSRCALPHA,
-	true, // GE_DSTBLEND_DSTALPHA,
-	true, // GE_DSTBLEND_INVDSTALPHA,
-	false, // GE_DSTBLEND_DOUBLESRCALPHA,
-	false, // GE_DSTBLEND_DOUBLEINVSRCALPHA,
-	true, // GE_DSTBLEND_DOUBLEDSTALPHA,
-	true, // GE_DSTBLEND_DOUBLEINVDSTALPHA,
-	true, //GE_DSTBLEND_FIXB,
-};
+bool NeedsTestDiscard() {
+	// We assume this is called only when enabled and not trivially true (may also be for color testing.)
+	if (gstate.isStencilTestEnabled() && (gstate.pmska & 0xFF) != 0xFF)
+		return true;
+	if (gstate.isDepthTestEnabled() && gstate.isDepthWriteEnabled())
+		return true;
+	if (!gstate.isAlphaBlendEnabled())
+		return true;
+	if (gstate.getBlendFuncA() != GE_SRCBLEND_SRCALPHA && gstate.getBlendFuncA() != GE_DSTBLEND_DOUBLESRCALPHA)
+		return true;
+	// GE_DSTBLEND_DOUBLEINVSRCALPHA is actually inverse double src alpha, and doubling zero is still zero.
+	if (gstate.getBlendFuncB() != GE_DSTBLEND_INVSRCALPHA && gstate.getBlendFuncB() != GE_DSTBLEND_DOUBLEINVSRCALPHA) {
+		if (gstate.getBlendFuncB() != GE_DSTBLEND_FIXB || gstate.getFixB() != 0xFFFFFF)
+			return true;
+	}
+	if (gstate.getBlendEq() != GE_BLENDMODE_MUL_AND_ADD && gstate.getBlendEq() != GE_BLENDMODE_MUL_AND_SUBTRACT_REVERSE)
+		return true;
+	if (gstate.isLogicOpEnabled() && gstate.getLogicOp() != GE_LOGIC_COPY)
+		return true;
+
+	return false;
+}
 
 bool IsAlphaTestTriviallyTrue() {
 	switch (gstate.getAlphaTestFunction()) {
@@ -80,25 +88,10 @@ bool IsAlphaTestTriviallyTrue() {
 
 	case GE_COMP_GREATER:
 	{
-#if 0
-		// Easy way to check the values in the debugger without ruining && early-out
-		bool doTextureAlpha = gstate.isTextureAlphaUsed();
-		bool stencilTest = gstate.isStencilTestEnabled();
-		bool depthTest = gstate.isDepthTestEnabled();
-		GEComparison depthTestFunc = gstate.getDepthTestFunction();
-		int alphaRef = gstate.getAlphaTestRef();
-		int blendA = gstate.getBlendFuncA();
-		bool blendEnabled = gstate.isAlphaBlendEnabled();
-		int blendB = gstate.getBlendFuncA();
-#endif
-		return (gstate_c.vertexFullAlpha && (gstate_c.textureFullAlpha || !gstate.isTextureAlphaUsed())) || (
-			(!gstate.isStencilTestEnabled() &&
-				!gstate.isDepthTestEnabled() &&
-				(!gstate.isLogicOpEnabled() || gstate.getLogicOp() == GE_LOGIC_COPY) &&
-				gstate.getAlphaTestRef() == 0 &&
-				gstate.isAlphaBlendEnabled() &&
-				gstate.getBlendFuncA() == GE_SRCBLEND_SRCALPHA &&
-				safeDestFactors[(int)gstate.getBlendFuncB()]));
+		// If the texture and vertex only use 1.0 alpha, then the ref value doesn't matter.
+		if (gstate_c.vertexFullAlpha && (gstate_c.textureFullAlpha || !gstate.isTextureAlphaUsed()))
+			return true;
+		return gstate.getAlphaTestRef() == 0 && !NeedsTestDiscard();
 	}
 
 	case GE_COMP_LEQUAL:
@@ -111,24 +104,6 @@ bool IsAlphaTestTriviallyTrue() {
 	default:
 		return false;
 	}
-}
-
-bool NeedsTestDiscard() {
-	// We assume this is called only when enabled and not trivially true (may also be for color testing.)
-	if (gstate.isStencilTestEnabled() && (gstate.pmska & 0xFF) != 0xFF)
-		return true;
-	if (gstate.isDepthTestEnabled() && gstate.isDepthWriteEnabled())
-		return true;
-	if (!gstate.isAlphaBlendEnabled())
-		return true;
-	if (gstate.isLogicOpEnabled() && gstate.getLogicOp() != GE_LOGIC_COPY)
-		return true;
-	if (gstate.getBlendFuncA() != GE_SRCBLEND_SRCALPHA && gstate.getBlendFuncA() != GE_DSTBLEND_DOUBLESRCALPHA)
-		return true;
-	if (!safeDestFactors[(int)gstate.getBlendFuncB()])
-		return true;
-
-	return false;
 }
 
 bool IsAlphaTestAgainstZero() {
