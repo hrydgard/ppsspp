@@ -45,9 +45,14 @@ enum SplineQuality {
 	HIGH_QUALITY = 2,
 };
 
+class Bezier3DWeight;
+class Spline3DWeight;
+
 // We decode all vertices into a common format for easy interpolation and stuff.
 // Not fast but can be optimized later.
 struct BezierPatch {
+	using WeightType = Bezier3DWeight;
+
 	int tess_u;
 	int tess_v;
 	int count_u;
@@ -104,6 +109,8 @@ struct BezierPatch {
 };
 
 struct SplinePatchLocal {
+	using WeightType = Spline3DWeight;
+
 	int tess_u;
 	int tess_v;
 	int count_u;
