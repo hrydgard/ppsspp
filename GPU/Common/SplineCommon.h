@@ -198,6 +198,22 @@ struct Weight2D {
 	}
 };
 
+struct ControlPoints {
+	Vec3f *pos;
+	Vec2f *tex;
+	Vec4f *col;
+	u32_le defcolor;
+
+	void Convert(const SimpleVertex *const *points, int size) {
+		for (int i = 0; i < size; ++i) {
+			pos[i] = Vec3f(points[i]->pos);
+			tex[i] = Vec2f(points[i]->uv);
+			col[i] = Vec4f::FromRGBA(points[i]->color_32);
+		}
+		defcolor = points[0]->color_32;
+	}
+};
+
 struct OutputBuffers {
 	SimpleVertex *vertices;
 	u16 *indices;

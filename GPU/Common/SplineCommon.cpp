@@ -318,26 +318,12 @@ public:
 template<class Patch>
 class SubdivisionSurface {
 private:
-	Vec3f *pos;
-	Vec4f *col;
-	Vec2f *tex;
-	u32_le defcolor;
+	const ControlPoints &points;
 	const Patch &patch;
 	const Weight2D &weights;
 public:
-	SubdivisionSurface(SimpleBufferManager &managedBuf, const SimpleVertex *const *points, const Patch &patch, const Weight2D &weights)
-		: patch(patch), weights(weights)
-	{
-		int size = patch.count_u * patch.count_v;
-		pos = (Vec3f *)managedBuf.Allocate(sizeof(Vec3f) * size);
-		tex = (Vec2f *)managedBuf.Allocate(sizeof(Vec2f) * size);
-		col = (Vec4f *)managedBuf.Allocate(sizeof(Vec4f) * size);
-		for (int idx = 0; idx < size; ++idx) {
-			pos[idx] = Vec3f(points[idx]->pos);
-			tex[idx] = Vec2f(points[idx]->uv);
-			col[idx] = Vec4f::FromRGBA(points[idx]->color_32);
-		}
-		defcolor = points[0]->color_32;
+	SubdivisionSurface(const ControlPoints &points, const Patch &patch, const Weight2D &weights)
+		: points(points), patch(patch), weights(weights) {
 	}
 
 	template <bool sampleNrm, bool sampleCol, bool sampleTex, bool useSSE4, bool patchFacing>
@@ -353,10 +339,10 @@ public:
 				// Prepare 4x4 control points to tessellate
 				const int idx = patch.GetPointIndex(patch_u, patch_v);
 				const int idx_v[4] = { idx, idx + patch.count_u, idx + patch.count_u * 2, idx + patch.count_u * 3 };
-				Tessellator<Vec3f> tess_pos(pos, idx_v);
-				Tessellator<Vec4f> tess_col(col, idx_v);
-				Tessellator<Vec2f> tess_tex(tex, idx_v);
-				Tessellator<Vec3f> tess_nrm(pos, idx_v);
+				Tessellator<Vec3f> tess_pos(points.pos, idx_v);
+				Tessellator<Vec4f> tess_col(points.col, idx_v);
+				Tessellator<Vec2f> tess_tex(points.tex, idx_v);
+				Tessellator<Vec3f> tess_nrm(points.pos, idx_v);
 
 				for (int tile_u = start_u; tile_u <= patch.tess_u; ++tile_u) {
 					const int index_u = patch.GetIndexU(patch_u, tile_u);
@@ -382,7 +368,7 @@ public:
 						if (sampleCol) {
 							vert.color_32 = tess_col.SampleV(wv.basis).ToRGBA();
 						} else {
-							vert.color_32 = defcolor;
+							vert.color_32 = points.defcolor;
 						}
 						if (sampleTex) {
 							tess_tex.SampleV(wv.basis).Write(vert.uv);
@@ -436,7 +422,14 @@ static void SoftwareTessellation(OutputBuffers &output, const Patch &patch, u32 
 	u32 key_v = WeightType::ToKey(patch.tess_v, patch.count_v, patch.type_v);
 	Weight2D weights(weightsCache<WeightType>, key_u, key_v);
 
-	SubdivisionSurface<Patch> surface(managedBuf, points, patch, weights);
+	int size = patch.count_u * patch.count_v;
+	ControlPoints cpoints;
+	cpoints.pos = (Vec3f *)managedBuf.Allocate(sizeof(Vec3f) * size);
+	cpoints.tex = (Vec2f *)managedBuf.Allocate(sizeof(Vec2f) * size);
+	cpoints.col = (Vec4f *)managedBuf.Allocate(sizeof(Vec4f) * size);
+	cpoints.Convert(points, size);
+
+	SubdivisionSurface<Patch> surface(cpoints, patch, weights);
 	surface.Tessellate(output, origVertType);
 }
 
