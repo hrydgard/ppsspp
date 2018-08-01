@@ -15,6 +15,7 @@
 #include "Core/HLE/__sceAudio.h"
 #include "Core/HW/MemoryStick.h"
 #include "Core/Host.h"
+#include "Core/MemMap.h"
 #include "Core/System.h"
 #include "Log.h"
 #include "LogManager.h"
@@ -714,12 +715,16 @@ bool retro_unserialize(const void *data, size_t size) {
 }
 
 void *retro_get_memory_data(unsigned id) {
-	(void)id;
+	if ( id == RETRO_MEMORY_SYSTEM_RAM ) {
+		return Memory::GetPointerUnchecked(PSP_GetKernelMemoryBase()) ;
+	}
 	return NULL;
 }
 
 size_t retro_get_memory_size(unsigned id) {
-	(void)id;
+	if ( id == RETRO_MEMORY_SYSTEM_RAM ) {
+		return Memory::g_MemorySize ;
+	}
 	return 0;
 }
 
