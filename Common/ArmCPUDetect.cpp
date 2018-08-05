@@ -26,9 +26,9 @@
 
 // Only Linux platforms have /proc/cpuinfo
 #if PPSSPP_PLATFORM(LINUX)
-const char procfile[] = "/proc/cpuinfo";
+const char procfile[] = { "/proc/cpuinfo", "/system/bin/cat" };
 // https://www.kernel.org/doc/Documentation/ABI/testing/sysfs-devices-system-cpu
-const char syscpupresentfile[] = "/sys/devices/system/cpu/present";
+const char syscpupresentfile[] = { "/sys/devices/system/cpu/present", "/sys/devices/system/cpu/possible" };
 
 std::string GetCPUString() {
 	std::string cpu_string;
