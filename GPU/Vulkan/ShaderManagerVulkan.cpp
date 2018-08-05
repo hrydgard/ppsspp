@@ -65,10 +65,6 @@ VulkanFragmentShader::VulkanFragmentShader(VulkanContext *vulkan, FShaderID id, 
 		OutputDebugStringA(LineNumberString(code).c_str());
 		OutputDebugStringA("Messages:\n");
 		OutputDebugStringA(errorMessage.c_str());
-<<<<<<< HEAD
-=======
-		OutputDebugStringA(LineNumberString(code).c_str());
->>>>>>> Experimental way to cull out-of-bounds triangles. Helps #5001, at least for Toca.
 #endif
 		Reporting::ReportMessage("Vulkan error in shader compilation: info: %s / code: %s", errorMessage.c_str(), code);
 	} else {
