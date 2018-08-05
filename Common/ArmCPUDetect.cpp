@@ -290,7 +290,7 @@ std::string CPUInfo::Summarize()
 	if (bNEON) sum += ", NEON";
 	if (bIDIVa) sum += ", IDIVa";
 	if (bIDIVt) sum += ", IDIVt";
-	if (CPU64bit) sum += ", 64-bit";
+	if (CPU64bit) sum += ", 64-bit support";
 
 	return sum;
 }
