@@ -28,7 +28,7 @@
 #if PPSSPP_PLATFORM(LINUX)
 const char procfile[] = { "/proc/cpuinfo", "/system/bin/cat" };
 // https://www.kernel.org/doc/Documentation/ABI/testing/sysfs-devices-system-cpu
-const char syscpupresentfile[] = { "/sys/devices/system/cpu/present", "/sys/devices/system/cpu/possible" };
+const char syscpupresentfile[] = "/sys/devices/system/cpu/present";
 
 std::string GetCPUString() {
 	std::string cpu_string;
