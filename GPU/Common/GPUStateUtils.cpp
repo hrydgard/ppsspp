@@ -676,7 +676,7 @@ void ConvertViewportAndScissor(bool useBufferedRendering, float renderWidth, flo
 		float minz = gstate.getDepthRangeMin();
 		float maxz = gstate.getDepthRangeMax();
 
-		if (gstate.isClippingEnabled() && (minz == 0 || maxz == 65535)) {
+		if (gstate.isDepthClampEnabled() && (minz == 0 || maxz == 65535)) {
 			// Here, we should "clamp."  But clamping per fragment would be slow.
 			// So, instead, we just increase the available range and hope.
 			// If depthSliceFactor is 4, it means (75% / 2) of the depth lies in each direction.
