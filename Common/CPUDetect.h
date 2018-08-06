@@ -59,6 +59,7 @@ struct CPUInfo {
 	bool bFMA4;
 	bool bXOP;
 	//Misc
+	bool bMMX;
 	bool bBMI1;
 	bool bBMI2;
 	bool bLZCNT;
