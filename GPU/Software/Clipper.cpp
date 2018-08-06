@@ -39,6 +39,7 @@ enum {
 static inline int CalcClipMask(const ClipCoords& v)
 {
 	int mask = 0;
+	// This checks `x / w` compared to 1 or -1, skipping the division.
 	if (v.x > v.w) mask |= CLIP_POS_X_BIT;
 	if (v.x < -v.w) mask |= CLIP_NEG_X_BIT;
 	if (v.y > v.w) mask |= CLIP_POS_Y_BIT;
@@ -255,7 +256,9 @@ void ProcessLine(VertexData& v0, VertexData& v1)
 		return;
 	}
 
-	if (mask && gstate.isClippingEnabled()) {
+	if (mask && gstate.isDepthClampEnabled()) {
+		// TODO: Validate if this logic is correct / should be in depthClampEnabled.
+
 		// discard if any vertex is outside the near clipping plane
 		if (mask & CLIP_NEG_Z_BIT)
 			return;
@@ -303,7 +306,9 @@ void ProcessTriangle(VertexData& v0, VertexData& v1, VertexData& v2)
 	mask |= CalcClipMask(v1.clippos);
 	mask |= CalcClipMask(v2.clippos);
 
-	if (mask && gstate.isClippingEnabled()) {
+	if (mask && gstate.isDepthClampEnabled()) {
+		// TODO: Validate if this logic is correct / should be in depthClampEnabled.
+
 		// discard if any vertex is outside the near clipping plane
 		if (mask & CLIP_NEG_Z_BIT)
 			return;

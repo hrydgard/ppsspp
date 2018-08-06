@@ -105,7 +105,7 @@ static inline ScreenCoords ClipToScreenInternal(const ClipCoords& coords, bool *
 	float z = coords.z * zScale / coords.w + zCenter;
 
 	// This matches hardware tests - depth is clamped when this flag is on.
-	if (gstate.isClippingEnabled()) {
+	if (gstate.isDepthClampEnabled()) {
 		if (z < 0.f)
 			z = 0.f;
 		if (z > 65535.f)
