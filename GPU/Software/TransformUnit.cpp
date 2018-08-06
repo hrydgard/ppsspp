@@ -106,14 +106,16 @@ static inline ScreenCoords ClipToScreenInternal(const ClipCoords& coords, bool *
 
 	// This matches hardware tests - depth is clamped when this flag is on.
 	if (gstate.isDepthClampEnabled()) {
+		// Note: if the depth is clamped, the outside_range_flag should NOT be set, even for x and y.
 		if (z < 0.f)
 			z = 0.f;
-		if (z > 65535.f)
+		else if (z > 65535.f)
 			z = 65535.f;
-	}
-
-	if (outside_range_flag && (x > 4095.9375f || y > 4095.9375f || x < 0 || y < 0 || z < 0 || z > 65535.f))
+		else if (outside_range_flag && (x > 4095.9375f || y > 4095.9375f || x < 0 || y < 0))
+			*outside_range_flag = true;
+	} else if (outside_range_flag && (x > 4095.9375f || y > 4095.9375f || x < 0 || y < 0 || z < 0 || z > 65535.f)) {
 		*outside_range_flag = true;
+	}
 
 	// 16 = 0xFFFF / 4095.9375
 	// Round up at 0.625 to the nearest subpixel.
