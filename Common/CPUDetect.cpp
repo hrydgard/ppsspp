@@ -161,18 +161,19 @@ void CPUInfo::Detect() {
 		logical_cpu_count = (cpu_id[1] >> 16) & 0xFF;
 		ht = (cpu_id[3] >> 28) & 1;
 
+		if ((cpu_id[3] >> 23) & 1) bMMX = true;
 		if ((cpu_id[3] >> 25) & 1) bSSE = true;
 		if ((cpu_id[3] >> 26) & 1) bSSE2 = true;
 		if ((cpu_id[2])       & 1) bSSE3 = true;
 		if ((cpu_id[2] >> 9)  & 1) bSSSE3 = true;
 		if ((cpu_id[2] >> 19) & 1) bSSE4_1 = true;
 		if ((cpu_id[2] >> 20) & 1) bSSE4_2 = true;
+		if ((cpu_id[2] >> 25) & 1) bAES = true;
 		if ((cpu_id[2] >> 28) & 1) {
 			bAVX = true;
 			if ((cpu_id[2] >> 12) & 1)
-				bFMA = true;
+				bFMA3 = true;
 		}
-		if ((cpu_id[2] >> 25) & 1) bAES = true;
 
 		if ((cpu_id[3] >> 24) & 1)
 		{
@@ -191,7 +192,7 @@ void CPUInfo::Detect() {
 			{
 				bAVX = true;
 				if ((cpu_id[2] >> 12) & 1)
-					bFMA = true;
+					bFMA3 = true;
 			}
 		}
 
@@ -205,6 +206,8 @@ void CPUInfo::Detect() {
 				bBMI1 = true;
 			if ((cpu_id[1] >> 8) & 1)
 				bBMI2 = true;
+			if ((cpu_id[1] >> 29) & 1)
+				bSHA = true;
 		}
 	}
 	if (max_ex_fn >= 0x80000004) {
@@ -222,6 +225,9 @@ void CPUInfo::Detect() {
 		if (cpu_id[2] & 1) bLAHFSAHF64 = true;
 		// CmpLegacy (bit 2) is deprecated.
 		if ((cpu_id[3] >> 29) & 1) bLongMode = true;
+		if ((cpu_id[2] >> 6) & 1) bSSE4A = true;
+		if ((cpu_id[2] >> 11) & 1) bXOP = true;
+		if ((cpu_id[2] >> 16) & 1) bFMA4 = true;
 	}
 
 	num_cores = (logical_cpu_count == 0) ? 1 : logical_cpu_count;
@@ -273,16 +279,22 @@ std::string CPUInfo::Summarize()
 		sum = StringFromFormat("%s, %d cores", cpu_string, num_cores);
 		if (HTT) sum += StringFromFormat(" (%i logical threads per physical core)", logical_cpu_count);
 	}
+	// Intel and AMD have some different , some extension Intel or AMD don't have it
 	if (bSSE) sum += ", SSE";
 	if (bSSE2) sum += ", SSE2";
 	if (bSSE3) sum += ", SSE3";
 	if (bSSSE3) sum += ", SSSE3";
 	if (bSSE4_1) sum += ", SSE4.1";
 	if (bSSE4_2) sum += ", SSE4.2";
+	if (bSSE4A) sum += ", SSE4A";
 	if (HTT) sum += ", HTT";
 	if (bAVX) sum += ", AVX";
-	if (bFMA) sum += ", FMA";
+	if (bAVX2) sum += ", AVX2";
+	if (bXOP) sum += ", XOP";
+	if (bFMA3) sum += ", FMA3";
+	if (bFMA4) sum += ", FMA4";
 	if (bAES) sum += ", AES";
+	if (bSHA) sum += ", SHA";
 	if (bLongMode) sum += ", 64-bit support";
 	return sum;
 }
