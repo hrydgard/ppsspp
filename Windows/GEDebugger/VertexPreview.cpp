@@ -494,7 +494,7 @@ void CGEDebugger::UpdatePrimPreview(u32 op, int which) {
 		}
 
 		if (texPreviewVao == 0) {
-			glDisableVertexAttribArray(previewProgram->a_position);
+			glDisableVertexAttribArray(texPreviewProgram->a_position);
 		}
 
 		secondWindow->End();
