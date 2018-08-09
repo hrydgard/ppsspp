@@ -105,8 +105,8 @@ static inline ScreenCoords ClipToScreenInternal(const ClipCoords& coords, bool *
 	float z = coords.z * zScale / coords.w + zCenter;
 
 	// Account for rounding for X and Y.
-	const float SCREEN_BOUND = 4095.0f + (15.0f / 16.0f) + 0.375f;
 	// TODO: Validate actual rounding range.
+	const float SCREEN_BOUND = 4095.0f + (15.5f / 16.0f);
 	const float DEPTH_BOUND = 65535.5f;
 
 	// This matches hardware tests - depth is clamped when this flag is on.
@@ -118,7 +118,7 @@ static inline ScreenCoords ClipToScreenInternal(const ClipCoords& coords, bool *
 			z = 65535.0f;
 		else if (outside_range_flag && (x >= SCREEN_BOUND || y >= SCREEN_BOUND || x < 0 || y < 0))
 			*outside_range_flag = true;
-	} else if (outside_range_flag && (x > 4095.9675f || y >= SCREEN_BOUND || x < 0 || y < 0 || z < 0 || z >= DEPTH_BOUND)) {
+	} else if (outside_range_flag && (x > SCREEN_BOUND || y >= SCREEN_BOUND || x < 0 || y < 0 || z < 0 || z >= DEPTH_BOUND)) {
 		*outside_range_flag = true;
 	}
 
