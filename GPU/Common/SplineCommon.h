@@ -198,20 +198,17 @@ struct Weight2D {
 	}
 };
 
+class SimpleBufferManager;
+
 struct ControlPoints {
 	Vec3f *pos;
 	Vec2f *tex;
 	Vec4f *col;
 	u32_le defcolor;
 
-	void Convert(const SimpleVertex *const *points, int size) {
-		for (int i = 0; i < size; ++i) {
-			pos[i] = Vec3f(points[i]->pos);
-			tex[i] = Vec2f(points[i]->uv);
-			col[i] = Vec4f::FromRGBA(points[i]->color_32);
-		}
-		defcolor = points[0]->color_32;
-	}
+	ControlPoints() {}
+	ControlPoints(const SimpleVertex *const *points, int size, SimpleBufferManager &managedBuf);
+	void Convert(const SimpleVertex *const *points, int size);
 };
 
 struct OutputBuffers {
@@ -221,8 +218,9 @@ struct OutputBuffers {
 };
 
 bool CanUseHardwareTessellation(GEPatchPrimType prim);
-void TessellateSplinePatch(u8 *&dest, u16 *indices, int &count, SplinePatchLocal &spatch, u32 origVertType, int maxVertices);
-void TessellateBezierPatch(u8 *&dest, u16 *&indices, int &count, int tess_u, int tess_v, const BezierPatch &patch, u32 origVertType, int maxVertices);
+
+template<class Patch>
+void SoftwareTessellation(OutputBuffers &output, const Patch &patch, u32 origVertType, const ControlPoints &points);
 
 // Define function object for TemplateParameterDispatcher
 #define TEMPLATE_PARAMETER_DISPATCHER_FUNCTION(NAME, FUNCNAME) \

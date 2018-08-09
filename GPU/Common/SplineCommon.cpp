@@ -21,7 +21,6 @@
 #include "profiler/profiler.h"
 
 #include "Common/CPUDetect.h"
-#include "Common/MemoryUtil.h"
 
 #include "GPU/Common/GPUStateUtils.h"
 #include "GPU/Common/SplineCommon.h"
@@ -315,6 +314,22 @@ public:
 	}
 };
 
+ControlPoints::ControlPoints(const SimpleVertex *const *points, int size, SimpleBufferManager &managedBuf) {
+	pos = (Vec3f *)managedBuf.Allocate(sizeof(Vec3f) * size);
+	tex = (Vec2f *)managedBuf.Allocate(sizeof(Vec2f) * size);
+	col = (Vec4f *)managedBuf.Allocate(sizeof(Vec4f) * size);
+	Convert(points, size);
+}
+
+void ControlPoints::Convert(const SimpleVertex *const *points, int size) {
+	for (int i = 0; i < size; ++i) {
+		pos[i] = Vec3f(points[i]->pos);
+		tex[i] = Vec2f(points[i]->uv);
+		col[i] = Vec4f::FromRGBA(points[i]->color_32);
+	}
+	defcolor = points[0]->color_32;
+}
+
 template<class Patch>
 class SubdivisionSurface {
 private:
@@ -415,21 +430,13 @@ public:
 };
 
 template<class Patch>
-static void SoftwareTessellation(OutputBuffers &output, const Patch &patch, u32 origVertType,
-	const SimpleVertex *const *points, SimpleBufferManager &managedBuf) {
+void SoftwareTessellation(OutputBuffers &output, const Patch &patch, u32 origVertType, const ControlPoints &points) {
 	using WeightType = Patch::WeightType;
 	u32 key_u = WeightType::ToKey(patch.tess_u, patch.count_u, patch.type_u);
 	u32 key_v = WeightType::ToKey(patch.tess_v, patch.count_v, patch.type_v);
 	Weight2D weights(weightsCache<WeightType>, key_u, key_v);
 
-	int size = patch.count_u * patch.count_v;
-	ControlPoints cpoints;
-	cpoints.pos = (Vec3f *)managedBuf.Allocate(sizeof(Vec3f) * size);
-	cpoints.tex = (Vec2f *)managedBuf.Allocate(sizeof(Vec2f) * size);
-	cpoints.col = (Vec4f *)managedBuf.Allocate(sizeof(Vec4f) * size);
-	cpoints.Convert(points, size);
-
-	SubdivisionSurface<Patch> surface(cpoints, patch, weights);
+	SubdivisionSurface<Patch> surface(points, patch, weights);
 	surface.Tessellate(output, origVertType);
 }
 
@@ -523,8 +530,9 @@ void DrawEngineCommon::SubmitSpline(const void *control_points, const void *indi
 		HardwareTessellation(output, patch, origVertType, points, tessDataTransfer);
 		numPatches = patch.num_patches_u * patch.num_patches_v;
 	} else {
+		ControlPoints cpoints(points, count_u * count_v, managedBuf);
 		patch.Init(SPLINE_BUFFER_SIZE / vertexSize);
-		SoftwareTessellation(output, patch, origVertType, points, managedBuf);
+		SoftwareTessellation(output, patch, origVertType, cpoints);
 	}
 
 	u32 vertTypeWithIndex16 = (vertType & ~GE_VTYPE_IDX_MASK) | GE_VTYPE_IDX_16BIT;
@@ -614,8 +622,9 @@ void DrawEngineCommon::SubmitBezier(const void *control_points, const void *indi
 		HardwareTessellation(output, patch, origVertType, points, tessDataTransfer);
 		numPatches = patch.num_patches_u * patch.num_patches_v;
 	} else {
+		ControlPoints cpoints(points, count_u * count_v, managedBuf);
 		patch.Init(SPLINE_BUFFER_SIZE / vertexSize);
-		SoftwareTessellation(output, patch, origVertType, points, managedBuf);
+		SoftwareTessellation(output, patch, origVertType, cpoints);
 	}
 
 	u32 vertTypeWithIndex16 = (vertType & ~GE_VTYPE_IDX_MASK) | GE_VTYPE_IDX_16BIT;

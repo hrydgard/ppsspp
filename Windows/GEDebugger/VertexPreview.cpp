@@ -26,6 +26,7 @@
 #include "GPU/Common/GPUDebugInterface.h"
 #include "GPU/Common/SplineCommon.h"
 #include "GPU/GPUState.h"
+#include "Common/MemoryUtil.h"
 
 static const char preview_fs[] =
 	"#ifdef GL_ES\n"
@@ -164,106 +165,112 @@ u32 CGEDebugger::PrimPreviewOp() {
 }
 
 static void ExpandBezier(int &count, int op, const std::vector<SimpleVertex> &simpleVerts, const std::vector<u16> &indices, std::vector<SimpleVertex> &generatedVerts, std::vector<u16> &generatedInds) {
-	int count_u = (op & 0x00FF) >> 0;
-	int count_v = (op & 0xFF00) >> 8;
+	int count_u = (op >> 0) & 0xFF;
+	int count_v = (op >> 8) & 0xFF;
+	// Real hardware seems to draw nothing when given < 4 either U or V.
+	if (count_u < 4 || count_v < 4)
+		return;
 
 	int tess_u = gstate.getPatchDivisionU();
 	int tess_v = gstate.getPatchDivisionV();
-	if (tess_u < 1) {
-		tess_u = 1;
-	}
-	if (tess_v < 1) {
-		tess_v = 1;
-	}
-
-	// Bezier patches share less control points than spline patches. Otherwise they are pretty much the same (except bezier don't support the open/close thing)
-	int num_patches_u = (count_u - 1) / 3;
-	int num_patches_v = (count_v - 1) / 3;
-	int total_patches = num_patches_u * num_patches_v;
-
-	std::vector<const SimpleVertex *> points(count_u * count_v);
-	for (int idx = 0; idx < count_u * count_v; idx++)
-		points[idx] = &simpleVerts[0] + (!indices.empty() ? indices[idx] : idx);
+	// If specified as 0, uses 1.
+	if (tess_u < 1) tess_u = 1;
+	if (tess_v < 1) tess_v = 1;
 
 	BezierPatch patch;
 	patch.count_u = count_u;
 	patch.count_v = count_v;
+	patch.tess_u = tess_u;
+	patch.tess_v = tess_v;
+	patch.num_patches_u = (count_u - 1) / 3;
+	patch.num_patches_v = (count_v - 1) / 3;
 	patch.primType = gstate.getPatchPrimitiveType();
 	patch.patchFacing = false;
-	patch.defcolor = 0xFFFFFFFF;
 
-	std::vector<Vec3f> pos(patch.count_u * patch.count_v);
-	std::vector<Vec2f> tex(patch.count_u * patch.count_v);
-	std::vector<Vec4f> col(patch.count_u * patch.count_v);
-	patch.pos = pos.data();
-	patch.tex = tex.data();
-	patch.col = col.data();
-	for (int idx = 0; idx < count_u * count_v; idx++) {
-		patch.pos[idx] = Vec3f(points[idx]->pos);
-		patch.tex[idx] = Vec2f(points[idx]->uv);
-		patch.col[idx] = Vec4f::FromRGBA(points[idx]->color_32);
-	}
+	// Make an array of pointers to the control points, to get rid of indices.
+	std::vector<const SimpleVertex *> points(count_u * count_v);
+	for (int idx = 0; idx < count_u * count_v; idx++)
+		points[idx] = simpleVerts.data() + (!indices.empty() ? indices[idx] : idx);
 
+	int total_patches = patch.num_patches_u * patch.num_patches_v;
 	generatedVerts.resize((tess_u + 1) * (tess_v + 1) * total_patches);
 	generatedInds.resize(tess_u * tess_v * 6 * total_patches);
 
-	count = 0;
-	u8 *dest = (u8 *)&generatedVerts[0];
-	u16 *inds = &generatedInds[0];
-	TessellateBezierPatch(dest, inds, count, tess_u, tess_v, patch, gstate.vertType, generatedVerts.size());
+	OutputBuffers output;
+	output.vertices = generatedVerts.data();
+	output.indices = generatedInds.data();
+	output.count = 0;
+
+	int size = count_u * count_v;
+	ControlPoints cpoints;
+	cpoints.pos = (Vec3f *)AllocateAlignedMemory(sizeof(Vec3f) * size, 16);
+	cpoints.tex = (Vec2f *)AllocateAlignedMemory(sizeof(Vec2f) * size, 16);
+	cpoints.col = (Vec4f *)AllocateAlignedMemory(sizeof(Vec4f) * size, 16);
+	cpoints.Convert(points.data(), size);
+
+	patch.Init(generatedVerts.size());
+	SoftwareTessellation(output, patch, gstate.vertType, cpoints);
+	count = output.count;
+
+	FreeAlignedMemory(cpoints.pos);
+	FreeAlignedMemory(cpoints.tex);
+	FreeAlignedMemory(cpoints.col);
 }
 
 static void ExpandSpline(int &count, int op, const std::vector<SimpleVertex> &simpleVerts, const std::vector<u16> &indices, std::vector<SimpleVertex> &generatedVerts, std::vector<u16> &generatedInds) {
+	int count_u = (op >> 0) & 0xFF;
+	int count_v = (op >> 8) & 0xFF;
+	// Real hardware seems to draw nothing when given < 4 either U or V.
+	if (count_u < 4 || count_v < 4)
+		return;
+
+	int tess_u = gstate.getPatchDivisionU();
+	int tess_v = gstate.getPatchDivisionV();
+	// If specified as 0, uses 1.
+	if (tess_u < 1) tess_u = 1;
+	if (tess_v < 1) tess_v = 1;
+
 	SplinePatchLocal patch;
+	patch.count_u = count_u;
+	patch.count_v = count_v;
+	patch.tess_u = tess_u;
+	patch.tess_v = tess_v;
+	patch.type_u = (op >> 16) & 0x3;
+	patch.type_v = (op >> 18) & 0x3;
+	patch.num_patches_u = count_u - 3;
+	patch.num_patches_v = count_v - 3;
 	patch.primType = gstate.getPatchPrimitiveType();
 	patch.patchFacing = false;
 
-	patch.count_u = (op & 0x00FF) >> 0;
-	patch.count_v = (op & 0xFF00) >> 8;
-	patch.type_u = (op >> 16) & 0x3;
-	patch.type_v = (op >> 18) & 0x3;
-
-	patch.tess_u = gstate.getPatchDivisionU();
-	patch.tess_v = gstate.getPatchDivisionV();
-	if (patch.tess_u < 1) {
-		patch.tess_u = 1;
-	}
-	if (patch.tess_v < 1) {
-		patch.tess_v = 1;
-	}
-
-	// Real hardware seems to draw nothing when given < 4 either U or V.
-	if (patch.count_u < 4 || patch.count_v < 4) {
-		return;
-	}
-
-	std::vector<const SimpleVertex *> points(patch.count_u * patch.count_v);
-
 	// Make an array of pointers to the control points, to get rid of indices.
-	for (int idx = 0; idx < patch.count_u * patch.count_v; idx++) {
-		points[idx] = &simpleVerts[0] + (!indices.empty() ? indices[idx] : idx);
-	}
-	std::vector<Vec3f> pos(patch.count_u * patch.count_v);
-	std::vector<Vec2f> tex(patch.count_u * patch.count_v);
-	std::vector<Vec4f> col(patch.count_u * patch.count_v);
-	patch.pos = pos.data();
-	patch.tex = tex.data();
-	patch.col = col.data();
-	for (int idx = 0; idx < patch.count_u * patch.count_v; idx++) {
-		patch.pos[idx] = Vec3f(points[idx]->pos);
-		patch.tex[idx] = Vec2f(points[idx]->uv);
-		patch.col[idx] = Vec4f::FromRGBA(points[idx]->color_32);
-	}
+	std::vector<const SimpleVertex *> points(count_u * count_v);
+	for (int idx = 0; idx < count_u * count_v; idx++)
+		points[idx] = simpleVerts.data() + (!indices.empty() ? indices[idx] : idx);
 
-	int patch_div_s = (patch.count_u - 3) * patch.tess_u;
-	int patch_div_t = (patch.count_v - 3) * patch.tess_v;
-
+	int patch_div_s = patch.num_patches_u * patch.tess_u;
+	int patch_div_t = patch.num_patches_v * patch.tess_v;
 	generatedVerts.resize((patch_div_s + 1) * (patch_div_t + 1));
 	generatedInds.resize(patch_div_s * patch_div_t * 6);
 
-	count = 0;
-	u8 *dest = (u8 *)&generatedVerts[0];
-	TessellateSplinePatch(dest, &generatedInds[0], count, patch, gstate.vertType, generatedVerts.size());
+	OutputBuffers output;
+	output.vertices = generatedVerts.data();
+	output.indices = generatedInds.data();
+	output.count = 0;
+
+	int size = count_u * count_v;
+	ControlPoints cpoints;
+	cpoints.pos = (Vec3f *)AllocateAlignedMemory(sizeof(Vec3f) * size, 16);
+	cpoints.tex = (Vec2f *)AllocateAlignedMemory(sizeof(Vec2f) * size, 16);
+	cpoints.col = (Vec4f *)AllocateAlignedMemory(sizeof(Vec4f) * size, 16);
+	cpoints.Convert(points.data(), size);
+
+	patch.Init(generatedVerts.size());
+	SoftwareTessellation(output, patch, gstate.vertType, cpoints);
+	count = output.count;
+
+	FreeAlignedMemory(cpoints.pos);
+	FreeAlignedMemory(cpoints.tex);
+	FreeAlignedMemory(cpoints.col);
 }
 
 void CGEDebugger::UpdatePrimPreview(u32 op, int which) {
