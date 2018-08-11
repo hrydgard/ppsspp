@@ -362,6 +362,10 @@ int SavedataParam::Save(SceUtilitySavedataParam* param, const std::string &saveD
 	if (!param) {
 		return SCE_UTILITY_SAVEDATA_ERROR_SAVE_MS_NOSPACE;
 	}
+	if (param->dataSize > param->dataBufSize) {
+		ERROR_LOG_REPORT(SCEUTILITY, "Savedata buffer overflow: %d / %d", param->dataSize, param->dataBufSize);
+		return SCE_UTILITY_SAVEDATA_ERROR_RW_BAD_PARAMS;
+	}
 	if (param->secureVersion > 3) {
 		ERROR_LOG_REPORT(SCEUTILITY, "Savedata version requested on save: %d", param->secureVersion);
 		return SCE_UTILITY_SAVEDATA_ERROR_SAVE_PARAM;
