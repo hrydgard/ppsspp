@@ -506,7 +506,7 @@ void SoftGPU::ExecuteOp(u32 op, u32 diff) {
 	case GE_CMD_REGION2:
 		break;
 
-	case GE_CMD_CLIPENABLE:
+	case GE_CMD_DEPTHCLAMPENABLE:
 		break;
 
 	case GE_CMD_CULLFACEENABLE:
