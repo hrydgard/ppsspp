@@ -366,6 +366,17 @@ int SavedataParam::Save(SceUtilitySavedataParam* param, const std::string &saveD
 		ERROR_LOG_REPORT(SCEUTILITY, "Savedata buffer overflow: %d / %d", param->dataSize, param->dataBufSize);
 		return SCE_UTILITY_SAVEDATA_ERROR_RW_BAD_PARAMS;
 	}
+	auto validateSize = [](const PspUtilitySavedataFileData &data) {
+		if (data.buf.IsValid() && data.bufSize < data.size) {
+			ERROR_LOG_REPORT(SCEUTILITY, "Savedata subdata buffer overflow: %d / %d", data.size, data.bufSize);
+			return false;
+		}
+		return true;
+	};
+	if (!validateSize(param->icon0FileData) || !validateSize(param->icon1FileData) || !validateSize(param->pic1FileData) || !validateSize(param->snd0FileData)) {
+		return SCE_UTILITY_SAVEDATA_ERROR_RW_BAD_PARAMS;
+	}
+
 	if (param->secureVersion > 3) {
 		ERROR_LOG_REPORT(SCEUTILITY, "Savedata version requested on save: %d", param->secureVersion);
 		return SCE_UTILITY_SAVEDATA_ERROR_SAVE_PARAM;
