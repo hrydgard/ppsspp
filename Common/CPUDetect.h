@@ -16,6 +16,8 @@
 // http://code.google.com/p/dolphin-emu/
 
 // Detect the cpu, so we'll know which optimizations to use
+
+// Reference : https://stackoverflow.com/questions/6121792/how-to-check-if-a-cpu-supports-the-sse3-instruction-set
 #pragma once
 
 #include "ppsspp_config.h"
@@ -41,19 +43,36 @@ struct CPUInfo {
 	int num_cores;
 	int logical_cpu_count;
 
+	//x86 : SIMD 128 bit
 	bool bSSE;
 	bool bSSE2;
 	bool bSSE3;
 	bool bSSSE3;
-	bool bPOPCNT;
 	bool bSSE4_1;
-	bool bSSE4_2;
-	bool bLZCNT;
+	bool bSSE4_2;	
 	bool bSSE4A;
+	bool bAES;
+	bool bSHA;
+	//x86 : SIMD 256 bit
 	bool bAVX;
 	bool bAVX2;
-	bool bFMA;
-	bool bAES;
+	bool bFMA3;
+	bool bFMA4;
+	bool bXOP;
+	//x86 : SIMD 512 bit 
+	bool bAVX512;
+	bool bAVX512F;  //  AVX512 Foundation
+	bool bAVX512CD; //  AVX512 Conflict Detection
+	bool bAVX512PF; //  AVX512 Prefetch
+	bool bAVX512ER; //  AVX512 Exponential + Reciprocal
+	bool bAVX512VL; //  AVX512 Vector Length Extensions
+	bool bAVX512BW; //  AVX512 Byte + Word
+	bool bAVX512DQ; //  AVX512 Doubleword + Quadword
+	bool bAVX512IFMA; //  AVX512 Integer 52-bit Fused Multiply-Add
+	bool bAVX512VBMI; //  AVX512 Vector Byte Manipulation Instructions
+	//Misc
+	bool bLZCNT;
+	bool bPOPCNT;
 	bool bLAHFSAHF64;
 	bool bLongMode;
 	bool bAtom;
