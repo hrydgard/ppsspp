@@ -58,6 +58,9 @@ struct FileDetails {
 FILE *OpenCFile(const std::string &filename, const char *mode);
 bool OpenCPPFile(std::fstream & stream, const std::string &filename, std::ios::openmode mode);
 
+// Resolves symlinks and similar.
+std::string ResolvePath(const std::string &path);
+
 // Returns true if file filename exists
 bool Exists(const std::string &filename);
 

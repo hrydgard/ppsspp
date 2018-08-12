@@ -100,6 +100,28 @@ bool OpenCPPFile(std::fstream & stream, const std::string &filename, std::ios::o
 	return stream.is_open();
 }
 
+std::string ResolvePath(const std::string &path) {
+#ifdef _WIN32
+	HANDLE hFile = CreateFile(ConvertUTF8ToWString(path).c_str(), GENERIC_READ, FILE_SHARE_READ, nullptr, OPEN_EXISTING, FILE_FLAG_BACKUP_SEMANTICS, nullptr);
+	if (hFile == INVALID_HANDLE_VALUE)
+		return path;
+
+	wchar_t buf[1024] = {0};
+	int result = GetFinalPathNameByHandle(hFile, buf, (int)ARRAY_SIZE(buf) - 1, FILE_NAME_NORMALIZED | VOLUME_NAME_DOS);
+	if (result >= ARRAY_SIZE(buf))
+		return path;
+
+	// Undo the \\?\C:\ syntax that's normally returned.
+	if (buf[0] == '\\' && buf[1] == '\\' && buf[2] == '?' && buf[3] == '\\' && isalpha(buf[4]) && buf[5] == ':')
+		return ConvertWStringToUTF8(buf).substr(4);
+	return ConvertWStringToUTF8(buf);
+#else
+	char buf[PATH_MAX + 1];
+	if (realpath(path.c_str(), buf) == nullptr)
+		return path;
+	return buf;
+#endif
+}
 
 // Remove any ending forward slashes from directory paths
 // Modifies argument.
