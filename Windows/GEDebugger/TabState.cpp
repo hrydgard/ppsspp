@@ -100,7 +100,7 @@ static const TabStateRow stateFlagsRows[] = {
 	{ L"Light 1 enable",       GE_CMD_LIGHTENABLE1,            CMD_FMT_FLAG },
 	{ L"Light 2 enable",       GE_CMD_LIGHTENABLE2,            CMD_FMT_FLAG },
 	{ L"Light 3 enable",       GE_CMD_LIGHTENABLE3,            CMD_FMT_FLAG },
-	{ L"Clip enable",          GE_CMD_CLIPENABLE,              CMD_FMT_FLAG },
+	{ L"Depth clamp enable",   GE_CMD_DEPTHCLAMPENABLE,        CMD_FMT_FLAG },
 	{ L"Cullface enable",      GE_CMD_CULLFACEENABLE,          CMD_FMT_FLAG },
 	{ L"Texture map enable",   GE_CMD_TEXTUREMAPENABLE,        CMD_FMT_FLAG },
 	{ L"Fog enable",           GE_CMD_FOGENABLE,               CMD_FMT_FLAG },

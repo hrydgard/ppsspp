@@ -137,8 +137,8 @@ void NullGPU::ExecuteOp(u32 op, u32 diff) {
 		}
 		break;
 
-	case GE_CMD_CLIPENABLE:
-		DEBUG_LOG(G3D, "DL Clip Enable: %i   (ignoring)", data);
+	case GE_CMD_DEPTHCLAMPENABLE:
+		DEBUG_LOG(G3D, "DL Depth Clamp Enable: %i   (ignoring)", data);
 		//we always clip, this is opengl
 		break;
 
