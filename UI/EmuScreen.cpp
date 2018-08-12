@@ -77,6 +77,7 @@
 #include "UI/GameSettingsScreen.h"
 #include "UI/InstallZipScreen.h"
 #include "UI/ProfilerDraw.h"
+#include "UI/DiscordIntegration.h"
 
 #if defined(_WIN32) && !PPSSPP_PLATFORM(UWP)
 #include "Windows/MainWindow.h"
@@ -192,6 +193,10 @@ void EmuScreen::bootGame(const std::string &filename) {
 		g_Config.loadGameConfig(info->id);
 		// Reset views in case controls are in a different place.
 		RecreateViews();
+
+		g_Discord.SetPresenceGame(info->GetTitle().c_str());
+	} else {
+		g_Discord.SetPresenceGame("(unknown)");
 	}
 
 	invalid_ = true;
@@ -333,6 +338,7 @@ EmuScreen::~EmuScreen() {
 		startDumping = false;
 	}
 #endif
+	g_Discord.SetPresenceMenu();
 }
 
 void EmuScreen::dialogFinished(const Screen *dialog, DialogResult result) {

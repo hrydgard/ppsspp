@@ -24,6 +24,7 @@
     <ClCompile Include="ControlMappingScreen.cpp" />
     <ClCompile Include="CwCheatScreen.cpp" />
     <ClCompile Include="DevScreens.cpp" />
+    <ClCompile Include="DiscordIntegration.cpp" />
     <ClCompile Include="DisplayLayoutEditor.cpp" />
     <ClCompile Include="DisplayLayoutScreen.cpp" />
     <ClCompile Include="EmuScreen.cpp" />
@@ -54,6 +55,7 @@
     <ClInclude Include="ComboKeyMappingScreen.h" />
     <ClInclude Include="ControlMappingScreen.h" />
     <ClInclude Include="DevScreens.h" />
+    <ClInclude Include="DiscordIntegration.h" />
     <ClInclude Include="DisplayLayoutEditor.h" />
     <ClInclude Include="DisplayLayoutScreen.h" />
     <ClInclude Include="EmuScreen.h" />
@@ -80,11 +82,17 @@
     <ClInclude Include="InstallZipScreen.h" />
     <ClInclude Include="ui_atlas.h" />
   </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\ext\discord-rpc-build\discord-rpc.vcxproj">
+      <Project>{beb0a821-3c7f-410f-a525-63afbc69bf8f}</Project>
+    </ProjectReference>
+  </ItemGroup>
   <PropertyGroup Label="Globals">
     <ProjectGuid>{004B8D11-2BE3-4BD9-AB40-2BE04CF2096F}</ProjectGuid>
     <Keyword>Win32Proj</Keyword>
     <RootNamespace>UI</RootNamespace>
-    <WindowsTargetPlatformVersion></WindowsTargetPlatformVersion>
+    <WindowsTargetPlatformVersion>
+    </WindowsTargetPlatformVersion>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" Label="Configuration">
