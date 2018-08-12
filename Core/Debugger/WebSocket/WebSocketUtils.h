@@ -24,6 +24,8 @@
 #include "net/websocket_server.h"
 #include "Common/Log.h"
 
+using namespace json;
+
 static inline void DebuggerJsonAddTicket(JsonWriter &writer, const JsonGet &data) {
 	const JsonNode *value = data.get("ticket");
 	if (value)

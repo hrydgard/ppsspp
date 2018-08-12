@@ -1162,8 +1162,8 @@ void Config::DownloadCompletedCallback(http::Download &download) {
 		return;
 	}
 
-	JsonReader reader(data.c_str(), data.size());
-	const JsonGet root = reader.root();
+	json::JsonReader reader(data.c_str(), data.size());
+	const json::JsonGet root = reader.root();
 	if (!root) {
 		ERROR_LOG(LOADER, "Failed to parse json");
 		return;
