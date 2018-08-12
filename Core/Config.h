@@ -428,6 +428,7 @@ public:
 
 	// Utility functions for "recent" management
 	void AddRecent(const std::string &file);
+	void RemoveRecent(const std::string &file);
 	void CleanRecent();
 
 	static void DownloadCompletedCallback(http::Download &download);

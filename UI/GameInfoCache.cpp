@@ -66,10 +66,7 @@ bool GameInfo::Delete() {
 			// Just delete the one file (TODO: handle two-disk games as well somehow).
 			const char *fileToRemove = filePath_.c_str();
 			File::Delete(fileToRemove);
-			auto i = std::find(g_Config.recentIsos.begin(), g_Config.recentIsos.end(), fileToRemove);
-			if (i != g_Config.recentIsos.end()) {
-				g_Config.recentIsos.erase(i);
-			}
+			g_Config.RemoveRecent(filePath_);
 			return true;
 		}
 	case IdentifiedFileType::PSP_PBP_DIRECTORY:
