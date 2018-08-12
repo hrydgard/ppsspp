@@ -17,7 +17,6 @@
 
 // Detect the cpu, so we'll know which optimizations to use
 
-// Reference : https://stackoverflow.com/questions/6121792/how-to-check-if-a-cpu-supports-the-sse3-instruction-set
 #pragma once
 
 #include "ppsspp_config.h"
@@ -80,6 +79,9 @@ struct CPUInfo {
 	bool bBMI2;
 	bool bMOVBE;
 	bool bFXSR;
+	bool bRTM;
+	bool bHLE;
+	bool bTSX;
 
 	// ARM specific CPUInfo
 	bool bSwp;

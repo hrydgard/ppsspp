@@ -15,6 +15,9 @@
 // Official SVN repository and contact information can be found at
 // http://code.google.com/p/dolphin-emu/
 
+// Reference : https://stackoverflow.com/questions/6121792/how-to-check-if-a-cpu-supports-the-sse3-instruction-set
+// TSX Reference : https://software.intel.com/en-us/articles/how-to-detect-new-instruction-support-in-the-4th-generation-intel-core-processor-family
+
 #if defined(_M_IX86) || defined(_M_X64)
 
 #ifdef __ANDROID__
@@ -217,6 +220,14 @@ void CPUInfo::Detect() {
 			bAVX512VBMI = true;
 		}
 
+		// TSX support requires one of these checks:
+		//  - Is the RTM bit set in CPUID? (>>11)
+		//  - Is the HLE bit set in CPUID? (>>4) -> not useful , because legacy processors ignore HLE hints
+		if (((cpu_id[1] >> 11) & 1) || ((cpu_id[1] >> 4) & 1)) 
+		{
+			bTSX = true;
+		}
+
 		if (max_std_fn >= 7)
 		{
 			do_cpuid(cpu_id, 0x00000007);
@@ -230,7 +241,7 @@ void CPUInfo::Detect() {
 			if ((cpu_id[1] >> 29) & 1)
 				bSHA = true;
 			// AVX512: we can't enable AVX512 if all instruction set not supported 
-			(bAVX512F && bAVX512CD && bAVX512PF && bAVX512ER && bAVX512VL && bAVX512BW && bAVX512DQ && bAVX512IFMA && bAVX512VBMI) == bAVX512;
+			(bAVX512F || bAVX512CD || bAVX512PF || bAVX512ER || bAVX512VL || bAVX512BW || bAVX512DQ || bAVX512IFMA || bAVX512VBMI) == bAVX512;
 		}
 	}
 	if (max_ex_fn >= 0x80000004) {
@@ -318,6 +329,7 @@ std::string CPUInfo::Summarize()
 	if (bAES) sum += ", AES";
 	if (bSHA) sum += ", SHA";
 	if (bXOP) sum += ", XOP";
+	if (bTSX) sum += ", TSX";
 	if (bLongMode) sum += ", 64-bit support";
 	return sum;
 }
