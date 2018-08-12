@@ -80,9 +80,6 @@ struct CPUInfo {
 	bool bMOVBE;
 	bool bFXSR;
 	bool bRTM;
-	bool bHLE;
-	bool bTSX;
-
 	// ARM specific CPUInfo
 	bool bSwp;
 	bool bHalf;
