@@ -6,20 +6,22 @@
 #include "Core/Config.h"
 #include "DiscordIntegration.h"
 
-#include "ext/discord-rpc/include/discord_rpc.h"
-
-// TODO: Enable on more platforms. Make optional.
 
 #ifdef _WIN32
 
-const bool g_DiscordEnabled = true;
+#define ENABLE_DISCORD
 
 #else
 
-const bool g_DiscordEnabled = true;
-
 #endif
 
+
+
+#ifdef ENABLE_DISCORD
+#include "ext/discord-rpc/include/discord_rpc.h"
+#endif
+
+// TODO: Enable on more platforms. Make optional.
 
 Discord g_Discord;
 
@@ -35,23 +37,27 @@ Discord::~Discord() {
 }
 
 bool Discord::IsEnabled() const {
-	return g_DiscordEnabled && g_Config.bDiscordPresence;
+	return g_Config.bDiscordPresence;
 }
 
 void Discord::Init() {
 	assert(IsEnabled());
 	assert(!initialized_);
 
+#ifdef ENABLE_DISCORD
 	DiscordEventHandlers eventHandlers{};
 	eventHandlers.errored = &handleDiscordError;
 	Discord_Initialize(ppsspp_app_id, &eventHandlers, 0, nullptr);
+#endif
 
 	initialized_ = true;
 }
 
 void Discord::Shutdown() {
 	assert(initialized_);
+#ifdef ENABLE_DISCORD
 	Discord_Shutdown();
+#endif
 	initialized_ = false;
 }
 
@@ -67,10 +73,12 @@ void Discord::Update() {
 		}
 	}
 
+#ifdef ENABLE_DISCORD
 #ifdef DISCORD_DISABLE_IO_THREAD
 	Discord_UpdateConnection();
 #endif
 	Discord_RunCallbacks();
+#endif
 }
 
 void Discord::SetPresenceGame(const char *gameTitle) {
@@ -81,6 +89,7 @@ void Discord::SetPresenceGame(const char *gameTitle) {
 		Init();
 	}
 
+#ifdef ENABLE_DISCORD
 	DiscordRichPresence discordPresence{};
 	discordPresence.state = gameTitle;
 	discordPresence.details = "Playing";
@@ -91,6 +100,7 @@ void Discord::SetPresenceGame(const char *gameTitle) {
 	discordPresence.largeImageKey = "icon_regular_png";
 #endif
 	Discord_UpdatePresence(&discordPresence);
+#endif
 }
 
 void Discord::SetPresenceMenu() {
@@ -101,6 +111,7 @@ void Discord::SetPresenceMenu() {
 		Init();
 	}
 
+#ifdef ENABLE_DISCORD
 	DiscordRichPresence discordPresence{};
 	discordPresence.state = "In menu";
 	discordPresence.details = "";
@@ -111,4 +122,5 @@ void Discord::SetPresenceMenu() {
 	discordPresence.largeImageKey = "icon_regular_png";
 #endif
 	Discord_UpdatePresence(&discordPresence);
+#endif
 }
