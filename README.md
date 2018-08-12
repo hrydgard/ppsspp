@@ -10,6 +10,9 @@ Originally released under the GPL 2.0 (and later) in November 2012
 Official website:
 https://www.ppsspp.org/
 
+Discord:
+https://discord.gg/5NJB6dD
+
 No BIOS file required to play, PPSSPP is an "HLE" emulator.  Default settings balance good compatibility and speed.
 
 To contribute, see [the development page](https://www.ppsspp.org/development.html).  Help testing, investigating, or fixing is always welcome.  See [the list of issues](https://github.com/hrydgard/ppsspp/issues).
