@@ -900,7 +900,7 @@ std::vector<PSPFileInfo> DirectoryFileSystem::GetDirListing(std::string path) {
 		localtime_r((time_t*)&s.st_atime,&entry.atime);
 		localtime_r((time_t*)&s.st_ctime,&entry.ctime);
 		localtime_r((time_t*)&s.st_mtime,&entry.mtime);
-		if (!listingRoot || (wcscmp(findData.cFileName, L"..") && wcscmp(findData.cFileName, L".")))
+		if (!listingRoot || (strcmp(dirp->d_name, "..") && strcmp(dirp->d_name, ".")))
 			myVector.push_back(entry);
 	}
 	closedir(dp);

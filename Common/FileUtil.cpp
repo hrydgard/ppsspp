@@ -102,19 +102,56 @@ bool OpenCPPFile(std::fstream & stream, const std::string &filename, std::ios::o
 
 std::string ResolvePath(const std::string &path) {
 #ifdef _WIN32
-	HANDLE hFile = CreateFile(ConvertUTF8ToWString(path).c_str(), GENERIC_READ, FILE_SHARE_READ, nullptr, OPEN_EXISTING, FILE_FLAG_BACKUP_SEMANTICS, nullptr);
-	if (hFile == INVALID_HANDLE_VALUE)
-		return path;
+	typedef DWORD (WINAPI *getFinalPathNameByHandleW_f)(HANDLE hFile, LPWSTR lpszFilePath, DWORD cchFilePath, DWORD dwFlags);
+	static getFinalPathNameByHandleW_f getFinalPathNameByHandleW = nullptr;
 
-	wchar_t buf[1024] = {0};
-	int result = GetFinalPathNameByHandle(hFile, buf, (int)ARRAY_SIZE(buf) - 1, FILE_NAME_NORMALIZED | VOLUME_NAME_DOS);
-	if (result >= ARRAY_SIZE(buf))
-		return path;
+	if (!getFinalPathNameByHandleW) {
+		// We leak this, but that's okay since the process should hold onto this DLL for the entire lifetime anyway.
+		HMODULE kernel32 = LoadLibraryW(L"kernel32.dll");
+		getFinalPathNameByHandleW = (getFinalPathNameByHandleW_f)GetProcAddress(kernel32, "GetFinalPathNameByHandleW");
+	}
+
+	static const int BUF_SIZE = 32768;
+	wchar_t *buf = new wchar_t[BUF_SIZE];
+	memset(buf, 0, BUF_SIZE);
+
+	std::wstring input = ConvertUTF8ToWString(path);
+	if (getFinalPathNameByHandleW) {
+		HANDLE hFile = CreateFile(input.c_str(), GENERIC_READ, FILE_SHARE_READ, nullptr, OPEN_EXISTING, FILE_FLAG_BACKUP_SEMANTICS, nullptr);
+		if (hFile == INVALID_HANDLE_VALUE) {
+			wcscpy_s(buf, BUF_SIZE - 1, input.c_str());
+		} else {
+			int result = GetFinalPathNameByHandle(hFile, buf, BUF_SIZE - 1, FILE_NAME_NORMALIZED | VOLUME_NAME_DOS);
+			if (result >= BUF_SIZE || result == 0)
+				wcscpy_s(buf, BUF_SIZE - 1, input.c_str());
+		}
+	} else {
+		wchar_t *longBuf = new wchar_t[BUF_SIZE];
+		memset(buf, 0, BUF_SIZE);
+
+		int result = GetLongPathNameW(input.c_str(), longBuf, BUF_SIZE - 1);
+		if (result >= BUF_SIZE || result == 0)
+			wcscpy_s(longBuf, BUF_SIZE - 1, input.c_str());
+
+		result = GetFullPathNameW(longBuf, BUF_SIZE - 1, buf, nullptr);
+		if (result >= BUF_SIZE || result == 0)
+			wcscpy_s(buf, BUF_SIZE - 1, input.c_str());
+
+		delete [] longBuf;
+
+		// Normalize slashes just in case.
+		for (int i = 0; i < BUF_SIZE; ++i) {
+			if (buf[i] == '\\')
+				buf[i] = '/';
+		}
+	}
 
 	// Undo the \\?\C:\ syntax that's normally returned.
+	std::string output = ConvertWStringToUTF8(buf);
 	if (buf[0] == '\\' && buf[1] == '\\' && buf[2] == '?' && buf[3] == '\\' && isalpha(buf[4]) && buf[5] == ':')
-		return ConvertWStringToUTF8(buf).substr(4);
-	return ConvertWStringToUTF8(buf);
+		output = output.substr(4);
+	delete [] buf;
+	return output;
 #else
 	char buf[PATH_MAX + 1];
 	if (realpath(path.c_str(), buf) == nullptr)
