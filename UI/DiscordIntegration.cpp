@@ -5,7 +5,7 @@
 #include "Common/Log.h"
 #include "Core/Config.h"
 #include "DiscordIntegration.h"
-
+#include "i18n/i18n.h"
 
 #ifdef _WIN32
 
@@ -13,9 +13,9 @@
 
 #else
 
+// TODO
+
 #endif
-
-
 
 #ifdef ENABLE_DISCORD
 #include "ext/discord-rpc/include/discord_rpc.h"
@@ -90,9 +90,12 @@ void Discord::SetPresenceGame(const char *gameTitle) {
 	}
 
 #ifdef ENABLE_DISCORD
+	I18NCategory *sc = GetI18NCategory("Screen");
+
 	DiscordRichPresence discordPresence{};
 	discordPresence.state = gameTitle;
-	discordPresence.details = "Playing";
+	std::string details = sc->T("Playing");
+	discordPresence.details = details.c_str();
 	discordPresence.startTimestamp = time(0);
 #ifdef GOLD
 	discordPresence.largeImageKey = "icon_gold_png";
@@ -112,8 +115,10 @@ void Discord::SetPresenceMenu() {
 	}
 
 #ifdef ENABLE_DISCORD
+	I18NCategory *sc = GetI18NCategory("Screen");
+
 	DiscordRichPresence discordPresence{};
-	discordPresence.state = "In menu";
+	discordPresence.state = sc->T("In menu");
 	discordPresence.details = "";
 	discordPresence.startTimestamp = time(0);
 #ifdef GOLD

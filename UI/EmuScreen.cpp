@@ -187,6 +187,8 @@ void EmuScreen::bootGame(const std::string &filename) {
 	if (!bootAllowStorage(filename))
 		return;
 
+	I18NCategory *sc = GetI18NCategory("Screen");
+
 	//pre-emptive loading of game specific config if possible, to get all the settings
 	std::shared_ptr<GameInfo> info = g_gameInfoCache->GetInfo(nullptr, filename, 0);
 	if (info && !info->id.empty()) {
@@ -196,7 +198,7 @@ void EmuScreen::bootGame(const std::string &filename) {
 
 		g_Discord.SetPresenceGame(info->GetTitle().c_str());
 	} else {
-		g_Discord.SetPresenceGame("(unknown)");
+		g_Discord.SetPresenceGame(sc->T("Untitled PSP game"));
 	}
 
 	invalid_ = true;
