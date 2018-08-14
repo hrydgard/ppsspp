@@ -29,7 +29,10 @@
 // set game specific settings, etc.
 // Uses GameInfoCache heavily to implement the functionality.
 
-struct JsonGet;
+namespace json {
+	struct JsonGet;
+}
+
 class ProductItemView;
 
 enum EntryType {
@@ -79,7 +82,7 @@ private:
 	std::vector<StoreEntry> FilterEntries();
 
 	std::string GetStoreJsonURL(std::string storePath) const;
-	std::string GetTranslatedString(const JsonGet json, std::string key, const char *fallback = nullptr) const;
+	std::string GetTranslatedString(const json::JsonGet json, std::string key, const char *fallback = nullptr) const;
 
 	std::shared_ptr<http::Download> listing_;
 	std::shared_ptr<http::Download> image_;

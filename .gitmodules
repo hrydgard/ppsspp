@@ -19,3 +19,9 @@
 [submodule "ext/SPIRV-Cross"]
 	path = ext/SPIRV-Cross
 	url = https://github.com/KhronosGroup/SPIRV-Cross.git
+[submodule "ext/discord-rpc"]
+	path = ext/discord-rpc
+	url = https://github.com/discordapp/discord-rpc.git
+[submodule "ext/rapidjson"]
+	path = ext/rapidjson
+	url = https://github.com/Tencent/rapidjson.git

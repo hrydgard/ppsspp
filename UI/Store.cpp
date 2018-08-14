@@ -391,6 +391,7 @@ void StoreScreen::update() {
 }
 
 void StoreScreen::ParseListing(std::string json) {
+	using namespace json;
 	JsonReader reader(json.c_str(), json.size());
 	if (!reader.ok() || !reader.root()) {
 		ELOG("Error parsing JSON from store");
@@ -540,8 +541,8 @@ std::string StoreScreen::GetStoreJsonURL(std::string storePath) const {
 	return path;
 }
 
-std::string StoreScreen::GetTranslatedString(const JsonGet json, std::string key, const char *fallback) const {
-	JsonGet dict = json.getDict("en_US");
+std::string StoreScreen::GetTranslatedString(const json::JsonGet json, std::string key, const char *fallback) const {
+	json::JsonGet dict = json.getDict("en_US");
 	if (dict && json.hasChild(lang_.c_str(), JSON_OBJECT)) {
 		if (json.getDict(lang_.c_str()).hasChild(key.c_str(), JSON_STRING)) {
 			dict = json.getDict(lang_.c_str());

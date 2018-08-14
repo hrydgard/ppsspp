@@ -2,6 +2,8 @@
 #include "file/vfs.h"
 #include "json/json_reader.h"
 
+namespace json {
+
 JsonReader::JsonReader(const std::string &filename) {
 	size_t buf_size;
 	buffer_ = (char *)VFSReadFile(filename.c_str(), &buf_size);
@@ -117,3 +119,5 @@ bool JsonGet::getBool(const char *child_name, bool default_value) const {
 	}
 	return default_value;
 }
+
+}  // namespace json

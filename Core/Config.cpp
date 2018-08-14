@@ -396,6 +396,7 @@ static ConfigSetting generalSettings[] = {
 	ConfigSetting("CheckForNewVersion", &g_Config.bCheckForNewVersion, true),
 	ConfigSetting("Language", &g_Config.sLanguageIni, &DefaultLangRegion),
 	ConfigSetting("ForceLagSync", &g_Config.bForceLagSync, false, true, true),
+	ConfigSetting("DiscordPresence", &g_Config.bDiscordPresence, true, true, false),  // Or maybe it makes sense to have it per-game? Race conditions abound...
 
 	ReportedConfigSetting("NumWorkerThreads", &g_Config.iNumWorkerThreads, &DefaultNumWorkers, true, true),
 	ConfigSetting("AutoLoadSaveState", &g_Config.iAutoLoadSaveState, 0, true, true),
@@ -1162,8 +1163,8 @@ void Config::DownloadCompletedCallback(http::Download &download) {
 		return;
 	}
 
-	JsonReader reader(data.c_str(), data.size());
-	const JsonGet root = reader.root();
+	json::JsonReader reader(data.c_str(), data.size());
+	const json::JsonGet root = reader.root();
 	if (!root) {
 		ERROR_LOG(LOADER, "Failed to parse json");
 		return;

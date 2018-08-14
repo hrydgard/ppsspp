@@ -117,6 +117,8 @@ public:
 	std::vector<std::string> vPinnedPaths;
 	std::string sLanguageIni;
 
+	bool bDiscordPresence;  // Enables setting the Discord presence to the current game (or menu)
+
 	// GFX
 	int iGPUBackend;
 	// We have separate device parameters for each backend so it doesn't get erased if you switch backends.

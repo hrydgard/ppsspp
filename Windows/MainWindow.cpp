@@ -913,7 +913,7 @@ namespace MainWindow
 			InputDevice::StopPolling();
 			MainThread_Stop();
 			coreState = CORE_POWERUP;
-			ResetUIState();
+			UpdateUIState(UISTATE_MENU);
 			MainThread_Start(g_Config.iGPUBackend == (int)GPUBackend::OPENGL);
 			InputDevice::BeginPolling();
 			break;

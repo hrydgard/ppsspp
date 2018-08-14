@@ -1,8 +1,11 @@
 #include <string>
 #include <vector>
+
 #include "base/basictypes.h"
 #include "base/logging.h"
 #include "ext/gason/gason.h"
+
+namespace json {
 
 struct JsonGet {
 	JsonGet(const JsonValue &value) : value_(value) {
@@ -83,3 +86,5 @@ private:
 
 	DISALLOW_COPY_AND_ASSIGN(JsonReader);
 };
+
+}  // namespace json
