@@ -1211,11 +1211,14 @@ void Config::AddRecent(const std::string &file) {
 		return;
 
 	const std::string filename = File::ResolvePath(file);
-	for (auto iter = recentIsos.begin(); iter != recentIsos.end(); ++iter) {
+	for (auto iter = recentIsos.begin(); iter != recentIsos.end();) {
 		const std::string recent = File::ResolvePath(*iter);
 		if (filename == recent) {
+			// Note that the increment-erase idiom doesn't work with vectors.
 			iter = recentIsos.erase(iter);
 			// We'll add it back below.
+		} else {
+			iter++;
 		}
 	}
 
@@ -1230,10 +1233,13 @@ void Config::RemoveRecent(const std::string &file) {
 		return;
 
 	const std::string filename = File::ResolvePath(file);
-	for (auto str = recentIsos.begin(); str != recentIsos.end(); ++str) {
-		const std::string recent = File::ResolvePath(*str);
+	for (auto iter = recentIsos.begin(); iter != recentIsos.end();) {
+		const std::string recent = File::ResolvePath(*iter);
 		if (filename == recent) {
-			recentIsos.erase(str);
+			// Note that the increment-erase idiom doesn't work with vectors.
+			iter = recentIsos.erase(iter);
+		} else {
+			iter++;
 		}
 	}
 }
