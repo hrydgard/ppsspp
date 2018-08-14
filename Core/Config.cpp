@@ -1211,10 +1211,10 @@ void Config::AddRecent(const std::string &file) {
 		return;
 
 	const std::string filename = File::ResolvePath(file);
-	for (auto str = recentIsos.begin(); str != recentIsos.end(); ++str) {
-		const std::string recent = File::ResolvePath(*str);
+	for (auto iter = recentIsos.begin(); iter != recentIsos.end(); ++iter) {
+		const std::string recent = File::ResolvePath(*iter);
 		if (filename == recent) {
-			recentIsos.erase(str);
+			iter = recentIsos.erase(iter);
 			// We'll add it back below.
 		}
 	}
