@@ -16,7 +16,6 @@
     <ClCompile Include="..\discord-rpc\src\connection_win.cpp" />
     <ClCompile Include="..\discord-rpc\src\discord_register_win.cpp" />
     <ClCompile Include="..\discord-rpc\src\discord_rpc.cpp" />
-    <ClCompile Include="..\discord-rpc\src\dllmain.cpp" />
     <ClCompile Include="..\discord-rpc\src\rpc_connection.cpp" />
     <ClCompile Include="..\discord-rpc\src\serialization.cpp" />
   </ItemGroup>
