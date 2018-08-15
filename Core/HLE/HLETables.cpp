@@ -66,6 +66,7 @@
 #include "sceSsl.h"
 #include "sceUmd.h"
 #include "sceUsb.h"
+#include "sceUsbAcc.h"
 #include "sceUsbCam.h"
 #include "sceUsbGps.h"
 #include "sceUtility.h"
@@ -296,6 +297,7 @@ void RegisterAllModules() {
 	Register_sceNetUpnp();
 	Register_sceNetIfhandle();
 	Register_KUBridge();
+	Register_sceUsbAcc();
 
 	// add new modules here.
 }
