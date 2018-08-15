@@ -731,6 +731,9 @@
     <ClCompile Include="Debugger\WebSocket\GPUBufferSubscriber.cpp">
       <Filter>Debugger\WebSocket</Filter>
     </ClCompile>
+    <ClCompile Include="HLE\sceUsbAcc.cpp">
+      <Filter>HLE\Libraries</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="ELF\ElfReader.h">
@@ -1354,6 +1357,9 @@
     </ClInclude>
     <ClInclude Include="ConfigValues.h">
       <Filter>Core</Filter>
+    </ClInclude>
+    <ClInclude Include="HLE\sceUsbAcc.h">
+      <Filter>HLE\Libraries</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>

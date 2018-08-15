@@ -1610,6 +1610,8 @@ add_library(${CoreLibName} ${CoreLinkType}
 	Core/HLE/sceUmd.h
 	Core/HLE/sceUsb.cpp
 	Core/HLE/sceUsb.h
+	Core/HLE/sceUsbAcc.cpp
+	Core/HLE/sceUsbAcc.h
 	Core/HLE/sceUsbCam.cpp
 	Core/HLE/sceUsbCam.h
 	Core/HLE/sceUsbGps.cpp
