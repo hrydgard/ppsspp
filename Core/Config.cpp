@@ -1210,18 +1210,10 @@ void Config::AddRecent(const std::string &file) {
 	if (iMaxRecent <= 0)
 		return;
 
-	const std::string filename = File::ResolvePath(file);
-	for (auto iter = recentIsos.begin(); iter != recentIsos.end();) {
-		const std::string recent = File::ResolvePath(*iter);
-		if (filename == recent) {
-			// Note that the increment-erase idiom doesn't work with vectors.
-			iter = recentIsos.erase(iter);
-			// We'll add it back below.
-		} else {
-			iter++;
-		}
-	}
+	// We'll add it back below.  This makes sure it's at the front, and only once.
+	RemoveRecent(file);
 
+	const std::string filename = File::ResolvePath(file);
 	recentIsos.insert(recentIsos.begin(), filename);
 	if ((int)recentIsos.size() > iMaxRecent)
 		recentIsos.resize(iMaxRecent);

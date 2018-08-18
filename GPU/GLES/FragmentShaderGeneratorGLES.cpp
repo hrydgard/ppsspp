@@ -359,7 +359,7 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, uint64_t *uniform
 				} else {
 					WRITE(p, "  vec2 uv = %s.xy;\n  vec2 uv_round;\n", texcoord);
 				}
-				WRITE(p, "  vec2 tsize = textureSize(tex, 0);\n");
+				WRITE(p, "  vec2 tsize = vec2(textureSize(tex, 0));\n");
 				WRITE(p, "  vec2 fraction;\n");
 				WRITE(p, "  bool bilinear = (u_depal >> 31) != 0;\n");
 				WRITE(p, "  if (bilinear) {\n");
