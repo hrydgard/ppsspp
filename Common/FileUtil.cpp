@@ -121,7 +121,7 @@ std::string ResolvePath(const std::string &path) {
 		if (hFile == INVALID_HANDLE_VALUE) {
 			wcscpy_s(buf, BUF_SIZE - 1, input.c_str());
 		} else {
-			int result = GetFinalPathNameByHandle(hFile, buf, BUF_SIZE - 1, FILE_NAME_NORMALIZED | VOLUME_NAME_DOS);
+			int result = getFinalPathNameByHandleW(hFile, buf, BUF_SIZE - 1, FILE_NAME_NORMALIZED | VOLUME_NAME_DOS);
 			if (result >= BUF_SIZE || result == 0)
 				wcscpy_s(buf, BUF_SIZE - 1, input.c_str());
 		}
