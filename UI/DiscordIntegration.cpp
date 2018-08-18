@@ -7,7 +7,7 @@
 #include "DiscordIntegration.h"
 #include "i18n/i18n.h"
 
-#ifdef _WIN32
+#if (PPSSPP_PLATFORM(WINDOWS) || PPSSPP_PLATFORM(MAC) || PPSSPP_PLATFORM(LINUX)) && !PPSSPP_PLATFORM(ANDROID)
 
 #define ENABLE_DISCORD
 
@@ -29,7 +29,7 @@ static const char *ppsspp_app_id = "423397985041383434";
 
 // No context argument? What?
 static void handleDiscordError(int errCode, const char *message) {
-	ERROR_LOG(SYSTEM, "Discord error code %d: '%s'", message);
+	ERROR_LOG(SYSTEM, "Discord error code %d: '%s'", errCode, message);
 }
 
 Discord::~Discord() {
@@ -48,6 +48,7 @@ void Discord::Init() {
 	DiscordEventHandlers eventHandlers{};
 	eventHandlers.errored = &handleDiscordError;
 	Discord_Initialize(ppsspp_app_id, &eventHandlers, 0, nullptr);
+	INFO_LOG(SYSTEM, "Discord connection initialized");
 #endif
 
 	initialized_ = true;
