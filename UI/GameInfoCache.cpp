@@ -353,8 +353,10 @@ public:
 	}
 
 	void run() override {
-		if (!info_->LoadFromPath(gamePath_))
+		if (!info_->LoadFromPath(gamePath_)) {
+			info_->pending = false;
 			return;
+		}
 		// In case of a remote file, check if it actually exists before locking.
 		if (!info_->GetFileLoader()->Exists()) {
 			info_->pending = false;
@@ -381,6 +383,7 @@ public:
 						goto handleELF;
 					}
 					ERROR_LOG(LOADER, "invalid pbp %s\n", pbpLoader->Path().c_str());
+					info_->pending = false;
 					info_->working = false;
 					return;
 				}
@@ -549,11 +552,13 @@ handleELF:
 				// few files.
 				auto fl = info_->GetFileLoader();
 				if (!fl) {
+					info_->pending = false;
 					info_->working = false;
 					return;  // Happens with UWP currently, TODO...
 				}
 				BlockDevice *bd = constructBlockDevice(info_->GetFileLoader().get());
 				if (!bd) {
+					info_->pending = false;
 					info_->working = false;
 					return;  // nothing to do here..
 				}

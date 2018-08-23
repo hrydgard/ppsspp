@@ -99,7 +99,7 @@ static const LogNameTableEntry logTable[] = {
 	{LogTypes::SCECTRL,    "SCECTRL"},
 	{LogTypes::SCEDISPLAY, "SCEDISP"},
 	{LogTypes::SCEFONT,    "SCEFONT"},
-	{LogTypes::SCEGE,      "SCESCEGE"},
+	{LogTypes::SCEGE,      "SCEGE"},
 	{LogTypes::SCEINTC,    "SCEINTC"},
 	{LogTypes::SCEIO,      "SCEIO"},
 	{LogTypes::SCEKERNEL,  "SCEKERNEL"},
