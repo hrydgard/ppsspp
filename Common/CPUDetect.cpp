@@ -15,6 +15,9 @@
 // Official SVN repository and contact information can be found at
 // http://code.google.com/p/dolphin-emu/
 
+// Reference : https://stackoverflow.com/questions/6121792/how-to-check-if-a-cpu-supports-the-sse3-instruction-set
+// TSX Reference : https://software.intel.com/en-us/articles/how-to-detect-new-instruction-support-in-the-4th-generation-intel-core-processor-family
+
 #if defined(_M_IX86) || defined(_M_X64)
 
 #ifdef __ANDROID__
@@ -170,7 +173,7 @@ void CPUInfo::Detect() {
 		if ((cpu_id[2] >> 28) & 1) {
 			bAVX = true;
 			if ((cpu_id[2] >> 12) & 1)
-				bFMA = true;
+				bFMA3 = true;
 		}
 		if ((cpu_id[2] >> 25) & 1) bAES = true;
 
@@ -191,8 +194,30 @@ void CPUInfo::Detect() {
 			{
 				bAVX = true;
 				if ((cpu_id[2] >> 12) & 1)
-					bFMA = true;
+					bFMA3 = true;
 			}
+		}
+		// AVX512 support requires support some instruction check
+		// See https://en.wikipedia.org/wiki/AVX-512
+		if (((cpu_id[1] >> 16) & 1) || 
+			((cpu_id[1] >> 28) & 1) || 
+			((cpu_id[1] >> 26) & 1) || 
+			((cpu_id[1] >> 27) & 1) ||
+			((cpu_id[1] >> 31) & 1) ||
+			((cpu_id[1] >> 30) & 1) ||
+			((cpu_id[1] >> 17) & 1) ||
+			((cpu_id[1] >> 21) & 1) ||
+			((cpu_id[1] >> 1) & 1))
+		{
+			bAVX512F = true;
+			bAVX512CD = true;
+			bAVX512PF = true;
+			bAVX512ER = true;
+			bAVX512VL = true;
+			bAVX512BW = true;
+			bAVX512DQ = true;
+			bAVX512IFMA = true;
+			bAVX512VBMI = true;
 		}
 
 		if (max_std_fn >= 7)
@@ -205,6 +230,12 @@ void CPUInfo::Detect() {
 				bBMI1 = true;
 			if ((cpu_id[1] >> 8) & 1)
 				bBMI2 = true;
+			if ((cpu_id[1] >> 29) & 1)
+				bSHA = true;
+			if (((cpu_id[1] >> 11) & 1))
+				bRTM = true;
+			// AVX512: we can't enable AVX512 if all instruction set not supported 
+			(bAVX512F || bAVX512CD || bAVX512PF || bAVX512ER || bAVX512VL || bAVX512BW || bAVX512DQ || bAVX512IFMA || bAVX512VBMI) == bAVX512;
 		}
 	}
 	if (max_ex_fn >= 0x80000004) {
@@ -222,6 +253,9 @@ void CPUInfo::Detect() {
 		if (cpu_id[2] & 1) bLAHFSAHF64 = true;
 		// CmpLegacy (bit 2) is deprecated.
 		if ((cpu_id[3] >> 29) & 1) bLongMode = true;
+		if ((cpu_id[2] >> 6) & 1) bSSE4A = true;
+		if ((cpu_id[2] >> 16) & 1) bFMA4 = true;
+		if ((cpu_id[2] >> 11) & 1) bXOP = true;
 	}
 
 	num_cores = (logical_cpu_count == 0) ? 1 : logical_cpu_count;
@@ -279,10 +313,17 @@ std::string CPUInfo::Summarize()
 	if (bSSSE3) sum += ", SSSE3";
 	if (bSSE4_1) sum += ", SSE4.1";
 	if (bSSE4_2) sum += ", SSE4.2";
-	if (HTT) sum += ", HTT";
+	if (bSSE4A) sum += ", SSE4A";
+	if (HTT) sum += ", Hyper-threading";
 	if (bAVX) sum += ", AVX";
-	if (bFMA) sum += ", FMA";
+	if (bAVX2) sum += ", AVX2";
+	if (bAVX512) sum += ", AVX512";
+	if (bFMA3) sum += ", FMA3";
+	if (bFMA4) sum += ", FMA4";
 	if (bAES) sum += ", AES";
+	if (bSHA) sum += ", SHA";
+	if (bXOP) sum += ", XOP";
+	if (bRTM) sum += ", TSX";
 	if (bLongMode) sum += ", 64-bit support";
 	return sum;
 }
