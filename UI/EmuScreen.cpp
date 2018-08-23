@@ -189,9 +189,14 @@ void EmuScreen::bootGame(const std::string &filename) {
 
 	I18NCategory *sc = GetI18NCategory("Screen");
 
-	//pre-emptive loading of game specific config if possible, to get all the settings
+	invalid_ = true;
+
+	// We don't want to boot with the wrong game specific config, so wait until info is ready.
 	std::shared_ptr<GameInfo> info = g_gameInfoCache->GetInfo(nullptr, filename, 0);
-	if (info && !info->id.empty()) {
+	if (!info || info->pending)
+		return;
+
+	if (!info->id.empty()) {
 		g_Config.loadGameConfig(info->id);
 		// Reset views in case controls are in a different place.
 		RecreateViews();
@@ -200,8 +205,6 @@ void EmuScreen::bootGame(const std::string &filename) {
 	} else {
 		g_Discord.SetPresenceGame(sc->T("Untitled PSP game"));
 	}
-
-	invalid_ = true;
 
 	CoreParameter coreParam{};
 	coreParam.cpuCore = (CPUCore)g_Config.iCpuCore;
