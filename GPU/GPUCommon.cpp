@@ -1533,7 +1533,7 @@ void GPUCommon::Execute_Prim(u32 op, u32 diff) {
 	UpdateUVScaleOffset();
 
 	// cull mode
-	int cullMode = gstate.isCullEnabled() ? gstate.getCullMode() : -1;
+	int cullMode = gstate.getCullMode();
 
 	uint32_t vertTypeID = GetVertTypeID(vertexType, gstate.getUVGenMode());
 	drawEngineCommon_->SubmitPrim(verts, inds, prim, count, vertTypeID, cullMode, &bytesRead);
@@ -1582,13 +1582,6 @@ void GPUCommon::Execute_Prim(u32 op, u32 diff) {
 				inds = Memory::GetPointerUnchecked(gstate_c.indexAddr);
 			}
 
-			if (newPrim != GE_PRIM_TRIANGLE_STRIP && cullMode != -1 && cullMode != gstate.getCullMode()) {
-				DEBUG_LOG(G3D, "flush cull mode before prim: %d", newPrim);
-				drawEngineCommon_->DispatchFlush();
-				gstate.cmdmem[GE_CMD_CULL] ^= 1;
-				gstate_c.Dirty(DIRTY_RASTER_STATE);
-			}
-
 			drawEngineCommon_->SubmitPrim(verts, inds, newPrim, count, vertTypeID, cullMode, &bytesRead);
 			AdvanceVerts(vertexType, count, bytesRead);
 			totalVertCount += count;
@@ -1616,8 +1609,14 @@ void GPUCommon::Execute_Prim(u32 op, u32 diff) {
 		case GE_CMD_BASE:
 			gstate.cmdmem[GE_CMD_BASE] = data;
 			break;
+		case GE_CMD_CULLFACEENABLE:
+			// Earth Defence Force 2
+			if (gstate.cmdmem[GE_CMD_CULLFACEENABLE] != data) {
+				goto bail;
+			}
+			break;
 		case GE_CMD_CULL:
-			// flip face by indices for GE_PRIM_TRIANGLE_STRIP
+			// flip face by indices for triangles
 			cullMode = data & 1;
 			break;
 		case GE_CMD_NOP:
@@ -1679,10 +1678,10 @@ bail:
 		UpdatePC(currentList->pc, currentList->pc + cmdCount * 4);
 		currentList->pc += cmdCount * 4;
 		// flush back cull mode
-		if (cullMode != -1 && cullMode != gstate.getCullMode()) {
-			drawEngineCommon_->DispatchFlush();
+		if (cullMode != gstate.getCullMode()) {
 			gstate.cmdmem[GE_CMD_CULL] ^= 1;
 			gstate_c.Dirty(DIRTY_RASTER_STATE);
+			drawEngineCommon_->DispatchFlush();
 		}
 	}
 
