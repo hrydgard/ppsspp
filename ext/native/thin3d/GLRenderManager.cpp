@@ -345,6 +345,7 @@ bool GLRenderManager::CopyFramebufferToMemorySync(GLRFramebuffer *src, int aspec
 }
 
 void GLRenderManager::CopyImageToMemorySync(GLRTexture *texture, int mipLevel, int x, int y, int w, int h, Draw::DataFormat destFormat, uint8_t *pixels, int pixelStride) {
+	_assert_(texture);
 	GLRStep *step = new GLRStep{ GLRStepType::READBACK_IMAGE };
 	step->readback_image.texture = texture;
 	step->readback_image.mipLevel = mipLevel;
