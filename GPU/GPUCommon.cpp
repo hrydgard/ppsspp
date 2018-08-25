@@ -420,6 +420,14 @@ void GPUCommon::UpdateCmdInfo() {
 		cmdInfo_[GE_CMD_VERTEXTYPE].flags |= FLAG_FLUSHBEFOREONCHANGE;
 		cmdInfo_[GE_CMD_VERTEXTYPE].func = &GPUCommon::Execute_VertexType;
 	}
+
+	if (g_Config.bFastMemory) {
+		cmdInfo_[GE_CMD_JUMP].func = &GPUCommon::Execute_JumpFast;
+		cmdInfo_[GE_CMD_CALL].func = &GPUCommon::Execute_CallFast;
+	} else {
+		cmdInfo_[GE_CMD_JUMP].func = &GPUCommon::Execute_Jump;
+		cmdInfo_[GE_CMD_CALL].func = &GPUCommon::Execute_Call;
+	}
 }
 
 void GPUCommon::BeginHostFrame() {
@@ -632,8 +640,10 @@ u32 GPUCommon::EnqueueList(u32 listpc, u32 stall, int subIntrBase, PSPPointer<Ps
 
 	// Check alignment
 	// TODO Check the context and stack alignement too
-	if (((listpc | stall) & 3) != 0)
+	if (((listpc | stall) & 3) != 0 || !Memory::IsValidAddress(listpc)) {
+		ERROR_LOG_REPORT(G3D, "sceGeListEnqueue: invalid address %08x", listpc);
 		return SCE_KERNEL_ERROR_INVALID_POINTER;
+	}
 
 	int id = -1;
 	u64 currentTicks = CoreTiming::GetTicks();
@@ -1165,12 +1175,17 @@ void GPUCommon::Execute_Origin(u32 op, u32 diff) {
 
 void GPUCommon::Execute_Jump(u32 op, u32 diff) {
 	const u32 target = gstate_c.getRelativeAddress(op & 0x00FFFFFC);
-#ifdef _DEBUG
 	if (!Memory::IsValidAddress(target)) {
 		ERROR_LOG_REPORT(G3D, "JUMP to illegal address %08x - ignoring! data=%06x", target, op & 0x00FFFFFF);
+		UpdateState(GPUSTATE_ERROR);
 		return;
 	}
-#endif
+	UpdatePC(currentList->pc, target - 4);
+	currentList->pc = target - 4; // pc will be increased after we return, counteract that
+}
+
+void GPUCommon::Execute_JumpFast(u32 op, u32 diff) {
+	const u32 target = gstate_c.getRelativeAddress(op & 0x00FFFFFC);
 	UpdatePC(currentList->pc, target - 4);
 	currentList->pc = target - 4; // pc will be increased after we return, counteract that
 }
@@ -1184,6 +1199,7 @@ void GPUCommon::Execute_BJump(u32 op, u32 diff) {
 			currentList->pc = target - 4; // pc will be increased after we return, counteract that
 		} else {
 			ERROR_LOG_REPORT(G3D, "BJUMP to illegal address %08x - ignoring! data=%06x", target, op & 0x00FFFFFF);
+			UpdateState(GPUSTATE_ERROR);
 		}
 	}
 }
@@ -1191,15 +1207,25 @@ void GPUCommon::Execute_BJump(u32 op, u32 diff) {
 void GPUCommon::Execute_Call(u32 op, u32 diff) {
 	PROFILE_THIS_SCOPE("gpu_call");
 
-	// Saint Seiya needs correct support for relative calls.
-	const u32 retval = currentList->pc + 4;
 	const u32 target = gstate_c.getRelativeAddress(op & 0x00FFFFFC);
-#ifdef _DEBUG
 	if (!Memory::IsValidAddress(target)) {
 		ERROR_LOG_REPORT(G3D, "CALL to illegal address %08x - ignoring! data=%06x", target, op & 0x00FFFFFF);
+		UpdateState(GPUSTATE_ERROR);
 		return;
 	}
-#endif
+	DoExecuteCall(target);
+}
+
+void GPUCommon::Execute_CallFast(u32 op, u32 diff) {
+	PROFILE_THIS_SCOPE("gpu_call");
+
+	const u32 target = gstate_c.getRelativeAddress(op & 0x00FFFFFC);
+	DoExecuteCall(target);
+}
+
+void GPUCommon::DoExecuteCall(u32 target) {
+	// Saint Seiya needs correct support for relative calls.
+	const u32 retval = currentList->pc + 4;
 
 	// Bone matrix optimization - many games will CALL a bone matrix (!).
 	// We don't optimize during recording - so the matrix data gets recorded.
@@ -1304,6 +1330,7 @@ void GPUCommon::Execute_End(u32 op, u32 diff) {
 					u32 target = (((signal << 16) | enddata) & 0xFFFFFFFC) - 4;
 					if (!Memory::IsValidAddress(target)) {
 						ERROR_LOG_REPORT(G3D, "Signal with Jump: bad address. signal/end: %04x %04x", signal, enddata);
+						UpdateState(GPUSTATE_ERROR);
 					} else {
 						UpdatePC(currentList->pc, target);
 						currentList->pc = target;
@@ -1321,6 +1348,7 @@ void GPUCommon::Execute_End(u32 op, u32 diff) {
 						ERROR_LOG_REPORT(G3D, "Signal with Call: stack full. signal/end: %04x %04x", signal, enddata);
 					} else if (!Memory::IsValidAddress(target)) {
 						ERROR_LOG_REPORT(G3D, "Signal with Call: bad address. signal/end: %04x %04x", signal, enddata);
+						UpdateState(GPUSTATE_ERROR);
 					} else {
 						// TODO: This might save/restore other state...
 						auto &stackEntry = currentList->stack[currentList->stackptr++];
