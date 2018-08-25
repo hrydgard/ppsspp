@@ -813,17 +813,7 @@ static inline bool blendColorSimilar(uint32_t a, uint32_t b, int margin = 25) { 
 }
 
 // Try to simulate some common logic ops.
-void ApplyStencilReplaceAndLogicOp(ReplaceAlphaType replaceAlphaWithStencil, GenericBlendState &blendState) {
-	StencilValueType stencilType = STENCIL_VALUE_KEEP;
-	if (replaceAlphaWithStencil == REPLACE_ALPHA_YES) {
-		stencilType = ReplaceAlphaWithStencilType();
-	}
-
-	// Normally, we would add src + 0, but the logic op may have us do differently.
-	BlendFactor srcBlend = BlendFactor::ONE;
-	BlendFactor dstBlend = BlendFactor::ZERO;
-	BlendEq blendEq = BlendEq::ADD;
-
+static void ApplyLogicOp(BlendFactor &srcBlend, BlendFactor &dstBlend, BlendEq &blendEq) {
 	if (!gstate_c.Supports(GPU_SUPPORTS_LOGIC_OP)) {
 		if (gstate.isLogicOpEnabled()) {
 			switch (gstate.getLogicOp()) {
@@ -876,8 +866,22 @@ void ApplyStencilReplaceAndLogicOp(ReplaceAlphaType replaceAlphaWithStencil, Gen
 			}
 		}
 	}
+}
 
-	// We're not blending, but we may still want to blend for stencil.
+// Try to simulate some common logic ops.
+void ApplyStencilReplaceAndLogicOp(ReplaceAlphaType replaceAlphaWithStencil, GenericBlendState &blendState) {
+	StencilValueType stencilType = STENCIL_VALUE_KEEP;
+	if (replaceAlphaWithStencil == REPLACE_ALPHA_YES) {
+		stencilType = ReplaceAlphaWithStencilType();
+	}
+
+	// Normally, we would add src + 0 with blending off, but the logic op may have us do differently.
+	BlendFactor srcBlend = BlendFactor::ONE;
+	BlendFactor dstBlend = BlendFactor::ZERO;
+	BlendEq blendEq = BlendEq::ADD;
+	ApplyLogicOp(srcBlend, dstBlend, blendEq);
+
+	// We're not blending, but we may still want to "blend" for stencil.
 	// This is only useful for INCR/DECR/INVERT.  Others can write directly.
 	switch (stencilType) {
 	case STENCIL_VALUE_INCR_4:
