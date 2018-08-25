@@ -49,7 +49,6 @@ protected:
 		STOPPED,
 	};
 
-	GraphicsContext *gfx_;
 	volatile RenderThreadState threadState_ = RenderThreadState::IDLE;
 };
 
