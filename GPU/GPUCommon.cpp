@@ -420,6 +420,14 @@ void GPUCommon::UpdateCmdInfo() {
 		cmdInfo_[GE_CMD_VERTEXTYPE].flags |= FLAG_FLUSHBEFOREONCHANGE;
 		cmdInfo_[GE_CMD_VERTEXTYPE].func = &GPUCommon::Execute_VertexType;
 	}
+
+	if (g_Config.bFastMemory) {
+		cmdInfo_[GE_CMD_JUMP].func = &GPUCommon::Execute_JumpFast;
+		cmdInfo_[GE_CMD_CALL].func = &GPUCommon::Execute_CallFast;
+	} else {
+		cmdInfo_[GE_CMD_JUMP].func = &GPUCommon::Execute_Jump;
+		cmdInfo_[GE_CMD_CALL].func = &GPUCommon::Execute_Call;
+	}
 }
 
 void GPUCommon::BeginHostFrame() {
@@ -1176,6 +1184,12 @@ void GPUCommon::Execute_Jump(u32 op, u32 diff) {
 	currentList->pc = target - 4; // pc will be increased after we return, counteract that
 }
 
+void GPUCommon::Execute_JumpFast(u32 op, u32 diff) {
+	const u32 target = gstate_c.getRelativeAddress(op & 0x00FFFFFC);
+	UpdatePC(currentList->pc, target - 4);
+	currentList->pc = target - 4; // pc will be increased after we return, counteract that
+}
+
 void GPUCommon::Execute_BJump(u32 op, u32 diff) {
 	if (!currentList->bboxResult) {
 		// bounding box jump.
@@ -1193,14 +1207,25 @@ void GPUCommon::Execute_BJump(u32 op, u32 diff) {
 void GPUCommon::Execute_Call(u32 op, u32 diff) {
 	PROFILE_THIS_SCOPE("gpu_call");
 
-	// Saint Seiya needs correct support for relative calls.
-	const u32 retval = currentList->pc + 4;
 	const u32 target = gstate_c.getRelativeAddress(op & 0x00FFFFFC);
 	if (!Memory::IsValidAddress(target)) {
 		ERROR_LOG_REPORT(G3D, "CALL to illegal address %08x - ignoring! data=%06x", target, op & 0x00FFFFFF);
 		UpdateState(GPUSTATE_ERROR);
 		return;
 	}
+	DoExecuteCall(target);
+}
+
+void GPUCommon::Execute_CallFast(u32 op, u32 diff) {
+	PROFILE_THIS_SCOPE("gpu_call");
+
+	const u32 target = gstate_c.getRelativeAddress(op & 0x00FFFFFC);
+	DoExecuteCall(target);
+}
+
+void GPUCommon::DoExecuteCall(u32 target) {
+	// Saint Seiya needs correct support for relative calls.
+	const u32 retval = currentList->pc + 4;
 
 	// Bone matrix optimization - many games will CALL a bone matrix (!).
 	// We don't optimize during recording - so the matrix data gets recorded.
