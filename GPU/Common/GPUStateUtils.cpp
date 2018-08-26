@@ -48,7 +48,7 @@ bool NeedsTestDiscard() {
 		return true;
 	if (!gstate.isAlphaBlendEnabled())
 		return true;
-	if (gstate.getBlendFuncA() != GE_SRCBLEND_SRCALPHA && gstate.getBlendFuncA() != GE_DSTBLEND_DOUBLESRCALPHA)
+	if (gstate.getBlendFuncA() != GE_SRCBLEND_SRCALPHA && gstate.getBlendFuncA() != GE_SRCBLEND_DOUBLESRCALPHA)
 		return true;
 	// GE_DSTBLEND_DOUBLEINVSRCALPHA is actually inverse double src alpha, and doubling zero is still zero.
 	if (gstate.getBlendFuncB() != GE_DSTBLEND_INVSRCALPHA && gstate.getBlendFuncB() != GE_DSTBLEND_DOUBLEINVSRCALPHA) {
