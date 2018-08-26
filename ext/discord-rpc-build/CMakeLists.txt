@@ -14,8 +14,13 @@ set(ALL_SOURCE_FILES
 	${SRC_DIR}/discord_rpc.cpp
 	${SRC_DIR}/rpc_connection.cpp
 	${SRC_DIR}/serialization.cpp
-	${SRC_DIR}/discord_register_osx.m
 	)
+
+if(APPLE)
+	set(ALL_SOURCE_FILES ${ALL_SOURCE_FILES}
+		${SRC_DIR}/discord_register_osx.m
+	)
+endif()
 
 if(WIN32)
 	set(ALL_SOURCE_FILES ${ALL_SOURCE_FILES} ${SRC_DIR}/connection_win.cpp)
