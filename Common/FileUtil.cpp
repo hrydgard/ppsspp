@@ -24,6 +24,7 @@
 
 #include "ppsspp_config.h"
 
+#include <memory>
 #include "FileUtil.h"
 #include "StringUtils.h"
 
@@ -152,11 +153,12 @@ std::string ResolvePath(const std::string &path) {
 		output = output.substr(4);
 	delete [] buf;
 	return output;
+
 #else
-	char buf[PATH_MAX + 1];
-	if (realpath(path.c_str(), buf) == nullptr)
+	std::unique_ptr<char[]> buf(new char[PATH_MAX + 32768]);
+	if (realpath(path.c_str(), buf.get()) == nullptr)
 		return path;
-	return buf;
+	return buf.get();
 #endif
 }
 
