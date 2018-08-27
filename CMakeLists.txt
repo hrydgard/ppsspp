@@ -1758,6 +1758,11 @@ if(FFmpeg_FOUND)
   )
 endif()
 
+# Discord integration
+if(NOT IOS)
+target_link_libraries(${CoreLibName} discord-rpc)
+endif()
+
 setup_target_project(${CoreLibName} Core)
 
 # Generate git-version.cpp at build time.
