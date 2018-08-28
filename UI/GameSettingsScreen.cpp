@@ -684,7 +684,6 @@ void GameSettingsScreen::CreateViews() {
 	networkingSettings->Add(new Choice(n->T("Adhoc Multiplayer forum")))->OnClick.Handle(this, &GameSettingsScreen::OnAdhocGuides);
 
 	networkingSettings->Add(new CheckBox(&g_Config.bEnableWlan, n->T("Enable networking", "Enable networking/wlan (beta)")));
-	networkingSettings->Add(new CheckBox(&g_Config.bDiscordPresence, n->T("Send Discord Presence information")));
 
 #if !defined(MOBILE_DEVICE) && !defined(USING_QT_UI)
 	networkingSettings->Add(new PopupTextInputChoice(&g_Config.proAdhocServer, n->T("Change proAdhocServer Address"), "", 255, screenManager()));
@@ -1372,6 +1371,7 @@ void OtherSettingsScreen::CreateViews() {
 
 	I18NCategory *gr = GetI18NCategory("Graphics");
 	I18NCategory *sy = GetI18NCategory("System");
+	I18NCategory *n = GetI18NCategory("Networking");
 
 	AddStandardBack(root_);
 
@@ -1390,6 +1390,7 @@ void OtherSettingsScreen::CreateViews() {
 	list->Add(new CheckBox(&g_Config.bSimpleFrameStats, gr->T("Display simple frame stats(heavy!)")));
 	list->Add(new CheckBox(&g_Config.bRefreshAt60Hz, gr->T("Refresh at 60Hz(gamebreaking, but might be needed for NVidia stutter)")));
 	list->Add(new CheckBox(&g_Config.bSavestateScreenshotResLimit, gr->T("Limit resolution of savestates screenshots")));
+	list->Add(new CheckBox(&g_Config.bDiscordPresence, n->T("Send Discord(3rd party software) Presence information")));
 }
 
 void OtherSettingsScreen::onFinish(DialogResult result) {
