@@ -13,6 +13,10 @@
 #include <vector>
 #include <sstream>
 
+struct JsonNode;
+
+namespace json {
+
 class JsonWriter {
 public:
 	JsonWriter(int flags = NORMAL);
@@ -79,5 +83,6 @@ private:
 	bool pretty_;
 };
 
-struct JsonNode;
 std::string json_stringify(const JsonNode *json);
+
+}  // namespace json

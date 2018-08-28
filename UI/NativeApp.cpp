@@ -98,6 +98,7 @@
 #include "UI/TiltEventProcessor.h"
 #include "UI/BackgroundAudio.h"
 #include "UI/TextureUtil.h"
+#include "UI/DiscordIntegration.h"
 
 #if !defined(MOBILE_DEVICE)
 #include "Common/KeyMap.h"
@@ -351,6 +352,8 @@ void NativeInit(int argc, const char *argv[], const char *savegame_dir, const ch
 
 	InitFastMath(cpu_info.bNEON);
 	SetupAudioFormats();
+
+	g_Discord.SetPresenceMenu();
 
 	// Make sure UI state is MENU.
 	ResetUIState();
@@ -1034,6 +1037,8 @@ void NativeUpdate() {
 
 	g_DownloadManager.Update();
 	screenManager->update();
+
+	g_Discord.Update();
 }
 
 bool NativeIsAtTopLevel() {
@@ -1218,6 +1223,8 @@ void NativeShutdown() {
 	System_SendMessage("finish", "");
 
 	net::Shutdown();
+
+	g_Discord.Shutdown();
 
 	delete logger;
 	logger = nullptr;

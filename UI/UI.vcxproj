@@ -24,6 +24,7 @@
     <ClCompile Include="ControlMappingScreen.cpp" />
     <ClCompile Include="CwCheatScreen.cpp" />
     <ClCompile Include="DevScreens.cpp" />
+    <ClCompile Include="DiscordIntegration.cpp" />
     <ClCompile Include="DisplayLayoutEditor.cpp" />
     <ClCompile Include="DisplayLayoutScreen.cpp" />
     <ClCompile Include="EmuScreen.cpp" />
@@ -54,6 +55,7 @@
     <ClInclude Include="ComboKeyMappingScreen.h" />
     <ClInclude Include="ControlMappingScreen.h" />
     <ClInclude Include="DevScreens.h" />
+    <ClInclude Include="DiscordIntegration.h" />
     <ClInclude Include="DisplayLayoutEditor.h" />
     <ClInclude Include="DisplayLayoutScreen.h" />
     <ClInclude Include="EmuScreen.h" />
@@ -79,6 +81,11 @@
     <ClInclude Include="TouchControlVisibilityScreen.h" />
     <ClInclude Include="InstallZipScreen.h" />
     <ClInclude Include="ui_atlas.h" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\ext\discord-rpc-build\discord-rpc.vcxproj">
+      <Project>{beb0a821-3c7f-410f-a525-63afbc69bf8f}</Project>
+    </ProjectReference>
   </ItemGroup>
   <PropertyGroup Label="Globals">
     <ProjectGuid>{004B8D11-2BE3-4BD9-AB40-2BE04CF2096F}</ProjectGuid>
@@ -140,7 +147,6 @@
       <MinimalRebuild>false</MinimalRebuild>
       <RuntimeTypeInfo>false</RuntimeTypeInfo>
       <RuntimeLibrary>MultiThreadedDebug</RuntimeLibrary>
-      <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
       <ForcedIncludeFiles>Common/DbgNew.h</ForcedIncludeFiles>
       <AdditionalOptions>$(EXTERNAL_COMPILE_OPTIONS)</AdditionalOptions>
     </ClCompile>
@@ -165,7 +171,6 @@
       <RuntimeTypeInfo>false</RuntimeTypeInfo>
       <RuntimeLibrary>MultiThreadedDebug</RuntimeLibrary>
       <OmitFramePointers>false</OmitFramePointers>
-      <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
       <ForcedIncludeFiles>Common/DbgNew.h</ForcedIncludeFiles>
       <AdditionalOptions>$(EXTERNAL_COMPILE_OPTIONS)</AdditionalOptions>
     </ClCompile>
@@ -189,7 +194,7 @@
       <PreprocessorDefinitions>USING_WIN_UI;_CRT_SECURE_NO_WARNINGS;_ARCH_32=1;WIN32;NDEBUG;_LIB;_UNICODE;UNICODE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <AdditionalIncludeDirectories>../common;..;../ext/native;../ext/glew;../ext/snappy;../ext/zlib;../ext/native/ext</AdditionalIncludeDirectories>
       <BufferSecurityCheck>false</BufferSecurityCheck>
-      <FavorSizeOrSpeed>Speed</FavorSizeOrSpeed>
+      <FavorSizeOrSpeed>Size</FavorSizeOrSpeed>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <RuntimeTypeInfo>false</RuntimeTypeInfo>
       <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
@@ -222,6 +227,8 @@
       <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
       <StringPooling>true</StringPooling>
       <AdditionalOptions>$(EXTERNAL_COMPILE_OPTIONS)</AdditionalOptions>
+      <OmitFramePointers>false</OmitFramePointers>
+      <FavorSizeOrSpeed>Size</FavorSizeOrSpeed>
     </ClCompile>
     <Link>
       <SubSystem>Windows</SubSystem>

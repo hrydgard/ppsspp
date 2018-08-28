@@ -1,8 +1,11 @@
 #include <iomanip>
 #include <cmath>
 #include <cstring>
+
 #include "json/json_reader.h"
 #include "json/json_writer.h"
+
+namespace json {
 
 JsonWriter::JsonWriter(int flags) {
 	pretty_ = (flags & PRETTY) != 0;
@@ -383,3 +386,5 @@ static void json_stringify_array(JsonWriter &writer, const JsonNode *node) {
 		break;
 	}
 }
+
+}  // namespace json

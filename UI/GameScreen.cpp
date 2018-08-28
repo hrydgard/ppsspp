@@ -354,31 +354,18 @@ bool GameScreen::isRecentGame(const std::string &gamePath) {
 	if (g_Config.iMaxRecent <= 0)
 		return false;
 
+	const std::string resolved = File::ResolvePath(gamePath);
 	for (auto it = g_Config.recentIsos.begin(); it != g_Config.recentIsos.end(); ++it) {
-#ifdef _WIN32
-		if (!strcmpIgnore((*it).c_str(), gamePath.c_str(), "\\","/"))
-#else
-		if (!strcmp((*it).c_str(), gamePath.c_str()))
-#endif
+		const std::string recent = File::ResolvePath(*it);
+		if (resolved == recent)
 			return true;
 	}
 	return false;
 }
 
 UI::EventReturn GameScreen::OnRemoveFromRecent(UI::EventParams &e) {
-	if (g_Config.iMaxRecent <= 0)
-		return UI::EVENT_DONE;
-	for (auto it = g_Config.recentIsos.begin(); it != g_Config.recentIsos.end(); ++it) {
-#ifdef _WIN32
-		if (!strcmpIgnore((*it).c_str(), gamePath_.c_str(), "\\","/")) {
-#else
-		if (!strcmp((*it).c_str(), gamePath_.c_str())) {
-#endif
-			g_Config.recentIsos.erase(it);
-			screenManager()->switchScreen(new MainScreen());
-			return UI::EVENT_DONE;
-		}
-	}
+	g_Config.RemoveRecent(gamePath_);
+	screenManager()->switchScreen(new MainScreen());
 	return UI::EVENT_DONE;
 }
 

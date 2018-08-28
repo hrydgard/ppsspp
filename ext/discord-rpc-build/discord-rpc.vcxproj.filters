@@ -1,0 +1,22 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <ClInclude Include="..\discord-rpc\src\backoff.h" />
+    <ClInclude Include="..\discord-rpc\src\connection.h" />
+    <ClInclude Include="..\discord-rpc\src\msg_queue.h" />
+    <ClInclude Include="..\discord-rpc\src\rpc_connection.h" />
+    <ClInclude Include="..\discord-rpc\src\serialization.h" />
+    <ClInclude Include="..\discord-rpc\include\discord_register.h" />
+    <ClInclude Include="..\discord-rpc\include\discord_rpc.h" />
+  </ItemGroup>
+  <ItemGroup>
+    <Text Include="..\discord-rpc\src\CMakeLists.txt" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="..\discord-rpc\src\connection_win.cpp" />
+    <ClCompile Include="..\discord-rpc\src\discord_register_win.cpp" />
+    <ClCompile Include="..\discord-rpc\src\discord_rpc.cpp" />
+    <ClCompile Include="..\discord-rpc\src\rpc_connection.cpp" />
+    <ClCompile Include="..\discord-rpc\src\serialization.cpp" />
+  </ItemGroup>
+</Project>

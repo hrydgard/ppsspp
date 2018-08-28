@@ -124,6 +124,7 @@ option(SIMULATOR "Set to ON when targeting an x86 simulator of an ARM platform" 
 option(LIBRETRO "Set to ON to generate the libretro target" OFF)
 # :: Options
 option(USE_FFMPEG "Build with FFMPEG support" ${USE_FFMPEG})
+option(USE_SYSTEM_SNAPPY "Dynamically link against system snappy" ${USE_SYSTEM_SNAPPY})
 option(USE_SYSTEM_FFMPEG "Dynamically link against system FFMPEG" ${USE_SYSTEM_FFMPEG})
 option(USE_SYSTEM_LIBZIP "Dynamically link against system libzip" ${USE_SYSTEM_LIBZIP})
 option(USE_WAYLAND_WSI "Set to ON to require Wayland support for Vulkan" ${USE_WAYLAND_WSI})
@@ -822,6 +823,7 @@ endif()
 
 list(APPEND NativeAppSource
 	android/jni/TestRunner.cpp
+	UI/DiscordIntegration.cpp
 	UI/NativeApp.cpp
 	UI/BackgroundAudio.cpp
 	UI/DevScreens.cpp
@@ -1609,6 +1611,8 @@ add_library(${CoreLibName} ${CoreLinkType}
 	Core/HLE/sceUmd.h
 	Core/HLE/sceUsb.cpp
 	Core/HLE/sceUsb.h
+	Core/HLE/sceUsbAcc.cpp
+	Core/HLE/sceUsbAcc.h
 	Core/HLE/sceUsbCam.cpp
 	Core/HLE/sceUsbCam.h
 	Core/HLE/sceUsbGps.cpp
@@ -1752,6 +1756,11 @@ if(FFmpeg_FOUND)
     FFmpeg::swscale
     ${ZLIB_LIBRARY}
   )
+endif()
+
+# Discord integration
+if(NOT IOS)
+target_link_libraries(${CoreLibName} discord-rpc)
 endif()
 
 setup_target_project(${CoreLibName} Core)

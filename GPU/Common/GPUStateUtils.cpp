@@ -40,20 +40,28 @@ bool CanUseHardwareTransform(int prim) {
 	return !gstate.isModeThrough() && prim != GE_PRIM_RECTANGLES;
 }
 
-// Dest factors where it's safe to eliminate the alpha test under certain conditions
-static const bool safeDestFactors[16] = {
-	true, // GE_DSTBLEND_SRCCOLOR,
-	true, // GE_DSTBLEND_INVSRCCOLOR,
-	false, // GE_DSTBLEND_SRCALPHA,
-	true, // GE_DSTBLEND_INVSRCALPHA,
-	true, // GE_DSTBLEND_DSTALPHA,
-	true, // GE_DSTBLEND_INVDSTALPHA,
-	false, // GE_DSTBLEND_DOUBLESRCALPHA,
-	false, // GE_DSTBLEND_DOUBLEINVSRCALPHA,
-	true, // GE_DSTBLEND_DOUBLEDSTALPHA,
-	true, // GE_DSTBLEND_DOUBLEINVDSTALPHA,
-	true, //GE_DSTBLEND_FIXB,
-};
+bool NeedsTestDiscard() {
+	// We assume this is called only when enabled and not trivially true (may also be for color testing.)
+	if (gstate.isStencilTestEnabled() && (gstate.pmska & 0xFF) != 0xFF)
+		return true;
+	if (gstate.isDepthTestEnabled() && gstate.isDepthWriteEnabled())
+		return true;
+	if (!gstate.isAlphaBlendEnabled())
+		return true;
+	if (gstate.getBlendFuncA() != GE_SRCBLEND_SRCALPHA && gstate.getBlendFuncA() != GE_SRCBLEND_DOUBLESRCALPHA)
+		return true;
+	// GE_DSTBLEND_DOUBLEINVSRCALPHA is actually inverse double src alpha, and doubling zero is still zero.
+	if (gstate.getBlendFuncB() != GE_DSTBLEND_INVSRCALPHA && gstate.getBlendFuncB() != GE_DSTBLEND_DOUBLEINVSRCALPHA) {
+		if (gstate.getBlendFuncB() != GE_DSTBLEND_FIXB || gstate.getFixB() != 0xFFFFFF)
+			return true;
+	}
+	if (gstate.getBlendEq() != GE_BLENDMODE_MUL_AND_ADD && gstate.getBlendEq() != GE_BLENDMODE_MUL_AND_SUBTRACT_REVERSE)
+		return true;
+	if (gstate.isLogicOpEnabled() && gstate.getLogicOp() != GE_LOGIC_COPY)
+		return true;
+
+	return false;
+}
 
 bool IsAlphaTestTriviallyTrue() {
 	switch (gstate.getAlphaTestFunction()) {
@@ -80,25 +88,10 @@ bool IsAlphaTestTriviallyTrue() {
 
 	case GE_COMP_GREATER:
 	{
-#if 0
-		// Easy way to check the values in the debugger without ruining && early-out
-		bool doTextureAlpha = gstate.isTextureAlphaUsed();
-		bool stencilTest = gstate.isStencilTestEnabled();
-		bool depthTest = gstate.isDepthTestEnabled();
-		GEComparison depthTestFunc = gstate.getDepthTestFunction();
-		int alphaRef = gstate.getAlphaTestRef();
-		int blendA = gstate.getBlendFuncA();
-		bool blendEnabled = gstate.isAlphaBlendEnabled();
-		int blendB = gstate.getBlendFuncA();
-#endif
-		return (gstate_c.vertexFullAlpha && (gstate_c.textureFullAlpha || !gstate.isTextureAlphaUsed())) || (
-			(!gstate.isStencilTestEnabled() &&
-				!gstate.isDepthTestEnabled() &&
-				(!gstate.isLogicOpEnabled() || gstate.getLogicOp() == GE_LOGIC_COPY) &&
-				gstate.getAlphaTestRef() == 0 &&
-				gstate.isAlphaBlendEnabled() &&
-				gstate.getBlendFuncA() == GE_SRCBLEND_SRCALPHA &&
-				safeDestFactors[(int)gstate.getBlendFuncB()]));
+		// If the texture and vertex only use 1.0 alpha, then the ref value doesn't matter.
+		if (gstate_c.vertexFullAlpha && (gstate_c.textureFullAlpha || !gstate.isTextureAlphaUsed()))
+			return true;
+		return gstate.getAlphaTestRef() == 0 && !NeedsTestDiscard();
 	}
 
 	case GE_COMP_LEQUAL:
@@ -684,7 +677,7 @@ void ConvertViewportAndScissor(bool useBufferedRendering, float renderWidth, flo
 		float minz = gstate.getDepthRangeMin();
 		float maxz = gstate.getDepthRangeMax();
 
-		if (gstate.isClippingEnabled() && (minz == 0 || maxz == 65535)) {
+		if (gstate.isDepthClampEnabled() && (minz == 0 || maxz == 65535)) {
 			// Here, we should "clamp."  But clamping per fragment would be slow.
 			// So, instead, we just increase the available range and hope.
 			// If depthSliceFactor is 4, it means (75% / 2) of the depth lies in each direction.
@@ -821,22 +814,16 @@ static inline bool blendColorSimilar(uint32_t a, uint32_t b, int margin = 25) { 
 }
 
 // Try to simulate some common logic ops.
-void ApplyStencilReplaceAndLogicOp(ReplaceAlphaType replaceAlphaWithStencil, GenericBlendState &blendState) {
-	StencilValueType stencilType = STENCIL_VALUE_KEEP;
-	if (replaceAlphaWithStencil == REPLACE_ALPHA_YES) {
-		stencilType = ReplaceAlphaWithStencilType();
-	}
-
-	// Normally, we would add src + 0, but the logic op may have us do differently.
-	BlendFactor srcBlend = BlendFactor::ONE;
-	BlendFactor dstBlend = BlendFactor::ZERO;
-	BlendEq blendEq = BlendEq::ADD;
-
+static void ApplyLogicOp(BlendFactor &srcBlend, BlendFactor &dstBlend, BlendEq &blendEq) {
+	// Note: our shader solution applies logic ops BEFORE blending, not correctly after.
+	// This is however fine for the most common ones, like CLEAR/NOOP/SET, etc.
 	if (!gstate_c.Supports(GPU_SUPPORTS_LOGIC_OP)) {
 		if (gstate.isLogicOpEnabled()) {
 			switch (gstate.getLogicOp()) {
 			case GE_LOGIC_CLEAR:
 				srcBlend = BlendFactor::ZERO;
+				dstBlend = BlendFactor::ZERO;
+				blendEq = BlendEq::ADD;
 				break;
 			case GE_LOGIC_AND:
 			case GE_LOGIC_AND_REVERSE:
@@ -864,6 +851,7 @@ void ApplyStencilReplaceAndLogicOp(ReplaceAlphaType replaceAlphaWithStencil, Gen
 			case GE_LOGIC_NOOP:
 				srcBlend = BlendFactor::ZERO;
 				dstBlend = BlendFactor::ONE;
+				blendEq = BlendEq::ADD;
 				break;
 			case GE_LOGIC_XOR:
 				WARN_LOG_REPORT_ONCE(d3dLogicOpOrXor, G3D, "Unsupported XOR logic op: %x", gstate.getLogicOp());
@@ -878,14 +866,30 @@ void ApplyStencilReplaceAndLogicOp(ReplaceAlphaType replaceAlphaWithStencil, Gen
 				WARN_LOG_REPORT_ONCE(d3dLogicOpOrReverse, G3D, "Unsupported OR REVERSE logic op: %x", gstate.getLogicOp());
 				break;
 			case GE_LOGIC_SET:
+				srcBlend = BlendFactor::ONE;
 				dstBlend = BlendFactor::ONE;
+				blendEq = BlendEq::ADD;
 				WARN_LOG_REPORT_ONCE(d3dLogicOpSet, G3D, "Attempted set for logic op: %x", gstate.getLogicOp());
 				break;
 			}
 		}
 	}
+}
 
-	// We're not blending, but we may still want to blend for stencil.
+// Try to simulate some common logic ops.
+void ApplyStencilReplaceAndLogicOp(ReplaceAlphaType replaceAlphaWithStencil, GenericBlendState &blendState) {
+	StencilValueType stencilType = STENCIL_VALUE_KEEP;
+	if (replaceAlphaWithStencil == REPLACE_ALPHA_YES) {
+		stencilType = ReplaceAlphaWithStencilType();
+	}
+
+	// Normally, we would add src + 0 with blending off, but the logic op may have us do differently.
+	BlendFactor srcBlend = BlendFactor::ONE;
+	BlendFactor dstBlend = BlendFactor::ZERO;
+	BlendEq blendEq = BlendEq::ADD;
+	ApplyLogicOp(srcBlend, dstBlend, blendEq);
+
+	// We're not blending, but we may still want to "blend" for stencil.
 	// This is only useful for INCR/DECR/INVERT.  Others can write directly.
 	switch (stencilType) {
 	case STENCIL_VALUE_INCR_4:
@@ -1113,6 +1117,15 @@ void ConvertBlendState(GenericBlendState &blendState, bool allowShaderBlend) {
 #endif
 
 	// At this point, through all paths above, glBlendFuncA and glBlendFuncB will be set right somehow.
+	BlendEq colorEq;
+	if (gstate_c.Supports(GPU_SUPPORTS_BLEND_MINMAX)) {
+		colorEq = eqLookup[blendFuncEq];
+	} else {
+		colorEq = eqLookupNoMinMax[blendFuncEq];
+	}
+
+	// Attempt to apply the logic op, if any.
+	ApplyLogicOp(glBlendFuncA, glBlendFuncB, colorEq);
 
 	// The stencil-to-alpha in fragment shader doesn't apply here (blending is enabled), and we shouldn't
 	// do any blending in the alpha channel as that doesn't seem to happen on PSP.  So, we attempt to
@@ -1182,11 +1195,7 @@ void ConvertBlendState(GenericBlendState &blendState, bool allowShaderBlend) {
 		blendState.setFactors(glBlendFuncA, glBlendFuncB, BlendFactor::ZERO, BlendFactor::ONE);
 	}
 
-	if (gstate_c.Supports(GPU_SUPPORTS_BLEND_MINMAX)) {
-		blendState.setEquation(eqLookup[blendFuncEq], alphaEq);
-	} else {
-		blendState.setEquation(eqLookupNoMinMax[blendFuncEq], alphaEq);
-	}
+	blendState.setEquation(colorEq, alphaEq);
 }
 
 static void ConvertStencilFunc5551(GenericStencilFuncState &state) {

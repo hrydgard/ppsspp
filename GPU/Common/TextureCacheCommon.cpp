@@ -720,6 +720,9 @@ void TextureCacheCommon::DetachFramebuffer(TexCacheEntry *entry, u32 address, Vi
 		const u64 cachekey = entry->CacheKey();
 		cacheSizeEstimate_ += EstimateTexMemoryUsage(entry);
 		entry->framebuffer = nullptr;
+		// Force the hash to change in case we had one before.
+		// Otherwise we never recreate the texture.
+		entry->hash ^= 1;
 		fbTexInfo_.erase(cachekey);
 		host->GPUNotifyTextureAttachment(entry->addr);
 	}

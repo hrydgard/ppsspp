@@ -1,6 +1,6 @@
 find_package(Snappy)
 
-if(SNAPPY_FOUND)
+if(SNAPPY_FOUND AND USE_SYSTEM_SNAPPY)
   add_library(system_snappy INTERFACE)
   add_library(Ext::Snappy ALIAS system_snappy)
   target_link_libraries(system_snappy INTERFACE Snappy::Snappy)

@@ -385,6 +385,7 @@ EXEC_AND_LIB_FILES := \
   $(SRC)/Core/HLE/sceSsl.cpp \
   $(SRC)/Core/HLE/sceUmd.cpp \
   $(SRC)/Core/HLE/sceUsb.cpp \
+  $(SRC)/Core/HLE/sceUsbAcc.cpp \
   $(SRC)/Core/HLE/sceUsbCam.cpp \
   $(SRC)/Core/HLE/sceUsbGps.cpp \
   $(SRC)/Core/HLE/sceUtility.cpp \
@@ -485,6 +486,7 @@ LOCAL_SRC_FILES := \
   $(SRC)/android/jni/native_audio.cpp \
   $(SRC)/android/jni/native-audio-so.cpp \
   $(SRC)/UI/BackgroundAudio.cpp \
+  $(SRC)/UI/DiscordIntegration.cpp \
   $(SRC)/UI/DevScreens.cpp \
   $(SRC)/UI/DisplayLayoutEditor.cpp \
   $(SRC)/UI/DisplayLayoutScreen.cpp \

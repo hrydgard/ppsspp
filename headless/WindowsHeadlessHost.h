@@ -53,6 +53,5 @@ protected:
 	HWND hWnd;
 	HDC hDC;
 	HGLRC hRC;
-	GraphicsContext *gfx_;
 	volatile RenderThreadState threadState_ = RenderThreadState::IDLE;
 };

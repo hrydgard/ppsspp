@@ -362,6 +362,21 @@ int SavedataParam::Save(SceUtilitySavedataParam* param, const std::string &saveD
 	if (!param) {
 		return SCE_UTILITY_SAVEDATA_ERROR_SAVE_MS_NOSPACE;
 	}
+	if (param->dataSize > param->dataBufSize) {
+		ERROR_LOG_REPORT(SCEUTILITY, "Savedata buffer overflow: %d / %d", param->dataSize, param->dataBufSize);
+		return SCE_UTILITY_SAVEDATA_ERROR_RW_BAD_PARAMS;
+	}
+	auto validateSize = [](const PspUtilitySavedataFileData &data) {
+		if (data.buf.IsValid() && data.bufSize < data.size) {
+			ERROR_LOG_REPORT(SCEUTILITY, "Savedata subdata buffer overflow: %d / %d", data.size, data.bufSize);
+			return false;
+		}
+		return true;
+	};
+	if (!validateSize(param->icon0FileData) || !validateSize(param->icon1FileData) || !validateSize(param->pic1FileData) || !validateSize(param->snd0FileData)) {
+		return SCE_UTILITY_SAVEDATA_ERROR_RW_BAD_PARAMS;
+	}
+
 	if (param->secureVersion > 3) {
 		ERROR_LOG_REPORT(SCEUTILITY, "Savedata version requested on save: %d", param->secureVersion);
 		return SCE_UTILITY_SAVEDATA_ERROR_SAVE_PARAM;
@@ -520,26 +535,26 @@ int SavedataParam::Save(SceUtilitySavedataParam* param, const std::string &saveD
 	if (param->icon0FileData.buf.IsValid())
 	{
 		std::string icon0path = dirPath + "/" + ICON0_FILENAME;
-		WritePSPFile(icon0path, param->icon0FileData.buf, param->icon0FileData.bufSize);
+		WritePSPFile(icon0path, param->icon0FileData.buf, param->icon0FileData.size);
 	}
 	// SAVE ICON1
 	if (param->icon1FileData.buf.IsValid())
 	{
 		std::string icon1path = dirPath + "/" + ICON1_FILENAME;
-		WritePSPFile(icon1path, param->icon1FileData.buf, param->icon1FileData.bufSize);
+		WritePSPFile(icon1path, param->icon1FileData.buf, param->icon1FileData.size);
 	}
 	// SAVE PIC1
 	if (param->pic1FileData.buf.IsValid())
 	{
 		std::string pic1path = dirPath + "/" + PIC1_FILENAME;
-		WritePSPFile(pic1path, param->pic1FileData.buf, param->pic1FileData.bufSize);
+		WritePSPFile(pic1path, param->pic1FileData.buf, param->pic1FileData.size);
 	}
 
 	// Save SND
 	if (param->snd0FileData.buf.IsValid())
 	{
 		std::string snd0path = dirPath + "/" + SND0_FILENAME;
-		WritePSPFile(snd0path, param->snd0FileData.buf, param->snd0FileData.bufSize);
+		WritePSPFile(snd0path, param->snd0FileData.buf, param->snd0FileData.size);
 	}
 
 	return 0;
@@ -642,20 +657,28 @@ int SavedataParam::DetermineCryptMode(const SceUtilitySavedataParam *param) cons
 	return decryptMode;
 }
 
-void SavedataParam::LoadCryptedSave(SceUtilitySavedataParam *param, u8 *data, u8 *saveData, int &saveSize, int prevCryptMode, const u8 *expectedHash, bool &saveDone) {
+void SavedataParam::LoadCryptedSave(SceUtilitySavedataParam *param, u8 *data, const u8 *saveData, int &saveSize, int prevCryptMode, const u8 *expectedHash, bool &saveDone) {
+	int orig_size = saveSize;
 	int align_len = align16(saveSize);
 	u8 *data_base = new u8[align_len];
 	u8 *cryptKey = new u8[0x10];
-	memset(cryptKey, 0, 0x10);
 
 	int decryptMode = DetermineCryptMode(param);
 	const int detectedMode = decryptMode;
-	bool hasKey = decryptMode > 1;
-	if (hasKey) {
-		memcpy(cryptKey, param->key, 0x10);
-	}
-	memset(data_base + saveSize, 0, align_len - saveSize);
-	memcpy(data_base, saveData, saveSize);
+	bool hasKey;
+
+	auto resetData = [&](int mode) {
+		saveSize = orig_size;
+		align_len = align16(saveSize);
+		hasKey = mode > 1;
+
+		if (hasKey) {
+			memcpy(cryptKey, param->key, 0x10);
+		}
+		memcpy(data_base, saveData, saveSize);
+		memset(data_base + saveSize, 0, align_len - saveSize);
+	};
+	resetData(decryptMode);
 
 	if (decryptMode != prevCryptMode) {
 		if (prevCryptMode == 1 && param->key[0] == 0) {
@@ -688,12 +711,13 @@ void SavedataParam::LoadCryptedSave(SceUtilitySavedataParam *param, u8 *data, u8
 	int err = DecryptSave(decryptMode, data_base, &saveSize, &align_len, hasKey ? cryptKey : nullptr, expectedHash);
 	// Perhaps the file had the wrong mode....
 	if (err != 0 && detectedMode != decryptMode) {
-		hasKey = detectedMode > 1;
+		resetData(detectedMode);
 		err = DecryptSave(detectedMode, data_base, &saveSize, &align_len, hasKey ? cryptKey : nullptr, expectedHash);
 	}
 	// TODO: Should return an error, but let's just try with a bad hash.
 	if (err != 0 && expectedHash != nullptr) {
 		WARN_LOG(SCEUTILITY, "Incorrect hash on save data, likely corrupt");
+		resetData(decryptMode);
 		err = DecryptSave(decryptMode, data_base, &saveSize, &align_len, hasKey ? cryptKey : nullptr, nullptr);
 	}
 

@@ -749,6 +749,7 @@ void GLQueueRunner::PerformRenderPass(const GLRStep &step) {
 		}
 		case GLRRenderCommand::UNIFORM4I:
 		{
+			assert(curProgram);
 			int loc = c.uniform4.loc ? *c.uniform4.loc : -1;
 			if (c.uniform4.name) {
 				loc = curProgram->GetUniformLoc(c.uniform4.name);
@@ -774,6 +775,7 @@ void GLQueueRunner::PerformRenderPass(const GLRStep &step) {
 		}
 		case GLRRenderCommand::UNIFORMMATRIX:
 		{
+			assert(curProgram);
 			int loc = c.uniform4.loc ? *c.uniform4.loc : -1;
 			if (c.uniform4.name) {
 				loc = curProgram->GetUniformLoc(c.uniform4.name);

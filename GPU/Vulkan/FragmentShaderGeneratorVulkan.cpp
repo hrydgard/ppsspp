@@ -57,6 +57,7 @@ bool GenerateVulkanGLSLFragmentShader(const FShaderID &id, char *buffer) {
 	bool enableAlphaTest = id.Bit(FS_BIT_ALPHA_TEST);
 
 	bool alphaTestAgainstZero = id.Bit(FS_BIT_ALPHA_AGAINST_ZERO);
+	bool testForceToZero = id.Bit(FS_BIT_TEST_DISCARD_TO_ZERO);
 	bool enableColorTest = id.Bit(FS_BIT_COLOR_TEST);
 	bool colorTestAgainstZero = id.Bit(FS_BIT_COLOR_AGAINST_ZERO);
 	bool enableColorDoubling = id.Bit(FS_BIT_COLOR_DOUBLE);
@@ -83,7 +84,7 @@ bool GenerateVulkanGLSLFragmentShader(const FShaderID &id, char *buffer) {
 	bool isModeClear = id.Bit(FS_BIT_CLEARMODE);
 
 	const char *shading = doFlatShading ? "flat" : "";
-	bool earlyFragmentTests = !enableAlphaTest && !enableColorTest && !gstate_c.Supports(GPU_ROUND_FRAGMENT_DEPTH_TO_16BIT);
+	bool earlyFragmentTests = ((!enableAlphaTest && !enableColorTest) || testForceToZero) && !gstate_c.Supports(GPU_ROUND_FRAGMENT_DEPTH_TO_16BIT);
 
 	if (earlyFragmentTests) {
 		WRITE(p, "layout (early_fragment_tests) in;\n");
@@ -348,27 +349,28 @@ bool GenerateVulkanGLSLFragmentShader(const FShaderID &id, char *buffer) {
 		// So we have to scale to account for the difference.
 		std::string alphaTestXCoord = "0";
 
+		const char *discardStatement = testForceToZero ? "v.a = 0.0;" : "discard;";
 		if (enableAlphaTest) {
 			if (alphaTestAgainstZero) {
 				// When testing against 0 (extremely common), we can avoid some math.
 				// 0.002 is approximately half of 1.0 / 255.0.
 				if (alphaTestFunc == GE_COMP_NOTEQUAL || alphaTestFunc == GE_COMP_GREATER) {
-					WRITE(p, "  if (v.a < 0.002) discard;\n");
+					WRITE(p, "  if (v.a < 0.002) %s\n", discardStatement);
 				} else if (alphaTestFunc != GE_COMP_NEVER) {
 					// Anything else is a test for == 0.  Happens sometimes, actually...
-					WRITE(p, "  if (v.a > 0.002) discard;\n");
+					WRITE(p, "  if (v.a > 0.002) %s\n", discardStatement);
 				} else {
 					// NEVER has been logged as used by games, although it makes little sense - statically failing.
 					// Maybe we could discard the drawcall, but it's pretty rare.  Let's just statically discard here.
-					WRITE(p, "  discard;\n");
+					WRITE(p, "  %s\n", discardStatement);
 				}
 			} else {
 				const char *alphaTestFuncs[] = { "#", "#", " != ", " == ", " >= ", " > ", " <= ", " < " };
 				if (alphaTestFuncs[alphaTestFunc][0] != '#') {
-					WRITE(p, "  if ((roundAndScaleTo255i(v.a) & base.alphacolormask.a) %s base.alphacolorref.a) discard;\n", alphaTestFuncs[alphaTestFunc]);
+					WRITE(p, "  if ((roundAndScaleTo255i(v.a) & base.alphacolormask.a) %s base.alphacolorref.a) %s\n", alphaTestFuncs[alphaTestFunc], discardStatement);
 				} else {
 					// This means NEVER.  See above.
-					WRITE(p, "  discard;\n");
+					WRITE(p, "  %s\n", discardStatement);
 				}
 			}
 		}
@@ -379,22 +381,22 @@ bool GenerateVulkanGLSLFragmentShader(const FShaderID &id, char *buffer) {
 				// Have my doubts that this special case is actually worth it, but whatever.
 				// 0.002 is approximately half of 1.0 / 255.0.
 				if (colorTestFunc == GE_COMP_NOTEQUAL) {
-					WRITE(p, "  if (v.r + v.g + v.b < 0.002) discard;\n");
+					WRITE(p, "  if (v.r + v.g + v.b < 0.002) %s\n", discardStatement);
 				} else if (colorTestFunc != GE_COMP_NEVER) {
 					// Anything else is a test for == 0.
-					WRITE(p, "  if (v.r + v.g + v.b > 0.002) discard;\n");
+					WRITE(p, "  if (v.r + v.g + v.b > 0.002) %s\n", discardStatement);
 				} else {
 					// NEVER has been logged as used by games, although it makes little sense - statically failing.
 					// Maybe we could discard the drawcall, but it's pretty rare.  Let's just statically discard here.
-					WRITE(p, "  discard;\n");
+					WRITE(p, "  %s\n", discardStatement);
 				}
 			} else {
 				const char *colorTestFuncs[] = { "#", "#", " != ", " == " };
 				if (colorTestFuncs[colorTestFunc][0] != '#') {
 					WRITE(p, "  ivec3 v_scaled = roundAndScaleTo255iv(v.rgb);\n");
-					WRITE(p, "  if ((v_scaled & base.alphacolormask.rgb) %s (base.alphacolorref.rgb & base.alphacolormask.rgb)) discard;\n", colorTestFuncs[colorTestFunc]);
+					WRITE(p, "  if ((v_scaled & base.alphacolormask.rgb) %s (base.alphacolorref.rgb & base.alphacolormask.rgb)) %s\n", colorTestFuncs[colorTestFunc], discardStatement);
 				} else {
-					WRITE(p, "  discard;\n");
+					WRITE(p, "  %s\n", discardStatement);
 				}
 			}
 		}

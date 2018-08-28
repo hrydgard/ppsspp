@@ -1,4 +1,4 @@
-// Copyright (c) 2017- PPSSPP Project.
+// Copyright (c) 2012- PPSSPP Project.
 
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
@@ -17,39 +17,5 @@
 
 #pragma once
 
-#ifdef SDL
+void Register_sceUsbAcc();
 
-#include "headless/StubHost.h"
-
-#undef HEADLESSHOST_CLASS
-#define HEADLESSHOST_CLASS SDLHeadlessHost
-
-struct SDL_Window;
-typedef void *SDL_GLContext;
-
-class SDLHeadlessHost : public HeadlessHost
-{
-public:
-	bool InitGraphics(std::string *error_message, GraphicsContext **ctx) override;
-	void ShutdownGraphics() override;
-
-	void SwapBuffers() override;
-
-protected:
-	void LoadNativeAssets();
-
-	enum class RenderThreadState {
-		IDLE,
-		START_REQUESTED,
-		STARTING,
-		START_FAILED,
-		STARTED,
-		STOP_REQUESTED,
-		STOPPING,
-		STOPPED,
-	};
-
-	volatile RenderThreadState threadState_ = RenderThreadState::IDLE;
-};
-
-#endif

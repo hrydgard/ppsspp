@@ -44,7 +44,7 @@ VirtualDiscFileSystem::VirtualDiscFileSystem(IHandleAllocator *_hAlloc, std::str
 	: basePath(_basePath),currentBlockIndex(0) {
 
 #ifdef _WIN32
-		if (!endsWith(basePath, "\\"))
+		if (!endsWith(basePath, "\\") && !endsWith(basePath, "/"))
 			basePath = basePath + "\\";
 #else
 		if (!endsWith(basePath, "/"))

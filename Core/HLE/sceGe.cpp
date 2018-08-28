@@ -353,10 +353,10 @@ u32 sceGeListEnQueueHead(u32 listAddress, u32 stallAddress, int callbackId, u32 
 	auto optParam = PSPPointer<PspGeListArgs>::Create(optParamAddr);
 
 	u32 listID = gpu->EnqueueList(listAddress, stallAddress, __GeSubIntrBase(callbackId), optParam, true);
-	if ((int)listID >= 0)
+	if ((int)listID >= 0) {
 		listID = LIST_ID_MAGIC ^ listID;
-
-	DEBUG_LOG(SCEGE, "List %i enqueued at head.", listID);
+		DEBUG_LOG(SCEGE, "List %i enqueued at head.", listID);
+	}
 	hleEatCycles(480);
 	CoreTiming::ForceCheck();
 	return listID;

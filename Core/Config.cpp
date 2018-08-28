@@ -400,6 +400,7 @@ static ConfigSetting generalSettings[] = {
 	ConfigSetting("CheckForNewVersion", &g_Config.bCheckForNewVersion, false),
 	ConfigSetting("Language", &g_Config.sLanguageIni, &DefaultLangRegion),
 	ConfigSetting("ForceLagSync", &g_Config.bForceLagSync, false, true, true),
+	ConfigSetting("DiscordPresence", &g_Config.bDiscordPresence, false, false, false),  // Or maybe it makes sense to have it per-game? Race conditions abound...
 
 	ReportedConfigSetting("NumWorkerThreads", &g_Config.iNumWorkerThreads, &DefaultNumWorkers, true, true),
 	ConfigSetting("AutoLoadSaveState", &g_Config.iAutoLoadSaveState, 0, true, true),
@@ -1175,8 +1176,8 @@ void Config::DownloadCompletedCallback(http::Download &download) {
 		return;
 	}
 
-	JsonReader reader(data.c_str(), data.size());
-	const JsonGet root = reader.root();
+	json::JsonReader reader(data.c_str(), data.size());
+	const json::JsonGet root = reader.root();
 	if (!root) {
 		ERROR_LOG(LOADER, "Failed to parse json");
 		return;
@@ -1222,28 +1223,30 @@ void Config::AddRecent(const std::string &file) {
 	if (iMaxRecent <= 0)
 		return;
 
-#ifdef _WIN32
-	std::string filename = ReplaceAll(file, "\\", "/");
-#else
-	std::string filename = file;
-#endif
+	// We'll add it back below.  This makes sure it's at the front, and only once.
+	RemoveRecent(file);
 
-	for (auto str = recentIsos.begin(); str != recentIsos.end(); ++str) {
-#ifdef _WIN32
-		if (!strcmpIgnore((*str).c_str(), filename.c_str(), "\\", "/")) {
-#else
-		if (!strcmp((*str).c_str(), filename.c_str())) {
-#endif
-			recentIsos.erase(str);
-			recentIsos.insert(recentIsos.begin(), filename);
-			if ((int)recentIsos.size() > iMaxRecent)
-				recentIsos.resize(iMaxRecent);
-			return;
-		}
-	}
+	const std::string filename = File::ResolvePath(file);
 	recentIsos.insert(recentIsos.begin(), filename);
 	if ((int)recentIsos.size() > iMaxRecent)
 		recentIsos.resize(iMaxRecent);
+}
+
+void Config::RemoveRecent(const std::string &file) {
+	// Don't bother with this if the user disabled recents (it's -1).
+	if (iMaxRecent <= 0)
+		return;
+
+	const std::string filename = File::ResolvePath(file);
+	for (auto iter = recentIsos.begin(); iter != recentIsos.end();) {
+		const std::string recent = File::ResolvePath(*iter);
+		if (filename == recent) {
+			// Note that the increment-erase idiom doesn't work with vectors.
+			iter = recentIsos.erase(iter);
+		} else {
+			iter++;
+		}
+	}
 }
 
 void Config::CleanRecent() {

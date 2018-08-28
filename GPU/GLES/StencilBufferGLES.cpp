@@ -110,6 +110,7 @@ bool FramebufferManagerGLES::NotifyStencilUpload(u32 addr, int size, bool skipZe
 			// Common when creating buffers, it's already 0.  We're done.
 			return false;
 		}
+		shaderManagerGL_->DirtyLastShader();
 
 		// Let's not bother with the shader if it's just zero.
 		if (dstBuffer->fbo) {

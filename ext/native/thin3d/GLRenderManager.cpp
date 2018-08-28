@@ -228,6 +228,9 @@ void GLRenderManager::StopThread() {
 
 void GLRenderManager::BindFramebufferAsRenderTarget(GLRFramebuffer *fb, GLRRenderPassAction color, GLRRenderPassAction depth, GLRRenderPassAction stencil, uint32_t clearColor, float clearDepth, uint8_t clearStencil) {
 	assert(insideFrame_);
+#ifdef _DEBUG
+	curProgram_ = nullptr;
+#endif
 	// Eliminate dupes.
 	if (steps_.size() && steps_.back()->render.framebuffer == fb && steps_.back()->stepType == GLRStepType::RENDER) {
 		if (color != GLRRenderPassAction::CLEAR && depth != GLRRenderPassAction::CLEAR && stencil != GLRRenderPassAction::CLEAR) {
@@ -342,6 +345,7 @@ bool GLRenderManager::CopyFramebufferToMemorySync(GLRFramebuffer *src, int aspec
 }
 
 void GLRenderManager::CopyImageToMemorySync(GLRTexture *texture, int mipLevel, int x, int y, int w, int h, Draw::DataFormat destFormat, uint8_t *pixels, int pixelStride) {
+	_assert_(texture);
 	GLRStep *step = new GLRStep{ GLRStepType::READBACK_IMAGE };
 	step->readback_image.texture = texture;
 	step->readback_image.mipLevel = mipLevel;
@@ -359,6 +363,10 @@ void GLRenderManager::CopyImageToMemorySync(GLRTexture *texture, int mipLevel, i
 
 void GLRenderManager::BeginFrame() {
 	VLOG("BeginFrame");
+
+#ifdef _DEBUG
+	curProgram_ = nullptr;
+#endif
 
 	int curFrame = GetCurFrame();
 	FrameData &frameData = frameData_[curFrame];

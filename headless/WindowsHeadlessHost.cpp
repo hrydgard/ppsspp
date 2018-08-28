@@ -163,7 +163,7 @@ bool WindowsHeadlessHost::InitGraphics(std::string *error_message, GraphicsConte
 
 void WindowsHeadlessHost::ShutdownGraphics() {
 	gfx_->StopThread();
-	while (threadState_ != RenderThreadState::STOPPED)
+	while (threadState_ != RenderThreadState::STOPPED && threadState_ != RenderThreadState::IDLE)
 		sleep_ms(1);
 
 	gfx_->Shutdown();

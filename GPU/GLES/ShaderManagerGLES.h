@@ -169,7 +169,7 @@ public:
 	void DeviceRestore(Draw::DrawContext *draw);
 
 	void DirtyShader();
-	void DirtyLastShader() override;  // disables vertex arrays
+	void DirtyLastShader() override;
 
 	int GetNumVertexShaders() const { return (int)vsCache_.size(); }
 	int GetNumFragmentShaders() const { return (int)fsCache_.size(); }

@@ -972,7 +972,7 @@ inline void DrawSinglePixel(const DrawingCoords &p, u16 z, u8 fog, const Vec4<in
 #endif
 	}
 
-	// TODO: Is alpha blending still performed if logic ops are enabled?
+	// Logic ops are applied after blending (if blending is enabled.)
 	if (gstate.isLogicOpEnabled() && !clearMode) {
 		// Logic ops don't affect stencil.
 		new_color = (stencil << 24) | (ApplyLogicOp(gstate.getLogicOp(), old_color, new_color) & 0x00FFFFFF);
@@ -980,9 +980,8 @@ inline void DrawSinglePixel(const DrawingCoords &p, u16 z, u8 fog, const Vec4<in
 
 	if (clearMode) {
 		new_color = (new_color & ~gstate.getClearModeColorMask()) | (old_color & gstate.getClearModeColorMask());
-	} else {
-		new_color = (new_color & ~gstate.getColorMask()) | (old_color & gstate.getColorMask());
 	}
+	new_color = (new_color & ~gstate.getColorMask()) | (old_color & gstate.getColorMask());
 
 	// TODO: Dither before or inside SetPixelColor
 	SetPixelColor(p.x, p.y, new_color);
@@ -1553,6 +1552,9 @@ void ClearRectangle(const VertexData &v0, const VertexData &v1)
 		_dbg_assert_msg_(G3D, false, "Software: invalid framebuf format.");
 		break;
 	}
+
+	// The pixel write masks are respected in clear mode.
+	keepOldMask &= ~gstate.getColorMask();
 
 	if (keepOldMask == 0) {
 		ScreenCoords pprime(minX, minY, 0);

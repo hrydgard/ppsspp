@@ -82,6 +82,8 @@ static bool FindServer(std::string &resultHost, int &resultPort) {
 	std::string json;
 	result.TakeAll(&json);
 
+	using namespace json;
+
 	JsonReader reader(json.c_str(), json.size());
 	if (!reader.ok()) {
 		return false;
