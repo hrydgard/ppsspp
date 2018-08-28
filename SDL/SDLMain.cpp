@@ -19,6 +19,7 @@ SDLJoystick *joystick = NULL;
 #include <cassert>
 #include <cmath>
 #include <thread>
+#include <locale>
 
 #include "base/display.h"
 #include "base/logging.h"
@@ -187,8 +188,23 @@ std::string System_GetProperty(SystemProperty prop) {
 #else
 		return "SDL:";
 #endif
-	case SYSPROP_LANGREGION:
+	case SYSPROP_LANGREGION: {
+		// Get user-preferred locale from OS
+		setlocale(LC_ALL, "");
+		std::string locale(setlocale(LC_ALL, NULL));
+		// Set c and c++ strings back to POSIX
+		std::locale::global(std::locale("POSIX"));
+		if (!locale.empty()) {
+			if (locale.find("_", 0) != std::string::npos) {
+				if (locale.find(".", 0) != std::string::npos) {
+					return locale.substr(0, locale.find(".",0));
+				} else {
+					return locale;
+				}
+			}
+		}
 		return "en_US";
+	}
 	default:
 		return "";
 	}
