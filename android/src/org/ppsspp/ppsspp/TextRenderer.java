@@ -54,6 +54,12 @@ public class TextRenderer {
 			total.x = Math.max(sz.x, total.x);
 		}
 		total.y = (int) (p.descent() - p.ascent()) * lines.length + 2;
+		// Returning a 0 size can create problems when the caller
+		// uses the measurement to create a texture.
+		if (total.x < 1)
+			total.x = 1;
+		if (total.y < 1)
+			total.y = 1;
 		return total;
 	}
 
@@ -67,10 +73,6 @@ public class TextRenderer {
 
 		int w = s.x;
 		int h = s.y;
-		if (w == 0)
-			w = 1;
-		if (h == 0)
-			h = 1;
 
 		Bitmap bmp = Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888);
 		Canvas canvas = new Canvas(bmp);

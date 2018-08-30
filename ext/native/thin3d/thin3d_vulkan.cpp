@@ -1078,12 +1078,11 @@ InputLayout *VKContext::CreateInputLayout(const InputLayoutDesc &desc) {
 }
 
 Texture *VKContext::CreateTexture(const TextureDesc &desc) {
-	if (!push_) {
+	if (!push_ || !renderManager_.GetInitCmd()) {
 		// Too early! Fail.
 		ELOG("Can't create textures before the first frame has started.");
 		return nullptr;
 	}
-	_assert_(renderManager_.GetInitCmd());
 	return new VKTexture(vulkan_, renderManager_.GetInitCmd(), push_, desc, allocator_);
 }
 
