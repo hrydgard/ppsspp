@@ -418,6 +418,15 @@ void CheckGLExtensions() {
 	} else {
 		g_all_egl_extensions = "";
 	}
+#elif defined(USING_GLES2) && defined(__linux__)
+	const char *eglString = eglQueryString(NULL, EGL_EXTENSIONS);
+	if (eglString) {
+		g_all_egl_extensions = std::string(eglString);
+		g_all_egl_extensions.append(" ");
+		g_all_egl_extensions.append(eglQueryString(eglGetCurrentDisplay(), EGL_EXTENSIONS));
+	} else {
+		g_all_egl_extensions = "";
+	}
 #endif
 
 	glGetIntegerv(GL_MAX_VERTEX_TEXTURE_IMAGE_UNITS, &gl_extensions.maxVertexTextureUnits);
