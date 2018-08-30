@@ -257,6 +257,19 @@ void TextureCacheCommon::UpdateSamplingParams(TexCacheEntry &entry, SamplerCache
 void TextureCacheCommon::UpdateMaxSeenV(TexCacheEntry *entry, bool throughMode) {
 	// If the texture is >= 512 pixels tall...
 	if (entry->dim >= 0x900) {
+		if (entry->cluthash != 0 && entry->maxSeenV == 0) {
+			const u64 cachekeyMin = (u64)(entry->addr & 0x3FFFFFFF) << 32;
+			const u64 cachekeyMax = cachekeyMin + (1ULL << 32);
+			for (auto it = cache_.lower_bound(cachekeyMin), end = cache_.upper_bound(cachekeyMax); it != end; ++it) {
+				// They should all be the same, just make sure we take any that has already increased.
+				// This is for a new texture.
+				if (it->second->maxSeenV != 0) {
+					entry->maxSeenV = it->second->maxSeenV;
+					break;
+				}
+			}
+		}
+
 		// Texture scale/offset and gen modes don't apply in through.
 		// So we can optimize how much of the texture we look at.
 		if (throughMode) {
@@ -273,6 +286,16 @@ void TextureCacheCommon::UpdateMaxSeenV(TexCacheEntry *entry, bool throughMode) 
 			// Can't tell how much is used.
 			// TODO: We could tell for texcoord UV gen, and apply scale to max?
 			entry->maxSeenV = 512;
+		}
+
+		// We need to keep all CLUT variants in sync so we detect changes properly.
+		// See HandleTextureChange / STATUS_CLUT_RECHECK.
+		if (entry->cluthash != 0) {
+			const u64 cachekeyMin = (u64)(entry->addr & 0x3FFFFFFF) << 32;
+			const u64 cachekeyMax = cachekeyMin + (1ULL << 32);
+			for (auto it = cache_.lower_bound(cachekeyMin), end = cache_.upper_bound(cachekeyMax); it != end; ++it) {
+				it->second->maxSeenV = entry->maxSeenV;
+			}
 		}
 	}
 }
