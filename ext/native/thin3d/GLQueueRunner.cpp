@@ -1166,7 +1166,7 @@ void GLQueueRunner::PerformReadbackImage(const GLRStep &pass) {
 	int pixelStride = pass.readback_image.srcRect.w;
 	glPixelStorei(GL_PACK_ALIGNMENT, 4);
 
-	GLRect2D rect = pass.readback.srcRect;
+	GLRect2D rect = pass.readback_image.srcRect;
 
 	int size = 4 * rect.w * rect.h;
 	if (size > readbackBufferSize_) {
