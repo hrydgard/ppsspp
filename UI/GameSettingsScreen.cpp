@@ -121,6 +121,8 @@ static std::string PostShaderTranslateName(const char *value) {
 }
 
 void GameSettingsScreen::CreateViews() {
+	ReloadAllPostShaderInfo();
+
 	if (editThenRestore_) {
 		g_Config.loadGameConfig(gameID_);
 	}
