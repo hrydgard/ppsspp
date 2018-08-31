@@ -46,7 +46,7 @@ static void CopyQuadIndex(u16 *&indices, GEPatchPrimType type, const int idx0, c
 	}
 }
 
-static void BuildIndex(u16 *indices, int &count, int num_u, int num_v, GEPatchPrimType prim_type, int total) {
+void BuildIndex(u16 *indices, int &count, int num_u, int num_v, GEPatchPrimType prim_type, int total) {
 	for (int v = 0; v < num_v; ++v) {
 		for (int u = 0; u < num_u; ++u) {
 			int idx0 = v * (num_u + 1) + u + total; // Top left
@@ -92,6 +92,8 @@ public:
 	static int CalcSize(int tess, int count) {
 		return tess + 1;
 	}
+
+	static WeightCache<Bezier3DWeight> weightsCache;
 };
 
 class Spline3DWeight {
@@ -143,7 +145,6 @@ private:
 		const __m128 t012 = _mm_sub_ps(_mm_set_ps1(t), knot012);
 		const __m128 f30_41_52 = _mm_mul_ps(t012, _mm_loadu_ps(&div._3_0));
 		const __m128 f52_31_42 = _mm_mul_ps(t012, _mm_loadu_ps(&div._5_2));
-		const float &f32 = t012.m128_f32[2];
 
 		// Following comments are for explains order of the multiply.
 	//	float a = (1-f30)*(1-f31);
@@ -154,14 +155,24 @@ private:
 		const __m128 f31_42_41_52 = _mm_shuffle_ps(f52_31_42, f30_41_52, _MM_SHUFFLE(2, 1, 2, 1));
 		const __m128 c1_1_0_0 = { 1, 1, 0, 0 };
 		const __m128 acbd = _mm_mul_ps(_mm_sub_ps(c1_1_0_0, f30_41_31_42), _mm_sub_ps(c1_1_0_0, f31_42_41_52));
-		const float &a = acbd.m128_f32[0];
-		const float &b = acbd.m128_f32[2];
-		const float &c = acbd.m128_f32[1];
-		const float &d = acbd.m128_f32[3];
+
+		alignas(16) float f_t012[4];
+		alignas(16) float f_acbd[4];
+		alignas(16) float f_f30_41_31_42[4];
+		_mm_store_ps(f_t012, t012);
+		_mm_store_ps(f_acbd, acbd);
+		_mm_store_ps(f_f30_41_31_42, f30_41_31_42);
+
+		const float &f32 = f_t012[2];
+
+		const float &a = f_acbd[0];
+		const float &b = f_acbd[2];
+		const float &c = f_acbd[1];
+		const float &d = f_acbd[3];
 
 		// For derivative
-		const float &f31 = f30_41_31_42.m128_f32[2];
-		const float &f42 = f30_41_31_42.m128_f32[3];
+		const float &f31 = f_f30_41_31_42[2];
+		const float &f42 = f_f30_41_31_42[3];
 #else
 		// TODO: Maybe compilers could be coaxed into vectorizing this code without the above explicitly...
 		float t0 = (t - knots[0]);
@@ -238,14 +249,16 @@ public:
 	static int CalcSize(int tess, int count) {
 		return (count - 3) * tess + 1;
 	}
+
+	static WeightCache<Spline3DWeight> weightsCache;
 };
 
-template <class WeightType>
-static WeightCache<WeightType> weightsCache;
+WeightCache<Bezier3DWeight> Bezier3DWeight::weightsCache;
+WeightCache<Spline3DWeight> Spline3DWeight::weightsCache;
 
 void DrawEngineCommon::ClearSplineBezierWeights() {
-	weightsCache<Bezier3DWeight>.Clear();
-	weightsCache<Spline3DWeight>.Clear();
+	Bezier3DWeight::weightsCache.Clear();
+	Spline3DWeight::weightsCache.Clear();
 }
 
 bool CanUseHardwareTessellation(GEPatchPrimType prim) {
@@ -410,10 +423,10 @@ public:
 		patch.BuildIndex(output.indices, output.count);
 	}
 
-	TEMPLATE_PARAMETER_DISPATCHER_FUNCTION(Tess, SubdivisionSurface::Tessellate);
+	using TessFunc = void(SubdivisionSurface::*)(OutputBuffers &);
+	TEMPLATE_PARAMETER_DISPATCHER_FUNCTION(Tess, SubdivisionSurface::Tessellate, TessFunc);
 
 	void Tessellate(OutputBuffers &output, u32 origVertType) {
-		using TessFunc = void(SubdivisionSurface::*)(OutputBuffers &);
 		constexpr int NumParams = 5;
 		static TemplateParameterDispatcher<TessFunc, NumParams, Tess> dispatcher; // Initialize only once
 
@@ -431,10 +444,10 @@ public:
 
 template<class Patch>
 void SoftwareTessellation(OutputBuffers &output, const Patch &patch, u32 origVertType, const ControlPoints &points) {
-	using WeightType = Patch::WeightType;
+	using WeightType = typename Patch::WeightType;
 	u32 key_u = WeightType::ToKey(patch.tess_u, patch.count_u, patch.type_u);
 	u32 key_v = WeightType::ToKey(patch.tess_v, patch.count_v, patch.type_v);
-	Weight2D weights(weightsCache<WeightType>, key_u, key_v);
+	Weight2D weights(WeightType::weightsCache, key_u, key_v);
 
 	SubdivisionSurface<Patch> surface(points, patch, weights);
 	surface.Tessellate(output, origVertType);
@@ -443,10 +456,10 @@ void SoftwareTessellation(OutputBuffers &output, const Patch &patch, u32 origVer
 template<class Patch>
 static void HardwareTessellation(OutputBuffers &output, const Patch &patch, u32 origVertType,
 	const SimpleVertex *const *points, TessellationDataTransfer *tessDataTransfer) {
-	using WeightType = Patch::WeightType;
+	using WeightType = typename Patch::WeightType;
 	u32 key_u = WeightType::ToKey(patch.tess_u, patch.count_u, patch.type_u);
 	u32 key_v = WeightType::ToKey(patch.tess_v, patch.count_v, patch.type_v);
-	Weight2D weights(weightsCache<WeightType>, key_u, key_v);
+	Weight2D weights(WeightType::weightsCache, key_u, key_v);
 	weights.size_u = WeightType::CalcSize(patch.tess_u, patch.count_u);
 	weights.size_v = WeightType::CalcSize(patch.tess_v, patch.count_v);
 	tessDataTransfer->SendDataToShader(points, patch.count_u * patch.count_v, origVertType, weights);

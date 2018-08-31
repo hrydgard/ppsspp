@@ -176,7 +176,7 @@ public:
 	Weight* operator [] (u32 key) {
 		Weight *&weights = weightsCache[key];
 		if (!weights)
-			weights = CalcWeightsAll(key);
+			weights = T::CalcWeightsAll(key);
 		return weights;
 	}
 
@@ -223,10 +223,10 @@ template<class Patch>
 void SoftwareTessellation(OutputBuffers &output, const Patch &patch, u32 origVertType, const ControlPoints &points);
 
 // Define function object for TemplateParameterDispatcher
-#define TEMPLATE_PARAMETER_DISPATCHER_FUNCTION(NAME, FUNCNAME) \
+#define TEMPLATE_PARAMETER_DISPATCHER_FUNCTION(NAME, FUNCNAME, FUNCTYPE) \
 struct NAME { \
 	template<bool ...Params> \
-	static auto GetFunc() { \
+	static FUNCTYPE GetFunc() { \
 		return &FUNCNAME<Params...>; \
 	} \
 };
@@ -246,7 +246,7 @@ class TemplateParameterDispatcher {
 	template<int Index, bool ...Params>
 	struct Initializer<0, Index, Params...> {
 		static void Init(Func funcs[]) {
-			funcs[Index] = Dispatcher::GetFunc<Params...>();
+			funcs[Index] = Dispatcher::template GetFunc<Params...>(); // Resolve the nested dependent name as template function.
 		}
 	};
 
