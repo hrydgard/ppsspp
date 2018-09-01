@@ -217,6 +217,7 @@
     <ClInclude Include="D3D11\TextureScalerD3D11.h" />
     <ClInclude Include="D3D11\VertexShaderGeneratorD3D11.h" />
     <ClInclude Include="Debugger\Breakpoints.h" />
+    <ClInclude Include="Debugger\Debugger.h" />
     <ClInclude Include="Debugger\Record.h" />
     <ClInclude Include="Debugger\Stepping.h" />
     <ClInclude Include="Directx9\DepalettizeShaderDX9.h" />
@@ -320,6 +321,7 @@
     <ClCompile Include="D3D11\TextureScalerD3D11.cpp" />
     <ClCompile Include="D3D11\VertexShaderGeneratorD3D11.cpp" />
     <ClCompile Include="Debugger\Breakpoints.cpp" />
+    <ClCompile Include="Debugger\Debugger.cpp" />
     <ClCompile Include="Debugger\Record.cpp" />
     <ClCompile Include="Debugger\Stepping.cpp" />
     <ClCompile Include="Directx9\DepalettizeShaderDX9.cpp" />

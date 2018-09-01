@@ -1357,6 +1357,8 @@ set(GPU_SOURCES
 	GPU/Common/SplineCommon.h
 	GPU/Debugger/Breakpoints.cpp
 	GPU/Debugger/Breakpoints.h
+	GPU/Debugger/Debugger.cpp
+	GPU/Debugger/Debugger.h
 	GPU/Debugger/Record.cpp
 	GPU/Debugger/Record.h
 	GPU/Debugger/Stepping.cpp

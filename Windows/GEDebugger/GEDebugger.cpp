@@ -39,6 +39,7 @@
 #include "GPU/Common/GPUStateUtils.h"
 #include "GPU/GPUState.h"
 #include "GPU/Debugger/Breakpoints.h"
+#include "GPU/Debugger/Debugger.h"
 #include "GPU/Debugger/Record.h"
 #include "GPU/Debugger/Stepping.h"
 #include <windowsx.h>
@@ -48,8 +49,6 @@ const int POPUP_SUBMENU_ID_GEDBG_PREVIEW = 10;
 
 using namespace GPUBreakpoints;
 using namespace GPUStepping;
-
-static bool attached = false;
 
 static BreakNextType breakNext = BREAK_NONE;
 
@@ -627,7 +626,7 @@ void CGEDebugger::SavePosition()
 }
 
 void CGEDebugger::SetBreakNext(BreakNextType type) {
-	attached = true;
+	GPUDebug::SetActive(true);
 	SetupPreviews();
 
 	breakNext = type;
@@ -657,7 +656,7 @@ BOOL CGEDebugger::DlgProc(UINT message, WPARAM wParam, LPARAM lParam) {
 		return TRUE;
 
 	case WM_CLOSE:
-		attached = false;
+		GPUDebug::SetActive(false);
 		ResumeFromStepping();
 		breakNext = BREAK_NONE;
 
@@ -685,7 +684,7 @@ BOOL CGEDebugger::DlgProc(UINT message, WPARAM wParam, LPARAM lParam) {
 			break;
 		case IDC_GEDBG_FBTABS:
 			fbTabs->HandleNotify(lParam);
-			if (attached && gpuDebug != nullptr) {
+			if (GPUDebug::IsActive() && gpuDebug != nullptr) {
 				UpdatePreviews();
 			}
 			break;
@@ -720,7 +719,7 @@ BOOL CGEDebugger::DlgProc(UINT message, WPARAM wParam, LPARAM lParam) {
 
 		case IDC_GEDBG_BREAKTEX:
 			{
-				attached = true;
+				GPUDebug::SetActive(true);
 				if (!gpuDebug) {
 					break;
 				}
@@ -739,7 +738,7 @@ BOOL CGEDebugger::DlgProc(UINT message, WPARAM wParam, LPARAM lParam) {
 
 		case IDC_GEDBG_BREAKTARGET:
 			{
-				attached = true;
+				GPUDebug::SetActive(true);
 				if (!gpuDebug) {
 					break;
 				}
@@ -758,14 +757,14 @@ BOOL CGEDebugger::DlgProc(UINT message, WPARAM wParam, LPARAM lParam) {
 
 		case IDC_GEDBG_TEXLEVELDOWN:
 			UpdateTextureLevel(textureLevel_ - 1);
-			if (attached && gpuDebug != nullptr) {
+			if (GPUDebug::IsActive() && gpuDebug != nullptr) {
 				UpdatePreviews();
 			}
 			break;
 
 		case IDC_GEDBG_TEXLEVELUP:
 			UpdateTextureLevel(textureLevel_ + 1);
-			if (attached && gpuDebug != nullptr) {
+			if (GPUDebug::IsActive() && gpuDebug != nullptr) {
 				UpdatePreviews();
 			}
 			break;
@@ -785,14 +784,14 @@ BOOL CGEDebugger::DlgProc(UINT message, WPARAM wParam, LPARAM lParam) {
 			break;
 
 		case IDC_GEDBG_FORCEOPAQUE:
-			if (attached && gpuDebug != nullptr) {
+			if (GPUDebug::IsActive() && gpuDebug != nullptr) {
 				forceOpaque_ = SendMessage(GetDlgItem(m_hDlg, IDC_GEDBG_FORCEOPAQUE), BM_GETCHECK, 0, 0) != 0;
 				UpdatePreviews();
 			}
 			break;
 
 		case IDC_GEDBG_SHOWCLUT:
-			if (attached && gpuDebug != nullptr) {
+			if (GPUDebug::IsActive() && gpuDebug != nullptr) {
 				showClut_ = SendMessage(GetDlgItem(m_hDlg, IDC_GEDBG_SHOWCLUT), BM_GETCHECK, 0, 0) != 0;
 				UpdatePreviews();
 			}
@@ -823,7 +822,7 @@ BOOL CGEDebugger::DlgProc(UINT message, WPARAM wParam, LPARAM lParam) {
 
 	case WM_GEDBG_TOGGLEPCBREAKPOINT:
 		{
-			attached = true;
+			GPUDebug::SetActive(true);
 			u32 pc = (u32)wParam;
 			bool temp;
 			bool isBreak = IsAddressBreakpoint(pc, temp);
@@ -837,7 +836,7 @@ BOOL CGEDebugger::DlgProc(UINT message, WPARAM wParam, LPARAM lParam) {
 
 	case WM_GEDBG_RUNTOWPARAM:
 		{
-			attached = true;
+			GPUDebug::SetActive(true);
 			u32 pc = (u32)wParam;
 			AddAddressBreakpoint(pc, true);
 			SendMessage(m_hDlg,WM_COMMAND,IDC_GEDBG_RESUME,0);
@@ -862,16 +861,12 @@ BOOL CGEDebugger::DlgProc(UINT message, WPARAM wParam, LPARAM lParam) {
 
 // The below WindowsHost methods are called on the GPU thread.
 
-bool WindowsHost::GPUDebuggingActive() {
-	return attached;
-}
-
 static void DeliverMessage(UINT msg, WPARAM wParam, LPARAM lParam) {
 	PostMessage(geDebuggerWindow->GetDlgHandle(), msg, wParam, lParam);
 }
 
 static void PauseWithMessage(UINT msg, WPARAM wParam = NULL, LPARAM lParam = NULL) {
-	if (attached) {
+	if (GPUDebug::IsActive()) {
 		EnterStepping(std::bind(&DeliverMessage, msg, wParam, lParam));
 	}
 }
@@ -896,7 +891,4 @@ void WindowsHost::GPUNotifyDraw() {
 	if (breakNext == BREAK_NEXT_DRAW) {
 		PauseWithMessage(WM_GEDBG_BREAK_DRAW);
 	}
-}
-
-void WindowsHost::GPUNotifyTextureAttachment(u32 addr) {
 }

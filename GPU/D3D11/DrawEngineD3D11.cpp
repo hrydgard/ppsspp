@@ -22,7 +22,6 @@
 
 #include "Common/MemoryUtil.h"
 #include "Core/MemMap.h"
-#include "Core/Host.h"
 #include "Core/System.h"
 #include "Core/Reporting.h"
 #include "Core/Config.h"
@@ -34,10 +33,10 @@
 
 #include "GPU/Common/TextureDecoder.h"
 #include "GPU/Common/SplineCommon.h"
-
 #include "GPU/Common/TransformCommon.h"
 #include "GPU/Common/VertexDecoderCommon.h"
 #include "GPU/Common/SoftwareTransformCommon.h"
+#include "GPU/Debugger/Debugger.h"
 #include "GPU/D3D11/FramebufferManagerD3D11.h"
 #include "GPU/D3D11/TextureCacheD3D11.h"
 #include "GPU/D3D11/DrawEngineD3D11.h"
@@ -690,10 +689,7 @@ rotateVBO:
 	gstate_c.vertBounds.maxU = 0;
 	gstate_c.vertBounds.maxV = 0;
 
-#if PPSSPP_PLATFORM(WINDOWS) && !PPSSPP_PLATFORM(UWP)
-	// We only support GPU debugging on Windows, and that's the only use case for this.
-	host->GPUNotifyDraw();
-#endif
+	GPUDebug::NotifyDraw();
 }
 
 void DrawEngineD3D11::TessellationDataTransferD3D11::PrepareBuffers(float *&pos, float *&tex, float *&col, int &posStride, int &texStride, int &colStride, int size, bool hasColor, bool hasTexCoords) {

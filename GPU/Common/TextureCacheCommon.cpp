@@ -20,7 +20,6 @@
 #include "Common/ColorConv.h"
 #include "Common/MemoryUtil.h"
 #include "Core/Config.h"
-#include "Core/Host.h"
 #include "Core/Reporting.h"
 #include "Core/System.h"
 #include "GPU/Common/FramebufferCommon.h"
@@ -28,6 +27,7 @@
 #include "GPU/Common/TextureDecoder.h"
 #include "GPU/Common/ShaderId.h"
 #include "GPU/Common/GPUStateUtils.h"
+#include "GPU/Debugger/Debugger.h"
 #include "GPU/GPUState.h"
 #include "GPU/GPUInterface.h"
 
@@ -708,7 +708,7 @@ void TextureCacheCommon::AttachFramebufferValid(TexCacheEntry *entry, VirtualFra
 		entry->maxLevel = 0;
 		fbTexInfo_[cachekey] = fbInfo;
 		framebuffer->last_frame_attached = gpuStats.numFlips;
-		host->GPUNotifyTextureAttachment(entry->addr);
+		GPUDebug::NotifyTextureAttachment(entry->addr);
 	} else if (entry->framebuffer == framebuffer) {
 		framebuffer->last_frame_attached = gpuStats.numFlips;
 	}
@@ -727,7 +727,7 @@ void TextureCacheCommon::AttachFramebufferInvalid(TexCacheEntry *entry, VirtualF
 		entry->status &= ~TexCacheEntry::STATUS_DEPALETTIZE;
 		entry->maxLevel = 0;
 		fbTexInfo_[cachekey] = fbInfo;
-		host->GPUNotifyTextureAttachment(entry->addr);
+		GPUDebug::NotifyTextureAttachment(entry->addr);
 	}
 }
 
@@ -740,7 +740,7 @@ void TextureCacheCommon::DetachFramebuffer(TexCacheEntry *entry, u32 address, Vi
 		// Otherwise we never recreate the texture.
 		entry->hash ^= 1;
 		fbTexInfo_.erase(cachekey);
-		host->GPUNotifyTextureAttachment(entry->addr);
+		GPUDebug::NotifyTextureAttachment(entry->addr);
 	}
 }
 
