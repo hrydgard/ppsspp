@@ -28,7 +28,7 @@
 #include "Core/Screenshot.h"
 #include "GPU/Debugger/Stepping.h"
 
-void *WebSocketGPUBufferInit(DebuggerEventHandlerMap &map) {
+DebuggerSubscriber *WebSocketGPUBufferInit(DebuggerEventHandlerMap &map) {
 	// No need to bind or alloc state, these are all global.
 	map["gpu.buffer.screenshot"] = &WebSocketGPUBufferScreenshot;
 	map["gpu.buffer.renderColor"] = &WebSocketGPUBufferRenderColor;

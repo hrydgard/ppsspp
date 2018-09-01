@@ -19,7 +19,7 @@
 
 #include "Core/Debugger/WebSocket/WebSocketUtils.h"
 
-void *WebSocketHLEInit(DebuggerEventHandlerMap &map);
+DebuggerSubscriber *WebSocketHLEInit(DebuggerEventHandlerMap &map);
 
 void WebSocketHLEThreadList(DebuggerRequest &req);
 void WebSocketHLEThreadWake(DebuggerRequest &req);

@@ -25,7 +25,7 @@
 #include "Core/MIPS/MIPS.h"
 #include "Core/MIPS/MIPSDebugInterface.h"
 
-void *WebSocketCPUCoreInit(DebuggerEventHandlerMap &map) {
+DebuggerSubscriber *WebSocketCPUCoreInit(DebuggerEventHandlerMap &map) {
 	// No need to bind or alloc state, these are all global.
 	map["cpu.stepping"] = &WebSocketCPUStepping;
 	map["cpu.resume"] = &WebSocketCPUResume;

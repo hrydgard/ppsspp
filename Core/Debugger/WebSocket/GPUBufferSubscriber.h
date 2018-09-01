@@ -19,7 +19,7 @@
 
 #include "Core/Debugger/WebSocket/WebSocketUtils.h"
 
-void *WebSocketGPUBufferInit(DebuggerEventHandlerMap &map);
+DebuggerSubscriber *WebSocketGPUBufferInit(DebuggerEventHandlerMap &map);
 
 void WebSocketGPUBufferScreenshot(DebuggerRequest &req);
 void WebSocketGPUBufferRenderColor(DebuggerRequest &req);
