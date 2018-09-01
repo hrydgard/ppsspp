@@ -23,6 +23,7 @@
 namespace GPURecord {
 
 bool IsActive();
+bool IsActivePending();
 void Activate();
 
 void NotifyCommand(u32 pc);

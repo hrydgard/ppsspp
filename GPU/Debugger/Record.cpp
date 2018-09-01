@@ -637,6 +637,10 @@ bool IsActive() {
 	return active;
 }
 
+bool IsActivePending() {
+	return nextFrame || active;
+}
+
 void Activate() {
 	nextFrame = true;
 }
@@ -749,12 +753,12 @@ void NotifyUpload(u32 dest, u32 sz) {
 }
 
 void NotifyFrame() {
-	if (active && !writePending) {
+	if (active && !writePending && !commands.empty()) {
 		// Delay write until the first command of the next frame, so we get the right display buf.
 		NOTICE_LOG(SYSTEM, "Recording complete - waiting to get display buffer");
 		writePending = true;
 	}
-	if (nextFrame) {
+	if (nextFrame && (gstate_c.skipDrawReason & SKIPDRAW_SKIPFRAME) == 0) {
 		NOTICE_LOG(SYSTEM, "Recording starting...");
 		active = true;
 		nextFrame = false;
