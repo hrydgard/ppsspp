@@ -15,34 +15,86 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
-#include "Core/Host.h"
+#include "GPU/GPU.h"
+#include "GPU/Debugger/Breakpoints.h"
 #include "GPU/Debugger/Debugger.h"
+#include "GPU/Debugger/Stepping.h"
 
 namespace GPUDebug {
 
 static bool active = false;
+static bool inited = false;
+static BreakNext breakNext = BreakNext::NONE;
+
+static void Init() {
+	if (!inited) {
+		GPUBreakpoints::Init();
+		Core_ListenStopRequest(&GPUStepping::ForceUnpause);
+		inited = true;
+	}
+}
 
 void SetActive(bool flag) {
+	Init();
+
 	active = flag;
+	if (!active) {
+		breakNext = BreakNext::NONE;
+		GPUStepping::ResumeFromStepping();
+	}
 }
 
 bool IsActive() {
 	return active;
 }
 
+void SetBreakNext(BreakNext next) {
+	SetActive(true);
+	breakNext = next;
+	if (next == BreakNext::TEX) {
+		GPUBreakpoints::AddTextureChangeTempBreakpoint();
+	} else if (next == BreakNext::PRIM) {
+		GPUBreakpoints::AddCmdBreakpoint(GE_CMD_PRIM, true);
+		GPUBreakpoints::AddCmdBreakpoint(GE_CMD_BEZIER, true);
+		GPUBreakpoints::AddCmdBreakpoint(GE_CMD_SPLINE, true);
+	}
+	GPUStepping::ResumeFromStepping();
+}
+
 void NotifyCommand(u32 pc) {
-	host->GPUNotifyCommand(pc);
+	if (!active)
+		return;
+	u32 op = Memory::ReadUnchecked_U32(pc);
+	if (breakNext == BreakNext::OP || GPUBreakpoints::IsBreakpoint(pc, op)) {
+		GPUBreakpoints::ClearTempBreakpoints();
+
+		auto info = gpuDebug->DissassembleOp(pc);
+		NOTICE_LOG(G3D, "Waiting at %08x, %s", pc, info.desc.c_str());
+		GPUStepping::EnterStepping();
+	}
 }
 
 void NotifyDraw() {
-	host->GPUNotifyDraw();
+	if (!active)
+		return;
+	if (breakNext == BreakNext::DRAW) {
+		NOTICE_LOG(G3D, "Waiting at a draw");
+		GPUStepping::EnterStepping();
+	}
 }
 
 void NotifyDisplay(u32 framebuf, u32 stride, int format) {
-	host->GPUNotifyDisplay(framebuf, stride, format);
+	if (!active)
+		return;
+	if (breakNext == BreakNext::FRAME) {
+		// This should work fine, start stepping at the first op of the new frame.
+		breakNext = BreakNext::OP;
+	}
 }
 
 void NotifyTextureAttachment(u32 texaddr) {
+	if (!active)
+		return;
 }
 
 }

@@ -50,11 +50,6 @@ public:
 	virtual void SaveSymbolMap() {}
 	virtual void SetWindowTitle(const char *message) {}
 
-	// While debugging is active, it's perfectly fine for these to block.
-	virtual void GPUNotifyCommand(u32 pc) {}
-	virtual void GPUNotifyDisplay(u32 framebuf, u32 stride, int format) {}
-	virtual void GPUNotifyDraw() {}
-
 	virtual bool CanCreateShortcut() {return false;}
 	virtual bool CreateDesktopShortcut(std::string argumentPath, std::string title) {return false;}
 

@@ -21,8 +21,20 @@
 
 namespace GPUDebug {
 
+enum class BreakNext {
+	NONE,
+	OP,
+	DRAW,
+	TEX,
+	NONTEX,
+	FRAME,
+	PRIM,
+};
+
 void SetActive(bool flag);
 bool IsActive();
+
+void SetBreakNext(BreakNext next);
 
 // While debugging is active, these may block.
 void NotifyCommand(u32 pc);
