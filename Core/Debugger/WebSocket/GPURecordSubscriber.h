@@ -1,4 +1,4 @@
-﻿// Copyright (c) 2017- PPSSPP Project.
+// Copyright (c) 2018- PPSSPP Project.
 
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
@@ -17,24 +17,6 @@
 
 #pragma once
 
-#include <functional>
-#include <string>
-#include "Common/CommonTypes.h"
+#include "Core/Debugger/WebSocket/WebSocketUtils.h"
 
-namespace GPURecord {
-
-bool IsActive();
-bool IsActivePending();
-bool Activate();
-// Call only if Activate() returns true.
-void SetCallback(const std::function<void(const std::string &)> callback);
-
-void NotifyCommand(u32 pc);
-void NotifyMemcpy(u32 dest, u32 src, u32 sz);
-void NotifyMemset(u32 dest, int v, u32 sz);
-void NotifyUpload(u32 dest, u32 sz);
-void NotifyFrame();
-
-bool RunMountedReplay(const std::string &filename);
-
-};
+DebuggerSubscriber *WebSocketGPURecordInit(DebuggerEventHandlerMap &map);

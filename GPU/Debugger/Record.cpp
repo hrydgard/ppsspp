@@ -48,6 +48,7 @@ static const int VERSION = 2;
 static bool active = false;
 static bool nextFrame = false;
 static bool writePending = false;
+static std::function<void(const std::string &)> writeCallback;
 
 enum class CommandType : u8 {
 	INIT = 0,
@@ -409,7 +410,7 @@ static void WriteCompressed(FILE *fp, const void *p, size_t sz) {
 	delete [] compressed;
 }
 
-static void WriteRecording() {
+static std::string WriteRecording() {
 	FlushRegisters();
 	EmitDisplayBuf();
 
@@ -430,6 +431,8 @@ static void WriteRecording() {
 	WriteCompressed(fp, pushbuf.data(), bufsz);
 
 	fclose(fp);
+
+	return filename;
 }
 
 static void GetVertDataSizes(int vcount, const void *indices, u32 &vbytes, u32 &ibytes) {
@@ -641,8 +644,31 @@ bool IsActivePending() {
 	return nextFrame || active;
 }
 
-void Activate() {
-	nextFrame = true;
+bool Activate() {
+	if (!nextFrame) {
+		nextFrame = true;
+		return true;
+	}
+	return false;
+}
+
+void SetCallback(const std::function<void(const std::string &)> callback) {
+	writeCallback = callback;
+}
+
+static void FinishRecording() {
+	// We're done - this was just to write the result out.
+	std::string filename = WriteRecording();
+	commands.clear();
+	pushbuf.clear();
+
+	NOTICE_LOG(SYSTEM, "Recording finished");
+	writePending = false;
+	active = false;
+
+	if (writeCallback)
+		writeCallback(filename);
+	writeCallback = nullptr;
 }
 
 void NotifyCommand(u32 pc) {
@@ -650,14 +676,7 @@ void NotifyCommand(u32 pc) {
 		return;
 	}
 	if (writePending) {
-		WriteRecording();
-		commands.clear();
-		pushbuf.clear();
-
-		writePending = false;
-		// We're done - this was just to write the result out.
-		NOTICE_LOG(SYSTEM, "Recording finished");
-		active = false;
+		FinishRecording();
 		return;
 	}
 
