@@ -353,6 +353,10 @@ static void CheckFailedGPUBackends() {
 			g_Config.sFailedGPUBackends = data;
 	}
 
+	// Use this if you want to debug a graphics crash...
+	if (g_Config.sFailedGPUBackends == "IGNORE")
+		return;
+
 	// Okay, let's not try a backend in the failed list.
 	g_Config.iGPUBackend = g_Config.NextValidBackend();
 	// And then let's - for now - add the current to the failed list.
@@ -374,6 +378,9 @@ static void CheckFailedGPUBackends() {
 }
 
 static void ClearFailedGPUBackends() {
+	if (g_Config.sFailedGPUBackends == "IGNORE")
+		return;
+
 	// We've successfully started graphics without crashing, hurray.
 	// In case they update drivers and have totally different problems much later, clear the failed list.
 	g_Config.sFailedGPUBackends.clear();
