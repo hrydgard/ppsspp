@@ -29,13 +29,10 @@
 // in NativeShutdown.
 
 #include <locale.h>
-// Linux doesn't like using std::find with std::vector<int> without this :/
-#if !defined(MOBILE_DEVICE)
 #include <algorithm>
-#endif
 #include <memory>
-#include <thread>
 #include <mutex>
+#include <thread>
 
 #if defined(_WIN32)
 #include "Windows/DSoundStream.h"
@@ -347,6 +344,46 @@ void CreateDirectoriesAndroid() {
 	File::CreateEmptyFile(g_Config.memStickDirectory + "PSP/SAVEDATA/.nomedia");
 }
 
+static void CheckFailedGPUBackends() {
+	std::string cache = GetSysDirectory(DIRECTORY_APP_CACHE) + "/FailedGraphicsBackends.txt";
+
+	if (System_GetPropertyBool(SYSPROP_SUPPORTS_PERMISSIONS)) {
+		std::string data;
+		if (readFileToString(true, cache.c_str(), data))
+			g_Config.sFailedGPUBackends = data;
+	}
+
+	// Okay, let's not try a backend in the failed list.
+	g_Config.iGPUBackend = g_Config.NextValidBackend();
+	// And then let's - for now - add the current to the failed list.
+	if (g_Config.sFailedGPUBackends.empty()) {
+		g_Config.sFailedGPUBackends = StringFromFormat("%d", g_Config.iGPUBackend);
+	} else if (g_Config.sFailedGPUBackends.find("ALL") == std::string::npos) {
+		g_Config.sFailedGPUBackends += StringFromFormat(",%d", g_Config.iGPUBackend);
+	}
+
+	if (System_GetPropertyBool(SYSPROP_SUPPORTS_PERMISSIONS)) {
+		// Let's try to create, in case it doesn't exist.
+		if (!File::Exists(GetSysDirectory(DIRECTORY_APP_CACHE)))
+			File::CreateDir(GetSysDirectory(DIRECTORY_APP_CACHE));
+		writeStringToFile(true, g_Config.sFailedGPUBackends, cache.c_str());
+	} else {
+		// Just save immediately, since we have storage.
+		g_Config.Save();
+	}
+}
+
+static void ClearFailedGPUBackends() {
+	// We've successfully started graphics without crashing, hurray.
+	// In case they update drivers and have totally different problems much later, clear the failed list.
+	g_Config.sFailedGPUBackends.clear();
+	if (System_GetPropertyBool(SYSPROP_SUPPORTS_PERMISSIONS)) {
+		File::Delete(GetSysDirectory(DIRECTORY_APP_CACHE) + "/FailedGraphicsBackends.txt");
+	} else {
+		g_Config.Save();
+	}
+}
+
 void NativeInit(int argc, const char *argv[], const char *savegame_dir, const char *external_dir, const char *cache_dir) {
 	net::Init();  // This needs to happen before we load the config. So on Windows we also run it in Main. It's fine to call multiple times.
 
@@ -630,6 +667,7 @@ void NativeInit(int argc, const char *argv[], const char *savegame_dir, const ch
 
 	// We do this here, instead of in NativeInitGraphics, because the display may be reset.
 	// When it's reset we don't want to forget all our managed things.
+	CheckFailedGPUBackends();
 	SetGPUBackend((GPUBackend) g_Config.iGPUBackend);
 
 	// Must be done restarting by now.
@@ -951,6 +989,12 @@ void NativeRender(GraphicsContext *graphicsContext) {
 
 	ui_draw2d.PopDrawMatrix();
 	ui_draw2d_front.PopDrawMatrix();
+
+	static int renderCounter = 0;
+	if (renderCounter < 10 && ++renderCounter == 10) {
+		// We're rendering fine, clear out failure info.
+		ClearFailedGPUBackends();
+	}
 }
 
 void HandleGlobalMessage(const std::string &msg, const std::string &value) {
