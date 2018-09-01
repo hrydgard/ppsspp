@@ -16,13 +16,12 @@
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
 #include "Common/MemoryUtil.h"
-#include "Core/Host.h"
 #include "Core/Config.h"
 #include "GPU/GPUState.h"
 #include "GPU/Common/DrawEngineCommon.h"
 #include "GPU/Common/VertexDecoderCommon.h"
 #include "GPU/Common/SplineCommon.h"
-
+#include "GPU/Debugger/Debugger.h"
 #include "GPU/Software/TransformUnit.h"
 #include "GPU/Software/Clipper.h"
 #include "GPU/Software/Lighting.h"
@@ -490,7 +489,7 @@ void TransformUnit::SubmitPrimitive(void* vertices, void* indices, GEPrimitiveTy
 		break;
 	}
 
-	host->GPUNotifyDraw();
+	GPUDebug::NotifyDraw();
 }
 
 // TODO: This probably is not the best interface.

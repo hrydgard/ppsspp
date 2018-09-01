@@ -23,7 +23,6 @@
 #include "Core/Config.h"
 #include "Core/ConfigValues.h"
 #include "Core/Debugger/Breakpoints.h"
-#include "Core/Host.h"
 #include "Core/MemMap.h"
 #include "Core/HLE/sceKernelInterrupt.h"
 #include "Core/HLE/sceGe.h"
@@ -39,6 +38,7 @@
 #include "GPU/Software/TransformUnit.h"
 #include "GPU/Common/DrawEngineCommon.h"
 #include "GPU/Common/FramebufferCommon.h"
+#include "GPU/Debugger/Debugger.h"
 #include "GPU/Debugger/Record.h"
 
 const int FB_WIDTH = 480;
@@ -141,7 +141,7 @@ void SoftGPU::SetDisplayFramebuffer(u32 framebuf, u32 stride, GEBufferFormat for
 	displayFramebuf_ = (framebuf & 0xFF000000) == 0 ? 0x44000000 | framebuf : framebuf;
 	displayStride_ = stride;
 	displayFormat_ = format;
-	host->GPUNotifyDisplay(framebuf, stride, format);
+	GPUDebug::NotifyDisplay(framebuf, stride, format);
 }
 
 // Copies RGBA8 data from RAM to the currently bound render target.

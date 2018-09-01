@@ -35,7 +35,7 @@
 #include "GPU/ge_constants.h"
 #include "GPU/GeDisasm.h"
 #include "GPU/Common/FramebufferCommon.h"
-
+#include "GPU/Debugger/Debugger.h"
 #include "GPU/GLES/ShaderManagerGLES.h"
 #include "GPU/GLES/GPU_GLES.h"
 #include "GPU/GLES/FramebufferManagerGLES.h"
@@ -443,7 +443,7 @@ void GPU_GLES::BeginFrame() {
 }
 
 void GPU_GLES::SetDisplayFramebuffer(u32 framebuf, u32 stride, GEBufferFormat format) {
-	host->GPUNotifyDisplay(framebuf, stride, format);
+	GPUDebug::NotifyDisplay(framebuf, stride, format);
 	framebufferManagerGL_->SetDisplayFramebuffer(framebuf, stride, format);
 }
 

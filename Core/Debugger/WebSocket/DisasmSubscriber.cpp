@@ -28,11 +28,12 @@
 #include "Core/MIPS/MIPSAsm.h"
 #include "Core/MIPS/MIPSDebugInterface.h"
 
-struct WebSocketDisasmState {
+class WebSocketDisasmState : public DebuggerSubscriber {
+public:
 	WebSocketDisasmState() {
 		disasm_.setCpu(currentDebugMIPS);
 	}
-	~WebSocketDisasmState() {
+	~WebSocketDisasmState() override {
 		disasm_.clear();
 	}
 
@@ -49,7 +50,7 @@ protected:
 	DisassemblyManager disasm_;
 };
 
-void *WebSocketDisasmInit(DebuggerEventHandlerMap &map) {
+DebuggerSubscriber *WebSocketDisasmInit(DebuggerEventHandlerMap &map) {
 	auto p = new WebSocketDisasmState();
 	map["memory.base"] = std::bind(&WebSocketDisasmState::Base, p, std::placeholders::_1);
 	map["memory.disasm"] = std::bind(&WebSocketDisasmState::Disasm, p, std::placeholders::_1);
@@ -57,10 +58,6 @@ void *WebSocketDisasmInit(DebuggerEventHandlerMap &map) {
 	map["memory.assemble"] = std::bind(&WebSocketDisasmState::Assemble, p, std::placeholders::_1);
 
 	return p;
-}
-
-void WebSocketDisasmShutdown(void *p) {
-	delete static_cast<WebSocketDisasmState *>(p);
 }
 
 static DebugInterface *CPUFromRequest(DebuggerRequest &req) {

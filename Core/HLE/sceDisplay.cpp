@@ -55,6 +55,7 @@
 #include "GPU/GPUInterface.h"
 #include "GPU/Common/FramebufferCommon.h"
 #include "GPU/Common/PostShader.h"
+#include "GPU/Debugger/Record.h"
 
 struct FrameBufferState {
 	u32 topaddr;
@@ -737,7 +738,7 @@ void __DisplayFlip(int cyclesLate) {
 			// 4 here means 1 drawn, 4 skipped - so 12 fps minimum.
 			maxFrameskip = g_Config.iFrameSkip;
 		}
-		if (numSkippedFrames >= maxFrameskip) {
+		if (numSkippedFrames >= maxFrameskip || GPURecord::IsActivePending()) {
 			skipFrame = false;
 		}
 

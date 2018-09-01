@@ -39,6 +39,7 @@
 #include "GPU/GeDisasm.h"
 
 #include "GPU/Common/FramebufferCommon.h"
+#include "GPU/Debugger/Debugger.h"
 #include "GPU/Directx9/ShaderManagerDX9.h"
 #include "GPU/Directx9/GPU_DX9.h"
 #include "GPU/Directx9/FramebufferDX9.h"
@@ -230,7 +231,7 @@ void GPU_DX9::BeginFrame() {
 }
 
 void GPU_DX9::SetDisplayFramebuffer(u32 framebuf, u32 stride, GEBufferFormat format) {
-	host->GPUNotifyDisplay(framebuf, stride, format);
+	GPUDebug::NotifyDisplay(framebuf, stride, format);
 	framebufferManagerDX9_->SetDisplayFramebuffer(framebuf, stride, format);
 }
 

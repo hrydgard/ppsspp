@@ -19,5 +19,4 @@
 
 #include "Core/Debugger/WebSocket/WebSocketUtils.h"
 
-void *WebSocketSteppingInit(DebuggerEventHandlerMap &map);
-void WebSocketSteppingShutdown(void *p);
+DebuggerSubscriber *WebSocketSteppingInit(DebuggerEventHandlerMap &map);

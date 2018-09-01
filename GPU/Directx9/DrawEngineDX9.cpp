@@ -20,7 +20,6 @@
 
 #include "Common/MemoryUtil.h"
 #include "Core/MemMap.h"
-#include "Core/Host.h"
 #include "Core/System.h"
 #include "Core/Reporting.h"
 #include "Core/Config.h"
@@ -36,6 +35,7 @@
 #include "GPU/Common/TransformCommon.h"
 #include "GPU/Common/VertexDecoderCommon.h"
 #include "GPU/Common/SoftwareTransformCommon.h"
+#include "GPU/Debugger/Debugger.h"
 #include "GPU/Directx9/TextureCacheDX9.h"
 #include "GPU/Directx9/DrawEngineDX9.h"
 #include "GPU/Directx9/ShaderManagerDX9.h"
@@ -621,7 +621,7 @@ rotateVBO:
 	gstate_c.vertBounds.maxU = 0;
 	gstate_c.vertBounds.maxV = 0;
 
-	host->GPUNotifyDraw();
+	GPUDebug::NotifyDraw();
 }
 
 void DrawEngineDX9::TessellationDataTransferDX9::SendDataToShader(const float * pos, const float * tex, const float * col, int size, bool hasColor, bool hasTexCoords)

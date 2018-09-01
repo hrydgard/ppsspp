@@ -19,29 +19,18 @@
 
 #include "Common/CommonWindows.h"
 #include "GPU/Common/GPUDebugInterface.h"
+#include "GPU/Debugger/Debugger.h"
 #include "Windows/resource.h"
 #include "Windows/W32Util/DialogManager.h"
 #include "Windows/W32Util/TabControl.h"
 #include "Windows/GEDebugger/SimpleGLWindow.h"
 
 enum {
-	WM_GEDBG_BREAK_CMD = WM_USER + 200,
-	WM_GEDBG_BREAK_DRAW,
-	WM_GEDBG_STEPDISPLAYLIST,
+	WM_GEDBG_STEPDISPLAYLIST = WM_USER + 200,
 	WM_GEDBG_TOGGLEPCBREAKPOINT,
 	WM_GEDBG_RUNTOWPARAM,
 	WM_GEDBG_SETCMDWPARAM,
 	WM_GEDBG_UPDATE_WATCH,
-};
-
-enum BreakNextType {
-	BREAK_NONE,
-	BREAK_NEXT_OP,
-	BREAK_NEXT_DRAW,
-	BREAK_NEXT_TEX,
-	BREAK_NEXT_NONTEX,
-	BREAK_NEXT_FRAME,
-	BREAK_NEXT_PRIM,
 };
 
 class CtrlDisplayListView;
@@ -76,7 +65,6 @@ private:
 	void HandleRedraw(int which);
 	void UpdateSize(WORD width, WORD height);
 	void SavePosition();
-	void SetBreakNext(BreakNextType type);
 	void UpdateTextureLevel(int level);
 	void DescribePrimaryPreview(const GPUgstate &state, wchar_t desc[256]);
 	void DescribeSecondPreview(const GPUgstate &state, wchar_t desc[256]);

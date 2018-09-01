@@ -27,7 +27,7 @@
 #include "Core/MIPS/MIPSStackWalk.h"
 #include "Core/HLE/sceKernelThread.h"
 
-void *WebSocketHLEInit(DebuggerEventHandlerMap &map) {
+DebuggerSubscriber *WebSocketHLEInit(DebuggerEventHandlerMap &map) {
 	map["hle.thread.list"] = &WebSocketHLEThreadList;
 	map["hle.thread.wake"] = &WebSocketHLEThreadWake;
 	map["hle.thread.stop"] = &WebSocketHLEThreadStop;

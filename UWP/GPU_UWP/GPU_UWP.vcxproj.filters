@@ -150,13 +150,18 @@
     <ClCompile Include="..\..\GPU\Debugger\Breakpoints.cpp">
       <Filter>Debugger</Filter>
     </ClCompile>
+    <ClCompile Include="..\..\GPU\Debugger\Debugger.cpp">
+      <Filter>Debugger</Filter>
+    </ClCompile>
     <ClCompile Include="..\..\GPU\Debugger\Stepping.cpp">
       <Filter>Debugger</Filter>
     </ClCompile>
     <ClCompile Include="..\..\GPU\Common\ShaderCommon.cpp">
       <Filter>Common</Filter>
     </ClCompile>
-    <ClCompile Include="..\..\GPU\Software\Sampler.cpp" />
+    <ClCompile Include="..\..\GPU\Software\Sampler.cpp">
+      <Filter>Software</Filter>
+    </ClInclude>
     <ClCompile Include="..\..\GPU\Debugger\Record.cpp">
       <Filter>Debugger</Filter>
     </ClCompile>
@@ -291,10 +296,15 @@
     <ClInclude Include="..\..\GPU\Debugger\Breakpoints.h">
       <Filter>Debugger</Filter>
     </ClInclude>
+    <ClInclude Include="..\..\GPU\Debugger\Debugger.h">
+      <Filter>Debugger</Filter>
+    </ClInclude>
     <ClInclude Include="..\..\GPU\Debugger\Stepping.h">
       <Filter>Debugger</Filter>
     </ClInclude>
-    <ClInclude Include="..\..\GPU\Software\Sampler.h" />
+    <ClInclude Include="..\..\GPU\Software\Sampler.h">
+      <Filter>Software</Filter>
+    </ClInclude>
     <ClInclude Include="..\..\GPU\Debugger\Record.h">
       <Filter>Debugger</Filter>
     </ClInclude>

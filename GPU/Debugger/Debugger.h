@@ -17,13 +17,29 @@
 
 #pragma once
 
-#include "Core/Debugger/WebSocket/WebSocketUtils.h"
+#include "Common/CommonTypes.h"
 
-DebuggerSubscriber *WebSocketGPUBufferInit(DebuggerEventHandlerMap &map);
+namespace GPUDebug {
 
-void WebSocketGPUBufferScreenshot(DebuggerRequest &req);
-void WebSocketGPUBufferRenderColor(DebuggerRequest &req);
-void WebSocketGPUBufferRenderDepth(DebuggerRequest &req);
-void WebSocketGPUBufferRenderStencil(DebuggerRequest &req);
-void WebSocketGPUBufferTexture(DebuggerRequest &req);
-void WebSocketGPUBufferClut(DebuggerRequest &req);
+enum class BreakNext {
+	NONE,
+	OP,
+	DRAW,
+	TEX,
+	NONTEX,
+	FRAME,
+	PRIM,
+};
+
+void SetActive(bool flag);
+bool IsActive();
+
+void SetBreakNext(BreakNext next);
+
+// While debugging is active, these may block.
+void NotifyCommand(u32 pc);
+void NotifyDraw();
+void NotifyDisplay(u32 framebuf, u32 stride, int format);
+void NotifyTextureAttachment(u32 texaddr);
+
+}

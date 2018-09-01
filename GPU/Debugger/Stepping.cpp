@@ -38,6 +38,7 @@ enum PauseAction {
 };
 
 static bool isStepping;
+static int stepCounter = 0;
 
 static std::mutex pauseLock;
 static std::condition_variable pauseWait;
@@ -149,7 +150,7 @@ bool SingleStep() {
 	return true;
 }
 
-bool EnterStepping(std::function<void()> callback) {
+bool EnterStepping() {
 	std::unique_lock<std::mutex> guard(pauseLock);
 	if (coreState != CORE_RUNNING && coreState != CORE_NEXTFRAME) {
 		// Shutting down, don't try to step.
@@ -170,8 +171,7 @@ bool EnterStepping(std::function<void()> callback) {
 		pauseAction = PAUSE_BREAK;
 	}
 	isStepping = true;
-
-	callback();
+	stepCounter++;
 
 	do {
 		RunPauseAction();
@@ -185,6 +185,10 @@ bool EnterStepping(std::function<void()> callback) {
 
 bool IsStepping() {
 	return isStepping;
+}
+
+int GetSteppingCounter() {
+	return stepCounter;
 }
 
 static bool GetBuffer(const GPUDebugBuffer *&buffer, PauseAction type, const GPUDebugBuffer &resultBuffer) {

@@ -23,7 +23,7 @@
 #include "Core/Debugger/WebSocket/WebSocketUtils.h"
 #include "Core/MIPS/MIPSDebugInterface.h"
 
-void *WebSocketBreakpointInit(DebuggerEventHandlerMap &map) {
+DebuggerSubscriber *WebSocketBreakpointInit(DebuggerEventHandlerMap &map) {
 	// No need to bind or alloc state, these are all global.
 	map["cpu.breakpoint.add"] = &WebSocketCPUBreakpointAdd;
 	map["cpu.breakpoint.update"] = &WebSocketCPUBreakpointUpdate;

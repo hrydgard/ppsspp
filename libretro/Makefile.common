@@ -168,8 +168,9 @@ SOURCES_CXX += \
 	$(GPUCOMMONDIR)/PostShader.cpp \
 	$(COMMONDIR)/ColorConv.cpp \
 	$(GPUDIR)/Debugger/Breakpoints.cpp \
-	$(GPUDIR)/Debugger/Stepping.cpp \
+	$(GPUDIR)/Debugger/Debugger.cpp \
 	$(GPUDIR)/Debugger/Record.cpp \
+	$(GPUDIR)/Debugger/Stepping.cpp \
 	$(GPUDIR)/Common/TextureCacheCommon.cpp \
 	$(GPUDIR)/Common/TextureScalerCommon.cpp \
 	$(GPUDIR)/Common/SoftwareTransformCommon.cpp \

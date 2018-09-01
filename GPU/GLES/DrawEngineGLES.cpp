@@ -20,7 +20,6 @@
 
 #include "Common/MemoryUtil.h"
 #include "Core/MemMap.h"
-#include "Core/Host.h"
 #include "Core/System.h"
 #include "Core/Reporting.h"
 #include "Core/Config.h"
@@ -37,6 +36,7 @@
 #include "GPU/Common/SplineCommon.h"
 #include "GPU/Common/VertexDecoderCommon.h"
 #include "GPU/Common/SoftwareTransformCommon.h"
+#include "GPU/Debugger/Debugger.h"
 #include "GPU/GLES/FragmentTestCacheGLES.h"
 #include "GPU/GLES/StateMappingGLES.h"
 #include "GPU/GLES/TextureCacheGLES.h"
@@ -648,9 +648,7 @@ rotateVBO:
 	gstate_c.vertBounds.maxU = 0;
 	gstate_c.vertBounds.maxV = 0;
 
-#ifndef MOBILE_DEVICE
-	host->GPUNotifyDraw();
-#endif
+	GPUDebug::NotifyDraw();
 }
 
 bool DrawEngineGLES::IsCodePtrVertexDecoder(const u8 *ptr) const {

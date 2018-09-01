@@ -53,24 +53,20 @@
 #include "Core/Debugger/WebSocket/DisasmSubscriber.h"
 #include "Core/Debugger/WebSocket/GameSubscriber.h"
 #include "Core/Debugger/WebSocket/GPUBufferSubscriber.h"
+#include "Core/Debugger/WebSocket/GPURecordSubscriber.h"
 #include "Core/Debugger/WebSocket/HLESubscriber.h"
 #include "Core/Debugger/WebSocket/SteppingSubscriber.h"
 
-typedef void *(*SubscriberInit)(DebuggerEventHandlerMap &map);
-typedef void (*Subscribershutdown)(void *p);
-struct SubscriberInfo {
-	SubscriberInit init;
-	Subscribershutdown shutdown;
-};
-
-static const std::vector<SubscriberInfo> subscribers({
-	{ &WebSocketBreakpointInit, nullptr },
-	{ &WebSocketCPUCoreInit, nullptr },
-	{ &WebSocketDisasmInit, &WebSocketDisasmShutdown },
-	{ &WebSocketGameInit, nullptr },
-	{ &WebSocketGPUBufferInit, nullptr },
-	{ &WebSocketHLEInit, nullptr },
-	{ &WebSocketSteppingInit, &WebSocketSteppingShutdown },
+typedef DebuggerSubscriber *(*SubscriberInit)(DebuggerEventHandlerMap &map);
+static const std::vector<SubscriberInit> subscribers({
+	&WebSocketBreakpointInit,
+	&WebSocketCPUCoreInit,
+	&WebSocketDisasmInit,
+	&WebSocketGameInit,
+	&WebSocketGPUBufferInit,
+	&WebSocketGPURecordInit,
+	&WebSocketHLEInit,
+	&WebSocketSteppingInit,
 });
 
 // To handle webserver restart, keep track of how many running.
@@ -132,10 +128,10 @@ void HandleDebuggerRequest(const http::Request &request) {
 	SteppingBroadcaster stepping;
 
 	std::unordered_map<std::string, DebuggerEventHandler> eventHandlers;
-	std::vector<void *> subscriberData;
-	for (auto info : subscribers) {
+	std::vector<DebuggerSubscriber *> subscriberData;
+	for (auto init : subscribers) {
 		std::lock_guard<std::mutex> guard(lifecycleLock);
-		subscriberData.push_back(info.init(eventHandlers));
+		subscriberData.push_back(init(eventHandlers));
 	}
 
 	// There's a tradeoff between responsiveness to incoming events, and polling for changes.
@@ -178,6 +174,12 @@ void HandleDebuggerRequest(const http::Request &request) {
 		game.Broadcast(ws);
 		stepping.Broadcast(ws);
 
+		for (size_t i = 0; i < subscribers.size(); ++i) {
+			if (subscriberData[i]) {
+				subscriberData[i]->Broadcast(ws);
+			}
+		}
+
 		if (stopRequested) {
 			ws->Close(net::WebSocketClose::GOING_AWAY);
 		}
@@ -188,11 +190,7 @@ void HandleDebuggerRequest(const http::Request &request) {
 
 	std::lock_guard<std::mutex> guard(lifecycleLock);
 	for (size_t i = 0; i < subscribers.size(); ++i) {
-		if (subscribers[i].shutdown) {
-			subscribers[i].shutdown(subscriberData[i]);
-		} else {
-			assert(!subscriberData[i]);
-		}
+		delete subscriberData[i];
 	}
 
 	delete ws;

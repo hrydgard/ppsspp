@@ -1357,6 +1357,8 @@ set(GPU_SOURCES
 	GPU/Common/SplineCommon.h
 	GPU/Debugger/Breakpoints.cpp
 	GPU/Debugger/Breakpoints.h
+	GPU/Debugger/Debugger.cpp
+	GPU/Debugger/Debugger.h
 	GPU/Debugger/Record.cpp
 	GPU/Debugger/Record.h
 	GPU/Debugger/Stepping.cpp
@@ -1430,6 +1432,8 @@ add_library(${CoreLibName} ${CoreLinkType}
 	Core/Debugger/WebSocket/GameSubscriber.h
 	Core/Debugger/WebSocket/GPUBufferSubscriber.cpp
 	Core/Debugger/WebSocket/GPUBufferSubscriber.h
+	Core/Debugger/WebSocket/GPURecordSubscriber.cpp
+	Core/Debugger/WebSocket/GPURecordSubscriber.h
 	Core/Debugger/WebSocket/HLESubscriber.cpp
 	Core/Debugger/WebSocket/HLESubscriber.h
 	Core/Debugger/WebSocket/LogBroadcaster.cpp
