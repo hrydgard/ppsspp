@@ -362,13 +362,13 @@ void PSPSaveDialog::DisplaySaveList(bool canMove) {
 	}
 }
 
-void PSPSaveDialog::DisplaySaveIcon()
+void PSPSaveDialog::DisplaySaveIcon(bool checkExists)
 {
 	std::lock_guard<std::mutex> guard(paramLock);
 	int textureColor = CalcFadedColor(0xFFFFFFFF);
 	auto curSave = param.GetFileInfo(currentSelectedSave);
 
-	if (curSave.size == 0)
+	if (curSave.size == 0 && checkExists)
 		textureColor = CalcFadedColor(0xFF777777);
 
 	// Calc save image position on screen
@@ -652,7 +652,7 @@ int PSPSaveDialog::Update(int animSpeed)
 		case DS_SAVE_CONFIRM:
 			StartDraw();
 
-			DisplaySaveIcon();
+			DisplaySaveIcon(false);
 			DisplaySaveDataInfo2(true);
 
 			DisplayMessage(di->T("Confirm Save", "Do you want to save this data?"), true);
@@ -673,7 +673,7 @@ int PSPSaveDialog::Update(int animSpeed)
 		case DS_SAVE_CONFIRM_OVERWRITE:
 			StartDraw();
 
-			DisplaySaveIcon();
+			DisplaySaveIcon(true);
 			DisplaySaveDataInfo2();
 
 			DisplayMessage(di->T("Confirm Overwrite","Do you want to overwrite the data?"), true);
@@ -702,7 +702,7 @@ int PSPSaveDialog::Update(int animSpeed)
 
 			StartDraw();
 
-			DisplaySaveIcon();
+			DisplaySaveIcon(true);
 			DisplaySaveDataInfo2(true);
 
 			DisplayMessage(di->T("Saving","Saving\nPlease Wait..."));
@@ -715,7 +715,7 @@ int PSPSaveDialog::Update(int animSpeed)
 			JoinIOThread();
 			StartDraw();
 
-			DisplaySaveIcon();
+			DisplaySaveIcon(true);
 			DisplaySaveDataInfo2(true);
 
 			DisplayMessage(di->T("SavingFailed", "Unable to save data."));
@@ -742,7 +742,7 @@ int PSPSaveDialog::Update(int animSpeed)
 			}
 			StartDraw();
 
-			DisplaySaveIcon();
+			DisplaySaveIcon(true);
 			DisplaySaveDataInfo2(true);
 
 			DisplayMessage(di->T("Save completed"));
@@ -782,7 +782,7 @@ int PSPSaveDialog::Update(int animSpeed)
 		case DS_LOAD_CONFIRM:
 			StartDraw();
 
-			DisplaySaveIcon();
+			DisplaySaveIcon(true);
 			DisplaySaveDataInfo2();
 
 			DisplayMessage(di->T("ConfirmLoad", "Load this data?"), true);
@@ -807,7 +807,7 @@ int PSPSaveDialog::Update(int animSpeed)
 
 			StartDraw();
 
-			DisplaySaveIcon();
+			DisplaySaveIcon(true);
 			DisplaySaveDataInfo2();
 
 			DisplayMessage(di->T("Loading","Loading\nPlease Wait..."));
@@ -820,7 +820,7 @@ int PSPSaveDialog::Update(int animSpeed)
 			JoinIOThread();
 			StartDraw();
 
-			DisplaySaveIcon();
+			DisplaySaveIcon(true);
 			DisplaySaveDataInfo2();
 
 			DisplayMessage(di->T("LoadingFailed", "Unable to load data."));
@@ -844,7 +844,7 @@ int PSPSaveDialog::Update(int animSpeed)
 			JoinIOThread();
 			StartDraw();
 			
-			DisplaySaveIcon();
+			DisplaySaveIcon(true);
 			DisplaySaveDataInfo2();
 
 			DisplayMessage(di->T("Load completed"));
@@ -902,7 +902,7 @@ int PSPSaveDialog::Update(int animSpeed)
 		case DS_DELETE_CONFIRM:
 			StartDraw();
 
-			DisplaySaveIcon();
+			DisplaySaveIcon(true);
 			DisplaySaveDataInfo2();
 
 			DisplayMessage(di->T("DeleteConfirm", 
