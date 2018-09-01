@@ -129,6 +129,21 @@ FramebufferManagerD3D11::FramebufferManagerD3D11(Draw::DrawContext *draw)
 	vb.BindFlags = D3D11_BIND_CONSTANT_BUFFER;
 	ASSERT_SUCCESS(device_->CreateBuffer(&vb, nullptr, &postConstants_));
 
+	D3D11_TEXTURE2D_DESC desc{};
+	desc.CPUAccessFlags = 0;
+	desc.Usage = D3D11_USAGE_DEFAULT;
+	desc.ArraySize = 1;
+	desc.SampleDesc.Count = 1;
+	desc.Width = 1;
+	desc.Height = 1;
+	desc.Format = DXGI_FORMAT_B8G8R8A8_UNORM;
+	desc.MipLevels = 1;
+	desc.BindFlags = D3D11_BIND_SHADER_RESOURCE;
+	ASSERT_SUCCESS(device_->CreateTexture2D(&desc, nullptr, &nullTexture_));
+	ASSERT_SUCCESS(device_->CreateShaderResourceView(nullTexture_, nullptr, &nullTextureView_));
+	uint32_t nullData[1]{};
+	context_->UpdateSubresource(nullTexture_, 0, nullptr, nullData, 1, 0);
+
 	ShaderTranslationInit();
 
 	CompilePostShader();
@@ -178,6 +193,11 @@ FramebufferManagerD3D11::~FramebufferManagerD3D11() {
 		stencilUploadInputLayout_->Release();
 	if (stencilValueBuffer_)
 		stencilValueBuffer_->Release();
+
+	if (nullTextureView_)
+		nullTextureView_->Release();
+	if (nullTexture_)
+		nullTexture_->Release();
 }
 
 void FramebufferManagerD3D11::SetTextureCache(TextureCacheD3D11 *tc) {
@@ -437,31 +457,33 @@ void FramebufferManagerD3D11::ReformatFramebufferFrom(VirtualFramebuffer *vfb, G
 	// Technically, we should at this point re-interpret the bytes of the old format to the new.
 	// That might get tricky, and could cause unnecessary slowness in some games.
 	// For now, we just clear alpha/stencil from 565, which fixes shadow issues in Kingdom Hearts.
-	// (it uses 565 to write zeros to the buffer, than 4444 to actually render the shadow.)
+	// (it uses 565 to write zeros to the buffer, then 4444 to actually render the shadow.)
 	//
 	// The best way to do this may ultimately be to create a new FBO (combine with any resize?)
 	// and blit with a shader to that, then replace the FBO on vfb.  Stencil would still be complex
 	// to exactly reproduce in 4444 and 8888 formats.
 	if (old == GE_FORMAT_565) {
-		draw_->BindFramebufferAsRenderTarget(vfb->fbo, { Draw::RPAction::CLEAR, Draw::RPAction::KEEP, Draw::RPAction::KEEP });
+		draw_->BindFramebufferAsRenderTarget(vfb->fbo, { Draw::RPAction::KEEP, Draw::RPAction::KEEP, Draw::RPAction::CLEAR });
 
-		// TODO: There's no way this does anything useful :(
-		context_->OMSetDepthStencilState(stockD3D11.depthDisabledStencilWrite, 0xFF);
-		context_->OMSetBlendState(stockD3D11.blendStateDisabledWithColorMask[0], nullptr, 0xFFFFFFFF);
+		context_->OMSetDepthStencilState(stockD3D11.depthStencilDisabled, 0xFF);
+		context_->OMSetBlendState(stockD3D11.blendStateDisabledWithColorMask[D3D11_COLOR_WRITE_ENABLE_ALPHA], nullptr, 0xFFFFFFFF);
 		context_->RSSetState(stockD3D11.rasterStateNoCull);
 		context_->IASetInputLayout(quadInputLayout_);
 		context_->PSSetShader(quadPixelShader_, nullptr, 0);
 		context_->VSSetShader(quadVertexShader_, nullptr, 0);
 		context_->IASetVertexBuffers(0, 1, &fsQuadBuffer_, &quadStride_, &quadOffset_);
+		context_->PSSetSamplers(0, 1, &stockD3D11.samplerPoint2DClamp);
+		context_->PSSetShaderResources(0, 1, &nullTextureView_);
 		shaderManagerD3D11_->DirtyLastShader();
 		D3D11_VIEWPORT vp{ 0.0f, 0.0f, (float)vfb->renderWidth, (float)vfb->renderHeight, 0.0f, 1.0f };
 		context_->RSSetViewports(1, &vp);
 		context_->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLESTRIP);
 		context_->Draw(4, 0);
-	}
 
-	RebindFramebuffer();
-	gstate_c.Dirty(DIRTY_BLEND_STATE | DIRTY_DEPTHSTENCIL_STATE | DIRTY_RASTER_STATE | DIRTY_VIEWPORTSCISSOR_STATE | DIRTY_VERTEXSHADER_STATE);
+		textureCache_->ForgetLastTexture();
+
+		gstate_c.Dirty(DIRTY_BLEND_STATE | DIRTY_DEPTHSTENCIL_STATE | DIRTY_RASTER_STATE | DIRTY_VIEWPORTSCISSOR_STATE | DIRTY_VERTEXSHADER_STATE);
+	}
 }
 
 static void CopyPixelDepthOnly(u32 *dstp, const u32 *srcp, size_t c) {
