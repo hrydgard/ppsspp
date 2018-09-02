@@ -110,12 +110,12 @@ void ConvertS16ToF32(float *out, const s16 *in, size_t size) {
 	}
 }
 
-#ifndef _M_SSE
+#if !defined(_M_SSE) && !PPSSPP_ARCH(ARM64)
 AdjustVolumeBlockFunc AdjustVolumeBlock = &AdjustVolumeBlockStandard;
 
 // This has to be done after CPUDetect has done its magic.
 void SetupAudioFormats() {
-#if PPSSPP_ARCH(ARMV7) && PPSSPP_ARCH(ARM_NEON)
+#if PPSSPP_ARCH(ARM_NEON) && !PPSSPP_ARCH(ARM64)
 	if (cpu_info.bNEON) {
 		AdjustVolumeBlock = &AdjustVolumeBlockNEON;
 	}
