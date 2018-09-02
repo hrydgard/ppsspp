@@ -384,13 +384,16 @@ void DXTDecoder::DecodeColors(const DXT1Block *src, bool ignore1bitAlpha) {
 }
 
 static inline u8 lerp8(const DXT5Block *src, int n) {
-	float d = n / 7.0f;
-	return (u8)(src->alpha1 + (src->alpha2 - src->alpha1) * d);
+	// These weights translate alpha1/alpha2 to fixed 8.8 point, pre-divided by 7.
+	int weight1 = ((7 - n) << 8) / 7;
+	int weight2 = (n << 8) / 7;
+	return (u8)((src->alpha1 * weight1 + src->alpha2 * weight2) >> 8);
 }
 
 static inline u8 lerp6(const DXT5Block *src, int n) {
-	float d = n / 5.0f;
-	return (u8)(src->alpha1 + (src->alpha2 - src->alpha1) * d);
+	int weight1 = ((5 - n) << 8) / 5;
+	int weight2 = (n << 8) / 5;
+	return (u8)((src->alpha1 * weight1 + src->alpha2 * weight2) >> 8);
 }
 
 void DXTDecoder::DecodeAlphaDXT5(const DXT5Block *src) {
