@@ -58,6 +58,7 @@ void TextureReplacer::NotifyConfigChanged() {
 		// If we're saving, auto-create the directory.
 		if (g_Config.bSaveNewTextures && !File::Exists(basePath_ + NEW_TEXTURE_DIR)) {
 			File::CreateFullPath(basePath_ + NEW_TEXTURE_DIR);
+			File::CreateEmptyFile(basePath_ + NEW_TEXTURE_DIR + "/.nomedia");
 		}
 
 		enabled_ = File::Exists(basePath_) && File::IsDirectory(basePath_);
@@ -400,6 +401,7 @@ void TextureReplacer::NotifyTextureDecoded(const ReplacedTextureDecodeInfo &repl
 		const std::string saveDirectory = basePath_ + NEW_TEXTURE_DIR + hashfile.substr(0, slash);
 		if (!File::Exists(saveDirectory)) {
 			File::CreateFullPath(saveDirectory);
+			File::CreateEmptyFile(saveDirectory + "/.nomedia");
 		}
 	}
 

@@ -269,9 +269,11 @@ bool Delete(const std::string &filename) {
 // Returns true if successful, or path already exists.
 bool CreateDir(const std::string &path)
 {
-	DEBUG_LOG(COMMON, "CreateDir('%s')", path.c_str());
+	std::string fn = path;
+	StripTailDirSlashes(fn);
+	DEBUG_LOG(COMMON, "CreateDir('%s')", fn.c_str());
 #ifdef _WIN32
-	if (::CreateDirectory(ConvertUTF8ToWString(path).c_str(), NULL))
+	if (::CreateDirectory(ConvertUTF8ToWString(fn).c_str(), NULL))
 		return true;
 	DWORD error = GetLastError();
 	if (error == ERROR_ALREADY_EXISTS)
@@ -282,25 +284,27 @@ bool CreateDir(const std::string &path)
 	ERROR_LOG(COMMON, "CreateDir: CreateDirectory failed on %s: %i", path.c_str(), error);
 	return false;
 #else
-	if (mkdir(path.c_str(), 0755) == 0)
+	if (mkdir(fn.c_str(), 0755) == 0)
 		return true;
 
 	int err = errno;
 
 	if (err == EEXIST)
 	{
-		WARN_LOG(COMMON, "CreateDir: mkdir failed on %s: already exists", path.c_str());
+		WARN_LOG(COMMON, "CreateDir: mkdir failed on %s: already exists", fn.c_str());
 		return true;
 	}
 
-	ERROR_LOG(COMMON, "CreateDir: mkdir failed on %s: %s", path.c_str(), strerror(err));
+	ERROR_LOG(COMMON, "CreateDir: mkdir failed on %s: %s", fn.c_str(), strerror(err));
 	return false;
 #endif
 }
 
 // Creates the full path of fullPath returns true on success
-bool CreateFullPath(const std::string &fullPath)
+bool CreateFullPath(const std::string &path)
 {
+	std::string fullPath = path;
+	StripTailDirSlashes(fullPath);
 	int panicCounter = 100;
 	VERBOSE_LOG(COMMON, "CreateFullPath: path %s", fullPath.c_str());
 		
