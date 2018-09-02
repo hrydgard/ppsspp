@@ -596,9 +596,9 @@ void InitSysDirectories() {
 	// expect a standard environment. Skipping THEME though, that's pointless.
 	File::CreateDir(g_Config.memStickDirectory + "PSP");
 	File::CreateDir(g_Config.memStickDirectory + "PSP/COMMON");
-	File::CreateDir(g_Config.memStickDirectory + "PSP/GAME");
-	File::CreateDir(g_Config.memStickDirectory + "PSP/SAVEDATA");
-	File::CreateDir(g_Config.memStickDirectory + "PSP/PPSSPP_STATE");
+	File::CreateDir(GetSysDirectory(DIRECTORY_GAME));
+	File::CreateDir(GetSysDirectory(DIRECTORY_SAVEDATA));
+	File::CreateDir(GetSysDirectory(DIRECTORY_SAVESTATE));
 
 	if (g_Config.currentDirectory.empty()) {
 		g_Config.currentDirectory = GetSysDirectory(DIRECTORY_GAME);

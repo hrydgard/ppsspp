@@ -323,7 +323,7 @@ static void PostLoadConfig() {
 
 	// Allow the lang directory to be overridden for testing purposes (e.g. Android, where it's hard to
 	// test new languages without recompiling the entire app, which is a hassle).
-	const std::string langOverridePath = g_Config.memStickDirectory + "PSP/SYSTEM/lang/";
+	const std::string langOverridePath = GetSysDirectory(DIRECTORY_SYSTEM) + "lang/";
 
 	// If we run into the unlikely case that "lang" is actually a file, just use the built-in translations.
 	if (!File::Exists(langOverridePath) || !File::IsDirectory(langOverridePath))
@@ -336,15 +336,15 @@ void CreateDirectoriesAndroid() {
 	// On Android, create a PSP directory tree in the external_dir,
 	// to hopefully reduce confusion a bit.
 	ILOG("Creating %s", (g_Config.memStickDirectory + "PSP").c_str());
-	File::CreateDir(g_Config.memStickDirectory + "PSP");
-	File::CreateDir(g_Config.memStickDirectory + "PSP/SAVEDATA");
-	File::CreateDir(g_Config.memStickDirectory + "PSP/PPSSPP_STATE");
-	File::CreateDir(g_Config.memStickDirectory + "PSP/GAME");
-	File::CreateDir(g_Config.memStickDirectory + "PSP/SYSTEM");
+	File::CreateFullPath(g_Config.memStickDirectory + "PSP");
+	File::CreateFullPath(GetSysDirectory(DIRECTORY_SAVEDATA));
+	File::CreateFullPath(GetSysDirectory(DIRECTORY_SAVESTATE));
+	File::CreateFullPath(GetSysDirectory(DIRECTORY_GAME));
+	File::CreateFullPath(GetSysDirectory(DIRECTORY_SYSTEM));
 
 	// Avoid media scanners in PPSSPP_STATE and SAVEDATA directories
-	File::CreateEmptyFile(g_Config.memStickDirectory + "PSP/PPSSPP_STATE/.nomedia");
-	File::CreateEmptyFile(g_Config.memStickDirectory + "PSP/SAVEDATA/.nomedia");
+	File::CreateEmptyFile(GetSysDirectory(DIRECTORY_SAVESTATE) + ".nomedia");
+	File::CreateEmptyFile(GetSysDirectory(DIRECTORY_SAVEDATA) + ".nomedia");
 	File::CreateEmptyFile(GetSysDirectory(DIRECTORY_SYSTEM) + ".nomedia");
 }
 
@@ -421,8 +421,8 @@ void NativeInit(int argc, const char *argv[], const char *savegame_dir, const ch
 
 #ifndef _WIN32
 	g_Config.AddSearchPath(user_data_path);
-	g_Config.AddSearchPath(g_Config.memStickDirectory + "PSP/SYSTEM/");
-	g_Config.SetDefaultPath(g_Config.memStickDirectory + "PSP/SYSTEM/");
+	g_Config.AddSearchPath(GetSysDirectory(DIRECTORY_SYSTEM));
+	g_Config.SetDefaultPath(GetSysDirectory(DIRECTORY_SYSTEM));
 
 	// Note that if we don't have storage permission here, loading the config will
 	// fail and it will be set to the default. Later, we load again when we get permission.

@@ -410,13 +410,8 @@ namespace SaveState
 		}
 		fullDiscId = StringFromFormat("%s_%s", discId.c_str(), discVer.c_str());
 
-		std::string temp = StringFromFormat("ms0:/PSP/PPSSPP_STATE/%s_%d.%s", fullDiscId.c_str(), slot, extension);
-		std::string hostPath;
-		if (pspFileSystem.GetHostPath(temp, hostPath)) {
-			return hostPath;
-		} else {
-			return "";
-		}
+		std::string filename = StringFromFormat("%s_%d.%s", fullDiscId.c_str(), slot, extension);
+		return GetSysDirectory(DIRECTORY_SAVESTATE) + filename;
 	}
 
 	int GetCurrentSlot()
@@ -878,7 +873,7 @@ namespace SaveState
 	void Init()
 	{
 		// Make sure there's a directory for save slots
-		pspFileSystem.MkDir("ms0:/PSP/PPSSPP_STATE");
+		File::CreateFullPath(GetSysDirectory(DIRECTORY_SAVESTATE));
 
 		std::lock_guard<std::mutex> guard(mutex);
 		rewindStates.Clear();
