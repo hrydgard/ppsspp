@@ -345,6 +345,11 @@ static inline u32 makecol(int r, int g, int b, int a) {
 	return (a << 24) | (r << 16) | (g << 8) | b;
 }
 
+static inline int mul_3_8(int c) {
+	// This is 3/8 * c = 4/8 * c - 1/8 * c.
+	return (c >> 1) - (c >> 3);
+}
+
 // This could probably be done faster by decoding two or four blocks at a time with SSE/NEON.
 void DXTDecoder::DecodeColors(const DXT1Block *src, bool ignore1bitAlpha) {
 	u16 c1 = src->color1;
@@ -356,14 +361,17 @@ void DXTDecoder::DecodeColors(const DXT1Block *src, bool ignore1bitAlpha) {
 	int blue1 = Convert5To8((c1 >> 11) & 0x1F);
 	int blue2 = Convert5To8((c2 >> 11) & 0x1F);
 
-	colors_[0] = makecol(red1, green1, blue1, 255);
-	colors_[1] = makecol(red2, green2, blue2, 255);
+	// Keep alpha zero for non-DXT1 to skip masking the colors.
+	int alpha = ignore1bitAlpha ? 0 : 255;
+
+	colors_[0] = makecol(red1, green1, blue1, alpha);
+	colors_[1] = makecol(red2, green2, blue2, alpha);
 	if (c1 > c2 || ignore1bitAlpha) {
-		int red3 = ((red2 - red1) >> 1) - ((red2 - red1) >> 3);
-		int green3 = ((green2 - green1) >> 1) - ((green2 - green1) >> 3);
-		int blue3 = ((blue2 - blue1) >> 1) - ((blue2 - blue1) >> 3);
-		colors_[2] = makecol(red1 + red3, green1 + green3, blue1 + blue3, 255);
-		colors_[3] = makecol(red2 - red3, green2 - green3, blue2 - blue3, 255);
+		int red3 = mul_3_8(red2 - red1);
+		int green3 = mul_3_8(green2 - green1);
+		int blue3 = mul_3_8(blue2 - blue1);
+		colors_[2] = makecol(red1 + red3, green1 + green3, blue1 + blue3, alpha);
+		colors_[3] = makecol(red2 - red3, green2 - green3, blue2 - blue3, alpha);
 	} else {
 		// Average
 		int red3 = (red1 + red2 + 1) / 2;
@@ -423,7 +431,7 @@ void DXTDecoder::WriteColorsDXT3(u32 *dst, const DXT3Block *src, int pitch, int 
 		u32 alphadata = src->alphaLines[y];
 		for (int x = 0; x < 4; x++) {
 			const u8 a4 = alphadata & 0xF;
-			dst[x] = (colors_[colordata & 3] & 0x00FFFFFF) | (a4 << 24) | (a4 << 28);
+			dst[x] = colors_[colordata & 3] | (a4 << 24) | (a4 << 28);
 			colordata >>= 2;
 			alphadata >>= 4;
 		}
@@ -438,7 +446,7 @@ void DXTDecoder::WriteColorsDXT5(u32 *dst, const DXT5Block *src, int pitch, int 
 	for (int y = 0; y < height; y++) {
 		int colordata = src->color.lines[y];
 		for (int x = 0; x < 4; x++) {
-			dst[x] = (colors_[colordata & 3] & 0x00FFFFFF) | (alpha_[alphadata & 7] << 24);
+			dst[x] = colors_[colordata & 3] | (alpha_[alphadata & 7] << 24);
 			colordata >>= 2;
 			alphadata >>= 3;
 		}
