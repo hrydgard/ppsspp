@@ -23,7 +23,7 @@
 #include "Core/Util/AudioFormat.h"
 #include "Core/Util/AudioFormatNEON.h"
 
-#if !defined(ARM) && !defined(ARM64)
+#if !PPSSPP_ARCH(ARM) && !PPSSPP_ARCH(ARM64)
 #error Should not be compiled on non-ARM.
 #endif
 
