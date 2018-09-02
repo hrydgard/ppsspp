@@ -90,7 +90,7 @@ private:
 
 	void DisplayBanner(int which);
 	void DisplaySaveList(bool canMove = true);
-	void DisplaySaveIcon();
+	void DisplaySaveIcon(bool checkExists);
 	void DisplaySaveDataInfo1();
 	void DisplaySaveDataInfo2(bool showNewData = false);
 	void DisplayMessage(std::string text, bool hasYesNo = false);
