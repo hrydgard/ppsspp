@@ -244,8 +244,8 @@ void CheckGLExtensions() {
 					gl_extensions.ver[1] = 1;
 				}
 				gl_extensions.GLES3 = true;
-				// Though, let's ban Mali from the GLES 3 path for now, see #4078
-				if (strstr(renderer, "Mali") != 0) {
+				// Though, let's ban Mali-4x from the GLES 3 path, see #4078
+				if (strstr(renderer, "Mali-4") != 0) {
 					gl_extensions.GLES3 = false;
 				}
 			} else {
