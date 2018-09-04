@@ -132,6 +132,18 @@ void MainThreadFunc() {
 	bool performingRestart = NativeIsRestarting();
 	NativeInit(static_cast<int>(args.size()), &args[0], "1234", "1234", nullptr);
 
+	if (g_Config.sFailedGPUBackends.find("ALL") != std::string::npos) {
+		Reporting::ReportMessage("Graphics init error: %s", "ALL");
+
+		I18NCategory *err = GetI18NCategory("Error");
+		const char *defaultErrorAll = "Failed initializing any graphics. Try upgrading your graphics drivers.";
+		const char *genericError = err->T("GenericAllGraphicsError", defaultErrorAll);
+		std::wstring title = ConvertUTF8ToWString(err->T("GenericGraphicsError", "Graphics Error"));
+		MessageBox(0, ConvertUTF8ToWString(genericError).c_str(), title.c_str(), MB_OK);
+
+		// Let's continue (and probably crash) just so they have a way to keep trying.
+	}
+
 	host->UpdateUI();
 
 	std::string error_string;
@@ -182,6 +194,8 @@ void MainThreadFunc() {
 		if (yes) {
 			// Change the config to the alternative and restart.
 			g_Config.iGPUBackend = (int)nextBackend;
+			// Clear this to ensure we try their selection.
+			g_Config.sFailedGPUBackends.clear();
 			g_Config.Save();
 
 			W32Util::ExitAndRestart();

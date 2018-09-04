@@ -19,6 +19,7 @@
 #include <cstdlib>
 #include <ctime>
 #include <functional>
+#include <set>
 
 #include "base/display.h"
 #include "base/NativeApp.h"
@@ -545,6 +546,46 @@ static int DefaultGPUBackend() {
 	return (int)GPUBackend::OPENGL;
 }
 
+int Config::NextValidBackend() {
+	std::vector<std::string> split;
+	std::set<int> failed;
+	SplitString(sFailedGPUBackends, ',', split);
+	for (const auto &str : split) {
+		if (!str.empty() && str != "ALL") {
+			failed.insert(atoi(str.c_str()));
+		}
+	}
+
+	if (failed.count(iGPUBackend)) {
+#if (PPSSPP_PLATFORM(WINDOWS) || PPSSPP_PLATFORM(ANDROID)) && !PPSSPP_PLATFORM(UWP)
+		if (VulkanMayBeAvailable() && !failed.count((int)GPUBackend::VULKAN)) {
+			return (int)GPUBackend::VULKAN;
+		}
+#endif
+#if PPSSPP_PLATFORM(WINDOWS)
+		if (DoesVersionMatchWindows(6, 1, 0, 0, true) && !failed.count((int)GPUBackend::DIRECT3D11)) {
+			return (int)GPUBackend::DIRECT3D11;
+		}
+#endif
+#if !PPSSPP_PLATFORM(UWP)
+		if (!failed.count((int)GPUBackend::OPENGL)) {
+			return (int)GPUBackend::OPENGL;
+		}
+#endif
+#if PPSSPP_PLATFORM(WINDOWS) && !PPSSPP_PLATFORM(UWP)
+		if (!failed.count((int)GPUBackend::DIRECT3D9)) {
+			return (int)GPUBackend::DIRECT3D9;
+		}
+#endif
+
+		// They've all failed.  Let them try the default.
+		sFailedGPUBackends += ",ALL";
+		return DefaultGPUBackend();
+	}
+
+	return iGPUBackend;
+}
+
 static bool DefaultVertexCache() {
 	return DefaultGPUBackend() == (int)GPUBackend::OPENGL;
 }
@@ -556,6 +597,7 @@ static ConfigSetting graphicsSettings[] = {
 	ConfigSetting("CardboardYShift", &g_Config.iCardboardXShift, 0, true, true),
 	ConfigSetting("ShowFPSCounter", &g_Config.iShowFPSCounter, 0, true, true),
 	ReportedConfigSetting("GraphicsBackend", &g_Config.iGPUBackend, &DefaultGPUBackend),
+	ConfigSetting("FailedGraphicsBackends", &g_Config.sFailedGPUBackends, ""),
 	ConfigSetting("VulkanDevice", &g_Config.sVulkanDevice, "", true, false),
 #ifdef _WIN32
 	ConfigSetting("D3D11Device", &g_Config.sD3D11Device, "", true, false),
