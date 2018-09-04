@@ -1194,10 +1194,6 @@ if (NOT MOBILE_DEVICE)
 		Core/WaveFile.h)
 endif()
 
-if(ARMV7)
-	set(CORE_NEON Core/Util/AudioFormatNEON.cpp Core/Util/AudioFormatNEON.h)
-endif()
-
 set(GPU_GLES
 	GPU/GLES/DepalettizeShaderGLES.cpp
 	GPU/GLES/DepalettizeShaderGLES.h
@@ -1713,6 +1709,8 @@ add_library(${CoreLibName} ${CoreLinkType}
 	Core/TextureReplacer.h
 	Core/Util/AudioFormat.cpp
 	Core/Util/AudioFormat.h
+	Core/Util/AudioFormatNEON.cpp
+	Core/Util/AudioFormatNEON.h
 	Core/Util/GameManager.cpp
 	Core/Util/GameManager.h
 	Core/Util/BlockAllocator.cpp
