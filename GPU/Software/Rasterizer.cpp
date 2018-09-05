@@ -1764,17 +1764,20 @@ bool GetCurrentTexture(GPUDebugBuffer &buffer, int level)
 		return false;
 	}
 
-	int w = gstate.getTextureWidth(level);
-	int h = gstate.getTextureHeight(level);
-	buffer.Allocate(w, h, GE_FORMAT_8888, false);
-
 	GETextureFormat texfmt = gstate.getTextureFormat();
 	u32 texaddr = gstate.getTextureAddress(level);
 	int texbufw = GetTextureBufw(level, texaddr, texfmt);
-	u8 *texptr = Memory::GetPointer(texaddr);
+	int w = gstate.getTextureWidth(level);
+	int h = gstate.getTextureHeight(level);
+
+	if (!texaddr || !Memory::IsValidRange(texaddr, (textureBitsPerPixel[texfmt] * texbufw * h) / 8))
+		return false;
+
+	buffer.Allocate(w, h, GE_FORMAT_8888, false);
 
 	Sampler::Funcs sampler = Sampler::GetFuncs();
 
+	u8 *texptr = Memory::GetPointer(texaddr);
 	u32 *row = (u32 *)buffer.GetData();
 	for (int y = 0; y < h; ++y) {
 		for (int x = 0; x < w; ++x) {
