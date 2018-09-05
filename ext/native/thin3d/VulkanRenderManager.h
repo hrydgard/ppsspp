@@ -176,7 +176,7 @@ public:
 		data.draw.vbuffer = vbuffer;
 		data.draw.voffset = voffset;
 		data.draw.numUboOffsets = numUboOffsets;
-		assert(numUboOffsets <= ARRAY_SIZE(data.drawIndexed.uboOffsets));
+		assert(numUboOffsets <= ARRAY_SIZE(data.draw.uboOffsets));
 		for (int i = 0; i < numUboOffsets; i++)
 			data.draw.uboOffsets[i] = uboOffsets[i];
 		curRenderStep_->commands.push_back(data);
