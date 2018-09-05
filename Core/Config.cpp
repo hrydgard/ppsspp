@@ -1037,7 +1037,10 @@ void Config::Load(const char *iniFileName, const char *controllerIniFilename) {
 	auto pinnedPaths = iniFile.GetOrCreateSection("PinnedPaths")->ToMap();
 	vPinnedPaths.clear();
 	for (auto it = pinnedPaths.begin(), end = pinnedPaths.end(); it != end; ++it) {
-		vPinnedPaths.push_back(it->second);
+		// Unpin paths that are deleted automatically.
+		if (File::Exists(it->second)) {
+			vPinnedPaths.push_back(File::ResolvePath(it->second));
+		}
 	}
 
 	// This caps the exponent 4 (so 16x.)

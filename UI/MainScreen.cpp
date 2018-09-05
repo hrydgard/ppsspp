@@ -495,10 +495,11 @@ UI::EventReturn GameBrowser::HomeClick(UI::EventParams &e) {
 
 UI::EventReturn GameBrowser::PinToggleClick(UI::EventParams &e) {
 	auto &pinnedPaths = g_Config.vPinnedPaths;
+	const std::string path = File::ResolvePath(path_.GetPath());
 	if (IsCurrentPathPinned()) {
-		pinnedPaths.erase(std::remove(pinnedPaths.begin(), pinnedPaths.end(), path_.GetPath()), pinnedPaths.end());
+		pinnedPaths.erase(std::remove(pinnedPaths.begin(), pinnedPaths.end(), path), pinnedPaths.end());
 	} else {
-		pinnedPaths.push_back(path_.GetPath());
+		pinnedPaths.push_back(path);
 	}
 	Refresh();
 	return UI::EVENT_DONE;
@@ -662,7 +663,7 @@ void GameBrowser::Refresh() {
 
 bool GameBrowser::IsCurrentPathPinned() {
 	const auto paths = g_Config.vPinnedPaths;
-	return std::find(paths.begin(), paths.end(), path_.GetPath()) != paths.end();
+	return std::find(paths.begin(), paths.end(), File::ResolvePath(path_.GetPath())) != paths.end();
 }
 
 const std::vector<std::string> GameBrowser::GetPinnedPaths() {
@@ -672,7 +673,7 @@ const std::vector<std::string> GameBrowser::GetPinnedPaths() {
 	static const std::string sepChars = "/\\";
 #endif
 
-	const std::string currentPath = path_.GetPath();
+	const std::string currentPath = File::ResolvePath(path_.GetPath());
 	const std::vector<std::string> paths = g_Config.vPinnedPaths;
 	std::vector<std::string> results;
 	for (size_t i = 0; i < paths.size(); ++i) {
