@@ -557,6 +557,8 @@ int Config::NextValidBackend() {
 	}
 
 	if (failed.count(iGPUBackend)) {
+		ERROR_LOG(LOADER, "Graphics backend failed for %d, trying another", iGPUBackend);
+
 #if (PPSSPP_PLATFORM(WINDOWS) || PPSSPP_PLATFORM(ANDROID)) && !PPSSPP_PLATFORM(UWP)
 		if (VulkanMayBeAvailable() && !failed.count((int)GPUBackend::VULKAN)) {
 			return (int)GPUBackend::VULKAN;
@@ -580,6 +582,7 @@ int Config::NextValidBackend() {
 
 		// They've all failed.  Let them try the default.
 		sFailedGPUBackends += ",ALL";
+		ERROR_LOG(LOADER, "All graphics backends failed");
 		return DefaultGPUBackend();
 	}
 
