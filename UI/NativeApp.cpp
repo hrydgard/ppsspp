@@ -346,6 +346,14 @@ void CreateDirectoriesAndroid() {
 }
 
 static void CheckFailedGPUBackends() {
+	// We only want to do this once per process run and backend, to detect process crashes.
+	// If NativeShutdown is called before we finish, we might call this multiple times.
+	static int lastBackend = -1;
+	if (lastBackend == g_Config.iGPUBackend) {
+		return;
+	}
+	lastBackend = g_Config.iGPUBackend;
+
 	std::string cache = GetSysDirectory(DIRECTORY_APP_CACHE) + "/FailedGraphicsBackends.txt";
 
 	if (System_GetPropertyBool(SYSPROP_SUPPORTS_PERMISSIONS)) {
@@ -361,10 +369,9 @@ static void CheckFailedGPUBackends() {
 		ERROR_LOG(LOADER, "Failed graphics backends: %s", g_Config.sFailedGPUBackends.c_str());
 
 	// Okay, let's not try a backend in the failed list.
-	int newBackend = g_Config.NextValidBackend();
-	if (newBackend != g_Config.iGPUBackend)
-		WARN_LOG(LOADER, "Failed graphics backend switched from %d to %d", g_Config.iGPUBackend, newBackend);
-	g_Config.iGPUBackend = newBackend;
+	g_Config.iGPUBackend = g_Config.NextValidBackend();
+	if (lastBackend != g_Config.iGPUBackend)
+		WARN_LOG(LOADER, "Failed graphics backend switched from %d to %d", lastBackend, g_Config.iGPUBackend);
 	// And then let's - for now - add the current to the failed list.
 	if (g_Config.sFailedGPUBackends.empty()) {
 		g_Config.sFailedGPUBackends = StringFromFormat("%d", g_Config.iGPUBackend);
