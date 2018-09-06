@@ -357,9 +357,14 @@ static void CheckFailedGPUBackends() {
 	// Use this if you want to debug a graphics crash...
 	if (g_Config.sFailedGPUBackends == "IGNORE")
 		return;
+	else if (!g_Config.sFailedGPUBackends.empty())
+		ERROR_LOG(LOADER, "Failed graphics backends: %s", g_Config.sFailedGPUBackends.c_str());
 
 	// Okay, let's not try a backend in the failed list.
-	g_Config.iGPUBackend = g_Config.NextValidBackend();
+	int newBackend = g_Config.NextValidBackend();
+	if (newBackend != g_Config.iGPUBackend)
+		WARN_LOG(LOADER, "Failed graphics backend switched from %d to %d", g_Config.iGPUBackend, newBackend);
+	g_Config.iGPUBackend = newBackend;
 	// And then let's - for now - add the current to the failed list.
 	if (g_Config.sFailedGPUBackends.empty()) {
 		g_Config.sFailedGPUBackends = StringFromFormat("%d", g_Config.iGPUBackend);
