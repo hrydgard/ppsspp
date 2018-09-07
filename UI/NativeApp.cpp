@@ -142,6 +142,7 @@ static bool resized = false;
 static bool restarting = false;
 
 static bool askedForStoragePermission = false;
+static int renderCounter = 0;
 
 struct PendingMessage {
 	std::string msg;
@@ -689,6 +690,7 @@ void NativeInit(int argc, const char *argv[], const char *savegame_dir, const ch
 	// When it's reset we don't want to forget all our managed things.
 	CheckFailedGPUBackends();
 	SetGPUBackend((GPUBackend) g_Config.iGPUBackend);
+	renderCounter = 0;
 
 	// Must be done restarting by now.
 	restarting = false;
@@ -1010,7 +1012,6 @@ void NativeRender(GraphicsContext *graphicsContext) {
 	ui_draw2d.PopDrawMatrix();
 	ui_draw2d_front.PopDrawMatrix();
 
-	static int renderCounter = 0;
 	if (renderCounter < 10 && ++renderCounter == 10) {
 		// We're rendering fine, clear out failure info.
 		ClearFailedGPUBackends();
