@@ -52,6 +52,7 @@ struct CPUInfo {
 	bool bBMI1;
 	bool bBMI2;
 	bool bXOP;
+	bool bRTM;
 
 	// x86 : SIMD 128 bit
 	bool bSSE;
