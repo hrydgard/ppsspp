@@ -196,6 +196,11 @@ void CPUInfo::Detect() {
 			}
 		}
 
+
+		// TSX support require check:
+		// -- Is the RTM bit set in CPUID? (>>11)
+		// -- No need to check HLE bit because legacy processors ignore HLE hints
+		// -- See https://software.intel.com/en-us/articles/how-to-detect-new-instruction-support-in-the-4th-generation-intel-core-processor-family
 		if (max_std_fn >= 7)
 		{
 			do_cpuid(cpu_id, 0x00000007);
@@ -208,6 +213,8 @@ void CPUInfo::Detect() {
 				bBMI2 = true;
 			if ((cpu_id[1] >> 29) & 1)
 				bSHA = true;
+			if ((cpu_id[1] >> 11) & 1)
+				bRTM = true;
 		}
 	}
 	if (max_ex_fn >= 0x80000004) {
@@ -294,6 +301,7 @@ std::string CPUInfo::Summarize()
 	if (bAES) sum += ", AES";
 	if (bSHA) sum += ", SHA";
 	if (bXOP) sum += ", XOP";
+	if (bRTM) sum += ", TSX";
 	if (bLongMode) sum += ", 64-bit support";
 	return sum;
 }
