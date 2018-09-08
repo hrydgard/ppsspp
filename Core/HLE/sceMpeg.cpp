@@ -299,7 +299,8 @@ static u32 getMpegVersion(u32 mpegRawVersion) {
 		default: return -1;
 	}
 }
-static void AnalyzeMpeg(u8 *buffer, MpegContext *ctx) {
+
+static void AnalyzeMpeg(u8 *buffer, u32 validSize, MpegContext *ctx) {
 	ctx->mpegMagic = *(u32_le*)buffer;
 	ctx->mpegRawVersion = *(u32_le*)(buffer + PSMF_STREAM_VERSION_OFFSET);
 	ctx->mpegVersion = getMpegVersion(ctx->mpegRawVersion);
@@ -329,7 +330,7 @@ static void AnalyzeMpeg(u8 *buffer, MpegContext *ctx) {
 		return;
 	}
 
-	if (ctx->mediaengine && (ctx->mpegStreamSize > 0) && !ctx->isAnalyzed) {
+	if (!ctx->isAnalyzed && ctx->mediaengine && ctx->mpegStreamSize > 0 && validSize >= ctx->mpegOffset) {
 		// init mediaEngine
 		auto ringbuffer = PSPPointer<SceMpegRingBuffer>::Create(ctx->mpegRingbufferAddr);
 		if (ringbuffer.IsValid()) {
@@ -338,16 +339,16 @@ static void AnalyzeMpeg(u8 *buffer, MpegContext *ctx) {
 			// TODO: Does this make any sense?
 			ctx->mediaengine->loadStream(buffer, ctx->mpegOffset, 0);
 		}
+
+		// When used with scePsmf, some applications attempt to use sceMpegQueryStreamOffset
+		// and sceMpegQueryStreamSize, which forces a packet overwrite in the Media Engine and in
+		// the MPEG ringbuffer.
+		// Mark the current MPEG as analyzed to filter this, and restore it at sceMpegFinish.
+		ctx->isAnalyzed = true;
 	}
-	
-	// When used with scePsmf, some applications attempt to use sceMpegQueryStreamOffset
-	// and sceMpegQueryStreamSize, which forces a packet overwrite in the Media Engine and in
-	// the MPEG ringbuffer.
-	// Mark the current MPEG as analyzed to filter this, and restore it at sceMpegFinish.
-	ctx->isAnalyzed = true;
 
 	// copy header struct to mpeg header.
-	memcpy(ctx->mpegheader, buffer, 2048);
+	memcpy(ctx->mpegheader, buffer, validSize >= 2048 ? 2048 : validSize);
 	*(u32_le*)(ctx->mpegheader + PSMF_STREAM_OFFSET_OFFSET) = 0x80000;
 
 	INFO_LOG(ME, "Stream offset: %d, Stream size: 0x%X", ctx->mpegOffset, ctx->mpegStreamSize);
@@ -601,7 +602,7 @@ static int sceMpegQueryStreamOffset(u32 mpeg, u32 bufferAddr, u32 offsetAddr)
 	DEBUG_LOG(ME, "sceMpegQueryStreamOffset(%08x, %08x, %08x)", mpeg, bufferAddr, offsetAddr);
 
 	// Kinda destructive, no?
-	AnalyzeMpeg(Memory::GetPointer(bufferAddr), ctx);
+	AnalyzeMpeg(Memory::GetPointer(bufferAddr), Memory::ValidSize(bufferAddr, 32768), ctx);
 
 	if (ctx->mpegMagic != PSMF_MAGIC) {
 		ERROR_LOG(ME, "sceMpegQueryStreamOffset: Bad PSMF magic");
@@ -633,7 +634,7 @@ static u32 sceMpegQueryStreamSize(u32 bufferAddr, u32 sizeAddr)
 	MpegContext ctx;
 	ctx.mediaengine = 0;
 
-	AnalyzeMpeg(Memory::GetPointer(bufferAddr), &ctx);
+	AnalyzeMpeg(Memory::GetPointer(bufferAddr), Memory::ValidSize(bufferAddr, 32768), &ctx);
 
 	if (ctx.mpegMagic != PSMF_MAGIC) {
 		ERROR_LOG(ME, "sceMpegQueryStreamSize: Bad PSMF magic");
@@ -1465,7 +1466,7 @@ void PostPutAction::run(MipsCall &call) {
 
 	if (ringbuffer->packetsRead == 0 && ctx->mediaengine && packetsAdded > 0) {
 		// init mediaEngine
-		AnalyzeMpeg(ctx->mpegheader, ctx);
+		AnalyzeMpeg(ctx->mpegheader, 2048, ctx);
 		ctx->mediaengine->loadStream(ctx->mpegheader, 2048, ringbuffer->packets * ringbuffer->packetSize);
 	}
 	if (packetsAdded > 0) {
