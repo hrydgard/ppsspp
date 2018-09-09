@@ -57,7 +57,6 @@ enum DoLightComputation {
 
 void GenerateVertexShaderHLSL(const VShaderID &id, char *buffer, ShaderLanguage lang) {
 	char *p = buffer;
-	const u32 vertType = gstate.vertType;
 
 	bool isModeThrough = id.Bit(VS_BIT_IS_THROUGH);
 	bool lmode = id.Bit(VS_BIT_LMODE);
@@ -76,7 +75,6 @@ void GenerateVertexShaderHLSL(const VShaderID &id, char *buffer, ShaderLanguage 
 	bool hasNormal = id.Bit(VS_BIT_HAS_NORMAL) && useHWTransform;
 	bool hasTexcoord = id.Bit(VS_BIT_HAS_TEXCOORD) || !useHWTransform;
 	bool enableFog = id.Bit(VS_BIT_ENABLE_FOG);
-	bool throughmode = id.Bit(VS_BIT_IS_THROUGH);
 	bool flipNormal = id.Bit(VS_BIT_NORM_REVERSE);
 	int ls0 = id.Bits(VS_BIT_LS0, 2);
 	int ls1 = id.Bits(VS_BIT_LS1, 2);
@@ -97,7 +95,7 @@ void GenerateVertexShaderHLSL(const VShaderID &id, char *buffer, ShaderLanguage 
 		for (int i = 0; i < 4; i++) {
 			if (i == shadeLight0 || i == shadeLight1)
 				doLight[i] = LIGHT_SHADE;
-			if (id.Bit(VS_BIT_LIGHTING_ENABLE) && id.Bit(VS_BIT_LIGHT0_ENABLE + i))
+			if (enableLighting && id.Bit(VS_BIT_LIGHT0_ENABLE + i))
 				doLight[i] = LIGHT_FULL;
 		}
 	}
@@ -167,9 +165,9 @@ void GenerateVertexShaderHLSL(const VShaderID &id, char *buffer, ShaderLanguage 
 			}
 			if (enableLighting) {
 				WRITE(p, "float4 u_ambient : register(c%i);\n", CONST_VS_AMBIENT);
-				if ((gstate.materialupdate & 2) == 0 || !hasColor)
+				if ((matUpdate & 2) == 0 || !hasColor)
 					WRITE(p, "float3 u_matdiffuse : register(c%i);\n", CONST_VS_MATDIFFUSE);
-				// if ((gstate.materialupdate & 4) == 0)
+				// if ((matUpdate & 4) == 0)
 				WRITE(p, "float4 u_matspecular : register(c%i);\n", CONST_VS_MATSPECULAR);  // Specular coef is contained in alpha
 				WRITE(p, "float3 u_matemissive : register(c%i);\n", CONST_VS_MATEMISSIVE);
 			}
@@ -183,6 +181,8 @@ void GenerateVertexShaderHLSL(const VShaderID &id, char *buffer, ShaderLanguage 
 		WRITE(p, "cbuffer lights: register(b1) {\n%s};\n", cb_vs_lightsStr);
 		WRITE(p, "cbuffer bones : register(b2) {\n%s};\n", cb_vs_bonesStr);
 	}
+
+	bool scaleUV = !isModeThrough && (uvGenMode == GE_TEXMAP_TEXTURE_COORDS || uvGenMode == GE_TEXMAP_UNKNOWN);
 
 	// And the "varyings".
 	bool texCoordInVec3 = false;
@@ -210,7 +210,7 @@ void GenerateVertexShaderHLSL(const VShaderID &id, char *buffer, ShaderLanguage 
 		WRITE(p, "struct VS_IN {\n");
 		WRITE(p, "  float4 position : POSITION;\n");
 		if (doTexture && hasTexcoord) {
-			if (doTextureTransform && !throughmode) {
+			if (doTextureTransform && !isModeThrough) {
 				texCoordInVec3 = true;
 				WRITE(p, "  float3 texcoord : TEXCOORD0;\n");
 			}
@@ -369,7 +369,7 @@ void GenerateVertexShaderHLSL(const VShaderID &id, char *buffer, ShaderLanguage 
 			WRITE(p, "  Out.v_fogdepth = In.position.w;\n");
 		}
 		if (lang == HLSL_D3D11 || lang == HLSL_D3D11_LEVEL9) {
-			if (gstate.isModeThrough()) {
+			if (isModeThrough) {
 				WRITE(p, "  Out.gl_Position = mul(u_proj_through, float4(In.position.xyz, 1.0));\n");
 			} else {
 				if (gstate_c.Supports(GPU_ROUND_DEPTH_TO_16BIT)) {
@@ -379,7 +379,7 @@ void GenerateVertexShaderHLSL(const VShaderID &id, char *buffer, ShaderLanguage 
 				}
 			}
 		} else {
-			if (gstate.isModeThrough()) {
+			if (isModeThrough) {
 				WRITE(p, "  Out.gl_Position = mul(float4(In.position.xyz, 1.0), u_proj_through);\n");
 			} else {
 				if (gstate_c.Supports(GPU_ROUND_DEPTH_TO_16BIT)) {
@@ -592,9 +592,9 @@ void GenerateVertexShaderHLSL(const VShaderID &id, char *buffer, ShaderLanguage 
 
 		// TODO: Declare variables for dots for shade mapping if needed.
 
-		const char *ambientStr = (gstate.materialupdate & 1) && hasColor ? "In.color0" : "u_matambientalpha";
-		const char *diffuseStr = (gstate.materialupdate & 2) && hasColor ? "In.color0.rgb" : "u_matdiffuse";
-		const char *specularStr = (gstate.materialupdate & 4) && hasColor ? "In.color0.rgb" : "u_matspecular.rgb";
+		const char *ambientStr = (matUpdate & 1) && hasColor ? "In.color0" : "u_matambientalpha";
+		const char *diffuseStr = (matUpdate & 2) && hasColor ? "In.color0.rgb" : "u_matdiffuse";
+		const char *specularStr = (matUpdate & 4) && hasColor ? "In.color0.rgb" : "u_matspecular.rgb";
 		if (doBezier || doSpline) {
 			ambientStr = (matUpdate & 1) && hasColor ? "col" : "u_matambientalpha";
 			diffuseStr = (matUpdate & 2) && hasColor ? "col.rgb" : "u_matdiffuse";
@@ -604,7 +604,7 @@ void GenerateVertexShaderHLSL(const VShaderID &id, char *buffer, ShaderLanguage 
 		bool diffuseIsZero = true;
 		bool specularIsZero = true;
 		bool distanceNeeded = false;
-
+		bool anySpots = false;
 		if (enableLighting) {
 			WRITE(p, "  float4 lightSum0 = u_ambient * %s + float4(u_matemissive, 0.0);\n", ambientStr);
 
@@ -618,6 +618,8 @@ void GenerateVertexShaderHLSL(const VShaderID &id, char *buffer, ShaderLanguage 
 					specularIsZero = false;
 				if (type != GE_LIGHTTYPE_DIRECTIONAL)
 					distanceNeeded = true;
+				if (type == GE_LIGHTTYPE_SPOT || type == GE_LIGHTTYPE_UNKNOWN)
+					anySpots = true;
 			}
 
 			if (!specularIsZero) {
@@ -630,6 +632,10 @@ void GenerateVertexShaderHLSL(const VShaderID &id, char *buffer, ShaderLanguage 
 			if (distanceNeeded) {
 				WRITE(p, "  float distance;\n");
 				WRITE(p, "  float lightScale;\n");
+			}
+			WRITE(p, "  float ldot;\n");
+			if (anySpots) {
+				WRITE(p, "  float angle;\n");
 			}
 		}
 
@@ -654,12 +660,15 @@ void GenerateVertexShaderHLSL(const VShaderID &id, char *buffer, ShaderLanguage 
 			bool doSpecular = comp != GE_LIGHTCOMP_ONLYDIFFUSE;
 			bool poweredDiffuse = comp == GE_LIGHTCOMP_BOTHWITHPOWDIFFUSE;
 
+			WRITE(p, "  ldot = max(dot(toLight, worldnormal), 0.0);\n");
 			if (poweredDiffuse) {
-				WRITE(p, "  float dot%i = pow(dot(toLight, worldnormal), u_matspecular.a);\n", i);
-				// TODO: Somehow the NaN check from GLES seems unnecessary here?
-				// If it returned 0, it'd be wrong, so that's strange.
-			} else {
-				WRITE(p, "  float dot%i = dot(toLight, worldnormal);\n", i);
+				// pow(0.0, 0.0) may be undefined, but the PSP seems to treat it as 1.0.
+				// Seen in Tales of the World: Radiant Mythology (#2424.)
+				WRITE(p, "  if (ldot == 0.0 && u_matspecular.a == 0.0) {\n");
+				WRITE(p, "    ldot = 1.0;\n");
+				WRITE(p, "  } else {\n");
+				WRITE(p, "    ldot = pow(ldot, u_matspecular.a);\n");
+				WRITE(p, "  }\n");
 			}
 
 			const char *timesLightScale = " * lightScale";
@@ -674,9 +683,9 @@ void GenerateVertexShaderHLSL(const VShaderID &id, char *buffer, ShaderLanguage 
 				break;
 			case GE_LIGHTTYPE_SPOT:
 			case GE_LIGHTTYPE_UNKNOWN:
-				WRITE(p, "  float angle%i = dot(normalize(u_lightdir%i), toLight);\n", i, i);
-				WRITE(p, "  if (angle%i >= u_lightangle_spotCoef%i.x) {\n", i, i);
-				WRITE(p, "    lightScale = clamp(1.0 / dot(u_lightatt%i, float3(1.0, distance, distance*distance)), 0.0, 1.0) * pow(angle%i, u_lightangle_spotCoef%i.y);\n", i, i, i);
+				WRITE(p, "  angle = dot(normalize(u_lightdir%i), toLight);\n", i);
+				WRITE(p, "  if (angle >= u_lightangle_spotCoef%i.x) {\n", i);
+				WRITE(p, "    lightScale = clamp(1.0 / dot(u_lightatt%i, float3(1.0, distance, distance*distance)), 0.0, 1.0) * pow(angle, u_lightangle_spotCoef%i.y);\n", i, i);
 				WRITE(p, "  } else {\n");
 				WRITE(p, "    lightScale = 0.0;\n");
 				WRITE(p, "  }\n");
@@ -686,11 +695,11 @@ void GenerateVertexShaderHLSL(const VShaderID &id, char *buffer, ShaderLanguage 
 				break;
 			}
 
-			WRITE(p, "  diffuse = (u_lightdiffuse%i * %s) * max(dot%i, 0.0);\n", i, diffuseStr, i);
+			WRITE(p, "  diffuse = (u_lightdiffuse%i * %s) * ldot;\n", i, diffuseStr);
 			if (doSpecular) {
-				WRITE(p, "  dot%i = dot(normalize(toLight + float3(0.0, 0.0, 1.0)), worldnormal);\n", i);
-				WRITE(p, "  if (dot%i > 0.0)\n", i);
-				WRITE(p, "    lightSum1 += u_lightspecular%i * %s * (pow(dot%i, u_matspecular.a) %s);\n", i, specularStr, i, timesLightScale);
+				WRITE(p, "  ldot = dot(normalize(toLight + float3(0.0, 0.0, 1.0)), worldnormal);\n");
+				WRITE(p, "  if (ldot > 0.0)\n");
+				WRITE(p, "    lightSum1 += u_lightspecular%i * %s * (pow(ldot, u_matspecular.a) %s);\n", i, specularStr, timesLightScale);
 			}
 			WRITE(p, "  lightSum0.rgb += (u_lightambient%i * %s.rgb + diffuse)%s;\n", i, ambientStr, timesLightScale);
 		}
@@ -725,9 +734,6 @@ void GenerateVertexShaderHLSL(const VShaderID &id, char *buffer, ShaderLanguage 
 			if (lmode)
 				WRITE(p, "  Out.v_color1 = float3(0, 0, 0);\n");
 		}
-
-		bool scaleUV = !throughmode && (uvGenMode == GE_TEXMAP_TEXTURE_COORDS || uvGenMode == GE_TEXMAP_UNKNOWN);
-
 
 		// Step 3: UV generation
 		if (doTexture) {
