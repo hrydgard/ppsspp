@@ -122,7 +122,6 @@ bool GenerateVulkanGLSLVertexShader(const VShaderID &id, char *buffer) {
 	bool hasNormal = id.Bit(VS_BIT_HAS_NORMAL) && useHWTransform;
 	bool hasTexcoord = id.Bit(VS_BIT_HAS_TEXCOORD) || !useHWTransform;
 	bool enableFog = id.Bit(VS_BIT_ENABLE_FOG);
-	bool throughmode = id.Bit(VS_BIT_IS_THROUGH);
 	bool flipNormal = id.Bit(VS_BIT_NORM_REVERSE);
 	int ls0 = id.Bits(VS_BIT_LS0, 2);
 	int ls1 = id.Bits(VS_BIT_LS1, 2);
@@ -175,7 +174,7 @@ bool GenerateVulkanGLSLVertexShader(const VShaderID &id, char *buffer) {
 
 	bool texcoordInVec3 = false;
 	if (doTexture && hasTexcoord) {
-		if (!useHWTransform && doTextureTransform && !throughmode) {
+		if (!useHWTransform && doTextureTransform && !isModeThrough) {
 			WRITE(p, "layout (location = %d) in vec3 texcoord;\n", (int)PspAttributeLocation::TEXCOORD);
 			texcoordInVec3 = true;
 		}
@@ -618,7 +617,7 @@ bool GenerateVulkanGLSLVertexShader(const VShaderID &id, char *buffer) {
 			}
 		}
 
-		bool scaleUV = !throughmode && (uvGenMode == GE_TEXMAP_TEXTURE_COORDS || uvGenMode == GE_TEXMAP_UNKNOWN);
+		bool scaleUV = !isModeThrough && (uvGenMode == GE_TEXMAP_TEXTURE_COORDS || uvGenMode == GE_TEXMAP_UNKNOWN);
 
 		// Step 3: UV generation
 		if (doTexture) {

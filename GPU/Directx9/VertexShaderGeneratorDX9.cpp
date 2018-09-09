@@ -57,7 +57,6 @@ enum DoLightComputation {
 
 void GenerateVertexShaderHLSL(const VShaderID &id, char *buffer, ShaderLanguage lang) {
 	char *p = buffer;
-	const u32 vertType = gstate.vertType;
 
 	bool isModeThrough = id.Bit(VS_BIT_IS_THROUGH);
 	bool lmode = id.Bit(VS_BIT_LMODE);
@@ -76,7 +75,6 @@ void GenerateVertexShaderHLSL(const VShaderID &id, char *buffer, ShaderLanguage 
 	bool hasNormal = id.Bit(VS_BIT_HAS_NORMAL) && useHWTransform;
 	bool hasTexcoord = id.Bit(VS_BIT_HAS_TEXCOORD) || !useHWTransform;
 	bool enableFog = id.Bit(VS_BIT_ENABLE_FOG);
-	bool throughmode = id.Bit(VS_BIT_IS_THROUGH);
 	bool flipNormal = id.Bit(VS_BIT_NORM_REVERSE);
 	int ls0 = id.Bits(VS_BIT_LS0, 2);
 	int ls1 = id.Bits(VS_BIT_LS1, 2);
@@ -97,7 +95,7 @@ void GenerateVertexShaderHLSL(const VShaderID &id, char *buffer, ShaderLanguage 
 		for (int i = 0; i < 4; i++) {
 			if (i == shadeLight0 || i == shadeLight1)
 				doLight[i] = LIGHT_SHADE;
-			if (id.Bit(VS_BIT_LIGHTING_ENABLE) && id.Bit(VS_BIT_LIGHT0_ENABLE + i))
+			if (enableLighting && id.Bit(VS_BIT_LIGHT0_ENABLE + i))
 				doLight[i] = LIGHT_FULL;
 		}
 	}
@@ -167,9 +165,9 @@ void GenerateVertexShaderHLSL(const VShaderID &id, char *buffer, ShaderLanguage 
 			}
 			if (enableLighting) {
 				WRITE(p, "float4 u_ambient : register(c%i);\n", CONST_VS_AMBIENT);
-				if ((gstate.materialupdate & 2) == 0 || !hasColor)
+				if ((matUpdate & 2) == 0 || !hasColor)
 					WRITE(p, "float3 u_matdiffuse : register(c%i);\n", CONST_VS_MATDIFFUSE);
-				// if ((gstate.materialupdate & 4) == 0)
+				// if ((matUpdate & 4) == 0)
 				WRITE(p, "float4 u_matspecular : register(c%i);\n", CONST_VS_MATSPECULAR);  // Specular coef is contained in alpha
 				WRITE(p, "float3 u_matemissive : register(c%i);\n", CONST_VS_MATEMISSIVE);
 			}
@@ -183,6 +181,8 @@ void GenerateVertexShaderHLSL(const VShaderID &id, char *buffer, ShaderLanguage 
 		WRITE(p, "cbuffer lights: register(b1) {\n%s};\n", cb_vs_lightsStr);
 		WRITE(p, "cbuffer bones : register(b2) {\n%s};\n", cb_vs_bonesStr);
 	}
+
+	bool scaleUV = !isModeThrough && (uvGenMode == GE_TEXMAP_TEXTURE_COORDS || uvGenMode == GE_TEXMAP_UNKNOWN);
 
 	// And the "varyings".
 	bool texCoordInVec3 = false;
@@ -210,7 +210,7 @@ void GenerateVertexShaderHLSL(const VShaderID &id, char *buffer, ShaderLanguage 
 		WRITE(p, "struct VS_IN {\n");
 		WRITE(p, "  float4 position : POSITION;\n");
 		if (doTexture && hasTexcoord) {
-			if (doTextureTransform && !throughmode) {
+			if (doTextureTransform && !isModeThrough) {
 				texCoordInVec3 = true;
 				WRITE(p, "  float3 texcoord : TEXCOORD0;\n");
 			}
@@ -369,7 +369,7 @@ void GenerateVertexShaderHLSL(const VShaderID &id, char *buffer, ShaderLanguage 
 			WRITE(p, "  Out.v_fogdepth = In.position.w;\n");
 		}
 		if (lang == HLSL_D3D11 || lang == HLSL_D3D11_LEVEL9) {
-			if (gstate.isModeThrough()) {
+			if (isModeThrough) {
 				WRITE(p, "  Out.gl_Position = mul(u_proj_through, float4(In.position.xyz, 1.0));\n");
 			} else {
 				if (gstate_c.Supports(GPU_ROUND_DEPTH_TO_16BIT)) {
@@ -379,7 +379,7 @@ void GenerateVertexShaderHLSL(const VShaderID &id, char *buffer, ShaderLanguage 
 				}
 			}
 		} else {
-			if (gstate.isModeThrough()) {
+			if (isModeThrough) {
 				WRITE(p, "  Out.gl_Position = mul(float4(In.position.xyz, 1.0), u_proj_through);\n");
 			} else {
 				if (gstate_c.Supports(GPU_ROUND_DEPTH_TO_16BIT)) {
@@ -592,9 +592,9 @@ void GenerateVertexShaderHLSL(const VShaderID &id, char *buffer, ShaderLanguage 
 
 		// TODO: Declare variables for dots for shade mapping if needed.
 
-		const char *ambientStr = (gstate.materialupdate & 1) && hasColor ? "In.color0" : "u_matambientalpha";
-		const char *diffuseStr = (gstate.materialupdate & 2) && hasColor ? "In.color0.rgb" : "u_matdiffuse";
-		const char *specularStr = (gstate.materialupdate & 4) && hasColor ? "In.color0.rgb" : "u_matspecular.rgb";
+		const char *ambientStr = (matUpdate & 1) && hasColor ? "In.color0" : "u_matambientalpha";
+		const char *diffuseStr = (matUpdate & 2) && hasColor ? "In.color0.rgb" : "u_matdiffuse";
+		const char *specularStr = (matUpdate & 4) && hasColor ? "In.color0.rgb" : "u_matspecular.rgb";
 		if (doBezier || doSpline) {
 			ambientStr = (matUpdate & 1) && hasColor ? "col" : "u_matambientalpha";
 			diffuseStr = (matUpdate & 2) && hasColor ? "col.rgb" : "u_matdiffuse";
@@ -725,9 +725,6 @@ void GenerateVertexShaderHLSL(const VShaderID &id, char *buffer, ShaderLanguage 
 			if (lmode)
 				WRITE(p, "  Out.v_color1 = float3(0, 0, 0);\n");
 		}
-
-		bool scaleUV = !throughmode && (uvGenMode == GE_TEXMAP_TEXTURE_COORDS || uvGenMode == GE_TEXMAP_UNKNOWN);
-
 
 		// Step 3: UV generation
 		if (doTexture) {
