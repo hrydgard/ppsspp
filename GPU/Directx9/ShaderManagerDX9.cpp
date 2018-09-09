@@ -265,10 +265,10 @@ void ShaderManagerDX9::PSUpdateUniforms(u64 dirtyUniforms) {
 		PSSetColorUniform3(CONST_PS_TEXENV, gstate.texenvcolor);
 	}
 	if (dirtyUniforms & DIRTY_ALPHACOLORREF) {
-		PSSetColorUniform3Alpha255(CONST_PS_ALPHACOLORREF, gstate.getColorTestRef(), gstate.getAlphaTestRef());
+		PSSetColorUniform3Alpha255(CONST_PS_ALPHACOLORREF, gstate.getColorTestRef(), gstate.getAlphaTestRef() & gstate.getAlphaTestMask());
 	}
 	if (dirtyUniforms & DIRTY_ALPHACOLORMASK) {
-		PSSetColorUniform3(CONST_PS_ALPHACOLORMASK, gstate.colortestmask);
+		PSSetColorUniform3Alpha255(CONST_PS_ALPHACOLORMASK, gstate.colortestmask, gstate.getAlphaTestMask());
 	}
 	if (dirtyUniforms & DIRTY_FOGCOLOR) {
 		PSSetColorUniform3(CONST_PS_FOGCOLOR, gstate.fogcolor);
