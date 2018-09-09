@@ -902,7 +902,7 @@ void MainScreen::CreateViews() {
 
 	char versionString[256];
 	//sprintf(versionString, "%s", PPSSPP_GIT_VERSION);
-	sprintf(versionString, "Megan<3 Edition");
+	sprintf(versionString, "Luna Edition");
 	rightColumnItems->SetSpacing(0.0f);
 	LinearLayout *logos = new LinearLayout(ORIENT_HORIZONTAL);
 	if (System_GetPropertyBool(SYSPROP_APP_GOLD)) {
