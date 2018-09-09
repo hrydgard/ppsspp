@@ -58,7 +58,7 @@ PSShader::PSShader(LPDIRECT3DDEVICE9 device, FShaderID id, const char *code) : i
 			ERROR_LOG(G3D, "Error in shader compilation!");
 		}
 		ERROR_LOG(G3D, "Messages: %s", errorMessage.c_str());
-		ERROR_LOG(G3D, "Shader source:\n%s", code);
+		ERROR_LOG(G3D, "Shader source:\n%s", LineNumberString(code).c_str());
 		OutputDebugStringUTF8("Messages:\n");
 		OutputDebugStringUTF8(errorMessage.c_str());
 		Reporting::ReportMessage("D3D error in shader compilation: info: %s / code: %s", errorMessage.c_str(), code);
