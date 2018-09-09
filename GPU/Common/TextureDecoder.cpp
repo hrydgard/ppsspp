@@ -203,51 +203,54 @@ void DoSwizzleTex16(const u32 *ysrcp, u8 *texptr, int bxc, int byc, u32 pitch) {
 	// ysrcp is in 32-bits, so this is convenient.
 	const u32 pitchBy32 = pitch >> 2;
 #ifdef _M_SSE
-	__m128i *dest = (__m128i *)texptr;
-	// The pitch parameter is in bytes, so shift down for 128-bit.
-	// Note: it's always aligned to 16 bytes, so this is safe.
-	const u32 pitchBy128 = pitch >> 4;
-	for (int by = 0; by < byc; by++) {
-		const __m128i *xsrc = (const __m128i *)ysrcp;
-		for (int bx = 0; bx < bxc; bx++) {
-			const __m128i *src = xsrc;
-			for (int n = 0; n < 2; n++) {
-				// Textures are always 16-byte aligned so this is fine.
-				__m128i temp1 = _mm_load_si128(src);
-				src += pitchBy128;
-				__m128i temp2 = _mm_load_si128(src);
-				src += pitchBy128;
-				__m128i temp3 = _mm_load_si128(src);
-				src += pitchBy128;
-				__m128i temp4 = _mm_load_si128(src);
-				src += pitchBy128;
+	if (((uintptr_t)ysrcp & 0xF) == 0 && (pitch & 0xF) == 0) {
+		__m128i *dest = (__m128i *)texptr;
+		// The pitch parameter is in bytes, so shift down for 128-bit.
+		// Note: it's always aligned to 16 bytes, so this is safe.
+		const u32 pitchBy128 = pitch >> 4;
+		for (int by = 0; by < byc; by++) {
+			const __m128i *xsrc = (const __m128i *)ysrcp;
+			for (int bx = 0; bx < bxc; bx++) {
+				const __m128i *src = xsrc;
+				for (int n = 0; n < 2; n++) {
+					// Textures are always 16-byte aligned so this is fine.
+					__m128i temp1 = _mm_load_si128(src);
+					src += pitchBy128;
+					__m128i temp2 = _mm_load_si128(src);
+					src += pitchBy128;
+					__m128i temp3 = _mm_load_si128(src);
+					src += pitchBy128;
+					__m128i temp4 = _mm_load_si128(src);
+					src += pitchBy128;
 
-				_mm_store_si128(dest, temp1);
-				_mm_store_si128(dest + 1, temp2);
-				_mm_store_si128(dest + 2, temp3);
-				_mm_store_si128(dest + 3, temp4);
-				dest += 4;
+					_mm_store_si128(dest, temp1);
+					_mm_store_si128(dest + 1, temp2);
+					_mm_store_si128(dest + 2, temp3);
+					_mm_store_si128(dest + 3, temp4);
+					dest += 4;
+				}
+				xsrc++;
 			}
-			xsrc++;
+			ysrcp += pitchBy32 * 8;
 		}
-		ysrcp += pitchBy32 * 8;
-	}
-#else
-	u32 *dest = (u32 *)texptr;
-	for (int by = 0; by < byc; by++) {
-		const u32 *xsrc = ysrcp;
-		for (int bx = 0; bx < bxc; bx++) {
-			const u32 *src = xsrc;
-			for (int n = 0; n < 8; n++) {
-				memcpy(dest, src, 16);
-				src += pitchBy32;
-				dest += 4;
-			}
-			xsrc += 4;
-		}
-		ysrcp += pitchBy32 * 8;
-	}
+	} else
 #endif
+	{
+		u32 *dest = (u32 *)texptr;
+		for (int by = 0; by < byc; by++) {
+			const u32 *xsrc = ysrcp;
+			for (int bx = 0; bx < bxc; bx++) {
+				const u32 *src = xsrc;
+				for (int n = 0; n < 8; n++) {
+					memcpy(dest, src, 16);
+					src += pitchBy32;
+					dest += 4;
+				}
+				xsrc += 4;
+			}
+			ysrcp += pitchBy32 * 8;
+		}
+	}
 }
 
 void DoUnswizzleTex16Basic(const u8 *texptr, u32 *ydestp, int bxc, int byc, u32 pitch) {
@@ -255,7 +258,7 @@ void DoUnswizzleTex16Basic(const u8 *texptr, u32 *ydestp, int bxc, int byc, u32 
 	const u32 pitchBy32 = pitch >> 2;
 
 #ifdef _M_SSE
-	if (((uintptr_t)ydestp & 0xF) == 0) {
+	if (((uintptr_t)ydestp & 0xF) == 0 && (pitch & 0xF) == 0) {
 		const __m128i *src = (const __m128i *)texptr;
 		// The pitch parameter is in bytes, so shift down for 128-bit.
 		// Note: it's always aligned to 16 bytes, so this is safe.
