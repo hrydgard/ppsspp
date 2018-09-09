@@ -29,13 +29,10 @@
 // in NativeShutdown.
 
 #include <locale.h>
-// Linux doesn't like using std::find with std::vector<int> without this :/
-#if !defined(MOBILE_DEVICE)
 #include <algorithm>
-#endif
 #include <memory>
-#include <thread>
 #include <mutex>
+#include <thread>
 
 #if defined(_WIN32)
 #include "Windows/DSoundStream.h"
@@ -145,6 +142,7 @@ static bool resized = false;
 static bool restarting = false;
 
 static bool askedForStoragePermission = false;
+static int renderCounter = 0;
 
 struct PendingMessage {
 	std::string msg;
@@ -323,7 +321,7 @@ static void PostLoadConfig() {
 
 	// Allow the lang directory to be overridden for testing purposes (e.g. Android, where it's hard to
 	// test new languages without recompiling the entire app, which is a hassle).
-	const std::string langOverridePath = g_Config.memStickDirectory + "PSP/SYSTEM/lang/";
+	const std::string langOverridePath = GetSysDirectory(DIRECTORY_SYSTEM) + "lang/";
 
 	// If we run into the unlikely case that "lang" is actually a file, just use the built-in translations.
 	if (!File::Exists(langOverridePath) || !File::IsDirectory(langOverridePath))
@@ -336,15 +334,75 @@ void CreateDirectoriesAndroid() {
 	// On Android, create a PSP directory tree in the external_dir,
 	// to hopefully reduce confusion a bit.
 	ILOG("Creating %s", (g_Config.memStickDirectory + "PSP").c_str());
-	File::CreateDir(g_Config.memStickDirectory + "PSP");
-	File::CreateDir(g_Config.memStickDirectory + "PSP/SAVEDATA");
-	File::CreateDir(g_Config.memStickDirectory + "PSP/PPSSPP_STATE");
-	File::CreateDir(g_Config.memStickDirectory + "PSP/GAME");
-	File::CreateDir(g_Config.memStickDirectory + "PSP/SYSTEM");
+	File::CreateFullPath(g_Config.memStickDirectory + "PSP");
+	File::CreateFullPath(GetSysDirectory(DIRECTORY_SAVEDATA));
+	File::CreateFullPath(GetSysDirectory(DIRECTORY_SAVESTATE));
+	File::CreateFullPath(GetSysDirectory(DIRECTORY_GAME));
+	File::CreateFullPath(GetSysDirectory(DIRECTORY_SYSTEM));
 
 	// Avoid media scanners in PPSSPP_STATE and SAVEDATA directories
-	File::CreateEmptyFile(g_Config.memStickDirectory + "PSP/PPSSPP_STATE/.nomedia");
-	File::CreateEmptyFile(g_Config.memStickDirectory + "PSP/SAVEDATA/.nomedia");
+	File::CreateEmptyFile(GetSysDirectory(DIRECTORY_SAVESTATE) + ".nomedia");
+	File::CreateEmptyFile(GetSysDirectory(DIRECTORY_SAVEDATA) + ".nomedia");
+	File::CreateEmptyFile(GetSysDirectory(DIRECTORY_SYSTEM) + ".nomedia");
+}
+
+static void CheckFailedGPUBackends() {
+	// We only want to do this once per process run and backend, to detect process crashes.
+	// If NativeShutdown is called before we finish, we might call this multiple times.
+	static int lastBackend = -1;
+	if (lastBackend == g_Config.iGPUBackend) {
+		return;
+	}
+	lastBackend = g_Config.iGPUBackend;
+
+	std::string cache = GetSysDirectory(DIRECTORY_APP_CACHE) + "/FailedGraphicsBackends.txt";
+
+	if (System_GetPropertyBool(SYSPROP_SUPPORTS_PERMISSIONS)) {
+		std::string data;
+		if (readFileToString(true, cache.c_str(), data))
+			g_Config.sFailedGPUBackends = data;
+	}
+
+	// Use this if you want to debug a graphics crash...
+	if (g_Config.sFailedGPUBackends == "IGNORE")
+		return;
+	else if (!g_Config.sFailedGPUBackends.empty())
+		ERROR_LOG(LOADER, "Failed graphics backends: %s", g_Config.sFailedGPUBackends.c_str());
+
+	// Okay, let's not try a backend in the failed list.
+	g_Config.iGPUBackend = g_Config.NextValidBackend();
+	if (lastBackend != g_Config.iGPUBackend)
+		WARN_LOG(LOADER, "Failed graphics backend switched from %d to %d", lastBackend, g_Config.iGPUBackend);
+	// And then let's - for now - add the current to the failed list.
+	if (g_Config.sFailedGPUBackends.empty()) {
+		g_Config.sFailedGPUBackends = StringFromFormat("%d", g_Config.iGPUBackend);
+	} else if (g_Config.sFailedGPUBackends.find("ALL") == std::string::npos) {
+		g_Config.sFailedGPUBackends += StringFromFormat(",%d", g_Config.iGPUBackend);
+	}
+
+	if (System_GetPropertyBool(SYSPROP_SUPPORTS_PERMISSIONS)) {
+		// Let's try to create, in case it doesn't exist.
+		if (!File::Exists(GetSysDirectory(DIRECTORY_APP_CACHE)))
+			File::CreateDir(GetSysDirectory(DIRECTORY_APP_CACHE));
+		writeStringToFile(true, g_Config.sFailedGPUBackends, cache.c_str());
+	} else {
+		// Just save immediately, since we have storage.
+		g_Config.Save();
+	}
+}
+
+static void ClearFailedGPUBackends() {
+	if (g_Config.sFailedGPUBackends == "IGNORE")
+		return;
+
+	// We've successfully started graphics without crashing, hurray.
+	// In case they update drivers and have totally different problems much later, clear the failed list.
+	g_Config.sFailedGPUBackends.clear();
+	if (System_GetPropertyBool(SYSPROP_SUPPORTS_PERMISSIONS)) {
+		File::Delete(GetSysDirectory(DIRECTORY_APP_CACHE) + "/FailedGraphicsBackends.txt");
+	} else {
+		g_Config.Save();
+	}
 }
 
 void NativeInit(int argc, const char *argv[], const char *savegame_dir, const char *external_dir, const char *cache_dir) {
@@ -420,8 +478,8 @@ void NativeInit(int argc, const char *argv[], const char *savegame_dir, const ch
 
 #ifndef _WIN32
 	g_Config.AddSearchPath(user_data_path);
-	g_Config.AddSearchPath(g_Config.memStickDirectory + "PSP/SYSTEM/");
-	g_Config.SetDefaultPath(g_Config.memStickDirectory + "PSP/SYSTEM/");
+	g_Config.AddSearchPath(GetSysDirectory(DIRECTORY_SYSTEM));
+	g_Config.SetDefaultPath(GetSysDirectory(DIRECTORY_SYSTEM));
 
 	// Note that if we don't have storage permission here, loading the config will
 	// fail and it will be set to the default. Later, we load again when we get permission.
@@ -630,7 +688,9 @@ void NativeInit(int argc, const char *argv[], const char *savegame_dir, const ch
 
 	// We do this here, instead of in NativeInitGraphics, because the display may be reset.
 	// When it's reset we don't want to forget all our managed things.
+	CheckFailedGPUBackends();
 	SetGPUBackend((GPUBackend) g_Config.iGPUBackend);
+	renderCounter = 0;
 
 	// Must be done restarting by now.
 	restarting = false;
@@ -951,6 +1011,11 @@ void NativeRender(GraphicsContext *graphicsContext) {
 
 	ui_draw2d.PopDrawMatrix();
 	ui_draw2d_front.PopDrawMatrix();
+
+	if (renderCounter < 10 && ++renderCounter == 10) {
+		// We're rendering fine, clear out failure info.
+		ClearFailedGPUBackends();
+	}
 }
 
 void HandleGlobalMessage(const std::string &msg, const std::string &value) {

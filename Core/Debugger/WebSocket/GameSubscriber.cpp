@@ -20,7 +20,7 @@
 #include "Core/ELF/ParamSFO.h"
 #include "Core/System.h"
 
-void *WebSocketGameInit(DebuggerEventHandlerMap &map) {
+DebuggerSubscriber *WebSocketGameInit(DebuggerEventHandlerMap &map) {
 	map["game.status"] = &WebSocketGameStatus;
 	map["version"] = &WebSocketVersion;
 

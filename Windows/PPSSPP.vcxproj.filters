@@ -182,6 +182,12 @@
     <ClCompile Include="..\android\jni\AndroidVulkanContext.cpp">
       <Filter>Other Platforms</Filter>
     </ClCompile>
+    <ClCompile Include="..\Qt\QtHost.cpp">
+      <Filter>Other Platforms\Qt</Filter>
+    </ClCompile>
+    <ClCompile Include="..\UWP\UWPHost.cpp">
+      <Filter>Other Platforms</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Debugger\CtrlDisAsmView.h">
@@ -333,6 +339,12 @@
       <Filter>Other Platforms</Filter>
     </ClInclude>
     <ClInclude Include="..\android\jni\AndroidVulkanContext.h">
+      <Filter>Other Platforms</Filter>
+    </ClInclude>
+    <ClInclude Include="..\Qt\QtHost.h">
+      <Filter>Other Platforms\Qt</Filter>
+    </ClInclude>
+    <ClInclude Include="..\UWP\UWPHost.h">
       <Filter>Other Platforms</Filter>
     </ClInclude>
   </ItemGroup>

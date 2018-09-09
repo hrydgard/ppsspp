@@ -90,9 +90,6 @@ public:
 		NativeMessageReceived(message.c_str(), value.c_str());
 	}
 
-	bool GPUDebuggingActive() override {
-		return false;
-	}
 private:
 	const char* SymbolMapFilename(std::string currentFilename);
 	MainWindow* mainWindow;

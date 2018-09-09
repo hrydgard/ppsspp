@@ -1,5 +1,5 @@
 #include "ppsspp_config.h"
-#if PPSSPP_ARCH(ARM) && PPSSPP_ARCH(ARM_NEON)
+#if PPSSPP_ARCH(ARM_NEON) && !PPSSPP_ARCH(ARM64)
 
 	.syntax unified		// Allow both ARM and Thumb-2 instructions
 	.text

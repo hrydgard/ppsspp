@@ -55,11 +55,6 @@ public:
 	void SaveSymbolMap() override;
 	void SetWindowTitle(const char *message) override;
 
-	bool GPUDebuggingActive() override;
-	void GPUNotifyCommand(u32 pc) override;
-	void GPUNotifyDisplay(u32 framebuf, u32 stride, int format) override;
-	void GPUNotifyDraw() override;
-	void GPUNotifyTextureAttachment(u32 addr) override;
 	void ToggleDebugConsoleVisibility() override;
 
 	bool CanCreateShortcut() override;

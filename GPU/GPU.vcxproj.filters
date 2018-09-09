@@ -273,6 +273,9 @@
     <ClInclude Include="Vulkan\DebugVisVulkan.h">
       <Filter>Vulkan</Filter>
     </ClInclude>
+    <ClInclude Include="Debugger\Debugger.h">
+      <Filter>Debugger</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Math3D.cpp">
@@ -541,6 +544,9 @@
     </ClCompile>
     <ClCompile Include="Vulkan\DebugVisVulkan.cpp">
       <Filter>Vulkan</Filter>
+    </ClCompile>
+    <ClCompile Include="Debugger\Debugger.cpp">
+      <Filter>Debugger</Filter>
     </ClCompile>
   </ItemGroup>
 </Project>

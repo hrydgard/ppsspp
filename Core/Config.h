@@ -128,6 +128,7 @@ public:
 
 	// GFX
 	int iGPUBackend;
+	std::string sFailedGPUBackends;
 	// We have separate device parameters for each backend so it doesn't get erased if you switch backends.
 	// If not set, will use the "best" device.
 	std::string sVulkanDevice;
@@ -454,6 +455,7 @@ public:
 	void GetReportingInfo(UrlEncoder &data);
 
 	bool IsPortrait() const;
+	int NextValidBackend();
 
 protected:
 	void LoadStandardControllerIni();

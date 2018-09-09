@@ -242,6 +242,7 @@ EXEC_AND_LIB_FILES := \
   $(SRC)/GPU/Common/PostShader.cpp \
   $(SRC)/GPU/Common/ShaderUniforms.cpp \
   $(SRC)/GPU/Debugger/Breakpoints.cpp \
+  $(SRC)/GPU/Debugger/Debugger.cpp \
   $(SRC)/GPU/Debugger/Record.cpp \
   $(SRC)/GPU/Debugger/Stepping.cpp \
   $(SRC)/GPU/GLES/FramebufferManagerGLES.cpp \
@@ -309,6 +310,7 @@ EXEC_AND_LIB_FILES := \
   $(SRC)/Core/Debugger/WebSocket/GameBroadcaster.cpp \
   $(SRC)/Core/Debugger/WebSocket/GameSubscriber.cpp \
   $(SRC)/Core/Debugger/WebSocket/GPUBufferSubscriber.cpp \
+  $(SRC)/Core/Debugger/WebSocket/GPURecordSubscriber.cpp \
   $(SRC)/Core/Debugger/WebSocket/HLESubscriber.cpp \
   $(SRC)/Core/Debugger/WebSocket/LogBroadcaster.cpp \
   $(SRC)/Core/Debugger/WebSocket/SteppingBroadcaster.cpp \

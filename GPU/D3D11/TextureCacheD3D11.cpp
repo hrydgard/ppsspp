@@ -705,7 +705,7 @@ void TextureCacheD3D11::LoadTextureLevel(TexCacheEntry &entry, ReplacedTexture &
 			mapData = (u32 *)AllocateAlignedMemory(sizeof(u32) * (w * scaleFactor) * (h * scaleFactor), 16);
 			mapRowPitch = w * scaleFactor * 4;
 		} else {
-			mapRowPitch = std::max(bufw, w) * bpp;
+			mapRowPitch = std::max(w * bpp, 16);
 			size_t bufSize = sizeof(u32) * (mapRowPitch / bpp) * h;
 			mapData = (u32 *)AllocateAlignedMemory(bufSize, 16);
 			if (!mapData) {

@@ -48,6 +48,7 @@ static const int VERSION = 2;
 static bool active = false;
 static bool nextFrame = false;
 static bool writePending = false;
+static std::function<void(const std::string &)> writeCallback;
 
 enum class CommandType : u8 {
 	INIT = 0,
@@ -409,7 +410,7 @@ static void WriteCompressed(FILE *fp, const void *p, size_t sz) {
 	delete [] compressed;
 }
 
-static void WriteRecording() {
+static std::string WriteRecording() {
 	FlushRegisters();
 	EmitDisplayBuf();
 
@@ -430,6 +431,8 @@ static void WriteRecording() {
 	WriteCompressed(fp, pushbuf.data(), bufsz);
 
 	fclose(fp);
+
+	return filename;
 }
 
 static void GetVertDataSizes(int vcount, const void *indices, u32 &vbytes, u32 &ibytes) {
@@ -637,8 +640,35 @@ bool IsActive() {
 	return active;
 }
 
-void Activate() {
-	nextFrame = true;
+bool IsActivePending() {
+	return nextFrame || active;
+}
+
+bool Activate() {
+	if (!nextFrame) {
+		nextFrame = true;
+		return true;
+	}
+	return false;
+}
+
+void SetCallback(const std::function<void(const std::string &)> callback) {
+	writeCallback = callback;
+}
+
+static void FinishRecording() {
+	// We're done - this was just to write the result out.
+	std::string filename = WriteRecording();
+	commands.clear();
+	pushbuf.clear();
+
+	NOTICE_LOG(SYSTEM, "Recording finished");
+	writePending = false;
+	active = false;
+
+	if (writeCallback)
+		writeCallback(filename);
+	writeCallback = nullptr;
 }
 
 void NotifyCommand(u32 pc) {
@@ -646,14 +676,7 @@ void NotifyCommand(u32 pc) {
 		return;
 	}
 	if (writePending) {
-		WriteRecording();
-		commands.clear();
-		pushbuf.clear();
-
-		writePending = false;
-		// We're done - this was just to write the result out.
-		NOTICE_LOG(SYSTEM, "Recording finished");
-		active = false;
+		FinishRecording();
 		return;
 	}
 
@@ -749,12 +772,12 @@ void NotifyUpload(u32 dest, u32 sz) {
 }
 
 void NotifyFrame() {
-	if (active && !writePending) {
+	if (active && !writePending && !commands.empty()) {
 		// Delay write until the first command of the next frame, so we get the right display buf.
 		NOTICE_LOG(SYSTEM, "Recording complete - waiting to get display buffer");
 		writePending = true;
 	}
-	if (nextFrame) {
+	if (nextFrame && (gstate_c.skipDrawReason & SKIPDRAW_SKIPFRAME) == 0) {
 		NOTICE_LOG(SYSTEM, "Recording starting...");
 		active = true;
 		nextFrame = false;

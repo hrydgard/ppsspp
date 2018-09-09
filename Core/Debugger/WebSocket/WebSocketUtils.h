@@ -98,5 +98,13 @@ private:
 	bool responsePartial_ = false;
 };
 
+class DebuggerSubscriber {
+public:
+	virtual ~DebuggerSubscriber() {}
+
+	// Subscribers can also broadcast if they have simple cases to.
+	virtual void Broadcast(net::WebSocketServer *ws) {}
+};
+
 typedef std::function<void(DebuggerRequest &req)> DebuggerEventHandler;
 typedef std::unordered_map<std::string, DebuggerEventHandler> DebuggerEventHandlerMap;

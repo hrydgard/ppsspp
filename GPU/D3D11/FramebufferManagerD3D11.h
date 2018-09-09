@@ -107,6 +107,9 @@ private:
 	ID3D11Buffer *stencilValueBuffer_ = nullptr;
 	ID3D11DepthStencilState *stencilMaskStates_[256]{};
 
+	ID3D11Texture2D *nullTexture_ = nullptr;
+	ID3D11ShaderResourceView *nullTextureView_ = nullptr;
+
 	TextureCacheD3D11 *textureCacheD3D11_;
 	ShaderManagerD3D11 *shaderManagerD3D11_;
 	DrawEngineD3D11 *drawEngineD3D11_;

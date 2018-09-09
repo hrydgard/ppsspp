@@ -145,6 +145,7 @@ bool D3D11Context::Init(HINSTANCE hInst, HWND wnd, std::string *error_message) {
 		if (yes) {
 			// Change the config to D3D and restart.
 			g_Config.iGPUBackend = (int)GPUBackend::DIRECT3D9;
+			g_Config.sFailedGPUBackends.clear();
 			g_Config.Save();
 
 			W32Util::ExitAndRestart();

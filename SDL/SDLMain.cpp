@@ -19,6 +19,7 @@ SDLJoystick *joystick = NULL;
 #include <cassert>
 #include <cmath>
 #include <thread>
+#include <locale>
 
 #include "base/display.h"
 #include "base/logging.h"
@@ -187,8 +188,23 @@ std::string System_GetProperty(SystemProperty prop) {
 #else
 		return "SDL:";
 #endif
-	case SYSPROP_LANGREGION:
+	case SYSPROP_LANGREGION: {
+		// Get user-preferred locale from OS
+		setlocale(LC_ALL, "");
+		std::string locale(setlocale(LC_ALL, NULL));
+		// Set c and c++ strings back to POSIX
+		std::locale::global(std::locale("POSIX"));
+		if (!locale.empty()) {
+			if (locale.find("_", 0) != std::string::npos) {
+				if (locale.find(".", 0) != std::string::npos) {
+					return locale.substr(0, locale.find(".",0));
+				} else {
+					return locale;
+				}
+			}
+		}
 		return "en_US";
+	}
 	default:
 		return "";
 	}
@@ -339,6 +355,7 @@ int main(int argc, char *argv[]) {
 
 	int set_xres = -1;
 	int set_yres = -1;
+	int w = 0, h = 0;
 	bool portrait = false;
 	bool set_ipad = false;
 	float set_dpi = 1.0f;
@@ -585,7 +602,7 @@ int main(int argc, char *argv[]) {
 
 	while (true) {
 		double startTime = time_now_d();
-		SDL_Event event;
+		SDL_Event event, touchEvent;
 		while (SDL_PollEvent(&event)) {
 			float mx = event.motion.x * g_dpi_scale_x;
 			float my = event.motion.y * g_dpi_scale_y;
@@ -663,6 +680,71 @@ int main(int argc, char *argv[]) {
 					key.keyCode = c;
 					key.deviceId = DEVICE_ID_KEYBOARD;
 					NativeKey(key);
+					break;
+				}
+			case SDL_FINGERMOTION:
+				{
+					if (!g_Config.bFullScreen) { break; }
+					SDL_GetWindowSize(window, &w, &h);
+					touchEvent.type = SDL_MOUSEMOTION;
+					touchEvent.motion.type = SDL_MOUSEMOTION;
+					touchEvent.motion.timestamp = event.tfinger.timestamp;
+					touchEvent.motion.windowID = SDL_GetWindowID(window);
+					touchEvent.motion.which = SDL_TOUCH_MOUSEID;
+					touchEvent.motion.state = SDL_GetMouseState(NULL, NULL);
+					touchEvent.motion.x = event.tfinger.x * w;
+					touchEvent.motion.y = event.tfinger.y * h;
+
+					SDL_WarpMouseInWindow(window, event.tfinger.x * w, event.tfinger.y * h);
+
+					SDL_PushEvent(&touchEvent);
+					break;
+				}
+			case SDL_FINGERDOWN:
+				{
+					if (!g_Config.bFullScreen) { break; }
+					SDL_GetWindowSize(window, &w, &h);
+					touchEvent.type = SDL_MOUSEBUTTONDOWN;
+					touchEvent.button.type = SDL_MOUSEBUTTONDOWN;
+					touchEvent.button.timestamp = SDL_GetTicks();
+					touchEvent.button.windowID = SDL_GetWindowID(window);
+					touchEvent.button.which = SDL_TOUCH_MOUSEID;
+					touchEvent.button.button = SDL_BUTTON_LEFT;
+					touchEvent.button.state = SDL_PRESSED;
+					touchEvent.button.clicks = 1;
+					touchEvent.button.x = event.tfinger.x * w;
+					touchEvent.button.y = event.tfinger.y * h;
+
+					touchEvent.motion.type = SDL_MOUSEMOTION;
+					touchEvent.motion.timestamp = SDL_GetTicks();
+					touchEvent.motion.windowID = SDL_GetWindowID(window);
+					touchEvent.motion.which = SDL_TOUCH_MOUSEID;
+					touchEvent.motion.x = event.tfinger.x * w;
+					touchEvent.motion.y = event.tfinger.y * h;
+					// Any real mouse cursor should also move
+					SDL_WarpMouseInWindow(window, event.tfinger.x * w, event.tfinger.y * h);
+					// First finger down event also has to be a motion to that position
+					SDL_PushEvent(&touchEvent);
+					touchEvent.motion.type = SDL_MOUSEBUTTONDOWN;
+					// Now we push the mouse button event
+					SDL_PushEvent(&touchEvent);
+					break;
+				}
+			case SDL_FINGERUP:
+				{
+					if(!g_Config.bFullScreen) { break; }
+					SDL_GetWindowSize(window, &w, &h);
+					touchEvent.type = SDL_MOUSEBUTTONUP;
+					touchEvent.button.type = SDL_MOUSEBUTTONUP;
+					touchEvent.button.timestamp = SDL_GetTicks();
+					touchEvent.button.windowID = SDL_GetWindowID(window);
+					touchEvent.button.which = SDL_TOUCH_MOUSEID;
+					touchEvent.button.button = SDL_BUTTON_LEFT;
+					touchEvent.button.state = SDL_RELEASED;
+					touchEvent.button.clicks = 1;
+					touchEvent.button.x = event.tfinger.x * w;
+					touchEvent.button.y = event.tfinger.y * h;
+					SDL_PushEvent(&touchEvent);
 					break;
 				}
 			case SDL_MOUSEBUTTONDOWN:

@@ -21,7 +21,6 @@
 #include "Common/MemoryUtil.h"
 #include "Common/StringUtils.h"
 #include "Core/Config.h"
-#include "Core/Host.h"
 #include "Core/Reporting.h"
 #include "Core/System.h"
 #include "GPU/Common/FramebufferCommon.h"
@@ -29,6 +28,7 @@
 #include "GPU/Common/TextureDecoder.h"
 #include "GPU/Common/ShaderId.h"
 #include "GPU/Common/GPUStateUtils.h"
+#include "GPU/Debugger/Debugger.h"
 #include "GPU/GPUState.h"
 #include "GPU/GPUInterface.h"
 
@@ -262,6 +262,19 @@ void TextureCacheCommon::UpdateSamplingParams(TexCacheEntry &entry, SamplerCache
 void TextureCacheCommon::UpdateMaxSeenV(TexCacheEntry *entry, bool throughMode) {
 	// If the texture is >= 512 pixels tall...
 	if (entry->dim >= 0x900) {
+		if (entry->cluthash != 0 && entry->maxSeenV == 0) {
+			const u64 cachekeyMin = (u64)(entry->addr & 0x3FFFFFFF) << 32;
+			const u64 cachekeyMax = cachekeyMin + (1ULL << 32);
+			for (auto it = cache_.lower_bound(cachekeyMin), end = cache_.upper_bound(cachekeyMax); it != end; ++it) {
+				// They should all be the same, just make sure we take any that has already increased.
+				// This is for a new texture.
+				if (it->second->maxSeenV != 0) {
+					entry->maxSeenV = it->second->maxSeenV;
+					break;
+				}
+			}
+		}
+
 		// Texture scale/offset and gen modes don't apply in through.
 		// So we can optimize how much of the texture we look at.
 		if (throughMode) {
@@ -278,6 +291,16 @@ void TextureCacheCommon::UpdateMaxSeenV(TexCacheEntry *entry, bool throughMode) 
 			// Can't tell how much is used.
 			// TODO: We could tell for texcoord UV gen, and apply scale to max?
 			entry->maxSeenV = 512;
+		}
+
+		// We need to keep all CLUT variants in sync so we detect changes properly.
+		// See HandleTextureChange / STATUS_CLUT_RECHECK.
+		if (entry->cluthash != 0) {
+			const u64 cachekeyMin = (u64)(entry->addr & 0x3FFFFFFF) << 32;
+			const u64 cachekeyMax = cachekeyMin + (1ULL << 32);
+			for (auto it = cache_.lower_bound(cachekeyMin), end = cache_.upper_bound(cachekeyMax); it != end; ++it) {
+				it->second->maxSeenV = entry->maxSeenV;
+			}
 		}
 	}
 }
@@ -692,7 +715,7 @@ void TextureCacheCommon::AttachFramebufferValid(TexCacheEntry *entry, VirtualFra
 		entry->maxLevel = 0;
 		fbTexInfo_[cachekey] = fbInfo;
 		framebuffer->last_frame_attached = gpuStats.numFlips;
-		host->GPUNotifyTextureAttachment(entry->addr);
+		GPUDebug::NotifyTextureAttachment(entry->addr);
 	} else if (entry->framebuffer == framebuffer) {
 		framebuffer->last_frame_attached = gpuStats.numFlips;
 	}
@@ -711,7 +734,7 @@ void TextureCacheCommon::AttachFramebufferInvalid(TexCacheEntry *entry, VirtualF
 		entry->status &= ~TexCacheEntry::STATUS_DEPALETTIZE;
 		entry->maxLevel = 0;
 		fbTexInfo_[cachekey] = fbInfo;
-		host->GPUNotifyTextureAttachment(entry->addr);
+		GPUDebug::NotifyTextureAttachment(entry->addr);
 	}
 }
 
@@ -724,7 +747,7 @@ void TextureCacheCommon::DetachFramebuffer(TexCacheEntry *entry, u32 address, Vi
 		// Otherwise we never recreate the texture.
 		entry->hash ^= 1;
 		fbTexInfo_.erase(cachekey);
-		host->GPUNotifyTextureAttachment(entry->addr);
+		GPUDebug::NotifyTextureAttachment(entry->addr);
 	}
 }
 

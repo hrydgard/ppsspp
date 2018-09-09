@@ -28,11 +28,11 @@
 
 using namespace MIPSAnalyst;
 
-struct WebSocketSteppingState {
+struct WebSocketSteppingState : public DebuggerSubscriber {
 	WebSocketSteppingState() {
 		disasm_.setCpu(currentDebugMIPS);
 	}
-	~WebSocketSteppingState() {
+	~WebSocketSteppingState() override {
 		disasm_.clear();
 	}
 
@@ -51,7 +51,7 @@ protected:
 	DisassemblyManager disasm_;
 };
 
-void *WebSocketSteppingInit(DebuggerEventHandlerMap &map) {
+DebuggerSubscriber *WebSocketSteppingInit(DebuggerEventHandlerMap &map) {
 	auto p = new WebSocketSteppingState();
 	map["cpu.stepInto"] = std::bind(&WebSocketSteppingState::Into, p, std::placeholders::_1);
 	map["cpu.stepOver"] = std::bind(&WebSocketSteppingState::Over, p, std::placeholders::_1);
@@ -60,10 +60,6 @@ void *WebSocketSteppingInit(DebuggerEventHandlerMap &map) {
 	map["cpu.nextHLE"] = std::bind(&WebSocketSteppingState::HLE, p, std::placeholders::_1);
 
 	return p;
-}
-
-void WebSocketSteppingShutdown(void *p) {
-	delete static_cast<WebSocketSteppingState *>(p);
 }
 
 static DebugInterface *CPUFromRequest(DebuggerRequest &req, uint32_t *threadID = nullptr) {

@@ -19,7 +19,7 @@
 
 #include "Core/Debugger/WebSocket/WebSocketUtils.h"
 
-void *WebSocketBreakpointInit(DebuggerEventHandlerMap &map);
+DebuggerSubscriber *WebSocketBreakpointInit(DebuggerEventHandlerMap &map);
 
 void WebSocketCPUBreakpointAdd(DebuggerRequest &req);
 void WebSocketCPUBreakpointUpdate(DebuggerRequest &req);

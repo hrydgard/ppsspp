@@ -203,51 +203,54 @@ void DoSwizzleTex16(const u32 *ysrcp, u8 *texptr, int bxc, int byc, u32 pitch) {
 	// ysrcp is in 32-bits, so this is convenient.
 	const u32 pitchBy32 = pitch >> 2;
 #ifdef _M_SSE
-	__m128i *dest = (__m128i *)texptr;
-	// The pitch parameter is in bytes, so shift down for 128-bit.
-	// Note: it's always aligned to 16 bytes, so this is safe.
-	const u32 pitchBy128 = pitch >> 4;
-	for (int by = 0; by < byc; by++) {
-		const __m128i *xsrc = (const __m128i *)ysrcp;
-		for (int bx = 0; bx < bxc; bx++) {
-			const __m128i *src = xsrc;
-			for (int n = 0; n < 2; n++) {
-				// Textures are always 16-byte aligned so this is fine.
-				__m128i temp1 = _mm_load_si128(src);
-				src += pitchBy128;
-				__m128i temp2 = _mm_load_si128(src);
-				src += pitchBy128;
-				__m128i temp3 = _mm_load_si128(src);
-				src += pitchBy128;
-				__m128i temp4 = _mm_load_si128(src);
-				src += pitchBy128;
+	if (((uintptr_t)ysrcp & 0xF) == 0 && (pitch & 0xF) == 0) {
+		__m128i *dest = (__m128i *)texptr;
+		// The pitch parameter is in bytes, so shift down for 128-bit.
+		// Note: it's always aligned to 16 bytes, so this is safe.
+		const u32 pitchBy128 = pitch >> 4;
+		for (int by = 0; by < byc; by++) {
+			const __m128i *xsrc = (const __m128i *)ysrcp;
+			for (int bx = 0; bx < bxc; bx++) {
+				const __m128i *src = xsrc;
+				for (int n = 0; n < 2; n++) {
+					// Textures are always 16-byte aligned so this is fine.
+					__m128i temp1 = _mm_load_si128(src);
+					src += pitchBy128;
+					__m128i temp2 = _mm_load_si128(src);
+					src += pitchBy128;
+					__m128i temp3 = _mm_load_si128(src);
+					src += pitchBy128;
+					__m128i temp4 = _mm_load_si128(src);
+					src += pitchBy128;
 
-				_mm_store_si128(dest, temp1);
-				_mm_store_si128(dest + 1, temp2);
-				_mm_store_si128(dest + 2, temp3);
-				_mm_store_si128(dest + 3, temp4);
-				dest += 4;
+					_mm_store_si128(dest, temp1);
+					_mm_store_si128(dest + 1, temp2);
+					_mm_store_si128(dest + 2, temp3);
+					_mm_store_si128(dest + 3, temp4);
+					dest += 4;
+				}
+				xsrc++;
 			}
-			xsrc++;
+			ysrcp += pitchBy32 * 8;
 		}
-		ysrcp += pitchBy32 * 8;
-	}
-#else
-	u32 *dest = (u32 *)texptr;
-	for (int by = 0; by < byc; by++) {
-		const u32 *xsrc = ysrcp;
-		for (int bx = 0; bx < bxc; bx++) {
-			const u32 *src = xsrc;
-			for (int n = 0; n < 8; n++) {
-				memcpy(dest, src, 16);
-				src += pitchBy32;
-				dest += 4;
-			}
-			xsrc += 4;
-		}
-		ysrcp += pitchBy32 * 8;
-	}
+	} else
 #endif
+	{
+		u32 *dest = (u32 *)texptr;
+		for (int by = 0; by < byc; by++) {
+			const u32 *xsrc = ysrcp;
+			for (int bx = 0; bx < bxc; bx++) {
+				const u32 *src = xsrc;
+				for (int n = 0; n < 8; n++) {
+					memcpy(dest, src, 16);
+					src += pitchBy32;
+					dest += 4;
+				}
+				xsrc += 4;
+			}
+			ysrcp += pitchBy32 * 8;
+		}
+	}
 }
 
 void DoUnswizzleTex16Basic(const u8 *texptr, u32 *ydestp, int bxc, int byc, u32 pitch) {
@@ -255,7 +258,7 @@ void DoUnswizzleTex16Basic(const u8 *texptr, u32 *ydestp, int bxc, int byc, u32 
 	const u32 pitchBy32 = pitch >> 2;
 
 #ifdef _M_SSE
-	if (((uintptr_t)ydestp & 0xF) == 0) {
+	if (((uintptr_t)ydestp & 0xF) == 0 && (pitch & 0xF) == 0) {
 		const __m128i *src = (const __m128i *)texptr;
 		// The pitch parameter is in bytes, so shift down for 128-bit.
 		// Note: it's always aligned to 16 bytes, so this is safe.
@@ -327,16 +330,33 @@ void SetupTextureDecoder() {
 #endif
 }
 
+// S3TC / DXT Decoder
+class DXTDecoder {
+public:
+	inline void DecodeColors(const DXT1Block *src, bool ignore1bitAlpha);
+	inline void DecodeAlphaDXT5(const DXT5Block *src);
+	inline void WriteColorsDXT1(u32 *dst, const DXT1Block *src, int pitch, int height);
+	inline void WriteColorsDXT3(u32 *dst, const DXT3Block *src, int pitch, int height);
+	inline void WriteColorsDXT5(u32 *dst, const DXT5Block *src, int pitch, int height);
+
+protected:
+	u32 colors_[4];
+	u8 alpha_[8];
+};
+
 static inline u32 makecol(int r, int g, int b, int a) {
 	return (a << 24) | (r << 16) | (g << 8) | b;
 }
 
+static inline int mul_3_8(int c) {
+	// This is 3/8 * c = 4/8 * c - 1/8 * c.
+	return (c >> 1) - (c >> 3);
+}
+
 // This could probably be done faster by decoding two or four blocks at a time with SSE/NEON.
-void DecodeDXT1Block(u32 *dst, const DXT1Block *src, int pitch, int height, bool ignore1bitAlpha) {
-	// S3TC Decoder
-	// Needs more speed and debugging.
-	u16 c1 = (src->color1);
-	u16 c2 = (src->color2);
+void DXTDecoder::DecodeColors(const DXT1Block *src, bool ignore1bitAlpha) {
+	u16 c1 = src->color1;
+	u16 c2 = src->color2;
 	int red1 = Convert5To8(c1 & 0x1F);
 	int red2 = Convert5To8(c2 & 0x1F);
 	int green1 = Convert6To8((c1 >> 5) & 0x3F);
@@ -344,89 +364,121 @@ void DecodeDXT1Block(u32 *dst, const DXT1Block *src, int pitch, int height, bool
 	int blue1 = Convert5To8((c1 >> 11) & 0x1F);
 	int blue2 = Convert5To8((c2 >> 11) & 0x1F);
 
-	u32 colors[4];
-	colors[0] = makecol(red1, green1, blue1, 255);
-	colors[1] = makecol(red2, green2, blue2, 255);
+	// Keep alpha zero for non-DXT1 to skip masking the colors.
+	int alpha = ignore1bitAlpha ? 0 : 255;
+
+	colors_[0] = makecol(red1, green1, blue1, alpha);
+	colors_[1] = makecol(red2, green2, blue2, alpha);
 	if (c1 > c2 || ignore1bitAlpha) {
-		int blue3 = ((blue2 - blue1) >> 1) - ((blue2 - blue1) >> 3);
-		int green3 = ((green2 - green1) >> 1) - ((green2 - green1) >> 3);
-		int red3 = ((red2 - red1) >> 1) - ((red2 - red1) >> 3);				
-		colors[2] = makecol(red1 + red3, green1 + green3, blue1 + blue3, 255);
-		colors[3] = makecol(red2 - red3, green2 - green3, blue2 - blue3, 255);
+		int red3 = mul_3_8(red2 - red1);
+		int green3 = mul_3_8(green2 - green1);
+		int blue3 = mul_3_8(blue2 - blue1);
+		colors_[2] = makecol(red1 + red3, green1 + green3, blue1 + blue3, alpha);
+		colors_[3] = makecol(red2 - red3, green2 - green3, blue2 - blue3, alpha);
 	} else {
-		colors[2] = makecol((red1 + red2 + 1) / 2, // Average
-			(green1 + green2 + 1) / 2,
-			(blue1 + blue2 + 1) / 2, 255);
-		colors[3] = makecol(red2, green2, blue2, 0);	// Color2 but transparent
-	}
-
-	for (int y = 0; y < height; y++) {
-		int val = src->lines[y];
-		for (int x = 0; x < 4; x++) {
-			dst[x] = colors[val & 3];
-			val >>= 2;
-		}
-		dst += pitch;
-	}
-}
-
-void DecodeDXT3Block(u32 *dst, const DXT3Block *src, int pitch, int height)
-{
-	DecodeDXT1Block(dst, &src->color, pitch, height, true);
-
-	for (int y = 0; y < height; y++) {
-		u32 line = src->alphaLines[y];
-		for (int x = 0; x < 4; x++) {
-			const u8 a4 = line & 0xF;
-			dst[x] = (dst[x] & 0xFFFFFF) | (a4 << 24) | (a4 << 28);
-			line >>= 4;
-		}
-		dst += pitch;
+		// Average
+		int red3 = (red1 + red2 + 1) / 2;
+		int green3 = (green1 + green2 + 1) / 2;
+		int blue3 = (blue1 + blue2 + 1) / 2;
+		colors_[2] = makecol(red3, green3, blue3, 255);
+		// Color2 but transparent
+		colors_[3] = makecol(red2, green2, blue2, 0);
 	}
 }
 
 static inline u8 lerp8(const DXT5Block *src, int n) {
-	float d = n / 7.0f;
-	return (u8)(src->alpha1 + (src->alpha2 - src->alpha1) * d);
+	// These weights translate alpha1/alpha2 to fixed 8.8 point, pre-divided by 7.
+	int weight1 = ((7 - n) << 8) / 7;
+	int weight2 = (n << 8) / 7;
+	return (u8)((src->alpha1 * weight1 + src->alpha2 * weight2) >> 8);
 }
 
 static inline u8 lerp6(const DXT5Block *src, int n) {
-	float d = n / 5.0f;
-	return (u8)(src->alpha1 + (src->alpha2 - src->alpha1) * d);
+	int weight1 = ((5 - n) << 8) / 5;
+	int weight2 = (n << 8) / 5;
+	return (u8)((src->alpha1 * weight1 + src->alpha2 * weight2) >> 8);
+}
+
+void DXTDecoder::DecodeAlphaDXT5(const DXT5Block *src) {
+	// TODO: Check if alpha is still not 100% correct.
+	alpha_[0] = src->alpha1;
+	alpha_[1] = src->alpha2;
+	if (alpha_[0] > alpha_[1]) {
+		alpha_[2] = lerp8(src, 1);
+		alpha_[3] = lerp8(src, 2);
+		alpha_[4] = lerp8(src, 3);
+		alpha_[5] = lerp8(src, 4);
+		alpha_[6] = lerp8(src, 5);
+		alpha_[7] = lerp8(src, 6);
+	} else {
+		alpha_[2] = lerp6(src, 1);
+		alpha_[3] = lerp6(src, 2);
+		alpha_[4] = lerp6(src, 3);
+		alpha_[5] = lerp6(src, 4);
+		alpha_[6] = 0;
+		alpha_[7] = 255;
+	}
+}
+
+void DXTDecoder::WriteColorsDXT1(u32 *dst, const DXT1Block *src, int pitch, int height) {
+	for (int y = 0; y < height; y++) {
+		int colordata = src->lines[y];
+		for (int x = 0; x < 4; x++) {
+			dst[x] = colors_[colordata & 3];
+			colordata >>= 2;
+		}
+		dst += pitch;
+	}
+}
+
+void DXTDecoder::WriteColorsDXT3(u32 *dst, const DXT3Block *src, int pitch, int height) {
+	for (int y = 0; y < height; y++) {
+		int colordata = src->color.lines[y];
+		u32 alphadata = src->alphaLines[y];
+		for (int x = 0; x < 4; x++) {
+			const u8 a4 = alphadata & 0xF;
+			dst[x] = colors_[colordata & 3] | (a4 << 24) | (a4 << 28);
+			colordata >>= 2;
+			alphadata >>= 4;
+		}
+		dst += pitch;
+	}
+}
+
+void DXTDecoder::WriteColorsDXT5(u32 *dst, const DXT5Block *src, int pitch, int height) {
+	// 48 bits, 3 bit index per pixel, 12 bits per line.
+	u64 alphadata = ((u64)(u16)src->alphadata1 << 32) | (u32)src->alphadata2;
+
+	for (int y = 0; y < height; y++) {
+		int colordata = src->color.lines[y];
+		for (int x = 0; x < 4; x++) {
+			dst[x] = colors_[colordata & 3] | (alpha_[alphadata & 7] << 24);
+			colordata >>= 2;
+			alphadata >>= 3;
+		}
+		dst += pitch;
+	}
+}
+
+// This could probably be done faster by decoding two or four blocks at a time with SSE/NEON.
+void DecodeDXT1Block(u32 *dst, const DXT1Block *src, int pitch, int height, bool ignore1bitAlpha) {
+	DXTDecoder dxt;
+	dxt.DecodeColors(src, ignore1bitAlpha);
+	dxt.WriteColorsDXT1(dst, src, pitch, height);
+}
+
+void DecodeDXT3Block(u32 *dst, const DXT3Block *src, int pitch, int height) {
+	DXTDecoder dxt;
+	dxt.DecodeColors(&src->color, true);
+	dxt.WriteColorsDXT3(dst, src, pitch, height);
 }
 
 // The alpha channel is not 100% correct 
 void DecodeDXT5Block(u32 *dst, const DXT5Block *src, int pitch, int height) {
-	DecodeDXT1Block(dst, &src->color, pitch, height, true);
-	u8 alpha[8];
-
-	alpha[0] = src->alpha1;
-	alpha[1] = src->alpha2;
-	if (alpha[0] > alpha[1]) {
-		alpha[2] = lerp8(src, 1);
-		alpha[3] = lerp8(src, 2);
-		alpha[4] = lerp8(src, 3);
-		alpha[5] = lerp8(src, 4);
-		alpha[6] = lerp8(src, 5);
-		alpha[7] = lerp8(src, 6);
-	} else {
-		alpha[2] = lerp6(src, 1);
-		alpha[3] = lerp6(src, 2);
-		alpha[4] = lerp6(src, 3);
-		alpha[5] = lerp6(src, 4);
-		alpha[6] = 0;
-		alpha[7] = 255;
-	}
-
-	u64 data = ((u64)(u16)src->alphadata1 << 32) | (u32)src->alphadata2;
-
-	for (int y = 0; y < height; y++) {
-		for (int x = 0; x < 4; x++) {
-			dst[x] = (dst[x] & 0xFFFFFF) | (alpha[data & 7] << 24);
-			data >>= 3;
-		}
-		dst += pitch;
-	}
+	DXTDecoder dxt;
+	dxt.DecodeColors(&src->color, true);
+	dxt.DecodeAlphaDXT5(src);
+	dxt.WriteColorsDXT5(dst, src, pitch, height);
 }
 
 #ifdef _M_SSE

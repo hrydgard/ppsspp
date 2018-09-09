@@ -418,10 +418,20 @@ void CheckGLExtensions() {
 	} else {
 		g_all_egl_extensions = "";
 	}
+#elif defined(USING_GLES2) && defined(__linux__)
+	const char *eglString = eglQueryString(NULL, EGL_EXTENSIONS);
+	if (eglString) {
+		g_all_egl_extensions = std::string(eglString);
+		g_all_egl_extensions.append(" ");
+		g_all_egl_extensions.append(eglQueryString(eglGetCurrentDisplay(), EGL_EXTENSIONS));
+	} else {
+		g_all_egl_extensions = "";
+	}
 #endif
 
 	glGetIntegerv(GL_MAX_VERTEX_TEXTURE_IMAGE_UNITS, &gl_extensions.maxVertexTextureUnits);
 
+#ifdef GL_LOW_FLOAT
 	// This is probably a waste of time, implementations lie.
 	if (gl_extensions.IsGLES || strstr(extString, "GL_ARB_ES2_compatibility") || gl_extensions.VersionGEThan(4, 1)) {
 		const GLint precisions[6] = {
@@ -437,6 +447,7 @@ void CheckGLExtensions() {
 			}
 		}
 	}
+#endif
 
 	gl_extensions.ARB_framebuffer_object = strstr(extString, "GL_ARB_framebuffer_object") != 0;
 	gl_extensions.EXT_framebuffer_object = strstr(extString, "GL_EXT_framebuffer_object") != 0;

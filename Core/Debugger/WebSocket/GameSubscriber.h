@@ -19,7 +19,7 @@
 
 #include "Core/Debugger/WebSocket/WebSocketUtils.h"
 
-void *WebSocketGameInit(DebuggerEventHandlerMap &map);
+DebuggerSubscriber *WebSocketGameInit(DebuggerEventHandlerMap &map);
 
 void WebSocketGameStatus(DebuggerRequest &req);
 void WebSocketVersion(DebuggerRequest &req);

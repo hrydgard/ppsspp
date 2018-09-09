@@ -307,6 +307,7 @@ bool GenerateFragmentShaderHLSL(const FShaderID &id, char *buffer, char* scalerC
 					if (lang == HLSL_D3D11) {
 						WRITE(p, "  if ((roundAndScaleTo255i(v.a) & u_alphacolormask.a) %s u_alphacolorref.a) discard;\n", alphaTestFuncs[alphaTestFunc]);
 					} else {
+						// TODO: Use a texture to lookup bitwise ops?
 						WRITE(p, "  if (roundAndScaleTo255f(v.a) %s u_alphacolorref.a) clip(-1);\n", alphaTestFuncs[alphaTestFunc]);
 					}
 				} else {
@@ -332,13 +333,17 @@ bool GenerateFragmentShaderHLSL(const FShaderID &id, char *buffer, char* scalerC
 			} else {
 				const char *colorTestFuncs[] = { "#", "#", " != ", " == " };	// never/always don't make sense
 				if (colorTestFuncs[colorTestFunc][0] != '#') {
-					const char * test = colorTestFuncs[colorTestFunc];
+					const char *test = colorTestFuncs[colorTestFunc];
 					if (lang == HLSL_D3D11) {
 						WRITE(p, "  uint3 v_scaled = roundAndScaleTo255iv(v.rgb);\n");
-						WRITE(p, "  if ((v_scaled & u_alphacolormask.rgb) %s (u_alphacolorref.rgb & u_alphacolormask.rgb)) discard;\n", colorTestFuncs[colorTestFunc]);
+						WRITE(p, "  uint3 v_masked = v_scaled & u_alphacolormask.rgb;\n");
+						WRITE(p, "  uint3 colorTestRef = u_alphacolorref.rgb & u_alphacolormask.rgb;\n");
+						// We have to test the components separately, or we get incorrect results.  See #10629.
+						WRITE(p, "  if (v_masked.r %s colorTestRef.r && v_masked.g %s colorTestRef.g && v_masked.b %s colorTestRef.b) discard;\n", test, test, test);
 					} else {
+						// TODO: Use a texture to lookup bitwise ops instead?
 						WRITE(p, "  float3 colortest = roundAndScaleTo255v(v.rgb);\n");
-						WRITE(p, "  if ((colortest.r %s u_alphacolorref.r) && (colortest.g %s u_alphacolorref.g) && (colortest.b %s u_alphacolorref.b )) clip(-1);\n", test, test, test);
+						WRITE(p, "  if ((colortest.r %s u_alphacolorref.r) && (colortest.g %s u_alphacolorref.g) && (colortest.b %s u_alphacolorref.b)) clip(-1);\n", test, test, test);
 					}
 				}
 				else {

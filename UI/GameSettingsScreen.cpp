@@ -121,6 +121,8 @@ static std::string PostShaderTranslateName(const char *value) {
 }
 
 void GameSettingsScreen::CreateViews() {
+	ReloadAllPostShaderInfo();
+
 	if (editThenRestore_) {
 		g_Config.loadGameConfig(gameID_);
 	}
@@ -1333,6 +1335,12 @@ void DeveloperToolsScreen::CreateViews() {
 	cpuTests->SetEnabled(TestsAvailable());
 #endif
 
+	allowDebugger_ = !WebServerStopped(WebServerFlags::DEBUGGER);
+	canAllowDebugger_ = !WebServerStopping(WebServerFlags::DEBUGGER);
+	CheckBox *allowDebugger = new CheckBox(&allowDebugger_, dev->T("Allow remote debugger"));
+	list->Add(allowDebugger)->OnClick.Handle(this, &DeveloperToolsScreen::OnRemoteDebugger);
+	allowDebugger->SetEnabledPtr(&canAllowDebugger_);
+
 	list->Add(new CheckBox(&g_Config.bEnableLogging, dev->T("Enable Logging")))->OnClick.Handle(this, &DeveloperToolsScreen::OnLoggingChanged);
 	list->Add(new CheckBox(&g_Config.bLogFrameDrops, dev->T("Log Dropped Frame Statistics")));
 	list->Add(new Choice(dev->T("Logging Channels")))->OnClick.Handle(this, &DeveloperToolsScreen::OnLogConfig);
@@ -1349,12 +1357,6 @@ void DeveloperToolsScreen::CreateViews() {
 		createTextureIni->SetEnabled(false);
 	}
 #endif
-
-	allowDebugger_ = !WebServerStopped(WebServerFlags::DEBUGGER);
-	canAllowDebugger_ = !WebServerStopping(WebServerFlags::DEBUGGER);
-	CheckBox *allowDebugger = new CheckBox(&allowDebugger_, dev->T("Allow remote debugger"));
-	list->Add(allowDebugger)->OnClick.Handle(this, &DeveloperToolsScreen::OnRemoteDebugger);
-	allowDebugger->SetEnabledPtr(&canAllowDebugger_);
 }
 
 void DeveloperToolsScreen::onFinish(DialogResult result) {

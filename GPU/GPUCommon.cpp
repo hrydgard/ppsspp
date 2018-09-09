@@ -28,6 +28,7 @@
 #include "GPU/Common/FramebufferCommon.h"
 #include "GPU/Common/SplineCommon.h"
 #include "GPU/Common/TextureCacheCommon.h"
+#include "GPU/Debugger/Debugger.h"
 #include "GPU/Debugger/Record.h"
 
 const CommonCommandTableEntry commonCommandTable[] = {
@@ -936,7 +937,7 @@ bool GPUCommon::InterpretList(DisplayList &list) {
 	gpuState = list.pc == list.stall ? GPUSTATE_STALL : GPUSTATE_RUNNING;
 
 	debugRecording_ = GPURecord::IsActive();
-	const bool useDebugger = host->GPUDebuggingActive() || debugRecording_;
+	const bool useDebugger = GPUDebug::IsActive() || debugRecording_;
 	const bool useFastRunLoop = !dumpThisFrame_ && !useDebugger;
 	while (gpuState == GPUSTATE_RUNNING) {
 		{
@@ -1041,7 +1042,7 @@ void GPUCommon::SlowRunLoop(DisplayList &list)
 	const bool dumpThisFrame = dumpThisFrame_;
 	while (downcount > 0)
 	{
-		host->GPUNotifyCommand(list.pc);
+		GPUDebug::NotifyCommand(list.pc);
 		GPURecord::NotifyCommand(list.pc);
 		u32 op = Memory::ReadUnchecked_U32(list.pc);
 		u32 cmd = op >> 24;
@@ -1593,10 +1594,8 @@ void GPUCommon::Execute_Prim(u32 op, u32 diff) {
 	if (!g_Config.bSoftwareSkinning)
 		vtypeCheckMask = 0xFFFFFFFF;
 
-#ifndef MOBILE_DEVICE
-	if (debugRecording_ || host->GPUDebuggingActive())
+	if (debugRecording_ || GPUDebug::IsActive())
 		goto bail;
-#endif
 
 	while (src != stall) {
 		uint32_t data = *src;

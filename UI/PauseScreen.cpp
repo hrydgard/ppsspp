@@ -138,12 +138,15 @@ public:
 	}
 
 protected:
-	virtual bool FillVertical() const override { return false; }
+	bool FillVertical() const override { return false; }
+	UI::Size PopupWidth() const override { return 500; }
 	bool ShowButtons() const override { return true; }
 
-	virtual void CreatePopupContents(UI::ViewGroup *parent) override {
-		// TODO: Find an appropriate size for the image view
-		parent->Add(new AsyncImageFileView(filename_, UI::IS_DEFAULT, NULL, new UI::LayoutParams(480, 272)))->SetCanBeFocused(false);
+	void CreatePopupContents(UI::ViewGroup *parent) override {
+		UI::LinearLayout *content = new UI::LinearLayout(UI::ORIENT_VERTICAL);
+		parent->Add(content);
+		UI::Margins contentMargins(10, 0);
+		content->Add(new AsyncImageFileView(filename_, UI::IS_DEFAULT, nullptr, new UI::LinearLayoutParams(480, 272, contentMargins)))->SetCanBeFocused(false);
 	}
 
 private:
