@@ -186,7 +186,6 @@ void GenerateVertexShader(const VShaderID &id, char *buffer, uint32_t *attrMask,
 	bool hasNormal = id.Bit(VS_BIT_HAS_NORMAL) && useHWTransform;
 	bool hasTexcoord = id.Bit(VS_BIT_HAS_TEXCOORD) || !useHWTransform;
 	bool enableFog = id.Bit(VS_BIT_ENABLE_FOG);
-	bool throughmode = id.Bit(VS_BIT_IS_THROUGH);
 	bool flipNormal = id.Bit(VS_BIT_NORM_REVERSE);
 	int ls0 = id.Bits(VS_BIT_LS0, 2);
 	int ls1 = id.Bits(VS_BIT_LS1, 2);
@@ -211,7 +210,7 @@ void GenerateVertexShader(const VShaderID &id, char *buffer, uint32_t *attrMask,
 		for (int i = 0; i < 4; i++) {
 			if (i == shadeLight0 || i == shadeLight1)
 				doLight[i] = LIGHT_SHADE;
-			if (id.Bit(VS_BIT_LIGHTING_ENABLE) && id.Bit(VS_BIT_LIGHT0_ENABLE + i))
+			if (enableLighting && id.Bit(VS_BIT_LIGHT0_ENABLE + i))
 				doLight[i] = LIGHT_FULL;
 		}
 	}
@@ -239,7 +238,7 @@ void GenerateVertexShader(const VShaderID &id, char *buffer, uint32_t *attrMask,
 
 	bool texcoordVec3In = false;
 	if (doTexture && hasTexcoord) {
-		if (!useHWTransform && doTextureProjection && !throughmode) {
+		if (!useHWTransform && doTextureProjection && !isModeThrough) {
 			WRITE(p, "%s vec3 texcoord;\n", attribute);
 			texcoordVec3In = true;
 		} else {
@@ -267,7 +266,7 @@ void GenerateVertexShader(const VShaderID &id, char *buffer, uint32_t *attrMask,
 	WRITE(p, "uniform vec4 u_guardband;\n");
 	*uniformMask |= DIRTY_GUARDBAND;
 
-	bool scaleUV = !throughmode && (uvGenMode == GE_TEXMAP_TEXTURE_COORDS || uvGenMode == GE_TEXMAP_UNKNOWN);
+	bool scaleUV = !isModeThrough && (uvGenMode == GE_TEXMAP_TEXTURE_COORDS || uvGenMode == GE_TEXMAP_UNKNOWN);
 
 	if (useHWTransform) {
 		// When transforming by hardware, we need a great deal more uniforms...
