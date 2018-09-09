@@ -53,6 +53,7 @@ namespace DX9 {
 		CONST_VS_BONE6 = 71,
 		CONST_VS_BONE7 = 74,
 		CONST_VS_BONE8 = 77,
+		CONST_VS_GUARDBAND = 80,
 	};
 
 };

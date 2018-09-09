@@ -68,6 +68,12 @@ enum DoLightComputation {
 	LIGHT_FULL,
 };
 
+static void WriteGuardBand(char *&p) {
+	WRITE(p, "  vec3 projPos = outPos.xyz / outPos.w; \n");
+	WRITE(p, "  if (outPos.w >= u_guardband.z) {\n");
+	WRITE(p, "		if (abs(projPos.x) > u_guardband.x || projPos.y < -u_guardband.y) outPos.w = u_guardband.w;\n");
+	WRITE(p, "  }\n");
+}
 
 // Depth range and viewport
 //
@@ -94,6 +100,7 @@ enum DoLightComputation {
 // TODO: Skip all this if we can actually get a 16-bit depth buffer along with stencil, which
 // is a bit of a rare configuration, although quite common on mobile.
 
+// NOTE: We are skipping the bottom check. This fixes TOCA but I am dubious about it...
 
 void GenerateVertexShader(const VShaderID &id, char *buffer, uint32_t *attrMask, uint64_t *uniformMask) {
 	char *p = buffer;
@@ -256,6 +263,9 @@ void GenerateVertexShader(const VShaderID &id, char *buffer, uint32_t *attrMask,
 		*uniformMask |= DIRTY_PROJMATRIX;
 		// Add all the uniforms we'll need to transform properly.
 	}
+
+	WRITE(p, "uniform vec4 u_guardband;\n");
+	*uniformMask |= DIRTY_GUARDBAND;
 
 	bool scaleUV = !throughmode && (uvGenMode == GE_TEXMAP_TEXTURE_COORDS || uvGenMode == GE_TEXMAP_UNKNOWN);
 
@@ -473,15 +483,17 @@ void GenerateVertexShader(const VShaderID &id, char *buffer, uint32_t *attrMask,
 			WRITE(p, "  v_fogdepth = position.w;\n");
 		}
 		if (isModeThrough)	{
-			WRITE(p, "  gl_Position = u_proj_through * vec4(position.xyz, 1.0);\n");
+			WRITE(p, "  vec4 outPos = u_proj_through * vec4(position.xyz, 1.0);\n");
 		} else {
 			// The viewport is used in this case, so need to compensate for that.
 			if (gstate_c.Supports(GPU_ROUND_DEPTH_TO_16BIT)) {
-				WRITE(p, "  gl_Position = depthRoundZVP(u_proj * vec4(position.xyz, 1.0));\n");
+				WRITE(p, "  vec4 outPos = depthRoundZVP(u_proj * vec4(position.xyz, 1.0));\n");
 			} else {
-				WRITE(p, "  gl_Position = u_proj * vec4(position.xyz, 1.0);\n");
+				WRITE(p, "  vec4 outPos = u_proj * vec4(position.xyz, 1.0);\n");
 			}
 		}
+		WriteGuardBand(p);
+		WRITE(p, "  gl_Position = outPos;\n");
 	} else {
 		// Step 1: World Transform / Skinning
 		if (!enableBones) {
@@ -672,10 +684,12 @@ void GenerateVertexShader(const VShaderID &id, char *buffer, uint32_t *attrMask,
 
 		// Final view and projection transforms.
 		if (gstate_c.Supports(GPU_ROUND_DEPTH_TO_16BIT)) {
-			WRITE(p, "  gl_Position = depthRoundZVP(u_proj * viewPos);\n");
+			WRITE(p, "  vec4 outPos = depthRoundZVP(u_proj * viewPos);\n");
 		} else {
-			WRITE(p, "  gl_Position = u_proj * viewPos;\n");
+			WRITE(p, "  vec4 outPos = u_proj * viewPos;\n");
 		}
+		WriteGuardBand(p);
+		WRITE(p, "  gl_Position = outPos;\n");
 
 		// TODO: Declare variables for dots for shade mapping if needed.
 
