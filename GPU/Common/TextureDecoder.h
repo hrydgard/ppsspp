@@ -41,7 +41,7 @@ u32 QuickTexHashSSE2(const void *checkp, u32 size);
 #define DoQuickTexHash QuickTexHashSSE2
 #define StableQuickTexHash QuickTexHashSSE2
 
-// Pitch must be aligned to 16 bits (as is the case on a PSP)
+// Pitch must be aligned to 16 bytes (as is the case on a PSP)
 void DoUnswizzleTex16Basic(const u8 *texptr, u32 *ydestp, int bxc, int byc, u32 pitch);
 #define DoUnswizzleTex16 DoUnswizzleTex16Basic
 
