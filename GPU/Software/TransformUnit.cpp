@@ -15,6 +15,8 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
+#include <cmath>
+#include "math/math_util.h"
 #include "Common/MemoryUtil.h"
 #include "Core/Config.h"
 #include "GPU/GPUState.h"
@@ -216,8 +218,17 @@ VertexData TransformUnit::ReadVertex(VertexReader& vreader)
 		ModelCoords viewpos = TransformUnit::WorldToView(vertex.worldpos);
 		vertex.clippos = ClipCoords(TransformUnit::ViewToClip(viewpos));
 		if (gstate.isFogEnabled()) {
-			// TODO: Validate inf/nan.
-			vertex.fogdepth = (viewpos.z + getFloat24(gstate.fog1)) * getFloat24(gstate.fog2);
+			float fog_end = getFloat24(gstate.fog1);
+			float fog_slope = getFloat24(gstate.fog2);
+			// Same fixup as in ShaderManagerGLES.cpp
+			if (my_isnanorinf(fog_end)) {
+				// Not really sure what a sensible value might be, but let's try 64k.
+				fog_end = std::signbit(fog_end) ? -65535.0f : 65535.0f;
+			}
+			if (my_isnanorinf(fog_slope)) {
+				fog_slope = std::signbit(fog_slope) ? -65535.0f : 65535.0f;
+			}
+			vertex.fogdepth = (viewpos.z + fog_end) * fog_slope;
 		} else {
 			vertex.fogdepth = 1.0f;
 		}
