@@ -19,8 +19,9 @@
 #include "Common/CommonWindows.h"
 #endif
 
-#include <map>
+#include <cmath>
 #include <cstdio>
+#include <map>
 
 #include "math/dataconv.h"
 #include "base/logging.h"
@@ -383,22 +384,15 @@ void LinkedShader::UpdateUniforms(u32 vertType, const ShaderID &vsid) {
 			getFloat24(gstate.fog1),
 			getFloat24(gstate.fog2),
 		};
-		if (my_isinf(fogcoef[1])) {
-			// not really sure what a sensible value might be.
-			fogcoef[1] = fogcoef[1] < 0.0f ? -10000.0f : 10000.0f;
-		} else if (my_isnan(fogcoef[1])) {
-			// Workaround for https://github.com/hrydgard/ppsspp/issues/5384#issuecomment-38365988
-			// Just put the fog far away at a large finite distance.
-			// Infinities and NaNs are rather unpredictable in shaders on many GPUs
-			// so it's best to just make it a sane calculation.
-			fogcoef[0] = 100000.0f;
-			fogcoef[1] = 1.0f;
+		// The PSP just ignores infnan here (ignoring IEEE), so take it down to a valid float.
+		// Workaround for https://github.com/hrydgard/ppsspp/issues/5384#issuecomment-38365988
+		if (my_isnanorinf(fogcoef[0])) {
+			// Not really sure what a sensible value might be, but let's try 64k.
+			fogcoef[0] = std::signbit(fogcoef[0]) ? -65535.0f : 65535.0f;
 		}
-#ifndef MOBILE_DEVICE
-		else if (my_isnanorinf(fogcoef[1]) || my_isnanorinf(fogcoef[0])) {
-			ERROR_LOG_REPORT_ONCE(fognan, G3D, "Unhandled fog NaN/INF combo: %f %f", fogcoef[0], fogcoef[1]);
+		if (my_isnanorinf(fogcoef[1])) {
+			fogcoef[1] = std::signbit(fogcoef[1]) ? -65535.0f : 65535.0f;
 		}
-#endif
 		render_->SetUniformF(&u_fogcoef, 2, fogcoef);
 	}
 
