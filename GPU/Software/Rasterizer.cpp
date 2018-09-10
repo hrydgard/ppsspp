@@ -622,7 +622,13 @@ static inline Vec4<int> GetTextureFunctionOutput(const Vec4<int>& prim_color, co
 		// We can be accurate up to 24 bit integers, should be enough.
 		const __m128 p = _mm_cvtepi32_ps(prim_color.ivec);
 		const __m128 t = _mm_cvtepi32_ps(texcolor.ivec);
-		out_rgb.ivec = _mm_cvtps_epi32(_mm_div_ps(_mm_mul_ps(p, t), _mm_set_ps1(255.0f)));
+		const __m128 b = _mm_mul_ps(p, t);
+		if (gstate.isColorDoublingEnabled()) {
+			// We double right here, only for modulate.  Other tex funcs do not color double.
+			out_rgb.ivec = _mm_cvtps_epi32(_mm_mul_ps(b, _mm_set_ps1(2.0f / 255.0f)));
+		} else {
+			out_rgb.ivec = _mm_cvtps_epi32(_mm_mul_ps(b, _mm_set_ps1(1.0f / 255.0f)));
+		}
 
 		if (rgba) {
 			return Vec4<int>(out_rgb.ivec);
@@ -630,7 +636,11 @@ static inline Vec4<int> GetTextureFunctionOutput(const Vec4<int>& prim_color, co
 			out_a = prim_color.a();
 		}
 #else
-		out_rgb = prim_color.rgb() * texcolor.rgb() / 255;
+		if (gstate.isColorDoublingEnabled()) {
+			out_rgb = (prim_color.rgb() * texcolor.rgb() * 2) / 255;
+		} else {
+			out_rgb = prim_color.rgb() * texcolor.rgb() / 255;
+		}
 		out_a = (rgba) ? (prim_color.a() * texcolor.a() / 255) : prim_color.a();
 #endif
 		break;
@@ -894,7 +904,7 @@ static inline Vec3<int> AlphaBlendingResult(const Vec4<int> &source, const Vec4<
 
 template <bool clearMode>
 inline void DrawSinglePixel(const DrawingCoords &p, u16 z, u8 fog, const Vec4<int> &color_in) {
-	Vec4<int> prim_color = color_in;
+	Vec4<int> prim_color = color_in.Clamp(0, 255);
 	// Depth range test - applied in clear mode, if not through mode.
 	if (!gstate.isModeThrough())
 		if (z < gstate.getDepthRangeMin() || z > gstate.getDepthRangeMax())
@@ -933,14 +943,6 @@ inline void DrawSinglePixel(const DrawingCoords &p, u16 z, u8 fog, const Vec4<in
 		}
 	} else if (clearMode && gstate.isClearModeDepthMask()) {
 		SetPixelDepth(p.x, p.y, z);
-	}
-
-	// Doubling happens only when texturing is enabled, and after tests.
-	if (gstate.isTextureMapEnabled() && gstate.isColorDoublingEnabled() && !clearMode) {
-		// TODO: Does this need to be clamped before blending?
-		prim_color.r() <<= 1;
-		prim_color.g() <<= 1;
-		prim_color.b() <<= 1;
 	}
 
 	if (gstate.isFogEnabled() && !gstate.isModeThrough() && !clearMode) {

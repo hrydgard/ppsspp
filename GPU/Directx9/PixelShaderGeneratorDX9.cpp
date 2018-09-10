@@ -304,6 +304,11 @@ bool GenerateFragmentShaderHLSL(const FShaderID &id, char *buffer, ShaderLanguag
 			}
 		}
 		if (enableColorTest) {
+			// Color doubling happens before the color test, but we try to optimize doubling when test is off.
+			if (enableColorDoubling) {
+				WRITE(p, "  v.rgb = v.rgb * 2.0;\n");
+			}
+
 			if (colorTestAgainstZero) {
 				// When testing against 0 (common), we can avoid some math.
 				// 0.002 is approximately half of 1.0 / 255.0.
@@ -322,14 +327,14 @@ bool GenerateFragmentShaderHLSL(const FShaderID &id, char *buffer, ShaderLanguag
 				if (colorTestFuncs[colorTestFunc][0] != '#') {
 					const char *test = colorTestFuncs[colorTestFunc];
 					if (lang == HLSL_D3D11) {
-						WRITE(p, "  uint3 v_scaled = roundAndScaleTo255iv(v.rgb);\n");
+						WRITE(p, "  uint3 v_scaled = roundAndScaleTo255iv(clamp(v.rgb, 0.0, 1.0));\n");
 						WRITE(p, "  uint3 v_masked = v_scaled & u_alphacolormask.rgb;\n");
 						WRITE(p, "  uint3 colorTestRef = u_alphacolorref.rgb & u_alphacolormask.rgb;\n");
 						// We have to test the components separately, or we get incorrect results.  See #10629.
 						WRITE(p, "  if (v_masked.r %s colorTestRef.r && v_masked.g %s colorTestRef.g && v_masked.b %s colorTestRef.b) discard;\n", test, test, test);
 					} else {
 						// TODO: Use a texture to lookup bitwise ops instead?
-						WRITE(p, "  float3 colortest = roundAndScaleTo255v(v.rgb);\n");
+						WRITE(p, "  float3 colortest = roundAndScaleTo255v(clamp(v.rgb, 0.0, 1.0));\n");
 						WRITE(p, "  if ((colortest.r %s u_alphacolorref.r) && (colortest.g %s u_alphacolorref.g) && (colortest.b %s u_alphacolorref.b)) clip(-1);\n", test, test, test);
 					}
 				}
@@ -337,13 +342,17 @@ bool GenerateFragmentShaderHLSL(const FShaderID &id, char *buffer, ShaderLanguag
 					WRITE(p, lang == HLSL_DX9 ? "  clip(-1);\n" : "  discard;\n");
 				}
 			}
-		}
 
-		// Color doubling happens after the color test.
-		if (enableColorDoubling && replaceBlend == REPLACE_BLEND_2X_SRC) {
-			WRITE(p, "  v.rgb = v.rgb * 4.0;\n");
-		} else if (enableColorDoubling || replaceBlend == REPLACE_BLEND_2X_SRC) {
-			WRITE(p, "  v.rgb = v.rgb * 2.0;\n");
+			if (replaceBlend == REPLACE_BLEND_2X_SRC) {
+				WRITE(p, "  v.rgb = v.rgb * 2.0;\n");
+			}
+		} else {
+			// If there's no color test, we can potentially double and replace blend at once.
+			if (enableColorDoubling && replaceBlend == REPLACE_BLEND_2X_SRC) {
+				WRITE(p, "  v.rgb = v.rgb * 4.0;\n");
+			} else if (enableColorDoubling || replaceBlend == REPLACE_BLEND_2X_SRC) {
+				WRITE(p, "  v.rgb = v.rgb * 2.0;\n");
+			}
 		}
 
 		if (enableFog) {

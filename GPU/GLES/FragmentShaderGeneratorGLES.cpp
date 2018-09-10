@@ -558,6 +558,14 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, uint64_t *uniform
 		}
 
 		if (enableColorTest) {
+			// Color doubling happens before the color test, but we try to optimize doubling when test is off.
+			if (enableColorDoubling) {
+				WRITE(p, "  v.rgb = v.rgb * 2.0;\n");
+				if (g_Config.bFragmentTestCache && !colorTestAgainstZero) {
+					WRITE(p, "  vScale256.rgb = vScale256.rgb * 2.0;\n");
+				}
+			}
+
 			if (colorTestAgainstZero) {
 				// When testing against 0 (common), we can avoid some math.
 				// 0.002 is approximately half of 1.0 / 255.0.
@@ -576,7 +584,7 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, uint64_t *uniform
 				WRITE(p, "  float gResult = %s(testtex, vec2(vScale256.g, 0)).g;\n", texture);
 				WRITE(p, "  float bResult = %s(testtex, vec2(vScale256.b, 0)).b;\n", texture);
 				if (colorTestFunc == GE_COMP_EQUAL) {
-					// Equal means all parts must be equal.
+					// Equal means all parts must be equal (so discard if any is not.)
 					WRITE(p, "  if (rResult < 0.5 || gResult < 0.5 || bResult < 0.5) %s\n", discardStatement);
 				} else {
 					// Not equal means any part must be not equal.
@@ -587,7 +595,7 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, uint64_t *uniform
 				if (colorTestFuncs[colorTestFunc][0] != '#') {
 					if (bitwiseOps) {
 						// Apparently GLES3 does not support vector bitwise ops.
-						WRITE(p, "  ivec3 v_scaled = roundAndScaleTo255iv(v.rgb);\n");
+						WRITE(p, "  ivec3 v_scaled = roundAndScaleTo255iv(clamp(v.rgb, 0.0, 1.0));\n");
 						const char *maskedFragColor = "ivec3(v_scaled.r & u_alphacolormask.r, v_scaled.g & u_alphacolormask.g, v_scaled.b & u_alphacolormask.b)";
 						const char *maskedColorRef = "ivec3(int(u_alphacolorref.r) & u_alphacolormask.r, int(u_alphacolorref.g) & u_alphacolormask.g, int(u_alphacolorref.b) & u_alphacolormask.b)";
 						WRITE(p, "  if (%s %s %s) %s\n", maskedFragColor, colorTestFuncs[colorTestFunc], maskedColorRef, discardStatement);
@@ -600,13 +608,17 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, uint64_t *uniform
 					WRITE(p, "  %s\n", discardStatement);
 				}
 			}
-		}
 
-		// Color doubling happens after the color test.
-		if (enableColorDoubling && replaceBlend == REPLACE_BLEND_2X_SRC) {
-			WRITE(p, "  v.rgb = v.rgb * 4.0;\n");
-		} else if (enableColorDoubling || replaceBlend == REPLACE_BLEND_2X_SRC) {
-			WRITE(p, "  v.rgb = v.rgb * 2.0;\n");
+			if (replaceBlend == REPLACE_BLEND_2X_SRC) {
+				WRITE(p, "  v.rgb = v.rgb * 2.0;\n");
+			}
+		} else {
+			// If there's no color test, we can potentially double and replace blend at once.
+			if (enableColorDoubling && replaceBlend == REPLACE_BLEND_2X_SRC) {
+				WRITE(p, "  v.rgb = v.rgb * 4.0;\n");
+			} else if (enableColorDoubling || replaceBlend == REPLACE_BLEND_2X_SRC) {
+				WRITE(p, "  v.rgb = v.rgb * 2.0;\n");
+			}
 		}
 
 		if (enableFog) {
