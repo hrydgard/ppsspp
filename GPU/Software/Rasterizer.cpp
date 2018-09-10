@@ -537,71 +537,71 @@ static inline u8 ApplyStencilOp(int op, u8 old_stencil) {
 	return old_stencil;
 }
 
-static inline u32 ApplyLogicOp(GELogicOp op, u32 old_color, u32 new_color)
-{
+static inline u32 ApplyLogicOp(GELogicOp op, u32 old_color, u32 new_color) {
+	// All of the operations here intentionally preserve alpha/stencil.
 	switch (op) {
 	case GE_LOGIC_CLEAR:
-		new_color = 0;
+		new_color &= 0xFF000000;
 		break;
 
 	case GE_LOGIC_AND:
-		new_color = new_color & old_color;
+		new_color = new_color & (old_color | 0xFF000000);
 		break;
 
 	case GE_LOGIC_AND_REVERSE:
-		new_color = new_color & ~old_color;
+		new_color = new_color & (~old_color | 0xFF000000);
 		break;
 
 	case GE_LOGIC_COPY:
-		//new_color = new_color;
+		// No change to new_color.
 		break;
 
 	case GE_LOGIC_AND_INVERTED:
-		new_color = ~new_color & old_color;
+		new_color = (~new_color & (old_color & 0x00FFFFFF)) | (new_color & 0xFF000000);
 		break;
 
 	case GE_LOGIC_NOOP:
-		new_color = old_color;
+		new_color = (old_color & 0x00FFFFFF) | (new_color & 0xFF000000);
 		break;
 
 	case GE_LOGIC_XOR:
-		new_color = new_color ^ old_color;
+		new_color = new_color ^ (old_color & 0x00FFFFFF);
 		break;
 
 	case GE_LOGIC_OR:
-		new_color = new_color | old_color;
+		new_color = new_color | (old_color & 0x00FFFFFF);
 		break;
 
 	case GE_LOGIC_NOR:
-		new_color = ~(new_color | old_color);
+		new_color = (~(new_color | old_color) & 0x00FFFFFF) | (new_color & 0xFF000000);
 		break;
 
 	case GE_LOGIC_EQUIV:
-		new_color = ~(new_color ^ old_color);
+		new_color = (~(new_color ^ old_color) & 0x00FFFFFF) | (new_color & 0xFF000000);
 		break;
 
 	case GE_LOGIC_INVERTED:
-		new_color = ~old_color;
+		new_color = (~old_color & 0x00FFFFFF) | (new_color & 0xFF000000);
 		break;
 
 	case GE_LOGIC_OR_REVERSE:
-		new_color = new_color | ~old_color;
+		new_color = new_color | (~old_color & 0x00FFFFFF);
 		break;
 
 	case GE_LOGIC_COPY_INVERTED:
-		new_color = ~new_color;
+		new_color = (~new_color & 0x00FFFFFF) | (new_color & 0xFF000000);
 		break;
 
 	case GE_LOGIC_OR_INVERTED:
-		new_color = ~new_color | old_color;
+		new_color = ((~new_color | old_color) & 0x00FFFFFF) | (new_color & 0xFF000000);
 		break;
 
 	case GE_LOGIC_NAND:
-		new_color = ~(new_color & old_color);
+		new_color = (~(new_color & old_color) & 0x00FFFFFF) | (new_color & 0xFF000000);
 		break;
 
 	case GE_LOGIC_SET:
-		new_color = 0xFFFFFFFF;
+		new_color |= 0x00FFFFFF;
 		break;
 	}
 
@@ -895,8 +895,7 @@ static inline Vec3<int> AlphaBlendingResult(const Vec4<int> &source, const Vec4<
 template <bool clearMode>
 inline void DrawSinglePixel(const DrawingCoords &p, u16 z, u8 fog, const Vec4<int> &color_in) {
 	Vec4<int> prim_color = color_in;
-	// Depth range test
-	// TODO: Clear mode?
+	// Depth range test - applied in clear mode, if not through mode.
 	if (!gstate.isModeThrough())
 		if (z < gstate.getDepthRangeMin() || z > gstate.getDepthRangeMax())
 			return;
@@ -905,14 +904,12 @@ inline void DrawSinglePixel(const DrawingCoords &p, u16 z, u8 fog, const Vec4<in
 		if (!ColorTestPassed(prim_color.rgb()))
 			return;
 
-	// TODO: Does a need to be clamped?
 	if (gstate.isAlphaTestEnabled() && !clearMode)
 		if (!AlphaTestPassed(prim_color.a()))
 			return;
 
 	// In clear mode, it uses the alpha color as stencil.
 	u8 stencil = clearMode ? prim_color.a() : GetPixelStencil(p.x, p.y);
-	// TODO: Is it safe to ignore gstate.isDepthTestEnabled() when clear mode is enabled? Probably yes
 	if (!clearMode && (gstate.isStencilTestEnabled() || gstate.isDepthTestEnabled())) {
 		if (gstate.isStencilTestEnabled() && !StencilTestPassed(stencil)) {
 			stencil = ApplyStencilOp(gstate.getStencilOpSFail(), stencil);
@@ -959,7 +956,7 @@ inline void DrawSinglePixel(const DrawingCoords &p, u16 z, u8 fog, const Vec4<in
 
 	if (gstate.isAlphaBlendEnabled() && !clearMode) {
 		const Vec4<int> dst = Vec4<int>::FromRGBA(old_color);
-		// ToRGBA() always automatically clamps.
+		// ToRGB() always automatically clamps.
 		new_color = AlphaBlendingResult(prim_color, dst).ToRGB();
 		new_color |= stencil << 24;
 	} else {
@@ -973,8 +970,8 @@ inline void DrawSinglePixel(const DrawingCoords &p, u16 z, u8 fog, const Vec4<in
 
 	// Logic ops are applied after blending (if blending is enabled.)
 	if (gstate.isLogicOpEnabled() && !clearMode) {
-		// Logic ops don't affect stencil.
-		new_color = (stencil << 24) | (ApplyLogicOp(gstate.getLogicOp(), old_color, new_color) & 0x00FFFFFF);
+		// Logic ops don't affect stencil, which happens inside ApplyLogicOp.
+		new_color = ApplyLogicOp(gstate.getLogicOp(), old_color, new_color);
 	}
 
 	if (clearMode) {
