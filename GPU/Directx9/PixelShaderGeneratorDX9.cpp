@@ -306,7 +306,7 @@ bool GenerateFragmentShaderHLSL(const FShaderID &id, char *buffer, ShaderLanguag
 		if (enableColorTest) {
 			// Color doubling happens before the color test, but we try to optimize doubling when test is off.
 			if (enableColorDoubling) {
-				WRITE(p, "  v.rgb = v.rgb * 2.0;\n");
+				WRITE(p, "  v.rgb = clamp(v.rgb * 2.0, 0.0, 1.0);\n");
 			}
 
 			if (colorTestAgainstZero) {
@@ -327,14 +327,14 @@ bool GenerateFragmentShaderHLSL(const FShaderID &id, char *buffer, ShaderLanguag
 				if (colorTestFuncs[colorTestFunc][0] != '#') {
 					const char *test = colorTestFuncs[colorTestFunc];
 					if (lang == HLSL_D3D11) {
-						WRITE(p, "  uint3 v_scaled = roundAndScaleTo255iv(clamp(v.rgb, 0.0, 1.0));\n");
+						WRITE(p, "  uint3 v_scaled = roundAndScaleTo255iv(v.rgb);\n");
 						WRITE(p, "  uint3 v_masked = v_scaled & u_alphacolormask.rgb;\n");
 						WRITE(p, "  uint3 colorTestRef = u_alphacolorref.rgb & u_alphacolormask.rgb;\n");
 						// We have to test the components separately, or we get incorrect results.  See #10629.
 						WRITE(p, "  if (v_masked.r %s colorTestRef.r && v_masked.g %s colorTestRef.g && v_masked.b %s colorTestRef.b) discard;\n", test, test, test);
 					} else {
 						// TODO: Use a texture to lookup bitwise ops instead?
-						WRITE(p, "  float3 colortest = roundAndScaleTo255v(clamp(v.rgb, 0.0, 1.0));\n");
+						WRITE(p, "  float3 colortest = roundAndScaleTo255v(v.rgb);\n");
 						WRITE(p, "  if ((colortest.r %s u_alphacolorref.r) && (colortest.g %s u_alphacolorref.g) && (colortest.b %s u_alphacolorref.b)) clip(-1);\n", test, test, test);
 					}
 				}
@@ -349,8 +349,10 @@ bool GenerateFragmentShaderHLSL(const FShaderID &id, char *buffer, ShaderLanguag
 		} else {
 			// If there's no color test, we can potentially double and replace blend at once.
 			if (enableColorDoubling && replaceBlend == REPLACE_BLEND_2X_SRC) {
-				WRITE(p, "  v.rgb = v.rgb * 4.0;\n");
-			} else if (enableColorDoubling || replaceBlend == REPLACE_BLEND_2X_SRC) {
+				WRITE(p, "  v.rgb = clamp(v.rgb * 4.0, 0.0, 2.0);\n");
+			} else if (enableColorDoubling) {
+				WRITE(p, "  v.rgb = clamp(v.rgb * 2.0, 0.0, 1.0);\n");
+			} else if (replaceBlend == REPLACE_BLEND_2X_SRC) {
 				WRITE(p, "  v.rgb = v.rgb * 2.0;\n");
 			}
 		}

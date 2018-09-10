@@ -560,7 +560,7 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, uint64_t *uniform
 		if (enableColorTest) {
 			// Color doubling happens before the color test, but we try to optimize doubling when test is off.
 			if (enableColorDoubling) {
-				WRITE(p, "  v.rgb = v.rgb * 2.0;\n");
+				WRITE(p, "  v.rgb = clamp(v.rgb * 2.0, 0.0, 1.0);\n");
 				if (g_Config.bFragmentTestCache && !colorTestAgainstZero) {
 					WRITE(p, "  vScale256.rgb = vScale256.rgb * 2.0;\n");
 				}
@@ -595,7 +595,7 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, uint64_t *uniform
 				if (colorTestFuncs[colorTestFunc][0] != '#') {
 					if (bitwiseOps) {
 						// Apparently GLES3 does not support vector bitwise ops.
-						WRITE(p, "  ivec3 v_scaled = roundAndScaleTo255iv(clamp(v.rgb, 0.0, 1.0));\n");
+						WRITE(p, "  ivec3 v_scaled = roundAndScaleTo255iv(v.rgb);\n");
 						const char *maskedFragColor = "ivec3(v_scaled.r & u_alphacolormask.r, v_scaled.g & u_alphacolormask.g, v_scaled.b & u_alphacolormask.b)";
 						const char *maskedColorRef = "ivec3(int(u_alphacolorref.r) & u_alphacolormask.r, int(u_alphacolorref.g) & u_alphacolormask.g, int(u_alphacolorref.b) & u_alphacolormask.b)";
 						WRITE(p, "  if (%s %s %s) %s\n", maskedFragColor, colorTestFuncs[colorTestFunc], maskedColorRef, discardStatement);
@@ -615,8 +615,10 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, uint64_t *uniform
 		} else {
 			// If there's no color test, we can potentially double and replace blend at once.
 			if (enableColorDoubling && replaceBlend == REPLACE_BLEND_2X_SRC) {
-				WRITE(p, "  v.rgb = v.rgb * 4.0;\n");
-			} else if (enableColorDoubling || replaceBlend == REPLACE_BLEND_2X_SRC) {
+				WRITE(p, "  v.rgb = clamp(v.rgb * 4.0, 0.0, 2.0);\n");
+			} else if (enableColorDoubling) {
+				WRITE(p, "  v.rgb = clamp(v.rgb * 2.0, 0.0, 1.0);\n");
+			} else if (replaceBlend == REPLACE_BLEND_2X_SRC) {
 				WRITE(p, "  v.rgb = v.rgb * 2.0;\n");
 			}
 		}

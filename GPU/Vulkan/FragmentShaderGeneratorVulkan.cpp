@@ -377,7 +377,7 @@ bool GenerateVulkanGLSLFragmentShader(const FShaderID &id, char *buffer) {
 		if (enableColorTest) {
 			// Color doubling happens before the color test, but we try to optimize doubling when test is off.
 			if (enableColorDoubling) {
-				WRITE(p, "  v.rgb = v.rgb * 2.0;\n");
+				WRITE(p, "  v.rgb = clamp(v.rgb * 2.0, 0.0, 1.0);\n");
 			}
 
 			if (colorTestAgainstZero) {
@@ -397,7 +397,7 @@ bool GenerateVulkanGLSLFragmentShader(const FShaderID &id, char *buffer) {
 			} else {
 				const char *colorTestFuncs[] = { "#", "#", " != ", " == " };
 				if (colorTestFuncs[colorTestFunc][0] != '#') {
-					WRITE(p, "  ivec3 v_scaled = roundAndScaleTo255iv(clamp(v.rgb, 0.0, 1.0));\n");
+					WRITE(p, "  ivec3 v_scaled = roundAndScaleTo255iv(v.rgb);\n");
 					WRITE(p, "  if ((v_scaled & base.alphacolormask.rgb) %s (base.alphacolorref.rgb & base.alphacolormask.rgb)) %s\n", colorTestFuncs[colorTestFunc], discardStatement);
 				} else {
 					WRITE(p, "  %s\n", discardStatement);
@@ -410,8 +410,10 @@ bool GenerateVulkanGLSLFragmentShader(const FShaderID &id, char *buffer) {
 		} else {
 			// If there's no color test, we can potentially double and replace blend at once.
 			if (enableColorDoubling && replaceBlend == REPLACE_BLEND_2X_SRC) {
-				WRITE(p, "  v.rgb = v.rgb * 4.0;\n");
-			} else if (enableColorDoubling || replaceBlend == REPLACE_BLEND_2X_SRC) {
+				WRITE(p, "  v.rgb = clamp(v.rgb * 4.0, 0.0, 2.0);\n");
+			} else if (enableColorDoubling) {
+				WRITE(p, "  v.rgb = clamp(v.rgb * 2.0, 0.0, 1.0);\n");
+			} else if (replaceBlend == REPLACE_BLEND_2X_SRC) {
 				WRITE(p, "  v.rgb = v.rgb * 2.0;\n");
 			}
 		}
