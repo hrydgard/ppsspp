@@ -157,7 +157,7 @@ void ProcessRect(const VertexData& v0, const VertexData& v1)
 		// Color and depth values of second vertex are used for the whole rectangle
 		buf[0].color0 = buf[1].color0 = buf[2].color0 = buf[3].color0;
 		buf[0].color1 = buf[1].color1 = buf[2].color1 = buf[3].color1;
-		buf[0].fogdepth = buf[1].fogdepth = buf[2].fogdepth = buf[3].fogdepth = 1.0f;
+		buf[0].fogdepth = buf[1].fogdepth = buf[2].fogdepth = buf[3].fogdepth;
 
 		VertexData* topleft = &buf[0];
 		VertexData* topright = &buf[1];

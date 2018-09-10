@@ -500,9 +500,20 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, uint64_t *uniform
 					WRITE(p, "  vec4 v = p;\n"); break;
 				}
 			}
+
+			if (enableColorDoubling) {
+				// This happens before fog is applied.
+				WRITE(p, "  v.rgb = clamp(v.rgb * 2.0, 0.0, 1.0);\n");
+			}
 		} else {
 			// No texture mapping
 			WRITE(p, "  vec4 v = v_color0 %s;\n", secondary);
+		}
+
+		if (enableFog) {
+			WRITE(p, "  float fogCoef = clamp(v_fogdepth, 0.0, 1.0);\n");
+			WRITE(p, "  v = mix(vec4(u_fogcolor, v.a), v, fogCoef);\n");
+			// WRITE(p, "  v.x = v_depth;\n");
 		}
 
 		// Texture access is at half texels [0.5/256, 255.5/256], but colors are normalized [0, 255].
@@ -576,7 +587,7 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, uint64_t *uniform
 				WRITE(p, "  float gResult = %s(testtex, vec2(vScale256.g, 0)).g;\n", texture);
 				WRITE(p, "  float bResult = %s(testtex, vec2(vScale256.b, 0)).b;\n", texture);
 				if (colorTestFunc == GE_COMP_EQUAL) {
-					// Equal means all parts must be equal.
+					// Equal means all parts must be equal (so discard if any is not.)
 					WRITE(p, "  if (rResult < 0.5 || gResult < 0.5 || bResult < 0.5) %s\n", discardStatement);
 				} else {
 					// Not equal means any part must be not equal.
@@ -602,17 +613,8 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, uint64_t *uniform
 			}
 		}
 
-		// Color doubling happens after the color test.
-		if (enableColorDoubling && replaceBlend == REPLACE_BLEND_2X_SRC) {
-			WRITE(p, "  v.rgb = v.rgb * 4.0;\n");
-		} else if (enableColorDoubling || replaceBlend == REPLACE_BLEND_2X_SRC) {
+		if (replaceBlend == REPLACE_BLEND_2X_SRC) {
 			WRITE(p, "  v.rgb = v.rgb * 2.0;\n");
-		}
-
-		if (enableFog) {
-			WRITE(p, "  float fogCoef = clamp(v_fogdepth, 0.0, 1.0);\n");
-			WRITE(p, "  v = mix(vec4(u_fogcolor, v.a), v, fogCoef);\n");
-			// WRITE(p, "  v.x = v_depth;\n");
 		}
 
 		if (replaceBlend == REPLACE_BLEND_PRE_SRC || replaceBlend == REPLACE_BLEND_PRE_SRC_2X_ALPHA) {
