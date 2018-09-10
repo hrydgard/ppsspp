@@ -910,12 +910,21 @@ inline void DrawSinglePixel(const DrawingCoords &p, u16 z, u8 fog, const Vec4<in
 		if (z < gstate.getDepthRangeMin() || z > gstate.getDepthRangeMax())
 			return;
 
-	if (gstate.isColorTestEnabled() && !clearMode)
-		if (!ColorTestPassed(prim_color.rgb()))
-			return;
-
 	if (gstate.isAlphaTestEnabled() && !clearMode)
 		if (!AlphaTestPassed(prim_color.a()))
+			return;
+
+	// Fog is applied prior to color test.
+	if (gstate.isFogEnabled() && !gstate.isModeThrough() && !clearMode) {
+		Vec3<int> fogColor = Vec3<int>::FromRGB(gstate.fogcolor);
+		fogColor = (prim_color.rgb() * (int)fog + fogColor * (255 - (int)fog)) / 255;
+		prim_color.r() = fogColor.r();
+		prim_color.g() = fogColor.g();
+		prim_color.b() = fogColor.b();
+	}
+
+	if (gstate.isColorTestEnabled() && !clearMode)
+		if (!ColorTestPassed(prim_color.rgb()))
 			return;
 
 	// In clear mode, it uses the alpha color as stencil.
@@ -943,14 +952,6 @@ inline void DrawSinglePixel(const DrawingCoords &p, u16 z, u8 fog, const Vec4<in
 		}
 	} else if (clearMode && gstate.isClearModeDepthMask()) {
 		SetPixelDepth(p.x, p.y, z);
-	}
-
-	if (gstate.isFogEnabled() && !gstate.isModeThrough() && !clearMode) {
-		Vec3<int> fogColor = Vec3<int>::FromRGB(gstate.fogcolor);
-		fogColor = (prim_color.rgb() * (int)fog + fogColor * (255 - (int)fog)) / 255;
-		prim_color.r() = fogColor.r();
-		prim_color.g() = fogColor.g();
-		prim_color.b() = fogColor.b();
 	}
 
 	const u32 old_color = GetPixelColor(p.x, p.y);

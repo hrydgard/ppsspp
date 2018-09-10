@@ -339,6 +339,11 @@ bool GenerateVulkanGLSLFragmentShader(const FShaderID &id, char *buffer) {
 					WRITE(p, "  vec4 v = p;\n"); break;
 				}
 			}
+
+			if (enableColorDoubling) {
+				// This happens before fog is applied.
+				WRITE(p, "  v.rgb = clamp(v.rgb * 2.0, 0.0, 1.0);\n");
+			}
 		} else {
 			// No texture mapping
 			WRITE(p, "  vec4 v = v_color0 %s;\n", secondary);
@@ -374,12 +379,13 @@ bool GenerateVulkanGLSLFragmentShader(const FShaderID &id, char *buffer) {
 			}
 		}
 
-		if (enableColorTest) {
-			// Color doubling happens before the color test, but we try to optimize doubling when test is off.
-			if (enableColorDoubling) {
-				WRITE(p, "  v.rgb = clamp(v.rgb * 2.0, 0.0, 1.0);\n");
-			}
+		if (enableFog) {
+			WRITE(p, "  float fogCoef = clamp(v_fogdepth, 0.0, 1.0);\n");
+			WRITE(p, "  v = mix(vec4(base.fogcolor, v.a), v, fogCoef);\n");
+			// WRITE(p, "  v.x = v_depth;\n");
+		}
 
+		if (enableColorTest) {
 			if (colorTestAgainstZero) {
 				// When testing against 0 (common), we can avoid some math.
 				// Have my doubts that this special case is actually worth it, but whatever.
@@ -403,25 +409,10 @@ bool GenerateVulkanGLSLFragmentShader(const FShaderID &id, char *buffer) {
 					WRITE(p, "  %s\n", discardStatement);
 				}
 			}
-
-			if (replaceBlend == REPLACE_BLEND_2X_SRC) {
-				WRITE(p, "  v.rgb = v.rgb * 2.0;\n");
-			}
-		} else {
-			// If there's no color test, we can potentially double and replace blend at once.
-			if (enableColorDoubling && replaceBlend == REPLACE_BLEND_2X_SRC) {
-				WRITE(p, "  v.rgb = clamp(v.rgb * 4.0, 0.0, 2.0);\n");
-			} else if (enableColorDoubling) {
-				WRITE(p, "  v.rgb = clamp(v.rgb * 2.0, 0.0, 1.0);\n");
-			} else if (replaceBlend == REPLACE_BLEND_2X_SRC) {
-				WRITE(p, "  v.rgb = v.rgb * 2.0;\n");
-			}
 		}
 
-		if (enableFog) {
-			WRITE(p, "  float fogCoef = clamp(v_fogdepth, 0.0, 1.0);\n");
-			WRITE(p, "  v = mix(vec4(base.fogcolor, v.a), v, fogCoef);\n");
-			// WRITE(p, "  v.x = v_depth;\n");
+		if (replaceBlend == REPLACE_BLEND_2X_SRC) {
+			WRITE(p, "  v.rgb = v.rgb * 2.0;\n");
 		}
 
 		if (replaceBlend == REPLACE_BLEND_PRE_SRC || replaceBlend == REPLACE_BLEND_PRE_SRC_2X_ALPHA) {

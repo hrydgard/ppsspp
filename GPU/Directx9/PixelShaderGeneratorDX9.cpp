@@ -268,6 +268,11 @@ bool GenerateFragmentShaderHLSL(const FShaderID &id, char *buffer, ShaderLanguag
 					WRITE(p, "  float4 v = p;\n"); break;
 				}
 			}
+
+			if (enableColorDoubling) {
+				// This happens before fog is applied.
+				WRITE(p, "  v.rgb = clamp(v.rgb * 2.0, 0.0, 1.0);\n");
+			}
 		} else {
 			// No texture mapping
 			WRITE(p, "  float4 v = In.v_color0 %s;\n", secondary);
@@ -303,12 +308,13 @@ bool GenerateFragmentShaderHLSL(const FShaderID &id, char *buffer, ShaderLanguag
 				}
 			}
 		}
-		if (enableColorTest) {
-			// Color doubling happens before the color test, but we try to optimize doubling when test is off.
-			if (enableColorDoubling) {
-				WRITE(p, "  v.rgb = clamp(v.rgb * 2.0, 0.0, 1.0);\n");
-			}
 
+		if (enableFog) {
+			WRITE(p, "  float fogCoef = clamp(In.v_fogdepth, 0.0, 1.0);\n");
+			WRITE(p, "  v = lerp(float4(u_fogcolor, v.a), v, fogCoef);\n");
+		}
+
+		if (enableColorTest) {
 			if (colorTestAgainstZero) {
 				// When testing against 0 (common), we can avoid some math.
 				// 0.002 is approximately half of 1.0 / 255.0.
@@ -342,24 +348,10 @@ bool GenerateFragmentShaderHLSL(const FShaderID &id, char *buffer, ShaderLanguag
 					WRITE(p, lang == HLSL_DX9 ? "  clip(-1);\n" : "  discard;\n");
 				}
 			}
-
-			if (replaceBlend == REPLACE_BLEND_2X_SRC) {
-				WRITE(p, "  v.rgb = v.rgb * 2.0;\n");
-			}
-		} else {
-			// If there's no color test, we can potentially double and replace blend at once.
-			if (enableColorDoubling && replaceBlend == REPLACE_BLEND_2X_SRC) {
-				WRITE(p, "  v.rgb = clamp(v.rgb * 4.0, 0.0, 2.0);\n");
-			} else if (enableColorDoubling) {
-				WRITE(p, "  v.rgb = clamp(v.rgb * 2.0, 0.0, 1.0);\n");
-			} else if (replaceBlend == REPLACE_BLEND_2X_SRC) {
-				WRITE(p, "  v.rgb = v.rgb * 2.0;\n");
-			}
 		}
 
-		if (enableFog) {
-			WRITE(p, "  float fogCoef = clamp(In.v_fogdepth, 0.0, 1.0);\n");
-			WRITE(p, "  v = lerp(float4(u_fogcolor, v.a), v, fogCoef);\n");
+		if (replaceBlend == REPLACE_BLEND_2X_SRC) {
+			WRITE(p, "  v.rgb = v.rgb * 2.0;\n");
 		}
 
 		if (replaceBlend == REPLACE_BLEND_PRE_SRC || replaceBlend == REPLACE_BLEND_PRE_SRC_2X_ALPHA) {
