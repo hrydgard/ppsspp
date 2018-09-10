@@ -484,9 +484,8 @@ static inline bool StencilTestPassed(u8 stencil)
 	return true;
 }
 
-static inline u8 ApplyStencilOp(int op, int x, int y)
-{
-	u8 old_stencil = GetPixelStencil(x, y); // TODO: Apply mask?
+static inline u8 ApplyStencilOp(int op, u8 old_stencil) {
+	// TODO: Apply mask to reference or old stencil?
 	u8 reference_stencil = gstate.getStencilTestRef(); // TODO: Apply mask?
 
 	switch (op) {
@@ -916,7 +915,7 @@ inline void DrawSinglePixel(const DrawingCoords &p, u16 z, u8 fog, const Vec4<in
 	// TODO: Is it safe to ignore gstate.isDepthTestEnabled() when clear mode is enabled? Probably yes
 	if (!clearMode && (gstate.isStencilTestEnabled() || gstate.isDepthTestEnabled())) {
 		if (gstate.isStencilTestEnabled() && !StencilTestPassed(stencil)) {
-			stencil = ApplyStencilOp(gstate.getStencilOpSFail(), p.x, p.y);
+			stencil = ApplyStencilOp(gstate.getStencilOpSFail(), stencil);
 			SetPixelStencil(p.x, p.y, stencil);
 			return;
 		}
@@ -924,12 +923,12 @@ inline void DrawSinglePixel(const DrawingCoords &p, u16 z, u8 fog, const Vec4<in
 		// Also apply depth at the same time.  If disabled, same as passing.
 		if (gstate.isDepthTestEnabled() && !DepthTestPassed(p.x, p.y, z)) {
 			if (gstate.isStencilTestEnabled()) {
-				stencil = ApplyStencilOp(gstate.getStencilOpZFail(), p.x, p.y);
+				stencil = ApplyStencilOp(gstate.getStencilOpZFail(), stencil);
 				SetPixelStencil(p.x, p.y, stencil);
 			}
 			return;
 		} else if (gstate.isStencilTestEnabled()) {
-			stencil = ApplyStencilOp(gstate.getStencilOpZPass(), p.x, p.y);
+			stencil = ApplyStencilOp(gstate.getStencilOpZPass(), stencil);
 		}
 
 		if (gstate.isDepthTestEnabled() && gstate.isDepthWriteEnabled()) {
