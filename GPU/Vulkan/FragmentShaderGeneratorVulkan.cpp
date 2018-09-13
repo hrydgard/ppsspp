@@ -340,6 +340,11 @@ bool GenerateVulkanGLSLFragmentShader(const FShaderID &id, char *buffer) {
 					WRITE(p, "  vec4 v = p;\n"); break;
 				}
 			}
+
+			if (enableColorDoubling) {
+				// This happens before fog is applied.
+				WRITE(p, "  v.rgb = clamp(v.rgb * 2.0, 0.0, 1.0);\n");
+			}
 		} else {
 			// No texture mapping
 			WRITE(p, "  vec4 v = v_color0 %s;\n", secondary);
@@ -375,6 +380,12 @@ bool GenerateVulkanGLSLFragmentShader(const FShaderID &id, char *buffer) {
 			}
 		}
 
+		if (enableFog) {
+			WRITE(p, "  float fogCoef = clamp(v_fogdepth, 0.0, 1.0);\n");
+			WRITE(p, "  v = mix(vec4(base.fogcolor, v.a), v, fogCoef);\n");
+			// WRITE(p, "  v.x = v_depth;\n");
+		}
+
 		if (enableColorTest) {
 			if (colorTestAgainstZero) {
 				// When testing against 0 (common), we can avoid some math.
@@ -401,17 +412,8 @@ bool GenerateVulkanGLSLFragmentShader(const FShaderID &id, char *buffer) {
 			}
 		}
 
-		// Color doubling happens after the color test.
-		if (enableColorDoubling && replaceBlend == REPLACE_BLEND_2X_SRC) {
-			WRITE(p, "  v.rgb = v.rgb * 4.0;\n");
-		} else if (enableColorDoubling || replaceBlend == REPLACE_BLEND_2X_SRC) {
+		if (replaceBlend == REPLACE_BLEND_2X_SRC) {
 			WRITE(p, "  v.rgb = v.rgb * 2.0;\n");
-		}
-
-		if (enableFog) {
-			WRITE(p, "  float fogCoef = clamp(v_fogdepth, 0.0, 1.0);\n");
-			WRITE(p, "  v = mix(vec4(base.fogcolor, v.a), v, fogCoef);\n");
-			// WRITE(p, "  v.x = v_depth;\n");
 		}
 
 		if (replaceBlend == REPLACE_BLEND_PRE_SRC || replaceBlend == REPLACE_BLEND_PRE_SRC_2X_ALPHA) {
