@@ -1381,8 +1381,8 @@ void OtherSettingsScreen::CreateViews() {
 	list->SetSpacing(0);
 
 	list->Add(new ItemHeader(sy->T("Settings that should not be changed by most users")));
-	PopupSliderChoice *workerThreads = list->Add(new PopupSliderChoice(&g_Config.iNumWorkerThreads, 1, 128, gr->T("Manually set number of threads(important for software rendering and texture scaling)"), 1, screenManager(), gr->T("Threads")));
-	workerThreads->SetFormat("Threads");
+	PopupSliderChoice *workerThreads = list->Add(new PopupSliderChoice(&g_Config.iNumWorkerThreads, 1, 128, gr->T("Number of threads(software rendering/texture scaling)"), 1, screenManager(), gr->T("Threads")));
+	workerThreads->SetFormat("%i Threads");
 	list->Add(new CheckBox(&g_Config.bEncryptSave, sy->T("Encrypt savedata")));
 	list->Add(new CheckBox(&g_Config.bSavedataUpgrade, sy->T("Allow savedata with wrong encryption(unsafe workaround for outdated PSP savedata)")));
 	list->Add(new CheckBox(&g_Config.bFrameSkipUnthrottle, gr->T("Frameskip unthrottle(good for CPU benchmark)")));
