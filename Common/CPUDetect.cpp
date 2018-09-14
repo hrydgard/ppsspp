@@ -17,9 +17,12 @@
 
 #if defined(_M_IX86) || defined(_M_X64)
 
+#include "ppsspp_config.h"
 #ifdef __ANDROID__
 #include <sys/stat.h>
 #include <fcntl.h>
+#elif PPSSPP_PLATFORM(MAC)
+#include <sys/sysctl.h>
 #endif
 
 #include <memory.h>
@@ -371,6 +374,16 @@ void CPUInfo::Detect() {
 
 	// This seems to be the count per core.  Hopefully all cores are the same, but we counted each above.
 	logical_cpu_count /= num_cores;
+#elif PPSSPP_PLATFORM(MAC)
+	int num = 0;
+	size_t sz = sizeof(num);
+	if (sysctlbyname("hw.physicalcpu_max", &num, &sz, nullptr, 0) == 0) {
+		num_cores = num;
+		sz = sizeof(num);
+		if (sysctlbyname("hw.logicalcpu_max", &num, &sz, nullptr, 0) == 0) {
+			logical_cpu_count = num / num_cores;
+		}
+	}
 #endif
 }
 
