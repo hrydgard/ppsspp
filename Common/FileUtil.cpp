@@ -106,11 +106,14 @@ std::string ResolvePath(const std::string &path) {
 	typedef DWORD (WINAPI *getFinalPathNameByHandleW_f)(HANDLE hFile, LPWSTR lpszFilePath, DWORD cchFilePath, DWORD dwFlags);
 	static getFinalPathNameByHandleW_f getFinalPathNameByHandleW = nullptr;
 
+#if PPSSPP_PLATFORM(UWP)
+	getFinalPathNameByHandleW = &GetFinalPathNameByHandleW;
+#else
 	if (!getFinalPathNameByHandleW) {
-		// We leak this, but that's okay since the process should hold onto this DLL for the entire lifetime anyway.
-		HMODULE kernel32 = LoadLibraryW(L"kernel32.dll");
+		HMODULE kernel32 = GetModuleHandle(L"kernel32.dll");
 		getFinalPathNameByHandleW = (getFinalPathNameByHandleW_f)GetProcAddress(kernel32, "GetFinalPathNameByHandleW");
 	}
+#endif
 
 	static const int BUF_SIZE = 32768;
 	wchar_t *buf = new wchar_t[BUF_SIZE];
