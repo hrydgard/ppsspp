@@ -15,6 +15,7 @@
 // Official SVN repository and contact information can be found at
 // http://code.google.com/p/dolphin-emu/
 
+// Reference : https://stackoverflow.com/questions/6121792/how-to-check-if-a-cpu-supports-the-sse3-instruction-set
 #if defined(_M_IX86) || defined(_M_X64)
 
 #include "ppsspp_config.h"
@@ -198,7 +199,7 @@ void CPUInfo::Detect() {
 		if ((cpu_id[2] >> 28) & 1) {
 			bAVX = true;
 			if ((cpu_id[2] >> 12) & 1)
-				bFMA = true;
+				bFMA3 = true;
 		}
 		if ((cpu_id[2] >> 25) & 1) bAES = true;
 
@@ -219,10 +220,15 @@ void CPUInfo::Detect() {
 			{
 				bAVX = true;
 				if ((cpu_id[2] >> 12) & 1)
-					bFMA = true;
+					bFMA3 = true;
 			}
 		}
 
+
+		// TSX support require check:
+		// -- Is the RTM bit set in CPUID? (>>11)
+		// -- No need to check HLE bit because legacy processors ignore HLE hints
+		// -- See https://software.intel.com/en-us/articles/how-to-detect-new-instruction-support-in-the-4th-generation-intel-core-processor-family
 		if (max_std_fn >= 7)
 		{
 			do_cpuid(cpu_id, 0x00000007);
@@ -233,6 +239,10 @@ void CPUInfo::Detect() {
 				bBMI1 = true;
 			if ((cpu_id[1] >> 8) & 1)
 				bBMI2 = true;
+			if ((cpu_id[1] >> 29) & 1)
+				bSHA = true;
+			if ((cpu_id[1] >> 11) & 1)
+				bRTM = true;
 		}
 	}
 	if (max_ex_fn >= 0x80000004) {
@@ -248,6 +258,9 @@ void CPUInfo::Detect() {
 		// Check for more features.
 		do_cpuid(cpu_id, 0x80000001);
 		if (cpu_id[2] & 1) bLAHFSAHF64 = true;
+		if ((cpu_id[2] >> 6) & 1) bSSE4A = true;
+		if ((cpu_id[2] >> 16) & 1) bFMA4 = true;
+		if ((cpu_id[2] >> 11) & 1) bXOP = true;
 		// CmpLegacy (bit 2) is deprecated.
 		if ((cpu_id[3] >> 29) & 1) bLongMode = true;
 	}
@@ -404,10 +417,16 @@ std::string CPUInfo::Summarize()
 	if (bSSSE3) sum += ", SSSE3";
 	if (bSSE4_1) sum += ", SSE4.1";
 	if (bSSE4_2) sum += ", SSE4.2";
+	if (bSSE4A) sum += ", SSE4A";
 	if (HTT) sum += ", HTT";
 	if (bAVX) sum += ", AVX";
-	if (bFMA) sum += ", FMA";
+	if (bAVX2) sum += ", AVX2";
+	if (bFMA3) sum += ", FMA3";
+	if (bFMA4) sum += ", FMA4";
 	if (bAES) sum += ", AES";
+	if (bSHA) sum += ", SHA";
+	if (bXOP) sum += ", XOP";
+	if (bRTM) sum += ", TSX";
 	if (bLongMode) sum += ", 64-bit support";
 	return sum;
 }

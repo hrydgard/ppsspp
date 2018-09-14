@@ -31,6 +31,7 @@ enum CPUVendor {
 struct CPUInfo {
 	CPUVendor vendor;
 
+	// Misc
 	char cpu_string[0x21];
 	char brand_string[0x41];
 	bool OS64bit;
@@ -41,26 +42,33 @@ struct CPUInfo {
 	int num_cores;
 	int logical_cpu_count;
 
+	bool bAtom;
+	bool bPOPCNT;
+	bool bLAHFSAHF64;
+	bool bLongMode;
+	bool bMOVBE;
+	bool bFXSR;
+	bool bLZCNT;
+	bool bBMI1;
+	bool bBMI2;
+	bool bXOP;
+	bool bRTM;
+
+	// x86 : SIMD 128 bit
 	bool bSSE;
 	bool bSSE2;
 	bool bSSE3;
 	bool bSSSE3;
-	bool bPOPCNT;
 	bool bSSE4_1;
 	bool bSSE4_2;
-	bool bLZCNT;
 	bool bSSE4A;
+	bool bAES;
+	bool bSHA;
+	// x86 : SIMD 256 bit
 	bool bAVX;
 	bool bAVX2;
-	bool bFMA;
-	bool bAES;
-	bool bLAHFSAHF64;
-	bool bLongMode;
-	bool bAtom;
-	bool bBMI1;
-	bool bBMI2;
-	bool bMOVBE;
-	bool bFXSR;
+	bool bFMA3;
+	bool bFMA4;
 
 	// ARM specific CPUInfo
 	bool bSwp;
