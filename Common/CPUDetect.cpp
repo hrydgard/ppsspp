@@ -23,11 +23,14 @@
 #endif
 
 #include <memory.h>
+#include <set>
 #include "base/logging.h"
 #include "base/basictypes.h"
+#include "file/file_util.h"
 
 #include "Common.h"
 #include "CPUDetect.h"
+#include "FileUtil.h"
 #include "StringUtils.h"
 
 #if defined(_WIN32) && !defined(__MINGW32__)
@@ -95,6 +98,28 @@ CPUInfo cpu_info;
 
 CPUInfo::CPUInfo() {
 	Detect();
+}
+
+static std::vector<int> ParseCPUList(const std::string &filename) {
+	std::string data;
+	std::vector<int> results;
+
+	if (readFileToString(true, filename.c_str(), data)) {
+		std::vector<std::string> ranges;
+		SplitString(data, ',', ranges);
+		for (auto range : ranges) {
+			int low = 0, high = 0;
+			int parts = sscanf(range.c_str(), "%d-%d", &low, &high);
+			if (parts == 1) {
+				high = low;
+			}
+			for (int i = low; i <= high; ++i) {
+				results.push_back(i);
+			}
+		}
+	}
+
+	return results;
 }
 
 // Detects the various cpu features
@@ -260,6 +285,93 @@ void CPUInfo::Detect() {
 			num_cores = (cpu_id[2] & 0xFF) + 1;
 		}
 	}
+
+	// The above only gets valid info for the active processor.
+	// Let's rely on OS APIs for accurate information, if available, below.
+
+#if PPSSPP_PLATFORM(WINDOWS)
+#if !PPSSPP_PLATFORM(UWP)
+	typedef BOOL (WINAPI *getLogicalProcessorInformationEx_f)(LOGICAL_PROCESSOR_RELATIONSHIP RelationshipType, PSYSTEM_LOGICAL_PROCESSOR_INFORMATION_EX Buffer, PDWORD ReturnedLength);
+	auto getLogicalProcessorInformationEx = (getLogicalProcessorInformationEx_f)GetProcAddress(GetModuleHandle(L"kernel32.dll"), "GetLogicalProcessorInformationEx");
+#else
+	void *getLogicalProcessorInformationEx = nullptr;
+#endif
+
+	if (getLogicalProcessorInformationEx) {
+#if !PPSSPP_PLATFORM(UWP)
+		DWORD len = 0;
+		getLogicalProcessorInformationEx(RelationAll, nullptr, &len);
+		auto processors = new uint8_t[len];
+		if (getLogicalProcessorInformationEx(RelationAll, (SYSTEM_LOGICAL_PROCESSOR_INFORMATION_EX *)processors, &len)) {
+			num_cores = 0;
+			logical_cpu_count = 0;
+			auto p = processors;
+			while (p < processors + len) {
+				const auto &processor = *(SYSTEM_LOGICAL_PROCESSOR_INFORMATION_EX *)p;
+				if (processor.Relationship == RelationProcessorCore) {
+					num_cores++;
+					for (int j = 0; j < processor.Processor.GroupCount; ++j) {
+						const auto &mask = processor.Processor.GroupMask[j].Mask;
+						for (int i = 0; i < sizeof(mask) * 8; ++i) {
+							logical_cpu_count += (mask >> i) & 1;
+						}
+					}
+				}
+				p += processor.Size;
+			}
+		}
+		delete [] processors;
+#endif
+	} else {
+		DWORD len = 0;
+		const DWORD sz = sizeof(SYSTEM_LOGICAL_PROCESSOR_INFORMATION);
+		GetLogicalProcessorInformation(nullptr, &len);
+		std::vector<SYSTEM_LOGICAL_PROCESSOR_INFORMATION> processors;
+		processors.resize((len + sz - 1) / sz);
+		if (GetLogicalProcessorInformation(&processors[0], &len)) {
+			num_cores = 0;
+			logical_cpu_count = 0;
+			for (auto processor : processors) {
+				if (processor.Relationship == RelationProcessorCore) {
+					num_cores++;
+					for (int i = 0; i < sizeof(processor.ProcessorMask) * 8; ++i) {
+						logical_cpu_count += (processor.ProcessorMask >> i) & 1;
+					}
+				}
+			}
+		}
+	}
+
+	// This seems to be the count per core.  Hopefully all cores are the same, but we counted each above.
+	logical_cpu_count /= num_cores;
+#elif PPSSPP_PLATFORM(LINUX)
+	if (File::Exists("/sys/devices/system/cpu/present")) {
+		// This may not count unplugged cores, but at least it's a best guess.
+		// Also, this assumes the CPU cores are heterogeneous (e.g. all cores could be active simultaneously.)
+		num_cores = 0;
+		logical_cpu_count = 0;
+
+		std::set<int> counted_cores;
+		auto present = ParseCPUList("/sys/devices/system/cpu/present");
+		for (int id : present) {
+			logical_cpu_count++;
+
+			if (counted_cores.count(id) == 0) {
+				num_cores++;
+				counted_cores.insert(id);
+
+				// Also count any thread siblings as counted.
+				auto threads = ParseCPUList(StringFromFormat("/sys/devices/system/cpu/cpu%d/topology/thread_siblings_list", id));
+				for (int mark_id : threads) {
+					counted_cores.insert(mark_id);
+				}
+			}
+		}
+	}
+
+	// This seems to be the count per core.  Hopefully all cores are the same, but we counted each above.
+	logical_cpu_count /= num_cores;
+#endif
 }
 
 // Turn the cpu info into a string we can show
