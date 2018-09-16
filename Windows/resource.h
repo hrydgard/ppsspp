@@ -340,6 +340,7 @@
 #define ID_OPTIONS_WINDOW9X              40175
 #define ID_OPTIONS_WINDOW10X             40176
 #define ID_EMULATION_PAUSE               40177
+#define ID_HELP_DISCORD                  40178
 
 // Dummy option to let the buffered rendering hotkey cycle through all the options.
 #define ID_OPTIONS_BUFFEREDRENDERINGDUMMY 40500
