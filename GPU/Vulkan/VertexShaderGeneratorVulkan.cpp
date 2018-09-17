@@ -317,13 +317,13 @@ bool GenerateVulkanGLSLVertexShader(const VShaderID &id, char *buffer) {
 			WRITE(p, "  v_fogdepth = position.w;\n");
 		}
 		if (isModeThrough) {
-			WRITE(p, "  gl_Position = base.proj_through_mtx * vec4(position.xyz, 1.0);\n");
+			WRITE(p, "  vec4 outPos = base.proj_through_mtx * vec4(position.xyz, 1.0);\n");
 		} else {
 			// The viewport is used in this case, so need to compensate for that.
 			if (gstate_c.Supports(GPU_ROUND_DEPTH_TO_16BIT)) {
-				WRITE(p, "  gl_Position = depthRoundZVP(base.proj_mtx * vec4(position.xyz, 1.0));\n");
+				WRITE(p, "  vec4 outPos = depthRoundZVP(base.proj_mtx * vec4(position.xyz, 1.0));\n");
 			} else {
-				WRITE(p, "  gl_Position = base.proj_mtx * vec4(position.xyz, 1.0);\n");
+				WRITE(p, "  vec4 outPos = base.proj_mtx * vec4(position.xyz, 1.0);\n");
 			}
 		}
 	} else {
@@ -472,9 +472,9 @@ bool GenerateVulkanGLSLVertexShader(const VShaderID &id, char *buffer) {
 
 		// Final view and projection transforms.
 		if (gstate_c.Supports(GPU_ROUND_DEPTH_TO_16BIT)) {
-			WRITE(p, "  gl_Position = depthRoundZVP(base.proj_mtx * viewPos);\n");
+			WRITE(p, "  vec4 outPos = depthRoundZVP(base.proj_mtx * viewPos);\n");
 		} else {
-			WRITE(p, "  gl_Position = base.proj_mtx * viewPos;\n");
+			WRITE(p, "  vec4 outPos = base.proj_mtx * viewPos;\n");
 		}
 
 		// TODO: Declare variables for dots for shade mapping if needed.
@@ -694,6 +694,20 @@ bool GenerateVulkanGLSLVertexShader(const VShaderID &id, char *buffer) {
 		if (enableFog)
 			WRITE(p, "  v_fogdepth = (viewPos.z + base.fogcoef.x) * base.fogcoef.y;\n");
 	}
+
+	if (!isModeThrough) {
+		WRITE(p, "  vec3 projPos = outPos.xyz / outPos.w;\n");
+		// Vertex range culling doesn't happen when depth is clamped, so only do this if in range.
+		WRITE(p, "  if (base.cullRangeMin.w <= 0.0f || (projPos.z >= base.cullRangeMin.z && projPos.z <= base.cullRangeMax.z)) {\n");
+		const char *outMin = "projPos.x < base.cullRangeMin.x || projPos.y < base.cullRangeMin.y || projPos.z < base.cullRangeMin.z";
+		const char *outMax = "projPos.x > base.cullRangeMax.x || projPos.y > base.cullRangeMax.y || projPos.z > base.cullRangeMax.z";
+		WRITE(p, "    if (%s || %s) {\n", outMin, outMax);
+		WRITE(p, "      outPos.w = base.cullRangeMax.w;\n");
+		WRITE(p, "    }\n");
+		WRITE(p, "  }\n");
+	}
+	WRITE(p, "  gl_Position = outPos;\n");
+
 	WRITE(p, "}\n");
 	return true;
 }
