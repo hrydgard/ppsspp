@@ -335,6 +335,12 @@ void GenerateVertexShader(const VShaderID &id, char *buffer, uint32_t *attrMask,
 		*uniformMask |= DIRTY_DEPTHRANGE;
 	}
 
+	if (!isModeThrough) {
+		WRITE(p, "uniform highp vec4 u_cullRangeMin;\n");
+		WRITE(p, "uniform highp vec4 u_cullRangeMax;\n");
+		*uniformMask |= DIRTY_CULLRANGE;
+	}
+
 	WRITE(p, "%s%s lowp vec4 v_color0;\n", shading, varying);
 	if (lmode) {
 		WRITE(p, "%s%s lowp vec3 v_color1;\n", shading, varying);
@@ -472,13 +478,13 @@ void GenerateVertexShader(const VShaderID &id, char *buffer, uint32_t *attrMask,
 			WRITE(p, "  v_fogdepth = position.w;\n");
 		}
 		if (isModeThrough)	{
-			WRITE(p, "  gl_Position = u_proj_through * vec4(position.xyz, 1.0);\n");
+			WRITE(p, "  vec4 outPos = u_proj_through * vec4(position.xyz, 1.0);\n");
 		} else {
 			// The viewport is used in this case, so need to compensate for that.
 			if (gstate_c.Supports(GPU_ROUND_DEPTH_TO_16BIT)) {
-				WRITE(p, "  gl_Position = depthRoundZVP(u_proj * vec4(position.xyz, 1.0));\n");
+				WRITE(p, "  vec4 outPos = depthRoundZVP(u_proj * vec4(position.xyz, 1.0));\n");
 			} else {
-				WRITE(p, "  gl_Position = u_proj * vec4(position.xyz, 1.0);\n");
+				WRITE(p, "  vec4 outPos = u_proj * vec4(position.xyz, 1.0);\n");
 			}
 		}
 	} else {
@@ -671,9 +677,9 @@ void GenerateVertexShader(const VShaderID &id, char *buffer, uint32_t *attrMask,
 
 		// Final view and projection transforms.
 		if (gstate_c.Supports(GPU_ROUND_DEPTH_TO_16BIT)) {
-			WRITE(p, "  gl_Position = depthRoundZVP(u_proj * viewPos);\n");
+			WRITE(p, "  vec4 outPos = depthRoundZVP(u_proj * viewPos);\n");
 		} else {
-			WRITE(p, "  gl_Position = u_proj * viewPos;\n");
+			WRITE(p, "  vec4 outPos = u_proj * viewPos;\n");
 		}
 
 		// TODO: Declare variables for dots for shade mapping if needed.
@@ -898,5 +904,19 @@ void GenerateVertexShader(const VShaderID &id, char *buffer, uint32_t *attrMask,
 		if (enableFog)
 			WRITE(p, "  v_fogdepth = (viewPos.z + u_fogcoef.x) * u_fogcoef.y;\n");
 	}
+
+	if (!isModeThrough) {
+		WRITE(p, "  vec3 projPos = outPos.xyz / outPos.w;\n");
+		// Vertex range culling doesn't happen when depth is clamped, so only do this if in range.
+		WRITE(p, "  if (u_cullRangeMin.w <= 0.0f || (projPos.z >= u_cullRangeMin.z && projPos.z <= u_cullRangeMax.z)) {\n");
+		const char *outMin = "projPos.x < u_cullRangeMin.x || projPos.y < u_cullRangeMin.y || projPos.z < u_cullRangeMin.z";
+		const char *outMax = "projPos.x > u_cullRangeMax.x || projPos.y > u_cullRangeMax.y || projPos.z > u_cullRangeMax.z";
+		WRITE(p, "    if (%s || %s) {\n", outMin, outMax);
+		WRITE(p, "      outPos.w = u_cullRangeMax.w;\n");
+		WRITE(p, "    }\n");
+		WRITE(p, "  }\n");
+	}
+	WRITE(p, "  gl_Position = outPos;\n");
+
 	WRITE(p, "}\n");
 }
