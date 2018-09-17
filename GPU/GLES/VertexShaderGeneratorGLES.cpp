@@ -87,6 +87,10 @@ enum DoLightComputation {
 //
 // Now, the regular machinery will take over and do the calculation again.
 //
+// Depth is not clipped to the viewport, but does clip to "minz" and "maxz".  It may also be clamped
+// to 0 and 65535 if a depth clamping/clipping flag is set (x/y clipping is performed only if depth
+// needs to be clamped.)
+//
 // All this above is for full transform mode.
 // In through mode, the Z coordinate just goes straight through and there is no perspective division.
 // We simulate this of course with pretty much an identity matrix. Rounding Z becomes very easy.

@@ -457,7 +457,7 @@ void LinkedShader::UpdateUniforms(u32 vertType, const ShaderID &vsid) {
 	if (dirty & DIRTY_TEXMATRIX) {
 		SetMatrix4x3(render_, &u_texmtx, gstate.tgenMatrix);
 	}
-	if ((dirty & DIRTY_DEPTHRANGE) && u_depthRange != -1) {
+	if (dirty & DIRTY_DEPTHRANGE) {
 		// Since depth is [-1, 1] mapping to [minz, maxz], this is easyish.
 		float vpZScale = gstate.getViewportZScale();
 		float vpZCenter = gstate.getViewportZCenter();

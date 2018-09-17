@@ -176,6 +176,10 @@ void GenerateVertexShaderHLSL(const VShaderID &id, char *buffer, ShaderLanguage 
 		if (!isModeThrough && gstate_c.Supports(GPU_ROUND_DEPTH_TO_16BIT)) {
 			WRITE(p, "float4 u_depthRange : register(c%i);\n", CONST_VS_DEPTHRANGE);
 		}
+		if (!isModeThrough) {
+			WRITE(p, "float4 u_cullRangeMin : register(c%i);\n", CONST_VS_CULLRANGEMIN);
+			WRITE(p, "float4 u_cullRangeMax : register(c%i);\n", CONST_VS_CULLRANGEMAX);
+		}
 	} else {
 		WRITE(p, "cbuffer base : register(b0) {\n%s};\n", cb_baseStr);
 		WRITE(p, "cbuffer lights: register(b1) {\n%s};\n", cb_vs_lightsStr);
@@ -370,22 +374,22 @@ void GenerateVertexShaderHLSL(const VShaderID &id, char *buffer, ShaderLanguage 
 		}
 		if (lang == HLSL_D3D11 || lang == HLSL_D3D11_LEVEL9) {
 			if (isModeThrough) {
-				WRITE(p, "  Out.gl_Position = mul(u_proj_through, float4(In.position.xyz, 1.0));\n");
+				WRITE(p, "  float4 outPos = mul(u_proj_through, float4(In.position.xyz, 1.0));\n");
 			} else {
 				if (gstate_c.Supports(GPU_ROUND_DEPTH_TO_16BIT)) {
-					WRITE(p, "  Out.gl_Position = depthRoundZVP(mul(u_proj, float4(In.position.xyz, 1.0)));\n");
+					WRITE(p, "  float4 outPos = depthRoundZVP(mul(u_proj, float4(In.position.xyz, 1.0)));\n");
 				} else {
-					WRITE(p, "  Out.gl_Position = mul(u_proj, float4(In.position.xyz, 1.0));\n");
+					WRITE(p, "  float4 outPos = mul(u_proj, float4(In.position.xyz, 1.0));\n");
 				}
 			}
 		} else {
 			if (isModeThrough) {
-				WRITE(p, "  Out.gl_Position = mul(float4(In.position.xyz, 1.0), u_proj_through);\n");
+				WRITE(p, "  float4 outPos = mul(float4(In.position.xyz, 1.0), u_proj_through);\n");
 			} else {
 				if (gstate_c.Supports(GPU_ROUND_DEPTH_TO_16BIT)) {
-					WRITE(p, "  Out.gl_Position = depthRoundZVP(mul(float4(In.position.xyz, 1.0), u_proj));\n");
+					WRITE(p, "  float4 outPos = depthRoundZVP(mul(float4(In.position.xyz, 1.0), u_proj));\n");
 				} else {
-					WRITE(p, "  Out.gl_Position = mul(float4(In.position.xyz, 1.0), u_proj);\n");
+					WRITE(p, "  float4 outPos = mul(float4(In.position.xyz, 1.0), u_proj);\n");
 				}
 			}
 		}
@@ -577,16 +581,16 @@ void GenerateVertexShaderHLSL(const VShaderID &id, char *buffer, ShaderLanguage 
 		if (lang == HLSL_D3D11 || lang == HLSL_D3D11_LEVEL9) {
 			// Final view and projection transforms.
 			if (gstate_c.Supports(GPU_ROUND_DEPTH_TO_16BIT)) {
-				WRITE(p, "  Out.gl_Position = depthRoundZVP(mul(u_proj, viewPos));\n");
+				WRITE(p, "  float4 outPos = depthRoundZVP(mul(u_proj, viewPos));\n");
 			} else {
-				WRITE(p, "  Out.gl_Position = mul(u_proj, viewPos);\n");
+				WRITE(p, "  float4 outPos = mul(u_proj, viewPos);\n");
 			}
 		} else {
 			// Final view and projection transforms.
 			if (gstate_c.Supports(GPU_ROUND_DEPTH_TO_16BIT)) {
-				WRITE(p, "  Out.gl_Position = depthRoundZVP(mul(viewPos, u_proj));\n");
+				WRITE(p, "  float4 outPos = depthRoundZVP(mul(viewPos, u_proj));\n");
 			} else {
-				WRITE(p, "  Out.gl_Position = mul(viewPos, u_proj);\n");
+				WRITE(p, "  float4 outPos = mul(viewPos, u_proj);\n");
 			}
 		}
 
@@ -810,6 +814,19 @@ void GenerateVertexShaderHLSL(const VShaderID &id, char *buffer, ShaderLanguage 
 			WRITE(p, "  Out.v_fogdepth = (viewPos.z + u_fogcoef.x) * u_fogcoef.y;\n");
 		}
 	}
+
+	if (lang == HLSL_DX9 && !isModeThrough) {
+		WRITE(p, "  float3 projPos = outPos.xyz / outPos.w;\n");
+		// Vertex range culling doesn't happen when depth is clamped, so only do this if in range.
+		WRITE(p, "  if (u_cullRangeMin.w <= 0.0f || (projPos.z >= u_cullRangeMin.z && projPos.z <= u_cullRangeMax.z)) {\n");
+		const char *outMin = "projPos.x < u_cullRangeMin.x || projPos.y < u_cullRangeMin.y || projPos.z < u_cullRangeMin.z";
+		const char *outMax = "projPos.x > u_cullRangeMax.x || projPos.y > u_cullRangeMax.y || projPos.z > u_cullRangeMax.z";
+		WRITE(p, "    if (%s || %s) {\n", outMin, outMax);
+		WRITE(p, "      outPos.w = u_cullRangeMax.w;\n");
+		WRITE(p, "    }\n");
+		WRITE(p, "  }\n");
+	}
+	WRITE(p, "  Out.gl_Position = outPos;\n");
 
 	WRITE(p, "  return Out;\n");
 	WRITE(p, "}\n");
