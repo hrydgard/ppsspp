@@ -42,9 +42,10 @@
 #include "GPU/Math3D.h"
 #include "GPU/GPUState.h"
 #include "GPU/ge_constants.h"
+#include "GPU/Common/ShaderUniforms.h"
 #include "GPU/GLES/ShaderManagerGLES.h"
 #include "GPU/GLES/DrawEngineGLES.h"
-#include "FramebufferManagerGLES.h"
+#include "GPU/GLES/FramebufferManagerGLES.h"
 
 Shader::Shader(GLRenderManager *render, const char *code, const std::string &desc, uint32_t glShaderType, bool useHWTransform, uint32_t attrMask, uint64_t uniformMask)
 	  : render_(render), failed_(false), useHWTransform_(useHWTransform), attrMask_(attrMask), uniformMask_(uniformMask) {
@@ -484,39 +485,9 @@ void LinkedShader::UpdateUniforms(u32 vertType, const ShaderID &vsid) {
 		SetFloatUniform4(render_, &u_depthRange, data);
 	}
 	if (dirty & DIRTY_CULLRANGE) {
-		// Account for the projection viewport adjustment when viewport is too large.
-		auto reverseViewportX = [](float x) {
-			float pspViewport = (x - gstate.getViewportXCenter()) * (1.0f / gstate.getViewportXScale());
-			return (pspViewport - gstate_c.vpXOffset) * (1.0f / gstate_c.vpWidthScale);
-		};
-		auto reverseViewportY = [](float y) {
-			float heightScale = gstate_c.vpHeightScale;
-			if (g_Config.iRenderingMode == FB_NON_BUFFERED_MODE) {
-				// GL upside down is a pain as usual.
-				heightScale = -heightScale;
-			}
-			float pspViewport = (y - gstate.getViewportYCenter()) * (1.0f / gstate.getViewportYScale());
-			return (pspViewport - gstate_c.vpYOffset) * (1.0f / heightScale);
-		};
-		auto reverseViewportZ = [](float z) {
-			float pspViewport = (z - gstate.getViewportZCenter()) * (1.0f / gstate.getViewportZScale());
-			return (pspViewport - gstate_c.vpZOffset) * (1.0f / gstate_c.vpDepthScale);
-		};
-		auto sortPair = [](float a, float b) {
-			return a > b ? std::make_pair(b, a) : std::make_pair(a, b);
-		};
-
-		// The PSP seems to use 0.12.4 for X and Y, and 0.16.0 for Z.
-		// Any vertex outside this range (unless depth clamp enabled) is discarded.
-		auto x = sortPair(reverseViewportX(0.0f), reverseViewportX(4096.0f));
-		auto y = sortPair(reverseViewportY(0.0f), reverseViewportY(4096.0f));
-		auto z = sortPair(reverseViewportZ(0.0f), reverseViewportZ(65535.5f));
-		// Since we have space in w, use it to pass the depth clamp flag.  We also pass NAN for w "discard".
-		float clampEnable = gstate.isDepthClampEnabled() ? 1.0f : 0.0f;
-
-		float minValues[4]{ x.first, y.first, z.first, clampEnable };
+		float minValues[4], maxValues[4];
+		CalcCullRange(minValues, maxValues, g_Config.iRenderingMode == FB_NON_BUFFERED_MODE, true);
 		SetFloatUniform4(render_, &u_cullRangeMin, minValues);
-		float maxValues[4]{ x.second, y.second, z.second, NAN };
 		SetFloatUniform4(render_, &u_cullRangeMax, maxValues);
 	}
 

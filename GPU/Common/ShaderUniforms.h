@@ -181,6 +181,8 @@ static const char *cb_vs_bonesStr =
 R"(	float4x3 u_bone[8];
 )";
 
+void CalcCullRange(float minValues[4], float maxValues[4], bool flipViewport, bool hasNegZ);
+
 void BaseUpdateUniforms(UB_VS_FS_Base *ub, uint64_t dirtyUniforms, bool flipViewport);
 void LightUpdateUniforms(UB_VS_Lights *ub, uint64_t dirtyUniforms);
 void BoneUpdateUniforms(UB_VS_Bones *ub, uint64_t dirtyUniforms);

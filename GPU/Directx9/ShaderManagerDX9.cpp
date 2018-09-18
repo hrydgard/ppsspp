@@ -36,6 +36,7 @@
 #include "GPU/Math3D.h"
 #include "GPU/GPUState.h"
 #include "GPU/ge_constants.h"
+#include "GPU/Common/ShaderUniforms.h"
 #include "GPU/Directx9/ShaderManagerDX9.h"
 #include "GPU/Directx9/DrawEngineDX9.h"
 #include "GPU/Directx9/FramebufferDX9.h"
@@ -448,41 +449,9 @@ void ShaderManagerDX9::VSUpdateUniforms(u64 dirtyUniforms) {
 		VSSetFloatUniform4(CONST_VS_DEPTHRANGE, data);
 	}
 	if (dirtyUniforms & DIRTY_CULLRANGE) {
-		// Account for the projection viewport adjustment when viewport is too large.
-		auto reverseViewportX = [](float x) {
-			float pspViewport = (x - gstate.getViewportXCenter()) * (1.0f / gstate.getViewportXScale());
-			return (pspViewport - gstate_c.vpXOffset) * (1.0f / gstate_c.vpWidthScale);
-		};
-		auto reverseViewportY = [](float y) {
-			float yOffset = gstate_c.vpYOffset;
-			if (g_Config.iRenderingMode == FB_NON_BUFFERED_MODE) {
-				// GL upside down is a pain as usual.
-				// TODO: Is this right?
-				yOffset = -yOffset;
-			}
-			float pspViewport = (y - gstate.getViewportYCenter()) * (1.0f / gstate.getViewportYScale());
-			return (pspViewport - yOffset) * (1.0f / gstate_c.vpHeightScale);
-		};
-		auto reverseViewportZ = [](float z) {
-			float pspViewport = (z - gstate.getViewportZCenter()) * (1.0f / gstate.getViewportZScale());
-			// Differs from GLES: depth is 0 to 1, not -1 to 1.
-			return (pspViewport - gstate_c.vpZOffset) * (1.0f / gstate_c.vpDepthScale) * 0.5f + 0.5f;
-		};
-		auto sortPair = [](float a, float b) {
-			return a > b ? std::make_pair(b, a) : std::make_pair(a, b);
-		};
-
-		// The PSP seems to use 0.12.4 for X and Y, and 0.16.0 for Z.
-		// Any vertex outside this range (unless depth clamp enabled) is discarded.
-		auto x = sortPair(reverseViewportX(0.0f), reverseViewportX(4096.0f));
-		auto y = sortPair(reverseViewportY(0.0f), reverseViewportY(4096.0f));
-		auto z = sortPair(reverseViewportZ(0.0f), reverseViewportZ(65535.5f));
-		// Since we have space in w, use it to pass the depth clamp flag.  We also pass NAN for w "discard".
-		float clampEnable = gstate.isDepthClampEnabled() ? 1.0f : 0.0f;
-
-		float minValues[4]{ x.first, y.first, z.first, clampEnable };
+		float minValues[4], maxValues[4];
+		CalcCullRange(minValues, maxValues, false, false);
 		VSSetFloatUniform4(CONST_VS_CULLRANGEMIN, minValues);
-		float maxValues[4]{ x.second, y.second, z.second, NAN };
 		VSSetFloatUniform4(CONST_VS_CULLRANGEMAX, maxValues);
 	}
 
