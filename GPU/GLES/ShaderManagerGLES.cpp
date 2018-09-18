@@ -42,9 +42,10 @@
 #include "GPU/Math3D.h"
 #include "GPU/GPUState.h"
 #include "GPU/ge_constants.h"
+#include "GPU/Common/ShaderUniforms.h"
 #include "GPU/GLES/ShaderManagerGLES.h"
 #include "GPU/GLES/DrawEngineGLES.h"
-#include "FramebufferManagerGLES.h"
+#include "GPU/GLES/FramebufferManagerGLES.h"
 
 Shader::Shader(GLRenderManager *render, const char *code, const std::string &desc, uint32_t glShaderType, bool useHWTransform, uint32_t attrMask, uint64_t uniformMask)
 	  : render_(render), failed_(false), useHWTransform_(useHWTransform), attrMask_(attrMask), uniformMask_(uniformMask) {
@@ -116,6 +117,8 @@ LinkedShader::LinkedShader(GLRenderManager *render, VShaderID VSID, Shader *vs, 
 	else
 		numBones = 0;
 	queries.push_back({ &u_depthRange, "u_depthRange" });
+	queries.push_back({ &u_cullRangeMin, "u_cullRangeMin" });
+	queries.push_back({ &u_cullRangeMax, "u_cullRangeMax" });
 
 #ifdef USE_BONE_ARRAY
 	queries.push_back({ &u_bone, "u_bone" });
@@ -455,7 +458,7 @@ void LinkedShader::UpdateUniforms(u32 vertType, const ShaderID &vsid) {
 	if (dirty & DIRTY_TEXMATRIX) {
 		SetMatrix4x3(render_, &u_texmtx, gstate.tgenMatrix);
 	}
-	if ((dirty & DIRTY_DEPTHRANGE) && u_depthRange != -1) {
+	if (dirty & DIRTY_DEPTHRANGE) {
 		// Since depth is [-1, 1] mapping to [minz, maxz], this is easyish.
 		float vpZScale = gstate.getViewportZScale();
 		float vpZCenter = gstate.getViewportZCenter();
@@ -480,6 +483,12 @@ void LinkedShader::UpdateUniforms(u32 vertType, const ShaderID &vsid) {
 
 		float data[4] = { viewZScale, viewZCenter, viewZCenter, viewZInvScale };
 		SetFloatUniform4(render_, &u_depthRange, data);
+	}
+	if (dirty & DIRTY_CULLRANGE) {
+		float minValues[4], maxValues[4];
+		CalcCullRange(minValues, maxValues, g_Config.iRenderingMode == FB_NON_BUFFERED_MODE, true);
+		SetFloatUniform4(render_, &u_cullRangeMin, minValues);
+		SetFloatUniform4(render_, &u_cullRangeMax, maxValues);
 	}
 
 	if (dirty & DIRTY_STENCILREPLACEVALUE) {

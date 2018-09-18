@@ -36,6 +36,7 @@
 #include "GPU/Math3D.h"
 #include "GPU/GPUState.h"
 #include "GPU/ge_constants.h"
+#include "GPU/Common/ShaderUniforms.h"
 #include "GPU/Directx9/ShaderManagerDX9.h"
 #include "GPU/Directx9/DrawEngineDX9.h"
 #include "GPU/Directx9/FramebufferDX9.h"
@@ -314,7 +315,7 @@ void ShaderManagerDX9::PSUpdateUniforms(u64 dirtyUniforms) {
 }
 
 const uint64_t vsUniforms = DIRTY_PROJMATRIX | DIRTY_PROJTHROUGHMATRIX | DIRTY_WORLDMATRIX | DIRTY_VIEWMATRIX | DIRTY_TEXMATRIX |
-DIRTY_FOGCOEF | DIRTY_BONE_UNIFORMS | DIRTY_UVSCALEOFFSET | DIRTY_DEPTHRANGE |
+DIRTY_FOGCOEF | DIRTY_BONE_UNIFORMS | DIRTY_UVSCALEOFFSET | DIRTY_DEPTHRANGE | DIRTY_CULLRANGE |
 DIRTY_AMBIENT | DIRTY_MATAMBIENTALPHA | DIRTY_MATSPECULAR | DIRTY_MATDIFFUSE | DIRTY_MATEMISSIVE | DIRTY_LIGHT0 | DIRTY_LIGHT1 | DIRTY_LIGHT2 | DIRTY_LIGHT3;
 
 void ShaderManagerDX9::VSUpdateUniforms(u64 dirtyUniforms) {
@@ -425,7 +426,7 @@ void ShaderManagerDX9::VSUpdateUniforms(u64 dirtyUniforms) {
 		VSSetFloatArray(CONST_VS_UVSCALEOFFSET, uvscaleoff, 4);
 	}
 
-	if (dirtyUniforms & DIRTY_DEPTHRANGE)	{
+	if (dirtyUniforms & DIRTY_DEPTHRANGE) {
 		// Depth is [0, 1] mapping to [minz, maxz], not too hard.
 		float vpZScale = gstate.getViewportZScale();
 		float vpZCenter = gstate.getViewportZCenter();
@@ -447,6 +448,13 @@ void ShaderManagerDX9::VSUpdateUniforms(u64 dirtyUniforms) {
 		float data[4] = { viewZScale, viewZCenter, viewZCenter, viewZInvScale };
 		VSSetFloatUniform4(CONST_VS_DEPTHRANGE, data);
 	}
+	if (dirtyUniforms & DIRTY_CULLRANGE) {
+		float minValues[4], maxValues[4];
+		CalcCullRange(minValues, maxValues, false, false);
+		VSSetFloatUniform4(CONST_VS_CULLRANGEMIN, minValues);
+		VSSetFloatUniform4(CONST_VS_CULLRANGEMAX, maxValues);
+	}
+
 	// Lighting
 	if (dirtyUniforms & DIRTY_AMBIENT) {
 		VSSetColorUniform3Alpha(CONST_VS_AMBIENT, gstate.ambientcolor, gstate.getAmbientA());
