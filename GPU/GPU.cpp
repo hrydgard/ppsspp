@@ -28,9 +28,7 @@
 #else
 #include "GPU/GLES/GPU_GLES.h"
 
-#ifndef NO_VULKAN
 #include "GPU/Vulkan/GPU_Vulkan.h"
-#endif
 #include "GPU/Null/NullGpu.h"
 #include "GPU/Software/SoftGpu.h"
 
@@ -91,13 +89,11 @@ bool GPU_Init(GraphicsContext *ctx, Draw::DrawContext *draw) {
 		return false;
 #endif
 	case GPUCORE_VULKAN:
-#ifndef NO_VULKAN
 		if (!ctx) {
 			ERROR_LOG(G3D, "Unable to init Vulkan GPU backend, no context");
 			break;
 		}
 		SetGPU(new GPU_Vulkan(ctx, draw));
-#endif
 		break;
 	}
 

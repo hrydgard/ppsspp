@@ -806,7 +806,9 @@ void *GLRBuffer::Map(GLBufferStrategy strategy) {
 			if (!hasStorage_) {
 				GLbitfield storageFlags = access & ~(GL_MAP_INVALIDATE_BUFFER_BIT | GL_MAP_FLUSH_EXPLICIT_BIT);
 #ifdef USING_GLES2
+#ifdef GL_EXT_buffer_storage
 				glBufferStorageEXT(target_, size_, nullptr, storageFlags);
+#endif
 #else
 				glBufferStorage(target_, size_, nullptr, storageFlags);
 #endif

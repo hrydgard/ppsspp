@@ -2,9 +2,7 @@
 #include "libretro/LibretroGraphicsContext.h"
 #include "libretro/LibretroGLContext.h"
 #include "libretro/libretro.h"
-#ifndef NO_VULKAN
 #include "libretro/LibretroVulkanContext.h"
-#endif
 #ifdef _WIN32
 #include "libretro/LibretroD3D11Context.h"
 #endif
@@ -91,14 +89,12 @@ LibretroGraphicsContext *LibretroGraphicsContext::CreateGraphicsContext() {
 	}
 	delete ctx;
 
-#ifndef NO_VULKAN
 	ctx = new LibretroVulkanContext();
 
 	if (ctx->Init()) {
 		return ctx;
 	}
 	delete ctx;
-#endif
 
 #ifdef _WIN32
 	ctx = new LibretroD3D11Context();
