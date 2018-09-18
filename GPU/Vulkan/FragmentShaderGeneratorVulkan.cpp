@@ -43,7 +43,7 @@ static const char *vulkan_glsl_preamble =
 #define WRITE p+=sprintf
 
 // Missing: Z depth range
-bool GenerateVulkanGLSLFragmentShader(const FShaderID &id, char *buffer) {
+bool GenerateVulkanGLSLFragmentShader(const FShaderID &id, char *buffer, uint32_t vulkanVendorId) {
 	char *p = buffer;
 
 	const char *lastFragData = nullptr;
@@ -85,9 +85,11 @@ bool GenerateVulkanGLSLFragmentShader(const FShaderID &id, char *buffer) {
 	const char *shading = doFlatShading ? "flat" : "";
 	bool earlyFragmentTests = ((!enableAlphaTest && !enableColorTest) || testForceToZero) && !gstate_c.Supports(GPU_ROUND_FRAGMENT_DEPTH_TO_16BIT);
 
+	bool isAdreno = vulkanVendorId == VULKAN_VENDOR_QUALCOMM;
+
 	if (earlyFragmentTests) {
 		WRITE(p, "layout (early_fragment_tests) in;\n");
-	} else {
+	} else if (isAdreno) {
 		WRITE(p, "layout (depth_unchanged) out float gl_FragDepth;\n");
 	}
 
@@ -583,7 +585,7 @@ bool GenerateVulkanGLSLFragmentShader(const FShaderID &id, char *buffer) {
 			WRITE(p, "  z = (1.0/65535.0) * floor(z * 65535.0);\n");
 		}
 		WRITE(p, "  gl_FragDepth = z;\n");
-	} else if (!earlyFragmentTests) {
+	} else if (!earlyFragmentTests && isAdreno) {
 		// Adreno (and possibly MESA/others) apply early frag tests even with discard in the shader.
 		// Writing depth prevents the bug, even with depth_unchanged specified.
 		WRITE(p, "  gl_FragDepth = gl_FragCoord.z;\n");
