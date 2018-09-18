@@ -239,15 +239,22 @@ void DrawEngineVulkan::ConvertStateToVulkanKey(FramebufferManagerVulkan &fbManag
 	}
 
 	if (gstate_c.IsDirty(DIRTY_RASTER_STATE)) {
-		if (gstate.isModeClear()) {
+		if (gstate.isModeClear() || gstate.isModeThrough()) {
 			key.cullMode = VK_CULL_MODE_NONE;
-			// TODO: Or does it always clamp?
+			// TODO: Might happen in clear mode if not through...
 			key.depthClampEnable = false;
 		} else {
 			// Set cull
-			bool wantCull = !gstate.isModeThrough() && prim != GE_PRIM_RECTANGLES && gstate.isCullEnabled();
+			bool wantCull = prim != GE_PRIM_RECTANGLES && gstate.isCullEnabled();
 			key.cullMode = wantCull ? (gstate.getCullMode() ? VK_CULL_MODE_FRONT_BIT : VK_CULL_MODE_BACK_BIT) : VK_CULL_MODE_NONE;
-			key.depthClampEnable = gstate.isDepthClampEnabled() && gstate_c.Supports(GPU_SUPPORTS_DEPTH_CLAMP);
+			if (gstate.getDepthRangeMin() == 0 || gstate.getDepthRangeMax() == 65535) {
+				// TODO: Still has a bug where we clamp to depth range if one is not the full range.
+				// But the alternate is not clamping in either direction...
+				key.depthClampEnable = gstate.isDepthClampEnabled() && gstate_c.Supports(GPU_SUPPORTS_DEPTH_CLAMP);
+			} else {
+				// We just want to clip in this case, the clamp would be clipped anyway.
+				key.depthClampEnable = false;
+			}
 		}
 	}
 
