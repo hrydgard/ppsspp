@@ -487,6 +487,7 @@ struct DeviceCaps {
 	bool multiViewport;
 	bool dualSourceBlend;
 	bool logicOpSupported;
+	bool depthClampSupported;
 	bool framebufferCopySupported;
 	bool framebufferBlitSupported;
 	bool framebufferDepthCopySupported;

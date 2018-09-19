@@ -49,7 +49,8 @@ struct D3D11RasterKey {
 	union {
 		uint32_t value;
 		struct {
-			unsigned int cullMode : 2;  // D3D11_CULL_MODE 
+			unsigned int cullMode : 2;  // D3D11_CULL_MODE
+			unsigned int depthClipEnable : 1;
 		};
 	};
 };
