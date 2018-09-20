@@ -38,7 +38,7 @@ if(CMAKE_SYSTEM_PROCESSOR)
 			endif()
 		if(${CMAKE_SYSTEM_PROCESSOR} MATCHES "^armv7")
 			set(ARMV7 ON)
-			add_compile_options(-mfpu=neon-vfpv4)
+			add_compile_options(-mfpu=neon)
 			# Horrifying workaround for bug in android cmake stuff for asm files
 			if (ANDROID)
 				set(CMAKE_ASM_FLAGS "${CMAKE_ASM_FLAGS} -target armv7a-none-linux-android")
