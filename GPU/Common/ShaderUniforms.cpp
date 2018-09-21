@@ -30,7 +30,7 @@ void CalcCullRange(float minValues[4], float maxValues[4], bool flipViewport, bo
 	// Account for the projection viewport adjustment when viewport is too large.
 	auto reverseViewportX = [](float x) {
 		float pspViewport = (x - gstate.getViewportXCenter()) * (1.0f / gstate.getViewportXScale());
-		return pspViewport * (1.0f / gstate_c.vpWidthScale);
+		return (pspViewport - gstate_c.vpXOffset) * gstate_c.vpWidthScale;
 	};
 	auto reverseViewportY = [flipViewport](float y) {
 		float heightScale = gstate_c.vpHeightScale;
@@ -39,12 +39,12 @@ void CalcCullRange(float minValues[4], float maxValues[4], bool flipViewport, bo
 			heightScale = -heightScale;
 		}
 		float pspViewport = (y - gstate.getViewportYCenter()) * (1.0f / gstate.getViewportYScale());
-		return pspViewport * (1.0f / gstate_c.vpHeightScale);
+		return (pspViewport - gstate_c.vpYOffset) * heightScale;
 	};
 	auto reverseViewportZ = [hasNegZ](float z) {
 		float pspViewport = (z - gstate.getViewportZCenter()) * (1.0f / gstate.getViewportZScale());
 		// Differs from GLES: depth is 0 to 1, not -1 to 1.
-		float realViewport = (pspViewport - gstate_c.vpZOffset) * (1.0f / gstate_c.vpDepthScale);
+		float realViewport = (pspViewport - gstate_c.vpZOffset) * gstate_c.vpDepthScale;
 		return hasNegZ ? realViewport : (realViewport * 0.5f + 0.5f);
 	};
 	auto sortPair = [](float a, float b) {
