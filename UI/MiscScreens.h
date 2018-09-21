@@ -144,7 +144,6 @@ private:
 	UI::EventReturn OnPPSSPPOrg(UI::EventParams &e);
 	UI::EventReturn OnPrivacy(UI::EventParams &e);
 	UI::EventReturn OnForums(UI::EventParams &e);
-	UI::EventReturn OnDiscord(UI::EventParams &e);
 	UI::EventReturn OnShare(UI::EventParams &e);
 	UI::EventReturn OnTwitter(UI::EventParams &e);
 
