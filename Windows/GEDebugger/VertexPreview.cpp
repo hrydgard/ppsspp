@@ -392,8 +392,10 @@ void CGEDebugger::UpdatePrimPreview(u32 op, int which) {
 			glBindVertexArray(previewVao);
 			glEnableVertexAttribArray(previewProgram->a_position);
 
-			glGenBuffers(1, &ibuf);
-			glGenBuffers(1, &vbuf);
+			if (ibuf == 0)
+				glGenBuffers(1, &ibuf);
+			if (vbuf == 0)
+				glGenBuffers(1, &vbuf);
 			glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ibuf);
 			glBindBuffer(GL_ARRAY_BUFFER, vbuf);
 
@@ -451,11 +453,15 @@ void CGEDebugger::UpdatePrimPreview(u32 op, int which) {
 		glScissor((GLint)x, (GLint)-(y + fh - secondWindow->Height()), (GLsizei)fw, (GLsizei)fh);
 		BindPreviewProgram(texPreviewProgram);
 
-		if (texPreviewVao == 0 && gl_extensions.ARB_vertex_array_object) {
+		if (texPreviewVao == 0 && vbuf != 0 && ibuf != 0 && gl_extensions.ARB_vertex_array_object) {
 			glGenVertexArrays(1, &texPreviewVao);
 			glBindVertexArray(texPreviewVao);
 			glEnableVertexAttribArray(texPreviewProgram->a_position);
 
+			if (ibuf == 0)
+				glGenBuffers(1, &ibuf);
+			if (vbuf == 0)
+				glGenBuffers(1, &vbuf);
 			glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ibuf);
 			glBindBuffer(GL_ARRAY_BUFFER, vbuf);
 
