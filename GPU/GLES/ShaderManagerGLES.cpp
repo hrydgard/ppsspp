@@ -695,10 +695,7 @@ Shader *ShaderManagerGLES::ApplyVertexShader(int prim, u32 vertType, VShaderID *
 			// Can still work with software transform.
 			VShaderID vsidTemp;
 			ComputeVertexShaderID(&vsidTemp, vertType, false);
-			uint32_t attrMask;
-			uint64_t uniformMask;
-			GenerateVertexShader(vsidTemp, codeBuffer_, &attrMask, &uniformMask);
-			vs = new Shader(render_, codeBuffer_, VertexShaderDesc(vsidTemp), GL_VERTEX_SHADER, false, attrMask, uniformMask);
+			vs = CompileVertexShader(vsidTemp);
 		}
 
 		vsCache_.Insert(*VSID, vs);
