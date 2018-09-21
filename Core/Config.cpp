@@ -516,6 +516,12 @@ static bool DefaultTimerHack() {
 
 static int DefaultAndroidHwScale() {
 #ifdef __ANDROID__
+	if (System_GetPropertyInt(SYSPROP_SYSTEMVERSION) >= 19) {
+		// Arbitrary cutoff at Kitkat - modern devices are usually powerful enough that hw scaling
+		// doesn't really help very much and mostly causes problems. See #11151
+		return 0;
+	}
+
 	// Get the real resolution as passed in during startup, not dp_xres and stuff
 	int xres = System_GetPropertyInt(SYSPROP_DISPLAY_XRES);
 	int yres = System_GetPropertyInt(SYSPROP_DISPLAY_YRES);

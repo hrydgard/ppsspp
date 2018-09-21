@@ -56,26 +56,6 @@ enum DoLightComputation {
 	LIGHT_FULL,
 };
 
-// #define COLORGUARDBAND
-
-#ifdef COLORGUARDBAND
-// Coloring debug version
-static void WriteGuardBand(char *&p) {
-	WRITE(p, "  float3 projPos = outPos.xyz / outPos.w; \n");
-	WRITE(p, "  if (outPos.w >= u_guardband.z) {\n");
-	WRITE(p, "		if (abs(projPos.x) > u_guardband.x || projPos.y > u_guardband.y) colorOverride.g = 0.0;\n");//outPos.w = u_guardband.w;\n");
-	WRITE(p, "  } else { colorOverride.b = 0.0; } \n");
-}
-#else
-// NOTE: We are skipping the bottom check. This fixes TOCA but I am dubious about it...
-static void WriteGuardBand(char *&p) {
-	WRITE(p, "  float3 projPos = outPos.xyz / outPos.w; \n");
-	WRITE(p, "  if (outPos.w >= u_guardband.z) {\n");
-	WRITE(p, "		if (abs(projPos.x) > u_guardband.x || projPos.y > u_guardband.y) outPos.w = u_guardband.w;\n");
-	WRITE(p, "  }\n");
-}
-#endif
-
 void GenerateVertexShaderHLSL(const VShaderID &id, char *buffer, ShaderLanguage lang) {
 	char *p = buffer;
 
@@ -135,7 +115,6 @@ void GenerateVertexShaderHLSL(const VShaderID &id, char *buffer, ShaderLanguage 
 			WRITE(p, "float4x4 u_proj : register(c%i);\n", CONST_VS_PROJ);
 			// Add all the uniforms we'll need to transform properly.
 		}
-		WRITE(p, "float4 u_guardband : register(c%i);\n", CONST_VS_GUARDBAND);
 
 		if (enableFog) {
 			WRITE(p, "float2 u_fogcoef : register(c%i);\n", CONST_VS_FOGCOEF);
@@ -197,6 +176,10 @@ void GenerateVertexShaderHLSL(const VShaderID &id, char *buffer, ShaderLanguage 
 
 		if (!isModeThrough && gstate_c.Supports(GPU_ROUND_DEPTH_TO_16BIT)) {
 			WRITE(p, "float4 u_depthRange : register(c%i);\n", CONST_VS_DEPTHRANGE);
+		}
+		if (!isModeThrough) {
+			WRITE(p, "float4 u_cullRangeMin : register(c%i);\n", CONST_VS_CULLRANGEMIN);
+			WRITE(p, "float4 u_cullRangeMax : register(c%i);\n", CONST_VS_CULLRANGEMAX);
 		}
 	} else {
 		WRITE(p, "cbuffer base : register(b0) {\n%s};\n", cb_baseStr);
@@ -372,9 +355,6 @@ void GenerateVertexShaderHLSL(const VShaderID &id, char *buffer, ShaderLanguage 
 
 	WRITE(p, "VS_OUT main(VS_IN In) {\n");
 	WRITE(p, "  VS_OUT Out;\n");  
-#ifdef COLORGUARDBAND
-	WRITE(p, "	float4 colorOverride = float4(1.0, 1.0, 1.0, 1.0);\n");
-#endif
 	if (!useHWTransform) {
 		// Simple pass-through of vertex data to fragment shader
 		if (doTexture) {
@@ -417,12 +397,7 @@ void GenerateVertexShaderHLSL(const VShaderID &id, char *buffer, ShaderLanguage 
 				}
 			}
 		}
-		if (lang != HLSL_DX9) {
-			if (PSP_CoreParameter().compat.flags().GuardBand)
-				WriteGuardBand(p);
-		}
-		WRITE(p, "  Out.gl_Position = outPos;\n");
-	} else {
+	}  else {
 		// Step 1: World Transform / Skinning
 		if (!enableBones) {
 			// Hardware tessellation
@@ -622,9 +597,6 @@ void GenerateVertexShaderHLSL(const VShaderID &id, char *buffer, ShaderLanguage 
 				WRITE(p, "  float4 outPos = mul(viewPos, u_proj);\n");
 			}
 		}
-		if (PSP_CoreParameter().compat.flags().GuardBand)
-			WriteGuardBand(p);
-		WRITE(p, "  Out.gl_Position = outPos;\n");
 
 		// TODO: Declare variables for dots for shade mapping if needed.
 
@@ -847,9 +819,19 @@ void GenerateVertexShaderHLSL(const VShaderID &id, char *buffer, ShaderLanguage 
 		}
 	}
 
-#ifdef COLORGUARDBAND
-	WRITE(p, "  Out.v_color0 *= colorOverride;\n");
-#endif
+	if (!isModeThrough) {
+		WRITE(p, "  float3 projPos = outPos.xyz / outPos.w;\n");
+		// Vertex range culling doesn't happen when depth is clamped, so only do this if in range.
+		WRITE(p, "  if (u_cullRangeMin.w <= 0.0f || (projPos.z >= u_cullRangeMin.z && projPos.z <= u_cullRangeMax.z)) {\n");
+		const char *outMin = "projPos.x < u_cullRangeMin.x || projPos.y < u_cullRangeMin.y || projPos.z < u_cullRangeMin.z";
+		const char *outMax = "projPos.x > u_cullRangeMax.x || projPos.y > u_cullRangeMax.y || projPos.z > u_cullRangeMax.z";
+		WRITE(p, "    if (%s || %s) {\n", outMin, outMax);
+		WRITE(p, "      outPos.w = u_cullRangeMax.w;\n");
+		WRITE(p, "    }\n");
+		WRITE(p, "  }\n");
+	}
+	WRITE(p, "  Out.gl_Position = outPos;\n");
+
 	WRITE(p, "  return Out;\n");
 	WRITE(p, "}\n");
 }

@@ -146,6 +146,8 @@ void GPU_D3D11::CheckGPUFeatures() {
 	features |= GPU_SUPPORTS_LARGE_VIEWPORTS;
 	if (draw_->GetDeviceCaps().dualSourceBlend)
 		features |= GPU_SUPPORTS_DUALSOURCE_BLEND;
+	if (draw_->GetDeviceCaps().depthClampSupported)
+		features |= GPU_SUPPORTS_DEPTH_CLAMP;
 	features |= GPU_SUPPORTS_ANY_COPY_IMAGE;
 	features |= GPU_SUPPORTS_TEXTURE_FLOAT;
 	features |= GPU_SUPPORTS_INSTANCE_RENDERING;
@@ -280,7 +282,7 @@ void GPU_D3D11::FinishDeferred() {
 
 inline void GPU_D3D11::CheckFlushOp(int cmd, u32 diff) {
 	const u8 cmdFlags = cmdInfo_[cmd].flags;
-	if ((cmdFlags & FLAG_FLUSHBEFORE) || (diff && (cmdFlags & FLAG_FLUSHBEFOREONCHANGE))) {
+	if (diff && (cmdFlags & FLAG_FLUSHBEFOREONCHANGE)) {
 		if (dumpThisFrame_) {
 			NOTICE_LOG(G3D, "================ FLUSH ================");
 		}

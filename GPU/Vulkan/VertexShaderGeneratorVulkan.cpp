@@ -69,13 +69,6 @@ enum DoLightComputation {
 	LIGHT_FULL,
 };
 
-static void WriteGuardBand(char *&p) {
-	WRITE(p, "  vec3 projPos = outPos.xyz / outPos.w; \n");
-	WRITE(p, "  if (outPos.w >= base.guardband.z) {\n");
-	WRITE(p, "		if (abs(projPos.x) > base.guardband.x || projPos.y < -base.guardband.y) outPos.w = base.guardband.w;\n");
-	WRITE(p, "  }\n");
-}
-
 // Depth range and viewport
 //
 // After the multiplication with the projection matrix, we have a 4D vector in clip space.
@@ -224,7 +217,7 @@ bool GenerateVulkanGLSLVertexShader(const VShaderID &id, char *buffer) {
 		WRITE(p, "  vec4 uv;\n");
 		WRITE(p, "  vec4 color;\n");
 		WRITE(p, "};");
-		WRITE(p, "layout (std430, set = 0, binding = 6) buffer s_tess_data {\n");
+		WRITE(p, "layout (std430, set = 0, binding = 6) readonly buffer s_tess_data {\n");
 		WRITE(p, "  TessData data[];");
 		WRITE(p, "} tess_data;\n");
 
@@ -330,8 +323,6 @@ bool GenerateVulkanGLSLVertexShader(const VShaderID &id, char *buffer) {
 				WRITE(p, "  vec4 outPos = base.proj_mtx * vec4(position.xyz, 1.0);\n");
 			}
 		}
-		if (PSP_CoreParameter().compat.flags().GuardBand)
-			WriteGuardBand(p);
 		WRITE(p, "  gl_Position = outPos;\n");
 	} else {
 		// Step 1: World Transform / Skinning
@@ -483,8 +474,6 @@ bool GenerateVulkanGLSLVertexShader(const VShaderID &id, char *buffer) {
 		} else {
 			WRITE(p, "  vec4 outPos = base.proj_mtx * viewPos;\n");
 		}
-		if (PSP_CoreParameter().compat.flags().GuardBand)
-			WriteGuardBand(p);
 		WRITE(p, "  gl_Position = outPos;\n");
 
 		// TODO: Declare variables for dots for shade mapping if needed.
@@ -704,6 +693,20 @@ bool GenerateVulkanGLSLVertexShader(const VShaderID &id, char *buffer) {
 		if (enableFog)
 			WRITE(p, "  v_fogdepth = (viewPos.z + base.fogcoef.x) * base.fogcoef.y;\n");
 	}
+
+	if (!isModeThrough) {
+		WRITE(p, "  vec3 projPos = outPos.xyz / outPos.w;\n");
+		// Vertex range culling doesn't happen when depth is clamped, so only do this if in range.
+		WRITE(p, "  if (base.cullRangeMin.w <= 0.0f || (projPos.z >= base.cullRangeMin.z && projPos.z <= base.cullRangeMax.z)) {\n");
+		const char *outMin = "projPos.x < base.cullRangeMin.x || projPos.y < base.cullRangeMin.y || projPos.z < base.cullRangeMin.z";
+		const char *outMax = "projPos.x > base.cullRangeMax.x || projPos.y > base.cullRangeMax.y || projPos.z > base.cullRangeMax.z";
+		WRITE(p, "    if (%s || %s) {\n", outMin, outMax);
+		WRITE(p, "      outPos.w = base.cullRangeMax.w;\n");
+		WRITE(p, "    }\n");
+		WRITE(p, "  }\n");
+	}
+	WRITE(p, "  gl_Position = outPos;\n");
+
 	WRITE(p, "}\n");
 	return true;
 }

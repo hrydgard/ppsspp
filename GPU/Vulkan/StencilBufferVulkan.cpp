@@ -29,7 +29,7 @@
 
 // This shader references gl_FragDepth to prevent early fragment tests.
 // They shouldn't happen since it uses discard, but Adreno detects that incorrectly - see #10634.
-static const char *stencil_fs = R"(#version 450
+static const char *stencil_fs_adreno = R"(#version 450
 #extension GL_ARB_separate_shader_objects : enable
 #extension GL_ARB_shading_language_420pack : enable
 #extension GL_ARB_conservative_depth : enable
@@ -55,6 +55,30 @@ void main() {
 	}
 }
 )";
+
+static const char *stencil_fs = R"(#version 450
+#extension GL_ARB_separate_shader_objects : enable
+#extension GL_ARB_shading_language_420pack : enable
+layout (binding = 0) uniform sampler2D tex;
+layout (push_constant) uniform params {
+	int u_stencilValue;
+};
+layout (location = 0) in vec2 v_texcoord0;
+layout (location = 0) out vec4 fragColor0;
+
+void main() {
+	if (u_stencilValue == 0) {
+		fragColor0 = vec4(0.0);
+	} else {
+		vec4 index = texture(tex, v_texcoord0);
+		int indexBits = int(floor(index.a * 255.99)) & 0xFF;
+		if ((indexBits & u_stencilValue) == 0)
+			discard;
+		fragColor0 = index.aaaa;
+	}
+}
+)";
+
 
 static const char stencil_vs[] = R"(#version 450
 #extension GL_ARB_separate_shader_objects : enable
@@ -119,8 +143,13 @@ bool FramebufferManagerVulkan::NotifyStencilUpload(u32 addr, int size, bool skip
 
 	std::string error;
 	if (!stencilVs_) {
+		const char *stencil_fs_source = stencil_fs;
+		// See comment above the stencil_fs_adreno definition.
+		if (vulkan_->GetPhysicalDeviceProperties(vulkan_->GetCurrentPhysicalDevice()).vendorID == VULKAN_VENDOR_QUALCOMM)
+			stencil_fs_source = stencil_fs_adreno;
+
 		stencilVs_ = CompileShaderModule(vulkan_, VK_SHADER_STAGE_VERTEX_BIT, stencil_vs, &error);
-		stencilFs_ = CompileShaderModule(vulkan_, VK_SHADER_STAGE_FRAGMENT_BIT, stencil_fs, &error);
+		stencilFs_ = CompileShaderModule(vulkan_, VK_SHADER_STAGE_FRAGMENT_BIT, stencil_fs_source, &error);
 	}
 	VkRenderPass rp = (VkRenderPass)draw_->GetNativeObject(Draw::NativeObject::FRAMEBUFFER_RENDERPASS);
 

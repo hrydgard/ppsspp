@@ -684,7 +684,6 @@ int main(int argc, char *argv[]) {
 				}
 			case SDL_FINGERMOTION:
 				{
-					if (!g_Config.bFullScreen) { break; }
 					SDL_GetWindowSize(window, &w, &h);
 					touchEvent.type = SDL_MOUSEMOTION;
 					touchEvent.motion.type = SDL_MOUSEMOTION;
@@ -702,7 +701,6 @@ int main(int argc, char *argv[]) {
 				}
 			case SDL_FINGERDOWN:
 				{
-					if (!g_Config.bFullScreen) { break; }
 					SDL_GetWindowSize(window, &w, &h);
 					touchEvent.type = SDL_MOUSEBUTTONDOWN;
 					touchEvent.button.type = SDL_MOUSEBUTTONDOWN;
@@ -732,7 +730,6 @@ int main(int argc, char *argv[]) {
 				}
 			case SDL_FINGERUP:
 				{
-					if(!g_Config.bFullScreen) { break; }
 					SDL_GetWindowSize(window, &w, &h);
 					touchEvent.type = SDL_MOUSEBUTTONUP;
 					touchEvent.button.type = SDL_MOUSEBUTTONUP;

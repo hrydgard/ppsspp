@@ -65,7 +65,6 @@ struct CompatFlags {
 	bool ForceRangeDownload;
 	bool FlushAtStall;
 	bool Force04Download;
-	bool GuardBand;
 	bool DisableAccurateDepth;
 	bool MGS2AcidHack;
 	bool SonicRivalsHack;

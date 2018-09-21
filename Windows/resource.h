@@ -343,6 +343,7 @@
 #define ID_SIMPLEUI_TOGGLE               40200
 #define ID_SIMPLEUI_HIDE                 40201
 #define ID_EMULATION_PAUSE               40177
+#define ID_HELP_DISCORD                  40178
 
 #define ID_TEXTURESCALING_REALTIME       40178
 #define ID_TEXTURESCALING_REALTIME_HC    40179

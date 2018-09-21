@@ -579,35 +579,34 @@ SOURCES_C += $(EXTDIR)/udis86/decode.c \
 			 $(EXTDIR)/udis86/syn.c \
 			 $(EXTDIR)/udis86/udis86.c
 
-ifeq ($(PLATFORM_EXT), darwin)
-	COREFLAGS += -DNO_VULKAN
-else
-	SOURCES_CXX += \
-		$(COMMONDIR)/Vulkan/SPIRVDisasm.cpp \
-		$(COMMONDIR)/Vulkan/VulkanContext.cpp \
-		$(COMMONDIR)/Vulkan/VulkanDebug.cpp \
-		$(COMMONDIR)/Vulkan/VulkanImage.cpp \
-		$(COMMONDIR)/Vulkan/VulkanLoader.cpp \
-		$(COMMONDIR)/Vulkan/VulkanMemory.cpp \
-		$(NATIVEDIR)/thin3d/thin3d_vulkan.cpp \
-		$(NATIVEDIR)/thin3d/VulkanRenderManager.cpp \
-		$(NATIVEDIR)/thin3d/VulkanQueueRunner.cpp \
-		$(GPUDIR)/Vulkan/DepalettizeShaderVulkan.cpp \
-		$(GPUDIR)/Vulkan/DrawEngineVulkan.cpp \
-		$(GPUDIR)/Vulkan/FragmentShaderGeneratorVulkan.cpp \
-		$(GPUDIR)/Vulkan/FramebufferVulkan.cpp \
-		$(GPUDIR)/Vulkan/GPU_Vulkan.cpp \
-		$(GPUDIR)/Vulkan/PipelineManagerVulkan.cpp \
-		$(GPUDIR)/Vulkan/ShaderManagerVulkan.cpp \
-		$(GPUDIR)/Vulkan/StateMappingVulkan.cpp \
-		$(GPUDIR)/Vulkan/StencilBufferVulkan.cpp \
-		$(GPUDIR)/Vulkan/TextureCacheVulkan.cpp \
-		$(GPUDIR)/Vulkan/TextureScalerVulkan.cpp \
-		$(GPUDIR)/Vulkan/VertexShaderGeneratorVulkan.cpp \
-		$(GPUDIR)/Vulkan/VulkanUtil.cpp \
-		$(LIBRETRODIR)/LibretroVulkanContext.cpp \
-		$(LIBRETRODIR)/libretro_vulkan.cpp
 
+SOURCES_CXX += \
+	$(COMMONDIR)/Vulkan/SPIRVDisasm.cpp \
+	$(COMMONDIR)/Vulkan/VulkanContext.cpp \
+	$(COMMONDIR)/Vulkan/VulkanDebug.cpp \
+	$(COMMONDIR)/Vulkan/VulkanImage.cpp \
+	$(COMMONDIR)/Vulkan/VulkanLoader.cpp \
+	$(COMMONDIR)/Vulkan/VulkanMemory.cpp \
+	$(NATIVEDIR)/thin3d/thin3d_vulkan.cpp \
+	$(NATIVEDIR)/thin3d/VulkanRenderManager.cpp \
+	$(NATIVEDIR)/thin3d/VulkanQueueRunner.cpp \
+	$(GPUDIR)/Vulkan/DepalettizeShaderVulkan.cpp \
+	$(GPUDIR)/Vulkan/DrawEngineVulkan.cpp \
+	$(GPUDIR)/Vulkan/FragmentShaderGeneratorVulkan.cpp \
+	$(GPUDIR)/Vulkan/FramebufferVulkan.cpp \
+	$(GPUDIR)/Vulkan/GPU_Vulkan.cpp \
+	$(GPUDIR)/Vulkan/PipelineManagerVulkan.cpp \
+	$(GPUDIR)/Vulkan/ShaderManagerVulkan.cpp \
+	$(GPUDIR)/Vulkan/StateMappingVulkan.cpp \
+	$(GPUDIR)/Vulkan/StencilBufferVulkan.cpp \
+	$(GPUDIR)/Vulkan/TextureCacheVulkan.cpp \
+	$(GPUDIR)/Vulkan/TextureScalerVulkan.cpp \
+	$(GPUDIR)/Vulkan/VertexShaderGeneratorVulkan.cpp \
+	$(GPUDIR)/Vulkan/VulkanUtil.cpp \
+	$(LIBRETRODIR)/LibretroVulkanContext.cpp \
+	$(LIBRETRODIR)/libretro_vulkan.cpp
+
+ifneq ($(PLATFORM_EXT), darwin)
 	ifeq ($(PLATFORM_EXT), unix)
 		COREFLAGS += -DVK_USE_PLATFORM_XLIB_KHR
 	endif

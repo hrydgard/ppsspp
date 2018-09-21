@@ -26,23 +26,47 @@ static void ConvertProjMatrixToD3D11(Matrix4x4 &in) {
 	in.translateAndScale(trans, scale);
 }
 
-void ComputeGuardband(float gb[4], float zmin) {
-	float vpWidth = fabsf(gstate_c.vpWidth);
-	float vpHeight = fabsf(gstate_c.vpHeight);
-	// Avoid bad values during initialization. Doubt these are really needed.
-	if (vpWidth == 0.0)
-		vpWidth = 480;
-	if (vpHeight == 0.0)
-		vpHeight = 272;
+void CalcCullRange(float minValues[4], float maxValues[4], bool flipViewport, bool hasNegZ) {
+	// Account for the projection viewport adjustment when viewport is too large.
+	auto reverseViewportX = [](float x) {
+		float pspViewport = (x - gstate.getViewportXCenter()) * (1.0f / gstate.getViewportXScale());
+		return (pspViewport - gstate_c.vpXOffset) * gstate_c.vpWidthScale;
+	};
+	auto reverseViewportY = [flipViewport](float y) {
+		float heightScale = gstate_c.vpHeightScale;
+		if (flipViewport) {
+			// For D3D11 and GLES non-buffered.
+			heightScale = -heightScale;
+		}
+		float pspViewport = (y - gstate.getViewportYCenter()) * (1.0f / gstate.getViewportYScale());
+		return (pspViewport - gstate_c.vpYOffset) * heightScale;
+	};
+	auto reverseViewportZ = [hasNegZ](float z) {
+		float pspViewport = (z - gstate.getViewportZCenter()) * (1.0f / gstate.getViewportZScale());
+		// Differs from GLES: depth is 0 to 1, not -1 to 1.
+		float realViewport = (pspViewport - gstate_c.vpZOffset) * gstate_c.vpDepthScale;
+		return hasNegZ ? realViewport : (realViewport * 0.5f + 0.5f);
+	};
+	auto sortPair = [](float a, float b) {
+		return a > b ? std::make_pair(b, a) : std::make_pair(a, b);
+	};
 
-	// We assume a symmetric guardband, even though it's not entirely correct to do so - but nearly everything does it
-	// this way and we have space for the NAN in the uniform.
-	// We also assume that everything behind the near clipping plane gets clipped and will thus not in reality
-	// exceed the guardband. This is a bit rough but should be ok.
-	gb[0] = (2048.0f / (vpWidth*0.5f));
-	gb[1] = (2048.0f / (vpHeight*0.5f));
-	gb[2] = zmin;
-	gb[3] = NAN;
+	// The PSP seems to use 0.12.4 for X and Y, and 0.16.0 for Z.
+	// Any vertex outside this range (unless depth clamp enabled) is discarded.
+	auto x = sortPair(reverseViewportX(0.0f), reverseViewportX(4096.0f));
+	auto y = sortPair(reverseViewportY(0.0f), reverseViewportY(4096.0f));
+	auto z = sortPair(reverseViewportZ(0.0f), reverseViewportZ(65535.5f));
+	// Since we have space in w, use it to pass the depth clamp flag.  We also pass NAN for w "discard".
+	float clampEnable = gstate.isDepthClampEnabled() ? 1.0f : 0.0f;
+
+	minValues[0] = x.first;
+	minValues[1] = y.first;
+	minValues[2] = z.first;
+	minValues[3] = clampEnable;
+	maxValues[0] = x.second;
+	maxValues[1] = y.second;
+	maxValues[2] = z.second;
+	maxValues[3] = NAN;
 }
 
 void BaseUpdateUniforms(UB_VS_FS_Base *ub, uint64_t dirtyUniforms, bool flipViewport) {
@@ -78,11 +102,7 @@ void BaseUpdateUniforms(UB_VS_FS_Base *ub, uint64_t dirtyUniforms, bool flipView
 		ub->texClampOffset[0] = gstate_c.curTextureXOffset * invW;
 		ub->texClampOffset[1] = gstate_c.curTextureYOffset * invH;
 	}
-	if (dirtyUniforms & DIRTY_GUARDBAND) {
-		float gb[4];
-		ComputeGuardband(gb, 0.0f);
-		memcpy(ub->guardband, gb, sizeof(float) * 4);
-	}
+
 	if (dirtyUniforms & DIRTY_PROJMATRIX) {
 		Matrix4x4 flippedMatrix;
 		memcpy(&flippedMatrix, gstate.projMatrix, 16 * sizeof(float));
@@ -214,6 +234,10 @@ void BaseUpdateUniforms(UB_VS_FS_Base *ub, uint64_t dirtyUniforms, bool flipView
 		ub->depthRange[1] = viewZCenter;
 		ub->depthRange[2] = viewZCenter;
 		ub->depthRange[3] = viewZInvScale;
+	}
+
+	if (dirtyUniforms & DIRTY_CULLRANGE) {
+		CalcCullRange(ub->cullRangeMin, ub->cullRangeMax, flipViewport, false);
 	}
 
 	if (dirtyUniforms & DIRTY_BEZIERSPLINE) {

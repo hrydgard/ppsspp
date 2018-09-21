@@ -9,7 +9,7 @@
 enum : uint64_t {
 	DIRTY_BASE_UNIFORMS =
 	DIRTY_WORLDMATRIX | DIRTY_PROJTHROUGHMATRIX | DIRTY_VIEWMATRIX | DIRTY_TEXMATRIX | DIRTY_ALPHACOLORREF |
-	DIRTY_PROJMATRIX | DIRTY_FOGCOLOR | DIRTY_FOGCOEF | DIRTY_TEXENV | DIRTY_STENCILREPLACEVALUE | DIRTY_GUARDBAND |
+	DIRTY_PROJMATRIX | DIRTY_FOGCOLOR | DIRTY_FOGCOEF | DIRTY_TEXENV | DIRTY_STENCILREPLACEVALUE |
 	DIRTY_ALPHACOLORMASK | DIRTY_SHADERBLEND | DIRTY_UVSCALEOFFSET | DIRTY_TEXCLAMP | DIRTY_DEPTHRANGE | DIRTY_MATAMBIENTALPHA |
 	DIRTY_BEZIERSPLINE | DIRTY_TEXSIZE | DIRTY_DEPAL,
 	DIRTY_LIGHT_UNIFORMS =
@@ -18,7 +18,7 @@ enum : uint64_t {
 };
 
 // TODO: Split into two structs, one for software transform and one for hardware transform, to save space.
-// 512 bytes. Probably can't get to 256 (nVidia's UBO alignment).
+// Currently 512 bytes. Probably can't get to 256 (nVidia's UBO alignment).
 // Every line here is a 4-float.
 struct UB_VS_FS_Base {
 	float proj[16];
@@ -32,7 +32,8 @@ struct UB_VS_FS_Base {
 	float matAmbient[4];
 	uint32_t spline_counts; uint32_t depal_mask_shift_off_fmt;  // 4 params packed into one.
 	int pad2; int pad3;
-	float guardband[4];
+	float cullRangeMin[4];
+	float cullRangeMax[4];
 	// Fragment data
 	float fogColor[4];
 	float texEnvColor[4];
@@ -60,8 +61,8 @@ R"(  mat4 proj_mtx;
   uint depal_mask_shift_off_fmt;
   int pad2;
   int pad3;
-  vec4 guardband;
-  // Fragment
+  vec4 cullRangeMin;
+  vec4 cullRangeMax;
   vec3 fogcolor;
   vec3 texenv;
   ivec4 alphacolorref;
@@ -89,8 +90,8 @@ R"(  float4x4 u_proj;
   uint u_depal_mask_shift_off_fmt;
   int pad2;
   int pad3;
-  float4 u_guardband;
-  // Fragment
+  float4 u_cullRangeMin;
+  float4 u_cullRangeMax;
   float3 u_fogcolor;
   float3 u_texenv;
   uint4 u_alphacolorref;
@@ -183,9 +184,9 @@ static const char *cb_vs_bonesStr =
 R"(	float4x3 u_bone[8];
 )";
 
+void CalcCullRange(float minValues[4], float maxValues[4], bool flipViewport, bool hasNegZ);
+
 void BaseUpdateUniforms(UB_VS_FS_Base *ub, uint64_t dirtyUniforms, bool flipViewport);
 void LightUpdateUniforms(UB_VS_Lights *ub, uint64_t dirtyUniforms);
 void BoneUpdateUniforms(UB_VS_Bones *ub, uint64_t dirtyUniforms);
 
-// Shared helper functions
-void ComputeGuardband(float gb[4], float zmin);

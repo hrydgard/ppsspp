@@ -71,6 +71,8 @@ public:
 	int u_texmtx;
 	int u_world;
 	int u_depthRange;   // x,y = viewport xscale/xcenter. z,w=clipping minz/maxz (?)
+	int u_cullRangeMin;
+	int u_cullRangeMax;
 
 #ifdef USE_BONE_ARRAY
 	int u_bone;  // array, size is numBones
@@ -100,9 +102,6 @@ public:
 	int u_uvscaleoffset;
 	int u_texclamp;
 	int u_texclampoff;
-
-	// Clipping
-	int u_guardband;
 
 	// Lighting
 	int u_ambient;

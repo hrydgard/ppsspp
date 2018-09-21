@@ -61,7 +61,6 @@ void Compatibility::CheckSettings(IniFile &iniFile, const std::string &gameID) {
 	CheckSetting(iniFile, gameID, "ForceRangeDownload", &flags_.ForceRangeDownload);
 	CheckSetting(iniFile, gameID, "FlushAtStall", &flags_.FlushAtStall);
 	CheckSetting(iniFile, gameID, "Force04Download", &flags_.Force04Download);
-	CheckSetting(iniFile, gameID, "GuardBand", &flags_.GuardBand);
 	CheckSetting(iniFile, gameID, "RequireBufferedRendering", &flags_.RequireBufferedRendering);
 	CheckSetting(iniFile, gameID, "RequireBlockTransfer", &flags_.RequireBlockTransfer);
 	CheckSetting(iniFile, gameID, "RequireDefaultCPUClock", &flags_.RequireDefaultCPUClock);

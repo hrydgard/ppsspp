@@ -747,6 +747,7 @@ VKContext::VKContext(VulkanContext *vulkan, bool splitSubmit)
 	caps_.tesselationShaderSupported = vulkan->GetFeaturesAvailable().tessellationShader != 0;
 	caps_.multiViewport = vulkan->GetFeaturesAvailable().multiViewport != 0;
 	caps_.dualSourceBlend = vulkan->GetFeaturesAvailable().dualSrcBlend != 0;
+	caps_.depthClampSupported = vulkan->GetFeaturesAvailable().depthClamp != 0;
 	caps_.framebufferBlitSupported = true;
 	caps_.framebufferCopySupported = true;
 	caps_.framebufferDepthBlitSupported = false;  // Can be checked for.

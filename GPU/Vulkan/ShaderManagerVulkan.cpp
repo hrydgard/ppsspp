@@ -268,8 +268,9 @@ void ShaderManagerVulkan::GetShaders(int prim, u32 vertType, VulkanVertexShader 
 
 	VulkanFragmentShader *fs = fsCache_.Get(FSID);
 	if (!fs) {
+		uint32_t vendorID = vulkan_->GetPhysicalDeviceProperties(vulkan_->GetCurrentPhysicalDevice()).vendorID;
 		// Fragment shader not in cache. Let's compile it.
-		GenerateVulkanGLSLFragmentShader(FSID, codeBuffer_);
+		GenerateVulkanGLSLFragmentShader(FSID, codeBuffer_, vendorID);
 		fs = new VulkanFragmentShader(vulkan_, FSID, codeBuffer_);
 		fsCache_.Insert(FSID, fs);
 	}
@@ -389,13 +390,14 @@ bool ShaderManagerVulkan::LoadCache(FILE *f) {
 		VulkanVertexShader *vs = new VulkanVertexShader(vulkan_, id, codeBuffer_, useHWTransform);
 		vsCache_.Insert(id, vs);
 	}
+	uint32_t vendorID = vulkan_->GetPhysicalDeviceProperties(vulkan_->GetCurrentPhysicalDevice()).vendorID;
 	for (int i = 0; i < header.numFragmentShaders; i++) {
 		FShaderID id;
 		if (fread(&id, sizeof(id), 1, f) != 1) {
 			ERROR_LOG(G3D, "Vulkan shader cache truncated");
 			break;
 		}
-		GenerateVulkanGLSLFragmentShader(id, codeBuffer_);
+		GenerateVulkanGLSLFragmentShader(id, codeBuffer_, vendorID);
 		VulkanFragmentShader *fs = new VulkanFragmentShader(vulkan_, id, codeBuffer_);
 		fsCache_.Insert(id, fs);
 	}

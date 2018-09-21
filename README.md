@@ -1,4 +1,4 @@
-﻿
+
 
 PPSSPP - a fast and portable PSP emulator
 =========================================
@@ -33,7 +33,6 @@ This hackish branch add's:
  - different default settings personalized for my liking,
  - simple UI ~ an option to hide most rarely used options,
  - new awful compat hacks to deal with just as awful regressions and other problems,
- - guardband-culling branch as compat hack(activated for some games listed below),
  - some cwcheat workarounds of mine included in separate import-ready database,
  - a few more post process shaders,
  - texture replacement info from ge debugger(experimental aka usually works, but it might be done badly, available from right click menu),
@@ -47,12 +46,9 @@ This hackish branch add's:
  - Armored Core and Bleach: Soul Carnival series(freezes),
  - Auditorium(black screen),
  - Bijin Tokei Portable(miniatures),
- - Driver '76(glitches),
- - DTM Race Driver/TOCA Race Driver/V8 Supercars games(glitches),
  - Evangelion Jo(most text in menus, note that it still requires pauth file;p),
  - Heroes Phantasia(flashing/z-fighting),
  - Hokuto no Ken: Raoh Gaiden(depth problem),
- - Nascar(glitches),
  - Nayuta no Kiseki(minor glitches),
  - Patapon 2(menu speed),
  - Resistance Retribution(some of the crashes),
@@ -62,6 +58,7 @@ This hackish branch add's:
  - Edge(bad sound speed),
  - N+(bad sound speed),
  - and more via included patches.
+ (Note: When this list decreases, it just mean PPSSPP already got an official fix.)
 
  Also includes a really awful hack for MOHH2 multiplayer(MOHH1 works fine without it;p).
  

@@ -20,4 +20,4 @@
 
 struct FShaderID;
 
-bool GenerateVulkanGLSLFragmentShader(const FShaderID &id, char *buffer);
+bool GenerateVulkanGLSLFragmentShader(const FShaderID &id, char *buffer, uint32_t vulkanVendorId);

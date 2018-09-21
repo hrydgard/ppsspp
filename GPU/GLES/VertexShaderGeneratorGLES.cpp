@@ -69,13 +69,6 @@ enum DoLightComputation {
 	LIGHT_FULL,
 };
 
-static void WriteGuardBand(char *&p) {
-	WRITE(p, "  vec3 projPos = outPos.xyz / outPos.w; \n");
-	WRITE(p, "  if (outPos.w >= u_guardband.z) {\n");
-	WRITE(p, "		if (abs(projPos.x) > u_guardband.x || projPos.y < -u_guardband.y) outPos.w = u_guardband.w;\n");
-	WRITE(p, "  }\n");
-}
-
 // Depth range and viewport
 //
 // After the multiplication with the projection matrix, we have a 4D vector in clip space.
@@ -93,6 +86,10 @@ static void WriteGuardBand(char *&p) {
 // vec.z = (z - ViewportZCenter) / ViewportZScale;
 //
 // Now, the regular machinery will take over and do the calculation again.
+//
+// Depth is not clipped to the viewport, but does clip to "minz" and "maxz".  It may also be clamped
+// to 0 and 65535 if a depth clamping/clipping flag is set (x/y clipping is performed only if depth
+// needs to be clamped.)
 //
 // All this above is for full transform mode.
 // In through mode, the Z coordinate just goes straight through and there is no perspective division.
@@ -263,8 +260,6 @@ void GenerateVertexShader(const VShaderID &id, char *buffer, uint32_t *attrMask,
 		*uniformMask |= DIRTY_PROJMATRIX;
 		// Add all the uniforms we'll need to transform properly.
 	}
-	WRITE(p, "uniform vec4 u_guardband;\n");
-	*uniformMask |= DIRTY_GUARDBAND;
 
 	bool scaleUV = !isModeThrough && (uvGenMode == GE_TEXMAP_TEXTURE_COORDS || uvGenMode == GE_TEXMAP_UNKNOWN);
 
@@ -343,6 +338,12 @@ void GenerateVertexShader(const VShaderID &id, char *buffer, uint32_t *attrMask,
 	if (!isModeThrough && gstate_c.Supports(GPU_ROUND_DEPTH_TO_16BIT)) {
 		WRITE(p, "uniform highp vec4 u_depthRange;\n");
 		*uniformMask |= DIRTY_DEPTHRANGE;
+	}
+
+	if (!isModeThrough) {
+		WRITE(p, "uniform highp vec4 u_cullRangeMin;\n");
+		WRITE(p, "uniform highp vec4 u_cullRangeMax;\n");
+		*uniformMask |= DIRTY_CULLRANGE;
 	}
 
 	WRITE(p, "%s%s lowp vec4 v_color0;\n", shading, varying);
@@ -494,8 +495,6 @@ void GenerateVertexShader(const VShaderID &id, char *buffer, uint32_t *attrMask,
 				WRITE(p, "  vec4 outPos = u_proj * vec4(position.xyz, 1.0);\n");
 			}
 		}
-		if (PSP_CoreParameter().compat.flags().GuardBand)
-			WriteGuardBand(p);
 		WRITE(p, "  gl_Position = outPos;\n");
 	} else {
 		// Step 1: World Transform / Skinning
@@ -691,8 +690,6 @@ void GenerateVertexShader(const VShaderID &id, char *buffer, uint32_t *attrMask,
 		} else {
 			WRITE(p, "  vec4 outPos = u_proj * viewPos;\n");
 		}
-		if (PSP_CoreParameter().compat.flags().GuardBand)
-			WriteGuardBand(p);
 		WRITE(p, "  gl_Position = outPos;\n");
 
 		// TODO: Declare variables for dots for shade mapping if needed.
@@ -917,5 +914,19 @@ void GenerateVertexShader(const VShaderID &id, char *buffer, uint32_t *attrMask,
 		if (enableFog)
 			WRITE(p, "  v_fogdepth = (viewPos.z + u_fogcoef.x) * u_fogcoef.y;\n");
 	}
+
+	if (!isModeThrough) {
+		WRITE(p, "  vec3 projPos = outPos.xyz / outPos.w;\n");
+		// Vertex range culling doesn't happen when depth is clamped, so only do this if in range.
+		WRITE(p, "  if (u_cullRangeMin.w <= 0.0f || (projPos.z >= u_cullRangeMin.z && projPos.z <= u_cullRangeMax.z)) {\n");
+		const char *outMin = "projPos.x < u_cullRangeMin.x || projPos.y < u_cullRangeMin.y || projPos.z < u_cullRangeMin.z";
+		const char *outMax = "projPos.x > u_cullRangeMax.x || projPos.y > u_cullRangeMax.y || projPos.z > u_cullRangeMax.z";
+		WRITE(p, "    if (%s || %s) {\n", outMin, outMax);
+		WRITE(p, "      outPos.w = u_cullRangeMax.w;\n");
+		WRITE(p, "    }\n");
+		WRITE(p, "  }\n");
+	}
+	WRITE(p, "  gl_Position = outPos;\n");
+
 	WRITE(p, "}\n");
 }
