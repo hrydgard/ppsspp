@@ -425,7 +425,7 @@ void GPU_Vulkan::FinishDeferred() {
 
 inline void GPU_Vulkan::CheckFlushOp(int cmd, u32 diff) {
 	const u8 cmdFlags = cmdInfo_[cmd].flags;
-	if ((cmdFlags & FLAG_FLUSHBEFORE) || (diff && (cmdFlags & FLAG_FLUSHBEFOREONCHANGE))) {
+	if (diff && (cmdFlags & FLAG_FLUSHBEFOREONCHANGE)) {
 		if (dumpThisFrame_) {
 			NOTICE_LOG(G3D, "================ FLUSH ================");
 		}
