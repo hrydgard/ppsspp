@@ -15,6 +15,7 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
+#include <algorithm>
 #include "i18n/i18n.h"
 #include "gfx_es2/draw_buffer.h"
 #include "ui/view.h"
@@ -48,14 +49,42 @@ AsyncImageFileView::AsyncImageFileView(const std::string &filename, UI::ImageSiz
 
 AsyncImageFileView::~AsyncImageFileView() {}
 
-void AsyncImageFileView::GetContentDimensions(const UIContext &dc, float &w, float &h) const {
+static float DesiredSize(float sz, float contentSize, UI::MeasureSpec spec) {
+	float measured;
+	UI::MeasureBySpec(sz, contentSize, spec, &measured);
+	return measured;
+}
+
+void AsyncImageFileView::GetContentDimensionsBySpec(const UIContext &dc, UI::MeasureSpec horiz, UI::MeasureSpec vert, float &w, float &h) const {
 	if (texture_ && texture_->GetTexture()) {
 		float texw = (float)texture_->Width();
 		float texh = (float)texture_->Height();
+		float desiredW = DesiredSize(layoutParams_->width, w, horiz);
+		float desiredH = DesiredSize(layoutParams_->height, h, vert);
 		switch (sizeMode_) {
 		case UI::IS_FIXED:
 			w = fixedSizeW_;
 			h = fixedSizeH_;
+			break;
+		case UI::IS_KEEP_ASPECT:
+			w = texw;
+			h = texh;
+			if (desiredW != w || desiredH != h) {
+				float aspect = w / h;
+				// We need the other dimension based on the desired scale to find the best aspect.
+				float desiredWOther = DesiredSize(layoutParams_->height, h * (desiredW / w), vert);
+				float desiredHOther = DesiredSize(layoutParams_->width, w * (desiredH / h), horiz);
+
+				float diffW = fabsf(aspect - desiredW / desiredWOther);
+				float diffH = fabsf(aspect - desiredH / desiredHOther);
+				if (diffW < diffH) {
+					w = desiredW;
+					h = desiredWOther;
+				} else {
+					w = desiredHOther;
+					h = desiredH;
+				}
+			}
 			break;
 		case UI::IS_DEFAULT:
 		default:

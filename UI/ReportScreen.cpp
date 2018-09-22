@@ -261,7 +261,7 @@ void ReportScreen::CreateViews() {
 	if (TakeGameScreenshot(screenshotFilename_.c_str(), ScreenshotFormat::JPG, SCREENSHOT_DISPLAY, &shotWidth, &shotHeight, 4)) {
 		float scale = 340.0f * (1.0f / g_dpi_scale_y) * (1.0f / shotHeight);
 		leftColumnItems->Add(new CheckBox(&includeScreenshot_, rp->T("FeedbackIncludeScreen", "Include a screenshot")))->SetEnabledPtr(&enableReporting_);
-		screenshot_ = leftColumnItems->Add(new AsyncImageFileView(screenshotFilename_, IS_DEFAULT, nullptr, new LinearLayoutParams(shotWidth * scale, shotHeight * scale, Margins(12, 0))));
+		screenshot_ = leftColumnItems->Add(new AsyncImageFileView(screenshotFilename_, IS_KEEP_ASPECT, nullptr, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT, Margins(12, 0))));
 	} else {
 		includeScreenshot_ = false;
 		screenshot_ = nullptr;
