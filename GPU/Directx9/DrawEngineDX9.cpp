@@ -625,7 +625,7 @@ rotateVBO:
 	GPUDebug::NotifyDraw();
 }
 
-void TessellationDataTransferDX9::SendDataToShader(const SimpleVertex *const *points, int size, u32 vertType, const Weight2D &weights) {
+void TessellationDataTransferDX9::SendDataToShader(const SimpleVertex *const *points, int size_u, int size_v, u32 vertType, const Weight2D &weights) {
 	// TODO
 }
 

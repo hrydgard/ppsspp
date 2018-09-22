@@ -653,35 +653,36 @@ bool DrawEngineGLES::IsCodePtrVertexDecoder(const u8 *ptr) const {
 	return decJitCache_->IsInSpace(ptr);
 }
 
-void TessellationDataTransferGLES::SendDataToShader(const SimpleVertex *const *points, int size, u32 vertType, const Weight2D &weights) {
+void TessellationDataTransferGLES::SendDataToShader(const SimpleVertex *const *points, int size_u, int size_v, u32 vertType, const Weight2D &weights) {
 	bool hasColor = (vertType & GE_VTYPE_COL_MASK) != 0;
 	bool hasTexCoord = (vertType & GE_VTYPE_TC_MASK) != 0;
 
+	int size = size_u * size_v;
 	float *pos = new float[size * 4];
 	float *tex = hasTexCoord ? new float[size * 4] : nullptr;
 	float *col = hasColor ? new float[size * 4] : nullptr;
 	int stride = 4;
 
 	CopyControlPoints(pos, tex, col, stride, stride, stride, points, size, vertType);
-
 	// Removed the 1D texture support, it's unlikely to be relevant for performance.
 	// Control Points
-	if (prevSize < size) {
-		prevSize = size;
+	if (prevSizeU < size_u || prevSizeV < size_v) {
+		prevSizeU = size_u;
+		prevSizeV = size_v;
 		if (!data_tex[0])
 			data_tex[0] = renderManager_->CreateTexture(GL_TEXTURE_2D);
-		renderManager_->TextureImage(data_tex[0], 0, size, 3, GL_RGBA32F, GL_RGBA, GL_FLOAT, nullptr, GLRAllocType::NONE, false);
+		renderManager_->TextureImage(data_tex[0], 0, size_u * 3, size_v, GL_RGBA32F, GL_RGBA, GL_FLOAT, nullptr, GLRAllocType::NONE, false);
 		renderManager_->FinalizeTexture(data_tex[0], 0, false);
 	}
 	renderManager_->BindTexture(TEX_SLOT_SPLINE_POINTS, data_tex[0]);
 	// Position
-	renderManager_->TextureSubImage(data_tex[0], 0, 0, 0, size, 1, GL_RGBA, GL_FLOAT, (u8 *)pos, GLRAllocType::NEW);
+	renderManager_->TextureSubImage(data_tex[0], 0, 0, 0, size_u, size_v, GL_RGBA, GL_FLOAT, (u8 *)pos, GLRAllocType::NEW);
 	// Texcoord
 	if (hasTexCoord)
-		renderManager_->TextureSubImage(data_tex[0], 0, 0, 1, size, 1, GL_RGBA, GL_FLOAT, (u8 *)tex, GLRAllocType::NEW);
+		renderManager_->TextureSubImage(data_tex[0], 0, size_u, 0, size_u, size_v, GL_RGBA, GL_FLOAT, (u8 *)tex, GLRAllocType::NEW);
 	// Color
 	if (hasColor)
-		renderManager_->TextureSubImage(data_tex[0], 0, 0, 2, size, 1, GL_RGBA, GL_FLOAT, (u8 *)col, GLRAllocType::NEW);
+		renderManager_->TextureSubImage(data_tex[0], 0, size_u * 2, 0, size_u, size_v, GL_RGBA, GL_FLOAT, (u8 *)col, GLRAllocType::NEW);
 
 	// Weight U
 	if (prevSizeWU < weights.size_u) {
@@ -713,5 +714,5 @@ void TessellationDataTransferGLES::EndFrame() {
 			data_tex[i] = nullptr;
 		}
 	}
-	prevSize = prevSizeWU = prevSizeWV = 0;
+	prevSizeU = prevSizeV = prevSizeWU = prevSizeWV = 0;
 }

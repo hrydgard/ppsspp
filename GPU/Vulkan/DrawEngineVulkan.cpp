@@ -1013,7 +1013,7 @@ void DrawEngineVulkan::UpdateUBOs(FrameData *frame) {
 	}
 }
 
-void TessellationDataTransferVulkan::SendDataToShader(const SimpleVertex *const *points, int size, u32 vertType, const Weight2D &weights) {
+void TessellationDataTransferVulkan::SendDataToShader(const SimpleVertex *const *points, int size_u, int size_v, u32 vertType, const Weight2D &weights) {
 	// SSBOs that are not simply float1 or float2 need to be padded up to a float4 size. vec3 members
 	// also need to be 16-byte aligned, hence the padding.
 	struct TessData {
@@ -1021,6 +1021,8 @@ void TessellationDataTransferVulkan::SendDataToShader(const SimpleVertex *const 
 		float uv[2]; float pad2[2];
 		float color[4];
 	};
+
+	int size = size_u * size_v;
 
 	int ssboAlignment = vulkan_->GetPhysicalDeviceProperties(vulkan_->GetCurrentPhysicalDevice()).limits.minStorageBufferOffsetAlignment;
 	uint8_t *data = (uint8_t *)push_->PushAligned(size * sizeof(TessData), (uint32_t *)&bufInfo_[0].offset, &bufInfo_[0].buffer, ssboAlignment);

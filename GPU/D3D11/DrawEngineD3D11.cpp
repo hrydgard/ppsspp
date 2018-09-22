@@ -702,12 +702,14 @@ TessellationDataTransferD3D11::~TessellationDataTransferD3D11() {
 	}
 }
 
-void TessellationDataTransferD3D11::SendDataToShader(const SimpleVertex *const *points, int size, u32 vertType, const Weight2D &weights) {
+void TessellationDataTransferD3D11::SendDataToShader(const SimpleVertex *const *points, int size_u, int size_v, u32 vertType, const Weight2D &weights) {
 	struct TessData {
 		float pos[3]; float pad1;
 		float uv[2]; float pad2[2];
 		float color[4];
 	};
+
+	int size = size_u * size_v;
 
 	if (prevSize < size) {
 		prevSize = size;

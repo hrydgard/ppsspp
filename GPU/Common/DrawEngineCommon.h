@@ -56,7 +56,7 @@ struct SimpleVertex;
 class TessellationDataTransfer {
 public:
 	void CopyControlPoints(float *pos, float *tex, float *col, int posStride, int texStride, int colStride, const SimpleVertex *const *points, int size, u32 vertType);
-	virtual void SendDataToShader(const SimpleVertex *const *points, int size, u32 vertType, const Weight2D &weights) = 0;
+	virtual void SendDataToShader(const SimpleVertex *const *points, int size_u, int size_v, u32 vertType, const Weight2D &weights) = 0;
 };
 
 class DrawEngineCommon {

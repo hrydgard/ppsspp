@@ -123,7 +123,7 @@ public:
 
 	void SetPushBuffer(VulkanPushBuffer *push) { push_ = push; }
 	// Send spline/bezier's control points and weights to vertex shader through structured shader buffer.
-	void SendDataToShader(const SimpleVertex *const *points, int size, u32 vertType, const Weight2D &weights) override;
+	void SendDataToShader(const SimpleVertex *const *points, int size_u, int size_v, u32 vertType, const Weight2D &weights) override;
 	const VkDescriptorBufferInfo *GetBufferInfo() { return bufInfo_; }
 private:
 	VulkanContext *vulkan_;

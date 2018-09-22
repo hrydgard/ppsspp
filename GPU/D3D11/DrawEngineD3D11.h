@@ -112,7 +112,7 @@ public:
 	TessellationDataTransferD3D11(ID3D11DeviceContext *context, ID3D11Device *device);
 	~TessellationDataTransferD3D11();
 	// Send spline/bezier's control points and weights to vertex shader through structured shader buffer.
-	void SendDataToShader(const SimpleVertex *const *points, int size, u32 vertType, const Weight2D &weights) override;
+	void SendDataToShader(const SimpleVertex *const *points, int size_u, int size_v, u32 vertType, const Weight2D &weights) override;
 };
 
 // Handles transform, lighting and drawing.

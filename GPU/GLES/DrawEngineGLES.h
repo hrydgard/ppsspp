@@ -113,7 +113,8 @@ public:
 class TessellationDataTransferGLES : public TessellationDataTransfer {
 private:
 	GLRTexture *data_tex[3]{};
-	int prevSize = 0, prevSizeWU = 0, prevSizeWV = 0;
+	int prevSizeU = 0, prevSizeV = 0;
+	int prevSizeWU = 0, prevSizeWV = 0;
 	GLRenderManager *renderManager_;
 public:
 	TessellationDataTransferGLES(GLRenderManager *renderManager)
@@ -122,7 +123,7 @@ public:
 		EndFrame();
 	}
 	// Send spline/bezier's control points and weights to vertex shader through floating point texture.
-	void SendDataToShader(const SimpleVertex *const *points, int size, u32 vertType, const Weight2D &weights) override;
+	void SendDataToShader(const SimpleVertex *const *points, int size_u, int size_v, u32 vertType, const Weight2D &weights) override;
 	void EndFrame();  // Queues textures for deletion.
 };
 

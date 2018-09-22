@@ -422,15 +422,16 @@ void GenerateVertexShader(const VShaderID &id, char *buffer, uint32_t *attrMask,
 		WRITE(p, "  vec3 _pos[16];\n");
 		WRITE(p, "  vec2 _tex[16];\n");
 		WRITE(p, "  vec4 _col[16];\n");
-		WRITE(p, "  int index;\n");
+		WRITE(p, "  int index_u, index_v;\n");
 		for (int i = 0; i < 4; i++) {
 			for (int j = 0; j < 4; j++) {
-				WRITE(p, "  index = (%i + point_pos.y) * u_spline_counts + (%i + point_pos.x);\n", i, j);
-				WRITE(p, "  _pos[%i] = %s(u_tess_points, ivec2(index, 0), 0).xyz;\n", i * 4 + j, texelFetch);
+				WRITE(p, "  index_u = (%i + point_pos.x);\n", j);
+				WRITE(p, "  index_v = (%i + point_pos.y);\n", i);
+				WRITE(p, "  _pos[%i] = %s(u_tess_points, ivec2(index_u, index_v), 0).xyz;\n", i * 4 + j, texelFetch);
 				if (doTexture && hasTexcoordTess)
-					WRITE(p, "  _tex[%i] = %s(u_tess_points, ivec2(index, 1), 0).xy;\n", i * 4 + j, texelFetch);
+					WRITE(p, "  _tex[%i] = %s(u_tess_points, ivec2(index_u + u_spline_counts, index_v), 0).xy;\n", i * 4 + j, texelFetch);
 				if (hasColorTess)
-					WRITE(p, "  _col[%i] = %s(u_tess_points, ivec2(index, 2), 0).rgba;\n", i * 4 + j, texelFetch);
+					WRITE(p, "  _col[%i] = %s(u_tess_points, ivec2(index_u + u_spline_counts * 2, index_v), 0).rgba;\n", i * 4 + j, texelFetch);
 			}
 		}
 

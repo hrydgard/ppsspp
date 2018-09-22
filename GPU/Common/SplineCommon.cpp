@@ -462,7 +462,7 @@ static void HardwareTessellation(OutputBuffers &output, const Patch &patch, u32 
 	Weight2D weights(WeightType::weightsCache, key_u, key_v);
 	weights.size_u = WeightType::CalcSize(patch.tess_u, patch.count_u);
 	weights.size_v = WeightType::CalcSize(patch.tess_v, patch.count_v);
-	tessDataTransfer->SendDataToShader(points, patch.count_u * patch.count_v, origVertType, weights);
+	tessDataTransfer->SendDataToShader(points, patch.count_u, patch.count_v, origVertType, weights);
 
 	// Generating simple input vertices for the spline-computing vertex shader.
 	float inv_u = 1.0f / (float)patch.tess_u;
