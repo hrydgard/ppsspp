@@ -178,6 +178,5 @@ protected:
 	bool fboTexBound_ = false;
 
 	// Hardware tessellation
-	int numPatches;
 	TessellationDataTransfer *tessDataTransfer;
 };

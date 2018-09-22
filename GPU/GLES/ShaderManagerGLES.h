@@ -121,7 +121,6 @@ public:
 	int u_tess_points; // Control Points
 	int u_tess_weights_u;
 	int u_tess_weights_v;
-	int u_spline_tess;
 	int u_spline_counts;
 };
 

@@ -311,19 +311,8 @@ void GenerateVertexShaderHLSL(const VShaderID &id, char *buffer, ShaderLanguage 
 		WRITE(p, "};\n");
 
 		WRITE(p, "void tessellate(in VS_IN In, out Tess tess) {\n");
-		WRITE(p, "  int spline_num_patches_u = int(u_spline_counts & 0xff);\n");
-		WRITE(p, "  int spline_num_points_u = int((u_spline_counts >> 8) & 0xff);\n");
-		WRITE(p, "  int2 spline_tess = int2((u_spline_counts >> 16) & 0xFF, (u_spline_counts >> 24) & 0xFF);\n");
-		// Calculate current patch position and vertex position(index for the weights)
-		WRITE(p, "  int u = In.instanceId %% spline_num_patches_u;\n");
-		WRITE(p, "  int v = In.instanceId / spline_num_patches_u;\n");
-		WRITE(p, "  int2 patch_pos = int2(u, v);\n");
-		WRITE(p, "  int2 vertex_pos = int2(In.position.xy);\n");
-		if (doSpline) {
-			WRITE(p, "  bool2 isFirstEdge = !bool2(vertex_pos);\n"); // vertex_pos == 0
-			WRITE(p, "  bool2 isNotFirstPatch = bool2(patch_pos);\n"); // patch_pos > 0
-			WRITE(p, "  vertex_pos += patch_pos * spline_tess;\n");
-		}
+		WRITE(p, "  int2 point_pos = int2(In.position.z, In.normal.z)%s;\n", doBezier ? " * 3" : "");
+		WRITE(p, "  int2 weight_idx = int2(In.position.xy);\n");
 		// Load 4x4 control points
 		WRITE(p, "  float3 _pos[16];\n");
 		WRITE(p, "  float2 _tex[16];\n");
@@ -331,7 +320,7 @@ void GenerateVertexShaderHLSL(const VShaderID &id, char *buffer, ShaderLanguage 
 		WRITE(p, "  int index;\n");
 		for (int i = 0; i < 4; i++) {
 			for (int j = 0; j < 4; j++) {
-				WRITE(p, "  index = (%i + v%s) * spline_num_points_u + (%i + u%s);\n", i, doBezier ? " * 3" : "", j, doBezier ? " * 3" : "");
+				WRITE(p, "  index = (%i + point_pos.y) * u_spline_counts + (%i + point_pos.x);\n", i, j);
 				WRITE(p, "  _pos[%i] = tess_data[index].pos;\n", i * 4 + j);
 				if (doTexture && hasTexcoordTess)
 					WRITE(p, "  _tex[%i] = tess_data[index].tex;\n", i * 4 + j);
@@ -341,14 +330,8 @@ void GenerateVertexShaderHLSL(const VShaderID &id, char *buffer, ShaderLanguage 
 		}
 
 		// Basis polynomials as weight coefficients
-		WRITE(p, "  float4 basis_u = tess_weights_u[vertex_pos.x].basis;\n");
-		WRITE(p, "  float4 basis_v = tess_weights_v[vertex_pos.y].basis;\n");
-		if (doSpline) {
-			WRITE(p, "  if (isFirstEdge.x && isNotFirstPatch.x)\n");
-			WRITE(p, "    basis_u = float4(basis_u.yzw, 0);\n");
-			WRITE(p, "  if (isFirstEdge.y && isNotFirstPatch.y)\n");
-			WRITE(p, "    basis_v = float4(basis_v.yzw, 0);\n");
-		}
+		WRITE(p, "  float4 basis_u = tess_weights_u[weight_idx.x].basis;\n");
+		WRITE(p, "  float4 basis_v = tess_weights_v[weight_idx.y].basis;\n");
 		WRITE(p, "  float4x4 basis = outerProduct(basis_u, basis_v);\n");
 
 		// Tessellate
@@ -357,7 +340,7 @@ void GenerateVertexShaderHLSL(const VShaderID &id, char *buffer, ShaderLanguage 
 			if (hasTexcoordTess)
 				WRITE(p, "  tess.tex = tess_sample(_tex, basis);\n");
 			else
-				WRITE(p, "  tess.tex = In.normal.xy + float2(patch_pos);\n");
+				WRITE(p, "  tess.tex = In.normal.xy;\n");
 		}
 		if (hasColorTess)
 			WRITE(p, "  tess.col = tess_sample(_col, basis);\n");
@@ -365,14 +348,8 @@ void GenerateVertexShaderHLSL(const VShaderID &id, char *buffer, ShaderLanguage 
 			WRITE(p, "  tess.col = u_matambientalpha;\n");
 		if (hasNormalTess) {
 			// Derivatives as weight coefficients
-			WRITE(p, "  float4 deriv_u = tess_weights_u[vertex_pos.x].deriv;\n");
-			WRITE(p, "  float4 deriv_v = tess_weights_v[vertex_pos.y].deriv;\n");
-			if (doSpline) {
-				WRITE(p, "  if (isFirstEdge.x && isNotFirstPatch.x)\n");
-				WRITE(p, "    deriv_u = float4(deriv_u.yzw, 0);\n");
-				WRITE(p, "  if (isFirstEdge.y && isNotFirstPatch.y)\n");
-				WRITE(p, "    deriv_v = float4(deriv_v.yzw, 0);\n");
-			}
+			WRITE(p, "  float4 deriv_u = tess_weights_u[weight_idx.x].deriv;\n");
+			WRITE(p, "  float4 deriv_v = tess_weights_v[weight_idx.y].deriv;\n");
 
 			WRITE(p, "  float3 du = tess_sample(_pos, outerProduct(deriv_u, basis_v));\n");
 			WRITE(p, "  float3 dv = tess_sample(_pos, outerProduct(basis_u, deriv_v));\n");

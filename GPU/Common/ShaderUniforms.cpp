@@ -240,7 +240,7 @@ void BaseUpdateUniforms(UB_VS_FS_Base *ub, uint64_t dirtyUniforms, bool flipView
 	}
 
 	if (dirtyUniforms & DIRTY_BEZIERSPLINE) {
-		ub->spline_counts = BytesToUint32(gstate_c.spline_num_patches_u, gstate_c.spline_num_points_u, gstate_c.spline_tess_u, gstate_c.spline_tess_v);
+		ub->spline_counts = gstate_c.spline_num_points_u;
 	}
 
 	if (dirtyUniforms & DIRTY_DEPAL) {

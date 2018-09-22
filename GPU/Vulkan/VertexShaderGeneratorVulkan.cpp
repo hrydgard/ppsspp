@@ -259,19 +259,8 @@ bool GenerateVulkanGLSLVertexShader(const VShaderID &id, char *buffer) {
 		WRITE(p, "};\n");
 
 		WRITE(p, "void tessellate(out Tess tess) {\n");
-		WRITE(p, "  int spline_num_patches_u = int(base.spline_counts & 0xff);\n");
-		WRITE(p, "  int spline_num_points_u = int((base.spline_counts >> 8) & 0xff);\n");
-		WRITE(p, "  ivec2 spline_tess = ivec2((base.spline_counts >> 16) & 0xff, (base.spline_counts >> 24) & 0xff);\n");
-		// Calculate current patch position and vertex position(index for the weights)
-		WRITE(p, "  int u = gl_InstanceIndex %% spline_num_patches_u;\n");
-		WRITE(p, "  int v = gl_InstanceIndex / spline_num_patches_u;\n");
-		WRITE(p, "  ivec2 patch_pos = ivec2(u, v);\n");
-		WRITE(p, "  ivec2 vertex_pos = ivec2(position.xy);\n");
-		if (doSpline) {
-			WRITE(p, "  bvec2 isFirstEdge = not(bvec2(vertex_pos));\n"); // vertex_pos == 0
-			WRITE(p, "  bvec2 isNotFirstPatch = bvec2(patch_pos);\n"); // patch_pos > 0
-			WRITE(p, "  vertex_pos += patch_pos * spline_tess;\n");
-		}
+		WRITE(p, "  ivec2 point_pos = ivec2(position.z, normal.z)%s;\n", doBezier ? " * 3" : "");
+		WRITE(p, "  ivec2 weight_idx = ivec2(position.xy);\n");
 		// Load 4x4 control points
 		WRITE(p, "  vec3 _pos[16];\n");
 		WRITE(p, "  vec2 _tex[16];\n");
@@ -279,7 +268,7 @@ bool GenerateVulkanGLSLVertexShader(const VShaderID &id, char *buffer) {
 		WRITE(p, "  int index;\n");
 		for (int i = 0; i < 4; i++) {
 			for (int j = 0; j < 4; j++) {
-				WRITE(p, "  index = (%i + v%s) * spline_num_points_u + (%i + u%s);\n", i, doBezier ? " * 3" : "", j, doBezier ? " * 3" : "");
+				WRITE(p, "  index = (%i + point_pos.y) * int(base.spline_counts) + (%i + point_pos.x);\n", i, j);
 				WRITE(p, "  _pos[%i] = tess_data.data[index].pos.xyz;\n", i * 4 + j);
 				if (doTexture && hasTexcoordTess)
 					WRITE(p, "  _tex[%i] = tess_data.data[index].uv.xy;\n", i * 4 + j);
@@ -289,14 +278,8 @@ bool GenerateVulkanGLSLVertexShader(const VShaderID &id, char *buffer) {
 		}
 
 		// Basis polynomials as weight coefficients
-		WRITE(p, "  vec4 basis_u = tess_weights_u.data[vertex_pos.x].basis;\n");
-		WRITE(p, "  vec4 basis_v = tess_weights_v.data[vertex_pos.y].basis;\n");
-		if (doSpline) {
-			WRITE(p, "  if (isFirstEdge.x && isNotFirstPatch.x)\n");
-			WRITE(p, "    basis_u = vec4(basis_u.yzw, 0);\n");
-			WRITE(p, "  if (isFirstEdge.y && isNotFirstPatch.y)\n");
-			WRITE(p, "    basis_v = vec4(basis_v.yzw, 0);\n");
-		}
+		WRITE(p, "  vec4 basis_u = tess_weights_u.data[weight_idx.x].basis;\n");
+		WRITE(p, "  vec4 basis_v = tess_weights_v.data[weight_idx.y].basis;\n");
 		WRITE(p, "  mat4 basis = outerProduct(basis_u, basis_v);\n");
 
 		// Tessellate
@@ -305,7 +288,7 @@ bool GenerateVulkanGLSLVertexShader(const VShaderID &id, char *buffer) {
 			if (hasTexcoordTess)
 				WRITE(p, "  tess.tex = tess_sample(_tex, basis);\n");
 			else
-				WRITE(p, "  tess.tex = normal.xy + vec2(patch_pos);\n");
+				WRITE(p, "  tess.tex = normal.xy;\n");
 		}
 		if (hasColorTess)
 			WRITE(p, "  tess.col = tess_sample(_col, basis);\n");
@@ -313,14 +296,8 @@ bool GenerateVulkanGLSLVertexShader(const VShaderID &id, char *buffer) {
 			WRITE(p, "  tess.col = base.matambientalpha;\n");
 		if (hasNormalTess) {
 			// Derivatives as weight coefficients
-			WRITE(p, "  vec4 deriv_u = tess_weights_u.data[vertex_pos.x].deriv;\n");
-			WRITE(p, "  vec4 deriv_v = tess_weights_v.data[vertex_pos.y].deriv;\n");
-			if (doSpline) {
-				WRITE(p, "  if (isFirstEdge.x && isNotFirstPatch.x)\n");
-				WRITE(p, "    deriv_u = vec4(deriv_u.yzw, 0);\n");
-				WRITE(p, "  if (isFirstEdge.y && isNotFirstPatch.y)\n");
-				WRITE(p, "    deriv_v = vec4(deriv_v.yzw, 0);\n");
-			}
+			WRITE(p, "  vec4 deriv_u = tess_weights_u.data[weight_idx.x].deriv;\n");
+			WRITE(p, "  vec4 deriv_v = tess_weights_v.data[weight_idx.y].deriv;\n");
 
 			WRITE(p, "  vec3 du = tess_sample(_pos, outerProduct(deriv_u, basis_v));\n");
 			WRITE(p, "  vec3 dv = tess_sample(_pos, outerProduct(basis_u, deriv_v));\n");

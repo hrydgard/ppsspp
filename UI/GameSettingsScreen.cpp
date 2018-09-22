@@ -80,7 +80,7 @@ bool GameSettingsScreen::UseVerticalLayout() const {
 
 // This needs before run CheckGPUFeatures()
 // TODO: Remove this if fix the issue
-bool CheckSupportInstancedTessellationGLES() {
+bool CheckSupportShaderTessellationGLES() {
 #if PPSSPP_PLATFORM(UWP)
 	return true;
 #else
@@ -88,21 +88,17 @@ bool CheckSupportInstancedTessellationGLES() {
 	int maxVertexTextureImageUnits = gl_extensions.maxVertexTextureUnits;
 	bool vertexTexture = maxVertexTextureImageUnits >= 3; // At least 3 for hardware tessellation
 
-	bool canUseInstanceID = gl_extensions.EXT_draw_instanced || gl_extensions.ARB_draw_instanced;
-	bool canDefInstanceID = gl_extensions.IsGLES || gl_extensions.EXT_gpu_shader4 || gl_extensions.VersionGEThan(3, 1);
-	bool instanceRendering = gl_extensions.GLES3 || (canUseInstanceID && canDefInstanceID);
-
 	bool textureFloat = gl_extensions.ARB_texture_float || gl_extensions.OES_texture_float;
 	bool hasTexelFetch = gl_extensions.GLES3 || (!gl_extensions.IsGLES && gl_extensions.VersionGEThan(3, 3, 0)) || gl_extensions.EXT_gpu_shader4;
 
-	return instanceRendering && vertexTexture && textureFloat && hasTexelFetch;
+	return vertexTexture && textureFloat && hasTexelFetch;
 #endif
 }
 
 bool DoesBackendSupportHWTess() {
 	switch (GetGPUBackend()) {
 	case GPUBackend::OPENGL:
-		return CheckSupportInstancedTessellationGLES();
+		return CheckSupportShaderTessellationGLES();
 	case GPUBackend::VULKAN:
 	case GPUBackend::DIRECT3D11:
 		return true;
@@ -392,11 +388,10 @@ void GameSettingsScreen::CreateViews() {
 		}
 		return UI::EVENT_CONTINUE;
 	});
-	beziersChoice->SetDisabledPtr(&g_Config.bHardwareTessellation);
 
 	CheckBox *tessellationHW = graphicsSettings->Add(new CheckBox(&g_Config.bHardwareTessellation, gr->T("Hardware Tessellation")));
 	tessellationHW->OnClick.Add([=](EventParams &e) {
-		settingInfo_->Show(gr->T("HardwareTessellation Tip", "Uses hardware to make curves, always uses a fixed quality"), e.v);
+		settingInfo_->Show(gr->T("HardwareTessellation Tip", "Uses hardware to make curves"), e.v);
 		return UI::EVENT_CONTINUE;
 	});
 	tessHWEnable_ = DoesBackendSupportHWTess() && !g_Config.bSoftwareRendering && g_Config.bHardwareTransform;

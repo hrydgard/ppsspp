@@ -467,17 +467,29 @@ static void HardwareTessellation(OutputBuffers &output, const Patch &patch, u32 
 	// Generating simple input vertices for the spline-computing vertex shader.
 	float inv_u = 1.0f / (float)patch.tess_u;
 	float inv_v = 1.0f / (float)patch.tess_v;
-	for (int tile_v = 0; tile_v <= patch.tess_v; ++tile_v) {
-		for (int tile_u = 0; tile_u <= patch.tess_u; ++tile_u) {
-			SimpleVertex &vert = output.vertices[tile_v * (patch.tess_u + 1) + tile_u];
-			vert.pos.x = (float)tile_u;
-			vert.pos.y = (float)tile_v;
-			// For texcoord generation
-			vert.nrm.x = (float)tile_u * inv_u;
-			vert.nrm.y = (float)tile_v * inv_v;
+	for (int patch_u = 0; patch_u < patch.num_patches_u; ++patch_u) {
+		const int start_u = patch.GetTessStart(patch_u);
+		for (int patch_v = 0; patch_v < patch.num_patches_v; ++patch_v) {
+			const int start_v = patch.GetTessStart(patch_v);
+			for (int tile_u = start_u; tile_u <= patch.tess_u; ++tile_u) {
+				const int index_u = patch.GetIndexU(patch_u, tile_u);
+				for (int tile_v = start_v; tile_v <= patch.tess_v; ++tile_v) {
+					const int index_v = patch.GetIndexV(patch_v, tile_v);
+					SimpleVertex &vert = output.vertices[patch.GetIndex(index_u, index_v, patch_u, patch_v)];
+					// Index for the weights
+					vert.pos.x = index_u;
+					vert.pos.y = index_v;
+					// For texcoord generation
+					vert.nrm.x = patch_u + (float)tile_u * inv_u;
+					vert.nrm.y = patch_v + (float)tile_v * inv_v;
+					// Patch position
+					vert.pos.z = patch_u;
+					vert.nrm.z = patch_v;
+				}
+			}
 		}
 	}
-	BuildIndex(output.indices, output.count, patch.tess_u, patch.tess_v, patch.primType);
+	patch.BuildIndex(output.indices, output.count);
 }
 
 void DrawEngineCommon::SubmitSpline(const void *control_points, const void *indices, int tess_u, int tess_v, int count_u, int count_v, int type_u, int type_v, GEPatchPrimType prim_type, bool computeNormals, bool patchFacing, u32 vertType, int *bytesRead) {
@@ -538,13 +550,12 @@ void DrawEngineCommon::SubmitSpline(const void *control_points, const void *indi
 	patch.num_patches_v = count_v - 3;
 	patch.primType = prim_type;
 	patch.patchFacing = patchFacing;
+	patch.Init(SPLINE_BUFFER_SIZE / vertexSize);
 
 	if (CanUseHardwareTessellation(prim_type)) {
 		HardwareTessellation(output, patch, origVertType, points, tessDataTransfer);
-		numPatches = patch.num_patches_u * patch.num_patches_v;
 	} else {
 		ControlPoints cpoints(points, count_u * count_v, managedBuf);
-		patch.Init(SPLINE_BUFFER_SIZE / vertexSize);
 		SoftwareTessellation(output, patch, origVertType, cpoints);
 	}
 
@@ -630,13 +641,12 @@ void DrawEngineCommon::SubmitBezier(const void *control_points, const void *indi
 	patch.num_patches_v = (count_v - 1) / 3;
 	patch.primType = prim_type;
 	patch.patchFacing = patchFacing;
+	patch.Init(SPLINE_BUFFER_SIZE / vertexSize);
 
 	if (CanUseHardwareTessellation(prim_type)) {
 		HardwareTessellation(output, patch, origVertType, points, tessDataTransfer);
-		numPatches = patch.num_patches_u * patch.num_patches_v;
 	} else {
 		ControlPoints cpoints(points, count_u * count_v, managedBuf);
-		patch.Init(SPLINE_BUFFER_SIZE / vertexSize);
 		SoftwareTessellation(output, patch, origVertType, cpoints);
 	}
 

@@ -540,10 +540,7 @@ rotateVBO:
 				memcpy(iptr, decIndex, iSize);
 				pushInds_->EndPush(context_);
 				context_->IASetIndexBuffer(pushInds_->Buf(), DXGI_FORMAT_R16_UINT, iOffset);
-				if (tess)
-					context_->DrawIndexedInstanced(vertexCount, numPatches, 0, 0, 0);
-				else
-					context_->DrawIndexed(vertexCount, 0, 0);
+				context_->DrawIndexed(vertexCount, 0, 0);
 			} else {
 				context_->Draw(vertexCount, 0);
 			}
@@ -552,10 +549,7 @@ rotateVBO:
 			context_->IASetVertexBuffers(0, 1, &vb_, &stride, &offset);
 			if (useElements) {
 				context_->IASetIndexBuffer(ib_, DXGI_FORMAT_R16_UINT, 0);
-				if (tess)
-					context_->DrawIndexedInstanced(vertexCount, numPatches, 0, 0, 0);
-				else
-					context_->DrawIndexed(vertexCount, 0, 0);
+				context_->DrawIndexed(vertexCount, 0, 0);
 			} else {
 				context_->Draw(vertexCount, 0);
 			}
