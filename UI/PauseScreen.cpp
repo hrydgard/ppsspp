@@ -175,7 +175,7 @@ protected:
 		UI::LinearLayout *content = new UI::LinearLayout(UI::ORIENT_VERTICAL);
 		parent->Add(content);
 		UI::Margins contentMargins(10, 0);
-		content->Add(new AsyncImageFileView(filename_, UI::IS_DEFAULT, nullptr, new UI::LinearLayoutParams(480, 272, contentMargins)))->SetCanBeFocused(false);
+		content->Add(new AsyncImageFileView(filename_, UI::IS_KEEP_ASPECT, nullptr, new UI::LinearLayoutParams(480, 272, contentMargins)))->SetCanBeFocused(false);
 	}
 
 private:
