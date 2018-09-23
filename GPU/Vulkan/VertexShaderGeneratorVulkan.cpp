@@ -229,10 +229,10 @@ bool GenerateVulkanGLSLVertexShader(const VShaderID &id, char *buffer) {
 		WRITE(p, "  vec4 basis;\n");
 		WRITE(p, "  vec4 deriv;\n");
 		WRITE(p, "};\n");
-		WRITE(p, "layout (std430, set = 0, binding = 7) buffer s_tess_weights_u {\n");
+		WRITE(p, "layout (std430, set = 0, binding = 7) readonly buffer s_tess_weights_u {\n");
 		WRITE(p, "  TessWeight data[];\n");
 		WRITE(p, "} tess_weights_u;\n");
-		WRITE(p, "layout (std430, set = 0, binding = 8) buffer s_tess_weights_v {\n");
+		WRITE(p, "layout (std430, set = 0, binding = 8) readonly buffer s_tess_weights_v {\n");
 		WRITE(p, "  TessWeight data[];\n");
 		WRITE(p, "} tess_weights_v;\n");
 
