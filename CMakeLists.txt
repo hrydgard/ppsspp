@@ -179,7 +179,7 @@ endif()
 include_directories(ext/native)
 
 if(NOT OPENGL_LIBRARIES AND USING_GLES2)
-	set(OPENGL_LIBRARIES GLESv2)
+	set(OPENGL_LIBRARIES GLESv2 EGL)
 endif()
 
 if(USING_EGL)
