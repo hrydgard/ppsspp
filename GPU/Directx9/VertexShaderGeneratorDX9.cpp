@@ -818,7 +818,7 @@ void GenerateVertexShaderHLSL(const VShaderID &id, char *buffer, ShaderLanguage 
 	if (!isModeThrough) {
 		WRITE(p, "  float3 projPos = outPos.xyz / outPos.w;\n");
 		// Vertex range culling doesn't happen when depth is clamped, so only do this if in range.
-		WRITE(p, "  if (u_cullRangeMin.w <= 0.0f || (projPos.z >= u_cullRangeMin.z && projPos.z <= u_cullRangeMax.z)) {\n");
+		WRITE(p, "  if (u_cullRangeMin.w <= 0.0 || (projPos.z >= u_cullRangeMin.z && projPos.z <= u_cullRangeMax.z)) {\n");
 		const char *outMin = "projPos.x < u_cullRangeMin.x || projPos.y < u_cullRangeMin.y || projPos.z < u_cullRangeMin.z";
 		const char *outMax = "projPos.x > u_cullRangeMax.x || projPos.y > u_cullRangeMax.y || projPos.z > u_cullRangeMax.z";
 		WRITE(p, "    if (%s || %s) {\n", outMin, outMax);
