@@ -47,6 +47,10 @@ public:
 	virtual u32 GetNumBlocks() = 0;
 
 	u32 CalculateCRC();
+	void NotifyReadError();
+
+protected:
+	bool reportedError_ = false;
 };
 
 class CISOFileBlockDevice : public BlockDevice {
