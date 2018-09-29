@@ -1718,8 +1718,6 @@ bail:
 }
 
 void GPUCommon::Execute_Bezier(u32 op, u32 diff) {
-	drawEngineCommon_->DispatchFlush();
-
 	// We don't dirty on normal changes anymore as we prescale, but it's needed for splines/bezier.
 	gstate_c.Dirty(DIRTY_UVSCALEOFFSET);
 
@@ -1780,8 +1778,6 @@ void GPUCommon::Execute_Bezier(u32 op, u32 diff) {
 }
 
 void GPUCommon::Execute_Spline(u32 op, u32 diff) {
-	drawEngineCommon_->DispatchFlush();
-
 	// We don't dirty on normal changes anymore as we prescale, but it's needed for splines/bezier.
 	gstate_c.Dirty(DIRTY_UVSCALEOFFSET);
 
