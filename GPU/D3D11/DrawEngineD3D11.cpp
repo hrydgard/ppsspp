@@ -702,7 +702,7 @@ TessellationDataTransferD3D11::~TessellationDataTransferD3D11() {
 	}
 }
 
-void TessellationDataTransferD3D11::SendDataToShader(const SimpleVertex *const *points, int size_u, int size_v, u32 vertType, const Weight2D &weights) {
+void TessellationDataTransferD3D11::SendDataToShader(const SimpleVertex *const *points, int size_u, int size_v, u32 vertType, const Spline::Weight2D &weights) {
 	struct TessData {
 		float pos[3]; float pad1;
 		float uv[2]; float pad2[2];
@@ -734,6 +734,8 @@ void TessellationDataTransferD3D11::SendDataToShader(const SimpleVertex *const *
 	CopyControlPoints(pos, tex, col, stride, stride, stride, points, size, vertType);
 
 	context_->Unmap(buf[0], 0);
+
+	using Spline::Weight;
 
 	// Weights U
 	if (prevSizeWU < weights.size_u) {

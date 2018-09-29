@@ -28,6 +28,35 @@
 #include "GPU/ge_constants.h"
 #include "GPU/GPUState.h"  // only needed for UVScale stuff
 
+bool CanUseHardwareTessellation(GEPatchPrimType prim) {
+	if (g_Config.bHardwareTessellation && !g_Config.bSoftwareRendering) {
+		return CanUseHardwareTransform(PatchPrimToPrim(prim));
+	}
+	return false;
+}
+
+class SimpleBufferManager {
+private:
+	u8 *buf_;
+	size_t totalSize, maxSize_;
+public:
+	SimpleBufferManager(u8 *buf, size_t maxSize)
+		: buf_(buf), totalSize(0), maxSize_(maxSize) {}
+
+	u8 *Allocate(size_t size) {
+		size = (size + 15) & ~15; // Align for 16 bytes
+
+		if ((totalSize + size) > maxSize_)
+			return nullptr; // No more memory
+
+		size_t tmp = totalSize;
+		totalSize += size;
+		return buf_ + tmp;
+	}
+};
+
+namespace Spline {
+
 static void CopyQuadIndex(u16 *&indices, GEPatchPrimType type, const int idx0, const int idx1, const int idx2, const int idx3) {
 	if (type == GE_PATCHPRIM_LINES) {
 		*(indices++) = idx0;
@@ -256,18 +285,6 @@ public:
 WeightCache<Bezier3DWeight> Bezier3DWeight::weightsCache;
 WeightCache<Spline3DWeight> Spline3DWeight::weightsCache;
 
-void DrawEngineCommon::ClearSplineBezierWeights() {
-	Bezier3DWeight::weightsCache.Clear();
-	Spline3DWeight::weightsCache.Clear();
-}
-
-bool CanUseHardwareTessellation(GEPatchPrimType prim) {
-	if (g_Config.bHardwareTessellation && !g_Config.bSoftwareRendering) {
-		return CanUseHardwareTransform(PatchPrimToPrim(prim));
-	}
-	return false;
-}
-
 // Tessellate single patch (4x4 control points)
 template<typename T>
 class Tessellator {
@@ -304,26 +321,6 @@ public:
 		if (weights[3] == 1.0f) return u[3]; // weights = {0,0,0,1}, last edge is open.
 
 		return Sample(u, weights);
-	}
-};
-
-class SimpleBufferManager {
-private:
-	u8 *buf_;
-	size_t totalSize, maxSize_;
-public:
-	SimpleBufferManager(u8 *buf, size_t maxSize)
-		: buf_(buf), totalSize(0), maxSize_(maxSize) {}
-
-	u8 *Allocate(size_t size) {
-		size = (size + 15) & ~15; // Align for 16 bytes
-
-		if ((totalSize + size) > maxSize_)
-			return nullptr; // No more memory
-
-		size_t tmp = totalSize;
-		totalSize += size;
-		return buf_ + tmp;
 	}
 };
 
@@ -480,6 +477,15 @@ static void HardwareTessellation(OutputBuffers &output, const Surface &surface, 
 		}
 	}
 	surface.BuildIndex(output.indices, output.count);
+}
+
+}
+
+using namespace Spline;
+
+void DrawEngineCommon::ClearSplineBezierWeights() {
+	Bezier3DWeight::weightsCache.Clear();
+	Spline3DWeight::weightsCache.Clear();
 }
 
 void DrawEngineCommon::SubmitSpline(const void *control_points, const void *indices, int tess_u, int tess_v, int count_u, int count_v, int type_u, int type_v, GEPatchPrimType prim_type, bool computeNormals, bool patchFacing, u32 vertType, int *bytesRead) {

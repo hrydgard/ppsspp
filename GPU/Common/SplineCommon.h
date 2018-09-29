@@ -37,6 +37,10 @@ struct SimpleVertex {
 	Vec3Packedf pos;
 };
 
+class SimpleBufferManager;
+
+namespace Spline {
+
 void BuildIndex(u16 *indices, int &count, int num_u, int num_v, GEPatchPrimType prim_type, int total = 0);
 
 enum SplineQuality {
@@ -110,7 +114,7 @@ struct BezierSurface : public SurfaceInfo {
 			for (int patch_v = 0; patch_v < num_patches_v; ++patch_v) {
 				int patch_index = patch_v * num_patches_u + patch_u;
 				int total = patch_index * num_verts_per_patch;
-				::BuildIndex(indices + count, count, tess_u, tess_v, primType, total);
+				Spline::BuildIndex(indices + count, count, tess_u, tess_v, primType, total);
 			}
 		}
 	}
@@ -143,7 +147,7 @@ struct SplineSurface : public SurfaceInfo {
 	}
 
 	void BuildIndex(u16 *indices, int &count) const {
-		::BuildIndex(indices, count, num_patches_u * tess_u, num_patches_v * tess_v, primType);
+		Spline::BuildIndex(indices, count, num_patches_u * tess_u, num_patches_v * tess_v, primType);
 	}
 };
 
@@ -181,8 +185,6 @@ struct Weight2D {
 	}
 };
 
-class SimpleBufferManager;
-
 struct ControlPoints {
 	Vec3f *pos;
 	Vec2f *tex;
@@ -200,10 +202,12 @@ struct OutputBuffers {
 	int count;
 };
 
-bool CanUseHardwareTessellation(GEPatchPrimType prim);
-
 template<class Patch>
 void SoftwareTessellation(OutputBuffers &output, const Patch &patch, u32 origVertType, const ControlPoints &points);
+
+}
+
+bool CanUseHardwareTessellation(GEPatchPrimType prim);
 
 // Define function object for TemplateParameterDispatcher
 #define TEMPLATE_PARAMETER_DISPATCHER_FUNCTION(NAME, FUNCNAME, FUNCTYPE) \

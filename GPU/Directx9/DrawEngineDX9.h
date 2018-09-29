@@ -101,7 +101,7 @@ class TessellationDataTransferDX9 : public TessellationDataTransfer {
 public:
 	TessellationDataTransferDX9() {}
 	~TessellationDataTransferDX9() {}
-	void SendDataToShader(const SimpleVertex *const *points, int size_u, int size_v, u32 vertType, const Weight2D &weights) override;
+	void SendDataToShader(const SimpleVertex *const *points, int size_u, int size_v, u32 vertType, const Spline::Weight2D &weights) override;
 };
 
 // Handles transform, lighting and drawing.

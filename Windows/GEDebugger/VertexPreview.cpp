@@ -165,6 +165,8 @@ u32 CGEDebugger::PrimPreviewOp() {
 }
 
 static void ExpandBezier(int &count, int op, const std::vector<SimpleVertex> &simpleVerts, const std::vector<u16> &indices, std::vector<SimpleVertex> &generatedVerts, std::vector<u16> &generatedInds) {
+	using namespace Spline;
+
 	int count_u = (op >> 0) & 0xFF;
 	int count_v = (op >> 8) & 0xFF;
 	// Real hardware seems to draw nothing when given < 4 either U or V.
@@ -212,6 +214,8 @@ static void ExpandBezier(int &count, int op, const std::vector<SimpleVertex> &si
 }
 
 static void ExpandSpline(int &count, int op, const std::vector<SimpleVertex> &simpleVerts, const std::vector<u16> &indices, std::vector<SimpleVertex> &generatedVerts, std::vector<u16> &generatedInds) {
+	using namespace Spline;
+
 	int count_u = (op >> 0) & 0xFF;
 	int count_v = (op >> 8) & 0xFF;
 	// Real hardware seems to draw nothing when given < 4 either U or V.

@@ -27,7 +27,6 @@
 #include "GPU/Common/GPUDebugInterface.h"
 #include "GPU/Common/IndexGenerator.h"
 #include "GPU/Common/VertexDecoderCommon.h"
-#include "GPU/Common/SplineCommon.h"
 
 class VertexDecoder;
 
@@ -52,11 +51,12 @@ inline uint32_t GetVertTypeID(uint32_t vertType, int uvGenMode) {
 }
 
 struct SimpleVertex;
+namespace Spline { struct Weight2D; }
 
 class TessellationDataTransfer {
 public:
 	void CopyControlPoints(float *pos, float *tex, float *col, int posStride, int texStride, int colStride, const SimpleVertex *const *points, int size, u32 vertType);
-	virtual void SendDataToShader(const SimpleVertex *const *points, int size_u, int size_v, u32 vertType, const Weight2D &weights) = 0;
+	virtual void SendDataToShader(const SimpleVertex *const *points, int size_u, int size_v, u32 vertType, const Spline::Weight2D &weights) = 0;
 };
 
 class DrawEngineCommon {

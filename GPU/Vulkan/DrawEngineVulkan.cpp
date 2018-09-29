@@ -1013,7 +1013,7 @@ void DrawEngineVulkan::UpdateUBOs(FrameData *frame) {
 	}
 }
 
-void TessellationDataTransferVulkan::SendDataToShader(const SimpleVertex *const *points, int size_u, int size_v, u32 vertType, const Weight2D &weights) {
+void TessellationDataTransferVulkan::SendDataToShader(const SimpleVertex *const *points, int size_u, int size_v, u32 vertType, const Spline::Weight2D &weights) {
 	// SSBOs that are not simply float1 or float2 need to be padded up to a float4 size. vec3 members
 	// also need to be 16-byte aligned, hence the padding.
 	struct TessData {
@@ -1034,6 +1034,8 @@ void TessellationDataTransferVulkan::SendDataToShader(const SimpleVertex *const 
 	int stride = sizeof(TessData) / sizeof(float);
 
 	CopyControlPoints(pos, tex, col, stride, stride, stride, points, size, vertType);
+
+	using Spline::Weight;
 
 	// Weights U
 	data = (uint8_t *)push_->PushAligned(weights.size_u * sizeof(Weight), (uint32_t *)&bufInfo_[1].offset, &bufInfo_[1].buffer, ssboAlignment);
