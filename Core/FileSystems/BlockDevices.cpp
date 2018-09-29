@@ -15,14 +15,15 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
-
-#include "Common/FileUtil.h"
-#include "Common/Swap.h"
-#include "Core/Loaders.h"
-#include "Core/FileSystems/BlockDevices.h"
 #include <cstdio>
 #include <cstring>
 #include <algorithm>
+#include "i18n/i18n.h"
+#include "Common/FileUtil.h"
+#include "Common/Swap.h"
+#include "Core/Loaders.h"
+#include "Core/Host.h"
+#include "Core/FileSystems/BlockDevices.h"
 
 extern "C"
 {
@@ -62,6 +63,13 @@ u32 BlockDevice::CalculateCRC() {
 	return crc;
 }
 
+void BlockDevice::NotifyReadError() {
+	I18NCategory *err = GetI18NCategory("Error");
+	if (!reportedError_) {
+		host->NotifyUserMessage(err->T("Game disc read error - ISO corrupt"), 6.0f);
+		reportedError_ = true;
+	}
+}
 
 FileBlockDevice::FileBlockDevice(FileLoader *fileLoader)
 	: fileLoader_(fileLoader) {
@@ -169,24 +177,33 @@ CISOFileBlockDevice::CISOFileBlockDevice(FileLoader *fileLoader)
 
 #if COMMON_LITTLE_ENDIAN
 	index = new u32[indexSize];
-	if (fileLoader->ReadAt(sizeof(hdr), sizeof(u32), indexSize, index) != indexSize)
+	if (fileLoader->ReadAt(sizeof(hdr), sizeof(u32), indexSize, index) != indexSize) {
+		NotifyReadError();
 		memset(index, 0, indexSize * sizeof(u32));
+	}
 #else
 	index = new u32[indexSize];
 	u32_le *indexTemp = new u32_le[indexSize];
 
-	if (fileLoader->ReadAt(sizeof(hdr), sizeof(u32), indexSize, indexTemp) != indexSize)
-	{
+	if (fileLoader->ReadAt(sizeof(hdr), sizeof(u32), indexSize, indexTemp) != indexSize) {
+		NotifyReadError();
 		memset(indexTemp, 0, indexSize * sizeof(u32_le));
 	}
 
 	for (u32 i = 0; i < indexSize; i++)
-	{
 		index[i] = indexTemp[i];
-	}
 
 	delete[] indexTemp;
 #endif
+
+	// Double check that the CSO is not truncated.  In most cases, this will be the exact size.
+	u64 fileSize = fileLoader->FileSize();
+	u64 lastIndexPos = index[indexSize - 1] & 0x7FFFFFFF;
+	u64 expectedFileSize = lastIndexPos << indexShift;
+	if (expectedFileSize > fileSize) {
+		ERROR_LOG(LOADER, "Expected CSO to at least be %lld bytes, but file is %lld bytes", expectedFileSize, fileSize);
+		NotifyReadError();
+	}
 }
 
 CISOFileBlockDevice::~CISOFileBlockDevice()
@@ -235,9 +252,9 @@ bool CISOFileBlockDevice::ReadBlock(int blockNumber, u8 *outPtr, bool uncached)
 		z.zalloc = Z_NULL;
 		z.zfree = Z_NULL;
 		z.opaque = Z_NULL;
-		if(inflateInit2(&z, -15) != Z_OK)
-		{
+		if (inflateInit2(&z, -15) != Z_OK) {
 			ERROR_LOG(LOADER, "GetBlockSize() ERROR: %s\n", (z.msg) ? z.msg : "?");
+			NotifyReadError();
 			return false;
 		}
 		z.avail_in = readSize;
@@ -246,24 +263,23 @@ bool CISOFileBlockDevice::ReadBlock(int blockNumber, u8 *outPtr, bool uncached)
 		z.next_in = readBuffer;
 
 		int status = inflate(&z, Z_FINISH);
-		if (status != Z_STREAM_END)
-		{
+		if (status != Z_STREAM_END) {
 			ERROR_LOG(LOADER, "block %d: inflate : %s[%d]\n", blockNumber, (z.msg) ? z.msg : "error", status);
+			NotifyReadError();
 			inflateEnd(&z);
 			memset(outPtr, 0, GetBlockSize());
 			return false;
 		}
-		if (z.total_out != frameSize)
-		{
+		if (z.total_out != frameSize) {
 			ERROR_LOG(LOADER, "block %d: block size error %d != %d\n", blockNumber, (u32)z.total_out, frameSize);
+			NotifyReadError();
 			inflateEnd(&z);
 			memset(outPtr, 0, GetBlockSize());
 			return false;
 		}
 		inflateEnd(&z);
 
-		if (frameSize != (u32)GetBlockSize())
-		{
+		if (frameSize != (u32)GetBlockSize()) {
 			zlibBufferFrame = frameNumber;
 			memcpy(outPtr, zlibBuffer + compressedOffset, GetBlockSize());
 		}
@@ -341,9 +357,11 @@ bool CISOFileBlockDevice::ReadBlocks(u32 minBlock, int count, u8 *outPtr) {
 			int status = inflate(&z, Z_FINISH);
 			if (status != Z_STREAM_END) {
 				ERROR_LOG(LOADER, "Inflate frame %d: failed - %s[%d]\n", frame, (z.msg) ? z.msg : "error", status);
+				NotifyReadError();
 				memset(outPtr, 0, frameBlocks * GetBlockSize());
 			} else if (z.total_out != frameSize) {
 				ERROR_LOG(LOADER, "Inflate frame %d: block size error %d != %d\n", frame, (u32)z.total_out, frameSize);
+				NotifyReadError();
 				memset(outPtr, 0, frameBlocks * GetBlockSize());
 			} else if (frameBlocks != blocksPerFrame) {
 				memcpy(outPtr, zlibBuffer + frameBlockOffset * GetBlockSize(), frameBlocks * GetBlockSize());
@@ -492,6 +510,7 @@ bool NPDRMDemoBlockDevice::ReadBlock(int blockNumber, u8 *outPtr, bool uncached)
 		lzsize = lzrc_decompress(blockBuf, 0x00100000, readBuf, table[block].size);
 		if(lzsize!=blockSize){
 			ERROR_LOG(LOADER, "LZRC decompress error! lzsize=%d\n", lzsize);
+			NotifyReadError();
 			return false;
 		}
 	}
