@@ -498,18 +498,19 @@ void DrawEngineCommon::SubmitSpline(const void *control_points, const void *indi
 
 	SimpleBufferManager managedBuf(decoded, DECODED_VERTEX_BUFFER_SIZE);
 
+	int num_points = count_u * count_v;
 	u16 index_lower_bound = 0;
-	u16 index_upper_bound = count_u * count_v - 1;
+	u16 index_upper_bound = num_points - 1;
 	IndexConverter ConvertIndex(vertType, indices);
 	if (indices)
-		GetIndexBounds(indices, count_u * count_v, vertType, &index_lower_bound, &index_upper_bound);
+		GetIndexBounds(indices, num_points, vertType, &index_lower_bound, &index_upper_bound);
 
 	VertexDecoder *origVDecoder = GetVertexDecoder((vertType & 0xFFFFFF) | (gstate.getUVGenMode() << 24));
-	*bytesRead = count_u * count_v * origVDecoder->VertexSize();
+	*bytesRead = num_points * origVDecoder->VertexSize();
 
 	// Simplify away bones and morph before proceeding
 	SimpleVertex *simplified_control_points = (SimpleVertex *)managedBuf.Allocate(sizeof(SimpleVertex) * (index_upper_bound + 1));
-	u8 *temp_buffer = managedBuf.Allocate(sizeof(SimpleVertex) * count_u * count_v);
+	u8 *temp_buffer = managedBuf.Allocate(sizeof(SimpleVertex) * num_points);
 
 	u32 origVertType = vertType;
 	vertType = NormalizeVertices((u8 *)simplified_control_points, temp_buffer, (u8 *)control_points, index_lower_bound, index_upper_bound, vertType);
@@ -522,8 +523,8 @@ void DrawEngineCommon::SubmitSpline(const void *control_points, const void *indi
 	}
 
 	// Make an array of pointers to the control points, to get rid of indices.
-	const SimpleVertex **points = (const SimpleVertex **)managedBuf.Allocate(sizeof(SimpleVertex *) * count_u * count_v);
-	for (int idx = 0; idx < count_u * count_v; idx++)
+	const SimpleVertex **points = (const SimpleVertex **)managedBuf.Allocate(sizeof(SimpleVertex *) * num_points);
+	for (int idx = 0; idx < num_points; idx++)
 		points[idx] = simplified_control_points + (indices ? ConvertIndex(idx) : idx);
 
 	OutputBuffers output;
@@ -547,7 +548,7 @@ void DrawEngineCommon::SubmitSpline(const void *control_points, const void *indi
 	if (CanUseHardwareTessellation(prim_type)) {
 		HardwareTessellation(output, surface, origVertType, points, tessDataTransfer);
 	} else {
-		ControlPoints cpoints(points, count_u * count_v, managedBuf);
+		ControlPoints cpoints(points, num_points, managedBuf);
 		SoftwareTessellation(output, surface, origVertType, cpoints);
 	}
 
@@ -586,19 +587,20 @@ void DrawEngineCommon::SubmitBezier(const void *control_points, const void *indi
 
 	SimpleBufferManager managedBuf(decoded, DECODED_VERTEX_BUFFER_SIZE);
 
+	int num_points = count_u * count_v;
 	u16 index_lower_bound = 0;
-	u16 index_upper_bound = count_u * count_v - 1;
+	u16 index_upper_bound = num_points - 1;
 	IndexConverter ConvertIndex(vertType, indices);
 	if (indices)
-		GetIndexBounds(indices, count_u*count_v, vertType, &index_lower_bound, &index_upper_bound);
+		GetIndexBounds(indices, num_points, vertType, &index_lower_bound, &index_upper_bound);
 
 	VertexDecoder *origVDecoder = GetVertexDecoder((vertType & 0xFFFFFF) | (gstate.getUVGenMode() << 24));
-	*bytesRead = count_u * count_v * origVDecoder->VertexSize();
+	*bytesRead = num_points * origVDecoder->VertexSize();
 
 	// Simplify away bones and morph before proceeding
 	// There are normally not a lot of control points so just splitting decoded should be reasonably safe, although not great.
 	SimpleVertex *simplified_control_points = (SimpleVertex *)managedBuf.Allocate(sizeof(SimpleVertex) * (index_upper_bound + 1));
-	u8 *temp_buffer = managedBuf.Allocate(sizeof(SimpleVertex) * count_u * count_v);
+	u8 *temp_buffer = managedBuf.Allocate(sizeof(SimpleVertex) * num_points);
 
 	u32 origVertType = vertType;
 	vertType = NormalizeVertices((u8 *)simplified_control_points, temp_buffer, (u8 *)control_points, index_lower_bound, index_upper_bound, vertType);
@@ -611,8 +613,8 @@ void DrawEngineCommon::SubmitBezier(const void *control_points, const void *indi
 	}
 
 	// Make an array of pointers to the control points, to get rid of indices.
-	const SimpleVertex **points = (const SimpleVertex **)managedBuf.Allocate(sizeof(SimpleVertex *) * count_u * count_v);
-	for (int idx = 0; idx < count_u * count_v; idx++)
+	const SimpleVertex **points = (const SimpleVertex **)managedBuf.Allocate(sizeof(SimpleVertex *) * num_points);
+	for (int idx = 0; idx < num_points; idx++)
 		points[idx] = simplified_control_points + (indices ? ConvertIndex(idx) : idx);
 
 	OutputBuffers output;
@@ -634,7 +636,7 @@ void DrawEngineCommon::SubmitBezier(const void *control_points, const void *indi
 	if (CanUseHardwareTessellation(prim_type)) {
 		HardwareTessellation(output, surface, origVertType, points, tessDataTransfer);
 	} else {
-		ControlPoints cpoints(points, count_u * count_v, managedBuf);
+		ControlPoints cpoints(points, num_points, managedBuf);
 		SoftwareTessellation(output, surface, origVertType, cpoints);
 	}
 

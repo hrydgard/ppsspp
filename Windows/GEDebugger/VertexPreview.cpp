@@ -183,10 +183,10 @@ static void ExpandBezier(int &count, int op, const std::vector<SimpleVertex> &si
 	surface.primType = gstate.getPatchPrimitiveType();
 	surface.patchFacing = false;
 
-	int size = count_u * count_v;
+	int num_points = count_u * count_v;
 	// Make an array of pointers to the control points, to get rid of indices.
-	std::vector<const SimpleVertex *> points(size);
-	for (int idx = 0; idx < size; idx++)
+	std::vector<const SimpleVertex *> points(num_points);
+	for (int idx = 0; idx < num_points; idx++)
 		points[idx] = simpleVerts.data() + (!indices.empty() ? indices[idx] : idx);
 
 	int total_patches = surface.num_patches_u * surface.num_patches_v;
@@ -199,10 +199,10 @@ static void ExpandBezier(int &count, int op, const std::vector<SimpleVertex> &si
 	output.count = 0;
 
 	ControlPoints cpoints;
-	cpoints.pos = (Vec3f *)AllocateAlignedMemory(sizeof(Vec3f) * size, 16);
-	cpoints.tex = (Vec2f *)AllocateAlignedMemory(sizeof(Vec2f) * size, 16);
-	cpoints.col = (Vec4f *)AllocateAlignedMemory(sizeof(Vec4f) * size, 16);
-	cpoints.Convert(points.data(), size);
+	cpoints.pos = (Vec3f *)AllocateAlignedMemory(sizeof(Vec3f) * num_points, 16);
+	cpoints.tex = (Vec2f *)AllocateAlignedMemory(sizeof(Vec2f) * num_points, 16);
+	cpoints.col = (Vec4f *)AllocateAlignedMemory(sizeof(Vec4f) * num_points, 16);
+	cpoints.Convert(points.data(), num_points);
 
 	surface.Init(generatedVerts.size());
 	SoftwareTessellation(output, surface, gstate.vertType, cpoints);
@@ -234,10 +234,10 @@ static void ExpandSpline(int &count, int op, const std::vector<SimpleVertex> &si
 	surface.primType = gstate.getPatchPrimitiveType();
 	surface.patchFacing = false;
 
-	int size = count_u * count_v;
+	int num_points = count_u * count_v;
 	// Make an array of pointers to the control points, to get rid of indices.
-	std::vector<const SimpleVertex *> points(size);
-	for (int idx = 0; idx < size; idx++)
+	std::vector<const SimpleVertex *> points(num_points);
+	for (int idx = 0; idx < num_points; idx++)
 		points[idx] = simpleVerts.data() + (!indices.empty() ? indices[idx] : idx);
 
 	int patch_div_s = surface.num_patches_u * surface.tess_u;
@@ -251,10 +251,10 @@ static void ExpandSpline(int &count, int op, const std::vector<SimpleVertex> &si
 	output.count = 0;
 
 	ControlPoints cpoints;
-	cpoints.pos = (Vec3f *)AllocateAlignedMemory(sizeof(Vec3f) * size, 16);
-	cpoints.tex = (Vec2f *)AllocateAlignedMemory(sizeof(Vec2f) * size, 16);
-	cpoints.col = (Vec4f *)AllocateAlignedMemory(sizeof(Vec4f) * size, 16);
-	cpoints.Convert(points.data(), size);
+	cpoints.pos = (Vec3f *)AllocateAlignedMemory(sizeof(Vec3f) * num_points, 16);
+	cpoints.tex = (Vec2f *)AllocateAlignedMemory(sizeof(Vec2f) * num_points, 16);
+	cpoints.col = (Vec4f *)AllocateAlignedMemory(sizeof(Vec4f) * num_points, 16);
+	cpoints.Convert(points.data(), num_points);
 
 	surface.Init(generatedVerts.size());
 	SoftwareTessellation(output, surface, gstate.vertType, cpoints);
