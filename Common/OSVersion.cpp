@@ -2,9 +2,38 @@
 
 #ifdef _WIN32
 
+#if !PPSSPP_PLATFORM(UWP)
+#pragma comment(lib, "version.lib")
+#endif
+
 #include <cstdint>
 #include "OSVersion.h"
 #include "Common/CommonWindows.h"
+
+bool GetVersionFromKernel32(uint32_t &major, uint32_t &minor, uint32_t &build) {
+#if PPSSPP_PLATFORM(UWP)
+	return false;
+#else
+	DWORD handle = 0;
+	DWORD verSize = GetFileVersionInfoSizeA("kernel32.dll", &handle);
+	if (verSize == 0)
+		return false;
+
+	std::vector<char> verData(verSize);
+	if (GetFileVersionInfoW(L"kernel32.dll", 0, verSize, &verData[0]) == 0)
+		return false;
+
+	VS_FIXEDFILEINFO *buf = nullptr;
+	uint32_t sz = 0;
+	if (VerQueryValueW(&verData[0], L"\\", (void **)&buf, &sz) == 0)
+		return false;
+
+	major = buf->dwProductVersionMS >> 16;
+	minor = buf->dwProductVersionMS & 0xFFFF;
+	build = buf->dwProductVersionLS >> 16;
+	return true;
+#endif
+}
 
 bool DoesVersionMatchWindows(uint32_t major, uint32_t minor, uint32_t spMajor, uint32_t spMinor, bool greater) {
 #if PPSSPP_PLATFORM(UWP)
@@ -13,6 +42,17 @@ bool DoesVersionMatchWindows(uint32_t major, uint32_t minor, uint32_t spMajor, u
 	else
 		return major >= 7;
 #else
+	if (spMajor == 0 && spMinor == 0) {
+		// "Applications not manifested for Windows 10 will return the Windows 8 OS version value (6.2)."
+		// Try to use kernel32.dll instead, for Windows 10+.  Doesn't do SP versions.
+		uint32_t actualMajor, actualMinor, actualBuild;
+		if (GetVersionFromKernel32(actualMajor, actualMinor, actualBuild)) {
+			if (greater)
+				return major > actualMajor || (major == actualMajor && minor >= actualMinor);
+			return major == actualMajor && minor == actualMinor;
+		}
+	}
+
 	uint64_t conditionMask = 0;
 	OSVERSIONINFOEX osvi;
 	ZeroMemory(&osvi, sizeof(OSVERSIONINFOEX));
@@ -64,6 +104,7 @@ std::string GetWindowsVersion() {
 	const bool IsWindows7SP1 = DoesVersionMatchWindows(6, 1, 1, 0, false);
 	const bool IsWindows8 = DoesVersionMatchWindows(6, 2, 0, 0, false);
 	const bool IsWindows8_1 = DoesVersionMatchWindows(6, 3, 0, 0, false);
+	const bool IsWindows10 = DoesVersionMatchWindows(10, 0, 0, 0, false);
 
 	if (IsWindowsXPSP2) return "Microsoft Windows XP, Service Pack 2";
 	if (IsWindowsXPSP3) return "Microsoft Windows XP, Service Pack 3";
@@ -72,8 +113,9 @@ std::string GetWindowsVersion() {
 	if (IsWindowsVistaSP2) return "Microsoft Windows Vista, Service Pack 2";
 	if (IsWindows7) return "Microsoft Windows 7";
 	if (IsWindows7SP1) return "Microsoft Windows 7, Service Pack 1";
-	if (IsWindows8) return "Microsoft Windows 8 or greater"; // "Applications not manifested for Windows 10 will return the Windows 8 OS version value (6.2)."
+	if (IsWindows8) return "Microsoft Windows 8";
 	if (IsWindows8_1) return "Microsoft Windows 8.1";
+	if (IsWindows10) return "Microsoft Windows 10";
 	return "Unsupported version of Microsoft Windows.";
 }
 
