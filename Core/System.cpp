@@ -97,6 +97,7 @@ volatile bool coreStatePending = false;
 static volatile CPUThreadState cpuThreadState = CPU_THREAD_NOT_RUNNING;
 
 static GPUBackend gpuBackend;
+static std::string gpuBackendDevice;
 
 void ResetUIState() {
 	globalUIState = UISTATE_MENU;
@@ -124,12 +125,17 @@ GlobalUIState GetUIState() {
 	return globalUIState;
 }
 
-void SetGPUBackend(GPUBackend type) {
+void SetGPUBackend(GPUBackend type, const std::string &device) {
 	gpuBackend = type;
+	gpuBackendDevice = device;
 }
 
 GPUBackend GetGPUBackend() {
 	return gpuBackend;
+}
+
+std::string GetGPUBackendDevice() {
+	return gpuBackendDevice;
 }
 
 bool IsAudioInitialised() {

@@ -113,7 +113,8 @@ bool WindowsVulkanContext::Init(HINSTANCE hInst, HWND hWnd, std::string *error_m
 	int deviceNum = g_Vulkan->GetPhysicalDeviceByName(g_Config.sVulkanDevice);
 	if (deviceNum < 0) {
 		deviceNum = g_Vulkan->GetBestPhysicalDevice();
-		g_Config.sVulkanDevice = g_Vulkan->GetPhysicalDeviceProperties(deviceNum).deviceName;
+		if (!g_Config.sVulkanDevice.empty())
+			g_Config.sVulkanDevice = g_Vulkan->GetPhysicalDeviceProperties(deviceNum).deviceName;
 	}
 	g_Vulkan->ChooseDevice(deviceNum);
 	if (g_Vulkan->EnableDeviceExtension(VK_NV_DEDICATED_ALLOCATION_EXTENSION_NAME)) {
@@ -139,7 +140,7 @@ bool WindowsVulkanContext::Init(HINSTANCE hInst, HWND hWnd, std::string *error_m
 	bool splitSubmit = g_Config.bGfxDebugSplitSubmit;
 
 	draw_ = Draw::T3DCreateVulkanContext(g_Vulkan, splitSubmit);
-	SetGPUBackend(GPUBackend::VULKAN);
+	SetGPUBackend(GPUBackend::VULKAN, g_Vulkan->GetPhysicalDeviceProperties(deviceNum).deviceName);
 	bool success = draw_->CreatePresets();
 	assert(success);  // Doesn't fail, we include the compiler.
 	draw_->HandleEvent(Draw::Event::GOT_BACKBUFFER, g_Vulkan->GetBackbufferWidth(), g_Vulkan->GetBackbufferHeight());
