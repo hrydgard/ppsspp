@@ -48,7 +48,7 @@ bool DoesVersionMatchWindows(uint32_t major, uint32_t minor, uint32_t spMajor, u
 		uint32_t actualMajor, actualMinor, actualBuild;
 		if (GetVersionFromKernel32(actualMajor, actualMinor, actualBuild)) {
 			if (greater)
-				return major > actualMajor || (major == actualMajor && minor >= actualMinor);
+				return actualMajor > major || (major == actualMajor && actualMinor >= minor);
 			return major == actualMajor && minor == actualMinor;
 		}
 	}
