@@ -38,6 +38,7 @@ protected:
 	void CreateViews() override;
 	void CallbackRestoreDefaults(bool yes);
 	void CallbackRenderingBackend(bool yes);
+	void CallbackRenderingDevice(bool yes);
 	bool UseVerticalLayout() const;
 
 private:
@@ -87,6 +88,7 @@ private:
 	UI::EventReturn OnRestoreDefaultSettings(UI::EventParams &e);
 	UI::EventReturn OnRenderingMode(UI::EventParams &e);
 	UI::EventReturn OnRenderingBackend(UI::EventParams &e);
+	UI::EventReturn OnRenderingDevice(UI::EventParams &e);
 	UI::EventReturn OnJitAffectingSetting(UI::EventParams &e);
 #ifdef _WIN32
 	UI::EventReturn OnSavePathMydoc(UI::EventParams &e);

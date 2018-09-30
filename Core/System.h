@@ -58,8 +58,9 @@ void ResetUIState();
 void UpdateUIState(GlobalUIState newState);
 GlobalUIState GetUIState();
 
-void SetGPUBackend(GPUBackend type);
+void SetGPUBackend(GPUBackend type, const std::string &device = "");
 GPUBackend GetGPUBackend();
+std::string GetGPUBackendDevice();
 
 bool PSP_Init(const CoreParameter &coreParam, std::string *error_string);
 bool PSP_InitStart(const CoreParameter &coreParam, std::string *error_string);
