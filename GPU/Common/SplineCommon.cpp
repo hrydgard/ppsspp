@@ -479,7 +479,7 @@ static void HardwareTessellation(OutputBuffers &output, const Surface &surface, 
 	surface.BuildIndex(output.indices, output.count);
 }
 
-}
+} // namespace Spline
 
 using namespace Spline;
 

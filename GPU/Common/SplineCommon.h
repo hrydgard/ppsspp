@@ -202,10 +202,10 @@ struct OutputBuffers {
 	int count;
 };
 
-template<class Patch>
-void SoftwareTessellation(OutputBuffers &output, const Patch &patch, u32 origVertType, const ControlPoints &points);
+template<class Surface>
+void SoftwareTessellation(OutputBuffers &output, const Surface &surface, u32 origVertType, const ControlPoints &points);
 
-}
+} // namespace Spline
 
 bool CanUseHardwareTessellation(GEPatchPrimType prim);
 
