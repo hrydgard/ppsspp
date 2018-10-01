@@ -4,8 +4,6 @@
 
 // This should only be included from WindowsAudio.cpp and WASAPIStream.cpp.
 
-class CMMNotificationClient;
-
 class WASAPIAudioBackend : public WindowsAudioBackend {
 public:
 	WASAPIAudioBackend();
@@ -23,5 +21,4 @@ private:
 	StreamCallback callback_ = nullptr;
 	int sampleRate_ = 0;
 	volatile int threadData_ = 0;
-	CMMNotificationClient *notificationClient_ = nullptr;
 };

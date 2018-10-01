@@ -6,6 +6,7 @@
 
 #include "thread/threadutil.h"
 
+#include <mutex>
 #include <Objbase.h>
 #include <Mmreg.h>
 #include <MMDeviceAPI.h>
@@ -30,13 +31,27 @@ const IID IID_IAudioRenderClient = __uuidof(IAudioRenderClient);
 
 class CMMNotificationClient : public IMMNotificationClient {
 public:
-	CMMNotificationClient() :
-		_cRef(1),
-		_pEnumerator(NULL) {
+	CMMNotificationClient() {
 	}
 
 	~CMMNotificationClient() {
+		if (currentDevice_)
+			CoTaskMemFree(currentDevice_);
+		currentDevice_ = nullptr;
 		SAFE_RELEASE(_pEnumerator)
+	}
+
+	void SetCurrentDevice(IMMDevice *device) {
+		std::lock_guard<std::mutex> guard(lock_);
+
+		if (currentDevice_)
+			CoTaskMemFree(currentDevice_);
+		device->GetId(&currentDevice_);
+		deviceChanged_ = false;
+	}
+
+	bool HasDeviceChanged() {
+		return deviceChanged_;
 	}
 
 	// IUnknown methods -- AddRef, Release, and QueryInterface
@@ -69,69 +84,41 @@ public:
 	// Callback methods for device-event notifications.
 
 	HRESULT STDMETHODCALLTYPE OnDefaultDeviceChanged(EDataFlow flow, ERole role, LPCWSTR pwstrDeviceId) {
-		PrintDeviceName(pwstrDeviceId);
-		const char *pszFlow = "?????";
-		const char *pszRole = "?????";
-		switch (flow) {
-		case eRender:
-			pszFlow = "eRender";
-			break;
-		case eCapture:
-			pszFlow = "eCapture";
-			break;
+		std::lock_guard<std::mutex> guard(lock_);
+
+		if (flow != eRender || role != eMultimedia) {
+			// Not relevant to us.
+			return S_OK;
 		}
-		switch (role) {
-		case eConsole:
-			pszRole = "eConsole";
-			break;
-		case eMultimedia:
-			pszRole = "eMultimedia";
-			break;
-		case eCommunications:
-			pszRole = "eCommunications";
-			break;
+
+		if (!wcscmp(currentDevice_, pwstrDeviceId)) {
+			// Already the current device, nothing to do.
+			return S_OK;
 		}
-		INFO_LOG(SCEAUDIO, "  -->New default device: flow = %s, role = %s\n", pszFlow, pszRole);
+
+		deviceChanged_ = true;
+		INFO_LOG(SCEAUDIO, "New default WASAPI audio device detected");
 		return S_OK;
 	}
 
 	HRESULT STDMETHODCALLTYPE OnDeviceAdded(LPCWSTR pwstrDeviceId) {
-		PrintDeviceName(pwstrDeviceId);
-		INFO_LOG(SCEAUDIO, "  -->Added device\n");
+		// Ignore.
 		return S_OK;
 	};
 
 	HRESULT STDMETHODCALLTYPE OnDeviceRemoved(LPCWSTR pwstrDeviceId) {
-		PrintDeviceName(pwstrDeviceId);
-		INFO_LOG(SCEAUDIO, "  -->Removed device\n");
+		// Ignore.
 		return S_OK;
 	}
 
 	HRESULT STDMETHODCALLTYPE OnDeviceStateChanged(LPCWSTR pwstrDeviceId, DWORD dwNewState) {
-		const char *pszState = "?????";
-		PrintDeviceName(pwstrDeviceId);
-		switch (dwNewState) {
-		case DEVICE_STATE_ACTIVE:
-			pszState = "ACTIVE";
-			break;
-		case DEVICE_STATE_DISABLED:
-			pszState = "DISABLED";
-			break;
-		case DEVICE_STATE_NOTPRESENT:
-			pszState = "NOTPRESENT";
-			break;
-		case DEVICE_STATE_UNPLUGGED:
-			pszState = "UNPLUGGED";
-			break;
-		}
-		INFO_LOG(SCEAUDIO, "  -->New device state is DEVICE_STATE_%s (0x%8.8x)\n", pszState, dwNewState);
+		// Ignore.
 		return S_OK;
 	}
 
 	HRESULT STDMETHODCALLTYPE OnPropertyValueChanged(LPCWSTR pwstrDeviceId, const PROPERTYKEY key) {
-		PrintDeviceName(pwstrDeviceId);
-		INFO_LOG(SCEAUDIO, "  -->Changed device property "
-			"{%8.8x-%4.4x-%4.4x-%2.2x%2.2x-%2.2x%2.2x%2.2x%2.2x%2.2x%2.2x}#%d\n",
+		INFO_LOG(SCEAUDIO, "Changed audio device property "
+			"{%8.8x-%4.4x-%4.4x-%2.2x%2.2x-%2.2x%2.2x%2.2x%2.2x%2.2x%2.2x}#%d",
 			key.fmtid.Data1, key.fmtid.Data2, key.fmtid.Data3,
 			key.fmtid.Data4[0], key.fmtid.Data4[1],
 			key.fmtid.Data4[2], key.fmtid.Data4[3],
@@ -142,54 +129,12 @@ public:
 	}
 
 private:
-	LONG _cRef;
-	IMMDeviceEnumerator *_pEnumerator;
-
-	// Private function to print device-friendly name
-	HRESULT PrintDeviceName(LPCWSTR  pwstrId);
+	std::mutex lock_;
+	LONG _cRef = 1;
+	IMMDeviceEnumerator *_pEnumerator = nullptr;
+	wchar_t *currentDevice_ = nullptr;
+	bool deviceChanged_ = false;
 };
-
-// Given an endpoint ID string, print the friendly device name.
-HRESULT CMMNotificationClient::PrintDeviceName(LPCWSTR pwstrId) {
-	HRESULT hr = S_OK;
-	IMMDevice *pDevice = NULL;
-	IPropertyStore *pProps = NULL;
-	PROPVARIANT varString;
-
-	CoInitialize(NULL);
-	PropVariantInit(&varString);
-
-	if (_pEnumerator == NULL) {
-		// Get enumerator for audio endpoint devices.
-		hr = CoCreateInstance(__uuidof(MMDeviceEnumerator),
-			NULL, CLSCTX_INPROC_SERVER,
-			__uuidof(IMMDeviceEnumerator),
-			(void**)&_pEnumerator);
-	}
-	if (hr == S_OK) {
-		hr = _pEnumerator->GetDevice(pwstrId, &pDevice);
-	}
-	if (hr == S_OK) {
-		hr = pDevice->OpenPropertyStore(STGM_READ, &pProps);
-	}
-	if (hr == S_OK) {
-		// Get the endpoint device's friendly-name property.
-		hr = pProps->GetValue(PKEY_Device_FriendlyName, &varString);
-	}
-	printf("----------------------\nDevice name: \"%S\"\n"
-		"  Endpoint ID string: \"%S\"\n",
-		(hr == S_OK) ? varString.pwszVal : L"null device",
-		(pwstrId != NULL) ? pwstrId : L"null ID");
-
-	PropVariantClear(&varString);
-
-	SAFE_RELEASE(pProps)
-		SAFE_RELEASE(pDevice)
-		CoUninitialize();
-	return hr;
-}
-
-
 
 // TODO: Make these adjustable. This is from the example in MSDN.
 // 200 times/sec = 5ms, pretty good :) Wonder if all computers can handle it though.
@@ -229,146 +174,202 @@ bool WASAPIAudioBackend::Init(HWND window, StreamCallback callback, int sampleRa
 	return true;
 }
 
-int WASAPIAudioBackend::RunThread() {
-	// Adapted from http://msdn.microsoft.com/en-us/library/windows/desktop/dd316756(v=vs.85).aspx
-
-	CoInitializeEx(NULL, COINIT_MULTITHREADED);
-	setCurrentThreadName("WASAPI_audio");
-
-	IMMDeviceEnumerator *pDeviceEnumerator;
-	IMMDevice *pDevice;
-	IAudioClient *pAudioInterface;
-	IAudioRenderClient *pAudioRenderClient;
-	WAVEFORMATEXTENSIBLE *pDeviceFormat;
-	DWORD flags = 0;
-	REFERENCE_TIME hnsBufferDuration, hnsActualDuration;
-	UINT32 pNumBufferFrames;
-	UINT32 pNumPaddingFrames, pNumAvFrames;
-	hnsBufferDuration = REFTIMES_PER_SEC;
-
-	HRESULT hresult;
-	hresult = CoCreateInstance(CLSID_MMDeviceEnumerator,
-		NULL, /*Object is not created as the part of the aggregate */
-		CLSCTX_ALL, IID_IMMDeviceEnumerator, (void**)&pDeviceEnumerator);
-	if (FAILED(hresult)) goto bail;
-
-	hresult = pDeviceEnumerator->GetDefaultAudioEndpoint(eRender, eMultimedia, &pDevice);
-	if (FAILED(hresult)) {
-		pDeviceEnumerator->Release();
-		goto bail;
+// This to be run only on the thread.
+class WASAPIAudioThread {
+public:
+	WASAPIAudioThread(volatile int &threadData, int &sampleRate, StreamCallback &callback)
+		: threadData_(threadData), sampleRate_(sampleRate), callback_(callback) {
 	}
+	~WASAPIAudioThread();
 
-	hresult = pDevice->Activate(IID_IAudioClient, CLSCTX_ALL, NULL, (void**)&pAudioInterface);
-	if (FAILED(hresult)) {
-		pDevice->Release();
-		pDeviceEnumerator->Release();
-		goto bail;
-	}
+	void Run();
 
-	notificationClient_ = new CMMNotificationClient();
-	hresult = pDeviceEnumerator->RegisterEndpointNotificationCallback(notificationClient_);
-	if (FAILED(hresult)) {
-		pDevice->Release();
-		pDeviceEnumerator->Release();
-		delete notificationClient_;
-		notificationClient_ = nullptr;
-		goto bail;
-	}
+private:
+	bool ActivateDefaultDevice();
+	bool InitAudioDevice();
+	void ShutdownAudioDevice();
+	bool DetectFormat();
 
-	hresult = pAudioInterface->GetMixFormat((WAVEFORMATEX**)&pDeviceFormat);
-	hresult = pAudioInterface->Initialize(AUDCLNT_SHAREMODE_SHARED, 0, hnsBufferDuration, 0, &pDeviceFormat->Format, NULL);
-	hresult = pAudioInterface->GetService(IID_IAudioRenderClient, (void**)&pAudioRenderClient);
-	if (FAILED(hresult)) {
-		pDevice->Release();
-		pDeviceEnumerator->Release();
-		pAudioInterface->Release();
-		goto bail;
-	}
-	hresult = pAudioInterface->GetBufferSize(&pNumBufferFrames);
-	if (FAILED(hresult)) {
-		pDevice->Release();
-		pDeviceEnumerator->Release();
-		pAudioInterface->Release();
-		goto bail;
-	}
+	volatile int &threadData_;
+	int &sampleRate_;
+	StreamCallback &callback_;
 
-	sampleRate_ = pDeviceFormat->Format.nSamplesPerSec;
+	IMMDeviceEnumerator *deviceEnumerator_ = nullptr;
+	IMMDevice *device_ = nullptr;
+	IAudioClient *audioInterface_ = nullptr;
+	CMMNotificationClient *notificationClient_ = nullptr;
+	WAVEFORMATEXTENSIBLE *deviceFormat_ = nullptr;
+	IAudioRenderClient *renderClient_ = nullptr;
+	short *shortBuf_ = nullptr;
 
-	enum {
-		UNKNOWN_FORMAT = 0,
+	enum class Format {
+		UNKNOWN = 0,
 		IEEE_FLOAT = 1,
 		PCM16 = 2,
-	} format = UNKNOWN_FORMAT;
+	};
 
+	uint32_t numBufferFrames = 0;
+	Format format_ = Format::UNKNOWN;
+	REFERENCE_TIME actualDuration_;
+};
+
+WASAPIAudioThread::~WASAPIAudioThread() {
+	delete [] shortBuf_;
+	shortBuf_ = nullptr;
+	ShutdownAudioDevice();
+	if (notificationClient_ && deviceEnumerator_)
+		deviceEnumerator_->UnregisterEndpointNotificationCallback(notificationClient_);
+	delete notificationClient_;
+	notificationClient_ = nullptr;
+	SAFE_RELEASE(deviceEnumerator_);
+}
+
+bool WASAPIAudioThread::ActivateDefaultDevice() {
+	HRESULT hresult = deviceEnumerator_->GetDefaultAudioEndpoint(eRender, eMultimedia, &device_);
+	if (FAILED(hresult))
+		return false;
+
+	hresult = device_->Activate(IID_IAudioClient, CLSCTX_ALL, NULL, (void **)&audioInterface_);
+	if (FAILED(hresult))
+		return false;
+
+	return true;
+}
+
+bool WASAPIAudioThread::InitAudioDevice() {
+	REFERENCE_TIME hnsBufferDuration = REFTIMES_PER_SEC;
+	HRESULT hresult = audioInterface_->GetMixFormat((WAVEFORMATEX **)&deviceFormat_);
+	hresult = audioInterface_->Initialize(AUDCLNT_SHAREMODE_SHARED, 0, hnsBufferDuration, 0, &deviceFormat_->Format, nullptr);
+	hresult = audioInterface_->GetService(IID_IAudioRenderClient, (void **)&renderClient_);
+	if (FAILED(hresult))
+		return false;
+
+	hresult = audioInterface_->GetBufferSize(&numBufferFrames);
+	if (FAILED(hresult))
+		return false;
+
+	sampleRate_ = deviceFormat_->Format.nSamplesPerSec;
+
+	return true;
+}
+
+void WASAPIAudioThread::ShutdownAudioDevice() {
+	SAFE_RELEASE(renderClient_);
+	CoTaskMemFree(deviceFormat_);
+	deviceFormat_ = nullptr;
+	SAFE_RELEASE(audioInterface_);
+	SAFE_RELEASE(device_);
+}
+
+bool WASAPIAudioThread::DetectFormat() {
 	// Don't know if PCM16 ever shows up here, the documentation only talks about float... but let's blindly
 	// try to support it :P
 
-	if (pDeviceFormat->Format.wFormatTag == WAVE_FORMAT_EXTENSIBLE) {
-		if (!memcmp(&pDeviceFormat->SubFormat, &KSDATAFORMAT_SUBTYPE_IEEE_FLOAT, sizeof(pDeviceFormat->SubFormat))) {
-			format = IEEE_FLOAT;
-			// printf("float format\n");
+	if (deviceFormat_->Format.wFormatTag == WAVE_FORMAT_EXTENSIBLE) {
+		if (!memcmp(&deviceFormat_->SubFormat, &KSDATAFORMAT_SUBTYPE_IEEE_FLOAT, sizeof(deviceFormat_->SubFormat))) {
+			format_ = Format::IEEE_FLOAT;
 		} else {
 			ERROR_LOG_REPORT_ONCE(unexpectedformat, SCEAUDIO, "Got unexpected WASAPI 0xFFFE stream format, expected float!");
-			if (pDeviceFormat->Format.wBitsPerSample == 16 && pDeviceFormat->Format.nChannels == 2) {
-				format = PCM16;
+			if (deviceFormat_->Format.wBitsPerSample == 16 && deviceFormat_->Format.nChannels == 2) {
+				format_ = Format::PCM16;
 			}
 		}
-	} else if (pDeviceFormat->Format.wFormatTag == WAVE_FORMAT_IEEE_FLOAT) {
-		format = IEEE_FLOAT;
+	} else if (deviceFormat_->Format.wFormatTag == WAVE_FORMAT_IEEE_FLOAT) {
+		format_ = Format::IEEE_FLOAT;
 	} else {
 		ERROR_LOG_REPORT_ONCE(unexpectedformat2, SCEAUDIO, "Got unexpected non-extensible WASAPI stream format, expected extensible float!");
-		if (pDeviceFormat->Format.wBitsPerSample == 16 && pDeviceFormat->Format.nChannels == 2) {
-			format = PCM16;
+		if (deviceFormat_->Format.wBitsPerSample == 16 && deviceFormat_->Format.nChannels == 2) {
+			format_ = Format::PCM16;
 		}
 	}
 
-	short *shortBuf = nullptr;
+	delete [] shortBuf_;
+	shortBuf_ = nullptr;
 
 	BYTE *pData;
-	hresult = pAudioRenderClient->GetBuffer(pNumBufferFrames, &pData);
-	int numSamples = pNumBufferFrames * pDeviceFormat->Format.nChannels;
-	if (format == IEEE_FLOAT) {
+	HRESULT hresult = renderClient_->GetBuffer(numBufferFrames, &pData);
+	int numSamples = numBufferFrames * deviceFormat_->Format.nChannels;
+	if (format_ == Format::IEEE_FLOAT) {
 		memset(pData, 0, sizeof(float) * numSamples);
-		shortBuf = new short[pNumBufferFrames * pDeviceFormat->Format.nChannels];
-	} else if (format == PCM16) {
+		shortBuf_ = new short[numBufferFrames * deviceFormat_->Format.nChannels];
+	} else if (format_ == Format::PCM16) {
 		memset(pData, 0, sizeof(short) * numSamples);
 	}
 
-	hresult = pAudioRenderClient->ReleaseBuffer(pNumBufferFrames, flags);
-	hnsActualDuration = (REFERENCE_TIME)((double)REFTIMES_PER_SEC * pNumBufferFrames / pDeviceFormat->Format.nSamplesPerSec);
+	hresult = renderClient_->ReleaseBuffer(numBufferFrames, 0);
+	actualDuration_ = (REFERENCE_TIME)((double)REFTIMES_PER_SEC * numBufferFrames / deviceFormat_->Format.nSamplesPerSec);
 
-	hresult = pAudioInterface->Start();
+	return true;
+}
 
+void WASAPIAudioThread::Run() {
+	// Adapted from http://msdn.microsoft.com/en-us/library/windows/desktop/dd316756(v=vs.85).aspx
+
+	HRESULT hresult;
+	hresult = CoCreateInstance(CLSID_MMDeviceEnumerator,
+		nullptr, /* Object is not created as the part of the aggregate */
+		CLSCTX_ALL, IID_IMMDeviceEnumerator, (void **)&deviceEnumerator_);
+	if (FAILED(hresult))
+		return;
+
+	if (!ActivateDefaultDevice()) {
+		ERROR_LOG(SCEAUDIO, "WASAPI: Could not activate default device");
+		return;
+	}
+
+	notificationClient_ = new CMMNotificationClient();
+	notificationClient_->SetCurrentDevice(device_);
+	hresult = deviceEnumerator_->RegisterEndpointNotificationCallback(notificationClient_);
+	if (FAILED(hresult)) {
+		// Let's just keep going, but release the client since it doesn't work.
+		delete notificationClient_;
+		notificationClient_ = nullptr;
+	}
+
+	if (!InitAudioDevice()) {
+		ERROR_LOG(SCEAUDIO, "WASAPI: Could not init audio device");
+		return;
+	}
+	if (!DetectFormat()) {
+		ERROR_LOG(SCEAUDIO, "WASAPI: Could not find a suitable audio output format");
+		return;
+	}
+
+	hresult = audioInterface_->Start();
+
+	DWORD flags = 0;
 	while (flags != AUDCLNT_BUFFERFLAGS_SILENT) {
-		Sleep((DWORD)(hnsActualDuration / REFTIMES_PER_MILLISEC / 2));
+		Sleep((DWORD)(actualDuration_ / REFTIMES_PER_MILLISEC / 2));
 
-		hresult = pAudioInterface->GetCurrentPadding(&pNumPaddingFrames);
+		uint32_t pNumPaddingFrames;
+		hresult = audioInterface_->GetCurrentPadding(&pNumPaddingFrames);
 		if (FAILED(hresult)) {
 			// What to do?
 			pNumPaddingFrames = 0;
 		}
-		pNumAvFrames = pNumBufferFrames - pNumPaddingFrames;
+		uint32_t pNumAvFrames = numBufferFrames - pNumPaddingFrames;
 
-		hresult = pAudioRenderClient->GetBuffer(pNumAvFrames, &pData);
+		BYTE *pData;
+		hresult = renderClient_->GetBuffer(pNumAvFrames, &pData);
 		if (FAILED(hresult)) {
 			// What to do?
 		} else if (pNumAvFrames) {
-			switch (format) {
-			case IEEE_FLOAT:
-				callback_(shortBuf, pNumAvFrames, 16, sampleRate_, 2);
-				if (pDeviceFormat->Format.nChannels == 2) {
-					ConvertS16ToF32((float *)pData, shortBuf, pNumAvFrames * pDeviceFormat->Format.nChannels);
+			switch (format_) {
+			case Format::IEEE_FLOAT:
+				callback_(shortBuf_, pNumAvFrames, 16, sampleRate_, 2);
+				if (deviceFormat_->Format.nChannels == 2) {
+					ConvertS16ToF32((float *)pData, shortBuf_, pNumAvFrames * deviceFormat_->Format.nChannels);
 				} else {
 					float *ptr = (float *)pData;
-					int chans = pDeviceFormat->Format.nChannels;
+					int chans = deviceFormat_->Format.nChannels;
 					memset(ptr, 0, pNumAvFrames * chans * sizeof(float));
 					for (UINT32 i = 0; i < pNumAvFrames; i++) {
-						ptr[i * chans + 0] = (float)shortBuf[i * 2] * (1.0f / 32768.0f);
-						ptr[i * chans + 1] = (float)shortBuf[i * 2 + 1] * (1.0f / 32768.0f);
+						ptr[i * chans + 0] = (float)shortBuf_[i * 2] * (1.0f / 32768.0f);
+						ptr[i * chans + 1] = (float)shortBuf_[i * 2 + 1] * (1.0f / 32768.0f);
 					}
 				}
 				break;
-			case PCM16:
+			case Format::PCM16:
 				callback_((short *)pData, pNumAvFrames, 16, sampleRate_, 2);
 				break;
 			}
@@ -378,27 +379,50 @@ int WASAPIAudioBackend::RunThread() {
 			flags = AUDCLNT_BUFFERFLAGS_SILENT;
 		}
 
-		hresult = pAudioRenderClient->ReleaseBuffer(pNumAvFrames, flags);
+		hresult = renderClient_->ReleaseBuffer(pNumAvFrames, flags);
 		if (FAILED(hresult)) {
 			// Not much to do here either...
+		}
+
+		// Check if we should use a new device.
+		if (notificationClient_ && notificationClient_->HasDeviceChanged()) {
+			hresult = audioInterface_->Stop();
+			ShutdownAudioDevice();
+
+			if (!ActivateDefaultDevice()) {
+				ERROR_LOG(SCEAUDIO, "WASAPI: Could not activate default device");
+				return;
+			}
+			notificationClient_->SetCurrentDevice(device_);
+			if (!InitAudioDevice()) {
+				ERROR_LOG(SCEAUDIO, "WASAPI: Could not init audio device");
+				return;
+			}
+			if (!DetectFormat()) {
+				ERROR_LOG(SCEAUDIO, "WASAPI: Could not find a suitable audio output format");
+				return;
+			}
+
+			hresult = audioInterface_->Start();
 		}
 	}
 
 	// Wait for last data in buffer to play before stopping.
-	Sleep((DWORD)(hnsActualDuration / REFTIMES_PER_MILLISEC / 2));
+	Sleep((DWORD)(actualDuration_ / REFTIMES_PER_MILLISEC / 2));
 
-	delete[] shortBuf;
-	hresult = pAudioInterface->Stop();
+	hresult = audioInterface_->Stop();
+}
 
-	CoTaskMemFree(pDeviceFormat);
-	pDeviceEnumerator->UnregisterEndpointNotificationCallback(notificationClient_);
-	delete notificationClient_;
-	pDeviceEnumerator->Release();
-	pDevice->Release();
-	pAudioInterface->Release();
-	pAudioRenderClient->Release();
+int WASAPIAudioBackend::RunThread() {
+	CoInitializeEx(nullptr, COINIT_MULTITHREADED);
+	setCurrentThreadName("WASAPI_audio");
 
-bail:
+	if (threadData_ == 0) {
+		// This will free everything once it's done.
+		WASAPIAudioThread renderer(threadData_, sampleRate_, callback_);
+		renderer.Run();
+	}
+
 	threadData_ = 2;
 	CoUninitialize();
 	return 0;
