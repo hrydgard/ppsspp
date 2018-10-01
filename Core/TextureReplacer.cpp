@@ -613,3 +613,41 @@ void ReplacedTexture::Load(int level, void *out, int rowPitch) {
 	png_image_free(&png);
 #endif
 }
+
+bool TextureReplacer::GenerateIni(const std::string &gameID, std::string *generatedFilename) {
+	if (gameID.empty())
+		return false;
+
+	std::string texturesDirectory = GetSysDirectory(DIRECTORY_TEXTURES) + gameID + "/";
+	if (!File::Exists(texturesDirectory)) {
+		File::CreateFullPath(texturesDirectory);
+	}
+
+	if (generatedFilename)
+		*generatedFilename = texturesDirectory + INI_FILENAME;
+	if (File::Exists(texturesDirectory + INI_FILENAME))
+		return true;
+
+	FILE *f = File::OpenCFile(texturesDirectory + INI_FILENAME, "wb");
+	if (f) {
+		fwrite("\xEF\xBB\xBF", 0, 3, f);
+		fclose(f);
+
+		// Let's also write some defaults.
+		std::fstream fs;
+		File::OpenCPPFile(fs, texturesDirectory + INI_FILENAME, std::ios::out | std::ios::ate);
+		fs << "# This file is optional\n";
+		fs << "# for syntax explanation check:\n";
+		fs << "# - https://github.com/hrydgard/ppsspp/pull/8715 \n";
+		fs << "# - https://github.com/hrydgard/ppsspp/pull/8792 \n";
+		fs << "[options]\n";
+		fs << "version = 1\n";
+		fs << "hash = quick\n";
+		fs << "\n";
+		fs << "[hashes]\n";
+		fs << "\n";
+		fs << "[hashranges]\n";
+		fs.close();
+	}
+	return File::Exists(texturesDirectory + INI_FILENAME);
+}
