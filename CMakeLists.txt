@@ -1791,6 +1791,10 @@ add_dependencies(${CoreLibName} GitVersion)
 set(WindowsFiles
 	Windows/DSoundStream.cpp
 	Windows/DSoundStream.h
+	Windows/WindowsAudio.cpp
+	Windows/WindowsAudio.h
+	Windows/WASAPIStream.cpp
+	Windows/WASAPIStream.h
 	Windows/Debugger/CPURegsInterface.h
 	Windows/Debugger/BreakpointWindow.cpp
 	Windows/Debugger/BreakpointWindow.h

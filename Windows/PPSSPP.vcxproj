@@ -398,6 +398,8 @@
     <ClCompile Include="MainWindow.cpp" />
     <ClCompile Include="DSoundStream.cpp" />
     <ClCompile Include="GPU\WindowsGLContext.cpp" />
+    <ClCompile Include="WASAPIStream.cpp" />
+    <ClCompile Include="WindowsAudio.cpp" />
     <ClCompile Include="WindowsHost.cpp" />
     <ClCompile Include="main.cpp" />
     <ClCompile Include="stdafx.cpp">
@@ -499,6 +501,8 @@
     <ClInclude Include="MainWindow.h" />
     <ClInclude Include="DSoundStream.h" />
     <ClInclude Include="GPU\WindowsGLContext.h" />
+    <ClInclude Include="WASAPIStream.h" />
+    <ClInclude Include="WindowsAudio.h" />
     <ClInclude Include="WindowsHost.h" />
     <ClInclude Include="main.h" />
     <ClInclude Include="resource.h" />
