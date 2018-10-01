@@ -313,6 +313,8 @@ int WASAPIAudioBackend::RunThread() {
 				format = PCM16;
 			}
 		}
+	} else if (pDeviceFormat->Format.wFormatTag == WAVE_FORMAT_IEEE_FLOAT) {
+		format = IEEE_FLOAT;
 	} else {
 		ERROR_LOG_REPORT_ONCE(unexpectedformat2, SCEAUDIO, "Got unexpected non-extensible WASAPI stream format, expected extensible float!");
 		if (pDeviceFormat->Format.wBitsPerSample == 16 && pDeviceFormat->Format.nChannels == 2) {
