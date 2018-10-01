@@ -636,14 +636,15 @@ bool TextureReplacer::GenerateIni(const std::string &gameID, std::string *genera
 		// Let's also write some defaults.
 		std::fstream fs;
 		File::OpenCPPFile(fs, texturesDirectory + INI_FILENAME, std::ios::out | std::ios::ate);
-		fs << "# This file is optional\n";
-		fs << "# for syntax explanation check:\n";
-		fs << "# - https://github.com/hrydgard/ppsspp/pull/8715 \n";
-		fs << "# - https://github.com/hrydgard/ppsspp/pull/8792 \n";
+		fs << "# This file is optional and describes your textures.\n";
+		fs << "# Some information on syntax available here:\n";
+		fs << "# https://github.com/hrydgard/ppsspp/wiki/Texture-replacement-ini-syntax\n";
 		fs << "[options]\n";
 		fs << "version = 1\n";
 		fs << "hash = quick\n";
 		fs << "\n";
+		fs << "# Use / for folders not \\, avoid special characters, and stick to lowercase.\n";
+		fs << "# See wiki for more info.\n";
 		fs << "[hashes]\n";
 		fs << "\n";
 		fs << "[hashranges]\n";
