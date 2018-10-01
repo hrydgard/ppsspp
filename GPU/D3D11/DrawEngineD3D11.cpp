@@ -89,7 +89,6 @@ DrawEngineD3D11::DrawEngineD3D11(Draw::DrawContext *draw, ID3D11Device *device, 
 	// All this is a LOT of memory, need to see if we can cut down somehow.
 	decoded = (u8 *)AllocateMemoryPages(DECODED_VERTEX_BUFFER_SIZE, MEM_PROT_READ | MEM_PROT_WRITE);
 	decIndex = (u16 *)AllocateMemoryPages(DECODED_INDEX_BUFFER_SIZE, MEM_PROT_READ | MEM_PROT_WRITE);
-	splineBuffer = (u8 *)AllocateMemoryPages(SPLINE_BUFFER_SIZE, MEM_PROT_READ | MEM_PROT_WRITE);
 
 	indexGen.Setup(decIndex);
 
@@ -104,7 +103,6 @@ DrawEngineD3D11::~DrawEngineD3D11() {
 	DestroyDeviceObjects();
 	FreeMemoryPages(decoded, DECODED_VERTEX_BUFFER_SIZE);
 	FreeMemoryPages(decIndex, DECODED_INDEX_BUFFER_SIZE);
-	FreeMemoryPages(splineBuffer, SPLINE_BUFFER_SIZE);
 }
 
 void DrawEngineD3D11::InitDeviceObjects() {

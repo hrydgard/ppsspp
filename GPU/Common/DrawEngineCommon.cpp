@@ -34,7 +34,6 @@ enum {
 };
 
 DrawEngineCommon::DrawEngineCommon() : decoderMap_(16) {
-	quadIndices_ = new u16[6 * QUAD_INDICES_MAX];
 	decJitCache_ = new VertexDecoderJitCache();
 	transformed = (TransformedVertex *)AllocateMemoryPages(TRANSFORMED_VERTEX_BUFFER_SIZE, MEM_PROT_READ | MEM_PROT_WRITE);
 	transformedExpanded = (TransformedVertex *)AllocateMemoryPages(3 * TRANSFORMED_VERTEX_BUFFER_SIZE, MEM_PROT_READ | MEM_PROT_WRITE);
@@ -43,7 +42,6 @@ DrawEngineCommon::DrawEngineCommon() : decoderMap_(16) {
 DrawEngineCommon::~DrawEngineCommon() {
 	FreeMemoryPages(transformed, TRANSFORMED_VERTEX_BUFFER_SIZE);
 	FreeMemoryPages(transformedExpanded, 3 * TRANSFORMED_VERTEX_BUFFER_SIZE);
-	delete[] quadIndices_;
 	delete decJitCache_;
 	decoderMap_.Iterate([&](const uint32_t vtype, VertexDecoder *decoder) {
 		delete decoder;

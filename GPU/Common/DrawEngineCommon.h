@@ -34,7 +34,6 @@ enum {
 	VERTEX_BUFFER_MAX = 65536,
 	DECODED_VERTEX_BUFFER_SIZE = VERTEX_BUFFER_MAX * 64,
 	DECODED_INDEX_BUFFER_SIZE = VERTEX_BUFFER_MAX * 16,
-	SPLINE_BUFFER_SIZE = VERTEX_BUFFER_MAX * 26, // At least, this buffer needs greater than 1679616 bytes for Mist Dragon morphing in FF4CC.
 };
 
 // Avoiding the full include of TextureDecoder.h.
@@ -169,9 +168,6 @@ protected:
 	IndexGenerator indexGen;
 	int decodedVerts_ = 0;
 	GEPrimitiveType prevPrim_ = GE_PRIM_INVALID;
-
-	// Fixed index buffer for easy quad generation from spline/bezier
-	u16 *quadIndices_ = nullptr;
 
 	// Shader blending state
 	bool fboTexNeedBind_ = false;

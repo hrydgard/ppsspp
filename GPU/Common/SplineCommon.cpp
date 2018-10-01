@@ -528,8 +528,8 @@ void DrawEngineCommon::SubmitSpline(const void *control_points, const void *indi
 		points[idx] = simplified_control_points + (indices ? ConvertIndex(idx) : idx);
 
 	OutputBuffers output;
-	output.vertices = (SimpleVertex *)splineBuffer;
-	output.indices = quadIndices_;
+	output.vertices = (SimpleVertex *)(decoded + DECODED_VERTEX_BUFFER_SIZE / 2);
+	output.indices = decIndex;
 	output.count = 0;
 
 	SplineSurface surface;
@@ -543,7 +543,7 @@ void DrawEngineCommon::SubmitSpline(const void *control_points, const void *indi
 	surface.num_patches_v = count_v - 3;
 	surface.primType = prim_type;
 	surface.patchFacing = patchFacing;
-	surface.Init(SPLINE_BUFFER_SIZE / vertexSize);
+	surface.Init(DECODED_VERTEX_BUFFER_SIZE / 2 / vertexSize);
 
 	if (CanUseHardwareTessellation(prim_type)) {
 		HardwareTessellation(output, surface, origVertType, points, tessDataTransfer);
@@ -618,8 +618,8 @@ void DrawEngineCommon::SubmitBezier(const void *control_points, const void *indi
 		points[idx] = simplified_control_points + (indices ? ConvertIndex(idx) : idx);
 
 	OutputBuffers output;
-	output.vertices = (SimpleVertex *)splineBuffer;
-	output.indices = quadIndices_;
+	output.vertices = (SimpleVertex *)(decoded + DECODED_VERTEX_BUFFER_SIZE / 2);
+	output.indices = decIndex;
 	output.count = 0;
 
 	BezierSurface surface;
@@ -631,7 +631,7 @@ void DrawEngineCommon::SubmitBezier(const void *control_points, const void *indi
 	surface.num_patches_v = (count_v - 1) / 3;
 	surface.primType = prim_type;
 	surface.patchFacing = patchFacing;
-	surface.Init(SPLINE_BUFFER_SIZE / vertexSize);
+	surface.Init(DECODED_VERTEX_BUFFER_SIZE / 2 / vertexSize);
 
 	if (CanUseHardwareTessellation(prim_type)) {
 		HardwareTessellation(output, surface, origVertType, points, tessDataTransfer);
