@@ -496,7 +496,7 @@ void DrawEngineCommon::SubmitSpline(const void *control_points, const void *indi
 	if (count_u < 4 || count_v < 4)
 		return;
 
-	SimpleBufferManager managedBuf(decoded, DECODED_VERTEX_BUFFER_SIZE);
+	SimpleBufferManager managedBuf(decoded, DECODED_VERTEX_BUFFER_SIZE / 2);
 
 	int num_points = count_u * count_v;
 	u16 index_lower_bound = 0;
@@ -585,7 +585,7 @@ void DrawEngineCommon::SubmitBezier(const void *control_points, const void *indi
 	if (count_u < 4 || count_v < 4)
 		return;
 
-	SimpleBufferManager managedBuf(decoded, DECODED_VERTEX_BUFFER_SIZE);
+	SimpleBufferManager managedBuf(decoded, DECODED_VERTEX_BUFFER_SIZE / 2);
 
 	int num_points = count_u * count_v;
 	u16 index_lower_bound = 0;
