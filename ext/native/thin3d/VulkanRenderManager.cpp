@@ -174,13 +174,9 @@ void VulkanRenderManager::CreateBackbuffers() {
 		color_image_view.flags = 0;
 		color_image_view.image = sc_buffer.image;
 
-		// Pre-set them to PRESENT_SRC_KHR, as the first thing we do after acquiring
-		// in image to render to will be to transition them away from that.
-		TransitionImageLayout2(cmdInit, sc_buffer.image, 0, 1,
-			VK_IMAGE_ASPECT_COLOR_BIT,
-			VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_PRESENT_SRC_KHR,
-			VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, VK_PIPELINE_STAGE_ALL_GRAPHICS_BIT,
-			0, VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT);
+		// We leave the images as UNDEFINED, there's no need to pre-transition them as
+		// the backbuffer renderpass starts out with them being auto-transitioned from UNDEFINED anyway.
+		// Also, turns out it's illegal to transition un-acquired images, thanks Hans-Kristian. See #11417.
 
 		res = vkCreateImageView(vulkan_->GetDevice(), &color_image_view, nullptr, &sc_buffer.view);
 		swapchainImages_.push_back(sc_buffer);
