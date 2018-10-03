@@ -29,6 +29,7 @@ enum class BreakNext {
 	NONTEX,
 	FRAME,
 	PRIM,
+	CURVE,
 };
 
 void SetActive(bool flag);
