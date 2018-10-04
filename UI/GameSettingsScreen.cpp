@@ -591,7 +591,7 @@ void GameSettingsScreen::CreateViews() {
 		autoHide->SetEnabledPtr(&g_Config.bShowTouchControls);
 		autoHide->SetFormat("%is");
 		autoHide->SetZeroLabel(co->T("Off"));
-		static const char *touchControlStyles[] = {"Classic", "Thin borders"};
+		static const char *touchControlStyles[] = {"Classic", "Thin borders", "Glowing borders"};
 		View *style = controlsSettings->Add(new PopupMultiChoice(&g_Config.iTouchButtonStyle, co->T("Button style"), touchControlStyles, 0, ARRAY_SIZE(touchControlStyles), co->GetName(), screenManager()));
 		style->SetEnabledPtr(&g_Config.bShowTouchControls);
 	}
