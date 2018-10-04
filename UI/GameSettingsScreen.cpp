@@ -53,6 +53,7 @@
 #include "Core/Host.h"
 #include "Core/System.h"
 #include "Core/Reporting.h"
+#include "Core/TextureReplacer.h"
 #include "Core/WebServer.h"
 #include "GPU/Common/PostShader.h"
 #include "android/jni/TestRunner.h"
@@ -1378,38 +1379,9 @@ UI::EventReturn DeveloperToolsScreen::OnLoadLanguageIni(UI::EventParams &e) {
 
 UI::EventReturn DeveloperToolsScreen::OnOpenTexturesIniFile(UI::EventParams &e) {
 	std::string gameID = g_paramSFO.GetDiscID();
-	std::string texturesDirectory = GetSysDirectory(DIRECTORY_TEXTURES) + gameID + "/";
-	bool enabled_ = !gameID.empty();
-	if (enabled_) {
-		if (!File::Exists(texturesDirectory)) {
-			File::CreateFullPath(texturesDirectory);
-		}
-		if (!File::Exists(texturesDirectory + "textures.ini")) {
-			FILE *f = File::OpenCFile(texturesDirectory + "textures.ini", "wb");
-			if (f) {
-				fwrite("\xEF\xBB\xBF", 0, 3, f);
-				fclose(f);
-				// Let's also write some defaults
-				std::fstream fs;
-				File::OpenCPPFile(fs, texturesDirectory + "textures.ini", std::ios::out | std::ios::ate);
-				fs << "# This file is optional\n";
-				fs << "# for syntax explanation check:\n";
-				fs << "# - https://github.com/hrydgard/ppsspp/pull/8715 \n";
-				fs << "# - https://github.com/hrydgard/ppsspp/pull/8792 \n";
-				fs << "[options]\n";
-				fs << "version = 1\n";
-				fs << "hash = quick\n";
-				fs << "\n";
-				fs << "[hashes]\n";
-				fs << "\n";
-				fs << "[hashranges]\n";
-				fs.close();
-			}
-		}
-		enabled_ = File::Exists(texturesDirectory + "textures.ini");
-	}
-	if (enabled_) {
-		File::openIniFile(texturesDirectory + "textures.ini");
+	std::string generatedFilename;
+	if (TextureReplacer::GenerateIni(gameID, &generatedFilename)) {
+		File::openIniFile(generatedFilename);
 	}
 	return UI::EVENT_DONE;
 }

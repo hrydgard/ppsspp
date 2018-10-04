@@ -22,11 +22,13 @@
 #endif
 
 #include <algorithm>
+#include "i18n/i18n.h"
 #include "ext/xxhash.h"
 #include "file/ini_file.h"
 #include "Common/ColorConv.h"
 #include "Common/FileUtil.h"
 #include "Core/Config.h"
+#include "Core/Host.h"
 #include "Core/System.h"
 #include "Core/TextureReplacer.h"
 #include "Core/ELF/ParamSFO.h"
@@ -112,17 +114,33 @@ bool TextureReplacer::LoadIni() {
 			ERROR_LOG(G3D, "Unsupported texture replacement version %d, trying anyway", version);
 		}
 
+		bool filenameWarning = false;
 		if (ini.HasSection("hashes")) {
 			auto hashes = ini.GetOrCreateSection("hashes")->ToMap();
 			// Format: hashname = filename.png
+			bool checkFilenames = g_Config.bSaveNewTextures && g_Config.bIgnoreTextureFilenames;
 			for (const auto &item : hashes) {
 				ReplacementAliasKey key(0, 0, 0);
 				if (sscanf(item.first.c_str(), "%16llx%8x_%d", &key.cachekey, &key.hash, &key.level) >= 1) {
 					aliases_[key] = item.second;
+					if (checkFilenames) {
+#if PPSSPP_PLATFORM(WINDOWS)
+						// Uppercase probably means the filenames don't match.
+						// Avoiding an actual check of the filenames to avoid performance impact.
+						filenameWarning = filenameWarning || item.second.find_first_of("\\ABCDEFGHIJKLMNOPQRSTUVWXYZ") != std::string::npos;
+#else
+						filenameWarning = filenameWarning || item.second.find_first_of("\\:<>|?*") != std::string::npos;
+#endif
+					}
 				} else {
 					ERROR_LOG(G3D, "Unsupported syntax under [hashes]: %s", item.first.c_str());
 				}
 			}
+		}
+
+		if (filenameWarning) {
+			I18NCategory *err = GetI18NCategory("Error");
+			host->NotifyUserMessage(err->T("textures.ini filenames may not be cross-platform"), 6.0f);
 		}
 
 		if (ini.HasSection("hashranges")) {
@@ -612,4 +630,43 @@ void ReplacedTexture::Load(int level, void *out, int rowPitch) {
 	fclose(fp);
 	png_image_free(&png);
 #endif
+}
+
+bool TextureReplacer::GenerateIni(const std::string &gameID, std::string *generatedFilename) {
+	if (gameID.empty())
+		return false;
+
+	std::string texturesDirectory = GetSysDirectory(DIRECTORY_TEXTURES) + gameID + "/";
+	if (!File::Exists(texturesDirectory)) {
+		File::CreateFullPath(texturesDirectory);
+	}
+
+	if (generatedFilename)
+		*generatedFilename = texturesDirectory + INI_FILENAME;
+	if (File::Exists(texturesDirectory + INI_FILENAME))
+		return true;
+
+	FILE *f = File::OpenCFile(texturesDirectory + INI_FILENAME, "wb");
+	if (f) {
+		fwrite("\xEF\xBB\xBF", 0, 3, f);
+		fclose(f);
+
+		// Let's also write some defaults.
+		std::fstream fs;
+		File::OpenCPPFile(fs, texturesDirectory + INI_FILENAME, std::ios::out | std::ios::ate);
+		fs << "# This file is optional and describes your textures.\n";
+		fs << "# Some information on syntax available here:\n";
+		fs << "# https://github.com/hrydgard/ppsspp/wiki/Texture-replacement-ini-syntax\n";
+		fs << "[options]\n";
+		fs << "version = 1\n";
+		fs << "hash = quick\n";
+		fs << "\n";
+		fs << "# Use / for folders not \\, avoid special characters, and stick to lowercase.\n";
+		fs << "# See wiki for more info.\n";
+		fs << "[hashes]\n";
+		fs << "\n";
+		fs << "[hashranges]\n";
+		fs.close();
+	}
+	return File::Exists(texturesDirectory + INI_FILENAME);
 }
