@@ -41,6 +41,10 @@ public:
 		return renderManager_->ThreadFrame();
 	}
 
+	void BeginAndroidShutdown() override {
+		renderManager_->SetSkipGLCalls();
+	}
+
 	void ThreadEnd() override {
 		renderManager_->ThreadEnd();
 	}

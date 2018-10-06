@@ -73,6 +73,7 @@ public:
 			glDeleteShader(shader);
 		}
 	}
+
 	GLuint shader = 0;
 	bool valid = false;
 	// Warning: Won't know until a future frame.
@@ -156,8 +157,8 @@ class GLRBuffer {
 public:
 	GLRBuffer(GLuint target, size_t size) : target_(target), size_((int)size) {}
 	~GLRBuffer() {
-		if (buffer) {
-			glDeleteBuffers(1, &buffer);
+		if (buffer_) {
+			glDeleteBuffers(1, &buffer_);
 		}
 	}
 
@@ -168,7 +169,7 @@ public:
 		return mapped_;
 	}
 
-	GLuint buffer = 0;
+	GLuint buffer_ = 0;
 	GLuint target_;
 	int size_;
 
@@ -278,6 +279,7 @@ public:
 
 	size_t GetTotalSize() const;
 
+	void Destroy(bool onRenderThread);
 	void Flush();
 
 protected:
@@ -288,7 +290,6 @@ private:
 	bool AddBuffer();
 	void NextBuffer(size_t minSize);
 	void Defragment();
-	void Destroy(bool onRenderThread);
 
 	GLRenderManager *render_;
 	std::vector<BufInfo> buffers_;
@@ -307,11 +308,12 @@ enum class GLRRunType {
 
 class GLDeleter {
 public:
-	void Perform(GLRenderManager *renderManager);
+	void Perform(GLRenderManager *renderManager, bool skipGLCalls);
 
 	bool IsEmpty() const {
 		return shaders.empty() && programs.empty() && buffers.empty() && textures.empty() && inputLayouts.empty() && framebuffers.empty() && pushBuffers.empty();
 	}
+
 	void Take(GLDeleter &other) {
 		_assert_msg_(G3D, IsEmpty(), "Deleter already has stuff");
 		shaders = std::move(other.shaders);
@@ -885,6 +887,12 @@ public:
 		return queueRunner_.GetGLString(name);
 	}
 
+	// Used during Android-style ugly shutdown. No need to have a way to set it back because we'll be
+	// destroyed.
+	void SetSkipGLCalls() {
+		skipGLCalls_ = true;
+	}
+
 private:
 	void BeginSubmitFrame(int frame);
 	void EndSubmitFrame(int frame);
@@ -949,6 +957,7 @@ private:
 	bool firstFrame = true;
 
 	GLDeleter deleter_;
+	bool skipGLCalls_ = false;
 
 	int curFrame_ = 0;
 
