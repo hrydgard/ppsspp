@@ -693,10 +693,8 @@ void GLPushBuffer::Destroy(bool onRenderThread) {
 		// This will automatically unmap device memory, if needed.
 		// NOTE: We immediately delete the buffer, don't go through the deleter, if we're on the render thread.
 		if (onRenderThread) {
-			// _dbg_assert_(G3D, OnRenderThread());
 			delete info.buffer;
 		} else {
-			// _dbg_assert_(G3D, !OnRenderThread());
 			render_->DeleteBuffer(info.buffer);
 		}
 

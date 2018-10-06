@@ -107,7 +107,7 @@ void GLQueueRunner::RunInitSteps(const std::vector<GLRInitStep> &steps, bool ski
 				GLRTexture *tex = step.texture_image.texture;
 				if (step.texture_image.allocType == GLRAllocType::ALIGNED) {
 					FreeAlignedMemory(step.texture_image.data);
-				} else {
+				} else if (step.texture_image.allocType == GLRAllocType::NEW) {
 					delete[] step.texture_image.data;
 				}
 				break;
@@ -119,7 +119,7 @@ void GLQueueRunner::RunInitSteps(const std::vector<GLRInitStep> &steps, bool ski
 			}
 			case GLRInitStepType::CREATE_SHADER:
 			{
-				WARN_LOG(G3D, "CREATE_PROGRAM found with skipGLCalls, not good");
+				WARN_LOG(G3D, "CREATE_SHADER found with skipGLCalls, not good");
 				break;
 			}
 			default:
@@ -490,8 +490,8 @@ void GLQueueRunner::RunSteps(const std::vector<GLRStep *> &steps, bool skipGLCal
 			const GLRStep &step = *steps[i];
 			switch (step.stepType) {
 			case GLRStepType::RENDER:
+				// TODO: With #11425 there'll be a case where we should really free spline data here.
 				break;
-				// TODO
 			}
 			delete steps[i];
 		}
