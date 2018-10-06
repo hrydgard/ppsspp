@@ -145,5 +145,5 @@ afterEvaluate {
 	android.sourceSets.main.assets.getSrcDirs().each { println it }
 }
 dependencies {
-	implementation project(':com.bda.controller')
+	implementation files('libs/com.bda.controller.jar')
 }

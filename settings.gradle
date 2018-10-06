@@ -1,1 +1,1 @@
-include ':android', ':com.bda.controller'
+include ':android'
