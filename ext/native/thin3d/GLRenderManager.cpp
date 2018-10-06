@@ -21,33 +21,51 @@ static bool OnRenderThread() {
 #endif
 
 // Runs on the GPU thread.
-void GLDeleter::Perform(GLRenderManager *renderManager) {
+void GLDeleter::Perform(GLRenderManager *renderManager, bool skipGLCalls) {
 	for (auto pushBuffer : pushBuffers) {
 		renderManager->UnregisterPushBuffer(pushBuffer);
+		if (skipGLCalls) {
+			pushBuffer->Destroy(false);
+		}
 		delete pushBuffer;
 	}
 	pushBuffers.clear();
 	for (auto shader : shaders) {
+		if (skipGLCalls)
+			shader->shader = 0;  // prevent the glDeleteShader
 		delete shader;
 	}
 	shaders.clear();
 	for (auto program : programs) {
+		if (skipGLCalls)
+			program->program = 0;  // prevent the glDeleteProgram
 		delete program;
 	}
 	programs.clear();
 	for (auto buffer : buffers) {
+		if (skipGLCalls)
+			buffer->buffer_ = 0;
 		delete buffer;
 	}
 	buffers.clear();
 	for (auto texture : textures) {
+		if (skipGLCalls)
+			texture->texture = 0;
 		delete texture;
 	}
 	textures.clear();
 	for (auto inputLayout : inputLayouts) {
+		// No GL objects in an inputLayout yet
 		delete inputLayout;
 	}
 	inputLayouts.clear();
 	for (auto framebuffer : framebuffers) {
+		if (skipGLCalls) {
+			framebuffer->z_buffer = 0;
+			framebuffer->stencil_buffer = 0;
+			framebuffer->z_stencil_buffer = 0;
+			framebuffer->handle = 0;
+		}
 		delete framebuffer;
 	}
 	framebuffers.clear();
@@ -65,7 +83,7 @@ GLRenderManager::~GLRenderManager() {
 		_assert_(frameData_[i].deleter_prev.IsEmpty());
 	}
 	// Was anything deleted during shutdown?
-	deleter_.Perform(this);
+	deleter_.Perform(this, false);
 	_assert_(deleter_.IsEmpty());
 }
 
@@ -112,15 +130,15 @@ void GLRenderManager::ThreadEnd() {
 
 	// Good point to run all the deleters to get rid of leftover objects.
 	for (int i = 0; i < MAX_INFLIGHT_FRAMES; i++) {
-		frameData_[i].deleter.Perform(this);
-		frameData_[i].deleter_prev.Perform(this);
+		frameData_[i].deleter.Perform(this, false);
+		frameData_[i].deleter_prev.Perform(this, false);
 		for (int j = 0; j < (int)frameData_[i].steps.size(); j++) {
 			delete frameData_[i].steps[j];
 		}
 		frameData_[i].steps.clear();
 		frameData_[i].initSteps.clear();
 	}
-	deleter_.Perform(this);
+	deleter_.Perform(this, false);
 
 	for (int i = 0; i < (int)steps_.size(); i++) {
 		delete steps_[i];
@@ -154,7 +172,7 @@ bool GLRenderManager::ThreadFrame() {
 			}
 			VLOG("PULL: Setting frame[%d].readyForRun = false", threadFrame_);
 			frameData.readyForRun = false;
-			frameData.deleter_prev.Perform(this);
+			frameData.deleter_prev.Perform(this, skipGLCalls_);
 			frameData.deleter_prev.Take(frameData.deleter);
 			// Previously we had a quick exit here that avoided calling Run() if run_ was suddenly false,
 			// but that created a race condition where frames could end up not finished properly on resize etc.
@@ -481,20 +499,24 @@ void GLRenderManager::Run(int frame) {
 	auto &stepsOnThread = frameData_[frame].steps;
 	auto &initStepsOnThread = frameData_[frame].initSteps;
 	// queueRunner_.LogSteps(stepsOnThread);
-	queueRunner_.RunInitSteps(initStepsOnThread);
+	queueRunner_.RunInitSteps(initStepsOnThread, skipGLCalls_);
 	initStepsOnThread.clear();
 
 	// Run this after RunInitSteps so any fresh GLRBuffers for the pushbuffers can get created.
-	for (auto iter : frameData.activePushBuffers) {
-		iter->Flush();
-		iter->UnmapDevice();
+	if (!skipGLCalls_) {
+		for (auto iter : frameData.activePushBuffers) {
+			iter->Flush();
+			iter->UnmapDevice();
+		}
 	}
 
-	queueRunner_.RunSteps(stepsOnThread);
+	queueRunner_.RunSteps(stepsOnThread, skipGLCalls_);
 	stepsOnThread.clear();
 
-	for (auto iter : frameData.activePushBuffers) {
-		iter->MapDevice(bufferStrategy_);
+	if (!skipGLCalls_) {
+		for (auto iter : frameData.activePushBuffers) {
+			iter->MapDevice(bufferStrategy_);
+		}
 	}
 
 	switch (frameData.type) {
@@ -628,8 +650,8 @@ void GLPushBuffer::Flush() {
 	if (!buffers_[buf_].deviceMemory && writePtr_) {
 		auto &info = buffers_[buf_];
 		if (info.flushOffset != 0) {
-			assert(info.buffer->buffer);
-			glBindBuffer(target_, info.buffer->buffer);
+			assert(info.buffer->buffer_);
+			glBindBuffer(target_, info.buffer->buffer_);
 			glBufferSubData(target_, 0, info.flushOffset, info.localMemory);
 		}
 
@@ -646,7 +668,7 @@ void GLPushBuffer::Flush() {
 			if (info.flushOffset == 0 || !info.deviceMemory)
 				continue;
 
-			glBindBuffer(target_, info.buffer->buffer);
+			glBindBuffer(target_, info.buffer->buffer_);
 			glFlushMappedBufferRange(target_, 0, info.flushOffset);
 			info.flushOffset = 0;
 		}
@@ -664,16 +686,15 @@ bool GLPushBuffer::AddBuffer() {
 	return true;
 }
 
-// Executed on the render thread!
 void GLPushBuffer::Destroy(bool onRenderThread) {
+	if (buf_ == -1)
+		return;  // Already destroyed
 	for (BufInfo &info : buffers_) {
 		// This will automatically unmap device memory, if needed.
 		// NOTE: We immediately delete the buffer, don't go through the deleter, if we're on the render thread.
 		if (onRenderThread) {
-			_dbg_assert_(G3D, OnRenderThread());
 			delete info.buffer;
 		} else {
-			_dbg_assert_(G3D, !OnRenderThread());
 			render_->DeleteBuffer(info.buffer);
 		}
 
@@ -708,7 +729,7 @@ void GLPushBuffer::NextBuffer(size_t minSize) {
 }
 
 void GLPushBuffer::Defragment() {
-	_dbg_assert_(G3D, !OnRenderThread());
+	_dbg_assert_msg_(G3D, !OnRenderThread(), "Defragment must not run on the render thread");
 
 	if (buffers_.size() <= 1) {
 		// Let's take this chance to jetison localMemory we don't need.
@@ -728,7 +749,7 @@ void GLPushBuffer::Defragment() {
 
 	size_ = newSize;
 	bool res = AddBuffer();
-	_assert_(res);
+	_dbg_assert_msg_(G3D, res, "AddBuffer failed");
 }
 
 size_t GLPushBuffer::GetTotalSize() const {
@@ -740,7 +761,7 @@ size_t GLPushBuffer::GetTotalSize() const {
 }
 
 void GLPushBuffer::MapDevice(GLBufferStrategy strategy) {
-	_dbg_assert_(G3D, OnRenderThread());
+	_dbg_assert_msg_(G3D, OnRenderThread(), "MapDevice must run on render thread");
 
 	strategy_ = strategy;
 	if (strategy_ == GLBufferStrategy::SUBDATA) {
@@ -749,7 +770,7 @@ void GLPushBuffer::MapDevice(GLBufferStrategy strategy) {
 
 	bool mapChanged = false;
 	for (auto &info : buffers_) {
-		if (!info.buffer->buffer || info.deviceMemory) {
+		if (!info.buffer->buffer_ || info.deviceMemory) {
 			// Can't map - no device buffer associated yet or already mapped.
 			continue;
 		}
@@ -763,7 +784,7 @@ void GLPushBuffer::MapDevice(GLBufferStrategy strategy) {
 			mapChanged = true;
 		}
 
-		assert(info.localMemory || info.deviceMemory);
+		_dbg_assert_msg_(G3D, info.localMemory || info.deviceMemory, "Local or device memory must succeed");
 	}
 
 	if (writePtr_ && mapChanged) {
@@ -774,7 +795,7 @@ void GLPushBuffer::MapDevice(GLBufferStrategy strategy) {
 }
 
 void GLPushBuffer::UnmapDevice() {
-	_dbg_assert_(G3D, OnRenderThread());
+	_dbg_assert_msg_(G3D, OnRenderThread(), "UnmapDevice must run on render thread");
 
 	for (auto &info : buffers_) {
 		if (info.deviceMemory) {
@@ -786,7 +807,7 @@ void GLPushBuffer::UnmapDevice() {
 }
 
 void *GLRBuffer::Map(GLBufferStrategy strategy) {
-	assert(buffer != 0);
+	assert(buffer_ != 0);
 
 	GLbitfield access = GL_MAP_WRITE_BIT;
 	if ((strategy & GLBufferStrategy::MASK_FLUSH) != 0) {
@@ -799,7 +820,7 @@ void *GLRBuffer::Map(GLBufferStrategy strategy) {
 	void *p = nullptr;
 	bool allowNativeBuffer = strategy != GLBufferStrategy::SUBDATA;
 	if (allowNativeBuffer) {
-		glBindBuffer(target_, buffer);
+		glBindBuffer(target_, buffer_);
 
 		if (gl_extensions.ARB_buffer_storage || gl_extensions.EXT_buffer_storage) {
 #ifndef IOS
@@ -831,7 +852,7 @@ void *GLRBuffer::Map(GLBufferStrategy strategy) {
 }
 
 bool GLRBuffer::Unmap() {
-	glBindBuffer(target_, buffer);
+	glBindBuffer(target_, buffer_);
 	mapped_ = false;
 	return glUnmapBuffer(target_) == GL_TRUE;
 }
