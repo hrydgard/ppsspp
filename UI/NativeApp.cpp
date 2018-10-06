@@ -224,6 +224,10 @@ std::string NativeQueryConfig(std::string query) {
 		return std::string(g_Config.bImmersiveMode ? "1" : "0");
 	} else if (query == "hwScale") {
 		int scale = g_Config.iAndroidHwScale;
+		// Override hw scale for TV type devices.
+		if (System_GetPropertyInt(SYSPROP_DEVICE_TYPE) == DEVICE_TYPE_TV)
+			scale = 0;
+
 		if (scale == 1) {
 			// If g_Config.iInternalResolution is also set to Auto (1), we fall back to "Device resolution" (0). It works out.
 			scale = g_Config.iInternalResolution;

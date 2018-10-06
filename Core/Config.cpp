@@ -510,7 +510,7 @@ static bool DefaultTimerHack() {
 
 static int DefaultAndroidHwScale() {
 #ifdef __ANDROID__
-	if (System_GetPropertyInt(SYSPROP_SYSTEMVERSION) >= 19) {
+	if (System_GetPropertyInt(SYSPROP_SYSTEMVERSION) >= 19 || System_GetPropertyInt(SYSPROP_DEVICE_TYPE) == DEVICE_TYPE_TV) {
 		// Arbitrary cutoff at Kitkat - modern devices are usually powerful enough that hw scaling
 		// doesn't really help very much and mostly causes problems. See #11151
 		return 0;
