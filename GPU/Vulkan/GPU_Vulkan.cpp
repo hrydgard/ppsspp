@@ -217,6 +217,9 @@ void GPU_Vulkan::CheckGPUFeatures() {
 		case VULKAN_VENDOR_INTEL:
 			// Workaround for Intel driver bug.
 			break;
+		case VULKAN_VENDOR_QUALCOMM:
+			// Workaround for possible Adreno driver bug, see #10421
+			break;
 		case VULKAN_VENDOR_AMD:
 			// See issue #10074, and also #10065 (AMD) and #10109 for the choice of the driver version to check for
 			if (vulkan_->GetPhysicalDeviceProperties(vulkan_->GetCurrentPhysicalDevice()).driverVersion >= 0x00407000)
