@@ -621,7 +621,7 @@ int main(int argc, char *argv[]) {
 #if !defined(MOBILE_DEVICE)
 			case SDL_WINDOWEVENT:
 				switch (event.window.event) {
-				case SDL_WINDOWEVENT_RESIZED:
+				case SDL_WINDOWEVENT_SIZE_CHANGED:  // better than RESIZED, more general
 				{
 					Uint32 window_flags = SDL_GetWindowFlags(window);
 					bool fullscreen = (window_flags & SDL_WINDOW_FULLSCREEN);
