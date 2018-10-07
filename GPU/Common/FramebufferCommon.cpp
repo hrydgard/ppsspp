@@ -955,7 +955,10 @@ void FramebufferManagerCommon::CopyDisplayToOutput() {
 	displayFramebuf_ = vfb;
 
 	if (vfb->fbo) {
-		DEBUG_LOG(FRAMEBUF, "Displaying FBO %08x", vfb->fb_address);
+		if (coreState == CORE_STEPPING)
+			VERBOSE_LOG(FRAMEBUF, "Displaying FBO %08x", vfb->fb_address);
+		else
+			DEBUG_LOG(FRAMEBUF, "Displaying FBO %08x", vfb->fb_address);
 
 		int uvRotation = useBufferedRendering_ ? g_Config.iInternalScreenRotation : ROTATION_LOCKED_HORIZONTAL;
 
