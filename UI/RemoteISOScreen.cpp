@@ -121,14 +121,14 @@ static bool LoadGameList(const std::string &host, int port, std::vector<std::str
 	Buffer result;
 	int code = 500;
 	std::vector<std::string> responseHeaders;
-	std::string subdir ="/";
+	std::string subdir = "/";
 	size_t offset;
 
 	if (g_Config.bRemoteISOManual) {
 		subdir = g_Config.sRemoteISOSubdir;
 		offset=subdir.find_last_of("/");
 		if (offset != subdir.length() - 1 && offset != subdir.npos) {
-			//truncate everything after last / 
+			// Truncate everything after last /
 			subdir.erase(offset + 1);
 		}
 	}
@@ -136,7 +136,7 @@ static bool LoadGameList(const std::string &host, int port, std::vector<std::str
 	// Start by requesting the list of games from the server.
 	if (http.Resolve(host.c_str(), port)) {
 		if (http.Connect(2, 20.0, &scanCancelled)) {
-			code = http.GET(subdir.c_str(), &result,responseHeaders);
+			code = http.GET(subdir.c_str(), &result, responseHeaders);
 			http.Disconnect();
 		}
 	}
@@ -165,37 +165,29 @@ static bool LoadGameList(const std::string &host, int port, std::vector<std::str
 	bool parseText = startsWithNoCase(contentType, "text/plain");
 
 	if (parseText) {
-		//ppsspp server
+		// Plain text format - easy.
 		SplitString(listing, '\n', items);
-		for (const std::string &item : items) {
-			if (!endsWithNoCase(item, ".cso") && !endsWithNoCase(item, ".iso") && !endsWithNoCase(item, ".pbp")) {
-				continue;
-			}
-
-			char temp[1024] = {};
-			snprintf(temp, sizeof(temp) - 1, "http://%s:%d%s", host.c_str(), port, item.c_str());
-			games.push_back(temp);
-		}
+		subdir.clear();
 	} else if (parseHtml) {
-		//other webserver
+		// Try to extract from an automatic webserver directory listing...
 		GetQuotedStrings(listing, items);
-		for (const std::string &item : items) {
-			
-			if (!endsWithNoCase(item, ".cso") && !endsWithNoCase(item, ".iso") && !endsWithNoCase(item, ".pbp")) {
-				continue;
-			}
-
-			char temp[1024] = {};
-			snprintf(temp, sizeof(temp) - 1, "http://%s:%d%s%s", host.c_str(), port, subdir.c_str(),item.c_str());
-			games.push_back(temp);
-		}
 	} else {
 		ERROR_LOG(FILESYS, "Unsupported Content-Type: %s", contentType.c_str());
 		return false;
 	}
 
-	//save for next time unless manual is true
-	if (!games.empty() && !g_Config.bRemoteISOManual){
+	for (const std::string &item : items) {
+		if (!RemoteISOFileSupported(item)) {
+			continue;
+		}
+
+		char temp[1024] = {};
+		snprintf(temp, sizeof(temp) - 1, "http://%s:%d%s%s", host.c_str(), port, subdir.c_str(), item.c_str());
+		games.push_back(temp);
+	}
+
+	// Save for next time unless manual is true
+	if (!games.empty() && !g_Config.bRemoteISOManual) {
 		g_Config.sLastRemoteISOServer = host;
 		g_Config.iLastRemoteISOPort = port;
 	}

@@ -106,6 +106,23 @@ static void RegisterServer(int port) {
 	}
 }
 
+bool RemoteISOFileSupported(const std::string &filename) {
+	// Disc-like files.
+	if (endsWithNoCase(filename, ".cso") || endsWithNoCase(filename, ".iso")) {
+		return true;
+	}
+	// May work - but won't have supporting files.
+	if (endsWithNoCase(filename, ".pbp")) {
+		return true;
+	}
+	// Debugging files.
+	if (endsWithNoCase(filename, ".ppdmp")) {
+		return true;
+	}
+	return false;
+
+}
+
 static void RegisterDiscHandlers(http::Server *http, std::unordered_map<std::string, std::string> *paths) {
 	for (std::string filename : g_Config.recentIsos) {
 #ifdef _WIN32
@@ -118,7 +135,7 @@ static void RegisterDiscHandlers(http::Server *http, std::unordered_map<std::str
 
 		// Let's not serve directories, since they won't work.  Only single files.
 		// Maybe can do PBPs and other files later.  Would be neat to stream virtual disc filesystems.
-		if (endsWithNoCase(basename, ".cso") || endsWithNoCase(basename, ".iso")) {
+		if (RemoteISOFileSupported(basename)) {
 			(*paths)[ReplaceAll(basename, " ", "%20")] = filename;
 		}
 	}
