@@ -490,7 +490,19 @@ void GLQueueRunner::RunSteps(const std::vector<GLRStep *> &steps, bool skipGLCal
 			const GLRStep &step = *steps[i];
 			switch (step.stepType) {
 			case GLRStepType::RENDER:
-				// TODO: With #11425 there'll be a case where we should really free spline data here.
+				for (const auto &c : step.commands) {
+					switch (c.cmd) {
+					case GLRRenderCommand::TEXTURE_SUBIMAGE:
+						if (c.texture_subimage.data) {
+							if (c.texture_subimage.allocType == GLRAllocType::ALIGNED) {
+								FreeAlignedMemory(c.texture_subimage.data);
+							} else if (c.texture_subimage.allocType == GLRAllocType::NEW) {
+								delete[] c.texture_subimage.data;
+							}
+						}
+						break;
+					}
+				}
 				break;
 			}
 			delete steps[i];
