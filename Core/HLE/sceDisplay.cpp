@@ -645,6 +645,9 @@ void hleEnterVblank(u64 userdata, int cyclesLate) {
 
 	CoreTiming::ScheduleEvent(msToCycles(vblankMs) - cyclesLate, leaveVblankEvent, vbCount + 1);
 
+	// Trigger VBlank interrupt handlers.
+	__TriggerInterrupt(PSP_INTR_IMMEDIATE | PSP_INTR_ONLY_IF_ENABLED | PSP_INTR_ALWAYS_RESCHED, PSP_VBLANK_INTR, PSP_INTR_SUB_ALL);
+
 	// Wake up threads waiting for VBlank
 	u32 error;
 	bool wokeThreads = false;
@@ -662,9 +665,6 @@ void hleEnterVblank(u64 userdata, int cyclesLate) {
 	if (wokeThreads) {
 		__KernelReSchedule("entered vblank");
 	}
-
-	// Trigger VBlank interrupt handlers.
-	__TriggerInterrupt(PSP_INTR_IMMEDIATE | PSP_INTR_ONLY_IF_ENABLED | PSP_INTR_ALWAYS_RESCHED, PSP_VBLANK_INTR, PSP_INTR_SUB_ALL);
 
 	numVBlanks++;
 	numVBlanksSinceFlip++;
