@@ -142,7 +142,7 @@ public abstract class NativeActivity extends Activity implements SurfaceHolder.C
 		return nativeRenderer;
 	}
 
-	@TargetApi(17)
+	@TargetApi(Build.VERSION_CODES.JELLY_BEAN_MR1)
 	private void detectOptimalAudioSettings() {
 		try {
 			optimalFramesPerBuffer = Integer.parseInt(this.audioManager.getProperty(AudioManager.PROPERTY_OUTPUT_FRAMES_PER_BUFFER));
@@ -174,7 +174,7 @@ public abstract class NativeActivity extends Activity implements SurfaceHolder.C
 		return libdir;
 	}
 
-	@TargetApi(23)
+	@TargetApi(Build.VERSION_CODES.M)
 	boolean askForPermissions(String[] permissions, int requestCode) {
 		boolean shouldAsk = false;
 		if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
@@ -190,7 +190,7 @@ public abstract class NativeActivity extends Activity implements SurfaceHolder.C
 		return shouldAsk;
 	}
 
-	@TargetApi(23)
+	@TargetApi(Build.VERSION_CODES.M)
 	public void sendInitialGrants() {
 		if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
 			// Let's start out granted if it was granted already.
@@ -244,12 +244,12 @@ public abstract class NativeActivity extends Activity implements SurfaceHolder.C
 		this.audioManager = (AudioManager) getSystemService(Context.AUDIO_SERVICE);
 		this.audioFocusChangeListener = new AudioFocusChangeListener();
 
-		if (Build.VERSION.SDK_INT >= 17) {
+		if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.JELLY_BEAN_MR1) {
 			// Get the optimal buffer sz
 			detectOptimalAudioSettings();
 		}
 		powerManager = (PowerManager) getSystemService(Context.POWER_SERVICE);
-		if (Build.VERSION.SDK_INT >= 24) {
+		if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
 			if (powerManager.isSustainedPerformanceModeSupported()) {
 				sustainedPerfSupported = true;
 				NativeApp.sendMessage("sustained_perf_supported", "1");
@@ -314,7 +314,7 @@ public abstract class NativeActivity extends Activity implements SurfaceHolder.C
 		PowerSaveModeReceiver.initAndSend(this);
 
 		// OK, config should be initialized, we can query for screen rotation.
-		if (Build.VERSION.SDK_INT >= 9) {
+		if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.GINGERBREAD) {
 			updateScreenRotation("Initialize");
 		}
 
@@ -331,18 +331,18 @@ public abstract class NativeActivity extends Activity implements SurfaceHolder.C
 		}
 
 		vibrator = (Vibrator) getSystemService(VIBRATOR_SERVICE);
-		if (Build.VERSION.SDK_INT >= 11) {
+		if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.HONEYCOMB) {
 			checkForVibrator();
 		}
 
 		mLocationHelper = new LocationHelper(this);
-		if (Build.VERSION.SDK_INT >= 11) {
+		if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.HONEYCOMB) {
 			// android.graphics.SurfaceTexture is not available before version 11.
 			mCameraHelper = new CameraHelper(this);
 		}
 	}
 
-	@TargetApi(24)
+	@TargetApi(Build.VERSION_CODES.N)
 	private void updateSustainedPerformanceMode() {
 		if (sustainedPerfSupported) {
 			// Query the native application on the desired rotation.
@@ -358,7 +358,7 @@ public abstract class NativeActivity extends Activity implements SurfaceHolder.C
 		}
 	}
 
-	@TargetApi(9)
+	@TargetApi(Build.VERSION_CODES.GINGERBREAD)
 	private void updateScreenRotation(String cause) {
 		// Query the native application on the desired rotation.
 		int rot = 0;
@@ -401,7 +401,7 @@ public abstract class NativeActivity extends Activity implements SurfaceHolder.C
 	}
 
 	@SuppressLint("InlinedApi")
-	@TargetApi(14)
+	@TargetApi(Build.VERSION_CODES.ICE_CREAM_SANDWICH)
 	private void updateSystemUiVisibility() {
 		int flags = 0;
 		if (useLowProfileButtons()) {
@@ -419,9 +419,9 @@ public abstract class NativeActivity extends Activity implements SurfaceHolder.C
 	}
 
 	// Need API 11 to check for existence of a vibrator? Zany.
-	@TargetApi(11)
+	@TargetApi(Build.VERSION_CODES.HONEYCOMB)
 	public void checkForVibrator() {
-		if (Build.VERSION.SDK_INT >= 11) {
+		if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.HONEYCOMB) {
 			if (!vibrator.hasVibrator()) {
 				vibrator = null;
 			}
@@ -451,12 +451,12 @@ public abstract class NativeActivity extends Activity implements SurfaceHolder.C
 		sz.y = NativeApp.getDesiredBackbufferHeight();
 	}
 
-	@TargetApi(17)
+	@TargetApi(Build.VERSION_CODES.JELLY_BEAN_MR1)
 	public void updateDisplayMeasurements() {
 		Display display = getWindowManager().getDefaultDisplay();
 
 		DisplayMetrics metrics = new DisplayMetrics();
-		if (useImmersive() && Build.VERSION.SDK_INT >= 17) {
+		if (useImmersive() && Build.VERSION.SDK_INT >= Build.VERSION_CODES.JELLY_BEAN_MR1) {
 			display.getRealMetrics(metrics);
 		} else {
 			display.getMetrics(metrics);
@@ -569,6 +569,11 @@ public abstract class NativeActivity extends Activity implements SurfaceHolder.C
 		// Note that desiredSize might be 0,0 here - but that's fine when calling setFixedSize! It means auto.
 		Log.d(TAG, "Setting fixed size " + desiredSize.x + " x " + desiredSize.y);
 		holder.setFixedSize(desiredSize.x, desiredSize.y);
+
+		// This may change it - but, since we're visible now, we can actually set this.
+		if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.ICE_CREAM_SANDWICH) {
+			updateSystemUiVisibility();
+		}
 	}
 
 	@Override
@@ -651,7 +656,7 @@ public abstract class NativeActivity extends Activity implements SurfaceHolder.C
 		}
 	}
 
-	@TargetApi(19)
+	@TargetApi(Build.VERSION_CODES.KITKAT)
 	void setupSystemUiCallback() {
 		getWindow().getDecorView().setOnSystemUiVisibilityChangeListener(new OnSystemUiVisibilityChangeListener() {
 			@Override
@@ -745,7 +750,7 @@ public abstract class NativeActivity extends Activity implements SurfaceHolder.C
 			updateSystemUiVisibility();
 		}
 		// OK, config should be initialized, we can query for screen rotation.
-		if (javaGL || Build.VERSION.SDK_INT >= 9) {
+		if (javaGL || Build.VERSION.SDK_INT >= Build.VERSION_CODES.GINGERBREAD) {
 			updateScreenRotation("onResume");
 		}
 
@@ -892,7 +897,7 @@ public abstract class NativeActivity extends Activity implements SurfaceHolder.C
 		return super.dispatchKeyEvent(event);
 	}
 
-	@TargetApi(16)
+	@TargetApi(Build.VERSION_CODES.JELLY_BEAN)
 	public static String getInputDesc(InputDevice input) {
 		if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.JELLY_BEAN) {
 			return input.getDescriptor();
@@ -906,11 +911,11 @@ public abstract class NativeActivity extends Activity implements SurfaceHolder.C
 	}
 
 	@Override
-	@TargetApi(12)
+	@TargetApi(Build.VERSION_CODES.HONEYCOMB_MR1)
 	public boolean onGenericMotionEvent(MotionEvent event) {
 		// Log.d(TAG, "onGenericMotionEvent: " + event);
 		if ((event.getSource() & InputDevice.SOURCE_JOYSTICK) != 0) {
-			if (Build.VERSION.SDK_INT >= 12) {
+			if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.HONEYCOMB_MR1) {
 				InputDeviceState state = getInputDeviceState(event);
 				if (state == null) {
 					Log.w(TAG, "Joystick event but failed to get input device state.");
@@ -1025,19 +1030,19 @@ public abstract class NativeActivity extends Activity implements SurfaceHolder.C
 		}
 	}
 
-	@TargetApi(11)
+	@TargetApi(Build.VERSION_CODES.HONEYCOMB)
 	@SuppressWarnings("deprecation")
 	private AlertDialog.Builder createDialogBuilderWithTheme() {
 		return new AlertDialog.Builder(this, AlertDialog.THEME_HOLO_DARK);
 	}
 
-	@TargetApi(14)
+	@TargetApi(Build.VERSION_CODES.ICE_CREAM_SANDWICH)
 	@SuppressWarnings("deprecation")
 	private AlertDialog.Builder createDialogBuilderWithDeviceTheme() {
 		return new AlertDialog.Builder(this, AlertDialog.THEME_DEVICE_DEFAULT_DARK);
 	}
 
-	@TargetApi(17)
+	@TargetApi(Build.VERSION_CODES.JELLY_BEAN_MR1)
 	@SuppressWarnings("deprecation")
 	private AlertDialog.Builder createDialogBuilderWithDeviceThemeAndUiVisibility() {
 		AlertDialog.Builder bld = new AlertDialog.Builder(this, AlertDialog.THEME_DEVICE_DEFAULT_DARK);
@@ -1050,7 +1055,7 @@ public abstract class NativeActivity extends Activity implements SurfaceHolder.C
 		return bld;
 	}
 
-	@TargetApi(23)
+	@TargetApi(Build.VERSION_CODES.M)
 	private AlertDialog.Builder createDialogBuilderNew() {
 		AlertDialog.Builder bld = new AlertDialog.Builder(this, android.R.style.Theme_DeviceDefault_Dialog_Alert);
 		bld.setOnDismissListener(new DialogInterface.OnDismissListener() {
@@ -1260,7 +1265,7 @@ public abstract class NativeActivity extends Activity implements SurfaceHolder.C
 					Log.i(TAG, "Must recreate activity on rotation");
 				}
 			} else {
-				if (Build.VERSION.SDK_INT >= 9) {
+				if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.GINGERBREAD) {
 					updateScreenRotation("rotate");
 				}
 			}

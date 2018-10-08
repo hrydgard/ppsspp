@@ -946,7 +946,7 @@ extern "C" bool JNICALL Java_org_ppsspp_ppsspp_NativeActivity_runEGLRenderLoop(J
 	// This is up here to prevent race conditions, in case we pause during init.
 	renderLoopRunning = true;
 
-	ANativeWindow *wnd = ANativeWindow_fromSurface(env, _surf);
+	ANativeWindow *wnd = _surf ? ANativeWindow_fromSurface(env, _surf) : nullptr;
 
 	WLOG("runEGLRenderLoop. display_xres=%d display_yres=%d", display_xres, display_yres);
 
