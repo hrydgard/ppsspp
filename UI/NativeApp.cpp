@@ -352,6 +352,12 @@ void CreateDirectoriesAndroid() {
 }
 
 static void CheckFailedGPUBackends() {
+#ifdef _DEBUG
+	// If you're in debug mode, you probably don't want a fallback. If you're in release mode, use IGNORE below.
+	WARN_LOG(LOADER, "Not checking for failed graphics backends in debug mode");
+	return;
+#endif
+
 	// We only want to do this once per process run and backend, to detect process crashes.
 	// If NativeShutdown is called before we finish, we might call this multiple times.
 	static int lastBackend = -1;
