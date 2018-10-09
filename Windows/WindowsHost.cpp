@@ -77,7 +77,7 @@ static BOOL PostDialogMessage(Dialog *dialog, UINT message, WPARAM wParam = 0, L
 }
 
 WindowsHost::WindowsHost(HINSTANCE hInstance, HWND mainWindow, HWND displayWindow)
-	: gfx_(nullptr), hInstance_(hInstance),
+	: hInstance_(hInstance),
 		mainWindow_(mainWindow),
 		displayWindow_(displayWindow)
 {
@@ -87,8 +87,8 @@ WindowsHost::WindowsHost(HINSTANCE hInstance, HWND mainWindow, HWND displayWindo
 	//add first XInput device to respond
 	input.push_back(std::shared_ptr<InputDevice>(new XinputDevice()));
 	//find all connected DInput devices of class GamePad
-	size_t numDInputDevs = DinputDevice::getNumPads();
-	for (size_t i = 0; i < numDInputDevs; i++) {
+	numDinputDevices_ = DinputDevice::getNumPads();
+	for (size_t i = 0; i < numDinputDevices_; i++) {
 		input.push_back(std::shared_ptr<InputDevice>(new DinputDevice(static_cast<int>(i))));
 	}
 	keyboard = std::shared_ptr<KeyboardDevice>(new KeyboardDevice());
@@ -205,31 +205,44 @@ void WindowsHost::SetDebugMode(bool mode) {
 }
 
 void WindowsHost::PollControllers() {
+	static int checkCounter = 0;
+	static const int CHECK_FREQUENCY = 71;
+	if (checkCounter++ > CHECK_FREQUENCY) {
+		size_t newCount = DinputDevice::getNumPads();
+		if (newCount > numDinputDevices_) {
+			INFO_LOG(SYSTEM, "New controller device detected");
+			for (size_t i = numDinputDevices_; i < newCount; i++) {
+				input.push_back(std::shared_ptr<InputDevice>(new DinputDevice(static_cast<int>(i))));
+			}
+			numDinputDevices_ = newCount;
+		}
+
+		checkCounter = 0;
+	}
+
 	bool doPad = true;
-	for (auto iter = this->input.begin(); iter != this->input.end(); iter++)
-	{
-		auto device = *iter;
+	for (const auto &device : input) {
 		if (!doPad && device->IsPad())
 			continue;
 		if (device->UpdateState() == InputDevice::UPDATESTATE_SKIP_PAD)
 			doPad = false;
 	}
 
-	float scaleFactor_x = g_dpi_scale_x * 0.1 * g_Config.fMouseSensitivity;
-	float scaleFactor_y = g_dpi_scale_y * 0.1 * g_Config.fMouseSensitivity;
-
-	float mx = std::max(-1.0f, std::min(1.0f, g_mouseDeltaX * scaleFactor_x));
-	float my = std::max(-1.0f, std::min(1.0f, g_mouseDeltaY * scaleFactor_y));
-	AxisInput axisX, axisY;
-	axisX.axisId = JOYSTICK_AXIS_MOUSE_REL_X;
-	axisX.deviceId = DEVICE_ID_MOUSE;
-	axisX.value = mx;
-	axisY.axisId = JOYSTICK_AXIS_MOUSE_REL_Y;
-	axisY.deviceId = DEVICE_ID_MOUSE;
-	axisY.value = my;
-
 	// Disabled by default, needs a workaround to map to psp keys.
-	if (g_Config.bMouseControl){
+	if (g_Config.bMouseControl) {
+		float scaleFactor_x = g_dpi_scale_x * 0.1 * g_Config.fMouseSensitivity;
+		float scaleFactor_y = g_dpi_scale_y * 0.1 * g_Config.fMouseSensitivity;
+
+		float mx = std::max(-1.0f, std::min(1.0f, g_mouseDeltaX * scaleFactor_x));
+		float my = std::max(-1.0f, std::min(1.0f, g_mouseDeltaY * scaleFactor_y));
+		AxisInput axisX, axisY;
+		axisX.axisId = JOYSTICK_AXIS_MOUSE_REL_X;
+		axisX.deviceId = DEVICE_ID_MOUSE;
+		axisX.value = mx;
+		axisY.axisId = JOYSTICK_AXIS_MOUSE_REL_Y;
+		axisY.deviceId = DEVICE_ID_MOUSE;
+		axisY.value = my;
+
 		if (GetUIState() == UISTATE_INGAME || g_Config.bMapMouse) {
 			if (fabsf(mx) > 0.01f) NativeAxis(axisX);
 			if (fabsf(my) > 0.01f) NativeAxis(axisY);
