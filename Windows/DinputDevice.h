@@ -43,7 +43,7 @@ private:
 	//GUIDs of the plugged in devices. This function will only search for devices
 	//if none have been found yet and will only list plugged in devices
 	//also, it excludes the devices that are compatible with XInput
-	static void getDevices();
+	static void getDevices(bool refresh);
 	//callback for the WinAPI to call
 	static BOOL CALLBACK DevicesCallback(
 	                LPCDIDEVICEINSTANCE lpddi,

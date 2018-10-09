@@ -118,9 +118,9 @@ BOOL CALLBACK DinputDevice::DevicesCallback(
 	return DIENUM_CONTINUE;
 }
 
-void DinputDevice::getDevices()
+void DinputDevice::getDevices(bool refresh)
 {
-	if (devices.empty())
+	if (devices.empty() || refresh)
 	{
 		getPDI()->EnumDevices(DI8DEVCLASS_GAMECTRL, &DinputDevice::DevicesCallback, NULL, DIEDFL_ATTACHEDONLY);
 	}
@@ -149,7 +149,7 @@ DinputDevice::DinputDevice(int devnum) {
 		return;
 	}
 
-	getDevices();
+	getDevices(false);
 	if ( (devnum >= (int)devices.size()) || FAILED(getPDI()->CreateDevice(devices.at(devnum).guidInstance, &pJoystick, NULL)))
 	{
 		return;
@@ -368,9 +368,6 @@ void DinputDevice::ApplyButtons(DIJOYSTATE2 &state) {
 
 size_t DinputDevice::getNumPads()
 {
-	if (devices.empty())
-	{
-		getDevices();
-	}
+	getDevices(true);
 	return devices.size();
 }

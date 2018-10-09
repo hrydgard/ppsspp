@@ -74,7 +74,8 @@ private:
 	HINSTANCE hInstance_;
 	HWND displayWindow_;
 	HWND mainWindow_;
-	GraphicsContext *gfx_;
+	GraphicsContext *gfx_ = nullptr;
+	size_t numDinputDevices_ = 0;
 
 	std::list<std::shared_ptr<InputDevice>> input;
 };
