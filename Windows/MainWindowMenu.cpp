@@ -329,6 +329,8 @@ namespace MainWindow {
 		TranslateMenuItem(menu, ID_OPTIONS_DIRECT3D11);
 		TranslateMenuItem(menu, ID_OPTIONS_DIRECT3D9);
 		TranslateMenuItem(menu, ID_OPTIONS_OPENGL);
+		TranslateMenuItem(menu, ID_OPTIONS_VULKAN);
+
 		TranslateSubMenu(menu, "Rendering Mode", MENU_OPTIONS, SUBMENU_RENDERING_MODE);
 		TranslateMenuItem(menu, ID_OPTIONS_NONBUFFEREDRENDERING);
 		TranslateMenuItem(menu, ID_OPTIONS_BUFFEREDRENDERING);
@@ -773,21 +775,25 @@ namespace MainWindow {
 
 		case ID_OPTIONS_DIRECT3D9:
 			g_Config.iGPUBackend = (int)GPUBackend::DIRECT3D9;
+			g_Config.Save();
 			RestartApp();
 			break;
 
 		case ID_OPTIONS_DIRECT3D11:
 			g_Config.iGPUBackend = (int)GPUBackend::DIRECT3D11;
+			g_Config.Save();
 			RestartApp();
 			break;
 
 		case ID_OPTIONS_OPENGL:
 			g_Config.iGPUBackend = (int)GPUBackend::OPENGL;
+			g_Config.Save();
 			RestartApp();
 			break;
 
 		case ID_OPTIONS_VULKAN:
 			g_Config.iGPUBackend = (int)GPUBackend::VULKAN;
+			g_Config.Save();
 			RestartApp();
 			break;
 
