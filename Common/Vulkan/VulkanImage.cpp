@@ -200,7 +200,7 @@ void VulkanTexture::GenerateMip(VkCommandBuffer cmd, int mip) {
 }
 
 void VulkanTexture::EndCreate(VkCommandBuffer cmd, bool vertexTexture) {
-	TransitionImageLayout2(cmd, image_, 0, 1,
+	TransitionImageLayout2(cmd, image_, 0, numMips_,
 		VK_IMAGE_ASPECT_COLOR_BIT,
 		VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
 		VK_PIPELINE_STAGE_TRANSFER_BIT, vertexTexture ? VK_PIPELINE_STAGE_VERTEX_SHADER_BIT : VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
