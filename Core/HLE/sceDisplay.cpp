@@ -928,11 +928,20 @@ u32 sceDisplaySetFramebuf(u32 topaddr, int linesize, int pixelformat, int sync) 
 		u64 now = CoreTiming::GetTicks();
 		s64 cyclesAhead = nextFlipCycles - now;
 		if (cyclesAhead > FLIP_DELAY_CYCLES_MIN) {
-			if (lastFlipsTooFrequent >= FLIP_DELAY_MIN_FLIPS && gpuStats.numClears > 0) {
-				delayCycles = cyclesAhead;
-			} else {
-				++lastFlipsTooFrequent;
+			if (!PSP_CoreParameter().compat.flags().DelayCyclesHack) {
+				if (lastFlipsTooFrequent >= FLIP_DELAY_MIN_FLIPS && gpuStats.numClears > 0) {
+					delayCycles = cyclesAhead;
+				}
+				else {
+					++lastFlipsTooFrequent;
+				}
 			}
+			else if (lastFlipsTooFrequent >= FLIP_DELAY_MIN_FLIPS) {
+				delayCycles = cyclesAhead;
+			}
+			else {
+				++lastFlipsTooFrequent;
+			}			
 		} else if (-lastFlipsTooFrequent < FLIP_DELAY_MIN_FLIPS) {
 			--lastFlipsTooFrequent;
 		}
