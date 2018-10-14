@@ -448,7 +448,6 @@ void SoftwareTransform(
 			// Need to rescale from a [0, 1] float.  This is the final transformed value.
 			result->depth = ToScaledDepth((s16)(int)(transformed[1].z * 65535.0f));
 			result->action = SW_CLEAR;
-			gpuStats.numClears++;
 			return;
 		}
 	}
@@ -599,10 +598,6 @@ void SoftwareTransform(
 				result->stencilValue = 0;
 			}
 		}
-	}
-
-	if (gstate.isModeClear()) {
-		gpuStats.numClears++;
 	}
 
 	result->action = SW_DRAW_PRIMITIVES;
