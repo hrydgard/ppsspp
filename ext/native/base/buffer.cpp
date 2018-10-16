@@ -13,6 +13,11 @@
 #include <unistd.h>
 #endif
 
+#ifndef MSG_NOSIGNAL
+// Default value to 0x00 (do nothing) in systems where it's not supported.
+#define MSG_NOSIGNAL 0x00
+#endif
+
 #include "base/logging.h"
 #include "base/timeutil.h"
 #include "file/fd_util.h"
