@@ -776,6 +776,7 @@ void GLQueueRunner::PerformRenderPass(const GLRStep &step) {
 		}
 		case GLRRenderCommand::UNIFORM4F:
 		{
+			CHECK_GL_ERROR_IF_DEBUG();
 			int loc = c.uniform4.loc ? *c.uniform4.loc : -1;
 			if (c.uniform4.name) {
 				loc = curProgram->GetUniformLoc(c.uniform4.name);

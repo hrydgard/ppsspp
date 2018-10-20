@@ -6,7 +6,7 @@
 // Utility to be able to liberally sprinkle GL error checks around your code
 // and easily disable them all in release builds - just undefine DEBUG_OPENGL.
 
-// #define DEBUG_OPENGL
+#define DEBUG_OPENGL
 
 #if defined(DEBUG_OPENGL)
 

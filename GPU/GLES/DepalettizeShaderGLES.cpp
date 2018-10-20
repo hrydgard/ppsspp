@@ -53,6 +53,10 @@ DepalShaderCacheGLES::DepalShaderCacheGLES(Draw::DrawContext *draw) {
 	render_ = (GLRenderManager *)draw->GetNativeObject(Draw::NativeObject::RENDER_MANAGER);
 	// Pre-build the vertex program
 	useGL3_ = gl_extensions.GLES3 || gl_extensions.VersionGEThan(3, 3);
+	if (!gstate_c.Supports(GPU_SUPPORTS_32BIT_INT_FSHADER)) {
+		// Use the floating point path, it just can't handle the math.
+		useGL3_ = false;
+	}
 
 	vertexShaderFailed_ = false;
 	vertexShader_ = 0;

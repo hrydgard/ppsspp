@@ -640,6 +640,7 @@ public:
 		data.uniform4.loc = loc;
 		data.uniform4.count = count;
 		memcpy(data.uniform4.v, udata, sizeof(float) * count);
+
 		curRenderStep_->commands.push_back(data);
 	}
 
