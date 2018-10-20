@@ -463,6 +463,13 @@ void CheckGLExtensions() {
 				glGetShaderPrecisionFormat(shaderTypes[st], precisions[p], gl_extensions.range[st][p], &gl_extensions.precision[st][p]);
 			}
 		}
+
+		// Now, Adreno lies. So let's override it.
+		if (gl_extensions.gpuVendor == GPU_VENDOR_QUALCOMM) {
+			WLOG("Detected Adreno - lowering int precision");
+			gl_extensions.range[1][5][0] = 15;
+			gl_extensions.range[1][5][1] = 15;
+		}
 	}
 #endif
 

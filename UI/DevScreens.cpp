@@ -405,6 +405,13 @@ void SystemInfoScreen::CreateViews() {
 #endif
 	if (GetGPUBackend() == GPUBackend::OPENGL) {
 		deviceSpecs->Add(new InfoItem(si->T("Core Context"), gl_extensions.IsCoreContext ? di->T("Active") : di->T("Inactive")));
+		int highp_int_min = gl_extensions.range[1][5][0];
+		int highp_int_max = gl_extensions.range[1][5][1];
+		if (highp_int_max != 0) {
+			char highp_int_range[512];
+			snprintf(highp_int_range, sizeof(highp_int_range), "Highp int range: %d-%d", highp_int_min, highp_int_max);
+			deviceSpecs->Add(new InfoItem(si->T("High precision int range"), highp_int_range));
+		}
 	}
 	deviceSpecs->Add(new ItemHeader(si->T("OS Information")));
 	deviceSpecs->Add(new InfoItem(si->T("Memory Page Size"), StringFromFormat(si->T("%d bytes"), GetMemoryProtectPageSize())));
