@@ -83,7 +83,7 @@ GLRenderManager::~GLRenderManager() {
 		_assert_(frameData_[i].deleter_prev.IsEmpty());
 	}
 	// Was anything deleted during shutdown?
-	deleter_.Perform(this, false);
+	deleter_.Perform(this, skipGLCalls_);
 	_assert_(deleter_.IsEmpty());
 }
 
