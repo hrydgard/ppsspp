@@ -277,7 +277,14 @@ void CtrlMemView::onPaint(WPARAM wParam, LPARAM lParam)
 	SelectObject(hdc,oldBrush);
 	
 	// copy bitmap to the actual hdc
-	BitBlt(actualHdc,0,0,rect.right,rect.bottom,hdc,0,0,SRCCOPY);
+	if (writeOffsets) 
+	{
+		BitBlt(actualHdc, 0, rowHeight*2, rect.right, rect.bottom, hdc, 0, 0, SRCCOPY);
+	}
+	else
+	{
+		BitBlt(actualHdc, 0, 0, rect.right, rect.bottom, hdc, 0, 0, SRCCOPY);
+	}
 	DeleteObject(hBM);
 	DeleteDC(hdc);
 
@@ -409,6 +416,10 @@ void CtrlMemView::redraw()
 	GetClientRect(wnd, &rect);
 	visibleRows = (rect.bottom/rowHeight);
 
+	if (writeOffsets) {
+		visibleRows -= 2;
+	}
+
 	InvalidateRect(wnd, NULL, FALSE);
 	UpdateWindow(wnd); 
 }
@@ -516,6 +527,10 @@ void CtrlMemView::gotoPoint(int x, int y)
 {
 	int line = y/rowHeight;
 	int lineAddress = windowStart+line*rowSize;
+
+	if (writeOffsets) {
+		lineAddress -= (rowSize * 2);
+	}
 
 	if (x >= asciiStart)
 	{
