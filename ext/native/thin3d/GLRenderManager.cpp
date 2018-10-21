@@ -130,8 +130,9 @@ void GLRenderManager::ThreadEnd() {
 
 	// Good point to run all the deleters to get rid of leftover objects.
 	for (int i = 0; i < MAX_INFLIGHT_FRAMES; i++) {
-		frameData_[i].deleter.Perform(this, false);
-		frameData_[i].deleter_prev.Perform(this, false);
+		// Since we're in shutdown, we should skip the GL calls on Android.
+		frameData_[i].deleter.Perform(this, skipGLCalls_);
+		frameData_[i].deleter_prev.Perform(this, skipGLCalls_);
 		for (int j = 0; j < (int)frameData_[i].steps.size(); j++) {
 			delete frameData_[i].steps[j];
 		}
