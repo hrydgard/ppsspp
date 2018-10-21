@@ -127,6 +127,7 @@ GPU_D3D11::~GPU_D3D11() {
 void GPU_D3D11::CheckGPUFeatures() {
 	u32 features = 0;
 
+	features |= GPU_SUPPORTS_VS_RANGE_CULLING;
 	features |= GPU_SUPPORTS_BLEND_MINMAX;
 	features |= GPU_PREFER_CPU_DOWNLOAD;
 

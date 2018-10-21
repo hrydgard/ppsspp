@@ -108,7 +108,6 @@ GPU_DX9::GPU_DX9(GraphicsContext *gfxCtx, Draw::DrawContext *draw)
 
 void GPU_DX9::CheckGPUFeatures() {
 	u32 features = 0;
-
 	features |= GPU_SUPPORTS_16BIT_FORMATS;
 	features |= GPU_SUPPORTS_BLEND_MINMAX;
 	features |= GPU_SUPPORTS_TEXTURE_LOD_CONTROL;
@@ -118,6 +117,11 @@ void GPU_DX9::CheckGPUFeatures() {
 	// Accurate depth is required on AMD/nVidia (for reverse Z) so we ignore the compat flag to disable it on those. See #9545
 	if (!PSP_CoreParameter().compat.flags().DisableAccurateDepth || vendor == Draw::GPUVendor::VENDOR_AMD || vendor == Draw::GPUVendor::VENDOR_NVIDIA) {
 		features |= GPU_SUPPORTS_ACCURATE_DEPTH;
+	}
+
+	// VS range culling causes problems on Intel.
+	if (vendor != Draw::GPUVendor::VENDOR_INTEL) {
+		features |= GPU_SUPPORTS_VS_RANGE_CULLING;
 	}
 
 	D3DCAPS9 caps;

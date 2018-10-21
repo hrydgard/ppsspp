@@ -174,6 +174,8 @@ GPU_Vulkan::~GPU_Vulkan() {
 void GPU_Vulkan::CheckGPUFeatures() {
 	uint32_t features = 0;
 
+	features |= GPU_SUPPORTS_VS_RANGE_CULLING;
+
 	switch (vulkan_->GetPhysicalDeviceProperties(vulkan_->GetCurrentPhysicalDevice()).vendorID) {
 	case VULKAN_VENDOR_AMD:
 		// Accurate depth is required on AMD (due to reverse-Z driver bug) so we ignore the compat flag to disable it on those. See #9545

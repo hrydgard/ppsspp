@@ -168,6 +168,7 @@ void GPU_GLES::CheckGPUFeatures() {
 	u32 features = 0;
 
 	features |= GPU_SUPPORTS_16BIT_FORMATS;
+	features |= GPU_SUPPORTS_VS_RANGE_CULLING;
 
 	if (gl_extensions.ARB_blend_func_extended || gl_extensions.EXT_blend_func_extended) {
 		if (!gl_extensions.VersionGEThan(3, 0, 0)) {
