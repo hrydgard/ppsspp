@@ -28,6 +28,7 @@ CtrlMemView::CtrlMemView(HWND _wnd)
 
 	rowHeight = g_Config.iFontHeight;
 	charWidth = g_Config.iFontWidth;
+	offsetPositionY = offsetLine*rowHeight;
 
 	font =
 		CreateFont(rowHeight,charWidth,0,0,FW_DONTCARE,FALSE,FALSE,FALSE,DEFAULT_CHARSET,OUT_DEFAULT_PRECIS,
@@ -93,6 +94,7 @@ LRESULT CALLBACK CtrlMemView::wndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM
 {
 	CtrlMemView *ccp = CtrlMemView::getFrom(hwnd);
 	static bool lmbDown=false,rmbDown=false;
+
     switch(msg)
     {
     case WM_NCCREATE:
@@ -196,6 +198,10 @@ void CtrlMemView::onPaint(WPARAM wParam, LPARAM lParam)
 	SelectObject(hdc,standardBrush);
 	Rectangle(hdc,0,0,rect.right,rect.bottom);
 
+	if (writeOffsets) {
+		drawOffsetScale(hdc);
+	}
+
 	// draw one extra row that may be partially visible
 	for (int i = 0; i < visibleRows+1; i++)
 	{
@@ -205,7 +211,7 @@ void CtrlMemView::onPaint(WPARAM wParam, LPARAM lParam)
 		int rowY = rowHeight*i;
 
 		if (writeOffsets) 
-			rowY += rowHeight * 2; // skip the first two rows to make space for the offets
+			rowY += rowHeight * offsetSpace; // skip the first X rows to make space for the offsets
 		
 		
 		sprintf(temp,"%08X",address);
@@ -281,7 +287,7 @@ void CtrlMemView::onPaint(WPARAM wParam, LPARAM lParam)
 	SelectObject(hdc,oldBrush);
 	
 	// copy bitmap to the actual hdc
-	BitBlt(actualHdc, 0, 0, rect.right, rect.bottom, hdc, 0, 0, SRCCOPY);
+	BitBlt(actualHdc,0,0,rect.right,rect.bottom,hdc,0,0,SRCCOPY);
 	DeleteObject(hBM);
 	DeleteDC(hdc);
 
@@ -414,7 +420,7 @@ void CtrlMemView::redraw()
 	visibleRows = (rect.bottom/rowHeight);
 
 	if (writeOffsets) {
-		visibleRows -= 2; // visibleRows is calculated based on the size of the control, but 2 of the rows have already been used for the offsets and are not longer usable
+		visibleRows -= offsetSpace; // visibleRows is calculated based on the size of the control, but X rows have already been used for the offsets and are no longer usable
 	}
 
 	InvalidateRect(wnd, NULL, FALSE);
@@ -525,9 +531,16 @@ void CtrlMemView::gotoPoint(int x, int y)
 	int line = y/rowHeight;
 	int lineAddress = windowStart+line*rowSize;
 
-	if (writeOffsets) 
-		lineAddress -= (rowSize * 2); // since each row has been written 2 rows down from where the window expected it to be written the target of the clicks must be adjusted
-	
+	if (writeOffsets)
+	{
+		if (line < offsetSpace) // ignore clicks on the offset space
+		{
+			updateStatusBarText();
+			redraw();
+			return;
+		}
+		lineAddress -= (rowSize * offsetSpace); // since each row has been written X rows down from where the window expected it to be written the target of the clicks must be adjusted
+	}
 
 	if (x >= asciiStart)
 	{
@@ -718,5 +731,36 @@ void CtrlMemView::search(bool continueSearch)
 
 	MessageBox(wnd,L"Not found",L"Search",MB_OK);
 	searching = false;
+	redraw();
+}
+
+void CtrlMemView::drawOffsetScale(HDC hdc)
+{
+	int currentX = addressStart;
+
+	SetTextColor(hdc, 0x600000);
+	TextOutA(hdc, currentX, offsetPositionY, "Offset", 6);
+
+	currentX = addressStart + ((8 + 1)*charWidth); // the start offset, the size of the hex addresses and one space 
+	
+	char temp[64];
+
+	for (int i = 0; i < 16; i++) 
+	{
+		sprintf(temp, "%02X", i);
+		TextOutA(hdc, currentX, offsetPositionY, temp, 2);
+		currentX += 3 * charWidth; // hex and space
+	}
+
+}
+
+void CtrlMemView::toggleOffsetScale(OffsetToggles toggle)
+{
+	if (toggle == On) 
+		writeOffsets = true;
+	else if (toggle == Off)
+		writeOffsets = false;
+
+	updateStatusBarText();
 	redraw();
 }
