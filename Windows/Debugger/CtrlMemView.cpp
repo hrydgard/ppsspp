@@ -203,6 +203,10 @@ void CtrlMemView::onPaint(WPARAM wParam, LPARAM lParam)
 
 		unsigned int address=windowStart + i*rowSize;
 		int rowY = rowHeight*i;
+
+		if (writeOffsets) 
+			rowY += rowHeight * 2; // skip the first two rows to make space for the offets
+		
 		
 		sprintf(temp,"%08X",address);
 		SetTextColor(hdc,0x600000);
@@ -277,14 +281,7 @@ void CtrlMemView::onPaint(WPARAM wParam, LPARAM lParam)
 	SelectObject(hdc,oldBrush);
 	
 	// copy bitmap to the actual hdc
-	if (writeOffsets) 
-	{
-		BitBlt(actualHdc, 0, rowHeight*2, rect.right, rect.bottom, hdc, 0, 0, SRCCOPY);
-	}
-	else
-	{
-		BitBlt(actualHdc, 0, 0, rect.right, rect.bottom, hdc, 0, 0, SRCCOPY);
-	}
+	BitBlt(actualHdc, 0, 0, rect.right, rect.bottom, hdc, 0, 0, SRCCOPY);
 	DeleteObject(hBM);
 	DeleteDC(hdc);
 
@@ -417,7 +414,7 @@ void CtrlMemView::redraw()
 	visibleRows = (rect.bottom/rowHeight);
 
 	if (writeOffsets) {
-		visibleRows -= 2;
+		visibleRows -= 2; // visibleRows is calculated based on the size of the control, but 2 of the rows have already been used for the offsets and are not longer usable
 	}
 
 	InvalidateRect(wnd, NULL, FALSE);
@@ -528,9 +525,9 @@ void CtrlMemView::gotoPoint(int x, int y)
 	int line = y/rowHeight;
 	int lineAddress = windowStart+line*rowSize;
 
-	if (writeOffsets) {
-		lineAddress -= (rowSize * 2);
-	}
+	if (writeOffsets) 
+		lineAddress -= (rowSize * 2); // since each row has been written 2 rows down from where the window expected it to be written the target of the clicks must be adjusted
+	
 
 	if (x >= asciiStart)
 	{

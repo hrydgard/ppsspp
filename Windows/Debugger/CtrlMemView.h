@@ -38,6 +38,8 @@ class CtrlMemView
 	bool asciiSelected;
 	int selectedNibble;
 
+	bool writeOffsets = true;
+
 	int visibleRows;
 	
 	std::string searchQuery;
