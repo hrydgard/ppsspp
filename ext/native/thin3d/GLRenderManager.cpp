@@ -139,7 +139,7 @@ void GLRenderManager::ThreadEnd() {
 		frameData_[i].steps.clear();
 		frameData_[i].initSteps.clear();
 	}
-	deleter_.Perform(this, false);
+	deleter_.Perform(this, skipGLCalls_);
 
 	for (int i = 0; i < (int)steps_.size(); i++) {
 		delete steps_[i];
