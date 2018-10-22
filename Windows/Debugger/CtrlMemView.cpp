@@ -198,9 +198,9 @@ void CtrlMemView::onPaint(WPARAM wParam, LPARAM lParam)
 	SelectObject(hdc,standardBrush);
 	Rectangle(hdc,0,0,rect.right,rect.bottom);
 
-	if (writeOffsets) {
+	if (displayOffsetScale) 
 		drawOffsetScale(hdc);
-	}
+	
 
 	// draw one extra row that may be partially visible
 	for (int i = 0; i < visibleRows+1; i++)
@@ -210,7 +210,7 @@ void CtrlMemView::onPaint(WPARAM wParam, LPARAM lParam)
 		unsigned int address=windowStart + i*rowSize;
 		int rowY = rowHeight*i;
 
-		if (writeOffsets) 
+		if (displayOffsetScale) 
 			rowY += rowHeight * offsetSpace; // skip the first X rows to make space for the offsets
 		
 		
@@ -419,7 +419,7 @@ void CtrlMemView::redraw()
 	GetClientRect(wnd, &rect);
 	visibleRows = (rect.bottom/rowHeight);
 
-	if (writeOffsets) {
+	if (displayOffsetScale) {
 		visibleRows -= offsetSpace; // visibleRows is calculated based on the size of the control, but X rows have already been used for the offsets and are no longer usable
 	}
 
@@ -531,7 +531,7 @@ void CtrlMemView::gotoPoint(int x, int y)
 	int line = y/rowHeight;
 	int lineAddress = windowStart+line*rowSize;
 
-	if (writeOffsets)
+	if (displayOffsetScale)
 	{
 		if (line < offsetSpace) // ignore clicks on the offset space
 		{
@@ -757,9 +757,9 @@ void CtrlMemView::drawOffsetScale(HDC hdc)
 void CtrlMemView::toggleOffsetScale(OffsetToggles toggle)
 {
 	if (toggle == On) 
-		writeOffsets = true;
+		displayOffsetScale = true;
 	else if (toggle == Off)
-		writeOffsets = false;
+		displayOffsetScale = false;
 
 	updateStatusBarText();
 	redraw();

@@ -20,8 +20,8 @@
 #include "../../Core/Debugger/DebugInterface.h"
 
 enum OffsetSpacing {
-	offsetSpace = 3,
-	offsetLine = 1,
+	offsetSpace = 3, // the number of blank lines that should be left to make space for the offsets
+	offsetLine  = 1, // the line on which the offsets should be written
 };
 
 enum OffsetToggles {
@@ -49,7 +49,7 @@ class CtrlMemView
 	bool asciiSelected;
 	int selectedNibble;
 
-	bool writeOffsets = false;
+	bool displayOffsetScale = false;
 
 	int visibleRows;
 	
