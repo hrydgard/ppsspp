@@ -106,7 +106,7 @@ android {
 				cmake {
 					// Available arguments listed at https://developer.android.com/ndk/guides/cmake.html
 					arguments '-DANDROID=true',
-							'-DANDROID_PLATFORM=android-15',
+							'-DANDROID_PLATFORM=android-16',
 							'-DANDROID_TOOLCHAIN=clang',
 							'-DANDROID_CPP_FEATURES=',
 							'-DANDROID_STL=c++_static',
@@ -121,7 +121,7 @@ android {
 				cmake {
 					// Available arguments listed at https://developer.android.com/ndk/guides/cmake.html
 					arguments '-DANDROID=true',
-							'-DANDROID_PLATFORM=android-15',
+							'-DANDROID_PLATFORM=android-16',
 							'-DANDROID_TOOLCHAIN=clang',
 							'-DANDROID_CPP_FEATURES=',
 							'-DANDROID_STL=c++_static',
