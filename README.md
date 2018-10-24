@@ -23,6 +23,20 @@ For build instructions and other development tutorials, see [the wiki](https://g
 
 For game compatibility, see [community compatibility feedback](https://report.ppsspp.org/games).
 
+What's new in 1.7.0
+-------------------
+* Fix for insta-crash on Galaxy Note 9 and some Xiaomi devices (#11441)
+* Vertex range culling on most platforms, fixes DTM: Race Driver and similar (#11393)
+* Major speed boost in some Gundam and Earth Defense Force games (#10973)
+* Fix for issues with post processing shaders in GL 3+ (#11182)
+* Fixes to sound output switching on Windows (WASAPI) (#11438)
+* Detects DirectInput devices when running (#11461)
+* Simple Discord integration (#11307)
+* New debugging APIs (#10909)
+* Task switching made a lot more robust (fixes GPD XD problems) (#11447)
+* Texture decoding optimizations (#11350)
+* Tons and tons of miscellaneous bugfixes and compatibility fixes
+
 What's new in 1.6.3
 -------------------
 * Crashfixes, task switching and one in Phantasy Star Portable
