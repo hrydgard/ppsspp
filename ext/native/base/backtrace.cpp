@@ -1,6 +1,6 @@
 #include "base/backtrace.h"
 
-#if defined(__GLIBC__) && !defined(__UCLIBC__)
+#if (defined(__GLIBC__) && !defined(__UCLIBC__)) || defined(__DragonFly__) || defined(__FreeBSD__) || defined(__NetBSD__)
 #include <execinfo.h>
 #include <unistd.h>
 
