@@ -25,7 +25,7 @@ For game compatibility, see [community compatibility feedback](https://report.pp
 
 What's new in 1.7.0
 -------------------
-* Fix for insta-crash on Galaxy Note 9 and some Xiaomi devices (#11441)
+* Fix for insta-crash on Galaxy Note 9, some Xiaomi devices, and the new nVidia Shield (#11441)
 * Vertex range culling on most platforms, fixes DTM: Race Driver and similar (#11393)
 * Major speed boost in some Gundam and Earth Defense Force games (#10973)
 * Fix for issues with post processing shaders in GL 3+ (#11182)
