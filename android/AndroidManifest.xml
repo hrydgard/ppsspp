@@ -2,8 +2,8 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     package="org.ppsspp.ppsspp"
     android:installLocation="auto"
-    android:versionCode="16030000"
-    android:versionName="1.6.3.0">
+    android:versionCode="17000000"
+    android:versionName="1.7.0.0">
     <!-- Note that versionCode should be in the format xyzzrrrr. Example: 16030000 -->
 
     <uses-feature android:glEsVersion="0x00020000" />
