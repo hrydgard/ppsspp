@@ -783,7 +783,9 @@ public abstract class NativeActivity extends Activity implements SurfaceHolder.C
 		if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.ICE_CREAM_SANDWICH) {
 			updateSystemUiVisibility();
 		}
-		densityDpi = (float) newConfig.densityDpi;
+		if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.JELLY_BEAN_MR1) {
+			densityDpi = (float) newConfig.densityDpi;
+		}
 	}
 
 	// keep this static so we can call this even if we don't
