@@ -923,7 +923,7 @@ bool SoftGPU::PerformStencilUpload(u32 dest, int size)
 }
 
 bool SoftGPU::FramebufferDirty() {
-	if (g_Config.iFrameSkip != 0) {
+	if (g_Config.iFrameSkip != 0 || g_Config.iFrameSkip2 != 0) {
 		bool dirty = framebufferDirty_;
 		framebufferDirty_ = false;
 		return dirty;
