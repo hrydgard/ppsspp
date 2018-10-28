@@ -512,7 +512,7 @@ static void DoFrameTiming(bool &throttle, bool &skipFrame, float timestep) {
 
 	// Check if the frameskipping code should be enabled. If neither throttling or frameskipping is on,
 	// we have nothing to do here.
-	bool doFrameSkip = g_Config.iFrameSkip != 0;
+	bool doFrameSkip = (g_Config.iFrameSkip != 0 && g_Config.iFrameSkip2 != 0);
 
 	if (!throttle && g_Config.bFrameSkipUnthrottle) {
 		doFrameSkip = true;
@@ -553,15 +553,17 @@ static void DoFrameTiming(bool &throttle, bool &skipFrame, float timestep) {
 	// Auto-frameskip automatically if speed limit is set differently than the default.
 	bool useAutoFrameskip = g_Config.bAutoFrameSkip && g_Config.iRenderingMode != FB_NON_BUFFERED_MODE;
 	bool forceFrameskip = (fpsLimiter == FPSLimit::CUSTOM1 && g_Config.iFpsLimit1 > 60) || (fpsLimiter == FPSLimit::CUSTOM2 && g_Config.iFpsLimit2 > 60);
+	int frameSkipNum;
+	if (flips < 50) { frameSkipNum = g_Config.iFrameSkip; } else { frameSkipNum = g_Config.iFrameSkip2; }
 	if (g_Config.bAutoFrameSkip || forceFrameskip) {
 		// autoframeskip
 		// Argh, we are falling behind! Let's skip a frame and see if we catch up.
 		if (curFrameTime > nextFrameTime && doFrameSkip) {
 			skipFrame = true;
 		}
-	} else if (g_Config.iFrameSkip >= 1) {
+	} else if (frameSkipNum >= 1) {
 		// fixed frameskip
-		if (numSkippedFrames >= g_Config.iFrameSkip)
+		if (numSkippedFrames >= frameSkipNum)
 			skipFrame = false;
 		else
 			skipFrame = true;
@@ -734,9 +736,12 @@ void __DisplayFlip(int cyclesLate) {
 		DoFrameTiming(throttle, skipFrame, (float)numVBlanksSinceFlip * timePerVblank);
 
 		int maxFrameskip = 8;
+		int frameSkipNum;
+		if (flips < 50) { frameSkipNum = g_Config.iFrameSkip; } else { frameSkipNum = g_Config.iFrameSkip2; }
+		
 		if (throttle) {
 			// 4 here means 1 drawn, 4 skipped - so 12 fps minimum.
-			maxFrameskip = g_Config.iFrameSkip;
+			maxFrameskip = frameSkipNum;
 		}
 		if (numSkippedFrames >= maxFrameskip || GPURecord::IsActivePending()) {
 			skipFrame = false;
