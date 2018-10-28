@@ -342,7 +342,16 @@
 #define ID_EMULATION_PAUSE               40177
 #define ID_HELP_DISCORD                  40178
 #define IDC_GEDBG_STEPCURVE              40179
-
+#define ID_OPTIONS_FRAMESKIP2_0          40180
+#define ID_OPTIONS_FRAMESKIP2_1          40181
+#define ID_OPTIONS_FRAMESKIP2_2          40182
+#define ID_OPTIONS_FRAMESKIP2_3          40183
+#define ID_OPTIONS_FRAMESKIP2_4          40184
+#define ID_OPTIONS_FRAMESKIP2_5          40185
+#define ID_OPTIONS_FRAMESKIP2_6          40186
+#define ID_OPTIONS_FRAMESKIP2_7          40187
+#define ID_OPTIONS_FRAMESKIP2_8          40188
+#define ID_OPTIONS_FRAMESKIP2            40189
 // Dummy option to let the buffered rendering hotkey cycle through all the options.
 #define ID_OPTIONS_BUFFEREDRENDERINGDUMMY 40500
 #define IDC_STEPOUT                       40501
