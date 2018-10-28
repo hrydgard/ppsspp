@@ -113,7 +113,7 @@ private slots:
 	}
 	void transformAct() { g_Config.bHardwareTransform = !g_Config.bHardwareTransform; }
 	void vertexCacheAct() { g_Config.bVertexCache = !g_Config.bVertexCache; }
-	void frameskipAct() { g_Config.iFrameSkip = !g_Config.iFrameSkip; }
+	void frameskipAct() { (g_Config.iFrameSkip = !g_Config.iFrameSkip || g_Config.iFrameSkip2 = !g_Config.iFrameSkip2); }
 
 	// Sound
 	void audioAct() { g_Config.bEnableSound = !g_Config.bEnableSound; }
