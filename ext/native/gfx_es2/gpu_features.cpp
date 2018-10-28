@@ -345,9 +345,10 @@ void CheckGLExtensions() {
 	gl_extensions.ARB_buffer_storage = g_set_gl_extensions.count("GL_ARB_buffer_storage") != 0;
 	gl_extensions.ARB_vertex_array_object = g_set_gl_extensions.count("GL_ARB_vertex_array_object") != 0;
 	gl_extensions.ARB_texture_float = g_set_gl_extensions.count("GL_ARB_texture_float") != 0;
-	gl_extensions.EXT_texture_filter_anisotropic = g_set_gl_extensions.count("GL_EXT_texture_filter_anisotropic") != 0;
+	gl_extensions.EXT_texture_filter_anisotropic = g_set_gl_extensions.count("GL_EXT_texture_filter_anisotropic") != 0 || g_set_gl_extensions.count("GL_ARB_texture_filter_anisotropic") != 0;
 	gl_extensions.EXT_draw_instanced = g_set_gl_extensions.count("GL_EXT_draw_instanced") != 0;
 	gl_extensions.ARB_draw_instanced = g_set_gl_extensions.count("GL_ARB_draw_instanced") != 0;
+	gl_extensions.ARB_cull_distance = g_set_gl_extensions.count("GL_ARB_cull_distance") != 0;
 
 	if (gl_extensions.IsGLES) {
 		gl_extensions.OES_texture_npot = g_set_gl_extensions.count("GL_OES_texture_npot") != 0;
@@ -362,6 +363,7 @@ void CheckGLExtensions() {
 		gl_extensions.ARM_shader_framebuffer_fetch = g_set_gl_extensions.count("GL_ARM_shader_framebuffer_fetch") != 0;
 		gl_extensions.OES_texture_float = g_set_gl_extensions.count("GL_OES_texture_float") != 0;
 		gl_extensions.EXT_buffer_storage = g_set_gl_extensions.count("GL_EXT_buffer_storage") != 0;
+		gl_extensions.EXT_clip_cull_distance = g_set_gl_extensions.count("GL_EXT_clip_cull_distance") != 0;
 
 #if defined(__ANDROID__)
 		// On Android, incredibly, this is not consistently non-zero! It does seem to have the same value though.
@@ -521,6 +523,13 @@ void CheckGLExtensions() {
 		}
 		if (gl_extensions.VersionGEThan(4, 4)) {
 			gl_extensions.ARB_buffer_storage = true;
+		}
+		if (gl_extensions.VersionGEThan(4, 5)) {
+			gl_extensions.ARB_cull_distance = true;
+		}
+		if (gl_extensions.VersionGEThan(4, 6)) {
+			// Actually ARB, but they're basically the same.
+			gl_extensions.EXT_texture_filter_anisotropic = true;
 		}
 	}
 
