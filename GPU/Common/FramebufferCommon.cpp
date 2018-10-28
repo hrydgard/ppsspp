@@ -2052,19 +2052,34 @@ void FramebufferManagerCommon::PackFramebufferSync_(VirtualFramebuffer *vfb, int
 		return;
 	}
 
+	if (w <= 0 || h <= 0) {
+		ERROR_LOG(G3D, "Bad inputs to PackFramebufferSync_: %d %d %d %d", x, y, w, h);
+		return;
+	}
+
 	const u32 fb_address = (0x04000000) | vfb->fb_address;
 
 	Draw::DataFormat destFormat = GEFormatToThin3D(vfb->format);
 	const int dstBpp = (int)DataFormatSizeInBytes(destFormat);
 
 	const int dstByteOffset = (y * vfb->fb_stride + x) * dstBpp;
+
+	if (!Memory::IsValidRange(fb_address + dstByteOffset, (h * vfb->fb_stride + w) * dstBpp)) {
+		ERROR_LOG(G3D, "PackFramebufferSync_ would read outside of memory, ignoring");
+		return;
+	}
+
 	u8 *destPtr = Memory::GetPointer(fb_address + dstByteOffset);
 
 	// We always need to convert from the framebuffer native format.
 	// Right now that's always 8888.
-	DEBUG_LOG(G3D, "Reading framebuffer to mem, fb_address = %08x", fb_address);
+	DEBUG_LOG(G3D, "Reading framebuffer to mem, fb_address = %08x, ptr=%p", fb_address, destPtr);
 
-	draw_->CopyFramebufferToMemorySync(vfb->fbo, Draw::FB_COLOR_BIT, x, y, w, h, destFormat, destPtr, vfb->fb_stride);
+	if (destPtr) {
+		draw_->CopyFramebufferToMemorySync(vfb->fbo, Draw::FB_COLOR_BIT, x, y, w, h, destFormat, destPtr, vfb->fb_stride);
+	} else {
+		ERROR_LOG(G3D, "PackFramebufferSync_: Tried to readback to bad address %08x (stride = %d)", fb_address + dstByteOffset, vfb->fb_stride);
+	}
 
 	// A new command buffer will begin after CopyFrameBufferToMemorySync, so we need to trigger
 	// updates of any dynamic command buffer state by dirtying some stuff.
