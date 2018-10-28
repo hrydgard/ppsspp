@@ -334,6 +334,8 @@ void GLRenderManager::BlitFramebuffer(GLRFramebuffer *src, GLRect2D srcRect, GLR
 }
 
 bool GLRenderManager::CopyFramebufferToMemorySync(GLRFramebuffer *src, int aspectBits, int x, int y, int w, int h, Draw::DataFormat destFormat, uint8_t *pixels, int pixelStride) {
+	_assert_(pixels);
+
 	GLRStep *step = new GLRStep{ GLRStepType::READBACK };
 	step->readback.src = src;
 	step->readback.srcRect = { x, y, w, h };
@@ -365,6 +367,7 @@ bool GLRenderManager::CopyFramebufferToMemorySync(GLRFramebuffer *src, int aspec
 
 void GLRenderManager::CopyImageToMemorySync(GLRTexture *texture, int mipLevel, int x, int y, int w, int h, Draw::DataFormat destFormat, uint8_t *pixels, int pixelStride) {
 	_assert_(texture);
+	_assert_(pixels);
 	GLRStep *step = new GLRStep{ GLRStepType::READBACK_IMAGE };
 	step->readback_image.texture = texture;
 	step->readback_image.mipLevel = mipLevel;
