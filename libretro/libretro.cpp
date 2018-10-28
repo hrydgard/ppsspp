@@ -169,7 +169,8 @@ static RetroOption<int> ppsspp_language("ppsspp_language", "Language", { { "auto
 static RetroOption<int> ppsspp_rendering_mode("ppsspp_rendering_mode", "Rendering Mode", { { "buffered", FB_BUFFERED_MODE }, { "nonbuffered", FB_NON_BUFFERED_MODE } });
 static RetroOption<bool> ppsspp_true_color("ppsspp_true_color", "True Color Depth", true);
 static RetroOption<bool> ppsspp_auto_frameskip("ppsspp_auto_frameskip", "Auto Frameskip", false);
-static RetroOption<int> ppsspp_frameskip("ppsspp_frameskip", "Frameskip", 0, 10);
+static RetroOption<int> ppsspp_frameskip("ppsspp_frameskip", "30fps Frameskip", 0, 10);
+static RetroOption<int> ppsspp_frameskip2("ppsspp_frameskip2", "60fps Frameskip", 0, 10);
 static RetroOption<int> ppsspp_force_max_fps("ppsspp_force_max_fps", "Force Max FPS", { { "disabled", 0 }, { "enabled", 60 } });
 static RetroOption<int> ppsspp_audio_latency("ppsspp_audio_latency", "Audio latency", { "low", "medium", "high" });
 static RetroOption<int> ppsspp_internal_resolution("ppsspp_internal_resolution", "Internal Resolution", 1, { "480x272", "960x544", "1440x816", "1920x1088", "2400x1360", "2880x1632", "3360x1904", "3840x2176", "4320x2448", "4800x2720" });
@@ -196,6 +197,7 @@ void retro_set_environment(retro_environment_t cb) {
 	vars.push_back(ppsspp_true_color.GetOptions());
 	vars.push_back(ppsspp_auto_frameskip.GetOptions());
 	vars.push_back(ppsspp_frameskip.GetOptions());
+	vars.push_back(ppsspp_frameskip2.GetOptions());
 	vars.push_back(ppsspp_force_max_fps.GetOptions());
 	vars.push_back(ppsspp_audio_latency.GetOptions());
 	vars.push_back(ppsspp_internal_resolution.GetOptions());
@@ -264,6 +266,7 @@ static void check_variables(CoreParameter &coreParam) {
 	ppsspp_vertex_cache.Update(&g_Config.bVertexCache);
 	ppsspp_gpu_hardware_transform.Update(&g_Config.bHardwareTransform);
 	ppsspp_frameskip.Update(&g_Config.iFrameSkip);
+	ppsspp_frameskip2.Update(&g_Config.iFrameSkip2);
 	ppsspp_audio_latency.Update(&g_Config.iAudioLatency);
 	ppsspp_true_color.Update(&g_Config.bTrueColor);
 	ppsspp_auto_frameskip.Update(&g_Config.bAutoFrameSkip);
