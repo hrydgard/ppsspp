@@ -1073,6 +1073,8 @@ if(ANDROID)
 	target_link_libraries(native log EGL OpenSLES)
 elseif(WIN32)
 	target_link_libraries(native ws2_32 winmm)
+elseif(${CMAKE_SYSTEM_NAME} MATCHES "^(DragonFly|FreeBSD|NetBSD)$")
+	target_link_libraries(native execinfo)
 endif()
 setup_target_project(native native)
 
