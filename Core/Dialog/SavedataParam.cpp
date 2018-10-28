@@ -471,6 +471,7 @@ int SavedataParam::Save(SceUtilitySavedataParam* param, const std::string &saveD
 
 				snprintf(entry->filename, sizeof(entry->filename), "%s", saveFilename.c_str());
 				memcpy(entry->hash, cryptedHash, 16);
+				break;
 			}
 		}
 		sfoFile.SetValue("SAVEDATA_FILE_LIST", (u8 *)updatedList, FILE_LIST_TOTAL_SIZE, (int)FILE_LIST_TOTAL_SIZE);
