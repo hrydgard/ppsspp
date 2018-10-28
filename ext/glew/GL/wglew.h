@@ -1,6 +1,6 @@
 /*
 ** The OpenGL Extension Wrangler Library
-** Copyright (C) 2008-2014, Nigel Stewart <nigels[]users sourceforge net>
+** Copyright (C) 2008-2017, Nigel Stewart <nigels[]users sourceforge net>
 ** Copyright (C) 2002-2008, Milan Ikits <milan ikits[]ieee org>
 ** Copyright (C) 2002-2008, Marcelo E. Magallon <mmagallo[]debian org>
 ** Copyright (C) 2002, Lev Povalahev
@@ -183,6 +183,15 @@ typedef BOOL (WINAPI * PFNWGLSAVEBUFFERREGIONARBPROC) (HANDLE hRegion, int x, in
 
 #endif /* WGL_ARB_buffer_region */
 
+/* --------------------- WGL_ARB_context_flush_control --------------------- */
+
+#ifndef WGL_ARB_context_flush_control
+#define WGL_ARB_context_flush_control 1
+
+#define WGLEW_ARB_context_flush_control WGLEW_GET_VAR(__WGLEW_ARB_context_flush_control)
+
+#endif /* WGL_ARB_context_flush_control */
+
 /* ------------------------- WGL_ARB_create_context ------------------------ */
 
 #ifndef WGL_ARB_create_context
@@ -204,6 +213,15 @@ typedef HGLRC (WINAPI * PFNWGLCREATECONTEXTATTRIBSARBPROC) (HDC hDC, HGLRC hShar
 #define WGLEW_ARB_create_context WGLEW_GET_VAR(__WGLEW_ARB_create_context)
 
 #endif /* WGL_ARB_create_context */
+
+/* -------------------- WGL_ARB_create_context_no_error -------------------- */
+
+#ifndef WGL_ARB_create_context_no_error
+#define WGL_ARB_create_context_no_error 1
+
+#define WGLEW_ARB_create_context_no_error WGLEW_GET_VAR(__WGLEW_ARB_create_context_no_error)
+
+#endif /* WGL_ARB_create_context_no_error */
 
 /* --------------------- WGL_ARB_create_context_profile -------------------- */
 
@@ -492,6 +510,19 @@ typedef BOOL (WINAPI * PFNWGLSETPBUFFERATTRIBARBPROC) (HPBUFFERARB hPbuffer, con
 #define WGLEW_ATI_render_texture_rectangle WGLEW_GET_VAR(__WGLEW_ATI_render_texture_rectangle)
 
 #endif /* WGL_ATI_render_texture_rectangle */
+
+/* --------------------------- WGL_EXT_colorspace -------------------------- */
+
+#ifndef WGL_EXT_colorspace
+#define WGL_EXT_colorspace 1
+
+#define WGL_COLORSPACE_SRGB_EXT 0x3089
+#define WGL_COLORSPACE_LINEAR_EXT 0x308A
+#define WGL_COLORSPACE_EXT 0x309D
+
+#define WGLEW_EXT_colorspace WGLEW_GET_VAR(__WGLEW_EXT_colorspace)
+
+#endif /* WGL_EXT_colorspace */
 
 /* ------------------- WGL_EXT_create_context_es2_profile ------------------ */
 
@@ -1184,18 +1215,8 @@ typedef BOOL (WINAPI * PFNWGLWAITFORSBCOMLPROC) (HDC hdc, INT64 target_sbc, INT6
 
 /* ------------------------------------------------------------------------- */
 
-#ifdef GLEW_MX
-#define WGLEW_FUN_EXPORT
-#define WGLEW_VAR_EXPORT
-#else
 #define WGLEW_FUN_EXPORT GLEW_FUN_EXPORT
 #define WGLEW_VAR_EXPORT GLEW_VAR_EXPORT
-#endif /* GLEW_MX */
-
-#ifdef GLEW_MX
-struct WGLEWContextStruct
-{
-#endif /* GLEW_MX */
 
 WGLEW_FUN_EXPORT PFNWGLSETSTEREOEMITTERSTATE3DLPROC __wglewSetStereoEmitterState3DL;
 
@@ -1350,7 +1371,9 @@ WGLEW_VAR_EXPORT GLboolean __WGLEW_3DFX_multisample;
 WGLEW_VAR_EXPORT GLboolean __WGLEW_3DL_stereo_control;
 WGLEW_VAR_EXPORT GLboolean __WGLEW_AMD_gpu_association;
 WGLEW_VAR_EXPORT GLboolean __WGLEW_ARB_buffer_region;
+WGLEW_VAR_EXPORT GLboolean __WGLEW_ARB_context_flush_control;
 WGLEW_VAR_EXPORT GLboolean __WGLEW_ARB_create_context;
+WGLEW_VAR_EXPORT GLboolean __WGLEW_ARB_create_context_no_error;
 WGLEW_VAR_EXPORT GLboolean __WGLEW_ARB_create_context_profile;
 WGLEW_VAR_EXPORT GLboolean __WGLEW_ARB_create_context_robustness;
 WGLEW_VAR_EXPORT GLboolean __WGLEW_ARB_extensions_string;
@@ -1365,6 +1388,7 @@ WGLEW_VAR_EXPORT GLboolean __WGLEW_ARB_robustness_application_isolation;
 WGLEW_VAR_EXPORT GLboolean __WGLEW_ARB_robustness_share_group_isolation;
 WGLEW_VAR_EXPORT GLboolean __WGLEW_ATI_pixel_format_float;
 WGLEW_VAR_EXPORT GLboolean __WGLEW_ATI_render_texture_rectangle;
+WGLEW_VAR_EXPORT GLboolean __WGLEW_EXT_colorspace;
 WGLEW_VAR_EXPORT GLboolean __WGLEW_EXT_create_context_es2_profile;
 WGLEW_VAR_EXPORT GLboolean __WGLEW_EXT_create_context_es_profile;
 WGLEW_VAR_EXPORT GLboolean __WGLEW_EXT_depth_float;
@@ -1399,33 +1423,18 @@ WGLEW_VAR_EXPORT GLboolean __WGLEW_NV_vertex_array_range;
 WGLEW_VAR_EXPORT GLboolean __WGLEW_NV_video_capture;
 WGLEW_VAR_EXPORT GLboolean __WGLEW_NV_video_output;
 WGLEW_VAR_EXPORT GLboolean __WGLEW_OML_sync_control;
-
-#ifdef GLEW_MX
-}; /* WGLEWContextStruct */
-#endif /* GLEW_MX */
-
 /* ------------------------------------------------------------------------- */
 
-#ifdef GLEW_MX
-
-typedef struct WGLEWContextStruct WGLEWContext;
-GLEWAPI GLenum GLEWAPIENTRY wglewContextInit (WGLEWContext *ctx);
-GLEWAPI GLboolean GLEWAPIENTRY wglewContextIsSupported (const WGLEWContext *ctx, const char *name);
-
-#define wglewInit() wglewContextInit(wglewGetContext())
-#define wglewIsSupported(x) wglewContextIsSupported(wglewGetContext(), x)
-
-#define WGLEW_GET_VAR(x) (*(const GLboolean*)&(wglewGetContext()->x))
-#define WGLEW_GET_FUN(x) wglewGetContext()->x
-
-#else /* GLEW_MX */
-
-#define WGLEW_GET_VAR(x) (*(const GLboolean*)&x)
-#define WGLEW_GET_FUN(x) x
-
+GLEWAPI GLenum GLEWAPIENTRY wglewInit ();
 GLEWAPI GLboolean GLEWAPIENTRY wglewIsSupported (const char *name);
 
-#endif /* GLEW_MX */
+#ifndef WGLEW_GET_VAR
+#define WGLEW_GET_VAR(x) (*(const GLboolean*)&x)
+#endif
+
+#ifndef WGLEW_GET_FUN
+#define WGLEW_GET_FUN(x) x
+#endif
 
 GLEWAPI GLboolean GLEWAPIENTRY wglewGetExtension (const char *name);
 
