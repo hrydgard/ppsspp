@@ -181,6 +181,7 @@ static RetroOption<int> ppsspp_texture_scaling_type("ppsspp_texture_scaling_type
 static RetroOption<int> ppsspp_texture_filtering("ppsspp_texture_filtering", "Texture Filtering", { { "auto", 1 }, { "nearest", 2 }, { "linear", 3 }, { "linear(FMV)", 4 } });
 static RetroOption<int> ppsspp_texture_anisotropic_filtering("ppsspp_texture_anisotropic_filtering", "Anisotropic Filtering", { "off", "1x", "2x", "4x", "8x", "16x" });
 static RetroOption<bool> ppsspp_texture_deposterize("ppsspp_texture_deposterize", "Texture Deposterize", false);
+static RetroOption<bool> ppsspp_texture_replacement("ppsspp_texture_replacement", "Texture Replacement", false);
 static RetroOption<bool> ppsspp_gpu_hardware_transform("ppsspp_gpu_hardware_transform", "GPU Hardware T&L", true);
 static RetroOption<bool> ppsspp_vertex_cache("ppsspp_vertex_cache", "Vertex Cache (Speedhack)", true);
 static RetroOption<bool> ppsspp_separate_io_thread("ppsspp_separate_io_thread", "IO Threading", false);
@@ -208,6 +209,7 @@ void retro_set_environment(retro_environment_t cb) {
 	vars.push_back(ppsspp_texture_filtering.GetOptions());
 	vars.push_back(ppsspp_texture_anisotropic_filtering.GetOptions());
 	vars.push_back(ppsspp_texture_deposterize.GetOptions());
+	vars.push_back(ppsspp_texture_replacement.GetOptions());
 	vars.push_back(ppsspp_gpu_hardware_transform.GetOptions());
 	vars.push_back(ppsspp_vertex_cache.GetOptions());
 	vars.push_back(ppsspp_separate_io_thread.GetOptions());
@@ -273,6 +275,7 @@ static void check_variables(CoreParameter &coreParam) {
 	ppsspp_texture_filtering.Update(&g_Config.iTexFiltering);
 	ppsspp_texture_anisotropic_filtering.Update(&g_Config.iAnisotropyLevel);
 	ppsspp_texture_deposterize.Update(&g_Config.bTexDeposterize);
+	ppsspp_texture_replacement.Update(&g_Config.bReplaceTextures);
 	ppsspp_separate_io_thread.Update(&g_Config.bSeparateIOThread);
 	ppsspp_unsafe_func_replacements.Update(&g_Config.bFuncReplacements);
 	ppsspp_sound_speedhack.Update(&g_Config.bSoundSpeedHack);
