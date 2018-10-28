@@ -337,6 +337,7 @@ namespace MainWindow {
 		TranslateSubMenu(menu, "Frame Skipping", MENU_OPTIONS, SUBMENU_FRAME_SKIPPING, L"\tF7");
 		TranslateMenuItem(menu, ID_OPTIONS_FRAMESKIP_AUTO);
 		TranslateMenuItem(menu, ID_OPTIONS_FRAMESKIP_0);
+		TranslateMenuItem(menu, ID_OPTIONS_FRAMESKIP2_0);
 		// Skip frameskipping 1-8..
 		TranslateSubMenu(menu, "Texture Filtering", MENU_OPTIONS, SUBMENU_TEXTURE_FILTERING);
 		TranslateMenuItem(menu, ID_OPTIONS_TEXTUREFILTERING_AUTO);
@@ -522,9 +523,9 @@ namespace MainWindow {
 	}
 
 	static void setFrameSkipping(int framesToSkip = -1) {
-		if (framesToSkip >= FRAMESKIP_OFF)
+		if (framesToSkip >= FRAMESKIP_OFF) {
 			g_Config.iFrameSkip = framesToSkip;
-		else {
+		} else {
 			if (++g_Config.iFrameSkip > FRAMESKIP_MAX)
 				g_Config.iFrameSkip = FRAMESKIP_OFF;
 		}
@@ -532,12 +533,33 @@ namespace MainWindow {
 		I18NCategory *gr = GetI18NCategory("Graphics");
 
 		std::ostringstream messageStream;
-		messageStream << gr->T("Frame Skipping") << ":" << " ";
+		messageStream << gr->T("30fps Frame Skipping") << ":" << " ";
 
 		if (g_Config.iFrameSkip == FRAMESKIP_OFF)
 			messageStream << gr->T("Off");
 		else
 			messageStream << g_Config.iFrameSkip;
+
+		osm.Show(messageStream.str());
+	}
+
+	static void setFrameSkipping2(int framesToSkip = -1) {
+		if (framesToSkip >= FRAMESKIP_OFF) {
+			g_Config.iFrameSkip2 = framesToSkip;
+		} else {
+			if (++g_Config.iFrameSkip2 > FRAMESKIP_MAX)
+				g_Config.iFrameSkip2 = FRAMESKIP_OFF;
+		}
+
+		I18NCategory *gr = GetI18NCategory("Graphics");
+
+		std::ostringstream messageStream;
+		messageStream << gr->T("60fps Frame Skipping") << ":" << " ";
+
+		if (g_Config.iFrameSkip2 == FRAMESKIP_OFF)
+			messageStream << gr->T("Off");
+		else
+			messageStream << g_Config.iFrameSkip2;
 
 		osm.Show(messageStream.str());
 	}
@@ -825,8 +847,19 @@ namespace MainWindow {
 		case ID_OPTIONS_FRAMESKIP_7:    setFrameSkipping(FRAMESKIP_7); break;
 		case ID_OPTIONS_FRAMESKIP_8:    setFrameSkipping(FRAMESKIP_MAX); break;
 
+		case ID_OPTIONS_FRAMESKIP2_0:    setFrameSkipping2(FRAMESKIP_OFF); break;
+		case ID_OPTIONS_FRAMESKIP2_1:    setFrameSkipping2(FRAMESKIP_1); break;
+		case ID_OPTIONS_FRAMESKIP2_2:    setFrameSkipping2(FRAMESKIP_2); break;
+		case ID_OPTIONS_FRAMESKIP2_3:    setFrameSkipping2(FRAMESKIP_3); break;
+		case ID_OPTIONS_FRAMESKIP2_4:    setFrameSkipping2(FRAMESKIP_4); break;
+		case ID_OPTIONS_FRAMESKIP2_5:    setFrameSkipping2(FRAMESKIP_5); break;
+		case ID_OPTIONS_FRAMESKIP2_6:    setFrameSkipping2(FRAMESKIP_6); break;
+		case ID_OPTIONS_FRAMESKIP2_7:    setFrameSkipping2(FRAMESKIP_7); break;
+		case ID_OPTIONS_FRAMESKIP2_8:    setFrameSkipping2(FRAMESKIP_MAX); break;
+				
 		case ID_OPTIONS_FRAMESKIPDUMMY:
 			setFrameSkipping();
+			setFrameSkipping2();
 			break;
 
 		case ID_FILE_EXIT:
@@ -1076,6 +1109,7 @@ namespace MainWindow {
 		CHECKITEM(ID_OPTIONS_SHOWFPS, g_Config.iShowFPSCounter);
 		CHECKITEM(ID_OPTIONS_FRAMESKIP_AUTO, g_Config.bAutoFrameSkip);
 		CHECKITEM(ID_OPTIONS_FRAMESKIP, g_Config.iFrameSkip != FRAMESKIP_OFF);
+		CHECKITEM(ID_OPTIONS_FRAMESKIP2, g_Config.iFrameSkip2 != FRAMESKIP_OFF);
 		CHECKITEM(ID_OPTIONS_VSYNC, g_Config.bVSync);
 		CHECKITEM(ID_OPTIONS_TOPMOST, g_Config.bTopMost);
 		CHECKITEM(ID_OPTIONS_PAUSE_FOCUS, g_Config.bPauseOnLostFocus);
@@ -1248,16 +1282,34 @@ namespace MainWindow {
 			ID_OPTIONS_FRAMESKIP_7,
 			ID_OPTIONS_FRAMESKIP_8,
 		};
+		static const int frameskipping2[] = {
+			ID_OPTIONS_FRAMESKIP2_0,
+			ID_OPTIONS_FRAMESKIP2_1,
+			ID_OPTIONS_FRAMESKIP2_2,
+			ID_OPTIONS_FRAMESKIP2_3,
+			ID_OPTIONS_FRAMESKIP2_4,
+			ID_OPTIONS_FRAMESKIP2_5,
+			ID_OPTIONS_FRAMESKIP2_6,
+			ID_OPTIONS_FRAMESKIP2_7,
+			ID_OPTIONS_FRAMESKIP2_8,
+		};
 		if (g_Config.iFrameSkip < FRAMESKIP_OFF)
 			g_Config.iFrameSkip = FRAMESKIP_OFF;
-
 		else if (g_Config.iFrameSkip > FRAMESKIP_MAX)
 			g_Config.iFrameSkip = FRAMESKIP_MAX;
+
+		if (g_Config.iFrameSkip2 < FRAMESKIP_OFF)
+			g_Config.iFrameSkip2 = FRAMESKIP_OFF;
+		else if (g_Config.iFrameSkip2 > FRAMESKIP_MAX)
+			g_Config.iFrameSkip2 = FRAMESKIP_MAX;
 
 		for (int i = 0; i < ARRAY_SIZE(frameskipping); i++) {
 			CheckMenuItem(menu, frameskipping[i], MF_BYCOMMAND | ((i == g_Config.iFrameSkip) ? MF_CHECKED : MF_UNCHECKED));
 		}
-
+		for (int i = 0; i < ARRAY_SIZE(frameskipping2); i++) {
+			CheckMenuItem(menu, frameskipping2[i], MF_BYCOMMAND | ((i == g_Config.iFrameSkip2) ? MF_CHECKED : MF_UNCHECKED));
+		}
+		
 		static const int savestateSlot[] = {
 			ID_FILE_SAVESTATE_SLOT_1,
 			ID_FILE_SAVESTATE_SLOT_2,
