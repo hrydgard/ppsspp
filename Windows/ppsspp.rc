@@ -574,10 +574,12 @@ BEGIN
             MENUITEM "Non-Buffered Rendering",              ID_OPTIONS_NONBUFFEREDRENDERING
             MENUITEM "Buffered Rendering",                  ID_OPTIONS_BUFFEREDRENDERING
         END
-        POPUP "Frame Skipping"
+        POPUP "Auto Frame Skipping"
         BEGIN
-            MENUITEM "Auto",                                ID_OPTIONS_FRAMESKIP_AUTO
-            MENUITEM SEPARATOR
+            MENUITEM "On",                                ID_OPTIONS_FRAMESKIP_AUTO
+        END
+        POPUP "30fps Frame Skipping"
+        BEGIN
             MENUITEM "Off",                                 ID_OPTIONS_FRAMESKIP_0
             MENUITEM "&1",                                  ID_OPTIONS_FRAMESKIP_1
             MENUITEM "&2",                                  ID_OPTIONS_FRAMESKIP_2
@@ -587,6 +589,18 @@ BEGIN
             MENUITEM "&6",                                  ID_OPTIONS_FRAMESKIP_6
             MENUITEM "&7",                                  ID_OPTIONS_FRAMESKIP_7
             MENUITEM "&8",                                  ID_OPTIONS_FRAMESKIP_8
+        END
+        POPUP "60fps Frame Skipping"
+        BEGIN
+            MENUITEM "Off",                                 ID_OPTIONS_FRAMESKIP2_0
+            MENUITEM "&1",                                  ID_OPTIONS_FRAMESKIP2_1
+            MENUITEM "&2",                                  ID_OPTIONS_FRAMESKIP2_2
+            MENUITEM "&3",                                  ID_OPTIONS_FRAMESKIP2_3
+            MENUITEM "&4",                                  ID_OPTIONS_FRAMESKIP2_4
+            MENUITEM "&5",                                  ID_OPTIONS_FRAMESKIP2_5
+            MENUITEM "&6",                                  ID_OPTIONS_FRAMESKIP2_6
+            MENUITEM "&7",                                  ID_OPTIONS_FRAMESKIP2_7
+            MENUITEM "&8",                                  ID_OPTIONS_FRAMESKIP2_8
         END
         POPUP "Texture Filtering"
         BEGIN
