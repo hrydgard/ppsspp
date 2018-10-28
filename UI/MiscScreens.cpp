@@ -611,6 +611,28 @@ void CreditsScreen::render() {
 
 	I18NCategory *cr = GetI18NCategory("PSPCredits");
 
+	std::string specialthanksMaxim = "Maxim ";
+	specialthanksMaxim += cr->T("specialthanksMaxim", "for his amazing Atrac3+ decoder work");
+
+	std::string specialthanksKeithGalocy = "Keith Galocy ";
+	specialthanksKeithGalocy += cr->T("specialthanksKeithGalocy", "at NVIDIA (hardware, advice)");
+
+	std::string specialthanksOrphis = "Orphis (";
+	specialthanksOrphis += cr->T("build server");
+	specialthanksOrphis += ')';
+
+	std::string specialthanksangelxwind = "angelxwind (";
+	specialthanksangelxwind += cr->T("iOS builds");
+	specialthanksangelxwind += ')';
+
+	std::string specialthanksW_MS = "W.MS (";
+	specialthanksW_MS += cr->T("iOS builds");
+	specialthanksW_MS += ')';
+
+	std::string specialthankssolarmystic = "solarmystic (";
+	specialthankssolarmystic += cr->T("testing");
+	specialthankssolarmystic += ')';
+
 	const char * credits[] = {
 		"PPSSPP",
 		"",
@@ -664,13 +686,13 @@ void CreditsScreen::render() {
 		"zminhquanz",
 		"",
 		cr->T("specialthanks", "Special thanks to:"),
-		"Maxim for his amazing Atrac3+ decoder work",
-		"Keith Galocy at nVidia (hw, advice)",
-		"Orphis (build server)",
-		"angelxwind (iOS builds)",
-		"W.MS (iOS builds)",
-		"solarmystic (testing)",
-		"all the forum mods",
+		specialthanksMaxim.c_str(),
+		specialthanksKeithGalocy.c_str(),
+		specialthanksOrphis.c_str(),
+		specialthanksangelxwind.c_str(),
+		specialthanksW_MS.c_str(),
+		specialthankssolarmystic.c_str(),
+		cr->T("all the forum mods"),
 		"",
 		cr->T("this translation by", ""),   // Empty string as this is the original :)
 		cr->T("translators1", ""),
