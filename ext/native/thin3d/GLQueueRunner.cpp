@@ -376,7 +376,7 @@ void GLQueueRunner::InitCreateFramebuffer(const GLRInitStep &step) {
 #ifndef USING_GLES2
 	if (!gl_extensions.ARB_framebuffer_object && gl_extensions.EXT_framebuffer_object) {
 		fbo_ext_create(step);
-	} else if (!gl_extensions.ARB_framebuffer_object) {
+	} else if (!gl_extensions.ARB_framebuffer_object && !gl_extensions.IsGLES) {
 		return;
 	}
 	// If GLES2, we have basic FBO support and can just proceed.
@@ -577,7 +577,9 @@ void GLQueueRunner::PerformRenderPass(const GLRStep &step) {
 	glDisable(GL_DITHER);
 	glEnable(GL_SCISSOR_TEST);
 #ifndef USING_GLES2
-	glDisable(GL_COLOR_LOGIC_OP);
+	if (!gl_extensions.IsGLES) {
+		glDisable(GL_COLOR_LOGIC_OP);
+	}
 #endif
 
 	/*
@@ -621,6 +623,7 @@ void GLQueueRunner::PerformRenderPass(const GLRStep &step) {
 
 	GLRTexture *curTex[8]{};
 
+	CHECK_GL_ERROR_IF_DEBUG();
 	auto &commands = step.commands;
 	for (const auto &c : commands) {
 		switch (c.cmd) {
@@ -720,7 +723,11 @@ void GLQueueRunner::PerformRenderPass(const GLRStep &step) {
 #if defined(USING_GLES2)
 				glClearDepthf(c.clear.clearZ);
 #else
-				glClearDepth(c.clear.clearZ);
+				if (gl_extensions.IsGLES) {
+					glClearDepthf(c.clear.clearZ);
+				} else {
+					glClearDepth(c.clear.clearZ);
+				}
 #endif
 			}
 			if (c.clear.clearMask & GL_STENCIL_BUFFER_BIT) {
@@ -758,7 +765,11 @@ void GLQueueRunner::PerformRenderPass(const GLRStep &step) {
 			// TODO: Support FP viewports through glViewportArrays
 			glViewport((GLint)c.viewport.vp.x, (GLint)y, (GLsizei)c.viewport.vp.w, (GLsizei)c.viewport.vp.h);
 #if !defined(USING_GLES2)
-			glDepthRange(c.viewport.vp.minZ, c.viewport.vp.maxZ);
+			if (gl_extensions.IsGLES) {
+				glDepthRangef(c.viewport.vp.minZ, c.viewport.vp.maxZ);
+			} else {
+				glDepthRange(c.viewport.vp.minZ, c.viewport.vp.maxZ);
+			}
 #else
 			glDepthRangef(c.viewport.vp.minZ, c.viewport.vp.maxZ);
 #endif
@@ -998,7 +1009,7 @@ void GLQueueRunner::PerformRenderPass(const GLRStep &step) {
 				break;
 			}
 #ifndef USING_GLES2
-			if (tex->lodBias != c.textureLod.lodBias) {
+			if (tex->lodBias != c.textureLod.lodBias && !gl_extensions.IsGLES) {
 				glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_LOD_BIAS, c.textureLod.lodBias);
 				tex->lodBias = c.textureLod.lodBias;
 			}
@@ -1066,7 +1077,9 @@ void GLQueueRunner::PerformRenderPass(const GLRStep &step) {
 	glDisable(GL_BLEND);
 	glDisable(GL_CULL_FACE);
 #ifndef USING_GLES2
-	glDisable(GL_COLOR_LOGIC_OP);
+	if (!gl_extensions.IsGLES) {
+		glDisable(GL_COLOR_LOGIC_OP);
+	}
 #endif
 	glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
 	CHECK_GL_ERROR_IF_DEBUG();

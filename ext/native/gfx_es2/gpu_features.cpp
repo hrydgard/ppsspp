@@ -214,6 +214,13 @@ void CheckGLExtensions() {
 		}
 	}
 
+#ifndef USING_GLES2
+	if (strstr(versionStr, "OpenGL ES") == versionStr) {
+		// For desktops running GLES.
+		gl_extensions.IsGLES = true;
+	}
+#endif
+
 	if (!gl_extensions.IsGLES) { // For desktop GL
 		gl_extensions.ver[0] = parsed[0];
 		gl_extensions.ver[1] = parsed[1];
@@ -232,7 +239,6 @@ void CheckGLExtensions() {
 		// Start by assuming we're at 2.0.
 		gl_extensions.ver[0] = 2;
 
-#ifdef USING_GLES2
 #ifdef GL_MAJOR_VERSION
 		// Before grabbing the values, reset the error.
 		glGetError();
@@ -254,6 +260,7 @@ void CheckGLExtensions() {
 #endif
 
 		// If the above didn't give us a version, or gave us a crazy version, fallback.
+#ifdef USING_GLES2
 		if (gl_extensions.ver[0] < 3 || gl_extensions.ver[0] > 5) {
 			// Try to load GLES 3.0 only if "3.0" found in version
 			// This simple heuristic avoids issues on older devices where you can only call eglGetProcAddress a limited
@@ -281,6 +288,9 @@ void CheckGLExtensions() {
 				gl_extensions.GLES3 = gl3stubInit();
 			}
 		}
+#else
+		// If we have GLEW/similar, assume GLES3 loaded.
+		gl_extensions.GLES3 = gl_extensions.ver[0] >= 3;
 #endif
 
 		if (gl_extensions.GLES3) {
