@@ -2064,8 +2064,8 @@ void FramebufferManagerCommon::PackFramebufferSync_(VirtualFramebuffer *vfb, int
 
 	const int dstByteOffset = (y * vfb->fb_stride + x) * dstBpp;
 
-	if (!Memory::IsValidRange(fb_address + dstByteOffset, (h * vfb->fb_stride + w) * dstBpp)) {
-		ERROR_LOG(G3D, "PackFramebufferSync_ would read outside of memory, ignoring");
+	if (!Memory::IsValidRange(fb_address + dstByteOffset, ((h - 1) * vfb->fb_stride + w) * dstBpp)) {
+		ERROR_LOG(G3D, "PackFramebufferSync_ would write outside of memory, ignoring");
 		return;
 	}
 
