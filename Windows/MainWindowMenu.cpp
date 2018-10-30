@@ -533,13 +533,14 @@ namespace MainWindow {
 		I18NCategory *gr = GetI18NCategory("Graphics");
 
 		std::ostringstream messageStream;
-		messageStream << gr->T("30fps Frame Skipping") << ":" << " ";
+		messageStream << gr->T("Frame Skipping #") << ":" << " ";
 
 		if (g_Config.iFrameSkip == FRAMESKIP_OFF)
 			messageStream << gr->T("Off");
-		else
+		else {
+			g_Config.iFrameSkip2 = 0;
 			messageStream << g_Config.iFrameSkip;
-
+		}
 		osm.Show(messageStream.str());
 	}
 
@@ -554,13 +555,15 @@ namespace MainWindow {
 		I18NCategory *gr = GetI18NCategory("Graphics");
 
 		std::ostringstream messageStream;
-		messageStream << gr->T("60fps Frame Skipping") << ":" << " ";
+		messageStream << gr->T("Frame Skipping %") << ":" << " ";
 
 		if (g_Config.iFrameSkip2 == FRAMESKIP_OFF)
 			messageStream << gr->T("Off");
-		else
+		else {
+			g_Config.iFrameSkip = 0;
 			messageStream << g_Config.iFrameSkip2;
-
+		}
+		
 		osm.Show(messageStream.str());
 	}
 
