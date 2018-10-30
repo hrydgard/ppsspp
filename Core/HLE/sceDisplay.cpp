@@ -554,7 +554,7 @@ static void DoFrameTiming(bool &throttle, bool &skipFrame, float timestep) {
 	bool useAutoFrameskip = g_Config.bAutoFrameSkip && g_Config.iRenderingMode != FB_NON_BUFFERED_MODE;
 	bool forceFrameskip = (fpsLimiter == FPSLimit::CUSTOM1 && g_Config.iFpsLimit1 > 60) || (fpsLimiter == FPSLimit::CUSTOM2 && g_Config.iFpsLimit2 > 60);
 	int frameSkipNum;
-	if (flips < 50) { frameSkipNum = g_Config.iFrameSkip; } else { frameSkipNum = g_Config.iFrameSkip2; }
+	if (g_Config.iFrameSkip2 > 0) { frameSkipNum = ceil( flips * (static_cast<double>(g_Config.iFrameSkip2) / 100.00) ); } else { frameSkipNum = g_Config.iFrameSkip; }
 	if (g_Config.bAutoFrameSkip || forceFrameskip) {
 		// autoframeskip
 		// Argh, we are falling behind! Let's skip a frame and see if we catch up.
@@ -737,7 +737,7 @@ void __DisplayFlip(int cyclesLate) {
 
 		int maxFrameskip = 8;
 		int frameSkipNum;
-		if (flips < 50) { frameSkipNum = g_Config.iFrameSkip; } else { frameSkipNum = g_Config.iFrameSkip2; }
+		if (g_Config.iFrameSkip2 > 0) { frameSkipNum = ceil( flips * (static_cast<double>(g_Config.iFrameSkip2) / 100.00) ); } else { frameSkipNum = g_Config.iFrameSkip; }
 		
 		if (throttle) {
 			// 4 here means 1 drawn, 4 skipped - so 12 fps minimum.
