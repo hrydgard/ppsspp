@@ -537,10 +537,9 @@ namespace MainWindow {
 
 		if (g_Config.iFrameSkip == FRAMESKIP_OFF)
 			messageStream << gr->T("Off");
-		else {
-			g_Config.iFrameSkip2 = 0;
+		else
 			messageStream << g_Config.iFrameSkip;
-		}
+
 		osm.Show(messageStream.str());
 	}
 
@@ -559,10 +558,8 @@ namespace MainWindow {
 
 		if (g_Config.iFrameSkip2 == FRAMESKIP_OFF)
 			messageStream << gr->T("Off");
-		else {
-			g_Config.iFrameSkip = 0;
+		else
 			messageStream << g_Config.iFrameSkip2;
-		}
 		
 		osm.Show(messageStream.str());
 	}
