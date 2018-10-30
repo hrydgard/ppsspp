@@ -169,8 +169,8 @@ static RetroOption<int> ppsspp_language("ppsspp_language", "Language", { { "auto
 static RetroOption<int> ppsspp_rendering_mode("ppsspp_rendering_mode", "Rendering Mode", { { "buffered", FB_BUFFERED_MODE }, { "nonbuffered", FB_NON_BUFFERED_MODE } });
 static RetroOption<bool> ppsspp_true_color("ppsspp_true_color", "True Color Depth", true);
 static RetroOption<bool> ppsspp_auto_frameskip("ppsspp_auto_frameskip", "Auto Frameskip", false);
-static RetroOption<int> ppsspp_frameskip("ppsspp_frameskip", "30fps Frameskip", 0, 10);
-static RetroOption<int> ppsspp_frameskip2("ppsspp_frameskip2", "60fps Frameskip", 0, 10);
+static RetroOption<int> ppsspp_frameskip("ppsspp_frameskip", "Frameskip #", 0, 10);
+static RetroOption<int> ppsspp_frameskip2("ppsspp_frameskip2", "Frameskip %", 0, 10);
 static RetroOption<int> ppsspp_force_max_fps("ppsspp_force_max_fps", "Force Max FPS", { { "disabled", 0 }, { "enabled", 60 } });
 static RetroOption<int> ppsspp_audio_latency("ppsspp_audio_latency", "Audio latency", { "low", "medium", "high" });
 static RetroOption<int> ppsspp_internal_resolution("ppsspp_internal_resolution", "Internal Resolution", 1, { "480x272", "960x544", "1440x816", "1920x1088", "2400x1360", "2880x1632", "3360x1904", "3840x2176", "4320x2448", "4800x2720" });
