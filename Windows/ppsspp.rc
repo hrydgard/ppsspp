@@ -578,7 +578,7 @@ BEGIN
         BEGIN
             MENUITEM "On",                                ID_OPTIONS_FRAMESKIP_AUTO
         END
-        POPUP "30fps Frame Skipping"
+        POPUP "Frame Skipping #"
         BEGIN
             MENUITEM "Off",                                 ID_OPTIONS_FRAMESKIP_0
             MENUITEM "&1",                                  ID_OPTIONS_FRAMESKIP_1
@@ -590,7 +590,7 @@ BEGIN
             MENUITEM "&7",                                  ID_OPTIONS_FRAMESKIP_7
             MENUITEM "&8",                                  ID_OPTIONS_FRAMESKIP_8
         END
-        POPUP "60fps Frame Skipping"
+        POPUP "Frame Skipping %"
         BEGIN
             MENUITEM "Off",                                 ID_OPTIONS_FRAMESKIP2_0
             MENUITEM "&1",                                  ID_OPTIONS_FRAMESKIP2_1
