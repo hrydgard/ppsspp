@@ -709,7 +709,7 @@ bool PipelineManagerVulkan::LoadCache(FILE *file, bool loadRawPipelineCache, Sha
 
 	NOTICE_LOG(G3D, "Creating %d pipelines...", size);
 	for (uint32_t i = 0; i < size; i++) {
-		if (failed) {
+		if (failed || cancelCache_) {
 			break;
 		}
 		StoredVulkanPipelineKey key;
@@ -741,4 +741,8 @@ bool PipelineManagerVulkan::LoadCache(FILE *file, bool loadRawPipelineCache, Sha
 	}
 	NOTICE_LOG(G3D, "Recreated Vulkan pipeline cache (%d pipelines).", (int)size);
 	return true;
+}
+
+void PipelineManagerVulkan::CancelCache() {
+	cancelCache_ = true;
 }

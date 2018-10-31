@@ -107,9 +107,11 @@ bool GPU_Init(GraphicsContext *ctx, Draw::DrawContext *draw) {
 
 void GPU_Shutdown() {
 	// Wait for IsReady, since it might be running on a thread.
-	// Potentially we could set a flag to try to early quit.
-	while (gpu && !gpu->IsReady()) {
-		sleep_ms(10);
+	if (gpu) {
+		gpu->CancelReady();
+		while (!gpu->IsReady()) {
+			sleep_ms(10);
+		}
 	}
 	delete gpu;
 	gpu = nullptr;

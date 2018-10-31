@@ -990,6 +990,10 @@ bool ShaderManagerGLES::ContinuePrecompile(float sliceTime) {
 	return true;
 }
 
+void ShaderManagerGLES::CancelPrecompile() {
+	diskCachePending_.Clear();
+}
+
 void ShaderManagerGLES::Save(const std::string &filename) {
 	if (!diskCacheDirty_) {
 		return;
