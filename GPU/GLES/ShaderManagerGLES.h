@@ -179,6 +179,7 @@ public:
 
 	void Load(const std::string &filename);
 	bool ContinuePrecompile(float sliceTime = 1.0f / 60.0f);
+	void CancelPrecompile();
 	void Save(const std::string &filename);
 
 private:

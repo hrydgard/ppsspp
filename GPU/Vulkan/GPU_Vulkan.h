@@ -39,6 +39,7 @@ public:
 	void CheckGPUFeatures() override;
 
 	bool IsReady() override;
+	void CancelReady() override;
 
 	// These are where we can reset command buffers etc.
 	void BeginHostFrame() override;
