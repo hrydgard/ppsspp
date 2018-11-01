@@ -17,6 +17,7 @@
 
 #include <algorithm>
 
+#include "base/display.h"
 #include "gfx_es2/gpu_features.h"
 #include "i18n/i18n.h"
 #include "ui/ui_context.h"
@@ -440,6 +441,15 @@ void SystemInfoScreen::CreateViews() {
 	deviceSpecs->Add(new InfoItem(si->T("Refresh rate"), StringFromFormat("%0.3f Hz", (float)System_GetPropertyInt(SYSPROP_DISPLAY_REFRESH_RATE) / 1000.0f)));
 #endif
 
+#if 0
+	// For debugging, DO NOT translate
+	deviceSpecs->Add(new InfoItem("Resolution1",
+		StringFromFormat("dp: %dx%d px: %dx%d dpi_s: %0.1fx%0.1f",
+			dp_xres, dp_yres, pixel_xres, pixel_yres, g_dpi_scale_x, g_dpi_scale_y)));
+	deviceSpecs->Add(new InfoItem("Resolution2",
+		StringFromFormat("dpi_s_r: %0.1fx%0.1f px_in_dp: %0.1fx%0.1f",
+			g_dpi_scale_real_x, g_dpi_scale_real_y, pixel_in_dps_x, pixel_in_dps_y)));
+#endif
 
 	deviceSpecs->Add(new ItemHeader(si->T("Version Information")));
 	std::string apiVersion;

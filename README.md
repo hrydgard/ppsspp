@@ -23,6 +23,11 @@ For build instructions and other development tutorials, see [the wiki](https://g
 
 For game compatibility, see [community compatibility feedback](https://report.ppsspp.org/games).
 
+What's new in 1.7.1
+-------------------
+* Minor crashfixes, lang updates
+* Save bug fixed (#11508)
+
 What's new in 1.7.0
 -------------------
 * Fix for insta-crash on Galaxy Note 9, some Xiaomi devices, and the new nVidia Shield (#11441)
