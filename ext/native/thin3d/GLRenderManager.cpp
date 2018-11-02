@@ -844,7 +844,7 @@ void *GLRBuffer::Map(GLBufferStrategy strategy) {
 		} else if (gl_extensions.VersionGEThan(3, 0, 0)) {
 			// GLES3 or desktop 3.
 			p = glMapBufferRange(target_, 0, size_, access);
-		} else {
+		} else if (!gl_extensions.IsGLES) {
 #ifndef USING_GLES2
 			p = glMapBuffer(target_, GL_READ_WRITE);
 #endif
