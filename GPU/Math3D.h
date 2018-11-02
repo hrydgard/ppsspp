@@ -25,6 +25,9 @@
 
 #if defined(_M_SSE)
 #include <emmintrin.h>
+#if _M_SSE >= 0x401
+#include <smmintrin.h>
+#endif
 #endif
 
 namespace Math3D {
@@ -177,8 +180,6 @@ public:
 	const Vec2 ts() const { return Vec2(y, x); }
 };
 
-typedef Vec2<float> Vec2f;
-
 template<typename T>
 class Vec3Packed;
 
@@ -295,7 +296,7 @@ public:
 	void SetLength(const float l);
 	Vec3 WithLength(const float l) const;
 	float Distance2To(Vec3 &other);
-	Vec3 Normalized() const;
+	Vec3 Normalized(bool useSSE4 = false) const;
 	float Normalize(); // returns the previous length, which is often useful
 
 	T& operator [] (int i) //allow vector[2] = 3   (vector.z=3)
@@ -817,6 +818,7 @@ private:
 
 }; // namespace Math3D
 
+typedef Math3D::Vec2<float> Vec2f;
 typedef Math3D::Vec3<float> Vec3f;
 typedef Math3D::Vec3Packed<float> Vec3Packedf;
 typedef Math3D::Vec4<float> Vec4f;
@@ -1081,6 +1083,69 @@ __forceinline void Vec4<T>::ToRGBA(u8 *rgba) const
 {
 	*(u32 *)rgba = ToRGBA();
 }
+
+#if defined(_M_SSE)
+// Specialized for SIMD optimization
+
+// Vec3<float> operation
+template<>
+inline void Vec3<float>::operator += (const Vec3<float> &other)
+{
+	vec = _mm_add_ps(vec, other.vec);
+}
+
+template<>
+inline Vec3<float> Vec3<float>::operator + (const Vec3 &other) const
+{
+	return Vec3<float>(_mm_add_ps(vec, other.vec));
+}
+
+template<>
+inline Vec3<float> Vec3<float>::operator * (const Vec3 &other) const
+{
+	return Vec3<float>(_mm_mul_ps(vec, other.vec));
+}
+
+template<> template<>
+inline Vec3<float> Vec3<float>::operator * (const float &other) const
+{
+	return Vec3<float>(_mm_mul_ps(vec, _mm_set_ps1(other)));
+}
+
+// Vec4<float> operation
+template<>
+inline void Vec4<float>::operator += (const Vec4<float> &other)
+{
+	vec = _mm_add_ps(vec, other.vec);
+}
+
+template<>
+inline Vec4<float> Vec4<float>::operator + (const Vec4 &other) const
+{
+	return Vec4<float>(_mm_add_ps(vec, other.vec));
+}
+
+template<>
+inline Vec4<float> Vec4<float>::operator * (const Vec4 &other) const
+{
+	return Vec4<float>(_mm_mul_ps(vec, other.vec));
+}
+
+template<> template<>
+inline Vec4<float> Vec4<float>::operator * (const float &other) const
+{
+	return Vec4<float>(_mm_mul_ps(vec, _mm_set_ps1(other)));
+}
+
+// Vec3<float> cross product
+template<>
+inline Vec3<float> Cross(const Vec3<float> &a, const Vec3<float> &b)
+{
+	const __m128 left = _mm_mul_ps(_mm_shuffle_ps(a.vec, a.vec, _MM_SHUFFLE(3, 0, 2, 1)), _mm_shuffle_ps(b.vec, b.vec, _MM_SHUFFLE(3, 1, 0, 2)));
+	const __m128 right = _mm_mul_ps(_mm_shuffle_ps(a.vec, a.vec, _MM_SHUFFLE(3, 1, 0, 2)), _mm_shuffle_ps(b.vec, b.vec, _MM_SHUFFLE(3, 0, 2, 1)));
+	return _mm_sub_ps(left, right);
+}
+#endif
 
 }; // namespace Math3D
 

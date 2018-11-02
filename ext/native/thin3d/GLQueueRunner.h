@@ -20,6 +20,7 @@ struct GLOffset2D {
 };
 
 enum class GLRAllocType {
+	NONE,
 	NEW,
 	ALIGNED,
 };
@@ -57,6 +58,7 @@ enum class GLRRenderCommand : uint8_t {
 	DRAW,
 	DRAW_INDEXED,
 	PUSH_CONSTANTS,
+	TEXTURE_SUBIMAGE,
 };
 
 // TODO: Bloated since the biggest struct decides the size. Will need something more efficient (separate structs with shared
@@ -138,6 +140,18 @@ struct GLRRenderData {
 			int slot;
 			GLRTexture *texture;
 		} texture;
+		struct {
+			GLRTexture *texture;
+			GLenum format;
+			GLenum type;
+			int level;
+			int x;
+			int y;
+			int width;
+			int height;
+			GLRAllocType allocType;
+			uint8_t *data;  // owned, delete[]-d
+		} texture_subimage;
 		struct {
 			int slot;
 			GLRFramebuffer *framebuffer;

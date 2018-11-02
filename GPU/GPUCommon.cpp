@@ -1725,8 +1725,6 @@ bail:
 }
 
 void GPUCommon::Execute_Bezier(u32 op, u32 diff) {
-	drawEngineCommon_->DispatchFlush();
-
 	// We don't dirty on normal changes anymore as we prescale, but it's needed for splines/bezier.
 	gstate_c.Dirty(DIRTY_UVSCALEOFFSET);
 
@@ -1767,9 +1765,9 @@ void GPUCommon::Execute_Bezier(u32 op, u32 diff) {
 	if (CanUseHardwareTessellation(patchPrim)) {
 		gstate_c.Dirty(DIRTY_VERTEXSHADER_STATE);
 		gstate_c.bezier = true;
-		if (gstate_c.spline_count_u != bz_ucount) {
+		if (gstate_c.spline_num_points_u != bz_ucount) {
 			gstate_c.Dirty(DIRTY_BEZIERSPLINE);
-			gstate_c.spline_count_u = bz_ucount;
+			gstate_c.spline_num_points_u = bz_ucount;
 		}
 	}
 
@@ -1787,8 +1785,6 @@ void GPUCommon::Execute_Bezier(u32 op, u32 diff) {
 }
 
 void GPUCommon::Execute_Spline(u32 op, u32 diff) {
-	drawEngineCommon_->DispatchFlush();
-
 	// We don't dirty on normal changes anymore as we prescale, but it's needed for splines/bezier.
 	gstate_c.Dirty(DIRTY_UVSCALEOFFSET);
 
@@ -1831,14 +1827,9 @@ void GPUCommon::Execute_Spline(u32 op, u32 diff) {
 	if (CanUseHardwareTessellation(patchPrim)) {
 		gstate_c.Dirty(DIRTY_VERTEXSHADER_STATE);
 		gstate_c.spline = true;
-		bool countsChanged = gstate_c.spline_count_u != sp_ucount || gstate_c.spline_count_v != sp_vcount;
-		bool typesChanged = gstate_c.spline_type_u != sp_utype || gstate_c.spline_type_v != sp_vtype;
-		if (countsChanged || typesChanged) {
+		if (gstate_c.spline_num_points_u != sp_ucount) {
 			gstate_c.Dirty(DIRTY_BEZIERSPLINE);
-			gstate_c.spline_count_u = sp_ucount;
-			gstate_c.spline_count_v = sp_vcount;
-			gstate_c.spline_type_u = sp_utype;
-			gstate_c.spline_type_v = sp_vtype;
+			gstate_c.spline_num_points_u = sp_ucount;
 		}
 	}
 

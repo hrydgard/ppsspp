@@ -419,11 +419,10 @@ void GameSettingsScreen::CreateViews() {
 			}
 			return UI::EVENT_CONTINUE;
 		});
-		beziersChoice->SetDisabledPtr(&g_Config.bHardwareTessellation);
 
 		CheckBox *tessellationHW = graphicsSettings->Add(new CheckBox(&g_Config.bHardwareTessellation, gr->T("Hardware Tessellation", "Hardware tessellation (experimental)")));
 		tessellationHW->OnClick.Add([=](EventParams &e) {
-			settingInfo_->Show(gr->T("HardwareTessellation Tip", "Uses hardware to make curves, always uses a fixed quality"), e.v);
+			settingInfo_->Show(gr->T("HardwareTessellation Tip", "Uses hardware to make curves"), e.v);
 			return UI::EVENT_CONTINUE;
 		});
 		tessHWEnable_ = DoesBackendSupportHWTess() && !g_Config.bSoftwareRendering && g_Config.bHardwareTransform;

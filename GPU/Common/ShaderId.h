@@ -24,7 +24,7 @@ enum {
 	VS_BIT_HAS_COLOR_TESS = 12,  // 1 bit
 	VS_BIT_HAS_TEXCOORD_TESS = 13,  // 1 bit
 	VS_BIT_NORM_REVERSE_TESS = 14, // 1 bit
-	// 15 is free.
+	VS_BIT_HAS_NORMAL_TESS = 15, // 1 bit
 	VS_BIT_UVGEN_MODE = 16,
 	VS_BIT_UVPROJ_MODE = 18,  // 2, can overlap with LS0
 	VS_BIT_LS0 = 18,  // 2

@@ -46,9 +46,9 @@ enum {
 	TEX_SLOT_SHADERBLEND_SRC = 1,
 	TEX_SLOT_ALPHATEST = 2,
 	TEX_SLOT_CLUT = 3,
-	TEX_SLOT_SPLINE_POS = 4,
-	TEX_SLOT_SPLINE_NRM = 5,
-	TEX_SLOT_SPLINE_COL = 6,
+	TEX_SLOT_SPLINE_POINTS = 4,
+	TEX_SLOT_SPLINE_WEIGHTS_U = 5,
+	TEX_SLOT_SPLINE_WEIGHTS_V = 6,
 };
 
 
@@ -108,6 +108,23 @@ public:
 	int lastFrame;  // So that we can forget.
 	u16 drawsUntilNextFullHash;
 	u8 flags;
+};
+
+class TessellationDataTransferGLES : public TessellationDataTransfer {
+private:
+	GLRTexture *data_tex[3]{};
+	int prevSizeU = 0, prevSizeV = 0;
+	int prevSizeWU = 0, prevSizeWV = 0;
+	GLRenderManager *renderManager_;
+public:
+	TessellationDataTransferGLES(GLRenderManager *renderManager)
+			: renderManager_(renderManager) { }
+	~TessellationDataTransferGLES() {
+		EndFrame();
+	}
+	// Send spline/bezier's control points and weights to vertex shader through floating point texture.
+	void SendDataToShader(const SimpleVertex *const *points, int size_u, int size_v, u32 vertType, const Spline::Weight2D &weights) override;
+	void EndFrame();  // Queues textures for deletion.
 };
 
 // Handles transform, lighting and drawing.
@@ -208,17 +225,5 @@ private:
 	int bufferDecimationCounter_ = 0;
 
 	// Hardware tessellation
-	class TessellationDataTransferGLES : public TessellationDataTransfer {
-	private:
-		GLRTexture *data_tex[3]{};
-		GLRenderManager *renderManager_;
-	public:
-		TessellationDataTransferGLES(GLRenderManager *renderManager)
-			  : renderManager_(renderManager) { }
-		~TessellationDataTransferGLES() {
-			EndFrame();
-		}
-		void SendDataToShader(const float *pos, const float *tex, const float *col, int size, bool hasColor, bool hasTexCoords) override;
-		void EndFrame() override;  // Queues textures for deletion.
-	};
+	TessellationDataTransferGLES *tessDataTransferGLES;
 };
