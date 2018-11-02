@@ -164,6 +164,7 @@
 #define IDC_GEDBG_FORCEOPAQUE           1197
 #define IDC_GEDBG_SHOWCLUT              1198
 #define IDC_BREAKPOINT_LOG_FORMAT       1199
+#define IDC_SHOWOFFSETS                 1200
 
 #define ID_SHADERS_BASE  5000
 

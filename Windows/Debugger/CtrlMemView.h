@@ -19,6 +19,16 @@
 
 #include "../../Core/Debugger/DebugInterface.h"
 
+enum OffsetSpacing {
+	offsetSpace = 3, // the number of blank lines that should be left to make space for the offsets
+	offsetLine  = 1, // the line on which the offsets should be written
+};
+
+enum OffsetToggles {
+	On,
+	Off,
+};
+
 class CtrlMemView
 {
 	HWND wnd;
@@ -30,6 +40,7 @@ class CtrlMemView
 	unsigned int windowStart;
 	int rowHeight;
 	int rowSize;
+	int offsetPositionY;
 
 	int addressStart;
 	int charWidth;
@@ -37,6 +48,8 @@ class CtrlMemView
 	int asciiStart;
 	bool asciiSelected;
 	int selectedNibble;
+
+	bool displayOffsetScale = false;
 
 	int visibleRows;
 	
@@ -79,4 +92,7 @@ public:
 	void gotoAddr(unsigned int addr);
 	void scrollWindow(int lines);
 	void scrollCursor(int bytes);
+
+	void drawOffsetScale(HDC hdc);
+	void toggleOffsetScale(OffsetToggles toggle);
 };
