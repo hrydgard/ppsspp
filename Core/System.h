@@ -79,6 +79,12 @@ void PSP_RunLoopFor(int cycles);
 void PSP_SetLoading(const std::string &reason);
 std::string PSP_GetLoading();
 
+// Used to wait for background loading thread.
+struct PSP_LoadingLock {
+	PSP_LoadingLock();
+	~PSP_LoadingLock();
+};
+
 // Call before PSP_BeginHostFrame() in order to not miss any GPU stats.
 void Core_UpdateDebugStats(bool collectStats);
 

@@ -82,6 +82,9 @@ ParamSFOData g_paramSFO;
 static GlobalUIState globalUIState;
 static CoreParameter coreParameter;
 static FileLoader *loadedFile;
+// For background loading thread.
+static std::mutex loadingLock;
+// For loadingReason updates.
 static std::mutex loadingReasonLock;
 static std::string loadingReason;
 
@@ -255,7 +258,18 @@ void CPU_Init() {
 	}
 }
 
+PSP_LoadingLock::PSP_LoadingLock() {
+	loadingLock.lock();
+}
+
+PSP_LoadingLock::~PSP_LoadingLock() {
+	loadingLock.unlock();
+}
+
 void CPU_Shutdown() {
+	// Since we load on a background thread, wait for startup to complete.
+	PSP_LoadingLock lock;
+
 	if (g_Config.bAutoSaveSymbolMap) {
 		host->SaveSymbolMap();
 	}
