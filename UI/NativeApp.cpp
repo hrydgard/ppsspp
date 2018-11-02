@@ -35,7 +35,7 @@
 #include <thread>
 
 #if defined(_WIN32)
-#include "Windows/DSoundStream.h"
+#include "Windows/WindowsAudio.h"
 #include "Windows/MainWindow.h"
 #endif
 
@@ -133,6 +133,7 @@ static UI::Theme ui_theme;
 ScreenManager *screenManager;
 std::string config_filename;
 
+bool g_graphicsIniting;
 bool g_graphicsInited;
 
 // Really need to clean this mess of globals up... but instead I add more :P
@@ -224,6 +225,10 @@ std::string NativeQueryConfig(std::string query) {
 		return std::string(g_Config.bImmersiveMode ? "1" : "0");
 	} else if (query == "hwScale") {
 		int scale = g_Config.iAndroidHwScale;
+		// Override hw scale for TV type devices.
+		if (System_GetPropertyInt(SYSPROP_DEVICE_TYPE) == DEVICE_TYPE_TV)
+			scale = 0;
+
 		if (scale == 1) {
 			// If g_Config.iInternalResolution is also set to Auto (1), we fall back to "Device resolution" (0). It works out.
 			scale = g_Config.iInternalResolution;
@@ -347,6 +352,12 @@ void CreateDirectoriesAndroid() {
 }
 
 static void CheckFailedGPUBackends() {
+#ifdef _DEBUG
+	// If you're in debug mode, you probably don't want a fallback. If you're in release mode, use IGNORE below.
+	WARN_LOG(LOADER, "Not checking for failed graphics backends in debug mode");
+	return;
+#endif
+
 	// We only want to do this once per process run and backend, to detect process crashes.
 	// If NativeShutdown is called before we finish, we might call this multiple times.
 	static int lastBackend = -1;
@@ -743,6 +754,7 @@ static void UIThemeInit() {
 void RenderOverlays(UIContext *dc, void *userdata);
 
 bool NativeInitGraphics(GraphicsContext *graphicsContext) {
+	g_graphicsIniting = true;
 	ILOG("NativeInitGraphics");
 	_assert_msg_(G3D, graphicsContext, "No graphics context!");
 
@@ -819,6 +831,7 @@ bool NativeInitGraphics(GraphicsContext *graphicsContext) {
 		gpu->DeviceRestore();
 
 	g_graphicsInited = true;
+	g_graphicsIniting = false;
 	ILOG("NativeInitGraphics completed");
 	return true;
 }
@@ -1246,7 +1259,7 @@ void NativeMessageReceived(const char *message, const char *value) {
 
 void NativeResized() {
 	// NativeResized can come from any thread so we just set a flag, then process it later.
-	if (g_graphicsInited) {
+	if (g_graphicsInited || g_graphicsIniting) {
 		resized = true;
 	} else {
 		ILOG("NativeResized ignored, not initialized");

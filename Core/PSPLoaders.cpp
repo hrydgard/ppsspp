@@ -247,6 +247,7 @@ bool Load_PSP_ISO(FileLoader *fileLoader, std::string *error_string) {
 		} else {
 			*error_string = "A PSP game couldn't be found on the disc.";
 		}
+		coreState = CORE_ERROR;
 		return false;
 	}
 
@@ -257,6 +258,10 @@ bool Load_PSP_ISO(FileLoader *fileLoader, std::string *error_string) {
 
 	std::thread th([bootpath] {
 		setCurrentThreadName("ExecLoader");
+		PSP_LoadingLock guard;
+		if (coreState != CORE_POWERUP)
+			return;
+
 		PSP_SetLoading("Loading executable...");
 		// TODO: We can't use the initial error_string pointer.
 		bool success = __KernelLoadExec(bootpath.c_str(), 0, &PSP_CoreParameter().errorString);
@@ -327,6 +332,7 @@ bool Load_PSP_ELF_PBP(FileLoader *fileLoader, std::string *error_string) {
 		// If root is not a subpath of path, we can't boot the game.
 		if (!startsWith(pathNorm, rootNorm)) {
 			*error_string = "Cannot boot ELF located outside mountRoot.";
+			coreState = CORE_ERROR;
 			return false;
 		}
 
@@ -374,6 +380,11 @@ bool Load_PSP_ELF_PBP(FileLoader *fileLoader, std::string *error_string) {
 	// End of temporary code
 
 	std::thread th([finalName] {
+		setCurrentThreadName("ExecLoader");
+		PSP_LoadingLock guard;
+		if (coreState != CORE_POWERUP)
+			return;
+
 		bool success = __KernelLoadExec(finalName.c_str(), 0, &PSP_CoreParameter().errorString);
 		if (success && coreState == CORE_POWERUP) {
 			coreState = PSP_CoreParameter().startBreak ? CORE_STEPPING : CORE_RUNNING;
@@ -392,6 +403,11 @@ bool Load_PSP_GE_Dump(FileLoader *fileLoader, std::string *error_string) {
 	pspFileSystem.Mount("disc0:", umd);
 
 	std::thread th([] {
+		setCurrentThreadName("ExecLoader");
+		PSP_LoadingLock guard;
+		if (coreState != CORE_POWERUP)
+			return;
+
 		bool success = __KernelLoadGEDump("disc0:/data.ppdmp", &PSP_CoreParameter().errorString);
 		if (success && coreState == CORE_POWERUP) {
 			coreState = PSP_CoreParameter().startBreak ? CORE_STEPPING : CORE_RUNNING;

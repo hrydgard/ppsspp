@@ -179,7 +179,7 @@ endif()
 include_directories(ext/native)
 
 if(NOT OPENGL_LIBRARIES AND USING_GLES2)
-	set(OPENGL_LIBRARIES GLESv2)
+	set(OPENGL_LIBRARIES GLESv2 EGL)
 endif()
 
 if(USING_EGL)
@@ -1073,6 +1073,8 @@ if(ANDROID)
 	target_link_libraries(native log EGL OpenSLES)
 elseif(WIN32)
 	target_link_libraries(native ws2_32 winmm)
+elseif(${CMAKE_SYSTEM_NAME} MATCHES "^(DragonFly|FreeBSD|NetBSD)$")
+	target_link_libraries(native execinfo)
 endif()
 setup_target_project(native native)
 
@@ -1791,6 +1793,10 @@ add_dependencies(${CoreLibName} GitVersion)
 set(WindowsFiles
 	Windows/DSoundStream.cpp
 	Windows/DSoundStream.h
+	Windows/WindowsAudio.cpp
+	Windows/WindowsAudio.h
+	Windows/WASAPIStream.cpp
+	Windows/WASAPIStream.h
 	Windows/Debugger/CPURegsInterface.h
 	Windows/Debugger/BreakpointWindow.cpp
 	Windows/Debugger/BreakpointWindow.h

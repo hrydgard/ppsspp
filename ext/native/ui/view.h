@@ -835,6 +835,7 @@ private:
 enum ImageSizeMode {
 	IS_DEFAULT,
 	IS_FIXED,
+	IS_KEEP_ASPECT,
 };
 
 class ImageView : public InertView {

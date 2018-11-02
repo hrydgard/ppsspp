@@ -188,6 +188,12 @@
     <ClCompile Include="..\UWP\UWPHost.cpp">
       <Filter>Other Platforms</Filter>
     </ClCompile>
+    <ClCompile Include="WindowsAudio.cpp">
+      <Filter>Windows\System</Filter>
+    </ClCompile>
+    <ClCompile Include="WASAPIStream.cpp">
+      <Filter>Windows\System</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Debugger\CtrlDisAsmView.h">
@@ -346,6 +352,12 @@
     </ClInclude>
     <ClInclude Include="..\UWP\UWPHost.h">
       <Filter>Other Platforms</Filter>
+    </ClInclude>
+    <ClInclude Include="WindowsAudio.h">
+      <Filter>Windows\System</Filter>
+    </ClInclude>
+    <ClInclude Include="WASAPIStream.h">
+      <Filter>Windows\System</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>

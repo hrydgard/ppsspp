@@ -168,6 +168,7 @@ void GPU_GLES::CheckGPUFeatures() {
 	u32 features = 0;
 
 	features |= GPU_SUPPORTS_16BIT_FORMATS;
+	features |= GPU_SUPPORTS_VS_RANGE_CULLING;
 
 	if (gl_extensions.ARB_blend_func_extended || gl_extensions.EXT_blend_func_extended) {
 		if (!gl_extensions.VersionGEThan(3, 0, 0)) {
@@ -190,11 +191,18 @@ void GPU_GLES::CheckGPUFeatures() {
 	}
 
 	if (gl_extensions.IsGLES) {
-		if (gl_extensions.GLES3)
+		if (gl_extensions.GLES3) {
 			features |= GPU_SUPPORTS_GLSL_ES_300;
+			// Mali reports 30 but works fine...
+			if (gl_extensions.range[1][5][1] >= 30) {
+				features |= GPU_SUPPORTS_32BIT_INT_FSHADER;
+			}
+		}
 	} else {
-		if (gl_extensions.VersionGEThan(3, 3, 0))
+		if (gl_extensions.VersionGEThan(3, 3, 0)) {
 			features |= GPU_SUPPORTS_GLSL_330;
+			features |= GPU_SUPPORTS_32BIT_INT_FSHADER;
+		}
 	}
 
 	if (gl_extensions.EXT_shader_framebuffer_fetch || gl_extensions.NV_shader_framebuffer_fetch || gl_extensions.ARM_shader_framebuffer_fetch) {
@@ -304,6 +312,10 @@ bool GPU_GLES::IsReady() {
 	return shaderManagerGL_->ContinuePrecompile();
 }
 
+void  GPU_GLES::CancelReady() {
+	shaderManagerGL_->CancelPrecompile();
+}
+
 void GPU_GLES::BuildReportingInfo() {
 	GLRenderManager *render = (GLRenderManager *)draw_->GetNativeObject(Draw::NativeObject::RENDER_MANAGER);
 
@@ -333,6 +345,7 @@ void GPU_GLES::DeviceLost() {
 	// Simply drop all caches and textures.
 	// FBOs appear to survive? Or no?
 	// TransformDraw has registered as a GfxResourceHolder.
+	CancelReady();
 	shaderManagerGL_->DeviceLost();
 	textureCacheGL_->DeviceLost();
 	fragmentTestCache_.DeviceLost();

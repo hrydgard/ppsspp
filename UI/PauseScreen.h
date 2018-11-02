@@ -67,7 +67,7 @@ public:
 	AsyncImageFileView(const std::string &filename, UI::ImageSizeMode sizeMode, PrioritizedWorkQueue *wq, UI::LayoutParams *layoutParams = 0);
 	~AsyncImageFileView();
 
-	void GetContentDimensions(const UIContext &dc, float &w, float &h) const override;
+	void GetContentDimensionsBySpec(const UIContext &dc, UI::MeasureSpec horiz, UI::MeasureSpec vert, float &w, float &h) const override;
 	void Draw(UIContext &dc) override;
 
 	void DeviceLost() override;

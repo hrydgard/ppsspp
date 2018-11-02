@@ -164,6 +164,7 @@
 #define IDC_GEDBG_FORCEOPAQUE           1197
 #define IDC_GEDBG_SHOWCLUT              1198
 #define IDC_BREAKPOINT_LOG_FORMAT       1199
+#define IDC_SHOWOFFSETS                 1200
 
 #define ID_SHADERS_BASE  5000
 
@@ -343,7 +344,6 @@
 #define ID_SIMPLEUI_TOGGLE               40200
 #define ID_SIMPLEUI_HIDE                 40201
 #define ID_EMULATION_PAUSE               40177
-
 #define ID_TEXTURESCALING_REALTIME       40178
 #define ID_TEXTURESCALING_REALTIME_HC    40179
 #define ID_TEXTURESCALING_4XBRZ          40180
@@ -351,6 +351,7 @@
 #define ID_TEXTURESCALING_SABR           40182
 #define ID_TEXTURESCALING_GAUSSIAN       40183
 #define ID_TEXTURESCALING_COSINE         40184
+#define IDC_GEDBG_STEPCURVE              40185
 
 // Dummy option to let the buffered rendering hotkey cycle through all the options.
 #define ID_OPTIONS_BUFFEREDRENDERINGDUMMY 40500
@@ -363,7 +364,7 @@
 #ifdef APSTUDIO_INVOKED
 #ifndef APSTUDIO_READONLY_SYMBOLS
 #define _APS_NEXT_RESOURCE_VALUE        256
-#define _APS_NEXT_COMMAND_VALUE         40185
+#define _APS_NEXT_COMMAND_VALUE         40186
 #define _APS_NEXT_CONTROL_VALUE         1200
 #define _APS_NEXT_SYMED_VALUE           101
 #endif

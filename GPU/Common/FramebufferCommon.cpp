@@ -552,7 +552,7 @@ void FramebufferManagerCommon::NotifyRenderFramebufferCreated(VirtualFramebuffer
 
 	// ugly...
 	if (gstate_c.curRTWidth != vfb->width || gstate_c.curRTHeight != vfb->height) {
-		gstate_c.Dirty(DIRTY_PROJTHROUGHMATRIX | DIRTY_VIEWPORTSCISSOR_STATE);
+		gstate_c.Dirty(DIRTY_PROJTHROUGHMATRIX | DIRTY_VIEWPORTSCISSOR_STATE | DIRTY_CULLRANGE);
 	}
 	if (gstate_c.curRTRenderWidth != vfb->renderWidth || gstate_c.curRTRenderHeight != vfb->renderHeight) {
 		gstate_c.Dirty(DIRTY_PROJMATRIX);
@@ -570,7 +570,7 @@ void FramebufferManagerCommon::NotifyRenderFramebufferUpdated(VirtualFramebuffer
 
 	// ugly...
 	if (gstate_c.curRTWidth != vfb->width || gstate_c.curRTHeight != vfb->height) {
-		gstate_c.Dirty(DIRTY_PROJTHROUGHMATRIX | DIRTY_VIEWPORTSCISSOR_STATE);
+		gstate_c.Dirty(DIRTY_PROJTHROUGHMATRIX | DIRTY_VIEWPORTSCISSOR_STATE | DIRTY_CULLRANGE);
 	}
 	if (gstate_c.curRTRenderWidth != vfb->renderWidth || gstate_c.curRTRenderHeight != vfb->renderHeight) {
 		gstate_c.Dirty(DIRTY_PROJMATRIX);
@@ -644,7 +644,7 @@ void FramebufferManagerCommon::NotifyRenderFramebufferSwitched(VirtualFramebuffe
 
 	// ugly...
 	if (gstate_c.curRTWidth != vfb->width || gstate_c.curRTHeight != vfb->height) {
-		gstate_c.Dirty(DIRTY_PROJTHROUGHMATRIX | DIRTY_VIEWPORTSCISSOR_STATE);
+		gstate_c.Dirty(DIRTY_PROJTHROUGHMATRIX | DIRTY_VIEWPORTSCISSOR_STATE | DIRTY_CULLRANGE);
 	}
 	if (gstate_c.curRTRenderWidth != vfb->renderWidth || gstate_c.curRTRenderHeight != vfb->renderHeight) {
 		gstate_c.Dirty(DIRTY_PROJMATRIX);
@@ -673,7 +673,7 @@ void FramebufferManagerCommon::NotifyVideoUpload(u32 addr, int size, int width, 
 			const int bpp = fmt == GE_FORMAT_8888 ? 4 : 2;
 			ResizeFramebufFBO(vfb, width, size / (bpp * width));
 			// Resizing may change the viewport/etc.
-			gstate_c.Dirty(DIRTY_VIEWPORTSCISSOR_STATE);
+			gstate_c.Dirty(DIRTY_VIEWPORTSCISSOR_STATE | DIRTY_CULLRANGE);
 			vfb->fb_stride = width;
 			// This might be a bit wider than necessary, but we'll redetect on next render.
 			vfb->width = width;
@@ -957,7 +957,10 @@ void FramebufferManagerCommon::CopyDisplayToOutput() {
 	displayFramebuf_ = vfb;
 
 	if (vfb->fbo) {
-		DEBUG_LOG(FRAMEBUF, "Displaying FBO %08x", vfb->fb_address);
+		if (coreState == CORE_STEPPING)
+			VERBOSE_LOG(FRAMEBUF, "Displaying FBO %08x", vfb->fb_address);
+		else
+			DEBUG_LOG(FRAMEBUF, "Displaying FBO %08x", vfb->fb_address);
 
 		int uvRotation = useBufferedRendering_ ? g_Config.iInternalScreenRotation : ROTATION_LOCKED_HORIZONTAL;
 
@@ -1710,7 +1713,7 @@ void FramebufferManagerCommon::NotifyBlockTransferAfter(u32 dstBasePtr, int dstS
 					dstBuffer->newHeight = std::max(dstHeight, (int)dstBuffer->height);
 					dstBuffer->lastFrameNewSize = gpuStats.numFlips;
 					// Resizing may change the viewport/etc.
-					gstate_c.Dirty(DIRTY_VIEWPORTSCISSOR_STATE);
+					gstate_c.Dirty(DIRTY_VIEWPORTSCISSOR_STATE | DIRTY_CULLRANGE);
 				}
 				DrawPixels(dstBuffer, static_cast<int>(dstX * dstXFactor), dstY, srcBase, dstBuffer->format, static_cast<int>(srcStride * dstXFactor), static_cast<int>(dstWidth * dstXFactor), dstHeight);
 				SetColorUpdated(dstBuffer, skipDrawReason);
@@ -2051,19 +2054,34 @@ void FramebufferManagerCommon::PackFramebufferSync_(VirtualFramebuffer *vfb, int
 		return;
 	}
 
+	if (w <= 0 || h <= 0) {
+		ERROR_LOG(G3D, "Bad inputs to PackFramebufferSync_: %d %d %d %d", x, y, w, h);
+		return;
+	}
+
 	const u32 fb_address = (0x04000000) | vfb->fb_address;
 
 	Draw::DataFormat destFormat = GEFormatToThin3D(vfb->format);
 	const int dstBpp = (int)DataFormatSizeInBytes(destFormat);
 
 	const int dstByteOffset = (y * vfb->fb_stride + x) * dstBpp;
+
+	if (!Memory::IsValidRange(fb_address + dstByteOffset, ((h - 1) * vfb->fb_stride + w) * dstBpp)) {
+		ERROR_LOG(G3D, "PackFramebufferSync_ would write outside of memory, ignoring");
+		return;
+	}
+
 	u8 *destPtr = Memory::GetPointer(fb_address + dstByteOffset);
 
 	// We always need to convert from the framebuffer native format.
 	// Right now that's always 8888.
-	DEBUG_LOG(G3D, "Reading framebuffer to mem, fb_address = %08x", fb_address);
+	DEBUG_LOG(G3D, "Reading framebuffer to mem, fb_address = %08x, ptr=%p", fb_address, destPtr);
 
-	draw_->CopyFramebufferToMemorySync(vfb->fbo, Draw::FB_COLOR_BIT, x, y, w, h, destFormat, destPtr, vfb->fb_stride);
+	if (destPtr) {
+		draw_->CopyFramebufferToMemorySync(vfb->fbo, Draw::FB_COLOR_BIT, x, y, w, h, destFormat, destPtr, vfb->fb_stride);
+	} else {
+		ERROR_LOG(G3D, "PackFramebufferSync_: Tried to readback to bad address %08x (stride = %d)", fb_address + dstByteOffset, vfb->fb_stride);
+	}
 
 	// A new command buffer will begin after CopyFrameBufferToMemorySync, so we need to trigger
 	// updates of any dynamic command buffer state by dirtying some stuff.

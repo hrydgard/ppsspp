@@ -37,13 +37,13 @@ static float local_dp_xres;
 static float local_dp_yres;
 
 static u32 GetButtonColor() {
-	return g_Config.iTouchButtonStyle == 1 ? 0xFFFFFF : 0xc0b080;
+	return g_Config.iTouchButtonStyle != 0 ? 0xFFFFFF : 0xc0b080;
 }
 
 class DragDropButton : public MultiTouchButton {
 public:
 	DragDropButton(ConfigTouchPos &pos, int bgImg, int img)
-	: MultiTouchButton(bgImg, img, pos.scale, new UI::AnchorLayoutParams(fromFullscreenCoord(pos.x), pos.y * local_dp_yres, UI::NONE, UI::NONE, true)),
+	: MultiTouchButton(bgImg, bgImg, img, pos.scale, new UI::AnchorLayoutParams(fromFullscreenCoord(pos.x), pos.y * local_dp_yres, UI::NONE, UI::NONE, true)),
 		x_(pos.x), y_(pos.y), theScale_(pos.scale) {
 		scale_ = theScale_;
 	}

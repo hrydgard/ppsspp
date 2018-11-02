@@ -301,7 +301,7 @@ public:
 		for (auto &iter : shaders) {
 			iter->Release();
 		}
-		render_->DeleteProgram(program_);
+		if (program_) render_->DeleteProgram(program_);
 		if (depthStencil) depthStencil->Release();
 		if (blend) blend->Release();
 		if (raster) raster->Release();

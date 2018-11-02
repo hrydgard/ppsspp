@@ -13,6 +13,11 @@
 #include <unistd.h>
 #endif
 
+#ifndef MSG_NOSIGNAL
+// Default value to 0x00 (do nothing) in systems where it's not supported.
+#define MSG_NOSIGNAL 0x00
+#endif
+
 #include "base/logging.h"
 #include "base/timeutil.h"
 #include "file/fd_util.h"
@@ -143,7 +148,7 @@ bool Buffer::FlushToFile(const char *filename) {
 
 bool Buffer::FlushSocket(uintptr_t sock) {
 	for (size_t pos = 0, end = data_.size(); pos < end; ) {
-		int sent = send(sock, &data_[pos], (int)(end - pos), 0);
+		int sent = send(sock, &data_[pos], (int)(end - pos), MSG_NOSIGNAL);
 		if (sent < 0) {
 			ELOG("FlushSocket failed");
 			return false;

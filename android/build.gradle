@@ -1,5 +1,5 @@
 plugins {
-	id 'com.gladed.androidgitversion' version '0.4.4'
+	id 'com.gladed.androidgitversion' version '0.4.5'
 }
 apply plugin: 'com.android.application'
 
@@ -35,7 +35,7 @@ android {
 		}
 	}
 	compileSdkVersion 28
-	buildToolsVersion '28.0.0'
+	buildToolsVersion '28.0.3'
 	defaultConfig {
 		applicationId 'org.ppsspp.ppsspp'
 		if (androidGitVersion.name() != "unknown" && androidGitVersion.code() >= 14000000) {
@@ -106,7 +106,7 @@ android {
 				cmake {
 					// Available arguments listed at https://developer.android.com/ndk/guides/cmake.html
 					arguments '-DANDROID=true',
-							'-DANDROID_PLATFORM=android-15',
+							'-DANDROID_PLATFORM=android-16',
 							'-DANDROID_TOOLCHAIN=clang',
 							'-DANDROID_CPP_FEATURES=',
 							'-DANDROID_STL=c++_static',
@@ -121,7 +121,7 @@ android {
 				cmake {
 					// Available arguments listed at https://developer.android.com/ndk/guides/cmake.html
 					arguments '-DANDROID=true',
-							'-DANDROID_PLATFORM=android-15',
+							'-DANDROID_PLATFORM=android-16',
 							'-DANDROID_TOOLCHAIN=clang',
 							'-DANDROID_CPP_FEATURES=',
 							'-DANDROID_STL=c++_static',
@@ -131,10 +131,19 @@ android {
 			}
 		}
 	}
+	variantFilter { variant ->
+		def needed = variant.name in [
+			'normalDebug',		// for debugging
+			'normalOptimized',	// for testing
+			'normalRelease',	// for Google Play releases
+			'goldRelease'		// for Google Play releases
+		]
+		variant.setIgnore(!needed)
+	}
 }
 afterEvaluate {
 	android.sourceSets.main.assets.getSrcDirs().each { println it }
 }
 dependencies {
-	implementation project(':com.bda.controller')
+	implementation files('libs/com.bda.controller.jar')
 }

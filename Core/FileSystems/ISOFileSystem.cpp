@@ -204,6 +204,7 @@ void ISOFileSystem::ReadDirectory(TreeEntry *root) {
 	for (u32 secnum = root->startsector, endsector = root->startsector + (root->dirsize + 2047) / 2048; secnum < endsector; ++secnum) {
 		u8 theSector[2048];
 		if (!blockDevice->ReadBlock(secnum, theSector)) {
+			blockDevice->NotifyReadError();
 			ERROR_LOG(FILESYS, "Error reading block for directory %s - skipping", root->name.c_str());
 			root->valid = true;  // Prevents re-reading
 			return;
@@ -220,6 +221,7 @@ void ISOFileSystem::ReadDirectory(TreeEntry *root) {
 
 			const int IDENTIFIER_OFFSET = 33;
 			if (offset + IDENTIFIER_OFFSET + dir.identifierLength > 2048) {
+				blockDevice->NotifyReadError();
 				ERROR_LOG(FILESYS, "Directory entry crosses sectors, corrupt iso?");
 				return;
 			}
@@ -254,6 +256,7 @@ void ISOFileSystem::ReadDirectory(TreeEntry *root) {
 
 			if (entry->isDirectory && !relative) {
 				if (entry->startsector == root->startsector) {
+					blockDevice->NotifyReadError();
 					ERROR_LOG(FILESYS, "WARNING: Appear to have a recursive file system, breaking recursion. Probably corrupt ISO.");
 				}
 			}

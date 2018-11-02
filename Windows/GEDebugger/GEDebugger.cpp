@@ -729,6 +729,10 @@ BOOL CGEDebugger::DlgProc(UINT message, WPARAM wParam, LPARAM lParam) {
 			SetBreakNext(BreakNext::PRIM);
 			break;
 
+		case IDC_GEDBG_STEPCURVE:
+			SetBreakNext(BreakNext::CURVE);
+			break;
+
 		case IDC_GEDBG_BREAKTEX:
 			{
 				GPUDebug::SetActive(true);

@@ -82,6 +82,9 @@ ParamSFOData g_paramSFO;
 static GlobalUIState globalUIState;
 static CoreParameter coreParameter;
 static FileLoader *loadedFile;
+// For background loading thread.
+static std::mutex loadingLock;
+// For loadingReason updates.
 static std::mutex loadingReasonLock;
 static std::string loadingReason;
 
@@ -97,6 +100,7 @@ volatile bool coreStatePending = false;
 static volatile CPUThreadState cpuThreadState = CPU_THREAD_NOT_RUNNING;
 
 static GPUBackend gpuBackend;
+static std::string gpuBackendDevice;
 
 void ResetUIState() {
 	globalUIState = UISTATE_MENU;
@@ -124,12 +128,17 @@ GlobalUIState GetUIState() {
 	return globalUIState;
 }
 
-void SetGPUBackend(GPUBackend type) {
+void SetGPUBackend(GPUBackend type, const std::string &device) {
 	gpuBackend = type;
+	gpuBackendDevice = device;
 }
 
 GPUBackend GetGPUBackend() {
 	return gpuBackend;
+}
+
+std::string GetGPUBackendDevice() {
+	return gpuBackendDevice;
 }
 
 bool IsAudioInitialised() {
@@ -249,7 +258,18 @@ void CPU_Init() {
 	}
 }
 
+PSP_LoadingLock::PSP_LoadingLock() {
+	loadingLock.lock();
+}
+
+PSP_LoadingLock::~PSP_LoadingLock() {
+	loadingLock.unlock();
+}
+
 void CPU_Shutdown() {
+	// Since we load on a background thread, wait for startup to complete.
+	PSP_LoadingLock lock;
+
 	if (g_Config.bAutoSaveSymbolMap) {
 		host->SaveSymbolMap();
 	}

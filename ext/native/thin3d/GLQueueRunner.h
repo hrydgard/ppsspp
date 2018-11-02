@@ -322,9 +322,9 @@ class GLQueueRunner {
 public:
 	GLQueueRunner() {}
 
-	void RunInitSteps(const std::vector<GLRInitStep> &steps);
+	void RunInitSteps(const std::vector<GLRInitStep> &steps, bool skipGLCalls);
 
-	void RunSteps(const std::vector<GLRStep *> &steps);
+	void RunSteps(const std::vector<GLRStep *> &steps, bool skipGLCalls);
 	void LogSteps(const std::vector<GLRStep *> &steps);
 
 	void CreateDeviceObjects();

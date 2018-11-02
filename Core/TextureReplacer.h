@@ -186,6 +186,8 @@ public:
 
 	void NotifyTextureDecoded(const ReplacedTextureDecodeInfo &replacedInfo, const void *data, int pitch, int level, int w, int h);
 
+	static bool GenerateIni(const std::string &gameID, std::string *generatedFilename);
+
 protected:
 	bool LoadIni();
 	void ParseHashRange(const std::string &key, const std::string &value);

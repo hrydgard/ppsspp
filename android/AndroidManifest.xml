@@ -2,13 +2,10 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     package="org.ppsspp.ppsspp"
     android:installLocation="auto"
-    android:versionCode="16030000"
-    android:versionName="1.6.3.0">
+    android:versionCode="17010000"
+    android:versionName="1.7.1.0">
     <!-- Note that versionCode should be in the format xyzzrrrr. Example: 16030000 -->
-
-    <uses-sdk
-        android:minSdkVersion="9"
-        android:targetSdkVersion="28" />
+    <!-- In this same case, versionName should be 1.6.3.0 -->
 
     <uses-feature android:glEsVersion="0x00020000" />
     <uses-feature android:name="android.hardware.screen.landscape" android:required="false" />

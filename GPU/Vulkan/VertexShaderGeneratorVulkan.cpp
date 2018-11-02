@@ -694,10 +694,10 @@ bool GenerateVulkanGLSLVertexShader(const VShaderID &id, char *buffer) {
 			WRITE(p, "  v_fogdepth = (viewPos.z + base.fogcoef.x) * base.fogcoef.y;\n");
 	}
 
-	if (!isModeThrough) {
+	if (!isModeThrough && gstate_c.Supports(GPU_SUPPORTS_VS_RANGE_CULLING)) {
 		WRITE(p, "  vec3 projPos = outPos.xyz / outPos.w;\n");
 		// Vertex range culling doesn't happen when depth is clamped, so only do this if in range.
-		WRITE(p, "  if (base.cullRangeMin.w <= 0.0f || (projPos.z >= base.cullRangeMin.z && projPos.z <= base.cullRangeMax.z)) {\n");
+		WRITE(p, "  if (base.cullRangeMin.w <= 0.0 || (projPos.z >= base.cullRangeMin.z && projPos.z <= base.cullRangeMax.z)) {\n");
 		const char *outMin = "projPos.x < base.cullRangeMin.x || projPos.y < base.cullRangeMin.y || projPos.z < base.cullRangeMin.z";
 		const char *outMax = "projPos.x > base.cullRangeMax.x || projPos.y > base.cullRangeMax.y || projPos.z > base.cullRangeMax.z";
 		WRITE(p, "    if (%s || %s) {\n", outMin, outMax);

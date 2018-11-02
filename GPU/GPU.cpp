@@ -17,6 +17,7 @@
 
 #include "ppsspp_config.h"
 
+#include "base/timeutil.h"
 #include "Common/GraphicsContext.h"
 #include "Core/Core.h"
 
@@ -105,7 +106,14 @@ bool GPU_Init(GraphicsContext *ctx, Draw::DrawContext *draw) {
 #endif
 
 void GPU_Shutdown() {
+	// Wait for IsReady, since it might be running on a thread.
+	if (gpu) {
+		gpu->CancelReady();
+		while (!gpu->IsReady()) {
+			sleep_ms(10);
+		}
+	}
 	delete gpu;
 	gpu = nullptr;
-	gpuDebug = 0;
+	gpuDebug = nullptr;
 }

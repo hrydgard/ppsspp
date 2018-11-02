@@ -154,6 +154,17 @@ BOOL CMemoryDlg::DlgProc(UINT message, WPARAM wParam, LPARAM lParam)
 					break;
 				};
 				break;
+			case IDC_SHOWOFFSETS:
+				switch (HIWORD(wParam))
+				{
+				case BN_CLICKED:
+					if (SendDlgItemMessage(m_hDlg, IDC_SHOWOFFSETS, BM_GETCHECK, 0, 0))
+						mv->toggleOffsetScale(On);
+					else
+						mv->toggleOffsetScale(Off);
+					break;
+				}
+				break;
 			}
 		}
 		break;

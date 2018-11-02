@@ -120,6 +120,18 @@ static std::string PostShaderTranslateName(const char *value) {
 	}
 }
 
+static std::string *GPUDeviceNameSetting() {
+	if (g_Config.iGPUBackend == (int)GPUBackend::VULKAN) {
+		return &g_Config.sVulkanDevice;
+	}
+#ifdef _WIN32
+	if (g_Config.iGPUBackend == (int)GPUBackend::DIRECT3D11) {
+		return &g_Config.sD3D11Device;
+	}
+#endif
+	return nullptr;
+}
+
 void GameSettingsScreen::CreateViews() {
 	ReloadAllPostShaderInfo();
 
@@ -212,7 +224,7 @@ void GameSettingsScreen::CreateViews() {
 
 		// Backends that don't allow a device choice will only expose one device.
 		if (draw->GetDeviceList().size() > 1) {
-			std::string *deviceNameSetting = nullptr;
+			std::string *deviceNameSetting = GPUDeviceNameSetting();
 			if (g_Config.iGPUBackend == (int)GPUBackend::VULKAN) {
 				deviceNameSetting = &g_Config.sVulkanDevice;
 			}
@@ -223,7 +235,7 @@ void GameSettingsScreen::CreateViews() {
 #endif
 			if (deviceNameSetting) {
 				PopupMultiChoiceDynamic *deviceChoice = graphicsSettings->Add(new PopupMultiChoiceDynamic(deviceNameSetting, gr->T("Device"), draw->GetDeviceList(), nullptr, screenManager()));
-				deviceChoice->OnChoice.Handle(this, &GameSettingsScreen::OnRenderingBackend);
+				deviceChoice->OnChoice.Handle(this, &GameSettingsScreen::OnRenderingDevice);
 			}
 		}
 
@@ -334,6 +346,15 @@ void GameSettingsScreen::CreateViews() {
 	int max_res = std::min(max_res_temp, (int)ARRAY_SIZE(deviceResolutions));
 	UI::PopupMultiChoice *hwscale = graphicsSettings->Add(new PopupMultiChoice(&g_Config.iAndroidHwScale, gr->T("Display Resolution (HW scaler)"), deviceResolutions, 0, max_res, gr->GetName(), screenManager()));
 	hwscale->OnChoice.Handle(this, &GameSettingsScreen::OnHwScaleChange);  // To refresh the display mode
+	if (System_GetPropertyInt(SYSPROP_DEVICE_TYPE) != DEVICE_TYPE_TV) {
+		static const char *deviceResolutions[] = { "Native device resolution", "Auto (same as Rendering)", "1x PSP", "2x PSP", "3x PSP", "4x PSP", "5x PSP" };
+		int max_res_temp = std::max(System_GetPropertyInt(SYSPROP_DISPLAY_XRES), System_GetPropertyInt(SYSPROP_DISPLAY_YRES)) / 480 + 2;
+		if (max_res_temp == 3)
+			max_res_temp = 4;  // At least allow 2x
+		int max_res = std::min(max_res_temp, (int)ARRAY_SIZE(deviceResolutions));
+		UI::PopupMultiChoice *hwscale = graphicsSettings->Add(new PopupMultiChoice(&g_Config.iAndroidHwScale, gr->T("Display Resolution (HW scaler)"), deviceResolutions, 0, max_res, gr->GetName(), screenManager()));
+		hwscale->OnChoice.Handle(this, &GameSettingsScreen::OnHwScaleChange);  // To refresh the display mode
+	}
 #endif
 
 	if (!g_Config.bSimpleUI) {
@@ -1150,6 +1171,23 @@ void GameSettingsScreen::CallbackRenderingBackend(bool yes) {
 	}
 }
 
+void GameSettingsScreen::CallbackRenderingDevice(bool yes) {
+	// If the user ends up deciding not to restart, set the config back to the current backend
+	// so it doesn't get switched by accident.
+	if (yes) {
+		// Extra save here to make sure the choice really gets saved even if there are shutdown bugs in
+		// the GPU backend code.
+		g_Config.Save();
+		System_SendMessage("graphics_restart", "");
+	} else {
+		std::string *deviceNameSetting = GPUDeviceNameSetting();
+		if (deviceNameSetting)
+			*deviceNameSetting = GetGPUBackendDevice();
+		// Needed to redraw the setting.
+		RecreateViews();
+	}
+}
+
 UI::EventReturn GameSettingsScreen::OnRenderingBackend(UI::EventParams &e) {
 	I18NCategory *di = GetI18NCategory("Dialog");
 
@@ -1157,6 +1195,18 @@ UI::EventReturn GameSettingsScreen::OnRenderingBackend(UI::EventParams &e) {
 	if (g_Config.iGPUBackend != (int)GetGPUBackend()) {
 		screenManager()->push(new PromptScreen(di->T("ChangingGPUBackends", "Changing GPU backends requires PPSSPP to restart. Restart now?"), di->T("Yes"), di->T("No"),
 			std::bind(&GameSettingsScreen::CallbackRenderingBackend, this, std::placeholders::_1)));
+	}
+	return UI::EVENT_DONE;
+}
+
+UI::EventReturn GameSettingsScreen::OnRenderingDevice(UI::EventParams &e) {
+	I18NCategory *di = GetI18NCategory("Dialog");
+
+	// It only makes sense to show the restart prompt if the device was actually changed.
+	std::string *deviceNameSetting = GPUDeviceNameSetting();
+	if (deviceNameSetting && *deviceNameSetting != GetGPUBackendDevice()) {
+		screenManager()->push(new PromptScreen(di->T("ChangingGPUBackends", "Changing GPU backends requires PPSSPP to restart. Restart now?"), di->T("Yes"), di->T("No"),
+			std::bind(&GameSettingsScreen::CallbackRenderingDevice, this, std::placeholders::_1)));
 	}
 	return UI::EVENT_DONE;
 }

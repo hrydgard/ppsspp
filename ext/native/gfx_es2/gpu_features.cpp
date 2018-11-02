@@ -1,6 +1,7 @@
 #include "ppsspp_config.h"
 
 #include <cstring>
+#include <set>
 
 #include "base/logging.h"
 #include "base/stringutil.h"
@@ -37,10 +38,31 @@ PFNGLISVERTEXARRAYOESPROC glIsVertexArrayOES;
 
 GLExtensions gl_extensions;
 std::string g_all_gl_extensions;
+std::set<std::string> g_set_gl_extensions;
 std::string g_all_egl_extensions;
+std::set<std::string> g_set_egl_extensions;
 
 static bool extensionsDone = false;
 static bool useCoreContext = false;
+
+static void ParseExtensionsString(const std::string& str, std::set<std::string> &output) {
+	output.clear();
+
+	size_t next = 0;
+	for (size_t pos = 0, len = str.length(); pos < len; ++pos) {
+		if (str[pos] == ' ') {
+			output.insert(str.substr(next, pos - next));
+			// Skip the delimiter itself.
+			next = pos + 1;
+		}
+	}
+
+	if (next == 0 && str.length() != 0) {
+		output.insert(str);
+	} else if (next < str.length()) {
+		output.insert(str.substr(next));
+	}
+}
 
 bool GLExtensions::VersionGEThan(int major, int minor, int sub) {
 	if (gl_extensions.ver[0] > major)
@@ -192,6 +214,13 @@ void CheckGLExtensions() {
 		}
 	}
 
+#ifndef USING_GLES2
+	if (strstr(versionStr, "OpenGL ES") == versionStr) {
+		// For desktops running GLES.
+		gl_extensions.IsGLES = true;
+	}
+#endif
+
 	if (!gl_extensions.IsGLES) { // For desktop GL
 		gl_extensions.ver[0] = parsed[0];
 		gl_extensions.ver[1] = parsed[1];
@@ -210,7 +239,6 @@ void CheckGLExtensions() {
 		// Start by assuming we're at 2.0.
 		gl_extensions.ver[0] = 2;
 
-#ifdef USING_GLES2
 #ifdef GL_MAJOR_VERSION
 		// Before grabbing the values, reset the error.
 		glGetError();
@@ -232,6 +260,7 @@ void CheckGLExtensions() {
 #endif
 
 		// If the above didn't give us a version, or gave us a crazy version, fallback.
+#ifdef USING_GLES2
 		if (gl_extensions.ver[0] < 3 || gl_extensions.ver[0] > 5) {
 			// Try to load GLES 3.0 only if "3.0" found in version
 			// This simple heuristic avoids issues on older devices where you can only call eglGetProcAddress a limited
@@ -259,6 +288,9 @@ void CheckGLExtensions() {
 				gl_extensions.GLES3 = gl3stubInit();
 			}
 		}
+#else
+		// If we have GLEW/similar, assume GLES3 loaded.
+		gl_extensions.GLES3 = gl_extensions.ver[0] >= 3;
 #endif
 
 		if (gl_extensions.GLES3) {
@@ -275,32 +307,28 @@ void CheckGLExtensions() {
 		// Let's use the new way for OpenGL 3.x+, required in the core profile.
 		GLint numExtensions = 0;
 		glGetIntegerv(GL_NUM_EXTENSIONS, &numExtensions);
-		g_all_gl_extensions = "";
+		g_all_gl_extensions.clear();
+		g_set_gl_extensions.clear();
 		for (GLint i = 0; i < numExtensions; ++i) {
-			g_all_gl_extensions += (const char *)glGetStringi(GL_EXTENSIONS, i);
+			const char *ext = (const char *)glGetStringi(GL_EXTENSIONS, i);
+			g_set_gl_extensions.insert(ext);
+			g_all_gl_extensions += ext;
 			g_all_gl_extensions += " ";
 		}
-		extString = g_all_gl_extensions.c_str();
 	} else {
 		extString = (const char *)glGetString(GL_EXTENSIONS);
-		if (extString) {
-			g_all_gl_extensions = extString;
-		} else {
-			g_all_gl_extensions = "";
-			extString = "";
-		}
+		g_all_gl_extensions = extString ? extString : "";
+		ParseExtensionsString(g_all_gl_extensions, g_set_gl_extensions);
 	}
 
 #ifdef WIN32
 	const char *wglString = 0;
 	if (wglGetExtensionsStringEXT)
 		wglString = wglGetExtensionsStringEXT();
-	if (wglString) {
-		gl_extensions.EXT_swap_control_tear = strstr(wglString, "WGL_EXT_swap_control_tear") != 0;
-		g_all_egl_extensions = wglString;
-	} else {
-		g_all_egl_extensions = "";
-	}
+	g_all_egl_extensions = wglString ? wglString : "";
+	ParseExtensionsString(g_all_egl_extensions, g_set_egl_extensions);
+
+	gl_extensions.EXT_swap_control_tear = g_set_egl_extensions.count("WGL_EXT_swap_control_tear") != 0;
 #elif !defined(USING_GLES2)
 	// const char *glXString = glXQueryExtensionString();
 	// gl_extensions.EXT_swap_control_tear = strstr(glXString, "GLX_EXT_swap_control_tear") != 0;
@@ -309,41 +337,43 @@ void CheckGLExtensions() {
 	// Check the desktop extension instead of the OES one. They are very similar.
 	// Also explicitly check those ATI devices that claims to support npot
 	if (renderer) {
-		gl_extensions.OES_texture_npot = strstr(extString, "GL_ARB_texture_non_power_of_two") != 0
+		gl_extensions.OES_texture_npot = g_set_gl_extensions.count("GL_ARB_texture_non_power_of_two") != 0
 			&& !(((strncmp(renderer, "ATI RADEON X", 12) == 0) || (strncmp(renderer, "ATI MOBILITY RADEON X", 21) == 0)));
 	}
 
-	gl_extensions.ARB_blend_func_extended = strstr(extString, "GL_ARB_blend_func_extended") != 0;
-	gl_extensions.EXT_blend_func_extended = strstr(extString, "GL_EXT_blend_func_extended") != 0;
-	gl_extensions.ARB_conservative_depth = strstr(extString, "GL_ARB_conservative_depth") != 0;
-	gl_extensions.ARB_shader_image_load_store = (strstr(extString, "GL_ARB_shader_image_load_store") != 0) || (strstr(extString, "GL_EXT_shader_image_load_store") != 0);
-	gl_extensions.EXT_bgra = strstr(extString, "GL_EXT_bgra") != 0;
-	gl_extensions.EXT_gpu_shader4 = strstr(extString, "GL_EXT_gpu_shader4") != 0;
-	gl_extensions.NV_framebuffer_blit = strstr(extString, "GL_NV_framebuffer_blit") != 0;
-	gl_extensions.NV_copy_image = strstr(extString, "GL_NV_copy_image") != 0;
-	gl_extensions.OES_copy_image = strstr(extString, "GL_OES_copy_image") != 0;
-	gl_extensions.EXT_copy_image = strstr(extString, "GL_EXT_copy_image") != 0;
-	gl_extensions.ARB_copy_image = strstr(extString, "GL_ARB_copy_image") != 0;
-	gl_extensions.ARB_buffer_storage = strstr(extString, "GL_ARB_buffer_storage") != 0;
-	gl_extensions.ARB_vertex_array_object = strstr(extString, "GL_ARB_vertex_array_object") != 0;
-	gl_extensions.ARB_texture_float = strstr(extString, "GL_ARB_texture_float") != 0;
-	gl_extensions.EXT_texture_filter_anisotropic = strstr(extString, "GL_EXT_texture_filter_anisotropic") != 0;
-	gl_extensions.EXT_draw_instanced = strstr(extString, "GL_EXT_draw_instanced") != 0;
-	gl_extensions.ARB_draw_instanced = strstr(extString, "GL_ARB_draw_instanced") != 0;
+	gl_extensions.ARB_blend_func_extended = g_set_gl_extensions.count("GL_ARB_blend_func_extended") != 0;
+	gl_extensions.EXT_blend_func_extended = g_set_gl_extensions.count("GL_EXT_blend_func_extended") != 0;
+	gl_extensions.ARB_conservative_depth = g_set_gl_extensions.count("GL_ARB_conservative_depth") != 0;
+	gl_extensions.ARB_shader_image_load_store = (g_set_gl_extensions.count("GL_ARB_shader_image_load_store") != 0) || (g_set_gl_extensions.count("GL_EXT_shader_image_load_store") != 0);
+	gl_extensions.EXT_bgra = g_set_gl_extensions.count("GL_EXT_bgra") != 0;
+	gl_extensions.EXT_gpu_shader4 = g_set_gl_extensions.count("GL_EXT_gpu_shader4") != 0;
+	gl_extensions.NV_framebuffer_blit = g_set_gl_extensions.count("GL_NV_framebuffer_blit") != 0;
+	gl_extensions.NV_copy_image = g_set_gl_extensions.count("GL_NV_copy_image") != 0;
+	gl_extensions.OES_copy_image = g_set_gl_extensions.count("GL_OES_copy_image") != 0;
+	gl_extensions.EXT_copy_image = g_set_gl_extensions.count("GL_EXT_copy_image") != 0;
+	gl_extensions.ARB_copy_image = g_set_gl_extensions.count("GL_ARB_copy_image") != 0;
+	gl_extensions.ARB_buffer_storage = g_set_gl_extensions.count("GL_ARB_buffer_storage") != 0;
+	gl_extensions.ARB_vertex_array_object = g_set_gl_extensions.count("GL_ARB_vertex_array_object") != 0;
+	gl_extensions.ARB_texture_float = g_set_gl_extensions.count("GL_ARB_texture_float") != 0;
+	gl_extensions.EXT_texture_filter_anisotropic = g_set_gl_extensions.count("GL_EXT_texture_filter_anisotropic") != 0 || g_set_gl_extensions.count("GL_ARB_texture_filter_anisotropic") != 0;
+	gl_extensions.EXT_draw_instanced = g_set_gl_extensions.count("GL_EXT_draw_instanced") != 0;
+	gl_extensions.ARB_draw_instanced = g_set_gl_extensions.count("GL_ARB_draw_instanced") != 0;
+	gl_extensions.ARB_cull_distance = g_set_gl_extensions.count("GL_ARB_cull_distance") != 0;
 
 	if (gl_extensions.IsGLES) {
-		gl_extensions.OES_texture_npot = strstr(extString, "GL_OES_texture_npot") != 0;
-		gl_extensions.OES_packed_depth_stencil = (strstr(extString, "GL_OES_packed_depth_stencil") != 0) || gl_extensions.GLES3;
-		gl_extensions.OES_depth24 = strstr(extString, "GL_OES_depth24") != 0;
-		gl_extensions.OES_depth_texture = strstr(extString, "GL_OES_depth_texture") != 0;
-		gl_extensions.OES_mapbuffer = strstr(extString, "GL_OES_mapbuffer") != 0;
-		gl_extensions.EXT_blend_minmax = strstr(extString, "GL_EXT_blend_minmax") != 0;
-		gl_extensions.EXT_unpack_subimage = strstr(extString, "GL_EXT_unpack_subimage") != 0;
-		gl_extensions.EXT_shader_framebuffer_fetch = strstr(extString, "GL_EXT_shader_framebuffer_fetch") != 0;
-		gl_extensions.NV_shader_framebuffer_fetch = strstr(extString, "GL_NV_shader_framebuffer_fetch") != 0;
-		gl_extensions.ARM_shader_framebuffer_fetch = strstr(extString, "GL_ARM_shader_framebuffer_fetch") != 0;
-		gl_extensions.OES_texture_float = strstr(extString, "GL_OES_texture_float") != 0;
-		gl_extensions.EXT_buffer_storage = strstr(extString, "GL_EXT_buffer_storage") != 0;
+		gl_extensions.OES_texture_npot = g_set_gl_extensions.count("GL_OES_texture_npot") != 0;
+		gl_extensions.OES_packed_depth_stencil = (g_set_gl_extensions.count("GL_OES_packed_depth_stencil") != 0) || gl_extensions.GLES3;
+		gl_extensions.OES_depth24 = g_set_gl_extensions.count("GL_OES_depth24") != 0;
+		gl_extensions.OES_depth_texture = g_set_gl_extensions.count("GL_OES_depth_texture") != 0;
+		gl_extensions.OES_mapbuffer = g_set_gl_extensions.count("GL_OES_mapbuffer") != 0;
+		gl_extensions.EXT_blend_minmax = g_set_gl_extensions.count("GL_EXT_blend_minmax") != 0;
+		gl_extensions.EXT_unpack_subimage = g_set_gl_extensions.count("GL_EXT_unpack_subimage") != 0;
+		gl_extensions.EXT_shader_framebuffer_fetch = g_set_gl_extensions.count("GL_EXT_shader_framebuffer_fetch") != 0;
+		gl_extensions.NV_shader_framebuffer_fetch = g_set_gl_extensions.count("GL_NV_shader_framebuffer_fetch") != 0;
+		gl_extensions.ARM_shader_framebuffer_fetch = g_set_gl_extensions.count("GL_ARM_shader_framebuffer_fetch") != 0;
+		gl_extensions.OES_texture_float = g_set_gl_extensions.count("GL_OES_texture_float") != 0;
+		gl_extensions.EXT_buffer_storage = g_set_gl_extensions.count("GL_EXT_buffer_storage") != 0;
+		gl_extensions.EXT_clip_cull_distance = g_set_gl_extensions.count("GL_EXT_clip_cull_distance") != 0;
 
 #if defined(__ANDROID__)
 		// On Android, incredibly, this is not consistently non-zero! It does seem to have the same value though.
@@ -367,7 +397,7 @@ void CheckGLExtensions() {
 			glBlitFramebufferNV = (PFNGLBLITFRAMEBUFFERNVPROC)eglGetProcAddress("glBlitFramebufferNV");
 		}
 
-		gl_extensions.OES_vertex_array_object = strstr(extString, "GL_OES_vertex_array_object") != 0;
+		gl_extensions.OES_vertex_array_object = g_set_gl_extensions.count("GL_OES_vertex_array_object") != 0;
 		if (gl_extensions.OES_vertex_array_object) {
 			glGenVertexArraysOES = (PFNGLGENVERTEXARRAYSOESPROC)eglGetProcAddress("glGenVertexArraysOES");
 			glBindVertexArrayOES = (PFNGLBINDVERTEXARRAYOESPROC)eglGetProcAddress("glBindVertexArrayOES");
@@ -376,7 +406,7 @@ void CheckGLExtensions() {
 		}
 
 		// Hm, this should be available on iOS too.
-		gl_extensions.EXT_discard_framebuffer = strstr(extString, "GL_EXT_discard_framebuffer") != 0;
+		gl_extensions.EXT_discard_framebuffer = g_set_gl_extensions.count("GL_EXT_discard_framebuffer") != 0;
 		if (gl_extensions.EXT_discard_framebuffer) {
 			glDiscardFramebufferEXT = (PFNGLDISCARDFRAMEBUFFEREXTPROC)eglGetProcAddress("glDiscardFramebufferEXT");
 		}
@@ -405,35 +435,34 @@ void CheckGLExtensions() {
 	EGLDisplay display = eglGetDisplay(EGL_DEFAULT_DISPLAY);
 
 	const char *eglString = eglQueryString(display, EGL_EXTENSIONS);
-	if (eglString) {
-		g_all_egl_extensions = eglString;
+	g_all_egl_extensions = eglString ? eglString : "";
+	ParseExtensionsString(g_all_egl_extensions, g_set_egl_extensions);
 
-		gl_extensions.EGL_NV_system_time = strstr(eglString, "EGL_NV_system_time") != 0;
-		gl_extensions.EGL_NV_coverage_sample = strstr(eglString, "EGL_NV_coverage_sample") != 0;
+	gl_extensions.EGL_NV_system_time = g_set_egl_extensions.count("EGL_NV_system_time") != 0;
+	gl_extensions.EGL_NV_coverage_sample = g_set_egl_extensions.count("EGL_NV_coverage_sample") != 0;
 
-		if (gl_extensions.EGL_NV_system_time) {
-			eglGetSystemTimeNV = (PFNEGLGETSYSTEMTIMENVPROC)eglGetProcAddress("eglGetSystemTimeNV");
-			eglGetSystemTimeFrequencyNV = (PFNEGLGETSYSTEMTIMEFREQUENCYNVPROC)eglGetProcAddress("eglGetSystemTimeFrequencyNV");
-		}
-	} else {
-		g_all_egl_extensions = "";
+	if (gl_extensions.EGL_NV_system_time) {
+		eglGetSystemTimeNV = (PFNEGLGETSYSTEMTIMENVPROC)eglGetProcAddress("eglGetSystemTimeNV");
+		eglGetSystemTimeFrequencyNV = (PFNEGLGETSYSTEMTIMEFREQUENCYNVPROC)eglGetProcAddress("eglGetSystemTimeFrequencyNV");
 	}
 #elif defined(USING_GLES2) && defined(__linux__)
 	const char *eglString = eglQueryString(NULL, EGL_EXTENSIONS);
+	g_all_egl_extensions = eglString ? eglString : "";
 	if (eglString) {
-		g_all_egl_extensions = std::string(eglString);
-		g_all_egl_extensions.append(" ");
-		g_all_egl_extensions.append(eglQueryString(eglGetCurrentDisplay(), EGL_EXTENSIONS));
-	} else {
-		g_all_egl_extensions = "";
+		eglString = eglQueryString(eglGetCurrentDisplay(), EGL_EXTENSIONS);
+		if (eglString) {
+			g_all_egl_extensions.append(" ");
+			g_all_egl_extensions.append(eglString);
+		}
 	}
+	ParseExtensionsString(g_all_egl_extensions, g_set_egl_extensions);
 #endif
 
 	glGetIntegerv(GL_MAX_VERTEX_TEXTURE_IMAGE_UNITS, &gl_extensions.maxVertexTextureUnits);
 
 #ifdef GL_LOW_FLOAT
 	// This is probably a waste of time, implementations lie.
-	if (gl_extensions.IsGLES || strstr(extString, "GL_ARB_ES2_compatibility") || gl_extensions.VersionGEThan(4, 1)) {
+	if (gl_extensions.IsGLES || g_set_gl_extensions.count("GL_ARB_ES2_compatibility") || gl_extensions.VersionGEThan(4, 1)) {
 		const GLint precisions[6] = {
 			GL_LOW_FLOAT, GL_MEDIUM_FLOAT, GL_HIGH_FLOAT,
 			GL_LOW_INT, GL_MEDIUM_INT, GL_HIGH_INT
@@ -446,13 +475,20 @@ void CheckGLExtensions() {
 				glGetShaderPrecisionFormat(shaderTypes[st], precisions[p], gl_extensions.range[st][p], &gl_extensions.precision[st][p]);
 			}
 		}
+
+		// Now, Adreno lies. So let's override it.
+		if (gl_extensions.gpuVendor == GPU_VENDOR_QUALCOMM) {
+			WLOG("Detected Adreno - lowering int precision");
+			gl_extensions.range[1][5][0] = 15;
+			gl_extensions.range[1][5][1] = 15;
+		}
 	}
 #endif
 
-	gl_extensions.ARB_framebuffer_object = strstr(extString, "GL_ARB_framebuffer_object") != 0;
-	gl_extensions.EXT_framebuffer_object = strstr(extString, "GL_EXT_framebuffer_object") != 0;
-	gl_extensions.ARB_pixel_buffer_object = strstr(extString, "GL_ARB_pixel_buffer_object") != 0;
-	gl_extensions.NV_pixel_buffer_object = strstr(extString, "GL_NV_pixel_buffer_object") != 0;
+	gl_extensions.ARB_framebuffer_object = g_set_gl_extensions.count("GL_ARB_framebuffer_object") != 0;
+	gl_extensions.EXT_framebuffer_object = g_set_gl_extensions.count("GL_EXT_framebuffer_object") != 0;
+	gl_extensions.ARB_pixel_buffer_object = g_set_gl_extensions.count("GL_ARB_pixel_buffer_object") != 0;
+	gl_extensions.NV_pixel_buffer_object = g_set_gl_extensions.count("GL_NV_pixel_buffer_object") != 0;
 
 	if (!gl_extensions.IsGLES && gl_extensions.IsCoreContext) {
 		// These are required, and don't need to be specified by the driver (they aren't on Apple.)
@@ -497,6 +533,13 @@ void CheckGLExtensions() {
 		}
 		if (gl_extensions.VersionGEThan(4, 4)) {
 			gl_extensions.ARB_buffer_storage = true;
+		}
+		if (gl_extensions.VersionGEThan(4, 5)) {
+			gl_extensions.ARB_cull_distance = true;
+		}
+		if (gl_extensions.VersionGEThan(4, 6)) {
+			// Actually ARB, but they're basically the same.
+			gl_extensions.EXT_texture_filter_anisotropic = true;
 		}
 	}
 

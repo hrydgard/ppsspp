@@ -528,13 +528,18 @@ extern "C" void Java_org_ppsspp_ppsspp_NativeApp_shutdown(JNIEnv *, jclass) {
 	if (renderer_inited && useCPUThread && graphicsContext) {
 		// Only used in Java EGL path.
 		EmuThreadStop();
+		graphicsContext->BeginAndroidShutdown();
+		// Skipping GL calls, the old context is gone.
 		while (graphicsContext->ThreadFrame()) {
+			ILOG("graphicsContext->ThreadFrame executed to clear buffers");
 			continue;
 		}
+		ILOG("Joining emuthread");
 		EmuThreadJoin();
 
 		graphicsContext->ThreadEnd();
 		graphicsContext->ShutdownFromRenderThread();
+		ILOG("Graphics context now shut down from NativeApp_shutdown");
 	}
 
 	ILOG("NativeApp.shutdown() -- begin");
@@ -565,6 +570,8 @@ extern "C" void Java_org_ppsspp_ppsspp_NativeRenderer_displayInit(JNIEnv * env, 
 		ILOG("NativeApp.displayInit() restoring");
 		if (useCPUThread) {
 			EmuThreadStop();
+			graphicsContext->BeginAndroidShutdown();
+			// Skipping GL calls here because the old context is lost.
 			while (graphicsContext->ThreadFrame()) {
 				continue;
 			}
@@ -939,7 +946,7 @@ extern "C" bool JNICALL Java_org_ppsspp_ppsspp_NativeActivity_runEGLRenderLoop(J
 	// This is up here to prevent race conditions, in case we pause during init.
 	renderLoopRunning = true;
 
-	ANativeWindow *wnd = ANativeWindow_fromSurface(env, _surf);
+	ANativeWindow *wnd = _surf ? ANativeWindow_fromSurface(env, _surf) : nullptr;
 
 	WLOG("runEGLRenderLoop. display_xres=%d display_yres=%d", display_xres, display_yres);
 

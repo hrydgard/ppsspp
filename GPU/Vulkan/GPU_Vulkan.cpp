@@ -18,6 +18,7 @@
 
 #include <thread>
 #include "base/logging.h"
+#include "base/timeutil.h"
 #include "profiler/profiler.h"
 
 #include "Common/ChunkFile.h"
@@ -110,11 +111,17 @@ GPU_Vulkan::GPU_Vulkan(GraphicsContext *gfxCtx, Draw::DrawContext *draw)
 			shaderCacheLoaded_ = true;
 		});
 		th.detach();
+	} else {
+		shaderCacheLoaded_ = true;
 	}
 }
 
 bool GPU_Vulkan::IsReady() {
 	return shaderCacheLoaded_;
+}
+
+void GPU_Vulkan::CancelReady() {
+	pipelineManager_->CancelCache();
 }
 
 void GPU_Vulkan::LoadCache(std::string filename) {
@@ -173,6 +180,8 @@ GPU_Vulkan::~GPU_Vulkan() {
 
 void GPU_Vulkan::CheckGPUFeatures() {
 	uint32_t features = 0;
+
+	features |= GPU_SUPPORTS_VS_RANGE_CULLING;
 
 	switch (vulkan_->GetPhysicalDeviceProperties(vulkan_->GetCurrentPhysicalDevice()).vendorID) {
 	case VULKAN_VENDOR_AMD:
@@ -488,6 +497,10 @@ void GPU_Vulkan::DestroyDeviceObjects() {
 }
 
 void GPU_Vulkan::DeviceLost() {
+	CancelReady();
+	while (!IsReady()) {
+		sleep_ms(10);
+	}
 	if (!shaderCachePath_.empty()) {
 		SaveCache(shaderCachePath_);
 	}

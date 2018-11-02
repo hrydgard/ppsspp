@@ -102,6 +102,7 @@ bool D3D11Context::Init(HINSTANCE hInst, HWND wnd, std::string *error_message) {
 
 	HRESULT hr = E_FAIL;
 	std::vector<std::string> adapterNames;
+	std::string chosenAdapterName;
 	if (result == LoadD3D11Error::SUCCESS) {
 		std::vector<IDXGIAdapter *> adapters;
 		int chosenAdapter = 0;
@@ -121,6 +122,7 @@ bool D3D11Context::Init(HINSTANCE hInst, HWND wnd, std::string *error_message) {
 			}
 		}
 
+		chosenAdapterName = adapterNames[chosenAdapter];
 		hr = CreateTheDevice(adapters[chosenAdapter]);
 		for (int i = 0; i < (int)adapters.size(); i++) {
 			adapters[i]->Release();
@@ -172,7 +174,7 @@ bool D3D11Context::Init(HINSTANCE hInst, HWND wnd, std::string *error_message) {
 #endif
 
 	draw_ = Draw::T3DCreateD3D11Context(device_, context_, device1_, context1_, featureLevel_, hWnd_, adapterNames);
-	SetGPUBackend(GPUBackend::DIRECT3D11);
+	SetGPUBackend(GPUBackend::DIRECT3D11, chosenAdapterName);
 	bool success = draw_->CreatePresets();  // If we can run D3D11, there's a compiler installed. I think.
 	assert(success);
 

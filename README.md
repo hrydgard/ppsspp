@@ -1,6 +1,4 @@
-
-
-PPSSPP - a fast and portable PSP emulator
+﻿PPSSPP - a fast and portable PSP emulator
 =========================================
 
 Created by Henrik Rydgård
@@ -9,40 +7,10 @@ Additional code by many contributors, see the Credits screen
 
 Originally released under the GPL 2.0 (and later) in November 2012
 
-Official website:
-https://www.ppsspp.org/
-
-Discord:
-https://discord.gg/5NJB6dD
-
 No BIOS file required to play, PPSSPP is an "HLE" emulator.  Default settings balance good compatibility and speed.
 
-To contribute, see [the development page](https://www.ppsspp.org/development.html).  Help testing, investigating, or fixing is always welcome.  See [the list of issues](https://github.com/hrydgard/ppsspp/issues).
 
-For the latest source code, see [our github page](https://github.com/hrydgard/ppsspp).
-
-For build instructions and other development tutorials, see [the wiki](https://github.com/hrydgard/ppsspp/wiki).
-
-For game compatibility, see [community compatibility feedback](http://report.ppsspp.org/games).
-
-This hackish branch add's:
- - frame profiler and simpler frame stats as a normal option,
- - adhoc between multiply instances on same pc,
- - some other ini-only options exposed in UI,
- - functionality of some additional hotkeys: W-Lan, Vol+/-, note(mute on/off), screen(accesses display layout editor),
- - different default settings personalized for my liking,
- - simple UI ~ an option to hide most rarely used options,
- - new awful compat hacks to deal with just as awful regressions and other problems,
- - some cwcheat workarounds of mine included in separate import-ready database,
- - a few more post process shaders,
- - texture replacement info from ge debugger(experimental aka usually works, but it might be done badly, available from right click menu),
- - ultra high render resolutions and render screenshots,
- - some mp3 improvements(volume clamping and reverse of a bad hack),
- - separate sas and atrac/mp3 volume sliders,
- - realtime gpu texture scaling by aliaspider(new methods are mostly bad, but xBRZ variants are pretty nice for otherwise un-scallable textures),
- - some untested/optional hack to avoid stutter on NVidia hardware/bad drivers.
-
- To list some game compatibility improvements here:
+ Luna version includes various compatibility improvements(hackfixes) :
  - Armored Core and Bleach: Soul Carnival series(freezes),
  - Auditorium(black screen),
  - Bijin Tokei Portable(miniatures),
@@ -59,32 +27,25 @@ This hackish branch add's:
  - N+(bad sound speed),
  - and more via included patches.
  (Note: When this list decreases, it just mean PPSSPP already got an official fix.)
-
  Also includes a really awful hack for MOHH2 multiplayer(MOHH1 works fine without it;p).
- 
  ~ LunaMoo
 
-What's new in 1.5.4
+What's new in 1.7.1
 -------------------
-* Bugfixes and crashfixes!
+* Minor crashfixes, lang updates
+* Save bug fixed (#11508)
 
-What's new in 1.5.0
+What's new in 1.7.0
 -------------------
-* Full Vulkan support, also for Android now. Very fast on supported devices. (#10033, #10049)
-* Smarter graphics state management, reduced CPU consumption on all backends (#9899)
-* Android: Support for Arabic and other scripts we couldn't support before
-* Fix Android widgets, screen scaling (#10145)
-* Fixes to video dumping
-* Geometry problems fixed in Medal of Honor
-* Implement immediate draws, fixing Thrillville (#7459)
-* Software rendering improvements, speed and accuracy
-* Hardware tesselation of PSP Beziers and Splines (used by a few games)
-* Partial sceUsbGps and sceUsbCam support (Android)
-* Android "Sustained performance mode" to avoid thermal throttling (#9901)
-* Linux controller mapping fixes (#9997)
-* Assorted bugfixes and compatibility improvements
-
-Looking for [older news](history.md)?
-
-
+* Fix for insta-crash on Galaxy Note 9, some Xiaomi devices, and the new nVidia Shield (#11441)
+* Vertex range culling on most platforms, fixes DTM: Race Driver and similar (#11393)
+* Major speed boost in some Gundam and Earth Defense Force games (#10973)
+* Fix for issues with post processing shaders in GL 3+ (#11182)
+* Fixes to sound output switching on Windows (WASAPI) (#11438)
+* Detects DirectInput devices when running (#11461)
+* Simple Discord integration (#11307)
+* New debugging APIs (#10909)
+* Task switching made a lot more robust (fixes GPD XD problems) (#11447)
+* Texture decoding optimizations (#11350)
+* Tons and tons of miscellaneous bugfixes and compatibility fixes
 
