@@ -7,6 +7,7 @@
 #endif
 
 #include <cstdint>
+#include <vector>
 #include "OSVersion.h"
 #include "Common/CommonWindows.h"
 
