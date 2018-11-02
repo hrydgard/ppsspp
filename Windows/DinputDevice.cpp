@@ -39,6 +39,7 @@
 unsigned int                  DinputDevice::pInstances = 0;
 LPDIRECTINPUT8                DinputDevice::pDI = NULL;
 std::vector<DIDEVICEINSTANCE> DinputDevice::devices;
+bool DinputDevice::needsCheck_ = true;
 
 // In order from 0.  There can be 128, but most controllers do not have that many.
 static const int dinput_buttons[] = {
@@ -120,7 +121,7 @@ BOOL CALLBACK DinputDevice::DevicesCallback(
 
 void DinputDevice::getDevices(bool refresh)
 {
-	if (devices.empty() || refresh)
+	if (refresh)
 	{
 		getPDI()->EnumDevices(DI8DEVCLASS_GAMECTRL, &DinputDevice::DevicesCallback, NULL, DIEDFL_ATTACHEDONLY);
 	}
@@ -368,6 +369,7 @@ void DinputDevice::ApplyButtons(DIJOYSTATE2 &state) {
 
 size_t DinputDevice::getNumPads()
 {
-	getDevices(true);
+	getDevices(needsCheck_);
+	needsCheck_ = false;
 	return devices.size();
 }

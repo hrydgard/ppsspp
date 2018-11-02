@@ -54,6 +54,7 @@
 #include "Windows/GEDebugger/GEDebugger.h"
 
 #include "Windows/main.h"
+#include "Windows/DinputDevice.h"
 #include "Windows/EmuThread.h"
 #include "Windows/resource.h"
 
@@ -813,6 +814,10 @@ namespace MainWindow
 		// Not sure why we are actually getting WM_CHAR even though we use RawInput, but alright..
 		case WM_CHAR:
 			return WindowsRawInput::ProcessChar(hWnd, wParam, lParam);
+
+		case WM_DEVICECHANGE:
+			DinputDevice::CheckDevices();
+			return DefWindowProc(hWnd, message, wParam, lParam);
 
 		case WM_VERYSLEEPY_MSG:
 			switch (wParam) {
