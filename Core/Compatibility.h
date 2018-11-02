@@ -68,6 +68,7 @@ struct CompatFlags {
 	bool DisableAccurateDepth;
 	bool MGS2AcidHack;
 	bool SonicRivalsHack;
+	bool AdhocHackDisableNBSwitch;
 };
 
 class IniFile;

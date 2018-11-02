@@ -1956,7 +1956,7 @@ static int sceNetAdhocPtpConnect(int id, int timeout, int flag) {
 					// Grab Nonblocking Flag
 					uint32_t nbio = getBlockingFlag(socket->id);
 					// Switch to Nonblocking Behaviour
-					if (nbio == 0) {
+					if (nbio == 0 && !PSP_CoreParameter().compat.flags().AdhocHackDisableNBSwitch) {
 						// Overwrite Socket Option
 						changeBlockingMode(socket->id, 1);
 					}
