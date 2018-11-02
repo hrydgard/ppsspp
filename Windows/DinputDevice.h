@@ -35,6 +35,10 @@ public:
 	virtual int UpdateState();
 	virtual bool IsPad() { return true; }
 	static size_t getNumPads();
+	static void CheckDevices() {
+		needsCheck_ = true;
+	}
+
 private:
 	void ApplyButtons(DIJOYSTATE2 &state);
 	//unfortunate and unclean way to keep only one DirectInput instance around
@@ -52,6 +56,7 @@ private:
 	static unsigned int     pInstances;
 	static std::vector<DIDEVICEINSTANCE> devices;
 	static LPDIRECTINPUT8   pDI;
+	static bool needsCheck_;
 	int                     pDevNum;
 	LPDIRECTINPUTDEVICE8    pJoystick;
 	DIJOYSTATE2             pPrevState;
