@@ -616,14 +616,14 @@ BEGIN
             MENUITEM "Hybrid",                          ID_TEXTURESCALING_HYBRID
             MENUITEM "Bicubic",                         ID_TEXTURESCALING_BICUBIC
             MENUITEM "Hybrid + Bicubic",                ID_TEXTURESCALING_HYBRID_BICUBIC
-            MENUITEM "4xBRZ",                           ID_TEXTURESCALING_4XBRZ
-            MENUITEM "xBR",                             ID_TEXTURESCALING_XBR
-            MENUITEM "SABR",                            ID_TEXTURESCALING_SABR
-            MENUITEM "Gaussian",                        ID_TEXTURESCALING_GAUSSIAN
-            MENUITEM "Cosine",                          ID_TEXTURESCALING_COSINE
+            MENUITEM "4xBRZ(RS)",                       ID_TEXTURESCALING_4XBRZ
+            MENUITEM "xBR(RS)",                         ID_TEXTURESCALING_XBR
+            MENUITEM "SABR(RS)",                        ID_TEXTURESCALING_SABR
+            MENUITEM "Gaussian(RS)",                    ID_TEXTURESCALING_GAUSSIAN
+            MENUITEM "Cosine(RS)",                      ID_TEXTURESCALING_COSINE
             MENUITEM SEPARATOR
             MENUITEM "Deposterize",                     ID_TEXTURESCALING_DEPOSTERIZE
-            MENUITEM "Realtime Scaling",                ID_TEXTURESCALING_REALTIME
+            MENUITEM "Realtime Scaling(D3D11)",         ID_TEXTURESCALING_REALTIME
         END
         MENUITEM "Hardware Transform",                  ID_OPTIONS_HARDWARETRANSFORM
         MENUITEM "Vertex Cache",                        ID_OPTIONS_VERTEXCACHE
