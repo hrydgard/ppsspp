@@ -143,6 +143,7 @@ public:
 	bool bSustainedPerformanceMode;  // Android: Slows clocks down to avoid overheating/speed fluctuations.
 	bool bVSync;
 	int iFrameSkip;
+	int iFrameSkipType;
 	bool bAutoFrameSkip;
 	bool bFrameSkipUnthrottle;
 

@@ -589,6 +589,11 @@ BEGIN
             MENUITEM "&7",                                  ID_OPTIONS_FRAMESKIP_7
             MENUITEM "&8",                                  ID_OPTIONS_FRAMESKIP_8
         END
+        POPUP "Frame Skipping Type"
+        BEGIN
+            MENUITEM "Skip Number of Frames",               ID_OPTIONS_FRAMESKIPTYPE_0
+            MENUITEM "Skip Percent of FPS",                 ID_OPTIONS_FRAMESKIPTYPE_1
+        END
         POPUP "Texture Filtering"
         BEGIN
             MENUITEM "Auto",                                ID_OPTIONS_TEXTUREFILTERING_AUTO
