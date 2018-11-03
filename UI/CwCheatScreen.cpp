@@ -214,14 +214,14 @@ void CwCheatScreen::ParseCheatDB(std::string line, std::vector<std::string> titl
 					do {
 						newList.push_back(line);
 						getline(fs, line);
-					} while (line[0] == '_' && line[1] == 'L');
+					} while ((line[0] == '_' && line[1] == 'L') || line[0] == '/' || line[0] == '#');
 					finished = true;
 				}
 				else {
 					continue;
 				}
 			loop:;
-			} while (fs.good() && line[0] == '_' && line[1] != 'S');
+			} while (fs.good() && (line[0] == '_' && line[1] != 'S') || line[0] == '/' || line[0] == '#');
 			finished = true;
 		}
 		if (finished == true)
@@ -236,7 +236,7 @@ void CwCheatScreen::ParseCheatDB(std::string line, std::vector<std::string> titl
 	File::OpenCPPFile(fs, activeCheatFile, std::ios::out | std::ios::app);
 
 	auto it = title.begin();
-	if (title2[0] == '_' && title2[1] != 'S' && it != title.end() && (++it) != title.end()) {
+	if ((title2[0] == '_' && title2[1] != 'S') || title2[0] == '/' || title2[0] == '#' && it != title.end() && (++it) != title.end()) {
 		fs << title[0] << "\n" << title[1];
 	}
 
