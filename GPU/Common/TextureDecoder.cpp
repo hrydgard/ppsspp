@@ -431,8 +431,7 @@ void DXTDecoder::WriteColorsDXT3(u32 *dst, const DXT3Block *src, int pitch, int 
 		int colordata = src->color.lines[y];
 		u32 alphadata = src->alphaLines[y];
 		for (int x = 0; x < 4; x++) {
-			const u8 a4 = alphadata & 0xF;
-			dst[x] = colors_[colordata & 3] | (a4 << 24) | (a4 << 28);
+			dst[x] = colors_[colordata & 3] | (alphadata << 28);
 			colordata >>= 2;
 			alphadata >>= 4;
 		}
