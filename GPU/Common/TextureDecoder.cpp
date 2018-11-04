@@ -385,13 +385,13 @@ static inline u8 lerp8(const DXT5Block *src, int n) {
 	// These weights translate alpha1/alpha2 to fixed 8.8 point, pre-divided by 7.
 	int weight1 = ((7 - n) << 8) / 7;
 	int weight2 = (n << 8) / 7;
-	return (u8)((src->alpha1 * weight1 + src->alpha2 * weight2) >> 8);
+	return (u8)((src->alpha1 * weight1 + src->alpha2 * weight2 + 255) >> 8);
 }
 
 static inline u8 lerp6(const DXT5Block *src, int n) {
 	int weight1 = ((5 - n) << 8) / 5;
 	int weight2 = (n << 8) / 5;
-	return (u8)((src->alpha1 * weight1 + src->alpha2 * weight2) >> 8);
+	return (u8)((src->alpha1 * weight1 + src->alpha2 * weight2 + 255) >> 8);
 }
 
 void DXTDecoder::DecodeAlphaDXT5(const DXT5Block *src) {
