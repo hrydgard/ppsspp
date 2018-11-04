@@ -337,7 +337,8 @@ namespace MainWindow {
 		TranslateSubMenu(menu, "Frame Skipping", MENU_OPTIONS, SUBMENU_FRAME_SKIPPING, L"\tF7");
 		TranslateMenuItem(menu, ID_OPTIONS_FRAMESKIP_AUTO);
 		TranslateMenuItem(menu, ID_OPTIONS_FRAMESKIP_0);
-		TranslateMenuItem(menu, ID_OPTIONS_FRAMESKIPTYPE_0);
+		TranslateMenuItem(menu, ID_OPTIONS_FRAMESKIPTYPE_COUNT);
+		TranslateMenuItem(menu, ID_OPTIONS_FRAMESKIPTYPE_PRCNT);
 		// Skip frameskipping 1-8..
 		TranslateSubMenu(menu, "Texture Filtering", MENU_OPTIONS, SUBMENU_TEXTURE_FILTERING);
 		TranslateMenuItem(menu, ID_OPTIONS_TEXTUREFILTERING_AUTO);
@@ -846,8 +847,8 @@ namespace MainWindow {
 		case ID_OPTIONS_FRAMESKIP_7:    setFrameSkipping(FRAMESKIP_7); break;
 		case ID_OPTIONS_FRAMESKIP_8:    setFrameSkipping(FRAMESKIP_MAX); break;
 
-		case ID_OPTIONS_FRAMESKIPTYPE_0:    setFrameSkippingType(FRAMESKIPTYPE_0); break;
-		case ID_OPTIONS_FRAMESKIPTYPE_1:    setFrameSkippingType(FRAMESKIPTYPE_1); break;
+		case ID_OPTIONS_FRAMESKIPTYPE_COUNT:    setFrameSkippingType(FRAMESKIPTYPE_COUNT); break;
+		case ID_OPTIONS_FRAMESKIPTYPE_PRCNT:    setFrameSkippingType(FRAMESKIPTYPE_PRCNT); break;
 
 		case ID_OPTIONS_FRAMESKIPDUMMY:
 			setFrameSkipping();
@@ -1101,7 +1102,8 @@ namespace MainWindow {
 		CHECKITEM(ID_OPTIONS_SHOWFPS, g_Config.iShowFPSCounter);
 		CHECKITEM(ID_OPTIONS_FRAMESKIP_AUTO, g_Config.bAutoFrameSkip);
 		CHECKITEM(ID_OPTIONS_FRAMESKIP, g_Config.iFrameSkip != FRAMESKIP_OFF);
-		CHECKITEM(ID_OPTIONS_FRAMESKIPTYPE, g_Config.iFrameSkipType);
+		CHECKITEM(ID_OPTIONS_FRAMESKIPTYPE_COUNT, g_Config.iFrameSkipType == FRAMESKIPTYPE_COUNT);
+		CHECKITEM(ID_OPTIONS_FRAMESKIPTYPE_PRCNT, g_Config.iFrameSkipType == FRAMESKIPTYPE_PRCNT);
 		CHECKITEM(ID_OPTIONS_VSYNC, g_Config.bVSync);
 		CHECKITEM(ID_OPTIONS_TOPMOST, g_Config.bTopMost);
 		CHECKITEM(ID_OPTIONS_PAUSE_FOCUS, g_Config.bPauseOnLostFocus);
@@ -1276,8 +1278,8 @@ namespace MainWindow {
 		};
 
 		static const int frameskippingType[] = {
-			ID_OPTIONS_FRAMESKIPTYPE_0,
-			ID_OPTIONS_FRAMESKIPTYPE_1,
+			ID_OPTIONS_FRAMESKIPTYPE_COUNT,
+			ID_OPTIONS_FRAMESKIPTYPE_PRCNT,
 		};
 
 		if (g_Config.iFrameSkip < FRAMESKIP_OFF)

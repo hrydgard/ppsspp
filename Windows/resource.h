@@ -343,8 +343,8 @@
 #define ID_EMULATION_PAUSE               40177
 #define ID_HELP_DISCORD                  40178
 #define IDC_GEDBG_STEPCURVE              40179
-#define ID_OPTIONS_FRAMESKIPTYPE_0       40180
-#define ID_OPTIONS_FRAMESKIPTYPE_1       40181
+#define ID_OPTIONS_FRAMESKIPTYPE_COUNT   40180
+#define ID_OPTIONS_FRAMESKIPTYPE_PRCNT   40181
 
 // Dummy option to let the buffered rendering hotkey cycle through all the options.
 #define ID_OPTIONS_BUFFEREDRENDERINGDUMMY 40500
