@@ -504,11 +504,12 @@ static void DoFrameDropLogging(float scaledTimestep) {
 }
 
 static int CalculateFrameSkip() {
-	// Used to calculate the FPS to skip if the user sets the type to percent of fps
 	int frameSkipNum;
 	if (g_Config.iFrameSkipType == 1) { 
+		// Calculate the frames to skip dynamically using the set percentage of the current fps
 		frameSkipNum = ceil( flips * (static_cast<double>(g_Config.iFrameSkip) / 100.00) ); 
 	} else { 
+		// Use the set number of frames to skip
 		frameSkipNum = g_Config.iFrameSkip; 
 	}
 	return frameSkipNum;
