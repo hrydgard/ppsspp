@@ -412,8 +412,7 @@ VirtualFramebuffer *FramebufferManagerCommon::DoSetRenderFrameBuffer(const Frame
 
 	// None found? Create one.
 	if (!vfb) {
-		vfb = new VirtualFramebuffer();
-		memset(vfb, 0, sizeof(VirtualFramebuffer));
+		vfb = new VirtualFramebuffer{};
 		vfb->fbo = nullptr;
 		vfb->fb_address = params.fb_address;
 		vfb->fb_stride = params.fb_stride;
@@ -1282,6 +1281,7 @@ bool FramebufferManagerCommon::NotifyFramebufferCopy(u32 src, u32 dst, int size,
 		// MotoGP workaround - it copies a framebuffer to memory and then displays it.
 		// TODO: It's rare anyway, but the game could modify the RAM and then we'd display the wrong thing.
 		// Unfortunately, that would force 1x render resolution.
+		// NOTE: With the BlockTransferAllowCreateFB hack, we might be able to remove this.
 		if (Memory::IsRAMAddress(dst)) {
 			knownFramebufferRAMCopies_.insert(std::pair<u32, u32>(src, dst));
 		}
@@ -1337,7 +1337,8 @@ bool FramebufferManagerCommon::NotifyFramebufferCopy(u32 src, u32 dst, int size,
 	}
 }
 
-void FramebufferManagerCommon::FindTransferFramebuffers(VirtualFramebuffer *&dstBuffer, VirtualFramebuffer *&srcBuffer, u32 dstBasePtr, int dstStride, int &dstX, int &dstY, u32 srcBasePtr, int srcStride, int &srcX, int &srcY, int &srcWidth, int &srcHeight, int &dstWidth, int &dstHeight, int bpp) const {
+// Can't be const, in case it has to create a vfb unfortunately.
+void FramebufferManagerCommon::FindTransferFramebuffers(VirtualFramebuffer *&dstBuffer, VirtualFramebuffer *&srcBuffer, u32 dstBasePtr, int dstStride, int &dstX, int &dstY, u32 srcBasePtr, int srcStride, int &srcX, int &srcY, int &srcWidth, int &srcHeight, int &dstWidth, int &dstHeight, int bpp) {
 	u32 dstYOffset = -1;
 	u32 dstXOffset = -1;
 	u32 srcYOffset = -1;
@@ -1416,6 +1417,38 @@ void FramebufferManagerCommon::FindTransferFramebuffers(VirtualFramebuffer *&dst
 			}
 		}
 	}
+
+	if (!dstBuffer && PSP_CoreParameter().compat.flags().BlockTransferAllowCreateFB) {
+		float renderWidthFactor = renderWidth_ / 480.0f;
+		float renderHeightFactor = renderHeight_ / 272.0f;
+		// A target for the destination is missing - so just create one!
+		// Make sure this one would be found by the algorithm above so we wouldn't
+		// create a new one each frame.
+		VirtualFramebuffer *vfb = new VirtualFramebuffer{};
+		vfb->fbo = nullptr;
+		vfb->fb_address = dstBasePtr;  // NOTE - not necessarily in VRAM!
+		vfb->fb_stride = dstStride;
+		vfb->z_address = 0;
+		vfb->z_stride =0;
+		vfb->width = std::max(dstWidth, dstStride);
+		vfb->height = dstHeight;
+		vfb->newWidth = vfb->width;
+		vfb->newHeight = vfb->height;
+		vfb->lastFrameNewSize = gpuStats.numFlips;
+		vfb->renderWidth = (u16)(vfb->width * renderWidthFactor);
+		vfb->renderHeight = (u16)(vfb->height * renderHeightFactor);
+		vfb->bufferWidth = vfb->width;
+		vfb->bufferHeight = vfb->height;
+		vfb->format = bpp == 4 ? GE_FORMAT_8888 : GE_FORMAT_5551;  // TODO: We don't really know the 16-bit format here.. at all. Can only guess when it gets used later!
+		vfb->drawnFormat = GE_FORMAT_8888;
+		vfb->usageFlags = FB_USAGE_RENDERTARGET;
+		SetColorUpdated(vfb, 0);
+		textureCache_->NotifyFramebuffer(vfb->fb_address, vfb, NOTIFY_FB_CREATED);
+		vfb->fbo = draw_->CreateFramebuffer({ vfb->renderWidth, vfb->renderHeight, 1, 1, true, (Draw::FBColorDepth)vfb->colorDepth });
+		vfbs_.push_back(vfb);
+		dstBuffer = vfb;
+	}
+	dstBuffer->last_frame_used = gpuStats.numFlips;
 
 	if (dstYOffset != (u32)-1) {
 		dstY += dstYOffset;
