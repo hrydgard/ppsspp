@@ -348,41 +348,36 @@ static inline u32 makecol(int r, int g, int b, int a) {
 	return (a << 24) | (r << 16) | (g << 8) | b;
 }
 
-static inline int mul_3_8(int c) {
-	// This is 3/8 * c = 4/8 * c - 1/8 * c.
-	return (c >> 1) - (c >> 3);
+static inline int mix_2_3(int c1, int c2) {
+	return (c1 + c1 + c2) / 3;
 }
 
 // This could probably be done faster by decoding two or four blocks at a time with SSE/NEON.
 void DXTDecoder::DecodeColors(const DXT1Block *src, bool ignore1bitAlpha) {
 	u16 c1 = src->color1;
 	u16 c2 = src->color2;
-	int red1 = Convert5To8(c1 & 0x1F);
-	int red2 = Convert5To8(c2 & 0x1F);
-	int green1 = Convert6To8((c1 >> 5) & 0x3F);
-	int green2 = Convert6To8((c2 >> 5) & 0x3F);
-	int blue1 = Convert5To8((c1 >> 11) & 0x1F);
-	int blue2 = Convert5To8((c2 >> 11) & 0x1F);
+	int red1 = (c1 << 3) & 0xF8;
+	int red2 = (c2 << 3) & 0xF8;
+	int green1 = (c1 >> 3) & 0xFC;
+	int green2 = (c2 >> 3) & 0xFC;
+	int blue1 = (c1 >> 8) & 0xF8;
+	int blue2 = (c2 >> 8) & 0xF8;
 
 	// Keep alpha zero for non-DXT1 to skip masking the colors.
 	int alpha = ignore1bitAlpha ? 0 : 255;
 
 	colors_[0] = makecol(red1, green1, blue1, alpha);
 	colors_[1] = makecol(red2, green2, blue2, alpha);
-	if (c1 > c2 || ignore1bitAlpha) {
-		int red3 = mul_3_8(red2 - red1);
-		int green3 = mul_3_8(green2 - green1);
-		int blue3 = mul_3_8(blue2 - blue1);
-		colors_[2] = makecol(red1 + red3, green1 + green3, blue1 + blue3, alpha);
-		colors_[3] = makecol(red2 - red3, green2 - green3, blue2 - blue3, alpha);
+	if (c1 > c2) {
+		colors_[2] = makecol(mix_2_3(red1, red2), mix_2_3(green1, green2), mix_2_3(blue1, blue2), alpha);
+		colors_[3] = makecol(mix_2_3(red2, red1), mix_2_3(green2, green1), mix_2_3(blue2, blue1), alpha);
 	} else {
-		// Average
-		int red3 = (red1 + red2 + 1) / 2;
-		int green3 = (green1 + green2 + 1) / 2;
-		int blue3 = (blue1 + blue2 + 1) / 2;
-		colors_[2] = makecol(red3, green3, blue3, 255);
-		// Color2 but transparent
-		colors_[3] = makecol(red2, green2, blue2, 0);
+		// Average - these are always left shifted, so no need to worry about ties.
+		int red3 = (red1 + red2) / 2;
+		int green3 = (green1 + green2) / 2;
+		int blue3 = (blue1 + blue2) / 2;
+		colors_[2] = makecol(red3, green3, blue3, alpha);
+		colors_[3] = makecol(0, 0, 0, 0);
 	}
 }
 
@@ -390,13 +385,13 @@ static inline u8 lerp8(const DXT5Block *src, int n) {
 	// These weights translate alpha1/alpha2 to fixed 8.8 point, pre-divided by 7.
 	int weight1 = ((7 - n) << 8) / 7;
 	int weight2 = (n << 8) / 7;
-	return (u8)((src->alpha1 * weight1 + src->alpha2 * weight2) >> 8);
+	return (u8)((src->alpha1 * weight1 + src->alpha2 * weight2 + 255) >> 8);
 }
 
 static inline u8 lerp6(const DXT5Block *src, int n) {
 	int weight1 = ((5 - n) << 8) / 5;
 	int weight2 = (n << 8) / 5;
-	return (u8)((src->alpha1 * weight1 + src->alpha2 * weight2) >> 8);
+	return (u8)((src->alpha1 * weight1 + src->alpha2 * weight2 + 255) >> 8);
 }
 
 void DXTDecoder::DecodeAlphaDXT5(const DXT5Block *src) {
@@ -436,8 +431,7 @@ void DXTDecoder::WriteColorsDXT3(u32 *dst, const DXT3Block *src, int pitch, int 
 		int colordata = src->color.lines[y];
 		u32 alphadata = src->alphaLines[y];
 		for (int x = 0; x < 4; x++) {
-			const u8 a4 = alphadata & 0xF;
-			dst[x] = colors_[colordata & 3] | (a4 << 24) | (a4 << 28);
+			dst[x] = colors_[colordata & 3] | (alphadata << 28);
 			colordata >>= 2;
 			alphadata >>= 4;
 		}
