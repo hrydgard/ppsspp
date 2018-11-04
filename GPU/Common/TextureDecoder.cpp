@@ -368,7 +368,7 @@ void DXTDecoder::DecodeColors(const DXT1Block *src, bool ignore1bitAlpha) {
 
 	colors_[0] = makecol(red1, green1, blue1, alpha);
 	colors_[1] = makecol(red2, green2, blue2, alpha);
-	if (c1 > c2 || ignore1bitAlpha) {
+	if (c1 > c2) {
 		colors_[2] = makecol(mix_2_3(red1, red2), mix_2_3(green1, green2), mix_2_3(blue1, blue2), alpha);
 		colors_[3] = makecol(mix_2_3(red2, red1), mix_2_3(green2, green1), mix_2_3(blue2, blue1), alpha);
 	} else {
@@ -376,7 +376,7 @@ void DXTDecoder::DecodeColors(const DXT1Block *src, bool ignore1bitAlpha) {
 		int red3 = (red1 + red2) / 2;
 		int green3 = (green1 + green2) / 2;
 		int blue3 = (blue1 + blue2) / 2;
-		colors_[2] = makecol(red3, green3, blue3, 255);
+		colors_[2] = makecol(red3, green3, blue3, alpha);
 		colors_[3] = makecol(0, 0, 0, 0);
 	}
 }
