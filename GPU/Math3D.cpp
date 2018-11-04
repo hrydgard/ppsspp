@@ -102,11 +102,49 @@ float Vec3<float>::Distance2To(Vec3<float> &other)
 	return Vec3<float>(other-(*this)).Length2();
 }
 
+#if defined(_M_SSE)
+__m128 SSENormalizeMultiplierSSE2(__m128 v)
+{
+	const __m128 sq = _mm_mul_ps(v, v);
+	const __m128 r2 = _mm_shuffle_ps(sq, sq, _MM_SHUFFLE(0, 0, 0, 1));
+	const __m128 r3 = _mm_shuffle_ps(sq, sq, _MM_SHUFFLE(0, 0, 0, 2));
+	const __m128 res = _mm_add_ss(r3, _mm_add_ss(r2, sq));
+
+	const __m128 rt = _mm_rsqrt_ss(res);
+	return _mm_shuffle_ps(rt, rt, _MM_SHUFFLE(0, 0, 0, 0));
+}
+
+#if _M_SSE >= 0x401
+__m128 SSENormalizeMultiplierSSE4(__m128 v)
+{
+	return _mm_rsqrt_ps(_mm_dp_ps(v, v, 0xFF));
+}
+
+__m128 SSENormalizeMultiplier(bool useSSE4, __m128 v)
+{
+	if (useSSE4)
+		return SSENormalizeMultiplierSSE4(v);
+	return SSENormalizeMultiplierSSE2(v);
+}
+#else
+__m128 SSENormalizeMultiplier(bool useSSE4, __m128 v)
+{
+	return SSENormalizeMultiplierSSE2(v);
+}
+#endif
 template<>
-Vec3<float> Vec3<float>::Normalized() const
+Vec3<float> Vec3<float>::Normalized(bool useSSE4) const
+{
+	const __m128 normalize = SSENormalizeMultiplier(useSSE4, vec);
+	return _mm_mul_ps(normalize, vec);
+}
+#else
+template<>
+Vec3<float> Vec3<float>::Normalized(bool useSSE4) const
 {
 	return (*this) / Length();
 }
+#endif
 
 template<>
 float Vec3<float>::Normalize()

@@ -42,13 +42,11 @@ SoftwareDrawEngine::SoftwareDrawEngine() {
 	// All this is a LOT of memory, need to see if we can cut down somehow.  Used for splines.
 	decoded = (u8 *)AllocateMemoryPages(DECODED_VERTEX_BUFFER_SIZE, MEM_PROT_READ | MEM_PROT_WRITE);
 	decIndex = (u16 *)AllocateMemoryPages(DECODED_INDEX_BUFFER_SIZE, MEM_PROT_READ | MEM_PROT_WRITE);
-	splineBuffer = (u8 *)AllocateMemoryPages(SPLINE_BUFFER_SIZE, MEM_PROT_READ | MEM_PROT_WRITE);
 }
 
 SoftwareDrawEngine::~SoftwareDrawEngine() {
 	FreeMemoryPages(decoded, DECODED_VERTEX_BUFFER_SIZE);
 	FreeMemoryPages(decIndex, DECODED_INDEX_BUFFER_SIZE);
-	FreeMemoryPages(splineBuffer, SPLINE_BUFFER_SIZE);
 }
 
 void SoftwareDrawEngine::DispatchFlush() {
@@ -280,7 +278,7 @@ void TransformUnit::SubmitPrimitive(void* vertices, void* indices, GEPrimitiveTy
 
 	u16 index_lower_bound = 0;
 	u16 index_upper_bound = vertex_count - 1;
-	IndexConverter idxConv(vertex_type, indices);
+	IndexConverter ConvertIndex(vertex_type, indices);
 
 	if (indices)
 		GetIndexBounds(indices, vertex_count, vertex_type, &index_lower_bound, &index_upper_bound);
@@ -321,7 +319,7 @@ void TransformUnit::SubmitPrimitive(void* vertices, void* indices, GEPrimitiveTy
 		{
 			for (int vtx = 0; vtx < vertex_count; ++vtx) {
 				if (indices) {
-					vreader.Goto(idxConv.convert(vtx) - index_lower_bound);
+					vreader.Goto(ConvertIndex(vtx) - index_lower_bound);
 				} else {
 					vreader.Goto(vtx);
 				}
@@ -380,7 +378,7 @@ void TransformUnit::SubmitPrimitive(void* vertices, void* indices, GEPrimitiveTy
 			int skip_count = data_index == 0 ? 1 : 0;
 			for (int vtx = 0; vtx < vertex_count; ++vtx) {
 				if (indices) {
-					vreader.Goto(idxConv.convert(vtx) - index_lower_bound);
+					vreader.Goto(ConvertIndex(vtx) - index_lower_bound);
 				} else {
 					vreader.Goto(vtx);
 				}
@@ -410,7 +408,7 @@ void TransformUnit::SubmitPrimitive(void* vertices, void* indices, GEPrimitiveTy
 
 			for (int vtx = 0; vtx < vertex_count; ++vtx) {
 				if (indices) {
-					vreader.Goto(idxConv.convert(vtx) - index_lower_bound);
+					vreader.Goto(ConvertIndex(vtx) - index_lower_bound);
 				} else {
 					vreader.Goto(vtx);
 				}
@@ -452,7 +450,7 @@ void TransformUnit::SubmitPrimitive(void* vertices, void* indices, GEPrimitiveTy
 			// Only read the central vertex if we're not continuing.
 			if (data_index == 0) {
 				if (indices) {
-					vreader.Goto(idxConv.convert(0) - index_lower_bound);
+					vreader.Goto(ConvertIndex(0) - index_lower_bound);
 				} else {
 					vreader.Goto(0);
 				}
@@ -463,7 +461,7 @@ void TransformUnit::SubmitPrimitive(void* vertices, void* indices, GEPrimitiveTy
 
 			for (int vtx = start_vtx; vtx < vertex_count; ++vtx) {
 				if (indices) {
-					vreader.Goto(idxConv.convert(vtx) - index_lower_bound);
+					vreader.Goto(ConvertIndex(vtx) - index_lower_bound);
 				} else {
 					vreader.Goto(vtx);
 				}

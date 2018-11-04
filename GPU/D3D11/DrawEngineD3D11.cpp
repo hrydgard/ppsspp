@@ -89,7 +89,6 @@ DrawEngineD3D11::DrawEngineD3D11(Draw::DrawContext *draw, ID3D11Device *device, 
 	// All this is a LOT of memory, need to see if we can cut down somehow.
 	decoded = (u8 *)AllocateMemoryPages(DECODED_VERTEX_BUFFER_SIZE, MEM_PROT_READ | MEM_PROT_WRITE);
 	decIndex = (u16 *)AllocateMemoryPages(DECODED_INDEX_BUFFER_SIZE, MEM_PROT_READ | MEM_PROT_WRITE);
-	splineBuffer = (u8 *)AllocateMemoryPages(SPLINE_BUFFER_SIZE, MEM_PROT_READ | MEM_PROT_WRITE);
 
 	indexGen.Setup(decIndex);
 
@@ -104,14 +103,14 @@ DrawEngineD3D11::~DrawEngineD3D11() {
 	DestroyDeviceObjects();
 	FreeMemoryPages(decoded, DECODED_VERTEX_BUFFER_SIZE);
 	FreeMemoryPages(decIndex, DECODED_INDEX_BUFFER_SIZE);
-	FreeMemoryPages(splineBuffer, SPLINE_BUFFER_SIZE);
 }
 
 void DrawEngineD3D11::InitDeviceObjects() {
 	pushVerts_ = new PushBufferD3D11(device_, VERTEX_PUSH_SIZE, D3D11_BIND_VERTEX_BUFFER);
 	pushInds_ = new PushBufferD3D11(device_, INDEX_PUSH_SIZE, D3D11_BIND_INDEX_BUFFER);
 
-	tessDataTransfer = new TessellationDataTransferD3D11(context_, device_);
+	tessDataTransferD3D11 = new TessellationDataTransferD3D11(context_, device_);
+	tessDataTransfer = tessDataTransferD3D11;
 }
 
 void DrawEngineD3D11::ClearTrackedVertexArrays() {
@@ -137,7 +136,7 @@ void DrawEngineD3D11::Resized() {
 void DrawEngineD3D11::DestroyDeviceObjects() {
 	ClearTrackedVertexArrays();
 	ClearInputLayoutMap();
-	delete tessDataTransfer;
+	delete tessDataTransferD3D11;
 	delete pushVerts_;
 	delete pushInds_;
 	depthStencilCache_.Iterate([&](const uint64_t &key, ID3D11DepthStencilState *ds) {
@@ -539,10 +538,7 @@ rotateVBO:
 				memcpy(iptr, decIndex, iSize);
 				pushInds_->EndPush(context_);
 				context_->IASetIndexBuffer(pushInds_->Buf(), DXGI_FORMAT_R16_UINT, iOffset);
-				if (tess)
-					context_->DrawIndexedInstanced(vertexCount, numPatches, 0, 0, 0);
-				else
-					context_->DrawIndexed(vertexCount, 0, 0);
+				context_->DrawIndexed(vertexCount, 0, 0);
 			} else {
 				context_->Draw(vertexCount, 0);
 			}
@@ -551,10 +547,7 @@ rotateVBO:
 			context_->IASetVertexBuffers(0, 1, &vb_, &stride, &offset);
 			if (useElements) {
 				context_->IASetIndexBuffer(ib_, DXGI_FORMAT_R16_UINT, 0);
-				if (tess)
-					context_->DrawIndexedInstanced(vertexCount, numPatches, 0, 0, 0);
-				else
-					context_->DrawIndexed(vertexCount, 0, 0);
+				context_->DrawIndexed(vertexCount, 0, 0);
 			} else {
 				context_->Draw(vertexCount, 0);
 			}
@@ -692,38 +685,85 @@ rotateVBO:
 	GPUDebug::NotifyDraw();
 }
 
-void DrawEngineD3D11::TessellationDataTransferD3D11::PrepareBuffers(float *&pos, float *&tex, float *&col, int &posStride, int &texStride, int &colStride, int size, bool hasColor, bool hasTexCoords) {
+TessellationDataTransferD3D11::TessellationDataTransferD3D11(ID3D11DeviceContext *context, ID3D11Device *device)
+	: context_(context), device_(device) {
+	desc.Usage = D3D11_USAGE_DYNAMIC;
+	desc.BindFlags = D3D11_BIND_SHADER_RESOURCE;
+	desc.CPUAccessFlags = D3D11_CPU_ACCESS_WRITE;
+	desc.MiscFlags = D3D11_RESOURCE_MISC_BUFFER_STRUCTURED;
+}
+
+TessellationDataTransferD3D11::~TessellationDataTransferD3D11() {
+	for (int i = 0; i < 3; ++i) {
+		if (buf[i]) buf[i]->Release();
+		if (view[i]) view[i]->Release();
+	}
+}
+
+void TessellationDataTransferD3D11::SendDataToShader(const SimpleVertex *const *points, int size_u, int size_v, u32 vertType, const Spline::Weight2D &weights) {
 	struct TessData {
 		float pos[3]; float pad1;
 		float uv[2]; float pad2[2];
 		float color[4];
 	};
 
+	int size = size_u * size_v;
+
 	if (prevSize < size) {
 		prevSize = size;
-		if (buf) {
-			buf->Release();
-			view->Release();
-		}
+		if (buf[0]) buf[0]->Release();
+		if (view[0]) view[0]->Release();
+
 		desc.ByteWidth = size * sizeof(TessData);
 		desc.StructureByteStride = sizeof(TessData);
-
-		device_->CreateBuffer(&desc, nullptr, &buf);
-		device_->CreateShaderResourceView(buf, 0, &view);
-		context_->VSSetShaderResources(0, 1, &view);
+		device_->CreateBuffer(&desc, nullptr, &buf[0]);
+		device_->CreateShaderResourceView(buf[0], nullptr, &view[0]);
+		context_->VSSetShaderResources(0, 1, &view[0]);
 	}
 	D3D11_MAPPED_SUBRESOURCE map;
-	context_->Map(buf, 0, D3D11_MAP_WRITE_DISCARD, 0, &map);
+	context_->Map(buf[0], 0, D3D11_MAP_WRITE_DISCARD, 0, &map);
 	uint8_t *data = (uint8_t *)map.pData;
 
-	pos = (float *)(data);
-	tex = (float *)(data + offsetof(TessData, uv));
-	col = (float *)(data + offsetof(TessData, color));
-	posStride = sizeof(TessData) / sizeof(float);
-	colStride = hasColor ? (sizeof(TessData) / sizeof(float)) : 0;
-	texStride = sizeof(TessData) / sizeof(float);
-}
+	float *pos = (float *)(data);
+	float *tex = (float *)(data + offsetof(TessData, uv));
+	float *col = (float *)(data + offsetof(TessData, color));
+	int stride = sizeof(TessData) / sizeof(float);
 
-void DrawEngineD3D11::TessellationDataTransferD3D11::SendDataToShader(const float * pos, const float * tex, const float * col, int size, bool hasColor, bool hasTexCoords) {
-	context_->Unmap(buf, 0);
+	CopyControlPoints(pos, tex, col, stride, stride, stride, points, size, vertType);
+
+	context_->Unmap(buf[0], 0);
+
+	using Spline::Weight;
+
+	// Weights U
+	if (prevSizeWU < weights.size_u) {
+		prevSizeWU = weights.size_u;
+		if (buf[1]) buf[1]->Release();
+		if (view[1]) view[1]->Release();
+
+		desc.ByteWidth = weights.size_u * sizeof(Weight);
+		desc.StructureByteStride = sizeof(Weight);
+		device_->CreateBuffer(&desc, nullptr, &buf[1]);
+		device_->CreateShaderResourceView(buf[1], nullptr, &view[1]);
+		context_->VSSetShaderResources(1, 1, &view[1]);
+	}
+	context_->Map(buf[1], 0, D3D11_MAP_WRITE_DISCARD, 0, &map);
+	memcpy(map.pData, weights.u, weights.size_u * sizeof(Weight));
+	context_->Unmap(buf[1], 0);
+
+	// Weights V
+	if (prevSizeWV < weights.size_v) {
+		prevSizeWV = weights.size_v;
+		if (buf[2]) buf[2]->Release();
+		if (view[2]) view[2]->Release();
+
+		desc.ByteWidth = weights.size_v * sizeof(Weight);
+		desc.StructureByteStride = sizeof(Weight);
+		device_->CreateBuffer(&desc, nullptr, &buf[2]);
+		device_->CreateShaderResourceView(buf[2], nullptr, &view[2]);
+		context_->VSSetShaderResources(2, 1, &view[2]);
+	}
+	context_->Map(buf[2], 0, D3D11_MAP_WRITE_DISCARD, 0, &map);
+	memcpy(map.pData, weights.v, weights.size_v * sizeof(Weight));
+	context_->Unmap(buf[2], 0);
 }

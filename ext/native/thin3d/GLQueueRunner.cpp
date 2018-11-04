@@ -306,14 +306,14 @@ void GLQueueRunner::RunInitSteps(const std::vector<GLRInitStep> &steps, bool ski
 				glBindTexture(tex->target, tex->texture);
 				boundTexture = tex->texture;
 			}
-			if (!step.texture_image.data)
+			if (!step.texture_image.data && step.texture_image.allocType != GLRAllocType::NONE)
 				Crash();
 			// For things to show in RenderDoc, need to split into glTexImage2D(..., nullptr) and glTexSubImage.
 			glTexImage2D(tex->target, step.texture_image.level, step.texture_image.internalFormat, step.texture_image.width, step.texture_image.height, 0, step.texture_image.format, step.texture_image.type, step.texture_image.data);
 			allocatedTextures = true;
 			if (step.texture_image.allocType == GLRAllocType::ALIGNED) {
 				FreeAlignedMemory(step.texture_image.data);
-			} else {
+			} else if (step.texture_image.allocType == GLRAllocType::NEW) {
 				delete[] step.texture_image.data;
 			}
 			CHECK_GL_ERROR_IF_DEBUG();
@@ -490,7 +490,19 @@ void GLQueueRunner::RunSteps(const std::vector<GLRStep *> &steps, bool skipGLCal
 			const GLRStep &step = *steps[i];
 			switch (step.stepType) {
 			case GLRStepType::RENDER:
-				// TODO: With #11425 there'll be a case where we should really free spline data here.
+				for (const auto &c : step.commands) {
+					switch (c.cmd) {
+					case GLRRenderCommand::TEXTURE_SUBIMAGE:
+						if (c.texture_subimage.data) {
+							if (c.texture_subimage.allocType == GLRAllocType::ALIGNED) {
+								FreeAlignedMemory(c.texture_subimage.data);
+							} else if (c.texture_subimage.allocType == GLRAllocType::NEW) {
+								delete[] c.texture_subimage.data;
+							}
+						}
+						break;
+					}
+				}
 				break;
 			}
 			delete steps[i];
@@ -1022,6 +1034,22 @@ void GLQueueRunner::PerformRenderPass(const GLRStep &step) {
 				glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAX_LOD, c.textureLod.maxLod);
 				tex->maxLod = c.textureLod.maxLod;
 			}
+			break;
+		}
+		case GLRRenderCommand::TEXTURE_SUBIMAGE:
+		{
+			GLRTexture *tex = c.texture_subimage.texture;
+			// TODO: Need bind?
+			if (!c.texture_subimage.data)
+				Crash();
+			// For things to show in RenderDoc, need to split into glTexImage2D(..., nullptr) and glTexSubImage.
+			glTexSubImage2D(tex->target, c.texture_subimage.level, c.texture_subimage.x, c.texture_subimage.y, c.texture_subimage.width, c.texture_subimage.height, c.texture_subimage.format, c.texture_subimage.type, c.texture_subimage.data);
+			if (c.texture_subimage.allocType == GLRAllocType::ALIGNED) {
+				FreeAlignedMemory(c.texture_subimage.data);
+			} else if (c.texture_subimage.allocType == GLRAllocType::NEW) {
+				delete[] c.texture_subimage.data;
+			}
+			CHECK_GL_ERROR_IF_DEBUG();
 			break;
 		}
 		case GLRRenderCommand::RASTER:

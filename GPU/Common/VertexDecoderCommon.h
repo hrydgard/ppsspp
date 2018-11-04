@@ -102,7 +102,7 @@ public:
 		: indices(indices), indexType(vertType & GE_VTYPE_IDX_MASK) {
 	}
 
-	inline u32 convert(u32 index) const {
+	u32 operator() (u32 index) const {
 		switch (indexType) {
 		case GE_VTYPE_IDX_8BIT:
 			return indices8[index];

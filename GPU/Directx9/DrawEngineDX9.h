@@ -97,6 +97,13 @@ public:
 	u8 flags;
 };
 
+class TessellationDataTransferDX9 : public TessellationDataTransfer {
+public:
+	TessellationDataTransferDX9() {}
+	~TessellationDataTransferDX9() {}
+	void SendDataToShader(const SimpleVertex *const *points, int size_u, int size_v, u32 vertType, const Spline::Weight2D &weights) override;
+};
+
 // Handles transform, lighting and drawing.
 class DrawEngineDX9 : public DrawEngineCommon {
 public:
@@ -158,16 +165,7 @@ private:
 	FramebufferManagerDX9 *framebufferManager_ = nullptr;
 
 	// Hardware tessellation
-	class TessellationDataTransferDX9 : public TessellationDataTransfer {
-	private:
-		int data_tex[3];
-	public:
-		TessellationDataTransferDX9() : TessellationDataTransfer(), data_tex() {
-		}
-		~TessellationDataTransferDX9() {
-		}
-		void SendDataToShader(const float *pos, const float *tex, const float *col, int size, bool hasColor, bool hasTexCoords) override;
-	};
+	TessellationDataTransferDX9 *tessDataTransferDX9;
 };
 
 }  // namespace

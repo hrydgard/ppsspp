@@ -117,13 +117,11 @@ public:
 	int u_lightspecular[4];  // attenuation
 	int u_lightambient[4];  // attenuation
 
-	int u_tess_pos_tex;
-	int u_tess_tex_tex;
-	int u_tess_col_tex;
-	int u_spline_count_u;
-	int u_spline_count_v;
-	int u_spline_type_u;
-	int u_spline_type_v;
+	// Spline Tessellation
+	int u_tess_points; // Control Points
+	int u_tess_weights_u;
+	int u_tess_weights_v;
+	int u_spline_counts;
 };
 
 // Real public interface

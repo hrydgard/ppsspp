@@ -81,22 +81,21 @@ DrawEngineGLES::DrawEngineGLES(Draw::DrawContext *draw) : vai_(256), draw_(draw)
 	// All this is a LOT of memory, need to see if we can cut down somehow.
 	decoded = (u8 *)AllocateMemoryPages(DECODED_VERTEX_BUFFER_SIZE, MEM_PROT_READ | MEM_PROT_WRITE);
 	decIndex = (u16 *)AllocateMemoryPages(DECODED_INDEX_BUFFER_SIZE, MEM_PROT_READ | MEM_PROT_WRITE);
-	splineBuffer = (u8 *)AllocateMemoryPages(SPLINE_BUFFER_SIZE, MEM_PROT_READ | MEM_PROT_WRITE);
 
 	indexGen.Setup(decIndex);
 
 	InitDeviceObjects();
 
-	tessDataTransfer = new TessellationDataTransferGLES(render_);
+	tessDataTransferGLES = new TessellationDataTransferGLES(render_);
+	tessDataTransfer = tessDataTransferGLES;
 }
 
 DrawEngineGLES::~DrawEngineGLES() {
 	DestroyDeviceObjects();
 	FreeMemoryPages(decoded, DECODED_VERTEX_BUFFER_SIZE);
 	FreeMemoryPages(decIndex, DECODED_INDEX_BUFFER_SIZE);
-	FreeMemoryPages(splineBuffer, SPLINE_BUFFER_SIZE);
 
-	delete tessDataTransfer;
+	delete tessDataTransferGLES;
 }
 
 void DrawEngineGLES::DeviceLost() {
@@ -166,7 +165,7 @@ void DrawEngineGLES::EndFrame() {
 	FrameData &frameData = frameData_[render_->GetCurFrame()];
 	render_->EndPushBuffer(frameData.pushIndex);
 	render_->EndPushBuffer(frameData.pushVertex);
-	tessDataTransfer->EndFrame();
+	tessDataTransferGLES->EndFrame();
 }
 
 struct GlTypeInfo {
@@ -520,10 +519,7 @@ rotateVBO:
 				indexBufferOffset = (uint32_t)frameData.pushIndex->Push(decIndex, sizeof(uint16_t) * indexGen.VertexCount(), &indexBuffer);
 				render_->BindIndexBuffer(indexBuffer);
 			}
-			if (gstate_c.bezier || gstate_c.spline)
-				render_->DrawIndexed(glprim[prim], vertexCount, GL_UNSIGNED_SHORT, (GLvoid*)(intptr_t)indexBufferOffset, numPatches);
-			else
-				render_->DrawIndexed(glprim[prim], vertexCount, GL_UNSIGNED_SHORT, (GLvoid*)(intptr_t)indexBufferOffset);
+			render_->DrawIndexed(glprim[prim], vertexCount, GL_UNSIGNED_SHORT, (GLvoid*)(intptr_t)indexBufferOffset);
 		} else {
 			render_->Draw(glprim[prim], 0, vertexCount);
 		}
@@ -655,46 +651,66 @@ bool DrawEngineGLES::IsCodePtrVertexDecoder(const u8 *ptr) const {
 	return decJitCache_->IsInSpace(ptr);
 }
 
-void DrawEngineGLES::TessellationDataTransferGLES::SendDataToShader(const float *pos, const float *tex, const float *col, int size, bool hasColor, bool hasTexCoords) {
+void TessellationDataTransferGLES::SendDataToShader(const SimpleVertex *const *points, int size_u, int size_v, u32 vertType, const Spline::Weight2D &weights) {
+	bool hasColor = (vertType & GE_VTYPE_COL_MASK) != 0;
+	bool hasTexCoord = (vertType & GE_VTYPE_TC_MASK) != 0;
+
+	int size = size_u * size_v;
+	float *pos = new float[size * 4];
+	float *tex = hasTexCoord ? new float[size * 4] : nullptr;
+	float *col = hasColor ? new float[size * 4] : nullptr;
+	int stride = 4;
+
+	CopyControlPoints(pos, tex, col, stride, stride, stride, points, size, vertType);
 	// Removed the 1D texture support, it's unlikely to be relevant for performance.
-	if (data_tex[0])
-		renderManager_->DeleteTexture(data_tex[0]);
-	uint8_t *pos_data = new uint8_t[size * sizeof(float) * 4];
-	memcpy(pos_data, pos, size * sizeof(float) * 4);
-	data_tex[0] = renderManager_->CreateTexture(GL_TEXTURE_2D);
-	renderManager_->TextureImage(data_tex[0], 0, size, 1, GL_RGBA32F, GL_RGBA, GL_FLOAT, pos_data, GLRAllocType::NEW, false);
-	renderManager_->FinalizeTexture(data_tex[0], 0, false);
-	renderManager_->BindTexture(TEX_SLOT_SPLINE_POS, data_tex[0]);
-
-	// Texcoords
-	if (hasTexCoords) {
-		if (data_tex[1])
-			renderManager_->DeleteTexture(data_tex[1]);
-		uint8_t *tex_data = new uint8_t[size * sizeof(float) * 4];
-		memcpy(tex_data, tex, size * sizeof(float) * 4);
-		data_tex[1] = renderManager_->CreateTexture(GL_TEXTURE_2D);
-		renderManager_->TextureImage(data_tex[1], 0, size, 1, GL_RGBA32F, GL_RGBA, GL_FLOAT, tex_data, GLRAllocType::NEW, false);
-		renderManager_->FinalizeTexture(data_tex[1], 0, false);
-		renderManager_->BindTexture(TEX_SLOT_SPLINE_NRM, data_tex[1]);
+	// Control Points
+	if (prevSizeU < size_u || prevSizeV < size_v) {
+		prevSizeU = size_u;
+		prevSizeV = size_v;
+		if (!data_tex[0])
+			data_tex[0] = renderManager_->CreateTexture(GL_TEXTURE_2D);
+		renderManager_->TextureImage(data_tex[0], 0, size_u * 3, size_v, GL_RGBA32F, GL_RGBA, GL_FLOAT, nullptr, GLRAllocType::NONE, false);
+		renderManager_->FinalizeTexture(data_tex[0], 0, false);
 	}
+	renderManager_->BindTexture(TEX_SLOT_SPLINE_POINTS, data_tex[0]);
+	// Position
+	renderManager_->TextureSubImage(data_tex[0], 0, 0, 0, size_u, size_v, GL_RGBA, GL_FLOAT, (u8 *)pos, GLRAllocType::NEW);
+	// Texcoord
+	if (hasTexCoord)
+		renderManager_->TextureSubImage(data_tex[0], 0, size_u, 0, size_u, size_v, GL_RGBA, GL_FLOAT, (u8 *)tex, GLRAllocType::NEW);
+	// Color
+	if (hasColor)
+		renderManager_->TextureSubImage(data_tex[0], 0, size_u * 2, 0, size_u, size_v, GL_RGBA, GL_FLOAT, (u8 *)col, GLRAllocType::NEW);
 
-	if (data_tex[2])
-		renderManager_->DeleteTexture(data_tex[2]);
-	data_tex[2] = renderManager_->CreateTexture(GL_TEXTURE_2D);
-	int sizeColor = hasColor ? size : 1;
-	uint8_t *col_data = new uint8_t[sizeColor * sizeof(float) * 4];
-	memcpy(col_data, col, sizeColor * sizeof(float) * 4);
+	// Weight U
+	if (prevSizeWU < weights.size_u) {
+		prevSizeWU = weights.size_u;
+		if (!data_tex[1])
+			data_tex[1] = renderManager_->CreateTexture(GL_TEXTURE_2D);
+		renderManager_->TextureImage(data_tex[1], 0, weights.size_u * 2, 1, GL_RGBA32F, GL_RGBA, GL_FLOAT, nullptr, GLRAllocType::NONE, false);
+		renderManager_->FinalizeTexture(data_tex[1], 0, false);
+	}
+	renderManager_->BindTexture(TEX_SLOT_SPLINE_WEIGHTS_U, data_tex[1]);
+	renderManager_->TextureSubImage(data_tex[1], 0, 0, 0, weights.size_u * 2, 1, GL_RGBA, GL_FLOAT, (u8 *)weights.u, GLRAllocType::NONE);
 
-	renderManager_->TextureImage(data_tex[2], 0, sizeColor, 1, GL_RGBA32F, GL_RGBA, GL_FLOAT, col_data, GLRAllocType::NEW, false);
-	renderManager_->FinalizeTexture(data_tex[2], 0, false);
-	renderManager_->BindTexture(TEX_SLOT_SPLINE_COL, data_tex[2]);
+	// Weight V
+	if (prevSizeWV < weights.size_v) {
+		prevSizeWV = weights.size_v;
+		if (!data_tex[2])
+			data_tex[2] = renderManager_->CreateTexture(GL_TEXTURE_2D);
+		renderManager_->TextureImage(data_tex[2], 0, weights.size_v * 2, 1, GL_RGBA32F, GL_RGBA, GL_FLOAT, nullptr, GLRAllocType::NONE, false);
+		renderManager_->FinalizeTexture(data_tex[2], 0, false);
+	}
+	renderManager_->BindTexture(TEX_SLOT_SPLINE_WEIGHTS_V, data_tex[2]);
+	renderManager_->TextureSubImage(data_tex[2], 0, 0, 0, weights.size_v * 2, 1, GL_RGBA, GL_FLOAT, (u8 *)weights.v, GLRAllocType::NONE);
 }
 
-void DrawEngineGLES::TessellationDataTransferGLES::EndFrame() {
+void TessellationDataTransferGLES::EndFrame() {
 	for (int i = 0; i < 3; i++) {
 		if (data_tex[i]) {
 			renderManager_->DeleteTexture(data_tex[i]);
 			data_tex[i] = nullptr;
 		}
 	}
+	prevSizeU = prevSizeV = prevSizeWU = prevSizeWV = 0;
 }

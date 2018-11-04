@@ -34,7 +34,6 @@ enum {
 };
 
 DrawEngineCommon::DrawEngineCommon() : decoderMap_(16) {
-	quadIndices_ = new u16[6 * QUAD_INDICES_MAX];
 	decJitCache_ = new VertexDecoderJitCache();
 	transformed = (TransformedVertex *)AllocateMemoryPages(TRANSFORMED_VERTEX_BUFFER_SIZE, MEM_PROT_READ | MEM_PROT_WRITE);
 	transformedExpanded = (TransformedVertex *)AllocateMemoryPages(3 * TRANSFORMED_VERTEX_BUFFER_SIZE, MEM_PROT_READ | MEM_PROT_WRITE);
@@ -43,11 +42,11 @@ DrawEngineCommon::DrawEngineCommon() : decoderMap_(16) {
 DrawEngineCommon::~DrawEngineCommon() {
 	FreeMemoryPages(transformed, TRANSFORMED_VERTEX_BUFFER_SIZE);
 	FreeMemoryPages(transformedExpanded, 3 * TRANSFORMED_VERTEX_BUFFER_SIZE);
-	delete[] quadIndices_;
 	delete decJitCache_;
 	decoderMap_.Iterate([&](const uint32_t vtype, VertexDecoder *decoder) {
 		delete decoder;
 	});
+	ClearSplineBezierWeights();
 }
 
 VertexDecoder *DrawEngineCommon::GetVertexDecoder(u32 vtype) {
@@ -736,6 +735,28 @@ void DrawEngineCommon::SubmitPrim(void *verts, void *inds, GEPrimitiveType prim,
 		if (!g_Config.bDisableSlowFramebufEffects) {
 			gstate_c.Dirty(DIRTY_TEXTURE_PARAMS);
 			DispatchFlush();
+		}
+	}
+}
+
+void TessellationDataTransfer::CopyControlPoints(float *pos, float *tex, float *col, int posStride, int texStride, int colStride, const SimpleVertex *const *points, int size, u32 vertType) {
+	bool hasColor = (vertType & GE_VTYPE_COL_MASK) != 0;
+	bool hasTexCoord = (vertType & GE_VTYPE_TC_MASK) != 0;
+
+	for (int i = 0; i < size; ++i) {
+		memcpy(pos, points[i]->pos.AsArray(), 3 * sizeof(float));
+		pos += posStride;
+	}
+	if (hasTexCoord) {
+		for (int i = 0; i < size; ++i) {
+			memcpy(tex, points[i]->uv, 2 * sizeof(float));
+			tex += texStride;
+		}
+	}
+	if (hasColor) {
+		for (int i = 0; i < size; ++i) {
+			memcpy(col, Vec4f::FromRGBA(points[i]->color_32).AsArray(), 4 * sizeof(float));
+			col += colStride;
 		}
 	}
 }

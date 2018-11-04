@@ -117,6 +117,20 @@ public:
 
 class VulkanRenderManager;
 
+class TessellationDataTransferVulkan : public TessellationDataTransfer  {
+public:
+	TessellationDataTransferVulkan(VulkanContext *vulkan) : vulkan_(vulkan) {}
+
+	void SetPushBuffer(VulkanPushBuffer *push) { push_ = push; }
+	// Send spline/bezier's control points and weights to vertex shader through structured shader buffer.
+	void SendDataToShader(const SimpleVertex *const *points, int size_u, int size_v, u32 vertType, const Spline::Weight2D &weights) override;
+	const VkDescriptorBufferInfo *GetBufferInfo() { return bufInfo_; }
+private:
+	VulkanContext *vulkan_;
+	VulkanPushBuffer *push_;  // Updated each frame.
+	VkDescriptorBufferInfo bufInfo_[3]{};
+};
+
 // Handles transform, lighting and drawing.
 class DrawEngineVulkan : public DrawEngineCommon {
 public:
@@ -278,31 +292,5 @@ private:
 	int tessOffset_ = 0;
 
 	// Hardware tessellation
-	class TessellationDataTransferVulkan : public TessellationDataTransfer {
-	public:
-		TessellationDataTransferVulkan(VulkanContext *vulkan);
-		~TessellationDataTransferVulkan();
-
-		void SetPushBuffer(VulkanPushBuffer *push) { push_ = push; }
-		void SendDataToShader(const float *pos, const float *tex, const float *col, int size, bool hasColor, bool hasTexCoords) override;
-		void PrepareBuffers(float *&pos, float *&tex, float *&col, int &posStride, int &texStride, int &colStride, int size, bool hasColor, bool hasTexCoords) override;
-
-		void GetBufferAndOffset(VkBuffer *buf, VkDeviceSize *offset, VkDeviceSize *range) {
-			*buf = buf_;
-			*offset = (VkDeviceSize)offset_;
-			*range = (VkDeviceSize)range_;
-
-			buf_ = 0;
-			offset_ = 0;
-			range_ = 0;
-		}
-
-	private:
-		VulkanContext *vulkan_;
-		VulkanPushBuffer *push_;  // Updated each frame.
-
-		uint32_t offset_ = 0;
-		uint32_t range_ = 0;
-		VkBuffer buf_ = VK_NULL_HANDLE;
-	};
+	TessellationDataTransferVulkan *tessDataTransferVulkan;
 };

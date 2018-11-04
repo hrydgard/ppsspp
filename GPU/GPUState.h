@@ -603,10 +603,7 @@ struct GPUStateCache {
 
 	bool bezier;
 	bool spline;
-	int spline_count_u;
-	int spline_count_v;
-	int spline_type_u;
-	int spline_type_v;
+	int spline_num_points_u;
 
 	bool useShaderDepal;
 	GEBufferFormat depalFramebufferFormat;
