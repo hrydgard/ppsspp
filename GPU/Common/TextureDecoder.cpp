@@ -381,8 +381,7 @@ void DXTDecoder::DecodeColors(const DXT1Block *src, bool ignore1bitAlpha) {
 		int green3 = (green1 + green2 + 1) / 2;
 		int blue3 = (blue1 + blue2 + 1) / 2;
 		colors_[2] = makecol(red3, green3, blue3, 255);
-		// Color2 but transparent
-		colors_[3] = makecol(red2, green2, blue2, 0);
+		colors_[3] = makecol(0, 0, 0, 0);
 	}
 }
 
