@@ -468,6 +468,13 @@ void FramebufferManagerVulkan::BlitFramebuffer(VirtualFramebuffer *dst, int dstX
 	if (dstY + h > dst->bufferHeight) {
 		h -= dstY + h - dst->bufferHeight;
 	}
+	if (srcX + w > src->bufferWidth) {
+		w -= srcX + w - src->bufferWidth;
+	}
+	if (srcY + h > src->bufferHeight) {
+		h -= srcY + h - src->bufferHeight;
+	}
+
 	if (w == 0 || h == 0)
 		return;
 
