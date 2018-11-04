@@ -357,12 +357,12 @@ static inline int mul_3_8(int c) {
 void DXTDecoder::DecodeColors(const DXT1Block *src, bool ignore1bitAlpha) {
 	u16 c1 = src->color1;
 	u16 c2 = src->color2;
-	int red1 = Convert5To8(c1 & 0x1F);
-	int red2 = Convert5To8(c2 & 0x1F);
-	int green1 = Convert6To8((c1 >> 5) & 0x3F);
-	int green2 = Convert6To8((c2 >> 5) & 0x3F);
-	int blue1 = Convert5To8((c1 >> 11) & 0x1F);
-	int blue2 = Convert5To8((c2 >> 11) & 0x1F);
+	int red1 = (c1 << 3) & 0xF8;
+	int red2 = (c2 << 3) & 0xF8;
+	int green1 = (c1 >> 3) & 0xFC;
+	int green2 = (c2 >> 3) & 0xFC;
+	int blue1 = (c1 >> 8) & 0xF8;
+	int blue2 = (c2 >> 8) & 0xF8;
 
 	// Keep alpha zero for non-DXT1 to skip masking the colors.
 	int alpha = ignore1bitAlpha ? 0 : 255;
