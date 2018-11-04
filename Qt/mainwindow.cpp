@@ -511,6 +511,8 @@ void MainWindow::createMenus()
 		->addEventChecked(&g_Config.bVertexCache);
 	videoMenu->add(new MenuAction(this, SLOT(frameskipAct()),     QT_TR_NOOP("&Frameskip")))
 		->addEventChecked(&g_Config.iFrameSkip);
+	videoMenu->add(new MenuAction(this, SLOT(frameskipTypeAct()),     QT_TR_NOOP("&FrameSkipType")))
+		->addEventChecked(&g_Config.iFrameSkipType);
 	optionsMenu->add(new MenuAction(this, SLOT(audioAct()),   QT_TR_NOOP("&Audio")))
 		->addEventChecked(&g_Config.bEnableSound);
 	optionsMenu->addSeparator();

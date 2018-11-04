@@ -503,6 +503,18 @@ static void DoFrameDropLogging(float scaledTimestep) {
 	}
 }
 
+static int CalculateFrameSkip() {
+	int frameSkipNum;
+	if (g_Config.iFrameSkipType == 1) { 
+		// Calculate the frames to skip dynamically using the set percentage of the current fps
+		frameSkipNum = ceil( flips * (static_cast<double>(g_Config.iFrameSkip) / 100.00) ); 
+	} else { 
+		// Use the set number of frames to skip
+		frameSkipNum = g_Config.iFrameSkip; 
+	}
+	return frameSkipNum;
+}
+
 // Let's collect all the throttling and frameskipping logic here.
 static void DoFrameTiming(bool &throttle, bool &skipFrame, float timestep) {
 	PROFILE_THIS_SCOPE("timing");
@@ -553,15 +565,16 @@ static void DoFrameTiming(bool &throttle, bool &skipFrame, float timestep) {
 	// Auto-frameskip automatically if speed limit is set differently than the default.
 	bool useAutoFrameskip = g_Config.bAutoFrameSkip && g_Config.iRenderingMode != FB_NON_BUFFERED_MODE;
 	bool forceFrameskip = (fpsLimiter == FPSLimit::CUSTOM1 && g_Config.iFpsLimit1 > 60) || (fpsLimiter == FPSLimit::CUSTOM2 && g_Config.iFpsLimit2 > 60);
+	int frameSkipNum = CalculateFrameSkip();
 	if (g_Config.bAutoFrameSkip || forceFrameskip) {
 		// autoframeskip
 		// Argh, we are falling behind! Let's skip a frame and see if we catch up.
 		if (curFrameTime > nextFrameTime && doFrameSkip) {
 			skipFrame = true;
 		}
-	} else if (g_Config.iFrameSkip >= 1) {
+	} else if (frameSkipNum >= 1) {
 		// fixed frameskip
-		if (numSkippedFrames >= g_Config.iFrameSkip)
+		if (numSkippedFrames >= frameSkipNum)
 			skipFrame = false;
 		else
 			skipFrame = true;
@@ -734,9 +747,10 @@ void __DisplayFlip(int cyclesLate) {
 		DoFrameTiming(throttle, skipFrame, (float)numVBlanksSinceFlip * timePerVblank);
 
 		int maxFrameskip = 8;
+		int frameSkipNum = CalculateFrameSkip();
 		if (throttle) {
 			// 4 here means 1 drawn, 4 skipped - so 12 fps minimum.
-			maxFrameskip = g_Config.iFrameSkip;
+			maxFrameskip = frameSkipNum;
 		}
 		if (numSkippedFrames >= maxFrameskip || GPURecord::IsActivePending()) {
 			skipFrame = false;
