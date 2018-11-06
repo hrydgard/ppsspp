@@ -489,7 +489,7 @@ if(TARGET SDL2::SDL2)
 	target_link_libraries(Common SDL2::SDL2)
 endif()
 
-if(USING_GLES2)
+if(USING_GLES2 OR (USING_EGL AND NOT USING_FBDEV))
 	find_package(X11)
 endif()
 
