@@ -183,15 +183,15 @@ if(NOT OPENGL_LIBRARIES AND USING_GLES2)
 	set(OPENGL_LIBRARIES GLESv2 EGL)
 endif()
 
+if(NOT OPENGL_LIBRARIES)
+	find_package(OpenGL REQUIRED)
+endif()
+
 if(USING_EGL)
 	if(NOT EGL_LIBRARIES)
 		set(EGL_LIBRARIES EGL)
 	endif()
 	set(OPENGL_LIBRARIES ${OPENGL_LIBRARIES} ${EGL_LIBRARIES})
-endif()
-
-if(NOT OPENGL_LIBRARIES)
-	find_package(OpenGL REQUIRED)
 endif()
 
 find_package(SDL2)
