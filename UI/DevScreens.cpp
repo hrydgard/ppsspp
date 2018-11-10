@@ -388,7 +388,8 @@ void SystemInfoScreen::CreateViews() {
 
 	DrawContext *draw = screenManager()->getDrawContext();
 
-	const char *apiName = gr->T(screenManager()->getDrawContext()->GetInfoString(InfoField::APINAME));
+	const std::string apiNameKey = draw->GetInfoString(InfoField::APINAME);
+	const char *apiName = gr->T(apiNameKey);
 	deviceSpecs->Add(new InfoItem(si->T("3D API"), apiName));
 	deviceSpecs->Add(new InfoItem(si->T("Vendor"), draw->GetInfoString(InfoField::VENDORSTRING)));
 	std::string vendor = draw->GetInfoString(InfoField::VENDOR);

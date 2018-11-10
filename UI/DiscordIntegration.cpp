@@ -9,7 +9,11 @@
 
 #if (PPSSPP_PLATFORM(WINDOWS) || PPSSPP_PLATFORM(MAC) || PPSSPP_PLATFORM(LINUX)) && !PPSSPP_PLATFORM(ANDROID)
 
+#ifdef _MSC_VER
 #define ENABLE_DISCORD
+#elif USE_DISCORD
+#define ENABLE_DISCORD
+#endif
 
 #else
 
@@ -128,5 +132,14 @@ void Discord::SetPresenceMenu() {
 	discordPresence.largeImageKey = "icon_regular_png";
 #endif
 	Discord_UpdatePresence(&discordPresence);
+#endif
+}
+
+void Discord::ClearPresence() {
+	if (!IsEnabled() || !initialized_)
+		return;
+
+#ifdef ENABLE_DISCORD
+	Discord_ClearPresence();
 #endif
 }

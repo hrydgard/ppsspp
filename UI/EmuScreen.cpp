@@ -346,7 +346,11 @@ EmuScreen::~EmuScreen() {
 		startDumping = false;
 	}
 #endif
-	g_Discord.SetPresenceMenu();
+
+	if (GetUIState() == UISTATE_EXIT)
+		g_Discord.ClearPresence();
+	else
+		g_Discord.SetPresenceMenu();
 }
 
 void EmuScreen::dialogFinished(const Screen *dialog, DialogResult result) {
