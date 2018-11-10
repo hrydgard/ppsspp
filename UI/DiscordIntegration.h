@@ -17,6 +17,7 @@ public:
 
 	void SetPresenceGame(const char *gameTitle);
 	void SetPresenceMenu();
+	void ClearPresence();
 
 private:
 	void Init();

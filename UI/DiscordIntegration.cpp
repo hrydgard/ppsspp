@@ -134,3 +134,12 @@ void Discord::SetPresenceMenu() {
 	Discord_UpdatePresence(&discordPresence);
 #endif
 }
+
+void Discord::ClearPresence() {
+	if (!IsEnabled() || !initialized_)
+		return;
+
+#ifdef ENABLE_DISCORD
+	Discord_ClearPresence();
+#endif
+}
