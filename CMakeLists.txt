@@ -131,6 +131,7 @@ option(SIMULATOR "Set to ON when targeting an x86 simulator of an ARM platform" 
 option(LIBRETRO "Set to ON to generate the libretro target" OFF)
 # :: Options
 option(USE_FFMPEG "Build with FFMPEG support" ${USE_FFMPEG})
+option(USE_DISCORD "Build with Discord support" ON)
 option(USE_SYSTEM_SNAPPY "Dynamically link against system snappy" ${USE_SYSTEM_SNAPPY})
 option(USE_SYSTEM_FFMPEG "Dynamically link against system FFMPEG" ${USE_SYSTEM_FFMPEG})
 option(USE_SYSTEM_LIBZIP "Dynamically link against system libzip" ${USE_SYSTEM_LIBZIP})
@@ -1801,7 +1802,8 @@ if(FFmpeg_FOUND)
 endif()
 
 # Discord integration
-if(NOT IOS)
+if(USE_DISCORD AND NOT IOS)
+	add_definitions(-DUSE_DISCORD=1)
 	target_link_libraries(${CoreLibName} discord-rpc)
 endif()
 
