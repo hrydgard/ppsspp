@@ -342,6 +342,13 @@ VirtualFramebuffer *FramebufferManagerCommon::DoSetRenderFrameBuffer(const Frame
 				vfb->fb_stride = params.fb_stride;
 				vfb->format = params.fmt;
 			}
+
+			if (vfb->z_address == 0 && vfb->z_stride == 0) {
+				// Got one that was created by CreateRAMFramebuffer. Since it has no depth buffer,
+				// we just recreate it immediately.
+				ResizeFramebufFBO(vfb, vfb->width, vfb->height, true);
+			}
+
 			// Keep track, but this isn't really used.
 			vfb->z_stride = params.z_stride;
 			// Heuristic: In throughmode, a higher height could be used.  Let's avoid shrinking the buffer.
