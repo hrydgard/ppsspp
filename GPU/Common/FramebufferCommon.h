@@ -348,6 +348,8 @@ protected:
 	VirtualFramebuffer *FindDownloadTempBuffer(VirtualFramebuffer *vfb);
 	virtual bool CreateDownloadTempBuffer(VirtualFramebuffer *nvfb) = 0;
 	virtual void UpdateDownloadTempBuffer(VirtualFramebuffer *nvfb) = 0;
+
+	VirtualFramebuffer *CreateRAMFramebuffer(uint32_t fbAddress, int width, int height, int stride, GEBufferFormat format);
 	void OptimizeDownloadRange(VirtualFramebuffer *vfb, int &x, int &y, int &w, int &h);
 
 	void UpdateFramebufUsage(VirtualFramebuffer *vfb);
@@ -391,7 +393,6 @@ protected:
 
 	std::vector<VirtualFramebuffer *> vfbs_;
 	std::vector<VirtualFramebuffer *> bvfbs_; // blitting framebuffers (for download)
-	std::set<std::pair<u32, u32>> knownFramebufferRAMCopies_;
 
 	bool gameUsesSequentialCopies_ = false;
 

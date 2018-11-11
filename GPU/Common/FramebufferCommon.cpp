@@ -903,14 +903,6 @@ void FramebufferManagerCommon::CopyDisplayToOutput() {
 	if (!vfb) {
 		if (Memory::IsValidAddress(displayFramebufPtr_)) {
 			// The game is displaying something directly from RAM. In GTA, it's decoded video.
-
-			// First check that it's not a known RAM copy of a VRAM framebuffer though, as in MotoGP
-			for (auto iter = knownFramebufferRAMCopies_.begin(); iter != knownFramebufferRAMCopies_.end(); ++iter) {
-				if (iter->second == displayFramebufPtr_) {
-					vfb = GetVFBAt(iter->first);
-				}
-			}
-
 			if (!vfb) {
 				shaderManager_->DirtyLastShader();
 				if (useBufferedRendering_) {
@@ -1217,6 +1209,8 @@ void FramebufferManagerCommon::ResizeFramebufFBO(VirtualFramebuffer *vfb, int w,
 	}
 }
 
+// This is called from detected memcopies only. Not block transfers.
+// MotoGP goes this path so we need to catch those copies here.
 bool FramebufferManagerCommon::NotifyFramebufferCopy(u32 src, u32 dst, int size, bool isMemset, u32 skipDrawReason) {
 	if (size == 0) {
 		return false;
@@ -1277,21 +1271,19 @@ bool FramebufferManagerCommon::NotifyFramebufferCopy(u32 src, u32 dst, int size,
 		}
 	}
 
-	if (srcBuffer && srcY == 0 && srcH == srcBuffer->height && !dstBuffer) {
-		// MotoGP workaround - it copies a framebuffer to memory and then displays it.
-		// TODO: It's rare anyway, but the game could modify the RAM and then we'd display the wrong thing.
-		// Unfortunately, that would force 1x render resolution.
-		// NOTE: With the BlockTransferAllowCreateFB hack, we might be able to remove this.
-		if (Memory::IsRAMAddress(dst)) {
-			knownFramebufferRAMCopies_.insert(std::pair<u32, u32>(src, dst));
-		}
-	}
-
 	if (!useBufferedRendering_) {
 		// If we're copying into a recently used display buf, it's probably destined for the screen.
 		if (srcBuffer || (dstBuffer != displayFramebuf_ && dstBuffer != prevDisplayFramebuf_)) {
 			return false;
 		}
+	}
+
+	if (!dstBuffer && srcBuffer && PSP_CoreParameter().compat.flags().BlockTransferAllowCreateFB) {
+		dstBuffer = CreateRAMFramebuffer(dst, srcBuffer->width, srcBuffer->height, srcBuffer->fb_stride, srcBuffer->format);
+		dstY = 0;
+	}
+	if (dstBuffer) {
+		dstBuffer->last_frame_used = gpuStats.numFlips;
 	}
 
 	if (dstBuffer && srcBuffer && !isMemset) {
@@ -1419,36 +1411,14 @@ void FramebufferManagerCommon::FindTransferFramebuffers(VirtualFramebuffer *&dst
 	}
 
 	if (!dstBuffer && PSP_CoreParameter().compat.flags().BlockTransferAllowCreateFB) {
-		float renderWidthFactor = renderWidth_ / 480.0f;
-		float renderHeightFactor = renderHeight_ / 272.0f;
-		// A target for the destination is missing - so just create one!
-		// Make sure this one would be found by the algorithm above so we wouldn't
-		// create a new one each frame.
-		VirtualFramebuffer *vfb = new VirtualFramebuffer{};
-		vfb->fbo = nullptr;
-		vfb->fb_address = dstBasePtr;  // NOTE - not necessarily in VRAM!
-		vfb->fb_stride = dstStride;
-		vfb->z_address = 0;
-		vfb->z_stride =0;
-		vfb->width = std::max(dstWidth, dstStride);
-		vfb->height = dstHeight;
-		vfb->newWidth = vfb->width;
-		vfb->newHeight = vfb->height;
-		vfb->lastFrameNewSize = gpuStats.numFlips;
-		vfb->renderWidth = (u16)(vfb->width * renderWidthFactor);
-		vfb->renderHeight = (u16)(vfb->height * renderHeightFactor);
-		vfb->bufferWidth = vfb->width;
-		vfb->bufferHeight = vfb->height;
-		vfb->format = bpp == 4 ? GE_FORMAT_8888 : GE_FORMAT_5551;  // TODO: We don't really know the 16-bit format here.. at all. Can only guess when it gets used later!
-		vfb->drawnFormat = GE_FORMAT_8888;
-		vfb->usageFlags = FB_USAGE_RENDERTARGET;
-		SetColorUpdated(vfb, 0);
-		textureCache_->NotifyFramebuffer(vfb->fb_address, vfb, NOTIFY_FB_CREATED);
-		vfb->fbo = draw_->CreateFramebuffer({ vfb->renderWidth, vfb->renderHeight, 1, 1, true, (Draw::FBColorDepth)vfb->colorDepth });
-		vfbs_.push_back(vfb);
-		dstBuffer = vfb;
+		GEBufferFormat ramFormat = bpp == 4 ? GE_FORMAT_8888 : GE_FORMAT_5551;
+		// TODO: We don't really know the 16-bit format here.. at all. Can only guess when it gets used later!
+		// But actually, the format of the source buffer is probably not a bad guess..
+		dstBuffer = CreateRAMFramebuffer(dstBasePtr, dstWidth, dstHeight, dstStride, ramFormat);
 	}
-	dstBuffer->last_frame_used = gpuStats.numFlips;
+
+	if (dstBuffer)
+		dstBuffer->last_frame_used = gpuStats.numFlips;
 
 	if (dstYOffset != (u32)-1) {
 		dstY += dstYOffset;
@@ -1458,6 +1428,38 @@ void FramebufferManagerCommon::FindTransferFramebuffers(VirtualFramebuffer *&dst
 		srcY += srcYOffset;
 		srcX += srcXOffset;
 	}
+}
+
+VirtualFramebuffer *FramebufferManagerCommon::CreateRAMFramebuffer(uint32_t fbAddress, int width, int height, int stride, GEBufferFormat format) {
+	float renderWidthFactor = renderWidth_ / 480.0f;
+	float renderHeightFactor = renderHeight_ / 272.0f;
+
+	// A target for the destination is missing - so just create one!
+	// Make sure this one would be found by the algorithm above so we wouldn't
+	// create a new one each frame.
+	VirtualFramebuffer *vfb = new VirtualFramebuffer{};
+	vfb->fbo = nullptr;
+	vfb->fb_address = fbAddress;  // NOTE - not necessarily in VRAM!
+	vfb->fb_stride = stride;
+	vfb->z_address = 0;  // marks that if anyone tries to render to this framebuffer, it should be dropped and recreated.
+	vfb->z_stride = 0;
+	vfb->width = std::max(width, stride);
+	vfb->height = height;
+	vfb->newWidth = vfb->width;
+	vfb->newHeight = vfb->height;
+	vfb->lastFrameNewSize = gpuStats.numFlips;
+	vfb->renderWidth = (u16)(vfb->width * renderWidthFactor);
+	vfb->renderHeight = (u16)(vfb->height * renderHeightFactor);
+	vfb->bufferWidth = vfb->width;
+	vfb->bufferHeight = vfb->height;
+	vfb->format = format;
+	vfb->drawnFormat = GE_FORMAT_8888;
+	vfb->usageFlags = FB_USAGE_RENDERTARGET;
+	SetColorUpdated(vfb, 0);
+	textureCache_->NotifyFramebuffer(vfb->fb_address, vfb, NOTIFY_FB_CREATED);
+	vfb->fbo = draw_->CreateFramebuffer({ vfb->renderWidth, vfb->renderHeight, 1, 1, true, (Draw::FBColorDepth)vfb->colorDepth });
+	vfbs_.push_back(vfb);
+	return vfb;
 }
 
 // 1:1 pixel sides buffers, we resize buffers to these before we read them back.
