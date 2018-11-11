@@ -687,7 +687,7 @@ void FramebufferManagerD3D11::PackDepthbuffer(VirtualFramebuffer *vfb, int x, in
 		return;
 	}
 
-	const u32 z_address = (0x04000000) | vfb->z_address;
+	const u32 z_address = vfb->z_address;
 	// TODO
 }
 

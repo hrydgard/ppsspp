@@ -311,7 +311,7 @@ void DrawEngineGLES::DoFlush() {
 		gstate_c.Clean(DIRTY_TEXTURE_IMAGE | DIRTY_TEXTURE_PARAMS);
 		textureNeedsApply = true;
 	} else if (gstate.getTextureAddress(0) == ((gstate.getFrameBufRawAddress() | 0x04000000) & 0x3FFFFFFF)) {
-		// This catches the case of clearing a texture.
+		// This catches the case of clearing a texture. (#10957)
 		gstate_c.Dirty(DIRTY_TEXTURE_IMAGE);
 	}
 

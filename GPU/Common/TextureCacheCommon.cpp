@@ -635,9 +635,9 @@ void TextureCacheCommon::HandleTextureChange(TexCacheEntry *const entry, const c
 }
 
 void TextureCacheCommon::NotifyFramebuffer(u32 address, VirtualFramebuffer *framebuffer, FramebufferNotification msg) {
-	// Must be in VRAM so | 0x04000000 it is.  Also, ignore memory mirrors.
+	// Mask to ignore the Z memory mirrors.
 	// These checks are mainly to reduce scanning all textures.
-	const u32 addr = (address | 0x04000000) & 0x3F9FFFFF;
+	const u32 addr = address & 0x3F9FFFFF;
 	const u32 bpp = framebuffer->format == GE_FORMAT_8888 ? 4 : 2;
 	const u64 cacheKey = (u64)addr << 32;
 	// If it has a clut, those are the low 32 bits, so it'll be inside this range.
@@ -750,8 +750,7 @@ bool TextureCacheCommon::AttachFramebuffer(TexCacheEntry *entry, u32 address, Vi
 	AttachedFramebufferInfo fbInfo = { 0 };
 
 	const u64 mirrorMask = 0x00600000;
-	// Must be in VRAM so | 0x04000000 it is.  Also, ignore memory mirrors.
-	const u32 addr = (address | 0x04000000) & 0x3FFFFFFF & ~mirrorMask;
+	const u32 addr = (address & 0x3FFFFFFF) & ~mirrorMask;
 	const u32 texaddr = ((entry->addr + texaddrOffset) & ~mirrorMask);
 	const bool noOffset = texaddr == addr;
 	const bool exactMatch = noOffset && entry->format < 4;
@@ -990,7 +989,7 @@ void TextureCacheCommon::LoadClut(u32 clutAddr, u32 loadBytes) {
 			clutRenderOffset_ = MAX_CLUT_OFFSET;
 			for (size_t i = 0, n = fbCache_.size(); i < n; ++i) {
 				auto framebuffer = fbCache_[i];
-				const u32 fb_address = framebuffer->fb_address | 0x04000000;
+				const u32 fb_address = framebuffer->fb_address & 0x3FFFFFFF;
 				const u32 bpp = framebuffer->drawnFormat == GE_FORMAT_8888 ? 4 : 2;
 				u32 offset = clutFramebufAddr - fb_address;
 
