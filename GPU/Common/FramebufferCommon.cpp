@@ -249,11 +249,10 @@ void FramebufferManagerCommon::EstimateDrawingSize(u32 fb_address, GEBufferForma
 
 	if (viewport_width != region_width) {
 		// The majority of the time, these are equal.  If not, let's check what we know.
-		const u32 fb_normalized_address = fb_address & 0x3FFFFFFF;
 		u32 nearest_address = 0xFFFFFFFF;
 		for (size_t i = 0; i < vfbs_.size(); ++i) {
 			const u32 other_address = vfbs_[i]->fb_address & 0x3FFFFFFF;
-			if (other_address > fb_normalized_address && other_address < nearest_address) {
+			if (other_address > fb_address && other_address < nearest_address) {
 				nearest_address = other_address;
 			}
 		}
@@ -262,7 +261,7 @@ void FramebufferManagerCommon::EstimateDrawingSize(u32 fb_address, GEBufferForma
 		// This catches some cases where we can know this.
 		// Hmm.  The problem is that we could only catch it for the first of two buffers...
 		const u32 bpp = fb_format == GE_FORMAT_8888 ? 4 : 2;
-		int avail_height = (nearest_address - fb_normalized_address) / (fb_stride * bpp);
+		int avail_height = (nearest_address - fb_address) / (fb_stride * bpp);
 		if (avail_height < drawing_height && avail_height == region_height) {
 			drawing_width = std::min(region_width, fb_stride);
 			drawing_height = avail_height;
