@@ -172,22 +172,18 @@ void FramebufferManagerCommon::SetDisplayFramebuffer(u32 framebuf, u32 stride, G
 }
 
 VirtualFramebuffer *FramebufferManagerCommon::GetVFBAt(u32 addr) {
+	addr &= 0x3FFFFFFF;
 	VirtualFramebuffer *match = nullptr;
 	for (size_t i = 0; i < vfbs_.size(); ++i) {
 		VirtualFramebuffer *v = vfbs_[i];
-		if (MaskedEqual(v->fb_address, addr)) {
+		if (v->fb_address == addr) {
 			// Could check w too but whatever
 			if (match == nullptr || match->last_frame_render < v->last_frame_render) {
 				match = v;
 			}
 		}
 	}
-
 	return match;
-}
-
-bool FramebufferManagerCommon::MaskedEqual(u32 addr1, u32 addr2) {
-	return (addr1 & 0x03FFFFFF) == (addr2 & 0x03FFFFFF);
 }
 
 u32 FramebufferManagerCommon::FramebufferByteSize(const VirtualFramebuffer *vfb) const {
@@ -691,7 +687,7 @@ void FramebufferManagerCommon::UpdateFromMemory(u32 addr, int size, bool safe) {
 
 		for (size_t i = 0; i < vfbs_.size(); ++i) {
 			VirtualFramebuffer *vfb = vfbs_[i];
-			if (MaskedEqual(vfb->fb_address, addr)) {
+			if (vfb->fb_address == addr) {
 				FlushBeforeCopy();
 
 				if (useBufferedRendering_ && vfb->fbo) {

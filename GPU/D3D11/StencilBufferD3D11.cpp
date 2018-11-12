@@ -71,6 +71,7 @@ VS_OUT main(VS_IN In) {
 
 // TODO : If SV_StencilRef is available (D3D11.3) then this can be done in a single pass.
 bool FramebufferManagerD3D11::NotifyStencilUpload(u32 addr, int size, bool skipZero) {
+	addr &= 0x3FFFFFFF;
 	if (!MayIntersectFramebuffer(addr)) {
 		return false;
 	}
@@ -78,7 +79,7 @@ bool FramebufferManagerD3D11::NotifyStencilUpload(u32 addr, int size, bool skipZ
 	VirtualFramebuffer *dstBuffer = 0;
 	for (size_t i = 0; i < vfbs_.size(); ++i) {
 		VirtualFramebuffer *vfb = vfbs_[i];
-		if (MaskedEqual(vfb->fb_address, addr)) {
+		if (vfb->fb_address == addr) {
 			dstBuffer = vfb;
 		}
 	}

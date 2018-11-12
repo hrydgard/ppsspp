@@ -65,6 +65,7 @@ static const char *stencil_vs =
 "}\n";
 
 bool FramebufferManagerDX9::NotifyStencilUpload(u32 addr, int size, bool skipZero) {
+	addr &= 0x3FFFFFFF;
 	if (!MayIntersectFramebuffer(addr)) {
 		return false;
 	}
@@ -72,7 +73,7 @@ bool FramebufferManagerDX9::NotifyStencilUpload(u32 addr, int size, bool skipZer
 	VirtualFramebuffer *dstBuffer = 0;
 	for (size_t i = 0; i < vfbs_.size(); ++i) {
 		VirtualFramebuffer *vfb = vfbs_[i];
-		if (MaskedEqual(vfb->fb_address, addr)) {
+		if (vfb->fb_address == addr) {
 			dstBuffer = vfb;
 		}
 	}
