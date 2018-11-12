@@ -119,7 +119,6 @@ struct VirtualFramebuffer {
 };
 
 struct FramebufferHeuristicParams {
-	u32 fb_addr;
 	u32 fb_address;
 	int fb_stride;
 	u32 z_address;
@@ -243,10 +242,10 @@ public:
 	size_t NumVFBs() const { return vfbs_.size(); }
 
 	u32 PrevDisplayFramebufAddr() {
-		return prevDisplayFramebuf_ ? (0x04000000 | prevDisplayFramebuf_->fb_address) : 0;
+		return prevDisplayFramebuf_ ? prevDisplayFramebuf_->fb_address : 0;
 	}
 	u32 DisplayFramebufAddr() {
-		return displayFramebuf_ ? (0x04000000 | displayFramebuf_->fb_address) : 0;
+		return displayFramebuf_ ? displayFramebuf_->fb_address : 0;
 	}
 
 	u32 DisplayFramebufStride() {
@@ -332,7 +331,6 @@ protected:
 
 	void EstimateDrawingSize(u32 fb_address, GEBufferFormat fb_format, int viewport_width, int viewport_height, int region_width, int region_height, int scissor_width, int scissor_height, int fb_stride, int &drawing_width, int &drawing_height);
 	u32 FramebufferByteSize(const VirtualFramebuffer *vfb) const;
-	static bool MaskedEqual(u32 addr1, u32 addr2);
 
 	void NotifyRenderFramebufferCreated(VirtualFramebuffer *vfb);
 	void NotifyRenderFramebufferUpdated(VirtualFramebuffer *vfb, bool vfbFormatChanged);

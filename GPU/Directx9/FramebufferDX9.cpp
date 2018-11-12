@@ -585,7 +585,7 @@ static const D3DVERTEXELEMENT9 g_FramebufferVertexElements[] = {
 			return;
 		}
 
-		const u32 fb_address = (0x04000000) | vfb->fb_address;
+		const u32 fb_address = vfb->fb_address & 0x3FFFFFFF;
 		const int dstBpp = vfb->format == GE_FORMAT_8888 ? 4 : 2;
 
 		// We always need to convert from the framebuffer native format.
@@ -627,7 +627,7 @@ static const D3DVERTEXELEMENT9 g_FramebufferVertexElements[] = {
 		}
 
 		// We always read the depth buffer in 24_8 format.
-		const u32 z_address = (0x04000000) | vfb->z_address;
+		const u32 z_address = vfb->z_address;
 
 		DEBUG_LOG(FRAMEBUF, "Reading depthbuffer to mem at %08x for vfb=%08x", z_address, vfb->fb_address);
 
@@ -732,7 +732,7 @@ static const D3DVERTEXELEMENT9 g_FramebufferVertexElements[] = {
 
 		if (!vfb) {
 			// If there's no vfb and we're drawing there, must be memory?
-			buffer = GPUDebugBuffer(Memory::GetPointer(fb_address | 0x04000000), fb_stride, 512, fb_format);
+			buffer = GPUDebugBuffer(Memory::GetPointer(fb_address), fb_stride, 512, fb_format);
 			return true;
 		}
 		LPDIRECT3DSURFACE9 renderTarget = vfb->fbo ? (LPDIRECT3DSURFACE9)draw_->GetFramebufferAPITexture(vfb->fbo, Draw::FB_COLOR_BIT | Draw::FB_SURFACE_BIT, 0) : nullptr;
@@ -809,7 +809,7 @@ static const D3DVERTEXELEMENT9 g_FramebufferVertexElements[] = {
 
 		if (!vfb) {
 			// If there's no vfb and we're drawing there, must be memory?
-			buffer = GPUDebugBuffer(Memory::GetPointer(z_address | 0x04000000), z_stride, 512, GPU_DBG_FORMAT_16BIT);
+			buffer = GPUDebugBuffer(Memory::GetPointer(z_address), z_stride, 512, GPU_DBG_FORMAT_16BIT);
 			return true;
 		}
 
@@ -847,7 +847,7 @@ static const D3DVERTEXELEMENT9 g_FramebufferVertexElements[] = {
 
 		if (!vfb) {
 			// If there's no vfb and we're drawing there, must be memory?
-			buffer = GPUDebugBuffer(Memory::GetPointer(vfb->z_address | 0x04000000), vfb->z_stride, 512, GPU_DBG_FORMAT_16BIT);
+			buffer = GPUDebugBuffer(Memory::GetPointer(vfb->z_address), vfb->z_stride, 512, GPU_DBG_FORMAT_16BIT);
 			return true;
 		}
 
