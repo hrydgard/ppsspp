@@ -488,106 +488,23 @@ void DrawEngineCommon::ClearSplineBezierWeights() {
 	Spline3DWeight::weightsCache.Clear();
 }
 
-void DrawEngineCommon::SubmitSpline(const void *control_points, const void *indices, int tess_u, int tess_v, int count_u, int count_v, int type_u, int type_v, GEPatchPrimType prim_type, bool computeNormals, bool patchFacing, u32 vertType, int *bytesRead) {
-	PROFILE_THIS_SCOPE("spline");
-	DispatchFlush();
+// Specialize to make instance (to avoid link error).
+template void DrawEngineCommon::SubmitCurve<BezierSurface>(const void *control_points, const void *indices, BezierSurface &surface, u32 vertType, int *bytesRead, const char *scope);
+template void DrawEngineCommon::SubmitCurve<SplineSurface>(const void *control_points, const void *indices, SplineSurface &surface, u32 vertType, int *bytesRead, const char *scope);
 
-	// Real hardware seems to draw nothing when given < 4 either U or V.
-	if (count_u < 4 || count_v < 4)
-		return;
-
-	SimpleBufferManager managedBuf(decoded, DECODED_VERTEX_BUFFER_SIZE / 2);
-
-	int num_points = count_u * count_v;
-	u16 index_lower_bound = 0;
-	u16 index_upper_bound = num_points - 1;
-	IndexConverter ConvertIndex(vertType, indices);
-	if (indices)
-		GetIndexBounds(indices, num_points, vertType, &index_lower_bound, &index_upper_bound);
-
-	VertexDecoder *origVDecoder = GetVertexDecoder((vertType & 0xFFFFFF) | (gstate.getUVGenMode() << 24));
-	*bytesRead = num_points * origVDecoder->VertexSize();
-
-	// Simplify away bones and morph before proceeding
-	SimpleVertex *simplified_control_points = (SimpleVertex *)managedBuf.Allocate(sizeof(SimpleVertex) * (index_upper_bound + 1));
-	u8 *temp_buffer = managedBuf.Allocate(sizeof(SimpleVertex) * num_points);
-
-	u32 origVertType = vertType;
-	vertType = NormalizeVertices((u8 *)simplified_control_points, temp_buffer, (u8 *)control_points, index_lower_bound, index_upper_bound, vertType);
-
-	VertexDecoder *vdecoder = GetVertexDecoder(vertType);
-
-	int vertexSize = vdecoder->VertexSize();
-	if (vertexSize != sizeof(SimpleVertex)) {
-		ERROR_LOG(G3D, "Something went really wrong, vertex size: %i vs %i", vertexSize, (int)sizeof(SimpleVertex));
-	}
-
-	// Make an array of pointers to the control points, to get rid of indices.
-	const SimpleVertex **points = (const SimpleVertex **)managedBuf.Allocate(sizeof(SimpleVertex *) * num_points);
-	for (int idx = 0; idx < num_points; idx++)
-		points[idx] = simplified_control_points + (indices ? ConvertIndex(idx) : idx);
-
-	OutputBuffers output;
-	output.vertices = (SimpleVertex *)(decoded + DECODED_VERTEX_BUFFER_SIZE / 2);
-	output.indices = decIndex;
-	output.count = 0;
-
-	SplineSurface surface;
-	surface.tess_u = tess_u;
-	surface.tess_v = tess_v;
-	surface.type_u = type_u;
-	surface.type_v = type_v;
-	surface.num_points_u = count_u;
-	surface.num_points_v = count_v;
-	surface.num_patches_u = count_u - 3;
-	surface.num_patches_v = count_v - 3;
-	surface.primType = prim_type;
-	surface.patchFacing = patchFacing;
-	surface.Init(DECODED_VERTEX_BUFFER_SIZE / 2 / vertexSize);
-
-	if (CanUseHardwareTessellation(prim_type)) {
-		HardwareTessellation(output, surface, origVertType, points, tessDataTransfer);
-	} else {
-		ControlPoints cpoints(points, num_points, managedBuf);
-		SoftwareTessellation(output, surface, origVertType, cpoints);
-	}
-
-	u32 vertTypeWithIndex16 = (vertType & ~GE_VTYPE_IDX_MASK) | GE_VTYPE_IDX_16BIT;
-
-	UVScale prevUVScale;
-	if ((origVertType & GE_VTYPE_TC_MASK) != 0) {
-		// We scaled during Normalize already so let's turn it off when drawing.
-		prevUVScale = gstate_c.uv;
-		gstate_c.uv.uScale = 1.0f;
-		gstate_c.uv.vScale = 1.0f;
-		gstate_c.uv.uOff = 0.0f;
-		gstate_c.uv.vOff = 0.0f;
-	}
-
-	uint32_t vertTypeID = GetVertTypeID(vertTypeWithIndex16, gstate.getUVGenMode());
-
-	int generatedBytesRead;
-	DispatchSubmitPrim(output.vertices, output.indices, PatchPrimToPrim(prim_type), output.count, vertTypeID, &generatedBytesRead);
-
-	DispatchFlush();
-
-	if ((origVertType & GE_VTYPE_TC_MASK) != 0) {
-		gstate_c.uv = prevUVScale;
-	}
-}
-
-void DrawEngineCommon::SubmitBezier(const void *control_points, const void *indices, int tess_u, int tess_v, int count_u, int count_v, GEPatchPrimType prim_type, bool computeNormals, bool patchFacing, u32 vertType, int *bytesRead) {
-	PROFILE_THIS_SCOPE("bezier");
+template<class Surface>
+void DrawEngineCommon::SubmitCurve(const void *control_points, const void *indices, Surface &surface, u32 vertType, int *bytesRead, const char *scope) {
+	PROFILE_THIS_SCOPE(scope);
 	DispatchFlush();
 
 	// Real hardware seems to draw nothing when given < 4 either U or V.
 	// This would result in num_patches_u / num_patches_v being 0.
-	if (count_u < 4 || count_v < 4)
+	if (surface.num_points_u < 4 || surface.num_points_v < 4)
 		return;
 
 	SimpleBufferManager managedBuf(decoded, DECODED_VERTEX_BUFFER_SIZE / 2);
 
-	int num_points = count_u * count_v;
+	int num_points = surface.num_points_u * surface.num_points_v;
 	u16 index_lower_bound = 0;
 	u16 index_upper_bound = num_points - 1;
 	IndexConverter ConvertIndex(vertType, indices);
@@ -622,18 +539,9 @@ void DrawEngineCommon::SubmitBezier(const void *control_points, const void *indi
 	output.indices = decIndex;
 	output.count = 0;
 
-	BezierSurface surface;
-	surface.tess_u = tess_u;
-	surface.tess_v = tess_v;
-	surface.num_points_u = count_u;
-	surface.num_points_v = count_v;
-	surface.num_patches_u = (count_u - 1) / 3;
-	surface.num_patches_v = (count_v - 1) / 3;
-	surface.primType = prim_type;
-	surface.patchFacing = patchFacing;
 	surface.Init(DECODED_VERTEX_BUFFER_SIZE / 2 / vertexSize);
 
-	if (CanUseHardwareTessellation(prim_type)) {
+	if (CanUseHardwareTessellation(surface.primType)) {
 		HardwareTessellation(output, surface, origVertType, points, tessDataTransfer);
 	} else {
 		ControlPoints cpoints(points, num_points, managedBuf);
@@ -654,7 +562,7 @@ void DrawEngineCommon::SubmitBezier(const void *control_points, const void *indi
 
 	uint32_t vertTypeID = GetVertTypeID(vertTypeWithIndex16, gstate.getUVGenMode());
 	int generatedBytesRead;
-	DispatchSubmitPrim(output.vertices, output.indices, PatchPrimToPrim(prim_type), output.count, vertTypeID, &generatedBytesRead);
+	DispatchSubmitPrim(output.vertices, output.indices, PatchPrimToPrim(surface.primType), output.count, vertTypeID, &generatedBytesRead);
 
 	DispatchFlush();
 
