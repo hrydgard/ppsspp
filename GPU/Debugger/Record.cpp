@@ -1,4 +1,4 @@
-﻿// Copyright (c) 2017- PPSSPP Project.
+// Copyright (c) 2017- PPSSPP Project.
 
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
@@ -18,6 +18,7 @@
 #include <algorithm>
 #include <cstring>
 #include <functional>
+#include <set>
 #include <vector>
 #include <snappy-c.h>
 #include "base/stringutil.h"
@@ -43,7 +44,11 @@
 namespace GPURecord {
 
 static const char *HEADER = "PPSSPPGE";
-static const int VERSION = 2;
+// Version 1: Uncompressed
+// Version 2: Uses snappy
+// Version 3: Adds FRAMEBUF0-FRAMEBUF9
+static const int VERSION = 3;
+static const int MIN_VERSION = 2;
 
 static bool active = false;
 static bool nextFrame = false;
@@ -70,6 +75,15 @@ enum class CommandType : u8 {
 	TEXTURE5 = 0x15,
 	TEXTURE6 = 0x16,
 	TEXTURE7 = 0x17,
+
+	FRAMEBUF0 = 0x18,
+	FRAMEBUF1 = 0x19,
+	FRAMEBUF2 = 0x1A,
+	FRAMEBUF3 = 0x1B,
+	FRAMEBUF4 = 0x1C,
+	FRAMEBUF5 = 0x1D,
+	FRAMEBUF6 = 0x1E,
+	FRAMEBUF7 = 0x1F,
 };
 
 #pragma pack(push, 1)
@@ -86,6 +100,7 @@ static std::vector<u8> pushbuf;
 static std::vector<Command> commands;
 static std::vector<u32> lastRegisters;
 static std::vector<u32> lastTextures;
+static std::set<u32> lastRenderTargets;
 
 // TODO: Maybe move execute to another file?
 class DumpExecute {
@@ -109,6 +124,7 @@ private:
 	void MemcpyDest(u32 ptr, u32 sz);
 	void Memcpy(u32 ptr, u32 sz);
 	void Texture(int level, u32 ptr, u32 sz);
+	void Framebuf(int level, u32 ptr, u32 sz);
 	void Display(u32 ptr, u32 sz);
 
 	u32 execMemcpyDest = 0;
@@ -358,7 +374,7 @@ static void FlushRegisters() {
 
 static std::string GenRecordingFilename() {
 	const std::string dumpDir = GetSysDirectory(DIRECTORY_DUMP);
-	const std::string prefix = dumpDir + "/" + g_paramSFO.GetDiscID();
+	const std::string prefix = dumpDir + g_paramSFO.GetDiscID();
 
 	File::CreateFullPath(dumpDir);
 
@@ -510,13 +526,36 @@ static void EmitTextureData(int level, u32 texaddr) {
 	int bufw = GetTextureBufw(level, texaddr, format);
 	int extraw = w > bufw ? w - bufw : 0;
 	u32 sizeInRAM = (textureBitsPerPixel[format] * (bufw * h + extraw)) / 8;
+	const bool isTarget = lastRenderTargets.find(texaddr) != lastRenderTargets.end();
 
+	CommandType type = CommandType((int)CommandType::TEXTURE0 + level);
+	const u8 *p = Memory::GetPointerUnchecked(texaddr);
 	u32 bytes = Memory::ValidSize(texaddr, sizeInRAM);
-	if (Memory::IsValidAddress(texaddr)) {
-		FlushRegisters();
+	std::vector<u8> framebufData;
 
-		CommandType type = CommandType((int)CommandType::TEXTURE0 + level);
-		const u8 *p = Memory::GetPointerUnchecked(texaddr);
+	if (Memory::IsVRAMAddress(texaddr)) {
+		struct FramebufData {
+			u32 addr;
+			int bufw;
+			u32 flags;
+			u32 pad;
+		};
+
+		// The isTarget flag is mostly used for replay of dumps on a PSP.
+		u32 flags = isTarget ? 1 : 0;
+		FramebufData framebuf{ texaddr, bufw, flags };
+		framebufData.resize(sizeof(framebuf) + bytes);
+		memcpy(&framebufData[0], &framebuf, sizeof(framebuf));
+		memcpy(&framebufData[sizeof(framebuf)], p, bytes);
+		p = &framebufData[0];
+
+		// Okay, now we'll just emit this instead.
+		type = CommandType((int)CommandType::FRAMEBUF0 + level);
+		bytes += (u32)sizeof(framebuf);
+	}
+
+	if (bytes > 0) {
+		FlushRegisters();
 
 		// Dumps are huge - let's try to find this already emitted.
 		for (u32 prevptr : lastTextures) {
@@ -540,6 +579,9 @@ static void EmitTextureData(int level, u32 texaddr) {
 static void FlushPrimState(int vcount) {
 	// TODO: Eventually, how do we handle texturing from framebuf/zbuf?
 	// TODO: Do we need to preload color/depth/stencil (in case from last frame)?
+
+	lastRenderTargets.insert(PSP_GetVidMemBase() | gstate.getFrameBufRawAddress());
+	lastRenderTargets.insert(PSP_GetVidMemBase() | gstate.getDepthBufRawAddress());
 
 	// We re-flush textures always in case the game changed them... kinda expensive.
 	// TODO: Dirty textures on transfer/stall/etc. somehow?
@@ -785,6 +827,7 @@ void NotifyFrame() {
 		active = true;
 		nextFrame = false;
 		lastTextures.clear();
+		lastRenderTargets.clear();
 		BeginRecording();
 	}
 }
@@ -980,6 +1023,33 @@ void DumpExecute::Texture(int level, u32 ptr, u32 sz) {
 	execListQueue.push_back((addrCmd << 24) | (psp & 0x00FFFFFF));
 }
 
+void DumpExecute::Framebuf(int level, u32 ptr, u32 sz) {
+	struct FramebufData {
+		u32 addr;
+		int bufw;
+		u32 flags;
+		u32 pad;
+	};
+
+	FramebufData *framebuf = (FramebufData *)(pushbuf.data() + ptr);
+
+	u32 bufwCmd = GE_CMD_TEXBUFWIDTH0 + level;
+	u32 addrCmd = GE_CMD_TEXADDR0 + level;
+	execListQueue.push_back((bufwCmd << 24) | ((framebuf->addr >> 8) & 0x00FF0000) | framebuf->bufw);
+	execListQueue.push_back((addrCmd << 24) | (framebuf->addr & 0x00FFFFFF));
+	lastBufw_[level] = framebuf->bufw;
+
+	// And now also copy the data into VRAM (in case it wasn't actually rendered.)
+	u32 headerSize = (u32)sizeof(FramebufData);
+	u32 pspSize = sz - headerSize;
+	const bool isTarget = (framebuf->flags & 1) != 0;
+	// Could potentially always skip if !isTarget, but playing it safe for offset texture behavior.
+	if (Memory::IsValidRange(framebuf->addr, pspSize) && (!isTarget || !g_Config.bSoftwareRendering)) {
+		// Intentionally don't trigger an upload here.
+		Memory::MemcpyUnchecked(framebuf->addr, pushbuf.data() + ptr + headerSize, pspSize);
+	}
+}
+
 void DumpExecute::Display(u32 ptr, u32 sz) {
 	struct DisplayBufData {
 		PSPPointer<u8> topaddr;
@@ -1058,6 +1128,17 @@ bool DumpExecute::Run() {
 			Texture((int)cmd.type - (int)CommandType::TEXTURE0, cmd.ptr, cmd.sz);
 			break;
 
+		case CommandType::FRAMEBUF0:
+		case CommandType::FRAMEBUF1:
+		case CommandType::FRAMEBUF2:
+		case CommandType::FRAMEBUF3:
+		case CommandType::FRAMEBUF4:
+		case CommandType::FRAMEBUF5:
+		case CommandType::FRAMEBUF6:
+		case CommandType::FRAMEBUF7:
+			Framebuf((int)cmd.type - (int)CommandType::FRAMEBUF0, cmd.ptr, cmd.sz);
+			break;
+
 		case CommandType::DISPLAY:
 			Display(cmd.ptr, cmd.sz);
 			break;
@@ -1100,7 +1181,7 @@ bool RunMountedReplay(const std::string &filename) {
 	pspFileSystem.ReadFile(fp, header, sizeof(header));
 	pspFileSystem.ReadFile(fp, (u8 *)&version, sizeof(version));
 
-	if (memcmp(header, HEADER, sizeof(header)) != 0 || version != VERSION) {
+	if (memcmp(header, HEADER, sizeof(header)) != 0 || version > VERSION || version < MIN_VERSION) {
 		ERROR_LOG(SYSTEM, "Invalid GE dump or unsupported version");
 		pspFileSystem.CloseFile(fp);
 		return false;
