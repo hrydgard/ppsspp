@@ -689,6 +689,7 @@ void VulkanQueueRunner::PerformRenderPass(const VKRStep &step, VkCommandBuffer c
 			VkPipelineStageFlags dstStage{};
 			switch (barrier.oldLayout) {
 			case VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL:
+			case VK_IMAGE_LAYOUT_UNDEFINED:
 				barrier.srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT | VK_ACCESS_COLOR_ATTACHMENT_READ_BIT;
 				srcStage = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
 				break;
