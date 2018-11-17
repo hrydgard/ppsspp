@@ -1039,8 +1039,9 @@ void DumpExecute::Framebuf(int level, u32 ptr, u32 sz) {
 	// And now also copy the data into VRAM (in case it wasn't actually rendered.)
 	u32 headerSize = (u32)sizeof(FramebufData);
 	u32 pspSize = sz - headerSize;
-	// TODO: Potentially skip this if flags & 1 (means it was rendered to previously.)
-	if (Memory::IsValidRange(framebuf->addr, pspSize)) {
+	const bool isTarget = (framebuf->flags & 1) != 0;
+	// Could potentially always skip if !isTarget, but playing it safe for offset texture behavior.
+	if (Memory::IsValidRange(framebuf->addr, pspSize) && (!isTarget || !g_Config.bSoftwareRendering)) {
 		// Intentionally don't trigger an upload here.
 		Memory::MemcpyUnchecked(framebuf->addr, pushbuf.data() + ptr + headerSize, pspSize);
 	}
