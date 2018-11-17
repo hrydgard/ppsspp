@@ -372,23 +372,6 @@ static std::string GenRecordingFilename() {
 	return StringFromFormat("%s_%04d.ppdmp", prefix.c_str(), 9999);
 }
 
-static void EmitDisplayBuf() {
-	struct DisplayBufData {
-		PSPPointer<u8> topaddr;
-		u32 linesize, pixelFormat;
-	};
-
-	DisplayBufData disp{};
-	__DisplayGetFramebuf(&disp.topaddr, &disp.linesize, &disp.pixelFormat, 0);
-
-	u32 ptr = (u32)pushbuf.size();
-	u32 sz = (u32)sizeof(disp);
-	pushbuf.resize(pushbuf.size() + sz);
-	memcpy(pushbuf.data() + ptr, &disp, sz);
-
-	commands.push_back({CommandType::DISPLAY, sz, ptr});
-}
-
 static void BeginRecording() {
 	u32 ptr = (u32)pushbuf.size();
 	u32 sz = 512 * 4;
@@ -412,7 +395,6 @@ static void WriteCompressed(FILE *fp, const void *p, size_t sz) {
 
 static std::string WriteRecording() {
 	FlushRegisters();
-	EmitDisplayBuf();
 
 	const std::string filename = GenRecordingFilename();
 
@@ -771,6 +753,27 @@ void NotifyUpload(u32 dest, u32 sz) {
 	NotifyMemcpy(dest, dest, sz);
 }
 
+void NotifyDisplay(u32 framebuf, int stride, int fmt) {
+	if (!active) {
+		return;
+	}
+
+	struct DisplayBufData {
+		PSPPointer<u8> topaddr;
+		int linesize, pixelFormat;
+	};
+
+	DisplayBufData disp{ framebuf, stride, fmt };
+
+	FlushRegisters();
+	u32 ptr = (u32)pushbuf.size();
+	u32 sz = (u32)sizeof(disp);
+	pushbuf.resize(pushbuf.size() + sz);
+	memcpy(pushbuf.data() + ptr, &disp, sz);
+
+	commands.push_back({ CommandType::DISPLAY, sz, ptr });
+}
+
 void NotifyFrame() {
 	if (active && !writePending && !commands.empty()) {
 		// Delay write until the first command of the next frame, so we get the right display buf.
@@ -980,7 +983,7 @@ void DumpExecute::Texture(int level, u32 ptr, u32 sz) {
 void DumpExecute::Display(u32 ptr, u32 sz) {
 	struct DisplayBufData {
 		PSPPointer<u8> topaddr;
-		u32 linesize, pixelFormat;
+		int linesize, pixelFormat;
 	};
 
 	DisplayBufData *disp = (DisplayBufData *)(pushbuf.data() + ptr);
