@@ -2615,6 +2615,7 @@ void GPUCommon::DoBlockTransfer(u32 skipDrawReason) {
 			const u8 *src = Memory::GetPointerUnchecked(srcLineStartAddr);
 			u8 *dst = Memory::GetPointerUnchecked(dstLineStartAddr);
 			memcpy(dst, src, width * height * bpp);
+			GPURecord::NotifyMemcpy(dstLineStartAddr, srcLineStartAddr, width * height * bpp);
 		} else {
 			for (int y = 0; y < height; y++) {
 				u32 srcLineStartAddr = srcBasePtr + ((y + srcY) * srcStride + srcX) * bpp;
@@ -2623,6 +2624,7 @@ void GPUCommon::DoBlockTransfer(u32 skipDrawReason) {
 				const u8 *src = Memory::GetPointerUnchecked(srcLineStartAddr);
 				u8 *dst = Memory::GetPointerUnchecked(dstLineStartAddr);
 				memcpy(dst, src, width * bpp);
+				GPURecord::NotifyMemcpy(dstLineStartAddr, srcLineStartAddr, width * bpp);
 			}
 		}
 
