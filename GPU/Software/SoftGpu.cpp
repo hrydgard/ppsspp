@@ -143,6 +143,7 @@ void SoftGPU::SetDisplayFramebuffer(u32 framebuf, u32 stride, GEBufferFormat for
 	displayStride_ = stride;
 	displayFormat_ = format;
 	GPUDebug::NotifyDisplay(framebuf, stride, format);
+	GPURecord::NotifyDisplay(framebuf, stride, format);
 }
 
 // Copies RGBA8 data from RAM to the currently bound render target.

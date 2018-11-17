@@ -39,6 +39,7 @@
 #include "GPU/Common/FramebufferCommon.h"
 #include "GPU/Common/PostShader.h"
 #include "GPU/Common/TextureCacheCommon.h"
+#include "GPU/Debugger/Record.h"
 #include "GPU/GPUInterface.h"
 #include "GPU/GPUState.h"
 
@@ -169,6 +170,7 @@ void FramebufferManagerCommon::SetDisplayFramebuffer(u32 framebuf, u32 stride, G
 	displayFramebufPtr_ = framebuf;
 	displayStride_ = stride;
 	displayFormat_ = format;
+	GPURecord::NotifyDisplay(framebuf, stride, format);
 }
 
 VirtualFramebuffer *FramebufferManagerCommon::GetVFBAt(u32 addr) {
