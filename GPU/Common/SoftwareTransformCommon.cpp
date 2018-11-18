@@ -397,9 +397,17 @@ void SoftwareTransform(
 					auto getLPos = [&](int l) {
 						return Vec3f(getLPosFloat(l, 0), getLPosFloat(l, 1), getLPosFloat(l, 2));
 					};
+					auto calcShadingLPos = [&](int l) {
+						Vec3f pos = getLPos(l);
+						if (pos.Length() == 0.0f) {
+							return Vec3f(0.0f, 0.0f, 1.0f);
+						} else {
+							return pos.Normalized();
+						}
+					};
 					// Might not have lighting enabled, so don't use lighter.
-					Vec3f lightpos0 = getLPos(gstate.getUVLS0()).Normalized();
-					Vec3f lightpos1 = getLPos(gstate.getUVLS1()).Normalized();
+					Vec3f lightpos0 = calcShadingLPos(gstate.getUVLS0());
+					Vec3f lightpos1 = calcShadingLPos(gstate.getUVLS1());
 
 					uv[0] = (1.0f + Dot(lightpos0, worldnormal))/2.0f;
 					uv[1] = (1.0f + Dot(lightpos1, worldnormal))/2.0f;
