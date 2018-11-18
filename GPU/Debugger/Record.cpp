@@ -52,7 +52,7 @@ static const int MIN_VERSION = 2;
 
 static bool active = false;
 static bool nextFrame = false;
-static bool writePending = false;
+static int flipLastAction = -1;
 static std::function<void(const std::string &)> writeCallback;
 
 enum class CommandType : u8 {
@@ -389,6 +389,12 @@ static std::string GenRecordingFilename() {
 }
 
 static void BeginRecording() {
+	active = true;
+	nextFrame = false;
+	lastTextures.clear();
+	lastRenderTargets.clear();
+	flipLastAction = gpuStats.numFlips;
+
 	u32 ptr = (u32)pushbuf.size();
 	u32 sz = 512 * 4;
 	pushbuf.resize(pushbuf.size() + sz);
@@ -675,6 +681,7 @@ bool IsActivePending() {
 bool Activate() {
 	if (!nextFrame) {
 		nextFrame = true;
+		flipLastAction = gpuStats.numFlips;
 		return true;
 	}
 	return false;
@@ -691,8 +698,8 @@ static void FinishRecording() {
 	pushbuf.clear();
 
 	NOTICE_LOG(SYSTEM, "Recording finished");
-	writePending = false;
 	active = false;
+	flipLastAction = gpuStats.numFlips;
 
 	if (writeCallback)
 		writeCallback(filename);
@@ -701,10 +708,6 @@ static void FinishRecording() {
 
 void NotifyCommand(u32 pc) {
 	if (!active) {
-		return;
-	}
-	if (writePending) {
-		FinishRecording();
 		return;
 	}
 
@@ -802,6 +805,14 @@ void NotifyUpload(u32 dest, u32 sz) {
 }
 
 void NotifyDisplay(u32 framebuf, int stride, int fmt) {
+	bool writePending = false;
+	if (active && !commands.empty()) {
+		writePending = true;
+	}
+	if (nextFrame && (gstate_c.skipDrawReason & SKIPDRAW_SKIPFRAME) == 0) {
+		NOTICE_LOG(SYSTEM, "Recording starting on display...");
+		BeginRecording();
+	}
 	if (!active) {
 		return;
 	}
@@ -820,20 +831,39 @@ void NotifyDisplay(u32 framebuf, int stride, int fmt) {
 	memcpy(pushbuf.data() + ptr, &disp, sz);
 
 	commands.push_back({ CommandType::DISPLAY, sz, ptr });
+
+	if (writePending) {
+		NOTICE_LOG(SYSTEM, "Recording complete on display");
+		FinishRecording();
+	}
 }
 
 void NotifyFrame() {
-	if (active && !writePending && !commands.empty()) {
-		// Delay write until the first command of the next frame, so we get the right display buf.
-		NOTICE_LOG(SYSTEM, "Recording complete - waiting to get display buffer");
-		writePending = true;
+	const bool noDisplayAction = flipLastAction + 4 < gpuStats.numFlips;
+	// We do this only to catch things that don't call NotifyDisplay.
+	if (active && !commands.empty() && noDisplayAction) {
+		NOTICE_LOG(SYSTEM, "Recording complete on frame");
+
+		struct DisplayBufData {
+			PSPPointer<u8> topaddr;
+			u32 linesize, pixelFormat;
+		};
+
+		DisplayBufData disp;
+		__DisplayGetFramebuf(&disp.topaddr, &disp.linesize, &disp.pixelFormat, 0);
+
+		FlushRegisters();
+		u32 ptr = (u32)pushbuf.size();
+		u32 sz = (u32)sizeof(disp);
+		pushbuf.resize(pushbuf.size() + sz);
+		memcpy(pushbuf.data() + ptr, &disp, sz);
+
+		commands.push_back({ CommandType::DISPLAY, sz, ptr });
+
+		FinishRecording();
 	}
-	if (nextFrame && (gstate_c.skipDrawReason & SKIPDRAW_SKIPFRAME) == 0) {
-		NOTICE_LOG(SYSTEM, "Recording starting...");
-		active = true;
-		nextFrame = false;
-		lastTextures.clear();
-		lastRenderTargets.clear();
+	if (nextFrame && (gstate_c.skipDrawReason & SKIPDRAW_SKIPFRAME) == 0 && noDisplayAction) {
+		NOTICE_LOG(SYSTEM, "Recording starting on frame...");
 		BeginRecording();
 	}
 }
