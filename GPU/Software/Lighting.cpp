@@ -38,7 +38,8 @@ void Process(VertexData& vertex, bool hasColor)
 		// TODO: Not sure if this really should be done even if lighting is disabled altogether
 		if (gstate.getUVGenMode() == GE_TEXMAP_ENVIRONMENT_MAP) {
 			Vec3<float> L = Vec3<float>(getFloat24(gstate.lpos[3 * light]), getFloat24(gstate.lpos[3 * light + 1]),getFloat24(gstate.lpos[3 * light + 2]));
-			float diffuse_factor = Dot(L.Normalized(), vertex.worldnormal);
+			// In other words, L.Length() == 0.0f means Dot({0, 0, 1}, worldnormal).
+			float diffuse_factor = L.Length() == 0.0f ? vertex.worldnormal.z : Dot(L.Normalized(), vertex.worldnormal);
 
 			if (gstate.getUVLS0() == (int)light)
 				vertex.texturecoords.s() = (diffuse_factor + 1.f) / 2.f;

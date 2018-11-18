@@ -391,8 +391,23 @@ void SoftwareTransform(
 			case GE_TEXMAP_ENVIRONMENT_MAP:
 				// Shade mapping - use two light sources to generate U and V.
 				{
-					Vec3f lightpos0 = Vec3f(&lighter.lpos[gstate.getUVLS0() * 3]).Normalized();
-					Vec3f lightpos1 = Vec3f(&lighter.lpos[gstate.getUVLS1() * 3]).Normalized();
+					auto getLPosFloat = [&](int l, int i) {
+						return getFloat24(gstate.lpos[l * 3 + i]);
+					};
+					auto getLPos = [&](int l) {
+						return Vec3f(getLPosFloat(l, 0), getLPosFloat(l, 1), getLPosFloat(l, 2));
+					};
+					auto calcShadingLPos = [&](int l) {
+						Vec3f pos = getLPos(l);
+						if (pos.Length() == 0.0f) {
+							return Vec3f(0.0f, 0.0f, 1.0f);
+						} else {
+							return pos.Normalized();
+						}
+					};
+					// Might not have lighting enabled, so don't use lighter.
+					Vec3f lightpos0 = calcShadingLPos(gstate.getUVLS0());
+					Vec3f lightpos1 = calcShadingLPos(gstate.getUVLS1());
 
 					uv[0] = (1.0f + Dot(lightpos0, worldnormal))/2.0f;
 					uv[1] = (1.0f + Dot(lightpos1, worldnormal))/2.0f;
