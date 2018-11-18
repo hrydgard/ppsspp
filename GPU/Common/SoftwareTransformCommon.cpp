@@ -399,7 +399,7 @@ void SoftwareTransform(
 					};
 					auto calcShadingLPos = [&](int l) {
 						Vec3f pos = getLPos(l);
-						if (pos.Length() == 0.0f) {
+						if (pos.Length2() == 0.0f) {
 							return Vec3f(0.0f, 0.0f, 1.0f);
 						} else {
 							return pos.Normalized();
