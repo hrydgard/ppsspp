@@ -603,10 +603,10 @@ static void FlushPrimState(int vcount) {
 	u32 vbytes = 0;
 	GetVertDataSizes(vcount, indices, vbytes, ibytes);
 
-	if (indices) {
+	if (indices && ibytes > 0) {
 		EmitCommandWithRAM(CommandType::INDICES, indices, ibytes);
 	}
-	if (verts) {
+	if (verts && vbytes > 0) {
 		EmitCommandWithRAM(CommandType::VERTICES, verts, vbytes);
 	}
 }
@@ -631,7 +631,9 @@ static void EmitTransfer(u32 op) {
 	u32 srcBytes = ((srcY + height - 1) * srcStride + (srcX + width)) * bpp;
 	srcBytes = Memory::ValidSize(srcBasePtr, srcBytes);
 
-	EmitCommandWithRAM(CommandType::TRANSFERSRC, Memory::GetPointerUnchecked(srcBasePtr), srcBytes);
+	if (srcBytes != 0) {
+		EmitCommandWithRAM(CommandType::TRANSFERSRC, Memory::GetPointerUnchecked(srcBasePtr), srcBytes);
+	}
 
 	lastRegisters.push_back(op);
 }
@@ -641,7 +643,9 @@ static void EmitClut(u32 op) {
 	u32 bytes = (op & 0x3F) * 32;
 	bytes = Memory::ValidSize(addr, bytes);
 
-	EmitCommandWithRAM(CommandType::CLUT, Memory::GetPointerUnchecked(addr), bytes);
+	if (bytes != 0) {
+		EmitCommandWithRAM(CommandType::CLUT, Memory::GetPointerUnchecked(addr), bytes);
+	}
 
 	lastRegisters.push_back(op);
 }
@@ -763,7 +767,9 @@ void NotifyMemcpy(u32 dest, u32 src, u32 sz) {
 		memcpy(pushbuf.data() + cmd.ptr, &dest, sizeof(dest));
 
 		sz = Memory::ValidSize(dest, sz);
-		EmitCommandWithRAM(CommandType::MEMCPYDATA, Memory::GetPointer(dest), sz);
+		if (sz != 0) {
+			EmitCommandWithRAM(CommandType::MEMCPYDATA, Memory::GetPointer(dest), sz);
+		}
 	}
 }
 
