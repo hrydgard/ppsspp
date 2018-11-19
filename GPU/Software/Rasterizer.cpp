@@ -1553,7 +1553,7 @@ void ClearRectangle(const VertexData &v0, const VertexData &v1)
 	}
 
 	// The pixel write masks are respected in clear mode.
-	keepOldMask &= ~gstate.getColorMask();
+	keepOldMask |= gstate.getColorMask();
 
 	if (keepOldMask == 0) {
 		ScreenCoords pprime(minX, minY, 0);
