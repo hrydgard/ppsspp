@@ -200,6 +200,11 @@ std::unique_ptr<ManagedTexture> CreateTextureFromFileData(Draw::DrawContext *dra
 	if (!draw)
 		return std::unique_ptr<ManagedTexture>();
 	ManagedTexture *mtex = new ManagedTexture(draw);
-	mtex->LoadFromFileData(data, size, type, generateMips);
-	return std::unique_ptr<ManagedTexture>(mtex);
+	if (mtex->LoadFromFileData(data, size, type, generateMips)) {
+		return std::unique_ptr<ManagedTexture>(mtex);
+	} else {
+		// Best to return a null pointer if we fail!
+		delete mtex;
+		return std::unique_ptr<ManagedTexture>();
+	}
 }
