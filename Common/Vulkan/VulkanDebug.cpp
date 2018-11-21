@@ -79,6 +79,8 @@ VkBool32 VKAPI_CALL Vulkan_Dbg(VkDebugReportFlagsEXT msgFlags, VkDebugReportObje
 		return false;
 	if (msgCode == 5)
 		return false;  // Not exactly a false positive, see https://github.com/KhronosGroup/glslang/issues/1418
+	if (msgCode == 0 && strstr(pMsg, "vertexPipelineStoresAndAtomics"))  // https://github.com/KhronosGroup/Vulkan-ValidationLayers/issues/73
+		return false;
 #ifdef _WIN32
 	std::string msg = message.str();
 	OutputDebugStringA(msg.c_str());
