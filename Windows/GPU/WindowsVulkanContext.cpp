@@ -142,7 +142,7 @@ bool WindowsVulkanContext::Init(HINSTANCE hInst, HWND hWnd, std::string *error_m
 	draw_ = Draw::T3DCreateVulkanContext(g_Vulkan, splitSubmit);
 	SetGPUBackend(GPUBackend::VULKAN, g_Vulkan->GetPhysicalDeviceProperties(deviceNum).deviceName);
 	bool success = draw_->CreatePresets();
-	assert(success);  // Doesn't fail, we include the compiler.
+	_assert_msg_(G3D, success, "Failed to compile preset shaders");
 	draw_->HandleEvent(Draw::Event::GOT_BACKBUFFER, g_Vulkan->GetBackbufferWidth(), g_Vulkan->GetBackbufferHeight());
 
 	VulkanRenderManager *renderManager = (VulkanRenderManager *)draw_->GetNativeObject(Draw::NativeObject::RENDER_MANAGER);
