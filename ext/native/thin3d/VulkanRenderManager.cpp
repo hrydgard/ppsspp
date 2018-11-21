@@ -380,7 +380,9 @@ VkCommandBuffer VulkanRenderManager::GetInitCmd() {
 			VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT
 		};
 		VkResult res = vkBeginCommandBuffer(frameData.initCmd, &begin);
-		_assert_(res == VK_SUCCESS);
+		if (res != VK_SUCCESS) {
+			return VK_NULL_HANDLE;
+		}
 		frameData.hasInitCommands = true;
 	}
 	return frameData_[curFrame].initCmd;

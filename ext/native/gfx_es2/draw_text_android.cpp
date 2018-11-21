@@ -172,7 +172,8 @@ void TextDrawerAndroid::DrawString(DrawBuffer &target, const char *str, float x,
 	if (iter != cache_.end()) {
 		entry = iter->second.get();
 		entry->lastUsedFrame = frameCount_;
-		draw_->BindTexture(0, entry->texture);
+		if (entry->texture)
+			draw_->BindTexture(0, entry->texture);
 	} else {
 		double size = 0.0;
 		auto iter = fontMap_.find(fontHash_);
@@ -195,8 +196,10 @@ void TextDrawerAndroid::DrawString(DrawBuffer &target, const char *str, float x,
 		env_->DeleteLocalRef(jstr);
 
 		entry = new TextStringEntry();
-		entry->bmWidth = entry->width = imageWidth;
-		entry->bmHeight = entry->height = imageHeight;
+		entry->bmWidth = imageWidth;
+		entry->width = imageWidth;
+		entry->bmHeight = imageHeight;
+		entry->height = imageHeight;
 		entry->lastUsedFrame = frameCount_;
 
 		TextureDesc desc{};
@@ -206,6 +209,7 @@ void TextDrawerAndroid::DrawString(DrawBuffer &target, const char *str, float x,
 		desc.height = entry->bmHeight;
 		desc.depth = 1;
 		desc.mipLevels = 1;
+		desc.generateMips = false;
 		desc.tag = "TextDrawer";
 
 		uint16_t *bitmapData = new uint16_t[entry->bmWidth * entry->bmHeight];
@@ -224,13 +228,17 @@ void TextDrawerAndroid::DrawString(DrawBuffer &target, const char *str, float x,
 		entry->texture = draw_->CreateTexture(desc);
 		delete[] bitmapData;
 		cache_[key] = std::unique_ptr<TextStringEntry>(entry);
-		draw_->BindTexture(0, entry->texture);
+		if (entry->texture) {
+			draw_->BindTexture(0, entry->texture);
+		}
 	}
 	float w = entry->bmWidth * fontScaleX_ * dpiScale_;
 	float h = entry->bmHeight * fontScaleY_ * dpiScale_;
 	DrawBuffer::DoAlign(align, &x, &y, &w, &h);
-	target.DrawTexRect(x, y, x + w, y + h, 0.0f, 0.0f, 1.0f, 1.0f, color);
-	target.Flush(true);
+	if (entry->texture) {
+		target.DrawTexRect(x, y, x + w, y + h, 0.0f, 0.0f, 1.0f, 1.0f, color);
+		target.Flush(true);
+	}
 }
 
 void TextDrawerAndroid::ClearCache() {
