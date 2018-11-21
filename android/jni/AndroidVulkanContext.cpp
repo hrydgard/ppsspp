@@ -152,7 +152,7 @@ bool AndroidVulkanContext::InitFromRenderThread(ANativeWindow *wnd, int desiredB
 		draw_ = Draw::T3DCreateVulkanContext(g_Vulkan, g_Config.bGfxDebugSplitSubmit);
 		SetGPUBackend(GPUBackend::VULKAN);
 		success = draw_->CreatePresets();  // Doesn't fail, we ship the compiler.
-		assert(success);
+		_assert_msg_(G3D, success, "Failed to compile preset shaders");
 		draw_->HandleEvent(Draw::Event::GOT_BACKBUFFER, g_Vulkan->GetBackbufferWidth(), g_Vulkan->GetBackbufferHeight());
 
 		VulkanRenderManager *renderManager = (VulkanRenderManager *)draw_->GetNativeObject(Draw::NativeObject::RENDER_MANAGER);

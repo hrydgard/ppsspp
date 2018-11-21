@@ -52,7 +52,7 @@ bool AndroidEGLGraphicsContext::InitFromRenderThread(ANativeWindow *wnd, int des
 	SetGPUBackend(GPUBackend::OPENGL);
 	renderManager_ = (GLRenderManager *)draw_->GetNativeObject(Draw::NativeObject::RENDER_MANAGER);
 	bool success = draw_->CreatePresets();  // There will always be a GLSL compiler capable of compiling these.
-	assert(success);
+	_assert_msg_(G3D, success, "Failed to compile preset shaders");
 	return true;
 }
 
