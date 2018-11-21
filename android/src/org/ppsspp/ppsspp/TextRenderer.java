@@ -56,10 +56,15 @@ public class TextRenderer {
 		total.y = (int) (p.descent() - p.ascent()) * lines.length + 2;
 		// Returning a 0 size can create problems when the caller
 		// uses the measurement to create a texture.
+		// Also, clamp to a reasonable maximum size.
 		if (total.x < 1)
 			total.x = 1;
 		if (total.y < 1)
 			total.y = 1;
+		if (total.x > 2048)
+			total.x = 2048;
+		if (total.y > 2048)
+			total.y = 2048;
 		return total;
 	}
 

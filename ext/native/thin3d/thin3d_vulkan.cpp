@@ -301,11 +301,9 @@ struct DescriptorSetKey {
 
 class VKTexture : public Texture {
 public:
-	VKTexture(VulkanContext *vulkan, VkCommandBuffer cmd, VulkanPushBuffer *pushBuffer, const TextureDesc &desc, VulkanDeviceAllocator *alloc)
-		: vulkan_(vulkan), mipLevels_(desc.mipLevels), format_(desc.format) {
-		bool result = Create(cmd, pushBuffer, desc, alloc);
-		_assert_(result);
-	}
+	VKTexture(VulkanContext *vulkan, VkCommandBuffer cmd, VulkanPushBuffer *pushBuffer, const TextureDesc &desc)
+		: vulkan_(vulkan), mipLevels_(desc.mipLevels), format_(desc.format) {}
+	bool Create(VkCommandBuffer cmd, VulkanPushBuffer *pushBuffer, const TextureDesc &desc, VulkanDeviceAllocator *alloc);
 
 	~VKTexture() {
 		Destroy();
@@ -322,8 +320,6 @@ public:
 	}
 
 private:
-	bool Create(VkCommandBuffer cmd, VulkanPushBuffer *pushBuffer, const TextureDesc &desc, VulkanDeviceAllocator *alloc);
-
 	void Destroy() {
 		if (vkTex_) {
 			vkTex_->Destroy();
@@ -335,9 +331,9 @@ private:
 	VulkanContext *vulkan_;
 	VulkanTexture *vkTex_ = nullptr;
 
-	int mipLevels_;
+	int mipLevels_ = 0;
 
-	DataFormat format_;
+	DataFormat format_ = DataFormat::UNDEFINED;
 };
 
 class VKFramebuffer;
@@ -698,6 +694,10 @@ enum class TextureState {
 bool VKTexture::Create(VkCommandBuffer cmd, VulkanPushBuffer *push, const TextureDesc &desc, VulkanDeviceAllocator *alloc) {
 	// Zero-sized textures not allowed.
 	_assert_(desc.width * desc.height * desc.depth > 0);  // remember to set depth to 1!
+	if (desc.width * desc.height * desc.depth <= 0) {
+		ELOG("Bad texture dimensions %dx%dx%d", desc.width, desc.height, desc.depth);
+		return false;
+	}
 	_assert_(push);
 	format_ = desc.format;
 	mipLevels_ = desc.mipLevels;
@@ -1079,12 +1079,20 @@ InputLayout *VKContext::CreateInputLayout(const InputLayoutDesc &desc) {
 }
 
 Texture *VKContext::CreateTexture(const TextureDesc &desc) {
-	if (!push_ || !renderManager_.GetInitCmd()) {
+	VkCommandBuffer initCmd = renderManager_.GetInitCmd();
+	if (!push_ || !initCmd) {
 		// Too early! Fail.
 		ELOG("Can't create textures before the first frame has started.");
 		return nullptr;
 	}
-	return new VKTexture(vulkan_, renderManager_.GetInitCmd(), push_, desc, allocator_);
+	VKTexture *tex = new VKTexture(vulkan_, initCmd, push_, desc);
+	if (tex->Create(initCmd, push_, desc, allocator_)) {
+		return tex;
+	} else {
+		ELOG("Failed to create texture");
+		delete tex;
+		return nullptr;
+	}
 }
 
 static inline void CopySide(VkStencilOpState &dest, const StencilSide &src) {
