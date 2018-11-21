@@ -66,8 +66,10 @@ void GLQueueRunner::DestroyDeviceObjects() {
 		glDeleteVertexArrays(1, &globalVAO_);
 	}
 	delete[] readbackBuffer_;
+	readbackBuffer_ = nullptr;
 	readbackBufferSize_ = 0;
 	delete[] tempBuffer_;
+	tempBuffer_ = nullptr;
 	tempBufferSize_ = 0;
 	CHECK_GL_ERROR_IF_DEBUG();
 }
@@ -1241,7 +1243,7 @@ void GLQueueRunner::PerformReadback(const GLRStep &pass) {
 	if (!gl_extensions.IsGLES || gl_extensions.GLES3) {
 		glPixelStorei(GL_PACK_ROW_LENGTH, 0);
 	}
-	if (convert) {
+	if (convert && tempBuffer_ && readbackBuffer_) {
 		ConvertFromRGBA8888(readbackBuffer_, tempBuffer_, pixelStride, pixelStride, rect.w, rect.h, pass.readback.dstFormat);
 	}
 

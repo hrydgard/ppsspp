@@ -231,6 +231,7 @@ void EmuScreen::bootGame(const std::string &filename) {
 	if (g_Config.bSoftwareRendering) {
 		coreParam.gpuCore = GPUCORE_SOFTWARE;
 	}
+
 	// Preserve the existing graphics context.
 	coreParam.graphicsContext = PSP_CoreParameter().graphicsContext;
 	coreParam.thin3d = screenManager()->getDrawContext();

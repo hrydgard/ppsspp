@@ -50,6 +50,7 @@ static const char *depalVShader300 =
 "}\n";
 
 DepalShaderCacheGLES::DepalShaderCacheGLES(Draw::DrawContext *draw) {
+	_assert_(draw);
 	render_ = (GLRenderManager *)draw->GetNativeObject(Draw::NativeObject::RENDER_MANAGER);
 	// Pre-build the vertex program
 	useGL3_ = gl_extensions.GLES3 || gl_extensions.VersionGEThan(3, 3);
@@ -57,9 +58,6 @@ DepalShaderCacheGLES::DepalShaderCacheGLES(Draw::DrawContext *draw) {
 		// Use the floating point path, it just can't handle the math.
 		useGL3_ = false;
 	}
-
-	vertexShaderFailed_ = false;
-	vertexShader_ = 0;
 }
 
 DepalShaderCacheGLES::~DepalShaderCacheGLES() {
