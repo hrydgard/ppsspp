@@ -699,9 +699,9 @@ void GenerateVertexShader(const VShaderID &id, char *buffer, uint32_t *attrMask,
 				break;
 			case GE_LIGHTTYPE_SPOT:
 			case GE_LIGHTTYPE_UNKNOWN:
-				WRITE(p, "  angle = dot(normalize(u_lightdir%i), toLight);\n", i);
+				WRITE(p, "  angle = length(u_lightdir%i) == 0.0 ? 0.0 : dot(normalize(u_lightdir%i), toLight);\n", i, i);
 				WRITE(p, "  if (angle >= u_lightangle_spotCoef%i.x) {\n", i);
-				WRITE(p, "    lightScale = clamp(1.0 / dot(u_lightatt%i, vec3(1.0, distance, distance*distance)), 0.0, 1.0) * pow(angle, u_lightangle_spotCoef%i.y);\n", i, i);
+				WRITE(p, "    lightScale = clamp(1.0 / dot(u_lightatt%i, vec3(1.0, distance, distance*distance)), 0.0, 1.0) * (u_lightangle_spotCoef%i.y == 0.0 ? 1.0 : pow(angle, u_lightangle_spotCoef%i.y));\n", i, i, i);
 				WRITE(p, "  } else {\n");
 				WRITE(p, "    lightScale = 0.0;\n");
 				WRITE(p, "  }\n");

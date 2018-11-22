@@ -25,6 +25,17 @@ static inline Vec3f GetLightVec(u32 lparams[12], int light) {
 	return Vec3<float>(getFloat24(lparams[3 * light]), getFloat24(lparams[3 * light + 1]), getFloat24(lparams[3 * light + 2]));
 }
 
+static inline float pspLightPow(float v, float e) {
+	if (e == 0.0f) {
+		return 1.0f;
+	}
+	if (v > 0.0f) {
+		return pow(v, e);
+	}
+	// Negative stays negative, so let's just return the original.
+	return v;
+}
+
 void Process(VertexData& vertex, bool hasColor) {
 	const int materialupdate = gstate.materialupdate & (hasColor ? 7 : 0);
 
@@ -78,11 +89,11 @@ void Process(VertexData& vertex, bool hasColor) {
 		float spot = 1.f;
 		if (gstate.isSpotLight(light)) {
 			Vec3<float> dir = GetLightVec(gstate.ldir, light);
-			float rawSpot = Dot(dir.Normalized(), L);
+			float rawSpot = dir.Length2() == 0.0f ? 0.0f : Dot(dir.Normalized(), L);
 			float cutoff = getFloat24(gstate.lcutoff[light]);
 			if (rawSpot >= cutoff) {
 				float conv = getFloat24(gstate.lconv[light]);
-				spot = pow(rawSpot, conv);
+				spot = pspLightPow(rawSpot, conv);
 			} else {
 				spot = 0.f;
 			}
