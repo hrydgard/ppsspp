@@ -425,7 +425,7 @@ bool GenerateVulkanGLSLVertexShader(const VShaderID &id, char *buffer) {
 				if (doLight[i] != LIGHT_FULL)
 					continue;
 				diffuseIsZero = false;
-				if (comp != GE_LIGHTCOMP_ONLYDIFFUSE)
+				if (comp == GE_LIGHTCOMP_BOTH)
 					specularIsZero = false;
 				if (type != GE_LIGHTTYPE_DIRECTIONAL)
 					distanceNeeded = true;
@@ -462,8 +462,8 @@ bool GenerateVulkanGLSLVertexShader(const VShaderID &id, char *buffer) {
 				WRITE(p, "  toLight /= distance;\n");
 			}
 
-			bool doSpecular = comp != GE_LIGHTCOMP_ONLYDIFFUSE;
-			bool poweredDiffuse = comp == GE_LIGHTCOMP_BOTHWITHPOWDIFFUSE;
+			bool doSpecular = comp == GE_LIGHTCOMP_BOTH;
+			bool poweredDiffuse = comp == GE_LIGHTCOMP_ONLYPOWDIFFUSE;
 
 			WRITE(p, "  mediump float dot%i = max(dot(toLight, worldnormal), 0.0);\n", i);
 			if (poweredDiffuse) {

@@ -159,7 +159,7 @@ void GenerateVertexShaderHLSL(const VShaderID &id, char *buffer, ShaderLanguage 
 					WRITE(p, "float3 u_lightambient%i : register(c%i);\n", i, CONST_VS_LIGHTAMBIENT + i);
 					WRITE(p, "float3 u_lightdiffuse%i : register(c%i);\n", i, CONST_VS_LIGHTDIFFUSE + i);
 
-					if (comp != GE_LIGHTCOMP_ONLYDIFFUSE) {
+					if (comp == GE_LIGHTCOMP_BOTH) {
 						WRITE(p, "float3 u_lightspecular%i : register(c%i);\n", i, CONST_VS_LIGHTSPECULAR + i);
 					}
 				}
@@ -536,7 +536,7 @@ void GenerateVertexShaderHLSL(const VShaderID &id, char *buffer, ShaderLanguage 
 				if (doLight[i] != LIGHT_FULL)
 					continue;
 				diffuseIsZero = false;
-				if (comp != GE_LIGHTCOMP_ONLYDIFFUSE)
+				if (comp == GE_LIGHTCOMP_BOTH)
 					specularIsZero = false;
 				if (type != GE_LIGHTTYPE_DIRECTIONAL)
 					distanceNeeded = true;
@@ -579,8 +579,8 @@ void GenerateVertexShaderHLSL(const VShaderID &id, char *buffer, ShaderLanguage 
 				WRITE(p, "  toLight /= distance;\n");
 			}
 
-			bool doSpecular = comp != GE_LIGHTCOMP_ONLYDIFFUSE;
-			bool poweredDiffuse = comp == GE_LIGHTCOMP_BOTHWITHPOWDIFFUSE;
+			bool doSpecular = comp == GE_LIGHTCOMP_BOTH;
+			bool poweredDiffuse = comp == GE_LIGHTCOMP_ONLYPOWDIFFUSE;
 
 			WRITE(p, "  ldot = max(dot(toLight, worldnormal), 0.0);\n");
 			if (poweredDiffuse) {

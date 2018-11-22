@@ -326,8 +326,8 @@ struct GPUgstate {
 	bool isLightingEnabled() const { return lightingEnable & 1; }
 	bool isLightChanEnabled(int chan) const { return lightEnable[chan] & 1; }
 	GELightComputation getLightComputation(int chan) const { return static_cast<GELightComputation>(ltype[chan] & 0x3); }
-	bool isUsingPoweredDiffuseLight(int chan) const { return getLightComputation(chan) == GE_LIGHTCOMP_BOTHWITHPOWDIFFUSE; }
-	bool isUsingSpecularLight(int chan) const { return getLightComputation(chan) != GE_LIGHTCOMP_ONLYDIFFUSE; }
+	bool isUsingPoweredDiffuseLight(int chan) const { return getLightComputation(chan) == GE_LIGHTCOMP_ONLYPOWDIFFUSE; }
+	bool isUsingSpecularLight(int chan) const { return getLightComputation(chan) == GE_LIGHTCOMP_BOTH; }
 	bool isUsingSecondaryColor() const { return lmode & 1; }
 	GELightType getLightType(int chan) const { return static_cast<GELightType>((ltype[chan] >> 8) & 3); }
 	bool isDirectionalLight(int chan) const { return getLightType(chan) == GE_LIGHTTYPE_DIRECTIONAL; }

@@ -308,7 +308,7 @@ void GenerateVertexShader(const VShaderID &id, char *buffer, uint32_t *attrMask,
 				WRITE(p, "uniform lowp vec3 u_lightambient%i;\n", i);
 				WRITE(p, "uniform lowp vec3 u_lightdiffuse%i;\n", i);
 
-				if (comp != GE_LIGHTCOMP_ONLYDIFFUSE) {
+				if (comp == GE_LIGHTCOMP_BOTH) {
 					WRITE(p, "uniform lowp vec3 u_lightspecular%i;\n", i);
 				}
 			}
@@ -630,7 +630,7 @@ void GenerateVertexShader(const VShaderID &id, char *buffer, uint32_t *attrMask,
 				if (doLight[i] != LIGHT_FULL)
 					continue;
 				diffuseIsZero = false;
-				if (comp != GE_LIGHTCOMP_ONLYDIFFUSE)
+				if (comp == GE_LIGHTCOMP_BOTH)
 					specularIsZero = false;
 				if (type != GE_LIGHTTYPE_DIRECTIONAL)
 					distanceNeeded = true;
@@ -673,8 +673,8 @@ void GenerateVertexShader(const VShaderID &id, char *buffer, uint32_t *attrMask,
 				WRITE(p, "  toLight /= distance;\n");
 			}
 
-			bool doSpecular = comp != GE_LIGHTCOMP_ONLYDIFFUSE;
-			bool poweredDiffuse = comp == GE_LIGHTCOMP_BOTHWITHPOWDIFFUSE;
+			bool doSpecular = comp == GE_LIGHTCOMP_BOTH;
+			bool poweredDiffuse = comp == GE_LIGHTCOMP_ONLYPOWDIFFUSE;
 
 			WRITE(p, "  ldot = max(dot(toLight, worldnormal), 0.0);\n");
 			if (poweredDiffuse) {
