@@ -110,6 +110,7 @@ bool ManagedTexture::LoadFromFileData(const uint8_t *data, size_t dataSize, Imag
 		num_levels = 1;
 	}
 
+	// Free the old texture, if any.
 	if (texture_) {
 		delete texture_;
 		texture_ = nullptr;
@@ -134,7 +135,7 @@ bool ManagedTexture::LoadFromFileData(const uint8_t *data, size_t dataSize, Imag
 		if (image[i])
 			free(image[i]);
 	}
-	return texture_ != nullptr;
+	return texture_;
 }
 
 bool ManagedTexture::LoadFromFile(const std::string &filename, ImageFileType type, bool generateMips) {
