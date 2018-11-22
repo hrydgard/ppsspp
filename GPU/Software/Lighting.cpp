@@ -117,7 +117,7 @@ void Process(VertexData& vertex, bool hasColor) {
 			final_color += ldc * mdc * diffuse_factor * att * spot;
 		}
 
-		if (gstate.isUsingSpecularLight(light)) {
+		if (gstate.isUsingSpecularLight(light) && diffuse_factor >= 0.0f) {
 			Vec3<float> H = L + Vec3<float>(0.f, 0.f, 1.f);
 
 			Vec3<float> lsc = Vec3<float>::FromRGB(gstate.getSpecularColor(light));

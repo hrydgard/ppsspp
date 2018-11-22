@@ -676,7 +676,7 @@ void GenerateVertexShader(const VShaderID &id, char *buffer, uint32_t *attrMask,
 			bool doSpecular = comp == GE_LIGHTCOMP_BOTH;
 			bool poweredDiffuse = comp == GE_LIGHTCOMP_ONLYPOWDIFFUSE;
 
-			WRITE(p, "  ldot = max(dot(toLight, worldnormal), 0.0);\n");
+			WRITE(p, "  ldot = dot(toLight, worldnormal);\n");
 			if (poweredDiffuse) {
 				// pow(0.0, 0.0) may be undefined, but the PSP seems to treat it as 1.0.
 				// Seen in Tales of the World: Radiant Mythology (#2424.)
@@ -711,11 +711,13 @@ void GenerateVertexShader(const VShaderID &id, char *buffer, uint32_t *attrMask,
 				break;
 			}
 
-			WRITE(p, "  diffuse = (u_lightdiffuse%i * %s) * ldot;\n", i, diffuseStr);
+			WRITE(p, "  diffuse = (u_lightdiffuse%i * %s) * max(ldot, 0.0);\n", i, diffuseStr);
 			if (doSpecular) {
-				WRITE(p, "  ldot = dot(normalize(toLight + vec3(0.0, 0.0, 1.0)), worldnormal);\n");
-				WRITE(p, "  if (ldot > 0.0)\n");
-				WRITE(p, "    lightSum1 += u_lightspecular%i * %s * (pow(ldot, u_matspecular.a) %s);\n", i, specularStr, timesLightScale);
+				WRITE(p, "  if (ldot >= 0.0) {\n");
+				WRITE(p, "    ldot = dot(normalize(toLight + vec3(0.0, 0.0, 1.0)), worldnormal);\n");
+				WRITE(p, "    if (ldot > 0.0)\n");
+				WRITE(p, "      lightSum1 += u_lightspecular%i * %s * (pow(ldot, u_matspecular.a) %s);\n", i, specularStr, timesLightScale);
+				WRITE(p, "  }\n");
 			}
 			WRITE(p, "  lightSum0.rgb += (u_lightambient%i * %s.rgb + diffuse)%s;\n", i, ambientStr, timesLightScale);
 		}
