@@ -125,7 +125,7 @@ void Process(VertexData& vertex, bool hasColor) {
 
 			float specular_factor = Dot(H.Normalized(), vertex.worldnormal);
 			float k = gstate.getMaterialSpecularCoef();
-			specular_factor = pow(specular_factor, k);
+			specular_factor = pspLightPow(specular_factor, k);
 
 			if (specular_factor > 0.f) {
 				specular_color += lsc * msc * specular_factor * att * spot;

@@ -589,7 +589,7 @@ void GenerateVertexShaderHLSL(const VShaderID &id, char *buffer, ShaderLanguage 
 				WRITE(p, "  if (u_matspecular.a == 0.0) {\n");
 				WRITE(p, "    ldot = 1.0;\n");
 				WRITE(p, "  } else {\n");
-				WRITE(p, "    ldot = pow(ldot, u_matspecular.a);\n");
+				WRITE(p, "    ldot = pow(max(ldot, 0.0), u_matspecular.a);\n");
 				WRITE(p, "  }\n");
 			}
 
@@ -621,8 +621,13 @@ void GenerateVertexShaderHLSL(const VShaderID &id, char *buffer, ShaderLanguage 
 			if (doSpecular) {
 				WRITE(p, "  if (ldot >= 0.0) {\n");
 				WRITE(p, "    ldot = dot(normalize(toLight + float3(0.0, 0.0, 1.0)), worldnormal);\n");
+				WRITE(p, "    if (u_matspecular.a == 0.0) {\n");
+				WRITE(p, "      ldot = 1.0;\n");
+				WRITE(p, "    } else {\n");
+				WRITE(p, "      ldot = pow(max(ldot, 0.0), u_matspecular.a);\n");
+				WRITE(p, "    }\n");
 				WRITE(p, "    if (ldot > 0.0)\n");
-				WRITE(p, "      lightSum1 += u_lightspecular%i * %s * (pow(ldot, u_matspecular.a) %s);\n", i, specularStr, timesLightScale);
+				WRITE(p, "      lightSum1 += u_lightspecular%i * %s * ldot %s;\n", i, specularStr, timesLightScale);
 				WRITE(p, "  }\n");
 			}
 			WRITE(p, "  lightSum0.rgb += (u_lightambient%i * %s.rgb + diffuse)%s;\n", i, ambientStr, timesLightScale);

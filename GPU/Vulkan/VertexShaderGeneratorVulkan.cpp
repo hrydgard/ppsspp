@@ -472,7 +472,7 @@ bool GenerateVulkanGLSLVertexShader(const VShaderID &id, char *buffer) {
 				WRITE(p, "  if (light.matspecular.a == 0.0) {\n");
 				WRITE(p, "    dot%i = 1.0;\n", i);
 				WRITE(p, "  } else {\n");
-				WRITE(p, "    dot%i = pow(dot%i, light.matspecular.a);\n", i, i);
+				WRITE(p, "    dot%i = pow(max(dot%i, 0.0), light.matspecular.a);\n", i, i);
 				WRITE(p, "  }\n");
 			}
 
@@ -504,8 +504,13 @@ bool GenerateVulkanGLSLVertexShader(const VShaderID &id, char *buffer) {
 			if (doSpecular) {
 				WRITE(p, "  if (dot%i >= 0.0) {\n", i);
 				WRITE(p, "    dot%i = dot(normalize(toLight + vec3(0.0, 0.0, 1.0)), worldnormal);\n", i);
+				WRITE(p, "    if (light.matspecular.a == 0.0) {\n");
+				WRITE(p, "      dot%i = 1.0;\n", i);
+				WRITE(p, "    } else {\n");
+				WRITE(p, "      dot%i = pow(max(dot%i, 0.0), light.matspecular.a);\n", i, i);
+				WRITE(p, "    }\n");
 				WRITE(p, "    if (dot%i > 0.0)\n", i);
-				WRITE(p, "      lightSum1 += light.specular[%i] * %s * (pow(dot%i, light.matspecular.a) %s);\n", i, specularStr, i, timesLightScale);
+				WRITE(p, "      lightSum1 += light.specular[%i] * %s * dot%i %s;\n", i, specularStr, i, timesLightScale);
 				WRITE(p, "  }\n");
 			}
 			WRITE(p, "  lightSum0.rgb += (light.ambient[%i] * %s.rgb + diffuse)%s;\n", i, ambientStr, timesLightScale);
