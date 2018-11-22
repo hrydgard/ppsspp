@@ -25,6 +25,17 @@ static inline Vec3f GetLightVec(u32 lparams[12], int light) {
 	return Vec3<float>(getFloat24(lparams[3 * light]), getFloat24(lparams[3 * light + 1]), getFloat24(lparams[3 * light + 2]));
 }
 
+static inline float pspLightPow(float v, float e) {
+	if (e == 0.0f) {
+		return 1.0f;
+	}
+	if (v > 0.0f) {
+		return pow(v, e);
+	}
+	// Negative stays negative, so let's just return the original.
+	return v;
+}
+
 void Process(VertexData& vertex, bool hasColor) {
 	const int materialupdate = gstate.materialupdate & (hasColor ? 7 : 0);
 
@@ -78,11 +89,11 @@ void Process(VertexData& vertex, bool hasColor) {
 		float spot = 1.f;
 		if (gstate.isSpotLight(light)) {
 			Vec3<float> dir = GetLightVec(gstate.ldir, light);
-			float rawSpot = Dot(dir.Normalized(), L);
+			float rawSpot = dir.Length2() == 0.0f ? 0.0f : Dot(dir.Normalized(), L);
 			float cutoff = getFloat24(gstate.lcutoff[light]);
 			if (rawSpot >= cutoff) {
 				float conv = getFloat24(gstate.lconv[light]);
-				spot = pow(rawSpot, conv);
+				spot = pspLightPow(rawSpot, conv);
 			} else {
 				spot = 0.f;
 			}
@@ -99,20 +110,14 @@ void Process(VertexData& vertex, bool hasColor) {
 		float diffuse_factor = Dot(L, vertex.worldnormal);
 		if (gstate.isUsingPoweredDiffuseLight(light)) {
 			float k = gstate.getMaterialSpecularCoef();
-			// TODO: Validate Tales of the World: Radiant Mythology (#2424.)
-			// pow(0.0, 0.0) may be undefined, but the PSP seems to treat it as 1.0.
-			if (diffuse_factor <= 0.0f && k == 0.0f) {
-				diffuse_factor = 1.0f;
-			} else {
-				diffuse_factor = pow(diffuse_factor, k);
-			}
+			diffuse_factor = pspLightPow(diffuse_factor, k);
 		}
 
 		if (diffuse_factor > 0.f) {
 			final_color += ldc * mdc * diffuse_factor * att * spot;
 		}
 
-		if (gstate.isUsingSpecularLight(light)) {
+		if (gstate.isUsingSpecularLight(light) && diffuse_factor >= 0.0f) {
 			Vec3<float> H = L + Vec3<float>(0.f, 0.f, 1.f);
 
 			Vec3<float> lsc = Vec3<float>::FromRGB(gstate.getSpecularColor(light));
@@ -120,7 +125,7 @@ void Process(VertexData& vertex, bool hasColor) {
 
 			float specular_factor = Dot(H.Normalized(), vertex.worldnormal);
 			float k = gstate.getMaterialSpecularCoef();
-			specular_factor = pow(specular_factor, k);
+			specular_factor = pspLightPow(specular_factor, k);
 
 			if (specular_factor > 0.f) {
 				specular_color += lsc * msc * specular_factor * att * spot;
