@@ -586,7 +586,7 @@ void GenerateVertexShaderHLSL(const VShaderID &id, char *buffer, ShaderLanguage 
 			if (poweredDiffuse) {
 				// pow(0.0, 0.0) may be undefined, but the PSP seems to treat it as 1.0.
 				// Seen in Tales of the World: Radiant Mythology (#2424.)
-				WRITE(p, "  if (ldot == 0.0 && u_matspecular.a == 0.0) {\n");
+				WRITE(p, "  if (u_matspecular.a == 0.0) {\n");
 				WRITE(p, "    ldot = 1.0;\n");
 				WRITE(p, "  } else {\n");
 				WRITE(p, "    ldot = pow(ldot, u_matspecular.a);\n");

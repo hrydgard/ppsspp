@@ -110,13 +110,7 @@ void Process(VertexData& vertex, bool hasColor) {
 		float diffuse_factor = Dot(L, vertex.worldnormal);
 		if (gstate.isUsingPoweredDiffuseLight(light)) {
 			float k = gstate.getMaterialSpecularCoef();
-			// TODO: Validate Tales of the World: Radiant Mythology (#2424.)
-			// pow(0.0, 0.0) may be undefined, but the PSP seems to treat it as 1.0.
-			if (diffuse_factor <= 0.0f && k == 0.0f) {
-				diffuse_factor = 1.0f;
-			} else {
-				diffuse_factor = pow(diffuse_factor, k);
-			}
+			diffuse_factor = pspLightPow(diffuse_factor, k);
 		}
 
 		if (diffuse_factor > 0.f) {

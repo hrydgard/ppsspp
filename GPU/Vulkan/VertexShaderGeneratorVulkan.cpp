@@ -469,7 +469,7 @@ bool GenerateVulkanGLSLVertexShader(const VShaderID &id, char *buffer) {
 			if (poweredDiffuse) {
 				// pow(0.0, 0.0) may be undefined, but the PSP seems to treat it as 1.0.
 				// Seen in Tales of the World: Radiant Mythology (#2424.)
-				WRITE(p, "  if (dot%i == 0.0 && light.matspecular.a == 0.0) {\n", i);
+				WRITE(p, "  if (light.matspecular.a == 0.0) {\n");
 				WRITE(p, "    dot%i = 1.0;\n", i);
 				WRITE(p, "  } else {\n");
 				WRITE(p, "    dot%i = pow(dot%i, light.matspecular.a);\n", i, i);
