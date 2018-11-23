@@ -569,11 +569,6 @@ public abstract class NativeActivity extends Activity implements SurfaceHolder.C
 		// Note that desiredSize might be 0,0 here - but that's fine when calling setFixedSize! It means auto.
 		Log.d(TAG, "Setting fixed size " + desiredSize.x + " x " + desiredSize.y);
 		holder.setFixedSize(desiredSize.x, desiredSize.y);
-
-		// This may change it - but, since we're visible now, we can actually set this.
-		if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.ICE_CREAM_SANDWICH) {
-			updateSystemUiVisibility();
-		}
 	}
 
 	@Override
