@@ -342,12 +342,12 @@ void TransformUnit::SubmitPrimitive(void* vertices, void* indices, GEPrimitiveTy
 				case GE_PRIM_TRIANGLES:
 				{
 					if (!gstate.isCullEnabled() || gstate.isModeClear()) {
-						Clipper::ProcessTriangle(data[0], data[1], data[2]);
-						Clipper::ProcessTriangle(data[2], data[1], data[0]);
+						Clipper::ProcessTriangle(data[0], data[1], data[2], data[2]);
+						Clipper::ProcessTriangle(data[2], data[1], data[0], data[2]);
 					} else if (!gstate.getCullMode()) {
-						Clipper::ProcessTriangle(data[2], data[1], data[0]);
+						Clipper::ProcessTriangle(data[2], data[1], data[0], data[2]);
 					} else {
-						Clipper::ProcessTriangle(data[0], data[1], data[2]);
+						Clipper::ProcessTriangle(data[0], data[1], data[2], data[2]);
 					}
 					break;
 				}
@@ -413,7 +413,8 @@ void TransformUnit::SubmitPrimitive(void* vertices, void* indices, GEPrimitiveTy
 					vreader.Goto(vtx);
 				}
 
-				data[(data_index++) % 3] = ReadVertex(vreader);
+				int provoking_index = (data_index++) % 3;
+				data[provoking_index] = ReadVertex(vreader);
 				if (outside_range_flag) {
 					// Drop all primitives containing the current vertex
 					skip_count = 2;
@@ -427,14 +428,14 @@ void TransformUnit::SubmitPrimitive(void* vertices, void* indices, GEPrimitiveTy
 				}
 
 				if (!gstate.isCullEnabled() || gstate.isModeClear()) {
-					Clipper::ProcessTriangle(data[0], data[1], data[2]);
-					Clipper::ProcessTriangle(data[2], data[1], data[0]);
+					Clipper::ProcessTriangle(data[0], data[1], data[2], data[provoking_index]);
+					Clipper::ProcessTriangle(data[2], data[1], data[0], data[provoking_index]);
 				} else if ((!gstate.getCullMode()) ^ ((data_index - 1) % 2)) {
 					// We need to reverse the vertex order for each second primitive,
 					// but we additionally need to do that for every primitive if CCW cullmode is used.
-					Clipper::ProcessTriangle(data[2], data[1], data[0]);
+					Clipper::ProcessTriangle(data[2], data[1], data[0], data[provoking_index]);
 				} else {
-					Clipper::ProcessTriangle(data[0], data[1], data[2]);
+					Clipper::ProcessTriangle(data[0], data[1], data[2], data[provoking_index]);
 				}
 			}
 			break;
@@ -466,7 +467,8 @@ void TransformUnit::SubmitPrimitive(void* vertices, void* indices, GEPrimitiveTy
 					vreader.Goto(vtx);
 				}
 
-				data[2 - ((data_index++) % 2)] = ReadVertex(vreader);
+				int provoking_index = 2 - ((data_index++) % 2);
+				data[provoking_index] = ReadVertex(vreader);
 				if (outside_range_flag) {
 					// Drop all primitives containing the current vertex
 					skip_count = 2;
@@ -480,14 +482,14 @@ void TransformUnit::SubmitPrimitive(void* vertices, void* indices, GEPrimitiveTy
 				}
 
 				if (!gstate.isCullEnabled() || gstate.isModeClear()) {
-					Clipper::ProcessTriangle(data[0], data[1], data[2]);
-					Clipper::ProcessTriangle(data[2], data[1], data[0]);
+					Clipper::ProcessTriangle(data[0], data[1], data[2], data[provoking_index]);
+					Clipper::ProcessTriangle(data[2], data[1], data[0], data[provoking_index]);
 				} else if ((!gstate.getCullMode()) ^ ((data_index - 1) % 2)) {
 					// We need to reverse the vertex order for each second primitive,
 					// but we additionally need to do that for every primitive if CCW cullmode is used.
-					Clipper::ProcessTriangle(data[2], data[1], data[0]);
+					Clipper::ProcessTriangle(data[2], data[1], data[0], data[provoking_index]);
 				} else {
-					Clipper::ProcessTriangle(data[0], data[1], data[2]);
+					Clipper::ProcessTriangle(data[0], data[1], data[2], data[provoking_index]);
 				}
 			}
 			break;
@@ -508,7 +510,7 @@ bool TransformUnit::GetCurrentSimpleVertices(int count, std::vector<GPUDebugVert
 	u16 indexLowerBound = 0;
 	u16 indexUpperBound = count - 1;
 
-	if ((gstate.vertType & GE_VTYPE_IDX_MASK) != GE_VTYPE_IDX_NONE) {
+	if (count > 0 && (gstate.vertType & GE_VTYPE_IDX_MASK) != GE_VTYPE_IDX_NONE) {
 		const u8 *inds = Memory::GetPointer(gstate_c.indexAddr);
 		const u16 *inds16 = (const u16 *)inds;
 		const u32 *inds32 = (const u32 *)inds;

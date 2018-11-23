@@ -187,6 +187,7 @@ void CtrlVertexList::FormatVertColRaw(wchar_t *dest, int row, int col) {
 	const u8 *pos = vert + decoder->posoff;
 	const u8 *tc = vert + decoder->tcoff;
 	const u8 *color = vert + decoder->coloff;
+	const u8 *norm = vert + decoder->nrmoff;
 
 	switch (col) {
 	case VERTEXLIST_COL_X:
@@ -207,6 +208,10 @@ void CtrlVertexList::FormatVertColRaw(wchar_t *dest, int row, int col) {
 	case VERTEXLIST_COL_COLOR:
 		FormatVertColRawColor(dest, color, decoder->col);
 		break;
+
+	case VERTEXLIST_COL_NX: FormatVertColRawType(dest, norm, decoder->nrm, 0); break;
+	case VERTEXLIST_COL_NY: FormatVertColRawType(dest, norm, decoder->nrm, 1); break;
+	case VERTEXLIST_COL_NZ: FormatVertColRawType(dest, norm, decoder->nrm, 2); break;
 
 	default:
 		wcscpy(dest, L"Invalid");
