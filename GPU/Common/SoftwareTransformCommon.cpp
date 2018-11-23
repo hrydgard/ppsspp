@@ -191,9 +191,9 @@ void SoftwareTransform(
 		fog_slope = std::signbit(fog_slope) ? -65535.0f : 65535.0f;
 	}
 
-	int colorIndOffset = 0;
+	int provokeIndOffset = 0;
 	if (params->provokeFlatFirst) {
-		colorIndOffset = ColorIndexOffset(prim, gstate.getShadeMode(), gstate.isModeClear());
+		provokeIndOffset = ColorIndexOffset(prim, gstate.getShadeMode(), gstate.isModeClear());
 	}
 
 	VertexReader reader(decoded, decVtxFormat, vertType);
@@ -206,8 +206,8 @@ void SoftwareTransform(
 			reader.ReadPos(vert.pos);
 
 			if (reader.hasColor0()) {
-				if (colorIndOffset != 0 && index + colorIndOffset < maxIndex) {
-					reader.Goto(index + colorIndOffset);
+				if (provokeIndOffset != 0 && index + provokeIndOffset < maxIndex) {
+					reader.Goto(index + provokeIndOffset);
 					reader.ReadColor0_8888(vert.color0);
 					reader.Goto(index);
 				} else {
@@ -247,10 +247,24 @@ void SoftwareTransform(
 			Vec3f worldnormal(0, 0, 1);
 			reader.ReadPos(pos);
 
+			float ruv[2] = { 0.0f, 0.0f };
+			if (reader.hasUV())
+				reader.ReadUV(ruv);
+
+			// Read all the provoking vertex values here.
+			Vec4f unlitColor;
+			if (provokeIndOffset != 0 && index + provokeIndOffset < maxIndex)
+				reader.Goto(index + provokeIndOffset);
+			if (reader.hasColor0())
+				reader.ReadColor0(unlitColor.AsArray());
+			else
+				unlitColor = Vec4f::FromRGBA(gstate.getMaterialAmbientRGBA());
+			if (reader.hasNormal())
+				reader.ReadNrm(normal.AsArray());
+
 			if (!skinningEnabled) {
 				Vec3ByMatrix43(out, pos, gstate.worldMatrix);
 				if (reader.hasNormal()) {
-					reader.ReadNrm(normal.AsArray());
 					if (gstate.areNormalsReversed()) {
 						normal = -normal;
 					}
@@ -259,9 +273,9 @@ void SoftwareTransform(
 				}
 			} else {
 				float weights[8];
+				// TODO: For flat, are weights from the provoking used for color/normal?
+				reader.Goto(index);
 				reader.ReadWeights(weights);
-				if (reader.hasNormal())
-					reader.ReadNrm(normal.AsArray());
 
 				// Skinning
 				Vec3f psum(0, 0, 0);
@@ -291,20 +305,7 @@ void SoftwareTransform(
 				}
 			}
 
-			// Perform lighting here if enabled. don't need to check through, it's checked above.
-			Vec4f unlitColor = Vec4f(1, 1, 1, 1);
-			if (reader.hasColor0()) {
-				if (colorIndOffset != 0 && index + colorIndOffset < maxIndex) {
-					reader.Goto(index + colorIndOffset);
-					reader.ReadColor0(&unlitColor.x);
-					reader.Goto(index);
-				} else {
-					reader.ReadColor0(&unlitColor.x);
-				}
-			} else {
-				unlitColor = Vec4f::FromRGBA(gstate.getMaterialAmbientRGBA());
-			}
-
+			// Perform lighting here if enabled.
 			if (gstate.isLightingEnabled()) {
 				float litColor0[4];
 				float litColor1[4];
@@ -338,10 +339,6 @@ void SoftwareTransform(
 				}
 			}
 
-			float ruv[2] = {0.0f, 0.0f};
-			if (reader.hasUV())
-				reader.ReadUV(ruv);
-
 			// Perform texture coordinate generation after the transform and lighting - one style of UV depends on lights.
 			switch (gstate.getUVGenMode()) {
 			case GE_TEXMAP_TEXTURE_COORDS:	// UV mapping
@@ -354,6 +351,8 @@ void SoftwareTransform(
 
 			case GE_TEXMAP_TEXTURE_MATRIX:
 				{
+					// TODO: What's the correct behavior with flat shading?  Provoked normal or real normal?
+
 					// Projection mapping
 					Vec3f source;
 					switch (gstate.getUVProjMode())	{
