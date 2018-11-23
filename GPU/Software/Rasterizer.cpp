@@ -1512,48 +1512,41 @@ void ClearRectangle(const VertexData &v0, const VertexData &v1)
 		}
 	}
 
-	const u32 new_color = v1.color0.ToRGBA();
-	u16 new_color16;
-
 	// Note: this stays 0xFFFFFFFF if keeping color and alpha, even for 16-bit.
 	u32 keepOldMask = 0xFFFFFFFF;
+	if (gstate.isClearModeColorMask())
+		keepOldMask &= 0xFF000000;
+	if (gstate.isClearModeAlphaMask())
+		keepOldMask &= 0x00FFFFFF;
+
+	// The pixel write masks are respected in clear mode.
+	keepOldMask |= gstate.getColorMask();
+
+	const u32 new_color = v1.color0.ToRGBA();
+	u16 new_color16;
 	switch (gstate.FrameBufFormat()) {
 	case GE_FORMAT_565:
 		new_color16 = RGBA8888ToRGB565(new_color);
-		if (gstate.isClearModeColorMask())
-			keepOldMask = 0;
+		keepOldMask = keepOldMask == 0 ? 0 : (0xFFFF0000 | RGBA8888ToRGB565(keepOldMask));
 		break;
 
 	case GE_FORMAT_5551:
 		new_color16 = RGBA8888ToRGBA5551(new_color);
-		if (gstate.isClearModeColorMask())
-			keepOldMask &= 0x00008000;
-		if (gstate.isClearModeAlphaMask())
-			keepOldMask &= 0x00007FFF;
+		keepOldMask = keepOldMask == 0 ? 0 : (0xFFFF0000 | RGBA8888ToRGBA5551(keepOldMask));
 		break;
 
 	case GE_FORMAT_4444:
 		new_color16 = RGBA8888ToRGBA4444(new_color);
-		if (gstate.isClearModeColorMask())
-			keepOldMask &= 0x0000F000;
-		if (gstate.isClearModeAlphaMask())
-			keepOldMask &= 0x00000FFF;
+		keepOldMask = keepOldMask == 0 ? 0 : (0xFFFF0000 | RGBA8888ToRGBA4444(keepOldMask));
 		break;
 
 	case GE_FORMAT_8888:
-		if (gstate.isClearModeColorMask())
-			keepOldMask &= 0xFF000000;
-		if (gstate.isClearModeAlphaMask())
-			keepOldMask &= 0x00FFFFFF;
 		break;
 
 	case GE_FORMAT_INVALID:
 		_dbg_assert_msg_(G3D, false, "Software: invalid framebuf format.");
 		break;
 	}
-
-	// The pixel write masks are respected in clear mode.
-	keepOldMask |= gstate.getColorMask();
 
 	if (keepOldMask == 0) {
 		ScreenCoords pprime(minX, minY, 0);
