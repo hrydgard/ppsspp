@@ -1306,6 +1306,10 @@ void GLQueueRunner::CopyReadbackBuffer(int width, int height, Draw::DataFormat s
 	// don't usually provide very optimized conversion implementations, though some do.
 	// Just need to be careful about dithering, which may break Danganronpa.
 	int bpp = (int)Draw::DataFormatSizeInBytes(destFormat);
+	if (!readbackBuffer_ || bpp <= 0 || !pixels) {
+		// Something went wrong during the read and no readback buffer was allocated, probably.
+		return;
+	}
 	for (int y = 0; y < height; y++) {
 		memcpy(pixels + y * pixelStride * bpp, readbackBuffer_ + y * width * bpp, width * bpp);
 	}

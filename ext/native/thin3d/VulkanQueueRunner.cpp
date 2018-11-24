@@ -50,14 +50,20 @@ void VulkanQueueRunner::ResizeReadbackBuffer(VkDeviceSize requiredSize) {
 	VkMemoryRequirements reqs{};
 	vkGetBufferMemoryRequirements(device, readbackBuffer_, &reqs);
 
-	VkMemoryAllocateInfo alloc{ VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO };
-	alloc.allocationSize = reqs.size;
+	VkMemoryAllocateInfo allocInfo{ VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO };
+	allocInfo.allocationSize = reqs.size;
 
 	VkFlags typeReqs = VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT;
-	bool success = vulkan_->MemoryTypeFromProperties(reqs.memoryTypeBits, typeReqs, &alloc.memoryTypeIndex);
+	bool success = vulkan_->MemoryTypeFromProperties(reqs.memoryTypeBits, typeReqs, &allocInfo.memoryTypeIndex);
 	_assert_(success);
-	vkAllocateMemory(device, &alloc, nullptr, &readbackMemory_);
 
+	VkResult res = vkAllocateMemory(device, &allocInfo, nullptr, &readbackMemory_);
+	if (res != VK_SUCCESS) {
+		readbackMemory_ = VK_NULL_HANDLE;
+		vkDestroyBuffer(device, readbackBuffer_, nullptr);
+		readbackBuffer_ = VK_NULL_HANDLE;
+		return;
+	}
 	uint32_t offset = 0;
 	vkBindBufferMemory(device, readbackBuffer_, readbackMemory_, offset);
 }
@@ -1279,6 +1285,9 @@ void VulkanQueueRunner::PerformReadbackImage(const VKRStep &step, VkCommandBuffe
 }
 
 void VulkanQueueRunner::CopyReadbackBuffer(int width, int height, Draw::DataFormat srcFormat, Draw::DataFormat destFormat, int pixelStride, uint8_t *pixels) {
+	if (!readbackMemory_)
+		return;  // Something has gone really wrong.
+
 	// Read back to the requested address in ram from buffer.
 	void *mappedData;
 	const size_t srcPixelSize = DataFormatSizeInBytes(srcFormat);
