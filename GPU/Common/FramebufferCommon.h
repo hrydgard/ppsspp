@@ -146,6 +146,8 @@ enum BindFramebufferColorFlags {
 	BINDFBCOLOR_MAY_COPY = 1,
 	BINDFBCOLOR_MAY_COPY_WITH_UV = 3,
 	BINDFBCOLOR_APPLY_TEX_OFFSET = 4,
+	// Used when rendering to a temporary surface (e.g. not the current render target.)
+	BINDFBCOLOR_FORCE_SELF = 8,
 };
 
 enum DrawTextureFlags {

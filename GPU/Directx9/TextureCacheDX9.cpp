@@ -442,7 +442,7 @@ void TextureCacheDX9::ApplyTextureFramebuffer(TexCacheEntry *entry, VirtualFrame
 		device_->SetSamplerState(1, D3DSAMP_MAGFILTER, D3DTEXF_POINT);
 		device_->SetSamplerState(1, D3DSAMP_MIPFILTER, D3DTEXF_NONE);
 
-		framebufferManagerDX9_->BindFramebufferAsColorTexture(0, framebuffer, BINDFBCOLOR_SKIP_COPY);
+		framebufferManagerDX9_->BindFramebufferAsColorTexture(0, framebuffer, BINDFBCOLOR_SKIP_COPY | BINDFBCOLOR_FORCE_SELF);
 		device_->SetSamplerState(0, D3DSAMP_MINFILTER, D3DTEXF_POINT);
 		device_->SetSamplerState(0, D3DSAMP_MAGFILTER, D3DTEXF_POINT);
 		device_->SetSamplerState(0, D3DSAMP_MIPFILTER, D3DTEXF_NONE);
