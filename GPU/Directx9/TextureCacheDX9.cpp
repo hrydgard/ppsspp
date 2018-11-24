@@ -320,14 +320,14 @@ public:
 		static const Pos pos[4] = {
 			{-1,  1, 0},
 			{ 1,  1, 0},
-			{ 1, -1, 0},
 			{-1, -1, 0},
+			{ 1, -1, 0},
 		};
 		static const UV uv[4] = {
 			{0, 0},
 			{1, 0},
-			{1, 1},
 			{0, 1},
+			{1, 1},
 		};
 
 		for (int i = 0; i < 4; ++i) {
@@ -354,25 +354,25 @@ public:
 
 			const float left = u1 * invHalfWidth - 1.0f + xoff;
 			const float right = u2 * invHalfWidth - 1.0f + xoff;
-			const float top = v1 * invHalfHeight - 1.0f + yoff;
-			const float bottom = v2 * invHalfHeight - 1.0f + yoff;
+			const float top = (bufferH_ - v1) * invHalfHeight - 1.0f + yoff;
+			const float bottom = (bufferH_ - v2) * invHalfHeight - 1.0f + yoff;
 
 			float z = 0.0f;
-			// Points are: BL, BR, TR, TL.
-			verts_[0].pos = Pos(left, bottom, z);
-			verts_[1].pos = Pos(right, bottom, z);
-			verts_[2].pos = Pos(right, top, z);
-			verts_[3].pos = Pos(left, top, z);
+			verts_[0].pos = Pos(left, top, z);
+			verts_[1].pos = Pos(right, top, z);
+			verts_[2].pos = Pos(left, bottom, z);
+			verts_[3].pos = Pos(right, bottom, z);
 
 			// And also the UVs, same order.
 			const float uvleft = u1 * invWidth;
 			const float uvright = u2 * invWidth;
 			const float uvtop = v1 * invHeight;
 			const float uvbottom = v2 * invHeight;
-			verts_[0].uv = UV(uvleft, uvbottom);
-			verts_[1].uv = UV(uvright, uvbottom);
-			verts_[2].uv = UV(uvright, uvtop);
-			verts_[3].uv = UV(uvleft, uvtop);
+
+			verts_[0].uv = UV(uvleft, uvtop);
+			verts_[1].uv = UV(uvright, uvtop);
+			verts_[2].uv = UV(uvleft, uvbottom);
+			verts_[3].uv = UV(uvright, uvbottom);
 
 			// We need to reapply the texture next time since we cropped UV.
 			gstate_c.Dirty(DIRTY_TEXTURE_PARAMS);
@@ -396,7 +396,7 @@ public:
 
 		D3DVIEWPORT9 vp{ 0, 0, (DWORD)renderW_, (DWORD)renderH_, 0.0f, 1.0f };
 		device_->SetViewport(&vp);
-		HRESULT hr = device_->DrawPrimitiveUP(D3DPT_TRIANGLEFAN, 2, verts_, (3 + 2) * sizeof(float));
+		HRESULT hr = device_->DrawPrimitiveUP(D3DPT_TRIANGLESTRIP, 2, verts_, (3 + 2) * sizeof(float));
 		if (FAILED(hr)) {
 			ERROR_LOG_REPORT(G3D, "Depal render failed: %08x", hr);
 		}
@@ -442,7 +442,7 @@ void TextureCacheDX9::ApplyTextureFramebuffer(TexCacheEntry *entry, VirtualFrame
 		device_->SetSamplerState(1, D3DSAMP_MAGFILTER, D3DTEXF_POINT);
 		device_->SetSamplerState(1, D3DSAMP_MIPFILTER, D3DTEXF_NONE);
 
-		framebufferManagerDX9_->BindFramebufferAsColorTexture(0, framebuffer, BINDFBCOLOR_SKIP_COPY);
+		framebufferManagerDX9_->BindFramebufferAsColorTexture(0, framebuffer, BINDFBCOLOR_SKIP_COPY | BINDFBCOLOR_FORCE_SELF);
 		device_->SetSamplerState(0, D3DSAMP_MINFILTER, D3DTEXF_POINT);
 		device_->SetSamplerState(0, D3DSAMP_MAGFILTER, D3DTEXF_POINT);
 		device_->SetSamplerState(0, D3DSAMP_MIPFILTER, D3DTEXF_NONE);
