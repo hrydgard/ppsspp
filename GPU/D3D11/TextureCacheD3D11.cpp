@@ -277,7 +277,7 @@ public:
 	};
 
 	TextureShaderApplierD3D11(ID3D11DeviceContext *context, ID3D11PixelShader *pshader, ID3D11Buffer *dynamicBuffer, float bufferW, float bufferH, int renderW, int renderH, float xoff, float yoff)
-		: context_(context), pshader_(pshader), bufferW_(bufferW), bufferH_(bufferH), renderW_(renderW), renderH_(renderH) {
+		: context_(context), pshader_(pshader), vbuffer_(dynamicBuffer), bufferW_(bufferW), bufferH_(bufferH), renderW_(renderW), renderH_(renderH) {
 		static const Pos pos[4] = {
 			{ -1,  1, 0 },
 			{ 1,  1, 0 },
@@ -297,11 +297,6 @@ public:
 			verts_[i].pos.y += yoff;
 			verts_[i].uv = uv[i];
 		}
-		D3D11_MAPPED_SUBRESOURCE map;
-		context->Map(dynamicBuffer, 0, D3D11_MAP_WRITE_DISCARD, 0, &map);
-		memcpy(map.pData, &verts_[0], 4 * 5 * sizeof(float));
-		context->Unmap(dynamicBuffer, 0);
-		vbuffer_ = dynamicBuffer;
 	}
 
 	void ApplyBounds(const KnownVertexBounds &bounds, u32 uoff, u32 voff, float xoff, float yoff) {
@@ -320,28 +315,34 @@ public:
 
 			const float left = u1 * invHalfWidth - 1.0f + xoff;
 			const float right = u2 * invHalfWidth - 1.0f + xoff;
-			const float top = v1 * invHalfHeight - 1.0f + yoff;
-			const float bottom = v2 * invHalfHeight - 1.0f + yoff;
+			const float top = (bufferH_ - v1) * invHalfHeight - 1.0f + yoff;
+			const float bottom = (bufferH_ - v2) * invHalfHeight - 1.0f + yoff;
+
 			float z = 0.0f;
-			// Points are: BL, BR, TL, TR.
-			verts_[0].pos = Pos(left, bottom, z);
-			verts_[1].pos = Pos(right, bottom, z);
-			verts_[2].pos = Pos(left, top, z);
-			verts_[3].pos = Pos(right, top, z);
+			verts_[0].pos = Pos(left, top, z);
+			verts_[1].pos = Pos(right, top, z);
+			verts_[2].pos = Pos(left, bottom, z);
+			verts_[3].pos = Pos(right, bottom, z);
 
 			// And also the UVs, same order.
 			const float uvleft = u1 * invWidth;
 			const float uvright = u2 * invWidth;
 			const float uvtop = v1 * invHeight;
 			const float uvbottom = v2 * invHeight;
-			verts_[0].uv = UV(uvleft, uvbottom);
-			verts_[1].uv = UV(uvright, uvbottom);
-			verts_[2].uv = UV(uvleft, uvtop);
-			verts_[3].uv = UV(uvright, uvtop);
+
+			verts_[0].uv = UV(uvleft, uvtop);
+			verts_[1].uv = UV(uvright, uvtop);
+			verts_[2].uv = UV(uvleft, uvbottom);
+			verts_[3].uv = UV(uvright, uvbottom);
 
 			// We need to reapply the texture next time since we cropped UV.
 			gstate_c.Dirty(DIRTY_TEXTURE_PARAMS);
 		}
+
+		D3D11_MAPPED_SUBRESOURCE map;
+		context_->Map(vbuffer_, 0, D3D11_MAP_WRITE_DISCARD, 0, &map);
+		memcpy(map.pData, &verts_[0], 4 * 5 * sizeof(float));
+		context_->Unmap(vbuffer_, 0);
 	}
 
 	void Use(ID3D11VertexShader *vshader, ID3D11InputLayout *decl) {
