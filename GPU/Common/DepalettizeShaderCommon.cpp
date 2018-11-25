@@ -252,7 +252,7 @@ void GenerateDepalShaderFloat(char *buffer, GEBufferFormat pixelFormat, ShaderLa
 			WRITE(p, "#version 100\n");
 			WRITE(p, "precision mediump float;\n");
 		} else {
-			WRITE(p, "#version 110\n");
+			WRITE(p, "#version %d\n", gl_extensions.GLSLVersion());
 		}
 		WRITE(p, "varying vec2 v_texcoord0;\n");
 		WRITE(p, "uniform sampler2D tex;\n");
