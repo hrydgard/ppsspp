@@ -29,6 +29,7 @@
 enum class SavedataSortOption {
 	FILENAME,
 	SIZE,
+	DATE,
 };
 
 class SavedataBrowser : public UI::LinearLayout {
@@ -42,6 +43,7 @@ public:
 private:
 	static bool ByFilename(const UI::View *, const UI::View *);
 	static bool BySize(const UI::View *, const UI::View *);
+	static bool ByDate(const UI::View *, const UI::View *);
 	static bool SortDone();
 
 	void Refresh();
