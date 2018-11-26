@@ -90,6 +90,7 @@ public:
 	bool bCheckForNewVersion;
 	bool bForceLagSync;
 	bool bFuncReplacements;
+	bool bSavedataCorrectionForyugioh;
 	bool bHideSlowWarnings;
 	bool bHideStateWarnings;
 	bool bPreloadFunctions;
