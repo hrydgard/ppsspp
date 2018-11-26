@@ -199,6 +199,7 @@ static inline void GetTextureCoordinates(const VertexData& v0, const VertexData&
 	case GE_TEXMAP_TEXTURE_COORDS:
 	case GE_TEXMAP_UNKNOWN:
 	case GE_TEXMAP_ENVIRONMENT_MAP:
+	case GE_TEXMAP_TEXTURE_MATRIX:
 		{
 			// TODO: What happens if vertex has no texture coordinates?
 			// Note that for environment mapping, texture coordinates have been calculated during lighting
@@ -210,39 +211,6 @@ static inline void GetTextureCoordinates(const VertexData& v0, const VertexData&
 			float q_recip = 1.0f / (wq0 + wq1);
 			s = (v0.texturecoords.s() * wq0 + v1.texturecoords.s() * wq1) * q_recip;
 			t = (v0.texturecoords.t() * wq0 + v1.texturecoords.t() * wq1) * q_recip;
-		}
-		break;
-	case GE_TEXMAP_TEXTURE_MATRIX:
-		{
-			// projection mapping, TODO: Move this code to TransformUnit!
-			Vec3<float> source;
-			switch (gstate.getUVProjMode()) {
-			case GE_PROJMAP_POSITION:
-				source = (v0.modelpos * p + v1.modelpos * (1.0f - p));
-				break;
-
-			case GE_PROJMAP_UV:
-				source = Vec3f((v0.texturecoords * p + v1.texturecoords * (1.0f - p)), 0.0f);
-				break;
-
-			case GE_PROJMAP_NORMALIZED_NORMAL:
-				source = (v0.normal.Normalized() * p + v1.normal.Normalized() * (1.0f - p));
-				break;
-
-			case GE_PROJMAP_NORMAL:
-				source = (v0.normal * p + v1.normal * (1.0f - p));
-				break;
-
-			default:
-				ERROR_LOG_REPORT(G3D, "Software: Unsupported UV projection mode %x", gstate.getUVProjMode());
-				break;
-			}
-
-			Mat3x3<float> tgen(gstate.tgenMatrix);
-			Vec3<float> stq = tgen * source + Vec3<float>(gstate.tgenMatrix[9], gstate.tgenMatrix[10], gstate.tgenMatrix[11]);
-			float z_recip = 1.0f / stq.z;
-			s = stq.x * z_recip;
-			t = stq.y * z_recip;
 		}
 		break;
 	default:
@@ -259,6 +227,7 @@ static inline void GetTextureCoordinates(const VertexData& v0, const VertexData&
 	case GE_TEXMAP_TEXTURE_COORDS:
 	case GE_TEXMAP_UNKNOWN:
 	case GE_TEXMAP_ENVIRONMENT_MAP:
+	case GE_TEXMAP_TEXTURE_MATRIX:
 		{
 			// TODO: What happens if vertex has no texture coordinates?
 			// Note that for environment mapping, texture coordinates have been calculated during lighting
@@ -272,39 +241,6 @@ static inline void GetTextureCoordinates(const VertexData& v0, const VertexData&
 			Vec4<float> q_recip = (wq0 + wq1 + wq2).Reciprocal();
 			s = Interpolate(v0.texturecoords.s(), v1.texturecoords.s(), v2.texturecoords.s(), wq0, wq1, wq2, q_recip);
 			t = Interpolate(v0.texturecoords.t(), v1.texturecoords.t(), v2.texturecoords.t(), wq0, wq1, wq2, q_recip);
-		}
-		break;
-	case GE_TEXMAP_TEXTURE_MATRIX:
-		for (int i = 0; i < 4; ++i) {
-			// projection mapping, TODO: Move this code to TransformUnit!
-			Vec3<float> source;
-			switch (gstate.getUVProjMode()) {
-			case GE_PROJMAP_POSITION:
-				source = (v0.modelpos * w0[i] + v1.modelpos * w1[i] + v2.modelpos * w2[i]) * wsum_recip[i];
-				break;
-
-			case GE_PROJMAP_UV:
-				source = Vec3f((v0.texturecoords * w0[i] + v1.texturecoords * w1[i] + v2.texturecoords * w2[i]) * wsum_recip[i], 0.0f);
-				break;
-
-			case GE_PROJMAP_NORMALIZED_NORMAL:
-				source = (v0.normal.Normalized() * w0[i] + v1.normal.Normalized() * w1[i] + v2.normal.Normalized() * w2[i]) * wsum_recip[i];
-				break;
-
-			case GE_PROJMAP_NORMAL:
-				source = (v0.normal * w0[i] + v1.normal * w1[i] + v2.normal * w2[i]) * wsum_recip[i];
-				break;
-
-			default:
-				ERROR_LOG_REPORT(G3D, "Software: Unsupported UV projection mode %x", gstate.getUVProjMode());
-				break;
-			}
-
-			Mat3x3<float> tgen(gstate.tgenMatrix);
-			Vec3<float> stq = tgen * source + Vec3<float>(gstate.tgenMatrix[9], gstate.tgenMatrix[10], gstate.tgenMatrix[11]);
-			float z_recip = 1.0f / stq.z;
-			s[i] = stq.x * z_recip;
-			t[i] = stq.y * z_recip;
 		}
 		break;
 	default:

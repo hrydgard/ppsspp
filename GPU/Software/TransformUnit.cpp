@@ -234,10 +234,42 @@ VertexData TransformUnit::ReadVertex(VertexReader& vreader)
 
 		if (vreader.hasNormal()) {
 			vertex.worldnormal = TransformUnit::ModelToWorldNormal(vertex.normal);
-			// TODO: Isn't there a flag that controls whether to normalize the normal?
 			vertex.worldnormal /= vertex.worldnormal.Length();
 		} else {
 			vertex.worldnormal = Vec3<float>(0.0f, 0.0f, 1.0f);
+		}
+
+		// Time to generate some texture coords.  Lighting will handle shade mapping.
+		if (gstate.getUVGenMode() == GE_TEXMAP_TEXTURE_MATRIX) {
+			Vec3f source;
+			switch (gstate.getUVProjMode()) {
+			case GE_PROJMAP_POSITION:
+				source = vertex.modelpos;
+				break;
+
+			case GE_PROJMAP_UV:
+				source = Vec3f(vertex.texturecoords, 0.0f);
+				break;
+
+			case GE_PROJMAP_NORMALIZED_NORMAL:
+				source = vertex.normal.Normalized();
+				break;
+
+			case GE_PROJMAP_NORMAL:
+				source = vertex.normal;
+				break;
+
+			default:
+				source = Vec3f::AssignToAll(0.0f);
+				ERROR_LOG_REPORT(G3D, "Software: Unsupported UV projection mode %x", gstate.getUVProjMode());
+				break;
+			}
+
+			// TODO: What about uv scale and offset?
+			Mat3x3<float> tgen(gstate.tgenMatrix);
+			Vec3<float> stq = tgen * source + Vec3<float>(gstate.tgenMatrix[9], gstate.tgenMatrix[10], gstate.tgenMatrix[11]);
+			float z_recip = 1.0f / stq.z;
+			vertex.texturecoords = Vec2f(stq.x * z_recip, stq.y * z_recip);
 		}
 
 		Lighting::Process(vertex, vreader.hasColor0());
