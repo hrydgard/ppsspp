@@ -70,6 +70,7 @@ android {
 		optimized {
 			// Debug signed but optimized.
 			minifyEnabled = false
+			jniDebuggable true
 			signingConfig android.buildTypes.debug.signingConfig
 		}
 		release {
