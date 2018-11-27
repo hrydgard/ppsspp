@@ -838,7 +838,6 @@ static ConfigSetting systemParamSettings[] = {
 	ConfigSetting("proAdhocServer", &g_Config.proAdhocServer, "black-seraph.com", true, true),
 	ConfigSetting("MacAddress", &g_Config.sMACAddress, "", true, true),
 	ConfigSetting("PortOffset", &g_Config.iPortOffset, 0, true, true),
-	ConfigSetting("SavedataCorrectionForyugioh", &g_Config.bSavedataCorrectionForyugioh, false, true, true),
 	ReportedConfigSetting("Language", &g_Config.iLanguage, &DefaultSystemParamLanguage, true, true),
 	ConfigSetting("TimeFormat", &g_Config.iTimeFormat, PSP_SYSTEMPARAM_TIME_FORMAT_24HR, true, true),
 	ConfigSetting("DateFormat", &g_Config.iDateFormat, PSP_SYSTEMPARAM_DATE_FORMAT_YYYYMMDD, true, true),

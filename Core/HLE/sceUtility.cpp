@@ -26,6 +26,7 @@
 #include "Core/MIPS/MIPS.h"
 #include "Core/Reporting.h"
 #include "Core/Config.h"
+#include "Core/System.h"
 
 #include "Core/HLE/sceKernel.h"
 #include "Core/HLE/sceKernelMemory.h"
@@ -185,10 +186,9 @@ static int sceUtilitySavedataInitStart(u32 paramAddr)
 {
 	if (currentDialogActive && currentDialogType != UTILITY_DIALOG_SAVEDATA)
 	{
-		if (g_Config.bSavedataCorrectionForyugioh)
+		if (PSP_CoreParameter().compat.flags().YugiohSaveFix)
 		{
-			WARN_LOG(SCEUTILITY, "Savedata Correction");
-			g_Config.bSavedataCorrectionForyugioh = false;
+			WARN_LOG(SCEUTILITY, "Yugioh Savedata Correction");
 		}
 		else {
 			WARN_LOG(SCEUTILITY, "sceUtilitySavedataInitStart(%08x): wrong dialog type", paramAddr);
