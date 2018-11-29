@@ -498,7 +498,7 @@ BEGIN
         END
     END
 
-    POPUP "Debug",                                          ID_DEBUG_MENU
+    POPUP "Debugging",                                      ID_DEBUG_MENU
     BEGIN
         MENUITEM "Run",                                     ID_TOGGLE_BREAK
         MENUITEM "Break on Load",                           ID_DEBUG_BREAKONLOAD
@@ -521,7 +521,7 @@ BEGIN
         MENUITEM "Memory View...",                          ID_DEBUG_MEMORYVIEW
     END
 
-    POPUP "Options",                                        ID_OPTIONS_MENU
+    POPUP "Game Settings",                                  ID_OPTIONS_MENU
     BEGIN
         MENUITEM "Keep PPSSPP On Top",                      ID_OPTIONS_TOPMOST
         MENUITEM "Pause When Not Focused",                  ID_OPTIONS_PAUSE_FOCUS
@@ -633,6 +633,11 @@ BEGIN
         MENUITEM "Enable Sound",                        ID_EMULATION_SOUND
         MENUITEM "", 0, MFT_SEPARATOR
         MENUITEM "Enable Cheats",                       ID_EMULATION_CHEATS
+    END
+
+    POPUP "Help",                                       ID_HELP_MENU
+    BEGIN
+        MENUITEM "", 0, MFT_SEPARATOR
     END
 END
 

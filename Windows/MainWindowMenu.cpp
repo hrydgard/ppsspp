@@ -118,7 +118,6 @@ namespace MainWindow {
 	void CreateHelpMenu(HMENU menu) {
 		I18NCategory *des = GetI18NCategory("DesktopUI");
 
-		const std::wstring help = ConvertUTF8ToWString(des->T("Help"));
 		const std::wstring visitMainWebsite = ConvertUTF8ToWString(des->T("www.ppsspp.org"));
 		const std::wstring visitForum = ConvertUTF8ToWString(des->T("PPSSPP Forums"));
 		const std::wstring buyGold = ConvertUTF8ToWString(des->T("Buy Gold"));
@@ -126,11 +125,8 @@ namespace MainWindow {
 		const std::wstring discord = ConvertUTF8ToWString(des->T("Discord"));
 		const std::wstring aboutPPSSPP = ConvertUTF8ToWString(des->T("About PPSSPP..."));
 
-		// Simply remove the old help menu and create a new one.
-		RemoveMenu(menu, ID_HELP_MENU, MF_BYCOMMAND);
-
-		HMENU helpMenu = CreatePopupMenu();
-		InsertMenu(menu, ID_HELP_MENU, MF_POPUP | MF_STRING | MF_BYCOMMAND, (UINT_PTR)helpMenu, help.c_str());
+		HMENU helpMenu = GetSubmenuById(menu, ID_HELP_MENU);
+		EmptySubMenu(helpMenu);
 
 		AppendMenu(helpMenu, MF_STRING | MF_BYCOMMAND, ID_HELP_OPENWEBSITE, visitMainWebsite.c_str());
 		AppendMenu(helpMenu, MF_STRING | MF_BYCOMMAND, ID_HELP_OPENFORUM, visitForum.c_str());
@@ -196,34 +192,26 @@ namespace MainWindow {
 		return true;
 	}
 
-	static void _TranslateMenuItem(const HMENU hMenu, const int menuIDOrPosition, const char *key, bool byCommand = false, const std::wstring& accelerator = L"") {
+	static void TranslateMenuItem(const HMENU hMenu, const int menuID, const std::wstring& accelerator = L"", const char *key = nullptr) {
 		I18NCategory *des = GetI18NCategory("DesktopUI");
 
-		std::wstring translated = ConvertUTF8ToWString(des->T(key));
+		std::wstring translated;
+		if (key == nullptr || !strcmp(key, "")) {
+			translated = ConvertUTF8ToWString(des->T(GetMenuItemInitialText(hMenu, menuID)));
+		} else {
+			translated = ConvertUTF8ToWString(des->T(key));
+		}
 		translated.append(accelerator);
 
-		u32 flags = MF_STRING | (byCommand ? MF_BYCOMMAND : MF_BYPOSITION);
-
-		ModifyMenu(hMenu, menuIDOrPosition, flags, menuIDOrPosition, translated.c_str());
-	}
-
-	void TranslateMenuItem(HMENU menu, int menuID, const std::wstring& accelerator = L"", const char *key = "") {
-		if (key == nullptr || !strcmp(key, ""))
-			_TranslateMenuItem(menu, menuID, GetMenuItemInitialText(menu, menuID).c_str(), true, accelerator);
-		else
-			_TranslateMenuItem(menu, menuID, key, true, accelerator);
-	}
-
-	void TranslateMenu(HMENU menu, const char *key, const int itemID, const std::wstring& accelerator = L"") {
-		_TranslateMenuItem(menu, itemID, key, true, accelerator);
+		ModifyMenu(hMenu, menuID, MF_STRING | MF_BYCOMMAND, menuID, translated.c_str());
 	}
 
 	void DoTranslateMenus(HWND hWnd, HMENU menu) {
-		TranslateMenu(menu, "File", ID_FILE_MENU);
-		TranslateMenu(menu, "Emulation", ID_EMULATION_MENU);
-		TranslateMenu(menu, "Debugging", ID_DEBUG_MENU);
-		TranslateMenu(menu, "Game Settings", ID_OPTIONS_MENU);
-		TranslateMenu(menu, "Help", ID_HELP_MENU);
+		TranslateMenuItem(menu, ID_FILE_MENU);
+		TranslateMenuItem(menu, ID_EMULATION_MENU);
+		TranslateMenuItem(menu, ID_DEBUG_MENU);
+		TranslateMenuItem(menu, ID_OPTIONS_MENU);
+		TranslateMenuItem(menu, ID_HELP_MENU);
 
 		// File menu
 		TranslateMenuItem(menu, ID_FILE_LOAD);
@@ -242,7 +230,7 @@ namespace MainWindow {
 		TranslateMenuItem(menu, ID_EMULATION_PAUSE);
 		TranslateMenuItem(menu, ID_EMULATION_STOP, L"\tCtrl+W");
 		TranslateMenuItem(menu, ID_EMULATION_RESET, L"\tCtrl+B");
-		TranslateMenuItem(menu, ID_EMULATION_SWITCH_UMD, L"\tCtrl+U", "Switch UMD");
+		TranslateMenuItem(menu, ID_EMULATION_SWITCH_UMD, L"\tCtrl+U");
 		TranslateMenuItem(menu, ID_EMULATION_ROTATION_MENU);
 		TranslateMenuItem(menu, ID_EMULATION_ROTATION_H);
 		TranslateMenuItem(menu, ID_EMULATION_ROTATION_V);
