@@ -288,7 +288,7 @@
 #define IDC_GEDBG_LISTS_ALLLISTS         40123
 #define IDC_GEDBG_LISTS_STACK            40124
 #define IDC_GEDBG_LISTS_SELECTEDLIST     40125
-#define ID_OPTIONS_FXAA                  40126
+#define ID_OPTIONS_SHADER_MENU           40126
 #define IDC_DEBUG_BOTTOMTABS             40127
 #define ID_DEBUG_HIDEBOTTOMTABS          40128
 #define ID_DEBUG_TOGGLEBOTTOMTABTITLES   40129
@@ -345,6 +345,23 @@
 #define IDC_GEDBG_STEPCURVE              40179
 #define ID_OPTIONS_FRAMESKIPTYPE_COUNT   40180
 #define ID_OPTIONS_FRAMESKIPTYPE_PRCNT   40181
+#define ID_FILE_MENU                     40182
+#define ID_EMULATION_MENU                40183
+#define ID_DEBUG_MENU                    40184
+#define ID_OPTIONS_MENU                  40185
+#define ID_HELP_MENU                     40186
+#define ID_FILE_SAVESTATE_SLOT_MENU      40187
+#define ID_FILE_RECORD_MENU              40188
+#define ID_EMULATION_ROTATION_MENU       40189
+#define ID_OPTIONS_SCREEN_MENU           40190
+#define ID_OPTIONS_WINDOW_MENU           40191
+#define ID_OPTIONS_BACKEND_MENU          40192
+#define ID_OPTIONS_RENDERMODE_MENU       40193
+#define ID_OPTIONS_FRAMESKIP_MENU        40194
+#define ID_OPTIONS_FRAMESKIPTYPE_MENU    40195
+#define ID_OPTIONS_TEXTUREFILTERING_MENU 40196
+#define ID_OPTIONS_SCREENFILTER_MENU     40197
+#define ID_OPTIONS_TEXTURESCALING_MENU   40198
 
 // Dummy option to let the buffered rendering hotkey cycle through all the options.
 #define ID_OPTIONS_BUFFEREDRENDERINGDUMMY 40500
@@ -357,7 +374,7 @@
 #ifdef APSTUDIO_INVOKED
 #ifndef APSTUDIO_READONLY_SYMBOLS
 #define _APS_NEXT_RESOURCE_VALUE        256
-#define _APS_NEXT_COMMAND_VALUE         40178
+#define _APS_NEXT_COMMAND_VALUE         40199
 #define _APS_NEXT_CONTROL_VALUE         1200
 #define _APS_NEXT_SYMED_VALUE           101
 #endif
