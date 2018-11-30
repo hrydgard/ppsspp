@@ -1537,7 +1537,7 @@ void GPUCommon::Execute_Prim(u32 op, u32 diff) {
 	}
 
 	void *verts = Memory::GetPointerUnchecked(gstate_c.vertexAddr);
-	void *inds = 0;
+	void *inds = nullptr;
 	u32 vertexType = gstate.vertType;
 	if ((vertexType & GE_VTYPE_IDX_MASK) != GE_VTYPE_IDX_NONE) {
 		u32 indexAddr = gstate_c.indexAddr;
@@ -1602,9 +1602,10 @@ void GPUCommon::Execute_Prim(u32 op, u32 diff) {
 			}
 
 			GEPrimitiveType newPrim = static_cast<GEPrimitiveType>((data >> 16) & 7);
+			SetDrawType(DRAW_PRIM, newPrim);
 			// TODO: more efficient updating of verts/inds
 			verts = Memory::GetPointerUnchecked(gstate_c.vertexAddr);
-			inds = 0;
+			inds = nullptr;
 			if ((vertexType & GE_VTYPE_IDX_MASK) != GE_VTYPE_IDX_NONE) {
 				inds = Memory::GetPointerUnchecked(gstate_c.indexAddr);
 			}
