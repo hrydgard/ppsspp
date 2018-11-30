@@ -77,6 +77,10 @@ void IndexGenerator::AddList(int numVerts, bool clockwise) {
 	count_ += numVerts;
 	prim_ = GE_PRIM_TRIANGLES;
 	seenPrims_ |= 1 << GE_PRIM_TRIANGLES;
+	if (!clockwise) {
+		// Make sure we don't treat this as pure.
+		seenPrims_ |= 1 << GE_PRIM_TRIANGLE_STRIP;
+	}
 }
 
 void IndexGenerator::AddStrip(int numVerts, bool clockwise) {
@@ -96,7 +100,7 @@ void IndexGenerator::AddStrip(int numVerts, bool clockwise) {
 	if (numTris > 0)
 		count_ += numTris * 3;
 	// This is so we can detect one single strip by just looking at seenPrims_.
-	if (!seenPrims_) {
+	if (!seenPrims_ && clockwise) {
 		seenPrims_ = 1 << GE_PRIM_TRIANGLE_STRIP;
 		prim_ = GE_PRIM_TRIANGLE_STRIP;
 		pureCount_ = numVerts;
@@ -123,6 +127,10 @@ void IndexGenerator::AddFan(int numVerts, bool clockwise) {
 	count_ += numTris * 3;
 	prim_ = GE_PRIM_TRIANGLES;
 	seenPrims_ |= 1 << GE_PRIM_TRIANGLE_FAN;
+	if (!clockwise) {
+		// Make sure we don't treat this as pure.
+		seenPrims_ |= 1 << GE_PRIM_TRIANGLE_STRIP;
+	}
 }
 
 //Lines
