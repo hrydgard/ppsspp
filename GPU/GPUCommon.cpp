@@ -1627,7 +1627,12 @@ void GPUCommon::Execute_Prim(u32 op, u32 diff) {
 			break;
 		}
 		case GE_CMD_VADDR:
+			gstate.cmdmem[data >> 24] = data;
 			gstate_c.vertexAddr = gstate_c.getRelativeAddress(data & 0x00FFFFFF);
+			break;
+		case GE_CMD_IADDR:
+			gstate.cmdmem[data >> 24] = data;
+			gstate_c.indexAddr = gstate_c.getRelativeAddress(data & 0x00FFFFFF);
 			break;
 		case GE_CMD_OFFSETADDR:
 			gstate.cmdmem[GE_CMD_OFFSETADDR] = data;
@@ -1646,8 +1651,10 @@ void GPUCommon::Execute_Prim(u32 op, u32 diff) {
 			// flip face by indices for triangles
 			cullMode = data & 1;
 			break;
+		case GE_CMD_TEXFLUSH:
 		case GE_CMD_NOP:
 		case GE_CMD_NOP_FF:
+			gstate.cmdmem[data >> 24] = data;
 			break;
 		case GE_CMD_BONEMATRIXNUMBER:
 			gstate.cmdmem[GE_CMD_BONEMATRIXNUMBER] = data;
@@ -1689,6 +1696,12 @@ void GPUCommon::Execute_Prim(u32 op, u32 diff) {
 			}
 			break;
 		}
+
+		case GE_CMD_TEXBUFWIDTH0:
+		case GE_CMD_TEXADDR0:
+			if (data != gstate.cmdmem[data >> 24])
+				goto bail;
+			break;
 
 		default:
 			// All other commands might need a flush or something, stop this inner loop.
