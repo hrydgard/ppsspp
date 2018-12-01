@@ -537,12 +537,6 @@ static int DefaultAndroidHwScale() {
 }
 
 static int DefaultGPUBackend() {
-#if PPSSPP_PLATFORM(WINDOWS) || PPSSPP_PLATFORM(ANDROID)
-	// Where supported, let's use Vulkan.
-	if (VulkanMayBeAvailable()) {
-		return (int)GPUBackend::VULKAN;
-	}
-#endif
 #if PPSSPP_PLATFORM(WINDOWS)
 	// If no Vulkan, use Direct3D 11 on Windows 8+ (most importantly 10.)
 	if (DoesVersionMatchWindows(6, 2, 0, 0, true)) {
