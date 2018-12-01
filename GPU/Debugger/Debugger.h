@@ -30,12 +30,14 @@ enum class BreakNext {
 	FRAME,
 	PRIM,
 	CURVE,
+	COUNT,
 };
 
 void SetActive(bool flag);
 bool IsActive();
 
 void SetBreakNext(BreakNext next);
+void SetBreakCount(int c);
 
 // While debugging is active, these may block.
 void NotifyCommand(u32 pc);

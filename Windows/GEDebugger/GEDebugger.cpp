@@ -20,6 +20,7 @@
 #include <string>
 #include <vector>
 
+#include "base/stringutil.h"
 #include "Common/ColorConv.h"
 #include "Core/Config.h"
 #include "Core/Screenshot.h"
@@ -722,6 +723,19 @@ BOOL CGEDebugger::DlgProc(UINT message, WPARAM wParam, LPARAM lParam) {
 
 		case IDC_GEDBG_STEPCURVE:
 			SetBreakNext(BreakNext::CURVE);
+			break;
+
+		case IDC_GEDBG_STEPCOUNT:
+			{
+				std::string value;
+				int count;
+				if (InputBox_GetString(GetModuleHandle(NULL), m_hDlg, L"Prim count", "", value)) {
+					if (TryParse(value, &count)) {
+						SetBreakNext(BreakNext::COUNT);
+						SetBreakCount(count);
+					}
+				}
+			}
 			break;
 
 		case IDC_GEDBG_BREAKTEX:
