@@ -301,28 +301,44 @@ std::vector<u32> TranslateDebugBufferToCompare(const GPUDebugBuffer *buffer, u32
 	std::vector<u32> data;
 	data.resize(stride * h, 0);
 
-	const u32 *pixels = (const u32 *)buffer->GetData();
+	const u32 *pixels32 = (const u32 *)buffer->GetData();
+	const u16 *pixels16 = (const u16 *)buffer->GetData();
 	int outStride = buffer->GetStride();
-	if (!buffer->GetFlipped())
-	{
+	if (!buffer->GetFlipped()) {
 		// Bitmaps are flipped, so we have to compare backwards in this case.
-		pixels += outStride * (buffer->GetHeight() - 1);
+		int toLastRow = outStride * (buffer->GetHeight() - 1);
+		pixels32 += toLastRow;
+		pixels16 += toLastRow;
 		outStride = -outStride;
 	}
 
 	u32 errors = 0;
-	for (u32 y = 0; y < safeH; ++y)
-	{
-		if (buffer->GetFormat() == GPU_DBG_FORMAT_8888)
-			ConvertBGRA8888ToRGBA8888(&data[y * stride], pixels, safeW);
-		else if (buffer->GetFormat() == GPU_DBG_FORMAT_8888_BGRA)
-			memcpy(&data[y * stride], pixels, safeW * sizeof(u32));
-		else
-		{
+	for (u32 y = 0; y < safeH; ++y) {
+		switch (buffer->GetFormat()) {
+		case GPU_DBG_FORMAT_8888:
+			ConvertBGRA8888ToRGBA8888(&data[y * stride], pixels32, safeW);
+			break;
+		case GPU_DBG_FORMAT_8888_BGRA:
+			memcpy(&data[y * stride], pixels32, safeW * sizeof(u32));
+			break;
+
+		case GPU_DBG_FORMAT_565:
+			ConvertRGB565ToBGRA8888(&data[y * stride], pixels16, safeW);
+			break;
+		case GPU_DBG_FORMAT_5551:
+			ConvertRGBA5551ToBGRA8888(&data[y * stride], pixels16, safeW);
+			break;
+		case GPU_DBG_FORMAT_4444:
+			ConvertRGBA4444ToBGRA8888(&data[y * stride], pixels16, safeW);
+			break;
+
+		default:
 			data.resize(0);
 			return data;
 		}
-		pixels += outStride;
+
+		pixels32 += outStride;
+		pixels16 += outStride;
 	}
 
 	return data;
