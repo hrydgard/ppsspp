@@ -40,6 +40,17 @@ bool CanUseHardwareTransform(int prim) {
 	return !gstate.isModeThrough() && prim != GE_PRIM_RECTANGLES;
 }
 
+bool IsStencilTestOutputDisabled() {
+	// The mask applies on all stencil ops.
+	if (gstate.isStencilTestEnabled() && (gstate.pmska & 0xFF) != 0xFF) {
+		if (gstate.FrameBufFormat() == GE_FORMAT_565) {
+			return true;
+		}
+		return gstate.getStencilOpZPass() == GE_STENCILOP_KEEP && gstate.getStencilOpZFail() == GE_STENCILOP_KEEP && gstate.getStencilOpSFail() == GE_STENCILOP_KEEP;
+	}
+	return true;
+}
+
 bool NeedsTestDiscard() {
 	// We assume this is called only when enabled and not trivially true (may also be for color testing.)
 	if (gstate.isStencilTestEnabled() && (gstate.pmska & 0xFF) != 0xFF)
@@ -169,7 +180,7 @@ const bool nonAlphaDestFactors[16] = {
 };
 
 ReplaceAlphaType ReplaceAlphaWithStencil(ReplaceBlendType replaceBlend) {
-	if (!gstate.isStencilTestEnabled() || gstate.isModeClear()) {
+	if (IsStencilTestOutputDisabled() || gstate.isModeClear()) {
 		return REPLACE_ALPHA_NO;
 	}
 
@@ -995,7 +1006,7 @@ void ConvertBlendState(GenericBlendState &blendState, bool allowShaderBlend) {
 
 	int constantAlpha = 255;
 	BlendFactor constantAlphaGL = BlendFactor::ONE;
-	if (gstate.isStencilTestEnabled() && replaceAlphaWithStencil == REPLACE_ALPHA_NO) {
+	if (!IsStencilTestOutputDisabled() && replaceAlphaWithStencil == REPLACE_ALPHA_NO) {
 		switch (ReplaceAlphaWithStencilType()) {
 		case STENCIL_VALUE_UNIFORM:
 			constantAlpha = gstate.getStencilTestRef();
@@ -1163,7 +1174,7 @@ void ConvertBlendState(GenericBlendState &blendState, bool allowShaderBlend) {
 			blendState.setFactors(glBlendFuncA, glBlendFuncB, BlendFactor::ONE, BlendFactor::ZERO);
 			break;
 		}
-	} else if (gstate.isStencilTestEnabled()) {
+	} else if (!IsStencilTestOutputDisabled()) {
 		switch (ReplaceAlphaWithStencilType()) {
 		case STENCIL_VALUE_KEEP:
 			blendState.setFactors(glBlendFuncA, glBlendFuncB, BlendFactor::ZERO, BlendFactor::ONE);
