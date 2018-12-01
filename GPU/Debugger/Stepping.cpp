@@ -38,6 +38,7 @@ enum PauseAction {
 };
 
 static bool isStepping;
+// Number of times we've entered stepping, to detect a resume asynchronously.
 static int stepCounter = 0;
 
 static std::mutex pauseLock;

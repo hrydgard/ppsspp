@@ -43,4 +43,7 @@ void NotifyDraw();
 void NotifyDisplay(u32 framebuf, u32 stride, int format);
 void NotifyTextureAttachment(u32 texaddr);
 
+int PrimsThisFrame();
+int PrimsLastFrame();
+
 }

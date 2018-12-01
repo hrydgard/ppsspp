@@ -26,6 +26,10 @@ static bool active = false;
 static bool inited = false;
 static BreakNext breakNext = BreakNext::NONE;
 
+static int primsLastFrame = 0;
+static int primsThisFrame = 0;
+static int thisFlipNum = 0;
+
 static void Init() {
 	if (!inited) {
 		GPUBreakpoints::Init();
@@ -68,6 +72,16 @@ void NotifyCommand(u32 pc) {
 	if (!active)
 		return;
 	u32 op = Memory::ReadUnchecked_U32(pc);
+	u32 cmd = op >> 24;
+	if (thisFlipNum != gpuStats.numFlips) {
+		primsLastFrame = primsThisFrame;
+		primsThisFrame = 0;
+		thisFlipNum = gpuStats.numFlips;
+	}
+	if (cmd == GE_CMD_PRIM || cmd == GE_CMD_BEZIER || cmd == GE_CMD_SPLINE) {
+		primsThisFrame++;
+	}
+
 	if (breakNext == BreakNext::OP || GPUBreakpoints::IsBreakpoint(pc, op)) {
 		GPUBreakpoints::ClearTempBreakpoints();
 
@@ -98,6 +112,14 @@ void NotifyDisplay(u32 framebuf, u32 stride, int format) {
 void NotifyTextureAttachment(u32 texaddr) {
 	if (!active)
 		return;
+}
+
+int PrimsThisFrame() {
+	return primsThisFrame;
+}
+
+int PrimsLastFrame() {
+	return primsLastFrame;
 }
 
 }

@@ -291,6 +291,10 @@ void CGEDebugger::UpdatePreviews() {
 		displayList->setDisplayList(list);
 	}
 
+	wchar_t primCounter[1024]{};
+	swprintf(primCounter, ARRAY_SIZE(primCounter), L"%d/%d", PrimsThisFrame(), PrimsLastFrame());
+	SetDlgItemText(m_hDlg, IDC_GEDBG_PRIMCOUNTER, primCounter);
+
 	flags->Update();
 	lighting->Update();
 	textureState->Update();
@@ -778,6 +782,7 @@ BOOL CGEDebugger::DlgProc(UINT message, WPARAM wParam, LPARAM lParam) {
 			secondWindow->Clear();
 			SetDlgItemText(m_hDlg, IDC_GEDBG_FRAMEBUFADDR, L"");
 			SetDlgItemText(m_hDlg, IDC_GEDBG_TEXADDR, L"");
+			SetDlgItemText(m_hDlg, IDC_GEDBG_PRIMCOUNTER, L"");
 
 			SetBreakNext(BreakNext::NONE);
 			break;
