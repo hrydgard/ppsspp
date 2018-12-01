@@ -71,8 +71,12 @@ void SetBreakNext(BreakNext next) {
 	GPUStepping::ResumeFromStepping();
 }
 
-void SetBreakCount(int c) {
-	breakAtCount = c;
+void SetBreakCount(int c, bool relative) {
+	if (relative) {
+		breakAtCount = primsThisFrame + c;
+	} else {
+		breakAtCount = c;
+	}
 }
 
 static bool IsBreakpoint(u32 pc, u32 op) {

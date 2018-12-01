@@ -37,7 +37,7 @@ void SetActive(bool flag);
 bool IsActive();
 
 void SetBreakNext(BreakNext next);
-void SetBreakCount(int c);
+void SetBreakCount(int c, bool relative = false);
 
 // While debugging is active, these may block.
 void NotifyCommand(u32 pc);

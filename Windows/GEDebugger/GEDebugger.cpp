@@ -730,7 +730,13 @@ BOOL CGEDebugger::DlgProc(UINT message, WPARAM wParam, LPARAM lParam) {
 				std::string value;
 				int count;
 				if (InputBox_GetString(GetModuleHandle(NULL), m_hDlg, L"Prim count", "", value)) {
-					if (TryParse(value, &count)) {
+					if (value.length() > 1 && value[0] == '+' && TryParse(value.substr(1), &count)) {
+						SetBreakNext(BreakNext::COUNT);
+						SetBreakCount(count, true);
+					} else if (value.length() > 1 && value[0] == '-' && TryParse(value.substr(1), &count)) {
+						SetBreakNext(BreakNext::COUNT);
+						SetBreakCount(-count, true);
+					} else if (TryParse(value, &count)) {
 						SetBreakNext(BreakNext::COUNT);
 						SetBreakCount(count);
 					}
