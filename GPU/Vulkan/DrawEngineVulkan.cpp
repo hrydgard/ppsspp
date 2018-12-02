@@ -211,7 +211,8 @@ void DrawEngineVulkan::FrameData::Destroy(VulkanContext *vulkan) {
 
 void DrawEngineVulkan::DestroyDeviceObjects() {
 	delete tessDataTransferVulkan;
-	tessDataTransfer = tessDataTransferVulkan = nullptr;
+	tessDataTransfer = nullptr;
+	tessDataTransferVulkan = nullptr;
 
 	for (int i = 0; i < VulkanContext::MAX_INFLIGHT_FRAMES; i++) {
 		frame_[i].Destroy(vulkan_);

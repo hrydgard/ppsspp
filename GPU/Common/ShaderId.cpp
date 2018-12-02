@@ -201,8 +201,10 @@ std::string FragmentShaderDesc(const ShaderID &id) {
 		case STENCIL_VALUE_INCR_8: desc << "StenIncr8 "; break;
 		case STENCIL_VALUE_DECR_4: desc << "StenDecr4 "; break;
 		case STENCIL_VALUE_DECR_8: desc << "StenDecr4 "; break;
-		default: desc << "StenUnknown"; break;
+		default: desc << "StenUnknown "; break;
 		}
+	} else if (id.Bit(FS_BIT_REPLACE_ALPHA_WITH_STENCIL_TYPE)) {
+		desc << "StenOff ";
 	}
 	if (id.Bit(FS_BIT_DO_TEXTURE)) {
 		switch (id.Bits(FS_BIT_TEXFUNC, 3)) {
@@ -292,6 +294,9 @@ void ComputeFragmentShaderID(ShaderID *id_out) {
 		if (stencilToAlpha != REPLACE_ALPHA_NO) {
 			// 4 bits
 			id.SetBits(FS_BIT_REPLACE_ALPHA_WITH_STENCIL_TYPE, 4, ReplaceAlphaWithStencilType());
+		} else {
+			// Use those bits instead for whether stencil output is disabled.
+			id.SetBit(FS_BIT_REPLACE_ALPHA_WITH_STENCIL_TYPE, IsStencilTestOutputDisabled());
 		}
 
 		// 2 bits.

@@ -143,7 +143,7 @@ void DrawEngineGLES::ApplyDrawState(int prim) {
 	// amask is needed for both stencil and blend state so we keep it outside for now
 	bool amask = (gstate.pmska & 0xFF) < 128;
 	// Let's not write to alpha if stencil isn't enabled.
-	if (!gstate.isStencilTestEnabled()) {
+	if (IsStencilTestOutputDisabled()) {
 		amask = false;
 	} else {
 		// If the stencil type is set to KEEP, we shouldn't write to the stencil/alpha channel.

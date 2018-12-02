@@ -225,7 +225,7 @@ void DrawEngineVulkan::ConvertStateToVulkanKey(FramebufferManagerVulkan &fbManag
 #endif
 
 			// Let's not write to alpha if stencil isn't enabled.
-			if (!gstate.isStencilTestEnabled()) {
+			if (IsStencilTestOutputDisabled()) {
 				amask = false;
 			} else {
 				// If the stencil type is set to KEEP, we shouldn't write to the stencil/alpha channel.

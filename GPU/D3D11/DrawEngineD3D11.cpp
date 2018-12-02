@@ -137,6 +137,8 @@ void DrawEngineD3D11::DestroyDeviceObjects() {
 	ClearTrackedVertexArrays();
 	ClearInputLayoutMap();
 	delete tessDataTransferD3D11;
+	tessDataTransferD3D11 = nullptr;
+	tessDataTransfer = nullptr;
 	delete pushVerts_;
 	delete pushInds_;
 	depthStencilCache_.Iterate([&](const uint64_t &key, ID3D11DepthStencilState *ds) {

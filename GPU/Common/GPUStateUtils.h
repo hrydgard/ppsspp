@@ -45,6 +45,7 @@ bool IsColorTestAgainstZero();
 bool IsColorTestTriviallyTrue();
 bool IsAlphaTestAgainstZero();
 bool NeedsTestDiscard();
+bool IsStencilTestOutputDisabled();
 
 StencilValueType ReplaceAlphaWithStencilType();
 ReplaceAlphaType ReplaceAlphaWithStencil(ReplaceBlendType replaceBlend);
