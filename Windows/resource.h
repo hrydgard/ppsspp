@@ -165,6 +165,7 @@
 #define IDC_GEDBG_SHOWCLUT              1198
 #define IDC_BREAKPOINT_LOG_FORMAT       1199
 #define IDC_SHOWOFFSETS                 1200
+#define IDC_GEDBG_PRIMCOUNTER           1201
 
 #define ID_SHADERS_BASE  5000
 
@@ -362,6 +363,7 @@
 #define ID_OPTIONS_TEXTUREFILTERING_MENU 40196
 #define ID_OPTIONS_SCREENFILTER_MENU     40197
 #define ID_OPTIONS_TEXTURESCALING_MENU   40198
+#define IDC_GEDBG_STEPCOUNT              40199
 
 // Dummy option to let the buffered rendering hotkey cycle through all the options.
 #define ID_OPTIONS_BUFFEREDRENDERINGDUMMY 40500
@@ -374,8 +376,8 @@
 #ifdef APSTUDIO_INVOKED
 #ifndef APSTUDIO_READONLY_SYMBOLS
 #define _APS_NEXT_RESOURCE_VALUE        256
-#define _APS_NEXT_COMMAND_VALUE         40199
-#define _APS_NEXT_CONTROL_VALUE         1200
+#define _APS_NEXT_COMMAND_VALUE         40200
+#define _APS_NEXT_CONTROL_VALUE         1202
 #define _APS_NEXT_SYMED_VALUE           101
 #endif
 #endif

@@ -20,6 +20,7 @@
 #include <string>
 #include <vector>
 
+#include "base/stringutil.h"
 #include "Common/ColorConv.h"
 #include "Core/Config.h"
 #include "Core/Screenshot.h"
@@ -290,6 +291,10 @@ void CGEDebugger::UpdatePreviews() {
 	if (gpuDebug != nullptr && gpuDebug->GetCurrentDisplayList(list)) {
 		displayList->setDisplayList(list);
 	}
+
+	wchar_t primCounter[1024]{};
+	swprintf(primCounter, ARRAY_SIZE(primCounter), L"%d/%d", PrimsThisFrame(), PrimsLastFrame());
+	SetDlgItemText(m_hDlg, IDC_GEDBG_PRIMCOUNTER, primCounter);
 
 	flags->Update();
 	lighting->Update();
@@ -720,6 +725,25 @@ BOOL CGEDebugger::DlgProc(UINT message, WPARAM wParam, LPARAM lParam) {
 			SetBreakNext(BreakNext::CURVE);
 			break;
 
+		case IDC_GEDBG_STEPCOUNT:
+			{
+				std::string value;
+				int count;
+				if (InputBox_GetString(GetModuleHandle(NULL), m_hDlg, L"Prim count", "", value)) {
+					if (value.length() > 1 && value[0] == '+' && TryParse(value.substr(1), &count)) {
+						SetBreakNext(BreakNext::COUNT);
+						SetBreakCount(count, true);
+					} else if (value.length() > 1 && value[0] == '-' && TryParse(value.substr(1), &count)) {
+						SetBreakNext(BreakNext::COUNT);
+						SetBreakCount(-count, true);
+					} else if (TryParse(value, &count)) {
+						SetBreakNext(BreakNext::COUNT);
+						SetBreakCount(count);
+					}
+				}
+			}
+			break;
+
 		case IDC_GEDBG_BREAKTEX:
 			{
 				GPUDebug::SetActive(true);
@@ -778,6 +802,7 @@ BOOL CGEDebugger::DlgProc(UINT message, WPARAM wParam, LPARAM lParam) {
 			secondWindow->Clear();
 			SetDlgItemText(m_hDlg, IDC_GEDBG_FRAMEBUFADDR, L"");
 			SetDlgItemText(m_hDlg, IDC_GEDBG_TEXADDR, L"");
+			SetDlgItemText(m_hDlg, IDC_GEDBG_PRIMCOUNTER, L"");
 
 			SetBreakNext(BreakNext::NONE);
 			break;
