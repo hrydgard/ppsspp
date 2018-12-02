@@ -359,7 +359,7 @@ VulkanFragmentShader *ShaderManagerVulkan::GetFragmentShaderFromModule(VkShaderM
 // instantaneous.
 
 #define CACHE_HEADER_MAGIC 0xff51f420 
-#define CACHE_VERSION 14
+#define CACHE_VERSION 15
 struct VulkanCacheHeader {
 	uint32_t magic;
 	uint32_t version;
