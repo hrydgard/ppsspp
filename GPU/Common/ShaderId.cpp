@@ -60,7 +60,7 @@ std::string VertexShaderDesc(const ShaderID &id) {
 }
 
 void ComputeVertexShaderID(ShaderID *id_out, u32 vertType, bool useHWTransform) {
-	bool isModeThrough = gstate.isModeThrough();
+	bool isModeThrough = (vertType & GE_VTYPE_THROUGH) != 0;
 	bool doTexture = gstate.isTextureMapEnabled() && !gstate.isModeClear();
 	bool doTextureTransform = gstate.getUVGenMode() == GE_TEXMAP_TEXTURE_MATRIX;
 	bool doShadeMapping = doTexture && (gstate.getUVGenMode() == GE_TEXMAP_ENVIRONMENT_MAP);
@@ -72,6 +72,7 @@ void ComputeVertexShaderID(ShaderID *id_out, u32 vertType, bool useHWTransform) 
 
 	bool doBezier = gstate_c.bezier;
 	bool doSpline = gstate_c.spline;
+	// These are the original vertType's values (normalized will always have colors, etc.)
 	bool hasColorTess = (gstate.vertType & GE_VTYPE_COL_MASK) != 0 && (doBezier || doSpline);
 	bool hasTexcoordTess = (gstate.vertType & GE_VTYPE_TC_MASK) != 0 && (doBezier || doSpline);
 	bool hasNormalTess = (gstate.vertType & GE_VTYPE_NRM_MASK) != 0 && (doBezier || doSpline);
@@ -115,18 +116,15 @@ void ComputeVertexShaderID(ShaderID *id_out, u32 vertType, bool useHWTransform) 
 			id.SetBits(VS_BIT_WEIGHT_FMTSCALE, 2, (vertType & GE_VTYPE_WEIGHT_MASK) >> GE_VTYPE_WEIGHT_SHIFT);
 		}
 
-		// Okay, d[1] coming up. ==============
-		if (gstate.isLightingEnabled() || doShadeMapping) {
-			// doShadeMapping is stored as UVGenMode, so this is enough for isLightingEnabled.
-			if (gstate.isLightingEnabled()) {
-				id.SetBits(VS_BIT_MATERIAL_UPDATE, 3, gstate.getMaterialUpdate() & 7);
-				id.SetBit(VS_BIT_LIGHTING_ENABLE);
-			}
+		if (gstate.isLightingEnabled()) {
+			// doShadeMapping is stored as UVGenMode, and light type doesn't matter for shade mapping.
+			id.SetBits(VS_BIT_MATERIAL_UPDATE, 3, gstate.getMaterialUpdate() & 7);
+			id.SetBit(VS_BIT_LIGHTING_ENABLE);
 			// Light bits
 			for (int i = 0; i < 4; i++) {
-				bool chanEnabled = gstate.isLightChanEnabled(i) != 0 && gstate.isLightingEnabled();
+				bool chanEnabled = gstate.isLightChanEnabled(i) != 0;
 				id.SetBit(VS_BIT_LIGHT0_ENABLE + i, chanEnabled);
-				if (chanEnabled || (doShadeMapping && (gstate.getUVLS0() == i || gstate.getUVLS1() == i))) {
+				if (chanEnabled) {
 					id.SetBits(VS_BIT_LIGHT0_COMP + 4 * i, 2, gstate.getLightComputation(i));
 					id.SetBits(VS_BIT_LIGHT0_TYPE + 4 * i, 2, gstate.getLightType(i));
 				}
