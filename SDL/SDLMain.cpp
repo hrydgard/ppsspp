@@ -441,7 +441,7 @@ int main(int argc, char *argv[]) {
 	}
 
 	// If we're on mobile, don't try for windowed either.
-#if defined(USING_GLES2) || defined(MOBILE_DEVICE)
+#if defined(MOBILE_DEVICE)
     mode |= SDL_WINDOW_FULLSCREEN;
 #else
     mode |= SDL_WINDOW_RESIZABLE;
