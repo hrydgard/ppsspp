@@ -24,9 +24,9 @@ For build instructions and other development tutorials, see [the wiki](https://g
 For game compatibility, see [community compatibility feedback](https://report.ppsspp.org/games).
 
 
-What's new in 1.7.3/1.7.4
+What's new in 1.7.3/1.7.4/1.7.5
 -------------------
-* Attempted fixes for a couple of common crashes
+* Fixes for a couple of common crashes
 * Reverted immersive mode change temporarily to see if it helps misaligned buttons
 * Change default adhoc server address
 
