@@ -120,7 +120,6 @@ option(X86_64 "Set to ON if targeting an X86_64 processor" ${X86_64})
 option(USING_EGL "Set to ON if target environment uses EGL" ${USING_EGL})
 option(USING_FBDEV "Set to ON if target environment uses fbdev (eg. Pandora)" ${USING_FBDEV})
 option(USING_GLES2 "Set to ON if target device uses OpenGL ES 2.0" ${USING_GLES2})
-option(RASPBIAN "Set to ON to workaround threading issues when building for ARMV7 on Raspbian" ${RASPBIAN})
 option(USING_X11_VULKAN "Set to OFF if target environment doesn't use X11 for Vulkan" ON)
 option(USE_WAYLAND_WSI "Enable or disable Wayland WSI support for Vulkan" ON)
 # :: Frontends
