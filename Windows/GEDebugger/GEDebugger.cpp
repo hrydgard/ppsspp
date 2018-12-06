@@ -57,13 +57,52 @@ enum PrimaryDisplayType {
 	PRIMARY_STENCILBUF,
 };
 
+StepCountDlg::StepCountDlg(HINSTANCE _hInstance, HWND _hParent) : Dialog((LPCSTR)IDD_GEDBG_STEPCOUNT, _hInstance, _hParent) {
+	for (int i = 0; i < 4; i++) // Add items 1, 10, 100, 1000
+		SendMessageA(GetDlgItem(m_hDlg, IDC_GEDBG_STEPCOUNT_COMBO), CB_ADDSTRING, 0, (LPARAM)std::to_string((int)pow(10, i)).c_str());
+	SetWindowTextA(GetDlgItem(m_hDlg, IDC_GEDBG_STEPCOUNT_COMBO), "1");
+}
+
+void StepCountDlg::Jump(bool minus, bool relative) {
+	char str[5];
+	int count;
+	GetWindowTextA(GetDlgItem(m_hDlg, IDC_GEDBG_STEPCOUNT_COMBO), str, 5);
+	if (TryParse(str, &count)) {
+		SetBreakNext(BreakNext::COUNT);
+		SetBreakCount(count * (minus ? -1 : 1), relative);
+	}
+};
+
+BOOL StepCountDlg::DlgProc(UINT message, WPARAM wParam, LPARAM lParam) {
+	switch (message) {
+	case WM_CLOSE:
+		Show(false);
+		return TRUE;
+	case WM_COMMAND:
+		switch (wParam) {
+		case IDC_GEDBG_STEPCOUNT_DEC:
+			Jump(true, true);
+			return TRUE;
+		case IDC_GEDBG_STEPCOUNT_INC:
+			Jump(false, true);
+			return TRUE;
+		case IDC_GEDBG_STEPCOUNT_JUMP:
+			Jump(false, false);
+			return TRUE;
+		}
+	default:
+		return FALSE;
+	}
+}
+
 void CGEDebugger::Init() {
 	SimpleGLWindow::RegisterClass();
 	CtrlDisplayListView::registerClass();
 }
 
 CGEDebugger::CGEDebugger(HINSTANCE _hInstance, HWND _hParent)
-	: Dialog((LPCSTR)IDD_GEDEBUGGER, _hInstance, _hParent) {
+	: Dialog((LPCSTR)IDD_GEDEBUGGER, _hInstance, _hParent)
+	, stepCountDlg(_hInstance, m_hDlg) {
 	// minimum size = a little more than the default
 	RECT windowRect;
 	GetWindowRect(m_hDlg, &windowRect);
@@ -658,6 +697,7 @@ BOOL CGEDebugger::DlgProc(UINT message, WPARAM wParam, LPARAM lParam) {
 	case WM_CLOSE:
 		GPUDebug::SetActive(false);
 
+		stepCountDlg.Show(false);
 		Show(false);
 		return TRUE;
 
@@ -726,22 +766,7 @@ BOOL CGEDebugger::DlgProc(UINT message, WPARAM wParam, LPARAM lParam) {
 			break;
 
 		case IDC_GEDBG_STEPCOUNT:
-			{
-				std::string value;
-				int count;
-				if (InputBox_GetString(GetModuleHandle(NULL), m_hDlg, L"Prim count", "", value)) {
-					if (value.length() > 1 && value[0] == '+' && TryParse(value.substr(1), &count)) {
-						SetBreakNext(BreakNext::COUNT);
-						SetBreakCount(count, true);
-					} else if (value.length() > 1 && value[0] == '-' && TryParse(value.substr(1), &count)) {
-						SetBreakNext(BreakNext::COUNT);
-						SetBreakCount(-count, true);
-					} else if (TryParse(value, &count)) {
-						SetBreakNext(BreakNext::COUNT);
-						SetBreakCount(count);
-					}
-				}
-			}
+			stepCountDlg.Show(true);
 			break;
 
 		case IDC_GEDBG_BREAKTEX:
