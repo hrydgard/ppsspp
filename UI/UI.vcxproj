@@ -149,6 +149,7 @@
       <RuntimeLibrary>MultiThreadedDebug</RuntimeLibrary>
       <ForcedIncludeFiles>Common/DbgNew.h</ForcedIncludeFiles>
       <AdditionalOptions>$(EXTERNAL_COMPILE_OPTIONS)</AdditionalOptions>
+      <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
     </ClCompile>
     <Link>
       <SubSystem>Windows</SubSystem>
@@ -173,6 +174,7 @@
       <OmitFramePointers>false</OmitFramePointers>
       <ForcedIncludeFiles>Common/DbgNew.h</ForcedIncludeFiles>
       <AdditionalOptions>$(EXTERNAL_COMPILE_OPTIONS)</AdditionalOptions>
+      <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
     </ClCompile>
     <Link>
       <SubSystem>Windows</SubSystem>

@@ -77,6 +77,7 @@
       <RuntimeTypeInfo>false</RuntimeTypeInfo>
       <RuntimeLibrary>MultiThreadedDebug</RuntimeLibrary>
       <ForcedIncludeFiles>../../Common/DbgNew.h</ForcedIncludeFiles>
+      <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
     </ClCompile>
     <Link>
       <GenerateDebugInformation>true</GenerateDebugInformation>
@@ -92,6 +93,7 @@
       <OmitFramePointers>false</OmitFramePointers>
       <ForcedIncludeFiles>../../Common/DbgNew.h</ForcedIncludeFiles>
       <PreprocessorDefinitions>_CRTDBG_MAP_ALLOC;_USING_V110_SDK71_;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
     </ClCompile>
     <Link>
       <GenerateDebugInformation>true</GenerateDebugInformation>

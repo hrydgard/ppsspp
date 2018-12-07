@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="utf-8"?>
+﻿<?xml version="1.0" encoding="utf-8"?>
 <Project DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ItemGroup Label="ProjectConfigurations">
     <ProjectConfiguration Include="Debug|Win32">
@@ -125,6 +125,7 @@
       <ExceptionHandling>Sync</ExceptionHandling>
       <PrecompiledHeader>Use</PrecompiledHeader>
       <WarningLevel>Level3</WarningLevel>
+      <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
       <AdditionalIncludeDirectories>../dx9sdk/Include/DX11;../ext;../common;..;../ext/native;../ext/glew;../ext/zlib</AdditionalIncludeDirectories>
       <ForcedIncludeFiles>stdafx.h;Common/DbgNew.h</ForcedIncludeFiles>
       <RuntimeLibrary>MultiThreadedDebug</RuntimeLibrary>
@@ -161,6 +162,7 @@
       <ExceptionHandling>Sync</ExceptionHandling>
       <PrecompiledHeader>Use</PrecompiledHeader>
       <WarningLevel>Level3</WarningLevel>
+      <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
       <AdditionalIncludeDirectories>../dx9sdk/Include/DX11;../ext;../common;..;../ext/native;../ext/glew;../ext/zlib</AdditionalIncludeDirectories>
       <ForcedIncludeFiles>stdafx.h;Common/DbgNew.h</ForcedIncludeFiles>
       <RuntimeLibrary>MultiThreadedDebug</RuntimeLibrary>
