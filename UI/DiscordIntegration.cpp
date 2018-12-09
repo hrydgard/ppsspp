@@ -102,6 +102,7 @@ void Discord::SetPresenceGame(const char *gameTitle) {
 	std::string details = sc->T("Playing");
 	discordPresence.details = details.c_str();
 	discordPresence.startTimestamp = time(0);
+	discordPresence.largeImageText = "PPSSPP is the best PlayStation Portable emulator around!";
 #ifdef GOLD
 	discordPresence.largeImageKey = "icon_gold_png";
 #else
@@ -126,6 +127,7 @@ void Discord::SetPresenceMenu() {
 	discordPresence.state = sc->T("In menu");
 	discordPresence.details = "";
 	discordPresence.startTimestamp = time(0);
+	discordPresence.largeImageText = "PPSSPP is the best PlayStation Portable emulator around!";
 #ifdef GOLD
 	discordPresence.largeImageKey = "icon_gold_png";
 #else
