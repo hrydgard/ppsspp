@@ -55,6 +55,15 @@
     <Filter Include="data">
       <UniqueIdentifier>{4d23e7d3-0b9b-4dbe-95df-6ab250782a66}</UniqueIdentifier>
     </Filter>
+    <Filter Include="ext\gason">
+      <UniqueIdentifier>{fb517d8e-e6c4-4eaf-a579-9970daa96541}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="ext\rg_etc1">
+      <UniqueIdentifier>{6c81d960-607b-4da7-b114-a6c57dff4360}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="ext\sha1">
+      <UniqueIdentifier>{b68fe6a0-b55f-4411-91f4-63ab1eaf47a3}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="pch.cpp" />
@@ -448,6 +457,23 @@
     <ClCompile Include="..\..\ext\native\math\dataconv.cpp">
       <Filter>math</Filter>
     </ClCompile>
+    <ClCompile Include="..\..\ext\native\json\json_reader.cpp" />
+    <ClCompile Include="..\..\ext\native\json\json_writer.cpp" />
+    <ClCompile Include="..\..\ext\native\ext\gason\gason.cpp">
+      <Filter>ext\gason</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\ext\native\ext\rg_etc1\rg_etc1.cpp">
+      <Filter>ext\rg_etc1</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\ext\native\ext\sha1\sha1.cpp">
+      <Filter>ext\sha1</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\ext\native\net\websocket_server.cpp">
+      <Filter>net</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\ext\native\data\base64.cpp">
+      <Filter>data</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="pch.h" />
@@ -705,6 +731,23 @@
       <Filter>data</Filter>
     </ClInclude>
     <ClInclude Include="..\..\ext\native\data\listable.h">
+      <Filter>data</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\ext\native\json\json_reader.h" />
+    <ClInclude Include="..\..\ext\native\json\json_writer.h" />
+    <ClInclude Include="..\..\ext\native\ext\gason\gason.h">
+      <Filter>ext\gason</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\ext\native\ext\rg_etc1\rg_etc1.h">
+      <Filter>ext\rg_etc1</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\ext\native\ext\sha1\sha1.h">
+      <Filter>ext\sha1</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\ext\native\net\websocket_server.h">
+      <Filter>net</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\ext\native\data\base64.h">
       <Filter>data</Filter>
     </ClInclude>
   </ItemGroup>

@@ -46,9 +46,9 @@
     <MinimumVisualStudioVersion>14.0</MinimumVisualStudioVersion>
     <AppContainerApplication>true</AppContainerApplication>
     <ApplicationType>Windows Store</ApplicationType>
-    <WindowsTargetPlatformMinVersion>10.0.14393.0</WindowsTargetPlatformMinVersion>
+    <WindowsTargetPlatformMinVersion>10.0.15063.0</WindowsTargetPlatformMinVersion>
     <ApplicationTypeRevision>10.0</ApplicationTypeRevision>
-    <WindowsTargetPlatformVersion>10.0.16299.0</WindowsTargetPlatformVersion>
+    <WindowsTargetPlatformVersion>10.0.17763.0</WindowsTargetPlatformVersion>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" Label="Configuration">
@@ -215,7 +215,7 @@
       <SDLCheck>true</SDLCheck>
       <ForcedIncludeFiles>pch.h</ForcedIncludeFiles>
       <AdditionalIncludeDirectories>../..;../../ext/native/ext;../..;../../ext/native;../../ext/zlib;$(ProjectDir);$(GeneratedFilesDir);$(IntDir);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
-      <PreprocessorDefinitions>NOMINMAX;_ARM_WINAPI_PARTITION_DESKTOP_SDK_AVAILABLE=1;%(ClCompile.PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>NOMINMAX;_ARM_WINAPI_PARTITION_DESKTOP_SDK_AVAILABLE=1;_CRT_SECURE_NO_WARNINGS;%(ClCompile.PreprocessorDefinitions)</PreprocessorDefinitions>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
@@ -230,7 +230,7 @@
       <SDLCheck>true</SDLCheck>
       <ForcedIncludeFiles>pch.h</ForcedIncludeFiles>
       <AdditionalIncludeDirectories>../..;../../ext/native/ext;../..;../../ext/native;../../ext/zlib;$(ProjectDir);$(GeneratedFilesDir);$(IntDir);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
-      <PreprocessorDefinitions>NOMINMAX;_ARM_WINAPI_PARTITION_DESKTOP_SDK_AVAILABLE=1;%(ClCompile.PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>NOMINMAX;_ARM_WINAPI_PARTITION_DESKTOP_SDK_AVAILABLE=1;_CRT_SECURE_NO_WARNINGS;%(ClCompile.PreprocessorDefinitions)</PreprocessorDefinitions>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
@@ -245,7 +245,7 @@
       <SDLCheck>true</SDLCheck>
       <ForcedIncludeFiles>pch.h</ForcedIncludeFiles>
       <AdditionalIncludeDirectories>../..;../../ext/native/ext;../..;../../ext/native;../../ext/zlib;$(ProjectDir);$(GeneratedFilesDir);$(IntDir);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
-      <PreprocessorDefinitions>NOMINMAX;_ARM_WINAPI_PARTITION_DESKTOP_SDK_AVAILABLE=1;%(ClCompile.PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>NOMINMAX;_ARM_WINAPI_PARTITION_DESKTOP_SDK_AVAILABLE=1;_CRT_SECURE_NO_WARNINGS;%(ClCompile.PreprocessorDefinitions)</PreprocessorDefinitions>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
@@ -312,10 +312,12 @@
     <ClInclude Include="..\..\ext\native\base\NKCodeFromSDL.h" />
     <ClInclude Include="..\..\ext\native\base\stringutil.h" />
     <ClInclude Include="..\..\ext\native\base\timeutil.h" />
+    <ClInclude Include="..\..\ext\native\data\base64.h" />
     <ClInclude Include="..\..\ext\native\data\compression.h" />
     <ClInclude Include="..\..\ext\native\data\listable.h" />
     <ClInclude Include="..\..\ext\native\ext\cityhash\city.h" />
     <ClInclude Include="..\..\ext\native\ext\cityhash\citycrc.h" />
+    <ClInclude Include="..\..\ext\native\ext\gason\gason.h" />
     <ClInclude Include="..\..\ext\native\ext\jpge\jpgd.h" />
     <ClInclude Include="..\..\ext\native\ext\jpge\jpge.h" />
     <ClInclude Include="..\..\ext\native\ext\libpng17\png.h" />
@@ -328,6 +330,8 @@
     <ClInclude Include="..\..\ext\native\ext\libzip\config.h" />
     <ClInclude Include="..\..\ext\native\ext\libzip\zip.h" />
     <ClInclude Include="..\..\ext\native\ext\libzip\zipint.h" />
+    <ClInclude Include="..\..\ext\native\ext\rg_etc1\rg_etc1.h" />
+    <ClInclude Include="..\..\ext\native\ext\sha1\sha1.h" />
     <ClInclude Include="..\..\ext\native\file\chunk_file.h" />
     <ClInclude Include="..\..\ext\native\file\fd_util.h" />
     <ClInclude Include="..\..\ext\native\file\file_util.h" />
@@ -366,6 +370,7 @@
     <ClInclude Include="..\..\ext\native\net\resolve.h" />
     <ClInclude Include="..\..\ext\native\net\sinks.h" />
     <ClInclude Include="..\..\ext\native\net\url.h" />
+    <ClInclude Include="..\..\ext\native\net\websocket_server.h" />
     <ClInclude Include="..\..\ext\native\thin3d\thin3d.h" />
     <ClInclude Include="..\..\ext\native\thread\executor.h" />
     <ClInclude Include="..\..\ext\native\thread\prioritizedworkqueue.h" />
@@ -397,8 +402,10 @@
     <ClCompile Include="..\..\ext\native\base\logging.cpp" />
     <ClCompile Include="..\..\ext\native\base\stringutil.cpp" />
     <ClCompile Include="..\..\ext\native\base\timeutil.cpp" />
+    <ClCompile Include="..\..\ext\native\data\base64.cpp" />
     <ClCompile Include="..\..\ext\native\data\compression.cpp" />
     <ClCompile Include="..\..\ext\native\ext\cityhash\city.cpp" />
+    <ClCompile Include="..\..\ext\native\ext\gason\gason.cpp" />
     <ClCompile Include="..\..\ext\native\ext\jpge\jpgd.cpp" />
     <ClCompile Include="..\..\ext\native\ext\jpge\jpge.cpp" />
     <ClCompile Include="..\..\ext\native\ext\libpng17\png.c">
@@ -1160,6 +1167,8 @@
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|x64'">NotUsing</PrecompiledHeader>
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='UWP Gold|x64'">NotUsing</PrecompiledHeader>
     </ClCompile>
+    <ClCompile Include="..\..\ext\native\ext\rg_etc1\rg_etc1.cpp" />
+    <ClCompile Include="..\..\ext\native\ext\sha1\sha1.cpp" />
     <ClCompile Include="..\..\ext\native\file\chunk_file.cpp" />
     <ClCompile Include="..\..\ext\native\file\fd_util.cpp" />
     <ClCompile Include="..\..\ext\native\file\file_util.cpp" />
@@ -1279,6 +1288,7 @@
     <ClCompile Include="..\..\ext\native\net\resolve.cpp" />
     <ClCompile Include="..\..\ext\native\net\sinks.cpp" />
     <ClCompile Include="..\..\ext\native\net\url.cpp" />
+    <ClCompile Include="..\..\ext\native\net\websocket_server.cpp" />
     <ClCompile Include="..\..\ext\native\thin3d\thin3d.cpp" />
     <ClCompile Include="..\..\ext\native\thin3d\thin3d_d3d11.cpp" />
     <ClCompile Include="..\..\ext\native\thread\executor.cpp" />

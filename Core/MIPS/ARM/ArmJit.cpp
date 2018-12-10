@@ -46,7 +46,7 @@
 
 using namespace ArmJitConstants;
 
-static void DisassembleArm(const u8 *data, int size) {
+void DisassembleArm(const u8 *data, int size) {
 	char temp[256];
 	for (int i = 0; i < size; i += 4) {
 		const u32 *codePtr = (const u32 *)(data + i);

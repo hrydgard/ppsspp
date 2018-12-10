@@ -31,7 +31,6 @@
 #include "UI/OnScreenDisplay.h"
 
 #include "Windows/XinputDevice.h"
-#include "Windows/DSoundStream.h"
 
 #include "UWP/XAudioSoundStream.h"
 #include "UWP/UWPHost.h"

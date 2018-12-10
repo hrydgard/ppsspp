@@ -120,7 +120,7 @@ PPSSPP_UWPMain::PPSSPP_UWPMain(App ^app, const std::shared_ptr<DX::DeviceResourc
 
 	std::string cacheFolder = ConvertWStringToUTF8(ApplicationData::Current->LocalFolder->Path->Data());
 
-	NativeInit(1, argv, "", "", cacheFolder.c_str(), false);
+	NativeInit(1, argv, "", "", cacheFolder.c_str());
 
 	NativeInitGraphics(ctx_.get());
 	NativeResized();
@@ -322,8 +322,10 @@ void PPSSPP_UWPMain::LoadStorageFile(StorageFile ^file) {
 }
 
 UWPGraphicsContext::UWPGraphicsContext(std::shared_ptr<DX::DeviceResources> resources) {
+	std::vector<std::string> adapterNames;
+
 	draw_ = Draw::T3DCreateD3D11Context(
-		resources->GetD3DDevice(), resources->GetD3DDeviceContext(), resources->GetD3DDevice(), resources->GetD3DDeviceContext(), resources->GetDeviceFeatureLevel(), 0);
+		resources->GetD3DDevice(), resources->GetD3DDeviceContext(), resources->GetD3DDevice(), resources->GetD3DDeviceContext(), resources->GetDeviceFeatureLevel(), 0, adapterNames);
 	bool success = draw_->CreatePresets();
 	assert(success);
 }
