@@ -513,7 +513,7 @@ void VulkanContext::ChooseDevice(int physical_device) {
 	memset(&featuresEnabled_, 0, sizeof(featuresEnabled_));
 
 	// Enable a few safe ones if they are available.
-	if (featuresAvailable_.dualSrcBlend && physicalDeviceProperties_[physical_device_].vendorID != VULKAN_VENDOR_QUALCOMM) {
+	if (featuresAvailable_.dualSrcBlend) {
 		featuresEnabled_.dualSrcBlend = true;
 	}
 	if (featuresAvailable_.largePoints) {
