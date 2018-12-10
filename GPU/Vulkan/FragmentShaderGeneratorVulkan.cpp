@@ -86,7 +86,9 @@ bool GenerateVulkanGLSLFragmentShader(const FShaderID &id, char *buffer, uint32_
 	bool earlyFragmentTests = ((!enableAlphaTest && !enableColorTest) || testForceToZero) && !gstate_c.Supports(GPU_ROUND_FRAGMENT_DEPTH_TO_16BIT);
 	bool hasStencilOutput = stencilToAlpha != REPLACE_ALPHA_NO || id.Bit(FS_BIT_REPLACE_ALPHA_WITH_STENCIL_TYPE) == 0;
 
-	bool isAdreno = vulkanVendorId == VULKAN_VENDOR_QUALCOMM;
+	// TODO: This is a bug affecting shader cache generality - we CANNOT check anything but the shader ID and (indirectly) the game ID in here really.
+	// Need to move this check somehow to the shader ID generator. That's tricky though because it's generic...
+	bool isAdreno = vulkanVendorId == VULKAN_VENDOR_QUALCOMM && g_Config.bVendorChecksEnabled;
 
 	if (earlyFragmentTests) {
 		WRITE(p, "layout (early_fragment_tests) in;\n");
