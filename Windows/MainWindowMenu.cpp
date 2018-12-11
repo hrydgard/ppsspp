@@ -14,6 +14,8 @@
 #include "Common/Log.h"
 #include "Common/LogManager.h"
 #include "Common/ConsoleListener.h"
+#include "Common/OSVersion.h"
+#include "Common/Vulkan/VulkanLoader.h"
 #include "GPU/GLES/TextureScalerGLES.h"
 #include "GPU/GLES/TextureCacheGLES.h"
 #include "UI/OnScreenDisplay.h"
@@ -1268,12 +1270,15 @@ namespace MainWindow {
 			CheckMenuItem(menu, savestateSlot[i], MF_BYCOMMAND | ((i == g_Config.iCurrentStateSlot) ? MF_CHECKED : MF_UNCHECKED));
 		}
 
+		bool allowD3D11 = DoesVersionMatchWindows(6, 0, 0, 0, true);
+		bool allowVulkan = VulkanMayBeAvailable();
+
 		switch (GetGPUBackend()) {
 		case GPUBackend::DIRECT3D9:
 			EnableMenuItem(menu, ID_OPTIONS_DIRECT3D9, MF_GRAYED);
-			EnableMenuItem(menu, ID_OPTIONS_DIRECT3D11, MF_ENABLED);
+			EnableMenuItem(menu, ID_OPTIONS_DIRECT3D11, allowD3D11 ? MF_ENABLED : MF_GRAYED);
 			EnableMenuItem(menu, ID_OPTIONS_OPENGL, MF_ENABLED);
-			EnableMenuItem(menu, ID_OPTIONS_VULKAN, MF_ENABLED);
+			EnableMenuItem(menu, ID_OPTIONS_VULKAN, allowVulkan ? MF_ENABLED : MF_GRAYED);
 			CheckMenuItem(menu, ID_OPTIONS_DIRECT3D9, MF_CHECKED);
 			CheckMenuItem(menu, ID_OPTIONS_DIRECT3D11, MF_UNCHECKED);
 			CheckMenuItem(menu, ID_OPTIONS_OPENGL, MF_UNCHECKED);
@@ -1281,9 +1286,9 @@ namespace MainWindow {
 			break;
 		case GPUBackend::OPENGL:
 			EnableMenuItem(menu, ID_OPTIONS_DIRECT3D9, MF_ENABLED);
-			EnableMenuItem(menu, ID_OPTIONS_DIRECT3D11, MF_ENABLED);
+			EnableMenuItem(menu, ID_OPTIONS_DIRECT3D11, allowD3D11 ? MF_ENABLED : MF_GRAYED);
 			EnableMenuItem(menu, ID_OPTIONS_OPENGL, MF_GRAYED);
-			EnableMenuItem(menu, ID_OPTIONS_VULKAN, MF_ENABLED);
+			EnableMenuItem(menu, ID_OPTIONS_VULKAN, allowVulkan ? MF_ENABLED : MF_GRAYED);
 			CheckMenuItem(menu, ID_OPTIONS_DIRECT3D9, MF_UNCHECKED);
 			CheckMenuItem(menu, ID_OPTIONS_DIRECT3D11, MF_UNCHECKED);
 			CheckMenuItem(menu, ID_OPTIONS_OPENGL, MF_CHECKED);
@@ -1291,7 +1296,7 @@ namespace MainWindow {
 			break;
 		case GPUBackend::VULKAN:
 			EnableMenuItem(menu, ID_OPTIONS_DIRECT3D9, MF_ENABLED);
-			EnableMenuItem(menu, ID_OPTIONS_DIRECT3D11, MF_ENABLED);
+			EnableMenuItem(menu, ID_OPTIONS_DIRECT3D11, allowD3D11 ? MF_ENABLED : MF_GRAYED);
 			EnableMenuItem(menu, ID_OPTIONS_OPENGL, MF_ENABLED);
 			EnableMenuItem(menu, ID_OPTIONS_VULKAN, MF_GRAYED);
 			CheckMenuItem(menu, ID_OPTIONS_DIRECT3D9, MF_UNCHECKED);
@@ -1303,7 +1308,7 @@ namespace MainWindow {
 			EnableMenuItem(menu, ID_OPTIONS_DIRECT3D9, MF_ENABLED);
 			EnableMenuItem(menu, ID_OPTIONS_DIRECT3D11, MF_GRAYED);
 			EnableMenuItem(menu, ID_OPTIONS_OPENGL, MF_ENABLED);
-			EnableMenuItem(menu, ID_OPTIONS_VULKAN, MF_ENABLED);
+			EnableMenuItem(menu, ID_OPTIONS_VULKAN, allowVulkan ? MF_ENABLED : MF_GRAYED);
 			CheckMenuItem(menu, ID_OPTIONS_DIRECT3D9, MF_UNCHECKED);
 			CheckMenuItem(menu, ID_OPTIONS_DIRECT3D11, MF_CHECKED);
 			CheckMenuItem(menu, ID_OPTIONS_OPENGL, MF_UNCHECKED);
