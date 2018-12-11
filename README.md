@@ -23,6 +23,17 @@ For build instructions and other development tutorials, see [the wiki](https://g
 
 For game compatibility, see [community compatibility feedback](https://report.ppsspp.org/games).
 
+
+What's new in 1.7.3/1.7.4/1.7.5
+-------------------
+* Fixes for a couple of common crashes
+* Reverted immersive mode change temporarily to see if it helps misaligned buttons
+* Change default adhoc server address
+
+What's new in 1.7.2
+-------------------
+* Update text of "Buy PPSSPP Gold" button
+
 What's new in 1.7.1
 -------------------
 * Minor crashfixes, lang updates

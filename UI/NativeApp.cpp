@@ -133,7 +133,6 @@ static UI::Theme ui_theme;
 ScreenManager *screenManager;
 std::string config_filename;
 
-bool g_graphicsIniting;
 bool g_graphicsInited;
 
 // Really need to clean this mess of globals up... but instead I add more :P
@@ -754,7 +753,6 @@ static void UIThemeInit() {
 void RenderOverlays(UIContext *dc, void *userdata);
 
 bool NativeInitGraphics(GraphicsContext *graphicsContext) {
-	g_graphicsIniting = true;
 	ILOG("NativeInitGraphics");
 	_assert_msg_(G3D, graphicsContext, "No graphics context!");
 
@@ -831,7 +829,6 @@ bool NativeInitGraphics(GraphicsContext *graphicsContext) {
 		gpu->DeviceRestore();
 
 	g_graphicsInited = true;
-	g_graphicsIniting = false;
 	ILOG("NativeInitGraphics completed");
 	return true;
 }
@@ -1253,7 +1250,7 @@ void NativeMessageReceived(const char *message, const char *value) {
 
 void NativeResized() {
 	// NativeResized can come from any thread so we just set a flag, then process it later.
-	if (g_graphicsInited || g_graphicsIniting) {
+	if (g_graphicsInited) {
 		resized = true;
 	} else {
 		ILOG("NativeResized ignored, not initialized");
