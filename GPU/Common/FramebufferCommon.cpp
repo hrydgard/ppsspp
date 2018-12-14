@@ -148,14 +148,13 @@ void FramebufferManagerCommon::Init() {
 
 bool FramebufferManagerCommon::UpdateSize() {
 	const bool newRender = renderWidth_ != (float)PSP_CoreParameter().renderWidth || renderHeight_ != (float)PSP_CoreParameter().renderHeight;
-	const bool newSettings = bloomHack_ != g_Config.iBloomHack || trueColor_ != g_Config.bTrueColor || useBufferedRendering_ != (g_Config.iRenderingMode != FB_NON_BUFFERED_MODE);
+	const bool newSettings = bloomHack_ != g_Config.iBloomHack || useBufferedRendering_ != (g_Config.iRenderingMode != FB_NON_BUFFERED_MODE);
 
 	renderWidth_ = (float)PSP_CoreParameter().renderWidth;
 	renderHeight_ = (float)PSP_CoreParameter().renderHeight;
 	pixelWidth_ = PSP_CoreParameter().pixelWidth;
 	pixelHeight_ = PSP_CoreParameter().pixelHeight;
 	bloomHack_ = g_Config.iBloomHack;
-	trueColor_ = g_Config.bTrueColor;
 	useBufferedRendering_ = g_Config.iRenderingMode != FB_NON_BUFFERED_MODE;
 
 	return newRender || newSettings;
@@ -1151,30 +1150,10 @@ void FramebufferManagerCommon::ResizeFramebufFBO(VirtualFramebuffer *vfb, int w,
 
 	SetRenderSize(vfb);
 
-	bool trueColor = trueColor_;
-	if (PSP_CoreParameter().compat.flags().Force04154000Download && vfb->fb_address == 0x00154000) {
-		trueColor = true;
-	}
-
-	if (trueColor) {
-		vfb->colorDepth = Draw::FBO_8888;
-	} else {
-		switch (vfb->format) {
-		case GE_FORMAT_4444:
-			vfb->colorDepth = Draw::FBO_4444;
-			break;
-		case GE_FORMAT_5551:
-			vfb->colorDepth = Draw::FBO_5551;
-			break;
-		case GE_FORMAT_565:
-			vfb->colorDepth = Draw::FBO_565;
-			break;
-		case GE_FORMAT_8888:
-		default:
-			vfb->colorDepth = Draw::FBO_8888;
-			break;
-		}
-	}
+	// During hardware rendering, we always render at full color depth even if the game wouldn't on real hardware.
+	// It's not worth the trouble trying to support lower bit-depth rendering, just
+	// more cases to test that nobody will ever use.
+	vfb->colorDepth = Draw::FBO_8888;
 
 	textureCache_->ForgetLastTexture();
 

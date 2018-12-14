@@ -167,7 +167,6 @@ static RetroOption<CPUCore> ppsspp_cpu_core("ppsspp_cpu_core", "CPU Core", { { "
 static RetroOption<int> ppsspp_locked_cpu_speed("ppsspp_locked_cpu_speed", "Locked CPU Speed", { { "off", 0 }, { "222MHz", 222 }, { "266MHz", 266 }, { "333MHz", 333 } });
 static RetroOption<int> ppsspp_language("ppsspp_language", "Language", { { "automatic", -1 }, { "english", PSP_SYSTEMPARAM_LANGUAGE_ENGLISH }, { "japanese", PSP_SYSTEMPARAM_LANGUAGE_JAPANESE }, { "french", PSP_SYSTEMPARAM_LANGUAGE_FRENCH }, { "spanish", PSP_SYSTEMPARAM_LANGUAGE_SPANISH }, { "german", PSP_SYSTEMPARAM_LANGUAGE_GERMAN }, { "italian", PSP_SYSTEMPARAM_LANGUAGE_ITALIAN }, { "dutch", PSP_SYSTEMPARAM_LANGUAGE_DUTCH }, { "portuguese", PSP_SYSTEMPARAM_LANGUAGE_PORTUGUESE }, { "russian", PSP_SYSTEMPARAM_LANGUAGE_RUSSIAN }, { "korean", PSP_SYSTEMPARAM_LANGUAGE_KOREAN }, { "chinese_traditional", PSP_SYSTEMPARAM_LANGUAGE_CHINESE_TRADITIONAL }, { "chinese_simplified", PSP_SYSTEMPARAM_LANGUAGE_CHINESE_SIMPLIFIED } });
 static RetroOption<int> ppsspp_rendering_mode("ppsspp_rendering_mode", "Rendering Mode", { { "buffered", FB_BUFFERED_MODE }, { "nonbuffered", FB_NON_BUFFERED_MODE } });
-static RetroOption<bool> ppsspp_true_color("ppsspp_true_color", "True Color Depth", true);
 static RetroOption<bool> ppsspp_auto_frameskip("ppsspp_auto_frameskip", "Auto Frameskip", false);
 static RetroOption<int> ppsspp_frameskip("ppsspp_frameskip", "Frameskip", 0, 10);
 static RetroOption<int> ppsspp_frameskiptype("ppsspp_frameskiptype", "Frameskip Type", 0, 10);
@@ -196,7 +195,6 @@ void retro_set_environment(retro_environment_t cb) {
 	vars.push_back(ppsspp_locked_cpu_speed.GetOptions());
 	vars.push_back(ppsspp_language.GetOptions());
 	vars.push_back(ppsspp_rendering_mode.GetOptions());
-	vars.push_back(ppsspp_true_color.GetOptions());
 	vars.push_back(ppsspp_auto_frameskip.GetOptions());
 	vars.push_back(ppsspp_frameskip.GetOptions());
 	vars.push_back(ppsspp_frameskiptype.GetOptions());
@@ -272,7 +270,6 @@ static void check_variables(CoreParameter &coreParam) {
 	ppsspp_frameskip.Update(&g_Config.iFrameSkip);
 	ppsspp_frameskiptype.Update(&g_Config.iFrameSkipType);
 	ppsspp_audio_latency.Update(&g_Config.iAudioLatency);
-	ppsspp_true_color.Update(&g_Config.bTrueColor);
 	ppsspp_auto_frameskip.Update(&g_Config.bAutoFrameSkip);
 	ppsspp_block_transfer_gpu.Update(&g_Config.bBlockTransferGPU);
 	ppsspp_texture_filtering.Update(&g_Config.iTexFiltering);
