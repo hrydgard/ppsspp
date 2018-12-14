@@ -645,7 +645,6 @@ static ConfigSetting graphicsSettings[] = {
 	ConfigSetting("ImmersiveMode", &g_Config.bImmersiveMode, false, true, true),
 	ConfigSetting("SustainedPerformanceMode", &g_Config.bSustainedPerformanceMode, false, true, true),
 
-	ReportedConfigSetting("TrueColor", &g_Config.bTrueColor, true, true, true),
 	ReportedConfigSetting("ReplaceTextures", &g_Config.bReplaceTextures, true, true, true),
 	ReportedConfigSetting("SaveNewTextures", &g_Config.bSaveNewTextures, false, true, true),
 	ReportedConfigSetting("IgnoreTextureFilenames", &g_Config.bIgnoreTextureFilenames, true, true, false),
