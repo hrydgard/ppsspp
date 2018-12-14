@@ -194,8 +194,6 @@ void DrawEngineDX9::ApplyDrawState(int prim) {
 		}
 	}
 
-	bool enableStencilTest = !g_Config.bDisableStencilTest;
-
 	if (gstate_c.IsDirty(DIRTY_RASTER_STATE)) {
 		gstate_c.Clean(DIRTY_RASTER_STATE);
 		// Set Dither
@@ -231,7 +229,7 @@ void DrawEngineDX9::ApplyDrawState(int prim) {
 
 			// Stencil Test
 			bool alphaMask = gstate.isClearModeAlphaMask();
-			if (alphaMask && enableStencilTest) {
+			if (alphaMask) {
 				dxstate.stencilTest.enable();
 				dxstate.stencilOp.set(D3DSTENCILOP_REPLACE, D3DSTENCILOP_REPLACE, D3DSTENCILOP_REPLACE);
 				dxstate.stencilFunc.set(D3DCMP_ALWAYS, 255, 0xFF);
