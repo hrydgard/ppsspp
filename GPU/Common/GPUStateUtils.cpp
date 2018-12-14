@@ -1342,7 +1342,7 @@ static void ConvertStencilFunc5551(GenericStencilFuncState &state) {
 }
 
 void ConvertStencilFuncState(GenericStencilFuncState &state) {
-	state.enabled = gstate.isStencilTestEnabled() && !g_Config.bDisableStencilTest;
+	state.enabled = gstate.isStencilTestEnabled();
 	if (!state.enabled)
 		return;
 
