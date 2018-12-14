@@ -3,6 +3,7 @@
 Package.appxmanifest
 Assets
 x64
+ARM
 *.VC.db
 *.VC.VC.opendb
 ipch

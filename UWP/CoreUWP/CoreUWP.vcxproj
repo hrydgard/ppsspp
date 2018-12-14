@@ -46,9 +46,9 @@
     <MinimumVisualStudioVersion>14.0</MinimumVisualStudioVersion>
     <AppContainerApplication>true</AppContainerApplication>
     <ApplicationType>Windows Store</ApplicationType>
-    <WindowsTargetPlatformMinVersion>10.0.14393.0</WindowsTargetPlatformMinVersion>
+    <WindowsTargetPlatformMinVersion>10.0.15063.0</WindowsTargetPlatformMinVersion>
     <ApplicationTypeRevision>10.0</ApplicationTypeRevision>
-    <WindowsTargetPlatformVersion>10.0.16299.0</WindowsTargetPlatformVersion>
+    <WindowsTargetPlatformVersion>10.0.17763.0</WindowsTargetPlatformVersion>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" Label="Configuration">
@@ -310,6 +310,19 @@
     <ClInclude Include="..\..\Core\Debugger\DebugInterface.h" />
     <ClInclude Include="..\..\Core\Debugger\DisassemblyManager.h" />
     <ClInclude Include="..\..\Core\Debugger\SymbolMap.h" />
+    <ClInclude Include="..\..\Core\Debugger\WebSocket.h" />
+    <ClInclude Include="..\..\Core\Debugger\WebSocket\BreakpointSubscriber.h" />
+    <ClInclude Include="..\..\Core\Debugger\WebSocket\CPUCoreSubscriber.h" />
+    <ClInclude Include="..\..\Core\Debugger\WebSocket\DisasmSubscriber.h" />
+    <ClInclude Include="..\..\Core\Debugger\WebSocket\GameBroadcaster.h" />
+    <ClInclude Include="..\..\Core\Debugger\WebSocket\GameSubscriber.h" />
+    <ClInclude Include="..\..\Core\Debugger\WebSocket\GPUBufferSubscriber.h" />
+    <ClInclude Include="..\..\Core\Debugger\WebSocket\GPURecordSubscriber.h" />
+    <ClInclude Include="..\..\Core\Debugger\WebSocket\HLESubscriber.h" />
+    <ClInclude Include="..\..\Core\Debugger\WebSocket\LogBroadcaster.h" />
+    <ClInclude Include="..\..\Core\Debugger\WebSocket\SteppingBroadcaster.h" />
+    <ClInclude Include="..\..\Core\Debugger\WebSocket\SteppingSubscriber.h" />
+    <ClInclude Include="..\..\Core\Debugger\WebSocket\WebSocketUtils.h" />
     <ClInclude Include="..\..\Core\Dialog\PSPDialog.h" />
     <ClInclude Include="..\..\Core\Dialog\PSPGamedataInstallDialog.h" />
     <ClInclude Include="..\..\Core\Dialog\PSPMsgDialog.h" />
@@ -405,6 +418,7 @@
     <ClInclude Include="..\..\Core\HLE\sceSsl.h" />
     <ClInclude Include="..\..\Core\HLE\sceUmd.h" />
     <ClInclude Include="..\..\Core\HLE\sceUsb.h" />
+    <ClInclude Include="..\..\Core\HLE\sceUsbAcc.h" />
     <ClInclude Include="..\..\Core\HLE\sceUsbCam.h" />
     <ClInclude Include="..\..\Core\HLE\sceUsbGps.h" />
     <ClInclude Include="..\..\Core\HLE\sceUtility.h" />
@@ -506,6 +520,19 @@
     <ClCompile Include="..\..\Core\Debugger\Breakpoints.cpp" />
     <ClCompile Include="..\..\Core\Debugger\DisassemblyManager.cpp" />
     <ClCompile Include="..\..\Core\Debugger\SymbolMap.cpp" />
+    <ClCompile Include="..\..\Core\Debugger\WebSocket.cpp" />
+    <ClCompile Include="..\..\Core\Debugger\WebSocket\BreakpointSubscriber.cpp" />
+    <ClCompile Include="..\..\Core\Debugger\WebSocket\CPUCoreSubscriber.cpp" />
+    <ClCompile Include="..\..\Core\Debugger\WebSocket\DisasmSubscriber.cpp" />
+    <ClCompile Include="..\..\Core\Debugger\WebSocket\GameBroadcaster.cpp" />
+    <ClCompile Include="..\..\Core\Debugger\WebSocket\GameSubscriber.cpp" />
+    <ClCompile Include="..\..\Core\Debugger\WebSocket\GPUBufferSubscriber.cpp" />
+    <ClCompile Include="..\..\Core\Debugger\WebSocket\GPURecordSubscriber.cpp" />
+    <ClCompile Include="..\..\Core\Debugger\WebSocket\HLESubscriber.cpp" />
+    <ClCompile Include="..\..\Core\Debugger\WebSocket\LogBroadcaster.cpp" />
+    <ClCompile Include="..\..\Core\Debugger\WebSocket\SteppingBroadcaster.cpp" />
+    <ClCompile Include="..\..\Core\Debugger\WebSocket\SteppingSubscriber.cpp" />
+    <ClCompile Include="..\..\Core\Debugger\WebSocket\WebSocketUtils.cpp" />
     <ClCompile Include="..\..\Core\Dialog\PSPDialog.cpp" />
     <ClCompile Include="..\..\Core\Dialog\PSPGamedataInstallDialog.cpp" />
     <ClCompile Include="..\..\Core\Dialog\PSPMsgDialog.cpp" />
@@ -599,6 +626,7 @@
     <ClCompile Include="..\..\Core\HLE\sceSsl.cpp" />
     <ClCompile Include="..\..\Core\HLE\sceUmd.cpp" />
     <ClCompile Include="..\..\Core\HLE\sceUsb.cpp" />
+    <ClCompile Include="..\..\Core\HLE\sceUsbAcc.cpp" />
     <ClCompile Include="..\..\Core\HLE\sceUsbCam.cpp" />
     <ClCompile Include="..\..\Core\HLE\sceUsbGps.cpp" />
     <ClCompile Include="..\..\Core\HLE\sceUtility.cpp" />

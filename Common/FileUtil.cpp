@@ -30,6 +30,7 @@
 
 #ifdef _WIN32
 #include "CommonWindows.h"
+#include <Windows.h>
 #include <shlobj.h>		// for SHGetFolderPath
 #include <shellapi.h>
 #include <commdlg.h>	// for GetSaveFileName
@@ -121,7 +122,11 @@ std::string ResolvePath(const std::string &path) {
 
 	std::wstring input = ConvertUTF8ToWString(path);
 	if (getFinalPathNameByHandleW) {
+#if PPSSPP_PLATFORM(UWP)
+		HANDLE hFile = CreateFile2(input.c_str(), GENERIC_READ, FILE_SHARE_READ, OPEN_EXISTING, nullptr);
+#else
 		HANDLE hFile = CreateFile(input.c_str(), GENERIC_READ, FILE_SHARE_READ, nullptr, OPEN_EXISTING, FILE_FLAG_BACKUP_SEMANTICS, nullptr);
+#endif
 		if (hFile == INVALID_HANDLE_VALUE) {
 			wcscpy_s(buf, BUF_SIZE - 1, input.c_str());
 		} else {
