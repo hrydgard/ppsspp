@@ -101,7 +101,7 @@ GPU_Vulkan::GPU_Vulkan(GraphicsContext *gfxCtx, Draw::DrawContext *draw)
 
 	// Load shader cache.
 	std::string discID = g_paramSFO.GetDiscID();
-	if (discID.size() && g_Config.bShaderCacheEnabled) {
+	if (discID.size()) {
 		File::CreateFullPath(GetSysDirectory(DIRECTORY_APP_CACHE));
 		shaderCachePath_ = GetSysDirectory(DIRECTORY_APP_CACHE) + "/" + discID + ".vkshadercache";
 		shaderCacheLoaded_ = false;
@@ -202,7 +202,7 @@ void GPU_Vulkan::CheckGPUFeatures() {
 	}
 
 	// Might enable this later - in the first round we are mostly looking at depth/stencil/discard.
-	// if (g_Config.bDisableVendorChecks)
+	// if (g_Config.bDisableVendorBugChecks)
 	// 	features |= GPU_SUPPORTS_ACCURATE_DEPTH;
 
 	// Mandatory features on Vulkan, which may be checked in "centralized" code
@@ -239,7 +239,7 @@ void GPU_Vulkan::CheckGPUFeatures() {
 			features |= GPU_SUPPORTS_DUALSOURCE_BLEND;
 			break;
 		}
-		if (!g_Config.bVendorChecksEnabled)
+		if (!g_Config.bVendorBugChecksEnabled)
 			features |= GPU_SUPPORTS_DUALSOURCE_BLEND;
 	}
 	if (vulkan_->GetFeaturesEnabled().logicOp) {
@@ -507,7 +507,7 @@ void GPU_Vulkan::DeviceLost() {
 	while (!IsReady()) {
 		sleep_ms(10);
 	}
-	if (!shaderCachePath_.empty() && g_Config.bShaderCacheEnabled) {
+	if (!shaderCachePath_.empty()) {
 		SaveCache(shaderCachePath_);
 	}
 	DestroyDeviceObjects();

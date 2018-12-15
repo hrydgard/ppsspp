@@ -88,7 +88,7 @@ bool GenerateVulkanGLSLFragmentShader(const FShaderID &id, char *buffer, uint32_
 
 	// TODO: This is a bug affecting shader cache generality - we CANNOT check anything but the shader ID and (indirectly) the game ID in here really.
 	// Need to move this check somehow to the shader ID generator. That's tricky though because it's generic...
-	bool isAdreno = vulkanVendorId == VULKAN_VENDOR_QUALCOMM && g_Config.bVendorChecksEnabled;
+	bool isAdreno = vulkanVendorId == VULKAN_VENDOR_QUALCOMM && g_Config.bVendorBugChecksEnabled;
 
 	if (earlyFragmentTests) {
 		WRITE(p, "layout (early_fragment_tests) in;\n");
