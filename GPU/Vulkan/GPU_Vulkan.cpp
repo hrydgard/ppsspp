@@ -201,6 +201,10 @@ void GPU_Vulkan::CheckGPUFeatures() {
 		break;
 	}
 
+	// Might enable this later - in the first round we are mostly looking at depth/stencil/discard.
+	// if (g_Config.bDisableVendorBugChecks)
+	// 	features |= GPU_SUPPORTS_ACCURATE_DEPTH;
+
 	// Mandatory features on Vulkan, which may be checked in "centralized" code
 	features |= GPU_SUPPORTS_TEXTURE_LOD_CONTROL;
 	features |= GPU_SUPPORTS_FBO;
@@ -224,7 +228,7 @@ void GPU_Vulkan::CheckGPUFeatures() {
 		// We thought we had a bug here on nVidia but turns out we accidentally #ifdef-ed out crucial
 		// code on Android.
 		case VULKAN_VENDOR_INTEL:
-			// Workaround for Intel driver bug.
+			// Workaround for Intel driver bug. TODO: Re-enable after some driver version
 			break;
 		case VULKAN_VENDOR_AMD:
 			// See issue #10074, and also #10065 (AMD) and #10109 for the choice of the driver version to check for
@@ -235,6 +239,8 @@ void GPU_Vulkan::CheckGPUFeatures() {
 			features |= GPU_SUPPORTS_DUALSOURCE_BLEND;
 			break;
 		}
+		if (!g_Config.bVendorBugChecksEnabled)
+			features |= GPU_SUPPORTS_DUALSOURCE_BLEND;
 	}
 	if (vulkan_->GetFeaturesEnabled().logicOp) {
 		features |= GPU_SUPPORTS_LOGIC_OP;
