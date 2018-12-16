@@ -423,32 +423,33 @@ static inline bool StencilTestPassed(u8 stencil)
 static inline u8 ApplyStencilOp(int op, u8 old_stencil) {
 	// TODO: Apply mask to reference or old stencil?
 	u8 reference_stencil = gstate.getStencilTestRef(); // TODO: Apply mask?
+	const u8 write_mask = gstate.getStencilWriteMask();
 
 	switch (op) {
 		case GE_STENCILOP_KEEP:
 			return old_stencil;
 
 		case GE_STENCILOP_ZERO:
-			return 0;
+			return old_stencil & write_mask;
 
 		case GE_STENCILOP_REPLACE:
-			return reference_stencil;
+			return (reference_stencil & ~write_mask) | (old_stencil & write_mask);
 
 		case GE_STENCILOP_INVERT:
-			return ~old_stencil;
+			return (~old_stencil & ~write_mask) | (old_stencil & write_mask);
 
 		case GE_STENCILOP_INCR:
 			switch (gstate.FrameBufFormat()) {
 			case GE_FORMAT_8888:
 				if (old_stencil != 0xFF) {
-					return old_stencil + 1;
+					return ((old_stencil + 1) & ~write_mask) | (old_stencil & write_mask);
 				}
 				return old_stencil;
 			case GE_FORMAT_5551:
-				return 0xFF;
+				return ~write_mask | (old_stencil & write_mask);
 			case GE_FORMAT_4444:
 				if (old_stencil < 0xF0) {
-					return old_stencil + 0x10;
+					return ((old_stencil + 0x10) & ~write_mask) | (old_stencil & write_mask);
 				}
 				return old_stencil;
 			default:
@@ -460,11 +461,11 @@ static inline u8 ApplyStencilOp(int op, u8 old_stencil) {
 			switch (gstate.FrameBufFormat()) {
 			case GE_FORMAT_4444:
 				if (old_stencil >= 0x10)
-					return old_stencil - 0x10;
+					return ((old_stencil - 0x10) & ~write_mask) | (old_stencil & write_mask);
 				break;
 			default:
 				if (old_stencil != 0)
-					return old_stencil - 1;
+					return ((old_stencil - 1) & ~write_mask) | (old_stencil & write_mask);
 				return old_stencil;
 			}
 			break;

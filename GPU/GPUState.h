@@ -252,6 +252,7 @@ struct GPUgstate {
 
 	// Color Mask
 	u32 getColorMask() const { return (pmskc & 0xFFFFFF) | ((pmska & 0xFF) << 24); }
+	u8 getStencilWriteMask() const { return pmska & 0xFF; }
 	bool isLogicOpEnabled() const { return logicOpEnable & 1; }
 	GELogicOp getLogicOp() const { return static_cast<GELogicOp>(lop & 0xF); }
 
