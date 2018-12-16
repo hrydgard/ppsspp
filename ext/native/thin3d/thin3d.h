@@ -547,8 +547,8 @@ public:
 	virtual InputLayout *CreateInputLayout(const InputLayoutDesc &desc) = 0;
 
 	// Note that these DO NOT AddRef so you must not ->Release presets unless you manually AddRef them.
-	ShaderModule *GetVshaderPreset(VertexShaderPreset preset) { return fsPresets_[preset]; }
-	ShaderModule *GetFshaderPreset(FragmentShaderPreset preset) { return vsPresets_[preset]; }
+	ShaderModule *GetVshaderPreset(VertexShaderPreset preset) { return vsPresets_[preset]; }
+	ShaderModule *GetFshaderPreset(FragmentShaderPreset preset) { return fsPresets_[preset]; }
 
 	// Resources
 	virtual Buffer *CreateBuffer(size_t size, uint32_t usageFlags) = 0;
