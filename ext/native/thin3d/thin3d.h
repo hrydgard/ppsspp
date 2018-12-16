@@ -204,13 +204,8 @@ enum class ShaderLanguage {
 	GLSL_ES_300 = 2,
 	GLSL_410 = 4,
 	GLSL_VULKAN = 8,
-	SPIRV_VULKAN = 16,
 	HLSL_D3D9 = 32,
 	HLSL_D3D11 = 64,
-	HLSL_D3D9_BYTECODE = 128,
-	HLSL_D3D11_BYTECODE = 256,
-	METAL = 512,
-	METAL_BYTECODE = 1024,
 };
 
 enum FormatSupport {
