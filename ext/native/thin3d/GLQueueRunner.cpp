@@ -415,7 +415,20 @@ void GLQueueRunner::InitCreateFramebuffer(const GLRInitStep &step) {
 	glGenFramebuffers(1, &fbo->handle);
 	initFBOTexture(fbo->color_texture, GL_RGBA, GL_RGBA, GL_UNSIGNED_BYTE, true);
 
-	if (gl_extensions.IsGLES) {
+retry_depth:
+	if (!fbo->z_stencil_) {
+		ILOG("Creating %i x %i FBO using no depth", fbo->width, fbo->height);
+
+		fbo->z_stencil_buffer = 0;
+		fbo->stencil_buffer = 0;
+		fbo->z_buffer = 0;
+
+		// Bind it all together
+		glBindFramebuffer(GL_FRAMEBUFFER, fbo->handle);
+		glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, fbo->color_texture.texture, 0);
+		glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER, 0);
+		glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_STENCIL_ATTACHMENT, GL_RENDERBUFFER, 0);
+	} else if (gl_extensions.IsGLES) {
 		if (gl_extensions.OES_packed_depth_stencil && (gl_extensions.OES_depth_texture || gl_extensions.GLES3)) {
 			ILOG("Creating %i x %i FBO using DEPTH24_STENCIL8 texture", fbo->width, fbo->height);
 			fbo->z_stencil_buffer = 0;
@@ -501,6 +514,13 @@ void GLQueueRunner::InitCreateFramebuffer(const GLRInitStep &step) {
 	}
 
 	GLenum status = glCheckFramebufferStatus(GL_FRAMEBUFFER);
+	if (status != GL_FRAMEBUFFER_COMPLETE && !fbo->z_buffer) {
+		CHECK_GL_ERROR_IF_DEBUG();
+		// Uh oh, maybe we need a z/stencil.  Platforms sometimes, right?
+		fbo->z_stencil_ = true;
+		goto retry_depth;
+	}
+
 	switch (status) {
 	case GL_FRAMEBUFFER_COMPLETE:
 		// ILOG("Framebuffer verified complete.");
