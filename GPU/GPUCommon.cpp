@@ -2237,7 +2237,7 @@ void GPUCommon::FlushImm() {
 
 	int bytesRead;
 	uint32_t vertTypeID = GetVertTypeID(vtype, 0);
-	drawEngineCommon_->DispatchSubmitPrim(temp, nullptr, immPrim_, immCount_, vertTypeID, &bytesRead);
+	drawEngineCommon_->DispatchSubmitPrim(temp, nullptr, immPrim_, immCount_, vertTypeID, gstate.getCullMode(), &bytesRead);
 	drawEngineCommon_->DispatchFlush();
 	// TOOD: In the future, make a special path for these.
 	// drawEngineCommon_->DispatchSubmitImm(immBuffer_, immCount_);

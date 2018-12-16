@@ -144,7 +144,7 @@ public:
 	~SoftwareDrawEngine();
 
 	void DispatchFlush() override;
-	void DispatchSubmitPrim(void *verts, void *inds, GEPrimitiveType prim, int vertexCount, u32 vertType, int *bytesRead) override;
+	void DispatchSubmitPrim(void *verts, void *inds, GEPrimitiveType prim, int vertexCount, u32 vertType, int cullMode, int *bytesRead) override;
 
 	VertexDecoder *FindVertexDecoder(u32 vtype);
 

@@ -75,8 +75,8 @@ public:
 	// This would seem to be unnecessary now, but is still required for splines/beziers to work in the software backend since SubmitPrim
 	// is different. Should probably refactor that.
 	// Note that vertTypeID should be computed using GetVertTypeID().
-	virtual void DispatchSubmitPrim(void *verts, void *inds, GEPrimitiveType prim, int vertexCount, u32 vertTypeID, int *bytesRead) {
-		SubmitPrim(verts, inds, prim, vertexCount, vertTypeID, -1, bytesRead);
+	virtual void DispatchSubmitPrim(void *verts, void *inds, GEPrimitiveType prim, int vertexCount, u32 vertTypeID, int cullMode, int *bytesRead) {
+		SubmitPrim(verts, inds, prim, vertexCount, vertTypeID, cullMode, bytesRead);
 	}
 
 	bool TestBoundingBox(void* control_points, int vertexCount, u32 vertType, int *bytesRead);

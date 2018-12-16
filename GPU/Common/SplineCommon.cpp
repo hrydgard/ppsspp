@@ -562,7 +562,7 @@ void DrawEngineCommon::SubmitCurve(const void *control_points, const void *indic
 
 	uint32_t vertTypeID = GetVertTypeID(vertTypeWithIndex16, gstate.getUVGenMode());
 	int generatedBytesRead;
-	DispatchSubmitPrim(output.vertices, output.indices, PatchPrimToPrim(surface.primType), output.count, vertTypeID, &generatedBytesRead);
+	DispatchSubmitPrim(output.vertices, output.indices, PatchPrimToPrim(surface.primType), output.count, vertTypeID, gstate.getCullMode(), &generatedBytesRead);
 
 	DispatchFlush();
 
