@@ -388,31 +388,56 @@ void GLQueueRunner::InitCreateFramebuffer(const GLRInitStep &step) {
 #endif
 	CHECK_GL_ERROR_IF_DEBUG();
 
+	auto initFBOTexture = [&](GLRTexture &tex, GLint internalFormat, GLenum format, GLenum type, bool linear) {
+		glGenTextures(1, &tex.texture);
+		tex.target = GL_TEXTURE_2D;
+		tex.maxLod = 0.0f;
+
+		// Create the surfaces.
+		glBindTexture(GL_TEXTURE_2D, tex.texture);
+		glTexImage2D(GL_TEXTURE_2D, 0, internalFormat, fbo->width, fbo->height, 0, format, type, nullptr);
+
+		tex.wrapS = GL_CLAMP_TO_EDGE;
+		tex.wrapT = GL_CLAMP_TO_EDGE;
+		tex.magFilter = linear ? GL_LINEAR : GL_NEAREST;
+		tex.minFilter = linear ? GL_LINEAR : GL_NEAREST;
+		tex.canWrap = isPowerOf2(fbo->width) && isPowerOf2(fbo->height);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, tex.wrapS);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, tex.wrapT);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, tex.magFilter);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, tex.minFilter);
+		if (!gl_extensions.IsGLES || gl_extensions.GLES3) {
+			glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAX_LEVEL, 0);
+		}
+	};
+
 	// Color texture is same everywhere
 	glGenFramebuffers(1, &fbo->handle);
-	glGenTextures(1, &fbo->color_texture.texture);
-	fbo->color_texture.target = GL_TEXTURE_2D;
-	fbo->color_texture.maxLod = 0.0f;
-
-	// Create the surfaces.
-	glBindTexture(GL_TEXTURE_2D, fbo->color_texture.texture);
-	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, fbo->width, fbo->height, 0, GL_RGBA, GL_UNSIGNED_BYTE, NULL);
-
-	fbo->color_texture.wrapS = GL_CLAMP_TO_EDGE;
-	fbo->color_texture.wrapT = GL_CLAMP_TO_EDGE;
-	fbo->color_texture.magFilter = GL_LINEAR;
-	fbo->color_texture.minFilter = GL_LINEAR;
-	fbo->color_texture.canWrap = isPowerOf2(fbo->width) && isPowerOf2(fbo->height);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, fbo->color_texture.wrapS);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, fbo->color_texture.wrapT);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, fbo->color_texture.magFilter);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, fbo->color_texture.minFilter);
-	if (!gl_extensions.IsGLES || gl_extensions.GLES3) {
-		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAX_LEVEL, 0);
-	}
+	initFBOTexture(fbo->color_texture, GL_RGBA, GL_RGBA, GL_UNSIGNED_BYTE, true);
 
 	if (gl_extensions.IsGLES) {
-		if (gl_extensions.OES_packed_depth_stencil) {
+		if (gl_extensions.OES_packed_depth_stencil && (gl_extensions.OES_depth_texture || gl_extensions.GLES3)) {
+			ILOG("Creating %i x %i FBO using DEPTH24_STENCIL8 texture", fbo->width, fbo->height);
+			fbo->z_stencil_buffer = 0;
+			fbo->stencil_buffer = 0;
+			fbo->z_buffer = 0;
+
+			if (gl_extensions.GLES3) {
+				initFBOTexture(fbo->z_stencil_texture, GL_DEPTH24_STENCIL8, GL_DEPTH_STENCIL, GL_UNSIGNED_INT_24_8, false);
+			} else {
+				initFBOTexture(fbo->z_stencil_texture, GL_DEPTH_STENCIL, GL_DEPTH_STENCIL, GL_UNSIGNED_INT_24_8, false);
+			}
+
+			// Bind it all together
+			glBindFramebuffer(GL_FRAMEBUFFER, fbo->handle);
+			glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, fbo->color_texture.texture, 0);
+			if (gl_extensions.GLES3) {
+				glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_STENCIL_ATTACHMENT, GL_TEXTURE_2D, fbo->z_stencil_texture.texture, 0);
+			} else {
+				glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, fbo->z_stencil_texture.texture, 0);
+				glFramebufferTexture2D(GL_FRAMEBUFFER, GL_STENCIL_ATTACHMENT, GL_TEXTURE_2D, fbo->z_stencil_texture.texture, 0);
+			}
+		} else if (gl_extensions.OES_packed_depth_stencil) {
 			ILOG("Creating %i x %i FBO using DEPTH24_STENCIL8", fbo->width, fbo->height);
 			// Standard method
 			fbo->stencil_buffer = 0;
@@ -448,6 +473,18 @@ void GLQueueRunner::InitCreateFramebuffer(const GLRInitStep &step) {
 			glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER, fbo->z_buffer);
 			glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_STENCIL_ATTACHMENT, GL_RENDERBUFFER, fbo->stencil_buffer);
 		}
+	} else if (gl_extensions.VersionGEThan(3, 0)) {
+		ILOG("Creating %i x %i FBO using DEPTH24_STENCIL8 texture", fbo->width, fbo->height);
+		fbo->z_stencil_buffer = 0;
+		fbo->stencil_buffer = 0;
+		fbo->z_buffer = 0;
+
+		initFBOTexture(fbo->z_stencil_texture, GL_DEPTH24_STENCIL8, GL_DEPTH_STENCIL, GL_UNSIGNED_INT_24_8, false);
+
+		// Bind it all together
+		glBindFramebuffer(GL_FRAMEBUFFER, fbo->handle);
+		glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, fbo->color_texture.texture, 0);
+		glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_STENCIL_ATTACHMENT, GL_TEXTURE_2D, fbo->z_stencil_texture.texture, 0);
 	} else {
 		fbo->stencil_buffer = 0;
 		fbo->z_buffer = 0;
@@ -472,7 +509,7 @@ void GLQueueRunner::InitCreateFramebuffer(const GLRInitStep &step) {
 		ELOG("GL_FRAMEBUFFER_UNSUPPORTED");
 		break;
 	case GL_FRAMEBUFFER_INCOMPLETE_ATTACHMENT:
-		ELOG("GL_FRAMEBUFFER_INCOMPLETE_ATTACHMENT ");
+		ELOG("GL_FRAMEBUFFER_INCOMPLETE_ATTACHMENT");
 		break;
 	default:
 		FLOG("Other framebuffer error: %i", status);
@@ -1458,36 +1495,30 @@ GLRFramebuffer::~GLRFramebuffer() {
 		return;
 
 	CHECK_GL_ERROR_IF_DEBUG();
-	if (gl_extensions.ARB_framebuffer_object || gl_extensions.IsGLES) {
-		if (handle) {
+	if (handle) {
+		if (gl_extensions.ARB_framebuffer_object || gl_extensions.IsGLES) {
 			glBindFramebuffer(GL_FRAMEBUFFER, handle);
 			glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, 0, 0);
 			glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER, 0);
 			glBindFramebuffer(GL_FRAMEBUFFER, g_defaultFBO);
 			glDeleteFramebuffers(1, &handle);
-		}
-		if (z_stencil_buffer)
-			glDeleteRenderbuffers(1, &z_stencil_buffer);
-		if (z_buffer)
-			glDeleteRenderbuffers(1, &z_buffer);
-		if (stencil_buffer)
-			glDeleteRenderbuffers(1, &stencil_buffer);
-	} else if (gl_extensions.EXT_framebuffer_object) {
 #ifndef USING_GLES2
-		if (handle) {
+		} else if (gl_extensions.EXT_framebuffer_object) {
 			glBindFramebufferEXT(GL_FRAMEBUFFER_EXT, handle);
 			glFramebufferTexture2DEXT(GL_FRAMEBUFFER_EXT, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, 0, 0);
 			glFramebufferRenderbufferEXT(GL_FRAMEBUFFER_EXT, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER_EXT, 0);
 			glBindFramebufferEXT(GL_FRAMEBUFFER_EXT, g_defaultFBO);
 			glDeleteFramebuffersEXT(1, &handle);
-		}
-		if (z_stencil_buffer)
-			glDeleteRenderbuffers(1, &z_stencil_buffer);
-		if (z_buffer)
-			glDeleteRenderbuffers(1, &z_buffer);
-		if (stencil_buffer)
-			glDeleteRenderbuffers(1, &stencil_buffer);
 #endif
+		}
 	}
+
+	// These can only be set when supported.
+	if (z_stencil_buffer)
+		glDeleteRenderbuffers(1, &z_stencil_buffer);
+	if (z_buffer)
+		glDeleteRenderbuffers(1, &z_buffer);
+	if (stencil_buffer)
+		glDeleteRenderbuffers(1, &stencil_buffer);
 	CHECK_GL_ERROR_IF_DEBUG();
 }
