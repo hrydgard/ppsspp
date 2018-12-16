@@ -1223,6 +1223,7 @@ endif()
 set(GPU_GLES
 	GPU/GLES/DepalettizeShaderGLES.cpp
 	GPU/GLES/DepalettizeShaderGLES.h
+	GPU/GLES/DepthBufferGLES.cpp
 	GPU/GLES/GPU_GLES.cpp
 	GPU/GLES/GPU_GLES.h
 	GPU/GLES/FragmentShaderGeneratorGLES.cpp

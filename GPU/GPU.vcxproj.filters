@@ -548,5 +548,8 @@
     <ClCompile Include="Debugger\Debugger.cpp">
       <Filter>Debugger</Filter>
     </ClCompile>
+    <ClCompile Include="GLES\DepthBufferGLES.cpp">
+      <Filter>GLES</Filter>
+    </ClCompile>
   </ItemGroup>
 </Project>

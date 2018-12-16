@@ -650,48 +650,6 @@ void FramebufferManagerGLES::BlitFramebuffer(VirtualFramebuffer *dst, int dstX, 
 	gstate_c.Dirty(DIRTY_VIEWPORTSCISSOR_STATE | DIRTY_BLEND_STATE | DIRTY_RASTER_STATE);
 }
 
-void FramebufferManagerGLES::PackDepthbuffer(VirtualFramebuffer *vfb, int x, int y, int w, int h) {
-	if (!vfb->fbo) {
-		ERROR_LOG_REPORT_ONCE(vfbfbozero, SCEGE, "PackDepthbuffer: vfb->fbo == 0");
-		return;
-	}
-
-	// Pixel size always 4 here because we always request float
-	const u32 bufSize = vfb->z_stride * (h - y) * 4;
-	const u32 z_address = (0x04000000) | vfb->z_address;
-	const int packWidth = std::min(vfb->z_stride, std::min(x + w, (int)vfb->width));
-
-	if (!convBuf_ || convBufSize_ < bufSize) {
-		delete [] convBuf_;
-		convBuf_ = new u8[bufSize];
-		convBufSize_ = bufSize;
-	}
-
-	DEBUG_LOG(FRAMEBUF, "Reading depthbuffer to mem at %08x for vfb=%08x", z_address, vfb->fb_address);
-
-	draw_->CopyFramebufferToMemorySync(vfb->fbo, Draw::FB_DEPTH_BIT, 0, y, packWidth, h, Draw::DataFormat::D32F, convBuf_, vfb->z_stride);
-
-	int dstByteOffset = y * vfb->z_stride * sizeof(u16);
-	u16 *depth = (u16 *)Memory::GetPointer(z_address + dstByteOffset);
-	GLfloat *packed = (GLfloat *)convBuf_;
-
-	int totalPixels = h == 1 ? packWidth : vfb->z_stride * h;
-	for (int yp = 0; yp < h; ++yp) {
-		int row_offset = vfb->z_stride * yp;
-		for (int xp = 0; xp < packWidth; ++xp) {
-			const int i = row_offset + xp;
-			float scaled = FromScaledDepth(packed[i]);
-			if (scaled <= 0.0f) {
-				depth[i] = 0;
-			} else if (scaled >= 65535.0f) {
-				depth[i] = 65535;
-			} else {
-				depth[i] = (int)scaled;
-			}
-		}
-	}
-}
-
 void FramebufferManagerGLES::EndFrame() {
 }
 

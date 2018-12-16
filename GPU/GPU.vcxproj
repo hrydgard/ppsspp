@@ -339,6 +339,7 @@
     <ClCompile Include="Directx9\VertexShaderGeneratorDX9.cpp" />
     <ClCompile Include="GeDisasm.cpp" />
     <ClCompile Include="GLES\DepalettizeShaderGLES.cpp" />
+    <ClCompile Include="GLES\DepthBufferGLES.cpp" />
     <ClCompile Include="GLES\FragmentShaderGeneratorGLES.cpp" />
     <ClCompile Include="GLES\FragmentTestCacheGLES.cpp" />
     <ClCompile Include="GLES\FramebufferManagerGLES.cpp" />

@@ -247,6 +247,7 @@ EXEC_AND_LIB_FILES := \
   $(SRC)/GPU/Debugger/Stepping.cpp \
   $(SRC)/GPU/GLES/FramebufferManagerGLES.cpp \
   $(SRC)/GPU/GLES/DepalettizeShaderGLES.cpp \
+  $(SRC)/GPU/GLES/DepthBufferGLES.cpp.arm \
   $(SRC)/GPU/GLES/GPU_GLES.cpp.arm \
   $(SRC)/GPU/GLES/StencilBufferGLES.cpp.arm \
   $(SRC)/GPU/GLES/TextureCacheGLES.cpp.arm \
