@@ -52,6 +52,12 @@ void UIContext::BeginNoTex() {
 	UIBegin(ui_pipeline_notex_);
 }
 
+void UIContext::BeginPipeline(Draw::Pipeline *pipeline, Draw::SamplerState *samplerState) {
+	draw_->BindSamplerStates(0, 1, &sampler_);
+	draw_->BindTexture(0, uitexture_->GetTexture());
+	UIBegin(pipeline);
+}
+
 void UIContext::RebindTexture() const {
 	draw_->BindTexture(0, uitexture_->GetTexture());
 }
@@ -63,6 +69,11 @@ void UIContext::Flush() {
 	if (uidrawbufferTop_) {
 		uidrawbufferTop_->Flush();
 	}
+}
+
+void UIContext::SetCurZ(float curZ) {
+	ui_draw2d.SetCurZ(curZ);
+	ui_draw2d_front.SetCurZ(curZ);
 }
 
 // TODO: Support transformed bounds using stencil instead.

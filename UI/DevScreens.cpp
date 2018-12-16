@@ -127,8 +127,6 @@ UI::EventReturn DevMenu::OnShaderView(UI::EventParams &e) {
 	return UI::EVENT_DONE;
 }
 
-
-
 UI::EventReturn DevMenu::OnFreezeFrame(UI::EventParams &e) {
 	if (PSP_CoreParameter().frozen) {
 		PSP_CoreParameter().frozen = false;

@@ -96,6 +96,7 @@
 #include "UI/BackgroundAudio.h"
 #include "UI/TextureUtil.h"
 #include "UI/DiscordIntegration.h"
+#include "UI/GPUDriverTestScreen.h"
 
 #if !defined(MOBILE_DEVICE)
 #include "Common/KeyMap.h"

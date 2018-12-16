@@ -78,6 +78,7 @@ void DrawBuffer::Shutdown() {
 void DrawBuffer::Begin(Draw::Pipeline *program) {
 	pipeline_ = program;
 	count_ = 0;
+	curZ_ = 0.0f;
 }
 
 void DrawBuffer::Flush(bool set_blend_state) {

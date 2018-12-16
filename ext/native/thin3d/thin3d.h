@@ -662,4 +662,13 @@ struct VsColUB {
 };
 extern const UniformBufferDesc vsColBufDesc;
 
+// Useful utility for specifying a shader in multiple languages.
+
+struct ShaderSource {
+	ShaderLanguage lang;
+	const char *src;
+};
+
+ShaderModule *CreateShader(DrawContext *draw, ShaderStage stage, const std::vector<ShaderSource> &sources);
+
 }  // namespace Draw
