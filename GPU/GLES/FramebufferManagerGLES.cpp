@@ -324,6 +324,10 @@ void FramebufferManagerGLES::DestroyDeviceObjects() {
 		render_->DeleteProgram(stencilUploadProgram_);
 		stencilUploadProgram_ = nullptr;
 	}
+	if (depthDownloadProgram_) {
+		render_->DeleteProgram(depthDownloadProgram_);
+		depthDownloadProgram_ = nullptr;
+	}
 }
 
 FramebufferManagerGLES::~FramebufferManagerGLES() {

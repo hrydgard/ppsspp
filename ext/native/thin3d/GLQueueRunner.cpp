@@ -249,6 +249,7 @@ void GLQueueRunner::RunInitSteps(const std::vector<GLRInitStep> &steps, bool ski
 					switch (init.type) {
 					case 0:
 						glUniform1i(uniform, init.value);
+						break;
 					}
 				}
 			}
@@ -951,10 +952,14 @@ void GLQueueRunner::PerformRenderPass(const GLRStep &step) {
 			}
 			if (c.bind_fb_texture.aspect == GL_COLOR_BUFFER_BIT) {
 				if (curTex[slot] != &c.bind_fb_texture.framebuffer->color_texture)
-				glBindTexture(GL_TEXTURE_2D, c.bind_fb_texture.framebuffer->color_texture.texture);
+					glBindTexture(GL_TEXTURE_2D, c.bind_fb_texture.framebuffer->color_texture.texture);
 				curTex[slot] = &c.bind_fb_texture.framebuffer->color_texture;
+			} else if (c.bind_fb_texture.aspect == GL_DEPTH_BUFFER_BIT) {
+				if (curTex[slot] != &c.bind_fb_texture.framebuffer->z_stencil_texture)
+					glBindTexture(GL_TEXTURE_2D, c.bind_fb_texture.framebuffer->z_stencil_texture.texture);
+				curTex[slot] = &c.bind_fb_texture.framebuffer->z_stencil_texture;
 			} else {
-				// TODO: Depth texturing?
+				// TODO: Stencil texturing?
 				curTex[slot] = nullptr;
 			}
 			CHECK_GL_ERROR_IF_DEBUG();
