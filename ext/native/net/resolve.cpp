@@ -43,40 +43,6 @@ void Shutdown()
 #endif
 }
 
-char *DNSResolveTry(const char *host, const char **err)
-{
-	struct hostent *hent;
-	if((hent = gethostbyname(host)) == NULL)
-	{
-		*err = "Can't get IP";
-		return NULL;
-	}
-	int iplen = 15; //XXX.XXX.XXX.XXX
-	char *ip = (char *)malloc(iplen+1);
-	memset(ip, 0, iplen+1);
-	char *iptoa = inet_ntoa(*(in_addr *)hent->h_addr_list[0]);
-	if (iptoa == NULL)
-	{
-		*err = "Can't resolve host";
-		free(ip);
-		return NULL;
-	}
-	strncpy(ip, iptoa, iplen);
-	return ip;
-}
-
-char *DNSResolve(const char *host)
-{
-	const char *err;
-	char *ip = DNSResolveTry(host, &err);
-	if (ip == NULL)
-	{
-		perror(err);
-		exit(1);
-	}
-	return ip;
-}
-
 bool DNSResolve(const std::string &host, const std::string &service, addrinfo **res, std::string &error, DNSType type)
 {
 	addrinfo hints = {0};
