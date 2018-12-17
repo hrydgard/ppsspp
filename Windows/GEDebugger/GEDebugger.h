@@ -47,10 +47,11 @@ struct GPUgstate;
 class StepCountDlg : public Dialog {
 public:
 	StepCountDlg(HINSTANCE _hInstance, HWND _hParent);
+	~StepCountDlg();
 protected:
 	BOOL DlgProc(UINT message, WPARAM wParam, LPARAM lParam);
 private:
-	void Jump(bool minus, bool relative);
+	void Jump(int value, bool relative);
 };
 
 class CGEDebugger : public Dialog {
