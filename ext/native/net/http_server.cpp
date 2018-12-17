@@ -24,7 +24,7 @@
 
 #endif
 
-#ifdef PPSSPP_PLATFORM(UWP)
+#if PPSSPP_PLATFORM(UWP)
 #define in6addr_any IN6ADDR_ANY_INIT
 #endif
 

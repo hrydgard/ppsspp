@@ -26,7 +26,7 @@
 
 #include "ppsspp_config.h"
 
-#ifdef PPSSPP_PLATFORM(UWP)
+#if PPSSPP_PLATFORM(UWP)
 // Enum name overlapped with UWP macro, quick hack to disable it
 #undef OPTIONAL
 #endif
