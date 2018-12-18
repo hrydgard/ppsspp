@@ -584,7 +584,6 @@ SOURCES_C += $(EXTDIR)/udis86/decode.c \
 
 
 SOURCES_CXX += \
-	$(COMMONDIR)/Vulkan/SPIRVDisasm.cpp \
 	$(COMMONDIR)/Vulkan/VulkanContext.cpp \
 	$(COMMONDIR)/Vulkan/VulkanDebug.cpp \
 	$(COMMONDIR)/Vulkan/VulkanImage.cpp \

@@ -21,7 +21,6 @@
 #include <map>
 #include <cassert>
 
-#include "Common/Vulkan/SPIRVDisasm.h"
 #include "Core/Config.h"
 
 #include "base/logging.h"

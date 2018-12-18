@@ -390,8 +390,6 @@ set(CommonWindows
 source_group(Windows FILES ${CommonWindows})
 
 set(CommonVulkan ${CommonExtra}
-	Common/Vulkan/SPIRVDisasm.cpp
-	Common/Vulkan/SPIRVDisasm.h
 	Common/Vulkan/VulkanContext.cpp
 	Common/Vulkan/VulkanContext.h
 	Common/Vulkan/VulkanDebug.cpp
