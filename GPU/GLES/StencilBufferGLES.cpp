@@ -24,42 +24,44 @@
 #include "GPU/GLES/ShaderManagerGLES.h"
 #include "GPU/GLES/TextureCacheGLES.h"
 
-static const char *stencil_fs =
-"#ifdef GL_ES\n"
-"precision highp float;\n"
-"#endif\n"
-"#if __VERSION__ >= 130\n"
-"#define varying in\n"
-"#define texture2D texture\n"
-"#define gl_FragColor fragColor0\n"
-"out vec4 fragColor0;\n"
-"#endif\n"
-"varying vec2 v_texcoord0;\n"
-"uniform float u_stencilValue;\n"
-"uniform sampler2D tex;\n"
-"float roundAndScaleTo255f(in float x) { return floor(x * 255.99); }\n"
-"void main() {\n"
-"  vec4 index = texture2D(tex, v_texcoord0);\n"
-"  gl_FragColor = vec4(index.a);\n"
-"  float shifted = roundAndScaleTo255f(index.a) / roundAndScaleTo255f(u_stencilValue);\n"
-"  if (mod(floor(shifted), 2.0) < 0.99) discard;\n"
-"}\n";
+static const char *stencil_fs = R"(
+#ifdef GL_ES
+precision highp float;
+#endif
+#if __VERSION__ >= 130
+#define varying in
+#define texture2D texture
+#define gl_FragColor fragColor0
+out vec4 fragColor0;
+#endif
+varying vec2 v_texcoord0;
+uniform float u_stencilValue;
+uniform sampler2D tex;
+float roundAndScaleTo255f(in float x) { return floor(x * 255.99); }
+void main() {
+  vec4 index = texture2D(tex, v_texcoord0);
+  gl_FragColor = vec4(index.a);
+  float shifted = roundAndScaleTo255f(index.a) / roundAndScaleTo255f(u_stencilValue);
+  if (mod(floor(shifted), 2.0) < 0.99) discard;
+}
+)";
 
-static const char *stencil_vs =
-"#ifdef GL_ES\n"
-"precision highp float;\n"
-"#endif\n"
-"#if __VERSION__ >= 130\n"
-"#define attribute in\n"
-"#define varying out\n"
-"#endif\n"
-"attribute vec4 a_position;\n"
-"attribute vec2 a_texcoord0;\n"
-"varying vec2 v_texcoord0;\n"
-"void main() {\n"
-"  v_texcoord0 = a_texcoord0;\n"
-"  gl_Position = a_position;\n"
-"}\n";
+static const char *stencil_vs = R"(
+#ifdef GL_ES
+precision highp float;
+#endif
+#if __VERSION__ >= 130
+#define attribute in
+#define varying out
+#endif
+attribute vec4 a_position;
+attribute vec2 a_texcoord0;
+varying vec2 v_texcoord0;
+void main() {
+  v_texcoord0 = a_texcoord0;
+  gl_Position = a_position;
+}
+)";
 
 bool FramebufferManagerGLES::NotifyStencilUpload(u32 addr, int size, bool skipZero) {
 	addr &= 0x3FFFFFFF;

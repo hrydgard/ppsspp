@@ -25,29 +25,31 @@
 #include "GPU/GLES/TextureCacheGLES.h"
 #include "GPU/Common/DepalettizeShaderCommon.h"
 
-static const char *depalVShader100 =
-"#ifdef GL_ES\n"
-"precision highp float;\n"
-"#endif\n"
-"attribute vec4 a_position;\n"
-"attribute vec2 a_texcoord0;\n"
-"varying vec2 v_texcoord0;\n"
-"void main() {\n"
-"  v_texcoord0 = a_texcoord0;\n"
-"  gl_Position = a_position;\n"
-"}\n";
+static const char *depalVShader100 = R"(
+#ifdef GL_ES
+precision highp float;
+#endif
+attribute vec4 a_position;
+attribute vec2 a_texcoord0;
+varying vec2 v_texcoord0;
+void main() {
+  v_texcoord0 = a_texcoord0;
+  gl_Position = a_position;
+};
+)";
 
-static const char *depalVShader300 =
-"#ifdef GL_ES\n"
-"precision highp float;\n"
-"#endif\n"
-"in vec4 a_position;\n"
-"in vec2 a_texcoord0;\n"
-"out vec2 v_texcoord0;\n"
-"void main() {\n"
-"  v_texcoord0 = a_texcoord0;\n"
-"  gl_Position = a_position;\n"
-"}\n";
+static const char *depalVShader300 = R"(
+#ifdef GL_ES
+precision highp float;
+#endif
+in vec4 a_position;
+in vec2 a_texcoord0;
+out vec2 v_texcoord0;
+void main() {
+  v_texcoord0 = a_texcoord0;
+  gl_Position = a_position;
+};
+)";
 
 DepalShaderCacheGLES::DepalShaderCacheGLES(Draw::DrawContext *draw) {
 	_assert_(draw);
