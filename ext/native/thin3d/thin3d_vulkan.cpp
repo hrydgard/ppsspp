@@ -353,7 +353,7 @@ public:
 		return list;
 	}
 	uint32_t GetSupportedShaderLanguages() const override {
-		return (uint32_t)ShaderLanguage::GLSL_VULKAN | (uint32_t)ShaderLanguage::SPIRV_VULKAN;
+		return (uint32_t)ShaderLanguage::GLSL_VULKAN;
 	}
 	uint32_t GetDataFormatSupport(DataFormat fmt) const override;
 

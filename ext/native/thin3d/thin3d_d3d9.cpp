@@ -465,7 +465,7 @@ public:
 		return caps_;
 	}
 	uint32_t GetSupportedShaderLanguages() const override {
-		return (uint32_t)ShaderLanguage::HLSL_D3D9 | (uint32_t)ShaderLanguage::HLSL_D3D9_BYTECODE;
+		return (uint32_t)ShaderLanguage::HLSL_D3D9;
 	}
 	uint32_t GetDataFormatSupport(DataFormat fmt) const override;
 
