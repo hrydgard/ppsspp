@@ -180,13 +180,10 @@ void CPU_Init() {
 	currentMIPS = &mipsr4k;
 
 	g_symbolMap = new SymbolMap();
-
-	// Default memory settings
-	// Seems to be the safest place currently..
-	Memory::g_MemorySize = Memory::RAM_NORMAL_SIZE; // 32 MB of ram by default
-
 	g_RemasterMode = false;
 	g_DoubleTextureCoordinates = false;
+
+	Memory::g_MemorySize = Memory::RAM_NORMAL_SIZE; // 32 MiB
 	Memory::g_PSPModel = g_Config.iPSPModel;
 
 	std::string filename = coreParameter.fileToStart;
@@ -227,6 +224,10 @@ void CPU_Init() {
 	// likely to collide with any commercial ones.
 	std::string discID = g_paramSFO.GetDiscID();
 	coreParameter.compat.Load(discID);
+
+	// Some games need more RAM
+	if (PSP_CoreParameter().compat.flags().HighMemoryLayout)
+		Memory::g_MemorySize = Memory::RAM_DOUBLE_SIZE; // 64 MiB
 
 	Memory::Init();
 	mipsr4k.Reset();

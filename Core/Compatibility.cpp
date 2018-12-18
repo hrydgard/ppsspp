@@ -61,6 +61,7 @@ void Compatibility::CheckSettings(IniFile &iniFile, const std::string &gameID) {
 	CheckSetting(iniFile, gameID, "SonicRivalsHack", &flags_.SonicRivalsHack);
 	CheckSetting(iniFile, gameID, "BlockTransferAllowCreateFB", &flags_.BlockTransferAllowCreateFB);
 	CheckSetting(iniFile, gameID, "YugiohSaveFix", &flags_.YugiohSaveFix);
+	CheckSetting(iniFile, gameID, "HighMemoryLayout", &flags_.HighMemoryLayout);
 }
 
 void Compatibility::CheckSetting(IniFile &iniFile, const std::string &gameID, const char *option, bool *flag) {
