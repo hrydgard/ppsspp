@@ -478,10 +478,9 @@ void JoystickHistoryView::Draw(UIContext &dc) {
 			dc.Draw()->DrawImage(I_CROSS, x, y, 0.8f, colorAlpha(0xFFFFFF, alpha), ALIGN_CENTER);
 			a++;
 		}
-		dc.End();
 		dc.BeginNoTex();
 		dc.Draw()->RectOutline(bounds_.centerX() - minRadius, bounds_.centerY() - minRadius, minRadius * 2, minRadius * 2, 0x80FFFFFF);
-		dc.End();
+		dc.Flush();
 		dc.Begin();
 	} else {
 		dc.DrawText("N/A", bounds_.centerX(), bounds_.centerY(), 0xFFFFFFFF, ALIGN_CENTER);

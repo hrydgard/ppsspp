@@ -113,7 +113,6 @@ void UIScreen::render() {
 		uiContext->Begin();
 		DrawBackground(*uiContext);
 		root_->Draw(*uiContext);
-		uiContext->End();
 		uiContext->Flush();
 
 		uiContext->PopTransform();

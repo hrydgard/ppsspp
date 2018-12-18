@@ -60,11 +60,7 @@ private:
 };
 
 
-// Call at start of frame
+// Begins/flushes the two UI drawbuffers together.
 void UIBegin(Draw::Pipeline *shaderSet);
-
-// Call at end of frame.
-
-void UIEnd();
 void UIFlush();
 

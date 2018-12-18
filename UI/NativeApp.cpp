@@ -928,7 +928,6 @@ void RenderOverlays(UIContext *dc, void *userdata) {
 			UI::Drawable solid(colors[i & 3]);
 			dc->FillRect(solid, bounds);
 		}
-		dc->End();
 		dc->Flush();
 	}
 

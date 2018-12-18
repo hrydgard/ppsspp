@@ -1351,8 +1351,7 @@ void EmuScreen::renderUI() {
 		DrawProfile(*ctx);
 	}
 #endif
-
-	ctx->End();
+	ctx->Flush();
 }
 
 void EmuScreen::autoLoad() {

@@ -58,18 +58,11 @@ void UIContext::RebindTexture() const {
 
 void UIContext::Flush() {
 	if (uidrawbuffer_) {
-		uidrawbuffer_->End();
 		uidrawbuffer_->Flush();
 	}
 	if (uidrawbufferTop_) {
-		uidrawbufferTop_->End();
 		uidrawbufferTop_->Flush();
 	}
-}
-
-void UIContext::End() {
-	UIEnd();
-	Flush();
 }
 
 // TODO: Support transformed bounds using stencil instead.

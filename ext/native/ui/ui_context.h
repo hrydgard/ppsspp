@@ -52,7 +52,6 @@ public:
 	void Begin();
 	void BeginNoTex();
 	void Flush();
-	void End();
 
 	void RebindTexture() const;
 

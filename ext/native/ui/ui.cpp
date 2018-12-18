@@ -24,12 +24,3 @@ void UIFlush() {
 	ui_draw2d.Flush();
 	ui_draw2d_front.Flush();
 }
-
-void UIEnd() {
-	ui_draw2d.End();
-	ui_draw2d_front.End();
-
-	ui_draw2d.Flush();
-	ui_draw2d_front.Flush();
-}
-
