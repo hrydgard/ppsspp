@@ -128,7 +128,7 @@ void InitMemoryForGameISO(FileLoader *fileLoader) {
 		if (entry.gameID != gameID) {
 			continue;
 		}
-		if (entry.umdDataValue && umdData.find(entry.umdDataValue) == umdData.npos) {
+		if (umdData.find(entry.umdDataValue) == umdData.npos) {
 			continue;
 		}
 
@@ -204,7 +204,7 @@ bool Load_PSP_ISO(FileLoader *fileLoader, std::string *error_string) {
 	// Bypass Chinese translation patches, see comment above.
 	for (size_t i = 0; i < ARRAY_SIZE(altBootNames); i++) {
 		if (pspFileSystem.GetFileInfo(altBootNames[i]).exists) {
-			bootpath = altBootNames[i];			
+			bootpath = altBootNames[i];
 		}
 	}
 

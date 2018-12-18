@@ -28,9 +28,9 @@ extern bool g_DoubleTextureCoordinates;
 
 struct HDRemaster {
 	const char *gameID;
+	const char *umdDataValue;
 	u32 memorySize;
 	bool doubleTextureCoordinates;
-	const char *umdDataValue;
 };
 
 extern const struct HDRemaster g_HDRemasters[];
