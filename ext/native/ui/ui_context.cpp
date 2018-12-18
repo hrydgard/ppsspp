@@ -38,6 +38,8 @@ void UIContext::BeginFrame() {
 			FLOG("Failed to load ui_atlas.zim");
 		}
 	}
+	uidrawbufferTop_->SetCurZ(0.0f);
+	uidrawbuffer_->SetCurZ(0.0f);
 	ActivateTopScissor();
 }
 

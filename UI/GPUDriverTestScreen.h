@@ -21,9 +21,14 @@ public:
 	void render() override;
 
 private:
+	void DiscardTest();
+
 	Draw::ShaderModule *discard_ = nullptr;
-	Draw::Pipeline *discardWriteStencil_ = nullptr;
-	Draw::Pipeline *drawTestStencil_ = nullptr;
-	Draw::Pipeline *drawTestDepth_ = nullptr;
+	Draw::Pipeline *discardWriteDepthStencil_ = nullptr;
+	Draw::Pipeline *drawTestStencilEqual_ = nullptr;
+	Draw::Pipeline *drawTestStencilNotEqual_ = nullptr;
+	Draw::Pipeline *drawTestDepthLessEqual_ = nullptr;
+	Draw::Pipeline *drawTestDepthGreater_ = nullptr;
 	Draw::SamplerState *samplerNearest_ = nullptr;
+	UI::TabHolder *tabHolder_ = nullptr;
 };
