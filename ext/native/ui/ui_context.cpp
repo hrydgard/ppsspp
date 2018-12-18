@@ -38,12 +38,12 @@ void UIContext::BeginFrame() {
 			FLOG("Failed to load ui_atlas.zim");
 		}
 	}
+	ActivateTopScissor();
 }
 
 void UIContext::Begin() {
 	draw_->BindSamplerStates(0, 1, &sampler_);
 	draw_->BindTexture(0, uitexture_->GetTexture());
-	ActivateTopScissor();
 	UIBegin(ui_pipeline_);
 }
 

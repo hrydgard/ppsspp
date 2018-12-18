@@ -78,9 +78,9 @@ void UIScreen::preRender() {
 		return;
 	}
 	draw->BeginFrame();
-	screenManager()->getUIContext()->BeginFrame();
 	// Bind and clear the back buffer
 	draw->BindFramebufferAsRenderTarget(nullptr, { RPAction::CLEAR, RPAction::CLEAR, RPAction::CLEAR, 0xFF000000 });
+	screenManager()->getUIContext()->BeginFrame();
 
 	Draw::Viewport viewport;
 	viewport.TopLeftX = 0;
