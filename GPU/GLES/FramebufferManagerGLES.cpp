@@ -48,34 +48,36 @@
 #include "GPU/GLES/DrawEngineGLES.h"
 #include "GPU/GLES/ShaderManagerGLES.h"
 
-static const char tex_fs[] =
-	"#if __VERSION__ >= 130\n"
-	"#define varying in\n"
-	"#define texture2D texture\n"
-	"#define gl_FragColor fragColor0\n"
-	"out vec4 fragColor0;\n"
-	"#endif\n"
-	"#ifdef GL_ES\n"
-	"precision mediump float;\n"
-	"#endif\n"
-	"uniform sampler2D sampler0;\n"
-	"varying vec2 v_texcoord0;\n"
-	"void main() {\n"
-	"  gl_FragColor = texture2D(sampler0, v_texcoord0);\n"
-	"}\n";
+static const char tex_fs[] = R"(
+#if __VERSION__ >= 130
+#define varying in
+#define texture2D texture
+#define gl_FragColor fragColor0
+out vec4 fragColor0;
+#endif
+#ifdef GL_ES
+precision mediump float;
+#endif
+uniform sampler2D sampler0;
+varying vec2 v_texcoord0;
+void main() {
+	gl_FragColor = texture2D(sampler0, v_texcoord0);
+}
+)";
 
-static const char basic_vs[] =
-	"#if __VERSION__ >= 130\n"
-	"#define attribute in\n"
-	"#define varying out\n"
-	"#endif\n"
-	"attribute vec4 a_position;\n"
-	"attribute vec2 a_texcoord0;\n"
-	"varying vec2 v_texcoord0;\n"
-	"void main() {\n"
-	"  v_texcoord0 = a_texcoord0;\n"
-	"  gl_Position = a_position;\n"
-	"}\n";
+static const char basic_vs[] = R"(
+#if __VERSION__ >= 130
+#define attribute in
+#define varying out
+#endif
+attribute vec4 a_position;
+attribute vec2 a_texcoord0;
+varying vec2 v_texcoord0;
+void main() {
+  v_texcoord0 = a_texcoord0;
+  gl_Position = a_position;
+}
+)";
 
 void FramebufferManagerGLES::CompileDraw2DProgram() {
 	if (!draw2dprogram_) {

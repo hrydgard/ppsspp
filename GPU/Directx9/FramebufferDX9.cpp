@@ -47,34 +47,33 @@
 
 namespace DX9 {
 
-static const char * vscode =
-	"struct VS_IN {\n"
-	"  float4 ObjPos   : POSITION;\n"
-	"  float2 Uv    : TEXCOORD0;\n"
-	"};"
-	"struct VS_OUT {\n"
-	"  float4 ProjPos  : POSITION;\n"
-	"  float2 Uv    : TEXCOORD0;\n"
-	"};\n"
-	"VS_OUT main( VS_IN In ) {\n"
-	"  VS_OUT Out;\n"
-	"  Out.ProjPos = In.ObjPos;\n"
-	"  Out.Uv = In.Uv;\n"
-	"  return Out;\n"
-	"}\n";
+static const char *vscode = R"(
+struct VS_IN {
+	float4 ObjPos   : POSITION;
+	float2 Uv    : TEXCOORD0;
+};"
+struct VS_OUT {
+	float4 ProjPos  : POSITION;
+	float2 Uv    : TEXCOORD0;
+};
+VS_OUT main( VS_IN In ) {
+	VS_OUT Out;
+	Out.ProjPos = In.ObjPos;
+	Out.Uv = In.Uv;
+	return Out;
+};
+)";
 
-//--------------------------------------------------------------------------------------
-// Pixel shader
-//--------------------------------------------------------------------------------------
-static const char * pscode =
-	"sampler s: register(s0);\n"
-	"struct PS_IN {\n"
-	"  float2 Uv : TEXCOORD0;\n"
-	"};\n"
-	"float4 main( PS_IN In ) : COLOR {\n"
-	"  float4 c =  tex2D(s, In.Uv);\n"
-	"  return c;\n"
-	"}\n";
+static const char *pscode = R"(
+sampler s: register(s0);
+struct PS_IN {
+	float2 Uv : TEXCOORD0;
+};
+float4 main( PS_IN In ) : COLOR {
+	float4 c =  tex2D(s, In.Uv);
+	return c;
+};
+)";
 
 static const D3DVERTEXELEMENT9 g_FramebufferVertexElements[] = {
 	{ 0, 0, D3DDECLTYPE_FLOAT3, D3DDECLMETHOD_DEFAULT, D3DDECLUSAGE_POSITION, 0 },
