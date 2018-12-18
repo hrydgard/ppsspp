@@ -679,6 +679,8 @@ void NativeInit(int argc, const char *argv[], const char *savegame_dir, const ch
 		screenManager->switchScreen(new LogoScreen());
 	}
 
+	screenManager->push(new GPUDriverTestScreen());
+
 	if (g_Config.bRemoteShareOnStartup && g_Config.bRemoteDebuggerOnStartup)
 		StartWebServer(WebServerFlags::ALL);
 	else if (g_Config.bRemoteShareOnStartup)

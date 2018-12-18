@@ -192,13 +192,12 @@ public:
 	GLuint stencilZFail;
 	GLuint stencilPass;
 	GLuint stencilCompareOp;
-	uint8_t stencilReference;
 	uint8_t stencilCompareMask;
 	uint8_t stencilWriteMask;
 
-	void Apply(GLRenderManager *render) {
+	void Apply(GLRenderManager *render, uint8_t stencilRef) {
 		render->SetDepth(depthTestEnabled, depthWriteEnabled, depthComp);
-		render->SetStencilFunc(stencilEnabled, stencilCompareOp, stencilReference, stencilCompareMask);
+		render->SetStencilFunc(stencilEnabled, stencilCompareOp, stencilRef, stencilCompareMask);
 		render->SetStencilOp(stencilWriteMask, stencilFail, stencilZFail, stencilPass);
 	}
 };
@@ -404,6 +403,15 @@ public:
 		renderManager_.SetBlendFactor(color);
 	}
 
+	void SetStencilRef(uint8_t ref) override {
+		stencilRef_ = ref;
+		renderManager_.SetStencilFunc(
+			curPipeline_->depthStencil->stencilEnabled,
+			curPipeline_->depthStencil->stencilCompareOp,
+			ref,
+			curPipeline_->depthStencil->stencilCompareMask);
+	}
+
 	void BindTextures(int start, int count, Texture **textures) override;
 	void BindPipeline(Pipeline *pipeline) override;
 	void BindVertexBuffers(int start, int count, Buffer **buffers, int *offsets) override {
@@ -484,6 +492,8 @@ private:
 	int curVBufferOffsets_[4]{};
 	OpenGLBuffer *curIBuffer_ = nullptr;
 	int curIBufferOffset_ = 0;
+
+	uint8_t stencilRef_ = 0;
 
 	// Frames in flight is not such a strict concept as with Vulkan until we start using glBufferStorage and fences.
 	// But might as well have the structure ready, and can't hurt to rotate buffers.
@@ -750,7 +760,6 @@ DepthStencilState *OpenGLContext::CreateDepthStencilState(const DepthStencilStat
 	ds->stencilFail = stencilOpToGL[(int)desc.front.failOp];
 	ds->stencilZFail = stencilOpToGL[(int)desc.front.depthFailOp];
 	ds->stencilWriteMask = desc.front.writeMask;
-	ds->stencilReference = desc.front.reference;
 	ds->stencilCompareMask = desc.front.compareMask;
 	return ds;
 }
@@ -959,7 +968,7 @@ bool OpenGLPipeline::LinkShaders() {
 void OpenGLContext::BindPipeline(Pipeline *pipeline) {
 	curPipeline_ = (OpenGLPipeline *)pipeline;
 	curPipeline_->blend->Apply(&renderManager_);
-	curPipeline_->depthStencil->Apply(&renderManager_);
+	curPipeline_->depthStencil->Apply(&renderManager_, stencilRef_);
 	curPipeline_->raster->Apply(&renderManager_);
 	renderManager_.BindProgram(curPipeline_->program_);
 }

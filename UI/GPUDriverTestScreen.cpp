@@ -4,27 +4,39 @@
 
 static const std::vector<Draw::ShaderSource> fsDiscard = {
 	{Draw::ShaderLanguage::GLSL_ES_200,
-	R"(varying vec4 oColor0;
+	R"(
+	#ifdef GL_ES
+	precision lowp float;
+	#endif
+	#if __VERSION__ >= 130
+	#define varying in
+	#define gl_FragColor fragColor0
+	out vec4 fragColor0;
+	#endif
+	varying vec4 oColor0;
 	varying vec2 oTexCoord0;
 	uniform sampler2D Sampler0;
 	void main() {
-       vec4 color = texture2D(Sampler0, oTexCoord0) * oColor0;
-	   if (color.a <= 0.0)
-         discard;
-       gl_FragColor = color;
+		vec4 color = texture2D(Sampler0, oTexCoord0) * oColor0;
+		if (color.a <= 0.0)
+			discard;
+		gl_FragColor = color;
 	})"
 	},
 	{Draw::ShaderLanguage::GLSL_VULKAN,
-	R"(layout(location = 0) in vec4 oColor0;
+	R"(#version 140
+	#extension GL_ARB_separate_shader_objects : enable
+	#extension GL_ARB_shading_language_420pack : enable
+	layout(location = 0) in vec4 oColor0;
 	layout(location = 1) in vec2 oTexCoord0;
 	layout(location = 0) out vec4 fragColor0;
 	layout(set = 0, binding = 1) uniform sampler2D Sampler0;
 	void main() {
-      vec4 color = texture(Sampler0, oTexCoord0) * oColor0;
-      if (color.a <= 0.0)
-		discard;
-	  fragColor0 = color;
-    })"
+		vec4 color = texture(Sampler0, oTexCoord0) * oColor0;
+		if (color.a <= 0.0)
+			discard;
+		fragColor0 = color;
+	})"
 	},
 };
 
@@ -81,7 +93,6 @@ void GPUDriverTestScreen::render() {
 		dsDesc.front.passOp = StencilOp::REPLACE;
 		dsDesc.front.failOp = StencilOp::ZERO;
 		dsDesc.front.depthFailOp = StencilOp::ZERO;
-		dsDesc.front.reference = 0xFF;
 		dsDesc.front.writeMask = 0xFF;
 		dsDesc.back = dsDesc.front;
 		DepthStencilState *depthStencilWrite = draw->CreateDepthStencilState(dsDesc);
@@ -129,9 +140,11 @@ void GPUDriverTestScreen::render() {
 	}
 
 	UIContext &dc = *screenManager()->getUIContext();
+	Draw::DrawContext *draw = dc.GetDrawContext();
 	const Bounds &bounds = dc.GetBounds();
 
 	const char *testNames[] = {"Normal", "Z test", "Stencil test"};
+	Pipeline *testPipelines[] = { drawTestStencil_, drawTestDepth_, drawTestStencil_ };
 
 	const int numTests = ARRAY_SIZE(testNames);
 
@@ -152,6 +165,7 @@ void GPUDriverTestScreen::render() {
 		dc.Begin();
 		dc.SetFontScale(1.0f, 1.0f);
 		Bounds bounds = {x - testW / 2, y + 40, testW, 70};
+		draw->SetStencilRef(0x0);
 		dc.DrawText(testNames[i], bounds.x, y, style.fgColor, FLAG_DYNAMIC_ASCII);
 
 		dc.FillRect(UI::Drawable(bgColorOK), bounds);

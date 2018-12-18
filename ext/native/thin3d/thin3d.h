@@ -416,7 +416,6 @@ struct StencilSide {
 	Comparison compareOp;
 	uint8_t compareMask;
 	uint8_t writeMask;
-	uint8_t reference;
 };
 
 struct DepthStencilStateDesc {
@@ -588,6 +587,7 @@ public:
 	virtual void SetScissorRect(int left, int top, int width, int height) = 0;
 	virtual void SetViewports(int count, Viewport *viewports) = 0;
 	virtual void SetBlendFactor(float color[4]) = 0;
+	virtual void SetStencilRef(uint8_t ref) = 0;
 
 	virtual void BindSamplerStates(int start, int count, SamplerState **state) = 0;
 	virtual void BindTextures(int start, int count, Texture **textures) = 0;

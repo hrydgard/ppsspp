@@ -95,6 +95,10 @@ public:
 			blendFactorDirty_ = true;
 		}
 	}
+	void SetStencilRef(uint8_t ref) override {
+		stencilRef_ = ref;
+		stencilRefDirty_ = true;
+	}
 
 	void Draw(int vertexCount, int offset) override;
 	void DrawIndexed(int vertexCount, int offset) override;
@@ -204,8 +208,8 @@ private:
 	// Dynamic state
 	float blendFactor_[4]{};
 	bool blendFactorDirty_ = false;
-	uint8_t stencilRef_;
-	bool stencilRefDirty_;
+	uint8_t stencilRef_ = 0;
+	bool stencilRefDirty_ = true;
 
 	// Temporaries
 	ID3D11Texture2D *packTexture_ = nullptr;
@@ -975,7 +979,6 @@ void D3D11DrawContext::BindPipeline(Pipeline *pipeline) {
 	curPipeline_ = dPipeline;
 }
 
-// Gonna need dirtyflags soon..
 void D3D11DrawContext::ApplyCurrentState() {
 	if (curBlend_ != curPipeline_->blend || blendFactorDirty_) {
 		context_->OMSetBlendState(curPipeline_->blend->bs, blendFactor_, 0xFFFFFFFF);
