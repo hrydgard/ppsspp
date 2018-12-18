@@ -36,7 +36,7 @@ namespace DX9 {
 static const char *stencil_ps = R"(
 sampler tex: register(s0);
 // TODO: Don't use fixed registers?  Or don't overlap?
-float4 u_stencilValue : register(c" STR(CONST_PS_STENCILVALUE) ");
+float4 u_stencilValue : register(c)" STR(CONST_PS_STENCILVALUE) R"();
 struct PS_IN {
   float2 v_texcoord0 : TEXCOORD0;
 };
