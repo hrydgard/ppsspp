@@ -38,12 +38,12 @@ void UIContext::BeginFrame() {
 			FLOG("Failed to load ui_atlas.zim");
 		}
 	}
+	ActivateTopScissor();
 }
 
 void UIContext::Begin() {
 	draw_->BindSamplerStates(0, 1, &sampler_);
 	draw_->BindTexture(0, uitexture_->GetTexture());
-	ActivateTopScissor();
 	UIBegin(ui_pipeline_);
 }
 
@@ -58,18 +58,11 @@ void UIContext::RebindTexture() const {
 
 void UIContext::Flush() {
 	if (uidrawbuffer_) {
-		uidrawbuffer_->End();
 		uidrawbuffer_->Flush();
 	}
 	if (uidrawbufferTop_) {
-		uidrawbufferTop_->End();
 		uidrawbufferTop_->Flush();
 	}
-}
-
-void UIContext::End() {
-	UIEnd();
-	Flush();
 }
 
 // TODO: Support transformed bounds using stencil instead.

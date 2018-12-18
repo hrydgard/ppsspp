@@ -63,7 +63,7 @@ public:
 	~DrawBuffer();
 
 	void Begin(Draw::Pipeline *pipeline);
-	void End();
+	void Flush(bool set_blend_state = true);
 
 	// TODO: Enforce these. Now Init is autocalled and shutdown not called.
 	void Init(Draw::DrawContext *t3d, Draw::Pipeline *pipeline);
@@ -73,8 +73,6 @@ public:
 	Draw::InputLayout *CreateInputLayout(Draw::DrawContext *t3d);
 
 	int Count() const { return count_; }
-
-	void Flush(bool set_blend_state = true);
 
 	void Rect(float x, float y, float w, float h, uint32_t color, int align = ALIGN_TOPLEFT);
 	void hLine(float x1, float y, float x2, uint32_t color);

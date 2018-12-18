@@ -513,7 +513,6 @@ void LogoScreen::render() {
 	dc.DrawText(gr->T(apiName), bounds.centerX(), ppsspp_org_y + 50, textColor, ALIGN_CENTER);
 #endif
 
-	dc.End();
 	dc.Flush();
 }
 
@@ -768,6 +767,5 @@ void CreditsScreen::render() {
 		y += itemHeight;
 	}
 
-	dc.End();
 	dc.Flush();
 }

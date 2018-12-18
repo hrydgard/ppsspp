@@ -80,7 +80,6 @@ private:
 	bool invalid_;
 	bool quit_;
 	bool stopRender_ = false;
-	bool hasVisibleUI_ = true;
 	std::string errorMessage_;
 
 	// If set, pauses at the end of the frame.
