@@ -27,7 +27,11 @@
 
 static const char *depth_dl_fs = R"(
 #ifdef GL_ES
+#if GL_FRAGMENT_PRECISION_HIGH
 precision highp float;
+#else
+precision mediump float;
+#endif
 #endif
 #if __VERSION__ >= 130
 #define varying in
@@ -36,17 +40,18 @@ precision highp float;
 out vec4 fragColor0;
 #endif
 varying vec2 v_texcoord0;
-uniform float u_depthScaleFactor;
+uniform vec2 u_depthFactor;
+uniform vec4 u_depthShift;
+uniform vec4 u_depthTo8;
 uniform sampler2D tex;
 void main() {
   float depth = texture2D(tex, v_texcoord0).r;
-  float offset = 0.5 * (u_depthScaleFactor - 1.0) * (1.0 / u_depthScaleFactor);
   // At this point, clamped maps [0, 1] to [0, 65535].
-  float clamped = clamp((depth - offset) * u_depthScaleFactor, 0.0, 1.0);
+  float clamped = clamp((depth + u_depthFactor.x) * u_depthFactor.y, 0.0, 1.0);
 
-  vec4 enc = vec4(16777215.0, 16777215.0 / 256.0, 16777215.0 / 65536.0, 16777215.0 / 16777216.0) * clamped;
-  enc = floor(mod(enc, 256.0));
-  enc = enc * vec4(1.0 / 255.0, 1.0 / 255.0, 1.0 / 255.0, 1.0 / 255.0);
+  vec4 enc = u_depthShift * clamped;
+  enc = floor(mod(enc, 256.0)) * u_depthTo8;
+  enc = enc * u_depthTo8;
   // Let's ignore the bits outside 16 bit precision.
   gl_FragColor = enc.yzww;
 }
@@ -106,7 +111,9 @@ void FramebufferManagerGLES::PackDepthbuffer(VirtualFramebuffer *vfb, int x, int
 			semantics.push_back({ 1, "a_texcoord0" });
 			std::vector<GLRProgram::UniformLocQuery> queries;
 			queries.push_back({ &u_depthDownloadTex, "tex" });
-			queries.push_back({ &u_depthDownloadFactor, "u_depthScaleFactor" });
+			queries.push_back({ &u_depthDownloadFactor, "u_depthFactor" });
+			queries.push_back({ &u_depthDownloadShift, "u_depthShift" });
+			queries.push_back({ &u_depthDownloadTo8, "u_depthTo8" });
 			std::vector<GLRProgram::Initializer> inits;
 			inits.push_back({ &u_depthDownloadTex, 0, TEX_SLOT_PSP_TEXTURE });
 			depthDownloadProgram_ = render_->CreateProgram(shaders, semantics, queries, inits, false);
@@ -131,10 +138,18 @@ void FramebufferManagerGLES::PackDepthbuffer(VirtualFramebuffer *vfb, int x, int
 		render_->BindProgram(depthDownloadProgram_);
 
 		if (!gstate_c.Supports(GPU_SUPPORTS_ACCURATE_DEPTH)) {
-			render_->SetUniformF1(&u_depthDownloadFactor, 1.0f);
+			float factors[] = { 0.0f, 1.0f };
+			render_->SetUniformF(&u_depthDownloadFactor, 2, factors);
 		} else {
-			render_->SetUniformF1(&u_depthDownloadFactor, DepthSliceFactor());
+			const float factor = DepthSliceFactor();
+			float factors[] = { -0.5f * (factor - 1.0f) * (1.0f / factor), factor };
+			render_->SetUniformF(&u_depthDownloadFactor, 2, factors);
 		}
+		float shifts[] = { 16777215.0f, 16777215.0f / 256.0f, 16777215.0f / 65536.0f, 16777215.0f / 16777216.0f };
+		render_->SetUniformF(&u_depthDownloadShift, 4, shifts);
+		float to8[] = { 1.0f / 255.0f, 1.0f / 255.0f, 1.0f / 255.0f, 1.0f / 255.0f };
+		render_->SetUniformF(&u_depthDownloadTo8, 4, to8);
+
 		draw_->BindFramebufferAsTexture(vfb->fbo, TEX_SLOT_PSP_TEXTURE, Draw::FB_DEPTH_BIT, 0);
 		float u1 = 1.0f;
 		float v1 = 1.0f;
