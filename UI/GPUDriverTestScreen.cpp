@@ -186,11 +186,20 @@ void GPUDriverTestScreen::DiscardTest() {
 
 	// If everything is OK, both the background and the text should be OK.
 
+	dc.Begin();
+	std::string apiName = screenManager()->getDrawContext()->GetInfoString(InfoField::APINAME);
+	std::string vendor = screenManager()->getDrawContext()->GetInfoString(InfoField::VENDORSTRING);
+	std::string driver = screenManager()->getDrawContext()->GetInfoString(InfoField::DRIVER);
+	dc.DrawText(apiName.c_str(), bounds.centerX(), 20, 0xFFFFFFFF, ALIGN_CENTER);
+	dc.DrawText(vendor.c_str(), bounds.centerX(), 60, 0xFFFFFFFF, ALIGN_CENTER);
+	dc.DrawText(driver.c_str(), bounds.centerX(), 100, 0xFFFFFFFF, ALIGN_CENTER);
+	dc.Flush();
+
 	float testW = 200.f;
 	float padding = 20.0f;
 	UI::Style style = dc.theme->itemStyle;
 
-	float y = 100;
+	float y = 150;
 	float x = (dc.GetBounds().w - (float)numTests * testW - (float)(numTests - 1) * padding) / 2.0f;
 	for (int i = 0; i < numTests; i++) {
 		dc.Begin();
