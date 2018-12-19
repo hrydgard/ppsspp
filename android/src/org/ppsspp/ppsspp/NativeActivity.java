@@ -517,8 +517,13 @@ public abstract class NativeActivity extends Activity implements SurfaceHolder.C
 			if (Build.MANUFACTURER == "OUYA") {
 				mGLSurfaceView.getHolder().setFormat(PixelFormat.RGBX_8888);
 				mGLSurfaceView.setEGLConfigChooser(new NativeEGLConfigChooser());
+			} else {
+				// Tried to mess around with config choosers (NativeEGLConfigChooser) here but fail completely on Xperia Play.
+				// On the other hand, I think from ICS we should be safe to at least require 8888 and stencil...
+				if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.ICE_CREAM_SANDWICH) {
+					mGLSurfaceView.setEGLConfigChooser(8, 8, 8, 8, 16, 8);
+				}
 			}
-			// Tried to mess around with config choosers here but fail completely on Xperia Play.
 			mGLSurfaceView.setRenderer(nativeRenderer);
 			setContentView(mGLSurfaceView);
 		} else {
