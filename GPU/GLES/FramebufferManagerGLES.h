@@ -103,6 +103,12 @@ private:
 	int u_stencilUploadTex = -1;
 	int u_stencilValue = -1;
 	int u_postShaderTex = -1;
+
+	GLRProgram *depthDownloadProgram_ = nullptr;
+	int u_depthDownloadTex = -1;
+	int u_depthDownloadFactor = -1;
+	int u_depthDownloadShift = -1;
+	int u_depthDownloadTo8 = -1;
 	
 	// Cached uniform locs
 	int u_draw2d_tex = -1;

@@ -20,6 +20,7 @@
 #include "Core/ConfigValues.h"
 #include "Core/Reporting.h"
 #include "GPU/Common/StencilCommon.h"
+#include "GPU/GLES/DrawEngineGLES.h"
 #include "GPU/GLES/FramebufferManagerGLES.h"
 #include "GPU/GLES/ShaderManagerGLES.h"
 #include "GPU/GLES/TextureCacheGLES.h"
@@ -143,7 +144,7 @@ bool FramebufferManagerGLES::NotifyStencilUpload(u32 addr, int size, bool skipZe
 		queries.push_back({ &u_stencilUploadTex, "tex" });
 		queries.push_back({ &u_stencilValue, "u_stencilValue" });
 		std::vector<GLRProgram::Initializer> inits;
-		inits.push_back({ &u_stencilUploadTex, 0, 0 });
+		inits.push_back({ &u_stencilUploadTex, 0, TEX_SLOT_PSP_TEXTURE });
 		stencilUploadProgram_ = render_->CreateProgram(shaders, semantics, queries, inits, false);
 		for (auto iter : shaders) {
 			render_->DeleteShader(iter);

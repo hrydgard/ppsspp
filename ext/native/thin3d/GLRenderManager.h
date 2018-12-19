@@ -52,7 +52,9 @@ public:
 
 	GLuint handle = 0;
 	GLRTexture color_texture;
-	GLuint z_stencil_buffer = 0;  // Either this is set, or the two below.
+	// Either z_stencil_texture, z_stencil_buffer, or (z_buffer and stencil_buffer) are set.
+	GLuint z_stencil_buffer = 0;
+	GLRTexture z_stencil_texture;
 	GLuint z_buffer = 0;
 	GLuint stencil_buffer = 0;
 
