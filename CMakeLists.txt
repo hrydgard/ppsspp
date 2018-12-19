@@ -850,6 +850,7 @@ list(APPEND NativeAppSource
 	UI/PauseScreen.cpp
 	UI/GameScreen.cpp
 	UI/GameSettingsScreen.cpp
+	UI/GPUDriverTestScreen.cpp
 	UI/TiltAnalogSettingsScreen.cpp
 	UI/TiltEventProcessor.cpp
 	UI/TouchControlLayoutScreen.cpp
