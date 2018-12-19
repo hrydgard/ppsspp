@@ -47,6 +47,10 @@ GPUDriverTestScreen::GPUDriverTestScreen() {
 GPUDriverTestScreen::~GPUDriverTestScreen() {
 	if (discardWriteDepthStencil_)
 		discardWriteDepthStencil_->Release();
+	if (drawTestStencilEqualDepthAlways_)
+		drawTestStencilEqualDepthAlways_->Release();
+	if (drawTestStencilNotEqualDepthAlways_)
+		drawTestStencilNotEqualDepthAlways_->Release();
 	if (drawTestStencilEqual_)
 		drawTestStencilEqual_->Release();
 	if (drawTestStencilNotEqual_)
@@ -107,16 +111,29 @@ void GPUDriverTestScreen::DiscardTest() {
 		dsDesc.back = dsDesc.front;
 		DepthStencilState *depthStencilWrite = draw->CreateDepthStencilState(dsDesc);
 
+		dsDesc.depthTestEnabled = true;
 		dsDesc.depthCompare = Comparison::ALWAYS;
+		dsDesc.front.compareOp = Comparison::EQUAL;
+		dsDesc.back = dsDesc.front;
+		DepthStencilState *stencilTestEqualDepthAlways = draw->CreateDepthStencilState(dsDesc);
+
+		dsDesc.depthTestEnabled = false;
 		dsDesc.front.compareOp = Comparison::EQUAL;
 		dsDesc.back = dsDesc.front;
 		DepthStencilState *stencilTestEqual = draw->CreateDepthStencilState(dsDesc);
 
+		dsDesc.depthTestEnabled = true;
 		dsDesc.depthCompare = Comparison::ALWAYS;
+		dsDesc.front.compareOp = Comparison::NOT_EQUAL;
+		dsDesc.back = dsDesc.front;
+		DepthStencilState *stencilTestNotEqualDepthAlways = draw->CreateDepthStencilState(dsDesc);
+
+		dsDesc.depthTestEnabled = false;
 		dsDesc.front.compareOp = Comparison::NOT_EQUAL;
 		dsDesc.back = dsDesc.front;
 		DepthStencilState *stencilTestNotEqual = draw->CreateDepthStencilState(dsDesc);
 
+		dsDesc.depthTestEnabled = true;
 		dsDesc.depthCompare = Comparison::LESS_EQUAL;
 		dsDesc.front.compareOp = Comparison::ALWAYS;
 		dsDesc.back = dsDesc.front;
@@ -140,8 +157,14 @@ void GPUDriverTestScreen::DiscardTest() {
 		};
 		drawTestStencilEqual_ = draw->CreateGraphicsPipeline(testDesc);
 
+		testDesc.depthStencil = stencilTestEqualDepthAlways;
+		drawTestStencilEqualDepthAlways_ = draw->CreateGraphicsPipeline(testDesc);
+
 		testDesc.depthStencil = stencilTestNotEqual;
 		drawTestStencilNotEqual_ = draw->CreateGraphicsPipeline(testDesc);
+
+		testDesc.depthStencil = stencilTestNotEqualDepthAlways;
+		drawTestStencilNotEqualDepthAlways_ = draw->CreateGraphicsPipeline(testDesc);
 
 		testDesc.depthStencil = depthTestGreater;
 		drawTestDepthGreater_ = draw->CreateGraphicsPipeline(testDesc);
@@ -154,6 +177,8 @@ void GPUDriverTestScreen::DiscardTest() {
 		depthStencilWrite->Release();
 		stencilTestEqual->Release();
 		stencilTestNotEqual->Release();
+		stencilTestEqualDepthAlways->Release();
+		stencilTestNotEqualDepthAlways->Release();
 		depthTestLessEqual->Release();
 		depthTestGreater->Release();
 		rasterNoCull->Release();
@@ -166,9 +191,9 @@ void GPUDriverTestScreen::DiscardTest() {
 	Draw::DrawContext *draw = dc.GetDrawContext();
 	const Bounds &bounds = dc.GetBounds();
 
-	const char *testNames[] = { "Stencil test", "Depth test" };
-	Pipeline *testPipeline1[] = { drawTestStencilEqual_, drawTestDepthLessEqual_ };
-	Pipeline *testPipeline2[] = { drawTestStencilNotEqual_, drawTestDepthGreater_ };
+	const char *testNames[] = { "Stencil", "Stencil+DepthA", "StencilA+Depth" };
+	Pipeline *testPipeline1[] = { drawTestStencilEqual_, drawTestStencilEqualDepthAlways_, drawTestDepthLessEqual_ };
+	Pipeline *testPipeline2[] = { drawTestStencilNotEqual_, drawTestStencilNotEqualDepthAlways_, drawTestDepthGreater_ };
 
 	const int numTests = ARRAY_SIZE(testNames);
 
@@ -195,7 +220,7 @@ void GPUDriverTestScreen::DiscardTest() {
 	dc.DrawText(driver.c_str(), bounds.centerX(), 100, 0xFFFFFFFF, ALIGN_CENTER);
 	dc.Flush();
 
-	float testW = 200.f;
+	float testW = 220.f;
 	float padding = 20.0f;
 	UI::Style style = dc.theme->itemStyle;
 

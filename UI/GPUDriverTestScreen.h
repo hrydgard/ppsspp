@@ -27,6 +27,8 @@ private:
 	Draw::Pipeline *discardWriteDepthStencil_ = nullptr;
 	Draw::Pipeline *drawTestStencilEqual_ = nullptr;
 	Draw::Pipeline *drawTestStencilNotEqual_ = nullptr;
+	Draw::Pipeline *drawTestStencilEqualDepthAlways_ = nullptr;
+	Draw::Pipeline *drawTestStencilNotEqualDepthAlways_ = nullptr;
 	Draw::Pipeline *drawTestDepthLessEqual_ = nullptr;
 	Draw::Pipeline *drawTestDepthGreater_ = nullptr;
 	Draw::SamplerState *samplerNearest_ = nullptr;
