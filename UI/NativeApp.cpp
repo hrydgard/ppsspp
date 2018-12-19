@@ -96,6 +96,7 @@
 #include "UI/BackgroundAudio.h"
 #include "UI/TextureUtil.h"
 #include "UI/DiscordIntegration.h"
+#include "UI/GPUDriverTestScreen.h"
 
 #if !defined(MOBILE_DEVICE)
 #include "Common/KeyMap.h"
@@ -677,6 +678,9 @@ void NativeInit(int argc, const char *argv[], const char *savegame_dir, const ch
 	} else {
 		screenManager->switchScreen(new LogoScreen());
 	}
+
+	// Easy testing
+	// screenManager->push(new GPUDriverTestScreen());
 
 	if (g_Config.bRemoteShareOnStartup && g_Config.bRemoteDebuggerOnStartup)
 		StartWebServer(WebServerFlags::ALL);

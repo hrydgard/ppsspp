@@ -97,7 +97,7 @@ public:
 
 	void V(float x, float y, float z, uint32_t color, float u, float v);
 	void V(float x, float y, uint32_t color, float u, float v) {
-		V(x, y, 0.0f, color, u, v);
+		V(x, y, curZ_, color, u, v);
 	}
 
 	void Circle(float x, float y, float radius, float thickness, int segments, float startAngle, uint32_t color, float u_mul);
@@ -166,6 +166,10 @@ public:
 		alphaStack_.pop_back();
 	}
 
+	void SetCurZ(float curZ) {
+		curZ_ = curZ;
+	}
+
 private:
 	struct Vertex {
 		float x, y, z;
@@ -191,5 +195,7 @@ private:
 	bool inited_;
 	float fontscalex;
 	float fontscaley;
+
+	float curZ_ = 0.0f;
 };
 

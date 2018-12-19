@@ -275,6 +275,10 @@ public:
 	int stride[4]{};
 	int dynamicUniformSize = 0;
 
+	bool usesStencil = false;
+	uint8_t stencilWriteMask = 0xFF;
+	uint8_t stencilTestMask = 0xFF;
+
 private:
 	VulkanContext *vulkan_;
 	uint8_t *ubo_;
@@ -388,6 +392,7 @@ public:
 	void SetScissorRect(int left, int top, int width, int height) override;
 	void SetViewports(int count, Viewport *viewports) override;
 	void SetBlendFactor(float color[4]) override;
+	void SetStencilRef(uint8_t stencilRef) override;
 
 	void BindSamplerStates(int start, int count, SamplerState **state) override;
 	void BindTextures(int start, int count, Texture **textures) override;
@@ -413,6 +418,8 @@ public:
 	void Draw(int vertexCount, int offset) override;
 	void DrawIndexed(int vertexCount, int offset) override;
 	void DrawUP(const void *vdata, int vertexCount) override;
+
+	void ApplyDynamicState();
 
 	void Clear(int mask, uint32_t colorval, float depthVal, int stencilVal) override;
 
@@ -541,6 +548,8 @@ private:
 	VulkanPushBuffer *push_ = nullptr;
 
 	DeviceCaps caps_{};
+
+	uint8_t stencilRef_ = 0;
 };
 
 static int GetBpp(VkFormat format) {
@@ -979,9 +988,10 @@ Pipeline *VKContext::CreateGraphicsPipeline(const PipelineDesc &desc) {
 	inputAssembly.topology = primToVK[(int)desc.prim];
 	inputAssembly.primitiveRestartEnable = false;
 
-	VkDynamicState dynamics[] = { VK_DYNAMIC_STATE_VIEWPORT, VK_DYNAMIC_STATE_SCISSOR };
+	// We treat the three stencil states as a unit in other places, so let's do that here too.
+	VkDynamicState dynamics[] = { VK_DYNAMIC_STATE_VIEWPORT, VK_DYNAMIC_STATE_SCISSOR, VK_DYNAMIC_STATE_STENCIL_COMPARE_MASK, VK_DYNAMIC_STATE_STENCIL_REFERENCE, VK_DYNAMIC_STATE_STENCIL_WRITE_MASK };
 	VkPipelineDynamicStateCreateInfo dynamicInfo = { VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO };
-	dynamicInfo.dynamicStateCount = ARRAY_SIZE(dynamics);
+	dynamicInfo.dynamicStateCount = depth->info.stencilTestEnable ? ARRAY_SIZE(dynamics) : 2;
 	dynamicInfo.pDynamicStates = dynamics;
 
 	VkPipelineMultisampleStateCreateInfo ms = { VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO };
@@ -1027,7 +1037,11 @@ Pipeline *VKContext::CreateGraphicsPipeline(const PipelineDesc &desc) {
 	if (desc.uniformDesc) {
 		pipeline->dynamicUniformSize = (int)desc.uniformDesc->uniformBufferSize;
 	}
-
+	if (depth->info.stencilTestEnable) {
+		pipeline->usesStencil = true;
+		pipeline->stencilTestMask = depth->info.front.compareMask;
+		pipeline->stencilWriteMask = depth->info.front.writeMask;
+	}
 	return pipeline;
 }
 
@@ -1051,6 +1065,12 @@ void VKContext::SetViewports(int count, Viewport *viewports) {
 
 void VKContext::SetBlendFactor(float color[4]) {
 	renderManager_.SetBlendFactor(color);
+}
+
+void VKContext::SetStencilRef(uint8_t stencilRef) {
+	if (curPipeline_->usesStencil)
+		renderManager_.SetStencilParams(curPipeline_->stencilWriteMask, curPipeline_->stencilTestMask, stencilRef);
+	stencilRef_ = stencilRef;
 }
 
 InputLayout *VKContext::CreateInputLayout(const InputLayoutDesc &desc) {
@@ -1096,7 +1116,6 @@ Texture *VKContext::CreateTexture(const TextureDesc &desc) {
 
 static inline void CopySide(VkStencilOpState &dest, const StencilSide &src) {
 	dest.compareMask = src.compareMask;
-	dest.reference = src.reference;
 	dest.writeMask = src.writeMask;
 	dest.compareOp = compToVK[(int)src.compareOp];
 	dest.failOp = stencilOpToVK[(int)src.failOp];
@@ -1109,7 +1128,7 @@ DepthStencilState *VKContext::CreateDepthStencilState(const DepthStencilStateDes
 	ds->info.depthCompareOp = compToVK[(int)desc.depthCompare];
 	ds->info.depthTestEnable = desc.depthTestEnabled;
 	ds->info.depthWriteEnable = desc.depthWriteEnabled;
-	ds->info.stencilTestEnable = false;
+	ds->info.stencilTestEnable = desc.stencilEnabled;
 	ds->info.depthBoundsTestEnable = false;
 	if (ds->info.stencilTestEnable) {
 		CopySide(ds->info.front, desc.front);
@@ -1197,6 +1216,13 @@ void VKContext::UpdateDynamicUniformBuffer(const void *ub, size_t size) {
 	curPipeline_->SetDynamicUniformData(ub, size);
 }
 
+void VKContext::ApplyDynamicState() {
+	// TODO: blend constants, stencil, viewports should be here, after bindpipeline..
+	if (curPipeline_->usesStencil) {
+		renderManager_.SetStencilParams(curPipeline_->stencilWriteMask, curPipeline_->stencilTestMask, stencilRef_);
+	}
+}
+
 void VKContext::Draw(int vertexCount, int offset) {
 	VKBuffer *vbuf = curVBuffers_[0];
 
@@ -1208,7 +1234,7 @@ void VKContext::Draw(int vertexCount, int offset) {
 	VkDescriptorSet descSet = GetOrCreateDescriptorSet(vulkanUBObuf);
 
 	renderManager_.BindPipeline(curPipeline_->vkpipeline);
-	// TODO: blend constants, stencil, viewports should be here, after bindpipeline..
+	ApplyDynamicState();
 	renderManager_.Draw(pipelineLayout_, descSet, 1, &ubo_offset, vulkanVbuf, (int)vbBindOffset, vertexCount);
 }
 
@@ -1224,7 +1250,7 @@ void VKContext::DrawIndexed(int vertexCount, int offset) {
 	VkDescriptorSet descSet = GetOrCreateDescriptorSet(vulkanUBObuf);
 
 	renderManager_.BindPipeline(curPipeline_->vkpipeline);
-	// TODO: blend constants, stencil, viewports should be here, after bindpipeline..
+	ApplyDynamicState();
 	renderManager_.DrawIndexed(pipelineLayout_, descSet, 1, &ubo_offset, vulkanVbuf, (int)vbBindOffset, vulkanIbuf, (int)ibBindOffset, vertexCount, 1, VK_INDEX_TYPE_UINT32);
 }
 
@@ -1236,7 +1262,7 @@ void VKContext::DrawUP(const void *vdata, int vertexCount) {
 	VkDescriptorSet descSet = GetOrCreateDescriptorSet(vulkanUBObuf);
 
 	renderManager_.BindPipeline(curPipeline_->vkpipeline);
-	// TODO: blend constants, stencil, viewports should be here, after bindpipeline..
+	ApplyDynamicState();
 	renderManager_.Draw(pipelineLayout_, descSet, 1, &ubo_offset, vulkanVbuf, (int)vbBindOffset, vertexCount);
 }
 

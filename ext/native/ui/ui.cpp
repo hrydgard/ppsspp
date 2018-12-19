@@ -15,9 +15,9 @@
 DrawBuffer ui_draw2d;
 DrawBuffer ui_draw2d_front;
 
-void UIBegin(Draw::Pipeline *shaderSet) {
-	ui_draw2d.Begin(shaderSet);
-	ui_draw2d_front.Begin(shaderSet);
+void UIBegin(Draw::Pipeline *pipeline) {
+	ui_draw2d.Begin(pipeline);
+	ui_draw2d_front.Begin(pipeline);
 }
 
 void UIFlush() {
