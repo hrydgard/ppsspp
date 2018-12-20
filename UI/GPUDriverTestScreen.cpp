@@ -128,6 +128,7 @@ void GPUDriverTestScreen::DiscardTest() {
 		// Write only stencil.
 		dsDesc.stencilEnabled = true;
 		dsDesc.depthTestEnabled = false;
+		dsDesc.depthWriteEnabled = false;  // Just in case the driver is crazy. when test is enabled, though, this should be ignored.
 		DepthStencilState *stencilWrite = draw->CreateDepthStencilState(dsDesc);
 
 		// Now for the shaders that read depth and/or stencil.
