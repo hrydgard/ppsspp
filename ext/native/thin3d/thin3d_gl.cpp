@@ -186,7 +186,7 @@ public:
 	bool depthTestEnabled;
 	bool depthWriteEnabled;
 	GLuint depthComp;
-	// TODO: Two-sided
+	// TODO: Two-sided. Although in practice, do we care?
 	bool stencilEnabled;
 	GLuint stencilFail;
 	GLuint stencilZFail;
