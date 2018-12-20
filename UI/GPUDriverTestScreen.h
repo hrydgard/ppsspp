@@ -23,7 +23,7 @@ public:
 private:
 	void DiscardTest();
 
-	Draw::ShaderModule *discard_ = nullptr;
+	Draw::ShaderModule *discardFragShader_ = nullptr;
 	Draw::Pipeline *discardWriteDepthStencil_ = nullptr;
 	Draw::Pipeline *discardWriteDepth_ = nullptr;
 	Draw::Pipeline *discardWriteStencil_ = nullptr;

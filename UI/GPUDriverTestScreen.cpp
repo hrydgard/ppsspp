@@ -51,6 +51,7 @@ GPUDriverTestScreen::~GPUDriverTestScreen() {
 		discardWriteDepth_->Release();
 	if (discardWriteStencil_)
 		discardWriteStencil_->Release();
+
 	if (drawTestStencilEqualDepthAlways_)
 		drawTestStencilEqualDepthAlways_->Release();
 	if (drawTestStencilNotEqualDepthAlways_)
@@ -63,8 +64,13 @@ GPUDriverTestScreen::~GPUDriverTestScreen() {
 		drawTestStencilAlwaysDepthLessEqual_->Release();
 	if (drawTestStencilAlwaysDepthGreater_)
 		drawTestStencilAlwaysDepthGreater_->Release();
-	if (discard_)
-		discard_->Release();
+	if (drawTestDepthLessEqual_)
+		drawTestDepthLessEqual_->Release();
+	if (drawTestDepthGreater_)
+		drawTestDepthGreater_->Release();
+
+	if (discardFragShader_)
+		discardFragShader_->Release();
 	if (samplerNearest_)
 		samplerNearest_->Release();
 }
@@ -95,7 +101,7 @@ void GPUDriverTestScreen::DiscardTest() {
 
 		// Create the special shader module.
 
-		discard_ = CreateShader(draw, Draw::ShaderStage::FRAGMENT, fsDiscard);
+		discardFragShader_ = CreateShader(draw, Draw::ShaderStage::FRAGMENT, fsDiscard);
 
 		InputLayout *inputLayout = ui_draw2d.CreateInputLayout(draw);
 		BlendState *blendOff = draw->CreateBlendState({ false, 0xF });
@@ -169,7 +175,7 @@ void GPUDriverTestScreen::DiscardTest() {
 
 		PipelineDesc discardDesc{
 			Primitive::TRIANGLE_LIST,
-			{ draw->GetVshaderPreset(VS_TEXTURE_COLOR_2D), discard_ },
+			{ draw->GetVshaderPreset(VS_TEXTURE_COLOR_2D), discardFragShader_ },
 			inputLayout, depthStencilWrite, blendOff, rasterNoCull, &vsColBufDesc,
 		};
 		discardWriteDepthStencil_ = draw->CreateGraphicsPipeline(discardDesc);
