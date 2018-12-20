@@ -25,12 +25,21 @@ private:
 
 	Draw::ShaderModule *discard_ = nullptr;
 	Draw::Pipeline *discardWriteDepthStencil_ = nullptr;
+	Draw::Pipeline *discardWriteDepth_ = nullptr;
+	Draw::Pipeline *discardWriteStencil_ = nullptr;
+
+	// Stencil test, with and without DepthAlways
 	Draw::Pipeline *drawTestStencilEqual_ = nullptr;
 	Draw::Pipeline *drawTestStencilNotEqual_ = nullptr;
 	Draw::Pipeline *drawTestStencilEqualDepthAlways_ = nullptr;
 	Draw::Pipeline *drawTestStencilNotEqualDepthAlways_ = nullptr;
+
+	// Depth tests with and without StencilAlways
+	Draw::Pipeline *drawTestStencilAlwaysDepthLessEqual_ = nullptr;
+	Draw::Pipeline *drawTestStencilAlwaysDepthGreater_ = nullptr;
 	Draw::Pipeline *drawTestDepthLessEqual_ = nullptr;
 	Draw::Pipeline *drawTestDepthGreater_ = nullptr;
+
 	Draw::SamplerState *samplerNearest_ = nullptr;
 	UI::TabHolder *tabHolder_ = nullptr;
 };
