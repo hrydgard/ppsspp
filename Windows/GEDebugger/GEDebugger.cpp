@@ -57,13 +57,76 @@ enum PrimaryDisplayType {
 	PRIMARY_STENCILBUF,
 };
 
+StepCountDlg::StepCountDlg(HINSTANCE _hInstance, HWND _hParent) : Dialog((LPCSTR)IDD_GEDBG_STEPCOUNT, _hInstance, _hParent) {
+	DialogManager::AddDlg(this);
+
+	for (int i = 0; i < 4; i++) // Add items 1, 10, 100, 1000
+		SendMessageA(GetDlgItem(m_hDlg, IDC_GEDBG_STEPCOUNT_COMBO), CB_ADDSTRING, 0, (LPARAM)std::to_string((int)pow(10, i)).c_str());
+	SetWindowTextA(GetDlgItem(m_hDlg, IDC_GEDBG_STEPCOUNT_COMBO), "1");
+}
+
+StepCountDlg::~StepCountDlg() {
+	DialogManager::RemoveDlg(this);
+}
+
+void StepCountDlg::Jump(int count, bool relative) {
+	if (relative && count == 0)
+		return;
+	SetBreakNext(BreakNext::COUNT);
+	SetBreakCount(count, relative);
+};
+
+BOOL StepCountDlg::DlgProc(UINT message, WPARAM wParam, LPARAM lParam) {
+	int count;
+	bool relative;
+	auto GetValue = [&]() {
+		char str[7]; // +/-99999\0
+		GetWindowTextA(GetDlgItem(m_hDlg, IDC_GEDBG_STEPCOUNT_COMBO), str, 7);
+		relative = str[0] == '+' || str[0] == '-';
+		return TryParse(str, &count);
+	};
+
+	switch (message) {
+	case WM_CLOSE:
+		Show(false);
+		return TRUE;
+	case WM_COMMAND:
+		switch (wParam) {
+		case IDC_GEDBG_STEPCOUNT_DEC:
+			if (GetValue())
+				Jump(-abs(count), true);
+			return TRUE;
+		case IDC_GEDBG_STEPCOUNT_INC:
+			if (GetValue())
+				Jump(abs(count), true);
+			return TRUE;
+		case IDC_GEDBG_STEPCOUNT_JUMP:
+			if (GetValue())
+				Jump(abs(count), false);
+			return TRUE;
+		case IDOK:
+			if (GetValue())
+				Jump(count, relative);
+			Show(false);
+			return TRUE;
+		case IDCANCEL:
+			SetFocus(m_hParent);
+			Show(false);
+			return TRUE;
+		}
+		break;
+	}
+	return FALSE;
+}
+
 void CGEDebugger::Init() {
 	SimpleGLWindow::RegisterClass();
 	CtrlDisplayListView::registerClass();
 }
 
 CGEDebugger::CGEDebugger(HINSTANCE _hInstance, HWND _hParent)
-	: Dialog((LPCSTR)IDD_GEDEBUGGER, _hInstance, _hParent) {
+	: Dialog((LPCSTR)IDD_GEDEBUGGER, _hInstance, _hParent)
+	, stepCountDlg(_hInstance, m_hDlg) {
 	// minimum size = a little more than the default
 	RECT windowRect;
 	GetWindowRect(m_hDlg, &windowRect);
@@ -658,6 +721,7 @@ BOOL CGEDebugger::DlgProc(UINT message, WPARAM wParam, LPARAM lParam) {
 	case WM_CLOSE:
 		GPUDebug::SetActive(false);
 
+		stepCountDlg.Show(false);
 		Show(false);
 		return TRUE;
 
@@ -726,22 +790,7 @@ BOOL CGEDebugger::DlgProc(UINT message, WPARAM wParam, LPARAM lParam) {
 			break;
 
 		case IDC_GEDBG_STEPCOUNT:
-			{
-				std::string value;
-				int count;
-				if (InputBox_GetString(GetModuleHandle(NULL), m_hDlg, L"Prim count", "", value)) {
-					if (value.length() > 1 && value[0] == '+' && TryParse(value.substr(1), &count)) {
-						SetBreakNext(BreakNext::COUNT);
-						SetBreakCount(count, true);
-					} else if (value.length() > 1 && value[0] == '-' && TryParse(value.substr(1), &count)) {
-						SetBreakNext(BreakNext::COUNT);
-						SetBreakCount(-count, true);
-					} else if (TryParse(value, &count)) {
-						SetBreakNext(BreakNext::COUNT);
-						SetBreakCount(count);
-					}
-				}
-			}
+			stepCountDlg.Show(true);
 			break;
 
 		case IDC_GEDBG_BREAKTEX:

@@ -81,6 +81,7 @@
 #define IDD_DUMPMEMORY                  253
 #define IDD_GEDBG_TAB_VERTICES          254
 #define IDD_GEDBG_TAB_MATRICES          255
+#define IDD_GEDBG_STEPCOUNT             256
 
 #define IDC_STOPGO                      1001
 #define IDC_ADDRESS                     1002
@@ -364,6 +365,10 @@
 #define ID_OPTIONS_SCREENFILTER_MENU     40197
 #define ID_OPTIONS_TEXTURESCALING_MENU   40198
 #define IDC_GEDBG_STEPCOUNT              40199
+#define IDC_GEDBG_STEPCOUNT_DEC          40200
+#define IDC_GEDBG_STEPCOUNT_INC          40201
+#define IDC_GEDBG_STEPCOUNT_JUMP         40202
+#define IDC_GEDBG_STEPCOUNT_COMBO        40203
 
 // Dummy option to let the buffered rendering hotkey cycle through all the options.
 #define ID_OPTIONS_BUFFEREDRENDERINGDUMMY 40500
