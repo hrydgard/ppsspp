@@ -235,6 +235,18 @@ void DrawEngineVulkan::ConvertStateToVulkanKey(FramebufferManagerVulkan &fbManag
 			}
 
 			key.colorWriteMask = (rmask ? VK_COLOR_COMPONENT_R_BIT : 0) | (gmask ? VK_COLOR_COMPONENT_G_BIT : 0) | (bmask ? VK_COLOR_COMPONENT_B_BIT : 0) | (amask ? VK_COLOR_COMPONENT_A_BIT : 0);
+
+			// Workaround proposed in #10421
+			if ((gstate.pmskc & 0x00FFFFFF) == 0x00FFFFFF && vulkan_->GetPhysicalDeviceProperties(vulkan_->GetCurrentPhysicalDevice()).vendorID == VULKAN_VENDOR_QUALCOMM) {
+				key.colorWriteMask = VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT;
+				key.blendEnable = true;
+				key.blendOpColor = VK_BLEND_OP_ADD;
+				key.blendOpAlpha = VK_BLEND_OP_ADD;
+				key.srcColor = VK_BLEND_FACTOR_ZERO;
+				key.srcAlpha = VK_BLEND_FACTOR_ZERO;
+				key.destColor = VK_BLEND_FACTOR_ONE;
+				key.destAlpha = VK_BLEND_FACTOR_ONE;
+			}
 		}
 	}
 
