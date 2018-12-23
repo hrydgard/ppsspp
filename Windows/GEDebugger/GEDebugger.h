@@ -51,7 +51,7 @@ public:
 protected:
 	BOOL DlgProc(UINT message, WPARAM wParam, LPARAM lParam);
 private:
-	void Jump(int value, bool relative);
+	void Jump(int count, bool relative);
 };
 
 class CGEDebugger : public Dialog {

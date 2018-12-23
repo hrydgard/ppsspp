@@ -131,7 +131,6 @@ protected:
 	// Vertex collector buffers
 	u8 *decoded = nullptr;
 	u16 *decIndex = nullptr;
-	u8 *splineBuffer = nullptr;
 
 	// Cached vertex decoders
 	u32 lastVType_ = -1;
