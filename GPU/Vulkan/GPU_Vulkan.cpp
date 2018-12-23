@@ -59,7 +59,7 @@ GPU_Vulkan::GPU_Vulkan(GraphicsContext *gfxCtx, Draw::DrawContext *draw)
 	UpdateVsyncInterval(true);
 	CheckGPUFeatures();
 
-	shaderManagerVulkan_ = new ShaderManagerVulkan(vulkan_);
+	shaderManagerVulkan_ = new ShaderManagerVulkan(draw, vulkan_);
 	pipelineManager_ = new PipelineManagerVulkan(vulkan_);
 	framebufferManagerVulkan_ = new FramebufferManagerVulkan(draw, vulkan_);
 	framebufferManager_ = framebufferManagerVulkan_;
@@ -535,7 +535,7 @@ void GPU_Vulkan::DeviceRestore() {
 	drawEngine_.DeviceRestore(vulkan_, draw_);
 	pipelineManager_->DeviceRestore(vulkan_);
 	textureCacheVulkan_->DeviceRestore(vulkan_, draw_);
-	shaderManagerVulkan_->DeviceRestore(vulkan_);
+	shaderManagerVulkan_->DeviceRestore(vulkan_, draw_);
 	depalShaderCache_.DeviceRestore(draw_, vulkan_);
 }
 

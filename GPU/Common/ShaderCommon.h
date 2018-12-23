@@ -19,6 +19,10 @@
 
 #include <cstdint>
 
+namespace Draw {
+	class DrawContext;
+}
+
 enum ShaderLanguage {
 	GLSL_140,
 	GLSL_300,
@@ -116,10 +120,13 @@ enum : uint64_t {
 
 class ShaderManagerCommon {
 public:
-	ShaderManagerCommon() {}
+	ShaderManagerCommon(Draw::DrawContext *draw) : draw_(draw) {}
 	virtual ~ShaderManagerCommon() {}
 
 	virtual void DirtyLastShader() = 0;
+
+protected:
+	Draw::DrawContext *draw_ = nullptr;
 };
 
 struct TBuiltInResource;

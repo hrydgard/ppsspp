@@ -27,6 +27,7 @@
 #include "math/lin/matrix4x4.h"
 #include "math/math_util.h"
 #include "math/dataconv.h"
+#include "thin3d/thin3d.h"
 #include "util/text/utf8.h"
 
 #include "Common/Common.h"
@@ -499,7 +500,8 @@ void ShaderManagerDX9::VSUpdateUniforms(u64 dirtyUniforms) {
 	}
 }
 
-ShaderManagerDX9::ShaderManagerDX9(LPDIRECT3DDEVICE9 device) : device_(device), lastVShader_(nullptr), lastPShader_(nullptr) {
+ShaderManagerDX9::ShaderManagerDX9(Draw::DrawContext *draw, LPDIRECT3DDEVICE9 device)
+	: ShaderManagerCommon(draw), device_(device), lastVShader_(nullptr), lastPShader_(nullptr) {
 	codeBuffer_ = new char[16384];
 }
 

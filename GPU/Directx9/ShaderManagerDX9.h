@@ -77,7 +77,7 @@ protected:
 
 class ShaderManagerDX9 : public ShaderManagerCommon {
 public:
-	ShaderManagerDX9(LPDIRECT3DDEVICE9 device);
+	ShaderManagerDX9(Draw::DrawContext *draw, LPDIRECT3DDEVICE9 device);
 	~ShaderManagerDX9();
 
 	void ClearCache(bool deleteThem);  // TODO: deleteThem currently not respected
