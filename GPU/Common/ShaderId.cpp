@@ -1,6 +1,7 @@
 #include <string>
 #include <sstream>
 
+#include "thin3d/thin3d.h"
 #include "Common/StringUtils.h"
 #include "Core/Config.h"
 
@@ -225,7 +226,7 @@ std::string FragmentShaderDesc(const ShaderID &id) {
 
 // Here we must take all the bits of the gstate that determine what the fragment shader will
 // look like, and concatenate them together into an ID.
-void ComputeFragmentShaderID(ShaderID *id_out) {
+void ComputeFragmentShaderID(ShaderID *id_out, const Draw::Bugs &bugs) {
 	ShaderID id;
 	if (gstate.isModeClear()) {
 		// We only need one clear shader, so let's ignore the rest of the bits.
@@ -292,9 +293,6 @@ void ComputeFragmentShaderID(ShaderID *id_out) {
 		if (stencilToAlpha != REPLACE_ALPHA_NO) {
 			// 4 bits
 			id.SetBits(FS_BIT_REPLACE_ALPHA_WITH_STENCIL_TYPE, 4, ReplaceAlphaWithStencilType());
-		} else {
-			// Use those bits instead for whether stencil output is disabled.
-			id.SetBit(FS_BIT_REPLACE_ALPHA_WITH_STENCIL_TYPE, IsStencilTestOutputDisabled());
 		}
 
 		// 2 bits.
@@ -312,6 +310,12 @@ void ComputeFragmentShaderID(ShaderID *id_out) {
 		id.SetBit(FS_BIT_FLATSHADE, doFlatShading);
 
 		id.SetBit(FS_BIT_SHADER_DEPAL, useShaderDepal);
+
+		if (g_Config.bVendorBugChecksEnabled) {
+			if (bugs.Has(Draw::Bugs::NO_DEPTH_CANNOT_DISCARD_STENCIL)) {
+				id.SetBit(FS_BIT_NO_DEPTH_CANNOT_DISCARD_STENCIL, !IsStencilTestOutputDisabled() && !gstate.isDepthWriteEnabled());
+			}
+		}
 	}
 
 	*id_out = id;

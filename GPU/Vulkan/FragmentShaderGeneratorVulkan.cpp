@@ -84,15 +84,11 @@ bool GenerateVulkanGLSLFragmentShader(const FShaderID &id, char *buffer, uint32_
 
 	const char *shading = doFlatShading ? "flat" : "";
 	bool earlyFragmentTests = ((!enableAlphaTest && !enableColorTest) || testForceToZero) && !gstate_c.Supports(GPU_ROUND_FRAGMENT_DEPTH_TO_16BIT);
-	bool hasStencilOutput = stencilToAlpha != REPLACE_ALPHA_NO || id.Bit(FS_BIT_REPLACE_ALPHA_WITH_STENCIL_TYPE) == 0;
-
-	// TODO: This is a bug affecting shader cache generality - we CANNOT check anything but the shader ID and (indirectly) the game ID in here really.
-	// Need to move this check somehow to the shader ID generator. That's tricky though because it's generic...
-	bool isAdreno = vulkanVendorId == VULKAN_VENDOR_QUALCOMM && g_Config.bVendorBugChecksEnabled;
+	bool useAdrenoBugWorkaround = id.Bit(FS_BIT_NO_DEPTH_CANNOT_DISCARD_STENCIL);
 
 	if (earlyFragmentTests) {
 		WRITE(p, "layout (early_fragment_tests) in;\n");
-	} else if (isAdreno && hasStencilOutput && !gstate_c.Supports(GPU_ROUND_FRAGMENT_DEPTH_TO_16BIT)) {
+	} else if (useAdrenoBugWorkaround && !gstate_c.Supports(GPU_ROUND_FRAGMENT_DEPTH_TO_16BIT)) {
 		WRITE(p, "layout (depth_unchanged) out float gl_FragDepth;\n");
 	}
 
@@ -588,7 +584,7 @@ bool GenerateVulkanGLSLFragmentShader(const FShaderID &id, char *buffer, uint32_
 			WRITE(p, "  z = (1.0/65535.0) * floor(z * 65535.0);\n");
 		}
 		WRITE(p, "  gl_FragDepth = z;\n");
-	} else if (!earlyFragmentTests && isAdreno && hasStencilOutput) {
+	} else if (!earlyFragmentTests && useAdrenoBugWorkaround) {
 		// Adreno (and possibly MESA/others) apply early frag tests even with discard in the shader.
 		// Writing depth prevents the bug, even with depth_unchanged specified.
 		WRITE(p, "  gl_FragDepth = gl_FragCoord.z;\n");
