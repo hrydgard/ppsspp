@@ -98,11 +98,6 @@ void ProcessGPUFeatures() {
 
 	DLOG("Checking for GL driver bugs... vendor=%i model='%s'", (int)gl_extensions.gpuVendor, gl_extensions.model);
 
-	// Should be table driven instead, this is a quick hack for Galaxy Y
-	if (System_GetProperty(SYSPROP_NAME) == "samsung:GT-S5360") {
-		gl_extensions.bugs |= BUG_FBO_UNUSABLE;
-	}
-
 	if (gl_extensions.gpuVendor == GPU_VENDOR_IMGTEC) {
 		if (!strcmp(gl_extensions.model, "PowerVR SGX 543") ||
 			  !strcmp(gl_extensions.model, "PowerVR SGX 540") ||
