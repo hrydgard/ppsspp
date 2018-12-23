@@ -357,7 +357,7 @@ VkRenderPass VulkanQueueRunner::GetRenderPass(const RPKey &key) {
 
 void VulkanQueueRunner::RunSteps(VkCommandBuffer cmd, std::vector<VKRStep *> &steps) {
 	// Optimizes renderpasses, then sequences them.
-	// Planned optimizations: 
+	// Planned optimizations:
 	//  * Create copies of render target that are rendered to multiple times and textured from in sequence, and push those render passes
 	//    as early as possible in the frame (Wipeout billboards).
 
@@ -409,9 +409,9 @@ void VulkanQueueRunner::RunSteps(VkCommandBuffer cmd, std::vector<VKRStep *> &st
 
 	// Queue hacks.
 	if (hacksEnabled_) {
-		if (hacksEnabled_ & QUEUE_HACK_MGS2_ACID) {
+		if (hacksEnabled_ & QUEUE_HACK_MGACID) {
 			// Massive speedup.
-			ApplyMGSHack(steps);
+			ApplyMGAHack(steps);
 		}
 		if (hacksEnabled_ & QUEUE_HACK_SONIC) {
 			ApplySonicHack(steps);
@@ -443,7 +443,7 @@ void VulkanQueueRunner::RunSteps(VkCommandBuffer cmd, std::vector<VKRStep *> &st
 	}
 }
 
-void VulkanQueueRunner::ApplyMGSHack(std::vector<VKRStep *> &steps) {
+void VulkanQueueRunner::ApplyMGAHack(std::vector<VKRStep *> &steps) {
 	// We want to turn a sequence of copy,render(1),copy,render(1),copy,render(1) to copy,copy,copy,render(n).
 
 	for (int i = 0; i < (int)steps.size() - 3; i++) {

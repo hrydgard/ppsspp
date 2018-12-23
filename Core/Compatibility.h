@@ -50,18 +50,18 @@ struct CompatFlags {
 	bool DepthRangeHack;
 	bool ClearToRAM;
 	bool Force04154000Download;
+	bool DisableReadbacks;
 	bool DrawSyncEatCycles;
 	bool FakeMipmapChange;
-	bool RequireBufferedRendering;
-	bool RequireBlockTransfer;
-	bool RequireDefaultCPUClock;
-	bool DisableReadbacks;
 	bool DisableAccurateDepth;
-	bool MGS2AcidHack;
-	bool SonicRivalsHack;
 	bool BlockTransferAllowCreateFB;
-	bool YugiohSaveFix;
 	bool HighMemoryLayout;
+	bool MGAcidHack;
+	bool SonicRivalsHack;
+	bool YugiohSaveFix;
+	bool RequireDefaultCPUClock;
+	bool RequireBlockTransfer;
+	bool RequireBufferedRendering;
 };
 
 class IniFile;

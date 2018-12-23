@@ -475,8 +475,8 @@ void GPU_Vulkan::InitDeviceObjects() {
 
 	VulkanRenderManager *rm = (VulkanRenderManager *)draw_->GetNativeObject(Draw::NativeObject::RENDER_MANAGER);
 	uint32_t hacks = 0;
-	if (PSP_CoreParameter().compat.flags().MGS2AcidHack)
-		hacks |= QUEUE_HACK_MGS2_ACID;
+	if (PSP_CoreParameter().compat.flags().MGAcidHack)
+		hacks |= QUEUE_HACK_MGACID;
 	if (PSP_CoreParameter().compat.flags().SonicRivalsHack)
 		hacks |= QUEUE_HACK_SONIC;
 	if (hacks) {
