@@ -780,6 +780,14 @@ VKContext::VKContext(VulkanContext *vulkan, bool splitSubmit)
 		if (deviceProps.deviceID >= 0x05000000 && deviceProps.deviceID < 0x06000000) {
 			bugs_.Infest(Bugs::NO_DEPTH_CANNOT_DISCARD_STENCIL);
 		}
+	} else if (caps_.vendor == GPUVendor::VENDOR_AMD) {
+		// See issue #10074, and also #10065 (AMD) and #10109 for the choice of the driver version to check for.
+		if (deviceProps.driverVersion < 0x00407000) {
+			bugs_.Infest(Bugs::DUAL_SOURCE_BLENDING_BROKEN);
+		}
+	} else if (caps_.vendor == GPUVendor::VENDOR_INTEL) {
+		// Workaround for Intel driver bug. TODO: Re-enable after some driver version
+		bugs_.Infest(Bugs::DUAL_SOURCE_BLENDING_BROKEN);
 	}
 
 	device_ = vulkan->GetDevice();

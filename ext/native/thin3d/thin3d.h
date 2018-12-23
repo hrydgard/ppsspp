@@ -326,6 +326,7 @@ public:
 
 	enum : uint32_t {
 		NO_DEPTH_CANNOT_DISCARD_STENCIL = 0,
+		DUAL_SOURCE_BLENDING_BROKEN = 1,
 	};
 
 protected:
