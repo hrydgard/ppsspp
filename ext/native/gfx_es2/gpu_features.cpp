@@ -114,13 +114,6 @@ void ProcessGPUFeatures() {
 			WLOG("GL DRIVER BUG: PVR with bad precision");
 			gl_extensions.bugs |= BUG_PVR_SHADER_PRECISION_BAD;
 		}
-		gl_extensions.bugs |= BUG_PVR_GENMIPMAP_HEIGHT_GREATER;
-	}
-
-	// TODO: Make this check more lenient. Disabled for all right now
-	// because it murders performance on Mali.
-	if (gl_extensions.gpuVendor != GPU_VENDOR_NVIDIA) {
-		gl_extensions.bugs |= BUG_ANY_MAP_BUFFER_RANGE_SLOW;
 	}
 }
 

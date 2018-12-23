@@ -568,6 +568,18 @@ OpenGLContext::OpenGLContext() {
 			}
 		}
 	}
+
+	// TODO: Make this check more lenient. Disabled for all right now
+	// because it murders performance on Mali.
+	if (caps_.vendor != GPUVendor::VENDOR_NVIDIA) {
+		bugs_.Infest(Bugs::ANY_MAP_BUFFER_RANGE_SLOW);
+	}
+
+	if (caps_.vendor == GPUVendor::VENDOR_IMGTEC) {
+		// See https://github.com/hrydgard/ppsspp/commit/8974cd675e538f4445955e3eac572a9347d84232
+		// TODO: Should this workaround be removed for newer devices/drivers?
+		bugs_.Infest(Bugs::PVR_GENMIPMAP_HEIGHT_GREATER);
+	}
 }
 
 OpenGLContext::~OpenGLContext() {

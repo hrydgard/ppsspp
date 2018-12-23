@@ -19,6 +19,10 @@
 class GLRInputLayout;
 class GLPushBuffer;
 
+namespace Draw {
+class DrawContext;
+}
+
 class GLRTexture {
 public:
 	~GLRTexture() {
@@ -365,7 +369,7 @@ public:
 	GLRenderManager();
 	~GLRenderManager();
 
-	void ThreadStart();
+	void ThreadStart(Draw::DrawContext *draw);
 	void ThreadEnd();
 	bool ThreadFrame();  // Returns false to request exiting the loop.
 
