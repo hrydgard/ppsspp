@@ -27,7 +27,7 @@
 
 static const char *stencil_fs = R"(
 #ifdef GL_ES
-#if GL_FRAGMENT_PRECISION_HIGH
+#ifdef GL_FRAGMENT_PRECISION_HIGH
 precision highp float;
 #else
 precision mediump float;  // just hope it's enough..
