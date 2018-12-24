@@ -35,7 +35,7 @@ varying vec2 v_texcoord0;
 void main() {
   v_texcoord0 = a_texcoord0;
   gl_Position = a_position;
-};
+}
 )";
 
 static const char *depalVShader300 = R"(
@@ -48,7 +48,7 @@ out vec2 v_texcoord0;
 void main() {
   v_texcoord0 = a_texcoord0;
   gl_Position = a_position;
-};
+}
 )";
 
 DepalShaderCacheGLES::DepalShaderCacheGLES(Draw::DrawContext *draw) {

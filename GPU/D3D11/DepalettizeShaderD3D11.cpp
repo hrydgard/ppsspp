@@ -47,7 +47,7 @@ VS_OUT main(VS_IN input) {
   output.Texcoord = input.a_texcoord0;
   output.Position = float4(input.a_position, 1.0);
   return output;
-};
+}
 )";
 
 static const D3D11_INPUT_ELEMENT_DESC g_DepalVertexElements[] = {

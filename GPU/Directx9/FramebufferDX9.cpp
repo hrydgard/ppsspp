@@ -61,7 +61,7 @@ VS_OUT main( VS_IN In ) {
 	Out.ProjPos = In.ObjPos;
 	Out.Uv = In.Uv;
 	return Out;
-};
+}
 )";
 
 static const char *pscode = R"(
@@ -72,7 +72,7 @@ struct PS_IN {
 float4 main( PS_IN In ) : COLOR {
 	float4 c =  tex2D(s, In.Uv);
 	return c;
-};
+}
 )";
 
 static const D3DVERTEXELEMENT9 g_FramebufferVertexElements[] = {
