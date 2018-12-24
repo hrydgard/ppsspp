@@ -579,7 +579,7 @@ std::string ApplyGLSLPrelude(const std::string &source, uint32_t stage) {
 	std::string temp;
 	std::string version = "";
 	if (!gl_extensions.IsGLES && gl_extensions.IsCoreContext) {
-		// We need to add a corresponding #version.  Apple drives fail without an exact match.
+		// We need to add a corresponding #version.  Apple drivers fail without an exact match.
 		version = StringFromFormat("#version %d\n", gl_extensions.GLSLVersion());
 	}
 	if (stage == GL_FRAGMENT_SHADER) {
