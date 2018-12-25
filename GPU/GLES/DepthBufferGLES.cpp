@@ -52,7 +52,6 @@ void main() {
 
   vec4 enc = u_depthShift * clamped;
   enc = floor(mod(enc, 256.0)) * u_depthTo8;
-  enc = enc * u_depthTo8;
   // Let's ignore the bits outside 16 bit precision.
   gl_FragColor = enc.yzww;
 }
@@ -75,9 +74,20 @@ void main() {
 }
 )";
 
+static bool SupportsDepthTexturing() {
+	if (gl_extensions.IsGLES) {
+		return gl_extensions.OES_packed_depth_stencil && (gl_extensions.OES_depth_texture || gl_extensions.GLES3);
+	}
+	return gl_extensions.VersionGEThan(3, 0);
+}
+
 void FramebufferManagerGLES::ReadbackDepthbufferSync(VirtualFramebuffer *vfb, int x, int y, int w, int h) {
 	if (!vfb->fbo) {
 		ERROR_LOG_REPORT_ONCE(vfbfbozero, SCEGE, "ReadbackDepthbufferSync: vfb->fbo == 0");
+		return;
+	}
+	// Old desktop GL can download depth, but not upload.
+	if (gl_extensions.IsGLES && !SupportsDepthTexturing()) {
 		return;
 	}
 
