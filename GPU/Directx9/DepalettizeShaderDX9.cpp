@@ -50,7 +50,7 @@ VS_OUT main(VS_IN input) {
   output.Texcoord = input.a_texcoord0;
   output.Position = float4(input.a_position, 1.0);
   return output;
-};
+}
 )";
 
 DepalShaderCacheDX9::DepalShaderCacheDX9(Draw::DrawContext *draw) : vertexShader_(nullptr) {

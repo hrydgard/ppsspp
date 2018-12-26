@@ -35,7 +35,7 @@ varying vec2 v_texcoord0;
 void main() {
   v_texcoord0 = a_texcoord0;
   gl_Position = a_position;
-};
+}
 )";
 
 static const char *depalVShader300 = R"(
@@ -48,7 +48,7 @@ out vec2 v_texcoord0;
 void main() {
   v_texcoord0 = a_texcoord0;
   gl_Position = a_position;
-};
+}
 )";
 
 DepalShaderCacheGLES::DepalShaderCacheGLES(Draw::DrawContext *draw) {
@@ -75,8 +75,9 @@ bool DepalShaderCacheGLES::CreateVertexShader() {
 	std::string prelude;
 	if (gl_extensions.IsGLES) {
 		prelude = useGL3_ ? "#version 300 es\n" : "#version 100\n";
-	} else if (useGL3_) {
-		prelude = "#version 330\n";
+	} else {
+		// We need to add a corresponding #version.  Apple drivers fail without an exact match.
+		prelude = StringFromFormat("#version %d\n", gl_extensions.GLSLVersion());
 	}
 	vertexShader_ = render_->CreateShader(GL_VERTEX_SHADER, prelude + src, "depal");
 	return true;
