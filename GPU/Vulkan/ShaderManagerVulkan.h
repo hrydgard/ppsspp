@@ -83,10 +83,10 @@ class VulkanPushBuffer;
 
 class ShaderManagerVulkan : public ShaderManagerCommon {
 public:
-	ShaderManagerVulkan(VulkanContext *vulkan);
+	ShaderManagerVulkan(Draw::DrawContext *draw, VulkanContext *vulkan);
 	~ShaderManagerVulkan();
 
-	void DeviceRestore(VulkanContext *vulkan);
+	void DeviceRestore(VulkanContext *vulkan, Draw::DrawContext *draw);
 
 	void GetShaders(int prim, u32 vertType, VulkanVertexShader **vshader, VulkanFragmentShader **fshader, bool useHWTransform);
 	void ClearShaders();

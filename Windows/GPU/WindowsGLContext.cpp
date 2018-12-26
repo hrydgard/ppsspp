@@ -458,7 +458,7 @@ void WindowsGLContext::Resize() {
 }
 
 void WindowsGLContext::ThreadStart() {
-	renderManager_->ThreadStart();
+	renderManager_->ThreadStart(draw_);
 }
 
 bool WindowsGLContext::ThreadFrame() {

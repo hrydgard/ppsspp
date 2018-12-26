@@ -59,7 +59,7 @@ GPU_Vulkan::GPU_Vulkan(GraphicsContext *gfxCtx, Draw::DrawContext *draw)
 	UpdateVsyncInterval(true);
 	CheckGPUFeatures();
 
-	shaderManagerVulkan_ = new ShaderManagerVulkan(vulkan_);
+	shaderManagerVulkan_ = new ShaderManagerVulkan(draw, vulkan_);
 	pipelineManager_ = new PipelineManagerVulkan(vulkan_);
 	framebufferManagerVulkan_ = new FramebufferManagerVulkan(draw, vulkan_);
 	framebufferManager_ = framebufferManagerVulkan_;
@@ -224,23 +224,9 @@ void GPU_Vulkan::CheckGPUFeatures() {
 		features |= GPU_SUPPORTS_DEPTH_CLAMP;
 	}
 	if (vulkan_->GetFeaturesEnabled().dualSrcBlend) {
-		switch (vulkan_->GetPhysicalDeviceProperties(vulkan_->GetCurrentPhysicalDevice()).vendorID) {
-		// We thought we had a bug here on nVidia but turns out we accidentally #ifdef-ed out crucial
-		// code on Android.
-		case VULKAN_VENDOR_INTEL:
-			// Workaround for Intel driver bug. TODO: Re-enable after some driver version
-			break;
-		case VULKAN_VENDOR_AMD:
-			// See issue #10074, and also #10065 (AMD) and #10109 for the choice of the driver version to check for
-			if (vulkan_->GetPhysicalDeviceProperties(vulkan_->GetCurrentPhysicalDevice()).driverVersion >= 0x00407000)
-				features |= GPU_SUPPORTS_DUALSOURCE_BLEND;
-			break;
-		default:
+		if (!g_Config.bVendorBugChecksEnabled || !draw_->GetBugs().Has(Draw::Bugs::DUAL_SOURCE_BLENDING_BROKEN)) {
 			features |= GPU_SUPPORTS_DUALSOURCE_BLEND;
-			break;
 		}
-		if (!g_Config.bVendorBugChecksEnabled)
-			features |= GPU_SUPPORTS_DUALSOURCE_BLEND;
 	}
 	if (vulkan_->GetFeaturesEnabled().logicOp) {
 		features |= GPU_SUPPORTS_LOGIC_OP;
@@ -535,7 +521,7 @@ void GPU_Vulkan::DeviceRestore() {
 	drawEngine_.DeviceRestore(vulkan_, draw_);
 	pipelineManager_->DeviceRestore(vulkan_);
 	textureCacheVulkan_->DeviceRestore(vulkan_, draw_);
-	shaderManagerVulkan_->DeviceRestore(vulkan_);
+	shaderManagerVulkan_->DeviceRestore(vulkan_, draw_);
 	depalShaderCache_.DeviceRestore(draw_, vulkan_);
 }
 

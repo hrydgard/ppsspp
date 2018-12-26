@@ -26,7 +26,7 @@ public:
 		g_defaultFBO = hw_render_.get_current_framebuffer();
 	}
 
-	void ThreadStart() override { renderManager_->ThreadStart(); }
+	void ThreadStart() override { renderManager_->ThreadStart(draw_); }
 	bool ThreadFrame() override { return renderManager_->ThreadFrame(); }
 	void ThreadEnd() override { renderManager_->ThreadEnd(); }
 	void StopThread() override {

@@ -98,11 +98,6 @@ void ProcessGPUFeatures() {
 
 	DLOG("Checking for GL driver bugs... vendor=%i model='%s'", (int)gl_extensions.gpuVendor, gl_extensions.model);
 
-	// Should be table driven instead, this is a quick hack for Galaxy Y
-	if (System_GetProperty(SYSPROP_NAME) == "samsung:GT-S5360") {
-		gl_extensions.bugs |= BUG_FBO_UNUSABLE;
-	}
-
 	if (gl_extensions.gpuVendor == GPU_VENDOR_IMGTEC) {
 		if (!strcmp(gl_extensions.model, "PowerVR SGX 543") ||
 			  !strcmp(gl_extensions.model, "PowerVR SGX 540") ||
@@ -114,13 +109,6 @@ void ProcessGPUFeatures() {
 			WLOG("GL DRIVER BUG: PVR with bad precision");
 			gl_extensions.bugs |= BUG_PVR_SHADER_PRECISION_BAD;
 		}
-		gl_extensions.bugs |= BUG_PVR_GENMIPMAP_HEIGHT_GREATER;
-	}
-
-	// TODO: Make this check more lenient. Disabled for all right now
-	// because it murders performance on Mali.
-	if (gl_extensions.gpuVendor != GPU_VENDOR_NVIDIA) {
-		gl_extensions.bugs |= BUG_ANY_MAP_BUFFER_RANGE_SLOW;
 	}
 }
 

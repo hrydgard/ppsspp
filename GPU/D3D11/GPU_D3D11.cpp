@@ -77,7 +77,7 @@ GPU_D3D11::GPU_D3D11(GraphicsContext *gfxCtx, Draw::DrawContext *draw)
 
 	stockD3D11.Create(device_);
 
-	shaderManagerD3D11_ = new ShaderManagerD3D11(device_, context_, featureLevel);
+	shaderManagerD3D11_ = new ShaderManagerD3D11(draw, device_, context_, featureLevel);
 	framebufferManagerD3D11_ = new FramebufferManagerD3D11(draw);
 	framebufferManager_ = framebufferManagerD3D11_;
 	textureCacheD3D11_ = new TextureCacheD3D11(draw);

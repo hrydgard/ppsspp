@@ -25,6 +25,7 @@
 #include "math/math_util.h"
 #include "math/dataconv.h"
 #include "profiler/profiler.h"
+#include "thin3d/thin3d.h"
 #include "util/text/utf8.h"
 #include "Common/Vulkan/VulkanContext.h"
 #include "Common/Vulkan/VulkanMemory.h"
@@ -156,8 +157,8 @@ std::string VulkanVertexShader::GetShaderString(DebugShaderStringType type) cons
 	}
 }
 
-ShaderManagerVulkan::ShaderManagerVulkan(VulkanContext *vulkan)
-	: vulkan_(vulkan), lastVShader_(nullptr), lastFShader_(nullptr), fsCache_(16), vsCache_(16) {
+ShaderManagerVulkan::ShaderManagerVulkan(Draw::DrawContext *draw, VulkanContext *vulkan)
+	: ShaderManagerCommon(draw), vulkan_(vulkan), lastVShader_(nullptr), lastFShader_(nullptr), fsCache_(16), vsCache_(16) {
 	codeBuffer_ = new char[16384];
 	uboAlignment_ = vulkan_->GetPhysicalDeviceProperties(vulkan_->GetCurrentPhysicalDevice()).limits.minUniformBufferOffsetAlignment;
 	memset(&ub_base, 0, sizeof(ub_base));
@@ -174,8 +175,9 @@ ShaderManagerVulkan::~ShaderManagerVulkan() {
 	delete[] codeBuffer_;
 }
 
-void ShaderManagerVulkan::DeviceRestore(VulkanContext *vulkan) {
+void ShaderManagerVulkan::DeviceRestore(VulkanContext *vulkan, Draw::DrawContext *draw) {
 	vulkan_ = vulkan;
+	draw_ = draw;
 	uboAlignment_ = vulkan_->GetPhysicalDeviceProperties(vulkan_->GetCurrentPhysicalDevice()).limits.minUniformBufferOffsetAlignment;
 }
 
@@ -238,7 +240,7 @@ void ShaderManagerVulkan::GetShaders(int prim, u32 vertType, VulkanVertexShader 
 	FShaderID FSID;
 	if (gstate_c.IsDirty(DIRTY_FRAGMENTSHADER_STATE)) {
 		gstate_c.Clean(DIRTY_FRAGMENTSHADER_STATE);
-		ComputeFragmentShaderID(&FSID);
+		ComputeFragmentShaderID(&FSID, draw_->GetBugs());
 	} else {
 		FSID = lastFSID_;
 	}

@@ -315,6 +315,26 @@ struct Viewport {
 	float MaxDepth;
 };
 
+class Bugs {
+public:
+	bool Has(uint32_t bug) const {
+		return (flags_ & (1 << bug)) != 0;
+	}
+	void Infest(uint32_t bug) {
+		flags_ |= (1 << bug);
+	}
+
+	enum : uint32_t {
+		NO_DEPTH_CANNOT_DISCARD_STENCIL = 0,
+		DUAL_SOURCE_BLENDING_BROKEN = 1,
+		ANY_MAP_BUFFER_RANGE_SLOW = 2,
+		PVR_GENMIPMAP_HEIGHT_GREATER = 3,
+	};
+
+protected:
+	uint32_t flags_ = 0;
+};
+
 class RefCountedObject {
 public:
 	RefCountedObject() : refcount_(1) {}
@@ -524,6 +544,8 @@ public:
 	bool CreatePresets();
 	void DestroyPresets();
 
+	Bugs GetBugs() const { return bugs_; }
+
 	virtual const DeviceCaps &GetDeviceCaps() const = 0;
 	virtual uint32_t GetDataFormatSupport(DataFormat fmt) const = 0;
 	virtual std::vector<std::string> GetFeatureList() const { return std::vector<std::string>(); }
@@ -647,6 +669,8 @@ protected:
 
 	int targetWidth_;
 	int targetHeight_;
+
+	Bugs bugs_;
 };
 
 extern const UniformBufferDesc UBPresetDesc;

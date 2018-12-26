@@ -762,7 +762,8 @@ VKContext::VKContext(VulkanContext *vulkan, bool splitSubmit)
 	caps_.framebufferDepthCopySupported = true;   // Will pretty much always be the case.
 	caps_.preferredDepthBufferFormat = DataFormat::D24_S8;  // TODO: Ask vulkan.
 
-	switch (vulkan->GetPhysicalDeviceProperties(vulkan_->GetCurrentPhysicalDevice()).vendorID) {
+	auto deviceProps = vulkan->GetPhysicalDeviceProperties(vulkan_->GetCurrentPhysicalDevice());
+	switch (deviceProps.vendorID) {
 	case VULKAN_VENDOR_AMD: caps_.vendor = GPUVendor::VENDOR_AMD; break;
 	case VULKAN_VENDOR_ARM: caps_.vendor = GPUVendor::VENDOR_ARM; break;
 	case VULKAN_VENDOR_IMGTEC: caps_.vendor = GPUVendor::VENDOR_IMGTEC; break;
@@ -771,6 +772,22 @@ VKContext::VKContext(VulkanContext *vulkan, bool splitSubmit)
 	case VULKAN_VENDOR_INTEL: caps_.vendor = GPUVendor::VENDOR_INTEL; break;
 	default:
 		caps_.vendor = GPUVendor::VENDOR_UNKNOWN;
+	}
+
+	if (caps_.vendor == GPUVendor::VENDOR_QUALCOMM) {
+		// Adreno 5xx devices, all known driver versions, fail to discard stencil when depth write is off.
+		// See: https://github.com/hrydgard/ppsspp/pull/11684
+		if (deviceProps.deviceID >= 0x05000000 && deviceProps.deviceID < 0x06000000) {
+			bugs_.Infest(Bugs::NO_DEPTH_CANNOT_DISCARD_STENCIL);
+		}
+	} else if (caps_.vendor == GPUVendor::VENDOR_AMD) {
+		// See issue #10074, and also #10065 (AMD) and #10109 for the choice of the driver version to check for.
+		if (deviceProps.driverVersion < 0x00407000) {
+			bugs_.Infest(Bugs::DUAL_SOURCE_BLENDING_BROKEN);
+		}
+	} else if (caps_.vendor == GPUVendor::VENDOR_INTEL) {
+		// Workaround for Intel driver bug. TODO: Re-enable after some driver version
+		bugs_.Infest(Bugs::DUAL_SOURCE_BLENDING_BROKEN);
 	}
 
 	device_ = vulkan->GetDevice();
