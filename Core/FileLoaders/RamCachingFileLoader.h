@@ -23,17 +23,15 @@
 #include "Common/CommonTypes.h"
 #include "Core/Loaders.h"
 
-class RamCachingFileLoader : public FileLoader {
+class RamCachingFileLoader : public ProxiedFileLoader {
 public:
 	RamCachingFileLoader(FileLoader *backend);
 	~RamCachingFileLoader() override;
 
-	bool IsRemote() override;
 	bool Exists() override;
 	bool ExistsFast() override;
 	bool IsDirectory() override;
 	s64 FileSize() override;
-	std::string Path() const override;
 
 	size_t ReadAt(s64 absolutePos, size_t bytes, size_t count, void *data, Flags flags = Flags::NONE) override {
 		return ReadAt(absolutePos, bytes * count, data, flags) / bytes;
@@ -59,7 +57,6 @@ private:
 	};
 
 	s64 filesize_ = 0;
-	FileLoader *backend_;
 	u8 *cache_ = nullptr;
 	int exists_ = -1;
 	int isDirectory_ = -1;

@@ -283,7 +283,7 @@ int Client::SendRequestWithData(const char *method, const char *resource, const 
 		userAgent_,
 		otherHeaders ? otherHeaders : "");
 	buffer.Append(data);
-	bool flushed = buffer.FlushSocket(sock());
+	bool flushed = buffer.FlushSocket(sock(), dataTimeout_);
 	if (!flushed) {
 		return -1;  // TODO error code.
 	}
@@ -292,6 +292,10 @@ int Client::SendRequestWithData(const char *method, const char *resource, const 
 
 int Client::ReadResponseHeaders(Buffer *readbuf, std::vector<std::string> &responseHeaders, float *progress) {
 	// Snarf all the data we can into RAM. A little unsafe but hey.
+	if (dataTimeout_ >= 0.0 && fd_util::WaitUntilReady(sock(), dataTimeout_, false)) {
+		ELOG("HTTP headers timed out");
+		return -1;
+	}
 	if (readbuf->Read(sock(), 4096) < 0) {
 		ELOG("Failed to read HTTP headers :(");
 		return -1;

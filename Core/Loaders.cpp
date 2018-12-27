@@ -294,7 +294,9 @@ bool LoadFile(FileLoader **fileLoaderPtr, std::string *error_string) {
 
 	case IdentifiedFileType::ERROR_IDENTIFYING:
 		ERROR_LOG(LOADER, "Could not read file");
-		*error_string = "Error reading file";
+		*error_string = fileLoader ? fileLoader->LatestError() : "";
+		if (error_string->empty())
+			*error_string = "Error reading file";
 		break;
 
 	case IdentifiedFileType::ARCHIVE_RAR:

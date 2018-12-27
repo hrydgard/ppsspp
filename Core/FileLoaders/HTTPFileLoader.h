@@ -48,6 +48,10 @@ public:
 		cancelConnect_ = true;
 	}
 
+	std::string LatestError() const override {
+		return latestError_;
+	}
+
 private:
 	void Prepare();
 
@@ -67,6 +71,7 @@ private:
 	std::string filename_;
 	bool connected_ = false;
 	bool cancelConnect_ = false;
+	const char *latestError_ = "";
 
 	std::once_flag preparedFlag_;
 	std::mutex readAtMutex_;

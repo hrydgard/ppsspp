@@ -41,12 +41,12 @@ std::mutex DiskCachingFileLoader::cachesMutex_;
 
 // Takes ownership of backend.
 DiskCachingFileLoader::DiskCachingFileLoader(FileLoader *backend)
-	: backend_(backend) {
+	: ProxiedFileLoader(backend) {
 }
 
 void DiskCachingFileLoader::Prepare() {
 	std::call_once(preparedFlag_, [this]() {
-		filesize_ = backend_->FileSize();
+		filesize_ = ProxiedFileLoader::FileSize();
 		if (filesize_ > 0) {
 			InitCache();
 		}
@@ -57,13 +57,11 @@ DiskCachingFileLoader::~DiskCachingFileLoader() {
 	if (filesize_ > 0) {
 		ShutdownCache();
 	}
-	// Takes ownership.
-	delete backend_;
 }
 
 bool DiskCachingFileLoader::Exists() {
 	Prepare();
-	return backend_->Exists();
+	return ProxiedFileLoader::Exists();
 }
 
 bool DiskCachingFileLoader::ExistsFast() {
@@ -72,17 +70,9 @@ bool DiskCachingFileLoader::ExistsFast() {
 	return true;
 }
 
-bool DiskCachingFileLoader::IsDirectory() {
-	return backend_->IsDirectory();
-}
-
 s64 DiskCachingFileLoader::FileSize() {
 	Prepare();
 	return filesize_;
-}
-
-std::string DiskCachingFileLoader::Path() const {
-	return backend_->Path();
 }
 
 size_t DiskCachingFileLoader::ReadAt(s64 absolutePos, size_t bytes, void *data, Flags flags) {
@@ -115,14 +105,6 @@ size_t DiskCachingFileLoader::ReadAt(s64 absolutePos, size_t bytes, void *data, 
 	return readSize;
 }
 
-bool DiskCachingFileLoader::IsRemote() {
-	return backend_->IsRemote();
-}
-
-void DiskCachingFileLoader::Cancel() {
-	backend_->Cancel();
-}
-
 std::vector<std::string> DiskCachingFileLoader::GetCachedPathsInUse() {
 	std::lock_guard<std::mutex> guard(cachesMutex_);
 
@@ -139,7 +121,7 @@ std::vector<std::string> DiskCachingFileLoader::GetCachedPathsInUse() {
 void DiskCachingFileLoader::InitCache() {
 	std::lock_guard<std::mutex> guard(cachesMutex_);
 
-	std::string path = backend_->Path();
+	std::string path = ProxiedFileLoader::Path();
 	auto &entry = caches_[path];
 	if (!entry) {
 		entry = new DiskCachingFileLoaderCache(path, filesize_);
@@ -155,7 +137,7 @@ void DiskCachingFileLoader::ShutdownCache() {
 	if (cache_->Release()) {
 		// If it ran out of counts, delete it.
 		delete cache_;
-		caches_.erase(backend_->Path());
+		caches_.erase(ProxiedFileLoader::Path());
 	}
 	cache_ = nullptr;
 }
