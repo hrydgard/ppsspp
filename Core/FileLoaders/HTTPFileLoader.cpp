@@ -28,17 +28,20 @@ HTTPFileLoader::HTTPFileLoader(const std::string &filename)
 void HTTPFileLoader::Prepare() {
 	std::call_once(preparedFlag_, [this](){
 		if (!client_.Resolve(url_.Host().c_str(), url_.Port())) {
-			// TODO: Should probably set some flag?
+			ERROR_LOG(LOADER, "HTTP request failed, unable to resolve: %s port %d", url_.Host().c_str(), url_.Port());
 			return;
 		}
 
+		client_.SetDataTimeout(20.0);
 		Connect();
 		if (!connected_) {
+			ERROR_LOG(LOADER, "HTTP request failed, failed to connect: %s port %d", url_.Host().c_str(), url_.Port());
 			return;
 		}
 
 		int err = client_.SendRequest("HEAD", url_.Resource().c_str());
 		if (err < 0) {
+			ERROR_LOG(LOADER, "HTTP request failed, failed to send request: %s port %d", url_.Host().c_str(), url_.Port());
 			Disconnect();
 			return;
 		}
