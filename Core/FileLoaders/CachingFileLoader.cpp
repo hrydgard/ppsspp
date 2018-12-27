@@ -25,12 +25,12 @@
 
 // Takes ownership of backend.
 CachingFileLoader::CachingFileLoader(FileLoader *backend)
-	: backend_(backend) {
+	: ProxiedFileLoader(backend) {
 }
 
 void CachingFileLoader::Prepare() {
 	std::call_once(preparedFlag_, [this](){
-		filesize_ = backend_->FileSize();
+		filesize_ = ProxiedFileLoader::FileSize();
 		if (filesize_ > 0) {
 			InitCache();
 		}
@@ -41,27 +41,25 @@ CachingFileLoader::~CachingFileLoader() {
 	if (filesize_ > 0) {
 		ShutdownCache();
 	}
-	// Takes ownership.
-	delete backend_;
 }
 
 bool CachingFileLoader::Exists() {
 	if (exists_ == -1) {
-		exists_ = backend_->Exists() ? 1 : 0;
+		exists_ = ProxiedFileLoader::Exists() ? 1 : 0;
 	}
 	return exists_ == 1;
 }
 
 bool CachingFileLoader::ExistsFast() {
 	if (exists_ == -1) {
-		return backend_->ExistsFast();
+		return ProxiedFileLoader::ExistsFast();
 	}
 	return exists_ == 1;
 }
 
 bool CachingFileLoader::IsDirectory() {
 	if (isDirectory_ == -1) {
-		isDirectory_ = backend_->IsDirectory() ? 1 : 0;
+		isDirectory_ = ProxiedFileLoader::IsDirectory() ? 1 : 0;
 	}
 	return isDirectory_ == 1;
 }
@@ -69,10 +67,6 @@ bool CachingFileLoader::IsDirectory() {
 s64 CachingFileLoader::FileSize() {
 	Prepare();
 	return filesize_;
-}
-
-std::string CachingFileLoader::Path() const {
-	return backend_->Path();
 }
 
 size_t CachingFileLoader::ReadAt(s64 absolutePos, size_t bytes, void *data, Flags flags) {
@@ -287,12 +281,4 @@ void CachingFileLoader::StartReadAhead(s64 pos) {
 		aheadThread_ = false;
 	});
 	th.detach();
-}
-
-bool CachingFileLoader::IsRemote() {
-	return backend_->IsRemote();
-}
-
-void CachingFileLoader::Cancel() {
-	backend_->Cancel();
 }
