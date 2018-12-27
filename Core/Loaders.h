@@ -93,6 +93,10 @@ public:
 	// Cancel any operations that might block, if possible.
 	virtual void Cancel() {
 	}
+
+	virtual std::string LatestError() const {
+		return "";
+	}
 };
 
 class ProxiedFileLoader : public FileLoader {
@@ -124,6 +128,9 @@ public:
 	}
 	void Cancel() override {
 		backend_->Cancel();
+	}
+	std::string LatestError() const override {
+		return backend_->LatestError();
 	}
 
 protected:

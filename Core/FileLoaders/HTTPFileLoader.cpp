@@ -29,6 +29,7 @@ void HTTPFileLoader::Prepare() {
 	std::call_once(preparedFlag_, [this](){
 		if (!client_.Resolve(url_.Host().c_str(), url_.Port())) {
 			ERROR_LOG(LOADER, "HTTP request failed, unable to resolve: %s port %d", url_.Host().c_str(), url_.Port());
+			latestError_ = "Could not connect (name not resolved)";
 			return;
 		}
 
@@ -36,12 +37,14 @@ void HTTPFileLoader::Prepare() {
 		Connect();
 		if (!connected_) {
 			ERROR_LOG(LOADER, "HTTP request failed, failed to connect: %s port %d", url_.Host().c_str(), url_.Port());
+			latestError_ = "Could not connect (refused to connect)";
 			return;
 		}
 
 		int err = client_.SendRequest("HEAD", url_.Resource().c_str());
 		if (err < 0) {
 			ERROR_LOG(LOADER, "HTTP request failed, failed to send request: %s port %d", url_.Host().c_str(), url_.Port());
+			latestError_ = "Could not connect (could not request data)";
 			Disconnect();
 			return;
 		}
@@ -52,6 +55,7 @@ void HTTPFileLoader::Prepare() {
 		if (code != 200) {
 			// Leave size at 0, invalid.
 			ERROR_LOG(LOADER, "HTTP request failed, got %03d for %s", code, filename_.c_str());
+			latestError_ = "Could not connect (invalid response)";
 			Disconnect();
 			return;
 		}
@@ -141,6 +145,7 @@ size_t HTTPFileLoader::ReadAt(s64 absolutePos, size_t bytes, void *data, Flags f
 
 	int err = client_.SendRequest("GET", url_.Resource().c_str(), requestHeaders, nullptr);
 	if (err < 0) {
+		latestError_ = "Invalid response reading data";
 		Disconnect();
 		return 0;
 	}
@@ -150,6 +155,7 @@ size_t HTTPFileLoader::ReadAt(s64 absolutePos, size_t bytes, void *data, Flags f
 	int code = client_.ReadResponseHeaders(&readbuf, responseHeaders);
 	if (code != 206) {
 		ERROR_LOG(LOADER, "HTTP server did not respond with range, received code=%03d", code);
+		latestError_ = "Invalid response reading data";
 		Disconnect();
 		return 0;
 	}
@@ -188,6 +194,7 @@ size_t HTTPFileLoader::ReadAt(s64 absolutePos, size_t bytes, void *data, Flags f
 
 	if (!supportedResponse) {
 		ERROR_LOG(LOADER, "HTTP server did not respond with the range we wanted.");
+		latestError_ = "Invalid response reading data";
 		return 0;
 	}
 
