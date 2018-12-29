@@ -292,7 +292,7 @@ int Client::SendRequestWithData(const char *method, const char *resource, const 
 
 int Client::ReadResponseHeaders(Buffer *readbuf, std::vector<std::string> &responseHeaders, float *progress) {
 	// Snarf all the data we can into RAM. A little unsafe but hey.
-	if (dataTimeout_ >= 0.0 && fd_util::WaitUntilReady(sock(), dataTimeout_, false)) {
+	if (dataTimeout_ >= 0.0 && !fd_util::WaitUntilReady(sock(), dataTimeout_, false)) {
 		ELOG("HTTP headers timed out");
 		return -1;
 	}
