@@ -1927,6 +1927,7 @@ set(NativeAssets
 	assets/rargray.png
 	assets/unknown.png
 	assets/zip.png
+	assets/logo.png
 )
 
 
@@ -2039,6 +2040,7 @@ if(IOS)
 	set_target_properties(${TargetBin} PROPERTIES
 		MACOSX_BUNDLE_INFO_PLIST "${CMAKE_CURRENT_SOURCE_DIR}/ios/PPSSPP-Info.plist"
 		RESOURCE "ios/Launch Screen.storyboard"
+		RESOURCE "ios/logo.png"
 		XCODE_ATTRIBUTE_IPHONEOS_DEPLOYMENT_TARGET ${DEPLOYMENT_TARGET}
 		XCODE_ATTRIBUTE_TARGETED_DEVICE_FAMILY "iPhone/iPad"
 		XCODE_ATTRIBUTE_CLANG_ENABLE_OBJC_ARC YES
