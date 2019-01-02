@@ -1927,6 +1927,7 @@ set(NativeAssets
 	assets/rargray.png
 	assets/unknown.png
 	assets/zip.png
+	assets/logo.png
 )
 
 
