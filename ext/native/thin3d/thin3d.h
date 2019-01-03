@@ -234,6 +234,7 @@ enum class GPUVendor {
 	VENDOR_QUALCOMM,
 	VENDOR_IMGTEC,  // PowerVR
 	VENDOR_BROADCOM,  // Raspberry
+	VENDOR_VIVANTE,
 };
 
 enum class NativeObject {
@@ -329,6 +330,7 @@ public:
 		DUAL_SOURCE_BLENDING_BROKEN = 1,
 		ANY_MAP_BUFFER_RANGE_SLOW = 2,
 		PVR_GENMIPMAP_HEIGHT_GREATER = 3,
+		BROKEN_NAN_IN_CONDITIONAL = 4,
 	};
 
 protected:

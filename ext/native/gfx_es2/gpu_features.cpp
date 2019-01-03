@@ -159,6 +159,8 @@ void CheckGLExtensions() {
 		} else if (vendor == "Broadcom") {
 			gl_extensions.gpuVendor = GPU_VENDOR_BROADCOM;
 			// Just for reference: Galaxy Y has renderer == "VideoCore IV HW"
+		} else if (vendor == "Vivante Corporation") {
+			gl_extensions.gpuVendor = GPU_VENDOR_VIVANTE;
 		} else {
 			gl_extensions.gpuVendor = GPU_VENDOR_UNKNOWN;
 		}
