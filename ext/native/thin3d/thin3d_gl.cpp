@@ -453,6 +453,7 @@ public:
 				case GPUVendor::VENDOR_QUALCOMM: return "VENDOR_ADRENO";
 				case GPUVendor::VENDOR_ARM: return "VENDOR_ARM";
 				case GPUVendor::VENDOR_BROADCOM: return "VENDOR_BROADCOM";
+				case GPUVendor::VENDOR_VIVANTE: return "VENDOR_VIVANTE";
 				case GPUVendor::VENDOR_UNKNOWN:
 				default:
 					return "VENDOR_UNKNOWN";
@@ -545,6 +546,7 @@ OpenGLContext::OpenGLContext() {
 	case GPU_VENDOR_BROADCOM: caps_.vendor = GPUVendor::VENDOR_BROADCOM; break;
 	case GPU_VENDOR_INTEL: caps_.vendor = GPUVendor::VENDOR_INTEL; break;
 	case GPU_VENDOR_IMGTEC: caps_.vendor = GPUVendor::VENDOR_IMGTEC; break;
+	case GPU_VENDOR_VIVANTE: caps_.vendor = GPUVendor::VENDOR_VIVANTE; break;
 	case GPU_VENDOR_UNKNOWN:
 	default:
 		caps_.vendor = GPUVendor::VENDOR_UNKNOWN;
@@ -567,6 +569,8 @@ OpenGLContext::OpenGLContext() {
 				bugs_.Infest(Bugs::DUAL_SOURCE_BLENDING_BROKEN);
 			}
 		}
+	} else if (caps_.vendor == GPUVendor::VENDOR_VIVANTE) {
+		bugs_.Infest(Bugs::BROKEN_NAN_IN_CONDITIONAL);
 	}
 
 	// TODO: Make this check more lenient. Disabled for all right now
