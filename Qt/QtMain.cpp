@@ -31,6 +31,7 @@
 #include "gfx_es2/gpu_features.h"
 #include "math/math_util.h"
 #include "thread/threadutil.h"
+#include "util/text/utf8.h"
 #include "Core/Config.h"
 #include "Core/ConfigValues.h"
 
@@ -354,7 +355,30 @@ bool MainUI::event(QEvent *e)
         NativeKey(KeyInput(DEVICE_ID_MOUSE, ((QWheelEvent*)e)->delta()<0 ? NKCODE_EXT_MOUSEWHEEL_DOWN : NKCODE_EXT_MOUSEWHEEL_UP, KEY_DOWN));
         break;
     case QEvent::KeyPress:
-        NativeKey(KeyInput(DEVICE_ID_KEYBOARD, KeyMapRawQttoNative.find(((QKeyEvent*)e)->key())->second, KEY_DOWN));
+				{
+					auto qtKeycode = ((QKeyEvent*)e)->key();
+					int nativeKeycode = KeyMapRawQttoNative.find(qtKeycode)->second;
+					NativeKey(KeyInput(DEVICE_ID_KEYBOARD, nativeKeycode, KEY_DOWN));
+					// Also get the unicode value.
+					QString text = ((QKeyEvent*)e)->text();
+					std::string str = text.toStdString();
+
+					// Now, we don't want CHAR events for non-printable characters. Not quite sure how we'll best
+					// do that, but here's one attempt....
+					switch (nativeKeycode) {
+					case NKCODE_DEL:
+					case NKCODE_FORWARD_DEL:
+					case NKCODE_TAB:
+						break;
+					default:
+						if (str.size()) {
+							int pos = 0;
+							int code = u8_nextchar(str.c_str(), &pos);
+							NativeKey(KeyInput(DEVICE_ID_KEYBOARD, code, KEY_CHAR));
+						}
+						break;
+					}
+				}
         break;
     case QEvent::KeyRelease:
         NativeKey(KeyInput(DEVICE_ID_KEYBOARD, KeyMapRawQttoNative.find(((QKeyEvent*)e)->key())->second, KEY_UP));
