@@ -684,7 +684,9 @@ const HLEFunction Kernel_Library[] =
 
 static u32 sysclib_memcpy(u32 dst, u32 src, u32 size) {
 	ERROR_LOG(SCEKERNEL, "Untested sysclib_memcpy(dest=%08x, src=%08x, size=%i)", dst, src, size);
-	memcpy(Memory::GetPointer(dst), Memory::GetPointer(src), size);
+	if (Memory::IsValidRange(dst, size) && Memory::IsValidRange(src, size)) {
+		memcpy(Memory::GetPointer(dst), Memory::GetPointer(src), size);
+	}
 	return dst;
 }
 
