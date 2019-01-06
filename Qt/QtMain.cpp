@@ -357,12 +357,16 @@ bool MainUI::event(QEvent *e)
     case QEvent::KeyPress:
 				{
 					auto qtKeycode = ((QKeyEvent*)e)->key();
-					int nativeKeycode = KeyMapRawQttoNative.find(qtKeycode)->second;
-					NativeKey(KeyInput(DEVICE_ID_KEYBOARD, nativeKeycode, KEY_DOWN));
+					auto iter = KeyMapRawQttoNative.find(qtKeycode);
+					int nativeKeycode = 0;
+					if (iter != KeyMapRawQttoNative.end()) {
+						nativeKeycode = iter->second;
+						NativeKey(KeyInput(DEVICE_ID_KEYBOARD, nativeKeycode, KEY_DOWN));
+					}
+
 					// Also get the unicode value.
 					QString text = ((QKeyEvent*)e)->text();
 					std::string str = text.toStdString();
-
 					// Now, we don't want CHAR events for non-printable characters. Not quite sure how we'll best
 					// do that, but here's one attempt....
 					switch (nativeKeycode) {
