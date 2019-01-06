@@ -1927,7 +1927,9 @@ set(NativeAssets
 	assets/rargray.png
 	assets/unknown.png
 	assets/zip.png
-	assets/logo.png
+	assets/Roboto-Condensed.tff
+	source_assets/image/logo.png
+	source_assets/image/icon_regular_72.png
 )
 
 
