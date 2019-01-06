@@ -517,7 +517,16 @@ void DrawEngineCommon::SubmitCurve(const void *control_points, const void *indic
 	// Simplify away bones and morph before proceeding
 	// There are normally not a lot of control points so just splitting decoded should be reasonably safe, although not great.
 	SimpleVertex *simplified_control_points = (SimpleVertex *)managedBuf.Allocate(sizeof(SimpleVertex) * (index_upper_bound + 1));
+	if (!simplified_control_points) {
+		ERROR_LOG(G3D, "Failed to allocate space for simplified control points, skipping curve draw");
+		return;
+	}
+
 	u8 *temp_buffer = managedBuf.Allocate(sizeof(SimpleVertex) * num_points);
+	if (!temp_buffer) {
+		ERROR_LOG(G3D, "Failed to allocate space for temp buffer, skipping curve draw");
+		return;
+	}
 
 	u32 origVertType = vertType;
 	vertType = NormalizeVertices((u8 *)simplified_control_points, temp_buffer, (u8 *)control_points, index_lower_bound, index_upper_bound, vertType);
@@ -531,6 +540,10 @@ void DrawEngineCommon::SubmitCurve(const void *control_points, const void *indic
 
 	// Make an array of pointers to the control points, to get rid of indices.
 	const SimpleVertex **points = (const SimpleVertex **)managedBuf.Allocate(sizeof(SimpleVertex *) * num_points);
+	if (!points) {
+		ERROR_LOG(G3D, "Failed to allocate space for control point pointers, skipping curve draw");
+		return;
+	}
 	for (int idx = 0; idx < num_points; idx++)
 		points[idx] = simplified_control_points + (indices ? ConvertIndex(idx) : idx);
 
