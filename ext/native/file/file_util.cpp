@@ -238,8 +238,6 @@ size_t getFilesInDir(const char *directory, std::vector<FileInfo> *files, const 
 	{
 		const std::string virtualName = ConvertWStringToUTF8(ffd.cFileName);
 #else
-	struct dirent_large { struct dirent entry; char padding[FILENAME_MAX+1]; };
-	struct dirent_large diren;
 	struct dirent *result = NULL;
 
 	//std::string directoryWithSlash = directory;
@@ -250,7 +248,7 @@ size_t getFilesInDir(const char *directory, std::vector<FileInfo> *files, const 
 	if (!dirp)
 		return 0;
 	// non windows loop
-	while (!readdir_r(dirp, (dirent*) &diren, &result) && result)
+	while ((result = readdir(dirp)))
 	{
 		const std::string virtualName(result->d_name);
 #endif

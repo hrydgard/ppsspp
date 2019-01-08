@@ -661,13 +661,13 @@ bool DeleteDirRecursively(const std::string &directory)
 	{
 		const std::string virtualName = ConvertWStringToUTF8(ffd.cFileName);
 #else
-	struct dirent dirent, *result = NULL;
+	struct dirent *result = NULL;
 	DIR *dirp = opendir(directory.c_str());
 	if (!dirp)
 		return false;
 
 	// non windows loop
-	while (!readdir_r(dirp, &dirent, &result) && result)
+	while ((result = readdir(dirp)))
 	{
 		const std::string virtualName = result->d_name;
 #endif
@@ -723,13 +723,11 @@ void CopyDir(const std::string &source_path, const std::string &dest_path)
 	if (!File::Exists(source_path)) return;
 	if (!File::Exists(dest_path)) File::CreateFullPath(dest_path);
 
-	struct dirent_large { struct dirent entry; char padding[FILENAME_MAX+1]; };
-	struct dirent_large diren;
 	struct dirent *result = NULL;
 	DIR *dirp = opendir(source_path.c_str());
 	if (!dirp) return;
 
-	while (!readdir_r(dirp, (dirent*) &diren, &result) && result)
+	while ((result = readdir(dirp)))
 	{
 		const std::string virtualName(result->d_name);
 		// check for "." and ".."
