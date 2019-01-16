@@ -19,7 +19,7 @@ rem // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 if not defined vs140comntools (
   echo "Visual Studio 2015 doesn't appear to be installed properly. Quitting."
   goto quit
-  ) else (
+) else (
     call "%vs140comntools%\vsvars32.bat" x86_amd64
 )
 
@@ -33,18 +33,18 @@ set DBG_PPSSPP=/m /p:Configuration=Debug;Platform=x64
 
 call msbuild PPSSPP.sln /t:Clean %RLS_PPSSPP%
 call msbuild PPSSPP.sln /t:Build %RLS_PPSSPP%
-if not exist %PPSSPP_ROOT%\%RELEASEX64% (
+if not exist "%PPSSPP_ROOT%\%RELEASEX64%" (
     echo Release build failed.
     goto Quit
 )
 call msbuild PPSSPP.sln /t:Clean %DBG_PPSSPP% /m
 call msbuild PPSSPP.sln /t:Build %DBG_PPSSPP% /m
-if not exist %PPSSPP_ROOT%\%DEBUGX64% (
+if not exist "%PPSSPP_ROOT%\%DEBUGX64%" (
     echo Debug build failed.
     goto Quit
 )
 
-if not exist %RELEASE_DIR%\\. (
+if not exist "%RELEASE_DIR%\\." (
   mkdir %RELEASE_DIR%
 ) else (
   rmdir /S /Q %RELEASE_DIR%
