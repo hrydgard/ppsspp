@@ -191,8 +191,8 @@ size_t VulkanDeviceAllocator::Allocate(const VkMemoryRequirements &reqs, VkDevic
 	assert(!destroyed_);
 	uint32_t memoryTypeIndex;
 	bool pass = vulkan_->MemoryTypeFromProperties(reqs.memoryTypeBits, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, &memoryTypeIndex);
-	assert(pass);
 	if (!pass) {
+		ELOG("Failed to pick an appropriate memory type (req: %08x)", reqs.memoryTypeBits);
 		return ALLOCATE_FAILED;
 	}
 
