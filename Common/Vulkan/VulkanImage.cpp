@@ -67,6 +67,7 @@ bool VulkanTexture::CreateDirect(VkCommandBuffer cmd, int w, int h, int numMips,
 	VkResult res = vkCreateImage(vulkan_->GetDevice(), &image_create_info, NULL, &image_);
 	if (res != VK_SUCCESS) {
 		_assert_(res == VK_ERROR_OUT_OF_HOST_MEMORY || res == VK_ERROR_OUT_OF_DEVICE_MEMORY || res == VK_ERROR_TOO_MANY_OBJECTS);
+		ELOG("vkCreateImage failed: %s", VulkanResultToString(res));
 		return false;
 	}
 
@@ -76,6 +77,8 @@ bool VulkanTexture::CreateDirect(VkCommandBuffer cmd, int w, int h, int numMips,
 	if (allocator_) {
 		offset_ = allocator_->Allocate(mem_reqs, &mem_, Tag());
 		if (offset_ == VulkanDeviceAllocator::ALLOCATE_FAILED) {
+			vkDestroyImage(vulkan_->GetDevice(), image_, nullptr);
+			ELOG("Image memory allocation failed (mem_reqs.size = %d)", (int)mem_reqs.size);
 			return false;
 		}
 	} else {
@@ -89,6 +92,7 @@ bool VulkanTexture::CreateDirect(VkCommandBuffer cmd, int w, int h, int numMips,
 
 		res = vkAllocateMemory(vulkan_->GetDevice(), &mem_alloc, NULL, &mem_);
 		if (res != VK_SUCCESS) {
+			ELOG("vkAllocateMemory failed: %s", VulkanResultToString(res));
 			_assert_msg_(G3D, res != VK_ERROR_TOO_MANY_OBJECTS, "Too many Vulkan memory objects!");
 			_assert_(res == VK_ERROR_OUT_OF_HOST_MEMORY || res == VK_ERROR_OUT_OF_DEVICE_MEMORY || res == VK_ERROR_TOO_MANY_OBJECTS);
 			vkDestroyImage(vulkan_->GetDevice(), image_, nullptr);
@@ -101,6 +105,7 @@ bool VulkanTexture::CreateDirect(VkCommandBuffer cmd, int w, int h, int numMips,
 
 	res = vkBindImageMemory(vulkan_->GetDevice(), image_, mem_, offset_);
 	if (res != VK_SUCCESS) {
+		ELOG("vkBindImageMemory failed: %s", VulkanResultToString(res));
 		// This leaks the image and memory. Should not really happen though...
 		_assert_(res == VK_ERROR_OUT_OF_HOST_MEMORY || res == VK_ERROR_OUT_OF_DEVICE_MEMORY || res == VK_ERROR_TOO_MANY_OBJECTS);
 		return false;
@@ -144,6 +149,7 @@ bool VulkanTexture::CreateDirect(VkCommandBuffer cmd, int w, int h, int numMips,
 
 	res = vkCreateImageView(vulkan_->GetDevice(), &view_info, NULL, &view_);
 	if (res != VK_SUCCESS) {
+		ELOG("vkCreateImageView failed: %s", VulkanResultToString(res));
 		// This leaks the image.
 		_assert_(res == VK_ERROR_OUT_OF_HOST_MEMORY || res == VK_ERROR_OUT_OF_DEVICE_MEMORY || res == VK_ERROR_TOO_MANY_OBJECTS);
 		return false;

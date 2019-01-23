@@ -507,6 +507,14 @@ void VulkanContext::ChooseDevice(int physical_device) {
 
 	// This is as good a place as any to do this
 	vkGetPhysicalDeviceMemoryProperties(physical_devices_[physical_device_], &memory_properties);
+	ILOG("Memory Types (%d):", memory_properties.memoryTypeCount);
+	for (int i = 0; i < memory_properties.memoryTypeCount; i++) {
+		ILOG("  %d: Heap %d; Flags: %s%s%s%s  ", i, memory_properties.memoryTypes[i].heapIndex,
+			(memory_properties.memoryTypes[i].propertyFlags & VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT) ? "DEVICE_LOCAL_BIT" : "",
+			(memory_properties.memoryTypes[i].propertyFlags & VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT) ? "HOST_VISIBLE_BIT" : "",
+			(memory_properties.memoryTypes[i].propertyFlags & VK_MEMORY_PROPERTY_HOST_CACHED_BIT) ? "HOST_CACHED_BIT" : "",
+			(memory_properties.memoryTypes[i].propertyFlags & VK_MEMORY_PROPERTY_HOST_COHERENT_BIT) ? "HOST_COHERENT_BIT" : "");
+	}
 
 	// Optional features
 	vkGetPhysicalDeviceFeatures(physical_devices_[physical_device_], &featuresAvailable_);

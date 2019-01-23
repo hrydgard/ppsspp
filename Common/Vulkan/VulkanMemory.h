@@ -174,6 +174,7 @@ private:
 
 	struct Slab {
 		VkDeviceMemory deviceMemory;
+		uint32_t memoryTypeIndex = UNDEFINED_MEMORY_TYPE;
 		std::vector<uint8_t> usage;
 		std::unordered_map<size_t, size_t> allocSizes;
 		std::unordered_map<size_t, UsageInfo> tags;
@@ -200,7 +201,7 @@ private:
 		freeInfo->allocator->ExecuteFree(freeInfo);  // this deletes freeInfo
 	}
 
-	bool AllocateSlab(VkDeviceSize minBytes);
+	bool AllocateSlab(VkDeviceSize minBytes, int memoryTypeIndex);
 	bool AllocateFromSlab(Slab &slab, size_t &start, size_t blocks, const std::string &tag);
 	void Decimate();
 	void DoTouch(VkDeviceMemory deviceMemory, size_t offset);
@@ -212,6 +213,5 @@ private:
 	size_t lastSlab_ = 0;
 	size_t minSlabSize_;
 	const size_t maxSlabSize_;
-	uint32_t memoryTypeIndex_ = UNDEFINED_MEMORY_TYPE;
 	bool destroyed_ = false;
 };

@@ -130,6 +130,7 @@ bool AndroidVulkanContext::InitAPI() {
 		g_Vulkan = nullptr;
 		return false;
 	}
+	ILOG("Vulkan device created!");
 	return true;
 }
 

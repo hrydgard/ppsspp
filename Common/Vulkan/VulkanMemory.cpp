@@ -191,14 +191,8 @@ size_t VulkanDeviceAllocator::Allocate(const VkMemoryRequirements &reqs, VkDevic
 	assert(!destroyed_);
 	uint32_t memoryTypeIndex;
 	bool pass = vulkan_->MemoryTypeFromProperties(reqs.memoryTypeBits, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, &memoryTypeIndex);
-	assert(pass);
 	if (!pass) {
-		return ALLOCATE_FAILED;
-	}
-	if (memoryTypeIndex_ == UNDEFINED_MEMORY_TYPE) {
-		memoryTypeIndex_ = memoryTypeIndex;
-	} else if (memoryTypeIndex_ != memoryTypeIndex) {
-		assert(memoryTypeIndex_ == memoryTypeIndex);
+		ELOG("Failed to pick an appropriate memory type (req: %08x)", reqs.memoryTypeBits);
 		return ALLOCATE_FAILED;
 	}
 
@@ -213,6 +207,8 @@ size_t VulkanDeviceAllocator::Allocate(const VkMemoryRequirements &reqs, VkDevic
 		// This helps us "creep forward", and also spend less time allocating.
 		const size_t actualSlab = (lastSlab_ + i) % numSlabs;
 		Slab &slab = slabs_[actualSlab];
+		if (slab.memoryTypeIndex != memoryTypeIndex)
+			continue;
 		size_t start = slab.nextFree;
 
 		while (start < slab.usage.size()) {
@@ -227,7 +223,7 @@ size_t VulkanDeviceAllocator::Allocate(const VkMemoryRequirements &reqs, VkDevic
 	}
 
 	// Okay, we couldn't fit it into any existing slabs.  We need a new one.
-	if (!AllocateSlab(size)) {
+	if (!AllocateSlab(size, memoryTypeIndex)) {
 		return ALLOCATE_FAILED;
 	}
 
@@ -401,16 +397,17 @@ void VulkanDeviceAllocator::ExecuteFree(FreeInfo *userdata) {
 	delete userdata;
 }
 
-bool VulkanDeviceAllocator::AllocateSlab(VkDeviceSize minBytes) {
+bool VulkanDeviceAllocator::AllocateSlab(VkDeviceSize minBytes, int memoryTypeIndex) {
 	assert(!destroyed_);
 	if (!slabs_.empty() && minSlabSize_ < maxSlabSize_) {
 		// We're allocating an additional slab, so rachet up its size.
+		// TODO: Maybe should not do this when we are allocating a new slab due to memoryTypeIndex not matching?
 		minSlabSize_ <<= 1;
 	}
 
 	VkMemoryAllocateInfo alloc{ VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO };
 	alloc.allocationSize = minSlabSize_;
-	alloc.memoryTypeIndex = memoryTypeIndex_;
+	alloc.memoryTypeIndex = memoryTypeIndex;
 
 	while (alloc.allocationSize < minBytes) {
 		alloc.allocationSize <<= 1;
@@ -427,6 +424,7 @@ bool VulkanDeviceAllocator::AllocateSlab(VkDeviceSize minBytes) {
 
 	slabs_.resize(slabs_.size() + 1);
 	Slab &slab = slabs_[slabs_.size() - 1];
+	slab.memoryTypeIndex = memoryTypeIndex;
 	slab.deviceMemory = deviceMemory;
 	slab.usage.resize((size_t)(alloc.allocationSize >> SLAB_GRAIN_SHIFT));
 
