@@ -585,7 +585,9 @@ VkResult VulkanContext::CreateDevice() {
 	}
 	assert(found);
 
-	deviceExtensionsLookup_.DEDICATED_ALLOCATION = EnableDeviceExtension(VK_KHR_DEDICATED_ALLOCATION_EXTENSION_NAME);
+	if (EnableDeviceExtension(VK_KHR_GET_MEMORY_REQUIREMENTS_2_EXTENSION_NAME)) {
+		deviceExtensionsLookup_.DEDICATED_ALLOCATION = EnableDeviceExtension(VK_KHR_DEDICATED_ALLOCATION_EXTENSION_NAME);
+	}
 
 	VkDeviceCreateInfo device_info{ VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO };
 	device_info.queueCreateInfoCount = 1;
