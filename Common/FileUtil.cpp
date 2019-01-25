@@ -652,7 +652,6 @@ bool DeleteDirRecursively(const std::string &directory)
 
 	if (hFind == INVALID_HANDLE_VALUE)
 	{
-		FindClose(hFind);
 		return false;
 	}
 		
@@ -671,7 +670,6 @@ bool DeleteDirRecursively(const std::string &directory)
 	{
 		const std::string virtualName = result->d_name;
 #endif
-
 		// check for "." and ".."
 		if (((virtualName[0] == '.') && (virtualName[1] == '\0')) ||
 			((virtualName[0] == '.') && (virtualName[1] == '.') && 
@@ -683,10 +681,11 @@ bool DeleteDirRecursively(const std::string &directory)
 		{
 			if (!DeleteDirRecursively(newPath))
 			{
-				#ifndef _WIN32
+#ifndef _WIN32
 				closedir(dirp);
-				#endif
-				
+#else
+				FindClose(hFind);
+#endif
 				return false;
 			}
 		}
@@ -694,10 +693,11 @@ bool DeleteDirRecursively(const std::string &directory)
 		{
 			if (!File::Delete(newPath))
 			{
-				#ifndef _WIN32
+#ifndef _WIN32
 				closedir(dirp);
-				#endif
-				
+#else
+				FindClose(hFind);
+#endif
 				return false;
 			}
 		}
@@ -709,8 +709,7 @@ bool DeleteDirRecursively(const std::string &directory)
 	}
 	closedir(dirp);
 #endif
-	File::DeleteDir(directory);
-	return true;
+	return File::DeleteDir(directory);
 #endif
 }
 
