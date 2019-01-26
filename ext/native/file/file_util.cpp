@@ -230,7 +230,6 @@ size_t getFilesInDir(const char *directory, std::vector<FileInfo> *files, const 
 	WIN32_FIND_DATA ffd;
 	HANDLE hFind = FindFirstFileEx((ConvertUTF8ToWString(directory) + L"\\*").c_str(), FindExInfoStandard, &ffd, FindExSearchNameMatch, NULL, 0);
 	if (hFind == INVALID_HANDLE_VALUE) {
-		FindClose(hFind);
 		return 0;
 	}
 	// windows loop

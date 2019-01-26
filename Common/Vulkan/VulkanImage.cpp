@@ -76,11 +76,8 @@ bool VulkanTexture::CreateDirect(VkCommandBuffer cmd, int w, int h, int numMips,
 
 	if (allocator_) {
 		offset_ = allocator_->Allocate(mem_reqs, &mem_, Tag());
-		if (offset_ == VulkanDeviceAllocator::ALLOCATE_FAILED) {
-			vkDestroyImage(vulkan_->GetDevice(), image_, nullptr);
-			ELOG("Image memory allocation failed (mem_reqs.size = %d)", (int)mem_reqs.size);
-			return false;
-		}
+		// Destructor will take care of the image.
+		return false;
 	} else {
 		VkMemoryAllocateInfo mem_alloc{ VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO };
 		mem_alloc.memoryTypeIndex = 0;
@@ -95,8 +92,6 @@ bool VulkanTexture::CreateDirect(VkCommandBuffer cmd, int w, int h, int numMips,
 			ELOG("vkAllocateMemory failed: %s", VulkanResultToString(res));
 			_assert_msg_(G3D, res != VK_ERROR_TOO_MANY_OBJECTS, "Too many Vulkan memory objects!");
 			_assert_(res == VK_ERROR_OUT_OF_HOST_MEMORY || res == VK_ERROR_OUT_OF_DEVICE_MEMORY || res == VK_ERROR_TOO_MANY_OBJECTS);
-			vkDestroyImage(vulkan_->GetDevice(), image_, nullptr);
-			image_ = VK_NULL_HANDLE;
 			return false;
 		}
 

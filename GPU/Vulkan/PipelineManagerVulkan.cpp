@@ -112,12 +112,14 @@ static int SetupVertexAttribs(VkVertexInputAttributeDescription attrs[], const D
 	return count;
 }
 
-static int SetupVertexAttribsPretransformed(VkVertexInputAttributeDescription attrs[]) {
+static int SetupVertexAttribsPretransformed(VkVertexInputAttributeDescription attrs[], bool needsColor1) {
 	int count = 0;
 	VertexAttribSetup(&attrs[count++], DEC_FLOAT_4, 0, PspAttributeLocation::POSITION);
 	VertexAttribSetup(&attrs[count++], DEC_FLOAT_3, 16, PspAttributeLocation::TEXCOORD);
 	VertexAttribSetup(&attrs[count++], DEC_U8_4, 28, PspAttributeLocation::COLOR0);
-	VertexAttribSetup(&attrs[count++], DEC_U8_4, 32, PspAttributeLocation::COLOR1);
+	if (needsColor1) {
+		VertexAttribSetup(&attrs[count++], DEC_U8_4, 32, PspAttributeLocation::COLOR1);
+	}
 	return count;
 }
 
@@ -243,7 +245,8 @@ static VulkanPipeline *CreateVulkanPipeline(VkDevice device, VkPipelineCache pip
 		attributeCount = SetupVertexAttribs(attrs, *decFmt);
 		vertexStride = decFmt->stride;
 	} else {
-		attributeCount = SetupVertexAttribsPretransformed(attrs);
+		bool needsColor1 = vs->GetID().Bit(FS_BIT_LMODE);
+		attributeCount = SetupVertexAttribsPretransformed(attrs, needsColor1);
 		vertexStride = 36;
 	}
 

@@ -142,8 +142,9 @@ public:
 	VulkanDeleteList &Delete() { return globalDeleteList_; }
 
 	// The parameters are whatever the chosen window system wants.
-	void InitSurface(WindowSystem winsys, void *data1, void *data2, int width = -1, int height = -1);
-	void ReinitSurface(int width = -1, int height = -1);
+	// The extents will be automatically determined.
+	VkResult InitSurface(WindowSystem winsys, void *data1, void *data2);
+	VkResult ReinitSurface();
 
 	bool InitQueue();
 	bool InitObjects();
@@ -160,8 +161,8 @@ public:
 	VkFence CreateFence(bool presignalled);
 	bool CreateShaderModule(const std::vector<uint32_t> &spirv, VkShaderModule *shaderModule);
 
-	int GetBackbufferWidth() { return width_; }
-	int GetBackbufferHeight() { return height_; }
+	int GetBackbufferWidth() { return (int)swapChainExtent_.width; }
+	int GetBackbufferHeight() { return (int)swapChainExtent_.height; }
 
 	void BeginFrame();
 	void EndFrame();
@@ -295,9 +296,9 @@ private:
 	// Custom collection of things that are good to know
 	VulkanPhysicalDeviceInfo deviceInfo_{};
 
-	// Swap chain
-	int width_ = 0;
-	int height_ = 0;
+	// Swap chain extent
+	VkExtent2D swapChainExtent_{};
+
 	int flags_ = 0;
 
 	int inflightFrames_ = MAX_INFLIGHT_FRAMES;
