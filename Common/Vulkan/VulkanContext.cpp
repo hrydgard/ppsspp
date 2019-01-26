@@ -505,15 +505,18 @@ void VulkanContext::ChooseDevice(int physical_device) {
 		ELOG("Could not find a usable depth stencil format.");
 	}
 
-	// This is as good a place as any to do this
+	// This is as good a place as any to do this.
 	vkGetPhysicalDeviceMemoryProperties(physical_devices_[physical_device_], &memory_properties);
 	ILOG("Memory Types (%d):", memory_properties.memoryTypeCount);
 	for (int i = 0; i < (int)memory_properties.memoryTypeCount; i++) {
+		// Don't bother printing dummy memory types.
+		if (!memory_properties.memoryTypes[i].propertyFlags)
+			continue;
 		ILOG("  %d: Heap %d; Flags: %s%s%s%s  ", i, memory_properties.memoryTypes[i].heapIndex,
-			(memory_properties.memoryTypes[i].propertyFlags & VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT) ? "DEVICE_LOCAL_BIT" : "",
-			(memory_properties.memoryTypes[i].propertyFlags & VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT) ? "HOST_VISIBLE_BIT" : "",
-			(memory_properties.memoryTypes[i].propertyFlags & VK_MEMORY_PROPERTY_HOST_CACHED_BIT) ? "HOST_CACHED_BIT" : "",
-			(memory_properties.memoryTypes[i].propertyFlags & VK_MEMORY_PROPERTY_HOST_COHERENT_BIT) ? "HOST_COHERENT_BIT" : "");
+			(memory_properties.memoryTypes[i].propertyFlags & VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT) ? "DEVICE_LOCAL " : "",
+			(memory_properties.memoryTypes[i].propertyFlags & VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT) ? "HOST_VISIBLE " : "",
+			(memory_properties.memoryTypes[i].propertyFlags & VK_MEMORY_PROPERTY_HOST_CACHED_BIT) ? "HOST_CACHED " : "",
+			(memory_properties.memoryTypes[i].propertyFlags & VK_MEMORY_PROPERTY_HOST_COHERENT_BIT) ? "HOST_COHERENT " : "");
 	}
 
 	// Optional features
