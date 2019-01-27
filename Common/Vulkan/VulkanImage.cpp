@@ -76,8 +76,11 @@ bool VulkanTexture::CreateDirect(VkCommandBuffer cmd, int w, int h, int numMips,
 
 	if (allocator_) {
 		offset_ = allocator_->Allocate(mem_reqs, &mem_, Tag());
-		// Destructor will take care of the image.
-		return false;
+		if (offset_ == VulkanDeviceAllocator::ALLOCATE_FAILED) {
+			ELOG("Image memory allocation failed (mem_reqs.size=%d, typebits=%08x", (int)mem_reqs.size, (int)mem_reqs.memoryTypeBits);
+			// Destructor will take care of the image.
+			return false;
+		}
 	} else {
 		VkMemoryAllocateInfo mem_alloc{ VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO };
 		mem_alloc.memoryTypeIndex = 0;
