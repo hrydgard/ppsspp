@@ -246,6 +246,7 @@ bool VulkanMayBeAvailable() {
 
 	// Do a hyper minimal initialization and teardown to figure out if there's any chance
 	// that any sort of Vulkan will be usable.
+	PFN_vkEnumerateInstanceExtensionProperties localEnumerateInstanceExtensionProperties = LOAD_GLOBAL_FUNC_LOCAL(lib, vkEnumerateInstanceExtensionProperties);
 	PFN_vkCreateInstance localCreateInstance = LOAD_GLOBAL_FUNC_LOCAL(lib, vkCreateInstance);
 	PFN_vkEnumeratePhysicalDevices localEnumerate = LOAD_GLOBAL_FUNC_LOCAL(lib, vkEnumeratePhysicalDevices);
 	PFN_vkDestroyInstance localDestroyInstance = LOAD_GLOBAL_FUNC_LOCAL(lib, vkDestroyInstance);
@@ -260,17 +261,51 @@ bool VulkanMayBeAvailable() {
 	VkInstance instance = VK_NULL_HANDLE;
 	VkResult res;
 	uint32_t physicalDeviceCount = 0;
+	std::vector<VkExtensionProperties> instanceExts;
 
-	if (!localCreateInstance || !localEnumerate || !localDestroyInstance || !localGetPhysicalDeviceProperties)
+	if (!localEnumerateInstanceExtensionProperties || !localCreateInstance || !localEnumerate || !localDestroyInstance || !localGetPhysicalDeviceProperties)
 		goto bail;
 
+	uint32_t instanceExtCount = 0;
+	res = localEnumerateInstanceExtensionProperties(nullptr, &instanceExtCount, nullptr);
+	// Maximum paranoia.
+	if (res != VK_SUCCESS) {
+		ELOG("Counting VK extensions failed.");
+		goto bail;
+	}
+	if (instanceExtCount == 0) {
+		ELOG("No VK instance extensions - won't be able to present.");
+		goto bail;
+	}
+	instanceExts.resize(instanceExtCount);
+	res = localEnumerateInstanceExtensionProperties(nullptr, &instanceExtCount, instanceExts.data());
+	if (res != VK_SUCCESS) {
+		ELOG("Enumerating VK extensions failed.");
+		goto bail;
+	}
+
 #ifdef _WIN32
-	instanceExtensions[0] = VK_KHR_WIN32_SURFACE_EXTENSION_NAME;
-	ci.enabledExtensionCount = 1;
+	const char * const surfaceExtension = VK_KHR_WIN32_SURFACE_EXTENSION_NAME;
 #elif defined(__ANDROID__)
-	instanceExtensions[0] = VK_KHR_ANDROID_SURFACE_EXTENSION_NAME;
-	ci.enabledExtensionCount = 1;
+	const char *surfaceExtension = VK_KHR_ANDROID_SURFACE_EXTENSION_NAME;
+#else
+	const char *surfaceExtension = 0;
 #endif
+
+	if (surfaceExtension) {
+		bool foundSurfaceExtension = false;
+		for (auto iter : instanceExts) {
+			if (!strcmp(iter.extensionName, surfaceExtension)) {
+				instanceExtensions[0] = surfaceExtension;
+				ci.enabledExtensionCount = 1;
+				foundSurfaceExtension = true;
+			}
+		}
+		if (!foundSurfaceExtension) {
+			ELOG("Surface extension not found");
+			goto bail;
+		}
+	}
 
 	ci.ppEnabledExtensionNames = instanceExtensions;
 	ci.enabledLayerCount = 0;

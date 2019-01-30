@@ -22,8 +22,7 @@ void Register_sceUsbGps();
 void __UsbGpsInit();
 void __UsbGpsDoState(PointerWrap &p);
 
-#pragma pack(push)
-#pragma pack(1)
+#pragma pack(push, 1)
 
 typedef struct {
 	short year;
