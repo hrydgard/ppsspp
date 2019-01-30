@@ -261,12 +261,20 @@ bool VulkanMayBeAvailable() {
 	VkInstance instance = VK_NULL_HANDLE;
 	VkResult res;
 	uint32_t physicalDeviceCount = 0;
+	uint32_t instanceExtCount = 0;
 	std::vector<VkExtensionProperties> instanceExts;
+
+#ifdef _WIN32
+	const char * const surfaceExtension = VK_KHR_WIN32_SURFACE_EXTENSION_NAME;
+#elif defined(__ANDROID__)
+	const char *surfaceExtension = VK_KHR_ANDROID_SURFACE_EXTENSION_NAME;
+#else
+	const char *surfaceExtension = 0;
+#endif
 
 	if (!localEnumerateInstanceExtensionProperties || !localCreateInstance || !localEnumerate || !localDestroyInstance || !localGetPhysicalDeviceProperties)
 		goto bail;
 
-	uint32_t instanceExtCount = 0;
 	res = localEnumerateInstanceExtensionProperties(nullptr, &instanceExtCount, nullptr);
 	// Maximum paranoia.
 	if (res != VK_SUCCESS) {
@@ -283,14 +291,6 @@ bool VulkanMayBeAvailable() {
 		ELOG("Enumerating VK extensions failed.");
 		goto bail;
 	}
-
-#ifdef _WIN32
-	const char * const surfaceExtension = VK_KHR_WIN32_SURFACE_EXTENSION_NAME;
-#elif defined(__ANDROID__)
-	const char *surfaceExtension = VK_KHR_ANDROID_SURFACE_EXTENSION_NAME;
-#else
-	const char *surfaceExtension = 0;
-#endif
 
 	if (surfaceExtension) {
 		for (auto iter : instanceExts) {
