@@ -898,7 +898,11 @@ void VulkanRenderManager::Submit(int frame, bool triggerFence) {
 			submit_info.pCommandBuffers = cmdBufs;
 			res = vkQueueSubmit(vulkan_->GetGraphicsQueue(), 1, &submit_info, VK_NULL_HANDLE);
 			if (res == VK_ERROR_DEVICE_LOST) {
-				_assert_msg_(G3D, false, "Lost the Vulkan device!");
+#ifdef _WIN32
+				_assert_msg_(G3D, false, "Lost the Vulkan device! If this happens again, switch Graphics Backend from Vulkan to Direct3D11");
+#else
+				_assert_msg_(G3D, false, "Lost the Vulkan device! If this happens again, switch Graphics Backend from Vulkan to OpenGL");
+#endif
 			} else {
 				_assert_msg_(G3D, res == VK_SUCCESS, "vkQueueSubmit failed (init)! result=%s", VulkanResultToString(res));
 			}
@@ -922,7 +926,11 @@ void VulkanRenderManager::Submit(int frame, bool triggerFence) {
 	}
 	res = vkQueueSubmit(vulkan_->GetGraphicsQueue(), 1, &submit_info, triggerFence ? frameData.fence : VK_NULL_HANDLE);
 	if (res == VK_ERROR_DEVICE_LOST) {
-		_assert_msg_(G3D, false, "Lost the Vulkan device!");
+#ifdef _WIN32
+		_assert_msg_(G3D, false, "Lost the Vulkan device! If this happens again, switch Graphics Backend from Vulkan to Direct3D11");
+#else
+		_assert_msg_(G3D, false, "Lost the Vulkan device! If this happens again, switch Graphics Backend from Vulkan to OpenGL");
+#endif
 	} else {
 		_assert_msg_(G3D, res == VK_SUCCESS, "vkQueueSubmit failed (main, split=%d)! result=%s", (int)splitSubmit_, VulkanResultToString(res));
 	}
