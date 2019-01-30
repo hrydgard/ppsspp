@@ -270,7 +270,7 @@ bool VulkanMayBeAvailable() {
 	res = localEnumerateInstanceExtensionProperties(nullptr, &instanceExtCount, nullptr);
 	// Maximum paranoia.
 	if (res != VK_SUCCESS) {
-		ELOG("Counting VK extensions failed.");
+		ELOG("Enumerating VK extensions failed.");
 		goto bail;
 	}
 	if (instanceExtCount == 0) {
@@ -293,15 +293,14 @@ bool VulkanMayBeAvailable() {
 #endif
 
 	if (surfaceExtension) {
-		bool foundSurfaceExtension = false;
 		for (auto iter : instanceExts) {
 			if (!strcmp(iter.extensionName, surfaceExtension)) {
 				instanceExtensions[0] = surfaceExtension;
 				ci.enabledExtensionCount = 1;
-				foundSurfaceExtension = true;
+				break;
 			}
 		}
-		if (!foundSurfaceExtension) {
+		if (!ci.enabledExtensionCount) {
 			ELOG("Surface extension not found");
 			goto bail;
 		}
