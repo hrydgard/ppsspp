@@ -117,9 +117,6 @@ bool WindowsVulkanContext::Init(HINSTANCE hInst, HWND hWnd, std::string *error_m
 			g_Config.sVulkanDevice = g_Vulkan->GetPhysicalDeviceProperties(deviceNum).deviceName;
 	}
 	g_Vulkan->ChooseDevice(deviceNum);
-	if (g_Vulkan->EnableDeviceExtension(VK_NV_DEDICATED_ALLOCATION_EXTENSION_NAME)) {
-		supportsDedicatedAlloc_ = true;
-	}
 	if (g_Vulkan->CreateDevice() != VK_SUCCESS) {
 		*error_message = g_Vulkan->InitError();
 		delete g_Vulkan;
