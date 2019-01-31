@@ -201,6 +201,8 @@ extern PFN_vkCreateDebugReportCallbackEXT dyn_vkCreateDebugReportCallbackEXT;
 extern PFN_vkDestroyDebugReportCallbackEXT dyn_vkDestroyDebugReportCallbackEXT;
 
 // Assorted other extensions.
+extern PFN_vkGetBufferMemoryRequirements2KHR vkGetBufferMemoryRequirements2KHR;
+extern PFN_vkGetImageMemoryRequirements2KHR vkGetImageMemoryRequirements2KHR;
 extern PFN_vkGetMemoryHostPointerPropertiesEXT vkGetMemoryHostPointerPropertiesEXT;
 
 
