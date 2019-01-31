@@ -249,6 +249,7 @@ void GPU_Vulkan::CheckGPUFeatures() {
 	else if (PSP_CoreParameter().compat.flags().VertexDepthRounding) {
 		features |= GPU_ROUND_DEPTH_TO_16BIT;
 	}
+
 	gstate_c.featureFlags = features;
 }
 

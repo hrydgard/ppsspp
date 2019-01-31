@@ -103,7 +103,9 @@ private:
 
 // For fast extension-enabled checks.
 struct VulkanDeviceExtensions {
-	bool DEDICATED_ALLOCATION;
+	bool KHR_get_memory_requirements2;
+	bool KHR_dedicated_allocation;
+	bool EXT_external_memory_host;
 };
 
 // Useful for debugging on ARM Mali. This eliminates transaction elimination
