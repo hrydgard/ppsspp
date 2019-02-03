@@ -742,13 +742,28 @@ public:
 
 	EventReturn OnClicked(EventParams &e);
 	//allow external agents to toggle the checkbox
-	void Toggle();
+	virtual void Toggle();
+	virtual bool Toggled() const;
 private:
 	float CalculateTextScale(const UIContext &dc, float availWidth) const;
 
 	bool *toggle_;
 	std::string text_;
 	std::string smallText_;
+};
+
+class BitCheckBox : public CheckBox {
+public:
+	BitCheckBox(uint32_t *bitfield, uint32_t bit, const std::string &text, const std::string &smallText = "", LayoutParams *layoutParams = nullptr)
+		: CheckBox(nullptr, text, smallText, layoutParams), bitfield_(bitfield), bit_(bit) {
+	}
+
+	void Toggle() override;
+	bool Toggled() const override;
+
+private:
+	uint32_t *bitfield_;
+	uint32_t bit_;
 };
 
 // These are for generic use.
