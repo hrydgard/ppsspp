@@ -44,7 +44,7 @@ using namespace MIPSAnalyst;
 // Currently known non working ones should have DISABLE.
 
 // #define CONDITIONAL_DISABLE { Comp_Generic(op); return; }
-#define CONDITIONAL_DISABLE ;
+#define CONDITIONAL_DISABLE(flag) if (jo.Disabled(JitDisable::flag)) { Comp_Generic(op); return; }
 #define DISABLE { Comp_Generic(op); return; }
 
 namespace MIPSComp {
@@ -70,7 +70,7 @@ void Arm64Jit::CompImmLogic(MIPSGPReg rs, MIPSGPReg rt, u32 uimm, void (ARM64XEm
 }
 
 void Arm64Jit::Comp_IType(MIPSOpcode op) {
-	CONDITIONAL_DISABLE;
+	CONDITIONAL_DISABLE(ALU_IMM);
 	s32 simm = (s32)(s16)(op & 0xFFFF);  // sign extension
 	u32 uimm = op & 0xFFFF;
 	u32 suimm = (u32)(s32)simm;
@@ -146,7 +146,7 @@ void Arm64Jit::Comp_IType(MIPSOpcode op) {
 }
 
 void Arm64Jit::Comp_RType2(MIPSOpcode op) {
-	CONDITIONAL_DISABLE;
+	CONDITIONAL_DISABLE(ALU_BIT);
 
 	MIPSGPReg rs = _RS;
 	MIPSGPReg rd = _RD;
@@ -234,7 +234,7 @@ void Arm64Jit::CompType3(MIPSGPReg rd, MIPSGPReg rs, MIPSGPReg rt, void (ARM64XE
 }
 
 void Arm64Jit::Comp_RType3(MIPSOpcode op) {
-	CONDITIONAL_DISABLE;
+	CONDITIONAL_DISABLE(ALU);
 
 	MIPSGPReg rt = _RT;
 	MIPSGPReg rs = _RS;
@@ -406,7 +406,7 @@ void Arm64Jit::CompShiftVar(MIPSOpcode op, Arm64Gen::ShiftType shiftType) {
 }
 
 void Arm64Jit::Comp_ShiftType(MIPSOpcode op) {
-	CONDITIONAL_DISABLE;
+	CONDITIONAL_DISABLE(ALU);
 	MIPSGPReg rs = _RS;
 	MIPSGPReg rd = _RD;
 	int fd = _FD;
@@ -431,7 +431,7 @@ void Arm64Jit::Comp_ShiftType(MIPSOpcode op) {
 }
 
 void Arm64Jit::Comp_Special3(MIPSOpcode op) {
-	CONDITIONAL_DISABLE;
+	CONDITIONAL_DISABLE(ALU_BIT);
 	MIPSGPReg rs = _RS;
 	MIPSGPReg rt = _RT;
 
@@ -479,7 +479,7 @@ void Arm64Jit::Comp_Special3(MIPSOpcode op) {
 }
 
 void Arm64Jit::Comp_Allegrex(MIPSOpcode op) {
-	CONDITIONAL_DISABLE;
+	CONDITIONAL_DISABLE(ALU_BIT);
 	MIPSGPReg rt = _RT;
 	MIPSGPReg rd = _RD;
 	// Don't change $zr.
@@ -529,7 +529,7 @@ void Arm64Jit::Comp_Allegrex(MIPSOpcode op) {
 }
 
 void Arm64Jit::Comp_Allegrex2(MIPSOpcode op) {
-	CONDITIONAL_DISABLE;
+	CONDITIONAL_DISABLE(ALU_BIT);
 	MIPSGPReg rt = _RT;
 	MIPSGPReg rd = _RD;
 	// Don't change $zr.
@@ -560,7 +560,7 @@ void Arm64Jit::Comp_Allegrex2(MIPSOpcode op) {
 }
 
 void Arm64Jit::Comp_MulDivType(MIPSOpcode op) {
-	CONDITIONAL_DISABLE;
+	CONDITIONAL_DISABLE(MULDIV);
 	MIPSGPReg rt = _RT;
 	MIPSGPReg rs = _RS;
 	MIPSGPReg rd = _RD;

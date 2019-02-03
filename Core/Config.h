@@ -93,6 +93,7 @@ public:
 	bool bHideSlowWarnings;
 	bool bHideStateWarnings;
 	bool bPreloadFunctions;
+	uint32_t uJitDisableFlags;
 
 	bool bSeparateSASThread;
 	bool bSeparateIOThread;

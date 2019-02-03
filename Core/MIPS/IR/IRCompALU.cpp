@@ -38,14 +38,14 @@
 // Currently known non working ones should have DISABLE.
 
 // #define CONDITIONAL_DISABLE { Comp_Generic(op); return; }
-#define CONDITIONAL_DISABLE ;
+#define CONDITIONAL_DISABLE(flag) if (opts.disableFlags & (uint32_t)JitDisable::flag) { Comp_Generic(op); return; }
 #define DISABLE { Comp_Generic(op); return; }
 #define INVALIDOP { Comp_Generic(op); return; }
 
 namespace MIPSComp {
 
 void IRFrontend::Comp_IType(MIPSOpcode op) {
-	CONDITIONAL_DISABLE;
+	CONDITIONAL_DISABLE(ALU_IMM);
 
 	s32 simm = (s32)_IMM16;  // sign extension
 	u32 uimm = (u16)_IMM16;
@@ -87,7 +87,7 @@ void IRFrontend::Comp_IType(MIPSOpcode op) {
 }
 
 void IRFrontend::Comp_RType2(MIPSOpcode op) {
-	CONDITIONAL_DISABLE;
+	CONDITIONAL_DISABLE(ALU_BIT);
 
 	MIPSGPReg rs = _RS;
 	MIPSGPReg rd = _RD;
@@ -111,7 +111,7 @@ void IRFrontend::Comp_RType2(MIPSOpcode op) {
 }
 
 void IRFrontend::Comp_RType3(MIPSOpcode op) {
-	CONDITIONAL_DISABLE;
+	CONDITIONAL_DISABLE(ALU);
 
 	MIPSGPReg rt = _RT;
 	MIPSGPReg rs = _RS;
@@ -197,7 +197,7 @@ void IRFrontend::CompShiftVar(MIPSOpcode op, IROp shiftOp) {
 }
 
 void IRFrontend::Comp_ShiftType(MIPSOpcode op) {
-	CONDITIONAL_DISABLE;
+	CONDITIONAL_DISABLE(ALU);
 	MIPSGPReg rs = _RS;
 	MIPSGPReg rd = _RD;
 	int sa = _SA;
@@ -222,7 +222,7 @@ void IRFrontend::Comp_ShiftType(MIPSOpcode op) {
 }
 
 void IRFrontend::Comp_Special3(MIPSOpcode op) {
-	CONDITIONAL_DISABLE;
+	CONDITIONAL_DISABLE(ALU_BIT);
 	MIPSGPReg rs = _RS;
 	MIPSGPReg rt = _RT;
 
@@ -265,7 +265,7 @@ void IRFrontend::Comp_Special3(MIPSOpcode op) {
 
 
 void IRFrontend::Comp_Allegrex(MIPSOpcode op) {
-	CONDITIONAL_DISABLE;
+	CONDITIONAL_DISABLE(ALU_BIT);
 	MIPSGPReg rt = _RT;
 	MIPSGPReg rd = _RD;
 
@@ -293,7 +293,7 @@ void IRFrontend::Comp_Allegrex(MIPSOpcode op) {
 }
 
 void IRFrontend::Comp_Allegrex2(MIPSOpcode op) {
-	CONDITIONAL_DISABLE;
+	CONDITIONAL_DISABLE(ALU_BIT);
 	MIPSGPReg rt = _RT;
 	MIPSGPReg rd = _RD;
 
@@ -315,7 +315,7 @@ void IRFrontend::Comp_Allegrex2(MIPSOpcode op) {
 }
 
 void IRFrontend::Comp_MulDivType(MIPSOpcode op) {
-	CONDITIONAL_DISABLE;
+	CONDITIONAL_DISABLE(MULDIV);
 	MIPSGPReg rt = _RT;
 	MIPSGPReg rs = _RS;
 	MIPSGPReg rd = _RD;

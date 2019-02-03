@@ -42,7 +42,7 @@
 // Currently known non working ones should have DISABLE.
 
 // #define CONDITIONAL_DISABLE { Comp_Generic(op); return; }
-#define CONDITIONAL_DISABLE ;
+#define CONDITIONAL_DISABLE(flag) if (jo.Disabled(JitDisable::flag)) { Comp_Generic(op); return; }
 #define DISABLE { Comp_Generic(op); return; }
 
 namespace MIPSComp {
@@ -86,7 +86,7 @@ void Jit::CompFPTriArith(MIPSOpcode op, void (XEmitter::*arith)(X64Reg reg, OpAr
 }
 
 void Jit::Comp_FPU3op(MIPSOpcode op) {
-	CONDITIONAL_DISABLE;
+	CONDITIONAL_DISABLE(FPU);
 	switch (op & 0x3f) {
 	case 0: CompFPTriArith(op, &XEmitter::ADDSS, false); break; //F(fd) = F(fs) + F(ft); //add
 	case 1: CompFPTriArith(op, &XEmitter::SUBSS, true); break;  //F(fd) = F(fs) - F(ft); //sub
@@ -99,7 +99,7 @@ void Jit::Comp_FPU3op(MIPSOpcode op) {
 }
 
 void Jit::Comp_FPULS(MIPSOpcode op) {
-	CONDITIONAL_DISABLE;
+	CONDITIONAL_DISABLE(LSU_FPU);
 	s32 offset = _IMM16;
 	int ft = _FT;
 	MIPSGPReg rs = _RS;
@@ -174,7 +174,7 @@ void Jit::CompFPComp(int lhs, int rhs, u8 compare, bool allowNaN) {
 }
 
 void Jit::Comp_FPUComp(MIPSOpcode op) {
-	CONDITIONAL_DISABLE;
+	CONDITIONAL_DISABLE(FPU_COMP);
 
 	int fs = _FS;
 	int ft = _FT;
@@ -226,7 +226,7 @@ void Jit::Comp_FPUComp(MIPSOpcode op) {
 }
 
 void Jit::Comp_FPU2op(MIPSOpcode op) {
-	CONDITIONAL_DISABLE;
+	CONDITIONAL_DISABLE(FPU);
 	
 	int fs = _FS;
 	int fd = _FD;
@@ -355,7 +355,7 @@ void Jit::Comp_FPU2op(MIPSOpcode op) {
 }
 
 void Jit::Comp_mxc1(MIPSOpcode op) {
-	CONDITIONAL_DISABLE;
+	CONDITIONAL_DISABLE(FPU_XFER);
 
 	int fs = _FS;
 	MIPSGPReg rt = _RT;
