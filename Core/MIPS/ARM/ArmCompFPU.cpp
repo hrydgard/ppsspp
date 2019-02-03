@@ -44,7 +44,7 @@
 // Currently known non working ones should have DISABLE.
 
 // #define CONDITIONAL_DISABLE { Comp_Generic(op); return; }
-#define CONDITIONAL_DISABLE ;
+#define CONDITIONAL_DISABLE(flag) if (jo.Disabled(JitDisable::flag)) { Comp_Generic(op); return; }
 #define DISABLE { Comp_Generic(op); return; }
 
 namespace MIPSComp
@@ -54,7 +54,7 @@ namespace MIPSComp
 
 void ArmJit::Comp_FPU3op(MIPSOpcode op)
 { 
-	CONDITIONAL_DISABLE;
+	CONDITIONAL_DISABLE(FPU);
 
 	int ft = _FT;
 	int fs = _FS;
@@ -92,7 +92,7 @@ extern int logBlocks;
 
 void ArmJit::Comp_FPULS(MIPSOpcode op)
 {
-	CONDITIONAL_DISABLE;
+	CONDITIONAL_DISABLE(LSU_FPU);
 	CheckMemoryBreakpoint();
 
 	s32 offset = (s16)(op & 0xFFFF);
@@ -193,7 +193,7 @@ void ArmJit::Comp_FPULS(MIPSOpcode op)
 }
 
 void ArmJit::Comp_FPUComp(MIPSOpcode op) {
-	CONDITIONAL_DISABLE;
+	CONDITIONAL_DISABLE(FPU_COMP);
 
 	int opc = op & 0xF;
 	if (opc >= 8) opc -= 8; // alias
@@ -258,7 +258,7 @@ void ArmJit::Comp_FPUComp(MIPSOpcode op) {
 }
 
 void ArmJit::Comp_FPU2op(MIPSOpcode op) {
-	CONDITIONAL_DISABLE;
+	CONDITIONAL_DISABLE(FPU);
 
 	int fs = _FS;
 	int fd = _FD;
@@ -350,7 +350,7 @@ void ArmJit::Comp_FPU2op(MIPSOpcode op) {
 
 void ArmJit::Comp_mxc1(MIPSOpcode op)
 {
-	CONDITIONAL_DISABLE;
+	CONDITIONAL_DISABLE(FPU_XFER);
 
 	int fs = _FS;
 	MIPSGPReg rt = _RT;

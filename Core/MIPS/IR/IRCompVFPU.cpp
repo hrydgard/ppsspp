@@ -35,7 +35,7 @@
 // Currently known non working ones should have DISABLE.
 
 // #define CONDITIONAL_DISABLE { Comp_Generic(op); return; }
-#define CONDITIONAL_DISABLE ;
+#define CONDITIONAL_DISABLE(flag) if (opts.disableFlags & (uint32_t)JitDisable::flag) { Comp_Generic(op); return; }
 #define DISABLE { Comp_Generic(op); return; }
 #define INVALIDOP { Comp_Generic(op); return; }
 
@@ -109,7 +109,7 @@ namespace MIPSComp {
 	}
 
 	void IRFrontend::Comp_VPFX(MIPSOpcode op) {
-		CONDITIONAL_DISABLE;
+		CONDITIONAL_DISABLE(VFPU_XFER);
 		int data = op & 0xFFFFF;
 		int regnum = (op >> 24) & 3;
 		switch (regnum) {
@@ -274,7 +274,7 @@ namespace MIPSComp {
 	}
 
 	void IRFrontend::Comp_SV(MIPSOpcode op) {
-		CONDITIONAL_DISABLE;
+		CONDITIONAL_DISABLE(LSU_VFPU);
 		s32 offset = (signed short)(op & 0xFFFC);
 		int vt = ((op >> 16) & 0x1f) | ((op & 3) << 5);
 		MIPSGPReg rs = _RS;
@@ -296,7 +296,7 @@ namespace MIPSComp {
 	}
 
 	void IRFrontend::Comp_SVQ(MIPSOpcode op) {
-		CONDITIONAL_DISABLE;
+		CONDITIONAL_DISABLE(LSU_VFPU);
 		int imm = (signed short)(op & 0xFFFC);
 		int vt = (((op >> 16) & 0x1f)) | ((op & 1) << 5);
 		MIPSGPReg rs = _RS;
@@ -342,7 +342,7 @@ namespace MIPSComp {
 	}
 
 	void IRFrontend::Comp_VVectorInit(MIPSOpcode op) {
-		CONDITIONAL_DISABLE;
+		CONDITIONAL_DISABLE(VFPU_XFER);
 		if (js.HasUnknownPrefix()) {
 			DISABLE;
 		}
@@ -368,7 +368,7 @@ namespace MIPSComp {
 	}
 
 	void IRFrontend::Comp_VIdt(MIPSOpcode op) {
-		CONDITIONAL_DISABLE;
+		CONDITIONAL_DISABLE(VFPU_XFER);
 		if (js.HasUnknownPrefix()) {
 			DISABLE;
 		}
@@ -406,7 +406,7 @@ namespace MIPSComp {
 	}
 
 	void IRFrontend::Comp_VMatrixInit(MIPSOpcode op) {
-		CONDITIONAL_DISABLE;
+		CONDITIONAL_DISABLE(VFPU_XFER);
 		MatrixSize sz = GetMtxSize(op);
 		if (sz != M_4x4) {
 			DISABLE;
@@ -447,7 +447,7 @@ namespace MIPSComp {
 	}
 
 	void IRFrontend::Comp_VHdp(MIPSOpcode op) {
-		CONDITIONAL_DISABLE;
+		CONDITIONAL_DISABLE(VFPU_VEC);
 		if (js.HasUnknownPrefix()) {
 			DISABLE;
 		}
@@ -487,7 +487,7 @@ namespace MIPSComp {
 	alignas(16) static const float vavg_table[4] = { 1.0f, 1.0f / 2.0f, 1.0f / 3.0f, 1.0f / 4.0f };
 
 	void IRFrontend::Comp_Vhoriz(MIPSOpcode op) {
-		CONDITIONAL_DISABLE;
+		CONDITIONAL_DISABLE(VFPU_VEC);
 
 		if (js.HasUnknownPrefix())
 			DISABLE;
@@ -524,7 +524,7 @@ namespace MIPSComp {
 	}
 
 	void IRFrontend::Comp_VDot(MIPSOpcode op) {
-		CONDITIONAL_DISABLE;
+		CONDITIONAL_DISABLE(VFPU_VEC);
 		if (js.HasUnknownPrefix()) {
 			DISABLE;
 		}
@@ -562,7 +562,7 @@ namespace MIPSComp {
 	}
 
 	void IRFrontend::Comp_VecDo3(MIPSOpcode op) {
-		CONDITIONAL_DISABLE;
+		CONDITIONAL_DISABLE(VFPU_VEC);
 		if (js.HasUnknownPrefix())
 			DISABLE;
 
@@ -721,7 +721,7 @@ namespace MIPSComp {
 	}
 
 	void IRFrontend::Comp_VV2Op(MIPSOpcode op) {
-		CONDITIONAL_DISABLE;
+		CONDITIONAL_DISABLE(VFPU_VEC);
 		if (js.HasUnknownPrefix())
 			DISABLE;
 
@@ -847,7 +847,7 @@ namespace MIPSComp {
 	}
 
 	void IRFrontend::Comp_Vi2f(MIPSOpcode op) {
-		CONDITIONAL_DISABLE;
+		CONDITIONAL_DISABLE(VFPU_VEC);
 		if (js.HasUnknownPrefix()) {
 			DISABLE;
 		}
@@ -894,7 +894,7 @@ namespace MIPSComp {
 	}
 
 	void IRFrontend::Comp_Vh2f(MIPSOpcode op) {
-		CONDITIONAL_DISABLE;
+		CONDITIONAL_DISABLE(VFPU_VEC);
 
 		// Vector expand half to float
 		// d[N*2] = float(lowerhalf(s[N])), d[N*2+1] = float(upperhalf(s[N]))
@@ -903,7 +903,7 @@ namespace MIPSComp {
 	}
 
 	void IRFrontend::Comp_Vf2i(MIPSOpcode op) {
-		CONDITIONAL_DISABLE;
+		CONDITIONAL_DISABLE(VFPU_VEC);
 
 		// Vector float to integer
 		// d[N] = int(S[N] * mult)
@@ -913,7 +913,7 @@ namespace MIPSComp {
 	}
 
 	void IRFrontend::Comp_Mftv(MIPSOpcode op) {
-		CONDITIONAL_DISABLE;
+		CONDITIONAL_DISABLE(VFPU_XFER);
 
 		int imm = op & 0xFF;
 		MIPSGPReg rt = _RT;
@@ -966,7 +966,7 @@ namespace MIPSComp {
 	}
 
 	void IRFrontend::Comp_Vmfvc(MIPSOpcode op) {
-		CONDITIONAL_DISABLE;
+		CONDITIONAL_DISABLE(VFPU_XFER);
 
 		// Vector Move from vector control reg (no prefixes)
 		// S[0] = VFPU_CTRL[i]
@@ -982,7 +982,7 @@ namespace MIPSComp {
 	}
 
 	void IRFrontend::Comp_Vmtvc(MIPSOpcode op) {
-		CONDITIONAL_DISABLE;
+		CONDITIONAL_DISABLE(VFPU_XFER);
 
 		// Vector Move to vector control reg (no prefixes)
 		// VFPU_CTRL[i] = S[0]
@@ -1004,7 +1004,7 @@ namespace MIPSComp {
 	}
 
 	void IRFrontend::Comp_Vmmov(MIPSOpcode op) {
-		CONDITIONAL_DISABLE;
+		CONDITIONAL_DISABLE(VFPU_MTX);
 
 		// Matrix move (no prefixes)
 		// D[N,M] = S[N,M]
@@ -1061,7 +1061,7 @@ namespace MIPSComp {
 	}
 
 	void IRFrontend::Comp_Vmscl(MIPSOpcode op) {
-		CONDITIONAL_DISABLE;
+		CONDITIONAL_DISABLE(VFPU_MTX);
 
 		// Matrix scale, matrix by scalar (no prefixes)
 		// d[N,M] = s[N,M] * t[0]
@@ -1099,7 +1099,7 @@ namespace MIPSComp {
 	}
 
 	void IRFrontend::Comp_VScl(MIPSOpcode op) {
-		CONDITIONAL_DISABLE;
+		CONDITIONAL_DISABLE(VFPU_VEC);
 		if (js.HasUnknownPrefix()) {
 			DISABLE;
 		}
@@ -1173,7 +1173,7 @@ namespace MIPSComp {
 	// This may or may not be a win when using the IR interpreter...
 	// Many more instructions to interpret.
 	void IRFrontend::Comp_Vmmul(MIPSOpcode op) {
-		CONDITIONAL_DISABLE;
+		CONDITIONAL_DISABLE(VFPU_MTX);
 
 		// Matrix multiply (no prefixes)
 		// D[0 .. N,0 .. M] = S[0 .. N, 0 .. M] * T[0 .. N,0 .. M]
@@ -1256,7 +1256,7 @@ namespace MIPSComp {
 	}
 
 	void IRFrontend::Comp_Vtfm(MIPSOpcode op) {
-		CONDITIONAL_DISABLE;
+		CONDITIONAL_DISABLE(VFPU_MTX);
 
 		// Vertex transform, vector by matrix (no prefixes)
 		// d[N] = s[N*m .. N*m + n-1] dot t[0 .. n-1]
@@ -1358,7 +1358,7 @@ namespace MIPSComp {
 	}
 
 	void IRFrontend::Comp_VCrs(MIPSOpcode op) {
-		CONDITIONAL_DISABLE;
+		CONDITIONAL_DISABLE(VFPU_VEC);
 		if (js.HasUnknownPrefix()) {
 			DISABLE;
 		}
@@ -1372,7 +1372,7 @@ namespace MIPSComp {
 	}
 
 	void IRFrontend::Comp_VDet(MIPSOpcode op) {
-		CONDITIONAL_DISABLE;
+		CONDITIONAL_DISABLE(VFPU_VEC);
 		if (js.HasUnknownPrefix()) {
 			DISABLE;
 		}
@@ -1385,7 +1385,7 @@ namespace MIPSComp {
 	}
 
 	void IRFrontend::Comp_Vi2x(MIPSOpcode op) {
-		CONDITIONAL_DISABLE;
+		CONDITIONAL_DISABLE(VFPU_VEC);
 
 		if (js.HasUnknownPrefix())
 			DISABLE;
@@ -1470,7 +1470,7 @@ namespace MIPSComp {
 	}
 
 	void IRFrontend::Comp_Vx2i(MIPSOpcode op) {
-		CONDITIONAL_DISABLE;
+		CONDITIONAL_DISABLE(VFPU_VEC);
 
 		if (js.HasUnknownPrefix())
 			DISABLE;
@@ -1570,7 +1570,7 @@ namespace MIPSComp {
 	}
 
 	void IRFrontend::Comp_VCrossQuat(MIPSOpcode op) {
-		CONDITIONAL_DISABLE;
+		CONDITIONAL_DISABLE(VFPU_VEC);
 		// TODO: Does this instruction even look at prefixes at all?
 		if (js.HasUnknownPrefix())
 			DISABLE;
@@ -1627,7 +1627,7 @@ namespace MIPSComp {
 	}
 
 	void IRFrontend::Comp_Vcmp(MIPSOpcode op) {
-		CONDITIONAL_DISABLE;
+		CONDITIONAL_DISABLE(VFPU_COMP);
 		if (js.HasUnknownPrefix())
 			DISABLE;
 
@@ -1651,7 +1651,7 @@ namespace MIPSComp {
 	}
 
 	void IRFrontend::Comp_Vcmov(MIPSOpcode op) {
-		CONDITIONAL_DISABLE;
+		CONDITIONAL_DISABLE(VFPU_COMP);
 		if (js.HasUnknownPrefix()) {
 			DISABLE;
 		}
@@ -1690,7 +1690,7 @@ namespace MIPSComp {
 	}
 
 	void IRFrontend::Comp_Viim(MIPSOpcode op) {
-		CONDITIONAL_DISABLE;
+		CONDITIONAL_DISABLE(VFPU_XFER);
 		if (js.HasUnknownPrefix())
 			DISABLE;
 
@@ -1705,7 +1705,7 @@ namespace MIPSComp {
 	}
 
 	void IRFrontend::Comp_Vfim(MIPSOpcode op) {
-		CONDITIONAL_DISABLE;
+		CONDITIONAL_DISABLE(VFPU_XFER);
 		if (js.HasUnknownPrefix())
 			DISABLE;
 
@@ -1723,7 +1723,7 @@ namespace MIPSComp {
 	}
 
 	void IRFrontend::Comp_Vcst(MIPSOpcode op) {
-		CONDITIONAL_DISABLE;
+		CONDITIONAL_DISABLE(VFPU_XFER);
 		if (js.HasUnknownPrefix())
 			DISABLE;
 
@@ -1747,7 +1747,7 @@ namespace MIPSComp {
 	// Very heavily used by FF:CC. Should be replaced by a fast approximation instead of
 	// calling the math library.
 	void IRFrontend::Comp_VRot(MIPSOpcode op) {
-		CONDITIONAL_DISABLE;
+		CONDITIONAL_DISABLE(VFPU_VEC);
 		if (!js.HasNoPrefix()) {
 			// Prefixes work strangely for this:
 			//  * They never apply to cos (whether d or s prefixes.)
@@ -1797,7 +1797,7 @@ namespace MIPSComp {
 	}
 
 	void IRFrontend::Comp_Vsgn(MIPSOpcode op) {
-		CONDITIONAL_DISABLE;
+		CONDITIONAL_DISABLE(VFPU_VEC);
 		if (js.HasUnknownPrefix()) {
 			DISABLE;
 		}
@@ -1835,7 +1835,7 @@ namespace MIPSComp {
 	}
 
 	void IRFrontend::Comp_Vocp(MIPSOpcode op) {
-		CONDITIONAL_DISABLE;
+		CONDITIONAL_DISABLE(VFPU_VEC);
 		if (js.HasUnknownPrefix()) {
 			DISABLE;
 		}
@@ -1872,7 +1872,7 @@ namespace MIPSComp {
 	}
 
 	void IRFrontend::Comp_ColorConv(MIPSOpcode op) {
-		CONDITIONAL_DISABLE;
+		CONDITIONAL_DISABLE(VFPU_VEC);
 		if (js.HasUnknownPrefix())
 			DISABLE;
 
@@ -1883,7 +1883,7 @@ namespace MIPSComp {
 	}
 
 	void IRFrontend::Comp_Vbfy(MIPSOpcode op) {
-		CONDITIONAL_DISABLE;
+		CONDITIONAL_DISABLE(VFPU_VEC);
 		if (js.HasUnknownPrefix())
 			DISABLE;
 

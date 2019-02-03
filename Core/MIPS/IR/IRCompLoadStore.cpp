@@ -39,13 +39,13 @@
 // Currently known non working ones should have DISABLE.
 
 // #define CONDITIONAL_DISABLE { Comp_Generic(op); return; }
-#define CONDITIONAL_DISABLE ;
+#define CONDITIONAL_DISABLE(flag) if (opts.disableFlags & (uint32_t)JitDisable::flag) { Comp_Generic(op); return; }
 #define DISABLE { Comp_Generic(op); return; }
 #define INVALIDOP { Comp_Generic(op); return; }
 
 namespace MIPSComp {
 	void IRFrontend::Comp_ITypeMem(MIPSOpcode op) {
-		CONDITIONAL_DISABLE;
+		CONDITIONAL_DISABLE(LSU);
 
 		int offset = _IMM16;
 		MIPSGPReg rt = _RT;
@@ -106,7 +106,7 @@ namespace MIPSComp {
 	}
 
 	void IRFrontend::Comp_Cache(MIPSOpcode op) {
-		CONDITIONAL_DISABLE;
+		CONDITIONAL_DISABLE(LSU);
 
 //		int imm = (s16)(op & 0xFFFF);
 //		int rs = _RS;
