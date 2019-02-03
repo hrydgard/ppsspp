@@ -369,6 +369,7 @@ private:
 };
 
 struct IROptions {
+	uint32_t disableFlags;
 	bool unalignedLoadStore;
 };
 
