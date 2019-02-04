@@ -665,7 +665,7 @@ void CheckBox::Toggle() {
 
 bool CheckBox::Toggled() const {
 	if (toggle_)
-		return toggle_;
+		return *toggle_;
 	return false;
 }
 
