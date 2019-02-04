@@ -165,9 +165,9 @@ ShaderManagerVulkan::ShaderManagerVulkan(Draw::DrawContext *draw, VulkanContext 
 	memset(&ub_lights, 0, sizeof(ub_lights));
 	memset(&ub_bones, 0, sizeof(ub_bones));
 
-	ILOG("sizeof(ub_base): %d", (int)sizeof(ub_base));
-	ILOG("sizeof(ub_lights): %d", (int)sizeof(ub_lights));
-	ILOG("sizeof(ub_bones): %d", (int)sizeof(ub_bones));
+	static_assert(sizeof(ub_base) <= 512, "ub_base grew too big");
+	static_assert(sizeof(ub_lights) <= 512, "ub_lights grew too big");
+	static_assert(sizeof(ub_bones) <= 384, "ub_bones grew too big");
 }
 
 ShaderManagerVulkan::~ShaderManagerVulkan() {

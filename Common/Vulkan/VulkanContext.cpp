@@ -60,7 +60,7 @@ static const char *validationLayers[] = {
 std::string VulkanVendorString(uint32_t vendorId) {
 	switch (vendorId) {
 	case VULKAN_VENDOR_INTEL: return "Intel";
-	case VULKAN_VENDOR_NVIDIA: return "nVidia";
+	case VULKAN_VENDOR_NVIDIA: return "NVIDIA";
 	case VULKAN_VENDOR_AMD: return "AMD";
 	case VULKAN_VENDOR_ARM: return "ARM";
 	case VULKAN_VENDOR_QUALCOMM: return "Qualcomm";
