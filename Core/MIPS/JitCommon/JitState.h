@@ -198,6 +198,8 @@ namespace MIPSComp {
 		POINTERIFY = 0x00400000,
 		STATIC_ALLOC = 0x00800000,
 		CACHE_POINTERS = 0x01000000,
+
+		ALL_FLAGS = 0x01FFFFFF,
 	};
 
 	struct JitOptions {
