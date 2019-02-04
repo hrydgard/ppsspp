@@ -245,7 +245,7 @@ static VulkanPipeline *CreateVulkanPipeline(VkDevice device, VkPipelineCache pip
 		attributeCount = SetupVertexAttribs(attrs, *decFmt);
 		vertexStride = decFmt->stride;
 	} else {
-		bool needsColor1 = vs->GetID().Bit(FS_BIT_LMODE);
+		bool needsColor1 = vs->GetID().Bit(VS_BIT_LMODE);
 		attributeCount = SetupVertexAttribsPretransformed(attrs, needsColor1);
 		vertexStride = 36;
 	}
