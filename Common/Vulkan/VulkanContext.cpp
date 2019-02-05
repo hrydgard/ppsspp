@@ -60,7 +60,7 @@ static const char *validationLayers[] = {
 std::string VulkanVendorString(uint32_t vendorId) {
 	switch (vendorId) {
 	case VULKAN_VENDOR_INTEL: return "Intel";
-	case VULKAN_VENDOR_NVIDIA: return "nVidia";
+	case VULKAN_VENDOR_NVIDIA: return "NVIDIA";
 	case VULKAN_VENDOR_AMD: return "AMD";
 	case VULKAN_VENDOR_ARM: return "ARM";
 	case VULKAN_VENDOR_QUALCOMM: return "Qualcomm";
@@ -77,6 +77,8 @@ const char *PresentModeString(VkPresentModeKHR presentMode) {
 	case VK_PRESENT_MODE_MAILBOX_KHR: return "MAILBOX";
 	case VK_PRESENT_MODE_FIFO_KHR: return "FIFO";
 	case VK_PRESENT_MODE_FIFO_RELAXED_KHR: return "FIFO_RELAXED";
+	case VK_PRESENT_MODE_SHARED_DEMAND_REFRESH_KHR: return "SHARED_DEMAND_REFRESH_KHR";
+	case VK_PRESENT_MODE_SHARED_CONTINUOUS_REFRESH_KHR: return "SHARED_CONTINUOUS_REFRESH_KHR";
 	default: return "UNKNOWN";
 	}
 }
@@ -120,9 +122,6 @@ VkResult VulkanContext::CreateInstance(const CreateInfo &info) {
 //#if defined(VK_USE_PLATFORM_XCB_KHR)
 //	instance_extensions_enabled_.push_back(VK_KHR_XCB_SURFACE_EXTENSION_NAME);
 //#endif
-//#if defined(VK_USE_PLATFORM_MIR_KHR)
-//	instance_extensions_enabled_.push_back(VK_KHR_MIR_SURFACE_EXTENSION_NAME);
-//#endif
 #if defined(VK_USE_PLATFORM_WAYLAND_KHR)
 	if (IsInstanceExtensionAvailable(VK_KHR_WAYLAND_SURFACE_EXTENSION_NAME)) {
 		instance_extensions_enabled_.push_back(VK_KHR_WAYLAND_SURFACE_EXTENSION_NAME);
@@ -131,16 +130,30 @@ VkResult VulkanContext::CreateInstance(const CreateInfo &info) {
 #endif
 
 	if (flags_ & VULKAN_FLAG_VALIDATE) {
-		if (IsInstanceExtensionAvailable(VK_EXT_DEBUG_REPORT_EXTENSION_NAME)) {
+		if (IsInstanceExtensionAvailable(VK_EXT_DEBUG_UTILS_EXTENSION_NAME)) {
+			// Enable the validation layers
+			for (size_t i = 0; i < ARRAY_SIZE(validationLayers); i++) {
+				instance_layer_names_.push_back(validationLayers[i]);
+				device_layer_names_.push_back(validationLayers[i]);
+			}
+			instance_extensions_enabled_.push_back(VK_EXT_DEBUG_UTILS_EXTENSION_NAME);
+			extensionsLookup_.EXT_debug_utils = true;
+		} else if (IsInstanceExtensionAvailable(VK_EXT_DEBUG_REPORT_EXTENSION_NAME)) {
 			for (size_t i = 0; i < ARRAY_SIZE(validationLayers); i++) {
 				instance_layer_names_.push_back(validationLayers[i]);
 				device_layer_names_.push_back(validationLayers[i]);
 			}
 			instance_extensions_enabled_.push_back(VK_EXT_DEBUG_REPORT_EXTENSION_NAME);
+			extensionsLookup_.EXT_debug_report = true;
 		} else {
 			ELOG("Validation layer extension not available - not enabling Vulkan validation.");
 			flags_ &= ~VULKAN_FLAG_VALIDATE;
 		}
+	}
+
+	if (IsInstanceExtensionAvailable(VK_KHR_GET_PHYSICAL_DEVICE_PROPERTIES_2_EXTENSION_NAME)) {
+		instance_extensions_enabled_.push_back(VK_KHR_GET_PHYSICAL_DEVICE_PROPERTIES_2_EXTENSION_NAME);
+		extensionsLookup_.KHR_get_physical_device_properties2 = true;
 	}
 
 	// Validate that all the instance extensions we ask for are actually available.
@@ -190,7 +203,7 @@ VkResult VulkanContext::CreateInstance(const CreateInfo &info) {
 		return res;
 	}
 
-	VulkanLoadInstanceFunctions(instance_);
+	VulkanLoadInstanceFunctions(instance_, extensionsLookup_);
 	if (!CheckLayers(instance_layer_properties_, instance_layer_names_)) {
 		WLOG("CheckLayers for instance failed");
 		// init_error_ = "Failed to validate instance layers";
@@ -222,8 +235,25 @@ VkResult VulkanContext::CreateInstance(const CreateInfo &info) {
 		return res;
 	}
 
-	for (uint32_t i = 0; i < gpu_count; i++) {
-		vkGetPhysicalDeviceProperties(physical_devices_[i], &physicalDeviceProperties_[i]);
+	if (extensionsLookup_.KHR_get_physical_device_properties2) {
+		for (uint32_t i = 0; i < gpu_count; i++) {
+			VkPhysicalDeviceProperties2 props2{VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROPERTIES_2};
+			VkPhysicalDevicePushDescriptorPropertiesKHR pushProps{VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PUSH_DESCRIPTOR_PROPERTIES_KHR};
+			VkPhysicalDeviceExternalMemoryHostPropertiesEXT extHostMemProps{VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_EXTERNAL_MEMORY_HOST_PROPERTIES_EXT};
+			props2.pNext = &pushProps;
+			pushProps.pNext = &extHostMemProps;
+			vkGetPhysicalDeviceProperties2KHR(physical_devices_[i], &props2);
+			// Don't want bad pointers sitting around.
+			props2.pNext = nullptr;
+			pushProps.pNext = nullptr;
+			physicalDeviceProperties_[i].properties = props2.properties;
+			physicalDeviceProperties_[i].pushDescriptorProperties = pushProps;
+			physicalDeviceProperties_[i].externalMemoryHostProperties = extHostMemProps;
+		}
+	} else {
+		for (uint32_t i = 0; i < gpu_count; i++) {
+			vkGetPhysicalDeviceProperties(physical_devices_[i], &physicalDeviceProperties_[i].properties);
+		}
 	}
 	return VK_SUCCESS;
 }
@@ -423,7 +453,7 @@ bool VulkanContext::CheckLayers(const std::vector<LayerProperties> &layer_props,
 
 int VulkanContext::GetPhysicalDeviceByName(std::string name) {
 	for (size_t i = 0; i < physical_devices_.size(); i++) {
-		if (physicalDeviceProperties_[i].deviceName == name)
+		if (physicalDeviceProperties_[i].properties.deviceName == name)
 			return (int)i;
 	}
 	return -1;
@@ -520,37 +550,41 @@ void VulkanContext::ChooseDevice(int physical_device) {
 	}
 
 	// Optional features
-	vkGetPhysicalDeviceFeatures(physical_devices_[physical_device_], &featuresAvailable_);
-	memset(&featuresEnabled_, 0, sizeof(featuresEnabled_));
+	if (extensionsLookup_.KHR_get_physical_device_properties2) {
+		VkPhysicalDeviceFeatures2 features2{VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2_KHR};
+		vkGetPhysicalDeviceFeatures2KHR(physical_devices_[physical_device_], &features2);
+		deviceFeatures_.available = features2.features;
+	} else {
+		vkGetPhysicalDeviceFeatures(physical_devices_[physical_device_], &deviceFeatures_.available);
+	}
+
+	deviceFeatures_.enabled = {};
 
 	// Enable a few safe ones if they are available.
-	if (featuresAvailable_.dualSrcBlend) {
-		featuresEnabled_.dualSrcBlend = true;
+	if (deviceFeatures_.available.dualSrcBlend) {
+		deviceFeatures_.enabled.dualSrcBlend = true;
 	}
-	if (featuresAvailable_.largePoints) {
-		featuresEnabled_.largePoints = true;
+	if (deviceFeatures_.available.largePoints) {
+		deviceFeatures_.enabled.largePoints = true;
 	}
-	if (featuresAvailable_.wideLines) {
-		featuresEnabled_.wideLines = true;
+	if (deviceFeatures_.available.wideLines) {
+		deviceFeatures_.enabled.wideLines = true;
 	}
-	if (featuresAvailable_.geometryShader) {
-		featuresEnabled_.geometryShader = true;
+	if (deviceFeatures_.available.logicOp) {
+		deviceFeatures_.enabled.logicOp = true;
 	}
-	if (featuresAvailable_.logicOp) {
-		featuresEnabled_.logicOp = true;
+	if (deviceFeatures_.available.depthClamp) {
+		deviceFeatures_.enabled.depthClamp = true;
 	}
-	if (featuresAvailable_.depthClamp) {
-		featuresEnabled_.depthClamp = true;
+	if (deviceFeatures_.available.depthBounds) {
+		deviceFeatures_.enabled.depthBounds = true;
 	}
-	if (featuresAvailable_.depthBounds) {
-		featuresEnabled_.depthBounds = true;
-	}
-	if (featuresAvailable_.samplerAnisotropy) {
-		featuresEnabled_.samplerAnisotropy = true;
+	if (deviceFeatures_.available.samplerAnisotropy) {
+		deviceFeatures_.enabled.samplerAnisotropy = true;
 	}
 	// For easy wireframe mode, someday.
-	if (featuresEnabled_.fillModeNonSolid) {
-		featuresEnabled_.fillModeNonSolid = true;
+	if (deviceFeatures_.available.fillModeNonSolid) {
+		deviceFeatures_.enabled.fillModeNonSolid = true;
 	}
 
 	GetDeviceLayerExtensionList(nullptr, device_extension_properties_);
@@ -574,8 +608,8 @@ VkResult VulkanContext::CreateDevice() {
 		return VK_ERROR_INITIALIZATION_FAILED;
 	}
 
-	VkDeviceQueueCreateInfo queue_info{ VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO };
-	float queue_priorities[1] = { 1.0f };
+	VkDeviceQueueCreateInfo queue_info{VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO};
+	float queue_priorities[1] = {1.0f};
 	queue_info.queueCount = 1;
 	queue_info.pQueuePriorities = queue_priorities;
 	bool found = false;
@@ -588,11 +622,25 @@ VkResult VulkanContext::CreateDevice() {
 	}
 	assert(found);
 
+	extensionsLookup_.KHR_maintenance1 = EnableDeviceExtension(VK_KHR_MAINTENANCE1_EXTENSION_NAME);
+	extensionsLookup_.KHR_maintenance2 = EnableDeviceExtension(VK_KHR_MAINTENANCE2_EXTENSION_NAME);
+	extensionsLookup_.KHR_maintenance3 = EnableDeviceExtension(VK_KHR_MAINTENANCE3_EXTENSION_NAME);
+	extensionsLookup_.KHR_multiview = EnableDeviceExtension(VK_KHR_MULTIVIEW_EXTENSION_NAME);
+
 	if (EnableDeviceExtension(VK_KHR_GET_MEMORY_REQUIREMENTS_2_EXTENSION_NAME)) {
-		deviceExtensionsLookup_.KHR_get_memory_requirements2 = true;
-		deviceExtensionsLookup_.KHR_dedicated_allocation = EnableDeviceExtension(VK_KHR_DEDICATED_ALLOCATION_EXTENSION_NAME);
+		extensionsLookup_.KHR_get_memory_requirements2 = true;
+		extensionsLookup_.KHR_dedicated_allocation = EnableDeviceExtension(VK_KHR_DEDICATED_ALLOCATION_EXTENSION_NAME);
 	}
-	deviceExtensionsLookup_.EXT_external_memory_host = EnableDeviceExtension(VK_EXT_EXTERNAL_MEMORY_HOST_EXTENSION_NAME);
+	if (EnableDeviceExtension(VK_KHR_EXTERNAL_MEMORY_CAPABILITIES_EXTENSION_NAME)) {
+		if (EnableDeviceExtension(VK_KHR_EXTERNAL_MEMORY_EXTENSION_NAME)) {
+			extensionsLookup_.EXT_external_memory_host = EnableDeviceExtension(VK_EXT_EXTERNAL_MEMORY_HOST_EXTENSION_NAME);
+		}
+	}
+	if (EnableDeviceExtension(VK_KHR_CREATE_RENDERPASS_2_EXTENSION_NAME)) {
+		extensionsLookup_.KHR_create_renderpass2 = true;
+		extensionsLookup_.KHR_depth_stencil_resolve = EnableDeviceExtension(VK_KHR_DEPTH_STENCIL_RESOLVE_EXTENSION_NAME);
+	}
+	extensionsLookup_.EXT_shader_stencil_export = EnableDeviceExtension(VK_EXT_SHADER_STENCIL_EXPORT_EXTENSION_NAME);
 
 	VkDeviceCreateInfo device_info{ VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO };
 	device_info.queueCreateInfoCount = 1;
@@ -601,13 +649,14 @@ VkResult VulkanContext::CreateDevice() {
 	device_info.ppEnabledLayerNames = device_info.enabledLayerCount ? device_layer_names_.data() : nullptr;
 	device_info.enabledExtensionCount = (uint32_t)device_extensions_enabled_.size();
 	device_info.ppEnabledExtensionNames = device_info.enabledExtensionCount ? device_extensions_enabled_.data() : nullptr;
-	device_info.pEnabledFeatures = &featuresEnabled_;
+	device_info.pEnabledFeatures = &deviceFeatures_.enabled;
+
 	VkResult res = vkCreateDevice(physical_devices_[physical_device_], &device_info, nullptr, &device_);
 	if (res != VK_SUCCESS) {
 		init_error_ = "Unable to create Vulkan device";
 		ELOG("Unable to create Vulkan device");
 	} else {
-		VulkanLoadDeviceFunctions(device_);
+		VulkanLoadDeviceFunctions(device_, extensionsLookup_);
 	}
 	ILOG("Device created.\n");
 	VulkanSetAvailable(true);
@@ -623,13 +672,11 @@ VkResult VulkanContext::InitDebugMsgCallback(PFN_vkDebugReportCallbackEXT dbgFun
 	}
 	ILOG("Registering debug report callback");
 
-	VkDebugReportCallbackCreateInfoEXT cb = {};
-	cb.sType = VK_STRUCTURE_TYPE_DEBUG_REPORT_CREATE_INFO_EXT;
-	cb.pNext = nullptr;
+	VkDebugReportCallbackCreateInfoEXT cb{VK_STRUCTURE_TYPE_DEBUG_REPORT_CREATE_INFO_EXT};
 	cb.flags = bits;
 	cb.pfnCallback = dbgFunc;
 	cb.pUserData = userdata;
-	VkResult res = dyn_vkCreateDebugReportCallbackEXT(instance_, &cb, nullptr, &msg_callback);
+	VkResult res = vkCreateDebugReportCallbackEXT(instance_, &cb, nullptr, &msg_callback);
 	switch (res) {
 	case VK_SUCCESS:
 		msg_callbacks.push_back(msg_callback);
@@ -643,11 +690,41 @@ VkResult VulkanContext::InitDebugMsgCallback(PFN_vkDebugReportCallbackEXT dbgFun
 }
 
 void VulkanContext::DestroyDebugMsgCallback() {
+	if (!extensionsLookup_.EXT_debug_report)
+		return;
 	while (msg_callbacks.size() > 0) {
-		dyn_vkDestroyDebugReportCallbackEXT(instance_, msg_callbacks.back(), nullptr);
+		vkDestroyDebugReportCallbackEXT(instance_, msg_callbacks.back(), nullptr);
 		msg_callbacks.pop_back();
 	}
 }
+
+VkResult VulkanContext::InitDebugUtilsCallback(PFN_vkDebugUtilsMessengerCallbackEXT callback, int bits, void *userdata) {
+	VkDebugUtilsMessengerCreateInfoEXT callback1{VK_STRUCTURE_TYPE_DEBUG_UTILS_MESSENGER_CREATE_INFO_EXT};
+	callback1.messageSeverity = bits;
+	callback1.messageType = VK_DEBUG_UTILS_MESSAGE_TYPE_GENERAL_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_TYPE_VALIDATION_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_TYPE_PERFORMANCE_BIT_EXT;
+	callback1.pfnUserCallback = callback;
+	callback1.pUserData = userdata;
+	VkDebugUtilsMessengerEXT messenger;
+	VkResult res = vkCreateDebugUtilsMessengerEXT(instance_, &callback1, nullptr, &messenger);
+	if (res != VK_SUCCESS) {
+		ELOG("Failed to register debug callback with vkCreateDebugUtilsMessengerEXT");
+		// Do error handling for VK_ERROR_OUT_OF_MEMORY
+	} else {
+		ILOG("Debug callback registered with vkCreateDebugUtilsMessengerEXT.");
+		utils_callbacks.push_back(messenger);
+	}
+	return res;
+}
+
+void VulkanContext::DestroyDebugUtilsCallback() {
+	if (!extensionsLookup_.EXT_debug_utils)
+		return;
+	while (utils_callbacks.size() > 0) {
+		vkDestroyDebugUtilsMessengerEXT(instance_, utils_callbacks.back(), nullptr);
+		utils_callbacks.pop_back();
+	}
+}
+
 
 VkResult VulkanContext::InitSurface(WindowSystem winsys, void *data1, void *data2) {
 	winsys_ = winsys;
@@ -688,7 +765,7 @@ VkResult VulkanContext::ReinitSurface() {
 #if defined(VK_USE_PLATFORM_XLIB_KHR)
 	case WINDOWSYSTEM_XLIB:
 	{
-		VkXlibSurfaceCreateInfoKHR xlib = { VK_STRUCTURE_TYPE_XLIB_SURFACE_CREATE_INFO_KHR };
+		VkXlibSurfaceCreateInfoKHR xlib{ VK_STRUCTURE_TYPE_XLIB_SURFACE_CREATE_INFO_KHR };
 		xlib.flags = 0;
 		xlib.dpy = (Display *)winsysData1_;
 		xlib.window = (Window)winsysData2_;
@@ -698,7 +775,7 @@ VkResult VulkanContext::ReinitSurface() {
 #if defined(VK_USE_PLATFORM_XCB_KHR)
 	case WINDOWSYSTEM_XCB:
 	{
-		VkXCBSurfaceCreateInfoKHR xcb = { VK_STRUCTURE_TYPE_XCB_SURFACE_CREATE_INFO_KHR };
+		VkXCBSurfaceCreateInfoKHR xcb{ VK_STRUCTURE_TYPE_XCB_SURFACE_CREATE_INFO_KHR };
 		xcb.flags = 0;
 		xcb.connection = (Connection *)winsysData1_;
 		xcb.window = (Window)(uintptr_t)winsysData2_;
@@ -708,7 +785,7 @@ VkResult VulkanContext::ReinitSurface() {
 #if defined(VK_USE_PLATFORM_WAYLAND_KHR)
 	case WINDOWSYSTEM_WAYLAND:
 	{
-		VkWaylandSurfaceCreateInfoKHR wayland = { VK_STRUCTURE_TYPE_WAYLAND_SURFACE_CREATE_INFO_KHR };
+		VkWaylandSurfaceCreateInfoKHR wayland{ VK_STRUCTURE_TYPE_WAYLAND_SURFACE_CREATE_INFO_KHR };
 		wayland.flags = 0;
 		wayland.display = (wl_display *)winsysData1_;
 		wayland.surface = (wl_surface *)winsysData2_;
@@ -836,7 +913,7 @@ bool VulkanContext::InitSwapchain() {
 	swapChainExtent_.width = clamp(surfCapabilities_.currentExtent.width, surfCapabilities_.minImageExtent.width, surfCapabilities_.maxImageExtent.width);
 	swapChainExtent_.height = clamp(surfCapabilities_.currentExtent.height, surfCapabilities_.minImageExtent.height, surfCapabilities_.maxImageExtent.height);
 
-	if (physicalDeviceProperties_[physical_device_].vendorID == VULKAN_VENDOR_IMGTEC) {
+	if (physicalDeviceProperties_[physical_device_].properties.vendorID == VULKAN_VENDOR_IMGTEC) {
 		// Swap chain width hack to avoid issue #11743 (PowerVR driver bug).
 		swapChainExtent_.width &= ~31;
 	}
@@ -892,7 +969,7 @@ bool VulkanContext::InitSwapchain() {
 		preTransform = surfCapabilities_.currentTransform;
 	}
 
-	VkSwapchainCreateInfoKHR swap_chain_info = { VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR };
+	VkSwapchainCreateInfoKHR swap_chain_info{ VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR };
 	swap_chain_info.surface = surface_;
 	swap_chain_info.minImageCount = desiredNumberOfSwapChainImages;
 	swap_chain_info.imageFormat = swapchainFormat_;

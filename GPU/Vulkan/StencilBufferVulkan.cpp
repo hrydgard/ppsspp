@@ -146,7 +146,7 @@ bool FramebufferManagerVulkan::NotifyStencilUpload(u32 addr, int size, bool skip
 	if (!stencilVs_) {
 		const char *stencil_fs_source = stencil_fs;
 		// See comment above the stencil_fs_adreno definition.
-		if (vulkan_->GetPhysicalDeviceProperties(vulkan_->GetCurrentPhysicalDevice()).vendorID == VULKAN_VENDOR_QUALCOMM)
+		if (vulkan_->GetPhysicalDeviceProperties().properties.vendorID == VULKAN_VENDOR_QUALCOMM)
 			stencil_fs_source = stencil_fs_adreno;
 
 		stencilVs_ = CompileShaderModule(vulkan_, VK_SHADER_STAGE_VERTEX_BIT, stencil_vs, &error);

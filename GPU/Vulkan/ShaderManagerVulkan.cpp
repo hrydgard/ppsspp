@@ -160,14 +160,14 @@ std::string VulkanVertexShader::GetShaderString(DebugShaderStringType type) cons
 ShaderManagerVulkan::ShaderManagerVulkan(Draw::DrawContext *draw, VulkanContext *vulkan)
 	: ShaderManagerCommon(draw), vulkan_(vulkan), lastVShader_(nullptr), lastFShader_(nullptr), fsCache_(16), vsCache_(16) {
 	codeBuffer_ = new char[16384];
-	uboAlignment_ = vulkan_->GetPhysicalDeviceProperties(vulkan_->GetCurrentPhysicalDevice()).limits.minUniformBufferOffsetAlignment;
+	uboAlignment_ = vulkan_->GetPhysicalDeviceProperties().properties.limits.minUniformBufferOffsetAlignment;
 	memset(&ub_base, 0, sizeof(ub_base));
 	memset(&ub_lights, 0, sizeof(ub_lights));
 	memset(&ub_bones, 0, sizeof(ub_bones));
 
-	ILOG("sizeof(ub_base): %d", (int)sizeof(ub_base));
-	ILOG("sizeof(ub_lights): %d", (int)sizeof(ub_lights));
-	ILOG("sizeof(ub_bones): %d", (int)sizeof(ub_bones));
+	static_assert(sizeof(ub_base) <= 512, "ub_base grew too big");
+	static_assert(sizeof(ub_lights) <= 512, "ub_lights grew too big");
+	static_assert(sizeof(ub_bones) <= 384, "ub_bones grew too big");
 }
 
 ShaderManagerVulkan::~ShaderManagerVulkan() {
@@ -178,7 +178,7 @@ ShaderManagerVulkan::~ShaderManagerVulkan() {
 void ShaderManagerVulkan::DeviceRestore(VulkanContext *vulkan, Draw::DrawContext *draw) {
 	vulkan_ = vulkan;
 	draw_ = draw;
-	uboAlignment_ = vulkan_->GetPhysicalDeviceProperties(vulkan_->GetCurrentPhysicalDevice()).limits.minUniformBufferOffsetAlignment;
+	uboAlignment_ = vulkan_->GetPhysicalDeviceProperties().properties.limits.minUniformBufferOffsetAlignment;
 }
 
 void ShaderManagerVulkan::Clear() {
@@ -270,7 +270,7 @@ void ShaderManagerVulkan::GetShaders(int prim, u32 vertType, VulkanVertexShader 
 
 	VulkanFragmentShader *fs = fsCache_.Get(FSID);
 	if (!fs) {
-		uint32_t vendorID = vulkan_->GetPhysicalDeviceProperties(vulkan_->GetCurrentPhysicalDevice()).vendorID;
+		uint32_t vendorID = vulkan_->GetPhysicalDeviceProperties().properties.vendorID;
 		// Fragment shader not in cache. Let's compile it.
 		GenerateVulkanGLSLFragmentShader(FSID, codeBuffer_, vendorID);
 		fs = new VulkanFragmentShader(vulkan_, FSID, codeBuffer_);
@@ -392,7 +392,7 @@ bool ShaderManagerVulkan::LoadCache(FILE *f) {
 		VulkanVertexShader *vs = new VulkanVertexShader(vulkan_, id, codeBuffer_, useHWTransform);
 		vsCache_.Insert(id, vs);
 	}
-	uint32_t vendorID = vulkan_->GetPhysicalDeviceProperties(vulkan_->GetCurrentPhysicalDevice()).vendorID;
+	uint32_t vendorID = vulkan_->GetPhysicalDeviceProperties().properties.vendorID;
 	for (int i = 0; i < header.numFragmentShaders; i++) {
 		FShaderID id;
 		if (fread(&id, sizeof(id), 1, f) != 1) {

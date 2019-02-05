@@ -193,12 +193,22 @@ PFN_vkAcquireNextImageKHR vkAcquireNextImageKHR;
 PFN_vkQueuePresentKHR vkQueuePresentKHR;
 
 // And the DEBUG_REPORT extension. We dynamically load this.
-PFN_vkCreateDebugReportCallbackEXT dyn_vkCreateDebugReportCallbackEXT;
-PFN_vkDestroyDebugReportCallbackEXT dyn_vkDestroyDebugReportCallbackEXT;
+PFN_vkCreateDebugReportCallbackEXT vkCreateDebugReportCallbackEXT;
+PFN_vkDestroyDebugReportCallbackEXT vkDestroyDebugReportCallbackEXT;
+
+PFN_vkCreateDebugUtilsMessengerEXT   vkCreateDebugUtilsMessengerEXT;
+PFN_vkDestroyDebugUtilsMessengerEXT	 vkDestroyDebugUtilsMessengerEXT;
+PFN_vkCmdBeginDebugUtilsLabelEXT	 vkCmdBeginDebugUtilsLabelEXT;
+PFN_vkCmdEndDebugUtilsLabelEXT		 vkCmdEndDebugUtilsLabelEXT;
+PFN_vkCmdInsertDebugUtilsLabelEXT	 vkCmdInsertDebugUtilsLabelEXT;
+PFN_vkSetDebugUtilsObjectNameEXT     vkSetDebugUtilsObjectNameEXT;
+PFN_vkSetDebugUtilsObjectTagEXT      vkSetDebugUtilsObjectTagEXT;
 
 PFN_vkGetMemoryHostPointerPropertiesEXT vkGetMemoryHostPointerPropertiesEXT;
 PFN_vkGetBufferMemoryRequirements2KHR vkGetBufferMemoryRequirements2KHR;
 PFN_vkGetImageMemoryRequirements2KHR vkGetImageMemoryRequirements2KHR;
+PFN_vkGetPhysicalDeviceProperties2KHR vkGetPhysicalDeviceProperties2KHR;
+PFN_vkGetPhysicalDeviceFeatures2KHR vkGetPhysicalDeviceFeatures2KHR;
 
 #ifdef _WIN32
 static HINSTANCE vulkanLibrary;
@@ -260,19 +270,22 @@ bool VulkanMayBeAvailable() {
 	VkApplicationInfo info{ VK_STRUCTURE_TYPE_APPLICATION_INFO };
 	std::vector<VkPhysicalDevice> devices;
 	bool anyGood = false;
-	const char *instanceExtensions[1]{};
+	const char *instanceExtensions[2]{};
 	VkInstance instance = VK_NULL_HANDLE;
 	VkResult res;
 	uint32_t physicalDeviceCount = 0;
-	uint32_t instanceExtCount = 0;
+	uint32_t instanceExtCount = 1;
+	bool surfaceExtensionFound = false;
+	bool platformSurfaceExtensionFound = false;
 	std::vector<VkExtensionProperties> instanceExts;
+	instanceExtensions[ci.enabledExtensionCount++] = VK_KHR_SURFACE_EXTENSION_NAME;
 
 #ifdef _WIN32
-	const char * const surfaceExtension = VK_KHR_WIN32_SURFACE_EXTENSION_NAME;
+	const char * const platformSurfaceExtension = VK_KHR_WIN32_SURFACE_EXTENSION_NAME;
 #elif defined(__ANDROID__)
-	const char *surfaceExtension = VK_KHR_ANDROID_SURFACE_EXTENSION_NAME;
+	const char *platformSurfaceExtension = VK_KHR_ANDROID_SURFACE_EXTENSION_NAME;
 #else
-	const char *surfaceExtension = 0;
+	const char *platformSurfaceExtension = 0;
 #endif
 
 	if (!localEnumerateInstanceExtensionProperties || !localCreateInstance || !localEnumerate || !localDestroyInstance || !localGetPhysicalDeviceProperties)
@@ -295,16 +308,18 @@ bool VulkanMayBeAvailable() {
 		goto bail;
 	}
 
-	if (surfaceExtension) {
+	if (platformSurfaceExtension) {
 		for (auto iter : instanceExts) {
-			if (!strcmp(iter.extensionName, surfaceExtension)) {
-				instanceExtensions[0] = surfaceExtension;
-				ci.enabledExtensionCount = 1;
+			if (!strcmp(iter.extensionName, platformSurfaceExtension)) {
+				instanceExtensions[ci.enabledExtensionCount++] = platformSurfaceExtension;
+				platformSurfaceExtensionFound = true;
 				break;
+			} else if (!strcmp(iter.extensionName, VK_KHR_SURFACE_EXTENSION_NAME)) {
+				surfaceExtensionFound = true;
 			}
 		}
-		if (!ci.enabledExtensionCount) {
-			ELOG("Surface extension not found");
+		if (!platformSurfaceExtensionFound || !surfaceExtensionFound) {
+			ELOG("Platform surface extension not found");
 			goto bail;
 		}
 	}
@@ -409,7 +424,7 @@ bool VulkanLoad() {
 	return true;
 }
 
-void VulkanLoadInstanceFunctions(VkInstance instance) {
+void VulkanLoadInstanceFunctions(VkInstance instance, const VulkanDeviceExtensions &enabledExtensions) {
 	// OK, let's use the above functions to get the rest.
 	LOAD_INSTANCE_FUNC(instance, vkDestroyInstance);
 	LOAD_INSTANCE_FUNC(instance, vkEnumeratePhysicalDevices);
@@ -569,8 +584,25 @@ void VulkanLoadInstanceFunctions(VkInstance instance) {
 
 	LOAD_INSTANCE_FUNC(instance, vkDestroySurfaceKHR);
 
-	dyn_vkCreateDebugReportCallbackEXT = (PFN_vkCreateDebugReportCallbackEXT)vkGetInstanceProcAddr(instance, "vkCreateDebugReportCallbackEXT");
-	dyn_vkDestroyDebugReportCallbackEXT = (PFN_vkDestroyDebugReportCallbackEXT)vkGetInstanceProcAddr(instance, "vkDestroyDebugReportCallbackEXT");
+	if (enabledExtensions.KHR_get_physical_device_properties2) {
+		LOAD_INSTANCE_FUNC(instance, vkGetPhysicalDeviceProperties2KHR);
+		LOAD_INSTANCE_FUNC(instance, vkGetPhysicalDeviceFeatures2KHR);
+	}
+
+	if (enabledExtensions.EXT_debug_report) {
+		LOAD_INSTANCE_FUNC(instance, vkCreateDebugReportCallbackEXT);
+		LOAD_INSTANCE_FUNC(instance, vkDestroyDebugReportCallbackEXT);
+	}
+
+	if (enabledExtensions.EXT_debug_utils) {
+		LOAD_INSTANCE_FUNC(instance, vkCreateDebugUtilsMessengerEXT);
+		LOAD_INSTANCE_FUNC(instance, vkDestroyDebugUtilsMessengerEXT);
+		LOAD_INSTANCE_FUNC(instance, vkCmdBeginDebugUtilsLabelEXT);
+		LOAD_INSTANCE_FUNC(instance, vkCmdEndDebugUtilsLabelEXT);
+		LOAD_INSTANCE_FUNC(instance, vkCmdInsertDebugUtilsLabelEXT);
+		LOAD_INSTANCE_FUNC(instance, vkSetDebugUtilsObjectNameEXT);
+		LOAD_INSTANCE_FUNC(instance, vkSetDebugUtilsObjectTagEXT);
+	}
 
 	WLOG("Vulkan instance functions loaded.");
 }
@@ -578,7 +610,7 @@ void VulkanLoadInstanceFunctions(VkInstance instance) {
 // On some implementations, loading functions (that have Device as their first parameter) via vkGetDeviceProcAddr may
 // increase performance - but then these function pointers will only work on that specific device. Thus, this loader is not very
 // good for multi-device.
-void VulkanLoadDeviceFunctions(VkDevice device) {
+void VulkanLoadDeviceFunctions(VkDevice device, const VulkanDeviceExtensions &enabledExtensions) {
 	WLOG("Vulkan device functions loaded.");
 	// TODO: Move more functions VulkanLoadInstanceFunctions to here.
 	LOAD_DEVICE_FUNC(device, vkCreateSwapchainKHR);
@@ -586,10 +618,13 @@ void VulkanLoadDeviceFunctions(VkDevice device) {
 	LOAD_DEVICE_FUNC(device, vkGetSwapchainImagesKHR);
 	LOAD_DEVICE_FUNC(device, vkAcquireNextImageKHR);
 	LOAD_DEVICE_FUNC(device, vkQueuePresentKHR);
-	LOAD_DEVICE_FUNC(device, vkGetMemoryHostPointerPropertiesEXT);
-	LOAD_DEVICE_FUNC(device, vkGetBufferMemoryRequirements2KHR);
-	LOAD_DEVICE_FUNC(device, vkGetImageMemoryRequirements2KHR);
-
+	if (enabledExtensions.EXT_external_memory_host) {
+		LOAD_DEVICE_FUNC(device, vkGetMemoryHostPointerPropertiesEXT);
+	}
+	if (enabledExtensions.KHR_dedicated_allocation) {
+		LOAD_DEVICE_FUNC(device, vkGetBufferMemoryRequirements2KHR);
+		LOAD_DEVICE_FUNC(device, vkGetImageMemoryRequirements2KHR);
+	}
 }
 
 void VulkanFree() {

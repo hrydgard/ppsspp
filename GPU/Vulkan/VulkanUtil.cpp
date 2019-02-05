@@ -160,12 +160,11 @@ VkDescriptorSet Vulkan2D::GetDescriptorSet(VkImageView tex1, VkSampler sampler1,
 	assert(result == VK_SUCCESS);
 
 	// We just don't write to the slots we don't care about.
-	VkWriteDescriptorSet writes[2];
-	memset(writes, 0, sizeof(writes));
+	VkWriteDescriptorSet writes[2]{};
 	// Main and sub textures
 	int n = 0;
-	VkDescriptorImageInfo image1 = {};
-	VkDescriptorImageInfo image2 = {};
+	VkDescriptorImageInfo image1{};
+	VkDescriptorImageInfo image2{};
 	if (tex1) {
 #ifdef VULKAN_USE_GENERAL_LAYOUT_FOR_COLOR
 		image1.imageLayout = VK_IMAGE_LAYOUT_GENERAL;

@@ -56,7 +56,7 @@ const char *ObjTypeToString(VkDebugReportObjectTypeEXT type) {
 	}
 }
 
-VkBool32 VKAPI_CALL Vulkan_Dbg(VkDebugReportFlagsEXT msgFlags, VkDebugReportObjectTypeEXT objType, uint64_t srcObject, size_t location, int32_t msgCode, const char* pLayerPrefix, const char* pMsg, void *pUserData) {
+VkBool32 VKAPI_CALL VulkanDebugReportCallback(VkDebugReportFlagsEXT msgFlags, VkDebugReportObjectTypeEXT objType, uint64_t srcObject, size_t location, int32_t msgCode, const char* pLayerPrefix, const char* pMsg, void *pUserData) {
 	const VulkanLogOptions *options = (const VulkanLogOptions *)pUserData;
 	std::ostringstream message;
 
@@ -73,8 +73,6 @@ VkBool32 VKAPI_CALL Vulkan_Dbg(VkDebugReportFlagsEXT msgFlags, VkDebugReportObje
 	}
 	message << "[" << pLayerPrefix << "] " << ObjTypeToString(objType) << " Code " << msgCode << " : " << pMsg << "\n";
 
-	if (msgCode == 2)  // Useless perf warning ("Vertex attribute at location X not consumed by vertex shader")
-		return false;
 	if (msgCode == 64)  // Another useless perf warning that will be seen less and less as we optimize -  vkCmdClearAttachments() issued on command buffer object 0x00000195296C6D40 prior to any Draw Cmds. It is recommended you use RenderPass LOAD_OP_CLEAR on Attachments prior to any Draw.
 		return false;
 	if (msgCode == 5)
@@ -96,6 +94,63 @@ VkBool32 VKAPI_CALL Vulkan_Dbg(VkDebugReportFlagsEXT msgFlags, VkDebugReportObje
 	}
 #else
 	ILOG("%s", message.str().c_str());
+#endif
+
+	// false indicates that layer should not bail-out of an
+	// API call that had validation failures. This may mean that the
+	// app dies inside the driver due to invalid parameter(s).
+	// That's what would happen without validation layers, so we'll
+	// keep that behavior here.
+	return false;
+}
+
+VkBool32 VKAPI_CALL VulkanDebugUtilsCallback(
+	VkDebugUtilsMessageSeverityFlagBitsEXT           messageSeverity,
+	VkDebugUtilsMessageTypeFlagsEXT                  messageType,
+	const VkDebugUtilsMessengerCallbackDataEXT*      pCallbackData,
+	void*                                            pUserData) {
+	const VulkanLogOptions *options = (const VulkanLogOptions *)pUserData;
+	std::ostringstream message;
+
+	const char *pMessage = pCallbackData->pMessage;
+	int messageCode = pCallbackData->messageIdNumber;
+	const char *pLayerPrefix = "";
+	// Ignore perf warnings for now. Could log them, so still want them registered.
+	if (messageSeverity & VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT) {
+		message << "ERROR(";
+	} else if (messageSeverity & VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT) {
+		message << "WARNING(";
+	} else if (messageSeverity & VK_DEBUG_UTILS_MESSAGE_SEVERITY_INFO_BIT_EXT) {
+		message << "INFO(";
+	} else if (messageSeverity & VK_DEBUG_UTILS_MESSAGE_SEVERITY_VERBOSE_BIT_EXT) {
+		message << "VERBOSE(";
+	}
+
+	if (messageType & VK_DEBUG_UTILS_MESSAGE_TYPE_PERFORMANCE_BIT_EXT) {
+		message << "perf";
+	} else if (messageType & VK_DEBUG_UTILS_MESSAGE_TYPE_GENERAL_BIT_EXT) {
+		message << "general";
+	} else if (messageType & VK_DEBUG_UTILS_MESSAGE_TYPE_VALIDATION_BIT_EXT) {
+		message << "validation";
+	}
+	message << ":" << pCallbackData->messageIdNumber << ") " << pMessage << "\n";
+
+
+#ifdef _WIN32
+	std::string msg = message.str();
+	OutputDebugStringA(msg.c_str());
+	if (messageSeverity & VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT) {
+		if (options->breakOnError && IsDebuggerPresent()) {
+			DebugBreak();
+		}
+		if (options->msgBoxOnError) {
+			MessageBoxA(NULL, pMessage, "Alert", MB_OK);
+		}
+	} else if (messageSeverity & VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT) {
+		if (options->breakOnWarning && IsDebuggerPresent() && 0 == (messageType & VK_DEBUG_UTILS_MESSAGE_TYPE_PERFORMANCE_BIT_EXT)) {
+			DebugBreak();
+		}
+	}
 #endif
 
 	// false indicates that layer should not bail-out of an

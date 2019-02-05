@@ -112,10 +112,12 @@ static int SetupVertexAttribs(VkVertexInputAttributeDescription attrs[], const D
 	return count;
 }
 
-static int SetupVertexAttribsPretransformed(VkVertexInputAttributeDescription attrs[], bool needsColor1) {
+static int SetupVertexAttribsPretransformed(VkVertexInputAttributeDescription attrs[], bool needsUV, bool needsColor1) {
 	int count = 0;
 	VertexAttribSetup(&attrs[count++], DEC_FLOAT_4, 0, PspAttributeLocation::POSITION);
-	VertexAttribSetup(&attrs[count++], DEC_FLOAT_3, 16, PspAttributeLocation::TEXCOORD);
+	if (needsUV) {
+		VertexAttribSetup(&attrs[count++], DEC_FLOAT_3, 16, PspAttributeLocation::TEXCOORD);
+	}
 	VertexAttribSetup(&attrs[count++], DEC_U8_4, 28, PspAttributeLocation::COLOR0);
 	if (needsColor1) {
 		VertexAttribSetup(&attrs[count++], DEC_U8_4, 32, PspAttributeLocation::COLOR1);
@@ -235,7 +237,6 @@ static VulkanPipeline *CreateVulkanPipeline(VkDevice device, VkPipelineCache pip
 	inputAssembly.flags = 0;
 	inputAssembly.topology = (VkPrimitiveTopology)key.topology;
 	inputAssembly.primitiveRestartEnable = false;
-
 	int vertexStride = 0;
 
 	int offset = 0;
@@ -245,8 +246,9 @@ static VulkanPipeline *CreateVulkanPipeline(VkDevice device, VkPipelineCache pip
 		attributeCount = SetupVertexAttribs(attrs, *decFmt);
 		vertexStride = decFmt->stride;
 	} else {
+		bool needsUV = vs->GetID().Bit(VS_BIT_DO_TEXTURE);
 		bool needsColor1 = vs->GetID().Bit(VS_BIT_LMODE);
-		attributeCount = SetupVertexAttribsPretransformed(attrs, needsColor1);
+		attributeCount = SetupVertexAttribsPretransformed(attrs, needsUV, needsColor1);
 		vertexStride = 36;
 	}
 
@@ -679,7 +681,7 @@ bool PipelineManagerVulkan::LoadCache(FILE *file, bool loadRawPipelineCache, Sha
 			WARN_LOG(G3D, "Bad Vulkan pipeline cache header - ignoring");
 			return false;
 		}
-		if (0 != memcmp(header->uuid, vulkan_->GetPhysicalDeviceProperties(vulkan_->GetCurrentPhysicalDevice()).pipelineCacheUUID, VK_UUID_SIZE)) {
+		if (0 != memcmp(header->uuid, vulkan_->GetPhysicalDeviceProperties().properties.pipelineCacheUUID, VK_UUID_SIZE)) {
 			// Wrong hardware/driver/etc.
 			WARN_LOG(G3D, "Bad Vulkan pipeline cache UUID - ignoring");
 			return false;

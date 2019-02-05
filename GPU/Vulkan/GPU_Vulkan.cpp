@@ -95,7 +95,7 @@ GPU_Vulkan::GPU_Vulkan(GraphicsContext *gfxCtx, Draw::DrawContext *draw)
 	UpdateVsyncInterval(true);
 
 	textureCacheVulkan_->NotifyConfigChanged();
-	if (vulkan_->GetFeaturesEnabled().wideLines) {
+	if (vulkan_->GetDeviceFeatures().enabled.wideLines) {
 		drawEngine_.SetLineWidth(PSP_CoreParameter().renderWidth / 480.0f);
 	}
 
@@ -183,7 +183,7 @@ void GPU_Vulkan::CheckGPUFeatures() {
 
 	features |= GPU_SUPPORTS_VS_RANGE_CULLING;
 
-	switch (vulkan_->GetPhysicalDeviceProperties(vulkan_->GetCurrentPhysicalDevice()).vendorID) {
+	switch (vulkan_->GetPhysicalDeviceProperties().properties.vendorID) {
 	case VULKAN_VENDOR_AMD:
 		// Accurate depth is required on AMD (due to reverse-Z driver bug) so we ignore the compat flag to disable it on those. See #9545
 		features |= GPU_SUPPORTS_ACCURATE_DEPTH;
@@ -191,7 +191,7 @@ void GPU_Vulkan::CheckGPUFeatures() {
 	case VULKAN_VENDOR_ARM:
 		// Also required on older ARM Mali drivers, like the one on many Galaxy S7.
 		if (!PSP_CoreParameter().compat.flags().DisableAccurateDepth ||
-			  vulkan_->GetPhysicalDeviceProperties(vulkan_->GetCurrentPhysicalDevice()).driverVersion <= VK_MAKE_VERSION(428, 811, 2674)) {
+			  vulkan_->GetPhysicalDeviceProperties().properties.driverVersion <= VK_MAKE_VERSION(428, 811, 2674)) {
 			features |= GPU_SUPPORTS_ACCURATE_DEPTH;
 		}
 		break;
@@ -217,21 +217,21 @@ void GPU_Vulkan::CheckGPUFeatures() {
 	features |= GPU_SUPPORTS_VERTEX_TEXTURE_FETCH;
 	features |= GPU_SUPPORTS_TEXTURE_FLOAT;
 
-	if (vulkan_->GetFeaturesEnabled().wideLines) {
+	if (vulkan_->GetDeviceFeatures().enabled.wideLines) {
 		features |= GPU_SUPPORTS_WIDE_LINES;
 	}
-	if (vulkan_->GetFeaturesEnabled().depthClamp) {
+	if (vulkan_->GetDeviceFeatures().enabled.depthClamp) {
 		features |= GPU_SUPPORTS_DEPTH_CLAMP;
 	}
-	if (vulkan_->GetFeaturesEnabled().dualSrcBlend) {
+	if (vulkan_->GetDeviceFeatures().enabled.dualSrcBlend) {
 		if (!g_Config.bVendorBugChecksEnabled || !draw_->GetBugs().Has(Draw::Bugs::DUAL_SOURCE_BLENDING_BROKEN)) {
 			features |= GPU_SUPPORTS_DUALSOURCE_BLEND;
 		}
 	}
-	if (vulkan_->GetFeaturesEnabled().logicOp) {
+	if (vulkan_->GetDeviceFeatures().enabled.logicOp) {
 		features |= GPU_SUPPORTS_LOGIC_OP;
 	}
-	if (vulkan_->GetFeaturesEnabled().samplerAnisotropy) {
+	if (vulkan_->GetDeviceFeatures().enabled.samplerAnisotropy) {
 		features |= GPU_SUPPORTS_ANISOTROPY;
 	}
 
@@ -264,7 +264,7 @@ void GPU_Vulkan::BeginHostFrame() {
 		framebufferManager_->Resized();
 		drawEngine_.Resized();
 		textureCacheVulkan_->NotifyConfigChanged();
-		if (vulkan_->GetFeaturesEnabled	().wideLines) {
+		if (vulkan_->GetDeviceFeatures().enabled.wideLines) {
 			drawEngine_.SetLineWidth(PSP_CoreParameter().renderWidth / 480.0f);
 		}
 	}
@@ -311,8 +311,8 @@ void GPU_Vulkan::EndHostFrame() {
 
 // Needs to be called on GPU thread, not reporting thread.
 void GPU_Vulkan::BuildReportingInfo() {
-	const auto &props = vulkan_->GetPhysicalDeviceProperties(vulkan_->GetCurrentPhysicalDevice());
-	const auto &features = vulkan_->GetFeaturesAvailable();
+	const auto &props = vulkan_->GetPhysicalDeviceProperties().properties;
+	const auto &features = vulkan_->GetDeviceFeatures().available;
 
 #define CHECK_BOOL_FEATURE(n) do { if (features.n) { featureNames += ", " #n; } } while (false)
 

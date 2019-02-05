@@ -114,7 +114,7 @@ bool WindowsVulkanContext::Init(HINSTANCE hInst, HWND hWnd, std::string *error_m
 	if (deviceNum < 0) {
 		deviceNum = g_Vulkan->GetBestPhysicalDevice();
 		if (!g_Config.sVulkanDevice.empty())
-			g_Config.sVulkanDevice = g_Vulkan->GetPhysicalDeviceProperties(deviceNum).deviceName;
+			g_Config.sVulkanDevice = g_Vulkan->GetPhysicalDeviceProperties(deviceNum).properties.deviceName;
 	}
 	g_Vulkan->ChooseDevice(deviceNum);
 	if (g_Vulkan->CreateDevice() != VK_SUCCESS) {
@@ -124,8 +124,17 @@ bool WindowsVulkanContext::Init(HINSTANCE hInst, HWND hWnd, std::string *error_m
 		return false;
 	}
 	if (g_validate_) {
-		int bits = VK_DEBUG_REPORT_ERROR_BIT_EXT | VK_DEBUG_REPORT_WARNING_BIT_EXT | VK_DEBUG_REPORT_PERFORMANCE_WARNING_BIT_EXT;
-		g_Vulkan->InitDebugMsgCallback(&Vulkan_Dbg, bits, &g_LogOptions);
+		if (g_Vulkan->DeviceExtensions().EXT_debug_utils) {
+			int bits = VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT
+				| VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT
+				| VK_DEBUG_UTILS_MESSAGE_SEVERITY_INFO_BIT_EXT
+				| VK_DEBUG_UTILS_MESSAGE_SEVERITY_VERBOSE_BIT_EXT
+				| VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT;
+			g_Vulkan->InitDebugUtilsCallback(&VulkanDebugUtilsCallback, bits, &g_LogOptions);
+		} else {
+			int bits = VK_DEBUG_REPORT_ERROR_BIT_EXT | VK_DEBUG_REPORT_WARNING_BIT_EXT | VK_DEBUG_REPORT_PERFORMANCE_WARNING_BIT_EXT;
+			g_Vulkan->InitDebugMsgCallback(&VulkanDebugReportCallback, bits, &g_LogOptions);
+		}
 	}
 	g_Vulkan->InitSurface(WINDOWSYSTEM_WIN32, (void *)hInst, (void *)hWnd);
 	if (!g_Vulkan->InitObjects()) {
@@ -137,7 +146,7 @@ bool WindowsVulkanContext::Init(HINSTANCE hInst, HWND hWnd, std::string *error_m
 	bool splitSubmit = g_Config.bGfxDebugSplitSubmit;
 
 	draw_ = Draw::T3DCreateVulkanContext(g_Vulkan, splitSubmit);
-	SetGPUBackend(GPUBackend::VULKAN, g_Vulkan->GetPhysicalDeviceProperties(deviceNum).deviceName);
+	SetGPUBackend(GPUBackend::VULKAN, g_Vulkan->GetPhysicalDeviceProperties(deviceNum).properties.deviceName);
 	bool success = draw_->CreatePresets();
 	_assert_msg_(G3D, success, "Failed to compile preset shaders");
 	draw_->HandleEvent(Draw::Event::GOT_BACKBUFFER, g_Vulkan->GetBackbufferWidth(), g_Vulkan->GetBackbufferHeight());
@@ -160,6 +169,7 @@ void WindowsVulkanContext::Shutdown() {
 	g_Vulkan->WaitUntilQueueIdle();
 	g_Vulkan->DestroyObjects();
 	g_Vulkan->DestroyDevice();
+	g_Vulkan->DestroyDebugUtilsCallback();
 	g_Vulkan->DestroyDebugMsgCallback();
 	g_Vulkan->DestroyInstance();
 
