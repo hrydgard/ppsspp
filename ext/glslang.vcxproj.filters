@@ -140,6 +140,9 @@
     <ClCompile Include="glslang\glslang\MachineIndependent\attribute.cpp">
       <Filter>glslang</Filter>
     </ClCompile>
+    <ClCompile Include="glslang\SPIRV\SpvPostProcess.cpp">
+      <Filter>SPIRV</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="glslang\SPIRV\disassemble.h">

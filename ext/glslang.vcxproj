@@ -193,6 +193,7 @@
     <ClCompile Include="glslang\SPIRV\InReadableOrder.cpp" />
     <ClCompile Include="glslang\SPIRV\Logger.cpp" />
     <ClCompile Include="glslang\SPIRV\SpvBuilder.cpp" />
+    <ClCompile Include="glslang\SPIRV\SpvPostProcess.cpp" />
     <ClCompile Include="glslang\SPIRV\SPVRemapper.cpp" />
   </ItemGroup>
   <ItemGroup>
