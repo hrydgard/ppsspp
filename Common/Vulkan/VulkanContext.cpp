@@ -120,9 +120,6 @@ VkResult VulkanContext::CreateInstance(const CreateInfo &info) {
 //#if defined(VK_USE_PLATFORM_XCB_KHR)
 //	instance_extensions_enabled_.push_back(VK_KHR_XCB_SURFACE_EXTENSION_NAME);
 //#endif
-//#if defined(VK_USE_PLATFORM_MIR_KHR)
-//	instance_extensions_enabled_.push_back(VK_KHR_MIR_SURFACE_EXTENSION_NAME);
-//#endif
 #if defined(VK_USE_PLATFORM_WAYLAND_KHR)
 	if (IsInstanceExtensionAvailable(VK_KHR_WAYLAND_SURFACE_EXTENSION_NAME)) {
 		instance_extensions_enabled_.push_back(VK_KHR_WAYLAND_SURFACE_EXTENSION_NAME);
@@ -131,12 +128,21 @@ VkResult VulkanContext::CreateInstance(const CreateInfo &info) {
 #endif
 
 	if (flags_ & VULKAN_FLAG_VALIDATE) {
-		if (IsInstanceExtensionAvailable(VK_EXT_DEBUG_REPORT_EXTENSION_NAME)) {
+		if (IsInstanceExtensionAvailable(VK_EXT_DEBUG_UTILS_EXTENSION_NAME)) {
+			// Enable the validation layers
+			for (size_t i = 0; i < ARRAY_SIZE(validationLayers); i++) {
+				instance_layer_names_.push_back(validationLayers[i]);
+				device_layer_names_.push_back(validationLayers[i]);
+			}
+			instance_extensions_enabled_.push_back(VK_EXT_DEBUG_UTILS_EXTENSION_NAME);
+			extensionsLookup_.EXT_debug_utils = true;
+		} else if (IsInstanceExtensionAvailable(VK_EXT_DEBUG_REPORT_EXTENSION_NAME)) {
 			for (size_t i = 0; i < ARRAY_SIZE(validationLayers); i++) {
 				instance_layer_names_.push_back(validationLayers[i]);
 				device_layer_names_.push_back(validationLayers[i]);
 			}
 			instance_extensions_enabled_.push_back(VK_EXT_DEBUG_REPORT_EXTENSION_NAME);
+			extensionsLookup_.EXT_debug_report = true;
 		} else {
 			ELOG("Validation layer extension not available - not enabling Vulkan validation.");
 			flags_ &= ~VULKAN_FLAG_VALIDATE;
@@ -195,7 +201,7 @@ VkResult VulkanContext::CreateInstance(const CreateInfo &info) {
 		return res;
 	}
 
-	VulkanLoadInstanceFunctions(instance_);
+	VulkanLoadInstanceFunctions(instance_, extensionsLookup_);
 	if (!CheckLayers(instance_layer_properties_, instance_layer_names_)) {
 		WLOG("CheckLayers for instance failed");
 		// init_error_ = "Failed to validate instance layers";
@@ -604,8 +610,8 @@ VkResult VulkanContext::CreateDevice() {
 		return VK_ERROR_INITIALIZATION_FAILED;
 	}
 
-	VkDeviceQueueCreateInfo queue_info{ VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO };
-	float queue_priorities[1] = { 1.0f };
+	VkDeviceQueueCreateInfo queue_info{VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO};
+	float queue_priorities[1] = {1.0f};
 	queue_info.queueCount = 1;
 	queue_info.pQueuePriorities = queue_priorities;
 	bool found = false;
@@ -618,12 +624,24 @@ VkResult VulkanContext::CreateDevice() {
 	}
 	assert(found);
 
+	extensionsLookup_.KHR_maintenance1 = EnableDeviceExtension(VK_KHR_MAINTENANCE1_EXTENSION_NAME);
+	extensionsLookup_.KHR_maintenance2 = EnableDeviceExtension(VK_KHR_MAINTENANCE2_EXTENSION_NAME);
+	extensionsLookup_.KHR_maintenance3 = EnableDeviceExtension(VK_KHR_MAINTENANCE3_EXTENSION_NAME);
+	extensionsLookup_.KHR_multiview = EnableDeviceExtension(VK_KHR_MULTIVIEW_EXTENSION_NAME);
+
 	if (EnableDeviceExtension(VK_KHR_GET_MEMORY_REQUIREMENTS_2_EXTENSION_NAME)) {
 		extensionsLookup_.KHR_get_memory_requirements2 = true;
 		extensionsLookup_.KHR_dedicated_allocation = EnableDeviceExtension(VK_KHR_DEDICATED_ALLOCATION_EXTENSION_NAME);
 	}
-	extensionsLookup_.EXT_external_memory_host = EnableDeviceExtension(VK_EXT_EXTERNAL_MEMORY_HOST_EXTENSION_NAME);
-	extensionsLookup_.KHR_depth_stencil_resolve = EnableDeviceExtension(VK_KHR_DEPTH_STENCIL_RESOLVE_EXTENSION_NAME);
+	if (EnableDeviceExtension(VK_KHR_EXTERNAL_MEMORY_CAPABILITIES_EXTENSION_NAME)) {
+		if (EnableDeviceExtension(VK_KHR_EXTERNAL_MEMORY_EXTENSION_NAME)) {
+			extensionsLookup_.EXT_external_memory_host = EnableDeviceExtension(VK_EXT_EXTERNAL_MEMORY_HOST_EXTENSION_NAME);
+		}
+	}
+	if (EnableDeviceExtension(VK_KHR_CREATE_RENDERPASS_2_EXTENSION_NAME)) {
+		extensionsLookup_.KHR_create_renderpass2 = true;
+		extensionsLookup_.KHR_depth_stencil_resolve = EnableDeviceExtension(VK_KHR_DEPTH_STENCIL_RESOLVE_EXTENSION_NAME);
+	}
 	extensionsLookup_.EXT_shader_stencil_export = EnableDeviceExtension(VK_EXT_SHADER_STENCIL_EXPORT_EXTENSION_NAME);
 
 	VkDeviceCreateInfo device_info{ VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO };
@@ -640,7 +658,7 @@ VkResult VulkanContext::CreateDevice() {
 		init_error_ = "Unable to create Vulkan device";
 		ELOG("Unable to create Vulkan device");
 	} else {
-		VulkanLoadDeviceFunctions(device_);
+		VulkanLoadDeviceFunctions(device_, extensionsLookup_);
 	}
 	ILOG("Device created.\n");
 	VulkanSetAvailable(true);
@@ -662,7 +680,7 @@ VkResult VulkanContext::InitDebugMsgCallback(PFN_vkDebugReportCallbackEXT dbgFun
 	cb.flags = bits;
 	cb.pfnCallback = dbgFunc;
 	cb.pUserData = userdata;
-	VkResult res = dyn_vkCreateDebugReportCallbackEXT(instance_, &cb, nullptr, &msg_callback);
+	VkResult res = vkCreateDebugReportCallbackEXT(instance_, &cb, nullptr, &msg_callback);
 	switch (res) {
 	case VK_SUCCESS:
 		msg_callbacks.push_back(msg_callback);
@@ -676,11 +694,41 @@ VkResult VulkanContext::InitDebugMsgCallback(PFN_vkDebugReportCallbackEXT dbgFun
 }
 
 void VulkanContext::DestroyDebugMsgCallback() {
+	if (!extensionsLookup_.EXT_debug_report)
+		return;
 	while (msg_callbacks.size() > 0) {
-		dyn_vkDestroyDebugReportCallbackEXT(instance_, msg_callbacks.back(), nullptr);
+		vkDestroyDebugReportCallbackEXT(instance_, msg_callbacks.back(), nullptr);
 		msg_callbacks.pop_back();
 	}
 }
+
+VkResult VulkanContext::InitDebugUtilsCallback(PFN_vkDebugUtilsMessengerCallbackEXT callback, int bits, void *userdata) {
+	VkDebugUtilsMessengerCreateInfoEXT callback1{VK_STRUCTURE_TYPE_DEBUG_UTILS_MESSENGER_CREATE_INFO_EXT};
+	callback1.messageSeverity = bits;
+	callback1.messageType = VK_DEBUG_UTILS_MESSAGE_TYPE_GENERAL_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_TYPE_VALIDATION_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_TYPE_PERFORMANCE_BIT_EXT;
+	callback1.pfnUserCallback = callback;
+	callback1.pUserData = userdata;
+	VkDebugUtilsMessengerEXT messenger;
+	VkResult res = vkCreateDebugUtilsMessengerEXT(instance_, &callback1, nullptr, &messenger);
+	if (res != VK_SUCCESS) {
+		ELOG("Failed to register debug callback with vkCreateDebugUtilsMessengerEXT");
+		// Do error handling for VK_ERROR_OUT_OF_MEMORY
+	} else {
+		ILOG("Debug callback registered with vkCreateDebugUtilsMessengerEXT.");
+		utils_callbacks.push_back(messenger);
+	}
+	return res;
+}
+
+void VulkanContext::DestroyDebugUtilsCallback() {
+	if (!extensionsLookup_.EXT_debug_utils)
+		return;
+	while (utils_callbacks.size() > 0) {
+		vkDestroyDebugUtilsMessengerEXT(instance_, utils_callbacks.back(), nullptr);
+		utils_callbacks.pop_back();
+	}
+}
+
 
 VkResult VulkanContext::InitSurface(WindowSystem winsys, void *data1, void *data2) {
 	winsys_ = winsys;

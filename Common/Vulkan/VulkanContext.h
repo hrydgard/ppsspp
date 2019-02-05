@@ -101,17 +101,6 @@ private:
 	std::vector<Callback> callbacks_;
 };
 
-// For fast extension-enabled checks.
-struct VulkanDeviceExtensions {
-	bool KHR_get_memory_requirements2;
-	bool KHR_dedicated_allocation;
-	bool EXT_external_memory_host;
-	bool KHR_get_physical_device_properties2;
-	bool KHR_depth_stencil_resolve;
-	bool EXT_shader_stencil_export;
-	// bool EXT_depth_range_unrestricted;  // Allows depth outside [0.0, 1.0] in 32-bit float depth buffers.
-};
-
 // Useful for debugging on ARM Mali. This eliminates transaction elimination
 // which can cause artifacts if you get barriers wrong (or if there are driver bugs).
 // Cost is reduced performance on some GPU architectures.
@@ -175,7 +164,11 @@ public:
 
 	bool MemoryTypeFromProperties(uint32_t typeBits, VkFlags requirements_mask, uint32_t *typeIndex);
 
-	VkResult InitDebugMsgCallback(PFN_vkDebugReportCallbackEXT dbgFunc, int bits, void *userdata = nullptr);
+	VkResult InitDebugUtilsCallback(PFN_vkDebugUtilsMessengerCallbackEXT callback, int bits, void *userdata);
+	void DestroyDebugUtilsCallback();
+
+	// Legacy reporting
+	VkResult InitDebugMsgCallback(PFN_vkDebugReportCallbackEXT dbgFunc, int bits, void *userdata);
 	void DestroyDebugMsgCallback();
 
 	VkPhysicalDevice GetPhysicalDevice(int n = 0) const {
@@ -334,6 +327,7 @@ private:
 	VulkanDeleteList globalDeleteList_;
 
 	std::vector<VkDebugReportCallbackEXT> msg_callbacks;
+	std::vector<VkDebugUtilsMessengerEXT> utils_callbacks;
 
 	VkSwapchainKHR swapchain_ = VK_NULL_HANDLE;
 	VkFormat swapchainFormat_;

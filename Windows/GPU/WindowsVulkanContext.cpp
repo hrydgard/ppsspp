@@ -124,8 +124,17 @@ bool WindowsVulkanContext::Init(HINSTANCE hInst, HWND hWnd, std::string *error_m
 		return false;
 	}
 	if (g_validate_) {
-		int bits = VK_DEBUG_REPORT_ERROR_BIT_EXT | VK_DEBUG_REPORT_WARNING_BIT_EXT | VK_DEBUG_REPORT_PERFORMANCE_WARNING_BIT_EXT;
-		g_Vulkan->InitDebugMsgCallback(&Vulkan_Dbg, bits, &g_LogOptions);
+		if (g_Vulkan->DeviceExtensions().EXT_debug_utils) {
+			int bits = VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT
+				| VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT
+				| VK_DEBUG_UTILS_MESSAGE_SEVERITY_INFO_BIT_EXT
+				| VK_DEBUG_UTILS_MESSAGE_SEVERITY_VERBOSE_BIT_EXT
+				| VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT;
+			g_Vulkan->InitDebugUtilsCallback(&VulkanDebugUtilsCallback, bits, &g_LogOptions);
+		} else {
+			int bits = VK_DEBUG_REPORT_ERROR_BIT_EXT | VK_DEBUG_REPORT_WARNING_BIT_EXT | VK_DEBUG_REPORT_PERFORMANCE_WARNING_BIT_EXT;
+			g_Vulkan->InitDebugMsgCallback(&VulkanDebugReportCallback, bits, &g_LogOptions);
+		}
 	}
 	g_Vulkan->InitSurface(WINDOWSYSTEM_WIN32, (void *)hInst, (void *)hWnd);
 	if (!g_Vulkan->InitObjects()) {
@@ -160,6 +169,7 @@ void WindowsVulkanContext::Shutdown() {
 	g_Vulkan->WaitUntilQueueIdle();
 	g_Vulkan->DestroyObjects();
 	g_Vulkan->DestroyDevice();
+	g_Vulkan->DestroyDebugUtilsCallback();
 	g_Vulkan->DestroyDebugMsgCallback();
 	g_Vulkan->DestroyInstance();
 
