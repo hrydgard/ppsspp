@@ -427,9 +427,7 @@ public:
 	void EndFrame() override;
 	void WipeQueue() override;
 
-	void FlushState() override {
-	}
-	void WaitRenderCompletion(Framebuffer *fbo) override;
+	void FlushState() override {}
 
 	// From Sascha's code
 	static std::string FormatDriverVersion(const VkPhysicalDeviceProperties &props) {
@@ -894,10 +892,6 @@ void VKContext::BeginFrame() {
 	_assert_(result == VK_SUCCESS);
 }
 
-void VKContext::WaitRenderCompletion(Framebuffer *fbo) {
-	// TODO
-}
-
 void VKContext::EndFrame() {
 	// Stop collecting data in the frame's data pushbuffer.
 	push_->End();
@@ -1014,13 +1008,11 @@ Pipeline *VKContext::CreateGraphicsPipeline(const PipelineDesc &desc) {
 	dynamicInfo.dynamicStateCount = depth->info.stencilTestEnable ? ARRAY_SIZE(dynamics) : 2;
 	dynamicInfo.pDynamicStates = dynamics;
 
-	VkPipelineMultisampleStateCreateInfo ms = { VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO };
-	ms.pNext = nullptr;
+	VkPipelineMultisampleStateCreateInfo ms{ VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO };
 	ms.pSampleMask = nullptr;
 	ms.rasterizationSamples = VK_SAMPLE_COUNT_1_BIT;
 
-	VkPipelineViewportStateCreateInfo vs = { VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO };
-	vs.pNext = nullptr;
+	VkPipelineViewportStateCreateInfo vs{ VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO };
 	vs.viewportCount = 1;
 	vs.scissorCount = 1;
 	vs.pViewports = nullptr;  // dynamic
@@ -1029,8 +1021,7 @@ Pipeline *VKContext::CreateGraphicsPipeline(const PipelineDesc &desc) {
 	VkPipelineRasterizationStateCreateInfo rs{ VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO };
 	raster->ToVulkan(&rs);
 
-	VkGraphicsPipelineCreateInfo info = { VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO };
-	info.pNext = nullptr;
+	VkGraphicsPipelineCreateInfo info{ VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO };
 	info.flags = 0;
 	info.stageCount = (uint32_t)stages.size();
 	info.pStages = stages.data();

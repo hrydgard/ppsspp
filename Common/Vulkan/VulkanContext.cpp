@@ -77,6 +77,8 @@ const char *PresentModeString(VkPresentModeKHR presentMode) {
 	case VK_PRESENT_MODE_MAILBOX_KHR: return "MAILBOX";
 	case VK_PRESENT_MODE_FIFO_KHR: return "FIFO";
 	case VK_PRESENT_MODE_FIFO_RELAXED_KHR: return "FIFO_RELAXED";
+	case VK_PRESENT_MODE_SHARED_DEMAND_REFRESH_KHR: return "SHARED_DEMAND_REFRESH_KHR";
+	case VK_PRESENT_MODE_SHARED_CONTINUOUS_REFRESH_KHR: return "SHARED_CONTINUOUS_REFRESH_KHR";
 	default: return "UNKNOWN";
 	}
 }
@@ -548,7 +550,6 @@ void VulkanContext::ChooseDevice(int physical_device) {
 	}
 
 	// Optional features
-
 	if (extensionsLookup_.KHR_get_physical_device_properties2) {
 		VkPhysicalDeviceFeatures2 features2{VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2_KHR};
 		vkGetPhysicalDeviceFeatures2KHR(physical_devices_[physical_device_], &features2);
@@ -568,9 +569,6 @@ void VulkanContext::ChooseDevice(int physical_device) {
 	}
 	if (deviceFeatures_.available.wideLines) {
 		deviceFeatures_.enabled.wideLines = true;
-	}
-	if (deviceFeatures_.available.geometryShader) {
-		deviceFeatures_.enabled.geometryShader = true;
 	}
 	if (deviceFeatures_.available.logicOp) {
 		deviceFeatures_.enabled.logicOp = true;
@@ -674,9 +672,7 @@ VkResult VulkanContext::InitDebugMsgCallback(PFN_vkDebugReportCallbackEXT dbgFun
 	}
 	ILOG("Registering debug report callback");
 
-	VkDebugReportCallbackCreateInfoEXT cb = {};
-	cb.sType = VK_STRUCTURE_TYPE_DEBUG_REPORT_CREATE_INFO_EXT;
-	cb.pNext = nullptr;
+	VkDebugReportCallbackCreateInfoEXT cb{VK_STRUCTURE_TYPE_DEBUG_REPORT_CREATE_INFO_EXT};
 	cb.flags = bits;
 	cb.pfnCallback = dbgFunc;
 	cb.pUserData = userdata;
@@ -769,7 +765,7 @@ VkResult VulkanContext::ReinitSurface() {
 #if defined(VK_USE_PLATFORM_XLIB_KHR)
 	case WINDOWSYSTEM_XLIB:
 	{
-		VkXlibSurfaceCreateInfoKHR xlib = { VK_STRUCTURE_TYPE_XLIB_SURFACE_CREATE_INFO_KHR };
+		VkXlibSurfaceCreateInfoKHR xlib{ VK_STRUCTURE_TYPE_XLIB_SURFACE_CREATE_INFO_KHR };
 		xlib.flags = 0;
 		xlib.dpy = (Display *)winsysData1_;
 		xlib.window = (Window)winsysData2_;
@@ -779,7 +775,7 @@ VkResult VulkanContext::ReinitSurface() {
 #if defined(VK_USE_PLATFORM_XCB_KHR)
 	case WINDOWSYSTEM_XCB:
 	{
-		VkXCBSurfaceCreateInfoKHR xcb = { VK_STRUCTURE_TYPE_XCB_SURFACE_CREATE_INFO_KHR };
+		VkXCBSurfaceCreateInfoKHR xcb{ VK_STRUCTURE_TYPE_XCB_SURFACE_CREATE_INFO_KHR };
 		xcb.flags = 0;
 		xcb.connection = (Connection *)winsysData1_;
 		xcb.window = (Window)(uintptr_t)winsysData2_;
@@ -789,7 +785,7 @@ VkResult VulkanContext::ReinitSurface() {
 #if defined(VK_USE_PLATFORM_WAYLAND_KHR)
 	case WINDOWSYSTEM_WAYLAND:
 	{
-		VkWaylandSurfaceCreateInfoKHR wayland = { VK_STRUCTURE_TYPE_WAYLAND_SURFACE_CREATE_INFO_KHR };
+		VkWaylandSurfaceCreateInfoKHR wayland{ VK_STRUCTURE_TYPE_WAYLAND_SURFACE_CREATE_INFO_KHR };
 		wayland.flags = 0;
 		wayland.display = (wl_display *)winsysData1_;
 		wayland.surface = (wl_surface *)winsysData2_;
@@ -973,7 +969,7 @@ bool VulkanContext::InitSwapchain() {
 		preTransform = surfCapabilities_.currentTransform;
 	}
 
-	VkSwapchainCreateInfoKHR swap_chain_info = { VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR };
+	VkSwapchainCreateInfoKHR swap_chain_info{ VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR };
 	swap_chain_info.surface = surface_;
 	swap_chain_info.minImageCount = desiredNumberOfSwapChainImages;
 	swap_chain_info.imageFormat = swapchainFormat_;

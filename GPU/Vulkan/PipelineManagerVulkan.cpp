@@ -237,7 +237,6 @@ static VulkanPipeline *CreateVulkanPipeline(VkDevice device, VkPipelineCache pip
 	inputAssembly.flags = 0;
 	inputAssembly.topology = (VkPrimitiveTopology)key.topology;
 	inputAssembly.primitiveRestartEnable = false;
-
 	int vertexStride = 0;
 
 	int offset = 0;

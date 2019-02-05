@@ -401,7 +401,6 @@ VkDescriptorSet DrawEngineVulkan::GetOrCreateDescriptorSet(VkImageView imageView
 
 	VkDescriptorSet desc;
 	VkDescriptorSetAllocateInfo descAlloc{ VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO };
-	descAlloc.pNext = nullptr;
 	descAlloc.pSetLayouts = &descriptorSetLayout_;
 	descAlloc.descriptorPool = frame.descPool;
 	descAlloc.descriptorSetCount = 1;

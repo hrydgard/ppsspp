@@ -655,13 +655,6 @@ public:
 
 	virtual void HandleEvent(Event ev, int width, int height, void *param1 = nullptr, void *param2 = nullptr) = 0;
 
-	// This flushes command buffers and waits for execution at the point of the end of the last
-	// renderpass that wrote to the requested framebuffer. This is needed before trying to read it back
-	// on modern APIs like Vulkan. Ifr the framebuffer is currently being rendered to, we'll just end the render pass.
-	// The next draw call will automatically start up a new one.
-	// APIs like OpenGL won't need to implement this one.
-	virtual void WaitRenderCompletion(Framebuffer *fbo) {}
-
 	// Flush state like scissors etc so the caller can do its own custom drawing.
 	virtual void FlushState() {}
 
