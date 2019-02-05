@@ -72,9 +72,27 @@ bool VulkanTexture::CreateDirect(VkCommandBuffer cmd, int w, int h, int numMips,
 	}
 
 	VkMemoryRequirements mem_reqs{};
-	vkGetImageMemoryRequirements(vulkan_->GetDevice(), image_, &mem_reqs);
 
-	if (allocator_) {
+	bool dedicatedAllocation = false;
+	if (vulkan_->DeviceExtensions().KHR_dedicated_allocation) {
+		VkImageMemoryRequirementsInfo2KHR memReqInfo2{VK_STRUCTURE_TYPE_IMAGE_MEMORY_REQUIREMENTS_INFO_2_KHR};
+		memReqInfo2.image = image_;
+
+		VkMemoryRequirements2KHR memReq2 = {VK_STRUCTURE_TYPE_MEMORY_REQUIREMENTS_2_KHR};
+		VkMemoryDedicatedRequirementsKHR memDedicatedReq{VK_STRUCTURE_TYPE_MEMORY_DEDICATED_REQUIREMENTS_KHR};
+		memReq2.pNext = &memDedicatedReq;
+
+		vkGetImageMemoryRequirements2KHR(vulkan_->GetDevice(), &memReqInfo2, &memReq2);
+
+		mem_reqs = memReq2.memoryRequirements;
+		dedicatedAllocation =
+			(memDedicatedReq.requiresDedicatedAllocation != VK_FALSE) ||
+			(memDedicatedReq.prefersDedicatedAllocation != VK_FALSE);
+	} else {
+		vkGetImageMemoryRequirements(vulkan_->GetDevice(), image_, &mem_reqs);
+	}
+
+	if (allocator_ && !dedicatedAllocation) {
 		offset_ = allocator_->Allocate(mem_reqs, &mem_, Tag());
 		if (offset_ == VulkanDeviceAllocator::ALLOCATE_FAILED) {
 			ELOG("Image memory allocation failed (mem_reqs.size=%d, typebits=%08x", (int)mem_reqs.size, (int)mem_reqs.memoryTypeBits);
@@ -85,6 +103,12 @@ bool VulkanTexture::CreateDirect(VkCommandBuffer cmd, int w, int h, int numMips,
 		VkMemoryAllocateInfo mem_alloc{ VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO };
 		mem_alloc.memoryTypeIndex = 0;
 		mem_alloc.allocationSize = mem_reqs.size;
+
+		VkMemoryDedicatedAllocateInfoKHR dedicatedAllocateInfo{VK_STRUCTURE_TYPE_MEMORY_DEDICATED_ALLOCATE_INFO_KHR};
+		if (dedicatedAllocation) {
+			dedicatedAllocateInfo.image = image_;
+			mem_alloc.pNext = &dedicatedAllocateInfo;
+		}
 
 		// Find memory type - don't specify any mapping requirements
 		bool pass = vulkan_->MemoryTypeFromProperties(mem_reqs.memoryTypeBits, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, &mem_alloc.memoryTypeIndex);
