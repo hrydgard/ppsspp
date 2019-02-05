@@ -348,7 +348,6 @@ void CreateDirectoriesAndroid() {
 
 	// Avoid media scanners in PPSSPP_STATE and SAVEDATA directories,
 	// and in the root PSP directory as well.
-	File::CreateEmptyFile(g_Config.memStickDirectory + "PSP/.nomedia");
 	File::CreateEmptyFile(GetSysDirectory(DIRECTORY_SAVESTATE) + ".nomedia");
 	File::CreateEmptyFile(GetSysDirectory(DIRECTORY_SAVEDATA) + ".nomedia");
 	File::CreateEmptyFile(GetSysDirectory(DIRECTORY_SYSTEM) + ".nomedia");
