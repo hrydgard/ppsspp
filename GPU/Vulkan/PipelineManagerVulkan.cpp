@@ -682,7 +682,7 @@ bool PipelineManagerVulkan::LoadCache(FILE *file, bool loadRawPipelineCache, Sha
 			WARN_LOG(G3D, "Bad Vulkan pipeline cache header - ignoring");
 			return false;
 		}
-		if (0 != memcmp(header->uuid, vulkan_->GetPhysicalDeviceProperties(vulkan_->GetCurrentPhysicalDevice()).pipelineCacheUUID, VK_UUID_SIZE)) {
+		if (0 != memcmp(header->uuid, vulkan_->GetPhysicalDeviceProperties().properties.pipelineCacheUUID, VK_UUID_SIZE)) {
 			// Wrong hardware/driver/etc.
 			WARN_LOG(G3D, "Bad Vulkan pipeline cache UUID - ignoring");
 			return false;

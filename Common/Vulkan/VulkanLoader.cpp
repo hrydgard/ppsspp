@@ -199,6 +199,8 @@ PFN_vkDestroyDebugReportCallbackEXT dyn_vkDestroyDebugReportCallbackEXT;
 PFN_vkGetMemoryHostPointerPropertiesEXT vkGetMemoryHostPointerPropertiesEXT;
 PFN_vkGetBufferMemoryRequirements2KHR vkGetBufferMemoryRequirements2KHR;
 PFN_vkGetImageMemoryRequirements2KHR vkGetImageMemoryRequirements2KHR;
+PFN_vkGetPhysicalDeviceProperties2KHR vkGetPhysicalDeviceProperties2KHR;
+PFN_vkGetPhysicalDeviceFeatures2KHR vkGetPhysicalDeviceFeatures2KHR;
 
 #ifdef _WIN32
 static HINSTANCE vulkanLibrary;
@@ -568,6 +570,8 @@ void VulkanLoadInstanceFunctions(VkInstance instance) {
 #endif
 
 	LOAD_INSTANCE_FUNC(instance, vkDestroySurfaceKHR);
+	LOAD_INSTANCE_FUNC(instance, vkGetPhysicalDeviceProperties2KHR);
+	LOAD_INSTANCE_FUNC(instance, vkGetPhysicalDeviceFeatures2KHR);
 
 	dyn_vkCreateDebugReportCallbackEXT = (PFN_vkCreateDebugReportCallbackEXT)vkGetInstanceProcAddr(instance, "vkCreateDebugReportCallbackEXT");
 	dyn_vkDestroyDebugReportCallbackEXT = (PFN_vkDestroyDebugReportCallbackEXT)vkGetInstanceProcAddr(instance, "vkDestroyDebugReportCallbackEXT");
@@ -589,7 +593,6 @@ void VulkanLoadDeviceFunctions(VkDevice device) {
 	LOAD_DEVICE_FUNC(device, vkGetMemoryHostPointerPropertiesEXT);
 	LOAD_DEVICE_FUNC(device, vkGetBufferMemoryRequirements2KHR);
 	LOAD_DEVICE_FUNC(device, vkGetImageMemoryRequirements2KHR);
-
 }
 
 void VulkanFree() {

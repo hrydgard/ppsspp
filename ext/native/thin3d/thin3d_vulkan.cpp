@@ -260,7 +260,7 @@ public:
 
 	// Returns the binding offset, and the VkBuffer to bind.
 	size_t PushUBO(VulkanPushBuffer *buf, VulkanContext *vulkan, VkBuffer *vkbuf) {
-		return buf->PushAligned(ubo_, uboSize_, vulkan->GetPhysicalDeviceProperties(vulkan_->GetCurrentPhysicalDevice()).limits.minUniformBufferOffsetAlignment, vkbuf);
+		return buf->PushAligned(ubo_, uboSize_, vulkan->GetPhysicalDeviceProperties().properties.limits.minUniformBufferOffsetAlignment, vkbuf);
 	}
 
 	int GetUniformLoc(const char *name);
@@ -352,7 +352,7 @@ public:
 	std::vector<std::string> GetDeviceList() const override {
 		std::vector<std::string> list;
 		for (int i = 0; i < vulkan_->GetNumPhysicalDevices(); i++) {
-			list.push_back(vulkan_->GetPhysicalDeviceProperties(i).deviceName);
+			list.push_back(vulkan_->GetPhysicalDeviceProperties(i).properties.deviceName);
 		}
 		return list;
 	}
@@ -433,7 +433,7 @@ public:
 
 	// From Sascha's code
 	static std::string FormatDriverVersion(const VkPhysicalDeviceProperties &props) {
-		if (props.vendorID == 4318) {
+		if (props.vendorID == VULKAN_VENDOR_NVIDIA) {
 			// 10 bits = major version (up to r1023)
 			// 8 bits = minor version (up to 255)
 			// 8 bits = secondary branch version/build version (up to 255)
@@ -443,6 +443,9 @@ public:
 			uint32_t secondaryBranch = (props.driverVersion >> 6) & 0x0ff;
 			uint32_t tertiaryBranch = (props.driverVersion) & 0x003f;
 			return StringFromFormat("%d.%d.%d.%d (%08x)", major, minor, secondaryBranch, tertiaryBranch, props.driverVersion);
+		} else if (props.vendorID == VULKAN_VENDOR_ARM) {
+			// ARM just puts a hash here, let's just output it as is.
+			return StringFromFormat("%08x", props.driverVersion);
 		} else {
 			// Standard scheme, use the standard macros.
 			uint32_t major = VK_VERSION_MAJOR(props.driverVersion);
@@ -456,13 +459,13 @@ public:
 		// TODO: Make these actually query the right information
 		switch (info) {
 		case APINAME: return "Vulkan";
-		case VENDORSTRING: return vulkan_->GetPhysicalDeviceProperties(vulkan_->GetCurrentPhysicalDevice()).deviceName;
-		case VENDOR: return VulkanVendorString(vulkan_->GetPhysicalDeviceProperties(vulkan_->GetCurrentPhysicalDevice()).vendorID);
-		case DRIVER: return FormatDriverVersion(vulkan_->GetPhysicalDeviceProperties(vulkan_->GetCurrentPhysicalDevice()));
+		case VENDORSTRING: return vulkan_->GetPhysicalDeviceProperties().properties.deviceName;
+		case VENDOR: return VulkanVendorString(vulkan_->GetPhysicalDeviceProperties().properties.vendorID);
+		case DRIVER: return FormatDriverVersion(vulkan_->GetPhysicalDeviceProperties().properties);
 		case SHADELANGVERSION: return "N/A";;
 		case APIVERSION: 
 		{
-			uint32_t ver = vulkan_->GetPhysicalDeviceProperties(vulkan_->GetCurrentPhysicalDevice()).apiVersion;
+			uint32_t ver = vulkan_->GetPhysicalDeviceProperties().properties.apiVersion;
 			return StringFromFormat("%d.%d.%d", ver >> 22, (ver >> 12) & 0x3ff, ver & 0xfff);
 		}
 		default: return "?";
@@ -750,19 +753,19 @@ bool VKTexture::Create(VkCommandBuffer cmd, VulkanPushBuffer *push, const Textur
 
 VKContext::VKContext(VulkanContext *vulkan, bool splitSubmit)
 	: vulkan_(vulkan), caps_{}, renderManager_(vulkan) {
-	caps_.anisoSupported = vulkan->GetFeaturesAvailable().samplerAnisotropy != 0;
-	caps_.geometryShaderSupported = vulkan->GetFeaturesAvailable().geometryShader != 0;
-	caps_.tesselationShaderSupported = vulkan->GetFeaturesAvailable().tessellationShader != 0;
-	caps_.multiViewport = vulkan->GetFeaturesAvailable().multiViewport != 0;
-	caps_.dualSourceBlend = vulkan->GetFeaturesAvailable().dualSrcBlend != 0;
-	caps_.depthClampSupported = vulkan->GetFeaturesAvailable().depthClamp != 0;
+	caps_.anisoSupported = vulkan->GetDeviceFeatures().enabled.samplerAnisotropy != 0;
+	caps_.geometryShaderSupported = vulkan->GetDeviceFeatures().enabled.geometryShader != 0;
+	caps_.tesselationShaderSupported = vulkan->GetDeviceFeatures().enabled.tessellationShader != 0;
+	caps_.multiViewport = vulkan->GetDeviceFeatures().enabled.multiViewport != 0;
+	caps_.dualSourceBlend = vulkan->GetDeviceFeatures().enabled.dualSrcBlend != 0;
+	caps_.depthClampSupported = vulkan->GetDeviceFeatures().enabled.depthClamp != 0;
 	caps_.framebufferBlitSupported = true;
 	caps_.framebufferCopySupported = true;
 	caps_.framebufferDepthBlitSupported = false;  // Can be checked for.
 	caps_.framebufferDepthCopySupported = true;   // Will pretty much always be the case.
 	caps_.preferredDepthBufferFormat = DataFormat::D24_S8;  // TODO: Ask vulkan.
 
-	auto deviceProps = vulkan->GetPhysicalDeviceProperties(vulkan_->GetCurrentPhysicalDevice());
+	auto deviceProps = vulkan->GetPhysicalDeviceProperties(vulkan_->GetCurrentPhysicalDevice()).properties;
 	switch (deviceProps.vendorID) {
 	case VULKAN_VENDOR_AMD: caps_.vendor = GPUVendor::VENDOR_AMD; break;
 	case VULKAN_VENDOR_ARM: caps_.vendor = GPUVendor::VENDOR_ARM; break;
@@ -1319,8 +1322,8 @@ static const char *VulkanFormatToString(VkFormat fmt) {
 }
 
 std::vector<std::string> VKContext::GetFeatureList() const {
-	const VkPhysicalDeviceFeatures &available = vulkan_->GetFeaturesAvailable();
-	const VkPhysicalDeviceFeatures &enabled = vulkan_->GetFeaturesEnabled();
+	const VkPhysicalDeviceFeatures &available = vulkan_->GetDeviceFeatures().available;
+	const VkPhysicalDeviceFeatures &enabled = vulkan_->GetDeviceFeatures().enabled;
 
 	std::vector<std::string> features;
 	AddFeature(features, "dualSrcBlend", available.dualSrcBlend, enabled.dualSrcBlend);

@@ -143,6 +143,11 @@ VkResult VulkanContext::CreateInstance(const CreateInfo &info) {
 		}
 	}
 
+	if (IsInstanceExtensionAvailable(VK_KHR_GET_PHYSICAL_DEVICE_PROPERTIES_2_EXTENSION_NAME)) {
+		instance_extensions_enabled_.push_back(VK_KHR_GET_PHYSICAL_DEVICE_PROPERTIES_2_EXTENSION_NAME);
+		extensionsLookup_.KHR_get_physical_device_properties2 = true;
+	}
+
 	// Validate that all the instance extensions we ask for are actually available.
 	for (auto ext : instance_extensions_enabled_) {
 		if (!IsInstanceExtensionAvailable(ext))
@@ -222,8 +227,25 @@ VkResult VulkanContext::CreateInstance(const CreateInfo &info) {
 		return res;
 	}
 
-	for (uint32_t i = 0; i < gpu_count; i++) {
-		vkGetPhysicalDeviceProperties(physical_devices_[i], &physicalDeviceProperties_[i]);
+	if (extensionsLookup_.KHR_get_physical_device_properties2) {
+		for (uint32_t i = 0; i < gpu_count; i++) {
+			VkPhysicalDeviceProperties2 props2{VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROPERTIES_2};
+			VkPhysicalDevicePushDescriptorPropertiesKHR pushProps{VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PUSH_DESCRIPTOR_PROPERTIES_KHR};
+			VkPhysicalDeviceExternalMemoryHostPropertiesEXT extHostMemProps{VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_EXTERNAL_MEMORY_HOST_PROPERTIES_EXT};
+			props2.pNext = &pushProps;
+			pushProps.pNext = &extHostMemProps;
+			vkGetPhysicalDeviceProperties2KHR(physical_devices_[i], &props2);
+			// Don't want bad pointers sitting around.
+			props2.pNext = nullptr;
+			pushProps.pNext = nullptr;
+			physicalDeviceProperties_[i].properties = props2.properties;
+			physicalDeviceProperties_[i].pushDescriptorProperties = pushProps;
+			physicalDeviceProperties_[i].externalMemoryHostProperties = extHostMemProps;
+		}
+	} else {
+		for (uint32_t i = 0; i < gpu_count; i++) {
+			vkGetPhysicalDeviceProperties(physical_devices_[i], &physicalDeviceProperties_[i].properties);
+		}
 	}
 	return VK_SUCCESS;
 }
@@ -423,7 +445,7 @@ bool VulkanContext::CheckLayers(const std::vector<LayerProperties> &layer_props,
 
 int VulkanContext::GetPhysicalDeviceByName(std::string name) {
 	for (size_t i = 0; i < physical_devices_.size(); i++) {
-		if (physicalDeviceProperties_[i].deviceName == name)
+		if (physicalDeviceProperties_[i].properties.deviceName == name)
 			return (int)i;
 	}
 	return -1;
@@ -520,37 +542,45 @@ void VulkanContext::ChooseDevice(int physical_device) {
 	}
 
 	// Optional features
-	vkGetPhysicalDeviceFeatures(physical_devices_[physical_device_], &featuresAvailable_);
-	memset(&featuresEnabled_, 0, sizeof(featuresEnabled_));
+
+	if (extensionsLookup_.KHR_get_physical_device_properties2) {
+		VkPhysicalDeviceFeatures2 features2{VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2_KHR};
+		vkGetPhysicalDeviceFeatures2KHR(physical_devices_[physical_device_], &features2);
+		deviceFeatures_.available = features2.features;
+	} else {
+		vkGetPhysicalDeviceFeatures(physical_devices_[physical_device_], &deviceFeatures_.available);
+	}
+
+	deviceFeatures_.enabled = {};
 
 	// Enable a few safe ones if they are available.
-	if (featuresAvailable_.dualSrcBlend) {
-		featuresEnabled_.dualSrcBlend = true;
+	if (deviceFeatures_.available.dualSrcBlend) {
+		deviceFeatures_.enabled.dualSrcBlend = true;
 	}
-	if (featuresAvailable_.largePoints) {
-		featuresEnabled_.largePoints = true;
+	if (deviceFeatures_.available.largePoints) {
+		deviceFeatures_.enabled.largePoints = true;
 	}
-	if (featuresAvailable_.wideLines) {
-		featuresEnabled_.wideLines = true;
+	if (deviceFeatures_.available.wideLines) {
+		deviceFeatures_.enabled.wideLines = true;
 	}
-	if (featuresAvailable_.geometryShader) {
-		featuresEnabled_.geometryShader = true;
+	if (deviceFeatures_.available.geometryShader) {
+		deviceFeatures_.enabled.geometryShader = true;
 	}
-	if (featuresAvailable_.logicOp) {
-		featuresEnabled_.logicOp = true;
+	if (deviceFeatures_.available.logicOp) {
+		deviceFeatures_.enabled.logicOp = true;
 	}
-	if (featuresAvailable_.depthClamp) {
-		featuresEnabled_.depthClamp = true;
+	if (deviceFeatures_.available.depthClamp) {
+		deviceFeatures_.enabled.depthClamp = true;
 	}
-	if (featuresAvailable_.depthBounds) {
-		featuresEnabled_.depthBounds = true;
+	if (deviceFeatures_.available.depthBounds) {
+		deviceFeatures_.enabled.depthBounds = true;
 	}
-	if (featuresAvailable_.samplerAnisotropy) {
-		featuresEnabled_.samplerAnisotropy = true;
+	if (deviceFeatures_.available.samplerAnisotropy) {
+		deviceFeatures_.enabled.samplerAnisotropy = true;
 	}
 	// For easy wireframe mode, someday.
-	if (featuresEnabled_.fillModeNonSolid) {
-		featuresEnabled_.fillModeNonSolid = true;
+	if (deviceFeatures_.available.fillModeNonSolid) {
+		deviceFeatures_.enabled.fillModeNonSolid = true;
 	}
 
 	GetDeviceLayerExtensionList(nullptr, device_extension_properties_);
@@ -589,10 +619,10 @@ VkResult VulkanContext::CreateDevice() {
 	assert(found);
 
 	if (EnableDeviceExtension(VK_KHR_GET_MEMORY_REQUIREMENTS_2_EXTENSION_NAME)) {
-		deviceExtensionsLookup_.KHR_get_memory_requirements2 = true;
-		deviceExtensionsLookup_.KHR_dedicated_allocation = EnableDeviceExtension(VK_KHR_DEDICATED_ALLOCATION_EXTENSION_NAME);
+		extensionsLookup_.KHR_get_memory_requirements2 = true;
+		extensionsLookup_.KHR_dedicated_allocation = EnableDeviceExtension(VK_KHR_DEDICATED_ALLOCATION_EXTENSION_NAME);
 	}
-	deviceExtensionsLookup_.EXT_external_memory_host = EnableDeviceExtension(VK_EXT_EXTERNAL_MEMORY_HOST_EXTENSION_NAME);
+	extensionsLookup_.EXT_external_memory_host = EnableDeviceExtension(VK_EXT_EXTERNAL_MEMORY_HOST_EXTENSION_NAME);
 
 	VkDeviceCreateInfo device_info{ VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO };
 	device_info.queueCreateInfoCount = 1;
@@ -601,7 +631,8 @@ VkResult VulkanContext::CreateDevice() {
 	device_info.ppEnabledLayerNames = device_info.enabledLayerCount ? device_layer_names_.data() : nullptr;
 	device_info.enabledExtensionCount = (uint32_t)device_extensions_enabled_.size();
 	device_info.ppEnabledExtensionNames = device_info.enabledExtensionCount ? device_extensions_enabled_.data() : nullptr;
-	device_info.pEnabledFeatures = &featuresEnabled_;
+	device_info.pEnabledFeatures = &deviceFeatures_.enabled;
+
 	VkResult res = vkCreateDevice(physical_devices_[physical_device_], &device_info, nullptr, &device_);
 	if (res != VK_SUCCESS) {
 		init_error_ = "Unable to create Vulkan device";
@@ -836,7 +867,7 @@ bool VulkanContext::InitSwapchain() {
 	swapChainExtent_.width = clamp(surfCapabilities_.currentExtent.width, surfCapabilities_.minImageExtent.width, surfCapabilities_.maxImageExtent.width);
 	swapChainExtent_.height = clamp(surfCapabilities_.currentExtent.height, surfCapabilities_.minImageExtent.height, surfCapabilities_.maxImageExtent.height);
 
-	if (physicalDeviceProperties_[physical_device_].vendorID == VULKAN_VENDOR_IMGTEC) {
+	if (physicalDeviceProperties_[physical_device_].properties.vendorID == VULKAN_VENDOR_IMGTEC) {
 		// Swap chain width hack to avoid issue #11743 (PowerVR driver bug).
 		swapChainExtent_.width &= ~31;
 	}

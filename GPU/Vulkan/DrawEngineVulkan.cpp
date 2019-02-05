@@ -1023,7 +1023,7 @@ void TessellationDataTransferVulkan::SendDataToShader(const SimpleVertex *const 
 
 	int size = size_u * size_v;
 
-	int ssboAlignment = vulkan_->GetPhysicalDeviceProperties(vulkan_->GetCurrentPhysicalDevice()).limits.minStorageBufferOffsetAlignment;
+	int ssboAlignment = vulkan_->GetPhysicalDeviceProperties().properties.limits.minStorageBufferOffsetAlignment;
 	uint8_t *data = (uint8_t *)push_->PushAligned(size * sizeof(TessData), (uint32_t *)&bufInfo_[0].offset, &bufInfo_[0].buffer, ssboAlignment);
 	bufInfo_[0].range = size * sizeof(TessData);
 
