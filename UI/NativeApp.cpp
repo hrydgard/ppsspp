@@ -344,11 +344,14 @@ void CreateDirectoriesAndroid() {
 	File::CreateFullPath(GetSysDirectory(DIRECTORY_SAVESTATE));
 	File::CreateFullPath(GetSysDirectory(DIRECTORY_GAME));
 	File::CreateFullPath(GetSysDirectory(DIRECTORY_SYSTEM));
+	File::CreateFullPath(GetSysDirectory(DIRECTORY_TEXTURES));
 
-	// Avoid media scanners in PPSSPP_STATE and SAVEDATA directories
+	// Avoid media scanners in PPSSPP_STATE and SAVEDATA directories,
+	// and in the root PSP directory as well.
 	File::CreateEmptyFile(GetSysDirectory(DIRECTORY_SAVESTATE) + ".nomedia");
 	File::CreateEmptyFile(GetSysDirectory(DIRECTORY_SAVEDATA) + ".nomedia");
 	File::CreateEmptyFile(GetSysDirectory(DIRECTORY_SYSTEM) + ".nomedia");
+	File::CreateEmptyFile(GetSysDirectory(DIRECTORY_TEXTURES) + ".nomedia");
 }
 
 static void CheckFailedGPUBackends() {
