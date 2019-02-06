@@ -176,7 +176,6 @@ public:
 	bool bTexDeposterize;
 	int iFpsLimit1;
 	int iFpsLimit2;
-	int iForceMaxEmulatedFPS;
 	int iMaxRecent;
 	int iCurrentStateSlot;
 	int iRewindFlipFrequency;
