@@ -791,6 +791,7 @@ VKContext::VKContext(VulkanContext *vulkan, bool splitSubmit)
 		bugs_.Infest(Bugs::DUAL_SOURCE_BLENDING_BROKEN);
 	}
 
+	caps_.deviceID = deviceProps.deviceID;
 	device_ = vulkan->GetDevice();
 
 	queue_ = vulkan->GetGraphicsQueue();

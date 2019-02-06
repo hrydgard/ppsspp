@@ -493,6 +493,8 @@ struct PipelineDesc {
 
 struct DeviceCaps {
 	GPUVendor vendor;
+	uint32_t deviceID;  // use caution!
+
 	DataFormat preferredDepthBufferFormat;
 	DataFormat preferredShadowMapFormatLow;
 	DataFormat preferredShadowMapFormatHigh;
