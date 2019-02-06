@@ -62,6 +62,7 @@ struct CompatFlags {
 	bool BlockTransferAllowCreateFB;
 	bool YugiohSaveFix;
 	bool ForceUMDDelay;
+	bool ForceMax60FPS;
 };
 
 class IniFile;
