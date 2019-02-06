@@ -494,11 +494,12 @@ void MainWindow::createMenus()
 		->addEventChecked(&g_Config.iTexFiltering);
 	videoMenu->addSeparator();
 	// - Screen Size
-	MenuTree* screenMenu = new MenuTree(this, videoMenu,          QT_TR_NOOP("&Screen Size"));
+	MenuTree* screenMenu = new MenuTree(this, videoMenu, QT_TR_NOOP("&Screen Size"));
 	screenGroup = new MenuActionGroup(this, screenMenu, SLOT(screenGroup_triggered(QAction *)),
 		QStringList() << "1x" << "2x" << "3x" << "4x" << "5x" << "6x" << "7x" << "8x" << "9x" << "10x",
-		QList<int>()  << 1    << 2    << 3    << 4    << 5    << 6    << 7    << 8    << 9    << 10,
-		QList<int>() << Qt::CTRL + Qt::Key_1 << Qt::CTRL + Qt::Key_2 << Qt::CTRL + Qt::Key_3 << Qt::CTRL + Qt::Key_4);
+		QList<int>() << 1 << 2 << 3 << 4 << 5 << 6 << 7 << 8 << 9 << 10,
+		QList<int>() << Qt::CTRL + Qt::Key_1 << Qt::CTRL + Qt::Key_2 << Qt::CTRL + Qt::Key_3 << Qt::CTRL + Qt::Key_4 << Qt::CTRL + Qt::Key_5
+		<< Qt::CTRL + Qt::Key_6 << Qt::CTRL + Qt::Key_7 << Qt::CTRL + Qt::Key_8 << Qt::CTRL + Qt::Key_9 << Qt::CTRL + Qt::Key_0);
 
 	MenuTree* displayLayoutMenu = new MenuTree(this, videoMenu, QT_TR_NOOP("&Display Layout Options"));
 	displayLayoutGroup = new MenuActionGroup(this, displayLayoutMenu, SLOT(displayLayoutGroup_triggered(QAction *)),
