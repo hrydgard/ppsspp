@@ -106,6 +106,63 @@ GPU_DX9::GPU_DX9(GraphicsContext *gfxCtx, Draw::DrawContext *draw)
 	}
 }
 
+// TODO: Move this detection elsewhere when it's needed elsewhere, not before. It's ugly.
+// Source: https://envytools.readthedocs.io/en/latest/hw/pciid.html#gf100
+enum NVIDIAGeneration {
+	NV_PRE_KEPLER,
+	NV_KEPLER,
+	NV_MAXWELL,
+	NV_PASCAL,
+	NV_VOLTA,
+	NV_TURING,  // or later
+};
+
+static NVIDIAGeneration NVIDIAGetDeviceGeneration(int deviceID) {
+	if (deviceID >= 0x1180 && deviceID <= 0x11bf)
+		return NV_KEPLER;  // GK104
+	if (deviceID >= 0x11c0 && deviceID <= 0x11fa)
+		return NV_KEPLER;  // GK106
+	if (deviceID >= 0x0fc0 && deviceID <= 0x0fff)
+		return NV_KEPLER;  // GK107
+	if (deviceID >= 0x1003 && deviceID <= 0x1028)
+		return NV_KEPLER;  // GK110(B)
+	if (deviceID >= 0x1280 && deviceID <= 0x12ba)
+		return NV_KEPLER;  // GK208
+	if (deviceID >= 0x1381 && deviceID <= 0x13b0)
+		return NV_MAXWELL;  // GM107
+	if (deviceID >= 0x1340 && deviceID <= 0x134d)
+		return NV_MAXWELL;  // GM108
+	if (deviceID >= 0x13c0 && deviceID <= 0x13d9)
+		return NV_MAXWELL;  // GM204
+	if (deviceID >= 0x1401 && deviceID <= 0x1427)
+		return NV_MAXWELL;  // GM206
+	if (deviceID >= 0x15f7 && deviceID <= 0x15f9)
+		return NV_PASCAL;  // GP100
+	if (deviceID >= 0x15f7 && deviceID <= 0x15f9)
+		return NV_PASCAL;  // GP100
+	if (deviceID >= 0x1b00 && deviceID <= 0x1b38)
+		return NV_PASCAL;  // GP102
+	if (deviceID >= 0x1b80 && deviceID <= 0x1be1)
+		return NV_PASCAL;  // GP104
+	if (deviceID >= 0x1c02 && deviceID <= 0x1c62)
+		return NV_PASCAL;  // GP106
+	if (deviceID >= 0x1c81 && deviceID <= 0x1c92)
+		return NV_PASCAL;  // GP107
+	if (deviceID >= 0x1d01 && deviceID <= 0x1d12)
+		return NV_PASCAL;  // GP108
+	if (deviceID >= 0x1d81 && deviceID <= 0x1dba)
+		return NV_VOLTA;   // GV100
+	if (deviceID >= 0x1e02 && deviceID <= 0x1e3c)
+		return NV_TURING;  // TU102
+	if (deviceID >= 0x1e82 && deviceID <= 0x1ed0)
+		return NV_TURING;  // TU104
+	if (deviceID >= 0x1f02 && deviceID <= 0x1f51)
+		return NV_TURING;  // TU104
+	if (deviceID >= 0x1e02)
+		return NV_TURING;  // More TU models or later, probably.
+	return NV_PRE_KEPLER;
+}
+
 void GPU_DX9::CheckGPUFeatures() {
 	u32 features = 0;
 	features |= GPU_SUPPORTS_16BIT_FORMATS;
@@ -119,9 +176,21 @@ void GPU_DX9::CheckGPUFeatures() {
 		features |= GPU_SUPPORTS_ACCURATE_DEPTH;
 	}
 
-	// VS range culling causes problems on Intel.
-	if (vendor != Draw::GPUVendor::VENDOR_INTEL) {
+	// VS range culling (killing triangles in the vertex shader using NaN) causes problems on Intel.
+	// Also causes problems on old NVIDIA.
+	switch (vendor) {
+	case Draw::GPUVendor::VENDOR_INTEL:
+		break;
+	case Draw::GPUVendor::VENDOR_NVIDIA:
+		// Older NVIDIAs don't seem to like NaNs in their DX9 vertex shaders.
+		// No idea if KEPLER is the right cutoff, but let's go with it.
+		if (NVIDIAGetDeviceGeneration(draw_->GetDeviceCaps().deviceID) >= NV_KEPLER) {
+			features |= GPU_SUPPORTS_VS_RANGE_CULLING;
+		}
+		break;
+	default:
 		features |= GPU_SUPPORTS_VS_RANGE_CULLING;
+		break;
 	}
 
 	D3DCAPS9 caps;
