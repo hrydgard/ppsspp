@@ -61,6 +61,7 @@ struct CompatFlags {
 	bool SonicRivalsHack;
 	bool BlockTransferAllowCreateFB;
 	bool YugiohSaveFix;
+	bool ForceUMDDelay;
 };
 
 class IniFile;
