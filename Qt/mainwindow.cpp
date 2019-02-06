@@ -488,7 +488,7 @@ void MainWindow::createMenus()
 	anisotropicGroup = new MenuActionGroup(this, anisotropicMenu, SLOT(anisotropicGroup_triggered(QAction *)),
 		QStringList() << "Off" << "2x" << "4x" << "8x" << "16x",
 		QList<int>()  << 0     << 1    << 2    << 3    << 4);
-	videoMenu->add(new MenuAction(this, SLOT(bufferRenderAct()),  QT_TR_NOOP("&Buffered Rendering"), Qt::Key_F5))
+	videoMenu->add(new MenuAction(this, SLOT(bufferRenderAct()),  QT_TR_NOOP("&Buffered Rendering")))
 		->addEventChecked(&g_Config.iRenderingMode);
 	videoMenu->add(new MenuAction(this, SLOT(linearAct()),        QT_TR_NOOP("&Linear Filtering")))
 		->addEventChecked(&g_Config.iTexFiltering);
