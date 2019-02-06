@@ -685,6 +685,7 @@ namespace MainWindow {
 				SaveState::SaveSlot(PSP_CoreParameter().fileToStart, g_Config.iCurrentStateSlot, SaveStateActionFinished);
 				break;
 			}
+			break;
 		}
 
 		case ID_OPTIONS_LANGUAGE:
