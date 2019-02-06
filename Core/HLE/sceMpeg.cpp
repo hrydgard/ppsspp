@@ -1682,8 +1682,6 @@ static int sceMpegGetAtracAu(u32 mpeg, u32 streamId, u32 auAddr, u32 attrAddr)
 	if (ctx->atracRegistered && ctx->mediaengine->IsNoAudioData() && !ctx->endOfAudioReached) {
 		WARN_LOG(ME, "Audio end reach. pts: %i dts: %i", (int)atracAu.pts, (int)ctx->mediaengine->getLastTimeStamp());
 		ctx->endOfAudioReached = true;
-	}
-	if (ctx->mediaengine->IsNoAudioData()) {
 		result = ERROR_MPEG_NO_DATA;
 	}
 
