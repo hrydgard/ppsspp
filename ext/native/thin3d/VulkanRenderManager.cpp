@@ -42,25 +42,8 @@ void CreateImage(VulkanContext *vulkan, VkCommandBuffer cmd, VKRImage &img, int 
 	vkCreateImage(vulkan->GetDevice(), &ici, nullptr, &img.image);
 
 	VkMemoryRequirements memreq;
-
 	bool dedicatedAllocation = false;
-	if (vulkan->DeviceExtensions().KHR_dedicated_allocation) {
-		VkImageMemoryRequirementsInfo2KHR memReqInfo2{VK_STRUCTURE_TYPE_IMAGE_MEMORY_REQUIREMENTS_INFO_2_KHR};
-		memReqInfo2.image = img.image;
-
-		VkMemoryRequirements2KHR memReq2 = {VK_STRUCTURE_TYPE_MEMORY_REQUIREMENTS_2_KHR};
-		VkMemoryDedicatedRequirementsKHR memDedicatedReq{VK_STRUCTURE_TYPE_MEMORY_DEDICATED_REQUIREMENTS_KHR};
-		memReq2.pNext = &memDedicatedReq;
-
-		vkGetImageMemoryRequirements2KHR(vulkan->GetDevice(), &memReqInfo2, &memReq2);
-
-		memreq = memReq2.memoryRequirements;
-		dedicatedAllocation =
-			(memDedicatedReq.requiresDedicatedAllocation != VK_FALSE) ||
-			(memDedicatedReq.prefersDedicatedAllocation != VK_FALSE);
-	} else {
-		vkGetImageMemoryRequirements(vulkan->GetDevice(), img.image, &memreq);
-	}
+	vulkan->GetImageMemoryRequirements(img.image, &memreq, &dedicatedAllocation);
 
 	VkMemoryAllocateInfo alloc{ VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO };
 	alloc.allocationSize = memreq.size;
@@ -569,7 +552,6 @@ bool VulkanRenderManager::InitDepthStencilBuffer(VkCommandBuffer cmd) {
 	image_info.usage = VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT;
 	image_info.flags = 0;
 
-	VkMemoryRequirements mem_reqs;
 
 	depth_.format = depth_format;
 
@@ -580,24 +562,8 @@ bool VulkanRenderManager::InitDepthStencilBuffer(VkCommandBuffer cmd) {
 		return false;
 
 	bool dedicatedAllocation = false;
-	if (vulkan_->DeviceExtensions().KHR_dedicated_allocation) {
-		VkImageMemoryRequirementsInfo2KHR memReqInfo2{VK_STRUCTURE_TYPE_IMAGE_MEMORY_REQUIREMENTS_INFO_2_KHR};
-		memReqInfo2.image = depth_.image;
-
-		VkMemoryRequirements2KHR memReq2 = {VK_STRUCTURE_TYPE_MEMORY_REQUIREMENTS_2_KHR};
-		VkMemoryDedicatedRequirementsKHR memDedicatedReq{VK_STRUCTURE_TYPE_MEMORY_DEDICATED_REQUIREMENTS_KHR};
-		memReq2.pNext = &memDedicatedReq;
-
-		vkGetImageMemoryRequirements2KHR(vulkan_->GetDevice(), &memReqInfo2, &memReq2);
-
-		mem_reqs = memReq2.memoryRequirements;
-		dedicatedAllocation =
-			(memDedicatedReq.requiresDedicatedAllocation != VK_FALSE) ||
-			(memDedicatedReq.prefersDedicatedAllocation != VK_FALSE);
-	} else {
-		vkGetImageMemoryRequirements(vulkan_->GetDevice(), depth_.image, &mem_reqs);
-	}
-
+	VkMemoryRequirements mem_reqs;
+	vulkan_->GetImageMemoryRequirements(depth_.image, &mem_reqs, &dedicatedAllocation);
 
 	VkMemoryAllocateInfo mem_alloc = {VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO};
 	mem_alloc.allocationSize = mem_reqs.size;

@@ -1319,3 +1319,24 @@ void VulkanDeleteList::PerformDeletes(VkDevice device) {
 	}
 	descSetLayouts_.clear();
 }
+
+void VulkanContext::GetImageMemoryRequirements(VkImage image, VkMemoryRequirements *mem_reqs, bool *dedicatedAllocation) {
+	if (DeviceExtensions().KHR_dedicated_allocation) {
+		VkImageMemoryRequirementsInfo2KHR memReqInfo2{VK_STRUCTURE_TYPE_IMAGE_MEMORY_REQUIREMENTS_INFO_2_KHR};
+		memReqInfo2.image = image;
+
+		VkMemoryRequirements2KHR memReq2 = {VK_STRUCTURE_TYPE_MEMORY_REQUIREMENTS_2_KHR};
+		VkMemoryDedicatedRequirementsKHR memDedicatedReq{VK_STRUCTURE_TYPE_MEMORY_DEDICATED_REQUIREMENTS_KHR};
+		memReq2.pNext = &memDedicatedReq;
+
+		vkGetImageMemoryRequirements2KHR(GetDevice(), &memReqInfo2, &memReq2);
+
+		*mem_reqs = memReq2.memoryRequirements;
+		*dedicatedAllocation =
+			(memDedicatedReq.requiresDedicatedAllocation != VK_FALSE) ||
+			(memDedicatedReq.prefersDedicatedAllocation != VK_FALSE);
+	} else {
+		vkGetImageMemoryRequirements(GetDevice(), image, mem_reqs);
+		*dedicatedAllocation = false;
+	}
+}

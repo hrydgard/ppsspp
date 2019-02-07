@@ -262,6 +262,8 @@ public:
 
 	const VulkanDeviceExtensions &DeviceExtensions() { return extensionsLookup_; }
 
+	void GetImageMemoryRequirements(VkImage image, VkMemoryRequirements *mem_reqs, bool *dedicatedAllocation);
+
 private:
 	// A layer can expose extensions, keep track of those extensions here.
 	struct LayerProperties {

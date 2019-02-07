@@ -115,7 +115,6 @@ VkBool32 VKAPI_CALL VulkanDebugUtilsCallback(
 	const char *pMessage = pCallbackData->pMessage;
 	int messageCode = pCallbackData->messageIdNumber;
 	const char *pLayerPrefix = "";
-	// Ignore perf warnings for now. Could log them, so still want them registered.
 	if (messageSeverity & VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT) {
 		message << "ERROR(";
 	} else if (messageSeverity & VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT) {
@@ -135,7 +134,6 @@ VkBool32 VKAPI_CALL VulkanDebugUtilsCallback(
 	}
 	message << ":" << pCallbackData->messageIdNumber << ") " << pMessage << "\n";
 
-
 #ifdef _WIN32
 	std::string msg = message.str();
 	OutputDebugStringA(msg.c_str());
@@ -147,6 +145,7 @@ VkBool32 VKAPI_CALL VulkanDebugUtilsCallback(
 			MessageBoxA(NULL, pMessage, "Alert", MB_OK);
 		}
 	} else if (messageSeverity & VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT) {
+		// Don't break on perf warnings for now, even with a debugger. We log them at least.
 		if (options->breakOnWarning && IsDebuggerPresent() && 0 == (messageType & VK_DEBUG_UTILS_MESSAGE_TYPE_PERFORMANCE_BIT_EXT)) {
 			DebugBreak();
 		}
