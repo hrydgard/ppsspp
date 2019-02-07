@@ -72,25 +72,8 @@ bool VulkanTexture::CreateDirect(VkCommandBuffer cmd, int w, int h, int numMips,
 	}
 
 	VkMemoryRequirements mem_reqs{};
-
 	bool dedicatedAllocation = false;
-	if (vulkan_->DeviceExtensions().KHR_dedicated_allocation) {
-		VkImageMemoryRequirementsInfo2KHR memReqInfo2{VK_STRUCTURE_TYPE_IMAGE_MEMORY_REQUIREMENTS_INFO_2_KHR};
-		memReqInfo2.image = image_;
-
-		VkMemoryRequirements2KHR memReq2 = {VK_STRUCTURE_TYPE_MEMORY_REQUIREMENTS_2_KHR};
-		VkMemoryDedicatedRequirementsKHR memDedicatedReq{VK_STRUCTURE_TYPE_MEMORY_DEDICATED_REQUIREMENTS_KHR};
-		memReq2.pNext = &memDedicatedReq;
-
-		vkGetImageMemoryRequirements2KHR(vulkan_->GetDevice(), &memReqInfo2, &memReq2);
-
-		mem_reqs = memReq2.memoryRequirements;
-		dedicatedAllocation =
-			(memDedicatedReq.requiresDedicatedAllocation != VK_FALSE) ||
-			(memDedicatedReq.prefersDedicatedAllocation != VK_FALSE);
-	} else {
-		vkGetImageMemoryRequirements(vulkan_->GetDevice(), image_, &mem_reqs);
-	}
+	vulkan_->GetImageMemoryRequirements(image_, &mem_reqs, &dedicatedAllocation);
 
 	if (allocator_ && !dedicatedAllocation) {
 		offset_ = allocator_->Allocate(mem_reqs, &mem_, Tag());
