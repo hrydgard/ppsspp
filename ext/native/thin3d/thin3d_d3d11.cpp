@@ -267,6 +267,7 @@ D3D11DrawContext::D3D11DrawContext(ID3D11Device *device, ID3D11DeviceContext *de
 			default:
 				caps_.vendor = GPUVendor::VENDOR_UNKNOWN;
 			}
+			caps_.deviceID = desc.DeviceId;
 			adapter->Release();
 		}
 		dxgiDevice->Release();
