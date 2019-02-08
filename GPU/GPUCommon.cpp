@@ -2717,9 +2717,8 @@ void GPUCommon::InvalidateCache(u32 addr, int size, GPUInvalidationType type) {
 		textureCache_->InvalidateAll(type);
 
 	if (type != GPU_INVALIDATE_ALL && framebufferManager_->MayIntersectFramebuffer(addr)) {
-		// If we're doing block transfers, we shouldn't need this, and it'll only confuse us.
 		// Vempire invalidates (with writeback) after drawing, but before blitting.
-		if (!g_Config.bBlockTransferGPU || type == GPU_INVALIDATE_SAFE) {
+		if (type == GPU_INVALIDATE_SAFE) {
 			framebufferManager_->UpdateFromMemory(addr, size, type == GPU_INVALIDATE_SAFE);
 		}
 	}
