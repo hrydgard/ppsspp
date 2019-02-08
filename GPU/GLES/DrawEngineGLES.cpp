@@ -609,8 +609,6 @@ rotateVBO:
 			if (alphaMask) target |= GL_STENCIL_BUFFER_BIT;
 			if (depthMask) target |= GL_DEPTH_BUFFER_BIT;
 
-			int scissorX1 = gstate.getScissorX1();
-			int scissorY1 = gstate.getScissorY1();
 			int scissorX2 = gstate.getScissorX2() + 1;
 			int scissorY2 = gstate.getScissorY2() + 1;
 
@@ -618,7 +616,9 @@ rotateVBO:
 			framebufferManager_->SetColorUpdated(gstate_c.skipDrawReason);
 			framebufferManager_->SetSafeSize(scissorX2, scissorY2);
 
-			if (g_Config.bBlockTransferGPU && (gstate_c.featureFlags & GPU_USE_CLEAR_RAM_HACK) && colorMask && (alphaMask || gstate.FrameBufFormat() == GE_FORMAT_565)) {
+			if ((gstate_c.featureFlags & GPU_USE_CLEAR_RAM_HACK) && colorMask && (alphaMask || gstate.FrameBufFormat() == GE_FORMAT_565)) {
+				int scissorX1 = gstate.getScissorX1();
+				int scissorY1 = gstate.getScissorY1();
 				framebufferManager_->ApplyClearToMemory(scissorX1, scissorY1, scissorX2, scissorY2, clearColor);
 			}
 			gstate_c.Dirty(DIRTY_BLEND_STATE);  // Make sure the color mask gets re-applied.
