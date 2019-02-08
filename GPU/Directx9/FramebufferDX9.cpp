@@ -394,10 +394,6 @@ static const D3DVERTEXELEMENT9 g_FramebufferVertexElements[] = {
 	}
 
 	void FramebufferManagerDX9::BlitFramebufferDepth(VirtualFramebuffer *src, VirtualFramebuffer *dst) {
-		if (g_Config.bDisableSlowFramebufEffects) {
-			return;
-		}
-
 		bool matchingDepthBuffer = src->z_address == dst->z_address && src->z_stride != 0 && dst->z_stride != 0;
 		bool matchingSize = src->width == dst->width && src->height == dst->height;
 		if (matchingDepthBuffer && matchingSize) {
@@ -450,7 +446,7 @@ static const D3DVERTEXELEMENT9 g_FramebufferVertexElements[] = {
 		// currentRenderVfb_ will always be set when this is called, except from the GE debugger.
 		// Let's just not bother with the copy in that case.
 		bool skipCopy = (flags & BINDFBCOLOR_MAY_COPY) == 0;
-		if (GPUStepping::IsStepping() || g_Config.bDisableSlowFramebufEffects) {
+		if (GPUStepping::IsStepping()) {
 			skipCopy = true;
 		}
 		if (!skipCopy && framebuffer == currentRenderVfb_) {
