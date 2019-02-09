@@ -49,7 +49,7 @@ static const int PSMF_AUDIO_STREAM_ID = 0xBD;
 struct SceMpegAu {
 	s64_le pts;  // presentation time stamp
 	s64_le dts;  // decode time stamp
-	u32_le esBuffer;
+	u32_le esBuffer;  // WARNING: We abuse this to keep track of the stream number!
 	u32_le esSize;
 
 	void read(u32 addr);
