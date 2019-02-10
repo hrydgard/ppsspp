@@ -96,3 +96,19 @@ bool SplitPath(const std::string& full_path, std::string* _pPath, std::string* _
 
 	return true;
 }
+
+std::string GetFilenameFromPath(std::string full_path) {
+	size_t pos;
+#ifdef _WIN32
+	pos = full_path.rfind('\\');
+	if (pos != std::string::npos) {
+		return full_path.substr(pos + 1);
+	}
+#endif
+	pos = full_path.rfind('/');
+	if (pos != std::string::npos) {
+		return full_path.substr(pos + 1);
+	}
+	// No directory components, just return the full path.
+	return full_path;
+}
