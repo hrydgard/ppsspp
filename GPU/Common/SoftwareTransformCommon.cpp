@@ -460,7 +460,7 @@ void SoftwareTransform(
 		if (params->allowSeparateAlphaClear || (alphaMatchesColor && depthMatchesStencil)) {
 			result->color = transformed[1].color0_32;
 			// Need to rescale from a [0, 1] float.  This is the final transformed value.
-			result->depth = ToScaledDepth((s16)(int)(transformed[1].z * 65535.0f));
+			result->depth = ToScaledDepthFromIntegerScale((int)(transformed[1].z * 65535.0f));
 			result->action = SW_CLEAR;
 			gpuStats.numClears++;
 			return;
