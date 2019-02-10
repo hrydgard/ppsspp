@@ -72,7 +72,7 @@ struct ViewportAndScissor {
 	bool dirtyDepth;
 };
 void ConvertViewportAndScissor(bool useBufferedRendering, float renderWidth, float renderHeight, int bufferWidth, int bufferHeight, ViewportAndScissor &out);
-float ToScaledDepth(u16 z);
+float ToScaledDepthFromIntegerScale(float z);
 float FromScaledDepth(float z);
 float DepthSliceFactor();
 

@@ -520,7 +520,7 @@ float DepthSliceFactor() {
 }
 
 // This is used for float values which might not be integers, but are in the integer scale of 65535.
-static float ToScaledDepthFromInteger(float z) {
+float ToScaledDepthFromIntegerScale(float z) {
 	if (!gstate_c.Supports(GPU_SUPPORTS_ACCURATE_DEPTH)) {
 		return z * (1.0f / 65535.0f);
 	}
@@ -534,10 +534,6 @@ static float ToScaledDepthFromInteger(float z) {
 		const float offset = 0.5f * (depthSliceFactor - 1.0f) * (1.0f / depthSliceFactor);
 		return z * (1.0f / depthSliceFactor) * (1.0f / 65535.0f) + offset;
 	}
-}
-
-float ToScaledDepth(u16 z) {
-	return ToScaledDepthFromInteger((float)(int)z);
 }
 
 float FromScaledDepth(float z) {
@@ -605,8 +601,8 @@ void ConvertViewportAndScissor(bool useBufferedRendering, float renderWidth, flo
 		out.viewportY = renderY + displayOffsetY;
 		out.viewportW = curRTWidth * renderWidthFactor;
 		out.viewportH = curRTHeight * renderHeightFactor;
-		out.depthRangeMin = ToScaledDepthFromInteger(0);
-		out.depthRangeMax = ToScaledDepthFromInteger(65536);
+		out.depthRangeMin = ToScaledDepthFromIntegerScale(0);
+		out.depthRangeMax = ToScaledDepthFromIntegerScale(65536);
 	} else {
 		// These we can turn into a glViewport call, offset by offsetX and offsetY. Math after.
 		float vpXScale = gstate.getViewportXScale();
@@ -715,11 +711,11 @@ void ConvertViewportAndScissor(bool useBufferedRendering, float renderWidth, flo
 		if (!gstate_c.Supports(GPU_SUPPORTS_ACCURATE_DEPTH)) {
 			zScale = 1.0f;
 			zOffset = 0.0f;
-			out.depthRangeMin = ToScaledDepthFromInteger(vpZCenter - vpZScale);
-			out.depthRangeMax = ToScaledDepthFromInteger(vpZCenter + vpZScale);
+			out.depthRangeMin = ToScaledDepthFromIntegerScale(vpZCenter - vpZScale);
+			out.depthRangeMax = ToScaledDepthFromIntegerScale(vpZCenter + vpZScale);
 		} else {
-			out.depthRangeMin = ToScaledDepthFromInteger(minz);
-			out.depthRangeMax = ToScaledDepthFromInteger(maxz);
+			out.depthRangeMin = ToScaledDepthFromIntegerScale(minz);
+			out.depthRangeMax = ToScaledDepthFromIntegerScale(maxz);
 		}
 
 		// OpenGL will clamp these for us anyway, and Direct3D will error if not clamped.
