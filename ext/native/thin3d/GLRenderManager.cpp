@@ -112,9 +112,14 @@ void GLRenderManager::ThreadStart(Draw::DrawContext *draw) {
 			bufferStrategy_ = GLBufferStrategy::FRAME_UNMAP;
 			break;
 
-		case GPU_VENDOR_QUALCOMM:
-			bufferStrategy_ = GLBufferStrategy::FLUSH_INVALIDATE_UNMAP;
-			break;
+		// Temporarily disabled because it doesn't work with task switching on Android.
+		// The mapped buffer seems to just be pulled out like a rug from under us, crashing
+		// as soon as any write happens, which can happen during shutdown since we write from the
+		// Emu thread which may not yet have shut down. There may be solutions to this, but for now,
+		// disable this strategy to avoid crashing.
+		//case GPU_VENDOR_QUALCOMM:
+		//	bufferStrategy_ = GLBufferStrategy::FLUSH_INVALIDATE_UNMAP;
+		//	break;
 
 		default:
 			bufferStrategy_ = GLBufferStrategy::SUBDATA;
