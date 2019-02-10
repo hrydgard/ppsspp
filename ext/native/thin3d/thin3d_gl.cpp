@@ -560,6 +560,7 @@ OpenGLContext::OpenGLContext() {
 		// Don't use this extension on sub 3.0 OpenGL versions as it does not seem reliable.
 		bugs_.Infest(Bugs::DUAL_SOURCE_BLENDING_BROKEN);
 	} else if (caps_.vendor == GPUVendor::VENDOR_INTEL) {
+		// Note: this is for Intel drivers with GL3+.
 		// Also on Intel, see https://github.com/hrydgard/ppsspp/issues/10117
 		// TODO: Remove entirely sometime reasonably far in driver years after 2015.
 		const std::string ver = GetInfoString(Draw::InfoField::APIVERSION);
@@ -569,7 +570,9 @@ OpenGLContext::OpenGLContext() {
 				bugs_.Infest(Bugs::DUAL_SOURCE_BLENDING_BROKEN);
 			}
 		}
-	} else if (caps_.vendor == GPUVendor::VENDOR_VIVANTE) {
+	}
+
+	if (caps_.vendor == GPUVendor::VENDOR_VIVANTE || caps_.vendor == GPUVendor::VENDOR_BROADCOM) {
 		bugs_.Infest(Bugs::BROKEN_NAN_IN_CONDITIONAL);
 	}
 
