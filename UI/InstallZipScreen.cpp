@@ -23,6 +23,7 @@
 #include "UI/ui_atlas.h"
 #include "file/file_util.h"
 
+#include "Common/StringUtils.h"
 #include "Core/Util/GameManager.h"
 #include "UI/InstallZipScreen.h"
 #include "UI/MainScreen.h"
@@ -43,8 +44,9 @@ void InstallZipScreen::CreateViews() {
 	ViewGroup *leftColumn = new AnchorLayout(new LinearLayoutParams(1.0f));
 	root_->Add(leftColumn);
 
+	std::string shortFilename = GetFilenameFromPath(zipPath_);
 	leftColumn->Add(new TextView(iz->T("Install game from ZIP file?"), ALIGN_LEFT, false, new AnchorLayoutParams(10, 10, NONE, NONE)));
-	leftColumn->Add(new TextView(zipPath_, ALIGN_LEFT, false, new AnchorLayoutParams(10, 60, NONE, NONE)));
+	leftColumn->Add(new TextView(shortFilename, ALIGN_LEFT, false, new AnchorLayoutParams(10, 60, NONE, NONE)));
 
 	doneView_ = leftColumn->Add(new TextView("", new AnchorLayoutParams(10, 120, NONE, NONE)));
 	progressBar_ = leftColumn->Add(new ProgressBar(new AnchorLayoutParams(10, 200, 200, NONE)));
