@@ -193,6 +193,7 @@ static void EmuThreadFunc() {
 	while (emuThreadState != (int)EmuThreadState::QUIT_REQUESTED) {
 		UpdateRunLoopAndroid(env);
 	}
+	ILOG("QUIT_REQUESTED found, left loop. Setting state to STOPPED.");
 	emuThreadState = (int)EmuThreadState::STOPPED;
 
 	NativeShutdownGraphics();
@@ -213,8 +214,8 @@ static void EmuThreadStart() {
 // Call EmuThreadStop first, then keep running the GPU (or eat commands)
 // as long as emuThreadState isn't STOPPED and/or there are still things queued up.
 // Only after that, call EmuThreadJoin.
-static void EmuThreadStop() {
-	ILOG("EmuThreadStop - stopping...");
+static void EmuThreadStop(const char *caller) {
+	ILOG("EmuThreadStop - stopping (%s)...", caller);
 	emuThreadState = (int)EmuThreadState::QUIT_REQUESTED;
 }
 
@@ -527,15 +528,16 @@ extern "C" void Java_org_ppsspp_ppsspp_NativeApp_pause(JNIEnv *, jclass) {
 extern "C" void Java_org_ppsspp_ppsspp_NativeApp_shutdown(JNIEnv *, jclass) {
 	if (renderer_inited && useCPUThread && graphicsContext) {
 		// Only used in Java EGL path.
-		EmuThreadStop();
+		EmuThreadStop("shutdown");
+		ILOG("BeginAndroidShutdown");
 		graphicsContext->BeginAndroidShutdown();
 		// Skipping GL calls, the old context is gone.
 		while (graphicsContext->ThreadFrame()) {
 			ILOG("graphicsContext->ThreadFrame executed to clear buffers");
-			continue;
 		}
 		ILOG("Joining emuthread");
 		EmuThreadJoin();
+		ILOG("Joined emuthread");
 
 		graphicsContext->ThreadEnd();
 		graphicsContext->ShutdownFromRenderThread();
@@ -566,15 +568,17 @@ extern "C" void Java_org_ppsspp_ppsspp_NativeRenderer_displayInit(JNIEnv * env, 
 	// We should be running on the render thread here.
 	std::string errorMessage;
 	if (renderer_inited) {
-		// Would be really nice if we could get something on the GL thread immediately when shutting down...
+		// Would be really nice if we could get something on the GL thread immediately when shutting down.
 		ILOG("NativeApp.displayInit() restoring");
 		if (useCPUThread) {
-			EmuThreadStop();
+			EmuThreadStop("displayInit");
 			graphicsContext->BeginAndroidShutdown();
+			ILOG("BeginAndroidShutdown. Looping until emu thread done...");
 			// Skipping GL calls here because the old context is lost.
 			while (graphicsContext->ThreadFrame()) {
 				continue;
 			}
+			ILOG("Joining emu thread");
 			EmuThreadJoin();
 		} else {
 			NativeShutdownGraphics();
@@ -1018,7 +1022,7 @@ retry:
 	ILOG("Leaving EGL/Vulkan render loop.");
 
 	if (useCPUThread) {
-		EmuThreadStop();
+		EmuThreadStop("exitrenderloop");
 		while (graphicsContext->ThreadFrame()) {
 			continue;
 		}
