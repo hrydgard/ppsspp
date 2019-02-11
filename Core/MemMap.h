@@ -147,6 +147,10 @@ Opcode Read_Opcode_JIT(const u32 _Address);
 // used by JIT. Reads in the "Locked cache" mode
 void Write_Opcode_JIT(const u32 _Address, const Opcode& _Value);
 
+// Called by exception handlers. We simply filter out accesses to PSP RAM and otherwise
+// just leave it as-is.
+bool HandleFault(uintptr_t hostAddress, void *context);
+
 // Should be used by analyzers, disassemblers etc. Does resolve replacements.
 Opcode Read_Instruction(const u32 _Address, bool resolveReplacements = false);
 Opcode ReadUnchecked_Instruction(const u32 _Address, bool resolveReplacements = false);

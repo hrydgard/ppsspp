@@ -28,6 +28,7 @@
 #include "Common/MemoryUtil.h"
 #include "Common/MemArena.h"
 #include "Common/ChunkFile.h"
+#include "Common/MachineContext.h"
 
 #include "Core/MemMap.h"
 #include "Core/HDRemaster.h"
@@ -455,6 +456,36 @@ void Memset(const u32 _Address, const u8 _iValue, const u32 _iLength) {
 	}
 
 	CBreakPoints::ExecMemCheck(_Address, true, _iLength, currentMIPS->pc);
+}
+
+bool HandleFault(uintptr_t hostAddress, void *ctx) {
+	SContext *context = (SContext *)ctx;
+	const uint8_t *codePtr = (uint8_t *)(context->CTX_PC);
+
+	// TODO: Check that codePtr is within the current JIT space.
+	// bool inJitSpace = MIPSComp::jit->IsInSpace(codePtr);
+	// if (!inJitSpace) return false;
+
+	// TODO: Disassemble at codePtr to figure out if it's a read or a write.
+
+	uintptr_t baseAddress = (uintptr_t)base;
+
+#ifdef MASKED_PSP_MEMORY
+	const uintptr_t addressSpaceSize = 0x100000000ULL;
+#else
+	const uintptr_t addressSpaceSize = 0x40000000ULL;
+#endif
+
+	// Check whether hostAddress is within the PSP memory space, which (likely) means it was a game that did the bad access.
+	if (hostAddress >= baseAddress && hostAddress <= baseAddress + addressSpaceSize) {
+		uint32_t guestAddress = hostAddress - baseAddress;
+		// Maybe we should also somehow check whether the JIT is on the stack.
+		ERROR_LOG(SYSTEM, "Bad memory access detected and ignored: %08x (%p)", guestAddress, hostAddress);
+		return true;
+	}
+
+	// A regular crash of some sort. Pass it on.
+	return false;
 }
 
 } // namespace
