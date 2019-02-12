@@ -90,6 +90,7 @@ void InstallExceptionHandler(BadAccessHandler badAccessHandler) {
 
 void UninstallExceptionHandler() {
 	RemoveVectoredExceptionHandler(g_vectoredExceptionHandle);
+	g_badAccessHandler = nullptr;
 }
 
 #elif defined(__APPLE__) && !defined(USE_SIGACTION_ON_APPLE)
