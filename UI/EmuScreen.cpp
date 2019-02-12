@@ -1265,6 +1265,44 @@ static void DrawDebugStats(DrawBuffer *draw2d, const Bounds &bounds) {
 	draw2d->SetFontScale(1.0f, 1.0f);
 }
 
+static void DrawCrashDump(DrawBuffer *draw2d) {
+	const ExceptionInfo &info = Core_GetExceptionInfo();
+
+	FontID ubuntu24("UBUNTU24");
+	char statbuf[4096];
+	char versionString[256];
+	sprintf(versionString, "%s", PPSSPP_GIT_VERSION);
+	// TODO: Draw a lot more information. Full register set, and so on.
+	snprintf(statbuf, sizeof(statbuf), R"(%s
+Game ID: %s
+Game Title: %s
+PPSSPP: %s
+)",
+		ExceptionTypeAsString(info.type),
+		g_paramSFO.GetDiscID().c_str(),
+		g_paramSFO.GetValueString("TITLE").c_str(),
+		versionString
+	);
+
+	draw2d->SetFontScale(.7f, .7f);
+	int x = 20;
+	int y = 50;
+	draw2d->DrawTextShadow(ubuntu24, statbuf, x, y, 0xFFFFFFFF, FLAG_DYNAMIC_ASCII);
+
+	if (info.type == ExceptionType::MEMORY) {
+		snprintf(statbuf, sizeof(statbuf), R"(
+Access Type: % s
+Address: % 08x
+PC: % 08x)",
+			MemoryExceptionTypeAsString(info.memory_type),
+			info.address,
+			info.pc);
+
+		y += 150;
+		draw2d->DrawTextShadow(ubuntu24, statbuf, x, y, 0xFFFFFFFF, FLAG_DYNAMIC_ASCII);
+	}
+}
+
 static void DrawAudioDebugStats(DrawBuffer *draw2d, const Bounds &bounds) {
 	FontID ubuntu24("UBUNTU24");
 	char statbuf[4096] = { 0 };
@@ -1414,10 +1452,11 @@ void EmuScreen::render() {
 	case CORE_RUNTIME_ERROR:
 	{
 		// If there's an exception, display information.
-		ExceptionInfo info = Core_GetExceptionInfo();
+		const ExceptionInfo &info = Core_GetExceptionInfo();
 		if (info.type != ExceptionType::NONE) {
-			// Blue screen
+			// Clear to blue background screen
 			thin3d->BindFramebufferAsRenderTarget(nullptr, { RPAction::CLEAR, RPAction::DONT_CARE, RPAction::DONT_CARE, 0xFF900000 }, "EmuScreen_RuntimeError");
+			// The info is drawn later in renderUI
 		} else {
 			// If we're stepping, it's convenient not to clear the screen entirely, so we copy display to output.
 			// This won't work in non-buffered, but that's fine.
@@ -1481,6 +1520,9 @@ bool EmuScreen::hasVisibleUI() {
 	if (g_Config.bShowDebugStats || g_Config.bShowDeveloperMenu || g_Config.bShowAudioDebug || g_Config.bShowFrameProfiler)
 		return true;
 
+	// Exception information.
+	if (coreState == CORE_RUNTIME_ERROR || coreState == CORE_STEPPING)
+		return true;
 	return false;
 }
 
@@ -1540,6 +1582,14 @@ void EmuScreen::renderUI() {
 		DrawProfile(*ctx);
 	}
 #endif
+
+	if (coreState == CORE_RUNTIME_ERROR || coreState == CORE_STEPPING) {
+		const ExceptionInfo &info = Core_GetExceptionInfo();
+		if (info.type != ExceptionType::NONE) {
+			DrawCrashDump(draw2d);
+		}
+	}
+
 	ctx->Flush();
 }
 

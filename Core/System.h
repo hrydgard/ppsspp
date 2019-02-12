@@ -101,12 +101,19 @@ void InitSysDirectories();
 
 // RUNNING must be at 0, NEXTFRAME must be at 1.
 enum CoreState {
+	// Emulation is running normally.
 	CORE_RUNNING = 0,
+	// Emulation was running normally, just reached the end of a frame.
 	CORE_NEXTFRAME = 1,
-	CORE_STEPPING,
+	// Emulation is paused, CPU thread is sleeping.
+	CORE_STEPPING,  // Can be used for recoverable runtime errors (ignored memory exceptions)
+	// Core is being powered up.
 	CORE_POWERUP,
+	// Core is being powered down.
 	CORE_POWERDOWN,
+	// An error happened at boot.
 	CORE_BOOT_ERROR,
+	// Unrecoverable runtime error. Recoverable errors should use CORE_STEPPING.
 	CORE_RUNTIME_ERROR,
 };
 

@@ -97,10 +97,15 @@ enum class ExceptionType {
 
 struct ExceptionInfo {
 	ExceptionType type;
-	MemoryExceptionType memory_type;
 	std::string info;
+
+	// Memory exception info
+	MemoryExceptionType memory_type;
+	uint32_t pc;
+	uint32_t address;
 };
 
-ExceptionInfo Core_GetExceptionInfo();
+const ExceptionInfo &Core_GetExceptionInfo();
 
-const char *MemoryExceptionTypeToString(MemoryExceptionType type);
+const char *ExceptionTypeAsString(ExceptionType type);
+const char *MemoryExceptionTypeAsString(MemoryExceptionType type);
