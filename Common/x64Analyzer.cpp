@@ -17,7 +17,7 @@
 
 #include "x64Analyzer.h"
 
-bool DisassembleMov(const unsigned char *codePtr, InstructionInfo &info)
+bool X86AnalyzeMOV(const unsigned char *codePtr, LSInstructionInfo &info)
 {
 	int accessType = 0;
 

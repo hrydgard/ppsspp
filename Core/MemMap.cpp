@@ -28,8 +28,20 @@
 #include "Common/MemoryUtil.h"
 #include "Common/MemArena.h"
 #include "Common/ChunkFile.h"
+
+
+#if defined(PPSSPP_ARCH_AMD64) || defined(PPSSPP_ARCH_X86)
 #include "Common/MachineContext.h"
 #include "Common/x64Analyzer.h"
+#elif defined(PPSSPP_ARCH_ARM64)
+#include "Core/Util/DisArm64.h"
+typedef sigcontext SContext;
+#define CTX_PC pc
+#elif defined(PPSSPP_ARCH_ARM)
+#include "ext/disarm.h"
+typedef sigcontext SContext;
+#define CTX_PC arm_pc
+#endif
 
 #include "Core/MemMap.h"
 #include "Core/HDRemaster.h"
@@ -43,6 +55,8 @@
 #include "Core/ConfigValues.h"
 #include "Core/HLE/ReplaceTables.h"
 #include "Core/MIPS/JitCommon/JitBlockCache.h"
+#include "Core/MIPS/JitCommon/JitCommon.h"
+#include "UI/OnScreenDisplay.h"
 
 namespace Memory {
 
@@ -86,6 +100,8 @@ u32 g_MemorySize;
 u32 g_PSPModel;
 
 std::recursive_mutex g_shutdownLock;
+
+static int64_t g_numReportedBadAccesses = 0;
 
 // We don't declare the IO region in here since its handled by other means.
 static MemoryView views[] =
@@ -292,6 +308,8 @@ void Init() {
 
 	INFO_LOG(MEMMAP, "Memory system initialized. Base at %p (RAM at @ %p, uncached @ %p)",
 		base, m_pPhysicalRAM, m_pUncachedRAM);
+
+	g_numReportedBadAccesses = 0;
 }
 
 void Reinit() {
@@ -464,7 +482,7 @@ bool HandleFault(uintptr_t hostAddress, void *ctx) {
 	const uint8_t *codePtr = (uint8_t *)(context->CTX_PC);
 
 	// TODO: Check that codePtr is within the current JIT space.
-	bool inJitSpace = true;  // MIPSComp::jit->IsInSpace(codePtr);
+	bool inJitSpace = MIPSComp::jit->CodeInRange(codePtr);
 	if (!inJitSpace) {
 		// This is a crash in non-jitted code. Not something we want to handle here, ignore.
 		return false;
@@ -486,32 +504,49 @@ bool HandleFault(uintptr_t hostAddress, void *ctx) {
 	// OK, a guest executable did a bad access. Take care of it.
 
 	uint32_t guestAddress = hostAddress - baseAddress;
-	ERROR_LOG(SYSTEM, "Bad memory access detected and ignored: %08x (%p)", guestAddress, hostAddress);
-	// To ignore the access, we need to disassemble the instruction and modify context->CTX_PC
+
+	// TODO: Share the struct between the various analyzers, that will allow us to share most of
+	// the implementations here.
 
 #if defined(PPSSPP_ARCH_AMD64) || defined(PPSSPP_ARCH_X86)
+	// X86, X86-64. Variable instruction size so need to analyze the mov instruction in detail.
 
-	InstructionInfo info;
-	DisassembleMov(codePtr, info);
+	// To ignore the access, we need to disassemble the instruction and modify context->CTX_PC
+	LSInstructionInfo info;
+	X86AnalyzeMOV(codePtr, info);
+#elif defined(PPSSPP_ARCH_ARM64)
+	uint32_t word;
+	memcpy(&word, codePtr, 4);
+	// To ignore the access, we need to disassemble the instruction and modify context->CTX_PC
+	Arm64LSInstructionInfo info;
+	Arm64AnalyzeLoadStore((uint64_t)codePtr, word, &info);
+#elif defined(PPSSPP_ARCH_ARM)
+	uint32_t word;
+	memcpy(&word, codePtr, 4);
+	// To ignore the access, we need to disassemble the instruction and modify context->CTX_PC
+	ArmLSInstructionInfo info;
+	ArmAnalyzeLoadStore((uint32_t)codePtr, word, &info);
+#endif
 
 	if (g_Config.bIgnoreBadMemAccess) {
 		if (!info.isMemoryWrite) {
-			// Must have been a read. Fill the register with 0.
+			// It was a read. Fill the destination register with 0.
 			// TODO
 		}
 		// Move on to the next instruction.
 		context->CTX_PC += info.instructionSize;
+		// Fall through to logging.
 	} else {
-		// Jump to a crash handler.
-		// TODO
-		context->CTX_PC += info.instructionSize;
+		// Jump to a crash handler that will exit the game.
+		context->CTX_PC = (uintptr_t)MIPSComp::jit->GetCrashHandler();
+		ERROR_LOG(SYSTEM, "Bad memory access detected! %08x (%p) Stopping emulation.", guestAddress, (void *)hostAddress);
+		return true;
 	}
 
-#else
-	// ARM, ARM64 : All instructions are always 4 bytes in size. As an initial implementation,
-	// let's just skip the offending instruction.
-	context->CTX_PC += 4;
-#endif
+	g_numReportedBadAccesses++;
+	if (g_numReportedBadAccesses < 100) {
+		ERROR_LOG(SYSTEM, "Bad memory access detected and ignored: %08x (%p)", guestAddress, (void *)hostAddress);
+	}
 	return true;
 }
 

@@ -237,6 +237,7 @@ void ArmJit::GenerateFixedCode() {
 		CMP(R0, 0);
 		B_CC(CC_EQ, outerLoop);
 
+	const uint8_t *quitLoop = GetCodePtr();
 	SetJumpTarget(badCoreState);
 
 	SaveDowncount();
@@ -250,6 +251,12 @@ void ArmJit::GenerateFixedCode() {
 	ADD(R_SP, R_SP, 4);
 
 	POP(9, R4, R5, R6, R7, R8, R9, R10, R11, R_PC);  // Returns
+
+	crashHandler = GetCodePtr();
+	MOVP2R(R0, &coreState);
+	MOVI2R(R1, CORE_ERROR);
+	STR(R1, R0, 0);
+	B(quitLoop);
 
 	// Uncomment if you want to see the output...
 	if (disasm) {

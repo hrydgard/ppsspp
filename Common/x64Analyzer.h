@@ -19,7 +19,7 @@
 
 #include "Common.h"
 
-struct InstructionInfo
+struct LSInstructionInfo
 {
 	int operandSize; //8, 16, 32, 64
 	int instructionSize;
@@ -60,4 +60,4 @@ enum AccessType {
 	OP_ACCESS_WRITE = 1
 };
 
-bool DisassembleMov(const unsigned char *codePtr, InstructionInfo &info);
+bool X86AnalyzeMOV(const unsigned char *codePtr, LSInstructionInfo &info);

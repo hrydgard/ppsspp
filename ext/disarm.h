@@ -17,18 +17,34 @@
 
 #pragma once
 
+#include <cstdint>
 
-// This stuff only disassembles very old ARM but should be sufficient
-// for the basics except for MOVW/MOVT.
-
-
+// This stuff used to only disassemble very old ARM but has now
+// been extended to support most (but not all) modern instructions, including NEON.
 
 // Disarm itself has the license you can see in the cpp file.
 // I'm not entirely sure it's 100% gpl compatible but it's nearly
 // public domain so meh.
 
-// The only changes I've done is C++ compat and replaced the main
-// program with this function.
-
 const char *ArmRegName(int r);
 void ArmDis(unsigned int addr, unsigned int w, char *output, int bufsize, bool includeWord);
+
+// Information about a load/store instruction.
+struct ArmLSInstructionInfo {
+	int instructionSize;
+
+	bool isIntegerLoadStore;
+	bool isFPLoadStore;
+	bool isMultiLoadStore;
+
+	int size;  // 0 = 8-bit, 1 = 16-bit, 2 = 32-bit, 3 = 64-bit
+	bool isMemoryWrite;
+
+	int Rt;
+	int Rn;
+	int Rm;
+
+	// TODO: more.
+};
+
+void ArmAnalyzeLoadStore(uint32_t addr, uint32_t op, ArmLSInstructionInfo *info);

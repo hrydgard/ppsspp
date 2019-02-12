@@ -442,6 +442,8 @@ bool Jit::DescribeCodePtr(const u8 *ptr, std::string &name) {
 		name = "enterDispatcher";
 	else if (ptr == restoreRoundingMode)
 		name = "restoreRoundingMode";
+	else if (ptr == crashHandler)
+		name = "crashHandler";
 	else {
 		u32 jitAddr = blocks.GetAddressFromBlockPtr(ptr);
 

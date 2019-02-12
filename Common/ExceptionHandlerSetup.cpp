@@ -3,7 +3,6 @@
 // Refer to the license.txt file included.
 
 #include "Common/ExceptionHandlerSetup.h"
-
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
@@ -84,6 +83,7 @@ void InstallExceptionHandler(BadAccessHandler badAccessHandler) {
 		return;
 	}
 
+	INFO_LOG(SYSTEM, "Installing exception handler");
 	g_badAccessHandler = badAccessHandler;
 	g_vectoredExceptionHandle = AddVectoredExceptionHandler(TRUE, Handler);
 }
@@ -91,6 +91,7 @@ void InstallExceptionHandler(BadAccessHandler badAccessHandler) {
 void UninstallExceptionHandler() {
 	RemoveVectoredExceptionHandler(g_vectoredExceptionHandle);
 	g_badAccessHandler = nullptr;
+	INFO_LOG(SYSTEM, "Removed exception handler");
 }
 
 #elif defined(__APPLE__) && !defined(USE_SIGACTION_ON_APPLE)
@@ -186,7 +187,14 @@ static void ExceptionThread(mach_port_t port) {
 }
 
 void InstallExceptionHandler(BadAccessHandler badAccessHandler) {
-	g_badAccessHandler = badAccessHandler;
+	if (!g_badAccessHandler) {
+		g_badAccessHandler = badAccessHandler;
+	} else {
+		// The rest of the setup we don't need to do again.
+		g_badAccessHandler = badAccessHandler;
+		return;
+	}
+	INFO_LOG(SYSTEM, "Installing exception handler");
 	mach_port_t port;
 	CheckKR("mach_port_allocate",
 		mach_port_allocate(mach_task_self(), MACH_PORT_RIGHT_RECEIVE, &port));
@@ -275,6 +283,10 @@ static void sigsegv_handler(int sig, siginfo_t* info, void* raw_context) {
 }
 
 void InstallExceptionHandler(BadAccessHandler badAccessHandler) {
+	if (g_badAccessHandler) {
+		return;
+	}
+	NOTICE_LOG(SYSTEM, "Installed exception handler");
 	g_badAccessHandler = badAccessHandler;
 
 	stack_t signal_stack;
@@ -308,10 +320,14 @@ void UninstallExceptionHandler() {
 #ifdef __APPLE__
 	sigaction(SIGBUS, &old_sa_bus, nullptr);
 #endif
+	NOTICE_LOG(SYSTEM, "Uninstalled exception handler");
+	g_badAccessHandler = nullptr;
 }
 #else  // _M_GENERIC or unsupported platform
 
-void InstallExceptionHandler(BadAccessHandler badAccessHandler) { }
+void InstallExceptionHandler(BadAccessHandler badAccessHandler) {
+	ERROR_LOG(SYSTEM, "Exception handler not implemented on this platform, can't install");
+}
 void UninstallExceptionHandler() { }
 
 #endif

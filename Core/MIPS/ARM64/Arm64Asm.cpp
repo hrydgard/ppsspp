@@ -277,6 +277,7 @@ void Arm64Jit::GenerateFixedCode(const JitOptions &jo) {
 		CMP(SCRATCH1, 0);
 		B(CC_EQ, outerLoop);
 
+	const uint8_t *quitLoop = GetCodePtr();
 	SetJumpTarget(badCoreState);
 
 	SaveStaticRegisters();
@@ -285,6 +286,12 @@ void Arm64Jit::GenerateFixedCode(const JitOptions &jo) {
 	fp.ABI_PopRegisters(regs_to_save, regs_to_save_fp);
 
 	RET();
+
+	crashHandler = GetCodePtr();
+	MOVP2R(SCRATCH1_64, &coreState);
+	MOVI2R(SCRATCH2, CORE_ERROR);
+	STR(INDEX_UNSIGNED, SCRATCH2, SCRATCH1_64, 0);
+	B(quitLoop);
 
 	// Generate some integer conversion funcs.
 	// MIPS order!
