@@ -1539,8 +1539,10 @@ bool EmuScreen::hasVisibleUI() {
 		return true;
 
 	// Exception information.
-	if (coreState == CORE_RUNTIME_ERROR || coreState == CORE_STEPPING)
+	if (coreState == CORE_RUNTIME_ERROR || coreState == CORE_STEPPING) {
 		return true;
+	}
+
 	return false;
 }
 
