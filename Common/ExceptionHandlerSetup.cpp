@@ -7,11 +7,13 @@
 #include <cstdlib>
 #include <cstring>
 #include <vector>
+#include <thread>
 
 #include "Common/CommonFuncs.h"
 #include "Common/CommonTypes.h"
 #include "Common/MsgHandler.h"
 #include "Common/Log.h"
+#include "ext/native/thread/threadutil.h"
 
 #if defined(PPSSPP_ARCH_X86) || defined(PPSSPP_ARCH_AMD64)
 #include "Common/MachineContext.h"
@@ -103,7 +105,7 @@ static void CheckKR(const char* name, kern_return_t kr) {
 }
 
 static void ExceptionThread(mach_port_t port) {
-	Common::SetCurrentThreadName("Mach exception thread");
+	setCurrentThreadName("Mach exception thread");
 #pragma pack(4)
 	struct {
 		mach_msg_header_t Head;

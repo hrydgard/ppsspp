@@ -46,7 +46,7 @@ typedef CONTEXT SContext;
 
 #include <mach/mach.h>
 #include <mach/message.h>
-#if _M_X86_64
+#if PPSSPP_ARCH_AMD64
 typedef x86_thread_state64_t SContext;
 #define CTX_RAX __rax
 #define CTX_RBX __rbx
@@ -94,7 +94,7 @@ typedef _STRUCT_MCONTEXT64 SContext;
 #include <ucontext.h>
 typedef mcontext_t SContext;
 
-#if _M_X86_64
+#if PPSSPP_ARCH_AMD64
 #define CTX_RAX gregs[REG_RAX]
 #define CTX_RBX gregs[REG_RBX]
 #define CTX_RCX gregs[REG_RCX]
@@ -122,7 +122,7 @@ typedef mcontext_t SContext;
 #elif defined(__OpenBSD__)
 #include <signal.h>
 typedef ucontext_t SContext;
-#if _M_X86_64
+#if PPSSPP_ARCH_AMD64
 #define CTX_RAX sc_rax
 #define CTX_RBX sc_rbx
 #define CTX_RCX sc_rcx
@@ -146,7 +146,7 @@ typedef ucontext_t SContext;
 #elif defined(__NetBSD__)
 #include <ucontext.h>
 typedef mcontext_t SContext;
-#if _M_X86_64
+#if PPSSPP_ARCH_AMD64
 #define CTX_RAX __gregs[_REG_RAX]
 #define CTX_RBX __gregs[_REG_RBX]
 #define CTX_RCX __gregs[_REG_RCX]
@@ -170,7 +170,7 @@ typedef mcontext_t SContext;
 #elif defined(__FreeBSD__)
 #include <ucontext.h>
 typedef mcontext_t SContext;
-#if _M_X86_64
+#if PPSSPP_ARCH_AMD64
 #define CTX_RAX mc_rax
 #define CTX_RBX mc_rbx
 #define CTX_RCX mc_rcx
@@ -194,7 +194,7 @@ typedef mcontext_t SContext;
 #elif defined(__HAIKU__)
 #include <signal.h>
 typedef mcontext_t SContext;
-#if _M_X86_64
+#if PPSSPP_ARCH_AMD64
 #define CTX_RAX rax
 #define CTX_RBX rbx
 #define CTX_RCX rcx

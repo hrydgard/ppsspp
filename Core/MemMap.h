@@ -20,6 +20,7 @@
 #include "ppsspp_config.h"
 
 #include <cstring>
+#include <cstdint>
 #ifndef offsetof
 #include <stddef.h>
 #endif
