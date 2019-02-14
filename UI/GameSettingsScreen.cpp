@@ -284,7 +284,6 @@ void GameSettingsScreen::CreateViews() {
 		graphicsSettings->Add(new PopupMultiChoice(&g_Config.iFrameSkip, gr->T("Frame Skipping"), frameSkip, 0, ARRAY_SIZE(frameSkip), gr->GetName(), screenManager()));
 		frameSkipAuto_ = graphicsSettings->Add(new CheckBox(&g_Config.bAutoFrameSkip, gr->T("Auto FrameSkip")));
 		frameSkipAuto_->OnClick.Handle(this, &GameSettingsScreen::OnAutoFrameskip);
-		graphicsSettings->Add(new CheckBox(&cap60FPS_, gr->T("Force max 60 FPS (helps GoW)")));
 
 	}
 
@@ -420,7 +419,7 @@ void GameSettingsScreen::CreateViews() {
 			return UI::EVENT_CONTINUE;
 		});
 
-		CheckBox *tessellationHW = graphicsSettings->Add(new CheckBox(&g_Config.bHardwareTessellation, gr->T("Hardware Tessellation", "Hardware tessellation (experimental)")));
+		CheckBox *tessellationHW = graphicsSettings->Add(new CheckBox(&g_Config.bHardwareTessellation, gr->T("Hardware Tessellation")));
 		tessellationHW->OnClick.Add([=](EventParams &e) {
 			settingInfo_->Show(gr->T("HardwareTessellation Tip", "Uses hardware to make curves"), e.v);
 			return UI::EVENT_CONTINUE;
@@ -507,15 +506,9 @@ void GameSettingsScreen::CreateViews() {
 		cardboardYShift->SetDisabledPtr(&g_Config.bSoftwareRendering);
 #endif
 
-		graphicsSettings->Add(new ItemHeader(gr->T("Hack Settings", "Hack Settings (these WILL cause glitches)")));
-		CheckBox *timerHack = graphicsSettings->Add(new CheckBox(&g_Config.bTimerHack, gr->T("Timer Hack")));
-		timerHack->OnClick.Add([=](EventParams &e) {
-			settingInfo_->Show(gr->T("TimerHack Tip", "Changes game clock based on emu speed, may break games"), e.v);
-			return UI::EVENT_CONTINUE;
-		});
+		graphicsSettings->Add(new ItemHeader(gr->T("Hack Settings")));
 
-		CheckBox *stencilTest = graphicsSettings->Add(new CheckBox(&g_Config.bDisableStencilTest, gr->T("Disable Stencil Test")));
-		stencilTest->SetDisabledPtr(&g_Config.bSoftwareRendering);
+
 
 		static const char *bloomHackOptions[] = { "Off", "Safe", "Balanced", "Aggressive" };
 		PopupMultiChoice *bloomHack = graphicsSettings->Add(new PopupMultiChoice(&g_Config.iBloomHack, gr->T("Lower resolution for effects (reduces artifacts)"), bloomHackOptions, 0, ARRAY_SIZE(bloomHackOptions), gr->GetName(), screenManager()));

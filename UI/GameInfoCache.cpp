@@ -742,7 +742,7 @@ void GameInfoCache::WaitUntilDone(std::shared_ptr<GameInfo> &info) {
 }
 
 
-// Runs on the main thread.
+// Runs on the main thread. Only call from render() and similar, not update()!
 std::shared_ptr<GameInfo> GameInfoCache::GetInfo(Draw::DrawContext *draw, const std::string &gamePath, int wantFlags) {
 	std::shared_ptr<GameInfo> info;
 
@@ -800,7 +800,7 @@ void GameInfoCache::SetupTexture(std::shared_ptr<GameInfo> &info, Draw::DrawCont
 			if (tex.texture) {
 				tex.timeLoaded = time_now_d();
 			} else {
-				ERROR_LOG(G3D, "Failed creating texture");
+				ERROR_LOG(G3D, "Failed creating texture (%s)", info->GetTitle().c_str());
 			}
 		}
 		if ((info->wantFlags & GAMEINFO_WANTBGDATA) == 0) {

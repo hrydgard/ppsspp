@@ -55,7 +55,7 @@ void HeadlessHost::SendDebugScreenshot(const u8 *pixbuf, u32 w, u32 h)
 	std::string error;
 	double errors = CompareScreenshot(pixels, FRAME_STRIDE, FRAME_WIDTH, FRAME_HEIGHT, comparisonScreenshot_, error);
 	if (errors < 0)
-		SendOrCollectDebugOutput(error);
+		SendOrCollectDebugOutput(error + "\n");
 
 	if (errors > 0)
 	{

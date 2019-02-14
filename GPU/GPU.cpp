@@ -61,6 +61,7 @@ bool GPU_IsReady() {
 }
 
 bool GPU_Init(GraphicsContext *ctx, Draw::DrawContext *draw) {
+	_assert_(draw || PSP_CoreParameter().gpuCore == GPUCORE_NULL);
 #if PPSSPP_PLATFORM(UWP)
 	SetGPU(new GPU_D3D11(ctx, draw));
 	return true;

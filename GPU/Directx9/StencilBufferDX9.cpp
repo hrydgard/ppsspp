@@ -33,38 +33,41 @@ namespace DX9 {
 #define STR_HELPER(x) #x
 #define STR(x) STR_HELPER(x)
 
-static const char *stencil_ps =
-"sampler tex: register(s0);\n"
+static const char *stencil_ps = R"(
+sampler tex: register(s0);
 // TODO: Don't use fixed registers?  Or don't overlap?
-"float4 u_stencilValue : register(c" STR(CONST_PS_STENCILVALUE) ");\n"
-"struct PS_IN {\n"
-"  float2 v_texcoord0 : TEXCOORD0;\n"
-"};\n"
-"float roundAndScaleTo255f(in float x) { return floor(x * 255.99); }\n"
-"float4 main(PS_IN In) : COLOR {\n"
-"  float4 index = tex2D(tex, In.v_texcoord0);\n"
-"  float shifted = roundAndScaleTo255f(index.a) / roundAndScaleTo255f(u_stencilValue.x);\n"
-"  clip(fmod(floor(shifted), 2.0) - 0.99);\n"
-"  return index.aaaa;\n"
-"}\n";
+float4 u_stencilValue : register(c)" STR(CONST_PS_STENCILVALUE) R"();
+struct PS_IN {
+  float2 v_texcoord0 : TEXCOORD0;
+};
+float roundAndScaleTo255f(in float x) { return floor(x * 255.99); }
+float4 main(PS_IN In) : COLOR {
+  float4 index = tex2D(tex, In.v_texcoord0);
+  float shifted = roundAndScaleTo255f(index.a) / roundAndScaleTo255f(u_stencilValue.x);
+  clip(fmod(floor(shifted), 2.0) - 0.99);
+  return index.aaaa;
+}
+)";
 
-static const char *stencil_vs =
-"struct VS_IN {\n"
-"  float4 a_position : POSITION;\n"
-"  float2 a_texcoord0 : TEXCOORD0;\n"
-"};\n"
-"struct VS_OUT {\n"
-"  float4 position : POSITION;\n"
-"  float2 v_texcoord0 : TEXCOORD0;\n"
-"};\n"
-"VS_OUT main(VS_IN In) {\n"
-"  VS_OUT Out;\n"
-"  Out.position = In.a_position;\n"
-"  Out.v_texcoord0 = In.a_texcoord0;\n"
-"  return Out;\n"
-"}\n";
+static const char *stencil_vs = R"(
+struct VS_IN {
+  float4 a_position : POSITION;
+  float2 a_texcoord0 : TEXCOORD0;
+};
+struct VS_OUT {
+  float4 position : POSITION;
+  float2 v_texcoord0 : TEXCOORD0;
+};
+VS_OUT main(VS_IN In) {
+  VS_OUT Out;
+  Out.position = In.a_position;
+  Out.v_texcoord0 = In.a_texcoord0;
+  return Out;
+}
+)";
 
 bool FramebufferManagerDX9::NotifyStencilUpload(u32 addr, int size, bool skipZero) {
+	addr &= 0x3FFFFFFF;
 	if (!MayIntersectFramebuffer(addr)) {
 		return false;
 	}
@@ -72,7 +75,7 @@ bool FramebufferManagerDX9::NotifyStencilUpload(u32 addr, int size, bool skipZer
 	VirtualFramebuffer *dstBuffer = 0;
 	for (size_t i = 0; i < vfbs_.size(); ++i) {
 		VirtualFramebuffer *vfb = vfbs_[i];
-		if (MaskedEqual(vfb->fb_address, addr)) {
+		if (vfb->fb_address == addr) {
 			dstBuffer = vfb;
 		}
 	}

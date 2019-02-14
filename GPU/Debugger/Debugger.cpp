@@ -25,6 +25,11 @@ namespace GPUDebug {
 static bool active = false;
 static bool inited = false;
 static BreakNext breakNext = BreakNext::NONE;
+static int breakAtCount = -1;
+
+static int primsLastFrame = 0;
+static int primsThisFrame = 0;
+static int thisFlipNum = 0;
 
 static void Init() {
 	if (!inited) {
@@ -40,6 +45,7 @@ void SetActive(bool flag) {
 	active = flag;
 	if (!active) {
 		breakNext = BreakNext::NONE;
+		breakAtCount = -1;
 		GPUStepping::ResumeFromStepping();
 	}
 }
@@ -51,9 +57,10 @@ bool IsActive() {
 void SetBreakNext(BreakNext next) {
 	SetActive(true);
 	breakNext = next;
+	breakAtCount = -1;
 	if (next == BreakNext::TEX) {
 		GPUBreakpoints::AddTextureChangeTempBreakpoint();
-	} else if (next == BreakNext::PRIM) {
+	} else if (next == BreakNext::PRIM || next == BreakNext::COUNT) {
 		GPUBreakpoints::AddCmdBreakpoint(GE_CMD_PRIM, true);
 		GPUBreakpoints::AddCmdBreakpoint(GE_CMD_BEZIER, true);
 		GPUBreakpoints::AddCmdBreakpoint(GE_CMD_SPLINE, true);
@@ -64,11 +71,39 @@ void SetBreakNext(BreakNext next) {
 	GPUStepping::ResumeFromStepping();
 }
 
+void SetBreakCount(int c, bool relative) {
+	if (relative) {
+		breakAtCount = primsThisFrame + c;
+	} else {
+		breakAtCount = c;
+	}
+}
+
+static bool IsBreakpoint(u32 pc, u32 op) {
+	if (breakNext == BreakNext::OP) {
+		return true;
+	} else if (breakNext == BreakNext::COUNT) {
+		return primsThisFrame == breakAtCount;
+	} else {
+		return GPUBreakpoints::IsBreakpoint(pc, op);
+	}
+}
+
 void NotifyCommand(u32 pc) {
 	if (!active)
 		return;
 	u32 op = Memory::ReadUnchecked_U32(pc);
-	if (breakNext == BreakNext::OP || GPUBreakpoints::IsBreakpoint(pc, op)) {
+	u32 cmd = op >> 24;
+	if (thisFlipNum != gpuStats.numFlips) {
+		primsLastFrame = primsThisFrame;
+		primsThisFrame = 0;
+		thisFlipNum = gpuStats.numFlips;
+	}
+	if (cmd == GE_CMD_PRIM || cmd == GE_CMD_BEZIER || cmd == GE_CMD_SPLINE) {
+		primsThisFrame++;
+	}
+
+	if (IsBreakpoint(pc, op)) {
 		GPUBreakpoints::ClearTempBreakpoints();
 
 		auto info = gpuDebug->DissassembleOp(pc);
@@ -98,6 +133,14 @@ void NotifyDisplay(u32 framebuf, u32 stride, int format) {
 void NotifyTextureAttachment(u32 texaddr) {
 	if (!active)
 		return;
+}
+
+int PrimsThisFrame() {
+	return primsThisFrame;
+}
+
+int PrimsLastFrame() {
+	return primsLastFrame;
 }
 
 }

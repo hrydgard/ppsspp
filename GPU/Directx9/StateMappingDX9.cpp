@@ -181,7 +181,7 @@ void DrawEngineDX9::ApplyDrawState(int prim) {
 #endif
 
 			// Let's not write to alpha if stencil isn't enabled.
-			if (!gstate.isStencilTestEnabled()) {
+			if (IsStencilTestOutputDisabled()) {
 				amask = false;
 			} else {
 				// If the stencil type is set to KEEP, we shouldn't write to the stencil/alpha channel.
@@ -193,8 +193,6 @@ void DrawEngineDX9::ApplyDrawState(int prim) {
 			dxstate.colorMask.set(rmask, gmask, bmask, amask);
 		}
 	}
-
-	bool enableStencilTest = !g_Config.bDisableStencilTest;
 
 	if (gstate_c.IsDirty(DIRTY_RASTER_STATE)) {
 		gstate_c.Clean(DIRTY_RASTER_STATE);
@@ -231,7 +229,7 @@ void DrawEngineDX9::ApplyDrawState(int prim) {
 
 			// Stencil Test
 			bool alphaMask = gstate.isClearModeAlphaMask();
-			if (alphaMask && enableStencilTest) {
+			if (alphaMask) {
 				dxstate.stencilTest.enable();
 				dxstate.stencilOp.set(D3DSTENCILOP_REPLACE, D3DSTENCILOP_REPLACE, D3DSTENCILOP_REPLACE);
 				dxstate.stencilFunc.set(D3DCMP_ALWAYS, 255, 0xFF);

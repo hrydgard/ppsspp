@@ -50,14 +50,20 @@ void VulkanQueueRunner::ResizeReadbackBuffer(VkDeviceSize requiredSize) {
 	VkMemoryRequirements reqs{};
 	vkGetBufferMemoryRequirements(device, readbackBuffer_, &reqs);
 
-	VkMemoryAllocateInfo alloc{ VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO };
-	alloc.allocationSize = reqs.size;
+	VkMemoryAllocateInfo allocInfo{ VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO };
+	allocInfo.allocationSize = reqs.size;
 
 	VkFlags typeReqs = VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT;
-	bool success = vulkan_->MemoryTypeFromProperties(reqs.memoryTypeBits, typeReqs, &alloc.memoryTypeIndex);
+	bool success = vulkan_->MemoryTypeFromProperties(reqs.memoryTypeBits, typeReqs, &allocInfo.memoryTypeIndex);
 	_assert_(success);
-	vkAllocateMemory(device, &alloc, nullptr, &readbackMemory_);
 
+	VkResult res = vkAllocateMemory(device, &allocInfo, nullptr, &readbackMemory_);
+	if (res != VK_SUCCESS) {
+		readbackMemory_ = VK_NULL_HANDLE;
+		vkDestroyBuffer(device, readbackBuffer_, nullptr);
+		readbackBuffer_ = VK_NULL_HANDLE;
+		return;
+	}
 	uint32_t offset = 0;
 	vkBindBufferMemory(device, readbackBuffer_, readbackMemory_, offset);
 }
@@ -689,6 +695,7 @@ void VulkanQueueRunner::PerformRenderPass(const VKRStep &step, VkCommandBuffer c
 			VkPipelineStageFlags dstStage{};
 			switch (barrier.oldLayout) {
 			case VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL:
+			case VK_IMAGE_LAYOUT_UNDEFINED:
 				barrier.srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT | VK_ACCESS_COLOR_ATTACHMENT_READ_BIT;
 				srcStage = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
 				break;
@@ -858,7 +865,7 @@ void VulkanQueueRunner::PerformBindFramebufferAsRenderTarget(const VKRStep &step
 		// See pull request #10723.
 		bool maliBugWorkaround = step.render.numDraws == 0 &&
 			step.render.color == VKRRenderPassAction::CLEAR &&
-			vulkan_->GetPhysicalDeviceProperties(vulkan_->GetCurrentPhysicalDevice()).driverVersion == 0xaa9c4b29;
+			vulkan_->GetPhysicalDeviceProperties().properties.driverVersion == 0xaa9c4b29;
 		if (maliBugWorkaround) {
 			TransitionImageLayout2(cmd, step.render.framebuffer->color.image, 0, 1, VK_IMAGE_ASPECT_COLOR_BIT,
 				fb->color.layout, VK_IMAGE_LAYOUT_GENERAL,
@@ -1278,6 +1285,9 @@ void VulkanQueueRunner::PerformReadbackImage(const VKRStep &step, VkCommandBuffe
 }
 
 void VulkanQueueRunner::CopyReadbackBuffer(int width, int height, Draw::DataFormat srcFormat, Draw::DataFormat destFormat, int pixelStride, uint8_t *pixels) {
+	if (!readbackMemory_)
+		return;  // Something has gone really wrong.
+
 	// Read back to the requested address in ram from buffer.
 	void *mappedData;
 	const size_t srcPixelSize = DataFormatSizeInBytes(srcFormat);

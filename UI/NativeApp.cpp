@@ -96,6 +96,7 @@
 #include "UI/BackgroundAudio.h"
 #include "UI/TextureUtil.h"
 #include "UI/DiscordIntegration.h"
+#include "UI/GPUDriverTestScreen.h"
 
 #if !defined(MOBILE_DEVICE)
 #include "Common/KeyMap.h"
@@ -133,7 +134,6 @@ static UI::Theme ui_theme;
 ScreenManager *screenManager;
 std::string config_filename;
 
-bool g_graphicsIniting;
 bool g_graphicsInited;
 
 // Really need to clean this mess of globals up... but instead I add more :P
@@ -344,11 +344,14 @@ void CreateDirectoriesAndroid() {
 	File::CreateFullPath(GetSysDirectory(DIRECTORY_SAVESTATE));
 	File::CreateFullPath(GetSysDirectory(DIRECTORY_GAME));
 	File::CreateFullPath(GetSysDirectory(DIRECTORY_SYSTEM));
+	File::CreateFullPath(GetSysDirectory(DIRECTORY_TEXTURES));
 
-	// Avoid media scanners in PPSSPP_STATE and SAVEDATA directories
+	// Avoid media scanners in PPSSPP_STATE and SAVEDATA directories,
+	// and in the root PSP directory as well.
 	File::CreateEmptyFile(GetSysDirectory(DIRECTORY_SAVESTATE) + ".nomedia");
 	File::CreateEmptyFile(GetSysDirectory(DIRECTORY_SAVEDATA) + ".nomedia");
 	File::CreateEmptyFile(GetSysDirectory(DIRECTORY_SYSTEM) + ".nomedia");
+	File::CreateEmptyFile(GetSysDirectory(DIRECTORY_TEXTURES) + ".nomedia");
 }
 
 static void CheckFailedGPUBackends() {
@@ -679,6 +682,9 @@ void NativeInit(int argc, const char *argv[], const char *savegame_dir, const ch
 		screenManager->switchScreen(new LogoScreen());
 	}
 
+	// Easy testing
+	// screenManager->push(new GPUDriverTestScreen());
+
 	if (g_Config.bRemoteShareOnStartup && g_Config.bRemoteDebuggerOnStartup)
 		StartWebServer(WebServerFlags::ALL);
 	else if (g_Config.bRemoteShareOnStartup)
@@ -754,7 +760,6 @@ static void UIThemeInit() {
 void RenderOverlays(UIContext *dc, void *userdata);
 
 bool NativeInitGraphics(GraphicsContext *graphicsContext) {
-	g_graphicsIniting = true;
 	ILOG("NativeInitGraphics");
 	_assert_msg_(G3D, graphicsContext, "No graphics context!");
 
@@ -831,7 +836,6 @@ bool NativeInitGraphics(GraphicsContext *graphicsContext) {
 		gpu->DeviceRestore();
 
 	g_graphicsInited = true;
-	g_graphicsIniting = false;
 	ILOG("NativeInitGraphics completed");
 	return true;
 }
@@ -931,7 +935,6 @@ void RenderOverlays(UIContext *dc, void *userdata) {
 			UI::Drawable solid(colors[i & 3]);
 			dc->FillRect(solid, bounds);
 		}
-		dc->End();
 		dc->Flush();
 	}
 
@@ -1259,7 +1262,7 @@ void NativeMessageReceived(const char *message, const char *value) {
 
 void NativeResized() {
 	// NativeResized can come from any thread so we just set a flag, then process it later.
-	if (g_graphicsInited || g_graphicsIniting) {
+	if (g_graphicsInited) {
 		resized = true;
 	} else {
 		ILOG("NativeResized ignored, not initialized");

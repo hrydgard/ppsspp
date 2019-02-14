@@ -58,9 +58,6 @@
     </ClInclude>
     <ClInclude Include="GraphicsContext.h" />
     <ClInclude Include="DbgNew.h" />
-    <ClInclude Include="Vulkan\SPIRVDisasm.h">
-      <Filter>Vulkan</Filter>
-    </ClInclude>
     <ClInclude Include="Vulkan\VulkanLoader.h">
       <Filter>Vulkan</Filter>
     </ClInclude>
@@ -118,9 +115,6 @@
     </ClCompile>
     <ClCompile Include="GL\GLInterface\GLInterface.cpp">
       <Filter>GL\GLInterface</Filter>
-    </ClCompile>
-    <ClCompile Include="Vulkan\SPIRVDisasm.cpp">
-      <Filter>Vulkan</Filter>
     </ClCompile>
     <ClCompile Include="Vulkan\VulkanLoader.cpp">
       <Filter>Vulkan</Filter>

@@ -101,11 +101,6 @@ bool RefCountedObject::ReleaseAssertLast() {
 
 // The Vulkan ones can be re-used with modern GL later if desired, as they're just GLSL.
 
-struct ShaderSource {
-	ShaderLanguage lang;
-	const char *src;
-};
-
 static const std::vector<ShaderSource> fsTexCol = {
 	{ShaderLanguage::GLSL_ES_200,
 	"#ifdef GL_ES\n"
@@ -196,6 +191,7 @@ static const std::vector<ShaderSource> vsCol = {
 	"attribute vec3 Position;\n"
 	"attribute vec4 Color0;\n"
 	"varying vec4 oColor0;\n"
+
 	"uniform mat4 WorldViewProj;\n"
 	"void main() {\n"
 	"  gl_Position = WorldViewProj * vec4(Position, 1.0);\n"
@@ -317,7 +313,7 @@ const UniformBufferDesc vsTexColBufDesc{ sizeof(VsTexColUB),{
 	{ "WorldViewProj", 0, -1, UniformType::MATRIX4X4, 0 }
 } };
 
-static ShaderModule *CreateShader(DrawContext *draw, ShaderStage stage, const std::vector<ShaderSource> &sources) {
+ShaderModule *CreateShader(DrawContext *draw, ShaderStage stage, const std::vector<ShaderSource> &sources) {
 	uint32_t supported = draw->GetSupportedShaderLanguages();
 	for (auto iter : sources) {
 		if ((uint32_t)iter.lang & supported) {

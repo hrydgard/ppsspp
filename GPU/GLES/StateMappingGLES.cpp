@@ -143,7 +143,7 @@ void DrawEngineGLES::ApplyDrawState(int prim) {
 	// amask is needed for both stencil and blend state so we keep it outside for now
 	bool amask = (gstate.pmska & 0xFF) < 128;
 	// Let's not write to alpha if stencil isn't enabled.
-	if (!gstate.isStencilTestEnabled()) {
+	if (IsStencilTestOutputDisabled()) {
 		amask = false;
 	} else {
 		// If the stencil type is set to KEEP, we shouldn't write to the stencil/alpha channel.
@@ -271,13 +271,12 @@ void DrawEngineGLES::ApplyDrawState(int prim) {
 
 	if (gstate_c.IsDirty(DIRTY_DEPTHSTENCIL_STATE)) {
 		gstate_c.Clean(DIRTY_DEPTHSTENCIL_STATE);
-		bool enableStencilTest = !g_Config.bDisableStencilTest;
 		if (gstate.isModeClear()) {
 			// Depth Test
 			if (gstate.isClearModeDepthMask()) {
 				framebufferManager_->SetDepthUpdated();
 			}
-			renderManager->SetStencilFunc(gstate.isClearModeAlphaMask() && enableStencilTest, GL_ALWAYS, 0xFF, 0xFF);
+			renderManager->SetStencilFunc(gstate.isClearModeAlphaMask(), GL_ALWAYS, 0xFF, 0xFF);
 			renderManager->SetStencilOp(0xFF, GL_REPLACE, GL_REPLACE, GL_REPLACE);
 			renderManager->SetDepth(true, gstate.isClearModeDepthMask() ? true : false, GL_ALWAYS);
 		} else {

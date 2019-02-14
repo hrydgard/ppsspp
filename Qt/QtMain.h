@@ -54,7 +54,7 @@ public:
 		SetGPUBackend(GPUBackend::OPENGL);
 		renderManager_ = (GLRenderManager *)draw_->GetNativeObject(Draw::NativeObject::RENDER_MANAGER);
 		bool success = draw_->CreatePresets();
-		assert(success);
+		_assert_msg_(G3D, success, "Failed to compile preset shaders");
 	}
 
 	~QtGLGraphicsContext() {
@@ -73,7 +73,7 @@ public:
 	}
 
 	void ThreadStart() override {
-		renderManager_->ThreadStart();
+		renderManager_->ThreadStart(draw_);
 	}
 
 	bool ThreadFrame() override {

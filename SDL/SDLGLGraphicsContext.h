@@ -32,7 +32,7 @@ public:
 	}
 
 	void ThreadStart() override {
-		renderManager_->ThreadStart();
+		renderManager_->ThreadStart(draw_);
 	}
 
 	bool ThreadFrame() override {

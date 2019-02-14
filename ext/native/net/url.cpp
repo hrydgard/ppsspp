@@ -20,7 +20,7 @@ void Url::Split() {
 	host_ = url_.substr(colonSlashSlash + 3, sep - colonSlashSlash - 3);
 	resource_ = url_.substr(sep);  // include the slash!
 
-	size_t portsep = host_.find(':');
+	size_t portsep = host_.rfind(':');
 	if (portsep != host_.npos) {
 		port_ = atoi(host_.substr(portsep + 1).c_str());
 		host_ = host_.substr(0, portsep);

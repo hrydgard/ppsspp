@@ -94,6 +94,7 @@
       <RuntimeTypeInfo>false</RuntimeTypeInfo>
       <RuntimeLibrary>MultiThreadedDebug</RuntimeLibrary>
       <ForcedIncludeFiles>Common/DbgNew.h</ForcedIncludeFiles>
+      <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
     </ClCompile>
     <Link>
       <GenerateDebugInformation>true</GenerateDebugInformation>
@@ -116,6 +117,7 @@
       <PreprocessorDefinitions>_CRTDBG_MAP_ALLOC;USING_WIN_UI;_CRT_SECURE_NO_WARNINGS;WIN32;_ARCH_64=1;_M_X64=1;_DEBUG;_LIB;_UNICODE;UNICODE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <RuntimeLibrary>MultiThreadedDebug</RuntimeLibrary>
       <ForcedIncludeFiles>Common/DbgNew.h</ForcedIncludeFiles>
+      <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
     </ClCompile>
     <Link>
       <GenerateDebugInformation>true</GenerateDebugInformation>
@@ -337,6 +339,7 @@
     <ClCompile Include="Directx9\VertexShaderGeneratorDX9.cpp" />
     <ClCompile Include="GeDisasm.cpp" />
     <ClCompile Include="GLES\DepalettizeShaderGLES.cpp" />
+    <ClCompile Include="GLES\DepthBufferGLES.cpp" />
     <ClCompile Include="GLES\FragmentShaderGeneratorGLES.cpp" />
     <ClCompile Include="GLES\FragmentTestCacheGLES.cpp" />
     <ClCompile Include="GLES\FramebufferManagerGLES.cpp" />

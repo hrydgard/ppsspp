@@ -160,7 +160,7 @@ void GenerateVertexShaderHLSL(const VShaderID &id, char *buffer, ShaderLanguage 
 					WRITE(p, "float3 u_lightambient%i : register(c%i);\n", i, CONST_VS_LIGHTAMBIENT + i);
 					WRITE(p, "float3 u_lightdiffuse%i : register(c%i);\n", i, CONST_VS_LIGHTDIFFUSE + i);
 
-					if (comp != GE_LIGHTCOMP_ONLYDIFFUSE) {
+					if (comp == GE_LIGHTCOMP_BOTH) {
 						WRITE(p, "float3 u_lightspecular%i : register(c%i);\n", i, CONST_VS_LIGHTSPECULAR + i);
 					}
 				}
@@ -540,7 +540,7 @@ void GenerateVertexShaderHLSL(const VShaderID &id, char *buffer, ShaderLanguage 
 				if (doLight[i] != LIGHT_FULL)
 					continue;
 				diffuseIsZero = false;
-				if (comp != GE_LIGHTCOMP_ONLYDIFFUSE)
+				if (comp == GE_LIGHTCOMP_BOTH)
 					specularIsZero = false;
 				if (type != GE_LIGHTTYPE_DIRECTIONAL)
 					distanceNeeded = true;
@@ -583,17 +583,17 @@ void GenerateVertexShaderHLSL(const VShaderID &id, char *buffer, ShaderLanguage 
 				WRITE(p, "  toLight /= distance;\n");
 			}
 
-			bool doSpecular = comp != GE_LIGHTCOMP_ONLYDIFFUSE;
-			bool poweredDiffuse = comp == GE_LIGHTCOMP_BOTHWITHPOWDIFFUSE;
+			bool doSpecular = comp == GE_LIGHTCOMP_BOTH;
+			bool poweredDiffuse = comp == GE_LIGHTCOMP_ONLYPOWDIFFUSE;
 
-			WRITE(p, "  ldot = max(dot(toLight, worldnormal), 0.0);\n");
+			WRITE(p, "  ldot = dot(toLight, worldnormal);\n");
 			if (poweredDiffuse) {
 				// pow(0.0, 0.0) may be undefined, but the PSP seems to treat it as 1.0.
 				// Seen in Tales of the World: Radiant Mythology (#2424.)
-				WRITE(p, "  if (ldot == 0.0 && u_matspecular.a == 0.0) {\n");
+				WRITE(p, "  if (u_matspecular.a == 0.0) {\n");
 				WRITE(p, "    ldot = 1.0;\n");
 				WRITE(p, "  } else {\n");
-				WRITE(p, "    ldot = pow(ldot, u_matspecular.a);\n");
+				WRITE(p, "    ldot = pow(max(ldot, 0.0), u_matspecular.a);\n");
 				WRITE(p, "  }\n");
 			}
 
@@ -609,9 +609,9 @@ void GenerateVertexShaderHLSL(const VShaderID &id, char *buffer, ShaderLanguage 
 				break;
 			case GE_LIGHTTYPE_SPOT:
 			case GE_LIGHTTYPE_UNKNOWN:
-				WRITE(p, "  angle = dot(normalize(u_lightdir%i), toLight);\n", i);
+				WRITE(p, "  angle = length(u_lightdir%i) == 0.0 ? 0.0 : dot(normalize(u_lightdir%i), toLight);\n", i, i);
 				WRITE(p, "  if (angle >= u_lightangle_spotCoef%i.x) {\n", i);
-				WRITE(p, "    lightScale = clamp(1.0 / dot(u_lightatt%i, float3(1.0, distance, distance*distance)), 0.0, 1.0) * pow(angle, u_lightangle_spotCoef%i.y);\n", i, i);
+				WRITE(p, "    lightScale = clamp(1.0 / dot(u_lightatt%i, float3(1.0, distance, distance*distance)), 0.0, 1.0) * (u_lightangle_spotCoef%i.y == 0.0 ? 1.0 : pow(angle, u_lightangle_spotCoef%i.y));\n", i, i, i);
 				WRITE(p, "  } else {\n");
 				WRITE(p, "    lightScale = 0.0;\n");
 				WRITE(p, "  }\n");
@@ -621,11 +621,18 @@ void GenerateVertexShaderHLSL(const VShaderID &id, char *buffer, ShaderLanguage 
 				break;
 			}
 
-			WRITE(p, "  diffuse = (u_lightdiffuse%i * %s) * ldot;\n", i, diffuseStr);
+			WRITE(p, "  diffuse = (u_lightdiffuse%i * %s) * max(ldot, 0.0);\n", i, diffuseStr);
 			if (doSpecular) {
-				WRITE(p, "  ldot = dot(normalize(toLight + float3(0.0, 0.0, 1.0)), worldnormal);\n");
-				WRITE(p, "  if (ldot > 0.0)\n");
-				WRITE(p, "    lightSum1 += u_lightspecular%i * %s * (pow(ldot, u_matspecular.a) %s);\n", i, specularStr, timesLightScale);
+				WRITE(p, "  if (ldot >= 0.0) {\n");
+				WRITE(p, "    ldot = dot(normalize(toLight + float3(0.0, 0.0, 1.0)), worldnormal);\n");
+				WRITE(p, "    if (u_matspecular.a == 0.0) {\n");
+				WRITE(p, "      ldot = 1.0;\n");
+				WRITE(p, "    } else {\n");
+				WRITE(p, "      ldot = pow(max(ldot, 0.0), u_matspecular.a);\n");
+				WRITE(p, "    }\n");
+				WRITE(p, "    if (ldot > 0.0)\n");
+				WRITE(p, "      lightSum1 += u_lightspecular%i * %s * ldot %s;\n", i, specularStr, timesLightScale);
+				WRITE(p, "  }\n");
 			}
 			WRITE(p, "  lightSum0.rgb += (u_lightambient%i * %s.rgb + diffuse)%s;\n", i, ambientStr, timesLightScale);
 		}
@@ -719,7 +726,11 @@ void GenerateVertexShaderHLSL(const VShaderID &id, char *buffer, ShaderLanguage 
 				break;
 
 			case GE_TEXMAP_ENVIRONMENT_MAP:  // Shade mapping - use dots from light sources.
-				WRITE(p, "  Out.v_texcoord = float3(u_uvscaleoffset.xy * float2(1.0 + dot(normalize(u_lightpos%i), worldnormal), 1.0 + dot(normalize(u_lightpos%i), worldnormal)) * 0.5, 1.0);\n", ls0, ls1);
+				{
+					std::string lightFactor0 = StringFromFormat("(length(u_lightpos%i) == 0.0 ? worldnormal.z : dot(normalize(u_lightpos%i), worldnormal))", ls0, ls0);
+					std::string lightFactor1 = StringFromFormat("(length(u_lightpos%i) == 0.0 ? worldnormal.z : dot(normalize(u_lightpos%i), worldnormal))", ls1, ls1);
+					WRITE(p, "  Out.v_texcoord = float3(u_uvscaleoffset.xy * float2(1.0 + %s, 1.0 + %s) * 0.5, 1.0);\n", lightFactor0.c_str(), lightFactor1.c_str());
+				}
 				break;
 
 			default:

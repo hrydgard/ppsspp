@@ -30,6 +30,7 @@
 
 #ifdef _WIN32
 #include "CommonWindows.h"
+#include <Windows.h>
 #include <shlobj.h>		// for SHGetFolderPath
 #include <shellapi.h>
 #include <commdlg.h>	// for GetSaveFileName
@@ -121,7 +122,11 @@ std::string ResolvePath(const std::string &path) {
 
 	std::wstring input = ConvertUTF8ToWString(path);
 	if (getFinalPathNameByHandleW) {
+#if PPSSPP_PLATFORM(UWP)
+		HANDLE hFile = CreateFile2(input.c_str(), GENERIC_READ, FILE_SHARE_READ, OPEN_EXISTING, nullptr);
+#else
 		HANDLE hFile = CreateFile(input.c_str(), GENERIC_READ, FILE_SHARE_READ, nullptr, OPEN_EXISTING, FILE_FLAG_BACKUP_SEMANTICS, nullptr);
+#endif
 		if (hFile == INVALID_HANDLE_VALUE) {
 			wcscpy_s(buf, BUF_SIZE - 1, input.c_str());
 		} else {
@@ -336,7 +341,7 @@ bool CreateFullPath(const std::string &path)
 			return true;
 		}
 		std::string subPath = fullPath.substr(0, position);
-		if (!File::Exists(subPath))
+		if (position != 0 && !File::Exists(subPath))
 			File::CreateDir(subPath);
 
 		// A safety check
@@ -647,7 +652,6 @@ bool DeleteDirRecursively(const std::string &directory)
 
 	if (hFind == INVALID_HANDLE_VALUE)
 	{
-		FindClose(hFind);
 		return false;
 	}
 		
@@ -656,17 +660,16 @@ bool DeleteDirRecursively(const std::string &directory)
 	{
 		const std::string virtualName = ConvertWStringToUTF8(ffd.cFileName);
 #else
-	struct dirent dirent, *result = NULL;
+	struct dirent *result = NULL;
 	DIR *dirp = opendir(directory.c_str());
 	if (!dirp)
 		return false;
 
 	// non windows loop
-	while (!readdir_r(dirp, &dirent, &result) && result)
+	while ((result = readdir(dirp)))
 	{
 		const std::string virtualName = result->d_name;
 #endif
-
 		// check for "." and ".."
 		if (((virtualName[0] == '.') && (virtualName[1] == '\0')) ||
 			((virtualName[0] == '.') && (virtualName[1] == '.') && 
@@ -678,10 +681,11 @@ bool DeleteDirRecursively(const std::string &directory)
 		{
 			if (!DeleteDirRecursively(newPath))
 			{
-				#ifndef _WIN32
+#ifndef _WIN32
 				closedir(dirp);
-				#endif
-				
+#else
+				FindClose(hFind);
+#endif
 				return false;
 			}
 		}
@@ -689,10 +693,11 @@ bool DeleteDirRecursively(const std::string &directory)
 		{
 			if (!File::Delete(newPath))
 			{
-				#ifndef _WIN32
+#ifndef _WIN32
 				closedir(dirp);
-				#endif
-				
+#else
+				FindClose(hFind);
+#endif
 				return false;
 			}
 		}
@@ -704,8 +709,7 @@ bool DeleteDirRecursively(const std::string &directory)
 	}
 	closedir(dirp);
 #endif
-	File::DeleteDir(directory);
-	return true;
+	return File::DeleteDir(directory);
 #endif
 }
 
@@ -718,13 +722,11 @@ void CopyDir(const std::string &source_path, const std::string &dest_path)
 	if (!File::Exists(source_path)) return;
 	if (!File::Exists(dest_path)) File::CreateFullPath(dest_path);
 
-	struct dirent_large { struct dirent entry; char padding[FILENAME_MAX+1]; };
-	struct dirent_large diren;
 	struct dirent *result = NULL;
 	DIR *dirp = opendir(source_path.c_str());
 	if (!dirp) return;
 
-	while (!readdir_r(dirp, (dirent*) &diren, &result) && result)
+	while ((result = readdir(dirp)))
 	{
 		const std::string virtualName(result->d_name);
 		// check for "." and ".."

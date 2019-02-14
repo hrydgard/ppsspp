@@ -46,10 +46,10 @@
     <MinimumVisualStudioVersion>14.0</MinimumVisualStudioVersion>
     <AppContainerApplication>true</AppContainerApplication>
     <ApplicationType>Windows Store</ApplicationType>
-    <WindowsTargetPlatformMinVersion>10.0.14393.0</WindowsTargetPlatformMinVersion>
+    <WindowsTargetPlatformMinVersion>10.0.15063.0</WindowsTargetPlatformMinVersion>
     <ApplicationTypeRevision>10.0</ApplicationTypeRevision>
     <ProjectName>PPSSPP_UWP</ProjectName>
-    <WindowsTargetPlatformVersion>10.0.16299.0</WindowsTargetPlatformVersion>
+    <WindowsTargetPlatformVersion>10.0.17763.0</WindowsTargetPlatformVersion>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" Label="Configuration">
@@ -156,7 +156,7 @@
     <PackageCertificateKeyFile>PPSSPP_UWP_TemporaryKey.pfx</PackageCertificateKeyFile>
     <AppxAutoIncrementPackageRevision>True</AppxAutoIncrementPackageRevision>
     <AppxSymbolPackageEnabled>False</AppxSymbolPackageEnabled>
-    <AppxBundle>Never</AppxBundle>   
+    <AppxBundle>Never</AppxBundle>
     <PackageCertificateThumbprint>B57919568D3F60B8D25EC6856DE94173682C548C</PackageCertificateThumbprint>
   </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|ARM'">
@@ -464,6 +464,9 @@ copy AssetsGold\*.* Assets /Y
     <None Include="UWP_TemporaryKey.pfx" />
   </ItemGroup>
   <ItemGroup>
+    <ProjectReference Include="Armips_UWP\Armips_UWP.vcxproj">
+      <Project>{75286959-e7a2-4cbe-8b95-bf05c9c540ff}</Project>
+    </ProjectReference>
     <ProjectReference Include="CommonUWP\CommonUWP.vcxproj">
       <Project>{acb316ca-3ecb-48e5-be0a-91e72d5b0f12}</Project>
     </ProjectReference>

@@ -80,6 +80,7 @@
       <BasicRuntimeChecks>Default</BasicRuntimeChecks>
       <AdditionalIncludeDirectories>glslang/glslang/OSDependent/Windows;glslang/glslang/MachineIndependent</AdditionalIncludeDirectories>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
+      <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
     </ClCompile>
     <Link>
       <SubSystem>Windows</SubSystem>
@@ -98,6 +99,7 @@
       <MinimalRebuild>false</MinimalRebuild>
       <BasicRuntimeChecks>Default</BasicRuntimeChecks>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
+      <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
     </ClCompile>
     <Link>
       <SubSystem>Windows</SubSystem>
@@ -191,6 +193,7 @@
     <ClCompile Include="glslang\SPIRV\InReadableOrder.cpp" />
     <ClCompile Include="glslang\SPIRV\Logger.cpp" />
     <ClCompile Include="glslang\SPIRV\SpvBuilder.cpp" />
+    <ClCompile Include="glslang\SPIRV\SpvPostProcess.cpp" />
     <ClCompile Include="glslang\SPIRV\SPVRemapper.cpp" />
   </ItemGroup>
   <ItemGroup>

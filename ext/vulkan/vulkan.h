@@ -2,7 +2,7 @@
 #define VULKAN_H_ 1
 
 /*
-** Copyright (c) 2015-2018 The Khronos Group Inc.
+** Copyright (c) 2015-2019 The Khronos Group Inc.
 **
 ** Licensed under the Apache License, Version 2.0 (the "License");
 ** you may not use this file except in compliance with the License.
@@ -24,6 +24,10 @@
 #include "vulkan_android.h"
 #endif
 
+#ifdef VK_USE_PLATFORM_FUCHSIA
+#include <zircon/types.h>
+#include "vulkan_fuchsia.h"
+#endif
 
 #ifdef VK_USE_PLATFORM_IOS_MVK
 #include "vulkan_ios.h"
@@ -32,12 +36,6 @@
 
 #ifdef VK_USE_PLATFORM_MACOS_MVK
 #include "vulkan_macos.h"
-#endif
-
-
-#ifdef VK_USE_PLATFORM_MIR_KHR
-#include <mir_toolkit/client_types.h>
-#include "vulkan_mir.h"
 #endif
 
 

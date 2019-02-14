@@ -1,4 +1,5 @@
 #include "base/timeutil.h"
+#include "ppsspp_config.h"
 
 #ifdef _WIN32
 
@@ -21,6 +22,10 @@
 
 #define closesocket close
 
+#endif
+
+#if PPSSPP_PLATFORM(UWP)
+#define in6addr_any IN6ADDR_ANY_INIT
 #endif
 
 #include <algorithm>

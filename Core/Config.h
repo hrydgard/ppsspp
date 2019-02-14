@@ -98,6 +98,7 @@ public:
 	bool bHideSlowWarnings;
 	bool bHideStateWarnings;
 	bool bPreloadFunctions;
+	uint32_t uJitDisableFlags;
 
 	bool bVulkanMultithreading;
 	bool bSeparateSASThread;
@@ -139,6 +140,7 @@ public:
 	bool bHardwareTransform; // only used in the GLES backend
 	bool bSoftwareSkinning;  // may speed up some games
 	bool bShaderDepal;
+	bool bVendorBugChecksEnabled;
 
 	int iRenderingMode; // 0 = non-buffered rendering 1 = buffered rendering
 	int iTexFiltering; // 1 = off , 2 = nearest , 3 = linear , 4 = linear(CG)
@@ -151,6 +153,7 @@ public:
 	bool bSustainedPerformanceMode;  // Android: Slows clocks down to avoid overheating/speed fluctuations.
 	bool bVSync;
 	int iFrameSkip;
+	int iFrameSkipType;
 	bool bAutoFrameSkip;
 	bool bFrameSkipUnthrottle;
 
@@ -194,9 +197,7 @@ public:
 	bool bEnableCheats;
 	bool bReloadCheats;
 	int iCwCheatRefreshRate;
-	bool bDisableStencilTest;
 	int iBloomHack; //0 = off, 1 = safe, 2 = balanced, 3 = aggressive
-	bool bTimerHack;
 	bool bBlockTransferGPU;
 	bool bDisableSlowFramebufEffects;
 	bool bFragmentTestCache;

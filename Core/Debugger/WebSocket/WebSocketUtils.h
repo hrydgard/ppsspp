@@ -24,6 +24,13 @@
 #include "net/websocket_server.h"
 #include "Common/Log.h"
 
+#include "ppsspp_config.h"
+
+#if PPSSPP_PLATFORM(UWP)
+// Enum name overlapped with UWP macro, quick hack to disable it
+#undef OPTIONAL
+#endif
+
 using namespace json;
 
 static inline void DebuggerJsonAddTicket(JsonWriter &writer, const JsonGet &data) {

@@ -231,6 +231,7 @@ void EmuScreen::bootGame(const std::string &filename) {
 	if (g_Config.bSoftwareRendering) {
 		coreParam.gpuCore = GPUCORE_SOFTWARE;
 	}
+
 	// Preserve the existing graphics context.
 	coreParam.graphicsContext = PSP_CoreParameter().graphicsContext;
 	coreParam.thin3d = screenManager()->getDrawContext();
@@ -346,7 +347,11 @@ EmuScreen::~EmuScreen() {
 		startDumping = false;
 	}
 #endif
-	g_Discord.SetPresenceMenu();
+
+	if (GetUIState() == UISTATE_EXIT)
+		g_Discord.ClearPresence();
+	else
+		g_Discord.SetPresenceMenu();
 }
 
 void EmuScreen::dialogFinished(const Screen *dialog, DialogResult result) {
@@ -1182,11 +1187,6 @@ void EmuScreen::preRender() {
 	using namespace Draw;
 	DrawContext *draw = screenManager()->getDrawContext();
 	draw->BeginFrame();
-	// Let's be consistent for the entire frame.  We skip the UI texture if we don't need it.
-	hasVisibleUI_ = hasVisibleUI();
-	if (hasVisibleUI_) {
-		screenManager()->getUIContext()->BeginFrame();
-	}
 	// Here we do NOT bind the backbuffer or clear the screen, unless non-buffered.
 	// The emuscreen is different than the others - we really want to allow the game to render to framebuffers
 	// before we ever bind the backbuffer for rendering. On mobile GPUs, switching back and forth between render
@@ -1285,7 +1285,8 @@ void EmuScreen::render() {
 	if (invalid_)
 		return;
 
-	if (hasVisibleUI_) {
+	if (hasVisibleUI()) {
+		screenManager()->getUIContext()->BeginFrame();
 		renderUI();
 	}
 
@@ -1366,8 +1367,7 @@ void EmuScreen::renderUI() {
 	if ((g_Config.bShowFrameProfiler || g_Config.bSimpleFrameStats) && !invalid_) {
 		DrawProfile(*ctx);
 	}
-
-	ctx->End();
+	ctx->Flush();
 }
 
 void EmuScreen::autoLoad() {

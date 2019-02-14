@@ -70,6 +70,7 @@ android {
 		optimized {
 			// Debug signed but optimized.
 			minifyEnabled = false
+			jniDebuggable true
 			signingConfig android.buildTypes.debug.signingConfig
 		}
 		release {
@@ -144,6 +145,12 @@ android {
 afterEvaluate {
 	android.sourceSets.main.assets.getSrcDirs().each { println it }
 }
-dependencies {
-	implementation files('libs/com.bda.controller.jar')
+
+// F-Droid lite version can be created with : ./gradlew assembleOptimized -Pf_droid
+if (project.hasProperty("f_droid")) {
+	project.android.sourceSets.main.java.srcDirs += 'libs/MogaStubs'
+} else {
+	project.dependencies {
+		implementation files('libs/com.bda.controller.jar')
+	}
 }

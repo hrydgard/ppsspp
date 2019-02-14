@@ -130,18 +130,13 @@ bool AndroidVulkanContext::InitAPI() {
 		g_Vulkan = nullptr;
 		return false;
 	}
+	ILOG("Vulkan device created!");
 	return true;
 }
 
 bool AndroidVulkanContext::InitFromRenderThread(ANativeWindow *wnd, int desiredBackbufferSizeX, int desiredBackbufferSizeY, int backbufferFormat, int androidVersion) {
-	int width = desiredBackbufferSizeX;
-	int height = desiredBackbufferSizeY;
-	if (!width || !height) {
-		width = pixel_xres;
-		height = pixel_yres;
-	}
-	ILOG("InitSurfaceAndroid: width=%d height=%d", width, height);
-	g_Vulkan->InitSurface(WINDOWSYSTEM_ANDROID, (void *)wnd, nullptr, width, height);
+	ILOG("InitSurfaceAndroid: desiredwidth=%d desiredheight=%d", desiredBackbufferSizeX, desiredBackbufferSizeY);
+	g_Vulkan->InitSurface(WINDOWSYSTEM_ANDROID, (void *)wnd, nullptr);
 	if (g_validate_) {
 		int bits = VK_DEBUG_REPORT_ERROR_BIT_EXT | VK_DEBUG_REPORT_WARNING_BIT_EXT | VK_DEBUG_REPORT_PERFORMANCE_WARNING_BIT_EXT;
 		g_Vulkan->InitDebugMsgCallback(&Vulkan_Dbg, bits, &g_LogOptions);
@@ -152,7 +147,7 @@ bool AndroidVulkanContext::InitFromRenderThread(ANativeWindow *wnd, int desiredB
 		draw_ = Draw::T3DCreateVulkanContext(g_Vulkan, g_Config.bGfxDebugSplitSubmit);
 		SetGPUBackend(GPUBackend::VULKAN);
 		success = draw_->CreatePresets();  // Doesn't fail, we ship the compiler.
-		assert(success);
+		_assert_msg_(G3D, success, "Failed to compile preset shaders");
 		draw_->HandleEvent(Draw::Event::GOT_BACKBUFFER, g_Vulkan->GetBackbufferWidth(), g_Vulkan->GetBackbufferHeight());
 
 		VulkanRenderManager *renderManager = (VulkanRenderManager *)draw_->GetNativeObject(Draw::NativeObject::RENDER_MANAGER);
@@ -165,6 +160,7 @@ bool AndroidVulkanContext::InitFromRenderThread(ANativeWindow *wnd, int desiredB
 	if (!success) {
 		g_Vulkan->DestroyObjects();
 		g_Vulkan->DestroyDevice();
+		g_Vulkan->DestroyDebugUtilsCallback();
 		g_Vulkan->DestroyDebugMsgCallback();
 
 		g_Vulkan->DestroyInstance();
@@ -186,6 +182,7 @@ void AndroidVulkanContext::ShutdownFromRenderThread() {
 void AndroidVulkanContext::Shutdown() {
 	ILOG("Calling NativeShutdownGraphics");
 	g_Vulkan->DestroyDevice();
+	g_Vulkan->DestroyDebugUtilsCallback();
 	g_Vulkan->DestroyDebugMsgCallback();
 
 	g_Vulkan->DestroyInstance();
@@ -204,7 +201,7 @@ void AndroidVulkanContext::Resize() {
 	g_Vulkan->DestroyObjects();
 
 	// backbufferResize updated these values.	TODO: Notify another way?
-	g_Vulkan->ReinitSurface(pixel_xres, pixel_yres);
+	g_Vulkan->ReinitSurface();
 	g_Vulkan->InitObjects();
 	draw_->HandleEvent(Draw::Event::GOT_BACKBUFFER, g_Vulkan->GetBackbufferWidth(), g_Vulkan->GetBackbufferHeight());
 	ILOG("AndroidVulkanContext::Resize end (%d, %d)", g_Vulkan->GetBackbufferWidth(), g_Vulkan->GetBackbufferHeight());

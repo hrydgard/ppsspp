@@ -142,49 +142,18 @@ GPU_GLES::~GPU_GLES() {
 	delete textureCacheGL_;
 }
 
-static constexpr int MakeIntelSimpleVer(int v1, int v2, int v3) {
-	return (v1 << 16) | (v2 << 8) | v3;
-}
-
-static bool HasIntelDualSrcBug(int versions[4]) {
-	// Intel uses a confusing set of at least 3 version numbering schemes.  This is the one given to OpenGL.
-	switch (MakeIntelSimpleVer(versions[0], versions[1], versions[2])) {
-	case MakeIntelSimpleVer(9, 17, 10):
-	case MakeIntelSimpleVer(9, 18, 10):
-		return false;
-	case MakeIntelSimpleVer(10, 18, 10):
-		return versions[3] < 4061;
-	case MakeIntelSimpleVer(10, 18, 14):
-		return versions[3] < 4080;
-	default:
-		// Older than above didn't support dual src anyway, newer should have the fix.
-		return false;
-	}
-}
-
 // Take the raw GL extension and versioning data and turn into feature flags.
 void GPU_GLES::CheckGPUFeatures() {
 	u32 features = 0;
 
 	features |= GPU_SUPPORTS_16BIT_FORMATS;
-	features |= GPU_SUPPORTS_VS_RANGE_CULLING;
+
+	if (!draw_->GetBugs().Has(Draw::Bugs::BROKEN_NAN_IN_CONDITIONAL)) {
+		features |= GPU_SUPPORTS_VS_RANGE_CULLING;
+	}
 
 	if (gl_extensions.ARB_blend_func_extended || gl_extensions.EXT_blend_func_extended) {
-		if (!gl_extensions.VersionGEThan(3, 0, 0)) {
-			// Don't use this extension on sub 3.0 OpenGL versions as it does not seem reliable
-		} else if (gl_extensions.gpuVendor == GPU_VENDOR_INTEL) {
-			// Also on Intel, see https://github.com/hrydgard/ppsspp/issues/10117
-			// TODO: Remove entirely sometime reasonably far in driver years after 2015.
-			const std::string ver = draw_->GetInfoString(Draw::InfoField::APIVERSION);
-			int versions[4]{};
-			if (sscanf(ver.c_str(), "Build %d.%d.%d.%d", &versions[0], &versions[1], &versions[2], &versions[3]) == 4) {
-				if (!HasIntelDualSrcBug(versions)) {
-					features |= GPU_SUPPORTS_DUALSOURCE_BLEND;
-				}
-			} else {
-				features |= GPU_SUPPORTS_DUALSOURCE_BLEND;
-			}
-		} else {
+		if (!g_Config.bVendorBugChecksEnabled || !draw_->GetBugs().Has(Draw::Bugs::DUAL_SOURCE_BLENDING_BROKEN)) {
 			features |= GPU_SUPPORTS_DUALSOURCE_BLEND;
 		}
 	}

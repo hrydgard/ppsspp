@@ -69,6 +69,10 @@ void Compatibility::CheckSettings(IniFile &iniFile, const std::string &gameID) {
 	CheckSetting(iniFile, gameID, "MGS2AcidHack", &flags_.MGS2AcidHack);
 	CheckSetting(iniFile, gameID, "SonicRivalsHack", &flags_.SonicRivalsHack);
 	CheckSetting(iniFile, gameID, "AdhocHackDisableNBSwitch", &flags_.AdhocHackDisableNBSwitch);
+	CheckSetting(iniFile, gameID, "BlockTransferAllowCreateFB", &flags_.BlockTransferAllowCreateFB);
+	CheckSetting(iniFile, gameID, "YugiohSaveFix", &flags_.YugiohSaveFix);
+	CheckSetting(iniFile, gameID, "ForceUMDDelay", &flags_.ForceUMDDelay);
+	CheckSetting(iniFile, gameID, "ForceMax60FPS", &flags_.ForceMax60FPS);
 }
 
 void Compatibility::CheckSetting(IniFile &iniFile, const std::string &gameID, const char *option, bool *flag) {

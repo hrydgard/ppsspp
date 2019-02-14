@@ -101,11 +101,6 @@ private:
 	std::vector<Callback> callbacks_;
 };
 
-// For fast extension-enabled checks.
-struct VulkanDeviceExtensions {
-	bool DEDICATED_ALLOCATION;
-};
-
 // Useful for debugging on ARM Mali. This eliminates transaction elimination
 // which can cause artifacts if you get barriers wrong (or if there are driver bugs).
 // Cost is reduced performance on some GPU architectures.
@@ -142,8 +137,9 @@ public:
 	VulkanDeleteList &Delete() { return globalDeleteList_; }
 
 	// The parameters are whatever the chosen window system wants.
-	void InitSurface(WindowSystem winsys, void *data1, void *data2, int width = -1, int height = -1);
-	void ReinitSurface(int width = -1, int height = -1);
+	// The extents will be automatically determined.
+	VkResult InitSurface(WindowSystem winsys, void *data1, void *data2);
+	VkResult ReinitSurface();
 
 	bool InitQueue();
 	bool InitObjects();
@@ -160,15 +156,19 @@ public:
 	VkFence CreateFence(bool presignalled);
 	bool CreateShaderModule(const std::vector<uint32_t> &spirv, VkShaderModule *shaderModule);
 
-	int GetBackbufferWidth() { return width_; }
-	int GetBackbufferHeight() { return height_; }
+	int GetBackbufferWidth() { return (int)swapChainExtent_.width; }
+	int GetBackbufferHeight() { return (int)swapChainExtent_.height; }
 
 	void BeginFrame();
 	void EndFrame();
 
 	bool MemoryTypeFromProperties(uint32_t typeBits, VkFlags requirements_mask, uint32_t *typeIndex);
 
-	VkResult InitDebugMsgCallback(PFN_vkDebugReportCallbackEXT dbgFunc, int bits, void *userdata = nullptr);
+	VkResult InitDebugUtilsCallback(PFN_vkDebugUtilsMessengerCallbackEXT callback, int bits, void *userdata);
+	void DestroyDebugUtilsCallback();
+
+	// Legacy reporting
+	VkResult InitDebugMsgCallback(PFN_vkDebugReportCallbackEXT dbgFunc, int bits, void *userdata);
 	void DestroyDebugMsgCallback();
 
 	VkPhysicalDevice GetPhysicalDevice(int n = 0) const {
@@ -189,7 +189,15 @@ public:
 		return graphics_queue_family_index_;
 	}
 
-	const VkPhysicalDeviceProperties &GetPhysicalDeviceProperties(int i) const {
+	struct PhysicalDeviceProps {
+		VkPhysicalDeviceProperties properties;
+		VkPhysicalDevicePushDescriptorPropertiesKHR pushDescriptorProperties;
+		VkPhysicalDeviceExternalMemoryHostPropertiesEXT externalMemoryHostProperties;
+	};
+
+	const PhysicalDeviceProps &GetPhysicalDeviceProperties(int i = -1) const {
+		if (i < 0)
+			i = GetCurrentPhysicalDevice();
 		return physicalDeviceProperties_[i];
 	}
 
@@ -205,8 +213,13 @@ public:
 	const std::vector<const char *> &GetDeviceExtensionsEnabled() const {
 		return device_extensions_enabled_;
 	}
-	const VkPhysicalDeviceFeatures &GetFeaturesAvailable() const { return featuresAvailable_; }
-	const VkPhysicalDeviceFeatures &GetFeaturesEnabled() const { return featuresEnabled_; }
+
+	struct PhysicalDeviceFeatures {
+		VkPhysicalDeviceFeatures available{};
+		VkPhysicalDeviceFeatures enabled{};
+	};
+
+	const PhysicalDeviceFeatures &GetDeviceFeatures() const { return deviceFeatures_; }
 	const VulkanPhysicalDeviceInfo &GetDeviceInfo() const { return deviceInfo_; }
 	const VkSurfaceCapabilitiesKHR &GetSurfaceCapabilities() const { return surfCapabilities_; }
 
@@ -247,7 +260,9 @@ public:
 		MAX_INFLIGHT_FRAMES = 3,
 	};
 
-	const VulkanDeviceExtensions &DeviceExtensions() { return deviceExtensionsLookup_; }
+	const VulkanDeviceExtensions &DeviceExtensions() { return extensionsLookup_; }
+
+	void GetImageMemoryRequirements(VkImage image, VkMemoryRequirements *mem_reqs, bool *dedicatedAllocation);
 
 private:
 	// A layer can expose extensions, keep track of those extensions here.
@@ -281,23 +296,23 @@ private:
 
 	std::vector<const char *> device_extensions_enabled_;
 	std::vector<VkExtensionProperties> device_extension_properties_;
-	VulkanDeviceExtensions deviceExtensionsLookup_{};
+	VulkanDeviceExtensions extensionsLookup_{};
 
 	std::vector<VkPhysicalDevice> physical_devices_;
 
 	int physical_device_ = -1;
 
 	uint32_t graphics_queue_family_index_ = -1;
-	std::vector<VkPhysicalDeviceProperties> physicalDeviceProperties_{};
+	std::vector<PhysicalDeviceProps> physicalDeviceProperties_{};
 	std::vector<VkQueueFamilyProperties> queue_props;
 	VkPhysicalDeviceMemoryProperties memory_properties{};
 
 	// Custom collection of things that are good to know
 	VulkanPhysicalDeviceInfo deviceInfo_{};
 
-	// Swap chain
-	int width_ = 0;
-	int height_ = 0;
+	// Swap chain extent
+	VkExtent2D swapChainExtent_{};
+
 	int flags_ = 0;
 
 	int inflightFrames_ = MAX_INFLIGHT_FRAMES;
@@ -314,14 +329,14 @@ private:
 	VulkanDeleteList globalDeleteList_;
 
 	std::vector<VkDebugReportCallbackEXT> msg_callbacks;
+	std::vector<VkDebugUtilsMessengerEXT> utils_callbacks;
 
 	VkSwapchainKHR swapchain_ = VK_NULL_HANDLE;
 	VkFormat swapchainFormat_;
 
 	uint32_t queue_count = 0;
 
-	VkPhysicalDeviceFeatures featuresAvailable_{};
-	VkPhysicalDeviceFeatures featuresEnabled_{};
+	PhysicalDeviceFeatures deviceFeatures_;
 
 	VkSurfaceCapabilitiesKHR surfCapabilities_{};
 

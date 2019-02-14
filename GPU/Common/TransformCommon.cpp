@@ -107,9 +107,9 @@ void Lighter::Light(float colorOut0[4], float colorOut1[4], const float colorIn[
 		Vec3f lightDir(0, 0, 0);
 
 		if (type == GE_LIGHTTYPE_DIRECTIONAL)
-			toLight = Vec3f(&lpos[l * 3]);  // lightdir is for spotlights
+			toLight = Vec3Packedf(&lpos[l * 3]);  // lightdir is for spotlights
 		else
-			toLight = Vec3f(&lpos[l * 3]) - pos;
+			toLight = Vec3Packedf(&lpos[l * 3]) - pos;
 
 		bool doSpecular = gstate.isUsingSpecularLight(l);
 		bool poweredDiffuse = gstate.isUsingPoweredDiffuseLight(l);
@@ -139,7 +139,7 @@ void Lighter::Light(float colorOut0[4], float colorOut1[4], const float colorIn[
 			break;
 		case GE_LIGHTTYPE_SPOT:
 		case GE_LIGHTTYPE_UNKNOWN:
-			lightDir = Vec3f(&ldir[l * 3]);
+			lightDir = Vec3Packedf(&ldir[l * 3]);
 			angle = Dot(toLight.Normalized(), lightDir.Normalized());
 			if (angle >= lcutoff[l])
 				lightScale = clamp(1.0f / (latt[l * 3] + latt[l * 3 + 1] * distanceToLight + latt[l * 3 + 2] * distanceToLight*distanceToLight), 0.0f, 1.0f) * powf(angle, lconv[l]);

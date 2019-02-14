@@ -1,4 +1,4 @@
-﻿#pragma once
+#pragma once
 
 #include <set>
 
@@ -102,6 +102,7 @@ namespace UWP {
 		bool m_windowClosed;
 		bool m_windowVisible;
 
+		bool m_isPhone = false;
 		TouchMapper touchMap_;
 	};
 }

@@ -87,7 +87,8 @@ enum {
 	FS_BIT_FLATSHADE = 46,
 	FS_BIT_BGRA_TEXTURE = 47,
 	FS_BIT_TEST_DISCARD_TO_ZERO = 48,
-	// 49+ are free.
+	FS_BIT_NO_DEPTH_CANNOT_DISCARD_STENCIL = 49,
+	// 50+ are free.
 };
 
 struct ShaderID {
@@ -175,12 +176,15 @@ struct FShaderID : ShaderID {
 	}
 };
 
+namespace Draw {
+class Bugs;
+}
 
-bool CanUseHardwareTransform(int prim);
+
 void ComputeVertexShaderID(ShaderID *id, uint32_t vertexType, bool useHWTransform);
 // Generates a compact string that describes the shader. Useful in a list to get an overview
 // of the current flora of shaders.
 std::string VertexShaderDesc(const ShaderID &id);
 
-void ComputeFragmentShaderID(ShaderID *id);
+void ComputeFragmentShaderID(ShaderID *id, const Draw::Bugs &bugs);
 std::string FragmentShaderDesc(const ShaderID &id);

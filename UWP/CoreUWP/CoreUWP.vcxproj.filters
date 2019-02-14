@@ -65,6 +65,9 @@
     <Filter Include="MIPS\IR">
       <UniqueIdentifier>{9c6552c2-9858-41da-a920-31ea5628d417}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Debugger\WebSocket">
+      <UniqueIdentifier>{2c71417c-cc7b-42cb-880d-ac0cb45ab5bb}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="pch.cpp" />
@@ -621,6 +624,49 @@
     <ClCompile Include="..\..\Core\HLE\sceUsbCam.cpp">
       <Filter>HLE</Filter>
     </ClCompile>
+    <ClCompile Include="..\..\Core\WebServer.cpp" />
+    <ClCompile Include="..\..\Core\HLE\sceUsbAcc.cpp">
+      <Filter>HLE</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Core\Debugger\WebSocket.cpp">
+      <Filter>Debugger</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Core\Debugger\WebSocket\BreakpointSubscriber.cpp">
+      <Filter>Debugger\WebSocket</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Core\Debugger\WebSocket\CPUCoreSubscriber.cpp">
+      <Filter>Debugger\WebSocket</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Core\Debugger\WebSocket\DisasmSubscriber.cpp">
+      <Filter>Debugger\WebSocket</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Core\Debugger\WebSocket\GameBroadcaster.cpp">
+      <Filter>Debugger\WebSocket</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Core\Debugger\WebSocket\GameSubscriber.cpp">
+      <Filter>Debugger\WebSocket</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Core\Debugger\WebSocket\GPUBufferSubscriber.cpp">
+      <Filter>Debugger\WebSocket</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Core\Debugger\WebSocket\GPURecordSubscriber.cpp">
+      <Filter>Debugger\WebSocket</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Core\Debugger\WebSocket\HLESubscriber.cpp">
+      <Filter>Debugger\WebSocket</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Core\Debugger\WebSocket\LogBroadcaster.cpp">
+      <Filter>Debugger\WebSocket</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Core\Debugger\WebSocket\SteppingBroadcaster.cpp">
+      <Filter>Debugger\WebSocket</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Core\Debugger\WebSocket\SteppingSubscriber.cpp">
+      <Filter>Debugger\WebSocket</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Core\Debugger\WebSocket\WebSocketUtils.cpp">
+      <Filter>Debugger\WebSocket</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="pch.h" />
@@ -1159,6 +1205,49 @@
     <ClInclude Include="..\..\Core\AVIDump.h" />
     <ClInclude Include="..\..\Core\HLE\sceUsbCam.h">
       <Filter>HLE</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Core\WebServer.h" />
+    <ClInclude Include="..\..\Core\HLE\sceUsbAcc.h">
+      <Filter>HLE</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Core\Debugger\WebSocket.h">
+      <Filter>Debugger</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Core\Debugger\WebSocket\BreakpointSubscriber.h">
+      <Filter>Debugger\WebSocket</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Core\Debugger\WebSocket\CPUCoreSubscriber.h">
+      <Filter>Debugger\WebSocket</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Core\Debugger\WebSocket\DisasmSubscriber.h">
+      <Filter>Debugger\WebSocket</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Core\Debugger\WebSocket\GameBroadcaster.h">
+      <Filter>Debugger\WebSocket</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Core\Debugger\WebSocket\GameSubscriber.h">
+      <Filter>Debugger\WebSocket</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Core\Debugger\WebSocket\GPUBufferSubscriber.h">
+      <Filter>Debugger\WebSocket</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Core\Debugger\WebSocket\GPURecordSubscriber.h">
+      <Filter>Debugger\WebSocket</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Core\Debugger\WebSocket\HLESubscriber.h">
+      <Filter>Debugger\WebSocket</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Core\Debugger\WebSocket\LogBroadcaster.h">
+      <Filter>Debugger\WebSocket</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Core\Debugger\WebSocket\SteppingBroadcaster.h">
+      <Filter>Debugger\WebSocket</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Core\Debugger\WebSocket\SteppingSubscriber.h">
+      <Filter>Debugger\WebSocket</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Core\Debugger\WebSocket\WebSocketUtils.h">
+      <Filter>Debugger\WebSocket</Filter>
     </ClInclude>
   </ItemGroup>
 </Project>

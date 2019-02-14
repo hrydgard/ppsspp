@@ -47,6 +47,16 @@ protected:
 	UI::EventReturn OnToggleAudioDebug(UI::EventParams &e);
 };
 
+class JitDebugScreen : public UIDialogScreenWithBackground {
+public:
+	JitDebugScreen() {}
+	virtual void CreateViews() override;
+
+private:
+	UI::EventReturn OnEnableAll(UI::EventParams &e);
+	UI::EventReturn OnDisableAll(UI::EventParams &e);
+};
+
 class LogConfigScreen : public UIDialogScreenWithBackground {
 public:
 	LogConfigScreen() {}

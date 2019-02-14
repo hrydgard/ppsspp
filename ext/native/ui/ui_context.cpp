@@ -38,12 +38,14 @@ void UIContext::BeginFrame() {
 			FLOG("Failed to load ui_atlas.zim");
 		}
 	}
+	uidrawbufferTop_->SetCurZ(0.0f);
+	uidrawbuffer_->SetCurZ(0.0f);
+	ActivateTopScissor();
 }
 
 void UIContext::Begin() {
 	draw_->BindSamplerStates(0, 1, &sampler_);
 	draw_->BindTexture(0, uitexture_->GetTexture());
-	ActivateTopScissor();
 	UIBegin(ui_pipeline_);
 }
 
@@ -52,24 +54,28 @@ void UIContext::BeginNoTex() {
 	UIBegin(ui_pipeline_notex_);
 }
 
+void UIContext::BeginPipeline(Draw::Pipeline *pipeline, Draw::SamplerState *samplerState) {
+	draw_->BindSamplerStates(0, 1, &sampler_);
+	draw_->BindTexture(0, uitexture_->GetTexture());
+	UIBegin(pipeline);
+}
+
 void UIContext::RebindTexture() const {
 	draw_->BindTexture(0, uitexture_->GetTexture());
 }
 
 void UIContext::Flush() {
 	if (uidrawbuffer_) {
-		uidrawbuffer_->End();
 		uidrawbuffer_->Flush();
 	}
 	if (uidrawbufferTop_) {
-		uidrawbufferTop_->End();
 		uidrawbufferTop_->Flush();
 	}
 }
 
-void UIContext::End() {
-	UIEnd();
-	Flush();
+void UIContext::SetCurZ(float curZ) {
+	ui_draw2d.SetCurZ(curZ);
+	ui_draw2d_front.SetCurZ(curZ);
 }
 
 // TODO: Support transformed bounds using stencil instead.

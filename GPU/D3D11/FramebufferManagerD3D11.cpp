@@ -512,9 +512,6 @@ static void CopyPixelDepthOnly(u32 *dstp, const u32 *srcp, size_t c) {
 }
 
 void FramebufferManagerD3D11::BlitFramebufferDepth(VirtualFramebuffer *src, VirtualFramebuffer *dst) {
-	if (g_Config.bDisableSlowFramebufEffects) {
-		return;
-	}
 	bool matchingDepthBuffer = src->z_address == dst->z_address && src->z_stride != 0 && dst->z_stride != 0;
 	bool matchingSize = src->width == dst->width && src->height == dst->height;
 	bool matchingRenderSize = src->renderWidth == dst->renderWidth && src->renderHeight == dst->renderHeight;
@@ -537,7 +534,7 @@ void FramebufferManagerD3D11::BindFramebufferAsColorTexture(int stage, VirtualFr
 	// currentRenderVfb_ will always be set when this is called, except from the GE debugger.
 	// Let's just not bother with the copy in that case.
 	bool skipCopy = (flags & BINDFBCOLOR_MAY_COPY) == 0;
-	if (GPUStepping::IsStepping() || g_Config.bDisableSlowFramebufEffects) {
+	if (GPUStepping::IsStepping()) {
 		skipCopy = true;
 	}
 	// Currently rendering to this framebuffer. Need to make a copy.
@@ -553,7 +550,7 @@ void FramebufferManagerD3D11::BindFramebufferAsColorTexture(int stage, VirtualFr
 		} else {
 			draw_->BindFramebufferAsTexture(framebuffer->fbo, stage, Draw::FB_COLOR_BIT, 0);
 		}
-	} else if (framebuffer != currentRenderVfb_) {
+	} else if (framebuffer != currentRenderVfb_ || (flags & BINDFBCOLOR_FORCE_SELF) != 0) {
 		draw_->BindFramebufferAsTexture(framebuffer->fbo, stage, Draw::FB_COLOR_BIT, 0);
 	} else {
 		ERROR_LOG_REPORT_ONCE(d3d11SelfTexture, G3D, "Attempting to texture from target (src=%08x / target=%08x / flags=%d)", framebuffer->fb_address, currentRenderVfb_->fb_address, flags);
@@ -687,7 +684,7 @@ void FramebufferManagerD3D11::PackDepthbuffer(VirtualFramebuffer *vfb, int x, in
 		return;
 	}
 
-	const u32 z_address = (0x04000000) | vfb->z_address;
+	const u32 z_address = vfb->z_address;
 	// TODO
 }
 

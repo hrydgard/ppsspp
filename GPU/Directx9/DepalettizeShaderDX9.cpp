@@ -36,21 +36,22 @@ static const int DEPAL_TEXTURE_OLD_AGE = 120;
 #define SHADERLOG
 #endif
 
-static const char *depalVShaderHLSL =
-"struct VS_IN {\n"
-"  float3 a_position : POSITION;\n"
-"  float2 a_texcoord0 : TEXCOORD0;\n"
-"};\n"
-"struct VS_OUT {\n"
-"  float4 Position : POSITION;\n"
-"  float2 Texcoord : TEXCOORD0;\n"
-"};\n"
-"VS_OUT main(VS_IN input) {\n"
-"  VS_OUT output;\n"
-"  output.Texcoord = input.a_texcoord0;\n"
-"  output.Position = float4(input.a_position, 1.0);\n"
-"  return output;\n"
-"}\n";
+static const char *depalVShaderHLSL = R"(
+struct VS_IN {
+  float3 a_position : POSITION;
+  float2 a_texcoord0 : TEXCOORD0;
+};
+struct VS_OUT {
+  float4 Position : POSITION;
+  float2 Texcoord : TEXCOORD0;
+};
+VS_OUT main(VS_IN input) {
+  VS_OUT output;
+  output.Texcoord = input.a_texcoord0;
+  output.Position = float4(input.a_position, 1.0);
+  return output;
+}
+)";
 
 DepalShaderCacheDX9::DepalShaderCacheDX9(Draw::DrawContext *draw) : vertexShader_(nullptr) {
 	device_ = (LPDIRECT3DDEVICE9)draw->GetNativeObject(Draw::NativeObject::DEVICE);

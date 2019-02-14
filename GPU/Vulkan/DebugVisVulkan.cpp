@@ -37,7 +37,6 @@ void DrawAllocatorVis(UIContext *ui, GPUInterface *gpu) {
 	int x = padding;
 	int y = starty;
 	int w = columnWidth;  // We will double this when actually drawing to make the pixels visible.
-	ui->End();
 
 	ui->Begin();
 

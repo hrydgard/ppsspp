@@ -1599,7 +1599,6 @@ static int sceMpegGetAvcAu(u32 mpeg, u32 streamId, u32 auAddr, u32 attrAddr)
 		Memory::Write_U32(1, attrAddr);
 	}
 
-
 	DEBUG_LOG(ME, "%x=sceMpegGetAvcAu(%08x, %08x, %08x, %08x)", result, mpeg, streamId, auAddr, attrAddr);
 	// TODO: sceMpegGetAvcAu seems to modify esSize, and delay when it's > 1000 or something.
 	// There's definitely more to it, but ultimately it seems games should expect it to delay randomly.
@@ -1664,6 +1663,7 @@ static int sceMpegGetAtracAu(u32 mpeg, u32 streamId, u32 auAddr, u32 attrAddr)
 	// Instead, let's abuse it to keep track of the stream number.
 	if (streamInfo != ctx->streamMap.end()) {
 		atracAu.esBuffer = streamInfo->second.num;
+		ctx->mediaengine->setAudioStream(streamInfo->second.num);
 	}
 
 	int result = 0;

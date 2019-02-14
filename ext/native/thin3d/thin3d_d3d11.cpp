@@ -48,7 +48,7 @@ public:
 		return deviceList_;
 	}
 	uint32_t GetSupportedShaderLanguages() const override {
-		return (uint32_t)ShaderLanguage::HLSL_D3D11 | (uint32_t)ShaderLanguage::HLSL_D3D11_BYTECODE;
+		return (uint32_t)ShaderLanguage::HLSL_D3D11;
 	}
 	uint32_t GetDataFormatSupport(DataFormat fmt) const override;
 
@@ -94,6 +94,10 @@ public:
 			memcpy(blendFactor_, color, sizeof(float) * 4);
 			blendFactorDirty_ = true;
 		}
+	}
+	void SetStencilRef(uint8_t ref) override {
+		stencilRef_ = ref;
+		stencilRefDirty_ = true;
 	}
 
 	void Draw(int vertexCount, int offset) override;
@@ -204,8 +208,8 @@ private:
 	// Dynamic state
 	float blendFactor_[4]{};
 	bool blendFactorDirty_ = false;
-	uint8_t stencilRef_;
-	bool stencilRefDirty_;
+	uint8_t stencilRef_ = 0;
+	bool stencilRefDirty_ = true;
 
 	// Temporaries
 	ID3D11Texture2D *packTexture_ = nullptr;
@@ -263,6 +267,7 @@ D3D11DrawContext::D3D11DrawContext(ID3D11Device *device, ID3D11DeviceContext *de
 			default:
 				caps_.vendor = GPUVendor::VENDOR_UNKNOWN;
 			}
+			caps_.deviceID = desc.DeviceId;
 			adapter->Release();
 		}
 		dxgiDevice->Release();
@@ -806,11 +811,7 @@ public:
 };
 
 ShaderModule *D3D11DrawContext::CreateShaderModule(ShaderStage stage, ShaderLanguage language, const uint8_t *data, size_t dataSize) {
-	switch (language) {
-	case ShaderLanguage::HLSL_D3D11:
-	case ShaderLanguage::HLSL_D3D11_BYTECODE:
-		break;
-	default:
+	if (language != ShaderLanguage::HLSL_D3D11) {
 		ELOG("Unsupported shader language");
 		return nullptr;
 	}
@@ -826,77 +827,69 @@ ShaderModule *D3D11DrawContext::CreateShaderModule(ShaderStage stage, ShaderLang
 
 	std::string compiled;
 	std::string errors;
-	if (language == ShaderLanguage::HLSL_D3D11) {
-		const char *target = nullptr;
-		switch (stage) {
-		case ShaderStage::FRAGMENT: target = fragmentModel; break;
-		case ShaderStage::VERTEX: target = vertexModel; break;
-		case ShaderStage::GEOMETRY:
-			if (!geometryModel)
-				return nullptr;
-			target = geometryModel;
-			break;
-		case ShaderStage::COMPUTE:
-		case ShaderStage::CONTROL:
-		case ShaderStage::EVALUATION:
-		default:
-			Crash();
-			break;
-		}
-		if (!target) {
+	const char *target = nullptr;
+	switch (stage) {
+	case ShaderStage::FRAGMENT: target = fragmentModel; break;
+	case ShaderStage::VERTEX: target = vertexModel; break;
+	case ShaderStage::GEOMETRY:
+		if (!geometryModel)
 			return nullptr;
-		}
-
-		ID3DBlob *compiledCode = nullptr;
-		ID3DBlob *errorMsgs = nullptr;
-		HRESULT result = ptr_D3DCompile(data, dataSize, nullptr, nullptr, nullptr, "main", target, 0, 0, &compiledCode, &errorMsgs);
-		if (compiledCode) {
-			compiled = std::string((const char *)compiledCode->GetBufferPointer(), compiledCode->GetBufferSize());
-			compiledCode->Release();
-		}
-		if (errorMsgs) {
-			errors = std::string((const char *)errorMsgs->GetBufferPointer(), errorMsgs->GetBufferSize());
-			ELOG("Failed compiling:\n%s\n%s", data, errors.c_str());
-			errorMsgs->Release();
-		}
-
-		if (result != S_OK) {
-			return nullptr;
-		}
-
-		// OK, we can now proceed
-		language = ShaderLanguage::HLSL_D3D11_BYTECODE;
-		data = (const uint8_t *)compiled.c_str();
-		dataSize = compiled.size();
+		target = geometryModel;
+		break;
+	case ShaderStage::COMPUTE:
+	case ShaderStage::CONTROL:
+	case ShaderStage::EVALUATION:
+	default:
+		Crash();
+		break;
+	}
+	if (!target) {
+		return nullptr;
 	}
 
-	if (language == ShaderLanguage::HLSL_D3D11_BYTECODE) {
-		// Easy!
-		D3D11ShaderModule *module = new D3D11ShaderModule();
-		module->stage = stage;
-		module->byteCode_ = std::vector<uint8_t>(data, data + dataSize);
-		HRESULT result = S_OK;
-		switch (stage) {
-		case ShaderStage::VERTEX:
-			result = device_->CreateVertexShader(data, dataSize, nullptr, &module->vs);
-			break;
-		case ShaderStage::FRAGMENT:
-			result = device_->CreatePixelShader(data, dataSize, nullptr, &module->ps);
-			break;
-		case ShaderStage::GEOMETRY:
-			result = device_->CreateGeometryShader(data, dataSize, nullptr, &module->gs);
-			break;
-		default:
-			ELOG("Unsupported shader stage");
-			result = S_FALSE;
-			break;
-		}
-		if (result == S_OK) {
-			return module;
-		} else {
-			delete module;
-			return nullptr;
-		}
+	ID3DBlob *compiledCode = nullptr;
+	ID3DBlob *errorMsgs = nullptr;
+	HRESULT result = ptr_D3DCompile(data, dataSize, nullptr, nullptr, nullptr, "main", target, 0, 0, &compiledCode, &errorMsgs);
+	if (compiledCode) {
+		compiled = std::string((const char *)compiledCode->GetBufferPointer(), compiledCode->GetBufferSize());
+		compiledCode->Release();
+	}
+	if (errorMsgs) {
+		errors = std::string((const char *)errorMsgs->GetBufferPointer(), errorMsgs->GetBufferSize());
+		ELOG("Failed compiling:\n%s\n%s", data, errors.c_str());
+		errorMsgs->Release();
+	}
+
+	if (result != S_OK) {
+		return nullptr;
+	}
+
+	// OK, we can now proceed
+	data = (const uint8_t *)compiled.c_str();
+	dataSize = compiled.size();
+	D3D11ShaderModule *module = new D3D11ShaderModule();
+	module->stage = stage;
+	module->byteCode_ = std::vector<uint8_t>(data, data + dataSize);
+	switch (stage) {
+	case ShaderStage::VERTEX:
+		result = device_->CreateVertexShader(data, dataSize, nullptr, &module->vs);
+		break;
+	case ShaderStage::FRAGMENT:
+		result = device_->CreatePixelShader(data, dataSize, nullptr, &module->ps);
+		break;
+	case ShaderStage::GEOMETRY:
+		result = device_->CreateGeometryShader(data, dataSize, nullptr, &module->gs);
+		break;
+	default:
+		ELOG("Unsupported shader stage");
+		result = S_FALSE;
+		break;
+	}
+	if (result == S_OK) {
+		return module;
+	} else {
+		delete module;
+		return nullptr;
 	}
 	return nullptr;
 }
@@ -987,7 +980,6 @@ void D3D11DrawContext::BindPipeline(Pipeline *pipeline) {
 	curPipeline_ = dPipeline;
 }
 
-// Gonna need dirtyflags soon..
 void D3D11DrawContext::ApplyCurrentState() {
 	if (curBlend_ != curPipeline_->blend || blendFactorDirty_) {
 		context_->OMSetBlendState(curPipeline_->blend->bs, blendFactor_, 0xFFFFFFFF);

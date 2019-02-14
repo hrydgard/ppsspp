@@ -42,7 +42,7 @@
 // Currently known non working ones should have DISABLE.
 
 // #define CONDITIONAL_DISABLE { Comp_Generic(op); return; }
-#define CONDITIONAL_DISABLE ;
+#define CONDITIONAL_DISABLE(flag) if (jo.Disabled(JitDisable::flag)) { Comp_Generic(op); return; }
 #define DISABLE { Comp_Generic(op); return; }
 
 namespace MIPSComp {
@@ -110,14 +110,14 @@ namespace MIPSComp {
 	}
 
 	void Arm64Jit::Comp_ITypeMemLR(MIPSOpcode op, bool load) {
-		CONDITIONAL_DISABLE;
+		CONDITIONAL_DISABLE(LSU);
 		CheckMemoryBreakpoint();
 		int offset = (signed short)(op & 0xFFFF);
 		MIPSGPReg rt = _RT;
 		MIPSGPReg rs = _RS;
 		int o = op >> 26;
 
-		if (!js.inDelaySlot) {
+		if (!js.inDelaySlot && !jo.Disabled(JitDisable::LSU_UNALIGNED)) {
 			// Optimisation: Combine to single unaligned load/store
 			bool isLeft = (o == 34 || o == 42);
 			CheckMemoryBreakpoint(1);
@@ -256,7 +256,7 @@ namespace MIPSComp {
 	}
 
 	void Arm64Jit::Comp_ITypeMem(MIPSOpcode op) {
-		CONDITIONAL_DISABLE;
+		CONDITIONAL_DISABLE(LSU);
 		CheckMemoryBreakpoint();
 
 		int offset = (signed short)(op & 0xFFFF);

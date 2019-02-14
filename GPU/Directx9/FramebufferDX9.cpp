@@ -47,34 +47,33 @@
 
 namespace DX9 {
 
-static const char * vscode =
-	"struct VS_IN {\n"
-	"  float4 ObjPos   : POSITION;\n"
-	"  float2 Uv    : TEXCOORD0;\n"
-	"};"
-	"struct VS_OUT {\n"
-	"  float4 ProjPos  : POSITION;\n"
-	"  float2 Uv    : TEXCOORD0;\n"
-	"};\n"
-	"VS_OUT main( VS_IN In ) {\n"
-	"  VS_OUT Out;\n"
-	"  Out.ProjPos = In.ObjPos;\n"
-	"  Out.Uv = In.Uv;\n"
-	"  return Out;\n"
-	"}\n";
+static const char *vscode = R"(
+struct VS_IN {
+	float4 ObjPos   : POSITION;
+	float2 Uv    : TEXCOORD0;
+};"
+struct VS_OUT {
+	float4 ProjPos  : POSITION;
+	float2 Uv    : TEXCOORD0;
+};
+VS_OUT main( VS_IN In ) {
+	VS_OUT Out;
+	Out.ProjPos = In.ObjPos;
+	Out.Uv = In.Uv;
+	return Out;
+}
+)";
 
-//--------------------------------------------------------------------------------------
-// Pixel shader
-//--------------------------------------------------------------------------------------
-static const char * pscode =
-	"sampler s: register(s0);\n"
-	"struct PS_IN {\n"
-	"  float2 Uv : TEXCOORD0;\n"
-	"};\n"
-	"float4 main( PS_IN In ) : COLOR {\n"
-	"  float4 c =  tex2D(s, In.Uv);\n"
-	"  return c;\n"
-	"}\n";
+static const char *pscode = R"(
+sampler s: register(s0);
+struct PS_IN {
+	float2 Uv : TEXCOORD0;
+};
+float4 main( PS_IN In ) : COLOR {
+	float4 c =  tex2D(s, In.Uv);
+	return c;
+}
+)";
 
 static const D3DVERTEXELEMENT9 g_FramebufferVertexElements[] = {
 	{ 0, 0, D3DDECLTYPE_FLOAT3, D3DDECLMETHOD_DEFAULT, D3DDECLUSAGE_POSITION, 0 },
@@ -395,10 +394,6 @@ static const D3DVERTEXELEMENT9 g_FramebufferVertexElements[] = {
 	}
 
 	void FramebufferManagerDX9::BlitFramebufferDepth(VirtualFramebuffer *src, VirtualFramebuffer *dst) {
-		if (g_Config.bDisableSlowFramebufEffects) {
-			return;
-		}
-
 		bool matchingDepthBuffer = src->z_address == dst->z_address && src->z_stride != 0 && dst->z_stride != 0;
 		bool matchingSize = src->width == dst->width && src->height == dst->height;
 		if (matchingDepthBuffer && matchingSize) {
@@ -451,10 +446,10 @@ static const D3DVERTEXELEMENT9 g_FramebufferVertexElements[] = {
 		// currentRenderVfb_ will always be set when this is called, except from the GE debugger.
 		// Let's just not bother with the copy in that case.
 		bool skipCopy = (flags & BINDFBCOLOR_MAY_COPY) == 0;
-		if (GPUStepping::IsStepping() || g_Config.bDisableSlowFramebufEffects) {
+		if (GPUStepping::IsStepping()) {
 			skipCopy = true;
 		}
-		if (!skipCopy && currentRenderVfb_ && framebuffer->fb_address == gstate.getFrameBufRawAddress()) {
+		if (!skipCopy && framebuffer == currentRenderVfb_) {
 			// TODO: Maybe merge with bvfbs_?  Not sure if those could be packing, and they're created at a different size.
 			Draw::Framebuffer *renderCopy = GetTempFBO(TempFBO::COPY, framebuffer->renderWidth, framebuffer->renderHeight, (Draw::FBColorDepth)framebuffer->colorDepth);
 			if (renderCopy) {
@@ -585,7 +580,7 @@ static const D3DVERTEXELEMENT9 g_FramebufferVertexElements[] = {
 			return;
 		}
 
-		const u32 fb_address = (0x04000000) | vfb->fb_address;
+		const u32 fb_address = vfb->fb_address & 0x3FFFFFFF;
 		const int dstBpp = vfb->format == GE_FORMAT_8888 ? 4 : 2;
 
 		// We always need to convert from the framebuffer native format.
@@ -627,7 +622,7 @@ static const D3DVERTEXELEMENT9 g_FramebufferVertexElements[] = {
 		}
 
 		// We always read the depth buffer in 24_8 format.
-		const u32 z_address = (0x04000000) | vfb->z_address;
+		const u32 z_address = vfb->z_address;
 
 		DEBUG_LOG(FRAMEBUF, "Reading depthbuffer to mem at %08x for vfb=%08x", z_address, vfb->fb_address);
 
@@ -732,7 +727,7 @@ static const D3DVERTEXELEMENT9 g_FramebufferVertexElements[] = {
 
 		if (!vfb) {
 			// If there's no vfb and we're drawing there, must be memory?
-			buffer = GPUDebugBuffer(Memory::GetPointer(fb_address | 0x04000000), fb_stride, 512, fb_format);
+			buffer = GPUDebugBuffer(Memory::GetPointer(fb_address), fb_stride, 512, fb_format);
 			return true;
 		}
 		LPDIRECT3DSURFACE9 renderTarget = vfb->fbo ? (LPDIRECT3DSURFACE9)draw_->GetFramebufferAPITexture(vfb->fbo, Draw::FB_COLOR_BIT | Draw::FB_SURFACE_BIT, 0) : nullptr;
@@ -809,7 +804,7 @@ static const D3DVERTEXELEMENT9 g_FramebufferVertexElements[] = {
 
 		if (!vfb) {
 			// If there's no vfb and we're drawing there, must be memory?
-			buffer = GPUDebugBuffer(Memory::GetPointer(z_address | 0x04000000), z_stride, 512, GPU_DBG_FORMAT_16BIT);
+			buffer = GPUDebugBuffer(Memory::GetPointer(z_address), z_stride, 512, GPU_DBG_FORMAT_16BIT);
 			return true;
 		}
 
@@ -847,7 +842,7 @@ static const D3DVERTEXELEMENT9 g_FramebufferVertexElements[] = {
 
 		if (!vfb) {
 			// If there's no vfb and we're drawing there, must be memory?
-			buffer = GPUDebugBuffer(Memory::GetPointer(vfb->z_address | 0x04000000), vfb->z_stride, 512, GPU_DBG_FORMAT_16BIT);
+			buffer = GPUDebugBuffer(Memory::GetPointer(vfb->z_address), vfb->z_stride, 512, GPU_DBG_FORMAT_16BIT);
 			return true;
 		}
 

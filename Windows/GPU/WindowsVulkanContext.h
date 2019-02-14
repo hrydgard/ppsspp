@@ -35,6 +35,5 @@ public:
 	Draw::DrawContext *GetDrawContext() override { return draw_; }
 private:
 	Draw::DrawContext *draw_;
-	bool supportsDedicatedAlloc_;
 };
 

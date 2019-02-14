@@ -49,7 +49,7 @@ void DoUnswizzleTex16Basic(const u8 *texptr, u32 *ydestp, int bxc, int byc, u32 
 #define DoReliableHash32 XXH32
 #define DoReliableHash64 XXH64
 
-#ifdef _M_X64
+#if defined(_M_X64) || defined(ARM64)
 #define DoReliableHash XXH64
 typedef u64 ReliableHashType;
 #else
@@ -58,7 +58,7 @@ typedef u32 ReliableHashType;
 #endif
 
 // For ARM64, NEON is mandatory, so we also statically link.
-#elif PPSSPP_ARCH(ARM64)
+#elif PPSSPP_ARCH(ARM64) || defined(ARM64)
 #define DoQuickTexHash QuickTexHashNEON
 #define StableQuickTexHash QuickTexHashNEON
 #define DoUnswizzleTex16 DoUnswizzleTex16NEON

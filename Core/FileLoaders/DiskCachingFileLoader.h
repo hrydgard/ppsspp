@@ -27,24 +27,19 @@
 
 class DiskCachingFileLoaderCache;
 
-class DiskCachingFileLoader : public FileLoader {
+class DiskCachingFileLoader : public ProxiedFileLoader {
 public:
 	DiskCachingFileLoader(FileLoader *backend);
 	~DiskCachingFileLoader() override;
 
-	bool IsRemote() override;
 	bool Exists() override;
 	bool ExistsFast() override;
-	bool IsDirectory() override;
 	s64 FileSize() override;
-	std::string Path() const override;
 
 	size_t ReadAt(s64 absolutePos, size_t bytes, size_t count, void *data, Flags flags = Flags::NONE) override {
 		return ReadAt(absolutePos, bytes * count, data, flags) / bytes;
 	}
 	size_t ReadAt(s64 absolutePos, size_t bytes, void *data, Flags flags = Flags::NONE) override;
-
-	void Cancel() override;
 
 	static std::vector<std::string> GetCachedPathsInUse();
 
@@ -55,7 +50,6 @@ private:
 
 	std::once_flag preparedFlag_;
 	s64 filesize_ = 0;
-	FileLoader *backend_;
 	DiskCachingFileLoaderCache *cache_ = nullptr;
 
 	// We don't support concurrent disk cache access (we use memory cached indexes.)

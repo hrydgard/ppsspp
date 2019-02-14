@@ -199,6 +199,7 @@ static inline void GetTextureCoordinates(const VertexData& v0, const VertexData&
 	case GE_TEXMAP_TEXTURE_COORDS:
 	case GE_TEXMAP_UNKNOWN:
 	case GE_TEXMAP_ENVIRONMENT_MAP:
+	case GE_TEXMAP_TEXTURE_MATRIX:
 		{
 			// TODO: What happens if vertex has no texture coordinates?
 			// Note that for environment mapping, texture coordinates have been calculated during lighting
@@ -210,39 +211,6 @@ static inline void GetTextureCoordinates(const VertexData& v0, const VertexData&
 			float q_recip = 1.0f / (wq0 + wq1);
 			s = (v0.texturecoords.s() * wq0 + v1.texturecoords.s() * wq1) * q_recip;
 			t = (v0.texturecoords.t() * wq0 + v1.texturecoords.t() * wq1) * q_recip;
-		}
-		break;
-	case GE_TEXMAP_TEXTURE_MATRIX:
-		{
-			// projection mapping, TODO: Move this code to TransformUnit!
-			Vec3<float> source;
-			switch (gstate.getUVProjMode()) {
-			case GE_PROJMAP_POSITION:
-				source = (v0.modelpos * p + v1.modelpos * (1.0f - p));
-				break;
-
-			case GE_PROJMAP_UV:
-				source = Vec3f((v0.texturecoords * p + v1.texturecoords * (1.0f - p)), 0.0f);
-				break;
-
-			case GE_PROJMAP_NORMALIZED_NORMAL:
-				source = (v0.normal.Normalized() * p + v1.normal.Normalized() * (1.0f - p));
-				break;
-
-			case GE_PROJMAP_NORMAL:
-				source = (v0.normal * p + v1.normal * (1.0f - p));
-				break;
-
-			default:
-				ERROR_LOG_REPORT(G3D, "Software: Unsupported UV projection mode %x", gstate.getUVProjMode());
-				break;
-			}
-
-			Mat3x3<float> tgen(gstate.tgenMatrix);
-			Vec3<float> stq = tgen * source + Vec3<float>(gstate.tgenMatrix[9], gstate.tgenMatrix[10], gstate.tgenMatrix[11]);
-			float z_recip = 1.0f / stq.z;
-			s = stq.x * z_recip;
-			t = stq.y * z_recip;
 		}
 		break;
 	default:
@@ -259,6 +227,7 @@ static inline void GetTextureCoordinates(const VertexData& v0, const VertexData&
 	case GE_TEXMAP_TEXTURE_COORDS:
 	case GE_TEXMAP_UNKNOWN:
 	case GE_TEXMAP_ENVIRONMENT_MAP:
+	case GE_TEXMAP_TEXTURE_MATRIX:
 		{
 			// TODO: What happens if vertex has no texture coordinates?
 			// Note that for environment mapping, texture coordinates have been calculated during lighting
@@ -272,39 +241,6 @@ static inline void GetTextureCoordinates(const VertexData& v0, const VertexData&
 			Vec4<float> q_recip = (wq0 + wq1 + wq2).Reciprocal();
 			s = Interpolate(v0.texturecoords.s(), v1.texturecoords.s(), v2.texturecoords.s(), wq0, wq1, wq2, q_recip);
 			t = Interpolate(v0.texturecoords.t(), v1.texturecoords.t(), v2.texturecoords.t(), wq0, wq1, wq2, q_recip);
-		}
-		break;
-	case GE_TEXMAP_TEXTURE_MATRIX:
-		for (int i = 0; i < 4; ++i) {
-			// projection mapping, TODO: Move this code to TransformUnit!
-			Vec3<float> source;
-			switch (gstate.getUVProjMode()) {
-			case GE_PROJMAP_POSITION:
-				source = (v0.modelpos * w0[i] + v1.modelpos * w1[i] + v2.modelpos * w2[i]) * wsum_recip[i];
-				break;
-
-			case GE_PROJMAP_UV:
-				source = Vec3f((v0.texturecoords * w0[i] + v1.texturecoords * w1[i] + v2.texturecoords * w2[i]) * wsum_recip[i], 0.0f);
-				break;
-
-			case GE_PROJMAP_NORMALIZED_NORMAL:
-				source = (v0.normal.Normalized() * w0[i] + v1.normal.Normalized() * w1[i] + v2.normal.Normalized() * w2[i]) * wsum_recip[i];
-				break;
-
-			case GE_PROJMAP_NORMAL:
-				source = (v0.normal * w0[i] + v1.normal * w1[i] + v2.normal * w2[i]) * wsum_recip[i];
-				break;
-
-			default:
-				ERROR_LOG_REPORT(G3D, "Software: Unsupported UV projection mode %x", gstate.getUVProjMode());
-				break;
-			}
-
-			Mat3x3<float> tgen(gstate.tgenMatrix);
-			Vec3<float> stq = tgen * source + Vec3<float>(gstate.tgenMatrix[9], gstate.tgenMatrix[10], gstate.tgenMatrix[11]);
-			float z_recip = 1.0f / stq.z;
-			s[i] = stq.x * z_recip;
-			t[i] = stq.y * z_recip;
 		}
 		break;
 	default:
@@ -487,32 +423,33 @@ static inline bool StencilTestPassed(u8 stencil)
 static inline u8 ApplyStencilOp(int op, u8 old_stencil) {
 	// TODO: Apply mask to reference or old stencil?
 	u8 reference_stencil = gstate.getStencilTestRef(); // TODO: Apply mask?
+	const u8 write_mask = gstate.getStencilWriteMask();
 
 	switch (op) {
 		case GE_STENCILOP_KEEP:
 			return old_stencil;
 
 		case GE_STENCILOP_ZERO:
-			return 0;
+			return old_stencil & write_mask;
 
 		case GE_STENCILOP_REPLACE:
-			return reference_stencil;
+			return (reference_stencil & ~write_mask) | (old_stencil & write_mask);
 
 		case GE_STENCILOP_INVERT:
-			return ~old_stencil;
+			return (~old_stencil & ~write_mask) | (old_stencil & write_mask);
 
 		case GE_STENCILOP_INCR:
 			switch (gstate.FrameBufFormat()) {
 			case GE_FORMAT_8888:
 				if (old_stencil != 0xFF) {
-					return old_stencil + 1;
+					return ((old_stencil + 1) & ~write_mask) | (old_stencil & write_mask);
 				}
 				return old_stencil;
 			case GE_FORMAT_5551:
-				return 0xFF;
+				return ~write_mask | (old_stencil & write_mask);
 			case GE_FORMAT_4444:
 				if (old_stencil < 0xF0) {
-					return old_stencil + 0x10;
+					return ((old_stencil + 0x10) & ~write_mask) | (old_stencil & write_mask);
 				}
 				return old_stencil;
 			default:
@@ -524,11 +461,11 @@ static inline u8 ApplyStencilOp(int op, u8 old_stencil) {
 			switch (gstate.FrameBufFormat()) {
 			case GE_FORMAT_4444:
 				if (old_stencil >= 0x10)
-					return old_stencil - 0x10;
+					return ((old_stencil - 0x10) & ~write_mask) | (old_stencil & write_mask);
 				break;
 			default:
 				if (old_stencil != 0)
-					return old_stencil - 1;
+					return ((old_stencil - 1) & ~write_mask) | (old_stencil & write_mask);
 				return old_stencil;
 			}
 			break;
@@ -1512,48 +1449,41 @@ void ClearRectangle(const VertexData &v0, const VertexData &v1)
 		}
 	}
 
-	const u32 new_color = v1.color0.ToRGBA();
-	u16 new_color16;
-
 	// Note: this stays 0xFFFFFFFF if keeping color and alpha, even for 16-bit.
 	u32 keepOldMask = 0xFFFFFFFF;
+	if (gstate.isClearModeColorMask())
+		keepOldMask &= 0xFF000000;
+	if (gstate.isClearModeAlphaMask())
+		keepOldMask &= 0x00FFFFFF;
+
+	// The pixel write masks are respected in clear mode.
+	keepOldMask |= gstate.getColorMask();
+
+	const u32 new_color = v1.color0.ToRGBA();
+	u16 new_color16;
 	switch (gstate.FrameBufFormat()) {
 	case GE_FORMAT_565:
 		new_color16 = RGBA8888ToRGB565(new_color);
-		if (gstate.isClearModeColorMask())
-			keepOldMask = 0;
+		keepOldMask = keepOldMask == 0 ? 0 : (0xFFFF0000 | RGBA8888ToRGB565(keepOldMask));
 		break;
 
 	case GE_FORMAT_5551:
 		new_color16 = RGBA8888ToRGBA5551(new_color);
-		if (gstate.isClearModeColorMask())
-			keepOldMask &= 0x00008000;
-		if (gstate.isClearModeAlphaMask())
-			keepOldMask &= 0x00007FFF;
+		keepOldMask = keepOldMask == 0 ? 0 : (0xFFFF0000 | RGBA8888ToRGBA5551(keepOldMask));
 		break;
 
 	case GE_FORMAT_4444:
 		new_color16 = RGBA8888ToRGBA4444(new_color);
-		if (gstate.isClearModeColorMask())
-			keepOldMask &= 0x0000F000;
-		if (gstate.isClearModeAlphaMask())
-			keepOldMask &= 0x00000FFF;
+		keepOldMask = keepOldMask == 0 ? 0 : (0xFFFF0000 | RGBA8888ToRGBA4444(keepOldMask));
 		break;
 
 	case GE_FORMAT_8888:
-		if (gstate.isClearModeColorMask())
-			keepOldMask &= 0xFF000000;
-		if (gstate.isClearModeAlphaMask())
-			keepOldMask &= 0x00FFFFFF;
 		break;
 
 	case GE_FORMAT_INVALID:
 		_dbg_assert_msg_(G3D, false, "Software: invalid framebuf format.");
 		break;
 	}
-
-	// The pixel write masks are respected in clear mode.
-	keepOldMask &= ~gstate.getColorMask();
 
 	if (keepOldMask == 0) {
 		ScreenCoords pprime(minX, minY, 0);

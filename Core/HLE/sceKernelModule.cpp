@@ -84,13 +84,14 @@ enum {
 };
 
 // This is a workaround for misbehaving homebrew (like TBL's Suicide Barbie (Final)).
-static const char *lieAboutSuccessModules[] = {
+static const char * const lieAboutSuccessModules[] = {
 	"flash0:/kd/audiocodec.prx",
+	"flash0:/kd/audiocodec_260.prx",
 	"flash0:/kd/libatrac3plus.prx",
 	"disc0:/PSP_GAME/SYSDIR/UPDATE/EBOOT.BIN",
 };
 
-static const char *blacklistedModules[] = {
+static const char * const blacklistedModules[] = {
 	"sceATRAC3plus_Library",
 	"sceFont_Library",
 	"SceFont_Library",

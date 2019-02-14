@@ -33,7 +33,7 @@ public:
 	GameScreen(const std::string &gamePath);
 	~GameScreen();
 
-	void update() override;
+	void render() override;
 
 	std::string tag() const override { return "game"; }
 

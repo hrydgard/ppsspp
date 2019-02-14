@@ -25,31 +25,34 @@
 #include "GPU/GLES/TextureCacheGLES.h"
 #include "GPU/Common/DepalettizeShaderCommon.h"
 
-static const char *depalVShader100 =
-"#ifdef GL_ES\n"
-"precision highp float;\n"
-"#endif\n"
-"attribute vec4 a_position;\n"
-"attribute vec2 a_texcoord0;\n"
-"varying vec2 v_texcoord0;\n"
-"void main() {\n"
-"  v_texcoord0 = a_texcoord0;\n"
-"  gl_Position = a_position;\n"
-"}\n";
+static const char *depalVShader100 = R"(
+#ifdef GL_ES
+precision highp float;
+#endif
+attribute vec4 a_position;
+attribute vec2 a_texcoord0;
+varying vec2 v_texcoord0;
+void main() {
+  v_texcoord0 = a_texcoord0;
+  gl_Position = a_position;
+}
+)";
 
-static const char *depalVShader300 =
-"#ifdef GL_ES\n"
-"precision highp float;\n"
-"#endif\n"
-"in vec4 a_position;\n"
-"in vec2 a_texcoord0;\n"
-"out vec2 v_texcoord0;\n"
-"void main() {\n"
-"  v_texcoord0 = a_texcoord0;\n"
-"  gl_Position = a_position;\n"
-"}\n";
+static const char *depalVShader300 = R"(
+#ifdef GL_ES
+precision highp float;
+#endif
+in vec4 a_position;
+in vec2 a_texcoord0;
+out vec2 v_texcoord0;
+void main() {
+  v_texcoord0 = a_texcoord0;
+  gl_Position = a_position;
+}
+)";
 
 DepalShaderCacheGLES::DepalShaderCacheGLES(Draw::DrawContext *draw) {
+	_assert_(draw);
 	render_ = (GLRenderManager *)draw->GetNativeObject(Draw::NativeObject::RENDER_MANAGER);
 	// Pre-build the vertex program
 	useGL3_ = gl_extensions.GLES3 || gl_extensions.VersionGEThan(3, 3);
@@ -57,9 +60,6 @@ DepalShaderCacheGLES::DepalShaderCacheGLES(Draw::DrawContext *draw) {
 		// Use the floating point path, it just can't handle the math.
 		useGL3_ = false;
 	}
-
-	vertexShaderFailed_ = false;
-	vertexShader_ = 0;
 }
 
 DepalShaderCacheGLES::~DepalShaderCacheGLES() {
@@ -75,8 +75,9 @@ bool DepalShaderCacheGLES::CreateVertexShader() {
 	std::string prelude;
 	if (gl_extensions.IsGLES) {
 		prelude = useGL3_ ? "#version 300 es\n" : "#version 100\n";
-	} else if (useGL3_) {
-		prelude = "#version 330\n";
+	} else {
+		// We need to add a corresponding #version.  Apple drivers fail without an exact match.
+		prelude = StringFromFormat("#version %d\n", gl_extensions.GLSLVersion());
 	}
 	vertexShader_ = render_->CreateShader(GL_VERTEX_SHADER, prelude + src, "depal");
 	return true;

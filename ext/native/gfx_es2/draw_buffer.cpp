@@ -80,10 +80,6 @@ void DrawBuffer::Begin(Draw::Pipeline *program) {
 	count_ = 0;
 }
 
-void DrawBuffer::End() {
-	// Currently does nothing, but call it!
-}
-
 void DrawBuffer::Flush(bool set_blend_state) {
 	using namespace Draw;
 	if (count_ == 0)

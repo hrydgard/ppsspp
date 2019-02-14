@@ -28,11 +28,12 @@
 #include "base/timeutil.h"
 #include "gfx/gl_debug_log.h"
 #include "gfx_es2/gpu_features.h"
-#include "thin3d/GLRenderManager.h"
 #include "i18n/i18n.h"
 #include "math/math_util.h"
 #include "math/lin/matrix4x4.h"
 #include "profiler/profiler.h"
+#include "thin3d/thin3d.h"
+#include "thin3d/GLRenderManager.h"
 
 #include "Common/FileUtil.h"
 #include "Core/Config.h"
@@ -571,7 +572,7 @@ void LinkedShader::UpdateUniforms(u32 vertType, const ShaderID &vsid) {
 }
 
 ShaderManagerGLES::ShaderManagerGLES(Draw::DrawContext *draw)
-		: lastShader_(nullptr), shaderSwitchDirtyUniforms_(0), diskCacheDirty_(false), fsCache_(16), vsCache_(16) {
+		: ShaderManagerCommon(draw), lastShader_(nullptr), shaderSwitchDirtyUniforms_(0), diskCacheDirty_(false), fsCache_(16), vsCache_(16) {
 	render_ = (GLRenderManager *)draw->GetNativeObject(Draw::NativeObject::RENDER_MANAGER);
 	codeBuffer_ = new char[16384];
 	lastFSID_.set_invalid();
@@ -610,6 +611,7 @@ void ShaderManagerGLES::DeviceLost() {
 
 void ShaderManagerGLES::DeviceRestore(Draw::DrawContext *draw) {
 	render_ = (GLRenderManager *)draw->GetNativeObject(Draw::NativeObject::RENDER_MANAGER);
+	draw_ = draw;
 }
 
 void ShaderManagerGLES::DirtyShader() {
@@ -701,7 +703,7 @@ LinkedShader *ShaderManagerGLES::ApplyFragmentShader(VShaderID VSID, Shader *vs,
 	FShaderID FSID;
 	if (gstate_c.IsDirty(DIRTY_FRAGMENTSHADER_STATE)) {
 		gstate_c.Clean(DIRTY_FRAGMENTSHADER_STATE);
-		ComputeFragmentShaderID(&FSID);
+		ComputeFragmentShaderID(&FSID, draw_->GetBugs());
 	} else {
 		FSID = lastFSID_;
 	}
@@ -826,7 +828,7 @@ std::string ShaderManagerGLES::DebugGetShaderString(std::string id, DebugShaderT
 // as sometimes these features might have an effect on the ID bits.
 
 #define CACHE_HEADER_MAGIC 0x83277592
-#define CACHE_VERSION 12
+#define CACHE_VERSION 13
 struct CacheHeader {
 	uint32_t magic;
 	uint32_t version;

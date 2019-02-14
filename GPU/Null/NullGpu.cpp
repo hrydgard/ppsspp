@@ -29,7 +29,7 @@ class NullDrawEngine : public DrawEngineCommon {
 public:
 	void DispatchFlush() override {
 	}
-	void DispatchSubmitPrim(void *verts, void *inds, GEPrimitiveType prim, int vertexCount, u32 vertTypeID, int *bytesRead) override {
+	void DispatchSubmitPrim(void *verts, void *inds, GEPrimitiveType prim, int vertexCount, u32 vertTypeID, int cullMode, int *bytesRead) override {
 	}
 };
 

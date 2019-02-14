@@ -1,4 +1,4 @@
-﻿#include "ppsspp_config.h"
+#include "ppsspp_config.h"
 
 #include "pch.h"
 #include "App.h"
@@ -92,6 +92,7 @@ void App::SetWindow(CoreWindow^ window) {
 
 	if (Windows::Foundation::Metadata::ApiInformation::IsTypePresent("Windows.Phone.UI.Input.HardwareButtons")) {
 		m_hardwareButtons.insert(HardwareButton::BACK);
+		m_isPhone = true;
 	}
 
 	Windows::UI::Core::SystemNavigationManager::GetForCurrentView()->
@@ -103,11 +104,15 @@ void App::SetWindow(CoreWindow^ window) {
 }
 
 bool App::HasBackButton() {
-	return m_hardwareButtons.find(HardwareButton::BACK) != m_hardwareButtons.end();
+	return m_isPhone;
 }
 
 void App::App_BackRequested(Platform::Object^ sender, Windows::UI::Core::BackRequestedEventArgs^ e) {
-	e->Handled = m_main->OnHardwareButton(HardwareButton::BACK);
+	if (m_isPhone) {
+		e->Handled = m_main->OnHardwareButton(HardwareButton::BACK);
+	} else {
+		e->Handled = true;
+	}
 }
 
 void App::OnKeyDown(Windows::UI::Core::CoreWindow^ sender, Windows::UI::Core::KeyEventArgs^ args) {

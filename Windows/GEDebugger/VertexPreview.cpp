@@ -204,7 +204,7 @@ static void ExpandBezier(int &count, int op, const std::vector<SimpleVertex> &si
 	cpoints.col = (Vec4f *)AllocateAlignedMemory(sizeof(Vec4f) * num_points, 16);
 	cpoints.Convert(points.data(), num_points);
 
-	surface.Init(generatedVerts.size());
+	surface.Init((int)generatedVerts.size());
 	SoftwareTessellation(output, surface, gstate.vertType, cpoints);
 	count = output.count;
 
@@ -256,7 +256,7 @@ static void ExpandSpline(int &count, int op, const std::vector<SimpleVertex> &si
 	cpoints.col = (Vec4f *)AllocateAlignedMemory(sizeof(Vec4f) * num_points, 16);
 	cpoints.Convert(points.data(), num_points);
 
-	surface.Init(generatedVerts.size());
+	surface.Init((int)generatedVerts.size());
 	SoftwareTessellation(output, surface, gstate.vertType, cpoints);
 	count = output.count;
 

@@ -484,7 +484,7 @@ void TextureCacheGLES::ApplyTextureFramebuffer(TexCacheEntry *entry, VirtualFram
 		shaderApply.ApplyBounds(gstate_c.vertBounds, gstate_c.curTextureXOffset, gstate_c.curTextureYOffset);
 		shaderApply.Use(render_, drawEngine_, shadeInputLayout_);
 
-		framebufferManagerGL_->BindFramebufferAsColorTexture(0, framebuffer, BINDFBCOLOR_SKIP_COPY);
+		framebufferManagerGL_->BindFramebufferAsColorTexture(0, framebuffer, BINDFBCOLOR_SKIP_COPY | BINDFBCOLOR_FORCE_SELF);
 		render_->BindTexture(TEX_SLOT_CLUT, clutTexture);
 		render_->SetTextureSampler(TEX_SLOT_CLUT, GL_REPEAT, GL_CLAMP_TO_EDGE, GL_NEAREST, GL_NEAREST, 0.0f);
 
@@ -679,7 +679,7 @@ void TextureCacheGLES::BuildTexture(TexCacheEntry *const entry) {
 			}
 		} else {
 			// Avoid PowerVR driver bug
-			if (canAutoGen && w > 1 && h > 1 && !(h > w && (gl_extensions.bugs & BUG_PVR_GENMIPMAP_HEIGHT_GREATER))) {  // Really! only seems to fail if height > width
+			if (canAutoGen && w > 1 && h > 1 && !(h > w && draw_->GetBugs().Has(Draw::Bugs::PVR_GENMIPMAP_HEIGHT_GREATER))) {  // Really! only seems to fail if height > width
 				// NOTICE_LOG(G3D, "Generating mipmap for texture sized %dx%d%d", w, h, (int)format);
 				genMips = true;
 			} else {

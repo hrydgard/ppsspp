@@ -51,8 +51,8 @@ public:
 
 	void Begin();
 	void BeginNoTex();
+	void BeginPipeline(Draw::Pipeline *pipeline, Draw::SamplerState *samplerState);
 	void Flush();
-	void End();
 
 	void RebindTexture() const;
 
@@ -86,6 +86,7 @@ public:
 	void SetBounds(const Bounds &b) { bounds_ = b; }
 	const Bounds &GetBounds() const { return bounds_; }
 	Draw::DrawContext *GetDrawContext() { return draw_; }
+	void SetCurZ(float curZ);
 
 	void PushTransform(const UITransform &transform);
 	void PopTransform();

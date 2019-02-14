@@ -33,21 +33,22 @@
 #define SHADERLOG
 #endif
 
-static const char *depalVShaderHLSL =
-"struct VS_IN {\n"
-"  float3 a_position : POSITION;\n"
-"  float2 a_texcoord0 : TEXCOORD0;\n"
-"};\n"
-"struct VS_OUT {\n"
-"  float2 Texcoord : TEXCOORD0;\n"
-"  float4 Position : SV_Position;\n"
-"};\n"
-"VS_OUT main(VS_IN input) {\n"
-"  VS_OUT output;\n"
-"  output.Texcoord = input.a_texcoord0;\n"
-"  output.Position = float4(input.a_position, 1.0);\n"
-"  return output;\n"
-"}\n";
+static const char *depalVShaderHLSL = R"(
+struct VS_IN {
+  float3 a_position : POSITION;
+  float2 a_texcoord0 : TEXCOORD0;
+};
+struct VS_OUT {
+  float2 Texcoord : TEXCOORD0;
+  float4 Position : SV_Position;
+};
+VS_OUT main(VS_IN input) {
+  VS_OUT output;
+  output.Texcoord = input.a_texcoord0;
+  output.Position = float4(input.a_position, 1.0);
+  return output;
+}
+)";
 
 static const D3D11_INPUT_ELEMENT_DESC g_DepalVertexElements[] = {
 	{ "POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 0, },

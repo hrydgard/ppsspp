@@ -49,14 +49,14 @@
 // Currently known non working ones should have DISABLE.
 
 // #define CONDITIONAL_DISABLE { Comp_Generic(op); return; }
-#define CONDITIONAL_DISABLE ;
+#define CONDITIONAL_DISABLE(flag) if (opts.disableFlags & (uint32_t)JitDisable::flag) { Comp_Generic(op); return; }
 #define DISABLE { Comp_Generic(op); return; }
 #define INVALIDOP { Comp_Generic(op); return; }
 
 namespace MIPSComp {
 
 void IRFrontend::Comp_FPU3op(MIPSOpcode op) {
-	CONDITIONAL_DISABLE;
+	CONDITIONAL_DISABLE(FPU);
 
 	int ft = _FT;
 	int fs = _FS;
@@ -74,7 +74,7 @@ void IRFrontend::Comp_FPU3op(MIPSOpcode op) {
 }
 
 void IRFrontend::Comp_FPULS(MIPSOpcode op) {
-	CONDITIONAL_DISABLE;
+	CONDITIONAL_DISABLE(LSU_FPU);
 	s32 offset = _IMM16;
 	int ft = _FT;
 	MIPSGPReg rs = _RS;
@@ -97,7 +97,7 @@ void IRFrontend::Comp_FPULS(MIPSOpcode op) {
 }
 
 void IRFrontend::Comp_FPUComp(MIPSOpcode op) {
-	CONDITIONAL_DISABLE;
+	CONDITIONAL_DISABLE(FPU_COMP);
 
 	int opc = op & 0xF;
 	if (opc >= 8) opc -= 8; // alias
@@ -139,7 +139,7 @@ void IRFrontend::Comp_FPUComp(MIPSOpcode op) {
 }
 
 void IRFrontend::Comp_FPU2op(MIPSOpcode op) {
-	CONDITIONAL_DISABLE;
+	CONDITIONAL_DISABLE(FPU);
 
 	int fs = _FS;
 	int fd = _FD;
@@ -185,7 +185,7 @@ void IRFrontend::Comp_FPU2op(MIPSOpcode op) {
 }
 
 void IRFrontend::Comp_mxc1(MIPSOpcode op) {
-	CONDITIONAL_DISABLE;
+	CONDITIONAL_DISABLE(FPU_XFER);
 
 	int fs = _FS;
 	MIPSGPReg rt = _RT;

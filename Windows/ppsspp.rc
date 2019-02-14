@@ -211,14 +211,16 @@ EXSTYLE WS_EX_ACCEPTFILES | WS_EX_TOOLWINDOW
 CAPTION "GE"
 FONT 8, "MS Shell Dlg", 0, 0, 0x1
 BEGIN
-    PUSHBUTTON      "Step &Frame",IDC_GEDBG_STEPFRAME,10,2,48,14
-    PUSHBUTTON      "Step &Tex",IDC_GEDBG_STEPTEX,62,2,48,14
-    PUSHBUTTON      "Step &Draw",IDC_GEDBG_STEPDRAW,114,2,48,14
-    PUSHBUTTON      "Step &Prim",IDC_GEDBG_STEPPRIM,166,2,48,14
-    PUSHBUTTON      "Step &Curve",IDC_GEDBG_STEPCURVE,218,2,48,14
-    PUSHBUTTON      "Step &Into",IDC_GEDBG_STEP,270,2,48,14
-    PUSHBUTTON      "&Resume",IDC_GEDBG_RESUME,322,2,48,14
-    PUSHBUTTON      "Rec&ord",IDC_GEDBG_RECORD,440,2,48,14
+    PUSHBUTTON      "Step &Frame",IDC_GEDBG_STEPFRAME,10,2,44,14
+    PUSHBUTTON      "Step &Tex",IDC_GEDBG_STEPTEX,55,2,44,14
+    PUSHBUTTON      "Step &Draw",IDC_GEDBG_STEPDRAW,100,2,44,14
+    PUSHBUTTON      "Step &Prim",IDC_GEDBG_STEPPRIM,145,2,44,14
+    PUSHBUTTON      "Step &Curve",IDC_GEDBG_STEPCURVE,190,2,44,14
+    PUSHBUTTON      "Step &Into",IDC_GEDBG_STEP,235,2,44,14
+    PUSHBUTTON      "Step Cou&nt",IDC_GEDBG_STEPCOUNT,280,2,44,14
+    EDITTEXT        IDC_GEDBG_PRIMCOUNTER,325,4,50,12,ES_READONLY | NOT WS_BORDER
+    PUSHBUTTON      "&Resume",IDC_GEDBG_RESUME,396,2,44,14
+    PUSHBUTTON      "Rec&ord",IDC_GEDBG_RECORD,444,2,44,14
     CONTROL         "",IDC_GEDBG_TEX,"SimpleGLWindow",WS_CHILD | WS_VISIBLE,10,20,128,128
     CONTROL         "",IDC_GEDBG_FRAME,"SimpleGLWindow",WS_CHILD | WS_VISIBLE,148,20,256,136
     CONTROL         "",IDC_GEDBG_MAINTAB,"SysTabControl32",TCS_TABS | TCS_FOCUSNEVER,10,216,480,180
@@ -231,6 +233,18 @@ BEGIN
     PUSHBUTTON      "Level +",IDC_GEDBG_TEXLEVELUP,84,192,40,14
     CONTROL         "",IDC_GEDBG_FBTABS,"SysTabControl32",TCS_BUTTONS | TCS_FOCUSNEVER,384,192,110,12
     PUSHBUTTON      "Break on Target...",IDC_GEDBG_BREAKTARGET,394,211,100,14
+END
+
+IDD_GEDBG_STEPCOUNT DIALOGEX 0, 0, 124, 18
+STYLE DS_SETFONT | DS_FIXEDSYS | WS_POPUP | WS_CAPTION | WS_SYSMENU | WS_THICKFRAME
+EXSTYLE WS_EX_TOOLWINDOW
+CAPTION "Step Count"
+FONT 8, "MS Shell Dlg", 400, 0, 0x1
+BEGIN
+    COMBOBOX        IDC_GEDBG_STEPCOUNT_COMBO,6,3,50,13,CBS_DROPDOWN | WS_VSCROLL | WS_TABSTOP
+    PUSHBUTTON      "-",IDC_GEDBG_STEPCOUNT_DEC,58,2,14,14
+    PUSHBUTTON      "+",IDC_GEDBG_STEPCOUNT_INC,73,2,14,14
+    PUSHBUTTON      "Jump",IDC_GEDBG_STEPCOUNT_JUMP,88,2,30,14
 END
 
 
@@ -449,18 +463,18 @@ IDI_STOPDISABLE         ICON                    "stop1.ico"
 // Menu
 //
 
-IDR_MENU1 MENU
+IDR_MENU1 MENUEX
 BEGIN
-    POPUP "File"
+    POPUP "File",                                           ID_FILE_MENU
     BEGIN
         MENUITEM "Load",                                    ID_FILE_LOAD
         MENUITEM "Open Directory...",                       ID_FILE_LOAD_DIR
         MENUITEM "Open from MS:/PSP/GAME...",               ID_FILE_LOAD_MEMSTICK
-        MENUITEM SEPARATOR
+        MENUITEM "", 0, MFT_SEPARATOR
         MENUITEM "Open Memory Stick",                       ID_FILE_MEMSTICK
-        MENUITEM SEPARATOR
+        MENUITEM "", 0, MFT_SEPARATOR
 
-        POPUP "Savestate Slot"
+        POPUP "Savestate Slot",                             ID_FILE_SAVESTATE_SLOT_MENU
         BEGIN
             MENUITEM "&1",                                  ID_FILE_SAVESTATE_SLOT_1
             MENUITEM "&2",                                  ID_FILE_SAVESTATE_SLOT_2
@@ -473,24 +487,24 @@ BEGIN
         MENUITEM "Load State File...",                      ID_FILE_LOADSTATEFILE
         MENUITEM "Save State File...",                      ID_FILE_SAVESTATEFILE
 
-        POPUP "Record"
+        POPUP "Record",                                     ID_FILE_RECORD_MENU
         BEGIN
             MENUITEM "Record Display",                      ID_FILE_DUMPFRAMES
             MENUITEM "Use Lossless Video Codec (FFV1)",     ID_FILE_USEFFV1
-            MENUITEM SEPARATOR
+            MENUITEM "", 0, MFT_SEPARATOR
             MENUITEM "Record Audio",                        ID_FILE_DUMPAUDIO
         END
-        MENUITEM SEPARATOR
+        MENUITEM "", 0, MFT_SEPARATOR
         MENUITEM "Exit",                                    ID_FILE_EXIT
     END
 
-    POPUP "Emulation"
+    POPUP "Emulation",                                      ID_EMULATION_MENU
     BEGIN
         MENUITEM "Pause",                                   ID_EMULATION_PAUSE
         MENUITEM "Stop",                                    ID_EMULATION_STOP
         MENUITEM "Reset",                                   ID_EMULATION_RESET
         MENUITEM "Switch UMD",                              ID_EMULATION_SWITCH_UMD
-        POPUP "Display Rotation"
+        POPUP "Display Rotation",                           ID_EMULATION_ROTATION_MENU
         BEGIN
             MENUITEM "Landscape",                           ID_EMULATION_ROTATION_H
             MENUITEM "Portrait",                            ID_EMULATION_ROTATION_V
@@ -499,22 +513,22 @@ BEGIN
         END
     END
 
-    POPUP "Debug"
+    POPUP "Debugging",                                      ID_DEBUG_MENU
     BEGIN
         MENUITEM "Run",                                     ID_TOGGLE_BREAK
         MENUITEM "Break on Load",                           ID_DEBUG_BREAKONLOAD
         MENUITEM "Ignore Illegal Reads/Writes",             ID_DEBUG_IGNOREILLEGALREADS
-        MENUITEM SEPARATOR
+        MENUITEM "", 0, MFT_SEPARATOR
         MENUITEM "Load Map File...",                        ID_DEBUG_LOADMAPFILE
         MENUITEM "Save Map File...",                        ID_DEBUG_SAVEMAPFILE
         MENUITEM "Load .sym File...",                       ID_DEBUG_LOADSYMFILE
         MENUITEM "Save .sym File...",                       ID_DEBUG_SAVESYMFILE
         MENUITEM "Reset Symbol Table",                      ID_DEBUG_RESETSYMBOLTABLE
-        MENUITEM SEPARATOR
+        MENUITEM "", 0, MFT_SEPARATOR
         MENUITEM "Take Screenshot",                         ID_DEBUG_TAKESCREENSHOT
         MENUITEM "Dump Next Frame to Log",                  ID_DEBUG_DUMPNEXTFRAME
         MENUITEM "Show Debug Statistics",                   ID_DEBUG_SHOWDEBUGSTATISTICS
-        MENUITEM SEPARATOR
+        MENUITEM "", 0, MFT_SEPARATOR
         MENUITEM "Disassembly",                             ID_DEBUG_DISASSEMBLY
         MENUITEM "GE Debugger...",                          ID_DEBUG_GEDEBUGGER
         MENUITEM "Extract File...",                         ID_DEBUG_EXTRACTFILE
@@ -522,7 +536,7 @@ BEGIN
         MENUITEM "Memory View...",                          ID_DEBUG_MEMORYVIEW
     END
 
-    POPUP "Options"
+    POPUP "Game Settings",                                  ID_OPTIONS_MENU
     BEGIN
         MENUITEM "Keep PPSSPP On Top",                      ID_OPTIONS_TOPMOST
         MENUITEM "Pause When Not Focused",                  ID_OPTIONS_PAUSE_FOCUS
@@ -531,11 +545,14 @@ BEGIN
         MENUITEM "Control Mapping...",                      ID_OPTIONS_CONTROLS
         MENUITEM "Display Layout Editor",                   ID_OPTIONS_DISPLAY_LAYOUT
         MENUITEM "More Settings...",                        ID_OPTIONS_MORE_SETTINGS
-        MENUITEM SEPARATOR
+        MENUITEM "", 0, MFT_SEPARATOR
         MENUITEM "Fullscreen",                              ID_OPTIONS_FULLSCREEN
         MENUITEM "VSync",                                   ID_OPTIONS_VSYNC
-        MENUITEM "Postprocessing Shader",                   ID_OPTIONS_FXAA
-        POPUP "Rendering Resolution"
+        POPUP "Postprocessing Shader",                      ID_OPTIONS_SHADER_MENU
+        BEGIN
+            MENUITEM "", 0, MFT_SEPARATOR
+        END
+        POPUP "Rendering Resolution",                       ID_OPTIONS_SCREEN_MENU
         BEGIN
             MENUITEM "Auto",                                ID_OPTIONS_SCREENAUTO
             MENUITEM "&1x",                                 ID_OPTIONS_SCREEN1X
@@ -549,7 +566,7 @@ BEGIN
             MENUITEM "&9x",                                 ID_OPTIONS_SCREEN9X
             MENUITEM "&Max",                                ID_OPTIONS_SCREENMAX
         END
-        POPUP "Window Size"
+        POPUP "Window Size",                                ID_OPTIONS_WINDOW_MENU
         BEGIN
             MENUITEM "&1x",                                 ID_OPTIONS_WINDOW1X
             MENUITEM "&2x",                                 ID_OPTIONS_WINDOW2X
@@ -563,7 +580,7 @@ BEGIN
             MENUITEM "&10x",                                ID_OPTIONS_WINDOW10X
         END
 
-        POPUP "Backend"
+        POPUP "Backend",                                    ID_OPTIONS_BACKEND_MENU
         BEGIN
             MENUITEM "Direct3D9",                           ID_OPTIONS_DIRECT3D9
             MENUITEM "Direct3D11",                          ID_OPTIONS_DIRECT3D11
@@ -571,15 +588,15 @@ BEGIN
             MENUITEM "Vulkan",                              ID_OPTIONS_VULKAN
         END
 
-        POPUP "Rendering Mode"
+        POPUP "Rendering Mode",                             ID_OPTIONS_RENDERMODE_MENU
         BEGIN
             MENUITEM "Non-Buffered Rendering",              ID_OPTIONS_NONBUFFEREDRENDERING
             MENUITEM "Buffered Rendering",                  ID_OPTIONS_BUFFEREDRENDERING
         END
-        POPUP "Frame Skipping"
+        POPUP "Frame Skipping",                             ID_OPTIONS_FRAMESKIP_MENU
         BEGIN
             MENUITEM "Auto",                                ID_OPTIONS_FRAMESKIP_AUTO
-            MENUITEM SEPARATOR
+            MENUITEM "", 0, MFT_SEPARATOR
             MENUITEM "Off",                                 ID_OPTIONS_FRAMESKIP_0
             MENUITEM "&1",                                  ID_OPTIONS_FRAMESKIP_1
             MENUITEM "&2",                                  ID_OPTIONS_FRAMESKIP_2
@@ -590,20 +607,25 @@ BEGIN
             MENUITEM "&7",                                  ID_OPTIONS_FRAMESKIP_7
             MENUITEM "&8",                                  ID_OPTIONS_FRAMESKIP_8
         END
-        POPUP "Texture Filtering"
+        POPUP "Frame Skipping Type",                        ID_OPTIONS_FRAMESKIPTYPE_MENU
+        BEGIN
+            MENUITEM "Skip Number of Frames",               ID_OPTIONS_FRAMESKIPTYPE_COUNT
+            MENUITEM "Skip Percent of FPS",                 ID_OPTIONS_FRAMESKIPTYPE_PRCNT
+        END
+        POPUP "Texture Filtering",                          ID_OPTIONS_TEXTUREFILTERING_MENU
         BEGIN
             MENUITEM "Auto",                                ID_OPTIONS_TEXTUREFILTERING_AUTO
             MENUITEM "Nearest",                             ID_OPTIONS_NEARESTFILTERING
             MENUITEM "Linear",                              ID_OPTIONS_LINEARFILTERING
             MENUITEM "Linear on FMV",                       ID_OPTIONS_LINEARFILTERING_CG
         END
-        POPUP "Screen Scaling Filter"
+        POPUP "Screen Scaling Filter",                      ID_OPTIONS_SCREENFILTER_MENU
         BEGIN
             MENUITEM "Linear",                              ID_OPTIONS_BUFLINEARFILTER
             MENUITEM "Nearest",                             ID_OPTIONS_BUFNEARESTFILTER
         END
 
-        POPUP "Texture Scaling"
+        POPUP "Texture Scaling",                        ID_OPTIONS_TEXTURESCALING_MENU
         BEGIN
             MENUITEM "Off",                             ID_TEXTURESCALING_OFF
             MENUITEM "Auto",                            ID_TEXTURESCALING_AUTO
@@ -611,7 +633,7 @@ BEGIN
             MENUITEM "&3x",                             ID_TEXTURESCALING_3X
             MENUITEM "&4x",                             ID_TEXTURESCALING_4X
             MENUITEM "&5x",                             ID_TEXTURESCALING_5X
-            MENUITEM SEPARATOR
+            MENUITEM "", 0, MFT_SEPARATOR
             MENUITEM "xBRZ",                            ID_TEXTURESCALING_XBRZ
             MENUITEM "Hybrid",                          ID_TEXTURESCALING_HYBRID
             MENUITEM "Bicubic",                         ID_TEXTURESCALING_BICUBIC
@@ -621,17 +643,22 @@ BEGIN
             MENUITEM "SABR(RS)",                        ID_TEXTURESCALING_SABR
             MENUITEM "Gaussian(RS)",                    ID_TEXTURESCALING_GAUSSIAN
             MENUITEM "Cosine(RS)",                      ID_TEXTURESCALING_COSINE
-            MENUITEM SEPARATOR
+            MENUITEM "", 0, MFT_SEPARATOR
             MENUITEM "Deposterize",                     ID_TEXTURESCALING_DEPOSTERIZE
             MENUITEM "Realtime Scaling(D3D11)",         ID_TEXTURESCALING_REALTIME
         END
         MENUITEM "Hardware Transform",                  ID_OPTIONS_HARDWARETRANSFORM
         MENUITEM "Vertex Cache",                        ID_OPTIONS_VERTEXCACHE
         MENUITEM "Show FPS Counter",                    ID_OPTIONS_SHOWFPS
-        MENUITEM SEPARATOR
-        MENUITEM "Enable Sound",                        ID_EMULATION_SOUND, CHECKED
-        MENUITEM SEPARATOR
+        MENUITEM "", 0, MFT_SEPARATOR
+        MENUITEM "Enable Sound",                        ID_EMULATION_SOUND
+        MENUITEM "", 0, MFT_SEPARATOR
         MENUITEM "Enable Cheats",                       ID_EMULATION_CHEATS
+    END
+
+    POPUP "Help",                                       ID_HELP_MENU
+    BEGIN
+        MENUITEM "", 0, MFT_SEPARATOR
     END
 END
 

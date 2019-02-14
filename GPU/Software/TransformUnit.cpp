@@ -52,7 +52,8 @@ SoftwareDrawEngine::~SoftwareDrawEngine() {
 void SoftwareDrawEngine::DispatchFlush() {
 }
 
-void SoftwareDrawEngine::DispatchSubmitPrim(void *verts, void *inds, GEPrimitiveType prim, int vertexCount, u32 vertTypeID, int *bytesRead) {
+void SoftwareDrawEngine::DispatchSubmitPrim(void *verts, void *inds, GEPrimitiveType prim, int vertexCount, u32 vertTypeID, int cullMode, int *bytesRead) {
+	_assert_msg_(G3D, cullMode == gstate.getCullMode(), "Mixed cull mode not supported.");
 	transformUnit.SubmitPrimitive(verts, inds, prim, vertexCount, vertTypeID, bytesRead, this);
 }
 
@@ -234,10 +235,42 @@ VertexData TransformUnit::ReadVertex(VertexReader& vreader)
 
 		if (vreader.hasNormal()) {
 			vertex.worldnormal = TransformUnit::ModelToWorldNormal(vertex.normal);
-			// TODO: Isn't there a flag that controls whether to normalize the normal?
 			vertex.worldnormal /= vertex.worldnormal.Length();
 		} else {
 			vertex.worldnormal = Vec3<float>(0.0f, 0.0f, 1.0f);
+		}
+
+		// Time to generate some texture coords.  Lighting will handle shade mapping.
+		if (gstate.getUVGenMode() == GE_TEXMAP_TEXTURE_MATRIX) {
+			Vec3f source;
+			switch (gstate.getUVProjMode()) {
+			case GE_PROJMAP_POSITION:
+				source = vertex.modelpos;
+				break;
+
+			case GE_PROJMAP_UV:
+				source = Vec3f(vertex.texturecoords, 0.0f);
+				break;
+
+			case GE_PROJMAP_NORMALIZED_NORMAL:
+				source = vertex.normal.Normalized();
+				break;
+
+			case GE_PROJMAP_NORMAL:
+				source = vertex.normal;
+				break;
+
+			default:
+				source = Vec3f::AssignToAll(0.0f);
+				ERROR_LOG_REPORT(G3D, "Software: Unsupported UV projection mode %x", gstate.getUVProjMode());
+				break;
+			}
+
+			// TODO: What about uv scale and offset?
+			Mat3x3<float> tgen(gstate.tgenMatrix);
+			Vec3<float> stq = tgen * source + Vec3<float>(gstate.tgenMatrix[9], gstate.tgenMatrix[10], gstate.tgenMatrix[11]);
+			float z_recip = 1.0f / stq.z;
+			vertex.texturecoords = Vec2f(stq.x * z_recip, stq.y * z_recip);
 		}
 
 		Lighting::Process(vertex, vreader.hasColor0());
@@ -342,12 +375,12 @@ void TransformUnit::SubmitPrimitive(void* vertices, void* indices, GEPrimitiveTy
 				case GE_PRIM_TRIANGLES:
 				{
 					if (!gstate.isCullEnabled() || gstate.isModeClear()) {
-						Clipper::ProcessTriangle(data[0], data[1], data[2]);
-						Clipper::ProcessTriangle(data[2], data[1], data[0]);
+						Clipper::ProcessTriangle(data[0], data[1], data[2], data[2]);
+						Clipper::ProcessTriangle(data[2], data[1], data[0], data[2]);
 					} else if (!gstate.getCullMode()) {
-						Clipper::ProcessTriangle(data[2], data[1], data[0]);
+						Clipper::ProcessTriangle(data[2], data[1], data[0], data[2]);
 					} else {
-						Clipper::ProcessTriangle(data[0], data[1], data[2]);
+						Clipper::ProcessTriangle(data[0], data[1], data[2], data[2]);
 					}
 					break;
 				}
@@ -413,7 +446,8 @@ void TransformUnit::SubmitPrimitive(void* vertices, void* indices, GEPrimitiveTy
 					vreader.Goto(vtx);
 				}
 
-				data[(data_index++) % 3] = ReadVertex(vreader);
+				int provoking_index = (data_index++) % 3;
+				data[provoking_index] = ReadVertex(vreader);
 				if (outside_range_flag) {
 					// Drop all primitives containing the current vertex
 					skip_count = 2;
@@ -427,14 +461,14 @@ void TransformUnit::SubmitPrimitive(void* vertices, void* indices, GEPrimitiveTy
 				}
 
 				if (!gstate.isCullEnabled() || gstate.isModeClear()) {
-					Clipper::ProcessTriangle(data[0], data[1], data[2]);
-					Clipper::ProcessTriangle(data[2], data[1], data[0]);
+					Clipper::ProcessTriangle(data[0], data[1], data[2], data[provoking_index]);
+					Clipper::ProcessTriangle(data[2], data[1], data[0], data[provoking_index]);
 				} else if ((!gstate.getCullMode()) ^ ((data_index - 1) % 2)) {
 					// We need to reverse the vertex order for each second primitive,
 					// but we additionally need to do that for every primitive if CCW cullmode is used.
-					Clipper::ProcessTriangle(data[2], data[1], data[0]);
+					Clipper::ProcessTriangle(data[2], data[1], data[0], data[provoking_index]);
 				} else {
-					Clipper::ProcessTriangle(data[0], data[1], data[2]);
+					Clipper::ProcessTriangle(data[0], data[1], data[2], data[provoking_index]);
 				}
 			}
 			break;
@@ -466,7 +500,8 @@ void TransformUnit::SubmitPrimitive(void* vertices, void* indices, GEPrimitiveTy
 					vreader.Goto(vtx);
 				}
 
-				data[2 - ((data_index++) % 2)] = ReadVertex(vreader);
+				int provoking_index = 2 - ((data_index++) % 2);
+				data[provoking_index] = ReadVertex(vreader);
 				if (outside_range_flag) {
 					// Drop all primitives containing the current vertex
 					skip_count = 2;
@@ -480,14 +515,14 @@ void TransformUnit::SubmitPrimitive(void* vertices, void* indices, GEPrimitiveTy
 				}
 
 				if (!gstate.isCullEnabled() || gstate.isModeClear()) {
-					Clipper::ProcessTriangle(data[0], data[1], data[2]);
-					Clipper::ProcessTriangle(data[2], data[1], data[0]);
+					Clipper::ProcessTriangle(data[0], data[1], data[2], data[provoking_index]);
+					Clipper::ProcessTriangle(data[2], data[1], data[0], data[provoking_index]);
 				} else if ((!gstate.getCullMode()) ^ ((data_index - 1) % 2)) {
 					// We need to reverse the vertex order for each second primitive,
 					// but we additionally need to do that for every primitive if CCW cullmode is used.
-					Clipper::ProcessTriangle(data[2], data[1], data[0]);
+					Clipper::ProcessTriangle(data[2], data[1], data[0], data[provoking_index]);
 				} else {
-					Clipper::ProcessTriangle(data[0], data[1], data[2]);
+					Clipper::ProcessTriangle(data[0], data[1], data[2], data[provoking_index]);
 				}
 			}
 			break;
@@ -508,7 +543,7 @@ bool TransformUnit::GetCurrentSimpleVertices(int count, std::vector<GPUDebugVert
 	u16 indexLowerBound = 0;
 	u16 indexUpperBound = count - 1;
 
-	if ((gstate.vertType & GE_VTYPE_IDX_MASK) != GE_VTYPE_IDX_NONE) {
+	if (count > 0 && (gstate.vertType & GE_VTYPE_IDX_MASK) != GE_VTYPE_IDX_NONE) {
 		const u8 *inds = Memory::GetPointer(gstate_c.indexAddr);
 		const u16 *inds16 = (const u16 *)inds;
 		const u32 *inds32 = (const u32 *)inds;
@@ -547,12 +582,16 @@ bool TransformUnit::GetCurrentSimpleVertices(int count, std::vector<GPUDebugVert
 
 	static std::vector<u32> temp_buffer;
 	static std::vector<SimpleVertex> simpleVertices;
-	temp_buffer.resize(65536 * 24 / sizeof(u32));
+	temp_buffer.resize(std::max((int)indexUpperBound, 8192) * 128 / sizeof(u32));
 	simpleVertices.resize(indexUpperBound + 1);
 
 	VertexDecoder vdecoder;
 	VertexDecoderOptions options{};
 	vdecoder.SetVertexType(gstate.vertType, options);
+
+	if (!Memory::IsValidRange(gstate_c.vertexAddr, (indexUpperBound + 1) * vdecoder.VertexSize()))
+		return false;
+
 	DrawEngineCommon::NormalizeVertices((u8 *)(&simpleVertices[0]), (u8 *)(&temp_buffer[0]), Memory::GetPointer(gstate_c.vertexAddr), &vdecoder, indexLowerBound, indexUpperBound, gstate.vertType);
 
 	float world[16];

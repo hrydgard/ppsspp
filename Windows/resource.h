@@ -81,6 +81,7 @@
 #define IDD_DUMPMEMORY                  253
 #define IDD_GEDBG_TAB_VERTICES          254
 #define IDD_GEDBG_TAB_MATRICES          255
+#define IDD_GEDBG_STEPCOUNT             256
 
 #define IDC_STOPGO                      1001
 #define IDC_ADDRESS                     1002
@@ -165,6 +166,7 @@
 #define IDC_GEDBG_SHOWCLUT              1198
 #define IDC_BREAKPOINT_LOG_FORMAT       1199
 #define IDC_SHOWOFFSETS                 1200
+#define IDC_GEDBG_PRIMCOUNTER           1201
 
 #define ID_SHADERS_BASE  5000
 
@@ -288,7 +290,7 @@
 #define IDC_GEDBG_LISTS_ALLLISTS         40123
 #define IDC_GEDBG_LISTS_STACK            40124
 #define IDC_GEDBG_LISTS_SELECTEDLIST     40125
-#define ID_OPTIONS_FXAA                  40126
+#define ID_OPTIONS_SHADER_MENU           40126
 #define IDC_DEBUG_BOTTOMTABS             40127
 #define ID_DEBUG_HIDEBOTTOMTABS          40128
 #define ID_DEBUG_TOGGLEBOTTOMTABTITLES   40129
@@ -352,6 +354,30 @@
 #define ID_TEXTURESCALING_GAUSSIAN       40183
 #define ID_TEXTURESCALING_COSINE         40184
 #define IDC_GEDBG_STEPCURVE              40185
+#define ID_OPTIONS_FRAMESKIPTYPE_COUNT   40186
+#define ID_OPTIONS_FRAMESKIPTYPE_PRCNT   40187
+#define ID_FILE_MENU                     40188
+#define ID_EMULATION_MENU                40189
+#define ID_DEBUG_MENU                    40190
+#define ID_OPTIONS_MENU                  40191
+#define ID_HELP_MENU                     40192
+#define ID_FILE_SAVESTATE_SLOT_MENU      40193
+#define ID_FILE_RECORD_MENU              40194
+#define ID_EMULATION_ROTATION_MENU       40195
+#define ID_OPTIONS_SCREEN_MENU           40196
+#define ID_OPTIONS_WINDOW_MENU           40197
+#define ID_OPTIONS_BACKEND_MENU          40198
+#define ID_OPTIONS_RENDERMODE_MENU       40199
+#define ID_OPTIONS_FRAMESKIP_MENU        40200
+#define ID_OPTIONS_FRAMESKIPTYPE_MENU    40201
+#define ID_OPTIONS_TEXTUREFILTERING_MENU 40202
+#define ID_OPTIONS_SCREENFILTER_MENU     40203
+#define ID_OPTIONS_TEXTURESCALING_MENU   40204
+#define IDC_GEDBG_STEPCOUNT              40205
+#define IDC_GEDBG_STEPCOUNT_DEC          40206
+#define IDC_GEDBG_STEPCOUNT_INC          40207
+#define IDC_GEDBG_STEPCOUNT_JUMP         40208
+#define IDC_GEDBG_STEPCOUNT_COMBO        40209
 
 // Dummy option to let the buffered rendering hotkey cycle through all the options.
 #define ID_OPTIONS_BUFFEREDRENDERINGDUMMY 40500
@@ -364,8 +390,8 @@
 #ifdef APSTUDIO_INVOKED
 #ifndef APSTUDIO_READONLY_SYMBOLS
 #define _APS_NEXT_RESOURCE_VALUE        256
-#define _APS_NEXT_COMMAND_VALUE         40186
-#define _APS_NEXT_CONTROL_VALUE         1200
+#define _APS_NEXT_COMMAND_VALUE         40210
+#define _APS_NEXT_CONTROL_VALUE         1202
 #define _APS_NEXT_SYMED_VALUE           101
 #endif
 #endif

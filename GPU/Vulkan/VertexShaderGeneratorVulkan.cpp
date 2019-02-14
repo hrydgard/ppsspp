@@ -424,7 +424,7 @@ bool GenerateVulkanGLSLVertexShader(const VShaderID &id, char *buffer) {
 				if (doLight[i] != LIGHT_FULL)
 					continue;
 				diffuseIsZero = false;
-				if (comp != GE_LIGHTCOMP_ONLYDIFFUSE)
+				if (comp == GE_LIGHTCOMP_BOTH)
 					specularIsZero = false;
 				if (type != GE_LIGHTTYPE_DIRECTIONAL)
 					distanceNeeded = true;
@@ -461,17 +461,17 @@ bool GenerateVulkanGLSLVertexShader(const VShaderID &id, char *buffer) {
 				WRITE(p, "  toLight /= distance;\n");
 			}
 
-			bool doSpecular = comp != GE_LIGHTCOMP_ONLYDIFFUSE;
-			bool poweredDiffuse = comp == GE_LIGHTCOMP_BOTHWITHPOWDIFFUSE;
+			bool doSpecular = comp == GE_LIGHTCOMP_BOTH;
+			bool poweredDiffuse = comp == GE_LIGHTCOMP_ONLYPOWDIFFUSE;
 
-			WRITE(p, "  mediump float dot%i = max(dot(toLight, worldnormal), 0.0);\n", i);
+			WRITE(p, "  mediump float dot%i = dot(toLight, worldnormal);\n", i);
 			if (poweredDiffuse) {
 				// pow(0.0, 0.0) may be undefined, but the PSP seems to treat it as 1.0.
 				// Seen in Tales of the World: Radiant Mythology (#2424.)
-				WRITE(p, "  if (dot%i == 0.0 && light.matspecular.a == 0.0) {\n", i);
+				WRITE(p, "  if (light.matspecular.a == 0.0) {\n");
 				WRITE(p, "    dot%i = 1.0;\n", i);
 				WRITE(p, "  } else {\n");
-				WRITE(p, "    dot%i = pow(dot%i, light.matspecular.a);\n", i, i);
+				WRITE(p, "    dot%i = pow(max(dot%i, 0.0), light.matspecular.a);\n", i, i);
 				WRITE(p, "  }\n");
 			}
 
@@ -487,9 +487,9 @@ bool GenerateVulkanGLSLVertexShader(const VShaderID &id, char *buffer) {
 				break;
 			case GE_LIGHTTYPE_SPOT:
 			case GE_LIGHTTYPE_UNKNOWN:
-				WRITE(p, "  float angle%i = dot(normalize(light.dir[%i]), toLight);\n", i, i);
+				WRITE(p, "  float angle%i = length(light.dir[%i]) == 0.0 ? 0.0 : dot(normalize(light.dir[%i]), toLight);\n", i, i, i);
 				WRITE(p, "  if (angle%i >= light.angle_spotCoef[%i].x) {\n", i, i);
-				WRITE(p, "    lightScale = clamp(1.0 / dot(light.att[%i], vec3(1.0, distance, distance*distance)), 0.0, 1.0) * pow(angle%i, light.angle_spotCoef[%i].y);\n", i, i, i);
+				WRITE(p, "    lightScale = clamp(1.0 / dot(light.att[%i], vec3(1.0, distance, distance*distance)), 0.0, 1.0) * (light.angle_spotCoef[%i].y == 0.0 ? 1.0 : pow(angle%i, light.angle_spotCoef[%i].y));\n", i, i, i, i);
 				WRITE(p, "  } else {\n");
 				WRITE(p, "    lightScale = 0.0;\n");
 				WRITE(p, "  }\n");
@@ -499,11 +499,18 @@ bool GenerateVulkanGLSLVertexShader(const VShaderID &id, char *buffer) {
 				break;
 			}
 
-			WRITE(p, "  diffuse = (light.diffuse[%i] * %s) * dot%i;\n", i, diffuseStr, i);
+			WRITE(p, "  diffuse = (light.diffuse[%i] * %s) * max(dot%i, 0.0);\n", i, diffuseStr, i);
 			if (doSpecular) {
-				WRITE(p, "  dot%i = dot(normalize(toLight + vec3(0.0, 0.0, 1.0)), worldnormal);\n", i);
-				WRITE(p, "  if (dot%i > 0.0)\n", i);
-				WRITE(p, "    lightSum1 += light.specular[%i] * %s * (pow(dot%i, light.matspecular.a) %s);\n", i, specularStr, i, timesLightScale);
+				WRITE(p, "  if (dot%i >= 0.0) {\n", i);
+				WRITE(p, "    dot%i = dot(normalize(toLight + vec3(0.0, 0.0, 1.0)), worldnormal);\n", i);
+				WRITE(p, "    if (light.matspecular.a == 0.0) {\n");
+				WRITE(p, "      dot%i = 1.0;\n", i);
+				WRITE(p, "    } else {\n");
+				WRITE(p, "      dot%i = pow(max(dot%i, 0.0), light.matspecular.a);\n", i, i);
+				WRITE(p, "    }\n");
+				WRITE(p, "    if (dot%i > 0.0)\n", i);
+				WRITE(p, "      lightSum1 += light.specular[%i] * %s * dot%i %s;\n", i, specularStr, i, timesLightScale);
+				WRITE(p, "  }\n");
 			}
 			WRITE(p, "  lightSum0.rgb += (light.ambient[%i] * %s.rgb + diffuse)%s;\n", i, ambientStr, timesLightScale);
 		}
@@ -601,8 +608,12 @@ bool GenerateVulkanGLSLVertexShader(const VShaderID &id, char *buffer) {
 			break;
 
 			case GE_TEXMAP_ENVIRONMENT_MAP:  // Shade mapping - use dots from light sources.
-				WRITE(p, "  v_texcoord = vec3(base.uvscaleoffset.xy * vec2(1.0 + dot(normalize(light.pos[%i]), worldnormal), 1.0 + dot(normalize(light.pos[%i]), worldnormal)) * 0.5, 1.0);\n", ls0, ls1);
-				break;
+			{
+				std::string lightFactor0 = StringFromFormat("(length(light.pos[%i]) == 0.0 ? worldnormal.z : dot(normalize(light.pos[%i]), worldnormal))", ls0, ls0);
+				std::string lightFactor1 = StringFromFormat("(length(light.pos[%i]) == 0.0 ? worldnormal.z : dot(normalize(light.pos[%i]), worldnormal))", ls1, ls1);
+				WRITE(p, "  v_texcoord = vec3(base.uvscaleoffset.xy * vec2(1.0 + %s, 1.0 + %s) * 0.5, 1.0);\n", lightFactor0.c_str(), lightFactor1.c_str());
+			}
+			break;
 
 			default:
 				// ILLEGAL

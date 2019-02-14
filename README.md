@@ -30,6 +30,17 @@ No BIOS file required to play, PPSSPP is an "HLE" emulator.  Default settings ba
  Also includes a really awful hack for MOHH2 multiplayer(MOHH1 works fine without it;p).
  ~ LunaMoo
 
+
+What's new in 1.7.3/1.7.4/1.7.5
+-------------------
+* Fixes for a couple of common crashes
+* Reverted immersive mode change temporarily to see if it helps misaligned buttons
+* Change default adhoc server address
+
+What's new in 1.7.2
+-------------------
+* Update text of "Buy PPSSPP Gold" button
+
 What's new in 1.7.1
 -------------------
 * Minor crashfixes, lang updates

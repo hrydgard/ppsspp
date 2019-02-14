@@ -44,6 +44,16 @@ class TabMatrices;
 class TabStateWatch;
 struct GPUgstate;
 
+class StepCountDlg : public Dialog {
+public:
+	StepCountDlg(HINSTANCE _hInstance, HWND _hParent);
+	~StepCountDlg();
+protected:
+	BOOL DlgProc(UINT message, WPARAM wParam, LPARAM lParam);
+private:
+	void Jump(int count, bool relative);
+};
+
 class CGEDebugger : public Dialog {
 public:
 	CGEDebugger(HINSTANCE _hInstance, HWND _hParent);
@@ -101,4 +111,6 @@ private:
 	int previewsEnabled_ = 3;
 	int minWidth_;
 	int minHeight_;
+
+	StepCountDlg stepCountDlg;
 };

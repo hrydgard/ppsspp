@@ -21,8 +21,22 @@
 
 namespace Lighting {
 
-void Process(VertexData& vertex, bool hasColor)
-{
+static inline Vec3f GetLightVec(u32 lparams[12], int light) {
+	return Vec3<float>(getFloat24(lparams[3 * light]), getFloat24(lparams[3 * light + 1]), getFloat24(lparams[3 * light + 2]));
+}
+
+static inline float pspLightPow(float v, float e) {
+	if (e == 0.0f) {
+		return 1.0f;
+	}
+	if (v > 0.0f) {
+		return pow(v, e);
+	}
+	// Negative stays negative, so let's just return the original.
+	return v;
+}
+
+void Process(VertexData& vertex, bool hasColor) {
 	const int materialupdate = gstate.materialupdate & (hasColor ? 7 : 0);
 
 	Vec3<float> vcol0 = vertex.color0.rgb().Cast<float>() * Vec3<float>::AssignToAll(1.0f / 255.0f);
@@ -35,10 +49,11 @@ void Process(VertexData& vertex, bool hasColor)
 	for (unsigned int light = 0; light < 4; ++light) {
 		// Always calculate texture coords from lighting results if environment mapping is active
 		// TODO: Should specular lighting should affect this, too?  Doesn't in GLES.
-		// TODO: Not sure if this really should be done even if lighting is disabled altogether
+		// This should be done even if lighting is disabled altogether.
 		if (gstate.getUVGenMode() == GE_TEXMAP_ENVIRONMENT_MAP) {
-			Vec3<float> L = Vec3<float>(getFloat24(gstate.lpos[3 * light]), getFloat24(gstate.lpos[3 * light + 1]),getFloat24(gstate.lpos[3 * light + 2]));
-			float diffuse_factor = Dot(L.Normalized(), vertex.worldnormal);
+			Vec3<float> L = GetLightVec(gstate.lpos, light);
+			// In other words, L.Length2() == 0.0f means Dot({0, 0, 1}, worldnormal).
+			float diffuse_factor = L.Length2() == 0.0f ? vertex.worldnormal.z : Dot(L.Normalized(), vertex.worldnormal);
 
 			if (gstate.getUVLS0() == (int)light)
 				vertex.texturecoords.s() = (diffuse_factor + 1.f) / 2.f;
@@ -57,30 +72,28 @@ void Process(VertexData& vertex, bool hasColor)
 
 		// L =  vector from vertex to light source
 		// TODO: Should transfer the light positions to world/view space for these calculations?
-		Vec3<float> L = Vec3<float>(getFloat24(gstate.lpos[3 * light]), getFloat24(gstate.lpos[3 * light + 1]),getFloat24(gstate.lpos[3 * light + 2]));
+		Vec3<float> L = GetLightVec(gstate.lpos, light);
 		if (!gstate.isDirectionalLight(light)) {
 			L -= vertex.worldpos;
 		}
+		// TODO: Should this normalize (0, 0, 0) to (0, 0, 1)?
 		float d = L.Normalize();
 
-		float lka = getFloat24(gstate.latt[3 * light]);
-		float lkb = getFloat24(gstate.latt[3 * light + 1]);
-		float lkc = getFloat24(gstate.latt[3 * light + 2]);
 		float att = 1.f;
 		if (!gstate.isDirectionalLight(light)) {
-			att = 1.f / (lka + lkb * d + lkc * d * d);
+			att = 1.f / Dot(GetLightVec(gstate.latt, light), Vec3f(1.0f, d, d * d));
 			if (att > 1.f) att = 1.f;
 			if (att < 0.f) att = 0.f;
 		}
 
 		float spot = 1.f;
 		if (gstate.isSpotLight(light)) {
-			Vec3<float> dir = Vec3<float>(getFloat24(gstate.ldir[3 * light]), getFloat24(gstate.ldir[3 * light + 1]),getFloat24(gstate.ldir[3 * light + 2]));
-			float _spot = Dot(dir.Normalized(), L);
+			Vec3<float> dir = GetLightVec(gstate.ldir, light);
+			float rawSpot = dir.Length2() == 0.0f ? 0.0f : Dot(dir.Normalized(), L);
 			float cutoff = getFloat24(gstate.lcutoff[light]);
-			if (_spot >= cutoff) {
+			if (rawSpot >= cutoff) {
 				float conv = getFloat24(gstate.lconv[light]);
-				spot = pow(_spot, conv);
+				spot = pspLightPow(rawSpot, conv);
 			} else {
 				spot = 0.f;
 			}
@@ -97,20 +110,14 @@ void Process(VertexData& vertex, bool hasColor)
 		float diffuse_factor = Dot(L, vertex.worldnormal);
 		if (gstate.isUsingPoweredDiffuseLight(light)) {
 			float k = gstate.getMaterialSpecularCoef();
-			// TODO: Validate Tales of the World: Radiant Mythology (#2424.)
-			// pow(0.0, 0.0) may be undefined, but the PSP seems to treat it as 1.0.
-			if (diffuse_factor <= 0.0f && k == 0.0f) {
-				diffuse_factor = 1.0f;
-			} else {
-				diffuse_factor = pow(diffuse_factor, k);
-			}
+			diffuse_factor = pspLightPow(diffuse_factor, k);
 		}
 
 		if (diffuse_factor > 0.f) {
 			final_color += ldc * mdc * diffuse_factor * att * spot;
 		}
 
-		if (gstate.isUsingSpecularLight(light)) {
+		if (gstate.isUsingSpecularLight(light) && diffuse_factor >= 0.0f) {
 			Vec3<float> H = L + Vec3<float>(0.f, 0.f, 1.f);
 
 			Vec3<float> lsc = Vec3<float>::FromRGB(gstate.getSpecularColor(light));
@@ -118,7 +125,7 @@ void Process(VertexData& vertex, bool hasColor)
 
 			float specular_factor = Dot(H.Normalized(), vertex.worldnormal);
 			float k = gstate.getMaterialSpecularCoef();
-			specular_factor = pow(specular_factor, k);
+			specular_factor = pspLightPow(specular_factor, k);
 
 			if (specular_factor > 0.f) {
 				specular_color += lsc * msc * specular_factor * att * spot;

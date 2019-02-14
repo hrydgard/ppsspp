@@ -13,6 +13,7 @@
     <ClCompile Include="..\..\ext\SPIRV-Cross\spirv_glsl.cpp" />
     <ClCompile Include="..\..\ext\SPIRV-Cross\spirv_hlsl.cpp" />
     <ClCompile Include="..\..\ext\SPIRV-Cross\spirv_msl.cpp" />
+    <ClCompile Include="..\..\ext\SPIRV-Cross\spirv_cross_util.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="pch.h" />
@@ -24,5 +25,6 @@
     <ClInclude Include="..\..\ext\SPIRV-Cross\spirv_glsl.hpp" />
     <ClInclude Include="..\..\ext\SPIRV-Cross\spirv_hlsl.hpp" />
     <ClInclude Include="..\..\ext\SPIRV-Cross\spirv_msl.hpp" />
+    <ClInclude Include="..\..\ext\SPIRV-Cross\spirv_cross_util.hpp" />
   </ItemGroup>
 </Project>

@@ -225,7 +225,7 @@ void DrawEngineVulkan::ConvertStateToVulkanKey(FramebufferManagerVulkan &fbManag
 #endif
 
 			// Let's not write to alpha if stencil isn't enabled.
-			if (!gstate.isStencilTestEnabled()) {
+			if (IsStencilTestOutputDisabled()) {
 				amask = false;
 			} else {
 				// If the stencil type is set to KEEP, we shouldn't write to the stencil/alpha channel.
@@ -235,6 +235,20 @@ void DrawEngineVulkan::ConvertStateToVulkanKey(FramebufferManagerVulkan &fbManag
 			}
 
 			key.colorWriteMask = (rmask ? VK_COLOR_COMPONENT_R_BIT : 0) | (gmask ? VK_COLOR_COMPONENT_G_BIT : 0) | (bmask ? VK_COLOR_COMPONENT_B_BIT : 0) | (amask ? VK_COLOR_COMPONENT_A_BIT : 0);
+
+			// Workaround proposed in #10421, for bug where the color write mask is not applied correctly on Adreno.
+			if ((gstate.pmskc & 0x00FFFFFF) == 0x00FFFFFF && vulkan_->GetPhysicalDeviceProperties().properties.vendorID == VULKAN_VENDOR_QUALCOMM) {
+				key.colorWriteMask = VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT;
+				if (!key.blendEnable) {
+					key.blendEnable = true;
+					key.blendOpAlpha = VK_BLEND_OP_ADD;
+					key.srcAlpha = VK_BLEND_FACTOR_ZERO;
+					key.destAlpha = VK_BLEND_FACTOR_ONE;
+				}
+				key.blendOpColor = VK_BLEND_OP_ADD;
+				key.srcColor = VK_BLEND_FACTOR_ZERO;
+				key.destColor = VK_BLEND_FACTOR_ONE;
+			}
 		}
 	}
 

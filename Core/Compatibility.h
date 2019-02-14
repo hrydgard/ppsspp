@@ -69,6 +69,10 @@ struct CompatFlags {
 	bool MGS2AcidHack;
 	bool SonicRivalsHack;
 	bool AdhocHackDisableNBSwitch;
+	bool BlockTransferAllowCreateFB;
+	bool YugiohSaveFix;
+	bool ForceUMDDelay;
+	bool ForceMax60FPS;
 };
 
 class IniFile;

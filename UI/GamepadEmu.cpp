@@ -617,7 +617,7 @@ UI::ViewGroup *CreatePadLayout(float xres, float yres, bool *pause) {
 	if (unthrottle) {
 		unthrottle->SetAngle(180.0f);
 		unthrottle->OnChange.Add([](UI::EventParams &e) {
-			if (e.a) {
+			if (e.a && coreState == CORE_STEPPING) {
 				Core_EnableStepping(false);
 			}
 			return UI::EVENT_DONE;

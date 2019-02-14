@@ -16,6 +16,7 @@ bool AndroidJavaEGLGraphicsContext::InitFromRenderThread(ANativeWindow *wnd, int
 	draw_ = Draw::T3DCreateGLContext();
 	renderManager_ = (GLRenderManager *)draw_->GetNativeObject(Draw::NativeObject::RENDER_MANAGER);
 	bool success = draw_->CreatePresets();
+	_assert_msg_(G3D, success, "Failed to compile preset shaders");
 	return success;
 }
 

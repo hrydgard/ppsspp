@@ -32,6 +32,7 @@
     <ClCompile Include="GamepadEmu.cpp" />
     <ClCompile Include="GameScreen.cpp" />
     <ClCompile Include="GameSettingsScreen.cpp" />
+    <ClCompile Include="GPUDriverTestScreen.cpp" />
     <ClCompile Include="MainScreen.cpp" />
     <ClCompile Include="MiscScreens.cpp" />
     <ClCompile Include="NativeApp.cpp" />
@@ -64,6 +65,7 @@
     <ClInclude Include="GameScreen.h" />
     <ClInclude Include="GameSettingsScreen.h" />
     <ClInclude Include="CwCheatScreen.h" />
+    <ClInclude Include="GPUDriverTestScreen.h" />
     <ClInclude Include="HostTypes.h" />
     <ClInclude Include="MainScreen.h" />
     <ClInclude Include="MiscScreens.h" />
@@ -149,6 +151,7 @@
       <RuntimeLibrary>MultiThreadedDebug</RuntimeLibrary>
       <ForcedIncludeFiles>Common/DbgNew.h</ForcedIncludeFiles>
       <AdditionalOptions>$(EXTERNAL_COMPILE_OPTIONS)</AdditionalOptions>
+      <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
     </ClCompile>
     <Link>
       <SubSystem>Windows</SubSystem>
@@ -173,6 +176,7 @@
       <OmitFramePointers>false</OmitFramePointers>
       <ForcedIncludeFiles>Common/DbgNew.h</ForcedIncludeFiles>
       <AdditionalOptions>$(EXTERNAL_COMPILE_OPTIONS)</AdditionalOptions>
+      <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
     </ClCompile>
     <Link>
       <SubSystem>Windows</SubSystem>

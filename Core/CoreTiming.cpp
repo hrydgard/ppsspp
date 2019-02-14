@@ -120,15 +120,8 @@ u64 GetGlobalTimeUsScaled()
 {
 	s64 ticksSinceLast = GetTicks() - lastGlobalTimeTicks;
 	int freq = GetClockFrequencyMHz();
-	if (g_Config.bTimerHack) {
-		float vps;
-		__DisplayGetVPS(&vps);
-		if (vps > 4.0f)
-			freq *= (vps / (g_Config.bRefreshAt60Hz ? 60.0f : 59.94f));
-	}
 	s64 usSinceLast = ticksSinceLast / freq;
 	return lastGlobalTimeUs + usSinceLast;
-
 }
 
 u64 GetGlobalTimeUs()

@@ -2,6 +2,7 @@
 
 #include "GLRenderManager.h"
 #include "gfx_es2/gpu_features.h"
+#include "thin3d/thin3d.h"
 #include "thread/threadutil.h"
 #include "base/logging.h"
 #include "GPU/GPUState.h"
@@ -61,10 +62,12 @@ void GLDeleter::Perform(GLRenderManager *renderManager, bool skipGLCalls) {
 	inputLayouts.clear();
 	for (auto framebuffer : framebuffers) {
 		if (skipGLCalls) {
+			framebuffer->handle = 0;
+			framebuffer->color_texture.texture = 0;
+			framebuffer->z_stencil_buffer = 0;
+			framebuffer->z_stencil_texture.texture = 0;
 			framebuffer->z_buffer = 0;
 			framebuffer->stencil_buffer = 0;
-			framebuffer->z_stencil_buffer = 0;
-			framebuffer->handle = 0;
 		}
 		delete framebuffer;
 	}
@@ -87,12 +90,13 @@ GLRenderManager::~GLRenderManager() {
 	_assert_(deleter_.IsEmpty());
 }
 
-void GLRenderManager::ThreadStart() {
+void GLRenderManager::ThreadStart(Draw::DrawContext *draw) {
 	queueRunner_.CreateDeviceObjects();
 	threadFrame_ = threadInitFrame_;
 	renderThreadId = std::this_thread::get_id();
 
-	bool mapBuffers = (gl_extensions.bugs & BUG_ANY_MAP_BUFFER_RANGE_SLOW) == 0;
+	// Don't save draw, we don't want any thread safety confusion.
+	bool mapBuffers = draw->GetBugs().Has(Draw::Bugs::ANY_MAP_BUFFER_RANGE_SLOW);
 	bool hasBufferStorage = gl_extensions.ARB_buffer_storage || gl_extensions.EXT_buffer_storage;
 	if (!gl_extensions.VersionGEThan(3, 0, 0) && gl_extensions.IsGLES && !hasBufferStorage) {
 		// Force disable if it wouldn't work anyway.
@@ -108,9 +112,14 @@ void GLRenderManager::ThreadStart() {
 			bufferStrategy_ = GLBufferStrategy::FRAME_UNMAP;
 			break;
 
-		case GPU_VENDOR_QUALCOMM:
-			bufferStrategy_ = GLBufferStrategy::FLUSH_INVALIDATE_UNMAP;
-			break;
+		// Temporarily disabled because it doesn't work with task switching on Android.
+		// The mapped buffer seems to just be pulled out like a rug from under us, crashing
+		// as soon as any write happens, which can happen during shutdown since we write from the
+		// Emu thread which may not yet have shut down. There may be solutions to this, but for now,
+		// disable this strategy to avoid crashing.
+		//case GPU_VENDOR_QUALCOMM:
+		//	bufferStrategy_ = GLBufferStrategy::FLUSH_INVALIDATE_UNMAP;
+		//	break;
 
 		default:
 			bufferStrategy_ = GLBufferStrategy::SUBDATA;

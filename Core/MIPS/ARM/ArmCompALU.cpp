@@ -43,7 +43,7 @@ using namespace MIPSAnalyst;
 // Currently known non working ones should have DISABLE.
 
 // #define CONDITIONAL_DISABLE { Comp_Generic(op); return; }
-#define CONDITIONAL_DISABLE ;
+#define CONDITIONAL_DISABLE(flag) if (jo.Disabled(JitDisable::flag)) { Comp_Generic(op); return; }
 #define DISABLE { Comp_Generic(op); return; }
 
 namespace MIPSComp
@@ -72,7 +72,7 @@ namespace MIPSComp
 
 	void ArmJit::Comp_IType(MIPSOpcode op)
 	{
-		CONDITIONAL_DISABLE;
+		CONDITIONAL_DISABLE(ALU_IMM);
 		s32 simm = (s32)(s16)(op & 0xFFFF);  // sign extension
 		u32 uimm = op & 0xFFFF;
 		u32 suimm = (u32)(s32)simm;
@@ -150,7 +150,7 @@ namespace MIPSComp
 
 	void ArmJit::Comp_RType2(MIPSOpcode op)
 	{
-		CONDITIONAL_DISABLE;
+		CONDITIONAL_DISABLE(ALU_BIT);
 		MIPSGPReg rs = _RS;
 		MIPSGPReg rd = _RD;
 
@@ -234,7 +234,7 @@ namespace MIPSComp
 
 	void ArmJit::Comp_RType3(MIPSOpcode op)
 	{
-		CONDITIONAL_DISABLE;
+		CONDITIONAL_DISABLE(ALU);
 		MIPSGPReg rt = _RT;
 		MIPSGPReg rs = _RS;
 		MIPSGPReg rd = _RD;
@@ -502,7 +502,7 @@ namespace MIPSComp
 
 	void ArmJit::Comp_ShiftType(MIPSOpcode op)
 	{
-		CONDITIONAL_DISABLE;
+		CONDITIONAL_DISABLE(ALU);
 		MIPSGPReg rs = _RS;
 		MIPSGPReg rd = _RD;
 		int fd = _FD;
@@ -529,7 +529,7 @@ namespace MIPSComp
 
 	void ArmJit::Comp_Special3(MIPSOpcode op)
 	{
-		CONDITIONAL_DISABLE;
+		CONDITIONAL_DISABLE(ALU_BIT);
 
 		MIPSGPReg rs = _RS;
 		MIPSGPReg rt = _RT;
@@ -591,7 +591,7 @@ namespace MIPSComp
 
 	void ArmJit::Comp_Allegrex(MIPSOpcode op)
 	{
-		CONDITIONAL_DISABLE;
+		CONDITIONAL_DISABLE(ALU_BIT);
 		MIPSGPReg rt = _RT;
 		MIPSGPReg rd = _RD;
 		// Don't change $zr.
@@ -645,7 +645,7 @@ namespace MIPSComp
 
 	void ArmJit::Comp_Allegrex2(MIPSOpcode op)
 	{
-		CONDITIONAL_DISABLE;
+		CONDITIONAL_DISABLE(ALU_BIT);
 		MIPSGPReg rt = _RT;
 		MIPSGPReg rd = _RD;
 		// Don't change $zr.
@@ -677,7 +677,7 @@ namespace MIPSComp
 
 	void ArmJit::Comp_MulDivType(MIPSOpcode op)
 	{
-		CONDITIONAL_DISABLE;
+		CONDITIONAL_DISABLE(MULDIV);
 		MIPSGPReg rt = _RT;
 		MIPSGPReg rs = _RS;
 		MIPSGPReg rd = _RD;

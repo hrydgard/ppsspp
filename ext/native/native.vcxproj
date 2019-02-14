@@ -87,6 +87,7 @@
       <RuntimeTypeInfo>false</RuntimeTypeInfo>
       <RuntimeLibrary>MultiThreadedDebug</RuntimeLibrary>
       <ForcedIncludeFiles>../../Common/DbgNew.h</ForcedIncludeFiles>
+      <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
     </ClCompile>
     <Link>
       <SubSystem>Windows</SubSystem>
@@ -109,6 +110,7 @@
       <RuntimeLibrary>MultiThreadedDebug</RuntimeLibrary>
       <OmitFramePointers>false</OmitFramePointers>
       <ForcedIncludeFiles>../../Common/DbgNew.h</ForcedIncludeFiles>
+      <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
     </ClCompile>
     <Link>
       <SubSystem>Windows</SubSystem>

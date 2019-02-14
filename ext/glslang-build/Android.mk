@@ -50,6 +50,7 @@ LOCAL_SRC_FILES := \
     ../glslang/SPIRV/InReadableOrder.cpp \
     ../glslang/SPIRV/SpvBuilder.cpp \
     ../glslang/SPIRV/SPVRemapper.cpp \
+    ../glslang/SPIRV/SpvPostProcess.cpp \
     ../glslang/OGLCompilersDLL/InitializeDll.cpp
 
 

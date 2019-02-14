@@ -38,6 +38,7 @@
 #include "GPU/Software/TransformUnit.h"
 #include "GPU/Common/DrawEngineCommon.h"
 #include "GPU/Common/FramebufferCommon.h"
+#include "GPU/Common/SplineCommon.h"
 #include "GPU/Debugger/Debugger.h"
 #include "GPU/Debugger/Record.h"
 
@@ -142,6 +143,7 @@ void SoftGPU::SetDisplayFramebuffer(u32 framebuf, u32 stride, GEBufferFormat for
 	displayStride_ = stride;
 	displayFormat_ = format;
 	GPUDebug::NotifyDisplay(framebuf, stride, format);
+	GPURecord::NotifyDisplay(framebuf, stride, format);
 }
 
 // Copies RGBA8 data from RAM to the currently bound render target.
@@ -401,20 +403,24 @@ void SoftGPU::ExecuteOp(u32 op, u32 diff) {
 				DEBUG_LOG_REPORT(G3D, "Unusual bezier/spline vtype: %08x, morph: %d, bones: %d", gstate.vertType, (gstate.vertType & GE_VTYPE_MORPHCOUNT_MASK) >> GE_VTYPE_MORPHCOUNT_SHIFT, vertTypeGetNumBoneWeights(gstate.vertType));
 			}
 
-			GEPatchPrimType patchPrim = gstate.getPatchPrimitiveType();
-			SetDrawType(DRAW_BEZIER, PatchPrimToPrim(patchPrim));
+			Spline::BezierSurface surface;
+			surface.tess_u = gstate.getPatchDivisionU();
+			surface.tess_v = gstate.getPatchDivisionV();
+			surface.num_points_u = op & 0xFF;
+			surface.num_points_v = (op >> 8) & 0xFF;
+			surface.num_patches_u = (surface.num_points_u - 1) / 3;
+			surface.num_patches_v = (surface.num_points_v - 1) / 3;
+			surface.primType = gstate.getPatchPrimitiveType();
+			surface.patchFacing = gstate.patchfacing & 1;
 
-			int bz_ucount = op & 0xFF;
-			int bz_vcount = (op >> 8) & 0xFF;
-			bool computeNormals = gstate.isLightingEnabled();
-			bool patchFacing = gstate.patchfacing & 1;
+			SetDrawType(DRAW_BEZIER, PatchPrimToPrim(surface.primType));
 
 			int bytesRead = 0;
-			drawEngineCommon_->SubmitBezier(control_points, indices, gstate.getPatchDivisionU(), gstate.getPatchDivisionV(), bz_ucount, bz_vcount, patchPrim, computeNormals, patchFacing, gstate.vertType, &bytesRead);
+			drawEngineCommon_->SubmitCurve(control_points, indices, surface, gstate.vertType, &bytesRead, "bezier");
 			framebufferDirty_ = true;
 
 			// After drawing, we advance pointers - see SubmitPrim which does the same.
-			int count = bz_ucount * bz_vcount;
+			int count = surface.num_points_u * surface.num_points_v;
 			AdvanceVerts(gstate.vertType, count, bytesRead);
 		}
 		break;
@@ -449,22 +455,26 @@ void SoftGPU::ExecuteOp(u32 op, u32 diff) {
 				DEBUG_LOG_REPORT(G3D, "Unusual bezier/spline vtype: %08x, morph: %d, bones: %d", gstate.vertType, (gstate.vertType & GE_VTYPE_MORPHCOUNT_MASK) >> GE_VTYPE_MORPHCOUNT_SHIFT, vertTypeGetNumBoneWeights(gstate.vertType));
 			}
 
-			int sp_ucount = op & 0xFF;
-			int sp_vcount = (op >> 8) & 0xFF;
-			int sp_utype = (op >> 16) & 0x3;
-			int sp_vtype = (op >> 18) & 0x3;
-			GEPatchPrimType patchPrim = gstate.getPatchPrimitiveType();
-			SetDrawType(DRAW_SPLINE, PatchPrimToPrim(patchPrim));
-			bool computeNormals = gstate.isLightingEnabled();
-			bool patchFacing = gstate.patchfacing & 1;
-			u32 vertType = gstate.vertType;
+			Spline::SplineSurface surface;
+			surface.tess_u = gstate.getPatchDivisionU();
+			surface.tess_v = gstate.getPatchDivisionV();
+			surface.type_u = (op >> 16) & 0x3;
+			surface.type_v = (op >> 18) & 0x3;
+			surface.num_points_u = op & 0xFF;
+			surface.num_points_v = (op >> 8) & 0xFF;
+			surface.num_patches_u = surface.num_points_u - 3;
+			surface.num_patches_v = surface.num_points_v - 3;
+			surface.primType = gstate.getPatchPrimitiveType();
+			surface.patchFacing = gstate.patchfacing & 1;
+
+			SetDrawType(DRAW_SPLINE, PatchPrimToPrim(surface.primType));
 
 			int bytesRead = 0;
-			drawEngineCommon_->SubmitSpline(control_points, indices, gstate.getPatchDivisionU(), gstate.getPatchDivisionV(), sp_ucount, sp_vcount, sp_utype, sp_vtype, patchPrim, computeNormals, patchFacing, vertType, &bytesRead);
+			drawEngineCommon_->SubmitCurve(control_points, indices, surface, gstate.vertType, &bytesRead, "spline");
 			framebufferDirty_ = true;
 
 			// After drawing, we advance pointers - see SubmitPrim which does the same.
-			int count = sp_ucount * sp_vcount;
+			int count = surface.num_points_u * surface.num_points_v;
 			AdvanceVerts(gstate.vertType, count, bytesRead);
 		}
 		break;

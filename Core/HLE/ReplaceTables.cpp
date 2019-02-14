@@ -661,7 +661,7 @@ static int Hook_hexyzforce_monoclome_thread() {
 
 static int Hook_starocean_write_stencil() {
 	const u32 fb_address = currentMIPS->r[MIPS_REG_T7];
-	if (Memory::IsVRAMAddress(fb_address) && !g_Config.bDisableStencilTest) {
+	if (Memory::IsVRAMAddress(fb_address)) {
 		gpu->PerformStencilUpload(fb_address, 0x00088000);
 	}
 	return 0;

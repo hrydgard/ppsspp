@@ -15,9 +15,9 @@ ifeq (,$(TARGET_ARCH))
 endif
 
 ifneq (,$(findstring 64,$(TARGET_ARCH)))
-   override TARGET_ARCH := x86_64
+   TARGET_ARCH := x86_64
 else ifneq (,$(findstring 86,$(TARGET_ARCH)))
-   override TARGET_ARCH := x86
+   TARGET_ARCH := x86
 endif
 
 ifeq ($(platform),)

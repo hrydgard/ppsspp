@@ -173,8 +173,41 @@ namespace MIPSComp {
 		}
 	};
 
+	enum class JitDisable {
+		ALU = 0x0001,
+		ALU_IMM = 0x0002,
+		ALU_BIT = 0x0004,
+		MULDIV = 0x0008,
+
+		FPU = 0x0010,
+		FPU_COMP = 0x0040,
+		FPU_XFER = 0x0080,
+
+		VFPU_VEC = 0x0100,
+		VFPU_MTX = 0x0200,
+		VFPU_COMP = 0x0400,
+		VFPU_XFER = 0x0800,
+
+		LSU = 0x1000,
+		LSU_UNALIGNED = 0x2000,
+		LSU_FPU = 0x4000,
+		LSU_VFPU = 0x8000,
+
+		SIMD = 0x00100000,
+		BLOCKLINK = 0x00200000,
+		POINTERIFY = 0x00400000,
+		STATIC_ALLOC = 0x00800000,
+		CACHE_POINTERS = 0x01000000,
+
+		ALL_FLAGS = 0x01FFFFFF,
+	};
+
 	struct JitOptions {
 		JitOptions();
+
+		bool Disabled(JitDisable bit);
+
+		uint32_t disableFlags;
 
 		// x86
 		bool enableVFPUSIMD;

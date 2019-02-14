@@ -1,0 +1,310 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project DefaultTargets="Build" ToolsVersion="15.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup Label="ProjectConfigurations">
+    <ProjectConfiguration Include="Debug|ARM">
+      <Configuration>Debug</Configuration>
+      <Platform>ARM</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Debug|Win32">
+      <Configuration>Debug</Configuration>
+      <Platform>Win32</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Debug|x64">
+      <Configuration>Debug</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Release|ARM">
+      <Configuration>Release</Configuration>
+      <Platform>ARM</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Release|Win32">
+      <Configuration>Release</Configuration>
+      <Platform>Win32</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Release|x64">
+      <Configuration>Release</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+  </ItemGroup>
+  <PropertyGroup Label="Globals">
+    <ProjectGuid>{75286959-e7a2-4cbe-8b95-bf05c9c540ff}</ProjectGuid>
+    <Keyword>StaticLibrary</Keyword>
+    <RootNamespace>Armips_UWP</RootNamespace>
+    <DefaultLanguage>en-US</DefaultLanguage>
+    <MinimumVisualStudioVersion>14.0</MinimumVisualStudioVersion>
+    <AppContainerApplication>true</AppContainerApplication>
+    <ApplicationType>Windows Store</ApplicationType>
+    <WindowsTargetPlatformVersion>10.0.17763.0</WindowsTargetPlatformVersion>
+    <WindowsTargetPlatformMinVersion>10.0.15063.0</WindowsTargetPlatformMinVersion>
+    <ApplicationTypeRevision>10.0</ApplicationTypeRevision>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" Label="Configuration">
+    <ConfigurationType>StaticLibrary</ConfigurationType>
+    <UseDebugLibraries>true</UseDebugLibraries>
+    <PlatformToolset>v141</PlatformToolset>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|ARM'" Label="Configuration">
+    <ConfigurationType>StaticLibrary</ConfigurationType>
+    <UseDebugLibraries>true</UseDebugLibraries>
+    <PlatformToolset>v141</PlatformToolset>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'" Label="Configuration">
+    <ConfigurationType>StaticLibrary</ConfigurationType>
+    <UseDebugLibraries>true</UseDebugLibraries>
+    <PlatformToolset>v141</PlatformToolset>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'" Label="Configuration">
+    <ConfigurationType>StaticLibrary</ConfigurationType>
+    <UseDebugLibraries>false</UseDebugLibraries>
+    <WholeProgramOptimization>true</WholeProgramOptimization>
+    <PlatformToolset>v141</PlatformToolset>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|ARM'" Label="Configuration">
+    <ConfigurationType>StaticLibrary</ConfigurationType>
+    <UseDebugLibraries>false</UseDebugLibraries>
+    <WholeProgramOptimization>true</WholeProgramOptimization>
+    <PlatformToolset>v141</PlatformToolset>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'" Label="Configuration">
+    <ConfigurationType>StaticLibrary</ConfigurationType>
+    <UseDebugLibraries>false</UseDebugLibraries>
+    <WholeProgramOptimization>true</WholeProgramOptimization>
+    <PlatformToolset>v141</PlatformToolset>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
+  <ImportGroup Label="ExtensionSettings">
+  </ImportGroup>
+  <ImportGroup Label="Shared">
+  </ImportGroup>
+  <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Debug|ARM'">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Release|ARM'">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <PropertyGroup Label="UserMacros" />
+  <PropertyGroup />
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
+    <GenerateManifest>false</GenerateManifest>
+    <IncludePath>$(VC_IncludePath);$(WindowsSDK_IncludePath);$(ProjectDir)..\..\ext\armips;</IncludePath>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
+    <GenerateManifest>false</GenerateManifest>
+    <IncludePath>$(VC_IncludePath);$(WindowsSDK_IncludePath);$(ProjectDir)..\..\ext\armips;</IncludePath>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|ARM'">
+    <GenerateManifest>false</GenerateManifest>
+    <IncludePath>$(VC_IncludePath);$(WindowsSDK_IncludePath);$(ProjectDir)..\..\ext\armips;</IncludePath>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|ARM'">
+    <GenerateManifest>false</GenerateManifest>
+    <IncludePath>$(VC_IncludePath);$(WindowsSDK_IncludePath);$(ProjectDir)..\..\ext\armips;</IncludePath>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
+    <GenerateManifest>false</GenerateManifest>
+    <IncludePath>$(VC_IncludePath);$(WindowsSDK_IncludePath);$(ProjectDir)..\..\ext\armips;</IncludePath>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
+    <GenerateManifest>false</GenerateManifest>
+    <IncludePath>$(VC_IncludePath);$(WindowsSDK_IncludePath);$(ProjectDir)..\..\ext\armips;</IncludePath>
+  </PropertyGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
+    <ClCompile>
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+      <CompileAsWinRT>false</CompileAsWinRT>
+      <SDLCheck>true</SDLCheck>
+    </ClCompile>
+    <Link>
+      <SubSystem>Console</SubSystem>
+      <IgnoreAllDefaultLibraries>false</IgnoreAllDefaultLibraries>
+      <GenerateWindowsMetadata>false</GenerateWindowsMetadata>
+    </Link>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
+    <ClCompile>
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+      <CompileAsWinRT>false</CompileAsWinRT>
+      <SDLCheck>true</SDLCheck>
+    </ClCompile>
+    <Link>
+      <SubSystem>Console</SubSystem>
+      <IgnoreAllDefaultLibraries>false</IgnoreAllDefaultLibraries>
+      <GenerateWindowsMetadata>false</GenerateWindowsMetadata>
+    </Link>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|arm'">
+    <ClCompile>
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+      <CompileAsWinRT>false</CompileAsWinRT>
+      <SDLCheck>false</SDLCheck>
+    </ClCompile>
+    <Link>
+      <SubSystem>Console</SubSystem>
+      <IgnoreAllDefaultLibraries>false</IgnoreAllDefaultLibraries>
+      <GenerateWindowsMetadata>false</GenerateWindowsMetadata>
+    </Link>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|arm'">
+    <ClCompile>
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+      <CompileAsWinRT>false</CompileAsWinRT>
+      <SDLCheck>false</SDLCheck>
+    </ClCompile>
+    <Link>
+      <SubSystem>Console</SubSystem>
+      <IgnoreAllDefaultLibraries>false</IgnoreAllDefaultLibraries>
+      <GenerateWindowsMetadata>false</GenerateWindowsMetadata>
+    </Link>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
+    <ClCompile>
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+      <CompileAsWinRT>false</CompileAsWinRT>
+      <SDLCheck>true</SDLCheck>
+    </ClCompile>
+    <Link>
+      <SubSystem>Console</SubSystem>
+      <IgnoreAllDefaultLibraries>false</IgnoreAllDefaultLibraries>
+      <GenerateWindowsMetadata>false</GenerateWindowsMetadata>
+    </Link>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
+    <ClCompile>
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+      <CompileAsWinRT>false</CompileAsWinRT>
+      <SDLCheck>true</SDLCheck>
+    </ClCompile>
+    <Link>
+      <SubSystem>Console</SubSystem>
+      <IgnoreAllDefaultLibraries>false</IgnoreAllDefaultLibraries>
+      <GenerateWindowsMetadata>false</GenerateWindowsMetadata>
+    </Link>
+  </ItemDefinitionGroup>
+  <ItemGroup>
+    <ClInclude Include="..\..\ext\armips\Archs\Architecture.h" />
+    <ClInclude Include="..\..\ext\armips\Archs\ARM\Arm.h" />
+    <ClInclude Include="..\..\ext\armips\Archs\ARM\ArmElfRelocator.h" />
+    <ClInclude Include="..\..\ext\armips\Archs\ARM\ArmExpressionFunctions.h" />
+    <ClInclude Include="..\..\ext\armips\Archs\ARM\ArmOpcodes.h" />
+    <ClInclude Include="..\..\ext\armips\Archs\ARM\ArmParser.h" />
+    <ClInclude Include="..\..\ext\armips\Archs\ARM\CArmInstruction.h" />
+    <ClInclude Include="..\..\ext\armips\Archs\ARM\CThumbInstruction.h" />
+    <ClInclude Include="..\..\ext\armips\Archs\ARM\Pool.h" />
+    <ClInclude Include="..\..\ext\armips\Archs\ARM\ThumbOpcodes.h" />
+    <ClInclude Include="..\..\ext\armips\Archs\MIPS\CMipsInstruction.h" />
+    <ClInclude Include="..\..\ext\armips\Archs\MIPS\Mips.h" />
+    <ClInclude Include="..\..\ext\armips\Archs\MIPS\MipsElfFile.h" />
+    <ClInclude Include="..\..\ext\armips\Archs\MIPS\MipsElfRelocator.h" />
+    <ClInclude Include="..\..\ext\armips\Archs\MIPS\MipsExpressionFunctions.h" />
+    <ClInclude Include="..\..\ext\armips\Archs\MIPS\MipsMacros.h" />
+    <ClInclude Include="..\..\ext\armips\Archs\MIPS\MipsOpcodes.h" />
+    <ClInclude Include="..\..\ext\armips\Archs\MIPS\MipsParser.h" />
+    <ClInclude Include="..\..\ext\armips\Archs\MIPS\PsxRelocator.h" />
+    <ClInclude Include="..\..\ext\armips\Commands\CAssemblerCommand.h" />
+    <ClInclude Include="..\..\ext\armips\Commands\CAssemblerLabel.h" />
+    <ClInclude Include="..\..\ext\armips\Commands\CDirectiveArea.h" />
+    <ClInclude Include="..\..\ext\armips\Commands\CDirectiveConditional.h" />
+    <ClInclude Include="..\..\ext\armips\Commands\CDirectiveData.h" />
+    <ClInclude Include="..\..\ext\armips\Commands\CDirectiveFile.h" />
+    <ClInclude Include="..\..\ext\armips\Commands\CDirectiveMessage.h" />
+    <ClInclude Include="..\..\ext\armips\Commands\CommandSequence.h" />
+    <ClInclude Include="..\..\ext\armips\Core\Assembler.h" />
+    <ClInclude Include="..\..\ext\armips\Core\Common.h" />
+    <ClInclude Include="..\..\ext\armips\Core\ELF\ElfFile.h" />
+    <ClInclude Include="..\..\ext\armips\Core\ELF\ElfRelocator.h" />
+    <ClInclude Include="..\..\ext\armips\Core\ELF\ElfTypes.h" />
+    <ClInclude Include="..\..\ext\armips\Core\Expression.h" />
+    <ClInclude Include="..\..\ext\armips\Core\ExpressionFunctions.h" />
+    <ClInclude Include="..\..\ext\armips\Core\FileManager.h" />
+    <ClInclude Include="..\..\ext\armips\Core\Misc.h" />
+    <ClInclude Include="..\..\ext\armips\Core\SymbolData.h" />
+    <ClInclude Include="..\..\ext\armips\Core\SymbolTable.h" />
+    <ClInclude Include="..\..\ext\armips\Parser\DirectivesParser.h" />
+    <ClInclude Include="..\..\ext\armips\Parser\ExpressionParser.h" />
+    <ClInclude Include="..\..\ext\armips\Parser\Parser.h" />
+    <ClInclude Include="..\..\ext\armips\Parser\Tokenizer.h" />
+    <ClInclude Include="..\..\ext\armips\stdafx.h" />
+    <ClInclude Include="..\..\ext\armips\Util\ByteArray.h" />
+    <ClInclude Include="..\..\ext\armips\Util\CRC.h" />
+    <ClInclude Include="..\..\ext\armips\Util\EncodingTable.h" />
+    <ClInclude Include="..\..\ext\armips\Util\FileClasses.h" />
+    <ClInclude Include="..\..\ext\armips\Util\Util.h" />
+    <ClInclude Include="pch.h" />
+    <ClInclude Include="targetver.h" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="..\..\ext\armips\Archs\Architecture.cpp" />
+    <ClCompile Include="..\..\ext\armips\Archs\ARM\Arm.cpp" />
+    <ClCompile Include="..\..\ext\armips\Archs\ARM\ArmElfRelocator.cpp" />
+    <ClCompile Include="..\..\ext\armips\Archs\ARM\ArmExpressionFunctions.cpp" />
+    <ClCompile Include="..\..\ext\armips\Archs\ARM\ArmOpcodes.cpp" />
+    <ClCompile Include="..\..\ext\armips\Archs\ARM\ArmParser.cpp" />
+    <ClCompile Include="..\..\ext\armips\Archs\ARM\CArmInstruction.cpp" />
+    <ClCompile Include="..\..\ext\armips\Archs\ARM\CThumbInstruction.cpp" />
+    <ClCompile Include="..\..\ext\armips\Archs\ARM\Pool.cpp" />
+    <ClCompile Include="..\..\ext\armips\Archs\ARM\ThumbOpcodes.cpp" />
+    <ClCompile Include="..\..\ext\armips\Archs\MIPS\CMipsInstruction.cpp" />
+    <ClCompile Include="..\..\ext\armips\Archs\MIPS\Mips.cpp" />
+    <ClCompile Include="..\..\ext\armips\Archs\MIPS\MipsElfFile.cpp" />
+    <ClCompile Include="..\..\ext\armips\Archs\MIPS\MipsElfRelocator.cpp" />
+    <ClCompile Include="..\..\ext\armips\Archs\MIPS\MipsExpressionFunctions.cpp" />
+    <ClCompile Include="..\..\ext\armips\Archs\MIPS\MipsMacros.cpp" />
+    <ClCompile Include="..\..\ext\armips\Archs\MIPS\MipsOpcodes.cpp" />
+    <ClCompile Include="..\..\ext\armips\Archs\MIPS\MipsParser.cpp" />
+    <ClCompile Include="..\..\ext\armips\Archs\MIPS\PsxRelocator.cpp" />
+    <ClCompile Include="..\..\ext\armips\Commands\CAssemblerCommand.cpp" />
+    <ClCompile Include="..\..\ext\armips\Commands\CAssemblerLabel.cpp" />
+    <ClCompile Include="..\..\ext\armips\Commands\CDirectiveArea.cpp" />
+    <ClCompile Include="..\..\ext\armips\Commands\CDirectiveConditional.cpp" />
+    <ClCompile Include="..\..\ext\armips\Commands\CDirectiveData.cpp" />
+    <ClCompile Include="..\..\ext\armips\Commands\CDirectiveFile.cpp" />
+    <ClCompile Include="..\..\ext\armips\Commands\CDirectiveMessage.cpp" />
+    <ClCompile Include="..\..\ext\armips\Commands\CommandSequence.cpp" />
+    <ClCompile Include="..\..\ext\armips\Core\Assembler.cpp" />
+    <ClCompile Include="..\..\ext\armips\Core\Common.cpp" />
+    <ClCompile Include="..\..\ext\armips\Core\ELF\ElfFile.cpp" />
+    <ClCompile Include="..\..\ext\armips\Core\ELF\ElfRelocator.cpp" />
+    <ClCompile Include="..\..\ext\armips\Core\Expression.cpp" />
+    <ClCompile Include="..\..\ext\armips\Core\ExpressionFunctions.cpp" />
+    <ClCompile Include="..\..\ext\armips\Core\FileManager.cpp" />
+    <ClCompile Include="..\..\ext\armips\Core\Misc.cpp" />
+    <ClCompile Include="..\..\ext\armips\Core\SymbolData.cpp" />
+    <ClCompile Include="..\..\ext\armips\Core\SymbolTable.cpp" />
+    <ClCompile Include="..\..\ext\armips\Parser\DirectivesParser.cpp" />
+    <ClCompile Include="..\..\ext\armips\Parser\ExpressionParser.cpp" />
+    <ClCompile Include="..\..\ext\armips\Parser\Parser.cpp" />
+    <ClCompile Include="..\..\ext\armips\Parser\Tokenizer.cpp" />
+    <ClCompile Include="..\..\ext\armips\stdafx.cpp" />
+    <ClCompile Include="..\..\ext\armips\Util\ByteArray.cpp" />
+    <ClCompile Include="..\..\ext\armips\Util\CRC.cpp" />
+    <ClCompile Include="..\..\ext\armips\Util\EncodingTable.cpp" />
+    <ClCompile Include="..\..\ext\armips\Util\FileClasses.cpp" />
+    <ClCompile Include="..\..\ext\armips\Util\Util.cpp" />
+    <ClCompile Include="pch.cpp">
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">Create</PrecompiledHeader>
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">Create</PrecompiledHeader>
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|ARM'">Create</PrecompiledHeader>
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|ARM'">Create</PrecompiledHeader>
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|ARM64'">Create</PrecompiledHeader>
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|ARM64'">Create</PrecompiledHeader>
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Create</PrecompiledHeader>
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Create</PrecompiledHeader>
+    </ClCompile>
+  </ItemGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
+  <ImportGroup Label="ExtensionTargets">
+  </ImportGroup>
+</Project>

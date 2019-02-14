@@ -521,7 +521,7 @@ void DrawEngineCommon::DecodeVertsStep(u8 *dest, int &i, int &decodedVerts) {
 		decodedVerts += indexUpperBound - indexLowerBound + 1;
 		
 		bool clockwise = true;
-		if (dc.cullMode != -1 && gstate.isCullEnabled() && gstate.getCullMode() != dc.cullMode) {
+		if (gstate.isCullEnabled() && gstate.getCullMode() != dc.cullMode) {
 			clockwise = false;
 		}
 		indexGen.AddPrim(dc.prim, dc.vertexCount, clockwise);
@@ -549,7 +549,7 @@ void DrawEngineCommon::DecodeVertsStep(u8 *dest, int &i, int &decodedVerts) {
 		case GE_VTYPE_IDX_8BIT >> GE_VTYPE_IDX_SHIFT:
 			for (int j = i; j <= lastMatch; j++) {
 				bool clockwise = true;
-				if (drawCalls[j].cullMode != -1 && gstate.isCullEnabled() && gstate.getCullMode() != drawCalls[j].cullMode) {
+				if (gstate.isCullEnabled() && gstate.getCullMode() != drawCalls[j].cullMode) {
 					clockwise = false;
 				}
 				indexGen.TranslatePrim(drawCalls[j].prim, drawCalls[j].vertexCount, (const u8 *)drawCalls[j].inds, indexLowerBound, clockwise);
@@ -558,7 +558,7 @@ void DrawEngineCommon::DecodeVertsStep(u8 *dest, int &i, int &decodedVerts) {
 		case GE_VTYPE_IDX_16BIT >> GE_VTYPE_IDX_SHIFT:
 			for (int j = i; j <= lastMatch; j++) {
 				bool clockwise = true;
-				if (drawCalls[j].cullMode != -1 && gstate.isCullEnabled() && gstate.getCullMode() != drawCalls[j].cullMode) {
+				if (gstate.isCullEnabled() && gstate.getCullMode() != drawCalls[j].cullMode) {
 					clockwise = false;
 				}
 				indexGen.TranslatePrim(drawCalls[j].prim, drawCalls[j].vertexCount, (const u16_le *)drawCalls[j].inds, indexLowerBound, clockwise);
@@ -567,7 +567,7 @@ void DrawEngineCommon::DecodeVertsStep(u8 *dest, int &i, int &decodedVerts) {
 		case GE_VTYPE_IDX_32BIT >> GE_VTYPE_IDX_SHIFT:
 			for (int j = i; j <= lastMatch; j++) {
 				bool clockwise = true;
-				if (drawCalls[j].cullMode != -1 && gstate.isCullEnabled() && gstate.getCullMode() != drawCalls[j].cullMode) {
+				if (gstate.isCullEnabled() && gstate.getCullMode() != drawCalls[j].cullMode) {
 					clockwise = false;
 				}
 				indexGen.TranslatePrim(drawCalls[j].prim, drawCalls[j].vertexCount, (const u32_le *)drawCalls[j].inds, indexLowerBound, clockwise);
@@ -731,10 +731,30 @@ void DrawEngineCommon::SubmitPrim(void *verts, void *inds, GEPrimitiveType prim,
 	}
 
 	if (prim == GE_PRIM_RECTANGLES && (gstate.getTextureAddress(0) & 0x3FFFFFFF) == (gstate.getFrameBufAddress() & 0x3FFFFFFF)) {
-		// Rendertarget == texture?
-		if (!g_Config.bDisableSlowFramebufEffects) {
-			gstate_c.Dirty(DIRTY_TEXTURE_PARAMS);
-			DispatchFlush();
+		// Rendertarget == texture? Shouldn't happen. Still, try some mitigations.
+		gstate_c.Dirty(DIRTY_TEXTURE_PARAMS);
+		DispatchFlush();
+	}
+}
+
+void TessellationDataTransfer::CopyControlPoints(float *pos, float *tex, float *col, int posStride, int texStride, int colStride, const SimpleVertex *const *points, int size, u32 vertType) {
+	bool hasColor = (vertType & GE_VTYPE_COL_MASK) != 0;
+	bool hasTexCoord = (vertType & GE_VTYPE_TC_MASK) != 0;
+
+	for (int i = 0; i < size; ++i) {
+		memcpy(pos, points[i]->pos.AsArray(), 3 * sizeof(float));
+		pos += posStride;
+	}
+	if (hasTexCoord) {
+		for (int i = 0; i < size; ++i) {
+			memcpy(tex, points[i]->uv, 2 * sizeof(float));
+			tex += texStride;
+		}
+	}
+	if (hasColor) {
+		for (int i = 0; i < size; ++i) {
+			memcpy(col, Vec4f::FromRGBA(points[i]->color_32).AsArray(), 4 * sizeof(float));
+			col += colStride;
 		}
 	}
 }

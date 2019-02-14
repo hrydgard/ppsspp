@@ -517,8 +517,13 @@ public abstract class NativeActivity extends Activity implements SurfaceHolder.C
 			if (Build.MANUFACTURER == "OUYA") {
 				mGLSurfaceView.getHolder().setFormat(PixelFormat.RGBX_8888);
 				mGLSurfaceView.setEGLConfigChooser(new NativeEGLConfigChooser());
+			} else {
+				// Tried to mess around with config choosers (NativeEGLConfigChooser) here but fail completely on Xperia Play.
+				// On the other hand, I think from ICS we should be safe to at least require 8888 and stencil...
+				if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.ICE_CREAM_SANDWICH) {
+					mGLSurfaceView.setEGLConfigChooser(8, 8, 8, 8, 16, 8);
+				}
 			}
-			// Tried to mess around with config choosers here but fail completely on Xperia Play.
 			mGLSurfaceView.setRenderer(nativeRenderer);
 			setContentView(mGLSurfaceView);
 		} else {
@@ -569,11 +574,6 @@ public abstract class NativeActivity extends Activity implements SurfaceHolder.C
 		// Note that desiredSize might be 0,0 here - but that's fine when calling setFixedSize! It means auto.
 		Log.d(TAG, "Setting fixed size " + desiredSize.x + " x " + desiredSize.y);
 		holder.setFixedSize(desiredSize.x, desiredSize.y);
-
-		// This may change it - but, since we're visible now, we can actually set this.
-		if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.ICE_CREAM_SANDWICH) {
-			updateSystemUiVisibility();
-		}
 	}
 
 	@Override

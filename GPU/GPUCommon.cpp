@@ -118,10 +118,10 @@ const CommonCommandTableEntry commonCommandTable[] = {
 	{ GE_CMD_BLENDFIXEDA, FLAG_FLUSHBEFOREONCHANGE, DIRTY_BLEND_STATE | DIRTY_FRAGMENTSHADER_STATE },
 	{ GE_CMD_BLENDFIXEDB, FLAG_FLUSHBEFOREONCHANGE, DIRTY_BLEND_STATE | DIRTY_FRAGMENTSHADER_STATE },
 	{ GE_CMD_MASKRGB, FLAG_FLUSHBEFOREONCHANGE, DIRTY_BLEND_STATE | DIRTY_FRAGMENTSHADER_STATE },
-	{ GE_CMD_MASKALPHA, FLAG_FLUSHBEFOREONCHANGE, DIRTY_BLEND_STATE | DIRTY_FRAGMENTSHADER_STATE },
+	{ GE_CMD_MASKALPHA, FLAG_FLUSHBEFOREONCHANGE, DIRTY_BLEND_STATE | DIRTY_FRAGMENTSHADER_STATE | DIRTY_DEPTHSTENCIL_STATE },
 	{ GE_CMD_ZTEST, FLAG_FLUSHBEFOREONCHANGE, DIRTY_DEPTHSTENCIL_STATE },
-	{ GE_CMD_ZTESTENABLE, FLAG_FLUSHBEFOREONCHANGE, DIRTY_DEPTHSTENCIL_STATE },
-	{ GE_CMD_ZWRITEDISABLE, FLAG_FLUSHBEFOREONCHANGE, DIRTY_DEPTHSTENCIL_STATE },
+	{ GE_CMD_ZTESTENABLE, FLAG_FLUSHBEFOREONCHANGE, DIRTY_DEPTHSTENCIL_STATE | DIRTY_FRAGMENTSHADER_STATE },
+	{ GE_CMD_ZWRITEDISABLE, FLAG_FLUSHBEFOREONCHANGE, DIRTY_DEPTHSTENCIL_STATE | DIRTY_FRAGMENTSHADER_STATE },
 	{ GE_CMD_LOGICOP, FLAG_FLUSHBEFOREONCHANGE, DIRTY_BLEND_STATE | DIRTY_FRAGMENTSHADER_STATE },
 	{ GE_CMD_LOGICOPENABLE, FLAG_FLUSHBEFOREONCHANGE, DIRTY_BLEND_STATE | DIRTY_FRAGMENTSHADER_STATE },
 
@@ -1544,7 +1544,7 @@ void GPUCommon::Execute_Prim(u32 op, u32 diff) {
 	}
 
 	void *verts = Memory::GetPointerUnchecked(gstate_c.vertexAddr);
-	void *inds = 0;
+	void *inds = nullptr;
 	u32 vertexType = gstate.vertType;
 	if ((vertexType & GE_VTYPE_IDX_MASK) != GE_VTYPE_IDX_NONE) {
 		u32 indexAddr = gstate_c.indexAddr;
@@ -1569,7 +1569,7 @@ void GPUCommon::Execute_Prim(u32 op, u32 diff) {
 	UpdateUVScaleOffset();
 
 	// cull mode
-	int cullMode = gstate.isCullEnabled() ? gstate.getCullMode() : -1;
+	int cullMode = gstate.getCullMode();
 
 	uint32_t vertTypeID = GetVertTypeID(vertexType, gstate.getUVGenMode());
 	drawEngineCommon_->SubmitPrim(verts, inds, prim, count, vertTypeID, cullMode, &bytesRead);
@@ -1609,18 +1609,12 @@ void GPUCommon::Execute_Prim(u32 op, u32 diff) {
 			}
 
 			GEPrimitiveType newPrim = static_cast<GEPrimitiveType>((data >> 16) & 7);
+			SetDrawType(DRAW_PRIM, newPrim);
 			// TODO: more efficient updating of verts/inds
 			verts = Memory::GetPointerUnchecked(gstate_c.vertexAddr);
-			inds = 0;
+			inds = nullptr;
 			if ((vertexType & GE_VTYPE_IDX_MASK) != GE_VTYPE_IDX_NONE) {
 				inds = Memory::GetPointerUnchecked(gstate_c.indexAddr);
-			}
-
-			if (newPrim != GE_PRIM_TRIANGLE_STRIP && cullMode != -1 && cullMode != gstate.getCullMode()) {
-				DEBUG_LOG(G3D, "flush cull mode before prim: %d", newPrim);
-				drawEngineCommon_->DispatchFlush();
-				gstate.cmdmem[GE_CMD_CULL] ^= 1;
-				gstate_c.Dirty(DIRTY_RASTER_STATE);
 			}
 
 			drawEngineCommon_->SubmitPrim(verts, inds, newPrim, count, vertTypeID, cullMode, &bytesRead);
@@ -1641,7 +1635,12 @@ void GPUCommon::Execute_Prim(u32 op, u32 diff) {
 			break;
 		}
 		case GE_CMD_VADDR:
+			gstate.cmdmem[data >> 24] = data;
 			gstate_c.vertexAddr = gstate_c.getRelativeAddress(data & 0x00FFFFFF);
+			break;
+		case GE_CMD_IADDR:
+			gstate.cmdmem[data >> 24] = data;
+			gstate_c.indexAddr = gstate_c.getRelativeAddress(data & 0x00FFFFFF);
 			break;
 		case GE_CMD_OFFSETADDR:
 			gstate.cmdmem[GE_CMD_OFFSETADDR] = data;
@@ -1650,12 +1649,20 @@ void GPUCommon::Execute_Prim(u32 op, u32 diff) {
 		case GE_CMD_BASE:
 			gstate.cmdmem[GE_CMD_BASE] = data;
 			break;
+		case GE_CMD_CULLFACEENABLE:
+			// Earth Defence Force 2
+			if (gstate.cmdmem[GE_CMD_CULLFACEENABLE] != data) {
+				goto bail;
+			}
+			break;
 		case GE_CMD_CULL:
-			// flip face by indices for GE_PRIM_TRIANGLE_STRIP
+			// flip face by indices for triangles
 			cullMode = data & 1;
 			break;
+		case GE_CMD_TEXFLUSH:
 		case GE_CMD_NOP:
 		case GE_CMD_NOP_FF:
+			gstate.cmdmem[data >> 24] = data;
 			break;
 		case GE_CMD_BONEMATRIXNUMBER:
 			gstate.cmdmem[GE_CMD_BONEMATRIXNUMBER] = data;
@@ -1698,6 +1705,12 @@ void GPUCommon::Execute_Prim(u32 op, u32 diff) {
 			break;
 		}
 
+		case GE_CMD_TEXBUFWIDTH0:
+		case GE_CMD_TEXADDR0:
+			if (data != gstate.cmdmem[data >> 24])
+				goto bail;
+			break;
+
 		default:
 			// All other commands might need a flush or something, stop this inner loop.
 			goto bail;
@@ -1713,8 +1726,11 @@ bail:
 		UpdatePC(currentList->pc, currentList->pc + cmdCount * 4);
 		currentList->pc += cmdCount * 4;
 		// flush back cull mode
-		if (cullMode != -1 && cullMode != gstate.getCullMode()) {
+		if (cullMode != gstate.getCullMode()) {
+			// We rewrote everything to the old cull mode, so flush first.
 			drawEngineCommon_->DispatchFlush();
+
+			// Now update things for next time.
 			gstate.cmdmem[GE_CMD_CULL] ^= 1;
 			gstate_c.Dirty(DIRTY_RASTER_STATE);
 		}
@@ -1754,33 +1770,37 @@ void GPUCommon::Execute_Bezier(u32 op, u32 diff) {
 		DEBUG_LOG_REPORT(G3D, "Unusual bezier/spline vtype: %08x, morph: %d, bones: %d", gstate.vertType, (gstate.vertType & GE_VTYPE_MORPHCOUNT_MASK) >> GE_VTYPE_MORPHCOUNT_SHIFT, vertTypeGetNumBoneWeights(gstate.vertType));
 	}
 
-	GEPatchPrimType patchPrim = gstate.getPatchPrimitiveType();
-	SetDrawType(DRAW_BEZIER, PatchPrimToPrim(patchPrim));
+	Spline::BezierSurface surface;
+	surface.tess_u = gstate.getPatchDivisionU();
+	surface.tess_v = gstate.getPatchDivisionV();
+	surface.num_points_u = op & 0xFF;
+	surface.num_points_v = (op >> 8) & 0xFF;
+	surface.num_patches_u = (surface.num_points_u - 1) / 3;
+	surface.num_patches_v = (surface.num_points_v - 1) / 3;
+	surface.primType = gstate.getPatchPrimitiveType();
+	surface.patchFacing = gstate.patchfacing & 1;
 
-	int bz_ucount = op & 0xFF;
-	int bz_vcount = (op >> 8) & 0xFF;
-	bool computeNormals = gstate.isLightingEnabled();
-	bool patchFacing = gstate.patchfacing & 1;
+	SetDrawType(DRAW_BEZIER, PatchPrimToPrim(surface.primType));
 
-	if (CanUseHardwareTessellation(patchPrim)) {
+	if (CanUseHardwareTessellation(surface.primType)) {
 		gstate_c.Dirty(DIRTY_VERTEXSHADER_STATE);
 		gstate_c.bezier = true;
-		if (gstate_c.spline_num_points_u != bz_ucount) {
+		if (gstate_c.spline_num_points_u != surface.num_points_u) {
 			gstate_c.Dirty(DIRTY_BEZIERSPLINE);
-			gstate_c.spline_num_points_u = bz_ucount;
+			gstate_c.spline_num_points_u = surface.num_points_u;
 		}
 	}
 
 	int bytesRead = 0;
 	UpdateUVScaleOffset();
-	drawEngineCommon_->SubmitBezier(control_points, indices, gstate.getPatchDivisionU(), gstate.getPatchDivisionV(), bz_ucount, bz_vcount, patchPrim, computeNormals, patchFacing, gstate.vertType, &bytesRead);
+	drawEngineCommon_->SubmitCurve(control_points, indices, surface, gstate.vertType, &bytesRead, "bezier");
 
 	if (gstate_c.bezier)
 		gstate_c.Dirty(DIRTY_VERTEXSHADER_STATE);
 	gstate_c.bezier = false;
 
 	// After drawing, we advance pointers - see SubmitPrim which does the same.
-	int count = bz_ucount * bz_vcount;
+	int count = surface.num_points_u * surface.num_points_v;
 	AdvanceVerts(gstate.vertType, count, bytesRead);
 }
 
@@ -1814,35 +1834,39 @@ void GPUCommon::Execute_Spline(u32 op, u32 diff) {
 		DEBUG_LOG_REPORT(G3D, "Unusual bezier/spline vtype: %08x, morph: %d, bones: %d", gstate.vertType, (gstate.vertType & GE_VTYPE_MORPHCOUNT_MASK) >> GE_VTYPE_MORPHCOUNT_SHIFT, vertTypeGetNumBoneWeights(gstate.vertType));
 	}
 
-	int sp_ucount = op & 0xFF;
-	int sp_vcount = (op >> 8) & 0xFF;
-	int sp_utype = (op >> 16) & 0x3;
-	int sp_vtype = (op >> 18) & 0x3;
-	GEPatchPrimType patchPrim = gstate.getPatchPrimitiveType();
-	SetDrawType(DRAW_SPLINE, PatchPrimToPrim(patchPrim));
-	bool computeNormals = gstate.isLightingEnabled();
-	bool patchFacing = gstate.patchfacing & 1;
-	u32 vertType = gstate.vertType;
+	Spline::SplineSurface surface;
+	surface.tess_u = gstate.getPatchDivisionU();
+	surface.tess_v = gstate.getPatchDivisionV();
+	surface.type_u = (op >> 16) & 0x3;
+	surface.type_v = (op >> 18) & 0x3;
+	surface.num_points_u = op & 0xFF;
+	surface.num_points_v = (op >> 8) & 0xFF;
+	surface.num_patches_u = surface.num_points_u - 3;
+	surface.num_patches_v = surface.num_points_v - 3;
+	surface.primType = gstate.getPatchPrimitiveType();
+	surface.patchFacing = gstate.patchfacing & 1;
 
-	if (CanUseHardwareTessellation(patchPrim)) {
+	SetDrawType(DRAW_SPLINE, PatchPrimToPrim(surface.primType));
+
+	if (CanUseHardwareTessellation(surface.primType)) {
 		gstate_c.Dirty(DIRTY_VERTEXSHADER_STATE);
 		gstate_c.spline = true;
-		if (gstate_c.spline_num_points_u != sp_ucount) {
+		if (gstate_c.spline_num_points_u != surface.num_points_u) {
 			gstate_c.Dirty(DIRTY_BEZIERSPLINE);
-			gstate_c.spline_num_points_u = sp_ucount;
+			gstate_c.spline_num_points_u = surface.num_points_u;
 		}
 	}
 
 	int bytesRead = 0;
 	UpdateUVScaleOffset();
-	drawEngineCommon_->SubmitSpline(control_points, indices, gstate.getPatchDivisionU(), gstate.getPatchDivisionV(), sp_ucount, sp_vcount, sp_utype, sp_vtype, patchPrim, computeNormals, patchFacing, vertType, &bytesRead);
+	drawEngineCommon_->SubmitCurve(control_points, indices, surface, gstate.vertType, &bytesRead, "spline");
 
 	if (gstate_c.spline)
 		gstate_c.Dirty(DIRTY_VERTEXSHADER_STATE);
 	gstate_c.spline = false;
 
 	// After drawing, we advance pointers - see SubmitPrim which does the same.
-	int count = sp_ucount * sp_vcount;
+	int count = surface.num_points_u * surface.num_points_v;
 	AdvanceVerts(gstate.vertType, count, bytesRead);
 }
 
@@ -2220,7 +2244,7 @@ void GPUCommon::FlushImm() {
 
 	int bytesRead;
 	uint32_t vertTypeID = GetVertTypeID(vtype, 0);
-	drawEngineCommon_->DispatchSubmitPrim(temp, nullptr, immPrim_, immCount_, vertTypeID, &bytesRead);
+	drawEngineCommon_->DispatchSubmitPrim(temp, nullptr, immPrim_, immCount_, vertTypeID, gstate.getCullMode(), &bytesRead);
 	drawEngineCommon_->DispatchFlush();
 	// TOOD: In the future, make a special path for these.
 	// drawEngineCommon_->DispatchSubmitImm(immBuffer_, immCount_);
@@ -2614,6 +2638,7 @@ void GPUCommon::DoBlockTransfer(u32 skipDrawReason) {
 			const u8 *src = Memory::GetPointerUnchecked(srcLineStartAddr);
 			u8 *dst = Memory::GetPointerUnchecked(dstLineStartAddr);
 			memcpy(dst, src, width * height * bpp);
+			GPURecord::NotifyMemcpy(dstLineStartAddr, srcLineStartAddr, width * height * bpp);
 		} else {
 			for (int y = 0; y < height; y++) {
 				u32 srcLineStartAddr = srcBasePtr + ((y + srcY) * srcStride + srcX) * bpp;
@@ -2622,6 +2647,7 @@ void GPUCommon::DoBlockTransfer(u32 skipDrawReason) {
 				const u8 *src = Memory::GetPointerUnchecked(srcLineStartAddr);
 				u8 *dst = Memory::GetPointerUnchecked(dstLineStartAddr);
 				memcpy(dst, src, width * bpp);
+				GPURecord::NotifyMemcpy(dstLineStartAddr, srcLineStartAddr, width * bpp);
 			}
 		}
 
@@ -2698,9 +2724,8 @@ void GPUCommon::InvalidateCache(u32 addr, int size, GPUInvalidationType type) {
 		textureCache_->InvalidateAll(type);
 
 	if (type != GPU_INVALIDATE_ALL && framebufferManager_->MayIntersectFramebuffer(addr)) {
-		// If we're doing block transfers, we shouldn't need this, and it'll only confuse us.
 		// Vempire invalidates (with writeback) after drawing, but before blitting.
-		if (!g_Config.bBlockTransferGPU || type == GPU_INVALIDATE_SAFE) {
+		if (type == GPU_INVALIDATE_SAFE) {
 			framebufferManager_->UpdateFromMemory(addr, size, type == GPU_INVALIDATE_SAFE);
 		}
 	}
@@ -2723,24 +2748,24 @@ bool GPUCommon::PerformStencilUpload(u32 dest, int size) {
 }
 
 bool GPUCommon::GetCurrentFramebuffer(GPUDebugBuffer &buffer, GPUDebugFramebufferType type, int maxRes) {
-	u32 fb_address = type == GPU_DBG_FRAMEBUF_RENDER ? gstate.getFrameBufRawAddress() : framebufferManager_->DisplayFramebufAddr();
+	u32 fb_address = type == GPU_DBG_FRAMEBUF_RENDER ? (gstate.getFrameBufRawAddress() | 0x04000000) : framebufferManager_->DisplayFramebufAddr();
 	int fb_stride = type == GPU_DBG_FRAMEBUF_RENDER ? gstate.FrameBufStride() : framebufferManager_->DisplayFramebufStride();
 	GEBufferFormat format = type == GPU_DBG_FRAMEBUF_RENDER ? gstate.FrameBufFormat() : framebufferManager_->DisplayFramebufFormat();
 	return framebufferManager_->GetFramebuffer(fb_address, fb_stride, format, buffer, maxRes);
 }
 
 bool GPUCommon::GetCurrentDepthbuffer(GPUDebugBuffer &buffer) {
-	u32 fb_address = gstate.getFrameBufRawAddress();
+	u32 fb_address = gstate.getFrameBufRawAddress() | 0x04000000;
 	int fb_stride = gstate.FrameBufStride();
 
-	u32 z_address = gstate.getDepthBufRawAddress();
+	u32 z_address = gstate.getDepthBufRawAddress() | 0x04000000;
 	int z_stride = gstate.DepthBufStride();
 
 	return framebufferManager_->GetDepthbuffer(fb_address, fb_stride, z_address, z_stride, buffer);
 }
 
 bool GPUCommon::GetCurrentStencilbuffer(GPUDebugBuffer &buffer) {
-	u32 fb_address = gstate.getFrameBufRawAddress();
+	u32 fb_address = gstate.getFrameBufRawAddress() | 0x04000000;
 	int fb_stride = gstate.FrameBufStride();
 
 	return framebufferManager_->GetStencilbuffer(fb_address, fb_stride, buffer);

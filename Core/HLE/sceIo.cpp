@@ -253,6 +253,14 @@ public:
 
 u64 __IoCompleteAsyncIO(FileNode *f);
 
+static int GetIOTimingMethod() {
+	if (PSP_CoreParameter().compat.flags().ForceUMDDelay) {
+		return IOTIMING_REALISTIC;
+	} else {
+		return g_Config.iIOTimingMethod;
+	}
+}
+
 static void TellFsThreadEnded (SceUID threadID) {
 	pspFileSystem.ThreadEnded(threadID);
 }
@@ -339,7 +347,8 @@ static void __IoAsyncNotify(u64 userdata, int cyclesLate) {
 		return;
 	}
 
-	if (g_Config.iIOTimingMethod == IOTIMING_HOST) {
+	int ioTimingMethod = GetIOTimingMethod();
+	if (ioTimingMethod == IOTIMING_HOST) {
 		// Not all async operations actually queue up.  Maybe should separate them?
 		if (!ioManager.HasResult(f->handle) && ioManager.HasOperation(f->handle)) {
 			// Try again in another 0.5ms until the IO completes on the host.
@@ -347,7 +356,7 @@ static void __IoAsyncNotify(u64 userdata, int cyclesLate) {
 			return;
 		}
 		__IoCompleteAsyncIO(f);
-	} else if (g_Config.iIOTimingMethod == IOTIMING_REALISTIC) {
+	} else if (ioTimingMethod == IOTIMING_REALISTIC) {
 		u64 finishTicks = __IoCompleteAsyncIO(f);
 		if (finishTicks > CoreTiming::GetTicks()) {
 			// Reschedule for later, since we now know how long it ought to take.
@@ -396,13 +405,14 @@ static void __IoSyncNotify(u64 userdata, int cyclesLate) {
 		return;
 	}
 
-	if (g_Config.iIOTimingMethod == IOTIMING_HOST) {
+	int ioTimingMethod = GetIOTimingMethod();
+	if (ioTimingMethod == IOTIMING_HOST) {
 		if (!ioManager.HasResult(f->handle)) {
 			// Try again in another 0.5ms until the IO completes on the host.
 			CoreTiming::ScheduleEvent(usToCycles(500) - cyclesLate, syncNotifyEvent, userdata);
 			return;
 		}
-	} else if (g_Config.iIOTimingMethod == IOTIMING_REALISTIC) {
+	} else if (ioTimingMethod == IOTIMING_REALISTIC) {
 		u64 finishTicks = ioManager.ResultFinishTicks(f->handle);
 		if (finishTicks > CoreTiming::GetTicks()) {
 			// Reschedule for later when the result should finish.
@@ -723,7 +733,8 @@ static u32 sceKernelStderr() {
 u64 __IoCompleteAsyncIO(FileNode *f) {
 	PROFILE_THIS_SCOPE("io_rw");
 
-	if (g_Config.iIOTimingMethod == IOTIMING_REALISTIC) {
+	int ioTimingMethod = GetIOTimingMethod();
+	if (ioTimingMethod == IOTIMING_REALISTIC) {
 		u64 finishTicks = ioManager.ResultFinishTicks(f->handle);
 		if (finishTicks > CoreTiming::GetTicks()) {
 			return finishTicks;
@@ -921,7 +932,7 @@ static bool __IoRead(int &result, int id, u32 data_addr, int size, int &us) {
 				ioManager.ScheduleOperation(ev);
 				return false;
 			} else {
-				if (g_Config.iIOTimingMethod != IOTIMING_REALISTIC) {
+				if (GetIOTimingMethod() != IOTIMING_REALISTIC) {
 					result = (int) pspFileSystem.ReadFile(f->handle, data, size);
 				} else {
 					result = (int) pspFileSystem.ReadFile(f->handle, data, size, us);
@@ -991,7 +1002,7 @@ static u32 sceIoReadAsync(int id, u32 data_addr, int size) {
 		int us;
 		bool complete = __IoRead(result, id, data_addr, size, us);
 		if (complete) {
-			f->asyncResult = result;
+			f->asyncResult = (s64)result;
 			DEBUG_LOG(SCEIO, "%llx=sceIoReadAsync(%d, %08x, %x)", f->asyncResult, id, data_addr, size);
 		} else {
 			DEBUG_LOG(SCEIO, "sceIoReadAsync(%d, %08x, %x): deferring result", id, data_addr, size);
@@ -1056,7 +1067,7 @@ static bool __IoWrite(int &result, int id, u32 data_addr, int size, int &us) {
 			ioManager.ScheduleOperation(ev);
 			return false;
 		} else {
-			if (g_Config.iIOTimingMethod != IOTIMING_REALISTIC) {
+			if (GetIOTimingMethod() != IOTIMING_REALISTIC) {
 				result = (int) pspFileSystem.WriteFile(f->handle, (u8 *) data_ptr, size);
 			} else {
 				result = (int) pspFileSystem.WriteFile(f->handle, (u8 *) data_ptr, size, us);
@@ -1125,7 +1136,7 @@ static u32 sceIoWriteAsync(int id, u32 data_addr, int size) {
 		int us;
 		bool complete = __IoWrite(result, id, data_addr, size, us);
 		if (complete) {
-			f->asyncResult = result;
+			f->asyncResult = (s64)result;
 			DEBUG_LOG(SCEIO, "%llx=sceIoWriteAsync(%d, %08x, %x)", f->asyncResult, id, data_addr, size);
 		} else {
 			DEBUG_LOG(SCEIO, "sceIoWriteAsync(%d, %08x, %x): deferring result", id, data_addr, size);
@@ -1935,7 +1946,7 @@ static u32 sceIoOpenAsync(const char *filename, int flags, int mode)
 		f = new FileNode();
 		f->handle = kernelObjects.Create(f);
 		f->fullpath = filename;
-		f->asyncResult = error == 0 ? SCE_KERNEL_ERROR_ERRNO_FILE_NOT_FOUND : error;
+		f->asyncResult = error == 0 ? (s64)SCE_KERNEL_ERROR_ERRNO_FILE_NOT_FOUND : (s64)error;
 		f->closePending = true;
 
 		fd = __IoAllocFd(f);

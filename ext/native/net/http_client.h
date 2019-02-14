@@ -75,8 +75,14 @@ public:
 	// If your response contains a response, you must read it.
 	int ReadResponseEntity(Buffer *readbuf, const std::vector<std::string> &responseHeaders, Buffer *output, float *progress = nullptr, bool *cancelled = nullptr);
 
+	void SetDataTimeout(double t) {
+		dataTimeout_ = t;
+	}
+
+protected:
 	const char *userAgent_;
 	const char *httpVersion_;
+	double dataTimeout_ = -1.0;
 };
 
 // Not particularly efficient, but hey - it's a background download, that's pretty cool :P

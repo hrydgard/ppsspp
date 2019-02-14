@@ -37,19 +37,59 @@ static const int REPORT_PORT = 80;
 static bool scanCancelled = false;
 static bool scanAborted = false;
 
+static std::string RemoteSubdir() {
+	if (g_Config.bRemoteISOManual) {
+		std::string subdir = g_Config.sRemoteISOSubdir;
+		size_t offset = subdir.find_last_of("/");
+		if (offset != subdir.length() - 1 && offset != subdir.npos) {
+			// Truncate everything after last /
+			subdir.erase(offset + 1);
+		}
+		return subdir;
+	}
+
+	return "/";
+}
+
 static bool FindServer(std::string &resultHost, int &resultPort) {
 	http::Client http;
 	Buffer result;
 	int code = 500;
 
+	std::string subdir = RemoteSubdir();
+
 	auto TryServer = [&](const std::string &host, int port) {
 		// Don't wait as long for a connect - we need a good connection for smooth streaming anyway.
 		// This way if it's down, we'll find the right one faster.
 		if (http.Resolve(host.c_str(), port) && http.Connect(1, 10.0, &scanCancelled)) {
+			code = http.GET(subdir.c_str(), &result);
 			http.Disconnect();
-			resultHost = host;
-			resultPort = port;
-			return true;
+
+			if (code != 200) {
+				return false;
+			}
+
+			// Make sure this isn't just the debugger.  If so, move on.
+			std::string listing;
+			std::vector<std::string> items;
+			result.TakeAll(&listing);
+			SplitString(listing, '\n', items);
+
+			bool supported = false;
+			for (const std::string &item : items) {
+				if (!RemoteISOFileSupported(item)) {
+					continue;
+				}
+				supported = true;
+				break;
+			}
+
+			if (supported) {
+				resultHost = host;
+				resultPort = port;
+				NOTICE_LOG(HLE, "RemoteISO found: %s : %d", host.c_str(), port);
+				return true;
+			}
 		}
 
 		return false;
@@ -94,7 +134,6 @@ static bool FindServer(std::string &resultHost, int &resultPort) {
 		return false;
 	}
 
-	std::vector<std::string> servers;
 	for (const auto pentry : entries) {
 		JsonGet entry = pentry->value;
 		if (scanCancelled)
@@ -105,7 +144,6 @@ static bool FindServer(std::string &resultHost, int &resultPort) {
 
 		char url[1024] = {};
 		snprintf(url, sizeof(url), "http://%s:%d", host, port);
-		servers.push_back(url);
 
 		if (TryServer(host, port)) {
 			return true;
@@ -121,17 +159,7 @@ static bool LoadGameList(const std::string &host, int port, std::vector<std::str
 	Buffer result;
 	int code = 500;
 	std::vector<std::string> responseHeaders;
-	std::string subdir = "/";
-	size_t offset;
-
-	if (g_Config.bRemoteISOManual) {
-		subdir = g_Config.sRemoteISOSubdir;
-		offset=subdir.find_last_of("/");
-		if (offset != subdir.length() - 1 && offset != subdir.npos) {
-			// Truncate everything after last /
-			subdir.erase(offset + 1);
-		}
-	}
+	std::string subdir = RemoteSubdir();
 
 	// Start by requesting the list of games from the server.
 	if (http.Resolve(host.c_str(), port)) {
