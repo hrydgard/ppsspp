@@ -762,7 +762,7 @@ std::string Shader::GetShaderString(DebugShaderStringType type, ShaderID id) con
 	case SHADER_STRING_SOURCE_CODE:
 		return source_;
 	case SHADER_STRING_SHORT_DESC:
-		return isFragment_ ? FragmentShaderDesc(id) : VertexShaderDesc(id);
+		return isFragment_ ? FragmentShaderDesc(FShaderID(id)) : VertexShaderDesc(VShaderID(id));
 	default:
 		return "N/A";
 	}
