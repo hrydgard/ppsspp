@@ -81,7 +81,7 @@ int PSPNetconfDialog::Update(int animSpeed) {
 		StartDraw();
 		DrawBanner();
 		PPGeDrawRect(0, 0, 480, 272, CalcFadedColor(0x63636363));
-		PPGeDrawTextWrapped(err->T("PPSSPPDoesNotSupportInternet", "PPSSPP currently does not support connecting to the Internet for DLC, PSN, or game updates."), 241, 132, WRAP_WIDTH, PPGE_ALIGN_CENTER, 0.5f, CalcFadedColor(0xFFFFFFFF));
+		PPGeDrawTextWrapped(err->T("PPSSPPDoesNotSupportInternet", "PPSSPP currently does not support connecting to the Internet for DLC, PSN, or game updates."), 241, 132, WRAP_WIDTH, 0, PPGE_ALIGN_CENTER, 0.5f, CalcFadedColor(0xFFFFFFFF));
 		PPGeDrawImage(confirmBtnImage, 195, 250, 20, 20, 0, CalcFadedColor(0xFFFFFFFF));
 		PPGeDrawText(di->T("OK"), 225, 252, PPGE_ALIGN_LEFT, 0.5f, CalcFadedColor(0xFFFFFFFF));
 

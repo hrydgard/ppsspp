@@ -458,8 +458,8 @@ void PSPSaveDialog::DisplaySaveDataInfo1()
 		PPGeDrawText(timeTxt.c_str(), 180, 137, PPGE_ALIGN_LEFT, 0.5f, CalcFadedColor(0xFFFFFFFF));
 		PPGeDrawText(saveTitleTxt.c_str(), 176, 162, PPGE_ALIGN_LEFT, 0.55f, CalcFadedColor(0x80000000));
 		PPGeDrawText(saveTitleTxt.c_str(), 175, 159, PPGE_ALIGN_LEFT, 0.55f, CalcFadedColor(0xFFFFFFFF));
-		PPGeDrawText(saveDetailTxt.c_str(), 176, 183, PPGE_ALIGN_LEFT, 0.5f, CalcFadedColor(0x80000000));
-		PPGeDrawText(saveDetailTxt.c_str(), 175, 181, PPGE_ALIGN_LEFT, 0.5f, CalcFadedColor(0xFFFFFFFF));
+		PPGeDrawTextWrapped(saveDetailTxt.c_str(), 176, 183, 480 - 175, 250 - 183, PPGE_ALIGN_LEFT, 0.5f, CalcFadedColor(0x80000000));
+		PPGeDrawTextWrapped(saveDetailTxt.c_str(), 175, 181, 480 - 175, 250 - 181, PPGE_ALIGN_LEFT, 0.5f, CalcFadedColor(0xFFFFFFFF));
 	}
 }
 
@@ -573,8 +573,8 @@ void PSPSaveDialog::DisplayMessage(std::string text, bool hasYesNo)
 			yesnoChoice = 0;
 		}
 	}
-	PPGeDrawTextWrapped(text.c_str(), 335.0f, y+2, WRAP_WIDTH, PPGE_ALIGN_CENTER, FONT_SCALE, CalcFadedColor(0x80000000));
-	PPGeDrawTextWrapped(text.c_str(), 334.0f, y, WRAP_WIDTH, PPGE_ALIGN_CENTER, FONT_SCALE, CalcFadedColor(0xFFFFFFFF));
+	PPGeDrawTextWrapped(text.c_str(), 335.0f, y+2, WRAP_WIDTH, 0, PPGE_ALIGN_CENTER, FONT_SCALE, CalcFadedColor(0x80000000));
+	PPGeDrawTextWrapped(text.c_str(), 334.0f, y, WRAP_WIDTH, 0, PPGE_ALIGN_CENTER, FONT_SCALE, CalcFadedColor(0xFFFFFFFF));
 	float sy = 122.0f - h2, ey = 150.0f + h2;
 	PPGeDrawRect(202.0f, sy, 466.0f, sy + 1.0f, CalcFadedColor(0xFFFFFFFF));
 	PPGeDrawRect(202.0f, ey, 466.0f, ey + 1.0f, CalcFadedColor(0xFFFFFFFF));
