@@ -11,7 +11,7 @@
 #include "GPU/Common/ShaderId.h"
 #include "GPU/Common/VertexDecoderCommon.h"
 
-std::string VertexShaderDesc(const ShaderID &id) {
+std::string VertexShaderDesc(const VShaderID &id) {
 	std::stringstream desc;
 	desc << StringFromFormat("%08x:%08x ", id.d[1], id.d[0]);
 	if (id.Bit(VS_BIT_IS_THROUGH)) desc << "THR ";
@@ -60,7 +60,7 @@ std::string VertexShaderDesc(const ShaderID &id) {
 	return desc.str();
 }
 
-void ComputeVertexShaderID(ShaderID *id_out, u32 vertType, bool useHWTransform) {
+void ComputeVertexShaderID(VShaderID *id_out, u32 vertType, bool useHWTransform) {
 	bool isModeThrough = (vertType & GE_VTYPE_THROUGH) != 0;
 	bool doTexture = gstate.isTextureMapEnabled() && !gstate.isModeClear();
 	bool doTextureTransform = gstate.getUVGenMode() == GE_TEXMAP_TEXTURE_MATRIX;
@@ -81,7 +81,7 @@ void ComputeVertexShaderID(ShaderID *id_out, u32 vertType, bool useHWTransform) 
 	bool enableFog = gstate.isFogEnabled() && !isModeThrough && !gstate.isModeClear();
 	bool lmode = gstate.isUsingSecondaryColor() && gstate.isLightingEnabled() && !isModeThrough;
 
-	ShaderID id;
+	VShaderID id;
 	id.SetBit(VS_BIT_LMODE, lmode);
 	id.SetBit(VS_BIT_IS_THROUGH, isModeThrough);
 	id.SetBit(VS_BIT_ENABLE_FOG, enableFog);
@@ -160,7 +160,7 @@ static bool MatrixNeedsProjection(const float m[12]) {
 	return m[2] != 0.0f || m[5] != 0.0f || m[8] != 0.0f || m[11] != 1.0f;
 }
 
-std::string FragmentShaderDesc(const ShaderID &id) {
+std::string FragmentShaderDesc(const FShaderID &id) {
 	std::stringstream desc;
 	desc << StringFromFormat("%08x:%08x ", id.d[1], id.d[0]);
 	if (id.Bit(FS_BIT_CLEARMODE)) desc << "Clear ";
@@ -226,8 +226,8 @@ std::string FragmentShaderDesc(const ShaderID &id) {
 
 // Here we must take all the bits of the gstate that determine what the fragment shader will
 // look like, and concatenate them together into an ID.
-void ComputeFragmentShaderID(ShaderID *id_out, const Draw::Bugs &bugs) {
-	ShaderID id;
+void ComputeFragmentShaderID(FShaderID *id_out, const Draw::Bugs &bugs) {
+	FShaderID id;
 	if (gstate.isModeClear()) {
 		// We only need one clear shader, so let's ignore the rest of the bits.
 		id.SetBit(FS_BIT_CLEARMODE);
