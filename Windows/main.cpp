@@ -21,6 +21,7 @@
 
 #include "Common/CommonWindows.h"
 #include "Common/OSVersion.h"
+#include "Common/Vulkan/VulkanLoader.h"
 
 #include <Wbemidl.h>
 #include <shellapi.h>
@@ -350,6 +351,39 @@ static std::string GetDefaultLangRegion() {
 	}
 }
 
+static const int EXIT_CODE_VULKAN_WORKS = 42;
+
+static bool DetectVulkanInExternalProcess() {
+	wchar_t moduleFilename[MAX_PATH];
+	wchar_t workingDirectory[MAX_PATH];
+	GetCurrentDirectoryW(MAX_PATH, workingDirectory);
+	const wchar_t *cmdline = L"--vulkan-available-check";
+	GetModuleFileName(GetModuleHandle(NULL), moduleFilename, MAX_PATH);
+
+	SHELLEXECUTEINFO info{ sizeof(SHELLEXECUTEINFO) };
+	info.fMask = SEE_MASK_NOCLOSEPROCESS;
+	info.lpFile = moduleFilename;
+	info.lpParameters = cmdline;
+	info.lpDirectory = workingDirectory;
+	info.nShow = SW_HIDE;
+	if (ShellExecuteEx(&info) != TRUE) {
+		return false;
+	}
+	if (info.hProcess == nullptr) {
+		return false;
+	}
+
+	DWORD result = WaitForSingleObject(info.hProcess, 10000);
+	DWORD exitCode = 0;
+	if (result == WAIT_FAILED || GetExitCodeProcess(info.hProcess, &exitCode) == 0) {
+		CloseHandle(info.hProcess);
+		return false;
+	}
+	CloseHandle(info.hProcess);
+
+	return exitCode == EXIT_CODE_VULKAN_WORKS;
+}
+
 std::vector<std::wstring> GetWideCmdLine() {
 	wchar_t **wargv;
 	int wargc = -1;
@@ -361,9 +395,7 @@ std::vector<std::wstring> GetWideCmdLine() {
 	return wideArgs;
 }
 
-int WINAPI WinMain(HINSTANCE _hInstance, HINSTANCE hPrevInstance, LPSTR szCmdLine, int iCmdShow) {
-	setCurrentThreadName("Main");
-
+static void WinMainInit() {
 	CoInitializeEx(NULL, COINIT_MULTITHREADED);
 	net::Init();  // This needs to happen before we load the config. So on Windows we also run it in Main. It's fine to call multiple times.
 
@@ -384,6 +416,21 @@ int WINAPI WinMain(HINSTANCE _hInstance, HINSTANCE hPrevInstance, LPSTR szCmdLin
 	// FMA3 support in the 2013 CRT is broken on Vista and Windows 7 RTM (fixed in SP1). Just disable it.
 	_set_FMA3_enable(0);
 #endif
+}
+
+static void WinMainCleanup() {
+	if (g_Config.bRestartRequired) {
+		W32Util::ExitAndRestart();
+	}
+
+	net::Shutdown();
+	CoUninitialize();
+}
+
+int WINAPI WinMain(HINSTANCE _hInstance, HINSTANCE hPrevInstance, LPSTR szCmdLine, int iCmdShow) {
+	setCurrentThreadName("Main");
+
+	WinMainInit();
 
 #ifndef _DEBUG
 	bool showLog = false;
@@ -486,10 +533,26 @@ int WINAPI WinMain(HINSTANCE _hInstance, HINSTANCE hPrevInstance, LPSTR szCmdLin
 					g_Config.bSoftwareRendering = true;
 				}
 			}
+
+			// This should only be called by DetectVulkanInExternalProcess().
+			if (wideArgs[i] == L"--vulkan-available-check") {
+				// Just call it, this way it will crash here if it doesn't work.
+				// (this is an external process.)
+				bool result = VulkanMayBeAvailable();
+
+				LogManager::Shutdown();
+				WinMainCleanup();
+				return result ? EXIT_CODE_VULKAN_WORKS : EXIT_FAILURE;
+			}
 		}
 	}
 #ifdef _DEBUG
 	g_Config.bEnableLogging = true;
+#endif
+
+#ifndef _DEBUG
+	// See #11719 - too many Vulkan drivers crash on basic init.
+	VulkanSetAvailable(DetectVulkanInExternalProcess());
 #endif
 
 	if (iCmdShow == SW_MAXIMIZE) {
@@ -595,13 +658,7 @@ int WINAPI WinMain(HINSTANCE _hInstance, HINSTANCE hPrevInstance, LPSTR szCmdLin
 	timeEndPeriod(1);
 
 	LogManager::Shutdown();
-
-	if (g_Config.bRestartRequired) {
-		W32Util::ExitAndRestart();
-	}
-
-	net::Shutdown();
-	CoUninitialize();
+	WinMainCleanup();
 
 	return 0;
 }
