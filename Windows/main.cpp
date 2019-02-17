@@ -27,10 +27,11 @@
 #include <shellapi.h>
 #include <mmsystem.h>
 
+#include "base/NativeApp.h"
 #include "base/display.h"
 #include "file/vfs.h"
 #include "file/zip_read.h"
-#include "base/NativeApp.h"
+#include "i18n/i18n.h"
 #include "profiler/profiler.h"
 #include "thread/threadutil.h"
 #include "util/text/utf8.h"
@@ -58,6 +59,7 @@
 #include "Windows/GEDebugger/GEDebugger.h"
 
 #include "Windows/W32Util/DialogManager.h"
+#include "Windows/W32Util/ShellUtil.h"
 
 #include "Windows/Debugger/CtrlDisAsmView.h"
 #include "Windows/Debugger/CtrlMemView.h"
@@ -274,6 +276,11 @@ void System_SendMessage(const char *command, const char *parameter) {
 		}
 	} else if (!strcmp(command, "browse_file")) {
 		MainWindow::BrowseAndBoot("");
+	} else if (!strcmp(command, "browse_folder")) {
+		I18NCategory *mm = GetI18NCategory("MainMenu");
+		std::string folder = W32Util::BrowseForFolder(MainWindow::GetHWND(), mm->T("Choose folder"));
+		if (folder.size())
+			NativeMessageReceived("browse_folderSelect", folder.c_str());
 	} else if (!strcmp(command, "bgImage_browse")) {
 		MainWindow::BrowseBackground();
 	} else if (!strcmp(command, "toggle_fullscreen")) {

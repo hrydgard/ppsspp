@@ -58,19 +58,13 @@
 #include "Core/HLE/sceUmd.h"
 
 #ifdef _WIN32
-#include "Windows/W32Util/ShellUtil.h"
-#include "Windows/MainWindow.h"
+// Unfortunate, for undef DrawText...
+#include "Common/CommonWindows.h"
 #endif
 
 #ifdef ANDROID_NDK_PROFILER
 #include <stdlib.h>
 #include "android/android-ndk-profiler/prof.h"
-#endif
-
-#ifdef USING_QT_UI
-#include <QFileDialog>
-#include <QFile>
-#include <QDir>
 #endif
 
 #include <sstream>
@@ -447,10 +441,16 @@ GameBrowser::GameBrowser(std::string path, bool allowBrowsing, bool *gridStyle, 
 	Refresh();
 }
 
-void GameBrowser::FocusGame(std::string gamePath) {
+void GameBrowser::FocusGame(const std::string &gamePath) {
 	focusGamePath_ = gamePath;
 	Refresh();
 	focusGamePath_.clear();
+}
+
+void GameBrowser::SetPath(const std::string &path) {
+	path_.SetPath(path);
+	g_Config.currentDirectory = path_.GetPath();
+	Refresh();
 }
 
 UI::EventReturn GameBrowser::LayoutChange(UI::EventParams &e) {
@@ -466,30 +466,18 @@ UI::EventReturn GameBrowser::LastClick(UI::EventParams &e) {
 
 UI::EventReturn GameBrowser::HomeClick(UI::EventParams &e) {
 #ifdef __ANDROID__
-	path_.SetPath(g_Config.memStickDirectory);
-#elif defined(USING_QT_UI)
-	I18NCategory *mm = GetI18NCategory("MainMenu");
-	QString fileName = QFileDialog::getExistingDirectory(NULL, "Browse for Folder", g_Config.currentDirectory.c_str());
-	if (QDir(fileName).exists())
-		path_.SetPath(fileName.toStdString());
-	else
-		return UI::EVENT_DONE;
-#elif defined(_WIN32)
-#if PPSSPP_PLATFORM(UWP)
+	SetPath(g_Config.memStickDirectory);
+#elif defined(USING_QT_UI) || defined(USING_WIN_UI)
+	if (System_GetPropertyBool(SYSPROP_HAS_FILE_BROWSER)) {
+		System_SendMessage("browse_folder", "");
+	}
+#elif PPSSPP_PLATFORM(UWP)
 	// TODO UWP
+	SetPath(g_Config.memStickDirectory);
 #else
-	I18NCategory *mm = GetI18NCategory("MainMenu");
-	std::string folder = W32Util::BrowseForFolder(MainWindow::GetHWND(), mm->T("Choose folder"));
-	if (!folder.size())
-		return UI::EVENT_DONE;
-	path_.SetPath(folder);
-#endif
-#else
-	path_.SetPath(getenv("HOME"));
+	SetPath(getenv("HOME"));
 #endif
 
-	g_Config.currentDirectory = path_.GetPath();
-	Refresh();
 	return UI::EVENT_DONE;
 }
 
@@ -533,7 +521,7 @@ void GameBrowser::Refresh() {
 		if (allowBrowsing_) {
 			topBar->Add(new Spacer(2.0f));
 			topBar->Add(new TextView(path_.GetFriendlyPath().c_str(), ALIGN_VCENTER | FLAG_WRAP_TEXT, true, new LinearLayoutParams(FILL_PARENT, 64.0f, 1.0f)));
-#if defined(_WIN32) || defined(USING_QT_UI)
+#if defined(USING_WIN_UI) || defined(USING_QT_UI)
 			topBar->Add(new Choice(mm->T("Browse", "Browse..."), new LayoutParams(WRAP_CONTENT, 64.0f)))->OnClick.Handle(this, &GameBrowser::HomeClick);
 #else
 			topBar->Add(new Choice(mm->T("Home"), new LayoutParams(WRAP_CONTENT, 64.0f)))->OnClick.Handle(this, &GameBrowser::HomeClick);
@@ -742,7 +730,7 @@ UI::EventReturn GameBrowser::GameButtonHighlight(UI::EventParams &e) {
 }
 
 UI::EventReturn GameBrowser::NavigateClick(UI::EventParams &e) {
-	DirButton *button  = static_cast<DirButton *>(e.v);
+	DirButton *button = static_cast<DirButton *>(e.v);
 	std::string text = button->GetPath();
 	if (button->PathAbsolute()) {
 		path_.SetPath(text);
@@ -915,8 +903,7 @@ void MainScreen::CreateViews() {
 	TextView *ver = rightColumnItems->Add(new TextView(versionString, new LinearLayoutParams(Margins(70, -6, 0, 0))));
 	ver->SetSmall(true);
 	ver->SetClip(false);
-// Temporarily disabled the load button for Qt. See #11721
-#if defined(_WIN32) // || defined(USING_QT_UI)
+#if defined(USING_WIN_UI) || defined(USING_QT_UI)
 	rightColumnItems->Add(new Choice(mm->T("Load","Load...")))->OnClick.Handle(this, &MainScreen::OnLoadFile);
 #endif
 	rightColumnItems->Add(new Choice(mm->T("Game Settings", "Settings")))->OnClick.Handle(this, &MainScreen::OnGameSettings);
@@ -1005,8 +992,16 @@ void MainScreen::sendMessage(const char *message, const char *value) {
 	// Always call the base class method first to handle the most common messages.
 	UIScreenWithBackground::sendMessage(message, value);
 
-	if (!strcmp(message, "boot") && screenManager()->topScreen() == this) {
-		screenManager()->switchScreen(new EmuScreen(value));
+	if (screenManager()->topScreen() == this) {
+		if (!strcmp(message, "boot")) {
+			screenManager()->switchScreen(new EmuScreen(value));
+		}
+		if (!strcmp(message, "browse_folderSelect")) {
+			int tab = tabHolder_->GetCurrentTab();
+			if (tab >= 0 && tab < (int)gameBrowsers_.size()) {
+				gameBrowsers_[tab]->SetPath(value);
+			}
+		}
 	}
 	if (!strcmp(message, "permission_granted") && !strcmp(value, "storage")) {
 		RecreateViews();
@@ -1028,16 +1023,6 @@ bool MainScreen::UseVerticalLayout() const {
 }
 
 UI::EventReturn MainScreen::OnLoadFile(UI::EventParams &e) {
-#if defined(USING_QT_UI)
-	QString fileName = QFileDialog::getOpenFileName(NULL, "Load ROM", g_Config.currentDirectory.c_str(), "PSP ROMs (*.iso *.cso *.pbp *.elf *.zip *.ppdmp)");
-	if (QFile::exists(fileName)) {
-		QDir newPath;
-		g_Config.currentDirectory = newPath.filePath(fileName).toStdString();
-		g_Config.Save();
-		screenManager()->switchScreen(new EmuScreen(fileName.toStdString()));
-	}
-#endif
-
 	if (System_GetPropertyBool(SYSPROP_HAS_FILE_BROWSER)) {
 		System_SendMessage("browse_file", "");
 	}
