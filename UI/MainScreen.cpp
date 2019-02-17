@@ -58,8 +58,8 @@
 #include "Core/HLE/sceUmd.h"
 
 #ifdef _WIN32
-#include "Windows/W32Util/ShellUtil.h"
-#include "Windows/MainWindow.h"
+// Unfortunate, for undef DrawText...
+#include "Common/CommonWindows.h"
 #endif
 
 #ifdef ANDROID_NDK_PROFILER
@@ -467,18 +467,13 @@ UI::EventReturn GameBrowser::LastClick(UI::EventParams &e) {
 UI::EventReturn GameBrowser::HomeClick(UI::EventParams &e) {
 #ifdef __ANDROID__
 	SetPath(g_Config.memStickDirectory);
-#elif defined(USING_QT_UI)
-	System_SendMessage("browse_folder", "");
-#elif defined(_WIN32)
-#if PPSSPP_PLATFORM(UWP)
+#elif defined(USING_QT_UI) || defined(USING_WIN_UI)
+	if (System_GetPropertyBool(SYSPROP_HAS_FILE_BROWSER)) {
+		System_SendMessage("browse_folder", "");
+	}
+#elif PPSSPP_PLATFORM(UWP)
 	// TODO UWP
-#else
-	I18NCategory *mm = GetI18NCategory("MainMenu");
-	std::string folder = W32Util::BrowseForFolder(MainWindow::GetHWND(), mm->T("Choose folder"));
-	if (!folder.size())
-		return UI::EVENT_DONE;
-	SetPath(folder);
-#endif
+	SetPath(g_Config.memStickDirectory);
 #else
 	SetPath(getenv("HOME"));
 #endif
@@ -526,7 +521,7 @@ void GameBrowser::Refresh() {
 		if (allowBrowsing_) {
 			topBar->Add(new Spacer(2.0f));
 			topBar->Add(new TextView(path_.GetFriendlyPath().c_str(), ALIGN_VCENTER | FLAG_WRAP_TEXT, true, new LinearLayoutParams(FILL_PARENT, 64.0f, 1.0f)));
-#if defined(_WIN32) || defined(USING_QT_UI)
+#if defined(USING_WIN_UI) || defined(USING_QT_UI)
 			topBar->Add(new Choice(mm->T("Browse", "Browse..."), new LayoutParams(WRAP_CONTENT, 64.0f)))->OnClick.Handle(this, &GameBrowser::HomeClick);
 #else
 			topBar->Add(new Choice(mm->T("Home"), new LayoutParams(WRAP_CONTENT, 64.0f)))->OnClick.Handle(this, &GameBrowser::HomeClick);
@@ -908,7 +903,7 @@ void MainScreen::CreateViews() {
 	TextView *ver = rightColumnItems->Add(new TextView(versionString, new LinearLayoutParams(Margins(70, -6, 0, 0))));
 	ver->SetSmall(true);
 	ver->SetClip(false);
-#if defined(_WIN32) || defined(USING_QT_UI)
+#if defined(USING_WIN_UI) || defined(USING_QT_UI)
 	rightColumnItems->Add(new Choice(mm->T("Load","Load...")))->OnClick.Handle(this, &MainScreen::OnLoadFile);
 #endif
 	rightColumnItems->Add(new Choice(mm->T("Game Settings", "Settings")))->OnClick.Handle(this, &MainScreen::OnGameSettings);
