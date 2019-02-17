@@ -1271,7 +1271,8 @@ static void DrawCrashDump(DrawBuffer *draw2d) {
 	FontID ubuntu24("UBUNTU24");
 	char statbuf[4096];
 	char versionString[256];
-	sprintf(versionString, "%s", PPSSPP_GIT_VERSION);
+	snprintf(versionString, sizeof(versionString), "%s", PPSSPP_GIT_VERSION);
+
 	// TODO: Draw a lot more information. Full register set, and so on.
 
 #ifdef _DEBUG
