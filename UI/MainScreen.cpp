@@ -915,8 +915,7 @@ void MainScreen::CreateViews() {
 	TextView *ver = rightColumnItems->Add(new TextView(versionString, new LinearLayoutParams(Margins(70, -6, 0, 0))));
 	ver->SetSmall(true);
 	ver->SetClip(false);
-// Temporarily disabled the load button for Qt. See #11721
-#if defined(_WIN32) // || defined(USING_QT_UI)
+#if defined(_WIN32) || defined(USING_QT_UI)
 	rightColumnItems->Add(new Choice(mm->T("Load","Load...")))->OnClick.Handle(this, &MainScreen::OnLoadFile);
 #endif
 	rightColumnItems->Add(new Choice(mm->T("Game Settings", "Settings")))->OnClick.Handle(this, &MainScreen::OnGameSettings);
@@ -1028,16 +1027,6 @@ bool MainScreen::UseVerticalLayout() const {
 }
 
 UI::EventReturn MainScreen::OnLoadFile(UI::EventParams &e) {
-#if defined(USING_QT_UI)
-	QString fileName = QFileDialog::getOpenFileName(NULL, "Load ROM", g_Config.currentDirectory.c_str(), "PSP ROMs (*.iso *.cso *.pbp *.elf *.zip *.ppdmp)");
-	if (QFile::exists(fileName)) {
-		QDir newPath;
-		g_Config.currentDirectory = newPath.filePath(fileName).toStdString();
-		g_Config.Save();
-		screenManager()->switchScreen(new EmuScreen(fileName.toStdString()));
-	}
-#endif
-
 	if (System_GetPropertyBool(SYSPROP_HAS_FILE_BROWSER)) {
 		System_SendMessage("browse_file", "");
 	}

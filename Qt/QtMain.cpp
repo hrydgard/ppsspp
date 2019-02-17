@@ -6,13 +6,15 @@
 // Currently supports: Android, Linux, Windows, Mac OSX
 
 #include <QApplication>
-#include <QUrl>
-#include <QDir>
 #include <QDesktopWidget>
 #include <QDesktopServices>
+#include <QDir>
+#include <QFile>
+#include <QFileDialog>
 #include <QLocale>
 #include <QScreen>
 #include <QThread>
+#include <QUrl>
 
 #include "ext/glslang/glslang/Public/ShaderLang.h"
 
@@ -39,6 +41,7 @@
 
 MainUI *emugl = NULL;
 static int refreshRate = 60000;
+static int browseFileEvent = -1;
 
 #ifdef SDL
 extern void mixaudio(void *userdata, Uint8 *stream, int len) {
@@ -94,6 +97,8 @@ bool System_GetPropertyBool(SystemProperty prop) {
 	switch (prop) {
 	case SYSPROP_HAS_BACK_BUTTON:
 		return true;
+	case SYSPROP_HAS_FILE_BROWSER:
+		return true;
 	case SYSPROP_APP_GOLD:
 #ifdef GOLD
 		return true;
@@ -108,6 +113,8 @@ bool System_GetPropertyBool(SystemProperty prop) {
 void System_SendMessage(const char *command, const char *parameter) {
 	if (!strcmp(command, "finish")) {
 		qApp->exit(0);
+	} else if (!strcmp(command, "browse_file")) {
+		QCoreApplication::postEvent(emugl, new QEvent((QEvent::Type)browseFileEvent));
 	}
 }
 
@@ -190,6 +197,9 @@ static int mainInternal(QApplication &a) {
 	QScopedPointer<MainAudio> audio(new MainAudio());
 	audio->run();
 #endif
+
+	browseFileEvent = QEvent::registerEventType();
+
 	int retval = a.exec();
 	delete emugl;
 	return retval;
@@ -387,8 +397,21 @@ bool MainUI::event(QEvent *e)
     case QEvent::KeyRelease:
         NativeKey(KeyInput(DEVICE_ID_KEYBOARD, KeyMapRawQttoNative.find(((QKeyEvent*)e)->key())->second, KEY_UP));
         break;
+
     default:
-        return QWidget::event(e);
+		if (e->type() == browseFileEvent) {
+			QString fileName = QFileDialog::getOpenFileName(NULL, "Load ROM", g_Config.currentDirectory.c_str(), "PSP ROMs (*.iso *.cso *.pbp *.elf *.zip *.ppdmp)");
+			if (QFile::exists(fileName)) {
+				QDir newPath;
+				g_Config.currentDirectory = newPath.filePath(fileName).toStdString();
+				g_Config.Save();
+
+				NativeMessageReceived("boot", fileName.toStdString().c_str());
+			}
+			break;
+		} else {
+	        return QWidget::event(e);
+		}
     }
     e->accept();
     return true;
