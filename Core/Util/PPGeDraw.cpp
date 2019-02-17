@@ -17,6 +17,7 @@
 
 #include <algorithm>
 
+#include "base/stringutil.h"
 #include "image/zim_load.h"
 #include "image/png_load.h"
 #include "util/text/utf8.h"
@@ -377,7 +378,7 @@ static const AtlasChar *PPGeGetChar(const AtlasFont &atlasfont, unsigned int cva
 
 // Break a single text string into mutiple lines.
 static AtlasTextMetrics BreakLines(const char *text, const AtlasFont &atlasfont, float x, float y, 
-									int align, float scale, int wrapType, float wrapWidth, bool dryRun)
+									int align, float scale, float lineHeightScale, int wrapType, float wrapWidth, bool dryRun)
 {
 	y += atlasfont.ascend * scale;
 	float sx = x, sy = y;
@@ -399,7 +400,7 @@ static AtlasTextMetrics BreakLines(const char *text, const AtlasFont &atlasfont,
 
 	int numLines = 1;
 	float maxw = 0;
-	float lineHeight = atlasfont.height * scale;
+	float lineHeight = atlasfont.height * lineHeightScale;
 	for (UTF8 utf(text); !utf.end(); )
 	{
 		float lineWidth = 0;
@@ -617,16 +618,16 @@ void PPGeMeasureText(float *w, float *h, int *n,
 					const char *text, float scale, int WrapType, int wrapWidth)
 {
 	const AtlasFont &atlasfont = *ppge_atlas.fonts[0];
-	AtlasTextMetrics metrics = BreakLines(text, atlasfont, 0, 0, 0, scale, WrapType, wrapWidth, true);
+	AtlasTextMetrics metrics = BreakLines(text, atlasfont, 0, 0, 0, scale, scale, WrapType, wrapWidth, true);
 	if (w) *w = metrics.maxWidth;
 	if (h) *h = metrics.lineHeight;
 	if (n) *n = metrics.numLines;
 }
 
-void PPGePrepareText(const char *text, float x, float y, int align, float scale, int WrapType, int wrapWidth)
+void PPGePrepareText(const char *text, float x, float y, int align, float scale, float lineHeightScale, int WrapType, int wrapWidth)
 {
 	const AtlasFont &atlasfont = *ppge_atlas.fonts[0];
-	char_lines_metrics = BreakLines(text, atlasfont, x, y, align, scale, WrapType, wrapWidth, false);
+	char_lines_metrics = BreakLines(text, atlasfont, x, y, align, scale, lineHeightScale, WrapType, wrapWidth, false);
 }
 
 void PPGeMeasureCurrentText(float *x, float *y, float *w, float *h, int *n)
@@ -636,6 +637,13 @@ void PPGeMeasureCurrentText(float *x, float *y, float *w, float *h, int *n)
 	if (w) *w = char_lines_metrics.maxWidth;
 	if (h) *h = char_lines_metrics.lineHeight;
 	if (n) *n = char_lines_metrics.numLines;
+}
+
+static void PPGeResetCurrentText() {
+	char_one_line.clear();
+	char_lines.clear();
+	AtlasTextMetrics zeroBox = { 0 };
+	char_lines_metrics = zeroBox;
 }
 
 // Draws some text using the one font we have.
@@ -661,21 +669,64 @@ void PPGeDrawCurrentText(u32 color)
 		}
 		EndVertexDataAndDraw(GE_PRIM_RECTANGLES);
 	}
-	char_one_line.clear();
-	char_lines.clear();
-	AtlasTextMetrics zeroBox = { 0 };
-	char_lines_metrics = zeroBox;
+	PPGeResetCurrentText();
 }
 
 void PPGeDrawText(const char *text, float x, float y, int align, float scale, u32 color)
 {
-	PPGePrepareText(text, x, y, align, scale, PPGE_LINE_USE_ELLIPSIS);
+	PPGePrepareText(text, x, y, align, scale, scale, PPGE_LINE_USE_ELLIPSIS);
 	PPGeDrawCurrentText(color);
 }
 
-void PPGeDrawTextWrapped(const char *text, float x, float y, float wrapWidth, int align, float scale, u32 color)
-{
-	PPGePrepareText(text, x, y, align, scale, PPGE_LINE_USE_ELLIPSIS | PPGE_LINE_WRAP_WORD, wrapWidth);
+static std::string StripTrailingWhite(const std::string &s) {
+	size_t lastChar = s.find_last_not_of(" \t\r\n");
+	if (lastChar != s.npos) {
+		return s.substr(0, lastChar + 1);
+	}
+	return s;
+}
+
+static std::string CropLinesToCount(const std::string &s, int numLines) {
+	std::vector<std::string> lines;
+	SplitString(s, '\n', lines);
+	if ((int)lines.size() <= numLines) {
+		return s;
+	}
+
+	size_t len = 0;
+	for (int i = 0; i < numLines; ++i) {
+		len += lines[i].length() + 1;
+	}
+
+	return s.substr(0, len);
+}
+
+void PPGeDrawTextWrapped(const char *text, float x, float y, float wrapWidth, float wrapHeight, int align, float scale, u32 color) {
+	std::string s = text;
+	if (wrapHeight != 0) {
+		s = StripTrailingWhite(s);
+	}
+
+	PPGePrepareText(s.c_str(), x, y, align, scale, scale, PPGE_LINE_USE_ELLIPSIS | PPGE_LINE_WRAP_WORD, wrapWidth);
+
+	int zoom = (PSP_CoreParameter().pixelHeight + 479) / 480;
+	float maxScaleDown = zoom == 1 ? 1.3f : 2.0f;
+	float actualHeight = char_lines_metrics.lineHeight * char_lines_metrics.numLines;
+	if (actualHeight > wrapHeight) {
+		if (actualHeight > wrapHeight * maxScaleDown) {
+			float maxLines = floor(wrapHeight * maxScaleDown / char_lines_metrics.lineHeight);
+			actualHeight = (maxLines + 1) * char_lines_metrics.lineHeight;
+			// Add an ellipsis if it's just too long to be readable.
+			// On a PSP, it does this without scaling it down.
+			s = StripTrailingWhite(CropLinesToCount(s, (int)maxLines)) + "\n...";
+		}
+
+		// Measure the text again after scaling down.
+		PPGeResetCurrentText();
+		float reduced = scale * wrapHeight / actualHeight;
+		// Try to keep the font as large as possible, so reduce the line height some.
+		PPGePrepareText(s.c_str(), x, y, align, reduced * 1.15, reduced, PPGE_LINE_USE_ELLIPSIS | PPGE_LINE_WRAP_WORD, wrapWidth);
+	}
 	PPGeDrawCurrentText(color);
 }
 
