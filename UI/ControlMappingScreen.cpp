@@ -29,6 +29,7 @@
 #include "ui/view.h"
 #include "ui/viewgroup.h"
 
+#include "Core/Host.h"
 #include "Core/HLE/sceCtrl.h"
 #include "Core/System.h"
 #include "Common/KeyMap.h"
@@ -79,6 +80,7 @@ void ControlMapper::Update() {
 	if (refresh_) {
 		refresh_ = false;
 		Refresh();
+		host->UpdateUI();
 	}
 }
 
@@ -169,6 +171,7 @@ void ControlMapper::MappedCallback(KeyDef kdf) {
 		break;
 	case REPLACEONE:
 		KeyMap::g_controllerMap[pspKey_][actionIndex_] = kdf;
+		KeyMap::g_controllerMapGeneration++;
 		break;
 	default:
 		;
@@ -211,6 +214,7 @@ UI::EventReturn ControlMapper::OnAddMouse(UI::EventParams &params) {
 UI::EventReturn ControlMapper::OnDelete(UI::EventParams &params) {
 	int index = atoi(params.v->Tag().c_str());
 	KeyMap::g_controllerMap[pspKey_].erase(KeyMap::g_controllerMap[pspKey_].begin() + index);
+	KeyMap::g_controllerMapGeneration++;
 	refresh_ = true;
 	return UI::EVENT_DONE;
 }
