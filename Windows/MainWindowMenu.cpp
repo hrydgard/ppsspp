@@ -50,6 +50,7 @@ namespace MainWindow {
 	static std::unordered_map<int, std::string> initialMenuKeys;
 	static std::vector<std::string> availableShaders;
 	static std::string menuLanguageID = "";
+	static int menuKeymapGeneration = -1;
 	static bool menuShaderInfoLoaded = false;
 	std::vector<ShaderInfo> menuShaderInfo;
 
@@ -209,6 +210,10 @@ namespace MainWindow {
 	}
 
 	void DoTranslateMenus(HWND hWnd, HMENU menu) {
+		auto useDefHotkey = [](int virtkey) {
+			return KeyMap::g_controllerMap[virtkey].empty();
+		};
+
 		TranslateMenuItem(menu, ID_FILE_MENU);
 		TranslateMenuItem(menu, ID_EMULATION_MENU);
 		TranslateMenuItem(menu, ID_DEBUG_MENU);
@@ -220,9 +225,9 @@ namespace MainWindow {
 		TranslateMenuItem(menu, ID_FILE_LOAD_DIR);
 		TranslateMenuItem(menu, ID_FILE_LOAD_MEMSTICK);
 		TranslateMenuItem(menu, ID_FILE_MEMSTICK);
-		TranslateMenuItem(menu, ID_FILE_SAVESTATE_SLOT_MENU, L"\tF3");
-		TranslateMenuItem(menu, ID_FILE_QUICKLOADSTATE, L"\tF4");
-		TranslateMenuItem(menu, ID_FILE_QUICKSAVESTATE, L"\tF2");
+		TranslateMenuItem(menu, ID_FILE_SAVESTATE_SLOT_MENU, useDefHotkey(VIRTKEY_NEXT_SLOT) ? L"\tF3" : L"");
+		TranslateMenuItem(menu, ID_FILE_QUICKLOADSTATE, useDefHotkey(VIRTKEY_LOAD_STATE) ? L"\tF4" : L"");
+		TranslateMenuItem(menu, ID_FILE_QUICKSAVESTATE, useDefHotkey(VIRTKEY_SAVE_STATE) ? L"\tF2" : L"");
 		TranslateMenuItem(menu, ID_FILE_LOADSTATEFILE);
 		TranslateMenuItem(menu, ID_FILE_SAVESTATEFILE);
 		TranslateMenuItem(menu, ID_FILE_RECORD_MENU);
@@ -326,7 +331,7 @@ namespace MainWindow {
 		bool changed = false;
 
 		const std::string curLanguageID = i18nrepo.LanguageID();
-		if (curLanguageID != menuLanguageID) {
+		if (curLanguageID != menuLanguageID || menuKeymapGeneration != KeyMap::g_controllerMapGeneration) {
 			DoTranslateMenus(hWnd, menu);
 			menuLanguageID = curLanguageID;
 			changed = true;
