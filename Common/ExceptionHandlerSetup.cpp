@@ -2,6 +2,8 @@
 // Licensed under GPLv2+
 // Refer to the license.txt file included.
 
+// The corresponding file is called MemTools in the Dolphin project.
+
 #include "Common/ExceptionHandlerSetup.h"
 #include <cstdio>
 #include <cstdlib>
@@ -82,6 +84,7 @@ void InstallExceptionHandler(BadAccessHandler badAccessHandler) {
 	// Make sure this is only called once per process execution
 	// Instead, could make a Uninstall function, but whatever..
 	if (g_badAccessHandler) {
+		g_badAccessHandler = badAccessHandler;
 		return;
 	}
 
@@ -189,13 +192,13 @@ static void ExceptionThread(mach_port_t port) {
 }
 
 void InstallExceptionHandler(BadAccessHandler badAccessHandler) {
-	if (!g_badAccessHandler) {
-		g_badAccessHandler = badAccessHandler;
-	} else {
+	if (g_badAccessHandler) {
 		// The rest of the setup we don't need to do again.
 		g_badAccessHandler = badAccessHandler;
 		return;
 	}
+	g_badAccessHandler = badAccessHandler;
+
 	INFO_LOG(SYSTEM, "Installing exception handler");
 	mach_port_t port;
 	CheckKR("mach_port_allocate",
@@ -286,6 +289,7 @@ static void sigsegv_handler(int sig, siginfo_t* info, void* raw_context) {
 
 void InstallExceptionHandler(BadAccessHandler badAccessHandler) {
 	if (g_badAccessHandler) {
+		g_badAccessHandler = badAccessHandler;
 		return;
 	}
 	NOTICE_LOG(SYSTEM, "Installed exception handler");
