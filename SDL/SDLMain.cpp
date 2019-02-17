@@ -435,7 +435,7 @@ int main(int argc, char *argv[]) {
 	SDL_GL_SetAttribute(SDL_GL_DOUBLEBUFFER, 1);
 	SDL_GL_SetSwapInterval(1);
 
-	// Is resolution is too low to run windowed
+	// Force fullscreen if the resolution is too low to run windowed.
 	if (g_DesktopWidth < 480 * 2 && g_DesktopHeight < 272 * 2) {
 		mode |= SDL_WINDOW_FULLSCREEN_DESKTOP;
 	}
@@ -443,6 +443,8 @@ int main(int argc, char *argv[]) {
 	// If we're on mobile, don't try for windowed either.
 #if defined(MOBILE_DEVICE)
     mode |= SDL_WINDOW_FULLSCREEN;
+#elif defined(USING_FBDEV)
+	mode |= SDL_WINDOW_FULLSCREEN_DESKTOP;
 #else
     mode |= SDL_WINDOW_RESIZABLE;
 #endif
