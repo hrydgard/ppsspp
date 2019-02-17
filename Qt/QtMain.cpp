@@ -31,6 +31,7 @@
 #endif
 #include "QtMain.h"
 #include "gfx_es2/gpu_features.h"
+#include "i18n/i18n.h"
 #include "math/math_util.h"
 #include "thread/threadutil.h"
 #include "util/text/utf8.h"
@@ -42,6 +43,7 @@
 MainUI *emugl = NULL;
 static int refreshRate = 60000;
 static int browseFileEvent = -1;
+static int browseFolderEvent = -1;
 
 #ifdef SDL
 extern void mixaudio(void *userdata, Uint8 *stream, int len) {
@@ -115,6 +117,8 @@ void System_SendMessage(const char *command, const char *parameter) {
 		qApp->exit(0);
 	} else if (!strcmp(command, "browse_file")) {
 		QCoreApplication::postEvent(emugl, new QEvent((QEvent::Type)browseFileEvent));
+	} else if (!strcmp(command, "browse_folder")) {
+		QCoreApplication::postEvent(emugl, new QEvent((QEvent::Type)browseFolderEvent));
 	}
 }
 
@@ -199,6 +203,7 @@ static int mainInternal(QApplication &a) {
 #endif
 
 	browseFileEvent = QEvent::registerEventType();
+	browseFolderEvent = QEvent::registerEventType();
 
 	int retval = a.exec();
 	delete emugl;
@@ -409,6 +414,12 @@ bool MainUI::event(QEvent *e)
 				NativeMessageReceived("boot", fileName.toStdString().c_str());
 			}
 			break;
+		} else if (e->type() == browseFolderEvent) {
+			I18NCategory *mm = GetI18NCategory("MainMenu");
+			QString fileName = QFileDialog::getExistingDirectory(nullptr, mm->T("Choose folder"), g_Config.currentDirectory.c_str());
+			if (QDir(fileName).exists()) {
+				NativeMessageReceived("browse_folderSelect", fileName.toStdString().c_str());
+			}
 		} else {
 	        return QWidget::event(e);
 		}

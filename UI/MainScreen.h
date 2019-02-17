@@ -34,7 +34,8 @@ public:
 
 	UI::Choice *HomebrewStoreButton() { return homebrewStoreButton_; }
 
-	void FocusGame(std::string gamePath);
+	void FocusGame(const std::string &gamePath);
+	void SetPath(const std::string &path);
 
 protected:
 	virtual bool DisplayTopBar();
