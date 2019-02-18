@@ -106,8 +106,7 @@ private:
 	UI::EventReturn OnSavedataManager(UI::EventParams &e);
 	UI::EventReturn OnSysInfo(UI::EventParams &e);
 
-	// Temporaries to convert bools to int settings
-	bool cap60FPS_;
+	// Temporaries to convert setting types.
 	int iAlternateSpeedPercent1_;
 	int iAlternateSpeedPercent2_;
 	bool enableReports_;
