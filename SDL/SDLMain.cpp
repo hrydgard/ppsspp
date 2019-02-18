@@ -602,6 +602,7 @@ int main(int argc, char *argv[]) {
 	}
 	graphicsContext->ThreadStart();
 
+	bool windowHidden = false;
 	while (true) {
 		double startTime = time_now_d();
 		SDL_Event event, touchEvent;
@@ -637,6 +638,19 @@ int main(int argc, char *argv[]) {
 					}
 					break;
 				}
+
+				case SDL_WINDOWEVENT_MINIMIZED:
+				case SDL_WINDOWEVENT_HIDDEN:
+					windowHidden = true;
+					Core_NotifyWindowHidden(windowHidden);
+					break;
+				case SDL_WINDOWEVENT_EXPOSED:
+				case SDL_WINDOWEVENT_SHOWN:
+				case SDL_WINDOWEVENT_MAXIMIZED:
+				case SDL_WINDOWEVENT_RESTORED:
+					windowHidden = false;
+					Core_NotifyWindowHidden(windowHidden);
+					break;
 
 				default:
 					break;
@@ -852,7 +866,8 @@ int main(int argc, char *argv[]) {
 			// glsl_refresh(); // auto-reloads modified GLSL shaders once per second.
 		}
 
-		if (emuThreadState != (int)EmuThreadState::DISABLED) {
+		bool renderThreadPaused = windowHidden && g_Config.bPauseWhenMinimized && emuThreadState != (int)EmuThreadState::DISABLED;
+		if (emuThreadState != (int)EmuThreadState::DISABLED && !renderThreadPaused) {
 			if (!graphicsContext->ThreadFrame())
 				break;
 		}
@@ -864,7 +879,7 @@ int main(int argc, char *argv[]) {
 
 		// Simple throttling to not burn the GPU in the menu.
 		time_update();
-		if (GetUIState() != UISTATE_INGAME || !PSP_IsInited()) {
+		if (GetUIState() != UISTATE_INGAME || !PSP_IsInited() || renderThreadPaused) {
 			double diffTime = time_now_d() - startTime;
 			int sleepTime = (int)(1000.0 / 60.0) - (int)(diffTime * 1000.0);
 			if (sleepTime > 0)
