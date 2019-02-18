@@ -23,6 +23,10 @@
 #include "Common/MachineContext.h"
 #endif
 
+#if PPSSPP_PLATFORM(IOS)
+#define USE_SIGACTION_ON_APPLE
+#endif
+
 #ifdef __FreeBSD__
 #include <signal.h>
 #endif
