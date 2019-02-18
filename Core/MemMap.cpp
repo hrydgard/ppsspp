@@ -482,7 +482,7 @@ bool HandleFault(uintptr_t hostAddress, void *ctx) {
 	const uint8_t *codePtr = (uint8_t *)(context->CTX_PC);
 
 	// TODO: Check that codePtr is within the current JIT space.
-	bool inJitSpace = MIPSComp::jit->CodeInRange(codePtr);
+	bool inJitSpace = MIPSComp::jit && MIPSComp::jit->CodeInRange(codePtr);
 	if (!inJitSpace) {
 		// This is a crash in non-jitted code. Not something we want to handle here, ignore.
 		return false;
@@ -533,19 +533,16 @@ bool HandleFault(uintptr_t hostAddress, void *ctx) {
 			// It was a read. Fill the destination register with 0.
 			// TODO
 		}
-		// Move on to the next instruction.
+		// Move on to the next instruction. Note that handling bad accesses like this is pretty slow.
 		context->CTX_PC += info.instructionSize;
-		// Fall through to logging.
+		g_numReportedBadAccesses++;
+		if (g_numReportedBadAccesses < 100) {
+			ERROR_LOG(MEMMAP, "Bad memory access detected and ignored: %08x (%p)", guestAddress, (void *)hostAddress);
+		}
 	} else {
-		// Jump to a crash handler that will exit the game.
+		// Redirect execution to a crash handler that will exit the game.
 		context->CTX_PC = (uintptr_t)MIPSComp::jit->GetCrashHandler();
-		ERROR_LOG(SYSTEM, "Bad memory access detected! %08x (%p) Stopping emulation.", guestAddress, (void *)hostAddress);
-		return true;
-	}
-
-	g_numReportedBadAccesses++;
-	if (g_numReportedBadAccesses < 100) {
-		ERROR_LOG(SYSTEM, "Bad memory access detected and ignored: %08x (%p)", guestAddress, (void *)hostAddress);
+		ERROR_LOG(MEMMAP, "Bad memory access detected! %08x (%p) Stopping emulation.", guestAddress, (void *)hostAddress);
 	}
 	return true;
 }
