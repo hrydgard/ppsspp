@@ -112,10 +112,16 @@ typedef mcontext_t SContext;
 #define CTX_R14 gregs[REG_R14]
 #define CTX_R15 gregs[REG_R15]
 #define CTX_RIP gregs[REG_RIP]
-#elif _M_ARM_64
-#define CTX_REG(x) regs[x]
-#define CTX_SP sp
-#define CTX_PC pc
+#elif PPSSPP_ARCH(X86)
+#define CTX_RAX gregs[REG_EAX]
+#define CTX_RBX gregs[REG_EBX]
+#define CTX_RCX gregs[REG_ECX]
+#define CTX_RDX gregs[REG_EDX]
+#define CTX_RDI gregs[REG_EDI]
+#define CTX_RSI gregs[REG_ESI]
+#define CTX_RBP gregs[REG_EBP]
+#define CTX_RSP gregs[REG_ESP]
+#define CTX_RIP gregs[REG_EIP]
 #else
 #error No context definition for architecture
 #endif
