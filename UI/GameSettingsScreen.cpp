@@ -736,7 +736,11 @@ void GameSettingsScreen::CreateViews() {
 #if defined(USING_WIN_UI)
 	systemSettings->Add(new CheckBox(&g_Config.bBypassOSKWithKeyboard, sy->T("Enable Windows native keyboard", "Enable Windows native keyboard")));
 #endif
-#if defined(_WIN32) && !PPSSPP_PLATFORM(UWP)
+#if PPSSPP_PLATFORM(ANDROID)
+	auto memstickPath = systemSettings->Add(new ChoiceWithValueDisplay(&g_Config.memStickDirectory, sy->T("Change Memory Stick folder"), (const char *)nullptr));
+	memstickPath->SetEnabled(!PSP_IsInited());
+	memstickPath->OnClick.Handle(this, &GameSettingsScreen::OnChangeMemStickDir);
+#elif defined(_WIN32) && !PPSSPP_PLATFORM(UWP)
 	SavePathInMyDocumentChoice = systemSettings->Add(new CheckBox(&installed_, sy->T("Save path in My Documents", "Save path in My Documents")));
 	SavePathInMyDocumentChoice->OnClick.Handle(this, &GameSettingsScreen::OnSavePathMydoc);
 	SavePathInOtherChoice = systemSettings->Add(new CheckBox(&otherinstalled_, sy->T("Save path in installed.txt", "Save path in installed.txt")));
@@ -905,7 +909,15 @@ UI::EventReturn GameSettingsScreen::OnJitAffectingSetting(UI::EventParams &e) {
 	return UI::EVENT_DONE;
 }
 
-#if defined(_WIN32) && !PPSSPP_PLATFORM(UWP)
+#if PPSSPP_PLATFORM(ANDROID)
+
+UI::EventReturn GameSettingsScreen::OnChangeMemStickDir(UI::EventParams &e) {
+	I18NCategory *sy = GetI18NCategory("System");
+	System_SendMessage("inputbox", (std::string(sy->T("Memory Stick Folder")) + ":" + g_Config.memStickDirectory).c_str());
+	return UI::EVENT_DONE;
+}
+
+#elif defined(_WIN32) && !PPSSPP_PLATFORM(UWP)
 
 UI::EventReturn GameSettingsScreen::OnSavePathMydoc(UI::EventParams &e) {
 	const std::string PPSSPPpath = File::GetExeDirectory();
@@ -1066,6 +1078,70 @@ void GameSettingsScreen::onFinish(DialogResult result) {
 	NativeMessageReceived("gpu_resized", "");
 	NativeMessageReceived("gpu_clearCache", "");
 }
+
+void GameSettingsScreen::sendMessage(const char *message, const char *value) {
+	UIDialogScreenWithGameBackground::sendMessage(message, value);
+
+	I18NCategory *sy = GetI18NCategory("System");
+	I18NCategory *di = GetI18NCategory("Dialog");
+
+	if (!strcmp(message, "inputbox_completed")) {
+		std::vector<std::string> inputboxValue;
+		SplitString(value, ':', inputboxValue);
+
+#if PPSSPP_PLATFORM(ANDROID)
+		if (inputboxValue.size() >= 2 && inputboxValue[0] == sy->T("Memory Stick Folder")) {
+			// Allow colons in the path.
+			std::string newPath = std::string(value).substr(inputboxValue[0].size() + 1);
+			size_t pos = newPath.find_last_not_of("/");
+			// Gotta have at least something but a /, and also needs to start with a /.
+			if (newPath.empty() || pos == newPath.npos || newPath[0] != '/') {
+				settingInfo_->Show(sy->T("ChangingMemstickPathInvalid", "That path couldn't be used to save Memory Stick files."), nullptr);
+				return;
+			}
+			if (pos != newPath.size() - 1) {
+				newPath = newPath.substr(0, pos + 1);
+			}
+
+			pendingMemstickFolder_ = newPath;
+			std::string promptMessage = sy->T("ChangingMemstickPath", "Save games, save states, and other data will not be copied to this folder.\n\nChange the Memory Stick folder?");
+			if (!File::Exists(newPath)) {
+				promptMessage = sy->T("ChangingMemstickPathNotExists", "That folder doesn't exist yet.\n\nSave games, save states, and other data will not be copied to this folder.\n\nCreate a new Memory Stick folder?");
+			}
+			// Add the path for clarity and proper confirmation.
+			promptMessage += "\n\n" + newPath + "/";
+			screenManager()->push(new PromptScreen(promptMessage, di->T("Yes"), di->T("No"), std::bind(&GameSettingsScreen::CallbackMemstickFolder, this, std::placeholders::_1)));
+		}
+#endif
+	}
+}
+
+#if PPSSPP_PLATFORM(ANDROID)
+void GameSettingsScreen::CallbackMemstickFolder(bool yes) {
+	I18NCategory *sy = GetI18NCategory("System");
+
+	if (yes) {
+		std::string memstickDirFile = g_Config.internalDataDirectory + "/memstick_dir.txt";
+		std::string testWriteFile = pendingMemstickFolder_ + "/.write_verify_file";
+
+		// Already, create away.
+		if (!File::Exists(pendingMemstickFolder_)) {
+			File::CreateFullPath(pendingMemstickFolder_);
+		}
+		if (!writeDataToFile(true, "1", 1, testWriteFile.c_str())) {
+			settingInfo_->Show(sy->T("ChangingMemstickPathInvalid", "That path couldn't be used to save Memory Stick files."), nullptr);
+			return;
+		}
+		File::Delete(testWriteFile);
+
+		writeDataToFile(true, pendingMemstickFolder_.c_str(), pendingMemstickFolder_.size(), memstickDirFile.c_str());
+		// Save so the settings, at least, are transferred.
+		g_Config.memStickDirectory = pendingMemstickFolder_ + "/";
+		g_Config.Save();
+		screenManager()->RecreateAllViews();
+	}
+}
+#endif
 
 void GameSettingsScreen::CallbackRenderingBackend(bool yes) {
 	// If the user ends up deciding not to restart, set the config back to the current backend

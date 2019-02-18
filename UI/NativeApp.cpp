@@ -466,6 +466,15 @@ void NativeInit(int argc, const char *argv[], const char *savegame_dir, const ch
 	// most sense.
 	g_Config.memStickDirectory = std::string(external_dir) + "/";
 	g_Config.flash0Directory = std::string(external_dir) + "/flash0/";
+
+	std::string memstickDirFile = g_Config.internalDataDirectory + "/memstick_dir.txt";
+	if (File::Exists(memstickDirFile)) {
+		std::string memstickDir;
+		readFileToString(true, memstickDirFile.c_str(), memstickDir);
+		if (!memstickDir.empty() && File::Exists(memstickDir)) {
+			g_Config.memStickDirectory = memstickDir + "/";
+		}
+	}
 #elif defined(IOS)
 	g_Config.memStickDirectory = user_data_path;
 	g_Config.flash0Directory = std::string(external_dir) + "/flash0/";
