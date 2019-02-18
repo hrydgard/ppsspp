@@ -442,11 +442,11 @@ int main(int argc, char *argv[]) {
 
 	// If we're on mobile, don't try for windowed either.
 #if defined(MOBILE_DEVICE)
-    mode |= SDL_WINDOW_FULLSCREEN;
+	mode |= SDL_WINDOW_FULLSCREEN;
 #elif defined(USING_FBDEV)
 	mode |= SDL_WINDOW_FULLSCREEN_DESKTOP;
 #else
-    mode |= SDL_WINDOW_RESIZABLE;
+	mode |= SDL_WINDOW_RESIZABLE;
 #endif
 
 	if (mode & SDL_WINDOW_FULLSCREEN_DESKTOP) {
