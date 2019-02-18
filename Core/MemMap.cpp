@@ -29,6 +29,12 @@
 #include "Common/MemArena.h"
 #include "Common/ChunkFile.h"
 
+#ifdef __FreeBSD__
+#include <signal.h>
+#endif
+#ifndef _WIN32
+#include <unistd.h>  // Needed for _POSIX_VERSION
+#endif
 
 #if PPSSPP_ARCH(AMD64) || PPSSPP_ARCH(X86)
 #include "Common/MachineContext.h"
