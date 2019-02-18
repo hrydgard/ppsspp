@@ -340,9 +340,6 @@ macro(setup_target_project TargetName ProjectDir)
 	endforeach()
 endmacro()
 
-# Commented-out files are files that don't compile
-# and were disabled in the original MSVC project anyway
-
 set(CommonX86
 	Common/ABI.cpp
 	Common/ABI.h

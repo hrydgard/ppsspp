@@ -9,7 +9,7 @@
 #if PPSSPP_PLATFORM(WINDOWS)
 #include <windows.h>
 typedef CONTEXT SContext;
-#if PPSSPP_ARCH_AMD64
+#if PPSSPP_ARCH(AMD64)
 #define CTX_RAX Rax
 #define CTX_RBX Rbx
 #define CTX_RCX Rcx
@@ -46,7 +46,7 @@ typedef CONTEXT SContext;
 
 #include <mach/mach.h>
 #include <mach/message.h>
-#if PPSSPP_ARCH_AMD64
+#if PPSSPP_ARCH(AMD64)
 typedef x86_thread_state64_t SContext;
 #define CTX_RAX __rax
 #define CTX_RBX __rbx
@@ -94,7 +94,7 @@ typedef _STRUCT_MCONTEXT64 SContext;
 #include <ucontext.h>
 typedef mcontext_t SContext;
 
-#if PPSSPP_ARCH_AMD64
+#if PPSSPP_ARCH(AMD64)
 #define CTX_RAX gregs[REG_RAX]
 #define CTX_RBX gregs[REG_RBX]
 #define CTX_RCX gregs[REG_RCX]
@@ -122,7 +122,7 @@ typedef mcontext_t SContext;
 #elif defined(__OpenBSD__)
 #include <signal.h>
 typedef ucontext_t SContext;
-#if PPSSPP_ARCH_AMD64
+#if PPSSPP_ARCH(AMD64)
 #define CTX_RAX sc_rax
 #define CTX_RBX sc_rbx
 #define CTX_RCX sc_rcx
@@ -146,7 +146,7 @@ typedef ucontext_t SContext;
 #elif defined(__NetBSD__)
 #include <ucontext.h>
 typedef mcontext_t SContext;
-#if PPSSPP_ARCH_AMD64
+#if PPSSPP_ARCH(AMD64)
 #define CTX_RAX __gregs[_REG_RAX]
 #define CTX_RBX __gregs[_REG_RBX]
 #define CTX_RCX __gregs[_REG_RCX]
@@ -170,7 +170,7 @@ typedef mcontext_t SContext;
 #elif defined(__FreeBSD__)
 #include <ucontext.h>
 typedef mcontext_t SContext;
-#if PPSSPP_ARCH_AMD64
+#if PPSSPP_ARCH(AMD64)
 #define CTX_RAX mc_rax
 #define CTX_RBX mc_rbx
 #define CTX_RCX mc_rcx
@@ -194,7 +194,7 @@ typedef mcontext_t SContext;
 #elif defined(__HAIKU__)
 #include <signal.h>
 typedef mcontext_t SContext;
-#if PPSSPP_ARCH_AMD64
+#if PPSSPP_ARCH(AMD64)
 #define CTX_RAX rax
 #define CTX_RBX rbx
 #define CTX_RCX rcx
@@ -219,17 +219,12 @@ typedef mcontext_t SContext;
 #error No context definition for OS
 #endif
 
-#if defined(PPSSPP_ARCH_AMD64) || defined(PPSSPP_ARCH_X86)
+#if PPSSPP_ARCH(AMD64)
+
 #include <stddef.h>
 #define CTX_PC CTX_RIP
 static inline u64* ContextRN(SContext* ctx, int n)
 {
-#if PPSSPP_ARCH_32BIT
-	static const u8 offsets[] = {
-	  offsetof(SContext, CTX_RAX), offsetof(SContext, CTX_RCX), offsetof(SContext, CTX_RDX),
-	  offsetof(SContext, CTX_RBX), offsetof(SContext, CTX_RSP), offsetof(SContext, CTX_RBP),
-	  offsetof(SContext, CTX_RSI), offsetof(SContext, CTX_RDI)};
-#else
 	static const u8 offsets[] = {
 		offsetof(SContext, CTX_RAX), offsetof(SContext, CTX_RCX), offsetof(SContext, CTX_RDX),
 		offsetof(SContext, CTX_RBX), offsetof(SContext, CTX_RSP), offsetof(SContext, CTX_RBP),
@@ -237,7 +232,20 @@ static inline u64* ContextRN(SContext* ctx, int n)
 		offsetof(SContext, CTX_R9),  offsetof(SContext, CTX_R10), offsetof(SContext, CTX_R11),
 		offsetof(SContext, CTX_R12), offsetof(SContext, CTX_R13), offsetof(SContext, CTX_R14),
 		offsetof(SContext, CTX_R15)};
-#endif
 	return (u64*)((char*)ctx + offsets[n]);
+}
+
+#elif PPSSPP_ARCH(X86)
+
+#include <stddef.h>
+#define CTX_PC CTX_RIP
+
+static inline u32* ContextRN(SContext* ctx, int n)
+{
+	static const u8 offsets[] = {
+	  offsetof(SContext, CTX_RAX), offsetof(SContext, CTX_RCX), offsetof(SContext, CTX_RDX),
+	  offsetof(SContext, CTX_RBX), offsetof(SContext, CTX_RSP), offsetof(SContext, CTX_RBP),
+	  offsetof(SContext, CTX_RSI), offsetof(SContext, CTX_RDI)};
+	return (u32*)((char*)ctx + offsets[n]);
 }
 #endif

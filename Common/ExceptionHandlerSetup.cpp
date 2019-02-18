@@ -4,6 +4,8 @@
 
 // The corresponding file is called MemTools in the Dolphin project.
 
+#include "ppsspp_config.h"
+
 #include "Common/ExceptionHandlerSetup.h"
 #include <cstdio>
 #include <cstdlib>
@@ -17,7 +19,7 @@
 #include "Common/Log.h"
 #include "ext/native/thread/threadutil.h"
 
-#if defined(PPSSPP_ARCH_X86) || defined(PPSSPP_ARCH_AMD64)
+#if PPSSPP_ARCH(X86) || PPSSPP_ARCH(AMD64)
 #include "Common/MachineContext.h"
 #endif
 
@@ -225,7 +227,7 @@ void InstallExceptionHandler(BadAccessHandler badAccessHandler) {
 void UninstallExceptionHandler() {
 }
 
-#elif defined(_POSIX_VERSION) && !defined(_M_GENERIC)
+#elif defined(_POSIX_VERSION)
 
 static struct sigaction old_sa_segv;
 static struct sigaction old_sa_bus;
@@ -329,7 +331,8 @@ void UninstallExceptionHandler() {
 	NOTICE_LOG(SYSTEM, "Uninstalled exception handler");
 	g_badAccessHandler = nullptr;
 }
-#else  // _M_GENERIC or unsupported platform
+
+#else  // Unsupported platform. Could also #error
 
 void InstallExceptionHandler(BadAccessHandler badAccessHandler) {
 	ERROR_LOG(SYSTEM, "Exception handler not implemented on this platform, can't install");

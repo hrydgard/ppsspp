@@ -15,6 +15,7 @@ ifeq ($(TARGET_ARCH_ABI),x86)
 ARCH_FILES := \
   $(SRC)/Common/ABI.cpp \
   $(SRC)/Common/x64Emitter.cpp \
+  $(SRC)/Common/x64Analyzer.cpp \
   $(SRC)/Common/CPUDetect.cpp \
   $(SRC)/Common/Thunk.cpp \
   $(SRC)/Core/MIPS/x86/CompALU.cpp \
@@ -36,6 +37,7 @@ ifeq ($(TARGET_ARCH_ABI),x86_64)
 ARCH_FILES := \
   $(SRC)/Common/ABI.cpp \
   $(SRC)/Common/x64Emitter.cpp \
+  $(SRC)/Common/x64Analyzer.cpp \
   $(SRC)/Common/CPUDetect.cpp \
   $(SRC)/Common/Thunk.cpp \
   $(SRC)/Core/MIPS/x86/CompALU.cpp \

@@ -30,14 +30,14 @@
 #include "Common/ChunkFile.h"
 
 
-#if defined(PPSSPP_ARCH_AMD64) || defined(PPSSPP_ARCH_X86)
+#if PPSSPP_ARCH(AMD64) || PPSSPP_ARCH(X86)
 #include "Common/MachineContext.h"
 #include "Common/x64Analyzer.h"
-#elif defined(PPSSPP_ARCH_ARM64)
+#elif PPSSPP_ARCH(ARM64)
 #include "Core/Util/DisArm64.h"
 typedef sigcontext SContext;
 #define CTX_PC pc
-#elif defined(PPSSPP_ARCH_ARM)
+#elif PPSSPP_ARCH(ARM)
 #include "ext/disarm.h"
 typedef sigcontext SContext;
 #define CTX_PC arm_pc
@@ -508,19 +508,19 @@ bool HandleFault(uintptr_t hostAddress, void *ctx) {
 	// TODO: Share the struct between the various analyzers, that will allow us to share most of
 	// the implementations here.
 
-#if defined(PPSSPP_ARCH_AMD64) || defined(PPSSPP_ARCH_X86)
+#if PPSSPP_ARCH(AMD64) || PPSSPP_ARCH(X86)
 	// X86, X86-64. Variable instruction size so need to analyze the mov instruction in detail.
 
 	// To ignore the access, we need to disassemble the instruction and modify context->CTX_PC
 	LSInstructionInfo info;
 	X86AnalyzeMOV(codePtr, info);
-#elif defined(PPSSPP_ARCH_ARM64)
+#elif PPSSPP_ARCH(ARM64)
 	uint32_t word;
 	memcpy(&word, codePtr, 4);
 	// To ignore the access, we need to disassemble the instruction and modify context->CTX_PC
 	Arm64LSInstructionInfo info;
 	Arm64AnalyzeLoadStore((uint64_t)codePtr, word, &info);
-#elif defined(PPSSPP_ARCH_ARM)
+#elif PPSSPP_ARCH(ARM)
 	uint32_t word;
 	memcpy(&word, codePtr, 4);
 	// To ignore the access, we need to disassemble the instruction and modify context->CTX_PC
