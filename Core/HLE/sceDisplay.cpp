@@ -180,6 +180,11 @@ void __DisplayFlip(int cyclesLate);
 static void ScheduleLagSync(int over = 0) {
 	lagSyncScheduled = g_Config.bForceLagSync;
 	if (lagSyncScheduled) {
+		// Reset over if it became too high, such as after pausing or initial loading.
+		// There's no real sense in it being more than 1/60th of a second.
+		if (over > 1000000 / 60) {
+			over = 0;
+		}
 		CoreTiming::ScheduleEvent(usToCycles(1000 + over), lagSyncEvent, 0);
 		lastLagSync = real_time_now();
 	}
