@@ -90,14 +90,14 @@ std::string D3D11VertexShader::GetShaderString(DebugShaderStringType type) const
 	}
 }
 
-ShaderManagerD3D11::ShaderManagerD3D11(ID3D11Device *device, ID3D11DeviceContext *context, D3D_FEATURE_LEVEL featureLevel)
-	: device_(device), context_(context), featureLevel_(featureLevel), lastVShader_(nullptr), lastFShader_(nullptr), scalerCode_(nullptr) {
+ShaderManagerD3D11::ShaderManagerD3D11(Draw::DrawContext *draw, ID3D11Device *device, ID3D11DeviceContext *context, D3D_FEATURE_LEVEL featureLevel)
+	: ShaderManagerCommon(draw), device_(device), context_(context), featureLevel_(featureLevel), lastVShader_(nullptr), lastFShader_(nullptr) {
 	codeBuffer_ = new char[16384 * 2];
 	memset(&ub_base, 0, sizeof(ub_base));
 	memset(&ub_lights, 0, sizeof(ub_lights));
 	memset(&ub_bones, 0, sizeof(ub_bones));
 
-	static_assert(sizeof(ub_base) <= 512, "ub_base grew too big");
+	static_assert(sizeof(ub_base) <= 512 + 16, "ub_base grew too big");
 	static_assert(sizeof(ub_lights) <= 512, "ub_lights grew too big");
 	static_assert(sizeof(ub_bones) <= 384, "ub_bones grew too big");
 

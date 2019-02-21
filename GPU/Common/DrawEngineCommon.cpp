@@ -758,25 +758,3 @@ void TessellationDataTransfer::CopyControlPoints(float *pos, float *tex, float *
 		}
 	}
 }
-
-void TessellationDataTransfer::CopyControlPoints(float *pos, float *tex, float *col, int posStride, int texStride, int colStride, const SimpleVertex *const *points, int size, u32 vertType) {
-	bool hasColor = (vertType & GE_VTYPE_COL_MASK) != 0;
-	bool hasTexCoord = (vertType & GE_VTYPE_TC_MASK) != 0;
-
-	for (int i = 0; i < size; ++i) {
-		memcpy(pos, points[i]->pos.AsArray(), 3 * sizeof(float));
-		pos += posStride;
-	}
-	if (hasTexCoord) {
-		for (int i = 0; i < size; ++i) {
-			memcpy(tex, points[i]->uv, 2 * sizeof(float));
-			tex += texStride;
-		}
-	}
-	if (hasColor) {
-		for (int i = 0; i < size; ++i) {
-			memcpy(col, Vec4f::FromRGBA(points[i]->color_32).AsArray(), 4 * sizeof(float));
-			col += colStride;
-		}
-	}
-}

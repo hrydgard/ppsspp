@@ -139,8 +139,6 @@ void GameSettingsScreen::CreateViews() {
 		g_Config.loadGameConfig(gameID_);
 	}
 
-	cap60FPS_ = g_Config.iForceMaxEmulatedFPS == 60;
-
 	iAlternateSpeedPercent1_ = g_Config.iFpsLimit1 < 0 ? -1 : (g_Config.iFpsLimit1 * 100) / 60;
 	iAlternateSpeedPercent2_ = g_Config.iFpsLimit2 < 0 ? -1 : (g_Config.iFpsLimit2 * 100) / 60;
 
@@ -426,9 +424,6 @@ void GameSettingsScreen::CreateViews() {
 		});
 		tessHWEnable_ = DoesBackendSupportHWTess() && !g_Config.bSoftwareRendering && g_Config.bHardwareTransform;
 		tessellationHW->SetEnabledPtr(&tessHWEnable_);
-
-		CheckBox *dirtyClearRSelf = graphicsSettings->Add(new CheckBox(&g_Config.bDirtyClearRSelf, gr->T("Dirty on clear or render to self")));
-		dirtyClearRSelf->SetDisabledPtr(&g_Config.bSoftwareRendering);
 	}
 
 	// In case we're going to add few other antialiasing option like MSAA in the future.
@@ -1117,11 +1112,6 @@ UI::EventReturn GameSettingsScreen::OnDumpNextFrameToLog(UI::EventParams &e) {
 void GameSettingsScreen::update() {
 	UIScreen::update();
 
-	if (g_Config.iForceMaxEmulatedFPS == 60 || g_Config.iForceMaxEmulatedFPS == 0)
-		g_Config.iForceMaxEmulatedFPS = cap60FPS_ ? 60 : 0;
-	else
-		cap60FPS_ = false;
-
 	g_Config.iFpsLimit1 = iAlternateSpeedPercent1_ < 0 ? -1 : (iAlternateSpeedPercent1_ * 60) / 100;
 	g_Config.iFpsLimit2 = iAlternateSpeedPercent2_ < 0 ? -1 : (iAlternateSpeedPercent2_ * 60) / 100;
 
@@ -1433,10 +1423,6 @@ void OtherSettingsScreen::CreateViews() {
 	list->Add(new CheckBox(&g_Config.bEncryptSave, sy->T("Encrypt savedata")));
 	list->Add(new CheckBox(&g_Config.bSavedataUpgrade, sy->T("Allow savedata with wrong encryption(unsafe workaround for outdated PSP savedata)")));
 	list->Add(new CheckBox(&g_Config.bFrameSkipUnthrottle, gr->T("Frameskip unthrottle(good for CPU benchmark)")));
-	list->Add(new CheckBox(&g_Config.bTrueColor, gr->T("True Color(Disable to get PSP colors)")));
-	PopupSliderChoice *emulatedSpeed = list->Add(new PopupSliderChoice(&g_Config.iForceMaxEmulatedFPS, 0, 60, gr->T("Force Max Emulated FPS(affects speed in most games!)"), 1, screenManager(), gr->T("FPS, 0:Disabled")));
-	emulatedSpeed->SetFormat("%i FPS");
-	emulatedSpeed->SetZeroLabel(gr->T("Disabled"));
 	list->Add(new CheckBox(&g_Config.bShowFrameProfiler, gr->T("Display frame profiler(heavy!)")));
 	list->Add(new CheckBox(&g_Config.bSimpleFrameStats, gr->T("Display simple frame stats(heavy!)")));
 	list->Add(new CheckBox(&g_Config.bRefreshAt60Hz, gr->T("Refresh at 60Hz(gamebreaking, but might be needed for NVidia stutter)")));

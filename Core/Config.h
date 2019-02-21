@@ -177,7 +177,6 @@ public:
 	int iAnisotropyLevel;  // 0 - 5, powers of 2: 0 = 1x = no aniso
 	int bHighQualityDepth;
 	bool bMipMap;
-	bool bTrueColor;
 	bool bReplaceTextures;
 	bool bSaveNewTextures;
 	bool bIgnoreTextureFilenames;
@@ -188,7 +187,6 @@ public:
 	int iFpsLimit1;
 	int iFpsLimit2;
 	bool bRefreshAt60Hz;
-	int iForceMaxEmulatedFPS;
 	int iMaxRecent;
 	int iCurrentStateSlot;
 	int iRewindFlipFrequency;
@@ -201,7 +199,6 @@ public:
 	bool bBlockTransferGPU;
 	bool bDisableSlowFramebufEffects;
 	bool bFragmentTestCache;
-	bool bDirtyClearRSelf;
 	int iSplineBezierQuality; // 0 = low , 1 = Intermediate , 2 = High
 	bool bHardwareTessellation;
 	std::string sPostShaderName;  // Off for off.
