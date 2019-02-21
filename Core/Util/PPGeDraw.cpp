@@ -703,7 +703,7 @@ static std::string CropLinesToCount(const std::string &s, int numLines) {
 
 void PPGeDrawTextWrapped(const char *text, float x, float y, float wrapWidth, float wrapHeight, int align, float scale, u32 color) {
 	std::string s = text;
-	if (wrapHeight != 0) {
+	if (wrapHeight != 0.0f) {
 		s = StripTrailingWhite(s);
 	}
 
@@ -712,7 +712,7 @@ void PPGeDrawTextWrapped(const char *text, float x, float y, float wrapWidth, fl
 	int zoom = (PSP_CoreParameter().pixelHeight + 479) / 480;
 	float maxScaleDown = zoom == 1 ? 1.3f : 2.0f;
 	float actualHeight = char_lines_metrics.lineHeight * char_lines_metrics.numLines;
-	if (actualHeight > wrapHeight) {
+	if (wrapHeight != 0.0f && actualHeight > wrapHeight) {
 		if (actualHeight > wrapHeight * maxScaleDown) {
 			float maxLines = floor(wrapHeight * maxScaleDown / char_lines_metrics.lineHeight);
 			actualHeight = (maxLines + 1) * char_lines_metrics.lineHeight;
