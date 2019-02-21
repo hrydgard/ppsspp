@@ -83,6 +83,7 @@ class IniFile;
 
 namespace KeyMap {
 	extern KeyMapping g_controllerMap;
+	extern int g_controllerMapGeneration;
 
 	// Key & Button names
 	struct KeyMap_IntStrPair {

@@ -6,13 +6,15 @@
 // Currently supports: Android, Linux, Windows, Mac OSX
 
 #include <QApplication>
-#include <QUrl>
-#include <QDir>
 #include <QDesktopWidget>
 #include <QDesktopServices>
+#include <QDir>
+#include <QFile>
+#include <QFileDialog>
 #include <QLocale>
 #include <QScreen>
 #include <QThread>
+#include <QUrl>
 
 #include "ext/glslang/glslang/Public/ShaderLang.h"
 
@@ -29,6 +31,7 @@
 #endif
 #include "QtMain.h"
 #include "gfx_es2/gpu_features.h"
+#include "i18n/i18n.h"
 #include "math/math_util.h"
 #include "thread/threadutil.h"
 #include "util/text/utf8.h"
@@ -37,8 +40,10 @@
 
 #include <string.h>
 
-MainUI *emugl = NULL;
+MainUI *emugl = nullptr;
 static int refreshRate = 60000;
+static int browseFileEvent = -1;
+static int browseFolderEvent = -1;
 
 #ifdef SDL
 extern void mixaudio(void *userdata, Uint8 *stream, int len) {
@@ -94,6 +99,8 @@ bool System_GetPropertyBool(SystemProperty prop) {
 	switch (prop) {
 	case SYSPROP_HAS_BACK_BUTTON:
 		return true;
+	case SYSPROP_HAS_FILE_BROWSER:
+		return true;
 	case SYSPROP_APP_GOLD:
 #ifdef GOLD
 		return true;
@@ -108,6 +115,10 @@ bool System_GetPropertyBool(SystemProperty prop) {
 void System_SendMessage(const char *command, const char *parameter) {
 	if (!strcmp(command, "finish")) {
 		qApp->exit(0);
+	} else if (!strcmp(command, "browse_file")) {
+		QCoreApplication::postEvent(emugl, new QEvent((QEvent::Type)browseFileEvent));
+	} else if (!strcmp(command, "browse_folder")) {
+		QCoreApplication::postEvent(emugl, new QEvent((QEvent::Type)browseFolderEvent));
 	}
 }
 
@@ -190,6 +201,10 @@ static int mainInternal(QApplication &a) {
 	QScopedPointer<MainAudio> audio(new MainAudio());
 	audio->run();
 #endif
+
+	browseFileEvent = QEvent::registerEventType();
+	browseFolderEvent = QEvent::registerEventType();
+
 	int retval = a.exec();
 	delete emugl;
 	return retval;
@@ -227,9 +242,8 @@ void MainUI::EmuThreadJoin() {
 	emuThread = std::thread();
 }
 
-MainUI::MainUI(QWidget *parent):
-	QGLWidget(parent)
-{
+MainUI::MainUI(QWidget *parent)
+	: QGLWidget(parent) {
 	emuThreadState = (int)EmuThreadState::DISABLED;
 	setAttribute(Qt::WA_AcceptTouchEvents);
 #if QT_VERSION < QT_VERSION_CHECK(5, 0, 0)
@@ -244,8 +258,7 @@ MainUI::MainUI(QWidget *parent):
 	startTimer(16);
 }
 
-MainUI::~MainUI()
-{
+MainUI::~MainUI() {
 	ILOG("MainUI::Destructor");
 	if (emuThreadState != (int)EmuThreadState::DISABLED) {
 		ILOG("EmuThreadStop");
@@ -264,134 +277,148 @@ MainUI::~MainUI()
 	graphicsContext = nullptr;
 }
 
-QString MainUI::InputBoxGetQString(QString title, QString defaultValue)
-{
-    bool ok;
-    QString text = QInputDialog::getText(this, title, title, QLineEdit::Normal, defaultValue, &ok);
-    if (!ok)
-        text = QString();
-    return text;
+QString MainUI::InputBoxGetQString(QString title, QString defaultValue) {
+	bool ok;
+	QString text = QInputDialog::getText(this, title, title, QLineEdit::Normal, defaultValue, &ok);
+	if (!ok)
+		text = QString();
+	return text;
 }
 
-void MainUI::resizeGL(int w, int h)
-{
-    if (UpdateScreenScale(w, h)) {
-        NativeMessageReceived("gpu_resized", "");
-    }
-    xscale = w / this->width();
-    yscale = h / this->height();
+void MainUI::resizeGL(int w, int h) {
+	if (UpdateScreenScale(w, h)) {
+		NativeMessageReceived("gpu_resized", "");
+	}
+	xscale = w / this->width();
+	yscale = h / this->height();
 
-    PSP_CoreParameter().pixelWidth = pixel_xres;
-    PSP_CoreParameter().pixelHeight = pixel_yres;
+	PSP_CoreParameter().pixelWidth = pixel_xres;
+	PSP_CoreParameter().pixelHeight = pixel_yres;
 }
 
-void MainUI::timerEvent(QTimerEvent *)
-{
-    updateGL();
-    emit newFrame();
+void MainUI::timerEvent(QTimerEvent *) {
+	updateGL();
+	emit newFrame();
 }
 
-void MainUI::changeEvent(QEvent *e)
-{
-    QGLWidget::changeEvent(e);
-    if(e->type() == QEvent::WindowStateChange)
-        Core_NotifyWindowHidden(isMinimized());
+void MainUI::changeEvent(QEvent *e) {
+	QGLWidget::changeEvent(e);
+	if (e->type() == QEvent::WindowStateChange)
+		Core_NotifyWindowHidden(isMinimized());
 }
 
-bool MainUI::event(QEvent *e)
-{
-    TouchInput input;
-    QList<QTouchEvent::TouchPoint> touchPoints;
-    switch(e->type())
-    {
-    case QEvent::TouchBegin:
-    case QEvent::TouchUpdate:
-    case QEvent::TouchEnd:
-        touchPoints = static_cast<QTouchEvent *>(e)->touchPoints();
-        foreach (const QTouchEvent::TouchPoint &touchPoint, touchPoints) {
-            switch (touchPoint.state()) {
-            case Qt::TouchPointStationary:
-                break;
-            case Qt::TouchPointPressed:
-            case Qt::TouchPointReleased:
-                input.x = touchPoint.pos().x() * g_dpi_scale_x * xscale;
-                input.y = touchPoint.pos().y() * g_dpi_scale_y * yscale;
-                input.flags = (touchPoint.state() == Qt::TouchPointPressed) ? TOUCH_DOWN : TOUCH_UP;
-                input.id = touchPoint.id();
-                NativeTouch(input);
-                break;
-            case Qt::TouchPointMoved:
-                input.x = touchPoint.pos().x() * g_dpi_scale_x * xscale;
-                input.y = touchPoint.pos().y() * g_dpi_scale_y * yscale;
-                input.flags = TOUCH_MOVE;
-                input.id = touchPoint.id();
-                NativeTouch(input);
-                break;
-            default:
-                break;
-            }
-        }
-        break;
-    case QEvent::MouseButtonDblClick:
-        if (!g_Config.bShowTouchControls || GetUIState() != UISTATE_INGAME)
-            emit doubleClick();
-        break;
-    case QEvent::MouseButtonPress:
-    case QEvent::MouseButtonRelease:
-        input.x = ((QMouseEvent*)e)->pos().x() * g_dpi_scale_x * xscale;
-        input.y = ((QMouseEvent*)e)->pos().y() * g_dpi_scale_y * yscale;
-        input.flags = (e->type() == QEvent::MouseButtonPress) ? TOUCH_DOWN : TOUCH_UP;
-        input.id = 0;
-        NativeTouch(input);
-        break;
-    case QEvent::MouseMove:
-        input.x = ((QMouseEvent*)e)->pos().x() * g_dpi_scale_x * xscale;
-        input.y = ((QMouseEvent*)e)->pos().y() * g_dpi_scale_y * yscale;
-        input.flags = TOUCH_MOVE;
-        input.id = 0;
-        NativeTouch(input);
-        break;
-    case QEvent::Wheel:
-        NativeKey(KeyInput(DEVICE_ID_MOUSE, ((QWheelEvent*)e)->delta()<0 ? NKCODE_EXT_MOUSEWHEEL_DOWN : NKCODE_EXT_MOUSEWHEEL_UP, KEY_DOWN));
-        break;
-    case QEvent::KeyPress:
-				{
-					auto qtKeycode = ((QKeyEvent*)e)->key();
-					auto iter = KeyMapRawQttoNative.find(qtKeycode);
-					int nativeKeycode = 0;
-					if (iter != KeyMapRawQttoNative.end()) {
-						nativeKeycode = iter->second;
-						NativeKey(KeyInput(DEVICE_ID_KEYBOARD, nativeKeycode, KEY_DOWN));
-					}
+bool MainUI::event(QEvent *e) {
+	TouchInput input;
+	QList<QTouchEvent::TouchPoint> touchPoints;
 
-					// Also get the unicode value.
-					QString text = ((QKeyEvent*)e)->text();
-					std::string str = text.toStdString();
-					// Now, we don't want CHAR events for non-printable characters. Not quite sure how we'll best
-					// do that, but here's one attempt....
-					switch (nativeKeycode) {
-					case NKCODE_DEL:
-					case NKCODE_FORWARD_DEL:
-					case NKCODE_TAB:
-						break;
-					default:
-						if (str.size()) {
-							int pos = 0;
-							int code = u8_nextchar(str.c_str(), &pos);
-							NativeKey(KeyInput(DEVICE_ID_KEYBOARD, code, KEY_CHAR));
-						}
-						break;
-					}
+	switch (e->type()) {
+	case QEvent::TouchBegin:
+	case QEvent::TouchUpdate:
+	case QEvent::TouchEnd:
+		touchPoints = static_cast<QTouchEvent *>(e)->touchPoints();
+		foreach (const QTouchEvent::TouchPoint &touchPoint, touchPoints) {
+			switch (touchPoint.state()) {
+			case Qt::TouchPointStationary:
+				break;
+			case Qt::TouchPointPressed:
+			case Qt::TouchPointReleased:
+				input.x = touchPoint.pos().x() * g_dpi_scale_x * xscale;
+				input.y = touchPoint.pos().y() * g_dpi_scale_y * yscale;
+				input.flags = (touchPoint.state() == Qt::TouchPointPressed) ? TOUCH_DOWN : TOUCH_UP;
+				input.id = touchPoint.id();
+				NativeTouch(input);
+				break;
+			case Qt::TouchPointMoved:
+				input.x = touchPoint.pos().x() * g_dpi_scale_x * xscale;
+				input.y = touchPoint.pos().y() * g_dpi_scale_y * yscale;
+				input.flags = TOUCH_MOVE;
+				input.id = touchPoint.id();
+				NativeTouch(input);
+				break;
+			default:
+				break;
+			}
+		}
+		break;
+	case QEvent::MouseButtonDblClick:
+		if (!g_Config.bShowTouchControls || GetUIState() != UISTATE_INGAME)
+			emit doubleClick();
+		break;
+	case QEvent::MouseButtonPress:
+	case QEvent::MouseButtonRelease:
+		input.x = ((QMouseEvent*)e)->pos().x() * g_dpi_scale_x * xscale;
+		input.y = ((QMouseEvent*)e)->pos().y() * g_dpi_scale_y * yscale;
+		input.flags = (e->type() == QEvent::MouseButtonPress) ? TOUCH_DOWN : TOUCH_UP;
+		input.id = 0;
+		NativeTouch(input);
+		break;
+	case QEvent::MouseMove:
+		input.x = ((QMouseEvent*)e)->pos().x() * g_dpi_scale_x * xscale;
+		input.y = ((QMouseEvent*)e)->pos().y() * g_dpi_scale_y * yscale;
+		input.flags = TOUCH_MOVE;
+		input.id = 0;
+		NativeTouch(input);
+		break;
+	case QEvent::Wheel:
+		NativeKey(KeyInput(DEVICE_ID_MOUSE, ((QWheelEvent*)e)->delta()<0 ? NKCODE_EXT_MOUSEWHEEL_DOWN : NKCODE_EXT_MOUSEWHEEL_UP, KEY_DOWN));
+		break;
+	case QEvent::KeyPress:
+		{
+			auto qtKeycode = ((QKeyEvent*)e)->key();
+			auto iter = KeyMapRawQttoNative.find(qtKeycode);
+			int nativeKeycode = 0;
+			if (iter != KeyMapRawQttoNative.end()) {
+				nativeKeycode = iter->second;
+				NativeKey(KeyInput(DEVICE_ID_KEYBOARD, nativeKeycode, KEY_DOWN));
+			}
+
+			// Also get the unicode value.
+			QString text = ((QKeyEvent*)e)->text();
+			std::string str = text.toStdString();
+			// Now, we don't want CHAR events for non-printable characters. Not quite sure how we'll best
+			// do that, but here's one attempt....
+			switch (nativeKeycode) {
+			case NKCODE_DEL:
+			case NKCODE_FORWARD_DEL:
+			case NKCODE_TAB:
+				break;
+			default:
+				if (str.size()) {
+					int pos = 0;
+					int code = u8_nextchar(str.c_str(), &pos);
+					NativeKey(KeyInput(DEVICE_ID_KEYBOARD, code, KEY_CHAR));
 				}
-        break;
-    case QEvent::KeyRelease:
-        NativeKey(KeyInput(DEVICE_ID_KEYBOARD, KeyMapRawQttoNative.find(((QKeyEvent*)e)->key())->second, KEY_UP));
-        break;
-    default:
-        return QWidget::event(e);
-    }
-    e->accept();
-    return true;
+				break;
+			}
+		}
+		break;
+	case QEvent::KeyRelease:
+		NativeKey(KeyInput(DEVICE_ID_KEYBOARD, KeyMapRawQttoNative.find(((QKeyEvent*)e)->key())->second, KEY_UP));
+		break;
+
+	default:
+		if (e->type() == browseFileEvent) {
+			QString fileName = QFileDialog::getOpenFileName(nullptr, "Load ROM", g_Config.currentDirectory.c_str(), "PSP ROMs (*.iso *.cso *.pbp *.elf *.zip *.ppdmp)");
+			if (QFile::exists(fileName)) {
+				QDir newPath;
+				g_Config.currentDirectory = newPath.filePath(fileName).toStdString();
+				g_Config.Save();
+
+				NativeMessageReceived("boot", fileName.toStdString().c_str());
+			}
+			break;
+		} else if (e->type() == browseFolderEvent) {
+			I18NCategory *mm = GetI18NCategory("MainMenu");
+			QString fileName = QFileDialog::getExistingDirectory(nullptr, mm->T("Choose folder"), g_Config.currentDirectory.c_str());
+			if (QDir(fileName).exists()) {
+				NativeMessageReceived("browse_folderSelect", fileName.toStdString().c_str());
+			}
+		} else {
+			return QWidget::event(e);
+		}
+	}
+	e->accept();
+	return true;
 }
 
 void MainUI::initializeGL() {
@@ -425,9 +452,9 @@ void MainUI::initializeGL() {
 }
 
 void MainUI::paintGL() {
-	#ifdef SDL
+#ifdef SDL
 	SDL_PumpEvents();
-	#endif
+#endif
 	updateAccelerometer();
 	if (emuThreadState == (int)EmuThreadState::DISABLED) {
 		UpdateRunLoop();
@@ -437,28 +464,27 @@ void MainUI::paintGL() {
 	}
 }
 
-void MainUI::updateAccelerometer()
-{
+void MainUI::updateAccelerometer() {
 #if defined(MOBILE_DEVICE)
-        // TODO: Toggle it depending on whether it is enabled
-        QAccelerometerReading *reading = acc->reading();
-        if (reading) {
-            AxisInput axis;
-            axis.deviceId = DEVICE_ID_ACCELEROMETER;
-            axis.flags = 0;
+	// TODO: Toggle it depending on whether it is enabled
+	QAccelerometerReading *reading = acc->reading();
+	if (reading) {
+		AxisInput axis;
+		axis.deviceId = DEVICE_ID_ACCELEROMETER;
+		axis.flags = 0;
 
-            axis.axisId = JOYSTICK_AXIS_ACCELEROMETER_X;
-            axis.value = reading->x();
-            NativeAxis(axis);
+		axis.axisId = JOYSTICK_AXIS_ACCELEROMETER_X;
+		axis.value = reading->x();
+		NativeAxis(axis);
 
-            axis.axisId = JOYSTICK_AXIS_ACCELEROMETER_Y;
-            axis.value = reading->y();
-            NativeAxis(axis);
+		axis.axisId = JOYSTICK_AXIS_ACCELEROMETER_Y;
+		axis.value = reading->y();
+		NativeAxis(axis);
 
-            axis.axisId = JOYSTICK_AXIS_ACCELEROMETER_Z;
-            axis.value = reading->z();
-            NativeAxis(axis);
-        }
+		axis.axisId = JOYSTICK_AXIS_ACCELEROMETER_Z;
+		axis.value = reading->z();
+		NativeAxis(axis);
+	}
 #endif
 }
 
@@ -470,49 +496,46 @@ void MainUI::updateAccelerometer()
 #define AUDIO_SAMPLESIZE 16
 #define AUDIO_BUFFERS 5
 
-MainAudio::~MainAudio()
-{
-    if (feed != NULL) {
-        killTimer(timer);
-        feed->close();
-    }
-    if (output) {
-        output->stop();
-        delete output;
-    }
-    if (mixbuf)
-        free(mixbuf);
+MainAudio::~MainAudio() {
+	if (feed != nullptr) {
+		killTimer(timer);
+		feed->close();
+	}
+	if (output) {
+		output->stop();
+		delete output;
+	}
+	if (mixbuf)
+		free(mixbuf);
 }
 
-void MainAudio::run()
-{
-    QAudioFormat fmt;
-    fmt.setSampleRate(AUDIO_FREQ);
-    fmt.setCodec("audio/pcm");
-    fmt.setChannelCount(AUDIO_CHANNELS);
-    fmt.setSampleSize(AUDIO_SAMPLESIZE);
-    fmt.setByteOrder(QAudioFormat::LittleEndian);
-    fmt.setSampleType(QAudioFormat::SignedInt);
-    mixlen = sizeof(short)*AUDIO_BUFFERS*AUDIO_CHANNELS*AUDIO_SAMPLES;
-    mixbuf = (char*)malloc(mixlen);
-    output = new QAudioOutput(fmt);
-    output->setBufferSize(mixlen);
-    feed = output->start();
-    if (feed != NULL) {
-        // buffering has already done in the internal mixed buffer
-        // use a small interval to copy mixed audio stream from
-        // internal buffer to audio output buffer as soon as possible
-        // use 1 instead of 0 to prevent CPU exhausting
-        timer = startTimer(1);
-    }
+void MainAudio::run() {
+	QAudioFormat fmt;
+	fmt.setSampleRate(AUDIO_FREQ);
+	fmt.setCodec("audio/pcm");
+	fmt.setChannelCount(AUDIO_CHANNELS);
+	fmt.setSampleSize(AUDIO_SAMPLESIZE);
+	fmt.setByteOrder(QAudioFormat::LittleEndian);
+	fmt.setSampleType(QAudioFormat::SignedInt);
+	mixlen = sizeof(short)*AUDIO_BUFFERS*AUDIO_CHANNELS*AUDIO_SAMPLES;
+	mixbuf = (char*)malloc(mixlen);
+	output = new QAudioOutput(fmt);
+	output->setBufferSize(mixlen);
+	feed = output->start();
+	if (feed != nullptr) {
+		// buffering has already done in the internal mixed buffer
+		// use a small interval to copy mixed audio stream from
+		// internal buffer to audio output buffer as soon as possible
+		// use 1 instead of 0 to prevent CPU exhausting
+		timer = startTimer(1);
+	}
 }
 
-void MainAudio::timerEvent(QTimerEvent *)
-{
-    memset(mixbuf, 0, mixlen);
-    size_t frames = NativeMix((short *)mixbuf, AUDIO_BUFFERS*AUDIO_SAMPLES);
-    if (frames > 0)
-        feed->write(mixbuf, sizeof(short) * AUDIO_CHANNELS * frames);
+void MainAudio::timerEvent(QTimerEvent *) {
+	memset(mixbuf, 0, mixlen);
+	size_t frames = NativeMix((short *)mixbuf, AUDIO_BUFFERS*AUDIO_SAMPLES);
+	if (frames > 0)
+		feed->write(mixbuf, sizeof(short) * AUDIO_CHANNELS * frames);
 }
 
 #endif

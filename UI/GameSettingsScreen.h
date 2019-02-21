@@ -17,6 +17,7 @@
 
 #pragma once
 
+#include "ppsspp_config.h"
 #include "ui/ui_screen.h"
 #include "UI/MiscScreens.h"
 
@@ -30,6 +31,7 @@ public:
 
 	void update() override;
 	void onFinish(DialogResult result) override;
+	void sendMessage(const char *message, const char *value) override;
 	std::string tag() const override { return "settings"; }
 
 	UI::Event OnRecentChanged;
@@ -39,6 +41,9 @@ protected:
 	void CallbackRestoreDefaults(bool yes);
 	void CallbackRenderingBackend(bool yes);
 	void CallbackRenderingDevice(bool yes);
+#if PPSSPP_PLATFORM(ANDROID)
+	void CallbackMemstickFolder(bool yes);
+#endif
 	bool UseVerticalLayout() const;
 
 private:
@@ -91,7 +96,9 @@ private:
 	UI::EventReturn OnRenderingBackend(UI::EventParams &e);
 	UI::EventReturn OnRenderingDevice(UI::EventParams &e);
 	UI::EventReturn OnJitAffectingSetting(UI::EventParams &e);
-#ifdef _WIN32
+#if PPSSPP_PLATFORM(ANDROID)
+	UI::EventReturn OnChangeMemStickDir(UI::EventParams &e);
+#elif defined(_WIN32) && !PPSSPP_PLATFORM(UWP)
 	UI::EventReturn OnSavePathMydoc(UI::EventParams &e);
 	UI::EventReturn OnSavePathOther(UI::EventParams &e);
 #endif
@@ -107,8 +114,7 @@ private:
 	UI::EventReturn OnSavedataManager(UI::EventParams &e);
 	UI::EventReturn OnSysInfo(UI::EventParams &e);
 
-	// Temporaries to convert bools to int settings
-	bool cap60FPS_;
+	// Temporaries to convert setting types.
 	int iAlternateSpeedPercent1_;
 	int iAlternateSpeedPercent2_;
 	bool enableReports_;
@@ -122,6 +128,10 @@ private:
 	bool resolutionEnable_;
 	bool bloomHackEnable_;
 	bool tessHWEnable_;
+
+#if PPSSPP_PLATFORM(ANDROID)
+	std::string pendingMemstickFolder_;
+#endif
 };
 
 class SettingInfoMessage : public UI::LinearLayout {

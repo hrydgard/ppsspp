@@ -435,16 +435,18 @@ int main(int argc, char *argv[]) {
 	SDL_GL_SetAttribute(SDL_GL_DOUBLEBUFFER, 1);
 	SDL_GL_SetSwapInterval(1);
 
-	// Is resolution is too low to run windowed
+	// Force fullscreen if the resolution is too low to run windowed.
 	if (g_DesktopWidth < 480 * 2 && g_DesktopHeight < 272 * 2) {
 		mode |= SDL_WINDOW_FULLSCREEN_DESKTOP;
 	}
 
 	// If we're on mobile, don't try for windowed either.
 #if defined(MOBILE_DEVICE)
-    mode |= SDL_WINDOW_FULLSCREEN;
+	mode |= SDL_WINDOW_FULLSCREEN;
+#elif defined(USING_FBDEV)
+	mode |= SDL_WINDOW_FULLSCREEN_DESKTOP;
 #else
-    mode |= SDL_WINDOW_RESIZABLE;
+	mode |= SDL_WINDOW_RESIZABLE;
 #endif
 
 	if (mode & SDL_WINDOW_FULLSCREEN_DESKTOP) {
@@ -600,6 +602,7 @@ int main(int argc, char *argv[]) {
 	}
 	graphicsContext->ThreadStart();
 
+	bool windowHidden = false;
 	while (true) {
 		double startTime = time_now_d();
 		SDL_Event event, touchEvent;
@@ -635,6 +638,19 @@ int main(int argc, char *argv[]) {
 					}
 					break;
 				}
+
+				case SDL_WINDOWEVENT_MINIMIZED:
+				case SDL_WINDOWEVENT_HIDDEN:
+					windowHidden = true;
+					Core_NotifyWindowHidden(windowHidden);
+					break;
+				case SDL_WINDOWEVENT_EXPOSED:
+				case SDL_WINDOWEVENT_SHOWN:
+				case SDL_WINDOWEVENT_MAXIMIZED:
+				case SDL_WINDOWEVENT_RESTORED:
+					windowHidden = false;
+					Core_NotifyWindowHidden(windowHidden);
+					break;
 
 				default:
 					break;
@@ -682,6 +698,8 @@ int main(int argc, char *argv[]) {
 					NativeKey(key);
 					break;
 				}
+// This behavior doesn't feel right on a macbook with a touchpad.
+#if !PPSSPP_PLATFORM(MAC)
 			case SDL_FINGERMOTION:
 				{
 					SDL_GetWindowSize(window, &w, &h);
@@ -744,6 +762,7 @@ int main(int argc, char *argv[]) {
 					SDL_PushEvent(&touchEvent);
 					break;
 				}
+#endif
 			case SDL_MOUSEBUTTONDOWN:
 				switch (event.button.button) {
 				case SDL_BUTTON_LEFT:
@@ -847,7 +866,8 @@ int main(int argc, char *argv[]) {
 			// glsl_refresh(); // auto-reloads modified GLSL shaders once per second.
 		}
 
-		if (emuThreadState != (int)EmuThreadState::DISABLED) {
+		bool renderThreadPaused = windowHidden && g_Config.bPauseWhenMinimized && emuThreadState != (int)EmuThreadState::DISABLED;
+		if (emuThreadState != (int)EmuThreadState::DISABLED && !renderThreadPaused) {
 			if (!graphicsContext->ThreadFrame())
 				break;
 		}
@@ -859,7 +879,7 @@ int main(int argc, char *argv[]) {
 
 		// Simple throttling to not burn the GPU in the menu.
 		time_update();
-		if (GetUIState() != UISTATE_INGAME || !PSP_IsInited()) {
+		if (GetUIState() != UISTATE_INGAME || !PSP_IsInited() || renderThreadPaused) {
 			double diffTime = time_now_d() - startTime;
 			int sleepTime = (int)(1000.0 / 60.0) - (int)(diffTime * 1000.0);
 			if (sleepTime > 0)
