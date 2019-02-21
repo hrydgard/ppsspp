@@ -186,7 +186,6 @@ public:
 	bool bTexDeposterize;
 	int iFpsLimit1;
 	int iFpsLimit2;
-	bool bRefreshAt60Hz;
 	int iMaxRecent;
 	int iCurrentStateSlot;
 	int iRewindFlipFrequency;

@@ -110,7 +110,7 @@ static bool wasPaused;
 static bool flippedThisFrame;
 
 // 1.001f to compensate for the classic 59.94 NTSC framerate that the PSP seems to have.
-static const double timePerVblank = (g_Config.bRefreshAt60Hz ? 1.0f : 1.001f) / 60.0f;
+static const double timePerVblank = 1.001f / 60.0f;
 
 // Don't include this in the state, time increases regardless of state.
 static double curFrameTime;
@@ -952,7 +952,7 @@ u32 sceDisplaySetFramebuf(u32 topaddr, int linesize, int pixelformat, int sync) 
 		}
 
 		// 1001 to account for NTSC timing (59.94 fps.)
-		u64 expected = msToCycles(g_Config.bRefreshAt60Hz ? 1000 : 1001) / 60 - LEEWAY_CYCLES_PER_FLIP;
+		u64 expected = msToCycles(1001) / 60 - LEEWAY_CYCLES_PER_FLIP;
 		lastFlipCycles = now;
 		nextFlipCycles = std::max(lastFlipCycles, nextFlipCycles) + expected;
 	}
@@ -1101,7 +1101,7 @@ static int sceDisplayGetAccumulatedHcount() {
 }
 
 static float sceDisplayGetFramePerSec() {
-	const static float framePerSec = g_Config.bRefreshAt60Hz ? 60.0f : 59.9400599f;
+	const static float framePerSec = 59.9400599f;
 	VERBOSE_LOG(SCEDISPLAY,"%f=sceDisplayGetFramePerSec()", framePerSec);
 	return framePerSec;	// (9MHz * 1)/(525 * 286)
 }

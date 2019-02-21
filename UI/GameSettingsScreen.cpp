@@ -1425,7 +1425,6 @@ void OtherSettingsScreen::CreateViews() {
 	list->Add(new CheckBox(&g_Config.bFrameSkipUnthrottle, gr->T("Frameskip unthrottle(good for CPU benchmark)")));
 	list->Add(new CheckBox(&g_Config.bShowFrameProfiler, gr->T("Display frame profiler(heavy!)")));
 	list->Add(new CheckBox(&g_Config.bSimpleFrameStats, gr->T("Display simple frame stats(heavy!)")));
-	list->Add(new CheckBox(&g_Config.bRefreshAt60Hz, gr->T("Refresh at 60Hz(gamebreaking, but might be needed for NVidia stutter)")));
 	list->Add(new CheckBox(&g_Config.bSavestateScreenshotResLimit, gr->T("Limit resolution of savestates screenshots")));
 	list->Add(new CheckBox(&g_Config.bDiscordPresence, n->T("Send Discord(3rd party software) Presence information")));
 }

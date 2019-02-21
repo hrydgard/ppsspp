@@ -632,7 +632,6 @@ static ConfigSetting graphicsSettings[] = {
 #if defined(USING_WIN_UI)
 	ConfigSetting("RestartRequired", &g_Config.bRestartRequired, false, false),
 #endif
-	ConfigSetting("RefreshAt60Hz", &g_Config.bRefreshAt60Hz, false, true, true),
 
 	// Most low-performance (and many high performance) mobile GPUs do not support aniso anyway so defaulting to 4 is fine.
 	ConfigSetting("AnisotropyLevel", &g_Config.iAnisotropyLevel, 4, true, true),
