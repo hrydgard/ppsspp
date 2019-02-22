@@ -335,6 +335,7 @@ void CheckGLExtensions() {
 	gl_extensions.EXT_blend_func_extended = g_set_gl_extensions.count("GL_EXT_blend_func_extended") != 0;
 	gl_extensions.ARB_conservative_depth = g_set_gl_extensions.count("GL_ARB_conservative_depth") != 0;
 	gl_extensions.ARB_shader_image_load_store = (g_set_gl_extensions.count("GL_ARB_shader_image_load_store") != 0) || (g_set_gl_extensions.count("GL_EXT_shader_image_load_store") != 0);
+	gl_extensions.ARB_shading_language_420pack = (g_set_gl_extensions.count("GL_ARB_shading_language_420pack") != 0);
 	gl_extensions.EXT_bgra = g_set_gl_extensions.count("GL_EXT_bgra") != 0;
 	gl_extensions.EXT_gpu_shader4 = g_set_gl_extensions.count("GL_EXT_gpu_shader4") != 0;
 	gl_extensions.NV_framebuffer_blit = g_set_gl_extensions.count("GL_NV_framebuffer_blit") != 0;
