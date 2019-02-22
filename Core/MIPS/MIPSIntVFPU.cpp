@@ -549,6 +549,7 @@ namespace MIPSInt
 		int vs = _VS;
 		VectorSize sz = GetVecSize(op);
 		ReadVector(s, sz, vs);
+		ApplySwizzleS(s, sz);
 		for (int i = 0; i < GetNumVectorElements(sz); i++)
 		{
 			// Always positive NaN.
@@ -567,6 +568,7 @@ namespace MIPSInt
 		int vs = _VS;
 		VectorSize sz = GetVecSize(op);
 		ReadVector(s, sz, vs);
+		ApplySwizzleS(s, sz);
 		int n = GetNumVectorElements(sz);
 		float x = s[0];
 		d[0] = nanclamp(1.0f - x, 0.0f, 1.0f);
@@ -577,7 +579,8 @@ namespace MIPSInt
 			d[2] = nanclamp(1.0f - y, 0.0f, 1.0f);
 			d[3] = nanclamp(y, 0.0f, 1.0f);
 			outSize = V_Quad;
-		} 
+		}
+		ApplyPrefixD(d, sz);
 		WriteVector(d, outSize, vd);
 		PC += 4;
 		EatPrefixes();

@@ -1953,8 +1953,6 @@ namespace MIPSComp {
 		int n = GetNumVectorElements(sz);
 
 		u8 sregs[4], dregs[4];
-		// Actually, not sure that this instruction accepts an S prefix. We don't apply it in the
-		// interpreter. But whatever.
 		GetVectorRegsPrefixS(sregs, sz, _VS);
 		GetVectorRegsPrefixD(dregs, sz, _VD);
 
