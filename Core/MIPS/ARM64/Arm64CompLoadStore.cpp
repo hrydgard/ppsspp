@@ -366,7 +366,15 @@ namespace MIPSComp {
 			} else {
 				// This actually gets hit in micro machines! rs = ZR rt = ZR. Probably a bug.
 				// Leaving this a debug assert for future investigation.
+#ifdef __APPLE__
+				if (__builtin_expect(gpr.IsImm(rs), 0)) {
+					// FIXME: This is common on iOS, for instance, in Medal of Honor: Heroes (ULUS10141).
+					// Since it is impossible to continue after _dbg_assert_msg_ on iOS, just log it for now.
+					ERROR_LOG(JIT, "Invalid immediate address?  CPU bug?");
+				}
+#else
 				_dbg_assert_msg_(JIT, !gpr.IsImm(rs), "Invalid immediate address?  CPU bug?");
+#endif
 
 				// If we already have a targetReg, we optimized an imm, and rs is already mapped.
 				if (targetReg == INVALID_REG) {
