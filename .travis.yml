@@ -58,7 +58,7 @@ matrix:
       env: PPSSPP_BUILD_TYPE=Android
            APP_ABI=x86_64
     - os: linux
-      compiler: "clang linux"
+      compiler: "clang"
       env: PPSSPP_BUILD_TYPE=Linux
     - os: linux
       compiler: "gcc"
