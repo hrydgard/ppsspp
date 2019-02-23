@@ -39,6 +39,7 @@ assets/flash0
 UWP/icph
 UWP/.vs
 .vs
+.vscode
 
 # For Mac
 .DS_Store
