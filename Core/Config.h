@@ -410,7 +410,7 @@ public:
 	std::string dismissedVersion;
 
 	void Load(const char *iniFileName = nullptr, const char *controllerIniFilename = nullptr);
-	void Save();
+	void Save(const char *saveReason);
 	void RestoreDefaults();
 
 	//per game config managment, should maybe be in it's own class

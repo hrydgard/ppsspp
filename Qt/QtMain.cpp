@@ -119,6 +119,9 @@ void System_SendMessage(const char *command, const char *parameter) {
 		QCoreApplication::postEvent(emugl, new QEvent((QEvent::Type)browseFileEvent));
 	} else if (!strcmp(command, "browse_folder")) {
 		QCoreApplication::postEvent(emugl, new QEvent((QEvent::Type)browseFolderEvent));
+	} else if (!strcmp(command, "graphics_restart")) {
+		// Should find a way to properly restart the app.
+		qApp->exit(0);
 	}
 }
 
@@ -402,7 +405,7 @@ bool MainUI::event(QEvent *e) {
 			if (QFile::exists(fileName)) {
 				QDir newPath;
 				g_Config.currentDirectory = newPath.filePath(fileName).toStdString();
-				g_Config.Save();
+				g_Config.Save("browseFileEvent");
 
 				NativeMessageReceived("boot", fileName.toStdString().c_str());
 			}

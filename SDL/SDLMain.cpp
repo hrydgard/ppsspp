@@ -116,6 +116,9 @@ void System_SendMessage(const char *command, const char *parameter) {
 	} else if (!strcmp(command, "finish")) {
 		// Do a clean exit
 		g_QuitRequested = true;
+	} else if (!strcmp(command, "graphics_restart")) {
+		// Not sure how we best do this, but do a clean exit, better than being stuck in a bad state.
+		g_QuitRequested = true;
 	}
 }
 

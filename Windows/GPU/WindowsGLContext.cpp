@@ -271,7 +271,7 @@ bool WindowsGLContext::InitFromRenderThread(std::string *error_message) {
 			bool d3d9 = IDYES == MessageBox(hWnd_, whichD3D9.c_str(), title.c_str(), MB_YESNO);
 			g_Config.iGPUBackend = d3d9 ? (int)GPUBackend::DIRECT3D9 : (int)GPUBackend::DIRECT3D11;
 			g_Config.sFailedGPUBackends.clear();
-			g_Config.Save();
+			g_Config.Save("save_d3d11_fallback");
 
 			W32Util::ExitAndRestart();
 		}

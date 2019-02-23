@@ -44,7 +44,7 @@ void Combo_keyScreen::CreateViews() {
 	static const int comboKeyImages[5] = {
 		I_1, I_2, I_3, I_4, I_5,
 	};
-	
+
 	comboselect = new ChoiceStrip(ORIENT_VERTICAL, new AnchorLayoutParams(10, 10,  NONE, NONE));
 	comboselect->SetSpacing(10);
 	for (int i = 0; i < 5; i++) {
@@ -169,7 +169,7 @@ void Combo_keyScreen::onFinish(DialogResult result) {
 		g_Config.iCombokey4 = arrayToInt(array);
 		break;
 	}
-	g_Config.Save();
+	g_Config.Save("Combo_keyScreen::onFInish");
 }
 
 UI::EventReturn Combo_keyScreen::ChoiceEventHandler::onChoiceClick(UI::EventParams &e){
