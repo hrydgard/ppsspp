@@ -1109,7 +1109,7 @@ void Config::Load(const char *iniFileName, const char *controllerIniFilename) {
 	}
 }
 
-void Config::Save() {
+void Config::Save(const char *saveReason) {
 	if (jitForcedOff) {
 		// if JIT has been forced off, we don't want to screw up the user's ppsspp.ini
 		g_Config.iCpuCore = (int)CPUCore::JIT;
@@ -1162,11 +1162,11 @@ void Config::Save() {
 			LogManager::GetInstance()->SaveConfig(log);
 
 		if (!iniFile.Save(iniFilename_.c_str())) {
-			ERROR_LOG(LOADER, "Error saving config - can't write ini '%s'", iniFilename_.c_str());
+			ERROR_LOG(LOADER, "Error saving config (%s)- can't write ini '%s'", saveReason, iniFilename_.c_str());
 			System_SendMessage("toast", "Failed to save settings!\nCheck permissions, or try to restart the device.");
 			return;
 		}
-		INFO_LOG(LOADER, "Config saved: '%s'", iniFilename_.c_str());
+		INFO_LOG(LOADER, "Config saved (%s): '%s'", saveReason, iniFilename_.c_str());
 
 		if (!bGameSpecific) //otherwise we already did this in saveGameConfig()
 		{
@@ -1353,7 +1353,7 @@ bool Config::hasGameConfig(const std::string &pGameId) {
 }
 
 void Config::changeGameSpecific(const std::string &pGameId) {
-	Save();
+	Save("changeGameSpecific");
 	gameId_ = pGameId;
 	bGameSpecific = !pGameId.empty();
 }

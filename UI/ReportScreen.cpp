@@ -330,7 +330,7 @@ EventReturn ReportScreen::HandleSubmit(EventParams &e) {
 
 	if (Reporting::Enable(enableReporting_, "report.ppsspp.org")) {
 		Reporting::UpdateConfig();
-		g_Config.Save();
+		g_Config.Save("ReportScreen::HandleSubmit");
 	}
 
 	std::string filename = includeScreenshot_ ? screenshotFilename_ : "";

@@ -431,8 +431,8 @@ class JoystickHistoryView : public UI::InertView {
 public:
 	JoystickHistoryView(int xAxis, int xDevice, int xDir, int yAxis, int yDevice, int yDir, UI::LayoutParams *layoutParams = nullptr)
 		: UI::InertView(layoutParams),
-			xAxis_(xAxis), xDevice_(xDevice), xDir_(xDir),
-			yAxis_(yAxis), yDevice_(yDevice), yDir_(yDir),
+			xAxis_(xAxis), xDir_(xDir),
+			yAxis_(yAxis), yDir_(yDir),
 			curX_(0.0f), curY_(0.0f),
 			maxCount_(500) {}
 	void Draw(UIContext &dc) override;
@@ -455,10 +455,8 @@ private:
 	};
 
 	int xAxis_;
-	int xDevice_;
 	int xDir_;
 	int yAxis_;
-	int yDevice_;
 	int yDir_;
 
 	float curX_;

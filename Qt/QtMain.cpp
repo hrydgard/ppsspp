@@ -405,7 +405,7 @@ bool MainUI::event(QEvent *e) {
 			if (QFile::exists(fileName)) {
 				QDir newPath;
 				g_Config.currentDirectory = newPath.filePath(fileName).toStdString();
-				g_Config.Save();
+				g_Config.Save("browseFileEvent");
 
 				NativeMessageReceived("boot", fileName.toStdString().c_str());
 			}

@@ -759,25 +759,25 @@ namespace MainWindow {
 
 		case ID_OPTIONS_DIRECT3D9:
 			g_Config.iGPUBackend = (int)GPUBackend::DIRECT3D9;
-			g_Config.Save();
+			g_Config.Save("gpu_choice");
 			RestartApp();
 			break;
 
 		case ID_OPTIONS_DIRECT3D11:
 			g_Config.iGPUBackend = (int)GPUBackend::DIRECT3D11;
-			g_Config.Save();
+			g_Config.Save("gpu_choice");
 			RestartApp();
 			break;
 
 		case ID_OPTIONS_OPENGL:
 			g_Config.iGPUBackend = (int)GPUBackend::OPENGL;
-			g_Config.Save();
+			g_Config.Save("gpu_choice");
 			RestartApp();
 			break;
 
 		case ID_OPTIONS_VULKAN:
 			g_Config.iGPUBackend = (int)GPUBackend::VULKAN;
-			g_Config.Save();
+			g_Config.Save("gpu_choice");
 			RestartApp();
 			break;
 
