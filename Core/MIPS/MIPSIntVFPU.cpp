@@ -1820,11 +1820,33 @@ bad:
 
 	void Int_Vlgb(MIPSOpcode op)
 	{
-		// S & D valid
-		Reporting::ReportMessage("vlgb not implemented");
-		if (!PSP_CoreParameter().headLess) {
-			_dbg_assert_msg_(CPU,0,"vlgb not implemented");
+		// Vector log binary (extract exponent)
+		int vd = _VD;
+		int vs = _VS;
+		VectorSize sz = GetVecSize(op);
+
+		FloatBits d;
+		FloatBits s;
+
+		ReadVector(s.f, sz, vs);
+		// TODO: Test swizzle, t?
+		ApplySwizzleS(s.f, sz);
+
+		if (sz != V_Single) {
+			ERROR_LOG_REPORT(CPU, "vlgb not implemented for size %d", GetNumVectorElements(sz));
 		}
+		for (int i = 0; i < GetNumVectorElements(sz); ++i) {
+			int exp = (s.u[i] & 0x7F800000) >> 23;
+			if (exp == 0xFF) {
+				d.f[i] = s.f[i];
+			} else if (exp == 0) {
+				d.f[i] = -INFINITY;
+			} else {
+				d.f[i] = (float)(exp - 127);
+			}
+		}
+		ApplyPrefixD(d.f, sz);
+		WriteVector(d.f, sz, vd);
 		PC += 4;
 		EatPrefixes();
 	}
@@ -1905,10 +1927,31 @@ bad:
 
 	void Int_Vsbz(MIPSOpcode op)
 	{
-		Reporting::ReportMessage("vsbz not implemented");
-		if (!PSP_CoreParameter().headLess) {
-			_dbg_assert_msg_(CPU,0,"vsbz not implemented");
+		// Vector scale by zero (set exp to 0 to extract mantissa)
+		int vd = _VD;
+		int vs = _VS;
+		VectorSize sz = GetVecSize(op);
+
+		FloatBits d;
+		FloatBits s;
+
+		ReadVector(s.f, sz, vs);
+		// TODO: Test swizzle, t?
+		ApplySwizzleS(s.f, sz);
+
+		if (sz != V_Single) {
+			ERROR_LOG_REPORT(CPU, "vsbz not implemented for size %d", GetNumVectorElements(sz));
 		}
+		for (int i = 0; i < GetNumVectorElements(sz); ++i) {
+			// NAN and denormals pass through.
+			if (my_isnan(s.f[i]) || (s.u[i] & 0x7F800000) == 0) {
+				d.u[i] = s.u[i];
+			} else {
+				d.u[i] = (127 << 23) | (s.u[i] & 0x007FFFFF);
+			}
+		}
+		ApplyPrefixD(d.f, sz);
+		WriteVector(d.f, sz, vd);
 		PC += 4;
 		EatPrefixes();
 	}

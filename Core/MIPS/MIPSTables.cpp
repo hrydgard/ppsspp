@@ -524,6 +524,7 @@ const MIPSInstruction tableVFPU0[8] = // 011000 xxx ....... . ....... . .......
 {
 	INSTR("vadd", JITFUNC(Comp_VecDo3), Dis_VectorSet3, Int_VecDo3, IN_OTHER|OUT_OTHER|IS_VFPU|OUT_EAT_PREFIX),
 	INSTR("vsub", JITFUNC(Comp_VecDo3), Dis_VectorSet3, Int_VecDo3, IN_OTHER|OUT_OTHER|IS_VFPU|OUT_EAT_PREFIX),
+	// TODO: Disasm is wrong.
 	INSTR("vsbn", JITFUNC(Comp_Generic), Dis_VectorSet3, Int_Vsbn, IN_OTHER|OUT_OTHER|IS_VFPU|OUT_EAT_PREFIX),
 	INVALID, INVALID, INVALID, INVALID,
 
