@@ -544,16 +544,24 @@ namespace MIPSInt
 
 	void Int_Vocp(MIPSOpcode op)
 	{
-		float s[4], d[4];
+		float s[4], t[4], d[4];
 		int vd = _VD;
 		int vs = _VS;
 		VectorSize sz = GetVecSize(op);
 		ReadVector(s, sz, vs);
-		ApplySwizzleS(s, sz);
-		for (int i = 0; i < GetNumVectorElements(sz); i++)
-		{
-			// Always positive NaN.
-			d[i] = my_isnan(s[i]) ? fabsf(s[i]) : 1.0f - s[i];
+
+		// S prefix forces the negate flags.
+		u32 sprefix = currentMIPS->vfpuCtrl[VFPU_CTRL_SPREFIX];
+		ApplyPrefixST(s, sprefix | 0x000F0000, sz);
+
+		// T prefix forces constants on and regnum to 1.
+		// That means negate still works, and abs activates a different constant.
+		u32 tprefix = currentMIPS->vfpuCtrl[VFPU_CTRL_TPREFIX];
+		ApplyPrefixST(t, (tprefix & ~0x000000FF) | 0x00000055 | 0x0000F000, sz);
+
+		for (int i = 0; i < GetNumVectorElements(sz); i++) {
+			// Always positive NaN.  Note that s is always negated from the registers.
+			d[i] = my_isnan(s[i]) ? fabsf(s[i]) : t[i] + s[i];
 		}
 		ApplyPrefixD(d, sz);
 		WriteVector(d, sz, vd);

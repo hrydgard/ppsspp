@@ -1433,12 +1433,21 @@ void ArmJit::CompNEON_Vocp(MIPSOpcode op) {
 		DISABLE;
 	}
 
+	// TODO: Handle T prefix.  Right now it uses 1.0f always.
+
+	// This is a hack that modifies prefixes.  We eat them later, so just overwrite.
+	// S prefix forces the negate flags.
+	js.prefixS |= 0x000F0000;
+	// T prefix forces constants on and regnum to 1.
+	// That means negate still works, and abs activates a different constant.
+	js.prefixT = (js.prefixT & ~0x000000FF) | 0x00000055 | 0x0000F000;
+
 	VectorSize sz = GetVecSize(op);
 	int n = GetNumVectorElements(sz);
 
 	MappedRegs regs = NEONMapDirtyIn(op, sz, sz);
 	MOVI2F_neon(Q0, 1.0f, R0);
-	VSUB(F_32, regs.vd, Q0, regs.vs);
+	VADD(F_32, regs.vd, Q0, regs.vs);
 	NEONApplyPrefixD(regs.vd);
 
 	fpr.ReleaseSpillLocksAndDiscardTemps();
