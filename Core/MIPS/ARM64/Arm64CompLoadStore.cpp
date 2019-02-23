@@ -172,7 +172,7 @@ namespace MIPSComp {
 			return;
 		}
 
-		_dbg_assert_msg_(JIT, !gpr.IsImm(rs), "Invalid immediate address?  CPU bug?");
+		_dbg_assert_msg_(JIT, !gpr.IsImm(rs), "Invalid immediate address %08x?  CPU bug?", iaddr);
 		if (load) {
 			gpr.MapDirtyIn(rt, rs, false);
 		} else {
@@ -364,13 +364,19 @@ namespace MIPSComp {
 					addrReg = SCRATCH1;
 				}
 			} else {
-				// This actually gets hit in micro machines! rs = ZR rt = ZR. Probably a bug.
-				// Leaving this a debug assert for future investigation.
-				_dbg_assert_msg_(JIT, !gpr.IsImm(rs), "Invalid immediate address?  CPU bug?");
+				// This gets hit in a few games, as a result of never-taken delay slots (some branch types
+				// conditionally execute the delay slot instructions). Ignore in those cases.
+				if (!js.inDelaySlot) {
+					_dbg_assert_msg_(JIT, !gpr.IsImm(rs), "Invalid immediate address %08x?  CPU bug?", iaddr);
+				}
 
 				// If we already have a targetReg, we optimized an imm, and rs is already mapped.
 				if (targetReg == INVALID_REG) {
-					load ? gpr.MapDirtyIn(rt, rs) : gpr.MapInIn(rt, rs);
+					if (load) {
+						gpr.MapDirtyIn(rt, rs);
+					} else {
+						gpr.MapInIn(rt, rs);
+					}
 					targetReg = gpr.R(rt);
 				}
 
@@ -413,9 +419,9 @@ namespace MIPSComp {
 	}
 
 	void Arm64Jit::Comp_Cache(MIPSOpcode op) {
-//		int imm = (s16)(op & 0xFFFF);
-//		int rs = _RS;
-//		int addr = R(rs) + imm;
+		// int imm = (s16)(op & 0xFFFF);
+		// int rs = _RS;
+		// int addr = R(rs) + imm;
 		int func = (op >> 16) & 0x1F;
 
 		// It appears that a cache line is 0x40 (64) bytes, loops in games
