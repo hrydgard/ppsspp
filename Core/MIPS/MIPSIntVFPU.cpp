@@ -571,22 +571,30 @@ namespace MIPSInt
 	
 	void Int_Vsocp(MIPSOpcode op)
 	{
-		float s[4], d[4];
+		float s[4], t[4], d[4];
 		int vd = _VD;
 		int vs = _VS;
 		VectorSize sz = GetVecSize(op);
+		VectorSize outSize = GetDoubleVectorSize(sz);
 		ReadVector(s, sz, vs);
-		ApplySwizzleS(s, sz);
+
+		// S prefix forces negate in even/odd and xxyy swizzle.
+		// abs works, and applies to final position (not source.)
+		u32 sprefix = currentMIPS->vfpuCtrl[VFPU_CTRL_SPREFIX];
+		ApplyPrefixST(s, (sprefix & ~0x000F00FF) | 0x00000050 | 0x00050000, outSize);
+
+		// T prefix forces constants on and regnum to 0, 1, 0, 1.
+		// That means negate still works, and abs activates a different constant.
+		u32 tprefix = currentMIPS->vfpuCtrl[VFPU_CTRL_TPREFIX];
+		ApplyPrefixST(t, (tprefix & ~0x000000FF) | 0x00000011 | 0x0000F000, outSize);
+
 		int n = GetNumVectorElements(sz);
-		float x = s[0];
-		d[0] = nanclamp(1.0f - x, 0.0f, 1.0f);
-		d[1] = nanclamp(x, 0.0f, 1.0f);
-		VectorSize outSize = V_Pair;
-		if (n > 1) {
-			float y = s[1];
-			d[2] = nanclamp(1.0f - y, 0.0f, 1.0f);
-			d[3] = nanclamp(y, 0.0f, 1.0f);
-			outSize = V_Quad;
+		// Essentially D prefix saturation is forced.
+		d[0] = nanclamp(t[0] + s[0], 0.0f, 1.0f);
+		d[1] = nanclamp(t[1] + s[1], 0.0f, 1.0f);
+		if (outSize == V_Quad) {
+			d[2] = nanclamp(t[2] + s[2], 0.0f, 1.0f);
+			d[3] = nanclamp(t[3] + s[3], 0.0f, 1.0f);
 		}
 		ApplyPrefixD(d, sz);
 		WriteVector(d, outSize, vd);
