@@ -1643,7 +1643,6 @@ namespace MIPSInt
 		int vt = _VT;
 		int vs = _VS;
 		int vd = _VD;
-		int cond = op&15;
 		VectorSize sz = GetVecSize(op);
 		int numElements = GetNumVectorElements(sz);
 		float s[4];
@@ -1669,7 +1668,6 @@ namespace MIPSInt
 		int vt = _VT;
 		int vs = _VS;
 		int vd = _VD;
-		int cond = op&15;
 		VectorSize sz = GetVecSize(op);
 		int numElements = GetNumVectorElements(sz);
 		float s[4];
@@ -1692,8 +1690,7 @@ namespace MIPSInt
 	}
 
 
-	void Int_Vcmov(MIPSOpcode op)
-	{
+	void Int_Vcmov(MIPSOpcode op) {
 		int vs = _VS;
 		int vd = _VD;
 		int tf = (op >> 19) & 1;
@@ -1704,28 +1701,23 @@ namespace MIPSInt
 		float d[4];
 		ReadVector(s, sz, vs);
 		ApplySwizzleS(s, sz);
-		ReadVector(d, sz, vd); //Yes!
+		// Not only is D read (as T), but the T prefix applies to it.
+		ReadVector(d, sz, vd);
+		ApplySwizzleT(d, sz);
 
 		int CC = currentMIPS->vfpuCtrl[VFPU_CTRL_CC];
 
-		if (imm3 < 6)
-		{
-			if (((CC >> imm3) & 1) == !tf)
-			{
+		if (imm3 < 6) {
+			if (((CC >> imm3) & 1) == !tf) {
 				for (int i = 0; i < n; i++)
 					d[i] = s[i];
 			}
-		}
-		else if (imm3 == 6)
-		{
-			for (int i = 0; i < n; i++)
-			{
+		} else if (imm3 == 6) {
+			for (int i = 0; i < n; i++) {
 				if (((CC >> i) & 1) == !tf)
 					d[i] = s[i];
 			}
-		}
-		else
-		{
+		} else {
 			ERROR_LOG_REPORT(CPU, "Bad Imm3 in cmov: %d", imm3);
 		}
 		ApplyPrefixD(d, sz);
