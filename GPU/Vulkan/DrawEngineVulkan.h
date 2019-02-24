@@ -194,7 +194,7 @@ public:
 
 	void SetLineWidth(float lineWidth);
 	void SetDepalTexture(VkImageView depal) {
-		if (boundDepal_ != depal) {
+		if (boundDepal_ != depal && depal) {
 			boundDepal_ = depal;
 			gstate_c.Dirty(DIRTY_FRAGMENTSHADER_STATE);
 		}

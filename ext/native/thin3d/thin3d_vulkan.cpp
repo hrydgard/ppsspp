@@ -630,11 +630,11 @@ static inline VkSamplerAddressMode AddressModeToVulkan(Draw::TextureAddressMode 
 VulkanTexture *VKContext::GetNullTexture() {
 	if (!nullTexture_) {
 		VkCommandBuffer cmdInit = renderManager_.GetInitCmd();
-		nullTexture_ = new VulkanTexture(vulkan_, allocator_);
+		nullTexture_ = new VulkanTexture(vulkan_);
 		nullTexture_->SetTag("Null");
 		int w = 8;
 		int h = 8;
-		nullTexture_->CreateDirect(cmdInit, w, h, 1, VK_FORMAT_A8B8G8R8_UNORM_PACK32, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+		nullTexture_->CreateDirect(cmdInit, allocator_, w, h, 1, VK_FORMAT_A8B8G8R8_UNORM_PACK32, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
 			VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT);
 		uint32_t bindOffset;
 		VkBuffer bindBuf;
@@ -713,7 +713,7 @@ bool VKTexture::Create(VkCommandBuffer cmd, VulkanPushBuffer *push, const Textur
 	width_ = desc.width;
 	height_ = desc.height;
 	depth_ = desc.depth;
-	vkTex_ = new VulkanTexture(vulkan_, alloc);
+	vkTex_ = new VulkanTexture(vulkan_);
 	vkTex_->SetTag(desc.tag);
 	VkFormat vulkanFormat = DataFormatToVulkan(format_);
 	int bpp = GetBpp(vulkanFormat);
@@ -723,7 +723,7 @@ bool VKTexture::Create(VkCommandBuffer cmd, VulkanPushBuffer *push, const Textur
 		// Gonna have to generate some, which requires TRANSFER_SRC
 		usageBits |= VK_IMAGE_USAGE_TRANSFER_SRC_BIT;
 	}
-	if (!vkTex_->CreateDirect(cmd, width_, height_, mipLevels_, vulkanFormat, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, usageBits)) {
+	if (!vkTex_->CreateDirect(cmd, alloc, width_, height_, mipLevels_, vulkanFormat, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, usageBits)) {
 		ELOG("Failed to create VulkanTexture: %dx%dx%d fmt %d, %d levels", width_, height_, depth_, (int)vulkanFormat, mipLevels_);
 		return false;
 	}
