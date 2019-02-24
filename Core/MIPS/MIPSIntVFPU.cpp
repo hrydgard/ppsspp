@@ -1213,22 +1213,26 @@ namespace MIPSInt
 		EatPrefixes();
 	}
 	
-	void Int_Vdet(MIPSOpcode op)
-	{
-		float s[4], t[4];
-		float d[4];
+	void Int_Vdet(MIPSOpcode op) {
+		float s[4]{}, t[4]{}, d[4];
 		int vd = _VD;
 		int vs = _VS;
 		int vt = _VT;
 		VectorSize sz = GetVecSize(op);
-		if (sz != V_Pair)
-			_dbg_assert_msg_(CPU,0,"Trying to interpret instruction that can't be interpreted");
+		// This is normally V_Pair.  Unfilled s/t values are treated as zero.
 		ReadVector(s, sz, vs);
-		ApplySwizzleS(s, sz);
+		ApplySwizzleS(s, V_Quad);
 		ReadVector(t, sz, vt);
-		// TODO: The swizzle on t behaves oddly with constants, but sign changes seem to work.
-		// Also, seems to round in a non-standard way (sometimes toward zero, not always.)
-		d[0] = s[0] * t[1] - s[1] * t[0];
+
+		// T prefix forces swizzle for x and y (yx??.)
+		// That means negate still works, but constants are a bit weird.
+		// Note: there is no forced negation here.
+		u32 tprefixRemove = VFPU_SWIZZLE(3, 3, 0, 0);
+		u32 tprefixAdd = VFPU_SWIZZLE(1, 0, 0, 0);
+		ApplyPrefixST(t, VFPURewritePrefix(VFPU_CTRL_TPREFIX, tprefixRemove, tprefixAdd), V_Quad);
+
+		d[0] = s[0] * t[0] - s[1] * t[1];
+		d[0] += s[2] * t[2] + s[3] * t[3];
 		ApplyPrefixD(d, sz);
 		WriteVector(d, V_Single, vd);
 		PC += 4;
