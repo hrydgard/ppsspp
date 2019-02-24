@@ -688,7 +688,8 @@ namespace MIPSInt
 		float mult = (float)(1UL << imm);
 		VectorSize sz = GetVecSize(op);
 		ReadVector(s, sz, vs);
-		ApplySwizzleS(s, sz); //TODO: and the mask to kill everything but swizzle
+		// Negate, abs, and constants apply as you'd expect to the bits.
+		ApplySwizzleS(s, sz);
 		for (int i = 0; i < GetNumVectorElements(sz); i++) {
 			if (my_isnan(s[i])) {
 				d[i] = 0x7FFFFFFF;
@@ -711,14 +712,14 @@ namespace MIPSInt
 				}
 			}
 		}
+		// Does not apply sat, but does apply mask.
 		ApplyPrefixD(reinterpret_cast<float *>(d), sz, true);
 		WriteVector(reinterpret_cast<float *>(d), sz, vd);
 		PC += 4;
 		EatPrefixes();
 	}
 
-	void Int_Vi2f(MIPSOpcode op)
-	{
+	void Int_Vi2f(MIPSOpcode op) {
 		int s[4];
 		float d[4];
 		int vd = _VD;
@@ -727,12 +728,13 @@ namespace MIPSInt
 		float mult = 1.0f/(float)(1UL << imm);
 		VectorSize sz = GetVecSize(op);
 		ReadVector(reinterpret_cast<float *>(s), sz, vs);
-		ApplySwizzleS(reinterpret_cast<float *>(s), sz); //TODO: and the mask to kill everything but swizzle
-		for (int i = 0; i < GetNumVectorElements(sz); i++)
-		{
+		// Negate, abs, and constants apply as you'd expect to the bits.
+		ApplySwizzleS(reinterpret_cast<float *>(s), sz);
+		for (int i = 0; i < GetNumVectorElements(sz); i++) {
 			d[i] = (float)s[i] * mult;
 		}
-		ApplyPrefixD(d, sz); //TODO: and the mask to kill everything but mask
+		// Sat and mask apply normally.
+		ApplyPrefixD(d, sz);
 		WriteVector(d, sz, vd);
 		PC += 4;
 		EatPrefixes();
