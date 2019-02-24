@@ -553,13 +553,14 @@ namespace MIPSInt
 		ReadVector(s, sz, vs);
 
 		// S prefix forces the negate flags.
-		u32 sprefix = currentMIPS->vfpuCtrl[VFPU_CTRL_SPREFIX];
-		ApplyPrefixST(s, sprefix | 0x000F0000, sz);
+		u32 sprefixAdd = VFPU_NEGATE(1, 1, 1, 1);
+		ApplyPrefixST(s, VFPURewritePrefix(VFPU_CTRL_SPREFIX, 0, sprefixAdd), sz);
 
 		// T prefix forces constants on and regnum to 1.
 		// That means negate still works, and abs activates a different constant.
-		u32 tprefix = currentMIPS->vfpuCtrl[VFPU_CTRL_TPREFIX];
-		ApplyPrefixST(t, (tprefix & ~0x000000FF) | 0x00000055 | 0x0000F000, sz);
+		u32 tprefixRemove = VFPU_ANY_SWIZZLE();
+		u32 tprefixAdd = VFPU_SWIZZLE(1, 1, 1, 1) | VFPU_CONST(1, 1, 1, 1);
+		ApplyPrefixST(t, VFPURewritePrefix(VFPU_CTRL_TPREFIX, tprefixRemove, tprefixAdd), sz);
 
 		for (int i = 0; i < GetNumVectorElements(sz); i++) {
 			// Always positive NaN.  Note that s is always negated from the registers.
@@ -582,13 +583,15 @@ namespace MIPSInt
 
 		// S prefix forces negate in even/odd and xxyy swizzle.
 		// abs works, and applies to final position (not source.)
-		u32 sprefix = currentMIPS->vfpuCtrl[VFPU_CTRL_SPREFIX];
-		ApplyPrefixST(s, (sprefix & ~0x000F00FF) | 0x00000050 | 0x00050000, outSize);
+		u32 sprefixRemove = VFPU_ANY_SWIZZLE() | VFPU_NEGATE(1, 1, 1, 1);
+		u32 sprefixAdd = VFPU_SWIZZLE(0, 0, 1, 1) | VFPU_NEGATE(1, 0, 1, 0);
+		ApplyPrefixST(s, VFPURewritePrefix(VFPU_CTRL_SPREFIX, sprefixRemove, sprefixAdd), outSize);
 
 		// T prefix forces constants on and regnum to 0, 1, 0, 1.
 		// That means negate still works, and abs activates a different constant.
-		u32 tprefix = currentMIPS->vfpuCtrl[VFPU_CTRL_TPREFIX];
-		ApplyPrefixST(t, (tprefix & ~0x000000FF) | 0x00000011 | 0x0000F000, outSize);
+		u32 tprefixRemove = VFPU_ANY_SWIZZLE();
+		u32 tprefixAdd = VFPU_SWIZZLE(1, 0, 1, 0) | VFPU_CONST(1, 1, 1, 1);
+		ApplyPrefixST(t, VFPURewritePrefix(VFPU_CTRL_TPREFIX, tprefixRemove, tprefixAdd), outSize);
 
 		int n = GetNumVectorElements(sz);
 		// Essentially D prefix saturation is forced.
@@ -1057,13 +1060,14 @@ namespace MIPSInt
 		if (op & 0x10000) {
 			// vbfy2
 			// S prefix forces the negate flags (so z and w are negative.)
-			u32 sprefix = currentMIPS->vfpuCtrl[VFPU_CTRL_SPREFIX];
-			ApplyPrefixST(s, sprefix | 0x000C0000, sz);
+			u32 sprefixAdd = VFPU_NEGATE(0, 0, 1, 1);
+			ApplyPrefixST(s, VFPURewritePrefix(VFPU_CTRL_SPREFIX, 0, sprefixAdd), sz);
 
 			// T prefix forces swizzle (zwxy.)
 			// That means negate still works, but constants are a bit weird.
-			u32 tprefix = currentMIPS->vfpuCtrl[VFPU_CTRL_TPREFIX];
-			ApplyPrefixST(t, (tprefix & ~0x000000FF) | 0x0000004E, sz);
+			u32 tprefixRemove = VFPU_ANY_SWIZZLE();
+			u32 tprefixAdd = VFPU_SWIZZLE(2, 3, 0, 1);
+			ApplyPrefixST(t, VFPURewritePrefix(VFPU_CTRL_TPREFIX, tprefixRemove, tprefixAdd), sz);
 
 			// Other sizes don't seem completely predictable.
 			if (sz != V_Quad) {
@@ -1072,13 +1076,14 @@ namespace MIPSInt
 		} else {
 			// vbfy1
 			// S prefix forces the negate flags (so y and w are negative.)
-			u32 sprefix = currentMIPS->vfpuCtrl[VFPU_CTRL_SPREFIX];
-			ApplyPrefixST(s, sprefix | 0x000A0000, sz);
+			u32 sprefixAdd = VFPU_NEGATE(0, 1, 0, 1);
+			ApplyPrefixST(s, VFPURewritePrefix(VFPU_CTRL_SPREFIX, 0, sprefixAdd), sz);
 
 			// T prefix forces swizzle (yxwz.)
 			// That means negate still works, but constants are a bit weird.
-			u32 tprefix = currentMIPS->vfpuCtrl[VFPU_CTRL_TPREFIX];
-			ApplyPrefixST(t, (tprefix & ~0x000000FF) | 0x000000B1, sz);
+			u32 tprefixRemove = VFPU_ANY_SWIZZLE();
+			u32 tprefixAdd = VFPU_SWIZZLE(1, 0, 3, 2);
+			ApplyPrefixST(t, VFPURewritePrefix(VFPU_CTRL_TPREFIX, tprefixRemove, tprefixAdd), sz);
 
 			if (sz != V_Quad && sz != V_Pair) {
 				ERROR_LOG_REPORT_ONCE(vbfy2, CPU, "vfby1 with incorrect size");
@@ -1278,26 +1283,25 @@ namespace MIPSInt
 		EatPrefixes();
 	}
 
-	void Int_VScl(MIPSOpcode op)
-	{
-		float s[4];
-		float d[4];
+	void Int_VScl(MIPSOpcode op) {
+		float s[4], t[4], d[4];
 		int vd = _VD;
 		int vs = _VS;
 		int vt = _VT;
 		VectorSize sz = GetVecSize(op);
 		ReadVector(s, sz, vs);
 		ApplySwizzleS(s, sz);
-		float scale = V(vt);
-		if (currentMIPS->vfpuCtrl[VFPU_CTRL_TPREFIX] != 0xE4)
-		{
-			// WARN_LOG(CPU, "Broken T prefix used with VScl: %08x / %08x", currentMIPS->vfpuCtrl[VFPU_CTRL_TPREFIX], op);
-			ApplySwizzleT(&scale, V_Single);
-		}
+
+		// T prefix forces swizzle (zzzz for some reason, so we force V_Quad.)
+		// That means negate still works, but constants are a bit weird.
+		t[2] = V(vt);
+		u32 tprefixRemove = VFPU_ANY_SWIZZLE();
+		u32 tprefixAdd = VFPU_SWIZZLE(2, 2, 2, 2);
+		ApplyPrefixST(t, VFPURewritePrefix(VFPU_CTRL_TPREFIX, tprefixRemove, tprefixAdd), V_Quad);
+
 		int n = GetNumVectorElements(sz);
-		for (int i = 0; i < n; i++)
-		{
-			d[i] = s[i] * scale;
+		for (int i = 0; i < n; i++) {
+			d[i] = s[i] * t[i];
 		}
 		ApplyPrefixD(d, sz);
 		WriteVector(d, sz, vd);
