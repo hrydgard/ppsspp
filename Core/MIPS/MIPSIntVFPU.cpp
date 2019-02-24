@@ -484,21 +484,29 @@ namespace MIPSInt
 		PC += 4;
 	}
 
-	void Int_VV2Op(MIPSOpcode op)
-	{
+	void Int_VV2Op(MIPSOpcode op) {
 		float s[4], d[4];
 		int vd = _VD;
 		int vs = _VS;
+		int optype = (op >> 16) & 0x1f;
 		VectorSize sz = GetVecSize(op);
 		ReadVector(s, sz, vs);
-		ApplySwizzleS(s, sz);
-		for (int i = 0; i < GetNumVectorElements(sz); i++)
-		{
-			switch ((op >> 16) & 0x1f)
-			{
+		// Some of these are prefix hacks (affects constants, etc.)
+		switch (optype) {
+		case 1:
+			ApplyPrefixST(s, VFPURewritePrefix(VFPU_CTRL_SPREFIX, 0, VFPU_ABS(1, 1, 1, 1)), sz);
+			break;
+		case 2:
+			ApplyPrefixST(s, VFPURewritePrefix(VFPU_CTRL_SPREFIX, 0, VFPU_NEGATE(1, 1, 1, 1)), sz);
+			break;
+		default:
+			ApplySwizzleS(s, sz);
+		}
+		for (int i = 0; i < GetNumVectorElements(sz); i++) {
+			switch (optype) {
 			case 0: d[i] = s[i]; break; //vmov
-			case 1: d[i] = fabsf(s[i]); break; //vabs
-			case 2: d[i] = -s[i]; break; //vneg
+			case 1: d[i] = s[i]; break; //vabs (prefix)
+			case 2: d[i] = s[i]; break; //vneg (prefix)
 			// vsat0 changes -0.0 to +0.0, both retain NAN.
 			case 4: if (s[i] <= 0) d[i] = 0; else {if(s[i] > 1.0f) d[i] = 1.0f; else d[i] = s[i];} break;    // vsat0
 			case 5: if (s[i] < -1.0f) d[i] = -1.0f; else {if(s[i] > 1.0f) d[i] = 1.0f; else d[i] = s[i];} break;  // vsat1
@@ -519,7 +527,8 @@ namespace MIPSInt
 				break;
 			}
 		}
-		ApplyPrefixD(d, sz);
+		// vsat1 is a prefix hack, so 0:1 doesn't apply.
+		ApplyPrefixD(d, sz, optype == 5);
 		WriteVector(d, sz, vd);
 		PC += 4;
 		EatPrefixes();
