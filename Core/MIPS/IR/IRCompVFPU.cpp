@@ -1926,7 +1926,7 @@ namespace MIPSComp {
 		}
 
 		int subop = (op >> 16) & 0x1F;
-		if (subop == 3) {
+		if (subop == 3 && n == 4) {
 			// vbfy2
 			ir.Write(IROp::FAdd, tempregs[0], sregs[0], sregs[2]);
 			ir.Write(IROp::FAdd, tempregs[1], sregs[1], sregs[3]);

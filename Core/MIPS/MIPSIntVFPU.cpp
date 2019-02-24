@@ -1041,33 +1041,51 @@ namespace MIPSInt
 		EatPrefixes();
 	}
 
-	void Int_Vbfy(MIPSOpcode op)
-	{
-		float s[4];
-		float d[4];
+	void Int_Vbfy(MIPSOpcode op) {
+		float s[4]{}, t[4]{}, d[4];
 		int vd = _VD;
 		int vs = _VS;
 		VectorSize sz = GetVecSize(op);
 		ReadVector(s, sz, vs);
-		ApplySwizzleS(s, sz);
+		ReadVector(t, sz, vs);
+
 		int n = GetNumVectorElements(sz);
-		if (op & 0x10000)
-		{
+		if (op & 0x10000) {
 			// vbfy2
-			d[0] = s[0] + s[2];
-			d[1] = s[1] + s[3];
-			d[2] = s[0] - s[2];
-			d[3] = s[1] - s[3];
-		}
-		else
-		{
-			d[0] = s[0] + s[1];
-			d[1] = s[0] - s[1];
-			if (n == 4) {
-				d[2] = s[2] + s[3];
-				d[3] = s[2] - s[3];
+			// S prefix forces the negate flags (so z and w are negative.)
+			u32 sprefix = currentMIPS->vfpuCtrl[VFPU_CTRL_SPREFIX];
+			ApplyPrefixST(s, sprefix | 0x000C0000, sz);
+
+			// T prefix forces swizzle (zwxy.)
+			// That means negate still works, but constants are a bit weird.
+			u32 tprefix = currentMIPS->vfpuCtrl[VFPU_CTRL_TPREFIX];
+			ApplyPrefixST(t, (tprefix & ~0x000000FF) | 0x0000004E, sz);
+
+			// Other sizes don't seem completely predictable.
+			if (sz != V_Quad) {
+				ERROR_LOG_REPORT_ONCE(vbfy2, CPU, "vfby2 with incorrect size");
+			}
+		} else {
+			// vbfy1
+			// S prefix forces the negate flags (so y and w are negative.)
+			u32 sprefix = currentMIPS->vfpuCtrl[VFPU_CTRL_SPREFIX];
+			ApplyPrefixST(s, sprefix | 0x000A0000, sz);
+
+			// T prefix forces swizzle (yxwz.)
+			// That means negate still works, but constants are a bit weird.
+			u32 tprefix = currentMIPS->vfpuCtrl[VFPU_CTRL_TPREFIX];
+			ApplyPrefixST(t, (tprefix & ~0x000000FF) | 0x000000B1, sz);
+
+			if (sz != V_Quad && sz != V_Pair) {
+				ERROR_LOG_REPORT_ONCE(vbfy2, CPU, "vfby1 with incorrect size");
 			}
 		}
+
+		d[0] = s[0] + t[0];
+		d[1] = s[1] + t[1];
+		d[2] = s[2] + t[2];
+		d[3] = s[3] + t[3];
+
 		ApplyPrefixD(d, sz);
 		WriteVector(d, sz, vd);
 		PC += 4;
