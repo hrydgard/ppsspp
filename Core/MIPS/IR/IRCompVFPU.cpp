@@ -1846,22 +1846,30 @@ namespace MIPSComp {
 		VectorSize sz = GetVecSize(op);
 		int n = GetNumVectorElements(sz);
 
-		u8 sregs[4], dregs[4];
+		// This is a hack that modifies prefixes.  We eat them later, so just overwrite.
+		// S prefix forces the negate flags.
+		js.prefixS |= 0x000F0000;
+		// T prefix forces constants on and regnum to 1.
+		// That means negate still works, and abs activates a different constant.
+		js.prefixT = (js.prefixT & ~0x000000FF) | 0x00000055 | 0x0000F000;
+
+		u8 sregs[4], tregs[4], dregs[4];
 		GetVectorRegsPrefixS(sregs, sz, _VS);
+		// There's no bits for t, so just reuse s.  It'll be constants only.
+		GetVectorRegsPrefixT(tregs, sz, _VS);
 		GetVectorRegsPrefixD(dregs, sz, _VD);
 
 		u8 tempregs[4];
 		for (int i = 0; i < n; ++i) {
 			if (!IsOverlapSafe(dregs[i], n, sregs)) {
-				tempregs[i] = IRVTEMP_PFX_T + i;   // using IRTEMP0 for other things
+				tempregs[i] = IRVTEMP_0 + i;
 			} else {
 				tempregs[i] = dregs[i];
 			}
 		}
 
-		ir.Write(IROp::SetConstF, IRVTEMP_0, ir.AddConstantFloat(1.0f));
 		for (int i = 0; i < n; ++i) {
-			ir.Write(IROp::FSub, tempregs[i], IRVTEMP_0, sregs[i]);
+			ir.Write(IROp::FAdd, tempregs[i], tregs[i], sregs[i]);
 		}
 		for (int i = 0; i < n; ++i) {
 			if (dregs[i] != tempregs[i]) {
