@@ -96,14 +96,14 @@ inline float nanclamp(float f, float lower, float upper)
 }
 
 
-void ApplyPrefixST(float *r, u32 data, VectorSize size)
+void ApplyPrefixST(float *r, u32 data, VectorSize size, float invalid = 0.0f)
 {
 	// Possible optimization shortcut:
 	if (data == 0xe4)
 		return;
 
 	int n = GetNumVectorElements(size);
-	float origV[4]{};
+	float origV[4]{ invalid, invalid, invalid, invalid };
 	static const float constantArray[8] = {0.f, 1.f, 2.f, 0.5f, 3.f, 1.f/3.f, 0.25f, 1.f/6.f};
 
 	for (int i = 0; i < n; i++)
@@ -134,14 +134,14 @@ void ApplyPrefixST(float *r, u32 data, VectorSize size)
 	}
 }
 
-inline void ApplySwizzleS(float *v, VectorSize size)
+inline void ApplySwizzleS(float *v, VectorSize size, float invalid = 0.0f)
 {
-	ApplyPrefixST(v, currentMIPS->vfpuCtrl[VFPU_CTRL_SPREFIX], size);
+	ApplyPrefixST(v, currentMIPS->vfpuCtrl[VFPU_CTRL_SPREFIX], size, invalid);
 }
 
-inline void ApplySwizzleT(float *v, VectorSize size)
+inline void ApplySwizzleT(float *v, VectorSize size, float invalid = 0.0f)
 {
-	ApplyPrefixST(v, currentMIPS->vfpuCtrl[VFPU_CTRL_TPREFIX], size);
+	ApplyPrefixST(v, currentMIPS->vfpuCtrl[VFPU_CTRL_TPREFIX], size, invalid);
 }
 
 void ApplyPrefixD(float *v, VectorSize size, bool onlyWriteMask = false)
@@ -490,6 +490,7 @@ namespace MIPSInt
 		int vs = _VS;
 		int optype = (op >> 16) & 0x1f;
 		VectorSize sz = GetVecSize(op);
+		int n = GetNumVectorElements(sz);
 		ReadVector(s, sz, vs);
 		// Some of these are prefix hacks (affects constants, etc.)
 		switch (optype) {
@@ -499,10 +500,30 @@ namespace MIPSInt
 		case 2:
 			ApplyPrefixST(s, VFPURewritePrefix(VFPU_CTRL_SPREFIX, 0, VFPU_NEGATE(1, 1, 1, 1)), sz);
 			break;
+		case 16:
+		case 17:
+		case 18:
+		case 19:
+		case 20:
+		case 21:
+		case 22:
+		case 23:
+			// Similar to vdiv.  Some of the behavior using the invalid constant is iffy.
+			ApplySwizzleS(&s[n - 1], V_Single, INFINITY);
+			break;
+		case 24:
+		case 26:
+			// Similar to above, but also ignores negate.
+			ApplyPrefixST(&s[n - 1], VFPURewritePrefix(VFPU_CTRL_SPREFIX, VFPU_NEGATE(1, 0, 0, 0), 0), V_Single, -INFINITY);
+			break;
+		case 28:
+			// Similar to above, but also ignores negate.
+			ApplyPrefixST(&s[n - 1], VFPURewritePrefix(VFPU_CTRL_SPREFIX, VFPU_NEGATE(1, 0, 0, 0), 0), V_Single, INFINITY);
+			break;
 		default:
 			ApplySwizzleS(s, sz);
 		}
-		for (int i = 0; i < GetNumVectorElements(sz); i++) {
+		for (int i = 0; i < n; i++) {
 			switch (optype) {
 			case 0: d[i] = s[i]; break; //vmov
 			case 1: d[i] = s[i]; break; //vabs (prefix)
@@ -527,8 +548,33 @@ namespace MIPSInt
 				break;
 			}
 		}
-		// vsat1 is a prefix hack, so 0:1 doesn't apply.
-		ApplyPrefixD(d, sz, optype == 5);
+		// vsat1 is a prefix hack, so 0:1 doesn't apply.  Others don't process sat at all.
+		switch (optype) {
+		case 5:
+			ApplyPrefixD(d, sz, true);
+			break;
+		case 16:
+		case 17:
+		case 18:
+		case 19:
+		case 20:
+		case 21:
+		case 22:
+		case 23:
+		case 24:
+		case 26:
+		case 28:
+		{
+			// Only the last element gets the mask applied.
+			u32 lastmask = (currentMIPS->vfpuCtrl[VFPU_CTRL_DPREFIX] & (1 << 8)) << (n - 1);
+			u32 lastsat = (currentMIPS->vfpuCtrl[VFPU_CTRL_DPREFIX] & 3) << (n + n - 2);
+			currentMIPS->vfpuCtrl[VFPU_CTRL_DPREFIX] = lastmask | lastsat;
+			ApplyPrefixD(d, sz);
+			break;
+		}
+		default:
+			ApplyPrefixD(d, sz);
+		}
 		WriteVector(d, sz, vd);
 		PC += 4;
 		EatPrefixes();
@@ -1789,8 +1835,9 @@ namespace MIPSInt
 		} else {
 			// The prefix handling of S/T is a bit odd, probably the HW doesn't do it in parallel.
 			// The X prefix is applied to the last element in sz.
-			ApplySwizzleS(&s[n - 1], V_Single);
-			ApplySwizzleT(&t[n - 1], V_Single);
+			// TODO: This doesn't match exactly for a swizzle past x in some cases...
+			ApplySwizzleS(&s[n - 1], V_Single, -INFINITY);
+			ApplySwizzleT(&t[n - 1], V_Single, -INFINITY);
 		}
 
 		for (int i = 0; i < n; i++) {
@@ -1802,9 +1849,15 @@ namespace MIPSInt
 			}
 		}
 
-		// The D prefix (even mask) is ignored by vdiv only (vmul, etc. do apply it.)
-		if (optype != 7)
+		// For vdiv only, the D prefix only applies mask (and like S/T, x applied to last.)
+		if (optype == 7) {
+			u32 lastmask = (currentMIPS->vfpuCtrl[VFPU_CTRL_DPREFIX] & (1 << 8)) << (n - 1);
+			u32 lastsat = (currentMIPS->vfpuCtrl[VFPU_CTRL_DPREFIX] & 3) << (n + n - 2);
+			currentMIPS->vfpuCtrl[VFPU_CTRL_DPREFIX] = lastmask | lastsat;
 			ApplyPrefixD(d, sz);
+		} else {
+			ApplyPrefixD(d, sz);
+		}
 		WriteVector(d, sz, vd);
 		PC += 4;
 		EatPrefixes();
