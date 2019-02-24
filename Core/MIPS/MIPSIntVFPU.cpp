@@ -1756,51 +1756,64 @@ namespace MIPSInt
 		EatPrefixes();
 	}
 
-	void Int_VecDo3(MIPSOpcode op)
-	{
+	void Int_VecDo3(MIPSOpcode op) {
+		float s[4], t[4], d[4];
 		int vd = _VD;
 		int vs = _VS;
 		int vt = _VT;
 		VectorSize sz = GetVecSize(op);
-		float s[4];
-		float t[4];
-		float d[4];
+
+		int optype = 0;
+		switch (op >> 26) {
+		case 24: //VFPU0
+			switch ((op >> 23) & 7) {
+			case 0: optype = 0; break;
+			case 1: optype = 1; break;
+			case 7: optype = 7; break;
+			default: goto bad;
+			}
+			break;
+		case 25: //VFPU1
+			switch ((op >> 23) & 7) {
+			case 0: optype = 8; break;
+			default: goto bad;
+			}
+			break;
+		default:
+		bad:
+			_dbg_assert_msg_(CPU, 0, "Trying to interpret instruction that can't be interpreted");
+			break;
+		}
+
+		int n = GetNumVectorElements(sz);
 		ReadVector(s, sz, vs);
-		ApplySwizzleS(s, sz);
 		ReadVector(t, sz, vt);
-		ApplySwizzleT(t, sz);
-		for (int i = 0; i < GetNumVectorElements(sz); i++)
-		{
-			switch(op >> 26)
-			{
-			case 24: //VFPU0
-				switch ((op >> 23)&7)
-				{
-				case 0: d[i] = s[i] + t[i]; break; //vadd
-				case 1: d[i] = s[i] - t[i]; break; //vsub
-				case 7: d[i] = s[i] / t[i]; break; //vdiv
-				default: goto bad;
-				}
-				break;
-			case 25: //VFPU1
-				switch ((op >> 23)&7)
-				{
-				case 0: d[i] = s[i] * t[i]; break; //vmul
-				default: goto bad;
-				}
-				break;
-			default:
-bad:
-				_dbg_assert_msg_(CPU,0,"Trying to interpret instruction that can't be interpreted");
-				break;
+		if (optype != 7) {
+			ApplySwizzleS(s, sz);
+			ApplySwizzleT(t, sz);
+		} else {
+			// The prefix handling of S/T is a bit odd, probably the HW doesn't do it in parallel.
+			// The X prefix is applied to the last element in sz.
+			ApplySwizzleS(&s[n - 1], V_Single);
+			ApplySwizzleT(&t[n - 1], V_Single);
+		}
+
+		for (int i = 0; i < n; i++) {
+			switch (optype) {
+			case 0: d[i] = s[i] + t[i]; break; //vadd
+			case 1: d[i] = s[i] - t[i]; break; //vsub
+			case 7: d[i] = s[i] / t[i]; break; //vdiv
+			case 8: d[i] = s[i] * t[i]; break; //vmul
 			}
 		}
-		ApplyPrefixD(d, sz);
+
+		// The D prefix (even mask) is ignored by vdiv only (vmul, etc. do apply it.)
+		if (optype != 7)
+			ApplyPrefixD(d, sz);
 		WriteVector(d, sz, vd);
 		PC += 4;
 		EatPrefixes();
 	}
-
 	
 	void Int_CrossQuat(MIPSOpcode op)
 	{
