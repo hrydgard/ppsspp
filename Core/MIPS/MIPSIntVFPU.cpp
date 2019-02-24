@@ -348,25 +348,26 @@ namespace MIPSInt
 	{
 		int vd = _VD;
 		VectorSize sz = GetVecSize(op);
-		int n = GetNumVectorElements(sz);
-		static const float ones[4] = {1,1,1,1};
-		static const float zeros[4] = {0,0,0,0};
-		const float *v;
-		switch ((op >> 16) & 0xF)
-		{
-		case 6: v=zeros; break;  //vzero
-		case 7: v=ones; break;   //vone
+		float d[4];
+
+		int constant = 0;
+		switch ((op >> 16) & 0xF) {
+		case 6: constant = 0; break;  //vzero
+		case 7: constant = 1; break;   //vone
 		default:
-			_dbg_assert_msg_(CPU,0,"Trying to interpret instruction that can't be interpreted");
+			_dbg_assert_msg_(CPU, 0, "Trying to interpret instruction that can't be interpreted");
 			PC += 4;
 			EatPrefixes();
 			return;
 		}
-		float o[4];
-		for (int i = 0; i < n; i++)
-			o[i] = v[i];
-		ApplyPrefixD(o, sz);
-		WriteVector(o, sz, vd);
+
+		// The S prefix generates constants, but negate is still respected.
+		u32 sprefixRemove = VFPU_ANY_SWIZZLE();
+		u32 sprefixAdd = VFPU_CONST(1, 1, 1, 1) | VFPU_SWIZZLE(constant, constant, constant, constant);
+		ApplyPrefixST(d, VFPURewritePrefix(VFPU_CTRL_SPREFIX, sprefixRemove, sprefixAdd), sz);
+
+		ApplyPrefixD(d, sz);
+		WriteVector(d, sz, vd);
 
 		EatPrefixes();
 		PC += 4;
@@ -396,32 +397,24 @@ namespace MIPSInt
 		EatPrefixes();
 	}
 
-	void Int_Vidt(MIPSOpcode op)
-	{
+	void Int_Vidt(MIPSOpcode op) {
 		int vd = _VD;
 		VectorSize sz = GetVecSize(op);
 		float f[4];
-		switch (sz)
-		{
-		case V_Pair:
-			f[0] = (vd&1)==0 ? 1.0f : 0.0f;
-			f[1] = (vd&1)==1 ? 1.0f : 0.0f;
-			break;
-		case V_Quad:
-			f[0] = (vd&3)==0 ? 1.0f : 0.0f;
-			f[1] = (vd&3)==1 ? 1.0f : 0.0f;
-			f[2] = (vd&3)==2 ? 1.0f : 0.0f;
-			f[3] = (vd&3)==3 ? 1.0f : 0.0f;
-			break;
-		default:
-			_dbg_assert_msg_(CPU,0,"Trying to interpret instruction that can't be interpreted");
-			break;
-		}
+
+		// The S prefix generates constants, but negate is still respected.
+		int offmask = sz == V_Quad || sz == V_Triple ? 3 : 1;
+		int off = vd & offmask;
+		u32 sprefixRemove = VFPU_ANY_SWIZZLE();
+		u32 sprefixAdd = VFPU_CONST(1, 1, 1, 1) | VFPU_SWIZZLE(off == 0, off == 1, off == (2 & offmask), off == (3 & offmask));
+		ApplyPrefixST(f, VFPURewritePrefix(VFPU_CTRL_SPREFIX, sprefixRemove, sprefixAdd), sz);
+
 		ApplyPrefixD(f, sz);
 		WriteVector(f, sz, vd);
 		PC += 4;
 		EatPrefixes();
 	}
+
 	// The test really needs some work.
 	void Int_Vmmul(MIPSOpcode op)
 	{
