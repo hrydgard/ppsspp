@@ -643,19 +643,24 @@ namespace MIPSInt
 		EatPrefixes();
 	}
 
-	void Int_Vsgn(MIPSOpcode op)
-	{
-		float s[4], d[4];
+	void Int_Vsgn(MIPSOpcode op) {
+		float s[4], t[4], d[4];
 		int vd = _VD;
 		int vs = _VS;
 		VectorSize sz = GetVecSize(op);
 		ReadVector(s, sz, vs);
 		ApplySwizzleS(s, sz);
-		for (int i = 0; i < GetNumVectorElements(sz); i++)
-		{
+
+		// Not sure who would do this, but using abs/neg allows a compare against 3 or -3.
+		u32 tprefixRemove = VFPU_ANY_SWIZZLE();
+		u32 tprefixAdd = VFPU_CONST(1, 1, 1, 1) | VFPU_SWIZZLE(0, 0, 0, 0);
+		ApplyPrefixST(t, VFPURewritePrefix(VFPU_CTRL_TPREFIX, tprefixRemove, tprefixAdd), sz);
+
+		for (int i = 0; i < GetNumVectorElements(sz); i++) {
+			float diff = s[i] - t[i];
 			// To handle NaNs correctly, we do this with integer hackery
 			u32 val;
-			memcpy(&val, &s[i], sizeof(u32));
+			memcpy(&val, &diff, sizeof(u32));
 			if (val == 0 || val == 0x80000000)
 				d[i] = 0.0f;
 			else if ((val >> 31) == 0)
