@@ -96,46 +96,34 @@ inline float nanclamp(float f, float lower, float upper)
 }
 
 
-void ApplyPrefixST(float *r, u32 data, VectorSize size)
-{
+void ApplyPrefixST(float *r, u32 data, VectorSize size) {
 	// Possible optimization shortcut:
 	if (data == 0xe4)
 		return;
 
 	int n = GetNumVectorElements(size);
-	float origV[4];
+	float origV[4]{};
 	static const float constantArray[8] = {0.f, 1.f, 2.f, 0.5f, 3.f, 1.f/3.f, 0.25f, 1.f/6.f};
 
-	for (int i = 0; i < n; i++)
-	{
+	for (int i = 0; i < n; i++) {
 		origV[i] = r[i];
 	}
 
-	for (int i = 0; i < n; i++)
-	{
+	for (int i = 0; i < n; i++) {
 		int regnum = (data >> (i*2)) & 3;
 		int abs    = (data >> (8+i)) & 1;
 		int negate = (data >> (16+i)) & 1;
 		int constants = (data >> (12+i)) & 1;
 
-		if (!constants)
-		{
-			// Prefix may say "z, z, z, z" but if this is a pair, we force to x.
-			// TODO: But some ops seem to use const 0 instead?
+		if (!constants) {
 			if (regnum >= n) {
+				// We mostly handle this now, but still worth reporting.
 				ERROR_LOG_REPORT(CPU, "Invalid VFPU swizzle: %08x: %i / %d at PC = %08x (%s)", data, regnum, n, currentMIPS->pc, MIPSDisasmAt(currentMIPS->pc));
-				//for (int i = 0; i < 12; i++) {
-				//	ERROR_LOG(CPU, "  vfpuCtrl[%i] = %08x", i, currentMIPS->vfpuCtrl[i]);
-				//}
-				regnum = 0;
 			}
-
 			r[i] = origV[regnum];
 			if (abs)
 				((u32 *)r)[i] = ((u32 *)r)[i] & 0x7FFFFFFF;
-		}
-		else
-		{
+		} else {
 			r[i] = constantArray[regnum + (abs<<2)];
 		}
 
@@ -1245,24 +1233,31 @@ namespace MIPSInt
 		EatPrefixes();
 	}
 	
-	void Int_Vcrs(MIPSOpcode op)
-	{
+	void Int_Vcrs(MIPSOpcode op) {
 		//half a cross product
-		float s[4], t[4];
-		float d[4];
+		float s[4]{}, t[4]{}, d[4];
 		int vd = _VD;
 		int vs = _VS;
 		int vt = _VT;
 		VectorSize sz = GetVecSize(op);
-		if (sz != V_Triple)
-			_dbg_assert_msg_(CPU,0,"Trying to interpret instruction that can't be interpreted");
-
 		ReadVector(s, sz, vs);
 		ReadVector(t, sz, vt);
-		// no swizzles allowed
-		d[0] = s[1] * t[2];
-		d[1] = s[2] * t[0];
-		d[2] = s[0] * t[1];
+
+		// S prefix forces swizzle (yzx?.)
+		// That means negate still works, but constants are a bit weird.
+		u32 sprefixRemove = VFPU_SWIZZLE(3, 3, 3, 0);
+		u32 sprefixAdd = VFPU_SWIZZLE(1, 2, 0, 0);
+		ApplyPrefixST(s, VFPURewritePrefix(VFPU_CTRL_SPREFIX, sprefixRemove, sprefixAdd), sz);
+
+		// T prefix forces swizzle (zxy?.)
+		u32 tprefixRemove = VFPU_SWIZZLE(3, 3, 3, 0);
+		u32 tprefixAdd = VFPU_SWIZZLE(2, 0, 1, 0);
+		ApplyPrefixST(t, VFPURewritePrefix(VFPU_CTRL_TPREFIX, tprefixRemove, tprefixAdd), sz);
+
+		d[0] = s[0] * t[0];
+		d[1] = s[1] * t[1];
+		d[2] = s[2] * t[2];
+		d[3] = s[3] * t[3];
 		ApplyPrefixD(d, sz);
 		WriteVector(d, sz, vd);
 		PC += 4;
