@@ -214,6 +214,11 @@ void WriteVector(const float *rd, VectorSize size, int reg) {
 	}
 }
 
+u32 VFPURewritePrefix(int ctrl, u32 remove, u32 add) {
+	u32 prefix = currentMIPS->vfpuCtrl[ctrl];
+	return (prefix & ~remove) | add;
+}
+
 void ReadMatrix(float *rd, MatrixSize size, int reg) {
 	int mtx = (reg >> 2) & 7;
 	int col = reg & 3;
