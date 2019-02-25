@@ -1381,31 +1381,33 @@ namespace MIPSInt
 		EatPrefixes();
 	}
 
-	void Int_Vrnds(MIPSOpcode op)
-	{
+	void Int_Vrnds(MIPSOpcode op) {
 		int vd = _VD;
 		int seed = VI(vd);
+		// Swizzles apply a constant value, constants/abs/neg work to vary the seed.
+		ApplySwizzleS(reinterpret_cast<float *>(&seed), V_Single);
 		currentMIPS->rng.Init(seed);
 		PC += 4;
 		EatPrefixes();
 	}
 
-	void Int_VrndX(MIPSOpcode op)
-	{
+	void Int_VrndX(MIPSOpcode op) {
 		FloatBits d;
 		int vd = _VD;
 		VectorSize sz = GetVecSize(op);
 		int n = GetNumVectorElements(sz);
-		for (int i = 0; i < n; i++)
-		{
-			switch ((op >> 16) & 0x1f)
-			{
+		for (int i = 0; i < n; i++) {
+			switch ((op >> 16) & 0x1f) {
 			case 1: d.u[i] = currentMIPS->rng.R32(); break;  // vrndi
 			case 2: d.f[i] = 1.0f + ((float)currentMIPS->rng.R32() / 0xFFFFFFFF); break; // vrndf1   TODO: make more accurate
 			case 3: d.f[i] = 2.0f + 2 * ((float)currentMIPS->rng.R32() / 0xFFFFFFFF); break; // vrndf2   TODO: make more accurate
 			default: _dbg_assert_msg_(CPU,0,"Trying to interpret instruction that can't be interpreted");
 			}
 		}
+		// D prefix is broken and applies to the last element only (mask and sat.)
+		u32 lastmask = (currentMIPS->vfpuCtrl[VFPU_CTRL_DPREFIX] & (1 << 8)) << (n - 1);
+		u32 lastsat = (currentMIPS->vfpuCtrl[VFPU_CTRL_DPREFIX] & 3) << (n + n - 2);
+		currentMIPS->vfpuCtrl[VFPU_CTRL_DPREFIX] = lastmask | lastsat;
 		ApplyPrefixD(d.f, sz);
 		WriteVector(d.f, sz, vd);
 		PC += 4;
