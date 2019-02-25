@@ -30,7 +30,7 @@ static bool IsDepthStencilFormat(VkFormat format) {
 	}
 }
 
-bool VulkanTexture::CreateDirect(VkCommandBuffer cmd, int w, int h, int numMips, VkFormat format, VkImageLayout initialLayout, VkImageUsageFlags usage, const VkComponentMapping *mapping) {
+bool VulkanTexture::CreateDirect(VkCommandBuffer cmd, VulkanDeviceAllocator *allocator, int w, int h, int numMips, VkFormat format, VkImageLayout initialLayout, VkImageUsageFlags usage, const VkComponentMapping *mapping) {
 	Wipe();
 
 	width_ = w;
@@ -75,7 +75,8 @@ bool VulkanTexture::CreateDirect(VkCommandBuffer cmd, int w, int h, int numMips,
 	bool dedicatedAllocation = false;
 	vulkan_->GetImageMemoryRequirements(image_, &mem_reqs, &dedicatedAllocation);
 
-	if (allocator_ && !dedicatedAllocation) {
+	if (allocator && !dedicatedAllocation) {
+		allocator_ = allocator;
 		offset_ = allocator_->Allocate(mem_reqs, &mem_, Tag());
 		if (offset_ == VulkanDeviceAllocator::ALLOCATE_FAILED) {
 			ELOG("Image memory allocation failed (mem_reqs.size=%d, typebits=%08x", (int)mem_reqs.size, (int)mem_reqs.memoryTypeBits);
@@ -231,10 +232,13 @@ void VulkanTexture::Destroy() {
 	if (image_ != VK_NULL_HANDLE) {
 		vulkan_->Delete().QueueDeleteImage(image_);
 	}
-	if (mem_ != VK_NULL_HANDLE && !allocator_) {
-		vulkan_->Delete().QueueDeleteDeviceMemory(mem_);
-	} else if (mem_ != VK_NULL_HANDLE) {
-		allocator_->Free(mem_, offset_);
-		mem_ = VK_NULL_HANDLE;
+	if (mem_ != VK_NULL_HANDLE) {
+		if (allocator_) {
+			allocator_->Free(mem_, offset_);
+			mem_ = VK_NULL_HANDLE;
+			allocator_ = nullptr;
+		} else {
+			vulkan_->Delete().QueueDeleteDeviceMemory(mem_);
+		}
 	}
 }

@@ -129,16 +129,18 @@ VulkanTexture *DepalShaderCacheVulkan::GetClutTexture(GEPaletteFormat clutFormat
 	VkFormat destFormat = GetClutDestFormat(clutFormat, &componentMapping);
 	int texturePixels = clutFormat == GE_CMODE_32BIT_ABGR8888 ? 256 : 512;
 
+	VulkanTexture *vktex = new VulkanTexture(vulkan_);
+	vktex->SetTag("DepalClut");
+	VkCommandBuffer cmd = (VkCommandBuffer)draw_->GetNativeObject(Draw::NativeObject::INIT_COMMANDBUFFER);
+	if (!vktex->CreateDirect(cmd, alloc_, texturePixels, 1, 1, destFormat,
+		VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT, &componentMapping)) {
+		ERROR_LOG(G3D, "Failed to create texture for CLUT");
+		return nullptr;
+	}
+
 	VkBuffer pushBuffer;
 	uint32_t pushOffset = push_->PushAligned(rawClut, 1024, 4, &pushBuffer);
 
-	VulkanTexture *vktex = new VulkanTexture(vulkan_, alloc_);
-	vktex->SetTag("DepalClut");
-	VkCommandBuffer cmd = (VkCommandBuffer)draw_->GetNativeObject(Draw::NativeObject::INIT_COMMANDBUFFER);
-	if (!vktex->CreateDirect(cmd, texturePixels, 1, 1, destFormat,
-		VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT, &componentMapping)) {
-		Crash();
-	}
 	vktex->UploadMip(cmd, 0, texturePixels, 1, pushBuffer, pushOffset, texturePixels);
 	vktex->EndCreate(cmd);
 
