@@ -146,6 +146,7 @@ protected:
 	// Note: this can change while loading, use GetTitle().
 	std::string title;
 
+	// TODO: Get rid of this shared_ptr and managae lifetime better instead.
 	std::shared_ptr<FileLoader> fileLoader;
 	std::string filePath_;
 

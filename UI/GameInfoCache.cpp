@@ -229,6 +229,11 @@ bool GameInfo::LoadFromPath(const std::string &gamePath) {
 }
 
 std::shared_ptr<FileLoader> GameInfo::GetFileLoader() {
+	if (filePath_.empty()) {
+		// Happens when workqueue tries to figure out priorities in PrioritizedWorkQueue::Pop(),
+		// because priority() calls GetFileLoader()... gnarly.
+		return fileLoader;
+	}
 	if (!fileLoader) {
 		fileLoader.reset(ConstructFileLoader(filePath_));
 	}
