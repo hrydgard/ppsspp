@@ -25,7 +25,7 @@ public:
 		else
 			return "";
 	}
-	std::string GetFriendlyPath() {
+	std::string GetFriendlyPath() const {
 		std::string str = GetPath();
 #if defined(__ANDROID__)
 		// Do nothing

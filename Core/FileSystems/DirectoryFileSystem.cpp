@@ -154,6 +154,10 @@ DirectoryFileSystem::DirectoryFileSystem(IHandleAllocator *_hAlloc, std::string 
 	hAlloc = _hAlloc;
 }
 
+DirectoryFileSystem::~DirectoryFileSystem() {
+	CloseAll();
+}
+
 std::string DirectoryFileHandle::GetLocalPath(std::string& basePath, std::string localpath)
 {
 	if (localpath.empty())
@@ -445,14 +449,10 @@ void DirectoryFileHandle::Close()
 
 void DirectoryFileSystem::CloseAll() {
 	for (auto iter = entries.begin(); iter != entries.end(); ++iter) {
+		INFO_LOG(FILESYS, "DirectoryFileSystem::CloseAll(): Force closing %d (%s)", (int)iter->first, iter->second.guestFilename.c_str());
 		iter->second.hFile.Close();
 	}
-
 	entries.clear();
-}
-
-DirectoryFileSystem::~DirectoryFileSystem() {
-	CloseAll();
 }
 
 std::string DirectoryFileSystem::GetLocalPath(std::string localpath) {
