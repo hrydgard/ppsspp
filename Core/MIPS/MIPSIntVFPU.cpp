@@ -1299,46 +1299,58 @@ namespace MIPSInt
 		EatPrefixes();
 	}
 	
-	void Int_Vfad(MIPSOpcode op)
-	{
-		float s[4];
+	void Int_Vfad(MIPSOpcode op) {
+		float s[4]{}, t[4]{};
 		float d;
 		int vd = _VD;
 		int vs = _VS;
 		VectorSize sz = GetVecSize(op);
 		ReadVector(s, sz, vs);
-		ApplySwizzleS(s, sz);
-		float sum = 0.0f;
-		int n = GetNumVectorElements(sz);
-		for (int i = 0; i < n; i++)
-		{
-			sum += s[i];
+		ApplySwizzleS(s, V_Quad);
+
+		// T prefix generates constants, but abs can change the constant.
+		u32 tprefixRemove = VFPU_ANY_SWIZZLE();
+		u32 tprefixAdd = VFPU_CONST(1, 1, 1, 1) | VFPU_SWIZZLE(1, 1, 1, 1);
+		ApplyPrefixST(t, VFPURewritePrefix(VFPU_CTRL_TPREFIX, tprefixRemove, tprefixAdd), V_Quad);
+
+		d = 0.0f;
+		for (int i = 0; i < 4; i++) {
+			d += s[i] * t[i];
 		}
-		d = sum;
-		ApplyPrefixD(&d,V_Single);
-		V(vd) = d;
+		ApplyPrefixD(&d, V_Single);
+		WriteVector(&d, V_Single, vd);
 		PC += 4;
 		EatPrefixes();
 	}
 
-	void Int_Vavg(MIPSOpcode op)
-	{
-		float s[4];
+	void Int_Vavg(MIPSOpcode op) {
+		float s[4]{}, t[4]{};
 		float d;
 		int vd = _VD;
 		int vs = _VS;
 		VectorSize sz = GetVecSize(op);
 		ReadVector(s, sz, vs);
-		ApplySwizzleS(s, sz);
-		float sum = 0.0f;
-		int n = GetNumVectorElements(sz);
-		for (int i = 0; i < n; i++)
-		{
-			sum += s[i];
+		ApplySwizzleS(s, V_Quad);
+
+		// T prefix generates constants, but supports negate.
+		u32 tprefixRemove = VFPU_ANY_SWIZZLE() | VFPU_ABS(1, 1, 1, 1);
+		u32 tprefixAdd = VFPU_CONST(1, 1, 1, 1);
+		if (sz == V_Single)
+			tprefixAdd |= VFPU_SWIZZLE(0, 0, 0, 0);
+		else if (sz == V_Pair)
+			tprefixAdd |= VFPU_SWIZZLE(3, 3, 3, 3);
+		else if (sz == V_Triple)
+			tprefixAdd |= VFPU_SWIZZLE(1, 1, 1, 1) | VFPU_ABS(1, 1, 1, 1);
+		else if (sz == V_Quad)
+			tprefixAdd |= VFPU_SWIZZLE(2, 2, 2, 2) | VFPU_ABS(1, 1, 1, 1);
+		ApplyPrefixST(t, VFPURewritePrefix(VFPU_CTRL_TPREFIX, tprefixRemove, tprefixAdd), V_Quad);
+
+		d = 0.0f;
+		for (int i = 0; i < 4; i++) {
+			d += s[i] * t[i];
 		}
-		d = sum / n;
 		ApplyPrefixD(&d, V_Single);
-		V(vd) = d;
+		WriteVector(&d, V_Single, vd);
 		PC += 4;
 		EatPrefixes();
 	}
