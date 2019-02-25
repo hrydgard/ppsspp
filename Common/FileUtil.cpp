@@ -134,6 +134,7 @@ std::string ResolvePath(const std::string &path) {
 			if (result >= BUF_SIZE || result == 0)
 				wcscpy_s(buf, BUF_SIZE - 1, input.c_str());
 		}
+		CloseHandle(hFile);
 	} else {
 		wchar_t *longBuf = new wchar_t[BUF_SIZE];
 		memset(buf, 0, BUF_SIZE);
