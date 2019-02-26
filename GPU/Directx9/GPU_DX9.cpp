@@ -176,21 +176,23 @@ void GPU_DX9::CheckGPUFeatures() {
 		features |= GPU_SUPPORTS_ACCURATE_DEPTH;
 	}
 
-	// VS range culling (killing triangles in the vertex shader using NaN) causes problems on Intel.
-	// Also causes problems on old NVIDIA.
-	switch (vendor) {
-	case Draw::GPUVendor::VENDOR_INTEL:
-		break;
-	case Draw::GPUVendor::VENDOR_NVIDIA:
-		// Older NVIDIAs don't seem to like NaNs in their DX9 vertex shaders.
-		// No idea if KEPLER is the right cutoff, but let's go with it.
-		if (NVIDIAGetDeviceGeneration(draw_->GetDeviceCaps().deviceID) >= NV_KEPLER) {
+	if (!PSP_CoreParameter().compat.flags().DepthRangeHack) {
+		// VS range culling (killing triangles in the vertex shader using NaN) causes problems on Intel.
+		// Also causes problems on old NVIDIA.
+		switch (vendor) {
+		case Draw::GPUVendor::VENDOR_INTEL:
+			break;
+		case Draw::GPUVendor::VENDOR_NVIDIA:
+			// Older NVIDIAs don't seem to like NaNs in their DX9 vertex shaders.
+			// No idea if KEPLER is the right cutoff, but let's go with it.
+			if (NVIDIAGetDeviceGeneration(draw_->GetDeviceCaps().deviceID) >= NV_KEPLER) {
+				features |= GPU_SUPPORTS_VS_RANGE_CULLING;
+			}
+			break;
+		default:
 			features |= GPU_SUPPORTS_VS_RANGE_CULLING;
+			break;
 		}
-		break;
-	default:
-		features |= GPU_SUPPORTS_VS_RANGE_CULLING;
-		break;
 	}
 
 	D3DCAPS9 caps;

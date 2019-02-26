@@ -181,7 +181,9 @@ GPU_Vulkan::~GPU_Vulkan() {
 void GPU_Vulkan::CheckGPUFeatures() {
 	uint32_t features = 0;
 
-	features |= GPU_SUPPORTS_VS_RANGE_CULLING;
+	if (!PSP_CoreParameter().compat.flags().DepthRangeHack) {
+		features |= GPU_SUPPORTS_VS_RANGE_CULLING;
+	}
 
 	switch (vulkan_->GetPhysicalDeviceProperties().properties.vendorID) {
 	case VULKAN_VENDOR_AMD:
