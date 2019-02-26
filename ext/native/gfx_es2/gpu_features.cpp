@@ -99,7 +99,10 @@ void ProcessGPUFeatures() {
 	DLOG("Checking for GL driver bugs... vendor=%i model='%s'", (int)gl_extensions.gpuVendor, gl_extensions.model);
 
 	if (gl_extensions.gpuVendor == GPU_VENDOR_IMGTEC) {
-		if (!strcmp(gl_extensions.model, "PowerVR SGX 543") ||
+		if (!strcmp(gl_extensions.model, "PowerVR SGX 545") ||
+			  !strcmp(gl_extensions.model, "PowerVR SGX 544") ||
+			  !strcmp(gl_extensions.model, "PowerVR SGX 544MP2") ||
+			  !strcmp(gl_extensions.model, "PowerVR SGX 543") ||
 			  !strcmp(gl_extensions.model, "PowerVR SGX 540") ||
 			  !strcmp(gl_extensions.model, "PowerVR SGX 530") ||
 				!strcmp(gl_extensions.model, "PowerVR SGX 520") ) {
