@@ -108,8 +108,13 @@ EGLConfig EGL_FindConfig(int *contextVersion) {
 			return val;
 		};
 
-		int colorScore = readConfig(EGL_RED_SIZE) + readConfig(EGL_BLUE_SIZE) + readConfig(EGL_GREEN_SIZE);
-		int alphaScore = readConfig(EGL_ALPHA_SIZE);
+		// We don't want HDR modes with more than 8 bits per component.
+		auto readConfigMax = [&](EGLint attr, EGLint m) -> EGLint {
+			EGLint val = readConfig(attr);
+			return val > m ? 1 : val;
+		};
+		int colorScore = readConfigMax(EGL_RED_SIZE, 8) + readConfigMax(EGL_BLUE_SIZE, 8) + readConfigMax(EGL_GREEN_SIZE, 8);
+		int alphaScore = readConfigMax(EGL_ALPHA_SIZE, 8);
 		int depthScore = readConfig(EGL_DEPTH_SIZE);
 		int levelScore = readConfig(EGL_LEVEL) == 0 ? 100 : 0;
 		int samplesScore = readConfig(EGL_SAMPLES) == 0 ? 100 : 0;
@@ -119,6 +124,11 @@ EGLConfig EGL_FindConfig(int *contextVersion) {
 
 		EGLint caveat = readConfig(EGL_CONFIG_CAVEAT);
 		int caveatScore = caveat == EGL_NONE ? 100 : (caveat == EGL_NON_CONFORMANT_CONFIG ? 50 : 0);
+
+#ifndef USING_FBDEV
+		EGLint surfaceType = readConfig(EGL_SURFACE_TYPE);
+		int surfaceScore = (surfaceType & EGL_WINDOW_BIT) ? 100 : (caveat == EGL_NON_CONFORMANT_CONFIG ? 50 : 0);
+#endif
 
 		EGLint renderable = readConfig(EGL_RENDERABLE_TYPE);
 		bool renderableGLES3 = (renderable & EGL_OPENGL_ES3_BIT_KHR) != 0;
@@ -142,6 +152,10 @@ EGLConfig EGL_FindConfig(int *contextVersion) {
 		score += depthScore * 5 + stencilScore;
 		score += levelScore + samplesScore + sampleBufferScore + transparentScore;
 		score += caveatScore + renderableScoreGLES + renderableScoreGL;
+
+#ifndef USING_FBDEV
+		score += surfaceScore;
+#endif
 
 		if (score > bestScore) {
 			bestScore = score;
