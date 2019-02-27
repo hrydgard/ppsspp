@@ -193,6 +193,7 @@ int8_t EGL_Init() {
 	// Get the SDL window handle
 	SDL_SysWMinfo sysInfo; //Will hold our Window information
 	SDL_VERSION(&sysInfo.version); //Set SDL version
+	SDL_GetWindowWMInfo(window, &sysInfo);
 	g_Window = (NativeWindowType)sysInfo.info.x11.window;
 #else
 	g_Window = (NativeWindowType)NULL;
