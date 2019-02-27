@@ -114,8 +114,8 @@ static bool IsTempPath(const std::string &str) {
 
 class GameButton : public UI::Clickable {
 public:
-	GameButton(const std::string &gamePath, bool gridStyle, UI::LayoutParams *layoutParams = 0) 
-		: UI::Clickable(layoutParams), gridStyle_(gridStyle), gamePath_(gamePath), holdStart_(0), holdEnabled_(true) {}
+	GameButton(const std::string &gamePath, bool gridStyle, UI::LayoutParams *layoutParams = 0)
+		: UI::Clickable(layoutParams), gridStyle_(gridStyle), gamePath_(gamePath) {}
 
 	void Draw(UIContext &dc) override;
 	void GetContentDimensions(const UIContext &dc, float &w, float &h) const override {
@@ -206,9 +206,9 @@ private:
 	std::string gamePath_;
 	std::string title_;
 
-	double holdStart_;
-	bool holdEnabled_;
-	bool hovering_;
+	double holdStart_ = 0.0;
+	bool holdEnabled_ = true;
+	bool hovering_ = false;
 };
 
 void GameButton::Draw(UIContext &dc) {
@@ -404,7 +404,7 @@ void DirButton::Draw(UIContext &dc) {
 	if (text == "..") {
 		image = I_UP_DIRECTORY;
 	}
-	
+
 	float tw, th;
 	dc.MeasureText(dc.GetFontStyle(), 1.0f, 1.0f, text.c_str(), &tw, &th, 0);
 
