@@ -27,10 +27,9 @@ static Display*                 g_Display       = NULL;
 #endif
 static NativeWindowType         g_Window        = (NativeWindowType)NULL;
 
-int8_t CheckEGLErrors(const std::string& file, uint16_t line) {
+int CheckEGLErrors(const char *file, int line) {
 	EGLenum error;
-	std::string errortext;
-
+	const char *errortext = "unknown";
 	error = eglGetError();
 	switch (error)
 	{
@@ -50,7 +49,7 @@ int8_t CheckEGLErrors(const std::string& file, uint16_t line) {
 		case EGL_BAD_NATIVE_WINDOW:         errortext = "EGL_BAD_NATIVE_WINDOW"; break;
 		default:                            errortext = "unknown"; break;
 	}
-	printf( "ERROR: EGL Error detected in file %s at line %d: %s (0x%X)\n", file.c_str(), line, errortext.c_str(), error );
+	printf( "ERROR: EGL Error %s detected in file %s at line %d (0x%X)\n", errortext, file, line, error );
 	return 1;
 }
 
@@ -111,7 +110,7 @@ EGLConfig EGL_FindConfig(int *contextVersion) {
 		// We don't want HDR modes with more than 8 bits per component.
 		auto readConfigMax = [&](EGLint attr, EGLint m) -> EGLint {
 			EGLint val = readConfig(attr);
-			return val > m ? 1 : val;
+			return val > m ? 1 : val;  // why not 0?
 		};
 		int colorScore = readConfigMax(EGL_RED_SIZE, 8) + readConfigMax(EGL_BLUE_SIZE, 8) + readConfigMax(EGL_GREEN_SIZE, 8);
 		int alphaScore = readConfigMax(EGL_ALPHA_SIZE, 8);
@@ -127,7 +126,7 @@ EGLConfig EGL_FindConfig(int *contextVersion) {
 
 #ifndef USING_FBDEV
 		EGLint surfaceType = readConfig(EGL_SURFACE_TYPE);
-		int surfaceScore = (surfaceType & EGL_WINDOW_BIT) ? 100 : (caveat == EGL_NON_CONFORMANT_CONFIG ? 50 : 0);
+		int surfaceScore = (surfaceType & EGL_WINDOW_BIT) ? 100 : 0;
 #endif
 
 		EGLint renderable = readConfig(EGL_RENDERABLE_TYPE);
@@ -148,7 +147,7 @@ EGLConfig EGL_FindConfig(int *contextVersion) {
 
 		int score = 0;
 		// Here's a good place to play with the weights to pick a better config.
-		score += (colorScore + alphaScore) * 10;
+		score += colorScore * 10 + alphaScore * 2;
 		score += depthScore * 5 + stencilScore;
 		score += levelScore + samplesScore + sampleBufferScore + transparentScore;
 		score += caveatScore + renderableScoreGLES + renderableScoreGL;
@@ -173,6 +172,7 @@ int8_t EGL_Init() {
 	EGLConfig eglConfig = EGL_FindConfig(&contextVersion);
 	if (!eglConfig) {
 		EGL_ERROR("Unable to find a usable EGL config.", true);
+		return 1;
 	}
 
 	EGLint contextAttributes[] = {
@@ -186,10 +186,11 @@ int8_t EGL_Init() {
 	g_eglContext = eglCreateContext(g_eglDisplay, eglConfig, nullptr, contextAttributes);
 	if (g_eglContext == EGL_NO_CONTEXT) {
 		EGL_ERROR("Unable to create GLES context!", true);
+		return 1;
 	}
 
 #if !defined(USING_FBDEV) && !defined(__APPLE__)
-	//Get the SDL window handle
+	// Get the SDL window handle
 	SDL_SysWMinfo sysInfo; //Will hold our Window information
 	SDL_VERSION(&sysInfo.version); //Set SDL version
 	g_Window = (NativeWindowType)sysInfo.info.x11.window;
@@ -197,11 +198,15 @@ int8_t EGL_Init() {
 	g_Window = (NativeWindowType)NULL;
 #endif
 	g_eglSurface = eglCreateWindowSurface(g_eglDisplay, eglConfig, g_Window, nullptr);
-	if (g_eglSurface == EGL_NO_SURFACE)
+	if (g_eglSurface == EGL_NO_SURFACE) {
 		EGL_ERROR("Unable to create EGL surface!", true);
+		return 1;
+	}
 
-	if (eglMakeCurrent(g_eglDisplay, g_eglSurface, g_eglSurface, g_eglContext) != EGL_TRUE)
+	if (eglMakeCurrent(g_eglDisplay, g_eglSurface, g_eglSurface, g_eglContext) != EGL_TRUE) {
 		EGL_ERROR("Unable to make GLES context current.", true);
+		return 1;
+	}
 
 	return 0;
 }
@@ -310,7 +315,10 @@ int SDLGLGraphicsContext::Init(SDL_Window *&window, int x, int y, int mode, std:
 	SDL_ShowWindow(window);
 
 #ifdef USING_EGL
-	EGL_Init();
+	if (EGL_Init() != 0) {
+		printf("EGL_Init() failed\n");
+		return 1;
+	}
 #endif
 
 #ifndef USING_GLES2
