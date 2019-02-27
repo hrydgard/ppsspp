@@ -477,7 +477,7 @@ static AtlasTextMetrics BreakLines(const char *text, const AtlasFont &atlasfont,
 								utfWord = utfPrev;
 								finished = true;
 								break;
-							}						
+							}
 						}
 					}
 					++numChars;
@@ -549,7 +549,7 @@ static AtlasTextMetrics BreakLines(const char *text, const AtlasFont &atlasfont,
 			}
 			lineWidth += nextWidth;
 
-			u32 cval = utf.next();
+			u32 cval = utf.end() ? 0 : utf.next();
 			if (spaceWidth > 0)
 			{
 				if (!dryRun)

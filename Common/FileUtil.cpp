@@ -830,7 +830,7 @@ const std::string &GetExeDirectory()
 		uint32_t program_path_size = sizeof(program_path) - 1;
 
 #if defined(__linux__)
-		if (readlink("/proc/self/exe", program_path, 4095) > 0)
+		if (readlink("/proc/self/exe", program_path, program_path_size) > 0)
 #elif defined(__APPLE__) && !defined(IOS)
 		if (_NSGetExecutablePath(program_path, &program_path_size) == 0)
 #elif defined(KERN_PROC_PATHNAME)
