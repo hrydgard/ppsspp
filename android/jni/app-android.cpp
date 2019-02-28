@@ -882,11 +882,6 @@ void getDesiredBackbufferSize(int &sz_x, int &sz_y) {
 		sz_x = 0;
 		sz_y = 0;
 	}
-	// Round the size up to the nearest multiple of 4. While this may cause a tiny aspect ratio distortion,
-	// there's some hope that #11151 is a driver bug that might be worked around this way. If this fixes it,
-	// it'll be worth trying to round to a multiple of 2 instead.
-	sz_x = (sz_x + 3) & ~3;
-	sz_y = (sz_y + 3) & ~3;
 }
 
 extern "C" void JNICALL Java_org_ppsspp_ppsspp_NativeApp_setDisplayParameters(JNIEnv *, jclass, jint xres, jint yres, jint dpi, jfloat refreshRate) {
