@@ -306,7 +306,7 @@ void hleCheat(u64 userdata, int cyclesLate) {
 		if (gameTitle == "ULUS10014") {
 			cheatEngine->InvalidateICache(0x08865600, 72);
 			cheatEngine->InvalidateICache(0x08865690, 4);
-		} else if (gameTitle == "ULES00033") {  // euro, also 34 and 35
+		} else if (gameTitle == "ULES00033" || gameTitle == "ULES00034" || gameTitle == "ULES00035") {  // euro, also 34 and 35
 			cheatEngine->InvalidateICache(0x088655D8, 72);
 			cheatEngine->InvalidateICache(0x08865668, 4);
 		} else if (gameTitle == "ULUS10138") {  // MTX MotoTrax. No hack for ULES00581 known.
