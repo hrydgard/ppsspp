@@ -30,7 +30,7 @@ void CalcCullRange(float minValues[4], float maxValues[4], bool flipViewport, bo
 	// Account for the projection viewport adjustment when viewport is too large.
 	auto reverseViewportX = [](float x) {
 		float pspViewport = (x - gstate.getViewportXCenter()) * (1.0f / gstate.getViewportXScale());
-		return (pspViewport - gstate_c.vpXOffset) * gstate_c.vpWidthScale;
+		return (pspViewport * gstate_c.vpWidthScale) - gstate_c.vpXOffset;
 	};
 	auto reverseViewportY = [flipViewport](float y) {
 		float heightScale = gstate_c.vpHeightScale;
@@ -39,7 +39,7 @@ void CalcCullRange(float minValues[4], float maxValues[4], bool flipViewport, bo
 			heightScale = -heightScale;
 		}
 		float pspViewport = (y - gstate.getViewportYCenter()) * (1.0f / gstate.getViewportYScale());
-		return (pspViewport - gstate_c.vpYOffset) * heightScale;
+		return (pspViewport * heightScale) - gstate_c.vpYOffset;
 	};
 	auto reverseViewportZ = [hasNegZ](float z) {
 		float vpZScale = gstate.getViewportZScale();
