@@ -361,26 +361,23 @@ namespace MIPSInt
 		PC += 4;
 	}
 
-	void Int_Viim(MIPSOpcode op)
-	{
+	void Int_Viim(MIPSOpcode op) {
 		int vt = _VT;
 		s32 imm = (s16)(op&0xFFFF);
 		u16 uimm16 = (op&0xFFFF);
-		//V(vt) = (float)imm;
 		float f[1];
 		int type = (op >> 23) & 7;
-		if (type == 6)
+		if (type == 6) {
 			f[0] = (float)imm;  // viim
-		else if (type == 7)
+		} else if (type == 7) {
 			f[0] = Float16ToFloat32((u16)uimm16);   // vfim
-		else
-		{
+		} else {
 			_dbg_assert_msg_(CPU,0,"Trying to interpret instruction that can't be interpreted");
 			f[0] = 0;
 		}
 		
 		ApplyPrefixD(f, V_Single);
-		V(vt) = f[0];
+		WriteVector(f, V_Single, vt);
 		PC += 4;
 		EatPrefixes();
 	}
