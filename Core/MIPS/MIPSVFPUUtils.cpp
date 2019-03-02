@@ -176,19 +176,27 @@ void ReadVector(float *rd, VectorSize size, int reg) {
 }
 
 void WriteVector(const float *rd, VectorSize size, int reg) {
+	if (size == V_Single) {
+		// Optimize the common case.
+		if (!currentMIPS->VfpuWriteMask(0)) {
+			V(reg) = rd[0];
+		}
+		return;
+	}
+
+	const int mtx = (reg>>2)&7;
+	const int col = reg & 3;
+	int transpose = (reg>>5)&1;
 	int row = 0;
 	int length = 0;
 
 	switch (size) {
-	case V_Single: V(reg) = rd[0]; return; // transpose = 0; row=(reg>>5)&3; length = 1; break;
+	case V_Single: _dbg_assert_(JIT, 0); return; // transpose = 0; row=(reg>>5)&3; length = 1; break;
 	case V_Pair:   row=(reg>>5)&2; length = 2; break;
 	case V_Triple: row=(reg>>6)&1; length = 3; break;
 	case V_Quad:   row=(reg>>5)&2; length = 4; break;
 	default: _assert_msg_(JIT, 0, "%s: Bad vector size", __FUNCTION__);
 	}
-	const int mtx = (reg>>2)&7;
-	const int col = reg & 3;
-	int transpose = (reg>>5)&1;
 
 	if (currentMIPS->VfpuWriteMask() == 0) {
 		if (transpose) {
