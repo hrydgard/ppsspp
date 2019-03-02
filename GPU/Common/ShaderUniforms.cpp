@@ -34,12 +34,14 @@ void CalcCullRange(float minValues[4], float maxValues[4], bool flipViewport, bo
 	};
 	auto reverseViewportY = [flipViewport](float y) {
 		float heightScale = gstate_c.vpHeightScale;
+		float yOffset = gstate_c.vpYOffset;
 		if (flipViewport) {
 			// For D3D11 and GLES non-buffered.
 			heightScale = -heightScale;
+			yOffset = -yOffset;
 		}
 		float pspViewport = (y - gstate.getViewportYCenter()) * (1.0f / gstate.getViewportYScale());
-		return (pspViewport * heightScale) - gstate_c.vpYOffset;
+		return (pspViewport * heightScale) - yOffset;
 	};
 	auto reverseViewportZ = [hasNegZ](float z) {
 		float vpZScale = gstate.getViewportZScale();
