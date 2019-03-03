@@ -3,11 +3,12 @@
 #include <math.h>
 #include <tchar.h>
 
+#include "base/display.h"
 #include "util/text/utf8.h"
-#include "../resource.h"
+#include "Windows/resource.h"
 #include "Core/MemMap.h"
-#include "../W32Util/Misc.h"
-#include "../InputBox.h"
+#include "Windows/W32Util/Misc.h"
+#include "Windows/InputBox.h"
 
 #include "CtrlRegisterList.h"
 #include "Debugger_MemoryDlg.h"
@@ -16,11 +17,10 @@
 #include "Debugger_Disasm.h"
 #include "DebuggerShared.h"
 
-#include "../main.h"
+#include "Windows/main.h"
 
 static const int numCPUs = 1;
 
-//#include "DbgHelp.h"
 extern HMENU g_hPopupMenus;
 
 enum { REGISTER_PC = 32, REGISTER_HI, REGISTER_LO, REGISTERS_END };
@@ -29,31 +29,28 @@ TCHAR CtrlRegisterList::szClassName[] = _T("CtrlRegisterList");
 
 void CtrlRegisterList::init()
 {
-    WNDCLASSEX wc;
-    
-    wc.cbSize         = sizeof(wc);
-    wc.lpszClassName  = szClassName;
-    wc.hInstance      = GetModuleHandle(0);
-    wc.lpfnWndProc    = CtrlRegisterList::wndProc;
-    wc.hCursor        = LoadCursor (NULL, IDC_ARROW);
-    wc.hIcon          = 0;
-    wc.lpszMenuName   = 0;
-    wc.hbrBackground  = (HBRUSH)GetSysColorBrush(COLOR_WINDOW);
-    wc.style          = CS_DBLCLKS;
-    wc.cbClsExtra     = 0;
-	wc.cbWndExtra     = sizeof( CtrlRegisterList * );
-    wc.hIconSm        = 0;
-	
-	
-    RegisterClassEx(&wc);
+	WNDCLASSEX wc;
+
+	wc.cbSize = sizeof(wc);
+	wc.lpszClassName = szClassName;
+	wc.hInstance = GetModuleHandle(0);
+	wc.lpfnWndProc = CtrlRegisterList::wndProc;
+	wc.hCursor = LoadCursor(NULL, IDC_ARROW);
+	wc.hIcon = 0;
+	wc.lpszMenuName = 0;
+	wc.hbrBackground = (HBRUSH)GetSysColorBrush(COLOR_WINDOW);
+	wc.style = CS_DBLCLKS;
+	wc.cbClsExtra = 0;
+	wc.cbWndExtra = sizeof(CtrlRegisterList *);
+	wc.hIconSm = 0;
+
+	RegisterClassEx(&wc);
 }
 
 void CtrlRegisterList::deinit()
 {
 	//UnregisterClass(szClassName, hInst)
 }
-
-
 
 LRESULT CALLBACK CtrlRegisterList::wndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
 {
@@ -109,43 +106,29 @@ LRESULT CALLBACK CtrlRegisterList::wndProc(HWND hwnd, UINT msg, WPARAM wParam, L
 		break;
 	case WM_GETDLGCODE:	// want chars so that we can return 0 on key press and supress the beeping sound
 		return DLGC_WANTARROWS|DLGC_WANTCHARS;
-    default:
-        break;
-    }
-	
-    return DefWindowProc(hwnd, msg, wParam, lParam);
-}
+	default:
+		break;
+	}
 
+	return DefWindowProc(hwnd, msg, wParam, lParam);
+}
 
 CtrlRegisterList *CtrlRegisterList::getFrom(HWND hwnd)
 {
-    return (CtrlRegisterList *)GetWindowLongPtr(hwnd, GWLP_USERDATA);
+	return (CtrlRegisterList *)GetWindowLongPtr(hwnd, GWLP_USERDATA);
 }
-
-
-
 
 CtrlRegisterList::CtrlRegisterList(HWND _wnd)
-{
-	wnd=_wnd;
+	: wnd(_wnd) {
 	SetWindowLongPtr(wnd, GWLP_USERDATA, (LONG_PTR)this);
-	//SetWindowLong(wnd, GWL_STYLE, GetWindowLong(wnd,GWL_STYLE) | WS_VSCROLL);
-	//SetScrollRange(wnd, SB_VERT, -1,1,TRUE);
-	
-	rowHeight=g_Config.iFontHeight;
 
-	font = CreateFont(rowHeight,g_Config.iFontWidth,0,0,FW_DONTCARE,FALSE,FALSE,FALSE,DEFAULT_CHARSET,OUT_DEFAULT_PRECIS,CLIP_DEFAULT_PRECIS,
-		DEFAULT_QUALITY,DEFAULT_PITCH,L"Lucida Console");
-	selecting=false;
-	selection=0;
-	category=0;
-	showHex=false;
-	cpu=0;
-	lastPC = 0;
-	lastCat0Values = NULL;
-	changedCat0Regs = NULL;
+	const float fontScale = 1.0f / g_dpi_scale_real_y;
+	rowHeight = g_Config.iFontHeight * fontScale;
+	int charWidth = g_Config.iFontWidth * fontScale;
+	font = CreateFont(rowHeight, charWidth, 0, 0,
+		FW_DONTCARE, FALSE, FALSE, FALSE, DEFAULT_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS, DEFAULT_QUALITY, DEFAULT_PITCH,
+		L"Lucida Console");
 }
-
 
 CtrlRegisterList::~CtrlRegisterList()
 {
