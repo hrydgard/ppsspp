@@ -1036,51 +1036,63 @@ namespace MIPSInt
 		EatPrefixes();
 	}
 
-	void Int_VDot(MIPSOpcode op)
-	{
-		float s[4], t[4];
+	void Int_VDot(MIPSOpcode op) {
+		float s[4]{}, t[4]{};
 		float d;
 		int vd = _VD;
 		int vs = _VS;
 		int vt = _VT;
 		VectorSize sz = GetVecSize(op);
 		ReadVector(s, sz, vs);
-		ApplySwizzleS(s, sz);
+		ApplySwizzleS(s, V_Quad);
 		ReadVector(t, sz, vt);
-		ApplySwizzleT(t, sz);
-		float sum = 0.0f;
-		int n = GetNumVectorElements(sz);
-		for (int i = 0; i < n; i++)
-		{
-			sum += s[i]*t[i];
+		ApplySwizzleT(t, V_Quad);
+		d = 0.0f;
+		for (int i = 0; i < 4; i++) {
+			d += s[i] * t[i];
 		}
-		d = sum;
-		ApplyPrefixD(&d,V_Single);
+		ApplyPrefixD(&d, V_Single);
 		WriteVector(&d, V_Single, vd);
 		PC += 4;
 		EatPrefixes();
 	}
 
-	void Int_VHdp(MIPSOpcode op)
-	{
-		float s[4], t[4];
+	void Int_VHdp(MIPSOpcode op) {
+		float s[4]{}, t[4]{};
 		float d;
 		int vd = _VD;
 		int vs = _VS;
 		int vt = _VT;
 		VectorSize sz = GetVecSize(op);
 		ReadVector(s, sz, vs);
-		ApplySwizzleS(s, sz);
 		ReadVector(t, sz, vt);
-		ApplySwizzleT(t, sz);
+		ApplySwizzleT(t, V_Quad);
+
+		// S prefix forces constant 1 for the last element (w for quad.)
+		// Otherwise it is the same as vdot.
+		u32 sprefixRemove;
+		u32 sprefixAdd;
+		if (sz == V_Quad) {
+			sprefixRemove = VFPU_SWIZZLE(0, 0, 0, 3);
+			sprefixAdd = VFPU_CONST(0, 0, 0, 1) | VFPU_SWIZZLE(0, 0, 0, 1);
+		} else if (sz == V_Triple) {
+			sprefixRemove = VFPU_SWIZZLE(0, 0, 3, 0);
+			sprefixAdd = VFPU_CONST(0, 0, 1, 0) | VFPU_SWIZZLE(0, 0, 1, 0);
+		} else if (sz == V_Pair) {
+			sprefixRemove = VFPU_SWIZZLE(0, 3, 0, 0);
+			sprefixAdd = VFPU_CONST(0, 1, 0, 0) | VFPU_SWIZZLE(0, 1, 0, 0);
+		} else {
+			sprefixRemove = VFPU_SWIZZLE(3, 0, 0, 0);
+			sprefixAdd = VFPU_CONST(1, 0, 0, 0) | VFPU_SWIZZLE(1, 0, 0, 0);
+		}
+		ApplyPrefixST(s, VFPURewritePrefix(VFPU_CTRL_SPREFIX, sprefixRemove, sprefixAdd), V_Quad);
+
 		float sum = 0.0f;
-		int n = GetNumVectorElements(sz);
-		for (int i = 0; i < n; i++)
-		{
-			sum += (i == n - 1) ? t[i] : s[i]*t[i];
+		for (int i = 0; i < 4; i++) {
+			sum += s[i] * t[i];
 		}
 		d = my_isnan(sum) ? fabsf(sum) : sum;
-		ApplyPrefixD(&d,V_Single);
+		ApplyPrefixD(&d, V_Single);
 		WriteVector(&d, V_Single, vd);
 		PC += 4;
 		EatPrefixes();
