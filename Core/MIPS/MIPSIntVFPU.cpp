@@ -1166,6 +1166,7 @@ namespace MIPSInt
 		ApplyPrefixST(t, VFPURewritePrefix(VFPU_CTRL_TPREFIX, tprefixRemove, tprefixAdd), sz);
 
 		// TODO: May mishandle NAN / negative zero / etc.
+		// TODO: If S swizzle selects a lane that doesn't exist in sz, the result is always 0.
 		d[0] = std::min(s[0], t[0]);
 		d[1] = std::max(s[1], t[1]);
 		d[2] = std::min(s[2], t[2]);
@@ -1191,6 +1192,7 @@ namespace MIPSInt
 		ApplyPrefixST(t, VFPURewritePrefix(VFPU_CTRL_TPREFIX, tprefixRemove, tprefixAdd), sz);
 
 		// TODO: May mishandle NAN / negative zero / etc.
+		// TODO: If S swizzle selects a lane that doesn't exist in sz, the result is always 0.
 		d[0] = std::min(s[0], t[0]);
 		d[1] = std::min(s[1], t[1]);
 		d[2] = std::max(s[2], t[2]);
@@ -1216,6 +1218,7 @@ namespace MIPSInt
 		ApplyPrefixST(t, VFPURewritePrefix(VFPU_CTRL_TPREFIX, tprefixRemove, tprefixAdd), sz);
 
 		// TODO: May mishandle NAN / negative zero / etc.
+		// TODO: If S swizzle selects a lane that doesn't exist in sz, the result is always 0.
 		d[0] = std::max(s[0], t[0]);
 		d[1] = std::min(s[1], t[1]);
 		d[2] = std::max(s[2], t[2]);
@@ -1241,6 +1244,7 @@ namespace MIPSInt
 		ApplyPrefixST(t, VFPURewritePrefix(VFPU_CTRL_TPREFIX, tprefixRemove, tprefixAdd), sz);
 
 		// TODO: May mishandle NAN / negative zero / etc.
+		// TODO: If S swizzle selects a lane that doesn't exist in sz, the result is always 0.
 		d[0] = std::max(s[0], t[0]);
 		d[1] = std::max(s[1], t[1]);
 		d[2] = std::min(s[2], t[2]);
