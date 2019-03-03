@@ -4,12 +4,13 @@
 #include <math.h>
 
 #include "Core/Config.h"
-#include "../resource.h"
-#include "../../Core/MemMap.h"
-#include "../W32Util/Misc.h"
+#include "Windows/resource.h"
+#include "Core/MemMap.h"
+#include "Windows/W32Util/Misc.h"
 #include "Windows/InputBox.h"
-#include "../Main.h"
-#include "../../Core/Debugger/SymbolMap.h"
+#include "Windows/main.h"
+#include "Core/Debugger/SymbolMap.h"
+#include "base/display.h"
 
 #include "Debugger_Disasm.h"
 #include "DebuggerShared.h"
@@ -26,19 +27,20 @@ CtrlMemView::CtrlMemView(HWND _wnd)
 	SetWindowLong(wnd, GWL_STYLE, GetWindowLong(wnd,GWL_STYLE) | WS_VSCROLL);
 	SetScrollRange(wnd, SB_VERT, -1,1,TRUE);
 
-	rowHeight = g_Config.iFontHeight;
-	charWidth = g_Config.iFontWidth;
-	offsetPositionY = offsetLine*rowHeight;
+	const float fontScale = 1.0f / g_dpi_scale_real_y;
+	rowHeight = g_Config.iFontHeight * fontScale;
+	charWidth = g_Config.iFontWidth * fontScale;
+	offsetPositionY = offsetLine * rowHeight;
 
-	font =
-		CreateFont(rowHeight,charWidth,0,0,FW_DONTCARE,FALSE,FALSE,FALSE,DEFAULT_CHARSET,OUT_DEFAULT_PRECIS,
-			CLIP_DEFAULT_PRECIS,DEFAULT_QUALITY,DEFAULT_PITCH,L"Lucida Console");
-	underlineFont =
-		CreateFont(rowHeight,charWidth,0,0,FW_DONTCARE,FALSE,TRUE,FALSE,DEFAULT_CHARSET,OUT_DEFAULT_PRECIS,
-			CLIP_DEFAULT_PRECIS,DEFAULT_QUALITY,DEFAULT_PITCH,L"Lucida Console");
-	curAddress=0;
+	font = CreateFont(rowHeight, charWidth, 0, 0,
+		FW_DONTCARE, FALSE, FALSE, FALSE, DEFAULT_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS, DEFAULT_QUALITY, DEFAULT_PITCH,
+		L"Lucida Console");
+	underlineFont = CreateFont(rowHeight, charWidth, 0, 0,
+		FW_DONTCARE, FALSE, TRUE, FALSE, DEFAULT_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS, DEFAULT_QUALITY, DEFAULT_PITCH,
+		L"Lucida Console");
+	curAddress = 0;
 	debugger = 0;
-  
+ 
 	searchQuery = "";
 	matchAddress = -1;
 	searching = false;
