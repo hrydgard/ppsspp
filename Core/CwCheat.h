@@ -45,8 +45,8 @@ public:
 	void Run();
 	bool HasCheats();
 
-private:
 	void InvalidateICache(u32 addr, int size);
+private:
 	u32 GetAddress(u32 value);
 
 	CheatOperation InterpretNextOp(const CheatCode &cheat, size_t &i);
