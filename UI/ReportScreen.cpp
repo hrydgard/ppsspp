@@ -341,7 +341,7 @@ EventReturn ReportScreen::HandleSubmit(EventParams &e) {
 }
 
 EventReturn ReportScreen::HandleBrowser(EventParams &e) {
-	const std::string url = "http://" + Reporting::ServerHost() + "/";
+	const std::string url = "https://" + Reporting::ServerHost() + "/";
 	LaunchBrowser(url.c_str());
 	return EVENT_DONE;
 }
@@ -458,7 +458,7 @@ void ReportFinishScreen::ShowSuggestions() {
 }
 
 UI::EventReturn ReportFinishScreen::HandleViewFeedback(UI::EventParams &e) {
-	const std::string url = "http://" + Reporting::ServerHost() + "/game/" + Reporting::CurrentGameID();
+	const std::string url = "https://" + Reporting::ServerHost() + "/game/" + Reporting::CurrentGameID();
 	LaunchBrowser(url.c_str());
 	return EVENT_DONE;
 }
