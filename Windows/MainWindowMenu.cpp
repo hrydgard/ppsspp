@@ -93,7 +93,7 @@ namespace MainWindow {
 	static void EmptySubMenu(HMENU menu) {
 		int c = GetMenuItemCount(menu);
 		for (int i = 0; i < c; ++i) {
-			RemoveMenu(menu, i, MF_BYPOSITION);
+			RemoveMenu(menu, 0, MF_BYPOSITION);
 		}
 	}
 
