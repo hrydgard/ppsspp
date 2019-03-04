@@ -1,5 +1,6 @@
 #include "base/display.h"
 #include "base/logging.h"
+#include "base/timeutil.h"
 #include "input/input_state.h"
 #include "ui/screen.h"
 #include "ui/ui.h"
@@ -71,30 +72,46 @@ void ScreenManager::switchToNext() {
 
 bool ScreenManager::touch(const TouchInput &touch) {
 	std::lock_guard<std::recursive_mutex> guard(inputLock_);
-	if (!stack_.empty()) {
+	bool result = false;
+	// Send release all events to every screen layer.
+	if (touch.flags & TOUCH_RELEASE_ALL) {
+		for (auto &layer : stack_) {
+			Screen *screen = layer.screen;
+			result = layer.screen->touch(screen->transformTouch(touch));
+		}
+	} else if (!stack_.empty()) {
 		Screen *screen = stack_.back().screen;
-		return screen->touch(screen->transformTouch(touch));
-	} else {
-		return false;
+		result = stack_.back().screen->touch(screen->transformTouch(touch));
 	}
+	return result;
 }
 
 bool ScreenManager::key(const KeyInput &key) {
 	std::lock_guard<std::recursive_mutex> guard(inputLock_);
-	if (!stack_.empty()) {
-		return stack_.back().screen->key(key);
-	} else {
-		return false;
+	bool result = false;
+	// Send key up to every screen layer.
+	if (key.flags & KEY_UP) {
+		for (auto &layer : stack_) {
+			result = layer.screen->key(key);
+		}
+	} else if (!stack_.empty()) {
+		result = stack_.back().screen->key(key);
 	}
+	return result;
 }
 
 bool ScreenManager::axis(const AxisInput &axis) {
 	std::lock_guard<std::recursive_mutex> guard(inputLock_);
-	if (!stack_.empty()) {
-		return stack_.back().screen->axis(axis);
-	} else {
-		return false;
+	bool result = false;
+	// Send center axis to every screen layer.
+	if (axis.value == 0) {
+		for (auto &layer : stack_) {
+			result = layer.screen->axis(axis);
+		}
+	} else if (!stack_.empty()) {
+		result = stack_.back().screen->axis(axis);
 	}
+	return result;
 }
 
 void ScreenManager::deviceLost() {
@@ -158,6 +175,13 @@ void ScreenManager::render() {
 void ScreenManager::sendMessage(const char *msg, const char *value) {
 	if (!strcmp(msg, "recreateviews"))
 		RecreateAllViews();
+	if (!strcmp(msg, "lost_focus")) {
+		TouchInput input;
+		input.flags = TOUCH_RELEASE_ALL;
+		input.timestamp = time_now_d();
+		input.id = 0;
+		touch(input);
+	}
 	if (!stack_.empty())
 		stack_.back().screen->sendMessage(msg, value);
 }
@@ -188,7 +212,15 @@ void ScreenManager::push(Screen *screen, int layerFlags) {
 	if (screen->isTransparent()) {
 		layerFlags |= LAYER_TRANSPARENT;
 	}
-	UI::SetFocusedView(0);
+
+	// Release touches and unfocus.
+	UI::SetFocusedView(nullptr);
+	TouchInput input;
+	input.flags = TOUCH_RELEASE_ALL;
+	input.timestamp = time_now_d();
+	input.id = 0;
+	touch(input);
+
 	Layer layer = {screen, layerFlags};
 	stack_.push_back(layer);
 }
