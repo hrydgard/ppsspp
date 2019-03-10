@@ -162,6 +162,8 @@ enum class TempFBO {
 	BLIT,
 	// For copies of framebuffers (e.g. shader blending.)
 	COPY,
+	// Used to copy stencil data, means we need a stencil backing.
+	STENCIL,
 };
 
 inline Draw::DataFormat GEFormatToThin3D(int geFormat) {
