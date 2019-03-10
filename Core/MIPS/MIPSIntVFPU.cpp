@@ -648,14 +648,20 @@ namespace MIPSInt
 		int vs = _VS;
 		VectorSize sz = GetVecSize(op);
 		ReadVector(s, sz, vs);
-		ApplySwizzleS(s, sz);
 
 		// Not sure who would do this, but using abs/neg allows a compare against 3 or -3.
 		u32 tprefixRemove = VFPU_ANY_SWIZZLE();
 		u32 tprefixAdd = VFPU_MAKE_CONSTANTS(VFPUConst::ZERO, VFPUConst::ZERO, VFPUConst::ZERO, VFPUConst::ZERO);
 		ApplyPrefixST(t, VFPURewritePrefix(VFPU_CTRL_TPREFIX, tprefixRemove, tprefixAdd), sz);
 
-		for (int i = 0; i < GetNumVectorElements(sz); i++) {
+		int n = GetNumVectorElements(sz);
+		if (n < 4) {
+			// Compare with a swizzled value out of bounds always produces 0.
+			memcpy(&s[n], &t[n], sizeof(float) * (4 - n));
+		}
+		ApplySwizzleS(s, V_Quad);
+
+		for (int i = 0; i < n; i++) {
 			float diff = s[i] - t[i];
 			// To handle NaNs correctly, we do this with integer hackery
 			u32 val;
