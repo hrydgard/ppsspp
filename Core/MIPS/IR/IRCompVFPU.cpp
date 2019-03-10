@@ -1042,8 +1042,11 @@ namespace MIPSComp {
 
 	void IRFrontend::Comp_Vmmov(MIPSOpcode op) {
 		CONDITIONAL_DISABLE(VFPU_MTX);
+		if (!js.HasNoPrefix()) {
+			DISABLE;
+		}
 
-		// Matrix move (no prefixes)
+		// Matrix move (weird prefixes)
 		// D[N,M] = S[N,M]
 
 		int vs = _VS;
@@ -1099,9 +1102,13 @@ namespace MIPSComp {
 
 	void IRFrontend::Comp_Vmscl(MIPSOpcode op) {
 		CONDITIONAL_DISABLE(VFPU_MTX);
+		if (!js.HasNoPrefix()) {
+			DISABLE;
+		}
 
-		// Matrix scale, matrix by scalar (no prefixes)
+		// Matrix scale, matrix by scalar (weird prefixes)
 		// d[N,M] = s[N,M] * t[0]
+		// Note: behaves just slightly differently than a series of vscls.
 
 		int vs = _VS;
 		int vd = _VD;
@@ -1215,7 +1222,7 @@ namespace MIPSComp {
 			DISABLE;
 		}
 
-		// Matrix multiply (wierd prefixes)
+		// Matrix multiply (weird prefixes)
 		// D[0 .. N, 0 .. M] = S[0 .. N, 0 .. M]' * T[0 .. N, 0 .. M]
 		// Note: Behaves as if it's implemented through a series of vdots.
 		// Important: this is a matrix multiply with a pre-transposed S.

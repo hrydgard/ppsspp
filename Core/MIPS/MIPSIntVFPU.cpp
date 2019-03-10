@@ -414,11 +414,8 @@ namespace MIPSInt
 	}
 
 	// The test really needs some work.
-	void Int_Vmmul(MIPSOpcode op)
-	{
-		float s[16];
-		float t[16];
-		float d[16];
+	void Int_Vmmul(MIPSOpcode op) {
+		float s[16]{}, t[16]{}, d[16];
 
 		int vd = _VD;
 		int vs = _VS;
@@ -429,29 +426,37 @@ namespace MIPSInt
 		ReadMatrix(s, sz, vs);
 		ReadMatrix(t, sz, vt);
 
-		for (int a = 0; a < n; a++)
-		{
-			for (int b = 0; b < n; b++)
-			{
+		for (int a = 0; a < n; a++) {
+			for (int b = 0; b < n; b++) {
 				float sum = 0.0f;
-				for (int c = 0; c < n; c++)
-				{
-					sum += s[b*4 + c] * t[a*4 + c];
+				if (a == n - 1 && b == n - 1) {
+					// S and T prefixes work on the final (or maybe first, in reverse?) dot.
+					ApplySwizzleS(&s[b * 4], V_Quad);
+					ApplySwizzleT(&t[a * 4], V_Quad);
+					for (int c = 0; c < 4; c++) {
+						sum += s[b * 4 + c] * t[a * 4 + c];
+					}
+				} else {
+					for (int c = 0; c < n; c++) {
+						sum += s[b * 4 + c] * t[a * 4 + c];
+					}
 				}
-				d[a*4 + b] = sum;
+				d[a * 4 + b] = sum;
 			}
 		}
 
+		// The D prefix applies ONLY to the final element, but sat does work.
+		u32 lastmask = (currentMIPS->vfpuCtrl[VFPU_CTRL_DPREFIX] & (1 << 8)) << (n - 1);
+		u32 lastsat = (currentMIPS->vfpuCtrl[VFPU_CTRL_DPREFIX] & 3) << (n + n - 2);
+		currentMIPS->vfpuCtrl[VFPU_CTRL_DPREFIX] = lastmask | lastsat;
+		ApplyPrefixD(&d[4 * (n - 1)], V_Quad, false);
 		WriteMatrix(d, sz, vd);
 		PC += 4;
 		EatPrefixes();
 	}
 
-	void Int_Vmscl(MIPSOpcode op)
-	{
-		float d[16];
-		float s[16];
-		float t[1];
+	void Int_Vmscl(MIPSOpcode op) {
+		float s[16]{}, t[4]{}, d[16];
 
 		int vd = _VD;
 		int vs = _VS;
@@ -462,27 +467,41 @@ namespace MIPSInt
 		ReadMatrix(s, sz, vs);
 		ReadVector(t, V_Single, vt);
 
-		for (int a = 0; a < n; a++)
-		{
-			for (int b = 0; b < n; b++)
-			{
-				d[a*4 + b] = s[a*4 + b] * t[0];
+		for (int a = 0; a < n - 1; a++) {
+			for (int b = 0; b < n; b++) {
+				d[a * 4 + b] = s[a * 4 + b] * t[0];
 			}
 		}
 
+		// S prefix applies to the last row.
+		ApplySwizzleS(&s[(n - 1) * 4], V_Quad);
+		// T prefix applies only for the last row, and is used per element.
+		// This is like vscl, but instead of zzzz it uses xxxx.
+		u32 tprefixRemove = VFPU_ANY_SWIZZLE();
+		u32 tprefixAdd = VFPU_SWIZZLE(0, 0, 0, 0);
+		ApplyPrefixST(t, VFPURewritePrefix(VFPU_CTRL_TPREFIX, tprefixRemove, tprefixAdd), V_Quad);
+
+		for (int b = 0; b < n; b++) {
+			d[(n - 1) * 4 + b] = s[(n - 1) * 4 + b] * t[b];
+		}
+
+		// The D prefix is applied to the last row.
+		ApplyPrefixD(&d[(n - 1) * 4], V_Quad);
 		WriteMatrix(d, sz, vd);
 		PC += 4;
 		EatPrefixes();
 	}
 
-	void Int_Vmmov(MIPSOpcode op)
-	{
-		float s[16];
+	void Int_Vmmov(MIPSOpcode op) {
+		float s[16]{};
 		int vd = _VD;
 		int vs = _VS;
 		MatrixSize sz = GetMtxSize(op);
 		ReadMatrix(s, sz, vs);
-		// This is just for matrices. No prefixes.
+		// S and D prefixes are applied to the last row.
+		int off = GetMatrixSide(sz) - 1;
+		ApplySwizzleS(&s[off * 4], V_Quad);
+		ApplyPrefixD(&s[off * 4], V_Quad);
 		WriteMatrix(s, sz, vd);
 		PC += 4;
 		EatPrefixes();
