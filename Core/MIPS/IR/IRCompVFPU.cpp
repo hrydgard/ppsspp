@@ -426,11 +426,11 @@ namespace MIPSComp {
 	void IRFrontend::Comp_VMatrixInit(MIPSOpcode op) {
 		CONDITIONAL_DISABLE(VFPU_XFER);
 		MatrixSize sz = GetMtxSize(op);
-		if (sz != M_4x4) {
+		if (sz != M_4x4 || !js.HasNoPrefix()) {
 			DISABLE;
 		}
 
-		// Matrix init (no prefixes)
+		// Matrix init (weird prefixes)
 		// d[N,M] = CONST[N,M]
 
 		// Not really about trying here, it will work if enabled.

@@ -317,24 +317,20 @@ namespace MIPSInt
 		PC += 4;
 	}
 
-	void Int_VMatrixInit(MIPSOpcode op)
-	{
-		static const float idt[16] = 
-		{
+	void Int_VMatrixInit(MIPSOpcode op) {
+		static const float idt[16] = {
 			1,0,0,0,
 			0,1,0,0,
 			0,0,1,0,
 			0,0,0,1,
 		};
-		static const float zero[16] = 
-		{
+		static const float zero[16] = {
 			0,0,0,0,
 			0,0,0,0,
 			0,0,0,0,
 			0,0,0,0,
 		};
-		static const float one[16] = 
-		{
+		static const float one[16] = {
 			1,1,1,1,
 			1,1,1,1,
 			1,1,1,1,
@@ -344,8 +340,7 @@ namespace MIPSInt
 		MatrixSize sz = GetMtxSize(op);
 		const float *m;
 
-		switch ((op >> 16) & 0xF)
-		{
+		switch ((op >> 16) & 0xF) {
 		case 3: m=idt; break; //identity   // vmidt
 		case 6: m=zero; break;             // vmzero
 		case 7: m=one; break;              // vmone
@@ -356,7 +351,37 @@ namespace MIPSInt
 			return;
 		}
 
-		WriteMatrix(m, sz, vd);
+		// The S prefix generates constants, but only for the final (possibly transposed) row.
+		if (currentMIPS->vfpuCtrl[VFPU_CTRL_SPREFIX] & 0xF0F00) {
+			float prefixed[16];
+			memcpy(prefixed, m, sizeof(prefixed));
+
+			int off = GetMatrixSide(sz) - 1;
+			u32 sprefixRemove = VFPU_ANY_SWIZZLE();
+			u32 sprefixAdd;
+			switch ((op >> 16) & 0xF) {
+			case 3:
+			{
+				VFPUConst constX = off == 0 ? VFPUConst::ONE : VFPUConst::ZERO;
+				VFPUConst constY = off == 1 ? VFPUConst::ONE : VFPUConst::ZERO;
+				VFPUConst constZ = off == 2 ? VFPUConst::ONE : VFPUConst::ZERO;
+				VFPUConst constW = off == 3 ? VFPUConst::ONE : VFPUConst::ZERO;
+				sprefixAdd = VFPU_MAKE_CONSTANTS(constX, constY, constZ, constW);
+				break;
+			}
+			case 6:
+				sprefixAdd = VFPU_MAKE_CONSTANTS(VFPUConst::ZERO, VFPUConst::ZERO, VFPUConst::ZERO, VFPUConst::ZERO);
+				break;
+			case 7:
+				sprefixAdd = VFPU_MAKE_CONSTANTS(VFPUConst::ONE, VFPUConst::ONE, VFPUConst::ONE, VFPUConst::ONE);
+				break;
+			}
+			ApplyPrefixST(&prefixed[off * 4], VFPURewritePrefix(VFPU_CTRL_SPREFIX, sprefixRemove, sprefixAdd), V_Quad);
+			WriteMatrix(prefixed, sz, vd);
+		} else {
+			// Write mask applies to the final (maybe transposed) row.  Sat causes hang.
+			WriteMatrix(m, sz, vd);
+		}
 		PC += 4;
 		EatPrefixes();
 	}
