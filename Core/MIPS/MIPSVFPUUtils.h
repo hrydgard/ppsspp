@@ -114,6 +114,7 @@ enum VectorSize {
 };
 
 enum MatrixSize {
+	M_1x1 = 1,
 	M_2x2 = 2,
 	M_3x3 = 3,
 	M_4x4 = 4,
