@@ -35,6 +35,7 @@ inline int Xpose(int v) {
 
 // Some games depend on exact values, but sinf() and cosf() aren't always precise.
 // Stepping down to [0, 2pi) helps, but we also check common exact-result values.
+// TODO: cos(2) and sin(1) should be -0.0, but doing that gives wrong results (possibly from floorf.)
 
 inline float vfpu_sin(float angle) {
 	angle -= floorf(angle * 0.25f) * 4.f;
