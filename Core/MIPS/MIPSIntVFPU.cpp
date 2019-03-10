@@ -1338,23 +1338,45 @@ namespace MIPSInt
 
 	// Generates one line of a rotation matrix around one of the three axes
 	void Int_Vrot(MIPSOpcode op) {
-		// Note: prefixes behave strangely for this.
+		float d[4]{};
 		int vd = _VD;
 		int vs = _VS;
 		int imm = (op >> 16) & 0x1f;
 		VectorSize sz = GetVecSize(op);
-		bool negSin = (imm & 0x10) ? true : false;
+		bool negSin = (imm & 0x10) != 0;
+		int sineLane = (imm >> 2) & 3;
+		int cosineLane = imm & 3;
+
 		float sine, cosine;
-		vfpu_sincos(V(vs), sine, cosine);
-		if (negSin)
-			sine = -sine;
-		float d[4] = {0};
-		if (((imm >> 2) & 3) == (imm & 3)) {
+		if (currentMIPS->vfpuCtrl[VFPU_CTRL_SPREFIX] == 0x000E4) {
+			vfpu_sincos(V(vs), sine, cosine);
+			if (negSin)
+				sine = -sine;
+		} else {
+			// Swizzle on S is a bit odd here, but generally only applies to sine.
+			float s[4]{};
+			ReadVector(s, V_Single, vs);
+			u32 sprefixRemove = VFPU_NEGATE(1, 0, 0, 0);
+			u32 sprefixAdd = VFPU_NEGATE(negSin, 0, 0, 0);
+			// TODO: Minor, but negate shouldn't apply to invalid here.  Maybe always?
+			ApplyPrefixST(s, VFPURewritePrefix(VFPU_CTRL_SPREFIX, sprefixRemove, sprefixAdd), V_Single);
+
+			// Cosine ignores all prefixes, so take the original.
+			cosine = vfpu_cos(V(vs));
+			sine = vfpu_sin(s[0]);
+		}
+
+		if (sineLane == cosineLane) {
 			for (int i = 0; i < 4; i++)
 				d[i] = sine;
+		} else {
+			d[sineLane] = sine;
 		}
-		d[(imm >> 2) & 3] = sine;
-		d[imm & 3] = cosine;
+		d[cosineLane] = cosine;
+
+		// D prefix works, just not for x.
+		currentMIPS->vfpuCtrl[VFPU_CTRL_DPREFIX] &= 0xFFEFC;
+		ApplyPrefixD(d, sz);
 		WriteVector(d, sz, vd);
 		PC += 4;
 		EatPrefixes();
