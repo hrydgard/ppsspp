@@ -57,15 +57,15 @@ void GetMatrixRegs(u8 regs[16], MatrixSize N, int matrixReg) {
 
 	int row = 0;
 	int side = 0;
+	int transpose = (matrixReg >> 5) & 1;
 
 	switch (N) {
-	case M_2x2: row = (matrixReg>>5)&2; side = 2; break;
-	case M_3x3: row = (matrixReg>>6)&1; side = 3; break;
-	case M_4x4: row = (matrixReg>>5)&2; side = 4; break;
+	case M_1x1: transpose = 0; row = (matrixReg >> 5) & 3; side = 1; break;
+	case M_2x2: row = (matrixReg >> 5) & 2; side = 2; break;
+	case M_3x3: row = (matrixReg >> 6) & 1; side = 3; break;
+	case M_4x4: row = (matrixReg >> 5) & 2; side = 4; break;
 	default: _assert_msg_(JIT, 0, "%s: Bad matrix size", __FUNCTION__);
 	}
-
-	int transpose = (matrixReg>>5) & 1;
 
 	for (int i = 0; i < side; i++) {
 		for (int j = 0; j < side; j++) {
@@ -220,24 +220,24 @@ void ReadMatrix(float *rd, MatrixSize size, int reg) {
 
 	int row = 0;
 	int side = 0;
+	int transpose = (reg >> 5) & 1;
 
 	switch (size) {
-	case M_2x2: row = (reg>>5)&2; side = 2; break;
-	case M_3x3: row = (reg>>6)&1; side = 3; break;
-	case M_4x4: row = (reg>>5)&2; side = 4; break;
+	case M_1x1: transpose = 0; row = (reg >> 5) & 3; side = 1; break;
+	case M_2x2: row = (reg >> 5) & 2; side = 2; break;
+	case M_3x3: row = (reg >> 6) & 1; side = 3; break;
+	case M_4x4: row = (reg >> 5) & 2; side = 4; break;
 	default: _assert_msg_(JIT, 0, "%s: Bad matrix size", __FUNCTION__);
 	}
 
-	int transpose = (reg>>5) & 1;
-
 	for (int i = 0; i < side; i++) {
 		for (int j = 0; j < side; j++) {
-      int index = mtx * 4;
+			int index = mtx * 4;
 			if (transpose)
-        index += ((row+i)&3) + ((col+j)&3)*32;
-      else
-        index += ((col+j)&3) + ((row+i)&3)*32;
-      rd[j*4 + i] = V(index);
+				index += ((row+i)&3) + ((col+j)&3)*32;
+			else
+				index += ((col+j)&3) + ((row+i)&3)*32;
+			rd[j*4 + i] = V(index);
 		}
 	}
 }
@@ -248,15 +248,16 @@ void WriteMatrix(const float *rd, MatrixSize size, int reg) {
 
 	int row = 0;
 	int side = 0;
+	int transpose = (reg >> 5) & 1;
 
 	switch (size) {
-	case M_2x2: row = (reg>>5)&2; side = 2; break;
-	case M_3x3: row = (reg>>6)&1; side = 3; break;
-	case M_4x4: row = (reg>>5)&2; side = 4; break;
+	case M_1x1: transpose = 0; row = (reg >> 5) & 3; side = 1; break;
+	case M_2x2: row = (reg >> 5) & 2; side = 2; break;
+	case M_3x3: row = (reg >> 6) & 1; side = 3; break;
+	case M_4x4: row = (reg >> 5) & 2; side = 4; break;
 	default: _assert_msg_(JIT, 0, "%s: Bad matrix size", __FUNCTION__);
 	}
 
-	int transpose = (reg>>5)&1;
 	if (currentMIPS->VfpuWriteMask() != 0) {
 		ERROR_LOG_REPORT(CPU, "Write mask used with vfpu matrix instruction.");
 	}
@@ -352,6 +353,7 @@ VectorSize GetVecSize(MIPSOpcode op) {
 
 VectorSize GetVectorSizeSafe(MatrixSize sz) {
 	switch (sz) {
+	case M_1x1: return V_Single;
 	case M_2x2: return V_Pair;
 	case M_3x3: return V_Triple;
 	case M_4x4: return V_Quad;
@@ -367,7 +369,7 @@ VectorSize GetVectorSize(MatrixSize sz) {
 
 MatrixSize GetMatrixSizeSafe(VectorSize sz) {
 	switch (sz) {
-	case V_Single: return M_Invalid;
+	case V_Single: return M_1x1;
 	case V_Pair: return M_2x2;
 	case V_Triple: return M_3x3;
 	case V_Quad: return M_4x4;
@@ -386,7 +388,7 @@ MatrixSize GetMtxSizeSafe(MIPSOpcode op) {
 	int b = (op >> 15) & 1;
 	a += (b << 1);
 	switch (a) {
-	case 0: return M_4x4;  // This happens in disassembly of junk
+	case 0: return M_1x1;  // This happens in disassembly of junk, but has predictable behavior.
 	case 1: return M_2x2;
 	case 2: return M_3x3;
 	case 3: return M_4x4;
@@ -402,6 +404,7 @@ MatrixSize GetMtxSize(MIPSOpcode op) {
 
 VectorSize MatrixVectorSizeSafe(MatrixSize sz) {
 	switch (sz) {
+	case M_1x1: return V_Single;
 	case M_2x2: return V_Pair;
 	case M_3x3: return V_Triple;
 	case M_4x4: return V_Quad;
@@ -417,6 +420,7 @@ VectorSize MatrixVectorSize(MatrixSize sz) {
 
 int GetMatrixSideSafe(MatrixSize sz) {
 	switch (sz) {
+	case M_1x1: return 1;
 	case M_2x2: return 2;
 	case M_3x3: return 3;
 	case M_4x4: return 4;
@@ -425,7 +429,7 @@ int GetMatrixSideSafe(MatrixSize sz) {
 }
 
 int GetMatrixSide(MatrixSize sz) {
-	int res = MatrixVectorSizeSafe(sz);
+	int res = GetMatrixSideSafe(sz);
 	_assert_msg_(JIT, res != 0, "%s: Bad matrix size", __FUNCTION__);
 	return res;
 }
