@@ -1006,13 +1006,13 @@ namespace MIPSComp {
 		CONDITIONAL_DISABLE(VFPU_XFER);
 
 		// Vector Move from vector control reg (no prefixes)
-		// S[0] = VFPU_CTRL[i]
+		// D[0] = VFPU_CTRL[i]
 
-		int vs = _VS;
-		int imm = op & 0xFF;
+		int vd = _VD;
+		int imm = (op >> 8) & 0xFF;
 		if (imm >= 128 && imm < 128 + VFPU_CTRL_MAX) {
 			ir.Write(IROp::VfpuCtrlToReg, IRTEMP_0, imm - 128);
-			ir.Write(IROp::FMovFromGPR, vfpuBase + voffset[vs], IRTEMP_0);
+			ir.Write(IROp::FMovFromGPR, vfpuBase + voffset[vd], IRTEMP_0);
 		} else {
 			INVALIDOP;
 		}

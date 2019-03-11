@@ -1333,16 +1333,16 @@ namespace MIPSComp
 		NEON_IF_AVAILABLE(CompNEON_Vmtvc);
 		CONDITIONAL_DISABLE(VFPU_XFER);
 
-		int vs = _VS;
-		int imm = op & 0xFF;
+		int vd = _VD;
+		int imm = (op >> 8) & 0xFF;
 		if (imm >= 128 && imm < 128 + VFPU_CTRL_MAX) {
-			fpr.MapRegV(vs);
+			fpr.MapRegV(vd);
 			if (imm - 128 == VFPU_CTRL_CC) {
 				gpr.MapReg(MIPS_REG_VFPUCC, 0);
-				VMOV(fpr.V(vs), gpr.R(MIPS_REG_VFPUCC));
+				VMOV(fpr.V(vd), gpr.R(MIPS_REG_VFPUCC));
 			} else {
 				ADDI2R(SCRATCHREG1, CTXREG, offsetof(MIPSState, vfpuCtrl[0]) + (imm - 128) * 4, SCRATCHREG2);
-				VLDR(fpr.V(vs), SCRATCHREG1, 0);
+				VLDR(fpr.V(vd), SCRATCHREG1, 0);
 			}
 			fpr.ReleaseSpillLocksAndDiscardTemps();
 		}
