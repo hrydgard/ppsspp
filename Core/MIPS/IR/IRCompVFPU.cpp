@@ -1306,10 +1306,14 @@ namespace MIPSComp {
 
 	void IRFrontend::Comp_Vtfm(MIPSOpcode op) {
 		CONDITIONAL_DISABLE(VFPU_MTX);
+		if (!js.HasNoPrefix()) {
+			DISABLE;
+		}
 
-		// Vertex transform, vector by matrix (no prefixes)
+		// Vertex transform, vector by matrix (weird prefixes)
 		// d[N] = s[N*m .. N*m + n-1] dot t[0 .. n-1]
 		// Homogenous means t[n-1] is treated as 1.
+		// Note: this might be implemented as a series of vdots with special prefixes.
 
 		VectorSize sz = GetVecSize(op);
 		MatrixSize msz = GetMtxSize(op);
@@ -1325,7 +1329,7 @@ namespace MIPSComp {
 		}
 		// Otherwise, n should already be ins + 1.
 		else if (n != ins + 1) {
-			INVALIDOP;
+			DISABLE;
 		}
 
 		u8 sregs[16], dregs[4], tregs[4];
