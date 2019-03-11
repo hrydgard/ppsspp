@@ -173,6 +173,8 @@ namespace MIPSInt
 	{
 		int data = op & 0xFFFFF;
 		int regnum = (op >> 24) & 3;
+		if (regnum == VFPU_CTRL_DPREFIX)
+			data &= 0x00000FFF;
 		currentMIPS->vfpuCtrl[VFPU_CTRL_SPREFIX + regnum] = data;
 		PC += 4;
 	}
