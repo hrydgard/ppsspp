@@ -474,6 +474,8 @@ int main(int argc, char *argv[]) {
 		printf("DEBUG: Vulkan is not available, not using Vulkan.\n");
 	}
 
+	SDL_version compiled;
+	SDL_version linked;
 	int set_xres = -1;
 	int set_yres = -1;
 	int w = 0, h = 0;
@@ -529,6 +531,15 @@ int main(int argc, char *argv[]) {
 			fprintf(stderr, "Unable to initialize SDL: %s\n", SDL_GetError());
 			return 1;
 		}
+	}
+
+	SDL_VERSION(&compiled);
+	SDL_GetVersion(&linked);
+	printf("Info: We compiled against SDL version %d.%d.%d", compiled.major, compiled.minor, compiled.patch);
+	if (compiled.minor != linked.minor || compiled.patch != linked.patch) {
+		printf(", but we are linking against SDL version %d.%d.%d., be aware that this can lead to unexpected behaviors\n", linked.major, linked.minor, linked.patch);
+	} else {
+		printf(" and we are linking against SDL version %d.%d.%d. :)\n", linked.major, linked.minor, linked.patch);
 	}
 
 	// Get the video info before doing anything else, so we don't get skewed resolution results.
@@ -842,6 +853,7 @@ int main(int argc, char *argv[]) {
 					NativeKey(key);
 					break;
 				}
+#if !SDL_VERSION_ATLEAST(2, 0, 10)
 // This behavior doesn't feel right on a macbook with a touchpad.
 #if !PPSSPP_PLATFORM(MAC)
 			case SDL_FINGERMOTION:
@@ -851,7 +863,6 @@ int main(int argc, char *argv[]) {
 					touchEvent.motion.type = SDL_MOUSEMOTION;
 					touchEvent.motion.timestamp = event.tfinger.timestamp;
 					touchEvent.motion.windowID = SDL_GetWindowID(window);
-					touchEvent.motion.which = SDL_TOUCH_MOUSEID;
 					touchEvent.motion.state = SDL_GetMouseState(NULL, NULL);
 					touchEvent.motion.x = event.tfinger.x * w;
 					touchEvent.motion.y = event.tfinger.y * h;
@@ -868,7 +879,6 @@ int main(int argc, char *argv[]) {
 					touchEvent.button.type = SDL_MOUSEBUTTONDOWN;
 					touchEvent.button.timestamp = SDL_GetTicks();
 					touchEvent.button.windowID = SDL_GetWindowID(window);
-					touchEvent.button.which = SDL_TOUCH_MOUSEID;
 					touchEvent.button.button = SDL_BUTTON_LEFT;
 					touchEvent.button.state = SDL_PRESSED;
 					touchEvent.button.clicks = 1;
@@ -878,7 +888,6 @@ int main(int argc, char *argv[]) {
 					touchEvent.motion.type = SDL_MOUSEMOTION;
 					touchEvent.motion.timestamp = SDL_GetTicks();
 					touchEvent.motion.windowID = SDL_GetWindowID(window);
-					touchEvent.motion.which = SDL_TOUCH_MOUSEID;
 					touchEvent.motion.x = event.tfinger.x * w;
 					touchEvent.motion.y = event.tfinger.y * h;
 					// Any real mouse cursor should also move
@@ -897,7 +906,6 @@ int main(int argc, char *argv[]) {
 					touchEvent.button.type = SDL_MOUSEBUTTONUP;
 					touchEvent.button.timestamp = SDL_GetTicks();
 					touchEvent.button.windowID = SDL_GetWindowID(window);
-					touchEvent.button.which = SDL_TOUCH_MOUSEID;
 					touchEvent.button.button = SDL_BUTTON_LEFT;
 					touchEvent.button.state = SDL_RELEASED;
 					touchEvent.button.clicks = 1;
@@ -906,6 +914,7 @@ int main(int argc, char *argv[]) {
 					SDL_PushEvent(&touchEvent);
 					break;
 				}
+#endif
 #endif
 			case SDL_MOUSEBUTTONDOWN:
 				switch (event.button.button) {
