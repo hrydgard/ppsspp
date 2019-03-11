@@ -1495,7 +1495,7 @@ namespace MIPSInt
 			if (rt != 0) {
 				if (imm < 128) {
 					R(rt) = VI(imm);
-				} else if (imm < 128 + VFPU_CTRL_MAX) { //mtvc
+				} else if (imm < 128 + VFPU_CTRL_MAX) { //mfvc
 					R(rt) = currentMIPS->vfpuCtrl[imm - 128];
 				} else {
 					//ERROR - maybe need to make this value too an "interlock" value?
@@ -1526,10 +1526,10 @@ namespace MIPSInt
 	}
 
 	void Int_Vmfvc(MIPSOpcode op) {
-		int vs = _VS;
-		int imm = op & 0xFF;
+		int vd = _VD;
+		int imm = (op >> 8) & 0xFF;
 		if (imm >= 128 && imm < 128 + VFPU_CTRL_MAX) {
-			VI(vs) = currentMIPS->vfpuCtrl[imm - 128];
+			VI(vd) = currentMIPS->vfpuCtrl[imm - 128];
 		}
 		PC += 4;
 	}
