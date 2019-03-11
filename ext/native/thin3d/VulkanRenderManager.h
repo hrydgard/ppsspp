@@ -118,6 +118,7 @@ public:
 
 	void SetViewport(const VkViewport &vp) {
 		_dbg_assert_(G3D, curRenderStep_ && curRenderStep_->stepType == VKRStepType::RENDER);
+		_dbg_assert_(G3D, (int)vp.width >= 0);
 		VkRenderData data{ VKRRenderCommand::VIEWPORT };
 		data.viewport.vp.x = vp.x;
 		data.viewport.vp.y = vp.y;
@@ -132,6 +133,8 @@ public:
 
 	void SetScissor(const VkRect2D &rc) {
 		_dbg_assert_(G3D, curRenderStep_ && curRenderStep_->stepType == VKRStepType::RENDER);
+		_dbg_assert_(G3D, (int)rc.extent.width >= 0);
+		_dbg_assert_(G3D, (int)rc.extent.height >= 0);
 		VkRenderData data{ VKRRenderCommand::SCISSOR };
 		data.scissor.scissor = rc;
 		curRenderStep_->commands.push_back(data);

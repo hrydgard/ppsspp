@@ -1,4 +1,7 @@
 #include "ppsspp_config.h"
+
+#include <algorithm>
+
 #include "base/display.h"
 #include "ui/ui.h"
 #include "ui/view.h"
@@ -111,8 +114,8 @@ void UIContext::ActivateTopScissor() {
 		bounds = scissorStack_.back();
 		int x = floorf(scale_x * bounds.x);
 		int y = floorf(scale_y * bounds.y);
-		int w = ceilf(scale_x * bounds.w);
-		int h = ceilf(scale_y * bounds.h);
+		int w = std::max(0.0f, ceilf(scale_x * bounds.w));
+		int h = std::max(0.0f, ceilf(scale_y * bounds.h));
 		draw_->SetScissorRect(x, y, w, h);
 	} else {
 		// Avoid rounding errors
