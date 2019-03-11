@@ -1557,61 +1557,58 @@ namespace MIPSInt
 		EatPrefixes();
 	}
 
-	void Int_Vtfm(MIPSOpcode op)
-	{
+	void Int_Vtfm(MIPSOpcode op) {
+		float s[16]{}, t[4]{}, d[4];
 		int vd = _VD;
 		int vs = _VS;
 		int vt = _VT;
 		int ins = (op >> 23) & 7;
 
-		VectorSize sz = GetVecSize(op);
-		MatrixSize msz = GetMtxSize(op);
-		int n = GetNumVectorElements(sz);
+		VectorSize sz = (VectorSize)(ins + 1);
+		MatrixSize msz = (MatrixSize)(ins + 1);
+		int n = GetNumVectorElements(GetVecSize(op));
 
-		bool homogenous = false;
-		if (n == ins)
-		{
-			n++;
-			sz = (VectorSize)((int)(sz) + 1);
-			msz = (MatrixSize)((int)(msz) + 1);
-			homogenous = true;
-		}
-
-		float s[16];
+		int tn = std::min(n, ins + 1);
 		ReadMatrix(s, msz, vs);
-		float t[4];
 		ReadVector(t, sz, vt);
-		float d[4];
 
-		if (homogenous)
-		{
-			for (int i = 0; i < n; i++)
-			{
-				d[i] = 0.0f;
-				for (int k = 0; k < n; k++)
-				{
-					d[i] += (k == n-1) ? s[i*4+k] : (s[i*4+k] * t[k]);
-				}
+		for (int i = 0; i < ins; i++) {
+			d[i] = s[i * 4] * t[0];
+			for (int k = 1; k < tn; k++) {
+				d[i] += s[i * 4 + k] * t[k];
+			}
+			if (ins >= n) {
+				d[i] += s[i * 4 + ins];
 			}
 		}
-		else if (n == ins + 1)
-		{
-			for (int i = 0; i < n; i++)
-			{
-				d[i] = s[i*4] * t[0];
-				for (int k = 1; k < n; k++)
-				{
-					d[i] += s[i*4+k] * t[k];
-				}
-			}
+
+		// S and T prefixes apply for the final row only.
+		// The T prefix is used to apply zero/one constants, but abs still changes it.
+		ApplySwizzleS(&s[ins * 4], V_Quad);
+		VFPUConst constX = VFPUConst::NONE;
+		VFPUConst constY = n < 2 ? VFPUConst::ZERO : VFPUConst::NONE;
+		VFPUConst constZ = n < 3 ? VFPUConst::ZERO : VFPUConst::NONE;
+		VFPUConst constW = n < 4 ? VFPUConst::ZERO : VFPUConst::NONE;
+		if (ins >= n) {
+			constY = ins == 1 ? VFPUConst::ONE : VFPUConst::ZERO;
+			constZ = ins == 2 ? VFPUConst::ONE : VFPUConst::ZERO;
+			constW = ins == 3 ? VFPUConst::ONE : VFPUConst::ZERO;
 		}
-		else
-		{
-			Reporting::ReportMessage("Trying to interpret instruction that can't be interpreted (BADVTFM)");
-			_dbg_assert_msg_(CPU,0,"Trying to interpret instruction that can't be interpreted (BADVTFM)");
-			for (int i = 0; i < n; i++)
-				d[i] = 0.0;
+		u32 tprefixRemove = VFPU_SWIZZLE(0, n < 2 ? 3 : 0, n < 3 ? 3 : 0, n < 4 ? 3 : 0);
+		u32 tprefixAdd = VFPU_MAKE_CONSTANTS(constX, constY, constZ, constW);
+		ApplyPrefixST(t, VFPURewritePrefix(VFPU_CTRL_TPREFIX, tprefixRemove, tprefixAdd), V_Quad);
+
+		// Really this is the operation all rows probably use (with constant wiring.)
+		d[ins] = s[ins * 4] * t[0];
+		for (int k = 1; k < 4; k++) {
+			d[ins] += s[ins * 4 + k] * t[k];
 		}
+
+		// D prefix applies to the last element only.
+		u32 lastmask = (currentMIPS->vfpuCtrl[VFPU_CTRL_DPREFIX] & (1 << 8)) << ins;
+		u32 lastsat = (currentMIPS->vfpuCtrl[VFPU_CTRL_DPREFIX] & 3) << (ins + ins);
+		currentMIPS->vfpuCtrl[VFPU_CTRL_DPREFIX] = lastmask | lastsat;
+		ApplyPrefixD(d, sz);
 		WriteVector(d, sz, vd);
 		PC += 4;
 		EatPrefixes();
