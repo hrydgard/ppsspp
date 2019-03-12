@@ -249,6 +249,9 @@ VkRenderPass VulkanQueueRunner::GetRenderPass(const RPKey &key) {
 	VkSubpassDependency deps[2]{};
 	int numDeps = 0;
 	switch (key.prevColorLayout) {
+	case VK_IMAGE_LAYOUT_UNDEFINED:
+		// No need to specify stage or access.
+		break;
 	case VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL:
 		// Already the right color layout. Unclear that we need to do a lot here..
 		break;
@@ -275,6 +278,9 @@ VkRenderPass VulkanQueueRunner::GetRenderPass(const RPKey &key) {
 	}
 
 	switch (key.prevDepthLayout) {
+	case VK_IMAGE_LAYOUT_UNDEFINED:
+		// No need to specify stage or access.
+		break;
 	case VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL:
 		// Already the right depth layout. Unclear that we need to do a lot here..
 		break;
