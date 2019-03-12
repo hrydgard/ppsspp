@@ -777,8 +777,7 @@ namespace MIPSInt
 		EatPrefixes();
 	}
 
-	void Int_Vh2f(MIPSOpcode op)
-	{
+	void Int_Vh2f(MIPSOpcode op) {
 		u32 s[4];
 		float d[4];
 		int vd = _VD;
@@ -795,15 +794,13 @@ namespace MIPSInt
 			d[1] = ExpandHalf(s[0] >> 16);
 			break;
 		case V_Pair:
+		default:
+			// All other sizes are treated the same.
 			outsize = V_Quad;
 			d[0] = ExpandHalf(s[0] & 0xFFFF);
 			d[1] = ExpandHalf(s[0] >> 16);
 			d[2] = ExpandHalf(s[1] & 0xFFFF);
 			d[3] = ExpandHalf(s[1] >> 16);
-			break;
-		default:
-			_dbg_assert_msg_(CPU, 0, "Trying to interpret Int_Vh2f instruction that can't be interpreted");
-			memset(d, 0, sizeof(d));
 			break;
 		}
 		ApplyPrefixD(d, outsize);
@@ -812,31 +809,29 @@ namespace MIPSInt
 		EatPrefixes();
 	}
 
-	void Int_Vf2h(MIPSOpcode op)
-	{
-		float s[4];
+	void Int_Vf2h(MIPSOpcode op) {
+		float s[4]{};
 		u32 d[4];
 		int vd = _VD;
 		int vs = _VS;
 		VectorSize sz = GetVecSize(op);
 		ReadVector(s, sz, vs);
-		ApplySwizzleS(s, sz);
+		// Swizzle can cause V_Single to properly write both components.
+		// TODO: Minor, but negate shouldn't apply to invalid here.  Maybe always?
+		ApplySwizzleS(s, V_Quad);
 		
 		VectorSize outsize = V_Single;
 		switch (sz) {
+		case V_Single:
 		case V_Pair:
 			outsize = V_Single;
 			d[0] = ShrinkToHalf(s[0]) | ((u32)ShrinkToHalf(s[1]) << 16);
 			break;
+		case V_Triple:
 		case V_Quad:
 			outsize = V_Pair;
 			d[0] = ShrinkToHalf(s[0]) | ((u32)ShrinkToHalf(s[1]) << 16);
 			d[1] = ShrinkToHalf(s[2]) | ((u32)ShrinkToHalf(s[3]) << 16);
-			break;
-		default:
-			_dbg_assert_msg_(CPU, 0, "Trying to interpret Int_Vf2h instruction that can't be interpreted");
-			d[0] = 0;
-			d[1] = 0;
 			break;
 		}
 		ApplyPrefixD(reinterpret_cast<float *>(d), outsize);

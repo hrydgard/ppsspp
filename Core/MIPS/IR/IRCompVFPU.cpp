@@ -930,6 +930,9 @@ namespace MIPSComp {
 
 	void IRFrontend::Comp_Vh2f(MIPSOpcode op) {
 		CONDITIONAL_DISABLE(VFPU_VEC);
+		if (js.HasUnknownPrefix() || !IsPrefixWithinSize(js.prefixS, op)) {
+			DISABLE;
+		}
 
 		// Vector expand half to float
 		// d[N*2] = float(lowerhalf(s[N])), d[N*2+1] = float(upperhalf(s[N]))
