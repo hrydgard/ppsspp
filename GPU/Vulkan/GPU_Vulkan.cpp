@@ -463,7 +463,8 @@ void GPU_Vulkan::InitDeviceObjects() {
 	// Initialize framedata
 	for (int i = 0; i < VulkanContext::MAX_INFLIGHT_FRAMES; i++) {
 		assert(!frameData_[i].push_);
-		frameData_[i].push_ = new VulkanPushBuffer(vulkan_, 64 * 1024);
+		VkBufferUsageFlags usage = VK_BUFFER_USAGE_INDEX_BUFFER_BIT | VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT;
+		frameData_[i].push_ = new VulkanPushBuffer(vulkan_, 64 * 1024, usage);
 	}
 
 	VulkanRenderManager *rm = (VulkanRenderManager *)draw_->GetNativeObject(Draw::NativeObject::RENDER_MANAGER);

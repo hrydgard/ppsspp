@@ -814,7 +814,8 @@ VKContext::VKContext(VulkanContext *vulkan, bool splitSubmit)
 	p.queueFamilyIndex = vulkan->GetGraphicsQueueFamilyIndex();
 
 	for (int i = 0; i < VulkanContext::MAX_INFLIGHT_FRAMES; i++) {
-		frame_[i].pushBuffer = new VulkanPushBuffer(vulkan_, 1024 * 1024);
+		VkBufferUsageFlags usage = VK_BUFFER_USAGE_INDEX_BUFFER_BIT | VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_SRC_BIT;
+		frame_[i].pushBuffer = new VulkanPushBuffer(vulkan_, 1024 * 1024, usage);
 		VkResult res = vkCreateDescriptorPool(device_, &dp, nullptr, &frame_[i].descriptorPool);
 		_assert_(res == VK_SUCCESS);
 	}
