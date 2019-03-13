@@ -29,6 +29,7 @@ What's new in 1.8.0
 * PowerVR Vulkan display corruption fixed (#11744, #11747)
 * Naruto Shippuden 3 hang fixed (#11780)
 * Fixes to various lighting bugs (#11567, #11574, #11577)
+* Fix control issue in Sonic Rivals and Rock Band (#11878, #11798, #11879)
 * Significant performance improvement in Earth Defense Force 2 (#11172)
 * Fix "real clock sync" setting (helps with latency for music games - #11813)
 * More speed in FF4 effects and other generated curves (#11425)
