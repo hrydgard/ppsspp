@@ -1040,8 +1040,8 @@ void EmuScreen::update() {
 			return;
 		}
 		I18NCategory *err = GetI18NCategory("Error");
-		std::string errLoadingFile = err->T("Error loading file", "Could not load game");
-
+		std::string errLoadingFile = gamePath_ + "\n";
+		errLoadingFile.append(err->T("Error loading file", "Could not load game"));
 		errLoadingFile.append(" ");
 		errLoadingFile.append(err->T(errorMessage_.c_str()));
 
