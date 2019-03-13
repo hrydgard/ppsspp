@@ -77,39 +77,16 @@ void CalcCullRange(float minValues[4], float maxValues[4], bool flipViewport, bo
 	auto y = sortPair(reverseViewportY(0.0f), reverseViewportY(4096.0f));
 	auto z = sortPair(reverseViewportZ(0.0f), reverseViewportZ(65535.5f));
 	// Since we have space in w, use it to pass the depth clamp flag.  We also pass NAN for w "discard".
-	// Note: The clampEnable flag here is currently not used by the shader.
 	float clampEnable = gstate.isDepthClampEnabled() ? 1.0f : 0.0f;
 
-	float minVal[4];
-	float maxVal[4];
-
-	minVal[0] = x.first;
-	minVal[1] = y.first;
-	minVal[2] = z.first;
-	minVal[3] = clampEnable;
-	maxVal[0] = x.second;
-	maxVal[1] = y.second;
-	maxVal[2] = z.second;
-	maxVal[3] = NAN;
-
-	auto CopyFour = [](float dst[4], float src[4]) {
-		bool changed = false;
-		for (int i = 0; i < 4; i++) {
-			// NAN-compatible checking
-			if (memcmp(&dst[i], &src[i], 4) != 0) {
-				if (i < 3)
-					changed = true;
-				dst[i] = src[i];
-			}
-		}
-		return changed;
-	};
-	bool changedMin = CopyFour(minValues, minVal);
-	bool changedMax = CopyFour(maxValues, maxVal);
-	if (changedMin || changedMax) {
-		WLOG("ClampMin: %f %f %f %f", minVal[0], minVal[1], minVal[2], minVal[3]);
-		WLOG("ClampMax: %f %f %f %f", maxVal[0], maxVal[1], maxVal[2], maxVal[3]);
-	}
+	minValues[0] = x.first;
+	minValues[1] = y.first;
+	minValues[2] = z.first;
+	minValues[3] = clampEnable;
+	maxValues[0] = x.second;
+	maxValues[1] = y.second;
+	maxValues[2] = z.second;
+	maxValues[3] = NAN;
 }
 
 void BaseUpdateUniforms(UB_VS_FS_Base *ub, uint64_t dirtyUniforms, bool flipViewport) {
