@@ -270,8 +270,6 @@ if(NOT MSVC)
 	add_compile_options(-fno-strict-aliasing)
 	if(${CMAKE_C_COMPILER_ID} STREQUAL "Intel")
 		set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -parallel -fopenmp")
-	else()
-		add_compile_options(-ffast-math)
 	endif()
 
 	if(X86 OR X86_64)
