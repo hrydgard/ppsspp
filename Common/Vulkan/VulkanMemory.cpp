@@ -57,7 +57,7 @@ bool VulkanPushBuffer::AddBuffer() {
 	// Okay, that's the buffer. Now let's allocate some memory for it.
 	VkMemoryAllocateInfo alloc{ VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO };
 	alloc.allocationSize = reqs.size;
-	vulkan_->MemoryTypeFromProperties(0xFFFFFFFF, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, &alloc.memoryTypeIndex);
+	vulkan_->MemoryTypeFromProperties(reqs.memoryTypeBits, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, &alloc.memoryTypeIndex);
 
 	res = vkAllocateMemory(device, &alloc, nullptr, &info.deviceMemory);
 	if (VK_SUCCESS != res) {
