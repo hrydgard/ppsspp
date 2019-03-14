@@ -108,12 +108,11 @@ private:
 	void NextBuffer(size_t minSize);
 	void Defragment(VulkanContext *vulkan);
 
-	VkDevice device_;
+	VulkanContext *vulkan_;
 	std::vector<BufInfo> buffers_;
 	size_t buf_;
 	size_t offset_;
 	size_t size_;
-	uint32_t memoryTypeIndex_;
 	uint8_t *writePtr_;
 };
 
