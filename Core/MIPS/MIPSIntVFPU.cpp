@@ -511,8 +511,11 @@ namespace MIPSInt
 
 	void Int_Vflush(MIPSOpcode op)
 	{
-		// DEBUG_LOG(CPU,"vflush");
+		VERBOSE_LOG(CPU, "vflush");
 		PC += 4;
+		// Anything with 0xFC000000 is a nop, but only 0xFFFF0000 retains prefixes.
+		if ((op & 0xFFFF0000) != 0xFFFF0000)
+			EatPrefixes();
 	}
 
 	void Int_VV2Op(MIPSOpcode op) {
