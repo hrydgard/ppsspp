@@ -2068,64 +2068,61 @@ namespace MIPSInt
 		EatPrefixes();
 	}
 
-	void Int_Vsbn(MIPSOpcode op)
-	{
+	void Int_Vsbn(MIPSOpcode op) {
+		FloatBits d, s, t;
 		int vd = _VD;
 		int vs = _VS;
 		int vt = _VT;
 		VectorSize sz = GetVecSize(op);
 
-		FloatBits d;
-		FloatBits s;
-		u8 exp = (u8)(127 + VI(vt));
-
 		ReadVector(s.f, sz, vs);
-		// TODO: Test swizzle, t?
 		ApplySwizzleS(s.f, sz);
+		ReadVector(t.f, sz, vs);
+		ApplySwizzleT(t.f, sz);
+		// Swizzle does apply to the value read as an integer.
+		u8 exp = (u8)(127 + t.i[0]);
 
-		if (sz != V_Single) {
-			ERROR_LOG_REPORT(CPU, "vsbn not implemented for size %d", GetNumVectorElements(sz));
+		// Simply replace the exponent bits.
+		u32 prev = s.u[0] & 0x7F800000;
+		if (prev != 0 && prev != 0x7F800000) {
+			d.u[0] = (s.u[0] & ~0x7F800000) | (exp << 23);
+		} else {
+			d.u[0] = s.u[0];
 		}
-		for (int i = 0; i < GetNumVectorElements(sz); ++i) {
-			// Simply replace the exponent bits.
-			u32 prev = s.u[i] & 0x7F800000;
-			if (prev != 0 && prev != 0x7F800000) {
-				d.u[i] = (s.u[i] & ~0x7F800000) | (exp << 23);
-			} else {
-				d.u[i] = s.u[i];
-			}
+
+		// If sz is greater than V_Single, the rest are unchanged.
+		for (int i = 1; i < GetNumVectorElements(sz); ++i) {
+			d.u[i] = s.u[i];
 		}
+
 		ApplyPrefixD(d.f, sz);
 		WriteVector(d.f, sz, vd);
 		PC += 4;
 		EatPrefixes();
 	}
 
-	void Int_Vsbz(MIPSOpcode op)
-	{
+	void Int_Vsbz(MIPSOpcode op) {
 		// Vector scale by zero (set exp to 0 to extract mantissa)
+		FloatBits d, s;
 		int vd = _VD;
 		int vs = _VS;
 		VectorSize sz = GetVecSize(op);
 
-		FloatBits d;
-		FloatBits s;
-
 		ReadVector(s.f, sz, vs);
-		// TODO: Test swizzle, t?
 		ApplySwizzleS(s.f, sz);
 
-		if (sz != V_Single) {
-			ERROR_LOG_REPORT(CPU, "vsbz not implemented for size %d", GetNumVectorElements(sz));
+		// NAN and denormals pass through.
+		if (my_isnan(s.f[0]) || (s.u[0] & 0x7F800000) == 0) {
+			d.u[0] = s.u[0];
+		} else {
+			d.u[0] = (127 << 23) | (s.u[0] & 0x007FFFFF);
 		}
-		for (int i = 0; i < GetNumVectorElements(sz); ++i) {
-			// NAN and denormals pass through.
-			if (my_isnan(s.f[i]) || (s.u[i] & 0x7F800000) == 0) {
-				d.u[i] = s.u[i];
-			} else {
-				d.u[i] = (127 << 23) | (s.u[i] & 0x007FFFFF);
-			}
+
+		// If sz is greater than V_Single, the rest are unchanged.
+		for (int i = 1; i < GetNumVectorElements(sz); ++i) {
+			d.u[i] = s.u[i];
 		}
+
 		ApplyPrefixD(d.f, sz);
 		WriteVector(d.f, sz, vd);
 		PC += 4;
