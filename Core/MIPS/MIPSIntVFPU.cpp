@@ -1994,33 +1994,31 @@ namespace MIPSInt
 		EatPrefixes();
 	}
 
-	void Int_Vlgb(MIPSOpcode op)
-	{
+	void Int_Vlgb(MIPSOpcode op) {
 		// Vector log binary (extract exponent)
+		FloatBits d, s;
 		int vd = _VD;
 		int vs = _VS;
 		VectorSize sz = GetVecSize(op);
 
-		FloatBits d;
-		FloatBits s;
-
 		ReadVector(s.f, sz, vs);
-		// TODO: Test swizzle, t?
+		// TODO: Swizzled outside sz stays zero (no -INF.)
 		ApplySwizzleS(s.f, sz);
 
-		if (sz != V_Single) {
-			ERROR_LOG_REPORT(CPU, "vlgb not implemented for size %d", GetNumVectorElements(sz));
+		int exp = (s.u[0] & 0x7F800000) >> 23;
+		if (exp == 0xFF) {
+			d.f[0] = s.f[0];
+		} else if (exp == 0) {
+			d.f[0] = -INFINITY;
+		} else {
+			d.f[0] = (float)(exp - 127);
 		}
-		for (int i = 0; i < GetNumVectorElements(sz); ++i) {
-			int exp = (s.u[i] & 0x7F800000) >> 23;
-			if (exp == 0xFF) {
-				d.f[i] = s.f[i];
-			} else if (exp == 0) {
-				d.f[i] = -INFINITY;
-			} else {
-				d.f[i] = (float)(exp - 127);
-			}
+
+		// If sz is greater than V_Single, the rest are copied unchanged.
+		for (int i = 1; i < GetNumVectorElements(sz); ++i) {
+			d.u[i] = s.u[i];
 		}
+
 		ApplyPrefixD(d.f, sz);
 		WriteVector(d.f, sz, vd);
 		PC += 4;
@@ -2030,38 +2028,37 @@ namespace MIPSInt
 	// There has to be a concise way of expressing this in terms of
 	// bit manipulation on the raw floats.
 	void Int_Vwbn(MIPSOpcode op) {
+		FloatBits d, s;
 		int vd = _VD;
 		int vs = _VS;
 		VectorSize sz = GetVecSize(op);
-
-		FloatBits d;
-		FloatBits s;
 		u8 exp = (u8)((op >> 16) & 0xFF);
 
 		ReadVector(s.f, sz, vs);
-		// TODO: Test swizzle, t?
+		// TODO: Swizzled outside sz stays zero (no exp insertion.)
 		ApplySwizzleS(s.f, sz);
 
-		if (sz != V_Single) {
-			ERROR_LOG_REPORT(CPU, "vwbn not implemented for size %d", GetNumVectorElements(sz));
-		}
-		for (int i = 0; i < GetNumVectorElements(sz); ++i) {
-			u32 sigbit = s.u[i] & 0x80000000;
-			u32 prevExp = (s.u[i] & 0x7F800000) >> 23;
-			u32 mantissa = (s.u[i] & 0x007FFFFF) | 0x00800000;
-			if (prevExp != 0xFF && prevExp != 0) {
-				if (exp > prevExp) {
-					s8 shift = (exp - prevExp) & 0xF;
-					mantissa = mantissa >> shift;
-				} else {
-					s8 shift = (prevExp - exp) & 0xF;
-					mantissa = mantissa << shift;
-				}
-				d.u[i] = sigbit | (mantissa & 0x007FFFFF) | (exp << 23);
+		u32 sigbit = s.u[0] & 0x80000000;
+		u32 prevExp = (s.u[0] & 0x7F800000) >> 23;
+		u32 mantissa = (s.u[0] & 0x007FFFFF) | 0x00800000;
+		if (prevExp != 0xFF && prevExp != 0) {
+			if (exp > prevExp) {
+				s8 shift = (exp - prevExp) & 0xF;
+				mantissa = mantissa >> shift;
 			} else {
-				d.u[i] = s.u[i] | (exp << 23);
+				s8 shift = (prevExp - exp) & 0xF;
+				mantissa = mantissa << shift;
 			}
+			d.u[0] = sigbit | (mantissa & 0x007FFFFF) | (exp << 23);
+		} else {
+			d.u[0] = s.u[0] | (exp << 23);
 		}
+
+		// If sz is greater than V_Single, the rest are copied unchanged.
+		for (int i = 1; i < GetNumVectorElements(sz); ++i) {
+			d.u[i] = s.u[i];
+		}
+
 		ApplyPrefixD(d.f, sz);
 		WriteVector(d.f, sz, vd);
 		PC += 4;
@@ -2090,7 +2087,7 @@ namespace MIPSInt
 			d.u[0] = s.u[0];
 		}
 
-		// If sz is greater than V_Single, the rest are unchanged.
+		// If sz is greater than V_Single, the rest are copied unchanged.
 		for (int i = 1; i < GetNumVectorElements(sz); ++i) {
 			d.u[i] = s.u[i];
 		}
@@ -2118,7 +2115,7 @@ namespace MIPSInt
 			d.u[0] = (127 << 23) | (s.u[0] & 0x007FFFFF);
 		}
 
-		// If sz is greater than V_Single, the rest are unchanged.
+		// If sz is greater than V_Single, the rest are copied unchanged.
 		for (int i = 1; i < GetNumVectorElements(sz); ++i) {
 			d.u[i] = s.u[i];
 		}
