@@ -1956,38 +1956,69 @@ namespace MIPSInt
 		EatPrefixes();
 	}
 	
-	void Int_CrossQuat(MIPSOpcode op)
-	{
+	void Int_CrossQuat(MIPSOpcode op) {
+		float s[4]{}, t[4]{}, d[4];
 		int vd = _VD;
 		int vs = _VS;
 		int vt = _VT;
 		VectorSize sz = GetVecSize(op);
-		float s[4];
-		float t[4];
-		float d[4];
+		int n = GetNumVectorElements(sz);
 		ReadVector(s, sz, vs);
 		ReadVector(t, sz, vt);
-		switch (sz)
-		{
+
+		u32 tprefixRemove = VFPU_ANY_SWIZZLE() | VFPU_NEGATE(1, 1, 1, 1);
+		u32 tprefixAdd;
+
+		switch (sz) {
 		case V_Triple:  // vcrsp.t
 			d[0] = s[1]*t[2] - s[2]*t[1];
 			d[1] = s[2]*t[0] - s[0]*t[2];
-			d[2] = s[0]*t[1] - s[1]*t[0];
+
+			// T prefix forces siwzzle and negate, can be used to have weird constants.
+			tprefixAdd = VFPU_SWIZZLE(1, 0, 3, 2) | VFPU_NEGATE(0, 1, 0, 0);
+			ApplyPrefixST(t, VFPURewritePrefix(VFPU_CTRL_TPREFIX, tprefixRemove, tprefixAdd), V_Quad);
+			ApplySwizzleS(s, V_Quad);
+			d[2] = s[0] * t[0] + s[1] * t[1] + s[2] * t[2] + s[3] * t[3];
 			break;
 
 		case V_Quad:   // vqmul.q
 			d[0] = s[0]*t[3] + s[1]*t[2] - s[2]*t[1] + s[3]*t[0];
 			d[1] = -s[0]*t[2] + s[1]*t[3] + s[2]*t[0] + s[3]*t[1];
 			d[2] = s[0]*t[1] - s[1]*t[0] + s[2]*t[3] + s[3]*t[2];
-			d[3] = -s[0]*t[0] - s[1]*t[1] - s[2]*t[2] + s[3]*t[3];
+
+			// T prefix forces siwzzle and negate, can be used to have weird constants.
+			tprefixAdd = VFPU_SWIZZLE(0, 1, 2, 3) | VFPU_NEGATE(1, 1, 1, 0);
+			ApplyPrefixST(t, VFPURewritePrefix(VFPU_CTRL_TPREFIX, tprefixRemove, tprefixAdd), V_Quad);
+			ApplySwizzleS(s, sz);
+			d[3] = s[0] * t[0] + s[1] * t[1] + s[2] * t[2] + s[3] * t[3];
 			break;
 
-		default:
-			Reporting::ReportMessage("CrossQuat instruction with wrong size");
-			_dbg_assert_msg_(CPU,0,"Trying to interpret instruction that can't be interpreted");
+		case V_Pair:
+			// t swizzles invalid so the multiply is always zero.
 			d[0] = 0;
-			d[1] = 0;
+
+			tprefixAdd = VFPU_SWIZZLE(0, 0, 0, 0) | VFPU_NEGATE(0, 0, 0, 0);
+			ApplyPrefixST(t, VFPURewritePrefix(VFPU_CTRL_TPREFIX, tprefixRemove, tprefixAdd), V_Quad);
+			ApplySwizzleS(s, V_Quad);
+			// It's possible to populate a value by swizzling s[2].
+			d[1] = s[2] * t[2];
 			break;
+
+		case V_Single:
+			// t swizzles invalid so the multiply is always zero.
+			d[0] = 0;
+			break;
+		}
+
+		// D prefix applies to the last element only (mask and sat) for pair and larger.
+		if (sz != V_Single) {
+			u32 lastmask = (currentMIPS->vfpuCtrl[VFPU_CTRL_DPREFIX] & (1 << 8)) << (n - 1);
+			u32 lastsat = (currentMIPS->vfpuCtrl[VFPU_CTRL_DPREFIX] & 3) << (n + n - 2);
+			currentMIPS->vfpuCtrl[VFPU_CTRL_DPREFIX] = lastmask | lastsat;
+			ApplyPrefixD(d, sz);
+		} else {
+			// Single always seems to write out zero.
+			currentMIPS->vfpuCtrl[VFPU_CTRL_DPREFIX] = 0;
 		}
 		WriteVector(d, sz, vd);
 		PC += 4;
