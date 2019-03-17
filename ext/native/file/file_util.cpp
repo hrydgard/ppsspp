@@ -297,6 +297,22 @@ size_t getFilesInDir(const char *directory, std::vector<FileInfo> *files, const 
 	return foundEntries;
 }
 
+int64_t getDirectoryRecursiveSize(const std::string &path, const char *filter, int flags) {
+	std::vector<FileInfo> fileInfo;
+	getFilesInDir(path.c_str(), &fileInfo, filter, flags);
+	int64_t sizeSum = 0;
+	// Note: getFileInDir does not fill in fileSize properly.
+	for (size_t i = 0; i < fileInfo.size(); i++) {
+		FileInfo finfo;
+		getFileInfo(fileInfo[i].fullName.c_str(), &finfo);
+		if (!finfo.isDirectory)
+			sizeSum += finfo.size;
+		else
+			sizeSum += getDirectoryRecursiveSize(finfo.fullName, filter, flags);
+	}
+	return sizeSum;
+}
+
 #ifdef _WIN32
 // Returns a vector with the device names
 std::vector<std::string> getWindowsDrives()

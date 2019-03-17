@@ -110,27 +110,11 @@ bool GameInfo::Delete() {
 	}
 }
 
-static int64_t GetDirectoryRecursiveSize(const std::string &path) {
-	std::vector<FileInfo> fileInfo;
-	getFilesInDir(path.c_str(), &fileInfo);
-	int64_t sizeSum = 0;
-	// Note: getFileInDir does not fill in fileSize properly.
-	for (size_t i = 0; i < fileInfo.size(); i++) {
-		FileInfo finfo;
-		getFileInfo(fileInfo[i].fullName.c_str(), &finfo);
-		if (!finfo.isDirectory)
-			sizeSum += finfo.size;
-		else
-			sizeSum += GetDirectoryRecursiveSize(finfo.fullName);
-	}
-	return sizeSum;
-}
-
 u64 GameInfo::GetGameSizeInBytes() {
 	switch (fileType) {
 	case IdentifiedFileType::PSP_PBP_DIRECTORY:
 	case IdentifiedFileType::PSP_SAVEDATA_DIRECTORY:
-		return GetDirectoryRecursiveSize(ResolvePBPDirectory(filePath_));
+		return getDirectoryRecursiveSize(ResolvePBPDirectory(filePath_), nullptr, GETFILES_GETHIDDEN);
 
 	default:
 		return GetFileLoader()->FileSize();
