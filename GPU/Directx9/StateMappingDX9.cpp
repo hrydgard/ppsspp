@@ -233,7 +233,7 @@ void DrawEngineDX9::ApplyDrawState(int prim) {
 				dxstate.stencilTest.enable();
 				dxstate.stencilOp.set(D3DSTENCILOP_REPLACE, D3DSTENCILOP_REPLACE, D3DSTENCILOP_REPLACE);
 				dxstate.stencilFunc.set(D3DCMP_ALWAYS, 255, 0xFF);
-				dxstate.stencilMask.set(0xFF);
+				dxstate.stencilMask.set((~gstate.getStencilWriteMask()) & 0xFF);
 			} else {
 				dxstate.stencilTest.disable();
 			}
