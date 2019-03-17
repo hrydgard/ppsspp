@@ -562,7 +562,8 @@ static inline Vec4<int> GetTextureFunctionOutput(const Vec4<int>& prim_color, co
 		const __m128 b = _mm_mul_ps(p, t);
 		if (gstate.isColorDoublingEnabled()) {
 			// We double right here, only for modulate.  Other tex funcs do not color double.
-			out_rgb.ivec = _mm_cvtps_epi32(_mm_mul_ps(b, _mm_set_ps1(2.0f / 255.0f)));
+			const __m128 doubleColor = _mm_setr_ps(2.0f / 255.0f, 2.0f / 255.0f, 2.0f / 255.0f, 1.0f / 255.0f);
+			out_rgb.ivec = _mm_cvtps_epi32(_mm_mul_ps(b, doubleColor));
 		} else {
 			out_rgb.ivec = _mm_cvtps_epi32(_mm_mul_ps(b, _mm_set_ps1(1.0f / 255.0f)));
 		}
