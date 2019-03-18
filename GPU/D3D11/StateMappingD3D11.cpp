@@ -330,7 +330,8 @@ void DrawEngineD3D11::ApplyDrawState(int prim) {
 				// A normal clear will be 2 points, the second point has the color.
 				// We override this value in the pipeline from software transform for clear rectangles.
 				dynState_.stencilRef = 0xFF;
-				keys_.depthStencil.stencilWriteMask = 0xFF;
+				// But we still apply the stencil write mask.
+				keys_.depthStencil.stencilWriteMask = (~gstate.getStencilWriteMask()) & 0xFF;
 			} else {
 				keys_.depthStencil.stencilTestEnable = false;
 				dynState_.useStencil = false;

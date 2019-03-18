@@ -457,7 +457,9 @@ void SoftwareTransform(
 		// If alpha is not allowed to be separate, it must match for both depth/stencil and color.  Vulkan requires this.
 		bool alphaMatchesColor = gstate.isClearModeColorMask() == gstate.isClearModeAlphaMask();
 		bool depthMatchesStencil = gstate.isClearModeAlphaMask() == gstate.isClearModeDepthMask();
-		if (params->allowSeparateAlphaClear || (alphaMatchesColor && depthMatchesStencil)) {
+		bool matchingComponents = params->allowSeparateAlphaClear || (alphaMatchesColor && depthMatchesStencil);
+		bool stencilNotMasked = !gstate.isClearModeAlphaMask() || gstate.getStencilWriteMask() == 0x00;
+		if (matchingComponents && stencilNotMasked) {
 			result->color = transformed[1].color0_32;
 			// Need to rescale from a [0, 1] float.  This is the final transformed value.
 			result->depth = ToScaledDepthFromIntegerScale((int)(transformed[1].z * 65535.0f));

@@ -294,7 +294,8 @@ void DrawEngineVulkan::ConvertStateToVulkanKey(FramebufferManagerVulkan &fbManag
 				// A normal clear will be 2 points, the second point has the color.
 				// We override this value in the pipeline from software transform for clear rectangles.
 				dynState.stencilRef = 0xFF;
-				dynState.stencilWriteMask = 0xFF;
+				// But we still apply the stencil write mask.
+				dynState.stencilWriteMask = (~gstate.getStencilWriteMask()) & 0xFF;
 			} else {
 				key.stencilTestEnable = false;
 				key.stencilCompareOp = VK_COMPARE_OP_ALWAYS;

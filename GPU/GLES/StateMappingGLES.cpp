@@ -277,7 +277,7 @@ void DrawEngineGLES::ApplyDrawState(int prim) {
 				framebufferManager_->SetDepthUpdated();
 			}
 			renderManager->SetStencilFunc(gstate.isClearModeAlphaMask(), GL_ALWAYS, 0xFF, 0xFF);
-			renderManager->SetStencilOp(0xFF, GL_REPLACE, GL_REPLACE, GL_REPLACE);
+			renderManager->SetStencilOp((~gstate.getStencilWriteMask()) & 0xFF, GL_REPLACE, GL_REPLACE, GL_REPLACE);
 			renderManager->SetDepth(true, gstate.isClearModeDepthMask() ? true : false, GL_ALWAYS);
 		} else {
 			// Depth Test
