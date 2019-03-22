@@ -88,6 +88,7 @@ bool GameInfo::Delete() {
 	case IdentifiedFileType::ARCHIVE_RAR:
 	case IdentifiedFileType::ARCHIVE_ZIP:
 	case IdentifiedFileType::ARCHIVE_7Z:
+	case IdentifiedFileType::PPSSPP_GE_DUMP:
 		{
 			const std::string &fileToRemove = filePath_;
 			File::Delete(fileToRemove);
