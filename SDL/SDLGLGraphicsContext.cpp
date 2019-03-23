@@ -167,7 +167,7 @@ EGLConfig EGL_FindConfig(int *contextVersion) {
 	return best;
 }
 
-int8_t EGL_Init() {
+int8_t EGL_Init(SDL_Window *window) {
 	int contextVersion = 0;
 	EGLConfig eglConfig = EGL_FindConfig(&contextVersion);
 	if (!eglConfig) {
@@ -316,7 +316,7 @@ int SDLGLGraphicsContext::Init(SDL_Window *&window, int x, int y, int mode, std:
 	SDL_ShowWindow(window);
 
 #ifdef USING_EGL
-	if (EGL_Init() != 0) {
+	if (EGL_Init(window) != 0) {
 		printf("EGL_Init() failed\n");
 		return 1;
 	}
