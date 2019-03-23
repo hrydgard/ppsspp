@@ -1,6 +1,5 @@
 // SDL/EGL implementation of the framework.
 // This is quite messy due to platform-specific implementations and #ifdef's.
-// Note: SDL1.2 implementation is deprecated and will soon be replaced by SDL2.0.
 // If your platform is not supported, it is suggested to use Qt instead.
 
 #include <unistd.h>
@@ -351,9 +350,9 @@ int main(int argc, char *argv[]) {
 	SDL_SetHint(SDL_HINT_VIDEO_MINIMIZE_ON_FOCUS_LOSS, "0");
 
 	if (VulkanMayBeAvailable()) {
-		printf("Vulkan might be available.\n");
+		printf("DEBUG: Vulkan might be available.\n");
 	} else {
-		printf("Vulkan is not available.\n");
+		printf("DEBUG: Vulkan is not available, not using Vulkan.\n");
 	}
 
 	int set_xres = -1;
