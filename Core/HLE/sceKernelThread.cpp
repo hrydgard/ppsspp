@@ -1943,7 +1943,7 @@ SceUID __KernelCreateThreadInternal(const char *threadName, SceUID moduleID, u32
 	return id;
 }
 
-int __KernelCreateThread(const char *threadName, SceUID moduleID, u32 entry, u32 prio, int stacksize, u32 attr, u32 optionAddr) {
+int __KernelCreateThread(const char *threadName, SceUID moduleID, u32 entry, u32 prio, int stacksize, u32 attr, u32 optionAddr, bool allowKernel) {
 	if (threadName == nullptr)
 		return hleReportError(SCEKERNEL, SCE_KERNEL_ERROR_ERROR, "NULL thread name");
 
@@ -1960,7 +1960,7 @@ int __KernelCreateThread(const char *threadName, SceUID moduleID, u32 entry, u32
 		if (entry != 0)
 			return hleReportError(SCEKERNEL, SCE_KERNEL_ERROR_ILLEGAL_ADDR, "invalid thread entry %08x", entry);
 	}
-	if ((attr & ~PSP_THREAD_ATTR_USER_MASK) != 0)
+	if ((attr & ~PSP_THREAD_ATTR_USER_MASK) != 0 && !allowKernel)
 		return hleReportWarning(SCEKERNEL, SCE_KERNEL_ERROR_ILLEGAL_ATTR, "illegal thread attributes %08x", attr);
 
 	if ((attr & ~PSP_THREAD_ATTR_SUPPORTED) != 0)
@@ -1996,7 +1996,9 @@ int __KernelCreateThread(const char *threadName, SceUID moduleID, u32 entry, u32
 }
 
 int sceKernelCreateThread(const char *threadName, u32 entry, u32 prio, int stacksize, u32 attr, u32 optionAddr) {
-	return __KernelCreateThread(threadName, __KernelGetCurThreadModuleId(), entry, prio, stacksize, attr, optionAddr);
+	Thread *cur = __GetCurrentThread();
+	bool allowKernel = cur ? (cur->nt.attr & PSP_THREAD_ATTR_KERNEL) != 0 : false;
+	return __KernelCreateThread(threadName, __KernelGetCurThreadModuleId(), entry, prio, stacksize, attr, optionAddr, allowKernel);
 }
 
 int __KernelStartThread(SceUID threadToStartID, int argSize, u32 argBlockPtr, bool forceArgs) {
