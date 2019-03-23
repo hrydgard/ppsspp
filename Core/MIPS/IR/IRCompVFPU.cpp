@@ -1174,9 +1174,14 @@ namespace MIPSComp {
 	// Many more instructions to interpret.
 	void IRFrontend::Comp_Vmmul(MIPSOpcode op) {
 		CONDITIONAL_DISABLE(VFPU_MTX);
+		if (!js.HasNoPrefix()) {
+			DISABLE;
+		}
 
-		// Matrix multiply (no prefixes)
-		// D[0 .. N,0 .. M] = S[0 .. N, 0 .. M] * T[0 .. N,0 .. M]
+		// Matrix multiply (wierd prefixes)
+		// D[0 .. N, 0 .. M] = S[0 .. N, 0 .. M]' * T[0 .. N, 0 .. M]
+		// Note: Behaves as if it's implemented through a series of vdots.
+		// Important: this is a matrix multiply with a pre-transposed S.
 
 		MatrixSize sz = GetMtxSize(op);
 		int n = GetMatrixSide(sz);
@@ -1229,7 +1234,7 @@ namespace MIPSComp {
 				// TODO: Skip this and resort to method one and transpose the output?
 				for (int j = 0; j < 4; j++) {
 					for (int i = 0; i < 4; i++) {
-						ir.Write(IROp::Vec4Dot, s0 + i, sregs[i], tregs[j * 4]);
+						ir.Write(IROp::Vec4Dot, s0 + i, sregs[i * 4], tregs[j * 4]);
 					}
 					ir.Write(IROp::Vec4Mov, dregs[j * 4], s0);
 				}
