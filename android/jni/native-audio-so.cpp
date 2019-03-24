@@ -23,10 +23,6 @@ AudioContext::AudioContext(AndroidAudioCallback cb, int _FramesPerBuffer, int _S
 		framesPerBuffer = 4096;
 
 	sampleRate = _SampleRate;
-	if (sampleRate != 44100 && sampleRate != 48000) {
-		ELOG("Invalid sample rate %i - choosing 44100", sampleRate);
-		sampleRate = 44100;
-	}
 }
 
 // This callback handler is called every time a buffer finishes playing.
@@ -84,10 +80,8 @@ bool OpenSLContext::Init() {
 	result = (*outputMixObject)->Realize(outputMixObject, SL_BOOLEAN_FALSE);
 	assert(SL_RESULT_SUCCESS == result);
 
-	SLuint32 sr = SL_SAMPLINGRATE_44_1;
-	if (sampleRate == 48000) {
-		sr = SL_SAMPLINGRATE_48;
-	} // Don't allow any other sample rates.
+	// The constants, such as SL_SAMPLINGRATE_44_1, are just 44100000.
+	SLuint32 sr = (SLuint32)sampleRate * 1000;
 
 	SLDataLocator_AndroidSimpleBufferQueue loc_bufq = {SL_DATALOCATOR_ANDROIDSIMPLEBUFFERQUEUE, 2};
 	SLDataFormat_PCM format_pcm = {
