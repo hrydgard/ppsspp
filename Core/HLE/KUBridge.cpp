@@ -38,7 +38,7 @@ static int kuKernelGetModel() {
 
 const HLEFunction KUBridge[] =
 {
-	{ 0x4C25EA72, &WrapI_CUU<kuKernelLoadModule>, "kuKernelLoadModule", 'i', "cuu" },
+	{ 0x4C25EA72, &WrapI_CUU<kuKernelLoadModule>, "kuKernelLoadModule", 'i', "sxx" },
 	{ 0x24331850, &WrapI_V<kuKernelGetModel>, "kuKernelGetModel", 'i', "" },
 };
 
