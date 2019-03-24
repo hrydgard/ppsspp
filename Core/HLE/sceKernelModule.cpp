@@ -1934,7 +1934,8 @@ static void sceKernelStartModule(u32 moduleId, u32 argsize, u32 argAddr, u32 ret
 		if (module->nm.module_start_func != 0 && module->nm.module_start_func != (u32)-1)
 		{
 			entryAddr = module->nm.module_start_func;
-			attribute = module->nm.module_start_thread_attr;
+			if (module->nm.module_start_thread_attr != 0)
+				attribute = module->nm.module_start_thread_attr;
 		}
 		else if ((entryAddr == (u32)-1) || entryAddr == module->memoryBlockAddr - 1)
 		{
@@ -1967,7 +1968,7 @@ static void sceKernelStartModule(u32 moduleId, u32 argsize, u32 argAddr, u32 ret
 				stacksize = module->nm.module_start_thread_stacksize;
 			}
 
-			SceUID threadID = __KernelCreateThread(module->nm.name, moduleId, entryAddr, priority, stacksize, attribute, 0);
+			SceUID threadID = __KernelCreateThread(module->nm.name, moduleId, entryAddr, priority, stacksize, attribute, 0, (module->nm.attribute & 0x1000) != 0);
 			__KernelStartThreadValidate(threadID, argsize, argAddr);
 			__KernelSetThreadRA(threadID, NID_MODULERETURN);
 			__KernelWaitCurThread(WAITTYPE_MODULE, moduleId, 1, 0, false, "started module");
@@ -2049,7 +2050,7 @@ static u32 sceKernelStopModule(u32 moduleId, u32 argSize, u32 argAddr, u32 retur
 
 	if (Memory::IsValidAddress(stopFunc))
 	{
-		SceUID threadID = __KernelCreateThread(module->nm.name, moduleId, stopFunc, priority, stacksize, attr, 0);
+		SceUID threadID = __KernelCreateThread(module->nm.name, moduleId, stopFunc, priority, stacksize, attr, 0, (module->nm.attribute & 0x1000) != 0);
 		__KernelStartThreadValidate(threadID, argSize, argAddr);
 		__KernelSetThreadRA(threadID, NID_MODULERETURN);
 		__KernelWaitCurThread(WAITTYPE_MODULE, moduleId, 1, 0, false, "stopped module");
@@ -2132,7 +2133,7 @@ u32 hleKernelStopUnloadSelfModuleWithOrWithoutStatus(u32 exitCode, u32 argSize, 
 		}
 
 		if (Memory::IsValidAddress(stopFunc)) {
-			SceUID threadID = __KernelCreateThread(module->nm.name, moduleID, stopFunc, priority, stacksize, attr, 0);
+			SceUID threadID = __KernelCreateThread(module->nm.name, moduleID, stopFunc, priority, stacksize, attr, 0, (module->nm.attribute & 0x1000) != 0);
 			__KernelStartThreadValidate(threadID, argSize, argp);
 			__KernelSetThreadRA(threadID, NID_MODULERETURN);
 			__KernelWaitCurThread(WAITTYPE_MODULE, moduleID, 1, 0, false, "unloadstopped module");
