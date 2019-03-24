@@ -979,8 +979,8 @@ void CtrlDisAsmView::onMouseUp(WPARAM wParam, LPARAM lParam, int button)
 					std::string newname;
 					truncate_cpy(name, g_symbolMap->GetLabelString(funcBegin).c_str());
 					if (InputBox_GetString(MainWindow::GetHInstance(), MainWindow::GetHWND(), L"New function name", name, newname)) {
-						g_symbolMap->SetLabelName(newname.c_str(),funcBegin);
-						u32 funcSize = g_symbolMap->GetFunctionSize(curAddress);
+						g_symbolMap->SetLabelName(newname.c_str(), funcBegin);
+						u32 funcSize = g_symbolMap->GetFunctionSize(funcBegin);
 						MIPSAnalyst::RegisterFunction(funcBegin, funcSize, newname.c_str());
 						MIPSAnalyst::UpdateHashMap();
 						MIPSAnalyst::ApplyHashMap();
