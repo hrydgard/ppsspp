@@ -93,7 +93,7 @@ namespace MainWindow {
 	static void EmptySubMenu(HMENU menu) {
 		int c = GetMenuItemCount(menu);
 		for (int i = 0; i < c; ++i) {
-			RemoveMenu(menu, i, MF_BYPOSITION);
+			RemoveMenu(menu, 0, MF_BYPOSITION);
 		}
 	}
 
@@ -146,11 +146,11 @@ namespace MainWindow {
 		const std::wstring enable = ConvertUTF8ToWString(des->T("Enable"));
 		const std::wstring hide = ConvertUTF8ToWString(des->T("Hide from main menu"));
 
-		// Simply remove the old help menu and create a new one.
-		RemoveMenu(menu, ID_SIMPLEUI_MENU, MF_BYPOSITION);
 
-		HMENU simpleUImenu = CreatePopupMenu();
-		InsertMenu(menu, ID_SIMPLEUI_MENU, MF_POPUP | MF_STRING | MF_BYPOSITION, (UINT_PTR)simpleUImenu, simpleUI.c_str());
+		HMENU simpleUImenu = GetSubmenuById(menu, ID_SIMPLEUI_MENU);
+		EmptySubMenu(simpleUImenu);
+
+		//InsertMenu(menu, ID_SIMPLEUI_MENU, MF_POPUP | MF_STRING | MF_BYPOSITION, (UINT_PTR)simpleUImenu, simpleUI.c_str());
 
 		AppendMenu(simpleUImenu, MF_STRING | MF_BYCOMMAND, ID_SIMPLEUI_TOGGLE, enable.c_str());
 		AppendMenu(simpleUImenu, MF_STRING | MF_BYCOMMAND, ID_SIMPLEUI_HIDE, hide.c_str());
