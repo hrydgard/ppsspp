@@ -53,9 +53,17 @@ void VulkanQueueRunner::ResizeReadbackBuffer(VkDeviceSize requiredSize) {
 	VkMemoryAllocateInfo allocInfo{ VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO };
 	allocInfo.allocationSize = reqs.size;
 
-	VkFlags typeReqs = VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT;
-	bool success = vulkan_->MemoryTypeFromProperties(reqs.memoryTypeBits, typeReqs, &allocInfo.memoryTypeIndex);
-	_assert_(success);
+	// For speedy readbacks, we want the CPU cache to be enabled. However on most hardware we then have to
+	// sacrifice coherency, which means manual flushing. But try to find such memory first!
+	VkFlags typeReqs = VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT | VK_MEMORY_PROPERTY_HOST_CACHED_BIT;
+	if (vulkan_->MemoryTypeFromProperties(reqs.memoryTypeBits, typeReqs, &allocInfo.memoryTypeIndex)) {
+		readbackBufferIsCoherent_ = true;
+	} else {
+		typeReqs = VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_CACHED_BIT;
+		bool success = vulkan_->MemoryTypeFromProperties(reqs.memoryTypeBits, typeReqs, &allocInfo.memoryTypeIndex);
+		_assert_(success);
+		readbackBufferIsCoherent_ = false;
+	}
 
 	VkResult res = vkAllocateMemory(device, &allocInfo, nullptr, &readbackMemory_);
 	if (res != VK_SUCCESS) {
@@ -1288,6 +1296,7 @@ void VulkanQueueRunner::PerformReadbackImage(const VKRStep &step, VkCommandBuffe
 		VK_ACCESS_TRANSFER_READ_BIT, VK_ACCESS_SHADER_READ_BIT);
 
 	// NOTE: Can't read the buffer using the CPU here - need to sync first.
+	// Doing that will also act like a heavyweight barrier ensuring that device writes are visible on the host.
 }
 
 void VulkanQueueRunner::CopyReadbackBuffer(int width, int height, Draw::DataFormat srcFormat, Draw::DataFormat destFormat, int pixelStride, uint8_t *pixels) {
@@ -1299,10 +1308,20 @@ void VulkanQueueRunner::CopyReadbackBuffer(int width, int height, Draw::DataForm
 	const size_t srcPixelSize = DataFormatSizeInBytes(srcFormat);
 
 	VkResult res = vkMapMemory(vulkan_->GetDevice(), readbackMemory_, 0, width * height * srcPixelSize, 0, &mappedData);
+	if (!readbackBufferIsCoherent_) {
+		VkMappedMemoryRange range{};
+		range.memory = readbackMemory_;
+		range.offset = 0;
+		range.size = width * height * srcPixelSize;
+		vkInvalidateMappedMemoryRanges(vulkan_->GetDevice(), 1, &range);
+	}
+
 	if (res != VK_SUCCESS) {
 		ELOG("CopyReadbackBuffer: vkMapMemory failed! result=%d", (int)res);
 		return;
 	}
+
+	// TODO: Perform these conversions in a compute shader on the GPU.
 	if (srcFormat == Draw::DataFormat::R8G8B8A8_UNORM) {
 		ConvertFromRGBA8888(pixels, (const uint8_t *)mappedData, pixelStride, width, width, height, destFormat);
 	} else if (srcFormat == Draw::DataFormat::B8G8R8A8_UNORM) {
