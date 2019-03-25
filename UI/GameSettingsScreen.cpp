@@ -375,11 +375,6 @@ void GameSettingsScreen::CreateViews() {
 		});
 		swSkin->SetDisabledPtr(&g_Config.bSoftwareRendering);
 
-		if (g_Config.iGPUBackend == (int)GPUBackend::OPENGL) {
-			CheckBox *shaderDepal = graphicsSettings->Add(new CheckBox(&g_Config.bShaderDepal, gr->T("Shader Depal")));
-			shaderDepal->SetDisabledPtr(&g_Config.bSoftwareRendering);
-		}
-		
 		CheckBox *vtxCache = graphicsSettings->Add(new CheckBox(&g_Config.bVertexCache, gr->T("Vertex Cache")));
 		vtxCache->OnClick.Add([=](EventParams &e) {
 			settingInfo_->Show(gr->T("VertexCache Tip", "Faster, but may cause temporary flicker"), e.v);

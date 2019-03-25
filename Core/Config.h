@@ -139,7 +139,6 @@ public:
 	bool bSoftwareRendering;
 	bool bHardwareTransform; // only used in the GLES backend
 	bool bSoftwareSkinning;  // may speed up some games
-	bool bShaderDepal;
 	bool bVendorBugChecksEnabled;
 
 	int iRenderingMode; // 0 = non-buffered rendering 1 = buffered rendering
