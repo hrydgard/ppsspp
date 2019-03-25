@@ -1501,7 +1501,7 @@ void OtherSettingsScreen::CreateViews() {
 }
 
 void OtherSettingsScreen::onFinish(DialogResult result) {
-	g_Config.Save();
+	g_Config.Save("GameSettingsScreen::onFinish");
 }
 
 void GameSettingsScreen::CallbackRestoreDefaults(bool yes) {
