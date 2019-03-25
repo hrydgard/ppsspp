@@ -145,10 +145,10 @@ bool D3D11Context::Init(HINSTANCE hInst, HWND wnd, std::string *error_message) {
 		std::wstring title = ConvertUTF8ToWString(err->T("D3D11InitializationError", "Direct3D 11 initialization error"));
 		bool yes = IDYES == MessageBox(hWnd_, error.c_str(), title.c_str(), MB_ICONERROR | MB_YESNO);
 		if (yes) {
-			// Change the config to D3D and restart.
+			// Change the config to D3D9 and restart.
 			g_Config.iGPUBackend = (int)GPUBackend::DIRECT3D9;
 			g_Config.sFailedGPUBackends.clear();
-			g_Config.Save();
+			g_Config.Save("save_d3d9_fallback");
 
 			W32Util::ExitAndRestart();
 		}

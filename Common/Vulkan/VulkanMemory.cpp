@@ -23,9 +23,8 @@
 #include "base/timeutil.h"
 #include "math/math_util.h"
 
-VulkanPushBuffer::VulkanPushBuffer(VulkanContext *vulkan, size_t size) : device_(vulkan->GetDevice()), buf_(0), offset_(0), size_(size), writePtr_(nullptr) {
-	vulkan->MemoryTypeFromProperties(0xFFFFFFFF, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, &memoryTypeIndex_);
-
+VulkanPushBuffer::VulkanPushBuffer(VulkanContext *vulkan, size_t size, VkBufferUsageFlags usage)
+		: vulkan_(vulkan), size_(size), usage_(usage) {
 	bool res = AddBuffer();
 	assert(res);
 }
@@ -36,43 +35,42 @@ VulkanPushBuffer::~VulkanPushBuffer() {
 
 bool VulkanPushBuffer::AddBuffer() {
 	BufInfo info;
+	VkDevice device = vulkan_->GetDevice();
 
 	VkBufferCreateInfo b{ VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO };
 	b.size = size_;
 	b.flags = 0;
-	b.usage = VK_BUFFER_USAGE_INDEX_BUFFER_BIT | VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT;
+	b.usage = usage_;
 	b.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
 	b.queueFamilyIndexCount = 0;
 	b.pQueueFamilyIndices = nullptr;
 
-	VkResult res = vkCreateBuffer(device_, &b, nullptr, &info.buffer);
+	VkResult res = vkCreateBuffer(device, &b, nullptr, &info.buffer);
 	if (VK_SUCCESS != res) {
 		_assert_msg_(G3D, false, "vkCreateBuffer failed! result=%d", (int)res);
 		return false;
 	}
 
-	// Make validation happy.
+	// Get the buffer memory requirements. None of this can be cached!
 	VkMemoryRequirements reqs;
-	vkGetBufferMemoryRequirements(device_, info.buffer, &reqs);
-	// TODO: We really should use memoryTypeIndex here..
+	vkGetBufferMemoryRequirements(device, info.buffer, &reqs);
 
 	// Okay, that's the buffer. Now let's allocate some memory for it.
 	VkMemoryAllocateInfo alloc{ VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO };
-	// TODO: Should check here that memoryTypeIndex_ matches reqs.memoryTypeBits.
-	alloc.memoryTypeIndex = memoryTypeIndex_;
 	alloc.allocationSize = reqs.size;
+	vulkan_->MemoryTypeFromProperties(reqs.memoryTypeBits, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, &alloc.memoryTypeIndex);
 
-	res = vkAllocateMemory(device_, &alloc, nullptr, &info.deviceMemory);
+	res = vkAllocateMemory(device, &alloc, nullptr, &info.deviceMemory);
 	if (VK_SUCCESS != res) {
 		_assert_msg_(G3D, false, "vkAllocateMemory failed! size=%d result=%d", (int)reqs.size, (int)res);
-		vkDestroyBuffer(device_, info.buffer, nullptr);
+		vkDestroyBuffer(device, info.buffer, nullptr);
 		return false;
 	}
-	res = vkBindBufferMemory(device_, info.buffer, info.deviceMemory, 0);
+	res = vkBindBufferMemory(device, info.buffer, info.deviceMemory, 0);
 	if (VK_SUCCESS != res) {
 		ELOG("vkBindBufferMemory failed! result=%d", (int)res);
-		vkFreeMemory(device_, info.deviceMemory, nullptr);
-		vkDestroyBuffer(device_, info.buffer, nullptr);
+		vkFreeMemory(device, info.deviceMemory, nullptr);
+		vkDestroyBuffer(device, info.buffer, nullptr);
 		return false;
 	}
 
@@ -137,7 +135,7 @@ size_t VulkanPushBuffer::GetTotalSize() const {
 
 void VulkanPushBuffer::Map() {
 	_dbg_assert_(G3D, !writePtr_);
-	VkResult res = vkMapMemory(device_, buffers_[buf_].deviceMemory, 0, size_, 0, (void **)(&writePtr_));
+	VkResult res = vkMapMemory(vulkan_->GetDevice(), buffers_[buf_].deviceMemory, 0, size_, 0, (void **)(&writePtr_));
 	_dbg_assert_(G3D, writePtr_);
 	assert(VK_SUCCESS == res);
 }
@@ -152,7 +150,7 @@ void VulkanPushBuffer::Unmap() {
 	range.memory = buffers_[buf_].deviceMemory;
 	vkFlushMappedMemoryRanges(device_, 1, &range);
 	*/
-	vkUnmapMemory(device_, buffers_[buf_].deviceMemory);
+	vkUnmapMemory(vulkan_->GetDevice(), buffers_[buf_].deviceMemory);
 	writePtr_ = nullptr;
 }
 

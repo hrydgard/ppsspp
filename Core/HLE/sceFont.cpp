@@ -436,7 +436,9 @@ public:
 		}
 		u32 args[2] = { params_.userDataAddr, (u32)handle_ };
 		// TODO: The return value of this is leaking.
-		__KernelDirectMipsCall(params_.freeFuncAddr, 0, args, 2, false);
+		if (handle_) {  // Avoid calling free-callback on double-free
+			__KernelDirectMipsCall(params_.freeFuncAddr, 0, args, 2, false);
+		}
 		handle_ = 0;
 		fonts_.clear();
 		isfontopen_.clear();

@@ -2,8 +2,8 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     package="org.ppsspp.ppsspp"
     android:installLocation="auto"
-    android:versionCode="17050000"
-    android:versionName="1.7.5.0">
+    android:versionCode="18000000"
+    android:versionName="1.8.0.0">
     <!-- Note that versionCode should be in the format xyzzrrrr. Example: 16030000 -->
     <!-- In this same case, versionName should be 1.6.3.0 -->
 

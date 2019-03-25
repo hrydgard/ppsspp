@@ -173,7 +173,7 @@ void DisplayLayoutScreen::resized() {
 }
 
 void DisplayLayoutScreen::onFinish(DialogResult reason) {
-	g_Config.Save();
+	g_Config.Save("DisplayLayoutScreen::onFinish");
 }
 
 UI::EventReturn DisplayLayoutScreen::OnCenter(UI::EventParams &e) {

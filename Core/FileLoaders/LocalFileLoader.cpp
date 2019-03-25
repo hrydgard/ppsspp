@@ -16,6 +16,7 @@
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
 #include <cstdio>
+
 #include "ppsspp_config.h"
 #include "util/text/utf8.h"
 #include "file/file_util.h"
@@ -30,7 +31,10 @@
 
 LocalFileLoader::LocalFileLoader(const std::string &filename)
 	: filesize_(0), filename_(filename) {
-
+	if (filename.empty()) {
+		ERROR_LOG(FILESYS, "LocalFileLoader can't load empty filenames");
+		return;
+	}
 #ifndef _WIN32
 
 	fd_ = open(filename.c_str(), O_RDONLY | O_CLOEXEC);
@@ -47,7 +51,7 @@ LocalFileLoader::LocalFileLoader(const std::string &filename)
 	lseek(fd_, 0, SEEK_SET);
 #endif
 
-#else // !_WIN32
+#else // _WIN32
 
 	const DWORD access = GENERIC_READ, share = FILE_SHARE_READ, mode = OPEN_EXISTING, flags = FILE_ATTRIBUTE_NORMAL;
 #if PPSSPP_PLATFORM(UWP)
@@ -60,14 +64,15 @@ LocalFileLoader::LocalFileLoader(const std::string &filename)
 	}
 	LARGE_INTEGER end_offset;
 	const LARGE_INTEGER zero = { 0 };
-	if(SetFilePointerEx(handle_, zero, &end_offset, FILE_END) == 0) {
+	if (SetFilePointerEx(handle_, zero, &end_offset, FILE_END) == 0) {
+		// Couldn't seek in the file. Close it and give up? This should never happen.
+		CloseHandle(handle_);
+		handle_ = INVALID_HANDLE_VALUE;
 		return;
 	}
 	filesize_ = end_offset.QuadPart;
 	SetFilePointerEx(handle_, zero, nullptr, FILE_BEGIN);
-
-#endif // !_WIN32
-
+#endif // _WIN32
 }
 
 LocalFileLoader::~LocalFileLoader() {

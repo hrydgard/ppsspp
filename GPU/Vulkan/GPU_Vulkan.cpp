@@ -181,11 +181,17 @@ GPU_Vulkan::~GPU_Vulkan() {
 void GPU_Vulkan::CheckGPUFeatures() {
 	uint32_t features = 0;
 
-	features |= GPU_SUPPORTS_VS_RANGE_CULLING;
+	if (!PSP_CoreParameter().compat.flags().DepthRangeHack) {
+		features |= GPU_SUPPORTS_VS_RANGE_CULLING;
+	}
 
 	switch (vulkan_->GetPhysicalDeviceProperties().properties.vendorID) {
 	case VULKAN_VENDOR_AMD:
 		// Accurate depth is required on AMD (due to reverse-Z driver bug) so we ignore the compat flag to disable it on those. See #9545
+		features |= GPU_SUPPORTS_ACCURATE_DEPTH;
+		break;
+	case VULKAN_VENDOR_QUALCOMM:
+		// Accurate depth is required on Adreno too (seems to also have a reverse-Z driver bug).
 		features |= GPU_SUPPORTS_ACCURATE_DEPTH;
 		break;
 	case VULKAN_VENDOR_ARM:
@@ -457,7 +463,8 @@ void GPU_Vulkan::InitDeviceObjects() {
 	// Initialize framedata
 	for (int i = 0; i < VulkanContext::MAX_INFLIGHT_FRAMES; i++) {
 		assert(!frameData_[i].push_);
-		frameData_[i].push_ = new VulkanPushBuffer(vulkan_, 64 * 1024);
+		VkBufferUsageFlags usage = VK_BUFFER_USAGE_INDEX_BUFFER_BIT | VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT;
+		frameData_[i].push_ = new VulkanPushBuffer(vulkan_, 64 * 1024, usage);
 	}
 
 	VulkanRenderManager *rm = (VulkanRenderManager *)draw_->GetNativeObject(Draw::NativeObject::RENDER_MANAGER);

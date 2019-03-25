@@ -73,6 +73,7 @@ struct CompatFlags {
 	bool YugiohSaveFix;
 	bool ForceUMDDelay;
 	bool ForceMax60FPS;
+	bool JitInvalidationHack;
 };
 
 class IniFile;

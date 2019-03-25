@@ -1,6 +1,5 @@
 // SDL/EGL implementation of the framework.
 // This is quite messy due to platform-specific implementations and #ifdef's.
-// Note: SDL1.2 implementation is deprecated and will soon be replaced by SDL2.0.
 // If your platform is not supported, it is suggested to use Qt instead.
 
 #include <unistd.h>
@@ -115,6 +114,9 @@ void System_SendMessage(const char *command, const char *parameter) {
 		}
 	} else if (!strcmp(command, "finish")) {
 		// Do a clean exit
+		g_QuitRequested = true;
+	} else if (!strcmp(command, "graphics_restart")) {
+		// Not sure how we best do this, but do a clean exit, better than being stuck in a bad state.
 		g_QuitRequested = true;
 	}
 }
@@ -348,9 +350,9 @@ int main(int argc, char *argv[]) {
 	SDL_SetHint(SDL_HINT_VIDEO_MINIMIZE_ON_FOCUS_LOSS, "0");
 
 	if (VulkanMayBeAvailable()) {
-		printf("Vulkan might be available.\n");
+		printf("DEBUG: Vulkan might be available.\n");
 	} else {
-		printf("Vulkan is not available.\n");
+		printf("DEBUG: Vulkan is not available, not using Vulkan.\n");
 	}
 
 	int set_xres = -1;
@@ -618,7 +620,7 @@ int main(int argc, char *argv[]) {
 #if !defined(MOBILE_DEVICE)
 			case SDL_WINDOWEVENT:
 				switch (event.window.event) {
-				case SDL_WINDOWEVENT_RESIZED:
+				case SDL_WINDOWEVENT_SIZE_CHANGED:  // better than RESIZED, more general
 				{
 					Uint32 window_flags = SDL_GetWindowFlags(window);
 					bool fullscreen = (window_flags & SDL_WINDOW_FULLSCREEN);

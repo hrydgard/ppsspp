@@ -27,23 +27,23 @@ class CtrlRegisterList
 	RECT rect;
 
 	int rowHeight;
-	int selection;
-	int marker;
-	int category;
+	int selection = 0;
+	int marker = 0;
+	int category = 0;
 
-	int oldSelection;
+	int oldSelection = 0;
 	
-	bool selectionChanged;
-	bool selecting;
-	bool hasFocus;
-	bool showHex;
-	DebugInterface *cpu;
+	bool selectionChanged = false;
+	bool selecting = false;
+	bool hasFocus = false;
+	bool showHex = false;
+	DebugInterface *cpu = nullptr;
 	static TCHAR szClassName[];
 
-	u32 lastPC;
-	u32 *lastCat0Values;
-	bool *changedCat0Regs;
-	bool ctrlDown;
+	u32 lastPC = 0;
+	u32 *lastCat0Values = nullptr;
+	bool *changedCat0Regs = nullptr;
+	bool ctrlDown = false;
 
 	u32 getSelectedRegValue(char *out, size_t size);
 	void copyRegisterValue();

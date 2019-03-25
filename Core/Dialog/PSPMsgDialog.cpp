@@ -146,7 +146,7 @@ void PSPMsgDialog::DisplayMessage(std::string text, bool hasYesNo, bool hasOK)
 	float WRAP_WIDTH = 300.0f;
 	if (UTF8StringNonASCIICount(text.c_str()) > 3)
 		WRAP_WIDTH = 372.0f;
-	
+
 	float y = 140.0f;
 	float h, sy ,ey;
 	int n;

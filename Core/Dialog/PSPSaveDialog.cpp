@@ -403,7 +403,7 @@ void PSPSaveDialog::DisplaySaveDataInfo1()
 		char saveDetail[1024];
 
 		char am_pm[] = "AM";
-		char hour_time[10] ;
+		char hour_time[32];
 		int hour = param.GetFileInfo(currentSelectedSave).modif_time.tm_hour;
 		int min  = param.GetFileInfo(currentSelectedSave).modif_time.tm_min;
 		switch (g_Config.iTimeFormat) {
@@ -412,17 +412,17 @@ void PSPSaveDialog::DisplaySaveDataInfo1()
 				strcpy(am_pm, "PM");
 				hour -= 12;
 			}
-			snprintf(hour_time,10,"%02d:%02d %s", hour, min, am_pm);
+			snprintf(hour_time, sizeof(hour_time), "%02d:%02d %s", hour, min, am_pm);
 			break;
 		case 2:
-			snprintf(hour_time,10,"%02d:%02d", hour, min); 
+			snprintf(hour_time, sizeof(hour_time), "%02d:%02d", hour, min);
 			break;
 		default:
 			if (hour > 12) {
 				strcpy(am_pm, "PM");
 				hour -= 12;
 			}
-			snprintf(hour_time,10,"%02d:%02d %s", hour, min, am_pm);
+			snprintf(hour_time, sizeof(hour_time), "%02d:%02d %s", hour, min, am_pm);
 		}
 
 		snprintf(title, sizeof(title), "%s", param.GetFileInfo(currentSelectedSave).title);
@@ -485,7 +485,7 @@ void PSPSaveDialog::DisplaySaveDataInfo2(bool showNewData) {
 
 	char date[256];
 	char am_pm[] = "AM";
-	char hour_time[10] ;
+	char hour_time[32];
 	int hour = modif_time.tm_hour;
 	int min  = modif_time.tm_min;
 	switch (g_Config.iTimeFormat) {
@@ -494,17 +494,17 @@ void PSPSaveDialog::DisplaySaveDataInfo2(bool showNewData) {
 			strcpy(am_pm, "PM");
 			hour -= 12;
 		}
-		snprintf(hour_time, 10, "%02d:%02d %s", hour, min, am_pm);
+		snprintf(hour_time, sizeof(hour_time), "%02d:%02d %s", hour, min, am_pm);
 		break;
 	case 2:
-		snprintf(hour_time, 10, "%02d:%02d", hour, min);
+		snprintf(hour_time, sizeof(hour_time), "%02d:%02d", hour, min);
 		break;
 	default:
 		if (hour > 12) {
 			strcpy(am_pm, "PM");
 			hour -= 12;
 		}
-		snprintf(hour_time, 10, "%02d:%02d %s", hour, min, am_pm);
+		snprintf(hour_time, sizeof(hour_time), "%02d:%02d %s", hour, min, am_pm);
 	}
 
 	int day   = modif_time.tm_mday;

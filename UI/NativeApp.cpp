@@ -401,7 +401,7 @@ static void CheckFailedGPUBackends() {
 		writeStringToFile(true, g_Config.sFailedGPUBackends, cache.c_str());
 	} else {
 		// Just save immediately, since we have storage.
-		g_Config.Save();
+		g_Config.Save("got storage permission");
 	}
 }
 
@@ -415,7 +415,7 @@ static void ClearFailedGPUBackends() {
 	if (System_GetPropertyBool(SYSPROP_SUPPORTS_PERMISSIONS)) {
 		File::Delete(GetSysDirectory(DIRECTORY_APP_CACHE) + "/FailedGraphicsBackends.txt");
 	} else {
-		g_Config.Save();
+		g_Config.Save("clearFailedGPUBackends");
 	}
 }
 
@@ -1298,7 +1298,7 @@ void NativeShutdown() {
 	delete host;
 	host = nullptr;
 #endif
-	g_Config.Save();
+	g_Config.Save("NativeShutdown");
 
 	// Avoid shutting this down when restarting core.
 	if (!restarting)

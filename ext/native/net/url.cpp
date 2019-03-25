@@ -83,8 +83,8 @@ std::string UriDecode(const std::string & sSrc)
 		if (*pSrc == '%')
 		{
 			char dec1, dec2;
-			if (-1 != (dec1 = HEX2DEC[*(pSrc + 1)])
-				&& -1 != (dec2 = HEX2DEC[*(pSrc + 2)]))
+			if (N1 != (dec1 = HEX2DEC[*(pSrc + 1)])
+				&& N1 != (dec2 = HEX2DEC[*(pSrc + 2)]))
 			{
 				*pEnd++ = (dec1 << 4) + dec2;
 				pSrc += 3;

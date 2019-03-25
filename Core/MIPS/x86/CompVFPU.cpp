@@ -2026,12 +2026,24 @@ void Jit::Comp_Vocp(MIPSOpcode op) {
 	VectorSize sz = GetVecSize(op);
 	int n = GetNumVectorElements(sz);
 
-	u8 sregs[4], dregs[4];
+	// This is a hack that modifies prefixes.  We eat them later, so just overwrite.
+	// S prefix forces the negate flags.
+	js.prefixS |= 0x000F0000;
+	// T prefix forces constants on and regnum to 1.
+	// That means negate still works, and abs activates a different constant.
+	js.prefixT = (js.prefixT & ~0x000000FF) | 0x00000055 | 0x0000F000;
+
+	u8 sregs[4], tregs[4], dregs[4];
+	// Actually uses the T prefixes (despite being VS.)
 	GetVectorRegsPrefixS(sregs, sz, _VS);
+	if (js.prefixT != 0x0000F055)
+		GetVectorRegsPrefixT(tregs, sz, _VS);
 	GetVectorRegsPrefixD(dregs, sz, _VD);
 
 	// Flush SIMD.
 	fpr.SimpleRegsV(sregs, sz, 0);
+	if (js.prefixT != 0x0000F055)
+		fpr.SimpleRegsV(tregs, sz, 0);
 	fpr.SimpleRegsV(dregs, sz, MAP_NOINIT | MAP_DIRTY);
 
 	X64Reg tempxregs[4];
@@ -2048,11 +2060,17 @@ void Jit::Comp_Vocp(MIPSOpcode op) {
 		}
 	}
 
-	MOV(PTRBITS, R(TEMPREG), ImmPtr(&one));
-	MOVSS(XMM1, MatR(TEMPREG));
+	if (js.prefixT == 0x0000F055) {
+		MOV(PTRBITS, R(TEMPREG), ImmPtr(&one));
+		MOVSS(XMM1, MatR(TEMPREG));
+	}
 	for (int i = 0; i < n; ++i) {
-		MOVSS(XMM0, R(XMM1));
-		SUBSS(XMM0, fpr.V(sregs[i]));
+		if (js.prefixT == 0x0000F055) {
+			MOVSS(XMM0, R(XMM1));
+		} else {
+			MOVSS(XMM0, fpr.V(tregs[i]));
+		}
+		ADDSS(XMM0, fpr.V(sregs[i]));
 		MOVSS(tempxregs[i], R(XMM0));
 	}
 

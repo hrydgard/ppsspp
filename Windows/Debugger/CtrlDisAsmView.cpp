@@ -21,6 +21,7 @@
 #include "Common/CommonWindows.h"
 #include "util/text/utf8.h"
 #include "ext/xxhash.h"
+#include "base/display.h"
 
 #include <CommDlg.h>
 #include <tchar.h>
@@ -154,17 +155,21 @@ CtrlDisAsmView::CtrlDisAsmView(HWND _wnd)
 	wnd=_wnd;
 	SetWindowLongPtr(wnd, GWLP_USERDATA, (LONG_PTR)this);
 	SetWindowLong(wnd, GWL_STYLE, GetWindowLong(wnd,GWL_STYLE) | WS_VSCROLL);
-	SetScrollRange(wnd, SB_VERT, -1,1,TRUE);
+	SetScrollRange(wnd, SB_VERT, -1, 1, TRUE);
 
-	charWidth = g_Config.iFontWidth;
-	rowHeight = g_Config.iFontHeight+2;
+	const float fontScale = 1.0f / g_dpi_scale_real_y;
+	charWidth = g_Config.iFontWidth * fontScale;
+	rowHeight = (g_Config.iFontHeight + 2) * fontScale;
+	int scaledFontHeight = g_Config.iFontHeight * fontScale;
+	font = CreateFont(scaledFontHeight, charWidth, 0, 0,
+		FW_DONTCARE, FALSE, FALSE, FALSE, DEFAULT_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS, DEFAULT_QUALITY, DEFAULT_PITCH,
+		L"Lucida Console");
+	boldfont = CreateFont(scaledFontHeight, charWidth, 0, 0,
+		FW_DEMIBOLD, FALSE, FALSE, FALSE, DEFAULT_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS, DEFAULT_QUALITY, DEFAULT_PITCH,
+		L"Lucida Console");
 
-	font = CreateFont(rowHeight-2,charWidth,0,0,FW_DONTCARE,FALSE,FALSE,FALSE,DEFAULT_CHARSET,OUT_DEFAULT_PRECIS,CLIP_DEFAULT_PRECIS,DEFAULT_QUALITY,DEFAULT_PITCH,
-		L"Lucida Console");
-	boldfont = CreateFont(rowHeight-2,charWidth,0,0,FW_DEMIBOLD,FALSE,FALSE,FALSE,DEFAULT_CHARSET,OUT_DEFAULT_PRECIS,CLIP_DEFAULT_PRECIS,DEFAULT_QUALITY,DEFAULT_PITCH,
-		L"Lucida Console");
-	curAddress=0;
-	showHex=false;
+	curAddress = 0;
+	showHex = false;
 	hasFocus = false;
 	dontRedraw = false;
 	keyTaken = false;
@@ -974,8 +979,8 @@ void CtrlDisAsmView::onMouseUp(WPARAM wParam, LPARAM lParam, int button)
 					std::string newname;
 					truncate_cpy(name, g_symbolMap->GetLabelString(funcBegin).c_str());
 					if (InputBox_GetString(MainWindow::GetHInstance(), MainWindow::GetHWND(), L"New function name", name, newname)) {
-						g_symbolMap->SetLabelName(newname.c_str(),funcBegin);
-						u32 funcSize = g_symbolMap->GetFunctionSize(curAddress);
+						g_symbolMap->SetLabelName(newname.c_str(), funcBegin);
+						u32 funcSize = g_symbolMap->GetFunctionSize(funcBegin);
 						MIPSAnalyst::RegisterFunction(funcBegin, funcSize, newname.c_str());
 						MIPSAnalyst::UpdateHashMap();
 						MIPSAnalyst::ApplyHashMap();

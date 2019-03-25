@@ -1865,7 +1865,8 @@ Draw::Framebuffer *FramebufferManagerCommon::GetTempFBO(TempFBO reason, u16 w, u
 	}
 
 	textureCache_->ForgetLastTexture();
-	Draw::Framebuffer *fbo = draw_->CreateFramebuffer({ w, h, 1, 1, false, depth });
+	bool z_stencil = reason == TempFBO::STENCIL;
+	Draw::Framebuffer *fbo = draw_->CreateFramebuffer({ w, h, 1, 1, z_stencil, depth });
 	if (!fbo)
 		return fbo;
 

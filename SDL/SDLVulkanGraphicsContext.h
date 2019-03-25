@@ -25,16 +25,11 @@ public:
 	}
 
 	void Resize() override {
-		/*
 		draw_->HandleEvent(Draw::Event::LOST_BACKBUFFER, vulkan_->GetBackbufferWidth(), vulkan_->GetBackbufferHeight());
 		vulkan_->DestroyObjects();
-		// TODO: Take from real window dimensions
-		int width = 1024;
-		int height = 768;
-		vulkan_->ReinitSurface(width, height);
+		vulkan_->ReinitSurface();
 		vulkan_->InitObjects();
 		draw_->HandleEvent(Draw::Event::GOT_BACKBUFFER, vulkan_->GetBackbufferWidth(), vulkan_->GetBackbufferHeight());
-		*/
 	}
 
 	void SwapInterval(int interval) override {

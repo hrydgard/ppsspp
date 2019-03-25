@@ -1174,9 +1174,14 @@ namespace MIPSComp {
 	// Many more instructions to interpret.
 	void IRFrontend::Comp_Vmmul(MIPSOpcode op) {
 		CONDITIONAL_DISABLE(VFPU_MTX);
+		if (!js.HasNoPrefix()) {
+			DISABLE;
+		}
 
-		// Matrix multiply (no prefixes)
-		// D[0 .. N,0 .. M] = S[0 .. N, 0 .. M] * T[0 .. N,0 .. M]
+		// Matrix multiply (wierd prefixes)
+		// D[0 .. N, 0 .. M] = S[0 .. N, 0 .. M]' * T[0 .. N, 0 .. M]
+		// Note: Behaves as if it's implemented through a series of vdots.
+		// Important: this is a matrix multiply with a pre-transposed S.
 
 		MatrixSize sz = GetMtxSize(op);
 		int n = GetMatrixSide(sz);
@@ -1229,7 +1234,7 @@ namespace MIPSComp {
 				// TODO: Skip this and resort to method one and transpose the output?
 				for (int j = 0; j < 4; j++) {
 					for (int i = 0; i < 4; i++) {
-						ir.Write(IROp::Vec4Dot, s0 + i, sregs[i], tregs[j * 4]);
+						ir.Write(IROp::Vec4Dot, s0 + i, sregs[i * 4], tregs[j * 4]);
 					}
 					ir.Write(IROp::Vec4Mov, dregs[j * 4], s0);
 				}
@@ -1840,27 +1845,36 @@ namespace MIPSComp {
 			DISABLE;
 		}
 
+		// Vector one's complement
+		// d[N] = 1.0 - s[N]
+
 		VectorSize sz = GetVecSize(op);
 		int n = GetNumVectorElements(sz);
 
-		u8 sregs[4], dregs[4];
-		// Actually, not sure that this instruction accepts an S prefix. We don't apply it in the
-		// interpreter. But whatever.
+		// This is a hack that modifies prefixes.  We eat them later, so just overwrite.
+		// S prefix forces the negate flags.
+		js.prefixS |= 0x000F0000;
+		// T prefix forces constants on and regnum to 1.
+		// That means negate still works, and abs activates a different constant.
+		js.prefixT = (js.prefixT & ~0x000000FF) | 0x00000055 | 0x0000F000;
+
+		u8 sregs[4], tregs[4], dregs[4];
 		GetVectorRegsPrefixS(sregs, sz, _VS);
+		// There's no bits for t, so just reuse s.  It'll be constants only.
+		GetVectorRegsPrefixT(tregs, sz, _VS);
 		GetVectorRegsPrefixD(dregs, sz, _VD);
 
 		u8 tempregs[4];
 		for (int i = 0; i < n; ++i) {
 			if (!IsOverlapSafe(dregs[i], n, sregs)) {
-				tempregs[i] = IRVTEMP_PFX_T + i;   // using IRTEMP0 for other things
+				tempregs[i] = IRVTEMP_0 + i;
 			} else {
 				tempregs[i] = dregs[i];
 			}
 		}
 
-		ir.Write(IROp::SetConstF, IRVTEMP_0, ir.AddConstantFloat(1.0f));
 		for (int i = 0; i < n; ++i) {
-			ir.Write(IROp::FSub, tempregs[i], IRVTEMP_0, sregs[i]);
+			ir.Write(IROp::FAdd, tempregs[i], tregs[i], sregs[i]);
 		}
 		for (int i = 0; i < n; ++i) {
 			if (dregs[i] != tempregs[i]) {

@@ -135,7 +135,7 @@ static VulkanPipeline *CreateVulkanPipeline(VkDevice device, VkPipelineCache pip
 	PROFILE_THIS_SCOPE("pipelinebuild");
 	bool useBlendConstant = false;
 
-	VkPipelineColorBlendAttachmentState blend0 = {};
+	VkPipelineColorBlendAttachmentState blend0{};
 	blend0.blendEnable = key.blendEnable;
 	if (key.blendEnable) {
 		blend0.colorBlendOp = (VkBlendOp)key.blendOpColor;
@@ -174,7 +174,7 @@ static VulkanPipeline *CreateVulkanPipeline(VkDevice device, VkPipelineCache pip
 		dss.depthWriteEnable = key.depthWriteEnable;
 	}
 
-	VkDynamicState dynamicStates[8];
+	VkDynamicState dynamicStates[8]{};
 	int numDyn = 0;
 	if (key.blendEnable &&
 		  (UsesBlendConstant(key.srcAlpha) || UsesBlendConstant(key.srcColor) || UsesBlendConstant(key.destAlpha) || UsesBlendConstant(key.destColor))) {
@@ -208,16 +208,14 @@ static VulkanPipeline *CreateVulkanPipeline(VkDevice device, VkPipelineCache pip
 	ms.pSampleMask = nullptr;
 	ms.rasterizationSamples = VK_SAMPLE_COUNT_1_BIT;
 
-	VkPipelineShaderStageCreateInfo ss[2];
+	VkPipelineShaderStageCreateInfo ss[2]{};
 	ss[0].sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
-	ss[0].pNext = nullptr;
 	ss[0].stage = VK_SHADER_STAGE_VERTEX_BIT;
 	ss[0].pSpecializationInfo = nullptr;
 	ss[0].module = vs->GetModule();
 	ss[0].pName = "main";
 	ss[0].flags = 0;
 	ss[1].sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
-	ss[1].pNext = nullptr;
 	ss[1].stage = VK_SHADER_STAGE_FRAGMENT_BIT;
 	ss[1].pSpecializationInfo = nullptr;
 	ss[1].module = fs->GetModule();
@@ -252,7 +250,7 @@ static VulkanPipeline *CreateVulkanPipeline(VkDevice device, VkPipelineCache pip
 		vertexStride = 36;
 	}
 
-	VkVertexInputBindingDescription ibd;
+	VkVertexInputBindingDescription ibd{};
 	ibd.binding = 0;
 	ibd.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
 	ibd.stride = vertexStride;
@@ -297,7 +295,12 @@ static VulkanPipeline *CreateVulkanPipeline(VkDevice device, VkPipelineCache pip
 	VkPipeline pipeline;
 	VkResult result = vkCreateGraphicsPipelines(device, pipelineCache, 1, &pipe, nullptr, &pipeline);
 	if (result != VK_SUCCESS) {
-		_assert_msg_(G3D, false, "Failed creating graphics pipeline! result='%s'", VulkanResultToString(result));
+		if (result == VK_INCOMPLETE) {
+			// Bad return value seen on Adreno in Burnout :(  Try to ignore?
+			// TODO: Log all the information we can here!
+		} else {
+			_dbg_assert_msg_(G3D, false, "Failed creating graphics pipeline! result='%s'", VulkanResultToString(result));
+		}
 		ERROR_LOG(G3D, "Failed creating graphics pipeline! result='%s'", VulkanResultToString(result));
 		// Create a placeholder to avoid creating over and over if something is broken.
 		VulkanPipeline *nullPipeline = new VulkanPipeline();

@@ -22,7 +22,7 @@ class VulkanPushBuffer {
 	};
 
 public:
-	VulkanPushBuffer(VulkanContext *vulkan, size_t size);
+	VulkanPushBuffer(VulkanContext *vulkan, size_t size, VkBufferUsageFlags usage);
 	~VulkanPushBuffer();
 
 	void Destroy(VulkanContext *vulkan);
@@ -108,13 +108,13 @@ private:
 	void NextBuffer(size_t minSize);
 	void Defragment(VulkanContext *vulkan);
 
-	VkDevice device_;
+	VulkanContext *vulkan_;
 	std::vector<BufInfo> buffers_;
-	size_t buf_;
-	size_t offset_;
-	size_t size_;
-	uint32_t memoryTypeIndex_;
-	uint8_t *writePtr_;
+	size_t buf_ = 0;
+	size_t offset_ = 0;
+	size_t size_ = 0;
+	uint8_t *writePtr_ = nullptr;
+	VkBufferUsageFlags usage_;
 };
 
 // VulkanDeviceAllocator

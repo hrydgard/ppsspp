@@ -25,6 +25,11 @@
 #include "net/sinks.h"
 #include "file/fd_util.h"
 
+#ifndef MSG_NOSIGNAL
+// Default value to 0x00 (do nothing) in systems where it's not supported
+#define MSG_NOSIGNAL 0
+#endif
+
 namespace net {
 
 InputSink::InputSink(size_t fd) : fd_(fd), read_(0), write_(0), valid_(0) {
@@ -243,7 +248,7 @@ size_t OutputSink::PushAtMost(const char *buf, size_t bytes) {
 
 	if (valid_ == 0 && bytes > PRESSURE) {
 		// Special case for pushing larger buffers: let's try to send directly.
-		int sentBytes = send(fd_, buf, (int)bytes, 0);
+		int sentBytes = send(fd_, buf, (int)bytes, MSG_NOSIGNAL);
 		// If it was 0 or EWOULDBLOCK, that's fine, we'll enqueue as we can.
 		if (sentBytes > 0) {
 			return sentBytes;
@@ -325,7 +330,7 @@ bool OutputSink::Flush(bool allowBlock) {
 	while (valid_ > 0) {
 		size_t avail = std::min(BUFFER_SIZE - read_, valid_);
 
-		int bytes = send(fd_, buf_ + read_, (int)avail, 0);
+		int bytes = send(fd_, buf_ + read_, (int)avail, MSG_NOSIGNAL);
 		AccountDrain(bytes);
 
 		if (bytes == 0) {
@@ -353,7 +358,7 @@ void OutputSink::Drain() {
 		// Let's just do contiguous valid.
 		size_t avail = std::min(BUFFER_SIZE - read_, valid_);
 
-		int bytes = send(fd_, buf_ + read_, (int)avail, 0);
+		int bytes = send(fd_, buf_ + read_, (int)avail, MSG_NOSIGNAL);
 		AccountDrain(bytes);
 	}
 }

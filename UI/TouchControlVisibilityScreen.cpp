@@ -106,14 +106,14 @@ void TouchControlVisibilityScreen::CreateViews() {
 		}
 
 		choice->SetCentered(true);
-		
+
 		row->Add(choice);
 		grid->Add(row);
 	}
 }
 
 void TouchControlVisibilityScreen::onFinish(DialogResult result) {
-	g_Config.Save();
+	g_Config.Save("TouchControlVisibilityScreen::onFinish");
 }
 
 UI::EventReturn TouchControlVisibilityScreen::OnToggleAll(UI::EventParams &e) {

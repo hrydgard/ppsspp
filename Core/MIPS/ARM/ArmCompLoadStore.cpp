@@ -179,8 +179,17 @@ namespace MIPSComp
 			return;
 		}
 
-		_dbg_assert_msg_(JIT, !gpr.IsImm(rs), "Invalid immediate address?  CPU bug?");
-		load ? gpr.MapDirtyIn(rt, rs, false) : gpr.MapInIn(rt, rs);
+		// This gets hit in a few games, as a result of never-taken delay slots (some branch types
+		// conditionally execute the delay slot instructions). Ignore in those cases.
+		if (!js.inDelaySlot) {
+			_dbg_assert_msg_(JIT, !gpr.IsImm(rs), "Invalid immediate address %08x?  CPU bug?", iaddr);
+		}
+
+		if (load) {
+			gpr.MapDirtyIn(rt, rs, false);
+		} else {
+			gpr.MapInIn(rt, rs);
+		}
 
 		if (!g_Config.bFastMemory && rs != MIPS_REG_SP) {
 			SetCCAndR0ForSafeAddress(rs, offset, SCRATCHREG2, true);

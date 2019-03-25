@@ -133,6 +133,7 @@ std::string ResolvePath(const std::string &path) {
 			int result = getFinalPathNameByHandleW(hFile, buf, BUF_SIZE - 1, FILE_NAME_NORMALIZED | VOLUME_NAME_DOS);
 			if (result >= BUF_SIZE || result == 0)
 				wcscpy_s(buf, BUF_SIZE - 1, input.c_str());
+			CloseHandle(hFile);
 		}
 	} else {
 		wchar_t *longBuf = new wchar_t[BUF_SIZE];
@@ -829,7 +830,7 @@ const std::string &GetExeDirectory()
 		uint32_t program_path_size = sizeof(program_path) - 1;
 
 #if defined(__linux__)
-		if (readlink("/proc/self/exe", program_path, 4095) > 0)
+		if (readlink("/proc/self/exe", program_path, program_path_size) > 0)
 #elif defined(__APPLE__) && !defined(IOS)
 		if (_NSGetExecutablePath(program_path, &program_path_size) == 0)
 #elif defined(KERN_PROC_PATHNAME)

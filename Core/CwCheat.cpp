@@ -237,6 +237,21 @@ static void __CheatStart() {
 	cheatsEnabled = true;
 }
 
+static int GetRefreshMs() {
+	int refresh = g_Config.iCwCheatRefreshRate;
+
+	if (!cheatsEnabled)
+		refresh = 1000;
+
+	// Horrible hack for Tony Hawk - Underground 2. See #3854. Avoids crashing somehow
+	// but still causes regular JIT invalidations which causes stutters.
+	if (PSP_CoreParameter().compat.flags().JitInvalidationHack) {
+		refresh = 2;
+	}
+
+	return refresh;
+}
+
 void __CheatInit() {
 	// Always register the event, want savestates to be compatible whether cheats on or off.
 	CheatEvent = CoreTiming::RegisterEvent("CheatEvent", &hleCheat);
@@ -245,10 +260,8 @@ void __CheatInit() {
 		__CheatStart();
 	}
 
-	int refresh = g_Config.iCwCheatRefreshRate;
-
 	// Only check once a second for cheats to be enabled.
-	CoreTiming::ScheduleEvent(msToCycles(cheatsEnabled ? refresh : 1000), CheatEvent, 0);
+	CoreTiming::ScheduleEvent(msToCycles(GetRefreshMs()), CheatEvent, 0);
 }
 
 void __CheatShutdown() {
@@ -264,13 +277,11 @@ void __CheatDoState(PointerWrap &p) {
 	p.Do(CheatEvent);
 	CoreTiming::RestoreRegisterEvent(CheatEvent, "CheatEvent", &hleCheat);
 
-	int refresh = g_Config.iCwCheatRefreshRate;
-
 	if (s < 2) {
 		// Before this we didn't have a checkpoint, so reset didn't work.
 		// Let's just force one in.
 		CoreTiming::RemoveEvent(CheatEvent);
-		CoreTiming::ScheduleEvent(msToCycles(cheatsEnabled ? refresh : 1000), CheatEvent, 0);
+		CoreTiming::ScheduleEvent(msToCycles(GetRefreshMs()), CheatEvent, 0);
 	}
 }
 
@@ -284,14 +295,30 @@ void hleCheat(u64 userdata, int cyclesLate) {
 		}
 	}
 
-	int refresh = g_Config.iCwCheatRefreshRate;
+	// Check periodically for cheats.
+	CoreTiming::ScheduleEvent(msToCycles(GetRefreshMs()), CheatEvent, 0);
 
-	// Only check once a second for cheats to be enabled.
-	CoreTiming::ScheduleEvent(msToCycles(cheatsEnabled ? refresh : 1000), CheatEvent, 0);
+	if (PSP_CoreParameter().compat.flags().JitInvalidationHack) {
+		std::string gameTitle = g_paramSFO.GetValueString("DISC_ID");
+
+		// Horrible hack for Tony Hawk - Underground 2. See #3854. Avoids crashing somehow
+		// but still causes regular JIT invalidations which causes stutters.
+		if (gameTitle == "ULUS10014") {
+			cheatEngine->InvalidateICache(0x08865600, 72);
+			cheatEngine->InvalidateICache(0x08865690, 4);
+		} else if (gameTitle == "ULES00033" || gameTitle == "ULES00034" || gameTitle == "ULES00035") {  // euro, also 34 and 35
+			cheatEngine->InvalidateICache(0x088655D8, 72);
+			cheatEngine->InvalidateICache(0x08865668, 4);
+		} else if (gameTitle == "ULUS10138") {  // MTX MotoTrax. No hack for ULES00581 known.
+			cheatEngine->InvalidateICache(0x0886DCC0, 72);
+			cheatEngine->InvalidateICache(0x0886DC20, 4);
+			cheatEngine->InvalidateICache(0x0886DD40, 4);
+		}
+	}
 
 	if (!cheatEngine || !cheatsEnabled)
 		return;
-	
+
 	if (g_Config.bReloadCheats) { //Checks if the "reload cheats" button has been pressed.
 		cheatEngine->ParseCheats();
 		g_Config.bReloadCheats = false;
