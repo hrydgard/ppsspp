@@ -1827,14 +1827,12 @@ namespace MIPSInt
 	}
 
 	void Int_Vsge(MIPSOpcode op) {
+		float s[4], t[4], d[4];
 		int vt = _VT;
 		int vs = _VS;
 		int vd = _VD;
 		VectorSize sz = GetVecSize(op);
 		int numElements = GetNumVectorElements(sz);
-		float s[4];
-		float t[4];
-		float d[4];
 		ReadVector(s, sz, vs);
 		ApplySwizzleS(s, sz);
 		ReadVector(t, sz, vt);
@@ -1845,21 +1843,21 @@ namespace MIPSInt
 			else
 				d[i] = s[i] >= t[i] ? 1.0f : 0.0f;
 		}
-		ApplyPrefixD(d, sz);
+		RetainInvalidSwizzleST(d, sz);
+		// The clamp cannot matter, so skip it.
+		ApplyPrefixD(d, sz, true);
 		WriteVector(d, sz, vd);
 		PC += 4;
 		EatPrefixes();
 	}
 
 	void Int_Vslt(MIPSOpcode op) {
+		float s[4], t[4], d[4];
 		int vt = _VT;
 		int vs = _VS;
 		int vd = _VD;
 		VectorSize sz = GetVecSize(op);
 		int numElements = GetNumVectorElements(sz);
-		float s[4];
-		float t[4];
-		float d[4];
 		ReadVector(s, sz, vs);
 		ApplySwizzleS(s, sz);
 		ReadVector(t, sz, vt);
@@ -1870,7 +1868,9 @@ namespace MIPSInt
 			else
 				d[i] = s[i] < t[i] ? 1.0f : 0.0f;
 		}
-		ApplyPrefixD(d, sz);
+		RetainInvalidSwizzleST(d, sz);
+		// The clamp cannot matter, so skip it.
+		ApplyPrefixD(d, sz, true);
 		WriteVector(d, sz, vd);
 		PC += 4;
 		EatPrefixes();
