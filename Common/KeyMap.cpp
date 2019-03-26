@@ -672,6 +672,8 @@ const KeyMap_IntStrPair psp_button_names[] = {
 
 	{VIRTKEY_AXIS_SWAP, "AxisSwap"},
 	{VIRTKEY_DEVMENU, "DevMenu"},
+	{VIRTKEY_TEXTURE_DUMP, "Texture Dumping"},
+	{VIRTKEY_TEXTURE_REPLACE, "Texture Replacement"},
 
 	{CTRL_HOME, "Home"},
 	{CTRL_HOLD, "Hold"},
