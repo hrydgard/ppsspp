@@ -170,6 +170,23 @@ void ApplyPrefixD(float *v, VectorSize size, bool onlyWriteMask = false)
 	}
 }
 
+static void RetainInvalidSwizzleST(float *d, VectorSize sz) {
+	// Somehow it's like a supernan, maybe wires through to zero?
+	// Doesn't apply to all ops.
+	int sPrefix = currentMIPS->vfpuCtrl[VFPU_CTRL_SPREFIX];
+	int tPrefix = currentMIPS->vfpuCtrl[VFPU_CTRL_TPREFIX];
+	int n = GetNumVectorElements(sz);
+
+	for (int i = 0; i < n; i++) {
+		int swizzleS = (sPrefix >> (i + i)) & 3;
+		int swizzleT = (tPrefix >> (i + i)) & 3;
+		int constS = (sPrefix >> (12 + i)) & 1;
+		int constT = (tPrefix >> (12 + i)) & 1;
+		if ((swizzleS >= n && !constS) || (swizzleT >= n && !constT))
+			d[i] = 0.0f;
+	}
+}
+
 void EatPrefixes()
 {
 	currentMIPS->vfpuCtrl[VFPU_CTRL_SPREFIX] = 0xe4;  // passthru
@@ -1707,6 +1724,7 @@ namespace MIPSInt
 				d.f[i] = (float)((0.0f < a) - (a < 0.0f));
 			}
 		}
+		RetainInvalidSwizzleST(d.f, sz);
 		ApplyPrefixD(d.f, sz);
 		WriteVector(d.f, sz, vd);
 		PC += 4;
