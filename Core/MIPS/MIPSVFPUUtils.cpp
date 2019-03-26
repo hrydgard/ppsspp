@@ -573,19 +573,17 @@ float Float16ToFloat32(unsigned short l)
 	int exponent = (float16 >> VFPU_SH_FLOAT16_EXP) & VFPU_MASK_FLOAT16_EXP;
 	unsigned int fraction = float16 & VFPU_MASK_FLOAT16_FRAC;
 
-	float signf = (sign == 1) ? -1.0f : 1.0f;
-
 	float f;
 	if (exponent == VFPU_FLOAT16_EXP_MAX)
 	{
-		if (fraction == 0)
-			f = std::numeric_limits<float>::infinity(); //(*info->fprintf_func) (info->stream, "%cInf", signchar);
-		else
-			f = std::numeric_limits<float>::quiet_NaN(); //(*info->fprintf_func) (info->stream, "%cNaN", signchar);
+		float2int.i = sign << 31;
+		float2int.i |= 255 << 23;
+		float2int.i |= fraction;
+		f = float2int.f;
 	}
 	else if (exponent == 0 && fraction == 0)
 	{
-		f = 0.0f * signf;
+		f = sign == 1 ? -0.0f : 0.0f;
 	}
 	else
 	{
