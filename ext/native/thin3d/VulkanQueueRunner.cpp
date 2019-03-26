@@ -54,16 +54,22 @@ void VulkanQueueRunner::ResizeReadbackBuffer(VkDeviceSize requiredSize) {
 	allocInfo.allocationSize = reqs.size;
 
 	// For speedy readbacks, we want the CPU cache to be enabled. However on most hardware we then have to
-	// sacrifice coherency, which means manual flushing. But try to find such memory first!
-	VkFlags typeReqs = VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT | VK_MEMORY_PROPERTY_HOST_CACHED_BIT;
-	if (vulkan_->MemoryTypeFromProperties(reqs.memoryTypeBits, typeReqs, &allocInfo.memoryTypeIndex)) {
-		readbackBufferIsCoherent_ = true;
-	} else {
-		typeReqs = VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_CACHED_BIT;
-		bool success = vulkan_->MemoryTypeFromProperties(reqs.memoryTypeBits, typeReqs, &allocInfo.memoryTypeIndex);
-		_assert_(success);
-		readbackBufferIsCoherent_ = false;
+	// sacrifice coherency, which means manual flushing. But try to find such memory first! If no cached
+	// memory type is available we fall back to just coherent.
+	const VkFlags desiredTypes[] = {
+		VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT | VK_MEMORY_PROPERTY_HOST_CACHED_BIT,
+		VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_CACHED_BIT,
+		VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
+	};
+	VkFlags successTypeReqs = 0;
+	for (VkFlags typeReqs : desiredTypes) {
+		if (vulkan_->MemoryTypeFromProperties(reqs.memoryTypeBits, typeReqs, &allocInfo.memoryTypeIndex)) {
+			successTypeReqs = typeReqs;
+			break;
+		}
 	}
+	_assert_(successTypeReqs != 0);
+	readbackBufferIsCoherent_ = (successTypeReqs & VK_MEMORY_PROPERTY_HOST_COHERENT_BIT) != 0;
 
 	VkResult res = vkAllocateMemory(device, &allocInfo, nullptr, &readbackMemory_);
 	if (res != VK_SUCCESS) {
