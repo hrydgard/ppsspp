@@ -1779,26 +1779,31 @@ namespace MIPSInt
 		EatPrefixes();
 	}
 	
-	// This doesn't quite pass all the tests :/
 	void Int_Vscmp(MIPSOpcode op) {
+		FloatBits s, t, d;
 		int vt = _VT;
 		int vs = _VS;
 		int vd = _VD;
 		VectorSize sz = GetVecSize(op);
-		float s[4];
-		float t[4];
-		float d[4];
-		ReadVector(s, sz, vs);
-		ApplySwizzleS(s, sz);
-		ReadVector(t, sz, vt);
-		ApplySwizzleT(t, sz);
+		ReadVector(s.f, sz, vs);
+		ApplySwizzleS(s.f, sz);
+		ReadVector(t.f, sz, vt);
+		ApplySwizzleT(t.f, sz);
 		int n = GetNumVectorElements(sz);
 		for (int i = 0; i < n ; i++) {
-			float a = s[i] - t[i];
-			d[i] = (float) ((0.0 < a) - (a < 0.0));
+			float a = s.f[i] - t.f[i];
+			if (my_isnan(a)) {
+				// NAN/INF are treated as just larger numbers, as in vmin/vmax.
+				int sMagnitude = s.u[i] & 0x7FFFFFFF;
+				int tMagnitude = t.u[i] & 0x7FFFFFFF;
+				int b = (s.i[i] < 0 ? -sMagnitude : sMagnitude) - (t.i[i] < 0 ? -tMagnitude : tMagnitude);
+				d.f[i] = (float)((0 < b) - (b < 0));
+			} else {
+				d.f[i] = (float)((0.0f < a) - (a < 0.0f));
+			}
 		}
-		ApplyPrefixD(d, sz);
-		WriteVector(d, sz, vd);
+		ApplyPrefixD(d.f, sz);
+		WriteVector(d.f, sz, vd);
 		PC += 4;
 		EatPrefixes();
 	}
