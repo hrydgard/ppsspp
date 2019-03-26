@@ -606,6 +606,24 @@ void EmuScreen::onVKeyDown(int virtualKeyCode) {
 	case VIRTKEY_TOGGLE_FULLSCREEN:
 		System_SendMessage("toggle_fullscreen", "");
 		break;
+
+	case VIRTKEY_TEXTURE_DUMP:
+		g_Config.bSaveNewTextures = !g_Config.bSaveNewTextures;
+		if (g_Config.bSaveNewTextures) {
+			osm.Show(sc->T("saveNewTextures_true", "Textures will now be saved to your storage"), 2.0);
+			NativeMessageReceived("gpu_clearCache", "");
+		} else {
+			osm.Show(sc->T("saveNewTextures_false", "Texture saving was disabled"), 2.0);
+		}
+		break;
+	case VIRTKEY_TEXTURE_REPLACE:
+		g_Config.bReplaceTextures = !g_Config.bReplaceTextures;
+		if (g_Config.bReplaceTextures)
+			osm.Show(sc->T("replaceTextures_true", "Texture replacement enabled"), 2.0);
+		else
+			osm.Show(sc->T("replaceTextures_false", "Textures no longer are being replaced"), 2.0);
+		NativeMessageReceived("gpu_clearCache", "");
+		break;
 	}
 }
 
