@@ -983,10 +983,13 @@ namespace MIPSInt
 		int vd = _VD;
 		int vs = _VS;
 		u32 s[4];
+		VectorSize isz = GetVecSize(op);
 		VectorSize sz = V_Quad;
 		ReadVector(reinterpret_cast<float *>(s), sz, vs);
 		ApplySwizzleS(reinterpret_cast<float *>(s), sz);
 		u16 colors[4];
+		// TODO: Invalid swizzle values almost seem to use the last value converted in a
+		// previous execution of these ops.  It's a bit odd.
 		for (int i = 0; i < 4; i++)
 		{
 			u32 in = s[i];
@@ -1024,7 +1027,7 @@ namespace MIPSInt
 		}
 		u32 ov[2] = {(u32)colors[0] | (colors[1] << 16), (u32)colors[2] | (colors[3] << 16)};
 		ApplyPrefixD(reinterpret_cast<float *>(ov), V_Pair);
-		WriteVector((const float *)ov, V_Pair, vd);
+		WriteVector((const float *)ov, isz == V_Single ? V_Single : V_Pair, vd);
 		PC += 4;
 		EatPrefixes();
 	}
