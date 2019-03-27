@@ -1735,6 +1735,7 @@ namespace MIPSInt
 	}
 
 	void Int_Vminmax(MIPSOpcode op) {
+		FloatBits s, t, d;
 		int vt = _VT;
 		int vs = _VS;
 		int vd = _VD;
@@ -1742,9 +1743,6 @@ namespace MIPSInt
 		VectorSize sz = GetVecSize(op);
 		int numElements = GetNumVectorElements(sz);
 
-		FloatBits s;
-		FloatBits t;
-		FloatBits d;
 		ReadVector(s.f, sz, vs);
 		ApplySwizzleS(s.f, sz);
 		ReadVector(t.f, sz, vt);
@@ -1790,6 +1788,7 @@ namespace MIPSInt
 			EatPrefixes();
 			return;
 		}
+		RetainInvalidSwizzleST(d.f, sz);
 		ApplyPrefixD(d.f, sz);
 		WriteVector(d.f, sz, vd);
 		PC += 4;
@@ -1972,6 +1971,7 @@ namespace MIPSInt
 			currentMIPS->vfpuCtrl[VFPU_CTRL_DPREFIX] = lastmask | lastsat;
 			ApplyPrefixD(d, sz);
 		} else {
+			RetainInvalidSwizzleST(d, sz);
 			ApplyPrefixD(d, sz);
 		}
 		WriteVector(d, sz, vd);
