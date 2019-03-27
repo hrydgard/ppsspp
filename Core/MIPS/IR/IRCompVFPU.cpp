@@ -1940,8 +1940,9 @@ namespace MIPSComp {
 
 	void IRFrontend::Comp_ColorConv(MIPSOpcode op) {
 		CONDITIONAL_DISABLE(VFPU_VEC);
-		if (js.HasUnknownPrefix())
+		if (js.HasUnknownPrefix() || !IsPrefixWithinSize(js.prefixS, op) || js.HasTPrefix()) {
 			DISABLE;
+		}
 
 		// Vector color conversion
 		// d[N] = ConvertTo16(s[N*2]) | (ConvertTo16(s[N*2+1]) << 16)
