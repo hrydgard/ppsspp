@@ -574,6 +574,12 @@ static GraphicsContext *graphicsContext;
 	NativeKey(key);
 }
 
+// Enables tapping for edge area.
+-(UIRectEdge)preferredScreenEdgesDeferringSystemGestures
+{
+	return UIRectEdgeAll;
+}
+
 - (void)setupController:(GCController *)controller
 {
 	self.gameController = controller;
