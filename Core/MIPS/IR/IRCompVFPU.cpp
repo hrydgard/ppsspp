@@ -982,7 +982,15 @@ namespace MIPSComp {
 			if (imm < 128) {
 				ir.Write(IROp::FMovFromGPR, vfpuBase + voffset[imm], rt);
 			} else if ((imm - 128) < VFPU_CTRL_MAX) {
-				ir.Write(IROp::SetCtrlVFPU, imm - 128, rt);
+				u32 mask;
+				if (GetVFPUCtrlMask(imm - 128, &mask)) {
+					if (mask != 0xFFFFFFFF) {
+						ir.Write(IROp::AndConst, IRTEMP_0, rt, ir.AddConstant(mask));
+						ir.Write(IROp::SetCtrlVFPUReg, imm - 128, IRTEMP_0);
+					} else {
+						ir.Write(IROp::SetCtrlVFPU, imm - 128, rt);
+					}
+				}
 
 				if (imm - 128 == VFPU_CTRL_SPREFIX) {
 					js.prefixSFlag = JitState::PREFIX_UNKNOWN;
@@ -1028,7 +1036,16 @@ namespace MIPSComp {
 		int vs = _VS;
 		int imm = op & 0xFF;
 		if (imm >= 128 && imm < 128 + VFPU_CTRL_MAX) {
-			ir.Write(IROp::SetCtrlVFPUFReg, imm - 128, vfpuBase + voffset[vs]);
+			u32 mask;
+			if (GetVFPUCtrlMask(imm - 128, &mask)) {
+				if (mask != 0xFFFFFFFF) {
+					ir.Write(IROp::FMovToGPR, IRTEMP_0, vfpuBase + voffset[imm]);
+					ir.Write(IROp::AndConst, IRTEMP_0, IRTEMP_0, ir.AddConstant(mask));
+					ir.Write(IROp::SetCtrlVFPUReg, imm - 128, IRTEMP_0);
+				} else {
+					ir.Write(IROp::SetCtrlVFPUFReg, imm - 128, vfpuBase + voffset[vs]);
+				}
+			}
 			if (imm - 128 == VFPU_CTRL_SPREFIX) {
 				js.prefixSFlag = JitState::PREFIX_UNKNOWN;
 			} else if (imm - 128 == VFPU_CTRL_TPREFIX) {

@@ -242,4 +242,6 @@ inline int TransposeMatrixReg(int matrixReg) {
 }
 int GetVectorOverlap(int reg1, VectorSize size1, int reg2, VectorSize size2);
 
+bool GetVFPUCtrlMask(int reg, u32 *mask);
+
 float Float16ToFloat32(unsigned short l);

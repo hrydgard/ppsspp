@@ -526,6 +526,41 @@ const char *GetMatrixNotation(int reg, MatrixSize size)
   return hej[yo];
 }
 
+bool GetVFPUCtrlMask(int reg, u32 *mask) {
+	switch (reg) {
+	case VFPU_CTRL_SPREFIX:
+	case VFPU_CTRL_TPREFIX:
+		*mask = 0x000FFFFF;
+		return true;
+	case VFPU_CTRL_DPREFIX:
+		*mask = 0x00000FFF;
+		return true;
+	case VFPU_CTRL_CC:
+		*mask = 0x0000003F;
+		return true;
+	case VFPU_CTRL_INF4:
+		*mask = 0xFFFFFFFF;
+		return true;
+	case VFPU_CTRL_RSV5:
+	case VFPU_CTRL_RSV6:
+	case VFPU_CTRL_REV:
+		// Don't change anything, these regs are read only.
+		return false;
+	case VFPU_CTRL_RCX0:
+	case VFPU_CTRL_RCX1:
+	case VFPU_CTRL_RCX2:
+	case VFPU_CTRL_RCX3:
+	case VFPU_CTRL_RCX4:
+	case VFPU_CTRL_RCX5:
+	case VFPU_CTRL_RCX6:
+	case VFPU_CTRL_RCX7:
+		*mask = 0x3FFFFFFF;
+		return true;
+	default:
+		return false;
+	}
+}
+
 float Float16ToFloat32(unsigned short l)
 {
 	union float2int {
