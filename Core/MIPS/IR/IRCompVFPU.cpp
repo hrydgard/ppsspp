@@ -960,7 +960,7 @@ namespace MIPSComp {
 		MIPSGPReg rt = _RT;
 		switch ((op >> 21) & 0x1f) {
 		case 3: //mfv / mfvc
-						// rt = 0, imm = 255 appears to be used as a CPU interlock by some games.
+			// rt = 0, imm = 255 appears to be used as a CPU interlock by some games.
 			if (rt != MIPS_REG_ZERO) {
 				if (imm < 128) {  //R(rt) = VI(imm);
 					ir.Write(IROp::FMovToGPR, rt, vfpuBase + voffset[imm]);
@@ -1021,9 +1021,9 @@ namespace MIPSComp {
 		// D[0] = VFPU_CTRL[i]
 
 		int vd = _VD;
-		int imm = (op >> 8) & 0xFF;
-		if (imm >= 128 && imm < 128 + VFPU_CTRL_MAX) {
-			ir.Write(IROp::VfpuCtrlToReg, IRTEMP_0, imm - 128);
+		int imm = (op >> 8) & 0x7F;
+		if (imm < VFPU_CTRL_MAX) {
+			ir.Write(IROp::VfpuCtrlToReg, IRTEMP_0, imm);
 			ir.Write(IROp::FMovFromGPR, vfpuBase + voffset[vd], IRTEMP_0);
 		} else {
 			INVALIDOP;
@@ -1038,22 +1038,22 @@ namespace MIPSComp {
 
 		int vs = _VS;
 		int imm = op & 0xFF;
-		if (imm >= 128 && imm < 128 + VFPU_CTRL_MAX) {
+		if (imm < VFPU_CTRL_MAX) {
 			u32 mask;
-			if (GetVFPUCtrlMask(imm - 128, &mask)) {
+			if (GetVFPUCtrlMask(imm, &mask)) {
 				if (mask != 0xFFFFFFFF) {
 					ir.Write(IROp::FMovToGPR, IRTEMP_0, vfpuBase + voffset[imm]);
 					ir.Write(IROp::AndConst, IRTEMP_0, IRTEMP_0, ir.AddConstant(mask));
-					ir.Write(IROp::SetCtrlVFPUReg, imm - 128, IRTEMP_0);
+					ir.Write(IROp::SetCtrlVFPUReg, imm, IRTEMP_0);
 				} else {
-					ir.Write(IROp::SetCtrlVFPUFReg, imm - 128, vfpuBase + voffset[vs]);
+					ir.Write(IROp::SetCtrlVFPUFReg, imm, vfpuBase + voffset[vs]);
 				}
 			}
-			if (imm - 128 == VFPU_CTRL_SPREFIX) {
+			if (imm == VFPU_CTRL_SPREFIX) {
 				js.prefixSFlag = JitState::PREFIX_UNKNOWN;
-			} else if (imm - 128 == VFPU_CTRL_TPREFIX) {
+			} else if (imm == VFPU_CTRL_TPREFIX) {
 				js.prefixTFlag = JitState::PREFIX_UNKNOWN;
-			} else if (imm - 128 == VFPU_CTRL_DPREFIX) {
+			} else if (imm == VFPU_CTRL_DPREFIX) {
 				js.prefixDFlag = JitState::PREFIX_UNKNOWN;
 			}
 		} else {
