@@ -579,8 +579,7 @@ namespace MIPSInt
 		EatPrefixes();
 	}
 
-	void Int_Vocp(MIPSOpcode op)
-	{
+	void Int_Vocp(MIPSOpcode op) {
 		float s[4], t[4], d[4];
 		int vd = _VD;
 		int vs = _VS;
@@ -601,19 +600,21 @@ namespace MIPSInt
 			// Always positive NaN.  Note that s is always negated from the registers.
 			d[i] = my_isnan(s[i]) ? fabsf(s[i]) : t[i] + s[i];
 		}
+		RetainInvalidSwizzleST(d, sz);
 		ApplyPrefixD(d, sz);
 		WriteVector(d, sz, vd);
 		PC += 4;
 		EatPrefixes();
 	}
 	
-	void Int_Vsocp(MIPSOpcode op)
-	{
+	void Int_Vsocp(MIPSOpcode op) {
 		float s[4], t[4], d[4];
 		int vd = _VD;
 		int vs = _VS;
 		VectorSize sz = GetVecSize(op);
-		VectorSize outSize = GetDoubleVectorSize(sz);
+		VectorSize outSize = GetDoubleVectorSizeSafe(sz);
+		if (outSize == V_Invalid)
+			outSize = V_Quad;
 		ReadVector(s, sz, vs);
 
 		// S prefix forces negate in even/odd and xxyy swizzle.
@@ -636,7 +637,7 @@ namespace MIPSInt
 			d[2] = nanclamp(t[2] + s[2], 0.0f, 1.0f);
 			d[3] = nanclamp(t[3] + s[3], 0.0f, 1.0f);
 		}
-		ApplyPrefixD(d, sz);
+		ApplyPrefixD(d, sz, true);
 		WriteVector(d, outSize, vd);
 		PC += 4;
 		EatPrefixes();
