@@ -798,17 +798,16 @@ namespace MIPSInt
 		EatPrefixes();
 	}
 
-	void Int_Vx2i(MIPSOpcode op)
-	{
-		u32 s[4];
-		u32 d[4] = {0};
+	void Int_Vx2i(MIPSOpcode op) {
+		u32 s[4], d[4]{};
 		int vd = _VD;
 		int vs = _VS;
 		VectorSize sz = GetVecSize(op);
 		VectorSize oz = sz;
 		ReadVector(reinterpret_cast<float *>(s), sz, vs);
-		// ForbidVPFXS
+		ApplySwizzleS(reinterpret_cast<float *>(s), sz);
 
+		// TODO: Similar to colorconv, invalid swizzle seems to reuse last output.
 		switch ((op >> 16) & 3) {
 		case 0:  // vuc2i  
 			// Quad is the only option.
@@ -819,7 +818,7 @@ namespace MIPSInt
 			{
 				u32 value = s[0];
 				for (int i = 0; i < 4; i++) {
-					d[i] = (u32)((value & 0xFF) * 0x01010101) >> 1;
+					d[i] = (u32)((u32)(value & 0xFF) * 0x01010101UL) >> 1;
 					value >>= 8;
 				}
 				oz = V_Quad;
@@ -840,8 +839,11 @@ namespace MIPSInt
 
 		case 2:  // vus2i
 			oz = V_Pair;
-			switch (sz)
-			{
+			switch (sz) {
+			case V_Quad:
+			case V_Triple:
+				sz = V_Pair;
+				// Intentional fallthrough.
 			case V_Pair:
 				oz = V_Quad;
 				// Intentional fallthrough.
@@ -861,8 +863,11 @@ namespace MIPSInt
 
 		case 3:  // vs2i
 			oz = V_Pair;
-			switch (sz)
-			{
+			switch (sz) {
+			case V_Quad:
+			case V_Triple:
+				sz = V_Pair;
+				// Intentional fallthrough.
 			case V_Pair:
 				oz = V_Quad;
 				// Intentional fallthrough.
@@ -884,9 +889,10 @@ namespace MIPSInt
 			_dbg_assert_msg_(CPU,0,"Trying to interpret instruction that can't be interpreted");
 			break;
 		}
-		
-		ApplyPrefixD(reinterpret_cast<float *>(d),oz, true);  // Only write mask
-		WriteVector(reinterpret_cast<float *>(d),oz,vd);
+
+		// Saturation does in fact apply.
+		ApplyPrefixD(reinterpret_cast<float *>(d),oz);
+		WriteVector(reinterpret_cast<float *>(d), oz, vd);
 		PC += 4;
 		EatPrefixes();
 	}
