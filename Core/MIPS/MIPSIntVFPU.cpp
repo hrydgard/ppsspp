@@ -188,7 +188,7 @@ namespace MIPSInt
 {
 	void Int_VPFX(MIPSOpcode op)
 	{
-		int data = op & 0xFFFFF;
+		int data = op & 0x000FFFFF;
 		int regnum = (op >> 24) & 3;
 		if (regnum == VFPU_CTRL_DPREFIX)
 			data &= 0x00000FFF;
@@ -1632,7 +1632,10 @@ namespace MIPSInt
 			if (imm < 128) {
 				VI(imm) = R(rt);
 			} else if (imm < 128 + VFPU_CTRL_MAX) { //mtvc
-				currentMIPS->vfpuCtrl[imm - 128] = R(rt);
+				u32 mask;
+				if (GetVFPUCtrlMask(imm - 128, &mask)) {
+					currentMIPS->vfpuCtrl[imm - 128] = R(rt) & mask;
+				}
 			} else {
 				//ERROR
 				_dbg_assert_msg_(CPU,0,"mtv - invalid register");
@@ -1659,7 +1662,10 @@ namespace MIPSInt
 		int vs = _VS;
 		int imm = op & 0xFF;
 		if (imm >= 128 && imm < 128 + VFPU_CTRL_MAX) {
-			currentMIPS->vfpuCtrl[imm - 128] = VI(vs);
+			u32 mask;
+			if (GetVFPUCtrlMask(imm - 128, &mask)) {
+				currentMIPS->vfpuCtrl[imm - 128] = VI(vs) & mask;
+			}
 		}
 		PC += 4;
 	}
