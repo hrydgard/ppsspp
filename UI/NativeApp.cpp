@@ -551,8 +551,6 @@ void NativeInit(int argc, const char *argv[], const char *savegame_dir, const ch
 					fileToLog = argv[i] + strlen("--log=");
 				if (!strncmp(argv[i], "--state=", strlen("--state=")) && strlen(argv[i]) > strlen("--state="))
 					stateToLoad = argv[i] + strlen("--state=");
-				if (!strncmp(argv[1], "--PS3", strlen("--PS3")))
-					g_Config.bPS3Controller = true;
 #if !defined(MOBILE_DEVICE)
 				if (!strncmp(argv[i], "--escape-exit", strlen("--escape-exit")))
 					g_Config.bPauseExitsEmulator = true;
