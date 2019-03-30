@@ -1528,8 +1528,7 @@ namespace MIPSComp {
 
 	void IRFrontend::Comp_Vx2i(MIPSOpcode op) {
 		CONDITIONAL_DISABLE(VFPU_VEC);
-
-		if (js.HasUnknownPrefix())
+		if (js.HasUnknownPrefix() || js.HasSPrefix())
 			DISABLE;
 
 		int bits = ((op >> 16) & 2) == 0 ? 8 : 16; // vuc2i/vc2i (0/1), vus2i/vs2i (2/3)
