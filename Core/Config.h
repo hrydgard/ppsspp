@@ -330,6 +330,7 @@ public:
 	int iDInputAnalogInverseMode;
 	float fDInputAnalogInverseDeadzone;
 	float fDInputAnalogSensitivity;
+	bool bEnableDInputWithXInput;
 
 	// We also use the XInput settings as analog settings on other platforms like Android.
 	float fXInputAnalogDeadzone;

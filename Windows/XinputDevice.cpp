@@ -240,7 +240,7 @@ int XinputDevice::UpdateState() {
 
 	// If we get XInput, skip the others. This might not actually be a good idea,
 	// and was done to avoid conflicts between DirectInput and XInput.
-	return anySuccess ? UPDATESTATE_SKIP_PAD : 0;
+	return anySuccess ? (g_Config.bEnableDInputWithXInput ? 0 : UPDATESTATE_SKIP_PAD) : 0;
 }
 
 void XinputDevice::UpdatePad(int pad, const XINPUT_STATE &state) {

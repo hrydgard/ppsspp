@@ -577,6 +577,8 @@ void GameSettingsScreen::CreateViews() {
 	if (!g_Config.bSimpleUI) {
 #if defined(USING_WIN_UI)
 		controlsSettings->Add(new CheckBox(&g_Config.bGamepadOnlyFocused, co->T("Ignore gamepads when not focused")));
+		controlsSettings->Add(new CheckBox(&g_Config.bEnableDInputWithXInput, co->T("Enable Dinput along Xinput","Enable Dinput along Xinput gamepads(might cause problems with gamepads that can use both without manual switch)")));
+
 #endif
 	auto axisToButton = new PopupSliderChoiceFloat(&g_Config.fAxisBindThreshold, 0.01f, 0.96f, co->T("Axis to button threshold"), 0.05f, screenManager());
 	controlsSettings->Add(axisToButton);
