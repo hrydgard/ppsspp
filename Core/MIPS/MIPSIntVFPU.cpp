@@ -960,89 +960,85 @@ namespace MIPSInt
 		EatPrefixes();
 	}
 
-	void Int_Vi2x(MIPSOpcode op)
-	{
-		int s[4];
-		u32 d[2] = {0};
+	void Int_Vi2x(MIPSOpcode op) {
+		int s[4]{};
+		u32 d[2]{};
 		int vd = _VD;
 		int vs = _VS;
 		VectorSize sz = GetVecSize(op);
 		VectorSize oz;
 		ReadVector(reinterpret_cast<float *>(s), sz, vs);
-		ApplySwizzleS(reinterpret_cast<float *>(s), sz); //TODO: and the mask to kill everything but swizzle
-		switch ((op >> 16)&3)
-		{
+		// Negate, const, etc. apply as expected.
+		ApplySwizzleS(reinterpret_cast<float *>(s), V_Quad);
+
+		// TODO: Similar to colorconv, invalid swizzle seems to reuse last output.
+		switch ((op >> 16) & 3) {
 		case 0: //vi2uc
-			{
-				for (int i = 0; i < 4; i++)
-				{
-					int v = s[i];
-					if (v < 0) v = 0;
-					v >>= 23;
-					d[0] |= ((u32)v & 0xFF) << (i * 8);
-				}
-				oz = V_Single;
+			for (int i = 0; i < 4; i++) {
+				int v = s[i];
+				if (v < 0) v = 0;
+				v >>= 23;
+				d[0] |= ((u32)v & 0xFF) << (i * 8);
 			}
+			oz = V_Single;
 			break;
 
 		case 1: //vi2c
-			{
-				for (int i = 0; i < 4; i++)
-				{
-					u32 v = s[i];
-					d[0] |= (v >> 24) << (i * 8);
-				}
-				oz = V_Single;
+			for (int i = 0; i < 4; i++) {
+				u32 v = s[i];
+				d[0] |= (v >> 24) << (i * 8);
 			}
+			oz = V_Single;
 			break;
 
 		case 2:  //vi2us
-			{
-				for (int i = 0; i < GetNumVectorElements(sz) / 2; i++) {
-					int low = s[i * 2];
-					int high = s[i * 2 + 1];
-					if (low < 0) low = 0;
-					if (high < 0) high = 0;
-					low >>= 15;
-					high >>= 15;
-					d[i] = low | (high << 16);
-				}
-				switch (sz) {
-				case V_Quad: oz = V_Pair; break;
-				case V_Pair: oz = V_Single; break;
-				default:
-					_dbg_assert_msg_(CPU,0,"Trying to interpret instruction that can't be interpreted");
-					oz = V_Single;
-					break;
-				}
+			for (int i = 0; i < (GetNumVectorElements(sz) + 1) / 2; i++) {
+				int low = s[i * 2];
+				int high = s[i * 2 + 1];
+				if (low < 0) low = 0;
+				if (high < 0) high = 0;
+				low >>= 15;
+				high >>= 15;
+				d[i] = low | (high << 16);
+			}
+			switch (sz) {
+			case V_Quad: oz = V_Pair; break;
+			case V_Triple: oz = V_Pair; break;
+			case V_Pair: oz = V_Single; break;
+			case V_Single: oz = V_Single; break;
+			default:
+				_dbg_assert_msg_(CPU, 0, "Trying to interpret instruction that can't be interpreted");
+				oz = V_Single;
+				break;
 			}
 			break;
 		case 3:  //vi2s
-			{
-				for (int i = 0; i < GetNumVectorElements(sz) / 2; i++) {
-					u32 low = s[i * 2];
-					u32 high = s[i * 2 + 1];
-					low >>= 16;
-					high >>= 16;
-					d[i] = low | (high << 16);
-				}
-				switch (sz) {
-				case V_Quad: oz = V_Pair; break;
-				case V_Pair: oz = V_Single; break;
-				default:
-					_dbg_assert_msg_(CPU,0,"Trying to interpret instruction that can't be interpreted");
-					oz = V_Single;
-					break;
-				}
+			for (int i = 0; i < (GetNumVectorElements(sz) + 1) / 2; i++) {
+				u32 low = s[i * 2];
+				u32 high = s[i * 2 + 1];
+				low >>= 16;
+				high >>= 16;
+				d[i] = low | (high << 16);
+			}
+			switch (sz) {
+			case V_Quad: oz = V_Pair; break;
+			case V_Triple: oz = V_Pair; break;
+			case V_Pair: oz = V_Single; break;
+			case V_Single: oz = V_Single; break;
+			default:
+				_dbg_assert_msg_(CPU, 0, "Trying to interpret instruction that can't be interpreted");
+				oz = V_Single;
+				break;
 			}
 			break;
 		default:
-			_dbg_assert_msg_(CPU,0,"Trying to interpret instruction that can't be interpreted");
+			_dbg_assert_msg_(CPU, 0, "Trying to interpret instruction that can't be interpreted");
 			oz = V_Single;
 			break;
 		}
-		ApplyPrefixD(reinterpret_cast<float *>(d),oz);
-		WriteVector(reinterpret_cast<float *>(d),oz,vd);
+		// D prefix applies as expected.
+		ApplyPrefixD(reinterpret_cast<float *>(d), oz);
+		WriteVector(reinterpret_cast<float *>(d), oz, vd);
 		PC += 4;
 		EatPrefixes();
 	}
