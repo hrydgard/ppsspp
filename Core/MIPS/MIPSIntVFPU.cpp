@@ -1549,20 +1549,22 @@ namespace MIPSInt
 
 	void Int_Vmfvc(MIPSOpcode op) {
 		int vd = _VD;
-		int imm = (op >> 8) & 0xFF;
-		if (imm >= 128 && imm < 128 + VFPU_CTRL_MAX) {
-			VI(vd) = currentMIPS->vfpuCtrl[imm - 128];
+		int imm = (op >> 8) & 0x7F;
+		if (imm < VFPU_CTRL_MAX) {
+			VI(vd) = currentMIPS->vfpuCtrl[imm];
+		} else {
+			VI(vd) = 0;
 		}
 		PC += 4;
 	}
 
 	void Int_Vmtvc(MIPSOpcode op) {
 		int vs = _VS;
-		int imm = op & 0xFF;
-		if (imm >= 128 && imm < 128 + VFPU_CTRL_MAX) {
+		int imm = op & 0x7F;
+		if (imm < VFPU_CTRL_MAX) {
 			u32 mask;
-			if (GetVFPUCtrlMask(imm - 128, &mask)) {
-				currentMIPS->vfpuCtrl[imm - 128] = VI(vs) & mask;
+			if (GetVFPUCtrlMask(imm, &mask)) {
+				currentMIPS->vfpuCtrl[imm] = VI(vs) & mask;
 			}
 		}
 		PC += 4;
