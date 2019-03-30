@@ -1067,17 +1067,20 @@ namespace MIPSComp {
 		CONDITIONAL_DISABLE(VFPU_XFER);
 
 		int vd = _VD;
-		int imm = (op >> 8) & 0xFF;
-		if (imm >= 128 && imm < 128 + VFPU_CTRL_MAX) {
+		int imm = (op >> 8) & 0x7F;
+		if (imm < VFPU_CTRL_MAX) {
 			fpr.MapRegV(vd);
-			if (imm - 128 == VFPU_CTRL_CC) {
+			if (imm == VFPU_CTRL_CC) {
 				gpr.MapReg(MIPS_REG_VFPUCC, 0);
 				fp.FMOV(fpr.V(vd), gpr.R(MIPS_REG_VFPUCC));
 			} else {
-				ADDI2R(SCRATCH1_64, CTXREG, offsetof(MIPSState, vfpuCtrl[0]) + (imm - 128) * 4, SCRATCH2);
+				ADDI2R(SCRATCH1_64, CTXREG, offsetof(MIPSState, vfpuCtrl[0]) + imm * 4, SCRATCH2);
 				fp.LDR(32, INDEX_UNSIGNED, fpr.V(vd), SCRATCH1_64, 0);
 			}
 			fpr.ReleaseSpillLocksAndDiscardTemps();
+		} else {
+			fpr.MapRegV(vd);
+			MOVI2F(fpr.V(vd), 0.0f, SCRATCH1);
 		}
 	}
 
@@ -1085,23 +1088,23 @@ namespace MIPSComp {
 		CONDITIONAL_DISABLE(VFPU_XFER);
 
 		int vs = _VS;
-		int imm = op & 0xFF;
-		if (imm >= 128 && imm < 128 + VFPU_CTRL_MAX) {
+		int imm = op & 0x7F;
+		if (imm < VFPU_CTRL_MAX) {
 			fpr.MapRegV(vs);
-			if (imm - 128 == VFPU_CTRL_CC) {
+			if (imm == VFPU_CTRL_CC) {
 				gpr.MapReg(MIPS_REG_VFPUCC, MAP_DIRTY | MAP_NOINIT);
 				fp.FMOV(gpr.R(MIPS_REG_VFPUCC), fpr.V(vs));
 			} else {
-				ADDI2R(SCRATCH1_64, CTXREG, offsetof(MIPSState, vfpuCtrl[0]) + (imm - 128) * 4, SCRATCH2);
+				ADDI2R(SCRATCH1_64, CTXREG, offsetof(MIPSState, vfpuCtrl[0]) + imm * 4, SCRATCH2);
 				fp.STR(32, INDEX_UNSIGNED, fpr.V(vs), SCRATCH1_64, 0);
 			}
 			fpr.ReleaseSpillLocksAndDiscardTemps();
 
-			if (imm - 128 == VFPU_CTRL_SPREFIX) {
+			if (imm == VFPU_CTRL_SPREFIX) {
 				js.prefixSFlag = JitState::PREFIX_UNKNOWN;
-			} else if (imm - 128 == VFPU_CTRL_TPREFIX) {
+			} else if (imm == VFPU_CTRL_TPREFIX) {
 				js.prefixTFlag = JitState::PREFIX_UNKNOWN;
-			} else if (imm - 128 == VFPU_CTRL_DPREFIX) {
+			} else if (imm == VFPU_CTRL_DPREFIX) {
 				js.prefixDFlag = JitState::PREFIX_UNKNOWN;
 			}
 		}
