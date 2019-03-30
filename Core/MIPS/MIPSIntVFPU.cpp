@@ -132,7 +132,7 @@ void ApplyPrefixST(float *r, u32 data, VectorSize size)
 
 			r[i] = origV[regnum];
 			if (abs)
-				r[i] = fabs(r[i]);
+				((u32 *)r)[i] = ((u32 *)r)[i] & 0x7FFFFFFF;
 		}
 		else
 		{
@@ -140,7 +140,7 @@ void ApplyPrefixST(float *r, u32 data, VectorSize size)
 		}
 
 		if (negate)
-			r[i] = -r[i];
+			((u32 *)r)[i] = ((u32 *)r)[i] ^ 0x80000000;
 	}
 }
 
