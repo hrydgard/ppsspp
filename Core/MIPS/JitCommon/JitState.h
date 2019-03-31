@@ -99,12 +99,22 @@ namespace MIPSComp {
 			prefixDFlag = PREFIX_UNKNOWN;
 		}
 
+		bool HasSPrefix() const {
+			return (prefixSFlag & PREFIX_KNOWN) == 0 || prefixS != 0xE4;
+		}
+
+		bool HasTPrefix() const {
+			return (prefixTFlag & PREFIX_KNOWN) == 0 || prefixT != 0xE4;
+		}
+
+		bool HasDPrefix() const {
+			return (prefixDFlag & PREFIX_KNOWN) == 0 || prefixD != 0x0;
+		}
+
 		bool MayHavePrefix() const {
 			if (HasUnknownPrefix()) {
 				return true;
 			} else if (prefixS != 0xE4 || prefixT != 0xE4 || prefixD != 0) {
-				return true;
-			} else if (VfpuWriteMask() != 0) {
 				return true;
 			}
 			return false;
@@ -118,22 +128,19 @@ namespace MIPSComp {
 		}
 
 		bool HasNoPrefix() const {
-			return (prefixDFlag & PREFIX_KNOWN) && (prefixSFlag & PREFIX_KNOWN) && (prefixTFlag & PREFIX_KNOWN) && (prefixS == 0xE4 && prefixT == 0xE4 && prefixD == 0);
+			return !HasSPrefix() && !HasTPrefix() && !HasDPrefix();
 		}
 
 		void EatPrefix() {
-			if ((prefixSFlag & PREFIX_KNOWN) == 0 || prefixS != 0xE4) {
+			if (HasSPrefix())
 				prefixSFlag = PREFIX_KNOWN_DIRTY;
-				prefixS = 0xE4;
-			}
-			if ((prefixTFlag & PREFIX_KNOWN) == 0 || prefixT != 0xE4) {
+			prefixS = 0xE4;
+			if (HasTPrefix())
 				prefixTFlag = PREFIX_KNOWN_DIRTY;
-				prefixT = 0xE4;
-			}
-			if ((prefixDFlag & PREFIX_KNOWN) == 0 || prefixD != 0x0) {
+			prefixT = 0xE4;
+			if (HasDPrefix())
 				prefixDFlag = PREFIX_KNOWN_DIRTY;
-				prefixD = 0x0;
-			}
+			prefixD = 0x0;
 		}
 
 		u8 VfpuWriteMask() const {

@@ -132,7 +132,7 @@ void ApplyPrefixST(float *r, u32 data, VectorSize size)
 
 			r[i] = origV[regnum];
 			if (abs)
-				r[i] = fabs(r[i]);
+				((u32 *)r)[i] = ((u32 *)r)[i] & 0x7FFFFFFF;
 		}
 		else
 		{
@@ -140,7 +140,7 @@ void ApplyPrefixST(float *r, u32 data, VectorSize size)
 		}
 
 		if (negate)
-			r[i] = -r[i];
+			((u32 *)r)[i] = ((u32 *)r)[i] ^ 0x80000000;
 	}
 }
 
@@ -183,6 +183,8 @@ namespace MIPSInt
 	{
 		int data = op & 0xFFFFF;
 		int regnum = (op >> 24) & 3;
+		if (regnum == VFPU_CTRL_DPREFIX)
+			data &= 0x00000FFF;
 		currentMIPS->vfpuCtrl[VFPU_CTRL_SPREFIX + regnum] = data;
 		PC += 4;
 	}
@@ -642,7 +644,8 @@ namespace MIPSInt
 		float mult = (float)(1UL << imm);
 		VectorSize sz = GetVecSize(op);
 		ReadVector(s, sz, vs);
-		ApplySwizzleS(s, sz); //TODO: and the mask to kill everything but swizzle
+		// Negate, abs, and constants apply as you'd expect to the bits.
+		ApplySwizzleS(s, sz);
 		for (int i = 0; i < GetNumVectorElements(sz); i++) {
 			if (my_isnan(s[i])) {
 				d[i] = 0x7FFFFFFF;
@@ -665,14 +668,14 @@ namespace MIPSInt
 				}
 			}
 		}
+		// Does not apply sat, but does apply mask.
 		ApplyPrefixD(reinterpret_cast<float *>(d), sz, true);
 		WriteVector(reinterpret_cast<float *>(d), sz, vd);
 		PC += 4;
 		EatPrefixes();
 	}
 
-	void Int_Vi2f(MIPSOpcode op)
-	{
+	void Int_Vi2f(MIPSOpcode op) {
 		int s[4];
 		float d[4];
 		int vd = _VD;
@@ -681,12 +684,13 @@ namespace MIPSInt
 		float mult = 1.0f/(float)(1UL << imm);
 		VectorSize sz = GetVecSize(op);
 		ReadVector(reinterpret_cast<float *>(s), sz, vs);
-		ApplySwizzleS(reinterpret_cast<float *>(s), sz); //TODO: and the mask to kill everything but swizzle
-		for (int i = 0; i < GetNumVectorElements(sz); i++)
-		{
+		// Negate, abs, and constants apply as you'd expect to the bits.
+		ApplySwizzleS(reinterpret_cast<float *>(s), sz);
+		for (int i = 0; i < GetNumVectorElements(sz); i++) {
 			d[i] = (float)s[i] * mult;
 		}
-		ApplyPrefixD(d, sz); //TODO: and the mask to kill everything but mask
+		// Sat and mask apply normally.
+		ApplyPrefixD(d, sz);
 		WriteVector(d, sz, vd);
 		PC += 4;
 		EatPrefixes();
@@ -1643,7 +1647,6 @@ namespace MIPSInt
 		int vt = _VT;
 		int vs = _VS;
 		int vd = _VD;
-		int cond = op&15;
 		VectorSize sz = GetVecSize(op);
 		int numElements = GetNumVectorElements(sz);
 		float s[4];
@@ -1669,7 +1672,6 @@ namespace MIPSInt
 		int vt = _VT;
 		int vs = _VS;
 		int vd = _VD;
-		int cond = op&15;
 		VectorSize sz = GetVecSize(op);
 		int numElements = GetNumVectorElements(sz);
 		float s[4];
@@ -1692,8 +1694,7 @@ namespace MIPSInt
 	}
 
 
-	void Int_Vcmov(MIPSOpcode op)
-	{
+	void Int_Vcmov(MIPSOpcode op) {
 		int vs = _VS;
 		int vd = _VD;
 		int tf = (op >> 19) & 1;
@@ -1704,28 +1705,23 @@ namespace MIPSInt
 		float d[4];
 		ReadVector(s, sz, vs);
 		ApplySwizzleS(s, sz);
-		ReadVector(d, sz, vd); //Yes!
+		// Not only is D read (as T), but the T prefix applies to it.
+		ReadVector(d, sz, vd);
+		ApplySwizzleT(d, sz);
 
 		int CC = currentMIPS->vfpuCtrl[VFPU_CTRL_CC];
 
-		if (imm3 < 6)
-		{
-			if (((CC >> imm3) & 1) == !tf)
-			{
+		if (imm3 < 6) {
+			if (((CC >> imm3) & 1) == !tf) {
 				for (int i = 0; i < n; i++)
 					d[i] = s[i];
 			}
-		}
-		else if (imm3 == 6)
-		{
-			for (int i = 0; i < n; i++)
-			{
+		} else if (imm3 == 6) {
+			for (int i = 0; i < n; i++) {
 				if (((CC >> i) & 1) == !tf)
 					d[i] = s[i];
 			}
-		}
-		else
-		{
+		} else {
 			ERROR_LOG_REPORT(CPU, "Bad Imm3 in cmov: %d", imm3);
 		}
 		ApplyPrefixD(d, sz);
