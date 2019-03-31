@@ -774,8 +774,9 @@ namespace MIPSInt
 		VectorSize sz = GetVecSize(op);
 		ReadVector(s, sz, vs);
 		// Swizzle can cause V_Single to properly write both components.
-		// TODO: Minor, but negate shouldn't apply to invalid here.  Maybe always?
 		ApplySwizzleS(s, V_Quad);
+		// Negate should not actually apply to invalid swizzle.
+		RetainInvalidSwizzleST(s, V_Quad);
 		
 		VectorSize outsize = V_Single;
 		switch (sz) {
@@ -1393,13 +1394,17 @@ namespace MIPSInt
 			float s[4]{};
 			ReadVector(s, V_Single, vs);
 			u32 sprefixRemove = VFPU_NEGATE(1, 0, 0, 0);
-			u32 sprefixAdd = VFPU_NEGATE(negSin, 0, 0, 0);
-			// TODO: Minor, but negate shouldn't apply to invalid here.  Maybe always?
+			// We apply negSin later, not here.  This handles zero a bit better.
+			u32 sprefixAdd = VFPU_NEGATE(0, 0, 0, 0);
 			ApplyPrefixST(s, VFPURewritePrefix(VFPU_CTRL_SPREFIX, sprefixRemove, sprefixAdd), V_Single);
 
 			// Cosine ignores all prefixes, so take the original.
 			cosine = vfpu_cos(V(vs));
 			sine = vfpu_sin(s[0]);
+
+			if (negSin)
+				sine = -sine;
+			RetainInvalidSwizzleST(&sine, V_Single);
 		}
 
 		if (sineLane == cosineLane) {
