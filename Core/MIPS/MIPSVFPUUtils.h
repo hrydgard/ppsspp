@@ -35,6 +35,7 @@ inline int Xpose(int v) {
 
 // Some games depend on exact values, but sinf() and cosf() aren't always precise.
 // Stepping down to [0, 2pi) helps, but we also check common exact-result values.
+// TODO: cos(2) and sin(1) should be -0.0, but doing that gives wrong results (possibly from floorf.)
 
 inline float vfpu_sin(float angle) {
 	angle -= floorf(angle * 0.25f) * 4.f;
@@ -113,11 +114,38 @@ enum VectorSize {
 };
 
 enum MatrixSize {
+	M_1x1 = 1,
 	M_2x2 = 2,
 	M_3x3 = 3,
 	M_4x4 = 4,
 	M_Invalid = -1
 };
+
+static u32 VFPU_SWIZZLE(int x, int y, int z, int w) {
+	return (x << 0) | (y << 2) | (z << 4) | (w << 6);
+}
+
+static u32 VFPU_MASK(int x, int y, int z, int w) {
+	return (x << 0) | (y << 1) | (z << 2) | (w << 3);
+}
+
+static u32 VFPU_ANY_SWIZZLE() {
+	return 0x000000FF;
+}
+
+static u32 VFPU_ABS(int x, int y, int z, int w) {
+	return VFPU_MASK(x, y, z, w) << 8;
+}
+
+static u32 VFPU_CONST(int x, int y, int z, int w) {
+	return VFPU_MASK(x, y, z, w) << 12;
+}
+
+static u32 VFPU_NEGATE(int x, int y, int z, int w) {
+	return VFPU_MASK(x, y, z, w) << 16;
+}
+
+u32 VFPURewritePrefix(int ctrl, u32 remove, u32 add);
 
 void ReadMatrix(float *rd, MatrixSize size, int reg);
 void WriteMatrix(const float *rs, MatrixSize size, int reg);
@@ -183,5 +211,7 @@ inline int TransposeMatrixReg(int matrixReg) {
 	return matrixReg ^ 0x20;
 }
 int GetVectorOverlap(int reg1, VectorSize size1, int reg2, VectorSize size2);
+
+bool GetVFPUCtrlMask(int reg, u32 *mask);
 
 float Float16ToFloat32(unsigned short l);

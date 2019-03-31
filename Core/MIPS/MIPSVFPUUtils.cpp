@@ -57,15 +57,15 @@ void GetMatrixRegs(u8 regs[16], MatrixSize N, int matrixReg) {
 
 	int row = 0;
 	int side = 0;
+	int transpose = (matrixReg >> 5) & 1;
 
 	switch (N) {
-	case M_2x2: row = (matrixReg>>5)&2; side = 2; break;
-	case M_3x3: row = (matrixReg>>6)&1; side = 3; break;
-	case M_4x4: row = (matrixReg>>5)&2; side = 4; break;
+	case M_1x1: transpose = 0; row = (matrixReg >> 5) & 3; side = 1; break;
+	case M_2x2: row = (matrixReg >> 5) & 2; side = 2; break;
+	case M_3x3: row = (matrixReg >> 6) & 1; side = 3; break;
+	case M_4x4: row = (matrixReg >> 5) & 2; side = 4; break;
 	default: _assert_msg_(JIT, 0, "%s: Bad matrix size", __FUNCTION__);
 	}
-
-	int transpose = (matrixReg>>5) & 1;
 
 	for (int i = 0; i < side; i++) {
 		for (int j = 0; j < side; j++) {
@@ -176,19 +176,27 @@ void ReadVector(float *rd, VectorSize size, int reg) {
 }
 
 void WriteVector(const float *rd, VectorSize size, int reg) {
+	if (size == V_Single) {
+		// Optimize the common case.
+		if (!currentMIPS->VfpuWriteMask(0)) {
+			V(reg) = rd[0];
+		}
+		return;
+	}
+
+	const int mtx = (reg>>2)&7;
+	const int col = reg & 3;
+	int transpose = (reg>>5)&1;
 	int row = 0;
 	int length = 0;
 
 	switch (size) {
-	case V_Single: V(reg) = rd[0]; return; // transpose = 0; row=(reg>>5)&3; length = 1; break;
+	case V_Single: _dbg_assert_(JIT, 0); return; // transpose = 0; row=(reg>>5)&3; length = 1; break;
 	case V_Pair:   row=(reg>>5)&2; length = 2; break;
 	case V_Triple: row=(reg>>6)&1; length = 3; break;
 	case V_Quad:   row=(reg>>5)&2; length = 4; break;
 	default: _assert_msg_(JIT, 0, "%s: Bad vector size", __FUNCTION__);
 	}
-	const int mtx = (reg>>2)&7;
-	const int col = reg & 3;
-	int transpose = (reg>>5)&1;
 
 	if (currentMIPS->VfpuWriteMask() == 0) {
 		if (transpose) {
@@ -214,30 +222,35 @@ void WriteVector(const float *rd, VectorSize size, int reg) {
 	}
 }
 
+u32 VFPURewritePrefix(int ctrl, u32 remove, u32 add) {
+	u32 prefix = currentMIPS->vfpuCtrl[ctrl];
+	return (prefix & ~remove) | add;
+}
+
 void ReadMatrix(float *rd, MatrixSize size, int reg) {
 	int mtx = (reg >> 2) & 7;
 	int col = reg & 3;
 
 	int row = 0;
 	int side = 0;
+	int transpose = (reg >> 5) & 1;
 
 	switch (size) {
-	case M_2x2: row = (reg>>5)&2; side = 2; break;
-	case M_3x3: row = (reg>>6)&1; side = 3; break;
-	case M_4x4: row = (reg>>5)&2; side = 4; break;
+	case M_1x1: transpose = 0; row = (reg >> 5) & 3; side = 1; break;
+	case M_2x2: row = (reg >> 5) & 2; side = 2; break;
+	case M_3x3: row = (reg >> 6) & 1; side = 3; break;
+	case M_4x4: row = (reg >> 5) & 2; side = 4; break;
 	default: _assert_msg_(JIT, 0, "%s: Bad matrix size", __FUNCTION__);
 	}
 
-	int transpose = (reg>>5) & 1;
-
 	for (int i = 0; i < side; i++) {
 		for (int j = 0; j < side; j++) {
-      int index = mtx * 4;
+			int index = mtx * 4;
 			if (transpose)
-        index += ((row+i)&3) + ((col+j)&3)*32;
-      else
-        index += ((col+j)&3) + ((row+i)&3)*32;
-      rd[j*4 + i] = V(index);
+				index += ((row+i)&3) + ((col+j)&3)*32;
+			else
+				index += ((col+j)&3) + ((row+i)&3)*32;
+			rd[j*4 + i] = V(index);
 		}
 	}
 }
@@ -248,15 +261,16 @@ void WriteMatrix(const float *rd, MatrixSize size, int reg) {
 
 	int row = 0;
 	int side = 0;
+	int transpose = (reg >> 5) & 1;
 
 	switch (size) {
-	case M_2x2: row = (reg>>5)&2; side = 2; break;
-	case M_3x3: row = (reg>>6)&1; side = 3; break;
-	case M_4x4: row = (reg>>5)&2; side = 4; break;
+	case M_1x1: transpose = 0; row = (reg >> 5) & 3; side = 1; break;
+	case M_2x2: row = (reg >> 5) & 2; side = 2; break;
+	case M_3x3: row = (reg >> 6) & 1; side = 3; break;
+	case M_4x4: row = (reg >> 5) & 2; side = 4; break;
 	default: _assert_msg_(JIT, 0, "%s: Bad matrix size", __FUNCTION__);
 	}
 
-	int transpose = (reg>>5)&1;
 	if (currentMIPS->VfpuWriteMask() != 0) {
 		ERROR_LOG_REPORT(CPU, "Write mask used with vfpu matrix instruction.");
 	}
@@ -352,6 +366,7 @@ VectorSize GetVecSize(MIPSOpcode op) {
 
 VectorSize GetVectorSizeSafe(MatrixSize sz) {
 	switch (sz) {
+	case M_1x1: return V_Single;
 	case M_2x2: return V_Pair;
 	case M_3x3: return V_Triple;
 	case M_4x4: return V_Quad;
@@ -367,7 +382,7 @@ VectorSize GetVectorSize(MatrixSize sz) {
 
 MatrixSize GetMatrixSizeSafe(VectorSize sz) {
 	switch (sz) {
-	case V_Single: return M_Invalid;
+	case V_Single: return M_1x1;
 	case V_Pair: return M_2x2;
 	case V_Triple: return M_3x3;
 	case V_Quad: return M_4x4;
@@ -386,7 +401,7 @@ MatrixSize GetMtxSizeSafe(MIPSOpcode op) {
 	int b = (op >> 15) & 1;
 	a += (b << 1);
 	switch (a) {
-	case 0: return M_4x4;  // This happens in disassembly of junk
+	case 0: return M_1x1;  // This happens in disassembly of junk, but has predictable behavior.
 	case 1: return M_2x2;
 	case 2: return M_3x3;
 	case 3: return M_4x4;
@@ -402,6 +417,7 @@ MatrixSize GetMtxSize(MIPSOpcode op) {
 
 VectorSize MatrixVectorSizeSafe(MatrixSize sz) {
 	switch (sz) {
+	case M_1x1: return V_Single;
 	case M_2x2: return V_Pair;
 	case M_3x3: return V_Triple;
 	case M_4x4: return V_Quad;
@@ -417,6 +433,7 @@ VectorSize MatrixVectorSize(MatrixSize sz) {
 
 int GetMatrixSideSafe(MatrixSize sz) {
 	switch (sz) {
+	case M_1x1: return 1;
 	case M_2x2: return 2;
 	case M_3x3: return 3;
 	case M_4x4: return 4;
@@ -425,7 +442,7 @@ int GetMatrixSideSafe(MatrixSize sz) {
 }
 
 int GetMatrixSide(MatrixSize sz) {
-	int res = MatrixVectorSizeSafe(sz);
+	int res = GetMatrixSideSafe(sz);
 	_assert_msg_(JIT, res != 0, "%s: Bad matrix size", __FUNCTION__);
 	return res;
 }
@@ -509,6 +526,41 @@ const char *GetMatrixNotation(int reg, MatrixSize size)
   return hej[yo];
 }
 
+bool GetVFPUCtrlMask(int reg, u32 *mask) {
+	switch (reg) {
+	case VFPU_CTRL_SPREFIX:
+	case VFPU_CTRL_TPREFIX:
+		*mask = 0x000FFFFF;
+		return true;
+	case VFPU_CTRL_DPREFIX:
+		*mask = 0x00000FFF;
+		return true;
+	case VFPU_CTRL_CC:
+		*mask = 0x0000003F;
+		return true;
+	case VFPU_CTRL_INF4:
+		*mask = 0xFFFFFFFF;
+		return true;
+	case VFPU_CTRL_RSV5:
+	case VFPU_CTRL_RSV6:
+	case VFPU_CTRL_REV:
+		// Don't change anything, these regs are read only.
+		return false;
+	case VFPU_CTRL_RCX0:
+	case VFPU_CTRL_RCX1:
+	case VFPU_CTRL_RCX2:
+	case VFPU_CTRL_RCX3:
+	case VFPU_CTRL_RCX4:
+	case VFPU_CTRL_RCX5:
+	case VFPU_CTRL_RCX6:
+	case VFPU_CTRL_RCX7:
+		*mask = 0x3FFFFFFF;
+		return true;
+	default:
+		return false;
+	}
+}
+
 float Float16ToFloat32(unsigned short l)
 {
 	union float2int {
@@ -521,19 +573,17 @@ float Float16ToFloat32(unsigned short l)
 	int exponent = (float16 >> VFPU_SH_FLOAT16_EXP) & VFPU_MASK_FLOAT16_EXP;
 	unsigned int fraction = float16 & VFPU_MASK_FLOAT16_FRAC;
 
-	float signf = (sign == 1) ? -1.0f : 1.0f;
-
 	float f;
 	if (exponent == VFPU_FLOAT16_EXP_MAX)
 	{
-		if (fraction == 0)
-			f = std::numeric_limits<float>::infinity(); //(*info->fprintf_func) (info->stream, "%cInf", signchar);
-		else
-			f = std::numeric_limits<float>::quiet_NaN(); //(*info->fprintf_func) (info->stream, "%cNaN", signchar);
+		float2int.i = sign << 31;
+		float2int.i |= 255 << 23;
+		float2int.i |= fraction;
+		f = float2int.f;
 	}
 	else if (exponent == 0 && fraction == 0)
 	{
-		f = 0.0f * signf;
+		f = sign == 1 ? -0.0f : 0.0f;
 	}
 	else
 	{

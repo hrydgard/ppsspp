@@ -100,7 +100,7 @@ namespace MIPSComp
 			js.prefixTFlag = JitState::PREFIX_KNOWN_DIRTY;
 			break;
 		case 2:  // D
-			js.prefixD = data;
+			js.prefixD = data & 0x00000FFF;
 			js.prefixDFlag = JitState::PREFIX_KNOWN_DIRTY;
 			break;
 		default:
@@ -1333,18 +1333,21 @@ namespace MIPSComp
 		NEON_IF_AVAILABLE(CompNEON_Vmtvc);
 		CONDITIONAL_DISABLE(VFPU_XFER);
 
-		int vs = _VS;
-		int imm = op & 0xFF;
-		if (imm >= 128 && imm < 128 + VFPU_CTRL_MAX) {
-			fpr.MapRegV(vs);
-			if (imm - 128 == VFPU_CTRL_CC) {
+		int vd = _VD;
+		int imm = (op >> 8) & 0x7F;
+		if (imm < VFPU_CTRL_MAX) {
+			fpr.MapRegV(vd);
+			if (imm == VFPU_CTRL_CC) {
 				gpr.MapReg(MIPS_REG_VFPUCC, 0);
-				VMOV(fpr.V(vs), gpr.R(MIPS_REG_VFPUCC));
+				VMOV(fpr.V(vd), gpr.R(MIPS_REG_VFPUCC));
 			} else {
-				ADDI2R(SCRATCHREG1, CTXREG, offsetof(MIPSState, vfpuCtrl[0]) + (imm - 128) * 4, SCRATCHREG2);
-				VLDR(fpr.V(vs), SCRATCHREG1, 0);
+				ADDI2R(SCRATCHREG1, CTXREG, offsetof(MIPSState, vfpuCtrl[0]) + imm * 4, SCRATCHREG2);
+				VLDR(fpr.V(vd), SCRATCHREG1, 0);
 			}
 			fpr.ReleaseSpillLocksAndDiscardTemps();
+		} else {
+			fpr.MapRegV(vd);
+			MOVI2F(fpr.V(vd), 0.0f, SCRATCHREG1);
 		}
 	}
 
@@ -1353,23 +1356,23 @@ namespace MIPSComp
 		CONDITIONAL_DISABLE(VFPU_XFER);
 
 		int vs = _VS;
-		int imm = op & 0xFF;
-		if (imm >= 128 && imm < 128 + VFPU_CTRL_MAX) {
+		int imm = op & 0x7F;
+		if (imm < VFPU_CTRL_MAX) {
 			fpr.MapRegV(vs);
-			if (imm - 128 == VFPU_CTRL_CC) {
+			if (imm == VFPU_CTRL_CC) {
 				gpr.MapReg(MIPS_REG_VFPUCC, MAP_DIRTY | MAP_NOINIT);
 				VMOV(gpr.R(MIPS_REG_VFPUCC), fpr.V(vs));
 			} else {
-				ADDI2R(SCRATCHREG1, CTXREG, offsetof(MIPSState, vfpuCtrl[0]) + (imm - 128) * 4, SCRATCHREG2);
+				ADDI2R(SCRATCHREG1, CTXREG, offsetof(MIPSState, vfpuCtrl[0]) + imm * 4, SCRATCHREG2);
 				VSTR(fpr.V(vs), SCRATCHREG1, 0);
 			}
 			fpr.ReleaseSpillLocksAndDiscardTemps();
 
-			if (imm - 128 == VFPU_CTRL_SPREFIX) {
+			if (imm == VFPU_CTRL_SPREFIX) {
 				js.prefixSFlag = JitState::PREFIX_UNKNOWN;
-			} else if (imm - 128 == VFPU_CTRL_TPREFIX) {
+			} else if (imm == VFPU_CTRL_TPREFIX) {
 				js.prefixTFlag = JitState::PREFIX_UNKNOWN;
-			} else if (imm - 128 == VFPU_CTRL_DPREFIX) {
+			} else if (imm == VFPU_CTRL_DPREFIX) {
 				js.prefixDFlag = JitState::PREFIX_UNKNOWN;
 			}
 		}

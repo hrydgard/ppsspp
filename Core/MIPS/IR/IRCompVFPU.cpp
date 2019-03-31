@@ -108,8 +108,28 @@ namespace MIPSComp {
 		return true;
 	}
 
+	static bool IsPrefixWithinSize(u32 prefix, VectorSize sz) {
+		int n = GetNumVectorElements(sz);
+		for (int i = n; i < 4; i++) {
+			int regnum = (prefix >> (i * 2)) & 3;
+			int abs = (prefix >> (8 + i)) & 1;
+			int negate = (prefix >> (16 + i)) & 1;
+			int constants = (prefix >> (12 + i)) & 1;
+			if (regnum < n || abs || negate || constants) {
+				return false;
+			}
+		}
+
+		return true;
+	}
+
+	static bool IsPrefixWithinSize(u32 prefix, MIPSOpcode op) {
+		return IsPrefixWithinSize(prefix, GetVecSize(op));
+	}
+
 	void IRFrontend::Comp_VPFX(MIPSOpcode op) {
 		CONDITIONAL_DISABLE(VFPU_XFER);
+		// This is how prefixes are typically set.
 		int data = op & 0xFFFFF;
 		int regnum = (op >> 24) & 3;
 		switch (regnum) {
@@ -122,7 +142,7 @@ namespace MIPSComp {
 			js.prefixTFlag = JitState::PREFIX_KNOWN_DIRTY;
 			break;
 		case 2:  // D
-			js.prefixD = data;
+			js.prefixD = data & 0x00000FFF;
 			js.prefixDFlag = JitState::PREFIX_KNOWN_DIRTY;
 			break;
 		default:
@@ -183,14 +203,10 @@ namespace MIPSComp {
 			// This puts the value into a temp reg, so we won't write the modified value back.
 			vregs[i] = tempReg + i;
 			if (!constants) {
-				// Prefix may say "z, z, z, z" but if this is a pair, we force to x.
-				// TODO: But some ops seem to use const 0 instead?
 				if (regnum >= n) {
-					WARN_LOG(CPU, "JIT: Invalid VFPU swizzle: %08x : %d / %d at PC = %08x (%s)", prefix, regnum, n, GetCompilerPC(), MIPSDisasmAt(GetCompilerPC()));
-					regnum = 0;
-				}
-
-				if (abs) {
+					// Depends on the op, but often zero.
+					ir.Write(IROp::SetConstF, vregs[i], ir.AddConstantFloat(0.0f));
+				} else if (abs) {
 					ir.Write(IROp::FAbs, vregs[i], origV[regnum]);
 					if (negate)
 						ir.Write(IROp::FNeg, vregs[i], vregs[i]);
@@ -343,12 +359,13 @@ namespace MIPSComp {
 
 	void IRFrontend::Comp_VVectorInit(MIPSOpcode op) {
 		CONDITIONAL_DISABLE(VFPU_XFER);
-		if (js.HasUnknownPrefix()) {
+		if (js.HasUnknownPrefix() || js.HasSPrefix()) {
 			DISABLE;
 		}
 
 		// Vector init
 		// d[N] = CONST[N]
+		// Note: probably implemented as vmov with prefix hack.
 
 		VectorSize sz = GetVecSize(op);
 		int type = (op >> 16) & 0xF;
@@ -369,12 +386,13 @@ namespace MIPSComp {
 
 	void IRFrontend::Comp_VIdt(MIPSOpcode op) {
 		CONDITIONAL_DISABLE(VFPU_XFER);
-		if (js.HasUnknownPrefix()) {
+		if (js.HasUnknownPrefix() || js.HasSPrefix()) {
 			DISABLE;
 		}
 
 		// Vector identity row
 		// d[N] = IDENTITY[N,m]
+		// Note: probably implemented as vmov with prefix hack.
 
 		int vd = _VD;
 		VectorSize sz = GetVecSize(op);
@@ -408,11 +426,11 @@ namespace MIPSComp {
 	void IRFrontend::Comp_VMatrixInit(MIPSOpcode op) {
 		CONDITIONAL_DISABLE(VFPU_XFER);
 		MatrixSize sz = GetMtxSize(op);
-		if (sz != M_4x4) {
+		if (sz != M_4x4 || !js.HasNoPrefix()) {
 			DISABLE;
 		}
 
-		// Matrix init (no prefixes)
+		// Matrix init (weird prefixes)
 		// d[N,M] = CONST[N,M]
 
 		// Not really about trying here, it will work if enabled.
@@ -448,18 +466,22 @@ namespace MIPSComp {
 
 	void IRFrontend::Comp_VHdp(MIPSOpcode op) {
 		CONDITIONAL_DISABLE(VFPU_VEC);
-		if (js.HasUnknownPrefix()) {
+		if (js.HasUnknownPrefix() || !IsPrefixWithinSize(js.prefixS, op) || !IsPrefixWithinSize(js.prefixT, op)) {
 			DISABLE;
 		}
 
 		// Vector homogenous dot product
 		// d[0] = s[0 .. n-2] dot t[0 .. n-2] + t[n-1]
-		// Note: s[n-1] is ignored / treated as 1.
+		// Note: s[n-1] is ignored / treated as 1 via prefix override.
 
 		int vd = _VD;
 		int vs = _VS;
 		int vt = _VT;
 		VectorSize sz = GetVecSize(op);
+		int n = GetNumVectorElements(sz);
+
+		if (js.prefixS & (0x0101 << (8 + n - 1)))
+			DISABLE;
 
 		// TODO: Force read one of them into regs? probably not.
 		u8 sregs[4], tregs[4], dregs[1];
@@ -469,9 +491,7 @@ namespace MIPSComp {
 
 		ir.Write(IROp::FMul, IRVTEMP_0, sregs[0], tregs[0]);
 
-		int n = GetNumVectorElements(sz);
 		for (int i = 1; i < n; i++) {
-			// sum += s[i]*t[i];
 			if (i == n - 1) {
 				ir.Write(IROp::FAdd, IRVTEMP_0, IRVTEMP_0, tregs[i]);
 			} else {
@@ -488,14 +508,15 @@ namespace MIPSComp {
 
 	void IRFrontend::Comp_Vhoriz(MIPSOpcode op) {
 		CONDITIONAL_DISABLE(VFPU_VEC);
-
-		if (js.HasUnknownPrefix())
+		if (js.HasUnknownPrefix() || !IsPrefixWithinSize(js.prefixS, op) || js.HasTPrefix()) {
 			DISABLE;
+		}
 
 		// Vector horizontal add
 		// d[0] = s[0] + ... s[n-1]
 		// Vector horizontal average
-		// d[0] = (s[0] + ... s[n-1]) / n
+		// d[0] = s[0] / n + ... s[n-1] / n
+		// Note: Both are implemented as dot products against generated constants.
 
 		VectorSize sz = GetVecSize(op);
 		int n = GetNumVectorElements(sz);
@@ -525,7 +546,7 @@ namespace MIPSComp {
 
 	void IRFrontend::Comp_VDot(MIPSOpcode op) {
 		CONDITIONAL_DISABLE(VFPU_VEC);
-		if (js.HasUnknownPrefix()) {
+		if (js.HasUnknownPrefix() || !IsPrefixWithinSize(js.prefixS, op) || !IsPrefixWithinSize(js.prefixT, op)) {
 			DISABLE;
 		}
 
@@ -563,8 +584,9 @@ namespace MIPSComp {
 
 	void IRFrontend::Comp_VecDo3(MIPSOpcode op) {
 		CONDITIONAL_DISABLE(VFPU_VEC);
-		if (js.HasUnknownPrefix())
+		if (js.HasUnknownPrefix() || !IsPrefixWithinSize(js.prefixS, op) || !IsPrefixWithinSize(js.prefixT, op)) {
 			DISABLE;
+		}
 
 		// Vector arithmetic
 		// d[N] = OP(s[N], t[N]) (see below)
@@ -576,7 +598,11 @@ namespace MIPSComp {
 			switch ((op >> 23) & 7) {
 			case 0: // d[i] = s[i] + t[i]; break; //vadd
 			case 1: // d[i] = s[i] - t[i]; break; //vsub
+				break;
 			case 7: // d[i] = s[i] / t[i]; break; //vdiv
+				if (!js.HasNoPrefix()) {
+					DISABLE;
+				}
 				break;
 			default:
 				INVALIDOP;
@@ -722,7 +748,7 @@ namespace MIPSComp {
 
 	void IRFrontend::Comp_VV2Op(MIPSOpcode op) {
 		CONDITIONAL_DISABLE(VFPU_VEC);
-		if (js.HasUnknownPrefix())
+		if (js.HasUnknownPrefix() || !IsPrefixWithinSize(js.prefixS, op) || !IsPrefixWithinSize(js.prefixT, op))
 			DISABLE;
 
 		// Vector unary operation
@@ -731,8 +757,17 @@ namespace MIPSComp {
 		int vs = _VS;
 		int vd = _VD;
 
+		int optype = (op >> 16) & 0x1f;
+		if (optype >= 16 && !js.HasNoPrefix()) {
+			DISABLE;
+		} else if ((optype == 1 || optype == 2) && js.HasSPrefix()) {
+			DISABLE;
+		} else if (optype == 5 && js.HasDPrefix()) {
+			DISABLE;
+		}
+
 		// Pre-processing: Eliminate silly no-op VMOVs, common in Wipeout Pure
-		if (((op >> 16) & 0x1f) == 0 && vs == vd && js.HasNoPrefix()) {
+		if (optype == 0 && vs == vd && js.HasNoPrefix()) {
 			return;
 		}
 
@@ -756,7 +791,7 @@ namespace MIPSComp {
 
 		bool canSIMD = false;
 		// Some can be SIMD'd.
-		switch ((op >> 16) & 0x1f) {
+		switch (optype) {
 		case 0:  // vmov
 		case 1:  // vabs
 		case 2:  // vneg
@@ -765,7 +800,7 @@ namespace MIPSComp {
 		}
 
 		if (canSIMD && !usingTemps && IsConsecutive4(sregs) && IsConsecutive4(dregs)) {
-			switch ((op >> 16) & 0x1f) {
+			switch (optype) {
 			case 0:  // vmov
 				ir.Write(IROp::Vec4Mov, dregs[0], sregs[0]);
 				break;
@@ -781,7 +816,7 @@ namespace MIPSComp {
 		}
 
 		for (int i = 0; i < n; ++i) {
-			switch ((op >> 16) & 0x1f) {
+			switch (optype) {
 			case 0: // d[i] = s[i]; break; //vmov
 				// Probably for swizzle.
 				ir.Write(IROp::FMov, tempregs[i], sregs[i]);
@@ -848,7 +883,7 @@ namespace MIPSComp {
 
 	void IRFrontend::Comp_Vi2f(MIPSOpcode op) {
 		CONDITIONAL_DISABLE(VFPU_VEC);
-		if (js.HasUnknownPrefix()) {
+		if (js.HasUnknownPrefix() || !IsPrefixWithinSize(js.prefixS, op)) {
 			DISABLE;
 		}
 
@@ -895,6 +930,9 @@ namespace MIPSComp {
 
 	void IRFrontend::Comp_Vh2f(MIPSOpcode op) {
 		CONDITIONAL_DISABLE(VFPU_VEC);
+		if (js.HasUnknownPrefix() || !IsPrefixWithinSize(js.prefixS, op)) {
+			DISABLE;
+		}
 
 		// Vector expand half to float
 		// d[N*2] = float(lowerhalf(s[N])), d[N*2+1] = float(upperhalf(s[N]))
@@ -904,6 +942,9 @@ namespace MIPSComp {
 
 	void IRFrontend::Comp_Vf2i(MIPSOpcode op) {
 		CONDITIONAL_DISABLE(VFPU_VEC);
+		if (js.HasUnknownPrefix() || !IsPrefixWithinSize(js.prefixS, op) || (js.prefixD & 0xFF) != 0) {
+			DISABLE;
+		}
 
 		// Vector float to integer
 		// d[N] = int(S[N] * mult)
@@ -919,7 +960,7 @@ namespace MIPSComp {
 		MIPSGPReg rt = _RT;
 		switch ((op >> 21) & 0x1f) {
 		case 3: //mfv / mfvc
-						// rt = 0, imm = 255 appears to be used as a CPU interlock by some games.
+			// rt = 0, imm = 255 appears to be used as a CPU interlock by some games.
 			if (rt != MIPS_REG_ZERO) {
 				if (imm < 128) {  //R(rt) = VI(imm);
 					ir.Write(IROp::FMovToGPR, rt, vfpuBase + voffset[imm]);
@@ -944,7 +985,15 @@ namespace MIPSComp {
 			if (imm < 128) {
 				ir.Write(IROp::FMovFromGPR, vfpuBase + voffset[imm], rt);
 			} else if ((imm - 128) < VFPU_CTRL_MAX) {
-				ir.Write(IROp::SetCtrlVFPU, imm - 128, rt);
+				u32 mask;
+				if (GetVFPUCtrlMask(imm - 128, &mask)) {
+					if (mask != 0xFFFFFFFF) {
+						ir.Write(IROp::AndConst, IRTEMP_0, rt, ir.AddConstant(mask));
+						ir.Write(IROp::SetCtrlVFPUReg, imm - 128, IRTEMP_0);
+					} else {
+						ir.Write(IROp::SetCtrlVFPU, imm - 128, rt);
+					}
+				}
 
 				if (imm - 128 == VFPU_CTRL_SPREFIX) {
 					js.prefixSFlag = JitState::PREFIX_UNKNOWN;
@@ -969,13 +1018,13 @@ namespace MIPSComp {
 		CONDITIONAL_DISABLE(VFPU_XFER);
 
 		// Vector Move from vector control reg (no prefixes)
-		// S[0] = VFPU_CTRL[i]
+		// D[0] = VFPU_CTRL[i]
 
-		int vs = _VS;
-		int imm = op & 0xFF;
-		if (imm >= 128 && imm < 128 + VFPU_CTRL_MAX) {
-			ir.Write(IROp::VfpuCtrlToReg, IRTEMP_0, imm - 128);
-			ir.Write(IROp::FMovFromGPR, vfpuBase + voffset[vs], IRTEMP_0);
+		int vd = _VD;
+		int imm = (op >> 8) & 0x7F;
+		if (imm < VFPU_CTRL_MAX) {
+			ir.Write(IROp::VfpuCtrlToReg, IRTEMP_0, imm);
+			ir.Write(IROp::FMovFromGPR, vfpuBase + voffset[vd], IRTEMP_0);
 		} else {
 			INVALIDOP;
 		}
@@ -989,13 +1038,22 @@ namespace MIPSComp {
 
 		int vs = _VS;
 		int imm = op & 0xFF;
-		if (imm >= 128 && imm < 128 + VFPU_CTRL_MAX) {
-			ir.Write(IROp::SetCtrlVFPUFReg, imm - 128, vfpuBase + voffset[vs]);
-			if (imm - 128 == VFPU_CTRL_SPREFIX) {
+		if (imm < VFPU_CTRL_MAX) {
+			u32 mask;
+			if (GetVFPUCtrlMask(imm, &mask)) {
+				if (mask != 0xFFFFFFFF) {
+					ir.Write(IROp::FMovToGPR, IRTEMP_0, vfpuBase + voffset[imm]);
+					ir.Write(IROp::AndConst, IRTEMP_0, IRTEMP_0, ir.AddConstant(mask));
+					ir.Write(IROp::SetCtrlVFPUReg, imm, IRTEMP_0);
+				} else {
+					ir.Write(IROp::SetCtrlVFPUFReg, imm, vfpuBase + voffset[vs]);
+				}
+			}
+			if (imm == VFPU_CTRL_SPREFIX) {
 				js.prefixSFlag = JitState::PREFIX_UNKNOWN;
-			} else if (imm - 128 == VFPU_CTRL_TPREFIX) {
+			} else if (imm == VFPU_CTRL_TPREFIX) {
 				js.prefixTFlag = JitState::PREFIX_UNKNOWN;
-			} else if (imm - 128 == VFPU_CTRL_DPREFIX) {
+			} else if (imm == VFPU_CTRL_DPREFIX) {
 				js.prefixDFlag = JitState::PREFIX_UNKNOWN;
 			}
 		} else {
@@ -1005,8 +1063,11 @@ namespace MIPSComp {
 
 	void IRFrontend::Comp_Vmmov(MIPSOpcode op) {
 		CONDITIONAL_DISABLE(VFPU_MTX);
+		if (!js.HasNoPrefix()) {
+			DISABLE;
+		}
 
-		// Matrix move (no prefixes)
+		// Matrix move (weird prefixes)
 		// D[N,M] = S[N,M]
 
 		int vs = _VS;
@@ -1062,9 +1123,13 @@ namespace MIPSComp {
 
 	void IRFrontend::Comp_Vmscl(MIPSOpcode op) {
 		CONDITIONAL_DISABLE(VFPU_MTX);
+		if (!js.HasNoPrefix()) {
+			DISABLE;
+		}
 
-		// Matrix scale, matrix by scalar (no prefixes)
+		// Matrix scale, matrix by scalar (weird prefixes)
 		// d[N,M] = s[N,M] * t[0]
+		// Note: behaves just slightly differently than a series of vscls.
 
 		int vs = _VS;
 		int vd = _VD;
@@ -1100,7 +1165,7 @@ namespace MIPSComp {
 
 	void IRFrontend::Comp_VScl(MIPSOpcode op) {
 		CONDITIONAL_DISABLE(VFPU_VEC);
-		if (js.HasUnknownPrefix()) {
+		if (js.HasUnknownPrefix() || !IsPrefixWithinSize(js.prefixS, op) || js.HasTPrefix()) {
 			DISABLE;
 		}
 
@@ -1178,7 +1243,7 @@ namespace MIPSComp {
 			DISABLE;
 		}
 
-		// Matrix multiply (wierd prefixes)
+		// Matrix multiply (weird prefixes)
 		// D[0 .. N, 0 .. M] = S[0 .. N, 0 .. M]' * T[0 .. N, 0 .. M]
 		// Note: Behaves as if it's implemented through a series of vdots.
 		// Important: this is a matrix multiply with a pre-transposed S.
@@ -1262,10 +1327,14 @@ namespace MIPSComp {
 
 	void IRFrontend::Comp_Vtfm(MIPSOpcode op) {
 		CONDITIONAL_DISABLE(VFPU_MTX);
+		if (!js.HasNoPrefix()) {
+			DISABLE;
+		}
 
-		// Vertex transform, vector by matrix (no prefixes)
+		// Vertex transform, vector by matrix (weird prefixes)
 		// d[N] = s[N*m .. N*m + n-1] dot t[0 .. n-1]
 		// Homogenous means t[n-1] is treated as 1.
+		// Note: this might be implemented as a series of vdots with special prefixes.
 
 		VectorSize sz = GetVecSize(op);
 		MatrixSize msz = GetMtxSize(op);
@@ -1281,7 +1350,7 @@ namespace MIPSComp {
 		}
 		// Otherwise, n should already be ins + 1.
 		else if (n != ins + 1) {
-			INVALIDOP;
+			DISABLE;
 		}
 
 		u8 sregs[16], dregs[4], tregs[4];
@@ -1364,7 +1433,7 @@ namespace MIPSComp {
 
 	void IRFrontend::Comp_VCrs(MIPSOpcode op) {
 		CONDITIONAL_DISABLE(VFPU_VEC);
-		if (js.HasUnknownPrefix()) {
+		if (js.HasUnknownPrefix() || js.HasSPrefix() || js.HasTPrefix()) {
 			DISABLE;
 		}
 
@@ -1378,7 +1447,7 @@ namespace MIPSComp {
 
 	void IRFrontend::Comp_VDet(MIPSOpcode op) {
 		CONDITIONAL_DISABLE(VFPU_VEC);
-		if (js.HasUnknownPrefix()) {
+		if (js.HasUnknownPrefix() || !IsPrefixWithinSize(js.prefixS, op) || (js.prefixT & 0x000CFCF0) != 0x000E0) {
 			DISABLE;
 		}
 
@@ -1391,8 +1460,7 @@ namespace MIPSComp {
 
 	void IRFrontend::Comp_Vi2x(MIPSOpcode op) {
 		CONDITIONAL_DISABLE(VFPU_VEC);
-
-		if (js.HasUnknownPrefix())
+		if (js.HasUnknownPrefix() || js.HasSPrefix())
 			DISABLE;
 
 		int bits = ((op >> 16) & 2) == 0 ? 8 : 16; // vi2uc/vi2c (0/1), vi2us/vi2s (2/3)
@@ -1476,8 +1544,7 @@ namespace MIPSComp {
 
 	void IRFrontend::Comp_Vx2i(MIPSOpcode op) {
 		CONDITIONAL_DISABLE(VFPU_VEC);
-
-		if (js.HasUnknownPrefix())
+		if (js.HasUnknownPrefix() || js.HasSPrefix())
 			DISABLE;
 
 		int bits = ((op >> 16) & 2) == 0 ? 8 : 16; // vuc2i/vc2i (0/1), vus2i/vs2i (2/3)
@@ -1576,13 +1643,12 @@ namespace MIPSComp {
 
 	void IRFrontend::Comp_VCrossQuat(MIPSOpcode op) {
 		CONDITIONAL_DISABLE(VFPU_VEC);
-		// TODO: Does this instruction even look at prefixes at all?
-		if (js.HasUnknownPrefix())
+		if (!js.HasNoPrefix())
 			DISABLE;
 
-		// Vector cross product (n = 3)
+		// Vector cross product (n = 3, weird prefixes)
 		// d[0 .. 2] = s[0 .. 2] X t[0 .. 2]
-		// Vector quaternion product (n = 4)
+		// Vector quaternion product (n = 4, weird prefixes)
 		// d[0 .. 2] = t[0 .. 2] X s[0 .. 2] + s[3] * t[0 .. 2] + t[3] * s[0 .. 2]
 		// d[3] = s[3]*t[3] - s[0 .. 2] dot t[0 .. 3]
 
@@ -1622,19 +1688,21 @@ namespace MIPSComp {
 			ir.Write(IROp::FSub, tempregs[2], temp0, temp1);
 		} else if (sz == V_Quad) {
 			DISABLE;
+		} else {
+			DISABLE;
 		}
 
 		for (int i = 0; i < n; i++) {
 			if (tempregs[i] != dregs[i])
 				ir.Write(IROp::FMov, dregs[i], tempregs[i]);
 		}
-		// No D prefix supported
 	}
 
 	void IRFrontend::Comp_Vcmp(MIPSOpcode op) {
 		CONDITIONAL_DISABLE(VFPU_COMP);
-		if (js.HasUnknownPrefix())
+		if (js.HasUnknownPrefix() || !IsPrefixWithinSize(js.prefixS, op) || !IsPrefixWithinSize(js.prefixT, op)) {
 			DISABLE;
+		}
 
 		// Vector compare
 		// VFPU_CC[N] = COMPARE(s[N], t[N])
@@ -1657,7 +1725,7 @@ namespace MIPSComp {
 
 	void IRFrontend::Comp_Vcmov(MIPSOpcode op) {
 		CONDITIONAL_DISABLE(VFPU_COMP);
-		if (js.HasUnknownPrefix()) {
+		if (js.HasUnknownPrefix() || !IsPrefixWithinSize(js.prefixS, op) || js.HasTPrefix()) {
 			DISABLE;
 		}
 
@@ -1803,7 +1871,7 @@ namespace MIPSComp {
 
 	void IRFrontend::Comp_Vsgn(MIPSOpcode op) {
 		CONDITIONAL_DISABLE(VFPU_VEC);
-		if (js.HasUnknownPrefix()) {
+		if (js.HasUnknownPrefix() || !IsPrefixWithinSize(js.prefixS, op) || !IsPrefixWithinSize(js.prefixT, op)) {
 			DISABLE;
 		}
 
@@ -1841,7 +1909,7 @@ namespace MIPSComp {
 
 	void IRFrontend::Comp_Vocp(MIPSOpcode op) {
 		CONDITIONAL_DISABLE(VFPU_VEC);
-		if (js.HasUnknownPrefix()) {
+		if (js.HasUnknownPrefix() || !IsPrefixWithinSize(js.prefixS, op) || js.HasTPrefix() || (js.prefixS & VFPU_NEGATE(1, 1, 1, 1)) != 0) {
 			DISABLE;
 		}
 
@@ -1887,8 +1955,9 @@ namespace MIPSComp {
 
 	void IRFrontend::Comp_ColorConv(MIPSOpcode op) {
 		CONDITIONAL_DISABLE(VFPU_VEC);
-		if (js.HasUnknownPrefix())
+		if (js.HasUnknownPrefix() || !IsPrefixWithinSize(js.prefixS, op) || js.HasTPrefix()) {
 			DISABLE;
+		}
 
 		// Vector color conversion
 		// d[N] = ConvertTo16(s[N*2]) | (ConvertTo16(s[N*2+1]) << 16)
@@ -1898,8 +1967,9 @@ namespace MIPSComp {
 
 	void IRFrontend::Comp_Vbfy(MIPSOpcode op) {
 		CONDITIONAL_DISABLE(VFPU_VEC);
-		if (js.HasUnknownPrefix())
+		if (js.HasUnknownPrefix() || !IsPrefixWithinSize(js.prefixS, op) || js.HasTPrefix()) {
 			DISABLE;
+		}
 
 		// Vector butterfly operation
 		// vbfy2: d[0] = s[0] + s[2], d[1] = s[1] + s[3], d[2] = s[0] - s[2], d[3] = s[1] - s[3]
@@ -1926,7 +1996,7 @@ namespace MIPSComp {
 		}
 
 		int subop = (op >> 16) & 0x1F;
-		if (subop == 3) {
+		if (subop == 3 && n == 4) {
 			// vbfy2
 			ir.Write(IROp::FAdd, tempregs[0], sregs[0], sregs[2]);
 			ir.Write(IROp::FAdd, tempregs[1], sregs[1], sregs[3]);
