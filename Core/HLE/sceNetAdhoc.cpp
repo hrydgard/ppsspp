@@ -1082,12 +1082,14 @@ static u32 sceNetAdhocctlDisconnect() {
 			// Multithreading Lock
 			//peerlock.lock();
 
-			// Clear Peer List
-			freeFriendsRecursive(friends);
-			INFO_LOG(SCENET, "Cleared Peer List.");
+			if (!PSP_CoreParameter().compat.flags().AdhocHackStopFriendClear) {
+				// Clear Peer List
+				freeFriendsRecursive(friends);
+				INFO_LOG(SCENET, "Cleared Peer List.");
 
-			// Delete Peer Reference
-			friends = NULL;
+				// Delete Peer Reference
+				friends = NULL;
+			}
 
 			// Clear Group List
 			//freeGroupsRecursive(networks);
@@ -1642,8 +1644,10 @@ static int sceNetAdhocPtpOpen(const char *srcmac, int sport, const char *dstmac,
 			
 			// Valid Ports
 			if (!isPTPPortInUse(sport) /*&& dport != 0*/) {
-				//sport 0 should be shifted back to 0 when using offset Phantasy Star Portable 2 use this
-				if (sport == 0) sport = -(int)portOffset;
+				if(PSP_CoreParameter().compat.flags().AdhocHackPhantasyStarOffset) {
+					//sport 0 should be shifted back to 0 when using offset Phantasy Star Portable 2 use this
+					if (sport == 0) sport = -(int)portOffset;
+				}
 				// Valid Arguments
 				if (bufsize > 0 && rexmt_int > 0 && rexmt_cnt > 0) {
 					// Create Infrastructure Socket

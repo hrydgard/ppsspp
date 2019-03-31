@@ -69,6 +69,8 @@ struct CompatFlags {
 	bool MGS2AcidHack;
 	bool SonicRivalsHack;
 	bool AdhocHackDisableNBSwitch;
+	bool AdhocHackStopFriendClear;
+	bool AdhocHackPhantasyStarOffset;
 	bool BlockTransferAllowCreateFB;
 	bool YugiohSaveFix;
 	bool ForceUMDDelay;

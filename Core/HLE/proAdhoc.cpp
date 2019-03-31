@@ -919,7 +919,7 @@ void AfterMatchingMipsCall::run(MipsCall &call) {
 	//u32 v0 = currentMIPS->r[MIPS_REG_V0];
 	if (__IsInInterrupt()) ERROR_LOG(SCENET, "AfterMatchingMipsCall::run [ID=%i][Event=%d] is Returning Inside an Interrupt!", context->id, EventID);
 	//while (__IsInInterrupt()) sleep_ms(1); // Must not sleep inside callback handler
-	context->eventlock->lock();  //peerlock.lock();
+	//context->eventlock->lock();  //peerlock.lock();
 	//SceNetAdhocMatchingContext * context = findMatchingContext(ID);
 	//if (context != NULL) 
 	{
@@ -1493,14 +1493,14 @@ int initNetwork(SceNetAdhocctlAdhocId *adhoc_id){
 		setsockopt(metasocket, SOL_SOCKET, SO_REUSEADDR, (const char*)&on, sizeof(on));
 		setsockopt(metasocket, SOL_SOCKET, SO_DONTROUTE, (const char*)&on, sizeof(on));
 		// Prepare Local Address Information
-					/*
-					+		struct sockaddr_in local;
-					+		memset(&local, 0, sizeof(local));
-					+		local.sin_family = AF_INET;
-					+		local.sin_addr = serverIp;
-					+		local.sin_addr.S_un.S_un_b.s_b4 = PPSSPP_ID;
-					+		//local.sin_port = 0;
-					+		*/
+		/*
+		struct sockaddr_in local;
+		memset(&local, 0, sizeof(local));
+		local.sin_family = AF_INET;
+		local.sin_addr = serverIp;
+		local.sin_addr.S_un.S_un_b.s_b4 = PPSSPP_ID;
+		//local.sin_port = 0;
+		*/
 		((struct sockaddr_in *)&localIP)->sin_port = 0;
 		// Bind Local Address to Socket
 		iResult = bind(metasocket, (struct sockaddr *)&localIP, sizeof(sockaddr));

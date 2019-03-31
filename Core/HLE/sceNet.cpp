@@ -212,7 +212,9 @@ static void __ResetInitNetLib() {
 
 void __NetInit() {
 	portOffset = g_Config.iPortOffset;
-	PPSSPP_ID = getInstanceNumber(); // This should be called when program started instead of when the game started/reseted
+	//if (PPSSPP_ID == 0) { // Each instance should use the same ID (and IP) once it's automatically assigned for consistency reason, But doesn't work well if PPSSPP_ID reseted everytime emulation restarted
+		PPSSPP_ID = getInstanceNumber(); // This should be called when program started instead of when the game started/reseted
+	//}
 	InitLocalIP();
 	INFO_LOG(SCENET, "LocalHost IP will be %s", inet_ntoa(((sockaddr_in *)&localIP)->sin_addr));
 	//net::Init();
@@ -220,8 +222,12 @@ void __NetInit() {
 }
 
 void __NetShutdown() {
-	PPSSPPIDCleanup(); //This should be called when program exited, otherwise everytime emulation restarted PPSSPP_ID will reset causing more than one instance might have the same ID and IP.
 	__ResetInitNetLib();
+	//net::Shutdown();
+#ifdef _MSC_VER
+	WSACleanup();
+#endif
+	PPSSPPIDCleanup(); //This should be called when program exited, otherwise everytime emulation restarted PPSSPP_ID will reset causing more than one instance might have the same ID and IP.
 }
 
 static void __UpdateApctlHandlers(int oldState, int newState, int flag, int error) {
