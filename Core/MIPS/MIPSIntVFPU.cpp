@@ -181,7 +181,7 @@ namespace MIPSInt
 {
 	void Int_VPFX(MIPSOpcode op)
 	{
-		int data = op & 0xFFFFF;
+		int data = op & 0x000FFFFF;
 		int regnum = (op >> 24) & 3;
 		if (regnum == VFPU_CTRL_DPREFIX)
 			data &= 0x00000FFF;
@@ -419,11 +419,8 @@ namespace MIPSInt
 	}
 
 	// The test really needs some work.
-	void Int_Vmmul(MIPSOpcode op)
-	{
-		float s[16];
-		float t[16];
-		float d[16];
+	void Int_Vmmul(MIPSOpcode op) {
+		float s[16]{}, t[16]{}, d[16];
 
 		int vd = _VD;
 		int vs = _VS;
@@ -434,29 +431,37 @@ namespace MIPSInt
 		ReadMatrix(s, sz, vs);
 		ReadMatrix(t, sz, vt);
 
-		for (int a = 0; a < n; a++)
-		{
-			for (int b = 0; b < n; b++)
-			{
+		for (int a = 0; a < n; a++) {
+			for (int b = 0; b < n; b++) {
 				float sum = 0.0f;
-				for (int c = 0; c < n; c++)
-				{
-					sum += s[b*4 + c] * t[a*4 + c];
+				if (a == n - 1 && b == n - 1) {
+					// S and T prefixes work on the final (or maybe first, in reverse?) dot.
+					ApplySwizzleS(&s[b * 4], V_Quad);
+					ApplySwizzleT(&t[a * 4], V_Quad);
+					for (int c = 0; c < 4; c++) {
+						sum += s[b * 4 + c] * t[a * 4 + c];
+					}
+				} else {
+					for (int c = 0; c < n; c++) {
+						sum += s[b * 4 + c] * t[a * 4 + c];
+					}
 				}
-				d[a*4 + b] = sum;
+				d[a * 4 + b] = sum;
 			}
 		}
 
+		// The D prefix applies ONLY to the final element, but sat does work.
+		u32 lastmask = (currentMIPS->vfpuCtrl[VFPU_CTRL_DPREFIX] & (1 << 8)) << (n - 1);
+		u32 lastsat = (currentMIPS->vfpuCtrl[VFPU_CTRL_DPREFIX] & 3) << (n + n - 2);
+		currentMIPS->vfpuCtrl[VFPU_CTRL_DPREFIX] = lastmask | lastsat;
+		ApplyPrefixD(&d[4 * (n - 1)], V_Quad, false);
 		WriteMatrix(d, sz, vd);
 		PC += 4;
 		EatPrefixes();
 	}
 
-	void Int_Vmscl(MIPSOpcode op)
-	{
-		float d[16];
-		float s[16];
-		float t[1];
+	void Int_Vmscl(MIPSOpcode op) {
+		float s[16]{}, t[4]{}, d[16];
 
 		int vd = _VD;
 		int vs = _VS;
@@ -467,27 +472,41 @@ namespace MIPSInt
 		ReadMatrix(s, sz, vs);
 		ReadVector(t, V_Single, vt);
 
-		for (int a = 0; a < n; a++)
-		{
-			for (int b = 0; b < n; b++)
-			{
-				d[a*4 + b] = s[a*4 + b] * t[0];
+		for (int a = 0; a < n - 1; a++) {
+			for (int b = 0; b < n; b++) {
+				d[a * 4 + b] = s[a * 4 + b] * t[0];
 			}
 		}
 
+		// S prefix applies to the last row.
+		ApplySwizzleS(&s[(n - 1) * 4], V_Quad);
+		// T prefix applies only for the last row, and is used per element.
+		// This is like vscl, but instead of zzzz it uses xxxx.
+		u32 tprefixRemove = VFPU_ANY_SWIZZLE();
+		u32 tprefixAdd = VFPU_SWIZZLE(0, 0, 0, 0);
+		ApplyPrefixST(t, VFPURewritePrefix(VFPU_CTRL_TPREFIX, tprefixRemove, tprefixAdd), V_Quad);
+
+		for (int b = 0; b < n; b++) {
+			d[(n - 1) * 4 + b] = s[(n - 1) * 4 + b] * t[b];
+		}
+
+		// The D prefix is applied to the last row.
+		ApplyPrefixD(&d[(n - 1) * 4], V_Quad);
 		WriteMatrix(d, sz, vd);
 		PC += 4;
 		EatPrefixes();
 	}
 
-	void Int_Vmmov(MIPSOpcode op)
-	{
-		float s[16];
+	void Int_Vmmov(MIPSOpcode op) {
+		float s[16]{};
 		int vd = _VD;
 		int vs = _VS;
 		MatrixSize sz = GetMtxSize(op);
 		ReadMatrix(s, sz, vs);
-		// This is just for matrices. No prefixes.
+		// S and D prefixes are applied to the last row.
+		int off = GetMatrixSide(sz) - 1;
+		ApplySwizzleS(&s[off * 4], V_Quad);
+		ApplyPrefixD(&s[off * 4], V_Quad);
 		WriteMatrix(s, sz, vd);
 		PC += 4;
 		EatPrefixes();
@@ -495,8 +514,11 @@ namespace MIPSInt
 
 	void Int_Vflush(MIPSOpcode op)
 	{
-		// DEBUG_LOG(CPU,"vflush");
+		VERBOSE_LOG(CPU, "vflush");
 		PC += 4;
+		// Anything with 0xFC000000 is a nop, but only 0xFFFF0000 retains prefixes.
+		if ((op & 0xFFFF0000) != 0xFFFF0000)
+			EatPrefixes();
 	}
 
 	void Int_VV2Op(MIPSOpcode op)
@@ -1338,23 +1360,45 @@ namespace MIPSInt
 
 	// Generates one line of a rotation matrix around one of the three axes
 	void Int_Vrot(MIPSOpcode op) {
-		// Note: prefixes behave strangely for this.
+		float d[4]{};
 		int vd = _VD;
 		int vs = _VS;
 		int imm = (op >> 16) & 0x1f;
 		VectorSize sz = GetVecSize(op);
-		bool negSin = (imm & 0x10) ? true : false;
+		bool negSin = (imm & 0x10) != 0;
+		int sineLane = (imm >> 2) & 3;
+		int cosineLane = imm & 3;
+
 		float sine, cosine;
-		vfpu_sincos(V(vs), sine, cosine);
-		if (negSin)
-			sine = -sine;
-		float d[4] = {0};
-		if (((imm >> 2) & 3) == (imm & 3)) {
+		if (currentMIPS->vfpuCtrl[VFPU_CTRL_SPREFIX] == 0x000E4) {
+			vfpu_sincos(V(vs), sine, cosine);
+			if (negSin)
+				sine = -sine;
+		} else {
+			// Swizzle on S is a bit odd here, but generally only applies to sine.
+			float s[4]{};
+			ReadVector(s, V_Single, vs);
+			u32 sprefixRemove = VFPU_NEGATE(1, 0, 0, 0);
+			u32 sprefixAdd = VFPU_NEGATE(negSin, 0, 0, 0);
+			// TODO: Minor, but negate shouldn't apply to invalid here.  Maybe always?
+			ApplyPrefixST(s, VFPURewritePrefix(VFPU_CTRL_SPREFIX, sprefixRemove, sprefixAdd), V_Single);
+
+			// Cosine ignores all prefixes, so take the original.
+			cosine = vfpu_cos(V(vs));
+			sine = vfpu_sin(s[0]);
+		}
+
+		if (sineLane == cosineLane) {
 			for (int i = 0; i < 4; i++)
 				d[i] = sine;
+		} else {
+			d[sineLane] = sine;
 		}
-		d[(imm >> 2) & 3] = sine;
-		d[imm & 3] = cosine;
+		d[cosineLane] = cosine;
+
+		// D prefix works, just not for x.
+		currentMIPS->vfpuCtrl[VFPU_CTRL_DPREFIX] &= 0xFFEFC;
+		ApplyPrefixD(d, sz);
 		WriteVector(d, sz, vd);
 		PC += 4;
 		EatPrefixes();
@@ -1467,7 +1511,10 @@ namespace MIPSInt
 			if (imm < 128) {
 				VI(imm) = R(rt);
 			} else if (imm < 128 + VFPU_CTRL_MAX) { //mtvc
-				currentMIPS->vfpuCtrl[imm - 128] = R(rt);
+				u32 mask;
+				if (GetVFPUCtrlMask(imm - 128, &mask)) {
+					currentMIPS->vfpuCtrl[imm - 128] = R(rt) & mask;
+				}
 			} else {
 				//ERROR
 				_dbg_assert_msg_(CPU,0,"mtv - invalid register");
@@ -1494,7 +1541,10 @@ namespace MIPSInt
 		int vs = _VS;
 		int imm = op & 0xFF;
 		if (imm >= 128 && imm < 128 + VFPU_CTRL_MAX) {
-			currentMIPS->vfpuCtrl[imm - 128] = VI(vs);
+			u32 mask;
+			if (GetVFPUCtrlMask(imm - 128, &mask)) {
+				currentMIPS->vfpuCtrl[imm - 128] = VI(vs) & mask;
+			}
 		}
 		PC += 4;
 	}
@@ -1637,26 +1687,31 @@ namespace MIPSInt
 		EatPrefixes();
 	}
 	
-	// This doesn't quite pass all the tests :/
 	void Int_Vscmp(MIPSOpcode op) {
+		FloatBits s, t, d;
 		int vt = _VT;
 		int vs = _VS;
 		int vd = _VD;
 		VectorSize sz = GetVecSize(op);
-		float s[4];
-		float t[4];
-		float d[4];
-		ReadVector(s, sz, vs);
-		ApplySwizzleS(s, sz);
-		ReadVector(t, sz, vt);
-		ApplySwizzleT(t, sz);
+		ReadVector(s.f, sz, vs);
+		ApplySwizzleS(s.f, sz);
+		ReadVector(t.f, sz, vt);
+		ApplySwizzleT(t.f, sz);
 		int n = GetNumVectorElements(sz);
 		for (int i = 0; i < n ; i++) {
-			float a = s[i] - t[i];
-			d[i] = (float) ((0.0 < a) - (a < 0.0));
+			float a = s.f[i] - t.f[i];
+			if (my_isnan(a)) {
+				// NAN/INF are treated as just larger numbers, as in vmin/vmax.
+				int sMagnitude = s.u[i] & 0x7FFFFFFF;
+				int tMagnitude = t.u[i] & 0x7FFFFFFF;
+				int b = (s.i[i] < 0 ? -sMagnitude : sMagnitude) - (t.i[i] < 0 ? -tMagnitude : tMagnitude);
+				d.f[i] = (float)((0 < b) - (b < 0));
+			} else {
+				d.f[i] = (float)((0.0f < a) - (a < 0.0f));
+			}
 		}
-		ApplyPrefixD(d, sz);
-		WriteVector(d, sz, vd);
+		ApplyPrefixD(d.f, sz);
+		WriteVector(d.f, sz, vd);
 		PC += 4;
 		EatPrefixes();
 	}

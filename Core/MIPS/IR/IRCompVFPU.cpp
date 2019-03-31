@@ -982,7 +982,15 @@ namespace MIPSComp {
 			if (imm < 128) {
 				ir.Write(IROp::FMovFromGPR, vfpuBase + voffset[imm], rt);
 			} else if ((imm - 128) < VFPU_CTRL_MAX) {
-				ir.Write(IROp::SetCtrlVFPU, imm - 128, rt);
+				u32 mask;
+				if (GetVFPUCtrlMask(imm - 128, &mask)) {
+					if (mask != 0xFFFFFFFF) {
+						ir.Write(IROp::AndConst, IRTEMP_0, rt, ir.AddConstant(mask));
+						ir.Write(IROp::SetCtrlVFPUReg, imm - 128, IRTEMP_0);
+					} else {
+						ir.Write(IROp::SetCtrlVFPU, imm - 128, rt);
+					}
+				}
 
 				if (imm - 128 == VFPU_CTRL_SPREFIX) {
 					js.prefixSFlag = JitState::PREFIX_UNKNOWN;
@@ -1028,7 +1036,16 @@ namespace MIPSComp {
 		int vs = _VS;
 		int imm = op & 0xFF;
 		if (imm >= 128 && imm < 128 + VFPU_CTRL_MAX) {
-			ir.Write(IROp::SetCtrlVFPUFReg, imm - 128, vfpuBase + voffset[vs]);
+			u32 mask;
+			if (GetVFPUCtrlMask(imm - 128, &mask)) {
+				if (mask != 0xFFFFFFFF) {
+					ir.Write(IROp::FMovToGPR, IRTEMP_0, vfpuBase + voffset[imm]);
+					ir.Write(IROp::AndConst, IRTEMP_0, IRTEMP_0, ir.AddConstant(mask));
+					ir.Write(IROp::SetCtrlVFPUReg, imm - 128, IRTEMP_0);
+				} else {
+					ir.Write(IROp::SetCtrlVFPUFReg, imm - 128, vfpuBase + voffset[vs]);
+				}
+			}
 			if (imm - 128 == VFPU_CTRL_SPREFIX) {
 				js.prefixSFlag = JitState::PREFIX_UNKNOWN;
 			} else if (imm - 128 == VFPU_CTRL_TPREFIX) {
@@ -1043,8 +1060,11 @@ namespace MIPSComp {
 
 	void IRFrontend::Comp_Vmmov(MIPSOpcode op) {
 		CONDITIONAL_DISABLE(VFPU_MTX);
+		if (!js.HasNoPrefix()) {
+			DISABLE;
+		}
 
-		// Matrix move (no prefixes)
+		// Matrix move (weird prefixes)
 		// D[N,M] = S[N,M]
 
 		int vs = _VS;
@@ -1100,9 +1120,13 @@ namespace MIPSComp {
 
 	void IRFrontend::Comp_Vmscl(MIPSOpcode op) {
 		CONDITIONAL_DISABLE(VFPU_MTX);
+		if (!js.HasNoPrefix()) {
+			DISABLE;
+		}
 
-		// Matrix scale, matrix by scalar (no prefixes)
+		// Matrix scale, matrix by scalar (weird prefixes)
 		// d[N,M] = s[N,M] * t[0]
+		// Note: behaves just slightly differently than a series of vscls.
 
 		int vs = _VS;
 		int vd = _VD;
@@ -1216,7 +1240,7 @@ namespace MIPSComp {
 			DISABLE;
 		}
 
-		// Matrix multiply (wierd prefixes)
+		// Matrix multiply (weird prefixes)
 		// D[0 .. N, 0 .. M] = S[0 .. N, 0 .. M]' * T[0 .. N, 0 .. M]
 		// Note: Behaves as if it's implemented through a series of vdots.
 		// Important: this is a matrix multiply with a pre-transposed S.
