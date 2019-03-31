@@ -120,6 +120,62 @@ enum MatrixSize {
 	M_Invalid = -1
 };
 
+static u32 VFPU_SWIZZLE(int x, int y, int z, int w) {
+	return (x << 0) | (y << 2) | (z << 4) | (w << 6);
+}
+
+static u32 VFPU_MASK(int x, int y, int z, int w) {
+	return (x << 0) | (y << 1) | (z << 2) | (w << 3);
+}
+
+static u32 VFPU_ANY_SWIZZLE() {
+	return 0x000000FF;
+}
+
+static u32 VFPU_ABS(int x, int y, int z, int w) {
+	return VFPU_MASK(x, y, z, w) << 8;
+}
+
+static u32 VFPU_CONST(int x, int y, int z, int w) {
+	return VFPU_MASK(x, y, z, w) << 12;
+}
+
+static u32 VFPU_NEGATE(int x, int y, int z, int w) {
+	return VFPU_MASK(x, y, z, w) << 16;
+}
+
+enum class VFPUConst {
+	NONE = -1,
+	ZERO,
+	ONE,
+	TWO,
+	HALF,
+	THREE,
+	THIRD,
+	FOURTH,
+	SIXTH,
+};
+
+static u32 VFPU_MAKE_CONSTANTS(VFPUConst x, VFPUConst y, VFPUConst z, VFPUConst w) {
+	u32 result = 0;
+	if (x != VFPUConst::NONE) {
+		// This sets the constant flag and the swizzle/abs flags for the right constant.
+		result |= (((int)x & 3) << 0) | (((int)x & 4) << 6) | (1 << 12);
+	}
+	if (y != VFPUConst::NONE) {
+		result |= (((int)y & 3) << 2) | (((int)y & 4) << 7) | (1 << 13);
+	}
+	if (z != VFPUConst::NONE) {
+		result |= (((int)z & 3) << 4) | (((int)z & 4) << 8) | (1 << 14);
+	}
+	if (w != VFPUConst::NONE) {
+		result |= (((int)w & 3) << 6) | (((int)w & 4) << 9) | (1 << 15);
+	}
+	return result;
+}
+
+u32 VFPURewritePrefix(int ctrl, u32 remove, u32 add);
+
 void ReadMatrix(float *rd, MatrixSize size, int reg);
 void WriteMatrix(const float *rs, MatrixSize size, int reg);
 
