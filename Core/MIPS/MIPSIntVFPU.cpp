@@ -350,10 +350,10 @@ namespace MIPSInt
 		VectorSize sz = GetVecSize(op);
 		float d[4];
 
-		int constant = 0;
+		VFPUConst constant = VFPUConst::ZERO;
 		switch ((op >> 16) & 0xF) {
-		case 6: constant = 0; break;  //vzero
-		case 7: constant = 1; break;   //vone
+		case 6: constant = VFPUConst::ZERO; break;  //vzero
+		case 7: constant = VFPUConst::ONE; break;   //vone
 		default:
 			_dbg_assert_msg_(CPU, 0, "Trying to interpret instruction that can't be interpreted");
 			PC += 4;
@@ -363,7 +363,7 @@ namespace MIPSInt
 
 		// The S prefix generates constants, but negate is still respected.
 		u32 sprefixRemove = VFPU_ANY_SWIZZLE();
-		u32 sprefixAdd = VFPU_CONST(1, 1, 1, 1) | VFPU_SWIZZLE(constant, constant, constant, constant);
+		u32 sprefixAdd = VFPU_MAKE_CONSTANTS(constant, constant, constant, constant);
 		ApplyPrefixST(d, VFPURewritePrefix(VFPU_CTRL_SPREFIX, sprefixRemove, sprefixAdd), sz);
 
 		ApplyPrefixD(d, sz);
@@ -402,8 +402,14 @@ namespace MIPSInt
 		// The S prefix generates constants, but negate is still respected.
 		int offmask = sz == V_Quad || sz == V_Triple ? 3 : 1;
 		int off = vd & offmask;
+		// If it's a pair, the identity starts in a different position.
+		VFPUConst constX = off == (0 & offmask) ? VFPUConst::ONE : VFPUConst::ZERO;
+		VFPUConst constY = off == (1 & offmask) ? VFPUConst::ONE : VFPUConst::ZERO;
+		VFPUConst constZ = off == (2 & offmask) ? VFPUConst::ONE : VFPUConst::ZERO;
+		VFPUConst constW = off == (3 & offmask) ? VFPUConst::ONE : VFPUConst::ZERO;
+
 		u32 sprefixRemove = VFPU_ANY_SWIZZLE();
-		u32 sprefixAdd = VFPU_CONST(1, 1, 1, 1) | VFPU_SWIZZLE(off == 0, off == 1, off == (2 & offmask), off == (3 & offmask));
+		u32 sprefixAdd = VFPU_MAKE_CONSTANTS(constX, constY, constZ, constW);
 		ApplyPrefixST(f, VFPURewritePrefix(VFPU_CTRL_SPREFIX, sprefixRemove, sprefixAdd), sz);
 
 		ApplyPrefixD(f, sz);
@@ -549,7 +555,7 @@ namespace MIPSInt
 		// T prefix forces constants on and regnum to 1.
 		// That means negate still works, and abs activates a different constant.
 		u32 tprefixRemove = VFPU_ANY_SWIZZLE();
-		u32 tprefixAdd = VFPU_SWIZZLE(1, 1, 1, 1) | VFPU_CONST(1, 1, 1, 1);
+		u32 tprefixAdd = VFPU_MAKE_CONSTANTS(VFPUConst::ONE, VFPUConst::ONE, VFPUConst::ONE, VFPUConst::ONE);
 		ApplyPrefixST(t, VFPURewritePrefix(VFPU_CTRL_TPREFIX, tprefixRemove, tprefixAdd), sz);
 
 		for (int i = 0; i < GetNumVectorElements(sz); i++) {
@@ -577,10 +583,10 @@ namespace MIPSInt
 		u32 sprefixAdd = VFPU_SWIZZLE(0, 0, 1, 1) | VFPU_NEGATE(1, 0, 1, 0);
 		ApplyPrefixST(s, VFPURewritePrefix(VFPU_CTRL_SPREFIX, sprefixRemove, sprefixAdd), outSize);
 
-		// T prefix forces constants on and regnum to 0, 1, 0, 1.
+		// T prefix forces constants on and regnum to 1, 0, 1, 0.
 		// That means negate still works, and abs activates a different constant.
 		u32 tprefixRemove = VFPU_ANY_SWIZZLE();
-		u32 tprefixAdd = VFPU_SWIZZLE(1, 0, 1, 0) | VFPU_CONST(1, 1, 1, 1);
+		u32 tprefixAdd = VFPU_MAKE_CONSTANTS(VFPUConst::ONE, VFPUConst::ZERO, VFPUConst::ONE, VFPUConst::ZERO);
 		ApplyPrefixST(t, VFPURewritePrefix(VFPU_CTRL_TPREFIX, tprefixRemove, tprefixAdd), outSize);
 
 		int n = GetNumVectorElements(sz);
