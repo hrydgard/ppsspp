@@ -604,8 +604,7 @@ namespace MIPSInt
 		EatPrefixes();
 	}
 
-	void Int_Vocp(MIPSOpcode op)
-	{
+	void Int_Vocp(MIPSOpcode op) {
 		float s[4], t[4], d[4];
 		int vd = _VD;
 		int vs = _VS;
@@ -626,19 +625,21 @@ namespace MIPSInt
 			// Always positive NaN.  Note that s is always negated from the registers.
 			d[i] = my_isnan(s[i]) ? fabsf(s[i]) : t[i] + s[i];
 		}
+		RetainInvalidSwizzleST(d, sz);
 		ApplyPrefixD(d, sz);
 		WriteVector(d, sz, vd);
 		PC += 4;
 		EatPrefixes();
 	}
 	
-	void Int_Vsocp(MIPSOpcode op)
-	{
+	void Int_Vsocp(MIPSOpcode op) {
 		float s[4], t[4], d[4];
 		int vd = _VD;
 		int vs = _VS;
 		VectorSize sz = GetVecSize(op);
-		VectorSize outSize = GetDoubleVectorSize(sz);
+		VectorSize outSize = GetDoubleVectorSizeSafe(sz);
+		if (outSize == V_Invalid)
+			outSize = V_Quad;
 		ReadVector(s, sz, vs);
 
 		// S prefix forces negate in even/odd and xxyy swizzle.
@@ -661,7 +662,7 @@ namespace MIPSInt
 			d[2] = nanclamp(t[2] + s[2], 0.0f, 1.0f);
 			d[3] = nanclamp(t[3] + s[3], 0.0f, 1.0f);
 		}
-		ApplyPrefixD(d, sz);
+		ApplyPrefixD(d, sz, true);
 		WriteVector(d, outSize, vd);
 		PC += 4;
 		EatPrefixes();
@@ -834,17 +835,16 @@ namespace MIPSInt
 		EatPrefixes();
 	}
 
-	void Int_Vx2i(MIPSOpcode op)
-	{
-		u32 s[4];
-		u32 d[4] = {0};
+	void Int_Vx2i(MIPSOpcode op) {
+		u32 s[4], d[4]{};
 		int vd = _VD;
 		int vs = _VS;
 		VectorSize sz = GetVecSize(op);
 		VectorSize oz = sz;
 		ReadVector(reinterpret_cast<float *>(s), sz, vs);
-		// ForbidVPFXS
+		ApplySwizzleS(reinterpret_cast<float *>(s), sz);
 
+		// TODO: Similar to colorconv, invalid swizzle seems to reuse last output.
 		switch ((op >> 16) & 3) {
 		case 0:  // vuc2i  
 			// Quad is the only option.
@@ -855,7 +855,7 @@ namespace MIPSInt
 			{
 				u32 value = s[0];
 				for (int i = 0; i < 4; i++) {
-					d[i] = (u32)((value & 0xFF) * 0x01010101) >> 1;
+					d[i] = (u32)((u32)(value & 0xFF) * 0x01010101UL) >> 1;
 					value >>= 8;
 				}
 				oz = V_Quad;
@@ -876,8 +876,11 @@ namespace MIPSInt
 
 		case 2:  // vus2i
 			oz = V_Pair;
-			switch (sz)
-			{
+			switch (sz) {
+			case V_Quad:
+			case V_Triple:
+				sz = V_Pair;
+				// Intentional fallthrough.
 			case V_Pair:
 				oz = V_Quad;
 				// Intentional fallthrough.
@@ -897,8 +900,11 @@ namespace MIPSInt
 
 		case 3:  // vs2i
 			oz = V_Pair;
-			switch (sz)
-			{
+			switch (sz) {
+			case V_Quad:
+			case V_Triple:
+				sz = V_Pair;
+				// Intentional fallthrough.
 			case V_Pair:
 				oz = V_Quad;
 				// Intentional fallthrough.
@@ -920,96 +926,93 @@ namespace MIPSInt
 			_dbg_assert_msg_(CPU,0,"Trying to interpret instruction that can't be interpreted");
 			break;
 		}
-		
-		ApplyPrefixD(reinterpret_cast<float *>(d),oz, true);  // Only write mask
-		WriteVector(reinterpret_cast<float *>(d),oz,vd);
+
+		// Saturation does in fact apply.
+		ApplyPrefixD(reinterpret_cast<float *>(d),oz);
+		WriteVector(reinterpret_cast<float *>(d), oz, vd);
 		PC += 4;
 		EatPrefixes();
 	}
 
-	void Int_Vi2x(MIPSOpcode op)
-	{
-		int s[4];
-		u32 d[2] = {0};
+	void Int_Vi2x(MIPSOpcode op) {
+		int s[4]{};
+		u32 d[2]{};
 		int vd = _VD;
 		int vs = _VS;
 		VectorSize sz = GetVecSize(op);
 		VectorSize oz;
 		ReadVector(reinterpret_cast<float *>(s), sz, vs);
-		ApplySwizzleS(reinterpret_cast<float *>(s), sz); //TODO: and the mask to kill everything but swizzle
-		switch ((op >> 16)&3)
-		{
+		// Negate, const, etc. apply as expected.
+		ApplySwizzleS(reinterpret_cast<float *>(s), V_Quad);
+
+		// TODO: Similar to colorconv, invalid swizzle seems to reuse last output.
+		switch ((op >> 16) & 3) {
 		case 0: //vi2uc
-			{
-				for (int i = 0; i < 4; i++)
-				{
-					int v = s[i];
-					if (v < 0) v = 0;
-					v >>= 23;
-					d[0] |= ((u32)v & 0xFF) << (i * 8);
-				}
-				oz = V_Single;
+			for (int i = 0; i < 4; i++) {
+				int v = s[i];
+				if (v < 0) v = 0;
+				v >>= 23;
+				d[0] |= ((u32)v & 0xFF) << (i * 8);
 			}
+			oz = V_Single;
 			break;
 
 		case 1: //vi2c
-			{
-				for (int i = 0; i < 4; i++)
-				{
-					u32 v = s[i];
-					d[0] |= (v >> 24) << (i * 8);
-				}
-				oz = V_Single;
+			for (int i = 0; i < 4; i++) {
+				u32 v = s[i];
+				d[0] |= (v >> 24) << (i * 8);
 			}
+			oz = V_Single;
 			break;
 
 		case 2:  //vi2us
-			{
-				for (int i = 0; i < GetNumVectorElements(sz) / 2; i++) {
-					int low = s[i * 2];
-					int high = s[i * 2 + 1];
-					if (low < 0) low = 0;
-					if (high < 0) high = 0;
-					low >>= 15;
-					high >>= 15;
-					d[i] = low | (high << 16);
-				}
-				switch (sz) {
-				case V_Quad: oz = V_Pair; break;
-				case V_Pair: oz = V_Single; break;
-				default:
-					_dbg_assert_msg_(CPU,0,"Trying to interpret instruction that can't be interpreted");
-					oz = V_Single;
-					break;
-				}
+			for (int i = 0; i < (GetNumVectorElements(sz) + 1) / 2; i++) {
+				int low = s[i * 2];
+				int high = s[i * 2 + 1];
+				if (low < 0) low = 0;
+				if (high < 0) high = 0;
+				low >>= 15;
+				high >>= 15;
+				d[i] = low | (high << 16);
+			}
+			switch (sz) {
+			case V_Quad: oz = V_Pair; break;
+			case V_Triple: oz = V_Pair; break;
+			case V_Pair: oz = V_Single; break;
+			case V_Single: oz = V_Single; break;
+			default:
+				_dbg_assert_msg_(CPU, 0, "Trying to interpret instruction that can't be interpreted");
+				oz = V_Single;
+				break;
 			}
 			break;
 		case 3:  //vi2s
-			{
-				for (int i = 0; i < GetNumVectorElements(sz) / 2; i++) {
-					u32 low = s[i * 2];
-					u32 high = s[i * 2 + 1];
-					low >>= 16;
-					high >>= 16;
-					d[i] = low | (high << 16);
-				}
-				switch (sz) {
-				case V_Quad: oz = V_Pair; break;
-				case V_Pair: oz = V_Single; break;
-				default:
-					_dbg_assert_msg_(CPU,0,"Trying to interpret instruction that can't be interpreted");
-					oz = V_Single;
-					break;
-				}
+			for (int i = 0; i < (GetNumVectorElements(sz) + 1) / 2; i++) {
+				u32 low = s[i * 2];
+				u32 high = s[i * 2 + 1];
+				low >>= 16;
+				high >>= 16;
+				d[i] = low | (high << 16);
+			}
+			switch (sz) {
+			case V_Quad: oz = V_Pair; break;
+			case V_Triple: oz = V_Pair; break;
+			case V_Pair: oz = V_Single; break;
+			case V_Single: oz = V_Single; break;
+			default:
+				_dbg_assert_msg_(CPU, 0, "Trying to interpret instruction that can't be interpreted");
+				oz = V_Single;
+				break;
 			}
 			break;
 		default:
-			_dbg_assert_msg_(CPU,0,"Trying to interpret instruction that can't be interpreted");
+			_dbg_assert_msg_(CPU, 0, "Trying to interpret instruction that can't be interpreted");
 			oz = V_Single;
 			break;
 		}
-		ApplyPrefixD(reinterpret_cast<float *>(d),oz);
-		WriteVector(reinterpret_cast<float *>(d),oz,vd);
+		// D prefix applies as expected.
+		ApplyPrefixD(reinterpret_cast<float *>(d), oz);
+		WriteVector(reinterpret_cast<float *>(d), oz, vd);
 		PC += 4;
 		EatPrefixes();
 	}
@@ -1019,10 +1022,13 @@ namespace MIPSInt
 		int vd = _VD;
 		int vs = _VS;
 		u32 s[4];
+		VectorSize isz = GetVecSize(op);
 		VectorSize sz = V_Quad;
 		ReadVector(reinterpret_cast<float *>(s), sz, vs);
 		ApplySwizzleS(reinterpret_cast<float *>(s), sz);
 		u16 colors[4];
+		// TODO: Invalid swizzle values almost seem to use the last value converted in a
+		// previous execution of these ops.  It's a bit odd.
 		for (int i = 0; i < 4; i++)
 		{
 			u32 in = s[i];
@@ -1060,7 +1066,7 @@ namespace MIPSInt
 		}
 		u32 ov[2] = {(u32)colors[0] | (colors[1] << 16), (u32)colors[2] | (colors[3] << 16)};
 		ApplyPrefixD(reinterpret_cast<float *>(ov), V_Pair);
-		WriteVector((const float *)ov, V_Pair, vd);
+		WriteVector((const float *)ov, isz == V_Single ? V_Single : V_Pair, vd);
 		PC += 4;
 		EatPrefixes();
 	}
@@ -2044,64 +2050,61 @@ namespace MIPSInt
 		EatPrefixes();
 	}
 
-	void Int_Vsbn(MIPSOpcode op)
-	{
+	void Int_Vsbn(MIPSOpcode op) {
+		FloatBits d, s, t;
 		int vd = _VD;
 		int vs = _VS;
 		int vt = _VT;
 		VectorSize sz = GetVecSize(op);
 
-		FloatBits d;
-		FloatBits s;
-		u8 exp = (u8)(127 + VI(vt));
-
 		ReadVector(s.f, sz, vs);
-		// TODO: Test swizzle, t?
 		ApplySwizzleS(s.f, sz);
+		ReadVector(t.f, sz, vs);
+		ApplySwizzleT(t.f, sz);
+		// Swizzle does apply to the value read as an integer.
+		u8 exp = (u8)(127 + t.i[0]);
 
-		if (sz != V_Single) {
-			ERROR_LOG_REPORT(CPU, "vsbn not implemented for size %d", GetNumVectorElements(sz));
+		// Simply replace the exponent bits.
+		u32 prev = s.u[0] & 0x7F800000;
+		if (prev != 0 && prev != 0x7F800000) {
+			d.u[0] = (s.u[0] & ~0x7F800000) | (exp << 23);
+		} else {
+			d.u[0] = s.u[0];
 		}
-		for (int i = 0; i < GetNumVectorElements(sz); ++i) {
-			// Simply replace the exponent bits.
-			u32 prev = s.u[i] & 0x7F800000;
-			if (prev != 0 && prev != 0x7F800000) {
-				d.u[i] = (s.u[i] & ~0x7F800000) | (exp << 23);
-			} else {
-				d.u[i] = s.u[i];
-			}
+
+		// If sz is greater than V_Single, the rest are unchanged.
+		for (int i = 1; i < GetNumVectorElements(sz); ++i) {
+			d.u[i] = s.u[i];
 		}
+
 		ApplyPrefixD(d.f, sz);
 		WriteVector(d.f, sz, vd);
 		PC += 4;
 		EatPrefixes();
 	}
 
-	void Int_Vsbz(MIPSOpcode op)
-	{
+	void Int_Vsbz(MIPSOpcode op) {
 		// Vector scale by zero (set exp to 0 to extract mantissa)
+		FloatBits d, s;
 		int vd = _VD;
 		int vs = _VS;
 		VectorSize sz = GetVecSize(op);
 
-		FloatBits d;
-		FloatBits s;
-
 		ReadVector(s.f, sz, vs);
-		// TODO: Test swizzle, t?
 		ApplySwizzleS(s.f, sz);
 
-		if (sz != V_Single) {
-			ERROR_LOG_REPORT(CPU, "vsbz not implemented for size %d", GetNumVectorElements(sz));
+		// NAN and denormals pass through.
+		if (my_isnan(s.f[0]) || (s.u[0] & 0x7F800000) == 0) {
+			d.u[0] = s.u[0];
+		} else {
+			d.u[0] = (127 << 23) | (s.u[0] & 0x007FFFFF);
 		}
-		for (int i = 0; i < GetNumVectorElements(sz); ++i) {
-			// NAN and denormals pass through.
-			if (my_isnan(s.f[i]) || (s.u[i] & 0x7F800000) == 0) {
-				d.u[i] = s.u[i];
-			} else {
-				d.u[i] = (127 << 23) | (s.u[i] & 0x007FFFFF);
-			}
+
+		// If sz is greater than V_Single, the rest are unchanged.
+		for (int i = 1; i < GetNumVectorElements(sz); ++i) {
+			d.u[i] = s.u[i];
 		}
+
 		ApplyPrefixD(d.f, sz);
 		WriteVector(d.f, sz, vd);
 		PC += 4;

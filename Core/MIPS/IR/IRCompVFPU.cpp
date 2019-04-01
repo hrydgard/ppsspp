@@ -1456,8 +1456,7 @@ namespace MIPSComp {
 
 	void IRFrontend::Comp_Vi2x(MIPSOpcode op) {
 		CONDITIONAL_DISABLE(VFPU_VEC);
-
-		if (js.HasUnknownPrefix())
+		if (js.HasUnknownPrefix() || js.HasSPrefix())
 			DISABLE;
 
 		int bits = ((op >> 16) & 2) == 0 ? 8 : 16; // vi2uc/vi2c (0/1), vi2us/vi2s (2/3)
@@ -1541,8 +1540,7 @@ namespace MIPSComp {
 
 	void IRFrontend::Comp_Vx2i(MIPSOpcode op) {
 		CONDITIONAL_DISABLE(VFPU_VEC);
-
-		if (js.HasUnknownPrefix())
+		if (js.HasUnknownPrefix() || js.HasSPrefix())
 			DISABLE;
 
 		int bits = ((op >> 16) & 2) == 0 ? 8 : 16; // vuc2i/vc2i (0/1), vus2i/vs2i (2/3)
@@ -1907,7 +1905,7 @@ namespace MIPSComp {
 
 	void IRFrontend::Comp_Vocp(MIPSOpcode op) {
 		CONDITIONAL_DISABLE(VFPU_VEC);
-		if (js.HasUnknownPrefix()) {
+		if (js.HasUnknownPrefix() || !IsPrefixWithinSize(js.prefixS, op) || js.HasTPrefix() || (js.prefixS & VFPU_NEGATE(1, 1, 1, 1)) != 0) {
 			DISABLE;
 		}
 
@@ -1953,8 +1951,9 @@ namespace MIPSComp {
 
 	void IRFrontend::Comp_ColorConv(MIPSOpcode op) {
 		CONDITIONAL_DISABLE(VFPU_VEC);
-		if (js.HasUnknownPrefix())
+		if (js.HasUnknownPrefix() || !IsPrefixWithinSize(js.prefixS, op) || js.HasTPrefix()) {
 			DISABLE;
+		}
 
 		// Vector color conversion
 		// d[N] = ConvertTo16(s[N*2]) | (ConvertTo16(s[N*2+1]) << 16)
