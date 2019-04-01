@@ -317,24 +317,20 @@ namespace MIPSInt
 		PC += 4;
 	}
 
-	void Int_VMatrixInit(MIPSOpcode op)
-	{
-		static const float idt[16] = 
-		{
+	void Int_VMatrixInit(MIPSOpcode op) {
+		static const float idt[16] = {
 			1,0,0,0,
 			0,1,0,0,
 			0,0,1,0,
 			0,0,0,1,
 		};
-		static const float zero[16] = 
-		{
+		static const float zero[16] = {
 			0,0,0,0,
 			0,0,0,0,
 			0,0,0,0,
 			0,0,0,0,
 		};
-		static const float one[16] = 
-		{
+		static const float one[16] = {
 			1,1,1,1,
 			1,1,1,1,
 			1,1,1,1,
@@ -344,8 +340,7 @@ namespace MIPSInt
 		MatrixSize sz = GetMtxSize(op);
 		const float *m;
 
-		switch ((op >> 16) & 0xF)
-		{
+		switch ((op >> 16) & 0xF) {
 		case 3: m=idt; break; //identity   // vmidt
 		case 6: m=zero; break;             // vmzero
 		case 7: m=one; break;              // vmone
@@ -356,7 +351,37 @@ namespace MIPSInt
 			return;
 		}
 
-		WriteMatrix(m, sz, vd);
+		// The S prefix generates constants, but only for the final (possibly transposed) row.
+		if (currentMIPS->vfpuCtrl[VFPU_CTRL_SPREFIX] & 0xF0F00) {
+			float prefixed[16];
+			memcpy(prefixed, m, sizeof(prefixed));
+
+			int off = GetMatrixSide(sz) - 1;
+			u32 sprefixRemove = VFPU_ANY_SWIZZLE();
+			u32 sprefixAdd;
+			switch ((op >> 16) & 0xF) {
+			case 3:
+			{
+				VFPUConst constX = off == 0 ? VFPUConst::ONE : VFPUConst::ZERO;
+				VFPUConst constY = off == 1 ? VFPUConst::ONE : VFPUConst::ZERO;
+				VFPUConst constZ = off == 2 ? VFPUConst::ONE : VFPUConst::ZERO;
+				VFPUConst constW = off == 3 ? VFPUConst::ONE : VFPUConst::ZERO;
+				sprefixAdd = VFPU_MAKE_CONSTANTS(constX, constY, constZ, constW);
+				break;
+			}
+			case 6:
+				sprefixAdd = VFPU_MAKE_CONSTANTS(VFPUConst::ZERO, VFPUConst::ZERO, VFPUConst::ZERO, VFPUConst::ZERO);
+				break;
+			case 7:
+				sprefixAdd = VFPU_MAKE_CONSTANTS(VFPUConst::ONE, VFPUConst::ONE, VFPUConst::ONE, VFPUConst::ONE);
+				break;
+			}
+			ApplyPrefixST(&prefixed[off * 4], VFPURewritePrefix(VFPU_CTRL_SPREFIX, sprefixRemove, sprefixAdd), V_Quad);
+			WriteMatrix(prefixed, sz, vd);
+		} else {
+			// Write mask applies to the final (maybe transposed) row.  Sat causes hang.
+			WriteMatrix(m, sz, vd);
+		}
 		PC += 4;
 		EatPrefixes();
 	}
@@ -642,19 +667,30 @@ namespace MIPSInt
 		EatPrefixes();
 	}
 
-	void Int_Vsgn(MIPSOpcode op)
-	{
-		float s[4], d[4];
+	void Int_Vsgn(MIPSOpcode op) {
+		float s[4], t[4], d[4];
 		int vd = _VD;
 		int vs = _VS;
 		VectorSize sz = GetVecSize(op);
 		ReadVector(s, sz, vs);
-		ApplySwizzleS(s, sz);
-		for (int i = 0; i < GetNumVectorElements(sz); i++)
-		{
+
+		// Not sure who would do this, but using abs/neg allows a compare against 3 or -3.
+		u32 tprefixRemove = VFPU_ANY_SWIZZLE();
+		u32 tprefixAdd = VFPU_MAKE_CONSTANTS(VFPUConst::ZERO, VFPUConst::ZERO, VFPUConst::ZERO, VFPUConst::ZERO);
+		ApplyPrefixST(t, VFPURewritePrefix(VFPU_CTRL_TPREFIX, tprefixRemove, tprefixAdd), sz);
+
+		int n = GetNumVectorElements(sz);
+		if (n < 4) {
+			// Compare with a swizzled value out of bounds always produces 0.
+			memcpy(&s[n], &t[n], sizeof(float) * (4 - n));
+		}
+		ApplySwizzleS(s, V_Quad);
+
+		for (int i = 0; i < n; i++) {
+			float diff = s[i] - t[i];
 			// To handle NaNs correctly, we do this with integer hackery
 			u32 val;
-			memcpy(&val, &s[i], sizeof(u32));
+			memcpy(&val, &diff, sizeof(u32));
 			if (val == 0 || val == 0x80000000)
 				d[i] = 0.0f;
 			else if ((val >> 31) == 0)
@@ -1029,51 +1065,63 @@ namespace MIPSInt
 		EatPrefixes();
 	}
 
-	void Int_VDot(MIPSOpcode op)
-	{
-		float s[4], t[4];
+	void Int_VDot(MIPSOpcode op) {
+		float s[4]{}, t[4]{};
 		float d;
 		int vd = _VD;
 		int vs = _VS;
 		int vt = _VT;
 		VectorSize sz = GetVecSize(op);
 		ReadVector(s, sz, vs);
-		ApplySwizzleS(s, sz);
+		ApplySwizzleS(s, V_Quad);
 		ReadVector(t, sz, vt);
-		ApplySwizzleT(t, sz);
-		float sum = 0.0f;
-		int n = GetNumVectorElements(sz);
-		for (int i = 0; i < n; i++)
-		{
-			sum += s[i]*t[i];
+		ApplySwizzleT(t, V_Quad);
+		d = 0.0f;
+		for (int i = 0; i < 4; i++) {
+			d += s[i] * t[i];
 		}
-		d = sum;
-		ApplyPrefixD(&d,V_Single);
+		ApplyPrefixD(&d, V_Single);
 		WriteVector(&d, V_Single, vd);
 		PC += 4;
 		EatPrefixes();
 	}
 
-	void Int_VHdp(MIPSOpcode op)
-	{
-		float s[4], t[4];
+	void Int_VHdp(MIPSOpcode op) {
+		float s[4]{}, t[4]{};
 		float d;
 		int vd = _VD;
 		int vs = _VS;
 		int vt = _VT;
 		VectorSize sz = GetVecSize(op);
 		ReadVector(s, sz, vs);
-		ApplySwizzleS(s, sz);
 		ReadVector(t, sz, vt);
-		ApplySwizzleT(t, sz);
+		ApplySwizzleT(t, V_Quad);
+
+		// S prefix forces constant 1 for the last element (w for quad.)
+		// Otherwise it is the same as vdot.
+		u32 sprefixRemove;
+		u32 sprefixAdd;
+		if (sz == V_Quad) {
+			sprefixRemove = VFPU_SWIZZLE(0, 0, 0, 3);
+			sprefixAdd = VFPU_MAKE_CONSTANTS(VFPUConst::NONE, VFPUConst::NONE, VFPUConst::NONE, VFPUConst::ONE);
+		} else if (sz == V_Triple) {
+			sprefixRemove = VFPU_SWIZZLE(0, 0, 3, 0);
+			sprefixAdd = VFPU_MAKE_CONSTANTS(VFPUConst::NONE, VFPUConst::NONE, VFPUConst::ONE, VFPUConst::NONE);
+		} else if (sz == V_Pair) {
+			sprefixRemove = VFPU_SWIZZLE(0, 3, 0, 0);
+			sprefixAdd = VFPU_MAKE_CONSTANTS(VFPUConst::NONE, VFPUConst::ONE, VFPUConst::NONE, VFPUConst::NONE);
+		} else {
+			sprefixRemove = VFPU_SWIZZLE(3, 0, 0, 0);
+			sprefixAdd = VFPU_MAKE_CONSTANTS(VFPUConst::ONE, VFPUConst::NONE, VFPUConst::NONE, VFPUConst::NONE);
+		}
+		ApplyPrefixST(s, VFPURewritePrefix(VFPU_CTRL_SPREFIX, sprefixRemove, sprefixAdd), V_Quad);
+
 		float sum = 0.0f;
-		int n = GetNumVectorElements(sz);
-		for (int i = 0; i < n; i++)
-		{
-			sum += (i == n - 1) ? t[i] : s[i]*t[i];
+		for (int i = 0; i < 4; i++) {
+			sum += s[i] * t[i];
 		}
 		d = my_isnan(sum) ? fabsf(sum) : sum;
-		ApplyPrefixD(&d,V_Single);
+		ApplyPrefixD(&d, V_Single);
 		WriteVector(&d, V_Single, vd);
 		PC += 4;
 		EatPrefixes();
@@ -1549,20 +1597,22 @@ namespace MIPSInt
 
 	void Int_Vmfvc(MIPSOpcode op) {
 		int vd = _VD;
-		int imm = (op >> 8) & 0xFF;
-		if (imm >= 128 && imm < 128 + VFPU_CTRL_MAX) {
-			VI(vd) = currentMIPS->vfpuCtrl[imm - 128];
+		int imm = (op >> 8) & 0x7F;
+		if (imm < VFPU_CTRL_MAX) {
+			VI(vd) = currentMIPS->vfpuCtrl[imm];
+		} else {
+			VI(vd) = 0;
 		}
 		PC += 4;
 	}
 
 	void Int_Vmtvc(MIPSOpcode op) {
 		int vs = _VS;
-		int imm = op & 0xFF;
-		if (imm >= 128 && imm < 128 + VFPU_CTRL_MAX) {
+		int imm = op & 0x7F;
+		if (imm < VFPU_CTRL_MAX) {
 			u32 mask;
-			if (GetVFPUCtrlMask(imm - 128, &mask)) {
-				currentMIPS->vfpuCtrl[imm - 128] = VI(vs) & mask;
+			if (GetVFPUCtrlMask(imm, &mask)) {
+				currentMIPS->vfpuCtrl[imm] = VI(vs) & mask;
 			}
 		}
 		PC += 4;
