@@ -380,6 +380,7 @@ public:
 	// TODO: Make this work with your platform, too!
 #if defined(USING_WIN_UI)
 	bool bBypassOSKWithKeyboard;
+	bool bDisableWinMenu;
 #endif
 
 	// Debugger

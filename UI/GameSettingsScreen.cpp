@@ -1500,6 +1500,7 @@ void OtherSettingsScreen::CreateViews() {
 	list->Add(new CheckBox(&g_Config.bSimpleFrameStats, gr->T("Display simple frame stats(heavy!)")));
 	list->Add(new CheckBox(&g_Config.bSavestateScreenshotResLimit, gr->T("Limit resolution of savestates screenshots")));
 	list->Add(new CheckBox(&g_Config.bDiscordPresence, n->T("Send Discord(3rd party software) Presence information")));
+	list->Add(new CheckBox(&g_Config.bDisableWinMenu, n->T("Disable Windows menu bar")));
 }
 
 void OtherSettingsScreen::onFinish(DialogResult result) {

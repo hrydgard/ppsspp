@@ -849,6 +849,7 @@ static ConfigSetting systemParamSettings[] = {
 	ConfigSetting("WlanAdhocChannel", &g_Config.iWlanAdhocChannel, PSP_SYSTEMPARAM_ADHOC_CHANNEL_AUTOMATIC, true, true),
 #if defined(USING_WIN_UI)
 	ConfigSetting("BypassOSKWithKeyboard", &g_Config.bBypassOSKWithKeyboard, false, true, true),
+	ConfigSetting("DisableWinMenu", &g_Config.bDisableWinMenu, false, true, true),
 #endif
 	ConfigSetting("WlanPowerSave", &g_Config.bWlanPowerSave, (bool) PSP_SYSTEMPARAM_WLAN_POWERSAVE_OFF, true, true),
 	ReportedConfigSetting("EncryptSave", &g_Config.bEncryptSave, true, true, true),

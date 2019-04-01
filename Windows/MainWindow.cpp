@@ -372,6 +372,9 @@ namespace MainWindow
 		if (graphicsContext) {
 			graphicsContext->Resume();
 		}
+
+		if (g_Config.bDisableWinMenu)
+			SetMenu(hwndMain, NULL);
 	}
 
 	void Minimize() {
@@ -502,6 +505,9 @@ namespace MainWindow
 		touchHandler.registerTouchWindow(hwndDisplay);
 
 		WindowsRawInput::Init();
+
+		if (g_Config.bDisableWinMenu)
+			SetMenu(hwndMain, NULL);
 
 		SetFocus(hwndMain);
 
