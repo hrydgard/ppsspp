@@ -1066,16 +1066,16 @@ namespace MIPSComp {
 	void Arm64Jit::Comp_Vmfvc(MIPSOpcode op) {
 		CONDITIONAL_DISABLE(VFPU_XFER);
 
-		int vs = _VS;
-		int imm = op & 0xFF;
+		int vd = _VD;
+		int imm = (op >> 8) & 0xFF;
 		if (imm >= 128 && imm < 128 + VFPU_CTRL_MAX) {
-			fpr.MapRegV(vs);
+			fpr.MapRegV(vd);
 			if (imm - 128 == VFPU_CTRL_CC) {
 				gpr.MapReg(MIPS_REG_VFPUCC, 0);
-				fp.FMOV(fpr.V(vs), gpr.R(MIPS_REG_VFPUCC));
+				fp.FMOV(fpr.V(vd), gpr.R(MIPS_REG_VFPUCC));
 			} else {
 				ADDI2R(SCRATCH1_64, CTXREG, offsetof(MIPSState, vfpuCtrl[0]) + (imm - 128) * 4, SCRATCH2);
-				fp.LDR(32, INDEX_UNSIGNED, fpr.V(vs), SCRATCH1_64, 0);
+				fp.LDR(32, INDEX_UNSIGNED, fpr.V(vd), SCRATCH1_64, 0);
 			}
 			fpr.ReleaseSpillLocksAndDiscardTemps();
 		}

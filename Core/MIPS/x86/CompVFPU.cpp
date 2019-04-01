@@ -2528,15 +2528,15 @@ void Jit::Comp_Mftv(MIPSOpcode op) {
 
 void Jit::Comp_Vmfvc(MIPSOpcode op) {
 	CONDITIONAL_DISABLE(VFPU_XFER);
-	int vs = _VS;
-	int imm = op & 0xFF;
+	int vd = _VD;
+	int imm = (op >> 8) & 0xFF;
 	if (imm >= 128 && imm < 128 + VFPU_CTRL_MAX) {
-		fpr.MapRegV(vs, MAP_DIRTY | MAP_NOINIT);
+		fpr.MapRegV(vd, MAP_DIRTY | MAP_NOINIT);
 		if (imm - 128 == VFPU_CTRL_CC) {
 			gpr.MapReg(MIPS_REG_VFPUCC, true, false);
-			MOVD_xmm(fpr.VX(vs), gpr.R(MIPS_REG_VFPUCC));
+			MOVD_xmm(fpr.VX(vd), gpr.R(MIPS_REG_VFPUCC));
 		} else {
-			MOVSS(fpr.VX(vs), MIPSSTATE_VAR_ELEM32(vfpuCtrl[0], imm - 128));
+			MOVSS(fpr.VX(vd), MIPSSTATE_VAR_ELEM32(vfpuCtrl[0], imm - 128));
 		}
 		fpr.ReleaseSpillLocks();
 	}
