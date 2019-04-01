@@ -96,46 +96,34 @@ inline float nanclamp(float f, float lower, float upper)
 }
 
 
-void ApplyPrefixST(float *r, u32 data, VectorSize size)
-{
+void ApplyPrefixST(float *r, u32 data, VectorSize size) {
 	// Possible optimization shortcut:
 	if (data == 0xe4)
 		return;
 
 	int n = GetNumVectorElements(size);
-	float origV[4];
+	float origV[4]{};
 	static const float constantArray[8] = {0.f, 1.f, 2.f, 0.5f, 3.f, 1.f/3.f, 0.25f, 1.f/6.f};
 
-	for (int i = 0; i < n; i++)
-	{
+	for (int i = 0; i < n; i++) {
 		origV[i] = r[i];
 	}
 
-	for (int i = 0; i < n; i++)
-	{
+	for (int i = 0; i < n; i++) {
 		int regnum = (data >> (i*2)) & 3;
 		int abs    = (data >> (8+i)) & 1;
 		int negate = (data >> (16+i)) & 1;
 		int constants = (data >> (12+i)) & 1;
 
-		if (!constants)
-		{
-			// Prefix may say "z, z, z, z" but if this is a pair, we force to x.
-			// TODO: But some ops seem to use const 0 instead?
+		if (!constants) {
 			if (regnum >= n) {
+				// We mostly handle this now, but still worth reporting.
 				ERROR_LOG_REPORT(CPU, "Invalid VFPU swizzle: %08x: %i / %d at PC = %08x (%s)", data, regnum, n, currentMIPS->pc, MIPSDisasmAt(currentMIPS->pc));
-				//for (int i = 0; i < 12; i++) {
-				//	ERROR_LOG(CPU, "  vfpuCtrl[%i] = %08x", i, currentMIPS->vfpuCtrl[i]);
-				//}
-				regnum = 0;
 			}
-
 			r[i] = origV[regnum];
 			if (abs)
 				((u32 *)r)[i] = ((u32 *)r)[i] & 0x7FFFFFFF;
-		}
-		else
-		{
+		} else {
 			r[i] = constantArray[regnum + (abs<<2)];
 		}
 
@@ -563,21 +551,29 @@ namespace MIPSInt
 			EatPrefixes();
 	}
 
-	void Int_VV2Op(MIPSOpcode op)
-	{
+	void Int_VV2Op(MIPSOpcode op) {
 		float s[4], d[4];
 		int vd = _VD;
 		int vs = _VS;
+		int optype = (op >> 16) & 0x1f;
 		VectorSize sz = GetVecSize(op);
 		ReadVector(s, sz, vs);
-		ApplySwizzleS(s, sz);
-		for (int i = 0; i < GetNumVectorElements(sz); i++)
-		{
-			switch ((op >> 16) & 0x1f)
-			{
+		// Some of these are prefix hacks (affects constants, etc.)
+		switch (optype) {
+		case 1:
+			ApplyPrefixST(s, VFPURewritePrefix(VFPU_CTRL_SPREFIX, 0, VFPU_ABS(1, 1, 1, 1)), sz);
+			break;
+		case 2:
+			ApplyPrefixST(s, VFPURewritePrefix(VFPU_CTRL_SPREFIX, 0, VFPU_NEGATE(1, 1, 1, 1)), sz);
+			break;
+		default:
+			ApplySwizzleS(s, sz);
+		}
+		for (int i = 0; i < GetNumVectorElements(sz); i++) {
+			switch (optype) {
 			case 0: d[i] = s[i]; break; //vmov
-			case 1: d[i] = fabsf(s[i]); break; //vabs
-			case 2: d[i] = -s[i]; break; //vneg
+			case 1: d[i] = s[i]; break; //vabs (prefix)
+			case 2: d[i] = s[i]; break; //vneg (prefix)
 			// vsat0 changes -0.0 to +0.0, both retain NAN.
 			case 4: if (s[i] <= 0) d[i] = 0; else {if(s[i] > 1.0f) d[i] = 1.0f; else d[i] = s[i];} break;    // vsat0
 			case 5: if (s[i] < -1.0f) d[i] = -1.0f; else {if(s[i] > 1.0f) d[i] = 1.0f; else d[i] = s[i];} break;  // vsat1
@@ -598,7 +594,8 @@ namespace MIPSInt
 				break;
 			}
 		}
-		ApplyPrefixD(d, sz);
+		// vsat1 is a prefix hack, so 0:1 doesn't apply.
+		ApplyPrefixD(d, sz, optype == 5);
 		WriteVector(d, sz, vd);
 		PC += 4;
 		EatPrefixes();
@@ -1186,138 +1183,161 @@ namespace MIPSInt
 		EatPrefixes();
 	}
 	
-	void Int_Vsrt1(MIPSOpcode op)
-	{
-		float s[4];
-		float d[4];
+	void Int_Vsrt1(MIPSOpcode op) {
+		float s[4], t[4], d[4];
 		int vd = _VD;
 		int vs = _VS;
 		VectorSize sz = GetVecSize(op);
 		ReadVector(s, sz, vs);
 		ApplySwizzleS(s, sz);
-		float x = s[0];
-		float y = s[1];
-		float z = s[2];
-		float w = s[3];
-		d[0] = std::min(x, y);
-		d[1] = std::max(x, y);
-		d[2] = std::min(z, w);
-		d[3] = std::max(z, w);
+		ReadVector(t, sz, vs);
+
+		// T is force swizzled to yxwz from S.
+		u32 tprefixRemove = VFPU_SWIZZLE(3, 3, 3, 3);
+		u32 tprefixAdd = VFPU_SWIZZLE(1, 0, 3, 2);
+		ApplyPrefixST(t, VFPURewritePrefix(VFPU_CTRL_TPREFIX, tprefixRemove, tprefixAdd), sz);
+
+		// TODO: May mishandle NAN / negative zero / etc.
+		d[0] = std::min(s[0], t[0]);
+		d[1] = std::max(s[1], t[1]);
+		d[2] = std::min(s[2], t[2]);
+		d[3] = std::max(s[3], t[3]);
+		RetainInvalidSwizzleST(d, sz);
 		ApplyPrefixD(d, sz);
 		WriteVector(d, sz, vd);
 		PC += 4;
 		EatPrefixes();
 	}
 
-	void Int_Vsrt2(MIPSOpcode op)
-	{
-		float s[4];
-		float d[4];
+	void Int_Vsrt2(MIPSOpcode op) {
+		float s[4], t[4], d[4];
 		int vd = _VD;
 		int vs = _VS;
 		VectorSize sz = GetVecSize(op);
 		ReadVector(s, sz, vs);
 		ApplySwizzleS(s, sz);
-		float x = s[0];
-		float y = s[1];
-		float z = s[2];
-		float w = s[3];
-		d[0] = std::min(x, w);
-		d[1] = std::min(y, z);
-		d[2] = std::max(y, z);
-		d[3] = std::max(x, w);
+		ReadVector(t, sz, vs);
+
+		// T is force swizzled to wzyx from S.
+		u32 tprefixRemove = VFPU_SWIZZLE(3, 3, 3, 3);
+		u32 tprefixAdd = VFPU_SWIZZLE(3, 2, 1, 0);
+		ApplyPrefixST(t, VFPURewritePrefix(VFPU_CTRL_TPREFIX, tprefixRemove, tprefixAdd), sz);
+
+		// TODO: May mishandle NAN / negative zero / etc.
+		d[0] = std::min(s[0], t[0]);
+		d[1] = std::min(s[1], t[1]);
+		d[2] = std::max(s[2], t[2]);
+		d[3] = std::max(s[3], t[3]);
+		RetainInvalidSwizzleST(d, sz);
 		ApplyPrefixD(d, sz);
 		WriteVector(d, sz, vd);
 		PC += 4;
 		EatPrefixes();
 	}
 
-	void Int_Vsrt3(MIPSOpcode op)
-	{
-		float s[4];
-		float d[4];
+	void Int_Vsrt3(MIPSOpcode op) {
+		float s[4], t[4], d[4];
 		int vd = _VD;
 		int vs = _VS;
 		VectorSize sz = GetVecSize(op);
 		ReadVector(s, sz, vs);
 		ApplySwizzleS(s, sz);
-		float x = s[0];
-		float y = s[1];
-		float z = s[2];
-		float w = s[3];
-		d[0] = std::max(x, y);
-		d[1] = std::min(x, y);
-		d[2] = std::max(z, w);
-		d[3] = std::min(z, w);
+		ReadVector(t, sz, vs);
+
+		// T is force swizzled to yxwz from S.
+		u32 tprefixRemove = VFPU_SWIZZLE(3, 3, 3, 3);
+		u32 tprefixAdd = VFPU_SWIZZLE(1, 0, 3, 2);
+		ApplyPrefixST(t, VFPURewritePrefix(VFPU_CTRL_TPREFIX, tprefixRemove, tprefixAdd), sz);
+
+		// TODO: May mishandle NAN / negative zero / etc.
+		d[0] = std::max(s[0], t[0]);
+		d[1] = std::min(s[1], t[1]);
+		d[2] = std::max(s[2], t[2]);
+		d[3] = std::min(s[3], t[3]);
+		RetainInvalidSwizzleST(d, sz);
 		ApplyPrefixD(d, sz);
 		WriteVector(d, sz, vd);
 		PC += 4;
 		EatPrefixes();
 	}
 
-	void Int_Vsrt4(MIPSOpcode op)
-	{
-		float s[4];
-		float d[4];
+	void Int_Vsrt4(MIPSOpcode op) {
+		float s[4], t[4], d[4];
 		int vd = _VD;
 		int vs = _VS;
 		VectorSize sz = GetVecSize(op);
 		ReadVector(s, sz, vs);
 		ApplySwizzleS(s, sz);
-		float x = s[0];
-		float y = s[1];
-		float z = s[2];
-		float w = s[3];
-		d[0] = std::max(x, w);
-		d[1] = std::max(y, z);
-		d[2] = std::min(y, z);
-		d[3] = std::min(x, w);
+		ReadVector(t, sz, vs);
+
+		// T is force swizzled to wzyx from S.
+		u32 tprefixRemove = VFPU_SWIZZLE(3, 3, 3, 3);
+		u32 tprefixAdd = VFPU_SWIZZLE(3, 2, 1, 0);
+		ApplyPrefixST(t, VFPURewritePrefix(VFPU_CTRL_TPREFIX, tprefixRemove, tprefixAdd), sz);
+
+		// TODO: May mishandle NAN / negative zero / etc.
+		d[0] = std::max(s[0], t[0]);
+		d[1] = std::max(s[1], t[1]);
+		d[2] = std::min(s[2], t[2]);
+		d[3] = std::min(s[3], t[3]);
+		RetainInvalidSwizzleST(d, sz);
 		ApplyPrefixD(d, sz);
 		WriteVector(d, sz, vd);
 		PC += 4;
 		EatPrefixes();
 	}
 	
-	void Int_Vcrs(MIPSOpcode op)
-	{
+	void Int_Vcrs(MIPSOpcode op) {
 		//half a cross product
-		float s[4], t[4];
-		float d[4];
+		float s[4]{}, t[4]{}, d[4];
 		int vd = _VD;
 		int vs = _VS;
 		int vt = _VT;
 		VectorSize sz = GetVecSize(op);
-		if (sz != V_Triple)
-			_dbg_assert_msg_(CPU,0,"Trying to interpret instruction that can't be interpreted");
-
 		ReadVector(s, sz, vs);
 		ReadVector(t, sz, vt);
-		// no swizzles allowed
-		d[0] = s[1] * t[2];
-		d[1] = s[2] * t[0];
-		d[2] = s[0] * t[1];
+
+		// S prefix forces swizzle (yzx?.)
+		// That means negate still works, but constants are a bit weird.
+		u32 sprefixRemove = VFPU_SWIZZLE(3, 3, 3, 0);
+		u32 sprefixAdd = VFPU_SWIZZLE(1, 2, 0, 0);
+		ApplyPrefixST(s, VFPURewritePrefix(VFPU_CTRL_SPREFIX, sprefixRemove, sprefixAdd), sz);
+
+		// T prefix forces swizzle (zxy?.)
+		u32 tprefixRemove = VFPU_SWIZZLE(3, 3, 3, 0);
+		u32 tprefixAdd = VFPU_SWIZZLE(2, 0, 1, 0);
+		ApplyPrefixST(t, VFPURewritePrefix(VFPU_CTRL_TPREFIX, tprefixRemove, tprefixAdd), sz);
+
+		d[0] = s[0] * t[0];
+		d[1] = s[1] * t[1];
+		d[2] = s[2] * t[2];
+		d[3] = s[3] * t[3];
 		ApplyPrefixD(d, sz);
 		WriteVector(d, sz, vd);
 		PC += 4;
 		EatPrefixes();
 	}
 	
-	void Int_Vdet(MIPSOpcode op)
-	{
-		float s[4], t[4];
-		float d[4];
+	void Int_Vdet(MIPSOpcode op) {
+		float s[4]{}, t[4]{}, d[4];
 		int vd = _VD;
 		int vs = _VS;
 		int vt = _VT;
 		VectorSize sz = GetVecSize(op);
-		if (sz != V_Pair)
-			_dbg_assert_msg_(CPU,0,"Trying to interpret instruction that can't be interpreted");
+		// This is normally V_Pair.  Unfilled s/t values are treated as zero.
 		ReadVector(s, sz, vs);
-		ApplySwizzleS(s, sz);
+		ApplySwizzleS(s, V_Quad);
 		ReadVector(t, sz, vt);
-		// TODO: The swizzle on t behaves oddly with constants, but sign changes seem to work.
-		// Also, seems to round in a non-standard way (sometimes toward zero, not always.)
-		d[0] = s[0] * t[1] - s[1] * t[0];
+
+		// T prefix forces swizzle for x and y (yx??.)
+		// That means negate still works, but constants are a bit weird.
+		// Note: there is no forced negation here.
+		u32 tprefixRemove = VFPU_SWIZZLE(3, 3, 0, 0);
+		u32 tprefixAdd = VFPU_SWIZZLE(1, 0, 0, 0);
+		ApplyPrefixST(t, VFPURewritePrefix(VFPU_CTRL_TPREFIX, tprefixRemove, tprefixAdd), V_Quad);
+
+		d[0] = s[0] * t[0] - s[1] * t[1];
+		d[0] += s[2] * t[2] + s[3] * t[3];
 		ApplyPrefixD(d, sz);
 		WriteVector(d, V_Single, vd);
 		PC += 4;
@@ -1793,14 +1813,12 @@ namespace MIPSInt
 	}
 
 	void Int_Vsge(MIPSOpcode op) {
+		float s[4], t[4], d[4];
 		int vt = _VT;
 		int vs = _VS;
 		int vd = _VD;
 		VectorSize sz = GetVecSize(op);
 		int numElements = GetNumVectorElements(sz);
-		float s[4];
-		float t[4];
-		float d[4];
 		ReadVector(s, sz, vs);
 		ApplySwizzleS(s, sz);
 		ReadVector(t, sz, vt);
@@ -1811,21 +1829,21 @@ namespace MIPSInt
 			else
 				d[i] = s[i] >= t[i] ? 1.0f : 0.0f;
 		}
-		ApplyPrefixD(d, sz);
+		RetainInvalidSwizzleST(d, sz);
+		// The clamp cannot matter, so skip it.
+		ApplyPrefixD(d, sz, true);
 		WriteVector(d, sz, vd);
 		PC += 4;
 		EatPrefixes();
 	}
 
 	void Int_Vslt(MIPSOpcode op) {
+		float s[4], t[4], d[4];
 		int vt = _VT;
 		int vs = _VS;
 		int vd = _VD;
 		VectorSize sz = GetVecSize(op);
 		int numElements = GetNumVectorElements(sz);
-		float s[4];
-		float t[4];
-		float d[4];
 		ReadVector(s, sz, vs);
 		ApplySwizzleS(s, sz);
 		ReadVector(t, sz, vt);
@@ -1836,7 +1854,9 @@ namespace MIPSInt
 			else
 				d[i] = s[i] < t[i] ? 1.0f : 0.0f;
 		}
-		ApplyPrefixD(d, sz);
+		RetainInvalidSwizzleST(d, sz);
+		// The clamp cannot matter, so skip it.
+		ApplyPrefixD(d, sz, true);
 		WriteVector(d, sz, vd);
 		PC += 4;
 		EatPrefixes();
