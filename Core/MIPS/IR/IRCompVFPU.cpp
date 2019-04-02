@@ -1639,15 +1639,15 @@ namespace MIPSComp {
 
 	void IRFrontend::Comp_VCrossQuat(MIPSOpcode op) {
 		CONDITIONAL_DISABLE(VFPU_VEC);
-		// TODO: Does this instruction even look at prefixes at all?
-		if (js.HasUnknownPrefix())
+		if (!js.HasNoPrefix())
 			DISABLE;
 
-		// Vector cross product (n = 3)
+		// Vector cross product (n = 3, weird prefixes)
 		// d[0 .. 2] = s[0 .. 2] X t[0 .. 2]
-		// Vector quaternion product (n = 4)
+		// Vector quaternion product (n = 4, weird prefixes)
 		// d[0 .. 2] = t[0 .. 2] X s[0 .. 2] + s[3] * t[0 .. 2] + t[3] * s[0 .. 2]
 		// d[3] = s[3]*t[3] - s[0 .. 2] dot t[0 .. 3]
+		// Note: Behaves as if it's implemented through a series of vdots.
 
 		VectorSize sz = GetVecSize(op);
 		int n = GetNumVectorElements(sz);
@@ -1685,13 +1685,14 @@ namespace MIPSComp {
 			ir.Write(IROp::FSub, tempregs[2], temp0, temp1);
 		} else if (sz == V_Quad) {
 			DISABLE;
+		} else {
+			DISABLE;
 		}
 
 		for (int i = 0; i < n; i++) {
 			if (tempregs[i] != dregs[i])
 				ir.Write(IROp::FMov, dregs[i], tempregs[i]);
 		}
-		// No D prefix supported
 	}
 
 	void IRFrontend::Comp_Vcmp(MIPSOpcode op) {

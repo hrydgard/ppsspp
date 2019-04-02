@@ -96,13 +96,13 @@ inline float nanclamp(float f, float lower, float upper)
 }
 
 
-void ApplyPrefixST(float *r, u32 data, VectorSize size) {
+void ApplyPrefixST(float *r, u32 data, VectorSize size, float invalid = 0.0f) {
 	// Possible optimization shortcut:
 	if (data == 0xe4)
 		return;
 
 	int n = GetNumVectorElements(size);
-	float origV[4]{};
+	float origV[4]{ invalid, invalid, invalid, invalid };
 	static const float constantArray[8] = {0.f, 1.f, 2.f, 0.5f, 3.f, 1.f/3.f, 0.25f, 1.f/6.f};
 
 	for (int i = 0; i < n; i++) {
@@ -132,14 +132,14 @@ void ApplyPrefixST(float *r, u32 data, VectorSize size) {
 	}
 }
 
-inline void ApplySwizzleS(float *v, VectorSize size)
+inline void ApplySwizzleS(float *v, VectorSize size, float invalid = 0.0f)
 {
-	ApplyPrefixST(v, currentMIPS->vfpuCtrl[VFPU_CTRL_SPREFIX], size);
+	ApplyPrefixST(v, currentMIPS->vfpuCtrl[VFPU_CTRL_SPREFIX], size, invalid);
 }
 
-inline void ApplySwizzleT(float *v, VectorSize size)
+inline void ApplySwizzleT(float *v, VectorSize size, float invalid = 0.0f)
 {
-	ApplyPrefixST(v, currentMIPS->vfpuCtrl[VFPU_CTRL_TPREFIX], size);
+	ApplyPrefixST(v, currentMIPS->vfpuCtrl[VFPU_CTRL_TPREFIX], size, invalid);
 }
 
 void ApplyPrefixD(float *v, VectorSize size, bool onlyWriteMask = false)
@@ -557,6 +557,7 @@ namespace MIPSInt
 		int vs = _VS;
 		int optype = (op >> 16) & 0x1f;
 		VectorSize sz = GetVecSize(op);
+		int n = GetNumVectorElements(sz);
 		ReadVector(s, sz, vs);
 		// Some of these are prefix hacks (affects constants, etc.)
 		switch (optype) {
@@ -566,10 +567,30 @@ namespace MIPSInt
 		case 2:
 			ApplyPrefixST(s, VFPURewritePrefix(VFPU_CTRL_SPREFIX, 0, VFPU_NEGATE(1, 1, 1, 1)), sz);
 			break;
+		case 16:
+		case 17:
+		case 18:
+		case 19:
+		case 20:
+		case 21:
+		case 22:
+		case 23:
+			// Similar to vdiv.  Some of the behavior using the invalid constant is iffy.
+			ApplySwizzleS(&s[n - 1], V_Single, INFINITY);
+			break;
+		case 24:
+		case 26:
+			// Similar to above, but also ignores negate.
+			ApplyPrefixST(&s[n - 1], VFPURewritePrefix(VFPU_CTRL_SPREFIX, VFPU_NEGATE(1, 0, 0, 0), 0), V_Single, -INFINITY);
+			break;
+		case 28:
+			// Similar to above, but also ignores negate.
+			ApplyPrefixST(&s[n - 1], VFPURewritePrefix(VFPU_CTRL_SPREFIX, VFPU_NEGATE(1, 0, 0, 0), 0), V_Single, INFINITY);
+			break;
 		default:
 			ApplySwizzleS(s, sz);
 		}
-		for (int i = 0; i < GetNumVectorElements(sz); i++) {
+		for (int i = 0; i < n; i++) {
 			switch (optype) {
 			case 0: d[i] = s[i]; break; //vmov
 			case 1: d[i] = s[i]; break; //vabs (prefix)
@@ -594,8 +615,33 @@ namespace MIPSInt
 				break;
 			}
 		}
-		// vsat1 is a prefix hack, so 0:1 doesn't apply.
-		ApplyPrefixD(d, sz, optype == 5);
+		// vsat1 is a prefix hack, so 0:1 doesn't apply.  Others don't process sat at all.
+		switch (optype) {
+		case 5:
+			ApplyPrefixD(d, sz, true);
+			break;
+		case 16:
+		case 17:
+		case 18:
+		case 19:
+		case 20:
+		case 21:
+		case 22:
+		case 23:
+		case 24:
+		case 26:
+		case 28:
+		{
+			// Only the last element gets the mask applied.
+			u32 lastmask = (currentMIPS->vfpuCtrl[VFPU_CTRL_DPREFIX] & (1 << 8)) << (n - 1);
+			u32 lastsat = (currentMIPS->vfpuCtrl[VFPU_CTRL_DPREFIX] & 3) << (n + n - 2);
+			currentMIPS->vfpuCtrl[VFPU_CTRL_DPREFIX] = lastmask | lastsat;
+			ApplyPrefixD(d, sz);
+			break;
+		}
+		default:
+			ApplyPrefixD(d, sz);
+		}
 		WriteVector(d, sz, vd);
 		PC += 4;
 		EatPrefixes();
@@ -1721,6 +1767,7 @@ namespace MIPSInt
 	}
 
 	void Int_Vminmax(MIPSOpcode op) {
+		FloatBits s, t, d;
 		int vt = _VT;
 		int vs = _VS;
 		int vd = _VD;
@@ -1728,9 +1775,6 @@ namespace MIPSInt
 		VectorSize sz = GetVecSize(op);
 		int numElements = GetNumVectorElements(sz);
 
-		FloatBits s;
-		FloatBits t;
-		FloatBits d;
 		ReadVector(s.f, sz, vs);
 		ApplySwizzleS(s.f, sz);
 		ReadVector(t.f, sz, vt);
@@ -1776,6 +1820,7 @@ namespace MIPSInt
 			EatPrefixes();
 			return;
 		}
+		RetainInvalidSwizzleST(d.f, sz);
 		ApplyPrefixD(d.f, sz);
 		WriteVector(d.f, sz, vd);
 		PC += 4;
@@ -1937,8 +1982,9 @@ namespace MIPSInt
 		} else {
 			// The prefix handling of S/T is a bit odd, probably the HW doesn't do it in parallel.
 			// The X prefix is applied to the last element in sz.
-			ApplySwizzleS(&s[n - 1], V_Single);
-			ApplySwizzleT(&t[n - 1], V_Single);
+			// TODO: This doesn't match exactly for a swizzle past x in some cases...
+			ApplySwizzleS(&s[n - 1], V_Single, -INFINITY);
+			ApplySwizzleT(&t[n - 1], V_Single, -INFINITY);
 		}
 
 		for (int i = 0; i < n; i++) {
@@ -1950,120 +1996,153 @@ namespace MIPSInt
 			}
 		}
 
-		// The D prefix (even mask) is ignored by vdiv only (vmul, etc. do apply it.)
-		if (optype != 7)
+		// For vdiv only, the D prefix only applies mask (and like S/T, x applied to last.)
+		if (optype == 7) {
+			u32 lastmask = (currentMIPS->vfpuCtrl[VFPU_CTRL_DPREFIX] & (1 << 8)) << (n - 1);
+			u32 lastsat = (currentMIPS->vfpuCtrl[VFPU_CTRL_DPREFIX] & 3) << (n + n - 2);
+			currentMIPS->vfpuCtrl[VFPU_CTRL_DPREFIX] = lastmask | lastsat;
 			ApplyPrefixD(d, sz);
+		} else {
+			RetainInvalidSwizzleST(d, sz);
+			ApplyPrefixD(d, sz);
+		}
 		WriteVector(d, sz, vd);
 		PC += 4;
 		EatPrefixes();
 	}
 	
-	void Int_CrossQuat(MIPSOpcode op)
-	{
+	void Int_CrossQuat(MIPSOpcode op) {
+		float s[4]{}, t[4]{}, d[4];
 		int vd = _VD;
 		int vs = _VS;
 		int vt = _VT;
 		VectorSize sz = GetVecSize(op);
-		float s[4];
-		float t[4];
-		float d[4];
+		int n = GetNumVectorElements(sz);
 		ReadVector(s, sz, vs);
 		ReadVector(t, sz, vt);
-		switch (sz)
-		{
+
+		u32 tprefixRemove = VFPU_ANY_SWIZZLE() | VFPU_NEGATE(1, 1, 1, 1);
+		u32 tprefixAdd;
+
+		switch (sz) {
 		case V_Triple:  // vcrsp.t
 			d[0] = s[1]*t[2] - s[2]*t[1];
 			d[1] = s[2]*t[0] - s[0]*t[2];
-			d[2] = s[0]*t[1] - s[1]*t[0];
+
+			// T prefix forces swizzle and negate, can be used to have weird constants.
+			tprefixAdd = VFPU_SWIZZLE(1, 0, 3, 2) | VFPU_NEGATE(0, 1, 0, 0);
+			ApplyPrefixST(t, VFPURewritePrefix(VFPU_CTRL_TPREFIX, tprefixRemove, tprefixAdd), V_Quad);
+			ApplySwizzleS(s, V_Quad);
+			d[2] = s[0] * t[0] + s[1] * t[1] + s[2] * t[2] + s[3] * t[3];
 			break;
 
 		case V_Quad:   // vqmul.q
 			d[0] = s[0]*t[3] + s[1]*t[2] - s[2]*t[1] + s[3]*t[0];
 			d[1] = -s[0]*t[2] + s[1]*t[3] + s[2]*t[0] + s[3]*t[1];
 			d[2] = s[0]*t[1] - s[1]*t[0] + s[2]*t[3] + s[3]*t[2];
-			d[3] = -s[0]*t[0] - s[1]*t[1] - s[2]*t[2] + s[3]*t[3];
+
+			// T prefix forces swizzle and negate, can be used to have weird constants.
+			tprefixAdd = VFPU_SWIZZLE(0, 1, 2, 3) | VFPU_NEGATE(1, 1, 1, 0);
+			ApplyPrefixST(t, VFPURewritePrefix(VFPU_CTRL_TPREFIX, tprefixRemove, tprefixAdd), V_Quad);
+			ApplySwizzleS(s, sz);
+			d[3] = s[0] * t[0] + s[1] * t[1] + s[2] * t[2] + s[3] * t[3];
 			break;
 
-		default:
-			Reporting::ReportMessage("CrossQuat instruction with wrong size");
-			_dbg_assert_msg_(CPU,0,"Trying to interpret instruction that can't be interpreted");
+		case V_Pair:
+			// t swizzles invalid so the multiply is always zero.
 			d[0] = 0;
-			d[1] = 0;
+
+			tprefixAdd = VFPU_SWIZZLE(0, 0, 0, 0) | VFPU_NEGATE(0, 0, 0, 0);
+			ApplyPrefixST(t, VFPURewritePrefix(VFPU_CTRL_TPREFIX, tprefixRemove, tprefixAdd), V_Quad);
+			ApplySwizzleS(s, V_Quad);
+			// It's possible to populate a value by swizzling s[2].
+			d[1] = s[2] * t[2];
 			break;
+
+		case V_Single:
+			// t swizzles invalid so the multiply is always zero.
+			d[0] = 0;
+			break;
+		}
+
+		// D prefix applies to the last element only (mask and sat) for pair and larger.
+		if (sz != V_Single) {
+			u32 lastmask = (currentMIPS->vfpuCtrl[VFPU_CTRL_DPREFIX] & (1 << 8)) << (n - 1);
+			u32 lastsat = (currentMIPS->vfpuCtrl[VFPU_CTRL_DPREFIX] & 3) << (n + n - 2);
+			currentMIPS->vfpuCtrl[VFPU_CTRL_DPREFIX] = lastmask | lastsat;
+			ApplyPrefixD(d, sz);
+		} else {
+			// Single always seems to write out zero.
+			currentMIPS->vfpuCtrl[VFPU_CTRL_DPREFIX] = 0;
 		}
 		WriteVector(d, sz, vd);
 		PC += 4;
 		EatPrefixes();
 	}
 
-	void Int_Vlgb(MIPSOpcode op)
-	{
+	void Int_Vlgb(MIPSOpcode op) {
 		// Vector log binary (extract exponent)
+		FloatBits d, s;
 		int vd = _VD;
 		int vs = _VS;
 		VectorSize sz = GetVecSize(op);
 
-		FloatBits d;
-		FloatBits s;
-
 		ReadVector(s.f, sz, vs);
-		// TODO: Test swizzle, t?
 		ApplySwizzleS(s.f, sz);
 
-		if (sz != V_Single) {
-			ERROR_LOG_REPORT(CPU, "vlgb not implemented for size %d", GetNumVectorElements(sz));
+		int exp = (s.u[0] & 0x7F800000) >> 23;
+		if (exp == 0xFF) {
+			d.f[0] = s.f[0];
+		} else if (exp == 0) {
+			d.f[0] = -INFINITY;
+		} else {
+			d.f[0] = (float)(exp - 127);
 		}
-		for (int i = 0; i < GetNumVectorElements(sz); ++i) {
-			int exp = (s.u[i] & 0x7F800000) >> 23;
-			if (exp == 0xFF) {
-				d.f[i] = s.f[i];
-			} else if (exp == 0) {
-				d.f[i] = -INFINITY;
-			} else {
-				d.f[i] = (float)(exp - 127);
-			}
+
+		// If sz is greater than V_Single, the rest are copied unchanged.
+		for (int i = 1; i < GetNumVectorElements(sz); ++i) {
+			d.u[i] = s.u[i];
 		}
+
+		RetainInvalidSwizzleST(d.f, sz);
 		ApplyPrefixD(d.f, sz);
 		WriteVector(d.f, sz, vd);
 		PC += 4;
 		EatPrefixes();
 	}
 
-	// There has to be a concise way of expressing this in terms of
-	// bit manipulation on the raw floats.
 	void Int_Vwbn(MIPSOpcode op) {
+		FloatBits d, s;
 		int vd = _VD;
 		int vs = _VS;
 		VectorSize sz = GetVecSize(op);
-
-		FloatBits d;
-		FloatBits s;
 		u8 exp = (u8)((op >> 16) & 0xFF);
 
 		ReadVector(s.f, sz, vs);
-		// TODO: Test swizzle, t?
 		ApplySwizzleS(s.f, sz);
 
-		if (sz != V_Single) {
-			ERROR_LOG_REPORT(CPU, "vwbn not implemented for size %d", GetNumVectorElements(sz));
-		}
-		for (int i = 0; i < GetNumVectorElements(sz); ++i) {
-			u32 sigbit = s.u[i] & 0x80000000;
-			u32 prevExp = (s.u[i] & 0x7F800000) >> 23;
-			u32 mantissa = (s.u[i] & 0x007FFFFF) | 0x00800000;
-			if (prevExp != 0xFF && prevExp != 0) {
-				if (exp > prevExp) {
-					s8 shift = (exp - prevExp) & 0xF;
-					mantissa = mantissa >> shift;
-				} else {
-					s8 shift = (prevExp - exp) & 0xF;
-					mantissa = mantissa << shift;
-				}
-				d.u[i] = sigbit | (mantissa & 0x007FFFFF) | (exp << 23);
+		u32 sigbit = s.u[0] & 0x80000000;
+		u32 prevExp = (s.u[0] & 0x7F800000) >> 23;
+		u32 mantissa = (s.u[0] & 0x007FFFFF) | 0x00800000;
+		if (prevExp != 0xFF && prevExp != 0) {
+			if (exp > prevExp) {
+				s8 shift = (exp - prevExp) & 0xF;
+				mantissa = mantissa >> shift;
 			} else {
-				d.u[i] = s.u[i] | (exp << 23);
+				s8 shift = (prevExp - exp) & 0xF;
+				mantissa = mantissa << shift;
 			}
+			d.u[0] = sigbit | (mantissa & 0x007FFFFF) | (exp << 23);
+		} else {
+			d.u[0] = s.u[0] | (exp << 23);
 		}
+
+		// If sz is greater than V_Single, the rest are copied unchanged.
+		for (int i = 1; i < GetNumVectorElements(sz); ++i) {
+			d.u[i] = s.u[i];
+		}
+
+		RetainInvalidSwizzleST(d.f, sz);
 		ApplyPrefixD(d.f, sz);
 		WriteVector(d.f, sz, vd);
 		PC += 4;
@@ -2092,7 +2171,7 @@ namespace MIPSInt
 			d.u[0] = s.u[0];
 		}
 
-		// If sz is greater than V_Single, the rest are unchanged.
+		// If sz is greater than V_Single, the rest are copied unchanged.
 		for (int i = 1; i < GetNumVectorElements(sz); ++i) {
 			d.u[i] = s.u[i];
 		}
@@ -2120,7 +2199,7 @@ namespace MIPSInt
 			d.u[0] = (127 << 23) | (s.u[0] & 0x007FFFFF);
 		}
 
-		// If sz is greater than V_Single, the rest are unchanged.
+		// If sz is greater than V_Single, the rest are copied unchanged.
 		for (int i = 1; i < GetNumVectorElements(sz); ++i) {
 			d.u[i] = s.u[i];
 		}
