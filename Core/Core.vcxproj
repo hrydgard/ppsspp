@@ -70,7 +70,7 @@
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <ClCompile>
       <WarningLevel>Level3</WarningLevel>
-      <AdditionalIncludeDirectories>..\ffmpeg\WindowsInclude;..\ffmpeg\Windows\x86\include;../common;..;../ext/native;../ext/glew;../ext/snappy;../ext/zlib;../ext/native/ext</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>..\ffmpeg\WindowsInclude;..\ffmpeg\Windows\x86\include;../common;..;../ext/native;../ext/glew;../ext/snappy;../ext/zlib;../ext/native/ext;../ext/zstd;../ext/zstd/common;../ext/zstd/compress;../ext/zstd/decompress</AdditionalIncludeDirectories>
       <PreprocessorDefinitions>_CRTDBG_MAP_ALLOC;USING_WIN_UI;_CRT_SECURE_NO_WARNINGS;USE_FFMPEG;WIN32;_ARCH_32=1;_M_IX86=1;_DEBUG;_LIB;_UNICODE;UNICODE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <EnableEnhancedInstructionSet>StreamingSIMDExtensions2</EnableEnhancedInstructionSet>
       <FloatingPointModel>Precise</FloatingPointModel>
@@ -92,7 +92,7 @@
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <ClCompile>
       <WarningLevel>Level3</WarningLevel>
-      <AdditionalIncludeDirectories>..\ffmpeg\WindowsInclude;..\ffmpeg\Windows\x86_64\include;../common;..;../ext/native;../ext/glew;../ext/snappy;../ext/zlib;../ext/native/ext</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>..\ffmpeg\WindowsInclude;..\ffmpeg\Windows\x86_64\include;../common;..;../ext/native;../ext/glew;../ext/snappy;../ext/zlib;../ext/native/ext;../ext/zstd;../ext/zstd/common;../ext/zstd/compress;../ext/zstd/decompress</AdditionalIncludeDirectories>
       <PreprocessorDefinitions>_CRTDBG_MAP_ALLOC;USING_WIN_UI;_CRT_SECURE_NO_WARNINGS;USE_FFMPEG;WIN32;_ARCH_64=1;_M_X64=1;_DEBUG;_LIB;_UNICODE;UNICODE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <EnableEnhancedInstructionSet>NotSet</EnableEnhancedInstructionSet>
       <FloatingPointModel>Precise</FloatingPointModel>
@@ -118,7 +118,7 @@
       <Optimization>MaxSpeed</Optimization>
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <IntrinsicFunctions>true</IntrinsicFunctions>
-      <AdditionalIncludeDirectories>..\ffmpeg\WindowsInclude;..\ffmpeg\Windows\x86\include;../common;..;../ext/native;../ext/glew;../ext/snappy;../ext/zlib;../ext/native/ext</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>..\ffmpeg\WindowsInclude;..\ffmpeg\Windows\x86\include;../common;..;../ext/native;../ext/glew;../ext/snappy;../ext/zlib;../ext/native/ext;../ext/zstd;../ext/zstd/common;../ext/zstd/compress;../ext/zstd/decompress</AdditionalIncludeDirectories>
       <BufferSecurityCheck>false</BufferSecurityCheck>
       <EnableEnhancedInstructionSet>StreamingSIMDExtensions2</EnableEnhancedInstructionSet>
       <FloatingPointModel>Precise</FloatingPointModel>
@@ -148,7 +148,7 @@
       <Optimization>MaxSpeed</Optimization>
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <IntrinsicFunctions>true</IntrinsicFunctions>
-      <AdditionalIncludeDirectories>..\ffmpeg\WindowsInclude;..\ffmpeg\Windows\x86_64\include;../common;..;../ext/native;../ext/glew;../ext/snappy;../ext/zlib;../ext/native/ext</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>..\ffmpeg\WindowsInclude;..\ffmpeg\Windows\x86_64\include;../common;..;../ext/native;../ext/glew;../ext/snappy;../ext/zlib;../ext/native/ext;../ext/zstd;../ext/zstd/common;../ext/zstd/compress;../ext/zstd/decompress</AdditionalIncludeDirectories>
       <EnableEnhancedInstructionSet>NotSet</EnableEnhancedInstructionSet>
       <FloatingPointModel>Precise</FloatingPointModel>
       <BufferSecurityCheck>false</BufferSecurityCheck>
@@ -176,6 +176,28 @@
     <ClCompile Include="..\ext\sfmt19937\SFMT.c" />
     <ClCompile Include="..\ext\snappy\snappy-c.cpp" />
     <ClCompile Include="..\ext\snappy\snappy.cpp" />
+    <ClCompile Include="..\ext\zstd\common\debug.c" />
+    <ClCompile Include="..\ext\zstd\common\entropy_common.c" />
+    <ClCompile Include="..\ext\zstd\common\error_private.c" />
+    <ClCompile Include="..\ext\zstd\common\fse_decompress.c" />
+    <ClCompile Include="..\ext\zstd\common\pool.c" />
+    <ClCompile Include="..\ext\zstd\common\threading.c" />
+    <ClCompile Include="..\ext\zstd\common\xxhash.c" />
+    <ClCompile Include="..\ext\zstd\common\zstd_common.c" />
+    <ClCompile Include="..\ext\zstd\compress\fse_compress.c" />
+    <ClCompile Include="..\ext\zstd\compress\hist.c" />
+    <ClCompile Include="..\ext\zstd\compress\huf_compress.c" />
+    <ClCompile Include="..\ext\zstd\compress\zstdmt_compress.c" />
+    <ClCompile Include="..\ext\zstd\compress\zstd_compress.c" />
+    <ClCompile Include="..\ext\zstd\compress\zstd_double_fast.c" />
+    <ClCompile Include="..\ext\zstd\compress\zstd_fast.c" />
+    <ClCompile Include="..\ext\zstd\compress\zstd_lazy.c" />
+    <ClCompile Include="..\ext\zstd\compress\zstd_ldm.c" />
+    <ClCompile Include="..\ext\zstd\compress\zstd_opt.c" />
+    <ClCompile Include="..\ext\zstd\decompress\huf_decompress.c" />
+    <ClCompile Include="..\ext\zstd\decompress\zstd_ddict.c" />
+    <ClCompile Include="..\ext\zstd\decompress\zstd_decompress.c" />
+    <ClCompile Include="..\ext\zstd\decompress\zstd_decompress_block.c" />
     <ClCompile Include="..\git-version.cpp" />
     <ClCompile Include="..\ext\udis86\decode.c" />
     <ClCompile Include="..\ext\udis86\itab.c" />
@@ -545,6 +567,31 @@
     <ClInclude Include="..\ext\udis86\types.h" />
     <ClInclude Include="..\ext\udis86\udint.h" />
     <ClInclude Include="..\ext\udis86\udis86.h" />
+    <ClInclude Include="..\ext\zstd\common\bitstream.h" />
+    <ClInclude Include="..\ext\zstd\common\compiler.h" />
+    <ClInclude Include="..\ext\zstd\common\cpu.h" />
+    <ClInclude Include="..\ext\zstd\common\debug.h" />
+    <ClInclude Include="..\ext\zstd\common\error_private.h" />
+    <ClInclude Include="..\ext\zstd\common\fse.h" />
+    <ClInclude Include="..\ext\zstd\common\huf.h" />
+    <ClInclude Include="..\ext\zstd\common\mem.h" />
+    <ClInclude Include="..\ext\zstd\common\pool.h" />
+    <ClInclude Include="..\ext\zstd\common\threading.h" />
+    <ClInclude Include="..\ext\zstd\common\xxhash.h" />
+    <ClInclude Include="..\ext\zstd\common\zstd_errors.h" />
+    <ClInclude Include="..\ext\zstd\common\zstd_internal.h" />
+    <ClInclude Include="..\ext\zstd\compress\hist.h" />
+    <ClInclude Include="..\ext\zstd\compress\zstdmt_compress.h" />
+    <ClInclude Include="..\ext\zstd\compress\zstd_compress_internal.h" />
+    <ClInclude Include="..\ext\zstd\compress\zstd_double_fast.h" />
+    <ClInclude Include="..\ext\zstd\compress\zstd_fast.h" />
+    <ClInclude Include="..\ext\zstd\compress\zstd_lazy.h" />
+    <ClInclude Include="..\ext\zstd\compress\zstd_ldm.h" />
+    <ClInclude Include="..\ext\zstd\compress\zstd_opt.h" />
+    <ClInclude Include="..\ext\zstd\decompress\zstd_ddict.h" />
+    <ClInclude Include="..\ext\zstd\decompress\zstd_decompress_block.h" />
+    <ClInclude Include="..\ext\zstd\decompress\zstd_decompress_internal.h" />
+    <ClInclude Include="..\ext\zstd\zstd.h" />
     <ClInclude Include="AVIDump.h" />
     <ClInclude Include="ConfigValues.h" />
     <ClInclude Include="Debugger\WebSocket.h" />

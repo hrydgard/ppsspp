@@ -18,6 +18,7 @@
 #include <cstdlib>
 #include <cstring>
 #include <snappy-c.h>
+#include <zstd.h>
 
 #include "ChunkFile.h"
 #include "StringUtils.h"
@@ -253,7 +254,10 @@ CChunkFileReader::Error CChunkFileReader::LoadFile(const std::string &filename, 
 	if (header.Compress) {
 		u8 *uncomp_buffer = new u8[header.UncompressedSize];
 		size_t uncomp_size = header.UncompressedSize;
-		snappy_uncompress((const char *)buffer, sz, (char *)uncomp_buffer, &uncomp_size);
+		if (header.Revision == REVISION_TITLE_SNAPPY)
+			snappy_uncompress((const char *)buffer, sz, (char *)uncomp_buffer, &uncomp_size);
+		else if (header.Revision == REVISION_TITLE_ZSTD)
+			ZSTD_decompress(uncomp_buffer, uncomp_size, buffer, sz);
 		if ((u32)uncomp_size != header.UncompressedSize) {
 			ERROR_LOG(SAVESTATE, "Size mismatch: file: %u  calc: %u", header.UncompressedSize, (u32)uncomp_size);
 			delete [] uncomp_buffer;
@@ -285,7 +289,7 @@ CChunkFileReader::Error CChunkFileReader::SaveFile(const std::string &filename, 
 	}
 
 	// Make sure we can allocate a buffer to compress before compressing.
-	size_t write_len = snappy_max_compressed_length(sz);
+	size_t write_len = ZSTD_compressBound(sz);
 	u8 *compressed_buffer = (u8 *)malloc(write_len);
 	u8 *write_buffer = buffer;
 	if (!compressed_buffer) {
@@ -293,7 +297,7 @@ CChunkFileReader::Error CChunkFileReader::SaveFile(const std::string &filename, 
 		// We'll save uncompressed.  Better than not saving...
 		write_len = sz;
 	} else {
-		snappy_compress((const char *)buffer, sz, (char *)compressed_buffer, &write_len);
+		write_len = ZSTD_compress(compressed_buffer, write_len, buffer, sz, 3);
 		free(buffer);
 
 		write_buffer = compressed_buffer;

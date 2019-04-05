@@ -697,7 +697,9 @@ private:
 	enum {
 		REVISION_MIN = 4,
 		REVISION_TITLE = 5,
-		REVISION_CURRENT = REVISION_TITLE,
+		REVISION_TITLE_SNAPPY = REVISION_TITLE,
+		REVISION_TITLE_ZSTD = 6,
+		REVISION_CURRENT = REVISION_TITLE_ZSTD,
 	};
 
 	static Error LoadFile(const std::string &filename, std::string *gitVersion, u8 *&buffer, size_t &sz, std::string *failureReason);

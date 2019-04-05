@@ -73,6 +73,18 @@
     <Filter Include="Debugger\WebSocket">
       <UniqueIdentifier>{c21d9bb5-614d-451b-8c0b-3078b29122d8}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Ext\zstd">
+      <UniqueIdentifier>{cb8d3ff4-1cc9-461b-9b85-4cb42ae50565}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Ext\zstd\common">
+      <UniqueIdentifier>{3520f58e-0b8e-4075-895f-103576abf312}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Ext\zstd\compress">
+      <UniqueIdentifier>{11e44150-08da-4c3e-b7c2-6109d63ff245}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Ext\zstd\decompress">
+      <UniqueIdentifier>{afb39ab6-8650-4323-a202-7a28b7fb5188}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="ELF\ElfReader.cpp">
@@ -737,6 +749,72 @@
     <ClCompile Include="Debugger\WebSocket\GPURecordSubscriber.cpp">
       <Filter>Debugger\WebSocket</Filter>
     </ClCompile>
+    <ClCompile Include="..\ext\zstd\common\debug.c">
+      <Filter>Ext\zstd\common</Filter>
+    </ClCompile>
+    <ClCompile Include="..\ext\zstd\common\entropy_common.c">
+      <Filter>Ext\zstd\common</Filter>
+    </ClCompile>
+    <ClCompile Include="..\ext\zstd\common\error_private.c">
+      <Filter>Ext\zstd\common</Filter>
+    </ClCompile>
+    <ClCompile Include="..\ext\zstd\common\fse_decompress.c">
+      <Filter>Ext\zstd\common</Filter>
+    </ClCompile>
+    <ClCompile Include="..\ext\zstd\common\pool.c">
+      <Filter>Ext\zstd\common</Filter>
+    </ClCompile>
+    <ClCompile Include="..\ext\zstd\common\threading.c">
+      <Filter>Ext\zstd\common</Filter>
+    </ClCompile>
+    <ClCompile Include="..\ext\zstd\common\xxhash.c">
+      <Filter>Ext\zstd\common</Filter>
+    </ClCompile>
+    <ClCompile Include="..\ext\zstd\common\zstd_common.c">
+      <Filter>Ext\zstd\common</Filter>
+    </ClCompile>
+    <ClCompile Include="..\ext\zstd\compress\fse_compress.c">
+      <Filter>Ext\zstd\compress</Filter>
+    </ClCompile>
+    <ClCompile Include="..\ext\zstd\compress\hist.c">
+      <Filter>Ext\zstd\compress</Filter>
+    </ClCompile>
+    <ClCompile Include="..\ext\zstd\compress\huf_compress.c">
+      <Filter>Ext\zstd\compress</Filter>
+    </ClCompile>
+    <ClCompile Include="..\ext\zstd\compress\zstd_compress.c">
+      <Filter>Ext\zstd\compress</Filter>
+    </ClCompile>
+    <ClCompile Include="..\ext\zstd\compress\zstd_double_fast.c">
+      <Filter>Ext\zstd\compress</Filter>
+    </ClCompile>
+    <ClCompile Include="..\ext\zstd\compress\zstd_fast.c">
+      <Filter>Ext\zstd\compress</Filter>
+    </ClCompile>
+    <ClCompile Include="..\ext\zstd\compress\zstd_lazy.c">
+      <Filter>Ext\zstd\compress</Filter>
+    </ClCompile>
+    <ClCompile Include="..\ext\zstd\compress\zstd_ldm.c">
+      <Filter>Ext\zstd\compress</Filter>
+    </ClCompile>
+    <ClCompile Include="..\ext\zstd\compress\zstd_opt.c">
+      <Filter>Ext\zstd\compress</Filter>
+    </ClCompile>
+    <ClCompile Include="..\ext\zstd\compress\zstdmt_compress.c">
+      <Filter>Ext\zstd\compress</Filter>
+    </ClCompile>
+    <ClCompile Include="..\ext\zstd\decompress\huf_decompress.c">
+      <Filter>Ext\zstd\decompress</Filter>
+    </ClCompile>
+    <ClCompile Include="..\ext\zstd\decompress\zstd_ddict.c">
+      <Filter>Ext\zstd\decompress</Filter>
+    </ClCompile>
+    <ClCompile Include="..\ext\zstd\decompress\zstd_decompress.c">
+      <Filter>Ext\zstd\decompress</Filter>
+    </ClCompile>
+    <ClCompile Include="..\ext\zstd\decompress\zstd_decompress_block.c">
+      <Filter>Ext\zstd\decompress</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="ELF\ElfReader.h">
@@ -1366,6 +1444,81 @@
     </ClInclude>
     <ClInclude Include="Debugger\WebSocket\GPURecordSubscriber.h">
       <Filter>Debugger\WebSocket</Filter>
+    </ClInclude>
+    <ClInclude Include="..\ext\zstd\zstd.h">
+      <Filter>Ext\zstd</Filter>
+    </ClInclude>
+    <ClInclude Include="..\ext\zstd\common\bitstream.h">
+      <Filter>Ext\zstd\common</Filter>
+    </ClInclude>
+    <ClInclude Include="..\ext\zstd\common\compiler.h">
+      <Filter>Ext\zstd\common</Filter>
+    </ClInclude>
+    <ClInclude Include="..\ext\zstd\common\cpu.h">
+      <Filter>Ext\zstd\common</Filter>
+    </ClInclude>
+    <ClInclude Include="..\ext\zstd\common\debug.h">
+      <Filter>Ext\zstd\common</Filter>
+    </ClInclude>
+    <ClInclude Include="..\ext\zstd\common\error_private.h">
+      <Filter>Ext\zstd\common</Filter>
+    </ClInclude>
+    <ClInclude Include="..\ext\zstd\common\fse.h">
+      <Filter>Ext\zstd\common</Filter>
+    </ClInclude>
+    <ClInclude Include="..\ext\zstd\common\huf.h">
+      <Filter>Ext\zstd\common</Filter>
+    </ClInclude>
+    <ClInclude Include="..\ext\zstd\common\mem.h">
+      <Filter>Ext\zstd\common</Filter>
+    </ClInclude>
+    <ClInclude Include="..\ext\zstd\common\pool.h">
+      <Filter>Ext\zstd\common</Filter>
+    </ClInclude>
+    <ClInclude Include="..\ext\zstd\common\threading.h">
+      <Filter>Ext\zstd\common</Filter>
+    </ClInclude>
+    <ClInclude Include="..\ext\zstd\common\xxhash.h">
+      <Filter>Ext\zstd\common</Filter>
+    </ClInclude>
+    <ClInclude Include="..\ext\zstd\common\zstd_errors.h">
+      <Filter>Ext\zstd\common</Filter>
+    </ClInclude>
+    <ClInclude Include="..\ext\zstd\common\zstd_internal.h">
+      <Filter>Ext\zstd\common</Filter>
+    </ClInclude>
+    <ClInclude Include="..\ext\zstd\compress\hist.h">
+      <Filter>Ext\zstd\compress</Filter>
+    </ClInclude>
+    <ClInclude Include="..\ext\zstd\compress\zstd_compress_internal.h">
+      <Filter>Ext\zstd\compress</Filter>
+    </ClInclude>
+    <ClInclude Include="..\ext\zstd\compress\zstd_double_fast.h">
+      <Filter>Ext\zstd\compress</Filter>
+    </ClInclude>
+    <ClInclude Include="..\ext\zstd\compress\zstd_fast.h">
+      <Filter>Ext\zstd\compress</Filter>
+    </ClInclude>
+    <ClInclude Include="..\ext\zstd\compress\zstd_lazy.h">
+      <Filter>Ext\zstd\compress</Filter>
+    </ClInclude>
+    <ClInclude Include="..\ext\zstd\compress\zstd_ldm.h">
+      <Filter>Ext\zstd\compress</Filter>
+    </ClInclude>
+    <ClInclude Include="..\ext\zstd\compress\zstd_opt.h">
+      <Filter>Ext\zstd\compress</Filter>
+    </ClInclude>
+    <ClInclude Include="..\ext\zstd\compress\zstdmt_compress.h">
+      <Filter>Ext\zstd\compress</Filter>
+    </ClInclude>
+    <ClInclude Include="..\ext\zstd\decompress\zstd_ddict.h">
+      <Filter>Ext\zstd\decompress</Filter>
+    </ClInclude>
+    <ClInclude Include="..\ext\zstd\decompress\zstd_decompress_block.h">
+      <Filter>Ext\zstd\decompress</Filter>
+    </ClInclude>
+    <ClInclude Include="..\ext\zstd\decompress\zstd_decompress_internal.h">
+      <Filter>Ext\zstd\decompress</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
