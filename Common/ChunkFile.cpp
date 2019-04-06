@@ -22,6 +22,7 @@
 
 #include "ChunkFile.h"
 #include "StringUtils.h"
+#include "base/timeutil.h"
 
 PointerWrapSection PointerWrap::Section(const char *title, int ver) {
 	return Section(title, ver, ver);
@@ -289,7 +290,7 @@ CChunkFileReader::Error CChunkFileReader::SaveFile(const std::string &filename, 
 	}
 
 	// Make sure we can allocate a buffer to compress before compressing.
-	size_t write_len = ZSTD_compressBound(sz);
+	size_t write_len = snappy_max_compressed_length(sz);
 	u8 *compressed_buffer = (u8 *)malloc(write_len);
 	u8 *write_buffer = buffer;
 	if (!compressed_buffer) {
@@ -297,7 +298,28 @@ CChunkFileReader::Error CChunkFileReader::SaveFile(const std::string &filename, 
 		// We'll save uncompressed.  Better than not saving...
 		write_len = sz;
 	} else {
-		write_len = ZSTD_compress(compressed_buffer, write_len, buffer, sz, 3);
+		double start = real_time_now();
+		snappy_compress((const char *)buffer, sz, (char *)compressed_buffer, &write_len);
+		double elapsed = real_time_now() - start;
+		INFO_LOG(SAVESTATE, "Savestate: Snappy %8i bytes 100%% : %i ms", (int)write_len, (int)(elapsed * 1000.0));
+		free(compressed_buffer);
+	}
+
+	size_t size_snappy = write_len;
+	write_len = ZSTD_compressBound(sz);
+	compressed_buffer = (u8 *)malloc(write_len);
+	if (!compressed_buffer) {
+		ERROR_LOG(SAVESTATE, "ChunkReader: Unable to allocate compressed buffer");
+		// We'll save uncompressed.  Better than not saving...
+		write_len = sz;
+	} else {
+		for (int i = 1; i <= 5; i++) {
+			double start = real_time_now();
+			write_len = ZSTD_compress(compressed_buffer, write_len, buffer, sz, i);
+			double elapsed = real_time_now() - start;
+			int ratio = (int)(write_len / (float)size_snappy * 100);
+			INFO_LOG(SAVESTATE, "Savestate: zstd:%i %8i bytes %3i%% : %i ms", i, (int)write_len, ratio, (int)(elapsed * 1000.0));
+		}
 		free(buffer);
 
 		write_buffer = compressed_buffer;
