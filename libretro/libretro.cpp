@@ -188,6 +188,7 @@ static RetroOption<bool> ppsspp_separate_io_thread("ppsspp_separate_io_thread", 
 static RetroOption<bool> ppsspp_unsafe_func_replacements("ppsspp_unsafe_func_replacements", "Unsafe FuncReplacements", true);
 static RetroOption<bool> ppsspp_sound_speedhack("ppsspp_sound_speedhack", "Sound Speedhack", false);
 static RetroOption<bool> ppsspp_cheats("ppsspp_cheats", "Internal Cheats Support", false);
+static RetroOption<IOTimingMethods> ppsspp_io_timing_method("ppsspp_io_timing_method", "IO Timing Method", { { "Fast", IOTimingMethods:IOTIMING_FAST }, { "Host", IOTimingMethods:IOTIMING_HOST }, { "Realistic", IOTimingMethods:IOTIMING_REALISTIC } });
 
 void retro_set_environment(retro_environment_t cb) {
 	std::vector<retro_variable> vars;
@@ -216,6 +217,7 @@ void retro_set_environment(retro_environment_t cb) {
 	vars.push_back(ppsspp_unsafe_func_replacements.GetOptions());
 	vars.push_back(ppsspp_sound_speedhack.GetOptions());
 	vars.push_back(ppsspp_cheats.GetOptions());
+	vars.push_back(ppsspp_io_timing_method.GetOptions());
 	vars.push_back({});
 
 	environ_cb = cb;
@@ -284,6 +286,7 @@ static void check_variables(CoreParameter &coreParam) {
 	ppsspp_rendering_mode.Update(&g_Config.iRenderingMode);
 	ppsspp_force_max_fps.Update(&g_Config.iForceMaxEmulatedFPS);
 	ppsspp_cpu_core.Update((CPUCore *)&g_Config.iCpuCore);
+	ppsspp_io_timing_method.Update((IOTimingMethod *)&g_Config.iIOTimingMethod);
 
 	ppsspp_language.Update(&g_Config.iLanguage);
 	if (g_Config.iLanguage < 0) {
