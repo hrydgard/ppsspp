@@ -441,6 +441,8 @@ static u32 scePowerSetClockFrequency(u32 pllfreq, u32 cpufreq, u32 busfreq) {
 	// Only reschedules when the stepped PLL frequency changes.
 	// It seems like the busfreq parameter has no effect (but can cause errors.)
 	if (RealpllFreq != PowerPllMhzToHz(pllfreq)) {
+		int oldPll = RealpllFreq / 1000000;
+
 		RealpllFreq = PowerPllMhzToHz(pllfreq);
 		RealbusFreq = PowerBusMhzToHz(RealpllFreq / 2000000);
 		if (g_Config.iLockedCPUSpeed <= 0) {
@@ -448,7 +450,16 @@ static u32 scePowerSetClockFrequency(u32 pllfreq, u32 cpufreq, u32 busfreq) {
 			busFreq = RealbusFreq;
 			CoreTiming::SetClockFrequencyHz(PowerCpuMhzToHz(cpufreq, pllFreq));
 		}
-		return hleDelayResult(0, "scepower set clockFrequency", 150000);
+
+		// The delay depends on the source and destination frequency, most are 150ms.
+		int newPll = RealpllFreq / 1000000;
+		int usec = 150000;
+		if ((newPll == 190 && oldPll == 222) || (newPll == 222 && oldPll == 190))
+			usec = 15700;
+		else if ((newPll == 266 && oldPll == 333) || (newPll == 333 && oldPll == 266))
+			usec = 16600;
+
+		return hleDelayResult(0, "scepower set clockFrequency", usec);
 	}
 	if (g_Config.iLockedCPUSpeed <= 0)
 		CoreTiming::SetClockFrequencyHz(PowerCpuMhzToHz(cpufreq, pllFreq));
