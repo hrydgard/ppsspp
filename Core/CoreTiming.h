@@ -67,7 +67,7 @@ inline s64 usToCycles(u64 us) {
 }
 
 inline s64 cyclesToUs(s64 cycles) {
-	return (cycles * CPU_HZ) / 1000000;
+	return (cycles * 1000000) / CPU_HZ;
 }
 
 namespace CoreTiming
