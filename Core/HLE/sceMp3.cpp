@@ -27,7 +27,11 @@
 #include "Core/Reporting.h"
 #include "Core/HW/SimpleAudioDec.h"
 
-static const u32 ERROR_MP3_RESOURCE_NOT_INIT = 0x80671201;
+static const u32 ERROR_MP3_NO_RESOURCE_AVAIL = 0x80671201;
+static const u32 ERROR_MP3_BAD_ADDR = 0x80671002;
+static const u32 ERROR_MP3_BAD_SIZE = 0x80671003;
+static const int AU_BUF_MIN_SIZE = 8192;
+static const int PCM_BUF_MIN_SIZE = 9216;
 
 struct Mp3Context {
 public:
@@ -188,27 +192,49 @@ static int sceMp3CheckStreamDataNeeded(u32 mp3) {
 
 static u32 sceMp3ReserveMp3Handle(u32 mp3Addr) {
 	if (!resourceInited) {
-		return hleLogError(ME, ERROR_MP3_RESOURCE_NOT_INIT, "sceMp3InitResource must be called first");
+		return hleLogError(ME, ERROR_MP3_NO_RESOURCE_AVAIL, "sceMp3InitResource must be called first");
 	}
-
-	INFO_LOG(ME, "sceMp3ReserveMp3Handle(%08x)", mp3Addr);
-	if (!Memory::IsValidAddress(mp3Addr)){
-		ERROR_LOG(ME, "sceMp3ReserveMp3Handle(%08x) invalid address %08x", mp3Addr, mp3Addr);
-		return -1;
+	if (mp3Map.size() >= 2) {
+		return hleLogError(ME, ERROR_MP3_NO_RESOURCE_AVAIL, "no free handles");
+	}
+	if (mp3Addr != 0 && !Memory::IsValidRange(mp3Addr, 32)) {
+		// The PSP would crash, but might as well return a proper error.
+		return hleLogError(ME, SCE_KERNEL_ERROR_INVALID_POINTER, "bad mp3 pointer");
 	}
 
 	AuCtx *Au = new AuCtx;
-	Au->startPos = Memory::Read_U64(mp3Addr);				// Audio stream start position.
-	Au->endPos = Memory::Read_U32(mp3Addr + 8);				// Audio stream end position.
-	Au->AuBuf = Memory::Read_U32(mp3Addr + 16);            // Input Au data buffer.	
-	Au->AuBufSize = Memory::Read_U32(mp3Addr + 20);        // Input Au data buffer size.
-	Au->PCMBuf = Memory::Read_U32(mp3Addr + 24);            // Output PCM data buffer.
-	Au->PCMBufSize = Memory::Read_U32(mp3Addr + 28);        // Output PCM data buffer size.
+	if (mp3Addr) {
+		Au->startPos = Memory::Read_U64(mp3Addr); // Audio stream start position.
+		Au->endPos = Memory::Read_U64(mp3Addr + 8); // Audio stream end position.
+		Au->AuBuf = Memory::Read_U32(mp3Addr + 16); // Input Au data buffer.
+		Au->AuBufSize = Memory::Read_U32(mp3Addr + 20); // Input Au data buffer size.
+		Au->PCMBuf = Memory::Read_U32(mp3Addr + 24); // Output PCM data buffer.
+		Au->PCMBufSize = Memory::Read_U32(mp3Addr + 28); // Output PCM data buffer size.
 
-	DEBUG_LOG(ME, "startPos %llx endPos %llx mp3buf %08x mp3bufSize %08x PCMbuf %08x PCMbufSize %08x",
-		Au->startPos, Au->endPos, Au->AuBuf, Au->AuBufSize, Au->PCMBuf, Au->PCMBufSize);
+		if (Au->startPos >= Au->endPos) {
+			delete Au;
+			return hleLogError(ME, ERROR_MP3_BAD_SIZE, "start must be before end");
+		}
+		if (!Au->AuBuf || !Au->PCMBuf) {
+			delete Au;
+			return hleLogError(ME, ERROR_MP3_BAD_ADDR, "invalid buffer addresses");
+		}
+		if ((int)Au->AuBufSize < AU_BUF_MIN_SIZE || (int)Au->PCMBufSize < PCM_BUF_MIN_SIZE) {
+			delete Au;
+			return hleLogError(ME, ERROR_MP3_BAD_SIZE, "buffers too small");
+		}
 
-	Au->audioType = PSP_CODEC_MP3;
+		DEBUG_LOG(ME, "startPos %llx endPos %llx mp3buf %08x mp3bufSize %08x PCMbuf %08x PCMbufSize %08x",
+			Au->startPos, Au->endPos, Au->AuBuf, Au->AuBufSize, Au->PCMBuf, Au->PCMBufSize);
+	} else {
+		Au->startPos = 0;
+		Au->endPos = 0;
+		Au->AuBuf = 0;
+		Au->AuBufSize = 0;
+		Au->PCMBuf = 0;
+		Au->PCMBufSize = 0;
+	}
+
 	Au->Channels = 2;
 	Au->SumDecodedSamples = 0;
 	Au->MaxOutputSample = Au->PCMBufSize / 4;
@@ -216,18 +242,13 @@ static u32 sceMp3ReserveMp3Handle(u32 mp3Addr) {
 	Au->AuBufAvailable = 0;
 	Au->readPos = Au->startPos;
 
-	// create Au decoder
+	Au->audioType = PSP_CODEC_MP3;
 	Au->decoder = new SimpleAudio(Au->audioType);
 
-	// close the audio if mp3Addr already exist.
-	if (mp3Map.find(mp3Addr) != mp3Map.end()) {
-		delete mp3Map[mp3Addr];
-		mp3Map.erase(mp3Addr);
-	}
+	int handle = (int)mp3Map.size();
+	mp3Map[handle] = Au;
 
-	mp3Map[mp3Addr] = Au;
-
-	return mp3Addr;
+	return hleLogSuccessI(ME, handle);
 }
 
 static int sceMp3InitResource() {
