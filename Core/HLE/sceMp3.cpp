@@ -80,9 +80,9 @@ public:
 	};
 };
 
-static std::map<u32, Mp3Context *> mp3Map_old;
 static std::map<u32, AuCtx *> mp3Map;
 static const int mp3DecodeDelay = 4000;
+static bool resourceInited = false;
 
 static AuCtx *getMp3Ctx(u32 mp3) {
 	if (mp3Map.find(mp3) == mp3Map.end())
@@ -98,14 +98,14 @@ void __Mp3Shutdown() {
 }
 
 void __Mp3DoState(PointerWrap &p) {
-	auto s = p.Section("sceMp3", 0, 2);
+	auto s = p.Section("sceMp3", 0, 3);
 	if (!s)
 		return;
 
-	if (s >= 2){
+	if (s >= 2) {
 		p.Do(mp3Map);
-	}
-	if (s <= 1 && p.mode == p.MODE_READ){
+	} else {
+		std::map<u32, Mp3Context *> mp3Map_old;
 		p.Do(mp3Map_old); // read old map
 		for (auto it = mp3Map_old.begin(), end = mp3Map_old.end(); it != end; ++it) {
 			auto mp3 = new AuCtx;
@@ -134,6 +134,13 @@ void __Mp3DoState(PointerWrap &p) {
 			mp3->decoder = new SimpleAudio(mp3->audioType);
 			mp3Map[id] = mp3;
 		}
+	}
+
+	if (s >= 3) {
+		p.Do(resourceInited);
+	} else {
+		// Previous behavior acted as if it was already inited.
+		resourceInited = true;
 	}
 }
 
@@ -219,15 +226,20 @@ static u32 sceMp3ReserveMp3Handle(u32 mp3Addr) {
 }
 
 static int sceMp3InitResource() {
-	WARN_LOG(ME, "UNIMPL: sceMp3InitResource");
-	// Do nothing here 
-	return 0;
+	// TODO: Could validate the utility modules have been loaded?
+	if (resourceInited) {
+		return hleLogSuccessI(ME, 0);
+	}
+	resourceInited = true;
+	return hleLogSuccessI(ME, hleDelayResult(0, "mp3 resource init", 200));
 }
 
 static int sceMp3TermResource() {
-	WARN_LOG(ME, "UNIMPL: sceMp3TermResource");
-	// Do nothing here 
-	return 0;
+	if (!resourceInited) {
+		return hleLogSuccessI(ME, 0);
+	}
+	resourceInited = false;
+	return hleLogSuccessI(ME, hleDelayResult(0, "mp3 resource term", 100));
 }
 
 static int __CalculateMp3Channels(int bitval) {
