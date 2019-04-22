@@ -27,6 +27,7 @@
 #include "Core/Reporting.h"
 #include "Core/HW/SimpleAudioDec.h"
 
+static const u32 ERROR_MP3_RESOURCE_NOT_INIT = 0x80671201;
 
 struct Mp3Context {
 public:
@@ -186,6 +187,10 @@ static int sceMp3CheckStreamDataNeeded(u32 mp3) {
 }
 
 static u32 sceMp3ReserveMp3Handle(u32 mp3Addr) {
+	if (!resourceInited) {
+		return hleLogError(ME, ERROR_MP3_RESOURCE_NOT_INIT, "sceMp3InitResource must be called first");
+	}
+
 	INFO_LOG(ME, "sceMp3ReserveMp3Handle(%08x)", mp3Addr);
 	if (!Memory::IsValidAddress(mp3Addr)){
 		ERROR_LOG(ME, "sceMp3ReserveMp3Handle(%08x) invalid address %08x", mp3Addr, mp3Addr);
@@ -526,8 +531,8 @@ static u32 sceMp3ResetPlayPositionByFrame(u32 mp3, int position) {
 	return ctx->AuResetPlayPositionByFrame(position);
 }
 
-static u32 sceMp3LowLevelInit(u32 mp3) {
-	INFO_LOG(ME, "sceMp3LowLevelInit(%i)", mp3);
+static u32 sceMp3LowLevelInit(u32 mp3, u32 unk) {
+	INFO_LOG(ME, "sceMp3LowLevelInit(%i, %i)", mp3, unk);
 	auto ctx = new AuCtx;
 
 	ctx->audioType = PSP_CODEC_MP3;
@@ -597,7 +602,7 @@ const HLEFunction sceMp3[] = {
 	{0XAE6D2027, &WrapU_U<sceMp3GetMPEGVersion>,            "sceMp3GetMPEGVersion",           'x', "x"    },
 	{0X3548AEC8, &WrapU_U<sceMp3GetFrameNum>,               "sceMp3GetFrameNum",              'x', "x"    },
 	{0X0840E808, &WrapU_UI<sceMp3ResetPlayPositionByFrame>, "sceMp3ResetPlayPositionByFrame", 'x', "xi"   },
-	{0X1B839B83, &WrapU_U<sceMp3LowLevelInit>,              "sceMp3LowLevelInit",             'x', "x"    },
+	{0X1B839B83, &WrapU_UU<sceMp3LowLevelInit>,             "sceMp3LowLevelInit",             'x', "xx"   },
 	{0XE3EE2C81, &WrapU_UUUUU<sceMp3LowLevelDecode>,        "sceMp3LowLevelDecode",           'x', "xxxxx"}
 };
 
