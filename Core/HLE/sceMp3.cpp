@@ -27,7 +27,7 @@
 #include "Core/Reporting.h"
 #include "Core/HW/SimpleAudioDec.h"
 
-static const u32 ERROR_MP3_INVALID_HANDLE = 0x80671101;
+static const u32 ERROR_MP3_INVALID_HANDLE = 0x80671001;
 static const u32 ERROR_MP3_UNRESERVED_HANDLE = 0x80671102;
 static const u32 ERROR_MP3_NO_RESOURCE_AVAIL = 0x80671201;
 static const u32 ERROR_MP3_BAD_ADDR = 0x80671002;
@@ -267,6 +267,13 @@ static int sceMp3TermResource() {
 	if (!resourceInited) {
 		return hleLogSuccessI(ME, 0);
 	}
+
+	// Free any handles that are still open.
+	for (auto au : mp3Map) {
+		delete au.second;
+	}
+	mp3Map.clear();
+
 	resourceInited = false;
 	return hleLogSuccessI(ME, hleDelayResult(0, "mp3 resource term", 100));
 }
@@ -477,7 +484,7 @@ static int sceMp3GetSamplingRate(u32 mp3) {
 static int sceMp3GetInfoToAddStreamData(u32 mp3, u32 dstPtr, u32 towritePtr, u32 srcposPtr) {
 	AuCtx *ctx = getMp3Ctx(mp3);
 	if (!ctx) {
-		if (mp3 > MP3_MAX_HANDLES)
+		if (mp3 >= MP3_MAX_HANDLES)
 			return hleLogError(ME, ERROR_MP3_INVALID_HANDLE, "invalid handle");
 		return hleLogError(ME, ERROR_MP3_UNRESERVED_HANDLE, "unreserved handle");
 	} else if (ctx->AuBuf == 0) {
@@ -500,18 +507,17 @@ static int sceMp3NotifyAddStreamData(u32 mp3, int size) {
 }
 
 static int sceMp3ReleaseMp3Handle(u32 mp3) {
-	INFO_LOG(ME, "sceMp3ReleaseMp3Handle(%08X)", mp3);
-
 	AuCtx *ctx = getMp3Ctx(mp3);
-	if (!ctx) {
-		ERROR_LOG(ME, "%s: bad mp3 handle %08x", __FUNCTION__, mp3);
-		return -1;
+	if (ctx) {
+		delete ctx;
+		mp3Map.erase(mp3);
+		return hleLogSuccessI(ME, 0);
+	} else if (mp3 >= MP3_MAX_HANDLES) {
+		return hleLogError(ME, ERROR_MP3_INVALID_HANDLE, "invalid handle");
 	}
 
-	delete ctx;
-	mp3Map.erase(mp3);
-
-	return 0;
+	// Intentionally a zero result.
+	return hleLogDebug(ME, 0, "double free ignored");
 }
 
 static u32 sceMp3EndEntry() {
