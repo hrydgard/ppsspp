@@ -27,11 +27,14 @@
 #include "Core/Reporting.h"
 #include "Core/HW/SimpleAudioDec.h"
 
+static const u32 ERROR_MP3_INVALID_HANDLE = 0x80671101;
+static const u32 ERROR_MP3_UNRESERVED_HANDLE = 0x80671102;
 static const u32 ERROR_MP3_NO_RESOURCE_AVAIL = 0x80671201;
 static const u32 ERROR_MP3_BAD_ADDR = 0x80671002;
 static const u32 ERROR_MP3_BAD_SIZE = 0x80671003;
 static const int AU_BUF_MIN_SIZE = 8192;
 static const int PCM_BUF_MIN_SIZE = 9216;
+static const size_t MP3_MAX_HANDLES = 2;
 
 struct Mp3Context {
 public:
@@ -194,7 +197,7 @@ static u32 sceMp3ReserveMp3Handle(u32 mp3Addr) {
 	if (!resourceInited) {
 		return hleLogError(ME, ERROR_MP3_NO_RESOURCE_AVAIL, "sceMp3InitResource must be called first");
 	}
-	if (mp3Map.size() >= 2) {
+	if (mp3Map.size() >= MP3_MAX_HANDLES) {
 		return hleLogError(ME, ERROR_MP3_NO_RESOURCE_AVAIL, "no free handles");
 	}
 	if (mp3Addr != 0 && !Memory::IsValidRange(mp3Addr, 32)) {
@@ -472,15 +475,16 @@ static int sceMp3GetSamplingRate(u32 mp3) {
 }
 
 static int sceMp3GetInfoToAddStreamData(u32 mp3, u32 dstPtr, u32 towritePtr, u32 srcposPtr) {
-	DEBUG_LOG(ME, "sceMp3GetInfoToAddStreamData(%08X, %08X, %08X, %08X)", mp3, dstPtr, towritePtr, srcposPtr);
-
 	AuCtx *ctx = getMp3Ctx(mp3);
 	if (!ctx) {
-		ERROR_LOG(ME, "%s: bad mp3 handle %08x", __FUNCTION__, mp3);
-		return -1;
+		if (mp3 > MP3_MAX_HANDLES)
+			return hleLogError(ME, ERROR_MP3_INVALID_HANDLE, "invalid handle");
+		return hleLogError(ME, ERROR_MP3_UNRESERVED_HANDLE, "unreserved handle");
+	} else if (ctx->AuBuf == 0) {
+		return hleLogError(ME, ERROR_MP3_UNRESERVED_HANDLE, "incorrect handle type");
 	}
 
-	return ctx->AuGetInfoToAddStreamData(dstPtr, towritePtr, srcposPtr);
+	return hleLogSuccessI(ME, ctx->AuGetInfoToAddStreamData(dstPtr, towritePtr, srcposPtr));
 }
 
 static int sceMp3NotifyAddStreamData(u32 mp3, int size) {
@@ -615,7 +619,7 @@ const HLEFunction sceMp3[] = {
 	{0X87C263D1, &WrapI_U<sceMp3GetMaxOutputSample>,        "sceMp3GetMaxOutputSample",       'i', "x"    },
 	{0X8AB81558, &WrapU_V<sceMp3StartEntry>,                "sceMp3StartEntry",               'x', ""     },
 	{0X8F450998, &WrapI_U<sceMp3GetSamplingRate>,           "sceMp3GetSamplingRate",          'i', "x"    },
-	{0XA703FE0F, &WrapI_UUUU<sceMp3GetInfoToAddStreamData>, "sceMp3GetInfoToAddStreamData",   'i', "xxxx" },
+	{0XA703FE0F, &WrapI_UUUU<sceMp3GetInfoToAddStreamData>, "sceMp3GetInfoToAddStreamData",   'i', "xppp" },
 	{0XD021C0FB, &WrapI_UU<sceMp3Decode>,                   "sceMp3Decode",                   'i', "xx"   },
 	{0XD0A56296, &WrapI_U<sceMp3CheckStreamDataNeeded>,     "sceMp3CheckStreamDataNeeded",    'i', "x"    },
 	{0XD8F54A51, &WrapI_U<sceMp3GetLoopNum>,                "sceMp3GetLoopNum",               'i', "x"    },
