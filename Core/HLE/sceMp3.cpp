@@ -32,6 +32,7 @@ static const u32 ERROR_MP3_UNRESERVED_HANDLE = 0x80671102;
 static const u32 ERROR_MP3_NO_RESOURCE_AVAIL = 0x80671201;
 static const u32 ERROR_MP3_BAD_ADDR = 0x80671002;
 static const u32 ERROR_MP3_BAD_SIZE = 0x80671003;
+static const u32 ERROR_AVCODEC_INVALID_DATA = 0x807f00fd;
 static const int AU_BUF_MIN_SIZE = 8192;
 static const int PCM_BUF_MIN_SIZE = 9216;
 static const size_t MP3_MAX_HANDLES = 2;
@@ -344,8 +345,8 @@ static int __CalculateMp3Bitrates(int bitval, int mp3version, int mp3layer) {
 	}
 }
 
-static int __ParseMp3Header(AuCtx *ctx, bool *isID3) {
-	u32 ptr = ctx->AuBuf + ctx->AuStreamWorkareaSize();
+static int ParseMp3Header(AuCtx *ctx, int offset, bool *isID3) {
+	u32 ptr = ctx->AuBuf + ctx->AuStreamWorkareaSize() + offset;
 	int header = bswap32(Memory::Read_U32(ptr));
 	// ID3 tag , can be seen in Hanayaka Nari Wa ga Ichizoku.
 	static const int ID3 = 0x49443300;
@@ -361,25 +362,42 @@ static int __ParseMp3Header(AuCtx *ctx, bool *isID3) {
 }
 
 static int sceMp3Init(u32 mp3) {
-	INFO_LOG(ME, "sceMp3Init(%08x)", mp3);
-
 	AuCtx *ctx = getMp3Ctx(mp3);
 	if (!ctx) {
-		ERROR_LOG(ME, "%s: bad mp3 handle %08x", __FUNCTION__, mp3);
-		return -1;
+		if (mp3 >= MP3_MAX_HANDLES)
+			return hleLogError(ME, ERROR_MP3_INVALID_HANDLE, "invalid handle");
+		return hleLogError(ME, ERROR_MP3_UNRESERVED_HANDLE, "unreserved handle");
+	} else if (ctx->AuBuf == 0) {
+		return hleLogError(ME, ERROR_MP3_UNRESERVED_HANDLE, "incorrect handle type");
+	}
+
+	// First, let's search for the MP3 header.  It can be offset by at most 1439 bytes.
+	bool hasID3Tag = false;
+	int header = 0;
+	for (int offset = 0; offset < 1440; ++offset) {
+		header = ParseMp3Header(ctx, offset, &hasID3Tag);
+		// If we hit valid sync bits, then we've found a header.
+		if (((header >> 21) & 0x0FFE) == 0x0FFE) {
+			// Ignore the data before that.
+			ctx->EatSourceBuff(offset);
+			break;
+		}
+	}
+
+	static const int PARSE_DELAY_MS = 500;
+
+	// Couldn't find a header after all?
+	if (((header >> 21) & 0x0FFE) != 0x0FFE) {
+		return hleDelayResult(hleLogWarning(ME, ERROR_AVCODEC_INVALID_DATA, "no header found"), "mp3 init", PARSE_DELAY_MS);
 	}
 
 	// Parse the Mp3 header
-	bool hasID3Tag = false;
-	int header = __ParseMp3Header(ctx, &hasID3Tag);
 	int layer = (header >> 17) & 0x3;
 	ctx->Version = ((header >> 19) & 0x3);
 	ctx->SamplingRate = __CalculateMp3SampleRates((header >> 10) & 0x3, ctx->Version);
 	ctx->Channels = __CalculateMp3Channels((header >> 6) & 0x3);
 	ctx->BitRate = __CalculateMp3Bitrates((header >> 12) & 0xF, ctx->Version, layer);
 	ctx->freq = ctx->SamplingRate;
-
-	INFO_LOG(ME, "sceMp3Init(): channels=%i, samplerate=%iHz, bitrate=%ikbps", ctx->Channels, ctx->SamplingRate, ctx->BitRate);
 
 	// for mp3, if required freq is 48000, reset resampling Frequency to 48000 seems get better sound quality (e.g. Miku Custom BGM)
 	if (ctx->freq == 48000) {
@@ -394,10 +412,31 @@ static int sceMp3Init(u32 mp3) {
 		ctx->EatSourceBuff(0x400);
 	} else {
 		// if no ID3 tag, we will decode from the begining of the file
+		// TODO: This seems wrong, since it's an init parameter?
 		ctx->startPos = 0;
 	}
 
-	return 0;
+	DEBUG_LOG(ME, "sceMp3Init(): channels=%i, samplerate=%iHz, bitrate=%ikbps", ctx->Channels, ctx->SamplingRate, ctx->BitRate);
+
+	if (layer != 1) {
+		// TODO: Should return ERROR_AVCODEC_INVALID_DATA.
+		WARN_LOG_REPORT(ME, "sceMp3Init: invalid data: not layer 3");
+	}
+	if (ctx->Version != 3) {
+		// TODO: Should return 0x80671301 (unsupported version?)
+		WARN_LOG_REPORT(ME, "sceMp3Init: invalid data: not MPEG v1");
+	}
+	if (ctx->BitRate == 0 || ctx->BitRate == -1) {
+		return hleDelayResult(hleReportError(ME, ERROR_AVCODEC_INVALID_DATA, "invalid bitrate v%d l%d rate %04x", ctx->Version, layer, (header >> 12) & 0xF), "mp3 init", PARSE_DELAY_MS);
+	}
+	if (ctx->SamplingRate == -1) {
+		return hleDelayResult(hleReportError(ME, ERROR_AVCODEC_INVALID_DATA, "invalid sample rate v%d l%d rate %02x", ctx->Version, layer, (header >> 10) & 0x3), "mp3 init", PARSE_DELAY_MS);
+	} else if (ctx->SamplingRate != 44100) {
+		// TODO: Should return 0x80671302 (unsupported sample rate?)
+		WARN_LOG_REPORT(ME, "sceMp3Init: invalid data: not 44.1kHz");
+	}
+
+	return hleDelayResult(hleLogSuccessI(ME, 0), "mp3 init", PARSE_DELAY_MS);
 }
 
 static int sceMp3GetLoopNum(u32 mp3) {
