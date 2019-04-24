@@ -100,6 +100,7 @@ public:
 	u32 AuNotifyAddStreamData(int size);
 	int AuCheckStreamDataNeeded();
 	int AuStreamBytesNeeded();
+	int AuStreamWorkareaSize();
 	u32 AuResetPlayPosition();
 	u32 AuResetPlayPositionByFrame(int position);
 

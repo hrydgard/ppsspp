@@ -397,7 +397,7 @@ int AuCtx::AuStreamBytesNeeded() {
 		if (readPos >= endPos)
 			return 0;
 		// Account for the workarea.
-		int offset = 0x05c0;
+		int offset = AuStreamWorkareaSize();
 		return (int)AuBufSize - AuBufAvailable - offset;
 	}
 
@@ -405,8 +405,17 @@ int AuCtx::AuStreamBytesNeeded() {
 	return std::min((int)AuBufSize - AuBufAvailable, (int)endPos - readPos);
 }
 
+int AuCtx::AuStreamWorkareaSize() {
+	// Note that this is 31 bytes more than the max layer 3 frame size.
+	if (audioType == PSP_CODEC_MP3)
+		return 0x05c0;
+	return 0;
+}
+
 // check how many bytes we have read from source file
 u32 AuCtx::AuNotifyAddStreamData(int size) {
+	int offset = AuStreamWorkareaSize();
+
 	if (askedReadSize != 0) {
 		// Old save state, numbers already adjusted.
 		int diffsize = size - askedReadSize;
@@ -422,7 +431,7 @@ u32 AuCtx::AuNotifyAddStreamData(int size) {
 	}
 
 	if (Memory::IsValidRange(AuBuf, size)) {
-		sourcebuff.append((const char *)Memory::GetPointer(AuBuf), size);
+		sourcebuff.append((const char *)Memory::GetPointer(AuBuf + offset), size);
 	}
 
 	if (readPos >= (int)endPos && LoopNum != 0) {
@@ -441,10 +450,7 @@ u32 AuCtx::AuNotifyAddStreamData(int size) {
 // buff, size and srcPos are all pointers
 u32 AuCtx::AuGetInfoToAddStreamData(u32 bufPtr, u32 sizePtr, u32 srcPosPtr) {
 	int readsize = AuStreamBytesNeeded();
-	int offset = 0;
-	if (audioType == PSP_CODEC_MP3) {
-		offset = 0x05c0;
-	}
+	int offset = AuStreamWorkareaSize();
 
 	// we can recharge AuBuf from its beginning
 	if (readsize != 0) {

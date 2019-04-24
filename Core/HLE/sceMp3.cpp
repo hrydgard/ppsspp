@@ -181,15 +181,16 @@ static int sceMp3ResetPlayPosition(u32 mp3) {
 }
 
 static int sceMp3CheckStreamDataNeeded(u32 mp3) {
-	DEBUG_LOG(ME, "sceMp3CheckStreamDataNeeded(%08x)", mp3);
-
 	AuCtx *ctx = getMp3Ctx(mp3);
 	if (!ctx) {
-		ERROR_LOG(ME, "%s: bad mp3 handle %08x", __FUNCTION__, mp3);
-		return -1;
+		if (mp3 >= MP3_MAX_HANDLES)
+			return hleLogError(ME, ERROR_MP3_INVALID_HANDLE, "invalid handle");
+		return hleLogError(ME, ERROR_MP3_UNRESERVED_HANDLE, "unreserved handle");
+	} else if (ctx->AuBuf == 0) {
+		return hleLogError(ME, ERROR_MP3_UNRESERVED_HANDLE, "incorrect handle type");
 	}
 
-	return ctx->AuCheckStreamDataNeeded();
+	return hleLogSuccessI(ME, ctx->AuCheckStreamDataNeeded());
 }
 
 static u32 sceMp3ReserveMp3Handle(u32 mp3Addr) {
@@ -344,15 +345,17 @@ static int __CalculateMp3Bitrates(int bitval, int mp3version, int mp3layer) {
 }
 
 static int __ParseMp3Header(AuCtx *ctx, bool *isID3) {
-	int header = bswap32(Memory::Read_U32(ctx->AuBuf));
+	u32 ptr = ctx->AuBuf + ctx->AuStreamWorkareaSize();
+	int header = bswap32(Memory::Read_U32(ptr));
 	// ID3 tag , can be seen in Hanayaka Nari Wa ga Ichizoku.
 	static const int ID3 = 0x49443300;
 	if ((header & 0xFFFFFF00) == ID3) {
 		*isID3 = true;
-		int size = bswap32(Memory::Read_U32(ctx->AuBuf + ctx->startPos + 6));
+		// TODO: Can we count on startPos being read already?  What if it's past the buffer size?
+		int size = bswap32(Memory::Read_U32(ptr + ctx->startPos + 6));
 		// Highest bit of each byte has to be ignored (format: 0x7F7F7F7F)
 		size = (size & 0x7F) | ((size & 0x7F00) >> 1) | ((size & 0x7F0000) >> 2) | ((size & 0x7F000000) >> 3);
-		header = bswap32(Memory::Read_U32(ctx->AuBuf + ctx->startPos + 10 + size));
+		header = bswap32(Memory::Read_U32(ptr + ctx->startPos + 10 + size));
 	}
 	return header;
 }
