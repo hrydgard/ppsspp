@@ -383,13 +383,26 @@ u32 AuCtx::AuSetLoopNum(int loop)
 }
 
 // return 1 to read more data stream, 0 don't read
-int AuCtx::AuCheckStreamDataNeeded()
-{
-	// if we have no available Au buffer, and the current read position in source file is not the end of stream, then we can read
-	if (AuBufAvailable < (int)AuBufSize && readPos < (int)endPos){
+int AuCtx::AuCheckStreamDataNeeded() {
+	// If we would ask for bytes, then some are needed.
+	if (AuStreamBytesNeeded() != 0) {
 		return 1;
 	}
 	return 0;
+}
+
+int AuCtx::AuStreamBytesNeeded() {
+	if (audioType == PSP_CODEC_MP3) {
+		// The endPos and readPos are not considered, except when you've read to the end.
+		if (readPos >= endPos)
+			return 0;
+		// Account for the workarea.
+		int offset = 0x05c0;
+		return (int)AuBufSize - AuBufAvailable - offset;
+	}
+
+	// TODO: Untested.  Maybe similar to MP3.
+	return std::min((int)AuBufSize - AuBufAvailable, (int)endPos - readPos);
 }
 
 // check how many bytes we have read from source file
@@ -427,24 +440,16 @@ u32 AuCtx::AuNotifyAddStreamData(int size) {
 // read from stream position srcPos of size bytes into buff
 // buff, size and srcPos are all pointers
 u32 AuCtx::AuGetInfoToAddStreamData(u32 bufPtr, u32 sizePtr, u32 srcPosPtr) {
-	int readsize;
+	int readsize = AuStreamBytesNeeded();
 	int offset = 0;
 	if (audioType == PSP_CODEC_MP3) {
-		// Account for the workarea.
 		offset = 0x05c0;
-		// The endPos and readPos are not considered, except when you've read to the end.
-		readsize = (int)AuBufSize - AuBufAvailable - offset;
-		if (readPos >= endPos)
-			readsize = 0;
-	} else {
-		// TODO: Untested.  Maybe similar to MP3.
-		readsize = std::min((int)AuBufSize - AuBufAvailable, (int)endPos - readPos);
 	}
 
 	// we can recharge AuBuf from its beginning
 	if (readsize != 0) {
 		if (Memory::IsValidAddress(bufPtr))
-			Memory::Write_U32(AuBuf, bufPtr);
+			Memory::Write_U32(AuBuf + offset, bufPtr);
 		if (Memory::IsValidAddress(sizePtr))
 			Memory::Write_U32(readsize, sizePtr);
 		if (Memory::IsValidAddress(srcPosPtr))
