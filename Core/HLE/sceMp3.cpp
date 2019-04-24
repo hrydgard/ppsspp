@@ -136,7 +136,6 @@ void __Mp3DoState(PointerWrap &p) {
 			mp3->readPos = mp3_old->readPosition;
 			mp3->AuBufAvailable = 0; // reset to read from file
 			mp3->askedReadSize = 0;
-			mp3->realReadSize = 0;
 
 			mp3->audioType = PSP_CODEC_MP3;
 			mp3->decoder = new SimpleAudio(mp3->audioType);

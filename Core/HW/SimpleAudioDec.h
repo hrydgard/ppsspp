@@ -105,7 +105,7 @@ public:
 	u32 AuSetLoopNum(int loop);
 	u32 AuGetLoopNum();
 
-	u32 AuGetInfoToAddStreamData(u32 buff, u32 size, u32 srcPos);
+	u32 AuGetInfoToAddStreamData(u32 bufPtr, u32 sizePtr, u32 srcPosPtr);
 	u32 AuGetMaxOutputSample() const { return MaxOutputSample; }
 	u32 AuGetSumDecodedSample() const { return SumDecodedSamples; }
 	int AuGetChannelNum() const { return Channels; }
@@ -149,7 +149,6 @@ public:
 	int AuBufAvailable; // the available buffer of AuBuf to be able to recharge data
 	int readPos; // read position in audio source file
 	int askedReadSize; // the size of data requied to be read from file by the game
-	int realReadSize; // the really read size from file
 
 private:
 	std::string sourcebuff; // source buffer
