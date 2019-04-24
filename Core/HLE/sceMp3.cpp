@@ -241,7 +241,6 @@ static u32 sceMp3ReserveMp3Handle(u32 mp3Addr) {
 	}
 
 	Au->SumDecodedSamples = 0;
-	Au->MaxOutputSample = Au->PCMBufSize / 4;
 	Au->LoopNum = -1;
 	Au->AuBufAvailable = 0;
 	Au->readPos = Au->startPos;
@@ -345,6 +344,18 @@ static int __CalculateMp3Bitrates(int bitval, int mp3version, int mp3layer) {
 	}
 }
 
+static int CalculateMp3SamplesPerFrame(int versionBits, int layerBits) {
+	if (versionBits == 1 || layerBits == 0) {
+		return -1;
+	} else if (layerBits == 3) {
+		return 384;
+	} else if (layerBits == 2 || versionBits == 3) {
+		return 1152;
+	} else {
+		return 576;
+	}
+}
+
 static int ParseMp3Header(AuCtx *ctx, int offset, bool *isID3) {
 	u32 ptr = ctx->AuBuf + ctx->AuStreamWorkareaSize() + offset;
 	int header = bswap32(Memory::Read_U32(ptr));
@@ -397,6 +408,7 @@ static int sceMp3Init(u32 mp3) {
 	ctx->SamplingRate = __CalculateMp3SampleRates((header >> 10) & 0x3, ctx->Version);
 	ctx->Channels = __CalculateMp3Channels((header >> 6) & 0x3);
 	ctx->BitRate = __CalculateMp3Bitrates((header >> 12) & 0xF, ctx->Version, layer);
+	ctx->MaxOutputSample = CalculateMp3SamplesPerFrame(ctx->Version, layer);
 	ctx->freq = ctx->SamplingRate;
 
 	// for mp3, if required freq is 48000, reset resampling Frequency to 48000 seems get better sound quality (e.g. Miku Custom BGM)
@@ -452,14 +464,18 @@ static int sceMp3GetLoopNum(u32 mp3) {
 }
 
 static int sceMp3GetMaxOutputSample(u32 mp3) {
-	DEBUG_LOG(ME, "sceMp3GetMaxOutputSample(%08x)", mp3);
 	AuCtx *ctx = getMp3Ctx(mp3);
 	if (!ctx) {
-		ERROR_LOG(ME, "%s: bad mp3 handle %08x", __FUNCTION__, mp3);
-		return -1;
+		if (mp3 >= MP3_MAX_HANDLES)
+			return hleLogError(ME, ERROR_MP3_INVALID_HANDLE, "invalid handle");
+		return hleLogError(ME, ERROR_MP3_NOT_YET_INIT_HANDLE, "unreserved handle");
+	} else if (ctx->Version < 0) {
+		return hleLogError(ME, ERROR_MP3_NOT_YET_INIT_HANDLE, "not yet init");
+	} else if (ctx->AuBuf == 0) {
+		return hleLogWarning(ME, 0, "no channel available for low level");
 	}
 
-	return ctx->AuGetMaxOutputSample();
+	return hleLogSuccessI(ME, ctx->AuGetMaxOutputSample());
 }
 
 static int sceMp3GetSumDecodedSample(u32 mp3) {

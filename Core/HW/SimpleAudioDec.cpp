@@ -299,7 +299,6 @@ AuCtx::AuCtx() {
 	PCMBufSize = 2048;
 	AuBufAvailable = 0;
 	SumDecodedSamples = 0;
-	MaxOutputSample = 0;
 	askedReadSize = 0;
 	audioType = 0;
 	FrameNum = 0;

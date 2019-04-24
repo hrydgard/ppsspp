@@ -138,7 +138,7 @@ public:
 	// State variables. These should be relatively easy to move into private.
 	u32 SumDecodedSamples;
 	int LoopNum;
-	u32 MaxOutputSample;
+	u32 MaxOutputSample = 0;
 	int FrameNum; // number of decoded frame
 
 	// Au decoder
