@@ -298,11 +298,6 @@ AuCtx::AuCtx() {
 	PCMBuf = 0;
 	PCMBufSize = 2048;
 	AuBufAvailable = 0;
-	SamplingRate = 44100;
-	freq = SamplingRate;
-	BitRate = 0;
-	Channels = 2;
-	Version = 0;
 	SumDecodedSamples = 0;
 	MaxOutputSample = 0;
 	askedReadSize = 0;

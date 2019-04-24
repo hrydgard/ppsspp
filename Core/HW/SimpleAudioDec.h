@@ -129,11 +129,11 @@ public:
 	u32 AuBufSize;
 	u32 PCMBuf;
 	u32 PCMBufSize;
-	int freq;
-	int BitRate;
-	int SamplingRate;
-	int Channels;
-	int Version;
+	int freq = -1;
+	int BitRate = 0;
+	int SamplingRate = -1;
+	int Channels = 0;
+	int Version = -1;
 
 	// State variables. These should be relatively easy to move into private.
 	u32 SumDecodedSamples;
