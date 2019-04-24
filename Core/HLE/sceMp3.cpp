@@ -495,15 +495,16 @@ static int sceMp3GetInfoToAddStreamData(u32 mp3, u32 dstPtr, u32 towritePtr, u32
 }
 
 static int sceMp3NotifyAddStreamData(u32 mp3, int size) {
-	DEBUG_LOG(ME, "sceMp3NotifyAddStreamData(%08X, %i)", mp3, size);
-
 	AuCtx *ctx = getMp3Ctx(mp3);
 	if (!ctx) {
-		ERROR_LOG(ME, "%s: bad mp3 handle %08x", __FUNCTION__, mp3);
-		return -1;
+		if (mp3 >= MP3_MAX_HANDLES)
+			return hleLogError(ME, ERROR_MP3_INVALID_HANDLE, "invalid handle");
+		return hleLogError(ME, ERROR_MP3_UNRESERVED_HANDLE, "unreserved handle");
+	} else if (ctx->AuBuf == 0) {
+		return hleLogError(ME, ERROR_MP3_UNRESERVED_HANDLE, "incorrect handle type");
 	}
 
-	return ctx->AuNotifyAddStreamData(size);
+	return hleLogSuccessI(ME, ctx->AuNotifyAddStreamData(size));
 }
 
 static int sceMp3ReleaseMp3Handle(u32 mp3) {
