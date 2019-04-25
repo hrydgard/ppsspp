@@ -35,7 +35,7 @@ inline int Xpose(int v) {
 
 // Some games depend on exact values, but sinf() and cosf() aren't always precise.
 // Stepping down to [0, 2pi) helps, but we also check common exact-result values.
-// TODO: cos(2) and sin(1) should be -0.0, but doing that gives wrong results (possibly from floorf.)
+// TODO: cos(1) and sin(2) should be -0.0, but doing that gives wrong results (possibly from floorf.)
 
 inline float vfpu_sin(float angle) {
 	angle -= floorf(angle * 0.25f) * 4.f;
@@ -143,6 +143,36 @@ static u32 VFPU_CONST(int x, int y, int z, int w) {
 
 static u32 VFPU_NEGATE(int x, int y, int z, int w) {
 	return VFPU_MASK(x, y, z, w) << 16;
+}
+
+enum class VFPUConst {
+	NONE = -1,
+	ZERO,
+	ONE,
+	TWO,
+	HALF,
+	THREE,
+	THIRD,
+	FOURTH,
+	SIXTH,
+};
+
+static u32 VFPU_MAKE_CONSTANTS(VFPUConst x, VFPUConst y, VFPUConst z, VFPUConst w) {
+	u32 result = 0;
+	if (x != VFPUConst::NONE) {
+		// This sets the constant flag and the swizzle/abs flags for the right constant.
+		result |= (((int)x & 3) << 0) | (((int)x & 4) << 6) | (1 << 12);
+	}
+	if (y != VFPUConst::NONE) {
+		result |= (((int)y & 3) << 2) | (((int)y & 4) << 7) | (1 << 13);
+	}
+	if (z != VFPUConst::NONE) {
+		result |= (((int)z & 3) << 4) | (((int)z & 4) << 8) | (1 << 14);
+	}
+	if (w != VFPUConst::NONE) {
+		result |= (((int)w & 3) << 6) | (((int)w & 4) << 9) | (1 << 15);
+	}
+	return result;
 }
 
 u32 VFPURewritePrefix(int ctrl, u32 remove, u32 add);

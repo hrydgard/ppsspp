@@ -188,6 +188,7 @@ static RetroOption<bool> ppsspp_separate_io_thread("ppsspp_separate_io_thread", 
 static RetroOption<bool> ppsspp_unsafe_func_replacements("ppsspp_unsafe_func_replacements", "Unsafe FuncReplacements", true);
 static RetroOption<bool> ppsspp_sound_speedhack("ppsspp_sound_speedhack", "Sound Speedhack", false);
 static RetroOption<bool> ppsspp_cheats("ppsspp_cheats", "Internal Cheats Support", false);
+static RetroOption<IOTimingMethods> ppsspp_io_timing_method("ppsspp_io_timing_method", "IO Timing Method", { { "Fast", IOTimingMethods::IOTIMING_FAST }, { "Host", IOTimingMethods::IOTIMING_HOST }, { "Simulate UMD delays", IOTimingMethods::IOTIMING_REALISTIC } });
 
 void retro_set_environment(retro_environment_t cb) {
 	std::vector<retro_variable> vars;
@@ -216,6 +217,7 @@ void retro_set_environment(retro_environment_t cb) {
 	vars.push_back(ppsspp_unsafe_func_replacements.GetOptions());
 	vars.push_back(ppsspp_sound_speedhack.GetOptions());
 	vars.push_back(ppsspp_cheats.GetOptions());
+	vars.push_back(ppsspp_io_timing_method.GetOptions());
 	vars.push_back({});
 
 	environ_cb = cb;
@@ -283,6 +285,7 @@ static void check_variables(CoreParameter &coreParam) {
 	ppsspp_locked_cpu_speed.Update(&g_Config.iLockedCPUSpeed);
 	ppsspp_rendering_mode.Update(&g_Config.iRenderingMode);
 	ppsspp_cpu_core.Update((CPUCore *)&g_Config.iCpuCore);
+	ppsspp_io_timing_method.Update((IOTimingMethods *)&g_Config.iIOTimingMethod);
 
 	ppsspp_language.Update(&g_Config.iLanguage);
 	if (g_Config.iLanguage < 0) {
@@ -453,6 +456,7 @@ void EmuThreadStop() {
 		// Need to keep eating frames to allow the EmuThread to exit correctly.
 		continue;
 	}
+
 	emuThread.join();
 	emuThread = std::thread();
 	ctx->ThreadEnd();
@@ -462,8 +466,11 @@ void EmuThreadPause() {
 	if (emuThreadState != EmuThreadState::RUNNING) {
 		return;
 	}
+
 	emuThreadState = EmuThreadState::PAUSE_REQUESTED;
-	ctx->ThreadFrame();
+
+	ctx->ThreadFrame(); // Eat 1 frame
+
 	while (emuThreadState != EmuThreadState::PAUSED) {
 		sleep_ms(1);
 	}
@@ -675,6 +682,11 @@ void retro_run(void) {
 	retro_input();
 
 	if (useEmuThread) {
+		if(emuThreadState == EmuThreadState::PAUSED || emuThreadState == EmuThreadState::PAUSE_REQUESTED) {
+			ctx->SwapBuffers();
+			return;
+		}
+
 		if (emuThreadState != EmuThreadState::RUNNING) {
 			EmuThreadStart();
 		}
@@ -705,19 +717,48 @@ struct SaveStart {
 } // namespace SaveState
 
 size_t retro_serialize_size(void) {
+	// TODO: Libretro API extension to use the savestate queue
+	if (useEmuThread) {
+		EmuThreadPause();
+	}
+
 	SaveState::SaveStart state;
-	return (CChunkFileReader::MeasurePtr(state) + 0x800000) & ~0x7FFFFF;
+	return (CChunkFileReader::MeasurePtr(state) + 0x800000) & ~0x7FFFFF; // We don't unpause intentionally
 }
 
 bool retro_serialize(void *data, size_t size) {
+	// TODO: Libretro API extension to use the savestate queue
+	if (useEmuThread) {
+		EmuThreadPause(); // Does nothing if already paused
+	}
+	
 	SaveState::SaveStart state;
 	assert(CChunkFileReader::MeasurePtr(state) <= size);
-	return CChunkFileReader::SavePtr((u8 *)data, state) == CChunkFileReader::ERROR_NONE;
+	bool retVal = CChunkFileReader::SavePtr((u8 *)data, state) == CChunkFileReader::ERROR_NONE;
+
+	if (useEmuThread) {
+		EmuThreadStart();
+		sleep_ms(4);
+	}
+	
+	return retVal;
 }
 
 bool retro_unserialize(const void *data, size_t size) {
+	// TODO: Libretro API extension to use the savestate queue
+	if (useEmuThread) {
+		EmuThreadPause(); // Does nothing if already paused
+	}
+
 	SaveState::SaveStart state;
-	return CChunkFileReader::LoadPtr((u8 *)data, state) == CChunkFileReader::ERROR_NONE;
+	bool retVal = CChunkFileReader::LoadPtr((u8 *)data, state) == CChunkFileReader::ERROR_NONE;
+
+	if (useEmuThread) {
+		EmuThreadStart();
+		sleep_ms(4);
+	}
+
+	return retVal;
 }
 
 void *retro_get_memory_data(unsigned id) {

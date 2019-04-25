@@ -1651,6 +1651,7 @@ namespace MIPSComp {
 		// Vector quaternion product (n = 4, weird prefixes)
 		// d[0 .. 2] = t[0 .. 2] X s[0 .. 2] + s[3] * t[0 .. 2] + t[3] * s[0 .. 2]
 		// d[3] = s[3]*t[3] - s[0 .. 2] dot t[0 .. 3]
+		// Note: Behaves as if it's implemented through a series of vdots.
 
 		VectorSize sz = GetVecSize(op);
 		int n = GetNumVectorElements(sz);

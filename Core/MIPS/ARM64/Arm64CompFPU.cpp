@@ -51,7 +51,7 @@
 // All functions should have CONDITIONAL_DISABLE, so we can narrow things down to a file quickly.
 // Currently known non working ones should have DISABLE.
 
-// #define CONDITIONAL_DISABLE { Comp_Generic(op); return; }
+// #define CONDITIONAL_DISABLE(flag) { Comp_Generic(op); return; }
 #define CONDITIONAL_DISABLE(flag) if (jo.Disabled(JitDisable::flag)) { Comp_Generic(op); return; }
 #define DISABLE { Comp_Generic(op); return; }
 
@@ -102,7 +102,11 @@ void Arm64Jit::Comp_FPULS(MIPSOpcode op)
 		fpr.SpillLock(ft);
 		fpr.MapReg(ft, MAP_NOINIT | MAP_DIRTY);
 		if (gpr.IsImm(rs)) {
+#ifdef MASKED_PSP_MEMORY
+			u32 addr = (offset + gpr.GetImm(rs)) & 0x3FFFFFFF;
+#else
 			u32 addr = offset + gpr.GetImm(rs);
+#endif
 			gpr.SetRegImm(SCRATCH1, addr);
 		} else {
 			gpr.MapReg(rs);
@@ -129,7 +133,11 @@ void Arm64Jit::Comp_FPULS(MIPSOpcode op)
 
 		fpr.MapReg(ft);
 		if (gpr.IsImm(rs)) {
+#ifdef MASKED_PSP_MEMORY
+			u32 addr = (offset + gpr.GetImm(rs)) & 0x3FFFFFFF;
+#else
 			u32 addr = offset + gpr.GetImm(rs);
+#endif
 			gpr.SetRegImm(SCRATCH1, addr);
 		} else {
 			gpr.MapReg(rs);

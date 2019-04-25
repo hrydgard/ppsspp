@@ -440,6 +440,9 @@ Arm64Gen::ARM64Reg Arm64RegCache::MapRegAsPointer(MIPSGPReg reg) {
 		if (!jo_->enablePointerify) {
 			// Convert to a pointer by adding the base and clearing off the top bits.
 			// If SP, we can probably avoid the top bit clear, let's play with that later.
+#ifdef MASKED_PSP_MEMORY
+			emit_->ANDI2R(EncodeRegTo64(a), EncodeRegTo64(a), 0x3FFFFFFF);
+#endif
 			emit_->ADD(EncodeRegTo64(a), EncodeRegTo64(a), MEMBASEREG);
 			mr[reg].loc = ML_ARMREG_AS_PTR;
 		} else if (!ar[a].pointerified) {

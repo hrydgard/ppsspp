@@ -37,7 +37,7 @@
 // All functions should have CONDITIONAL_DISABLE, so we can narrow things down to a file quickly.
 // Currently known non working ones should have DISABLE.
 
-// #define CONDITIONAL_DISABLE { fpr.ReleaseSpillLocksAndDiscardTemps(); Comp_Generic(op); return; }
+// #define CONDITIONAL_DISABLE(flag) { fpr.ReleaseSpillLocksAndDiscardTemps(); Comp_Generic(op); return; }
 #define CONDITIONAL_DISABLE(flag) if (jo.Disabled(JitDisable::flag)) { Comp_Generic(op); return; }
 #define DISABLE { fpr.ReleaseSpillLocksAndDiscardTemps(); Comp_Generic(op); return; }
 
@@ -222,7 +222,11 @@ namespace MIPSComp {
 			// CC might be set by slow path below, so load regs first.
 			fpr.MapRegV(vt, MAP_DIRTY | MAP_NOINIT);
 			if (gpr.IsImm(rs)) {
+#ifdef MASKED_PSP_MEMORY
+				u32 addr = (offset + gpr.GetImm(rs)) & 0x3FFFFFFF;
+#else
 				u32 addr = offset + gpr.GetImm(rs);
+#endif
 				gpr.SetRegImm(SCRATCH1, addr);
 			} else {
 				gpr.MapReg(rs);
@@ -251,7 +255,11 @@ namespace MIPSComp {
 			// CC might be set by slow path below, so load regs first.
 			fpr.MapRegV(vt);
 			if (gpr.IsImm(rs)) {
+#ifdef MASKED_PSP_MEMORY
+				u32 addr = (offset + gpr.GetImm(rs)) & 0x3FFFFFFF;
+#else
 				u32 addr = offset + gpr.GetImm(rs);
+#endif
 				gpr.SetRegImm(SCRATCH1, addr);
 			} else {
 				gpr.MapReg(rs);
@@ -293,7 +301,11 @@ namespace MIPSComp {
 				fpr.MapRegsAndSpillLockV(vregs, V_Quad, MAP_DIRTY | MAP_NOINIT);
 
 				if (gpr.IsImm(rs)) {
+#ifdef MASKED_PSP_MEMORY
+					u32 addr = (imm + gpr.GetImm(rs)) & 0x3FFFFFFF;
+#else
 					u32 addr = imm + gpr.GetImm(rs);
+#endif
 					gpr.SetRegImm(SCRATCH1_64, addr + (uintptr_t)Memory::base);
 				} else {
 					gpr.MapReg(rs);
@@ -326,7 +338,11 @@ namespace MIPSComp {
 				fpr.MapRegsAndSpillLockV(vregs, V_Quad, 0);
 
 				if (gpr.IsImm(rs)) {
+#ifdef MASKED_PSP_MEMORY
+					u32 addr = (imm + gpr.GetImm(rs)) & 0x3FFFFFFF;
+#else
 					u32 addr = imm + gpr.GetImm(rs);
+#endif
 					gpr.SetRegImm(SCRATCH1_64, addr + (uintptr_t)Memory::base);
 				} else {
 					gpr.MapReg(rs);
@@ -1080,7 +1096,7 @@ namespace MIPSComp {
 			fpr.ReleaseSpillLocksAndDiscardTemps();
 		} else {
 			fpr.MapRegV(vd);
-			MOVI2F(fpr.V(vd), 0.0f, SCRATCH1);
+			fp.MOVI2F(fpr.V(vd), 0.0f, SCRATCH1);
 		}
 	}
 
