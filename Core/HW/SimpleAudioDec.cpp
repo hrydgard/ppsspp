@@ -300,15 +300,8 @@ AuCtx::AuCtx() {
 	PCMBuf = 0;
 	PCMBufSize = 2048;
 	AuBufAvailable = 0;
-	SamplingRate = 44100;
-	freq = SamplingRate;
-	BitRate = 0;
-	Channels = 2;
-	Version = 0;
 	SumDecodedSamples = 0;
-	MaxOutputSample = 0;
 	askedReadSize = 0;
-	realReadSize = 0;
 	audioType = 0;
 	FrameNum = 0;
 };
@@ -382,30 +375,58 @@ u32 AuCtx::AuSetLoopNum(int loop)
 }
 
 // return 1 to read more data stream, 0 don't read
-int AuCtx::AuCheckStreamDataNeeded()
-{
-	// if we have no available Au buffer, and the current read position in source file is not the end of stream, then we can read
-	if (AuBufAvailable < (int)AuBufSize && readPos < (int)endPos){
+int AuCtx::AuCheckStreamDataNeeded() {
+	// If we would ask for bytes, then some are needed.
+	if (AuStreamBytesNeeded() != 0) {
 		return 1;
 	}
 	return 0;
 }
 
-// check how many bytes we have read from source file
-u32 AuCtx::AuNotifyAddStreamData(int size)
-{
-	realReadSize = size;
-	int diffsize = realReadSize - askedReadSize;
-	// Notify the real read size
-	if (diffsize != 0){
-		readPos += diffsize;
-		AuBufAvailable += diffsize;
+int AuCtx::AuStreamBytesNeeded() {
+	if (audioType == PSP_CODEC_MP3) {
+		// The endPos and readPos are not considered, except when you've read to the end.
+		if (readPos >= endPos)
+			return 0;
+		// Account for the workarea.
+		int offset = AuStreamWorkareaSize();
+		return (int)AuBufSize - AuBufAvailable - offset;
 	}
 
-	// append AuBuf into sourcebuff
-	sourcebuff.append((const char*)Memory::GetPointer(AuBuf), size);
+	// TODO: Untested.  Maybe similar to MP3.
+	return std::min((int)AuBufSize - AuBufAvailable, (int)endPos - readPos);
+}
 
-	if (readPos >= (int)endPos && LoopNum != 0){
+int AuCtx::AuStreamWorkareaSize() {
+	// Note that this is 31 bytes more than the max layer 3 frame size.
+	if (audioType == PSP_CODEC_MP3)
+		return 0x05c0;
+	return 0;
+}
+
+// check how many bytes we have read from source file
+u32 AuCtx::AuNotifyAddStreamData(int size) {
+	int offset = AuStreamWorkareaSize();
+
+	if (askedReadSize != 0) {
+		// Old save state, numbers already adjusted.
+		int diffsize = size - askedReadSize;
+		// Notify the real read size
+		if (diffsize != 0) {
+			readPos += diffsize;
+			AuBufAvailable += diffsize;
+		}
+		askedReadSize = 0;
+	} else {
+		readPos += size;
+		AuBufAvailable += size;
+	}
+
+	if (Memory::IsValidRange(AuBuf, size)) {
+		sourcebuff.append((const char *)Memory::GetPointer(AuBuf + offset), size);
+	}
+
+	if (readPos >= (int)endPos && LoopNum != 0) {
 		// if we need loop, reset readPos
 		readPos = startPos;
 		// reset LoopNum
@@ -419,24 +440,29 @@ u32 AuCtx::AuNotifyAddStreamData(int size)
 
 // read from stream position srcPos of size bytes into buff
 // buff, size and srcPos are all pointers
-u32 AuCtx::AuGetInfoToAddStreamData(u32 buff, u32 size, u32 srcPos)
-{
-	// you can not read beyond file size and the buffer size
-	int readsize = std::min((int)AuBufSize - AuBufAvailable, (int)endPos - readPos);
+u32 AuCtx::AuGetInfoToAddStreamData(u32 bufPtr, u32 sizePtr, u32 srcPosPtr) {
+	int readsize = AuStreamBytesNeeded();
+	int offset = AuStreamWorkareaSize();
 
 	// we can recharge AuBuf from its beginning
-	if (Memory::IsValidAddress(buff))
-		Memory::Write_U32(AuBuf, buff);
-	if (Memory::IsValidAddress(size))
-		Memory::Write_U32(readsize, size);
-	if (Memory::IsValidAddress(srcPos))
-		Memory::Write_U32(readPos, srcPos);
+	if (readsize != 0) {
+		if (Memory::IsValidAddress(bufPtr))
+			Memory::Write_U32(AuBuf + offset, bufPtr);
+		if (Memory::IsValidAddress(sizePtr))
+			Memory::Write_U32(readsize, sizePtr);
+		if (Memory::IsValidAddress(srcPosPtr))
+			Memory::Write_U32(readPos, srcPosPtr);
+	} else {
+		if (Memory::IsValidAddress(bufPtr))
+			Memory::Write_U32(0, bufPtr);
+		if (Memory::IsValidAddress(sizePtr))
+			Memory::Write_U32(0, sizePtr);
+		if (Memory::IsValidAddress(srcPosPtr))
+			Memory::Write_U32(0, srcPosPtr);
+	}
 
-	// preset the readPos and available size, they will be notified later in NotifyAddStreamData.
-	askedReadSize = readsize;
-	readPos += askedReadSize;
-	AuBufAvailable += askedReadSize;
-
+	// Just for old save states.
+	askedReadSize = 0;
 	return 0;
 }
 
@@ -471,7 +497,8 @@ void AuCtx::DoState(PointerWrap &p) {
 	p.Do(BitRate);
 	p.Do(SamplingRate);
 	p.Do(askedReadSize);
-	p.Do(realReadSize);
+	int dummy = 0;
+	p.Do(dummy);
 	p.Do(FrameNum);
 
 	if (p.mode == p.MODE_READ) {

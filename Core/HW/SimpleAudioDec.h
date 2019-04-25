@@ -99,13 +99,15 @@ public:
 
 	u32 AuNotifyAddStreamData(int size);
 	int AuCheckStreamDataNeeded();
+	int AuStreamBytesNeeded();
+	int AuStreamWorkareaSize();
 	u32 AuResetPlayPosition();
 	u32 AuResetPlayPositionByFrame(int position);
 
 	u32 AuSetLoopNum(int loop);
 	u32 AuGetLoopNum();
 
-	u32 AuGetInfoToAddStreamData(u32 buff, u32 size, u32 srcPos);
+	u32 AuGetInfoToAddStreamData(u32 bufPtr, u32 sizePtr, u32 srcPosPtr);
 	u32 AuGetMaxOutputSample() const { return MaxOutputSample; }
 	u32 AuGetSumDecodedSample() const { return SumDecodedSamples; }
 	int AuGetChannelNum() const { return Channels; }
@@ -127,16 +129,16 @@ public:
 	u32 AuBufSize;
 	u32 PCMBuf;
 	u32 PCMBufSize;
-	int freq;
-	int BitRate;
-	int SamplingRate;
-	int Channels;
-	int Version;
+	int freq = -1;
+	int BitRate = 0;
+	int SamplingRate = -1;
+	int Channels = 0;
+	int Version = -1;
 
 	// State variables. These should be relatively easy to move into private.
 	u32 SumDecodedSamples;
 	int LoopNum;
-	u32 MaxOutputSample;
+	u32 MaxOutputSample = 0;
 	int FrameNum; // number of decoded frame
 
 	// Au decoder
@@ -149,7 +151,6 @@ public:
 	int AuBufAvailable; // the available buffer of AuBuf to be able to recharge data
 	int readPos; // read position in audio source file
 	int askedReadSize; // the size of data requied to be read from file by the game
-	int realReadSize; // the really read size from file
 
 private:
 	std::string sourcebuff; // source buffer
