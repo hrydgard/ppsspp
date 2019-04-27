@@ -321,39 +321,30 @@ u32 AuCtx::AuDecode(u32 pcmAddr)
 
 	auto outbuf = Memory::GetPointer(PCMBuf);
 	memset(outbuf, 0, PCMBufSize); // important! empty outbuf to avoid noise
-	u32 outpcmbufsize = 0;
+	int outpcmbufsize = 0;
 
-	// decode frames in sourcebuff and output into PCMBuf, making sure it's filled
-	while (sourcebuff.size() > 0 && outpcmbufsize < PCMBufSize) {
-		int pcmframesize;
-		// decode
-		decoder->Decode((void*)sourcebuff.c_str(), (int)sourcebuff.size(), outbuf, &pcmframesize);
-		if (pcmframesize == 0){
+	// Decode a single frame in sourcebuff and output into PCMBuf.
+	if (!sourcebuff.empty()) {
+		decoder->Decode((void *)sourcebuff.c_str(), (int)sourcebuff.size(), outbuf, &outpcmbufsize);
+		if (outpcmbufsize == 0) {
 			// no output pcm, we are at the end of the stream
 			AuBufAvailable = 0;
 			sourcebuff.clear();
-			if (LoopNum != 0){
+			if (LoopNum != 0) {
 				// if we loop, reset readPos
 				readPos = startPos;
 			}
-			break;
+		} else {
+			// count total output samples
+			SumDecodedSamples += decoder->GetOutSamples();
+			// get consumed source length
+			int srcPos = decoder->GetSourcePos();
+			// remove the consumed source
+			sourcebuff.erase(0, srcPos);
+			// reduce the available Aubuff size
+			// (the available buff size is now used to know if we can read again from file and how many to read)
+			AuBufAvailable -= srcPos;
 		}
-		// count total output pcm size 
-		outpcmbufsize += pcmframesize;
-		// count total output samples
-		SumDecodedSamples += decoder->GetOutSamples();
-		// get consumed source length
-		int srcPos = decoder->GetSourcePos();
-		// remove the consumed source
-		sourcebuff.erase(0, srcPos);
-		// reduce the available Aubuff size
-		// (the available buff size is now used to know if we can read again from file and how many to read)
-		AuBufAvailable -= srcPos;
-		// move outbuff position to the current end of output 
-		outbuf += pcmframesize;
-		// increase FrameNum count
-		FrameNum++;
-		break;
 	}
 	Memory::Write_U32(PCMBuf, pcmAddr);
 	return outpcmbufsize;

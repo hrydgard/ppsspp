@@ -416,6 +416,13 @@ static int sceMp3Init(u32 mp3) {
 		ctx->decoder->SetResampleFrequency(ctx->freq);
 	}
 
+	// Based on bitrate, we can calculate the frame size in bytes.
+	// Note: this doesn't correctly handling padding or slot size, but the PSP doesn't either.
+	uint32_t bytesPerSecond = (ctx->MaxOutputSample / 8) * ctx->BitRate * 1000;
+	// The frame count ignores the upper bits of these sizes, although they are used in cases.
+	uint64_t totalBytes = (ctx->endPos & 0xFFFFFFFF) - (ctx->startPos & 0xFFFFFFFF);
+	ctx->FrameNum = (int)((totalBytes * ctx->SamplingRate) / bytesPerSecond);
+
 	// For mp3 file, if ID3 tag is detected, we must move startPos to 0x400 (stream start position), remove 0x400 bytes of the sourcebuff, and reduce the available buffer size by 0x400
 	// this is very important for ID3 tag mp3, since our universal audio decoder is for decoding stream part only.
 	if (hasID3Tag) {
@@ -603,13 +610,16 @@ static u32 sceMp3StartEntry() {
 }
 
 static u32 sceMp3GetFrameNum(u32 mp3) {
-	INFO_LOG(ME, "sceMp3GetFrameNum(%08x)", mp3);
 	AuCtx *ctx = getMp3Ctx(mp3);
 	if (!ctx) {
-		ERROR_LOG(ME, "%s: bad mp3 handle %08x", __FUNCTION__, mp3);
-		return -1;
+		if (mp3 >= MP3_MAX_HANDLES)
+			return hleLogError(ME, ERROR_MP3_INVALID_HANDLE, "invalid handle");
+		return hleLogError(ME, ERROR_MP3_NOT_YET_INIT_HANDLE, "unreserved handle");
+	} else if (ctx->Version < 0 || ctx->AuBuf == 0) {
+		return hleLogError(ME, ERROR_MP3_NOT_YET_INIT_HANDLE, "not yet init");
 	}
-	return ctx->AuGetFrameNum();
+
+	return hleLogSuccessI(ME, ctx->AuGetFrameNum());
 }
 
 static u32 sceMp3GetMPEGVersion(u32 mp3) {
@@ -712,7 +722,7 @@ const HLEFunction sceMp3[] = {
 	{0XD8F54A51, &WrapI_U<sceMp3GetLoopNum>,                "sceMp3GetLoopNum",               'i', "x"    },
 	{0XF5478233, &WrapI_U<sceMp3ReleaseMp3Handle>,          "sceMp3ReleaseMp3Handle",         'i', "x"    },
 	{0XAE6D2027, &WrapU_U<sceMp3GetMPEGVersion>,            "sceMp3GetMPEGVersion",           'x', "x"    },
-	{0X3548AEC8, &WrapU_U<sceMp3GetFrameNum>,               "sceMp3GetFrameNum",              'x', "x"    },
+	{0X3548AEC8, &WrapU_U<sceMp3GetFrameNum>,               "sceMp3GetFrameNum",              'i', "x"    },
 	{0X0840E808, &WrapU_UI<sceMp3ResetPlayPositionByFrame>, "sceMp3ResetPlayPositionByFrame", 'x', "xi"   },
 	{0X1B839B83, &WrapU_UU<sceMp3LowLevelInit>,             "sceMp3LowLevelInit",             'x', "xx"   },
 	{0XE3EE2C81, &WrapU_UUUUU<sceMp3LowLevelDecode>,        "sceMp3LowLevelDecode",           'x', "xxxxx"}
