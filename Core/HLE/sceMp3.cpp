@@ -452,15 +452,16 @@ static int sceMp3Init(u32 mp3) {
 }
 
 static int sceMp3GetLoopNum(u32 mp3) {
-	DEBUG_LOG(ME, "sceMp3GetLoopNum(%08x)", mp3);
-
 	AuCtx *ctx = getMp3Ctx(mp3);
 	if (!ctx) {
-		ERROR_LOG(ME, "%s: bad mp3 handle %08x", __FUNCTION__, mp3);
-		return -1;
+		if (mp3 >= MP3_MAX_HANDLES)
+			return hleLogError(ME, ERROR_MP3_INVALID_HANDLE, "invalid handle");
+		return hleLogError(ME, ERROR_MP3_UNRESERVED_HANDLE, "unreserved handle");
+	} else if (ctx->AuBuf == 0) {
+		return hleLogError(ME, ERROR_MP3_UNRESERVED_HANDLE, "incorrect handle type");
 	}
 
-	return ctx->AuGetLoopNum();
+	return hleLogSuccessI(ME, ctx->AuGetLoopNum());
 }
 
 static int sceMp3GetMaxOutputSample(u32 mp3) {
@@ -491,15 +492,19 @@ static int sceMp3GetSumDecodedSample(u32 mp3) {
 }
 
 static int sceMp3SetLoopNum(u32 mp3, int loop) {
-	INFO_LOG(ME, "sceMp3SetLoopNum(%08X, %i)", mp3, loop);
-
 	AuCtx *ctx = getMp3Ctx(mp3);
 	if (!ctx) {
-		ERROR_LOG(ME, "%s: bad mp3 handle %08x", __FUNCTION__, mp3);
-		return -1;
+		if (mp3 >= MP3_MAX_HANDLES)
+			return hleLogError(ME, ERROR_MP3_INVALID_HANDLE, "invalid handle");
+		return hleLogError(ME, ERROR_MP3_UNRESERVED_HANDLE, "unreserved handle");
+	} else if (ctx->AuBuf == 0) {
+		return hleLogError(ME, ERROR_MP3_UNRESERVED_HANDLE, "incorrect handle type");
 	}
 
-	return ctx->AuSetLoopNum(loop);
+	if (loop < 0)
+		loop = -1;
+
+	return hleLogSuccessI(ME, ctx->AuSetLoopNum(loop));
 }
 
 static int sceMp3GetMp3ChannelNum(u32 mp3) {
