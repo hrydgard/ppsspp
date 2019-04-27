@@ -22,7 +22,7 @@
     <ProjectGuid>{4328A62C-F1E9-47ED-B816-A1A81DAF4363}</ProjectGuid>
     <Keyword>Win32Proj</Keyword>
     <RootNamespace>SPIRVCross</RootNamespace>
-    <WindowsTargetPlatformVersion>10.0</WindowsTargetPlatformVersion>
+    <WindowsTargetPlatformVersion></WindowsTargetPlatformVersion>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" Label="Configuration">
