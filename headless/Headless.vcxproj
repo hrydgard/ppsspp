@@ -23,34 +23,33 @@
     <Keyword>Win32Proj</Keyword>
     <RootNamespace>Headless</RootNamespace>
     <ProjectName>PPSSPPHeadless</ProjectName>
-    <WindowsTargetPlatformVersion>
-    </WindowsTargetPlatformVersion>
+    <WindowsTargetPlatformVersion></WindowsTargetPlatformVersion>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" Label="Configuration">
     <ConfigurationType>Application</ConfigurationType>
     <UseDebugLibraries>true</UseDebugLibraries>
     <CharacterSet>Unicode</CharacterSet>
-    <PlatformToolset>$(DefaultPlatformToolset)_xp</PlatformToolset>
+    <PlatformToolset>$(DefaultPlatformToolset)</PlatformToolset>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'" Label="Configuration">
     <ConfigurationType>Application</ConfigurationType>
     <UseDebugLibraries>true</UseDebugLibraries>
     <CharacterSet>Unicode</CharacterSet>
-    <PlatformToolset>$(DefaultPlatformToolset)_xp</PlatformToolset>
+    <PlatformToolset>$(DefaultPlatformToolset)</PlatformToolset>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'" Label="Configuration">
     <ConfigurationType>Application</ConfigurationType>
     <UseDebugLibraries>false</UseDebugLibraries>
     <WholeProgramOptimization>false</WholeProgramOptimization>
     <CharacterSet>Unicode</CharacterSet>
-    <PlatformToolset>$(DefaultPlatformToolset)_xp</PlatformToolset>
+    <PlatformToolset>$(DefaultPlatformToolset)</PlatformToolset>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'" Label="Configuration">
     <ConfigurationType>Application</ConfigurationType>
     <UseDebugLibraries>false</UseDebugLibraries>
     <CharacterSet>Unicode</CharacterSet>
-    <PlatformToolset>$(DefaultPlatformToolset)_xp</PlatformToolset>
+    <PlatformToolset>$(DefaultPlatformToolset)</PlatformToolset>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
   <ImportGroup Label="ExtensionSettings">
@@ -70,23 +69,23 @@
   <PropertyGroup Label="UserMacros" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <LinkIncremental>true</LinkIncremental>
-    <IncludePath>..\dx9sdk\Include;$(VC_IncludePath);$(WindowsSdk_71A_IncludePath);</IncludePath>
-    <LibraryPath>..\dx9sdk\Lib\x86;$(VC_LibraryPath_x86);$(WindowsSdk_71A_LibraryPath_x86);</LibraryPath>
+    <IncludePath>..\dx9sdk\Include;$(VC_IncludePath);$(WindowsSdk_IncludePath);</IncludePath>
+    <LibraryPath>..\dx9sdk\Lib\x86;$(VC_LibraryPath_x86);$(WindowsSdk_LibraryPath_x86);</LibraryPath>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <LinkIncremental>true</LinkIncremental>
-    <IncludePath>..\dx9sdk\Include;$(VC_IncludePath);$(WindowsSdk_71A_IncludePath);</IncludePath>
-    <LibraryPath>..\dx9sdk\Lib\x64;$(VC_LibraryPath_x64);$(WindowsSdk_71A_LibraryPath_x64);</LibraryPath>
+    <IncludePath>..\dx9sdk\Include;$(VC_IncludePath);$(WindowsSdk_IncludePath);</IncludePath>
+    <LibraryPath>..\dx9sdk\Lib\x64;$(VC_LibraryPath_x64);$(WindowsSdk_LibraryPath_x64);</LibraryPath>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
     <LinkIncremental>false</LinkIncremental>
-    <IncludePath>..\dx9sdk\Include;$(VC_IncludePath);$(WindowsSdk_71A_IncludePath);</IncludePath>
-    <LibraryPath>..\dx9sdk\Lib\x86;$(VC_LibraryPath_x86);$(WindowsSdk_71A_LibraryPath_x86);</LibraryPath>
+    <IncludePath>..\dx9sdk\Include;$(VC_IncludePath);$(WindowsSdk_IncludePath);</IncludePath>
+    <LibraryPath>..\dx9sdk\Lib\x86;$(VC_LibraryPath_x86);$(WindowsSdk_LibraryPath_x86);</LibraryPath>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <LinkIncremental>false</LinkIncremental>
-    <IncludePath>..\dx9sdk\Include;$(VC_IncludePath);$(WindowsSdk_71A_IncludePath);</IncludePath>
-    <LibraryPath>..\dx9sdk\Lib\x64;$(VC_LibraryPath_x64);$(WindowsSdk_71A_LibraryPath_x64);</LibraryPath>
+    <IncludePath>..\dx9sdk\Include;$(VC_IncludePath);$(WindowsSdk_IncludePath);</IncludePath>
+    <LibraryPath>..\dx9sdk\Lib\x64;$(VC_LibraryPath_x64);$(WindowsSdk_LibraryPath_x64);</LibraryPath>
   </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <ClCompile>

@@ -561,6 +561,7 @@ void GameSettingsScreen::CreateViews() {
 		PopupSliderChoice * atracmp3Vol = audioSettings->Add(new PopupSliderChoice(&g_Config.iATRACMP3Volume, 0, MAX_CONFIG_VOLUME, a->T("ATRAC / MP3 volume"), screenManager()));
 		atracmp3Vol->SetEnabledPtr(&g_Config.bEnableSound);
 	}
+
 	// Control
 	ViewGroup *controlsSettingsScroll = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, FILL_PARENT));
 	controlsSettingsScroll->SetTag("GameSettingsControls");
