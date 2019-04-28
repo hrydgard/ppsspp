@@ -153,6 +153,8 @@ public:
 	int askedReadSize; // the size of data requied to be read from file by the game
 
 private:
+	size_t FindNextMp3Sync();
+
 	std::string sourcebuff; // source buffer
 };
 
