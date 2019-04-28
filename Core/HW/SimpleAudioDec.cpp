@@ -474,8 +474,16 @@ u32 AuCtx::AuGetInfoToAddStreamData(u32 bufPtr, u32 sizePtr, u32 srcPosPtr) {
 	return 0;
 }
 
-u32 AuCtx::AuResetPlayPositionByFrame(int position) {
-	readPos = position;
+u32 AuCtx::AuResetPlayPositionByFrame(int frame) {
+	// Note: this doesn't correctly handle padding or slot size, but the PSP doesn't either.
+	uint32_t bytesPerSecond = (MaxOutputSample / 8) * BitRate * 1000;
+	readPos = startPos + (frame * bytesPerSecond) / SamplingRate;
+	// Not sure why, but it seems to consistently seek 1 before, maybe in case it's off slightly.
+	if (frame != 0)
+		readPos -= 1;
+	SumDecodedSamples = frame * MaxOutputSample;
+	AuBufAvailable = 0;
+	sourcebuff.clear();
 	return 0;
 }
 

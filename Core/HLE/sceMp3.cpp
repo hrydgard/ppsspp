@@ -31,6 +31,7 @@ static const u32 ERROR_MP3_INVALID_HANDLE = 0x80671001;
 static const u32 ERROR_MP3_UNRESERVED_HANDLE = 0x80671102;
 static const u32 ERROR_MP3_NOT_YET_INIT_HANDLE = 0x80671103;
 static const u32 ERROR_MP3_NO_RESOURCE_AVAIL = 0x80671201;
+static const u32 ERROR_MP3_BAD_RESET_FRAME = 0x80671501;
 static const u32 ERROR_MP3_BAD_ADDR = 0x80671002;
 static const u32 ERROR_MP3_BAD_SIZE = 0x80671003;
 static const u32 ERROR_AVCODEC_INVALID_DATA = 0x807f00fd;
@@ -406,7 +407,7 @@ static int sceMp3Init(u32 mp3) {
 	}
 
 	// Based on bitrate, we can calculate the frame size in bytes.
-	// Note: this doesn't correctly handling padding or slot size, but the PSP doesn't either.
+	// Note: this doesn't correctly handle padding or slot size, but the PSP doesn't either.
 	uint32_t bytesPerSecond = (ctx->MaxOutputSample / 8) * ctx->BitRate * 1000;
 	// The frame count ignores the upper bits of these sizes, although they are used in cases.
 	uint64_t totalBytes = (ctx->endPos & 0xFFFFFFFF) - (ctx->startPos & 0xFFFFFFFF);
@@ -617,15 +618,21 @@ static u32 sceMp3GetMPEGVersion(u32 mp3) {
 	return hleReportDebug(ME, ctx->AuGetVersion());
 }
 
-static u32 sceMp3ResetPlayPositionByFrame(u32 mp3, int position) {
-	DEBUG_LOG(ME, "sceMp3ResetPlayPositionByFrame(%08x, %i)", mp3, position);
+static u32 sceMp3ResetPlayPositionByFrame(u32 mp3, u32 frame) {
 	AuCtx *ctx = getMp3Ctx(mp3);
 	if (!ctx) {
-		ERROR_LOG(ME, "%s: bad mp3 handle %08x", __FUNCTION__, mp3);
-		return -1;
+		if (mp3 >= MP3_MAX_HANDLES)
+			return hleLogError(ME, ERROR_MP3_INVALID_HANDLE, "invalid handle");
+		return hleLogError(ME, ERROR_MP3_NOT_YET_INIT_HANDLE, "unreserved handle");
+	} else if (ctx->Version < 0 || ctx->AuBuf == 0) {
+		return hleLogError(ME, ERROR_MP3_NOT_YET_INIT_HANDLE, "not yet init");
 	}
 
-	return ctx->AuResetPlayPositionByFrame(position);
+	if (frame >= ctx->AuGetFrameNum()) {
+		return hleLogError(ME, ERROR_MP3_BAD_RESET_FRAME, "bad frame position");
+	}
+
+	return hleLogSuccessI(ME, ctx->AuResetPlayPositionByFrame(frame));
 }
 
 static u32 sceMp3LowLevelInit(u32 mp3, u32 unk) {
@@ -701,7 +708,7 @@ const HLEFunction sceMp3[] = {
 	{0XF5478233, &WrapI_U<sceMp3ReleaseMp3Handle>,          "sceMp3ReleaseMp3Handle",         'i', "x"    },
 	{0XAE6D2027, &WrapU_U<sceMp3GetMPEGVersion>,            "sceMp3GetMPEGVersion",           'x', "x"    },
 	{0X3548AEC8, &WrapU_U<sceMp3GetFrameNum>,               "sceMp3GetFrameNum",              'i', "x"    },
-	{0X0840E808, &WrapU_UI<sceMp3ResetPlayPositionByFrame>, "sceMp3ResetPlayPositionByFrame", 'x', "xi"   },
+	{0X0840E808, &WrapU_UU<sceMp3ResetPlayPositionByFrame>, "sceMp3ResetPlayPositionByFrame", 'i', "xi"   },
 	{0X1B839B83, &WrapU_UU<sceMp3LowLevelInit>,             "sceMp3LowLevelInit",             'x', "xx"   },
 	{0XE3EE2C81, &WrapU_UUUUU<sceMp3LowLevelDecode>,        "sceMp3LowLevelDecode",           'x', "xxxxx"}
 };
