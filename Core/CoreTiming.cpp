@@ -125,6 +125,7 @@ u64 GetGlobalTimeUs() {
 		// Adjust the calculated value to avoid overflow errors.
 		lastGlobalTimeUs += usSinceLast;
 		lastGlobalTimeTicks = GetTicks();
+		usSinceLast = 0;
 	}
 	return lastGlobalTimeUs + usSinceLast;
 }
