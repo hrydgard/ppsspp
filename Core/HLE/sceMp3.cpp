@@ -91,7 +91,7 @@ public:
 };
 
 static std::map<u32, AuCtx *> mp3Map;
-static const int mp3DecodeDelay = 4000;
+static const int mp3DecodeDelay = 2400;
 static bool resourceInited = false;
 
 static AuCtx *getMp3Ctx(u32 mp3) {
@@ -163,9 +163,9 @@ static int sceMp3Decode(u32 mp3, u32 outPcmPtr) {
 	}
 		
 	int pcmBytes = ctx->AuDecode(outPcmPtr);
-	if (!pcmBytes) {
+	if (pcmBytes > 0) {
 		// decode data successfully, delay thread
-		hleDelayResult(pcmBytes, "mp3 decode", mp3DecodeDelay);
+		return hleDelayResult(pcmBytes, "mp3 decode", mp3DecodeDelay);
 	}
 	return pcmBytes;
 }
