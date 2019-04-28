@@ -171,15 +171,16 @@ static int sceMp3Decode(u32 mp3, u32 outPcmPtr) {
 }
 
 static int sceMp3ResetPlayPosition(u32 mp3) {
-	DEBUG_LOG(ME, "SceMp3ResetPlayPosition(%08x)", mp3);
-
 	AuCtx *ctx = getMp3Ctx(mp3);
 	if (!ctx) {
-		ERROR_LOG(ME, "%s: bad mp3 handle %08x", __FUNCTION__, mp3);
-		return -1;
+		if (mp3 >= MP3_MAX_HANDLES)
+			return hleLogError(ME, ERROR_MP3_INVALID_HANDLE, "invalid handle");
+		return hleLogError(ME, ERROR_MP3_NOT_YET_INIT_HANDLE, "unreserved handle");
+	} else if (ctx->Version < 0 || ctx->AuBuf == 0) {
+		return hleLogError(ME, ERROR_MP3_NOT_YET_INIT_HANDLE, "not yet init");
 	}
 
-	return ctx->AuResetPlayPosition();
+	return hleLogSuccessI(ME, ctx->AuResetPlayPosition());
 }
 
 static int sceMp3CheckStreamDataNeeded(u32 mp3) {

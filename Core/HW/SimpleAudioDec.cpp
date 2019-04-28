@@ -481,6 +481,9 @@ u32 AuCtx::AuResetPlayPositionByFrame(int position) {
 
 u32 AuCtx::AuResetPlayPosition() {
 	readPos = startPos;
+	SumDecodedSamples = 0;
+	AuBufAvailable = 0;
+	sourcebuff.clear();
 	return 0;
 }
 
