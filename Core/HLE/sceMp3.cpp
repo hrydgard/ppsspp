@@ -388,7 +388,7 @@ static int sceMp3Init(u32 mp3) {
 	for (int offset = 0; offset < 1440; ++offset) {
 		header = ParseMp3Header(ctx, offset, &hasID3Tag);
 		// If we hit valid sync bits, then we've found a header.
-		if (((header >> 21) & 0x0FFE) == 0x0FFE) {
+		if ((header & 0xFFC00000) == 0xFFC00000) {
 			// Ignore the data before that.
 			ctx->EatSourceBuff(offset);
 			break;
@@ -398,7 +398,7 @@ static int sceMp3Init(u32 mp3) {
 	static const int PARSE_DELAY_MS = 500;
 
 	// Couldn't find a header after all?
-	if (((header >> 21) & 0x0FFE) != 0x0FFE) {
+	if ((header & 0xFFC00000) != 0xFFC00000) {
 		return hleDelayResult(hleLogWarning(ME, ERROR_AVCODEC_INVALID_DATA, "no header found"), "mp3 init", PARSE_DELAY_MS);
 	}
 
@@ -427,12 +427,9 @@ static int sceMp3Init(u32 mp3) {
 	// this is very important for ID3 tag mp3, since our universal audio decoder is for decoding stream part only.
 	if (hasID3Tag) {
 		// if get ID3 tage, we will decode from 0x400
+		// TODO: This doesn't seem right.
 		ctx->startPos = 0x400;
 		ctx->EatSourceBuff(0x400);
-	} else {
-		// if no ID3 tag, we will decode from the begining of the file
-		// TODO: This seems wrong, since it's an init parameter?
-		ctx->startPos = 0;
 	}
 
 	DEBUG_LOG(ME, "sceMp3Init(): channels=%i, samplerate=%iHz, bitrate=%ikbps", ctx->Channels, ctx->SamplingRate, ctx->BitRate);

@@ -311,9 +311,21 @@ AuCtx::~AuCtx(){
 	}
 };
 
+size_t AuCtx::FindNextMp3Sync() {
+	if (audioType != PSP_CODEC_MP3) {
+		return 0;
+	}
+
+	for (size_t i = 0; i < sourcebuff.size() - 2; ++i) {
+		if ((sourcebuff[i] & 0xFF) == 0xFF && (sourcebuff[i + 1] & 0xC0) == 0xC0) {
+			return i;
+		}
+	}
+	return 0;
+}
+
 // return output pcm size, <0 error
-u32 AuCtx::AuDecode(u32 pcmAddr)
-{
+u32 AuCtx::AuDecode(u32 pcmAddr) {
 	if (!Memory::IsValidAddress(pcmAddr)){
 		ERROR_LOG(ME, "%s: output bufferAddress %08x is invalctx", __FUNCTION__, pcmAddr);
 		return -1;
@@ -325,7 +337,10 @@ u32 AuCtx::AuDecode(u32 pcmAddr)
 
 	// Decode a single frame in sourcebuff and output into PCMBuf.
 	if (!sourcebuff.empty()) {
-		decoder->Decode((void *)sourcebuff.c_str(), (int)sourcebuff.size(), outbuf, &outpcmbufsize);
+		// FFmpeg doesn't seem to search for a sync for us, so let's do that.
+		int nextSync = (int)FindNextMp3Sync();
+		decoder->Decode(&sourcebuff[nextSync], (int)sourcebuff.size() - nextSync, outbuf, &outpcmbufsize);
+
 		if (outpcmbufsize == 0) {
 			// no output pcm, we are at the end of the stream
 			AuBufAvailable = 0;
@@ -334,7 +349,7 @@ u32 AuCtx::AuDecode(u32 pcmAddr)
 			// Update our total decoded samples, but don't count stereo.
 			SumDecodedSamples += decoder->GetOutSamples() / 2;
 			// get consumed source length
-			int srcPos = decoder->GetSourcePos();
+			int srcPos = decoder->GetSourcePos() + nextSync;
 			// remove the consumed source
 			sourcebuff.erase(0, srcPos);
 			// reduce the available Aubuff size
