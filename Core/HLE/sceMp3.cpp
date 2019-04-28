@@ -393,17 +393,32 @@ static int sceMp3Init(u32 mp3) {
 		return hleDelayResult(hleLogWarning(ME, ERROR_AVCODEC_INVALID_DATA, "no header found"), "mp3 init", PARSE_DELAY_MS);
 
 	// Parse the Mp3 header
-	int layer = (header >> 17) & 0x3;
-	ctx->Version = ((header >> 19) & 0x3);
-	ctx->SamplingRate = __CalculateMp3SampleRates((header >> 10) & 0x3, ctx->Version);
+	int layerBits = (header >> 17) & 0x3;
+	int versionBits = (header >> 19) & 0x3;
+	ctx->SamplingRate = __CalculateMp3SampleRates((header >> 10) & 0x3, versionBits);
 	ctx->Channels = __CalculateMp3Channels((header >> 6) & 0x3);
-	ctx->BitRate = __CalculateMp3Bitrates((header >> 12) & 0xF, ctx->Version, layer);
-	ctx->MaxOutputSample = CalculateMp3SamplesPerFrame(ctx->Version, layer);
+	ctx->BitRate = __CalculateMp3Bitrates((header >> 12) & 0xF, versionBits, layerBits);
+	ctx->MaxOutputSample = CalculateMp3SamplesPerFrame(versionBits, layerBits);
 	ctx->freq = ctx->SamplingRate;
 
-	// for mp3, if required freq is 48000, reset resampling Frequency to 48000 seems get better sound quality (e.g. Miku Custom BGM)
-	if (ctx->freq == 48000) {
-		ctx->decoder->SetResampleFrequency(ctx->freq);
+	DEBUG_LOG(ME, "sceMp3Init(): channels=%i, samplerate=%iHz, bitrate=%ikbps", ctx->Channels, ctx->SamplingRate, ctx->BitRate);
+
+	if (layerBits != 1) {
+		// TODO: Should return ERROR_AVCODEC_INVALID_DATA.
+		WARN_LOG_REPORT(ME, "sceMp3Init: invalid data: not layer 3");
+	}
+	if (versionBits != 3) {
+		// TODO: Should return 0x80671301 (unsupported version?)
+		WARN_LOG_REPORT(ME, "sceMp3Init: invalid data: not MPEG v1");
+	}
+	if (ctx->BitRate == 0 || ctx->BitRate == -1) {
+		return hleDelayResult(hleReportError(ME, ERROR_AVCODEC_INVALID_DATA, "invalid bitrate v%d l%d rate %04x", versionBits, layerBits, (header >> 12) & 0xF), "mp3 init", PARSE_DELAY_MS);
+	}
+	if (ctx->SamplingRate == -1) {
+		return hleDelayResult(hleReportError(ME, ERROR_AVCODEC_INVALID_DATA, "invalid sample rate v%d l%d rate %02x", versionBits, layerBits, (header >> 10) & 0x3), "mp3 init", PARSE_DELAY_MS);
+	} else if (ctx->SamplingRate != 44100) {
+		// TODO: Should return 0x80671302 (unsupported sample rate?)
+		WARN_LOG_REPORT(ME, "sceMp3Init: invalid data: not 44.1kHz");
 	}
 
 	// Based on bitrate, we can calculate the frame size in bytes.
@@ -413,24 +428,12 @@ static int sceMp3Init(u32 mp3) {
 	uint64_t totalBytes = (ctx->endPos & 0xFFFFFFFF) - (ctx->startPos & 0xFFFFFFFF);
 	ctx->FrameNum = (int)((totalBytes * ctx->SamplingRate) / bytesPerSecond);
 
-	DEBUG_LOG(ME, "sceMp3Init(): channels=%i, samplerate=%iHz, bitrate=%ikbps", ctx->Channels, ctx->SamplingRate, ctx->BitRate);
+	ctx->Version = versionBits;
 
-	if (layer != 1) {
-		// TODO: Should return ERROR_AVCODEC_INVALID_DATA.
-		WARN_LOG_REPORT(ME, "sceMp3Init: invalid data: not layer 3");
-	}
-	if (ctx->Version != 3) {
-		// TODO: Should return 0x80671301 (unsupported version?)
-		WARN_LOG_REPORT(ME, "sceMp3Init: invalid data: not MPEG v1");
-	}
-	if (ctx->BitRate == 0 || ctx->BitRate == -1) {
-		return hleDelayResult(hleReportError(ME, ERROR_AVCODEC_INVALID_DATA, "invalid bitrate v%d l%d rate %04x", ctx->Version, layer, (header >> 12) & 0xF), "mp3 init", PARSE_DELAY_MS);
-	}
-	if (ctx->SamplingRate == -1) {
-		return hleDelayResult(hleReportError(ME, ERROR_AVCODEC_INVALID_DATA, "invalid sample rate v%d l%d rate %02x", ctx->Version, layer, (header >> 10) & 0x3), "mp3 init", PARSE_DELAY_MS);
-	} else if (ctx->SamplingRate != 44100) {
-		// TODO: Should return 0x80671302 (unsupported sample rate?)
-		WARN_LOG_REPORT(ME, "sceMp3Init: invalid data: not 44.1kHz");
+	// for mp3, if required freq is 48000, reset resampling Frequency to 48000 seems get better sound quality (e.g. Miku Custom BGM)
+	// TODO: Isn't this backwards?  Woudln't we want to read as 48kHz and resample to 44.1kHz?
+	if (ctx->freq == 48000) {
+		ctx->decoder->SetResampleFrequency(ctx->freq);
 	}
 
 	return hleDelayResult(hleLogSuccessI(ME, 0), "mp3 init", PARSE_DELAY_MS);
