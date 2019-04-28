@@ -81,7 +81,6 @@ public:
 	bool bPauseExitsEmulator;
 #endif
 	bool bPauseMenuExitsEmulator;
-	bool bPS3Controller;
 
 	// Core
 	bool bIgnoreBadMemAccess;
@@ -200,9 +199,6 @@ public:
 	int iAudioBackend;
 	int iGlobalVolume;
 	bool bExtraAudioBuffering;  // For bluetooth
-
-	// Audio Hack
-	bool bSoundSpeedHack;
 
 	// UI
 	bool bShowDebuggerOnLoad;
