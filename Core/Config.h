@@ -81,7 +81,6 @@ public:
 	bool bPauseExitsEmulator;
 #endif
 	bool bPauseMenuExitsEmulator;
-	bool bPS3Controller;
 
 	// Core
 	bool bIgnoreBadMemAccess;

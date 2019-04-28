@@ -339,8 +339,6 @@ bool SavedataBrowser::ByFilename(const UI::View *v1, const UI::View *v2) {
 
 static time_t GetTotalSize(const SavedataButton *b) {
 	auto fileLoader = std::unique_ptr<FileLoader>(ConstructFileLoader(b->GamePath()));
-	tm datetm;
-	bool success;
 	switch (Identify_File(fileLoader.get())) {
 	case IdentifiedFileType::PSP_PBP_DIRECTORY:
 	case IdentifiedFileType::PSP_SAVEDATA_DIRECTORY:
