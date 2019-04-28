@@ -351,7 +351,8 @@ u32 AuCtx::AuDecode(u32 pcmAddr) {
 			// get consumed source length
 			int srcPos = decoder->GetSourcePos() + nextSync;
 			// remove the consumed source
-			sourcebuff.erase(0, srcPos);
+			if (srcPos > 0)
+				sourcebuff.erase(sourcebuff.begin(), sourcebuff.begin() + srcPos);
 			// reduce the available Aubuff size
 			// (the available buff size is now used to know if we can read again from file and how many to read)
 			AuBufAvailable -= srcPos;
@@ -430,7 +431,8 @@ u32 AuCtx::AuNotifyAddStreamData(int size) {
 	}
 
 	if (Memory::IsValidRange(AuBuf, size)) {
-		sourcebuff.append((const char *)Memory::GetPointer(AuBuf + offset), size);
+		sourcebuff.resize(sourcebuff.size() + size);
+		Memory::MemcpyUnchecked(&sourcebuff[sourcebuff.size() - size], AuBuf + offset, size);
 	}
 
 	return 0;
