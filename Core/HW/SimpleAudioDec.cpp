@@ -332,7 +332,6 @@ u32 AuCtx::AuDecode(u32 pcmAddr) {
 	}
 
 	auto outbuf = Memory::GetPointer(PCMBuf);
-	memset(outbuf, 0, PCMBufSize); // important! empty outbuf to avoid noise
 	int outpcmbufsize = 0;
 
 	// Decode a single frame in sourcebuff and output into PCMBuf.
@@ -342,7 +341,7 @@ u32 AuCtx::AuDecode(u32 pcmAddr) {
 		decoder->Decode(&sourcebuff[nextSync], (int)sourcebuff.size() - nextSync, outbuf, &outpcmbufsize);
 
 		if (outpcmbufsize == 0) {
-			// no output pcm, we are at the end of the stream
+			// Nothing was output, hopefully we're at the end of the stream.
 			AuBufAvailable = 0;
 			sourcebuff.clear();
 		} else {
@@ -359,12 +358,21 @@ u32 AuCtx::AuDecode(u32 pcmAddr) {
 		}
 	}
 
-	if (sourcebuff.empty() && LoopNum != 0) {
+	bool end = readPos - AuBufAvailable >= (int64_t)endPos;
+	if (end && LoopNum != 0) {
 		// When looping, start the sum back off at zero and reset readPos to the start.
 		SumDecodedSamples = 0;
 		readPos = startPos;
 		if (LoopNum > 0)
 			LoopNum--;
+	}
+
+	if (outpcmbufsize == 0 && !end) {
+		outpcmbufsize = MaxOutputSample * 4;
+		memset(outbuf, 0, PCMBufSize);
+	} else if ((u32)outpcmbufsize < PCMBufSize) {
+		// TODO: We probably should use a rolling buffer instead.
+		memset(outbuf + outpcmbufsize, 0, PCMBufSize - outpcmbufsize);
 	}
 
 	Memory::Write_U32(PCMBuf, pcmAddr);
