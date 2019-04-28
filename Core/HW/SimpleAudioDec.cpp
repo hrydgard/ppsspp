@@ -335,8 +335,8 @@ u32 AuCtx::AuDecode(u32 pcmAddr)
 				readPos = startPos;
 			}
 		} else {
-			// count total output samples
-			SumDecodedSamples += decoder->GetOutSamples();
+			// Update our total decoded samples, but don't count stereo.
+			SumDecodedSamples += decoder->GetOutSamples() / 2;
 			// get consumed source length
 			int srcPos = decoder->GetSourcePos();
 			// remove the consumed source
