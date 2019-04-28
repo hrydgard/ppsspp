@@ -357,20 +357,20 @@ static int CalculateMp3SamplesPerFrame(int versionBits, int layerBits) {
 	}
 }
 
-static int ParseMp3Header(AuCtx *ctx, int offset, bool *isID3) {
-	u32 ptr = ctx->AuBuf + ctx->AuStreamWorkareaSize() + offset;
-	int header = bswap32(Memory::Read_U32(ptr));
-	// ID3 tag , can be seen in Hanayaka Nari Wa ga Ichizoku.
-	static const int ID3 = 0x49443300;
-	if ((header & 0xFFFFFF00) == ID3) {
-		*isID3 = true;
-		// TODO: Can we count on startPos being read already?  What if it's past the buffer size?
-		int size = bswap32(Memory::Read_U32(ptr + ctx->startPos + 6));
-		// Highest bit of each byte has to be ignored (format: 0x7F7F7F7F)
-		size = (size & 0x7F) | ((size & 0x7F00) >> 1) | ((size & 0x7F0000) >> 2) | ((size & 0x7F000000) >> 3);
-		header = bswap32(Memory::Read_U32(ptr + ctx->startPos + 10 + size));
+static int FindMp3Header(AuCtx *ctx, int &header, int end) {
+	u32 addr = ctx->AuBuf + ctx->AuStreamWorkareaSize();
+	if (Memory::IsValidRange(addr, end)) {
+		u8 *ptr = Memory::GetPointerUnchecked(addr);
+		for (int offset = 0; offset < end; ++offset) {
+			// If we hit valid sync bits, then we've found a header.
+			if (ptr[offset] == 0xFF && (ptr[offset + 1] & 0xC0) == 0xC0) {
+				header = bswap32(Memory::Read_U32(addr + offset));
+				return offset;
+			}
+		}
 	}
-	return header;
+
+	return -1;
 }
 
 static int sceMp3Init(u32 mp3) {
@@ -383,25 +383,13 @@ static int sceMp3Init(u32 mp3) {
 		return hleLogError(ME, ERROR_MP3_UNRESERVED_HANDLE, "incorrect handle type");
 	}
 
-	// First, let's search for the MP3 header.  It can be offset by at most 1439 bytes.
-	bool hasID3Tag = false;
-	int header = 0;
-	for (int offset = 0; offset < 1440; ++offset) {
-		header = ParseMp3Header(ctx, offset, &hasID3Tag);
-		// If we hit valid sync bits, then we've found a header.
-		if ((header & 0xFFC00000) == 0xFFC00000) {
-			// Ignore the data before that.
-			ctx->EatSourceBuff(offset);
-			break;
-		}
-	}
-
 	static const int PARSE_DELAY_MS = 500;
 
-	// Couldn't find a header after all?
-	if ((header & 0xFFC00000) != 0xFFC00000) {
+	// First, let's search for the MP3 header.  It can be offset by at most 1439 bytes.
+	// If we have an ID3 tag, we'll get past it based on frame sync.  Don't modify startPos.
+	int header = 0;
+	if (FindMp3Header(ctx, header, 1440) < 0)
 		return hleDelayResult(hleLogWarning(ME, ERROR_AVCODEC_INVALID_DATA, "no header found"), "mp3 init", PARSE_DELAY_MS);
-	}
 
 	// Parse the Mp3 header
 	int layer = (header >> 17) & 0x3;
@@ -423,15 +411,6 @@ static int sceMp3Init(u32 mp3) {
 	// The frame count ignores the upper bits of these sizes, although they are used in cases.
 	uint64_t totalBytes = (ctx->endPos & 0xFFFFFFFF) - (ctx->startPos & 0xFFFFFFFF);
 	ctx->FrameNum = (int)((totalBytes * ctx->SamplingRate) / bytesPerSecond);
-
-	// For mp3 file, if ID3 tag is detected, we must move startPos to 0x400 (stream start position), remove 0x400 bytes of the sourcebuff, and reduce the available buffer size by 0x400
-	// this is very important for ID3 tag mp3, since our universal audio decoder is for decoding stream part only.
-	if (hasID3Tag) {
-		// if get ID3 tage, we will decode from 0x400
-		// TODO: This doesn't seem right.
-		ctx->startPos = 0x400;
-		ctx->EatSourceBuff(0x400);
-	}
 
 	DEBUG_LOG(ME, "sceMp3Init(): channels=%i, samplerate=%iHz, bitrate=%ikbps", ctx->Channels, ctx->SamplingRate, ctx->BitRate);
 
