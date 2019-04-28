@@ -330,10 +330,6 @@ u32 AuCtx::AuDecode(u32 pcmAddr)
 			// no output pcm, we are at the end of the stream
 			AuBufAvailable = 0;
 			sourcebuff.clear();
-			if (LoopNum != 0) {
-				// if we loop, reset readPos
-				readPos = startPos;
-			}
 		} else {
 			// Update our total decoded samples, but don't count stereo.
 			SumDecodedSamples += decoder->GetOutSamples() / 2;
@@ -346,6 +342,15 @@ u32 AuCtx::AuDecode(u32 pcmAddr)
 			AuBufAvailable -= srcPos;
 		}
 	}
+
+	if (sourcebuff.empty() && LoopNum != 0) {
+		// When looping, start the sum back off at zero and reset readPos to the start.
+		SumDecodedSamples = 0;
+		readPos = startPos;
+		if (LoopNum > 0)
+			LoopNum--;
+	}
+
 	Memory::Write_U32(PCMBuf, pcmAddr);
 	return outpcmbufsize;
 }
@@ -411,15 +416,6 @@ u32 AuCtx::AuNotifyAddStreamData(int size) {
 
 	if (Memory::IsValidRange(AuBuf, size)) {
 		sourcebuff.append((const char *)Memory::GetPointer(AuBuf + offset), size);
-	}
-
-	if (readPos >= (int)endPos && LoopNum != 0) {
-		// if we need loop, reset readPos
-		readPos = startPos;
-		// reset LoopNum
-		if (LoopNum > 0){
-			LoopNum--;
-		}
 	}
 
 	return 0;
