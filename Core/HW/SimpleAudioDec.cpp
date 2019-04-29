@@ -311,9 +311,21 @@ AuCtx::~AuCtx(){
 	}
 };
 
+size_t AuCtx::FindNextMp3Sync() {
+	if (audioType != PSP_CODEC_MP3) {
+		return 0;
+	}
+
+	for (size_t i = 0; i < sourcebuff.size() - 2; ++i) {
+		if ((sourcebuff[i] & 0xFF) == 0xFF && (sourcebuff[i + 1] & 0xC0) == 0xC0) {
+			return i;
+		}
+	}
+	return 0;
+}
+
 // return output pcm size, <0 error
-u32 AuCtx::AuDecode(u32 pcmAddr)
-{
+u32 AuCtx::AuDecode(u32 pcmAddr) {
 	if (!Memory::IsValidAddress(pcmAddr)){
 		ERROR_LOG(ME, "%s: output bufferAddress %08x is invalctx", __FUNCTION__, pcmAddr);
 		return -1;
@@ -321,40 +333,39 @@ u32 AuCtx::AuDecode(u32 pcmAddr)
 
 	auto outbuf = Memory::GetPointer(PCMBuf);
 	memset(outbuf, 0, PCMBufSize); // important! empty outbuf to avoid noise
-	u32 outpcmbufsize = 0;
+	int outpcmbufsize = 0;
 
-	// decode frames in sourcebuff and output into PCMBuf, making sure it's filled
-	while (sourcebuff.size() > 0 && outpcmbufsize < PCMBufSize) {
-		int pcmframesize;
-		// decode
-		decoder->Decode((void*)sourcebuff.c_str(), (int)sourcebuff.size(), outbuf, &pcmframesize);
-		if (pcmframesize == 0){
+	// Decode a single frame in sourcebuff and output into PCMBuf.
+	if (!sourcebuff.empty()) {
+		// FFmpeg doesn't seem to search for a sync for us, so let's do that.
+		int nextSync = (int)FindNextMp3Sync();
+		decoder->Decode(&sourcebuff[nextSync], (int)sourcebuff.size() - nextSync, outbuf, &outpcmbufsize);
+
+		if (outpcmbufsize == 0) {
 			// no output pcm, we are at the end of the stream
 			AuBufAvailable = 0;
 			sourcebuff.clear();
-			if (LoopNum != 0){
-				// if we loop, reset readPos
-				readPos = startPos;
-			}
-			break;
+		} else {
+			// Update our total decoded samples, but don't count stereo.
+			SumDecodedSamples += decoder->GetOutSamples() / 2;
+			// get consumed source length
+			int srcPos = decoder->GetSourcePos() + nextSync;
+			// remove the consumed source
+			sourcebuff.erase(0, srcPos);
+			// reduce the available Aubuff size
+			// (the available buff size is now used to know if we can read again from file and how many to read)
+			AuBufAvailable -= srcPos;
 		}
-		// count total output pcm size 
-		outpcmbufsize += pcmframesize;
-		// count total output samples
-		SumDecodedSamples += decoder->GetOutSamples();
-		// get consumed source length
-		int srcPos = decoder->GetSourcePos();
-		// remove the consumed source
-		sourcebuff.erase(0, srcPos);
-		// reduce the available Aubuff size
-		// (the available buff size is now used to know if we can read again from file and how many to read)
-		AuBufAvailable -= srcPos;
-		// move outbuff position to the current end of output 
-		outbuf += pcmframesize;
-		// increase FrameNum count
-		FrameNum++;
-		break;
 	}
+
+	if (sourcebuff.empty() && LoopNum != 0) {
+		// When looping, start the sum back off at zero and reset readPos to the start.
+		SumDecodedSamples = 0;
+		readPos = startPos;
+		if (LoopNum > 0)
+			LoopNum--;
+	}
+
 	Memory::Write_U32(PCMBuf, pcmAddr);
 	return outpcmbufsize;
 }
@@ -420,15 +431,6 @@ u32 AuCtx::AuNotifyAddStreamData(int size) {
 
 	if (Memory::IsValidRange(AuBuf, size)) {
 		sourcebuff.append((const char *)Memory::GetPointer(AuBuf + offset), size);
-	}
-
-	if (readPos >= (int)endPos && LoopNum != 0) {
-		// if we need loop, reset readPos
-		readPos = startPos;
-		// reset LoopNum
-		if (LoopNum > 0){
-			LoopNum--;
-		}
 	}
 
 	return 0;
