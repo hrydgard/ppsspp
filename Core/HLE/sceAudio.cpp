@@ -416,7 +416,7 @@ static u32 sceAudioSRCChRelease() {
 		return SCE_ERROR_AUDIO_CHANNEL_NOT_RESERVED;
 	}
 	DEBUG_LOG(SCEAUDIO, "sceAudioSRCChRelease()");
-	chans[PSP_AUDIO_CHANNEL_SRC].reset();
+	//chans[PSP_AUDIO_CHANNEL_SRC].reset(); //TODO: Commenting out this code is a hack for Quake II, doesn't seem to break other mp3 usages, so just keep it for now lik that
 	chans[PSP_AUDIO_CHANNEL_SRC].reserved = false;
 	return 0;
 }
