@@ -91,6 +91,8 @@ static bool frameStep_;
 static int lastNumFlips;
 static bool startDumping;
 
+extern bool g_TakeScreenshot;
+
 static void __EmuScreenVblank()
 {
 	I18NCategory *sy = GetI18NCategory("System");
@@ -605,6 +607,10 @@ void EmuScreen::onVKeyDown(int virtualKeyCode) {
 		break;
 	case VIRTKEY_TOGGLE_FULLSCREEN:
 		System_SendMessage("toggle_fullscreen", "");
+		break;
+
+	case VIRTKEY_SCREENSHOT:
+		g_TakeScreenshot = true;
 		break;
 
 	case VIRTKEY_TEXTURE_DUMP:
