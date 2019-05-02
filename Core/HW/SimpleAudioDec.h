@@ -119,7 +119,11 @@ public:
 	void DoState(PointerWrap &p);
 
 	void EatSourceBuff(int amount) {
-		sourcebuff.erase(0, amount);
+		if (amount > sourcebuff.size()) {
+			amount = (int)sourcebuff.size();
+		}
+		if (amount > 0)
+			sourcebuff.erase(sourcebuff.begin(), sourcebuff.begin() + amount);
 		AuBufAvailable -= amount;
 	}
 	// Au source information. Written to from for example sceAacInit so public for now.
@@ -155,7 +159,7 @@ public:
 private:
 	size_t FindNextMp3Sync();
 
-	std::string sourcebuff; // source buffer
+	std::vector<u8> sourcebuff; // source buffer
 };
 
 
