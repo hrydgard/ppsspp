@@ -25,6 +25,8 @@ inline void Crash() { int *x = (int *)1337; *x = 1; }
 inline void Crash() { __asm { int 3 }; }
 #elif defined(_M_ARM)
 inline void Crash() { int *x = (int *)1337; *x = 1; }
+#elif defined(_M_ARM64)
+inline void Crash() { int* x = (int*)1337; *x = 1; }
 #endif
 
 #else
