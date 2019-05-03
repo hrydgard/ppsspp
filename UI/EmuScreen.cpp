@@ -219,9 +219,11 @@ void EmuScreen::bootGame(const std::string &filename) {
 		coreParam.gpuCore = GPUCORE_DIRECTX11;
 		break;
 #if !PPSSPP_PLATFORM(UWP)
+#if !defined(_M_ARM) && !defined(_M_ARM64)
 	case GPUBackend::OPENGL:
 		coreParam.gpuCore = GPUCORE_GLES;
 		break;
+#endif
 	case GPUBackend::DIRECT3D9:
 		coreParam.gpuCore = GPUCORE_DIRECTX9;
 		break;

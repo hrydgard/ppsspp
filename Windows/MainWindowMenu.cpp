@@ -16,11 +16,17 @@
 #include "Common/ConsoleListener.h"
 #include "Common/OSVersion.h"
 #include "Common/Vulkan/VulkanLoader.h"
+#if !defined(_M_ARM64) && !defined(_M_ARM)
 #include "GPU/GLES/TextureScalerGLES.h"
 #include "GPU/GLES/TextureCacheGLES.h"
+#include "GPU/GLES/FramebufferManagerGLES.h"
+#endif
 #include "UI/OnScreenDisplay.h"
 #include "GPU/Common/PostShader.h"
-#include "GPU/GLES/FramebufferManagerGLES.h"
+#include "GPU/Common/FramebufferCommon.h"
+#include "GPU/Common/TextureCacheCommon.h"
+#include "GPU/Common/TextureScalerCommon.h"
+
 #include "Core/Config.h"
 #include "Core/ConfigValues.h"
 #include "Core/FileSystems/MetaFileSystem.h"
@@ -881,8 +887,10 @@ namespace MainWindow {
 			break;
 
 		case ID_DEBUG_GEDEBUGGER:
+#if !defined(_M_ARM64) && !defined(_M_ARM)
 			if (geDebuggerWindow)
 				geDebuggerWindow->Show(true);
+#endif
 			break;
 
 		case ID_DEBUG_MEMORYVIEW:
@@ -1165,10 +1173,14 @@ namespace MainWindow {
 			CheckMenuItem(menu, texscalingitems[i], MF_BYCOMMAND | ((i == g_Config.iTexScalingLevel) ? MF_CHECKED : MF_UNCHECKED));
 		}
 
+#if !defined(_M_ARM64) && !defined(_M_ARM)
 		if (g_Config.iGPUBackend == (int)GPUBackend::OPENGL && !gl_extensions.OES_texture_npot) {
 			EnableMenuItem(menu, ID_TEXTURESCALING_3X, MF_GRAYED);
 			EnableMenuItem(menu, ID_TEXTURESCALING_5X, MF_GRAYED);
 		} else {
+#else
+		{
+#endif
 			EnableMenuItem(menu, ID_TEXTURESCALING_3X, MF_ENABLED);
 			EnableMenuItem(menu, ID_TEXTURESCALING_5X, MF_ENABLED);
 		}
@@ -1279,11 +1291,16 @@ namespace MainWindow {
 		bool allowD3D11 = DoesVersionMatchWindows(6, 0, 0, 0, true);
 		bool allowVulkan = VulkanMayBeAvailable();
 
+#if !defined(_M_ARM64) && !defined(_M_ARM)
+		bool allowOpenGL = true;
+#else
+		bool allowOpenGL = false;
+#endif
 		switch (GetGPUBackend()) {
 		case GPUBackend::DIRECT3D9:
 			EnableMenuItem(menu, ID_OPTIONS_DIRECT3D9, MF_GRAYED);
 			EnableMenuItem(menu, ID_OPTIONS_DIRECT3D11, allowD3D11 ? MF_ENABLED : MF_GRAYED);
-			EnableMenuItem(menu, ID_OPTIONS_OPENGL, MF_ENABLED);
+			EnableMenuItem(menu, ID_OPTIONS_OPENGL, allowOpenGL ? MF_ENABLED : MF_GRAYED);
 			EnableMenuItem(menu, ID_OPTIONS_VULKAN, allowVulkan ? MF_ENABLED : MF_GRAYED);
 			CheckMenuItem(menu, ID_OPTIONS_DIRECT3D9, MF_CHECKED);
 			CheckMenuItem(menu, ID_OPTIONS_DIRECT3D11, MF_UNCHECKED);
@@ -1303,7 +1320,7 @@ namespace MainWindow {
 		case GPUBackend::VULKAN:
 			EnableMenuItem(menu, ID_OPTIONS_DIRECT3D9, MF_ENABLED);
 			EnableMenuItem(menu, ID_OPTIONS_DIRECT3D11, allowD3D11 ? MF_ENABLED : MF_GRAYED);
-			EnableMenuItem(menu, ID_OPTIONS_OPENGL, MF_ENABLED);
+			EnableMenuItem(menu, ID_OPTIONS_OPENGL, allowOpenGL ? MF_ENABLED : MF_GRAYED);
 			EnableMenuItem(menu, ID_OPTIONS_VULKAN, MF_GRAYED);
 			CheckMenuItem(menu, ID_OPTIONS_DIRECT3D9, MF_UNCHECKED);
 			CheckMenuItem(menu, ID_OPTIONS_DIRECT3D11, MF_UNCHECKED);
@@ -1313,7 +1330,7 @@ namespace MainWindow {
 		case GPUBackend::DIRECT3D11:
 			EnableMenuItem(menu, ID_OPTIONS_DIRECT3D9, MF_ENABLED);
 			EnableMenuItem(menu, ID_OPTIONS_DIRECT3D11, MF_GRAYED);
-			EnableMenuItem(menu, ID_OPTIONS_OPENGL, MF_ENABLED);
+			EnableMenuItem(menu, ID_OPTIONS_OPENGL, allowOpenGL ? MF_ENABLED : MF_GRAYED);
 			EnableMenuItem(menu, ID_OPTIONS_VULKAN, allowVulkan ? MF_ENABLED : MF_GRAYED);
 			CheckMenuItem(menu, ID_OPTIONS_DIRECT3D9, MF_UNCHECKED);
 			CheckMenuItem(menu, ID_OPTIONS_DIRECT3D11, MF_CHECKED);
@@ -1321,6 +1338,10 @@ namespace MainWindow {
 			CheckMenuItem(menu, ID_OPTIONS_VULKAN, MF_UNCHECKED);
 			break;
 		}
+
+#if defined(_M_ARM64) || defined(_M_ARM)
+		EnableMenuItem(menu, ID_DEBUG_GEDEBUGGER, MF_GRAYED);
+#endif
 
 		UpdateDynamicMenuCheckmarks(menu);
 		UpdateCommands();

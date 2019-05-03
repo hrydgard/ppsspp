@@ -51,7 +51,9 @@
 #include "Windows/WindowsHost.h"
 #include "Windows/MainWindow.h"
 
+#if !defined(_M_ARM64) && !defined(_M_ARM)
 #include "Windows/GPU/WindowsGLContext.h"
+#endif
 #include "Windows/GPU/WindowsVulkanContext.h"
 #include "Windows/GPU/D3D9Context.h"
 #include "Windows/GPU/D3D11Context.h"
@@ -60,7 +62,9 @@
 #include "Windows/Debugger/Debugger_Disasm.h"
 #include "Windows/Debugger/Debugger_MemoryDlg.h"
 
+#ifndef _M_ARM
 #include "Windows/DinputDevice.h"
+#endif
 #include "Windows/XinputDevice.h"
 #include "Windows/KeyboardDevice.h"
 
@@ -86,11 +90,13 @@ WindowsHost::WindowsHost(HINSTANCE hInstance, HWND mainWindow, HWND displayWindo
 
 	//add first XInput device to respond
 	input.push_back(std::shared_ptr<InputDevice>(new XinputDevice()));
+#ifndef _M_ARM
 	//find all connected DInput devices of class GamePad
 	numDinputDevices_ = DinputDevice::getNumPads();
 	for (size_t i = 0; i < numDinputDevices_; i++) {
 		input.push_back(std::shared_ptr<InputDevice>(new DinputDevice(static_cast<int>(i))));
 	}
+#endif
 	keyboard = std::shared_ptr<KeyboardDevice>(new KeyboardDevice());
 	input.push_back(keyboard);
 
@@ -115,9 +121,11 @@ void WindowsHost::UpdateConsolePosition() {
 bool WindowsHost::InitGraphics(std::string *error_message, GraphicsContext **ctx) {
 	WindowsGraphicsContext *graphicsContext = nullptr;
 	switch (g_Config.iGPUBackend) {
+#if !defined(_M_ARM64) && !defined(_M_ARM)
 	case (int)GPUBackend::OPENGL:
 		graphicsContext = new WindowsGLContext();
 		break;
+#endif
 	case (int)GPUBackend::DIRECT3D9:
 		graphicsContext = new D3D9Context();
 		break;
@@ -208,6 +216,7 @@ void WindowsHost::PollControllers() {
 	static int checkCounter = 0;
 	static const int CHECK_FREQUENCY = 71;
 	if (checkCounter++ > CHECK_FREQUENCY) {
+#ifndef _M_ARM
 		size_t newCount = DinputDevice::getNumPads();
 		if (newCount > numDinputDevices_) {
 			INFO_LOG(SYSTEM, "New controller device detected");
@@ -216,7 +225,7 @@ void WindowsHost::PollControllers() {
 			}
 			numDinputDevices_ = newCount;
 		}
-
+#endif
 		checkCounter = 0;
 	}
 

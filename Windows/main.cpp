@@ -56,8 +56,9 @@
 #include "Windows/Debugger/Debugger_Disasm.h"
 #include "Windows/Debugger/Debugger_MemoryDlg.h"
 #include "Windows/Debugger/Debugger_VFPUDlg.h"
+#if !defined(_M_ARM64) && !defined(_M_ARM)
 #include "Windows/GEDebugger/GEDebugger.h"
-
+#endif
 #include "Windows/W32Util/DialogManager.h"
 #include "Windows/W32Util/ShellUtil.h"
 
@@ -81,9 +82,11 @@ extern "C" {
 extern "C" {
 	__declspec(dllexport) int AmdPowerXpressRequestHighPerformance = 1;
 }
+#if !defined(_M_ARM64) && !defined(_M_ARM)
+CGEDebugger* geDebuggerWindow = 0;
+#endif
 
 CDisasm *disasmWindow[MAX_CPUCOUNT] = {0};
-CGEDebugger *geDebuggerWindow = 0;
 CMemoryDlg *memoryWindow[MAX_CPUCOUNT] = {0};
 
 static std::string langRegion;
@@ -592,8 +595,9 @@ int WINAPI WinMain(HINSTANCE _hInstance, HINSTANCE hPrevInstance, LPSTR szCmdLin
 	CtrlDisAsmView::init();
 	CtrlMemView::init();
 	CtrlRegisterList::init();
+#if !defined(_M_ARM64) && !defined(_M_ARM)
 	CGEDebugger::Init();
-
+#endif
 	DialogManager::AddDlg(vfpudlg = new CVFPUDlg(_hInstance, hwndMain, currentDebugMIPS));
 
 	MainWindow::CreateDebugWindows();

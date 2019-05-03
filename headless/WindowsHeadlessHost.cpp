@@ -26,7 +26,9 @@
 #include "Core/System.h"
 #include "GPU/Common/GPUDebugInterface.h"
 #include "GPU/GPUState.h"
+#if !defined(_M_ARM64) && !defined(_M_ARM)
 #include "Windows/GPU/WindowsGLContext.h"
+#endif
 #include "Windows/GPU/D3D9Context.h"
 #include "Windows/GPU/D3D11Context.h"
 #include "Windows/GPU/WindowsVulkanContext.h"
