@@ -115,6 +115,9 @@ public:
 	int AuGetVersion() const { return Version; }
 	int AuGetFrameNum() const { return FrameNum; }
 
+	void SetReadPos(int pos) { readPos = pos; }
+	int ReadPos() { return readPos;  }
+
 	void DoState(PointerWrap &p);
 
 	void EatSourceBuff(int amount) {
@@ -126,12 +129,12 @@ public:
 		AuBufAvailable -= amount;
 	}
 	// Au source information. Written to from for example sceAacInit so public for now.
-	u64 startPos;
-	u64 endPos;
-	u32 AuBuf;
-	u32 AuBufSize;
-	u32 PCMBuf;
-	u32 PCMBufSize;
+	u64 startPos = 0;
+	u64 endPos = 0;
+	u32 AuBuf = 0;
+	u32 AuBufSize = 0;
+	u32 PCMBuf = 0;
+	u32 PCMBufSize = 0;
 	int freq = -1;
 	int BitRate = 0;
 	int SamplingRate = -1;
@@ -139,26 +142,26 @@ public:
 	int Version = -1;
 
 	// State variables. These should be relatively easy to move into private.
-	u32 SumDecodedSamples;
-	int LoopNum;
+	u32 SumDecodedSamples = 0;
+	int LoopNum = -1;
 	u32 MaxOutputSample = 0;
-	int FrameNum; // number of decoded frame
+	int FrameNum = 0;
 
 	// Au decoder
-	SimpleAudio *decoder;
+	SimpleAudio *decoder = nullptr;
 
 	// Au type
-	int audioType;
-
-	// buffers informations
-	int AuBufAvailable; // the available buffer of AuBuf to be able to recharge data
-	int readPos; // read position in audio source file
-	int askedReadSize; // the size of data requied to be read from file by the game
+	int audioType = 0;
 
 private:
 	size_t FindNextMp3Sync();
 
 	std::vector<u8> sourcebuff; // source buffer
+
+	// buffers informations
+	int AuBufAvailable = 0; // the available buffer of AuBuf to be able to recharge data
+	int readPos; // read position in audio source file
+	int askedReadSize = 0; // the size of data requied to be read from file by the game
 };
 
 

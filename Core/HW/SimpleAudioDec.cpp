@@ -313,27 +313,14 @@ bool IsValidCodec(int codec){
 // sceAu module starts from here
 
 AuCtx::AuCtx() {
-	decoder = NULL;
-	startPos = 0;
-	endPos = 0;
-	LoopNum = -1;
-	AuBuf = 0;
-	AuBufSize = 2048;
-	PCMBuf = 0;
-	PCMBufSize = 2048;
-	AuBufAvailable = 0;
-	SumDecodedSamples = 0;
-	askedReadSize = 0;
-	audioType = 0;
-	FrameNum = 0;
-};
+}
 
-AuCtx::~AuCtx(){
-	if (decoder){
+AuCtx::~AuCtx() {
+	if (decoder) {
 		AudioClose(&decoder);
-		decoder = NULL;
+		decoder = nullptr;
 	}
-};
+}
 
 size_t AuCtx::FindNextMp3Sync() {
 	if (audioType != PSP_CODEC_MP3) {
