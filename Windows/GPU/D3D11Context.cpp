@@ -51,7 +51,7 @@ void D3D11Context::SwapInterval(int interval) {
 
 HRESULT D3D11Context::CreateTheDevice(IDXGIAdapter *adapter) {
 	bool windowed = true;
-#ifdef _DEBUG
+#if defined(_DEBUG) && !defined(_M_ARM) && !defined(_M_ARM64)
 	UINT createDeviceFlags = D3D11_CREATE_DEVICE_DEBUG;
 #else
 	UINT createDeviceFlags = 0;
