@@ -166,11 +166,13 @@ static int sceMp3Decode(u32 mp3, u32 outPcmPtr) {
 	} else if (ctx->Version < 0 || ctx->AuBuf == 0) {
 		return hleLogError(ME, ERROR_MP3_NOT_YET_INIT_HANDLE, "not yet init");
 	}
-		
+
 	int pcmBytes = ctx->AuDecode(outPcmPtr);
 	if (pcmBytes > 0) {
 		// decode data successfully, delay thread
 		return hleDelayResult(hleLogSuccessI(ME, pcmBytes), "mp3 decode", mp3DecodeDelay);
+	} else if (pcmBytes == 0) {
+		return hleLogSuccessI(ME, pcmBytes);
 	}
 	// Should already have logged.
 	return pcmBytes;

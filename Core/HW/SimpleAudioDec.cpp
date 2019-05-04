@@ -337,10 +337,6 @@ size_t AuCtx::FindNextMp3Sync() {
 
 // return output pcm size, <0 error
 u32 AuCtx::AuDecode(u32 pcmAddr) {
-	if (!Memory::GetPointer(PCMBuf)) {
-		return hleLogError(ME, -1, "ctx output bufferAddress %08x is invalid", PCMBuf);
-	}
-
 	auto outbuf = Memory::GetPointer(PCMBuf);
 	int outpcmbufsize = 0;
 
@@ -385,7 +381,7 @@ u32 AuCtx::AuDecode(u32 pcmAddr) {
 		memset(outbuf + outpcmbufsize, 0, PCMBufSize - outpcmbufsize);
 	}
 
-	NotifyMemInfo(MemBlockFlags::WRITE, pcmAddr, outpcmbufsize, "AuDecode");
+	NotifyMemInfo(MemBlockFlags::WRITE, PCMBuf, outpcmbufsize, "AuDecode");
 	if (pcmAddr)
 		Memory::Write_U32(PCMBuf, pcmAddr);
 	return outpcmbufsize;
