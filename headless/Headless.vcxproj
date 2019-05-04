@@ -244,10 +244,7 @@
     <Link>
       <SubSystem>Console</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalDependencies>Winmm.lib;Ws2_32.lib;opengl32.lib;dsound.lib;glu32.lib;..\ffmpeg\Windows\x86_64\lib\avcodec.lib;..\ffmpeg\Windows\x86_64\lib\avformat.lib;..\ffmpeg\Windows\x86_64\lib\avutil.lib;..\ffmpeg\Windows\x86_64\lib\swresample.lib;..\ffmpeg\Windows\x86_64\lib\swscale.lib;comctl32.lib;d3d9.lib;d3dx9d.lib;dxguid.lib;%(AdditionalDependencies)</AdditionalDependencies>
-      <BaseAddress>0x00400000</BaseAddress>
-      <RandomizedBaseAddress>false</RandomizedBaseAddress>
-      <FixedBaseAddress>true</FixedBaseAddress>
+      <AdditionalDependencies>Winmm.lib;Ws2_32.lib;dsound.lib;..\ffmpeg\Windows\aarch64\lib\avcodec.lib;..\ffmpeg\Windows\aarch64\lib\avformat.lib;..\ffmpeg\Windows\aarch64\lib\avutil.lib;..\ffmpeg\Windows\aarch64\lib\swresample.lib;..\ffmpeg\Windows\aarch64\lib\swscale.lib;comctl32.lib;d3d9.lib;dxguid.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <AdditionalOptions>/ignore:4049 /ignore:4217 %(AdditionalOptions)</AdditionalOptions>
     </Link>
     <PreBuildEvent>
@@ -276,10 +273,7 @@
     <Link>
       <SubSystem>Console</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalDependencies>Winmm.lib;Ws2_32.lib;opengl32.lib;dsound.lib;glu32.lib;..\ffmpeg\Windows\x86_64\lib\avcodec.lib;..\ffmpeg\Windows\x86_64\lib\avformat.lib;..\ffmpeg\Windows\x86_64\lib\avutil.lib;..\ffmpeg\Windows\x86_64\lib\swresample.lib;..\ffmpeg\Windows\x86_64\lib\swscale.lib;comctl32.lib;d3d9.lib;d3dx9d.lib;dxguid.lib;%(AdditionalDependencies)</AdditionalDependencies>
-      <BaseAddress>0x00400000</BaseAddress>
-      <RandomizedBaseAddress>false</RandomizedBaseAddress>
-      <FixedBaseAddress>true</FixedBaseAddress>
+      <AdditionalDependencies>shell32.lib;advapi32.lib;gdi32.lib;Winmm.lib;Ws2_32.lib;dsound.lib;..\ffmpeg\Windows\arm\lib\avcodec.lib;..\ffmpeg\Windows\arm\lib\avformat.lib;..\ffmpeg\Windows\arm\lib\avutil.lib;..\ffmpeg\Windows\arm\lib\swresample.lib;..\ffmpeg\Windows\arm\lib\swscale.lib;comctl32.lib;d3d9.lib;dxguid.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <AdditionalOptions>/ignore:4049 /ignore:4217 %(AdditionalOptions)</AdditionalOptions>
     </Link>
     <PreBuildEvent>
@@ -382,10 +376,7 @@
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
       <OptimizeReferences>true</OptimizeReferences>
-      <AdditionalDependencies>Winmm.lib;Ws2_32.lib;opengl32.lib;dsound.lib;glu32.lib;..\ffmpeg\Windows\x86_64\lib\avcodec.lib;..\ffmpeg\Windows\x86_64\lib\avformat.lib;..\ffmpeg\Windows\x86_64\lib\avutil.lib;..\ffmpeg\Windows\x86_64\lib\swresample.lib;..\ffmpeg\Windows\x86_64\lib\swscale.lib;comctl32.lib;d3d9.lib;d3dx9.lib;dxguid.lib;%(AdditionalDependencies)</AdditionalDependencies>
-      <BaseAddress>0x00400000</BaseAddress>
-      <RandomizedBaseAddress>false</RandomizedBaseAddress>
-      <FixedBaseAddress>true</FixedBaseAddress>
+      <AdditionalDependencies>Winmm.lib;Ws2_32.lib;dsound.lib;..\ffmpeg\Windows\aarch64\lib\avcodec.lib;..\ffmpeg\Windows\aarch64\lib\avformat.lib;..\ffmpeg\Windows\aarch64\lib\avutil.lib;..\ffmpeg\Windows\aarch64\lib\swresample.lib;..\ffmpeg\Windows\aarch64\lib\swscale.lib;comctl32.lib;d3d9.lib;dxguid.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <AdditionalOptions>/ignore:4049 /ignore:4217 %(AdditionalOptions)</AdditionalOptions>
     </Link>
     <PreBuildEvent>
@@ -418,10 +409,7 @@
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
       <OptimizeReferences>true</OptimizeReferences>
-      <AdditionalDependencies>Winmm.lib;Ws2_32.lib;opengl32.lib;dsound.lib;glu32.lib;..\ffmpeg\Windows\x86_64\lib\avcodec.lib;..\ffmpeg\Windows\x86_64\lib\avformat.lib;..\ffmpeg\Windows\x86_64\lib\avutil.lib;..\ffmpeg\Windows\x86_64\lib\swresample.lib;..\ffmpeg\Windows\x86_64\lib\swscale.lib;comctl32.lib;d3d9.lib;d3dx9.lib;dxguid.lib;%(AdditionalDependencies)</AdditionalDependencies>
-      <BaseAddress>0x00400000</BaseAddress>
-      <RandomizedBaseAddress>false</RandomizedBaseAddress>
-      <FixedBaseAddress>true</FixedBaseAddress>
+      <AdditionalDependencies>shell32.lib;advapi32.lib;gdi32.lib;Winmm.lib;Ws2_32.lib;dsound.lib;..\ffmpeg\Windows\arm\lib\avcodec.lib;..\ffmpeg\Windows\arm\lib\avformat.lib;..\ffmpeg\Windows\arm\lib\avutil.lib;..\ffmpeg\Windows\arm\lib\swresample.lib;..\ffmpeg\Windows\arm\lib\swscale.lib;comctl32.lib;d3d9.lib;dxguid.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <AdditionalOptions>/ignore:4049 /ignore:4217 %(AdditionalOptions)</AdditionalOptions>
     </Link>
     <PreBuildEvent>

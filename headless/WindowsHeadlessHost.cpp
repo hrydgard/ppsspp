@@ -93,11 +93,12 @@ bool WindowsHeadlessHost::InitGraphics(std::string *error_message, GraphicsConte
 	switch (gpuCore_) {
 	case GPUCORE_NULL:
 	case GPUCORE_GLES:
+#if !defined(_M_ARM64) && !defined(_M_ARM)
 	case GPUCORE_SOFTWARE:
 		graphicsContext = new WindowsGLContext();
 		needRenderThread = true;
 		break;
-
+#endif
 	case GPUCORE_DIRECTX9:
 		graphicsContext = new D3D9Context();
 		break;
