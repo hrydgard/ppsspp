@@ -162,6 +162,7 @@ private:
 	int AuBufAvailable = 0; // the available buffer of AuBuf to be able to recharge data
 	int readPos; // read position in audio source file
 	int askedReadSize = 0; // the size of data requied to be read from file by the game
+	int nextOutputHalf = 0;
 };
 
 
