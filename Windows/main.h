@@ -27,7 +27,7 @@
 extern CDisasm *disasmWindow[MAX_CPUCOUNT];
 extern CMemoryDlg *memoryWindow[MAX_CPUCOUNT];
 
-#ifndef _M_ARM64
+#if !defined(_M_ARM64) && !defined(_M_ARM)
 #include "Windows/GEDebugger/GEDebugger.h"
 extern CGEDebugger* geDebuggerWindow;
 #endif
