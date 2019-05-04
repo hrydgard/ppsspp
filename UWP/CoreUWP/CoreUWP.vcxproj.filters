@@ -68,6 +68,9 @@
     <Filter Include="Debugger\WebSocket">
       <UniqueIdentifier>{2c71417c-cc7b-42cb-880d-ac0cb45ab5bb}</UniqueIdentifier>
     </Filter>
+    <Filter Include="MIPS\ARM64">
+      <UniqueIdentifier>{3b1039f9-72dc-4c7f-bd4e-25791be20df7}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="pch.cpp" />
@@ -667,6 +670,36 @@
     <ClCompile Include="..\..\Core\Debugger\WebSocket\WebSocketUtils.cpp">
       <Filter>Debugger\WebSocket</Filter>
     </ClCompile>
+    <ClCompile Include="..\..\Core\MIPS\ARM64\Arm64Asm.cpp">
+      <Filter>MIPS\ARM64</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Core\MIPS\ARM64\Arm64CompALU.cpp">
+      <Filter>MIPS\ARM64</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Core\MIPS\ARM64\Arm64CompBranch.cpp">
+      <Filter>MIPS\ARM64</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Core\MIPS\ARM64\Arm64CompFPU.cpp">
+      <Filter>MIPS\ARM64</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Core\MIPS\ARM64\Arm64CompLoadStore.cpp">
+      <Filter>MIPS\ARM64</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Core\MIPS\ARM64\Arm64CompReplace.cpp">
+      <Filter>MIPS\ARM64</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Core\MIPS\ARM64\Arm64CompVFPU.cpp">
+      <Filter>MIPS\ARM64</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Core\MIPS\ARM64\Arm64Jit.cpp">
+      <Filter>MIPS\ARM64</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Core\MIPS\ARM64\Arm64RegCache.cpp">
+      <Filter>MIPS\ARM64</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\Core\MIPS\ARM64\Arm64RegCacheFPU.cpp">
+      <Filter>MIPS\ARM64</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="pch.h" />
@@ -1248,6 +1281,15 @@
     </ClInclude>
     <ClInclude Include="..\..\Core\Debugger\WebSocket\WebSocketUtils.h">
       <Filter>Debugger\WebSocket</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Core\MIPS\ARM64\Arm64Jit.h">
+      <Filter>MIPS\ARM64</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Core\MIPS\ARM64\Arm64RegCache.h">
+      <Filter>MIPS\ARM64</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Core\MIPS\ARM64\Arm64RegCacheFPU.h">
+      <Filter>MIPS\ARM64</Filter>
     </ClInclude>
   </ItemGroup>
 </Project>

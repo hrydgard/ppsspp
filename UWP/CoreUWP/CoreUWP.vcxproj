@@ -1,4 +1,4 @@
-﻿<?xml version="1.0" encoding="utf-8"?>
+<?xml version="1.0" encoding="utf-8"?>
 <Project DefaultTargets="Build" ToolsVersion="14.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ItemGroup Label="ProjectConfigurations">
     <ProjectConfiguration Include="Debug|ARM">
@@ -530,6 +530,9 @@
     <ClInclude Include="..\..\Core\Loaders.h" />
     <ClInclude Include="..\..\Core\MemMap.h" />
     <ClInclude Include="..\..\Core\MemMapHelpers.h" />
+    <ClInclude Include="..\..\Core\MIPS\ARM64\Arm64Jit.h" />
+    <ClInclude Include="..\..\Core\MIPS\ARM64\Arm64RegCache.h" />
+    <ClInclude Include="..\..\Core\MIPS\ARM64\Arm64RegCacheFPU.h" />
     <ClInclude Include="..\..\Core\MIPS\ARM\ArmCompVFPUNEONUtil.h" />
     <ClInclude Include="..\..\Core\MIPS\ARM\ArmJit.h" />
     <ClInclude Include="..\..\Core\MIPS\ARM\ArmRegCache.h" />
@@ -736,6 +739,16 @@
     <ClCompile Include="..\..\Core\Loaders.cpp" />
     <ClCompile Include="..\..\Core\MemMap.cpp" />
     <ClCompile Include="..\..\Core\MemMapFunctions.cpp" />
+    <ClCompile Include="..\..\Core\MIPS\ARM64\Arm64Asm.cpp" />
+    <ClCompile Include="..\..\Core\MIPS\ARM64\Arm64CompALU.cpp" />
+    <ClCompile Include="..\..\Core\MIPS\ARM64\Arm64CompBranch.cpp" />
+    <ClCompile Include="..\..\Core\MIPS\ARM64\Arm64CompFPU.cpp" />
+    <ClCompile Include="..\..\Core\MIPS\ARM64\Arm64CompLoadStore.cpp" />
+    <ClCompile Include="..\..\Core\MIPS\ARM64\Arm64CompReplace.cpp" />
+    <ClCompile Include="..\..\Core\MIPS\ARM64\Arm64CompVFPU.cpp" />
+    <ClCompile Include="..\..\Core\MIPS\ARM64\Arm64Jit.cpp" />
+    <ClCompile Include="..\..\Core\MIPS\ARM64\Arm64RegCache.cpp" />
+    <ClCompile Include="..\..\Core\MIPS\ARM64\Arm64RegCacheFPU.cpp" />
     <ClCompile Include="..\..\Core\MIPS\ARM\ArmAsm.cpp" />
     <ClCompile Include="..\..\Core\MIPS\ARM\ArmCompALU.cpp" />
     <ClCompile Include="..\..\Core\MIPS\ARM\ArmCompBranch.cpp" />
