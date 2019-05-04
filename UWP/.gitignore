@@ -2,8 +2,10 @@
 
 Package.appxmanifest
 Assets
+AppPackages
 x64
 ARM
+ARM64
 *.VC.db
 *.VC.VC.opendb
 ipch
