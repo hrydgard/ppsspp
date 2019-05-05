@@ -41,7 +41,7 @@
 #define ZIP_EXTERN
 // __declspec(dllexport)
 #endif
-#ifdef _M_X64
+#if defined(_M_X64) || defined(_M_ARM64)
 typedef __int64 ssize_t;
 #else
 typedef __int32 ssize_t;

@@ -208,7 +208,7 @@ void CPUInfo::Detect()
 #endif
 	strcpy(brand_string, "Apple A");
 	num_cores = 2;
-#elif PPSSPP_PLATFORM(UWP)
+#elif PPSSPP_PLATFORM(WINDOWS)
 	strcpy(brand_string, "Unknown");
 	isVFP3 = true;
 	isVFP4 = false;

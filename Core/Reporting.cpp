@@ -255,8 +255,12 @@ namespace Reporting
 		// TODO: Do we care about OS version?
 #if defined(__ANDROID__)
 		return "Android";
+#elif defined(_WIN64) && defined(_M_ARM64)
+		return "Windows ARM64";
 #elif defined(_WIN64)
 		return "Windows 64";
+#elif defined(_WIN32) && defined(_M_ARM)
+		return "Windows ARM32";
 #elif defined(_WIN32)
 		return "Windows";
 #elif defined(IOS)

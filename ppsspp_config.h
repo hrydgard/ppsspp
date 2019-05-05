@@ -53,7 +53,7 @@
     #endif
 #endif
 
-#if defined(__aarch64__)
+#if defined(__aarch64__) || defined(_M_ARM64)
     #define PPSSPP_ARCH_ARM64 1
     #define PPSSPP_ARCH_64BIT 1
     #define PPSSPP_ARCH_ARM_NEON 1
@@ -80,13 +80,13 @@
 #if defined(_WIN32)
     // Covers both 32 and 64bit Windows
     #define PPSSPP_PLATFORM_WINDOWS 1
-    // UWP trickery
+	#ifdef _M_ARM
+        #define PPSSPP_ARCH_ARM_HARDFP 1
+	#endif
+	// UWP trickery
     #if defined(WINAPI_FAMILY) && defined(WINAPI_FAMILY_PARTITION)
         #if WINAPI_FAMILY_PARTITION(WINAPI_PARTITION_APP) && WINAPI_FAMILY != WINAPI_FAMILY_DESKTOP_APP
             #define PPSSPP_PLATFORM_UWP 1
-            #ifdef _M_ARM
-                #define PPSSPP_ARCH_ARM_HARDFP 1
-            #endif
         #endif
     #endif
 #elif defined(__APPLE__)

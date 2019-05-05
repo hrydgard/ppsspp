@@ -18,7 +18,11 @@
 #include "ppsspp_config.h"
 #if PPSSPP_ARCH(ARM_NEON)
 
+#if defined(_MSC_VER) && defined(_M_ARM64)
+#include <arm64_neon.h>
+#else
 #include <arm_neon.h>
+#endif
 #include "Common/Common.h"
 #include "Core/Util/AudioFormat.h"
 #include "Core/Util/AudioFormatNEON.h"

@@ -23,6 +23,8 @@ Debug
 Release
 Windows/.vs
 Windows/x64
+Windows/ARM
+Windows/ARM64
 Windows/ipch
 Windows/bin-release
 Windows/win-version.h
@@ -33,8 +35,12 @@ ext/_Output
 android/lint.xml
 PPSSPPWindows64.exe.manifest
 PPSSPPWindows.exe.manifest
+PPSSPPWindowsARM64.exe.manifest
+PPSSPPWindowsARM.exe.manifest
 PPSSPPDebug64.exe.manifest
 PPSSPPDebug.exe.manifest
+PPSSPPDebugARM64.exe.manifest
+PPSSPPDebugARM.exe.manifest
 assets/flash0
 UWP/icph
 UWP/.vs

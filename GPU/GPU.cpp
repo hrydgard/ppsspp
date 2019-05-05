@@ -27,8 +27,9 @@
 #if PPSSPP_PLATFORM(UWP)
 #include "GPU/D3D11/GPU_D3D11.h"
 #else
+#if !defined(_M_ARM64) && !defined(_M_ARM)
 #include "GPU/GLES/GPU_GLES.h"
-
+#endif
 #include "GPU/Vulkan/GPU_Vulkan.h"
 #include "GPU/Null/NullGpu.h"
 #include "GPU/Software/SoftGpu.h"
@@ -71,8 +72,12 @@ bool GPU_Init(GraphicsContext *ctx, Draw::DrawContext *draw) {
 		SetGPU(new NullGPU());
 		break;
 	case GPUCORE_GLES:
+#if !defined(_M_ARM64) && !defined(_M_ARM)
 		SetGPU(new GPU_GLES(ctx, draw));
 		break;
+#else
+		return false;
+#endif
 	case GPUCORE_SOFTWARE:
 		SetGPU(new SoftGPU(ctx, draw));
 		break;

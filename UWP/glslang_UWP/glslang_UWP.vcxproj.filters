@@ -163,6 +163,7 @@
     <ClCompile Include="..\..\ext\glslang\glslang\MachineIndependent\attribute.cpp">
       <Filter>glslang\MachineIndependent</Filter>
     </ClCompile>
+    <ClCompile Include="..\..\ext\glslang\SPIRV\SpvPostProcess.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="pch.h" />

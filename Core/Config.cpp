@@ -566,7 +566,7 @@ int Config::NextValidBackend() {
 			return (int)GPUBackend::DIRECT3D11;
 		}
 #endif
-#if !PPSSPP_PLATFORM(UWP)
+#if !PPSSPP_PLATFORM(UWP) && !defined(_M_ARM64) && !defined(_M_ARM)
 		if (!failed.count((int)GPUBackend::OPENGL)) {
 			return (int)GPUBackend::OPENGL;
 		}
