@@ -17,7 +17,11 @@
 /* This code requires -mfpu=neon on the command line: */
 #if PNG_ARM_NEON_IMPLEMENTATION == 1 /* intrinsics code from pngpriv.h */
 
+#if defined(_MSC_VER) && defined(_M_ARM64)
+#include <arm64_neon.h>
+#else
 #include <arm_neon.h>
+#endif
 
 /* libpng row pointers are not necessarily aligned to any particular boundary,
  * however this code will only work with appropriate alignment.  arm/arm_init.c

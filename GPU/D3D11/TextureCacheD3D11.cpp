@@ -85,16 +85,16 @@ ID3D11SamplerState *SamplerCacheD3D11::GetOrCreateSampler(ID3D11Device *device, 
 		samp.Filter = D3D11_FILTER_ANISOTROPIC;
 	else
 		samp.Filter = filters[filterKey];
-#if PPSSPP_PLATFORM(UWP) && PPSSPP_ARCH(ARM)
-	// For some reason, can't set MaxLOD on mobile.
-	samp.MaxLOD = FLT_MAX;
-	samp.MinLOD = -FLT_MAX;
-	samp.MipLODBias = 0.0f;
-#else
-	samp.MaxLOD = key.maxLevel / 256.0f;
-	samp.MinLOD = key.minLevel / 256.0f;
-	samp.MipLODBias = key.lodBias / 256.0f;
-#endif
+	// Can't set MaxLOD on Feature Level <= 9_3.
+	if (device->GetFeatureLevel() <= D3D_FEATURE_LEVEL_9_3) {
+		samp.MaxLOD = FLT_MAX;
+		samp.MinLOD = -FLT_MAX;
+		samp.MipLODBias = 0.0f;
+	} else {
+		samp.MaxLOD = key.maxLevel / 256.0f;
+		samp.MinLOD = key.minLevel / 256.0f;
+		samp.MipLODBias = key.lodBias / 256.0f;
+	}
 	samp.ComparisonFunc = D3D11_COMPARISON_NEVER;
 	for (int i = 0; i < 4; i++) {
 		samp.BorderColor[i] = 1.0f;

@@ -91,6 +91,8 @@ static bool frameStep_;
 static int lastNumFlips;
 static bool startDumping;
 
+extern bool g_TakeScreenshot;
+
 static void __EmuScreenVblank()
 {
 	I18NCategory *sy = GetI18NCategory("System");
@@ -217,9 +219,11 @@ void EmuScreen::bootGame(const std::string &filename) {
 		coreParam.gpuCore = GPUCORE_DIRECTX11;
 		break;
 #if !PPSSPP_PLATFORM(UWP)
+#if !defined(_M_ARM) && !defined(_M_ARM64)
 	case GPUBackend::OPENGL:
 		coreParam.gpuCore = GPUCORE_GLES;
 		break;
+#endif
 	case GPUBackend::DIRECT3D9:
 		coreParam.gpuCore = GPUCORE_DIRECTX9;
 		break;
@@ -604,6 +608,10 @@ void EmuScreen::onVKeyDown(int virtualKeyCode) {
 		break;
 	case VIRTKEY_TOGGLE_FULLSCREEN:
 		System_SendMessage("toggle_fullscreen", "");
+		break;
+
+	case VIRTKEY_SCREENSHOT:
+		g_TakeScreenshot = true;
 		break;
 
 	case VIRTKEY_TEXTURE_DUMP:
