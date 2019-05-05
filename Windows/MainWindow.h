@@ -77,6 +77,7 @@ namespace MainWindow
 	void ToggleDebugConsoleVisibility();
 	void SetInternalResolution(int res = -1);
 	void SetWindowSize(int zoom);
+	void SetWindowXXYY();
 }
 
 #endif

@@ -185,6 +185,7 @@ protected:
 	void CreateViews() override;
 
 private:
+	UI::EventReturn OnDisableWinBorders(UI::EventParams& e);
 	bool QualityDepth_;
 };
 

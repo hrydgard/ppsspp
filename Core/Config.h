@@ -380,6 +380,7 @@ public:
 #if defined(USING_WIN_UI)
 	bool bBypassOSKWithKeyboard;
 	bool bDisableWinMenu;
+	bool bDisableWinBorders;
 #endif
 
 	// Debugger

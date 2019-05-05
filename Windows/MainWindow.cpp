@@ -381,6 +381,17 @@ namespace MainWindow
 
 		if (g_Config.bDisableWinMenu)
 			SetMenu(hwndMain, NULL);
+		if (g_Config.bDisableWinBorders) {
+			LONG lStyle = GetWindowLongPtr(hwndMain, GWL_STYLE);
+			lStyle &= ~(WS_CAPTION | WS_THICKFRAME | WS_MINIMIZEBOX | WS_MAXIMIZEBOX | WS_SYSMENU);
+			SetWindowLongPtr(hwndMain, GWL_STYLE, lStyle);
+
+			LONG lExStyle = GetWindowLongPtr(hwndMain, GWL_EXSTYLE);
+			lExStyle &= ~(WS_EX_DLGMODALFRAME | WS_EX_CLIENTEDGE | WS_EX_STATICEDGE);
+			SetWindowLongPtr(hwndMain, GWL_EXSTYLE, lExStyle);
+
+			SetWindowPos(hwndMain, NULL, g_Config.iWindowX, g_Config.iWindowY, g_Config.iWindowWidth, g_Config.iWindowHeight, SWP_NOZORDER);
+		}
 	}
 
 	void Minimize() {
@@ -458,6 +469,25 @@ namespace MainWindow
 
 	void SetWindowTitle(const wchar_t *title) {
 		windowTitle = title;
+	}
+
+	void SetWindowXXYY() {
+		const int currentScreenWidth = GetSystemMetrics(SM_CXSCREEN);
+		const int currentScreenHeight = GetSystemMetrics(SM_CYSCREEN);
+		if (g_Config.iWindowWidth > currentScreenWidth)
+			g_Config.iWindowWidth = currentScreenWidth;
+		if (g_Config.iWindowHeight > currentScreenHeight)
+			g_Config.iWindowHeight = currentScreenHeight;
+		if (g_Config.iWindowX > (currentScreenWidth - g_Config.iWindowWidth))
+			g_Config.iWindowX = currentScreenWidth - g_Config.iWindowWidth;
+		if (g_Config.iWindowY > (currentScreenHeight - g_Config.iWindowHeight))
+			g_Config.iWindowY = currentScreenHeight - g_Config.iWindowHeight;
+		if (g_Config.iWindowX < 0)
+			g_Config.iWindowX = 0;
+		if (g_Config.iWindowY < 0)
+			g_Config.iWindowY = 0;
+		MoveWindow(hwndMain, g_Config.iWindowX, g_Config.iWindowY, g_Config.iWindowWidth, g_Config.iWindowHeight, TRUE);
+		g_Config.Save("SetWindowXXYY");
 	}
 
 	BOOL Show(HINSTANCE hInstance) {
