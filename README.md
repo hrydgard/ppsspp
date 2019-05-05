@@ -10,24 +10,8 @@ Originally released under the GPL 2.0 (and later) in November 2012
 No BIOS file required to play, PPSSPP is an "HLE" emulator.  Default settings balance good compatibility and speed.
 
 
- Luna version includes various compatibility improvements(hackfixes) :
- - Armored Core and Bleach: Soul Carnival series(freezes),
- - Auditorium(black screen),
- - Bijin Tokei Portable(miniatures),
- - Evangelion Jo(most text in menus, note that it still requires pauth file;p),
- - Heroes Phantasia(flashing/z-fighting),
- - Hokuto no Ken: Raoh Gaiden(depth problem),
- - Nayuta no Kiseki(minor glitches),
- - Patapon 2(menu speed),
- - Resistance Retribution(some of the crashes),
- - Sangokushi IX with Power-Up Kit(black layer),
- - The Warriors(videos),
- - Mighty Flip Champs DX(bad sound speed),
- - Edge(bad sound speed),
- - N+(bad sound speed),
- - and more via included patches.
- (Note: When this list decreases, it just mean PPSSPP already got an official fix.)
- Also includes a really awful hack for MOHH2 multiplayer(MOHH1 works fine without it;p).
+ Luna version includes various compatibility improvements(hackfixes) as well as features to make testing and working around some problems easier.
+ Includes adhoc between multiply instances of PPSSPP on same PC with some additional options to make that easier.
  ~ LunaMoo
 
 What's new in 1.8.0
