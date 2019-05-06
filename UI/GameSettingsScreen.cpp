@@ -1509,16 +1509,17 @@ void OtherSettingsScreen::CreateViews() {
 	if (g_Config.bDisableWinBorders) {
 		const int currentScreenWidth = GetSystemMetrics(SM_CXSCREEN);
 		const int currentScreenHeight = GetSystemMetrics(SM_CYSCREEN);
+		bool portrait = g_Config.IsPortrait();
 		PopupSliderChoice* pWindowPosX = list->Add(new PopupSliderChoice(&g_Config.iWindowX, 0, currentScreenWidth, gr->T("X Coordinate of the window"), 1, screenManager(), gr->T("X")));
 		pWindowPosX->SetFormat("%i X");
 		pWindowPosX->OnChange.Handle(this, &OtherSettingsScreen::OnDisableWinBorders);
 		PopupSliderChoice* pWindowPosY = list->Add(new PopupSliderChoice(&g_Config.iWindowY, 0, currentScreenHeight, gr->T("Y Coordinate of the window"), 1, screenManager(), gr->T("Y")));
 		pWindowPosY->SetFormat("%i Y");
 		pWindowPosY->OnChange.Handle(this, &OtherSettingsScreen::OnDisableWinBorders);
-		PopupSliderChoice* pWindowWidth = list->Add(new PopupSliderChoice(&g_Config.iWindowWidth, 480, currentScreenWidth, gr->T("X Size of the window"), 1, screenManager(), gr->T("X")));
+		PopupSliderChoice* pWindowWidth = list->Add(new PopupSliderChoice(&g_Config.iWindowWidth, portrait ? 272 : 480, currentScreenWidth, gr->T("X Size of the window"), 1, screenManager(), gr->T("X")));
 		pWindowWidth->SetFormat("%i X");
 		pWindowWidth->OnChange.Handle(this, &OtherSettingsScreen::OnDisableWinBorders);
-		PopupSliderChoice* pWindowHeight = list->Add(new PopupSliderChoice(&g_Config.iWindowHeight, 272, currentScreenHeight, gr->T("Y Size of the window"), 1, screenManager(), gr->T("Y")));
+		PopupSliderChoice* pWindowHeight = list->Add(new PopupSliderChoice(&g_Config.iWindowHeight, portrait ? 480 : 272, currentScreenHeight, gr->T("Y Size of the window"), 1, screenManager(), gr->T("Y")));
 		pWindowHeight->SetFormat("%i Y");
 		pWindowHeight->OnChange.Handle(this, &OtherSettingsScreen::OnDisableWinBorders);
 	}

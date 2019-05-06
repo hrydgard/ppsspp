@@ -723,6 +723,10 @@ namespace MainWindow
 				AdjustWindowRect(&rc, WS_OVERLAPPEDWINDOW, TRUE);
 				minmax->ptMinTrackSize.x = rc.right - rc.left;
 				minmax->ptMinTrackSize.y = rc.bottom - rc.top;
+				if (g_Config.bDisableWinBorders) {
+					minmax->ptMinTrackSize.x = portrait ? 272 : 480;
+					minmax->ptMinTrackSize.y = portrait ? 480 : 272;
+				}
 			}
 			return 0;
 
