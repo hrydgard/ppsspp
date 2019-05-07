@@ -16,6 +16,10 @@ void Url::Split() {
 	protocol_ = url_.substr(0, colonSlashSlash);
 
 	size_t sep = url_.find('/', colonSlashSlash + 3);
+	if (sep == std::string::npos) {
+		valid_ = false;
+		return;
+	}
 
 	host_ = url_.substr(colonSlashSlash + 3, sep - colonSlashSlash - 3);
 	resource_ = url_.substr(sep);  // include the slash!
