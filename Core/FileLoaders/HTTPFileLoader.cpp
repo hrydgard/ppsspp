@@ -27,6 +27,12 @@ HTTPFileLoader::HTTPFileLoader(const std::string &filename)
 
 void HTTPFileLoader::Prepare() {
 	std::call_once(preparedFlag_, [this](){
+		if (!url_.Valid()) {
+			ERROR_LOG(LOADER, "HTTP request failed, invalid URL");
+			latestError_ = "Invalid URL";
+			return;
+		}
+
 		if (!client_.Resolve(url_.Host().c_str(), url_.Port())) {
 			ERROR_LOG(LOADER, "HTTP request failed, unable to resolve: %s port %d", url_.Host().c_str(), url_.Port());
 			latestError_ = "Could not connect (name not resolved)";

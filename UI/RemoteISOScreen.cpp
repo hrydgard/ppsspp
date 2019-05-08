@@ -204,7 +204,16 @@ static bool LoadGameList(const std::string &host, int port, std::vector<std::str
 		return false;
 	}
 
-	for (const std::string &item : items) {
+	for (std::string item : items) {
+		// Apply some workarounds.
+		if (item.empty())
+			continue;
+
+		if (item[0] != '/')
+			item.insert(0, "/");
+		if (item.back() == '\r')
+			item.pop_back();
+
 		if (!RemoteISOFileSupported(item)) {
 			continue;
 		}
