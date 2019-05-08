@@ -27,7 +27,7 @@
 #if PPSSPP_PLATFORM(UWP)
 #include "GPU/D3D11/GPU_D3D11.h"
 #else
-#if !defined(_M_ARM64) && !defined(_M_ARM)
+#if !PPSSPP_PLATFORM(WINDOWS) || (!defined(_M_ARM64) && !defined(_M_ARM))
 #include "GPU/GLES/GPU_GLES.h"
 #endif
 #include "GPU/Vulkan/GPU_Vulkan.h"
@@ -72,7 +72,8 @@ bool GPU_Init(GraphicsContext *ctx, Draw::DrawContext *draw) {
 		SetGPU(new NullGPU());
 		break;
 	case GPUCORE_GLES:
-#if !defined(_M_ARM64) && !defined(_M_ARM)
+		// Disable GLES on ARM Windows (but leave it enabled on other ARM platforms).
+#if !PPSSPP_PLATFORM(WINDOWS) || (!defined(_M_ARM64) && !defined(_M_ARM))
 		SetGPU(new GPU_GLES(ctx, draw));
 		break;
 #else

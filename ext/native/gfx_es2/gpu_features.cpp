@@ -6,7 +6,7 @@
 #include "base/logging.h"
 #include "base/stringutil.h"
 
-#if !defined(_M_ARM64) && !defined(_M_ARM)
+#if !PPSSPP_PLATFORM(WINDOWS) || (!defined(_M_ARM64) && !defined(_M_ARM))
 #if !PPSSPP_PLATFORM(UWP)
 #include "gfx/gl_common.h"
 
