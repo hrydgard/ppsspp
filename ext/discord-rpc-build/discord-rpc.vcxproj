@@ -57,7 +57,7 @@
     <ProjectGuid>{BEB0A821-3C7F-410F-A525-63AFBC69BF8F}</ProjectGuid>
     <Keyword>Win32Proj</Keyword>
     <RootNamespace>discordrpc</RootNamespace>
-    <WindowsTargetPlatformVersion></WindowsTargetPlatformVersion>
+    <WindowsTargetPlatformVersion>10.0</WindowsTargetPlatformVersion>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" Label="Configuration">
