@@ -336,7 +336,7 @@
       <WarningLevel>Level3</WarningLevel>
       <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
       <AdditionalIncludeDirectories>../dx9sdk/Include/DX11;../ext;../common;..;../ext/native;../ext/glew;../ext/zlib</AdditionalIncludeDirectories>
-      <ForcedIncludeFiles>stdafx.h;Common/DbgNew.h</ForcedIncludeFiles>
+      <ForcedIncludeFiles>stdafx.h</ForcedIncludeFiles>
       <RuntimeLibrary>MultiThreadedDebug</RuntimeLibrary>
       <OmitFramePointers>false</OmitFramePointers>
       <EnableEnhancedInstructionSet>NotSet</EnableEnhancedInstructionSet>
