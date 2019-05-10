@@ -119,7 +119,7 @@ public:
 	void DoState(PointerWrap &p);
 
 	void EatSourceBuff(int amount) {
-		if (amount > sourcebuff.size()) {
+		if (amount > (int)sourcebuff.size()) {
 			amount = (int)sourcebuff.size();
 		}
 		if (amount > 0)

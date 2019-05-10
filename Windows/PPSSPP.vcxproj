@@ -331,7 +331,6 @@
     <ClCompile>
       <MinimalRebuild>false</MinimalRebuild>
       <PreprocessorDefinitions>_CRTDBG_MAP_ALLOC;USING_WIN_UI;_CRT_SECURE_NO_WARNINGS;WIN32;_DEBUG;_ARCH_32=1;_WINDOWS;_UNICODE;UNICODE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
-      <ExceptionHandling>Sync</ExceptionHandling>
       <PrecompiledHeader>Use</PrecompiledHeader>
       <WarningLevel>Level3</WarningLevel>
       <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>

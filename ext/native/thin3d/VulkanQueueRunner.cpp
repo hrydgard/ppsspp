@@ -522,7 +522,7 @@ void VulkanQueueRunner::ApplyMGSHack(std::vector<VKRStep *> &steps) {
 			assert(steps[i + copies.size()]->stepType == VKRStepType::RENDER);
 			// Combine the renders.
 			for (int j = 1; j < (int)renders.size(); j++) {
-				for (int k = 0; k < renders[j]->commands.size(); k++) {
+				for (int k = 0; k < (int)renders[j]->commands.size(); k++) {
 					steps[i + copies.size()]->commands.push_back(renders[j]->commands[k]);
 				}
 				steps[i + copies.size() + j]->stepType = VKRStepType::RENDER_SKIP;
