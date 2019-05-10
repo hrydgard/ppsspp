@@ -119,7 +119,7 @@ void ProcessGPUFeatures() {
 
 void CheckGLExtensions() {
 
-#if !PPSSPP_PLATFORM(UWP) && !PPSSPP_ARCH(ARM64) && !PPSSPP_ARCH(ARM)
+#if PPSSPP_API(ANY_GL)
 
 	// Make sure to only do this once. It's okay to call CheckGLExtensions from wherever.
 	if (extensionsDone)
@@ -569,7 +569,7 @@ static const char *glsl_fragment_prelude =
 "#endif\n";
 
 std::string ApplyGLSLPrelude(const std::string &source, uint32_t stage) {
-#if !PPSSPP_PLATFORM(UWP) && !PPSSPP_ARCH(ARM64) && !PPSSPP_ARCH(ARM)
+#if PPSSPP_API(ANY_GL)
 	std::string temp;
 	std::string version = "";
 	if (!gl_extensions.IsGLES && gl_extensions.IsCoreContext) {
