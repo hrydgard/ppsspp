@@ -22,6 +22,7 @@
 #include "Common/CommonWindows.h"
 #include "Common/OSVersion.h"
 #include "Common/Vulkan/VulkanLoader.h"
+#include "ppsspp_config.h"
 
 #include <Wbemidl.h>
 #include <shellapi.h>
@@ -56,7 +57,7 @@
 #include "Windows/Debugger/Debugger_Disasm.h"
 #include "Windows/Debugger/Debugger_MemoryDlg.h"
 #include "Windows/Debugger/Debugger_VFPUDlg.h"
-#if !defined(_M_ARM64) && !defined(_M_ARM)
+#if PPSSPP_API(ANY_GL)
 #include "Windows/GEDebugger/GEDebugger.h"
 #endif
 #include "Windows/W32Util/DialogManager.h"
@@ -82,7 +83,7 @@ extern "C" {
 extern "C" {
 	__declspec(dllexport) int AmdPowerXpressRequestHighPerformance = 1;
 }
-#if !defined(_M_ARM64) && !defined(_M_ARM)
+#if PPSSPP_API(ANY_GL)
 CGEDebugger* geDebuggerWindow = 0;
 #endif
 
@@ -595,7 +596,7 @@ int WINAPI WinMain(HINSTANCE _hInstance, HINSTANCE hPrevInstance, LPSTR szCmdLin
 	CtrlDisAsmView::init();
 	CtrlMemView::init();
 	CtrlRegisterList::init();
-#if !defined(_M_ARM64) && !defined(_M_ARM)
+#if PPSSPP_API(ANY_GL)
 	CGEDebugger::Init();
 #endif
 	DialogManager::AddDlg(vfpudlg = new CVFPUDlg(_hInstance, hwndMain, currentDebugMIPS));

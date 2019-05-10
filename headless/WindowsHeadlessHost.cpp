@@ -26,7 +26,7 @@
 #include "Core/System.h"
 #include "GPU/Common/GPUDebugInterface.h"
 #include "GPU/GPUState.h"
-#if !defined(_M_ARM64) && !defined(_M_ARM)
+#if PPSSPP_API(ANY_GL)
 #include "Windows/GPU/WindowsGLContext.h"
 #endif
 #include "Windows/GPU/D3D9Context.h"
@@ -93,7 +93,7 @@ bool WindowsHeadlessHost::InitGraphics(std::string *error_message, GraphicsConte
 	switch (gpuCore_) {
 	case GPUCORE_NULL:
 	case GPUCORE_GLES:
-#if !defined(_M_ARM64) && !defined(_M_ARM)
+#if PPSSPP_API(ANY_GL)
 	case GPUCORE_SOFTWARE:
 		graphicsContext = new WindowsGLContext();
 		needRenderThread = true;

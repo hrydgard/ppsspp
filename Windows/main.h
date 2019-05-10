@@ -27,7 +27,7 @@
 extern CDisasm *disasmWindow[MAX_CPUCOUNT];
 extern CMemoryDlg *memoryWindow[MAX_CPUCOUNT];
 
-#if !defined(_M_ARM64) && !defined(_M_ARM)
+#if PPSSPP_API(ANY_GL)
 #include "Windows/GEDebugger/GEDebugger.h"
 extern CGEDebugger* geDebuggerWindow;
 #endif
