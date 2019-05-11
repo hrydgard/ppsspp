@@ -1531,8 +1531,10 @@ void OtherSettingsScreen::onFinish(DialogResult result) {
 }
 
 UI::EventReturn OtherSettingsScreen::OnDisableWinBorders(UI::EventParams& e) {
+#if defined(USING_WIN_UI)
 	MainWindow::SetWindowXXYY();
     MainWindow::SendToggleFullscreen(g_Config.bFullScreen = false);
+#endif
 	RecreateViews();
 	return UI::EVENT_DONE;
 }
