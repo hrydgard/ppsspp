@@ -571,7 +571,7 @@ int Config::NextValidBackend() {
 			return (int)GPUBackend::OPENGL;
 		}
 #endif
-#if PPSSPP_PLATFORM(D3D9)
+#if PPSSPP_API(D3D9)
 		if (!failed.count((int)GPUBackend::DIRECT3D9)) {
 			return (int)GPUBackend::DIRECT3D9;
 		}
