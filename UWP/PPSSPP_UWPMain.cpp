@@ -36,6 +36,7 @@ using namespace Windows::Storage;
 using namespace Windows::Storage::Streams;
 using namespace Windows::System::Threading;
 using namespace Windows::ApplicationModel::DataTransfer;
+using namespace Windows::Devices::Enumeration;
 using namespace Concurrency;
 
 // UGLY!
@@ -463,6 +464,61 @@ bool System_InputBoxGetString(const char *title, const char *defaultValue, char 
 
 bool System_InputBoxGetWString(const wchar_t *title, const std::wstring &defaultvalue, std::wstring &outvalue) {
 	return false;
+}
+
+std::string GetCPUBrandString() {
+	Platform::String^ cpu_id = nullptr;
+	Platform::String^ cpu_name = nullptr;
+	
+	// GUID_DEVICE_PROCESSOR: {97FADB10-4E33-40AE-359C-8BEF029DBDD0}
+	Platform::String^ if_filter = L"System.Devices.InterfaceClassGuid:=\"{97FADB10-4E33-40AE-359C-8BEF029DBDD0}\"";
+
+	// Enumerate all CPU DeviceInterfaces, and get DeviceInstanceID of the first one.
+	auto if_task = create_task(
+		DeviceInformation::FindAllAsync(if_filter)).then([&](DeviceInformationCollection ^ collection) {
+			if (collection->Size > 0) {
+				auto cpu = collection->GetAt(0);
+				auto id = cpu->Properties->Lookup(L"System.Devices.DeviceInstanceID");
+				cpu_id = dynamic_cast<Platform::String^>(id);
+			}
+	});
+
+	try {
+		if_task.wait();
+	}
+	catch (const std::exception & e) {
+		const char* what = e.what();
+		ILOG("%s", what);
+	}
+
+	if (cpu_id != nullptr) {
+		// Get the Device with the same ID as the DeviceInterface
+		// Then get the name (description) of that Device
+		// We have to do this because the DeviceInterface we get doesn't have a proper description.
+		Platform::String^ dev_filter = L"System.Devices.DeviceInstanceID:=\"" + cpu_id + L"\"";
+
+		auto dev_task = create_task(
+			DeviceInformation::FindAllAsync(dev_filter, {}, DeviceInformationKind::Device)).then(
+				[&](DeviceInformationCollection ^ collection) {
+					if (collection->Size > 0) {
+						cpu_name = collection->GetAt(0)->Name;
+					}
+		});
+
+		try {
+			dev_task.wait();
+		}
+		catch (const std::exception & e) {
+			const char* what = e.what();
+			ILOG("%s", what);
+		}
+	}
+
+	if (cpu_name != nullptr) {
+		return FromPlatformString(cpu_name);
+	} else {
+		return "Unknown";
+	}
 }
 
 // Emulation of TlsAlloc for Windows 10. Used by glslang. Doesn't actually seem to work, other than fixing the linking errors?
