@@ -23,6 +23,39 @@
 #include "CPUDetect.h"
 #include "StringUtils.h"
 #include "FileUtil.h"
+#include "util/text/utf8.h"
+
+#if PPSSPP_PLATFORM(WINDOWS) 
+#if PPSSPP_PLATFORM(UWP)
+// TODO: Maybe we can move the implementation here? 
+std::string GetCPUBrandString();
+#else
+// No CPUID on ARM, so we'll have to read the registry
+#include <windows.h>
+std::string GetCPUBrandString() {
+	std::string cpu_string;
+	
+	HKEY key;
+	LSTATUS result = RegOpenKeyEx(HKEY_LOCAL_MACHINE, L"HARDWARE\\DESCRIPTION\\System\\CentralProcessor\\0", 0, KEY_READ, &key);
+	if (result == ERROR_SUCCESS) {
+		DWORD size = 0;
+		DWORD type = REG_SZ;
+		RegQueryValueEx(key, L"ProcessorNameString", NULL, &type, NULL, &size);
+		LPBYTE buff = (LPBYTE)malloc(size);
+		if (buff != NULL) {
+			RegQueryValueEx(key, L"ProcessorNameString", NULL, &type, buff, &size);
+			cpu_string = ConvertWStringToUTF8((wchar_t*)buff);
+			free(buff);
+		}
+	}
+
+	if (cpu_string.empty())
+		return "Unknown";
+	else
+		return cpu_string;
+}
+#endif
+#endif
 
 // Only Linux platforms have /proc/cpuinfo
 #if PPSSPP_PLATFORM(LINUX)
@@ -209,7 +242,7 @@ void CPUInfo::Detect()
 	strcpy(brand_string, "Apple A");
 	num_cores = 2;
 #elif PPSSPP_PLATFORM(WINDOWS)
-	strcpy(brand_string, "Unknown");
+	truncate_cpy(brand_string, GetCPUBrandString().c_str());
 	isVFP3 = true;
 	isVFP4 = false;
 	SYSTEM_INFO sysInfo;
