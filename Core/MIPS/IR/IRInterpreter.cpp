@@ -10,7 +10,7 @@
 #endif
 
 #if PPSSPP_ARCH(ARM_NEON)
-#if defined(_MSC_VER) && defined(_M_ARM64)
+#if defined(_MSC_VER) && PPSSPP_ARCH(ARM64)
 #include <arm64_neon.h>
 #else
 #include <arm_neon.h>

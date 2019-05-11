@@ -157,10 +157,6 @@ u16 Read_U16(const u32 _Address);
 u32 Read_U32(const u32 _Address);
 u64 Read_U64(const u32 _Address);
 
-#if (defined(ARM) || defined(_ARM)) && !defined(_M_ARM)
-#define _M_ARM
-#endif
-
 inline u8* GetPointerUnchecked(const u32 address) {
 #ifdef MASKED_PSP_MEMORY
 	return (u8 *)(base + (address & MEMVIEW32_MASK));
