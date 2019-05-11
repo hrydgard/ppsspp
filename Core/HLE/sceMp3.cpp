@@ -631,7 +631,7 @@ static u32 sceMp3ResetPlayPositionByFrame(u32 mp3, u32 frame) {
 		return hleLogError(ME, ERROR_MP3_NOT_YET_INIT_HANDLE, "not yet init");
 	}
 
-	if (frame >= ctx->AuGetFrameNum()) {
+	if ((int)frame >= ctx->AuGetFrameNum()) {
 		return hleLogError(ME, ERROR_MP3_BAD_RESET_FRAME, "bad frame position");
 	}
 

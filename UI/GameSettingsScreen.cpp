@@ -203,7 +203,7 @@ void GameSettingsScreen::CreateViews() {
 	renderingBackendChoice->HideChoice(1);  // D3D9
 	renderingBackendChoice->HideChoice(2);  // D3D11
 #else
-#if defined(_M_ARM) || defined(_M_ARM64)
+#if !PPSSPP_API(ANY_GL)
 	renderingBackendChoice->HideChoice(0);  // OpenGL
 #endif
 	if (!DoesVersionMatchWindows(6, 0, 0, 0, true)) {

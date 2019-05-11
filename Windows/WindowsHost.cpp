@@ -51,7 +51,7 @@
 #include "Windows/WindowsHost.h"
 #include "Windows/MainWindow.h"
 
-#if !defined(_M_ARM64) && !defined(_M_ARM)
+#if PPSSPP_API(ANY_GL)
 #include "Windows/GPU/WindowsGLContext.h"
 #endif
 #include "Windows/GPU/WindowsVulkanContext.h"
@@ -121,7 +121,7 @@ void WindowsHost::UpdateConsolePosition() {
 bool WindowsHost::InitGraphics(std::string *error_message, GraphicsContext **ctx) {
 	WindowsGraphicsContext *graphicsContext = nullptr;
 	switch (g_Config.iGPUBackend) {
-#if !defined(_M_ARM64) && !defined(_M_ARM)
+#if PPSSPP_API(ANY_GL)
 	case (int)GPUBackend::OPENGL:
 		graphicsContext = new WindowsGLContext();
 		break;

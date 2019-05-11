@@ -24,6 +24,7 @@
 #include "Common/CommonWindows.h"
 #include "Common/KeyMap.h"
 #include "Common/OSVersion.h"
+#include "ppsspp_config.h"
 
 #include <Windowsx.h>
 #include <shellapi.h>
@@ -48,7 +49,7 @@
 #include "Core/MIPS/JitCommon/JitBlockCache.h"
 #include "Windows/InputBox.h"
 #include "Windows/InputDevice.h"
-#if !defined(_M_ARM64) && !defined(_M_ARM)
+#if PPSSPP_API(ANY_GL)
 #include "Windows/GPU/WindowsGLContext.h"
 #include "Windows/GEDebugger/GEDebugger.h"
 #endif
@@ -519,7 +520,7 @@ namespace MainWindow
 		DialogManager::AddDlg(disasmWindow[0]);
 		disasmWindow[0]->Show(g_Config.bShowDebuggerOnLoad);
 
-#if !defined(_M_ARM64) && !defined(_M_ARM)
+#if PPSSPP_API(ANY_GL)
 		geDebuggerWindow = new CGEDebugger(MainWindow::GetHInstance(), MainWindow::GetHWND());
 		DialogManager::AddDlg(geDebuggerWindow);
 #endif
@@ -533,7 +534,7 @@ namespace MainWindow
 			delete disasmWindow[0];
 		disasmWindow[0] = 0;
 		
-#if !defined(_M_ARM64) && !defined(_M_ARM)
+#if PPSSPP_API(ANY_GL)
 		DialogManager::RemoveDlg(geDebuggerWindow);
 		if (geDebuggerWindow)
 			delete geDebuggerWindow;

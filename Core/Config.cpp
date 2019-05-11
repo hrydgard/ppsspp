@@ -566,12 +566,12 @@ int Config::NextValidBackend() {
 			return (int)GPUBackend::DIRECT3D11;
 		}
 #endif
-#if !PPSSPP_PLATFORM(UWP) && !defined(_M_ARM64) && !defined(_M_ARM)
+#if PPSSPP_API(ANY_GL)
 		if (!failed.count((int)GPUBackend::OPENGL)) {
 			return (int)GPUBackend::OPENGL;
 		}
 #endif
-#if PPSSPP_PLATFORM(WINDOWS) && !PPSSPP_PLATFORM(UWP)
+#if PPSSPP_API(D3D9)
 		if (!failed.count((int)GPUBackend::DIRECT3D9)) {
 			return (int)GPUBackend::DIRECT3D9;
 		}

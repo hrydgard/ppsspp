@@ -16,7 +16,7 @@
 #include "Common/ConsoleListener.h"
 #include "Common/OSVersion.h"
 #include "Common/Vulkan/VulkanLoader.h"
-#if !defined(_M_ARM64) && !defined(_M_ARM)
+#if PPSSPP_API(ANY_GL)
 #include "GPU/GLES/TextureScalerGLES.h"
 #include "GPU/GLES/TextureCacheGLES.h"
 #include "GPU/GLES/FramebufferManagerGLES.h"
@@ -887,7 +887,7 @@ namespace MainWindow {
 			break;
 
 		case ID_DEBUG_GEDEBUGGER:
-#if !defined(_M_ARM64) && !defined(_M_ARM)
+#if PPSSPP_API(ANY_GL)
 			if (geDebuggerWindow)
 				geDebuggerWindow->Show(true);
 #endif
@@ -1287,7 +1287,7 @@ namespace MainWindow {
 		bool allowD3D11 = DoesVersionMatchWindows(6, 0, 0, 0, true);
 		bool allowVulkan = VulkanMayBeAvailable();
 
-#if !defined(_M_ARM64) && !defined(_M_ARM)
+#if PPSSPP_API(ANY_GL)
 		bool allowOpenGL = true;
 #else
 		bool allowOpenGL = false;
@@ -1335,7 +1335,7 @@ namespace MainWindow {
 			break;
 		}
 
-#if defined(_M_ARM64) || defined(_M_ARM)
+#if PPSSPP_API(ANY_GL)
 		EnableMenuItem(menu, ID_DEBUG_GEDEBUGGER, MF_GRAYED);
 #endif
 
