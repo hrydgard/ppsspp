@@ -266,7 +266,6 @@ void FramebufferManagerD3D11::CompilePostShader() {
 	} else {
 		return;
 	}
-	I18NCategory *gr = GetI18NCategory("Graphics");
 
 	UINT flags = D3DCOMPILE_ENABLE_BACKWARDS_COMPATIBILITY;
 	std::vector<uint8_t> byteCode;
