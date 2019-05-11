@@ -31,8 +31,11 @@
 #include "GPU/Null/NullGpu.h"
 #include "GPU/Software/SoftGpu.h"
 
-#if defined(_WIN32)
+#if PPSSPP_API(D3D9)
 #include "GPU/Directx9/GPU_DX9.h"
+#endif
+
+#if PPSSPP_API(D3D11)
 #include "GPU/D3D11/GPU_D3D11.h"
 #endif
 
@@ -78,7 +81,7 @@ bool GPU_Init(GraphicsContext *ctx, Draw::DrawContext *draw) {
 		SetGPU(new SoftGPU(ctx, draw));
 		break;
 	case GPUCORE_DIRECTX9:
-#if defined(_WIN32)
+#if PPSSPP_API(D3D9)
 		SetGPU(new DIRECTX9_GPU(ctx, draw));
 		break;
 #else
