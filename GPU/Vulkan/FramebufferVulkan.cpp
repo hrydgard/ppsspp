@@ -618,7 +618,6 @@ void FramebufferManagerVulkan::CompilePostShader() {
 	} else {
 		return;
 	}
-	I18NCategory *gr = GetI18NCategory("Graphics");
 
 	// TODO: Delete the old pipeline?
 
