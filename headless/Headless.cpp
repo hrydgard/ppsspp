@@ -283,7 +283,7 @@ int main(int argc, const char* argv[])
 #else
 			gpuCore = GPUCORE_DIRECTX11;
 #endif
-		}  else if (!strncmp(argv[i], "--screenshot=", strlen("--screenshot=")) && strlen(argv[i]) > strlen("--screenshot="))
+		} else if (!strncmp(argv[i], "--screenshot=", strlen("--screenshot=")) && strlen(argv[i]) > strlen("--screenshot="))
 			screenshotFilename = argv[i] + strlen("--screenshot=");
 		else if (!strncmp(argv[i], "--timeout=", strlen("--timeout=")) && strlen(argv[i]) > strlen("--timeout="))
 			timeout = strtod(argv[i] + strlen("--timeout="), NULL);
