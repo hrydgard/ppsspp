@@ -1,11 +1,11 @@
-﻿<?xml version="1.0" encoding="utf-8"?>
+<?xml version="1.0" encoding="utf-8"?>
 <Package xmlns="http://schemas.microsoft.com/appx/manifest/foundation/windows10" xmlns:mp="http://schemas.microsoft.com/appx/2014/phone/manifest" xmlns:uap="http://schemas.microsoft.com/appx/manifest/uap/windows10" IgnorableNamespaces="uap mp">
-<Identity Name="32617401-c880-44d1-ba5a-c0b46feba525" Publisher="CN=Henrik" Version="1.4.0.0" />
+<Identity Name="32617401-c880-44d1-ba5a-c0b46feba525" Publisher="CN=Henrik" Version="1.8.0.3" />
   <mp:PhoneIdentity PhoneProductId="32617401-c880-44d1-ba5a-c0b46feba525" PhonePublisherId="00000000-0000-0000-0000-000000000000" />
   <Properties>
     <DisplayName>PPSSPP Gold - PSP emulator</DisplayName>
     <PublisherDisplayName>Henrik Rydgård</PublisherDisplayName>
-    <Logo>AssetsGold\StoreLogo.png</Logo>
+    <Logo>Assets\StoreLogo.png</Logo>
   </Properties>
   <Dependencies>
     <TargetDeviceFamily Name="Windows.Universal" MinVersion="10.0.0.0" MaxVersionTested="10.0.0.0" />
