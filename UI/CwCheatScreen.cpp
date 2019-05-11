@@ -216,8 +216,7 @@ void CwCheatScreen::ParseCheatDB(std::string line, std::vector<std::string> titl
 						getline(fs, line);
 					} while ((line[0] == '_' && line[1] == 'L') || line[0] == '/' || line[0] == '#');
 					finished = true;
-				}
-				else {
+				} else {
 					continue;
 				}
 			loop:;
@@ -228,7 +227,6 @@ void CwCheatScreen::ParseCheatDB(std::string line, std::vector<std::string> titl
 			break;
 	}
 	fs.close();
-
 	std::string title2;
 	File::OpenCPPFile(fs, activeCheatFile, std::ios::in);
 	getline(fs, title2);

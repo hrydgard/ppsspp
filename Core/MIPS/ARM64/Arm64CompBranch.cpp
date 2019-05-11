@@ -651,7 +651,7 @@ void Arm64Jit::Comp_Syscall(MIPSOpcode op)
 			MOVI2R(W0, op.encoding);
 			QuickCallFunction(X1, (void *)&CallSyscall);
 		}
-	}|
+	}
 
 	LoadStaticRegisters();
 	ApplyRoundingMode();

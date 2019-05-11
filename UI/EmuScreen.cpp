@@ -492,6 +492,7 @@ void EmuScreen::onVKeyDown(int virtualKeyCode) {
 		// Cycle through enabled speeds.
 		if (PSP_CoreParameter().fpsLimit == FPSLimit::NORMAL && g_Config.iFpsLimit1 >= 0) {
 			PSP_CoreParameter().fpsLimit = FPSLimit::CUSTOM1;
+			osm.Show(sc->T("fixed", "Speed: alternate"), 1.0);
 		} else if (PSP_CoreParameter().fpsLimit != FPSLimit::CUSTOM2 && g_Config.iFpsLimit2 >= 0) {
 			PSP_CoreParameter().fpsLimit = FPSLimit::CUSTOM2;
 			osm.Show(sc->T("SpeedCustom2", "Speed: alternate 2"), 1.0);

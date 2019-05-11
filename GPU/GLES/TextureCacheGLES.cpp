@@ -205,7 +205,7 @@ static void ConvertColors(void *dstBuf, const void *srcBuf, GLuint dstFmt, int n
 	default:
 		// No need to convert RGBA8888, right order already
 		if (dst != src)
-				memcpy(dst, src, numPixels * sizeof(u32));
+			memcpy(dst, src, numPixels * sizeof(u32));
 		break;
 	}
 }
@@ -443,7 +443,9 @@ void TextureCacheGLES::ApplyTextureFramebuffer(TexCacheEntry *entry, VirtualFram
 	DepalShader *depal = nullptr;
 	uint32_t clutMode = gstate.clutformat & 0xFFFFFF;
 	bool useShaderDepal = framebufferManager_->GetCurrentRenderVFB() != framebuffer && gstate_c.Supports(GPU_SUPPORTS_GLSL_ES_300);
-
+	if (!gstate_c.Supports(GPU_SUPPORTS_32BIT_INT_FSHADER)) {
+		useShaderDepal = false;
+	}
 	if ((entry->status & TexCacheEntry::STATUS_DEPALETTIZE) && !g_Config.bDisableSlowFramebufEffects) {
 		if (useShaderDepal) {
 			const GEPaletteFormat clutFormat = gstate.getClutPaletteFormat();

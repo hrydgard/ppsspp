@@ -48,7 +48,11 @@ static const char *vulkan_glsl_preamble =
 // texcoord = 2
 // fog = 3
 
+
+
+
 #undef WRITE
+
 #define WRITE p+=sprintf
 
 static const char * const boneWeightDecl[9] = {

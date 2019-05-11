@@ -80,7 +80,6 @@ void DevMenu::CreatePopupContents(UI::ViewGroup *parent) {
 	items->Add(new Choice(dev->T("Toggle Freeze")))->OnClick.Handle(this, &DevMenu::OnFreezeFrame);
 	items->Add(new Choice(dev->T("Dump Frame GPU Commands")))->OnClick.Handle(this, &DevMenu::OnDumpFrame);
 	items->Add(new Choice(dev->T("Toggle Audio Debug")))->OnClick.Handle(this, &DevMenu::OnToggleAudioDebug);
-	items->Add(new Choice(" ")); //Workaround for scrollView
 
 	scroll->Add(items);
 	parent->Add(scroll);

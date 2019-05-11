@@ -995,7 +995,7 @@ static inline void CalculateSamplingParams(const float ds, const float dt, const
 		break;
 	case GE_TEXLEVEL_MODE_CONST:
 	default:
-		// Unused value 3 operates the same as CONST. // No it doesn't.
+		// Unused value 3 operates the same as CONST.
 		detail = 0;
 		break;
 	}

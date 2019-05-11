@@ -69,6 +69,7 @@ enum DoLightComputation {
 	LIGHT_FULL,
 };
 
+
 // Depth range and viewport
 //
 // After the multiplication with the projection matrix, we have a 4D vector in clip space.
@@ -98,7 +99,6 @@ enum DoLightComputation {
 // TODO: Skip all this if we can actually get a 16-bit depth buffer along with stencil, which
 // is a bit of a rare configuration, although quite common on mobile.
 
-// NOTE: We are skipping the bottom check. This fixes TOCA but I am dubious about it...
 
 void GenerateVertexShader(const VShaderID &id, char *buffer, uint32_t *attrMask, uint64_t *uniformMask) {
 	char *p = buffer;
