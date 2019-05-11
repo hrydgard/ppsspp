@@ -157,6 +157,7 @@ bool GameManager::InstallGame(std::string zipfile, bool deleteAfter) {
 	// First, find all the directories, and precreate them before we fill in with files.
 	// Also, verify that this is a PSP zip file with the correct layout.
 	bool isPSP = false;
+	bool isIsoOrCso = false;
 	int stripChars = 0;
 
 	for (int i = 0; i < numFiles; i++) {
@@ -179,11 +180,13 @@ bool GameManager::InstallGame(std::string zipfile, bool deleteAfter) {
 			} else {
 				INFO_LOG(HLE, "Wrong number of slashes (%i) in %s", slashCount, zippedName.c_str());
 			}
+		} else if (zippedName.find(".cso") != std::string::npos || zippedName.find(".iso") != std::string::npos) {			
+			isIsoOrCso = true;
 		}
 	}
 
-	if (!isPSP) {
-		ERROR_LOG(HLE, "File not a PSP game, no EBOOT.PBP found.");
+	if (!isPSP && !isIsoOrCso) {
+		ERROR_LOG(HLE, "File not a PSP game, no EBOOT.PBP or ISO/CSO found.");
 		installProgress_ = 0.0f;
 		installInProgress_ = false;
 		installError_ = sy->T("Not a PSP game");
@@ -209,7 +212,7 @@ bool GameManager::InstallGame(std::string zipfile, bool deleteAfter) {
 			File::CreateFullPath(outFilename.c_str());
 			createdDirs.insert(outFilename);
 		}
-		if (!isDir && strchr(fn, '/') != 0) {
+		if ((!isDir && strchr(fn, '/') != 0) || isIsoOrCso) {
 			struct zip_stat zstat;
 			if (zip_stat_index(z, i, 0, &zstat) >= 0) {
 				allBytes += zstat.size;
@@ -222,8 +225,8 @@ bool GameManager::InstallGame(std::string zipfile, bool deleteAfter) {
 	for (int i = 0; i < numFiles; i++) {
 		const char *fn = zip_get_name(z, i, 0);
 		// Note that we do NOT write files that are not in a directory, to avoid random
-		// README files etc.
-		if (strchr(fn, '/') != 0) {
+		// README files etc, unless it contains a iso or cso file.
+		if (strchr(fn, '/') != 0 || isIsoOrCso) {
 			struct zip_stat zstat;
 			zip_stat_index(z, i, 0, &zstat);
 			size_t size = zstat.size;
