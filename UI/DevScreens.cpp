@@ -47,7 +47,11 @@
 #ifdef _WIN32
 #include "Common/CommonWindows.h"
 // Want to avoid including the full header here as it includes d3dx.h
+#if PPSSPP_API(D3DX9)
 int GetD3DXVersion();
+#elif PPSSPP_API(D3D9_D3DCOMPILER)
+int GetD3DCompilerVersion();
+#endif
 #endif
 
 static const char *logLevelList[] = {
@@ -464,7 +468,11 @@ void SystemInfoScreen::CreateViews() {
 		deviceSpecs->Add(new InfoItem(si->T("Driver Version"), System_GetProperty(SYSPROP_GPUDRIVER_VERSION)));
 #if !PPSSPP_PLATFORM(UWP)
 	if (GetGPUBackend() == GPUBackend::DIRECT3D9) {
+#if PPSSPP_API(D3DX9)
 		deviceSpecs->Add(new InfoItem(si->T("D3DX Version"), StringFromFormat("%d", GetD3DXVersion())));
+#elif PPSSPP_API(D3D9_D3DCOMPILER)
+		deviceSpecs->Add(new InfoItem(si->T("D3DCompiler Version"), StringFromFormat("%d", GetD3DCompilerVersion())));
+#endif
 	}
 #endif
 #endif

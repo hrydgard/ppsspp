@@ -347,6 +347,9 @@
     <ClInclude Include="data\base64.h">
       <Filter>data</Filter>
     </ClInclude>
+    <ClInclude Include="thin3d\d3d9_d3dcompiler_loader.h">
+      <Filter>thin3d</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="gfx\gl_debug_log.cpp">
@@ -825,6 +828,9 @@
     </ClCompile>
     <ClCompile Include="data\base64.cpp">
       <Filter>data</Filter>
+    </ClCompile>
+    <ClCompile Include="thin3d\d3d9_d3dcompiler_loader.cpp">
+      <Filter>thin3d</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
