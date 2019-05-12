@@ -1410,7 +1410,7 @@ namespace MainWindow {
 			break;
 		}
 
-#if PPSSPP_API(ANY_GL)
+#if !PPSSPP_API(ANY_GL)
 		EnableMenuItem(menu, ID_DEBUG_GEDEBUGGER, MF_GRAYED);
 #endif
 

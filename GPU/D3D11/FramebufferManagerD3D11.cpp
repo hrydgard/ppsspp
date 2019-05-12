@@ -24,7 +24,6 @@
 #include "base/basictypes.h"
 #include "file/vfs.h"
 #include "file/zip_read.h"
-#include "i18n/i18n.h"
 
 #include "Common/ColorConv.h"
 #include "Common/MathUtil.h"
