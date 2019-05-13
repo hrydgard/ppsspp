@@ -132,14 +132,22 @@ if exist "%WIN_VERSION_FILE%" (
 
 set WIN_RELEASE_VERSION=0
 set WIN_BUILD_NUMBER=0
-for /f "tokens=1 delims=-" %%a in ("%GIT_VERSION:~1%") do set WIN_RELEASE_VERSION=%%a
-for /f "tokens=2 delims=-" %%a in ("%GIT_VERSION%") do set WIN_BUILD_NUMBER=%%a
+
+if /i "%GIT_VERSION:~0,1%" == "v" (
+	rem // Official releases with version tags
+	for /f "tokens=1 delims=-" %%a in ("%GIT_VERSION:~1%") do set WIN_RELEASE_VERSION=%%a
+	for /f "tokens=2 delims=-" %%a in ("%GIT_VERSION%") do set WIN_BUILD_NUMBER=%%a
+	set WIN_VERSION_COMMA=!WIN_RELEASE_VERSION:.=,!,!WIN_BUILD_NUMBER!
+) else (
+	rem // Normal commits
+	set WIN_VERSION_COMMA=0,0,0x%GIT_VERSION:~0,4%,0x%GIT_VERSION:~4,4%
+)
 
 echo // This is a generated file, by git-version-gen.cmd. > "%WIN_VERSION_FILE%"
 echo // GIT_VERSION=%GIT_VERSION% >> "%WIN_VERSION_FILE%"
 echo. >> "%WIN_VERSION_FILE%"
 echo #define PPSSPP_WIN_VERSION_STRING "%GIT_VERSION%" >> "%WIN_VERSION_FILE%"
-echo #define PPSSPP_WIN_VERSION_COMMA %WIN_RELEASE_VERSION:.=,%,%WIN_BUILD_NUMBER% >> "%WIN_VERSION_FILE%"
+echo #define PPSSPP_WIN_VERSION_COMMA %WIN_VERSION_COMMA% >> "%WIN_VERSION_FILE%"
 echo. >> "%WIN_VERSION_FILE%"
 echo // If you don't want this file to update/recompile, change to 1. >> "%WIN_VERSION_FILE%"
 echo #define PPSSPP_WIN_VERSION_NO_UPDATE 0 >> "%WIN_VERSION_FILE%"
