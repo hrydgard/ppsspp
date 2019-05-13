@@ -47,6 +47,7 @@ std::string GetCPUBrandString() {
 			cpu_string = ConvertWStringToUTF8((wchar_t*)buff);
 			free(buff);
 		}
+		RegCloseKey(key);
 	}
 
 	if (cpu_string.empty())
