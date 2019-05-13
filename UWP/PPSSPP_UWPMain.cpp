@@ -368,12 +368,16 @@ int System_GetPropertyInt(SystemProperty prop) {
 	case SYSPROP_DISPLAY_REFRESH_RATE:
 		return 60000;
 	case SYSPROP_DEVICE_TYPE:
-		// TODO: Detect touch screen instead.
-#ifdef _M_ARM
-		return DEVICE_TYPE_MOBILE;
-#else
-		return DEVICE_TYPE_DESKTOP;
-#endif
+	{
+		auto ver = Windows::System::Profile::AnalyticsInfo::VersionInfo;
+		if (ver->DeviceFamily == "Windows.Mobile") {
+			return DEVICE_TYPE_MOBILE;
+		} else if (ver->DeviceFamily == "Windows.Xbox") {
+			return DEVICE_TYPE_TV;
+		} else {
+			return DEVICE_TYPE_DESKTOP;
+		}
+	}
 	default:
 		return -1;
 	}
