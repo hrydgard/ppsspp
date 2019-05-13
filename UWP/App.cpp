@@ -6,6 +6,9 @@
 #include <mutex>
 
 #include "input/input_state.h"
+#include "base/NativeApp.h"
+#include "Core/System.h"
+#include "Core/Core.h"
 
 #include <ppltasks.h>
 
@@ -149,7 +152,7 @@ void App::OnPointerPressed(Windows::UI::Core::CoreWindow^ sender, Windows::UI::C
 	int64_t timestamp = args->CurrentPoint->Timestamp;
 	m_main->OnTouchEvent(TOUCH_DOWN|TOUCH_MOVE, pointerId, X, Y, timestamp);
 #if !PPSSPP_ARCH(ARM)
-	sender->SetPointerCapture();
+		sender->SetPointerCapture();
 #endif
 }
 
@@ -237,8 +240,20 @@ void App::OnResuming(Platform::Object^ sender, Platform::Object^ args) {
 // Window event handlers.
 
 void App::OnWindowSizeChanged(CoreWindow^ sender, WindowSizeChangedEventArgs^ args) {
-	m_deviceResources->SetLogicalSize(Size(sender->Bounds.Width, sender->Bounds.Height));
+	int width = sender->Bounds.Width;
+	int height = sender->Bounds.Height;
+	float scale = m_deviceResources->GetDpi() / 96.0f;
+
+	m_deviceResources->SetLogicalSize(Size(width, height));
 	m_main->CreateWindowSizeDependentResources();
+
+	PSP_CoreParameter().pixelWidth = width * scale;
+	PSP_CoreParameter().pixelHeight = height * scale;
+
+	if (UpdateScreenScale(width, height)) {
+		NativeMessageReceived("gpu_resized", "");
+	}
+
 }
 
 void App::OnVisibilityChanged(CoreWindow^ sender, VisibilityChangedEventArgs^ args) {

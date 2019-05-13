@@ -150,7 +150,7 @@ static bool IsWindowSmall(int pixelWidth, int pixelHeight) {
 // TODO: Feels like this belongs elsewhere.
 bool UpdateScreenScale(int width, int height) {
 	bool smallWindow;
-#ifdef _WIN32
+#if PPSSPP_PLATFORM(WINDOWS) && !PPSSPP_PLATFORM(UWP)
 	g_dpi = (float)System_GetPropertyInt(SYSPROP_DISPLAY_DPI);
 	g_dpi_scale_x = 96.0f / g_dpi;
 	g_dpi_scale_y = 96.0f / g_dpi;
