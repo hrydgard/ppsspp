@@ -457,7 +457,12 @@ public abstract class NativeActivity extends Activity implements SurfaceHolder.C
 
 		DisplayMetrics metrics = new DisplayMetrics();
 		if (useImmersive() && Build.VERSION.SDK_INT >= Build.VERSION_CODES.JELLY_BEAN_MR1) {
-			display.getRealMetrics(metrics);
+			if (Build.VERSION.SDK_INT < Build.VERSION_CODES.N || !isInMultiWindowMode()) {
+				display.getRealMetrics(metrics);
+			} else {
+				// multi-window mode
+				display.getMetrics(metrics);
+			}
 		} else {
 			display.getMetrics(metrics);
 		}
@@ -568,7 +573,6 @@ public abstract class NativeActivity extends Activity implements SurfaceHolder.C
 		}
 
 		Log.d(TAG, "Surface created. pixelWidth=" + pixelWidth + ", pixelHeight=" + pixelHeight + " holder: " + holder.toString() + " or: " + requestedOr);
-		NativeApp.setDisplayParameters(pixelWidth, pixelHeight, (int) densityDpi, refreshRate);
 		getDesiredBackbufferSize(desiredSize);
 
 		// Note that desiredSize might be 0,0 here - but that's fine when calling setFixedSize! It means auto.
@@ -786,6 +790,14 @@ public abstract class NativeActivity extends Activity implements SurfaceHolder.C
 		if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.JELLY_BEAN_MR1) {
 			densityDpi = (float) newConfig.densityDpi;
 		}
+	}
+
+	@Override
+	public void onMultiWindowModeChanged(boolean isInMultiWindowMode, Configuration newConfig) {
+		// onConfigurationChanged not called on multi-window change
+		Log.i(TAG, "onMultiWindowModeChanged: isInMultiWindowMode = " + isInMultiWindowMode);
+		super.onMultiWindowModeChanged(isInMultiWindowMode, newConfig);
+		updateDisplayMeasurements();
 	}
 
 	// keep this static so we can call this even if we don't
