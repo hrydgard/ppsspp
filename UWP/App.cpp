@@ -6,6 +6,9 @@
 #include <mutex>
 
 #include "input/input_state.h"
+#include "base/NativeApp.h"
+#include "Core/System.h"
+#include "Core/Core.h"
 
 #include <ppltasks.h>
 
@@ -92,6 +95,9 @@ void App::SetWindow(CoreWindow^ window) {
 
 	if (Windows::Foundation::Metadata::ApiInformation::IsTypePresent("Windows.Phone.UI.Input.HardwareButtons")) {
 		m_hardwareButtons.insert(HardwareButton::BACK);
+	}
+
+	if (Windows::System::Profile::AnalyticsInfo::VersionInfo->DeviceFamily == "Windows.Mobile") {
 		m_isPhone = true;
 	}
 
@@ -104,7 +110,10 @@ void App::SetWindow(CoreWindow^ window) {
 }
 
 bool App::HasBackButton() {
-	return m_isPhone;
+	if (m_hardwareButtons.count(HardwareButton::BACK) != 0)
+		return true;
+	else
+		return false;
 }
 
 void App::App_BackRequested(Platform::Object^ sender, Windows::UI::Core::BackRequestedEventArgs^ e) {
@@ -148,9 +157,9 @@ void App::OnPointerPressed(Windows::UI::Core::CoreWindow^ sender, Windows::UI::C
 	float Y = args->CurrentPoint->Position.Y;
 	int64_t timestamp = args->CurrentPoint->Timestamp;
 	m_main->OnTouchEvent(TOUCH_DOWN|TOUCH_MOVE, pointerId, X, Y, timestamp);
-#if !PPSSPP_ARCH(ARM)
-	sender->SetPointerCapture();
-#endif
+	if (!m_isPhone) {
+		sender->SetPointerCapture();
+	}
 }
 
 void App::OnPointerReleased(Windows::UI::Core::CoreWindow^ sender, Windows::UI::Core::PointerEventArgs^ args) {
@@ -161,9 +170,9 @@ void App::OnPointerReleased(Windows::UI::Core::CoreWindow^ sender, Windows::UI::
 	float Y = args->CurrentPoint->Position.Y;
 	int64_t timestamp = args->CurrentPoint->Timestamp;
 	m_main->OnTouchEvent(TOUCH_UP|TOUCH_MOVE, pointerId, X, Y, timestamp);
-#if !PPSSPP_ARCH(ARM)
-	sender->ReleasePointerCapture();
-#endif
+	if (!m_isPhone) {
+		sender->ReleasePointerCapture();
+	}
 }
 
 void App::OnPointerCaptureLost(Windows::UI::Core::CoreWindow^ sender, Windows::UI::Core::PointerEventArgs^ args) {
@@ -208,9 +217,9 @@ void App::OnActivated(CoreApplicationView^ applicationView, IActivatedEventArgs^
 	// Run() won't start until the CoreWindow is activated.
 	CoreWindow::GetForCurrentThread()->Activate();
 	// On mobile, we force-enter fullscreen mode.
-#ifdef _ARM
-	Windows::UI::ViewManagement::ApplicationView::GetForCurrentView()->TryEnterFullScreenMode();
-#endif
+	if (m_isPhone) {
+		Windows::UI::ViewManagement::ApplicationView::GetForCurrentView()->TryEnterFullScreenMode();
+	}
 }
 
 void App::OnSuspending(Platform::Object^ sender, SuspendingEventArgs^ args) {
@@ -237,8 +246,20 @@ void App::OnResuming(Platform::Object^ sender, Platform::Object^ args) {
 // Window event handlers.
 
 void App::OnWindowSizeChanged(CoreWindow^ sender, WindowSizeChangedEventArgs^ args) {
-	m_deviceResources->SetLogicalSize(Size(sender->Bounds.Width, sender->Bounds.Height));
+	int width = sender->Bounds.Width;
+	int height = sender->Bounds.Height;
+	float scale = m_deviceResources->GetDpi() / 96.0f;
+
+	m_deviceResources->SetLogicalSize(Size(width, height));
 	m_main->CreateWindowSizeDependentResources();
+
+	PSP_CoreParameter().pixelWidth = width * scale;
+	PSP_CoreParameter().pixelHeight = height * scale;
+
+	if (UpdateScreenScale(width, height)) {
+		NativeMessageReceived("gpu_resized", "");
+	}
+
 }
 
 void App::OnVisibilityChanged(CoreWindow^ sender, VisibilityChangedEventArgs^ args) {
