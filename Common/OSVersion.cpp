@@ -132,8 +132,10 @@ std::string GetWindowsSystemArchitecture() {
 		return "(x64)";
 	case PROCESSOR_ARCHITECTURE_ARM:
 		return "(ARM)";
+#ifdef PROCESSOR_ARCHITECTURE_ARM64
 	case PROCESSOR_ARCHITECTURE_ARM64:
 		return "(ARM64)";
+#endif
 	default:
 		return "(Unknown)";
 	}
