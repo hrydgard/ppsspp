@@ -36,10 +36,10 @@ LoadD3D11Error LoadD3D11() {
 	}
 
 	g_D3DCompileModule = LoadLibrary(D3DCOMPILER_DLL);
-#if PPSSPP_PLATFORM(32BIT)
+#if PPSSPP_ARCH(X86)
 	// Workaround for distributing both 32-bit and 64-bit versions of the DLL.
 	if (!g_D3DCompileModule)
-		g_D3DCompileModule = LoadLibrary("D3dcompiler_47.x86.dll");
+		g_D3DCompileModule = LoadLibrary(L"D3dcompiler_47.x86.dll");
 #endif
 	if (!g_D3DCompileModule)
 		g_D3DCompileModule = LoadLibrary(L"D3dcompiler_42.dll");
