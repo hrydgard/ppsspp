@@ -379,7 +379,6 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClInclude Include="..\..\ext\native\base\arch.h" />
     <ClInclude Include="..\..\ext\native\base\backtrace.h" />
     <ClInclude Include="..\..\ext\native\base\basictypes.h" />
     <ClInclude Include="..\..\ext\native\base\buffer.h" />
