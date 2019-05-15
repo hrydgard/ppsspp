@@ -2,7 +2,7 @@
 
 #include <cstring>
 
-#include "base/arch.h"
+#include "ppsspp_config.h"
 #include "base/backtrace.h"
 
 // Simple wrapper around Android's logging interface that also allows other

@@ -478,9 +478,6 @@
   <ItemGroup>
     <ClInclude Include="pch.h" />
     <ClInclude Include="targetver.h" />
-    <ClInclude Include="..\..\ext\native\base\arch.h">
-      <Filter>base</Filter>
-    </ClInclude>
     <ClInclude Include="..\..\ext\native\base\backtrace.h">
       <Filter>base</Filter>
     </ClInclude>
