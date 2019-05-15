@@ -123,10 +123,15 @@ bool D3D11Context::Init(HINSTANCE hInst, HWND wnd, std::string *error_message) {
 				}
 			}
 
-			chosenAdapterName = adapterNames[chosenAdapter];
-			hr = CreateTheDevice(adapters[chosenAdapter]);
-			for (int i = 0; i < (int)adapters.size(); i++) {
-				adapters[i]->Release();
+			if (!adapters.empty()) {
+				chosenAdapterName = adapterNames[chosenAdapter];
+				hr = CreateTheDevice(adapters[chosenAdapter]);
+				for (int i = 0; i < (int)adapters.size(); i++) {
+					adapters[i]->Release();
+				}
+			} else {
+				// No adapters found. Trip the error path below.
+				hr = E_FAIL;
 			}
 		}
 	}
