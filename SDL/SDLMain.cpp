@@ -118,6 +118,8 @@ void System_SendMessage(const char *command, const char *parameter) {
 	} else if (!strcmp(command, "graphics_restart")) {
 		// Not sure how we best do this, but do a clean exit, better than being stuck in a bad state.
 		g_QuitRequested = true;
+	} else if (!strcmp(command, "setclipboardtext")) {
+		SDL_SetClipboardText(parameter);
 	}
 }
 
@@ -207,6 +209,8 @@ std::string System_GetProperty(SystemProperty prop) {
 		}
 		return "en_US";
 	}
+	case SYSPROP_CLIPBOARD_TEXT:
+		return SDL_HasClipboardText() ? SDL_GetClipboardText() : "";
 	default:
 		return "";
 	}
