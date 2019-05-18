@@ -6,6 +6,7 @@
 // Currently supports: Android, Linux, Windows, Mac OSX
 
 #include <QApplication>
+#include <QClipboard>
 #include <QDesktopWidget>
 #include <QDesktopServices>
 #include <QDir>
@@ -67,6 +68,8 @@ std::string System_GetProperty(SystemProperty prop) {
 #endif
 	case SYSPROP_LANGREGION:
 		return QLocale::system().name().toStdString();
+	case SYSPROP_CLIPBOARD_TEXT:
+		return QApplication::clipboard()->text().toStdString();
 	default:
 		return "";
 	}
@@ -122,6 +125,8 @@ void System_SendMessage(const char *command, const char *parameter) {
 	} else if (!strcmp(command, "graphics_restart")) {
 		// Should find a way to properly restart the app.
 		qApp->exit(0);
+	} else if (!strcmp(command, "setclipboardtext")) {
+		QApplication::clipboard()->setText(parameter);
 	}
 }
 
