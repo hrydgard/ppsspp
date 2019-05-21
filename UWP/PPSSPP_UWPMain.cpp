@@ -432,6 +432,10 @@ void System_SendMessage(const char *command, const char *parameter) {
 	}
 }
 
+void OpenDirectory(const char *path) {
+	// Unsupported
+}
+
 void LaunchBrowser(const char *url) {
 	auto uri = ref new Windows::Foundation::Uri(ToPlatformString(url));
 
