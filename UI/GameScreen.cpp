@@ -134,7 +134,7 @@ void GameScreen::CreateViews() {
 	if (isRecentGame(gamePath_)) {
 		rightColumnItems->Add(AddOtherChoice(new Choice(ga->T("Remove From Recent"))))->OnClick.Handle(this, &GameScreen::OnRemoveFromRecent);
 	}
-#ifdef _WIN32
+#if PPSSPP_PLATFORM(WINDOWS) && !PPSSPP_PLATFORM(UWP)
 	rightColumnItems->Add(AddOtherChoice(new Choice(ga->T("Show In Folder"))))->OnClick.Handle(this, &GameScreen::OnShowInFolder);
 #endif
 	if (g_Config.bEnableCheats) {
@@ -261,10 +261,7 @@ void GameScreen::render() {
 }
 
 UI::EventReturn GameScreen::OnShowInFolder(UI::EventParams &e) {
-#if defined(_WIN32) && !PPSSPP_PLATFORM(UWP)
-	std::string str = std::string("explorer.exe /select,\"") + ReplaceAll(gamePath_, "/", "\\") + "\"";
-	_wsystem(ConvertUTF8ToWString(str).c_str());
-#endif
+	OpenDirectory(gamePath_.c_str());
 	return UI::EVENT_DONE;
 }
 

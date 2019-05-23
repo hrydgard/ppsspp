@@ -114,6 +114,7 @@ enum {
 	HAPTIC_LONG_PRESS_ACTIVATED = -3,
 };
 void Vibrate(int length_ms);
+void OpenDirectory(const char *path);
 void LaunchBrowser(const char *url);
 void LaunchMarket(const char *url);
 void LaunchEmail(const char *email_address);

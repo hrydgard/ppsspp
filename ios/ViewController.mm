@@ -693,6 +693,10 @@ static GraphicsContext *graphicsContext;
 
 @end
 
+void OpenDirectory(const char *path) {
+	// Unsupported
+}
+
 void LaunchBrowser(char const* url)
 {
 	[[UIApplication sharedApplication] openURL:[NSURL URLWithString:[NSString stringWithCString:url encoding:NSStringEncodingConversionAllowLossy]]];

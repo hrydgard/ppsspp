@@ -126,6 +126,16 @@ void System_SendMessage(const char *command, const char *parameter) {
 void System_AskForPermission(SystemPermission permission) {}
 PermissionStatus System_GetPermissionStatus(SystemPermission permission) { return PERMISSION_STATUS_GRANTED; }
 
+void OpenDirectory(const char *path) {
+#if defined(_WIN32)
+	PIDLIST_ABSOLUTE pidl = ILCreateFromPath(ConvertUTF8ToWString(ReplaceAll(path, "/", "\\")).c_str());
+	if (pidl) {
+		SHOpenFolderAndSelectItems(pidl, 0, NULL, 0);
+		ILFree(pidl);
+	}
+#endif
+}
+
 void LaunchBrowser(const char *url) {
 #if defined(MOBILE_DEVICE)
 	ILOG("Would have gone to %s but LaunchBrowser is not implemented on this platform", url);

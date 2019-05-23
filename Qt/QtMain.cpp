@@ -149,6 +149,10 @@ void Vibrate(int length_ms) {
 		length_ms = 25;
 }
 
+void OpenDirectory(const char *path) {
+	// Unsupported
+}
+
 void LaunchBrowser(const char *url)
 {
 	QDesktopServices::openUrl(QUrl(url));
