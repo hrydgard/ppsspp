@@ -74,7 +74,7 @@ std::string WordWrapper::Wrapped() {
 	return out_;
 }
 
-void WordWrapper::WrapBeforeWord() {
+bool WordWrapper::WrapBeforeWord() {
 	if (x_ + wordWidth_ > maxW_ && out_.size() > 0) {
 		if (IsShy(out_[out_.size() - 1])) {
 			// Soft hyphen, replace it with a real hyphen since we wrapped at it.
@@ -82,24 +82,37 @@ void WordWrapper::WrapBeforeWord() {
 			out_[out_.size() - 1] = '-';
 		}
 		out_ += "\n";
-		lastLineStart_ = (int)out_.size();
+		lastLineStart_ = out_.size();
 		x_ = 0.0f;
 		forceEarlyWrap_ = false;
+		return true;
 	}
+	return false;
 }
 
 void WordWrapper::AppendWord(int endIndex, bool addNewline) {
-	WrapBeforeWord();
+	int nextWordIndex = lastIndex_;
+	if (WrapBeforeWord()) {
+		// Advance to the first non-whitespace UTF-8 character in the following word (if any) to prevent starting the new line with a whitespace
+		UTF8 utf8Word(str_, nextWordIndex);
+		while (nextWordIndex < endIndex) {
+			const uint32_t c = utf8Word.next();
+			if (!IsSpace(c)) {
+				break;
+			}
+			nextWordIndex = utf8Word.byteIndex();
+		}
+	}
 	// This will include the newline.
-	out_ += std::string(str_ + lastIndex_, endIndex - lastIndex_);
+	out_.append(str_ + nextWordIndex, str_ + endIndex);
 	if (addNewline) {
 		out_ += "\n";
-		lastLineStart_ = (int)out_.size();
+		lastLineStart_ = out_.size();
 	} else {
 		// We may have appended a newline - check.
 		size_t pos = out_.substr(lastLineStart_).find_last_of("\n");
 		if (pos != out_.npos) {
-			lastLineStart_ += (int)pos;
+			lastLineStart_ += pos;
 		}
 	}
 	lastIndex_ = endIndex;
