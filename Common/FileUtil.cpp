@@ -102,9 +102,9 @@ bool OpenCPPFile(std::fstream & stream, const std::string &filename, std::ios::o
 	return stream.is_open();
 }
 
-std::string ResolvePath(const std::string &path) {
 #ifdef _WIN32
-	typedef DWORD (WINAPI *getFinalPathNameByHandleW_f)(HANDLE hFile, LPWSTR lpszFilePath, DWORD cchFilePath, DWORD dwFlags);
+static bool ResolvePathVista(const std::wstring &path, wchar_t *buf, DWORD bufSize) {
+	typedef DWORD(WINAPI *getFinalPathNameByHandleW_f)(HANDLE hFile, LPWSTR lpszFilePath, DWORD cchFilePath, DWORD dwFlags);
 	static getFinalPathNameByHandleW_f getFinalPathNameByHandleW = nullptr;
 
 #if PPSSPP_PLATFORM(UWP)
@@ -116,28 +116,37 @@ std::string ResolvePath(const std::string &path) {
 	}
 #endif
 
+	if (getFinalPathNameByHandleW) {
+#if PPSSPP_PLATFORM(UWP)
+		HANDLE hFile = CreateFile2(path.c_str(), GENERIC_READ, FILE_SHARE_READ, OPEN_EXISTING, nullptr);
+#else
+		HANDLE hFile = CreateFile(path.c_str(), GENERIC_READ, FILE_SHARE_READ, nullptr, OPEN_EXISTING, FILE_FLAG_BACKUP_SEMANTICS, nullptr);
+#endif
+		if (hFile == INVALID_HANDLE_VALUE)
+			return false;
+
+		int result = getFinalPathNameByHandleW(hFile, buf, bufSize - 1, FILE_NAME_NORMALIZED | VOLUME_NAME_DOS);
+		CloseHandle(hFile);
+
+		return result < bufSize && result != 0;
+	}
+
+	return false;
+}
+#endif
+
+std::string ResolvePath(const std::string &path) {
+#ifdef _WIN32
 	static const int BUF_SIZE = 32768;
 	wchar_t *buf = new wchar_t[BUF_SIZE];
 	memset(buf, 0, BUF_SIZE);
 
 	std::wstring input = ConvertUTF8ToWString(path);
-	if (getFinalPathNameByHandleW) {
-#if PPSSPP_PLATFORM(UWP)
-		HANDLE hFile = CreateFile2(input.c_str(), GENERIC_READ, FILE_SHARE_READ, OPEN_EXISTING, nullptr);
-#else
-		HANDLE hFile = CreateFile(input.c_str(), GENERIC_READ, FILE_SHARE_READ, nullptr, OPEN_EXISTING, FILE_FLAG_BACKUP_SEMANTICS, nullptr);
-#endif
-		if (hFile == INVALID_HANDLE_VALUE) {
-			wcscpy_s(buf, BUF_SIZE - 1, input.c_str());
-		} else {
-			int result = getFinalPathNameByHandleW(hFile, buf, BUF_SIZE - 1, FILE_NAME_NORMALIZED | VOLUME_NAME_DOS);
-			if (result >= BUF_SIZE || result == 0)
-				wcscpy_s(buf, BUF_SIZE - 1, input.c_str());
-			CloseHandle(hFile);
-		}
-	} else {
+	// Try to resolve symlinks (such as Documents aliases, etc.) if possible on Vista and higher.
+	// For some paths and remote shares, this may fail, so fall back.
+	if (!ResolvePathVista(input, buf, BUF_SIZE)) {
 		wchar_t *longBuf = new wchar_t[BUF_SIZE];
-		memset(buf, 0, BUF_SIZE);
+		memset(longBuf, 0, BUF_SIZE);
 
 		int result = GetLongPathNameW(input.c_str(), longBuf, BUF_SIZE - 1);
 		if (result >= BUF_SIZE || result == 0)
@@ -148,17 +157,19 @@ std::string ResolvePath(const std::string &path) {
 			wcscpy_s(buf, BUF_SIZE - 1, input.c_str());
 
 		delete [] longBuf;
-
-		// Normalize slashes just in case.
-		for (int i = 0; i < BUF_SIZE; ++i) {
-			if (buf[i] == '\\')
-				buf[i] = '/';
-		}
 	}
 
-	// Undo the \\?\C:\ syntax that's normally returned.
+	// Normalize slashes just in case.
+	for (int i = 0; i < BUF_SIZE; ++i) {
+		if (buf[i] == '\\')
+			buf[i] = '/';
+		else if (buf[i] == '\0')
+			break;
+	}
+
+	// Undo the \\?\C:\ syntax that's normally returned (after normalization of slashes.)
 	std::string output = ConvertWStringToUTF8(buf);
-	if (buf[0] == '\\' && buf[1] == '\\' && buf[2] == '?' && buf[3] == '\\' && isalpha(buf[4]) && buf[5] == ':')
+	if (buf[0] == '/' && buf[1] == '/' && buf[2] == '?' && buf[3] == '/' && isalpha(buf[4]) && buf[5] == ':')
 		output = output.substr(4);
 	delete [] buf;
 	return output;

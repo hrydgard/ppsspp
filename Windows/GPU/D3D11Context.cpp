@@ -106,30 +106,37 @@ bool D3D11Context::Init(HINSTANCE hInst, HWND wnd, std::string *error_message) {
 	if (result == LoadD3D11Error::SUCCESS) {
 		std::vector<IDXGIAdapter *> adapters;
 		int chosenAdapter = 0;
+		IDXGIFactory* pFactory = nullptr;
 
-		IDXGIFactory * pFactory = nullptr;
-		ptr_CreateDXGIFactory(__uuidof(IDXGIFactory), (void**)&pFactory);
-
-		IDXGIAdapter *pAdapter;
-		for (UINT i = 0; pFactory->EnumAdapters(i, &pAdapter) != DXGI_ERROR_NOT_FOUND; i++) {
-			adapters.push_back(pAdapter);
-			DXGI_ADAPTER_DESC desc;
-			pAdapter->GetDesc(&desc);
-			std::string str = ConvertWStringToUTF8(desc.Description);
-			adapterNames.push_back(str);
-			if (str == g_Config.sD3D11Device) {
-				chosenAdapter = i;
+		hr = ptr_CreateDXGIFactory(__uuidof(IDXGIFactory), (void**)&pFactory);
+		if (SUCCEEDED(hr)) {
+			IDXGIAdapter* pAdapter;
+			for (UINT i = 0; pFactory->EnumAdapters(i, &pAdapter) != DXGI_ERROR_NOT_FOUND; i++) {
+				adapters.push_back(pAdapter);
+				DXGI_ADAPTER_DESC desc;
+				pAdapter->GetDesc(&desc);
+				std::string str = ConvertWStringToUTF8(desc.Description);
+				adapterNames.push_back(str);
+				if (str == g_Config.sD3D11Device) {
+					chosenAdapter = i;
+				}
 			}
-		}
-
-		chosenAdapterName = adapterNames[chosenAdapter];
-		hr = CreateTheDevice(adapters[chosenAdapter]);
-		for (int i = 0; i < (int)adapters.size(); i++) {
-			adapters[i]->Release();
+			if (!adapters.empty()) {
+				chosenAdapterName = adapterNames[chosenAdapter];
+				hr = CreateTheDevice(adapters[chosenAdapter]);
+				for (int i = 0; i < (int)adapters.size(); i++) {
+					adapters[i]->Release();
+				}
+			} else {
+				// No adapters found. Trip the error path below.
+				hr = E_FAIL;
+			}
+			pFactory->Release();
 		}
 	}
 
 	if (FAILED(hr)) {
+
 		const char *defaultError = "Your GPU does not appear to support Direct3D 11.\n\nWould you like to try again using Direct3D 9 instead?";
 		I18NCategory *err = GetI18NCategory("Error");
 

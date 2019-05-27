@@ -1,3 +1,5 @@
+#include "ppsspp_config.h"
+
 #include "Common/CommonWindows.h"
 #include <d3d9.h>
 
@@ -16,7 +18,12 @@
 #include "Windows/W32Util/Misc.h"
 #include "thin3d/thin3d.h"
 #include "thin3d/thin3d_create.h"
+
+#if PPSSPP_API(D3DX9)
 #include "thin3d/d3dx9_loader.h"
+#elif PPSSPP_API(D3D9_D3DCOMPILER)
+#include "thin3d/d3d9_d3dcompiler_loader.h"
+#endif
 
 void D3D9Context::SwapBuffers() {
 	if (has9Ex_) {
@@ -64,11 +71,19 @@ bool D3D9Context::Init(HINSTANCE hInst, HWND wnd, std::string *error_message) {
 		return false;
 	}
 
+#if PPSSPP_API(D3DX9)
 	int d3dx_version = LoadD3DX9Dynamic();
 	if (!d3dx_version) {
 		*error_message = "D3DX DLL not found! Try reinstalling DirectX.";
 		return false;
 	}
+#elif PPSSPP_API(D3D9_D3DCOMPILER)
+	bool result = LoadD3DCompilerDynamic();
+	if (!result) {
+		*error_message = "D3DCompiler not found! Try reinstalling DirectX.";
+		return false;
+	}
+#endif
 
 	g_pfnCreate9ex = (DIRECT3DCREATE9EX)GetProcAddress(hD3D9_, "Direct3DCreate9Ex");
 	has9Ex_ = (g_pfnCreate9ex != NULL) && IsVistaOrHigher();
@@ -208,7 +223,11 @@ void D3D9Context::Shutdown() {
 	device_->EndScene();
 	device_->Release();
 	d3d_->Release();
+#if PPSSPP_API(D3DX9)
 	UnloadD3DXDynamic();
+#elif PPSSPP_API(D3D9_D3DCOMPILER)
+	UnloadD3DCompiler();
+#endif
 	DX9::pD3Ddevice = nullptr;
 	DX9::pD3DdeviceEx = nullptr;
 	device_ = nullptr;

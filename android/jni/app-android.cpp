@@ -247,6 +247,10 @@ void Vibrate(int length_ms) {
 	PushCommand("vibrate", temp);
 }
 
+void OpenDirectory(const char *path) {
+	// Unsupported
+}
+
 void LaunchBrowser(const char *url) {
 	PushCommand("launchBrowser", url);
 }

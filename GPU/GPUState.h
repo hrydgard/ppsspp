@@ -173,10 +173,7 @@ struct GPUgstate {
 				blend,
 				blendfixa,
 				blendfixb,
-				dith1,
-				dith2,
-				dith3,
-				dith4,
+				dithmtx[4],
 				lop,                  // 0xE6
 				zmsk,
 				pmskc,
@@ -249,6 +246,11 @@ struct GPUgstate {
 
 	// Dither
 	bool isDitherEnabled() const { return ditherEnable & 1; }
+	int getDitherValue(int x, int y) const {
+		u8 raw = (dithmtx[y & 3] >> ((x & 3) * 4)) & 0xF;
+		// Apply sign extension to make 8-F negative, 0-7 positive.
+		return ((s8)(raw << 4)) >> 4;
+	}
 
 	// Color Mask
 	u32 getColorMask() const { return (pmskc & 0xFFFFFF) | ((pmska & 0xFF) << 24); }

@@ -26,6 +26,7 @@
 
 #include <Wbemidl.h>
 #include <shellapi.h>
+#include <ShlObj.h>
 #include <mmsystem.h>
 
 #include "base/NativeApp.h"
@@ -96,6 +97,14 @@ static std::string gpuDriverVersion;
 
 HMENU g_hPopupMenus;
 int g_activeWindow = 0;
+
+void OpenDirectory(const char *path) {
+	PIDLIST_ABSOLUTE pidl = ILCreateFromPath(ConvertUTF8ToWString(ReplaceAll(path, "/", "\\")).c_str());
+	if (pidl) {
+		SHOpenFolderAndSelectItems(pidl, 0, NULL, 0);
+		ILFree(pidl);
+	}
+}
 
 void LaunchBrowser(const char *url) {
 	ShellExecute(NULL, L"open", ConvertUTF8ToWString(url).c_str(), NULL, NULL, SW_SHOWNORMAL);

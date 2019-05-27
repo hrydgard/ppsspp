@@ -118,11 +118,23 @@ void System_SendMessage(const char *command, const char *parameter) {
 	} else if (!strcmp(command, "graphics_restart")) {
 		// Not sure how we best do this, but do a clean exit, better than being stuck in a bad state.
 		g_QuitRequested = true;
+	} else if (!strcmp(command, "setclipboardtext")) {
+		SDL_SetClipboardText(parameter);
 	}
 }
 
 void System_AskForPermission(SystemPermission permission) {}
 PermissionStatus System_GetPermissionStatus(SystemPermission permission) { return PERMISSION_STATUS_GRANTED; }
+
+void OpenDirectory(const char *path) {
+#if defined(_WIN32)
+	PIDLIST_ABSOLUTE pidl = ILCreateFromPath(ConvertUTF8ToWString(ReplaceAll(path, "/", "\\")).c_str());
+	if (pidl) {
+		SHOpenFolderAndSelectItems(pidl, 0, NULL, 0);
+		ILFree(pidl);
+	}
+#endif
+}
 
 void LaunchBrowser(const char *url) {
 #if defined(MOBILE_DEVICE)
@@ -207,6 +219,8 @@ std::string System_GetProperty(SystemProperty prop) {
 		}
 		return "en_US";
 	}
+	case SYSPROP_CLIPBOARD_TEXT:
+		return SDL_HasClipboardText() ? SDL_GetClipboardText() : "";
 	default:
 		return "";
 	}

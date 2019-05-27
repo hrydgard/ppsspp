@@ -2,6 +2,8 @@
 #include <cstdio>
 #include <cstdint>
 
+#include "ppsspp_config.h"
+
 #ifdef _DEBUG
 #define D3D_DEBUG_INFO
 #endif
@@ -10,15 +12,26 @@
 #ifdef USE_CRT_DBG
 #undef new
 #endif
+
+#if PPSSPP_API(D3DX9)
 #include <d3dx9.h>
 #ifdef USE_CRT_DBG
 #define new DBG_NEW
+#endif
+#include "thin3d/d3dx9_loader.h"
+
+// They are the same types, just different names.
+#define LPD3D_SHADER_MACRO LPD3DXMACRO
+#define LPD3DINCLUDE LPD3DXINCLUDE
+#define LPD3DBLOB LPD3DXBUFFER
+#elif PPSSPP_API(D3D9_D3DCOMPILER)
+#include <D3Dcompiler.h>
+#include "thin3d/d3d9_d3dcompiler_loader.h"
 #endif
 
 #include "base/logging.h"
 #include "math/lin/matrix4x4.h"
 #include "thin3d/thin3d.h"
-#include "thin3d/d3dx9_loader.h"
 #include "gfx/d3d9_state.h"
 
 namespace Draw {
@@ -969,14 +982,18 @@ void D3D9Context::SetStencilRef(uint8_t ref) {
 }
 
 bool D3D9ShaderModule::Compile(LPDIRECT3DDEVICE9 device, const uint8_t *data, size_t size) {
-	LPD3DXMACRO defines = nullptr;
-	LPD3DXINCLUDE includes = nullptr;
+	LPD3D_SHADER_MACRO defines = nullptr;
+	LPD3DINCLUDE includes = nullptr;
 	DWORD flags = 0;
-	LPD3DXBUFFER codeBuffer = nullptr;
-	LPD3DXBUFFER errorBuffer = nullptr;
+	LPD3DBLOB codeBuffer = nullptr;
+	LPD3DBLOB errorBuffer = nullptr;
 	const char *source = (const char *)data;
 	const char *profile = stage_ == ShaderStage::FRAGMENT ? "ps_2_0" : "vs_2_0";
+#if PPSSPP_API(D3DX9)
 	HRESULT hr = dyn_D3DXCompileShader(source, (UINT)strlen(source), defines, includes, "main", profile, flags, &codeBuffer, &errorBuffer, nullptr);
+#elif PPSSPP_API(D3D9_D3DCOMPILER)
+	HRESULT hr = dyn_D3DCompile(source, (UINT)strlen(source), nullptr, defines, includes, "main", profile, 0, 0, &codeBuffer, &errorBuffer);
+#endif
 	if (FAILED(hr)) {
 		const char *error = errorBuffer ? (const char *)errorBuffer->GetBufferPointer() : "(no errorbuffer returned)";
 		if (hr == ERROR_MOD_NOT_FOUND) {
@@ -1186,11 +1203,19 @@ void D3D9Context::HandleEvent(Event ev, int width, int height, void *param1, voi
 }
 
 DrawContext *T3DCreateDX9Context(IDirect3D9 *d3d, IDirect3D9Ex *d3dEx, int adapterId, IDirect3DDevice9 *device, IDirect3DDevice9Ex *deviceEx) {
+#if PPSSPP_API(D3DX9)
 	int d3dx_ver = LoadD3DX9Dynamic();
 	if (!d3dx_ver) {
 		ELOG("Failed to load D3DX9!");
 		return NULL;
 	}
+#elif PPSSPP_API(D3D9_D3DCOMPILER)
+	bool result = LoadD3DCompilerDynamic();
+	if (!result) {
+		ELOG("Failed to load D3DCompiler!");
+		return NULL;
+	}
+#endif
 	return new D3D9Context(d3d, d3dEx, adapterId, device, deviceEx);
 }
 

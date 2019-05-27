@@ -1,0 +1,11 @@
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ImportGroup Label="PropertySheets" />
+	<PropertyGroup Condition="'$(WindowsTargetPlatformVersion)'=='10.0'">
+	<!-- Latest Target Version property -->
+	<LatestTargetPlatformVersion>$([Microsoft.Build.Utilities.ToolLocationHelper]::GetLatestSDKTargetPlatformVersion('Windows', '10.0'))</LatestTargetPlatformVersion>
+	<WindowsTargetPlatformVersion Condition="'$(WindowsTargetPlatformVersion)' == '10.0'">$(LatestTargetPlatformVersion)</WindowsTargetPlatformVersion>
+	<TargetPlatformVersion>$(WindowsTargetPlatformVersion)</TargetPlatformVersion>
+	</PropertyGroup>
+	<ItemDefinitionGroup />
+  <ItemGroup />
+</Project>

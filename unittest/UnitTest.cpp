@@ -456,7 +456,7 @@ bool TestQuickTexHash() {
 	}
 	EXPECT_EQ_HEX(DoQuickTexHash(buf, BUF_SIZE), 0x58de8dbc);
 
-	return false;
+	return true;
 }
 
 typedef bool (*TestFunc)();
