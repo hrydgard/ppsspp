@@ -271,7 +271,7 @@ void SaveSlotView::Draw(UIContext &dc) {
 }
 
 static void AfterSaveStateAction(SaveState::Status status, const std::string &message, void *) {
-	if (!message.empty()) {
+	if (!message.empty() && !g_Config.bDumpFrames) {
 		osm.Show(message, status == SaveState::Status::SUCCESS ? 2.0 : 5.0);
 	}
 }
