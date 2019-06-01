@@ -446,6 +446,7 @@ copy AssetsGold\*.* Assets /Y
     <PreBuildEvent>
       <Command>
         robocopy "..\Assets\." "Content\." /xf *.vsh /E /R:0 /W:0
+        EXIT 0
       </Command>
     </PreBuildEvent>
   </ItemDefinitionGroup>
