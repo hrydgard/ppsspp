@@ -13,7 +13,7 @@ public:
 protected:
 	virtual float MeasureWidth(const char *str, size_t bytes) = 0;
 	void Wrap();
-	void WrapBeforeWord();
+	bool WrapBeforeWord();
 	void AppendWord(int endIndex, bool addNewline);
 
 	static bool IsCJK(uint32_t c);
@@ -27,7 +27,7 @@ protected:
 	// Index of last output / start of current word.
 	int lastIndex_ = 0;
 	// Index of last line start.
-	int lastLineStart_ = 0;
+	size_t lastLineStart_ = 0;
 	// Position the current word starts at.
 	float x_ = 0.0f;
 	// Most recent width of word since last index.
