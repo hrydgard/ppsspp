@@ -442,6 +442,14 @@ copy AssetsGold\*.* Assets /Y
 ../Windows/git-version-gen.cmd</Command>
     </PreBuildEvent>
   </ItemDefinitionGroup>
+  <ItemDefinitionGroup>
+    <PreBuildEvent>
+      <Command>
+        robocopy "..\Assets\." "Content\." /xf *.vsh /E /R:0 /W:0
+        EXIT 0
+      </Command>
+    </PreBuildEvent>
+  </ItemDefinitionGroup>
   <ItemGroup>
     <Image Include="AssetsGold\StoreLogo.scale-100.png">
       <DeploymentContent>true</DeploymentContent>
@@ -548,14 +556,404 @@ copy AssetsGold\*.* Assets /Y
     <None Include="Content\compat.ini">
       <DeploymentContent>true</DeploymentContent>
     </None>
+    <None Include="Content\flash0\font\jpn0.pgf">
+      <DeploymentContent Condition="'$(Configuration)|$(Platform)'=='UWP Gold|x64'">true</DeploymentContent>
+      <DeploymentContent Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</DeploymentContent>
+      <DeploymentContent Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</DeploymentContent>
+    </None>
+    <None Include="Content\flash0\font\kr0.pgf">
+      <DeploymentContent Condition="'$(Configuration)|$(Platform)'=='UWP Gold|x64'">true</DeploymentContent>
+      <DeploymentContent Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</DeploymentContent>
+      <DeploymentContent Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</DeploymentContent>
+    </None>
+    <None Include="Content\flash0\font\ltn0.pgf">
+      <DeploymentContent Condition="'$(Configuration)|$(Platform)'=='UWP Gold|x64'">true</DeploymentContent>
+      <DeploymentContent Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</DeploymentContent>
+      <DeploymentContent Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</DeploymentContent>
+    </None>
+    <None Include="Content\flash0\font\ltn1.pgf">
+      <DeploymentContent Condition="'$(Configuration)|$(Platform)'=='UWP Gold|x64'">true</DeploymentContent>
+      <DeploymentContent Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</DeploymentContent>
+      <DeploymentContent Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</DeploymentContent>
+    </None>
+    <None Include="Content\flash0\font\ltn10.pgf">
+      <DeploymentContent Condition="'$(Configuration)|$(Platform)'=='UWP Gold|x64'">true</DeploymentContent>
+      <DeploymentContent Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</DeploymentContent>
+      <DeploymentContent Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</DeploymentContent>
+    </None>
+    <None Include="Content\flash0\font\ltn11.pgf">
+      <DeploymentContent Condition="'$(Configuration)|$(Platform)'=='UWP Gold|x64'">true</DeploymentContent>
+      <DeploymentContent Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</DeploymentContent>
+      <DeploymentContent Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</DeploymentContent>
+    </None>
+    <None Include="Content\flash0\font\ltn12.pgf">
+      <DeploymentContent Condition="'$(Configuration)|$(Platform)'=='UWP Gold|x64'">true</DeploymentContent>
+      <DeploymentContent Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</DeploymentContent>
+      <DeploymentContent Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</DeploymentContent>
+    </None>
+    <None Include="Content\flash0\font\ltn13.pgf">
+      <DeploymentContent Condition="'$(Configuration)|$(Platform)'=='UWP Gold|x64'">true</DeploymentContent>
+      <DeploymentContent Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</DeploymentContent>
+      <DeploymentContent Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</DeploymentContent>
+    </None>
+    <None Include="Content\flash0\font\ltn14.pgf">
+      <DeploymentContent Condition="'$(Configuration)|$(Platform)'=='UWP Gold|x64'">true</DeploymentContent>
+      <DeploymentContent Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</DeploymentContent>
+      <DeploymentContent Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</DeploymentContent>
+    </None>
+    <None Include="Content\flash0\font\ltn15.pgf">
+      <DeploymentContent Condition="'$(Configuration)|$(Platform)'=='UWP Gold|x64'">true</DeploymentContent>
+      <DeploymentContent Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</DeploymentContent>
+      <DeploymentContent Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</DeploymentContent>
+    </None>
+    <None Include="Content\flash0\font\ltn2.pgf">
+      <DeploymentContent Condition="'$(Configuration)|$(Platform)'=='UWP Gold|x64'">true</DeploymentContent>
+      <DeploymentContent Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</DeploymentContent>
+      <DeploymentContent Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</DeploymentContent>
+    </None>
+    <None Include="Content\flash0\font\ltn3.pgf">
+      <DeploymentContent Condition="'$(Configuration)|$(Platform)'=='UWP Gold|x64'">true</DeploymentContent>
+      <DeploymentContent Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</DeploymentContent>
+      <DeploymentContent Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</DeploymentContent>
+    </None>
+    <None Include="Content\flash0\font\ltn4.pgf">
+      <DeploymentContent Condition="'$(Configuration)|$(Platform)'=='UWP Gold|x64'">true</DeploymentContent>
+      <DeploymentContent Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</DeploymentContent>
+      <DeploymentContent Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</DeploymentContent>
+    </None>
+    <None Include="Content\flash0\font\ltn5.pgf">
+      <DeploymentContent Condition="'$(Configuration)|$(Platform)'=='UWP Gold|x64'">true</DeploymentContent>
+      <DeploymentContent Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</DeploymentContent>
+      <DeploymentContent Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</DeploymentContent>
+    </None>
+    <None Include="Content\flash0\font\ltn6.pgf">
+      <DeploymentContent Condition="'$(Configuration)|$(Platform)'=='UWP Gold|x64'">true</DeploymentContent>
+      <DeploymentContent Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</DeploymentContent>
+      <DeploymentContent Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</DeploymentContent>
+    </None>
+    <None Include="Content\flash0\font\ltn7.pgf">
+      <DeploymentContent Condition="'$(Configuration)|$(Platform)'=='UWP Gold|x64'">true</DeploymentContent>
+      <DeploymentContent Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</DeploymentContent>
+      <DeploymentContent Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</DeploymentContent>
+    </None>
+    <None Include="Content\flash0\font\ltn8.pgf">
+      <DeploymentContent Condition="'$(Configuration)|$(Platform)'=='UWP Gold|x64'">true</DeploymentContent>
+      <DeploymentContent Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</DeploymentContent>
+      <DeploymentContent Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</DeploymentContent>
+    </None>
+    <None Include="Content\flash0\font\ltn9.pgf">
+      <DeploymentContent Condition="'$(Configuration)|$(Platform)'=='UWP Gold|x64'">true</DeploymentContent>
+      <DeploymentContent Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</DeploymentContent>
+      <DeploymentContent Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</DeploymentContent>
+    </None>
     <None Include="Content\knownfuncs.ini">
       <DeploymentContent>true</DeploymentContent>
     </None>
     <None Include="Content\langregion.ini">
       <DeploymentContent>true</DeploymentContent>
     </None>
+    <None Include="Content\lang\ar_AE.ini">
+      <DeploymentContent Condition="'$(Configuration)|$(Platform)'=='UWP Gold|x64'">true</DeploymentContent>
+      <DeploymentContent Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</DeploymentContent>
+      <DeploymentContent Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</DeploymentContent>
+    </None>
+    <None Include="Content\lang\az_AZ.ini">
+      <DeploymentContent Condition="'$(Configuration)|$(Platform)'=='UWP Gold|x64'">true</DeploymentContent>
+      <DeploymentContent Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</DeploymentContent>
+      <DeploymentContent Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</DeploymentContent>
+    </None>
+    <None Include="Content\lang\bg_BG.ini">
+      <DeploymentContent Condition="'$(Configuration)|$(Platform)'=='UWP Gold|x64'">true</DeploymentContent>
+      <DeploymentContent Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</DeploymentContent>
+      <DeploymentContent Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</DeploymentContent>
+    </None>
+    <None Include="Content\lang\ca_ES.ini">
+      <DeploymentContent Condition="'$(Configuration)|$(Platform)'=='UWP Gold|x64'">true</DeploymentContent>
+      <DeploymentContent Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</DeploymentContent>
+      <DeploymentContent Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</DeploymentContent>
+    </None>
+    <None Include="Content\lang\cz_CZ.ini">
+      <DeploymentContent Condition="'$(Configuration)|$(Platform)'=='UWP Gold|x64'">true</DeploymentContent>
+      <DeploymentContent Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</DeploymentContent>
+      <DeploymentContent Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</DeploymentContent>
+    </None>
+    <None Include="Content\lang\da_DK.ini">
+      <DeploymentContent Condition="'$(Configuration)|$(Platform)'=='UWP Gold|x64'">true</DeploymentContent>
+      <DeploymentContent Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</DeploymentContent>
+      <DeploymentContent Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</DeploymentContent>
+    </None>
+    <None Include="Content\lang\de_DE.ini">
+      <DeploymentContent Condition="'$(Configuration)|$(Platform)'=='UWP Gold|x64'">true</DeploymentContent>
+      <DeploymentContent Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</DeploymentContent>
+      <DeploymentContent Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</DeploymentContent>
+    </None>
+    <None Include="Content\lang\dr_ID.ini">
+      <DeploymentContent Condition="'$(Configuration)|$(Platform)'=='UWP Gold|x64'">true</DeploymentContent>
+      <DeploymentContent Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</DeploymentContent>
+      <DeploymentContent Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</DeploymentContent>
+    </None>
+    <None Include="Content\lang\en_US.ini">
+      <DeploymentContent Condition="'$(Configuration)|$(Platform)'=='UWP Gold|x64'">true</DeploymentContent>
+      <DeploymentContent Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</DeploymentContent>
+      <DeploymentContent Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</DeploymentContent>
+    </None>
+    <None Include="Content\lang\es_ES.ini">
+      <DeploymentContent Condition="'$(Configuration)|$(Platform)'=='UWP Gold|x64'">true</DeploymentContent>
+      <DeploymentContent Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</DeploymentContent>
+      <DeploymentContent Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</DeploymentContent>
+    </None>
+    <None Include="Content\lang\es_LA.ini">
+      <DeploymentContent Condition="'$(Configuration)|$(Platform)'=='UWP Gold|x64'">true</DeploymentContent>
+      <DeploymentContent Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</DeploymentContent>
+      <DeploymentContent Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</DeploymentContent>
+    </None>
+    <None Include="Content\lang\fa_IR.ini">
+      <DeploymentContent Condition="'$(Configuration)|$(Platform)'=='UWP Gold|x64'">true</DeploymentContent>
+      <DeploymentContent Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</DeploymentContent>
+      <DeploymentContent Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</DeploymentContent>
+    </None>
+    <None Include="Content\lang\fi_FI.ini">
+      <DeploymentContent Condition="'$(Configuration)|$(Platform)'=='UWP Gold|x64'">true</DeploymentContent>
+      <DeploymentContent Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</DeploymentContent>
+      <DeploymentContent Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</DeploymentContent>
+    </None>
+    <None Include="Content\lang\fr_FR.ini">
+      <DeploymentContent Condition="'$(Configuration)|$(Platform)'=='UWP Gold|x64'">true</DeploymentContent>
+      <DeploymentContent Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</DeploymentContent>
+      <DeploymentContent Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</DeploymentContent>
+    </None>
+    <None Include="Content\lang\gl_ES.ini">
+      <DeploymentContent Condition="'$(Configuration)|$(Platform)'=='UWP Gold|x64'">true</DeploymentContent>
+      <DeploymentContent Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</DeploymentContent>
+      <DeploymentContent Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</DeploymentContent>
+    </None>
+    <None Include="Content\lang\gr_EL.ini">
+      <DeploymentContent Condition="'$(Configuration)|$(Platform)'=='UWP Gold|x64'">true</DeploymentContent>
+      <DeploymentContent Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</DeploymentContent>
+      <DeploymentContent Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</DeploymentContent>
+    </None>
+    <None Include="Content\lang\he_IL.ini">
+      <DeploymentContent Condition="'$(Configuration)|$(Platform)'=='UWP Gold|x64'">true</DeploymentContent>
+      <DeploymentContent Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</DeploymentContent>
+      <DeploymentContent Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</DeploymentContent>
+    </None>
+    <None Include="Content\lang\hu_HU.ini">
+      <DeploymentContent Condition="'$(Configuration)|$(Platform)'=='UWP Gold|x64'">true</DeploymentContent>
+      <DeploymentContent Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</DeploymentContent>
+      <DeploymentContent Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</DeploymentContent>
+    </None>
+    <None Include="Content\lang\id_ID.ini">
+      <DeploymentContent Condition="'$(Configuration)|$(Platform)'=='UWP Gold|x64'">true</DeploymentContent>
+      <DeploymentContent Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</DeploymentContent>
+      <DeploymentContent Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</DeploymentContent>
+    </None>
+    <None Include="Content\lang\it_IT.ini">
+      <DeploymentContent Condition="'$(Configuration)|$(Platform)'=='UWP Gold|x64'">true</DeploymentContent>
+      <DeploymentContent Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</DeploymentContent>
+      <DeploymentContent Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</DeploymentContent>
+    </None>
+    <None Include="Content\lang\ja_JP.ini">
+      <DeploymentContent Condition="'$(Configuration)|$(Platform)'=='UWP Gold|x64'">true</DeploymentContent>
+      <DeploymentContent Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</DeploymentContent>
+      <DeploymentContent Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</DeploymentContent>
+    </None>
+    <None Include="Content\lang\jv_ID.ini">
+      <DeploymentContent Condition="'$(Configuration)|$(Platform)'=='UWP Gold|x64'">true</DeploymentContent>
+      <DeploymentContent Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</DeploymentContent>
+      <DeploymentContent Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</DeploymentContent>
+    </None>
+    <None Include="Content\lang\ko_KR.ini">
+      <DeploymentContent Condition="'$(Configuration)|$(Platform)'=='UWP Gold|x64'">true</DeploymentContent>
+      <DeploymentContent Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</DeploymentContent>
+      <DeploymentContent Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</DeploymentContent>
+    </None>
+    <None Include="Content\lang\lo_LA.ini">
+      <DeploymentContent Condition="'$(Configuration)|$(Platform)'=='UWP Gold|x64'">true</DeploymentContent>
+      <DeploymentContent Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</DeploymentContent>
+      <DeploymentContent Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</DeploymentContent>
+    </None>
+    <None Include="Content\lang\lt-LT.ini">
+      <DeploymentContent Condition="'$(Configuration)|$(Platform)'=='UWP Gold|x64'">true</DeploymentContent>
+      <DeploymentContent Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</DeploymentContent>
+      <DeploymentContent Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</DeploymentContent>
+    </None>
+    <None Include="Content\lang\ms_MY.ini">
+      <DeploymentContent Condition="'$(Configuration)|$(Platform)'=='UWP Gold|x64'">true</DeploymentContent>
+      <DeploymentContent Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</DeploymentContent>
+      <DeploymentContent Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</DeploymentContent>
+    </None>
+    <None Include="Content\lang\nl_NL.ini">
+      <DeploymentContent Condition="'$(Configuration)|$(Platform)'=='UWP Gold|x64'">true</DeploymentContent>
+      <DeploymentContent Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</DeploymentContent>
+      <DeploymentContent Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</DeploymentContent>
+    </None>
+    <None Include="Content\lang\no_NO.ini">
+      <DeploymentContent Condition="'$(Configuration)|$(Platform)'=='UWP Gold|x64'">true</DeploymentContent>
+      <DeploymentContent Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</DeploymentContent>
+      <DeploymentContent Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</DeploymentContent>
+    </None>
+    <None Include="Content\lang\pl_PL.ini">
+      <DeploymentContent Condition="'$(Configuration)|$(Platform)'=='UWP Gold|x64'">true</DeploymentContent>
+      <DeploymentContent Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</DeploymentContent>
+      <DeploymentContent Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</DeploymentContent>
+    </None>
+    <None Include="Content\lang\pt_BR.ini">
+      <DeploymentContent Condition="'$(Configuration)|$(Platform)'=='UWP Gold|x64'">true</DeploymentContent>
+      <DeploymentContent Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</DeploymentContent>
+      <DeploymentContent Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</DeploymentContent>
+    </None>
+    <None Include="Content\lang\pt_PT.ini">
+      <DeploymentContent Condition="'$(Configuration)|$(Platform)'=='UWP Gold|x64'">true</DeploymentContent>
+      <DeploymentContent Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</DeploymentContent>
+      <DeploymentContent Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</DeploymentContent>
+    </None>
+    <None Include="Content\lang\ro_RO.ini">
+      <DeploymentContent Condition="'$(Configuration)|$(Platform)'=='UWP Gold|x64'">true</DeploymentContent>
+      <DeploymentContent Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</DeploymentContent>
+      <DeploymentContent Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</DeploymentContent>
+    </None>
+    <None Include="Content\lang\ru_RU.ini">
+      <DeploymentContent Condition="'$(Configuration)|$(Platform)'=='UWP Gold|x64'">true</DeploymentContent>
+      <DeploymentContent Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</DeploymentContent>
+      <DeploymentContent Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</DeploymentContent>
+    </None>
+    <None Include="Content\lang\sv_SE.ini">
+      <DeploymentContent Condition="'$(Configuration)|$(Platform)'=='UWP Gold|x64'">true</DeploymentContent>
+      <DeploymentContent Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</DeploymentContent>
+      <DeploymentContent Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</DeploymentContent>
+    </None>
+    <None Include="Content\lang\tg_PH.ini">
+      <DeploymentContent Condition="'$(Configuration)|$(Platform)'=='UWP Gold|x64'">true</DeploymentContent>
+      <DeploymentContent Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</DeploymentContent>
+      <DeploymentContent Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</DeploymentContent>
+    </None>
+    <None Include="Content\lang\th_TH.ini">
+      <DeploymentContent Condition="'$(Configuration)|$(Platform)'=='UWP Gold|x64'">true</DeploymentContent>
+      <DeploymentContent Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</DeploymentContent>
+      <DeploymentContent Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</DeploymentContent>
+    </None>
+    <None Include="Content\lang\tr_TR.ini">
+      <DeploymentContent Condition="'$(Configuration)|$(Platform)'=='UWP Gold|x64'">true</DeploymentContent>
+      <DeploymentContent Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</DeploymentContent>
+      <DeploymentContent Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</DeploymentContent>
+    </None>
+    <None Include="Content\lang\uk_UA.ini">
+      <DeploymentContent Condition="'$(Configuration)|$(Platform)'=='UWP Gold|x64'">true</DeploymentContent>
+      <DeploymentContent Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</DeploymentContent>
+      <DeploymentContent Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</DeploymentContent>
+    </None>
+    <None Include="Content\lang\vi_VN.ini">
+      <DeploymentContent Condition="'$(Configuration)|$(Platform)'=='UWP Gold|x64'">true</DeploymentContent>
+      <DeploymentContent Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</DeploymentContent>
+      <DeploymentContent Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</DeploymentContent>
+    </None>
+    <None Include="Content\lang\zh_CN.ini">
+      <DeploymentContent Condition="'$(Configuration)|$(Platform)'=='UWP Gold|x64'">true</DeploymentContent>
+      <DeploymentContent Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</DeploymentContent>
+      <DeploymentContent Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</DeploymentContent>
+    </None>
+    <None Include="Content\lang\zh_TW.ini">
+      <DeploymentContent Condition="'$(Configuration)|$(Platform)'=='UWP Gold|x64'">true</DeploymentContent>
+      <DeploymentContent Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</DeploymentContent>
+      <DeploymentContent Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</DeploymentContent>
+    </None>
     <None Include="Content\ppge_atlas.zim">
       <DeploymentContent>true</DeploymentContent>
+    </None>
+    <None Include="Content\shaders\4xhqglsl.fsh">
+      <DeploymentContent Condition="'$(Configuration)|$(Platform)'=='UWP Gold|x64'">true</DeploymentContent>
+      <DeploymentContent Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</DeploymentContent>
+      <DeploymentContent Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</DeploymentContent>
+    </None>
+    <None Include="Content\shaders\5xBR-lv2.fsh">
+      <DeploymentContent Condition="'$(Configuration)|$(Platform)'=='UWP Gold|x64'">true</DeploymentContent>
+      <DeploymentContent Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</DeploymentContent>
+      <DeploymentContent Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</DeploymentContent>
+    </None>
+    <None Include="Content\shaders\5xBR.fsh">
+      <DeploymentContent Condition="'$(Configuration)|$(Platform)'=='UWP Gold|x64'">true</DeploymentContent>
+      <DeploymentContent Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</DeploymentContent>
+      <DeploymentContent Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</DeploymentContent>
+    </None>
+    <None Include="Content\shaders\aacolor.fsh">
+      <DeploymentContent Condition="'$(Configuration)|$(Platform)'=='UWP Gold|x64'">true</DeploymentContent>
+      <DeploymentContent Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</DeploymentContent>
+      <DeploymentContent Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</DeploymentContent>
+    </None>
+    <None Include="Content\shaders\bloom.fsh">
+      <DeploymentContent Condition="'$(Configuration)|$(Platform)'=='UWP Gold|x64'">true</DeploymentContent>
+      <DeploymentContent Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</DeploymentContent>
+      <DeploymentContent Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</DeploymentContent>
+    </None>
+    <None Include="Content\shaders\cartoon.fsh">
+      <DeploymentContent Condition="'$(Configuration)|$(Platform)'=='UWP Gold|x64'">true</DeploymentContent>
+      <DeploymentContent Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</DeploymentContent>
+      <DeploymentContent Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</DeploymentContent>
+    </None>
+    <None Include="Content\shaders\crt.fsh">
+      <DeploymentContent Condition="'$(Configuration)|$(Platform)'=='UWP Gold|x64'">true</DeploymentContent>
+      <DeploymentContent Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</DeploymentContent>
+      <DeploymentContent Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</DeploymentContent>
+    </None>
+    <None Include="Content\shaders\defaultshaders.ini">
+      <DeploymentContent Condition="'$(Configuration)|$(Platform)'=='UWP Gold|x64'">true</DeploymentContent>
+      <DeploymentContent Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</DeploymentContent>
+      <DeploymentContent Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</DeploymentContent>
+    </None>
+    <None Include="Content\shaders\fxaa.fsh">
+      <DeploymentContent Condition="'$(Configuration)|$(Platform)'=='UWP Gold|x64'">true</DeploymentContent>
+      <DeploymentContent Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</DeploymentContent>
+      <DeploymentContent Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</DeploymentContent>
+    </None>
+    <None Include="Content\shaders\GaussianDownscale.fsh">
+      <DeploymentContent Condition="'$(Configuration)|$(Platform)'=='UWP Gold|x64'">true</DeploymentContent>
+      <DeploymentContent Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</DeploymentContent>
+      <DeploymentContent Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</DeploymentContent>
+    </None>
+    <None Include="Content\shaders\grayscale.fsh">
+      <DeploymentContent Condition="'$(Configuration)|$(Platform)'=='UWP Gold|x64'">true</DeploymentContent>
+      <DeploymentContent Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</DeploymentContent>
+      <DeploymentContent Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</DeploymentContent>
+    </None>
+    <None Include="Content\shaders\inversecolors.fsh">
+      <DeploymentContent Condition="'$(Configuration)|$(Platform)'=='UWP Gold|x64'">true</DeploymentContent>
+      <DeploymentContent Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</DeploymentContent>
+      <DeploymentContent Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</DeploymentContent>
+    </None>
+    <None Include="Content\shaders\natural.fsh">
+      <DeploymentContent Condition="'$(Configuration)|$(Platform)'=='UWP Gold|x64'">true</DeploymentContent>
+      <DeploymentContent Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</DeploymentContent>
+      <DeploymentContent Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</DeploymentContent>
+    </None>
+    <None Include="Content\shaders\naturalA.fsh">
+      <DeploymentContent Condition="'$(Configuration)|$(Platform)'=='UWP Gold|x64'">true</DeploymentContent>
+      <DeploymentContent Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</DeploymentContent>
+      <DeploymentContent Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</DeploymentContent>
+    </None>
+    <None Include="Content\shaders\scanlines.fsh">
+      <DeploymentContent Condition="'$(Configuration)|$(Platform)'=='UWP Gold|x64'">true</DeploymentContent>
+      <DeploymentContent Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</DeploymentContent>
+      <DeploymentContent Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</DeploymentContent>
+    </None>
+    <None Include="Content\shaders\sharpen.fsh">
+      <DeploymentContent Condition="'$(Configuration)|$(Platform)'=='UWP Gold|x64'">true</DeploymentContent>
+      <DeploymentContent Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</DeploymentContent>
+      <DeploymentContent Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</DeploymentContent>
+    </None>
+    <None Include="Content\shaders\upscale_spline36.fsh">
+      <DeploymentContent Condition="'$(Configuration)|$(Platform)'=='UWP Gold|x64'">true</DeploymentContent>
+      <DeploymentContent Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</DeploymentContent>
+      <DeploymentContent Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</DeploymentContent>
+    </None>
+    <None Include="Content\shaders\videoAA.fsh">
+      <DeploymentContent Condition="'$(Configuration)|$(Platform)'=='UWP Gold|x64'">true</DeploymentContent>
+      <DeploymentContent Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</DeploymentContent>
+      <DeploymentContent Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</DeploymentContent>
+    </None>
+    <None Include="Content\shaders\vignette.fsh">
+      <DeploymentContent Condition="'$(Configuration)|$(Platform)'=='UWP Gold|x64'">true</DeploymentContent>
+      <DeploymentContent Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</DeploymentContent>
+      <DeploymentContent Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</DeploymentContent>
     </None>
     <None Include="Content\ui_atlas_lowmem.zim">
       <DeploymentContent>true</DeploymentContent>
@@ -602,6 +1000,9 @@ copy AssetsGold\*.* Assets /Y
   </ItemGroup>
   <ItemGroup>
     <SDKReference Include="WindowsMobile, Version=10.0.17763.0" />
+  </ItemGroup>
+  <ItemGroup>
+    <Font Include="Content\Roboto-Condensed.ttf" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
