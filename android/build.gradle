@@ -37,7 +37,7 @@ android {
 	compileSdkVersion 28
 	buildToolsVersion '28.0.3'
 	defaultConfig {
-		applicationId 'org.ppsspp.ppsspp'
+		applicationId 'org.ppsspp.ppssppluna'
 		if (androidGitVersion.name() != "unknown" && androidGitVersion.code() >= 14000000) {
 			// Start using automatic Android version numbers from version 1.4.
 			println "Overriding Android Version Name, Code: " + androidGitVersion.name() + " " + androidGitVersion.code();
@@ -101,7 +101,7 @@ android {
 	}
 	productFlavors {
 		normal {
-			applicationId 'org.ppsspp.ppsspp'
+			applicationId 'org.ppsspp.ppssppluna'
 			dimension "variant"
 			externalNativeBuild {
 				cmake {
