@@ -205,6 +205,8 @@ namespace MIPSComp {
 		POINTERIFY = 0x00400000,
 		STATIC_ALLOC = 0x00800000,
 		CACHE_POINTERS = 0x01000000,
+		REGALLOC_GPR = 0x02000000,  // Doesn't really disable regalloc, but flushes after every instr.
+		REGALLOC_FPR = 0x04000000,
 
 		ALL_FLAGS = 0x01FFFFFF,
 	};
