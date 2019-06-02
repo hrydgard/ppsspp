@@ -336,10 +336,10 @@ const u8 *Arm64Jit::DoJit(u32 em_address, JitBlock *b) {
 		js.compilerPC += 4;
 		js.numInstructions++;
 
-		if (jo.disableFlags & (uint32_t)JitDisable::REGALLOC_GPR) {
+		if (jo.Disabled(JitDisable::REGALLOC_GPR)) {
 			gpr.FlushAll();
 		}
-		if (jo.disableFlags & (uint32_t)JitDisable::REGALLOC_FPR) {
+		if (jo.Disabled(JitDisable::REGALLOC_FPR)) {
 			fpr.FlushAll();
 			FlushPrefixV();
 		}
