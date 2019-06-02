@@ -170,12 +170,6 @@ bool PPSSPP_UWPMain::Render() {
 	time_update();
 	auto context = m_deviceResources->GetD3DDeviceContext();
 
-	auto bounds = Windows::UI::ViewManagement::ApplicationView::GetForCurrentView()->VisibleBounds;
-
-	int boundTop = bounds.Top;
-	int boundLeft = bounds.Left;
-	int boundedWidth = bounds.Width;
-	int boundedHeight = bounds.Height;
 
 	switch (m_deviceResources->ComputeDisplayRotation()) {
 	case DXGI_MODE_ROTATION_IDENTITY: g_display_rotation = DisplayRotation::ROTATE_0; break;
@@ -198,8 +192,6 @@ bool PPSSPP_UWPMain::Render() {
 	}
 
 	g_dpi = m_deviceResources->GetActualDpi();
-	pixel_xres = (g_dpi / 96.0f) * boundedWidth;
-	pixel_yres = (g_dpi / 96.0f) * boundedHeight;
 
 	if (System_GetPropertyInt(SYSPROP_DEVICE_TYPE) == DEVICE_TYPE_MOBILE) {
 		// Boost DPI a bit to look better.
