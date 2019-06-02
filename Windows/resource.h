@@ -383,7 +383,6 @@
 // Dummy option to let the buffered rendering hotkey cycle through all the options.
 #define ID_OPTIONS_BUFFEREDRENDERINGDUMMY 40500
 #define IDC_STEPOUT                       40501
-#define ID_HELP_BUYGOLD                   40502
 
 #define IDC_STATIC                      -1
 

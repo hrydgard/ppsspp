@@ -449,11 +449,7 @@ END
 // Icon with lowest ID value placed first to ensure application icon
 // remains consistent on all systems.
 
-#ifdef GOLD
-IDI_PPSSPP              ICON                    "ppsspp_gold.ico"
-#else
 IDI_PPSSPP              ICON                    "ppsspp.ico"
-#endif
 IDI_STOP                ICON                    "icon1.ico"
 IDI_STOPDISABLE         ICON                    "stop1.ico"
 

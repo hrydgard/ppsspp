@@ -1,4 +1,5 @@
 These are simple tools to create the ZIM texture format and texture atlases based on it.
+You'll need to clone git://git.savannah.gnu.org/freetype/freetype2.git into ext/freetype to build this.
 
 atlastool <configuration_file> <filename_prefix> <format> 
 

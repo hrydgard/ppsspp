@@ -129,7 +129,6 @@ namespace MainWindow {
 
 		const std::wstring visitMainWebsite = ConvertUTF8ToWString(des->T("www.ppsspp.org"));
 		const std::wstring visitForum = ConvertUTF8ToWString(des->T("PPSSPP Forums"));
-		const std::wstring buyGold = ConvertUTF8ToWString(des->T("Buy Gold"));
 		const std::wstring gitHub = ConvertUTF8ToWString(des->T("GitHub"));
 		const std::wstring aboutPPSSPP = ConvertUTF8ToWString(des->T("About PPSSPP..."));
 
@@ -139,7 +138,6 @@ namespace MainWindow {
 		AppendMenu(helpMenu, MF_STRING | MF_BYCOMMAND, ID_HELP_OPENWEBSITE, visitMainWebsite.c_str());
 		AppendMenu(helpMenu, MF_STRING | MF_BYCOMMAND, ID_HELP_OPENFORUM, visitForum.c_str());
 		// Repeat the process for other languages, if necessary.
-		AppendMenu(helpMenu, MF_STRING | MF_BYCOMMAND, ID_HELP_BUYGOLD, buyGold.c_str());
 		AppendMenu(helpMenu, MF_STRING | MF_BYCOMMAND, ID_HELP_GITHUB, gitHub.c_str());
 		AppendMenu(helpMenu, MF_SEPARATOR, 0, 0);
 		AppendMenu(helpMenu, MF_STRING | MF_BYCOMMAND, ID_HELP_ABOUT, aboutPPSSPP.c_str());
@@ -1060,10 +1058,6 @@ namespace MainWindow {
 
 		case ID_HELP_OPENWEBSITE:
 			ShellExecute(NULL, L"open", L"https://www.ppsspp.org/", NULL, NULL, SW_SHOWNORMAL);
-			break;
-
-		case ID_HELP_BUYGOLD:
-			ShellExecute(NULL, L"open", L"https://central.ppsspp.org/buygold", NULL, NULL, SW_SHOWNORMAL);
 			break;
 
 		case ID_HELP_OPENFORUM:

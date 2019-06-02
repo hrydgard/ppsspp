@@ -1,7 +1,7 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
-# Visual Studio 14
-VisualStudioVersion = 14.0.25123.0
+# Visual Studio Version 16
+VisualStudioVersion = 16.0.28803.452
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "atlastool", "atlastool\atlastool.vcxproj", "{0FDAD650-7436-4803-A36B-10CF9F6F9C2B}"
 EndProject
@@ -49,26 +49,26 @@ Global
 		{0FDAD650-7436-4803-A36B-10CF9F6F9C2B}.Release|x64.ActiveCfg = Release|Win32
 		{0FDAD650-7436-4803-A36B-10CF9F6F9C2B}.Release|x86.ActiveCfg = Release|Win32
 		{0FDAD650-7436-4803-A36B-10CF9F6F9C2B}.Release|x86.Build.0 = Release|Win32
-		{78B079BD-9FC7-4B9E-B4A6-96DA0F00248B}.Debug Multithreaded|x64.ActiveCfg = Debug Multithreaded|x64
-		{78B079BD-9FC7-4B9E-B4A6-96DA0F00248B}.Debug Multithreaded|x64.Build.0 = Debug Multithreaded|x64
-		{78B079BD-9FC7-4B9E-B4A6-96DA0F00248B}.Debug Multithreaded|x86.ActiveCfg = Debug Multithreaded|Win32
-		{78B079BD-9FC7-4B9E-B4A6-96DA0F00248B}.Debug Multithreaded|x86.Build.0 = Debug Multithreaded|Win32
-		{78B079BD-9FC7-4B9E-B4A6-96DA0F00248B}.Debug Singlethreaded|x64.ActiveCfg = Debug Singlethreaded|x64
-		{78B079BD-9FC7-4B9E-B4A6-96DA0F00248B}.Debug Singlethreaded|x64.Build.0 = Debug Singlethreaded|x64
-		{78B079BD-9FC7-4B9E-B4A6-96DA0F00248B}.Debug Singlethreaded|x86.ActiveCfg = Debug Singlethreaded|Win32
-		{78B079BD-9FC7-4B9E-B4A6-96DA0F00248B}.Debug Singlethreaded|x86.Build.0 = Debug Singlethreaded|Win32
+		{78B079BD-9FC7-4B9E-B4A6-96DA0F00248B}.Debug Multithreaded|x64.ActiveCfg = Debug Static|x64
+		{78B079BD-9FC7-4B9E-B4A6-96DA0F00248B}.Debug Multithreaded|x64.Build.0 = Debug Static|x64
+		{78B079BD-9FC7-4B9E-B4A6-96DA0F00248B}.Debug Multithreaded|x86.ActiveCfg = Debug Static|Win32
+		{78B079BD-9FC7-4B9E-B4A6-96DA0F00248B}.Debug Multithreaded|x86.Build.0 = Debug Static|Win32
+		{78B079BD-9FC7-4B9E-B4A6-96DA0F00248B}.Debug Singlethreaded|x64.ActiveCfg = Debug Static|x64
+		{78B079BD-9FC7-4B9E-B4A6-96DA0F00248B}.Debug Singlethreaded|x64.Build.0 = Debug Static|x64
+		{78B079BD-9FC7-4B9E-B4A6-96DA0F00248B}.Debug Singlethreaded|x86.ActiveCfg = Debug Static|Win32
+		{78B079BD-9FC7-4B9E-B4A6-96DA0F00248B}.Debug Singlethreaded|x86.Build.0 = Debug Static|Win32
 		{78B079BD-9FC7-4B9E-B4A6-96DA0F00248B}.Debug|x64.ActiveCfg = Debug|x64
 		{78B079BD-9FC7-4B9E-B4A6-96DA0F00248B}.Debug|x64.Build.0 = Debug|x64
 		{78B079BD-9FC7-4B9E-B4A6-96DA0F00248B}.Debug|x86.ActiveCfg = Debug|Win32
 		{78B079BD-9FC7-4B9E-B4A6-96DA0F00248B}.Debug|x86.Build.0 = Debug|Win32
-		{78B079BD-9FC7-4B9E-B4A6-96DA0F00248B}.Release Multithreaded|x64.ActiveCfg = Release Multithreaded|x64
-		{78B079BD-9FC7-4B9E-B4A6-96DA0F00248B}.Release Multithreaded|x64.Build.0 = Release Multithreaded|x64
-		{78B079BD-9FC7-4B9E-B4A6-96DA0F00248B}.Release Multithreaded|x86.ActiveCfg = Release Multithreaded|Win32
-		{78B079BD-9FC7-4B9E-B4A6-96DA0F00248B}.Release Multithreaded|x86.Build.0 = Release Multithreaded|Win32
-		{78B079BD-9FC7-4B9E-B4A6-96DA0F00248B}.Release Singlethreaded|x64.ActiveCfg = Release Singlethreaded|x64
-		{78B079BD-9FC7-4B9E-B4A6-96DA0F00248B}.Release Singlethreaded|x64.Build.0 = Release Singlethreaded|x64
-		{78B079BD-9FC7-4B9E-B4A6-96DA0F00248B}.Release Singlethreaded|x86.ActiveCfg = Release Singlethreaded|Win32
-		{78B079BD-9FC7-4B9E-B4A6-96DA0F00248B}.Release Singlethreaded|x86.Build.0 = Release Singlethreaded|Win32
+		{78B079BD-9FC7-4B9E-B4A6-96DA0F00248B}.Release Multithreaded|x64.ActiveCfg = Release Static|x64
+		{78B079BD-9FC7-4B9E-B4A6-96DA0F00248B}.Release Multithreaded|x64.Build.0 = Release Static|x64
+		{78B079BD-9FC7-4B9E-B4A6-96DA0F00248B}.Release Multithreaded|x86.ActiveCfg = Release Static|Win32
+		{78B079BD-9FC7-4B9E-B4A6-96DA0F00248B}.Release Multithreaded|x86.Build.0 = Release Static|Win32
+		{78B079BD-9FC7-4B9E-B4A6-96DA0F00248B}.Release Singlethreaded|x64.ActiveCfg = Release Static|x64
+		{78B079BD-9FC7-4B9E-B4A6-96DA0F00248B}.Release Singlethreaded|x64.Build.0 = Release Static|x64
+		{78B079BD-9FC7-4B9E-B4A6-96DA0F00248B}.Release Singlethreaded|x86.ActiveCfg = Release Static|Win32
+		{78B079BD-9FC7-4B9E-B4A6-96DA0F00248B}.Release Singlethreaded|x86.Build.0 = Release Static|Win32
 		{78B079BD-9FC7-4B9E-B4A6-96DA0F00248B}.Release|x64.ActiveCfg = Release|x64
 		{78B079BD-9FC7-4B9E-B4A6-96DA0F00248B}.Release|x64.Build.0 = Release|x64
 		{78B079BD-9FC7-4B9E-B4A6-96DA0F00248B}.Release|x86.ActiveCfg = Release|Win32
@@ -124,5 +124,8 @@ Global
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {15D83533-C6F8-4D0B-8009-5BE82561CA06}
 	EndGlobalSection
 EndGlobal

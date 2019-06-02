@@ -899,11 +899,7 @@ void MainScreen::CreateViews() {
 	sprintf(versionString, "Luna Edition");
 	rightColumnItems->SetSpacing(0.0f);
 	LinearLayout *logos = new LinearLayout(ORIENT_HORIZONTAL);
-	if (System_GetPropertyBool(SYSPROP_APP_GOLD)) {
-		logos->Add(new ImageView(I_ICONGOLD, IS_DEFAULT, new AnchorLayoutParams(64, 64, 10, 10, NONE, NONE, false)));
-	} else {
-		logos->Add(new ImageView(I_ICON, IS_DEFAULT, new AnchorLayoutParams(64, 64, 10, 10, NONE, NONE, false)));
-	}
+	logos->Add(new ImageView(I_ICON, IS_DEFAULT, new AnchorLayoutParams(64, 64, 10, 10, NONE, NONE, false)));
 	logos->Add(new ImageView(I_LOGO, IS_DEFAULT, new LinearLayoutParams(Margins(-12, 0, 0, 0))));
 	rightColumnItems->Add(logos);
 	TextView *ver = rightColumnItems->Add(new TextView(versionString, new LinearLayoutParams(Margins(70, -6, 0, 0))));
@@ -918,11 +914,6 @@ void MainScreen::CreateViews() {
 	rightColumnItems->Add(new CheckBox(&g_Config.bSimpleUI, mm->T("SimpleUI", "Simple UI")))->OnClick.Handle(this, &MainScreen::OnRecentChange);
 	if (!g_Config.bSimpleUI) {
 	rightColumnItems->Add(new Choice(mm->T("www.ppsspp.org")))->OnClick.Handle(this, &MainScreen::OnPPSSPPOrg);
-	if (!System_GetPropertyBool(SYSPROP_APP_GOLD)) {
-		Choice *gold = rightColumnItems->Add(new Choice(mm->T("Support PPSSPP")));
-		gold->OnClick.Handle(this, &MainScreen::OnSupport);
-		gold->SetIcon(I_ICONGOLD);
-	}
 	}
 
 #if !PPSSPP_PLATFORM(UWP)

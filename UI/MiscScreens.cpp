@@ -492,11 +492,8 @@ void LogoScreen::render() {
 	char temp[256];
 	// Manually formatting UTF-8 is fun.  \xXX doesn't work everywhere.
 	snprintf(temp, sizeof(temp), "%s Henrik Rydg%c%crd", cr->T("created", "Created by"), 0xC3, 0xA5);
-	if (System_GetPropertyBool(SYSPROP_APP_GOLD)) {
-		dc.Draw()->DrawImage(I_ICONGOLD, bounds.centerX() - 120, bounds.centerY() - 30, 1.2f, textColor, ALIGN_CENTER);
-	} else {
-		dc.Draw()->DrawImage(I_ICON, bounds.centerX() - 120, bounds.centerY() - 30, 1.2f, textColor, ALIGN_CENTER);
-	}
+	dc.Draw()->DrawImage(I_ICON, bounds.centerX() - 120, bounds.centerY() - 30, 1.2f, textColor, ALIGN_CENTER);
+
 	dc.Draw()->DrawImage(I_LOGO, bounds.centerX() + 40, bounds.centerY() - 30, 1.5f, textColor, ALIGN_CENTER);
 	//dc.Draw()->DrawTextShadow(UBUNTU48, "PPSSPP", xres / 2, yres / 2 - 30, textColor, ALIGN_CENTER);
 	dc.SetFontScale(1.0f, 1.0f);
@@ -525,9 +522,7 @@ void CreditsScreen::CreateViews() {
 	Button *back = root_->Add(new Button(di->T("Back"), new AnchorLayoutParams(260, 64, NONE, NONE, 10, 10, false)));
 	back->OnClick.Handle(this, &CreditsScreen::OnOK);
 	root_->SetDefaultFocusView(back);
-	if (!System_GetPropertyBool(SYSPROP_APP_GOLD)) {
-		root_->Add(new Button(cr->T("Buy Gold"), new AnchorLayoutParams(260, 64, 10, NONE, NONE, 10, false)))->OnClick.Handle(this, &CreditsScreen::OnSupport);
-	}
+
 	root_->Add(new Button(cr->T("PPSSPP Forums"), new AnchorLayoutParams(260, 64, 10, NONE, NONE, 84, false)))->OnClick.Handle(this, &CreditsScreen::OnForums);
 	root_->Add(new Button("www.ppsspp.org", new AnchorLayoutParams(260, 64, 10, NONE, NONE, 158, false)))->OnClick.Handle(this, &CreditsScreen::OnPPSSPPOrg);
 	root_->Add(new Button(cr->T("Privacy Policy"), new AnchorLayoutParams(260, 64, 10, NONE, NONE, 232, false)))->OnClick.Handle(this, &CreditsScreen::OnPrivacy);
@@ -535,11 +530,7 @@ void CreditsScreen::CreateViews() {
 	root_->Add(new Button(cr->T("Share PPSSPP"), new AnchorLayoutParams(260, 64, NONE, NONE, 10, 84, false)))->OnClick.Handle(this, &CreditsScreen::OnShare);
 	root_->Add(new Button(cr->T("Twitter @PPSSPP_emu"), new AnchorLayoutParams(260, 64, NONE, NONE, 10, 154, false)))->OnClick.Handle(this, &CreditsScreen::OnTwitter);
 #endif
-	if (System_GetPropertyBool(SYSPROP_APP_GOLD)) {
-		root_->Add(new ImageView(I_ICONGOLD, IS_DEFAULT, new AnchorLayoutParams(100, 64, 10, 10, NONE, NONE, false)));
-	} else {
-		root_->Add(new ImageView(I_ICON, IS_DEFAULT, new AnchorLayoutParams(100, 64, 10, 10, NONE, NONE, false)));
-	}
+	root_->Add(new ImageView(I_ICON, IS_DEFAULT, new AnchorLayoutParams(100, 64, 10, 10, NONE, NONE, false)));
 }
 
 UI::EventReturn CreditsScreen::OnSupport(UI::EventParams &e) {
