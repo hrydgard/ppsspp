@@ -328,8 +328,6 @@ const u8 *ArmJit::DoJit(u32 em_address, JitBlock *b)
 	gpr.Start(analysis);
 	fpr.Start(analysis);
 
-	int partialFlushOffset = 0;
-
 	js.numInstructions = 0;
 	while (js.compiling)
 	{

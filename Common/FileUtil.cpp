@@ -125,7 +125,7 @@ static bool ResolvePathVista(const std::wstring &path, wchar_t *buf, DWORD bufSi
 		if (hFile == INVALID_HANDLE_VALUE)
 			return false;
 
-		int result = getFinalPathNameByHandleW(hFile, buf, bufSize - 1, FILE_NAME_NORMALIZED | VOLUME_NAME_DOS);
+		DWORD result = getFinalPathNameByHandleW(hFile, buf, bufSize - 1, FILE_NAME_NORMALIZED | VOLUME_NAME_DOS);
 		CloseHandle(hFile);
 
 		return result < bufSize && result != 0;
@@ -138,15 +138,13 @@ static bool ResolvePathVista(const std::wstring &path, wchar_t *buf, DWORD bufSi
 std::string ResolvePath(const std::string &path) {
 #ifdef _WIN32
 	static const int BUF_SIZE = 32768;
-	wchar_t *buf = new wchar_t[BUF_SIZE];
-	memset(buf, 0, BUF_SIZE);
+	wchar_t *buf = new wchar_t[BUF_SIZE] {};
 
 	std::wstring input = ConvertUTF8ToWString(path);
 	// Try to resolve symlinks (such as Documents aliases, etc.) if possible on Vista and higher.
 	// For some paths and remote shares, this may fail, so fall back.
 	if (!ResolvePathVista(input, buf, BUF_SIZE)) {
-		wchar_t *longBuf = new wchar_t[BUF_SIZE];
-		memset(longBuf, 0, BUF_SIZE);
+		wchar_t *longBuf = new wchar_t[BUF_SIZE] {};
 
 		int result = GetLongPathNameW(input.c_str(), longBuf, BUF_SIZE - 1);
 		if (result >= BUF_SIZE || result == 0)
@@ -790,12 +788,10 @@ void openIniFile(const std::string fileName) {
 	wchar_t command_line[MAX_PATH * 2 + 1 + 1];
 	wsprintf(command_line, L"%s %s", notepad_path, ini_path);
 
-	STARTUPINFO si;
-	memset(&si, 0, sizeof(si));
+	STARTUPINFO si{};
 	si.cb = sizeof(si);
 	si.wShowWindow = SW_SHOW;
-	PROCESS_INFORMATION pi;
-	memset(&pi, 0, sizeof(pi));
+	PROCESS_INFORMATION pi{};
 	UINT retval = CreateProcess(0, command_line, 0, 0, 0, 0, 0, 0, &si, &pi);
 	if (!retval) {
 		ERROR_LOG(COMMON, "Failed creating notepad process");
