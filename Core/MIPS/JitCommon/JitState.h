@@ -208,7 +208,7 @@ namespace MIPSComp {
 		REGALLOC_GPR = 0x02000000,  // Doesn't really disable regalloc, but flushes after every instr.
 		REGALLOC_FPR = 0x04000000,
 
-		ALL_FLAGS = 0x01FFFFFF,
+		ALL_FLAGS = 0x07FFFFFF,
 	};
 
 	struct JitOptions {
