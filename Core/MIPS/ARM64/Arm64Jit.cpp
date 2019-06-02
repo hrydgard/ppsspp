@@ -336,6 +336,14 @@ const u8 *Arm64Jit::DoJit(u32 em_address, JitBlock *b) {
 		js.compilerPC += 4;
 		js.numInstructions++;
 
+		if (jo.Disabled(JitDisable::REGALLOC_GPR)) {
+			gpr.FlushAll();
+		}
+		if (jo.Disabled(JitDisable::REGALLOC_FPR)) {
+			fpr.FlushAll();
+			FlushPrefixV();
+		}
+
 		// Safety check, in case we get a bunch of really large jit ops without a lot of branching.
 		if (GetSpaceLeft() < 0x800 || js.numInstructions >= JitBlockCache::MAX_BLOCK_INSTRUCTIONS) {
 			FlushAll();

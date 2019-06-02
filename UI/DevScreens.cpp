@@ -350,6 +350,8 @@ static const JitDisableFlag jitDisableFlags[] = {
 	{ MIPSComp::JitDisable::POINTERIFY, "Pointerify" },
 	{ MIPSComp::JitDisable::STATIC_ALLOC, "Static regalloc" },
 	{ MIPSComp::JitDisable::CACHE_POINTERS, "Cached pointers" },
+	{ MIPSComp::JitDisable::REGALLOC_GPR, "GPR Regalloc across instructions" },
+	{ MIPSComp::JitDisable::REGALLOC_FPR, "FPR Regalloc across instructions" },
 };
 
 void JitDebugScreen::CreateViews() {
