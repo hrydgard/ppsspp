@@ -1085,7 +1085,6 @@ namespace MIPSComp {
 		GetMatrixRegs(sregs, sz, vs);
 		GetMatrixRegs(dregs, sz, vd);
 
-		// Rough overlap check.
 		switch (GetMatrixOverlap(vs, vd, sz)) {
 		case OVERLAP_EQUAL:
 			// In-place transpose
