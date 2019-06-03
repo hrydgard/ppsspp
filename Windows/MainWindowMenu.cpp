@@ -280,6 +280,7 @@ namespace MainWindow {
 		// Movie menu
 		TranslateMenuItem(menu, ID_FILE_DUMPFRAMES);
 		TranslateMenuItem(menu, ID_FILE_USEFFV1);
+		TranslateMenuItem(menu, ID_FILE_DUMP_VIDEO_OUTPUT);
 		TranslateMenuItem(menu, ID_FILE_DUMPAUDIO);
 
 		// Skip display multipliers x1-x10
@@ -447,7 +448,7 @@ namespace MainWindow {
 	}
 
 	static void SaveStateActionFinished(SaveState::Status status, const std::string &message, void *userdata) {
-		if (!message.empty() && !g_Config.bDumpFrames) {
+		if (!message.empty() && (!g_Config.bDumpFrames || !g_Config.bDumpVideoOutput)) {
 			osm.Show(message, status == SaveState::Status::SUCCESS ? 2.0 : 5.0);
 		}
 		PostMessage(MainWindow::GetHWND(), WM_USER_SAVESTATE_FINISH, 0, 0);
@@ -1034,6 +1035,10 @@ namespace MainWindow {
 			g_Config.bUseFFV1 = !g_Config.bUseFFV1;
 			break;
 
+		case ID_FILE_DUMP_VIDEO_OUTPUT:
+			g_Config.bDumpVideoOutput = !g_Config.bDumpVideoOutput;
+			break;
+
 		case ID_FILE_DUMPAUDIO:
 			g_Config.bDumpAudio = !g_Config.bDumpAudio;
 			break;
@@ -1083,6 +1088,7 @@ namespace MainWindow {
 		CHECKITEM(ID_OPTIONS_IGNOREWINKEY, g_Config.bIgnoreWindowsKey);
 		CHECKITEM(ID_FILE_DUMPFRAMES, g_Config.bDumpFrames);
 		CHECKITEM(ID_FILE_USEFFV1, g_Config.bUseFFV1);
+		CHECKITEM(ID_FILE_DUMP_VIDEO_OUTPUT, g_Config.bDumpVideoOutput);
 		CHECKITEM(ID_FILE_DUMPAUDIO, g_Config.bDumpAudio);
 
 		static const int displayrotationitems[] = {

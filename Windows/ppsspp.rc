@@ -490,6 +490,7 @@ BEGIN
         BEGIN
             MENUITEM "Record Display",                      ID_FILE_DUMPFRAMES
             MENUITEM "Use Lossless Video Codec (FFV1)",     ID_FILE_USEFFV1
+            MENUITEM "Use output buffer for video",         ID_FILE_DUMP_VIDEO_OUTPUT
             MENUITEM "", 0, MFT_SEPARATOR
             MENUITEM "Record Audio",                        ID_FILE_DUMPAUDIO
         END
