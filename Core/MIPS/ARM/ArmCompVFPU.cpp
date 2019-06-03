@@ -1380,7 +1380,7 @@ namespace MIPSComp
 
 	void ArmJit::Comp_Vmmov(MIPSOpcode op) {
 		NEON_IF_AVAILABLE(CompNEON_Vmmov);
-		CONDITIONAL_DISABLE(VFPU_MTX);
+		CONDITIONAL_DISABLE(VFPU_MTX_VMMOV);
 
 		// This probably ignores prefixes for all sane intents and purposes.
 		if (_VS == _VD) {
@@ -1467,7 +1467,7 @@ namespace MIPSComp
 	}
 
 	void ArmJit::Comp_Vmmul(MIPSOpcode op) {
-		CONDITIONAL_DISABLE(VFPU_MTX);
+		CONDITIONAL_DISABLE(VFPU_MTX_VMMUL);
 		if (js.HasUnknownPrefix()) {
 			DISABLE;
 		}
@@ -1516,7 +1516,7 @@ namespace MIPSComp
 
 	void ArmJit::Comp_Vtfm(MIPSOpcode op) {
 		NEON_IF_AVAILABLE(CompNEON_Vtfm);
-		CONDITIONAL_DISABLE(VFPU_MTX);
+		CONDITIONAL_DISABLE(VFPU_MTX_VTFM);
 		if (js.HasUnknownPrefix()) {
 			DISABLE;
 		}

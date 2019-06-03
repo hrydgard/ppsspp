@@ -544,7 +544,7 @@ namespace MIPSComp {
 		VectorSize sz = GetVecSize(op);
 
 		// TODO: Force read one of them into regs? probably not.
-		u8 sregs[4], tregs[4], dregs[1];
+		u8 sregs[4], dregs[1];
 		GetVectorRegsPrefixS(sregs, sz, vs);
 		GetVectorRegsPrefixD(dregs, V_Single, vd);
 
@@ -1127,7 +1127,7 @@ namespace MIPSComp {
 	}
 
 	void Arm64Jit::Comp_Vmmov(MIPSOpcode op) {
-		CONDITIONAL_DISABLE(VFPU_MTX);
+		CONDITIONAL_DISABLE(VFPU_MTX_VMMOV);
 		if (!js.HasNoPrefix()) {
 			DISABLE;
 		}
@@ -1214,7 +1214,7 @@ namespace MIPSComp {
 	}
 
 	void Arm64Jit::Comp_Vmmul(MIPSOpcode op) {
-		CONDITIONAL_DISABLE(VFPU_MTX);
+		CONDITIONAL_DISABLE(VFPU_MTX_VMMUL);
 		if (!js.HasNoPrefix()) {
 			DISABLE;
 		}
@@ -1252,7 +1252,7 @@ namespace MIPSComp {
 	}
 
 	void Arm64Jit::Comp_Vtfm(MIPSOpcode op) {
-		CONDITIONAL_DISABLE(VFPU_MTX);
+		CONDITIONAL_DISABLE(VFPU_MTX_VTFM);
 		if (!js.HasNoPrefix()) {
 			DISABLE;
 		}
