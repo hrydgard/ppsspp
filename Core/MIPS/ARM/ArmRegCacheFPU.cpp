@@ -209,8 +209,8 @@ void ArmRegCacheFPU::MapInIn(MIPSReg rd, MIPSReg rs) {
 
 void ArmRegCacheFPU::MapDirtyIn(MIPSReg rd, MIPSReg rs, bool avoidLoad) {
 	SpillLock(rd, rs);
-	bool overlap = avoidLoad && rd == rs;
-	MapReg(rd, overlap ? MAP_DIRTY : MAP_NOINIT);
+	bool load = !avoidLoad || rd == rs;
+	MapReg(rd, load ? MAP_DIRTY : MAP_NOINIT);
 	MapReg(rs);
 	ReleaseSpillLock(rd);
 	ReleaseSpillLock(rs);
@@ -218,8 +218,8 @@ void ArmRegCacheFPU::MapDirtyIn(MIPSReg rd, MIPSReg rs, bool avoidLoad) {
 
 void ArmRegCacheFPU::MapDirtyInIn(MIPSReg rd, MIPSReg rs, MIPSReg rt, bool avoidLoad) {
 	SpillLock(rd, rs, rt);
-	bool overlap = avoidLoad && (rd == rs || rd == rt);
-	MapReg(rd, overlap ? MAP_DIRTY : MAP_NOINIT);
+	bool load = !avoidLoad || (rd == rs || rd == rt);
+	MapReg(rd, load ? MAP_DIRTY : MAP_NOINIT);
 	MapReg(rt);
 	MapReg(rs);
 	ReleaseSpillLock(rd);
@@ -278,21 +278,21 @@ void ArmRegCacheFPU::MapInInV(int vs, int vt) {
 }
 
 void ArmRegCacheFPU::MapDirtyInV(int vd, int vs, bool avoidLoad) {
-	bool overlap = avoidLoad && (vd == vs);
+	bool load = !avoidLoad || (vd == vs);
 	SpillLockV(vd);
 	SpillLockV(vs);
-	MapRegV(vd, overlap ? MAP_DIRTY : MAP_NOINIT);
+	MapRegV(vd, load ? MAP_DIRTY : MAP_NOINIT);
 	MapRegV(vs);
 	ReleaseSpillLockV(vd);
 	ReleaseSpillLockV(vs);
 }
 
 void ArmRegCacheFPU::MapDirtyInInV(int vd, int vs, int vt, bool avoidLoad) {
-	bool overlap = avoidLoad && ((vd == vs) || (vd == vt));
+	bool load = !avoidLoad || (vd == vs || vd == vt);
 	SpillLockV(vd);
 	SpillLockV(vs);
 	SpillLockV(vt);
-	MapRegV(vd, overlap ? MAP_DIRTY : MAP_NOINIT);
+	MapRegV(vd, load ? MAP_DIRTY : MAP_NOINIT);
 	MapRegV(vs);
 	MapRegV(vt);
 	ReleaseSpillLockV(vd);
