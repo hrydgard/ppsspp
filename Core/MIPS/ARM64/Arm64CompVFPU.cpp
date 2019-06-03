@@ -1128,8 +1128,10 @@ namespace MIPSComp {
 
 	void Arm64Jit::Comp_Vmmov(MIPSOpcode op) {
 		CONDITIONAL_DISABLE(VFPU_MTX);
+		if (!js.HasNoPrefix()) {
+			DISABLE;
+		}
 
-		// This probably ignores prefixes for all sane intents and purposes.
 		if (_VS == _VD) {
 			// A lot of these no-op matrix moves in Wipeout... Just drop the instruction entirely.
 			return;
@@ -1142,25 +1144,24 @@ namespace MIPSComp {
 		GetMatrixRegs(sregs, sz, _VS);
 		GetMatrixRegs(dregs, sz, _VD);
 
-		// Rough overlap check.
-		bool overlap = false;
-		if (GetMtx(_VS) == GetMtx(_VD)) {
-			// Potential overlap (guaranteed for 3x3 or more).
-			overlap = true;
+		switch (GetMatrixOverlap(_VS, _VD, sz)) {
+		case OVERLAP_EQUAL:
+			// In-place transpose
+			DISABLE;
+		case OVERLAP_PARTIAL:
+			DISABLE;
+		case OVERLAP_NONE:
+		default:
+			break;
 		}
 
-		if (overlap) {
-			// Not so common, fallback.
-			DISABLE;
-		} else {
-			for (int a = 0; a < n; a++) {
-				for (int b = 0; b < n; b++) {
-					fpr.MapDirtyInV(dregs[a * 4 + b], sregs[a * 4 + b]);
-					fp.FMOV(fpr.V(dregs[a * 4 + b]), fpr.V(sregs[a * 4 + b]));
-				}
+		for (int a = 0; a < n; a++) {
+			for (int b = 0; b < n; b++) {
+				fpr.MapDirtyInV(dregs[a * 4 + b], sregs[a * 4 + b]);
+				fp.FMOV(fpr.V(dregs[a * 4 + b]), fpr.V(sregs[a * 4 + b]));
 			}
-			fpr.ReleaseSpillLocksAndDiscardTemps();
 		}
+		fpr.ReleaseSpillLocksAndDiscardTemps();
 	}
 
 	void Arm64Jit::Comp_VScl(MIPSOpcode op) {
@@ -1214,11 +1215,9 @@ namespace MIPSComp {
 
 	void Arm64Jit::Comp_Vmmul(MIPSOpcode op) {
 		CONDITIONAL_DISABLE(VFPU_MTX);
-		if (js.HasUnknownPrefix()) {
+		if (!js.HasNoPrefix()) {
 			DISABLE;
 		}
-
-		// TODO: This probably ignores prefixes?
 
 		MatrixSize sz = GetMtxSize(op);
 		int n = GetMatrixSide(sz);
@@ -1228,26 +1227,20 @@ namespace MIPSComp {
 		GetMatrixRegs(tregs, sz, _VT);
 		GetMatrixRegs(dregs, sz, _VD);
 
-		// Rough overlap check.
-		bool overlap = false;
-		if (GetMtx(_VS) == GetMtx(_VD) || GetMtx(_VT) == GetMtx(_VD)) {
-			// Potential overlap (guaranteed for 3x3 or more).
-			overlap = true;
-		}
+		MatrixOverlapType soverlap = GetMatrixOverlap(_VS, _VD, sz);
+		MatrixOverlapType toverlap = GetMatrixOverlap(_VT, _VD, sz);
 
-		if (overlap) {
+		if (soverlap || toverlap) {
 			DISABLE;
 		} else {
 			for (int a = 0; a < n; a++) {
 				for (int b = 0; b < n; b++) {
-					fpr.MapInInV(sregs[b * 4], tregs[a * 4]);
-					fp.FMUL(S0, fpr.V(sregs[b * 4]), fpr.V(tregs[a * 4]));
+					fpr.MapDirtyInInV(dregs[a * 4 + b], sregs[b * 4], tregs[a * 4], true);
+					fp.FMUL(fpr.V(dregs[a * 4 + b]), fpr.V(sregs[b * 4]), fpr.V(tregs[a * 4]));
 					for (int c = 1; c < n; c++) {
-						fpr.MapInInV(sregs[b * 4 + c], tregs[a * 4 + c]);
-						fp.FMADD(S0, fpr.V(sregs[b * 4 + c]), fpr.V(tregs[a * 4 + c]), S0);
+						fpr.MapDirtyInInV(dregs[a * 4 + b], sregs[b * 4 + c], tregs[a * 4 + c], false);
+						fp.FMADD(fpr.V(dregs[a * 4 + b]), fpr.V(sregs[b * 4 + c]), fpr.V(tregs[a * 4 + c]), fpr.V(dregs[a * 4 + b]));
 					}
-					fpr.MapRegV(dregs[a * 4 + b], MAP_DIRTY | MAP_NOINIT);
-					fp.FMOV(fpr.V(dregs[a * 4 + b]), S0);
 				}
 			}
 			fpr.ReleaseSpillLocksAndDiscardTemps();
@@ -1260,11 +1253,9 @@ namespace MIPSComp {
 
 	void Arm64Jit::Comp_Vtfm(MIPSOpcode op) {
 		CONDITIONAL_DISABLE(VFPU_MTX);
-		if (js.HasUnknownPrefix()) {
+		if (!js.HasNoPrefix()) {
 			DISABLE;
 		}
-
-		// TODO: This probably ignores prefixes?  Or maybe uses D?
 
 		VectorSize sz = GetVecSize(op);
 		MatrixSize msz = GetMtxSize(op);
@@ -1288,31 +1279,38 @@ namespace MIPSComp {
 		GetVectorRegs(tregs, sz, _VT);
 		GetVectorRegs(dregs, sz, _VD);
 
-		// TODO: test overlap, optimize.
+		MatrixOverlapType soverlap = GetMatrixOverlap(_VS, _VD, msz);
+		MatrixOverlapType toverlap = GetMatrixOverlap(_VT, _VD, msz);
+
 		int tempregs[4];
 		for (int i = 0; i < n; i++) {
+			if (soverlap || toverlap) {
+				tempregs[i] = fpr.GetTempV();
+			} else {
+				tempregs[i] = dregs[i];
+			}
+			fpr.SpillLockV(tempregs[i]);
+		}
+		for (int i = 0; i < n; i++) {
+			fpr.MapRegV(tempregs[i], MAP_NOINIT);
 			fpr.MapInInV(sregs[i * 4], tregs[0]);
-			fp.FMUL(S0, fpr.V(sregs[i * 4]), fpr.V(tregs[0]));
+			fp.FMUL(fpr.V(tempregs[i]), fpr.V(sregs[i * 4]), fpr.V(tregs[0]));
 			for (int k = 1; k < n; k++) {
 				if (!homogenous || k != n - 1) {
 					fpr.MapInInV(sregs[i * 4 + k], tregs[k]);
-					fp.FMADD(S0, fpr.V(sregs[i * 4 + k]), fpr.V(tregs[k]), S0);
+					fp.FMADD(fpr.V(tempregs[i]), fpr.V(sregs[i * 4 + k]), fpr.V(tregs[k]), fpr.V(tempregs[i]));
 				} else {
 					fpr.MapRegV(sregs[i * 4 + k]);
-					fp.FADD(S0, S0, fpr.V(sregs[i * 4 + k]));
+					fp.FADD(fpr.V(tempregs[i]), fpr.V(tempregs[i]), fpr.V(sregs[i * 4 + k]));
 				}
 			}
-
-			int temp = fpr.GetTempV();
-			fpr.MapRegV(temp, MAP_NOINIT | MAP_DIRTY);
-			fpr.SpillLockV(temp);
-			fp.FMOV(fpr.V(temp), S0);
-			tempregs[i] = temp;
 		}
 		for (int i = 0; i < n; i++) {
 			u8 temp = tempregs[i];
-			fpr.MapRegV(dregs[i], MAP_NOINIT | MAP_DIRTY);
-			fp.FMOV(fpr.V(dregs[i]), fpr.V(temp));
+			if (temp != dregs[i]) {
+				fpr.MapDirtyInV(dregs[i], temp, true);
+				fp.FMOV(fpr.V(dregs[i]), fpr.V(temp));
+			}
 		}
 
 		fpr.ReleaseSpillLocksAndDiscardTemps();
