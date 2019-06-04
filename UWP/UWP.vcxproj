@@ -549,7 +549,7 @@ copy AssetsGold\*.* Assets /Y
     <Image Include="Content\rargray.png">
       <DeploymentContent>true</DeploymentContent>
     </Image>
-    <Image Include="Content\ui_atlas.zim">
+    <Image Include="Content\ui_atlas_luna.zim">
       <DeploymentContent>true</DeploymentContent>
       <FileType>Document</FileType>
     </Image>

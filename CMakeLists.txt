@@ -1913,7 +1913,7 @@ if(WIN32)
 endif()
 
 set(NativeAssets
-	android/assets/ui_atlas.zim
+	android/assets/ui_atlas_luna.zim
 	assets/lang
 	assets/shaders
 	assets/scalers

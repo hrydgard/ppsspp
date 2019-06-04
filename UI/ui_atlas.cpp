@@ -34000,7 +34000,7 @@ const AtlasImage ui_images[39] = {
   {0.096924f, 0.075928f, 0.111084f, 0.083740f, 30, 17, "I_PSP_DISPLAY"},
 };
 const Atlas ui_atlas = {
-  "ui_atlas.zim",
+  "ui_atlas_luna.zim",
   ui_fonts, 1,
   ui_images, 39,
 };

@@ -82,7 +82,7 @@
     <Image Include="Content\zip.png">
       <Filter>Content</Filter>
     </Image>
-    <Image Include="Content\ui_atlas.zim">
+    <Image Include="Content\ui_atlas_luna.zim">
       <Filter>Content</Filter>
     </Image>
     <Image Include="AssetsGold\StoreLogo.scale-100.png">
