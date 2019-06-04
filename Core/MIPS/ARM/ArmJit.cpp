@@ -328,8 +328,6 @@ const u8 *ArmJit::DoJit(u32 em_address, JitBlock *b)
 	gpr.Start(analysis);
 	fpr.Start(analysis);
 
-	int partialFlushOffset = 0;
-
 	js.numInstructions = 0;
 	while (js.compiling)
 	{
@@ -349,16 +347,14 @@ const u8 *ArmJit::DoJit(u32 em_address, JitBlock *b)
 	
 		js.compilerPC += 4;
 		js.numInstructions++;
-#if !PPSSPP_ARCH(ARMV7)
-		if ((GetCodePtr() - b->checkedEntry - partialFlushOffset) > 3200)
-		{
-			// We need to prematurely flush as we are out of range
-			FixupBranch skip = B_CC(CC_AL);
-			FlushLitPool();
-			SetJumpTarget(skip);
-			partialFlushOffset = GetCodePtr() - b->checkedEntry;
+
+		if (jo.Disabled(JitDisable::REGALLOC_GPR)) {
+			gpr.FlushAll();
 		}
-#endif
+		if (jo.Disabled(JitDisable::REGALLOC_FPR)) {
+			fpr.FlushAll();
+			FlushPrefixV();
+		}
 
 		// Safety check, in case we get a bunch of really large jit ops without a lot of branching.
 		if (GetSpaceLeft() < 0x800 || js.numInstructions >= JitBlockCache::MAX_BLOCK_INSTRUCTIONS)

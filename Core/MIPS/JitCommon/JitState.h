@@ -191,7 +191,7 @@ namespace MIPSComp {
 		FPU_XFER = 0x0080,
 
 		VFPU_VEC = 0x0100,
-		VFPU_MTX = 0x0200,
+		VFPU_MTX_VTFM = 0x0200,
 		VFPU_COMP = 0x0400,
 		VFPU_XFER = 0x0800,
 
@@ -205,8 +205,13 @@ namespace MIPSComp {
 		POINTERIFY = 0x00400000,
 		STATIC_ALLOC = 0x00800000,
 		CACHE_POINTERS = 0x01000000,
+		REGALLOC_GPR = 0x02000000,  // Doesn't really disable regalloc, but flushes after every instr.
+		REGALLOC_FPR = 0x04000000,
+		VFPU_MTX_VMMOV = 0x08000000,
+		VFPU_MTX_VMMUL = 0x10000000,
+		VFPU_MTX_VMSCL = 0x20000000,
 
-		ALL_FLAGS = 0x01FFFFFF,
+		ALL_FLAGS = 0x3FFFFFFF,
 	};
 
 	struct JitOptions {

@@ -2654,7 +2654,7 @@ void Jit::Comp_VMatrixInit(MIPSOpcode op) {
 }
 
 void Jit::Comp_Vmmov(MIPSOpcode op) {
-	CONDITIONAL_DISABLE(VFPU_MTX);
+	CONDITIONAL_DISABLE(VFPU_MTX_VMMOV);
 
 	// TODO: This probably ignores prefixes?
 	if (js.HasUnknownPrefix())
@@ -2802,7 +2802,7 @@ void Jit::Comp_VScl(MIPSOpcode op) {
 }
 
 void Jit::Comp_Vmmul(MIPSOpcode op) {
-	CONDITIONAL_DISABLE(VFPU_MTX);
+	CONDITIONAL_DISABLE(VFPU_MTX_VMMUL);
 
 	// TODO: This probably ignores prefixes?
 	if (js.HasUnknownPrefix())
@@ -2996,7 +2996,7 @@ void Jit::Comp_Vmmul(MIPSOpcode op) {
 }
 
 void Jit::Comp_Vmscl(MIPSOpcode op) {
-	CONDITIONAL_DISABLE(VFPU_MTX);
+	CONDITIONAL_DISABLE(VFPU_MTX_VMSCL);
 
 	// TODO: This op probably ignores prefixes?
 	if (js.HasUnknownPrefix())
@@ -3042,7 +3042,7 @@ void Jit::Comp_Vmscl(MIPSOpcode op) {
 }
 
 void Jit::Comp_Vtfm(MIPSOpcode op) {
-	CONDITIONAL_DISABLE(VFPU_MTX);
+	CONDITIONAL_DISABLE(VFPU_MTX_VTFM);
 
 	// TODO: This probably ignores prefixes?  Or maybe uses D?
 	if (js.HasUnknownPrefix())

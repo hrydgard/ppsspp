@@ -828,7 +828,7 @@ void ArmJit::CompNEON_VMatrixInit(MIPSOpcode op) {
 }
 
 void ArmJit::CompNEON_Vmmov(MIPSOpcode op) {
-	CONDITIONAL_DISABLE(VFPU_MTX);
+	CONDITIONAL_DISABLE(VFPU_MTX_VMMOV);
 	if (_VS == _VD) {
 		// A lot of these no-op matrix moves in Wipeout... Just drop the instruction entirely.
 		return;
@@ -856,7 +856,7 @@ void ArmJit::CompNEON_Vmmov(MIPSOpcode op) {
 }
 
 void ArmJit::CompNEON_Vmmul(MIPSOpcode op) {
-	CONDITIONAL_DISABLE(VFPU_MTX);
+	CONDITIONAL_DISABLE(VFPU_MTX_VMMUL);
 
 	MatrixSize msz = GetMtxSize(op);
 	int n = GetMatrixSide(msz);
@@ -895,7 +895,7 @@ void ArmJit::CompNEON_Vmmul(MIPSOpcode op) {
 }
 
 void ArmJit::CompNEON_Vmscl(MIPSOpcode op) {
-	CONDITIONAL_DISABLE(VFPU_MTX);
+	CONDITIONAL_DISABLE(VFPU_MTX_VMSCL);
 
 	MatrixSize msz = GetMtxSize(op);
 
@@ -920,7 +920,7 @@ void ArmJit::CompNEON_Vmscl(MIPSOpcode op) {
 }
 
 void ArmJit::CompNEON_Vtfm(MIPSOpcode op) {
-	CONDITIONAL_DISABLE(VFPU_MTX);
+	CONDITIONAL_DISABLE(VFPU_MTX_VTFM);
 	if (js.HasUnknownPrefix()) {
 		DISABLE;
 	}

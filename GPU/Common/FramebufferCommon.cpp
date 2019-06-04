@@ -192,9 +192,9 @@ u32 FramebufferManagerCommon::FramebufferByteSize(const VirtualFramebuffer *vfb)
 }
 
 bool FramebufferManagerCommon::ShouldDownloadFramebuffer(const VirtualFramebuffer *vfb) const {
-	return (PSP_CoreParameter().compat.flags().Force04154000Download && vfb->fb_address == 0x00154000) ||
-		(PSP_CoreParameter().compat.flags().ForceRangeDownload && vfb->fb_address >= 0x001F3A80 && vfb->fb_address <= 0x001FE7C0) ||
-		(PSP_CoreParameter().compat.flags().Force04Download && vfb->fb_address >= 0x00000000 && vfb->fb_address <= 0x00400000); // Should be vfb->fb_address >= 0x00154000 && vfb->fb_address <= 0x00158000, but nah, let's make it less safe, but more universal
+	return (PSP_CoreParameter().compat.flags().Force04154000Download && vfb->fb_address == 0x04154000) ||
+		(PSP_CoreParameter().compat.flags().ForceRangeDownload && vfb->fb_address >= 0x041F3A80 && vfb->fb_address <= 0x041FE7C0) ||
+		(PSP_CoreParameter().compat.flags().Force04Download && vfb->fb_address >= 0x04000000 && vfb->fb_address <= 0x04400000); // Should be vfb->fb_address >= 0x04154000 && vfb->fb_address <= 0x04158000, but nah, let's make it less safe, but more universal
 }
 
 void FramebufferManagerCommon::SetNumExtraFBOs(int num) {
@@ -415,7 +415,7 @@ VirtualFramebuffer *FramebufferManagerCommon::DoSetRenderFrameBuffer(const Frame
 	float renderWidthFactor = renderWidth_ / 480.0f;
 	float renderHeightFactor = renderHeight_ / 272.0f;
 
-	if (PSP_CoreParameter().compat.flags().Force04154000Download && params.fb_address == 0x00154000) {
+	if (PSP_CoreParameter().compat.flags().Force04154000Download && params.fb_address == 0x04154000) {
 		renderWidthFactor = 1.0;
 		renderHeightFactor = 1.0;
 	}
@@ -583,6 +583,7 @@ void FramebufferManagerCommon::NotifyRenderFramebufferSwitched(VirtualFramebuffe
 	if (ShouldDownloadFramebuffer(vfb) && !vfb->memoryUpdated) {
 		ReadFramebufferToMemory(vfb, true, 0, 0, vfb->width, vfb->height);
 		vfb->usageFlags = (vfb->usageFlags | FB_USAGE_DOWNLOAD) & ~FB_USAGE_DOWNLOAD_CLEAR;
+		vfb->firstFrameSaved = true;
 	} else {
 		DownloadFramebufferOnSwitch(prevVfb);
 	}
@@ -1093,6 +1094,7 @@ void FramebufferManagerCommon::DecimateFBOs() {
 			bool sync = gl_extensions.IsGLES;
 			ReadFramebufferToMemory(vfb, sync, 0, 0, vfb->width, vfb->height);
 			vfb->usageFlags = (vfb->usageFlags | FB_USAGE_DOWNLOAD) & ~FB_USAGE_DOWNLOAD_CLEAR;
+			vfb->firstFrameSaved = true;
 		}
 
 		// Let's also "decimate" the usageFlags.
@@ -1747,7 +1749,7 @@ void FramebufferManagerCommon::SetRenderSize(VirtualFramebuffer *vfb) {
 		break;
 	}
 
-	if (PSP_CoreParameter().compat.flags().Force04154000Download && vfb->fb_address == 0x00154000) {
+	if (PSP_CoreParameter().compat.flags().Force04154000Download && vfb->fb_address == 0x04154000) {
 		force1x = true;
 	}
 

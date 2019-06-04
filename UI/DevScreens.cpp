@@ -337,7 +337,10 @@ static const JitDisableFlag jitDisableFlags[] = {
 	{ MIPSComp::JitDisable::FPU_COMP, "FPU_COMP" },
 	{ MIPSComp::JitDisable::FPU_XFER, "FPU_XFER" },
 	{ MIPSComp::JitDisable::VFPU_VEC, "VFPU_VEC" },
-	{ MIPSComp::JitDisable::VFPU_MTX, "VFPU_MTX" },
+	{ MIPSComp::JitDisable::VFPU_MTX_VTFM, "VFPU_MTX_VTFM" },
+	{ MIPSComp::JitDisable::VFPU_MTX_VMSCL, "VFPU_MTX_VMSCL" },
+	{ MIPSComp::JitDisable::VFPU_MTX_VMMUL, "VFPU_MTX_VMMUL" },
+	{ MIPSComp::JitDisable::VFPU_MTX_VMMOV, "VFPU_MTX_VMMOV" },
 	{ MIPSComp::JitDisable::VFPU_COMP, "VFPU_COMP" },
 	{ MIPSComp::JitDisable::VFPU_XFER, "VFPU_XFER" },
 	{ MIPSComp::JitDisable::LSU, "LSU" },
@@ -349,6 +352,8 @@ static const JitDisableFlag jitDisableFlags[] = {
 	{ MIPSComp::JitDisable::POINTERIFY, "Pointerify" },
 	{ MIPSComp::JitDisable::STATIC_ALLOC, "Static regalloc" },
 	{ MIPSComp::JitDisable::CACHE_POINTERS, "Cached pointers" },
+	{ MIPSComp::JitDisable::REGALLOC_GPR, "GPR Regalloc across instructions" },
+	{ MIPSComp::JitDisable::REGALLOC_FPR, "FPR Regalloc across instructions" },
 };
 
 void JitDebugScreen::CreateViews() {

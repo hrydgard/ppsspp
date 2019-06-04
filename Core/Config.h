@@ -63,6 +63,7 @@ public:
 	bool bSavestateScreenshotResLimit;
 	bool bUseFFV1;
 	bool bDumpFrames;
+	bool bDumpVideoOutput;
 	bool bDumpAudio;
 	bool bSaveLoadResetsAVdumping;
 	bool bEnableLogging;

@@ -648,7 +648,8 @@ SOURCES_CXX += \
    $(NATIVEDIR)/thin3d/thin3d_d3d9.cpp \
    $(NATIVEDIR)/thin3d/thin3d_d3d11.cpp \
    $(NATIVEDIR)/thin3d/d3dx9_loader.cpp \
-   $(NATIVEDIR)/thin3d/d3d11_loader.cpp
+   $(NATIVEDIR)/thin3d/d3d11_loader.cpp \
+   $(NATIVEDIR)/thin3d/d3d9_d3dcompiler_loader.cpp
 
 INCFLAGS += -I$(CORE_DIR)/dx9sdk/Include -I$(CORE_DIR)/dx9sdk/Include/DX11
 
