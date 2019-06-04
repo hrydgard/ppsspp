@@ -407,6 +407,7 @@ static ConfigSetting generalSettings[] = {
 	ConfigSetting("ScreenshotsAsPNG", &g_Config.bScreenshotsAsPNG, false, true, true),
 	ConfigSetting("UseFFV1", &g_Config.bUseFFV1, false),
 	ConfigSetting("DumpFrames", &g_Config.bDumpFrames, false),
+	ConfigSetting("DumpVideoOutput", &g_Config.bDumpVideoOutput, false),
 	ConfigSetting("DumpAudio", &g_Config.bDumpAudio, false),
 	ConfigSetting("SaveLoadResetsAVdumping", &g_Config.bSaveLoadResetsAVdumping, false),
 	ConfigSetting("StateSlot", &g_Config.iCurrentStateSlot, 0, true, true),

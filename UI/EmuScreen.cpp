@@ -107,7 +107,7 @@ static void __EmuScreenVblank()
 	if (g_Config.bDumpFrames && !startDumping)
 	{
 		avi.Start(PSP_CoreParameter().renderWidth, PSP_CoreParameter().renderHeight);
-		osm.Show(sy->T("AVI Dump started."), 3.0f);
+		osm.Show(sy->T("AVI Dump started."), 0.5f);
 		startDumping = true;
 	}
 	if (g_Config.bDumpFrames && startDumping)
@@ -117,7 +117,7 @@ static void __EmuScreenVblank()
 	else if (!g_Config.bDumpFrames && startDumping)
 	{
 		avi.Stop();
-		osm.Show(sy->T("AVI Dump stopped."), 3.0f);
+		osm.Show(sy->T("AVI Dump stopped."), 1.0f);
 		startDumping = false;
 	}
 #endif
@@ -347,7 +347,7 @@ EmuScreen::~EmuScreen() {
 	if (g_Config.bDumpFrames && startDumping)
 	{
 		avi.Stop();
-		osm.Show("AVI Dump stopped.", 3.0f);
+		osm.Show("AVI Dump stopped.", 1.0f);
 		startDumping = false;
 	}
 #endif
@@ -371,7 +371,7 @@ void EmuScreen::dialogFinished(const Screen *dialog, DialogResult result) {
 }
 
 static void AfterSaveStateAction(SaveState::Status status, const std::string &message, void *) {
-	if (!message.empty()) {
+	if (!message.empty() && (!g_Config.bDumpFrames || !g_Config.bDumpVideoOutput)) {
 		osm.Show(message, status == SaveState::Status::SUCCESS ? 2.0 : 5.0);
 	}
 }

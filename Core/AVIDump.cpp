@@ -169,9 +169,17 @@ static void PreparePacket(AVPacket* pkt) {
 
 void AVIDump::AddFrame()
 {
-	gpuDebug->GetCurrentFramebuffer(buf, GPU_DBG_FRAMEBUF_DISPLAY);
-	u32 w = buf.GetStride();
-	u32 h = buf.GetHeight();
+	u32 w = 0;
+	u32 h = 0;
+	if (g_Config.bDumpVideoOutput) {
+		gpuDebug->GetOutputFramebuffer(buf);
+		w = buf.GetStride();
+		h = buf.GetHeight();
+	} else {
+		gpuDebug->GetCurrentFramebuffer(buf, GPU_DBG_FRAMEBUF_RENDER);
+		w = PSP_CoreParameter().renderWidth;
+		h = PSP_CoreParameter().renderHeight;
+	}
 	CheckResolution(w, h);
 	u8 *flipbuffer = nullptr;
 	const u8 *buffer = ConvertBufferToScreenshot(buf, false, flipbuffer, w, h);
