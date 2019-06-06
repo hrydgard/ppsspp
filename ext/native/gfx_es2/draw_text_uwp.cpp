@@ -317,7 +317,7 @@ void TextDrawerUWP::DrawString(DrawBuffer &target, const char *str, float x, flo
 	}
 	else {
 		// Render the string to our bitmap and save to a GL texture.
-		std::wstring wstr = ConvertUTF8ToWString(ReplaceAll(str, "\n", "\r\n"));
+		std::wstring wstr = ConvertUTF8ToWString(ReplaceAll(ReplaceAll(str, "\n", "\r\n"), "&&", "&"));
 		SIZE size;
 
 		IDWriteTextFormat* format = nullptr;
