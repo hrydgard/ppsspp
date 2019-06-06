@@ -204,12 +204,16 @@
       <PreprocessorDefinitions>_DEBUG;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ForcedIncludeFiles>pch.h</ForcedIncludeFiles>
     </ClCompile>
-    <PreBuildEvent>
-      <Command>copy PackageNormal.appxmanifest Package.appxmanifest /Y
-mkdir Assets
-copy AssetsNormal\*.* Assets /Y
-../Windows/git-version-gen.cmd</Command>
-    </PreBuildEvent>
+		<PreBuildEvent>
+			<Command>
+				copy PackageNormal.appxmanifest Package.appxmanifest /Y
+				mkdir Assets
+				copy AssetsNormal\*.* Assets /Y
+				../Windows/git-version-gen.cmd
+				robocopy "..\Assets\." "Content\." /xf *.vsh /E /R:0 /W:0
+				EXIT 0
+			</Command>
+		</PreBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|ARM64'">
     <Link>
@@ -225,12 +229,16 @@ copy AssetsNormal\*.* Assets /Y
       <PreprocessorDefinitions>_DEBUG;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ForcedIncludeFiles>pch.h</ForcedIncludeFiles>
     </ClCompile>
-    <PreBuildEvent>
-      <Command>copy PackageNormal.appxmanifest Package.appxmanifest /Y
-mkdir Assets
-copy AssetsNormal\*.* Assets /Y
-../Windows/git-version-gen.cmd</Command>
-    </PreBuildEvent>
+		<PreBuildEvent>
+			<Command>
+				copy PackageNormal.appxmanifest Package.appxmanifest /Y
+				mkdir Assets
+				copy AssetsNormal\*.* Assets /Y
+				../Windows/git-version-gen.cmd
+				robocopy "..\Assets\." "Content\." /xf *.vsh /E /R:0 /W:0
+				EXIT 0
+			</Command>
+		</PreBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|ARM'">
     <Link>
@@ -246,12 +254,16 @@ copy AssetsNormal\*.* Assets /Y
       <PreprocessorDefinitions>NDEBUG;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ForcedIncludeFiles>pch.h</ForcedIncludeFiles>
     </ClCompile>
-    <PreBuildEvent>
-      <Command>copy PackageNormal.appxmanifest Package.appxmanifest /Y
-mkdir Assets
-copy AssetsNormal\*.* Assets /Y
-../Windows/git-version-gen.cmd</Command>
-    </PreBuildEvent>
+		<PreBuildEvent>
+			<Command>
+				copy PackageNormal.appxmanifest Package.appxmanifest /Y
+				mkdir Assets
+				copy AssetsNormal\*.* Assets /Y
+				../Windows/git-version-gen.cmd
+				robocopy "..\Assets\." "Content\." /xf *.vsh /E /R:0 /W:0
+				EXIT 0
+			</Command>
+		</PreBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|ARM64'">
     <Link>
@@ -267,12 +279,16 @@ copy AssetsNormal\*.* Assets /Y
       <PreprocessorDefinitions>NDEBUG;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ForcedIncludeFiles>pch.h</ForcedIncludeFiles>
     </ClCompile>
-    <PreBuildEvent>
-      <Command>copy PackageNormal.appxmanifest Package.appxmanifest /Y
-mkdir Assets
-copy AssetsNormal\*.* Assets /Y
-../Windows/git-version-gen.cmd</Command>
-    </PreBuildEvent>
+		<PreBuildEvent>
+			<Command>
+				copy PackageNormal.appxmanifest Package.appxmanifest /Y
+				mkdir Assets
+				copy AssetsNormal\*.* Assets /Y
+				../Windows/git-version-gen.cmd
+				robocopy "..\Assets\." "Content\." /xf *.vsh /E /R:0 /W:0
+				EXIT 0
+			</Command>
+		</PreBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='UWP Gold|ARM'">
     <Link>
@@ -288,12 +304,16 @@ copy AssetsNormal\*.* Assets /Y
       <PreprocessorDefinitions>GOLD;NDEBUG;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ForcedIncludeFiles>pch.h</ForcedIncludeFiles>
     </ClCompile>
-    <PreBuildEvent>
-      <Command>copy PackageGold.appxmanifest Package.appxmanifest /Y
-mkdir Assets
-copy AssetsGold\*.* Assets /Y
-../Windows/git-version-gen.cmd</Command>
-    </PreBuildEvent>
+		<PreBuildEvent>
+			<Command>
+				copy PackageGold.appxmanifest Package.appxmanifest /Y
+				mkdir Assets
+				copy AssetsGold\*.* Assets /Y
+				../Windows/git-version-gen.cmd
+				robocopy "..\Assets\." "Content\." /xf *.vsh /E /R:0 /W:0
+				EXIT 0
+			</Command>
+		</PreBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='UWP Gold|ARM64'">
     <Link>
@@ -309,12 +329,16 @@ copy AssetsGold\*.* Assets /Y
       <PreprocessorDefinitions>GOLD;NDEBUG;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ForcedIncludeFiles>pch.h</ForcedIncludeFiles>
     </ClCompile>
-    <PreBuildEvent>
-      <Command>copy PackageGold.appxmanifest Package.appxmanifest /Y
-mkdir Assets
-copy AssetsGold\*.* Assets /Y
-../Windows/git-version-gen.cmd</Command>
-    </PreBuildEvent>
+		<PreBuildEvent>
+			<Command>
+				copy PackageGold.appxmanifest Package.appxmanifest /Y
+				mkdir Assets
+				copy AssetsGold\*.* Assets /Y
+				../Windows/git-version-gen.cmd
+				robocopy "..\Assets\." "Content\." /xf *.vsh /E /R:0 /W:0
+				EXIT 0
+			</Command>
+		</PreBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <Link>
@@ -330,12 +354,16 @@ copy AssetsGold\*.* Assets /Y
       <PreprocessorDefinitions>_DEBUG;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ForcedIncludeFiles>pch.h</ForcedIncludeFiles>
     </ClCompile>
-    <PreBuildEvent>
-      <Command>copy PackageNormal.appxmanifest Package.appxmanifest /Y
-mkdir Assets
-copy AssetsNormal\*.* Assets /Y
-../Windows/git-version-gen.cmd</Command>
-    </PreBuildEvent>
+		<PreBuildEvent>
+			<Command>
+				copy PackageNormal.appxmanifest Package.appxmanifest /Y
+				mkdir Assets
+				copy AssetsNormal\*.* Assets /Y
+				../Windows/git-version-gen.cmd
+				robocopy "..\Assets\." "Content\." /xf *.vsh /E /R:0 /W:0
+				EXIT 0
+			</Command>
+		</PreBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
     <Link>
@@ -351,12 +379,16 @@ copy AssetsNormal\*.* Assets /Y
       <PreprocessorDefinitions>NDEBUG;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ForcedIncludeFiles>pch.h</ForcedIncludeFiles>
     </ClCompile>
-    <PreBuildEvent>
-      <Command>copy PackageNormal.appxmanifest Package.appxmanifest /Y
-mkdir Assets
-copy AssetsNormal\*.* Assets /Y
-../Windows/git-version-gen.cmd</Command>
-    </PreBuildEvent>
+		<PreBuildEvent>
+			<Command>
+				copy PackageNormal.appxmanifest Package.appxmanifest /Y
+				mkdir Assets
+				copy AssetsNormal\*.* Assets /Y
+				../Windows/git-version-gen.cmd
+				robocopy "..\Assets\." "Content\." /xf *.vsh /E /R:0 /W:0
+				EXIT 0
+			</Command>
+		</PreBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='UWP Gold|Win32'">
     <Link>
@@ -372,12 +404,16 @@ copy AssetsNormal\*.* Assets /Y
       <PreprocessorDefinitions>GOLD;NDEBUG;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ForcedIncludeFiles>pch.h</ForcedIncludeFiles>
     </ClCompile>
-    <PreBuildEvent>
-      <Command>copy PackageGold.appxmanifest Package.appxmanifest /Y
-mkdir Assets
-copy AssetsGold\*.* Assets /Y
-../Windows/git-version-gen.cmd</Command>
-    </PreBuildEvent>
+		<PreBuildEvent>
+			<Command>
+				copy PackageGold.appxmanifest Package.appxmanifest /Y
+				mkdir Assets
+				copy AssetsGold\*.* Assets /Y
+				../Windows/git-version-gen.cmd
+				robocopy "..\Assets\." "Content\." /xf *.vsh /E /R:0 /W:0
+				EXIT 0
+			</Command>
+		</PreBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <Link>
@@ -393,12 +429,16 @@ copy AssetsGold\*.* Assets /Y
       <PreprocessorDefinitions>_DEBUG;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ForcedIncludeFiles>pch.h</ForcedIncludeFiles>
     </ClCompile>
-    <PreBuildEvent>
-      <Command>copy PackageNormal.appxmanifest Package.appxmanifest /Y
-mkdir Assets
-copy AssetsNormal\*.* Assets /Y
-../Windows/git-version-gen.cmd</Command>
-    </PreBuildEvent>
+		<PreBuildEvent>
+			<Command>
+				copy PackageNormal.appxmanifest Package.appxmanifest /Y
+				mkdir Assets
+				copy AssetsNormal\*.* Assets /Y
+				../Windows/git-version-gen.cmd
+				robocopy "..\Assets\." "Content\." /xf *.vsh /E /R:0 /W:0
+				EXIT 0
+			</Command>
+		</PreBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <Link>
@@ -414,12 +454,16 @@ copy AssetsNormal\*.* Assets /Y
       <PreprocessorDefinitions>NDEBUG;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ForcedIncludeFiles>pch.h</ForcedIncludeFiles>
     </ClCompile>
-    <PreBuildEvent>
-      <Command>copy PackageNormal.appxmanifest Package.appxmanifest /Y
-mkdir Assets
-copy AssetsNormal\*.* Assets /Y
-../Windows/git-version-gen.cmd</Command>
-    </PreBuildEvent>
+		<PreBuildEvent>
+			<Command>
+				copy PackageNormal.appxmanifest Package.appxmanifest /Y
+				mkdir Assets
+				copy AssetsNormal\*.* Assets /Y
+				../Windows/git-version-gen.cmd
+				robocopy "..\Assets\." "Content\." /xf *.vsh /E /R:0 /W:0
+				EXIT 0
+			</Command>
+		</PreBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='UWP Gold|x64'">
     <Link>
@@ -435,20 +479,16 @@ copy AssetsNormal\*.* Assets /Y
       <PreprocessorDefinitions>GOLD;NDEBUG;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ForcedIncludeFiles>pch.h</ForcedIncludeFiles>
     </ClCompile>
-    <PreBuildEvent>
-      <Command>copy PackageGold.appxmanifest Package.appxmanifest /Y
-mkdir Assets
-copy AssetsGold\*.* Assets /Y
-../Windows/git-version-gen.cmd</Command>
-    </PreBuildEvent>
-  </ItemDefinitionGroup>
-  <ItemDefinitionGroup>
-    <PreBuildEvent>
-      <Command>
-        robocopy "..\Assets\." "Content\." /xf *.vsh /E /R:0 /W:0
-        EXIT 0
-      </Command>
-    </PreBuildEvent>
+		<PreBuildEvent>
+			<Command>
+				copy PackageGold.appxmanifest Package.appxmanifest /Y
+				mkdir Assets
+				copy AssetsGold\*.* Assets /Y
+				../Windows/git-version-gen.cmd
+				robocopy "..\Assets\." "Content\." /xf *.vsh /E /R:0 /W:0
+				EXIT 0
+			</Command>
+		</PreBuildEvent>
   </ItemDefinitionGroup>
   <ItemGroup>
     <Image Include="AssetsGold\StoreLogo.scale-100.png">
