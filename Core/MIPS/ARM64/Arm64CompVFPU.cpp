@@ -1227,11 +1227,10 @@ namespace MIPSComp {
 		GetMatrixRegs(tregs, sz, _VT);
 		GetMatrixRegs(dregs, sz, _VD);
 
-		MatrixOverlapType sdoverlap = GetMatrixOverlap(_VS, _VD, sz);
-		MatrixOverlapType tdoverlap = GetMatrixOverlap(_VT, _VD, sz);
-		MatrixOverlapType stoverlap = GetMatrixOverlap(_VS, _VT, sz);
+		MatrixOverlapType soverlap = GetMatrixOverlap(_VS, _VD, sz);
+		MatrixOverlapType toverlap = GetMatrixOverlap(_VT, _VD, sz);
 
-		if (sdoverlap != OVERLAP_NONE || tdoverlap != OVERLAP_NONE || stoverlap != OVERLAP_NONE) {
+		if (soverlap || toverlap) {
 			DISABLE;
 		} else {
 			for (int a = 0; a < n; a++) {
