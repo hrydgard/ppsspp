@@ -212,8 +212,8 @@
 				copy PackageNormal.appxmanifest Package.appxmanifest /Y
 				mkdir Assets
 				copy AssetsNormal\*.* Assets /Y
-				../Windows/git-version-gen.cmd
 				robocopy "..\Assets\." "Content\." /xf *.vsh /E /R:0 /W:0
+				../Windows/git-version-gen.cmd
 				EXIT 0
 			</Command>
     </PreBuildEvent>
@@ -237,8 +237,8 @@
 				copy PackageNormal.appxmanifest Package.appxmanifest /Y
 				mkdir Assets
 				copy AssetsNormal\*.* Assets /Y
-				../Windows/git-version-gen.cmd
 				robocopy "..\Assets\." "Content\." /xf *.vsh /E /R:0 /W:0
+				../Windows/git-version-gen.cmd
 				EXIT 0
 			</Command>
     </PreBuildEvent>
@@ -262,8 +262,8 @@
 				copy PackageNormal.appxmanifest Package.appxmanifest /Y
 				mkdir Assets
 				copy AssetsNormal\*.* Assets /Y
-				../Windows/git-version-gen.cmd
 				robocopy "..\Assets\." "Content\." /xf *.vsh /E /R:0 /W:0
+				../Windows/git-version-gen.cmd
 				EXIT 0
 			</Command>
     </PreBuildEvent>
@@ -287,8 +287,8 @@
 				copy PackageNormal.appxmanifest Package.appxmanifest /Y
 				mkdir Assets
 				copy AssetsNormal\*.* Assets /Y
-				../Windows/git-version-gen.cmd
 				robocopy "..\Assets\." "Content\." /xf *.vsh /E /R:0 /W:0
+				../Windows/git-version-gen.cmd
 				EXIT 0
 			</Command>
     </PreBuildEvent>
@@ -312,8 +312,8 @@
 				copy PackageGold.appxmanifest Package.appxmanifest /Y
 				mkdir Assets
 				copy AssetsGold\*.* Assets /Y
-				../Windows/git-version-gen.cmd
 				robocopy "..\Assets\." "Content\." /xf *.vsh /E /R:0 /W:0
+				../Windows/git-version-gen.cmd
 				EXIT 0
 			</Command>
     </PreBuildEvent>
@@ -337,8 +337,8 @@
 				copy PackageGold.appxmanifest Package.appxmanifest /Y
 				mkdir Assets
 				copy AssetsGold\*.* Assets /Y
-				../Windows/git-version-gen.cmd
 				robocopy "..\Assets\." "Content\." /xf *.vsh /E /R:0 /W:0
+				../Windows/git-version-gen.cmd
 				EXIT 0
 			</Command>
     </PreBuildEvent>
@@ -362,8 +362,8 @@
 				copy PackageNormal.appxmanifest Package.appxmanifest /Y
 				mkdir Assets
 				copy AssetsNormal\*.* Assets /Y
-				../Windows/git-version-gen.cmd
 				robocopy "..\Assets\." "Content\." /xf *.vsh /E /R:0 /W:0
+				../Windows/git-version-gen.cmd
 				EXIT 0
 			</Command>
     </PreBuildEvent>
@@ -387,8 +387,8 @@
 				copy PackageNormal.appxmanifest Package.appxmanifest /Y
 				mkdir Assets
 				copy AssetsNormal\*.* Assets /Y
-				../Windows/git-version-gen.cmd
 				robocopy "..\Assets\." "Content\." /xf *.vsh /E /R:0 /W:0
+				../Windows/git-version-gen.cmd
 				EXIT 0
 			</Command>
     </PreBuildEvent>
@@ -412,8 +412,8 @@
 				copy PackageGold.appxmanifest Package.appxmanifest /Y
 				mkdir Assets
 				copy AssetsGold\*.* Assets /Y
-				../Windows/git-version-gen.cmd
 				robocopy "..\Assets\." "Content\." /xf *.vsh /E /R:0 /W:0
+				../Windows/git-version-gen.cmd
 				EXIT 0
 			</Command>
     </PreBuildEvent>
@@ -437,8 +437,8 @@
 				copy PackageNormal.appxmanifest Package.appxmanifest /Y
 				mkdir Assets
 				copy AssetsNormal\*.* Assets /Y
-				../Windows/git-version-gen.cmd
 				robocopy "..\Assets\." "Content\." /xf *.vsh /E /R:0 /W:0
+				../Windows/git-version-gen.cmd
 				EXIT 0
 			</Command>
     </PreBuildEvent>
@@ -462,8 +462,8 @@
 				copy PackageNormal.appxmanifest Package.appxmanifest /Y
 				mkdir Assets
 				copy AssetsNormal\*.* Assets /Y
-				../Windows/git-version-gen.cmd
 				robocopy "..\Assets\." "Content\." /xf *.vsh /E /R:0 /W:0
+				../Windows/git-version-gen.cmd
 				EXIT 0
 			</Command>
     </PreBuildEvent>
@@ -487,8 +487,8 @@
 				copy PackageGold.appxmanifest Package.appxmanifest /Y
 				mkdir Assets
 				copy AssetsGold\*.* Assets /Y
-				../Windows/git-version-gen.cmd
 				robocopy "..\Assets\." "Content\." /xf *.vsh /E /R:0 /W:0
+				../Windows/git-version-gen.cmd
 				EXIT 0
 			</Command>
     </PreBuildEvent>
