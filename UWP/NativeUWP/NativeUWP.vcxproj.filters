@@ -474,6 +474,9 @@
     <ClCompile Include="..\..\ext\native\data\base64.cpp">
       <Filter>data</Filter>
     </ClCompile>
+    <ClCompile Include="..\..\ext\native\gfx_es2\draw_text_uwp.cpp">
+      <Filter>gfx</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="pch.h" />
@@ -746,6 +749,9 @@
     </ClInclude>
     <ClInclude Include="..\..\ext\native\data\base64.h">
       <Filter>data</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\ext\native\gfx_es2\draw_text_uwp.h">
+      <Filter>gfx</Filter>
     </ClInclude>
   </ItemGroup>
 </Project>

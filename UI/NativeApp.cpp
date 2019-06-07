@@ -108,6 +108,9 @@
 #if defined(USING_QT_UI)
 #include <QFontDatabase>
 #endif
+#if PPSSPP_PLATFORM(UWP)
+#include <dwrite_3.h>
+#endif
 
 // The new UI framework, for initialization
 
@@ -646,7 +649,10 @@ void NativeInit(int argc, const char *argv[], const char *savegame_dir, const ch
 	// Note to translators: do not translate this/add this to PPSSPP-lang's files.
 	// It's intended to be custom for every user.
 	// Only add it to your own personal copies of PPSSPP.
-#if defined(USING_WIN_UI) && !PPSSPP_PLATFORM(UWP)
+#if PPSSPP_PLATFORM(UWP)
+	// Roboto font is loaded in TextDrawerUWP.
+	g_Config.sFont = des->T("Font", "Roboto");
+#elif defined(USING_WIN_UI) && !PPSSPP_PLATFORM(UWP)
 	// TODO: Could allow a setting to specify a font file to load?
 	// TODO: Make this a constant if we can sanely load the font on other systems?
 	AddFontResourceEx(L"assets/Roboto-Condensed.ttf", FR_PRIVATE, NULL);
@@ -729,7 +735,7 @@ static UI::Style MakeStyle(uint32_t fg, uint32_t bg) {
 }
 
 static void UIThemeInit() {
-#if (defined(USING_WIN_UI) && !PPSSPP_PLATFORM(UWP)) || defined(USING_QT_UI)
+#if defined(USING_WIN_UI) || PPSSPP_PLATFORM(UWP) || defined(USING_QT_UI)
 	ui_theme.uiFont = UI::FontStyle(UBUNTU24, g_Config.sFont.c_str(), 22);
 	ui_theme.uiFontSmall = UI::FontStyle(UBUNTU24, g_Config.sFont.c_str(), 15);
 	ui_theme.uiFontSmaller = UI::FontStyle(UBUNTU24, g_Config.sFont.c_str(), 12);

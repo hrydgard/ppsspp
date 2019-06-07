@@ -419,6 +419,7 @@
     <ClInclude Include="..\..\ext\native\file\path.h" />
     <ClInclude Include="..\..\ext\native\file\vfs.h" />
     <ClInclude Include="..\..\ext\native\file\zip_read.h" />
+    <ClInclude Include="..\..\ext\native\gfx_es2\draw_text_uwp.h" />
     <ClInclude Include="..\..\ext\native\json\json_reader.h" />
     <ClInclude Include="..\..\ext\native\json\json_writer.h" />
     <ClInclude Include="..\..\ext\native\gfx\texture_atlas.h" />
@@ -1462,6 +1463,7 @@
     <ClCompile Include="..\..\ext\native\file\ini_file.cpp" />
     <ClCompile Include="..\..\ext\native\file\path.cpp" />
     <ClCompile Include="..\..\ext\native\file\zip_read.cpp" />
+    <ClCompile Include="..\..\ext\native\gfx_es2\draw_text_uwp.cpp" />
     <ClCompile Include="..\..\ext\native\json\json_reader.cpp" />
     <ClCompile Include="..\..\ext\native\json\json_writer.cpp" />
     <ClCompile Include="..\..\ext\native\gfx\texture_atlas.cpp" />
