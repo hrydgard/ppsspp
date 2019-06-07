@@ -83,6 +83,7 @@ else ifneq (,$(findstring rpi,$(platform)))
 	INCFLAGS += -I/opt/vc/include
 	CPUFLAGS += -DARMv5_ONLY 
 	PLATFORM_EXT := unix
+	TARGET_ARCH = arm
 	LDFLAGS += -lrt -ldl
 	
 # ARM64
