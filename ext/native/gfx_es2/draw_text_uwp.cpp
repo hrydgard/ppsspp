@@ -151,6 +151,11 @@ TextDrawerUWP::~TextDrawerUWP() {
 	m_d2dContext->Release();
 	m_d2dDevice->Release();
 	m_d2dFactory->Release();
+
+	m_fontCollection->Release();
+	m_fontSet->Release();
+	m_fontFile->Release();
+	m_fontSetBuilder->Release();
 	m_dwriteFactory->Release();
 	delete ctx_;
 }
@@ -206,6 +211,7 @@ void TextDrawerUWP::MeasureString(const char *str, size_t len, float *w, float *
 		if (iter != fontMap_.end()) {
 			format = iter->second->textFmt;
 		}
+		if (!format) return;
 
 		std::wstring wstr = ConvertUTF8ToWString(ReplaceAll(ReplaceAll(std::string(str, len), "\n", "\r\n"), "&&", "&"));
 
@@ -223,6 +229,7 @@ void TextDrawerUWP::MeasureString(const char *str, size_t len, float *w, float *
 
 		DWRITE_TEXT_METRICS metrics;
 		layout->GetMetrics(&metrics);
+		layout->Release();
 
 		entry = new TextMeasureEntry();
 		entry->width = metrics.width + 1;
@@ -242,6 +249,7 @@ void TextDrawerUWP::MeasureStringRect(const char *str, size_t len, const Bounds 
 	if (iter != fontMap_.end()) {
 		format = iter->second->textFmt;
 	}
+	if (!format) return;
 
 	std::string toMeasure = std::string(str, len);
 	if (align & FLAG_WRAP_TEXT) {
@@ -282,6 +290,7 @@ void TextDrawerUWP::MeasureStringRect(const char *str, size_t len, const Bounds 
 
 			DWRITE_TEXT_METRICS metrics;
 			layout->GetMetrics(&metrics);
+			layout->Release();
 
 			entry = new TextMeasureEntry();
 			entry->width = metrics.width + 1;
@@ -325,6 +334,7 @@ void TextDrawerUWP::DrawString(DrawBuffer &target, const char *str, float x, flo
 		if (iter != fontMap_.end()) {
 			format = iter->second->textFmt;
 		}
+		if (!format) return;
 
 		if (align & ALIGN_HCENTER)
 			format->SetTextAlignment(DWRITE_TEXT_ALIGNMENT_CENTER);
