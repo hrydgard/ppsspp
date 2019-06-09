@@ -44,7 +44,6 @@ protected:
 	ID2D1Factory5*        m_d2dFactory;
 	ID2D1Device4*         m_d2dDevice;
 	ID2D1DeviceContext4*  m_d2dContext;
-	ID2D1Bitmap1*         m_d2dTargetBitmap;
 	ID2D1SolidColorBrush* m_d2dWhiteBrush;
 
 	// DirectWrite drawing components.

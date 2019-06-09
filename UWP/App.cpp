@@ -217,9 +217,10 @@ void App::OnActivated(CoreApplicationView^ applicationView, IActivatedEventArgs^
 	// Run() won't start until the CoreWindow is activated.
 	CoreWindow::GetForCurrentThread()->Activate();
 	// On mobile, we force-enter fullscreen mode.
-	if (m_isPhone) {
+	if (m_isPhone) g_Config.bFullScreen = true;
+
+	if (g_Config.bFullScreen)
 		Windows::UI::ViewManagement::ApplicationView::GetForCurrentView()->TryEnterFullScreenMode();
-	}
 }
 
 void App::OnSuspending(Platform::Object^ sender, SuspendingEventArgs^ args) {
@@ -228,9 +229,10 @@ void App::OnSuspending(Platform::Object^ sender, SuspendingEventArgs^ args) {
 	// aware that a deferral may not be held indefinitely. After about five seconds,
 	// the app will be forced to exit.
 	SuspendingDeferral^ deferral = args->SuspendingOperation->GetDeferral();
+	auto app = this;
 
-	create_task([this, deferral]() {
-		m_deviceResources->Trim();
+	create_task([app, deferral]() {
+		app->m_deviceResources->Trim();
 		deferral->Complete();
 	});
 }
@@ -246,6 +248,9 @@ void App::OnResuming(Platform::Object^ sender, Platform::Object^ args) {
 // Window event handlers.
 
 void App::OnWindowSizeChanged(CoreWindow^ sender, WindowSizeChangedEventArgs^ args) {
+	auto view = Windows::UI::ViewManagement::ApplicationView::GetForCurrentView();
+	g_Config.bFullScreen = view->IsFullScreenMode;
+
 	int width = sender->Bounds.Width;
 	int height = sender->Bounds.Height;
 	float scale = m_deviceResources->GetDpi() / 96.0f;
@@ -263,6 +268,13 @@ void App::OnWindowSizeChanged(CoreWindow^ sender, WindowSizeChangedEventArgs^ ar
 }
 
 void App::OnVisibilityChanged(CoreWindow^ sender, VisibilityChangedEventArgs^ args) {
+
+	if (args->Visible == false) {
+		// MainScreen::OnExit and even App::OnWindowClosed
+		// doesn't seem to be called when closing the window
+		// Try to save the config here
+		g_Config.Save("App::OnVisibilityChanged");
+	}
 	m_windowVisible = args->Visible;
 }
 
