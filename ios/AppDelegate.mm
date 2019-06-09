@@ -72,15 +72,27 @@
 }
 
 -(BOOL) application:(UIApplication *)application didFinishLaunchingWithOptions:(NSDictionary *)launchOptions {
-	self.window = [[UIWindow alloc] initWithFrame:[[UIScreen mainScreen] bounds]];
-	self.viewController = [[ViewController alloc] init];
-	
-	[[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(handleAudioSessionInterruption:) name:AVAudioSessionInterruptionNotification object:[AVAudioSession sharedInstance]];
-	
-	[[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(handleMediaServicesWereReset:) name:AVAudioSessionMediaServicesWereResetNotification object:nil];
-	
-	self.window.rootViewController = self.viewController;
-	[self.window makeKeyAndVisible];
+    
+    [[NSNotificationCenter defaultCenter] addObserverForName:UIScreenDidConnectNotification object:nil queue:nil usingBlock:^(NSNotification * _Nonnull notification) {
+        UIScreen* screen = (UIScreen*)notification.object;
+        self.screen = screen;
+        
+        NSLog(@"Display connected: %@", screen.debugDescription);
+        UIScreenMode* mode = screen.availableModes[screen.availableModes.count - 1];
+        [screen setCurrentMode:mode];
+        [screen setOverscanCompensation:UIScreenOverscanCompensationNone];
+        
+        self.window = [[UIWindow alloc] initWithFrame:[screen bounds]];
+        [self.window setScreen:screen];
+        self.viewController = [[ViewController alloc] init];
+        
+        [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(handleAudioSessionInterruption:) name:AVAudioSessionInterruptionNotification object:[AVAudioSession sharedInstance]];
+        
+        [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(handleMediaServicesWereReset:) name:AVAudioSessionMediaServicesWereResetNotification object:nil];
+        
+        self.window.rootViewController = self.viewController;
+        [self.window makeKeyAndVisible];
+    }];
 	
 	return YES;
 }

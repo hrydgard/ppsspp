@@ -5,6 +5,7 @@
 // Modified by xSacha
 //
 
+#import "AppDelegate.h"
 #import "ViewController.h"
 #import "SubtleVolume.h"
 #import <GLKit/GLKit.h>
@@ -144,7 +145,8 @@ static GraphicsContext *graphicsContext;
 - (void)viewDidLoad {
 	[super viewDidLoad];
 
-	self.view.frame = [[UIScreen mainScreen] bounds];
+    UIScreen* screen = [(AppDelegate*)[UIApplication sharedApplication].delegate screen];
+	self.view.frame = [screen bounds];
 	self.view.multipleTouchEnabled = YES;
 	self.context = [[EAGLContext alloc] initWithAPI:kEAGLRenderingAPIOpenGLES3];
 	
@@ -159,12 +161,13 @@ static GraphicsContext *graphicsContext;
 	self.preferredFramesPerSecond = 60;
 
 	// Might be useful for a speed boot, sacrificing resolution:
-	// view.contentScaleFactor = 1.0;
+	view.contentScaleFactor = screen.scale;
 
-	float scale = [UIScreen mainScreen].scale;
+	float scale = screen.scale;
+    
 	
-	if ([[UIScreen mainScreen] respondsToSelector:@selector(nativeScale)]) {
-		scale = [UIScreen mainScreen].nativeScale;
+	if ([screen respondsToSelector:@selector(nativeScale)]) {
+		scale = screen.nativeScale;
 	}
 
 	CGSize size = [[UIApplication sharedApplication].delegate window].frame.size;
@@ -176,8 +179,8 @@ static GraphicsContext *graphicsContext;
 	}
 
 	g_dpi = (IS_IPAD() ? 200.0f : 150.0f) * scale;
-	g_dpi_scale_x = 240.0f / g_dpi;
-	g_dpi_scale_y = 240.0f / g_dpi;
+    g_dpi_scale_x = 1;//240.0f / g_dpi;
+    g_dpi_scale_y = 1;//240.0f / g_dpi;
 	g_dpi_scale_real_x = g_dpi_scale_x;
 	g_dpi_scale_real_y = g_dpi_scale_y;
 	pixel_xres = size.width * scale;
