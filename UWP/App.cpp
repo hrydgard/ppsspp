@@ -278,7 +278,7 @@ void App::OnVisibilityChanged(CoreWindow^ sender, VisibilityChangedEventArgs^ ar
 	m_windowVisible = args->Visible;
 }
 
-void App::OnWindowClosed(CoreWindow^ sender, CoreWindowEventArgs^ args) {	
+void App::OnWindowClosed(CoreWindow^ sender, CoreWindowEventArgs^ args) {
 	m_windowClosed = true;
 }
 
