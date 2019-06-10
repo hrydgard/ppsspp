@@ -82,6 +82,8 @@
 - (void)updateScreen:(UIScreen *)screen {
 	[self setMainScreen:screen];
 	UIWindow *gameWindow = [(AppDelegate *)[[UIApplication sharedApplication] delegate] window];
+	// Hide before moving window to external display, otherwise iPhone won't switch to it
+	[gameWindow setHidden:YES];
 	[gameWindow setScreen:screen];
 	// Set optimal resolution
 	// Dispatch later to prevent "no window is preset" error
@@ -93,6 +95,7 @@
 			[screen setOverscanCompensation:UIScreenOverscanCompensationNone];
 		}
 		[self updateResolution:screen];
+		[gameWindow setHidden:NO];
 	});
 }
 
