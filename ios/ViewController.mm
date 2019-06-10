@@ -162,9 +162,6 @@ static GraphicsContext *graphicsContext;
 	[EAGLContext setCurrentContext:self.context];
 	self.preferredFramesPerSecond = 60;
 
-	// Might be useful for a speed boot, sacrificing resolution:
-	view.contentScaleFactor = screen.scale;
-
 	[[DisplayManager shared] updateResolution:[UIScreen mainScreen]];
 
 	graphicsContext = new IOSGraphicsContext();
