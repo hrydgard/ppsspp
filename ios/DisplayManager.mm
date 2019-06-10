@@ -18,6 +18,9 @@
 
 @property BOOL listenerActive;
 @property (atomic, retain) NSMutableArray<UIScreen *> *extDisplays;
+@property CGRect originalFrame;
+@property CGRect originalBounds;
+@property CGAffineTransform originalTransform;
 
 - (void)updateScreen:(UIScreen *)screen;
 
@@ -51,6 +54,10 @@
 	}
 	NSLog(@"Setting up display manager");
 	[self setMainScreen:[UIScreen mainScreen]];
+	UIWindow *gameWindow = [(AppDelegate *)[[UIApplication sharedApplication] delegate] window];
+	[self setOriginalFrame: [gameWindow frame]];
+	[self setOriginalBounds:[gameWindow bounds]];
+	[self setOriginalTransform:[gameWindow transform]];
 	// Display connected
 	[[NSNotificationCenter defaultCenter] addObserverForName:UIScreenDidConnectNotification object:nil queue:nil usingBlock:^(NSNotification * _Nonnull notification) {
 		UIScreen *screen = (UIScreen *) notification.object;
@@ -92,9 +99,23 @@
 			NSUInteger count = [[screen availableModes] count];
 			UIScreenMode* mode = [screen availableModes][count - 1];
 			[screen setCurrentMode:mode];
+			// Fix overscan
+			// TODO: Hacky solution. Screen is still scaled even if UIScreenOverscanCompensationNone is set.
 			[screen setOverscanCompensation:UIScreenOverscanCompensationNone];
+			CGSize fullSize = mode.size;
+			UIEdgeInsets insets = [screen overscanCompensationInsets];
+			fullSize.width -= insets.left + insets.right;
+			fullSize.height -= insets.top + insets.bottom;
+			[gameWindow setFrame:CGRectMake(insets.left, insets.top, fullSize.width, fullSize.height)];
+			[gameWindow setBounds:CGRectMake(0, 0, fullSize.width, fullSize.height)];
+			[self updateResolution:screen];
+			[gameWindow setTransform:CGAffineTransformMakeScale(mode.size.width / fullSize.width, mode.size.height / fullSize.height)];
+		} else {
+			[gameWindow setTransform:[self originalTransform]];
+			[gameWindow setFrame:[self originalFrame]];
+			[gameWindow setBounds:[self originalBounds]];
+			[self updateResolution:screen];
 		}
-		[self updateResolution:screen];
 		[gameWindow setHidden:NO];
 	});
 }
