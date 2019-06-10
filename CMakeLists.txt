@@ -735,6 +735,8 @@ elseif(IOS)
 		ios/main.mm
 		ios/AppDelegate.mm
 		ios/AppDelegate.h
+		ios/DisplayManager.h
+		ios/DisplayManager.mm
 		ios/ViewController.mm
 		ios/ViewController.h
 		ios/iOSCoreAudio.mm
