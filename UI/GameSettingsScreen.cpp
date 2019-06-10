@@ -397,14 +397,12 @@ void GameSettingsScreen::CreateViews() {
 	// graphicsSettings->Add(new CheckBox(&g_Config.bFXAA, gr->T("FXAA")));
 	graphicsSettings->Add(new ItemHeader(gr->T("Texture Scaling")));
 #ifndef MOBILE_DEVICE
-	static const char *texScaleLevelsNPOT[] = {"Auto", "Off", "2x", "3x", "4x", "5x"};
+	static const char *texScaleLevels[] = {"Auto", "Off", "2x", "3x", "4x", "5x"};
 #else
-	static const char *texScaleLevelsNPOT[] = {"Auto", "Off", "2x", "3x"};
+	static const char *texScaleLevels[] = {"Auto", "Off", "2x", "3x"};
 #endif
 
-	static const char **texScaleLevels = texScaleLevelsNPOT;
-	static int numTexScaleLevels = ARRAY_SIZE(texScaleLevelsNPOT);
-	PopupMultiChoice *texScalingChoice = graphicsSettings->Add(new PopupMultiChoice(&g_Config.iTexScalingLevel, gr->T("Upscale Level"), texScaleLevels, 0, numTexScaleLevels, gr->GetName(), screenManager()));
+	PopupMultiChoice *texScalingChoice = graphicsSettings->Add(new PopupMultiChoice(&g_Config.iTexScalingLevel, gr->T("Upscale Level"), texScaleLevels, 0, ARRAY_SIZE(texScaleLevels), gr->GetName(), screenManager()));
 	// TODO: Better check?  When it won't work, it scales down anyway.
 	if (!gl_extensions.OES_texture_npot && GetGPUBackend() == GPUBackend::OPENGL) {
 		texScalingChoice->HideChoice(3); // 3x
@@ -462,9 +460,7 @@ void GameSettingsScreen::CreateViews() {
 	bloomHack->SetEnabledPtr(&bloomHackEnable_);
 
 	graphicsSettings->Add(new ItemHeader(gr->T("Overlay Information")));
-	static const char *fpsChoices[] = {
-		"None", "Speed", "FPS", "Both"
-	};
+	static const char *fpsChoices[] = { "None", "Speed", "FPS", "Both" };
 	graphicsSettings->Add(new PopupMultiChoice(&g_Config.iShowFPSCounter, gr->T("Show FPS Counter"), fpsChoices, 0, ARRAY_SIZE(fpsChoices), gr->GetName(), screenManager()));
 	graphicsSettings->Add(new CheckBox(&g_Config.bShowDebugStats, gr->T("Show Debug Statistics")))->OnClick.Handle(this, &GameSettingsScreen::OnJitAffectingSetting);
 
@@ -799,7 +795,7 @@ void GameSettingsScreen::CreateViews() {
 	systemSettings->SetSpacing(0);
 
 	systemSettings->Add(new ItemHeader(sy->T("PSP Settings")));
-	static const char *models[] = {"PSP-1000" , "PSP-2000/3000"};
+	static const char *models[] = {"PSP-1000", "PSP-2000/3000"};
 	systemSettings->Add(new PopupMultiChoice(&g_Config.iPSPModel, sy->T("PSP Model"), models, 0, ARRAY_SIZE(models), sy->GetName(), screenManager()))->SetEnabled(!PSP_IsInited());
 	// TODO: Come up with a way to display a keyboard for mobile users,
 	// so until then, this is Windows/Desktop only.
