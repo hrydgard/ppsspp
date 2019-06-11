@@ -213,7 +213,6 @@ static GraphicsContext *graphicsContext;
 			time_update();
 		}
 
-		threadStopped = true;
 
 		ILOG("Emulation thread shutting down\n");
 		NativeShutdownGraphics();
@@ -221,6 +220,8 @@ static GraphicsContext *graphicsContext;
 		// Also ask the main thread to stop, so it doesn't hang waiting for a new frame.
 		ILOG("Emulation thread stopping\n");
 		graphicsContext->StopThread();
+		
+		threadStopped = true;
 	});
 }
 
