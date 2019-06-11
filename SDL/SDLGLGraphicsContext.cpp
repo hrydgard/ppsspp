@@ -108,10 +108,12 @@ EGLConfig EGL_FindConfig(int *contextVersion) {
 		};
 
 		// We don't want HDR modes with more than 8 bits per component.
-		auto readConfigMax = [&](EGLint attr, EGLint m) -> EGLint {
+		// But let's assume some color is better than no color at all.
+		auto readConfigMax = [&](EGLint attr, EGLint m, EGLInt def = 1) -> EGLint {
 			EGLint val = readConfig(attr);
-			return val > m ? 1 : val;  // why not 0?
+			return val > m ? def : val;
 		};
+
 		int colorScore = readConfigMax(EGL_RED_SIZE, 8) + readConfigMax(EGL_BLUE_SIZE, 8) + readConfigMax(EGL_GREEN_SIZE, 8);
 		int alphaScore = readConfigMax(EGL_ALPHA_SIZE, 8);
 		int depthScore = readConfig(EGL_DEPTH_SIZE);
@@ -122,11 +124,13 @@ EGLConfig EGL_FindConfig(int *contextVersion) {
 		int transparentScore = readConfig(EGL_TRANSPARENT_TYPE) == EGL_NONE ? 50 : 0;
 
 		EGLint caveat = readConfig(EGL_CONFIG_CAVEAT);
-		int caveatScore = caveat == EGL_NONE ? 100 : (caveat == EGL_NON_CONFORMANT_CONFIG ? 50 : 0);
+		// Let's assume that non-conformant configs aren't so awful.
+		int caveatScore = caveat == EGL_NONE ? 100 : (caveat == EGL_NON_CONFORMANT_CONFIG ? 95 : 0);
 
 #ifndef USING_FBDEV
 		EGLint surfaceType = readConfig(EGL_SURFACE_TYPE);
-		int surfaceScore = (surfaceType & EGL_WINDOW_BIT) ? 100 : 0;
+		// Only try a non-Window config in the worst case when there are only non-Window configs.
+		int surfaceScore = (surfaceType & EGL_WINDOW_BIT) ? 1000 : 0;
 #endif
 
 		EGLint renderable = readConfig(EGL_RENDERABLE_TYPE);
