@@ -11,6 +11,7 @@
 #include "base/display.h"
 #include "base/NativeApp.h"
 #include "Core/System.h"
+#import <AVFoundation/AVFoundation.h>
 
 #define IS_IPAD() ([UIDevice currentDevice].userInterfaceIdiom == UIUserInterfaceIdiomPad)
 
@@ -67,6 +68,9 @@
 		if ([self mainScreen] != [UIScreen mainScreen]) {
 			return;
 		}
+		// Ignore mute switch when connected to external display
+		NSError *error = nil;
+		[[AVAudioSession sharedInstance] setCategory:AVAudioSessionCategoryPlayback error:&error];
 		[self updateScreen:screen];
 	}];
 	// Display disconnected
@@ -80,6 +84,8 @@
 			UIScreen *newScreen = [[self extDisplays] lastObject];
 			[self updateScreen:newScreen];
 		} else {
+			NSError *error = nil;
+			[[AVAudioSession sharedInstance] setCategory:AVAudioSessionCategoryAmbient error:&error];
 			[self updateScreen:[UIScreen mainScreen]];
 		}
 	}];
