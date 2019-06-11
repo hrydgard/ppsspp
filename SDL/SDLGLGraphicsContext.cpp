@@ -109,7 +109,7 @@ EGLConfig EGL_FindConfig(int *contextVersion) {
 
 		// We don't want HDR modes with more than 8 bits per component.
 		// But let's assume some color is better than no color at all.
-		auto readConfigMax = [&](EGLint attr, EGLint m, EGLInt def = 1) -> EGLint {
+		auto readConfigMax = [&](EGLint attr, EGLint m, EGLint def = 1) -> EGLint {
 			EGLint val = readConfig(attr);
 			return val > m ? def : val;
 		};
