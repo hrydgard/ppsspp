@@ -135,7 +135,12 @@
 		size.width = h;
 	}
 	
-	g_dpi = (IS_IPAD() ? 200.0f : 150.0f) * scale;
+	if (screen == [UIScreen mainScreen]) {
+		g_dpi = (IS_IPAD() ? 200.0f : 150.0f) * scale;
+	} else {
+		float diagonal = sqrt(size.height * size.height + size.width * size.width);
+		g_dpi = diagonal * scale * 0.1f;
+	}
 	g_dpi_scale_x = 240.0f / g_dpi;
 	g_dpi_scale_y = 240.0f / g_dpi;
 	g_dpi_scale_real_x = g_dpi_scale_x;
