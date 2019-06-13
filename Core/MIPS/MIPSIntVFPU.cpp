@@ -1170,10 +1170,7 @@ namespace MIPSInt
 		}
 		ApplyPrefixST(s, VFPURewritePrefix(VFPU_CTRL_SPREFIX, sprefixRemove, sprefixAdd), V_Quad);
 
-		float sum = 0.0f;
-		for (int i = 0; i < 4; i++) {
-			sum += s[i] * t[i];
-		}
+		float sum = vfpu_dot(s, t);
 		d = my_isnan(sum) ? fabsf(sum) : sum;
 		ApplyPrefixD(&d, V_Single);
 		WriteVector(&d, V_Single, vd);
@@ -1409,10 +1406,7 @@ namespace MIPSInt
 		u32 tprefixAdd = VFPU_MAKE_CONSTANTS(VFPUConst::ONE, VFPUConst::ONE, VFPUConst::ONE, VFPUConst::ONE);
 		ApplyPrefixST(t, VFPURewritePrefix(VFPU_CTRL_TPREFIX, tprefixRemove, tprefixAdd), V_Quad);
 
-		d = 0.0f;
-		for (int i = 0; i < 4; i++) {
-			d += s[i] * t[i];
-		}
+		d = vfpu_dot(s, t);
 		ApplyPrefixD(&d, V_Single);
 		WriteVector(&d, V_Single, vd);
 		PC += 4;
@@ -1443,10 +1437,7 @@ namespace MIPSInt
 			tprefixAdd = 0;
 		ApplyPrefixST(t, VFPURewritePrefix(VFPU_CTRL_TPREFIX, tprefixRemove, tprefixAdd), V_Quad);
 
-		d = 0.0f;
-		for (int i = 0; i < 4; i++) {
-			d += s[i] * t[i];
-		}
+		d = vfpu_dot(s, t);
 		ApplyPrefixD(&d, V_Single);
 		WriteVector(&d, V_Single, vd);
 		PC += 4;
