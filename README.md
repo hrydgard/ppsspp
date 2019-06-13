@@ -1,4 +1,4 @@
-﻿PPSSPP - a fast and portable PSP emulator
+PPSSPP - a fast and portable PSP emulator
 =========================================
 
 Created by Henrik Rydgård
@@ -17,6 +17,8 @@ No BIOS file required to play, PPSSPP is an "HLE" emulator.  Default settings ba
 
 To contribute, see [the development page](https://www.ppsspp.org/development.html).  Help testing, investigating, or fixing is always welcome.  See [the list of issues](https://github.com/hrydgard/ppsspp/issues).
 
+You can also contribute by triaging issues which may include reproducing bug reports or asking for vital information, such as version numbers or reproduction instructions. If you would like to start triaging issues, one easy way to get started is to [subscribe to ppsspp on CodeTriage](https://www.codetriage.com/hrydgard/ppsspp). [![Open Source Helpers](https://www.codetriage.com/hrydgard/ppsspp/badges/users.svg)](https://www.codetriage.com/hrydgard/ppsspp)
+﻿
 For the latest source code, see [our github page](https://github.com/hrydgard/ppsspp).
 
 For build instructions and other development tutorials, see [the wiki](https://github.com/hrydgard/ppsspp/wiki).
