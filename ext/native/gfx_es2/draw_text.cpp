@@ -7,6 +7,7 @@
 #include "util/text/utf8.h"
 #include "gfx_es2/draw_text.h"
 #include "gfx_es2/draw_text_win.h"
+#include "gfx_es2/draw_text_uwp.h"
 #include "gfx_es2/draw_text_qt.h"
 #include "gfx_es2/draw_text_android.h"
 
@@ -45,6 +46,8 @@ TextDrawer *TextDrawer::Create(Draw::DrawContext *draw) {
 	TextDrawer *drawer = nullptr;
 #if defined(_WIN32) && !PPSSPP_PLATFORM(UWP)
 	drawer = new TextDrawerWin32(draw);
+#elif PPSSPP_PLATFORM(UWP)
+	drawer = new TextDrawerUWP(draw);
 #elif defined(USING_QT_UI)
 	drawer = new TextDrawerQt(draw);
 #elif PPSSPP_PLATFORM(ANDROID)

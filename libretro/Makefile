@@ -85,6 +85,29 @@ else ifneq (,$(findstring rpi,$(platform)))
 	PLATFORM_EXT := unix
 	TARGET_ARCH = arm
 	LDFLAGS += -lrt -ldl
+	
+# ARM64
+else ifneq (,$(findstring arm64,$(platform)))
+	TARGET := $(TARGET_NAME)_libretro.so
+	TARGET_ARCH = arm64
+	fpic := -fPIC
+	LDFLAGS += -shared -Wl,--version-script=link.T -Wl,--no-undefined
+	FFMPEGINCFLAGS += -I$(FFMPEGDIR)/linux/aarch64/include
+	FFMPEGLIBDIR := $(FFMPEGDIR)/linux/aarch64/lib
+	FFMPEGLDFLAGS += -L$(FFMPEGLIBDIR) -lavformat -lavcodec -lavutil -lswresample -lswscale
+	INCFLAGS += -I.
+	HAVE_NEON=1
+	ifneq (,$(findstring gles,$(platform)))
+		GLES := 1
+		GL_LIB := -lGLESv2 -lEGL
+		LDFLAGS += -lGLESv2 -lEGL
+	else
+		GL_LIB := -lGL
+	endif
+	CPUFLAGS += -D__arm64__ -DARM64_ASM -D__NEON_OPT
+	PLATCFLAGS += -DARM64
+	LDFLAGS += -lrt -ldl
+	PLATFORM_EXT := unix
 
 # i.MX6
 else ifneq (,$(findstring imx6,$(platform)))

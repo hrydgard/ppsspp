@@ -1239,7 +1239,8 @@ namespace MIPSComp {
 					fp.FMUL(fpr.V(dregs[a * 4 + b]), fpr.V(sregs[b * 4]), fpr.V(tregs[a * 4]));
 					for (int c = 1; c < n; c++) {
 						fpr.MapDirtyInInV(dregs[a * 4 + b], sregs[b * 4 + c], tregs[a * 4 + c], false);
-						fp.FMADD(fpr.V(dregs[a * 4 + b]), fpr.V(sregs[b * 4 + c]), fpr.V(tregs[a * 4 + c]), fpr.V(dregs[a * 4 + b]));
+						fp.FMUL(S0, fpr.V(sregs[b * 4 + c]), fpr.V(tregs[a * 4 + c]));
+						fp.FADD(fpr.V(dregs[a * 4 + b]), fpr.V(dregs[a * 4 + b]), S0);
 					}
 				}
 			}

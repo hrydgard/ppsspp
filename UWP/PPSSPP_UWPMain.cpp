@@ -42,6 +42,7 @@ using namespace Concurrency;
 // UGLY!
 PPSSPP_UWPMain *g_main;
 extern WindowsAudioBackend *winAudioBackend;
+std::string langRegion;
 // TODO: Use Microsoft::WRL::ComPtr<> for D3D11 objects?
 // TODO: See https://github.com/Microsoft/Windows-universal-samples/tree/master/Samples/WindowsAudioSession for WASAPI with UWP
 // TODO: Low latency input: https://github.com/Microsoft/Windows-universal-samples/tree/master/Samples/LowLatencyInput/cpp
@@ -76,7 +77,6 @@ PPSSPP_UWPMain::PPSSPP_UWPMain(App ^app, const std::shared_ptr<DX::DeviceResourc
 
 	wchar_t lcCountry[256];
 
-	std::string langRegion;
 	if (0 != GetLocaleInfoEx(LOCALE_NAME_USER_DEFAULT, LOCALE_SNAME, lcCountry, 256)) {
 		langRegion = ConvertWStringToUTF8(lcCountry);
 		for (size_t i = 0; i < langRegion.size(); i++) {
@@ -345,7 +345,7 @@ std::string System_GetProperty(SystemProperty prop) {
 	case SYSPROP_NAME:
 		return "Windows 10 Universal";
 	case SYSPROP_LANGREGION:
-		return "en_US";  // TODO UWP
+		return langRegion;
 	case SYSPROP_CLIPBOARD_TEXT:
 		/* TODO: Need to either change this API or do this on a thread in an ugly fashion.
 		DataPackageView ^view = Clipboard::GetContent();
@@ -429,6 +429,14 @@ void System_SendMessage(const char *command, const char *parameter) {
 				g_main->LoadStorageFile(file);
 			}
 		});
+	} else if (!strcmp(command, "toggle_fullscreen")) {
+		auto view = Windows::UI::ViewManagement::ApplicationView::GetForCurrentView();
+		if (strcmp(parameter, "0") == 0) {
+			view->ExitFullScreenMode();
+		}
+		else if (strcmp(parameter, "1") == 0){
+			view->TryEnterFullScreenMode();
+		}
 	}
 }
 

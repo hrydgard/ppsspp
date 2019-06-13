@@ -607,3 +607,97 @@ float Float16ToFloat32(unsigned short l)
 	}
 	return f;
 }
+
+static uint32_t get_uexp(uint32_t x) {
+	return (x >> 23) & 0xFF;
+}
+
+static int32_t get_mant(uint32_t x) {
+	// Note: this returns the hidden 1.
+	return (x & 0x007FFFFF) | 0x00800000;
+}
+
+static int32_t get_sign(uint32_t x) {
+	return x & 0x80000000;
+}
+
+float vfpu_dot(float a[4], float b[4]) {
+	static const int EXTRA_BITS = 2;
+	union float2int {
+		uint32_t i;
+		float f;
+	} intermed[4];
+
+	for (int i = 0; i < 4; i++) {
+		intermed[i].f = a[i] * b[i];
+	}
+
+	uint32_t exps[4];
+	int32_t mants[4];
+	uint32_t max_exp = 0;
+	uint32_t last_inf = 0;
+
+	for (int i = 0; i < 4; i++) {
+		exps[i] = get_uexp(intermed[i].i);
+		// Preserve extra bits of precision in the mantissa during the add.
+		mants[i] = get_mant(intermed[i].i) << EXTRA_BITS;
+		if (exps[i] > max_exp) {
+			max_exp = exps[i];
+		}
+		if (exps[i] == 255) {
+			bool diff_sign = last_inf && get_sign(last_inf) != get_sign(intermed[i].i);
+			bool mant_nan = mants[i] != (0x00800000 << EXTRA_BITS);
+			if (diff_sign || mant_nan) {
+				intermed[0].i = 0x7F800001;
+				return intermed[0].f;
+			}
+			last_inf = intermed[i].i;
+		}
+	}
+
+	int32_t mant_sum = 0;
+	for (int i = 0; i < 4; i++) {
+		int exp = max_exp - exps[i];
+		if (exp >= 32) {
+			mants[i] = 0;
+		} else {
+			mants[i] >>= max_exp - exps[i];
+		}
+		if (get_sign(intermed[i].i)) {
+			mants[i] = -mants[i];
+		}
+		mant_sum += mants[i];
+	}
+
+	uint32_t sign_sum = 0;
+	if (mant_sum < 0) {
+		sign_sum = 0x80000000;
+		mant_sum = -mant_sum;
+	}
+	// Chop off the extra bits.
+	mant_sum >>= EXTRA_BITS;
+
+	if (mant_sum == 0 || max_exp == 0) {
+		return 0.0f;
+	}
+
+	while (mant_sum < 0x00800000) {
+		mant_sum <<= 1;
+		max_exp -= 1;
+	}
+	while (mant_sum >= 0x01000000) {
+		mant_sum >>= 1;
+		max_exp += 1;
+	}
+	_dbg_assert_(JIT, (mant_sum & 0x00800000) != 0);
+
+	if (max_exp >= 255) {
+		max_exp = 255;
+		mant_sum = 0;
+	} else if (max_exp == 0) {
+		return 0.0f;
+	}
+
+	intermed[0].i = sign_sum | (max_exp << 23) | (mant_sum & 0x007FFFFF);
+	return intermed[0].f;
+}

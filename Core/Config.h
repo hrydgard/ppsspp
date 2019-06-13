@@ -21,6 +21,7 @@
 #include <map>
 #include <vector>
 
+#include "ppsspp_config.h"
 #include "Common/CommonTypes.h"
 
 extern const char *PPSSPP_GIT_VERSION;
@@ -75,7 +76,7 @@ public:
 	bool bIgnoreWindowsKey;
 	bool bRestartRequired;
 #endif
-#if defined(USING_WIN_UI) || defined(USING_QT_UI)
+#if defined(USING_WIN_UI) || defined(USING_QT_UI) || PPSSPP_PLATFORM(UWP)
 	std::string sFont;
 #endif
 
