@@ -635,6 +635,7 @@ float vfpu_dot(float a[4], float b[4]) {
 	uint32_t exps[4];
 	int32_t mants[4];
 	uint32_t max_exp = 0;
+	uint32_t last_inf = 0;
 
 	for (int i = 0; i < 4; i++) {
 		exps[i] = get_uexp(intermed[i].i);
@@ -642,6 +643,15 @@ float vfpu_dot(float a[4], float b[4]) {
 		mants[i] = get_mant(intermed[i].i) << EXTRA_BITS;
 		if (exps[i] > max_exp) {
 			max_exp = exps[i];
+		}
+		if (exps[i] == 255) {
+			bool diff_sign = last_inf && get_sign(last_inf) != get_sign(intermed[i].i);
+			bool mant_nan = mants[i] != (0x00800000 << EXTRA_BITS);
+			if (diff_sign || mant_nan) {
+				intermed[0].i = 0x7F800001;
+				return intermed[0].f;
+			}
+			last_inf = intermed[i].i;
 		}
 	}
 
