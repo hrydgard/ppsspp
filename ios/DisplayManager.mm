@@ -105,6 +105,7 @@
 			NSUInteger count = [[screen availableModes] count];
 			UIScreenMode* mode = [screen availableModes][count - 1];
 			[screen setCurrentMode:mode];
+			mode = [screen currentMode];
 			// Fix overscan
 			// TODO: Hacky solution. Screen is still scaled even if UIScreenOverscanCompensationNone is set.
 			[screen setOverscanCompensation:UIScreenOverscanCompensationNone];
