@@ -37,6 +37,7 @@
 #include "Core/MIPS/MIPSVFPUUtils.h"
 #include "Core/MIPS/x86/Jit.h"
 #include "Core/MIPS/x86/RegCache.h"
+#include "Core/System.h"
 
 // All functions should have CONDITIONAL_DISABLE, so we can narrow things down to a file quickly.
 // Currently known non working ones should have DISABLE.
@@ -2802,6 +2803,8 @@ void Jit::Comp_VScl(MIPSOpcode op) {
 }
 
 void Jit::Comp_Vmmul(MIPSOpcode op) {
+	if (PSP_CoreParameter().compat.flags().MMULDisableHack)
+		DISABLE;
 	CONDITIONAL_DISABLE(VFPU_MTX_VMMUL);
 
 	// TODO: This probably ignores prefixes?

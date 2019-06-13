@@ -41,6 +41,7 @@
 #include "Core/MIPS/MIPSVFPUUtils.h"
 #include "Core/Config.h"
 #include "Core/Reporting.h"
+#include "Core/System.h"
 
 #include "Core/MIPS/ARM/ArmJit.h"
 #include "Core/MIPS/ARM/ArmRegCache.h"
@@ -856,6 +857,8 @@ void ArmJit::CompNEON_Vmmov(MIPSOpcode op) {
 }
 
 void ArmJit::CompNEON_Vmmul(MIPSOpcode op) {
+	if (PSP_CoreParameter().compat.flags().MMULDisableHack)
+		DISABLE;
 	CONDITIONAL_DISABLE(VFPU_MTX_VMMUL);
 
 	MatrixSize msz = GetMtxSize(op);

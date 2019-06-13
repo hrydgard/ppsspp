@@ -29,6 +29,7 @@
 #include "Core/MIPS/IR/IRFrontend.h"
 #include "Core/MIPS/IR/IRRegCache.h"
 #include "Core/Reporting.h"
+#include "Core/System.h"
 
 
 // All functions should have CONDITIONAL_DISABLE, so we can narrow things down to a file quickly.
@@ -1237,6 +1238,8 @@ namespace MIPSComp {
 	// This may or may not be a win when using the IR interpreter...
 	// Many more instructions to interpret.
 	void IRFrontend::Comp_Vmmul(MIPSOpcode op) {
+		if (PSP_CoreParameter().compat.flags().MMULDisableHack)
+			DISABLE;
 		CONDITIONAL_DISABLE(VFPU_MTX_VMMUL);
 		if (!js.HasNoPrefix()) {
 			DISABLE;

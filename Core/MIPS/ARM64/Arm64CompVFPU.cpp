@@ -29,6 +29,7 @@
 #include "Common/CPUDetect.h"
 #include "Core/Config.h"
 #include "Core/Reporting.h"
+#include "Core/System.h"
 
 #include "Common/Arm64Emitter.h"
 #include "Core/MIPS/ARM64/Arm64Jit.h"
@@ -1214,6 +1215,8 @@ namespace MIPSComp {
 	}
 
 	void Arm64Jit::Comp_Vmmul(MIPSOpcode op) {
+		if (PSP_CoreParameter().compat.flags().MMULDisableHack)
+			DISABLE;
 		CONDITIONAL_DISABLE(VFPU_MTX_VMMUL);
 		if (!js.HasNoPrefix()) {
 			DISABLE;

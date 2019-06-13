@@ -29,6 +29,7 @@
 #include "Common/CPUDetect.h"
 #include "Core/Config.h"
 #include "Core/Reporting.h"
+#include "Core/System.h"
 
 #include "Core/MIPS/ARM/ArmJit.h"
 #include "Core/MIPS/ARM/ArmRegCache.h"
@@ -1467,6 +1468,8 @@ namespace MIPSComp
 	}
 
 	void ArmJit::Comp_Vmmul(MIPSOpcode op) {
+		if (PSP_CoreParameter().compat.flags().MMULDisableHack)
+			DISABLE;
 		CONDITIONAL_DISABLE(VFPU_MTX_VMMUL);
 		if (js.HasUnknownPrefix()) {
 			DISABLE;
