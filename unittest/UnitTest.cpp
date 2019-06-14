@@ -31,6 +31,9 @@
 #include <string>
 #include <sstream>
 
+#include "Common/BitScan.h"
+#include "Core/MIPS/MIPSVFPUUtils.h"
+
 #include "base/NativeApp.h"
 #include "base/logging.h"
 #include "input/input_state.h"
@@ -459,6 +462,29 @@ bool TestQuickTexHash() {
 	return true;
 }
 
+bool TestCLZ() {
+	static const uint32_t input[] = {
+		0xFFFFFFFF,
+		0x00FFFFF0,
+		0x00101000,
+		0x00003000,
+		0x00000001,
+		0x00000000,
+	};
+	static const uint32_t expected[] = {
+		0,
+		8,
+		11,
+		18,
+		31,
+		32,
+	};
+	for (int i = 0; i < ARRAY_SIZE(input); i++) {
+		EXPECT_EQ_INT(clz32(input[i]), expected[i]);
+	}
+	return true;
+}
+
 typedef bool (*TestFunc)();
 struct TestItem {
 	const char *name;
@@ -491,6 +517,7 @@ TestItem availableTests[] = {
 	TEST_ITEM(MatrixTranspose),
 	TEST_ITEM(ParseLBN),
 	TEST_ITEM(QuickTexHash),
+	TEST_ITEM(CLZ),
 };
 
 int main(int argc, const char *argv[]) {
