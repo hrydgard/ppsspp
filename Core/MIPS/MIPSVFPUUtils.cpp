@@ -15,9 +15,11 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
+#include <cstdint>
 #include <limits>
 #include <stdio.h>
 
+#include "Common/BitScan.h"
 #include "Common/CommonFuncs.h"
 #include "Core/Reporting.h"
 #include "Core/MIPS/MIPS.h"
@@ -626,32 +628,52 @@ float vfpu_dot(float a[4], float b[4]) {
 	union float2int {
 		uint32_t i;
 		float f;
-	} intermed[4];
+	};
+	float2int result;
+	float2int src[2];
 
-	for (int i = 0; i < 4; i++) {
-		intermed[i].f = a[i] * b[i];
-	}
-
-	uint32_t exps[4];
+	int32_t exps[4];
 	int32_t mants[4];
-	uint32_t max_exp = 0;
-	uint32_t last_inf = 0;
+	int32_t signs[4];
+	int32_t max_exp = 0;
+	int32_t last_inf = -1;
 
 	for (int i = 0; i < 4; i++) {
-		exps[i] = get_uexp(intermed[i].i);
-		// Preserve extra bits of precision in the mantissa during the add.
-		mants[i] = get_mant(intermed[i].i) << EXTRA_BITS;
+		src[0].f = a[i];
+		src[1].f = b[i];
+
+		int32_t aexp = get_uexp(src[0].i);
+		int32_t bexp = get_uexp(src[1].i);
+		int32_t amant = get_mant(src[0].i) << EXTRA_BITS;
+		int32_t bmant = get_mant(src[1].i) << EXTRA_BITS;
+
+		bool anan = aexp == 255 && (src[0].i & 0x007FFFFF) != 0;
+		bool bnan = bexp == 255 && (src[1].i & 0x007FFFFF) != 0;
+		if (anan || bnan) {
+			result.i = 0x7F800001;
+			return result.f;
+		}
+
+		exps[i] = aexp + bexp - 127;
+		if (exps[i] >= 255) {
+			mants[i] = get_mant(0) << EXTRA_BITS;
+		} else {
+			// TODO: Adjust precision?
+			uint64_t adjust = (uint64_t)amant * (uint64_t)bmant;
+			mants[i] = (adjust >> (23 + EXTRA_BITS)) & 0x7FFFFFFF;
+		}
+		signs[i] = get_sign(src[0].i) ^ get_sign(src[1].i);
+
 		if (exps[i] > max_exp) {
 			max_exp = exps[i];
 		}
-		if (exps[i] == 255) {
-			bool diff_sign = last_inf && get_sign(last_inf) != get_sign(intermed[i].i);
-			bool mant_nan = mants[i] != (0x00800000 << EXTRA_BITS);
-			if (diff_sign || mant_nan) {
-				intermed[0].i = 0x7F800001;
-				return intermed[0].f;
+		if (exps[i] >= 255) {
+			// Infinity minus infinity is not a real number.
+			if (last_inf != -1 && signs[i] != last_inf) {
+				result.i = 0x7F800001;
+				return result.f;
 			}
-			last_inf = intermed[i].i;
+			last_inf = signs[i];
 		}
 	}
 
@@ -663,7 +685,7 @@ float vfpu_dot(float a[4], float b[4]) {
 		} else {
 			mants[i] >>= max_exp - exps[i];
 		}
-		if (get_sign(intermed[i].i)) {
+		if (signs[i]) {
 			mants[i] = -mants[i];
 		}
 		mant_sum += mants[i];
@@ -674,20 +696,20 @@ float vfpu_dot(float a[4], float b[4]) {
 		sign_sum = 0x80000000;
 		mant_sum = -mant_sum;
 	}
-	// Chop off the extra bits.
-	mant_sum >>= EXTRA_BITS;
+	// Account for the mantissa actually having more precision.
+	max_exp -= EXTRA_BITS;
 
-	if (mant_sum == 0 || max_exp == 0) {
+	if (mant_sum == 0 || max_exp <= 0) {
 		return 0.0f;
 	}
 
-	while (mant_sum < 0x00800000) {
-		mant_sum <<= 1;
-		max_exp -= 1;
-	}
-	while (mant_sum >= 0x01000000) {
-		mant_sum >>= 1;
-		max_exp += 1;
+	int8_t shift = (int8_t)clz32_nonzero(mant_sum) - 8;
+	if (shift < 0) {
+		mant_sum >>= -shift;
+		max_exp += -shift;
+	} else {
+		mant_sum <<= shift;
+		max_exp -= shift;
 	}
 	_dbg_assert_(JIT, (mant_sum & 0x00800000) != 0);
 
@@ -698,6 +720,6 @@ float vfpu_dot(float a[4], float b[4]) {
 		return 0.0f;
 	}
 
-	intermed[0].i = sign_sum | (max_exp << 23) | (mant_sum & 0x007FFFFF);
-	return intermed[0].f;
+	result.i = sign_sum | (max_exp << 23) | (mant_sum & 0x007FFFFF);
+	return result.f;
 }
