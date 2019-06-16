@@ -22,6 +22,43 @@
 
 using namespace PPSSPP_VK;
 
+bool VKRGraphicsPipeline::Create(VulkanContext *vulkan) {
+	if (!desc) {
+		// Already failed to create this one.
+		return false;
+	}
+	VkResult result = vkCreateGraphicsPipelines(vulkan->GetDevice(), desc->pipelineCache, 1, &desc->pipe, nullptr, &pipeline);
+	delete desc;
+	desc = nullptr;
+	if (result == VK_INCOMPLETE) {
+		// Bad return value seen on Adreno in Burnout :(  Try to ignore?
+		// Create a placeholder to avoid creating over and over if something is broken.
+		pipeline = VK_NULL_HANDLE;
+		return true;
+	} else if (result != VK_SUCCESS) {
+		pipeline = VK_NULL_HANDLE;
+		ERROR_LOG(G3D, "Failed creating graphics pipeline! result='%s'", VulkanResultToString(result));
+		return false;
+	} else {
+		return true;
+	}
+}
+
+bool VKRComputePipeline::Create(VulkanContext *vulkan) {
+	if (!desc) {
+		// Already failed to create this one.
+		return false;
+	}
+	VkResult result = vkCreateComputePipelines(vulkan->GetDevice(), desc->pipelineCache, 1, &desc->pipe, nullptr, &pipeline);
+	delete desc;
+	desc = nullptr;
+	if (result != VK_SUCCESS) {
+		pipeline = VK_NULL_HANDLE;
+		return false;
+	}
+	return true;
+}
+
 VKRFramebuffer::VKRFramebuffer(VulkanContext *vk, VkCommandBuffer initCmd, VkRenderPass renderPass, int _width, int _height, const char *tag) : vulkan_(vk) {
 	width = _width;
 	height = _height;
