@@ -1275,9 +1275,11 @@ void VulkanQueueRunner::PerformRenderPass(const VKRStep &step, VkCommandBuffer c
 		{
 			VKRGraphicsPipeline *pipeline = c.graphics_pipeline.pipeline;
 			if (!pipeline->pipeline) {
-				// Late! Compile it.
-				if (!pipeline->Create(vulkan_))
-					break;
+				// Stall processing, waiting for the compile queue to catch up.
+				std::unique_lock<std::mutex> lock(compileDoneMutex_);
+				while (!pipeline->pipeline) {
+					compileDone_.wait(lock);
+				}
 			}
 			if (pipeline->pipeline != lastGraphicsPipeline) {
 				vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline->pipeline);
@@ -1294,9 +1296,11 @@ void VulkanQueueRunner::PerformRenderPass(const VKRStep &step, VkCommandBuffer c
 		{
 			VKRComputePipeline *pipeline = c.compute_pipeline.pipeline;
 			if (!pipeline->pipeline) {
-				// Late! Compile it.
-				if (!pipeline->Create(vulkan_))
-					break;
+				// Stall processing, waiting for the compile queue to catch up.
+				std::unique_lock<std::mutex> lock(compileDoneMutex_);
+				while (!pipeline->pipeline) {
+					compileDone_.wait(lock);
+				}
 			}
 			if (pipeline->pipeline != lastComputePipeline) {
 				vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, pipeline->pipeline);

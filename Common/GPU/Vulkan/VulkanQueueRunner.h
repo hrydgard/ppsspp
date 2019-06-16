@@ -1,6 +1,9 @@
 #pragma once
 
 #include <cstdint>
+#include <mutex>
+#include <condition_variable>
+
 
 #include "Common/Data/Collections/Hashmaps.h"
 #include "Common/GPU/Vulkan/VulkanContext.h"
@@ -254,6 +257,15 @@ public:
 		hacksEnabled_ = hacks;
 	}
 
+	void NotifyCompileDone() {
+		compileDone_.notify_all();
+	}
+
+	void WaitForCompileNotification() {
+		std::unique_lock<std::mutex> lock(compileDoneMutex_);
+		compileDone_.wait(lock);
+	}
+
 private:
 	void InitBackbufferRenderPass();
 
@@ -302,4 +314,8 @@ private:
 
 	// TODO: Enable based on compat.ini.
 	uint32_t hacksEnabled_ = 0;
+
+	// Compile done notifications.
+	std::mutex compileDoneMutex_;
+	std::condition_variable compileDone_;
 };

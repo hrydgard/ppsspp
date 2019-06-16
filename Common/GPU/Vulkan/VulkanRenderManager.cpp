@@ -27,7 +27,9 @@ bool VKRGraphicsPipeline::Create(VulkanContext *vulkan) {
 		// Already failed to create this one.
 		return false;
 	}
+	VkPipeline pipeline;
 	VkResult result = vkCreateGraphicsPipelines(vulkan->GetDevice(), desc->pipelineCache, 1, &desc->pipe, nullptr, &pipeline);
+	this->pipeline = pipeline;
 	delete desc;
 	desc = nullptr;
 	if (result == VK_INCOMPLETE) {
@@ -49,7 +51,9 @@ bool VKRComputePipeline::Create(VulkanContext *vulkan) {
 		// Already failed to create this one.
 		return false;
 	}
+	VkPipeline pipeline;
 	VkResult result = vkCreateComputePipelines(vulkan->GetDevice(), desc->pipelineCache, 1, &desc->pipe, nullptr, &pipeline);
+	this->pipeline = pipeline;
 	delete desc;
 	desc = nullptr;
 	if (result != VK_SUCCESS) {
@@ -326,6 +330,8 @@ bool VulkanRenderManager::CreateBackbuffers() {
 		threadInitFrame_ = vulkan_->GetCurFrame();
 		INFO_LOG(G3D, "Starting Vulkan submission thread (threadInitFrame_ = %d)", vulkan_->GetCurFrame());
 		thread_ = std::thread(&VulkanRenderManager::ThreadFunc, this);
+		INFO_LOG(G3D, "Starting Vulkan compiler thread");
+		compileThread_ = std::thread(&VulkanRenderManager::CompileThreadFunc, this);
 	}
 	return true;
 }
@@ -349,6 +355,9 @@ void VulkanRenderManager::StopThread() {
 		}
 		thread_.join();
 		INFO_LOG(G3D, "Vulkan submission thread joined. Frame=%d", vulkan_->GetCurFrame());
+		compileCond_.notify_all();
+		compileThread_.join();
+		INFO_LOG(G3D, "Vulkan compiler thread joined.");
 
 		// Eat whatever has been queued up for this frame if anything.
 		Wipe();
@@ -415,6 +424,7 @@ VulkanRenderManager::~VulkanRenderManager() {
 	StopThread();
 	vulkan_->WaitUntilQueueIdle();
 
+	DrainCompileQueue();
 	VkDevice device = vulkan_->GetDevice();
 	vkDestroySemaphore(device, acquireSemaphore_, nullptr);
 	vkDestroySemaphore(device, renderingCompleteSemaphore_, nullptr);
@@ -428,6 +438,42 @@ VulkanRenderManager::~VulkanRenderManager() {
 		vkDestroyQueryPool(device, frameData_[i].profile.queryPool, nullptr);
 	}
 	queueRunner_.DestroyDeviceObjects();
+}
+
+void VulkanRenderManager::CompileThreadFunc() {
+	SetCurrentThreadName("ShaderCompile");
+	while (true) {
+		std::vector<CompileQueueEntry> toCompile;
+		{
+			std::unique_lock<std::mutex> lock(compileMutex_);
+			if (compileQueue_.empty()) {
+				compileCond_.wait(lock);
+			}
+			toCompile = std::move(compileQueue_);
+			compileQueue_.clear();
+		}
+		if (!run_) {
+			break;
+		}
+		for (auto entry : toCompile) {
+			switch (entry.type) {
+			case CompileQueueEntry::Type::GRAPHICS:
+				entry.graphics->Create(vulkan_);
+				break;
+			case CompileQueueEntry::Type::COMPUTE:
+				entry.compute->Create(vulkan_);
+				break;
+			}
+		}
+		queueRunner_.NotifyCompileDone();
+	}
+}
+
+void VulkanRenderManager::DrainCompileQueue() {
+	std::unique_lock<std::mutex> lock(compileMutex_);
+	while (!compileQueue_.empty()) {
+		queueRunner_.WaitForCompileNotification();
+	}
 }
 
 void VulkanRenderManager::ThreadFunc() {

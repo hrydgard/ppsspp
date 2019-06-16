@@ -10,6 +10,7 @@
 #include <cstdint>
 #include <mutex>
 #include <thread>
+#include <queue>
 
 #include "Common/System/Display.h"
 #include "Common/GPU/Vulkan/VulkanContext.h"
@@ -136,17 +137,35 @@ struct VKRComputePipelineDesc {
 
 // Wrapped pipeline, which will later allow for background compilation while emulating the rest of the frame.
 struct VKRGraphicsPipeline {
+	VKRGraphicsPipeline() {
+		pipeline = VK_NULL_HANDLE;
+	}
 	VKRGraphicsPipelineDesc *desc = nullptr;  // While non-zero, is pending and pipeline isn't valid.
-	VkPipeline pipeline = VK_NULL_HANDLE;
+	std::atomic<VkPipeline> pipeline;
 
 	bool Create(VulkanContext *vulkan);
 };
 
 struct VKRComputePipeline {
+	VKRComputePipeline() {
+		pipeline = VK_NULL_HANDLE;
+	}
 	VKRComputePipelineDesc *desc = nullptr;
-	VkPipeline pipeline = VK_NULL_HANDLE;
+	std::atomic<VkPipeline> pipeline;
 
 	bool Create(VulkanContext *vulkan);
+};
+
+struct CompileQueueEntry {
+	CompileQueueEntry(VKRGraphicsPipeline *p) : type(Type::GRAPHICS), graphics(p) {}
+	CompileQueueEntry(VKRComputePipeline *p) : type(Type::COMPUTE), compute(p) {}
+	enum class Type {
+		GRAPHICS,
+		COMPUTE,
+	};
+	Type type;
+	VKRGraphicsPipeline *graphics = nullptr;
+	VKRComputePipeline *compute = nullptr;
 };
 
 class VulkanRenderManager {
@@ -155,6 +174,8 @@ public:
 	~VulkanRenderManager();
 
 	void ThreadFunc();
+	void CompileThreadFunc();
+	void DrainCompileQueue();
 
 	// Makes sure that the GPU has caught up enough that we can start writing buffers of this frame again.
 	void BeginFrame(bool enableProfiling);
@@ -197,6 +218,20 @@ public:
 	VKRGraphicsPipeline *CreateGraphicsPipeline(VKRGraphicsPipelineDesc *desc) {
 		VKRGraphicsPipeline *pipeline = new VKRGraphicsPipeline();
 		pipeline->desc = desc;
+		compileMutex_.lock();
+		compileQueue_.push_back(CompileQueueEntry(pipeline));
+		compileCond_.notify_one();
+		compileMutex_.unlock();
+		return pipeline;
+	}
+
+	VKRComputePipeline *CreateComputePipeline(VKRComputePipelineDesc *desc) {
+		VKRComputePipeline *pipeline = new VKRComputePipeline();
+		pipeline->desc = desc;
+		compileMutex_.lock();
+		compileQueue_.push_back(CompileQueueEntry(pipeline));
+		compileCond_.notify_one();
+		compileMutex_.unlock();
 		return pipeline;
 	}
 
@@ -486,6 +521,14 @@ private:
 	std::mutex mutex_;
 	int threadInitFrame_ = 0;
 	VulkanQueueRunner queueRunner_;
+
+	// Shader compilation thread to compile while emulating the rest of the frame.
+	// Only one right now but we could use more.
+	std::thread compileThread_;
+	// Sync
+	std::condition_variable compileCond_;
+	std::mutex compileMutex_;
+	std::vector<CompileQueueEntry> compileQueue_;
 
 	// Swap chain management
 	struct SwapchainImageData {
