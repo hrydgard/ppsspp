@@ -1590,9 +1590,13 @@ namespace MIPSInt
 		VFPUConst constZ = n < 3 ? VFPUConst::ZERO : VFPUConst::NONE;
 		VFPUConst constW = n < 4 ? VFPUConst::ZERO : VFPUConst::NONE;
 		if (ins >= n) {
-			constY = ins == 1 ? VFPUConst::ONE : VFPUConst::ZERO;
-			constZ = ins == 2 ? VFPUConst::ONE : VFPUConst::ZERO;
-			constW = ins == 3 ? VFPUConst::ONE : VFPUConst::ZERO;
+			if (ins == 1) {
+				constY = VFPUConst::ONE;
+			} else if (ins == 2) {
+				constZ = VFPUConst::ONE;
+			} else if (ins == 3) {
+				constW = VFPUConst::ONE;
+			}
 		}
 		u32 tprefixRemove = VFPU_SWIZZLE(0, n < 2 ? 3 : 0, n < 3 ? 3 : 0, n < 4 ? 3 : 0);
 		u32 tprefixAdd = VFPU_MAKE_CONSTANTS(constX, constY, constZ, constW);
