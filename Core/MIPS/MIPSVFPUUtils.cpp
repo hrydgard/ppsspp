@@ -647,15 +647,19 @@ float vfpu_dot(float a[4], float b[4]) {
 		int32_t amant = get_mant(src[0].i) << EXTRA_BITS;
 		int32_t bmant = get_mant(src[1].i) << EXTRA_BITS;
 
-		bool anan = aexp == 255 && (src[0].i & 0x007FFFFF) != 0;
-		bool bnan = bexp == 255 && (src[1].i & 0x007FFFFF) != 0;
-		if (anan || bnan) {
-			result.i = 0x7F800001;
-			return result.f;
-		}
-
 		exps[i] = aexp + bexp - 127;
-		if (exps[i] >= 255) {
+		if (aexp == 255) {
+			// INF * 0 = NAN
+			if ((src[0].i & 0x007FFFFF) != 0 || bexp == 0) {
+				result.i = 0x7F800001;
+				return result.f;
+			}
+			mants[i] = get_mant(0) << EXTRA_BITS;
+		} else if (bexp == 255) {
+			if ((src[1].i & 0x007FFFFF) != 0 || aexp == 0) {
+				result.i = 0x7F800001;
+				return result.f;
+			}
 			mants[i] = get_mant(0) << EXTRA_BITS;
 		} else {
 			// TODO: Adjust precision?
