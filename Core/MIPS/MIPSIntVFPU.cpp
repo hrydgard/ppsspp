@@ -363,6 +363,9 @@ namespace MIPSInt
 			case 7:
 				sprefixAdd = VFPU_MAKE_CONSTANTS(VFPUConst::ONE, VFPUConst::ONE, VFPUConst::ONE, VFPUConst::ONE);
 				break;
+			default:
+				_dbg_assert_msg_(CPU, 0, "Unknown matrix init op");
+				break;
 			}
 			ApplyPrefixST(&prefixed[off * 4], VFPURewritePrefix(VFPU_CTRL_SPREFIX, sprefixRemove, sprefixAdd), V_Quad);
 			WriteMatrix(prefixed, sz, vd);
@@ -1562,7 +1565,7 @@ namespace MIPSInt
 		int vd = _VD;
 		int vs = _VS;
 		int vt = _VT;
-		int ins = (op >> 23) & 7;
+		int ins = (op >> 23) & 3;
 
 		VectorSize sz = (VectorSize)(ins + 1);
 		MatrixSize msz = (MatrixSize)(ins + 1);
