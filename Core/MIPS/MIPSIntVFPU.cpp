@@ -346,7 +346,7 @@ namespace MIPSInt
 
 			int off = GetMatrixSide(sz) - 1;
 			u32 sprefixRemove = VFPU_ANY_SWIZZLE();
-			u32 sprefixAdd;
+			u32 sprefixAdd = 0;
 			switch ((op >> 16) & 0xF) {
 			case 3:
 			{
