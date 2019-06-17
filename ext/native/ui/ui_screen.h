@@ -190,7 +190,7 @@ private:
 	std::string units_;
 	std::string negativeLabel_;
 	int *value_;
-	int sliderValue_;
+	int sliderValue_ = 0;
 	int minValue_;
 	int maxValue_;
 	int step_;

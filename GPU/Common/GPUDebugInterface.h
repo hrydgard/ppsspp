@@ -168,7 +168,7 @@ private:
 	u8 *data_ = nullptr;
 	u32 stride_ = 0;
 	u32 height_ = 0;
-	GPUDebugBufferFormat fmt_;
+	GPUDebugBufferFormat fmt_ = GPU_DBG_FORMAT_INVALID;
 	bool flipped_ = false;
 };
 

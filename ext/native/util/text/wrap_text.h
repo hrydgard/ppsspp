@@ -31,7 +31,7 @@ protected:
 	// Position the current word starts at.
 	float x_ = 0.0f;
 	// Most recent width of word since last index.
-	float wordWidth_;
+	float wordWidth_ = 0.0f;
 	// Force the next word to cut partially and wrap.
 	bool forceEarlyWrap_ = false;
 };
