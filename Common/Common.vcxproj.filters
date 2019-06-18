@@ -73,6 +73,7 @@
     <ClInclude Include="OSVersion.h" />
     <ClInclude Include="Hashmaps.h" />
     <ClInclude Include="Vulkan\VulkanDebug.h" />
+    <ClInclude Include="BitScan.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="stdafx.cpp" />

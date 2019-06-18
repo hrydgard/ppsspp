@@ -15,13 +15,12 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
-// MIPS is really trivial :)
-
 #include <cmath>
 
 #include "math/math_util.h"
 
 #include "Common/Common.h"
+#include "Common/BitScan.h"
 #include "Core/Config.h"
 #include "Core/Core.h"
 #include "Core/Host.h"
@@ -281,7 +280,6 @@ namespace MIPSInt
 		switch (op & 0x3f) 
 		{
 		case 8: //jr
-			//			LOG(CPU,"returning from: %08x",PC);
 			DelayBranchTo(addr);
 			break;
 		case 9: //jalr
@@ -551,28 +549,10 @@ namespace MIPSInt
 		switch (op & 63)
 		{
 		case 22:	//clz
-			{ //TODO: verify
-				int x = 31;
-				int count=0;
-				while (x >= 0 && !(R(rs) & (1<<x)))
-				{
-					count++;
-					x--;
-				}
-				R(rd) = count;
-			}
+			R(rd) = clz32(R(rs));
 			break;
 		case 23: //clo
-			{ //TODO: verify
-				int x = 31;
-				int count=0;
-				while (x >= 0 && (R(rs) & (1<<x)))
-				{
-					count++;
-					x--;
-				}
-				R(rd) = count;
-			}
+			R(rd) = clz32(~R(rs));
 			break;
 		default:
 			_dbg_assert_msg_(CPU,0,"Trying to interpret instruction that can't be interpreted");

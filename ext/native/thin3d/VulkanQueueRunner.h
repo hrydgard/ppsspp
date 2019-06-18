@@ -246,8 +246,8 @@ private:
 
 	VulkanContext *vulkan_;
 
-	VkFramebuffer backbuffer_;
-	VkImage backbufferImage_;
+	VkFramebuffer backbuffer_ = VK_NULL_HANDLE;
+	VkImage backbufferImage_ = VK_NULL_HANDLE;
 
 	VkRenderPass backbufferRenderPass_ = VK_NULL_HANDLE;
 	VkRenderPass framebufferRenderPass_ = VK_NULL_HANDLE;

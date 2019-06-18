@@ -159,7 +159,7 @@ void VulkanRenderManager::CreateBackbuffers() {
 	VkCommandBuffer cmdInit = GetInitCmd();
 
 	for (uint32_t i = 0; i < swapchainImageCount_; i++) {
-		SwapchainImageData sc_buffer;
+		SwapchainImageData sc_buffer{};
 		sc_buffer.image = swapchainImages[i];
 
 		VkImageViewCreateInfo color_image_view = { VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO };

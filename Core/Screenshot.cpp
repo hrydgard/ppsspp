@@ -237,26 +237,24 @@ static bool ConvertPixelTo8888RGBA(GPUDebugBufferFormat fmt, u8 &r, u8 &g, u8 &b
 }
 
 const u8 *ConvertBufferToScreenshot(const GPUDebugBuffer &buf, bool alpha, u8 *&temp, u32 &w, u32 &h) {
-	int pixelSize = alpha ? 4 : 3;
+	size_t pixelSize = alpha ? 4 : 3;
 	GPUDebugBufferFormat nativeFmt = alpha ? GPU_DBG_FORMAT_8888 : GPU_DBG_FORMAT_888_RGB;
 
 	w = std::min(w, buf.GetStride());
 	h = std::min(h, buf.GetHeight());
 
 	// The temp buffer will be freed by the caller if set, and can be the return value.
-	if (buf.GetFlipped() || buf.GetFormat() != nativeFmt) {
-		temp = new u8[pixelSize * w * h];
-	} else {
-		temp = nullptr;
-	}
+	temp = nullptr;
 
 	const u8 *buffer = buf.GetData();
 	if (buf.GetFlipped() && buf.GetFormat() == nativeFmt) {
+		temp = new u8[pixelSize * w * h];
 		// Silly OpenGL reads upside down, we flip to another buffer for simplicity.
 		for (u32 y = 0; y < h; y++) {
 			memcpy(temp + y * w * pixelSize, buffer + (buf.GetHeight() - y - 1) * buf.GetStride() * pixelSize, w * pixelSize);
 		}
 	} else if (buf.GetFormat() < GPU_DBG_FORMAT_FLOAT && buf.GetFormat() != nativeFmt) {
+		temp = new u8[pixelSize * w * h];
 		// Let's boil it down to how we need to interpret the bits.
 		int baseFmt = buf.GetFormat() & ~(GPU_DBG_FORMAT_REVERSE_FLAG | GPU_DBG_FORMAT_BRSWAP_FLAG);
 		bool rev = (buf.GetFormat() & GPU_DBG_FORMAT_REVERSE_FLAG) != 0;
@@ -284,6 +282,7 @@ const u8 *ConvertBufferToScreenshot(const GPUDebugBuffer &buf, bool alpha, u8 *&
 			}
 		}
 	} else if (buf.GetFormat() != nativeFmt) {
+		temp = new u8[pixelSize * w * h];
 		bool flip = buf.GetFlipped();
 
 		// This is pretty inefficient.
