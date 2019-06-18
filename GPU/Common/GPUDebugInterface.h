@@ -79,7 +79,7 @@ inline GPUDebugBufferFormat &operator |=(GPUDebugBufferFormat &lhs, const GPUDeb
 }
 
 struct GPUDebugBuffer {
-	GPUDebugBuffer() : alloc_(false), data_(NULL) {
+	GPUDebugBuffer() {
 	}
 
 	GPUDebugBuffer(void *data, u32 stride, u32 height, GEBufferFormat fmt, bool reversed = false)
@@ -100,7 +100,7 @@ struct GPUDebugBuffer {
 		: alloc_(false), data_((u8 *)data), stride_(stride), height_(height), fmt_(fmt), flipped_(false) {
 	}
 
-	GPUDebugBuffer(GPUDebugBuffer &&other) {
+	GPUDebugBuffer(GPUDebugBuffer &&other) noexcept {
 		alloc_ = other.alloc_;
 		data_ = other.data_;
 		height_ = other.height_;
@@ -108,14 +108,14 @@ struct GPUDebugBuffer {
 		flipped_ = other.flipped_;
 		fmt_ = other.fmt_;
 		other.alloc_ = false;
-		other.data_ = NULL;
+		other.data_ = nullptr;
 	}
 
 	~GPUDebugBuffer() {
 		Free();
 	}
 
-	GPUDebugBuffer &operator = (GPUDebugBuffer &&other) {
+	GPUDebugBuffer &operator = (GPUDebugBuffer &&other) noexcept {
 		if (this != &other) {
 			Free();
 			alloc_ = other.alloc_;
@@ -125,7 +125,7 @@ struct GPUDebugBuffer {
 			flipped_ = other.flipped_;
 			fmt_ = other.fmt_;
 			other.alloc_ = false;
-			other.data_ = NULL;
+			other.data_ = nullptr;
 		}
 
 		return *this;
@@ -164,12 +164,12 @@ struct GPUDebugBuffer {
 private:
 	u32 PixelSize(GPUDebugBufferFormat fmt) const;
 
-	bool alloc_;
-	u8 *data_;
-	u32 stride_;
-	u32 height_;
-	GPUDebugBufferFormat fmt_;
-	bool flipped_;
+	bool alloc_ = false;
+	u8 *data_ = nullptr;
+	u32 stride_ = 0;
+	u32 height_ = 0;
+	GPUDebugBufferFormat fmt_ = GPU_DBG_FORMAT_INVALID;
+	bool flipped_ = false;
 };
 
 struct GPUDebugVertex {

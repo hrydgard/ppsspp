@@ -346,7 +346,7 @@ namespace MIPSInt
 
 			int off = GetMatrixSide(sz) - 1;
 			u32 sprefixRemove = VFPU_ANY_SWIZZLE();
-			u32 sprefixAdd;
+			u32 sprefixAdd = 0;
 			switch ((op >> 16) & 0xF) {
 			case 3:
 			{
@@ -362,6 +362,9 @@ namespace MIPSInt
 				break;
 			case 7:
 				sprefixAdd = VFPU_MAKE_CONSTANTS(VFPUConst::ONE, VFPUConst::ONE, VFPUConst::ONE, VFPUConst::ONE);
+				break;
+			default:
+				_dbg_assert_msg_(CPU, 0, "Unknown matrix init op");
 				break;
 			}
 			ApplyPrefixST(&prefixed[off * 4], VFPURewritePrefix(VFPU_CTRL_SPREFIX, sprefixRemove, sprefixAdd), V_Quad);
@@ -1562,7 +1565,7 @@ namespace MIPSInt
 		int vd = _VD;
 		int vs = _VS;
 		int vt = _VT;
-		int ins = (op >> 23) & 7;
+		int ins = (op >> 23) & 3;
 
 		VectorSize sz = (VectorSize)(ins + 1);
 		MatrixSize msz = (MatrixSize)(ins + 1);

@@ -288,8 +288,8 @@ private:
 	FrameData frameData_[VulkanContext::MAX_INFLIGHT_FRAMES];
 
 	// Submission time state
-	int curWidth_;
-	int curHeight_;
+	int curWidth_ = -1;
+	int curHeight_ = -1;
 	bool insideFrame_ = false;
 	VKRStep *curRenderStep_ = nullptr;
 	std::vector<VKRStep *> steps_;
@@ -310,7 +310,7 @@ private:
 	};
 	std::vector<VkFramebuffer> framebuffers_;
 	std::vector<SwapchainImageData> swapchainImages_;
-	uint32_t swapchainImageCount_;
+	uint32_t swapchainImageCount_ = 0;
 	struct DepthBufferInfo {
 		VkFormat format = VK_FORMAT_UNDEFINED;
 		VkImage image = VK_NULL_HANDLE;
