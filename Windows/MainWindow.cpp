@@ -103,8 +103,10 @@ extern ScreenManager *screenManager;
 
 #define TIMER_CURSORUPDATE 1
 #define TIMER_CURSORMOVEUPDATE 2
+#define TIMER_WHEELRELEASE 3
 #define CURSORUPDATE_INTERVAL_MS 1000
 #define CURSORUPDATE_MOVE_TIMESPAN_MS 500
+#define WHEELRELEASE_DELAY_MS 16
 
 namespace MainWindow
 {
@@ -130,6 +132,7 @@ namespace MainWindow
 	// gross hack
 	bool noFocusPause = false;	// TOGGLE_PAUSE state to override pause on lost focus
 	bool trapMouse = true; // Handles some special cases(alt+tab, win menu) when game is running and mouse is confined
+	bool mouseScrollUsed = false;
 
 #define MAX_LOADSTRING 100
 	const TCHAR *szWindowClass = TEXT("PPSSPPWnd");
@@ -253,6 +256,20 @@ namespace MainWindow
 				SetCursor(LoadCursor(NULL, IDC_ARROW));
 				ClipCursor(NULL);
 			}
+		}
+	}
+
+	void RelaseMouseWheel() {
+		if (mouseScrollUsed) {
+			// For simplicity release both wheel events
+			KeyInput key;
+			key.deviceId = DEVICE_ID_MOUSE;
+			key.flags = KEY_UP;
+			key.keyCode = NKCODE_EXT_MOUSEWHEEL_DOWN;
+			NativeKey(key);
+			key.keyCode = NKCODE_EXT_MOUSEWHEEL_UP;
+			NativeKey(key);
+			mouseScrollUsed = false;
 		}
 	}
 
@@ -693,6 +710,27 @@ namespace MainWindow
 			}
 			break;
 
+		case WM_MOUSEWHEEL:
+		{
+			int wheelDelta = (short)(wParam >> 16);
+			KeyInput key;
+			key.deviceId = DEVICE_ID_MOUSE;
+
+			if (wheelDelta < 0) {
+				key.keyCode = NKCODE_EXT_MOUSEWHEEL_DOWN;
+				wheelDelta = -wheelDelta;
+			} else {
+				key.keyCode = NKCODE_EXT_MOUSEWHEEL_UP;
+			}
+			// There's no separate keyup event for mousewheel events,
+			// so we set mouseScrollUsed here and always release if it's true.
+			key.flags = KEY_DOWN | KEY_HASWHEELDELTA | (wheelDelta << 16);
+			mouseScrollUsed = true;
+			SetTimer(hwndMain, TIMER_WHEELRELEASE, WHEELRELEASE_DELAY_MS, 0);
+			NativeKey(key);
+		}
+		break;
+
 		case WM_TOUCH:
 			{
 				touchHandler.handleTouchEvent(hWnd, message, wParam, lParam);
@@ -809,7 +847,7 @@ namespace MainWindow
 			}
 			break;
 
-    case WM_TIMER:
+		case WM_TIMER:
 			// Hack: Take the opportunity to also show/hide the mouse cursor in fullscreen mode.
 			switch (wParam) {
 			case TIMER_CURSORUPDATE:
@@ -820,26 +858,10 @@ namespace MainWindow
 				hideCursor = true;
 				KillTimer(hWnd, TIMER_CURSORMOVEUPDATE);
 				return 0;
-			}
-			break;
-
-		// For some reason, need to catch this here rather than in DisplayProc.
-		case WM_MOUSEWHEEL:
-			{
-				int wheelDelta = (short)(wParam >> 16);
-				KeyInput key;
-				key.deviceId = DEVICE_ID_MOUSE;
-
-				if (wheelDelta < 0) {
-					key.keyCode = NKCODE_EXT_MOUSEWHEEL_DOWN;
-					wheelDelta = -wheelDelta;
-				} else {
-					key.keyCode = NKCODE_EXT_MOUSEWHEEL_UP;
-				}
-				// There's no separate keyup event for mousewheel events, let's pass them both together.
-				// This also means it really won't work great for key mapping :( Need to build a 1 frame delay or something.
-				key.flags = KEY_DOWN | KEY_UP | KEY_HASWHEELDELTA | (wheelDelta << 16);
-				NativeKey(key);
+			// Hack: need to release wheel event without waiting for another wheel event.
+			case TIMER_WHEELRELEASE:
+				RelaseMouseWheel();
+				return 0;
 			}
 			break;
 
@@ -928,6 +950,7 @@ namespace MainWindow
 		case WM_DESTROY:
 			KillTimer(hWnd, TIMER_CURSORUPDATE);
 			KillTimer(hWnd, TIMER_CURSORMOVEUPDATE);
+			KillTimer(hWnd, TIMER_WHEELRELEASE);
 			PostQuitMessage(0);
 			break;
 
