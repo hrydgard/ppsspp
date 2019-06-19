@@ -49,6 +49,10 @@
 }
 
 - (void)setupDisplayListener {
+	// Disable external display by default
+	if ([[NSUserDefaults standardUserDefaults] boolForKey:@"enable_external_display"] == NO) {
+		return;
+	}
 	if ([self listenerActive]) {
 		NSLog(@"setupDisplayListener already called");
 		return;
