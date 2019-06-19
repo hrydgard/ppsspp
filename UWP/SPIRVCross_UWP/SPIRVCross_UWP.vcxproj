@@ -371,20 +371,26 @@
     <ClInclude Include="..\..\ext\SPIRV-Cross\spirv_cfg.hpp" />
     <ClInclude Include="..\..\ext\SPIRV-Cross\spirv_common.hpp" />
     <ClInclude Include="..\..\ext\SPIRV-Cross\spirv_cross.hpp" />
+    <ClInclude Include="..\..\ext\SPIRV-Cross\spirv_cross_containers.hpp" />
+    <ClInclude Include="..\..\ext\SPIRV-Cross\spirv_cross_error_handling.hpp" />
+    <ClInclude Include="..\..\ext\SPIRV-Cross\spirv_cross_parsed_ir.hpp" />
     <ClInclude Include="..\..\ext\SPIRV-Cross\spirv_cross_util.hpp" />
     <ClInclude Include="..\..\ext\SPIRV-Cross\spirv_glsl.hpp" />
     <ClInclude Include="..\..\ext\SPIRV-Cross\spirv_hlsl.hpp" />
     <ClInclude Include="..\..\ext\SPIRV-Cross\spirv_msl.hpp" />
+    <ClInclude Include="..\..\ext\SPIRV-Cross\spirv_parser.hpp" />
     <ClInclude Include="pch.h" />
     <ClInclude Include="targetver.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="..\..\ext\SPIRV-Cross\spirv_cfg.cpp" />
     <ClCompile Include="..\..\ext\SPIRV-Cross\spirv_cross.cpp" />
+    <ClCompile Include="..\..\ext\SPIRV-Cross\spirv_cross_parsed_ir.cpp" />
     <ClCompile Include="..\..\ext\SPIRV-Cross\spirv_cross_util.cpp" />
     <ClCompile Include="..\..\ext\SPIRV-Cross\spirv_glsl.cpp" />
     <ClCompile Include="..\..\ext\SPIRV-Cross\spirv_hlsl.cpp" />
     <ClCompile Include="..\..\ext\SPIRV-Cross\spirv_msl.cpp" />
+    <ClCompile Include="..\..\ext\SPIRV-Cross\spirv_parser.cpp" />
     <ClCompile Include="pch.cpp">
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">Create</PrecompiledHeader>
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">Create</PrecompiledHeader>
