@@ -1,5 +1,5 @@
-#ifndef VULKAN_IOS_H_
-#define VULKAN_IOS_H_ 1
+#ifndef VULKAN_METAL_H_
+#define VULKAN_METAL_H_ 1
 
 #ifdef __cplusplus
 extern "C" {
@@ -28,23 +28,30 @@ extern "C" {
 
 
 
-#define VK_MVK_ios_surface 1
-#define VK_MVK_IOS_SURFACE_SPEC_VERSION   2
-#define VK_MVK_IOS_SURFACE_EXTENSION_NAME "VK_MVK_ios_surface"
-typedef VkFlags VkIOSSurfaceCreateFlagsMVK;
-typedef struct VkIOSSurfaceCreateInfoMVK {
-    VkStructureType               sType;
-    const void*                   pNext;
-    VkIOSSurfaceCreateFlagsMVK    flags;
-    const void*                   pView;
-} VkIOSSurfaceCreateInfoMVK;
+#define VK_EXT_metal_surface 1
 
-typedef VkResult (VKAPI_PTR *PFN_vkCreateIOSSurfaceMVK)(VkInstance instance, const VkIOSSurfaceCreateInfoMVK* pCreateInfo, const VkAllocationCallbacks* pAllocator, VkSurfaceKHR* pSurface);
+#ifdef __OBJC__
+@class CAMetalLayer;
+#else
+typedef void CAMetalLayer;
+#endif
+
+#define VK_EXT_METAL_SURFACE_SPEC_VERSION 1
+#define VK_EXT_METAL_SURFACE_EXTENSION_NAME "VK_EXT_metal_surface"
+typedef VkFlags VkMetalSurfaceCreateFlagsEXT;
+typedef struct VkMetalSurfaceCreateInfoEXT {
+    VkStructureType                 sType;
+    const void*                     pNext;
+    VkMetalSurfaceCreateFlagsEXT    flags;
+    const CAMetalLayer*             pLayer;
+} VkMetalSurfaceCreateInfoEXT;
+
+typedef VkResult (VKAPI_PTR *PFN_vkCreateMetalSurfaceEXT)(VkInstance instance, const VkMetalSurfaceCreateInfoEXT* pCreateInfo, const VkAllocationCallbacks* pAllocator, VkSurfaceKHR* pSurface);
 
 #ifndef VK_NO_PROTOTYPES
-VKAPI_ATTR VkResult VKAPI_CALL vkCreateIOSSurfaceMVK(
+VKAPI_ATTR VkResult VKAPI_CALL vkCreateMetalSurfaceEXT(
     VkInstance                                  instance,
-    const VkIOSSurfaceCreateInfoMVK*            pCreateInfo,
+    const VkMetalSurfaceCreateInfoEXT*          pCreateInfo,
     const VkAllocationCallbacks*                pAllocator,
     VkSurfaceKHR*                               pSurface);
 #endif
