@@ -159,12 +159,7 @@ public:
 	void HandleEvent(Event ev, int width, int height, void *param1, void *param2) override;
 
 private:
-	struct FRect {
-		float x, y, w, h;
-	};
-
 	void ApplyCurrentState();
-	void RotateRectToDisplay(FRect &rect);
 
 	HWND hWnd_;
 	ID3D11Device *device_;
@@ -362,42 +357,12 @@ void D3D11DrawContext::HandleEvent(Event ev, int width, int height, void *param1
 	}
 }
 
-void D3D11DrawContext::RotateRectToDisplay(FRect &rect) {
-	if (g_display_rotation == DisplayRotation::ROTATE_0)
-		return;
-	if (curRenderTargetView_ != bbRenderTargetView_)
-		return;  // Only the backbuffer is actually rotated wrong!
-	switch (g_display_rotation) {
-	case DisplayRotation::ROTATE_180:
-		rect.x = curRTWidth_ - rect.w - rect.x;
-		rect.y = curRTHeight_ - rect.h - rect.y;
-		break;
-	case DisplayRotation::ROTATE_90: {
-		// Note that curRTWidth_ and curRTHeight_ are "swapped"!
-		float origX = rect.x;
-		float origY = rect.y;
-		float rtw = curRTHeight_;
-		float rth = curRTWidth_;
-		rect.x = rth - rect.h - origY;
-		rect.y = origX;
-		std::swap(rect.w, rect.h);
-		break;
-	}
-	case DisplayRotation::ROTATE_270: {
-		float origX = rect.x;
-		float origY = rect.y;
-		// TODO
-		std::swap(rect.w, rect.h);
-		break;
-	}
-	}
-}
-
 void D3D11DrawContext::SetViewports(int count, Viewport *viewports) {
 	D3D11_VIEWPORT vp[4];
 	for (int i = 0; i < count; i++) {
 		FRect rc{ viewports[i].TopLeftX , viewports[i].TopLeftY, viewports[i].Width, viewports[i].Height };
-		RotateRectToDisplay(rc);
+		if (curRenderTargetView_ == bbRenderTargetView_)  // Only the backbuffer is actually rotated wrong!
+			RotateRectToDisplay(rc, curRTWidth_, curRTHeight_);
 		vp[i].TopLeftX = rc.x;
 		vp[i].TopLeftY = rc.y;
 		vp[i].Width = rc.w;
@@ -410,8 +375,8 @@ void D3D11DrawContext::SetViewports(int count, Viewport *viewports) {
 
 void D3D11DrawContext::SetScissorRect(int left, int top, int width, int height) {
 	FRect frc{ (float)left, (float)top, (float)width, (float)height };
-	RotateRectToDisplay(frc);
-
+	if (curRenderTargetView_ == bbRenderTargetView_)  // Only the backbuffer is actually rotated wrong!
+		RotateRectToDisplay(frc, curRTWidth_, curRTHeight_);
 	D3D11_RECT rc{};
 	rc.left = (INT)frc.x;
 	rc.top = (INT)frc.y;

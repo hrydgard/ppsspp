@@ -111,6 +111,34 @@ public:
 		zz = 1.0f; 
 		ww = 1.0f;
 	}
+	// Exact angles to avoid any artifacts.
+	void setRotationZ90() {
+		empty();
+		float c = 0.0f;
+		float s = 1.0f;
+		xx = c;		xy = s;
+		yx = -s;	 yy = c;
+		zz = 1.0f;
+		ww = 1.0f;
+	}
+	void setRotationZ180() {
+		empty();
+		float c = -1.0f;
+		float s = 0.0f;
+		xx = c;		xy = s;
+		yx = -s;	 yy = c;
+		zz = 1.0f;
+		ww = 1.0f;
+	}
+	void setRotationZ270() {
+		empty();
+		float c = 0.0f;
+		float s = -1.0f;
+		xx = c;		xy = s;
+		yx = -s;	 yy = c;
+		zz = 1.0f;
+		ww = 1.0f;
+	}
 	void setRotationAxisAngle(const Vec3 &axis, float angle);
 
 

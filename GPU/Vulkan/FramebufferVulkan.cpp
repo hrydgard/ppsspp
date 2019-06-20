@@ -20,6 +20,7 @@
 
 #include "profiler/profiler.h"
 
+#include "base/display.h"
 #include "base/timeutil.h"
 #include "math/lin/matrix4x4.h"
 #include "math/dataconv.h"
@@ -300,6 +301,16 @@ void FramebufferManagerVulkan::DrawActiveTexture(float x, float y, float w, floa
 	for (int i = 0; i < 4; i++) {
 		vtx[i].x = vtx[i].x * invDestW - 1.0f;
 		vtx[i].y = vtx[i].y * invDestH - 1.0f;
+	}
+
+	if (g_display_rotation != DisplayRotation::ROTATE_0) {
+		for (int i = 0; i < 4; i++) {
+			// backwards notation, should fix that...
+			Vec3 v(vtx[i].x, vtx[i].y, 0.0f);
+			v = v * g_display_rot_matrix;
+			vtx[i].x = v.x;
+			vtx[i].y = v.y;
+		}
 	}
 
 	draw_->FlushState();

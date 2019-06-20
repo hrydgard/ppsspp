@@ -1059,17 +1059,30 @@ Pipeline *VKContext::CreateGraphicsPipeline(const PipelineDesc &desc) {
 }
 
 void VKContext::SetScissorRect(int left, int top, int width, int height) {
-	VkRect2D scissor{ {left, top}, {(uint32_t)width, (uint32_t)height} };
+	FRect rc{ (float)left, (float)top, (float)width, (float)height };
+	if (curFramebuffer_ == nullptr) { // Only the backbuffer is actually rotated wrong!
+		int curRTWidth, curRTHeight;
+		GetFramebufferDimensions((Framebuffer *)curFramebuffer_, &curRTWidth, &curRTHeight);
+		RotateRectToDisplay(rc, (float)curRTWidth, (float)curRTHeight);
+	}
+	VkRect2D scissor{ {(int32_t)rc.x, (int32_t)rc.y}, {(uint32_t)rc.w, (uint32_t)rc.h} };
 	renderManager_.SetScissor(scissor);
 }
 
 void VKContext::SetViewports(int count, Viewport *viewports) {
 	if (count > 0) {
+		// Ignore viewports more than the first.
 		VkViewport viewport;
-		viewport.x = viewports[0].TopLeftX;
-		viewport.y = viewports[0].TopLeftY;
-		viewport.width = viewports[0].Width;
-		viewport.height = viewports[0].Height;
+		FRect rc{ viewports[0].TopLeftX , viewports[0].TopLeftY, viewports[0].Width, viewports[0].Height };
+		if (curFramebuffer_ == nullptr) { // Only the backbuffer is actually rotated wrong!
+			int curRTWidth, curRTHeight;
+			GetFramebufferDimensions((Framebuffer *)curFramebuffer_, &curRTWidth, &curRTHeight);
+			RotateRectToDisplay(rc, (float)curRTWidth, (float)curRTHeight);
+		}
+		viewport.x = rc.x;
+		viewport.y = rc.y;
+		viewport.width = rc.w;
+		viewport.height = rc.h;
 		viewport.minDepth = viewports[0].MinDepth;
 		viewport.maxDepth = viewports[0].MaxDepth;
 		renderManager_.SetViewport(viewport);
