@@ -895,6 +895,20 @@ int clamp(int x, int a, int b) {
 	return x;
 }
 
+static std::string surface_transforms_to_string(VkSurfaceTransformFlagsKHR transformFlags) {
+	std::string str;
+	if (transformFlags & VK_SURFACE_TRANSFORM_IDENTITY_BIT_KHR) str += "IDENTITY ";
+	if (transformFlags & VK_SURFACE_TRANSFORM_ROTATE_90_BIT_KHR) str += "ROTATE_90 ";
+	if (transformFlags & VK_SURFACE_TRANSFORM_ROTATE_180_BIT_KHR) str += "ROTATE_180 ";
+	if (transformFlags & VK_SURFACE_TRANSFORM_ROTATE_270_BIT_KHR) str += "ROTATE_270 ";
+	if (transformFlags & VK_SURFACE_TRANSFORM_HORIZONTAL_MIRROR_BIT_KHR) str += "HMIRROR ";
+	if (transformFlags & VK_SURFACE_TRANSFORM_HORIZONTAL_MIRROR_ROTATE_90_BIT_KHR) str += "HMIRROR_90 ";
+	if (transformFlags & VK_SURFACE_TRANSFORM_HORIZONTAL_MIRROR_ROTATE_180_BIT_KHR) str += "HMIRROR_180 ";
+	if (transformFlags & VK_SURFACE_TRANSFORM_HORIZONTAL_MIRROR_ROTATE_270_BIT_KHR) str += "HMIRROR_270 ";
+	if (transformFlags & VK_SURFACE_TRANSFORM_INHERIT_BIT_KHR) str += "INHERIT ";
+	return str;
+}
+
 bool VulkanContext::InitSwapchain() {
 	VkResult res = vkGetPhysicalDeviceSurfaceCapabilitiesKHR(physical_devices_[physical_device_], surface_, &surfCapabilities_);
 	assert(res == VK_SUCCESS);
@@ -963,7 +977,11 @@ bool VulkanContext::InitSwapchain() {
 	}
 
 	VkSurfaceTransformFlagBitsKHR preTransform;
-	if (surfCapabilities_.supportedTransforms & VK_SURFACE_TRANSFORM_IDENTITY_BIT_KHR) {
+	std::string supportedTransforms = surface_transforms_to_string(surfCapabilities_.supportedTransforms);
+	std::string currentTransform = surface_transforms_to_string(surfCapabilities_.currentTransform);
+	ILOG("Supported transforms: %s", supportedTransforms.c_str());
+	ILOG("Current transform: %s", currentTransform.c_str());
+	if (surfCapabilities_.supportedTransforms & (VK_SURFACE_TRANSFORM_IDENTITY_BIT_KHR | VK_SURFACE_TRANSFORM_INHERIT_BIT_KHR)) {
 		preTransform = VK_SURFACE_TRANSFORM_IDENTITY_BIT_KHR;
 	} else {
 		preTransform = surfCapabilities_.currentTransform;
