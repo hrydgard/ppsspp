@@ -929,7 +929,7 @@ bool VulkanContext::InitSwapchain() {
 
 	if (physicalDeviceProperties_[physical_device_].properties.vendorID == VULKAN_VENDOR_IMGTEC) {
 		// Swap chain width hack to avoid issue #11743 (PowerVR driver bug).
-		// TODO: Check if still broken if pretransform is used
+		// TODO: Check if still broken if pretransform is used!
 		swapChainExtent_.width &= ~31;
 	}
 
@@ -1021,7 +1021,7 @@ bool VulkanContext::InitSwapchain() {
 	swap_chain_info.surface = surface_;
 	swap_chain_info.minImageCount = desiredNumberOfSwapChainImages;
 	swap_chain_info.imageFormat = swapchainFormat_;
-	swap_chain_info.imageColorSpace = VK_COLORSPACE_SRGB_NONLINEAR_KHR;
+	swap_chain_info.imageColorSpace = VK_COLOR_SPACE_SRGB_NONLINEAR_KHR;
 	swap_chain_info.imageExtent.width = swapChainExtent_.width;
 	swap_chain_info.imageExtent.height = swapChainExtent_.height;
 	swap_chain_info.preTransform = preTransform;
@@ -1030,8 +1030,9 @@ bool VulkanContext::InitSwapchain() {
 	swap_chain_info.oldSwapchain = VK_NULL_HANDLE;
 	swap_chain_info.clipped = true;
 	swap_chain_info.imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
-	if (surfCapabilities_.supportedUsageFlags & VK_IMAGE_USAGE_TRANSFER_DST_BIT)
-		swap_chain_info.imageUsage |= VK_IMAGE_USAGE_TRANSFER_DST_BIT;
+	// Don't ask for TRANSFER_DST for the swapchain image, we don't use that.
+	// if (surfCapabilities_.supportedUsageFlags & VK_IMAGE_USAGE_TRANSFER_DST_BIT)
+	//	swap_chain_info.imageUsage |= VK_IMAGE_USAGE_TRANSFER_DST_BIT;
 
 #ifndef ANDROID
 	// We don't support screenshots on Android
@@ -1056,7 +1057,7 @@ bool VulkanContext::InitSwapchain() {
 		ELOG("vkCreateSwapchainKHR failed!");
 		return false;
 	}
-
+	ILOG("Created swapchain: %dx%d", swap_chain_info.imageExtent.width, swap_chain_info.imageExtent.height);
 	return true;
 }
 
