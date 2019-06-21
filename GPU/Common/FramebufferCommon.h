@@ -155,6 +155,7 @@ enum DrawTextureFlags {
 	DRAWTEX_LINEAR = 1,
 	DRAWTEX_KEEP_TEX = 2,
 	DRAWTEX_KEEP_STENCIL_ALPHA = 4,
+	DRAWTEX_TO_BACKBUFFER = 8,
 };
 
 enum class TempFBO {
