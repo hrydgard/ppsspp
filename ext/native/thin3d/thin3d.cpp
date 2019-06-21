@@ -375,7 +375,10 @@ void DrawContext::RotateRectToDisplay(FRect &rect, float curRTWidth, float curRT
 	case DisplayRotation::ROTATE_270: {
 		float origX = rect.x;
 		float origY = rect.y;
-		// TODO
+		float rtw = curRTHeight;
+		float rth = curRTWidth;
+		rect.x = origY;
+		rect.y = rtw - rect.w - origX;
 		std::swap(rect.w, rect.h);
 		break;
 	}
