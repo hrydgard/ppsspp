@@ -546,34 +546,43 @@ static int DefaultGPUBackend() {
 
 int Config::NextValidBackend() {
 	std::vector<std::string> split;
-	std::set<int> failed;
+	std::set<GPUBackend> failed;
+
 	SplitString(sFailedGPUBackends, ',', split);
 	for (const auto &str : split) {
 		if (!str.empty() && str != "ALL") {
-			failed.insert((int)GPUBackendFromString(str));
+			failed.insert(GPUBackendFromString(str));
 		}
 	}
 
-	if (failed.count(iGPUBackend)) {
+	// Count these as "failed" too so we don't pick them.
+	SplitString(sDisabledGPUBackends, ',', split);
+	for (const auto &str : split) {
+		if (!str.empty()) {
+			failed.insert(GPUBackendFromString(str));
+		}
+	}
+
+	if (failed.count((GPUBackend)iGPUBackend)) {
 		ERROR_LOG(LOADER, "Graphics backend failed for %d, trying another", iGPUBackend);
 
 #if (PPSSPP_PLATFORM(WINDOWS) || PPSSPP_PLATFORM(ANDROID)) && !PPSSPP_PLATFORM(UWP)
-		if (VulkanMayBeAvailable() && !failed.count((int)GPUBackend::VULKAN)) {
+		if (!failed.count(GPUBackend::VULKAN) && VulkanMayBeAvailable()) {
 			return (int)GPUBackend::VULKAN;
 		}
 #endif
 #if PPSSPP_PLATFORM(WINDOWS)
-		if (DoesVersionMatchWindows(6, 1, 0, 0, true) && !failed.count((int)GPUBackend::DIRECT3D11)) {
+		if (!failed.count(GPUBackend::DIRECT3D11) && DoesVersionMatchWindows(6, 1, 0, 0, true)) {
 			return (int)GPUBackend::DIRECT3D11;
 		}
 #endif
 #if PPSSPP_API(ANY_GL)
-		if (!failed.count((int)GPUBackend::OPENGL)) {
+		if (!failed.count(GPUBackend::OPENGL)) {
 			return (int)GPUBackend::OPENGL;
 		}
 #endif
 #if PPSSPP_API(D3D9)
-		if (!failed.count((int)GPUBackend::DIRECT3D9)) {
+		if (!failed.count(GPUBackend::DIRECT3D9)) {
 			return (int)GPUBackend::DIRECT3D9;
 		}
 #endif
@@ -585,6 +594,48 @@ int Config::NextValidBackend() {
 	}
 
 	return iGPUBackend;
+}
+
+bool Config::IsBackendEnabled(GPUBackend backend, bool validate) {
+	std::vector<std::string> split;
+
+	SplitString(sDisabledGPUBackends, ',', split);
+	for (const auto &str : split) {
+		if (str.empty())
+			continue;
+		auto match = GPUBackendFromString(str);
+		if (match == backend)
+			return false;
+	}
+
+#if PPSSPP_PLATFORM(IOS)
+	if (backend != GPUBackend::OPENGL)
+		return false;
+#elif PPSSPP_PLATFORM(UWP)
+	if (backend != GPUBackend::DIRECT3D11)
+		return false;
+#elif PPSSPP_PLATFORM(WINDOWS)
+	if (validate) {
+		if (backend == GPUBackend::DIRECT3D11 && !DoesVersionMatchWindows(6, 0, 0, 0, true))
+			return false;
+	}
+#else
+	if (backend == GPUBackend::DIRECT3D11 || backend == GPUBackend::DIRECT3D9)
+		return false;
+#endif
+
+#if !PPSSPP_API(ANY_GL)
+	if (backend == GPUBackend::OPENGL)
+		return false;
+#endif
+#if !PPSSPP_PLATFORM(IOS)
+	if (validate) {
+		if (backend == GPUBackend::VULKAN && !VulkanMayBeAvailable())
+			return false;
+	}
+#endif
+
+	return true;
 }
 
 static bool DefaultVertexCache() {
@@ -599,6 +650,7 @@ static ConfigSetting graphicsSettings[] = {
 	ConfigSetting("ShowFPSCounter", &g_Config.iShowFPSCounter, 0, true, true),
 	ReportedConfigSetting("GraphicsBackend", &g_Config.iGPUBackend, &DefaultGPUBackend),
 	ConfigSetting("FailedGraphicsBackends", &g_Config.sFailedGPUBackends, ""),
+	ConfigSetting("DisabledGraphicsBackends", &g_Config.sDisabledGPUBackends, ""),
 	ConfigSetting("VulkanDevice", &g_Config.sVulkanDevice, "", true, false),
 #ifdef _WIN32
 	ConfigSetting("D3D11Device", &g_Config.sD3D11Device, "", true, false),

@@ -23,6 +23,7 @@
 
 #include "ppsspp_config.h"
 #include "Common/CommonTypes.h"
+#include "Core/ConfigValues.h"
 
 extern const char *PPSSPP_GIT_VERSION;
 
@@ -124,6 +125,7 @@ public:
 	// GFX
 	int iGPUBackend;
 	std::string sFailedGPUBackends;
+	std::string sDisabledGPUBackends;
 	// We have separate device parameters for each backend so it doesn't get erased if you switch backends.
 	// If not set, will use the "best" device.
 	std::string sVulkanDevice;
@@ -441,6 +443,7 @@ public:
 
 	bool IsPortrait() const;
 	int NextValidBackend();
+	bool IsBackendEnabled(GPUBackend backend, bool validate = true);
 
 protected:
 	void LoadStandardControllerIni();
