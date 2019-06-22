@@ -679,10 +679,14 @@ static bool DefaultVertexCache() {
 template <typename T, std::string (*FTo)(T), T (*FFrom)(const std::string &)>
 struct ConfigTranslator {
 	static std::string To(int v) {
-		return FTo(T(v));
+		return StringFromInt(v) + " (" + FTo(T(v)) + ")";
 	}
 
 	static int From(const std::string &v) {
+		int result;
+		if (TryParse(v, &result)) {
+			return result;
+		}
 		return (int)FFrom(v);
 	}
 };
