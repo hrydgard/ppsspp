@@ -234,36 +234,6 @@ void Matrix4x4::setOrthoVulkan(float left, float right, float top, float bottom,
 	ww = 1.0f;
 }
 
-void Matrix4x4::setProjectionInf(const float near_plane, const float fov_horiz, const float aspect) {
-	empty();
-	float f = fov_horiz*0.5f;
-	xx = 1.0f / tanf(f);
-	yy = 1.0f / tanf(f*aspect);
-	zz = 1;
-	wz = -near_plane;
-	zw = 1.0f;
-}
-
-void Matrix4x4::setRotationAxisAngle(const Vec3 &axis, float angle) {
-	Quaternion quat;
-	quat.setRotation(axis, angle);
-	quat.toMatrix(this);
-}
-
-// from a (Position, Rotation, Scale) vec3 quat vec3 tuple
-Matrix4x4 Matrix4x4::fromPRS(const Vec3 &positionv, const Quaternion &rotv, const Vec3 &scalev) {
-	Matrix4x4 newM;
-	newM.setIdentity();
-	Matrix4x4 rot, scale;
-	rotv.toMatrix(&rot);
-	scale.setScaling(scalev);
-	newM = rot * scale;
-	newM.wx = positionv.x;
-	newM.wy = positionv.y;
-	newM.wz = positionv.z;
-	return newM;
-}
-
 void Matrix4x4::toText(char *buffer, int len) const {
 	snprintf(buffer, len, "%f %f %f %f\n%f %f %f %f\n%f %f %f %f\n%f %f %f %f\n",
 		xx,xy,xz,xw,

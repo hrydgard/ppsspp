@@ -35,7 +35,6 @@ public:
 		wx = v.x; wy = v.y; wz = v.z;
 	}
 
-
 	const float &operator[](int i) const {
 		return *(((const float *)this) + i);
 	}
@@ -56,25 +55,12 @@ public:
 		empty();
 		xx=yy=zz=f; ww=1.0f;
 	}
-	void setScaling(const Vec3 f) {
-		empty();
-		xx=f.x;
-		yy=f.y;
-		zz=f.z;
-		ww=1.0f;
-	}
 
 	void setIdentity() {
 		setScaling(1.0f);
 	}
 	void setTranslation(const Vec3 &trans) {
 		setIdentity();
-		wx = trans.x;
-		wy = trans.y;
-		wz = trans.z;
-	}
-	void setTranslationAndScaling(const Vec3 &trans, const Vec3 &scale) {
-		setScaling(scale);
 		wx = trans.x;
 		wy = trans.y;
 		wz = trans.z;
@@ -86,69 +72,72 @@ public:
 
 	void setRotationX(const float a) {
 		empty();
-		float c=cosf(a);
-		float s=sinf(a);
+		float c = cosf(a);
+		float s = sinf(a);
 		xx = 1.0f;
-		yy =	c;			yz = s;
-		zy = -s;			zz = c;
+		yy = c; yz = s;
+		zy = -s; zz = c;
 		ww = 1.0f;
 	}
 	void setRotationY(const float a)	 {
 		empty();
-		float c=cosf(a);
-		float s=sinf(a);
-		xx = c;									 xz = -s;
-		yy =	1.0f;
-		zx = s;									 zz = c	;
+		float c = cosf(a);
+		float s = sinf(a);
+		xx = c; xz = -s;
+		yy = 1.0f;
+		zx = s; zz = c;
 		ww = 1.0f;
 	}
 	void setRotationZ(const float a)	 {
 		empty();
-		float c=cosf(a);
-		float s=sinf(a);
-		xx = c;		xy = s;
-		yx = -s;	 yy = c;
+		float c = cosf(a);
+		float s = sinf(a);
+		xx = c; xy = s;
+		yx = -s; yy = c;
 		zz = 1.0f; 
 		ww = 1.0f;
 	}
-	void setRotationAxisAngle(const Vec3 &axis, float angle);
-
+	// Exact angles to avoid any artifacts.
+	void setRotationZ90() {
+		empty();
+		float c = 0.0f;
+		float s = 1.0f;
+		xx = c; xy = s;
+		yx = -s; yy = c;
+		zz = 1.0f;
+		ww = 1.0f;
+	}
+	void setRotationZ180() {
+		empty();
+		float c = -1.0f;
+		float s = 0.0f;
+		xx = c; xy = s;
+		yx = -s; yy = c;
+		zz = 1.0f;
+		ww = 1.0f;
+	}
+	void setRotationZ270() {
+		empty();
+		float c = 0.0f;
+		float s = -1.0f;
+		xx = c; xy = s;
+		yx = -s; yy = c;
+		zz = 1.0f;
+		ww = 1.0f;
+	}
 
 	void setRotation(float x,float y, float z);
 	void setProjection(float near_plane, float far_plane, float fov_horiz, float aspect = 0.75f);
 	void setProjectionD3D(float near_plane, float far_plane, float fov_horiz, float aspect = 0.75f);
-	void setProjectionInf(float near_plane, float fov_horiz, float aspect = 0.75f);
 	void setOrtho(float left, float right, float bottom, float top, float near, float far);
 	void setOrthoD3D(float left, float right, float bottom, float top, float near, float far);
 	void setOrthoVulkan(float left, float right, float top, float bottom, float near, float far);
-	void setShadow(float Lx, float Ly, float Lz, float Lw) {
-		float Pa=0;
-		float Pb=1;
-		float Pc=0;
-		float Pd=0;
-		//P = normalize(Plane);
-		float d = (Pa*Lx + Pb*Ly + Pc*Lz + Pd*Lw);
-
-		xx=Pa * Lx + d;	xy=Pa * Ly;		 xz=Pa * Lz;		 xw=Pa * Lw;
-		yx=Pb * Lx;			yy=Pb * Ly + d; yz=Pb * Lz;		 yw=Pb * Lw;
-		zx=Pc * Lx;			zy=Pc * Ly;		 zz=Pc * Lz + d; zw=Pc * Lw;
-		wx=Pd * Lx;			wy=Pd * Ly;		 wz=Pd * Lz;		 ww=Pd * Lw + d;
-	}
 
 	void setViewLookAt(const Vec3 &from, const Vec3 &at, const Vec3 &worldup);
 	void setViewLookAtD3D(const Vec3 &from, const Vec3 &at, const Vec3 &worldup);
 	void setViewFrame(const Vec3 &pos, const Vec3 &right, const Vec3 &forward, const Vec3 &up);
-	void stabilizeOrtho() {
-		/*
-		front().normalize();
-		right().normalize();
-		up() = front() % right();
-		right() = up() % front();
-		*/
-	}
 	void toText(char *buffer, int len) const;
 	void print() const;
-	static Matrix4x4 fromPRS(const Vec3 &position, const Quaternion &normal, const Vec3 &scale);
 
 	void translateAndScale(const Vec3 &trans, const Vec3 &scale) {
 		xx = xx * scale.x + xw * trans.x;

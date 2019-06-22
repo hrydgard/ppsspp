@@ -725,6 +725,7 @@ void FramebufferManagerCommon::DrawPixels(VirtualFramebuffer *vfb, int dstX, int
 	float u0 = 0.0f, u1 = 1.0f;
 	float v0 = 0.0f, v1 = 1.0f;
 
+	DrawTextureFlags flags = (vfb || g_Config.iBufFilter == SCALE_LINEAR) ? DRAWTEX_LINEAR : DRAWTEX_NEAREST;
 	if (useBufferedRendering_ && vfb && vfb->fbo) {
 		draw_->BindFramebufferAsRenderTarget(vfb->fbo, { Draw::RPAction::KEEP, Draw::RPAction::KEEP, Draw::RPAction::KEEP });
 		SetViewport2D(0, 0, vfb->renderWidth, vfb->renderHeight);
@@ -733,6 +734,7 @@ void FramebufferManagerCommon::DrawPixels(VirtualFramebuffer *vfb, int dstX, int
 		// We are drawing to the back buffer so need to flip.
 		if (needBackBufferYSwap_)
 			std::swap(v0, v1);
+		flags = flags | DRAWTEX_TO_BACKBUFFER;
 		float x, y, w, h;
 		CenterDisplayOutputRect(&x, &y, &w, &h, 480.0f, 272.0f, (float)pixelWidth_, (float)pixelHeight_, ROTATION_LOCKED_HORIZONTAL);
 		SetViewport2D(x, y, w, h);
@@ -741,7 +743,6 @@ void FramebufferManagerCommon::DrawPixels(VirtualFramebuffer *vfb, int dstX, int
 
 	MakePixelTexture(srcPixels, srcPixelFormat, srcStride, width, height, u1, v1);
 
-	DrawTextureFlags flags = (vfb || g_Config.iBufFilter == SCALE_LINEAR) ? DRAWTEX_LINEAR : DRAWTEX_NEAREST;
 	Bind2DShader();
 	DrawActiveTexture(dstX, dstY, width, height, vfb->bufferWidth, vfb->bufferHeight, u0, v0, u1, v1, ROTATION_LOCKED_HORIZONTAL, flags);
 	gpuStats.numUploads++;
@@ -808,6 +809,7 @@ void FramebufferManagerCommon::DrawFramebufferToOutput(const u8 *srcPixels, GEBu
 		std::swap(v0, v1);
 
 	DrawTextureFlags flags = g_Config.iBufFilter == SCALE_LINEAR ? DRAWTEX_LINEAR : DRAWTEX_NEAREST;
+	flags = flags | DRAWTEX_TO_BACKBUFFER;
 	if (cardboardSettings.enabled) {
 		// Left Eye Image
 		SetViewport2D(cardboardSettings.leftEyeXPosition, cardboardSettings.screenYPosition, cardboardSettings.screenWidth, cardboardSettings.screenHeight);
@@ -975,10 +977,11 @@ void FramebufferManagerCommon::CopyDisplayToOutput() {
 			draw_->BindFramebufferAsRenderTarget(nullptr, { Draw::RPAction::CLEAR, Draw::RPAction::CLEAR, Draw::RPAction::CLEAR });
 			draw_->BindFramebufferAsTexture(vfb->fbo, 0, Draw::FB_COLOR_BIT, 0);
 			draw_->SetScissorRect(0, 0, pixelWidth_, pixelHeight_);
+			Bind2DShader();
 			DrawTextureFlags flags = g_Config.iBufFilter == SCALE_LINEAR ? DRAWTEX_LINEAR : DRAWTEX_NEAREST;
+			flags = flags | DRAWTEX_TO_BACKBUFFER;
 			// We are doing the DrawActiveTexture call directly to the backbuffer here. Hence, we must
 			// flip V.
-			Bind2DShader();
 			if (needBackBufferYSwap_)
 				std::swap(v0, v1);
 			if (cardboardSettings.enabled) {
@@ -1007,6 +1010,7 @@ void FramebufferManagerCommon::CopyDisplayToOutput() {
 			CalculatePostShaderUniforms(vfb->bufferWidth, vfb->bufferHeight, renderWidth_, renderHeight_, &uniforms);
 			BindPostShader(uniforms);
 			DrawTextureFlags flags = g_Config.iBufFilter == SCALE_LINEAR ? DRAWTEX_LINEAR : DRAWTEX_NEAREST;
+			flags = flags | DRAWTEX_TO_BACKBUFFER;
 			DrawActiveTexture(0, 0, fbo_w, fbo_h, fbo_w, fbo_h, 0.0f, 0.0f, 1.0f, 1.0f, ROTATION_LOCKED_HORIZONTAL, flags);
 
 			draw_->SetScissorRect(0, 0, pixelWidth_, pixelHeight_);
@@ -1026,6 +1030,7 @@ void FramebufferManagerCommon::CopyDisplayToOutput() {
 				std::swap(v0, v1);
 			Bind2DShader();
 			flags = (!postShaderIsUpscalingFilter_ && g_Config.iBufFilter == SCALE_LINEAR) ? DRAWTEX_LINEAR : DRAWTEX_NEAREST;
+			flags = flags | DRAWTEX_TO_BACKBUFFER;
 			if (g_Config.bEnableCardboard) {
 				// Left Eye Image
 				SetViewport2D(cardboardSettings.leftEyeXPosition, cardboardSettings.screenYPosition, cardboardSettings.screenWidth, cardboardSettings.screenHeight);
@@ -1049,6 +1054,7 @@ void FramebufferManagerCommon::CopyDisplayToOutput() {
 			if (needBackBufferYSwap_)
 				std::swap(v0, v1);
 			DrawTextureFlags flags = (!postShaderIsUpscalingFilter_ && g_Config.iBufFilter == SCALE_LINEAR) ? DRAWTEX_LINEAR : DRAWTEX_NEAREST;
+			flags = flags | DRAWTEX_TO_BACKBUFFER;
 
 			PostShaderUniforms uniforms{};
 			CalculatePostShaderUniforms(vfb->bufferWidth, vfb->bufferHeight, vfb->renderWidth, vfb->renderHeight, &uniforms);
