@@ -550,7 +550,7 @@ int Config::NextValidBackend() {
 	SplitString(sFailedGPUBackends, ',', split);
 	for (const auto &str : split) {
 		if (!str.empty() && str != "ALL") {
-			failed.insert(atoi(str.c_str()));
+			failed.insert((int)GPUBackendFromString(str));
 		}
 	}
 

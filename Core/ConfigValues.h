@@ -18,6 +18,7 @@
 #pragma once
 
 #include <cstdint>
+#include <string>
 
 const int PSP_MODEL_FAT = 0;
 const int PSP_MODEL_SLIM = 1;
@@ -52,6 +53,33 @@ enum class GPUBackend {
 	DIRECT3D11 = 2,
 	VULKAN = 3,
 };
+
+inline std::string GPUBackendToString(GPUBackend backend) {
+	switch (backend) {
+	case GPUBackend::OPENGL:
+		return "OPENGL";
+	case GPUBackend::DIRECT3D9:
+		return "DIRECT3D9";
+	case GPUBackend::DIRECT3D11:
+		return "DIRECT3D11";
+	case GPUBackend::VULKAN:
+		return "VULKAN";
+	}
+	// Intentionally not a default so we get a warning.
+	return "INVALID";
+}
+
+inline GPUBackend GPUBackendFromString(const std::string &backend) {
+	if (backend == "OPENGL" || backend == "0")
+		return GPUBackend::OPENGL;
+	if (backend == "DIRECT3D9" || backend == "1")
+		return GPUBackend::DIRECT3D9;
+	if (backend == "DIRECT3D11" || backend == "2")
+		return GPUBackend::DIRECT3D11;
+	if (backend == "VULKAN" || backend == "3")
+		return GPUBackend::VULKAN;
+	return GPUBackend::OPENGL;
+}
 
 enum AudioBackendType {
 	AUDIO_BACKEND_AUTO,

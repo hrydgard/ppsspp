@@ -392,9 +392,9 @@ static void CheckFailedGPUBackends() {
 		WARN_LOG(LOADER, "Failed graphics backend switched from %d to %d", lastBackend, g_Config.iGPUBackend);
 	// And then let's - for now - add the current to the failed list.
 	if (g_Config.sFailedGPUBackends.empty()) {
-		g_Config.sFailedGPUBackends = StringFromFormat("%d", g_Config.iGPUBackend);
+		g_Config.sFailedGPUBackends = GPUBackendToString((GPUBackend)g_Config.iGPUBackend);
 	} else if (g_Config.sFailedGPUBackends.find("ALL") == std::string::npos) {
-		g_Config.sFailedGPUBackends += StringFromFormat(",%d", g_Config.iGPUBackend);
+		g_Config.sFailedGPUBackends += "," + GPUBackendToString((GPUBackend)g_Config.iGPUBackend);
 	}
 
 	if (System_GetPropertyBool(SYSPROP_SUPPORTS_PERMISSIONS)) {
