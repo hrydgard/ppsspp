@@ -158,6 +158,10 @@ enum DrawTextureFlags {
 	DRAWTEX_TO_BACKBUFFER = 8,
 };
 
+inline DrawTextureFlags operator | (const DrawTextureFlags &lhs, const DrawTextureFlags &rhs) {
+	return DrawTextureFlags((u32)lhs | (u32)rhs);
+}
+
 enum class TempFBO {
 	DEPAL,
 	BLIT,
