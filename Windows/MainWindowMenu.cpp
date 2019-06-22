@@ -1290,14 +1290,11 @@ namespace MainWindow {
 			CheckMenuItem(menu, savestateSlot[i], MF_BYCOMMAND | ((i == g_Config.iCurrentStateSlot) ? MF_CHECKED : MF_UNCHECKED));
 		}
 
-		bool allowD3D11 = DoesVersionMatchWindows(6, 0, 0, 0, true);
-		bool allowVulkan = VulkanMayBeAvailable();
+		bool allowD3D9 = g_Config.IsBackendEnabled(GPUBackend::DIRECT3D9);
+		bool allowD3D11 = g_Config.IsBackendEnabled(GPUBackend::DIRECT3D11);
+		bool allowOpenGL = g_Config.IsBackendEnabled(GPUBackend::OPENGL);
+		bool allowVulkan = g_Config.IsBackendEnabled(GPUBackend::VULKAN);
 
-#if PPSSPP_API(ANY_GL)
-		bool allowOpenGL = true;
-#else
-		bool allowOpenGL = false;
-#endif
 		switch (GetGPUBackend()) {
 		case GPUBackend::DIRECT3D9:
 			EnableMenuItem(menu, ID_OPTIONS_DIRECT3D9, MF_GRAYED);
@@ -1310,7 +1307,7 @@ namespace MainWindow {
 			CheckMenuItem(menu, ID_OPTIONS_VULKAN, MF_UNCHECKED);
 			break;
 		case GPUBackend::OPENGL:
-			EnableMenuItem(menu, ID_OPTIONS_DIRECT3D9, MF_ENABLED);
+			EnableMenuItem(menu, ID_OPTIONS_DIRECT3D9, allowD3D9 ? MF_ENABLED : MF_GRAYED);
 			EnableMenuItem(menu, ID_OPTIONS_DIRECT3D11, allowD3D11 ? MF_ENABLED : MF_GRAYED);
 			EnableMenuItem(menu, ID_OPTIONS_OPENGL, MF_GRAYED);
 			EnableMenuItem(menu, ID_OPTIONS_VULKAN, allowVulkan ? MF_ENABLED : MF_GRAYED);
@@ -1320,7 +1317,7 @@ namespace MainWindow {
 			CheckMenuItem(menu, ID_OPTIONS_VULKAN, MF_UNCHECKED);
 			break;
 		case GPUBackend::VULKAN:
-			EnableMenuItem(menu, ID_OPTIONS_DIRECT3D9, MF_ENABLED);
+			EnableMenuItem(menu, ID_OPTIONS_DIRECT3D9, allowD3D9 ? MF_ENABLED : MF_GRAYED);
 			EnableMenuItem(menu, ID_OPTIONS_DIRECT3D11, allowD3D11 ? MF_ENABLED : MF_GRAYED);
 			EnableMenuItem(menu, ID_OPTIONS_OPENGL, allowOpenGL ? MF_ENABLED : MF_GRAYED);
 			EnableMenuItem(menu, ID_OPTIONS_VULKAN, MF_GRAYED);
@@ -1330,7 +1327,7 @@ namespace MainWindow {
 			CheckMenuItem(menu, ID_OPTIONS_VULKAN, MF_CHECKED);
 			break;
 		case GPUBackend::DIRECT3D11:
-			EnableMenuItem(menu, ID_OPTIONS_DIRECT3D9, MF_ENABLED);
+			EnableMenuItem(menu, ID_OPTIONS_DIRECT3D9, allowD3D9 ? MF_ENABLED : MF_GRAYED);
 			EnableMenuItem(menu, ID_OPTIONS_DIRECT3D11, MF_GRAYED);
 			EnableMenuItem(menu, ID_OPTIONS_OPENGL, allowOpenGL ? MF_ENABLED : MF_GRAYED);
 			EnableMenuItem(menu, ID_OPTIONS_VULKAN, allowVulkan ? MF_ENABLED : MF_GRAYED);
