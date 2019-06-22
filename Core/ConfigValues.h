@@ -19,6 +19,10 @@
 
 #include <cstdint>
 #include <string>
+#ifndef _MSC_VER
+#include <strings.h>
+#endif
+#include "Common/CommonFuncs.h"
 
 const int PSP_MODEL_FAT = 0;
 const int PSP_MODEL_SLIM = 1;
@@ -70,13 +74,13 @@ inline std::string GPUBackendToString(GPUBackend backend) {
 }
 
 inline GPUBackend GPUBackendFromString(const std::string &backend) {
-	if (backend == "OPENGL" || backend == "0")
+	if (!strcasecmp(backend.c_str(), "OPENGL") || backend == "0")
 		return GPUBackend::OPENGL;
-	if (backend == "DIRECT3D9" || backend == "1")
+	if (!strcasecmp(backend.c_str(), "DIRECT3D9") || backend == "1")
 		return GPUBackend::DIRECT3D9;
-	if (backend == "DIRECT3D11" || backend == "2")
+	if (!strcasecmp(backend.c_str(), "DIRECT3D11") || backend == "2")
 		return GPUBackend::DIRECT3D11;
-	if (backend == "VULKAN" || backend == "3")
+	if (!strcasecmp(backend.c_str(), "VULKAN") || backend == "3")
 		return GPUBackend::VULKAN;
 	return GPUBackend::OPENGL;
 }
