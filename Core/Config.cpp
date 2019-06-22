@@ -120,6 +120,13 @@ struct ConfigSetting {
 		default_.i = def;
 	}
 
+	ConfigSetting(const char *ini, int *v, int def, std::function<std::string(int)> transTo, std::function<int(const std::string &)> transFrom, bool save = true, bool perGame = false)
+		: ini_(ini), type_(TYPE_INT), report_(false), save_(save), perGame_(perGame), translateTo_(transTo), translateFrom_(transFrom) {
+		ptr_.i = v;
+		cb_.i = nullptr;
+		default_.i = def;
+	}
+
 	ConfigSetting(const char *ini, uint32_t *v, uint32_t def, bool save = true, bool perGame = false)
 		: ini_(ini), type_(TYPE_UINT32), report_(false), save_(save), perGame_(perGame) {
 		ptr_.u = v;
@@ -157,6 +164,12 @@ struct ConfigSetting {
 	ConfigSetting(const char *ini, int *v, IntDefaultCallback def, bool save = true, bool perGame = false)
 		: ini_(ini), type_(TYPE_INT), report_(false), save_(save), perGame_(perGame) {
 		ptr_ .i = v;
+		cb_.i = def;
+	}
+
+	ConfigSetting(const char *ini, int *v, IntDefaultCallback def, std::function<std::string(int)> transTo, std::function<int(const std::string &)> transFrom, bool save = true, bool perGame = false)
+		: ini_(ini), type_(TYPE_INT), report_(false), save_(save), perGame_(perGame), translateTo_(transTo), translateFrom_(transFrom) {
+		ptr_.i = v;
 		cb_.i = def;
 	}
 
@@ -198,6 +211,13 @@ struct ConfigSetting {
 		case TYPE_INT:
 			if (cb_.i) {
 				default_.i = cb_.i();
+			}
+			if (translateFrom_) {
+				std::string value;
+				if (section->Get(ini_, &value, nullptr)) {
+					*ptr_.i = translateFrom_(value);
+					return true;
+				}
 			}
 			return section->Get(ini_, ptr_.i, default_.i);
 		case TYPE_UINT32:
@@ -242,6 +262,10 @@ struct ConfigSetting {
 		case TYPE_BOOL:
 			return section->Set(ini_, *ptr_.b);
 		case TYPE_INT:
+			if (translateTo_) {
+				std::string value = translateTo_(*ptr_.i);
+				return section->Set(ini_, value);
+			}
 			return section->Set(ini_, *ptr_.i);
 		case TYPE_UINT32:
 			return section->Set(ini_, *ptr_.u);
@@ -298,12 +322,22 @@ struct ConfigSetting {
 	SettingPtr ptr_;
 	Value default_;
 	Callback cb_;
+
+	// We only support transform for ints.
+	std::function<std::string(int)> translateTo_;
+	std::function<int(const std::string &)> translateFrom_;
 };
 
 struct ReportedConfigSetting : public ConfigSetting {
 	template <typename T1, typename T2>
 	ReportedConfigSetting(const char *ini, T1 *v, T2 def, bool save = true, bool perGame = false)
 		: ConfigSetting(ini, v, def, save, perGame) {
+		report_ = true;
+	}
+
+	template <typename T1, typename T2>
+	ReportedConfigSetting(const char *ini, T1 *v, T2 def, std::function<std::string(int)> transTo, std::function<int(const std::string &)> transFrom, bool save = true, bool perGame = false)
+		: ConfigSetting(ini, v, def, transTo, transFrom, save, perGame) {
 		report_ = true;
 	}
 };
@@ -642,13 +676,26 @@ static bool DefaultVertexCache() {
 	return DefaultGPUBackend() == (int)GPUBackend::OPENGL;
 }
 
+template <typename T, std::string (*FTo)(T), T (*FFrom)(const std::string &)>
+struct ConfigTranslator {
+	static std::string To(int v) {
+		return FTo(T(v));
+	}
+
+	static int From(const std::string &v) {
+		return (int)FFrom(v);
+	}
+};
+
+typedef ConfigTranslator<GPUBackend, GPUBackendToString, GPUBackendFromString> GPUBackendTranslator;
+
 static ConfigSetting graphicsSettings[] = {
 	ConfigSetting("EnableCardboard", &g_Config.bEnableCardboard, false, true, true),
 	ConfigSetting("CardboardScreenSize", &g_Config.iCardboardScreenSize, 50, true, true),
 	ConfigSetting("CardboardXShift", &g_Config.iCardboardXShift, 0, true, true),
 	ConfigSetting("CardboardYShift", &g_Config.iCardboardXShift, 0, true, true),
 	ConfigSetting("ShowFPSCounter", &g_Config.iShowFPSCounter, 0, true, true),
-	ReportedConfigSetting("GraphicsBackend", &g_Config.iGPUBackend, &DefaultGPUBackend),
+	ReportedConfigSetting("GraphicsBackend", &g_Config.iGPUBackend, &DefaultGPUBackend, &GPUBackendTranslator::To, &GPUBackendTranslator::From, true, false),
 	ConfigSetting("FailedGraphicsBackends", &g_Config.sFailedGPUBackends, ""),
 	ConfigSetting("DisabledGraphicsBackends", &g_Config.sDisabledGPUBackends, ""),
 	ConfigSetting("VulkanDevice", &g_Config.sVulkanDevice, "", true, false),
