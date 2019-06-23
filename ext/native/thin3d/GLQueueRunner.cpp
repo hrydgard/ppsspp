@@ -1,3 +1,4 @@
+#include <algorithm>
 #include "Common/MemoryUtil.h"
 #include "Core/Reporting.h"
 #include "GLQueueRunner.h"
@@ -1318,25 +1319,51 @@ void GLQueueRunner::PerformReadback(const GLRStep &pass) {
 void GLQueueRunner::PerformReadbackImage(const GLRStep &pass) {
 	GLRTexture *tex = pass.readback_image.texture;
 
-	glBindTexture(GL_TEXTURE_2D, tex->texture);
-
-	CHECK_GL_ERROR_IF_DEBUG();
-
 #ifndef USING_GLES2
-	int pixelStride = pass.readback_image.srcRect.w;
-	glPixelStorei(GL_PACK_ALIGNMENT, 4);
-
 	GLRect2D rect = pass.readback_image.srcRect;
 
-	int size = 4 * rect.w * rect.h;
-	if (size > readbackBufferSize_) {
-		delete[] readbackBuffer_;
-		readbackBuffer_ = new uint8_t[size];
-		readbackBufferSize_ = size;
-	}
+	if (gl_extensions.VersionGEThan(4, 5)) {
+		int size = 4 * rect.w * rect.h;
+		if (size > readbackBufferSize_) {
+			delete[] readbackBuffer_;
+			readbackBuffer_ = new uint8_t[size];
+			readbackBufferSize_ = size;
+		}
 
-	glPixelStorei(GL_PACK_ALIGNMENT, 4);
-	glGetTexImage(GL_TEXTURE_2D, pass.readback_image.mipLevel, GL_RGBA, GL_UNSIGNED_BYTE, readbackBuffer_);
+		glPixelStorei(GL_PACK_ALIGNMENT, 4);
+		glGetTextureSubImage(tex->texture, pass.readback_image.mipLevel, rect.x, rect.y, 0, rect.w, rect.h, 1, GL_RGBA, GL_UNSIGNED_BYTE, readbackBufferSize_, readbackBuffer_);
+	} else {
+		glBindTexture(GL_TEXTURE_2D, tex->texture);
+
+		CHECK_GL_ERROR_IF_DEBUG();
+
+		GLint w, h;
+		// This is only used for debugging (currently), and GL doesn't support a subrectangle.
+		glGetTexLevelParameteriv(GL_TEXTURE_2D, pass.readback_image.mipLevel, GL_TEXTURE_WIDTH, &w);
+		glGetTexLevelParameteriv(GL_TEXTURE_2D, pass.readback_image.mipLevel, GL_TEXTURE_HEIGHT, &h);
+
+		int size = 4 * std::max((int)w, rect.x + rect.w) * std::max((int)h, rect.h);
+		if (size > readbackBufferSize_) {
+			delete[] readbackBuffer_;
+			readbackBuffer_ = new uint8_t[size];
+			readbackBufferSize_ = size;
+		}
+
+		glPixelStorei(GL_PACK_ALIGNMENT, 4);
+		glPixelStorei(GL_PACK_ROW_LENGTH, rect.x + rect.w);
+		glGetTexImage(GL_TEXTURE_2D, pass.readback_image.mipLevel, GL_RGBA, GL_UNSIGNED_BYTE, readbackBuffer_);
+		glPixelStorei(GL_PACK_ROW_LENGTH, 0);
+
+		if (rect.x != 0 || rect.y != 0) {
+			int dstStride = 4 * rect.w;
+			int srcStride = 4 * (rect.x + rect.w);
+			int xoff = 4 * rect.x;
+			int yoff = rect.y * srcStride;
+			for (int y = 0; y < rect.h; ++y) {
+				memmove(readbackBuffer_ + h * dstStride, readbackBuffer_ + yoff + h * srcStride + xoff, dstStride);
+			}
+		}
+	}
 #endif
 
 	CHECK_GL_ERROR_IF_DEBUG();
