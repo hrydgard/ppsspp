@@ -317,19 +317,19 @@ static u32 sceAudioEnd() {
 }
 
 static u32 sceAudioOutput2Reserve(u32 sampleCount) {
+	auto &chan = chans[PSP_AUDIO_CHANNEL_OUTPUT2];
+	// This seems to ignore the MSB, for some reason.
+	sampleCount &= 0x7FFFFFFF;
 	if (sampleCount < 17 || sampleCount > 4111) {
-		ERROR_LOG(SCEAUDIO, "sceAudioOutput2Reserve(%08x) - invalid sample count", sampleCount);
-		return SCE_KERNEL_ERROR_INVALID_SIZE;
-	} else if (chans[PSP_AUDIO_CHANNEL_OUTPUT2].reserved) {
-		ERROR_LOG(SCEAUDIO, "sceAudioOutput2Reserve(%08x) - channel already reserved", sampleCount);
-		return SCE_ERROR_AUDIO_CHANNEL_ALREADY_RESERVED;
-	} else {
-		DEBUG_LOG(SCEAUDIO, "sceAudioOutput2Reserve(%08x)", sampleCount);
-		chans[PSP_AUDIO_CHANNEL_OUTPUT2].sampleCount = sampleCount;
-		chans[PSP_AUDIO_CHANNEL_OUTPUT2].format = PSP_AUDIO_FORMAT_STEREO;
-		chans[PSP_AUDIO_CHANNEL_OUTPUT2].reserved = true;
+		return hleLogError(SCEAUDIO, SCE_KERNEL_ERROR_INVALID_SIZE, "invalid sample count");
+	} else if (chan.reserved) {
+		return hleLogError(SCEAUDIO, SCE_ERROR_AUDIO_CHANNEL_ALREADY_RESERVED, "channel already reserved");
 	}
-	return 0;
+
+	chan.sampleCount = sampleCount;
+	chan.format = PSP_AUDIO_FORMAT_STEREO;
+	chan.reserved = true;
+	return hleLogSuccessI(SCEAUDIO, 0);
 }
 
 static u32 sceAudioOutput2OutputBlocking(u32 vol, u32 dataPtr) {
@@ -397,23 +397,35 @@ static u32 sceAudioSetVolumeOffset() {
 	return 0;
 }
 
+static bool SRCFrequencyAllowed(int freq) {
+	if (freq == 44100 || freq == 22050 || freq == 11025)
+		return true;
+	if (freq == 48000 || freq == 32000 || freq == 24000 || freq == 16000 || freq == 12000 || freq == 8000)
+		return true;
+	return false;
+}
+
 static u32 sceAudioSRCChReserve(u32 sampleCount, u32 freq, u32 format) {
+	auto &chan = chans[PSP_AUDIO_CHANNEL_SRC];
+	// This seems to ignore the MSB, for some reason.
+	sampleCount &= 0x7FFFFFFF;
 	if (format == 4) {
-		ERROR_LOG_REPORT(SCEAUDIO, "sceAudioSRCChReserve(%08x, %08x, %08x) - unexpected format", sampleCount, freq, format);
-		return PSP_AUDIO_ERROR_SRC_FORMAT_4;
+		return hleReportError(SCEAUDIO, PSP_AUDIO_ERROR_SRC_FORMAT_4, "unexpected format");
 	} else if (format != 2) {
-		ERROR_LOG(SCEAUDIO, "sceAudioSRCChReserve(%08x, %08x, %08x) - unexpected format", sampleCount, freq, format);
-		return SCE_KERNEL_ERROR_INVALID_SIZE;
+		return hleLogError(SCEAUDIO, SCE_KERNEL_ERROR_INVALID_SIZE, "unexpected format");
 	} else if (sampleCount < 17 || sampleCount > 4111) {
-		ERROR_LOG(SCEAUDIO, "sceAudioSRCChReserve(%08x, %08x, %08x) - invalid sample count", sampleCount, freq, format);
-		return SCE_KERNEL_ERROR_INVALID_SIZE;
-	} else if (chans[PSP_AUDIO_CHANNEL_SRC].reserved) {
-		ERROR_LOG(SCEAUDIO, "sceAudioSRCChReserve(%08x, %08x, %08x) - channel already reserved ", sampleCount, freq, format);
-		return SCE_ERROR_AUDIO_CHANNEL_ALREADY_RESERVED;
-	} else {
-		chans[PSP_AUDIO_CHANNEL_SRC].reserved = true;
-		chans[PSP_AUDIO_CHANNEL_SRC].sampleCount = sampleCount;
-		chans[PSP_AUDIO_CHANNEL_SRC].format = format == 2 ? PSP_AUDIO_FORMAT_STEREO : PSP_AUDIO_FORMAT_MONO;
+		return hleLogError(SCEAUDIO, SCE_KERNEL_ERROR_INVALID_SIZE, "invalid sample count");
+	} else if (freq != 0 && !SRCFrequencyAllowed(freq)) {
+		return hleLogError(SCEAUDIO, SCE_ERROR_AUDIO_INVALID_FREQUENCY, "invalid frequency");
+	} else if (chan.reserved) {
+		return hleLogError(SCEAUDIO, SCE_ERROR_AUDIO_CHANNEL_ALREADY_RESERVED, "channel already reserved");
+	}
+
+	chan.reserved = true;
+	chan.sampleCount = sampleCount;
+	chan.format = format == 2 ? PSP_AUDIO_FORMAT_STEREO : PSP_AUDIO_FORMAT_MONO;
+	// TODO: Zero probably means don't change?  Or it means default?
+	if (freq != 0) {
 		__AudioSetOutputFrequency(freq);
 	}
 	return hleLogSuccessI(SCEAUDIO, 0);
