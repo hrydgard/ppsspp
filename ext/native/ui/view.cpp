@@ -60,9 +60,22 @@ void DispatchEvents() {
 }
 
 void RemoveQueuedEvents(View *v) {
-	for (size_t i = 0; i < g_dispatchQueue.size(); i++) {
-		if (g_dispatchQueue[i].params.v == v)
-			g_dispatchQueue.erase(g_dispatchQueue.begin() + i);
+	for (auto it = g_dispatchQueue.begin(); it != g_dispatchQueue.end(); ) {
+		if (it->params.v == v) {
+			it = g_dispatchQueue.erase(it);
+		} else {
+			++it;
+		}
+	}
+}
+
+void RemoveQueuedEvents(Event *e) {
+	for (auto it = g_dispatchQueue.begin(); it != g_dispatchQueue.end(); ) {
+		if (it->e == e) {
+			it = g_dispatchQueue.erase(it);
+		} else {
+			++it;
+		}
 	}
 }
 
@@ -155,6 +168,11 @@ EventReturn Event::Dispatch(EventParams &e) {
 		}
 	}
 	return UI::EVENT_SKIPPED;
+}
+
+Event::~Event() {
+	handlers_.clear();
+	RemoveQueuedEvents(this);
 }
 
 View::~View() {
