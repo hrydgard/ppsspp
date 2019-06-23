@@ -443,7 +443,7 @@ void TextureCacheCommon::SetTexture(bool force) {
 			}
 		}
 
-		if (match && (entry->status & TexCacheEntry::STATUS_TO_SCALE) && standardScaleFactor_ != 1 && texelsScaledThisFrame_ < TEXCACHE_MAX_TEXELS_SCALED) {
+		if (match && (entry->status & TexCacheEntry::STATUS_TO_SCALE) && standardScaleFactor_ != 1 && (g_Config.bUnlockCachedScaling || texelsScaledThisFrame_ < TEXCACHE_MAX_TEXELS_SCALED)) {
 			if ((entry->status & TexCacheEntry::STATUS_CHANGE_FREQUENT) == 0) {
 				// INFO_LOG(G3D, "Reloading texture to do the scaling we skipped..");
 				match = false;
@@ -636,7 +636,7 @@ void TextureCacheCommon::HandleTextureChange(TexCacheEntry *const entry, const c
 	}
 
 	entry->status |= TexCacheEntry::STATUS_UNRELIABLE;
-	if (entry->numFrames < TEXCACHE_FRAME_CHANGE_FREQUENT) {
+	if (!g_Config.bUnlockCachedScaling && entry->numFrames < TEXCACHE_FRAME_CHANGE_FREQUENT) {
 		if (entry->status & TexCacheEntry::STATUS_FREE_CHANGE) {
 			entry->status &= ~TexCacheEntry::STATUS_FREE_CHANGE;
 		} else {

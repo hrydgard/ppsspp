@@ -1494,6 +1494,7 @@ void OtherSettingsScreen::CreateViews() {
 	list->Add(new CheckBox(&g_Config.bSimpleFrameStats, gr->T("Display simple frame stats(heavy!)")));
 	list->Add(new CheckBox(&g_Config.bSavestateScreenshotResLimit, gr->T("Limit resolution of savestates screenshots")));
 	list->Add(new CheckBox(&g_Config.bDiscordPresence, n->T("Send Discord(3rd party software) Presence information")));
+	list->Add(new CheckBox(&g_Config.bUnlockCachedScaling, n->T("Disable texture scaling limiters. Only for testing, this WILL cause stutter even at max FPS! Strongly recommend real time scaling instead!)")));
 #if defined(USING_WIN_UI)
 	list->Add(new CheckBox(&g_Config.bDisableWinMenu, n->T("Disable Windows menu bar")))->OnClick.Handle(this, &OtherSettingsScreen::OnDisableWinBorders);
 	list->Add(new CheckBox(&g_Config.bDisableWinBorders, n->T("Disable Windows borders")))->OnClick.Handle(this, &OtherSettingsScreen::OnDisableWinBorders);

@@ -559,7 +559,7 @@ void TextureCacheDX9::BuildTexture(TexCacheEntry *const entry) {
 	}
 
 	if (scaleFactor != 1) {
-		if (texelsScaledThisFrame_ >= TEXCACHE_MAX_TEXELS_SCALED) {
+		if (!g_Config.bUnlockCachedScaling && texelsScaledThisFrame_ >= TEXCACHE_MAX_TEXELS_SCALED) {
 			entry->status |= TexCacheEntry::STATUS_TO_SCALE;
 			scaleFactor = 1;
 		} else {

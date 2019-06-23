@@ -184,6 +184,7 @@ public:
 	int iTexScalingType; // 0 = xBRZ, 1 = Hybrid
 	bool bRealtimeTexScaling;
 	bool bTexDeposterize;
+	bool bUnlockCachedScaling;
 	int iFpsLimit1;
 	int iFpsLimit2;
 	int iMaxRecent;
