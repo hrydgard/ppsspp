@@ -969,7 +969,7 @@ void TextureCacheCommon::NotifyConfigChanged() {
 				}
 			}
 
-			scaleFactor = std::min(5, scaleFactor);
+			scaleFactor = std::min(6, scaleFactor);
 		} else {
 			scaleFactor = g_Config.iTexScalingLevel;
 		}

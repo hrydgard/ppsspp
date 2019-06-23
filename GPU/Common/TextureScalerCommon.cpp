@@ -214,18 +214,18 @@ inline float mitchell(float x, float B, float C) {
 // arrays for pre-calculating weights and sums (~20KB)
 // Dimensions:
 //   0: 0 = BSpline, 1 = mitchell
-//   2: 2-5x scaling
-// 2,3: 5x5 generated pixels 
-// 4,5: 5x5 pixels sampled from
-float bicubicWeights[2][4][5][5][5][5];
-float bicubicInvSums[2][4][5][5];
+//   1: 2-6x scaling
+// 2,3: 6x6 generated pixels 
+// 4,5: 6x6 pixels sampled from
+float bicubicWeights[2][5][6][6][6][6];
+float bicubicInvSums[2][5][6][6];
 
 // initialize pre-computed weights array
 void initBicubicWeights() {
 	float B[2] = { 1.0f, 0.334f };
 	float C[2] = { 0.0f, 0.334f };
 	for (int type = 0; type < 2; ++type) {
-		for (int factor = 2; factor <= 5; ++factor) {
+		for (int factor = 2; factor <= 6; ++factor) {
 			for (int x = 0; x < factor; ++x) {
 				for (int y = 0; y < factor; ++y) {
 					float sum = 0.0f;
@@ -332,7 +332,8 @@ void scaleBicubicBSpline(int factor, u32* data, u32* out, int w, int h, int l, i
 		case 3: scaleBicubicTSSE41<3, 0>(data, out, w, h, l, u); break; // it was even slower than I had expected
 		case 4: scaleBicubicTSSE41<4, 0>(data, out, w, h, l, u); break; // turns out I had not included
 		case 5: scaleBicubicTSSE41<5, 0>(data, out, w, h, l, u); break; // any of these break statements
-		default: ERROR_LOG(G3D, "Bicubic upsampling only implemented for factors 2 to 5");
+		case 6: scaleBicubicTSSE41<6, 0>(data, out, w, h, l, u); break; // any of these break statements
+		default: ERROR_LOG(G3D, "Bicubic upsampling only implemented for factors 2 to 6");
 		}
 	} else {
 #endif
@@ -341,7 +342,8 @@ void scaleBicubicBSpline(int factor, u32* data, u32* out, int w, int h, int l, i
 		case 3: scaleBicubicT<3, 0>(data, out, w, h, l, u); break; // it was even slower than I had expected
 		case 4: scaleBicubicT<4, 0>(data, out, w, h, l, u); break; // turns out I had not included
 		case 5: scaleBicubicT<5, 0>(data, out, w, h, l, u); break; // any of these break statements
-		default: ERROR_LOG(G3D, "Bicubic upsampling only implemented for factors 2 to 5");
+		case 6: scaleBicubicT<6, 0>(data, out, w, h, l, u); break; // any of these break statements
+		default: ERROR_LOG(G3D, "Bicubic upsampling only implemented for factors 2 to 6");
 		}
 #if _M_SSE >= 0x401
 	}
@@ -356,7 +358,8 @@ void scaleBicubicMitchell(int factor, u32* data, u32* out, int w, int h, int l, 
 		case 3: scaleBicubicTSSE41<3, 1>(data, out, w, h, l, u); break;
 		case 4: scaleBicubicTSSE41<4, 1>(data, out, w, h, l, u); break;
 		case 5: scaleBicubicTSSE41<5, 1>(data, out, w, h, l, u); break;
-		default: ERROR_LOG(G3D, "Bicubic upsampling only implemented for factors 2 to 5");
+		case 6: scaleBicubicTSSE41<6, 1>(data, out, w, h, l, u); break;
+		default: ERROR_LOG(G3D, "Bicubic upsampling only implemented for factors 2 to 6");
 		}
 	} else {
 #endif
@@ -365,7 +368,8 @@ void scaleBicubicMitchell(int factor, u32* data, u32* out, int w, int h, int l, 
 		case 3: scaleBicubicT<3, 1>(data, out, w, h, l, u); break;
 		case 4: scaleBicubicT<4, 1>(data, out, w, h, l, u); break;
 		case 5: scaleBicubicT<5, 1>(data, out, w, h, l, u); break;
-		default: ERROR_LOG(G3D, "Bicubic upsampling only implemented for factors 2 to 5");
+		case 6: scaleBicubicT<6, 1>(data, out, w, h, l, u); break;
+		default: ERROR_LOG(G3D, "Bicubic upsampling only implemented for factors 2 to 6");
 		}
 #if _M_SSE >= 0x401
 	}
@@ -374,16 +378,17 @@ void scaleBicubicMitchell(int factor, u32* data, u32* out, int w, int h, int l, 
 
 //////////////////////////////////////////////////////////////////// Bilinear scaling
 
-const static u8 BILINEAR_FACTORS[4][3][2] = {
+const static u8 BILINEAR_FACTORS[5][3][2] = {
 		{ { 44, 211 }, { 0, 0 }, { 0, 0 } }, // x2
 		{ { 64, 191 }, { 0, 255 }, { 0, 0 } }, // x3
 		{ { 77, 178 }, { 26, 229 }, { 0, 0 } }, // x4
 		{ { 102, 153 }, { 51, 204 }, { 0, 255 } }, // x5
+		{ { 126, 129 }, { 74, 181 }, { 26, 229 } }, // x6
 };
 // integral bilinear upscaling by factor f, horizontal part
 template<int f>
 void bilinearHt(u32* data, u32* out, int w, int l, int u) {
-	static_assert(f > 1 && f <= 5, "Bilinear scaling only implemented for factors 2 to 5");
+	static_assert(f > 1 && f <= 6, "Bilinear scaling only implemented for factors 2 to 6");
 	int outw = w*f;
 	for (int y = l; y < u; ++y) {
 		for (int x = 0; x < w; ++x) {
@@ -407,14 +412,15 @@ void bilinearH(int factor, u32* data, u32* out, int w, int l, int u) {
 	case 3: bilinearHt<3>(data, out, w, l, u); break;
 	case 4: bilinearHt<4>(data, out, w, l, u); break;
 	case 5: bilinearHt<5>(data, out, w, l, u); break;
-	default: ERROR_LOG(G3D, "Bilinear upsampling only implemented for factors 2 to 5");
+	case 6: bilinearHt<6>(data, out, w, l, u); break;
+	default: ERROR_LOG(G3D, "Bilinear upsampling only implemented for factors 2 to 6");
 	}
 }
 // integral bilinear upscaling by factor f, vertical part
 // gl/gu == global lower and upper bound
 template<int f>
 void bilinearVt(u32* data, u32* out, int w, int gl, int gu, int l, int u) {
-	static_assert(f>1 && f <= 5, "Bilinear scaling only implemented for 2x, 3x, 4x, and 5x");
+	static_assert(f>1 && f <= 6, "Bilinear scaling only implemented for 2x, 3x, 4x, 5x and 6x");
 	int outw = w*f;
 	for (int xb = 0; xb < outw / BLOCK_SIZE + 1; ++xb) {
 		for (int y = l; y < u; ++y) {
@@ -441,7 +447,8 @@ void bilinearV(int factor, u32* data, u32* out, int w, int gl, int gu, int l, in
 	case 3: bilinearVt<3>(data, out, w, gl, gu, l, u); break;
 	case 4: bilinearVt<4>(data, out, w, gl, gu, l, u); break;
 	case 5: bilinearVt<5>(data, out, w, gl, gu, l, u); break;
-	default: ERROR_LOG(G3D, "Bilinear upsampling only implemented for factors 2 to 5");
+	case 6: bilinearVt<6>(data, out, w, gl, gu, l, u); break;
+	default: ERROR_LOG(G3D, "Bilinear upsampling only implemented for factors 2 to 6");
 	}
 }
 

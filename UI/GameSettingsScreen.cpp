@@ -418,7 +418,7 @@ void GameSettingsScreen::CreateViews() {
 	// graphicsSettings->Add(new CheckBox(&g_Config.bFXAA, gr->T("FXAA")));
 	graphicsSettings->Add(new ItemHeader(gr->T("Texture Scaling")));
 #ifndef MOBILE_DEVICE
-	static const char *texScaleLevelsNPOT[] = {"Auto", "Off", "2x", "3x", "4x", "5x"};
+	static const char *texScaleLevelsNPOT[] = {"Auto", "Off", "2x", "3x", "4x", "5x", "6x"};
 #else
 	static const char *texScaleLevelsNPOT[] = {"Auto", "Off", "2x", "3x"};
 #endif
