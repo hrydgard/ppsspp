@@ -90,12 +90,12 @@ WebSocketServer *WebSocketServer::CreateAsUpgrade(const http::Request &request, 
 	};
 
 	if (!requireHeader("upgrade", "websocket") || !requireHeaderContains("connection", "upgrade")) {
-		request.WriteHttpResponseHeader(400, -1, "text/plain");
+		request.WriteHttpResponseHeader("1.1", 400, -1, "text/plain");
 		request.Out()->Push("Must send a websocket request.");
 		return nullptr;
 	}
 	if (!requireHeader("sec-websocket-version", "13")) {
-		request.WriteHttpResponseHeader(400, -1, "text/plain", "Sec-WebSocket-Version: 13\r\n");
+		request.WriteHttpResponseHeader("1.1", 400, -1, "text/plain", "Sec-WebSocket-Version: 13\r\n");
 		request.Out()->Push("Unsupported version.");
 		return nullptr;
 	}
@@ -110,7 +110,7 @@ WebSocketServer *WebSocketServer::CreateAsUpgrade(const http::Request &request, 
 
 	std::string key;
 	if (!request.GetHeader("sec-websocket-key", &key)) {
-		request.WriteHttpResponseHeader(400, -1, "text/plain");
+		request.WriteHttpResponseHeader("1.1", 400, -1, "text/plain");
 		request.Out()->Push("Cannot accept without key.");
 		return nullptr;
 	}
@@ -123,7 +123,7 @@ WebSocketServer *WebSocketServer::CreateAsUpgrade(const http::Request &request, 
 	std::string otherHeaders = StringFromFormat("Upgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Accept: %s\r\n%s", acceptKey.c_str(), obtainedProtocolHeader.c_str());
 
 	// Okay, we're good to go then.
-	request.WriteHttpResponseHeader(101, -1, "websocket", otherHeaders.c_str());
+	request.WriteHttpResponseHeader("1.1", 101, -1, "websocket", otherHeaders.c_str());
 	request.WritePartial();
 
 	return new WebSocketServer(request.fd(), request.In(), request.Out());
