@@ -335,14 +335,19 @@ static u32 sceAudioOutput2Reserve(u32 sampleCount) {
 static u32 sceAudioOutput2OutputBlocking(u32 vol, u32 dataPtr) {
 	// Note: 0xFFFFF, not 0xFFFF!
 	if (vol > 0xFFFFF) {
-		ERROR_LOG(SCEAUDIO, "sceAudioOutput2OutputBlocking(%08x, %08x) - invalid volume", vol, dataPtr);
-		return SCE_ERROR_AUDIO_INVALID_VOLUME;
+		return hleLogError(SCEAUDIO, SCE_ERROR_AUDIO_INVALID_VOLUME, "invalid volume");
 	}
-	DEBUG_LOG(SCEAUDIO, "sceAudioOutput2OutputBlocking(%08x, %08x)", vol, dataPtr);
-	chans[PSP_AUDIO_CHANNEL_OUTPUT2].leftVolume = vol;
-	chans[PSP_AUDIO_CHANNEL_OUTPUT2].rightVolume = vol;
-	chans[PSP_AUDIO_CHANNEL_OUTPUT2].sampleAddress = dataPtr;
-	return __AudioEnqueue(chans[PSP_AUDIO_CHANNEL_OUTPUT2], PSP_AUDIO_CHANNEL_OUTPUT2, true);
+
+	auto &chan = chans[PSP_AUDIO_CHANNEL_OUTPUT2];
+	chan.leftVolume = vol;
+	chan.rightVolume = vol;
+	chan.sampleAddress = dataPtr;
+	hleEatCycles(10000);
+
+	int result = __AudioEnqueue(chan, PSP_AUDIO_CHANNEL_OUTPUT2, true);
+	if (result < 0)
+		return hleLogError(SCEAUDIO, result);
+	return hleLogSuccessI(SCEAUDIO, result);
 }
 
 static u32 sceAudioOutput2ChangeLength(u32 sampleCount) {
@@ -365,10 +370,15 @@ static u32 sceAudioOutput2GetRestSample() {
 }
 
 static u32 sceAudioOutput2Release() {
-	DEBUG_LOG(SCEAUDIO, "sceAudioOutput2Release()");
-	chans[PSP_AUDIO_CHANNEL_OUTPUT2].reset();
-	chans[PSP_AUDIO_CHANNEL_OUTPUT2].reserved = false;
-	return 0;
+	auto &chan = chans[PSP_AUDIO_CHANNEL_OUTPUT2];
+	if (!chan.reserved)
+		return hleLogError(SCEAUDIO, SCE_ERROR_AUDIO_CHANNEL_NOT_RESERVED, "channel not reserved");
+	if (!chan.sampleQueue.empty())
+		return hleLogError(SCEAUDIO, SCE_ERROR_AUDIO_CHANNEL_ALREADY_RESERVED, "output busy");
+
+	chan.reset();
+	chan.reserved = false;
+	return hleLogSuccessI(SCEAUDIO, 0);
 }
 
 static u32 sceAudioSetFrequency(u32 freq) {
@@ -389,7 +399,7 @@ static u32 sceAudioSetVolumeOffset() {
 
 static u32 sceAudioSRCChReserve(u32 sampleCount, u32 freq, u32 format) {
 	if (format == 4) {
-		ERROR_LOG(SCEAUDIO, "sceAudioSRCChReserve(%08x, %08x, %08x) - unexpected format", sampleCount, freq, format);
+		ERROR_LOG_REPORT(SCEAUDIO, "sceAudioSRCChReserve(%08x, %08x, %08x) - unexpected format", sampleCount, freq, format);
 		return PSP_AUDIO_ERROR_SRC_FORMAT_4;
 	} else if (format != 2) {
 		ERROR_LOG(SCEAUDIO, "sceAudioSRCChReserve(%08x, %08x, %08x) - unexpected format", sampleCount, freq, format);
@@ -401,36 +411,41 @@ static u32 sceAudioSRCChReserve(u32 sampleCount, u32 freq, u32 format) {
 		ERROR_LOG(SCEAUDIO, "sceAudioSRCChReserve(%08x, %08x, %08x) - channel already reserved ", sampleCount, freq, format);
 		return SCE_ERROR_AUDIO_CHANNEL_ALREADY_RESERVED;
 	} else {
-		DEBUG_LOG(SCEAUDIO, "sceAudioSRCChReserve(%08x, %08x, %08x)", sampleCount, freq, format);
 		chans[PSP_AUDIO_CHANNEL_SRC].reserved = true;
 		chans[PSP_AUDIO_CHANNEL_SRC].sampleCount = sampleCount;
 		chans[PSP_AUDIO_CHANNEL_SRC].format = format == 2 ? PSP_AUDIO_FORMAT_STEREO : PSP_AUDIO_FORMAT_MONO;
 		__AudioSetOutputFrequency(freq);
 	}
-	return 0;
+	return hleLogSuccessI(SCEAUDIO, 0);
 }
 
 static u32 sceAudioSRCChRelease() {
-	if (!chans[PSP_AUDIO_CHANNEL_SRC].reserved) {
-		ERROR_LOG(SCEAUDIO, "sceAudioSRCChRelease() - channel not reserved ");
-		return SCE_ERROR_AUDIO_CHANNEL_NOT_RESERVED;
-	}
-	DEBUG_LOG(SCEAUDIO, "sceAudioSRCChRelease()");
-	chans[PSP_AUDIO_CHANNEL_SRC].reset();
-	chans[PSP_AUDIO_CHANNEL_SRC].reserved = false;
-	return 0;
+	auto &chan = chans[PSP_AUDIO_CHANNEL_SRC];
+	if (!chan.reserved)
+		return hleLogError(SCEAUDIO, SCE_ERROR_AUDIO_CHANNEL_NOT_RESERVED, "channel not reserved");
+	if (!chan.sampleQueue.empty())
+		return hleLogError(SCEAUDIO, SCE_ERROR_AUDIO_CHANNEL_ALREADY_RESERVED, "output busy");
+
+	chan.reset();
+	chan.reserved = false;
+	return hleLogSuccessI(SCEAUDIO, 0);
 }
 
 static u32 sceAudioSRCOutputBlocking(u32 vol, u32 buf) {
 	if (vol > 0xFFFFF) {
-		ERROR_LOG(SCEAUDIO, "sceAudioSRCOutputBlocking(%08x, %08x) - invalid volume", vol, buf);
-		return SCE_ERROR_AUDIO_INVALID_VOLUME;
+		return hleLogError(SCEAUDIO, SCE_ERROR_AUDIO_INVALID_VOLUME, "invalid volume");
 	}
-	DEBUG_LOG(SCEAUDIO, "sceAudioSRCOutputBlocking(%08x, %08x)", vol, buf);
-	chans[PSP_AUDIO_CHANNEL_SRC].leftVolume = vol;
-	chans[PSP_AUDIO_CHANNEL_SRC].rightVolume = vol;
-	chans[PSP_AUDIO_CHANNEL_SRC].sampleAddress = buf;
-	return __AudioEnqueue(chans[PSP_AUDIO_CHANNEL_SRC], PSP_AUDIO_CHANNEL_SRC, true);
+
+	auto &chan = chans[PSP_AUDIO_CHANNEL_SRC];
+	chan.leftVolume = vol;
+	chan.rightVolume = vol;
+	chan.sampleAddress = buf;
+
+	hleEatCycles(10000);
+	int result = __AudioEnqueue(chan, PSP_AUDIO_CHANNEL_SRC, true);
+	if (result < 0)
+		return hleLogError(SCEAUDIO, result);
+	return hleLogSuccessI(SCEAUDIO, result);
 }
 
 static u32 sceAudioRoutingSetMode(u32 mode) {
@@ -461,31 +476,31 @@ const HLEFunction sceAudio[] =
 {
 	// Newer simplified single channel audio output. Presumably for games that use Atrac3
 	// directly from Sas instead of playing it on a separate audio channel.
-	{0X01562BA3, &WrapU_U<sceAudioOutput2Reserve>,          "sceAudioOutput2Reserve",        'x', "x"   },
+	{0X01562BA3, &WrapU_U<sceAudioOutput2Reserve>,          "sceAudioOutput2Reserve",        'x', "i"   },
 	{0X2D53F36E, &WrapU_UU<sceAudioOutput2OutputBlocking>,  "sceAudioOutput2OutputBlocking", 'x', "xx"  },
-	{0X63F2889C, &WrapU_U<sceAudioOutput2ChangeLength>,     "sceAudioOutput2ChangeLength",   'x', "x"   },
-	{0X647CEF33, &WrapU_V<sceAudioOutput2GetRestSample>,    "sceAudioOutput2GetRestSample",  'x', ""    },
+	{0X63F2889C, &WrapU_U<sceAudioOutput2ChangeLength>,     "sceAudioOutput2ChangeLength",   'x', "i"   },
+	{0X647CEF33, &WrapU_V<sceAudioOutput2GetRestSample>,    "sceAudioOutput2GetRestSample",  'i', ""    },
 	{0X43196845, &WrapU_V<sceAudioOutput2Release>,          "sceAudioOutput2Release",        'x', ""    },
 
 	// "Traditional" audio channel interface
 	{0X80F1F7E0, &WrapU_V<sceAudioInit>,                    "sceAudioInit",                  'x', ""    },
 	{0X210567F7, &WrapU_V<sceAudioEnd>,                     "sceAudioEnd",                   'x', ""    },
-	{0XA2BEAA6C, &WrapU_U<sceAudioSetFrequency>,            "sceAudioSetFrequency",          'x', "x"   },
+	{0XA2BEAA6C, &WrapU_U<sceAudioSetFrequency>,            "sceAudioSetFrequency",          'x', "i"   },
 	{0X927AC32B, &WrapU_V<sceAudioSetVolumeOffset>,         "sceAudioSetVolumeOffset",       'x', ""    },
-	{0X8C1009B2, &WrapU_UIU<sceAudioOutput>,                "sceAudioOutput",                'x', "xix" },
-	{0X136CAF51, &WrapU_UIU<sceAudioOutputBlocking>,        "sceAudioOutputBlocking",        'x', "xix" },
-	{0XE2D56B2D, &WrapU_UIIU<sceAudioOutputPanned>,         "sceAudioOutputPanned",          'x', "xiix"},
-	{0X13F592BC, &WrapU_UIIU<sceAudioOutputPannedBlocking>, "sceAudioOutputPannedBlocking",  'x', "xiix"},
-	{0X5EC81C55, &WrapU_IUU<sceAudioChReserve>,             "sceAudioChReserve",             'x', "ixx" },
-	{0X6FC46853, &WrapU_U<sceAudioChRelease>,               "sceAudioChRelease",             'x', "x"   },
-	{0XE9D97901, &WrapI_U<sceAudioGetChannelRestLen>,       "sceAudioGetChannelRestLen",     'i', "x"   },
-	{0XB011922F, &WrapI_U<sceAudioGetChannelRestLength>,    "sceAudioGetChannelRestLength",  'i', "x"   },
-	{0XCB2E439E, &WrapU_UU<sceAudioSetChannelDataLen>,      "sceAudioSetChannelDataLen",     'x', "xx"  },
-	{0X95FD0C2D, &WrapU_UU<sceAudioChangeChannelConfig>,    "sceAudioChangeChannelConfig",   'x', "xx"  },
-	{0XB7E1D8E7, &WrapU_UUU<sceAudioChangeChannelVolume>,   "sceAudioChangeChannelVolume",   'x', "xxx" },
+	{0X8C1009B2, &WrapU_UIU<sceAudioOutput>,                "sceAudioOutput",                'x', "ixx" },
+	{0X136CAF51, &WrapU_UIU<sceAudioOutputBlocking>,        "sceAudioOutputBlocking",        'x', "ixx" },
+	{0XE2D56B2D, &WrapU_UIIU<sceAudioOutputPanned>,         "sceAudioOutputPanned",          'x', "ixxx"},
+	{0X13F592BC, &WrapU_UIIU<sceAudioOutputPannedBlocking>, "sceAudioOutputPannedBlocking",  'x', "ixxx"},
+	{0X5EC81C55, &WrapU_IUU<sceAudioChReserve>,             "sceAudioChReserve",             'x', "iii" },
+	{0X6FC46853, &WrapU_U<sceAudioChRelease>,               "sceAudioChRelease",             'x', "i"   },
+	{0XE9D97901, &WrapI_U<sceAudioGetChannelRestLen>,       "sceAudioGetChannelRestLen",     'i', "i"   },
+	{0XB011922F, &WrapI_U<sceAudioGetChannelRestLength>,    "sceAudioGetChannelRestLength",  'i', "i"   },
+	{0XCB2E439E, &WrapU_UU<sceAudioSetChannelDataLen>,      "sceAudioSetChannelDataLen",     'x', "ii"  },
+	{0X95FD0C2D, &WrapU_UU<sceAudioChangeChannelConfig>,    "sceAudioChangeChannelConfig",   'x', "ii"  },
+	{0XB7E1D8E7, &WrapU_UUU<sceAudioChangeChannelVolume>,   "sceAudioChangeChannelVolume",   'x', "ixx" },
 
 	// Not sure about the point of these, maybe like traditional but with ability to do sample rate conversion?
-	{0X38553111, &WrapU_UUU<sceAudioSRCChReserve>,          "sceAudioSRCChReserve",          'x', "xxx" },
+	{0X38553111, &WrapU_UUU<sceAudioSRCChReserve>,          "sceAudioSRCChReserve",          'x', "iii" },
 	{0X5C37C0AE, &WrapU_V<sceAudioSRCChRelease>,            "sceAudioSRCChRelease",          'x', ""    },
 	{0XE0727056, &WrapU_UU<sceAudioSRCOutputBlocking>,      "sceAudioSRCOutputBlocking",     'x', "xx"  },
 
