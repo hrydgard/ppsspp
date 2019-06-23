@@ -132,7 +132,7 @@ public:
 	// GFX
 	int iGPUBackend;
 	std::string sFailedGPUBackends;
-	std::string sDisabledGPUBackends;
+	//std::string sDisabledGPUBackends;
 	// We have separate device parameters for each backend so it doesn't get erased if you switch backends.
 	// If not set, will use the "best" device.
 	std::string sVulkanDevice;

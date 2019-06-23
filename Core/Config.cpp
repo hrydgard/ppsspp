@@ -598,12 +598,12 @@ int Config::NextValidBackend() {
 	}
 
 	// Count these as "failed" too so we don't pick them.
-	SplitString(sDisabledGPUBackends, ',', split);
+	/*SplitString(sDisabledGPUBackends, ',', split);
 	for (const auto &str : split) {
 		if (!str.empty()) {
 			failed.insert(GPUBackendFromString(str));
 		}
-	}
+	}*/
 
 	if (failed.count((GPUBackend)iGPUBackend)) {
 		ERROR_LOG(LOADER, "Graphics backend failed for %d, trying another", iGPUBackend);
@@ -641,14 +641,17 @@ int Config::NextValidBackend() {
 bool Config::IsBackendEnabled(GPUBackend backend, bool validate) {
 	std::vector<std::string> split;
 
-	SplitString(sDisabledGPUBackends, ',', split);
+	// Disabled due to some xstring std::basic_string exception affecting only d3d11 in this branch.
+	// No idea why, maybe cause realtime texture scaling as that's the primary difference with d3d11,
+	// however just adding any new std::string to config seems to be enough to cause the failure
+	/*SplitString(sDisabledGPUBackends, ',', split);
 	for (const auto &str : split) {
 		if (str.empty())
 			continue;
 		auto match = GPUBackendFromString(str);
 		if (match == backend)
 			return false;
-	}
+	}*/
 
 #if PPSSPP_PLATFORM(IOS)
 	if (backend != GPUBackend::OPENGL)
@@ -709,7 +712,7 @@ static ConfigSetting graphicsSettings[] = {
 	ConfigSetting("ShowFPSCounter", &g_Config.iShowFPSCounter, 0, true, true),
 	ReportedConfigSetting("GraphicsBackend", &g_Config.iGPUBackend, &DefaultGPUBackend, &GPUBackendTranslator::To, &GPUBackendTranslator::From, true, false),
 	ConfigSetting("FailedGraphicsBackends", &g_Config.sFailedGPUBackends, ""),
-	ConfigSetting("DisabledGraphicsBackends", &g_Config.sDisabledGPUBackends, ""),
+	//ConfigSetting("DisabledGraphicsBackends", &g_Config.sDisabledGPUBackends, ""),
 	ConfigSetting("VulkanDevice", &g_Config.sVulkanDevice, "", true, false),
 #ifdef _WIN32
 	ConfigSetting("D3D11Device", &g_Config.sD3D11Device, "", true, false),
