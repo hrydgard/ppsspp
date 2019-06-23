@@ -1,4 +1,5 @@
 #include "base/logging.h"
+#include "base/stringutil.h"
 #include "net/url.h"
 
 const char *UrlEncoder::unreservedChars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_.~";
@@ -33,6 +34,52 @@ void Url::Split() {
 	}
 
 	valid_ = protocol_.size() > 1 && host_.size() > 1;
+}
+
+Url Url::Relative(const std::string &next) const {
+	if (next.size() > 2 && next[0] == '/' && next[1] == '/') {
+		// This means use the same protocol, but the rest is new.
+		return Url(protocol_ + ":" + next);
+	}
+
+	// Or it could just be a fully absolute URL.
+	size_t colonSlashSlash = next.find("://");
+	if (colonSlashSlash != std::string::npos) {
+		return Url(next);
+	}
+
+	// Anything else should be a new resource, but it might be directory relative.
+	Url resolved = *this;
+	if (next.size() > 1 && next[0] == '/') {
+		// Easy, just replace the resource.
+		resolved.resource_ = next;
+	} else {
+		size_t last_slash = resource_.find_last_of('/');
+		resolved.resource_ = resource_.substr(0, last_slash + 1) + next;
+	}
+
+	resolved.url_ = resolved.ToString();
+	return resolved;
+}
+
+std::string Url::ToString() const {
+	if (!valid_) {
+		return "about:invalid-url";
+	}
+
+	std::string serialized = protocol_ + "://" + host_;
+	bool needsPort = true;
+	if (protocol_ == "https") {
+		needsPort = port_ != 443;
+	} else if (protocol_ == "http") {
+		needsPort = port_ != 80;
+	}
+
+	if (needsPort) {
+		serialized += ":" + StringFromInt(port_);
+	}
+
+	return serialized + resource_;
 }
 
 // UriDecode and UriEncode are from http://www.codeguru.com/cpp/cpp/string/conversions/print.php/c12759

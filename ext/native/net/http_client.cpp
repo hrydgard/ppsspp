@@ -462,7 +462,11 @@ std::string Download::RedirectLocation(const std::string &baseUrl) {
 		}
 	}
 
-	// TODO: Resolve relative redirect url.
+	if (!redirectUrl.empty()) {
+		Url url(baseUrl);
+		url = url.Relative(redirectUrl);
+		redirectUrl = url.ToString();
+	}
 
 	return redirectUrl;
 }
