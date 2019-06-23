@@ -137,9 +137,12 @@ public:
 
 private:
 	void Do(std::shared_ptr<Download> self);  // Actually does the download. Runs on thread.
+	int PerformGET(const std::string &url);
+	std::string RedirectLocation(const std::string &baseUrl);
 	void SetFailed(int code);
 	float progress_;
 	Buffer buffer_;
+	std::vector<std::string> responseHeaders_;
 	std::string url_;
 	std::string outfile_;
 	int resultCode_;
