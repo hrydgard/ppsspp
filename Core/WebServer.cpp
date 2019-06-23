@@ -146,24 +146,24 @@ static void RegisterDiscHandlers(http::Server *http, std::unordered_map<std::str
 
 		std::string range;
 		if (request.Method() == http::RequestHeader::HEAD) {
-			request.WriteHttpResponseHeader(200, sz, "application/octet-stream", "Accept-Ranges: bytes\r\n");
+			request.WriteHttpResponseHeader("1.0", 200, sz, "application/octet-stream", "Accept-Ranges: bytes\r\n");
 		} else if (request.GetHeader("range", &range)) {
 			s64 begin = 0, last = 0;
 			if (sscanf(range.c_str(), "bytes=%lld-%lld", &begin, &last) != 2) {
-				request.WriteHttpResponseHeader(400, -1, "text/plain");
+				request.WriteHttpResponseHeader("1.0", 400, -1, "text/plain");
 				request.Out()->Push("Could not understand range request.");
 				return;
 			}
 
 			if (begin < 0 || begin > last || last >= sz) {
-				request.WriteHttpResponseHeader(416, -1, "text/plain");
+				request.WriteHttpResponseHeader("1.0", 416, -1, "text/plain");
 				request.Out()->Push("Range goes outside of file.");
 				return;
 			}
 
 			FILE *fp = File::OpenCFile(filename, "rb");
 			if (!fp || fseek(fp, begin, SEEK_SET) != 0) {
-				request.WriteHttpResponseHeader(500, -1, "text/plain");
+				request.WriteHttpResponseHeader("1.0", 500, -1, "text/plain");
 				request.Out()->Push("File access failed.");
 				if (fp) {
 					fclose(fp);
@@ -174,7 +174,7 @@ static void RegisterDiscHandlers(http::Server *http, std::unordered_map<std::str
 			s64 len = last - begin + 1;
 			char contentRange[1024];
 			sprintf(contentRange, "Content-Range: bytes %lld-%lld/%lld\r\n", begin, last, sz);
-			request.WriteHttpResponseHeader(206, len, "application/octet-stream", contentRange);
+			request.WriteHttpResponseHeader("1.0", 206, len, "application/octet-stream", contentRange);
 
 			const size_t CHUNK_SIZE = 16 * 1024;
 			char *buf = new char[CHUNK_SIZE];
@@ -188,7 +188,7 @@ static void RegisterDiscHandlers(http::Server *http, std::unordered_map<std::str
 			delete [] buf;
 			request.Out()->Flush();
 		} else {
-			request.WriteHttpResponseHeader(418, -1, "text/plain");
+			request.WriteHttpResponseHeader("1.0", 418, -1, "text/plain");
 			request.Out()->Push("This server only supports range requests.");
 		}
 	};

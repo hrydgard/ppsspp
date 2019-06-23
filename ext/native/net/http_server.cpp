@@ -70,7 +70,7 @@ Request::~Request() {
 	delete out_;
 }
 
-void Request::WriteHttpResponseHeader(int status, int64_t size, const char *mimeType, const char *otherHeaders) const {
+void Request::WriteHttpResponseHeader(const char *ver, int status, int64_t size, const char *mimeType, const char *otherHeaders) const {
 	const char *statusStr;
 	switch (status) {
 	case 200: statusStr = "OK"; break;
@@ -92,7 +92,7 @@ void Request::WriteHttpResponseHeader(int status, int64_t size, const char *mime
 	}
 
 	net::OutputSink *buffer = Out();
-	buffer->Printf("HTTP/1.0 %03d %s\r\n", status, statusStr);
+	buffer->Printf("HTTP/%s %03d %s\r\n", ver, status, statusStr);
 	buffer->Push("Server: PPSSPPServer v0.1\r\n");
 	if (!mimeType || strcmp(mimeType, "websocket") != 0) {
 		buffer->Printf("Content-Type: %s\r\n", mimeType ? mimeType : DEFAULT_MIME_TYPE);
@@ -313,12 +313,12 @@ void Server::HandleRequestDefault(const Request &request) {
 void Server::Handle404(const Request &request) {
 	ILOG("No handler for '%s', falling back to 404.", request.resource());
 	const char *payload = "<html><body>404 not found</body></html>\r\n";
-	request.WriteHttpResponseHeader(404, (int)strlen(payload));
+	request.WriteHttpResponseHeader("1.0", 404, (int)strlen(payload));
 	request.Out()->Push(payload);
 }
 
 void Server::HandleListing(const Request &request) {
-	request.WriteHttpResponseHeader(200, -1, "text/plain");
+	request.WriteHttpResponseHeader("1.0", 200, -1, "text/plain");
 	for (auto iter = handlers_.begin(); iter != handlers_.end(); ++iter) {
 		request.Out()->Printf("%s\n", iter->first.c_str());
 	}
