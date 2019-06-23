@@ -21,8 +21,10 @@ addons:
       - lib32bz2-1.0
 
 cache:
-  - apt
-  - ccache
+  apt: true
+  ccache: true
+  directories:
+    - $HOME/Library/Caches/Homebrew
 
 # By encrypting the channel name, we disable notifications from forks by default.
 # It's not actually a big secret.
@@ -74,14 +76,12 @@ matrix:
            LIBRETRO=TRUE
     - os: osx
       osx_image: xcode8
-      compiler: "clang macos"
+      compiler: "clang"
       env: PPSSPP_BUILD_TYPE=macOS
-           CMAKE=TRUE
     - os: osx
       osx_image: xcode8
-      compiler: "clang ios"
+      compiler: "clang"
       env: PPSSPP_BUILD_TYPE=iOS
-           CMAKE=TRUE
 
 before_install:
   - bash .travis.sh travis_before_install

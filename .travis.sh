@@ -79,6 +79,9 @@ travis_install() {
 
     if [ "$PPSSPP_BUILD_TYPE" = "macOS" ]; then
         brew_install sdl2
+        brew upgrade python
+    elif [ "$PPSSPP_BUILD_TYPE" = "iOS" ]; then
+        brew upgrade python
     fi
 
     # Ensure we're using ccache

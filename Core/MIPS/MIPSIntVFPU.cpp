@@ -874,6 +874,10 @@ namespace MIPSInt
 			d[0] = ShrinkToHalf(s[0]) | ((u32)ShrinkToHalf(s[1]) << 16);
 			d[1] = ShrinkToHalf(s[2]) | ((u32)ShrinkToHalf(s[3]) << 16);
 			break;
+
+		default:
+			ERROR_LOG_REPORT(CPU, "vf2h with invalid elements");
+			break;
 		}
 		ApplyPrefixD(reinterpret_cast<float *>(d), outsize);
 		WriteVector(reinterpret_cast<float *>(d), outsize, vd);
@@ -939,7 +943,7 @@ namespace MIPSInt
 				break;
 
 			default:
-				ERROR_LOG_REPORT(CPU, "vus2i with more than 2 elements.");
+				ERROR_LOG_REPORT(CPU, "vus2i with more than 2 elements");
 				break;
 			}
 			break;
@@ -963,7 +967,7 @@ namespace MIPSInt
 				break;
 
 			default:
-				ERROR_LOG_REPORT(CPU, "vs2i with more than 2 elements.");
+				ERROR_LOG_REPORT(CPU, "vs2i with more than 2 elements");
 				break;
 			}
 			break;
@@ -2080,6 +2084,10 @@ namespace MIPSInt
 		case V_Single:
 			// t swizzles invalid so the multiply is always zero.
 			d[0] = 0;
+			break;
+
+		default:
+			ERROR_LOG_REPORT(CPU, "vcrsp/vqmul with invalid elements");
 			break;
 		}
 
