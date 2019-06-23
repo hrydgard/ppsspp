@@ -159,6 +159,7 @@ static bool LoadGameList(const std::string &host, int port, std::vector<std::str
 	Buffer result;
 	int code = 500;
 	std::vector<std::string> responseHeaders;
+	// TODO: Use relative url parsing (URL::Relative) instead.
 	std::string subdir = RemoteSubdir();
 
 	// Start by requesting the list of games from the server.
