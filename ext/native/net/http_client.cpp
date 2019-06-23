@@ -174,6 +174,31 @@ Client::~Client() {
 	Disconnect();
 }
 
+// Ignores line folding (deprecated), but respects field combining.
+// Don't use for Set-Cookie, which is a special header per RFC 7230.
+bool GetHeaderValue(const std::vector<std::string> &responseHeaders, const std::string &header, std::string *value) {
+	std::string search = header + ":";
+	bool found = false;
+
+	value->clear();
+	for (const std::string &line : responseHeaders) {
+		auto stripped = StripSpaces(line);
+		if (startsWithNoCase(stripped, search)) {
+			size_t value_pos = search.length();
+			size_t after_white = stripped.find_first_not_of(" \t", value_pos);
+			if (after_white != stripped.npos)
+				value_pos = after_white;
+
+			if (!found)
+				*value = stripped.substr(value_pos);
+			else
+				*value += "," + stripped.substr(value_pos);
+			found = true;
+		}
+	}
+
+	return found;
+}
 
 void DeChunk(Buffer *inbuffer, Buffer *outbuffer, int contentLength, float *progress) {
 	int dechunkedBytes = 0;
@@ -450,19 +475,8 @@ int Download::PerformGET(const std::string &url) {
 }
 
 std::string Download::RedirectLocation(const std::string &baseUrl) {
-	std::string redirectUrl = "";
-	for (const std::string &line : responseHeaders_) {
-		if (startsWithNoCase(line, "Location:")) {
-			size_t url_pos = strlen("Location:");
-			size_t after_white = line.find_first_not_of(" \t", url_pos);
-			if (after_white != line.npos)
-				url_pos = after_white;
-
-			redirectUrl = line.substr(url_pos);
-		}
-	}
-
-	if (!redirectUrl.empty()) {
+	std::string redirectUrl;
+	if (GetHeaderValue(responseHeaders_, "Location", &redirectUrl)) {
 		Url url(baseUrl);
 		url = url.Relative(redirectUrl);
 		redirectUrl = url.ToString();
