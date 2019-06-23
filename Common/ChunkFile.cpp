@@ -249,19 +249,27 @@ CChunkFileReader::Error CChunkFileReader::LoadFile(const std::string &filename, 
 		return ERROR_BAD_FILE;
 	}
 
-	_buffer = buffer;
 	if (header.Compress) {
 		u8 *uncomp_buffer = new u8[header.UncompressedSize];
 		size_t uncomp_size = header.UncompressedSize;
-		snappy_uncompress((const char *)buffer, sz, (char *)uncomp_buffer, &uncomp_size);
+		auto status = snappy_uncompress((const char *)buffer, sz, (char *)uncomp_buffer, &uncomp_size);
+		if (status != SNAPPY_OK) {
+			ERROR_LOG(SAVESTATE, "ChunkReader: Failed to decompress file");
+			delete [] uncomp_buffer;
+			delete [] buffer;
+			return ERROR_BAD_FILE;
+		}
 		if ((u32)uncomp_size != header.UncompressedSize) {
 			ERROR_LOG(SAVESTATE, "Size mismatch: file: %u  calc: %u", header.UncompressedSize, (u32)uncomp_size);
 			delete [] uncomp_buffer;
+			delete [] buffer;
 			return ERROR_BAD_FILE;
 		}
 		_buffer = uncomp_buffer;
 		sz = uncomp_size;
 		delete [] buffer;
+	} else {
+		_buffer = buffer;
 	}
 
 	if (header.GitVersion[31]) {
