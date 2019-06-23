@@ -68,8 +68,6 @@
 #include "Windows/W32Util/ShellUtil.h"
 #endif
 
-extern bool VulkanMayBeAvailable();
-
 GameSettingsScreen::GameSettingsScreen(std::string gamePath, std::string gameID, bool editThenRestore)
 	: UIDialogScreenWithGameBackground(gamePath), gameID_(gameID), enableReports_(false), editThenRestore_(editThenRestore) {
 	lastVertical_ = UseVerticalLayout();
@@ -204,26 +202,17 @@ void GameSettingsScreen::CreateViews() {
 	static const char *renderingBackend[] = { "OpenGL", "Direct3D 9", "Direct3D 11", "Vulkan" };
 	PopupMultiChoice *renderingBackendChoice = graphicsSettings->Add(new PopupMultiChoice(&g_Config.iGPUBackend, gr->T("Backend"), renderingBackend, (int)GPUBackend::OPENGL, ARRAY_SIZE(renderingBackend), gr->GetName(), screenManager()));
 	renderingBackendChoice->OnChoice.Handle(this, &GameSettingsScreen::OnRenderingBackend);
-#if !PPSSPP_PLATFORM(WINDOWS)
-	renderingBackendChoice->HideChoice(1);  // D3D9
-	renderingBackendChoice->HideChoice(2);  // D3D11
-#else
-#if !PPSSPP_API(ANY_GL)
-	renderingBackendChoice->HideChoice(0);  // OpenGL
+
+	if (!g_Config.IsBackendEnabled(GPUBackend::OPENGL))
+		renderingBackendChoice->HideChoice((int)GPUBackend::OPENGL);
+	if (!g_Config.IsBackendEnabled(GPUBackend::DIRECT3D9))
+		renderingBackendChoice->HideChoice((int)GPUBackend::DIRECT3D9);
+	if (!g_Config.IsBackendEnabled(GPUBackend::DIRECT3D11))
+		renderingBackendChoice->HideChoice((int)GPUBackend::DIRECT3D11);
+	if (!g_Config.IsBackendEnabled(GPUBackend::VULKAN))
+		renderingBackendChoice->HideChoice((int)GPUBackend::VULKAN);
 #endif
-	if (!DoesVersionMatchWindows(6, 0, 0, 0, true)) {
-		// Hide the D3D11 choice if Windows version is older than Windows Vista.
-		renderingBackendChoice->HideChoice(2);  // D3D11
-	}
-#endif
-	bool vulkanAvailable = false;
-#ifndef IOS
-	vulkanAvailable = VulkanMayBeAvailable();
-#endif
-	if (!vulkanAvailable) {
-		renderingBackendChoice->HideChoice(3);
-	}
-#endif
+
 	Draw::DrawContext *draw = screenManager()->getDrawContext();
 
 	// Backends that don't allow a device choice will only expose one device.

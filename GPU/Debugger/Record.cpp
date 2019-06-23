@@ -822,7 +822,7 @@ void NotifyDisplay(u32 framebuf, int stride, int fmt) {
 		int linesize, pixelFormat;
 	};
 
-	DisplayBufData disp{ framebuf, stride, fmt };
+	DisplayBufData disp{ { framebuf }, stride, fmt };
 
 	FlushRegisters();
 	u32 ptr = (u32)pushbuf.size();

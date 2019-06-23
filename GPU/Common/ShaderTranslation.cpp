@@ -24,6 +24,9 @@
 // DbgNew is not compatible with Glslang
 #ifdef DBG_NEW
 #undef new
+#undef free
+#undef malloc
+#undef realloc
 #endif
 
 #include "base/logging.h"

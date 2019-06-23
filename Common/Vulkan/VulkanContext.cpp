@@ -895,6 +895,20 @@ int clamp(int x, int a, int b) {
 	return x;
 }
 
+static std::string surface_transforms_to_string(VkSurfaceTransformFlagsKHR transformFlags) {
+	std::string str;
+	if (transformFlags & VK_SURFACE_TRANSFORM_IDENTITY_BIT_KHR) str += "IDENTITY ";
+	if (transformFlags & VK_SURFACE_TRANSFORM_ROTATE_90_BIT_KHR) str += "ROTATE_90 ";
+	if (transformFlags & VK_SURFACE_TRANSFORM_ROTATE_180_BIT_KHR) str += "ROTATE_180 ";
+	if (transformFlags & VK_SURFACE_TRANSFORM_ROTATE_270_BIT_KHR) str += "ROTATE_270 ";
+	if (transformFlags & VK_SURFACE_TRANSFORM_HORIZONTAL_MIRROR_BIT_KHR) str += "HMIRROR ";
+	if (transformFlags & VK_SURFACE_TRANSFORM_HORIZONTAL_MIRROR_ROTATE_90_BIT_KHR) str += "HMIRROR_90 ";
+	if (transformFlags & VK_SURFACE_TRANSFORM_HORIZONTAL_MIRROR_ROTATE_180_BIT_KHR) str += "HMIRROR_180 ";
+	if (transformFlags & VK_SURFACE_TRANSFORM_HORIZONTAL_MIRROR_ROTATE_270_BIT_KHR) str += "HMIRROR_270 ";
+	if (transformFlags & VK_SURFACE_TRANSFORM_INHERIT_BIT_KHR) str += "INHERIT ";
+	return str;
+}
+
 bool VulkanContext::InitSwapchain() {
 	VkResult res = vkGetPhysicalDeviceSurfaceCapabilitiesKHR(physical_devices_[physical_device_], surface_, &surfCapabilities_);
 	assert(res == VK_SUCCESS);
@@ -915,6 +929,7 @@ bool VulkanContext::InitSwapchain() {
 
 	if (physicalDeviceProperties_[physical_device_].properties.vendorID == VULKAN_VENDOR_IMGTEC) {
 		// Swap chain width hack to avoid issue #11743 (PowerVR driver bug).
+		// TODO: Check if still broken if pretransform is used!
 		swapChainExtent_.width &= ~31;
 	}
 
@@ -961,19 +976,52 @@ bool VulkanContext::InitSwapchain() {
 		// Application must settle for fewer images than desired:
 		desiredNumberOfSwapChainImages = surfCapabilities_.maxImageCount;
 	}
-
+	
+	// We mostly follow the practices from
+	// https://arm-software.github.io/vulkan_best_practice_for_mobile_developers/samples/surface_rotation/surface_rotation_tutorial.html
+	// 
 	VkSurfaceTransformFlagBitsKHR preTransform;
-	if (surfCapabilities_.supportedTransforms & VK_SURFACE_TRANSFORM_IDENTITY_BIT_KHR) {
+	std::string supportedTransforms = surface_transforms_to_string(surfCapabilities_.supportedTransforms);
+	std::string currentTransform = surface_transforms_to_string(surfCapabilities_.currentTransform);
+	ILOG("Supported transforms: %s", supportedTransforms.c_str());
+	ILOG("Current transform: %s", currentTransform.c_str());
+	g_display_rotation = DisplayRotation::ROTATE_0;
+	g_display_rot_matrix.setIdentity();
+	bool swapChainExtentSwap = false;
+	if (surfCapabilities_.currentTransform & (VK_SURFACE_TRANSFORM_IDENTITY_BIT_KHR | VK_SURFACE_TRANSFORM_INHERIT_BIT_KHR)) {
 		preTransform = VK_SURFACE_TRANSFORM_IDENTITY_BIT_KHR;
-	} else {
+	} else if (surfCapabilities_.currentTransform & (VK_SURFACE_TRANSFORM_ROTATE_90_BIT_KHR | VK_SURFACE_TRANSFORM_ROTATE_180_BIT_KHR | VK_SURFACE_TRANSFORM_ROTATE_270_BIT_KHR)) {
+		// Normal, sensible rotations. Let's handle it.
 		preTransform = surfCapabilities_.currentTransform;
+		g_display_rot_matrix.setIdentity();
+		switch (surfCapabilities_.currentTransform) {
+		case VK_SURFACE_TRANSFORM_ROTATE_90_BIT_KHR:
+			g_display_rotation = DisplayRotation::ROTATE_90;
+			g_display_rot_matrix.setRotationZ90();
+			std::swap(swapChainExtent_.width, swapChainExtent_.height);
+			break;
+		case VK_SURFACE_TRANSFORM_ROTATE_180_BIT_KHR:
+			g_display_rotation = DisplayRotation::ROTATE_180;
+			g_display_rot_matrix.setRotationZ180();
+			break;
+		case VK_SURFACE_TRANSFORM_ROTATE_270_BIT_KHR:
+			g_display_rotation = DisplayRotation::ROTATE_270;
+			g_display_rot_matrix.setRotationZ270();
+			std::swap(swapChainExtent_.width, swapChainExtent_.height);
+			break;
+		}
+	} else {
+		// Let the OS rotate the image (potentially slow on many Android devices)
+		preTransform = VK_SURFACE_TRANSFORM_IDENTITY_BIT_KHR;
 	}
+	std::string preTransformStr = surface_transforms_to_string(preTransform);
+	ILOG("Chosen pretransform transform: %s", preTransformStr.c_str());
 
 	VkSwapchainCreateInfoKHR swap_chain_info{ VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR };
 	swap_chain_info.surface = surface_;
 	swap_chain_info.minImageCount = desiredNumberOfSwapChainImages;
 	swap_chain_info.imageFormat = swapchainFormat_;
-	swap_chain_info.imageColorSpace = VK_COLORSPACE_SRGB_NONLINEAR_KHR;
+	swap_chain_info.imageColorSpace = VK_COLOR_SPACE_SRGB_NONLINEAR_KHR;
 	swap_chain_info.imageExtent.width = swapChainExtent_.width;
 	swap_chain_info.imageExtent.height = swapChainExtent_.height;
 	swap_chain_info.preTransform = preTransform;
@@ -982,8 +1030,9 @@ bool VulkanContext::InitSwapchain() {
 	swap_chain_info.oldSwapchain = VK_NULL_HANDLE;
 	swap_chain_info.clipped = true;
 	swap_chain_info.imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
-	if (surfCapabilities_.supportedUsageFlags & VK_IMAGE_USAGE_TRANSFER_DST_BIT)
-		swap_chain_info.imageUsage |= VK_IMAGE_USAGE_TRANSFER_DST_BIT;
+	// Don't ask for TRANSFER_DST for the swapchain image, we don't use that.
+	// if (surfCapabilities_.supportedUsageFlags & VK_IMAGE_USAGE_TRANSFER_DST_BIT)
+	//	swap_chain_info.imageUsage |= VK_IMAGE_USAGE_TRANSFER_DST_BIT;
 
 #ifndef ANDROID
 	// We don't support screenshots on Android
@@ -1008,7 +1057,7 @@ bool VulkanContext::InitSwapchain() {
 		ELOG("vkCreateSwapchainKHR failed!");
 		return false;
 	}
-
+	ILOG("Created swapchain: %dx%d", swap_chain_info.imageExtent.width, swap_chain_info.imageExtent.height);
 	return true;
 }
 

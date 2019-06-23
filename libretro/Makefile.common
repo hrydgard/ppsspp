@@ -248,7 +248,9 @@ SOURCES_CXX += \
 	$(EXTDIR)/SPIRV-Cross/spirv_cross.cpp \
 	$(EXTDIR)/SPIRV-Cross/spirv_cross_util.cpp \
 	$(EXTDIR)/SPIRV-Cross/spirv_glsl.cpp \
-   $(EXTDIR)/SPIRV-Cross/spirv_hlsl.cpp
+	$(EXTDIR)/SPIRV-Cross/spirv_hlsl.cpp \
+	$(EXTDIR)/SPIRV-Cross/spirv_parser.cpp \
+	$(EXTDIR)/SPIRV-Cross/spirv_cross_parsed_ir.cpp
 
 ifeq ($(PLATFORM_EXT), win32)
 SOURCES_CXX += $(COMMONDIR)/MemArenaWin32.cpp \

@@ -155,7 +155,12 @@ enum DrawTextureFlags {
 	DRAWTEX_LINEAR = 1,
 	DRAWTEX_KEEP_TEX = 2,
 	DRAWTEX_KEEP_STENCIL_ALPHA = 4,
+	DRAWTEX_TO_BACKBUFFER = 8,
 };
+
+inline DrawTextureFlags operator | (const DrawTextureFlags &lhs, const DrawTextureFlags &rhs) {
+	return DrawTextureFlags((u32)lhs | (u32)rhs);
+}
 
 enum class TempFBO {
 	DEPAL,
