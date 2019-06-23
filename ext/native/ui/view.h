@@ -240,9 +240,7 @@ struct HandlerRegistration {
 class Event {
 public:
 	Event() {}
-	~Event() {
-		handlers_.clear();
-	}
+	~Event();
 	// Call this from input thread or whatever, it doesn't matter
 	void Trigger(EventParams &e);
 	// Call this from UI thread
