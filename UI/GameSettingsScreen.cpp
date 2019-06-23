@@ -514,6 +514,12 @@ void GameSettingsScreen::CreateViews() {
 
 	PopupSliderChoice *volume = audioSettings->Add(new PopupSliderChoice(&g_Config.iGlobalVolume, VOLUME_OFF, VOLUME_MAX, a->T("Global volume"), screenManager()));
 	volume->SetEnabledPtr(&g_Config.bEnableSound);
+	volume->SetZeroLabel(a->T("Mute"));
+
+	PopupSliderChoice *altVolume = audioSettings->Add(new PopupSliderChoice(&g_Config.iAltSpeedVolume, VOLUME_OFF, VOLUME_MAX, a->T("Alternate speed volume"), screenManager()));
+	altVolume->SetEnabledPtr(&g_Config.bEnableSound);
+	altVolume->SetZeroLabel(a->T("Mute"));
+	altVolume->SetNegativeDisable(a->T("Use global volume"));
 
 	if (!g_Config.bSimpleUI) {
 #ifdef _WIN32
