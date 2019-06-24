@@ -17,23 +17,56 @@
 
 #pragma once
 
-#include <functional>
-#include <string>
 #include "Common/CommonTypes.h"
 
 namespace GPURecord {
 
-bool IsActive();
-bool IsActivePending();
-bool Activate();
-// Call only if Activate() returns true.
-void SetCallback(const std::function<void(const std::string &)> callback);
+static const char *HEADER = "PPSSPPGE";
+// Version 1: Uncompressed
+// Version 2: Uses snappy
+// Version 3: Adds FRAMEBUF0-FRAMEBUF9
+static const int VERSION = 3;
+static const int MIN_VERSION = 2;
 
-void NotifyCommand(u32 pc);
-void NotifyMemcpy(u32 dest, u32 src, u32 sz);
-void NotifyMemset(u32 dest, int v, u32 sz);
-void NotifyUpload(u32 dest, u32 sz);
-void NotifyDisplay(u32 addr, int stride, int fmt);
-void NotifyFrame();
+enum class CommandType : u8 {
+	INIT = 0,
+	REGISTERS = 1,
+	VERTICES = 2,
+	INDICES = 3,
+	CLUT = 4,
+	TRANSFERSRC = 5,
+	MEMSET = 6,
+	MEMCPYDEST = 7,
+	MEMCPYDATA = 8,
+	DISPLAY = 9,
+
+	TEXTURE0 = 0x10,
+	TEXTURE1 = 0x11,
+	TEXTURE2 = 0x12,
+	TEXTURE3 = 0x13,
+	TEXTURE4 = 0x14,
+	TEXTURE5 = 0x15,
+	TEXTURE6 = 0x16,
+	TEXTURE7 = 0x17,
+
+	FRAMEBUF0 = 0x18,
+	FRAMEBUF1 = 0x19,
+	FRAMEBUF2 = 0x1A,
+	FRAMEBUF3 = 0x1B,
+	FRAMEBUF4 = 0x1C,
+	FRAMEBUF5 = 0x1D,
+	FRAMEBUF6 = 0x1E,
+	FRAMEBUF7 = 0x1F,
+};
+
+#pragma pack(push, 1)
+
+struct Command {
+	CommandType type;
+	u32 sz;
+	u32 ptr;
+};
+
+#pragma pack(pop)
 
 };
