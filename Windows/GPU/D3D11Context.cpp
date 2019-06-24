@@ -6,6 +6,7 @@
 #include <cassert>
 
 #include "base/logging.h"
+#include "Base/display.h"
 #include "util/text/utf8.h"
 #include "i18n/i18n.h"
 
@@ -51,6 +52,9 @@ void D3D11Context::SwapInterval(int interval) {
 
 HRESULT D3D11Context::CreateTheDevice(IDXGIAdapter *adapter) {
 	bool windowed = true;
+	// D3D11 has no need for display rotation.
+	g_display_rotation = DisplayRotation::ROTATE_0;
+	g_display_rot_matrix.setIdentity();
 #if defined(_DEBUG) && !defined(_M_ARM) && !defined(_M_ARM64)
 	UINT createDeviceFlags = D3D11_CREATE_DEVICE_DEBUG;
 #else

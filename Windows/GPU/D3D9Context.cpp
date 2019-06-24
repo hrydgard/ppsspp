@@ -6,6 +6,7 @@
 #include "gfx/d3d9_state.h"
 
 #include "base/logging.h"
+#include "base/display.h"
 #include "util/text/utf8.h"
 #include "i18n/i18n.h"
 
@@ -61,6 +62,10 @@ void D3D9Context::SwapInterval(int interval) {
 bool D3D9Context::Init(HINSTANCE hInst, HWND wnd, std::string *error_message) {
 	bool windowed = true;
 	hWnd_ = wnd;
+
+	// D3D9 has no need for display rotation.
+	g_display_rotation = DisplayRotation::ROTATE_0;
+	g_display_rot_matrix.setIdentity();
 
 	DIRECT3DCREATE9EX g_pfnCreate9ex;
 
