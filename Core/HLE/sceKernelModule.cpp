@@ -58,7 +58,7 @@
 #include "Core/HLE/KernelWaitHelpers.h"
 #include "Core/ELF/ParamSFO.h"
 
-#include "GPU/Debugger/Record.h"
+#include "GPU/Debugger/Playback.h"
 #include "GPU/GPU.h"
 #include "GPU/GPUInterface.h"
 #include "GPU/GPUState.h"

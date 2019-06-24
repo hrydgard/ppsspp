@@ -61,7 +61,10 @@ bool System_GetPropertyBool(SystemProperty prop) {
 
 void System_SendMessage(const char *command, const char *parameter) {
 	if (!strcmp(command, "finish")) {
-		exit(0);
+		dispatch_async(dispatch_get_main_queue(), ^{
+			[sharedViewController shutdown];
+			exit(0);
+		});
 	}
 }
 

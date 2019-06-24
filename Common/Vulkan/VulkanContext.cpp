@@ -105,6 +105,11 @@ VkResult VulkanContext::CreateInstance(const CreateInfo &info) {
 		return VK_ERROR_INITIALIZATION_FAILED;
 	}
 
+	if (!IsInstanceExtensionAvailable(VK_KHR_SURFACE_EXTENSION_NAME)) {
+		// Cannot create a Vulkan display without VK_KHR_SURFACE_EXTENSION.
+		init_error_ = "Vulkan not loaded - no surface extension";
+		return VK_ERROR_INITIALIZATION_FAILED;
+	}
 	flags_ = info.flags;
 
 	// List extensions to try to enable.

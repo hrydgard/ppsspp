@@ -169,6 +169,7 @@ SOURCES_CXX += \
 	$(COMMONDIR)/ColorConv.cpp \
 	$(GPUDIR)/Debugger/Breakpoints.cpp \
 	$(GPUDIR)/Debugger/Debugger.cpp \
+	$(GPUDIR)/Debugger/Playback.cpp \
 	$(GPUDIR)/Debugger/Record.cpp \
 	$(GPUDIR)/Debugger/Stepping.cpp \
 	$(GPUDIR)/Common/TextureCacheCommon.cpp \

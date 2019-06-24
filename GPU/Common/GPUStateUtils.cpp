@@ -1247,6 +1247,10 @@ static void ConvertStencilFunc5551(GenericStencilFuncState &state) {
 			state.testRef = usedRef;
 			// Nuke the mask as well, since this is always/never, just for consistency.
 			state.testMask = 0xFF;
+		} else {
+			// Not used, so let's make the ref 0xFF which is a useful value later.
+			state.testRef = 0xFF;
+			state.testMask = 0xFF;
 		}
 	};
 
@@ -1341,6 +1345,10 @@ static void ConvertStencilFunc5551(GenericStencilFuncState &state) {
 		// If it's == 0 (as optimized above), then we can rewrite INCR to INVERT.
 		// Otherwise we get 1, which we mostly handle, but won't INVERT correctly.
 		rewriteOps(GE_STENCILOP_INCR, GE_STENCILOP_INVERT);
+	}
+	if (!usesRef && state.testRef == 0xFF) {
+		// Safe to use REPLACE instead of INCR.
+		rewriteOps(GE_STENCILOP_INCR, GE_STENCILOP_REPLACE);
 	}
 }
 
