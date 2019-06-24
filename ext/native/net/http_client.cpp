@@ -174,6 +174,31 @@ Client::~Client() {
 	Disconnect();
 }
 
+// Ignores line folding (deprecated), but respects field combining.
+// Don't use for Set-Cookie, which is a special header per RFC 7230.
+bool GetHeaderValue(const std::vector<std::string> &responseHeaders, const std::string &header, std::string *value) {
+	std::string search = header + ":";
+	bool found = false;
+
+	value->clear();
+	for (const std::string &line : responseHeaders) {
+		auto stripped = StripSpaces(line);
+		if (startsWithNoCase(stripped, search)) {
+			size_t value_pos = search.length();
+			size_t after_white = stripped.find_first_not_of(" \t", value_pos);
+			if (after_white != stripped.npos)
+				value_pos = after_white;
+
+			if (!found)
+				*value = stripped.substr(value_pos);
+			else
+				*value += "," + stripped.substr(value_pos);
+			found = true;
+		}
+	}
+
+	return found;
+}
 
 void DeChunk(Buffer *inbuffer, Buffer *outbuffer, int contentLength, float *progress) {
 	int dechunkedBytes = 0;
@@ -421,6 +446,45 @@ void Download::SetFailed(int code) {
 	completed_ = true;
 }
 
+int Download::PerformGET(const std::string &url) {
+	Url fileUrl(url);
+	if (!fileUrl.Valid()) {
+		return -1;
+	}
+
+	http::Client client;
+	if (!client.Resolve(fileUrl.Host().c_str(), fileUrl.Port())) {
+		ELOG("Failed resolving %s", url.c_str());
+		return -1;
+	}
+
+	if (cancelled_) {
+		return -1;
+	}
+
+	if (!client.Connect(2, 20.0, &cancelled_)) {
+		ELOG("Failed connecting to server or cancelled.");
+		return -1;
+	}
+
+	if (cancelled_) {
+		return -1;
+	}
+
+	return client.GET(fileUrl.Resource().c_str(), &buffer_, responseHeaders_, &progress_, &cancelled_);
+}
+
+std::string Download::RedirectLocation(const std::string &baseUrl) {
+	std::string redirectUrl;
+	if (GetHeaderValue(responseHeaders_, "Location", &redirectUrl)) {
+		Url url(baseUrl);
+		url = url.Relative(redirectUrl);
+		redirectUrl = url.ToString();
+	}
+
+	return redirectUrl;
+}
+
 void Download::Do(std::shared_ptr<Download> self) {
 	setCurrentThreadName("Downloader::Do");
 	// as long as this is in scope, we won't get destructed.
@@ -428,47 +492,42 @@ void Download::Do(std::shared_ptr<Download> self) {
 	std::shared_ptr<Download> self_ = self;
 	resultCode_ = 0;
 
-	Url fileUrl(url_);
-	if (!fileUrl.Valid()) {
-		SetFailed(-1);
-		return;
-	}
-
-	http::Client client;
-	if (!client.Resolve(fileUrl.Host().c_str(), fileUrl.Port())) {
-		ELOG("Failed resolving %s", url_.c_str());
-		SetFailed(-1);
-		return;
-	}
-
-	if (cancelled_) {
-		SetFailed(-1);
-		return;
-	}
-
-	if (!client.Connect()) {
-		ELOG("Failed connecting to server.");
-		SetFailed(-1);
-		return;
-	}
-
-	if (cancelled_) {
-		SetFailed(-1);
-		return;
-	}
-
-	// TODO: Allow cancelling during a GET somehow...
-	int resultCode = client.GET(fileUrl.Resource().c_str(), &buffer_, &progress_, &cancelled_);
-	if (resultCode == 200) {
-		ILOG("Completed downloading %s to %s", url_.c_str(), outfile_.empty() ? "memory" : outfile_.c_str());
-		if (!outfile_.empty() && !buffer_.FlushToFile(outfile_.c_str())) {
-			ELOG("Failed writing download to %s", outfile_.c_str());
+	std::string downloadURL = url_;
+	while (resultCode_ == 0) {
+		int resultCode = PerformGET(downloadURL);
+		if (resultCode == -1) {
+			SetFailed(resultCode);
+			return;
 		}
-	} else {
-		ELOG("Error downloading %s to %s: %i", url_.c_str(), outfile_.c_str(), resultCode);
+
+		if (resultCode == 301 || resultCode == 302 || resultCode == 303 || resultCode == 307 || resultCode == 308) {
+			std::string redirectURL = RedirectLocation(downloadURL);
+			if (redirectURL.empty()) {
+				ELOG("Could not find Location header for redirect");
+				resultCode_ = resultCode;
+			} else if (redirectURL == downloadURL || redirectURL == url_) {
+				// Simple loop detected, bail out.
+				resultCode_ = resultCode;
+			}
+
+			// Perform the next GET.
+			if (resultCode_ == 0)
+				ILOG("Download of %s redirected to %s", downloadURL.c_str(), redirectURL.c_str());
+			downloadURL = redirectURL;
+			continue;
+		}
+
+		if (resultCode == 200) {
+			ILOG("Completed downloading %s to %s", url_.c_str(), outfile_.empty() ? "memory" : outfile_.c_str());
+			if (!outfile_.empty() && !buffer_.FlushToFile(outfile_.c_str())) {
+				ELOG("Failed writing download to %s", outfile_.c_str());
+			}
+		} else {
+			ELOG("Error downloading %s to %s: %i", url_.c_str(), outfile_.c_str(), resultCode);
+		}
+		resultCode_ = resultCode;
 	}
 
-	resultCode_ = resultCode;
 	progress_ = 1.0f;
 
 	// Set this last to ensure no race conditions when checking Done. Users must always check
