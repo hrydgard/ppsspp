@@ -413,7 +413,9 @@
     <ClInclude Include="..\..\GPU\D3D11\VertexShaderGeneratorD3D11.h" />
     <ClInclude Include="..\..\GPU\Debugger\Breakpoints.h" />
     <ClInclude Include="..\..\GPU\Debugger\Debugger.h" />
+    <ClInclude Include="..\..\GPU\Debugger\Playback.h" />
     <ClInclude Include="..\..\GPU\Debugger\Record.h" />
+    <ClInclude Include="..\..\GPU\Debugger\RecordFormat.h" />
     <ClInclude Include="..\..\GPU\Debugger\Stepping.h" />
     <ClInclude Include="..\..\GPU\Directx9\PixelShaderGeneratorDX9.h" />
     <ClInclude Include="..\..\GPU\Directx9\VertexShaderGeneratorDX9.h" />
@@ -472,6 +474,7 @@
     <ClCompile Include="..\..\GPU\D3D11\VertexShaderGeneratorD3D11.cpp" />
     <ClCompile Include="..\..\GPU\Debugger\Breakpoints.cpp" />
     <ClCompile Include="..\..\GPU\Debugger\Debugger.cpp" />
+    <ClCompile Include="..\..\GPU\Debugger\Playback.cpp" />
     <ClCompile Include="..\..\GPU\Debugger\Record.cpp" />
     <ClCompile Include="..\..\GPU\Debugger\Stepping.cpp" />
     <ClCompile Include="..\..\GPU\Directx9\PixelShaderGeneratorDX9.cpp" />

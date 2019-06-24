@@ -406,7 +406,9 @@
     <ClInclude Include="D3D11\VertexShaderGeneratorD3D11.h" />
     <ClInclude Include="Debugger\Breakpoints.h" />
     <ClInclude Include="Debugger\Debugger.h" />
+    <ClInclude Include="Debugger\Playback.h" />
     <ClInclude Include="Debugger\Record.h" />
+    <ClInclude Include="Debugger\RecordFormat.h" />
     <ClInclude Include="Debugger\Stepping.h" />
     <ClInclude Include="Directx9\DepalettizeShaderDX9.h" />
     <ClInclude Include="Directx9\GPU_DX9.h" />
@@ -582,6 +584,7 @@
     <ClCompile Include="D3D11\VertexShaderGeneratorD3D11.cpp" />
     <ClCompile Include="Debugger\Breakpoints.cpp" />
     <ClCompile Include="Debugger\Debugger.cpp" />
+    <ClCompile Include="Debugger\Playback.cpp" />
     <ClCompile Include="Debugger\Record.cpp" />
     <ClCompile Include="Debugger\Stepping.cpp" />
     <ClCompile Include="Directx9\DepalettizeShaderDX9.cpp" />

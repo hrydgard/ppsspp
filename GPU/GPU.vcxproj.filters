@@ -276,6 +276,12 @@
     <ClInclude Include="Debugger\Debugger.h">
       <Filter>Debugger</Filter>
     </ClInclude>
+    <ClInclude Include="Debugger\Playback.h">
+      <Filter>Debugger</Filter>
+    </ClInclude>
+    <ClInclude Include="Debugger\RecordFormat.h">
+      <Filter>Debugger</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Math3D.cpp">
@@ -550,6 +556,9 @@
     </ClCompile>
     <ClCompile Include="GLES\DepthBufferGLES.cpp">
       <Filter>GLES</Filter>
+    </ClCompile>
+    <ClCompile Include="Debugger\Playback.cpp">
+      <Filter>Debugger</Filter>
     </ClCompile>
   </ItemGroup>
 </Project>

@@ -1381,8 +1381,11 @@ set(GPU_SOURCES
 	GPU/Debugger/Breakpoints.h
 	GPU/Debugger/Debugger.cpp
 	GPU/Debugger/Debugger.h
+	GPU/Debugger/Playback.cpp
+	GPU/Debugger/Playback.h
 	GPU/Debugger/Record.cpp
 	GPU/Debugger/Record.h
+	GPU/Debugger/RecordFormat.h
 	GPU/Debugger/Stepping.cpp
 	GPU/Debugger/Stepping.h
 	GPU/GPUInterface.h
