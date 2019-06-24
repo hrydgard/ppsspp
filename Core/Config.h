@@ -202,6 +202,7 @@ public:
 	int iAudioLatency; // 0 = low , 1 = medium(default) , 2 = high
 	int iAudioBackend;
 	int iGlobalVolume;
+	int iAltSpeedVolume;
 	bool bExtraAudioBuffering;  // For bluetooth
 
 	// UI
