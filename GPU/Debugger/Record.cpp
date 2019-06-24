@@ -22,6 +22,7 @@
 #include <vector>
 #include <snappy-c.h>
 #include "base/stringutil.h"
+#include "profiler/profiler.h"
 #include "Common/Common.h"
 #include "Common/FileUtil.h"
 #include "Common/Log.h"
@@ -102,40 +103,6 @@ static std::vector<u32> lastRegisters;
 static std::vector<u32> lastTextures;
 static std::set<u32> lastRenderTargets;
 
-// TODO: Maybe move execute to another file?
-class DumpExecute {
-public:
-	~DumpExecute();
-
-	bool Run();
-
-private:
-	void SyncStall();
-	bool SubmitCmds(void *p, u32 sz);
-	void SubmitListEnd();
-
-	void Init(u32 ptr, u32 sz);
-	void Registers(u32 ptr, u32 sz);
-	void Vertices(u32 ptr, u32 sz);
-	void Indices(u32 ptr, u32 sz);
-	void Clut(u32 ptr, u32 sz);
-	void TransferSrc(u32 ptr, u32 sz);
-	void Memset(u32 ptr, u32 sz);
-	void MemcpyDest(u32 ptr, u32 sz);
-	void Memcpy(u32 ptr, u32 sz);
-	void Texture(int level, u32 ptr, u32 sz);
-	void Framebuf(int level, u32 ptr, u32 sz);
-	void Display(u32 ptr, u32 sz);
-
-	u32 execMemcpyDest = 0;
-	u32 execListBuf = 0;
-	u32 execListPos = 0;
-	u32 execListID = 0;
-	const int LIST_BUF_SIZE = 256 * 1024;
-	std::vector<u32> execListQueue;
-	u16 lastBufw_[8]{};
-};
-
 // This class maps pushbuffer (dump data) sections to PSP memory.
 // Dumps can be larger than available PSP memory, because they include generated data too.
 //
@@ -144,6 +111,9 @@ private:
 // Slabs are managed with LRU, extra buffers are round-robin.
 class BufMapping {
 public:
+	BufMapping(const std::vector<u8> &pushbuf) : pushbuf_(pushbuf) {
+	}
+
 	// Returns a pointer to contiguous memory for this access, or else 0 (failure).
 	u32 Map(u32 bufpos, u32 sz, const std::function<void()> &flush);
 
@@ -178,9 +148,9 @@ protected:
 
 	// An aligned large mapping of the pushbuffer in PSP RAM.
 	struct SlabInfo {
-		u32 psp_pointer_;
-		u32 buf_pointer_;
-		int last_used_;
+		u32 psp_pointer_ = 0;
+		u32 buf_pointer_ = 0;
+		int last_used_ = 0;
 
 		bool Matches(u32 bufpos) {
 			// We check psp_pointer_ because bufpos = 0 is valid, and the initial value.
@@ -202,15 +172,15 @@ protected:
 
 		bool Alloc();
 		void Free();
-		bool Setup(u32 bufpos);
+		bool Setup(u32 bufpos, const std::vector<u8> &pushbuf_);
 	};
 
 	// An adhoc mapping of the pushbuffer (either larger than a slab or straddling slabs.)
 	// Remember: texture data, verts, etc. must be contiguous.
 	struct ExtraInfo {
-		u32 psp_pointer_;
-		u32 buf_pointer_;
-		u32 size_;
+		u32 psp_pointer_ = 0;
+		u32 buf_pointer_ = 0;
+		u32 size_ = 0;
 
 		bool Matches(u32 bufpos, u32 sz) {
 			// We check psp_pointer_ because bufpos = 0 is valid, and the initial value.
@@ -221,16 +191,16 @@ protected:
 			return psp_pointer_;
 		}
 
-		bool Alloc(u32 bufpos, u32 sz);
+		bool Alloc(u32 bufpos, u32 sz, const std::vector<u8> &pushbuf_);
 		void Free();
 	};
 
-	SlabInfo slabs_[SLAB_COUNT];
+	SlabInfo slabs_[SLAB_COUNT]{};
 	u32 extraOffset_ = 0;
-	ExtraInfo extra_[EXTRA_COUNT];
-};
+	ExtraInfo extra_[EXTRA_COUNT]{};
 
-static BufMapping execMapping;
+	const std::vector<u8> &pushbuf_;
+};
 
 u32 BufMapping::Map(u32 bufpos, u32 sz, const std::function<void()> &flush) {
 	int slab1 = bufpos / SLAB_SIZE;
@@ -263,7 +233,7 @@ u32 BufMapping::MapSlab(u32 bufpos, const std::function<void()> &flush) {
 	flush();
 
 	// Okay, we need to allocate.
-	if (!slabs_[best].Setup(slab_pos)) {
+	if (!slabs_[best].Setup(slab_pos, pushbuf_)) {
 		return 0;
 	}
 	return slabs_[best].Ptr(bufpos);
@@ -283,12 +253,12 @@ u32 BufMapping::MapExtra(u32 bufpos, u32 sz, const std::function<void()> &flush)
 	int i = extraOffset_;
 	extraOffset_ = (extraOffset_ + 1) % EXTRA_COUNT;
 
-	if (!extra_[i].Alloc(bufpos, sz)) {
+	if (!extra_[i].Alloc(bufpos, sz, pushbuf_)) {
 		// Let's try to power on - hopefully none of these are still in use.
 		for (int i = 0; i < EXTRA_COUNT; ++i) {
 			extra_[i].Free();
 		}
-		if (!extra_[i].Alloc(bufpos, sz)) {
+		if (!extra_[i].Alloc(bufpos, sz, pushbuf_)) {
 			return 0;
 		}
 	}
@@ -313,7 +283,7 @@ void BufMapping::SlabInfo::Free() {
 	}
 }
 
-bool BufMapping::ExtraInfo::Alloc(u32 bufpos, u32 sz) {
+bool BufMapping::ExtraInfo::Alloc(u32 bufpos, u32 sz, const std::vector<u8> &pushbuf_) {
 	// Make sure we've freed any previous allocation first.
 	Free();
 
@@ -328,7 +298,7 @@ bool BufMapping::ExtraInfo::Alloc(u32 bufpos, u32 sz) {
 
 	buf_pointer_ = bufpos;
 	size_ = sz;
-	Memory::MemcpyUnchecked(psp_pointer_, pushbuf.data() + bufpos, sz);
+	Memory::MemcpyUnchecked(psp_pointer_, pushbuf_.data() + bufpos, sz);
 	return true;
 }
 
@@ -340,7 +310,7 @@ void BufMapping::ExtraInfo::Free() {
 	}
 }
 
-bool BufMapping::SlabInfo::Setup(u32 bufpos) {
+bool BufMapping::SlabInfo::Setup(u32 bufpos, const std::vector<u8> &pushbuf_) {
 	// If it already has RAM, we're simply taking it over.  Slabs come only in one size.
 	if (psp_pointer_ == 0) {
 		if (!Alloc()) {
@@ -349,8 +319,8 @@ bool BufMapping::SlabInfo::Setup(u32 bufpos) {
 	}
 
 	buf_pointer_ = bufpos;
-	u32 sz = std::min((u32)SLAB_SIZE, (u32)pushbuf.size() - bufpos);
-	Memory::MemcpyUnchecked(psp_pointer_, pushbuf.data() + bufpos, sz);
+	u32 sz = std::min((u32)SLAB_SIZE, (u32)pushbuf_.size() - bufpos);
+	Memory::MemcpyUnchecked(psp_pointer_, pushbuf_.data() + bufpos, sz);
 
 	slabGeneration_++;
 	last_used_ = slabGeneration_;
@@ -358,6 +328,47 @@ bool BufMapping::SlabInfo::Setup(u32 bufpos) {
 }
 
 int BufMapping::slabGeneration_ = 0;
+
+// TODO: Maybe move execute to another file?
+class DumpExecute {
+public:
+	DumpExecute(const std::vector<u8> &pushbuf, const std::vector<Command> &commands)
+		: pushbuf_(pushbuf), commands_(commands), mapping_(pushbuf) {
+	}
+	~DumpExecute();
+
+	bool Run();
+
+private:
+	void SyncStall();
+	bool SubmitCmds(const void *p, u32 sz);
+	void SubmitListEnd();
+
+	void Init(u32 ptr, u32 sz);
+	void Registers(u32 ptr, u32 sz);
+	void Vertices(u32 ptr, u32 sz);
+	void Indices(u32 ptr, u32 sz);
+	void Clut(u32 ptr, u32 sz);
+	void TransferSrc(u32 ptr, u32 sz);
+	void Memset(u32 ptr, u32 sz);
+	void MemcpyDest(u32 ptr, u32 sz);
+	void Memcpy(u32 ptr, u32 sz);
+	void Texture(int level, u32 ptr, u32 sz);
+	void Framebuf(int level, u32 ptr, u32 sz);
+	void Display(u32 ptr, u32 sz);
+
+	u32 execMemcpyDest = 0;
+	u32 execListBuf = 0;
+	u32 execListPos = 0;
+	u32 execListID = 0;
+	const int LIST_BUF_SIZE = 256 * 1024;
+	std::vector<u32> execListQueue;
+	u16 lastBufw_[8]{};
+
+	const std::vector<u8> &pushbuf_;
+	const std::vector<Command> &commands_;
+	BufMapping mapping_;
+};
 
 static void FlushRegisters() {
 	if (!lastRegisters.empty()) {
@@ -882,7 +893,7 @@ void DumpExecute::SyncStall() {
 	CoreTiming::ForceCheck();
 }
 
-bool DumpExecute::SubmitCmds(void *p, u32 sz) {
+bool DumpExecute::SubmitCmds(const void *p, u32 sz) {
 	if (execListBuf == 0) {
 		u32 allocSize = LIST_BUF_SIZE;
 		execListBuf = userMemory.Alloc(allocSize, "List buf");
@@ -967,16 +978,16 @@ void DumpExecute::SubmitListEnd() {
 }
 
 void DumpExecute::Init(u32 ptr, u32 sz) {
-	gstate.Restore((u32_le *)(pushbuf.data() + ptr));
+	gstate.Restore((u32_le *)(pushbuf_.data() + ptr));
 	gpu->ReapplyGfxState();
 }
 
 void DumpExecute::Registers(u32 ptr, u32 sz) {
-	SubmitCmds(pushbuf.data() + ptr, sz);
+	SubmitCmds(pushbuf_.data() + ptr, sz);
 }
 
 void DumpExecute::Vertices(u32 ptr, u32 sz) {
-	u32 psp = execMapping.Map(ptr, sz, std::bind(&DumpExecute::SyncStall, this));
+	u32 psp = mapping_.Map(ptr, sz, std::bind(&DumpExecute::SyncStall, this));
 	if (psp == 0) {
 		ERROR_LOG(SYSTEM, "Unable to allocate for vertices");
 		return;
@@ -987,7 +998,7 @@ void DumpExecute::Vertices(u32 ptr, u32 sz) {
 }
 
 void DumpExecute::Indices(u32 ptr, u32 sz) {
-	u32 psp = execMapping.Map(ptr, sz, std::bind(&DumpExecute::SyncStall, this));
+	u32 psp = mapping_.Map(ptr, sz, std::bind(&DumpExecute::SyncStall, this));
 	if (psp == 0) {
 		ERROR_LOG(SYSTEM, "Unable to allocate for indices");
 		return;
@@ -998,7 +1009,7 @@ void DumpExecute::Indices(u32 ptr, u32 sz) {
 }
 
 void DumpExecute::Clut(u32 ptr, u32 sz) {
-	u32 psp = execMapping.Map(ptr, sz, std::bind(&DumpExecute::SyncStall, this));
+	u32 psp = mapping_.Map(ptr, sz, std::bind(&DumpExecute::SyncStall, this));
 	if (psp == 0) {
 		ERROR_LOG(SYSTEM, "Unable to allocate for clut");
 		return;
@@ -1009,7 +1020,7 @@ void DumpExecute::Clut(u32 ptr, u32 sz) {
 }
 
 void DumpExecute::TransferSrc(u32 ptr, u32 sz) {
-	u32 psp = execMapping.Map(ptr, sz, std::bind(&DumpExecute::SyncStall, this));
+	u32 psp = mapping_.Map(ptr, sz, std::bind(&DumpExecute::SyncStall, this));
 	if (psp == 0) {
 		ERROR_LOG(SYSTEM, "Unable to allocate for transfer");
 		return;
@@ -1023,13 +1034,14 @@ void DumpExecute::TransferSrc(u32 ptr, u32 sz) {
 }
 
 void DumpExecute::Memset(u32 ptr, u32 sz) {
+	PROFILE_THIS_SCOPE("ReplayMemset");
 	struct MemsetCommand {
 		u32 dest;
 		int value;
 		u32 sz;
 	};
 
-	const MemsetCommand *data = (const MemsetCommand *)(pushbuf.data() + ptr);
+	const MemsetCommand *data = (const MemsetCommand *)(pushbuf_.data() + ptr);
 
 	if (Memory::IsVRAMAddress(data->dest)) {
 		SyncStall();
@@ -1038,19 +1050,20 @@ void DumpExecute::Memset(u32 ptr, u32 sz) {
 }
 
 void DumpExecute::MemcpyDest(u32 ptr, u32 sz) {
-	execMemcpyDest = *(const u32 *)(pushbuf.data() + ptr);
+	execMemcpyDest = *(const u32 *)(pushbuf_.data() + ptr);
 }
 
 void DumpExecute::Memcpy(u32 ptr, u32 sz) {
+	PROFILE_THIS_SCOPE("ReplayMemcpy");
 	if (Memory::IsVRAMAddress(execMemcpyDest)) {
 		SyncStall();
-		Memory::MemcpyUnchecked(execMemcpyDest, pushbuf.data() + ptr, sz);
+		Memory::MemcpyUnchecked(execMemcpyDest, pushbuf_.data() + ptr, sz);
 		gpu->PerformMemoryUpload(execMemcpyDest, sz);
 	}
 }
 
 void DumpExecute::Texture(int level, u32 ptr, u32 sz) {
-	u32 psp = execMapping.Map(ptr, sz, std::bind(&DumpExecute::SyncStall, this));
+	u32 psp = mapping_.Map(ptr, sz, std::bind(&DumpExecute::SyncStall, this));
 	if (psp == 0) {
 		ERROR_LOG(SYSTEM, "Unable to allocate for texture");
 		return;
@@ -1063,6 +1076,7 @@ void DumpExecute::Texture(int level, u32 ptr, u32 sz) {
 }
 
 void DumpExecute::Framebuf(int level, u32 ptr, u32 sz) {
+	PROFILE_THIS_SCOPE("ReplayFramebuf");
 	struct FramebufData {
 		u32 addr;
 		int bufw;
@@ -1070,7 +1084,7 @@ void DumpExecute::Framebuf(int level, u32 ptr, u32 sz) {
 		u32 pad;
 	};
 
-	FramebufData *framebuf = (FramebufData *)(pushbuf.data() + ptr);
+	FramebufData *framebuf = (FramebufData *)(pushbuf_.data() + ptr);
 
 	u32 bufwCmd = GE_CMD_TEXBUFWIDTH0 + level;
 	u32 addrCmd = GE_CMD_TEXADDR0 + level;
@@ -1085,7 +1099,7 @@ void DumpExecute::Framebuf(int level, u32 ptr, u32 sz) {
 	// Could potentially always skip if !isTarget, but playing it safe for offset texture behavior.
 	if (Memory::IsValidRange(framebuf->addr, pspSize) && (!isTarget || !g_Config.bSoftwareRendering)) {
 		// Intentionally don't trigger an upload here.
-		Memory::MemcpyUnchecked(framebuf->addr, pushbuf.data() + ptr + headerSize, pspSize);
+		Memory::MemcpyUnchecked(framebuf->addr, pushbuf_.data() + ptr + headerSize, pspSize);
 	}
 }
 
@@ -1095,7 +1109,7 @@ void DumpExecute::Display(u32 ptr, u32 sz) {
 		int linesize, pixelFormat;
 	};
 
-	DisplayBufData *disp = (DisplayBufData *)(pushbuf.data() + ptr);
+	DisplayBufData *disp = (DisplayBufData *)(pushbuf_.data() + ptr);
 
 	// Sync up drawing.
 	SyncStall();
@@ -1111,14 +1125,11 @@ DumpExecute::~DumpExecute() {
 		execListBuf = 0;
 	}
 	execListPos = 0;
-	execMapping.Reset();
-
-	commands.clear();
-	pushbuf.clear();
+	mapping_.Reset();
 }
 
 bool DumpExecute::Run() {
-	for (const Command &cmd : commands) {
+	for (const Command &cmd : commands_) {
 		switch (cmd.type) {
 		case CommandType::INIT:
 			Init(cmd.ptr, cmd.sz);
@@ -1211,41 +1222,57 @@ static bool ReadCompressed(u32 fp, void *dest, size_t sz) {
 	return real_size == sz;
 }
 
+static std::string lastExecFilename;
+static std::vector<Command> lastExecCommands;
+static std::vector<u8> lastExecPushbuf;
+
+static void ReplayStop() {
+	lastExecFilename.clear();
+	lastExecCommands.clear();
+	lastExecPushbuf.clear();
+}
+
 bool RunMountedReplay(const std::string &filename) {
 	_assert_msg_(SYSTEM, !active && !nextFrame, "Cannot run replay while recording.");
 
-	u32 fp = pspFileSystem.OpenFile(filename, FILEACCESS_READ);
-	u8 header[8]{};
-	int version = 0;
-	pspFileSystem.ReadFile(fp, header, sizeof(header));
-	pspFileSystem.ReadFile(fp, (u8 *)&version, sizeof(version));
+	Core_ListenStopRequest(&ReplayStop);
+	if (lastExecFilename != filename) {
+		PROFILE_THIS_SCOPE("ReplayLoad");
+		u32 fp = pspFileSystem.OpenFile(filename, FILEACCESS_READ);
+		u8 header[8]{};
+		int version = 0;
+		pspFileSystem.ReadFile(fp, header, sizeof(header));
+		pspFileSystem.ReadFile(fp, (u8 *)&version, sizeof(version));
 
-	if (memcmp(header, HEADER, sizeof(header)) != 0 || version > VERSION || version < MIN_VERSION) {
-		ERROR_LOG(SYSTEM, "Invalid GE dump or unsupported version");
+		if (memcmp(header, HEADER, sizeof(header)) != 0 || version > VERSION || version < MIN_VERSION) {
+			ERROR_LOG(SYSTEM, "Invalid GE dump or unsupported version");
+			pspFileSystem.CloseFile(fp);
+			return false;
+		}
+
+		u32 sz = 0;
+		pspFileSystem.ReadFile(fp, (u8 *)&sz, sizeof(sz));
+		u32 bufsz = 0;
+		pspFileSystem.ReadFile(fp, (u8 *)&bufsz, sizeof(bufsz));
+
+		lastExecCommands.resize(sz);
+		lastExecPushbuf.resize(bufsz);
+
+		bool truncated = false;
+		truncated = truncated || !ReadCompressed(fp, lastExecCommands.data(), sizeof(Command) * sz);
+		truncated = truncated || !ReadCompressed(fp, lastExecPushbuf.data(), bufsz);
+
 		pspFileSystem.CloseFile(fp);
-		return false;
+
+		if (truncated) {
+			ERROR_LOG(SYSTEM, "Truncated GE dump");
+			return false;
+		}
+
+		lastExecFilename = filename;
 	}
 
-	u32 sz = 0;
-	pspFileSystem.ReadFile(fp, (u8 *)&sz, sizeof(sz));
-	u32 bufsz = 0;
-	pspFileSystem.ReadFile(fp, (u8 *)&bufsz, sizeof(bufsz));
-
-	commands.resize(sz);
-	pushbuf.resize(bufsz);
-
-	bool truncated = false;
-	truncated = truncated || !ReadCompressed(fp, commands.data(), sizeof(Command) * sz);
-	truncated = truncated || !ReadCompressed(fp, pushbuf.data(), bufsz);
-
-	pspFileSystem.CloseFile(fp);
-
-	if (truncated) {
-		ERROR_LOG(SYSTEM, "Truncated GE dump");
-		return false;
-	}
-
-	DumpExecute executor;
+	DumpExecute executor(lastExecPushbuf, lastExecCommands);
 	return executor.Run();
 }
 
