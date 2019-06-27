@@ -687,7 +687,7 @@ float vfpu_dot(float a[4], float b[4]) {
 		if (exp >= 32) {
 			mants[i] = 0;
 		} else {
-			mants[i] >>= max_exp - exps[i];
+			mants[i] >>= exp;
 		}
 		if (signs[i]) {
 			mants[i] = -mants[i];
@@ -700,8 +700,9 @@ float vfpu_dot(float a[4], float b[4]) {
 		sign_sum = 0x80000000;
 		mant_sum = -mant_sum;
 	}
-	// Account for the mantissa actually having more precision.
-	max_exp -= EXTRA_BITS;
+
+	// Truncate off the extra bits now.  We want to zero them for rounding purposes.
+	mant_sum >>= EXTRA_BITS;
 
 	if (mant_sum == 0 || max_exp <= 0) {
 		return 0.0f;
@@ -709,13 +710,19 @@ float vfpu_dot(float a[4], float b[4]) {
 
 	int8_t shift = (int8_t)clz32_nonzero(mant_sum) - 8;
 	if (shift < 0) {
+		// Round to even if we'd shift away a 0.5.
+		uint32_t round_bit = 1 << (-shift - 1);
+		if ((mant_sum & round_bit) && (mant_sum & (round_bit << 1))) {
+			mant_sum += round_bit;
+			shift = (int8_t)clz32_nonzero(mant_sum) - 8;
+		}
 		mant_sum >>= -shift;
 		max_exp += -shift;
 	} else {
 		mant_sum <<= shift;
 		max_exp -= shift;
 	}
-	_dbg_assert_(JIT, (mant_sum & 0x00800000) != 0);
+	_dbg_assert_msg_(JIT, (mant_sum & 0x00800000) != 0, "Mantissa wrong: %08x", mant_sum);
 
 	if (max_exp >= 255) {
 		max_exp = 255;
