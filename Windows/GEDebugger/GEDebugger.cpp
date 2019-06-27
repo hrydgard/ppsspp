@@ -193,7 +193,6 @@ CGEDebugger::CGEDebugger(HINSTANCE _hInstance, HWND _hParent)
 }
 
 CGEDebugger::~CGEDebugger() {
-	DestroyWindow(displayList->GetHWND());
 	CleanupPrimPreview();
 	delete flags;
 	delete lighting;
