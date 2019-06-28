@@ -45,5 +45,5 @@ private:
 	void SetConsolePosition();
 	void UpdateConsolePosition();
 
-	 std::list<std::shared_ptr<InputDevice>> input;
+	 std::list<std::unique_ptr<InputDevice>> input;
 };

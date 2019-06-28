@@ -66,7 +66,6 @@
 #include "Windows/DinputDevice.h"
 #endif
 #include "Windows/XinputDevice.h"
-#include "Windows/KeyboardDevice.h"
 
 #include "Windows/main.h"
 #include "UI/OnScreenDisplay.h"
@@ -89,17 +88,14 @@ WindowsHost::WindowsHost(HINSTANCE hInstance, HWND mainWindow, HWND displayWindo
 	g_mouseDeltaY = 0;
 
 	//add first XInput device to respond
-	input.push_back(std::shared_ptr<InputDevice>(new XinputDevice()));
+	input.push_back(std::make_unique<XinputDevice>());
 #ifndef _M_ARM
 	//find all connected DInput devices of class GamePad
 	numDinputDevices_ = DinputDevice::getNumPads();
 	for (size_t i = 0; i < numDinputDevices_; i++) {
-		input.push_back(std::shared_ptr<InputDevice>(new DinputDevice(static_cast<int>(i))));
+		input.push_back(std::make_unique<DinputDevice>(static_cast<int>(i)));
 	}
 #endif
-	keyboard = std::shared_ptr<KeyboardDevice>(new KeyboardDevice());
-	input.push_back(keyboard);
-
 	SetConsolePosition();
 }
 
@@ -221,7 +217,7 @@ void WindowsHost::PollControllers() {
 		if (newCount > numDinputDevices_) {
 			INFO_LOG(SYSTEM, "New controller device detected");
 			for (size_t i = numDinputDevices_; i < newCount; i++) {
-				input.push_back(std::shared_ptr<InputDevice>(new DinputDevice(static_cast<int>(i))));
+				input.push_back(std::make_unique<DinputDevice>(static_cast<int>(i)));
 			}
 			numDinputDevices_ = newCount;
 		}
@@ -229,12 +225,9 @@ void WindowsHost::PollControllers() {
 		checkCounter = 0;
 	}
 
-	bool doPad = true;
 	for (const auto &device : input) {
-		if (!doPad && device->IsPad())
-			continue;
 		if (device->UpdateState() == InputDevice::UPDATESTATE_SKIP_PAD)
-			doPad = false;
+			break;
 	}
 
 	// Disabled by default, needs a workaround to map to psp keys.
