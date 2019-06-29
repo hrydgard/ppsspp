@@ -24,17 +24,17 @@ namespace W32Util
 
 	std::string BrowseForFolder(HWND parent, const wchar_t *title)
 	{
-		BROWSEINFO info;
-		memset(&info,0,sizeof(info));
+		BROWSEINFO info{};
 		info.hwndOwner = parent;
 		info.lpszTitle = title;
 		info.ulFlags = BIF_EDITBOX | BIF_RETURNONLYFSDIRS | BIF_USENEWUI;
 
 		//info.pszDisplayName
-		LPCITEMIDLIST idList = SHBrowseForFolder(&info);
+		auto idList = SHBrowseForFolder(&info);
 
 		wchar_t temp[MAX_PATH];
 		SHGetPathFromIDList(idList, temp);
+		CoTaskMemFree(idList);
 		if (wcslen(temp))
 			return ConvertWStringToUTF8(temp);
 		else
@@ -51,17 +51,14 @@ namespace W32Util
 		wchar_t szFile [MAX_PATH+1] = {0};
 		wchar_t szFileTitle [MAX_PATH+1] = {0};
 
-		OPENFILENAME ofn;
+		OPENFILENAME ofn{ sizeof(OPENFILENAME) };
 
-		ZeroMemory (&ofn,sizeof (ofn));
-
-		ofn.lStructSize = sizeof (OPENFILENAME);
 		ofn.lpstrInitialDir = _pInitialFolder;
 		ofn.lpstrFilter = _pFilter;
-		ofn.nMaxFile = sizeof (szFile);
+		ofn.nMaxFile = ARRAY_SIZE(szFile);
 		ofn.lpstrFile = szFile;
 		ofn.lpstrFileTitle = szFileTitle;
-		ofn.nMaxFileTitle = sizeof (szFileTitle);
+		ofn.nMaxFileTitle = ARRAY_SIZE(szFileTitle);
 		ofn.lpstrDefExt = _pExtension;
 		ofn.hwndOwner = _hParent;
 		ofn.Flags = OFN_NOCHANGEDIR | OFN_EXPLORER | OFN_HIDEREADONLY;
@@ -69,7 +66,7 @@ namespace W32Util
 		if (!_strFileName.empty())
 			wcsncpy(ofn.lpstrFile, ConvertUTF8ToWString(_strFileName).c_str(), MAX_PATH);
 
-		if (((_bLoad) ? GetOpenFileName(&ofn) : GetSaveFileName (&ofn)))
+		if (((_bLoad) ? GetOpenFileName(&ofn) : GetSaveFileName(&ofn)))
 		{
 			_strFileName = ConvertWStringToUTF8(ofn.lpstrFile);
 			return true;
@@ -84,17 +81,14 @@ namespace W32Util
 		wchar_t szFile [MAX_PATH+1+2048*2] = {0};
 		wchar_t szFileTitle [MAX_PATH+1] = {0};
 
-		OPENFILENAME ofn;
+		OPENFILENAME ofn{ sizeof(OPENFILENAME) };
 
-		ZeroMemory (&ofn,sizeof (ofn));
-
-		ofn.lStructSize = sizeof (OPENFILENAME);
 		ofn.lpstrInitialDir = _pInitialFolder;
 		ofn.lpstrFilter = _pFilter;
-		ofn.nMaxFile = sizeof (szFile);
+		ofn.nMaxFile = ARRAY_SIZE(szFile);
 		ofn.lpstrFile = szFile;
 		ofn.lpstrFileTitle = szFileTitle;
-		ofn.nMaxFileTitle = sizeof (szFileTitle);
+		ofn.nMaxFileTitle = ARRAY_SIZE(szFileTitle);
 		ofn.lpstrDefExt = _pExtension;
 		ofn.hwndOwner = _hParent;
 		ofn.Flags = OFN_NOCHANGEDIR | OFN_EXPLORER | OFN_HIDEREADONLY | OFN_ALLOWMULTISELECT;
