@@ -351,6 +351,7 @@ void __AudioUpdate(bool resetRecording) {
 	// to the CPU. Much better to throttle the frame rate on frame display and just throw away audio
 	// if the buffer somehow gets full.
 	bool firstChannel = true;
+	std::vector<int16_t> srcBuffer;
 
 	for (u32 i = 0; i < PSP_AUDIO_CHANNEL_MAX + 1; i++)	{
 		if (!chans[i].reserved)
@@ -362,14 +363,54 @@ void __AudioUpdate(bool resetRecording) {
 			continue;
 		}
 
-		if (hwBlockSize * 2 > (int)chans[i].sampleQueue.size()) {
-			ERROR_LOG(SCEAUDIO, "Channel %i buffer underrun at %i of %i", i, (int)chans[i].sampleQueue.size() / 2, hwBlockSize);
+		bool needsResample = i == PSP_AUDIO_CHANNEL_SRC && srcFrequency != 0 && srcFrequency != mixFrequency;
+		size_t sz = needsResample ? (hwBlockSize * 2 * srcFrequency) / mixFrequency : hwBlockSize * 2;
+		if (sz > chans[i].sampleQueue.size()) {
+			ERROR_LOG(SCEAUDIO, "Channel %i buffer underrun at %i of %i", i, (int)chans[i].sampleQueue.size() / 2, (int)sz / 2);
 		}
 
 		const s16 *buf1 = 0, *buf2 = 0;
 		size_t sz1, sz2;
 
-		chans[i].sampleQueue.popPointers(hwBlockSize * 2, &buf1, &sz1, &buf2, &sz2);
+		chans[i].sampleQueue.popPointers(sz, &buf1, &sz1, &buf2, &sz2);
+
+		if (needsResample) {
+			auto read = [&](size_t i) {
+				if (i < sz1)
+					return buf1[i];
+				if (i < sz1 + sz2)
+					return buf2[i - sz1];
+				if (buf2)
+					return buf2[sz2 - 1];
+				return buf1[sz1 - 1];
+			};
+
+			srcBuffer.resize(hwBlockSize * 2);
+
+			// TODO: This is terrible, since it's doing it by small chunk and discarding frac.
+			const uint32_t ratio = (uint32_t)(65536.0 * srcFrequency / (double)mixFrequency);
+			uint32_t frac = 0;
+			size_t readIndex = 0;
+			for (size_t outIndex = 0; readIndex < sz && outIndex < srcBuffer.size(); outIndex += 2) {
+				size_t readIndex2 = readIndex + 2;
+				int16_t l1 = read(readIndex);
+				int16_t r1 = read(readIndex + 1);
+				int16_t l2 = read(readIndex2);
+				int16_t r2 = read(readIndex2 + 1);
+				int sampleL = ((l1 << 16) + (l2 - l1) * (uint16_t)frac) >> 16;
+				int sampleR = ((r1 << 16) + (r2 - r1) * (uint16_t)frac) >> 16;
+				srcBuffer[outIndex] = sampleL;
+				srcBuffer[outIndex + 1] = sampleR;
+				frac += ratio;
+				readIndex += 2 * (uint16_t)(frac >> 16);
+				frac &= 0xffff;
+			}
+
+			buf1 = srcBuffer.data();
+			sz1 = srcBuffer.size();
+			buf2 = nullptr;
+			sz2 = 0;
+		}
 
 		if (firstChannel) {
 			for (size_t s = 0; s < sz1; s++)
