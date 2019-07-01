@@ -248,10 +248,10 @@ static u32 sceAudioChRelease(u32 chan) {
 		ERROR_LOG(SCEAUDIO, "sceAudioChRelease(%i) - channel not reserved", chan);
 		return SCE_ERROR_AUDIO_CHANNEL_NOT_RESERVED;
 	}
-	DEBUG_LOG(SCEAUDIO, "sceAudioChRelease(%i)", chan);
+	// TODO: Does this error if busy?
 	chans[chan].reset();
 	chans[chan].reserved = false;
-	return 1;
+	return hleLogSuccessI(SCEAUDIO, 0);
 }
 
 static u32 sceAudioSetChannelDataLen(u32 chan, u32 len) {
