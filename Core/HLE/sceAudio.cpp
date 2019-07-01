@@ -329,6 +329,7 @@ static u32 sceAudioOutput2Reserve(u32 sampleCount) {
 	chan.sampleCount = sampleCount;
 	chan.format = PSP_AUDIO_FORMAT_STEREO;
 	chan.reserved = true;
+	__AudioSetSRCFrequency(0);
 	return hleLogSuccessI(SCEAUDIO, 0);
 }
 
@@ -432,10 +433,8 @@ static u32 sceAudioSRCChReserve(u32 sampleCount, u32 freq, u32 format) {
 	chan.reserved = true;
 	chan.sampleCount = sampleCount;
 	chan.format = format == 2 ? PSP_AUDIO_FORMAT_STEREO : PSP_AUDIO_FORMAT_MONO;
-	// TODO: Zero probably means don't change?  Or it means default?
-	if (freq != 0) {
-		__AudioSetOutputFrequency(freq);
-	}
+	// Zero means default to 44.1kHz.
+	__AudioSetSRCFrequency(freq);
 	return hleLogSuccessI(SCEAUDIO, 0);
 }
 

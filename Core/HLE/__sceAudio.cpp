@@ -62,6 +62,7 @@ enum latency {
 int eventAudioUpdate = -1;
 int eventHostAudioUpdate = -1;
 int mixFrequency = 44100;
+int srcFrequency = 0;
 
 const int hwSampleRate = 44100;
 
@@ -107,6 +108,7 @@ static void __AudioCPUMHzChange() {
 void __AudioInit() {
 	memset(&g_AudioDebugStats, 0, sizeof(g_AudioDebugStats));
 	mixFrequency = 44100;
+	srcFrequency = 0;
 
 	switch (g_Config.iAudioLatency) {
 	case LOW_LATENCY:
@@ -149,7 +151,7 @@ void __AudioInit() {
 }
 
 void __AudioDoState(PointerWrap &p) {
-	auto s = p.Section("sceAudio", 1);
+	auto s = p.Section("sceAudio", 1, 2);
 	if (!s)
 		return;
 
@@ -159,6 +161,13 @@ void __AudioDoState(PointerWrap &p) {
 	CoreTiming::RestoreRegisterEvent(eventHostAudioUpdate, "AudioUpdateHost", &hleHostAudioUpdate);
 
 	p.Do(mixFrequency);
+	if (s >= 2) {
+		p.Do(srcFrequency);
+	} else {
+		// Assume that it was actually the SRC channel frequency.
+		srcFrequency = mixFrequency;
+		mixFrequency = 44100;
+	}
 
 	// TODO: This never happens because maxVer=1.
 	if (s >= 2) {
@@ -176,6 +185,7 @@ void __AudioDoState(PointerWrap &p) {
 	if (chanCount != ARRAY_SIZE(chans))
 	{
 		ERROR_LOG(SCEAUDIO, "Savestate failure: different number of audio channels.");
+		p.SetError(p.ERROR_FAILURE);
 		return;
 	}
 	for (int i = 0; i < chanCount; ++i)
@@ -327,6 +337,10 @@ void __AudioSetOutputFrequency(int freq) {
 		DEBUG_LOG(SCEAUDIO, "Switching audio frequency to %i", freq);
 	}
 	mixFrequency = freq;
+}
+
+void __AudioSetSRCFrequency(int freq) {
+	srcFrequency = freq;
 }
 
 // Mix samples from the various audio channels into a single sample queue.
