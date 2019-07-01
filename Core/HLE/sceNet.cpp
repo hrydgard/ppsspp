@@ -1032,8 +1032,13 @@ static int sceNetApctlDelHandler(u32 handlerID) {
 }
 
 static int sceNetInetInetAton(const char *hostname, u32 addrPtr) {
-	ERROR_LOG(SCENET, "UNIMPL sceNetInetInetAton(%s, %08x)", hostname, addrPtr);
-	return -1;
+	// Return nonzero if address is valid, zero if not
+	u32 inAddr = inet_addr(hostname);
+	if (inAddr == INADDR_NONE) {
+		return 0;
+	}
+	Memory::Write_U32(inAddr, addrPtr);
+	return 1;
 }
 
 int sceNetInetPoll(void *fds, u32 nfds, int timeout) { // timeout in miliseconds
@@ -1091,14 +1096,25 @@ int sceNetInetPoll(void *fds, u32 nfds, int timeout) { // timeout in miliseconds
 	return retval;
 }
 
-static int sceNetInetRecv(int socket, u32 bufPtr, u32 bufLen, u32 flags) {
-	ERROR_LOG(SCENET, "UNIMPL sceNetInetRecv(%i, %08x, %i, %08x)", socket, bufPtr, bufLen, flags);
-	return -1;
+static int sceNetInetClose(int socket) {
+	return closesocket(socket);
 }
 
-static int sceNetInetSend(int socket, u32 bufPtr, u32 bufLen, u32 flags) {
-	ERROR_LOG(SCENET, "UNIMPL sceNetInetSend(%i, %08x, %i, %08x)", socket, bufPtr, bufLen, flags);
-	return -1;
+static int sceNetInetRecv(int socket, void *bufPtr, u32 bufLen, u32 flags) {
+	return recv(socket, (char *)bufPtr, bufLen, flags);
+}
+
+static int sceNetInetSend(int socket, void *bufPtr, u32 bufLen, u32 flags) {
+	return send(socket, (const char *)bufPtr, bufLen, flags);
+}
+
+static int sceNetInetSendto(int socket, void *bufPtr, u32 bufLen, u32 flags, void *destAddr, u32 addrLen) {
+	SceNetInetSockaddrIn sceAddr = *(SceNetInetSockaddrIn *)destAddr;
+	struct sockaddr_in addr = { 0 };
+	addr.sin_family = sceAddr.sin_family;
+	addr.sin_addr.s_addr = sceAddr.sin_addr;
+	addr.sin_port = sceAddr.sin_port;
+	return sendto(socket, (const char *)bufPtr, bufLen, flags, (const struct sockaddr *)&addr, sizeof(addr));
 }
 
 static int sceNetInetGetErrno() {
@@ -1118,18 +1134,47 @@ static int sceNetInetGetErrno() {
 }
 
 static int sceNetInetSocket(int domain, int type, int protocol) {
-	ERROR_LOG(SCENET, "UNIMPL sceNetInetSocket(%i, %i, %i)", domain, type, protocol);
-	return -1;
+	return socket(domain, type, protocol);
 }
 
-static int sceNetInetSetsockopt(int socket, int level, int optname, u32 optvalPtr, int optlen) {
-	ERROR_LOG(SCENET, "UNIMPL sceNetInetSetsockopt(%i, %i, %i, %08x, %i)", socket, level, optname, optvalPtr, optlen);
-	return -1;
+static int sceNetInetSetsockopt(int socket, int level, int optname, void *optvalPtr, int optlen) {
+	if (level == PSP_SOL_SOCKET && optname == PSP_SO_NBIO) {
+		int nonblocking = *(u32*)optvalPtr;
+		int retval;
+#ifdef _WIN32
+		unsigned long mode = nonblocking ? 1 : 0;
+		return ioctlsocket(socket, FIONBIO, &mode);
+#else
+		int flags = fcntl(socket, F_GETFL);
+		if (flags == -1) {
+			return -1;
+		}
+		flags = nonblocking ? (flags | O_NONBLOCK) : (flags & ~O_NONBLOCK);
+		return fcntl(socket, F_SETFL, O_NONBLOCK);
+#endif
+	}
+	else {
+		ERROR_LOG(SCENET, "UNIMPL sceNetInetSetsockopt(%i, %i, %i, %08x, %i)", socket, level, optname, optvalPtr, optlen);
+		return -1;
+	}
 }
 
-static int sceNetInetConnect(int socket, u32 sockAddrInternetPtr, int addressLength) {
-	ERROR_LOG(SCENET, "UNIMPL sceNetInetConnect(%i, %08x, %i)", socket, sockAddrInternetPtr, addressLength);
-	return -1;
+static int sceNetInetConnect(int socket, void *sockAddrInternetPtr, u32 addressLength) {
+	SceNetInetSockaddrIn sceAddr = *(SceNetInetSockaddrIn *)sockAddrInternetPtr;
+	struct sockaddr_in addr = { 0 };
+	addr.sin_family = sceAddr.sin_family;
+	addr.sin_addr.s_addr = sceAddr.sin_addr;
+	addr.sin_port = sceAddr.sin_port;
+	return connect(socket, (struct sockaddr *)&addr, sizeof(addr));
+}
+
+static int sceNetInetBind(int socket, void *sockAddrPtr, u32 addressLength) {
+	SceNetInetSockaddrIn sceAddr = *(SceNetInetSockaddrIn *)sockAddrPtr;
+	struct sockaddr_in addr = { 0 };
+	addr.sin_family = sceAddr.sin_family;
+	addr.sin_addr.s_addr = sceAddr.sin_addr;
+	addr.sin_port = sceAddr.sin_port;
+	return bind(socket, (struct sockaddr *)&addr, sizeof(addr));
 }
 
 int sceNetApctlConnect(int connIndex) {
@@ -1321,6 +1366,22 @@ static int sceNetApctlGetBSSDescEntry2(int entryId, int infoId, u32 resultAddr) 
 	return NetApctl_GetBSSDescEntryUser(entryId, infoId, resultAddr);
 }
 
+static int sceNetResolverStartNtoA(int rid, const char *hostname, void *addr, u32 timeout, int retry)
+{
+	struct hostent *hp = gethostbyname(hostname);
+	if (hp == NULL) {
+		return -1;
+	}
+	*(struct in_addr *)addr = *(struct in_addr *)hp->h_addr;
+	return 0;
+}
+
+static int sceNetResolverCreate(void *rid, void *buf, u32 buflen)
+{
+	ERROR_LOG(SCENET, "UNIMPL %s()", __FUNCTION__);
+	return 0;
+}
+
 static int sceNetResolverInit()
 {
 	ERROR_LOG(SCENET, "UNIMPL %s()", __FUNCTION__);
@@ -1437,17 +1498,17 @@ const HLEFunction sceNet[] = {
 };
 
 const HLEFunction sceNetResolver[] = {
-	{0X224C5F44, nullptr,                            "sceNetResolverStartNtoA",         '?', ""     },
-	{0X244172AF, nullptr,                            "sceNetResolverCreate",            '?', ""     },
-	{0X94523E09, nullptr,                            "sceNetResolverDelete",            '?', ""     },
-	{0XF3370E61, &WrapI_V<sceNetResolverInit>,       "sceNetResolverInit",              'i', ""     },
-	{0X808F6063, nullptr,                            "sceNetResolverStop",              '?', ""     },
-	{0X6138194A, nullptr,                            "sceNetResolverTerm",              '?', ""     },
-	{0X629E2FB7, nullptr,                            "sceNetResolverStartAtoN",         '?', ""     },
-	{0X14C17EF9, nullptr,                            "sceNetResolverStartNtoAAsync",    '?', ""     },
-	{0XAAC09184, nullptr,                            "sceNetResolverStartAtoNAsync",    '?', ""     },
-	{0X12748EB9, nullptr,                            "sceNetResolverWaitAsync",         '?', ""     },
-	{0X4EE99358, nullptr,                            "sceNetResolverPollAsync",         '?', ""     },
+	{0X224C5F44, &WrapI_ICVUI<sceNetResolverStartNtoA>, "sceNetResolverStartNtoA",      'i', "ispxi"},
+	{0X244172AF, &WrapI_VVU<sceNetResolverCreate>,	    "sceNetResolverCreate",         'i', "ppx"  },
+	{0X94523E09, nullptr,                               "sceNetResolverDelete",         '?', ""     },
+	{0XF3370E61, &WrapI_V<sceNetResolverInit>,          "sceNetResolverInit",           'i', ""     },
+	{0X808F6063, nullptr,                               "sceNetResolverStop",           '?', ""     },
+	{0X6138194A, nullptr,                               "sceNetResolverTerm",           '?', ""     },
+	{0X629E2FB7, nullptr,                               "sceNetResolverStartAtoN",      '?', ""     },
+	{0X14C17EF9, nullptr,                               "sceNetResolverStartNtoAAsync", '?', ""     },
+	{0XAAC09184, nullptr,                               "sceNetResolverStartAtoNAsync", '?', ""     },
+	{0X12748EB9, nullptr,                               "sceNetResolverWaitAsync",      '?', ""     },
+	{0X4EE99358, nullptr,                               "sceNetResolverPollAsync",      '?', ""     },
 };					 
 
 const HLEFunction sceNetInet[] = {
@@ -1455,23 +1516,23 @@ const HLEFunction sceNetInet[] = {
 	{0X4CFE4E56, nullptr,                            "sceNetInetShutdown",              '?', ""     },
 	{0XA9ED66B9, &WrapI_V<sceNetInetTerm>,           "sceNetInetTerm",                  'i', ""     },
 	{0X8B7B220F, &WrapI_III<sceNetInetSocket>,       "sceNetInetSocket",                'i', "iii"  },
-	{0X2FE71FE7, &WrapI_IIIUI<sceNetInetSetsockopt>, "sceNetInetSetsockopt",            'i', "iiixi"},
+	{0X2FE71FE7, &WrapI_IIIVI<sceNetInetSetsockopt>, "sceNetInetSetsockopt",            'i', "iiipi"},
 	{0X4A114C7C, nullptr,                            "sceNetInetGetsockopt",            '?', ""     },
-	{0X410B34AA, &WrapI_IUI<sceNetInetConnect>,      "sceNetInetConnect",               'i', "ixi"  },
+	{0X410B34AA, &WrapI_IVU<sceNetInetConnect>,      "sceNetInetConnect",               'i', "ipx"  },
 	{0X805502DD, nullptr,                            "sceNetInetCloseWithRST",          '?', ""     },
 	{0XD10A1A7A, nullptr,                            "sceNetInetListen",                '?', ""     },
 	{0XDB094E1B, nullptr,                            "sceNetInetAccept",                '?', ""     },
 	{0XFAABB1DD, &WrapI_VUI<sceNetInetPoll>,         "sceNetInetPoll",                  'i', "pxi"  },
 	{0X5BE8D595, nullptr,                            "sceNetInetSelect",                '?', ""     },
-	{0X8D7284EA, nullptr,                            "sceNetInetClose",                 '?', ""     },
-	{0XCDA85C99, &WrapI_IUUU<sceNetInetRecv>,        "sceNetInetRecv",                  'i', "ixxx" },
+	{0X8D7284EA, &WrapI_I<sceNetInetClose>,          "sceNetInetClose",                 'i', "i"    },
+	{0XCDA85C99, &WrapI_IVUU<sceNetInetRecv>,        "sceNetInetRecv",                  'i', "ipxx" },
 	{0XC91142E4, nullptr,                            "sceNetInetRecvfrom",              '?', ""     },
 	{0XEECE61D2, nullptr,                            "sceNetInetRecvmsg",               '?', ""     },
-	{0X7AA671BC, &WrapI_IUUU<sceNetInetSend>,        "sceNetInetSend",                  'i', "ixxx" },
-	{0X05038FC7, nullptr,                            "sceNetInetSendto",                '?', ""     },
+	{0X7AA671BC, &WrapI_IVUU<sceNetInetSend>,        "sceNetInetSend",                  'i', "ipxx" },
+	{0X05038FC7, &WrapI_IVUUVU<sceNetInetSendto>,    "sceNetInetSendto",                '?', "ipxxpx"},
 	{0X774E36F4, nullptr,                            "sceNetInetSendmsg",               '?', ""     },
 	{0XFBABE411, &WrapI_V<sceNetInetGetErrno>,       "sceNetInetGetErrno",              'i', ""     },
-	{0X1A33F9AE, nullptr,                            "sceNetInetBind",                  '?', ""     },
+	{0X1A33F9AE, &WrapI_IVU<sceNetInetBind>,         "sceNetInetBind",                  'i', "ipx"  },
 	{0XB75D5B0A, nullptr,                            "sceNetInetInetAddr",              '?', ""     },
 	{0X1BDF5D13, &WrapI_CU<sceNetInetInetAton>,      "sceNetInetInetAton",              'i', "sx"   },
 	{0XD0792666, nullptr,                            "sceNetInetInetNtop",              '?', ""     },
