@@ -572,7 +572,7 @@ int WINAPI WinMain(HINSTANCE _hInstance, HINSTANCE hPrevInstance, LPSTR szCmdLin
 
 #ifndef _DEBUG
 	// See #11719 - too many Vulkan drivers crash on basic init.
-	if (g_Config.IsBackendEnabled(GPUBackend::VULKAN)) {
+	if (g_Config.IsBackendEnabled(GPUBackend::VULKAN, false)) {
 		VulkanSetAvailable(DetectVulkanInExternalProcess());
 	}
 #endif
