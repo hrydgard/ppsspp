@@ -12,3 +12,4 @@ ui_atlas.zim.png
 #assets/ui_atlas.zim
 #jni/ui_atlas.cpp
 #jni/ui_atlas.h
+.cxx

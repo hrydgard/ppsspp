@@ -46,15 +46,6 @@ namespace Draw {
 	class Framebuffer;
 }
 
-struct CardboardSettings {
-	bool enabled;
-	float leftEyeXPosition;
-	float rightEyeXPosition;
-	float screenYPosition;
-	float screenWidth;
-	float screenHeight;
-};
-
 class VulkanFBO;
 
 struct PostShaderUniforms {
@@ -324,9 +315,6 @@ protected:
 	virtual void DrawActiveTexture(float x, float y, float w, float h, float destW, float destH, float u0, float v0, float u1, float v1, int uvRotation, int flags) = 0;
 	virtual void Bind2DShader() = 0;
 	virtual void BindPostShader(const PostShaderUniforms &uniforms) = 0;
-
-	// Cardboard Settings Calculator
-	void GetCardboardSettings(CardboardSettings *cardboardSettings);
 
 	bool UpdateSize();
 	void SetNumExtraFBOs(int num);
