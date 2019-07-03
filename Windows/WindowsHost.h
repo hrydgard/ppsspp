@@ -17,7 +17,6 @@
 
 #include "../Core/Host.h"
 #include "InputDevice.h"
-#include "KeyboardDevice.h"
 #include "Common/CommonWindows.h"
 #include <list>
 #include <memory>
@@ -63,8 +62,6 @@ public:
 	void NotifyUserMessage(const std::string &message, float duration = 1.0f, u32 color = 0x00FFFFFF, const char *id = nullptr) override;
 	void SendUIMessage(const std::string &message, const std::string &value) override;
 
-	std::shared_ptr<KeyboardDevice> keyboard;
-
 	GraphicsContext *GetGraphicsContext() { return gfx_; }
 
 private:
@@ -77,5 +74,5 @@ private:
 	GraphicsContext *gfx_ = nullptr;
 	size_t numDinputDevices_ = 0;
 
-	std::list<std::shared_ptr<InputDevice>> input;
+	std::list<std::unique_ptr<InputDevice>> input;
 };

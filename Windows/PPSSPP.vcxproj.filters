@@ -82,9 +82,6 @@
     <ClCompile Include="XinputDevice.cpp">
       <Filter>Windows\Input</Filter>
     </ClCompile>
-    <ClCompile Include="KeyboardDevice.cpp">
-      <Filter>Windows\Input</Filter>
-    </ClCompile>
     <ClCompile Include="InputDevice.cpp">
       <Filter>Windows\Input</Filter>
     </ClCompile>
@@ -244,9 +241,6 @@
       <Filter>Windows\Input</Filter>
     </ClInclude>
     <ClInclude Include="XinputDevice.h">
-      <Filter>Windows\Input</Filter>
-    </ClInclude>
-    <ClInclude Include="KeyboardDevice.h">
       <Filter>Windows\Input</Filter>
     </ClInclude>
     <ClInclude Include="stdafx.h" />
