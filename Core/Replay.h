@@ -46,7 +46,7 @@ enum class ReplayAction : uint8_t {
 
 struct PSPFileInfo;
 
-// Replay from data in memory.
+// Replay from data in memory.  Does not manipulate base time / RNG state.
 void ReplayExecuteBlob(const std::vector<u8> &data);
 // Replay from data in a file.  Returns false if invalid.
 bool ReplayExecuteFile(const std::string &filename);
