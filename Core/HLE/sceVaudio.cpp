@@ -56,7 +56,7 @@ static u32 sceVaudioChReserve(int sampleCount, int freq, int format) {
 	chans[PSP_AUDIO_CHANNEL_VAUDIO].leftVolume = 0;
 	chans[PSP_AUDIO_CHANNEL_VAUDIO].rightVolume = 0;
 	vaudioReserved = true;
-	__AudioSetOutputFrequency(freq);
+	__AudioSetSRCFrequency(freq);
 	return 0;
 }
 
