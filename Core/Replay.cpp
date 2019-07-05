@@ -118,6 +118,7 @@ static std::vector<ReplayItem> replayItems;
 static size_t replayExecPos = 0;
 static bool replaySaveWroteHeader = false;
 static ReplayState replayState = ReplayState::IDLE;
+static bool replaySawGameDirWrite = false;
 
 static size_t replayCtrlPos = 0;
 static uint32_t lastButtons = 0;
@@ -299,6 +300,7 @@ void ReplayAbort() {
 	replayExecPos = 0;
 	replaySaveWroteHeader = false;
 	replayState = ReplayState::IDLE;
+	replaySawGameDirWrite = false;
 
 	replayCtrlPos = 0;
 	lastButtons = 0;
@@ -439,7 +441,12 @@ uint64_t ReplayApplyDisk64(ReplayAction action, uint64_t result, uint64_t t) {
 	}
 }
 
-uint32_t ReplayApplyDiskRead(void *data, uint32_t readSize, uint32_t dataSize, uint64_t t) {
+uint32_t ReplayApplyDiskRead(void *data, uint32_t readSize, uint32_t dataSize, bool inGameDir, uint64_t t) {
+	// Ignore PSP/GAME reads if we haven't seen a write there.
+	if (inGameDir && !replaySawGameDirWrite) {
+		return readSize;
+	}
+
 	switch (replayState) {
 	case ReplayState::EXECUTE:
 	{
@@ -463,6 +470,23 @@ uint32_t ReplayApplyDiskRead(void *data, uint32_t readSize, uint32_t dataSize, u
 	case ReplayState::IDLE:
 	default:
 		return readSize;
+	}
+}
+
+uint64_t ReplayApplyDiskWrite(const void *data, uint64_t writeSize, uint64_t dataSize, bool *diskFull, bool inGameDir, uint64_t t) {
+	switch (replayState) {
+	case ReplayState::EXECUTE:
+	case ReplayState::SAVE:
+		// Never let the disk return full during replay.
+		if (diskFull)
+			*diskFull = false;
+		if (inGameDir)
+			replaySawGameDirWrite = true;
+		return writeSize;
+
+	case ReplayState::IDLE:
+	default:
+		return writeSize;
 	}
 }
 

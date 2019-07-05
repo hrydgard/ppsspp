@@ -54,7 +54,7 @@ enum FixPathCaseBehavior {
 	FPC_PARTIAL_ALLOWED,  // don't care how many exist (mkdir recursive)
 };
 
-bool FixPathCase(std::string& basePath, std::string &path, FixPathCaseBehavior behavior);
+bool FixPathCase(const std::string &basePath, std::string &path, FixPathCaseBehavior behavior);
 #endif
 
 struct DirectoryFileHandle {
@@ -70,12 +70,13 @@ struct DirectoryFileHandle {
 #endif
 	s64 needsTrunc_ = -1;
 	bool replay_ = true;
+	bool inGameDir_ = false;
 
 	DirectoryFileHandle(Flags flags) : replay_(flags != SKIP_REPLAY) {
 	}
 
-	std::string GetLocalPath(std::string& basePath, std::string localpath);
-	bool Open(std::string& basePath, std::string& fileName, FileAccess access, u32 &err);
+	std::string GetLocalPath(const std::string &basePath, std::string localpath);
+	bool Open(const std::string &basePath, std::string &fileName, FileAccess access, u32 &err);
 	size_t Read(u8* pointer, s64 size);
 	size_t Write(const u8* pointer, s64 size);
 	size_t Seek(s32 position, FileMove type);

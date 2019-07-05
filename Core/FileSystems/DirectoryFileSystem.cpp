@@ -98,7 +98,7 @@ static bool FixFilenameCase(const std::string &path, std::string &filename)
 	return retValue;
 }
 
-bool FixPathCase(std::string& basePath, std::string &path, FixPathCaseBehavior behavior)
+bool FixPathCase(const std::string &basePath, std::string &path, FixPathCaseBehavior behavior)
 {
 	size_t len = path.size();
 
@@ -158,25 +158,25 @@ DirectoryFileSystem::~DirectoryFileSystem() {
 	CloseAll();
 }
 
-std::string DirectoryFileHandle::GetLocalPath(std::string& basePath, std::string localpath)
+std::string DirectoryFileHandle::GetLocalPath(const std::string &basePath, std::string localpath)
 {
 	if (localpath.empty())
 		return basePath;
 
 	if (localpath[0] == '/')
-		localpath.erase(0,1);
-	//Convert slashes
+		localpath.erase(0, 1);
+
+	std::string result = basePath + localpath;
 #ifdef _WIN32
-	for (size_t i = 0; i < localpath.size(); i++) {
-		if (localpath[i] == '/')
-			localpath[i] = '\\';
+	for (char &c : result) {
+		if (c == '/')
+			c = '\\';
 	}
 #endif
-	return basePath + localpath;
+	return result;
 }
 
-bool DirectoryFileHandle::Open(std::string &basePath, std::string &fileName, FileAccess access, u32 &error)
-{
+bool DirectoryFileHandle::Open(const std::string &basePath, std::string &fileName, FileAccess access, u32 &error) {
 	error = 0;
 
 #if HOST_IS_CASE_SENSITIVE
@@ -190,7 +190,7 @@ bool DirectoryFileHandle::Open(std::string &basePath, std::string &fileName, Fil
 	// else we try fopen first (in case we're lucky) before simulating case insensitivity
 #endif
 
-	std::string fullName = GetLocalPath(basePath,fileName);
+	std::string fullName = GetLocalPath(basePath, fileName);
 	VERBOSE_LOG(FILESYS,"Actually opening %s", fullName.c_str());
 
 	// On the PSP, truncating doesn't lose data.  If you seek later, you'll recover it.
@@ -322,6 +322,11 @@ bool DirectoryFileHandle::Open(std::string &basePath, std::string &fileName, Fil
 	}
 #endif
 
+	// Try to detect reads/writes to PSP/GAME to avoid them in replays.
+	if (fullName.find("/PSP/GAME/") != fullName.npos || fullName.find("\\PSP\\GAME\\") != fullName.npos) {
+		inGameDir_ = true;
+	}
+
 	return success;
 }
 
@@ -333,7 +338,7 @@ size_t DirectoryFileHandle::Read(u8* pointer, s64 size)
 		// On a PSP. it actually is truncated, but the data wasn't erased.
 		off_t off = (off_t)Seek(0, FILEMOVE_CURRENT);
 		if (needsTrunc_ <= off) {
-			return replay_ ? ReplayApplyDiskRead(pointer, 0, (uint32_t)size, CoreTiming::GetGlobalTimeUs()) : 0;
+			return replay_ ? ReplayApplyDiskRead(pointer, 0, (uint32_t)size, inGameDir_, CoreTiming::GetGlobalTimeUs()) : 0;
 		}
 		if (needsTrunc_ < off + size) {
 			size = needsTrunc_ - off;
@@ -344,7 +349,7 @@ size_t DirectoryFileHandle::Read(u8* pointer, s64 size)
 #else
 	bytesRead = read(hFile, pointer, size);
 #endif
-	return replay_ ? ReplayApplyDiskRead(pointer, (uint32_t)bytesRead, (uint32_t)size, CoreTiming::GetGlobalTimeUs()) : bytesRead;
+	return replay_ ? ReplayApplyDiskRead(pointer, (uint32_t)bytesRead, (uint32_t)size, inGameDir_, CoreTiming::GetGlobalTimeUs()) : bytesRead;
 }
 
 size_t DirectoryFileHandle::Write(const u8* pointer, s64 size)
@@ -369,6 +374,10 @@ size_t DirectoryFileHandle::Write(const u8* pointer, s64 size)
 		if (needsTrunc_ < off) {
 			needsTrunc_ = off;
 		}
+	}
+
+	if (replay_) {
+		bytesWritten = ReplayApplyDiskWrite(pointer, (uint64_t)bytesWritten, (uint64_t)size, &diskFull, inGameDir_, CoreTiming::GetGlobalTimeUs());
 	}
 
 	if (diskFull) {
