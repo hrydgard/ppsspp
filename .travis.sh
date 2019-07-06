@@ -41,6 +41,11 @@ travis_install() {
         download_extract_zip http://dl.google.com/android/repository/${NDK_VER}-linux-x86_64.zip ${NDK_VER}-linux-x86_64.zip
     fi
 
+    if [ "$PPSSPP_BUILD_TYPE" = "Windows" ]; then
+        curl -L https://github.com/frerich/clcache/releases/download/v4.2.0/clcache.4.2.0.nupkg --output clcache.4.2.0.nupkg
+        choco install clcache --source=.
+    fi
+
     # Ensure we're using ccache
     if [[ "$CXX" = "clang" && "$CC" == "clang" ]]; then
         export CXX="ccache clang" CC="ccache clang"
@@ -92,10 +97,28 @@ travis_script() {
     if [ "$PPSSPP_BUILD_TYPE" = "macOS" ]; then
         ./b.sh --headless
     fi
+    if [ "$PPSSPP_BUILD_TYPE" = "Windows" ]; then
+        export "MSBUILD_PATH=/c/Program Files (x86)/Microsoft Visual Studio/2017/BuildTools/MSBuild/15.0/Bin"
+        export "PATH=$MSBUILD_PATH:$PATH"
+        export CLCACHE_OBJECT_CACHE_TIMEOUT_MS=120000
+
+        # Set DebugInformationFormat to nothing, the default is ProgramDatabase which breaks clcache.
+        # Turns out it's not possible to pass this on the msbuild command line.
+        for f in `find . -name *.vcxproj`; do
+            sed -i 's/>ProgramDatabase<\/DebugInformationFormat>/><\/DebugInformationFormat>/g' $f
+        done
+
+        msbuild.exe Windows\\PPSSPP.sln -m -p:CLToolExe=clcache.exe -p:Configuration=Release -p:Platform=x64 -p:TrackFileAccess=false
+    fi
 }
 
 travis_after_success() {
-    ccache -s
+    if [ "$PPSSPP_BUILD_TYPE" != "Windows" ]; then
+        ccache -s
+    else
+        clcache -s
+        clcache -z
+    fi
 
     if [ "$PPSSPP_BUILD_TYPE" = "Linux" ]; then
         ./test.py
