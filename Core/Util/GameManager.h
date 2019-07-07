@@ -73,6 +73,7 @@ private:
 	bool InstallMemstickGame(struct zip *z, std::string zipFile, std::string pspGame, int numFiles, int stripChars, bool deleteAfter);
 	bool InstallZippedISO(struct zip *z, int isoFileIndex, std::string zipfile, bool deleteAfter);
 	void InstallDone();
+	bool ExtractFile(struct zip *z, int file_index, std::string outFilename, size_t *bytesCopied, size_t allBytes);
 
 	std::string GetTempFilename() const;
 	std::shared_ptr<http::Download> curDownload_;

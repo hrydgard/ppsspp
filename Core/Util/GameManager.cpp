@@ -167,8 +167,7 @@ bool GameManager::InstallGame(std::string zipfile, bool deleteAfter) {
 
 	int numFiles = zip_get_num_files(z);
 
-	// First, find all the directories, and precreate them before we fill in with files.
-	// Also, verify that this is a PSP zip file with the correct layout. We also try
+	// Verify that this is a PSP zip file with the correct layout. We also try
 	// to detect simple zipped ISO files, those we'll just "install" to the current
 	// directory of the Games tab (where else?).
 	bool isPSPMemstickGame = false;
@@ -187,20 +186,24 @@ bool GameManager::InstallGame(std::string zipfile, bool deleteAfter) {
 			if (slashCount >= 1 && (!isPSPMemstickGame || slashLocation < stripChars + 1)) {
 				stripChars = slashLocation + 1;
 				isPSPMemstickGame = true;
-				break;
 			} else {
 				INFO_LOG(HLE, "Wrong number of slashes (%i) in %s", slashCount, zippedName.c_str());
 			}
-		} else if (endsWithNoCase(zippedName, ".iso")) {
+		} else if (endsWithNoCase(zippedName, ".iso") || endsWithNoCase(zippedName, ".cso")) {
 			int slashCount = 0;
 			int slashLocation = -1;
 			countSlashes(zippedName, &slashLocation, &slashCount);
-			if (slashCount == 1) {
+			if (slashCount <= 1) {
+				// We only do this if the ISO file is in the root or one level down.
 				isZippedISO = true;
 				isoFileIndex = i;
-				break;
 			}
 		}
+	}
+
+	// If a ZIP is detected as both, let's let the memstick game interpretation prevail.
+	if (isPSPMemstickGame && isZippedISO) {
+		isZippedISO = false;
 	}
 
 	if (isPSPMemstickGame) {
@@ -220,11 +223,56 @@ bool GameManager::InstallGame(std::string zipfile, bool deleteAfter) {
 	}
 }
 
+bool GameManager::ExtractFile(struct zip *z, int file_index, std::string outFilename, size_t *bytesCopied, size_t allBytes) {
+	struct zip_stat zstat;
+	zip_stat_index(z, file_index, 0, &zstat);
+	size_t size = zstat.size;
+
+	if (file_index < 10) {
+		INFO_LOG(HLE, "Writing %d bytes to %s", (int)size, outFilename.c_str());
+	}
+
+	zip_file *zf = zip_fopen_index(z, file_index, 0);
+	FILE *f = File::OpenCFile(outFilename, "wb");
+	if (f) {
+		size_t pos = 0;
+		const size_t blockSize = 1024 * 128;
+		u8 *buffer = new u8[blockSize];
+		while (pos < size) {
+			size_t bs = std::min(blockSize, size - pos);
+			zip_fread(zf, buffer, bs);
+			size_t written = fwrite(buffer, 1, bs, f);
+			if (written != bs) {
+				ERROR_LOG(HLE, "Wrote %d bytes out of %d - Disk full?", (int)written, (int)bs);
+				delete[] buffer;
+				buffer = 0;
+				fclose(f);
+				zip_fclose(zf);
+				File::Delete(outFilename.c_str());
+				return false;
+			}
+			pos += bs;
+
+			*bytesCopied += bs;
+			installProgress_ = (float)*bytesCopied / (float)allBytes;
+		}
+		zip_fclose(zf);
+		fclose(f);
+		delete[] buffer;
+		return true;
+	} else {
+		ERROR_LOG(HLE, "Failed to open file for writing");
+		return false;
+	}
+}
+
 bool GameManager::InstallMemstickGame(struct zip *z, std::string zipfile, std::string pspGame, int numFiles, int stripChars, bool deleteAfter) {
-	size_t allBytes = 0, bytesCopied = 0;
+	size_t allBytes = 0;
+	size_t bytesCopied = 0;
+
 	I18NCategory *sy = GetI18NCategory("System");
 
-	// Create all the directories in one pass
+	// Create all the directories first in one pass
 	std::set<std::string> createdDirs;
 	for (int i = 0; i < numFiles; i++) {
 		const char *fn = zip_get_name(z, i, 0);
@@ -253,53 +301,16 @@ bool GameManager::InstallMemstickGame(struct zip *z, std::string zipfile, std::s
 		// Note that we do NOT write files that are not in a directory, to avoid random
 		// README files etc.
 		if (strchr(fn, '/') != 0) {
-			struct zip_stat zstat;
-			zip_stat_index(z, i, 0, &zstat);
-			size_t size = zstat.size;
-
 			fn += stripChars;
-
 			std::string outFilename = pspGame + fn;
 			bool isDir = *outFilename.rbegin() == '/';
 			if (isDir)
 				continue;
 
-			if (i < 10) {
-				INFO_LOG(HLE, "Writing %i bytes to %s", (int)size, outFilename.c_str());
-			}
-
-			zip_file *zf = zip_fopen_index(z, i, 0);
-			FILE *f = File::OpenCFile(outFilename, "wb");
-			if (f) {
-				size_t pos = 0;
-				const size_t blockSize = 1024 * 128;
-				u8 *buffer = new u8[blockSize];
-				while (pos < size) {
-					size_t bs = std::min(blockSize, size - pos);
-					zip_fread(zf, buffer, bs);
-					size_t written = fwrite(buffer, 1, bs, f);
-					if (written != bs) {
-						ERROR_LOG(HLE, "Wrote %d bytes out of %d - Disk full?", (int)written, (int)bs);
-						delete [] buffer;
-						buffer = 0;
-						fclose(f);
-						zip_fclose(zf);
-						File::Delete(outFilename.c_str());
-						// Yes it's a goto. Sue me. I think it's appropriate here.
-						goto bail;
-					}
-					pos += bs;
-
-					bytesCopied += bs;
-					installProgress_ = (float)bytesCopied / (float)allBytes;
-					// printf("Progress: %f\n", installProgress_);
-				}
-				zip_fclose(zf);
-				fclose(f);
-				createdFiles.push_back(outFilename);
-				delete [] buffer;
+			if (!ExtractFile(z, i, outFilename, &bytesCopied, allBytes)) {
+				goto bail;
 			} else {
-				ERROR_LOG(HLE, "Failed to open file for writing");
+				createdFiles.push_back(outFilename);
 			}
 		}
 	}
@@ -337,14 +348,37 @@ bail:
 }
 
 bool GameManager::InstallZippedISO(struct zip *z, int isoFileIndex, std::string zipfile, bool deleteAfter) {
+	// Let's place the output file in the currently selected Games directory.
 
+	std::string fn = zip_get_name(z, isoFileIndex, 0);
+	size_t nameOffset = fn.rfind('/');
+	if (nameOffset == std::string::npos) {
+		nameOffset = 0;
+	} else {
+		nameOffset++;
+	}
+	size_t allBytes = 1;
+	struct zip_stat zstat;
+	if (zip_stat_index(z, isoFileIndex, 0, &zstat) >= 0) {
+		allBytes += zstat.size;
+	}
 
+	std::string outputISOFilename = g_Config.currentDirectory + "/" + fn.substr(nameOffset);
+	size_t bytesCopied = 0;
+	if (ExtractFile(z, isoFileIndex, outputISOFilename, &bytesCopied, allBytes)) {
+		ILOG("Successfully extracted ISO file to '%s'", outputISOFilename.c_str());
+	}
 	zip_close(z);
 	if (deleteAfter) {
 		File::Delete(zipfile.c_str());
 	}
+
+	z = 0;
+	installProgress_ = 1.0f;
+	installInProgress_ = false;
+	installError_ = "";
 	InstallDone();
-	return false;
+	return true;
 }
 
 bool GameManager::InstallGameOnThread(std::string zipFile, bool deleteAfter) {
