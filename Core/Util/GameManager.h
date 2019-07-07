@@ -31,6 +31,8 @@ enum class GameManagerState {
 	INSTALLING,
 };
 
+struct zip;
+
 class GameManager {
 public:
 	GameManager();
@@ -68,6 +70,8 @@ public:
 
 private:
 	bool InstallGame(std::string zipfile, bool deleteAfter = false);
+	bool InstallMemstickGame(struct zip *z, std::string zipFile, std::string pspGame, int numFiles, int stripChars, bool deleteAfter);
+	bool InstallZippedISO(struct zip *z, int isoFileIndex, std::string zipfile, bool deleteAfter);
 	void InstallDone();
 
 	std::string GetTempFilename() const;
