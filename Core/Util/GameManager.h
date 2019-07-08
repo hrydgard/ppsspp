@@ -69,9 +69,10 @@ public:
 	bool InstallGameOnThread(std::string zipFile, bool deleteAfter);
 
 private:
-	bool InstallGame(std::string zipfile, bool deleteAfter = false);
+	bool InstallGame(std::string zipfile, bool deleteAfter);
 	bool InstallMemstickGame(struct zip *z, std::string zipFile, std::string pspGame, int numFiles, int stripChars, bool deleteAfter);
 	bool InstallZippedISO(struct zip *z, int isoFileIndex, std::string zipfile, bool deleteAfter);
+	bool InstallRawISO(std::string zipFile, std::string originalName);
 	void InstallDone();
 	bool ExtractFile(struct zip *z, int file_index, std::string outFilename, size_t *bytesCopied, size_t allBytes);
 
@@ -84,3 +85,18 @@ private:
 };
 
 extern GameManager g_GameManager;
+
+enum class ZipFileContents {
+	UNKNOWN,
+	PSP_GAME_DIR,
+	ISO_FILE,
+};
+
+struct ZipFileInfo {
+	int numFiles;
+	int stripChars;  // for PSP game
+	int isoFileIndex;  // for ISO
+};
+
+ZipFileContents DetectZipFileContents(struct zip *z, ZipFileInfo *info);
+ZipFileContents DetectZipFileContents(std::string fileName, ZipFileInfo *info);

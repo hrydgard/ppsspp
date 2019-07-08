@@ -42,24 +42,34 @@ void InstallZipScreen::CreateViews() {
 	root_ = new LinearLayout(ORIENT_HORIZONTAL);
 
 	ViewGroup *leftColumn = new AnchorLayout(new LinearLayoutParams(1.0f));
-	root_->Add(leftColumn);
-
-	std::string shortFilename = GetFilenameFromPath(zipPath_);
-	leftColumn->Add(new TextView(iz->T("Install game from ZIP file?"), ALIGN_LEFT, false, new AnchorLayoutParams(10, 10, NONE, NONE)));
-	leftColumn->Add(new TextView(shortFilename, ALIGN_LEFT, false, new AnchorLayoutParams(10, 60, NONE, NONE)));
-
-	doneView_ = leftColumn->Add(new TextView("", new AnchorLayoutParams(10, 120, NONE, NONE)));
-	progressBar_ = leftColumn->Add(new ProgressBar(new AnchorLayoutParams(10, 200, 200, NONE)));
-
 	ViewGroup *rightColumnItems = new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(300, FILL_PARENT, actionMenuMargins));
+	root_->Add(leftColumn);
 	root_->Add(rightColumnItems);
 
-	installChoice_ = rightColumnItems->Add(new Choice(iz->T("Install")));
-	installChoice_->OnClick.Handle(this, &InstallZipScreen::OnInstall);
-	backChoice_ = rightColumnItems->Add(new Choice(di->T("Back")));
-	backChoice_->OnClick.Handle<UIScreen>(this, &UIScreen::OnOK);  // OK so that EmuScreen will handle it right
+	std::string shortFilename = GetFilenameFromPath(zipPath_);
+	
+	// TODO: Do in the background?
+	ZipFileInfo zipInfo;
+	ZipFileContents contents = DetectZipFileContents(zipPath_, &zipInfo);
 
-	rightColumnItems->Add(new CheckBox(&deleteZipFile_, iz->T("Delete ZIP file")));
+	if (contents == ZipFileContents::ISO_FILE || contents == ZipFileContents::PSP_GAME_DIR) {
+		std::string question = iz->T("Install game from ZIP file?");
+		leftColumn->Add(new TextView(question, ALIGN_LEFT, false, new AnchorLayoutParams(10, 10, NONE, NONE)));
+		leftColumn->Add(new TextView(shortFilename, ALIGN_LEFT, false, new AnchorLayoutParams(10, 60, NONE, NONE)));
+
+		doneView_ = leftColumn->Add(new TextView("", new AnchorLayoutParams(10, 120, NONE, NONE)));
+		progressBar_ = leftColumn->Add(new ProgressBar(new AnchorLayoutParams(10, 200, 200, NONE)));
+
+		installChoice_ = rightColumnItems->Add(new Choice(iz->T("Install")));
+		installChoice_->OnClick.Handle(this, &InstallZipScreen::OnInstall);
+		backChoice_ = rightColumnItems->Add(new Choice(di->T("Back")));
+		backChoice_->OnClick.Handle<UIScreen>(this, &UIScreen::OnOK);  // OK so that EmuScreen will handle it right
+		rightColumnItems->Add(new CheckBox(&deleteZipFile_, iz->T("Delete ZIP file")));
+	} else {
+		leftColumn->Add(new TextView(iz->T("Zip file does not contain PSP software"), ALIGN_LEFT, false, new AnchorLayoutParams(10, 10, NONE, NONE)));
+		backChoice_ = rightColumnItems->Add(new Choice(di->T("Back")));
+		backChoice_->OnClick.Handle<UIScreen>(this, &UIScreen::OnOK);  // OK so that EmuScreen will handle it right
+	}
 }
 
 bool InstallZipScreen::key(const KeyInput &key) {
@@ -87,13 +97,16 @@ void InstallZipScreen::update() {
 		progressBar_->SetProgress(g_GameManager.GetCurrentInstallProgressPercentage());
 		backChoice_->SetEnabled(false);
 	} else {
-		progressBar_->SetVisibility(V_GONE);
+		if (progressBar_)
+			progressBar_->SetVisibility(V_GONE);
 		backChoice_->SetEnabled(true);
 		std::string err = g_GameManager.GetInstallError();
 		if (!err.empty()) {
-			doneView_->SetText(iz->T(err.c_str()));
+			if (doneView_)
+				doneView_->SetText(iz->T(err.c_str()));
 		} else if (installStarted_) {
-			doneView_->SetText(iz->T("Installed!"));
+			if (doneView_)
+				doneView_->SetText(iz->T("Installed!"));
 			MainScreen::showHomebrewTab = true;
 		}
 	}
