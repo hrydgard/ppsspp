@@ -2129,27 +2129,61 @@ namespace MIPSInt
 
 		switch (sz) {
 		case V_Triple:  // vcrsp.t
-			d[0] = s[1]*t[2] - s[2]*t[1];
-			d[1] = s[2]*t[0] - s[0]*t[2];
+		{
+			if (USE_VFPU_DOT) {
+				float t0[4] = { 0.0f, t[2], -t[1], 0.0f };
+				float t1[4] = { -t[2], 0.0f, t[0], 0.0f };
+				d[0] = vfpu_dot(s, t0);
+				d[1] = vfpu_dot(s, t1);
+			} else {
+				d[0] = s[1] * t[2] - s[2] * t[1];
+				d[1] = s[2] * t[0] - s[0] * t[2];
+			}
 
 			// T prefix forces swizzle and negate, can be used to have weird constants.
 			tprefixAdd = VFPU_SWIZZLE(1, 0, 3, 2) | VFPU_NEGATE(0, 1, 0, 0);
 			ApplyPrefixST(t, VFPURewritePrefix(VFPU_CTRL_TPREFIX, tprefixRemove, tprefixAdd), V_Quad);
 			ApplySwizzleS(s, V_Quad);
-			d[2] = s[0] * t[0] + s[1] * t[1] + s[2] * t[2] + s[3] * t[3];
+			if (USE_VFPU_DOT) {
+				// TODO: But flush any infs to 0?  This seems sketchy.
+				for (int i = 0; i < 4; ++i) {
+					if (my_isinf(s[i]))
+						s[i] = 0.0f;
+					if (my_isinf(t[i]))
+						t[i] = 0.0f;
+				}
+				d[2] = vfpu_dot(s, t);
+			} else {
+				d[2] = s[0] * t[0] + s[1] * t[1] + s[2] * t[2] + s[3] * t[3];
+			}
 			break;
+		}
 
 		case V_Quad:   // vqmul.q
-			d[0] = s[0]*t[3] + s[1]*t[2] - s[2]*t[1] + s[3]*t[0];
-			d[1] = -s[0]*t[2] + s[1]*t[3] + s[2]*t[0] + s[3]*t[1];
-			d[2] = s[0]*t[1] - s[1]*t[0] + s[2]*t[3] + s[3]*t[2];
+		{
+			if (USE_VFPU_DOT) {
+				float t0[4] = { t[3], t[2], -t[1], t[0] };
+				float t1[4] = { -t[2], t[3], t[0], t[1] };
+				float t2[4] = { t[1], -t[0], t[3], t[2] };
+				d[0] = vfpu_dot(s, t0);
+				d[1] = vfpu_dot(s, t1);
+				d[2] = vfpu_dot(s, t2);
+			} else {
+				d[0] = s[0] * t[3] + s[1] * t[2] - s[2] * t[1] + s[3] * t[0];
+				d[1] = -s[0] * t[2] + s[1] * t[3] + s[2] * t[0] + s[3] * t[1];
+				d[2] = s[0] * t[1] - s[1] * t[0] + s[2] * t[3] + s[3] * t[2];
+			}
 
 			// T prefix forces swizzle and negate, can be used to have weird constants.
 			tprefixAdd = VFPU_SWIZZLE(0, 1, 2, 3) | VFPU_NEGATE(1, 1, 1, 0);
 			ApplyPrefixST(t, VFPURewritePrefix(VFPU_CTRL_TPREFIX, tprefixRemove, tprefixAdd), V_Quad);
 			ApplySwizzleS(s, sz);
-			d[3] = s[0] * t[0] + s[1] * t[1] + s[2] * t[2] + s[3] * t[3];
+			if (USE_VFPU_DOT)
+				d[3] = vfpu_dot(s, t);
+			else
+				d[3] = s[0] * t[0] + s[1] * t[1] + s[2] * t[2] + s[3] * t[3];
 			break;
+		}
 
 		case V_Pair:
 			// t swizzles invalid so the multiply is always zero.
