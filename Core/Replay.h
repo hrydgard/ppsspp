@@ -46,7 +46,7 @@ enum class ReplayAction : uint8_t {
 
 struct PSPFileInfo;
 
-// Replay from data in memory.
+// Replay from data in memory.  Does not manipulate base time / RNG state.
 void ReplayExecuteBlob(const std::vector<u8> &data);
 // Replay from data in a file.  Returns false if invalid.
 bool ReplayExecuteFile(const std::string &filename);
@@ -68,6 +68,7 @@ void ReplayAbort();
 void ReplayApplyCtrl(uint32_t &buttons, uint8_t analog[2][2], uint64_t t);
 uint32_t ReplayApplyDisk(ReplayAction action, uint32_t result, uint64_t t);
 uint64_t ReplayApplyDisk64(ReplayAction action, uint64_t result, uint64_t t);
-uint32_t ReplayApplyDiskRead(void *data, uint32_t readSize, uint32_t dataSize, uint64_t t);
+uint32_t ReplayApplyDiskRead(void *data, uint32_t readSize, uint32_t dataSize, bool inGameDir, uint64_t t);
+uint64_t ReplayApplyDiskWrite(const void *data, uint64_t writeSize, uint64_t dataSize, bool *diskFull, bool inGameDir, uint64_t t);
 PSPFileInfo ReplayApplyDiskFileInfo(const PSPFileInfo &data, uint64_t t);
 std::vector<PSPFileInfo> ReplayApplyDiskListing(const std::vector<PSPFileInfo> &data, uint64_t t);
