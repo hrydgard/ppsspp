@@ -2184,7 +2184,7 @@ namespace MIPSInt
 
 		ReadVector(s.f, sz, vs);
 		ApplySwizzleS(s.f, sz);
-		ReadVector(t.f, sz, vs);
+		ReadVector(t.f, sz, vt);
 		ApplySwizzleT(t.f, sz);
 		// Swizzle does apply to the value read as an integer.
 		u8 exp = (u8)(127 + t.i[0]);
