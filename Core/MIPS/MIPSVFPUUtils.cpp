@@ -655,12 +655,14 @@ float vfpu_dot(float a[4], float b[4]) {
 				return result.f;
 			}
 			mants[i] = get_mant(0) << EXTRA_BITS;
+			exps[i] = 255;
 		} else if (bexp == 255) {
 			if ((src[1].i & 0x007FFFFF) != 0 || aexp == 0) {
 				result.i = 0x7F800001;
 				return result.f;
 			}
 			mants[i] = get_mant(0) << EXTRA_BITS;
+			exps[i] = 255;
 		} else {
 			// TODO: Adjust precision?
 			uint64_t adjust = (uint64_t)amant * (uint64_t)bmant;
