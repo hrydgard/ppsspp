@@ -143,7 +143,7 @@ ZipFileContents DetectZipFileContents(std::string fileName, ZipFileInfo *info) {
 #ifdef _WIN32
 	struct zip *z = zip_open(ConvertUTF8ToWString(fileName).c_str(), 0, &error);
 #else
-	struct zip *z = zip_open(zipfile.c_str(), 0, &error);
+	struct zip *z = zip_open(fileName.c_str(), 0, &error);
 #endif
 	if (!z) {
 		return ZipFileContents::UNKNOWN;
@@ -228,7 +228,7 @@ bool GameManager::InstallGame(std::string fileName, bool deleteAfter) {
 #ifdef _WIN32
 	struct zip *z = zip_open(ConvertUTF8ToWString(fileName).c_str(), 0, &error);
 #else
-	struct zip *z = zip_open(zipfile.c_str(), 0, &error);
+	struct zip *z = zip_open(fileName.c_str(), 0, &error);
 #endif
 	if (!z) {
 		ERROR_LOG(HLE, "Failed to open ZIP file %s, error code=%i", fileName.c_str(), error);
