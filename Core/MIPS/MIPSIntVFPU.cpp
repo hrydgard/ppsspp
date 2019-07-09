@@ -1419,8 +1419,14 @@ namespace MIPSInt
 		u32 tprefixAdd = VFPU_SWIZZLE(1, 0, 0, 0);
 		ApplyPrefixST(t, VFPURewritePrefix(VFPU_CTRL_TPREFIX, tprefixRemove, tprefixAdd), V_Quad);
 
-		d[0] = s[0] * t[0] - s[1] * t[1];
-		d[0] += s[2] * t[2] + s[3] * t[3];
+		if (USE_VFPU_DOT) {
+			s[1] = -s[1];
+			d[0] = vfpu_dot(s, t);
+		} else {
+			d[0] = s[0] * t[0] - s[1] * t[1];
+			d[0] += s[2] * t[2] + s[3] * t[3];
+		}
+
 		ApplyPrefixD(d, sz);
 		WriteVector(d, V_Single, vd);
 		PC += 4;
@@ -2092,7 +2098,7 @@ namespace MIPSInt
 
 			if (USE_VFPU_DOT) {
 				if (my_isnan(d.f[i])) {
-					d.u[i] = 0x7f800001;
+					d.u[i] = (d.u[i] & 0xff800001) | 1;
 				} else if ((d.u[i] & 0x7F800000) == 0) {
 					d.u[i] &= 0xFF800000;
 				}
