@@ -733,7 +733,7 @@ float vfpu_dot(float a[4], float b[4]) {
 	if (max_exp >= 255) {
 		max_exp = 255;
 		mant_sum = 0;
-	} else if (max_exp == 0) {
+	} else if (max_exp <= 0) {
 		return 0.0f;
 	}
 
