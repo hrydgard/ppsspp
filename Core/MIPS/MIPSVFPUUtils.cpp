@@ -614,6 +614,10 @@ static uint32_t get_uexp(uint32_t x) {
 	return (x >> 23) & 0xFF;
 }
 
+int32_t get_exp(uint32_t x) {
+	return get_uexp(x) - 127;
+}
+
 static int32_t get_mant(uint32_t x) {
 	// Note: this returns the hidden 1.
 	return (x & 0x007FFFFF) | 0x00800000;
@@ -735,4 +739,54 @@ float vfpu_dot(float a[4], float b[4]) {
 
 	result.i = sign_sum | (max_exp << 23) | (mant_sum & 0x007FFFFF);
 	return result.f;
+}
+
+// TODO: This is still not completely accurate compared to the PSP's vsqrt.
+float vfpu_sqrt(float a) {
+	union float2int {
+		uint32_t u;
+		float f;
+	};
+	float2int val;
+	val.f = a;
+
+	if ((val.u & 0xff800000) == 0x7f800000) {
+		if ((val.u & 0x007fffff) != 0) {
+			val.u = 0x7f800001;
+		}
+		return val.f;
+	}
+	if ((val.u & 0x7fffffff) == 0) {
+		// Kill any sign.
+		val.u = 0;
+		return val.f;
+	}
+	if (val.u & 0x80000000) {
+		val.u = 0x7f800001;
+		return val.f;
+	}
+
+	int k = get_exp(val.u);
+	int sp = get_mant(val.u);
+	int less_bits;
+
+	if (k & 1) {
+		less_bits = 1;
+		k /= 2;
+	} else {
+		less_bits = 0;
+		k /= 2;
+	}
+
+	int z = 0x00800000 >> less_bits;
+	int64_t halfsp = sp >> 1;
+	halfsp <<= 23 - less_bits;
+	for (int i = 0; i < 6; ++i) {
+		z = (z >> 1) + (int)(halfsp / z);
+	}
+
+	val.u = ((k + 127) << 23) | ((z << less_bits) & 0x007FFFFF);
+	// The lower two bits never end up set on the PSP, it seems like.
+	val.u &= 0xFFFFFFFC;
+	return val.f;
 }
