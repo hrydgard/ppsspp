@@ -30,6 +30,7 @@
 
 #include "Common/Log.h"
 #include "Common/FileUtil.h"
+#include "Common/StringUtils.h"
 #include "Core/Config.h"
 #include "Core/System.h"
 #include "Core/Util/GameManager.h"
@@ -116,9 +117,10 @@ void GameManager::Update() {
 				return;
 			}
 			// Game downloaded to temporary file - install it!
-			InstallGameOnThread(fileName, true);
+			InstallGameOnThread(curDownload_->url(), fileName, true);
 		} else {
-			ERROR_LOG(HLE, "Expected HTTP status code 200, got status code %i. Install cancelled, deleting partial file.", curDownload_->ResultCode());
+			ERROR_LOG(HLE, "Expected HTTP status code 200, got status code %d. Install cancelled, deleting partial file '%s'",
+				curDownload_->ResultCode(), fileName.c_str());
 			File::Delete(fileName.c_str());
 		}
 		curDownload_.reset();
@@ -203,7 +205,7 @@ ZipFileContents DetectZipFileContents(struct zip *z, ZipFileInfo *info) {
 	}
 }
 
-bool GameManager::InstallGame(std::string fileName, bool deleteAfter) {
+bool GameManager::InstallGame(std::string url, std::string fileName, bool deleteAfter) {
 	if (installInProgress_) {
 		ERROR_LOG(HLE, "Cannot have two installs in progress at the same time");
 		return false;
@@ -214,9 +216,11 @@ bool GameManager::InstallGame(std::string fileName, bool deleteAfter) {
 		return false;
 	}
 
-	bool isRawISO = false;  // TODO: Make it possible to pass in this information.
-	if (isRawISO) {
-		return InstallRawISO(fileName, fileName);
+	// Examine the URL to guess out what we're installing.
+	if (endsWithNoCase(url, ".cso") || endsWithNoCase(url, ".iso")) {
+		// It's a raw ISO or CSO file. We just copy it to the destination.
+		std::string shortFilename = GetFilenameFromPath(url);
+		return InstallRawISO(fileName, shortFilename, deleteAfter);
 	}
 
 	I18NCategory *sy = GetI18NCategory("System");
@@ -414,18 +418,23 @@ bool GameManager::InstallZippedISO(struct zip *z, int isoFileIndex, std::string 
 	return true;
 }
 
-bool GameManager::InstallGameOnThread(std::string zipFile, bool deleteAfter) {
+bool GameManager::InstallGameOnThread(std::string url, std::string fileName, bool deleteAfter) {
 	if (installInProgress_) {
 		return false;
 	}
-	installThread_.reset(new std::thread(std::bind(&GameManager::InstallGame, this, zipFile, deleteAfter)));
+	installThread_.reset(new std::thread(std::bind(&GameManager::InstallGame, this, url, fileName, deleteAfter)));
 	installThread_->detach();
 	return true;
 }
 
-bool GameManager::InstallRawISO(std::string file, std::string originalName) {
+bool GameManager::InstallRawISO(std::string file, std::string originalName, bool deleteAfter) {
 	std::string destPath = g_Config.currentDirectory + "/" + originalName;
-	File::Copy(file, destPath);
+	// TODO: To save disk space, we should probably attempt a move first.
+	if (File::Copy(file, destPath)) {
+		if (deleteAfter) {
+			File::Delete(file.c_str());
+		}
+	}
 	installProgress_ = 1.0f;
 	installInProgress_ = false;
 	installError_ = "";

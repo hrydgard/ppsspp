@@ -81,7 +81,7 @@ bool InstallZipScreen::key(const KeyInput &key) {
 }
 
 UI::EventReturn InstallZipScreen::OnInstall(UI::EventParams &params) {
-	if (g_GameManager.InstallGameOnThread(zipPath_, deleteZipFile_)) {
+	if (g_GameManager.InstallGameOnThread(zipPath_, zipPath_, deleteZipFile_)) {
 		installStarted_ = true;
 		installChoice_->SetEnabled(false);
 	}

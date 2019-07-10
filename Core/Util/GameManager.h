@@ -66,13 +66,13 @@ public:
 	}
 
 	// Only returns false if there's already an installation in progress.
-	bool InstallGameOnThread(std::string zipFile, bool deleteAfter);
+	bool InstallGameOnThread(std::string url, std::string tempFileName, bool deleteAfter);
 
 private:
-	bool InstallGame(std::string zipfile, bool deleteAfter);
+	bool InstallGame(std::string url, std::string tempFileName, bool deleteAfter);
 	bool InstallMemstickGame(struct zip *z, std::string zipFile, std::string pspGame, int numFiles, int stripChars, bool deleteAfter);
 	bool InstallZippedISO(struct zip *z, int isoFileIndex, std::string zipfile, bool deleteAfter);
-	bool InstallRawISO(std::string zipFile, std::string originalName);
+	bool InstallRawISO(std::string zipFile, std::string originalName, bool deleteAfter);
 	void InstallDone();
 	bool ExtractFile(struct zip *z, int file_index, std::string outFilename, size_t *bytesCopied, size_t allBytes);
 
