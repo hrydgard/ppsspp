@@ -159,7 +159,7 @@ UI::EventReturn GameScreen::OnCreateConfig(UI::EventParams &e) {
 		return UI::EVENT_SKIPPED;
 	}
 	g_Config.createGameConfig(info->id);
-	g_Config.saveGameConfig(info->id);
+	g_Config.saveGameConfig(info->id, info->GetTitle());
 	info->hasConfig = true;
 
 	screenManager()->topScreen()->RecreateViews();
