@@ -744,7 +744,7 @@ static ConfigSetting graphicsSettings[] = {
 
 	ReportedConfigSetting("ReplaceTextures", &g_Config.bReplaceTextures, true, true, true),
 	ReportedConfigSetting("SaveNewTextures", &g_Config.bSaveNewTextures, false, true, true),
-	ReportedConfigSetting("IgnoreTextureFilenames", &g_Config.bIgnoreTextureFilenames, true, true, false),
+	ConfigSetting("IgnoreTextureFilenames", &g_Config.bIgnoreTextureFilenames, false, true, true),
 
 	ReportedConfigSetting("TexScalingLevel", &g_Config.iTexScalingLevel, 1, true, true),
 	ReportedConfigSetting("TexScalingType", &g_Config.iTexScalingType, 0, true, true),

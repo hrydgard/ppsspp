@@ -77,82 +77,109 @@ bool TextureReplacer::LoadIni() {
 	aliases_.clear();
 	hashranges_.clear();
 
+	allowVideo_ = false;
+	ignoreAddress_ = false;
+	reduceHash_ = false;
+
 	if (File::Exists(basePath_ + INI_FILENAME)) {
 		IniFile ini;
 		ini.LoadFromVFS(basePath_ + INI_FILENAME);
 
-		auto options = ini.GetOrCreateSection("options");
-		std::string hash;
-		options->Get("hash", &hash, "");
-		// TODO: crc32c.
-		if (strcasecmp(hash.c_str(), "quick") == 0) {
-			hash_ = ReplacedTextureHash::QUICK;
-		} else if (strcasecmp(hash.c_str(), "xxh32") == 0) {
-			hash_ = ReplacedTextureHash::XXH32;
-		} else if (strcasecmp(hash.c_str(), "xxh64") == 0) {
-			hash_ = ReplacedTextureHash::XXH64;
-		} else {
-			ERROR_LOG(G3D, "Unsupported hash type: %s", hash.c_str());
+		if (!LoadIniValues(ini)) {
 			return false;
 		}
 
-		options->Get("video", &allowVideo_, false);
-		options->Get("ignoreAddress", &ignoreAddress_, false);
-		options->Get("reduceHash", &reduceHash_, false); // Multiplies sizeInRAM/bytesPerLine in XXHASH by 0.5
-		if (reduceHash_ && hash_ == ReplacedTextureHash::QUICK) {
-			reduceHash_ = false;
-			ERROR_LOG(G3D, "Texture Replacement: reduceHash option requires safer hash, use xxh32 or xxh64 instead.");
-		}
+		// Allow overriding settings per game id.
+		std::string overrideFilename;
+		if (ini.GetOrCreateSection("games")->Get(gameID_.c_str(), &overrideFilename, "")) {
+			if (!overrideFilename.empty() && overrideFilename != INI_FILENAME) {
+				INFO_LOG(G3D, "Loading extra texture ini: %s", overrideFilename.c_str());
+				IniFile overrideIni;
+				overrideIni.LoadFromVFS(basePath_ + overrideFilename);
 
-		if (ignoreAddress_ && hash_ == ReplacedTextureHash::QUICK) {
-			ignoreAddress_ = false;
-			ERROR_LOG(G3D, "Texture Replacement: ignoreAddress option requires safer hash, use xxh32 or xxh64 instead.");
-		}
-
-		int version = 0;
-		if (options->Get("version", &version, 0) && version > VERSION) {
-			ERROR_LOG(G3D, "Unsupported texture replacement version %d, trying anyway", version);
-		}
-
-		bool filenameWarning = false;
-		if (ini.HasSection("hashes")) {
-			auto hashes = ini.GetOrCreateSection("hashes")->ToMap();
-			// Format: hashname = filename.png
-			bool checkFilenames = g_Config.bSaveNewTextures && g_Config.bIgnoreTextureFilenames;
-			for (const auto &item : hashes) {
-				ReplacementAliasKey key(0, 0, 0);
-				if (sscanf(item.first.c_str(), "%16llx%8x_%d", &key.cachekey, &key.hash, &key.level) >= 1) {
-					aliases_[key] = item.second;
-					if (checkFilenames) {
-#if PPSSPP_PLATFORM(WINDOWS)
-						// Uppercase probably means the filenames don't match.
-						// Avoiding an actual check of the filenames to avoid performance impact.
-						filenameWarning = filenameWarning || item.second.find_first_of("\\ABCDEFGHIJKLMNOPQRSTUVWXYZ") != std::string::npos;
-#else
-						filenameWarning = filenameWarning || item.second.find_first_of("\\:<>|?*") != std::string::npos;
-#endif
-					}
-				} else {
-					ERROR_LOG(G3D, "Unsupported syntax under [hashes]: %s", item.first.c_str());
+				if (!LoadIniValues(overrideIni, true)) {
+					return false;
 				}
-			}
-		}
-
-		if (filenameWarning) {
-			I18NCategory *err = GetI18NCategory("Error");
-			host->NotifyUserMessage(err->T("textures.ini filenames may not be cross-platform"), 6.0f);
-		}
-
-		if (ini.HasSection("hashranges")) {
-			auto hashranges = ini.GetOrCreateSection("hashranges")->ToMap();
-			// Format: addr,w,h = newW,newH
-			for (const auto &item : hashranges) {
-				ParseHashRange(item.first, item.second);
 			}
 		}
 	}
 
 	// The ini doesn't have to exist for it to be valid.
+	return true;
+}
+
+bool TextureReplacer::LoadIniValues(IniFile &ini, bool isOverride) {
+	auto options = ini.GetOrCreateSection("options");
+	std::string hash;
+	options->Get("hash", &hash, "");
+	// TODO: crc32c.
+	if (strcasecmp(hash.c_str(), "quick") == 0) {
+		hash_ = ReplacedTextureHash::QUICK;
+	} else if (strcasecmp(hash.c_str(), "xxh32") == 0) {
+		hash_ = ReplacedTextureHash::XXH32;
+	} else if (strcasecmp(hash.c_str(), "xxh64") == 0) {
+		hash_ = ReplacedTextureHash::XXH64;
+	} else if (!isOverride || !hash.empty()) {
+		ERROR_LOG(G3D, "Unsupported hash type: %s", hash.c_str());
+		return false;
+	}
+
+	options->Get("video", &allowVideo_, allowVideo_);
+	options->Get("ignoreAddress", &ignoreAddress_, ignoreAddress_);
+	// Multiplies sizeInRAM/bytesPerLine in XXHASH by 0.5.
+	options->Get("reduceHash", &reduceHash_, reduceHash_);
+	if (reduceHash_ && hash_ == ReplacedTextureHash::QUICK) {
+		reduceHash_ = false;
+		ERROR_LOG(G3D, "Texture Replacement: reduceHash option requires safer hash, use xxh32 or xxh64 instead.");
+	}
+
+	if (ignoreAddress_ && hash_ == ReplacedTextureHash::QUICK) {
+		ignoreAddress_ = false;
+		ERROR_LOG(G3D, "Texture Replacement: ignoreAddress option requires safer hash, use xxh32 or xxh64 instead.");
+	}
+
+	int version = 0;
+	if (options->Get("version", &version, 0) && version > VERSION) {
+		ERROR_LOG(G3D, "Unsupported texture replacement version %d, trying anyway", version);
+	}
+
+	bool filenameWarning = false;
+	if (ini.HasSection("hashes")) {
+		auto hashes = ini.GetOrCreateSection("hashes")->ToMap();
+		// Format: hashname = filename.png
+		bool checkFilenames = g_Config.bSaveNewTextures && !g_Config.bIgnoreTextureFilenames;
+		for (const auto &item : hashes) {
+			ReplacementAliasKey key(0, 0, 0);
+			if (sscanf(item.first.c_str(), "%16llx%8x_%d", &key.cachekey, &key.hash, &key.level) >= 1) {
+				aliases_[key] = item.second;
+				if (checkFilenames) {
+#if PPSSPP_PLATFORM(WINDOWS)
+					// Uppercase probably means the filenames don't match.
+					// Avoiding an actual check of the filenames to avoid performance impact.
+					filenameWarning = filenameWarning || item.second.find_first_of("\\ABCDEFGHIJKLMNOPQRSTUVWXYZ") != std::string::npos;
+#else
+					filenameWarning = filenameWarning || item.second.find_first_of("\\:<>|?*") != std::string::npos;
+#endif
+				}
+			} else {
+				ERROR_LOG(G3D, "Unsupported syntax under [hashes]: %s", item.first.c_str());
+			}
+		}
+	}
+
+	if (filenameWarning) {
+		I18NCategory *err = GetI18NCategory("Error");
+		host->NotifyUserMessage(err->T("textures.ini filenames may not be cross-platform"), 6.0f);
+	}
+
+	if (ini.HasSection("hashranges")) {
+		auto hashranges = ini.GetOrCreateSection("hashranges")->ToMap();
+		// Format: addr,w,h = newW,newH
+		for (const auto &item : hashranges) {
+			ParseHashRange(item.first, item.second);
+		}
+	}
+
 	return true;
 }
 
@@ -660,6 +687,10 @@ bool TextureReplacer::GenerateIni(const std::string &gameID, std::string *genera
 		fs << "[options]\n";
 		fs << "version = 1\n";
 		fs << "hash = quick\n";
+		fs << "[games]\n";
+		fs << "# Used to make it easier to install, and override settings for other regions.\n";
+		fs << "# Files still have to be copied to each TEXTURES folder.";
+		fs << gameID << " = textures.ini\n";
 		fs << "\n";
 		fs << "# Use / for folders not \\, avoid special characters, and stick to lowercase.\n";
 		fs << "# See wiki for more info.\n";
