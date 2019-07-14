@@ -717,8 +717,11 @@ float vfpu_dot(float a[4], float b[4]) {
 	int8_t shift = (int8_t)clz32_nonzero(mant_sum) - 8;
 	if (shift < 0) {
 		// Round to even if we'd shift away a 0.5.
-		uint32_t round_bit = 1 << (-shift - 1);
+		const uint32_t round_bit = 1 << (-shift - 1);
 		if ((mant_sum & round_bit) && (mant_sum & (round_bit << 1))) {
+			mant_sum += round_bit;
+			shift = (int8_t)clz32_nonzero(mant_sum) - 8;
+		} else if ((mant_sum & round_bit) && (mant_sum & (round_bit - 1))) {
 			mant_sum += round_bit;
 			shift = (int8_t)clz32_nonzero(mant_sum) - 8;
 		}
@@ -756,7 +759,7 @@ float vfpu_sqrt(float a) {
 		}
 		return val.f;
 	}
-	if ((val.u & 0x7fffffff) == 0) {
+	if ((val.u & 0x7f800000) == 0) {
 		// Kill any sign.
 		val.u = 0;
 		return val.f;
@@ -767,26 +770,83 @@ float vfpu_sqrt(float a) {
 	}
 
 	int k = get_exp(val.u);
-	int sp = get_mant(val.u);
-	int less_bits;
+	uint32_t sp = get_mant(val.u);
+	int less_bits = k & 1;
+	k >>= 1;
 
-	if (k & 1) {
-		less_bits = 1;
-		k /= 2;
-	} else {
-		less_bits = 0;
-		k /= 2;
-	}
-
-	int z = 0x00800000 >> less_bits;
+	uint32_t z = 0x00C00000 >> less_bits;
 	int64_t halfsp = sp >> 1;
 	halfsp <<= 23 - less_bits;
 	for (int i = 0; i < 6; ++i) {
-		z = (z >> 1) + (int)(halfsp / z);
+		z = (z >> 1) + (uint32_t)(halfsp / z);
 	}
 
 	val.u = ((k + 127) << 23) | ((z << less_bits) & 0x007FFFFF);
 	// The lower two bits never end up set on the PSP, it seems like.
 	val.u &= 0xFFFFFFFC;
+
+	return val.f;
+}
+
+static inline uint32_t mant_mul(uint32_t a, uint32_t b) {
+	uint64_t m = (uint64_t)a * (uint64_t)b;
+	if (m & 0x007FFFFF) {
+		m += 0x01437000;
+	}
+	return m >> 23;
+}
+
+float vfpu_rsqrt(float a) {
+	union float2int {
+		uint32_t u;
+		float f;
+	};
+	float2int val;
+	val.f = a;
+
+	if (val.u == 0x7f800000) {
+		return 0.0f;
+	}
+	if ((val.u & 0x7fffffff) > 0x7f800000) {
+		val.u = (val.u & 0x80000000) | 0x7f800001;
+		return val.f;
+	}
+	if ((val.u & 0x7f800000) == 0) {
+		val.u = (val.u & 0x80000000) | 0x7f800000;
+		return val.f;
+	}
+	if (val.u & 0x80000000) {
+		val.u = 0xff800001;
+		return val.f;
+	}
+
+	int k = get_exp(val.u);
+	uint32_t sp = get_mant(val.u);
+	int less_bits = k & 1;
+	k = -(k >> 1);
+
+	uint32_t z = 0x00800000 >> less_bits;
+	uint32_t halfsp = sp >> (1 + less_bits);
+	for (int i = 0; i < 6; ++i) {
+		uint32_t oldz = z;
+		uint32_t zsq = mant_mul(z, z);
+		uint32_t correction = 0x00C00000 - mant_mul(halfsp, zsq);
+		z = mant_mul(z, correction);
+	}
+
+	int8_t shift = (int8_t)clz32_nonzero(z) - 8 + less_bits;
+	if (shift < 1) {
+		z >>= -shift;
+		k += -shift;
+	} else if (shift > 0) {
+		z <<= shift;
+		k -= shift;
+	}
+
+	z >>= less_bits;
+
+	val.u = ((k + 127) << 23) | (z & 0x007FFFFF);
+	val.u &= 0xFFFFFFFC;
+
 	return val.f;
 }

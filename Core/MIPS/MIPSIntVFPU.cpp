@@ -618,13 +618,13 @@ namespace MIPSInt
 			case 4: if (s[i] <= 0) d[i] = 0; else {if(s[i] > 1.0f) d[i] = 1.0f; else d[i] = s[i];} break;    // vsat0
 			case 5: if (s[i] < -1.0f) d[i] = -1.0f; else {if(s[i] > 1.0f) d[i] = 1.0f; else d[i] = s[i];} break;  // vsat1
 			case 16: d[i] = 1.0f / s[i]; break; //vrcp
-			case 17: d[i] = USE_VPFU_SQRT ? 1.0f / vfpu_sqrt(s[i]) : 1.0f / sqrtf(s[i]); break; //vrsq
+			case 17: d[i] = USE_VPFU_SQRT ? vfpu_rsqrt(s[i]) : 1.0f / sqrtf(s[i]); break; //vrsq
 				
 			case 18: { d[i] = vfpu_sin(s[i]); } break; //vsin
 			case 19: { d[i] = vfpu_cos(s[i]); } break; //vcos
 			case 20: d[i] = powf(2.0f, s[i]); break; //vexp2
 			case 21: d[i] = logf(s[i])/log(2.0f); break; //vlog2
-			case 22: d[i] = USE_VPFU_SQRT ? fabsf(vfpu_sqrt(s[i]))  : fabsf(sqrtf(s[i])); break; //vsqrt
+			case 22: d[i] = USE_VPFU_SQRT ? vfpu_sqrt(s[i])  : fabsf(sqrtf(s[i])); break; //vsqrt
 			case 23: d[i] = asinf(s[i]) / M_PI_2; break; //vasin
 			case 24: d[i] = -1.0f / s[i]; break; // vnrcp
 			case 26: { d[i] = -vfpu_sin(s[i]); } break; // vnsin
