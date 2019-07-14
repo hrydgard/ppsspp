@@ -285,14 +285,15 @@ void UpdateNativeMenuKeys() {
 	int confirmKey = g_Config.iButtonPreference == PSP_SYSTEMPARAM_BUTTON_CROSS ? CTRL_CROSS : CTRL_CIRCLE;
 	int cancelKey = g_Config.iButtonPreference == PSP_SYSTEMPARAM_BUTTON_CROSS ? CTRL_CIRCLE : CTRL_CROSS;
 
-	KeyFromPspButton(confirmKey, &confirmKeys);
-	KeyFromPspButton(cancelKey, &cancelKeys);
-	KeyFromPspButton(CTRL_LTRIGGER, &tabLeft);
-	KeyFromPspButton(CTRL_RTRIGGER, &tabRight);
-	KeyFromPspButton(CTRL_UP, &upKeys);
-	KeyFromPspButton(CTRL_DOWN, &downKeys);
-	KeyFromPspButton(CTRL_LEFT, &leftKeys);
-	KeyFromPspButton(CTRL_RIGHT, &rightKeys);
+	// Mouse mapping might be problematic in UI, so let's ignore mouse for UI
+	KeyFromPspButton(confirmKey, &confirmKeys, true);
+	KeyFromPspButton(cancelKey, &cancelKeys, true);
+	KeyFromPspButton(CTRL_LTRIGGER, &tabLeft, true);
+	KeyFromPspButton(CTRL_RTRIGGER, &tabRight, true);
+	KeyFromPspButton(CTRL_UP, &upKeys, true);
+	KeyFromPspButton(CTRL_DOWN, &downKeys, true);
+	KeyFromPspButton(CTRL_LEFT, &leftKeys, true);
+	KeyFromPspButton(CTRL_RIGHT, &rightKeys, true);
 
 #ifdef __ANDROID__
 	// Hardcode DPAD on Android
@@ -790,11 +791,12 @@ bool KeyToPspButton(int deviceId, int key, std::vector<int> *pspKeys) {
 }
 
 // TODO: vector output
-bool KeyFromPspButton(int btn, std::vector<KeyDef> *keys) {
+bool KeyFromPspButton(int btn, std::vector<KeyDef> *keys, bool ignoreMouse) {
 	for (auto iter = g_controllerMap.begin(); iter != g_controllerMap.end(); ++iter) {
 		if (iter->first == btn) {
 			for (auto iter2 = iter->second.begin(); iter2 != iter->second.end(); ++iter2) {
-				keys->push_back(*iter2);
+				if (!ignoreMouse || iter2->deviceId != DEVICE_ID_MOUSE)
+					keys->push_back(*iter2);
 			}
 		}
 	}
@@ -915,7 +917,7 @@ void SaveToIni(IniFile &file) {
 
 	for (size_t i = 0; i < ARRAY_SIZE(psp_button_names); i++) {
 		std::vector<KeyDef> keys;
-		KeyFromPspButton(psp_button_names[i].key, &keys);
+		KeyFromPspButton(psp_button_names[i].key, &keys, false);
 
 		std::string value;
 		for (size_t j = 0; j < keys.size(); j++) {

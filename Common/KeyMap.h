@@ -106,7 +106,7 @@ namespace KeyMap {
 	// buttons. You should have already translated
 	// your platform's keys to KeyMap keys.
 	bool KeyToPspButton(int deviceId, int key, std::vector<int> *pspKeys);
-	bool KeyFromPspButton(int btn, std::vector<KeyDef> *keys);
+	bool KeyFromPspButton(int btn, std::vector<KeyDef> *keys, bool ignoreMouse);
 
 	int TranslateKeyCodeToAxis(int keyCode, int &direction);
 	int TranslateKeyCodeFromAxis(int axisId, int direction);
