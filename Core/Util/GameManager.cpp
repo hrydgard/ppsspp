@@ -16,6 +16,8 @@
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
 #include <algorithm>
+#include <cctype>
+#include <string>
 #include <set>
 #include <cstring>
 #include <thread>
@@ -74,7 +76,7 @@ bool GameManager::DownloadAndInstall(std::string storeFileUrl) {
 	return true;
 }
 
-bool GameManager::CancelDownload() { 
+bool GameManager::CancelDownload() {
 	if (!curDownload_)
 		return false;
 
@@ -89,30 +91,30 @@ bool GameManager::Uninstall(std::string name) {
 		return false;
 	}
 	std::string gameDir = GetSysDirectory(DIRECTORY_GAME) + name;
-	INFO_LOG(HLE, "Deleting %s", gameDir.c_str());
+	INFO_LOG(HLE, "Deleting '%s'", gameDir.c_str());
 	if (!File::Exists(gameDir)) {
-		ERROR_LOG(HLE, "Game %s not installed, cannot uninstall", name.c_str());
+		ERROR_LOG(HLE, "Game '%s' not installed, cannot uninstall", name.c_str());
 		return false;
 	}
 
 	bool success = File::DeleteDirRecursively(gameDir);
 	if (success) {
-		INFO_LOG(HLE, "Successfully deleted game %s", name.c_str());
+		INFO_LOG(HLE, "Successfully deleted game '%s'", name.c_str());
 		g_Config.CleanRecent();
 		return true;
 	} else {
-		ERROR_LOG(HLE, "Failed to delete game %s", name.c_str());
+		ERROR_LOG(HLE, "Failed to delete game '%s'", name.c_str());
 		return false;
 	}
 }
 
 void GameManager::Update() {
 	if (curDownload_.get() && curDownload_->Done()) {
-		INFO_LOG(HLE, "Download completed! Status = %i", curDownload_->ResultCode());
+		INFO_LOG(HLE, "Download completed! Status = %d", curDownload_->ResultCode());
 		std::string fileName = curDownload_->outfile();
 		if (curDownload_->ResultCode() == 200) {
 			if (!File::Exists(fileName)) {
-				ERROR_LOG(HLE, "Downloaded file %s does not exist :(", fileName.c_str());
+				ERROR_LOG(HLE, "Downloaded file '%s' does not exist :(", fileName.c_str());
 				curDownload_.reset();
 				return;
 			}
@@ -155,6 +157,12 @@ ZipFileContents DetectZipFileContents(std::string fileName, ZipFileInfo *info) {
 	return retVal;
 }
 
+inline char asciitolower(char in) {
+	if (in <= 'Z' && in >= 'A')
+		return in - ('Z' - 'z');
+	return in;
+}
+
 ZipFileContents DetectZipFileContents(struct zip *z, ZipFileInfo *info) {
 	int numFiles = zip_get_num_files(z);
 
@@ -169,18 +177,19 @@ ZipFileContents DetectZipFileContents(struct zip *z, ZipFileInfo *info) {
 	for (int i = 0; i < numFiles; i++) {
 		const char *fn = zip_get_name(z, i, 0);
 		std::string zippedName = fn;
-		if (zippedName.find("EBOOT.PBP") != std::string::npos) {
+		std::transform(zippedName.begin(), zippedName.end(), zippedName.begin(),
+			[](unsigned char c) { return asciitolower(c); });  // Not using std::tolower to avoid Turkish I->ı conversion.
+		if (zippedName.find("eboot.pbp") != std::string::npos) {
 			int slashCount = 0;
 			int slashLocation = -1;
 			countSlashes(zippedName, &slashLocation, &slashCount);
-			// TODO: Rewrite this...
 			if (slashCount >= 1 && (!isPSPMemstickGame || slashLocation < stripChars + 1)) {
 				stripChars = slashLocation + 1;
 				isPSPMemstickGame = true;
 			} else {
-				INFO_LOG(HLE, "Wrong number of slashes (%i) in %s", slashCount, zippedName.c_str());
+				INFO_LOG(HLE, "Wrong number of slashes (%i) in '%s'", slashCount, fn);
 			}
-		} else if (endsWithNoCase(zippedName, ".iso") || endsWithNoCase(zippedName, ".cso")) {
+		} else if (endsWith(zippedName, ".iso") || endsWith(zippedName, ".cso")) {
 			int slashCount = 0;
 			int slashLocation = -1;
 			countSlashes(zippedName, &slashLocation, &slashCount);
@@ -205,14 +214,14 @@ ZipFileContents DetectZipFileContents(struct zip *z, ZipFileInfo *info) {
 	}
 }
 
-bool GameManager::InstallGame(std::string url, std::string fileName, bool deleteAfter) {
+bool GameManager::InstallGame(const std::string &url, const std::string &fileName, bool deleteAfter) {
 	if (installInProgress_) {
 		ERROR_LOG(HLE, "Cannot have two installs in progress at the same time");
 		return false;
 	}
 
 	if (!File::Exists(fileName)) {
-		ERROR_LOG(HLE, "Game file %s doesn't exist", fileName.c_str());
+		ERROR_LOG(HLE, "Game file '%s' doesn't exist", fileName.c_str());
 		return false;
 	}
 
@@ -235,7 +244,7 @@ bool GameManager::InstallGame(std::string url, std::string fileName, bool delete
 	struct zip *z = zip_open(fileName.c_str(), 0, &error);
 #endif
 	if (!z) {
-		ERROR_LOG(HLE, "Failed to open ZIP file %s, error code=%i", fileName.c_str(), error);
+		ERROR_LOG(HLE, "Failed to open ZIP file '%s', error code=%i", fileName.c_str(), error);
 		return false;
 	}
 
@@ -276,21 +285,28 @@ bool GameManager::ExtractFile(struct zip *z, int file_index, std::string outFile
 		const size_t blockSize = 1024 * 128;
 		u8 *buffer = new u8[blockSize];
 		while (pos < size) {
-			size_t bs = std::min(blockSize, size - pos);
-			zip_fread(zf, buffer, bs);
-			size_t written = fwrite(buffer, 1, bs, f);
-			if (written != bs) {
-				ERROR_LOG(HLE, "Wrote %d bytes out of %d - Disk full?", (int)written, (int)bs);
+			size_t readSize = std::min(blockSize, size - pos);
+			ssize_t retval = zip_fread(zf, buffer, readSize);
+			if (retval < readSize) {
+				ERROR_LOG(HLE, "Failed to read %d bytes from zip (%d) - archive corrupt?", (int)readSize, (int)retval);
 				delete[] buffer;
-				buffer = 0;
 				fclose(f);
 				zip_fclose(zf);
 				File::Delete(outFilename.c_str());
 				return false;
 			}
-			pos += bs;
+			size_t written = fwrite(buffer, 1, readSize, f);
+			if (written != readSize) {
+				ERROR_LOG(HLE, "Wrote %d bytes out of %d - Disk full?", (int)written, (int)readSize);
+				delete[] buffer;
+				fclose(f);
+				zip_fclose(zf);
+				File::Delete(outFilename.c_str());
+				return false;
+			}
+			pos += readSize;
 
-			*bytesCopied += bs;
+			*bytesCopied += readSize;
 			installProgress_ = (float)*bytesCopied / (float)allBytes;
 		}
 		zip_fclose(zf);
@@ -370,10 +386,7 @@ bail:
 	installProgress_ = 0.0f;
 	installInProgress_ = false;
 	installError_ = sy->T("Storage full");
-	// Should we really delete in this case???
-	if (deleteAfter) {
-		File::Delete(zipfile.c_str());
-	}
+	// We don't delete the original in this case. Try to delete the files we created so far.
 	for (size_t i = 0; i < createdFiles.size(); i++) {
 		File::Delete(createdFiles[i].c_str());
 	}
@@ -427,7 +440,7 @@ bool GameManager::InstallGameOnThread(std::string url, std::string fileName, boo
 	return true;
 }
 
-bool GameManager::InstallRawISO(std::string file, std::string originalName, bool deleteAfter) {
+bool GameManager::InstallRawISO(const std::string &file, const std::string &originalName, bool deleteAfter) {
 	std::string destPath = g_Config.currentDirectory + "/" + originalName;
 	// TODO: To save disk space, we should probably attempt a move first.
 	if (File::Copy(file, destPath)) {
