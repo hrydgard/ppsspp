@@ -597,7 +597,7 @@ bool IniFile::Save(const char* filename)
 	out << "\xEF\xBB\xBF";
 
 	for (const Section &section : sections) {
-		if (!section.name().empty()) {
+		if (!section.name().empty() && (!section.lines.empty() || !section.comment.empty())) {
 			out << "[" << section.name() << "]" << section.comment << std::endl;
 		}
 
