@@ -1,4 +1,10 @@
-if(NOT EXISTS "/opt/vc/include/bcm_host.h")
+file(READ "/sys/firmware/devicetree/base/compatible" PPSSPP_PI_MODEL)
+
+if(PPSSPP_PI_MODEL MATCHES "raspberrypi,4")
+  set(PPSSPP_PI_MODEL4 ON)
+endif()
+
+if(NOT PPSSPP_PI_MODEL4 AND NOT EXISTS "/opt/vc/include/bcm_host.h")
   message(FATAL_ERROR "RaspberryPI platform not recognized")
 endif()
 
@@ -8,21 +14,29 @@ include_directories(SYSTEM
   /opt/vc/include/interface/vmcx_host/linux
 )
 
-add_definitions(
-  -DPPSSPP_PLATFORM_RPI=1
-  -U__GCC_HAVE_SYNC_COMPARE_AND_SWAP_2
-)
+if(NOT PPSSPP_PI_MODEL4)
+  add_definitions(
+    -DPPSSPP_PLATFORM_RPI=1
+    -U__GCC_HAVE_SYNC_COMPARE_AND_SWAP_2
+  )
+endif()
 
-set(ARCH_FLAGS "-mcpu=cortex-a7 -mfpu=neon -mfloat-abi=hard")
+if(PPSSPP_PI_MODEL4)
+  set(ARCH_FLAGS "-march=armv7-a -mcpu=cortex-a72 -mtune=cortex-a72 -mfpu=neon-vfpv4 -mfloat-abi=hard")
+else()
+  set(ARCH_FLAGS "-mcpu=cortex-a7 -mfpu=neon -mfloat-abi=hard")
+endif()
 set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${ARCH_FLAGS}"  CACHE STRING "" FORCE)
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${ARCH_FLAGS}" CACHE STRING "" FORCE)
 set(CMAKE_ASM_FLAGS "${CMAKE_ASM_FLAGS} ${ARCH_FLAGS}" CACHE STRING "" FORCE)
 
 set(CMAKE_EXE_LINKER_FLAGS "-L/opt/vc/lib" CACHE STRING "" FORCE)
 
-set(OPENGL_LIBRARIES brcmGLESv2 bcm_host)
-set(EGL_LIBRARIES brcmEGL)
+if(NOT PPSSPP_PI_MODEL4)
+  set(OPENGL_LIBRARIES brcmGLESv2 bcm_host)
+  set(EGL_LIBRARIES brcmEGL)
+  set(USING_FBDEV ON)
+endif()
 set(USING_GLES2 ON)
-set(USING_FBDEV ON)
 set(ARMV7 ON)
 set(USE_WAYLAND_WSI OFF)

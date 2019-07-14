@@ -31,6 +31,8 @@ enum class GameManagerState {
 	INSTALLING,
 };
 
+struct zip;
+
 class GameManager {
 public:
 	GameManager();
@@ -64,11 +66,15 @@ public:
 	}
 
 	// Only returns false if there's already an installation in progress.
-	bool InstallGameOnThread(std::string zipFile, bool deleteAfter);
+	bool InstallGameOnThread(std::string url, std::string tempFileName, bool deleteAfter);
 
 private:
-	bool InstallGame(std::string zipfile, bool deleteAfter = false);
+	bool InstallGame(const std::string &url, const std::string &tempFileName, bool deleteAfter);
+	bool InstallMemstickGame(struct zip *z, std::string zipFile, std::string pspGame, int numFiles, int stripChars, bool deleteAfter);
+	bool InstallZippedISO(struct zip *z, int isoFileIndex, std::string zipfile, bool deleteAfter);
+	bool InstallRawISO(const std::string &zipFile, const std::string &originalName, bool deleteAfter);
 	void InstallDone();
+	bool ExtractFile(struct zip *z, int file_index, std::string outFilename, size_t *bytesCopied, size_t allBytes);
 
 	std::string GetTempFilename() const;
 	std::shared_ptr<http::Download> curDownload_;
@@ -79,3 +85,18 @@ private:
 };
 
 extern GameManager g_GameManager;
+
+enum class ZipFileContents {
+	UNKNOWN,
+	PSP_GAME_DIR,
+	ISO_FILE,
+};
+
+struct ZipFileInfo {
+	int numFiles;
+	int stripChars;  // for PSP game
+	int isoFileIndex;  // for ISO
+};
+
+ZipFileContents DetectZipFileContents(struct zip *z, ZipFileInfo *info);
+ZipFileContents DetectZipFileContents(std::string fileName, ZipFileInfo *info);

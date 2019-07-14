@@ -26,7 +26,6 @@ class InputDevice {
 public:
 	enum { UPDATESTATE_SKIP_PAD = 0x1234};
 	virtual int UpdateState() = 0;
-	virtual bool IsPad() = 0;
 
 	static void BeginPolling();
 	static void StopPolling();

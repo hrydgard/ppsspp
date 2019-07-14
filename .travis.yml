@@ -4,27 +4,38 @@ sudo: required
 
 language: cpp
 
-dist: trusty
+dist: xenial
 
 addons:
   apt:
+    update: true
     packages:
+      - ant
+      - aria2
       - build-essential
+      - cmake
       - libgl1-mesa-dev
       - libglu1-mesa-dev
-      - cmake
-      - aria2
-      - ant
-      - lib32stdc++6
-      - lib32z1
-      - lib32z1-dev
-      - lib32bz2-1.0
+      - libsdl2-dev
+      - pv
+      - software-properties-common
+    sources:
+      - sourceline: 'ppa:zoogie/sdl2-snapshots'
+      - sourceline: 'ppa:ubuntu-toolchain-r/test'
+      - sourceline: 'ppa:ubuntu-sdk-team/ppa'
+  homebrew:
+    update: true
+    packages:
+      - ccache
+      - python
+      - sdl2
 
 cache:
   apt: true
   ccache: true
   directories:
     - $HOME/Library/Caches/Homebrew
+    - $HOME/clcache
 
 # By encrypting the channel name, we disable notifications from forks by default.
 # It's not actually a big secret.
@@ -75,19 +86,22 @@ matrix:
       env: PPSSPP_BUILD_TYPE=Linux
            LIBRETRO=TRUE
     - os: osx
-      osx_image: xcode8
+      osx_image: xcode8.3
       compiler: "clang"
       env: PPSSPP_BUILD_TYPE=macOS
     - os: osx
-      osx_image: xcode8
+      osx_image: xcode8.3
       compiler: "clang"
       env: PPSSPP_BUILD_TYPE=iOS
+    - os: windows
+      compiler: "msvc2017"
+      env: PPSSPP_BUILD_TYPE=Windows
 
 before_install:
-  - bash .travis.sh travis_before_install
+  - travis_retry bash .travis.sh travis_before_install
 
 install:
-  - bash .travis.sh travis_install
+  - travis_retry bash .travis.sh travis_install
 
 script:
   - bash .travis.sh travis_script

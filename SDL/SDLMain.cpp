@@ -426,12 +426,6 @@ int main(int argc, char *argv[]) {
 		}
 	}
 
-	// TODO: How do we get this into the GraphicsContext?
-#ifdef USING_EGL
-	if (EGL_Open())
-		return 1;
-#endif
-
 	// Get the video info before doing anything else, so we don't get skewed resolution results.
 	// TODO: support multiple displays correctly
 	SDL_DisplayMode displayMode;

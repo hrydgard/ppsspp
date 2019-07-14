@@ -26,7 +26,7 @@
 
 class InstallZipScreen : public UIDialogScreenWithBackground {
 public:
-	InstallZipScreen(std::string zipPath) : installChoice_(0), doneView_(0), zipPath_(zipPath), installStarted_(false), deleteZipFile_(false) {}
+	InstallZipScreen(std::string zipPath) : zipPath_(zipPath) {}
 	virtual void update() override;
 	virtual bool key(const KeyInput &key) override;
 
@@ -36,12 +36,12 @@ protected:
 private:
 	UI::EventReturn OnInstall(UI::EventParams &params);
 
-	UI::Choice *installChoice_;
-	UI::Choice *backChoice_;
-	UI::ProgressBar *progressBar_;
-	UI::TextView *doneView_;
+	UI::Choice *installChoice_ = nullptr;
+	UI::Choice *backChoice_ = nullptr;
+	UI::ProgressBar *progressBar_ = nullptr;
+	UI::TextView *doneView_ = nullptr;
 	std::string zipPath_;
-	bool installStarted_;
-	bool deleteZipFile_;
+	bool installStarted_ = false;
+	bool deleteZipFile_ = false;
 };
 

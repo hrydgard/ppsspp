@@ -720,6 +720,8 @@ u32 GPUCommon::EnqueueList(u32 listpc, u32 stall, int subIntrBase, PSPPointer<Ps
 			if (currentList->state != PSP_GE_DL_STATE_PAUSED)
 				return SCE_KERNEL_ERROR_INVALID_VALUE;
 			currentList->state = PSP_GE_DL_STATE_QUEUED;
+			// Make sure we clear the signal so we don't try to pause it again.
+			currentList->signal = PSP_GE_SIGNAL_NONE;
 		}
 
 		dl.state = PSP_GE_DL_STATE_PAUSED;
@@ -789,8 +791,7 @@ u32 GPUCommon::Continue() {
 
 	if (currentList->state == PSP_GE_DL_STATE_PAUSED)
 	{
-		if (!isbreak)
-		{
+		if (!isbreak) {
 			// TODO: Supposedly this returns SCE_KERNEL_ERROR_BUSY in some case, previously it had
 			// currentList->signal == PSP_GE_SIGNAL_HANDLER_PAUSE, but it doesn't reproduce.
 
@@ -802,9 +803,10 @@ u32 GPUCommon::Continue() {
 
 			// We have a list now, so it's not complete.
 			drawCompleteTicks = (u64)-1;
-		}
-		else
+		} else {
 			currentList->state = PSP_GE_DL_STATE_QUEUED;
+			currentList->signal = PSP_GE_SIGNAL_NONE;
+		}
 	}
 	else if (currentList->state == PSP_GE_DL_STATE_RUNNING)
 	{
@@ -2453,6 +2455,14 @@ void GPUCommon::InterruptEnd(int listid) {
 		}
 		dl.waitTicks = 0;
 		__GeTriggerWait(GPU_SYNC_LIST, listid);
+
+		// Make sure the list isn't still queued since it's now completed.
+		if (!dlQueue.empty()) {
+			if (listid == dlQueue.front())
+				PopDLQueue();
+			else
+				dlQueue.remove(listid);
+		}
 	}
 
 	ProcessDLQueue();

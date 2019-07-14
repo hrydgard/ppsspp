@@ -24,6 +24,8 @@
 #include "Core/Replay.h"
 #include "Core/FileSystems/FileSystem.h"
 #include "Core/HLE/sceCtrl.h"
+#include "Core/HLE/sceKernelTime.h"
+#include "Core/HLE/sceRtc.h"
 
 enum class ReplayState {
 	IDLE,
@@ -31,19 +33,42 @@ enum class ReplayState {
 	SAVE,
 };
 
+// Overall structure of file format:
+//
+// - ReplayFileHeader with basic data about replay (mostly timestamp for sync.)
+// - An indeterminate sequence of events:
+//   - ReplayItemHeader (primary event details)
+//   - Side data of bytes listed in header, if SIDEDATA flag set on action.
+//
+// The header doesn't say how long the replay is, because new events are
+// appended to the file as they occur.  It is usually near, and always less than:
+//
+// (fileSize - sizeof(ReplayFileHeader)) / sizeof(ReplayItemHeader)
+
 // File data formats below.
 #pragma pack(push, 1)
 
+static const char *REPLAY_MAGIC = "PPREPLAY";
+static const int REPLAY_VERSION_MIN = 1;
+static const int REPLAY_VERSION_CURRENT = 1;
+
+struct ReplayFileHeader {
+	char magic[8];
+	u32_le version = REPLAY_VERSION_CURRENT;
+	u32_le reserved[3]{};
+	u64_le rtcBaseSeconds;
+};
+
 struct ReplayItemHeader {
 	ReplayAction action;
-	uint64_t timestamp;
+	u64_le timestamp;
 	union {
-		uint32_t buttons;
+		u32_le buttons;
 		uint8_t analog[2][2];
-		uint32_t result;
-		uint64_t result64;
+		u32_le result;
+		u64_le result64;
 		// NOTE: Certain action types have data, always sized by this/result.
-		uint32_t size;
+		u32_le size;
 	};
 
 	ReplayItemHeader(ReplayAction a, uint64_t t) {
@@ -68,14 +93,14 @@ static const int REPLAY_MAX_FILENAME = 256;
 
 struct ReplayFileInfo {
 	char filename[REPLAY_MAX_FILENAME]{};
-	int64_t size = 0;
-	uint16_t access = 0;
+	s64_le size = 0;
+	u16_le access = 0;
 	uint8_t exists = 0;
 	uint8_t isDirectory = 0;
 
-	int64_t atime = 0;
-	int64_t ctime = 0;
-	int64_t mtime = 0;
+	s64_le atime = 0;
+	s64_le ctime = 0;
+	s64_le mtime = 0;
 };
 
 #pragma pack(pop)
@@ -93,6 +118,7 @@ static std::vector<ReplayItem> replayItems;
 static size_t replayExecPos = 0;
 static bool replaySaveWroteHeader = false;
 static ReplayState replayState = ReplayState::IDLE;
+static bool replaySawGameDirWrite = false;
 
 static size_t replayCtrlPos = 0;
 static uint32_t lastButtons = 0;
@@ -100,8 +126,6 @@ static uint8_t lastAnalog[2][2]{};
 
 static size_t replayDiskPos = 0;
 static bool diskFailed = false;
-
-// TODO: File format either needs rtc and rand seed, or must be paired with a save state.
 
 void ReplayExecuteBlob(const std::vector<u8> &data) {
 	ReplayAbort();
@@ -145,28 +169,52 @@ bool ReplayExecuteFile(const std::string &filename) {
 		return false;
 	}
 
-	// TODO: Header handling.
-	// Include initial rand state or timestamp?
-
-	// TODO: Maybe stream instead.
-	size_t sz = File::GetFileSize(fp);
-	if (sz == 0) {
-		ERROR_LOG(SYSTEM, "Empty replay data");
-		fclose(fp);
-		return false;
-	}
-
 	std::vector<u8> data;
-	data.resize(sz);
+	auto loadData = [&]() {
+		// TODO: Maybe stream instead.
+		size_t sz = File::GetFileSize(fp);
+		if (sz <= sizeof(ReplayFileHeader)) {
+			ERROR_LOG(SYSTEM, "Empty replay data");
+			return false;
+		}
 
-	if (fread(&data[0], sz, 1, fp) != 1) {
-		ERROR_LOG(SYSTEM, "Could not read replay data");
+		ReplayFileHeader fh;
+		if (fread(&fh, sizeof(fh), 1, fp) != 1) {
+			ERROR_LOG(SYSTEM, "Could not read replay file header");
+			return false;
+		}
+		sz -= sizeof(fh);
+
+		if (memcmp(fh.magic, REPLAY_MAGIC, sizeof(fh.magic)) != 0) {
+			ERROR_LOG(SYSTEM, "Replay header corrupt");
+			return false;
+		}
+
+		if (fh.version < REPLAY_VERSION_MIN) {
+			ERROR_LOG(SYSTEM, "Replay version %d unsupported", fh.version);
+			return false;
+		} else if (fh.version > REPLAY_VERSION_CURRENT) {
+			WARN_LOG(SYSTEM, "Replay version %d scary and futuristic, trying anyway", fh.version);
+		}
+
+		data.resize(sz);
+
+		if (fread(&data[0], sz, 1, fp) != 1) {
+			ERROR_LOG(SYSTEM, "Could not read replay data");
+			return false;
+		}
+
+		return true;
+	};
+
+	if (loadData()) {
 		fclose(fp);
-		return false;
+		ReplayExecuteBlob(data);
+		return true;
 	}
 
-	ReplayExecuteBlob(data);
-	return true;
+	fclose(fp);
+	return false;
 }
 
 bool ReplayHasMoreEvents() {
@@ -219,13 +267,18 @@ bool ReplayFlushFile(const std::string &filename) {
 		return false;
 	}
 
-	// TODO: Header handling.
-	// Include initial rand state or timestamp?
-	replaySaveWroteHeader = true;
+	bool success = true;
+	if (!replaySaveWroteHeader) {
+		ReplayFileHeader fh;
+		memcpy(fh.magic, REPLAY_MAGIC, sizeof(fh.magic));
+		fh.rtcBaseSeconds = RtcBaseTime();
+
+		success = fwrite(&fh, sizeof(fh), 1, fp) == 1;
+		replaySaveWroteHeader = true;
+	}
 
 	size_t c = replayItems.size();
-	bool success = true;
-	if (c != 0) {
+	if (success && c != 0) {
 		// TODO: Maybe stream instead.
 		std::vector<u8> data;
 		ReplayFlushBlob(&data);
@@ -247,6 +300,7 @@ void ReplayAbort() {
 	replayExecPos = 0;
 	replaySaveWroteHeader = false;
 	replayState = ReplayState::IDLE;
+	replaySawGameDirWrite = false;
 
 	replayCtrlPos = 0;
 	lastButtons = 0;
@@ -387,7 +441,12 @@ uint64_t ReplayApplyDisk64(ReplayAction action, uint64_t result, uint64_t t) {
 	}
 }
 
-uint32_t ReplayApplyDiskRead(void *data, uint32_t readSize, uint32_t dataSize, uint64_t t) {
+uint32_t ReplayApplyDiskRead(void *data, uint32_t readSize, uint32_t dataSize, bool inGameDir, uint64_t t) {
+	// Ignore PSP/GAME reads if we haven't seen a write there.
+	if (inGameDir && !replaySawGameDirWrite) {
+		return readSize;
+	}
+
 	switch (replayState) {
 	case ReplayState::EXECUTE:
 	{
@@ -411,6 +470,23 @@ uint32_t ReplayApplyDiskRead(void *data, uint32_t readSize, uint32_t dataSize, u
 	case ReplayState::IDLE:
 	default:
 		return readSize;
+	}
+}
+
+uint64_t ReplayApplyDiskWrite(const void *data, uint64_t writeSize, uint64_t dataSize, bool *diskFull, bool inGameDir, uint64_t t) {
+	switch (replayState) {
+	case ReplayState::EXECUTE:
+	case ReplayState::SAVE:
+		// Never let the disk return full during replay.
+		if (diskFull)
+			*diskFull = false;
+		if (inGameDir)
+			replaySawGameDirWrite = true;
+		return writeSize;
+
+	case ReplayState::IDLE:
+	default:
+		return writeSize;
 	}
 }
 

@@ -54,9 +54,8 @@ enum class IdentifiedFileType {
 	UNKNOWN,
 };
 
-
-class FileLoader {
 // NB: It is a REQUIREMENT that implementations of this class are entirely thread safe!
+class FileLoader {
 public:
 	enum class Flags {
 		NONE,

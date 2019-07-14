@@ -17,12 +17,8 @@
 #if !PPSSPP_PLATFORM(UWP)
 
 typedef DWORD (WINAPI *XInputGetState_t) (DWORD dwUserIndex, XINPUT_STATE* pState);
-typedef DWORD (WINAPI *XInputSetState_t) (DWORD dwUserIndex, XINPUT_VIBRATION* pVibration);
-typedef DWORD (WINAPI *XInputGetCapabilities_t) (DWORD dwUserIndex, DWORD dwFlags, XINPUT_CAPABILITIES* pCapabilities);
 
 static XInputGetState_t PPSSPP_XInputGetState = NULL;
-static XInputSetState_t PPSSPP_XInputSetState = NULL;
-static XInputGetCapabilities_t PPSSPP_XInputGetCapabilities = NULL;
 static DWORD PPSSPP_XInputVersion = 0;
 static HMODULE s_pXInputDLL = 0;
 static int s_XInputDLLRefCount = 0;
@@ -42,6 +38,10 @@ static int LoadXInputDLL() {
 	if (!s_pXInputDLL) {
 		version = (1 << 16) | 3;
 		s_pXInputDLL = LoadLibrary( L"XInput1_3.dll" );  // 1.3 Ships with Vista and Win7, can be installed as a restributable component.
+		if (!s_pXInputDLL) {
+			version = (1 << 16) | 0;
+			s_pXInputDLL = LoadLibrary( L"XInput9_1_0.dll" );  // 1.0 ships with any Windows since WinXP
+		}
 	}
 	if (!s_pXInputDLL) {
 		return -1;
@@ -50,11 +50,17 @@ static int LoadXInputDLL() {
 	PPSSPP_XInputVersion = version;
 	s_XInputDLLRefCount = 1;
 
-	/* 100 is the ordinal for _XInputGetStateEx, which returns the same struct as XinputGetState, but with extra data in wButtons for the guide button, we think... */
-	PPSSPP_XInputGetState = (XInputGetState_t)GetProcAddress( (HMODULE)s_pXInputDLL, (LPCSTR)100 );
-	PPSSPP_XInputSetState = (XInputSetState_t)GetProcAddress( (HMODULE)s_pXInputDLL, "XInputSetState" );
-	PPSSPP_XInputGetCapabilities = (XInputGetCapabilities_t)GetProcAddress( (HMODULE)s_pXInputDLL, "XInputGetCapabilities" );
-	if ( !PPSSPP_XInputGetState || !PPSSPP_XInputSetState || !PPSSPP_XInputGetCapabilities ) {
+	/* 100 is the ordinal for _XInputGetStateEx, which returns the same struct as XinputGetState, but with extra data in wButtons for the guide button, we think...
+	   Let's try the name first, though - then fall back to ordinal, then to a non-Ex version (xinput9_1_0.dll doesn't have Ex) */
+	PPSSPP_XInputGetState = (XInputGetState_t)GetProcAddress( (HMODULE)s_pXInputDLL, "XInputGetStateEx" );
+	if ( !PPSSPP_XInputGetState ) {
+		PPSSPP_XInputGetState = (XInputGetState_t)GetProcAddress( (HMODULE)s_pXInputDLL, (LPCSTR)100 );
+		if ( !PPSSPP_XInputGetState ) {
+			PPSSPP_XInputGetState = (XInputGetState_t)GetProcAddress( (HMODULE)s_pXInputDLL, "XInputGetState" );
+		}
+	}
+
+	if ( !PPSSPP_XInputGetState ) {
 		UnloadXInputDLL();
 		return -1;
 	}
@@ -75,8 +81,6 @@ static void UnloadXInputDLL() {
 static int LoadXInputDLL() { return 0; }
 static void UnloadXInputDLL() {}
 #define PPSSPP_XInputGetState XInputGetState
-#define PPSSPP_XInputSetState XInputSetState
-#define PPSSPP_XInputGetCapabilities XInputGetCapabilities
 #endif
 
 #ifndef XUSER_MAX_COUNT

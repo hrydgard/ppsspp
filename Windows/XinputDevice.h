@@ -4,12 +4,11 @@
 #include "Xinput.h"
 
 
-class XinputDevice : public InputDevice {
+class XinputDevice final : public InputDevice {
 public:
 	XinputDevice();
 	~XinputDevice();
-	virtual int UpdateState();
-	virtual bool IsPad() { return true; }
+	virtual int UpdateState() override;
 
 private:
 	void UpdatePad(int pad, const XINPUT_STATE &state);

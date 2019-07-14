@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="utf-8"?>
+﻿<?xml version="1.0" encoding="utf-8"?>
 <Project DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ItemGroup Label="ProjectConfigurations">
     <ProjectConfiguration Include="Debug|ARM">
@@ -740,7 +740,6 @@
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|ARM'">true</ExcludedFromBuild>
     </ClCompile>
     <ClCompile Include="InputDevice.cpp" />
-    <ClCompile Include="KeyboardDevice.cpp" />
     <ClCompile Include="MainWindowMenu.cpp" />
     <ClCompile Include="RawInput.cpp" />
     <ClCompile Include="TouchInputHandler.cpp" />
@@ -926,7 +925,6 @@
     </ClInclude>
     <ClInclude Include="GPU\WindowsGraphicsContext.h" />
     <ClInclude Include="InputDevice.h" />
-    <ClInclude Include="KeyboardDevice.h" />
     <ClInclude Include="MainWindowMenu.h" />
     <ClInclude Include="RawInput.h" />
     <ClInclude Include="TouchInputHandler.h" />

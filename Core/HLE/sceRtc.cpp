@@ -138,6 +138,10 @@ static time_t rtc_timegm(struct tm *tm)
 
 #endif
 
+static void RtcUpdateBaseTicks() {
+	rtcBaseTicks = 1000000ULL * rtcBaseTime.tv_sec + rtcBaseTime.tv_usec + rtcMagicOffset;
+}
+
 void __RtcInit()
 {
 	// This is the base time, the only case we use gettimeofday() for.
@@ -147,7 +151,7 @@ void __RtcInit()
 	rtcBaseTime.tv_sec = tv.tv_sec;
 	rtcBaseTime.tv_usec = 0;
 	// Precalculate the current time in microseconds (rtcMagicOffset is offset to 1970.)
-	rtcBaseTicks = 1000000ULL * rtcBaseTime.tv_sec + rtcBaseTime.tv_usec + rtcMagicOffset;
+	RtcUpdateBaseTicks();
 }
 
 void __RtcDoState(PointerWrap &p)
@@ -158,7 +162,7 @@ void __RtcDoState(PointerWrap &p)
 
 	p.Do(rtcBaseTime);
 	// Update the precalc, pointless to savestate this as it's just based on the other value.
-	rtcBaseTicks = 1000000ULL * rtcBaseTime.tv_sec + rtcBaseTime.tv_usec + rtcMagicOffset;
+	RtcUpdateBaseTicks();
 }
 
 void __RtcTimeOfDay(PSPTimeval *tv)
@@ -169,6 +173,19 @@ void __RtcTimeOfDay(PSPTimeval *tv)
 	s64 adjustedUs = additionalUs + tv->tv_usec;
 	tv->tv_sec += long(adjustedUs / 1000000UL);
 	tv->tv_usec = adjustedUs % 1000000UL;
+}
+
+int32_t RtcBaseTime(int32_t *micro) {
+	if (micro) {
+		*micro = rtcBaseTime.tv_usec;
+	}
+	return rtcBaseTime.tv_sec;
+}
+
+void RtcSetBaseTime(int32_t seconds, int32_t micro) {
+	rtcBaseTime.tv_sec = seconds;
+	rtcBaseTime.tv_usec = micro;
+	RtcUpdateBaseTicks();
 }
 
 static void __RtcTmToPspTime(ScePspDateTime &t, const tm *val)

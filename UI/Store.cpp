@@ -284,13 +284,16 @@ void ProductView::Update() {
 }
 
 UI::EventReturn ProductView::OnInstall(UI::EventParams &e) {
-	std::string zipUrl;
+	std::string fileUrl;
 	if (entry_.downloadURL.empty()) {
 		// Construct the URL, easy to predict from our server
-		zipUrl = storeBaseUrl + "files/" + entry_.file + ".zip";
+		std::string shortName = entry_.file;
+		if (shortName.find('.') == std::string::npos)
+			shortName += ".zip";
+		fileUrl = storeBaseUrl + "files/" + shortName;
 	} else {
 		// Use the provided URL, for external hosting.
-		zipUrl = entry_.downloadURL;
+		fileUrl = entry_.downloadURL;
 	}
 	if (installButton_) {
 		installButton_->SetEnabled(false);
@@ -298,8 +301,8 @@ UI::EventReturn ProductView::OnInstall(UI::EventParams &e) {
 	if (cancelButton_) {
 		cancelButton_->SetVisibility(UI::V_VISIBLE);
 	}
-	INFO_LOG(SYSTEM, "Triggering install of %s", zipUrl.c_str());
-	g_GameManager.DownloadAndInstall(zipUrl);
+	INFO_LOG(SYSTEM, "Triggering install of '%s'", fileUrl.c_str());
+	g_GameManager.DownloadAndInstall(fileUrl);
 	return UI::EVENT_DONE;
 }
 

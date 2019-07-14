@@ -379,6 +379,7 @@ int main(int argc, const char* argv[])
 	g_Config.bHighQualityDepth = true;
 	g_Config.bMemStickInserted = true;
 	g_Config.bFragmentTestCache = true;
+	g_Config.iAudioLatency = 1;
 
 #ifdef _WIN32
 	InitSysDirectories();

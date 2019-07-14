@@ -188,3 +188,7 @@ std::string KernelTimeNowFormatted() {
 	std::string timestamp = StringFromFormat("%04d-%02d-%02d_%02d-%02d-%02d", years, months, days, hours, minutes, seconds);
 	return timestamp;
 }
+
+void KernelTimeSetBase(int64_t seconds) {
+	start_time = (time_t)seconds;
+}

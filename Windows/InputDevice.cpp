@@ -15,28 +15,21 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
-#include <list>
 #include <thread>
-#include <memory>
-#include <mutex>
-#include <condition_variable>
+#include <atomic>
 
 #include "input/input_state.h"
 #include "thread/threadutil.h"
 #include "Core/Config.h"
 #include "Core/Host.h"
 #include "Windows/InputDevice.h"
-#include "Windows/WindowsHost.h"
 
-static volatile bool inputThreadStatus = false;
-static volatile bool inputThreadEnabled = false;
-static std::thread *inputThread = NULL;
-static std::mutex inputMutex;
-static std::condition_variable inputEndCond;
-static bool focused = true;
+static std::atomic_flag threadRunningFlag;
+static std::thread inputThread;
+static std::atomic_bool focused = true;
 
 inline static void ExecuteInputPoll() {
-	if (host && (focused || !g_Config.bGamepadOnlyFocused)) {
+	if (host && (focused.load(std::memory_order_relaxed) || !g_Config.bGamepadOnlyFocused)) {
 		host->PollControllers();
 	}
 }
@@ -47,40 +40,29 @@ static void RunInputThread() {
 	// NOTE: The keyboard and mouse buttons are handled via raw input, not here.
 	// This is mainly for controllers which need to be polled, instead of generating events.
 
-	while (inputThreadEnabled) {
+	while (threadRunningFlag.test_and_set(std::memory_order_relaxed)) {
 		ExecuteInputPoll();
 
 		// Try to update 250 times per second.
 		Sleep(4);
 	}
-
-	std::lock_guard<std::mutex> guard(inputMutex);
-	inputThreadStatus = false;
-	inputEndCond.notify_one();
 }
 
 void InputDevice::BeginPolling() {
-	std::lock_guard<std::mutex> guard(inputMutex);
-	inputThreadEnabled = true;
-	inputThread = new std::thread(&RunInputThread);
-	inputThread->detach();
+	threadRunningFlag.test_and_set(std::memory_order_relaxed);
+	inputThread = std::thread(&RunInputThread);
 }
 
 void InputDevice::StopPolling() {
-	inputThreadEnabled = false;
+	threadRunningFlag.clear(std::memory_order_relaxed);
 
-	std::unique_lock<std::mutex> guard(inputMutex);
-	if (inputThreadStatus) {
-		inputEndCond.wait(guard);
-	}
-	delete inputThread;
-	inputThread = NULL;
+	inputThread.join();
 }
 
 void InputDevice::GainFocus() {
-	focused = true;
+	focused.store(true, std::memory_order_relaxed);
 }
 
 void InputDevice::LoseFocus() {
-	focused = false;
+	focused.store(false, std::memory_order_relaxed);
 }

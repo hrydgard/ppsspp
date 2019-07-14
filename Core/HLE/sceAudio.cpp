@@ -248,10 +248,10 @@ static u32 sceAudioChRelease(u32 chan) {
 		ERROR_LOG(SCEAUDIO, "sceAudioChRelease(%i) - channel not reserved", chan);
 		return SCE_ERROR_AUDIO_CHANNEL_NOT_RESERVED;
 	}
-	DEBUG_LOG(SCEAUDIO, "sceAudioChRelease(%i)", chan);
+	// TODO: Does this error if busy?
 	chans[chan].reset();
 	chans[chan].reserved = false;
-	return 1;
+	return hleLogSuccessI(SCEAUDIO, 0);
 }
 
 static u32 sceAudioSetChannelDataLen(u32 chan, u32 len) {
@@ -329,6 +329,7 @@ static u32 sceAudioOutput2Reserve(u32 sampleCount) {
 	chan.sampleCount = sampleCount;
 	chan.format = PSP_AUDIO_FORMAT_STEREO;
 	chan.reserved = true;
+	__AudioSetSRCFrequency(0);
 	return hleLogSuccessI(SCEAUDIO, 0);
 }
 
@@ -339,11 +340,15 @@ static u32 sceAudioOutput2OutputBlocking(u32 vol, u32 dataPtr) {
 	}
 
 	auto &chan = chans[PSP_AUDIO_CHANNEL_OUTPUT2];
+	if (!chan.reserved) {
+		return hleLogError(SCEAUDIO, SCE_ERROR_AUDIO_CHANNEL_NOT_RESERVED, "channel not reserved");
+	}
+
 	chan.leftVolume = vol;
 	chan.rightVolume = vol;
 	chan.sampleAddress = dataPtr;
-	hleEatCycles(10000);
 
+	hleEatCycles(10000);
 	int result = __AudioEnqueue(chan, PSP_AUDIO_CHANNEL_OUTPUT2, true);
 	if (result < 0)
 		return hleLogError(SCEAUDIO, result);
@@ -351,22 +356,25 @@ static u32 sceAudioOutput2OutputBlocking(u32 vol, u32 dataPtr) {
 }
 
 static u32 sceAudioOutput2ChangeLength(u32 sampleCount) {
-	if (!chans[PSP_AUDIO_CHANNEL_OUTPUT2].reserved) {
-		ERROR_LOG(SCEAUDIO, "sceAudioOutput2ChangeLength(%08x) - channel not reserved ", sampleCount);
-		return SCE_ERROR_AUDIO_CHANNEL_NOT_RESERVED;
+	auto &chan = chans[PSP_AUDIO_CHANNEL_OUTPUT2];
+	if (!chan.reserved) {
+		return hleLogError(SCEAUDIO, SCE_ERROR_AUDIO_CHANNEL_NOT_RESERVED, "channel not reserved");
 	}
-	DEBUG_LOG(SCEAUDIO, "sceAudioOutput2ChangeLength(%08x)", sampleCount);
-	chans[PSP_AUDIO_CHANNEL_OUTPUT2].sampleCount = sampleCount;
-	return 0;
+	chan.sampleCount = sampleCount;
+	return hleLogSuccessI(SCEAUDIO, 0);
 }
 
 static u32 sceAudioOutput2GetRestSample() {
-	if (!chans[PSP_AUDIO_CHANNEL_OUTPUT2].reserved) {
-		ERROR_LOG(SCEAUDIO, "sceAudioOutput2GetRestSample() - channel not reserved ");
-		return SCE_ERROR_AUDIO_CHANNEL_NOT_RESERVED;
+	auto &chan = chans[PSP_AUDIO_CHANNEL_OUTPUT2];
+	if (!chan.reserved) {
+		return hleLogError(SCEAUDIO, SCE_ERROR_AUDIO_CHANNEL_NOT_RESERVED, "channel not reserved");
 	}
-	DEBUG_LOG(SCEAUDIO, "sceAudioOutput2GetRestSample()");
-	return (u32) chans[PSP_AUDIO_CHANNEL_OUTPUT2].sampleQueue.size() / 2;
+	u32 size = (u32)chan.sampleQueue.size() / 2;
+	if (size > chan.sampleCount) {
+		// If ChangeLength reduces the size, it still gets output but this return is clamped.
+		size = chan.sampleCount;
+	}
+	return hleLogSuccessI(SCEAUDIO, size);
 }
 
 static u32 sceAudioOutput2Release() {
@@ -382,6 +390,7 @@ static u32 sceAudioOutput2Release() {
 }
 
 static u32 sceAudioSetFrequency(u32 freq) {
+	// TODO: Not available from user code.
 	if (freq == 44100 || freq == 48000) {
 		INFO_LOG(SCEAUDIO, "sceAudioSetFrequency(%08x)", freq);
 		__AudioSetOutputFrequency(freq);
@@ -424,10 +433,8 @@ static u32 sceAudioSRCChReserve(u32 sampleCount, u32 freq, u32 format) {
 	chan.reserved = true;
 	chan.sampleCount = sampleCount;
 	chan.format = format == 2 ? PSP_AUDIO_FORMAT_STEREO : PSP_AUDIO_FORMAT_MONO;
-	// TODO: Zero probably means don't change?  Or it means default?
-	if (freq != 0) {
-		__AudioSetOutputFrequency(freq);
-	}
+	// Zero means default to 44.1kHz.
+	__AudioSetSRCFrequency(freq);
 	return hleLogSuccessI(SCEAUDIO, 0);
 }
 
@@ -449,6 +456,10 @@ static u32 sceAudioSRCOutputBlocking(u32 vol, u32 buf) {
 	}
 
 	auto &chan = chans[PSP_AUDIO_CHANNEL_SRC];
+	if (!chan.reserved) {
+		return hleLogError(SCEAUDIO, SCE_ERROR_AUDIO_CHANNEL_NOT_RESERVED, "channel not reserved");
+	}
+
 	chan.leftVolume = vol;
 	chan.rightVolume = vol;
 	chan.sampleAddress = buf;
@@ -511,7 +522,7 @@ const HLEFunction sceAudio[] =
 	{0X95FD0C2D, &WrapU_UU<sceAudioChangeChannelConfig>,    "sceAudioChangeChannelConfig",   'x', "ii"  },
 	{0XB7E1D8E7, &WrapU_UUU<sceAudioChangeChannelVolume>,   "sceAudioChangeChannelVolume",   'x', "ixx" },
 
-	// Not sure about the point of these, maybe like traditional but with ability to do sample rate conversion?
+	// Like Output2, but with ability to do sample rate conversion.
 	{0X38553111, &WrapU_UUU<sceAudioSRCChReserve>,          "sceAudioSRCChReserve",          'x', "iii" },
 	{0X5C37C0AE, &WrapU_V<sceAudioSRCChRelease>,            "sceAudioSRCChRelease",          'x', ""    },
 	{0XE0727056, &WrapU_UU<sceAudioSRCOutputBlocking>,      "sceAudioSRCOutputBlocking",     'x', "xx"  },
