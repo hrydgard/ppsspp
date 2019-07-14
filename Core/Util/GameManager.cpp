@@ -287,7 +287,7 @@ bool GameManager::ExtractFile(struct zip *z, int file_index, std::string outFile
 		while (pos < size) {
 			size_t readSize = std::min(blockSize, size - pos);
 			ssize_t retval = zip_fread(zf, buffer, readSize);
-			if (retval < readSize) {
+			if (retval < 0 || (size_t)retval < readSize) {
 				ERROR_LOG(HLE, "Failed to read %d bytes from zip (%d) - archive corrupt?", (int)readSize, (int)retval);
 				delete[] buffer;
 				fclose(f);
