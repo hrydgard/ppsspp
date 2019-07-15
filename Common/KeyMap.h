@@ -70,6 +70,7 @@ enum DefaultMaps {
 	DEFAULT_MAPPING_XPERIA_PLAY,
 };
 
+const float AXIS_BIND_THRESHOLD_MOUSE = 0.01f;
 typedef std::map<int, std::vector<KeyDef>> KeyMapping;
 
 // KeyMap
