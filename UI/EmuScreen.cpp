@@ -884,9 +884,10 @@ void EmuScreen::processAxis(const AxisInput &axis, int direction) {
 	KeyMap::AxisToPspButton(axis.deviceId, axis.axisId, -direction, &resultsOpposite);
 
 	int axisState = 0;
-	if ((direction == 1 && axis.value >= AXIS_BIND_THRESHOLD)) {
+	float threshold = g_Config.bMouseControl ? AXIS_BIND_THRESHOLD_MOUSE : AXIS_BIND_THRESHOLD;
+	if (direction == 1 && axis.value >= threshold) {
 		axisState = 1;
-	} else if (direction == -1 && axis.value <= -AXIS_BIND_THRESHOLD) {
+	} else if (direction == -1 && axis.value <= -threshold) {
 		axisState = -1;
 	} else {
 		axisState = 0;

@@ -71,6 +71,7 @@ enum DefaultMaps {
 };
 
 const float AXIS_BIND_THRESHOLD = 0.75f;
+const float AXIS_BIND_THRESHOLD_MOUSE = 0.01f;
 
 typedef std::map<int, std::vector<KeyDef>> KeyMapping;
 
