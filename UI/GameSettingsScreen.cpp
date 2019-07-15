@@ -555,7 +555,7 @@ void GameSettingsScreen::CreateViews() {
 	auto axisToButton = new PopupSliderChoiceFloat(&g_Config.fAxisBindThreshold, 0.01f, 0.96f, co->T("Axis to button threshold"), 0.05f, screenManager());
 	controlsSettings->Add(axisToButton);
 	axisToButton->OnChange.Add([=](EventParams &e) {
-		settingInfo_->Show(co->T("AxisToButton Tip", "Affects how far you have to push the stick(or move mouse on supported platforms) to trigger button mapped to it."), e.v);
+		settingInfo_->Show(co->T("AxisToButton Tip", "Affects how far you have to push the analog stick(not mouse) to trigger the PSP button mapped to it."), e.v);
 		return UI::EVENT_CONTINUE;
 	});
 

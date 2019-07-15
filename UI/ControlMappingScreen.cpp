@@ -385,7 +385,7 @@ bool KeyMappingNewKeyDialog::axis(const AxisInput &axis) {
 	if (IgnoreAxisForMapping(axis.axisId))
 		return false;
 
-	if (axis.value > g_Config.fAxisBindThreshold) {
+	if (axis.value > AXIS_BIND_THRESHOLD) {
 		mapped_ = true;
 		KeyDef kdf(axis.deviceId, KeyMap::TranslateKeyCodeFromAxis(axis.axisId, 1));
 		TriggerFinish(DR_OK);
@@ -393,7 +393,7 @@ bool KeyMappingNewKeyDialog::axis(const AxisInput &axis) {
 			callback_(kdf);
 	}
 
-	if (axis.value < -g_Config.fAxisBindThreshold) {
+	if (axis.value < -AXIS_BIND_THRESHOLD) {
 		mapped_ = true;
 		KeyDef kdf(axis.deviceId, KeyMap::TranslateKeyCodeFromAxis(axis.axisId, -1));
 		TriggerFinish(DR_OK);
@@ -409,7 +409,7 @@ bool KeyMappingNewMouseKeyDialog::axis(const AxisInput &axis) {
 	if (IgnoreAxisForMapping(axis.axisId))
 		return false;
 
-	if (axis.value > g_Config.fAxisBindThreshold) {
+	if (axis.value > AXIS_BIND_THRESHOLD) {
 		mapped_ = true;
 		KeyDef kdf(axis.deviceId, KeyMap::TranslateKeyCodeFromAxis(axis.axisId, 1));
 		TriggerFinish(DR_OK);
@@ -417,7 +417,7 @@ bool KeyMappingNewMouseKeyDialog::axis(const AxisInput &axis) {
 			callback_(kdf);
 	}
 
-	if (axis.value < -g_Config.fAxisBindThreshold) {
+	if (axis.value < -AXIS_BIND_THRESHOLD) {
 		mapped_ = true;
 		KeyDef kdf(axis.deviceId, KeyMap::TranslateKeyCodeFromAxis(axis.axisId, -1));
 		TriggerFinish(DR_OK);
