@@ -246,8 +246,8 @@ void WindowsHost::PollControllers() {
 		axisY.value = my;
 
 		if (GetUIState() == UISTATE_INGAME || g_Config.bMapMouse) {
-			if (fabsf(mx) > 0.01f) NativeAxis(axisX);
-			if (fabsf(my) > 0.01f) NativeAxis(axisY);
+			NativeAxis(axisX);
+			NativeAxis(axisY);
 		}
 	}
 
