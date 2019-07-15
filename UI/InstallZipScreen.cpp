@@ -63,13 +63,30 @@ void InstallZipScreen::CreateViews() {
 		installChoice_ = rightColumnItems->Add(new Choice(iz->T("Install")));
 		installChoice_->OnClick.Handle(this, &InstallZipScreen::OnInstall);
 		backChoice_ = rightColumnItems->Add(new Choice(di->T("Back")));
-		backChoice_->OnClick.Handle<UIScreen>(this, &UIScreen::OnOK);  // OK so that EmuScreen will handle it right
 		rightColumnItems->Add(new CheckBox(&deleteZipFile_, iz->T("Delete ZIP file")));
+
+		returnToHomebrew_ = true;
+	} else if (contents == ZipFileContents::TEXTURE_PACK) {
+		std::string question = iz->T("Install textures from ZIP file?");
+		leftColumn->Add(new TextView(question, ALIGN_LEFT, false, new AnchorLayoutParams(10, 10, NONE, NONE)));
+		leftColumn->Add(new TextView(shortFilename, ALIGN_LEFT, false, new AnchorLayoutParams(10, 60, NONE, NONE)));
+
+		doneView_ = leftColumn->Add(new TextView("", new AnchorLayoutParams(10, 120, NONE, NONE)));
+		progressBar_ = leftColumn->Add(new ProgressBar(new AnchorLayoutParams(10, 200, 200, NONE)));
+
+		installChoice_ = rightColumnItems->Add(new Choice(iz->T("Install")));
+		installChoice_->OnClick.Handle(this, &InstallZipScreen::OnInstall);
+		backChoice_ = rightColumnItems->Add(new Choice(di->T("Back")));
+		rightColumnItems->Add(new CheckBox(&deleteZipFile_, iz->T("Delete ZIP file")));
+
+		returnToHomebrew_ = false;
 	} else {
 		leftColumn->Add(new TextView(iz->T("Zip file does not contain PSP software"), ALIGN_LEFT, false, new AnchorLayoutParams(10, 10, NONE, NONE)));
 		backChoice_ = rightColumnItems->Add(new Choice(di->T("Back")));
-		backChoice_->OnClick.Handle<UIScreen>(this, &UIScreen::OnOK);  // OK so that EmuScreen will handle it right
 	}
+
+	// OK so that EmuScreen will handle it right.
+	backChoice_->OnClick.Handle<UIScreen>(this, &UIScreen::OnOK);
 }
 
 bool InstallZipScreen::key(const KeyInput &key) {
@@ -107,7 +124,7 @@ void InstallZipScreen::update() {
 		} else if (installStarted_) {
 			if (doneView_)
 				doneView_->SetText(iz->T("Installed!"));
-			MainScreen::showHomebrewTab = true;
+			MainScreen::showHomebrewTab = returnToHomebrew_;
 		}
 	}
 	UIScreen::update();
