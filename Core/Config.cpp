@@ -756,7 +756,7 @@ static ConfigSetting graphicsSettings[] = {
 
 	ReportedConfigSetting("ReplaceTextures", &g_Config.bReplaceTextures, true, true, true),
 	ReportedConfigSetting("SaveNewTextures", &g_Config.bSaveNewTextures, false, true, true),
-	ReportedConfigSetting("IgnoreTextureFilenames", &g_Config.bIgnoreTextureFilenames, true, true, false),
+	ConfigSetting("IgnoreTextureFilenames", &g_Config.bIgnoreTextureFilenames, false, true, true),
 
 	ReportedConfigSetting("TexScalingLevel", &g_Config.iTexScalingLevel, 1, true, true),
 	ReportedConfigSetting("TexScalingType", &g_Config.iTexScalingType, 0, true, true),
@@ -1234,8 +1234,7 @@ void Config::Save(const char *saveReason) {
 		g_Config.iCpuCore = (int)CPUCore::JIT;
 	}
 	if (iniFilename_.size() && g_Config.bSaveSettings) {
-
-		saveGameConfig(gameId_);
+		saveGameConfig(gameId_, gameIdTitle_);
 
 		CleanRecent();
 		IniFile iniFile;
@@ -1474,9 +1473,10 @@ bool Config::hasGameConfig(const std::string &pGameId) {
 	return File::Exists(fullIniFilePath);
 }
 
-void Config::changeGameSpecific(const std::string &pGameId) {
+void Config::changeGameSpecific(const std::string &pGameId, const std::string &title) {
 	Save("changeGameSpecific");
 	gameId_ = pGameId;
+	gameIdTitle_ = title;
 	bGameSpecific = !pGameId.empty();
 }
 
@@ -1506,7 +1506,7 @@ std::string Config::getGameConfigFile(const std::string &pGameId) {
 	return iniFileNameFull;
 }
 
-bool Config::saveGameConfig(const std::string &pGameId) {
+bool Config::saveGameConfig(const std::string &pGameId, const std::string &title) {
 	if (pGameId.empty()) {
 		return false;
 	}
@@ -1514,6 +1514,9 @@ bool Config::saveGameConfig(const std::string &pGameId) {
 	std::string fullIniFilePath = getGameConfigFile(pGameId);
 
 	IniFile iniFile;
+
+	IniFile::Section *top = iniFile.GetOrCreateSection("");
+	top->AddComment(StringFromFormat("Game config for %s - %s", pGameId.c_str(), title.c_str()));
 
 	IterateSettings(iniFile, [](IniFile::Section *section, ConfigSetting *setting) {
 		if (setting->perGame_) {

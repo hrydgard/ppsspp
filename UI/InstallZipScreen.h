@@ -41,6 +41,7 @@ private:
 	UI::ProgressBar *progressBar_ = nullptr;
 	UI::TextView *doneView_ = nullptr;
 	std::string zipPath_;
+	bool returnToHomebrew_ = true;
 	bool installStarted_ = false;
 	bool deleteZipFile_ = false;
 };

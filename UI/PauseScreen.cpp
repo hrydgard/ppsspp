@@ -472,11 +472,11 @@ void GamePauseScreen::CallbackDeleteConfig(bool yes)
 
 UI::EventReturn GamePauseScreen::OnCreateConfig(UI::EventParams &e)
 {
+	std::shared_ptr<GameInfo> info = g_gameInfoCache->GetInfo(NULL, gamePath_, 0);
 	std::string gameId = g_paramSFO.GetDiscID();
 	g_Config.createGameConfig(gameId);
-	g_Config.changeGameSpecific(gameId);
-	g_Config.saveGameConfig(gameId);
-	std::shared_ptr<GameInfo> info = g_gameInfoCache->GetInfo(NULL, gamePath_, 0);
+	g_Config.changeGameSpecific(gameId, info->GetTitle());
+	g_Config.saveGameConfig(gameId, info->GetTitle());
 	if (info) {
 		info->hasConfig = true;
 	}

@@ -426,11 +426,11 @@ public:
 	void RestoreDefaults();
 
 	//per game config managment, should maybe be in it's own class
-	void changeGameSpecific(const std::string &gameId = "");
+	void changeGameSpecific(const std::string &gameId = "", const std::string &title = "");
 	bool createGameConfig(const std::string &game_id);
 	bool deleteGameConfig(const std::string& pGameId);
 	bool loadGameConfig(const std::string &game_id);
-	bool saveGameConfig(const std::string &pGameId);
+	bool saveGameConfig(const std::string &pGameId, const std::string &title);
 	void unloadGameConfig();
 	std::string getGameConfigFile(const std::string &gameId);
 	bool hasGameConfig(const std::string &game_id);
@@ -462,6 +462,7 @@ protected:
 
 private:
 	std::string gameId_;
+	std::string gameIdTitle_;
 	std::string iniFilename_;
 	std::string controllerIniFilename_;
 	std::vector<std::string> searchPath_;

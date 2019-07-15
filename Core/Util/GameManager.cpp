@@ -34,7 +34,11 @@
 #include "Common/FileUtil.h"
 #include "Common/StringUtils.h"
 #include "Core/Config.h"
+#include "Core/Loaders.h"
+#include "Core/ELF/ParamSFO.h"
+#include "Core/ELF/PBPReader.h"
 #include "Core/System.h"
+#include "Core/FileSystems/ISOFileSystem.h"
 #include "Core/Util/GameManager.h"
 #include "i18n/i18n.h"
 
@@ -171,8 +175,11 @@ ZipFileContents DetectZipFileContents(struct zip *z, ZipFileInfo *info) {
 	// directory of the Games tab (where else?).
 	bool isPSPMemstickGame = false;
 	bool isZippedISO = false;
+	bool isTexturePack = false;
 	int stripChars = 0;
 	int isoFileIndex = -1;
+	int stripCharsTexturePack = -1;
+	int textureIniIndex = -1;
 
 	for (int i = 0; i < numFiles; i++) {
 		const char *fn = zip_get_name(z, i, 0);
@@ -198,17 +205,33 @@ ZipFileContents DetectZipFileContents(struct zip *z, ZipFileInfo *info) {
 				isZippedISO = true;
 				isoFileIndex = i;
 			}
+		} else if (zippedName.find("textures.ini") != std::string::npos) {
+			int slashCount = 0;
+			int slashLocation = -1;
+			countSlashes(zippedName, &slashLocation, &slashCount);
+			if (stripCharsTexturePack == -1 || slashLocation < stripCharsTexturePack + 1) {
+				stripCharsTexturePack = slashLocation + 1;
+				isTexturePack = true;
+				textureIniIndex = i;
+			}
 		}
 	}
 
 	info->stripChars = stripChars;
 	info->numFiles = numFiles;
 	info->isoFileIndex = isoFileIndex;
+	info->textureIniIndex = textureIniIndex;
+	info->ignoreMetaFiles = false;
+
 	// If a ZIP is detected as both, let's let the memstick game interpretation prevail.
 	if (isPSPMemstickGame) {
 		return ZipFileContents::PSP_GAME_DIR;
 	} else if (isZippedISO) {
 		return ZipFileContents::ISO_FILE;
+	} else if (isTexturePack) {
+		info->stripChars = stripCharsTexturePack;
+		info->ignoreMetaFiles = true;
+		return ZipFileContents::TEXTURE_PACK;
 	} else {
 		return ZipFileContents::UNKNOWN;
 	}
@@ -236,7 +259,7 @@ bool GameManager::InstallGame(const std::string &url, const std::string &fileNam
 	installInProgress_ = true;
 
 	std::string pspGame = GetSysDirectory(DIRECTORY_GAME);
-	INFO_LOG(HLE, "Installing '%s' into '%s'", fileName.c_str(), pspGame.c_str());
+	std::string dest = pspGame;
 	int error = 0;
 #ifdef _WIN32
 	struct zip *z = zip_open(ConvertUTF8ToWString(fileName).c_str(), 0, &error);
@@ -252,20 +275,146 @@ bool GameManager::InstallGame(const std::string &url, const std::string &fileNam
 	ZipFileContents contents = DetectZipFileContents(z, &info);
 	switch (contents) {
 	case ZipFileContents::PSP_GAME_DIR:
+		INFO_LOG(HLE, "Installing '%s' into '%s'", fileName.c_str(), pspGame.c_str());
 		// InstallMemstickGame contains code to close z.
-		return InstallMemstickGame(z, fileName, pspGame, info.numFiles, info.stripChars, deleteAfter);
+		return InstallMemstickGame(z, fileName, pspGame, info, false, deleteAfter);
 	case ZipFileContents::ISO_FILE:
+		INFO_LOG(HLE, "Installing '%s' into its containing directory", fileName.c_str());
+		// InstallZippedISO contains code to close z.
 		return InstallZippedISO(z, info.isoFileIndex, fileName, deleteAfter);
+	case ZipFileContents::TEXTURE_PACK:
+		// InstallMemstickGame contains code to close z, and works for textures too.
+		if (DetectTexturePackDest(z, info.textureIniIndex, &dest)) {
+			INFO_LOG(HLE, "Installing '%s' into '%s'", fileName.c_str(), dest.c_str());
+			File::CreateFullPath(dest);
+			File::CreateEmptyFile(dest + "/.nomedia");
+			return InstallMemstickGame(z, fileName, dest, info, true, deleteAfter);
+		}
+		return false;
 	default:
 		ERROR_LOG(HLE, "File not a PSP game, no EBOOT.PBP found.");
-		installProgress_ = 0.0f;
-		installInProgress_ = false;
-		installError_ = sy->T("Not a PSP game");
-		InstallDone();
+		SetInstallError(sy->T("Not a PSP game"));
 		if (deleteAfter)
 			File::Delete(fileName);
 		return false;
 	}
+}
+
+bool GameManager::DetectTexturePackDest(struct zip *z, int iniIndex, std::string *dest) {
+	I18NCategory *iz = GetI18NCategory("InstallZip");
+
+	struct zip_stat zstat;
+	zip_stat_index(z, iniIndex, 0, &zstat);
+
+	if (zstat.size >= 32 * 1024 * 1024) {
+		SetInstallError(iz->T("Texture pack doesn't support install"));
+		return false;
+	}
+
+	std::string buffer;
+	buffer.resize(zstat.size);
+	zip_file *zf = zip_fopen_index(z, iniIndex, 0);
+	if (zip_fread(zf, &buffer[0], buffer.size()) != (ssize_t)zstat.size) {
+		SetInstallError(iz->T("Zip archive corrupt"));
+		return false;
+	}
+
+	IniFile ini;
+	std::stringstream sstream(buffer);
+	ini.Load(sstream);
+
+	auto games = ini.GetOrCreateSection("games")->ToMap();
+	if (games.empty()) {
+		SetInstallError(iz->T("Texture pack doesn't support install"));
+		return false;
+	}
+
+	std::string gameID = games.begin()->first;
+	if (games.size() > 1) {
+		// Check for any supported game on their recent list and use that instead.
+		for (const std::string &path : g_Config.recentIsos) {
+			std::string recentID = GetGameID(path);
+			if (games.find(recentID) != games.end()) {
+				gameID = recentID;
+				break;
+			}
+		}
+	}
+
+	std::string pspTextures = GetSysDirectory(DIRECTORY_TEXTURES);
+	*dest = pspTextures + gameID + "/";
+	return true;
+}
+
+void GameManager::SetInstallError(const std::string &err) {
+	installProgress_ = 0.0f;
+	installInProgress_ = false;
+	installError_ = err;
+	InstallDone();
+}
+
+std::string GameManager::GetGameID(const std::string &path) const {
+	auto loader = ConstructFileLoader(path);
+	std::string id;
+
+	switch (Identify_File(loader)) {
+	case IdentifiedFileType::PSP_PBP_DIRECTORY:
+		delete loader;
+		loader = ConstructFileLoader(ResolvePBPFile(path));
+		id = GetPBPGameID(loader);
+		break;
+
+	case IdentifiedFileType::PSP_PBP:
+		id = GetPBPGameID(loader);
+		break;
+
+	case IdentifiedFileType::PSP_ISO:
+	case IdentifiedFileType::PSP_ISO_NP:
+		id = GetISOGameID(loader);
+		break;
+
+	default:
+		id.clear();
+		break;
+	}
+
+	delete loader;
+	return id;
+}
+
+std::string GameManager::GetPBPGameID(FileLoader *loader) const {
+	PBPReader pbp(loader);
+	std::vector<u8> sfoData;
+	if (pbp.GetSubFile(PBP_PARAM_SFO, &sfoData)) {
+		ParamSFOData sfo;
+		sfo.ReadSFO(sfoData);
+		return sfo.GetValueString("DISC_ID");
+	}
+	return "";
+}
+
+std::string GameManager::GetISOGameID(FileLoader *loader) const {
+	SequentialHandleAllocator handles;
+	BlockDevice *bd = constructBlockDevice(loader);
+	if (!bd) {
+		return "";
+	}
+	ISOFileSystem umd(&handles, bd);
+
+	PSPFileInfo info = umd.GetFileInfo("/PSP_GAME/PARAM.SFO");
+	int handle = 0;
+	if (info.exists) {
+		handle = umd.OpenFile("/PSP_GAME/PARAM.SFO", FILEACCESS_READ);
+	}
+
+	std::string sfoData;
+	sfoData.resize(info.size);
+	umd.ReadFile(handle, (u8 *)&sfoData[0], info.size);
+	umd.CloseFile(handle);
+
+	ParamSFOData sfo;
+	sfo.ReadSFO((const u8 *)sfoData.data(), sfoData.size());
+	return sfo.GetValueString("DISC_ID");
 }
 
 bool GameManager::ExtractFile(struct zip *z, int file_index, std::string outFilename, size_t *bytesCopied, size_t allBytes) {
@@ -287,7 +436,7 @@ bool GameManager::ExtractFile(struct zip *z, int file_index, std::string outFile
 		while (pos < size) {
 			size_t readSize = std::min(blockSize, size - pos);
 			ssize_t retval = zip_fread(zf, buffer, readSize);
-			if (retval < readSize) {
+			if (retval < 0 || (size_t)retval < readSize) {
 				ERROR_LOG(HLE, "Failed to read %d bytes from zip (%d) - archive corrupt?", (int)readSize, (int)retval);
 				delete[] buffer;
 				fclose(f);
@@ -319,18 +468,33 @@ bool GameManager::ExtractFile(struct zip *z, int file_index, std::string outFile
 	}
 }
 
-bool GameManager::InstallMemstickGame(struct zip *z, std::string zipfile, std::string pspGame, int numFiles, int stripChars, bool deleteAfter) {
+bool GameManager::InstallMemstickGame(struct zip *z, const std::string &zipfile, const std::string &dest, const ZipFileInfo &info, bool allowRoot, bool deleteAfter) {
 	size_t allBytes = 0;
 	size_t bytesCopied = 0;
 
 	I18NCategory *sy = GetI18NCategory("System");
 
+	auto fileAllowed = [&](const char *fn) {
+		if (!allowRoot && strchr(fn, '/') == 0)
+			return false;
+
+		const char *basefn = strrchr(fn, '/');
+		basefn = basefn ? basefn + 1 : fn;
+
+		if (info.ignoreMetaFiles) {
+			if (basefn[0] == '.' || !strcmp(basefn, "Thumbs.db") || !strcmp(basefn, "desktop.ini"))
+				return false;
+		}
+
+		return true;
+	};
+
 	// Create all the directories first in one pass
 	std::set<std::string> createdDirs;
-	for (int i = 0; i < numFiles; i++) {
+	for (int i = 0; i < info.numFiles; i++) {
 		const char *fn = zip_get_name(z, i, 0);
 		std::string zippedName = fn;
-		std::string outFilename = pspGame + zippedName.substr(stripChars);
+		std::string outFilename = dest + zippedName.substr(info.stripChars);
 		bool isDir = *outFilename.rbegin() == '/';
 		if (!isDir && outFilename.find("/") != std::string::npos) {
 			outFilename = outFilename.substr(0, outFilename.rfind('/'));
@@ -339,7 +503,7 @@ bool GameManager::InstallMemstickGame(struct zip *z, std::string zipfile, std::s
 			File::CreateFullPath(outFilename.c_str());
 			createdDirs.insert(outFilename);
 		}
-		if (!isDir && strchr(fn, '/') != 0) {
+		if (!isDir && fileAllowed(fn)) {
 			struct zip_stat zstat;
 			if (zip_stat_index(z, i, 0, &zstat) >= 0) {
 				allBytes += zstat.size;
@@ -349,13 +513,13 @@ bool GameManager::InstallMemstickGame(struct zip *z, std::string zipfile, std::s
 
 	// Now, loop through again in a second pass, writing files.
 	std::vector<std::string> createdFiles;
-	for (int i = 0; i < numFiles; i++) {
+	for (int i = 0; i < info.numFiles; i++) {
 		const char *fn = zip_get_name(z, i, 0);
 		// Note that we do NOT write files that are not in a directory, to avoid random
 		// README files etc.
-		if (strchr(fn, '/') != 0) {
-			fn += stripChars;
-			std::string outFilename = pspGame + fn;
+		if (fileAllowed(fn)) {
+			fn += info.stripChars;
+			std::string outFilename = dest + fn;
 			bool isDir = *outFilename.rbegin() == '/';
 			if (isDir)
 				continue;
@@ -367,10 +531,10 @@ bool GameManager::InstallMemstickGame(struct zip *z, std::string zipfile, std::s
 			}
 		}
 	}
-	INFO_LOG(HLE, "Extracted %i files (%i bytes / %i).", numFiles, (int)bytesCopied, (int)allBytes);
+	INFO_LOG(HLE, "Extracted %i files (%i bytes / %i).", info.numFiles, (int)bytesCopied, (int)allBytes);
 
 	zip_close(z);
-	z = 0;
+	z = nullptr;
 	installProgress_ = 1.0f;
 	installInProgress_ = false;
 	installError_ = "";
@@ -381,11 +545,8 @@ bool GameManager::InstallMemstickGame(struct zip *z, std::string zipfile, std::s
 	return true;
 
 bail:
-	zip_close(z);
 	// We end up here if disk is full or couldn't write to storage for some other reason.
-	installProgress_ = 0.0f;
-	installInProgress_ = false;
-	installError_ = sy->T("Storage full");
+	zip_close(z);
 	// We don't delete the original in this case. Try to delete the files we created so far.
 	for (size_t i = 0; i < createdFiles.size(); i++) {
 		File::Delete(createdFiles[i].c_str());
@@ -393,7 +554,7 @@ bail:
 	for (auto iter = createdDirs.begin(); iter != createdDirs.end(); ++iter) {
 		File::DeleteDir(iter->c_str());
 	}
-	InstallDone();
+	SetInstallError(sy->T("Storage full"));
 	return false;
 }
 
