@@ -237,9 +237,13 @@ void IniFile::Section::Set(const char* key, const std::vector<std::string>& newV
 		temp += (*it) + ",";
 	}
 	// remove last ,
-  if (temp.length())
-	  temp.resize(temp.length() - 1);
+	if (temp.length())
+		temp.resize(temp.length() - 1);
 	Set(key, temp.c_str());
+}
+
+void IniFile::Section::AddComment(const std::string &comment) {
+	lines.push_back("# " + comment);
 }
 
 bool IniFile::Section::Get(const char* key, std::vector<std::string>& values) 
@@ -549,28 +553,25 @@ bool IniFile::Load(std::istream &in) {
 		}
 #endif
 
-		if (line.size() > 0)
-		{
-			if (line[0] == '[')
-			{
-				size_t endpos = line.find("]");
-
-				if (endpos != std::string::npos)
-				{
-					// New section!
-					std::string sub = line.substr(1, endpos - 1);
-					sections.push_back(Section(sub));
-
-					if (endpos + 1 < line.size())
-					{
-						sections[sections.size() - 1].comment = line.substr(endpos + 1);
-					}
-				}
+		if (!line.empty()) {
+			size_t sectionNameEnd = std::string::npos;
+			if (line[0] == '[') {
+				sectionNameEnd = line.find(']');
 			}
-			else
-			{
-				if (sections.size() > 0)
-					sections[sections.size() - 1].lines.push_back(line);
+
+			if (sectionNameEnd != std::string::npos) {
+				// New section!
+				std::string sub = line.substr(1, sectionNameEnd - 1);
+				sections.push_back(Section(sub));
+
+				if (sectionNameEnd + 1 < line.size()) {
+					sections[sections.size() - 1].comment = line.substr(sectionNameEnd + 1);
+				}
+			} else {
+				if (sections.empty()) {
+					sections.push_back(Section(""));
+				}
+				sections[sections.size() - 1].lines.push_back(line);
 			}
 		}
 	}
@@ -595,22 +596,12 @@ bool IniFile::Save(const char* filename)
 	// UTF-8 byte order mark. To make sure notepad doesn't go nuts.
 	out << "\xEF\xBB\xBF";
 
-	// Currently testing if dolphin community can handle the requirements of C++11 compilation
-	// If you get a compiler error on this line, your compiler is probably old.
-	// Update to g++ 4.4 or a recent version of clang (XCode 4.2 on OS X).
-	// If you don't want to update, complain in a google code issue, the dolphin forums or #dolphin-emu.
-	for (std::vector<Section>::iterator iter = sections.begin(); iter != sections.end(); ++iter)
-	{
-		const Section& section = *iter;
-
-		if (section.name() != "")
-		{
+	for (const Section &section : sections) {
+		if (!section.name().empty() && (!section.lines.empty() || !section.comment.empty())) {
 			out << "[" << section.name() << "]" << section.comment << std::endl;
 		}
 
-		for (std::vector<std::string>::const_iterator liter = section.lines.begin(); liter != section.lines.end(); ++liter)
-		{
-			std::string s = *liter;
+		for (const std::string &s : section.lines) {
 			out << s << std::endl;
 		}
 	}
