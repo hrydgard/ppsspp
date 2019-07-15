@@ -659,7 +659,7 @@ const KeyMap_IntStrPair psp_button_names[] = {
 	{VIRTKEY_SAVE_STATE, "Save State"},
 	{VIRTKEY_LOAD_STATE, "Load State"},
 	{VIRTKEY_NEXT_SLOT,  "Next Slot"},
-#if !defined(_WIN32) && !defined(MOBILE_DEVICE)
+#if !defined(MOBILE_DEVICE)
 	{VIRTKEY_TOGGLE_FULLSCREEN, "Toggle Fullscreen"},
 #endif
 
