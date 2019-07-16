@@ -48,7 +48,7 @@ precision mediump float;
 precision mediump int;
 #endif
 
-#define X_FACTOR 0.7991 // Default: 0.7991, for non-stretched use 1.0
+#define X_FACTOR 1.0 // Default: 0.7991, for non-stretched use 1.0
 #define Y_FACTOR 0.831  // Default: 0.831
 
 #define BLEND_NONE 0

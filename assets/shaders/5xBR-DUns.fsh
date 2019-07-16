@@ -29,7 +29,7 @@ precision mediump float;
 precision mediump int;
 #endif
 
-#define X_FACTOR 0.7991 // Default: 0.7991, for non-stretched use 0.9981
+#define X_FACTOR 0.9981 // Default: 0.7991, for non-stretched use 0.9981
 #define Y_FACTOR 0.8221 // Default: 0.8221
 
 #define CornerA      0     	//ON:1/OFF:0 / A, B, C, D are just different variants of corner rounding
