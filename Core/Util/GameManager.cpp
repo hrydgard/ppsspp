@@ -289,11 +289,16 @@ bool GameManager::InstallGame(const std::string &url, const std::string &fileNam
 			File::CreateFullPath(dest);
 			File::CreateEmptyFile(dest + "/.nomedia");
 			return InstallMemstickGame(z, fileName, dest, info, true, deleteAfter);
+		} else {
+			zip_close(z);
+			z = nullptr;
 		}
 		return false;
 	default:
 		ERROR_LOG(HLE, "File not a PSP game, no EBOOT.PBP found.");
 		SetInstallError(sy->T("Not a PSP game"));
+		zip_close(z);
+		z = nullptr;
 		if (deleteAfter)
 			File::Delete(fileName);
 		return false;
