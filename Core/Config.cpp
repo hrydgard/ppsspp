@@ -1189,7 +1189,7 @@ void Config::Load(const char *iniFileName, const char *controllerIniFilename) {
 	//sadly it won't benefit from all the "version conversion" going on up-above
 	//but these configs shouldn't contain older versions anyhow
 	if (bGameSpecific) {
-		loadGameConfig(gameId_);
+		loadGameConfig(gameId_, gameIdTitle_);
 	}
 
 	CleanRecent();
@@ -1508,7 +1508,7 @@ bool Config::saveGameConfig(const std::string &pGameId, const std::string &title
 	return true;
 }
 
-bool Config::loadGameConfig(const std::string &pGameId) {
+bool Config::loadGameConfig(const std::string &pGameId, const std::string &title) {
 	std::string iniFileNameFull = getGameConfigFile(pGameId);
 
 	if (!hasGameConfig(pGameId)) {
@@ -1516,7 +1516,7 @@ bool Config::loadGameConfig(const std::string &pGameId) {
 		return false;
 	}
 
-	changeGameSpecific(pGameId);
+	changeGameSpecific(pGameId, title);
 	IniFile iniFile;
 	iniFile.Load(iniFileNameFull);
 

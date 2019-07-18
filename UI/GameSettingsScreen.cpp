@@ -132,7 +132,8 @@ void GameSettingsScreen::CreateViews() {
 	ReloadAllPostShaderInfo();
 
 	if (editThenRestore_) {
-		g_Config.loadGameConfig(gameID_);
+		std::shared_ptr<GameInfo> info = g_gameInfoCache->GetInfo(nullptr, gamePath_, 0);
+		g_Config.loadGameConfig(gameID_, info->GetTitle());
 	}
 
 	iAlternateSpeedPercent1_ = g_Config.iFpsLimit1 < 0 ? -1 : (g_Config.iFpsLimit1 * 100) / 60;
@@ -1051,6 +1052,9 @@ void GameSettingsScreen::onFinish(DialogResult result) {
 	Reporting::UpdateConfig();
 	g_Config.Save("GameSettingsScreen::onFinish");
 	if (editThenRestore_) {
+		// In case we didn't have the title yet before, try again.
+		std::shared_ptr<GameInfo> info = g_gameInfoCache->GetInfo(nullptr, gamePath_, 0);
+		g_Config.changeGameSpecific(gameID_, info->GetTitle());
 		g_Config.unloadGameConfig();
 	}
 
