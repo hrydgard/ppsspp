@@ -132,7 +132,6 @@ namespace MainWindow
 	// gross hack
 	bool noFocusPause = false;	// TOGGLE_PAUSE state to override pause on lost focus
 	bool trapMouse = true; // Handles some special cases(alt+tab, win menu) when game is running and mouse is confined
-	bool mouseScrollUsed = false;
 
 #define MAX_LOADSTRING 100
 	const TCHAR *szWindowClass = TEXT("PPSSPPWnd");
@@ -260,7 +259,6 @@ namespace MainWindow
 	}
 
 	void RelaseMouseWheel() {
-		if (mouseScrollUsed) {
 			// For simplicity release both wheel events
 			KeyInput key;
 			key.deviceId = DEVICE_ID_MOUSE;
@@ -269,8 +267,6 @@ namespace MainWindow
 			NativeKey(key);
 			key.keyCode = NKCODE_EXT_MOUSEWHEEL_UP;
 			NativeKey(key);
-			mouseScrollUsed = false;
-		}
 	}
 
 	static void HandleSizeChange(int newSizingType) {
@@ -674,27 +670,6 @@ namespace MainWindow
 			}
 			break;
 
-		case WM_MOUSEWHEEL:
-		{
-			int wheelDelta = (short)(wParam >> 16);
-			KeyInput key;
-			key.deviceId = DEVICE_ID_MOUSE;
-
-			if (wheelDelta < 0) {
-				key.keyCode = NKCODE_EXT_MOUSEWHEEL_DOWN;
-				wheelDelta = -wheelDelta;
-			} else {
-				key.keyCode = NKCODE_EXT_MOUSEWHEEL_UP;
-			}
-			// There's no separate keyup event for mousewheel events,
-			// so we set mouseScrollUsed here and always release if it's true.
-			key.flags = KEY_DOWN | KEY_HASWHEELDELTA | (wheelDelta << 16);
-			mouseScrollUsed = true;
-			SetTimer(hwndMain, TIMER_WHEELRELEASE, WHEELRELEASE_DELAY_MS, 0);
-			NativeKey(key);
-		}
-		break;
-
 		case WM_TOUCH:
 			{
 				touchHandler.handleTouchEvent(hWnd, message, wParam, lParam);
@@ -807,6 +782,27 @@ namespace MainWindow
 			}
 			break;
 
+		// Wheel events have to stay in WndProc for compatibility with older Windows(7). See #12156
+		case WM_MOUSEWHEEL:
+			{
+				int wheelDelta = (short)(wParam >> 16);
+				KeyInput key;
+				key.deviceId = DEVICE_ID_MOUSE;
+
+				if (wheelDelta < 0) {
+					key.keyCode = NKCODE_EXT_MOUSEWHEEL_DOWN;
+					wheelDelta = -wheelDelta;
+				} else {
+					key.keyCode = NKCODE_EXT_MOUSEWHEEL_UP;
+				}
+				// There's no separate keyup event for mousewheel events,
+				// so we release it with a slight delay.
+				key.flags = KEY_DOWN | KEY_HASWHEELDELTA | (wheelDelta << 16);
+				SetTimer(hwndMain, TIMER_WHEELRELEASE, WHEELRELEASE_DELAY_MS, 0);
+				NativeKey(key);
+			}
+			break;
+
 		case WM_TIMER:
 			// Hack: Take the opportunity to also show/hide the mouse cursor in fullscreen mode.
 			switch (wParam) {
@@ -818,7 +814,7 @@ namespace MainWindow
 				hideCursor = true;
 				KillTimer(hWnd, TIMER_CURSORMOVEUPDATE);
 				return 0;
-			// Hack: need to release wheel event without waiting for another wheel event.
+			// Hack: need to release wheel event with a delay for games to register it was "pressed down".
 			case TIMER_WHEELRELEASE:
 				RelaseMouseWheel();
 				return 0;
