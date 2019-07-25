@@ -287,6 +287,7 @@ public:
 	ConfigTouchPos touchLKey;
 	ConfigTouchPos touchRKey;
 	ConfigTouchPos touchAnalogStick;
+	ConfigTouchPos touchRightAnalogStick;
 
 	ConfigTouchPos touchCombo0;
 	ConfigTouchPos touchCombo1;

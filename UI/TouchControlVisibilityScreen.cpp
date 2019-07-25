@@ -80,6 +80,7 @@ void TouchControlVisibilityScreen::CreateViews() {
 	toggles_.push_back({ "Select", &g_Config.touchSelectKey.show, I_SELECT });
 	toggles_.push_back({ "Dpad", &g_Config.touchDpad.show, -1 });
 	toggles_.push_back({ "Analog Stick", &g_Config.touchAnalogStick.show, -1 });
+	toggles_.push_back({ "Right Analog Stick\n(not used by most games)", &g_Config.touchRightAnalogStick.show, -1 });
 	toggles_.push_back({ "Unthrottle", &g_Config.touchUnthrottleKey.show, -1 });
 	toggles_.push_back({ "Combo0", &g_Config.touchCombo0.show, I_1 });
 	toggles_.push_back({ "Combo1", &g_Config.touchCombo1.show, I_2 });
