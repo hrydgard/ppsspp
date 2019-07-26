@@ -1,13 +1,13 @@
 #/bin/bash
 
 
-travis_before_install() {
-    git submodule update --init --recursive
-}
-
 download_extract() {
     aria2c -x 16 $1 -o $2
     tar -xf $2
+}
+
+travis_before_install() {
+    git submodule update --init --recursive
 }
 
 travis_install() {
