@@ -40,9 +40,14 @@ travis_script() {
         if [ "$PVS_ANALYZE" = "Yes" ]; then
             CMAKE_ARGS="-DCMAKE_EXPORT_COMPILE_COMMANDS=On ${CMAKE_ARGS}"
         fi
+		
         cmake $CMAKE_ARGS CMakeLists.txt
         make -j8
-		
+    fi
+}
+
+travis_after_success() {
+    if [ "$PPSSPP_BUILD_TYPE" = "Linux" ]; then
         if [ "$PVS_ANALYZE" = "Yes" ]; then
             pvs-studio-analyzer credentials $PVS_USERNAME $PVS_KEY -o PVS-Studio.lic
             pvs-studio-analyzer analyze -j8 -l PVS-Studio.lic -o PVS-Studio-${CC}.log --disableLicenseExpirationCheck
@@ -61,7 +66,6 @@ travis_script() {
         fi
     fi
 }
-
 
 set -e
 set -x
