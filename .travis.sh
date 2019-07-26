@@ -40,7 +40,8 @@ travis_script() {
         if [ "$PVS_ANALYZE" = "Yes" ]; then
             CMAKE_ARGS="-DCMAKE_EXPORT_COMPILE_COMMANDS=On ${CMAKE_ARGS}"
         fi
-        cmake CMakeLists.txt
+        cmake $CMAKE_ARGS CMakeLists.txt
+		
         make -j8
 		
         if [ "$PVS_ANALYZE" = "Yes" ]; then
