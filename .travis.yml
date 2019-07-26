@@ -38,3 +38,6 @@ install:
 
 script:
   - bash .travis.sh travis_script
+
+after_success:
+  - bash .travis.sh travis_after_success
