@@ -133,7 +133,7 @@ void GameManager::Update() {
 	}
 }
 
-void countSlashes(std::string fileName, int *slashLocation, int *slashCount) {
+static void countSlashes(const std::string &fileName, int *slashLocation, int *slashCount) {
 	*slashCount = 0;
 	int lastSlashLocation = -1;
 	*slashLocation = -1;
@@ -206,9 +206,7 @@ ZipFileContents DetectZipFileContents(struct zip *z, ZipFileInfo *info) {
 				isoFileIndex = i;
 			}
 		} else if (zippedName.find("textures.ini") != std::string::npos) {
-			int slashCount = 0;
-			int slashLocation = -1;
-			countSlashes(zippedName, &slashLocation, &slashCount);
+			int slashLocation = (int)zippedName.find_last_of('/');
 			if (stripCharsTexturePack == -1 || slashLocation < stripCharsTexturePack + 1) {
 				stripCharsTexturePack = slashLocation + 1;
 				isTexturePack = true;
@@ -499,6 +497,9 @@ bool GameManager::InstallMemstickGame(struct zip *z, const std::string &zipfile,
 	for (int i = 0; i < info.numFiles; i++) {
 		const char *fn = zip_get_name(z, i, 0);
 		std::string zippedName = fn;
+		if (zippedName.length() < (size_t)info.stripChars) {
+			continue;
+		}
 		std::string outFilename = dest + zippedName.substr(info.stripChars);
 		bool isDir = *outFilename.rbegin() == '/';
 		if (!isDir && outFilename.find("/") != std::string::npos) {
@@ -521,8 +522,8 @@ bool GameManager::InstallMemstickGame(struct zip *z, const std::string &zipfile,
 	for (int i = 0; i < info.numFiles; i++) {
 		const char *fn = zip_get_name(z, i, 0);
 		// Note that we do NOT write files that are not in a directory, to avoid random
-		// README files etc.
-		if (fileAllowed(fn)) {
+		// README files etc. (unless allowRoot is true.)
+		if (fileAllowed(fn) && strlen(fn) > (size_t)info.stripChars) {
 			fn += info.stripChars;
 			std::string outFilename = dest + fn;
 			bool isDir = *outFilename.rbegin() == '/';
