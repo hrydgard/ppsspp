@@ -55,11 +55,12 @@ HLEHelperThread::~HLEHelperThread() {
 
 void HLEHelperThread::AllocEntry(u32 size) {
 	entry_ = kernelMemory.Alloc(size);
+	Memory::Memset(entry_, 0, size);
 	currentMIPS->InvalidateICache(entry_, size);
 }
 
 void HLEHelperThread::Create(const char *threadName, u32 prio, int stacksize) {
-	id_ = __KernelCreateThreadInternal(threadName, __KernelGetCurThreadModuleId(), entry_, prio, stacksize, 0);
+	id_ = __KernelCreateThreadInternal(threadName, __KernelGetCurThreadModuleId(), entry_, prio, stacksize, 0x00001000);
 }
 
 void HLEHelperThread::DoState(PointerWrap &p) {
@@ -78,4 +79,8 @@ void HLEHelperThread::Start(u32 a0, u32 a1) {
 
 void HLEHelperThread::Terminate() {
 	__KernelStopThread(id_, SCE_KERNEL_ERROR_THREAD_TERMINATED, "helper terminated");
+}
+
+bool HLEHelperThread::Stopped() {
+	return KernelIsThreadDormant(id_);
 }

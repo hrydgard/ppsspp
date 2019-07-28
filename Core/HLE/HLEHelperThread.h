@@ -31,6 +31,7 @@ public:
 
 	void Start(u32 a0, u32 a1);
 	void Terminate();
+	bool Stopped();
 
 private:
 	void AllocEntry(u32 size);

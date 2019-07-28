@@ -220,7 +220,7 @@ public:
 
 	void ScheduleFinish(u32 handle) {
 		if (!finishThread) {
-			finishThread = new HLEHelperThread("scePsmfPlayer", "scePsmfPlayer", "__PsmfPlayerFinish", playbackThreadPriority, 0x100);
+			finishThread = new HLEHelperThread("scePsmfPlayer", "scePsmfPlayer", "__PsmfPlayerFinish", playbackThreadPriority, 0x200);
 			finishThread->Start(handle, 0);
 		}
 	}
