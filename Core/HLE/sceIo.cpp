@@ -1035,8 +1035,7 @@ static u32 sceIoReadAsync(int id, u32 data_addr, int size) {
 	FileNode *f = __IoGetFd(id, error);
 	if (f) {
 		if (f->asyncBusy()) {
-			WARN_LOG(SCEIO, "sceIoReadAsync(%d, %08x, %x): async busy", id, data_addr, size);
-			return SCE_KERNEL_ERROR_ASYNC_BUSY;
+			return hleLogWarning(SCEIO, SCE_KERNEL_ERROR_ASYNC_BUSY, "async busy");
 		}
 		int result;
 		int us;
@@ -1050,8 +1049,7 @@ static u32 sceIoReadAsync(int id, u32 data_addr, int size) {
 		__IoSchedAsync(f, id, us);
 		return 0;
 	} else {
-		ERROR_LOG(SCEIO, "sceIoReadAsync: bad file %d", id);
-		return error;
+		return hleLogError(SCEIO, error, "bad file descriptor");
 	}
 }
 
@@ -1169,8 +1167,7 @@ static u32 sceIoWriteAsync(int id, u32 data_addr, int size) {
 	FileNode *f = __IoGetFd(id, error);
 	if (f) {
 		if (f->asyncBusy()) {
-			WARN_LOG(SCEIO, "sceIoWriteAsync(%d, %08x, %x): async busy", id, data_addr, size);
-			return SCE_KERNEL_ERROR_ASYNC_BUSY;
+			return hleLogWarning(SCEIO, SCE_KERNEL_ERROR_ASYNC_BUSY, "async busy");
 		}
 		int result;
 		int us;
@@ -1184,8 +1181,7 @@ static u32 sceIoWriteAsync(int id, u32 data_addr, int size) {
 		__IoSchedAsync(f, id, us);
 		return 0;
 	} else {
-		ERROR_LOG(SCEIO, "sceIoWriteAsync: bad file %d", id);
-		return error;
+		return hleLogError(SCEIO, error, "bad file descriptor");
 	}
 }
 
@@ -1310,8 +1306,7 @@ static s64 sceIoLseek(int id, s64 offset, int whence) {
 		hleReSchedule("io seek");
 		return result;
 	} else {
-		ERROR_LOG(SCEIO, "sceIoLseek(%d, %llx, %i) - ERROR: invalid file", id, offset, whence);
-		return result;
+		return hleLogError(SCEIO, result, "bad file descriptor");
 	}
 }
 
@@ -1324,8 +1319,7 @@ static u32 sceIoLseek32(int id, int offset, int whence) {
 		hleReSchedule("io seek");
 		return result;
 	} else {
-		ERROR_LOG(SCEIO, "sceIoLseek32(%d, %x, %i) - ERROR: invalid file", id, offset, whence);
-		return result;
+		return hleLogError(SCEIO, result, "bad file descriptor");
 	}
 }
 
@@ -1334,12 +1328,10 @@ static u32 sceIoLseekAsync(int id, s64 offset, int whence) {
 	FileNode *f = __IoGetFd(id, error);
 	if (f) {
 		if (whence < 0 || whence > 2) {
-			WARN_LOG(SCEIO, "sceIoLseekAsync(%d, %llx, %i): invalid whence", id, offset, whence);
-			return SCE_KERNEL_ERROR_INVAL;
+			return hleLogWarning(SCEIO, SCE_KERNEL_ERROR_INVAL, "invalid whence");
 		}
 		if (f->asyncBusy()) {
-			WARN_LOG(SCEIO, "sceIoLseekAsync(%d, %llx, %i): async busy", id, offset, whence);
-			return SCE_KERNEL_ERROR_ASYNC_BUSY;
+			return hleLogWarning(SCEIO, SCE_KERNEL_ERROR_ASYNC_BUSY, "async busy");
 		}
 		f->asyncResult = __IoLseek(id, offset, whence);
 		// Educated guess at timing.
@@ -1347,8 +1339,7 @@ static u32 sceIoLseekAsync(int id, s64 offset, int whence) {
 		DEBUG_LOG(SCEIO, "%lli = sceIoLseekAsync(%d, %llx, %i)", f->asyncResult, id, offset, whence);
 		return 0;
 	} else {
-		ERROR_LOG(SCEIO, "sceIoLseekAsync(%d, %llx, %i) - ERROR: invalid file", id, offset, whence);
-		return error;
+		return hleLogError(SCEIO, error, "bad file descriptor");
 	}
 	return 0;
 }
@@ -1358,12 +1349,10 @@ static u32 sceIoLseek32Async(int id, int offset, int whence) {
 	FileNode *f = __IoGetFd(id, error);
 	if (f) {
 		if (whence < 0 || whence > 2) {
-			WARN_LOG(SCEIO, "sceIoLseek32Async(%d, %x, %i): invalid whence", id, offset, whence);
-			return SCE_KERNEL_ERROR_INVAL;
+			return hleLogWarning(SCEIO, SCE_KERNEL_ERROR_INVAL, "invalid whence");
 		}
 		if (f->asyncBusy()) {
-			WARN_LOG(SCEIO, "sceIoLseek*(%d, %x, %i): async busy", id, offset, whence);
-			return SCE_KERNEL_ERROR_ASYNC_BUSY;
+			return hleLogWarning(SCEIO, SCE_KERNEL_ERROR_ASYNC_BUSY, "async busy");
 		}
 		f->asyncResult = __IoLseek(id, offset, whence);
 		// Educated guess at timing.
@@ -1371,8 +1360,7 @@ static u32 sceIoLseek32Async(int id, int offset, int whence) {
 		DEBUG_LOG(SCEIO, "%lli = sceIoLseek32Async(%d, %x, %i)", f->asyncResult, id, offset, whence);
 		return 0;
 	} else {
-		ERROR_LOG(SCEIO, "sceIoLseek32Async(%d, %x, %i) - ERROR: invalid file", id, offset, whence);
-		return error;
+		return hleLogError(SCEIO, error, "bad file descriptor");
 	}
 	return 0;
 }
@@ -1940,19 +1928,17 @@ static int sceIoChangeAsyncPriority(int id, int priority) {
 
 static int sceIoCloseAsync(int id)
 {
-	DEBUG_LOG(SCEIO, "sceIoCloseAsync(%d)", id);
 	u32 error;
 	FileNode *f = __IoGetFd(id, error);
-	if (f)
-	{
+	if (f) {
 		f->closePending = true;
 		f->asyncResult = 0;
 		// TODO: Rough estimate.
 		__IoSchedAsync(f, id, 100);
-		return 0;
+		return hleLogSuccessI(SCEIO, 0);
+	} else {
+		return hleLogError(SCEIO, error, "bad file descriptor");
 	}
-	else
-		return error;
 }
 
 static u32 sceIoSetAsyncCallback(int id, u32 clbckId, u32 clbckArg)
@@ -2556,8 +2542,7 @@ static u32 sceIoIoctlAsync(u32 id, u32 cmd, u32 indataPtr, u32 inlen, u32 outdat
 	FileNode *f = __IoGetFd(id, error);
 	if (f) {
 		if (f->asyncBusy()) {
-			WARN_LOG(SCEIO, "sceIoIoctlAsync(%08x, %08x, %08x, %08x, %08x, %08x): async busy", id, cmd, indataPtr, inlen, outdataPtr, outlen);
-			return SCE_KERNEL_ERROR_ASYNC_BUSY;
+			return hleLogWarning(SCEIO, SCE_KERNEL_ERROR_ASYNC_BUSY, "async busy");
 		}
 		DEBUG_LOG(SCEIO, "sceIoIoctlAsync(%08x, %08x, %08x, %08x, %08x, %08x)", id, cmd, indataPtr, inlen, outdataPtr, outlen);
 		int usec = 100;
@@ -2565,8 +2550,7 @@ static u32 sceIoIoctlAsync(u32 id, u32 cmd, u32 indataPtr, u32 inlen, u32 outdat
 		__IoSchedAsync(f, id, usec);
 		return 0;
 	} else {
-		ERROR_LOG(SCEIO, "UNIMPL %08x=sceIoIoctlAsync id: %08x, cmd %08x, bad file", error, id, cmd);
-		return error;
+		return hleLogError(SCEIO, error, "bad file descriptor");
 	}
 }
 
@@ -2616,8 +2600,14 @@ static u32 sceKernelRegisterStdoutPipe(u32 msgPipeUID) {
 }
 
 static int IoAsyncFinish(int id) {
-	// TODO
-	return 0;
+	u32 error;
+	FileNode *f = __IoGetFd(id, error);
+	if (f) {
+		// TODO
+		return 0;
+	} else {
+		return hleLogError(SCEIO, error, "bad file descriptor");
+	}
 }
 
 KernelObject *__KernelFileNodeObject() {
