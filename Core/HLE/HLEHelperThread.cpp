@@ -49,8 +49,10 @@ HLEHelperThread::HLEHelperThread(const char *threadName, const char *module, con
 }
 
 HLEHelperThread::~HLEHelperThread() {
-	__KernelDeleteThread(id_, SCE_KERNEL_ERROR_THREAD_TERMINATED, "helper deleted");
-	kernelMemory.Free(entry_);
+	if (id_)
+		__KernelDeleteThread(id_, SCE_KERNEL_ERROR_THREAD_TERMINATED, "helper deleted");
+	if (entry_)
+		kernelMemory.Free(entry_);
 }
 
 void HLEHelperThread::AllocEntry(u32 size) {
@@ -83,4 +85,9 @@ void HLEHelperThread::Terminate() {
 
 bool HLEHelperThread::Stopped() {
 	return KernelIsThreadDormant(id_);
+}
+
+void HLEHelperThread::Forget() {
+	id_ = 0;
+	entry_ = 0;
 }

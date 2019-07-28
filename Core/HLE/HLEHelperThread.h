@@ -33,6 +33,9 @@ public:
 	void Terminate();
 	bool Stopped();
 
+	// For savestates.
+	void Forget();
+
 private:
 	void AllocEntry(u32 size);
 	void Create(const char *threadName, u32 prio, int stacksize);

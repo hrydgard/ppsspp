@@ -543,15 +543,23 @@ void PsmfPlayer::DoState(PointerWrap &p) {
 	}
 	p.Do(psmfPlayerAvcAu);
 	if (s >= 7) {
-		bool hasFinishThread = finishThread != NULL;
+		bool hasFinishThread = finishThread != nullptr;
 		p.Do(hasFinishThread);
 		if (hasFinishThread) {
 			p.Do(finishThread);
+		} else {
+			if (finishThread)
+				finishThread->Forget();
+			delete finishThread;
+			finishThread = nullptr;
 		}
 	} else if (s >= 6) {
 		p.Do(finishThread);
 	} else {
-		finishThread = NULL;
+		if (finishThread)
+			finishThread->Forget();
+		delete finishThread;
+		finishThread = nullptr;
 	}
 
 	if (s >= 8) {
