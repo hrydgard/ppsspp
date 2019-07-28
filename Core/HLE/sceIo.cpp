@@ -294,6 +294,13 @@ public:
 
 u64 __IoCompleteAsyncIO(FileNode *f);
 
+static void IoAsyncCleanupThread(int fd, bool force = false) {
+	if (asyncThreads[fd] && (asyncThreads[fd]->Stopped() || force)) {
+		delete asyncThreads[fd];
+		asyncThreads[fd] = nullptr;
+	}
+}
+
 static int GetIOTimingMethod() {
 	if (PSP_CoreParameter().compat.flags().ForceUMDDelay) {
 		return IOTIMING_REALISTIC;
@@ -357,6 +364,8 @@ static void __IoFreeFd(int fd, u32 &error) {
 			// Discard any pending results.
 			AsyncIOResult managerResult;
 			ioManager.WaitResult(f->handle, managerResult);
+
+			IoAsyncCleanupThread(fd);
 		}
 		error = kernelObjects.Destroy<FileNode>(fds[fd]);
 		fds[fd] = 0;
@@ -428,6 +437,8 @@ static void __IoAsyncNotify(u64 userdata, int cyclesLate) {
 		if (f->closePending) {
 			__IoFreeFd(fd, error);
 		}
+
+		IoAsyncCleanupThread(fd);
 	}
 }
 
@@ -476,6 +487,8 @@ static void __IoSyncNotify(u64 userdata, int cyclesLate) {
 
 	HLEKernel::ResumeFromWait(threadID, WAITTYPE_IO, fd, result);
 	f->waitingSyncThreads.erase(std::remove(f->waitingSyncThreads.begin(), f->waitingSyncThreads.end(), threadID), f->waitingSyncThreads.end());
+
+	IoAsyncCleanupThread(fd);
 }
 
 static void __IoAsyncBeginCallback(SceUID threadID, SceUID prevCallbackId) {
@@ -652,7 +665,7 @@ void __IoInit() {
 }
 
 void __IoDoState(PointerWrap &p) {
-	auto s = p.Section("sceIo", 1, 3);
+	auto s = p.Section("sceIo", 1, 4);
 	if (!s)
 		return;
 
@@ -684,6 +697,33 @@ void __IoDoState(PointerWrap &p) {
 	if (s >= 3) {
 		p.Do(lastMemStickState);
 		p.Do(lastMemStickFatState);
+	}
+
+	for (int i = 0; i < PSP_COUNT_FDS; ++i) {
+		if (s >= 4) {
+			p.DoVoid(&asyncParams[i], (int)sizeof(IoAsyncParams));
+			bool hasThread = asyncThreads[i] != nullptr;
+			p.Do(hasThread);
+			if (hasThread) {
+				if (asyncThreads[i])
+					asyncThreads[i]->Forget();
+				delete asyncThreads[i];
+				asyncThreads[i] = nullptr;
+				p.DoClass(asyncThreads[i]);
+			} else if (!hasThread) {
+				if (asyncThreads[i])
+					asyncThreads[i]->Forget();
+				delete asyncThreads[i];
+				asyncThreads[i] = nullptr;
+			}
+		} else {
+			asyncParams[i].op = IoAsyncOp::NONE;
+			asyncParams[i].priority = -1;
+			if (asyncThreads[i])
+				asyncThreads[i]->Forget();
+			delete asyncThreads[i];
+			asyncThreads[i] = nullptr;
+		}
 	}
 }
 
@@ -725,6 +765,14 @@ u32 __IoGetFileHandleFromId(u32 id, u32 &outError)
 		return (u32)-1;
 	}
 	return f->handle;
+}
+
+static void IoStartAsyncThread(int id, FileNode *f) {
+	IoAsyncCleanupThread(id, true);
+	int priority = asyncParams[id].priority == -1 ? KernelCurThreadPriority() : asyncParams[id].priority;
+	asyncThreads[id] = new HLEHelperThread("SceIoAsync", "IoFileMgrForUser", "__IoAsyncFinish", priority, 0x200);
+	asyncThreads[id]->Start(id, 0);
+	f->pendingAsyncResult = true;
 }
 
 static u32 sceIoAssign(u32 alias_addr, u32 physical_addr, u32 filesystem_addr, int mode, u32 arg_addr, int argSize)
@@ -1030,7 +1078,6 @@ static u32 sceIoRead(int id, u32 data_addr, int size) {
 }
 
 static u32 sceIoReadAsync(int id, u32 data_addr, int size) {
-	// TODO: Technically we shouldn't read into the buffer yet...
 	u32 error;
 	FileNode *f = __IoGetFd(id, error);
 	if (f) {
@@ -1162,7 +1209,6 @@ static u32 sceIoWrite(int id, u32 data_addr, int size) {
 }
 
 static u32 sceIoWriteAsync(int id, u32 data_addr, int size) {
-	// TODO: Technically we shouldn't read from the buffer yet...
 	u32 error;
 	FileNode *f = __IoGetFd(id, error);
 	if (f) {
@@ -2036,6 +2082,7 @@ static u32 sceIoGetAsyncStat(int id, u32 poll, u32 address) {
 			DEBUG_LOG(SCEIO, "%lli = sceIoGetAsyncStat(%i, %i, %08x)", f->asyncResult, id, poll, address);
 			Memory::Write_U64((u64) f->asyncResult, address);
 			f->hasAsyncResult = false;
+			IoAsyncCleanupThread(id);
 
 			if (f->closePending) {
 				__IoFreeFd(id, error);
@@ -2077,6 +2124,7 @@ static int sceIoWaitAsync(int id, u32 address) {
 			DEBUG_LOG(SCEIO, "%lli = sceIoWaitAsync(%i, %08x)", f->asyncResult, id, address);
 			Memory::Write_U64((u64) f->asyncResult, address);
 			f->hasAsyncResult = false;
+			IoAsyncCleanupThread(id);
 
 			if (f->closePending) {
 				__IoFreeFd(id, error);
@@ -2112,6 +2160,7 @@ static int sceIoWaitAsyncCB(int id, u32 address) {
 			DEBUG_LOG(SCEIO, "%lli = sceIoWaitAsyncCB(%i, %08x)", f->asyncResult, id, address);
 			Memory::Write_U64((u64) f->asyncResult, address);
 			f->hasAsyncResult = false;
+			IoAsyncCleanupThread(id);
 
 			if (f->closePending) {
 				__IoFreeFd(id, error);
@@ -2138,6 +2187,7 @@ static u32 sceIoPollAsync(int id, u32 address) {
 			DEBUG_LOG(SCEIO, "%lli = sceIoPollAsync(%i, %08x)", f->asyncResult, id, address);
 			Memory::Write_U64((u64) f->asyncResult, address);
 			f->hasAsyncResult = false;
+			IoAsyncCleanupThread(id);
 
 			if (f->closePending) {
 				__IoFreeFd(id, error);
