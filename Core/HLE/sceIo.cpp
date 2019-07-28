@@ -1084,17 +1084,13 @@ static u32 sceIoReadAsync(int id, u32 data_addr, int size) {
 		if (f->asyncBusy()) {
 			return hleLogWarning(SCEIO, SCE_KERNEL_ERROR_ASYNC_BUSY, "async busy");
 		}
-		int result;
-		int us;
-		bool complete = __IoRead(result, id, data_addr, size, us);
-		if (complete) {
-			f->asyncResult = (s64)result;
-			DEBUG_LOG(SCEIO, "%llx=sceIoReadAsync(%d, %08x, %x)", f->asyncResult, id, data_addr, size);
-		} else {
-			DEBUG_LOG(SCEIO, "sceIoReadAsync(%d, %08x, %x): deferring result", id, data_addr, size);
-		}
-		__IoSchedAsync(f, id, us);
-		return 0;
+
+		auto &params = asyncParams[id];
+		params.op = IoAsyncOp::READ;
+		params.std.addr = data_addr;
+		params.std.size = size;
+		IoStartAsyncThread(id, f);
+		return hleLogSuccessI(SCEIO, 0);
 	} else {
 		return hleLogError(SCEIO, error, "bad file descriptor");
 	}
@@ -1215,17 +1211,13 @@ static u32 sceIoWriteAsync(int id, u32 data_addr, int size) {
 		if (f->asyncBusy()) {
 			return hleLogWarning(SCEIO, SCE_KERNEL_ERROR_ASYNC_BUSY, "async busy");
 		}
-		int result;
-		int us;
-		bool complete = __IoWrite(result, id, data_addr, size, us);
-		if (complete) {
-			f->asyncResult = (s64)result;
-			DEBUG_LOG(SCEIO, "%llx=sceIoWriteAsync(%d, %08x, %x)", f->asyncResult, id, data_addr, size);
-		} else {
-			DEBUG_LOG(SCEIO, "sceIoWriteAsync(%d, %08x, %x): deferring result", id, data_addr, size);
-		}
-		__IoSchedAsync(f, id, us);
-		return 0;
+
+		auto &params = asyncParams[id];
+		params.op = IoAsyncOp::WRITE;
+		params.std.addr = data_addr;
+		params.std.size = size;
+		IoStartAsyncThread(id, f);
+		return hleLogSuccessI(SCEIO, 0);
 	} else {
 		return hleLogError(SCEIO, error, "bad file descriptor");
 	}
@@ -1379,11 +1371,13 @@ static u32 sceIoLseekAsync(int id, s64 offset, int whence) {
 		if (f->asyncBusy()) {
 			return hleLogWarning(SCEIO, SCE_KERNEL_ERROR_ASYNC_BUSY, "async busy");
 		}
-		f->asyncResult = __IoLseek(id, offset, whence);
-		// Educated guess at timing.
-		__IoSchedAsync(f, id, 100);
-		DEBUG_LOG(SCEIO, "%lli = sceIoLseekAsync(%d, %llx, %i)", f->asyncResult, id, offset, whence);
-		return 0;
+
+		auto &params = asyncParams[id];
+		params.op = IoAsyncOp::SEEK;
+		params.seek.pos = offset;
+		params.seek.whence = whence;
+		IoStartAsyncThread(id, f);
+		return hleLogSuccessI(SCEIO, 0);
 	} else {
 		return hleLogError(SCEIO, error, "bad file descriptor");
 	}
@@ -1400,11 +1394,13 @@ static u32 sceIoLseek32Async(int id, int offset, int whence) {
 		if (f->asyncBusy()) {
 			return hleLogWarning(SCEIO, SCE_KERNEL_ERROR_ASYNC_BUSY, "async busy");
 		}
-		f->asyncResult = __IoLseek(id, offset, whence);
-		// Educated guess at timing.
-		__IoSchedAsync(f, id, 100);
-		DEBUG_LOG(SCEIO, "%lli = sceIoLseek32Async(%d, %x, %i)", f->asyncResult, id, offset, whence);
-		return 0;
+
+		auto &params = asyncParams[id];
+		params.op = IoAsyncOp::SEEK;
+		params.seek.pos = offset;
+		params.seek.whence = whence;
+		IoStartAsyncThread(id, f);
+		return hleLogSuccessI(SCEIO, 0);
 	} else {
 		return hleLogError(SCEIO, error, "bad file descriptor");
 	}
@@ -2594,11 +2590,16 @@ static u32 sceIoIoctlAsync(u32 id, u32 cmd, u32 indataPtr, u32 inlen, u32 outdat
 		if (f->asyncBusy()) {
 			return hleLogWarning(SCEIO, SCE_KERNEL_ERROR_ASYNC_BUSY, "async busy");
 		}
-		DEBUG_LOG(SCEIO, "sceIoIoctlAsync(%08x, %08x, %08x, %08x, %08x, %08x)", id, cmd, indataPtr, inlen, outdataPtr, outlen);
-		int usec = 100;
-		f->asyncResult = __IoIoctl(id, cmd, indataPtr, inlen, outdataPtr, outlen, usec);
-		__IoSchedAsync(f, id, usec);
-		return 0;
+
+		auto &params = asyncParams[id];
+		params.op = IoAsyncOp::IOCTL;
+		params.ioctl.cmd = cmd;
+		params.ioctl.inAddr = indataPtr;
+		params.ioctl.inSize = inlen;
+		params.ioctl.outAddr = outdataPtr;
+		params.ioctl.outSize = outlen;
+		IoStartAsyncThread(id, f);
+		return hleLogSuccessI(SCEIO, 0);
 	} else {
 		return hleLogError(SCEIO, error, "bad file descriptor");
 	}
@@ -2653,7 +2654,70 @@ static int IoAsyncFinish(int id) {
 	u32 error;
 	FileNode *f = __IoGetFd(id, error);
 	if (f) {
-		// TODO
+		// Reset this so the Io funcs don't reject the request.
+		f->pendingAsyncResult = false;
+
+		auto &params = asyncParams[id];
+
+		int result;
+		int us;
+		bool complete;
+
+		switch (params.op) {
+		case IoAsyncOp::READ:
+			complete = __IoRead(result, id, params.std.addr, params.std.size, us);
+			if (complete) {
+				f->asyncResult = (s64)result;
+				DEBUG_LOG(SCEIO, "ASYNC %llx=sceIoReadAsync(%d, %08x, %x)", f->asyncResult, id, params.std.addr, params.std.size);
+			} else {
+				DEBUG_LOG(SCEIO, "ASYNC sceIoReadAsync(%d, %08x, %x): deferring result", id, params.std.addr, params.std.size);
+			}
+			break;
+
+		case IoAsyncOp::WRITE:
+			complete = __IoWrite(result, id, params.std.addr, params.std.size, us);
+			if (complete) {
+				f->asyncResult = (s64)result;
+				DEBUG_LOG(SCEIO, "ASYNC %llx=sceIoWriteAsync(%d, %08x, %x)", f->asyncResult, id, params.std.addr, params.std.size);
+			} else {
+				DEBUG_LOG(SCEIO, "ASYNC sceIoWriteAsync(%d, %08x, %x): deferring result", id, params.std.addr, params.std.size);
+			}
+			break;
+
+		case IoAsyncOp::SEEK:
+			f->asyncResult = __IoLseek(id, params.seek.pos, params.seek.whence);
+			// Educated guess at timing.
+			us = 100;
+			DEBUG_LOG(SCEIO, "ASYNC %lli = sceIoLseekAsync(%d, %llx, %i)", f->asyncResult, id, params.seek.pos, params.seek.whence);
+			break;
+
+		case IoAsyncOp::OPEN:
+			// TODO: Timing is very inconsistent.  From ms0, 10ms - 20ms depending on filesize/dir depth?  From umd, can take > 1s.
+			// For now let's aim low.
+			us = 100;
+			break;
+
+		case IoAsyncOp::CLOSE:
+			f->asyncResult = 0;
+			// TODO: Rough estimate.
+			us = 100;
+			DEBUG_LOG(SCEIO, "ASYNC %lli = sceIoCloseAsync(%d)", f->asyncResult, id);
+			break;
+
+		case IoAsyncOp::IOCTL:
+			us = 100;
+			f->asyncResult = __IoIoctl(id, params.ioctl.cmd, params.ioctl.inAddr, params.ioctl.inSize, params.ioctl.outAddr, params.ioctl.outSize, us);
+			DEBUG_LOG(SCEIO, "ASYNC sceIoIoctlAsync(%08x, %08x, %08x, %08x, %08x, %08x)", id, params.ioctl.cmd, params.ioctl.inAddr, params.ioctl.inSize, params.ioctl.outAddr, params.ioctl.outSize);
+			break;
+
+		default:
+			ERROR_LOG_REPORT(SCEIO, "Unknown async op %d", params.op);
+			break;
+		}
+
+		__IoSchedAsync(f, id, us);
+
+		params.op = IoAsyncOp::NONE;
 		return 0;
 	} else {
 		return hleLogError(SCEIO, error, "bad file descriptor");
