@@ -2131,7 +2131,7 @@ void __KernelReturnFromThread()
 	Thread *thread = __GetCurrentThread();
 	_dbg_assert_msg_(SCEKERNEL, thread != NULL, "Returned from a NULL thread.");
 
-	INFO_LOG(SCEKERNEL,"__KernelReturnFromThread: %d", exitStatus);
+	DEBUG_LOG(SCEKERNEL, "__KernelReturnFromThread: %d", exitStatus);
 	__KernelStopThread(currentThread, exitStatus, "thread returned");
 
 	hleReSchedule("thread returned");

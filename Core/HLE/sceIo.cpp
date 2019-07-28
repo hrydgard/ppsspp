@@ -33,6 +33,7 @@
 #include "Core/Host.h"
 #include "Core/SaveState.h"
 #include "Core/HLE/HLE.h"
+#include "Core/HLE/HLEHelperThread.h"
 #include "Core/HLE/FunctionWrappers.h"
 #include "Core/HLE/sceDisplay.h"
 #include "Core/HLE/sceKernel.h"
@@ -158,6 +159,46 @@ struct SceIoDirEnt {
 	char d_name[256];
 	u32_le d_private;
 };
+
+enum class IoAsyncOp {
+	NONE,
+	OPEN,
+	CLOSE,
+	READ,
+	WRITE,
+	SEEK,
+	IOCTL,
+};
+
+struct IoAsyncParams {
+	IoAsyncOp op = IoAsyncOp::NONE;
+	int priority = -1;
+	union {
+		struct {
+			u32 filenameAddr;
+			int flags;
+			int mode;
+		} open;
+		struct {
+			u32 addr;
+			u32 size;
+		} std;
+		struct {
+			s64 pos;
+			int whence;
+		} seek;
+		struct {
+			u32 cmd;
+			u32 inAddr;
+			u32 inSize;
+			u32 outAddr;
+			u32 outSize;
+		} ioctl;
+	};
+};
+
+static IoAsyncParams asyncParams[PSP_COUNT_FDS];
+static HLEHelperThread *asyncThreads[PSP_COUNT_FDS]{};
 
 class FileNode : public KernelObject {
 public:
@@ -335,7 +376,6 @@ static void __IoFreeFd(int fd, u32 &error) {
 // TODO: Closed files are a bit special: until the fd is reused (?), the async result is still available.
 // Clearly a buffer is used, it doesn't seem like they are actually kernel objects.
 
-// TODO: We don't do any of that yet.
 // For now, let's at least delay the callback notification.
 static void __IoAsyncNotify(u64 userdata, int cyclesLate) {
 	int fd = (int) userdata;
@@ -1407,6 +1447,7 @@ static u32 sceIoOpen(const char *filename, int flags, int mode) {
 		return id;
 	} else {
 		DEBUG_LOG(SCEIO, "%i=sceIoOpen(%s, %08x, %08x)", id, filename, flags, mode);
+		asyncParams[id].priority = -1;
 		// Timing is not accurate, aiming low for now.
 		return hleDelayResult(id, "file opened", 100);
 	}
@@ -1881,15 +1922,20 @@ static u32 sceIoChdir(const char *dirname) {
 	return pspFileSystem.ChDir(dirname);
 }
 
-static int sceIoChangeAsyncPriority(int id, int priority)
-{	
+static int sceIoChangeAsyncPriority(int id, int priority) {
 	// priority = -1 is valid
-	if (priority < 0 && priority != -1) {
-		ERROR_LOG(SCEIO, "sceIoChangeAsyncPriority : Illegal Priority %i", priority);
-		return SCE_KERNEL_ERROR_ILLEGAL_PRIORITY;
+	if (priority != -1 && (priority < 0x08 || priority > 0x77)) {
+		return hleLogError(SCEIO, SCE_KERNEL_ERROR_ILLEGAL_PRIORITY, "illegal priority %d", priority);
 	}
-	WARN_LOG(SCEIO, "UNIMPL sceIoChangeAsyncPriority(%d, %d)", id, priority);
-	return 0;
+
+	u32 error;
+	FileNode *f = __IoGetFd(id, error);
+	if (!f) {
+		return hleLogError(SCEIO, error, "bad file descriptor");
+	}
+
+	asyncParams[id].priority = priority;
+	return hleLogSuccessI(SCEIO, 0);
 }
 
 static int sceIoCloseAsync(int id)
@@ -2569,6 +2615,11 @@ static u32 sceKernelRegisterStdoutPipe(u32 msgPipeUID) {
 	return 0;
 }
 
+static int IoAsyncFinish(int id) {
+	// TODO
+	return 0;
+}
+
 KernelObject *__KernelFileNodeObject() {
 	return new FileNode;
 }
@@ -2615,6 +2666,7 @@ const HLEFunction IoFileMgrForUser[] = {
 	{0x35DBD746, &WrapI_IU<sceIoWaitAsyncCB>,           "sceIoWaitAsyncCB",            'i', "iP"    },
 	{0xE23EEC33, &WrapI_IU<sceIoWaitAsync>,             "sceIoWaitAsync",              'i', "iP"    },
 	{0X5C2BE2CC, &WrapU_UIU<sceIoGetFdList>,            "sceIoGetFdList",              'i', "xip"   },
+	{0x13370001, &WrapI_I<IoAsyncFinish>,               "__IoAsyncFinish",             'i', "i"     },
 };
 
 void Register_IoFileMgrForUser() {
