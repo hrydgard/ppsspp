@@ -1974,9 +1974,10 @@ static int sceIoCloseAsync(int id)
 	FileNode *f = __IoGetFd(id, error);
 	if (f) {
 		f->closePending = true;
-		f->asyncResult = 0;
-		// TODO: Rough estimate.
-		__IoSchedAsync(f, id, 100);
+
+		auto &params = asyncParams[id];
+		params.op = IoAsyncOp::CLOSE;
+		IoStartAsyncThread(id, f);
 		return hleLogSuccessI(SCEIO, 0);
 	} else {
 		return hleLogError(SCEIO, error, "bad file descriptor");
@@ -2010,41 +2011,40 @@ static u32 sceIoOpenAsync(const char *filename, int flags, int mode)
 
 	int error;
 	FileNode *f = __IoOpen(error, filename, flags, mode);
-	int fd;
 
 	// We have to return an fd here, which may have been destroyed when we reach Wait if it failed.
-	if (f == NULL)
-	{
-		ERROR_LOG(SCEIO, "ERROR_ERRNO_FILE_NOT_FOUND=sceIoOpenAsync(%s, %08x, %08x) - file not found", filename, flags, mode);
+	if (f == nullptr) {
+		if (error == 0)
+			error = SCE_KERNEL_ERROR_ERRNO_FILE_NOT_FOUND;
 
 		f = new FileNode();
 		f->handle = kernelObjects.Create(f);
 		f->fullpath = filename;
-		f->asyncResult = error == 0 ? (s64)SCE_KERNEL_ERROR_ERRNO_FILE_NOT_FOUND : (s64)error;
 		f->closePending = true;
-
-		fd = __IoAllocFd(f);
-	}
-	else
-	{
-		fd = __IoAllocFd(f);
-		if (fd >= 0) {
-			DEBUG_LOG(SCEIO, "%x=sceIoOpenAsync(%s, %08x, %08x)", fd, filename, flags, mode);
-			f->asyncResult = fd;
-		}
 	}
 
+	// We need an fd even for errors, since it's async.
+	int fd = __IoAllocFd(f);
 	if (fd < 0) {
-		ERROR_LOG(SCEIO, "%08x=sceIoOpenAsync(%s, %08x, %08x): out of fds", fd, filename, flags, mode);
 		kernelObjects.Destroy<FileNode>(f->GetUID());
-		return fd;
+		return hleLogError(SCEIO, fd, "out of fds");
 	}
 
-	// TODO: Timing is very inconsistent.  From ms0, 10ms - 20ms depending on filesize/dir depth?  From umd, can take > 1s.
-	// For now let's aim low.
-	__IoSchedAsync(f, fd, 100);
+	auto &params = asyncParams[fd];
+	params.op = IoAsyncOp::OPEN;
+	params.priority = -1;
+	params.open.filenameAddr = PARAM(0);
+	params.open.flags = flags;
+	params.open.mode = mode;
+	IoStartAsyncThread(fd, f);
 
-	return fd;
+	if (f == nullptr) {
+		f->asyncResult = (s64)error;
+		return hleLogError(SCEIO, f->asyncResult, "file not found");
+	}
+
+	f->asyncResult = fd;
+	return hleLogSuccessI(SCEIO, fd);
 }
 
 static u32 sceIoGetAsyncStat(int id, u32 poll, u32 address) {
