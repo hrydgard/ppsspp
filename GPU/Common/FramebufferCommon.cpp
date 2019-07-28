@@ -1306,7 +1306,8 @@ void FramebufferManagerCommon::FindTransferFramebuffers(VirtualFramebuffer *&dst
 
 			// Some games use mismatching bitdepths.  But make sure the stride matches.
 			// If it doesn't, generally this means we detected the framebuffer with too large a height.
-			bool match = yOffset < dstYOffset && (int)yOffset <= (int)vfb->height - dstHeight;
+			// Use bufferHeight in case of buffers that resize up and down often per frame (Valkyrie Profile.)
+			bool match = yOffset < dstYOffset && (int)yOffset <= (int)vfb->bufferHeight - dstHeight;
 			if (match && vfb_byteStride != byteStride) {
 				// Grand Knights History copies with a mismatching stride but a full line at a time.
 				// Makes it hard to detect the wrong transfers in e.g. God of War.
@@ -1336,7 +1337,7 @@ void FramebufferManagerCommon::FindTransferFramebuffers(VirtualFramebuffer *&dst
 			const u32 byteOffset = srcBasePtr - vfb_address;
 			const u32 byteStride = srcStride * bpp;
 			const u32 yOffset = byteOffset / byteStride;
-			bool match = yOffset < srcYOffset && (int)yOffset <= (int)vfb->height - srcHeight;
+			bool match = yOffset < srcYOffset && (int)yOffset <= (int)vfb->bufferHeight - srcHeight;
 			if (match && vfb_byteStride != byteStride) {
 				if (width != srcStride || (byteStride * height != vfb_byteStride && byteStride * height != vfb_byteWidth)) {
 					match = false;
