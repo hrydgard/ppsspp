@@ -831,7 +831,7 @@ elseif(TARGET SDL2::SDL2)
 		set(nativeExtraLibs ${nativeExtraLibs} pthread)
 	endif()
 	set(TargetBin PPSSPPSDL)
-else()
+elseif(NOT LIBRETRO)
 	message(FATAL_ERROR "Could not find SDL2. Failing.")
 endif()
 
