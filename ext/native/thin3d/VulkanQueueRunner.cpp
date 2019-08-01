@@ -158,7 +158,6 @@ void VulkanQueueRunner::InitBackbufferRenderPass() {
 	dep.dstStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
 	dep.srcAccessMask = 0;
 	dep.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_READ_BIT | VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
-	dep.dependencyFlags = VK_DEPENDENCY_BY_REGION_BIT;
 
 	VkRenderPassCreateInfo rp_info{ VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO };
 	rp_info.attachmentCount = 2;
