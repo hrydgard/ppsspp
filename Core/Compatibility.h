@@ -64,6 +64,7 @@ struct CompatFlags {
 	bool ForceUMDDelay;
 	bool ForceMax60FPS;
 	bool JitInvalidationHack;
+	bool HideISOFiles;
 };
 
 class IniFile;
