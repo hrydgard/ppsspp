@@ -1647,6 +1647,8 @@ add_library(${CoreLibName} ${CoreLinkType}
 	Core/HLE/sceUsbCam.h
 	Core/HLE/sceUsbGps.cpp
 	Core/HLE/sceUsbGps.h
+	Core/HLE/sceUsbMic.cpp
+	Core/HLE/sceUsbMic.h
 	Core/HLE/sceUtility.cpp
 	Core/HLE/sceUtility.h
 	Core/HLE/sceVaudio.cpp

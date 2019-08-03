@@ -50,6 +50,17 @@ static int sceUsbCamStopMic() {
 	return 0;
 }
 
+static int sceUsbCamReadMicBlocking(u32 bufAddr, u32 size) {
+	INFO_LOG(HLE, "UNIMPL sceUsbCamReadMicBlocking: size: %d", size);
+	for (unsigned int i = 0; i < size; i++) {
+		if (Memory::IsValidAddress(bufAddr + i)) {
+			Memory::Write_U8(i & 0xFF, bufAddr + i);
+		}
+	}
+	hleEatMicro(1000000 / micParam.frequency * (size / 2));
+	return size;
+}
+
 static int sceUsbCamSetupVideo(u32 paramAddr, u32 workareaAddr, int wasize) {
 	INFO_LOG(HLE, "UNIMPL sceUsbCamSetupVideo");
 	if (Memory::IsValidRange(paramAddr, sizeof(videoParam))) {
@@ -115,7 +126,7 @@ const HLEFunction sceUsbCam[] =
 	{ 0X2E930264, nullptr,                                    "sceUsbCamSetupMicEx",                     '?', "" },
 	{ 0X82A64030, &WrapI_V<sceUsbCamStartMic>,                "sceUsbCamStartMic",                       'i', "" },
 	{ 0X5145868A, &WrapI_V<sceUsbCamStopMic>,                 "sceUsbCamStopMic",                        'i', "" },
-	{ 0X36636925, nullptr,                                    "sceUsbCamReadMicBlocking",                '?', "" },
+	{ 0X36636925, &WrapI_UU<sceUsbCamReadMicBlocking>,        "sceUsbCamReadMicBlocking",                'i', "xx" },
 	{ 0X3DC0088E, nullptr,                                    "sceUsbCamReadMic",                        '?', "" },
 	{ 0XB048A67D, nullptr,                                    "sceUsbCamWaitReadMicEnd",                 '?', "" },
 	{ 0XF8847F60, nullptr,                                    "sceUsbCamPollReadMicEnd",                 '?', "" },
