@@ -985,7 +985,6 @@ void FramebufferManagerCommon::CopyDisplayToOutput() {
 			CalculatePostShaderUniforms(vfb->bufferWidth, vfb->bufferHeight, renderWidth_, renderHeight_, &uniforms);
 			BindPostShader(uniforms);
 			DrawTextureFlags flags = g_Config.iBufFilter == SCALE_LINEAR ? DRAWTEX_LINEAR : DRAWTEX_NEAREST;
-			flags = flags | DRAWTEX_TO_BACKBUFFER;
 			DrawActiveTexture(0, 0, fbo_w, fbo_h, fbo_w, fbo_h, 0.0f, 0.0f, 1.0f, 1.0f, ROTATION_LOCKED_HORIZONTAL, flags);
 
 			draw_->SetScissorRect(0, 0, pixelWidth_, pixelHeight_);
@@ -1008,6 +1007,7 @@ void FramebufferManagerCommon::CopyDisplayToOutput() {
 			flags = flags | DRAWTEX_TO_BACKBUFFER;
 			// Fullscreen Image
 			SetViewport2D(0, 0, pixelWidth_, pixelHeight_);
+			draw_->SetScissorRect(0, 0, pixelWidth_, pixelHeight_);
 			DrawActiveTexture(x, y, w, h, (float)pixelWidth_, (float)pixelHeight_, u0, v0, u1, v1, uvRotation, flags);
 		} else {
 			shaderManager_->DirtyLastShader();  // dirty lastShader_ BEFORE drawing
