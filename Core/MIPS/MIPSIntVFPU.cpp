@@ -25,6 +25,8 @@
 
 #include "Core/Core.h"
 #include "Core/Reporting.h"
+#include "Core/Compatibility.h"
+#include "Core/System.h"
 #include "Core/MemMap.h"
 
 #include "Core/MIPS/MIPS.h"
@@ -464,22 +466,45 @@ namespace MIPSInt
 		ReadMatrix(s, sz, vs);
 		ReadMatrix(t, sz, vt);
 
-		for (int a = 0; a < n; a++) {
-			for (int b = 0; b < n; b++) {
-				float sum = 0.0f;
-				if (a == n - 1 && b == n - 1) {
-					// S and T prefixes work on the final (or maybe first, in reverse?) dot.
-					ApplySwizzleS(&s[b * 4], V_Quad);
-					ApplySwizzleT(&t[a * 4], V_Quad);
-					for (int c = 0; c < 4; c++) {
-						sum += s[b * 4 + c] * t[a * 4 + c];
+		// TODO: Always use the more accurate path?
+		if (PSP_CoreParameter().compat.flags().MoreAccurateVMMUL) {
+			for (int a = 0; a < n; a++) {
+				for (int b = 0; b < n; b++) {
+					union { float f; uint32_t u; } sum = { 0.0f };
+					if (a == n - 1 && b == n - 1) {
+						// S and T prefixes work on the final (or maybe first, in reverse?) dot.
+						ApplySwizzleS(&s[b * 4], V_Quad);
+						ApplySwizzleT(&t[a * 4], V_Quad);
 					}
-				} else {
-					for (int c = 0; c < n; c++) {
-						sum += s[b * 4 + c] * t[a * 4 + c];
+
+					sum.f = vfpu_dot(&s[b * 4], &t[a * 4]);
+					if (my_isnan(sum.f)) {
+						sum.u = 0x7F800001;
+					} else if ((sum.u & 0x7F800000) == 0) {
+						sum.u &= 0xFF800000;
 					}
+
+					d[a * 4 + b] = sum.f;
 				}
-				d[a * 4 + b] = sum;
+			}
+		} else {
+			for (int a = 0; a < n; a++) {
+				for (int b = 0; b < n; b++) {
+					float sum = 0.0f;
+					if (a == n - 1 && b == n - 1) {
+						// S and T prefixes work on the final (or maybe first, in reverse?) dot.
+						ApplySwizzleS(&s[b * 4], V_Quad);
+						ApplySwizzleT(&t[a * 4], V_Quad);
+						for (int c = 0; c < 4; c++) {
+							sum += s[b * 4 + c] * t[a * 4 + c];
+						}
+					} else {
+						for (int c = 0; c < n; c++) {
+							sum += s[b * 4 + c] * t[a * 4 + c];
+						}
+					}
+					d[a * 4 + b] = sum;
+				}
 			}
 		}
 

@@ -19,6 +19,7 @@
 #include <stdio.h>
 
 #include "Common/CommonFuncs.h"
+#include "Common/BitScan.h"
 #include "Core/Reporting.h"
 #include "Core/MIPS/MIPS.h"
 #include "Core/MIPS/MIPSVFPUUtils.h"
@@ -606,4 +607,186 @@ float Float16ToFloat32(unsigned short l)
 		f=float2int.f;
 	}
 	return f;
+}
+
+
+static uint32_t get_uexp(uint32_t x) {
+	return (x >> 23) & 0xFF;
+}
+
+int32_t get_exp(uint32_t x) {
+	return get_uexp(x) - 127;
+}
+
+static int32_t get_mant(uint32_t x) {
+	// Note: this returns the hidden 1.
+	return (x & 0x007FFFFF) | 0x00800000;
+}
+
+static int32_t get_sign(uint32_t x) {
+	return x & 0x80000000;
+}
+
+float vfpu_dot(float a[4], float b[4]) {
+	static const int EXTRA_BITS = 2;
+	union float2int {
+		uint32_t i;
+		float f;
+	};
+	float2int result;
+	float2int src[2];
+
+	int32_t exps[4];
+	int32_t mants[4];
+	int32_t signs[4];
+	int32_t max_exp = 0;
+	int32_t last_inf = -1;
+
+	for (int i = 0; i < 4; i++) {
+		src[0].f = a[i];
+		src[1].f = b[i];
+
+		int32_t aexp = get_uexp(src[0].i);
+		int32_t bexp = get_uexp(src[1].i);
+		int32_t amant = get_mant(src[0].i) << EXTRA_BITS;
+		int32_t bmant = get_mant(src[1].i) << EXTRA_BITS;
+
+		exps[i] = aexp + bexp - 127;
+		if (aexp == 255) {
+			// INF * 0 = NAN
+			if ((src[0].i & 0x007FFFFF) != 0 || bexp == 0) {
+				result.i = 0x7F800001;
+				return result.f;
+			}
+			mants[i] = get_mant(0) << EXTRA_BITS;
+			exps[i] = 255;
+		} else if (bexp == 255) {
+			if ((src[1].i & 0x007FFFFF) != 0 || aexp == 0) {
+				result.i = 0x7F800001;
+				return result.f;
+			}
+			mants[i] = get_mant(0) << EXTRA_BITS;
+			exps[i] = 255;
+		} else {
+			// TODO: Adjust precision?
+			uint64_t adjust = (uint64_t)amant * (uint64_t)bmant;
+			mants[i] = (adjust >> (23 + EXTRA_BITS)) & 0x7FFFFFFF;
+		}
+		signs[i] = get_sign(src[0].i) ^ get_sign(src[1].i);
+
+		if (exps[i] > max_exp) {
+			max_exp = exps[i];
+		}
+		if (exps[i] >= 255) {
+			// Infinity minus infinity is not a real number.
+			if (last_inf != -1 && signs[i] != last_inf) {
+				result.i = 0x7F800001;
+				return result.f;
+			}
+			last_inf = signs[i];
+		}
+	}
+
+	int32_t mant_sum = 0;
+	for (int i = 0; i < 4; i++) {
+		int exp = max_exp - exps[i];
+		if (exp >= 32) {
+			mants[i] = 0;
+		} else {
+			mants[i] >>= exp;
+		}
+		if (signs[i]) {
+			mants[i] = -mants[i];
+		}
+		mant_sum += mants[i];
+	}
+
+	uint32_t sign_sum = 0;
+	if (mant_sum < 0) {
+		sign_sum = 0x80000000;
+		mant_sum = -mant_sum;
+	}
+
+	// Truncate off the extra bits now.  We want to zero them for rounding purposes.
+	mant_sum >>= EXTRA_BITS;
+
+	if (mant_sum == 0 || max_exp <= 0) {
+		return 0.0f;
+	}
+
+	int8_t shift = (int8_t)clz32_nonzero(mant_sum) - 8;
+	if (shift < 0) {
+		// Round to even if we'd shift away a 0.5.
+		uint32_t round_bit = 1 << (-shift - 1);
+		if ((mant_sum & round_bit) && (mant_sum & (round_bit << 1))) {
+			mant_sum += round_bit;
+			shift = (int8_t)clz32_nonzero(mant_sum) - 8;
+		}
+		mant_sum >>= -shift;
+		max_exp += -shift;
+	} else {
+		mant_sum <<= shift;
+		max_exp -= shift;
+	}
+	_dbg_assert_msg_(JIT, (mant_sum & 0x00800000) != 0, "Mantissa wrong: %08x", mant_sum);
+
+	if (max_exp >= 255) {
+		max_exp = 255;
+		mant_sum = 0;
+	} else if (max_exp <= 0) {
+		return 0.0f;
+	}
+
+	result.i = sign_sum | (max_exp << 23) | (mant_sum & 0x007FFFFF);
+	return result.f;
+}
+
+// TODO: This is still not completely accurate compared to the PSP's vsqrt.
+float vfpu_sqrt(float a) {
+	union float2int {
+		uint32_t u;
+		float f;
+	};
+	float2int val;
+	val.f = a;
+
+	if ((val.u & 0xff800000) == 0x7f800000) {
+		if ((val.u & 0x007fffff) != 0) {
+			val.u = 0x7f800001;
+		}
+		return val.f;
+	}
+	if ((val.u & 0x7fffffff) == 0) {
+		// Kill any sign.
+		val.u = 0;
+		return val.f;
+	}
+	if (val.u & 0x80000000) {
+		val.u = 0x7f800001;
+		return val.f;
+	}
+
+	int k = get_exp(val.u);
+	int sp = get_mant(val.u);
+	int less_bits;
+
+	if (k & 1) {
+		less_bits = 1;
+		k /= 2;
+	} else {
+		less_bits = 0;
+		k /= 2;
+	}
+
+	int z = 0x00800000 >> less_bits;
+	int64_t halfsp = sp >> 1;
+	halfsp <<= 23 - less_bits;
+	for (int i = 0; i < 6; ++i) {
+		z = (z >> 1) + (int)(halfsp / z);
+	}
+
+	val.u = ((k + 127) << 23) | ((z << less_bits) & 0x007FFFFF);
+	// The lower two bits never end up set on the PSP, it seems like.
+	val.u &= 0xFFFFFFFC;
+	return val.f;
 }

@@ -1,6 +1,7 @@
 #pragma once
 
 #include "ppsspp_config.h"
+#include <cstdint>
 
 #if PPSSPP_PLATFORM(WINDOWS)
 #include "Common/CommonWindows.h"
