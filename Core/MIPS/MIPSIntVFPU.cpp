@@ -23,9 +23,11 @@
 
 #include "math/math_util.h"
 
+#include "Core/Compatibility.h"
 #include "Core/Core.h"
-#include "Core/Reporting.h"
 #include "Core/MemMap.h"
+#include "Core/Reporting.h"
+#include "Core/System.h"
 
 #include "Core/MIPS/MIPS.h"
 #include "Core/MIPS/MIPSInt.h"
@@ -467,6 +469,8 @@ namespace MIPSInt
 		ReadMatrix(s, sz, vs);
 		ReadMatrix(t, sz, vt);
 
+		// TODO: Always use the more accurate path in interpreter?
+		bool useAccurateDot = USE_VFPU_DOT || PSP_CoreParameter().compat.flags().MoreAccurateVMMUL;
 		for (int a = 0; a < n; a++) {
 			for (int b = 0; b < n; b++) {
 				union { float f; uint32_t u; } sum = { 0.0f };
@@ -476,7 +480,7 @@ namespace MIPSInt
 					ApplySwizzleT(&t[a * 4], V_Quad);
 				}
 
-				if (USE_VFPU_DOT) {
+				if (useAccurateDot) {
 					sum.f = vfpu_dot(&s[b * 4], &t[a * 4]);
 					if (my_isnan(sum.f)) {
 						sum.u = 0x7f800001;
