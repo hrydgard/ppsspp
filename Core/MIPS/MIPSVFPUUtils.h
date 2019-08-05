@@ -97,6 +97,10 @@ inline float vfpu_clamp(float v, float min, float max) {
 	return v >= max ? max : (v <= min ? min : v);
 }
 
+float vfpu_dot(float a[4], float b[4]);
+float vfpu_sqrt(float a);
+float vfpu_rsqrt(float a);
+
 #define VFPU_FLOAT16_EXP_MAX    0x1f
 #define VFPU_SH_FLOAT16_SIGN    15
 #define VFPU_MASK_FLOAT16_SIGN  0x1
