@@ -33,7 +33,7 @@ QTM_USE_NAMESPACE
 #include "thin3d/thin3d.h"
 #include "base/NativeApp.h"
 #include "net/resolve.h"
-#include "base/NKCodeFromQt.h"
+#include "NKCodeFromQt.h"
 
 #include "Common/GraphicsContext.h"
 #include "Core/Core.h"

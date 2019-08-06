@@ -3,7 +3,7 @@
 #include "util/const_map.h"
 #include <map>
 
-// TODO: Add any missing keys 
+// TODO: Add any missing keys
 static const std::map<int, int> KeyMapRawSDLtoNative = InitConstMap<int, int>
 	(SDLK_UNKNOWN, NKCODE_UNKNOWN)
 	(SDLK_p, NKCODE_P)

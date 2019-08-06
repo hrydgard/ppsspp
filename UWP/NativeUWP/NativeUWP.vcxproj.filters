@@ -505,12 +505,6 @@
     <ClInclude Include="..\..\ext\native\base\NativeApp.h">
       <Filter>base</Filter>
     </ClInclude>
-    <ClInclude Include="..\..\ext\native\base\NKCodeFromQt.h">
-      <Filter>base</Filter>
-    </ClInclude>
-    <ClInclude Include="..\..\ext\native\base\NKCodeFromSDL.h">
-      <Filter>base</Filter>
-    </ClInclude>
     <ClInclude Include="..\..\ext\native\base\stringutil.h">
       <Filter>base</Filter>
     </ClInclude>

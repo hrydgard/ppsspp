@@ -27,7 +27,7 @@ SDLJoystick *joystick = NULL;
 #include "input/input_state.h"
 #include "input/keycodes.h"
 #include "net/resolve.h"
-#include "base/NKCodeFromSDL.h"
+#include "NKCodeFromSDL.h"
 #include "util/const_map.h"
 #include "util/text/utf8.h"
 #include "math/math_util.h"
