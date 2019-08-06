@@ -17,6 +17,9 @@ public class NativeApp {
 	public static native void audioShutdown();
 	public static native void audioConfig(int optimalFramesPerBuffer, int optimalSampleRate);
 
+	public static native void audioRecording_Start(int sampleRate);
+	public static native void audioRecording_Stop();
+
 	public static native void computeDesiredBackbufferDimensions();
 	public static native int getDesiredBackbufferWidth();
 	public static native int getDesiredBackbufferHeight();

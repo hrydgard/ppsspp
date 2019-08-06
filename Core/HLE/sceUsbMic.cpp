@@ -19,6 +19,7 @@
 
 #include "Common/Serialize/Serializer.h"
 #include "Common/Serialize/SerializeFuncs.h"
+#include "Common/System/System.h"
 #include "Core/HLE/HLE.h"
 #include "Core/HLE/FunctionWrappers.h"
 #include "Core/HLE/sceKernelThread.h"
@@ -302,6 +303,12 @@ int Microphone::startMic(void *param) {
 #ifdef HAVE_WIN32_MICROPHONE
 	if (winMic)
 		winMic->sendMessage({ CAPTUREDEVIDE_COMMAND::START, param });
+#elif PPSSPP_PLATFORM(ANDROID)
+	std::vector<u32> *micParam = static_cast<std::vector<u32>*>(param);
+	int sampleRate = micParam->at(0);
+	int channels = micParam->at(1);
+	INFO_LOG(HLE, "microphone_command : sr = %d", sampleRate);
+	System_SendMessage("microphone_command", ("startRecording:" + std::to_string(sampleRate)).c_str());
 #endif
 	micState = 1;
 	return 0;
@@ -311,6 +318,8 @@ int Microphone::stopMic() {
 #ifdef HAVE_WIN32_MICROPHONE
 	if (winMic)
 		winMic->sendMessage({ CAPTUREDEVIDE_COMMAND::STOP, nullptr });
+#elif PPSSPP_PLATFORM(ANDROID)
+	System_SendMessage("microphone_command", "stopRecording");
 #endif
 	micState = 0;
 	return 0;
@@ -319,6 +328,8 @@ int Microphone::stopMic() {
 bool Microphone::isHaveDevice() {
 #ifdef HAVE_WIN32_MICROPHONE
 	return winMic->getDeviceCounts() >= 1;
+#elif PPSSPP_PLATFORM(ANDROID)
+	return true;
 #endif
 	return false;
 }
@@ -327,6 +338,8 @@ bool Microphone::isMicStarted() {
 #ifdef HAVE_WIN32_MICROPHONE
 	if(winMic)
 		return winMic->isStarted();
+#elif PPSSPP_PLATFORM(ANDROID)
+	return micState;
 #endif
 	return false;
 }
@@ -419,7 +432,7 @@ const HLEFunction sceUsbMic[] =
 	{0x06128E42, &WrapI_V<sceUsbMicPollInputEnd>,    "sceUsbMicPollInputEnd",         'i', "" },
 	{0x2E6DCDCD, &WrapI_UUU<sceUsbMicInputBlocking>, "sceUsbMicInputBlocking",        'i', "xxx" },
 	{0x45310F07, &WrapI_U<sceUsbMicInputInitEx>,     "sceUsbMicInputInitEx",          'i', "x" },
-	{0x5F7F368D, &WrapI_V<sceUsbMicInput> ,          "sceUsbMicInput",                'i', "" },
+	{0x5F7F368D, &WrapI_V<sceUsbMicInput>,           "sceUsbMicInput",                'i', "" },
 	{0x63400E20, &WrapI_V<sceUsbMicGetInputLength>,  "sceUsbMicGetInputLength",       'i', "" },
 	{0xB8E536EB, &WrapI_III<sceUsbMicInputInit>,     "sceUsbMicInputInit",            'i', "iii" },
 	{0xF899001C, &WrapI_V<sceUsbMicWaitInputEnd>,    "sceUsbMicWaitInputEnd",         'i', "" },

@@ -137,6 +137,11 @@ static int sceUsbCamReadMicBlocking(u32 bufAddr, u32 size) {
 	return __MicInputBlocking(size >> 1, config->micParam.frequency, bufAddr);
 }
 
+static int sceUsbCamReadMic(u32 bufAddr, u32 size) {
+	INFO_LOG(HLE, "UNIMPL sceUsbCamReadMic: size: %d", size);
+	return __MicInputBlocking(size >> 1, config->micParam.frequency, bufAddr);
+}
+
 static int sceUsbCamSetupVideo(u32 paramAddr, u32 workareaAddr, int wasize) {
 	if (Memory::IsValidRange(paramAddr, sizeof(PspUsbCamSetupVideoParam))) {
 		Memory::ReadStruct(paramAddr, &config->videoParam);
@@ -185,7 +190,7 @@ static int sceUsbCamReadVideoFrameBlocking(u32 bufAddr, u32 size) {
 	if (Memory::IsValidRange(bufAddr, size)) {
 		Memory::Memcpy(bufAddr, videoBuffer, transferSize);
 	}
-	return videoBufferLength;
+	return transferSize;
 }
 
 static int sceUsbCamReadVideoFrame(u32 bufAddr, u32 size) {
@@ -194,7 +199,7 @@ static int sceUsbCamReadVideoFrame(u32 bufAddr, u32 size) {
 	if (Memory::IsValidRange(bufAddr, size)) {
 		Memory::Memcpy(bufAddr, videoBuffer, transferSize);
 	}
-	nextVideoFrame = videoBufferLength;
+	nextVideoFrame = transferSize;
 	return 0;
 }
 
@@ -243,7 +248,7 @@ const HLEFunction sceUsbCam[] =
 	{ 0X82A64030, &WrapI_V<sceUsbCamStartMic>,                "sceUsbCamStartMic",                       'i', "" },
 	{ 0X5145868A, &WrapI_V<sceUsbCamStopMic>,                 "sceUsbCamStopMic",                        'i', "" },
 	{ 0X36636925, &WrapI_UU<sceUsbCamReadMicBlocking>,        "sceUsbCamReadMicBlocking",                'i', "xx" },
-	{ 0X3DC0088E, nullptr,                                    "sceUsbCamReadMic",                        '?', "" },
+	{ 0X3DC0088E, &WrapI_UU<sceUsbCamReadMic>,                "sceUsbCamReadMic",                        'i', "xx" },
 	{ 0XB048A67D, nullptr,                                    "sceUsbCamWaitReadMicEnd",                 '?', "" },
 	{ 0XF8847F60, nullptr,                                    "sceUsbCamPollReadMicEnd",                 '?', "" },
 	{ 0X5778B452, nullptr,                                    "sceUsbCamGetMicDataLength",               '?', "" },

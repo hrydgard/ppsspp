@@ -11,6 +11,32 @@
 
 #include "Common/Log.h"
 #include "OpenSLContext.h"
+#include "Core/HLE/sceUsbMic.h"
+
+void OpenSLContext::bqRecorderCallback(SLAndroidSimpleBufferQueueItf bq, void *context) {
+	OpenSLContext *ctx = (OpenSLContext *)context;
+	SLresult result;
+
+	SLuint32 recordsState;
+	result = (*ctx->recorderRecord)->GetRecordState(ctx->recorderRecord, &recordsState);
+	if(result != SL_RESULT_SUCCESS) {
+		ERROR_LOG(AUDIO, "GetRecordState error: %d", result);
+		return;
+	}
+
+	Microphone::addAudioData((uint8_t*) ctx->recordBuffer[ctx->activeRecordBuffer], ctx->recordBufferSize);
+
+	if (recordsState == SL_RECORDSTATE_RECORDING) {
+		result = (*ctx->recorderBufferQueue)->Enqueue(ctx->recorderBufferQueue, ctx->recordBuffer[ctx->activeRecordBuffer], ctx->recordBufferSize);
+		if (result != SL_RESULT_SUCCESS) {
+			ERROR_LOG(AUDIO, "Enqueue error: %d", result);
+		}
+	}
+
+	ctx->activeRecordBuffer += 1; // Switch buffer
+	if (ctx->activeRecordBuffer == NUM_BUFFERS)
+		ctx->activeRecordBuffer = 0;
+}
 
 // This callback handler is called every time a buffer finishes playing.
 // The documentation available is very unclear about how to best manage buffers.
@@ -101,7 +127,8 @@ bool OpenSLContext::Init() {
 	// create audio player
 	const SLInterfaceID ids[2] = {SL_IID_BUFFERQUEUE, SL_IID_VOLUME};
 	const SLboolean req[2] = {SL_BOOLEAN_TRUE, SL_BOOLEAN_TRUE};
-	result = (*engineEngine)->CreateAudioPlayer(engineEngine, &bqPlayerObject, &audioSrc, &audioSnk, 2, ids, req);
+	result = (*engineEngine)->CreateAudioPlayer(engineEngine, &bqPlayerObject, &audioSrc, &audioSnk,
+			sizeof(ids)/sizeof(ids[0]), ids, req);
 	if (result != SL_RESULT_SUCCESS) {
 		ERROR_LOG(AUDIO, "OpenSL: CreateAudioPlayer failed: %d", (int)result);
 		(*outputMixObject)->Destroy(outputMixObject);
@@ -145,6 +172,102 @@ bool OpenSLContext::Init() {
 	return true;
 }
 
+int OpenSLContext::AudioRecord_Start(int sampleRate) {
+	SLresult result;
+
+	// configure audio source
+	SLDataLocator_IODevice loc_dev = {SL_DATALOCATOR_IODEVICE, SL_IODEVICE_AUDIOINPUT, SL_DEFAULTDEVICEID_AUDIOINPUT, NULL};
+	SLDataSource audioSrc = {&loc_dev, NULL};
+
+	// configure audio sink
+	SLDataLocator_AndroidSimpleBufferQueue loc_bq = {SL_DATALOCATOR_ANDROIDSIMPLEBUFFERQUEUE, 2};
+	SLDataFormat_PCM format_pcm = {
+			SL_DATAFORMAT_PCM,
+			1,
+			(SLuint32) sampleRate * 1000, // The constants such as SL_SAMPLINGRATE_44_1 are 44100000
+			SL_PCMSAMPLEFORMAT_FIXED_16,
+			SL_PCMSAMPLEFORMAT_FIXED_16,
+			SL_SPEAKER_FRONT_CENTER,
+			SL_BYTEORDER_LITTLEENDIAN
+	};
+	SLDataSink audioSnk = {&loc_bq, &format_pcm};
+
+	// create audio recorder
+	const SLInterfaceID id[1] = {SL_IID_ANDROIDSIMPLEBUFFERQUEUE};
+	const SLboolean req[1] = {SL_BOOLEAN_TRUE};
+	result = (*engineEngine)->CreateAudioRecorder(engineEngine, &recorderObject, &audioSrc, &audioSnk,
+			sizeof(id)/sizeof(id[0]), id, req);
+	if (SL_RESULT_SUCCESS != result) {
+		ERROR_LOG(AUDIO, "CreateAudioRecorder failed: %d", result);
+		return false;
+	}
+
+	// realize the audio recorder
+	result = (*recorderObject)->Realize(recorderObject, SL_BOOLEAN_FALSE);
+	if (SL_RESULT_SUCCESS != result) {
+		ERROR_LOG(AUDIO, "Realize failed: %d", result);
+		return false;
+	}
+
+	// get the record interface
+	result = (*recorderObject)->GetInterface(recorderObject, SL_IID_RECORD, &recorderRecord);
+	if (SL_RESULT_SUCCESS != result) {
+		ERROR_LOG(AUDIO, "GetInterface(record) failed: %d", result);
+		return false;
+	}
+
+	// get the buffer queue interface
+	result = (*recorderObject)->GetInterface(recorderObject, SL_IID_ANDROIDSIMPLEBUFFERQUEUE, (void*) &recorderBufferQueue);
+	if (SL_RESULT_SUCCESS != result) {
+		ERROR_LOG(AUDIO, "GetInterface(queue interface) failed: %d", result);
+		return false;
+	}
+
+	// register callback on the buffer queue
+	result = (*recorderBufferQueue)->RegisterCallback(recorderBufferQueue, &bqRecorderCallback, this);
+	if (SL_RESULT_SUCCESS != result) {
+		ERROR_LOG(AUDIO, "RegisterCallback failed: %d", result);
+		return false;
+	}
+
+	recordBufferSize = (44100 * 20 / 1000 * 2);
+	for (int i = 0; i < NUM_BUFFERS; i++) {
+		recordBuffer[i] = new short[recordBufferSize];
+	}
+	for (int i = 0; i < NUM_BUFFERS; i++) {
+		result = (*recorderBufferQueue)->Enqueue(recorderBufferQueue, recordBuffer[i], recordBufferSize);
+		if (SL_RESULT_SUCCESS != result) {
+			ERROR_LOG(AUDIO, "Enqueue failed: %d", result);
+			return false;
+		}
+	}
+
+	result = (*recorderRecord)->SetRecordState(recorderRecord, SL_RECORDSTATE_RECORDING);
+	assert(SL_RESULT_SUCCESS == result);
+
+	return true;
+}
+
+int OpenSLContext::AudioRecord_Stop() {
+	if (recorderRecord != nullptr) {
+		SLresult result = (*recorderRecord)->SetRecordState(recorderRecord, SL_RECORDSTATE_STOPPED);
+		assert(SL_RESULT_SUCCESS == result);
+	}
+	if (recorderObject != nullptr) {
+		(*recorderObject)->Destroy(recorderObject);
+		recorderObject = nullptr;
+		recorderRecord = nullptr;
+		recorderBufferQueue = nullptr;
+	}
+	if (recordBuffer[0] != nullptr) {
+		delete [] recordBuffer[0];
+		delete [] recordBuffer[1];
+		recordBuffer[0] = nullptr;
+		recordBuffer[1] = nullptr;
+	}
+	return true;
+}
+
 // shut down the native audio system
 OpenSLContext::~OpenSLContext() {
 	if (bqPlayerPlay) {
@@ -172,6 +295,7 @@ OpenSLContext::~OpenSLContext() {
 		(*outputMixObject)->Destroy(outputMixObject);
 		outputMixObject = nullptr;
 	}
+	AudioRecord_Stop();
 
 	INFO_LOG(AUDIO, "OpenSL: Shutdown - deleting engine object");
 
@@ -186,5 +310,4 @@ OpenSLContext::~OpenSLContext() {
 		buffer[i] = nullptr;
 	}
 	INFO_LOG(AUDIO, "OpenSL: Shutdown - finished");
-}	
-
+}
