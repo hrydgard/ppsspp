@@ -251,7 +251,7 @@ void ReadMatrix(float *rd, MatrixSize size, int reg) {
 	const float *v = currentMIPS->v + (size_t)mtx * 16;
 	if (transpose) {
 		if (side == 4 && col == 0 && row == 0) {
-			// Simple 4x4 transpose. TODO: Optimize.
+			// Fast path: Simple 4x4 transpose. TODO: Optimize.
 			for (int j = 0; j < 4; j++) {
 				for (int i = 0; i < 4; i++) {
 					rd[j * 4 + i] = v[i * 4 + j];
@@ -266,17 +266,9 @@ void ReadMatrix(float *rd, MatrixSize size, int reg) {
 			}
 		}
 	} else {
-		// Fast path
 		if (side == 4 && col == 0 && row == 0) {
-			memcpy(rd, v, sizeof(float) * 16);
-			/*
-			for (int j = 0; j < side; j++) {
-				for (int i = 0; i < side; i++) {
-					int index = mtx * 16 + j * 4 + i;
-					rd[j * 4 + i] = v[index];
-				}
-			}
-			*/
+			// Fast path
+			memcpy(rd, v, sizeof(float) * 16);  // rd[j * 4 + i] = v[j * 4 + i];
 		} else {
 			for (int j = 0; j < side; j++) {
 				for (int i = 0; i < side; i++) {
@@ -312,18 +304,16 @@ void WriteMatrix(const float *rd, MatrixSize size, int reg) {
 	// eliminating a table lookup.
 	float *v = currentMIPS->v + (size_t)mtx * 16;
 	if (transpose) {
-		// Fast path
 		if (side == 4 && row == 0 && col == 0 && currentMIPS->VfpuWriteMask() == 0x0) {
+			// Fast path: Simple 4x4 transpose. TODO: Optimize.
 			for (int j = 0; j < side; j++) {
 				for (int i = 0; i < side; i++) {
-					int index = i * 4 + j;
-					v[index] = rd[j * 4 + i];
+					v[i * 4 + j] = rd[j * 4 + i];
 				}
 			}
 		} else {
 			for (int j = 0; j < side; j++) {
 				for (int i = 0; i < side; i++) {
-					// Hm, I wonder if this should affect matrices at all.
 					if (j != side - 1 || !currentMIPS->VfpuWriteMask(i)) {
 						int index = ((row + i) & 3) * 4 + ((col + j) & 3);
 						v[index] = rd[j * 4 + i];
@@ -333,19 +323,10 @@ void WriteMatrix(const float *rd, MatrixSize size, int reg) {
 		}
 	} else {
 		if (side == 4 && row == 0 && col == 0 && currentMIPS->VfpuWriteMask() == 0x0) {
-			memcpy(v, rd, sizeof(float) * 16);
-			/*
-			for (int j = 0; j < side; j++) {
-				for (int i = 0; i < side; i++) {
-					int index = j * 4 + i;
-					v[index] = rd[j * 4 + i];
-				}
-			}
-			*/
+			memcpy(v, rd, sizeof(float) * 16);  // v[j * 4 + i] = rd[j * 4 + i];
 		} else {
 			for (int j = 0; j < side; j++) {
 				for (int i = 0; i < side; i++) {
-					// Hm, I wonder if this should affect matrices at all.
 					if (j != side - 1 || !currentMIPS->VfpuWriteMask(i)) {
 						int index = ((col + j) & 3) * 4 + ((row + i) & 3);
 						v[index] = rd[j * 4 + i];
