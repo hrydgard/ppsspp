@@ -98,6 +98,7 @@ inline float vfpu_clamp(float v, float min, float max) {
 }
 
 float vfpu_dot(float a[4], float b[4]);
+float vfpu_dot_tekken_approx(float a[4], float b[4]);
 float vfpu_sqrt(float a);
 float vfpu_rsqrt(float a);
 

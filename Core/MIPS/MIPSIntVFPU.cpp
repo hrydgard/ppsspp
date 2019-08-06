@@ -481,7 +481,8 @@ namespace MIPSInt
 				}
 
 				if (useAccurateDot) {
-					sum.f = vfpu_dot(&s[b * 4], &t[a * 4]);
+					// sum.f = vfpu_dot(&s[b * 4], &t[a * 4]);
+					sum.f = vfpu_dot_tekken_approx(&s[b * 4], &t[a * 4]);
 					if (my_isnan(sum.f)) {
 						sum.u = 0x7f800001;
 					} else if ((sum.u & 0x7F800000) == 0) {

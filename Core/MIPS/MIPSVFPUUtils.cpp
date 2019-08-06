@@ -17,8 +17,12 @@
 
 #include <cstdint>
 #include <limits>
-#include <stdio.h>
+#include <cstdio>
 
+#include "Common.h"
+#ifdef _M_SSE
+#include <emmintrin.h>
+#endif
 #include "Common/BitScan.h"
 #include "Common/CommonFuncs.h"
 #include "Core/Reporting.h"
@@ -610,20 +614,20 @@ float Float16ToFloat32(unsigned short l)
 	return f;
 }
 
-static uint32_t get_uexp(uint32_t x) {
+inline uint32_t get_uexp(uint32_t x) {
 	return (x >> 23) & 0xFF;
 }
 
-int32_t get_exp(uint32_t x) {
+inline int32_t get_exp(uint32_t x) {
 	return get_uexp(x) - 127;
 }
 
-static int32_t get_mant(uint32_t x) {
+inline int32_t get_mant(uint32_t x) {
 	// Note: this returns the hidden 1.
 	return (x & 0x007FFFFF) | 0x00800000;
 }
 
-static int32_t get_sign(uint32_t x) {
+inline int32_t get_sign(uint32_t x) {
 	return x & 0x80000000;
 }
 
@@ -740,6 +744,94 @@ float vfpu_dot(float a[4], float b[4]) {
 		return 0.0f;
 	}
 
+	result.i = sign_sum | (max_exp << 23) | (mant_sum & 0x007FFFFF);
+	return result.f;
+}
+
+// A cut-down version of vfpu_dot that works for Tekken VMMUL (no leg shaking).
+// The aim is to get this down to something that can be practically JIT'd.
+float vfpu_dot_tekken_approx(float a[4], float b[4]) {
+	static const int EXTRA_BITS = 2;
+	union float2int {
+		uint32_t i;
+		float f;
+	};
+	float2int result;
+	int32_t exps[4];
+	int32_t mants[4];
+	int32_t signs[4];
+	int32_t max_exp = 0;
+	int32_t last_inf = -1;
+
+	// This can be SSE'd or NEON'd.
+#if 0 && defined(_M_SSE)
+	const __m128i mask_exp = _mm_set1_epi32(0xFF);
+	const __m128i mask_sign = _mm_set1_epi32(0x80000000);
+	const __m128i mask_mant = _mm_set1_epi32(0x007FFFFF);
+	const __m128i or_mask_mant = _mm_set1_epi32(0x00800000);
+
+	__m128i mm_prod = _mm_castps_si128(_mm_mul_ps(_mm_loadu_ps(a), _mm_loadu_ps(b)));
+	__m128i mm_exp = _mm_and_si128(_mm_srli_epi32(mm_prod, 23), mask_exp);
+	__m128i mm_sign = _mm_and_si128(mm_prod, mask_sign);
+	__m128i mm_mant = _mm_or_si128(_mm_and_si128(mm_prod, mask_mant), or_mask_mant);
+
+	_mm_storeu_si128((__m128i *)exps, mm_exp);
+	_mm_storeu_si128((__m128i *)signs, mm_sign);
+	_mm_storeu_si128((__m128i *)mants, mm_mant);
+
+	// TODO: This in SSE... gah. There's an SSE4 one here: https://stackoverflow.com/questions/9877700/getting-max-value-in-a-m128i-vector-with-sse
+	for (int i = 0; i < 4; i++) {
+		if (exps[i] > max_exp) {
+			max_exp = exps[i];
+		}
+	}
+#else
+	for (int i = 0; i < 4; i++) {
+		float2int prod;
+		prod.f = a[i] * b[i];
+		exps[i] = get_uexp(prod.i);
+		signs[i] = get_sign(prod.i);
+		mants[i] = get_mant(prod.i);
+		if (exps[i] > max_exp) {
+			max_exp = exps[i];
+		}
+	}
+#endif
+
+	// This can be NEON'd (or AVX'd - SSE doesn't do per-lane variable shifts).
+	int32_t mant_sum = 0;
+	for (int i = 0; i < 4; i++) {
+		int exp = max_exp - exps[i];
+		if (exp >= 32) {
+			mants[i] = 0;
+		} else {
+			mants[i] >>= exp;
+		}
+		if (signs[i]) {
+			mants[i] = -mants[i];
+		}
+		mant_sum += mants[i];
+	}
+
+	uint32_t sign_sum = 0;
+	if (mant_sum < 0) {
+		sign_sum = 0x80000000;
+		mant_sum = -mant_sum;
+	}
+
+	if (mant_sum == 0 || max_exp <= 0) {
+		return 0.0f;
+	}
+
+	int8_t shift = (int8_t)clz32_nonzero(mant_sum) - 8;
+	if (shift < 0) {
+		// Dropped the rounding.
+		mant_sum >>= -shift;
+		max_exp += -shift;
+	} else {
+		mant_sum <<= shift;
+		max_exp -= shift;
+	}
 	result.i = sign_sum | (max_exp << 23) | (mant_sum & 0x007FFFFF);
 	return result.f;
 }
