@@ -29,7 +29,7 @@
 #include "Core/MIPS/JitCommon/JitCommon.h"
 #include "Core/CoreTiming.h"
 
-std::atomic<bool> anyMemChecks_ = false;
+std::atomic<bool> anyMemChecks_(false);
 
 static std::mutex breakPointsMutex_;
 std::vector<BreakPoint> CBreakPoints::breakPoints_;
