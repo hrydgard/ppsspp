@@ -397,6 +397,8 @@ void VulkanRenderManager::BindFramebufferAsRenderTarget(VKRFramebuffer *fb, VKRR
 			return;
 		}
 	}
+
+	// More redundant bind elimination.
 	if (curRenderStep_ && curRenderStep_->commands.size() == 0 && curRenderStep_->render.color == VKRRenderPassAction::KEEP && curRenderStep_->render.depth == VKRRenderPassAction::KEEP && curRenderStep_->render.stencil == VKRRenderPassAction::KEEP) {
 		// Can trivially kill the last empty render step.
 		assert(steps_.back() == curRenderStep_);
@@ -409,7 +411,6 @@ void VulkanRenderManager::BindFramebufferAsRenderTarget(VKRFramebuffer *fb, VKRR
 	}
 
 	VKRStep *step = new VKRStep{ VKRStepType::RENDER };
-	// This is what queues up new passes, and can end previous ones.
 	step->render.framebuffer = fb;
 	step->render.color = color;
 	step->render.depth = depth;
