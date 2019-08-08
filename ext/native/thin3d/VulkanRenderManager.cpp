@@ -412,7 +412,7 @@ void VulkanRenderManager::BindFramebufferAsRenderTarget(VKRFramebuffer *fb, VKRR
 	// This is what queues up new passes, and can end previous ones.
 	step->render.framebuffer = fb;
 	step->render.color = color;
-	step->render.depth= depth;
+	step->render.depth = depth;
 	step->render.stencil = stencil;
 	step->render.clearColor = clearColor;
 	step->render.clearDepth = clearDepth;
@@ -423,8 +423,13 @@ void VulkanRenderManager::BindFramebufferAsRenderTarget(VKRFramebuffer *fb, VKRR
 	steps_.push_back(step);
 
 	curRenderStep_ = step;
-	curWidth_ = fb ? fb->width : vulkan_->GetBackbufferWidth();
-	curHeight_ = fb ? fb->height : vulkan_->GetBackbufferHeight();
+	if (fb) {
+		curWidth_ = fb->width;
+		curHeight_ = fb->height;
+	} else {
+		curWidth_ = vulkan_->GetBackbufferWidth();
+		curHeight_ = vulkan_->GetBackbufferHeight();
+	}
 }
 
 bool VulkanRenderManager::CopyFramebufferToMemorySync(VKRFramebuffer *src, int aspectBits, int x, int y, int w, int h, Draw::DataFormat destFormat, uint8_t *pixels, int pixelStride) {

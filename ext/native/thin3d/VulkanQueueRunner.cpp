@@ -379,14 +379,18 @@ void VulkanQueueRunner::RunSteps(VkCommandBuffer cmd, std::vector<VKRStep *> &st
 	// Planned optimizations: 
 	//  * Create copies of render target that are rendered to multiple times and textured from in sequence, and push those render passes
 	//    as early as possible in the frame (Wipeout billboards).
+	//  * Merge subsequent render passes to the same target that are interspersed with unrelated draws to other render targets (God of War).
 
-	for (int j = 0; j < (int)steps.size() - 1; j++) {
+	for (int j = 0; j < (int)steps.size(); j++) {
 		if (steps[j]->stepType == VKRStepType::RENDER &&
+			steps[j]->render.framebuffer &&
 			steps[j]->render.finalColorLayout == VK_IMAGE_LAYOUT_UNDEFINED) {
 			// Just leave it at color_optimal.
 			steps[j]->render.finalColorLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
 		}
+	}
 
+	for (int j = 0; j < (int)steps.size() - 1; j++) {
 		// Push down empty "Clear/Store" renderpasses, and merge them with the first "Load/Store" to the same framebuffer.
 		// Actually let's just bother with the first one for now. This affects Wipeout Pure.
 		if (steps.size() > 1 && steps[j]->stepType == VKRStepType::RENDER &&
@@ -458,6 +462,11 @@ void VulkanQueueRunner::RunSteps(VkCommandBuffer cmd, std::vector<VKRStep *> &st
 		case VKRStepType::RENDER_SKIP:
 			break;
 		}
+	}
+
+	// Deleting all in one go should be easier on the instruction cache than deleting
+	// them as we go - and easier to debug because we can look backwards in the frame.
+	for (size_t i = 0; i < steps.size(); i++) {
 		delete steps[i];
 	}
 }
@@ -947,6 +956,8 @@ void VulkanQueueRunner::PerformBindFramebufferAsRenderTarget(const VKRStep &step
 	int w;
 	int h;
 	if (step.render.framebuffer) {
+		_dbg_assert_(G3D, step.render.finalColorLayout != VK_IMAGE_LAYOUT_UNDEFINED);
+
 		VKRFramebuffer *fb = step.render.framebuffer;
 		framebuf = fb->framebuf;
 		w = fb->width;
