@@ -1,5 +1,3 @@
-#pragma once
-
 #include <string>
 
 #include "Common/ChunkFile.h"
@@ -26,7 +24,7 @@ struct Heap : public KernelObject {
 	static int GetStaticIDType() { return PPSSPP_KERNEL_TMID_Heap; }
 	int GetIDType() const override { return PPSSPP_KERNEL_TMID_Heap; }
 
-	void DoState(PointerWrap &p) {
+	void DoState(PointerWrap &p) override {
 		p.Do(uid);
 		p.Do(partitionId);
 		p.Do(size);
@@ -38,19 +36,22 @@ struct Heap : public KernelObject {
 };
 
 static int sceKernelCreateHeap(int partitionId, int size, int flags, const char *Name) {
+	u32 allocSize = (size + 3) & ~3;
+
+	// TODO: partitionId should probably decide if we allocate from userMemory or kernel or whatever...
+	u32 addr = userMemory.Alloc(allocSize, frombottom, "SysMemForKernel-Heap");
+	if (addr == (u32)-1) {
+		ERROR_LOG(HLE, "sceKernelCreateHeap(partitionId=%d): Failed to allocate %d bytes memory", partitionId, size);
+		return SCE_KERNEL_ERROR_NO_MEMORY;  // Blind guess
+	}
+
 	Heap *heap = new Heap();
 	SceUID uid = kernelObjects.Create(heap);
+
 	heap->partitionId = partitionId;
 	heap->flags = flags;
 	heap->name = *Name;
-	int allocSize = (size + 3) & ~3;
 	heap->size = allocSize;
-	u32 addr = userMemory.Alloc(heap->size, frombottom, "SysMemForKernel-Heap");
-	if (addr == (u32)-1) {
-		ERROR_LOG(HLE, "sceKernelCreateHeap(): Failed to allocate %i bytes memory", size);
-		heap->uid = -1;
-		delete heap;
-	}
 	heap->address = addr;
 	heap->alloc.Init(heap->address + 128, heap->size - 128);
 	heap->uid = uid;
@@ -66,7 +67,7 @@ static int sceKernelAllocHeapMemory(int heapId, int size) {
 		u32 addr = heap->alloc.Alloc(memSize, true);
 		return hleLogSuccessInfoX(SCEKERNEL, addr, "");
 	} else {
-		ERROR_LOG(HLE, "sceKernelAllocHeapMemory cannot find heapId", heapId);
+		ERROR_LOG(HLE, "sceKernelAllocHeapMemory(%d): cannot find heapId", heapId);
 		return error;
 	}
 }
@@ -79,7 +80,7 @@ static int sceKernelDeleteHeap(int heapId) {
 		kernelObjects.Destroy<Heap>(heap->uid);
 		return hleLogSuccessInfoX(SCEKERNEL, 0, "");
 	} else {
-		ERROR_LOG(HLE, "sceKernelDeleteHeap(%i): invalid heapId", heapId);
+		ERROR_LOG(HLE, "sceKernelDeleteHeap(%d): invalid heapId", heapId);
 		return error;
 	}
 }

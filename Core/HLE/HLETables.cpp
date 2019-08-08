@@ -40,6 +40,7 @@
 #include "sceJpeg.h"
 #include "sceKernel.h"
 #include "sceKernelEventFlag.h"
+#include "sceKernelHeap.h"
 #include "sceKernelMemory.h"
 #include "sceKernelInterrupt.h"
 #include "sceKernelModule.h"
