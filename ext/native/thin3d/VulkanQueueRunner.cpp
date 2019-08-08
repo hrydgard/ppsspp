@@ -463,6 +463,8 @@ void VulkanQueueRunner::RunSteps(VkCommandBuffer cmd, std::vector<VKRStep *> &st
 }
 
 void VulkanQueueRunner::ApplyMGSHack(std::vector<VKRStep *> &steps) {
+	// Really need a sane way to express transforms of steps.
+
 	// We want to turn a sequence of copy,render(1),copy,render(1),copy,render(1) to copy,copy,copy,render(n).
 
 	for (int i = 0; i < (int)steps.size() - 3; i++) {
@@ -529,6 +531,78 @@ void VulkanQueueRunner::ApplyMGSHack(std::vector<VKRStep *> &steps) {
 			// We're done.
 			break;
 		}
+	}
+
+	// There's also a post processing effect using depals that's just brutal in some parts
+	// of the game.
+	for (int i = 0; i < (int)steps.size() - 3; i++) {
+		int last = -1;
+		if (!(steps[i]->stepType == VKRStepType::RENDER &&
+			steps[i + 1]->stepType == VKRStepType::RENDER &&
+			steps[i + 2]->stepType == VKRStepType::RENDER &&
+			steps[i]->render.numDraws == 1 &&
+			steps[i + 1]->render.numDraws == 1 &&
+			steps[i + 2]->render.numDraws == 1 &&
+			steps[i]->render.color == VKRRenderPassAction::DONT_CARE &&
+			steps[i + 1]->render.color == VKRRenderPassAction::KEEP &&
+			steps[i + 2]->render.color == VKRRenderPassAction::DONT_CARE))
+			continue;
+		VKRFramebuffer *depalFramebuffer = steps[i]->render.framebuffer;
+		VKRFramebuffer *targetFramebuffer = steps[i + 1]->render.framebuffer;
+		// OK, found the start of a post-process sequence. Let's scan until we find the end.
+		for (int j = i; j < steps.size() - 3; j++) {
+			if (((j - i) & 1) == 0) {
+				// This should be a depal draw.
+				if (steps[j]->render.numDraws != 1)
+					break;
+				if (steps[j]->render.color != VKRRenderPassAction::DONT_CARE)
+					break;
+				if (steps[j]->render.framebuffer != depalFramebuffer)
+					break;
+				last = j;
+			} else {
+				// This should be a target draw.
+				if (steps[j]->render.numDraws != 1)
+					break;
+				if (steps[j]->render.color != VKRRenderPassAction::KEEP)
+					break;
+				if (steps[j]->render.framebuffer != targetFramebuffer)
+					break;
+				last = j;
+			}
+		}
+
+		if (last == -1)
+			continue;
+
+		// Combine the depal renders.
+		for (int j = i + 2; j <= last + 1; j += 2) {
+			for (int k = 0; k < (int)steps[j]->commands.size(); k++) {
+				switch (steps[j]->commands[k].cmd) {
+				case VKRRenderCommand::DRAW:
+				case VKRRenderCommand::DRAW_INDEXED:
+					steps[i]->commands.push_back(steps[j]->commands[k]);
+					break;
+				}
+			}
+			steps[j]->stepType = VKRStepType::RENDER_SKIP;
+		}
+
+		// Combine the target renders.
+		for (int j = i + 3; j <= last; j += 2) {
+			for (int k = 0; k < (int)steps[j]->commands.size(); k++) {
+				switch (steps[j]->commands[k].cmd) {
+				case VKRRenderCommand::DRAW:
+				case VKRRenderCommand::DRAW_INDEXED:
+					steps[i + 1]->commands.push_back(steps[j]->commands[k]);
+					break;
+				}
+			}
+			steps[j]->stepType = VKRStepType::RENDER_SKIP;
+		}
+
+		// We're done - we only expect one of these sequences per frame.
+		break;
 	}
 }
 
