@@ -10,7 +10,10 @@
 #include "Core/HLE/sceKernelMemory.h"
 #include "Core/Util/BlockAllocator.h"
 
-struct HeapInformation : public KernelObject {
+const u32 HEAP_BLOCK_HEADER_SIZE = 8;
+const bool frombottom = false;
+
+struct Heap : public KernelObject {
 	int uid = 0;
 	int partitionId = 0;
 	u32 size = 0;
@@ -34,31 +37,9 @@ struct HeapInformation : public KernelObject {
 	}
 };
 
-std::map<u32, HeapInformation *> heapInformationList;
-
-void __HeapInformationDoState(PointerWrap &p) {
-	auto s = p.Section("kernelHeap", 1);
-	if (!s)
-		return;
-
-	if (s >= 1) {
-		p.Do(heapInformationList);
-	}
-}
-
-static HeapInformation  *getHeap(u32 heapId) {
-	auto found = heapInformationList.find(heapId);
-	if (found == heapInformationList.end()) {
-		return NULL;
-	}
-	return found->second;
-}
-
-const u32 HEAP_BLOCK_HEADER_SIZE = 8;
-const bool frombottom = false;
-
 static int sceKernelCreateHeap(int partitionId, int size, int flags, const char *Name) {
-	HeapInformation *heap = new HeapInformation;
+	Heap *heap = new Heap();
+	SceUID uid = kernelObjects.Create(heap);
 	heap->partitionId = partitionId;
 	heap->flags = flags;
 	heap->name = *Name;
@@ -72,42 +53,42 @@ static int sceKernelCreateHeap(int partitionId, int size, int flags, const char 
 	}
 	heap->address = addr;
 	heap->alloc.Init(heap->address + 128, heap->size - 128);
-	SceUID uid = kernelObjects.Create(heap);
 	heap->uid = uid;
-	heapInformationList[uid] = heap;
 	return hleLogSuccessInfoX(SCEKERNEL, uid, "");
 }
 
 static int sceKernelAllocHeapMemory(int heapId, int size) {
-	HeapInformation *heap = getHeap(heapId);
-	if (!heap) {
+	u32 error;
+	Heap *heap = kernelObjects.Get<Heap>(heapId, error);
+	if (heap) {
+		// There's 8 bytes at the end of every block, reserved.
+		u32 memSize = HEAP_BLOCK_HEADER_SIZE + size;
+		u32 addr = heap->alloc.Alloc(memSize, true);
+		return hleLogSuccessInfoX(SCEKERNEL, addr, "");
+	} else {
 		ERROR_LOG(HLE, "sceKernelAllocHeapMemory cannot find heapId", heapId);
-		return 0;
+		return error;
 	}
-
-	// There's 8 bytes at the end of every block, reserved.
-	u32 memSize = HEAP_BLOCK_HEADER_SIZE + size;
-	u32 addr = heap->alloc.Alloc(memSize, true);
-	return hleLogSuccessInfoX(SCEKERNEL, addr, "");
 }
 
 static int sceKernelDeleteHeap(int heapId) {
-	HeapInformation *heap = getHeap(heapId);
-	if (!heap) {
+	u32 error;
+	Heap *heap = kernelObjects.Get<Heap>(heapId, error);
+	if (heap) {
+		userMemory.Free(heap->address);
+		kernelObjects.Destroy<Heap>(heap->uid);
+		return hleLogSuccessInfoX(SCEKERNEL, 0, "");
+	} else {
 		ERROR_LOG(HLE, "sceKernelDeleteHeap(%i): invalid heapId", heapId);
-		return -1;
+		return error;
 	}
-	userMemory.Free(heap->address);
-	kernelObjects.Destroy<HeapInformation>(heap->uid);
-	heapInformationList.erase(heapId);
-	return hleLogSuccessInfoX(SCEKERNEL, 0, "");
 }
 
 const HLEFunction SysMemForKernel[] =
 {
-	{ 0X636C953B, &WrapI_II<sceKernelAllocHeapMemory>,                "sceKernelAllocHeapMemory",                  'I', "ii" },
-	{ 0XC9805775, &WrapI_I<sceKernelDeleteHeap>,                      "sceKernelDeleteHeap",                       'I', "i" },
-	{ 0X1C1FBFE7, &WrapI_IIIC<sceKernelCreateHeap>,                   "sceKernelCreateHeap",                       'I', "iiis" },
+	{ 0X636C953B, &WrapI_II<sceKernelAllocHeapMemory>, "sceKernelAllocHeapMemory", 'I', "ii" },
+	{ 0XC9805775, &WrapI_I<sceKernelDeleteHeap>,       "sceKernelDeleteHeap",      'I', "i" },
+	{ 0X1C1FBFE7, &WrapI_IIIC<sceKernelCreateHeap>,    "sceKernelCreateHeap",      'I', "iiis" },
 };
 
 void Register_SysMemForKernel() {
