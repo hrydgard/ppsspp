@@ -466,6 +466,7 @@
     <ClInclude Include="..\..\Core\HLE\sceKernelAlarm.h" />
     <ClInclude Include="..\..\Core\HLE\sceKernelEventFlag.h" />
     <ClInclude Include="..\..\Core\HLE\sceKernelInterrupt.h" />
+    <ClInclude Include="..\..\Core\HLE\sceKernelHeap.h" />
     <ClInclude Include="..\..\Core\HLE\sceKernelMbx.h" />
     <ClInclude Include="..\..\Core\HLE\sceKernelMemory.h" />
     <ClInclude Include="..\..\Core\HLE\sceKernelModule.h" />
@@ -678,6 +679,7 @@
     <ClCompile Include="..\..\Core\HLE\sceKernelAlarm.cpp" />
     <ClCompile Include="..\..\Core\HLE\sceKernelEventFlag.cpp" />
     <ClCompile Include="..\..\Core\HLE\sceKernelInterrupt.cpp" />
+    <ClCompile Include="..\..\Core\HLE\sceKernelHeap.cpp" />
     <ClCompile Include="..\..\Core\HLE\sceKernelMbx.cpp" />
     <ClCompile Include="..\..\Core\HLE\sceKernelMemory.cpp" />
     <ClCompile Include="..\..\Core\HLE\sceKernelModule.cpp" />

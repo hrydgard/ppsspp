@@ -904,28 +904,6 @@ void Register_LoadExecForKernel()
 	RegisterModule("LoadExecForKernel", ARRAY_SIZE(LoadExecForKernel), LoadExecForKernel);
 }
 
-static int sceKernelCreateHeap(int partitionId, int size, int flags, const char *Name)
-{
-	return hleLogError(SCEKERNEL, 0, "");
-}
-
-static int sceKernelAllocHeapMemory(int heapId, int size)
-{
-	return hleLogError(SCEKERNEL, 0, "");
-}
-
-static int sceKernelDeleteHeap(int heapId) 
-{
-	return hleLogError(SCEKERNEL, 0, "");
-}
-
-const HLEFunction SysMemForKernel[] =
-{
-	{0X636C953B, &WrapI_II<sceKernelAllocHeapMemory>,                "sceKernelAllocHeapMemory",                  'I', "ii"      },
-	{0XC9805775, &WrapI_I<sceKernelDeleteHeap>,                      "sceKernelDeleteHeap",                       'I', "i"       },
-	{0X1C1FBFE7, &WrapI_IIIC<sceKernelCreateHeap>,                   "sceKernelCreateHeap",                       'I', "iiis"    },
-};
-
 const HLEFunction ExceptionManagerForKernel[] =
 {
 	{0X3FB264FC, nullptr,                                            "sceKernelRegisterExceptionHandler",         '?', ""        },
@@ -975,9 +953,4 @@ void Register_UtilsForKernel()
 void Register_ThreadManForKernel()
 {
 	RegisterModule("ThreadManForKernel", ARRAY_SIZE(ThreadManForKernel), ThreadManForKernel);		
-}
-
-void Register_LoadExecForKernel()
-{
-	RegisterModule("LoadExecForKernel", ARRAY_SIZE(LoadExecForKernel), LoadExecForKernel);
 }

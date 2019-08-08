@@ -389,6 +389,7 @@ SOURCES_CXX += $(NATIVEDIR)/math/dataconv.cpp \
 	       $(COREDIR)/HLE/sceKernel.cpp \
 	       $(COREDIR)/HLE/sceKernelAlarm.cpp \
 	       $(COREDIR)/HLE/sceKernelEventFlag.cpp \
+	       $(COREDIR)/HLE/sceKernelHeap.cpp \
 	       $(COREDIR)/HLE/sceKernelInterrupt.cpp \
 	       $(COREDIR)/HLE/sceKernelMbx.cpp \
 	       $(COREDIR)/HLE/sceKernelMemory.cpp \

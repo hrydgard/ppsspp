@@ -68,5 +68,3 @@ int sceKernelReferTlsplStatus(SceUID uid, u32 infoPtr);
 
 void Register_SysMemForKernel();
 void Register_SysMemUserForUser();
-void Register_SysMemForKernel();
-
