@@ -439,6 +439,9 @@ void VulkanQueueRunner::RunSteps(VkCommandBuffer cmd, std::vector<VKRStep *> &st
 		if (hacksEnabled_ & QUEUE_HACK_SONIC) {
 			ApplySonicHack(steps);
 		}
+		if (hacksEnabled_ & QUEUE_HACK_KILLZONE) {
+			ApplyKillzoneHack(steps);
+		}
 	}
 
 	for (size_t i = 0; i < steps.size(); i++) {
@@ -460,6 +463,7 @@ void VulkanQueueRunner::RunSteps(VkCommandBuffer cmd, std::vector<VKRStep *> &st
 			PerformReadbackImage(step, cmd);
 			break;
 		case VKRStepType::RENDER_SKIP:
+		case VKRStepType::SKIP:
 			break;
 		}
 	}
@@ -696,6 +700,106 @@ void VulkanQueueRunner::ApplySonicHack(std::vector<VKRStep *> &steps) {
 	}
 }
 
+void VulkanQueueRunner::ApplyKillzoneHack(std::vector<VKRStep *> &steps) {
+	// Killzone performs an awful bloom effect or something by drawing small strips of the main image
+	// in the margin of the 480px image inside a 512buffer. Unfortunately that means that it's texturing
+	// from the same image it's drawing to, resulting in a super painful copy and a new render pass.
+	// And it does a lot of these.
+	// Only solution I can see is to kill and reimplement the effect. For now let's just kill it.
+
+	for (int i = 0; i < (int)steps.size() - 4; i++) {
+		if (!(
+			steps[i]->stepType == VKRStepType::COPY &&
+			steps[i + 1]->stepType == VKRStepType::RENDER &&
+			(steps[i + 1]->render.numDraws == 1 || steps[i + 1]->render.numDraws == 2) &&
+			steps[i + 2]->stepType == VKRStepType::COPY &&
+			steps[i + 3]->stepType == VKRStepType::RENDER &&
+			steps[i + 3]->render.numDraws == 2))
+			continue;
+
+		// We found the start of the sequence. Let's go.
+		int last = -1;
+		// Looks promising! Let's start by finding the last one.
+		for (int j = i + 4; j < (int)steps.size(); j++) {
+			if (((j - i) & 1) == 0) {
+				if (steps[j]->stepType != VKRStepType::COPY)
+					break;
+				last = j;
+			} else {
+				if (steps[j]->stepType != VKRStepType::RENDER)
+					break;
+				if (steps[j]->render.numDraws != 1 && steps[j]->render.numDraws != 2 && steps[j]->render.numDraws != 3)
+					break;
+				last = j;
+			}
+		}
+		if (last == -1)
+			break;
+
+		// Zap the steps!
+		for (int j = i; j <= last; j++) {
+			if (steps[j]->stepType == VKRStepType::COPY)
+				steps[j]->stepType = VKRStepType::SKIP;
+			else if (steps[j]->stepType == VKRStepType::RENDER)
+				steps[j]->stepType = VKRStepType::RENDER_SKIP;
+		}
+
+		i = last + 1;
+	}
+
+	// There is then an additional crazy palette effect ingame which is very similar to the one in Metal Gear Acid 2.
+
+	// There's also a post processing effect using depals that's just brutal in some parts
+	// of the game.
+	for (int i = 0; i < (int)steps.size() - 3; i++) {
+		int last = -1;
+		if (!(steps[i]->stepType == VKRStepType::RENDER &&
+			steps[i + 1]->stepType == VKRStepType::RENDER &&
+			steps[i + 2]->stepType == VKRStepType::RENDER &&
+			steps[i]->render.numDraws == 1 &&
+			steps[i + 1]->render.numDraws == 1 &&
+			steps[i + 2]->render.numDraws == 1 &&
+			steps[i]->render.color == VKRRenderPassAction::DONT_CARE &&
+			steps[i + 1]->render.color == VKRRenderPassAction::KEEP &&
+			steps[i + 2]->render.color == VKRRenderPassAction::DONT_CARE))
+			continue;
+		VKRFramebuffer *depalFramebuffer = steps[i]->render.framebuffer;
+		VKRFramebuffer *targetFramebuffer = steps[i + 1]->render.framebuffer;
+		// OK, found the start of a post-process sequence. Let's scan until we find the end.
+		for (int j = i; j < steps.size() - 3; j++) {
+			if (((j - i) & 1) == 0) {
+				// This should be a depal draw.
+				if (steps[j]->render.numDraws != 1)
+					break;
+				if (steps[j]->render.color != VKRRenderPassAction::DONT_CARE)
+					break;
+				if (steps[j]->render.framebuffer != depalFramebuffer)
+					break;
+				last = j;
+			} else {
+				// This should be a target draw.
+				if (steps[j]->render.numDraws != 1)
+					break;
+				if (steps[j]->render.color != VKRRenderPassAction::KEEP)
+					break;
+				if (steps[j]->render.framebuffer != targetFramebuffer)
+					break;
+				last = j;
+			}
+		}
+
+		if (last == -1)
+			continue;
+
+		// Kill'em all.
+		for (int j = i; j <= last; j++) {
+			steps[j]->stepType = VKRStepType::RENDER_SKIP;
+		}
+
+		i = last + 1;
+	}
+}
+
 void VulkanQueueRunner::LogSteps(const std::vector<VKRStep *> &steps) {
 	ILOG("=======================================");
 	for (size_t i = 0; i < steps.size(); i++) {
@@ -718,6 +822,9 @@ void VulkanQueueRunner::LogSteps(const std::vector<VKRStep *> &steps) {
 			break;
 		case VKRStepType::RENDER_SKIP:
 			ILOG("(skipped render pass)");
+			break;
+		case VKRStepType::SKIP:
+			ILOG("(skipped other)");
 			break;
 		}
 	}
