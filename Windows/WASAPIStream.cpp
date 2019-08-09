@@ -141,7 +141,7 @@ private:
 #define REFTIMES_PER_SEC  (10000000/200)
 #define REFTIMES_PER_MILLISEC  (REFTIMES_PER_SEC / 1000)
 
-WASAPIAudioBackend::WASAPIAudioBackend() {
+WASAPIAudioBackend::WASAPIAudioBackend() : threadData_(0) {
 }
 
 WASAPIAudioBackend::~WASAPIAudioBackend() {
@@ -177,7 +177,7 @@ bool WASAPIAudioBackend::Init(HWND window, StreamCallback callback, int sampleRa
 // This to be run only on the thread.
 class WASAPIAudioThread {
 public:
-	WASAPIAudioThread(volatile int &threadData, int &sampleRate, StreamCallback &callback)
+	WASAPIAudioThread(std::atomic<int> &threadData, int &sampleRate, StreamCallback &callback)
 		: threadData_(threadData), sampleRate_(sampleRate), callback_(callback) {
 	}
 	~WASAPIAudioThread();
@@ -190,7 +190,7 @@ private:
 	void ShutdownAudioDevice();
 	bool DetectFormat();
 
-	volatile int &threadData_;
+	std::atomic<int> &threadData_;
 	int &sampleRate_;
 	StreamCallback &callback_;
 
@@ -200,7 +200,7 @@ private:
 	CMMNotificationClient *notificationClient_ = nullptr;
 	WAVEFORMATEXTENSIBLE *deviceFormat_ = nullptr;
 	IAudioRenderClient *renderClient_ = nullptr;
-	short *shortBuf_ = nullptr;
+	int16_t *shortBuf_ = nullptr;
 
 	enum class Format {
 		UNKNOWN = 0,
@@ -210,7 +210,7 @@ private:
 
 	uint32_t numBufferFrames = 0;
 	Format format_ = Format::UNKNOWN;
-	REFERENCE_TIME actualDuration_;
+	REFERENCE_TIME actualDuration_{};
 };
 
 WASAPIAudioThread::~WASAPIAudioThread() {
@@ -264,6 +264,7 @@ void WASAPIAudioThread::ShutdownAudioDevice() {
 bool WASAPIAudioThread::DetectFormat() {
 	// Don't know if PCM16 ever shows up here, the documentation only talks about float... but let's blindly
 	// try to support it :P
+	format_ = Format::UNKNOWN;
 
 	if (deviceFormat_->Format.wFormatTag == WAVE_FORMAT_EXTENSIBLE) {
 		if (!memcmp(&deviceFormat_->SubFormat, &KSDATAFORMAT_SUBTYPE_IEEE_FLOAT, sizeof(deviceFormat_->SubFormat))) {
@@ -285,10 +286,13 @@ bool WASAPIAudioThread::DetectFormat() {
 
 	delete [] shortBuf_;
 	shortBuf_ = nullptr;
+	if (format_ == Format::UNKNOWN) {
+		return false;
+	}
 
 	BYTE *pData;
 	HRESULT hresult = renderClient_->GetBuffer(numBufferFrames, &pData);
-	int numSamples = numBufferFrames * deviceFormat_->Format.nChannels;
+	const int numSamples = numBufferFrames * deviceFormat_->Format.nChannels;
 	if (format_ == Format::IEEE_FLOAT) {
 		memset(pData, 0, sizeof(float) * numSamples);
 		shortBuf_ = new short[numBufferFrames * deviceFormat_->Format.nChannels];
@@ -298,15 +302,13 @@ bool WASAPIAudioThread::DetectFormat() {
 
 	hresult = renderClient_->ReleaseBuffer(numBufferFrames, 0);
 	actualDuration_ = (REFERENCE_TIME)((double)REFTIMES_PER_SEC * numBufferFrames / deviceFormat_->Format.nSamplesPerSec);
-
 	return true;
 }
 
 void WASAPIAudioThread::Run() {
 	// Adapted from http://msdn.microsoft.com/en-us/library/windows/desktop/dd316756(v=vs.85).aspx
 
-	HRESULT hresult;
-	hresult = CoCreateInstance(CLSID_MMDeviceEnumerator,
+	HRESULT hresult = CoCreateInstance(CLSID_MMDeviceEnumerator,
 		nullptr, /* Object is not created as the part of the aggregate */
 		CLSCTX_ALL, IID_IMMDeviceEnumerator, (void **)&deviceEnumerator_);
 	if (FAILED(hresult))

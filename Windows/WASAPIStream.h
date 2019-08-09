@@ -1,5 +1,6 @@
 #pragma once
 
+#include <atomic>
 #include "WindowsAudio.h"
 
 // This should only be included from WindowsAudio.cpp and WASAPIStream.cpp.
@@ -20,5 +21,5 @@ private:
 	HANDLE hThread_ = nullptr;
 	StreamCallback callback_ = nullptr;
 	int sampleRate_ = 0;
-	volatile int threadData_ = 0;
+	std::atomic<int> threadData_;
 };
