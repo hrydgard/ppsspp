@@ -23,6 +23,21 @@ For build instructions and other development tutorials, see [the wiki](https://g
 
 For game compatibility, see [community compatibility feedback](https://report.ppsspp.org/games).
 
+What's new in 1.9.0
+-------------------
+* Flicker fixed in God of War that appeared with newer drivers for Mali GPUs (#12224)
+* Vertex range culling fixed on ARM Mali (#12227)
+* Started to improve VFPU precision, resulting so far in a fix for the long standing Tekken 6 leg shaking problem (#12217)
+* Fixed a VFPU precision snafu on ARM64, fixing disappearing officers in Warriors Orochi(#11299)
+* Vulkan is the default again on newer Android versions.
+* Fix various homebrew store issues
+* GPU pause signal handling fixed, fixing some hangs (#12160).
+* Audio sample rate conversion handling fixes (#12147)
+* Some Vulkan optimizations (pre-rotation (#12216), perf fix in Metal Gear Acid, etc).
+* Multiple fixes for the UWP build (#12036, others)
+* MP3 playback fixes (#12005)
+* Fixed audio in Motorstorm: Arctic Edge by returning errors correctly (#12121)
+
 What's new in 1.8.0
 -------------------
 * Avoid crash when starting PPSSPP due to bad AMD Vulkan drivers (#11802)
