@@ -16,7 +16,7 @@ public:
 	virtual ~WorkerThread();
 
 	// submit a new work item
-	void Process(const std::function<void()>& work);
+	void Process(std::function<void()> work);
 	// wait for a submitted work item to be completed
 	void WaitForCompletion();
 
@@ -42,7 +42,7 @@ private:
 class LoopWorkerThread final : public WorkerThread {
 public:
 	LoopWorkerThread();
-	void Process(const std::function<void(int, int)> &work, int start, int end);
+	void Process(std::function<void(int, int)> work, int start, int end);
 
 private:
 	virtual void WorkFunc() override;

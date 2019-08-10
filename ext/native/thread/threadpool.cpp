@@ -17,9 +17,9 @@ WorkerThread::~WorkerThread() {
 	thread->join();
 }
 
-void WorkerThread::Process(const std::function<void()>& work) {
+void WorkerThread::Process(std::function<void()> work) {
 	mutex.lock();
-	work_ = work;
+	work_ = std::move(work);
 	jobsTarget = jobsDone + 1;
 	signal.notify_one();
 	mutex.unlock();
@@ -53,9 +53,9 @@ LoopWorkerThread::LoopWorkerThread() : WorkerThread(true) {
 	while (!started) { };
 }
 
-void LoopWorkerThread::Process(const std::function<void(int, int)> &work, int start, int end) {
+void LoopWorkerThread::Process(std::function<void(int, int)> work, int start, int end) {
 	std::lock_guard<std::mutex> guard(mutex);
-	work_ = work;
+	work_ = std::move(work);
 	start_ = start;
 	end_ = end;
 	jobsTarget = jobsDone + 1;
