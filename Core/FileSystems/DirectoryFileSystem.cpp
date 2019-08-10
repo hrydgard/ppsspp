@@ -213,7 +213,7 @@ bool DirectoryFileHandle::Open(const std::string &basePath, std::string &fileNam
 	}
 	if (access & FILEACCESS_WRITE) {
 		desired   |= GENERIC_WRITE;
-		sharemode |= FILE_SHARE_WRITE;
+		sharemode |= FILE_SHARE_WRITE | FILE_SHARE_READ;
 	}
 	if (access & FILEACCESS_CREATE) {
 		if (access & FILEACCESS_EXCL) {
