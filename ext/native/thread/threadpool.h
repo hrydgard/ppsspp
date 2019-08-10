@@ -27,7 +27,7 @@ protected:
 	std::condition_variable signal; // used to signal new work
 	std::condition_variable done; // used to signal work completion
 	std::mutex mutex, doneMutex; // associated with each respective condition variable
-	volatile bool active = true, started = false;
+	bool active = true;
 	int jobsDone = 0;
 	int jobsTarget = 0;
 private:

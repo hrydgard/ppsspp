@@ -6,7 +6,6 @@
 
 WorkerThread::WorkerThread() {
 	thread.reset(new std::thread(std::bind(&WorkerThread::WorkFunc, this)));
-	while(!started) { };
 }
 
 WorkerThread::~WorkerThread() {
@@ -35,7 +34,6 @@ void WorkerThread::WaitForCompletion() {
 void WorkerThread::WorkFunc() {
 	setCurrentThreadName("Worker");
 	std::unique_lock<std::mutex> guard(mutex);
-	started = true;
 	while (active) {
 		// 'active == false' is one of the conditions for signaling,
 		// do not "optimize" it
@@ -54,7 +52,6 @@ void WorkerThread::WorkFunc() {
 
 LoopWorkerThread::LoopWorkerThread() : WorkerThread(true) {
 	thread.reset(new std::thread(std::bind(&LoopWorkerThread::WorkFunc, this)));
-	while (!started) { };
 }
 
 void LoopWorkerThread::Process(std::function<void(int, int)> work, int start, int end) {
@@ -69,7 +66,6 @@ void LoopWorkerThread::Process(std::function<void(int, int)> work, int start, in
 void LoopWorkerThread::WorkFunc() {
 	setCurrentThreadName("LoopWorker");
 	std::unique_lock<std::mutex> guard(mutex);
-	started = true;
 	while (active) {
 		// 'active == false' is one of the conditions for signaling,
 		// do not "optimize" it
