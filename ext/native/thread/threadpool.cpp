@@ -9,19 +9,19 @@ WorkerThread::WorkerThread() {
 }
 
 WorkerThread::~WorkerThread() {
-	mutex.lock();
-	active = false;
-	signal.notify_one();
-	mutex.unlock();
+	{
+		std::lock_guard<std::mutex> guard(mutex);
+		active = false;
+		signal.notify_one();
+	}
 	thread->join();
 }
 
 void WorkerThread::Process(std::function<void()> work) {
-	mutex.lock();
+	std::lock_guard<std::mutex> guard(mutex);
 	work_ = std::move(work);
 	jobsTarget = jobsDone + 1;
 	signal.notify_one();
-	mutex.unlock();
 }
 
 void WorkerThread::WaitForCompletion() {
@@ -42,10 +42,10 @@ void WorkerThread::WorkFunc() {
 		}
 		if (active) {
 			work_();
-			doneMutex.lock();
-			done.notify_one();
+
+			std::lock_guard<std::mutex> doneGuard(doneMutex);
 			jobsDone++;
-			doneMutex.unlock();
+			done.notify_one();
 		}
 	}
 }
@@ -74,10 +74,10 @@ void LoopWorkerThread::WorkFunc() {
 		}
 		if (active) {
 			work_(start_, end_);
-			doneMutex.lock();
-			done.notify_one();
+
+			std::lock_guard<std::mutex> doneGuard(doneMutex);
 			jobsDone++;
-			doneMutex.unlock();
+			done.notify_one();
 		}
 	}
 }
