@@ -831,7 +831,7 @@ elseif(TARGET SDL2::SDL2)
 		set(nativeExtraLibs ${nativeExtraLibs} pthread)
 	endif()
 	set(TargetBin PPSSPPSDL)
-else()
+elseif(NOT LIBRETRO)
 	message(FATAL_ERROR "Could not find SDL2. Failing.")
 endif()
 
@@ -1647,6 +1647,8 @@ add_library(${CoreLibName} ${CoreLinkType}
 	Core/HLE/sceUsbCam.h
 	Core/HLE/sceUsbGps.cpp
 	Core/HLE/sceUsbGps.h
+	Core/HLE/sceUsbMic.cpp
+	Core/HLE/sceUsbMic.h
 	Core/HLE/sceUtility.cpp
 	Core/HLE/sceUtility.h
 	Core/HLE/sceVaudio.cpp

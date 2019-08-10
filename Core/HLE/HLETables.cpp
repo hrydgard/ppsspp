@@ -69,6 +69,7 @@
 #include "sceUsbAcc.h"
 #include "sceUsbCam.h"
 #include "sceUsbGps.h"
+#include "sceUsbMic.h"
 #include "sceUtility.h"
 #include "sceVaudio.h"
 #include "sceMt19937.h"
@@ -298,6 +299,7 @@ void RegisterAllModules() {
 	Register_sceNetIfhandle();
 	Register_KUBridge();
 	Register_sceUsbAcc();
+	Register_sceUsbMic();
 
 	// add new modules here.
 }

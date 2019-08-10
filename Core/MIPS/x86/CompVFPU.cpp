@@ -29,9 +29,11 @@
 #include "math/math_util.h"
 
 #include "Common/CPUDetect.h"
-#include "Core/MemMap.h"
+#include "Core/Compatibility.h"
 #include "Core/Config.h"
+#include "Core/MemMap.h"
 #include "Core/Reporting.h"
+#include "Core/System.h"
 #include "Core/MIPS/MIPSAnalyst.h"
 #include "Core/MIPS/MIPSCodeUtils.h"
 #include "Core/MIPS/MIPSVFPUUtils.h"
@@ -2803,13 +2805,16 @@ void Jit::Comp_VScl(MIPSOpcode op) {
 }
 
 void Jit::Comp_Vmmul(MIPSOpcode op) {
-	if (PSP_CoreParameter().compat.flags().MMULDisableHack)
-		DISABLE;
 	CONDITIONAL_DISABLE(VFPU_MTX_VMMUL);
-
-	// TODO: This probably ignores prefixes?
-	if (js.HasUnknownPrefix())
+	if (!js.HasNoPrefix()) {
 		DISABLE;
+	}
+
+	if (PSP_CoreParameter().compat.flags().MoreAccurateVMMUL) {
+		// Fall back to interpreter, which has the accurate implementation.
+		// Later we might do something more optimized here.
+		DISABLE;
+	}
 
 	MatrixSize sz = GetMtxSize(op);
 	VectorSize vsz = GetVectorSize(sz);

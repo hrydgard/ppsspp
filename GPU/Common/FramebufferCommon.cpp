@@ -987,7 +987,6 @@ void FramebufferManagerCommon::CopyDisplayToOutput() {
 			CalculatePostShaderUniforms(vfb->bufferWidth, vfb->bufferHeight, renderWidth_, renderHeight_, &uniforms);
 			BindPostShader(uniforms);
 			DrawTextureFlags flags = g_Config.iBufFilter == SCALE_LINEAR ? DRAWTEX_LINEAR : DRAWTEX_NEAREST;
-			flags = flags | DRAWTEX_TO_BACKBUFFER;
 			DrawActiveTexture(0, 0, fbo_w, fbo_h, fbo_w, fbo_h, 0.0f, 0.0f, 1.0f, 1.0f, ROTATION_LOCKED_HORIZONTAL, flags);
 
 			draw_->SetScissorRect(0, 0, pixelWidth_, pixelHeight_);
@@ -1010,6 +1009,7 @@ void FramebufferManagerCommon::CopyDisplayToOutput() {
 			flags = flags | DRAWTEX_TO_BACKBUFFER;
 			// Fullscreen Image
 			SetViewport2D(0, 0, pixelWidth_, pixelHeight_);
+			draw_->SetScissorRect(0, 0, pixelWidth_, pixelHeight_);
 			DrawActiveTexture(x, y, w, h, (float)pixelWidth_, (float)pixelHeight_, u0, v0, u1, v1, uvRotation, flags);
 		} else {
 			shaderManager_->DirtyLastShader();  // dirty lastShader_ BEFORE drawing
@@ -1308,7 +1308,8 @@ void FramebufferManagerCommon::FindTransferFramebuffers(VirtualFramebuffer *&dst
 
 			// Some games use mismatching bitdepths.  But make sure the stride matches.
 			// If it doesn't, generally this means we detected the framebuffer with too large a height.
-			bool match = yOffset < dstYOffset && (int)yOffset <= (int)vfb->height - dstHeight;
+			// Use bufferHeight in case of buffers that resize up and down often per frame (Valkyrie Profile.)
+			bool match = yOffset < dstYOffset && (int)yOffset <= (int)vfb->bufferHeight - dstHeight;
 			if (match && vfb_byteStride != byteStride) {
 				// Grand Knights History copies with a mismatching stride but a full line at a time.
 				// Makes it hard to detect the wrong transfers in e.g. God of War.
@@ -1338,7 +1339,7 @@ void FramebufferManagerCommon::FindTransferFramebuffers(VirtualFramebuffer *&dst
 			const u32 byteOffset = srcBasePtr - vfb_address;
 			const u32 byteStride = srcStride * bpp;
 			const u32 yOffset = byteOffset / byteStride;
-			bool match = yOffset < srcYOffset && (int)yOffset <= (int)vfb->height - srcHeight;
+			bool match = yOffset < srcYOffset && (int)yOffset <= (int)vfb->bufferHeight - srcHeight;
 			if (match && vfb_byteStride != byteStride) {
 				if (width != srcStride || (byteStride * height != vfb_byteStride && byteStride * height != vfb_byteWidth)) {
 					match = false;

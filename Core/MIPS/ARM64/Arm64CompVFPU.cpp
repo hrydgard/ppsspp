@@ -21,16 +21,16 @@
 #include <cmath>
 #include "math/math_util.h"
 
+#include "Core/Compatibility.h"
+#include "Core/Config.h"
 #include "Core/MemMap.h"
+#include "Core/Reporting.h"
+#include "Core/System.h"
 #include "Core/MIPS/MIPS.h"
 #include "Core/MIPS/MIPSTables.h"
 #include "Core/MIPS/MIPSAnalyst.h"
 #include "Core/MIPS/MIPSCodeUtils.h"
 #include "Common/CPUDetect.h"
-#include "Core/Config.h"
-#include "Core/Reporting.h"
-#include "Core/System.h"
-
 #include "Common/Arm64Emitter.h"
 #include "Core/MIPS/ARM64/Arm64Jit.h"
 #include "Core/MIPS/ARM64/Arm64RegCache.h"
@@ -1215,10 +1215,14 @@ namespace MIPSComp {
 	}
 
 	void Arm64Jit::Comp_Vmmul(MIPSOpcode op) {
-		if (PSP_CoreParameter().compat.flags().MMULDisableHack)
-			DISABLE;
 		CONDITIONAL_DISABLE(VFPU_MTX_VMMUL);
 		if (!js.HasNoPrefix()) {
+			DISABLE;
+		}
+
+		if (PSP_CoreParameter().compat.flags().MoreAccurateVMMUL) {
+			// Fall back to interpreter, which has the accurate implementation.
+			// Later we might do something more optimized here.
 			DISABLE;
 		}
 

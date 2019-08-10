@@ -15,9 +15,12 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
+#include <cstdint>
 #include <limits>
-#include <stdio.h>
+#include <cstdio>
+#include <cstring>
 
+#include "Common/BitScan.h"
 #include "Common/CommonFuncs.h"
 #include "Core/Reporting.h"
 #include "Core/MIPS/MIPS.h"
@@ -243,14 +246,36 @@ void ReadMatrix(float *rd, MatrixSize size, int reg) {
 	default: _assert_msg_(JIT, 0, "%s: Bad matrix size", __FUNCTION__);
 	}
 
-	for (int i = 0; i < side; i++) {
-		for (int j = 0; j < side; j++) {
-			int index = mtx * 4;
-			if (transpose)
-				index += ((row+i)&3) + ((col+j)&3)*32;
-			else
-				index += ((col+j)&3) + ((row+i)&3)*32;
-			rd[j*4 + i] = V(index);
+	// The voffset ordering is now integrated in these formulas,
+	// eliminating a table lookup.
+	const float *v = currentMIPS->v + (size_t)mtx * 16;
+	if (transpose) {
+		if (side == 4 && col == 0 && row == 0) {
+			// Fast path: Simple 4x4 transpose. TODO: Optimize.
+			for (int j = 0; j < 4; j++) {
+				for (int i = 0; i < 4; i++) {
+					rd[j * 4 + i] = v[i * 4 + j];
+				}
+			}
+		} else {
+			for (int j = 0; j < side; j++) {
+				for (int i = 0; i < side; i++) {
+					int index = ((row + i) & 3) * 4 + ((col + j) & 3);
+					rd[j * 4 + i] = v[index];
+				}
+			}
+		}
+	} else {
+		if (side == 4 && col == 0 && row == 0) {
+			// Fast path
+			memcpy(rd, v, sizeof(float) * 16);  // rd[j * 4 + i] = v[j * 4 + i];
+		} else {
+			for (int j = 0; j < side; j++) {
+				for (int i = 0; i < side; i++) {
+					int index = ((col + j) & 3) * 4 + ((row + i) & 3);
+					rd[j * 4 + i] = v[index];
+				}
+			}
 		}
 	}
 }
@@ -275,16 +300,38 @@ void WriteMatrix(const float *rd, MatrixSize size, int reg) {
 		ERROR_LOG_REPORT(CPU, "Write mask used with vfpu matrix instruction.");
 	}
 
-	for (int i = 0; i < side; i++) {
-		for (int j = 0; j < side; j++) {
-			// Hm, I wonder if this should affect matrices at all.
-			if (j != side -1 || !currentMIPS->VfpuWriteMask(i))	{
-				int index = mtx * 4;
-				if (transpose)
-					index += ((row+i)&3) + ((col+j)&3)*32;
-				else
-					index += ((col+j)&3) + ((row+i)&3)*32;
-				V(index) = rd[j*4+i];
+	// The voffset ordering is now integrated in these formulas,
+	// eliminating a table lookup.
+	float *v = currentMIPS->v + (size_t)mtx * 16;
+	if (transpose) {
+		if (side == 4 && row == 0 && col == 0 && currentMIPS->VfpuWriteMask() == 0x0) {
+			// Fast path: Simple 4x4 transpose. TODO: Optimize.
+			for (int j = 0; j < side; j++) {
+				for (int i = 0; i < side; i++) {
+					v[i * 4 + j] = rd[j * 4 + i];
+				}
+			}
+		} else {
+			for (int j = 0; j < side; j++) {
+				for (int i = 0; i < side; i++) {
+					if (j != side - 1 || !currentMIPS->VfpuWriteMask(i)) {
+						int index = ((row + i) & 3) * 4 + ((col + j) & 3);
+						v[index] = rd[j * 4 + i];
+					}
+				}
+			}
+		}
+	} else {
+		if (side == 4 && row == 0 && col == 0 && currentMIPS->VfpuWriteMask() == 0x0) {
+			memcpy(v, rd, sizeof(float) * 16);  // v[j * 4 + i] = rd[j * 4 + i];
+		} else {
+			for (int j = 0; j < side; j++) {
+				for (int i = 0; i < side; i++) {
+					if (j != side - 1 || !currentMIPS->VfpuWriteMask(i)) {
+						int index = ((col + j) & 3) * 4 + ((row + i) & 3);
+						v[index] = rd[j * 4 + i];
+					}
+				}
 			}
 		}
 	}
@@ -612,6 +659,10 @@ static uint32_t get_uexp(uint32_t x) {
 	return (x >> 23) & 0xFF;
 }
 
+int32_t get_exp(uint32_t x) {
+	return get_uexp(x) - 127;
+}
+
 static int32_t get_mant(uint32_t x) {
 	// Note: this returns the hidden 1.
 	return (x & 0x007FFFFF) | 0x00800000;
@@ -626,32 +677,58 @@ float vfpu_dot(float a[4], float b[4]) {
 	union float2int {
 		uint32_t i;
 		float f;
-	} intermed[4];
+	};
+	float2int result;
+	float2int src[2];
 
-	for (int i = 0; i < 4; i++) {
-		intermed[i].f = a[i] * b[i];
-	}
-
-	uint32_t exps[4];
+	int32_t exps[4];
 	int32_t mants[4];
-	uint32_t max_exp = 0;
-	uint32_t last_inf = 0;
+	int32_t signs[4];
+	int32_t max_exp = 0;
+	int32_t last_inf = -1;
 
 	for (int i = 0; i < 4; i++) {
-		exps[i] = get_uexp(intermed[i].i);
-		// Preserve extra bits of precision in the mantissa during the add.
-		mants[i] = get_mant(intermed[i].i) << EXTRA_BITS;
+		src[0].f = a[i];
+		src[1].f = b[i];
+
+		int32_t aexp = get_uexp(src[0].i);
+		int32_t bexp = get_uexp(src[1].i);
+		int32_t amant = get_mant(src[0].i) << EXTRA_BITS;
+		int32_t bmant = get_mant(src[1].i) << EXTRA_BITS;
+
+		exps[i] = aexp + bexp - 127;
+		if (aexp == 255) {
+			// INF * 0 = NAN
+			if ((src[0].i & 0x007FFFFF) != 0 || bexp == 0) {
+				result.i = 0x7F800001;
+				return result.f;
+			}
+			mants[i] = get_mant(0) << EXTRA_BITS;
+			exps[i] = 255;
+		} else if (bexp == 255) {
+			if ((src[1].i & 0x007FFFFF) != 0 || aexp == 0) {
+				result.i = 0x7F800001;
+				return result.f;
+			}
+			mants[i] = get_mant(0) << EXTRA_BITS;
+			exps[i] = 255;
+		} else {
+			// TODO: Adjust precision?
+			uint64_t adjust = (uint64_t)amant * (uint64_t)bmant;
+			mants[i] = (adjust >> (23 + EXTRA_BITS)) & 0x7FFFFFFF;
+		}
+		signs[i] = get_sign(src[0].i) ^ get_sign(src[1].i);
+
 		if (exps[i] > max_exp) {
 			max_exp = exps[i];
 		}
-		if (exps[i] == 255) {
-			bool diff_sign = last_inf && get_sign(last_inf) != get_sign(intermed[i].i);
-			bool mant_nan = mants[i] != (0x00800000 << EXTRA_BITS);
-			if (diff_sign || mant_nan) {
-				intermed[0].i = 0x7F800001;
-				return intermed[0].f;
+		if (exps[i] >= 255) {
+			// Infinity minus infinity is not a real number.
+			if (last_inf != -1 && signs[i] != last_inf) {
+				result.i = 0x7F800001;
+				return result.f;
 			}
-			last_inf = intermed[i].i;
+			last_inf = signs[i];
 		}
 	}
 
@@ -661,9 +738,9 @@ float vfpu_dot(float a[4], float b[4]) {
 		if (exp >= 32) {
 			mants[i] = 0;
 		} else {
-			mants[i] >>= max_exp - exps[i];
+			mants[i] >>= exp;
 		}
-		if (get_sign(intermed[i].i)) {
+		if (signs[i]) {
 			mants[i] = -mants[i];
 		}
 		mant_sum += mants[i];
@@ -674,30 +751,147 @@ float vfpu_dot(float a[4], float b[4]) {
 		sign_sum = 0x80000000;
 		mant_sum = -mant_sum;
 	}
-	// Chop off the extra bits.
+
+	// Truncate off the extra bits now.  We want to zero them for rounding purposes.
 	mant_sum >>= EXTRA_BITS;
 
-	if (mant_sum == 0 || max_exp == 0) {
+	if (mant_sum == 0 || max_exp <= 0) {
 		return 0.0f;
 	}
 
-	while (mant_sum < 0x00800000) {
-		mant_sum <<= 1;
-		max_exp -= 1;
+	int8_t shift = (int8_t)clz32_nonzero(mant_sum) - 8;
+	if (shift < 0) {
+		// Round to even if we'd shift away a 0.5.
+		const uint32_t round_bit = 1 << (-shift - 1);
+		if ((mant_sum & round_bit) && (mant_sum & (round_bit << 1))) {
+			mant_sum += round_bit;
+			shift = (int8_t)clz32_nonzero(mant_sum) - 8;
+		} else if ((mant_sum & round_bit) && (mant_sum & (round_bit - 1))) {
+			mant_sum += round_bit;
+			shift = (int8_t)clz32_nonzero(mant_sum) - 8;
+		}
+		mant_sum >>= -shift;
+		max_exp += -shift;
+	} else {
+		mant_sum <<= shift;
+		max_exp -= shift;
 	}
-	while (mant_sum >= 0x01000000) {
-		mant_sum >>= 1;
-		max_exp += 1;
-	}
-	_dbg_assert_(JIT, (mant_sum & 0x00800000) != 0);
+	_dbg_assert_msg_(JIT, (mant_sum & 0x00800000) != 0, "Mantissa wrong: %08x", mant_sum);
 
 	if (max_exp >= 255) {
 		max_exp = 255;
 		mant_sum = 0;
-	} else if (max_exp == 0) {
+	} else if (max_exp <= 0) {
 		return 0.0f;
 	}
 
-	intermed[0].i = sign_sum | (max_exp << 23) | (mant_sum & 0x007FFFFF);
-	return intermed[0].f;
+	result.i = sign_sum | (max_exp << 23) | (mant_sum & 0x007FFFFF);
+	return result.f;
+}
+
+// TODO: This is still not completely accurate compared to the PSP's vsqrt.
+float vfpu_sqrt(float a) {
+	union float2int {
+		uint32_t u;
+		float f;
+	};
+	float2int val;
+	val.f = a;
+
+	if ((val.u & 0xff800000) == 0x7f800000) {
+		if ((val.u & 0x007fffff) != 0) {
+			val.u = 0x7f800001;
+		}
+		return val.f;
+	}
+	if ((val.u & 0x7f800000) == 0) {
+		// Kill any sign.
+		val.u = 0;
+		return val.f;
+	}
+	if (val.u & 0x80000000) {
+		val.u = 0x7f800001;
+		return val.f;
+	}
+
+	int k = get_exp(val.u);
+	uint32_t sp = get_mant(val.u);
+	int less_bits = k & 1;
+	k >>= 1;
+
+	uint32_t z = 0x00C00000 >> less_bits;
+	int64_t halfsp = sp >> 1;
+	halfsp <<= 23 - less_bits;
+	for (int i = 0; i < 6; ++i) {
+		z = (z >> 1) + (uint32_t)(halfsp / z);
+	}
+
+	val.u = ((k + 127) << 23) | ((z << less_bits) & 0x007FFFFF);
+	// The lower two bits never end up set on the PSP, it seems like.
+	val.u &= 0xFFFFFFFC;
+
+	return val.f;
+}
+
+static inline uint32_t mant_mul(uint32_t a, uint32_t b) {
+	uint64_t m = (uint64_t)a * (uint64_t)b;
+	if (m & 0x007FFFFF) {
+		m += 0x01437000;
+	}
+	return m >> 23;
+}
+
+float vfpu_rsqrt(float a) {
+	union float2int {
+		uint32_t u;
+		float f;
+	};
+	float2int val;
+	val.f = a;
+
+	if (val.u == 0x7f800000) {
+		return 0.0f;
+	}
+	if ((val.u & 0x7fffffff) > 0x7f800000) {
+		val.u = (val.u & 0x80000000) | 0x7f800001;
+		return val.f;
+	}
+	if ((val.u & 0x7f800000) == 0) {
+		val.u = (val.u & 0x80000000) | 0x7f800000;
+		return val.f;
+	}
+	if (val.u & 0x80000000) {
+		val.u = 0xff800001;
+		return val.f;
+	}
+
+	int k = get_exp(val.u);
+	uint32_t sp = get_mant(val.u);
+	int less_bits = k & 1;
+	k = -(k >> 1);
+
+	uint32_t z = 0x00800000 >> less_bits;
+	uint32_t halfsp = sp >> (1 + less_bits);
+	for (int i = 0; i < 6; ++i) {
+		uint32_t oldz = z;
+		uint32_t zsq = mant_mul(z, z);
+		uint32_t correction = 0x00C00000 - mant_mul(halfsp, zsq);
+		z = mant_mul(z, correction);
+	}
+
+	int8_t shift = (int8_t)clz32_nonzero(z) - 8 + less_bits;
+	if (shift < 1) {
+		z >>= -shift;
+		k += -shift;
+	} else if (shift > 0) {
+		z <<= shift;
+		k -= shift;
+	}
+
+	z >>= less_bits;
+
+	val.u = ((k + 127) << 23) | (z & 0x007FFFFF);
+	val.u &= 0xFFFFFFFC;
+
+	return val.f;
 }

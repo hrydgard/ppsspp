@@ -737,6 +737,9 @@
     <ClCompile Include="Debugger\WebSocket\GPURecordSubscriber.cpp">
       <Filter>Debugger\WebSocket</Filter>
     </ClCompile>
+    <ClCompile Include="HLE\sceUsbMic.cpp">
+      <Filter>HLE\Libraries</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="ELF\ElfReader.h">
@@ -1366,6 +1369,9 @@
     </ClInclude>
     <ClInclude Include="Debugger\WebSocket\GPURecordSubscriber.h">
       <Filter>Debugger\WebSocket</Filter>
+    </ClInclude>
+    <ClInclude Include="HLE\sceUsbMic.h">
+      <Filter>HLE\Libraries</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>

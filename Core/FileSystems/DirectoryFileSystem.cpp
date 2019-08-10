@@ -30,6 +30,7 @@
 #include "Core/HLE/sceKernel.h"
 #include "Core/HW/MemoryStick.h"
 #include "Core/CoreTiming.h"
+#include "Core/System.h"
 #include "Core/Host.h"
 #include "Core/Replay.h"
 #include "Core/Reporting.h"
@@ -848,6 +849,7 @@ std::vector<PSPFileInfo> DirectoryFileSystem::GetDirListing(std::string path) {
 		return ReplayApplyDiskListing(myVector, CoreTiming::GetGlobalTimeUs());
 	}
 
+	bool hideISOFiles = PSP_CoreParameter().compat.flags().HideISOFiles;
 	while (true) {
 		PSPFileInfo entry;
 		if (findData.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY)
@@ -864,10 +866,16 @@ std::vector<PSPFileInfo> DirectoryFileSystem::GetDirListing(std::string path) {
 		else
 			entry.size = findData.nFileSizeLow | ((u64)findData.nFileSizeHigh<<32);
 		entry.name = SimulateVFATBug(ConvertWStringToUTF8(findData.cFileName));
+
+		bool hideFile = false;
+		if (hideISOFiles && (endsWithNoCase(entry.name, ".cso") || endsWithNoCase(entry.name, ".iso"))) {
+			// Workaround for DJ Max Portable, see compat.ini.
+			hideFile = true;
+		}
 		tmFromFiletime(entry.atime, findData.ftLastAccessTime);
 		tmFromFiletime(entry.ctime, findData.ftCreationTime);
 		tmFromFiletime(entry.mtime, findData.ftLastWriteTime);
-		if (!listingRoot || (wcscmp(findData.cFileName, L"..") && wcscmp(findData.cFileName, L".")))
+		if (!hideFile && (!listingRoot || (wcscmp(findData.cFileName, L"..") && wcscmp(findData.cFileName, L"."))))
 			myVector.push_back(entry);
 
 		int retval = FindNextFile(hFind, &findData);
@@ -893,6 +901,7 @@ std::vector<PSPFileInfo> DirectoryFileSystem::GetDirListing(std::string path) {
 		return ReplayApplyDiskListing(myVector, CoreTiming::GetGlobalTimeUs());
 	}
 
+	bool hideISOFiles = PSP_CoreParameter().compat.flags().HideISOFiles;
 	while ((dirp = readdir(dp)) != NULL) {
 		PSPFileInfo entry;
 		struct stat s;
@@ -905,10 +914,17 @@ std::vector<PSPFileInfo> DirectoryFileSystem::GetDirListing(std::string path) {
 		entry.access = s.st_mode & 0x1FF;
 		entry.name = SimulateVFATBug(dirp->d_name);
 		entry.size = s.st_size;
+
+		bool hideFile = false;
+		if (hideISOFiles && (endsWithNoCase(entry.name, ".cso") || endsWithNoCase(entry.name, ".iso"))) {
+			// Workaround for DJ Max Portable, see compat.ini.
+			hideFile = true;
+		}
+
 		localtime_r((time_t*)&s.st_atime,&entry.atime);
 		localtime_r((time_t*)&s.st_ctime,&entry.ctime);
 		localtime_r((time_t*)&s.st_mtime,&entry.mtime);
-		if (!listingRoot || (strcmp(dirp->d_name, "..") && strcmp(dirp->d_name, ".")))
+		if (!hideFile && (!listingRoot || (strcmp(dirp->d_name, "..") && strcmp(dirp->d_name, "."))))
 			myVector.push_back(entry);
 	}
 	closedir(dp);

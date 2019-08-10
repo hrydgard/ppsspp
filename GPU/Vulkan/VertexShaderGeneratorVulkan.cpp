@@ -48,9 +48,6 @@ static const char *vulkan_glsl_preamble =
 // texcoord = 2
 // fog = 3
 
-
-
-
 #undef WRITE
 
 #define WRITE p+=sprintf
@@ -637,7 +634,7 @@ bool GenerateVulkanGLSLVertexShader(const VShaderID &id, char *buffer) {
 		const char *outMin = "projPos.x < base.cullRangeMin.x || projPos.y < base.cullRangeMin.y || projPos.z < base.cullRangeMin.z";
 		const char *outMax = "projPos.x > base.cullRangeMax.x || projPos.y > base.cullRangeMax.y || projPos.z > base.cullRangeMax.z";
 		WRITE(p, "    if (%s || %s) {\n", outMin, outMax);
-		WRITE(p, "      outPos.w = base.cullRangeMax.w;\n");
+		WRITE(p, "      outPos.xyzw = vec4(base.cullRangeMax.w);\n");
 		WRITE(p, "    }\n");
 		WRITE(p, "  }\n");
 	}

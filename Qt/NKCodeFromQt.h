@@ -1,7 +1,9 @@
+#pragma once
+
 #include "util/const_map.h"
 #include <map>
 
-// TODO: Add any missing keys 
+// TODO: Add any missing keys
 static const std::map<int, int> KeyMapRawQttoNative = InitConstMap<int, int>
 	(Qt::Key_P, NKCODE_P)
 	(Qt::Key_O, NKCODE_O)

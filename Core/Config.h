@@ -430,7 +430,7 @@ public:
 	void changeGameSpecific(const std::string &gameId = "", const std::string &title = "");
 	bool createGameConfig(const std::string &game_id);
 	bool deleteGameConfig(const std::string& pGameId);
-	bool loadGameConfig(const std::string &game_id);
+	bool loadGameConfig(const std::string &game_id, const std::string &title);
 	bool saveGameConfig(const std::string &pGameId, const std::string &title);
 	void unloadGameConfig();
 	std::string getGameConfigFile(const std::string &gameId);

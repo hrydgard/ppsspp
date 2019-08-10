@@ -582,6 +582,7 @@ void PipelineManagerVulkan::SaveCache(FILE *file, bool saveRawPipelineCache, Sha
 	uint32_t size;
 
 	if (saveRawPipelineCache) {
+		// WARNING: See comment in LoadCache before using this path.
 		VkResult result = vkGetPipelineCacheData(vulkan_->GetDevice(), pipelineCache_, &dataSize, nullptr);
 		uint32_t size = (uint32_t)dataSize;
 		if (result != VK_SUCCESS) {
@@ -670,6 +671,7 @@ bool PipelineManagerVulkan::LoadCache(FILE *file, bool loadRawPipelineCache, Sha
 
 	uint32_t size = 0;
 	if (loadRawPipelineCache) {
+		// WARNING: Do not use this path until after reading and implementing https://zeux.io/2019/07/17/serializing-pipeline-cache/ !
 		bool success = fread(&size, sizeof(size), 1, file) == 1;
 		if (!size || !success) {
 			WARN_LOG(G3D, "Zero-sized Vulkan pipeline cache.");

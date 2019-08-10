@@ -982,6 +982,7 @@ void NativeRender(GraphicsContext *graphicsContext) {
 		break;
 	}
 
+	// Compensate for rotated display if needed.
 	if (g_display_rotation != DisplayRotation::ROTATE_0) {
 		ortho = ortho * g_display_rot_matrix;
 	}

@@ -158,7 +158,6 @@ void VulkanQueueRunner::InitBackbufferRenderPass() {
 	dep.dstStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
 	dep.srcAccessMask = 0;
 	dep.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_READ_BIT | VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
-	dep.dependencyFlags = VK_DEPENDENCY_BY_REGION_BIT;
 
 	VkRenderPassCreateInfo rp_info{ VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO };
 	rp_info.attachmentCount = 2;
@@ -380,14 +379,18 @@ void VulkanQueueRunner::RunSteps(VkCommandBuffer cmd, std::vector<VKRStep *> &st
 	// Planned optimizations: 
 	//  * Create copies of render target that are rendered to multiple times and textured from in sequence, and push those render passes
 	//    as early as possible in the frame (Wipeout billboards).
+	//  * Merge subsequent render passes to the same target that are interspersed with unrelated draws to other render targets (God of War).
 
-	for (int j = 0; j < (int)steps.size() - 1; j++) {
+	for (int j = 0; j < (int)steps.size(); j++) {
 		if (steps[j]->stepType == VKRStepType::RENDER &&
+			steps[j]->render.framebuffer &&
 			steps[j]->render.finalColorLayout == VK_IMAGE_LAYOUT_UNDEFINED) {
 			// Just leave it at color_optimal.
 			steps[j]->render.finalColorLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
 		}
+	}
 
+	for (int j = 0; j < (int)steps.size() - 1; j++) {
 		// Push down empty "Clear/Store" renderpasses, and merge them with the first "Load/Store" to the same framebuffer.
 		// Actually let's just bother with the first one for now. This affects Wipeout Pure.
 		if (steps.size() > 1 && steps[j]->stepType == VKRStepType::RENDER &&
@@ -459,11 +462,18 @@ void VulkanQueueRunner::RunSteps(VkCommandBuffer cmd, std::vector<VKRStep *> &st
 		case VKRStepType::RENDER_SKIP:
 			break;
 		}
+	}
+
+	// Deleting all in one go should be easier on the instruction cache than deleting
+	// them as we go - and easier to debug because we can look backwards in the frame.
+	for (size_t i = 0; i < steps.size(); i++) {
 		delete steps[i];
 	}
 }
 
 void VulkanQueueRunner::ApplyMGSHack(std::vector<VKRStep *> &steps) {
+	// Really need a sane way to express transforms of steps.
+
 	// We want to turn a sequence of copy,render(1),copy,render(1),copy,render(1) to copy,copy,copy,render(n).
 
 	for (int i = 0; i < (int)steps.size() - 3; i++) {
@@ -530,6 +540,78 @@ void VulkanQueueRunner::ApplyMGSHack(std::vector<VKRStep *> &steps) {
 			// We're done.
 			break;
 		}
+	}
+
+	// There's also a post processing effect using depals that's just brutal in some parts
+	// of the game.
+	for (int i = 0; i < (int)steps.size() - 3; i++) {
+		int last = -1;
+		if (!(steps[i]->stepType == VKRStepType::RENDER &&
+			steps[i + 1]->stepType == VKRStepType::RENDER &&
+			steps[i + 2]->stepType == VKRStepType::RENDER &&
+			steps[i]->render.numDraws == 1 &&
+			steps[i + 1]->render.numDraws == 1 &&
+			steps[i + 2]->render.numDraws == 1 &&
+			steps[i]->render.color == VKRRenderPassAction::DONT_CARE &&
+			steps[i + 1]->render.color == VKRRenderPassAction::KEEP &&
+			steps[i + 2]->render.color == VKRRenderPassAction::DONT_CARE))
+			continue;
+		VKRFramebuffer *depalFramebuffer = steps[i]->render.framebuffer;
+		VKRFramebuffer *targetFramebuffer = steps[i + 1]->render.framebuffer;
+		// OK, found the start of a post-process sequence. Let's scan until we find the end.
+		for (int j = i; j < steps.size() - 3; j++) {
+			if (((j - i) & 1) == 0) {
+				// This should be a depal draw.
+				if (steps[j]->render.numDraws != 1)
+					break;
+				if (steps[j]->render.color != VKRRenderPassAction::DONT_CARE)
+					break;
+				if (steps[j]->render.framebuffer != depalFramebuffer)
+					break;
+				last = j;
+			} else {
+				// This should be a target draw.
+				if (steps[j]->render.numDraws != 1)
+					break;
+				if (steps[j]->render.color != VKRRenderPassAction::KEEP)
+					break;
+				if (steps[j]->render.framebuffer != targetFramebuffer)
+					break;
+				last = j;
+			}
+		}
+
+		if (last == -1)
+			continue;
+
+		// Combine the depal renders.
+		for (int j = i + 2; j <= last + 1; j += 2) {
+			for (int k = 0; k < (int)steps[j]->commands.size(); k++) {
+				switch (steps[j]->commands[k].cmd) {
+				case VKRRenderCommand::DRAW:
+				case VKRRenderCommand::DRAW_INDEXED:
+					steps[i]->commands.push_back(steps[j]->commands[k]);
+					break;
+				}
+			}
+			steps[j]->stepType = VKRStepType::RENDER_SKIP;
+		}
+
+		// Combine the target renders.
+		for (int j = i + 3; j <= last; j += 2) {
+			for (int k = 0; k < (int)steps[j]->commands.size(); k++) {
+				switch (steps[j]->commands[k].cmd) {
+				case VKRRenderCommand::DRAW:
+				case VKRRenderCommand::DRAW_INDEXED:
+					steps[i + 1]->commands.push_back(steps[j]->commands[k]);
+					break;
+				}
+			}
+			steps[j]->stepType = VKRStepType::RENDER_SKIP;
+		}
+
+		// We're done - we only expect one of these sequences per frame.
+		break;
 	}
 }
 
@@ -715,6 +797,9 @@ void VulkanQueueRunner::PerformRenderPass(const VKRStep &step, VkCommandBuffer c
 			VkPipelineStageFlags dstStage{};
 			switch (barrier.oldLayout) {
 			case VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL:
+				barrier.srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT | VK_ACCESS_COLOR_ATTACHMENT_READ_BIT;
+				srcStage = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+				break;
 			case VK_IMAGE_LAYOUT_UNDEFINED:
 				barrier.srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT | VK_ACCESS_COLOR_ATTACHMENT_READ_BIT;
 				srcStage = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
@@ -754,6 +839,22 @@ void VulkanQueueRunner::PerformRenderPass(const VKRStep &step, VkCommandBuffer c
 	if (step.commands.empty() && step.render.color == VKRRenderPassAction::KEEP && step.render.depth == VKRRenderPassAction::KEEP && step.render.stencil == VKRRenderPassAction::KEEP) {
 		// Nothing to do.
 		return;
+	}
+
+	if (step.render.framebuffer && step.render.framebuffer->color.layout == VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL) {
+		VkImageMemoryBarrier barrier{};
+		barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
+		barrier.oldLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+		barrier.newLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+		barrier.subresourceRange.layerCount = 1;
+		barrier.subresourceRange.levelCount = 1;
+		barrier.image = step.render.framebuffer->color.image;
+		barrier.srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+		barrier.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT | VK_ACCESS_COLOR_ATTACHMENT_READ_BIT;
+		barrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+		barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+		barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+		vkCmdPipelineBarrier(cmd, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, 0, 0, nullptr, 0, nullptr, 1, &barrier);
 	}
 
 	// This is supposed to bind a vulkan render pass to the command buffer.
@@ -874,6 +975,8 @@ void VulkanQueueRunner::PerformBindFramebufferAsRenderTarget(const VKRStep &step
 	int w;
 	int h;
 	if (step.render.framebuffer) {
+		_dbg_assert_(G3D, step.render.finalColorLayout != VK_IMAGE_LAYOUT_UNDEFINED);
+
 		VKRFramebuffer *fb = step.render.framebuffer;
 		framebuf = fb->framebuf;
 		w = fb->width;

@@ -136,6 +136,7 @@ void GPU_Vulkan::LoadCache(std::string filename) {
 	// it can just memcpy the finished shader binaries out of the pipeline cache file.
 	bool result = shaderManagerVulkan_->LoadCache(f);
 	if (result) {
+		// WARNING: See comment in LoadCache if you are tempted to flip the second parameter to true.
 		result = pipelineManager_->LoadCache(f, false, shaderManagerVulkan_, draw_, drawEngine_.GetPipelineLayout());
 	}
 	fclose(f);
@@ -159,6 +160,7 @@ void GPU_Vulkan::SaveCache(std::string filename) {
 	if (!f)
 		return;
 	shaderManagerVulkan_->SaveCache(f);
+	// WARNING: See comment in LoadCache if you are tempted to flip the second parameter to true.
 	pipelineManager_->SaveCache(f, false, shaderManagerVulkan_, draw_);
 	INFO_LOG(G3D, "Saved Vulkan pipeline cache");
 	fclose(f);

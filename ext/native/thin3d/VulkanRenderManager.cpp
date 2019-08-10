@@ -400,6 +400,8 @@ void VulkanRenderManager::BindFramebufferAsRenderTarget(VKRFramebuffer *fb, VKRR
 			return;
 		}
 	}
+
+	// More redundant bind elimination.
 	if (curRenderStep_ && curRenderStep_->commands.size() == 0 && curRenderStep_->render.color == VKRRenderPassAction::KEEP && curRenderStep_->render.depth == VKRRenderPassAction::KEEP && curRenderStep_->render.stencil == VKRRenderPassAction::KEEP) {
 		// Can trivially kill the last empty render step.
 		assert(steps_.back() == curRenderStep_);
@@ -412,10 +414,9 @@ void VulkanRenderManager::BindFramebufferAsRenderTarget(VKRFramebuffer *fb, VKRR
 	}
 
 	VKRStep *step = new VKRStep{ VKRStepType::RENDER };
-	// This is what queues up new passes, and can end previous ones.
 	step->render.framebuffer = fb;
 	step->render.color = color;
-	step->render.depth= depth;
+	step->render.depth = depth;
 	step->render.stencil = stencil;
 	step->render.clearColor = clearColor;
 	step->render.clearDepth = clearDepth;
@@ -426,8 +427,13 @@ void VulkanRenderManager::BindFramebufferAsRenderTarget(VKRFramebuffer *fb, VKRR
 	steps_.push_back(step);
 
 	curRenderStep_ = step;
-	curWidth_ = fb ? fb->width : vulkan_->GetBackbufferWidth();
-	curHeight_ = fb ? fb->height : vulkan_->GetBackbufferHeight();
+	if (fb) {
+		curWidth_ = fb->width;
+		curHeight_ = fb->height;
+	} else {
+		curWidth_ = vulkan_->GetBackbufferWidth();
+		curHeight_ = vulkan_->GetBackbufferHeight();
+	}
 }
 
 bool VulkanRenderManager::CopyFramebufferToMemorySync(VKRFramebuffer *src, int aspectBits, int x, int y, int w, int h, Draw::DataFormat destFormat, uint8_t *pixels, int pixelStride) {
@@ -923,10 +929,10 @@ void VulkanRenderManager::Submit(int frame, bool triggerFence) {
 	cmdBufs[numCmdBufs++] = frameData.mainCmd;
 
 	VkSubmitInfo submit_info{ VK_STRUCTURE_TYPE_SUBMIT_INFO };
+	VkPipelineStageFlags waitStage[1]{ VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT };
 	if (triggerFence && !frameData.skipSwap) {
 		submit_info.waitSemaphoreCount = 1;
 		submit_info.pWaitSemaphores = &acquireSemaphore_;
-		VkPipelineStageFlags waitStage[1]{ VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT };
 		submit_info.pWaitDstStageMask = waitStage;
 	}
 	submit_info.commandBufferCount = (uint32_t)numCmdBufs;
