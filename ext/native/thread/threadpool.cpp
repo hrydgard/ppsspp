@@ -97,7 +97,8 @@ ThreadPool::ThreadPool(int numThreads) {
 
 void ThreadPool::StartWorkers() {
 	if (!workersStarted) {
-		for(int i = 0; i < numThreads_; ++i) {
+		workers.reserve(numThreads_ - 1);
+		for(int i = 0; i < numThreads_ - 1; ++i) { // create one less worker thread as the thread calling ParallelLoop will also do work
 			auto workerPtr = make_unique<LoopWorkerThread>();
 			workerPtr->StartUp();
 			workers.push_back(std::move(workerPtr));
@@ -116,14 +117,14 @@ void ThreadPool::ParallelLoop(const std::function<void(int,int)> &loop, int lowe
 		// but doesn't matter since all our loops are power of 2
 		int chunk = range / numThreads_;
 		int s = lower;
-		for (int i = 0; i < numThreads_ - 1; ++i) {
-			workers[i]->Process(loop, s, s+chunk);
+		for (auto& worker : workers) {
+			worker->Process(loop, s, s+chunk);
 			s+=chunk;
 		}
 		// This is the final chunk.
 		loop(s, upper);
-		for (int i = 0; i < numThreads_ - 1; ++i) {
-			workers[i]->WaitForCompletion();
+		for (auto& worker : workers) {
+			worker->WaitForCompletion();
 		}
 	} else {
 		loop(lower, upper);
