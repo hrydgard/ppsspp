@@ -1,12 +1,9 @@
 #include "base/logging.h"
 #include "thread/threadpool.h"
 #include "thread/threadutil.h"
+#include "Common/MakeUnique.h"
 
 ///////////////////////////// WorkerThread
-
-WorkerThread::WorkerThread() {
-	thread.reset(new std::thread(std::bind(&WorkerThread::WorkFunc, this)));
-}
 
 WorkerThread::~WorkerThread() {
 	{
@@ -14,7 +11,13 @@ WorkerThread::~WorkerThread() {
 		active = false;
 		signal.notify_one();
 	}
-	thread->join();
+	if (thread.joinable()) {
+		thread.join();
+	}
+}
+
+void WorkerThread::StartUp() {
+	thread = std::thread(std::bind(&WorkerThread::WorkFunc, this));
 }
 
 void WorkerThread::Process(std::function<void()> work) {
@@ -48,10 +51,6 @@ void WorkerThread::WorkFunc() {
 			done.notify_one();
 		}
 	}
-}
-
-LoopWorkerThread::LoopWorkerThread() : WorkerThread(true) {
-	thread.reset(new std::thread(std::bind(&LoopWorkerThread::WorkFunc, this)));
 }
 
 void LoopWorkerThread::Process(std::function<void(int, int)> work, int start, int end) {
@@ -99,7 +98,9 @@ ThreadPool::ThreadPool(int numThreads) {
 void ThreadPool::StartWorkers() {
 	if (!workersStarted) {
 		for(int i = 0; i < numThreads_; ++i) {
-			workers.push_back(std::make_shared<LoopWorkerThread>());
+			auto workerPtr = make_unique<LoopWorkerThread>();
+			workerPtr->StartUp();
+			workers.push_back(std::move(workerPtr));
 		}
 		workersStarted = true;
 	}

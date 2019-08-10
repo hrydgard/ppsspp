@@ -12,8 +12,10 @@
 // Only handles a single item of work at a time.
 class WorkerThread {
 public:
-	WorkerThread();
+	WorkerThread() = default;
 	virtual ~WorkerThread();
+
+	void StartUp();
 
 	// submit a new work item
 	void Process(std::function<void()> work);
@@ -21,9 +23,7 @@ public:
 	void WaitForCompletion();
 
 protected:
-	WorkerThread(bool ignored) {}
-
-	std::unique_ptr<std::thread> thread; // the worker thread
+	std::thread thread; // the worker thread
 	std::condition_variable signal; // used to signal new work
 	std::condition_variable done; // used to signal work completion
 	std::mutex mutex, doneMutex; // associated with each respective condition variable
@@ -41,7 +41,7 @@ private:
 
 class LoopWorkerThread final : public WorkerThread {
 public:
-	LoopWorkerThread();
+	LoopWorkerThread() = default;
 	void Process(std::function<void(int, int)> work, int start, int end);
 
 private:
@@ -65,7 +65,7 @@ public:
 
 private:
 	int numThreads_;
-	std::vector<std::shared_ptr<LoopWorkerThread>> workers;
+	std::vector<std::unique_ptr<LoopWorkerThread>> workers;
 	std::mutex mutex; // used to sequentialize loop execution
 
 	bool workersStarted = false;
