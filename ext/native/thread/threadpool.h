@@ -21,32 +21,32 @@ public:
 	void WaitForCompletion();
 
 protected:
-	WorkerThread(bool ignored) : active(true), started(false) {}
-	virtual void WorkFunc();
+	WorkerThread(bool ignored) {}
 
 	std::unique_ptr<std::thread> thread; // the worker thread
 	std::condition_variable signal; // used to signal new work
 	std::condition_variable done; // used to signal work completion
 	std::mutex mutex, doneMutex; // associated with each respective condition variable
-	volatile bool active, started;
+	volatile bool active = true, started = false;
 	int jobsDone = 0;
 	int jobsTarget = 0;
 private:
+	virtual void WorkFunc();
+
 	std::function<void()> work_; // the work to be done by this thread
 
-	WorkerThread(const WorkerThread& other); // prevent copies
-	void operator =(const WorkerThread &other);
+	WorkerThread(const WorkerThread& other) = delete; // prevent copies
+	void operator =(const WorkerThread &other) = delete;
 };
 
-class LoopWorkerThread : public WorkerThread {
+class LoopWorkerThread final : public WorkerThread {
 public:
 	LoopWorkerThread();
 	void Process(const std::function<void(int, int)> &work, int start, int end);
 
-protected:
-	virtual void WorkFunc();
-
 private:
+	virtual void WorkFunc() override;
+
 	int start_;
 	int end_;
 	std::function<void(int, int)> work_; // the work to be done by this thread
@@ -68,10 +68,10 @@ private:
 	std::vector<std::shared_ptr<LoopWorkerThread>> workers;
 	std::mutex mutex; // used to sequentialize loop execution
 
-	bool workersStarted;
+	bool workersStarted = false;
 	void StartWorkers();
 	
-	ThreadPool(const ThreadPool& other); // prevent copies
-	void operator =(const ThreadPool &other);
+	ThreadPool(const ThreadPool& other) = delete; // prevent copies
+	void operator =(const ThreadPool &other) = delete;
 };
 

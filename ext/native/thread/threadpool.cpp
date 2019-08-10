@@ -4,7 +4,7 @@
 
 ///////////////////////////// WorkerThread
 
-WorkerThread::WorkerThread() : active(true), started(false) {
+WorkerThread::WorkerThread() {
 	thread.reset(new std::thread(std::bind(&WorkerThread::WorkFunc, this)));
 	while(!started) { };
 }
@@ -80,7 +80,7 @@ void LoopWorkerThread::WorkFunc() {
 
 ///////////////////////////// ThreadPool
 
-ThreadPool::ThreadPool(int numThreads) : workersStarted(false) {
+ThreadPool::ThreadPool(int numThreads) {
 	if (numThreads <= 0) {
 		numThreads_ = 1;
 		ILOG("ThreadPool: Bad number of threads %i", numThreads);
