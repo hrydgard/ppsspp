@@ -27,7 +27,7 @@ void WorkerThread::Process(std::function<void()> work) {
 
 void WorkerThread::WaitForCompletion() {
 	std::unique_lock<std::mutex> guard(doneMutex);
-	if (jobsDone < jobsTarget) {
+	while (jobsDone < jobsTarget) {
 		done.wait(guard);
 	}
 }
@@ -37,7 +37,11 @@ void WorkerThread::WorkFunc() {
 	std::unique_lock<std::mutex> guard(mutex);
 	started = true;
 	while (active) {
-		signal.wait(guard);
+		// 'active == false' is one of the conditions for signaling,
+		// do not "optimize" it
+		while (active && jobsTarget <= jobsDone) {
+			signal.wait(guard);
+		}
 		if (active) {
 			work_();
 			doneMutex.lock();
@@ -67,7 +71,11 @@ void LoopWorkerThread::WorkFunc() {
 	std::unique_lock<std::mutex> guard(mutex);
 	started = true;
 	while (active) {
-		signal.wait(guard);
+		// 'active == false' is one of the conditions for signaling,
+		// do not "optimize" it
+		while (active && jobsTarget <= jobsDone) {
+			signal.wait(guard);
+		}
 		if (active) {
 			work_(start_, end_);
 			doneMutex.lock();
