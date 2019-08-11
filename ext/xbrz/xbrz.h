@@ -27,6 +27,7 @@
 // Remove those defines to restore fully stock behaviour
 #define PPSSPP_NO_CXX14 1 // Hide unsupported C++14 features
 #define PPSSPP_NO_CXX17 1 // Hide unsupported C++17 features
+#define PPSSPP_FIX 1 // Any fixes introduced in PPSSPP
 
 
 namespace xbrz

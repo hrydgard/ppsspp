@@ -188,13 +188,25 @@ double distYCbCrBuffered(uint32_t pix1, uint32_t pix2)
 	//consumes 64 MB memory; using double is only 2% faster, but takes 128 MB
 	static const std::vector<float> diffToDist = []
 	{
+#if !PPSSPP_FIX
 		std::vector<float> tmp;
+#else
+		std::vector<float> tmp(256 * 256 * 256);
+		uint32_t i = 0;
+#endif
 
+#if !PPSSPP_FIX
 		for (uint32_t i = 0; i < 256 * 256 * 256; ++i) //startup time: 114 ms on Intel Core i5 (four cores)
+#else
+		for (float& val : tmp)
+#endif
 		{
 			const int r_diff = static_cast<signed char>(getByte<2>(i)) * 2;
 			const int g_diff = static_cast<signed char>(getByte<1>(i)) * 2;
 			const int b_diff = static_cast<signed char>(getByte<0>(i)) * 2;
+#if PPSSPP_FIX
+			++i;
+#endif
 
 			const double k_b = 0.0593; //ITU-R BT.2020 conversion
 			const double k_r = 0.2627; //
@@ -207,7 +219,11 @@ double distYCbCrBuffered(uint32_t pix1, uint32_t pix2)
 			const double c_b = scale_b * (b_diff - y);
 			const double c_r = scale_r * (r_diff - y);
 
+#if !PPSSPP_FIX
 			tmp.push_back(static_cast<float>(std::sqrt(square(y) + square(c_b) + square(c_r))));
+#else
+			val = static_cast<float>(std::sqrt(square(y) + square(c_b) + square(c_r)));
+#endif
 		}
 		return tmp;
 	}();
