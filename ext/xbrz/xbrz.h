@@ -22,6 +22,12 @@
 #include <limits>
 #include "xbrz_config.h"
 
+// Macros encapsulating PPSSPP specific changes, anything within those is custom
+// and not a part of stock xbrz.cpp
+// Remove those defines to restore fully stock behaviour
+#define PPSSPP_NO_CXX14 1 // Hide unsupported C++14 features
+#define PPSSPP_NO_CXX17 1 // Hide unsupported C++17 features
+
 
 namespace xbrz
 {

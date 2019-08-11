@@ -202,7 +202,15 @@ void bilinearScale(const uint32_t* src, int srcWidth, int srcHeight, int srcPitc
         const double xx1 = x / scaleX - x1;
         const double x2x = 1 - xx1;
 
+#if !PPSSPP_NO_CXX14
         buf[x] = { x1, x2, xx1, x2x };
+#else
+        CoeffsX& entry = buf[x];
+        entry.x1 = x1;
+        entry.x2 = x2;
+        entry.xx1 = xx1;
+        entry.x2x = x2x;
+#endif
     }
 
     for (int y = yFirst; y < yLast; ++y)
@@ -231,7 +239,11 @@ void bilinearScale(const uint32_t* src, int srcWidth, int srcHeight, int srcPitc
             const double x2xyy1 = x2x * yy1;
             const double xx1yy1 = xx1 * yy1;
 
+#if !PPSSPP_NO_CXX14
             auto interpolate = [=](int offset)
+#else
+            auto interpolate = [=](int offset) -> double
+#endif
             {
                 /* https://en.wikipedia.org/wiki/Bilinear_interpolation
                      (c11(x2 - x) + c21(x - x1)) * (y2 - y ) +
