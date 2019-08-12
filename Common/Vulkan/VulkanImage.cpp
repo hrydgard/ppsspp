@@ -142,10 +142,7 @@ bool VulkanTexture::CreateDirect(VkCommandBuffer cmd, VulkanDeviceAllocator *all
 	if (mapping) {
 		view_info.components = *mapping;
 	} else {
-		view_info.components.r = VK_COMPONENT_SWIZZLE_R;
-		view_info.components.g = VK_COMPONENT_SWIZZLE_G;
-		view_info.components.b = VK_COMPONENT_SWIZZLE_B;
-		view_info.components.a = VK_COMPONENT_SWIZZLE_A;
+		view_info.components = { VK_COMPONENT_SWIZZLE_IDENTITY, VK_COMPONENT_SWIZZLE_IDENTITY, VK_COMPONENT_SWIZZLE_IDENTITY, VK_COMPONENT_SWIZZLE_IDENTITY };
 	}
 	view_info.subresourceRange.aspectMask = aspect;
 	view_info.subresourceRange.baseMipLevel = 0;
