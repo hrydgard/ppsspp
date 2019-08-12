@@ -424,9 +424,10 @@ add_library(Common STATIC
 	Common/FileUtil.h
 	Common/KeyMap.cpp
 	Common/KeyMap.h
-	Common/LogManager.cpp
 	Common/Hashmaps.h
+	Common/LogManager.cpp
 	Common/LogManager.h
+	Common/MakeUnique.h
 	Common/MemArenaAndroid.cpp
 	Common/MemArenaDarwin.cpp
 	Common/MemArenaPosix.cpp
