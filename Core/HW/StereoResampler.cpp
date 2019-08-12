@@ -177,42 +177,31 @@ unsigned int StereoResampler::Mix(short* samples, unsigned int numSamples, bool 
 	const int INDEX_MASK = (m_bufsize * 2 - 1);
 
 	// We force on the audio resampler if the output sample rate doesn't match the input.
-	if (!g_Config.bAudioResampler && sample_rate == (int)m_input_sample_rate) {
-		for (; currentSample < numSamples * 2 && ((indexW - indexR) & INDEX_MASK) > 2; currentSample += 2) {
-			s16 l1 = m_buffer[indexR & INDEX_MASK]; //current
-			s16 r1 = m_buffer[(indexR + 1) & INDEX_MASK]; //current
-			samples[currentSample] = l1;
-			samples[currentSample + 1] = r1;
-			indexR += 2;
-		}
-		sample_rate_ = (float)sample_rate;
-	} else {
-		// Drift prevention mechanism
-		float numLeft = (float)(((indexW - indexR) & INDEX_MASK) / 2);
-		m_numLeftI = (numLeft + m_numLeftI*(CONTROL_AVG - 1)) / CONTROL_AVG;
-		float offset = (m_numLeftI - m_lowwatermark) * CONTROL_FACTOR;
-		if (offset > MAX_FREQ_SHIFT) offset = MAX_FREQ_SHIFT;
-		if (offset < -MAX_FREQ_SHIFT) offset = -MAX_FREQ_SHIFT;
+	// Drift prevention mechanism
+	float numLeft = (float)(((indexW - indexR) & INDEX_MASK) / 2);
+	m_numLeftI = (numLeft + m_numLeftI*(CONTROL_AVG - 1)) / CONTROL_AVG;
+	float offset = (m_numLeftI - m_lowwatermark) * CONTROL_FACTOR;
+	if (offset > MAX_FREQ_SHIFT) offset = MAX_FREQ_SHIFT;
+	if (offset < -MAX_FREQ_SHIFT) offset = -MAX_FREQ_SHIFT;
 
-		sample_rate_ = (float)(m_input_sample_rate + offset);
-		const u32 ratio = (u32)(65536.0 * sample_rate_ / (double)sample_rate);
+	sample_rate_ = (float)(m_input_sample_rate + offset);
+	const u32 ratio = (u32)(65536.0 * sample_rate_ / (double)sample_rate);
 
-		// TODO: consider a higher-quality resampling algorithm.
-		// TODO: Add a fast path for 1:1.
-		for (; currentSample < numSamples * 2 && ((indexW - indexR) & INDEX_MASK) > 2; currentSample += 2) {
-			u32 indexR2 = indexR + 2; //next sample
-			s16 l1 = m_buffer[indexR & INDEX_MASK]; //current
-			s16 r1 = m_buffer[(indexR + 1) & INDEX_MASK]; //current
-			s16 l2 = m_buffer[indexR2 & INDEX_MASK]; //next
-			s16 r2 = m_buffer[(indexR2 + 1) & INDEX_MASK]; //next
-			int sampleL = ((l1 << 16) + (l2 - l1) * (u16)m_frac) >> 16;
-			int sampleR = ((r1 << 16) + (r2 - r1) * (u16)m_frac) >> 16;
-			samples[currentSample] = sampleL;
-			samples[currentSample + 1] = sampleR;
-			m_frac += ratio;
-			indexR += 2 * (u16)(m_frac >> 16);
-			m_frac &= 0xffff;
-		}
+	// TODO: consider a higher-quality resampling algorithm.
+	// TODO: Add a fast path for 1:1.
+	for (; currentSample < numSamples * 2 && ((indexW - indexR) & INDEX_MASK) > 2; currentSample += 2) {
+		u32 indexR2 = indexR + 2; //next sample
+		s16 l1 = m_buffer[indexR & INDEX_MASK]; //current
+		s16 r1 = m_buffer[(indexR + 1) & INDEX_MASK]; //current
+		s16 l2 = m_buffer[indexR2 & INDEX_MASK]; //next
+		s16 r2 = m_buffer[(indexR2 + 1) & INDEX_MASK]; //next
+		int sampleL = ((l1 << 16) + (l2 - l1) * (u16)m_frac) >> 16;
+		int sampleR = ((r1 << 16) + (r2 - r1) * (u16)m_frac) >> 16;
+		samples[currentSample] = sampleL;
+		samples[currentSample + 1] = sampleR;
+		m_frac += ratio;
+		indexR += 2 * (u16)(m_frac >> 16);
+		m_frac &= 0xffff;
 	}
 
 	int realSamples = currentSample;
