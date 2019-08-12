@@ -392,7 +392,6 @@ void VulkanQueueRunner::RunSteps(VkCommandBuffer cmd, std::vector<VKRStep *> &st
 
 	for (int j = 0; j < (int)steps.size() - 1; j++) {
 		// Push down empty "Clear/Store" renderpasses, and merge them with the first "Load/Store" to the same framebuffer.
-		// Actually let's just bother with the first one for now. This affects Wipeout Pure.
 		if (steps.size() > 1 && steps[j]->stepType == VKRStepType::RENDER &&
 			steps[j]->render.numDraws == 0 &&
 			steps[j]->render.numReads == 0 &&
@@ -400,8 +399,8 @@ void VulkanQueueRunner::RunSteps(VkCommandBuffer cmd, std::vector<VKRStep *> &st
 			steps[j]->render.stencil == VKRRenderPassAction::CLEAR &&
 			steps[j]->render.depth == VKRRenderPassAction::CLEAR) {
 
-			// Drop the first step, and merge it into the next step that touches the same framebuffer.
-			for (size_t i = j + 1; i < steps.size(); i++) {
+			// Drop the clear step, and merge it into the next step that touches the same framebuffer.
+			for (int i = j + 1; i < (int)steps.size(); i++) {
 				if (steps[i]->stepType == VKRStepType::RENDER &&
 					steps[i]->render.framebuffer == steps[j]->render.framebuffer) {
 					if (steps[i]->render.color != VKRRenderPassAction::CLEAR) {
@@ -908,8 +907,8 @@ void VulkanQueueRunner::PerformRenderPass(const VKRStep &step, VkCommandBuffer c
 			break;
 
 		case VKRRenderCommand::STENCIL:
-			if (lastStencilReference != c.stencil.stencilWriteMask) {
-				lastStencilReference = (int)c.stencil.stencilWriteMask;
+			if (lastStencilWriteMask != c.stencil.stencilWriteMask) {
+				lastStencilWriteMask = (int)c.stencil.stencilWriteMask;
 				vkCmdSetStencilWriteMask(cmd, VK_STENCIL_FRONT_AND_BACK, c.stencil.stencilWriteMask);
 			}
 			if (lastStencilCompareMask != c.stencil.stencilCompareMask) {
