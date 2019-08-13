@@ -1,3 +1,4 @@
+#include <map>
 #include "DataFormat.h"
 #include "VulkanQueueRunner.h"
 #include "VulkanRenderManager.h"
@@ -438,6 +439,9 @@ void VulkanQueueRunner::RunSteps(VkCommandBuffer cmd, std::vector<VKRStep *> &st
 		if (hacksEnabled_ & QUEUE_HACK_SONIC) {
 			ApplySonicHack(steps);
 		}
+		if (hacksEnabled_ & QUEUE_HACK_RENDERPASS_MERGE) {
+			ApplyRenderPassMerge(steps);
+		}
 	}
 
 	for (size_t i = 0; i < steps.size(); i++) {
@@ -730,6 +734,66 @@ std::string VulkanQueueRunner::StepToString(const VKRStep &step) const {
 		break;
 	}
 	return std::string(buffer);
+}
+
+// Ideally, this should be cheap enough to be applied to all games. At least on mobile, it's pretty
+// much a guaranteed neutral or win in terms of GPU power. However, dependency calculation really
+// must be perfect!
+void VulkanQueueRunner::ApplyRenderPassMerge(std::vector<VKRStep *> &steps) {
+	return;
+	// First let's count how many times each framebuffer is rendered to.
+	// If it's more than one, let's do our best to merge them. This can help God of War quite a bit.
+
+	std::map<VKRFramebuffer *, int> counts;
+	for (int i = 0; i < (int)steps.size(); i++) {
+		if (steps[i]->stepType == VKRStepType::RENDER) {
+			counts[steps[i]->render.framebuffer]++;
+		}
+	}
+
+	// Now, let's go through the steps. If we find one that is rendered to more than once,
+	// we'll scan forward and slurp up any rendering that can be merged across.
+	for (int i = 0; i < (int)steps.size(); i++) {
+		if (steps[i]->stepType == VKRStepType::RENDER && counts[steps[i]->render.framebuffer] > 1) {
+			auto fb = steps[i]->render.framebuffer;
+			for (int j = i + 1; j < (int)steps.size(); j++) {
+				// If any other passes are reading from this framebuffer as-is, we cancel the scan.
+				switch (steps[j]->stepType) {
+				case VKRStepType::COPY:
+					if (steps[j]->copy.src == fb) {
+						// We're done.
+						goto done_fb;
+					}
+					break;
+				case VKRStepType::RENDER:
+					if (steps[j]->dependencies.contains(fb)) {
+						goto done_fb;
+					}
+					if (steps[j]->render.framebuffer == fb) {
+						// ok. Now, if it's a render, slurp up all the commands
+						// and kill the step.
+						// Also slurp up any pretransitions.
+						for (int k = 0; k < (int)steps[j]->preTransitions.size(); k++) {
+							steps[i]->preTransitions.push_back(steps[j]->preTransitions[k]);
+						}
+						for (int k = 0; k < (int)steps[j]->commands.size(); k++) {
+							steps[i]->commands.push_back(steps[j]->commands[k]);
+						}
+						steps[j]->stepType = VKRStepType::RENDER_SKIP;
+					}
+					// keep going.
+					break;
+				case VKRStepType::BLIT:
+					if (steps[j]->blit.src == fb) {
+						goto done_fb;
+					}
+					break;
+				}
+			}
+			done_fb:
+				;
+		}
+	}
 }
 
 void VulkanQueueRunner::LogSteps(const std::vector<VKRStep *> &steps) {
