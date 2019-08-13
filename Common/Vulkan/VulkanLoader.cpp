@@ -248,8 +248,8 @@ bool VulkanMayBeAvailable() {
 		return g_vulkanMayBeAvailable;
 
 	std::string name = System_GetProperty(SYSPROP_NAME);
-	for (size_t i = 0; i < ARRAY_SIZE(device_name_blacklist); i++) {
-		if (name == device_name_blacklist[i]) {
+	for (const char *blacklisted_name : device_name_blacklist) {
+		if (!strcmp(name.c_str(), blacklisted_name)) {
 			g_vulkanAvailabilityChecked = true;
 			g_vulkanMayBeAvailable = false;
 			return false;
