@@ -773,12 +773,8 @@ void VulkanQueueRunner::ApplyRenderPassMerge(std::vector<VKRStep *> &steps) {
 						// ok. Now, if it's a render, slurp up all the commands
 						// and kill the step.
 						// Also slurp up any pretransitions.
-						for (int k = 0; k < (int)steps[j]->preTransitions.size(); k++) {
-							steps[i]->preTransitions.push_back(steps[j]->preTransitions[k]);
-						}
-						for (int k = 0; k < (int)steps[j]->commands.size(); k++) {
-							steps[i]->commands.push_back(steps[j]->commands[k]);
-						}
+						steps[i]->preTransitions.insert(steps[i]->preTransitions.end(), steps[j]->preTransitions.begin(), steps[j]->preTransitions.end());
+						steps[i]->commands.insert(steps[i]->commands.end(), steps[j]->commands.begin(), steps[j]->commands.end());
 						steps[j]->stepType = VKRStepType::RENDER_SKIP;
 					}
 					// keep going.
