@@ -392,7 +392,6 @@ void VulkanQueueRunner::RunSteps(VkCommandBuffer cmd, std::vector<VKRStep *> &st
 
 	for (int j = 0; j < (int)steps.size() - 1; j++) {
 		// Push down empty "Clear/Store" renderpasses, and merge them with the first "Load/Store" to the same framebuffer.
-		// Actually let's just bother with the first one for now. This affects Wipeout Pure.
 		if (steps.size() > 1 && steps[j]->stepType == VKRStepType::RENDER &&
 			steps[j]->render.numDraws == 0 &&
 			steps[j]->render.numReads == 0 &&
@@ -400,8 +399,8 @@ void VulkanQueueRunner::RunSteps(VkCommandBuffer cmd, std::vector<VKRStep *> &st
 			steps[j]->render.stencil == VKRRenderPassAction::CLEAR &&
 			steps[j]->render.depth == VKRRenderPassAction::CLEAR) {
 
-			// Drop the first step, and merge it into the next step that touches the same framebuffer.
-			for (size_t i = j + 1; i < steps.size(); i++) {
+			// Drop the clear step, and merge it into the next step that touches the same framebuffer.
+			for (int i = j + 1; i < (int)steps.size(); i++) {
 				if (steps[i]->stepType == VKRStepType::RENDER &&
 					steps[i]->render.framebuffer == steps[j]->render.framebuffer) {
 					if (steps[i]->render.color != VKRRenderPassAction::CLEAR) {
@@ -869,9 +868,11 @@ void VulkanQueueRunner::PerformRenderPass(const VKRStep &step, VkCommandBuffer c
 
 	auto &commands = step.commands;
 
-	// TODO: Dynamic state commands (SetViewport, SetScissor, SetBlendConstants, SetStencil*) are only
-	// valid when a pipeline is bound with those as dynamic state. So we need to add some state tracking here
-	// for this to be correct. This is a bit of a pain but also will let us eliminate redundant calls.
+	// We can do a little bit of state tracking here to eliminate some calls into the driver.
+	// The stencil ones are very commonly mostly redundant so let's eliminate them where possible.
+	int lastStencilWriteMask = -1;
+	int lastStencilCompareMask = -1;
+	int lastStencilReference = -1;
 
 	for (const auto &c : commands) {
 		switch (c.cmd) {
@@ -882,6 +883,10 @@ void VulkanQueueRunner::PerformRenderPass(const VKRStep &step, VkCommandBuffer c
 			if (c.pipeline.pipeline != lastPipeline) {
 				vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, c.pipeline.pipeline);
 				lastPipeline = c.pipeline.pipeline;
+				// Reset dynamic state so it gets refreshed with the new pipeline.
+				lastStencilWriteMask = -1;
+				lastStencilCompareMask = -1;
+				lastStencilReference = -1;
 			}
 			break;
 
@@ -902,9 +907,18 @@ void VulkanQueueRunner::PerformRenderPass(const VKRStep &step, VkCommandBuffer c
 			break;
 
 		case VKRRenderCommand::STENCIL:
-			vkCmdSetStencilWriteMask(cmd, VK_STENCIL_FRONT_AND_BACK, c.stencil.stencilWriteMask);
-			vkCmdSetStencilCompareMask(cmd, VK_STENCIL_FRONT_AND_BACK, c.stencil.stencilCompareMask);
-			vkCmdSetStencilReference(cmd, VK_STENCIL_FRONT_AND_BACK, c.stencil.stencilRef);
+			if (lastStencilWriteMask != c.stencil.stencilWriteMask) {
+				lastStencilWriteMask = (int)c.stencil.stencilWriteMask;
+				vkCmdSetStencilWriteMask(cmd, VK_STENCIL_FRONT_AND_BACK, c.stencil.stencilWriteMask);
+			}
+			if (lastStencilCompareMask != c.stencil.stencilCompareMask) {
+				lastStencilCompareMask = c.stencil.stencilCompareMask;
+				vkCmdSetStencilCompareMask(cmd, VK_STENCIL_FRONT_AND_BACK, c.stencil.stencilCompareMask);
+			}
+			if (lastStencilReference != c.stencil.stencilRef) {
+				lastStencilReference = c.stencil.stencilRef;
+				vkCmdSetStencilReference(cmd, VK_STENCIL_FRONT_AND_BACK, c.stencil.stencilRef);
+			}
 			break;
 
 		case VKRRenderCommand::DRAW_INDEXED:
@@ -924,6 +938,7 @@ void VulkanQueueRunner::PerformRenderPass(const VKRStep &step, VkCommandBuffer c
 
 		case VKRRenderCommand::CLEAR:
 		{
+			// If we get here, we failed to merge a clear into a render pass load op. This is bad for perf.
 			int numAttachments = 0;
 			VkClearRect rc{};
 			rc.baseArrayLayer = 0;
