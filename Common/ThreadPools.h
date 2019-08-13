@@ -9,7 +9,7 @@ public:
 	static void Loop(const std::function<void(int,int)>& loop, int lower, int upper);
 
 private:
-	static std::shared_ptr<ThreadPool> pool;
-	static bool initialized;
+	static std::unique_ptr<ThreadPool> pool;
+	static std::once_flag init_flag;
 	static void Inititialize();
 };
