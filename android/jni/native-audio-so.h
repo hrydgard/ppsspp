@@ -35,7 +35,6 @@ private:
 	SLObjectItf bqPlayerObject = nullptr;
 	SLPlayItf bqPlayerPlay = nullptr;
 	SLAndroidSimpleBufferQueueItf bqPlayerBufferQueue = nullptr;
-	SLMuteSoloItf bqPlayerMuteSolo = nullptr;
 	SLVolumeItf bqPlayerVolume = nullptr;
 
 	// Double buffering.

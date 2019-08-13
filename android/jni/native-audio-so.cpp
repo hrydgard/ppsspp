@@ -157,7 +157,6 @@ OpenSLContext::~OpenSLContext() {
 		bqPlayerObject = nullptr;
 		bqPlayerPlay = nullptr;
 		bqPlayerBufferQueue = nullptr;
-		bqPlayerMuteSolo = nullptr;
 		bqPlayerVolume = nullptr;
 	}
 
