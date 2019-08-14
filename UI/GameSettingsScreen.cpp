@@ -289,7 +289,7 @@ void GameSettingsScreen::CreateViews() {
 	}
 
 #if !defined(MOBILE_DEVICE)
-	graphicsSettings->Add(new CheckBox(&g_Config.bFullScreen, gr->T("FullScreen")))->OnClick.Handle(this, &GameSettingsScreen::OnFullscreenChange);
+	graphicsSettings->Add(new CheckBox(&g_Config.bFullScreen, gr->T("FullScreen", "Full Screen")))->OnClick.Handle(this, &GameSettingsScreen::OnFullscreenChange);
 	if (System_GetPropertyInt(SYSPROP_DISPLAY_COUNT) > 1) {
 		CheckBox *fullscreenMulti = new CheckBox(&g_Config.bFullScreenMulti, gr->T("Use all displays"));
 		fullscreenMulti->SetEnabledPtr(&g_Config.bFullScreen);
@@ -303,7 +303,8 @@ void GameSettingsScreen::CreateViews() {
 #ifdef __ANDROID__
 	// Hide Immersive Mode on pre-kitkat Android
 	if (System_GetPropertyInt(SYSPROP_SYSTEMVERSION) >= 19) {
-		graphicsSettings->Add(new CheckBox(&g_Config.bImmersiveMode, gr->T("Immersive Mode")))->OnClick.Handle(this, &GameSettingsScreen::OnImmersiveModeChange);
+		// Let's reuse the Fullscreen translation string from desktop.
+		graphicsSettings->Add(new CheckBox(&g_Config.bImmersiveMode, gr->T("FullScreen", "Full Screen")))->OnClick.Handle(this, &GameSettingsScreen::OnImmersiveModeChange);
 	}
 #endif
 
