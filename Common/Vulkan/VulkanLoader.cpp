@@ -17,8 +17,11 @@
 
 #include "Common/Vulkan/VulkanLoader.h"
 #include <vector>
+#include <string>
+
 #include "base/logging.h"
 #include "base/basictypes.h"
+#include "base/NativeApp.h"
 
 #ifndef _WIN32
 #include <dlfcn.h>
@@ -227,6 +230,10 @@ bool g_vulkanMayBeAvailable = false;
 
 #define LOAD_GLOBAL_FUNC_LOCAL(lib, x) (PFN_ ## x)dlsym(lib, #x);
 
+static const char *device_name_blacklist[] = {
+	"SHIELD Tablet",
+};
+
 static const char *so_names[] = {
 	"libvulkan.so",
 	"libvulkan.so.1",
@@ -240,6 +247,16 @@ void VulkanSetAvailable(bool available) {
 bool VulkanMayBeAvailable() {
 	if (g_vulkanAvailabilityChecked)
 		return g_vulkanMayBeAvailable;
+
+	std::string name = System_GetProperty(SYSPROP_NAME);
+	for (const char *blacklisted_name : device_name_blacklist) {
+		if (!strcmp(name.c_str(), blacklisted_name)) {
+			g_vulkanAvailabilityChecked = true;
+			g_vulkanMayBeAvailable = false;
+			return false;
+		}
+	}
+
 #ifndef _WIN32
 	void *lib = nullptr;
 	for (int i = 0; i < ARRAY_SIZE(so_names); i++) {
