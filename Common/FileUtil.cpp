@@ -763,43 +763,15 @@ void CopyDir(const std::string &source_path, const std::string &dest_path)
 #endif
 }
 
-void openIniFile(const std::string fileName) {
-	std::string iniFile;
+void openIniFile(const std::string& fileName) {
 #if defined(_WIN32)
 #if PPSSPP_PLATFORM(UWP)
 	// Do nothing.
 #else
-	iniFile = fileName;
-	// Can't rely on a .txt file extension to auto-open in the right editor,
-	// so let's find notepad
-	wchar_t notepad_path[MAX_PATH + 1];
-	GetSystemDirectory(notepad_path, MAX_PATH);
-	wcscat(notepad_path, L"\\notepad.exe");
-
-	wchar_t ini_path[MAX_PATH + 1] = { 0 };
-	wcsncpy(ini_path, ConvertUTF8ToWString(iniFile).c_str(), MAX_PATH);
-	// Flip any slashes...
-	for (size_t i = 0; i < wcslen(ini_path); i++) {
-		if (ini_path[i] == '/')
-			ini_path[i] = '\\';
-	}
-
-	// One for the space, one for the null.
-	wchar_t command_line[MAX_PATH * 2 + 1 + 1];
-	wsprintf(command_line, L"%s %s", notepad_path, ini_path);
-
-	STARTUPINFO si{};
-	si.cb = sizeof(si);
-	si.wShowWindow = SW_SHOW;
-	PROCESS_INFORMATION pi{};
-	UINT retval = CreateProcess(0, command_line, 0, 0, 0, 0, 0, 0, &si, &pi);
-	if (!retval) {
-		ERROR_LOG(COMMON, "Failed creating notepad process");
-	}
-	CloseHandle(pi.hThread);
-	CloseHandle(pi.hProcess);
+	ShellExecuteW(nullptr, L"open", ConvertUTF8ToWString(fileName).c_str(), nullptr, nullptr, SW_SHOW);
 #endif
 #elif !defined(MOBILE_DEVICE)
+	std::string iniFile;
 #if defined(__APPLE__)
 	iniFile = "open ";
 #else
