@@ -236,7 +236,9 @@ static const char *device_name_blacklist[] = {
 
 static const char *so_names[] = {
 	"libvulkan.so",
+#if !defined(__ANDROID__)
 	"libvulkan.so.1",
+#endif
 };
 
 void VulkanSetAvailable(bool available) {
@@ -430,8 +432,10 @@ bool VulkanLoad() {
 #ifndef _WIN32
 		for (int i = 0; i < ARRAY_SIZE(so_names); i++) {
 			vulkanLibrary = dlopen(so_names[i], RTLD_NOW | RTLD_LOCAL);
-			if (vulkanLibrary)
+			if (vulkanLibrary) {
+				ILOG("VulkanLoad: Found library '%s'", so_names[i]);
 				break;
+			}
 		}
 #else
 		// LoadLibrary etc
@@ -449,8 +453,19 @@ bool VulkanLoad() {
 	LOAD_GLOBAL_FUNC(vkEnumerateInstanceExtensionProperties);
 	LOAD_GLOBAL_FUNC(vkEnumerateInstanceLayerProperties);
 
-	WLOG("Vulkan base functions loaded.");
-	return true;
+	if (vkCreateInstance && vkGetInstanceProcAddr && vkGetDeviceProcAddr && vkEnumerateInstanceExtensionProperties && vkEnumerateInstanceLayerProperties) {
+		WLOG("VulkanLoad: Base functions loaded.");
+		return true;
+	} else {
+		ELOG("VulkanLoad: Failed to load Vulkan base functions.");
+#ifndef _WIN32
+		dlclose(vulkanLibrary);
+#else
+		FreeLibrary(vulkanLibrary);
+#endif
+		vulkanLibrary = nullptr;
+		return false;
+	}
 }
 
 void VulkanLoadInstanceFunctions(VkInstance instance, const VulkanDeviceExtensions &enabledExtensions) {
