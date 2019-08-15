@@ -293,7 +293,7 @@ bool VulkanMayBeAvailable() {
 	VkApplicationInfo info{ VK_STRUCTURE_TYPE_APPLICATION_INFO };
 	std::vector<VkPhysicalDevice> devices;
 	bool anyGood = false;
-	const char *instanceExtensions[2]{};
+	const char *instanceExtensions[10]{};
 	VkInstance instance = VK_NULL_HANDLE;
 	VkResult res = VK_SUCCESS;
 	uint32_t physicalDeviceCount = 0;
@@ -302,7 +302,6 @@ bool VulkanMayBeAvailable() {
 	bool platformSurfaceExtensionFound = false;
 	std::vector<VkExtensionProperties> instanceExts;
 	ci.enabledExtensionCount = 0;  // Should have been reset by struct initialization anyway, just paranoia.
-	instanceExtensions[ci.enabledExtensionCount++] = VK_KHR_SURFACE_EXTENSION_NAME;
 
 #ifdef _WIN32
 	const char * const platformSurfaceExtension = VK_KHR_WIN32_SURFACE_EXTENSION_NAME;
@@ -338,12 +337,14 @@ bool VulkanMayBeAvailable() {
 
 	if (platformSurfaceExtension) {
 		for (auto iter : instanceExts) {
+			ILOG("VulkanMaybeAvailable: Instance extension found: %s (%08x)", iter.extensionName, iter.specVersion);
 			if (!strcmp(iter.extensionName, platformSurfaceExtension)) {
 				ILOG("VulkanMayBeAvailable: Found platform surface extension '%s'", platformSurfaceExtension);
 				instanceExtensions[ci.enabledExtensionCount++] = platformSurfaceExtension;
 				platformSurfaceExtensionFound = true;
 				break;
 			} else if (!strcmp(iter.extensionName, VK_KHR_SURFACE_EXTENSION_NAME)) {
+				instanceExtensions[ci.enabledExtensionCount++] = VK_KHR_SURFACE_EXTENSION_NAME;
 				surfaceExtensionFound = true;
 			}
 		}
@@ -352,6 +353,11 @@ bool VulkanMayBeAvailable() {
 			goto bail;
 		}
 	}
+	// This can't happen unless the driver is double-reporting a surface extension.
+	if (ci.enabledExtensionCount > 2) {
+		ELOG("Unexpected number of enabled instance extensions");
+		goto bail;
+	}
 
 	ci.ppEnabledExtensionNames = instanceExtensions;
 	ci.enabledLayerCount = 0;
@@ -359,7 +365,7 @@ bool VulkanMayBeAvailable() {
 	info.applicationVersion = 1;
 	info.engineVersion = 1;
 	info.pApplicationName = "VulkanChecker";
-	info.pEngineName = "VulkanChecker";
+	info.pEngineName = "VulkanCheckerEngine";
 	ci.pApplicationInfo = &info;
 	ci.flags = 0;
 	ILOG("VulkanMayBeAvailable: Calling vkCreateInstance");
