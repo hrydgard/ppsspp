@@ -231,7 +231,7 @@ bool g_vulkanMayBeAvailable = false;
 #define LOAD_GLOBAL_FUNC_LOCAL(lib, x) (PFN_ ## x)dlsym(lib, #x);
 
 static const char *device_name_blacklist[] = {
-	"NVIDIA:SHIELD Tablet K1",
+	"DISABLED:NVIDIA:SHIELD Tablet K1",
 };
 
 static const char *so_names[] = {
@@ -256,12 +256,14 @@ bool VulkanMayBeAvailable() {
 			return false;
 		}
 	}
+	ILOG("VulkanMayBeAvailable: Device allowed ('%s')", name.c_str());
 
 #ifndef _WIN32
 	void *lib = nullptr;
 	for (int i = 0; i < ARRAY_SIZE(so_names); i++) {
 		lib = dlopen(so_names[i], RTLD_NOW | RTLD_LOCAL);
 		if (lib) {
+			ILOG("VulkanMayBeAvailable: Library loaded ('%s')", so_names[i]);
 			break;
 		}
 	}
@@ -270,6 +272,7 @@ bool VulkanMayBeAvailable() {
 	HINSTANCE lib = LoadLibrary(L"vulkan-1.dll");
 #endif
 	if (!lib) {
+		ILOG("Vulkan loader: Library not available");
 		g_vulkanAvailabilityChecked = true;
 		g_vulkanMayBeAvailable = false;
 		return false;
@@ -290,12 +293,13 @@ bool VulkanMayBeAvailable() {
 	bool anyGood = false;
 	const char *instanceExtensions[2]{};
 	VkInstance instance = VK_NULL_HANDLE;
-	VkResult res;
+	VkResult res = VK_SUCCESS;
 	uint32_t physicalDeviceCount = 0;
-	uint32_t instanceExtCount = 1;
+	uint32_t instanceExtCount = 0;
 	bool surfaceExtensionFound = false;
 	bool platformSurfaceExtensionFound = false;
 	std::vector<VkExtensionProperties> instanceExts;
+	ci.enabledExtensionCount = 0;  // Should have been reset by struct initialization anyway, just paranoia.
 	instanceExtensions[ci.enabledExtensionCount++] = VK_KHR_SURFACE_EXTENSION_NAME;
 
 #ifdef _WIN32
@@ -306,9 +310,12 @@ bool VulkanMayBeAvailable() {
 	const char *platformSurfaceExtension = 0;
 #endif
 
-	if (!localEnumerateInstanceExtensionProperties || !localCreateInstance || !localEnumerate || !localDestroyInstance || !localGetPhysicalDeviceProperties)
+	if (!localEnumerateInstanceExtensionProperties || !localCreateInstance || !localEnumerate || !localDestroyInstance || !localGetPhysicalDeviceProperties) {
+		WLOG("VulkanMayBeAvailable: Function pointer missing, bailing");
 		goto bail;
+	}
 
+	ILOG("VulkanMayBeAvailable: Enumerating instance extensions");
 	res = localEnumerateInstanceExtensionProperties(nullptr, &instanceExtCount, nullptr);
 	// Maximum paranoia.
 	if (res != VK_SUCCESS) {
@@ -319,6 +326,7 @@ bool VulkanMayBeAvailable() {
 		ELOG("No VK instance extensions - won't be able to present.");
 		goto bail;
 	}
+	ILOG("VulkanMayBeAvailable: Instance extension count: %d", instanceExtCount);
 	instanceExts.resize(instanceExtCount);
 	res = localEnumerateInstanceExtensionProperties(nullptr, &instanceExtCount, instanceExts.data());
 	if (res != VK_SUCCESS) {
@@ -329,6 +337,7 @@ bool VulkanMayBeAvailable() {
 	if (platformSurfaceExtension) {
 		for (auto iter : instanceExts) {
 			if (!strcmp(iter.extensionName, platformSurfaceExtension)) {
+				ILOG("VulkanMayBeAvailable: Found platform surface extension '%s'", platformSurfaceExtension);
 				instanceExtensions[ci.enabledExtensionCount++] = platformSurfaceExtension;
 				platformSurfaceExtensionFound = true;
 				break;
@@ -351,26 +360,27 @@ bool VulkanMayBeAvailable() {
 	info.pEngineName = "VulkanChecker";
 	ci.pApplicationInfo = &info;
 	ci.flags = 0;
+	ILOG("VulkanMayBeAvailable: Calling vkCreateInstance");
 	res = localCreateInstance(&ci, nullptr, &instance);
 	if (res != VK_SUCCESS) {
 		instance = nullptr;
 		ELOG("Failed to create vulkan instance.");
 		goto bail;
 	}
-	ILOG("Vulkan test instance created successfully.");
+	ILOG("VulkanMayBeAvailable: Vulkan test instance created successfully.");
 	res = localEnumerate(instance, &physicalDeviceCount, nullptr);
 	if (res != VK_SUCCESS) {
-		ELOG("Failed to count physical devices.");
+		ELOG("VulkanMayBeAvailable: Failed to count physical devices.");
 		goto bail;
 	}
 	if (physicalDeviceCount == 0) {
-		ELOG("No physical Vulkan devices.");
+		ELOG("VulkanMayBeAvailable: No physical Vulkan devices.");
 		goto bail;
 	}
 	devices.resize(physicalDeviceCount);
 	res = localEnumerate(instance, &physicalDeviceCount, devices.data());
 	if (res != VK_SUCCESS) {
-		ELOG("Failed to enumerate physical devices.");
+		ELOG("VulkanMayBeAvailable: Failed to enumerate physical devices.");
 		goto bail;
 	}
 	anyGood = false;
@@ -390,16 +400,17 @@ bool VulkanMayBeAvailable() {
 	}
 
 	if (!anyGood) {
-		WLOG("Found Vulkan API, but no good Vulkan device!");
+		WLOG("VulkanMayBeAvailable: Found Vulkan API, but no good Vulkan device!");
 		g_vulkanMayBeAvailable = false;
 	} else {
-		ILOG("Found working Vulkan API!");
+		ILOG("VulkanMayBeAvailable: Found working Vulkan API!");
 		g_vulkanMayBeAvailable = true;
 	}
 
 bail:
 	g_vulkanAvailabilityChecked = true;
 	if (instance) {
+		ILOG("VulkanMayBeAvailable: Destroying instance");
 		localDestroyInstance(instance, nullptr);
 	}
 	if (lib) {
