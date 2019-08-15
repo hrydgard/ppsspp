@@ -231,7 +231,7 @@ bool g_vulkanMayBeAvailable = false;
 #define LOAD_GLOBAL_FUNC_LOCAL(lib, x) (PFN_ ## x)dlsym(lib, #x);
 
 static const char *device_name_blacklist[] = {
-	"DISABLED:NVIDIA:SHIELD Tablet K1",
+	"NVIDIA:SHIELD Tablet K1",
 };
 
 static const char *so_names[] = {
