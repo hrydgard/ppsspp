@@ -762,7 +762,7 @@ void GLPushBuffer::Defragment() {
 
 	size_ = newSize;
 	bool res = AddBuffer();
-	_dbg_assert_msg_(G3D, res, "AddBuffer failed");
+	_assert_msg_(G3D, res, "AddBuffer failed");
 }
 
 size_t GLPushBuffer::GetTotalSize() const {

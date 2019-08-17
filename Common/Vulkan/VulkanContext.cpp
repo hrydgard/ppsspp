@@ -1014,6 +1014,8 @@ bool VulkanContext::InitSwapchain() {
 			g_display_rot_matrix.setRotationZ270();
 			std::swap(swapChainExtent_.width, swapChainExtent_.height);
 			break;
+		default:
+			assert(false);
 		}
 	} else {
 		// Let the OS rotate the image (potentially slow on many Android devices)
