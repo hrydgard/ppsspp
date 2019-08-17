@@ -175,14 +175,15 @@ private:
 	bool canAllowDebugger_ = true;
 };
 
-class ProAdhocServerScreen : public UIDialogScreenWithBackground {
+class HostnameSelectScreen : public UIDialogScreenWithBackground {
 public:
-	ProAdhocServerScreen() {}	
+	HostnameSelectScreen(std::string &target) : targetConfig(target) {}
 
 protected:
 	void CreateViews() override;
 
-private:	
+private:
+	std::string &targetConfig;
 	std::string tempProAdhocServer;
 	UI::TextView *addrView_;
 	UI::EventReturn On0Click(UI::EventParams &e);
