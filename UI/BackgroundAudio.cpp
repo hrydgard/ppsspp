@@ -17,13 +17,7 @@
 class AT3PlusReader {
 public:
 	AT3PlusReader(const std::string &data)
-	: file_((const uint8_t *)&data[0], (int32_t)data.size()),
-		raw_data_(0),
-		raw_data_size_(0),
-		raw_offset_(0),
-		buffer_(0),
-		decoder_(0) {
-
+	: file_((const uint8_t *)&data[0], (int32_t)data.size()) {
 		// Normally 8k but let's be safe.
 		buffer_ = new short[32 * 1024];
 
@@ -78,18 +72,64 @@ public:
 				return;
 			}
 
+			// If we have no loop info, we'll just loop the entire audio.
+			raw_offset_loop_start_ = 0;
+			raw_offset_loop_end_ = 0;
+			skip_next_samples_ = 0;
+
+			if (file_.Descend('smpl')) {
+				std::vector<u8> smplData;
+				smplData.resize(file_.GetCurrentChunkSize());
+				file_.ReadData(&smplData[0], (int)smplData.size());
+
+				int numLoops = *(int *)&smplData[28];
+				struct AtracLoopInfo {
+					int cuePointID;
+					int type;
+					int startSample;
+					int endSample;
+					int fraction;
+					int playCount;
+				};
+
+				if (numLoops > 0 && smplData.size() >= 36 + sizeof(AtracLoopInfo) * numLoops) {
+					AtracLoopInfo *loops = (AtracLoopInfo *)&smplData[36];
+					int samplesPerFrame = codec == PSP_CODEC_AT3PLUS ? 2048 : 1024;
+
+					for (int i = 0; i < numLoops; ++i) {
+						// Only seen forward loops, so let's ignore others.
+						if (loops[i].type != 0)
+							continue;
+
+						// We ignore loop interpolation (fraction) and play count for now.
+						raw_offset_loop_start_ = (loops[i].startSample / samplesPerFrame) * raw_bytes_per_frame_;
+						loop_start_offset_ = loops[i].startSample % samplesPerFrame;
+						raw_offset_loop_end_ = (loops[i].endSample / samplesPerFrame) * raw_bytes_per_frame_;
+						loop_end_offset_ = loops[i].endSample % samplesPerFrame;
+
+						if (loops[i].playCount == 0) {
+							// This was an infinite loop, so ignore the rest.
+							// In practice, there's usually only one and it's usually infinite.
+							break;
+						}
+					}
+				}
+
+				file_.Ascend();
+			}
+
 			if (file_.Descend('data')) {			//enter the data chunk
 				int numBytes = file_.GetCurrentChunkSize();
 				numFrames = numBytes / raw_bytes_per_frame_;  // numFrames
 
 				raw_data_ = (uint8_t *)malloc(numBytes);
 				raw_data_size_ = numBytes;
-				if (/*raw_bytes_per_frame_ == 280 && */ num_channels == 1 || num_channels == 2) {
+				if (num_channels == 1 || num_channels == 2) {
 					file_.ReadData(raw_data_, numBytes);
 				} else {
 					ELOG("Error - bad blockalign or channels");
 					free(raw_data_);
-					raw_data_ = 0;
+					raw_data_ = nullptr;
 					return;
 				}
 				file_.Ascend();
@@ -116,30 +156,45 @@ public:
 
 	void Shutdown() {
 		free(raw_data_);
-		raw_data_ = 0;
+		raw_data_ = nullptr;
 		delete[] buffer_;
-		buffer_ = 0;
+		buffer_ = nullptr;
 		delete decoder_;
-		decoder_ = 0;
+		decoder_ = nullptr;
 	}
 
-	bool IsOK() { return raw_data_ != 0; }
+	bool IsOK() { return raw_data_ != nullptr; }
 
 	bool Read(int *buffer, int len) {
 		if (!raw_data_)
 			return false;
 
 		while (bgQueue.size() < (size_t)(len * 2)) {
-			int outBytes;
+			int outBytes = 0;
 			decoder_->Decode(raw_data_ + raw_offset_, raw_bytes_per_frame_, (uint8_t *)buffer_, &outBytes);
 			if (!outBytes)
 				return false;
 
-			for (int i = 0; i < outBytes / 2; i++) {
+			if (raw_offset_loop_end_ != 0 && raw_offset_ == raw_offset_loop_end_) {
+				// Only take the remaining bytes, but convert to stereo s16.
+				outBytes = std::min(outBytes, loop_end_offset_ * 4);
+			}
+
+			int start = skip_next_samples_;
+			skip_next_samples_ = 0;
+
+			for (int i = start; i < outBytes / 2; i++) {
 				bgQueue.push(buffer_[i]);
 			}
 
-			// loop!
+			if (raw_offset_loop_end_ != 0 && raw_offset_ == raw_offset_loop_end_) {
+				// Time to loop.  Account for the addition below.
+				raw_offset_ = raw_offset_loop_start_ - raw_bytes_per_frame_;
+				// This time we're counting each stereo sample.
+				skip_next_samples_ = loop_start_offset_ * 2;
+			}
+
+			// Handle loops when there's no loop info.
 			raw_offset_ += raw_bytes_per_frame_;
 			if (raw_offset_ >= raw_data_size_) {
 				raw_offset_ = 0;
@@ -154,13 +209,18 @@ public:
 
 private:
 	RIFFReader file_;
-	uint8_t *raw_data_;
-	int raw_data_size_;
-	int raw_offset_;
+	uint8_t *raw_data_ = nullptr;
+	int raw_data_size_ = 0;
+	int raw_offset_ = 0;
 	int raw_bytes_per_frame_;
+	int raw_offset_loop_start_ = 0;
+	int raw_offset_loop_end_ = 0;
+	int loop_start_offset_ = 0;
+	int loop_end_offset_ = 0;
+	int skip_next_samples_ = 0;
 	FixedSizeQueue<s16, 128 * 1024> bgQueue;
-	short *buffer_;
-	SimpleAudio *decoder_;
+	short *buffer_ = nullptr;
+	SimpleAudio *decoder_ = nullptr;
 };
 
 static std::mutex bgMutex;
