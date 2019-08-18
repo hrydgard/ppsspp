@@ -175,30 +175,24 @@ private:
 	bool canAllowDebugger_ = true;
 };
 
-class HostnameSelectScreen : public UIDialogScreenWithBackground {
+class HostnameSelectScreen : public PopupScreen {
 public:
-	HostnameSelectScreen(std::string &target) : targetConfig(target) {}
+	HostnameSelectScreen(std::string *value, const std::string &title)
+		: PopupScreen(title, "OK", "Cancel"), value_(value) {
+	}
+
+	void CreatePopupContents(UI::ViewGroup *parent) override;
 
 protected:
-	void CreateViews() override;
+	void OnCompleted(DialogResult result) override;
 
 private:
-	std::string &targetConfig;
-	std::string tempProAdhocServer;
-	UI::TextView *addrView_;
-	UI::EventReturn On0Click(UI::EventParams &e);
-	UI::EventReturn On1Click(UI::EventParams &e);
-	UI::EventReturn On2Click(UI::EventParams &e);
-	UI::EventReturn On3Click(UI::EventParams &e);
-	UI::EventReturn On4Click(UI::EventParams &e);
-	UI::EventReturn On5Click(UI::EventParams &e);
-	UI::EventReturn On6Click(UI::EventParams &e);
-	UI::EventReturn On7Click(UI::EventParams &e);
-	UI::EventReturn On8Click(UI::EventParams &e);
-	UI::EventReturn On9Click(UI::EventParams &e);
+	UI::EventReturn OnNumberClick(UI::EventParams &e);
 	UI::EventReturn OnPointClick(UI::EventParams &e);
 	UI::EventReturn OnDeleteClick(UI::EventParams &e);
 	UI::EventReturn OnDeleteAllClick(UI::EventParams &e);
-	UI::EventReturn OnOKClick(UI::EventParams &e);
-	UI::EventReturn OnCancelClick(UI::EventParams &e);
+
+	std::string *value_;
+	std::string currentValue_;
+	UI::TextView *addrView_;
 };
