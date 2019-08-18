@@ -381,6 +381,7 @@ int main(int argc, const char* argv[])
 	g_Config.bFragmentTestCache = true;
 	g_Config.iAudioLatency = 1;
 	g_Config.bEnableWlan = true;
+	g_Config.sMACAddress = "12:34:56:78:9A:BC";
 
 #ifdef _WIN32
 	g_Config.internalDataDirectory = "";
