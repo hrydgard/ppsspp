@@ -625,13 +625,7 @@ void GameSettingsScreen::CreateViews() {
 	networkingSettings->Add(new CheckBox(&g_Config.bEnableWlan, n->T("Enable networking", "Enable networking/wlan (beta)")));
 	networkingSettings->Add(new CheckBox(&g_Config.bDiscordPresence, n->T("Send Discord Presence information")));
 
-#if !defined(MOBILE_DEVICE)
-	networkingSettings->Add(new PopupTextInputChoice(&g_Config.proAdhocServer, n->T("Change proAdhocServer Address"), "", 255, screenManager()));
-#elif defined(__ANDROID__)
 	networkingSettings->Add(new ChoiceWithValueDisplay(&g_Config.proAdhocServer, n->T("Change proAdhocServer Address"), (const char *)nullptr))->OnClick.Handle(this, &GameSettingsScreen::OnChangeproAdhocServerAddress);
-#else
-	networkingSettings->Add(new ChoiceWithValueDisplay(&g_Config.proAdhocServer, n->T("Change proAdhocServer Address"), (const char *)nullptr))->OnClick.Handle(this, &GameSettingsScreen::OnChangeproAdhocServerAddress);
-#endif
 	networkingSettings->Add(new CheckBox(&g_Config.bEnableAdhocServer, n->T("Enable built-in PRO Adhoc Server", "Enable built-in PRO Adhoc Server")));
 	networkingSettings->Add(new ChoiceWithValueDisplay(&g_Config.sMACAddress, n->T("Change Mac Address"), (const char *)nullptr))->OnClick.Handle(this, &GameSettingsScreen::OnChangeMacAddress);
 	networkingSettings->Add(new PopupSliderChoice(&g_Config.iPortOffset, 0, 60000, n->T("Port offset", "Port offset(0 = PSP compatibility)"), 100, screenManager()));
@@ -1205,21 +1199,7 @@ UI::EventReturn GameSettingsScreen::OnChangeNickname(UI::EventParams &e) {
 UI::EventReturn GameSettingsScreen::OnChangeproAdhocServerAddress(UI::EventParams &e) {
 	I18NCategory *sy = GetI18NCategory("System");
 
-#if PPSSPP_PLATFORM(WINDOWS) || defined(USING_QT_UI)
-	if (!g_Config.bFullScreen) {
-		const size_t name_len = 256;
-
-		char name[name_len];
-		memset(name, 0, sizeof(name));
-
-		if (System_InputBoxGetString("Enter an IP address", g_Config.proAdhocServer.c_str(), name, name_len)) {
-			std::string stripped = StripSpaces(name);
-			g_Config.proAdhocServer = stripped;
-		}
-	} else {
-		screenManager()->push(new HostnameSelectScreen(&g_Config.proAdhocServer, sy->T("proAdhocServer Address:")));
-	}
-#elif defined(__ANDROID__)
+#if defined(__ANDROID__)
 	System_SendMessage("inputbox", ("IP:" + g_Config.proAdhocServer).c_str());
 #else
 	screenManager()->push(new HostnameSelectScreen(&g_Config.proAdhocServer, sy->T("proAdhocServer Address:")));
@@ -1489,10 +1469,10 @@ void HostnameSelectScreen::CreatePopupContents(UI::ViewGroup *parent) {
 	I18NCategory *sy = GetI18NCategory("System");
 	I18NCategory *di = GetI18NCategory("Dialog");
 
-	currentValue_ = *value_;
 	LinearLayout *valueRow = new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, FILL_PARENT, Margins(0, 0, 0, 10)));
 
-	addrView_ = new TextView(currentValue_, ALIGN_LEFT, false);
+	addrView_ = new TextEdit(*value_, "");
+	addrView_->SetTextAlign(FLAG_DYNAMIC_ASCII);
 	valueRow->Add(addrView_);
 	parent->Add(valueRow);
 
@@ -1501,6 +1481,7 @@ void HostnameSelectScreen::CreatePopupContents(UI::ViewGroup *parent) {
 	parent->Add(buttonsRow1);
 	parent->Add(buttonsRow2);
 
+	buttonsRow1->Add(new Spacer(new LinearLayoutParams(1.0, G_LEFT)));
 	for (char c = '0'; c <= '9'; ++c) {
 		char label[] = { c, '\0' };
 		auto button = buttonsRow1->Add(new Button(label));
@@ -1508,42 +1489,48 @@ void HostnameSelectScreen::CreatePopupContents(UI::ViewGroup *parent) {
 		button->SetTag(label);
 	}
 	buttonsRow1->Add(new Button("."))->OnClick.Handle(this, &HostnameSelectScreen::OnPointClick);
+	buttonsRow1->Add(new Spacer(new LinearLayoutParams(1.0, G_RIGHT)));
 
+	buttonsRow2->Add(new Spacer(new LinearLayoutParams(1.0, G_LEFT)));
 	buttonsRow2->Add(new Button(di->T("Delete")))->OnClick.Handle(this, &HostnameSelectScreen::OnDeleteClick);
 	buttonsRow2->Add(new Button(di->T("Delete all")))->OnClick.Handle(this, &HostnameSelectScreen::OnDeleteAllClick);
+	buttonsRow2->Add(new Spacer(new LinearLayoutParams(1.0, G_RIGHT)));
+}
+
+void HostnameSelectScreen::SendEditKey(int keyCode, int flags) {
+	auto oldView = UI::GetFocusedView();
+	UI::SetFocusedView(addrView_);
+	KeyInput fakeKey{ DEVICE_ID_KEYBOARD, keyCode, KEY_DOWN | flags };
+	addrView_->Key(fakeKey);
+	UI::SetFocusedView(oldView);
 }
 
 UI::EventReturn HostnameSelectScreen::OnNumberClick(UI::EventParams &e) {
 	std::string text = e.v ? e.v->Tag() : "";
-	if (currentValue_.length() > 0 || text != "0")
-		currentValue_.append(text);
-	addrView_->SetText(currentValue_);
+	if (text.length() == 1 && text[0] >= '0' && text[0] <= '9') {
+		SendEditKey(text[0], KEY_CHAR);
+	}
 	return UI::EVENT_DONE;
 }
 
 UI::EventReturn HostnameSelectScreen::OnPointClick(UI::EventParams &e) {
-	if (currentValue_.length() > 0 && currentValue_.at(currentValue_.length() - 1) != '.')
-		currentValue_.append(".");
-	addrView_->SetText(currentValue_);
+	SendEditKey('.', KEY_CHAR);
 	return UI::EVENT_DONE;
 }
 
 UI::EventReturn HostnameSelectScreen::OnDeleteClick(UI::EventParams &e) {
-	if (currentValue_.length() > 0)
-		currentValue_.erase(currentValue_.length() - 1, 1);
-	addrView_->SetText(currentValue_);
+	SendEditKey(NKCODE_DEL);
 	return UI::EVENT_DONE;
 }
 
 UI::EventReturn HostnameSelectScreen::OnDeleteAllClick(UI::EventParams &e) {
-	currentValue_ = "";
-	addrView_->SetText(currentValue_);
+	addrView_->SetText("");
 	return UI::EVENT_DONE;
 }
 
 void HostnameSelectScreen::OnCompleted(DialogResult result) {
 	if (result == DR_OK)
-		*value_ = currentValue_;
+		*value_ = addrView_->GetText();
 }
 
 SettingInfoMessage::SettingInfoMessage(int align, UI::AnchorLayoutParams *lp)
