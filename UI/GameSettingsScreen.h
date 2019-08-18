@@ -18,6 +18,9 @@
 #pragma once
 
 #include "ppsspp_config.h"
+#include <condition_variable>
+#include <mutex>
+#include <thread>
 #include "ui/ui_screen.h"
 #include "UI/MiscScreens.h"
 
@@ -175,29 +178,53 @@ private:
 	bool canAllowDebugger_ = true;
 };
 
-class ProAdhocServerScreen : public UIDialogScreenWithBackground {
+class HostnameSelectScreen : public PopupScreen {
 public:
-	ProAdhocServerScreen() {}	
+	HostnameSelectScreen(std::string *value, const std::string &title)
+		: PopupScreen(title, "OK", "Cancel"), value_(value) {
+		resolver_ = std::thread([](HostnameSelectScreen *thiz) {
+			thiz->ResolverThread();
+		}, this);
+	}
+	~HostnameSelectScreen() {
+		resolverState_ = ResolverState::QUIT;
+		resolverCond_.notify_one();
+		resolver_.join();
+	}
+
+	void CreatePopupContents(UI::ViewGroup *parent) override;
 
 protected:
-	void CreateViews() override;
+	void OnCompleted(DialogResult result) override;
+	bool CanComplete(DialogResult result) override;
 
-private:	
-	std::string tempProAdhocServer;
-	UI::TextView *addrView_;
-	UI::EventReturn On0Click(UI::EventParams &e);
-	UI::EventReturn On1Click(UI::EventParams &e);
-	UI::EventReturn On2Click(UI::EventParams &e);
-	UI::EventReturn On3Click(UI::EventParams &e);
-	UI::EventReturn On4Click(UI::EventParams &e);
-	UI::EventReturn On5Click(UI::EventParams &e);
-	UI::EventReturn On6Click(UI::EventParams &e);
-	UI::EventReturn On7Click(UI::EventParams &e);
-	UI::EventReturn On8Click(UI::EventParams &e);
-	UI::EventReturn On9Click(UI::EventParams &e);
+private:
+	void ResolverThread();
+	void SendEditKey(int keyCode, int flags = 0);
+	UI::EventReturn OnNumberClick(UI::EventParams &e);
 	UI::EventReturn OnPointClick(UI::EventParams &e);
 	UI::EventReturn OnDeleteClick(UI::EventParams &e);
 	UI::EventReturn OnDeleteAllClick(UI::EventParams &e);
-	UI::EventReturn OnOKClick(UI::EventParams &e);
-	UI::EventReturn OnCancelClick(UI::EventParams &e);
+
+	enum class ResolverState {
+		WAITING,
+		QUEUED,
+		PROGRESS,
+		READY,
+		QUIT,
+	};
+
+	std::string *value_;
+	UI::TextEdit *addrView_ = nullptr;
+	UI::TextView *errorView_ = nullptr;
+	UI::TextView *progressView_ = nullptr;
+
+	std::thread resolver_;
+	ResolverState resolverState_ = ResolverState::WAITING;
+	std::mutex resolverLock_;
+	std::condition_variable resolverCond_;
+	std::string toResolve_ = "";
+	bool toResolveResult_ = false;
+	std::string lastResolved_ = "";
+	bool lastResolvedResult_ = false;
 };

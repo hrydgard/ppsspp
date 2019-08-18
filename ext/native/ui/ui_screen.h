@@ -84,6 +84,7 @@ protected:
 	virtual bool FillVertical() const { return false; }
 	virtual UI::Size PopupWidth() const { return 550; }
 	virtual bool ShowButtons() const { return true; }
+	virtual bool CanComplete(DialogResult result) { return true; }
 	virtual void OnCompleted(DialogResult result) {}
 
 	virtual void update() override;
@@ -225,7 +226,7 @@ private:
 
 class TextEditPopupScreen : public PopupScreen {
 public:
-	TextEditPopupScreen(std::string *value, std::string &placeholder, const std::string &title, int maxLen)
+	TextEditPopupScreen(std::string *value, const std::string &placeholder, const std::string &title, int maxLen)
 		: PopupScreen(title, "OK", "Cancel"), value_(value), placeholder_(placeholder), maxLen_(maxLen) {}
 	virtual void CreatePopupContents(ViewGroup *parent) override;
 
