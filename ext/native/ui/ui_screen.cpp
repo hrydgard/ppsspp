@@ -268,7 +268,8 @@ bool PopupScreen::key(const KeyInput &key) {
 void PopupScreen::update() {
 	UIDialogScreen::update();
 
-	defaultButton_->SetEnabled(CanComplete(DR_OK));
+	if (defaultButton_)
+		defaultButton_->SetEnabled(CanComplete(DR_OK));
 
 	float animatePos = 1.0f;
 
