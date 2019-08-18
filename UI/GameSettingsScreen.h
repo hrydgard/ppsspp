@@ -18,6 +18,9 @@
 #pragma once
 
 #include "ppsspp_config.h"
+#include <condition_variable>
+#include <mutex>
+#include <thread>
 #include "ui/ui_screen.h"
 #include "UI/MiscScreens.h"
 
@@ -179,20 +182,49 @@ class HostnameSelectScreen : public PopupScreen {
 public:
 	HostnameSelectScreen(std::string *value, const std::string &title)
 		: PopupScreen(title, "OK", "Cancel"), value_(value) {
+		resolver_ = std::thread([](HostnameSelectScreen *thiz) {
+			thiz->ResolverThread();
+		}, this);
+	}
+	~HostnameSelectScreen() {
+		resolverState_ = ResolverState::QUIT;
+		resolverCond_.notify_one();
+		resolver_.join();
 	}
 
 	void CreatePopupContents(UI::ViewGroup *parent) override;
 
 protected:
 	void OnCompleted(DialogResult result) override;
+	bool CanComplete(DialogResult result) override;
 
 private:
+	void ResolverThread();
 	void SendEditKey(int keyCode, int flags = 0);
 	UI::EventReturn OnNumberClick(UI::EventParams &e);
 	UI::EventReturn OnPointClick(UI::EventParams &e);
 	UI::EventReturn OnDeleteClick(UI::EventParams &e);
 	UI::EventReturn OnDeleteAllClick(UI::EventParams &e);
 
+	enum class ResolverState {
+		WAITING,
+		QUEUED,
+		PROGRESS,
+		READY,
+		QUIT,
+	};
+
 	std::string *value_;
-	UI::TextEdit *addrView_;
+	UI::TextEdit *addrView_ = nullptr;
+	UI::TextView *errorView_ = nullptr;
+	UI::TextView *progressView_ = nullptr;
+
+	std::thread resolver_;
+	ResolverState resolverState_ = ResolverState::WAITING;
+	std::mutex resolverLock_;
+	std::condition_variable resolverCond_;
+	std::string toResolve_ = "";
+	bool toResolveResult_ = false;
+	std::string lastResolved_ = "";
+	bool lastResolvedResult_ = false;
 };

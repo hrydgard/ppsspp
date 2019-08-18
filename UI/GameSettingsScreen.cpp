@@ -22,6 +22,7 @@
 #include "base/colorutil.h"
 #include "base/timeutil.h"
 #include "math/curves.h"
+#include "net/resolve.h"
 #include "gfx_es2/gpu_features.h"
 #include "gfx_es2/draw_buffer.h"
 #include "i18n/i18n.h"
@@ -1468,6 +1469,7 @@ void HostnameSelectScreen::CreatePopupContents(UI::ViewGroup *parent) {
 	using namespace UI;
 	I18NCategory *sy = GetI18NCategory("System");
 	I18NCategory *di = GetI18NCategory("Dialog");
+	I18NCategory *n = GetI18NCategory("Networking");
 
 	LinearLayout *valueRow = new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, FILL_PARENT, Margins(0, 0, 0, 10)));
 
@@ -1495,6 +1497,13 @@ void HostnameSelectScreen::CreatePopupContents(UI::ViewGroup *parent) {
 	buttonsRow2->Add(new Button(di->T("Delete")))->OnClick.Handle(this, &HostnameSelectScreen::OnDeleteClick);
 	buttonsRow2->Add(new Button(di->T("Delete all")))->OnClick.Handle(this, &HostnameSelectScreen::OnDeleteAllClick);
 	buttonsRow2->Add(new Spacer(new LinearLayoutParams(1.0, G_RIGHT)));
+
+	errorView_ = parent->Add(new TextView(n->T("Invalid IP or hostname"), ALIGN_HCENTER, false, new LinearLayoutParams(Margins(0, 10, 0, 0))));
+	errorView_->SetTextColor(0xFF3030FF);
+	errorView_->SetVisibility(V_GONE);
+
+	progressView_ = parent->Add(new TextView(n->T("Validating address..."), ALIGN_HCENTER, false, new LinearLayoutParams(Margins(0, 10, 0, 0))));
+	progressView_->SetVisibility(V_GONE);
 }
 
 void HostnameSelectScreen::SendEditKey(int keyCode, int flags) {
@@ -1526,6 +1535,81 @@ UI::EventReturn HostnameSelectScreen::OnDeleteClick(UI::EventParams &e) {
 UI::EventReturn HostnameSelectScreen::OnDeleteAllClick(UI::EventParams &e) {
 	addrView_->SetText("");
 	return UI::EVENT_DONE;
+}
+
+void HostnameSelectScreen::ResolverThread() {
+	std::unique_lock<std::mutex> guard(resolverLock_);
+
+	while (resolverState_ != ResolverState::QUIT) {
+		resolverCond_.wait(guard);
+
+		if (resolverState_ == ResolverState::QUEUED) {
+			resolverState_ = ResolverState::PROGRESS;
+
+			addrinfo *resolved = nullptr;
+			std::string err;
+			toResolveResult_ = net::DNSResolve(toResolve_, "80", &resolved, err);
+			if (resolved)
+				net::DNSResolveFree(resolved);
+
+			resolverState_ = ResolverState::READY;
+		}
+	}
+}
+
+bool HostnameSelectScreen::CanComplete(DialogResult result) {
+	if (result != DR_OK)
+		return true;
+
+	std::string value = addrView_->GetText();
+	if (lastResolved_ == value) {
+		return true;
+	}
+
+	// Currently running.
+	if (resolverState_ == ResolverState::PROGRESS)
+		return false;
+
+	std::lock_guard<std::mutex> guard(resolverLock_);
+	switch (resolverState_) {
+	case ResolverState::PROGRESS:
+	case ResolverState::QUIT:
+		return false;
+
+	case ResolverState::QUEUED:
+	case ResolverState::WAITING:
+		break;
+
+	case ResolverState::READY:
+		if (toResolve_ == value) {
+			// Reset the state, nothing there now.
+			resolverState_ = ResolverState::WAITING;
+			toResolve_.clear();
+			lastResolved_ = value;
+			lastResolvedResult_ = toResolveResult_;
+
+			if (lastResolvedResult_) {
+				errorView_->SetVisibility(UI::V_GONE);
+			} else {
+				errorView_->SetVisibility(UI::V_VISIBLE);
+			}
+			progressView_->SetVisibility(UI::V_GONE);
+
+			return true;
+		}
+
+		// Throw away that last result, it was for a different value.
+		break;
+	}
+
+	resolverState_ = ResolverState::QUEUED;
+	toResolve_ = value;
+	resolverCond_.notify_one();
+
+	progressView_->SetVisibility(UI::V_VISIBLE);
+	errorView_->SetVisibility(UI::V_GONE);
+
+	return false;
 }
 
 void HostnameSelectScreen::OnCompleted(DialogResult result) {
