@@ -242,6 +242,15 @@ public:
 		return &queueRunner_;
 	}
 
+	// Call before BeginFrame.
+	void SetGPUProfilingEnabled(bool enabled) {
+		gpuProfilingEnabled_ = enabled;
+	}
+
+	std::string GetGpuProfileString() const {
+		return frameData_[vulkan_->GetCurFrame()].profileSummary;
+	}
+
 private:
 	bool InitBackbufferFramebuffers(int width, int height);
 	bool InitDepthStencilBuffer(VkCommandBuffer cmd);  // Used for non-buffered rendering.
@@ -284,8 +293,19 @@ private:
 		// Swapchain.
 		bool hasBegun = false;
 		uint32_t curSwapchainImage = -1;
+
+		// Profiling.
+		VkQueryPool timestampQueryPool_ = VK_NULL_HANDLE;
+		std::vector<std::string> timestampDescriptions;
+		int numQueries = 0;
+		std::string profileSummary;
 	};
+
 	FrameData frameData_[VulkanContext::MAX_INFLIGHT_FRAMES];
+
+	enum {
+		MAX_TIMESTAMP_QUERIES = 256,
+	};
 
 	// Submission time state
 	int curWidth_ = -1;
@@ -294,6 +314,7 @@ private:
 	VKRStep *curRenderStep_ = nullptr;
 	std::vector<VKRStep *> steps_;
 	bool splitSubmit_ = false;
+	bool gpuProfilingEnabled_ = true;
 
 	// Execution time state
 	bool run_ = true;
