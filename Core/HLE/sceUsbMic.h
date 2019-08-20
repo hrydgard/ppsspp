@@ -16,5 +16,4 @@
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
 #pragma once
-
 void Register_sceUsbMic();
