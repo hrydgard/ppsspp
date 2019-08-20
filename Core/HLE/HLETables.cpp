@@ -299,9 +299,7 @@ void RegisterAllModules() {
 	Register_sceNetIfhandle();
 	Register_KUBridge();
 	Register_sceUsbAcc();
-#if !PPSSPP_PLATFORM(UWP)
 	Register_sceUsbMic();
-#endif
 
 	// add new modules here.
 }
