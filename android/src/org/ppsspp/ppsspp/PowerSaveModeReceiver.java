@@ -16,7 +16,6 @@ import android.util.Log;
 
 public class PowerSaveModeReceiver extends BroadcastReceiver {
 	private static final String TAG = PowerSaveModeReceiver.class.getSimpleName();
-	private static BroadcastReceiver saveModeReceiver = null;
 	private static boolean isPowerSaving = false;
 	private static boolean isBatteryLow = false;
 
@@ -27,25 +26,21 @@ public class PowerSaveModeReceiver extends BroadcastReceiver {
 			isBatteryLow = true;
 		} else if (Intent.ACTION_BATTERY_OKAY.equals(action)) {
 			isBatteryLow = false;
+		} else if (PowerManager.ACTION_POWER_SAVE_MODE_CHANGED.equals(action)) {
+			// sendPowerSaving()
 		}
 
 		sendPowerSaving(context);
 	}
 
-	public static void initAndSend(final Activity activity) {
-		saveModeReceiver = new BroadcastReceiver() {
-			@Override
-			public void onReceive(Context context, Intent intent) {
-				if (PowerManager.ACTION_POWER_SAVE_MODE_CHANGED.equals(intent.getAction())) {
-					sendPowerSaving(context);
-				}
-			}
-		};
+	public PowerSaveModeReceiver(final Activity activity) {
 		IntentFilter filter = new IntentFilter();
-		filter.addAction(PowerManager.ACTION_POWER_SAVE_MODE_CHANGED);
-		activity.registerReceiver(saveModeReceiver, filter);
-
-		sendPowerSaving(activity);
+		filter.addAction(Intent.ACTION_BATTERY_LOW);
+		filter.addAction(Intent.ACTION_BATTERY_OKAY);
+		if (Build.VERSION.SDK_INT >= 21) {
+			filter.addAction(PowerManager.ACTION_POWER_SAVE_MODE_CHANGED);
+		}
+		activity.registerReceiver(this, filter);
 
 		if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.JELLY_BEAN) {
 			activity.getContentResolver().registerContentObserver(Settings.System.CONTENT_URI, true, new ContentObserver(null) {
@@ -65,13 +60,11 @@ public class PowerSaveModeReceiver extends BroadcastReceiver {
 				}
 			});
 		}
+		sendPowerSaving(activity);
 	}
 
-	public static void destroy(final Activity activity) {
-		if (saveModeReceiver != null) {
-			activity.unregisterReceiver(saveModeReceiver);
-			saveModeReceiver = null;
-		}
+	public void destroy(final Context context) {
+		context.unregisterReceiver(this);
 	}
 
 	@TargetApi(21)
@@ -101,7 +94,7 @@ public class PowerSaveModeReceiver extends BroadcastReceiver {
 		return value != null && value.equals("1");
 	}
 
-	protected static void sendPowerSaving(final Context context) {
+	protected void sendPowerSaving(final Context context) {
 		if (Build.VERSION.SDK_INT >= 21) {
 			isPowerSaving = getNativePowerSaving(context);
 		} else {
