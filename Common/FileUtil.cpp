@@ -648,10 +648,8 @@ bool CreateEmptyFile(const std::string &filename)
 
 // Deletes the given directory and anything under it. Returns true on success.
 bool DeleteDirRecursively(const std::string &directory)
-{
-#if PPSSPP_PLATFORM(UWP)
-	return false;
-#else
+{	
+	//Removed check, it prevents the UWP from deleting store downloads
 	INFO_LOG(COMMON, "DeleteDirRecursively: %s", directory.c_str());
 
 #ifdef _WIN32
@@ -720,7 +718,6 @@ bool DeleteDirRecursively(const std::string &directory)
 	closedir(dirp);
 #endif
 	return File::DeleteDir(directory);
-#endif
 }
 
 

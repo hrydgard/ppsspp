@@ -16,5 +16,7 @@
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
 #pragma once
-
+//UWP doesn't like this for some reason
+#if !PPSSPP_PLATFORM(UWP)
 void Register_sceUsbMic();
+#endif
