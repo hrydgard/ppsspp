@@ -314,7 +314,7 @@ private:
 	VKRStep *curRenderStep_ = nullptr;
 	std::vector<VKRStep *> steps_;
 	bool splitSubmit_ = false;
-	bool gpuProfilingEnabled_ = true;
+	bool gpuProfilingEnabled_ = false;
 
 	// Execution time state
 	bool run_ = true;

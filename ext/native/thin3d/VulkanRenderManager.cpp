@@ -226,6 +226,9 @@ void VulkanRenderManager::StopThread() {
 				std::unique_lock<std::mutex> lock(frameData.pull_mutex);
 				frameData.pull_condVar.notify_all();
 			}
+			// Zero the queries so we don't try to pull them later.
+			frameData.numQueries = 0;
+			frameData.timestampDescriptions.clear();
 		}
 		thread_.join();
 		ILOG("Vulkan submission thread joined. Frame=%d", vulkan_->GetCurFrame());
@@ -378,7 +381,8 @@ void VulkanRenderManager::BeginFrame() {
 				VK_QUERY_RESULT_64_BIT);
 			if (res == VK_SUCCESS) {
 				double timestampConversionFactor = (double)vulkan_->GetPhysicalDeviceProperties().properties.limits.timestampPeriod * (1.0 / 1000000.0);
-				uint64_t timestampDiffMask = 0xFFFFFFFFFFFFFFFFULL;  // TODO: Get from queue family
+				int validBits = vulkan_->GetQueueFamilyProperties(vulkan_->GetGraphicsQueueFamilyIndex()).timestampValidBits;
+				uint64_t timestampDiffMask = validBits == 64 ? 0xFFFFFFFFFFFFFFFFULL : ((1ULL << validBits) - 1);
 				std::stringstream str;
 
 				char line[256];
@@ -409,6 +413,7 @@ void VulkanRenderManager::BeginFrame() {
 
 	insideFrame_ = true;
 
+	frameData.timestampDescriptions.clear();
 	if (gpuProfilingEnabled_) {
 		// For various reasons, we need to always use an init cmd buffer in this case to perform the vkCmdResetQueryPool,
 		// unless we want to limit ourselves to only measure the main cmd buffer.
