@@ -350,12 +350,12 @@ void VulkanRenderManager::ThreadFunc() {
 }
 
 void VulkanRenderManager::BeginFrame(bool enableProfiling) {
-	gpuProfilingEnabled_ = enableProfiling;
 	VLOG("BeginFrame");
 	VkDevice device = vulkan_->GetDevice();
 
 	int curFrame = vulkan_->GetCurFrame();
 	FrameData &frameData = frameData_[curFrame];
+	frameData.profilingEnabled_ = enableProfiling;
 
 	// Make sure the very last command buffer from the frame before the previous has been fully executed.
 	if (useThread_) {
@@ -373,7 +373,7 @@ void VulkanRenderManager::BeginFrame(bool enableProfiling) {
 
 	uint64_t queryResults[MAX_TIMESTAMP_QUERIES];
 
-	if (gpuProfilingEnabled_) {
+	if (frameData.profilingEnabled_) {
 		// Pull the profiling results from last time and produce a summary!
 		if (!frameData.timestampDescriptions.empty()) {
 			int numQueries = (int)frameData.timestampDescriptions.size();
@@ -416,7 +416,7 @@ void VulkanRenderManager::BeginFrame(bool enableProfiling) {
 	insideFrame_ = true;
 
 	frameData.timestampDescriptions.clear();
-	if (gpuProfilingEnabled_) {
+	if (frameData_->profilingEnabled_) {
 		// For various reasons, we need to always use an init cmd buffer in this case to perform the vkCmdResetQueryPool,
 		// unless we want to limit ourselves to only measure the main cmd buffer.
 		// Reserve the first two queries for initCmd.
@@ -954,7 +954,7 @@ void VulkanRenderManager::BeginSubmitFrame(int frame) {
 void VulkanRenderManager::Submit(int frame, bool triggerFence) {
 	FrameData &frameData = frameData_[frame];
 	if (frameData.hasInitCommands) {
-		if (gpuProfilingEnabled_ && triggerFence) {
+		if (frameData.profilingEnabled_ && triggerFence) {
 			// Pre-allocated query ID 1.
 			vkCmdWriteTimestamp(frameData.initCmd, VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, frameData.timestampQueryPool_, 1);
 		}
@@ -962,7 +962,7 @@ void VulkanRenderManager::Submit(int frame, bool triggerFence) {
 		_assert_msg_(G3D, res == VK_SUCCESS, "vkEndCommandBuffer failed (init)! result=%s", VulkanResultToString(res));
 	}
 
-	if (gpuProfilingEnabled_) {
+	if (frameData.profilingEnabled_) {
 		int numQueries = (int)frameData.timestampDescriptions.size();
 		vkCmdWriteTimestamp(frameData.mainCmd, VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, frameData.timestampQueryPool_, numQueries);
 		frameData.timestampDescriptions.push_back("mainCmd");
@@ -1063,7 +1063,7 @@ void VulkanRenderManager::Run(int frame) {
 	auto &stepsOnThread = frameData_[frame].steps;
 	VkCommandBuffer cmd = frameData.mainCmd;
 	// queueRunner_.LogSteps(stepsOnThread);
-	queueRunner_.RunSteps(cmd, stepsOnThread);
+	queueRunner_.RunSteps(cmd, stepsOnThread, frameData.profilingEnabled_ ? frameData.timestampQueryPool_ : VK_NULL_HANDLE, &frameData.timestampDescriptions);
 	stepsOnThread.clear();
 
 	switch (frameData.type) {

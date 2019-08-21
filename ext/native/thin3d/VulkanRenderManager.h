@@ -291,6 +291,7 @@ private:
 
 		// Profiling.
 		VkQueryPool timestampQueryPool_ = VK_NULL_HANDLE;
+		bool profilingEnabled_;
 		std::vector<std::string> timestampDescriptions;
 		std::string profileSummary;
 	};
@@ -300,9 +301,6 @@ private:
 	enum {
 		MAX_TIMESTAMP_QUERIES = 256,
 	};
-
-	// Global state
-	bool gpuProfilingEnabled_ = false;
 
 	// Submission time state
 	int curWidth_ = -1;

@@ -163,8 +163,10 @@ public:
 	}
 
 	// RunSteps can modify steps but will leave it in a valid state.
-	void RunSteps(VkCommandBuffer cmd, std::vector<VKRStep *> &steps);
+	void RunSteps(VkCommandBuffer cmd, std::vector<VKRStep *> &steps, VkQueryPool queryPool, std::vector<std::string> *timestampDescriptions);
 	void LogSteps(const std::vector<VKRStep *> &steps);
+
+	std::string StepToString(const VKRStep &step) const;
 
 	void CreateDeviceObjects();
 	void DestroyDeviceObjects();
