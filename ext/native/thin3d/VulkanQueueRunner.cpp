@@ -374,7 +374,7 @@ VkRenderPass VulkanQueueRunner::GetRenderPass(const RPKey &key) {
 	return pass;
 }
 
-void VulkanQueueRunner::RunSteps(VkCommandBuffer cmd, std::vector<VKRStep *> &steps) {
+void VulkanQueueRunner::RunSteps(VkCommandBuffer cmd, std::vector<VKRStep *> &steps, VkQueryPool queryPool, std::vector<std::string> *timestampDescriptions) {
 	// Optimizes renderpasses, then sequences them.
 	// Planned optimizations: 
 	//  * Create copies of render target that are rendered to multiple times and textured from in sequence, and push those render passes
@@ -460,6 +460,11 @@ void VulkanQueueRunner::RunSteps(VkCommandBuffer cmd, std::vector<VKRStep *> &st
 			break;
 		case VKRStepType::RENDER_SKIP:
 			break;
+		}
+
+		if (queryPool) {
+			vkCmdWriteTimestamp(cmd, VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, queryPool, (uint32_t)timestampDescriptions->size());
+			timestampDescriptions->push_back(StepToString(step));
 		}
 	}
 
@@ -695,10 +700,43 @@ void VulkanQueueRunner::ApplySonicHack(std::vector<VKRStep *> &steps) {
 	}
 }
 
+std::string VulkanQueueRunner::StepToString(const VKRStep &step) const {
+	char buffer[256];
+	switch (step.stepType) {
+	case VKRStepType::RENDER:
+	{
+		int w = step.render.framebuffer ? step.render.framebuffer->width : vulkan_->GetBackbufferWidth();
+		int h = step.render.framebuffer ? step.render.framebuffer->height : vulkan_->GetBackbufferHeight();
+		snprintf(buffer, sizeof(buffer), "RenderPass (draws: %d, %dx%d, fb: %p, )", step.render.numDraws, w, h, step.render.framebuffer);
+		break;
+	}
+	case VKRStepType::COPY:
+		snprintf(buffer, sizeof(buffer), "Copy (%dx%d)", step.copy.srcRect.extent.width, step.copy.srcRect.extent.height);
+		break;
+	case VKRStepType::BLIT:
+		snprintf(buffer, sizeof(buffer), "Blit (%dx%d->%dx%d)", step.blit.srcRect.extent.width, step.blit.srcRect.extent.height, step.blit.dstRect.extent.width, step.blit.dstRect.extent.height);
+		break;
+	case VKRStepType::READBACK:
+		snprintf(buffer, sizeof(buffer), "Readback (%dx%d)", step.readback.srcRect.extent.width, step.readback.srcRect.extent.height);
+		break;
+	case VKRStepType::READBACK_IMAGE:
+		snprintf(buffer, sizeof(buffer), "ReadbackImage");
+		break;
+	case VKRStepType::RENDER_SKIP:
+		snprintf(buffer, sizeof(buffer), "(SKIPPED RenderPass)");
+		break;
+	default:
+		buffer[0] = 0;
+		break;
+	}
+	return std::string(buffer);
+}
+
 void VulkanQueueRunner::LogSteps(const std::vector<VKRStep *> &steps) {
 	ILOG("=======================================");
 	for (size_t i = 0; i < steps.size(); i++) {
 		const VKRStep &step = *steps[i];
+		ILOG("%s", StepToString(step).c_str());
 		switch (step.stepType) {
 		case VKRStepType::RENDER:
 			LogRenderPass(step);
