@@ -118,5 +118,6 @@ void DrawProfilerVis(UIContext *ui, GPUInterface *gpu) {
 	Draw::DrawContext *draw = ui->GetDrawContext();
 	ui->SetFontScale(0.4f, 0.4f);
 	ui->DrawTextShadow(text.c_str(), 10, 50, 0xFFFFFFFF, FLAG_DYNAMIC_ASCII);
+	ui->SetFontScale(1.0f, 1.0f);
 	ui->Flush();
 }
