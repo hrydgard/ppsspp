@@ -704,16 +704,20 @@ std::string VulkanQueueRunner::StepToString(const VKRStep &step) const {
 	char buffer[256];
 	switch (step.stepType) {
 	case VKRStepType::RENDER:
-		snprintf(buffer, sizeof(buffer), "RenderPass (fb: %p)", step.render.framebuffer);
+	{
+		int w = step.render.framebuffer ? step.render.framebuffer->width : vulkan_->GetBackbufferWidth();
+		int h = step.render.framebuffer ? step.render.framebuffer->height : vulkan_->GetBackbufferHeight();
+		snprintf(buffer, sizeof(buffer), "RenderPass (draws: %d, %dx%d, fb: %p, )", step.render.numDraws, w, h, step.render.framebuffer);
 		break;
+	}
 	case VKRStepType::COPY:
 		snprintf(buffer, sizeof(buffer), "Copy (%dx%d)", step.copy.srcRect.extent.width, step.copy.srcRect.extent.height);
 		break;
 	case VKRStepType::BLIT:
-		snprintf(buffer, sizeof(buffer), "Blit");
+		snprintf(buffer, sizeof(buffer), "Blit (%dx%d->%dx%d)", step.blit.srcRect.extent.width, step.blit.srcRect.extent.height, step.blit.dstRect.extent.width, step.blit.dstRect.extent.height);
 		break;
 	case VKRStepType::READBACK:
-		snprintf(buffer, sizeof(buffer), "Readback");
+		snprintf(buffer, sizeof(buffer), "Readback (%dx%d)", step.readback.srcRect.extent.width, step.readback.srcRect.extent.height);
 		break;
 	case VKRStepType::READBACK_IMAGE:
 		snprintf(buffer, sizeof(buffer), "ReadbackImage");

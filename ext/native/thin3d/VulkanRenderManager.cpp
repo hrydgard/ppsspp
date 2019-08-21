@@ -962,12 +962,6 @@ void VulkanRenderManager::Submit(int frame, bool triggerFence) {
 		_assert_msg_(G3D, res == VK_SUCCESS, "vkEndCommandBuffer failed (init)! result=%s", VulkanResultToString(res));
 	}
 
-	if (frameData.profilingEnabled_) {
-		int numQueries = (int)frameData.timestampDescriptions.size();
-		vkCmdWriteTimestamp(frameData.mainCmd, VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, frameData.timestampQueryPool_, numQueries);
-		frameData.timestampDescriptions.push_back("mainCmd");
-	}
-
 	VkResult res = vkEndCommandBuffer(frameData.mainCmd);
 	_assert_msg_(G3D, res == VK_SUCCESS, "vkEndCommandBuffer failed (main)! result=%s", VulkanResultToString(res));
 
