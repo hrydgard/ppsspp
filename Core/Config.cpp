@@ -959,9 +959,10 @@ static ConfigSetting debuggerSettings[] = {
 	ConfigSetting("FontWidth", &g_Config.iFontWidth, 8),
 	ConfigSetting("FontHeight", &g_Config.iFontHeight, 12),
 	ConfigSetting("DisplayStatusBar", &g_Config.bDisplayStatusBar, true),
-	ConfigSetting("ShowBottomTabTitles",&g_Config.bShowBottomTabTitles,true),
+	ConfigSetting("ShowBottomTabTitles",&g_Config.bShowBottomTabTitles, true),
 	ConfigSetting("ShowDeveloperMenu", &g_Config.bShowDeveloperMenu, false),
 	ConfigSetting("ShowAllocatorDebug", &g_Config.bShowAllocatorDebug, false, false),
+	ConfigSetting("ShowGpuProfile", &g_Config.bShowGpuProfile, false, false),
 	ConfigSetting("SkipDeadbeefFilling", &g_Config.bSkipDeadbeefFilling, false),
 	ConfigSetting("FuncHashMap", &g_Config.bFuncHashMap, false),
 

@@ -638,3 +638,8 @@ std::string GPU_Vulkan::DebugGetShaderString(std::string id, DebugShaderType typ
 		return std::string();
 	}
 }
+
+std::string GPU_Vulkan::GetGpuProfileString() {
+	VulkanRenderManager *rm = (VulkanRenderManager *)draw_->GetNativeObject(Draw::NativeObject::RENDER_MANAGER);
+	return rm->GetGpuProfileString();
+}

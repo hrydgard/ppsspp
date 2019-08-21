@@ -68,21 +68,20 @@ public:
 	bool bEnableLogging;
 	bool bDumpDecryptedEboot;
 	bool bFullscreenOnDoubleclick;
-#if defined(USING_WIN_UI)
+
+	// These four are Win UI only
 	bool bPauseOnLostFocus;
 	bool bTopMost;
 	bool bIgnoreWindowsKey;
 	bool bRestartRequired;
-#endif
-#if defined(USING_WIN_UI) || defined(USING_QT_UI) || PPSSPP_PLATFORM(UWP)
+
 	std::string sFont;
-#endif
 
 	bool bPauseWhenMinimized;
 
-#if !defined(MOBILE_DEVICE)
+	// Not used on mobile devices.
 	bool bPauseExitsEmulator;
-#endif
+
 	bool bPauseMenuExitsEmulator;
 
 	// Core
@@ -129,9 +128,8 @@ public:
 	// We have separate device parameters for each backend so it doesn't get erased if you switch backends.
 	// If not set, will use the "best" device.
 	std::string sVulkanDevice;
-#ifdef _WIN32
-	std::string sD3D11Device;
-#endif
+	std::string sD3D11Device;  // Windows only
+
 	bool bSoftwareRendering;
 	bool bHardwareTransform; // only used in the GLES backend
 	bool bSoftwareSkinning;  // may speed up some games
@@ -237,6 +235,7 @@ public:
 	bool bLogFrameDrops;
 	bool bShowDebugStats;
 	bool bShowAudioDebug;
+	bool bShowGpuProfile;
 	bool bAudioResampler;
 
 	//Analog stick tilting
@@ -366,9 +365,7 @@ public:
 	int iPSPModel;
 	int iFirmwareVersion;
 	// TODO: Make this work with your platform, too!
-#if defined(USING_WIN_UI)
 	bool bBypassOSKWithKeyboard;
-#endif
 
 	// Debugger
 	int iDisasmWindowX;

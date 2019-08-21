@@ -113,6 +113,13 @@ VkBool32 VKAPI_CALL VulkanDebugUtilsCallback(
 	std::ostringstream message;
 
 	const char *pMessage = pCallbackData->pMessage;
+
+	// Apparent bugs around timestamp validation in the validation layers
+	if (strstr(pMessage, "vkCmdBeginQuery(): VkQueryPool"))
+		return false;
+	if (strstr(pMessage, "vkGetQueryPoolResults() on VkQueryPool"))
+		return false;
+
 	int messageCode = pCallbackData->messageIdNumber;
 	const char *pLayerPrefix = "";
 	if (messageSeverity & VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT) {

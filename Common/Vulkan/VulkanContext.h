@@ -201,6 +201,10 @@ public:
 		return physicalDeviceProperties_[i];
 	}
 
+	const VkQueueFamilyProperties &GetQueueFamilyProperties(int family) const {
+		return queueFamilyProperties_[family];
+	}
+
 	VkResult GetInstanceLayerExtensionList(const char *layerName, std::vector<VkExtensionProperties> &extensions);
 	VkResult GetInstanceLayerProperties();
 
@@ -303,8 +307,8 @@ private:
 	int physical_device_ = -1;
 
 	uint32_t graphics_queue_family_index_ = -1;
-	std::vector<PhysicalDeviceProps> physicalDeviceProperties_{};
-	std::vector<VkQueueFamilyProperties> queue_props;
+	std::vector<PhysicalDeviceProps> physicalDeviceProperties_;
+	std::vector<VkQueueFamilyProperties> queueFamilyProperties_;
 	VkPhysicalDeviceMemoryProperties memory_properties{};
 
 	// Custom collection of things that are good to know

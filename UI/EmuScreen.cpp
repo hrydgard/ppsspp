@@ -1359,6 +1359,11 @@ void EmuScreen::renderUI() {
 	if (g_Config.iGPUBackend == (int)GPUBackend::VULKAN && g_Config.bShowAllocatorDebug) {
 		DrawAllocatorVis(ctx, gpu);
 	}
+
+	if (g_Config.iGPUBackend == (int)GPUBackend::VULKAN && g_Config.bShowGpuProfile) {
+		DrawProfilerVis(ctx, gpu);
+	}
+
 #endif
 
 #ifdef USE_PROFILER

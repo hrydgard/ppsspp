@@ -1,6 +1,8 @@
 #include <algorithm>
 #include <cstdint>
 
+#include <sstream>
+
 #include "Common/Log.h"
 #include "base/logging.h"
 
@@ -131,6 +133,11 @@ VulkanRenderManager::VulkanRenderManager(VulkanContext *vulkan) : vulkan_(vulkan
 		res = vkAllocateCommandBuffers(vulkan_->GetDevice(), &cmd_alloc, &frameData_[i].mainCmd);
 		assert(res == VK_SUCCESS);
 		frameData_[i].fence = vulkan_->CreateFence(true);  // So it can be instantly waited on
+
+		VkQueryPoolCreateInfo query_ci{ VK_STRUCTURE_TYPE_QUERY_POOL_CREATE_INFO };
+		query_ci.queryCount = MAX_TIMESTAMP_QUERIES;
+		query_ci.queryType = VK_QUERY_TYPE_TIMESTAMP;
+		res = vkCreateQueryPool(vulkan_->GetDevice(), &query_ci, nullptr, &frameData_[i].timestampQueryPool_);
 	}
 
 	queueRunner_.CreateDeviceObjects();
@@ -219,6 +226,8 @@ void VulkanRenderManager::StopThread() {
 				std::unique_lock<std::mutex> lock(frameData.pull_mutex);
 				frameData.pull_condVar.notify_all();
 			}
+			// Zero the queries so we don't try to pull them later.
+			frameData.timestampDescriptions.clear();
 		}
 		thread_.join();
 		ILOG("Vulkan submission thread joined. Frame=%d", vulkan_->GetCurFrame());
@@ -289,6 +298,7 @@ VulkanRenderManager::~VulkanRenderManager() {
 		vkDestroyCommandPool(device, frameData_[i].cmdPoolInit, nullptr);
 		vkDestroyCommandPool(device, frameData_[i].cmdPoolMain, nullptr);
 		vkDestroyFence(device, frameData_[i].fence, nullptr);
+		vkDestroyQueryPool(device, frameData_[i].timestampQueryPool_, nullptr);
 	}
 	queueRunner_.DestroyDeviceObjects();
 }
@@ -339,7 +349,8 @@ void VulkanRenderManager::ThreadFunc() {
 	VLOG("PULL: Quitting");
 }
 
-void VulkanRenderManager::BeginFrame() {
+void VulkanRenderManager::BeginFrame(bool enableProfiling) {
+	gpuProfilingEnabled_ = enableProfiling;
 	VLOG("BeginFrame");
 	VkDevice device = vulkan_->GetDevice();
 
@@ -360,6 +371,41 @@ void VulkanRenderManager::BeginFrame() {
 	vkWaitForFences(device, 1, &frameData.fence, true, UINT64_MAX);
 	vkResetFences(device, 1, &frameData.fence);
 
+	uint64_t queryResults[MAX_TIMESTAMP_QUERIES];
+
+	if (gpuProfilingEnabled_) {
+		// Pull the profiling results from last time and produce a summary!
+		if (!frameData.timestampDescriptions.empty()) {
+			int numQueries = (int)frameData.timestampDescriptions.size();
+			VkResult res = vkGetQueryPoolResults(
+				vulkan_->GetDevice(),
+				frameData.timestampQueryPool_, 0, numQueries, sizeof(uint64_t) * numQueries, &queryResults[0], sizeof(uint64_t),
+				VK_QUERY_RESULT_64_BIT);
+			if (res == VK_SUCCESS) {
+				double timestampConversionFactor = (double)vulkan_->GetPhysicalDeviceProperties().properties.limits.timestampPeriod * (1.0 / 1000000.0);
+				int validBits = vulkan_->GetQueueFamilyProperties(vulkan_->GetGraphicsQueueFamilyIndex()).timestampValidBits;
+				uint64_t timestampDiffMask = validBits == 64 ? 0xFFFFFFFFFFFFFFFFULL : ((1ULL << validBits) - 1);
+				std::stringstream str;
+
+				char line[256];
+				snprintf(line, sizeof(line), "Total GPU time: %0.3f ms\n", ((double)((queryResults[numQueries - 1] - queryResults[0]) & timestampDiffMask) * timestampConversionFactor));
+				str << line;
+				for (int i = 0; i < numQueries - 1; i++) {
+					uint64_t diff = (queryResults[i + 1] - queryResults[i]) & timestampDiffMask;
+					double milliseconds = (double)diff * timestampConversionFactor;
+					snprintf(line, sizeof(line), "%s: %0.3f ms\n", frameData.timestampDescriptions[i + 1].c_str(), milliseconds);
+					str << line;
+				}
+				frameData.profileSummary = str.str();
+			} else {
+				frameData.profileSummary = "(error getting GPU profile - not ready?)";
+			}
+		}
+		else {
+			frameData.profileSummary = "(no GPU profile data collected)";
+		}
+	}
+
 	// Must be after the fence - this performs deletes.
 	VLOG("PUSH: BeginFrame %d", curFrame);
 	if (!run_) {
@@ -368,6 +414,18 @@ void VulkanRenderManager::BeginFrame() {
 	vulkan_->BeginFrame();
 
 	insideFrame_ = true;
+
+	frameData.timestampDescriptions.clear();
+	if (gpuProfilingEnabled_) {
+		// For various reasons, we need to always use an init cmd buffer in this case to perform the vkCmdResetQueryPool,
+		// unless we want to limit ourselves to only measure the main cmd buffer.
+		// Reserve the first two queries for initCmd.
+		frameData.timestampDescriptions.push_back("initCmd Begin");
+		frameData.timestampDescriptions.push_back("initCmd");
+		VkCommandBuffer initCmd = GetInitCmd();
+		vkCmdResetQueryPool(initCmd, frameData.timestampQueryPool_, 0, MAX_TIMESTAMP_QUERIES);
+		vkCmdWriteTimestamp(initCmd, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, frameData.timestampQueryPool_, 0);
+	}
 }
 
 VkCommandBuffer VulkanRenderManager::GetInitCmd() {
@@ -884,6 +942,7 @@ void VulkanRenderManager::BeginSubmitFrame(int frame) {
 		VkCommandBufferBeginInfo begin{ VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO };
 		begin.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
 		res = vkBeginCommandBuffer(frameData.mainCmd, &begin);
+
 		_assert_msg_(G3D, res == VK_SUCCESS, "vkBeginCommandBuffer failed! result=%s", VulkanResultToString(res));
 
 		queueRunner_.SetBackbuffer(framebuffers_[frameData.curSwapchainImage], swapchainImages_[frameData.curSwapchainImage].image);
@@ -895,8 +954,18 @@ void VulkanRenderManager::BeginSubmitFrame(int frame) {
 void VulkanRenderManager::Submit(int frame, bool triggerFence) {
 	FrameData &frameData = frameData_[frame];
 	if (frameData.hasInitCommands) {
+		if (gpuProfilingEnabled_ && triggerFence) {
+			// Pre-allocated query ID 1.
+			vkCmdWriteTimestamp(frameData.initCmd, VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, frameData.timestampQueryPool_, 1);
+		}
 		VkResult res = vkEndCommandBuffer(frameData.initCmd);
 		_assert_msg_(G3D, res == VK_SUCCESS, "vkEndCommandBuffer failed (init)! result=%s", VulkanResultToString(res));
+	}
+
+	if (gpuProfilingEnabled_) {
+		int numQueries = (int)frameData.timestampDescriptions.size();
+		vkCmdWriteTimestamp(frameData.mainCmd, VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, frameData.timestampQueryPool_, numQueries);
+		frameData.timestampDescriptions.push_back("mainCmd");
 	}
 
 	VkResult res = vkEndCommandBuffer(frameData.mainCmd);

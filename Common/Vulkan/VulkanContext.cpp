@@ -516,8 +516,8 @@ void VulkanContext::ChooseDevice(int physical_device) {
 	vkGetPhysicalDeviceQueueFamilyProperties(physical_devices_[physical_device_], &queue_count, nullptr);
 	assert(queue_count >= 1);
 
-	queue_props.resize(queue_count);
-	vkGetPhysicalDeviceQueueFamilyProperties(physical_devices_[physical_device_], &queue_count, queue_props.data());
+	queueFamilyProperties_.resize(queue_count);
+	vkGetPhysicalDeviceQueueFamilyProperties(physical_devices_[physical_device_], &queue_count, queueFamilyProperties_.data());
 	assert(queue_count >= 1);
 
 	// Detect preferred formats, in this order.
@@ -619,7 +619,7 @@ VkResult VulkanContext::CreateDevice() {
 	queue_info.pQueuePriorities = queue_priorities;
 	bool found = false;
 	for (int i = 0; i < (int)queue_count; i++) {
-		if (queue_props[i].queueFlags & VK_QUEUE_GRAPHICS_BIT) {
+		if (queueFamilyProperties_[i].queueFlags & VK_QUEUE_GRAPHICS_BIT) {
 			queue_info.queueFamilyIndex = i;
 			found = true;
 			break;
@@ -816,7 +816,7 @@ bool VulkanContext::InitQueue() {
 	uint32_t graphicsQueueNodeIndex = UINT32_MAX;
 	uint32_t presentQueueNodeIndex = UINT32_MAX;
 	for (uint32_t i = 0; i < queue_count; i++) {
-		if ((queue_props[i].queueFlags & VK_QUEUE_GRAPHICS_BIT) != 0) {
+		if ((queueFamilyProperties_[i].queueFlags & VK_QUEUE_GRAPHICS_BIT) != 0) {
 			if (graphicsQueueNodeIndex == UINT32_MAX) {
 				graphicsQueueNodeIndex = i;
 			}
