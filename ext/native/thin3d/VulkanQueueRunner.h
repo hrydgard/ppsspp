@@ -48,6 +48,20 @@ struct TinySet {
 		}
 		return false;
 	}
+	bool contains(const TinySet<T, MaxFastSize> &otherSet) {
+		// Awkward, kind of ruins the fun.
+		for (int i = 0; i < fastCount; i++) {
+			if (otherSet.contains(fastLookup_[i]))
+				return true;
+		}
+		if (slowLookup_) {
+			for (auto x : *slowLookup_) {
+				if (otherSet.contains(x))
+					return true;
+			}
+		}
+		return false;
+	}
 
 private:
 	void insertSlow(T t) {

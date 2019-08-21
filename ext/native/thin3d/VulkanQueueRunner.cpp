@@ -754,17 +754,16 @@ void VulkanQueueRunner::ApplyRenderPassMerge(std::vector<VKRStep *> &steps) {
 	for (int i = 0; i < (int)steps.size(); i++) {
 		if (steps[i]->stepType == VKRStepType::RENDER && counts[steps[i]->render.framebuffer] > 1) {
 			auto fb = steps[i]->render.framebuffer;
+			TinySet<VKRFramebuffer *, 8> touchedFramebuffers;  // must be the same fast-size as the dependencies TinySet for annoying reasons.
 			for (int j = i + 1; j < (int)steps.size(); j++) {
 				// If any other passes are reading from this framebuffer as-is, we cancel the scan.
 				switch (steps[j]->stepType) {
-				case VKRStepType::COPY:
-					if (steps[j]->copy.src == fb) {
-						// We're done.
-						goto done_fb;
-					}
-					break;
 				case VKRStepType::RENDER:
 					if (steps[j]->dependencies.contains(fb)) {
+						goto done_fb;
+					}
+					// Prevent Unknown's example case from https://github.com/hrydgard/ppsspp/pull/12242
+					if (steps[j]->dependencies.contains(touchedFramebuffers)) {
 						goto done_fb;
 					}
 					if (steps[j]->render.framebuffer == fb) {
@@ -775,7 +774,17 @@ void VulkanQueueRunner::ApplyRenderPassMerge(std::vector<VKRStep *> &steps) {
 						steps[i]->commands.insert(steps[i]->commands.end(), steps[j]->commands.begin(), steps[j]->commands.end());
 						steps[j]->stepType = VKRStepType::RENDER_SKIP;
 					}
+					// Remember the framebuffer this wrote to. We can't merge with later passes that depend on these.
+					if (steps[j]->render.framebuffer != fb) {
+						touchedFramebuffers.insert(steps[j]->render.framebuffer);
+					}
 					// keep going.
+					break;
+				case VKRStepType::COPY:
+					if (steps[j]->copy.src == fb) {
+						// We're done.
+						goto done_fb;
+					}
 					break;
 				case VKRStepType::BLIT:
 					if (steps[j]->blit.src == fb) {
