@@ -409,7 +409,8 @@ public abstract class NativeActivity extends Activity implements SurfaceHolder.C
 			flags |= View.SYSTEM_UI_FLAG_LOW_PROFILE;
 		}
 		if (useImmersive()) {
-			flags |= View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY | View.SYSTEM_UI_FLAG_HIDE_NAVIGATION;
+			flags |= View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY | View.SYSTEM_UI_FLAG_HIDE_NAVIGATION
+			       | View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN;
 		}
 		if (getWindow().getDecorView() != null) {
 			getWindow().getDecorView().setSystemUiVisibility(flags);
