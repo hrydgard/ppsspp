@@ -292,7 +292,6 @@ private:
 		// Profiling.
 		VkQueryPool timestampQueryPool_ = VK_NULL_HANDLE;
 		std::vector<std::string> timestampDescriptions;
-		int numQueries = 0;
 		std::string profileSummary;
 	};
 
