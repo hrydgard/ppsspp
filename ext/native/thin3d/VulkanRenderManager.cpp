@@ -350,7 +350,8 @@ void VulkanRenderManager::ThreadFunc() {
 	VLOG("PULL: Quitting");
 }
 
-void VulkanRenderManager::BeginFrame() {
+void VulkanRenderManager::BeginFrame(bool enableProfiling) {
+	gpuProfilingEnabled_ = enableProfiling;
 	VLOG("BeginFrame");
 	VkDevice device = vulkan_->GetDevice();
 
@@ -372,6 +373,7 @@ void VulkanRenderManager::BeginFrame() {
 	vkResetFences(device, 1, &frameData.fence);
 
 	uint64_t queryResults[MAX_TIMESTAMP_QUERIES];
+
 	if (gpuProfilingEnabled_) {
 		// Pull the profiling results from last time and produce a summary!
 		if (frameData.numQueries) {

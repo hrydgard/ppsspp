@@ -879,8 +879,7 @@ VKContext::~VKContext() {
 }
 
 void VKContext::BeginFrame() {
-	renderManager_.SetGPUProfilingEnabled(g_Config.bShowGpuProfile);
-	renderManager_.BeginFrame();
+	renderManager_.BeginFrame(g_Config.bShowGpuProfile);
 
 	FrameData &frame = frame_[vulkan_->GetCurFrame()];
 	push_ = frame.pushBuffer;

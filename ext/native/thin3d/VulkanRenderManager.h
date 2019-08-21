@@ -92,7 +92,7 @@ public:
 	void ThreadFunc();
 
 	// Makes sure that the GPU has caught up enough that we can start writing buffers of this frame again.
-	void BeginFrame();
+	void BeginFrame(bool enableProfiling);
 	// Can run on a different thread!
 	void Finish();
 	void Run(int frame);
@@ -242,11 +242,6 @@ public:
 		return &queueRunner_;
 	}
 
-	// Call before BeginFrame.
-	void SetGPUProfilingEnabled(bool enabled) {
-		gpuProfilingEnabled_ = enabled;
-	}
-
 	std::string GetGpuProfileString() const {
 		return frameData_[vulkan_->GetCurFrame()].profileSummary;
 	}
@@ -307,6 +302,9 @@ private:
 		MAX_TIMESTAMP_QUERIES = 256,
 	};
 
+	// Global state
+	bool gpuProfilingEnabled_ = false;
+
 	// Submission time state
 	int curWidth_ = -1;
 	int curHeight_ = -1;
@@ -314,7 +312,6 @@ private:
 	VKRStep *curRenderStep_ = nullptr;
 	std::vector<VKRStep *> steps_;
 	bool splitSubmit_ = false;
-	bool gpuProfilingEnabled_ = false;
 
 	// Execution time state
 	bool run_ = true;
