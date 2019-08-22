@@ -506,6 +506,8 @@ std::string GetSysDirectory(PSPDirectories directoryType) {
 		return g_Config.memStickDirectory + "PSP/Cheats/";
 	case DIRECTORY_GAME:
 		return g_Config.memStickDirectory + "PSP/GAME/";
+	case DIRECTORY_ISO:
+		return g_Config.memStickDirectory + "PSP/ISO/";
 	case DIRECTORY_SAVEDATA:
 		return g_Config.memStickDirectory + "PSP/SAVEDATA/";
 	case DIRECTORY_SCREENSHOT:
@@ -617,6 +619,7 @@ void InitSysDirectories() {
 	File::CreateDir(g_Config.memStickDirectory + "PSP");
 	File::CreateDir(g_Config.memStickDirectory + "PSP/COMMON");
 	File::CreateDir(GetSysDirectory(DIRECTORY_GAME));
+	File::CreateDir(GetSysDirectory(DIRECTORY_ISO));
 	File::CreateDir(GetSysDirectory(DIRECTORY_SAVEDATA));
 	File::CreateDir(GetSysDirectory(DIRECTORY_SAVESTATE));
 

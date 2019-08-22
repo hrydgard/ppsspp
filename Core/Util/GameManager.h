@@ -69,6 +69,8 @@ public:
 
 	// Only returns false if there's already an installation in progress.
 	bool InstallGameOnThread(std::string url, std::string tempFileName, bool deleteAfter);
+	//Returns the file with extension
+	std::string GetGameExtension(const std::string &fileName);
 
 private:
 	bool InstallGame(const std::string &url, const std::string &tempFileName, bool deleteAfter);

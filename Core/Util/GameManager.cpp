@@ -61,8 +61,7 @@ std::string GameManager::GetTempFilename() const {
 }
 
 bool GameManager::IsGameInstalled(std::string name) {
-	std::string pspGame = GetSysDirectory(DIRECTORY_GAME);
-	return File::Exists(pspGame + name);
+	return File::Exists(GetGameExtension(name));
 }
 
 bool GameManager::DownloadAndInstall(std::string storeFileUrl) {
@@ -96,6 +95,19 @@ bool GameManager::Uninstall(std::string name) {
 	}
 	std::string gameDir = GetSysDirectory(DIRECTORY_GAME) + name;
 	INFO_LOG(HLE, "Deleting '%s'", gameDir.c_str());
+
+	//Deletes iso file or cso files that aren't on directories
+		bool deleted = false;
+		std::string fileType = GetGameExtension(name);
+		if (File::Exists(fileType) && (fileType.find(".iso") || fileType.find(".cso"))) {
+			deleted = File::Delete(fileType);
+			if (deleted) {
+				INFO_LOG(HLE, "Successfully deleted game '%s'", name.c_str());
+				g_Config.CleanRecent();
+				return deleted;
+		}
+	}
+
 	if (!File::Exists(gameDir)) {
 		ERROR_LOG(HLE, "Game '%s' not installed, cannot uninstall", name.c_str());
 		return false;
@@ -232,6 +244,16 @@ ZipFileContents DetectZipFileContents(struct zip *z, ZipFileInfo *info) {
 		return ZipFileContents::TEXTURE_PACK;
 	} else {
 		return ZipFileContents::UNKNOWN;
+	}
+}
+
+std::string GameManager::GetGameExtension(const std::string &fileName) {
+	if (File::Exists(GetSysDirectory(DIRECTORY_ISO) + fileName + ".iso")) {
+		return GetSysDirectory(DIRECTORY_ISO) + fileName + ".iso";
+	} else if (File::Exists(GetSysDirectory(DIRECTORY_ISO) + fileName + ".cso")){
+		return GetSysDirectory(DIRECTORY_ISO) + fileName + ".cso";
+	} else {
+		return GetSysDirectory(DIRECTORY_GAME) + fileName;
 	}
 }
 
@@ -580,7 +602,12 @@ bool GameManager::InstallZippedISO(struct zip *z, int isoFileIndex, std::string 
 		allBytes += zstat.size;
 	}
 
-	std::string outputISOFilename = g_Config.currentDirectory + "/" + fn.substr(nameOffset);
+	if (g_Config.currentDirectory == "") {
+		g_Config.currentDirectory = GetSysDirectory(DIRECTORY_ISO);
+	} else {
+		g_Config.currentDirectory = g_Config.currentDirectory + "/";
+	}
+	std::string outputISOFilename = g_Config.currentDirectory + fn.substr(nameOffset);
 	size_t bytesCopied = 0;
 	if (ExtractFile(z, isoFileIndex, outputISOFilename, &bytesCopied, allBytes)) {
 		ILOG("Successfully extracted ISO file to '%s'", outputISOFilename.c_str());

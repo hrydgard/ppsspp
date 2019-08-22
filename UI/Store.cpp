@@ -322,9 +322,9 @@ UI::EventReturn ProductView::OnLaunchClick(UI::EventParams &e) {
 		// Button should have been disabled. Just a safety check.
 		return UI::EVENT_DONE;
 	}
-
-	std::string pspGame = GetSysDirectory(DIRECTORY_GAME);
-	std::string path = pspGame + entry_.file;
+	//Get the gamepath with or without extensions
+	std::string path = g_GameManager.GetGameExtension(entry_.file);
+	
 #ifdef _WIN32
 	path = ReplaceAll(path, "\\", "/");
 #endif
