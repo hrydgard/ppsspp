@@ -413,7 +413,9 @@ int SasInstance::EstimateMixUs() {
 	}
 
 	// Each voice costs extra time, and each byte of grain costs extra time.
-	return 20 + voicesPlayingCount * 68 + (grainSize * 60) / 100;
+	int cycles = 20 + voicesPlayingCount * 68 + (grainSize * 60) / 100;
+	// Cap to 1200 to fix FFT, see issue #9956.
+	return std::min(cycles, 1200);
 }
 
 void SasVoice::ReadSamples(s16 *output, int numSamples) {
