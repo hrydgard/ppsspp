@@ -2083,11 +2083,6 @@ void FramebufferManagerCommon::DownloadFramebufferForClut(u32 fb_address, u32 lo
 		int w = std::min(pixels % vfb->fb_stride, (int)vfb->width);
 		int h = std::min((pixels + vfb->fb_stride - 1) / vfb->fb_stride, (int)vfb->height);
 
-		if (w == 0 && h > 0) {
-			// Exactly aligned (means pixels == vfb->fb_stride, so modulus gave zero.)
-			w = std::min(vfb->fb_stride, (int)vfb->width);
-		}
-
 		// We might still have a pending draw to the fb in question, flush if so.
 		FlushBeforeCopy();
 
