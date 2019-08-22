@@ -858,7 +858,8 @@ void VulkanRenderManager::BlitFramebuffer(VKRFramebuffer *src, VkRect2D srcRect,
 }
 
 VkImageView VulkanRenderManager::BindFramebufferAsTexture(VKRFramebuffer *fb, int binding, int aspectBit, int attachment) {
-	// Mark the dependency and return the image.
+	_dbg_assert_(G3D, curRenderStep_ != nullptr);
+	// Mark the dependency, check for required transitions, and return the image.
 
 	for (int i = (int)steps_.size() - 1; i >= 0; i--) {
 		if (steps_[i]->stepType == VKRStepType::RENDER && steps_[i]->render.framebuffer == fb) {
@@ -870,6 +871,9 @@ VkImageView VulkanRenderManager::BindFramebufferAsTexture(VKRFramebuffer *fb, in
 			break;
 		}
 	}
+
+	// Track dependencies fully.
+	curRenderStep_->dependencies.insert(fb);
 
 	if (!curRenderStep_->preTransitions.empty() &&
 			curRenderStep_->preTransitions.back().fb == fb &&

@@ -1,3 +1,4 @@
+#include <map>
 #include "DataFormat.h"
 #include "VulkanQueueRunner.h"
 #include "VulkanRenderManager.h"
@@ -379,7 +380,6 @@ void VulkanQueueRunner::RunSteps(VkCommandBuffer cmd, std::vector<VKRStep *> &st
 	// Planned optimizations: 
 	//  * Create copies of render target that are rendered to multiple times and textured from in sequence, and push those render passes
 	//    as early as possible in the frame (Wipeout billboards).
-	//  * Merge subsequent render passes to the same target that are interspersed with unrelated draws to other render targets (God of War).
 
 	for (int j = 0; j < (int)steps.size(); j++) {
 		if (steps[j]->stepType == VKRStepType::RENDER &&
@@ -437,6 +437,9 @@ void VulkanQueueRunner::RunSteps(VkCommandBuffer cmd, std::vector<VKRStep *> &st
 		}
 		if (hacksEnabled_ & QUEUE_HACK_SONIC) {
 			ApplySonicHack(steps);
+		}
+		if (hacksEnabled_ & QUEUE_HACK_RENDERPASS_MERGE) {
+			ApplyRenderPassMerge(steps);
 		}
 	}
 
@@ -717,10 +720,10 @@ std::string VulkanQueueRunner::StepToString(const VKRStep &step) const {
 		snprintf(buffer, sizeof(buffer), "Blit (%dx%d->%dx%d)", step.blit.srcRect.extent.width, step.blit.srcRect.extent.height, step.blit.dstRect.extent.width, step.blit.dstRect.extent.height);
 		break;
 	case VKRStepType::READBACK:
-		snprintf(buffer, sizeof(buffer), "Readback (%dx%d)", step.readback.srcRect.extent.width, step.readback.srcRect.extent.height);
+		snprintf(buffer, sizeof(buffer), "Readback (%dx%d, fb: %p)", step.readback.srcRect.extent.width, step.readback.srcRect.extent.height, step.readback.src);
 		break;
 	case VKRStepType::READBACK_IMAGE:
-		snprintf(buffer, sizeof(buffer), "ReadbackImage");
+		snprintf(buffer, sizeof(buffer), "ReadbackImage (%dx%d)", step.readback_image.srcRect.extent.width, step.readback_image.srcRect.extent.height);
 		break;
 	case VKRStepType::RENDER_SKIP:
 		snprintf(buffer, sizeof(buffer), "(SKIPPED RenderPass)");
@@ -730,6 +733,74 @@ std::string VulkanQueueRunner::StepToString(const VKRStep &step) const {
 		break;
 	}
 	return std::string(buffer);
+}
+
+// Ideally, this should be cheap enough to be applied to all games. At least on mobile, it's pretty
+// much a guaranteed neutral or win in terms of GPU power. However, dependency calculation really
+// must be perfect!
+void VulkanQueueRunner::ApplyRenderPassMerge(std::vector<VKRStep *> &steps) {
+	// First let's count how many times each framebuffer is rendered to.
+	// If it's more than one, let's do our best to merge them. This can help God of War quite a bit.
+	std::map<VKRFramebuffer *, int> counts;
+	for (int i = 0; i < (int)steps.size(); i++) {
+		if (steps[i]->stepType == VKRStepType::RENDER) {
+			counts[steps[i]->render.framebuffer]++;
+		}
+	}
+
+	// Now, let's go through the steps. If we find one that is rendered to more than once,
+	// we'll scan forward and slurp up any rendering that can be merged across.
+	for (int i = 0; i < (int)steps.size(); i++) {
+		if (steps[i]->stepType == VKRStepType::RENDER && counts[steps[i]->render.framebuffer] > 1) {
+			auto fb = steps[i]->render.framebuffer;
+			TinySet<VKRFramebuffer *, 8> touchedFramebuffers;  // must be the same fast-size as the dependencies TinySet for annoying reasons.
+			for (int j = i + 1; j < (int)steps.size(); j++) {
+				// If any other passes are reading from this framebuffer as-is, we cancel the scan.
+				switch (steps[j]->stepType) {
+				case VKRStepType::RENDER:
+					if (steps[j]->dependencies.contains(fb)) {
+						goto done_fb;
+					}
+					// Prevent Unknown's example case from https://github.com/hrydgard/ppsspp/pull/12242
+					if (steps[j]->dependencies.contains(touchedFramebuffers)) {
+						goto done_fb;
+					}
+					if (steps[j]->render.framebuffer == fb) {
+						// ok. Now, if it's a render, slurp up all the commands
+						// and kill the step.
+						// Also slurp up any pretransitions.
+						steps[i]->preTransitions.insert(steps[i]->preTransitions.end(), steps[j]->preTransitions.begin(), steps[j]->preTransitions.end());
+						steps[i]->commands.insert(steps[i]->commands.end(), steps[j]->commands.begin(), steps[j]->commands.end());
+						steps[j]->stepType = VKRStepType::RENDER_SKIP;
+					}
+					// Remember the framebuffer this wrote to. We can't merge with later passes that depend on these.
+					if (steps[j]->render.framebuffer != fb) {
+						touchedFramebuffers.insert(steps[j]->render.framebuffer);
+					}
+					break;
+				case VKRStepType::COPY:
+					if (steps[j]->copy.src == fb || steps[j]->copy.dst == fb) {
+						goto done_fb;
+					}
+					break;
+				case VKRStepType::BLIT:
+					if (steps[j]->blit.src == fb || steps[j]->blit.dst == fb) {
+						goto done_fb;
+					}
+					break;
+				case VKRStepType::READBACK:
+					// Not sure this has much effect, when executed READBACK is always the last step
+					// since we stall the GPU and wait immediately after.
+					if (steps[j]->readback.src == fb) {
+						goto done_fb;
+					}
+					break;
+				}
+			}
+			done_fb:
+				;
+		}
+	}
 }
 
 void VulkanQueueRunner::LogSteps(const std::vector<VKRStep *> &steps) {
@@ -804,20 +875,20 @@ void VulkanQueueRunner::LogRenderPass(const VKRStep &pass) {
 	ILOG("RenderPass End(%x)", fb);
 }
 
-void VulkanQueueRunner::LogCopy(const VKRStep &pass) {
-	ILOG("Copy()");
+void VulkanQueueRunner::LogCopy(const VKRStep &step) {
+	ILOG("%s", StepToString(step).c_str());
 }
 
-void VulkanQueueRunner::LogBlit(const VKRStep &pass) {
-	ILOG("Blit()");
+void VulkanQueueRunner::LogBlit(const VKRStep &step) {
+	ILOG("%s", StepToString(step).c_str());
 }
 
-void VulkanQueueRunner::LogReadback(const VKRStep &pass) {
-	ILOG("Readback");
+void VulkanQueueRunner::LogReadback(const VKRStep &step) {
+	ILOG("%s", StepToString(step).c_str());
 }
 
-void VulkanQueueRunner::LogReadbackImage(const VKRStep &pass) {
-	ILOG("ReadbackImage");
+void VulkanQueueRunner::LogReadbackImage(const VKRStep &step) {
+	ILOG("%s", StepToString(step).c_str());
 }
 
 void VulkanQueueRunner::PerformRenderPass(const VKRStep &step, VkCommandBuffer cmd) {
