@@ -741,7 +741,6 @@ std::string VulkanQueueRunner::StepToString(const VKRStep &step) const {
 void VulkanQueueRunner::ApplyRenderPassMerge(std::vector<VKRStep *> &steps) {
 	// First let's count how many times each framebuffer is rendered to.
 	// If it's more than one, let's do our best to merge them. This can help God of War quite a bit.
-
 	std::map<VKRFramebuffer *, int> counts;
 	for (int i = 0; i < (int)steps.size(); i++) {
 		if (steps[i]->stepType == VKRStepType::RENDER) {
@@ -778,20 +777,20 @@ void VulkanQueueRunner::ApplyRenderPassMerge(std::vector<VKRStep *> &steps) {
 					if (steps[j]->render.framebuffer != fb) {
 						touchedFramebuffers.insert(steps[j]->render.framebuffer);
 					}
-					// keep going.
 					break;
 				case VKRStepType::COPY:
-					if (steps[j]->copy.src == fb) {
-						// We're done.
+					if (steps[j]->copy.src == fb || steps[j]->copy.dst == fb) {
 						goto done_fb;
 					}
 					break;
 				case VKRStepType::BLIT:
-					if (steps[j]->blit.src == fb) {
+					if (steps[j]->blit.src == fb || steps[j]->blit.dst == fb) {
 						goto done_fb;
 					}
 					break;
 				case VKRStepType::READBACK:
+					// Not sure this has much effect, when executed READBACK is always the last step
+					// since we stall the GPU and wait immediately after.
 					if (steps[j]->readback.src == fb) {
 						goto done_fb;
 					}
