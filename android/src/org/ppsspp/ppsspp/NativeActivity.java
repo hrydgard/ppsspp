@@ -740,6 +740,7 @@ public abstract class NativeActivity extends Activity implements SurfaceHolder.C
 				Log.e(TAG, "mGLSurfaceView really shouldn't be null in onPause");
 			}
 		}
+		mCameraHelper.pause();
 		Log.i(TAG, "onPause completed");
 	}
 
@@ -779,6 +780,7 @@ public abstract class NativeActivity extends Activity implements SurfaceHolder.C
 				mSurfaceView.onResume();
 			}
 		}
+		mCameraHelper.resume();
 
 		gainAudioFocus(this.audioManager, this.audioFocusChangeListener);
 		NativeApp.resume();
@@ -1334,6 +1336,10 @@ public abstract class NativeActivity extends Activity implements SurfaceHolder.C
 			} else {
 				// Only keep the screen bright ingame.
 				window.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
+			}
+		} else if (command.equals("event")) {
+			if (params.equals("exitgame")) {
+				mCameraHelper.stopCamera();
 			}
 		}
 		return false;
