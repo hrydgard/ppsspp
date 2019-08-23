@@ -4,6 +4,7 @@
 #include <windowsx.h>
 #include "..\resource.h"
 
+#include "base/display.h"
 #include "util/text/utf8.h"
 
 #include "Core/Debugger/SymbolMap.h"
@@ -218,6 +219,8 @@ void CMemoryDlg::Goto(u32 addr)
 
 void CMemoryDlg::Size()
 {
+	const float fontScale = 1.0f / g_dpi_scale_real_y;
+
 	RECT rc;
 	GetClientRect(m_hDlg,&rc);
 	int dw=rc.right-rc.left;
@@ -225,8 +228,8 @@ void CMemoryDlg::Size()
 	HWND memView = GetDlgItem(m_hDlg, IDC_MEMVIEW);
 	HWND symList = GetDlgItem(m_hDlg, IDC_SYMBOLS);
 	int wf = slRect.right-slRect.left;
-	int w = dw-3-wf;
-	int top = 48;
+	int w = dw - 3 * fontScale - wf;
+	int top = 48 * fontScale;
 	MoveWindow(symList,0,top,wf,dh-top,TRUE);
 	MoveWindow(memView,wf+4,top,w,dh-top,TRUE);
 }
