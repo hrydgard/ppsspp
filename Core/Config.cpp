@@ -574,8 +574,16 @@ static int DefaultGPUBackend() {
 	if (DoesVersionMatchWindows(6, 2, 0, 0, true)) {
 		return (int)GPUBackend::DIRECT3D11;
 	}
-#endif
+#elif PPSSPP_PLATFORM(ANDROID)
+	// Default to Vulkan only on Pie (level 28) devices or newer. Drivers before Pie
+	// were generally too unreliable to default to (with some exceptions, of course).
+	if (System_GetPropertyInt(SYSPROP_SYSTEMVERSION) >= 28) {
+		return (int)GPUBackend::VULKAN;
+	}
+#else
+	// TODO: On some additional Linux platforms, we should also default to Vulkan.
 	return (int)GPUBackend::OPENGL;
+#endif
 }
 
 int Config::NextValidBackend() {
