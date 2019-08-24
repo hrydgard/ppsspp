@@ -580,10 +580,9 @@ static int DefaultGPUBackend() {
 	if (System_GetPropertyInt(SYSPROP_SYSTEMVERSION) >= 28) {
 		return (int)GPUBackend::VULKAN;
 	}
-#else
+#endif
 	// TODO: On some additional Linux platforms, we should also default to Vulkan.
 	return (int)GPUBackend::OPENGL;
-#endif
 }
 
 int Config::NextValidBackend() {
