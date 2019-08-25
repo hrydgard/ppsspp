@@ -116,7 +116,7 @@ static int sceUsbCamReadVideoFrame(u32 bufAddr, u32 size) {
 }
 
 static int sceUsbCamPollReadVideoFrameEnd() {
-	INFO_LOG(HLE, "UNIMPL sceUsbCamPollReadVideoFrameEnd: %d", nextVideoFrame);
+	VERBOSE_LOG(HLE, "UNIMPL sceUsbCamPollReadVideoFrameEnd: %d", nextVideoFrame);
 	return nextVideoFrame;
 }
 
@@ -186,7 +186,12 @@ void Register_sceUsbCam()
 
 void Camera::pushCameraImage(long long length, unsigned char* image) {
 	std::lock_guard<std::mutex> lock(videoBufferMutex);
-	videoBufferLength = length;
-	memset (videoBuffer, 0, sizeof(videoBuffer));
-	memcpy (videoBuffer, image, length);
+	memset(videoBuffer, 0, sizeof(videoBuffer));
+	if (length > sizeof(videoBuffer)) {
+		videoBufferLength = 0;
+		ERROR_LOG(HLE, "pushCameraImage: length error: %lld", length);
+	} else {
+		videoBufferLength = length;
+		memcpy(videoBuffer, image, length);
+	}
 }
