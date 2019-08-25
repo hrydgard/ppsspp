@@ -37,7 +37,6 @@ enum class ServerStatus {
 	STARTING,
 	RUNNING,
 	STOPPING,
-	RESTARTING,
 };
 
 static const char *REPORT_HOSTNAME = "report.ppsspp.org";
@@ -51,15 +50,6 @@ static int serverFlags;
 static void UpdateStatus(ServerStatus s) {
 	std::lock_guard<std::mutex> guard(serverStatusLock);
 	serverStatus = s;
-}
-
-static bool UpdateStatus(ServerStatus s, ServerStatus old) {
-	std::lock_guard<std::mutex> guard(serverStatusLock);
-	if (serverStatus == old) {
-		serverStatus = s;
-		return true;
-	}
-	return false;
 }
 
 static ServerStatus RetrieveStatus() {
@@ -225,14 +215,17 @@ static void HandleListing(const http::Request &request) {
 }
 
 static void HandleFallback(const http::Request &request) {
-	std::string filename = LocalFromRemotePath(request.resource());
-	if (!filename.empty()) {
-		DiscHandler(request, filename);
-	} else {
-		static const std::string payload = "404 not found\r\n";
-		request.WriteHttpResponseHeader("1.0", 404, (int)payload.size(), "text/plain");
-		request.Out()->Push(payload);
+	if (serverFlags & (int)WebServerFlags::DISCS) {
+		std::string filename = LocalFromRemotePath(request.resource());
+		if (!filename.empty()) {
+			DiscHandler(request, filename);
+			return;
+		}
 	}
+
+	static const std::string payload = "404 not found\r\n";
+	request.WriteHttpResponseHeader("1.0", 404, (int)payload.size(), "text/plain");
+	request.Out()->Push(payload);
 }
 
 static void ForwardDebuggerRequest(const http::Request &request) {
@@ -278,24 +271,16 @@ static void ExecuteWebServer() {
 	StopAllDebuggers();
 	delete http;
 
-	// Move to STARTING to lock flags/STOPPING.
-	if (UpdateStatus(ServerStatus::STARTING, ServerStatus::RESTARTING)) {
-		ExecuteWebServer();
-	} else {
-		UpdateStatus(ServerStatus::STOPPED);
-	}
+	UpdateStatus(ServerStatus::STOPPED);
 }
 
 bool StartWebServer(WebServerFlags flags) {
 	std::lock_guard<std::mutex> guard(serverStatusLock);
 	switch (serverStatus) {
 	case ServerStatus::RUNNING:
-	case ServerStatus::RESTARTING:
 		if ((serverFlags & (int)flags) == (int)flags) {
-			// Already running those flags.
 			return false;
 		}
-		serverStatus = ServerStatus::RESTARTING;
 		serverFlags |= (int)flags;
 		return true;
 
@@ -313,24 +298,19 @@ bool StartWebServer(WebServerFlags flags) {
 
 bool StopWebServer(WebServerFlags flags) {
 	std::lock_guard<std::mutex> guard(serverStatusLock);
-	if (serverStatus != ServerStatus::RUNNING && serverStatus != ServerStatus::RESTARTING) {
+	if (serverStatus != ServerStatus::RUNNING) {
 		return false;
 	}
 
 	serverFlags &= ~(int)flags;
 	if (serverFlags == 0) {
 		serverStatus = ServerStatus::STOPPING;
-	} else {
-		serverStatus = ServerStatus::RESTARTING;
 	}
 	return true;
 }
 
 bool WebServerStopping(WebServerFlags flags) {
 	std::lock_guard<std::mutex> guard(serverStatusLock);
-	if (serverStatus == ServerStatus::RESTARTING) {
-		return (serverFlags & (int)flags) == 0;
-	}
 	return serverStatus == ServerStatus::STOPPING;
 }
 
