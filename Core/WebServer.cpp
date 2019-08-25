@@ -155,8 +155,7 @@ static std::string LocalFromRemotePath(const std::string &path) {
 	return "";
 }
 
-static void DiscHandler(const http::Request &request) {
-	std::string filename = LocalFromRemotePath(request.resource());
+static void DiscHandler(const http::Request &request, const std::string &filename) {
 	s64 sz = File::GetFileSize(filename);
 
 	std::string range;
@@ -208,12 +207,39 @@ static void DiscHandler(const http::Request &request) {
 	}
 }
 
-static void RegisterDiscHandlers(http::Server *http) {
-	for (const std::string &filename : g_Config.recentIsos) {
-		std::string basename = RemotePathForRecent(filename);
-		if (!basename.empty()) {
-			http->RegisterHandler(basename.c_str(), &DiscHandler);
+static void HandleListing(const http::Request &request) {
+	request.WriteHttpResponseHeader("1.0", 200, -1, "text/plain");
+	request.Out()->Printf("/\n");
+	if (serverFlags & (int)WebServerFlags::DISCS) {
+		// List the current discs in their recent order.
+		for (const std::string &filename : g_Config.recentIsos) {
+			std::string basename = RemotePathForRecent(filename);
+			if (!basename.empty()) {
+				request.Out()->Printf("%s\n", basename.c_str());
+			}
 		}
+	}
+	if (serverFlags & (int)WebServerFlags::DEBUGGER) {
+		request.Out()->Printf("/debugger\n");
+	}
+}
+
+static void HandleFallback(const http::Request &request) {
+	std::string filename = LocalFromRemotePath(request.resource());
+	if (!filename.empty()) {
+		DiscHandler(request, filename);
+	} else {
+		static const std::string payload = "404 not found\r\n";
+		request.WriteHttpResponseHeader("1.0", 404, (int)payload.size(), "text/plain");
+		request.Out()->Push(payload);
+	}
+}
+
+static void ForwardDebuggerRequest(const http::Request &request) {
+	if (serverFlags & (int)WebServerFlags::DEBUGGER) {
+		HandleDebuggerRequest(request);
+	} else {
+		HandleFallback(request);
 	}
 }
 
@@ -221,13 +247,10 @@ static void ExecuteWebServer() {
 	setCurrentThreadName("HTTPServer");
 
 	auto http = new http::Server(new threading::NewThreadExecutor());
-
-	if (serverFlags & (int)WebServerFlags::DISCS) {
-		RegisterDiscHandlers(http);
-	}
-	if (serverFlags & (int)WebServerFlags::DEBUGGER) {
-		http->RegisterHandler("/debugger", &HandleDebuggerRequest);
-	}
+	http->RegisterHandler("/", &HandleListing);
+	// This lists all the (current) recent ISOs.
+	http->SetFallbackHandler(&HandleFallback);
+	http->RegisterHandler("/debugger", &ForwardDebuggerRequest);
 
 	if (!http->Listen(g_Config.iRemoteISOPort)) {
 		if (!http->Listen(0)) {
