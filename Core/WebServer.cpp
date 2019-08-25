@@ -37,7 +37,6 @@ enum class ServerStatus {
 	STARTING,
 	RUNNING,
 	STOPPING,
-	RESTARTING,
 };
 
 static const char *REPORT_HOSTNAME = "report.ppsspp.org";
@@ -51,15 +50,6 @@ static int serverFlags;
 static void UpdateStatus(ServerStatus s) {
 	std::lock_guard<std::mutex> guard(serverStatusLock);
 	serverStatus = s;
-}
-
-static bool UpdateStatus(ServerStatus s, ServerStatus old) {
-	std::lock_guard<std::mutex> guard(serverStatusLock);
-	if (serverStatus == old) {
-		serverStatus = s;
-		return true;
-	}
-	return false;
 }
 
 static ServerStatus RetrieveStatus() {
@@ -120,81 +110,129 @@ bool RemoteISOFileSupported(const std::string &filename) {
 		return true;
 	}
 	return false;
-
 }
 
-static void RegisterDiscHandlers(http::Server *http, std::unordered_map<std::string, std::string> *paths) {
-	for (std::string filename : g_Config.recentIsos) {
+static std::string RemotePathForRecent(const std::string &filename) {
 #ifdef _WIN32
-		static const std::string sep = "\\/";
+	static const std::string sep = "\\/";
 #else
-		static const std::string sep = "/";
+	static const std::string sep = "/";
 #endif
-		size_t basepos = filename.find_last_of(sep);
-		std::string basename = "/" + (basepos == filename.npos ? filename : filename.substr(basepos + 1));
+	size_t basepos = filename.find_last_of(sep);
+	std::string basename = "/" + (basepos == filename.npos ? filename : filename.substr(basepos + 1));
 
-		// Let's not serve directories, since they won't work.  Only single files.
-		// Maybe can do PBPs and other files later.  Would be neat to stream virtual disc filesystems.
-		if (RemoteISOFileSupported(basename)) {
-			(*paths)[ReplaceAll(basename, " ", "%20")] = filename;
+	if (basename == "/EBOOT.PBP") {
+		// Go up one more folder.
+		size_t nextpos = filename.find_last_of(sep, basepos - 1);
+		basename = "/" + (nextpos == filename.npos ? filename : filename.substr(nextpos + 1));
+	}
+
+	// Let's not serve directories, since they won't work.  Only single files.
+	// Maybe can do PBPs and other files later.  Would be neat to stream virtual disc filesystems.
+	if (RemoteISOFileSupported(basename)) {
+		return ReplaceAll(basename, " ", "%20");
+	}
+	return "";
+}
+
+static std::string LocalFromRemotePath(const std::string &path) {
+	for (const std::string &filename : g_Config.recentIsos) {
+		std::string basename = RemotePathForRecent(filename);
+		if (basename == path) {
+			return filename;
+		}
+	}
+	return "";
+}
+
+static void DiscHandler(const http::Request &request, const std::string &filename) {
+	s64 sz = File::GetFileSize(filename);
+
+	std::string range;
+	if (request.Method() == http::RequestHeader::HEAD) {
+		request.WriteHttpResponseHeader("1.0", 200, sz, "application/octet-stream", "Accept-Ranges: bytes\r\n");
+	} else if (request.GetHeader("range", &range)) {
+		s64 begin = 0, last = 0;
+		if (sscanf(range.c_str(), "bytes=%lld-%lld", &begin, &last) != 2) {
+			request.WriteHttpResponseHeader("1.0", 400, -1, "text/plain");
+			request.Out()->Push("Could not understand range request.");
+			return;
+		}
+
+		if (begin < 0 || begin > last || last >= sz) {
+			request.WriteHttpResponseHeader("1.0", 416, -1, "text/plain");
+			request.Out()->Push("Range goes outside of file.");
+			return;
+		}
+
+		FILE *fp = File::OpenCFile(filename, "rb");
+		if (!fp || fseek(fp, begin, SEEK_SET) != 0) {
+			request.WriteHttpResponseHeader("1.0", 500, -1, "text/plain");
+			request.Out()->Push("File access failed.");
+			if (fp) {
+				fclose(fp);
+			}
+			return;
+		}
+
+		s64 len = last - begin + 1;
+		char contentRange[1024];
+		sprintf(contentRange, "Content-Range: bytes %lld-%lld/%lld\r\n", begin, last, sz);
+		request.WriteHttpResponseHeader("1.0", 206, len, "application/octet-stream", contentRange);
+
+		const size_t CHUNK_SIZE = 16 * 1024;
+		char *buf = new char[CHUNK_SIZE];
+		for (s64 pos = 0; pos < len; pos += CHUNK_SIZE) {
+			s64 chunklen = std::min(len - pos, (s64)CHUNK_SIZE);
+			if (fread(buf, chunklen, 1, fp) != 1)
+				break;
+			request.Out()->Push(buf, chunklen);
+		}
+		fclose(fp);
+		delete[] buf;
+		request.Out()->Flush();
+	} else {
+		request.WriteHttpResponseHeader("1.0", 418, -1, "text/plain");
+		request.Out()->Push("This server only supports range requests.");
+	}
+}
+
+static void HandleListing(const http::Request &request) {
+	request.WriteHttpResponseHeader("1.0", 200, -1, "text/plain");
+	request.Out()->Printf("/\n");
+	if (serverFlags & (int)WebServerFlags::DISCS) {
+		// List the current discs in their recent order.
+		for (const std::string &filename : g_Config.recentIsos) {
+			std::string basename = RemotePathForRecent(filename);
+			if (!basename.empty()) {
+				request.Out()->Printf("%s\n", basename.c_str());
+			}
+		}
+	}
+	if (serverFlags & (int)WebServerFlags::DEBUGGER) {
+		request.Out()->Printf("/debugger\n");
+	}
+}
+
+static void HandleFallback(const http::Request &request) {
+	if (serverFlags & (int)WebServerFlags::DISCS) {
+		std::string filename = LocalFromRemotePath(request.resource());
+		if (!filename.empty()) {
+			DiscHandler(request, filename);
+			return;
 		}
 	}
 
-	auto handler = [paths](const http::Request &request) {
-		std::string filename = (*paths)[request.resource()];
-		s64 sz = File::GetFileSize(filename);
+	static const std::string payload = "404 not found\r\n";
+	request.WriteHttpResponseHeader("1.0", 404, (int)payload.size(), "text/plain");
+	request.Out()->Push(payload);
+}
 
-		std::string range;
-		if (request.Method() == http::RequestHeader::HEAD) {
-			request.WriteHttpResponseHeader("1.0", 200, sz, "application/octet-stream", "Accept-Ranges: bytes\r\n");
-		} else if (request.GetHeader("range", &range)) {
-			s64 begin = 0, last = 0;
-			if (sscanf(range.c_str(), "bytes=%lld-%lld", &begin, &last) != 2) {
-				request.WriteHttpResponseHeader("1.0", 400, -1, "text/plain");
-				request.Out()->Push("Could not understand range request.");
-				return;
-			}
-
-			if (begin < 0 || begin > last || last >= sz) {
-				request.WriteHttpResponseHeader("1.0", 416, -1, "text/plain");
-				request.Out()->Push("Range goes outside of file.");
-				return;
-			}
-
-			FILE *fp = File::OpenCFile(filename, "rb");
-			if (!fp || fseek(fp, begin, SEEK_SET) != 0) {
-				request.WriteHttpResponseHeader("1.0", 500, -1, "text/plain");
-				request.Out()->Push("File access failed.");
-				if (fp) {
-					fclose(fp);
-				}
-				return;
-			}
-
-			s64 len = last - begin + 1;
-			char contentRange[1024];
-			sprintf(contentRange, "Content-Range: bytes %lld-%lld/%lld\r\n", begin, last, sz);
-			request.WriteHttpResponseHeader("1.0", 206, len, "application/octet-stream", contentRange);
-
-			const size_t CHUNK_SIZE = 16 * 1024;
-			char *buf = new char[CHUNK_SIZE];
-			for (s64 pos = 0; pos < len; pos += CHUNK_SIZE) {
-				s64 chunklen = std::min(len - pos, (s64)CHUNK_SIZE);
-				if (fread(buf, chunklen, 1, fp) != 1)
-					break;
-				request.Out()->Push(buf, chunklen);
-			}
-			fclose(fp);
-			delete [] buf;
-			request.Out()->Flush();
-		} else {
-			request.WriteHttpResponseHeader("1.0", 418, -1, "text/plain");
-			request.Out()->Push("This server only supports range requests.");
-		}
-	};
-
-	for (auto pair : *paths) {
-		http->RegisterHandler(pair.first.c_str(), handler);
+static void ForwardDebuggerRequest(const http::Request &request) {
+	if (serverFlags & (int)WebServerFlags::DEBUGGER) {
+		HandleDebuggerRequest(request);
+	} else {
+		HandleFallback(request);
 	}
 }
 
@@ -202,14 +240,10 @@ static void ExecuteWebServer() {
 	setCurrentThreadName("HTTPServer");
 
 	auto http = new http::Server(new threading::NewThreadExecutor());
-	std::unordered_map<std::string, std::string> discPaths;
-
-	if (serverFlags & (int)WebServerFlags::DISCS) {
-		RegisterDiscHandlers(http, &discPaths);
-	}
-	if (serverFlags & (int)WebServerFlags::DEBUGGER) {
-		http->RegisterHandler("/debugger", &HandleDebuggerRequest);
-	}
+	http->RegisterHandler("/", &HandleListing);
+	// This lists all the (current) recent ISOs.
+	http->SetFallbackHandler(&HandleFallback);
+	http->RegisterHandler("/debugger", &ForwardDebuggerRequest);
 
 	if (!http->Listen(g_Config.iRemoteISOPort)) {
 		if (!http->Listen(0)) {
@@ -237,24 +271,16 @@ static void ExecuteWebServer() {
 	StopAllDebuggers();
 	delete http;
 
-	// Move to STARTING to lock flags/STOPPING.
-	if (UpdateStatus(ServerStatus::STARTING, ServerStatus::RESTARTING)) {
-		ExecuteWebServer();
-	} else {
-		UpdateStatus(ServerStatus::STOPPED);
-	}
+	UpdateStatus(ServerStatus::STOPPED);
 }
 
 bool StartWebServer(WebServerFlags flags) {
 	std::lock_guard<std::mutex> guard(serverStatusLock);
 	switch (serverStatus) {
 	case ServerStatus::RUNNING:
-	case ServerStatus::RESTARTING:
 		if ((serverFlags & (int)flags) == (int)flags) {
-			// Already running those flags.
 			return false;
 		}
-		serverStatus = ServerStatus::RESTARTING;
 		serverFlags |= (int)flags;
 		return true;
 
@@ -272,24 +298,19 @@ bool StartWebServer(WebServerFlags flags) {
 
 bool StopWebServer(WebServerFlags flags) {
 	std::lock_guard<std::mutex> guard(serverStatusLock);
-	if (serverStatus != ServerStatus::RUNNING && serverStatus != ServerStatus::RESTARTING) {
+	if (serverStatus != ServerStatus::RUNNING) {
 		return false;
 	}
 
 	serverFlags &= ~(int)flags;
 	if (serverFlags == 0) {
 		serverStatus = ServerStatus::STOPPING;
-	} else {
-		serverStatus = ServerStatus::RESTARTING;
 	}
 	return true;
 }
 
 bool WebServerStopping(WebServerFlags flags) {
 	std::lock_guard<std::mutex> guard(serverStatusLock);
-	if (serverStatus == ServerStatus::RESTARTING) {
-		return (serverFlags & (int)flags) == 0;
-	}
 	return serverStatus == ServerStatus::STOPPING;
 }
 
