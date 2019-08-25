@@ -19,6 +19,9 @@
 
 void Register_sceUsbCam();
 
+void __UsbCamInit();
+void __UsbCamShutdown();
+
 namespace Camera {
 	void pushCameraImage(long long length, unsigned char *image);
 }
