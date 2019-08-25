@@ -84,14 +84,14 @@ static int sceUsbCamSetupVideo(u32 paramAddr, u32 workareaAddr, int wasize) {
 		Memory::ReadStruct(paramAddr, &videoParam);
 	}
 
+	INFO_LOG(HLE, "UNIMPL sceUsbCamSetupVideo - size: %d", videoParam.size);
+	INFO_LOG(HLE, "UNIMPL sceUsbCamSetupVideo - resolution: %d", videoParam.resolution);
+	INFO_LOG(HLE, "UNIMPL sceUsbCamSetupVideo - framesize: %d", videoParam.framesize);
+
 	std::lock_guard<std::mutex> lock(videoBufferMutex);
 	videoBufferLength = sizeof(sceUsbCamDummyImage);
 	memset(videoBuffer, 0, sizeof(videoBuffer));
 	memcpy(videoBuffer, sceUsbCamDummyImage, sizeof(sceUsbCamDummyImage));
-
-	INFO_LOG(HLE, "UNIMPL sceUsbCamSetupVideo - size: %d", videoParam.size);
-	INFO_LOG(HLE, "UNIMPL sceUsbCamSetupVideo - resolution: %d", videoParam.resolution);
-	INFO_LOG(HLE, "UNIMPL sceUsbCamSetupVideo - framesize: %d", videoParam.framesize);
 	return 0;
 }
 
