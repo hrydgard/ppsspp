@@ -37,8 +37,9 @@ What's new in 1.9.0
 * Some Vulkan optimizations (pre-rotation (#12216), perf fix in Metal Gear Acid, etc)
 * Multiple fixes for the UWP build (#12036, others)
 * MP3 playback fixes (#12005)
-* Fixed audio in Motorstorm: Arctic Edge by returning errors correctly (#12121)
-* Fixed audio glitches in Final Fantasy Tactics (#9956)
+* Audio in Motorstorm: Arctic Edge fixed by returning errors correctly (#12121)
+* Audio glitches in Final Fantasy Tactics fixed (#9956)
+* Camera display in Invizimals fixed
 
 What's new in 1.8.0
 -------------------
