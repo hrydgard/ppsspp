@@ -245,14 +245,14 @@ SOURCES_CXX += \
 	$(EXTDIR)/glslang/SPIRV/Logger.cpp \
 	$(EXTDIR)/glslang/SPIRV/SpvBuilder.cpp \
 	$(EXTDIR)/glslang/SPIRV/SpvPostProcess.cpp \
-	$(EXTDIR)/SPIRV-Cross/spirv_cfg.cpp \
 	$(EXTDIR)/SPIRV-Cross/spirv_cross.cpp \
-	$(EXTDIR)/SPIRV-Cross/spirv_cross_util.cpp \
+	$(EXTDIR)/SPIRV-Cross/spirv_cfg.cpp \
 	$(EXTDIR)/SPIRV-Cross/spirv_glsl.cpp \
 	$(EXTDIR)/SPIRV-Cross/spirv_hlsl.cpp \
 	$(EXTDIR)/SPIRV-Cross/spirv_parser.cpp \
-	$(EXTDIR)/SPIRV-Cross/spirv_cross_parsed_ir.cpp
-
+	$(EXTDIR)/SPIRV-Cross/spirv_cross_parsed_ir.cpp \
+	$(EXTDIR)/SPIRV-Cross/spirv_cross_util.cpp
+	
 ifeq ($(PLATFORM_EXT), win32)
 SOURCES_CXX += $(COMMONDIR)/MemArenaWin32.cpp \
 	       $(EXTDIR)/glslang/glslang/OSDependent/Windows/ossource.cpp \
