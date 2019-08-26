@@ -192,7 +192,6 @@ private:
 	bool QualityDepth_;
 };
 
-class ProAdhocServerScreen : public UIDialogScreenWithBackground {
 class HostnameSelectScreen : public PopupScreen {
 public:
 	HostnameSelectScreen(std::string *value, const std::string &title)
