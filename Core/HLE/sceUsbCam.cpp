@@ -90,7 +90,7 @@ static int sceUsbCamSetupVideo(u32 paramAddr, u32 workareaAddr, int wasize) {
 
 	std::lock_guard<std::mutex> lock(videoBufferMutex);
 	videoBufferLength = sizeof(sceUsbCamDummyImage);
-	memset(videoBuffer, 0, sizeof(videoBuffer));
+	memset(videoBuffer, 0, VIDEO_BUFFER_SIZE);
 	memcpy(videoBuffer, sceUsbCamDummyImage, sizeof(sceUsbCamDummyImage));
 	return 0;
 }
@@ -203,10 +203,10 @@ void Register_sceUsbCam()
 
 void Camera::pushCameraImage(long long length, unsigned char* image) {
 	std::lock_guard<std::mutex> lock(videoBufferMutex);
-	memset(videoBuffer, 0, sizeof(videoBuffer));
-	if (length > sizeof(videoBuffer)) {
+	memset(videoBuffer, 0, VIDEO_BUFFER_SIZE);
+	if (length > VIDEO_BUFFER_SIZE) {
 		videoBufferLength = 0;
-		ERROR_LOG(HLE, "pushCameraImage: length error: %lld", length);
+		ERROR_LOG(HLE, "pushCameraImage: length error: %lld > %d", length, VIDEO_BUFFER_SIZE);
 	} else {
 		videoBufferLength = length;
 		memcpy(videoBuffer, image, length);
