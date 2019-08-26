@@ -106,6 +106,8 @@ public abstract class NativeActivity extends Activity implements SurfaceHolder.C
 	private InputDeviceState inputPlayerC;
 	private String inputPlayerADesc;
 
+	private PowerSaveModeReceiver mPowerSaveModeReceiver = null;
+
 	private static LocationHelper mLocationHelper;
 	private static CameraHelper mCameraHelper;
 
@@ -311,7 +313,6 @@ public abstract class NativeActivity extends Activity implements SurfaceHolder.C
 		javaGL = "true".equalsIgnoreCase(NativeApp.queryConfig("androidJavaGL"));
 
 		sendInitialGrants();
-		PowerSaveModeReceiver.initAndSend(this);
 
 		// OK, config should be initialized, we can query for screen rotation.
 		if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.GINGERBREAD) {
@@ -487,6 +488,10 @@ public abstract class NativeActivity extends Activity implements SurfaceHolder.C
 		if (!initialized) {
 			Initialize();
 			initialized = true;
+		}
+
+		if (mPowerSaveModeReceiver == null) {
+			mPowerSaveModeReceiver = new PowerSaveModeReceiver(this);
 		}
 
 		// OK, config should be initialized, we can query for screen rotation.
@@ -703,6 +708,10 @@ public abstract class NativeActivity extends Activity implements SurfaceHolder.C
 			mSurfaceView.onDestroy();
 			mSurfaceView = null;
 		}
+		if (mPowerSaveModeReceiver != null) {
+			mPowerSaveModeReceiver.destroy(this);
+			mPowerSaveModeReceiver = null;
+		}
 		// TODO: Can we ensure that the GL thread has stopped rendering here?
 		// I've seen crashes that seem to indicate that sometimes it hasn't...
 		NativeApp.audioShutdown();
@@ -731,6 +740,7 @@ public abstract class NativeActivity extends Activity implements SurfaceHolder.C
 				Log.e(TAG, "mGLSurfaceView really shouldn't be null in onPause");
 			}
 		}
+		mCameraHelper.pause();
 		Log.i(TAG, "onPause completed");
 	}
 
@@ -770,6 +780,7 @@ public abstract class NativeActivity extends Activity implements SurfaceHolder.C
 				mSurfaceView.onResume();
 			}
 		}
+		mCameraHelper.resume();
 
 		gainAudioFocus(this.audioManager, this.audioFocusChangeListener);
 		NativeApp.resume();
@@ -1325,6 +1336,10 @@ public abstract class NativeActivity extends Activity implements SurfaceHolder.C
 			} else {
 				// Only keep the screen bright ingame.
 				window.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
+			}
+		} else if (command.equals("event")) {
+			if (params.equals("exitgame")) {
+				mCameraHelper.stopCamera();
 			}
 		}
 		return false;

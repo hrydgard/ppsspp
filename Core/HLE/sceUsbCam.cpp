@@ -15,6 +15,7 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
+#include <algorithm>
 #include <mutex>
 
 #include "base/NativeApp.h"
@@ -29,8 +30,24 @@ PspUsbCamSetupVideoParam videoParam;
 
 unsigned int videoBufferLength = 0;
 unsigned int nextVideoFrame = 0;
-unsigned char videoBuffer[40 * 1000];
+uint8_t *videoBuffer;
 std::mutex videoBufferMutex;
+
+enum {
+	VIDEO_BUFFER_SIZE = 40 * 1000,
+};
+
+void __UsbCamInit() {
+	videoBuffer = new uint8_t[VIDEO_BUFFER_SIZE];
+}
+
+void __UsbCamShutdown() {
+	delete[] videoBuffer;
+	videoBuffer = nullptr;
+}
+
+// TODO: Technically, we should store the videoBuffer into the savestate, if this
+// module has been initialized.
 
 static int sceUsbCamSetupMic(u32 paramAddr, u32 workareaAddr, int wasize) {
 	INFO_LOG(HLE, "UNIMPL sceUsbCamSetupMic");
@@ -67,13 +84,14 @@ static int sceUsbCamSetupVideo(u32 paramAddr, u32 workareaAddr, int wasize) {
 		Memory::ReadStruct(paramAddr, &videoParam);
 	}
 
-	std::lock_guard<std::mutex> lock(videoBufferMutex);
-	videoBufferLength = sizeof(sceUsbCamDummyImage);
-	memset(videoBuffer, 0, sizeof(videoBuffer));
-	memcpy(videoBuffer, sceUsbCamDummyImage, sizeof(sceUsbCamDummyImage));
-
 	INFO_LOG(HLE, "UNIMPL sceUsbCamSetupVideo - size: %d", videoParam.size);
 	INFO_LOG(HLE, "UNIMPL sceUsbCamSetupVideo - resolution: %d", videoParam.resolution);
+	INFO_LOG(HLE, "UNIMPL sceUsbCamSetupVideo - framesize: %d", videoParam.framesize);
+
+	std::lock_guard<std::mutex> lock(videoBufferMutex);
+	videoBufferLength = sizeof(sceUsbCamDummyImage);
+	memset(videoBuffer, 0, VIDEO_BUFFER_SIZE);
+	memcpy(videoBuffer, sceUsbCamDummyImage, sizeof(sceUsbCamDummyImage));
 	return 0;
 }
 
@@ -96,27 +114,26 @@ static int sceUsbCamAutoImageReverseSW(int rev) {
 
 static int sceUsbCamReadVideoFrameBlocking(u32 bufAddr, u32 size) {
 	std::lock_guard<std::mutex> lock(videoBufferMutex);
-	for (unsigned int i = 0; i < videoBufferLength && i < size; i++) {
-		if (Memory::IsValidAddress(bufAddr + i)) {
-			Memory::Write_U8(videoBuffer[i], bufAddr + i);
-		}
+
+	u32 transferSize = std::min(videoBufferLength, size);
+	if (Memory::IsValidRange(bufAddr, size)) {
+		Memory::Memcpy(bufAddr, videoBuffer, transferSize);
 	}
 	return videoBufferLength;
 }
 
 static int sceUsbCamReadVideoFrame(u32 bufAddr, u32 size) {
 	std::lock_guard<std::mutex> lock(videoBufferMutex);
-	for (unsigned int i = 0; i < videoBufferLength && i < size; i++) {
-		if (Memory::IsValidAddress(bufAddr + i)) {
-			Memory::Write_U8(videoBuffer[i], bufAddr + i);
-		}
+	u32 transferSize = std::min(videoBufferLength, size);
+	if (Memory::IsValidRange(bufAddr, size)) {
+		Memory::Memcpy(bufAddr, videoBuffer, transferSize);
 	}
 	nextVideoFrame = videoBufferLength;
 	return 0;
 }
 
 static int sceUsbCamPollReadVideoFrameEnd() {
-	INFO_LOG(HLE, "UNIMPL sceUsbCamPollReadVideoFrameEnd: %d", nextVideoFrame);
+	VERBOSE_LOG(HLE, "UNIMPL sceUsbCamPollReadVideoFrameEnd: %d", nextVideoFrame);
 	return nextVideoFrame;
 }
 
@@ -186,7 +203,12 @@ void Register_sceUsbCam()
 
 void Camera::pushCameraImage(long long length, unsigned char* image) {
 	std::lock_guard<std::mutex> lock(videoBufferMutex);
-	videoBufferLength = length;
-	memset (videoBuffer, 0, sizeof(videoBuffer));
-	memcpy (videoBuffer, image, length);
+	memset(videoBuffer, 0, VIDEO_BUFFER_SIZE);
+	if (length > VIDEO_BUFFER_SIZE) {
+		videoBufferLength = 0;
+		ERROR_LOG(HLE, "pushCameraImage: length error: %lld > %d", length, VIDEO_BUFFER_SIZE);
+	} else {
+		videoBufferLength = length;
+		memcpy(videoBuffer, image, length);
+	}
 }

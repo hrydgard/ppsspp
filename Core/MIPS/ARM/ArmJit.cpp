@@ -111,7 +111,7 @@ ArmJit::ArmJit(MIPSState *mips) : blocks(mips, this), gpr(mips, &js, &jo), fpr(m
 	AllocCodeSpace(1024 * 1024 * 16);  // 32MB is the absolute max because that's what an ARM branch instruction can reach, backwards and forwards.
 	GenerateFixedCode();
 
-	INFO_LOG(JIT, "ARM JIT initialized: %d MB of code space", GetSpaceLeft() / (1024 * 1024));
+	INFO_LOG(JIT, "ARM JIT initialized: %lld MB of code space", (long long)(GetSpaceLeft() / (1024 * 1024)));
 
 	js.startDefaultPrefix = mips_->HasDefaultPrefix();
 

@@ -404,6 +404,8 @@ extern "C" void Java_org_ppsspp_ppsspp_NativeApp_init
 	systemName = GetJavaString(env, jmodel);
 	langRegion = GetJavaString(env, jlangRegion);
 
+	ILOG("NativeApp.init(): device name: '%s'", systemName.c_str());
+
 	std::string externalDir = GetJavaString(env, jexternalDir);
 	std::string user_data_path = GetJavaString(env, jdataDir);
 	if (user_data_path.size() > 0)

@@ -631,6 +631,9 @@
     <ClCompile Include="..\..\Core\HLE\sceUsbAcc.cpp">
       <Filter>HLE</Filter>
     </ClCompile>
+    <ClCompile Include="..\..\Core\HLE\sceUsbMic.cpp">
+      <Filter>HLE</Filter>
+    </ClCompile>
     <ClCompile Include="..\..\Core\Debugger\WebSocket.cpp">
       <Filter>Debugger</Filter>
     </ClCompile>
@@ -1241,6 +1244,9 @@
     </ClInclude>
     <ClInclude Include="..\..\Core\WebServer.h" />
     <ClInclude Include="..\..\Core\HLE\sceUsbAcc.h">
+      <Filter>HLE</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Core\HLE\sceUsbMic.h">
       <Filter>HLE</Filter>
     </ClInclude>
     <ClInclude Include="..\..\Core\Debugger\WebSocket.h">

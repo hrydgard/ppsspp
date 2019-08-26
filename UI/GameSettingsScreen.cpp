@@ -22,6 +22,7 @@
 #include "base/colorutil.h"
 #include "base/timeutil.h"
 #include "math/curves.h"
+#include "net/resolve.h"
 #include "gfx_es2/gpu_features.h"
 #include "gfx_es2/draw_buffer.h"
 #include "i18n/i18n.h"
@@ -295,7 +296,7 @@ void GameSettingsScreen::CreateViews() {
 	}
 
 #if !defined(MOBILE_DEVICE)
-	graphicsSettings->Add(new CheckBox(&g_Config.bFullScreen, gr->T("FullScreen")))->OnClick.Handle(this, &GameSettingsScreen::OnFullscreenChange);
+	graphicsSettings->Add(new CheckBox(&g_Config.bFullScreen, gr->T("FullScreen", "Full Screen")))->OnClick.Handle(this, &GameSettingsScreen::OnFullscreenChange);
 	if (System_GetPropertyInt(SYSPROP_DISPLAY_COUNT) > 1) {
 		CheckBox *fullscreenMulti = new CheckBox(&g_Config.bFullScreenMulti, gr->T("Use all displays"));
 		fullscreenMulti->SetEnabledPtr(&g_Config.bFullScreen);
@@ -309,7 +310,8 @@ void GameSettingsScreen::CreateViews() {
 #ifdef __ANDROID__
 	// Hide Immersive Mode on pre-kitkat Android
 	if (System_GetPropertyInt(SYSPROP_SYSTEMVERSION) >= 19) {
-		graphicsSettings->Add(new CheckBox(&g_Config.bImmersiveMode, gr->T("Immersive Mode")))->OnClick.Handle(this, &GameSettingsScreen::OnImmersiveModeChange);
+		// Let's reuse the Fullscreen translation string from desktop.
+		graphicsSettings->Add(new CheckBox(&g_Config.bImmersiveMode, gr->T("FullScreen", "Full Screen")))->OnClick.Handle(this, &GameSettingsScreen::OnImmersiveModeChange);
 	}
 #endif
 
@@ -669,13 +671,7 @@ void GameSettingsScreen::CreateViews() {
 
 	networkingSettings->Add(new CheckBox(&g_Config.bEnableWlan, n->T("Enable networking", "Enable networking/wlan (beta)")));
 
-#if !defined(MOBILE_DEVICE)
-	networkingSettings->Add(new PopupTextInputChoice(&g_Config.proAdhocServer, n->T("Change proAdhocServer Address"), "", 255, screenManager()));
-#elif defined(__ANDROID__)
 	networkingSettings->Add(new ChoiceWithValueDisplay(&g_Config.proAdhocServer, n->T("Change proAdhocServer Address"), (const char *)nullptr))->OnClick.Handle(this, &GameSettingsScreen::OnChangeproAdhocServerAddress);
-#else
-	networkingSettings->Add(new ChoiceWithValueDisplay(&g_Config.proAdhocServer, n->T("Change proAdhocServer Address"), (const char *)nullptr))->OnClick.Handle(this, &GameSettingsScreen::OnChangeproAdhocServerAddress);
-#endif
 	networkingSettings->Add(new CheckBox(&g_Config.bEnableAdhocServer, n->T("Enable built-in PRO Adhoc Server", "Enable built-in PRO Adhoc Server")));
 	networkingSettings->Add(new ChoiceWithValueDisplay(&g_Config.sMACAddress, n->T("Change Mac Address"), (const char *)nullptr))->OnClick.Handle(this, &GameSettingsScreen::OnChangeMacAddress);
 	networkingSettings->Add(new PopupSliderChoice(&g_Config.iPortOffset, 0, 60000, n->T("Port offset", "Port offset(0 = PSP compatibility)"), 100, screenManager()));
@@ -1263,24 +1259,12 @@ UI::EventReturn GameSettingsScreen::OnChangeNickname(UI::EventParams &e) {
 }
 
 UI::EventReturn GameSettingsScreen::OnChangeproAdhocServerAddress(UI::EventParams &e) {
-#if PPSSPP_PLATFORM(WINDOWS) || defined(USING_QT_UI)
-	if (!g_Config.bFullScreen) {
-		const size_t name_len = 256;
+	I18NCategory *sy = GetI18NCategory("System");
 
-		char name[name_len];
-		memset(name, 0, sizeof(name));
-
-		if (System_InputBoxGetString("Enter an IP address", g_Config.proAdhocServer.c_str(), name, name_len)) {
-			std::string stripped = StripSpaces(name);
-			g_Config.proAdhocServer = stripped;
-		}
-	}
-	else
-		screenManager()->push(new ProAdhocServerScreen);
-#elif defined(__ANDROID__)
+#if defined(__ANDROID__)
 	System_SendMessage("inputbox", ("IP:" + g_Config.proAdhocServer).c_str());
 #else
-	screenManager()->push(new ProAdhocServerScreen);
+	screenManager()->push(new HostnameSelectScreen(&g_Config.proAdhocServer, sy->T("proAdhocServer Address:")));
 #endif
 
 	return UI::EVENT_DONE;
@@ -1611,130 +1595,156 @@ void DeveloperToolsScreen::update() {
 	canAllowDebugger_ = !WebServerStopping(WebServerFlags::DEBUGGER);
 }
 
-void ProAdhocServerScreen::CreateViews() {
+void HostnameSelectScreen::CreatePopupContents(UI::ViewGroup *parent) {
 	using namespace UI;
 	I18NCategory *sy = GetI18NCategory("System");
 	I18NCategory *di = GetI18NCategory("Dialog");
+	I18NCategory *n = GetI18NCategory("Networking");
 
-	tempProAdhocServer = g_Config.proAdhocServer;
-	root_ = new AnchorLayout(new LayoutParams(FILL_PARENT, FILL_PARENT));
-	LinearLayout *leftColumn = new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, FILL_PARENT));
+	LinearLayout *valueRow = new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, FILL_PARENT, Margins(0, 0, 0, 10)));
 
-	leftColumn->Add(new ItemHeader(sy->T("proAdhocServer Address:")));
-	addrView_ = new TextView(tempProAdhocServer, ALIGN_LEFT, false);
-	leftColumn->Add(addrView_);
-	LinearLayout *rightColumn = new LinearLayout(ORIENT_HORIZONTAL, new AnchorLayoutParams(0, 120, 10, NONE, NONE,10));
-	rightColumn->Add(new Button("0"))->OnClick.Handle(this, &ProAdhocServerScreen::On0Click);
-	rightColumn->Add(new Button("1"))->OnClick.Handle(this, &ProAdhocServerScreen::On1Click);
-	rightColumn->Add(new Button("2"))->OnClick.Handle(this, &ProAdhocServerScreen::On2Click);
-	rightColumn->Add(new Button("3"))->OnClick.Handle(this, &ProAdhocServerScreen::On3Click);
-	rightColumn->Add(new Button("4"))->OnClick.Handle(this, &ProAdhocServerScreen::On4Click);
-	rightColumn->Add(new Button("5"))->OnClick.Handle(this, &ProAdhocServerScreen::On5Click);
-	rightColumn->Add(new Button("6"))->OnClick.Handle(this, &ProAdhocServerScreen::On6Click);
-	rightColumn->Add(new Button("7"))->OnClick.Handle(this, &ProAdhocServerScreen::On7Click);
-	rightColumn->Add(new Button("8"))->OnClick.Handle(this, &ProAdhocServerScreen::On8Click);
-	rightColumn->Add(new Button("9"))->OnClick.Handle(this, &ProAdhocServerScreen::On9Click);
-	rightColumn->Add(new Button("."))->OnClick.Handle(this, &ProAdhocServerScreen::OnPointClick);
-	rightColumn->Add(new Button(di->T("Delete")))->OnClick.Handle(this, &ProAdhocServerScreen::OnDeleteClick);
-	rightColumn->Add(new Button(di->T("Delete all")))->OnClick.Handle(this, &ProAdhocServerScreen::OnDeleteAllClick);
-	rightColumn->Add(new Button(di->T("OK")))->OnClick.Handle(this, &ProAdhocServerScreen::OnOKClick);
-	rightColumn->Add(new Button(di->T("Cancel")))->OnClick.Handle(this, &ProAdhocServerScreen::OnCancelClick);
-	root_->Add(leftColumn);
-	root_->Add(rightColumn);
+	addrView_ = new TextEdit(*value_, "");
+	addrView_->SetTextAlign(FLAG_DYNAMIC_ASCII);
+	valueRow->Add(addrView_);
+	parent->Add(valueRow);
+
+	LinearLayout *buttonsRow1 = new LinearLayout(ORIENT_HORIZONTAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT));
+	LinearLayout *buttonsRow2 = new LinearLayout(ORIENT_HORIZONTAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT));
+	parent->Add(buttonsRow1);
+	parent->Add(buttonsRow2);
+
+	buttonsRow1->Add(new Spacer(new LinearLayoutParams(1.0, G_LEFT)));
+	for (char c = '0'; c <= '9'; ++c) {
+		char label[] = { c, '\0' };
+		auto button = buttonsRow1->Add(new Button(label));
+		button->OnClick.Handle(this, &HostnameSelectScreen::OnNumberClick);
+		button->SetTag(label);
+	}
+	buttonsRow1->Add(new Button("."))->OnClick.Handle(this, &HostnameSelectScreen::OnPointClick);
+	buttonsRow1->Add(new Spacer(new LinearLayoutParams(1.0, G_RIGHT)));
+
+	buttonsRow2->Add(new Spacer(new LinearLayoutParams(1.0, G_LEFT)));
+	buttonsRow2->Add(new Button(di->T("Delete")))->OnClick.Handle(this, &HostnameSelectScreen::OnDeleteClick);
+	buttonsRow2->Add(new Button(di->T("Delete all")))->OnClick.Handle(this, &HostnameSelectScreen::OnDeleteAllClick);
+	buttonsRow2->Add(new Spacer(new LinearLayoutParams(1.0, G_RIGHT)));
+
+	errorView_ = parent->Add(new TextView(n->T("Invalid IP or hostname"), ALIGN_HCENTER, false, new LinearLayoutParams(Margins(0, 10, 0, 0))));
+	errorView_->SetTextColor(0xFF3030FF);
+	errorView_->SetVisibility(V_GONE);
+
+	progressView_ = parent->Add(new TextView(n->T("Validating address..."), ALIGN_HCENTER, false, new LinearLayoutParams(Margins(0, 10, 0, 0))));
+	progressView_->SetVisibility(V_GONE);
 }
 
-UI::EventReturn ProAdhocServerScreen::On0Click(UI::EventParams &e) {
-	if (tempProAdhocServer.length() > 0)
-		tempProAdhocServer.append("0");
-	addrView_->SetText(tempProAdhocServer);
+void HostnameSelectScreen::SendEditKey(int keyCode, int flags) {
+	auto oldView = UI::GetFocusedView();
+	UI::SetFocusedView(addrView_);
+	KeyInput fakeKey{ DEVICE_ID_KEYBOARD, keyCode, KEY_DOWN | flags };
+	addrView_->Key(fakeKey);
+	UI::SetFocusedView(oldView);
+}
+
+UI::EventReturn HostnameSelectScreen::OnNumberClick(UI::EventParams &e) {
+	std::string text = e.v ? e.v->Tag() : "";
+	if (text.length() == 1 && text[0] >= '0' && text[0] <= '9') {
+		SendEditKey(text[0], KEY_CHAR);
+	}
 	return UI::EVENT_DONE;
 }
 
-UI::EventReturn ProAdhocServerScreen::On1Click(UI::EventParams &e) {
-	tempProAdhocServer.append("1");
-	addrView_->SetText(tempProAdhocServer);
+UI::EventReturn HostnameSelectScreen::OnPointClick(UI::EventParams &e) {
+	SendEditKey('.', KEY_CHAR);
 	return UI::EVENT_DONE;
 }
 
-UI::EventReturn ProAdhocServerScreen::On2Click(UI::EventParams &e) {
-	tempProAdhocServer.append("2");
-	addrView_->SetText(tempProAdhocServer);
+UI::EventReturn HostnameSelectScreen::OnDeleteClick(UI::EventParams &e) {
+	SendEditKey(NKCODE_DEL);
 	return UI::EVENT_DONE;
 }
 
-UI::EventReturn ProAdhocServerScreen::On3Click(UI::EventParams &e) {
-	tempProAdhocServer.append("3");
-	addrView_->SetText(tempProAdhocServer);
+UI::EventReturn HostnameSelectScreen::OnDeleteAllClick(UI::EventParams &e) {
+	addrView_->SetText("");
 	return UI::EVENT_DONE;
 }
 
-UI::EventReturn ProAdhocServerScreen::On4Click(UI::EventParams &e) {
-	tempProAdhocServer.append("4");
-	addrView_->SetText(tempProAdhocServer);
-	return UI::EVENT_DONE;
+void HostnameSelectScreen::ResolverThread() {
+	std::unique_lock<std::mutex> guard(resolverLock_);
+
+	while (resolverState_ != ResolverState::QUIT) {
+		resolverCond_.wait(guard);
+
+		if (resolverState_ == ResolverState::QUEUED) {
+			resolverState_ = ResolverState::PROGRESS;
+
+			addrinfo *resolved = nullptr;
+			std::string err;
+			toResolveResult_ = net::DNSResolve(toResolve_, "80", &resolved, err);
+			if (resolved)
+				net::DNSResolveFree(resolved);
+
+			resolverState_ = ResolverState::READY;
+		}
+	}
 }
 
-UI::EventReturn ProAdhocServerScreen::On5Click(UI::EventParams &e) {
-	tempProAdhocServer.append("5");
-	addrView_->SetText(tempProAdhocServer);
-	return UI::EVENT_DONE;
+bool HostnameSelectScreen::CanComplete(DialogResult result) {
+	if (result != DR_OK)
+		return true;
+
+	std::string value = addrView_->GetText();
+	if (lastResolved_ == value) {
+		return true;
+	}
+
+	// Currently running.
+	if (resolverState_ == ResolverState::PROGRESS)
+		return false;
+
+	std::lock_guard<std::mutex> guard(resolverLock_);
+	switch (resolverState_) {
+	case ResolverState::PROGRESS:
+	case ResolverState::QUIT:
+		return false;
+
+	case ResolverState::QUEUED:
+	case ResolverState::WAITING:
+		break;
+
+	case ResolverState::READY:
+		if (toResolve_ == value) {
+			// Reset the state, nothing there now.
+			resolverState_ = ResolverState::WAITING;
+			toResolve_.clear();
+			lastResolved_ = value;
+			lastResolvedResult_ = toResolveResult_;
+
+			if (lastResolvedResult_) {
+				errorView_->SetVisibility(UI::V_GONE);
+			} else {
+				errorView_->SetVisibility(UI::V_VISIBLE);
+			}
+			progressView_->SetVisibility(UI::V_GONE);
+
+			return true;
+		}
+
+		// Throw away that last result, it was for a different value.
+		break;
+	}
+
+	resolverState_ = ResolverState::QUEUED;
+	toResolve_ = value;
+	resolverCond_.notify_one();
+
+	progressView_->SetVisibility(UI::V_VISIBLE);
+	errorView_->SetVisibility(UI::V_GONE);
+
+	return false;
 }
 
-UI::EventReturn ProAdhocServerScreen::On6Click(UI::EventParams &e) {
-	tempProAdhocServer.append("6");
-	addrView_->SetText(tempProAdhocServer);
-	return UI::EVENT_DONE;
-}
-
-UI::EventReturn ProAdhocServerScreen::On7Click(UI::EventParams &e) {
-	tempProAdhocServer.append("7");
-	addrView_->SetText(tempProAdhocServer);
-	return UI::EVENT_DONE;
-}
-
-UI::EventReturn ProAdhocServerScreen::On8Click(UI::EventParams &e) {
-	tempProAdhocServer.append("8");
-	addrView_->SetText(tempProAdhocServer);
-	return UI::EVENT_DONE;
-}
-
-UI::EventReturn ProAdhocServerScreen::On9Click(UI::EventParams &e) {
-	tempProAdhocServer.append("9");
-	addrView_->SetText(tempProAdhocServer);
-	return UI::EVENT_DONE;
-}
-
-
-UI::EventReturn ProAdhocServerScreen::OnPointClick(UI::EventParams &e) {
-	if (tempProAdhocServer.length() > 0 && tempProAdhocServer.at(tempProAdhocServer.length() - 1) != '.')
-		tempProAdhocServer.append(".");
-	addrView_->SetText(tempProAdhocServer);
-	return UI::EVENT_DONE;
-}
-
-UI::EventReturn ProAdhocServerScreen::OnDeleteClick(UI::EventParams &e) {
-	if (tempProAdhocServer.length() > 0)
-		tempProAdhocServer.erase(tempProAdhocServer.length() -1, 1);
-	addrView_->SetText(tempProAdhocServer);
-	return UI::EVENT_DONE;
-}
-
-UI::EventReturn ProAdhocServerScreen::OnDeleteAllClick(UI::EventParams &e) {
-	tempProAdhocServer = "";
-	addrView_->SetText(tempProAdhocServer);
-	return UI::EVENT_DONE;
-}
-
-UI::EventReturn ProAdhocServerScreen::OnOKClick(UI::EventParams &e) {
-	g_Config.proAdhocServer = StripSpaces(tempProAdhocServer);
-	UIScreen::OnBack(e);
-	return UI::EVENT_DONE;
-}
-
-UI::EventReturn ProAdhocServerScreen::OnCancelClick(UI::EventParams &e) {
-	tempProAdhocServer = g_Config.proAdhocServer;
-	UIScreen::OnBack(e);
-	return UI::EVENT_DONE;
+void HostnameSelectScreen::OnCompleted(DialogResult result) {
+	if (result == DR_OK)
+		*value_ = addrView_->GetText();
 }
 
 SettingInfoMessage::SettingInfoMessage(int align, UI::AnchorLayoutParams *lp)
@@ -1743,7 +1753,6 @@ SettingInfoMessage::SettingInfoMessage(int align, UI::AnchorLayoutParams *lp)
 	SetSpacing(0.0f);
 	Add(new UI::Spacer(10.0f));
 	text_ = Add(new UI::TextView("", align, false, new LinearLayoutParams(1.0, Margins(0, 10))));
-	text_->SetTag("TEST?");
 	Add(new UI::Spacer(10.0f));
 }
 

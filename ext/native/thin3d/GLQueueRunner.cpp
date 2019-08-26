@@ -107,7 +107,6 @@ void GLQueueRunner::RunInitSteps(const std::vector<GLRInitStep> &steps, bool ski
 			}
 			case GLRInitStepType::TEXTURE_IMAGE:
 			{
-				GLRTexture *tex = step.texture_image.texture;
 				if (step.texture_image.allocType == GLRAllocType::ALIGNED) {
 					FreeAlignedMemory(step.texture_image.data);
 				} else if (step.texture_image.allocType == GLRAllocType::NEW) {
@@ -1317,9 +1316,8 @@ void GLQueueRunner::PerformReadback(const GLRStep &pass) {
 }
 
 void GLQueueRunner::PerformReadbackImage(const GLRStep &pass) {
-	GLRTexture *tex = pass.readback_image.texture;
-
 #ifndef USING_GLES2
+	GLRTexture *tex = pass.readback_image.texture;
 	GLRect2D rect = pass.readback_image.srcRect;
 
 	if (gl_extensions.VersionGEThan(4, 5)) {

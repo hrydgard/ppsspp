@@ -24,3 +24,4 @@ class UIContext;
 
 // gpu MUST be an instance of GPU_Vulkan. If not, will definitely crash.
 void DrawAllocatorVis(UIContext *ui, GPUInterface *gpu);
+void DrawProfilerVis(UIContext *ui, GPUInterface *gpu);

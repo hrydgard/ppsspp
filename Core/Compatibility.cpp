@@ -68,6 +68,7 @@ void Compatibility::CheckSettings(IniFile &iniFile, const std::string &gameID) {
 	CheckSetting(iniFile, gameID, "DisableAccurateDepth", &flags_.DisableAccurateDepth);
 	CheckSetting(iniFile, gameID, "MGS2AcidHack", &flags_.MGS2AcidHack);
 	CheckSetting(iniFile, gameID, "SonicRivalsHack", &flags_.SonicRivalsHack);
+	CheckSetting(iniFile, gameID, "RenderPassMerge", &flags_.RenderPassMerge);
 	CheckSetting(iniFile, gameID, "AdhocHackDisableNBSwitch", &flags_.AdhocHackDisableNBSwitch);
 	CheckSetting(iniFile, gameID, "AdhocHackStopFriendClear", &flags_.AdhocHackStopFriendClear);
 	CheckSetting(iniFile, gameID, "AdhocHackPhantasyStarOffset", &flags_.AdhocHackPhantasyStarOffset);

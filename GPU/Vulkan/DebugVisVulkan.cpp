@@ -26,6 +26,8 @@
 #include "GPU/Vulkan/GPU_Vulkan.h"
 #include "GPU/Vulkan/VulkanUtil.h"
 
+#undef DrawText
+
 void DrawAllocatorVis(UIContext *ui, GPUInterface *gpu) {
 	if (!gpu) {
 		return;
@@ -93,4 +95,29 @@ void DrawAllocatorVis(UIContext *ui, GPUInterface *gpu) {
 
 	for (auto iter : texturesToDelete)
 		iter->Release();
+}
+
+void DrawProfilerVis(UIContext *ui, GPUInterface *gpu) {
+	if (!gpu) {
+		return;
+	}
+	using namespace Draw;
+	const int padding = 10;
+	const int columnWidth = 256;
+	const int starty = padding * 8;
+	int x = padding;
+	int y = starty;
+	int w = columnWidth;  // We will double this when actually drawing to make the pixels visible.
+
+	ui->Begin();
+
+	GPU_Vulkan *gpuVulkan = static_cast<GPU_Vulkan *>(gpu);
+
+	std::string text = gpuVulkan->GetGpuProfileString();
+
+	Draw::DrawContext *draw = ui->GetDrawContext();
+	ui->SetFontScale(0.4f, 0.4f);
+	ui->DrawTextShadow(text.c_str(), 10, 50, 0xFFFFFFFF, FLAG_DYNAMIC_ASCII);
+	ui->SetFontScale(1.0f, 1.0f);
+	ui->Flush();
 }

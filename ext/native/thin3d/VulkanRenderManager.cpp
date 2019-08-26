@@ -1,6 +1,8 @@
 #include <algorithm>
 #include <cstdint>
 
+#include <sstream>
+
 #include "Common/Log.h"
 #include "base/logging.h"
 
@@ -65,7 +67,7 @@ void CreateImage(VulkanContext *vulkan, VkCommandBuffer cmd, VKRImage &img, int 
 	VkImageAspectFlags aspects = color ? VK_IMAGE_ASPECT_COLOR_BIT : (VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT);
 
 	VkImageViewCreateInfo ivci{ VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO };
-	ivci.components = { VK_COMPONENT_SWIZZLE_R, VK_COMPONENT_SWIZZLE_G, VK_COMPONENT_SWIZZLE_B, VK_COMPONENT_SWIZZLE_A };
+	ivci.components = { VK_COMPONENT_SWIZZLE_IDENTITY, VK_COMPONENT_SWIZZLE_IDENTITY, VK_COMPONENT_SWIZZLE_IDENTITY, VK_COMPONENT_SWIZZLE_IDENTITY };
 	ivci.format = ici.format;
 	ivci.image = img.image;
 	ivci.viewType = VK_IMAGE_VIEW_TYPE_2D;
@@ -132,6 +134,11 @@ VulkanRenderManager::VulkanRenderManager(VulkanContext *vulkan) : vulkan_(vulkan
 		res = vkAllocateCommandBuffers(vulkan_->GetDevice(), &cmd_alloc, &frameData_[i].mainCmd);
 		assert(res == VK_SUCCESS);
 		frameData_[i].fence = vulkan_->CreateFence(true);  // So it can be instantly waited on
+
+		VkQueryPoolCreateInfo query_ci{ VK_STRUCTURE_TYPE_QUERY_POOL_CREATE_INFO };
+		query_ci.queryCount = MAX_TIMESTAMP_QUERIES;
+		query_ci.queryType = VK_QUERY_TYPE_TIMESTAMP;
+		res = vkCreateQueryPool(vulkan_->GetDevice(), &query_ci, nullptr, &frameData_[i].timestampQueryPool_);
 	}
 
 	queueRunner_.CreateDeviceObjects();
@@ -164,10 +171,10 @@ void VulkanRenderManager::CreateBackbuffers() {
 
 		VkImageViewCreateInfo color_image_view = { VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO };
 		color_image_view.format = vulkan_->GetSwapchainFormat();
-		color_image_view.components.r = VK_COMPONENT_SWIZZLE_R;
-		color_image_view.components.g = VK_COMPONENT_SWIZZLE_G;
-		color_image_view.components.b = VK_COMPONENT_SWIZZLE_B;
-		color_image_view.components.a = VK_COMPONENT_SWIZZLE_A;
+		color_image_view.components.r = VK_COMPONENT_SWIZZLE_IDENTITY;
+		color_image_view.components.g = VK_COMPONENT_SWIZZLE_IDENTITY;
+		color_image_view.components.b = VK_COMPONENT_SWIZZLE_IDENTITY;
+		color_image_view.components.a = VK_COMPONENT_SWIZZLE_IDENTITY;
 		color_image_view.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
 		color_image_view.subresourceRange.baseMipLevel = 0;
 		color_image_view.subresourceRange.levelCount = 1;
@@ -222,6 +229,8 @@ void VulkanRenderManager::StopThread() {
 				std::unique_lock<std::mutex> lock(frameData.pull_mutex);
 				frameData.pull_condVar.notify_all();
 			}
+			// Zero the queries so we don't try to pull them later.
+			frameData.timestampDescriptions.clear();
 		}
 		thread_.join();
 		ILOG("Vulkan submission thread joined. Frame=%d", vulkan_->GetCurFrame());
@@ -292,6 +301,7 @@ VulkanRenderManager::~VulkanRenderManager() {
 		vkDestroyCommandPool(device, frameData_[i].cmdPoolInit, nullptr);
 		vkDestroyCommandPool(device, frameData_[i].cmdPoolMain, nullptr);
 		vkDestroyFence(device, frameData_[i].fence, nullptr);
+		vkDestroyQueryPool(device, frameData_[i].timestampQueryPool_, nullptr);
 	}
 	queueRunner_.DestroyDeviceObjects();
 }
@@ -342,12 +352,13 @@ void VulkanRenderManager::ThreadFunc() {
 	VLOG("PULL: Quitting");
 }
 
-void VulkanRenderManager::BeginFrame() {
+void VulkanRenderManager::BeginFrame(bool enableProfiling) {
 	VLOG("BeginFrame");
 	VkDevice device = vulkan_->GetDevice();
 
 	int curFrame = vulkan_->GetCurFrame();
 	FrameData &frameData = frameData_[curFrame];
+	frameData.profilingEnabled_ = enableProfiling;
 
 	// Make sure the very last command buffer from the frame before the previous has been fully executed.
 	if (useThread_) {
@@ -363,6 +374,41 @@ void VulkanRenderManager::BeginFrame() {
 	vkWaitForFences(device, 1, &frameData.fence, true, UINT64_MAX);
 	vkResetFences(device, 1, &frameData.fence);
 
+	uint64_t queryResults[MAX_TIMESTAMP_QUERIES];
+
+	if (frameData.profilingEnabled_) {
+		// Pull the profiling results from last time and produce a summary!
+		if (!frameData.timestampDescriptions.empty()) {
+			int numQueries = (int)frameData.timestampDescriptions.size();
+			VkResult res = vkGetQueryPoolResults(
+				vulkan_->GetDevice(),
+				frameData.timestampQueryPool_, 0, numQueries, sizeof(uint64_t) * numQueries, &queryResults[0], sizeof(uint64_t),
+				VK_QUERY_RESULT_64_BIT);
+			if (res == VK_SUCCESS) {
+				double timestampConversionFactor = (double)vulkan_->GetPhysicalDeviceProperties().properties.limits.timestampPeriod * (1.0 / 1000000.0);
+				int validBits = vulkan_->GetQueueFamilyProperties(vulkan_->GetGraphicsQueueFamilyIndex()).timestampValidBits;
+				uint64_t timestampDiffMask = validBits == 64 ? 0xFFFFFFFFFFFFFFFFULL : ((1ULL << validBits) - 1);
+				std::stringstream str;
+
+				char line[256];
+				snprintf(line, sizeof(line), "Total GPU time: %0.3f ms\n", ((double)((queryResults[numQueries - 1] - queryResults[0]) & timestampDiffMask) * timestampConversionFactor));
+				str << line;
+				for (int i = 0; i < numQueries - 1; i++) {
+					uint64_t diff = (queryResults[i + 1] - queryResults[i]) & timestampDiffMask;
+					double milliseconds = (double)diff * timestampConversionFactor;
+					snprintf(line, sizeof(line), "%s: %0.3f ms\n", frameData.timestampDescriptions[i + 1].c_str(), milliseconds);
+					str << line;
+				}
+				frameData.profileSummary = str.str();
+			} else {
+				frameData.profileSummary = "(error getting GPU profile - not ready?)";
+			}
+		}
+		else {
+			frameData.profileSummary = "(no GPU profile data collected)";
+		}
+	}
+
 	// Must be after the fence - this performs deletes.
 	VLOG("PUSH: BeginFrame %d", curFrame);
 	if (!run_) {
@@ -371,6 +417,18 @@ void VulkanRenderManager::BeginFrame() {
 	vulkan_->BeginFrame();
 
 	insideFrame_ = true;
+
+	frameData.timestampDescriptions.clear();
+	if (frameData_->profilingEnabled_) {
+		// For various reasons, we need to always use an init cmd buffer in this case to perform the vkCmdResetQueryPool,
+		// unless we want to limit ourselves to only measure the main cmd buffer.
+		// Reserve the first two queries for initCmd.
+		frameData.timestampDescriptions.push_back("initCmd Begin");
+		frameData.timestampDescriptions.push_back("initCmd");
+		VkCommandBuffer initCmd = GetInitCmd();
+		vkCmdResetQueryPool(initCmd, frameData.timestampQueryPool_, 0, MAX_TIMESTAMP_QUERIES);
+		vkCmdWriteTimestamp(initCmd, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, frameData.timestampQueryPool_, 0);
+	}
 }
 
 VkCommandBuffer VulkanRenderManager::GetInitCmd() {
@@ -397,6 +455,7 @@ void VulkanRenderManager::BindFramebufferAsRenderTarget(VKRFramebuffer *fb, VKRR
 	if (steps_.size() && steps_.back()->render.framebuffer == fb && steps_.back()->stepType == VKRStepType::RENDER) {
 		if (color != VKRRenderPassAction::CLEAR && depth != VKRRenderPassAction::CLEAR && stencil != VKRRenderPassAction::CLEAR) {
 			// We don't move to a new step, this bind was unnecessary and we can safely skip it.
+			// Not sure how much this is still happening but probably worth checking for nevertheless.
 			return;
 		}
 	}
@@ -561,7 +620,6 @@ bool VulkanRenderManager::InitDepthStencilBuffer(VkCommandBuffer cmd) {
 	image_info.usage = VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT;
 	image_info.flags = 0;
 
-
 	depth_.format = depth_format;
 
 	VkDevice device = vulkan_->GetDevice();
@@ -611,10 +669,10 @@ bool VulkanRenderManager::InitDepthStencilBuffer(VkCommandBuffer cmd) {
 	VkImageViewCreateInfo depth_view_info = { VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO };
 	depth_view_info.image = depth_.image;
 	depth_view_info.format = depth_format;
-	depth_view_info.components.r = VK_COMPONENT_SWIZZLE_R;
-	depth_view_info.components.g = VK_COMPONENT_SWIZZLE_G;
-	depth_view_info.components.b = VK_COMPONENT_SWIZZLE_B;
-	depth_view_info.components.a = VK_COMPONENT_SWIZZLE_A;
+	depth_view_info.components.r = VK_COMPONENT_SWIZZLE_IDENTITY;
+	depth_view_info.components.g = VK_COMPONENT_SWIZZLE_IDENTITY;
+	depth_view_info.components.b = VK_COMPONENT_SWIZZLE_IDENTITY;
+	depth_view_info.components.a = VK_COMPONENT_SWIZZLE_IDENTITY;
 	depth_view_info.subresourceRange.aspectMask = aspectMask;
 	depth_view_info.subresourceRange.baseMipLevel = 0;
 	depth_view_info.subresourceRange.levelCount = 1;
@@ -803,7 +861,9 @@ void VulkanRenderManager::BlitFramebuffer(VKRFramebuffer *src, VkRect2D srcRect,
 }
 
 VkImageView VulkanRenderManager::BindFramebufferAsTexture(VKRFramebuffer *fb, int binding, int aspectBit, int attachment) {
-	// Should just mark the dependency and return the image.
+	_dbg_assert_(G3D, curRenderStep_ != nullptr);
+	// Mark the dependency, check for required transitions, and return the image.
+
 	for (int i = (int)steps_.size() - 1; i >= 0; i--) {
 		if (steps_[i]->stepType == VKRStepType::RENDER && steps_[i]->render.framebuffer == fb) {
 			// If this framebuffer was rendered to earlier in this frame, make sure to pre-transition it to the correct layout.
@@ -815,14 +875,18 @@ VkImageView VulkanRenderManager::BindFramebufferAsTexture(VKRFramebuffer *fb, in
 		}
 	}
 
+	// Track dependencies fully.
+	curRenderStep_->dependencies.insert(fb);
+
 	if (!curRenderStep_->preTransitions.empty() &&
 			curRenderStep_->preTransitions.back().fb == fb &&
 			curRenderStep_->preTransitions.back().targetLayout == VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL) {
 		// We're done.
 		return fb->color.imageView;
+	} else {
+		curRenderStep_->preTransitions.push_back({ fb, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL });
+		return fb->color.imageView;
 	}
-	curRenderStep_->preTransitions.push_back({ fb, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL });
-	return fb->color.imageView;
 }
 
 void VulkanRenderManager::Finish() {
@@ -885,6 +949,7 @@ void VulkanRenderManager::BeginSubmitFrame(int frame) {
 		VkCommandBufferBeginInfo begin{ VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO };
 		begin.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
 		res = vkBeginCommandBuffer(frameData.mainCmd, &begin);
+
 		_assert_msg_(G3D, res == VK_SUCCESS, "vkBeginCommandBuffer failed! result=%s", VulkanResultToString(res));
 
 		queueRunner_.SetBackbuffer(framebuffers_[frameData.curSwapchainImage], swapchainImages_[frameData.curSwapchainImage].image);
@@ -896,6 +961,10 @@ void VulkanRenderManager::BeginSubmitFrame(int frame) {
 void VulkanRenderManager::Submit(int frame, bool triggerFence) {
 	FrameData &frameData = frameData_[frame];
 	if (frameData.hasInitCommands) {
+		if (frameData.profilingEnabled_ && triggerFence) {
+			// Pre-allocated query ID 1.
+			vkCmdWriteTimestamp(frameData.initCmd, VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, frameData.timestampQueryPool_, 1);
+		}
 		VkResult res = vkEndCommandBuffer(frameData.initCmd);
 		_assert_msg_(G3D, res == VK_SUCCESS, "vkEndCommandBuffer failed (init)! result=%s", VulkanResultToString(res));
 	}
@@ -995,7 +1064,7 @@ void VulkanRenderManager::Run(int frame) {
 	auto &stepsOnThread = frameData_[frame].steps;
 	VkCommandBuffer cmd = frameData.mainCmd;
 	// queueRunner_.LogSteps(stepsOnThread);
-	queueRunner_.RunSteps(cmd, stepsOnThread);
+	queueRunner_.RunSteps(cmd, stepsOnThread, frameData.profilingEnabled_ ? frameData.timestampQueryPool_ : VK_NULL_HANDLE, &frameData.timestampDescriptions);
 	stepsOnThread.clear();
 
 	switch (frameData.type) {

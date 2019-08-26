@@ -14,15 +14,14 @@
  * limitations under the License.
  */
 
+#include "ppsspp_config.h"
 #include "../gfx/gl_common.h"
 
 #if defined(USING_GLES2)
-#if !defined(IOS)
+#if !PPSSPP_PLATFORM(IOS)
 #include "EGL/egl.h"
-#endif
 
 GLboolean gl3stubInit() {
-#if !defined(IOS)
     #define FIND_PROC(s) s = (void*)eglGetProcAddress(#s)
     FIND_PROC(glReadBuffer);
     FIND_PROC(glDrawRangeElements);
@@ -145,7 +144,6 @@ GLboolean gl3stubInit() {
 
     #undef FIND_PROC
 
-#endif // IOS
     if (!glReadBuffer ||
         !glDrawRangeElements ||
         !glTexImage3D ||
@@ -256,8 +254,6 @@ GLboolean gl3stubInit() {
 
     return GL_TRUE;
 }
-
-#if !defined(IOS)
 
 /* Function pointer definitions */
 GL_APICALL void           (* GL_APIENTRY glReadBuffer) (GLenum mode);
@@ -378,6 +374,12 @@ GL_APICALL void           (* GL_APIENTRY glBufferStorageEXT) (GLenum target, GLs
 
 /* OES_copy_image, etc. */
 GL_APICALL void           (* GL_APIENTRY glCopyImageSubDataOES) (GLuint srcName, GLenum srcTarget, GLint srcLevel, GLint srcX, GLint srcY, GLint srcZ, GLuint dstName, GLenum dstTarget, GLint dstLevel, GLint dstX, GLint dstY, GLint dstZ, GLsizei width, GLsizei height, GLsizei depth);
+
+#else
+
+GLboolean gl3stubInit() {
+	return GL_TRUE;
+}
 
 #endif // IOS
 

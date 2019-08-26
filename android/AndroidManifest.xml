@@ -102,14 +102,6 @@
             </intent-filter>
         </activity>
 
-        <receiver android:name=".PowerSaveModeReceiver">
-            <intent-filter>
-                <action android:name="android.os.action.POWER_SAVE_MODE_CHANGED" />
-                <action android:name="android.intent.action.BATTERY_LOW" />
-                <action android:name="android.intent.action.BATTERY_OKAY" />
-            </intent-filter>
-        </receiver>
-
         <meta-data
             android:name="xperiaplayoptimized_content"
             android:resource="@drawable/ic_launcher" />

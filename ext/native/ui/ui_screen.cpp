@@ -268,6 +268,9 @@ bool PopupScreen::key(const KeyInput &key) {
 void PopupScreen::update() {
 	UIDialogScreen::update();
 
+	if (defaultButton_)
+		defaultButton_->SetEnabled(CanComplete(DR_OK));
+
 	float animatePos = 1.0f;
 
 	++frames_;
@@ -314,10 +317,12 @@ void PopupScreen::SetPopupOrigin(const UI::View *view) {
 }
 
 void PopupScreen::TriggerFinish(DialogResult result) {
-	finishFrame_ = frames_;
-	finishResult_ = result;
+	if (CanComplete(result)) {
+		finishFrame_ = frames_;
+		finishResult_ = result;
 
-	OnCompleted(result);
+		OnCompleted(result);
+	}
 }
 
 void PopupScreen::resized() {

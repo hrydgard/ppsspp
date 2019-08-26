@@ -17,8 +17,11 @@
 
 #include "Common/Vulkan/VulkanLoader.h"
 #include <vector>
+#include <string>
+
 #include "base/logging.h"
 #include "base/basictypes.h"
+#include "base/NativeApp.h"
 
 #ifndef _WIN32
 #include <dlfcn.h>
@@ -61,9 +64,7 @@ PFN_vkGetPhysicalDeviceSparseImageFormatProperties vkGetPhysicalDeviceSparseImag
 PFN_vkQueueBindSparse vkQueueBindSparse;
 PFN_vkCreateFence vkCreateFence;
 PFN_vkDestroyFence vkDestroyFence;
-PFN_vkResetFences vkResetFences;
 PFN_vkGetFenceStatus vkGetFenceStatus;
-PFN_vkWaitForFences vkWaitForFences;
 PFN_vkCreateSemaphore vkCreateSemaphore;
 PFN_vkDestroySemaphore vkDestroySemaphore;
 PFN_vkCreateEvent vkCreateEvent;
@@ -115,7 +116,7 @@ PFN_vkResetCommandPool vkResetCommandPool;
 PFN_vkAllocateCommandBuffers vkAllocateCommandBuffers;
 PFN_vkFreeCommandBuffers vkFreeCommandBuffers;
 
-// Used frequently
+// Used frequently together
 PFN_vkCmdBindPipeline vkCmdBindPipeline;
 PFN_vkCmdSetViewport vkCmdSetViewport;
 PFN_vkCmdSetScissor vkCmdSetScissor;
@@ -128,14 +129,16 @@ PFN_vkCmdBindIndexBuffer vkCmdBindIndexBuffer;
 PFN_vkCmdBindVertexBuffers vkCmdBindVertexBuffers;
 PFN_vkCmdDraw vkCmdDraw;
 PFN_vkCmdDrawIndexed vkCmdDrawIndexed;
-PFN_vkCmdClearAttachments vkCmdClearAttachments;
 PFN_vkCmdPipelineBarrier vkCmdPipelineBarrier;
 PFN_vkCmdPushConstants vkCmdPushConstants;
 
 // Every frame to a few times per frame
+PFN_vkWaitForFences vkWaitForFences;
+PFN_vkResetFences vkResetFences;
 PFN_vkBeginCommandBuffer vkBeginCommandBuffer;
 PFN_vkEndCommandBuffer vkEndCommandBuffer;
 PFN_vkResetCommandBuffer vkResetCommandBuffer;
+PFN_vkCmdClearAttachments vkCmdClearAttachments;
 PFN_vkCmdSetEvent vkCmdSetEvent;
 PFN_vkCmdResetEvent vkCmdResetEvent;
 PFN_vkCmdWaitEvents vkCmdWaitEvents;
@@ -147,6 +150,7 @@ PFN_vkCmdBlitImage vkCmdBlitImage;
 PFN_vkCmdCopyBufferToImage vkCmdCopyBufferToImage;
 PFN_vkCmdCopyImageToBuffer vkCmdCopyImageToBuffer;
 
+// Rare or not used
 PFN_vkCmdSetDepthBounds vkCmdSetDepthBounds;
 PFN_vkCmdSetLineWidth vkCmdSetLineWidth;
 PFN_vkCmdSetDepthBias vkCmdSetDepthBias;
@@ -226,9 +230,15 @@ bool g_vulkanMayBeAvailable = false;
 
 #define LOAD_GLOBAL_FUNC_LOCAL(lib, x) (PFN_ ## x)dlsym(lib, #x);
 
+static const char *device_name_blacklist[] = {
+	"NVIDIA:SHIELD Tablet K1",
+};
+
 static const char *so_names[] = {
 	"libvulkan.so",
+#if !defined(__ANDROID__)
 	"libvulkan.so.1",
+#endif
 };
 
 void VulkanSetAvailable(bool available) {
@@ -239,11 +249,23 @@ void VulkanSetAvailable(bool available) {
 bool VulkanMayBeAvailable() {
 	if (g_vulkanAvailabilityChecked)
 		return g_vulkanMayBeAvailable;
+
+	std::string name = System_GetProperty(SYSPROP_NAME);
+	for (const char *blacklisted_name : device_name_blacklist) {
+		if (!strcmp(name.c_str(), blacklisted_name)) {
+			g_vulkanAvailabilityChecked = true;
+			g_vulkanMayBeAvailable = false;
+			return false;
+		}
+	}
+	ILOG("VulkanMayBeAvailable: Device allowed ('%s')", name.c_str());
+
 #ifndef _WIN32
 	void *lib = nullptr;
 	for (int i = 0; i < ARRAY_SIZE(so_names); i++) {
 		lib = dlopen(so_names[i], RTLD_NOW | RTLD_LOCAL);
 		if (lib) {
+			ILOG("VulkanMayBeAvailable: Library loaded ('%s')", so_names[i]);
 			break;
 		}
 	}
@@ -252,6 +274,7 @@ bool VulkanMayBeAvailable() {
 	HINSTANCE lib = LoadLibrary(L"vulkan-1.dll");
 #endif
 	if (!lib) {
+		ILOG("Vulkan loader: Library not available");
 		g_vulkanAvailabilityChecked = true;
 		g_vulkanMayBeAvailable = false;
 		return false;
@@ -270,15 +293,15 @@ bool VulkanMayBeAvailable() {
 	VkApplicationInfo info{ VK_STRUCTURE_TYPE_APPLICATION_INFO };
 	std::vector<VkPhysicalDevice> devices;
 	bool anyGood = false;
-	const char *instanceExtensions[2]{};
+	const char *instanceExtensions[10]{};
 	VkInstance instance = VK_NULL_HANDLE;
-	VkResult res;
+	VkResult res = VK_SUCCESS;
 	uint32_t physicalDeviceCount = 0;
-	uint32_t instanceExtCount = 1;
+	uint32_t instanceExtCount = 0;
 	bool surfaceExtensionFound = false;
 	bool platformSurfaceExtensionFound = false;
 	std::vector<VkExtensionProperties> instanceExts;
-	instanceExtensions[ci.enabledExtensionCount++] = VK_KHR_SURFACE_EXTENSION_NAME;
+	ci.enabledExtensionCount = 0;  // Should have been reset by struct initialization anyway, just paranoia.
 
 #ifdef _WIN32
 	const char * const platformSurfaceExtension = VK_KHR_WIN32_SURFACE_EXTENSION_NAME;
@@ -288,9 +311,12 @@ bool VulkanMayBeAvailable() {
 	const char *platformSurfaceExtension = 0;
 #endif
 
-	if (!localEnumerateInstanceExtensionProperties || !localCreateInstance || !localEnumerate || !localDestroyInstance || !localGetPhysicalDeviceProperties)
+	if (!localEnumerateInstanceExtensionProperties || !localCreateInstance || !localEnumerate || !localDestroyInstance || !localGetPhysicalDeviceProperties) {
+		WLOG("VulkanMayBeAvailable: Function pointer missing, bailing");
 		goto bail;
+	}
 
+	ILOG("VulkanMayBeAvailable: Enumerating instance extensions");
 	res = localEnumerateInstanceExtensionProperties(nullptr, &instanceExtCount, nullptr);
 	// Maximum paranoia.
 	if (res != VK_SUCCESS) {
@@ -301,6 +327,7 @@ bool VulkanMayBeAvailable() {
 		ELOG("No VK instance extensions - won't be able to present.");
 		goto bail;
 	}
+	ILOG("VulkanMayBeAvailable: Instance extension count: %d", instanceExtCount);
 	instanceExts.resize(instanceExtCount);
 	res = localEnumerateInstanceExtensionProperties(nullptr, &instanceExtCount, instanceExts.data());
 	if (res != VK_SUCCESS) {
@@ -310,11 +337,14 @@ bool VulkanMayBeAvailable() {
 
 	if (platformSurfaceExtension) {
 		for (auto iter : instanceExts) {
+			ILOG("VulkanMaybeAvailable: Instance extension found: %s (%08x)", iter.extensionName, iter.specVersion);
 			if (!strcmp(iter.extensionName, platformSurfaceExtension)) {
+				ILOG("VulkanMayBeAvailable: Found platform surface extension '%s'", platformSurfaceExtension);
 				instanceExtensions[ci.enabledExtensionCount++] = platformSurfaceExtension;
 				platformSurfaceExtensionFound = true;
 				break;
 			} else if (!strcmp(iter.extensionName, VK_KHR_SURFACE_EXTENSION_NAME)) {
+				instanceExtensions[ci.enabledExtensionCount++] = VK_KHR_SURFACE_EXTENSION_NAME;
 				surfaceExtensionFound = true;
 			}
 		}
@@ -323,6 +353,11 @@ bool VulkanMayBeAvailable() {
 			goto bail;
 		}
 	}
+	// This can't happen unless the driver is double-reporting a surface extension.
+	if (ci.enabledExtensionCount > 2) {
+		ELOG("Unexpected number of enabled instance extensions");
+		goto bail;
+	}
 
 	ci.ppEnabledExtensionNames = instanceExtensions;
 	ci.enabledLayerCount = 0;
@@ -330,29 +365,30 @@ bool VulkanMayBeAvailable() {
 	info.applicationVersion = 1;
 	info.engineVersion = 1;
 	info.pApplicationName = "VulkanChecker";
-	info.pEngineName = "VulkanChecker";
+	info.pEngineName = "VulkanCheckerEngine";
 	ci.pApplicationInfo = &info;
 	ci.flags = 0;
+	ILOG("VulkanMayBeAvailable: Calling vkCreateInstance");
 	res = localCreateInstance(&ci, nullptr, &instance);
 	if (res != VK_SUCCESS) {
 		instance = nullptr;
 		ELOG("Failed to create vulkan instance.");
 		goto bail;
 	}
-	ILOG("Vulkan test instance created successfully.");
+	ILOG("VulkanMayBeAvailable: Vulkan test instance created successfully.");
 	res = localEnumerate(instance, &physicalDeviceCount, nullptr);
 	if (res != VK_SUCCESS) {
-		ELOG("Failed to count physical devices.");
+		ELOG("VulkanMayBeAvailable: Failed to count physical devices.");
 		goto bail;
 	}
 	if (physicalDeviceCount == 0) {
-		ELOG("No physical Vulkan devices.");
+		ELOG("VulkanMayBeAvailable: No physical Vulkan devices.");
 		goto bail;
 	}
 	devices.resize(physicalDeviceCount);
 	res = localEnumerate(instance, &physicalDeviceCount, devices.data());
 	if (res != VK_SUCCESS) {
-		ELOG("Failed to enumerate physical devices.");
+		ELOG("VulkanMayBeAvailable: Failed to enumerate physical devices.");
 		goto bail;
 	}
 	anyGood = false;
@@ -372,16 +408,17 @@ bool VulkanMayBeAvailable() {
 	}
 
 	if (!anyGood) {
-		WLOG("Found Vulkan API, but no good Vulkan device!");
+		WLOG("VulkanMayBeAvailable: Found Vulkan API, but no good Vulkan device!");
 		g_vulkanMayBeAvailable = false;
 	} else {
-		ILOG("Found working Vulkan API!");
+		ILOG("VulkanMayBeAvailable: Found working Vulkan API!");
 		g_vulkanMayBeAvailable = true;
 	}
 
 bail:
 	g_vulkanAvailabilityChecked = true;
 	if (instance) {
+		ILOG("VulkanMayBeAvailable: Destroying instance");
 		localDestroyInstance(instance, nullptr);
 	}
 	if (lib) {
@@ -401,8 +438,10 @@ bool VulkanLoad() {
 #ifndef _WIN32
 		for (int i = 0; i < ARRAY_SIZE(so_names); i++) {
 			vulkanLibrary = dlopen(so_names[i], RTLD_NOW | RTLD_LOCAL);
-			if (vulkanLibrary)
+			if (vulkanLibrary) {
+				ILOG("VulkanLoad: Found library '%s'", so_names[i]);
 				break;
+			}
 		}
 #else
 		// LoadLibrary etc
@@ -420,8 +459,19 @@ bool VulkanLoad() {
 	LOAD_GLOBAL_FUNC(vkEnumerateInstanceExtensionProperties);
 	LOAD_GLOBAL_FUNC(vkEnumerateInstanceLayerProperties);
 
-	WLOG("Vulkan base functions loaded.");
-	return true;
+	if (vkCreateInstance && vkGetInstanceProcAddr && vkGetDeviceProcAddr && vkEnumerateInstanceExtensionProperties && vkEnumerateInstanceLayerProperties) {
+		WLOG("VulkanLoad: Base functions loaded.");
+		return true;
+	} else {
+		ELOG("VulkanLoad: Failed to load Vulkan base functions.");
+#ifndef _WIN32
+		dlclose(vulkanLibrary);
+#else
+		FreeLibrary(vulkanLibrary);
+#endif
+		vulkanLibrary = nullptr;
+		return false;
+	}
 }
 
 void VulkanLoadInstanceFunctions(VkInstance instance, const VulkanDeviceExtensions &enabledExtensions) {
@@ -439,125 +489,7 @@ void VulkanLoadInstanceFunctions(VkInstance instance, const VulkanDeviceExtensio
 	LOAD_INSTANCE_FUNC(instance, vkEnumerateDeviceExtensionProperties);
 	LOAD_INSTANCE_FUNC(instance, vkEnumerateDeviceLayerProperties);
 	LOAD_INSTANCE_FUNC(instance, vkGetDeviceQueue);
-	LOAD_INSTANCE_FUNC(instance, vkQueueSubmit);
-	LOAD_INSTANCE_FUNC(instance, vkQueueWaitIdle);
 	LOAD_INSTANCE_FUNC(instance, vkDeviceWaitIdle);
-	LOAD_INSTANCE_FUNC(instance, vkAllocateMemory);
-	LOAD_INSTANCE_FUNC(instance, vkFreeMemory);
-	LOAD_INSTANCE_FUNC(instance, vkMapMemory);
-	LOAD_INSTANCE_FUNC(instance, vkUnmapMemory);
-	LOAD_INSTANCE_FUNC(instance, vkFlushMappedMemoryRanges);
-	LOAD_INSTANCE_FUNC(instance, vkInvalidateMappedMemoryRanges);
-	LOAD_INSTANCE_FUNC(instance, vkGetDeviceMemoryCommitment);
-	LOAD_INSTANCE_FUNC(instance, vkBindBufferMemory);
-	LOAD_INSTANCE_FUNC(instance, vkBindImageMemory);
-	LOAD_INSTANCE_FUNC(instance, vkGetBufferMemoryRequirements);
-	LOAD_INSTANCE_FUNC(instance, vkGetImageMemoryRequirements);
-	LOAD_INSTANCE_FUNC(instance, vkGetImageSparseMemoryRequirements);
-	LOAD_INSTANCE_FUNC(instance, vkGetPhysicalDeviceSparseImageFormatProperties);
-	LOAD_INSTANCE_FUNC(instance, vkQueueBindSparse);
-	LOAD_INSTANCE_FUNC(instance, vkCreateFence);
-	LOAD_INSTANCE_FUNC(instance, vkDestroyFence);
-	LOAD_INSTANCE_FUNC(instance, vkResetFences);
-	LOAD_INSTANCE_FUNC(instance, vkGetFenceStatus);
-	LOAD_INSTANCE_FUNC(instance, vkWaitForFences);
-	LOAD_INSTANCE_FUNC(instance, vkCreateSemaphore);
-	LOAD_INSTANCE_FUNC(instance, vkDestroySemaphore);
-	LOAD_INSTANCE_FUNC(instance, vkCreateEvent);
-	LOAD_INSTANCE_FUNC(instance, vkDestroyEvent);
-	LOAD_INSTANCE_FUNC(instance, vkGetEventStatus);
-	LOAD_INSTANCE_FUNC(instance, vkSetEvent);
-	LOAD_INSTANCE_FUNC(instance, vkResetEvent);
-	LOAD_INSTANCE_FUNC(instance, vkCreateQueryPool);
-	LOAD_INSTANCE_FUNC(instance, vkDestroyQueryPool);
-	LOAD_INSTANCE_FUNC(instance, vkGetQueryPoolResults);
-	LOAD_INSTANCE_FUNC(instance, vkCreateBuffer);
-	LOAD_INSTANCE_FUNC(instance, vkDestroyBuffer);
-	LOAD_INSTANCE_FUNC(instance, vkCreateBufferView);
-	LOAD_INSTANCE_FUNC(instance, vkDestroyBufferView);
-	LOAD_INSTANCE_FUNC(instance, vkCreateImage);
-	LOAD_INSTANCE_FUNC(instance, vkDestroyImage);
-	LOAD_INSTANCE_FUNC(instance, vkGetImageSubresourceLayout);
-	LOAD_INSTANCE_FUNC(instance, vkCreateImageView);
-	LOAD_INSTANCE_FUNC(instance, vkDestroyImageView);
-	LOAD_INSTANCE_FUNC(instance, vkCreateShaderModule);
-	LOAD_INSTANCE_FUNC(instance, vkDestroyShaderModule);
-	LOAD_INSTANCE_FUNC(instance, vkCreatePipelineCache);
-	LOAD_INSTANCE_FUNC(instance, vkDestroyPipelineCache);
-	LOAD_INSTANCE_FUNC(instance, vkGetPipelineCacheData);
-	LOAD_INSTANCE_FUNC(instance, vkMergePipelineCaches);
-	LOAD_INSTANCE_FUNC(instance, vkCreateGraphicsPipelines);
-	LOAD_INSTANCE_FUNC(instance, vkCreateComputePipelines);
-	LOAD_INSTANCE_FUNC(instance, vkDestroyPipeline);
-	LOAD_INSTANCE_FUNC(instance, vkCreatePipelineLayout);
-	LOAD_INSTANCE_FUNC(instance, vkDestroyPipelineLayout);
-	LOAD_INSTANCE_FUNC(instance, vkCreateSampler);
-	LOAD_INSTANCE_FUNC(instance, vkDestroySampler);
-	LOAD_INSTANCE_FUNC(instance, vkCreateDescriptorSetLayout);
-	LOAD_INSTANCE_FUNC(instance, vkDestroyDescriptorSetLayout);
-	LOAD_INSTANCE_FUNC(instance, vkCreateDescriptorPool);
-	LOAD_INSTANCE_FUNC(instance, vkDestroyDescriptorPool);
-	LOAD_INSTANCE_FUNC(instance, vkResetDescriptorPool);
-	LOAD_INSTANCE_FUNC(instance, vkAllocateDescriptorSets);
-	LOAD_INSTANCE_FUNC(instance, vkFreeDescriptorSets);
-	LOAD_INSTANCE_FUNC(instance, vkUpdateDescriptorSets);
-	LOAD_INSTANCE_FUNC(instance, vkCreateFramebuffer);
-	LOAD_INSTANCE_FUNC(instance, vkDestroyFramebuffer);
-	LOAD_INSTANCE_FUNC(instance, vkCreateRenderPass);
-	LOAD_INSTANCE_FUNC(instance, vkDestroyRenderPass);
-	LOAD_INSTANCE_FUNC(instance, vkGetRenderAreaGranularity);
-	LOAD_INSTANCE_FUNC(instance, vkCreateCommandPool);
-	LOAD_INSTANCE_FUNC(instance, vkDestroyCommandPool);
-	LOAD_INSTANCE_FUNC(instance, vkResetCommandPool);
-	LOAD_INSTANCE_FUNC(instance, vkAllocateCommandBuffers);
-	LOAD_INSTANCE_FUNC(instance, vkFreeCommandBuffers);
-	LOAD_INSTANCE_FUNC(instance, vkBeginCommandBuffer);
-	LOAD_INSTANCE_FUNC(instance, vkEndCommandBuffer);
-	LOAD_INSTANCE_FUNC(instance, vkResetCommandBuffer);
-	LOAD_INSTANCE_FUNC(instance, vkCmdBindPipeline);
-	LOAD_INSTANCE_FUNC(instance, vkCmdSetViewport);
-	LOAD_INSTANCE_FUNC(instance, vkCmdSetScissor);
-	LOAD_INSTANCE_FUNC(instance, vkCmdSetLineWidth);
-	LOAD_INSTANCE_FUNC(instance, vkCmdSetDepthBias);
-	LOAD_INSTANCE_FUNC(instance, vkCmdSetBlendConstants);
-	LOAD_INSTANCE_FUNC(instance, vkCmdSetDepthBounds);
-	LOAD_INSTANCE_FUNC(instance, vkCmdSetStencilCompareMask);
-	LOAD_INSTANCE_FUNC(instance, vkCmdSetStencilWriteMask);
-	LOAD_INSTANCE_FUNC(instance, vkCmdSetStencilReference);
-	LOAD_INSTANCE_FUNC(instance, vkCmdBindDescriptorSets);
-	LOAD_INSTANCE_FUNC(instance, vkCmdBindIndexBuffer);
-	LOAD_INSTANCE_FUNC(instance, vkCmdBindVertexBuffers);
-	LOAD_INSTANCE_FUNC(instance, vkCmdDraw);
-	LOAD_INSTANCE_FUNC(instance, vkCmdDrawIndexed);
-	LOAD_INSTANCE_FUNC(instance, vkCmdDrawIndirect);
-	LOAD_INSTANCE_FUNC(instance, vkCmdDrawIndexedIndirect);
-	LOAD_INSTANCE_FUNC(instance, vkCmdDispatch);
-	LOAD_INSTANCE_FUNC(instance, vkCmdDispatchIndirect);
-	LOAD_INSTANCE_FUNC(instance, vkCmdCopyBuffer);
-	LOAD_INSTANCE_FUNC(instance, vkCmdCopyImage);
-	LOAD_INSTANCE_FUNC(instance, vkCmdBlitImage);
-	LOAD_INSTANCE_FUNC(instance, vkCmdCopyBufferToImage);
-	LOAD_INSTANCE_FUNC(instance, vkCmdCopyImageToBuffer);
-	LOAD_INSTANCE_FUNC(instance, vkCmdUpdateBuffer);
-	LOAD_INSTANCE_FUNC(instance, vkCmdFillBuffer);
-	LOAD_INSTANCE_FUNC(instance, vkCmdClearColorImage);
-	LOAD_INSTANCE_FUNC(instance, vkCmdClearDepthStencilImage);
-	LOAD_INSTANCE_FUNC(instance, vkCmdClearAttachments);
-	LOAD_INSTANCE_FUNC(instance, vkCmdResolveImage);
-	LOAD_INSTANCE_FUNC(instance, vkCmdSetEvent);
-	LOAD_INSTANCE_FUNC(instance, vkCmdResetEvent);
-	LOAD_INSTANCE_FUNC(instance, vkCmdWaitEvents);
-	LOAD_INSTANCE_FUNC(instance, vkCmdPipelineBarrier);
-	LOAD_INSTANCE_FUNC(instance, vkCmdBeginQuery);
-	LOAD_INSTANCE_FUNC(instance, vkCmdEndQuery);
-	LOAD_INSTANCE_FUNC(instance, vkCmdResetQueryPool);
-	LOAD_INSTANCE_FUNC(instance, vkCmdWriteTimestamp);
-	LOAD_INSTANCE_FUNC(instance, vkCmdCopyQueryPoolResults);
-	LOAD_INSTANCE_FUNC(instance, vkCmdPushConstants);
-	LOAD_INSTANCE_FUNC(instance, vkCmdBeginRenderPass);
-	LOAD_INSTANCE_FUNC(instance, vkCmdNextSubpass);
-	LOAD_INSTANCE_FUNC(instance, vkCmdEndRenderPass);
-	LOAD_INSTANCE_FUNC(instance, vkCmdExecuteCommands);
 
 	LOAD_INSTANCE_FUNC(instance, vkGetPhysicalDeviceSurfaceSupportKHR);
 	LOAD_INSTANCE_FUNC(instance, vkGetPhysicalDeviceSurfaceCapabilitiesKHR);
@@ -609,15 +541,129 @@ void VulkanLoadInstanceFunctions(VkInstance instance, const VulkanDeviceExtensio
 
 // On some implementations, loading functions (that have Device as their first parameter) via vkGetDeviceProcAddr may
 // increase performance - but then these function pointers will only work on that specific device. Thus, this loader is not very
-// good for multi-device.
+// good for multi-device - not likely we'll ever try that anyway though.
 void VulkanLoadDeviceFunctions(VkDevice device, const VulkanDeviceExtensions &enabledExtensions) {
 	WLOG("Vulkan device functions loaded.");
-	// TODO: Move more functions VulkanLoadInstanceFunctions to here.
-	LOAD_DEVICE_FUNC(device, vkCreateSwapchainKHR);
-	LOAD_DEVICE_FUNC(device, vkDestroySwapchainKHR);
-	LOAD_DEVICE_FUNC(device, vkGetSwapchainImagesKHR);
-	LOAD_DEVICE_FUNC(device, vkAcquireNextImageKHR);
-	LOAD_DEVICE_FUNC(device, vkQueuePresentKHR);
+
+	LOAD_DEVICE_FUNC(device, vkQueueSubmit);
+	LOAD_DEVICE_FUNC(device, vkQueueWaitIdle);
+	LOAD_DEVICE_FUNC(device, vkAllocateMemory);
+	LOAD_DEVICE_FUNC(device, vkFreeMemory);
+	LOAD_DEVICE_FUNC(device, vkMapMemory);
+	LOAD_DEVICE_FUNC(device, vkUnmapMemory);
+	LOAD_DEVICE_FUNC(device, vkFlushMappedMemoryRanges);
+	LOAD_DEVICE_FUNC(device, vkInvalidateMappedMemoryRanges);
+	LOAD_DEVICE_FUNC(device, vkGetDeviceMemoryCommitment);
+	LOAD_DEVICE_FUNC(device, vkBindBufferMemory);
+	LOAD_DEVICE_FUNC(device, vkBindImageMemory);
+	LOAD_DEVICE_FUNC(device, vkGetBufferMemoryRequirements);
+	LOAD_DEVICE_FUNC(device, vkGetImageMemoryRequirements);
+	LOAD_DEVICE_FUNC(device, vkGetImageSparseMemoryRequirements);
+	LOAD_DEVICE_FUNC(device, vkGetPhysicalDeviceSparseImageFormatProperties);
+	LOAD_DEVICE_FUNC(device, vkQueueBindSparse);
+	LOAD_DEVICE_FUNC(device, vkCreateFence);
+	LOAD_DEVICE_FUNC(device, vkDestroyFence);
+	LOAD_DEVICE_FUNC(device, vkResetFences);
+	LOAD_DEVICE_FUNC(device, vkGetFenceStatus);
+	LOAD_DEVICE_FUNC(device, vkWaitForFences);
+	LOAD_DEVICE_FUNC(device, vkCreateSemaphore);
+	LOAD_DEVICE_FUNC(device, vkDestroySemaphore);
+	LOAD_DEVICE_FUNC(device, vkCreateEvent);
+	LOAD_DEVICE_FUNC(device, vkDestroyEvent);
+	LOAD_DEVICE_FUNC(device, vkGetEventStatus);
+	LOAD_DEVICE_FUNC(device, vkSetEvent);
+	LOAD_DEVICE_FUNC(device, vkResetEvent);
+	LOAD_DEVICE_FUNC(device, vkCreateQueryPool);
+	LOAD_DEVICE_FUNC(device, vkDestroyQueryPool);
+	LOAD_DEVICE_FUNC(device, vkGetQueryPoolResults);
+	LOAD_DEVICE_FUNC(device, vkCreateBuffer);
+	LOAD_DEVICE_FUNC(device, vkDestroyBuffer);
+	LOAD_DEVICE_FUNC(device, vkCreateBufferView);
+	LOAD_DEVICE_FUNC(device, vkDestroyBufferView);
+	LOAD_DEVICE_FUNC(device, vkCreateImage);
+	LOAD_DEVICE_FUNC(device, vkDestroyImage);
+	LOAD_DEVICE_FUNC(device, vkGetImageSubresourceLayout);
+	LOAD_DEVICE_FUNC(device, vkCreateImageView);
+	LOAD_DEVICE_FUNC(device, vkDestroyImageView);
+	LOAD_DEVICE_FUNC(device, vkCreateShaderModule);
+	LOAD_DEVICE_FUNC(device, vkDestroyShaderModule);
+	LOAD_DEVICE_FUNC(device, vkCreatePipelineCache);
+	LOAD_DEVICE_FUNC(device, vkDestroyPipelineCache);
+	LOAD_DEVICE_FUNC(device, vkGetPipelineCacheData);
+	LOAD_DEVICE_FUNC(device, vkMergePipelineCaches);
+	LOAD_DEVICE_FUNC(device, vkCreateGraphicsPipelines);
+	LOAD_DEVICE_FUNC(device, vkCreateComputePipelines);
+	LOAD_DEVICE_FUNC(device, vkDestroyPipeline);
+	LOAD_DEVICE_FUNC(device, vkCreatePipelineLayout);
+	LOAD_DEVICE_FUNC(device, vkDestroyPipelineLayout);
+	LOAD_DEVICE_FUNC(device, vkCreateSampler);
+	LOAD_DEVICE_FUNC(device, vkDestroySampler);
+	LOAD_DEVICE_FUNC(device, vkCreateDescriptorSetLayout);
+	LOAD_DEVICE_FUNC(device, vkDestroyDescriptorSetLayout);
+	LOAD_DEVICE_FUNC(device, vkCreateDescriptorPool);
+	LOAD_DEVICE_FUNC(device, vkDestroyDescriptorPool);
+	LOAD_DEVICE_FUNC(device, vkResetDescriptorPool);
+	LOAD_DEVICE_FUNC(device, vkAllocateDescriptorSets);
+	LOAD_DEVICE_FUNC(device, vkFreeDescriptorSets);
+	LOAD_DEVICE_FUNC(device, vkUpdateDescriptorSets);
+	LOAD_DEVICE_FUNC(device, vkCreateFramebuffer);
+	LOAD_DEVICE_FUNC(device, vkDestroyFramebuffer);
+	LOAD_DEVICE_FUNC(device, vkCreateRenderPass);
+	LOAD_DEVICE_FUNC(device, vkDestroyRenderPass);
+	LOAD_DEVICE_FUNC(device, vkGetRenderAreaGranularity);
+	LOAD_DEVICE_FUNC(device, vkCreateCommandPool);
+	LOAD_DEVICE_FUNC(device, vkDestroyCommandPool);
+	LOAD_DEVICE_FUNC(device, vkResetCommandPool);
+	LOAD_DEVICE_FUNC(device, vkAllocateCommandBuffers);
+	LOAD_DEVICE_FUNC(device, vkFreeCommandBuffers);
+	LOAD_DEVICE_FUNC(device, vkBeginCommandBuffer);
+	LOAD_DEVICE_FUNC(device, vkEndCommandBuffer);
+	LOAD_DEVICE_FUNC(device, vkResetCommandBuffer);
+	LOAD_DEVICE_FUNC(device, vkCmdBindPipeline);
+	LOAD_DEVICE_FUNC(device, vkCmdSetViewport);
+	LOAD_DEVICE_FUNC(device, vkCmdSetScissor);
+	LOAD_DEVICE_FUNC(device, vkCmdSetLineWidth);
+	LOAD_DEVICE_FUNC(device, vkCmdSetDepthBias);
+	LOAD_DEVICE_FUNC(device, vkCmdSetBlendConstants);
+	LOAD_DEVICE_FUNC(device, vkCmdSetDepthBounds);
+	LOAD_DEVICE_FUNC(device, vkCmdSetStencilCompareMask);
+	LOAD_DEVICE_FUNC(device, vkCmdSetStencilWriteMask);
+	LOAD_DEVICE_FUNC(device, vkCmdSetStencilReference);
+	LOAD_DEVICE_FUNC(device, vkCmdBindDescriptorSets);
+	LOAD_DEVICE_FUNC(device, vkCmdBindIndexBuffer);
+	LOAD_DEVICE_FUNC(device, vkCmdBindVertexBuffers);
+	LOAD_DEVICE_FUNC(device, vkCmdDraw);
+	LOAD_DEVICE_FUNC(device, vkCmdDrawIndexed);
+	LOAD_DEVICE_FUNC(device, vkCmdDrawIndirect);
+	LOAD_DEVICE_FUNC(device, vkCmdDrawIndexedIndirect);
+	LOAD_DEVICE_FUNC(device, vkCmdDispatch);
+	LOAD_DEVICE_FUNC(device, vkCmdDispatchIndirect);
+	LOAD_DEVICE_FUNC(device, vkCmdCopyBuffer);
+	LOAD_DEVICE_FUNC(device, vkCmdCopyImage);
+	LOAD_DEVICE_FUNC(device, vkCmdBlitImage);
+	LOAD_DEVICE_FUNC(device, vkCmdCopyBufferToImage);
+	LOAD_DEVICE_FUNC(device, vkCmdCopyImageToBuffer);
+	LOAD_DEVICE_FUNC(device, vkCmdUpdateBuffer);
+	LOAD_DEVICE_FUNC(device, vkCmdFillBuffer);
+	LOAD_DEVICE_FUNC(device, vkCmdClearColorImage);
+	LOAD_DEVICE_FUNC(device, vkCmdClearDepthStencilImage);
+	LOAD_DEVICE_FUNC(device, vkCmdClearAttachments);
+	LOAD_DEVICE_FUNC(device, vkCmdResolveImage);
+	LOAD_DEVICE_FUNC(device, vkCmdSetEvent);
+	LOAD_DEVICE_FUNC(device, vkCmdResetEvent);
+	LOAD_DEVICE_FUNC(device, vkCmdWaitEvents);
+	LOAD_DEVICE_FUNC(device, vkCmdPipelineBarrier);
+	LOAD_DEVICE_FUNC(device, vkCmdBeginQuery);
+	LOAD_DEVICE_FUNC(device, vkCmdEndQuery);
+	LOAD_DEVICE_FUNC(device, vkCmdResetQueryPool);
+	LOAD_DEVICE_FUNC(device, vkCmdWriteTimestamp);
+	LOAD_DEVICE_FUNC(device, vkCmdCopyQueryPoolResults);
+	LOAD_DEVICE_FUNC(device, vkCmdPushConstants);
+	LOAD_DEVICE_FUNC(device, vkCmdBeginRenderPass);
+	LOAD_DEVICE_FUNC(device, vkCmdNextSubpass);
+	LOAD_DEVICE_FUNC(device, vkCmdEndRenderPass);
+	LOAD_DEVICE_FUNC(device, vkCmdExecuteCommands);
+
 	if (enabledExtensions.EXT_external_memory_host) {
 		LOAD_DEVICE_FUNC(device, vkGetMemoryHostPointerPropertiesEXT);
 	}

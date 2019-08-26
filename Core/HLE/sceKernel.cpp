@@ -81,6 +81,7 @@
 #include "sceHeap.h"
 #include "sceDmac.h"
 #include "sceMp4.h"
+#include "sceUsbCam.h"
 
 #include "../Util/PPGeDraw.h"
 
@@ -143,6 +144,7 @@ void __KernelInit()
 	__AudioCodecInit();
 	__VideoPmpInit();
 	__UsbGpsInit();
+	__UsbCamInit();
 	
 	SaveState::Init();  // Must be after IO, as it may create a directory
 	Reporting::Init();
@@ -165,6 +167,8 @@ void __KernelShutdown()
 	INFO_LOG(SCEKERNEL, "Shutting down kernel - %i kernel objects alive", kernelObjects.GetCount());
 	hleCurrentThreadName = NULL;
 	kernelObjects.Clear();
+
+	__UsbCamShutdown();
 
 	__AudioCodecShutdown();
 	__VideoPmpShutdown();

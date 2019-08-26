@@ -5,33 +5,42 @@ import android.app.Activity;
 import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
+import android.content.IntentFilter;
 import android.database.ContentObserver;
 import android.net.Uri;
 import android.os.Build;
 import android.os.PowerManager;
 import android.provider.Settings;
+import android.text.TextUtils;
 import android.util.Log;
 
 public class PowerSaveModeReceiver extends BroadcastReceiver {
+	private static final String TAG = PowerSaveModeReceiver.class.getSimpleName();
 	private static boolean isPowerSaving = false;
 	private static boolean isBatteryLow = false;
-
-	private static final String TAG = "PowerSaveModeReceiver";
 
 	@Override
 	public void onReceive(final Context context, final Intent intent) {
 		final String action = intent.getAction();
-		if (action.equals(Intent.ACTION_BATTERY_LOW)) {
+		if (Intent.ACTION_BATTERY_LOW.equals(action)) {
 			isBatteryLow = true;
-		} else if (action.equals(Intent.ACTION_BATTERY_OKAY)) {
+		} else if (Intent.ACTION_BATTERY_OKAY.equals(action)) {
 			isBatteryLow = false;
+		} else if (PowerManager.ACTION_POWER_SAVE_MODE_CHANGED.equals(action)) {
+			// sendPowerSaving()
 		}
 
 		sendPowerSaving(context);
 	}
 
-	public static void initAndSend(final Activity activity) {
-		sendPowerSaving(activity);
+	public PowerSaveModeReceiver(final Activity activity) {
+		IntentFilter filter = new IntentFilter();
+		filter.addAction(Intent.ACTION_BATTERY_LOW);
+		filter.addAction(Intent.ACTION_BATTERY_OKAY);
+		if (Build.VERSION.SDK_INT >= 21) {
+			filter.addAction(PowerManager.ACTION_POWER_SAVE_MODE_CHANGED);
+		}
+		activity.registerReceiver(this, filter);
 
 		if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.JELLY_BEAN) {
 			activity.getContentResolver().registerContentObserver(Settings.System.CONTENT_URI, true, new ContentObserver(null) {
@@ -46,11 +55,16 @@ public class PowerSaveModeReceiver extends BroadcastReceiver {
 					}
 					key = key.substring(key.lastIndexOf("/") + 1, key.length());
 					if (key.equals("user_powersaver_enable") || key.equals("psm_switch") || key.equals("powersaving_switch")) {
-						PowerSaveModeReceiver.sendPowerSaving(activity);
+						sendPowerSaving(activity);
 					}
 				}
 			});
 		}
+		sendPowerSaving(activity);
+	}
+
+	public void destroy(final Context context) {
+		context.unregisterReceiver(this);
 	}
 
 	@TargetApi(21)
@@ -67,7 +81,7 @@ public class PowerSaveModeReceiver extends BroadcastReceiver {
 		}
 		// Samsung (Touchwiz)
 		String s5Value = Settings.System.getString(context.getContentResolver(), "powersaving_switch");
-		boolean hasS5Value = s5Value != null && !s5Value.equals("");
+		boolean hasS5Value = !TextUtils.isEmpty(s5Value);
 		// On newer devices, psm_switch is always set, and powersaving_switch is used instead.
 		if ((!hasS5Value && getBooleanSetting(context, "psm_switch")) || getBooleanSetting(context, "powersaving_switch")) {
 			return true;
@@ -80,7 +94,7 @@ public class PowerSaveModeReceiver extends BroadcastReceiver {
 		return value != null && value.equals("1");
 	}
 
-	private static void sendPowerSaving(final Context context) {
+	protected void sendPowerSaving(final Context context) {
 		if (Build.VERSION.SDK_INT >= 21) {
 			isPowerSaving = getNativePowerSaving(context);
 		} else {

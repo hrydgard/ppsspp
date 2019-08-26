@@ -439,6 +439,8 @@ void MainUI::initializeGL() {
 		g_Config.iGPUBackend = (int)GPUBackend::OPENGL;
 	}
 
+	SetGLCoreContext(format().profile() == QGLFormat::CoreProfile);
+
 #ifndef USING_GLES2
 	// Some core profile drivers elide certain extensions from GL_EXTENSIONS/etc.
 	// glewExperimental allows us to force GLEW to search for the pointers anyway.
@@ -569,6 +571,14 @@ int main(int argc, char *argv[])
 #if defined(Q_OS_LINUX)
 	QApplication::setAttribute(Qt::AA_X11InitThreads, true);
 #endif
+
+	// Qt would otherwise default to a 3.0 compatibility profile
+	// except on Nvidia, where Nvidia gives us the highest supported anyway
+	QGLFormat format;
+	format.setVersion(4, 6);
+	format.setProfile(QGLFormat::CoreProfile);
+	QGLFormat::setDefaultFormat(format);
+
 	QApplication a(argc, argv);
 	QSize res = QApplication::desktop()->screenGeometry().size();
 	if (res.width() < res.height())

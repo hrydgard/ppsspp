@@ -582,7 +582,14 @@ static int DefaultGPUBackend() {
 	if (DoesVersionMatchWindows(6, 2, 0, 0, true)) {
 		return (int)GPUBackend::DIRECT3D11;
 	}
+#elif PPSSPP_PLATFORM(ANDROID)
+	// Default to Vulkan only on Pie (level 28) devices or newer. Drivers before Pie
+	// were generally too unreliable to default to (with some exceptions, of course).
+	if (System_GetPropertyInt(SYSPROP_SYSTEMVERSION) >= 28) {
+		return (int)GPUBackend::VULKAN;
+	}
 #endif
+	// TODO: On some additional Linux platforms, we should also default to Vulkan.
 	return (int)GPUBackend::OPENGL;
 }
 
@@ -980,9 +987,10 @@ static ConfigSetting debuggerSettings[] = {
 	ConfigSetting("FontWidth", &g_Config.iFontWidth, 8),
 	ConfigSetting("FontHeight", &g_Config.iFontHeight, 12),
 	ConfigSetting("DisplayStatusBar", &g_Config.bDisplayStatusBar, true),
-	ConfigSetting("ShowBottomTabTitles",&g_Config.bShowBottomTabTitles,true),
+	ConfigSetting("ShowBottomTabTitles",&g_Config.bShowBottomTabTitles, true),
 	ConfigSetting("ShowDeveloperMenu", &g_Config.bShowDeveloperMenu, false),
 	ConfigSetting("ShowAllocatorDebug", &g_Config.bShowAllocatorDebug, false, false),
+	ConfigSetting("ShowGpuProfile", &g_Config.bShowGpuProfile, false, false),
 	ConfigSetting("SkipDeadbeefFilling", &g_Config.bSkipDeadbeefFilling, false),
 	ConfigSetting("FuncHashMap", &g_Config.bFuncHashMap, false),
 

@@ -501,6 +501,7 @@
     <ClInclude Include="..\..\Core\HLE\sceUsbAcc.h" />
     <ClInclude Include="..\..\Core\HLE\sceUsbCam.h" />
     <ClInclude Include="..\..\Core\HLE\sceUsbGps.h" />
+    <ClInclude Include="..\..\Core\HLE\sceUsbMic.h" />
     <ClInclude Include="..\..\Core\HLE\sceUtility.h" />
     <ClInclude Include="..\..\Core\HLE\sceVaudio.h" />
     <ClInclude Include="..\..\Core\HLE\ThreadQueueList.h" />
@@ -712,6 +713,7 @@
     <ClCompile Include="..\..\Core\HLE\sceUsbAcc.cpp" />
     <ClCompile Include="..\..\Core\HLE\sceUsbCam.cpp" />
     <ClCompile Include="..\..\Core\HLE\sceUsbGps.cpp" />
+    <ClCompile Include="..\..\Core\HLE\sceUsbMic.cpp" />
     <ClCompile Include="..\..\Core\HLE\sceUtility.cpp" />
     <ClCompile Include="..\..\Core\HLE\sceVaudio.cpp" />
     <ClCompile Include="..\..\Core\HLE\__sceAudio.cpp" />

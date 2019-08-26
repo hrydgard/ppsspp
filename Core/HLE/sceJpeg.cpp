@@ -23,6 +23,7 @@
 #include "Core/HLE/FunctionWrappers.h"
 #include "Core/HLE/sceJpeg.h"
 #include "Core/HLE/sceMpeg.h"
+#include "GPU/GPUCommon.h"
 #include "Core/MemMap.h"
 #include "Core/Reporting.h"
 
@@ -112,7 +113,10 @@ static void __JpegCsc(u32 imageAddr, u32 yCbCrAddr, int widthHeight, int bufferW
 static int sceJpegMJpegCsc(u32 imageAddr, u32 yCbCrAddr, int widthHeight, int bufferWidth) {
 	__JpegCsc(imageAddr, yCbCrAddr, widthHeight, bufferWidth);
 	
-	DEBUG_LOG(ME, "sceJpegMJpegCsc(%i, %i, %i, %i)", imageAddr, yCbCrAddr, widthHeight, bufferWidth);
+	int width = (widthHeight >> 16) & 0xFFF;
+	int height = widthHeight & 0xFFF;
+	DEBUG_LOG(ME, "sceJpegMJpegCsc(%08x, %08x, (%dx%d), %i)", imageAddr, yCbCrAddr, width, height, bufferWidth);
+	gpu->NotifyVideoUpload(imageAddr, width * height * 4, width, GE_FORMAT_8888);
 	return 0;
 }
 
@@ -165,7 +169,7 @@ static int sceJpegDecodeMJpeg(u32 jpegAddr, int jpegSize, u32 imageAddr, int dht
 		return 0;
 	}
 
-	DEBUG_LOG(ME, "sceJpegDecodeMJpeg(%i, %i, %i, %i)", jpegAddr, jpegSize, imageAddr, dhtMode);
+	DEBUG_LOG(ME, "sceJpegDecodeMJpeg(%08x, %i, %08x, %i)", jpegAddr, jpegSize, imageAddr, dhtMode);
 	return __DecodeJpeg(jpegAddr, jpegSize, imageAddr);
 }
 
@@ -180,19 +184,19 @@ static int sceJpegDecodeMJpegSuccessively(u32 jpegAddr, int jpegSize, u32 imageA
 		return 0;
 	}
 
-	DEBUG_LOG(ME, "sceJpegDecodeMJpegSuccessively(%i, %i, %i, %i)", jpegAddr, jpegSize, imageAddr, dhtMode);
+	DEBUG_LOG(ME, "sceJpegDecodeMJpegSuccessively(%08x, %i, %08x, %i)", jpegAddr, jpegSize, imageAddr, dhtMode);
 	return __DecodeJpeg(jpegAddr, jpegSize, imageAddr);
 }
 
 static int sceJpegCsc(u32 imageAddr, u32 yCbCrAddr, int widthHeight, int bufferWidth, int colourInfo) {
 	if (bufferWidth < 0 || widthHeight < 0){
-		WARN_LOG(ME, "sceJpegCsc(%i, %i, %i, %i, %i)", imageAddr, yCbCrAddr, widthHeight, bufferWidth, colourInfo);
+		WARN_LOG(ME, "sceJpegCsc(%08x, %08x, %i, %i, %i)", imageAddr, yCbCrAddr, widthHeight, bufferWidth, colourInfo);
 		return ERROR_JPEG_INVALID_VALUE;
 	}
 
 	__JpegCsc(imageAddr, yCbCrAddr, widthHeight, bufferWidth);
 	
-	DEBUG_LOG(ME, "sceJpegCsc(%i, %i, %i, %i, %i)", imageAddr, yCbCrAddr, widthHeight, bufferWidth, colourInfo);
+	DEBUG_LOG(ME, "sceJpegCsc(%08x, %08x, %i, %i, %i)", imageAddr, yCbCrAddr, widthHeight, bufferWidth, colourInfo);
 	return 0;
 }
 
@@ -257,7 +261,7 @@ static int sceJpegGetOutputInfo(u32 jpegAddr, int jpegSize, u32 colourInfoAddr, 
 		return getYCbCrBufferSize(0, 0);
 	}
 
-	DEBUG_LOG(ME, "sceJpegGetOutputInfo(%i, %i, %i, %i)", jpegAddr, jpegSize, colourInfoAddr, dhtMode);
+	DEBUG_LOG(ME, "sceJpegGetOutputInfo(%08x, %i, %08x, %i)", jpegAddr, jpegSize, colourInfoAddr, dhtMode);
 	return __JpegGetOutputInfo(jpegAddr, jpegSize, colourInfoAddr);
 }
 
@@ -345,7 +349,7 @@ static int sceJpegDecodeMJpegYCbCr(u32 jpegAddr, int jpegSize, u32 yCbCrAddr, in
 		return getWidthHeight(0, 0);
 	}
 	
-	DEBUG_LOG(ME, "sceJpegDecodeMJpegYCbCr(%i, %i, %i, %i, %i)", jpegAddr, jpegSize, yCbCrAddr, yCbCrSize, dhtMode);
+	DEBUG_LOG(ME, "sceJpegDecodeMJpegYCbCr(%08x, %i, %08x, %i, %i)", jpegAddr, jpegSize, yCbCrAddr, yCbCrSize, dhtMode);
 	return __JpegDecodeMJpegYCbCr(jpegAddr, jpegSize, yCbCrAddr);
 }
 
@@ -355,7 +359,7 @@ static int sceJpegDecodeMJpegYCbCrSuccessively(u32 jpegAddr, int jpegSize, u32 y
 		return getWidthHeight(0, 0);
 	}
 	
-	DEBUG_LOG(ME, "sceJpegDecodeMJpegYCbCrSuccessively(%i, %i, %i, %i, %i)", jpegAddr, jpegSize, yCbCrAddr, yCbCrSize, dhtMode);
+	DEBUG_LOG(ME, "sceJpegDecodeMJpegYCbCrSuccessively(%08x, %i, %08x, %i, %i)", jpegAddr, jpegSize, yCbCrAddr, yCbCrSize, dhtMode);
 	// Do as same way as sceJpegDecodeMJpegYCbCr() but with smaller block size
 	return __JpegDecodeMJpegYCbCr(jpegAddr, jpegSize, yCbCrAddr);
 }
