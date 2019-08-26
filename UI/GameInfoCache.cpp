@@ -92,6 +92,7 @@ bool GameInfo::Delete() {
 		{
 			const std::string &fileToRemove = filePath_;
 			File::Delete(fileToRemove);
+			g_Config.RemoveRecent(filePath_);
 			return true;
 		}
 
