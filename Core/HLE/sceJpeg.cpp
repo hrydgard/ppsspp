@@ -116,6 +116,7 @@ static int sceJpegMJpegCsc(u32 imageAddr, u32 yCbCrAddr, int widthHeight, int bu
 	int width = (widthHeight >> 16) & 0xFFF;
 	int height = widthHeight & 0xFFF;
 	DEBUG_LOG(ME, "sceJpegMJpegCsc(%08x, %08x, (%dx%d), %i)", imageAddr, yCbCrAddr, width, height, bufferWidth);
+	gpu->NotifyVideoUpload(imageAddr, width * height * 4, width, GE_FORMAT_8888);
 	return 0;
 }
 
