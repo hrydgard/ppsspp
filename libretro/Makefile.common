@@ -381,6 +381,7 @@ SOURCES_CXX += $(NATIVEDIR)/math/dataconv.cpp \
 	       $(COREDIR)/HLE/sceHttp.cpp \
 	       $(COREDIR)/HLE/sceImpose.cpp \
 	       $(COREDIR)/HLE/sceIo.cpp \
+	       $(COREDIR)/HLE/sceUsbMic.cpp \
 	       $(COREDIR)/HLE/sceJpeg.cpp \
 	       $(COREDIR)/HLE/sceKernel.cpp \
 	       $(COREDIR)/HLE/sceKernelAlarm.cpp \
