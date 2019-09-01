@@ -2704,6 +2704,7 @@ static int IoAsyncFinish(int id) {
 		}
 
 		__IoSchedAsync(f, id, us);
+		__KernelWaitCurThread(WAITTYPE_ASYNCIO, id, 0, 0, false, "async io");
 
 		params.op = IoAsyncOp::NONE;
 		return 0;
