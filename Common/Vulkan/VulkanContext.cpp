@@ -933,9 +933,12 @@ bool VulkanContext::InitSwapchain() {
 	swapChainExtent_.height = clamp(surfCapabilities_.currentExtent.height, surfCapabilities_.minImageExtent.height, surfCapabilities_.maxImageExtent.height);
 
 	if (physicalDeviceProperties_[physical_device_].properties.vendorID == VULKAN_VENDOR_IMGTEC) {
+		ILOG("Applying PowerVR hack (rounding off the dimensions!)");
 		// Swap chain width hack to avoid issue #11743 (PowerVR driver bug).
-		// TODO: Check if still broken if pretransform is used!
+		// To keep the size consistent even with pretransform, also round off the height.
+		// This is fixed in newer PowerVR drivers but I don't know the cutoff.
 		swapChainExtent_.width &= ~31;
+		swapChainExtent_.height &= ~31;
 	}
 
 	ILOG("swapChainExtent: %dx%d", swapChainExtent_.width, swapChainExtent_.height);
