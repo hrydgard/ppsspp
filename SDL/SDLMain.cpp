@@ -629,13 +629,19 @@ int main(int argc, char *argv[]) {
 			case SDL_WINDOWEVENT:
 				switch (event.window.event) {
 				case SDL_WINDOWEVENT_SIZE_CHANGED:  // better than RESIZED, more general
+				case SDL_WINDOWEVENT_MAXIMIZED:
+				case SDL_WINDOWEVENT_RESTORED:
 				{
+					windowHidden = false;
+					Core_NotifyWindowHidden(windowHidden);
+
 					Uint32 window_flags = SDL_GetWindowFlags(window);
 					bool fullscreen = (window_flags & SDL_WINDOW_FULLSCREEN);
 
-					if (UpdateScreenScale(event.window.data1, event.window.data2)) {
-						NativeMessageReceived("gpu_resized", "");
+					if (event.window.event == SDL_WINDOWEVENT_SIZE_CHANGED) {
+						UpdateScreenScale(event.window.data1, event.window.data2);
 					}
+					NativeMessageReceived("gpu_resized", "");
 
 					// Set variable here in case fullscreen was toggled by hotkey
 					g_Config.bFullScreen = fullscreen;
@@ -656,11 +662,6 @@ int main(int argc, char *argv[]) {
 					break;
 				case SDL_WINDOWEVENT_EXPOSED:
 				case SDL_WINDOWEVENT_SHOWN:
-				case SDL_WINDOWEVENT_MAXIMIZED:
-				case SDL_WINDOWEVENT_RESTORED:
-					windowHidden = false;
-					Core_NotifyWindowHidden(windowHidden);
-					break;
 
 				default:
 					break;
