@@ -662,7 +662,9 @@ int main(int argc, char *argv[]) {
 					break;
 				case SDL_WINDOWEVENT_EXPOSED:
 				case SDL_WINDOWEVENT_SHOWN:
-
+					windowHidden = false;
+					Core_NotifyWindowHidden(windowHidden);
+					break;
 				default:
 					break;
 				}
