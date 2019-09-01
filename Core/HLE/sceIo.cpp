@@ -2101,23 +2101,19 @@ static int sceIoWaitAsync(int id, u32 address) {
 	FileNode *f = __IoGetFd(id, error);
 	if (f) {
 		if (__IsInInterrupt()) {
-			DEBUG_LOG(SCEIO, "%lli = sceIoWaitAsync(%i, %08x): illegal context", f->asyncResult, id, address);
-			return SCE_KERNEL_ERROR_ILLEGAL_CONTEXT;
+			return hleLogDebug(SCEIO, SCE_KERNEL_ERROR_ILLEGAL_CONTEXT, "illegal context");
 		}
 		if (f->pendingAsyncResult) {
 			if (!__KernelIsDispatchEnabled()) {
-				DEBUG_LOG(SCEIO, "%lli = sceIoWaitAsync(%i, %08x): dispatch disabled", f->asyncResult, id, address);
-				return SCE_KERNEL_ERROR_CAN_NOT_WAIT;
+				return hleLogDebug(SCEIO, SCE_KERNEL_ERROR_CAN_NOT_WAIT, "dispatch disabled");
 			}
-			DEBUG_LOG(SCEIO, "%lli = sceIoWaitAsync(%i, %08x): waiting", f->asyncResult, id, address);
 			f->waitingThreads.push_back(__KernelGetCurThread());
 			__KernelWaitCurThread(WAITTYPE_ASYNCIO, f->GetUID(), address, 0, false, "io waited");
+			return hleLogSuccessI(SCEIO, 0, "waiting");
 		} else if (f->hasAsyncResult) {
 			if (!__KernelIsDispatchEnabled()) {
-				DEBUG_LOG(SCEIO, "%lli = sceIoWaitAsync(%i, %08x): dispatch disabled", f->asyncResult, id, address);
-				return SCE_KERNEL_ERROR_CAN_NOT_WAIT;
+				return hleLogDebug(SCEIO, SCE_KERNEL_ERROR_CAN_NOT_WAIT, "dispatch disabled");
 			}
-			DEBUG_LOG(SCEIO, "%lli = sceIoWaitAsync(%i, %08x)", f->asyncResult, id, address);
 			Memory::Write_U64((u64) f->asyncResult, address);
 			f->hasAsyncResult = false;
 			IoAsyncCleanupThread(id);
@@ -2125,14 +2121,14 @@ static int sceIoWaitAsync(int id, u32 address) {
 			if (f->closePending) {
 				__IoFreeFd(id, error);
 			}
+
+			return hleLogSuccessI(SCEIO, 0, "complete");
 		} else {
-			WARN_LOG(SCEIO, "SCE_KERNEL_ERROR_NOASYNC = sceIoWaitAsync(%i, %08x)", id, address);
-			return SCE_KERNEL_ERROR_NOASYNC;
+			return hleLogWarning(SCEIO, SCE_KERNEL_ERROR_NOASYNC, "no async pending");
 		}
 		return 0; //completed
 	} else {
-		ERROR_LOG(SCEIO, "ERROR - sceIoWaitAsync waiting for invalid id %i", id);
-		return SCE_KERNEL_ERROR_BADF;
+		return hleLogError(SCEIO, SCE_KERNEL_ERROR_BADF, "invalid fd");
 	}
 }
 
@@ -2142,18 +2138,16 @@ static int sceIoWaitAsyncCB(int id, u32 address) {
 	FileNode *f = __IoGetFd(id, error);
 	if (f) {
 		if (__IsInInterrupt()) {
-			DEBUG_LOG(SCEIO, "%lli = sceIoWaitAsyncCB(%i, %08x): illegal context", f->asyncResult, id, address);
-			return SCE_KERNEL_ERROR_ILLEGAL_CONTEXT;
+			return hleLogDebug(SCEIO, SCE_KERNEL_ERROR_ILLEGAL_CONTEXT, "illegal context");
 		}
 
 		hleCheckCurrentCallbacks();
 		if (f->pendingAsyncResult) {
-			DEBUG_LOG(SCEIO, "%lli = sceIoWaitAsyncCB(%i, %08x): waiting", f->asyncResult, id, address);
 			// TODO: This seems to re-enable dispatch or something?
 			f->waitingThreads.push_back(__KernelGetCurThread());
 			__KernelWaitCurThread(WAITTYPE_ASYNCIO, f->GetUID(), address, 0, true, "io waited");
+			return hleLogSuccessI(SCEIO, 0, "waiting");
 		} else if (f->hasAsyncResult) {
-			DEBUG_LOG(SCEIO, "%lli = sceIoWaitAsyncCB(%i, %08x)", f->asyncResult, id, address);
 			Memory::Write_U64((u64) f->asyncResult, address);
 			f->hasAsyncResult = false;
 			IoAsyncCleanupThread(id);
@@ -2161,14 +2155,13 @@ static int sceIoWaitAsyncCB(int id, u32 address) {
 			if (f->closePending) {
 				__IoFreeFd(id, error);
 			}
+
+			return hleLogSuccessI(SCEIO, 0, "complete");
 		} else {
-			WARN_LOG(SCEIO, "SCE_KERNEL_ERROR_NOASYNC = sceIoWaitAsyncCB(%i, %08x)", id, address);
-			return SCE_KERNEL_ERROR_NOASYNC;
+			return hleLogWarning(SCEIO, SCE_KERNEL_ERROR_NOASYNC, "no async pending");
 		}
-		return 0; //completed
 	} else {
-		ERROR_LOG(SCEIO, "ERROR - sceIoWaitAsyncCB waiting for invalid id %i", id);
-		return SCE_KERNEL_ERROR_BADF;
+		return hleLogError(SCEIO, SCE_KERNEL_ERROR_BADF, "invalid fd");
 	}
 }
 
@@ -2177,10 +2170,8 @@ static u32 sceIoPollAsync(int id, u32 address) {
 	FileNode *f = __IoGetFd(id, error);
 	if (f) {
 		if (f->pendingAsyncResult) {
-			VERBOSE_LOG(SCEIO, "%lli = sceIoPollAsync(%i, %08x): not ready", f->asyncResult, id, address);
-			return 1;
+			return hleLogSuccessVerboseI(SCEIO, 1, "not ready");
 		} else if (f->hasAsyncResult) {
-			DEBUG_LOG(SCEIO, "%lli = sceIoPollAsync(%i, %08x)", f->asyncResult, id, address);
 			Memory::Write_U64((u64) f->asyncResult, address);
 			f->hasAsyncResult = false;
 			IoAsyncCleanupThread(id);
@@ -2188,15 +2179,12 @@ static u32 sceIoPollAsync(int id, u32 address) {
 			if (f->closePending) {
 				__IoFreeFd(id, error);
 			}
-			return 0; //completed
+			return hleLogSuccessI(SCEIO, 0);
 		} else {
-			// This seems to be normal-ish usage so demoted to DEBUG from WARN.
-			DEBUG_LOG(SCEIO, "SCE_KERNEL_ERROR_NOASYNC = sceIoPollAsync(%i, %08x)", id, address);
-			return SCE_KERNEL_ERROR_NOASYNC;
+			return hleLogDebug(SCEIO, SCE_KERNEL_ERROR_NOASYNC, "no async pending");
 		}
 	} else {
-		ERROR_LOG(SCEIO, "ERROR - sceIoPollAsync waiting for invalid id %i", id);
-		return SCE_KERNEL_ERROR_BADF;
+		return hleLogError(SCEIO, SCE_KERNEL_ERROR_BADF, "invalid fd");
 	}
 }
 
