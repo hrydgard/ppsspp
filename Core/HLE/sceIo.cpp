@@ -2038,9 +2038,9 @@ static u32 sceIoOpenAsync(const char *filename, int flags, int mode)
 	params.open.mode = mode;
 	IoStartAsyncThread(fd, f);
 
-	if (f == nullptr) {
+	if (error != 0) {
 		f->asyncResult = (s64)error;
-		return hleLogError(SCEIO, f->asyncResult, "file not found");
+		return hleLogError(SCEIO, fd, "file not found");
 	}
 
 	f->asyncResult = fd;
