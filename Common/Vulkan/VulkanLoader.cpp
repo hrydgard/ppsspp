@@ -334,22 +334,19 @@ bool VulkanMayBeAvailable() {
 		ELOG("Enumerating VK extensions failed.");
 		goto bail;
 	}
-	for (auto &ext: instanceExts) {
-		ILOG("  %s", ext.extensionName);
+	for (auto iter : instanceExts) {
+		ILOG("VulkanMaybeAvailable: Instance extension found: %s (%08x)", iter.extensionName, iter.specVersion);
+		if (platformSurfaceExtension && !strcmp(iter.extensionName, platformSurfaceExtension)) {
+			ILOG("VulkanMayBeAvailable: Found platform surface extension '%s'", platformSurfaceExtension);
+			instanceExtensions[ci.enabledExtensionCount++] = platformSurfaceExtension;
+			platformSurfaceExtensionFound = true;
+			break;
+		} else if (!strcmp(iter.extensionName, VK_KHR_SURFACE_EXTENSION_NAME)) {
+			instanceExtensions[ci.enabledExtensionCount++] = VK_KHR_SURFACE_EXTENSION_NAME;
+			surfaceExtensionFound = true;
+		}
 	}
 	if (platformSurfaceExtension) {
-		for (auto iter : instanceExts) {
-			ILOG("VulkanMaybeAvailable: Instance extension found: %s (%08x)", iter.extensionName, iter.specVersion);
-			if (!strcmp(iter.extensionName, platformSurfaceExtension)) {
-				ILOG("VulkanMayBeAvailable: Found platform surface extension '%s'", platformSurfaceExtension);
-				instanceExtensions[ci.enabledExtensionCount++] = platformSurfaceExtension;
-				platformSurfaceExtensionFound = true;
-				break;
-			} else if (!strcmp(iter.extensionName, VK_KHR_SURFACE_EXTENSION_NAME)) {
-				instanceExtensions[ci.enabledExtensionCount++] = VK_KHR_SURFACE_EXTENSION_NAME;
-				surfaceExtensionFound = true;
-			}
-		}
 		if (!platformSurfaceExtensionFound || !surfaceExtensionFound) {
 			ELOG("Platform surface extension not found");
 			goto bail;
@@ -360,6 +357,7 @@ bool VulkanMayBeAvailable() {
 			goto bail;
 		}
 	}
+
 	// This can't happen unless the driver is double-reporting a surface extension.
 	if (ci.enabledExtensionCount > 2) {
 		ELOG("Unexpected number of enabled instance extensions");
