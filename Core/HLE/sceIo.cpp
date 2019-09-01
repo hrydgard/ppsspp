@@ -2151,7 +2151,7 @@ static int sceIoWaitAsyncCB(int id, u32 address) {
 			DEBUG_LOG(SCEIO, "%lli = sceIoWaitAsyncCB(%i, %08x): waiting", f->asyncResult, id, address);
 			// TODO: This seems to re-enable dispatch or something?
 			f->waitingThreads.push_back(__KernelGetCurThread());
-			__KernelWaitCurThread(WAITTYPE_ASYNCIO, f->GetUID(), address, 0, false, "io waited");
+			__KernelWaitCurThread(WAITTYPE_ASYNCIO, f->GetUID(), address, 0, true, "io waited");
 		} else if (f->hasAsyncResult) {
 			DEBUG_LOG(SCEIO, "%lli = sceIoWaitAsyncCB(%i, %08x)", f->asyncResult, id, address);
 			Memory::Write_U64((u64) f->asyncResult, address);
