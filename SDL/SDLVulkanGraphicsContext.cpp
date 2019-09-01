@@ -24,14 +24,12 @@ bool SDLVulkanGraphicsContext::Init(SDL_Window *&window, int x, int y, int mode,
 
 	Version gitVer(PPSSPP_GIT_VERSION);
 
-	vulkan_ = new VulkanContext();
-	if (vulkan_->InitError().size()) {
-		*error_message = vulkan_->InitError();
-		delete vulkan_;
-		vulkan_ = nullptr;
+	if (!VulkanLoad()) {
+		*error_message = "Failed to load Vulkan driver library";
 		return false;
 	}
 
+	vulkan_ = new VulkanContext();
 	int vulkanFlags = VULKAN_FLAG_PRESENT_MAILBOX;
 	// vulkanFlags |= VULKAN_FLAG_VALIDATE;
 	VulkanContext::CreateInfo info{};
