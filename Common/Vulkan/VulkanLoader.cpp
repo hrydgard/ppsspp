@@ -334,7 +334,9 @@ bool VulkanMayBeAvailable() {
 		ELOG("Enumerating VK extensions failed.");
 		goto bail;
 	}
-
+	for (auto &ext: instanceExts) {
+		ILOG("  %s", ext.extensionName);
+	}
 	if (platformSurfaceExtension) {
 		for (auto iter : instanceExts) {
 			ILOG("VulkanMaybeAvailable: Instance extension found: %s (%08x)", iter.extensionName, iter.specVersion);
@@ -350,6 +352,11 @@ bool VulkanMayBeAvailable() {
 		}
 		if (!platformSurfaceExtensionFound || !surfaceExtensionFound) {
 			ELOG("Platform surface extension not found");
+			goto bail;
+		}
+	} else {
+		if (!surfaceExtensionFound) {
+			ELOG("Surface extension not found");
 			goto bail;
 		}
 	}
