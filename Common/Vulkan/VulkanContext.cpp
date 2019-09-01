@@ -84,19 +84,7 @@ const char *PresentModeString(VkPresentModeKHR presentMode) {
 }
 
 VulkanContext::VulkanContext() {
-#if SIMULATE_VULKAN_FAILURE == 1
-	return;
-#endif
-	if (!VulkanLoad()) {
-		init_error_ = "Failed to load Vulkan driver library";
-		// No DLL?
-		return;
-	}
-
-	// We can get the list of layers and extensions without an instance so we can use this information
-	// to enable the extensions we need that are available.
-	GetInstanceLayerProperties();
-	GetInstanceLayerExtensionList(nullptr, instance_extension_properties_);
+	// Do nothing here.
 }
 
 VkResult VulkanContext::CreateInstance(const CreateInfo &info) {
@@ -104,6 +92,11 @@ VkResult VulkanContext::CreateInstance(const CreateInfo &info) {
 		init_error_ = "Vulkan not loaded - can't create instance";
 		return VK_ERROR_INITIALIZATION_FAILED;
 	}
+
+	// We can get the list of layers and extensions without an instance so we can use this information
+	// to enable the extensions we need that are available.
+	GetInstanceLayerProperties();
+	GetInstanceLayerExtensionList(nullptr, instance_extension_properties_);
 
 	if (!IsInstanceExtensionAvailable(VK_KHR_SURFACE_EXTENSION_NAME)) {
 		// Cannot create a Vulkan display without VK_KHR_SURFACE_EXTENSION.

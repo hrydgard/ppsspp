@@ -92,9 +92,16 @@ bool AndroidVulkanContext::InitAPI() {
 	ILOG("Creating Vulkan context");
 	Version gitVer(PPSSPP_GIT_VERSION);
 
+	if (!VulkanLoad()) {
+		ELOG("Failed to load Vulkan driver library");
+		return false;
+	}
+
 	if (!g_Vulkan) {
+		// TODO: Assert if g_Vulkan already exists here?
 		g_Vulkan = new VulkanContext();
 	}
+
 	VulkanContext::CreateInfo info{};
 	info.app_name = "PPSSPP";
 	info.app_ver = gitVer.ToInteger();
