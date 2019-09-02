@@ -109,7 +109,6 @@ bool AndroidVulkanContext::InitAPI() {
 	VkResult res = g_Vulkan->CreateInstance(info);
 	if (res != VK_SUCCESS) {
 		ELOG("Failed to create vulkan context: %s", g_Vulkan->InitError().c_str());
-		System_SendMessage("toast", "No Vulkan compatible device found. Using OpenGL instead.");
 		VulkanSetAvailable(false);
 		delete g_Vulkan;
 		g_Vulkan = nullptr;
