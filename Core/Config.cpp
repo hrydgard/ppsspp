@@ -575,9 +575,9 @@ static int DefaultGPUBackend() {
 		return (int)GPUBackend::DIRECT3D11;
 	}
 #elif PPSSPP_PLATFORM(ANDROID)
-	// Default to Vulkan only on Pie (level 28) devices or newer. Drivers before Pie
+	// Default to Vulkan only on Oreo 8.1 (level 27) devices or newer. Drivers before
 	// were generally too unreliable to default to (with some exceptions, of course).
-	if (System_GetPropertyInt(SYSPROP_SYSTEMVERSION) >= 28) {
+	if (System_GetPropertyInt(SYSPROP_SYSTEMVERSION) >= 27) {
 		return (int)GPUBackend::VULKAN;
 	}
 #endif
@@ -628,10 +628,14 @@ int Config::NextValidBackend() {
 		}
 #endif
 
-		// They've all failed.  Let them try the default.
+		// They've all failed.  Let them try the default - or on Android, OpenGL.
 		sFailedGPUBackends += ",ALL";
 		ERROR_LOG(LOADER, "All graphics backends failed");
+#if PPSSPP_PLATFORM(ANDROID)
+		return (int)GPUBackend::OPENGL;
+#else
 		return DefaultGPUBackend();
+#endif
 	}
 
 	return iGPUBackend;
