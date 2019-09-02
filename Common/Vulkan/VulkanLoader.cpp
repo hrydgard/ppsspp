@@ -247,12 +247,14 @@ void VulkanSetAvailable(bool available) {
 }
 
 bool VulkanMayBeAvailable() {
-	if (g_vulkanAvailabilityChecked)
+	if (g_vulkanAvailabilityChecked) {
 		return g_vulkanMayBeAvailable;
+	}
 
 	std::string name = System_GetProperty(SYSPROP_NAME);
 	for (const char *blacklisted_name : device_name_blacklist) {
 		if (!strcmp(name.c_str(), blacklisted_name)) {
+			ILOG("VulkanMayBeAvailable: Device blacklisted ('%s')", name.c_str());
 			g_vulkanAvailabilityChecked = true;
 			g_vulkanMayBeAvailable = false;
 			return false;
@@ -387,7 +389,7 @@ bool VulkanMayBeAvailable() {
 		goto bail;
 	}
 	if (physicalDeviceCount == 0) {
-		ELOG("VulkanMayBeAvailable: No physical Vulkan devices.");
+		ELOG("VulkanMayBeAvailable: No physical Vulkan devices (count = 0).");
 		goto bail;
 	}
 	devices.resize(physicalDeviceCount);
@@ -407,6 +409,7 @@ bool VulkanMayBeAvailable() {
 			anyGood = true;
 			break;
 		default:
+			ILOG("VulkanMayBeAvailable: Ineligible device found and ignored: '%s'", props.deviceName);
 			break;
 		}
 		// TODO: Should also check queuefamilyproperties for a GRAPHICS queue family? Oh well.
