@@ -925,15 +925,6 @@ bool VulkanContext::InitSwapchain() {
 	swapChainExtent_.width = clamp(surfCapabilities_.currentExtent.width, surfCapabilities_.minImageExtent.width, surfCapabilities_.maxImageExtent.width);
 	swapChainExtent_.height = clamp(surfCapabilities_.currentExtent.height, surfCapabilities_.minImageExtent.height, surfCapabilities_.maxImageExtent.height);
 
-	if (physicalDeviceProperties_[physical_device_].properties.vendorID == VULKAN_VENDOR_IMGTEC) {
-		ILOG("Applying PowerVR hack (rounding off the dimensions!)");
-		// Swap chain width hack to avoid issue #11743 (PowerVR driver bug).
-		// To keep the size consistent even with pretransform, also round off the height.
-		// This is fixed in newer PowerVR drivers but I don't know the cutoff.
-		swapChainExtent_.width &= ~31;
-		swapChainExtent_.height &= ~31;
-	}
-
 	ILOG("swapChainExtent: %dx%d", swapChainExtent_.width, swapChainExtent_.height);
 
 	// TODO: Find a better way to specify the prioritized present mode while being able
@@ -1019,6 +1010,14 @@ bool VulkanContext::InitSwapchain() {
 	}
 	std::string preTransformStr = surface_transforms_to_string(preTransform);
 	ILOG("Chosen pretransform transform: %s", preTransformStr.c_str());
+
+	if (physicalDeviceProperties_[physical_device_].properties.vendorID == VULKAN_VENDOR_IMGTEC) {
+		ILOG("Applying PowerVR hack (rounding off the width!)");
+		// Swap chain width hack to avoid issue #11743 (PowerVR driver bug).
+		// To keep the size consistent even with pretransform, do this after the swap. Should be fine.
+		// This is fixed in newer PowerVR drivers but I don't know the cutoff.
+		swapChainExtent_.width &= ~31;
+	}
 
 	VkSwapchainCreateInfoKHR swap_chain_info{ VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR };
 	swap_chain_info.surface = surface_;
