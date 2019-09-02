@@ -439,6 +439,9 @@ void SystemInfoScreen::CreateViews() {
 
 	deviceSpecs->Add(new ItemHeader(si->T("System Information")));
 	deviceSpecs->Add(new InfoItem(si->T("System Name", "Name"), System_GetProperty(SYSPROP_NAME)));
+#if PPSSPP_PLATFORM(ANDROID)
+	deviceSpecs->Add(new InfoItem(si->T("System Version"), StringFromInt(System_GetPropertyInt(SYSPROP_SYSTEMVERSION))));
+#endif
 	deviceSpecs->Add(new InfoItem(si->T("Lang/Region"), System_GetProperty(SYSPROP_LANGREGION)));
 	std::string board = System_GetProperty(SYSPROP_BOARDNAME);
 	if (!board.empty())

@@ -15,23 +15,24 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
+#include <set>
+#include <algorithm>
+
 #if defined(SDL)
 #include <SDL_keyboard.h>
 #elif defined(USING_WIN_UI)
 #include "CommonWindows.h"
 #endif
-#include <set>
 
 #include "base/logging.h"
 #include "base/NativeApp.h"
 #include "file/ini_file.h"
 #include "input/input_state.h"
+#include "ppsspp_config.h"
 
 #include "KeyMap.h"
-#include "../Core/HLE/sceUtility.h"
-#include "../Core/Config.h"
-
-#include <algorithm>
+#include "Core/HLE/sceUtility.h"
+#include "Core/Config.h"
 
 namespace KeyMap {
 
@@ -181,6 +182,27 @@ static const DefMappingStruct defaultShieldKeyMap[] = {
 	{CTRL_DOWN, JOYSTICK_AXIS_HAT_Y, +1},
 	{VIRTKEY_SPEED_TOGGLE, JOYSTICK_AXIS_LTRIGGER, +1 },
 	{VIRTKEY_UNTHROTTLE, JOYSTICK_AXIS_RTRIGGER, +1 },
+	{VIRTKEY_PAUSE, NKCODE_BACK },
+};
+
+static const DefMappingStruct defaultMOQI7SKeyMap[] = {
+	{CTRL_CROSS, NKCODE_BUTTON_A},
+	{CTRL_CIRCLE, NKCODE_BUTTON_B},
+	{CTRL_SQUARE, NKCODE_BUTTON_X},
+	{CTRL_TRIANGLE, NKCODE_BUTTON_Y},
+	{CTRL_START,  JOYSTICK_AXIS_Z, +1},
+	{CTRL_SELECT, JOYSTICK_AXIS_Z, -1},
+	{CTRL_LTRIGGER, NKCODE_BUTTON_L1},
+	{CTRL_RTRIGGER, NKCODE_BUTTON_R1},
+	{VIRTKEY_AXIS_X_MIN, JOYSTICK_AXIS_X, -1},
+	{VIRTKEY_AXIS_X_MAX, JOYSTICK_AXIS_X, +1},
+	{VIRTKEY_AXIS_Y_MIN, JOYSTICK_AXIS_Y, +1},
+	{VIRTKEY_AXIS_Y_MAX, JOYSTICK_AXIS_Y, -1},
+	{CTRL_LEFT, JOYSTICK_AXIS_HAT_X, -1},
+	{CTRL_RIGHT, JOYSTICK_AXIS_HAT_X, +1},
+	{CTRL_UP, JOYSTICK_AXIS_HAT_Y, -1},
+	{CTRL_DOWN, JOYSTICK_AXIS_HAT_Y, +1},
+	{VIRTKEY_UNTHROTTLE, JOYSTICK_AXIS_RZ, +1 },
 	{VIRTKEY_PAUSE, NKCODE_BACK },
 };
 
@@ -383,6 +405,9 @@ void SetDefaultKeyMap(DefaultMaps dmap, bool replace) {
 		break;
 	case DEFAULT_MAPPING_SHIELD:
 		SetDefaultKeyMap(DEVICE_ID_PAD_0, defaultShieldKeyMap, ARRAY_SIZE(defaultShieldKeyMap), replace);
+		break;
+	case DEFAULT_MAPPING_MOQI_I7S:
+		SetDefaultKeyMap(DEVICE_ID_PAD_0, defaultMOQI7SKeyMap, ARRAY_SIZE(defaultMOQI7SKeyMap), replace);
 		break;
 	case DEFAULT_MAPPING_PAD:
 		SetDefaultKeyMap(DEVICE_ID_PAD_0, defaultPadMap, ARRAY_SIZE(defaultPadMap), replace);
@@ -853,20 +878,24 @@ void SetAxisMapping(int btn, int deviceId, int axisId, int direction, bool repla
 // Note that it's easy to add other defaults if desired.
 void RestoreDefault() {
 	g_controllerMap.clear();
-#if defined(_WIN32)
+#if PPSSPP_PLATFORM(WINDOWS)
 	SetDefaultKeyMap(DEFAULT_MAPPING_KEYBOARD, true);
 	SetDefaultKeyMap(DEFAULT_MAPPING_X360, false);
 	SetDefaultKeyMap(DEFAULT_MAPPING_PAD, false);
-#elif defined(__ANDROID__)
-	// Autodetect a few common devices
+#elif PPSSPP_PLATFORM(ANDROID)
+	// Autodetect a few common (and less common) devices
 	std::string name = System_GetProperty(SYSPROP_NAME);
 	if (IsNvidiaShield(name) || IsNvidiaShieldTV(name)) {
 		SetDefaultKeyMap(DEFAULT_MAPPING_SHIELD, true);
-	} else if (IsOuya(name)) {  // TODO: check!
+	} else if (IsOuya(name)) {
 		SetDefaultKeyMap(DEFAULT_MAPPING_OUYA, true);
 	} else if (IsXperiaPlay(name)) {
 		SetDefaultKeyMap(DEFAULT_MAPPING_XPERIA_PLAY, true);
+	} else if (IsMOQII7S(name)) {
+		ILOG("MOQI pad map");
+		SetDefaultKeyMap(DEFAULT_MAPPING_MOQI_I7S, true);
 	} else {
+		ILOG("Default pad map");
 		SetDefaultKeyMap(DEFAULT_MAPPING_PAD, true);
 	}
 #else
@@ -944,8 +973,12 @@ bool IsXperiaPlay(const std::string &name) {
 	return name == "Sony Ericsson:R800a" || name == "Sony Ericsson:R800i" || name == "Sony Ericsson:R800x" || name == "Sony Ericsson:R800at" || name == "Sony Ericsson:SO-01D" || name == "Sony Ericsson:zeus";
 }
 
+bool IsMOQII7S(const std::string &name) {
+	return name == "MOQI:I7S";
+}
+
 bool HasBuiltinController(const std::string &name) {
-	return IsOuya(name) || IsXperiaPlay(name) || IsNvidiaShield(name);
+	return IsOuya(name) || IsXperiaPlay(name) || IsNvidiaShield(name) || IsMOQII7S(name);
 }
 
 void NotifyPadConnected(const std::string &name) {
@@ -953,7 +986,7 @@ void NotifyPadConnected(const std::string &name) {
 }
 
 void AutoConfForPad(const std::string &name) {
-	ILOG("Autoconfiguring pad for %s", name.c_str());
+	ILOG("Autoconfiguring pad for '%s'", name.c_str());
 	if (name == "Xbox 360 Pad") {
 		SetDefaultKeyMap(DEFAULT_MAPPING_X360, true);
 	} else {
