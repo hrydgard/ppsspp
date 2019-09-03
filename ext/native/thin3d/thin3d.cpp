@@ -353,38 +353,6 @@ DrawContext::~DrawContext() {
 	DestroyPresets();
 }
 
-void DrawContext::RotateRectToDisplay(FRect &rect, float curRTWidth, float curRTHeight) {
-	if (g_display_rotation == DisplayRotation::ROTATE_0)
-		return;
-	switch (g_display_rotation) {
-	case DisplayRotation::ROTATE_180:
-		rect.x = curRTWidth - rect.w - rect.x;
-		rect.y = curRTHeight - rect.h - rect.y;
-		break;
-	case DisplayRotation::ROTATE_90: {
-		// Note that curRTWidth_ and curRTHeight_ are "swapped"!
-		float origX = rect.x;
-		float origY = rect.y;
-		float rtw = curRTHeight;
-		float rth = curRTWidth;
-		rect.x = rth - rect.h - origY;
-		rect.y = origX;
-		std::swap(rect.w, rect.h);
-		break;
-	}
-	case DisplayRotation::ROTATE_270: {
-		float origX = rect.x;
-		float origY = rect.y;
-		float rtw = curRTHeight;
-		float rth = curRTWidth;
-		rect.x = origY;
-		rect.y = rtw - rect.w - origX;
-		std::swap(rect.w, rect.h);
-		break;
-	}
-	}
-}
-
 // TODO: SSE/NEON
 // Could also make C fake-simd for 64-bit, two 8888 pixels fit in a register :)
 void ConvertFromRGBA8888(uint8_t *dst, const uint8_t *src, uint32_t dstStride, uint32_t srcStride, uint32_t width, uint32_t height, DataFormat format) {

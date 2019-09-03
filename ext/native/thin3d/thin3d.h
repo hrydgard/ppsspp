@@ -661,11 +661,6 @@ public:
 	virtual void FlushState() {}
 
 protected:
-	struct FRect {
-		float x, y, w, h;
-	};
-	void RotateRectToDisplay(FRect &rect, float curRTWidth, float curRTHeight);
-
 	ShaderModule *vsPresets_[VS_MAX_PRESET];
 	ShaderModule *fsPresets_[FS_MAX_PRESET];
 
