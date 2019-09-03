@@ -25,10 +25,9 @@ matrix:
   include:
     - os: linux
       compiler: "gcc"
-      env: PPSSPP_BUILD_TYPE=Linux PVS_ANALYZE=Yes
+      env: PVS_ANALYZE=Yes
     - os: linux
       compiler: "clang"
-      env: PPSSPP_BUILD_TYPE=Linux
 
 before_install:
   - travis_retry bash .travis.sh travis_before_install
