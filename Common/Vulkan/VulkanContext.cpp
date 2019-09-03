@@ -84,19 +84,7 @@ const char *PresentModeString(VkPresentModeKHR presentMode) {
 }
 
 VulkanContext::VulkanContext() {
-#if SIMULATE_VULKAN_FAILURE == 1
-	return;
-#endif
-	if (!VulkanLoad()) {
-		init_error_ = "Failed to load Vulkan driver library";
-		// No DLL?
-		return;
-	}
-
-	// We can get the list of layers and extensions without an instance so we can use this information
-	// to enable the extensions we need that are available.
-	GetInstanceLayerProperties();
-	GetInstanceLayerExtensionList(nullptr, instance_extension_properties_);
+	// Do nothing here.
 }
 
 VkResult VulkanContext::CreateInstance(const CreateInfo &info) {
@@ -104,6 +92,11 @@ VkResult VulkanContext::CreateInstance(const CreateInfo &info) {
 		init_error_ = "Vulkan not loaded - can't create instance";
 		return VK_ERROR_INITIALIZATION_FAILED;
 	}
+
+	// We can get the list of layers and extensions without an instance so we can use this information
+	// to enable the extensions we need that are available.
+	GetInstanceLayerProperties();
+	GetInstanceLayerExtensionList(nullptr, instance_extension_properties_);
 
 	if (!IsInstanceExtensionAvailable(VK_KHR_SURFACE_EXTENSION_NAME)) {
 		// Cannot create a Vulkan display without VK_KHR_SURFACE_EXTENSION.
@@ -932,12 +925,6 @@ bool VulkanContext::InitSwapchain() {
 	swapChainExtent_.width = clamp(surfCapabilities_.currentExtent.width, surfCapabilities_.minImageExtent.width, surfCapabilities_.maxImageExtent.width);
 	swapChainExtent_.height = clamp(surfCapabilities_.currentExtent.height, surfCapabilities_.minImageExtent.height, surfCapabilities_.maxImageExtent.height);
 
-	if (physicalDeviceProperties_[physical_device_].properties.vendorID == VULKAN_VENDOR_IMGTEC) {
-		// Swap chain width hack to avoid issue #11743 (PowerVR driver bug).
-		// TODO: Check if still broken if pretransform is used!
-		swapChainExtent_.width &= ~31;
-	}
-
 	ILOG("swapChainExtent: %dx%d", swapChainExtent_.width, swapChainExtent_.height);
 
 	// TODO: Find a better way to specify the prioritized present mode while being able
@@ -1023,6 +1010,14 @@ bool VulkanContext::InitSwapchain() {
 	}
 	std::string preTransformStr = surface_transforms_to_string(preTransform);
 	ILOG("Chosen pretransform transform: %s", preTransformStr.c_str());
+
+	if (physicalDeviceProperties_[physical_device_].properties.vendorID == VULKAN_VENDOR_IMGTEC) {
+		ILOG("Applying PowerVR hack (rounding off the width!)");
+		// Swap chain width hack to avoid issue #11743 (PowerVR driver bug).
+		// To keep the size consistent even with pretransform, do this after the swap. Should be fine.
+		// This is fixed in newer PowerVR drivers but I don't know the cutoff.
+		swapChainExtent_.width &= ~31;
+	}
 
 	VkSwapchainCreateInfoKHR swap_chain_info{ VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR };
 	swap_chain_info.surface = surface_;

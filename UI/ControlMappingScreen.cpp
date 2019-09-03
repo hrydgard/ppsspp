@@ -432,9 +432,7 @@ public:
 	JoystickHistoryView(int xAxis, int xDevice, int xDir, int yAxis, int yDevice, int yDir, UI::LayoutParams *layoutParams = nullptr)
 		: UI::InertView(layoutParams),
 			xAxis_(xAxis), xDir_(xDir),
-			yAxis_(yAxis), yDir_(yDir),
-			curX_(0.0f), curY_(0.0f),
-			maxCount_(500) {}
+			yAxis_(yAxis), yDir_(yDir) {}
 	void Draw(UIContext &dc) override;
 	void Update() override;
 	void Axis(const AxisInput &input) override {
@@ -448,8 +446,6 @@ public:
 
 private:
 	struct Location {
-		Location() : x(0.0f), y(0.0f) {}
-		Location(float xx, float yy) : x(xx), y(yy) {}
 		float x;
 		float y;
 	};
@@ -459,40 +455,44 @@ private:
 	int yAxis_;
 	int yDir_;
 
-	float curX_;
-	float curY_;
+	float curX_ = 0.0f;
+	float curY_ = 0.0f;
 
 	std::deque<Location> locations_;
-	int maxCount_;
+	int maxCount_ = 500;
 };
 
 void JoystickHistoryView::Draw(UIContext &dc) {
 	if (xAxis_ > -1 && yAxis_ > -1) {
 		const AtlasImage &image = dc.Draw()->GetAtlas()->images[I_CROSS];
 		float minRadius = std::min(bounds_.w, bounds_.h) * 0.5f - image.w;
-
+		dc.Begin();
 		int a = maxCount_ - (int)locations_.size();
 		for (auto iter = locations_.begin(); iter != locations_.end(); ++iter) {
 			float x = bounds_.centerX() + minRadius * iter->x;
 			float y = bounds_.centerY() - minRadius * iter->y;
 			float alpha = (float)a / maxCount_;
-			if (alpha < 0.0f) alpha = 0.0f;
+			if (alpha < 0.0f) {
+				alpha = 0.0f;
+			}
 			dc.Draw()->DrawImage(I_CROSS, x, y, 0.8f, colorAlpha(0xFFFFFF, alpha), ALIGN_CENTER);
 			a++;
 		}
-		dc.BeginNoTex();
-		dc.Draw()->RectOutline(bounds_.centerX() - minRadius, bounds_.centerY() - minRadius, minRadius * 2, minRadius * 2, 0x80FFFFFF);
 		dc.Flush();
-		dc.Begin();
+		dc.BeginNoTex();
+		dc.Draw()->RectOutline(bounds_.centerX() - minRadius, bounds_.centerY() - minRadius, minRadius * 2.0f, minRadius * 2.0f, 0x80FFFFFF);
+		dc.Flush();
 	} else {
 		dc.DrawText("N/A", bounds_.centerX(), bounds_.centerY(), 0xFFFFFFFF, ALIGN_CENTER);
 	}
 }
 
 void JoystickHistoryView::Update() {
-	locations_.push_back(Location(curX_, curY_));
-	if ((int)locations_.size() > maxCount_) {
-		locations_.pop_front();
+	if (xAxis_ > -1 && yAxis_ > -1) {
+		locations_.push_back(Location{ curX_, curY_ });
+		if ((int)locations_.size() > maxCount_) {
+			locations_.pop_front();
+		}
 	}
 }
 
@@ -521,12 +521,11 @@ bool AnalogTestScreen::axis(const AxisInput &axis) {
 	// This is mainly to catch axis events that would otherwise get translated
 	// into arrow keys, since seeing keyboard arrow key events appear when using
 	// a controller would be confusing for the user.
-	char buf[512];
-
 	if (IgnoreAxisForMapping(axis.axisId))
 		return false;
 
 	if (axis.value > g_Config.fAxisBindThreshold || axis.value < -g_Config.fAxisBindThreshold) {
+		char buf[512];
 		snprintf(buf, sizeof(buf), "Axis: %d (value %1.3f) Device ID: %d",
 			axis.axisId, axis.value, axis.deviceId);
 		// Null-check just in case they weren't created yet.

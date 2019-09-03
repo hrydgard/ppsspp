@@ -89,14 +89,14 @@ bool WindowsVulkanContext::Init(HINSTANCE hInst, HWND hWnd, std::string *error_m
 	g_LogOptions.msgBoxOnError = false;
 
 	Version gitVer(PPSSPP_GIT_VERSION);
-	g_Vulkan = new VulkanContext();
-	if (g_Vulkan->InitError().size()) {
-		*error_message = g_Vulkan->InitError();
-		delete g_Vulkan;
-		g_Vulkan = nullptr;
+
+	if (!VulkanLoad()) {
+		*error_message = "Failed to load Vulkan driver library";
 		return false;
 	}
-	// int vulkanFlags = VULKAN_FLAG_PRESENT_FIFO_RELAXED;
+
+	g_Vulkan = new VulkanContext();
+
 	VulkanContext::CreateInfo info{};
 	info.app_name = "PPSSPP";
 	info.app_ver = gitVer.ToInteger();

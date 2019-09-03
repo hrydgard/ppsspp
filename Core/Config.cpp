@@ -515,15 +515,6 @@ static ConfigSetting cpuSettings[] = {
 	ConfigSetting(false),
 };
 
-static int DefaultRenderingMode() {
-	// Workaround for ancient device. Can probably be removed now as we do no longer
-	// support Froyo (Android 2.2)...
-	if (System_GetProperty(SYSPROP_NAME) == "samsung:GT-S5360") {
-		return 0;  // Non-buffered
-	}
-	return 1;
-}
-
 static int DefaultInternalResolution() {
 	// Auto on Windows, 2x on large screens, 1x elsewhere.
 #if defined(USING_WIN_UI)
@@ -583,9 +574,9 @@ static int DefaultGPUBackend() {
 		return (int)GPUBackend::DIRECT3D11;
 	}
 #elif PPSSPP_PLATFORM(ANDROID)
-	// Default to Vulkan only on Pie (level 28) devices or newer. Drivers before Pie
+	// Default to Vulkan only on Oreo 8.1 (level 27) devices or newer. Drivers before
 	// were generally too unreliable to default to (with some exceptions, of course).
-	if (System_GetPropertyInt(SYSPROP_SYSTEMVERSION) >= 28) {
+	if (System_GetPropertyInt(SYSPROP_SYSTEMVERSION) >= 27) {
 		return (int)GPUBackend::VULKAN;
 	}
 #endif
@@ -636,10 +627,14 @@ int Config::NextValidBackend() {
 		}
 #endif
 
-		// They've all failed.  Let them try the default.
+		// They've all failed.  Let them try the default - or on Android, OpenGL.
 		sFailedGPUBackends += ",ALL";
 		ERROR_LOG(LOADER, "All graphics backends failed");
+#if PPSSPP_PLATFORM(ANDROID)
+		return (int)GPUBackend::OPENGL;
+#else
 		return DefaultGPUBackend();
+#endif
 	}
 
 	return iGPUBackend;
@@ -721,7 +716,7 @@ static ConfigSetting graphicsSettings[] = {
 	ConfigSetting("D3D11Device", &g_Config.sD3D11Device, "", true, false),
 #endif
 	ConfigSetting("VendorBugChecksEnabled", &g_Config.bVendorBugChecksEnabled, true, false, false),
-	ReportedConfigSetting("RenderingMode", &g_Config.iRenderingMode, &DefaultRenderingMode, true, true),
+	ReportedConfigSetting("RenderingMode", &g_Config.iRenderingMode, 1, true, true),
 	ConfigSetting("SoftwareRenderer", &g_Config.bSoftwareRendering, false, true, true),
 	ReportedConfigSetting("HardwareTransform", &g_Config.bHardwareTransform, true, true, true),
 	ReportedConfigSetting("SoftwareSkinning", &g_Config.bSoftwareSkinning, true, true, true),

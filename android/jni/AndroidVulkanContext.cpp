@@ -92,9 +92,16 @@ bool AndroidVulkanContext::InitAPI() {
 	ILOG("Creating Vulkan context");
 	Version gitVer(PPSSPP_GIT_VERSION);
 
+	if (!VulkanLoad()) {
+		ELOG("Failed to load Vulkan driver library");
+		return false;
+	}
+
 	if (!g_Vulkan) {
+		// TODO: Assert if g_Vulkan already exists here?
 		g_Vulkan = new VulkanContext();
 	}
+
 	VulkanContext::CreateInfo info{};
 	info.app_name = "PPSSPP";
 	info.app_ver = gitVer.ToInteger();
@@ -102,7 +109,6 @@ bool AndroidVulkanContext::InitAPI() {
 	VkResult res = g_Vulkan->CreateInstance(info);
 	if (res != VK_SUCCESS) {
 		ELOG("Failed to create vulkan context: %s", g_Vulkan->InitError().c_str());
-		System_SendMessage("toast", "No Vulkan compatible device found. Using OpenGL instead.");
 		VulkanSetAvailable(false);
 		delete g_Vulkan;
 		g_Vulkan = nullptr;

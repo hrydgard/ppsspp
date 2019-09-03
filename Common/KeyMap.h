@@ -68,6 +68,7 @@ enum DefaultMaps {
 	DEFAULT_MAPPING_SHIELD,
 	DEFAULT_MAPPING_OUYA,
 	DEFAULT_MAPPING_XPERIA_PLAY,
+	DEFAULT_MAPPING_MOQI_I7S,
 };
 
 const float AXIS_BIND_THRESHOLD = 0.75f;
@@ -140,6 +141,7 @@ namespace KeyMap {
 	bool IsNvidiaShieldTV(const std::string &name);
 	bool IsXperiaPlay(const std::string &name);
 	bool IsOuya(const std::string &name);
+	bool IsMOQII7S(const std::string &name);
 	bool HasBuiltinController(const std::string &name);
 
 	const std::set<std::string> &GetSeenPads();

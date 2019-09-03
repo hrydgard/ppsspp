@@ -91,6 +91,7 @@ android/assets/lang
 android/assets/flash0
 ppge_atlas.zim.png
 local.properties
+r.sh
 
 # For vim
 *.swp

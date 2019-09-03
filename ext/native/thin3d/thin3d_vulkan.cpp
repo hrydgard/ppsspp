@@ -805,7 +805,7 @@ VKContext::VKContext(VulkanContext *vulkan, bool splitSubmit)
 
 	VkDescriptorPoolCreateInfo dp{ VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO };
 	dp.flags = 0;   // Don't want to mess around with individually freeing these, let's go dynamic each frame.
-	dp.maxSets = 200;  // 200 textures per frame should be enough for the UI...
+	dp.maxSets = 4096;  // 200 textures per frame was not enough for the UI.
 	dp.pPoolSizes = dpTypes;
 	dp.poolSizeCount = ARRAY_SIZE(dpTypes);
 

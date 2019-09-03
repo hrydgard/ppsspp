@@ -258,7 +258,7 @@ namespace MainWindow
 		}
 	}
 
-	void RelaseMouseWheel() {
+	void ReleaseMouseWheel() {
 			// For simplicity release both wheel events
 			KeyInput key;
 			key.deviceId = DEVICE_ID_MOUSE;
@@ -856,7 +856,8 @@ namespace MainWindow
 				return 0;
 			// Hack: need to release wheel event with a delay for games to register it was "pressed down".
 			case TIMER_WHEELRELEASE:
-				RelaseMouseWheel();
+				ReleaseMouseWheel();
+				KillTimer(hWnd, TIMER_WHEELRELEASE);
 				return 0;
 			}
 			break;
