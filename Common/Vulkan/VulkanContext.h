@@ -359,3 +359,7 @@ void finalize_glslang();
 bool GLSLtoSPV(const VkShaderStageFlagBits shader_type, const char *pshader, std::vector<uint32_t> &spirv, std::string *errorMessage = nullptr);
 
 const char *VulkanResultToString(VkResult res);
+std::string FormatDriverVersion(const VkPhysicalDeviceProperties &props);
+
+// Simple heuristic.
+bool IsHashMaliDriverVersion(const VkPhysicalDeviceProperties &props);
