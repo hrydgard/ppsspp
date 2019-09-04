@@ -205,11 +205,16 @@ void GPU_Vulkan::CheckGPUFeatures() {
 		if (!PSP_CoreParameter().compat.flags().DisableAccurateDepth || driverTooOld) {
 			features |= GPU_SUPPORTS_ACCURATE_DEPTH;
 		}
+		// These GPUs (up to some certain hardware version?) has a bug where draws that touch the upper range of Z
+		// depth test incorrectly. This is easily worked around by simply scaling Z down a tiny bit, with a small risk
+		// for artifacts - haven't seen any though.
+		features |= GPU_NEEDS_DEPTH_SCALE_HACK;
 		break;
 	}
 	default:
-		if (!PSP_CoreParameter().compat.flags().DisableAccurateDepth)
+		if (!PSP_CoreParameter().compat.flags().DisableAccurateDepth) {
 			features |= GPU_SUPPORTS_ACCURATE_DEPTH;
+		}
 		break;
 	}
 

@@ -363,3 +363,6 @@ std::string FormatDriverVersion(const VkPhysicalDeviceProperties &props);
 
 // Simple heuristic.
 bool IsHashMaliDriverVersion(const VkPhysicalDeviceProperties &props);
+
+// For the ARM Mali depth scale hack.
+#define DEPTH_SCALE_HACK_VALUE 0.9999f
