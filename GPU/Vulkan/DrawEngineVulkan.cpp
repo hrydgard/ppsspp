@@ -962,10 +962,7 @@ void DrawEngineVulkan::DoFlush() {
 
 			// We let the framebuffer manager handle the clear. It can use renderpasses to optimize on tilers.
 			// If non-buffered though, it'll just do a plain clear.
-			float depth = result.depth;
-			if (gstate_c.Supports(GPU_NEEDS_DEPTH_SCALE_HACK)) {
-				depth *= DEPTH_SCALE_HACK_VALUE;
-			}
+			// TODO: Don't we need to rescale result.depth if we use GPU_SCALE_DEPTH_FROM_24_TO_16_BIT and similar?
 			framebufferManager_->NotifyClear(gstate.isClearModeColorMask(), gstate.isClearModeAlphaMask(), gstate.isClearModeDepthMask(), result.color, result.depth);
 
 			int scissorX1 = gstate.getScissorX1();

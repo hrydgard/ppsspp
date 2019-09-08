@@ -150,11 +150,6 @@ void BaseUpdateUniforms(UB_VS_FS_Base *ub, uint64_t dirtyUniforms, bool flipView
 		if (g_Config.iRenderingMode == FB_NON_BUFFERED_MODE && g_display_rotation != DisplayRotation::ROTATE_0) {
 			flippedMatrix = flippedMatrix * g_display_rot_matrix;
 		}
-
-		if (gstate_c.Supports(GPU_NEEDS_DEPTH_SCALE_HACK)) {
-			flippedMatrix[10] *= DEPTH_SCALE_HACK_VALUE;
-		}
-
 		CopyMatrix4x4(ub->proj, flippedMatrix.getReadPtr());
 	}
 
@@ -168,7 +163,6 @@ void BaseUpdateUniforms(UB_VS_FS_Base *ub, uint64_t dirtyUniforms, bool flipView
 		if (g_Config.iRenderingMode == FB_NON_BUFFERED_MODE && g_display_rotation != DisplayRotation::ROTATE_0) {
 			proj_through = proj_through * g_display_rot_matrix;
 		}
-		proj_through[10] *= 0.999f;
 		CopyMatrix4x4(ub->proj_through, proj_through.getReadPtr());
 	}
 
