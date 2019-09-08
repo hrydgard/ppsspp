@@ -500,6 +500,9 @@ enum {
 	GPU_PREFER_REVERSE_COLOR_ORDER = FLAG_BIT(31),
 };
 
+// For the ARM Mali depth scale hack.
+#define DEPTH_SCALE_HACK_VALUE 0.9999f
+
 struct KnownVertexBounds {
 	u16 minU;
 	u16 minV;

@@ -636,10 +636,6 @@ bool GenerateVulkanGLSLVertexShader(const VShaderID &id, char *buffer) {
 	}
 	WRITE(p, "  gl_Position = outPos;\n");
 
-	if (gstate_c.Supports(GPU_NEEDS_DEPTH_SCALE_HACK)) {
-		WRITE(p, "  gl_Position.z *= %f;\n", DEPTH_SCALE_HACK_VALUE);
-	}
-
 	WRITE(p, "}\n");
 	return true;
 }
