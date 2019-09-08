@@ -134,6 +134,7 @@ public:
 		// TODO: This should be fixed at the source.
 		data.viewport.vp.maxDepth = clamp_value(vp.maxDepth, 0.0f, 1.0f);
 		data.viewport.vp.minDepth = clamp_value(vp.minDepth, 0.0f, 1.0f);
+
 		curRenderStep_->commands.push_back(data);
 	}
 

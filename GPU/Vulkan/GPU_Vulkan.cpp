@@ -205,11 +205,16 @@ void GPU_Vulkan::CheckGPUFeatures() {
 		if (!PSP_CoreParameter().compat.flags().DisableAccurateDepth || driverTooOld) {
 			features |= GPU_SUPPORTS_ACCURATE_DEPTH;
 		}
+		// These GPUs (up to some certain hardware version?) has a bug where draws where gl_Position.w == .z
+		// corrupt the depth buffer. This is easily worked around by simply scaling Z down a tiny bit when this case
+		// is detected. See: https://github.com/hrydgard/ppsspp/issues/11937
+		features |= GPU_NEEDS_Z_EQUAL_W_HACK;
 		break;
 	}
 	default:
-		if (!PSP_CoreParameter().compat.flags().DisableAccurateDepth)
+		if (!PSP_CoreParameter().compat.flags().DisableAccurateDepth) {
 			features |= GPU_SUPPORTS_ACCURATE_DEPTH;
+		}
 		break;
 	}
 
