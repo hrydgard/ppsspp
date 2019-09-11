@@ -176,8 +176,7 @@ bool GenerateVulkanGLSLVertexShader(const VShaderID &id, char *buffer) {
 		if (!useHWTransform && doTextureTransform && !isModeThrough) {
 			WRITE(p, "layout (location = %d) in vec3 texcoord;\n", (int)PspAttributeLocation::TEXCOORD);
 			texcoordInVec3 = true;
-		}
-		else
+		} else
 			WRITE(p, "layout (location = %d) in vec2 texcoord;\n", (int)PspAttributeLocation::TEXCOORD);
 	}
 	if (hasColor) {
@@ -640,6 +639,10 @@ bool GenerateVulkanGLSLVertexShader(const VShaderID &id, char *buffer) {
 	}
 	WRITE(p, "  gl_Position = outPos;\n");
 
+	if (gstate_c.Supports(GPU_NEEDS_Z_EQUAL_W_HACK)) {
+		// See comment in GPU_Vulkan.cpp.
+		WRITE(p, "  if (gl_Position.z == gl_Position.w) gl_Position.z *= 0.999999;\n");
+	}
 	WRITE(p, "}\n");
 	return true;
 }

@@ -220,5 +220,3 @@ void EnableFZ();
 // very slow VFP units).
 // http://infocenter.arm.com/help/index.jsp?topic=/com.arm.doc.ddi0274h/Babffifj.html
 void FPU_SetFastMode();
-
-

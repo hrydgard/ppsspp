@@ -17,6 +17,7 @@
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
 #include <thread>
+
 #include "base/logging.h"
 #include "base/timeutil.h"
 #include "profiler/profiler.h"
@@ -197,15 +198,23 @@ void GPU_Vulkan::CheckGPUFeatures() {
 		features |= GPU_SUPPORTS_ACCURATE_DEPTH;
 		break;
 	case VULKAN_VENDOR_ARM:
-		// Also required on older ARM Mali drivers, like the one on many Galaxy S7.
-		if (!PSP_CoreParameter().compat.flags().DisableAccurateDepth ||
-			  vulkan_->GetPhysicalDeviceProperties().properties.driverVersion <= VK_MAKE_VERSION(428, 811, 2674)) {
+	{
+		// This check is probably not exactly accurate. But old drivers had problems with reverse-Z, just like AMD and Qualcomm.
+		bool driverTooOld = IsHashMaliDriverVersion(vulkan_->GetPhysicalDeviceProperties().properties)
+			|| VK_VERSION_MAJOR(vulkan_->GetPhysicalDeviceProperties().properties.driverVersion) < 14;
+		if (!PSP_CoreParameter().compat.flags().DisableAccurateDepth || driverTooOld) {
 			features |= GPU_SUPPORTS_ACCURATE_DEPTH;
 		}
+		// These GPUs (up to some certain hardware version?) has a bug where draws where gl_Position.w == .z
+		// corrupt the depth buffer. This is easily worked around by simply scaling Z down a tiny bit when this case
+		// is detected. See: https://github.com/hrydgard/ppsspp/issues/11937
+		features |= GPU_NEEDS_Z_EQUAL_W_HACK;
 		break;
+	}
 	default:
-		if (!PSP_CoreParameter().compat.flags().DisableAccurateDepth)
+		if (!PSP_CoreParameter().compat.flags().DisableAccurateDepth) {
 			features |= GPU_SUPPORTS_ACCURATE_DEPTH;
+		}
 		break;
 	}
 

@@ -1391,3 +1391,43 @@ void VulkanContext::GetImageMemoryRequirements(VkImage image, VkMemoryRequiremen
 		*dedicatedAllocation = false;
 	}
 }
+
+bool IsHashMaliDriverVersion(const VkPhysicalDeviceProperties &props) {
+	// ARM used to put a hash in place of the driver version.
+	// Now they only use major versions. We'll just make a bad heuristic.
+	uint32_t major = VK_VERSION_MAJOR(props.driverVersion);
+	uint32_t minor = VK_VERSION_MINOR(props.driverVersion);
+	uint32_t branch = VK_VERSION_PATCH(props.driverVersion);
+	if (branch > 0)
+		return true;
+	if (branch > 100 || major > 100)
+		return true;
+	return false;
+}
+
+// From Sascha's code
+std::string FormatDriverVersion(const VkPhysicalDeviceProperties &props) {
+	if (props.vendorID == VULKAN_VENDOR_NVIDIA) {
+		// For whatever reason, NVIDIA has their own scheme.
+		// 10 bits = major version (up to r1023)
+		// 8 bits = minor version (up to 255)
+		// 8 bits = secondary branch version/build version (up to 255)
+		// 6 bits = tertiary branch/build version (up to 63)
+		uint32_t major = (props.driverVersion >> 22) & 0x3ff;
+		uint32_t minor = (props.driverVersion >> 14) & 0x0ff;
+		uint32_t secondaryBranch = (props.driverVersion >> 6) & 0x0ff;
+		uint32_t tertiaryBranch = (props.driverVersion) & 0x003f;
+		return StringFromFormat("%d.%d.%d.%d", major, minor, secondaryBranch, tertiaryBranch);
+	} else if (props.vendorID == VULKAN_VENDOR_ARM) {
+		// ARM used to just put a hash here. No point in splitting it up.
+		if (IsHashMaliDriverVersion(props)) {
+			return StringFromFormat("(hash) %08x", props.driverVersion);
+		}
+	}
+	// Qualcomm has an inscrutable versioning scheme. Let's just display it as normal.
+	// Standard scheme, use the standard macros.
+	uint32_t major = VK_VERSION_MAJOR(props.driverVersion);
+	uint32_t minor = VK_VERSION_MINOR(props.driverVersion);
+	uint32_t branch = VK_VERSION_PATCH(props.driverVersion);
+	return StringFromFormat("%d.%d.%d (%08x)", major, minor, branch, props.driverVersion);
+}
