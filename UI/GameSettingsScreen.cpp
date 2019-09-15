@@ -20,6 +20,7 @@
 #include "base/display.h"  // Only to check screen aspect ratio with pixel_yres/pixel_xres
 
 #include "base/colorutil.h"
+#include "base/stringutil.h"
 #include "base/timeutil.h"
 #include "math/curves.h"
 #include "net/resolve.h"
@@ -489,6 +490,13 @@ void GameSettingsScreen::CreateViews() {
 		PopupMultiChoice *audioBackend = audioSettings->Add(new PopupMultiChoice(&g_Config.iAudioBackend, a->T("Audio backend", "Audio backend (restart req.)"), backend, 0, ARRAY_SIZE(backend), a->GetName(), screenManager()));
 		audioBackend->SetEnabledPtr(&g_Config.bEnableSound);
 	}
+#endif
+
+#if defined(SDL)
+	std::vector<std::string> audioDeviceList;
+	SplitString(System_GetProperty(SYSPROP_AUDIO_DEVICE_LIST), '\0', audioDeviceList);
+	PopupMultiChoiceDynamic *audioDevice = audioSettings->Add(new PopupMultiChoiceDynamic(&g_Config.sAudioDevice, a->T("Device"), audioDeviceList, nullptr, screenManager()));
+	audioDevice->OnChoice.Handle(this, &GameSettingsScreen::OnAudioDevice);
 #endif
 
 	static const char *latency[] = { "Low", "Medium", "High" };
@@ -1177,6 +1185,11 @@ UI::EventReturn GameSettingsScreen::OnRenderingDevice(UI::EventParams &e) {
 		screenManager()->push(new PromptScreen(di->T("ChangingGPUBackends", "Changing GPU backends requires PPSSPP to restart. Restart now?"), di->T("Yes"), di->T("No"),
 			std::bind(&GameSettingsScreen::CallbackRenderingDevice, this, std::placeholders::_1)));
 	}
+	return UI::EVENT_DONE;
+}
+
+UI::EventReturn GameSettingsScreen::OnAudioDevice(UI::EventParams &e) {
+	System_SendMessage("audio_resetDevice", "");
 	return UI::EVENT_DONE;
 }
 

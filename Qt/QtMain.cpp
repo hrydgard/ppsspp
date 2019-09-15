@@ -29,9 +29,7 @@
 #ifdef SDL
 #include "SDL/SDLJoystick.h"
 #include "SDL_audio.h"
-#define MainAudioDeviceID SDL_AudioDeviceID
 #endif
-#define MainAudioDeviceID int
 #include "QtMain.h"
 #include "gfx_es2/gpu_features.h"
 #include "i18n/i18n.h"
@@ -49,8 +47,54 @@ static int browseFileEvent = -1;
 static int browseFolderEvent = -1;
 
 #ifdef SDL
+static SDL_AudioDeviceID audioDev = 0;
+
 extern void mixaudio(void *userdata, Uint8 *stream, int len) {
 	NativeMix((short *)stream, len / 4);
+}
+
+static void InitSDLAudioDevice() {
+	SDL_AudioSpec fmt, ret_fmt;
+	memset(&fmt, 0, sizeof(fmt));
+	fmt.freq = 44100;
+	fmt.format = AUDIO_S16;
+	fmt.channels = 2;
+	fmt.samples = 2048;
+	fmt.callback = &mixaudio;
+	fmt.userdata = nullptr;
+
+	audioDev = 0;
+	if (!g_Config.sAudioDevice.empty()) {
+		audioDev = SDL_OpenAudioDevice(g_Config.sAudioDevice.c_str(), 0, &fmt, &ret_fmt, SDL_AUDIO_ALLOW_FREQUENCY_CHANGE);
+		if (audioDev <= 0) {
+			WLOG("Failed to open preferred audio device %s", g_Config.sAudioDevice.c_str());
+		}
+	}
+	if (audioDev <= 0) {
+		audioDev = SDL_OpenAudioDevice(nullptr, 0, &fmt, &ret_fmt, SDL_AUDIO_ALLOW_FREQUENCY_CHANGE);
+	}
+	if (audioDev <= 0) {
+		ELOG("Failed to open audio: %s", SDL_GetError());
+	} else {
+		if (ret_fmt.samples != fmt.samples) // Notify, but still use it
+			ELOG("Output audio samples: %d (requested: %d)", ret_fmt.samples, fmt.samples);
+		if (ret_fmt.freq != fmt.freq || ret_fmt.format != fmt.format || ret_fmt.channels != fmt.channels) {
+			ELOG("Sound buffer format does not match requested format.");
+			ELOG("Output audio freq: %d (requested: %d)", ret_fmt.freq, fmt.freq);
+			ELOG("Output audio format: %d (requested: %d)", ret_fmt.format, fmt.format);
+			ELOG("Output audio channels: %d (requested: %d)", ret_fmt.channels, fmt.channels);
+			ELOG("Provided output format does not match requirement, turning audio off");
+			SDL_CloseAudioDevice(audioDev);
+		}
+		SDL_PauseAudioDevice(audioDev, 0);
+	}
+}
+
+static void StopSDLAudioDevice() {
+	if (audioDev > 0) {
+		SDL_PauseAudioDevice(audioDev, 1);
+		SDL_CloseAudioDevice(audioDev);
+	}
 }
 #endif
 
@@ -72,6 +116,26 @@ std::string System_GetProperty(SystemProperty prop) {
 		return QLocale::system().name().toStdString();
 	case SYSPROP_CLIPBOARD_TEXT:
 		return QApplication::clipboard()->text().toStdString();
+#if defined(SDL)
+	case SYSPROP_AUDIO_DEVICE_LIST:
+		{
+			std::string result;
+			for (int i = 0; i < SDL_GetNumAudioDevices(0); ++i) {
+				const char *name = SDL_GetAudioDeviceName(i, 0);
+				if (!name) {
+					continue;
+				}
+
+				if (i == 0) {
+					result = name;
+				} else {
+					result.append(1, '\0');
+					result.append(name);
+				}
+			}
+			return result;
+		}
+#endif
 	default:
 		return "";
 	}
@@ -129,6 +193,11 @@ void System_SendMessage(const char *command, const char *parameter) {
 		qApp->exit(0);
 	} else if (!strcmp(command, "setclipboardtext")) {
 		QApplication::clipboard()->setText(parameter);
+#if defined(SDL)
+	} else if (!strcmp(command, "audio_resetDevice")) {
+		StopSDLAudioDevice();
+		InitSDLAudioDevice();
+#endif
 	}
 }
 
@@ -170,7 +239,7 @@ float CalculateDPIScale()
 #endif
 }
 
-static int mainInternal(QApplication &a, MainAudioDeviceID &audioDev) {
+static int mainInternal(QApplication &a) {
 #ifdef MOBILE_DEVICE
 	emugl = new MainUI();
 	emugl->resize(pixel_xres, pixel_yres);
@@ -187,40 +256,7 @@ static int mainInternal(QApplication &a, MainAudioDeviceID &audioDev) {
 	SDLJoystick joy(true);
 	joy.registerEventHandler();
 	SDL_Init(SDL_INIT_AUDIO);
-	SDL_AudioSpec fmt, ret_fmt;
-	memset(&fmt, 0, sizeof(fmt));
-	fmt.freq = 44100;
-	fmt.format = AUDIO_S16;
-	fmt.channels = 2;
-	fmt.samples = 2048;
-	fmt.callback = &mixaudio;
-	fmt.userdata = (void *)0;
-
-	audioDev = 0;
-	if (!g_Config.sAudioDevice.empty()) {
-		audioDev = SDL_OpenAudioDevice(g_Config.sAudioDevice.c_str(), 0, &fmt, &ret_fmt, SDL_AUDIO_ALLOW_FREQUENCY_CHANGE);
-		if (audioDev <= 0) {
-			WLOG("Failed to open preferred audio device %s", g_Config.sAudioDevice.c_str());
-		}
-	}
-	if (audioDev <= 0) {
-		audioDev = SDL_OpenAudioDevice(nullptr, 0, &fmt, &ret_fmt, SDL_AUDIO_ALLOW_FREQUENCY_CHANGE);
-	}
-	if (audioDev <= 0) {
-		ELOG("Failed to open audio: %s", SDL_GetError());
-	} else {
-		if (ret_fmt.samples != fmt.samples) // Notify, but still use it
-			ELOG("Output audio samples: %d (requested: %d)", ret_fmt.samples, fmt.samples);
-		if (ret_fmt.freq != fmt.freq || ret_fmt.format != fmt.format || ret_fmt.channels != fmt.channels) {
-			ELOG("Sound buffer format does not match requested format.");
-			ELOG("Output audio freq: %d (requested: %d)", ret_fmt.freq, fmt.freq);
-			ELOG("Output audio format: %d (requested: %d)", ret_fmt.format, fmt.format);
-			ELOG("Output audio channels: %d (requested: %d)", ret_fmt.channels, fmt.channels);
-			ELOG("Provided output format does not match requirement, turning audio off");
-			SDL_CloseAudioDevice(audioDev);
-		}
-		SDL_PauseAudioDevice(audioDev, 0);
-	}
+	InitSDLAudioDevice();
 #else
 	QScopedPointer<MainAudio> audio(new MainAudio());
 	audio->run();
@@ -620,8 +656,7 @@ int main(int argc, char *argv[])
 	// TODO: Support other backends than GL, like Vulkan, in the Qt backend.
 	g_Config.iGPUBackend = (int)GPUBackend::OPENGL;
 
-	MainAudioDeviceID audioDev = 0;
-	int ret = mainInternal(a, audioDev);
+	int ret = mainInternal(a);
 	ILOG("Left mainInternal here.");
 
 #ifdef SDL

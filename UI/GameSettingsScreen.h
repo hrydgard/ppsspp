@@ -97,6 +97,7 @@ private:
 	UI::EventReturn OnRenderingMode(UI::EventParams &e);
 	UI::EventReturn OnRenderingBackend(UI::EventParams &e);
 	UI::EventReturn OnRenderingDevice(UI::EventParams &e);
+	UI::EventReturn OnAudioDevice(UI::EventParams &e);
 	UI::EventReturn OnJitAffectingSetting(UI::EventParams &e);
 #if PPSSPP_PLATFORM(ANDROID)
 	UI::EventReturn OnChangeMemStickDir(UI::EventParams &e);
