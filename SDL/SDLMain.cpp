@@ -582,7 +582,8 @@ int main(int argc, char *argv[]) {
 	fmt.callback = &mixaudio;
 	fmt.userdata = (void *)0;
 
-	if (SDL_OpenAudio(&fmt, &ret_fmt) < 0) {
+	SDL_AudioDeviceID audioDev = SDL_OpenAudioDevice(nullptr, 0, &fmt, &ret_fmt, SDL_AUDIO_ALLOW_FREQUENCY_CHANGE);
+	if (audioDev <= 0) {
 		ELOG("Failed to open audio: %s", SDL_GetError());
 	} else {
 		if (ret_fmt.samples != fmt.samples) // Notify, but still use it
@@ -593,12 +594,13 @@ int main(int argc, char *argv[]) {
 			ELOG("Output audio format: %d (requested: %d)", ret_fmt.format, fmt.format);
 			ELOG("Output audio channels: %d (requested: %d)", ret_fmt.channels, fmt.channels);
 			ELOG("Provided output format does not match requirement, turning audio off");
-			SDL_CloseAudio();
+			SDL_CloseAudioDevice(audioDev);
 		}
+
+		// Audio must be unpaused _after_ NativeInit()
+		SDL_PauseAudioDevice(audioDev, 0);
 	}
 
-	// Audio must be unpaused _after_ NativeInit()
-	SDL_PauseAudio(0);
 	if (joystick_enabled) {
 		joystick = new SDLJoystick();
 	} else {
@@ -927,8 +929,10 @@ int main(int argc, char *argv[]) {
 	graphicsContext->ShutdownFromRenderThread();
 	delete graphicsContext;
 
-	SDL_PauseAudio(1);
-	SDL_CloseAudio();
+	if (audioDev > 0) {
+		SDL_PauseAudioDevice(audioDev, 1);
+		SDL_CloseAudioDevice(audioDev);
+	}
 	SDL_Quit();
 #if PPSSPP_PLATFORM(RPI)
 	bcm_host_deinit();

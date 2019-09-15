@@ -29,7 +29,9 @@
 #ifdef SDL
 #include "SDL/SDLJoystick.h"
 #include "SDL_audio.h"
+#define MainAudioDeviceID SDL_AudioDeviceID
 #endif
+#define MainAudioDeviceID int
 #include "QtMain.h"
 #include "gfx_es2/gpu_features.h"
 #include "i18n/i18n.h"
@@ -168,7 +170,7 @@ float CalculateDPIScale()
 #endif
 }
 
-static int mainInternal(QApplication &a) {
+static int mainInternal(QApplication &a, MainAudioDeviceID &audioDev) {
 #ifdef MOBILE_DEVICE
 	emugl = new MainUI();
 	emugl->resize(pixel_xres, pixel_yres);
@@ -194,7 +196,8 @@ static int mainInternal(QApplication &a) {
 	fmt.callback = &mixaudio;
 	fmt.userdata = (void *)0;
 
-	if (SDL_OpenAudio(&fmt, &ret_fmt) < 0) {
+	audioDev = SDL_OpenAudioDevice(nullptr, 0, &fmt, &ret_fmt, SDL_AUDIO_ALLOW_FREQUENCY_CHANGE);
+	if (audioDev <= 0) {
 		ELOG("Failed to open audio: %s", SDL_GetError());
 	} else {
 		if (ret_fmt.samples != fmt.samples) // Notify, but still use it
@@ -205,10 +208,10 @@ static int mainInternal(QApplication &a) {
 			ELOG("Output audio format: %d (requested: %d)", ret_fmt.format, fmt.format);
 			ELOG("Output audio channels: %d (requested: %d)", ret_fmt.channels, fmt.channels);
 			ELOG("Provided output format does not match requirement, turning audio off");
-			SDL_CloseAudio();
+			SDL_CloseAudioDevice(audioDev);
 		}
+		SDL_PauseAudioDevice(audioDev, 0);
 	}
-	SDL_PauseAudio(0);
 #else
 	QScopedPointer<MainAudio> audio(new MainAudio());
 	audio->run();
@@ -608,12 +611,15 @@ int main(int argc, char *argv[])
 	// TODO: Support other backends than GL, like Vulkan, in the Qt backend.
 	g_Config.iGPUBackend = (int)GPUBackend::OPENGL;
 
-	int ret = mainInternal(a);
+	MainAudioDeviceID audioDev = 0;
+	int ret = mainInternal(a, audioDev);
 	ILOG("Left mainInternal here.");
 
 #ifdef SDL
-	SDL_PauseAudio(1);
-	SDL_CloseAudio();
+	if (audioDev > 0) {
+		SDL_PauseAudioDevice(audioDev, 1);
+		SDL_CloseAudioDevice(audioDev);
+	}
 #endif
 	NativeShutdown();
 	glslang::FinalizeProcess();
