@@ -43,6 +43,10 @@ void Vulkan2D::DestroyDeviceObjects() {
 		vulkan_->Delete().QueueDeletePipeline(it.second);
 	}
 	pipelines_.clear();
+	for (auto pipeline : keptPipelines_) {
+		vulkan_->Delete().QueueDeletePipeline(pipeline);
+	}
+	keptPipelines_.clear();
 
 	VkDevice device = vulkan_->GetDevice();
 	if (descriptorSetLayout_ != VK_NULL_HANDLE) {
@@ -132,6 +136,36 @@ void Vulkan2D::BeginFrame() {
 }
 
 void Vulkan2D::EndFrame() {
+}
+
+void Vulkan2D::PurgeVertexShader(VkShaderModule s, bool keepPipeline) {
+	for (auto it = pipelines_.begin(); it != pipelines_.end(); ) {
+		if (it->first.vs == s) {
+			if (keepPipeline) {
+				keptPipelines_.push_back(it->second);
+			} else {
+				vulkan_->Delete().QueueDeletePipeline(it->second);
+			}
+			it = pipelines_.erase(it);
+		} else {
+			++it;
+		}
+	}
+}
+
+void Vulkan2D::PurgeFragmentShader(VkShaderModule s, bool keepPipeline) {
+	for (auto it = pipelines_.begin(); it != pipelines_.end(); ) {
+		if (it->first.fs == s) {
+			if (keepPipeline) {
+				keptPipelines_.push_back(it->second);
+			} else {
+				vulkan_->Delete().QueueDeletePipeline(it->second);
+			}
+			it = pipelines_.erase(it);
+		} else {
+			++it;
+		}
+	}
 }
 
 VkDescriptorSet Vulkan2D::GetDescriptorSet(VkImageView tex1, VkSampler sampler1, VkImageView tex2, VkSampler sampler2) {

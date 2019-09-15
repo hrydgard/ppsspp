@@ -137,24 +137,36 @@ void FramebufferManagerVulkan::DestroyDeviceObjects() {
 	delete drawPixelsTex_;
 	drawPixelsTex_ = nullptr;
 
-	if (fsBasicTex_ != VK_NULL_HANDLE)
+	if (fsBasicTex_ != VK_NULL_HANDLE) {
+		vulkan2D_->PurgeFragmentShader(fsBasicTex_);
 		vulkan_->Delete().QueueDeleteShaderModule(fsBasicTex_);
-	if (vsBasicTex_ != VK_NULL_HANDLE)
+	}
+	if (vsBasicTex_ != VK_NULL_HANDLE) {
+		vulkan2D_->PurgeVertexShader(vsBasicTex_);
 		vulkan_->Delete().QueueDeleteShaderModule(vsBasicTex_);
-	if (stencilFs_ != VK_NULL_HANDLE)
+	}
+	if (stencilFs_ != VK_NULL_HANDLE) {
+		vulkan2D_->PurgeFragmentShader(stencilFs_);
 		vulkan_->Delete().QueueDeleteShaderModule(stencilFs_);
-	if (stencilVs_ != VK_NULL_HANDLE)
+	}
+	if (stencilVs_ != VK_NULL_HANDLE) {
+		vulkan2D_->PurgeVertexShader(stencilVs_);
 		vulkan_->Delete().QueueDeleteShaderModule(stencilVs_);
+	}
 
 	if (linearSampler_ != VK_NULL_HANDLE)
 		vulkan_->Delete().QueueDeleteSampler(linearSampler_);
 	if (nearestSampler_ != VK_NULL_HANDLE)
 		vulkan_->Delete().QueueDeleteSampler(nearestSampler_);
 
-	if (postVs_)
+	if (postVs_) {
+		vulkan2D_->PurgeVertexShader(postVs_);
 		vulkan_->Delete().QueueDeleteShaderModule(postVs_);
-	if (postFs_)
+	}
+	if (postFs_) {
+		vulkan2D_->PurgeFragmentShader(postFs_);
 		vulkan_->Delete().QueueDeleteShaderModule(postFs_);
+	}
 	pipelinePostShader_ = VK_NULL_HANDLE;  // actual pipeline should get destroyed by vulkan2d.
 }
 
@@ -586,9 +598,11 @@ void FramebufferManagerVulkan::Resized() {
 
 void FramebufferManagerVulkan::CompilePostShader() {
 	if (postVs_) {
+		vulkan2D_->PurgeVertexShader(postVs_);
 		vulkan_->Delete().QueueDeleteShaderModule(postVs_);
 	}
 	if (postFs_) {
+		vulkan2D_->PurgeFragmentShader(postFs_);
 		vulkan_->Delete().QueueDeleteShaderModule(postFs_);
 	}
 
