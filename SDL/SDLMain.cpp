@@ -582,7 +582,16 @@ int main(int argc, char *argv[]) {
 	fmt.callback = &mixaudio;
 	fmt.userdata = (void *)0;
 
-	SDL_AudioDeviceID audioDev = SDL_OpenAudioDevice(nullptr, 0, &fmt, &ret_fmt, SDL_AUDIO_ALLOW_FREQUENCY_CHANGE);
+	SDL_AudioDeviceID audioDev = 0;
+	if (!g_Config.sAudioDevice.empty()) {
+		audioDev = SDL_OpenAudioDevice(g_Config.sAudioDevice.c_str(), 0, &fmt, &ret_fmt, SDL_AUDIO_ALLOW_FREQUENCY_CHANGE);
+		if (audioDev <= 0) {
+			WLOG("Failed to open preferred audio device %s", g_Config.sAudioDevice.c_str());
+		}
+	}
+	if (audioDev <= 0) {
+		audioDev = SDL_OpenAudioDevice(nullptr, 0, &fmt, &ret_fmt, SDL_AUDIO_ALLOW_FREQUENCY_CHANGE);
+	}
 	if (audioDev <= 0) {
 		ELOG("Failed to open audio: %s", SDL_GetError());
 	} else {
