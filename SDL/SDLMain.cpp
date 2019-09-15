@@ -88,7 +88,7 @@ extern void mixaudio(void *userdata, Uint8 *stream, int len) {
 static SDL_AudioDeviceID audioDev = 0;
 
 // Must be called after NativeInit().
-static void InitSDLAudioDevice() {
+static void InitSDLAudioDevice(const std::string &name = "") {
 	SDL_AudioSpec fmt, ret_fmt;
 	memset(&fmt, 0, sizeof(fmt));
 	fmt.freq = 44100;
@@ -98,11 +98,16 @@ static void InitSDLAudioDevice() {
 	fmt.callback = &mixaudio;
 	fmt.userdata = nullptr;
 
+	std::string startDevice = name;
+	if (startDevice.empty()) {
+		startDevice = g_Config.sAudioDevice;
+	}
+
 	audioDev = 0;
-	if (!g_Config.sAudioDevice.empty()) {
-		audioDev = SDL_OpenAudioDevice(g_Config.sAudioDevice.c_str(), 0, &fmt, &ret_fmt, SDL_AUDIO_ALLOW_FREQUENCY_CHANGE);
+	if (!startDevice.empty()) {
+		audioDev = SDL_OpenAudioDevice(startDevice.c_str(), 0, &fmt, &ret_fmt, SDL_AUDIO_ALLOW_FREQUENCY_CHANGE);
 		if (audioDev <= 0) {
-			WLOG("Failed to open preferred audio device %s", g_Config.sAudioDevice.c_str());
+			WLOG("Failed to open audio device: %s", startDevice.c_str());
 		}
 	}
 	if (audioDev <= 0) {
@@ -896,6 +901,29 @@ int main(int argc, char *argv[]) {
 					break;
 				}
 				break;
+
+#if SDL_VERSION_ATLEAST(2, 0, 4)
+			case SDL_AUDIODEVICEADDED:
+				// Automatically switch to the new device.
+				if (event.adevice.iscapture == 0) {
+					const char *name = SDL_GetAudioDeviceName(event.adevice.which, 0);
+					if (!name) {
+						break;
+					}
+					if (g_Config.bAutoAudioDevice || g_Config.sAudioDevice == name) {
+						StopSDLAudioDevice();
+						InitSDLAudioDevice(name ? name : "");
+					}
+				}
+				break;
+			case SDL_AUDIODEVICEREMOVED:
+				if (event.adevice.iscapture == 0 && event.adevice.which == audioDev) {
+					StopSDLAudioDevice();
+					InitSDLAudioDevice();
+				}
+				break;
+#endif
+
 			default:
 				if (joystick) {
 					joystick->ProcessInput(event);

@@ -495,8 +495,11 @@ void GameSettingsScreen::CreateViews() {
 #if defined(SDL)
 	std::vector<std::string> audioDeviceList;
 	SplitString(System_GetProperty(SYSPROP_AUDIO_DEVICE_LIST), '\0', audioDeviceList);
+	audioDeviceList.insert(audioDeviceList.begin(), a->T("Auto"));
 	PopupMultiChoiceDynamic *audioDevice = audioSettings->Add(new PopupMultiChoiceDynamic(&g_Config.sAudioDevice, a->T("Device"), audioDeviceList, nullptr, screenManager()));
 	audioDevice->OnChoice.Handle(this, &GameSettingsScreen::OnAudioDevice);
+
+	audioSettings->Add(new CheckBox(&g_Config.bAutoAudioDevice, a->T("Switch on new audio device")));
 #endif
 
 	static const char *latency[] = { "Low", "Medium", "High" };
@@ -1189,6 +1192,10 @@ UI::EventReturn GameSettingsScreen::OnRenderingDevice(UI::EventParams &e) {
 }
 
 UI::EventReturn GameSettingsScreen::OnAudioDevice(UI::EventParams &e) {
+	I18NCategory *a = GetI18NCategory("Audio");
+	if (g_Config.sAudioDevice == a->T("Auto")) {
+		g_Config.sAudioDevice.clear();
+	}
 	System_SendMessage("audio_resetDevice", "");
 	return UI::EVENT_DONE;
 }
