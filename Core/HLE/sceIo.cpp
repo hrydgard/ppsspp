@@ -33,6 +33,7 @@
 #include "Core/Host.h"
 #include "Core/SaveState.h"
 #include "Core/HLE/HLE.h"
+#include "Core/HLE/HLEHelperThread.h"
 #include "Core/HLE/FunctionWrappers.h"
 #include "Core/HLE/sceDisplay.h"
 #include "Core/HLE/sceKernel.h"
@@ -159,6 +160,46 @@ struct SceIoDirEnt {
 	u32_le d_private;
 };
 
+enum class IoAsyncOp {
+	NONE,
+	OPEN,
+	CLOSE,
+	READ,
+	WRITE,
+	SEEK,
+	IOCTL,
+};
+
+struct IoAsyncParams {
+	IoAsyncOp op = IoAsyncOp::NONE;
+	int priority = -1;
+	union {
+		struct {
+			u32 filenameAddr;
+			int flags;
+			int mode;
+		} open;
+		struct {
+			u32 addr;
+			u32 size;
+		} std;
+		struct {
+			s64 pos;
+			int whence;
+		} seek;
+		struct {
+			u32 cmd;
+			u32 inAddr;
+			u32 inSize;
+			u32 outAddr;
+			u32 outSize;
+		} ioctl;
+	};
+};
+
+static IoAsyncParams asyncParams[PSP_COUNT_FDS];
+static HLEHelperThread *asyncThreads[PSP_COUNT_FDS]{};
+
 class FileNode : public KernelObject {
 public:
 	FileNode() : callbackID(0), callbackArg(0), asyncResult(0), hasAsyncResult(false), pendingAsyncResult(false), sectorBlockMode(false), closePending(false), npdrm(0), pgdInfo(NULL) {}
@@ -253,6 +294,13 @@ public:
 
 u64 __IoCompleteAsyncIO(FileNode *f);
 
+static void IoAsyncCleanupThread(int fd, bool force = false) {
+	if (asyncThreads[fd] && (asyncThreads[fd]->Stopped() || force)) {
+		delete asyncThreads[fd];
+		asyncThreads[fd] = nullptr;
+	}
+}
+
 static int GetIOTimingMethod() {
 	if (PSP_CoreParameter().compat.flags().ForceUMDDelay) {
 		return IOTIMING_REALISTIC;
@@ -316,6 +364,8 @@ static void __IoFreeFd(int fd, u32 &error) {
 			// Discard any pending results.
 			AsyncIOResult managerResult;
 			ioManager.WaitResult(f->handle, managerResult);
+
+			IoAsyncCleanupThread(fd);
 		}
 		error = kernelObjects.Destroy<FileNode>(fds[fd]);
 		fds[fd] = 0;
@@ -335,7 +385,6 @@ static void __IoFreeFd(int fd, u32 &error) {
 // TODO: Closed files are a bit special: until the fd is reused (?), the async result is still available.
 // Clearly a buffer is used, it doesn't seem like they are actually kernel objects.
 
-// TODO: We don't do any of that yet.
 // For now, let's at least delay the callback notification.
 static void __IoAsyncNotify(u64 userdata, int cyclesLate) {
 	int fd = (int) userdata;
@@ -388,6 +437,8 @@ static void __IoAsyncNotify(u64 userdata, int cyclesLate) {
 		if (f->closePending) {
 			__IoFreeFd(fd, error);
 		}
+
+		IoAsyncCleanupThread(fd);
 	}
 }
 
@@ -436,6 +487,8 @@ static void __IoSyncNotify(u64 userdata, int cyclesLate) {
 
 	HLEKernel::ResumeFromWait(threadID, WAITTYPE_IO, fd, result);
 	f->waitingSyncThreads.erase(std::remove(f->waitingSyncThreads.begin(), f->waitingSyncThreads.end(), threadID), f->waitingSyncThreads.end());
+
+	IoAsyncCleanupThread(fd);
 }
 
 static void __IoAsyncBeginCallback(SceUID threadID, SceUID prevCallbackId) {
@@ -612,7 +665,7 @@ void __IoInit() {
 }
 
 void __IoDoState(PointerWrap &p) {
-	auto s = p.Section("sceIo", 1, 3);
+	auto s = p.Section("sceIo", 1, 4);
 	if (!s)
 		return;
 
@@ -644,6 +697,33 @@ void __IoDoState(PointerWrap &p) {
 	if (s >= 3) {
 		p.Do(lastMemStickState);
 		p.Do(lastMemStickFatState);
+	}
+
+	for (int i = 0; i < PSP_COUNT_FDS; ++i) {
+		if (s >= 4) {
+			p.DoVoid(&asyncParams[i], (int)sizeof(IoAsyncParams));
+			bool hasThread = asyncThreads[i] != nullptr;
+			p.Do(hasThread);
+			if (hasThread) {
+				if (asyncThreads[i])
+					asyncThreads[i]->Forget();
+				delete asyncThreads[i];
+				asyncThreads[i] = nullptr;
+				p.DoClass(asyncThreads[i]);
+			} else if (!hasThread) {
+				if (asyncThreads[i])
+					asyncThreads[i]->Forget();
+				delete asyncThreads[i];
+				asyncThreads[i] = nullptr;
+			}
+		} else {
+			asyncParams[i].op = IoAsyncOp::NONE;
+			asyncParams[i].priority = -1;
+			if (asyncThreads[i])
+				asyncThreads[i]->Forget();
+			delete asyncThreads[i];
+			asyncThreads[i] = nullptr;
+		}
 	}
 }
 
@@ -685,6 +765,14 @@ u32 __IoGetFileHandleFromId(u32 id, u32 &outError)
 		return (u32)-1;
 	}
 	return f->handle;
+}
+
+static void IoStartAsyncThread(int id, FileNode *f) {
+	IoAsyncCleanupThread(id, true);
+	int priority = asyncParams[id].priority == -1 ? KernelCurThreadPriority() : asyncParams[id].priority;
+	asyncThreads[id] = new HLEHelperThread("SceIoAsync", "IoFileMgrForUser", "__IoAsyncFinish", priority, 0x200);
+	asyncThreads[id]->Start(id, 0);
+	f->pendingAsyncResult = true;
 }
 
 static u32 sceIoAssign(u32 alias_addr, u32 physical_addr, u32 filesystem_addr, int mode, u32 arg_addr, int argSize)
@@ -990,28 +1078,21 @@ static u32 sceIoRead(int id, u32 data_addr, int size) {
 }
 
 static u32 sceIoReadAsync(int id, u32 data_addr, int size) {
-	// TODO: Technically we shouldn't read into the buffer yet...
 	u32 error;
 	FileNode *f = __IoGetFd(id, error);
 	if (f) {
 		if (f->asyncBusy()) {
-			WARN_LOG(SCEIO, "sceIoReadAsync(%d, %08x, %x): async busy", id, data_addr, size);
-			return SCE_KERNEL_ERROR_ASYNC_BUSY;
+			return hleLogWarning(SCEIO, SCE_KERNEL_ERROR_ASYNC_BUSY, "async busy");
 		}
-		int result;
-		int us;
-		bool complete = __IoRead(result, id, data_addr, size, us);
-		if (complete) {
-			f->asyncResult = (s64)result;
-			DEBUG_LOG(SCEIO, "%llx=sceIoReadAsync(%d, %08x, %x)", f->asyncResult, id, data_addr, size);
-		} else {
-			DEBUG_LOG(SCEIO, "sceIoReadAsync(%d, %08x, %x): deferring result", id, data_addr, size);
-		}
-		__IoSchedAsync(f, id, us);
-		return 0;
+
+		auto &params = asyncParams[id];
+		params.op = IoAsyncOp::READ;
+		params.std.addr = data_addr;
+		params.std.size = size;
+		IoStartAsyncThread(id, f);
+		return hleLogSuccessI(SCEIO, 0);
 	} else {
-		ERROR_LOG(SCEIO, "sceIoReadAsync: bad file %d", id);
-		return error;
+		return hleLogError(SCEIO, error, "bad file descriptor");
 	}
 }
 
@@ -1124,28 +1205,21 @@ static u32 sceIoWrite(int id, u32 data_addr, int size) {
 }
 
 static u32 sceIoWriteAsync(int id, u32 data_addr, int size) {
-	// TODO: Technically we shouldn't read from the buffer yet...
 	u32 error;
 	FileNode *f = __IoGetFd(id, error);
 	if (f) {
 		if (f->asyncBusy()) {
-			WARN_LOG(SCEIO, "sceIoWriteAsync(%d, %08x, %x): async busy", id, data_addr, size);
-			return SCE_KERNEL_ERROR_ASYNC_BUSY;
+			return hleLogWarning(SCEIO, SCE_KERNEL_ERROR_ASYNC_BUSY, "async busy");
 		}
-		int result;
-		int us;
-		bool complete = __IoWrite(result, id, data_addr, size, us);
-		if (complete) {
-			f->asyncResult = (s64)result;
-			DEBUG_LOG(SCEIO, "%llx=sceIoWriteAsync(%d, %08x, %x)", f->asyncResult, id, data_addr, size);
-		} else {
-			DEBUG_LOG(SCEIO, "sceIoWriteAsync(%d, %08x, %x): deferring result", id, data_addr, size);
-		}
-		__IoSchedAsync(f, id, us);
-		return 0;
+
+		auto &params = asyncParams[id];
+		params.op = IoAsyncOp::WRITE;
+		params.std.addr = data_addr;
+		params.std.size = size;
+		IoStartAsyncThread(id, f);
+		return hleLogSuccessI(SCEIO, 0);
 	} else {
-		ERROR_LOG(SCEIO, "sceIoWriteAsync: bad file %d", id);
-		return error;
+		return hleLogError(SCEIO, error, "bad file descriptor");
 	}
 }
 
@@ -1270,8 +1344,7 @@ static s64 sceIoLseek(int id, s64 offset, int whence) {
 		hleReSchedule("io seek");
 		return result;
 	} else {
-		ERROR_LOG(SCEIO, "sceIoLseek(%d, %llx, %i) - ERROR: invalid file", id, offset, whence);
-		return result;
+		return hleLogError(SCEIO, result, "bad file descriptor");
 	}
 }
 
@@ -1284,8 +1357,7 @@ static u32 sceIoLseek32(int id, int offset, int whence) {
 		hleReSchedule("io seek");
 		return result;
 	} else {
-		ERROR_LOG(SCEIO, "sceIoLseek32(%d, %x, %i) - ERROR: invalid file", id, offset, whence);
-		return result;
+		return hleLogError(SCEIO, result, "bad file descriptor");
 	}
 }
 
@@ -1294,21 +1366,20 @@ static u32 sceIoLseekAsync(int id, s64 offset, int whence) {
 	FileNode *f = __IoGetFd(id, error);
 	if (f) {
 		if (whence < 0 || whence > 2) {
-			WARN_LOG(SCEIO, "sceIoLseekAsync(%d, %llx, %i): invalid whence", id, offset, whence);
-			return SCE_KERNEL_ERROR_INVAL;
+			return hleLogWarning(SCEIO, SCE_KERNEL_ERROR_INVAL, "invalid whence");
 		}
 		if (f->asyncBusy()) {
-			WARN_LOG(SCEIO, "sceIoLseekAsync(%d, %llx, %i): async busy", id, offset, whence);
-			return SCE_KERNEL_ERROR_ASYNC_BUSY;
+			return hleLogWarning(SCEIO, SCE_KERNEL_ERROR_ASYNC_BUSY, "async busy");
 		}
-		f->asyncResult = __IoLseek(id, offset, whence);
-		// Educated guess at timing.
-		__IoSchedAsync(f, id, 100);
-		DEBUG_LOG(SCEIO, "%lli = sceIoLseekAsync(%d, %llx, %i)", f->asyncResult, id, offset, whence);
-		return 0;
+
+		auto &params = asyncParams[id];
+		params.op = IoAsyncOp::SEEK;
+		params.seek.pos = offset;
+		params.seek.whence = whence;
+		IoStartAsyncThread(id, f);
+		return hleLogSuccessI(SCEIO, 0);
 	} else {
-		ERROR_LOG(SCEIO, "sceIoLseekAsync(%d, %llx, %i) - ERROR: invalid file", id, offset, whence);
-		return error;
+		return hleLogError(SCEIO, error, "bad file descriptor");
 	}
 	return 0;
 }
@@ -1318,21 +1389,20 @@ static u32 sceIoLseek32Async(int id, int offset, int whence) {
 	FileNode *f = __IoGetFd(id, error);
 	if (f) {
 		if (whence < 0 || whence > 2) {
-			WARN_LOG(SCEIO, "sceIoLseek32Async(%d, %x, %i): invalid whence", id, offset, whence);
-			return SCE_KERNEL_ERROR_INVAL;
+			return hleLogWarning(SCEIO, SCE_KERNEL_ERROR_INVAL, "invalid whence");
 		}
 		if (f->asyncBusy()) {
-			WARN_LOG(SCEIO, "sceIoLseek*(%d, %x, %i): async busy", id, offset, whence);
-			return SCE_KERNEL_ERROR_ASYNC_BUSY;
+			return hleLogWarning(SCEIO, SCE_KERNEL_ERROR_ASYNC_BUSY, "async busy");
 		}
-		f->asyncResult = __IoLseek(id, offset, whence);
-		// Educated guess at timing.
-		__IoSchedAsync(f, id, 100);
-		DEBUG_LOG(SCEIO, "%lli = sceIoLseek32Async(%d, %x, %i)", f->asyncResult, id, offset, whence);
-		return 0;
+
+		auto &params = asyncParams[id];
+		params.op = IoAsyncOp::SEEK;
+		params.seek.pos = offset;
+		params.seek.whence = whence;
+		IoStartAsyncThread(id, f);
+		return hleLogSuccessI(SCEIO, 0);
 	} else {
-		ERROR_LOG(SCEIO, "sceIoLseek32Async(%d, %x, %i) - ERROR: invalid file", id, offset, whence);
-		return error;
+		return hleLogError(SCEIO, error, "bad file descriptor");
 	}
 	return 0;
 }
@@ -1407,6 +1477,7 @@ static u32 sceIoOpen(const char *filename, int flags, int mode) {
 		return id;
 	} else {
 		DEBUG_LOG(SCEIO, "%i=sceIoOpen(%s, %08x, %08x)", id, filename, flags, mode);
+		asyncParams[id].priority = -1;
 		// Timing is not accurate, aiming low for now.
 		return hleDelayResult(id, "file opened", 100);
 	}
@@ -1881,32 +1952,36 @@ static u32 sceIoChdir(const char *dirname) {
 	return pspFileSystem.ChDir(dirname);
 }
 
-static int sceIoChangeAsyncPriority(int id, int priority)
-{	
+static int sceIoChangeAsyncPriority(int id, int priority) {
 	// priority = -1 is valid
-	if (priority < 0 && priority != -1) {
-		ERROR_LOG(SCEIO, "sceIoChangeAsyncPriority : Illegal Priority %i", priority);
-		return SCE_KERNEL_ERROR_ILLEGAL_PRIORITY;
+	if (priority != -1 && (priority < 0x08 || priority > 0x77)) {
+		return hleLogError(SCEIO, SCE_KERNEL_ERROR_ILLEGAL_PRIORITY, "illegal priority %d", priority);
 	}
-	WARN_LOG(SCEIO, "UNIMPL sceIoChangeAsyncPriority(%d, %d)", id, priority);
-	return 0;
+
+	u32 error;
+	FileNode *f = __IoGetFd(id, error);
+	if (!f) {
+		return hleLogError(SCEIO, error, "bad file descriptor");
+	}
+
+	asyncParams[id].priority = priority;
+	return hleLogSuccessI(SCEIO, 0);
 }
 
 static int sceIoCloseAsync(int id)
 {
-	DEBUG_LOG(SCEIO, "sceIoCloseAsync(%d)", id);
 	u32 error;
 	FileNode *f = __IoGetFd(id, error);
-	if (f)
-	{
+	if (f) {
 		f->closePending = true;
-		f->asyncResult = 0;
-		// TODO: Rough estimate.
-		__IoSchedAsync(f, id, 100);
-		return 0;
+
+		auto &params = asyncParams[id];
+		params.op = IoAsyncOp::CLOSE;
+		IoStartAsyncThread(id, f);
+		return hleLogSuccessI(SCEIO, 0);
+	} else {
+		return hleLogError(SCEIO, error, "bad file descriptor");
 	}
-	else
-		return error;
 }
 
 static u32 sceIoSetAsyncCallback(int id, u32 clbckId, u32 clbckArg)
@@ -1936,41 +2011,40 @@ static u32 sceIoOpenAsync(const char *filename, int flags, int mode)
 
 	int error;
 	FileNode *f = __IoOpen(error, filename, flags, mode);
-	int fd;
 
 	// We have to return an fd here, which may have been destroyed when we reach Wait if it failed.
-	if (f == NULL)
-	{
-		ERROR_LOG(SCEIO, "ERROR_ERRNO_FILE_NOT_FOUND=sceIoOpenAsync(%s, %08x, %08x) - file not found", filename, flags, mode);
+	if (f == nullptr) {
+		if (error == 0)
+			error = SCE_KERNEL_ERROR_ERRNO_FILE_NOT_FOUND;
 
 		f = new FileNode();
 		f->handle = kernelObjects.Create(f);
 		f->fullpath = filename;
-		f->asyncResult = error == 0 ? (s64)SCE_KERNEL_ERROR_ERRNO_FILE_NOT_FOUND : (s64)error;
 		f->closePending = true;
-
-		fd = __IoAllocFd(f);
-	}
-	else
-	{
-		fd = __IoAllocFd(f);
-		if (fd >= 0) {
-			DEBUG_LOG(SCEIO, "%x=sceIoOpenAsync(%s, %08x, %08x)", fd, filename, flags, mode);
-			f->asyncResult = fd;
-		}
 	}
 
+	// We need an fd even for errors, since it's async.
+	int fd = __IoAllocFd(f);
 	if (fd < 0) {
-		ERROR_LOG(SCEIO, "%08x=sceIoOpenAsync(%s, %08x, %08x): out of fds", fd, filename, flags, mode);
 		kernelObjects.Destroy<FileNode>(f->GetUID());
-		return fd;
+		return hleLogError(SCEIO, fd, "out of fds");
 	}
 
-	// TODO: Timing is very inconsistent.  From ms0, 10ms - 20ms depending on filesize/dir depth?  From umd, can take > 1s.
-	// For now let's aim low.
-	__IoSchedAsync(f, fd, 100);
+	auto &params = asyncParams[fd];
+	params.op = IoAsyncOp::OPEN;
+	params.priority = -1;
+	params.open.filenameAddr = PARAM(0);
+	params.open.flags = flags;
+	params.open.mode = mode;
+	IoStartAsyncThread(fd, f);
 
-	return fd;
+	if (error != 0) {
+		f->asyncResult = (s64)error;
+		return hleLogError(SCEIO, fd, "file not found");
+	}
+
+	f->asyncResult = fd;
+	return hleLogSuccessI(SCEIO, fd);
 }
 
 static u32 sceIoGetAsyncStat(int id, u32 poll, u32 address) {
@@ -2004,6 +2078,7 @@ static u32 sceIoGetAsyncStat(int id, u32 poll, u32 address) {
 			DEBUG_LOG(SCEIO, "%lli = sceIoGetAsyncStat(%i, %i, %08x)", f->asyncResult, id, poll, address);
 			Memory::Write_U64((u64) f->asyncResult, address);
 			f->hasAsyncResult = false;
+			IoAsyncCleanupThread(id);
 
 			if (f->closePending) {
 				__IoFreeFd(id, error);
@@ -2026,37 +2101,34 @@ static int sceIoWaitAsync(int id, u32 address) {
 	FileNode *f = __IoGetFd(id, error);
 	if (f) {
 		if (__IsInInterrupt()) {
-			DEBUG_LOG(SCEIO, "%lli = sceIoWaitAsync(%i, %08x): illegal context", f->asyncResult, id, address);
-			return SCE_KERNEL_ERROR_ILLEGAL_CONTEXT;
+			return hleLogDebug(SCEIO, SCE_KERNEL_ERROR_ILLEGAL_CONTEXT, "illegal context");
 		}
 		if (f->pendingAsyncResult) {
 			if (!__KernelIsDispatchEnabled()) {
-				DEBUG_LOG(SCEIO, "%lli = sceIoWaitAsync(%i, %08x): dispatch disabled", f->asyncResult, id, address);
-				return SCE_KERNEL_ERROR_CAN_NOT_WAIT;
+				return hleLogDebug(SCEIO, SCE_KERNEL_ERROR_CAN_NOT_WAIT, "dispatch disabled");
 			}
-			DEBUG_LOG(SCEIO, "%lli = sceIoWaitAsync(%i, %08x): waiting", f->asyncResult, id, address);
 			f->waitingThreads.push_back(__KernelGetCurThread());
 			__KernelWaitCurThread(WAITTYPE_ASYNCIO, f->GetUID(), address, 0, false, "io waited");
+			return hleLogSuccessI(SCEIO, 0, "waiting");
 		} else if (f->hasAsyncResult) {
 			if (!__KernelIsDispatchEnabled()) {
-				DEBUG_LOG(SCEIO, "%lli = sceIoWaitAsync(%i, %08x): dispatch disabled", f->asyncResult, id, address);
-				return SCE_KERNEL_ERROR_CAN_NOT_WAIT;
+				return hleLogDebug(SCEIO, SCE_KERNEL_ERROR_CAN_NOT_WAIT, "dispatch disabled");
 			}
-			DEBUG_LOG(SCEIO, "%lli = sceIoWaitAsync(%i, %08x)", f->asyncResult, id, address);
 			Memory::Write_U64((u64) f->asyncResult, address);
 			f->hasAsyncResult = false;
+			IoAsyncCleanupThread(id);
 
 			if (f->closePending) {
 				__IoFreeFd(id, error);
 			}
+
+			return hleLogSuccessI(SCEIO, 0, "complete");
 		} else {
-			WARN_LOG(SCEIO, "SCE_KERNEL_ERROR_NOASYNC = sceIoWaitAsync(%i, %08x)", id, address);
-			return SCE_KERNEL_ERROR_NOASYNC;
+			return hleLogWarning(SCEIO, SCE_KERNEL_ERROR_NOASYNC, "no async pending");
 		}
 		return 0; //completed
 	} else {
-		ERROR_LOG(SCEIO, "ERROR - sceIoWaitAsync waiting for invalid id %i", id);
-		return SCE_KERNEL_ERROR_BADF;
+		return hleLogError(SCEIO, SCE_KERNEL_ERROR_BADF, "invalid fd");
 	}
 }
 
@@ -2066,32 +2138,30 @@ static int sceIoWaitAsyncCB(int id, u32 address) {
 	FileNode *f = __IoGetFd(id, error);
 	if (f) {
 		if (__IsInInterrupt()) {
-			DEBUG_LOG(SCEIO, "%lli = sceIoWaitAsyncCB(%i, %08x): illegal context", f->asyncResult, id, address);
-			return SCE_KERNEL_ERROR_ILLEGAL_CONTEXT;
+			return hleLogDebug(SCEIO, SCE_KERNEL_ERROR_ILLEGAL_CONTEXT, "illegal context");
 		}
 
 		hleCheckCurrentCallbacks();
 		if (f->pendingAsyncResult) {
-			DEBUG_LOG(SCEIO, "%lli = sceIoWaitAsyncCB(%i, %08x): waiting", f->asyncResult, id, address);
 			// TODO: This seems to re-enable dispatch or something?
 			f->waitingThreads.push_back(__KernelGetCurThread());
-			__KernelWaitCurThread(WAITTYPE_ASYNCIO, f->GetUID(), address, 0, false, "io waited");
+			__KernelWaitCurThread(WAITTYPE_ASYNCIO, f->GetUID(), address, 0, true, "io waited");
+			return hleLogSuccessI(SCEIO, 0, "waiting");
 		} else if (f->hasAsyncResult) {
-			DEBUG_LOG(SCEIO, "%lli = sceIoWaitAsyncCB(%i, %08x)", f->asyncResult, id, address);
 			Memory::Write_U64((u64) f->asyncResult, address);
 			f->hasAsyncResult = false;
+			IoAsyncCleanupThread(id);
 
 			if (f->closePending) {
 				__IoFreeFd(id, error);
 			}
+
+			return hleLogSuccessI(SCEIO, 0, "complete");
 		} else {
-			WARN_LOG(SCEIO, "SCE_KERNEL_ERROR_NOASYNC = sceIoWaitAsyncCB(%i, %08x)", id, address);
-			return SCE_KERNEL_ERROR_NOASYNC;
+			return hleLogWarning(SCEIO, SCE_KERNEL_ERROR_NOASYNC, "no async pending");
 		}
-		return 0; //completed
 	} else {
-		ERROR_LOG(SCEIO, "ERROR - sceIoWaitAsyncCB waiting for invalid id %i", id);
-		return SCE_KERNEL_ERROR_BADF;
+		return hleLogError(SCEIO, SCE_KERNEL_ERROR_BADF, "invalid fd");
 	}
 }
 
@@ -2100,25 +2170,21 @@ static u32 sceIoPollAsync(int id, u32 address) {
 	FileNode *f = __IoGetFd(id, error);
 	if (f) {
 		if (f->pendingAsyncResult) {
-			VERBOSE_LOG(SCEIO, "%lli = sceIoPollAsync(%i, %08x): not ready", f->asyncResult, id, address);
-			return 1;
+			return hleLogSuccessVerboseI(SCEIO, 1, "not ready");
 		} else if (f->hasAsyncResult) {
-			DEBUG_LOG(SCEIO, "%lli = sceIoPollAsync(%i, %08x)", f->asyncResult, id, address);
 			Memory::Write_U64((u64) f->asyncResult, address);
 			f->hasAsyncResult = false;
+			IoAsyncCleanupThread(id);
 
 			if (f->closePending) {
 				__IoFreeFd(id, error);
 			}
-			return 0; //completed
+			return hleLogSuccessI(SCEIO, 0);
 		} else {
-			// This seems to be normal-ish usage so demoted to DEBUG from WARN.
-			DEBUG_LOG(SCEIO, "SCE_KERNEL_ERROR_NOASYNC = sceIoPollAsync(%i, %08x)", id, address);
-			return SCE_KERNEL_ERROR_NOASYNC;
+			return hleLogDebug(SCEIO, SCE_KERNEL_ERROR_NOASYNC, "no async pending");
 		}
 	} else {
-		ERROR_LOG(SCEIO, "ERROR - sceIoPollAsync waiting for invalid id %i", id);
-		return SCE_KERNEL_ERROR_BADF;
+		return hleLogError(SCEIO, SCE_KERNEL_ERROR_BADF, "invalid fd");
 	}
 }
 
@@ -2510,17 +2576,20 @@ static u32 sceIoIoctlAsync(u32 id, u32 cmd, u32 indataPtr, u32 inlen, u32 outdat
 	FileNode *f = __IoGetFd(id, error);
 	if (f) {
 		if (f->asyncBusy()) {
-			WARN_LOG(SCEIO, "sceIoIoctlAsync(%08x, %08x, %08x, %08x, %08x, %08x): async busy", id, cmd, indataPtr, inlen, outdataPtr, outlen);
-			return SCE_KERNEL_ERROR_ASYNC_BUSY;
+			return hleLogWarning(SCEIO, SCE_KERNEL_ERROR_ASYNC_BUSY, "async busy");
 		}
-		DEBUG_LOG(SCEIO, "sceIoIoctlAsync(%08x, %08x, %08x, %08x, %08x, %08x)", id, cmd, indataPtr, inlen, outdataPtr, outlen);
-		int usec = 100;
-		f->asyncResult = __IoIoctl(id, cmd, indataPtr, inlen, outdataPtr, outlen, usec);
-		__IoSchedAsync(f, id, usec);
-		return 0;
+
+		auto &params = asyncParams[id];
+		params.op = IoAsyncOp::IOCTL;
+		params.ioctl.cmd = cmd;
+		params.ioctl.inAddr = indataPtr;
+		params.ioctl.inSize = inlen;
+		params.ioctl.outAddr = outdataPtr;
+		params.ioctl.outSize = outlen;
+		IoStartAsyncThread(id, f);
+		return hleLogSuccessI(SCEIO, 0);
 	} else {
-		ERROR_LOG(SCEIO, "UNIMPL %08x=sceIoIoctlAsync id: %08x, cmd %08x, bad file", error, id, cmd);
-		return error;
+		return hleLogError(SCEIO, error, "bad file descriptor");
 	}
 }
 
@@ -2569,6 +2638,81 @@ static u32 sceKernelRegisterStdoutPipe(u32 msgPipeUID) {
 	return 0;
 }
 
+static int IoAsyncFinish(int id) {
+	u32 error;
+	FileNode *f = __IoGetFd(id, error);
+	if (f) {
+		// Reset this so the Io funcs don't reject the request.
+		f->pendingAsyncResult = false;
+
+		auto &params = asyncParams[id];
+
+		int result;
+		int us;
+		bool complete;
+
+		switch (params.op) {
+		case IoAsyncOp::READ:
+			complete = __IoRead(result, id, params.std.addr, params.std.size, us);
+			if (complete) {
+				f->asyncResult = (s64)result;
+				DEBUG_LOG(SCEIO, "ASYNC %llx=sceIoReadAsync(%d, %08x, %x)", f->asyncResult, id, params.std.addr, params.std.size);
+			} else {
+				DEBUG_LOG(SCEIO, "ASYNC sceIoReadAsync(%d, %08x, %x): deferring result", id, params.std.addr, params.std.size);
+			}
+			break;
+
+		case IoAsyncOp::WRITE:
+			complete = __IoWrite(result, id, params.std.addr, params.std.size, us);
+			if (complete) {
+				f->asyncResult = (s64)result;
+				DEBUG_LOG(SCEIO, "ASYNC %llx=sceIoWriteAsync(%d, %08x, %x)", f->asyncResult, id, params.std.addr, params.std.size);
+			} else {
+				DEBUG_LOG(SCEIO, "ASYNC sceIoWriteAsync(%d, %08x, %x): deferring result", id, params.std.addr, params.std.size);
+			}
+			break;
+
+		case IoAsyncOp::SEEK:
+			f->asyncResult = __IoLseek(id, params.seek.pos, params.seek.whence);
+			// Educated guess at timing.
+			us = 100;
+			DEBUG_LOG(SCEIO, "ASYNC %lli = sceIoLseekAsync(%d, %llx, %i)", f->asyncResult, id, params.seek.pos, params.seek.whence);
+			break;
+
+		case IoAsyncOp::OPEN:
+			// TODO: Timing is very inconsistent.  From ms0, 10ms - 20ms depending on filesize/dir depth?  From umd, can take > 1s.
+			// For now let's aim low.
+			us = 100;
+			break;
+
+		case IoAsyncOp::CLOSE:
+			f->asyncResult = 0;
+			// TODO: Rough estimate.
+			us = 100;
+			DEBUG_LOG(SCEIO, "ASYNC %lli = sceIoCloseAsync(%d)", f->asyncResult, id);
+			break;
+
+		case IoAsyncOp::IOCTL:
+			us = 100;
+			f->asyncResult = __IoIoctl(id, params.ioctl.cmd, params.ioctl.inAddr, params.ioctl.inSize, params.ioctl.outAddr, params.ioctl.outSize, us);
+			DEBUG_LOG(SCEIO, "ASYNC sceIoIoctlAsync(%08x, %08x, %08x, %08x, %08x, %08x)", id, params.ioctl.cmd, params.ioctl.inAddr, params.ioctl.inSize, params.ioctl.outAddr, params.ioctl.outSize);
+			break;
+
+		default:
+			ERROR_LOG_REPORT(SCEIO, "Unknown async op %d", params.op);
+			break;
+		}
+
+		__IoSchedAsync(f, id, us);
+		__KernelWaitCurThread(WAITTYPE_ASYNCIO, id, 0, 0, false, "async io");
+
+		params.op = IoAsyncOp::NONE;
+		return 0;
+	} else {
+		return hleLogError(SCEIO, error, "bad file descriptor");
+	}
+}
+
 KernelObject *__KernelFileNodeObject() {
 	return new FileNode;
 }
@@ -2615,6 +2759,7 @@ const HLEFunction IoFileMgrForUser[] = {
 	{0x35DBD746, &WrapI_IU<sceIoWaitAsyncCB>,           "sceIoWaitAsyncCB",            'i', "iP"    },
 	{0xE23EEC33, &WrapI_IU<sceIoWaitAsync>,             "sceIoWaitAsync",              'i', "iP"    },
 	{0X5C2BE2CC, &WrapU_UIU<sceIoGetFdList>,            "sceIoGetFdList",              'i', "xip"   },
+	{0x13370001, &WrapI_I<IoAsyncFinish>,               "__IoAsyncFinish",             'i', "i"     },
 };
 
 void Register_IoFileMgrForUser() {
