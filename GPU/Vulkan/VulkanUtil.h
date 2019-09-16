@@ -72,6 +72,9 @@ public:
 	void BeginFrame();
 	void EndFrame();
 
+	void PurgeVertexShader(VkShaderModule s, bool keepPipeline = false);
+	void PurgeFragmentShader(VkShaderModule s, bool keepPipeline = false);
+
 	VkDescriptorSet GetDescriptorSet(VkImageView tex1, VkSampler sampler1, VkImageView tex2, VkSampler sampler2);
 
 	struct Vertex {
@@ -118,6 +121,7 @@ private:
 	FrameData frameData_[VulkanContext::MAX_INFLIGHT_FRAMES];
 
 	std::map<PipelineKey, VkPipeline> pipelines_;
+	std::vector<VkPipeline> keptPipelines_;
 };
 
 

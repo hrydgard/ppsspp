@@ -69,8 +69,10 @@ DepalShaderCacheVulkan::~DepalShaderCacheVulkan() {
 
 void DepalShaderCacheVulkan::DeviceLost() {
 	Clear();
-	if (vshader_)
+	if (vshader_) {
+		vulkan2D_->PurgeVertexShader(vshader_);
 		vulkan_->Delete().QueueDeleteShaderModule(vshader_);
+	}
 	draw_ = nullptr;
 	vulkan_ = nullptr;
 }
@@ -107,6 +109,7 @@ DepalShaderVulkan *DepalShaderCacheVulkan::GetDepalettizeShader(uint32_t clutMod
 	VkPipeline pipeline = vulkan2D_->GetPipeline(rp, vshader_, fshader);
 	// Can delete the shader module now that the pipeline has been created.
 	// Maybe don't even need to queue it..
+	vulkan2D_->PurgeFragmentShader(fshader, true);
 	vulkan_->Delete().QueueDeleteShaderModule(fshader);
 
 	DepalShaderVulkan *depal = new DepalShaderVulkan();
