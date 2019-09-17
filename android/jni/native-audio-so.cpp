@@ -124,13 +124,16 @@ bool OpenSLContext::Init() {
 	result = (*bqPlayerPlay)->SetPlayState(bqPlayerPlay, SL_PLAYSTATE_PLAYING);
 	assert(SL_RESULT_SUCCESS == result);
 
-	// Render and enqueue a first buffer. (or should we just play the buffer empty?)
-	buffer[0] = new short[framesPerBuffer * 2];
-	buffer[1] = new short[framesPerBuffer * 2];
+	// Enqueue two empty buffers.
+	buffer[0] = new short[framesPerBuffer * 2]{};
+	buffer[1] = new short[framesPerBuffer * 2]{};
 
 	curBuffer = 0;
-	audioCallback(buffer[curBuffer], framesPerBuffer);
-
+	result = (*bqPlayerBufferQueue)->Enqueue(bqPlayerBufferQueue, buffer[curBuffer], sizeof(buffer[curBuffer]));
+	if (SL_RESULT_SUCCESS != result) {
+		return false;
+	}
+	curBuffer ^= 1;
 	result = (*bqPlayerBufferQueue)->Enqueue(bqPlayerBufferQueue, buffer[curBuffer], sizeof(buffer[curBuffer]));
 	if (SL_RESULT_SUCCESS != result) {
 		return false;
