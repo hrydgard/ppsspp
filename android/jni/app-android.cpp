@@ -506,7 +506,7 @@ extern "C" void Java_org_ppsspp_ppsspp_NativeApp_audioInit(JNIEnv *, jclass) {
 
 	ILOG("NativeApp.audioInit() -- Using OpenSL audio! frames/buffer: %i	 optimal sr: %i	 actual sr: %i", optimalFramesPerBuffer, optimalSampleRate, sampleRate);
 	if (!g_audioState) {
-		g_audioState = AndroidAudio_Init(&NativeMix, library_path, framesPerBuffer, sampleRate);
+		g_audioState = AndroidAudio_Init(&NativeMix, framesPerBuffer, sampleRate);
 	} else {
 		ELOG("Audio state already initialized");
 	}
