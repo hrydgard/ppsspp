@@ -1,4 +1,6 @@
 #include <map>
+
+#include "base/timeutil.h"
 #include "DataFormat.h"
 #include "VulkanQueueRunner.h"
 #include "VulkanRenderManager.h"
@@ -375,7 +377,9 @@ VkRenderPass VulkanQueueRunner::GetRenderPass(const RPKey &key) {
 	return pass;
 }
 
-void VulkanQueueRunner::RunSteps(VkCommandBuffer cmd, std::vector<VKRStep *> &steps, VkQueryPool queryPool, std::vector<std::string> *timestampDescriptions) {
+void VulkanQueueRunner::RunSteps(VkCommandBuffer cmd, std::vector<VKRStep *> &steps, QueueProfileContext *profile) {
+	if (profile)
+		profile->cpuStartTime = real_time_now();
 	// Optimizes renderpasses, then sequences them.
 	// Planned optimizations: 
 	//  * Create copies of render target that are rendered to multiple times and textured from in sequence, and push those render passes
@@ -465,9 +469,9 @@ void VulkanQueueRunner::RunSteps(VkCommandBuffer cmd, std::vector<VKRStep *> &st
 			break;
 		}
 
-		if (queryPool) {
-			vkCmdWriteTimestamp(cmd, VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, queryPool, (uint32_t)timestampDescriptions->size());
-			timestampDescriptions->push_back(StepToString(step));
+		if (profile) {
+			vkCmdWriteTimestamp(cmd, VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, profile->queryPool, (uint32_t)profile->timestampDescriptions.size());
+			profile->timestampDescriptions.push_back(StepToString(step));
 		}
 	}
 
@@ -476,6 +480,9 @@ void VulkanQueueRunner::RunSteps(VkCommandBuffer cmd, std::vector<VKRStep *> &st
 	for (size_t i = 0; i < steps.size(); i++) {
 		delete steps[i];
 	}
+
+	if (profile)
+		profile->cpuEndTime = real_time_now();
 }
 
 void VulkanQueueRunner::ApplyMGSHack(std::vector<VKRStep *> &steps) {
