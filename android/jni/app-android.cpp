@@ -974,8 +974,13 @@ retry:
 			ILOG("Trying again, this time with OpenGL.");
 			g_Config.iGPUBackend = (int)GPUBackend::OPENGL;
 			SetGPUBackend((GPUBackend)g_Config.iGPUBackend);
-			tries++;
-			goto retry;
+			// If we were still supporting EGL for GL:
+			// tries++;
+			// goto retry;
+			delete graphicsContext;
+			graphicsContext = nullptr;
+			renderLoopRunning = false;
+			return false;
 		}
 
 		delete graphicsContext;

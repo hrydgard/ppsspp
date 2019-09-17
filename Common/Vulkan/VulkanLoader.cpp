@@ -220,6 +220,7 @@ static HINSTANCE vulkanLibrary;
 #else
 static void *vulkanLibrary;
 #endif
+const char *VulkanResultToString(VkResult res);
 
 bool g_vulkanAvailabilityChecked = false;
 bool g_vulkanMayBeAvailable = false;
@@ -322,7 +323,7 @@ bool VulkanMayBeAvailable() {
 	res = localEnumerateInstanceExtensionProperties(nullptr, &instanceExtCount, nullptr);
 	// Maximum paranoia.
 	if (res != VK_SUCCESS) {
-		ELOG("Enumerating VK extensions failed.");
+		ELOG("Enumerating VK extensions failed (%s)", VulkanResultToString(res));
 		goto bail;
 	}
 	if (instanceExtCount == 0) {
@@ -333,7 +334,7 @@ bool VulkanMayBeAvailable() {
 	instanceExts.resize(instanceExtCount);
 	res = localEnumerateInstanceExtensionProperties(nullptr, &instanceExtCount, instanceExts.data());
 	if (res != VK_SUCCESS) {
-		ELOG("Enumerating VK extensions failed.");
+		ELOG("Enumerating VK extensions failed (%s)", VulkanResultToString(res));
 		goto bail;
 	}
 	for (auto iter : instanceExts) {
@@ -379,13 +380,13 @@ bool VulkanMayBeAvailable() {
 	res = localCreateInstance(&ci, nullptr, &instance);
 	if (res != VK_SUCCESS) {
 		instance = nullptr;
-		ELOG("Failed to create vulkan instance.");
+		ELOG("VulkanMayBeAvailable: Failed to create vulkan instance (%s)", VulkanResultToString(res));
 		goto bail;
 	}
 	ILOG("VulkanMayBeAvailable: Vulkan test instance created successfully.");
 	res = localEnumerate(instance, &physicalDeviceCount, nullptr);
 	if (res != VK_SUCCESS) {
-		ELOG("VulkanMayBeAvailable: Failed to count physical devices.");
+		ELOG("VulkanMayBeAvailable: Failed to count physical devices (%s)", VulkanResultToString(res));
 		goto bail;
 	}
 	if (physicalDeviceCount == 0) {
@@ -395,7 +396,7 @@ bool VulkanMayBeAvailable() {
 	devices.resize(physicalDeviceCount);
 	res = localEnumerate(instance, &physicalDeviceCount, devices.data());
 	if (res != VK_SUCCESS) {
-		ELOG("VulkanMayBeAvailable: Failed to enumerate physical devices.");
+		ELOG("VulkanMayBeAvailable: Failed to enumerate physical devices (%s)", VulkanResultToString(res));
 		goto bail;
 	}
 	anyGood = false;

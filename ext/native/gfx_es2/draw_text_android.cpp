@@ -20,12 +20,9 @@ TextDrawerAndroid::TextDrawerAndroid(Draw::DrawContext *draw) : TextDrawer(draw)
 	const char *textRendererClassName = "org/ppsspp/ppsspp/TextRenderer";
 	jclass localClass = findClass(textRendererClassName);
 	cls_textRenderer = reinterpret_cast<jclass>(env_->NewGlobalRef(localClass));
-	ILOG("cls_textRender: %p", cls_textRenderer);
 	if (cls_textRenderer) {
 		method_measureText = env_->GetStaticMethodID(cls_textRenderer, "measureText", "(Ljava/lang/String;D)I");
-		ILOG("method_measureText: %p", method_measureText);
 		method_renderText = env_->GetStaticMethodID(cls_textRenderer, "renderText", "(Ljava/lang/String;D)[I");
-		ILOG("method_renderText: %p", method_renderText);
 	} else {
 		ELOG("Failed to find class: '%s'", textRendererClassName);
 	}
