@@ -39,14 +39,16 @@ What's new in 1.9.0
 * MP3 playback fixes (#12005)
 * Audio in Motorstorm: Arctic Edge fixed by returning errors correctly (#12121)
 * Audio glitches in Final Fantasy Tactics fixed (#9956)
-* Camera display in Invizimals fixed (#12278)
+* Camera display in Invizimals fixed (#12278, #8521)
 * Added hotkeys for texture dump and replace (#11938)
 * Added Visual Studio 2019 support. Windows XP is no longer supported (#11995, others)
-* Fixes for video dumping (#12069)
+* Fixes for video capture (#12069)
 * Added a separate sound volume for alternative speed (#12124)
 * Improved mouse control (Windows only) (#12173, #12176)
 * Support for installing texture packs and ISOs from zips (#12175)
 * Right analog support for touch controls (only used by patched games and some HD remasters) (#12182)
+* Android: Fix OpenSL initialization, possibly helps audio crackle a little. (#12333).
+* Fix graphics on Amazon Fire TV Stick 4K
 
 What's new in 1.8.0
 -------------------
