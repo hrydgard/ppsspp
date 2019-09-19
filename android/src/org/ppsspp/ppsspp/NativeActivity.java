@@ -530,7 +530,7 @@ public abstract class NativeActivity extends Activity implements SurfaceHolder.C
 			} else {
 				// Tried to mess around with config choosers (NativeEGLConfigChooser) here but fail completely on Xperia Play.
 				// On the other hand, I think from ICS we should be safe to at least require 8888 and stencil...
-				if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.ICE_CREAM_SANDWICH && !Build.MANUFACTURER.equals("AMAZON")) {
+				if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.ICE_CREAM_SANDWICH && !Build.MANUFACTURER.equals("Amazon")) {
 					mGLSurfaceView.setEGLConfigChooser(8, 8, 8, 8, 16, 8);
 				}
 			}
