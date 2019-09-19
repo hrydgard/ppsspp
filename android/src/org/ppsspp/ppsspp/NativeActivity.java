@@ -524,13 +524,13 @@ public abstract class NativeActivity extends Activity implements SurfaceHolder.C
 			// http://grokbase.com/t/gg/android-developers/11bj40jm4w/fall-back
 
 			// Needed to avoid banding on Ouya?
-			if (Build.MANUFACTURER == "OUYA") {
+			if (Build.MANUFACTURER.equals("OUYA")) {
 				mGLSurfaceView.getHolder().setFormat(PixelFormat.RGBX_8888);
 				mGLSurfaceView.setEGLConfigChooser(new NativeEGLConfigChooser());
 			} else {
 				// Tried to mess around with config choosers (NativeEGLConfigChooser) here but fail completely on Xperia Play.
 				// On the other hand, I think from ICS we should be safe to at least require 8888 and stencil...
-				if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.ICE_CREAM_SANDWICH) {
+				if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.ICE_CREAM_SANDWICH && !Build.MANUFACTURER.equals("AMAZON")) {
 					mGLSurfaceView.setEGLConfigChooser(8, 8, 8, 8, 16, 8);
 				}
 			}
