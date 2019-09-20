@@ -49,7 +49,7 @@ What's new in 1.9.0
 * Right analog support for touch controls (only used by patched games and some HD remasters) (#12182)
 * Android: Fix OpenSL initialization, possibly helps audio crackle a little. (#12333).
 * Fix graphics on Amazon Fire TV Stick 4K
-* Fixed strange vehicle behavior in MGS:PW (somehow).
+* Fixed strange vehicle behavior in MGS:PW (somehow) (#12342)
 
 What's new in 1.8.0
 -------------------
