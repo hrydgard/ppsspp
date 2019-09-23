@@ -926,7 +926,7 @@ static ConfigSetting systemParamSettings[] = {
 	ReportedConfigSetting("PSPModel", &g_Config.iPSPModel, &DefaultPSPModel, true, true),
 	ReportedConfigSetting("PSPFirmwareVersion", &g_Config.iFirmwareVersion, PSP_DEFAULT_FIRMWARE, true, true),
 	ConfigSetting("NickName", &g_Config.sNickName, "PPSSPP", true, true),
-	ConfigSetting("proAdhocServer", &g_Config.proAdhocServer, "black-seraph.com", true, true),
+	ConfigSetting("proAdhocServer", &g_Config.proAdhocServer, "myneighborsushicat.com", true, true),
 	ConfigSetting("MacAddress", &g_Config.sMACAddress, "", true, true),
 	ConfigSetting("PortOffset", &g_Config.iPortOffset, 0, true, true),
 	ReportedConfigSetting("Language", &g_Config.iLanguage, &DefaultSystemParamLanguage, true, true),
