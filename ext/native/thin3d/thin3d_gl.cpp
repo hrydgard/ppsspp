@@ -256,7 +256,7 @@ public:
 private:
 	GLRenderManager *render_;
 	ShaderStage stage_;
-	ShaderLanguage language_;
+	ShaderLanguage language_ = ShaderLanguage::GLSL_ES_200;
 	GLRShader *shader_ = nullptr;
 	GLuint glstage_ = 0;
 	std::string source_;  // So we can recompile in case of context loss.
@@ -277,7 +277,7 @@ bool OpenGLShaderModule::Compile(GLRenderManager *render, ShaderLanguage languag
 
 class OpenGLInputLayout : public InputLayout {
 public:
-	OpenGLInputLayout(GLRenderManager *render) : render_(render) {}
+	OpenGLInputLayout(GLRenderManager *render) : render_(render), stride(0) {}
 	~OpenGLInputLayout();
 
 	void Compile(const InputLayoutDesc &desc);
@@ -285,7 +285,7 @@ public:
 		return false;
 	}
 
-	GLRInputLayout *inputLayout_;
+	GLRInputLayout *inputLayout_ = nullptr;
 	int stride;
 private:
 	GLRenderManager *render_;
@@ -313,7 +313,7 @@ public:
 		return inputLayout->RequiresBuffer();
 	}
 
-	GLuint prim;
+	GLuint prim = 0;
 	std::vector<OpenGLShaderModule *> shaders;
 	OpenGLInputLayout *inputLayout = nullptr;
 	OpenGLDepthStencilState *depthStencil = nullptr;
@@ -322,8 +322,8 @@ public:
 
 	// TODO: Optimize by getting the locations first and putting in a custom struct
 	UniformBufferDesc dynamicUniforms;
-
 	GLRProgram *program_ = nullptr;
+
 private:
 	GLRenderManager *render_;
 };
@@ -501,7 +501,7 @@ private:
 	struct FrameData {
 		GLPushBuffer *push;
 	};
-	FrameData frameData_[GLRenderManager::MAX_INFLIGHT_FRAMES];
+	FrameData frameData_[GLRenderManager::MAX_INFLIGHT_FRAMES]{};
 };
 
 static constexpr int MakeIntelSimpleVer(int v1, int v2, int v3) {
@@ -713,9 +713,9 @@ public:
 	}
 
 	GLRenderManager *render_;
-	GLRFramebuffer *framebuffer;
+	GLRFramebuffer *framebuffer = nullptr;
 
-	FBColorDepth colorDepth;
+	FBColorDepth colorDepth = FBO_8888;
 };
 
 void OpenGLTexture::SetImageData(int x, int y, int z, int width, int height, int depth, int level, int stride, const uint8_t *data) {
@@ -738,7 +738,7 @@ void OpenGLTexture::SetImageData(int x, int y, int z, int width, int height, int
 		stride = width;
 
 	// Make a copy of data with stride eliminated.
-	uint8_t *texData = new uint8_t[width * height * alignment];
+	uint8_t *texData = new uint8_t[(size_t)(width * height * alignment)];
 	for (int y = 0; y < height; y++) {
 		memcpy(texData + y * width * alignment, data + y * stride * alignment, width * alignment);
 	}
@@ -932,6 +932,7 @@ Pipeline *OpenGLContext::CreateGraphicsPipeline(const PipelineDesc &desc) {
 			return nullptr;
 		}
 	}
+	ILOG("Linking shaders.");
 	if (pipeline->LinkShaders()) {
 		// Build the rest of the virtual pipeline object.
 		pipeline->prim = primToGL[(int)desc.prim];
