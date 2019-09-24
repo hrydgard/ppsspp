@@ -740,7 +740,9 @@ public abstract class NativeActivity extends Activity implements SurfaceHolder.C
 				Log.e(TAG, "mGLSurfaceView really shouldn't be null in onPause");
 			}
 		}
-		mCameraHelper.pause();
+		if (mCameraHelper != null) {
+			mCameraHelper.pause();
+		}
 		Log.i(TAG, "onPause completed");
 	}
 
@@ -780,7 +782,9 @@ public abstract class NativeActivity extends Activity implements SurfaceHolder.C
 				mSurfaceView.onResume();
 			}
 		}
-		mCameraHelper.resume();
+		if (mCameraHelper != null) {
+			mCameraHelper.resume();
+		}
 
 		gainAudioFocus(this.audioManager, this.audioFocusChangeListener);
 		NativeApp.resume();
@@ -1339,7 +1343,9 @@ public abstract class NativeActivity extends Activity implements SurfaceHolder.C
 			}
 		} else if (command.equals("event")) {
 			if (params.equals("exitgame")) {
-				mCameraHelper.stopCamera();
+				if (mCameraHelper != null) {
+					mCameraHelper.stopCamera();
+				}
 			}
 		}
 		return false;
