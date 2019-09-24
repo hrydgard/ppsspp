@@ -23,6 +23,34 @@ For build instructions and other development tutorials, see [the wiki](https://g
 
 For game compatibility, see [community compatibility feedback](https://report.ppsspp.org/games).
 
+What's new in 1.9.0
+-------------------
+* Flicker fixed in God of War that appeared with newer drivers for Mali GPUs (#12224)
+* Improve performance of God of War on Vulkan (#12242), implement built-in GPU profiler (#12262, #12266)
+* Vertex range culling fixed on ARM Mali (#12227)
+* Started to improve VFPU precision, resulting so far in a fix for the long standing Tekken 6 leg shaking problem (#12217)
+* Fixed a VFPU precision snafu on ARM64, fixing disappearing officers in Warriors Orochi (#11299) and some problems in Tomb Raider (#11179).
+* Vulkan is the default again on Android versions newer than Pie
+* Fix various homebrew store issues
+* GPU pause signal handling fixed, fixing some hangs in Bleach and Armored Core games (#12160)
+* Audio sample rate conversion handling fixes (#12147)
+* Some Vulkan optimizations (pre-rotation (#12216), perf fix in Metal Gear Acid, etc)
+* Multiple fixes for the UWP build (#12036, others)
+* MP3 playback fixes (#12005)
+* Audio in Motorstorm: Arctic Edge fixed by returning errors correctly (#12121)
+* Audio glitches in Final Fantasy Tactics fixed (#9956)
+* Camera display in Invizimals fixed (#12278, #8521)
+* Added hotkeys for texture dump and replace (#11938)
+* Added Visual Studio 2019 support. Windows XP is no longer supported (#11995, others)
+* Fixes for video capture (#12069)
+* Added a separate sound volume for alternative speed (#12124)
+* Improved mouse control (Windows only) (#12173, #12176)
+* Support for installing texture packs and ISOs from zips (#12175)
+* Right analog support for touch controls (only used by patched games and some HD remasters) (#12182)
+* Android: Fix OpenSL initialization, possibly helps audio crackle a little. (#12333).
+* Fix graphics on Amazon Fire TV Stick 4K
+* Fixed strange vehicle behavior in MGS:PW (somehow) (#12342)
+
 What's new in 1.8.0
 -------------------
 * Avoid crash when starting PPSSPP due to bad AMD Vulkan drivers (#11802)
