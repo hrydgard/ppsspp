@@ -23,8 +23,8 @@ For build instructions and other development tutorials, see [the wiki](https://g
 
 For game compatibility, see [community compatibility feedback](https://report.ppsspp.org/games).
 
-What's new in 1.9.0
--------------------
+What's new in 1.9.0/1.9.1
+-------------------------
 * Flicker fixed in God of War that appeared with newer drivers for Mali GPUs (#12224)
 * Improve performance of God of War on Vulkan (#12242), implement built-in GPU profiler (#12262, #12266)
 * Vertex range culling fixed on ARM Mali (#12227)
