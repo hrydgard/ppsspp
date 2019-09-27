@@ -71,6 +71,7 @@ bool OpenSLContext::Init() {
 	result = slCreateEngine(&engineObject, 0, NULL, 0, NULL, NULL);
 	if (result != SL_RESULT_SUCCESS) {
 		ELOG("OpenSL ES: Failed to create the engine: %d", (int)result);
+		engineObject = nullptr;
 		return false;
 	}
 	result = (*engineObject)->Realize(engineObject, SL_BOOLEAN_FALSE);
@@ -78,7 +79,13 @@ bool OpenSLContext::Init() {
 	result = (*engineObject)->GetInterface(engineObject, SL_IID_ENGINE, &engineEngine);
 	assert(SL_RESULT_SUCCESS == result);
 	result = (*engineEngine)->CreateOutputMix(engineEngine, &outputMixObject, 0, 0, 0);
-	assert(SL_RESULT_SUCCESS == result);
+	if (result != SL_RESULT_SUCCESS) {
+		ELOG("OpenSL ES: Failed to create output mix: %d", (int)result);
+		(*engineObject)->Destroy(engineObject);
+		engineEngine = nullptr;
+		engineObject = nullptr;
+		return false;
+	}
 	result = (*outputMixObject)->Realize(outputMixObject, SL_BOOLEAN_FALSE);
 	assert(SL_RESULT_SUCCESS == result);
 
@@ -108,7 +115,13 @@ bool OpenSLContext::Init() {
 	result = (*engineEngine)->CreateAudioPlayer(engineEngine, &bqPlayerObject, &audioSrc, &audioSnk, 2, ids, req);
 	if (result != SL_RESULT_SUCCESS) {
 		ELOG("OpenSL ES: CreateAudioPlayer failed: %d", (int)result);
+		(*outputMixObject)->Destroy(outputMixObject);
+		outputMixObject = nullptr;
+
 		// Should really tear everything down here. Sigh.
+		(*engineObject)->Destroy(engineObject);
+		engineEngine = nullptr;
+		engineObject = nullptr;
 		return false;
 	}
 
