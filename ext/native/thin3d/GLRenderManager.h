@@ -232,6 +232,10 @@ public:
 	void Map();
 	void Unmap();
 
+	bool IsReady() const {
+		return writePtr_ != nullptr;
+	}
+
 	// When using the returned memory, make sure to bind the returned vkbuf.
 	// This will later allow for handling overflow correctly.
 	size_t Allocate(size_t numBytes, GLRBuffer **vkbuf) {

@@ -458,10 +458,15 @@ void FramebufferManagerGLES::DrawActiveTexture(float x, float y, float w, float 
 
 	uint32_t bindOffset;
 	GLRBuffer *buffer;
-	void *dest = drawEngineGL_->GetPushVertexBuffer()->Push(sizeof(verts), &bindOffset, &buffer);
-	memcpy(dest, verts, sizeof(verts));
-	render_->BindVertexBuffer(simple2DInputLayout_, buffer, bindOffset);
-	render_->Draw(GL_TRIANGLE_STRIP, 0, 4);
+
+	// Workaround: This might accidentally get called from ReportScreen screenshot-taking, and in that case
+	// the push buffer is not mapped. This only happens if framebuffer blit support is not available.
+	if (drawEngineGL_->GetPushVertexBuffer()->IsReady()) {
+		void *dest = drawEngineGL_->GetPushVertexBuffer()->Push(sizeof(verts), &bindOffset, &buffer);
+		memcpy(dest, verts, sizeof(verts));
+		render_->BindVertexBuffer(simple2DInputLayout_, buffer, bindOffset);
+		render_->Draw(GL_TRIANGLE_STRIP, 0, 4);
+	}
 }
 
 void FramebufferManagerGLES::ReformatFramebufferFrom(VirtualFramebuffer *vfb, GEBufferFormat old) {
