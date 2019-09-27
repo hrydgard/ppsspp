@@ -110,12 +110,15 @@ void InstallZipScreen::update() {
 
 	using namespace UI;
 	if (g_GameManager.GetState() != GameManagerState::IDLE) {
-		progressBar_->SetVisibility(V_VISIBLE);
-		progressBar_->SetProgress(g_GameManager.GetCurrentInstallProgressPercentage());
+		if (progressBar_) {
+			progressBar_->SetVisibility(V_VISIBLE);
+			progressBar_->SetProgress(g_GameManager.GetCurrentInstallProgressPercentage());
+		}
 		backChoice_->SetEnabled(false);
 	} else {
-		if (progressBar_)
+		if (progressBar_) {
 			progressBar_->SetVisibility(V_GONE);
+		}
 		backChoice_->SetEnabled(true);
 		std::string err = g_GameManager.GetInstallError();
 		if (!err.empty()) {

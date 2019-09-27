@@ -780,6 +780,7 @@ bool NativeInitGraphics(GraphicsContext *graphicsContext) {
 	using namespace Draw;
 	Core_SetGraphicsContext(graphicsContext);
 	g_draw = graphicsContext->GetDrawContext();
+	_assert_msg_(G3D, g_draw->GetVshaderPreset(VS_COLOR_2D) != nullptr, "Failed to compile presets");
 	_assert_msg_(G3D, g_draw, "No draw context available!");
 
 	ui_draw2d.SetAtlas(&ui_atlas);
