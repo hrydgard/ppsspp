@@ -959,6 +959,12 @@ void RenderOverlays(UIContext *dc, void *userdata) {
 void NativeRender(GraphicsContext *graphicsContext) {
 	g_GameManager.Update();
 
+	if (GetUIState() != UISTATE_INGAME) {
+		// Note: We do this from NativeRender so that the graphics context is
+		// guaranteed valid, to be safe - g_gameInfoCache messes around with textures.
+		UpdateBackgroundAudio();
+	}
+
 	float xres = dp_xres;
 	float yres = dp_yres;
 

@@ -223,7 +223,7 @@ private:
 	SimpleAudio *decoder_ = nullptr;
 };
 
-static std::mutex bgMutex;
+static std::mutex g_bgMutex;
 static std::string bgGamePath;
 static int playbackOffset;
 static AT3PlusReader *at3Reader;
@@ -251,7 +251,7 @@ static void ClearBackgroundAudio(bool hard) {
 void SetBackgroundAudioGame(const std::string &path) {
 	time_update();
 
-	std::lock_guard<std::mutex> lock(bgMutex);
+	std::lock_guard<std::mutex> lock(g_bgMutex);
 	if (path == bgGamePath) {
 		// Do nothing
 		return;
@@ -272,37 +272,13 @@ void SetBackgroundAudioGame(const std::string &path) {
 int PlayBackgroundAudio() {
 	time_update();
 
-	std::lock_guard<std::mutex> lock(bgMutex);
+	std::lock_guard<std::mutex> lock(g_bgMutex);
 
 	// Immediately stop the sound if it is turned off while playing.
 	if (!g_Config.bEnableSound) {
 		ClearBackgroundAudio(true);
 		__PushExternalAudio(0, 0);
 		return 0;
-	}
-
-	// If there's a game, and some time has passed since the selected game
-	// last changed... (to prevent crazy amount of reads when skipping through a list)
-	if (!at3Reader && bgGamePath.size() && (time_now_d() - gameLastChanged > 0.5)) {
-		// Grab some audio from the current game and play it.
-		if (!g_gameInfoCache)
-			return 0;  // race condition?
-
-		// This is very unsafe! TODO: Get rid of this somehow or make threadsafe!
-		std::shared_ptr<GameInfo> gameInfo = g_gameInfoCache->GetInfo(NULL, bgGamePath, GAMEINFO_WANTSND);
-		if (!gameInfo)
-			return 0;
-
-		if (gameInfo->pending) {
-			// Should try again shortly..
-			return 0;
-		}
-
-		if (gameInfo->sndFileData.size()) {
-			const std::string &data = gameInfo->sndFileData;
-			at3Reader = new AT3PlusReader(data);
-			lastPlaybackTime = 0.0;
-		}
 	}
 
 	double now = time_now();
@@ -335,4 +311,34 @@ int PlayBackgroundAudio() {
 	}
 
 	return 0;
+}
+
+// Stuff that should be on the UI thread only, like anything to do with
+// g_gameInfoCache.
+void UpdateBackgroundAudio() {
+	// If there's a game, and some time has passed since the selected game
+	// last changed... (to prevent crazy amount of reads when skipping through a list)
+	if (bgGamePath.size() && (time_now_d() - gameLastChanged > 0.5)) {
+		std::lock_guard<std::mutex> lock(g_bgMutex);
+		if (!at3Reader) {
+			// Grab some audio from the current game and play it.
+			if (!g_gameInfoCache)
+				return;
+
+			std::shared_ptr<GameInfo> gameInfo = g_gameInfoCache->GetInfo(NULL, bgGamePath, GAMEINFO_WANTSND);
+			if (!gameInfo)
+				return;
+
+			if (gameInfo->pending) {
+				// Should try again shortly..
+				return;
+			}
+
+			if (gameInfo->sndFileData.size()) {
+				const std::string &data = gameInfo->sndFileData;
+				at3Reader = new AT3PlusReader(data);
+				lastPlaybackTime = 0.0;
+			}
+		}
+	}
 }

@@ -4,3 +4,4 @@
 
 void SetBackgroundAudioGame(const std::string &path);
 int PlayBackgroundAudio();
+void UpdateBackgroundAudio();
