@@ -431,6 +431,11 @@ bool GameManager::ExtractFile(struct zip *z, int file_index, std::string outFile
 	}
 
 	zip_file *zf = zip_fopen_index(z, file_index, 0);
+	if (!zf) {
+		ERROR_LOG(HLE, "Failed to open file by index (%d) (%s)", file_index, outFilename.c_str());
+		return false;
+	}
+
 	FILE *f = File::OpenCFile(outFilename, "wb");
 	if (f) {
 		size_t pos = 0;
