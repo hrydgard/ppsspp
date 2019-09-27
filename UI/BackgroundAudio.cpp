@@ -288,6 +288,7 @@ int PlayBackgroundAudio() {
 		if (!g_gameInfoCache)
 			return 0;  // race condition?
 
+		// This is very unsafe! TODO: Get rid of this somehow or make threadsafe!
 		std::shared_ptr<GameInfo> gameInfo = g_gameInfoCache->GetInfo(NULL, bgGamePath, GAMEINFO_WANTSND);
 		if (!gameInfo)
 			return 0;
