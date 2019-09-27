@@ -1219,7 +1219,6 @@ void TextureCacheCommon::DecodeTextureLevel(u8 *out, int outPitch, GETextureForm
 		case GE_CMODE_16BIT_ABGR5551:
 		case GE_CMODE_16BIT_ABGR4444:
 		{
-			const u16 *clut = GetCurrentClut<u16>() + clutSharingOffset;
 			if (clutAlphaLinear_ && mipmapShareClut && !expandTo32bit) {
 				// Here, reverseColors means the CLUT is already reversed.
 				if (reverseColors) {
@@ -1232,6 +1231,7 @@ void TextureCacheCommon::DecodeTextureLevel(u8 *out, int outPitch, GETextureForm
 					}
 				}
 			} else {
+				const u16 *clut = GetCurrentClut<u16>() + clutSharingOffset;
 				if (expandTo32bit && !reverseColors) {
 					// We simply expand the CLUT to 32-bit, then we deindex as usual. Probably the fastest way.
 					ConvertFormatToRGBA8888(clutformat, expandClut_, clut, 16);
