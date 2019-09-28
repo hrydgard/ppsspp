@@ -869,10 +869,11 @@ void NativeShutdownGraphics() {
 	winAudioBackend = nullptr;
 #endif
 
+	ShutdownWebServer();
+	UIBackgroundShutdown();
+
 	delete g_gameInfoCache;
 	g_gameInfoCache = nullptr;
-
-	UIBackgroundShutdown();
 
 	delete uiContext;
 	uiContext = nullptr;
