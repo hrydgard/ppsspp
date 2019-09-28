@@ -327,7 +327,6 @@ RemoteISOConnectScreen::RemoteISOConnectScreen() : status_(ScanStatus::SCANNING)
 	scanThread_ = new std::thread([](RemoteISOConnectScreen *thiz) {
 		thiz->ExecuteScan();
 	}, this);
-	scanThread_->detach();
 }
 
 RemoteISOConnectScreen::~RemoteISOConnectScreen() {
@@ -341,6 +340,8 @@ RemoteISOConnectScreen::~RemoteISOConnectScreen() {
 			break;
 		}
 	}
+	if (scanThread_->joinable())
+		scanThread_->join();
 	delete scanThread_;
 }
 
@@ -384,11 +385,12 @@ void RemoteISOConnectScreen::update() {
 		status_ = ScanStatus::LOADING;
 
 		// Let's reuse scanThread_.
+		if (scanThread_->joinable())
+			scanThread_->join();
 		delete scanThread_;
 		scanThread_ = new std::thread([](RemoteISOConnectScreen *thiz) {
 			thiz->ExecuteLoad();
 		}, this);
-		scanThread_->detach();
 		break;
 
 	case ScanStatus::FAILED:
@@ -401,11 +403,12 @@ void RemoteISOConnectScreen::update() {
 			status_ = ScanStatus::SCANNING;
 			nextRetry_ = 0.0;
 
+			if (scanThread_->joinable())
+				scanThread_->join();
 			delete scanThread_;
 			scanThread_ = new std::thread([](RemoteISOConnectScreen *thiz) {
 				thiz->ExecuteScan();
 			}, this);
-			scanThread_->detach();
 		}
 		break;
 
