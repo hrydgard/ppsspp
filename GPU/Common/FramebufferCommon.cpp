@@ -1409,7 +1409,7 @@ VirtualFramebuffer *FramebufferManagerCommon::CreateRAMFramebuffer(uint32_t fbAd
 	vfb->fbo = draw_->CreateFramebuffer({ vfb->renderWidth, vfb->renderHeight, 1, 1, true, (Draw::FBColorDepth)vfb->colorDepth });
 	vfbs_.push_back(vfb);
 
-	size_t byteSize = ColorBufferByteSize(vfb);
+	u32 byteSize = ColorBufferByteSize(vfb);
 	if (fbAddress + byteSize > framebufRangeEnd_) {
 		framebufRangeEnd_ = fbAddress + byteSize;
 	}
