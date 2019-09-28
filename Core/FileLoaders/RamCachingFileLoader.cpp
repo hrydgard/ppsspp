@@ -105,9 +105,11 @@ void RamCachingFileLoader::ShutdownCache() {
 
 	// We can't delete while the thread is running, so have to wait.
 	// This should only happen from the menu.
-	while (aheadThread_) {
+	while (aheadThreadRunning_) {
 		sleep_ms(1);
 	}
+	if (aheadThread_.joinable())
+		aheadThread_.join();
 
 	std::lock_guard<std::mutex> guard(blocksMutex_);
 	blocks_.clear();
@@ -118,7 +120,7 @@ void RamCachingFileLoader::ShutdownCache() {
 }
 
 void RamCachingFileLoader::Cancel() {
-	if (aheadThread_) {
+	if (aheadThreadRunning_) {
 		std::lock_guard<std::mutex> guard(blocksMutex_);
 		aheadCancel_ = true;
 	}
@@ -213,14 +215,16 @@ void RamCachingFileLoader::StartReadAhead(s64 pos) {
 
 	std::lock_guard<std::mutex> guard(blocksMutex_);
 	aheadPos_ = pos;
-	if (aheadThread_) {
+	if (aheadThreadRunning_) {
 		// Already going.
 		return;
 	}
 
-	aheadThread_ = true;
+	aheadThreadRunning_ = true;
 	aheadCancel_ = false;
-	std::thread th([this] {
+	if (aheadThread_.joinable())
+		aheadThread_.join();
+	aheadThread_ = std::thread([this] {
 		setCurrentThreadName("FileLoaderReadAhead");
 
 		while (aheadRemaining_ != 0 && !aheadCancel_) {
@@ -243,9 +247,8 @@ void RamCachingFileLoader::StartReadAhead(s64 pos) {
 			}
 		}
 
-		aheadThread_ = false;
+		aheadThreadRunning_ = false;
 	});
-	th.detach();
 }
 
 u32 RamCachingFileLoader::NextAheadBlock() {
