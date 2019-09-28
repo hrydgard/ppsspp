@@ -142,16 +142,17 @@ private:
 	int PerformGET(const std::string &url);
 	std::string RedirectLocation(const std::string &baseUrl);
 	void SetFailed(int code);
-	float progress_;
+	float progress_ = 0.0f;
 	Buffer buffer_;
 	std::vector<std::string> responseHeaders_;
 	std::string url_;
 	std::string outfile_;
-	int resultCode_;
-	bool completed_;
-	bool failed_;
-	bool cancelled_;
-	bool hidden_;
+	std::thread thread_;
+	int resultCode_ = 0;
+	bool completed_ = false;
+	bool failed_ = false;
+	bool cancelled_ = false;
+	bool hidden_ = false;
 	std::function<void(Download &)> callback_;
 };
 

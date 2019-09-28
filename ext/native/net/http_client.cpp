@@ -428,16 +428,16 @@ int Client::ReadResponseEntity(Buffer *readbuf, const std::vector<std::string> &
 }
 
 Download::Download(const std::string &url, const std::string &outfile)
-	: progress_(0.0f), url_(url), outfile_(outfile), resultCode_(0), completed_(false), failed_(false), cancelled_(false), hidden_(false) {
+	: url_(url), outfile_(outfile) {
 }
 
 Download::~Download() {
-
+	if (thread_.joinable())
+		thread_.join();
 }
 
 void Download::Start(std::shared_ptr<Download> self) {
-	std::thread th(std::bind(&Download::Do, this, self));
-	th.detach();
+	thread_ = std::thread(std::bind(&Download::Do, this, self));
 }
 
 void Download::SetFailed(int code) {
@@ -577,6 +577,7 @@ void Downloader::CancelAll() {
 	for (size_t i = 0; i < downloads_.size(); i++) {
 		downloads_[i]->Cancel();
 	}
+	downloads_.clear();
 }
 
 }	// http
