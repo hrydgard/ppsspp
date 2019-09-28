@@ -57,6 +57,8 @@
 #include "Core/HLE/sceKernelModule.h"
 #include "Core/HLE/sceKernelMemory.h"
 
+static std::thread loadingThread;
+
 static void UseLargeMem(int memsize) {
 	if (memsize != 1) {
 		// Nothing requested.
@@ -256,7 +258,11 @@ bool Load_PSP_ISO(FileLoader *fileLoader, std::string *error_string) {
 	host->SendUIMessage("config_loaded", "");
 	INFO_LOG(LOADER,"Loading %s...", bootpath.c_str());
 
-	std::thread th([bootpath] {
+	PSPLoaders_Shutdown();
+	// Note: this thread reads the game binary, loads caches, and links HLE while UI spins.
+	// To do something deterministically when the game starts, disabling this thread won't be enough.
+	// Instead: Use Core_ListenLifecycle() or watch coreState.
+	loadingThread = std::thread([bootpath] {
 		setCurrentThreadName("ExecLoader");
 		PSP_LoadingLock guard;
 		if (coreState != CORE_POWERUP)
@@ -273,7 +279,6 @@ bool Load_PSP_ISO(FileLoader *fileLoader, std::string *error_string) {
 			PSP_CoreParameter().fileToStart = "";
 		}
 	});
-	th.detach();
 	return true;
 }
 
@@ -379,7 +384,9 @@ bool Load_PSP_ELF_PBP(FileLoader *fileLoader, std::string *error_string) {
 	}
 	// End of temporary code
 
-	std::thread th([finalName] {
+	PSPLoaders_Shutdown();
+	// Note: See Load_PSP_ISO for notes about this thread.
+	loadingThread = std::thread([finalName] {
 		setCurrentThreadName("ExecLoader");
 		PSP_LoadingLock guard;
 		if (coreState != CORE_POWERUP)
@@ -394,7 +401,6 @@ bool Load_PSP_ELF_PBP(FileLoader *fileLoader, std::string *error_string) {
 			PSP_CoreParameter().fileToStart = "";
 		}
 	});
-	th.detach();
 	return true;
 }
 
@@ -402,7 +408,9 @@ bool Load_PSP_GE_Dump(FileLoader *fileLoader, std::string *error_string) {
 	BlobFileSystem *umd = new BlobFileSystem(&pspFileSystem, fileLoader, "data.ppdmp");
 	pspFileSystem.Mount("disc0:", umd);
 
-	std::thread th([] {
+	PSPLoaders_Shutdown();
+	// Note: See Load_PSP_ISO for notes about this thread.
+	loadingThread = std::thread([] {
 		setCurrentThreadName("ExecLoader");
 		PSP_LoadingLock guard;
 		if (coreState != CORE_POWERUP)
@@ -417,6 +425,10 @@ bool Load_PSP_GE_Dump(FileLoader *fileLoader, std::string *error_string) {
 			PSP_CoreParameter().fileToStart = "";
 		}
 	});
-	th.detach();
 	return true;
+}
+
+void PSPLoaders_Shutdown() {
+	if (loadingThread.joinable())
+		loadingThread.join();
 }
