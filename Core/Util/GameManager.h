@@ -86,8 +86,9 @@ private:
 	std::string GetISOGameID(FileLoader *loader) const;
 	std::shared_ptr<http::Download> curDownload_;
 	std::shared_ptr<std::thread> installThread_;
-	bool installInProgress_;
-	float installProgress_;
+	bool installInProgress_ = false;
+	bool installDonePending_ = false;
+	float installProgress_ = 0.0f;
 	std::string installError_;
 };
 
