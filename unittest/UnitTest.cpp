@@ -31,9 +31,6 @@
 #include <string>
 #include <sstream>
 
-#include "Common/BitScan.h"
-#include "Core/MIPS/MIPSVFPUUtils.h"
-
 #include "base/NativeApp.h"
 #include "base/logging.h"
 #include "input/input_state.h"
@@ -41,11 +38,13 @@
 #include "math/math_util.h"
 #include "util/text/parsers.h"
 
-#include "Common/CPUDetect.h"
 #include "Common/ArmEmitter.h"
+#include "Common/BitScan.h"
+#include "Common/CPUDetect.h"
 #include "Core/Config.h"
-#include "Core/MIPS/MIPSVFPUUtils.h"
 #include "Core/FileSystems/ISOFileSystem.h"
+#include "Core/MemMap.h"
+#include "Core/MIPS/MIPSVFPUUtils.h"
 #include "GPU/Common/TextureDecoder.h"
 
 #include "unittest/JitHarness.h"
@@ -485,6 +484,53 @@ bool TestCLZ() {
 	return true;
 }
 
+static bool TestMemMap() {
+	Memory::g_MemorySize = Memory::RAM_DOUBLE_SIZE;
+
+	enum class Flags {
+		NO_KERNEL = 0,
+		ALLOW_KERNEL = 1,
+	};
+	struct Range {
+		uint32_t base;
+		uint32_t size;
+		Flags flags;
+	};
+	static const Range ranges[] = {
+		{ 0x08000000, Memory::RAM_DOUBLE_SIZE, Flags::ALLOW_KERNEL },
+		{ 0x00010000, Memory::SCRATCHPAD_SIZE, Flags::NO_KERNEL },
+		{ 0x04000000, 0x00800000, Flags::NO_KERNEL },
+	};
+	static const uint32_t extraBits[] = {
+		0x00000000,
+		0x40000000,
+		0x80000000,
+	};
+
+	for (const auto &range : ranges) {
+		size_t testBits = range.flags == Flags::ALLOW_KERNEL ? 3 : 2;
+		for (size_t i = 0; i < testBits; ++i) {
+			uint32_t base = range.base | extraBits[i];
+
+			EXPECT_TRUE(Memory::IsValidAddress(base));
+			EXPECT_TRUE(Memory::IsValidAddress(base + range.size - 1));
+			EXPECT_FALSE(Memory::IsValidAddress(base + range.size));
+			EXPECT_FALSE(Memory::IsValidAddress(base - 1));
+
+			EXPECT_EQ_HEX(Memory::ValidSize(base, range.size), range.size);
+			EXPECT_EQ_HEX(Memory::ValidSize(base, range.size + 1), range.size);
+			EXPECT_EQ_HEX(Memory::ValidSize(base, range.size - 1), range.size - 1);
+			EXPECT_EQ_HEX(Memory::ValidSize(base, 0), 0);
+			EXPECT_EQ_HEX(Memory::ValidSize(base, 0x80000001), range.size);
+			EXPECT_EQ_HEX(Memory::ValidSize(base, 0x40000001), range.size);
+			EXPECT_EQ_HEX(Memory::ValidSize(base, 0x20000001), range.size);
+			EXPECT_EQ_HEX(Memory::ValidSize(base, 0x10000001), range.size);
+		}
+	}
+
+	return true;
+}
+
 typedef bool (*TestFunc)();
 struct TestItem {
 	const char *name;
@@ -518,6 +564,7 @@ TestItem availableTests[] = {
 	TEST_ITEM(ParseLBN),
 	TEST_ITEM(QuickTexHash),
 	TEST_ITEM(CLZ),
+	TEST_ITEM(MemMap),
 };
 
 int main(int argc, const char *argv[]) {

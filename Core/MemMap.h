@@ -306,16 +306,13 @@ inline bool IsValidAddress(const u32 address) {
 inline u32 ValidSize(const u32 address, const u32 requested_size) {
 	u32 max_size;
 	if ((address & 0x3E000000) == 0x08000000) {
-		max_size = 0x08000000 + g_MemorySize - address;
-	}
-	else if ((address & 0x3F800000) == 0x04000000) {
-		max_size = 0x04800000 - address;
-	}
-	else if ((address & 0xBFFF0000) == 0x00010000) {
-		max_size = 0x00014000 - address;
-	}
-	else if ((address & 0x3F000000) >= 0x08000000 && (address & 0x3F000000) < 0x08000000 + g_MemorySize) {
-		max_size = 0x08000000 + g_MemorySize - address;
+		max_size = 0x08000000 + g_MemorySize - (address & 0x3E000000);
+	} else if ((address & 0x3F800000) == 0x04000000) {
+		max_size = 0x04800000 - (address & 0x3F800000);
+	} else if ((address & 0xBFFF0000) == 0x00010000) {
+		max_size = 0x00014000 - (address & 0xBFFF0000);
+	} else if ((address & 0x3F000000) >= 0x08000000 && (address & 0x3F000000) < 0x08000000 + g_MemorySize) {
+		max_size = 0x08000000 + g_MemorySize - (address & 0x3F000000);
 	} else {
 		max_size = 0;
 	}
