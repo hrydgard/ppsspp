@@ -353,6 +353,7 @@
     <ClInclude Include="WASAPIStream.h">
       <Filter>Windows\System</Filter>
     </ClInclude>
+    <ClInclude Include="..\ppsspp_config.h" />
   </ItemGroup>
   <ItemGroup>
     <None Include="icon1.ico">
