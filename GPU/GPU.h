@@ -108,6 +108,6 @@ namespace Draw {
 	class DrawContext;
 }
 
-bool GPU_Init(GraphicsContext *ctx, Draw::DrawContext *thin3d);
+bool GPU_Init(GraphicsContext *ctx, Draw::DrawContext *draw);
 bool GPU_IsReady();
 void GPU_Shutdown();

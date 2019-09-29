@@ -163,8 +163,8 @@ bool RunAutoTest(HeadlessHost *headlessHost, CoreParameter &coreParameter, bool 
 	Core_UpdateDebugStats(g_Config.bShowDebugStats || g_Config.bLogFrameDrops);
 
 	PSP_BeginHostFrame();
-	if (coreParameter.thin3d)
-		coreParameter.thin3d->BeginFrame();
+	if (coreParameter.graphicsContext && coreParameter.graphicsContext->GetDrawContext())
+		coreParameter.graphicsContext->GetDrawContext()->BeginFrame();
 
 	coreState = CORE_RUNNING;
 	while (coreState == CORE_RUNNING)
@@ -190,8 +190,8 @@ bool RunAutoTest(HeadlessHost *headlessHost, CoreParameter &coreParameter, bool 
 	}
 	PSP_EndHostFrame();
 
-	if (coreParameter.thin3d)
-		coreParameter.thin3d->EndFrame();
+	if (coreParameter.graphicsContext && coreParameter.graphicsContext->GetDrawContext())
+		coreParameter.graphicsContext->GetDrawContext()->EndFrame();
 
 	PSP_Shutdown();
 
@@ -335,7 +335,6 @@ int main(int argc, const char* argv[])
 	coreParameter.cpuCore = cpuCore;
 	coreParameter.gpuCore = glWorking ? gpuCore : GPUCORE_NULL;
 	coreParameter.graphicsContext = graphicsContext;
-	coreParameter.thin3d = graphicsContext ? graphicsContext->GetDrawContext() : nullptr;
 	coreParameter.enableSound = false;
 	coreParameter.mountIso = mountIso ? mountIso : "";
 	coreParameter.mountRoot = mountRoot ? mountRoot : "";

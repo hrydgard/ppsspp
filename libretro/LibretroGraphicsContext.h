@@ -20,7 +20,6 @@ public:
 
 	void Shutdown() override {
 		DestroyDrawContext();
-		PSP_CoreParameter().thin3d = nullptr;
 	}
 	void SwapInterval(int interval) override {}
 	void Resize() override {}

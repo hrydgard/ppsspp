@@ -50,7 +50,7 @@ class SoftwareDrawEngine;
 
 class SoftGPU : public GPUCommon {
 public:
-	SoftGPU(GraphicsContext *gfxCtx, Draw::DrawContext *_thin3D);
+	SoftGPU(GraphicsContext *gfxCtx, Draw::DrawContext *draw);
 	~SoftGPU();
 
 	void CheckGPUFeatures() override {}
