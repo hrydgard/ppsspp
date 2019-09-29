@@ -35,13 +35,12 @@
 #include "thread/threadutil.h"
 #include "util/text/utf8.h"
 
+#include "Common/GraphicsContext.h"
 #include "Core/MemMap.h"
 #include "Core/HDRemaster.h"
-
 #include "Core/MIPS/MIPS.h"
 #include "Core/MIPS/MIPSAnalyst.h"
-
-#include "Debugger/SymbolMap.h"
+#include "Core/Debugger/SymbolMap.h"
 #include "Core/Host.h"
 #include "Core/System.h"
 #include "Core/HLE/HLE.h"
@@ -371,7 +370,8 @@ bool PSP_InitUpdate(std::string *error_string) {
 	*error_string = coreParameter.errorString;
 	if (success && gpu == nullptr) {
 		PSP_SetLoading("Starting graphics...");
-		success = GPU_Init(coreParameter.graphicsContext, coreParameter.thin3d);
+		Draw::DrawContext *draw = coreParameter.graphicsContext ? coreParameter.graphicsContext->GetDrawContext() : nullptr;
+		success = GPU_Init(coreParameter.graphicsContext, draw);
 		if (!success) {
 			*error_string = "Unable to initialize rendering engine.";
 		}
