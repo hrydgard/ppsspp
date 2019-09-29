@@ -144,14 +144,15 @@ void VulkanPushBuffer::Map() {
 
 void VulkanPushBuffer::Unmap() {
 	_dbg_assert_(G3D, writePtr_ != 0);
-	/*
-	// Should not need this since we use coherent memory.
-	VkMappedMemoryRange range{ VK_STRUCTURE_TYPE_MAPPED_MEMORY_RANGE };
-	range.offset = 0;
-	range.size = offset_;
-	range.memory = buffers_[buf_].deviceMemory;
-	vkFlushMappedMemoryRanges(device_, 1, &range);
-	*/
+
+	if ((memoryPropertyMask_ & VK_MEMORY_PROPERTY_HOST_COHERENT_BIT) == 0) {
+		VkMappedMemoryRange range{ VK_STRUCTURE_TYPE_MAPPED_MEMORY_RANGE };
+		range.offset = 0;
+		range.size = offset_;
+		range.memory = buffers_[buf_].deviceMemory;
+		vkFlushMappedMemoryRanges(vulkan_->GetDevice(), 1, &range);
+	}
+
 	vkUnmapMemory(vulkan_->GetDevice(), buffers_[buf_].deviceMemory);
 	writePtr_ = nullptr;
 }
