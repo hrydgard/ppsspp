@@ -1033,14 +1033,14 @@ void TextureCacheVulkan::BuildTexture(TexCacheEntry *const entry) {
 	// Don't scale the PPGe texture.
 	if (entry->addr > 0x05000000 && entry->addr < PSP_GetKernelMemoryEnd())
 		scaleFactor = 1;
-	if ((entry->status & TexCacheEntry::STATUS_CHANGE_FREQUENT) != 0 && scaleFactor != 1) {
+	if ((entry->status & TexCacheEntry::STATUS_CHANGE_FREQUENT) != 0 && scaleFactor != 1 && !g_Config.bTexHardwareScaling) {
 		// Remember for later that we /wanted/ to scale this texture.
 		entry->status |= TexCacheEntry::STATUS_TO_SCALE;
 		scaleFactor = 1;
 	}
 
 	if (scaleFactor != 1) {
-		if (texelsScaledThisFrame_ >= TEXCACHE_MAX_TEXELS_SCALED) {
+		if (texelsScaledThisFrame_ >= TEXCACHE_MAX_TEXELS_SCALED && !g_Config.bTexHardwareScaling) {
 			entry->status |= TexCacheEntry::STATUS_TO_SCALE;
 			scaleFactor = 1;
 		} else {
@@ -1092,7 +1092,7 @@ void TextureCacheVulkan::BuildTexture(TexCacheEntry *const entry) {
 		// If we want to use the GE debugger, we should add VK_IMAGE_USAGE_TRANSFER_SRC_BIT too...
 
 		// Compute experiment
-		if (actualFmt == VULKAN_8888_FORMAT) {
+		if (actualFmt == VULKAN_8888_FORMAT && scaleFactor > 1 && g_Config.bTexHardwareScaling) {
 			// Enable the experiment you want.
 			// computeCopy = true;
 			computeUpload = true;
