@@ -224,7 +224,6 @@ void VulkanTexture::Touch() {
 }
 
 VkImageView VulkanTexture::CreateViewForMip(int mip) {
-	// Create the view while we're at it.
 	VkImageViewCreateInfo view_info = { VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO };
 	view_info.image = image_;
 	view_info.viewType = VK_IMAGE_VIEW_TYPE_2D;

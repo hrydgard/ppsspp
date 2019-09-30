@@ -625,8 +625,10 @@ void TextureCacheVulkan::DeviceLost() {
 	if (samplerNearest_)
 		vulkan_->Delete().QueueDeleteSampler(samplerNearest_);
 
-	vulkan_->Delete().QueueDeleteShaderModule(uploadCS_);
-	vulkan_->Delete().QueueDeleteShaderModule(copyCS_);
+	if (uploadCS_ != VK_NULL_HANDLE)
+		vulkan_->Delete().QueueDeleteShaderModule(uploadCS_);
+	if (copyCS_ != VK_NULL_HANDLE)
+		vulkan_->Delete().QueueDeleteShaderModule(copyCS_);
 
 	computeShaderManager_.DeviceLost();
 
@@ -655,10 +657,12 @@ void TextureCacheVulkan::DeviceRestore(VulkanContext *vulkan, Draw::DrawContext 
 	std::string fullUploadShader = StringFromFormat(uploadShader, shader4xbrz);
 	std::string fullCopyShader = StringFromFormat(copyShader, shader4xbrz);
 
-	uploadCS_ = CompileShaderModule(vulkan_, VK_SHADER_STAGE_COMPUTE_BIT, fullUploadShader.c_str(), &error);
-	_dbg_assert_msg_(G3D, uploadCS_ != VK_NULL_HANDLE, "failed to compile upload shader");
-	copyCS_ = CompileShaderModule(vulkan_, VK_SHADER_STAGE_COMPUTE_BIT, fullCopyShader.c_str(), &error);
-	_dbg_assert_msg_(G3D, copyCS_!= VK_NULL_HANDLE, "failed to compile copy shader");
+	if (g_Config.bTexHardwareScaling) {
+		uploadCS_ = CompileShaderModule(vulkan_, VK_SHADER_STAGE_COMPUTE_BIT, fullUploadShader.c_str(), &error);
+		_dbg_assert_msg_(G3D, uploadCS_ != VK_NULL_HANDLE, "failed to compile upload shader");
+		copyCS_ = CompileShaderModule(vulkan_, VK_SHADER_STAGE_COMPUTE_BIT, fullCopyShader.c_str(), &error);
+		_dbg_assert_msg_(G3D, copyCS_!= VK_NULL_HANDLE, "failed to compile copy shader");
+	}
 
 	computeShaderManager_.DeviceRestore(vulkan);
 }
@@ -1094,8 +1098,10 @@ void TextureCacheVulkan::BuildTexture(TexCacheEntry *const entry) {
 		// Compute experiment
 		if (actualFmt == VULKAN_8888_FORMAT && scaleFactor > 1 && g_Config.bTexHardwareScaling) {
 			// Enable the experiment you want.
-			// computeCopy = true;
-			computeUpload = true;
+			if (uploadCS_ != VK_NULL_HANDLE)
+				computeUpload = true;
+			else if (copyCS_ != VK_NULL_HANDLE)
+				computeCopy = true;
 		}
 
 		if (computeUpload) {
