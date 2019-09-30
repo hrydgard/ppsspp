@@ -631,9 +631,9 @@ namespace SaveState
 		// Okay, first, let's give the rewind state a shot - maybe we can at least not reset entirely.
 		// Even if this was a rewind, maybe we can still load a previous one.
 		CChunkFileReader::Error result;
-		do
+		do {
 			result = rewindStates.Restore();
-		while (result == CChunkFileReader::ERROR_BROKEN_STATE);
+		} while (result == CChunkFileReader::ERROR_BROKEN_STATE);
 
 		if (result == CChunkFileReader::ERROR_NONE) {
 			return true;

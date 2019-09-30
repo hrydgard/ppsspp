@@ -72,6 +72,7 @@ void DepalShaderCacheVulkan::DeviceLost() {
 	if (vshader_) {
 		vulkan2D_->PurgeVertexShader(vshader_);
 		vulkan_->Delete().QueueDeleteShaderModule(vshader_);
+		vshader_ = VK_NULL_HANDLE;
 	}
 	draw_ = nullptr;
 	vulkan_ = nullptr;

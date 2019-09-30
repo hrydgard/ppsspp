@@ -9,7 +9,7 @@ struct AndroidAudioState {
 	int sample_rate = 0;
 };
 
-AndroidAudioState *AndroidAudio_Init(AndroidAudioCallback callback, std::string libraryDir, int optimalFramesPerBuffer, int optimalSampleRate) {
+AndroidAudioState *AndroidAudio_Init(AndroidAudioCallback callback, int optimalFramesPerBuffer, int optimalSampleRate) {
 	AndroidAudioState *state = new AndroidAudioState();
 	state->callback = callback;
 	state->frames_per_buffer = optimalFramesPerBuffer ? optimalFramesPerBuffer : 256;

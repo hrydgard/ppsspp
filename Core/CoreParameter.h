@@ -54,7 +54,6 @@ struct CoreParameter {
 	GPUCore gpuCore;
 
 	GraphicsContext *graphicsContext = nullptr;  // TODO: Find a better place.
-	Draw::DrawContext *thin3d = nullptr;
 	bool enableSound;  // there aren't multiple sound cores.
 
 	std::string fileToStart;

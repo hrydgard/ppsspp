@@ -187,7 +187,7 @@ VirtualFramebuffer *FramebufferManagerCommon::GetVFBAt(u32 addr) {
 	return match;
 }
 
-u32 FramebufferManagerCommon::FramebufferByteSize(const VirtualFramebuffer *vfb) const {
+u32 FramebufferManagerCommon::ColorBufferByteSize(const VirtualFramebuffer *vfb) const {
 	return vfb->fb_stride * vfb->height * (vfb->format == GE_FORMAT_8888 ? 4 : 2);
 }
 
@@ -211,6 +211,7 @@ void FramebufferManagerCommon::SetNumExtraFBOs(int num) {
 }
 
 // Heuristics to figure out the size of FBO to create.
+// TODO: Possibly differentiate on whether through mode is used (since in through mode, viewport is meaningless?)
 void FramebufferManagerCommon::EstimateDrawingSize(u32 fb_address, GEBufferFormat fb_format, int viewport_width, int viewport_height, int region_width, int region_height, int scissor_width, int scissor_height, int fb_stride, int &drawing_width, int &drawing_height) {
 	static const int MAX_FRAMEBUF_HEIGHT = 512;
 
@@ -442,8 +443,7 @@ VirtualFramebuffer *FramebufferManagerCommon::DoSetRenderFrameBuffer(const Frame
 		vfb->usageFlags = FB_USAGE_RENDERTARGET;
 		SetColorUpdated(vfb, skipDrawReason);
 
-		u32 byteSize = FramebufferByteSize(vfb);
-		// FB heuristics always produce an address in VRAM (this is during rendering) so we don't need to poke in the 0x04000000 flag here.
+		u32 byteSize = ColorBufferByteSize(vfb);
 		if (Memory::IsVRAMAddress(params.fb_address) && params.fb_address + byteSize > framebufRangeEnd_) {
 			framebufRangeEnd_ = params.fb_address + byteSize;
 		}
@@ -859,13 +859,13 @@ void FramebufferManagerCommon::CopyDisplayToOutput() {
 	VirtualFramebuffer *vfb = GetVFBAt(displayFramebufPtr_);
 	if (!vfb) {
 		// Let's search for a framebuf within this range. Note that we also look for
-		// "framebuffers" sitting in RAM so we only take off the kernel and uncached bits of the address
-		// when comparing.
+		// "framebuffers" sitting in RAM (created from block transfer or similar) so we only take off the kernel
+		// and uncached bits of the address when comparing.
 		const u32 addr = displayFramebufPtr_ & 0x3FFFFFFF;
 		for (size_t i = 0; i < vfbs_.size(); ++i) {
 			VirtualFramebuffer *v = vfbs_[i];
 			const u32 v_addr = v->fb_address & 0x3FFFFFFF;
-			const u32 v_size = FramebufferByteSize(v);
+			const u32 v_size = ColorBufferByteSize(v);
 			if (addr >= v_addr && addr < v_addr + v_size) {
 				const u32 dstBpp = v->format == GE_FORMAT_8888 ? 4 : 2;
 				const u32 v_offsetX = ((addr - v_addr) / dstBpp) % v->fb_stride;
@@ -1186,7 +1186,7 @@ bool FramebufferManagerCommon::NotifyFramebufferCopy(u32 src, u32 dst, int size,
 
 		// We only remove the kernel and uncached bits when comparing.
 		const u32 vfb_address = vfb->fb_address & 0x3FFFFFFF;
-		const u32 vfb_size = FramebufferByteSize(vfb);
+		const u32 vfb_size = ColorBufferByteSize(vfb);
 		const u32 vfb_bpp = vfb->format == GE_FORMAT_8888 ? 4 : 2;
 		const u32 vfb_byteStride = vfb->fb_stride * vfb_bpp;
 		const int vfb_byteWidth = vfb->width * vfb_bpp;
@@ -1292,7 +1292,7 @@ void FramebufferManagerCommon::FindTransferFramebuffers(VirtualFramebuffer *&dst
 	for (size_t i = 0; i < vfbs_.size(); ++i) {
 		VirtualFramebuffer *vfb = vfbs_[i];
 		const u32 vfb_address = vfb->fb_address & 0x3FFFFFFF;
-		const u32 vfb_size = FramebufferByteSize(vfb);
+		const u32 vfb_size = ColorBufferByteSize(vfb);
 		const u32 vfb_bpp = vfb->format == GE_FORMAT_8888 ? 4 : 2;
 		const u32 vfb_byteStride = vfb->fb_stride * vfb_bpp;
 		const u32 vfb_byteWidth = vfb->width * vfb_bpp;
@@ -1383,6 +1383,8 @@ VirtualFramebuffer *FramebufferManagerCommon::CreateRAMFramebuffer(uint32_t fbAd
 	float renderWidthFactor = renderWidth_ / 480.0f;
 	float renderHeightFactor = renderHeight_ / 272.0f;
 
+	DEBUG_LOG(G3D, "Creating RAM framebuffer at %08x (%dx%d, stride %d, format %d)", fbAddress, width, height, stride, format);
+
 	// A target for the destination is missing - so just create one!
 	// Make sure this one would be found by the algorithm above so we wouldn't
 	// create a new one each frame.
@@ -1408,6 +1410,12 @@ VirtualFramebuffer *FramebufferManagerCommon::CreateRAMFramebuffer(uint32_t fbAd
 	textureCache_->NotifyFramebuffer(vfb->fb_address, vfb, NOTIFY_FB_CREATED);
 	vfb->fbo = draw_->CreateFramebuffer({ vfb->renderWidth, vfb->renderHeight, 1, 1, true, (Draw::FBColorDepth)vfb->colorDepth });
 	vfbs_.push_back(vfb);
+
+	u32 byteSize = ColorBufferByteSize(vfb);
+	if (fbAddress + byteSize > framebufRangeEnd_) {
+		framebufRangeEnd_ = fbAddress + byteSize;
+	}
+
 	return vfb;
 }
 

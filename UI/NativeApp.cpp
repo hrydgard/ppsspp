@@ -514,6 +514,7 @@ void NativeInit(int argc, const char *argv[], const char *savegame_dir, const ch
 	LogManager *logman = LogManager::GetInstance();
 
 #ifdef __ANDROID__
+	// On early versions of Android we don't need to ask permission.
 	CreateDirectoriesAndroid();
 #endif
 
@@ -780,6 +781,7 @@ bool NativeInitGraphics(GraphicsContext *graphicsContext) {
 	Core_SetGraphicsContext(graphicsContext);
 	g_draw = graphicsContext->GetDrawContext();
 	_assert_msg_(G3D, g_draw, "No draw context available!");
+	_assert_msg_(G3D, g_draw->GetVshaderPreset(VS_COLOR_2D) != nullptr, "Failed to compile presets");
 
 	ui_draw2d.SetAtlas(&ui_atlas);
 	ui_draw2d_front.SetAtlas(&ui_atlas);
@@ -957,6 +959,12 @@ void RenderOverlays(UIContext *dc, void *userdata) {
 void NativeRender(GraphicsContext *graphicsContext) {
 	g_GameManager.Update();
 
+	if (GetUIState() != UISTATE_INGAME) {
+		// Note: We do this from NativeRender so that the graphics context is
+		// guaranteed valid, to be safe - g_gameInfoCache messes around with textures.
+		UpdateBackgroundAudio();
+	}
+
 	float xres = dp_xres;
 	float yres = dp_yres;
 
@@ -978,6 +986,7 @@ void NativeRender(GraphicsContext *graphicsContext) {
 		ortho.setOrthoD3D(0.0f, xres, yres, 0.0f, -1.0f, 1.0f);
 		break;
 	case GPUBackend::OPENGL:
+	default:
 		ortho.setOrtho(0.0f, xres, yres, 0.0f, -1.0f, 1.0f);
 		break;
 	}
@@ -1005,7 +1014,6 @@ void NativeRender(GraphicsContext *graphicsContext) {
 			uiContext->SetBounds(Bounds(0, 0, dp_xres, dp_yres));
 			// uiContext->SetBounds(Bounds(dp_xres/2, 0, dp_xres / 2, dp_yres / 2));
 
-
 			// OSX 10.6 and SDL 1.2 bug.
 #if defined(__APPLE__) && !defined(USING_QT_UI)
 			static int dp_xres_old = dp_xres;
@@ -1015,14 +1023,6 @@ void NativeRender(GraphicsContext *graphicsContext) {
 			}
 #endif
 		}
-
-		// Test lost/restore on PC
-#if 0
-		if (gpu) {
-			gpu->DeviceLost();
-			gpu->DeviceRestore();
-		}
-#endif
 
 		graphicsContext->Resize();
 		screenManager->resized();
@@ -1107,9 +1107,15 @@ void HandleGlobalMessage(const std::string &msg, const std::string &value) {
 #endif
 		// We must have failed to load the config before, so load it now to avoid overwriting the old config
 		// with a freshly generated one.
+		// NOTE: If graphics backend isn't what's in the config (due to error fallback, or not matching the default
+		// and then getting permission), it will get out of sync. So we save and restore g_Config.iGPUBackend.
+		// Ideally we should simply reinitialize graphics to the mode from the config, but there are potential issues
+		// and I can't risk it before 1.9.0.
+		int gpuBackend = g_Config.iGPUBackend;
 		ILOG("Reloading config after storage permission grant.");
 		g_Config.Load();
 		PostLoadConfig();
+		g_Config.iGPUBackend = gpuBackend;
 	}
 }
 

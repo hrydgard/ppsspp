@@ -109,6 +109,7 @@ void ProcessGPUFeatures() {
 			WLOG("GL DRIVER BUG: PVR with bad and terrible precision");
 			gl_extensions.bugs |= BUG_PVR_SHADER_PRECISION_TERRIBLE | BUG_PVR_SHADER_PRECISION_BAD;
 		} else {
+			// TODO: I'm not sure if the Rogue series is affected by this.
 			WLOG("GL DRIVER BUG: PVR with bad precision");
 			gl_extensions.bugs |= BUG_PVR_SHADER_PRECISION_BAD;
 		}

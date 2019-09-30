@@ -68,7 +68,7 @@ struct VirtualFramebuffer {
 	bool firstFrameSaved;
 
 	u32 fb_address;
-	u32 z_address;
+	u32 z_address;  // If 0, it's a "RAM" framebuffer.
 	int fb_stride;
 	int z_stride;
 
@@ -327,7 +327,7 @@ protected:
 	void CopyFramebufferForColorTexture(VirtualFramebuffer *dst, VirtualFramebuffer *src, int flags);
 
 	void EstimateDrawingSize(u32 fb_address, GEBufferFormat fb_format, int viewport_width, int viewport_height, int region_width, int region_height, int scissor_width, int scissor_height, int fb_stride, int &drawing_width, int &drawing_height);
-	u32 FramebufferByteSize(const VirtualFramebuffer *vfb) const;
+	u32 ColorBufferByteSize(const VirtualFramebuffer *vfb) const;
 
 	void NotifyRenderFramebufferCreated(VirtualFramebuffer *vfb);
 	void NotifyRenderFramebufferUpdated(VirtualFramebuffer *vfb, bool vfbFormatChanged);

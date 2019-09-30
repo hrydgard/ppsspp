@@ -61,12 +61,6 @@ class FileLoader;
 enum class IdentifiedFileType;
 
 struct GameInfoTex {
-	GameInfoTex() {}
-	~GameInfoTex() {
-		if (texture) {
-			ELOG("LEAKED GameInfoTex");
-		}
-	}
 	std::string data;
 	std::unique_ptr<ManagedTexture> texture;
 	// The time at which the Icon and the BG were loaded.
@@ -81,8 +75,6 @@ struct GameInfoTex {
 		}
 		texture.reset(nullptr);
 	}
-private:
-	DISALLOW_COPY_AND_ASSIGN(GameInfoTex);
 };
 
 class GameInfo {

@@ -172,9 +172,10 @@ GPU_Vulkan::~GPU_Vulkan() {
 	// Note: We save the cache in DeviceLost
 	DestroyDeviceObjects();
 	framebufferManagerVulkan_->DestroyAllFBOs();
-	vulkan2D_.Shutdown();
 	depalShaderCache_.Clear();
+	depalShaderCache_.DeviceLost();
 	drawEngine_.DeviceLost();
+	vulkan2D_.Shutdown();
 	delete textureCacheVulkan_;
 	delete pipelineManager_;
 	delete shaderManagerVulkan_;

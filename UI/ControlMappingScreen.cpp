@@ -466,6 +466,9 @@ void JoystickHistoryView::Draw(UIContext &dc) {
 	if (xAxis_ > -1 && yAxis_ > -1) {
 		const AtlasImage &image = dc.Draw()->GetAtlas()->images[I_CROSS];
 		float minRadius = std::min(bounds_.w, bounds_.h) * 0.5f - image.w;
+		dc.BeginNoTex();
+		dc.Draw()->RectOutline(bounds_.centerX() - minRadius, bounds_.centerY() - minRadius, minRadius * 2.0f, minRadius * 2.0f, 0x80FFFFFF);
+		dc.Flush();
 		dc.Begin();
 		int a = maxCount_ - (int)locations_.size();
 		for (auto iter = locations_.begin(); iter != locations_.end(); ++iter) {
@@ -478,12 +481,11 @@ void JoystickHistoryView::Draw(UIContext &dc) {
 			dc.Draw()->DrawImage(I_CROSS, x, y, 0.8f, colorAlpha(0xFFFFFF, alpha), ALIGN_CENTER);
 			a++;
 		}
-		//dc.Flush();
-		//dc.BeginNoTex();
-		dc.Draw()->RectOutline(bounds_.centerX() - minRadius, bounds_.centerY() - minRadius, minRadius * 2.0f, minRadius * 2.0f, 0x80FFFFFF);
 		dc.Flush();
 	} else {
+		dc.Begin();
 		dc.DrawText("N/A", bounds_.centerX(), bounds_.centerY(), 0xFFFFFFFF, ALIGN_CENTER);
+		dc.Flush();
 	}
 }
 
