@@ -1,3 +1,4 @@
+
 #include <ctime>
 #include <cassert>
 
@@ -39,7 +40,9 @@ static void handleDiscordError(int errCode, const char *message) {
 #endif
 
 Discord::~Discord() {
-	assert(!initialized_);
+	if (initialized_) {
+		ERROR_LOG(SYSTEM, "Discord destructor running though g_Discord.Shutdown() has not been called.");
+	}
 }
 
 bool Discord::IsEnabled() const {
