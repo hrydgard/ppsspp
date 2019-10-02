@@ -839,7 +839,7 @@ UI::EventReturn GameSettingsScreen::OnScreenRotation(UI::EventParams &e) {
 	return UI::EVENT_DONE;
 }
 
-static void RecreateActivity() {
+void RecreateActivity() {
 	const int SYSTEM_JELLYBEAN = 16;
 	if (System_GetPropertyInt(SYSPROP_SYSTEMVERSION) >= SYSTEM_JELLYBEAN) {
 		ILOG("Sending recreate");
@@ -1342,6 +1342,7 @@ void DeveloperToolsScreen::CreateViews() {
 	if (g_Config.iGPUBackend == (int)GPUBackend::VULKAN || g_Config.iGPUBackend == (int)GPUBackend::OPENGL) {
 		list->Add(new Choice(dev->T("GPU Driver Test")))->OnClick.Handle(this, &DeveloperToolsScreen::OnGPUDriverTest);
 	}
+	list->Add(new Choice(dev->T("Touchscreen Test")))->OnClick.Handle(this, &DeveloperToolsScreen::OnTouchscreenTest);
 
 	allowDebugger_ = !WebServerStopped(WebServerFlags::DEBUGGER);
 	canAllowDebugger_ = !WebServerStopping(WebServerFlags::DEBUGGER);
@@ -1440,6 +1441,11 @@ UI::EventReturn DeveloperToolsScreen::OnJitDebugTools(UI::EventParams &e) {
 
 UI::EventReturn DeveloperToolsScreen::OnGPUDriverTest(UI::EventParams &e) {
 	screenManager()->push(new GPUDriverTestScreen());
+	return UI::EVENT_DONE;
+}
+
+UI::EventReturn DeveloperToolsScreen::OnTouchscreenTest(UI::EventParams &e) {
+	screenManager()->push(new TouchTestScreen());
 	return UI::EVENT_DONE;
 }
 
