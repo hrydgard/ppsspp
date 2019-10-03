@@ -119,10 +119,12 @@ bool GLDummyGraphicsContext::InitFromRenderThread(std::string *errorMessage) {
 	SDL_GL_SetAttribute(SDL_GL_DEPTH_SIZE, 24);
 	SDL_GL_SetAttribute(SDL_GL_STENCIL_SIZE, 8);
 	SDL_GL_SetAttribute(SDL_GL_DOUBLEBUFFER, 1);
-	SDL_GL_SetSwapInterval(1);
 
 	screen_ = CreateHiddenWindow();
 	glContext_ = SDL_GL_CreateContext(screen_);
+
+	// Ensure that the swap interval is set after context creation (needed for kmsdrm)
+	SDL_GL_SetSwapInterval(1);
 
 #ifndef USING_GLES2
 	// Some core profile drivers elide certain extensions from GL_EXTENSIONS/etc.

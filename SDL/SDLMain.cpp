@@ -443,7 +443,6 @@ int main(int argc, char *argv[]) {
 	SDL_GL_SetAttribute(SDL_GL_DEPTH_SIZE, 24);
 	SDL_GL_SetAttribute(SDL_GL_STENCIL_SIZE, 8);
 	SDL_GL_SetAttribute(SDL_GL_DOUBLEBUFFER, 1);
-	SDL_GL_SetSwapInterval(1);
 
 	// Force fullscreen if the resolution is too low to run windowed.
 	if (g_DesktopWidth < 480 * 2 && g_DesktopHeight < 272 * 2) {
@@ -570,6 +569,9 @@ int main(int argc, char *argv[]) {
 		NativeInitGraphics(graphicsContext);
 		NativeResized();
 	}
+
+	// Ensure that the swap interval is set after context creation (needed for kmsdrm)
+	SDL_GL_SetSwapInterval(1);
 
 	SDL_AudioSpec fmt, ret_fmt;
 	memset(&fmt, 0, sizeof(fmt));
