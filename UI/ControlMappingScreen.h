@@ -123,8 +123,8 @@ public:
 protected:
 	struct TrackedTouch {
 		int id;
-		int x;
-		int y;
+		float x;
+		float y;
 	};
 	enum {
 		MAX_TOUCH_POINTS = 10,
