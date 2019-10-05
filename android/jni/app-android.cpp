@@ -629,6 +629,7 @@ static void recalculateDpi() {
 	pixel_in_dps_x = (float)pixel_xres / dp_xres;
 	pixel_in_dps_y = (float)pixel_yres / dp_yres;
 
+	ILOG("RecalcDPI: display_xres=%d display_yres=%d", display_xres, display_yres);
 	ILOG("RecalcDPI: g_dpi=%f g_dpi_scale_x=%f g_dpi_scale_y=%f", g_dpi, g_dpi_scale_x, g_dpi_scale_y);
 	ILOG("RecalcDPI: dp_xscale=%f dp_yscale=%f", dp_xscale, dp_yscale);
 	ILOG("RecalcDPI: dp_xres=%d dp_yres=%d", dp_xres, dp_yres);
@@ -904,6 +905,7 @@ extern "C" void JNICALL Java_org_ppsspp_ppsspp_NativeApp_setDisplayParameters(JN
 	display_hz = refreshRate;
 
 	recalculateDpi();
+	NativeResized();
 }
 
 extern "C" void JNICALL Java_org_ppsspp_ppsspp_NativeApp_computeDesiredBackbufferDimensions() {

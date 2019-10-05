@@ -53,8 +53,6 @@ import java.lang.reflect.Field;
 import java.util.List;
 import java.util.Locale;
 
-import static android.view.View.SYSTEM_UI_FLAG_HIDE_NAVIGATION;
-
 public abstract class NativeActivity extends Activity implements SurfaceHolder.Callback {
 	// Remember to loadLibrary your JNI .so in a static {} block
 
@@ -414,14 +412,13 @@ public abstract class NativeActivity extends Activity implements SurfaceHolder.C
 			flags |= View.SYSTEM_UI_FLAG_LOW_PROFILE;
 		}
 		if (useImmersive()) {
-			flags |= View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY | SYSTEM_UI_FLAG_HIDE_NAVIGATION;
+			flags |= View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY | View.SYSTEM_UI_FLAG_HIDE_NAVIGATION | View.SYSTEM_UI_FLAG_FULLSCREEN;
 		}
 		if (getWindow().getDecorView() != null) {
 			getWindow().getDecorView().setSystemUiVisibility(flags);
 		} else {
-			Log.e(TAG, "updateSystemUiVisibility: decor view not yet created, ignoring");
+			Log.e(TAG, "updateSystemUiVisibility: decor view not yet created, ignoring for now");
 		}
-
 		updateDisplayMeasurements();
 	}
 
@@ -606,6 +603,7 @@ public abstract class NativeActivity extends Activity implements SurfaceHolder.C
 		Log.w(TAG, "Surface changed. Resolution: " + width + "x" + height + " Format: " + format);
 		// The window size might have changed (immersive mode, native fullscreen on some devices)
 		NativeApp.backbufferResize(width, height, format);
+		updateDisplayMeasurements();
 		mSurface = holder.getSurface();
 		if (!javaGL) {
 			// If we got a surface, this starts the thread. If not, it doesn't.
@@ -678,7 +676,7 @@ public abstract class NativeActivity extends Activity implements SurfaceHolder.C
 				// whether it's because of our or system actions.
 				// We will try to force it to follow our preference but will not stupidly
 				// act as if it's visible if it's not.
-				navigationHidden = ((visibility & SYSTEM_UI_FLAG_HIDE_NAVIGATION) != 0);
+				navigationHidden = ((visibility & View.SYSTEM_UI_FLAG_HIDE_NAVIGATION) != 0);
 				// TODO: Check here if it's the state we want.
 				Log.i(TAG, "SystemUiVisibilityChange! visibility=" + visibility + " navigationHidden: " + navigationHidden);
 				updateDisplayMeasurements();
@@ -812,7 +810,7 @@ public abstract class NativeActivity extends Activity implements SurfaceHolder.C
 			updateSystemUiVisibility();
 		}
 		if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.JELLY_BEAN_MR1) {
-			densityDpi = (float) newConfig.densityDpi;
+			densityDpi = (float)newConfig.densityDpi;
 		}
 	}
 
