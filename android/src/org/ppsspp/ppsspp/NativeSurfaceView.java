@@ -3,6 +3,7 @@ package org.ppsspp.ppsspp;
 // Touch- and sensor-enabled SurfaceView.
 // Supports simple multitouch and pressure.
 // DPI scaling is handled by the native code.
+// Used by the Vulkan backend (and EGL, but that path is no longer active)
 
 import android.annotation.SuppressLint;
 import android.annotation.TargetApi;
@@ -115,6 +116,7 @@ public class NativeSurfaceView extends SurfaceView implements SensorEventListene
 	}
 
 	public void onPause() {
+		Log.i(TAG, "onPause");
 		mSensorManager.unregisterListener(this);
 		if (mController != null) {
 			mController.onPause();

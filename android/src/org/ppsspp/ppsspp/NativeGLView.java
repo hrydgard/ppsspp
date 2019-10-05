@@ -116,7 +116,6 @@ public class NativeGLView extends GLSurfaceView implements SensorEventListener, 
 
 	@Override
 	public void onPause() {
-		Log.i(TAG, "onPause");
 		super.onPause();
 		mSensorManager.unregisterListener(this);
 		if (mController != null) {
@@ -131,7 +130,6 @@ public class NativeGLView extends GLSurfaceView implements SensorEventListener, 
 		mSensorManager.registerListener(this, mAccelerometer, SensorManager.SENSOR_DELAY_GAME);
 		if (mController != null) {
 			mController.onResume();
-
 			// According to the docs, the Moga's state can be inconsistent here.
 			// We should do a one time poll. TODO
 		}
