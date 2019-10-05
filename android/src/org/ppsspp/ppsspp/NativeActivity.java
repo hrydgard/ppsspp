@@ -53,6 +53,8 @@ import java.lang.reflect.Field;
 import java.util.List;
 import java.util.Locale;
 
+import static android.view.View.SYSTEM_UI_FLAG_HIDE_NAVIGATION;
+
 public abstract class NativeActivity extends Activity implements SurfaceHolder.Callback {
 	// Remember to loadLibrary your JNI .so in a static {} block
 
@@ -84,6 +86,8 @@ public abstract class NativeActivity extends Activity implements SurfaceHolder.C
 	private int optimalSampleRate;
 
 	private boolean sustainedPerfSupported;
+
+	private boolean navigationHidden;
 
 	// audioFocusChangeListener to listen to changes in audio state
 	private AudioFocusChangeListener audioFocusChangeListener;
@@ -404,18 +408,20 @@ public abstract class NativeActivity extends Activity implements SurfaceHolder.C
 	@SuppressLint("InlinedApi")
 	@TargetApi(Build.VERSION_CODES.ICE_CREAM_SANDWICH)
 	private void updateSystemUiVisibility() {
+		// Compute our _desired_ systemUiVisibility
 		int flags = 0;
 		if (useLowProfileButtons()) {
 			flags |= View.SYSTEM_UI_FLAG_LOW_PROFILE;
 		}
 		if (useImmersive()) {
-			flags |= View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY | View.SYSTEM_UI_FLAG_HIDE_NAVIGATION;
+			flags |= View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY | SYSTEM_UI_FLAG_HIDE_NAVIGATION;
 		}
 		if (getWindow().getDecorView() != null) {
 			getWindow().getDecorView().setSystemUiVisibility(flags);
 		} else {
 			Log.e(TAG, "updateSystemUiVisibility: decor view not yet created, ignoring");
 		}
+
 		updateDisplayMeasurements();
 	}
 
@@ -457,16 +463,12 @@ public abstract class NativeActivity extends Activity implements SurfaceHolder.C
 		Display display = getWindowManager().getDefaultDisplay();
 
 		DisplayMetrics metrics = new DisplayMetrics();
-		if (useImmersive() && Build.VERSION.SDK_INT >= Build.VERSION_CODES.JELLY_BEAN_MR1) {
-			if (Build.VERSION.SDK_INT < Build.VERSION_CODES.N || !isInMultiWindowMode()) {
-				display.getRealMetrics(metrics);
-			} else {
-				// multi-window mode
-				display.getMetrics(metrics);
-			}
+		if (navigationHidden) {
+			display.getRealMetrics(metrics);
 		} else {
 			display.getMetrics(metrics);
 		}
+
 		densityDpi = metrics.densityDpi;
 		refreshRate = display.getRefreshRate();
 
@@ -602,6 +604,7 @@ public abstract class NativeActivity extends Activity implements SurfaceHolder.C
 			return;
 		}
 		Log.w(TAG, "Surface changed. Resolution: " + width + "x" + height + " Format: " + format);
+		// The window size might have changed (immersive mode, native fullscreen on some devices)
 		NativeApp.backbufferResize(width, height, format);
 		mSurface = holder.getSurface();
 		if (!javaGL) {
@@ -671,9 +674,14 @@ public abstract class NativeActivity extends Activity implements SurfaceHolder.C
 		getWindow().getDecorView().setOnSystemUiVisibilityChangeListener(new OnSystemUiVisibilityChangeListener() {
 			@Override
 			public void onSystemUiVisibilityChange(int visibility) {
-				if (visibility == 0) {
-					updateSystemUiVisibility();
-				}
+				// Called when the system UI's visibility changes, regardless of
+				// whether it's because of our or system actions.
+				// We will try to force it to follow our preference but will not stupidly
+				// act as if it's visible if it's not.
+				navigationHidden = ((visibility & SYSTEM_UI_FLAG_HIDE_NAVIGATION) != 0);
+				// TODO: Check here if it's the state we want.
+				Log.i(TAG, "SystemUiVisibilityChange! visibility=" + visibility + " navigationHidden: " + navigationHidden);
+				updateDisplayMeasurements();
 			}
 		});
 	}
