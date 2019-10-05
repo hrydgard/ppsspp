@@ -86,6 +86,7 @@ public abstract class NativeActivity extends Activity implements SurfaceHolder.C
 	private boolean sustainedPerfSupported;
 
 	private boolean navigationHidden;
+	private View navigationCallbackView = null;
 
 	// audioFocusChangeListener to listen to changes in audio state
 	private AudioFocusChangeListener audioFocusChangeListener;
@@ -406,6 +407,10 @@ public abstract class NativeActivity extends Activity implements SurfaceHolder.C
 	@SuppressLint("InlinedApi")
 	@TargetApi(Build.VERSION_CODES.ICE_CREAM_SANDWICH)
 	private void updateSystemUiVisibility() {
+		if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.KITKAT) {
+			setupSystemUiCallback();
+		}
+
 		// Compute our _desired_ systemUiVisibility
 		int flags = 0;
 		if (useLowProfileButtons()) {
@@ -414,8 +419,10 @@ public abstract class NativeActivity extends Activity implements SurfaceHolder.C
 		if (useImmersive()) {
 			flags |= View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY | View.SYSTEM_UI_FLAG_HIDE_NAVIGATION | View.SYSTEM_UI_FLAG_FULLSCREEN;
 		}
-		if (getWindow().getDecorView() != null) {
-			getWindow().getDecorView().setSystemUiVisibility(flags);
+
+		View decorView = getWindow().peekDecorView();
+		if (decorView != null) {
+			decorView.setSystemUiVisibility(flags);
 		} else {
 			Log.e(TAG, "updateSystemUiVisibility: decor view not yet created, ignoring for now");
 		}
@@ -538,9 +545,6 @@ public abstract class NativeActivity extends Activity implements SurfaceHolder.C
 		} else {
 			if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.ICE_CREAM_SANDWICH) {
 				updateSystemUiVisibility();
-				if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.KITKAT) {
-					setupSystemUiCallback();
-				}
 			}
 
 			mSurfaceView = new NativeSurfaceView(NativeActivity.this);
@@ -669,7 +673,12 @@ public abstract class NativeActivity extends Activity implements SurfaceHolder.C
 
 	@TargetApi(Build.VERSION_CODES.KITKAT)
 	void setupSystemUiCallback() {
-		getWindow().getDecorView().setOnSystemUiVisibilityChangeListener(new OnSystemUiVisibilityChangeListener() {
+		View decorView = getWindow().peekDecorView();
+		if (decorView == null || decorView == navigationCallbackView) {
+			return;
+		}
+
+		decorView.setOnSystemUiVisibilityChangeListener(new OnSystemUiVisibilityChangeListener() {
 			@Override
 			public void onSystemUiVisibilityChange(int visibility) {
 				// Called when the system UI's visibility changes, regardless of
@@ -682,6 +691,7 @@ public abstract class NativeActivity extends Activity implements SurfaceHolder.C
 				updateDisplayMeasurements();
 			}
 		});
+		navigationCallbackView = decorView;
 	}
 
 	@Override
@@ -727,6 +737,7 @@ public abstract class NativeActivity extends Activity implements SurfaceHolder.C
 			NativeApp.shutdown();
 			initialized = false;
 		}
+		navigationCallbackView = null;
 	}
 
 	@Override
