@@ -232,7 +232,7 @@ void ShaderManagerVulkan::GetShaders(int prim, u32 vertType, VulkanVertexShader 
 	VShaderID VSID;
 	if (gstate_c.IsDirty(DIRTY_VERTEXSHADER_STATE)) {
 		gstate_c.Clean(DIRTY_VERTEXSHADER_STATE);
-		ComputeVertexShaderID(&VSID, vertType, useHWTransform);
+		ComputeVertexShaderID(&VSID, prim, vertType, useHWTransform);
 	} else {
 		VSID = lastVSID_;
 	}
@@ -361,7 +361,7 @@ VulkanFragmentShader *ShaderManagerVulkan::GetFragmentShaderFromModule(VkShaderM
 // instantaneous.
 
 #define CACHE_HEADER_MAGIC 0xff51f420 
-#define CACHE_VERSION 17
+#define CACHE_VERSION 18
 struct VulkanCacheHeader {
 	uint32_t magic;
 	uint32_t version;

@@ -57,10 +57,12 @@ std::string VertexShaderDesc(const VShaderID &id) {
 	if (id.Bit(VS_BIT_HAS_NORMAL_TESS)) desc << "TessN ";
 	if (id.Bit(VS_BIT_NORM_REVERSE_TESS)) desc << "TessRevN ";
 
+	if (id.Bit(VS_BIT_POINT_SIZE)) desc << "PointSize";
+
 	return desc.str();
 }
 
-void ComputeVertexShaderID(VShaderID *id_out, u32 vertType, bool useHWTransform) {
+void ComputeVertexShaderID(VShaderID *id_out, int prim, u32 vertType, bool useHWTransform) {
 	bool isModeThrough = (vertType & GE_VTYPE_THROUGH) != 0;
 	bool doTexture = gstate.isTextureMapEnabled() && !gstate.isModeClear();
 	bool doTextureTransform = gstate.getUVGenMode() == GE_TEXMAP_TEXTURE_MATRIX;
@@ -77,11 +79,14 @@ void ComputeVertexShaderID(VShaderID *id_out, u32 vertType, bool useHWTransform)
 	bool enableFog = gstate.isFogEnabled() && !isModeThrough && !gstate.isModeClear();
 	bool lmode = gstate.isUsingSecondaryColor() && gstate.isLightingEnabled() && !isModeThrough;
 
+	bool point = prim == GE_PRIM_POINTS;
+
 	VShaderID id;
 	id.SetBit(VS_BIT_LMODE, lmode);
 	id.SetBit(VS_BIT_IS_THROUGH, isModeThrough);
 	id.SetBit(VS_BIT_ENABLE_FOG, enableFog);
 	id.SetBit(VS_BIT_HAS_COLOR, hasColor);
+	id.SetBit(VS_BIT_POINT_SIZE, point);
 
 	if (doTexture) {
 		id.SetBit(VS_BIT_DO_TEXTURE);

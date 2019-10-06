@@ -115,6 +115,9 @@ enum : uint64_t {
 	DIRTY_VERTEXSHADER_STATE = 1ULL << 47,
 	DIRTY_FRAGMENTSHADER_STATE = 1ULL << 48,
 
+	// Set if prim flips from/to POINT state
+	DIRTY_PRIM = 1ULL << 49,
+
 	DIRTY_ALL = 0xFFFFFFFFFFFFFFFF
 };
 

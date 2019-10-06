@@ -184,7 +184,7 @@ void ShaderManagerD3D11::GetShaders(int prim, u32 vertType, D3D11VertexShader **
 
 	if (gstate_c.IsDirty(DIRTY_VERTEXSHADER_STATE)) {
 		gstate_c.Clean(DIRTY_VERTEXSHADER_STATE);
-		ComputeVertexShaderID(&VSID, vertType, useHWTransform);
+		ComputeVertexShaderID(&VSID, prim, vertType, useHWTransform);
 	} else {
 		VSID = lastVSID_;
 	}

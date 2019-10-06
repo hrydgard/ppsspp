@@ -49,6 +49,7 @@ enum VShaderBit : uint8_t {
 	VS_BIT_LIGHT3_ENABLE = 55,
 	VS_BIT_LIGHTING_ENABLE = 56,
 	VS_BIT_WEIGHT_FMTSCALE = 57,  // only two bits
+	VS_BIT_POINT_SIZE = 58,  // 1 bit
 	// 59 - 61 are free.
 	VS_BIT_FLATSHADE = 62, // 1 bit
 	VS_BIT_BEZIER = 63, // 1 bit
@@ -223,7 +224,7 @@ class Bugs;
 }
 
 
-void ComputeVertexShaderID(VShaderID *id, uint32_t vertexType, bool useHWTransform);
+void ComputeVertexShaderID(VShaderID *id, int prim, uint32_t vertexType, bool useHWTransform);
 // Generates a compact string that describes the shader. Useful in a list to get an overview
 // of the current flora of shaders.
 std::string VertexShaderDesc(const VShaderID &id);

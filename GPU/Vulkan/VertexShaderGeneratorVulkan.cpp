@@ -133,6 +133,8 @@ bool GenerateVulkanGLSLVertexShader(const VShaderID &id, char *buffer) {
 	bool hasNormalTess = id.Bit(VS_BIT_HAS_NORMAL_TESS);
 	bool flipNormalTess = id.Bit(VS_BIT_NORM_REVERSE_TESS);
 
+	bool pointSize = id.Bit(VS_BIT_POINT_SIZE);
+
 	WRITE(p, "\n");
 	WRITE(p, "layout (std140, set = 0, binding = 3) uniform baseVars {\n%s} base;\n", ub_baseStr);
 	if (enableLighting || doShadeMapping)
@@ -209,7 +211,12 @@ bool GenerateVulkanGLSLVertexShader(const VShaderID &id, char *buffer) {
 		WRITE(p, "  return vec4(v.x, v.y, z * v.w, v.w);\n");
 		WRITE(p, "}\n\n");
 	}
-	WRITE(p, "out gl_PerVertex { vec4 gl_Position; };\n");
+
+	if (pointSize) {
+		WRITE(p, "out gl_PerVertex { vec4 gl_Position; float gl_PointSize; };\n");
+	} else {
+		WRITE(p, "out gl_PerVertex { vec4 gl_Position; };\n");
+	}
 
 	if (doBezier || doSpline) {
 		WRITE(p, "struct TessData {\n");
@@ -635,6 +642,10 @@ bool GenerateVulkanGLSLVertexShader(const VShaderID &id, char *buffer) {
 		WRITE(p, "  }\n");
 	}
 	WRITE(p, "  gl_Position = outPos;\n");
+
+	if (pointSize) {
+		WRITE(p, "  gl_PointSize = 1.0;\n");
+	}
 
 	if (gstate_c.Supports(GPU_NEEDS_Z_EQUAL_W_HACK)) {
 		// See comment in GPU_Vulkan.cpp.

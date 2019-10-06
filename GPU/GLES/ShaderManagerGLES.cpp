@@ -658,7 +658,7 @@ Shader *ShaderManagerGLES::ApplyVertexShader(int prim, u32 vertType, VShaderID *
 	if (gstate_c.IsDirty(DIRTY_VERTEXSHADER_STATE)) {
 		gstate_c.Clean(DIRTY_VERTEXSHADER_STATE);
 		bool useHWTransform = CanUseHardwareTransform(prim);
-		ComputeVertexShaderID(VSID, vertType, useHWTransform);
+		ComputeVertexShaderID(VSID, prim, vertType, useHWTransform);
 	} else {
 		*VSID = lastVSID_;
 	}
@@ -689,7 +689,7 @@ Shader *ShaderManagerGLES::ApplyVertexShader(int prim, u32 vertType, VShaderID *
 
 			// Can still work with software transform.
 			VShaderID vsidTemp;
-			ComputeVertexShaderID(&vsidTemp, vertType, false);
+			ComputeVertexShaderID(&vsidTemp, prim, vertType, false);
 			vs = CompileVertexShader(vsidTemp);
 		}
 
