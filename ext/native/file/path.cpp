@@ -66,6 +66,8 @@ bool LoadRemoteFileList(const std::string &url, bool *cancel, std::vector<FileIn
 			continue;
 		if (item.back() == '\r')
 			item.pop_back();
+		if (item == baseURL.Resource())
+			continue;
 
 		FileInfo info;
 		info.name = item;

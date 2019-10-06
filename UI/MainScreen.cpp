@@ -365,11 +365,6 @@ void GameButton::Draw(UIContext &dc) {
 	dc.RebindTexture();
 }
 
-enum GameBrowserFlags {
-	FLAG_HOMEBREWSTOREBUTTON = 1
-};
-
-
 class DirButton : public UI::Button {
 public:
 	DirButton(const std::string &path, UI::LayoutParams *layoutParams)
@@ -440,8 +435,8 @@ void DirButton::Draw(UIContext &dc) {
 	}
 }
 
-GameBrowser::GameBrowser(std::string path, bool allowBrowsing, bool *gridStyle, std::string lastText, std::string lastLink, int flags, UI::LayoutParams *layoutParams)
-	: LinearLayout(UI::ORIENT_VERTICAL, layoutParams), path_(path), gridStyle_(gridStyle), allowBrowsing_(allowBrowsing), lastText_(lastText), lastLink_(lastLink), flags_(flags) {
+GameBrowser::GameBrowser(std::string path, BrowseFlags browseFlags, bool *gridStyle, std::string lastText, std::string lastLink, UI::LayoutParams *layoutParams)
+	: LinearLayout(UI::ORIENT_VERTICAL, layoutParams), path_(path), gridStyle_(gridStyle), browseFlags_(browseFlags), lastText_(lastText), lastLink_(lastLink) {
 	using namespace UI;
 	Refresh();
 }
@@ -530,7 +525,7 @@ void GameBrowser::Refresh() {
 	// No topbar on recent screen
 	if (DisplayTopBar()) {
 		LinearLayout *topBar = new LinearLayout(ORIENT_HORIZONTAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT));
-		if (allowBrowsing_) {
+		if (browseFlags_ & BrowseFlags::NAVIGATE) {
 			topBar->Add(new Spacer(2.0f));
 			topBar->Add(new TextView(path_.GetFriendlyPath().c_str(), ALIGN_VCENTER | FLAG_WRAP_TEXT, true, new LinearLayoutParams(FILL_PARENT, 64.0f, 1.0f)));
 			if (System_GetPropertyBool(SYSPROP_HAS_FILE_BROWSER)) {
@@ -585,7 +580,7 @@ void GameBrowser::Refresh() {
 				isSaveData = true;
 
 			if (!isGame && !isSaveData) {
-				if (allowBrowsing_) {
+				if (browseFlags_ & BrowseFlags::NAVIGATE) {
 					dirButtons.push_back(new DirButton(fileInfo[i].fullName, fileInfo[i].name, new UI::LinearLayoutParams(UI::FILL_PARENT, UI::FILL_PARENT)));
 				}
 			} else {
@@ -595,7 +590,7 @@ void GameBrowser::Refresh() {
 		// Put RAR/ZIP files at the end to get them out of the way. They're only shown so that people
 		// can click them and get an explanation that they need to unpack them. This is necessary due
 		// to a flood of support email...
-		if (allowBrowsing_) {
+		if (browseFlags_ & BrowseFlags::ARCHIVES) {
 			fileInfo.clear();
 			path_.GetListing(fileInfo, "zip:rar:r01:7z:");
 			if (!fileInfo.empty()) {
@@ -613,7 +608,7 @@ void GameBrowser::Refresh() {
 		}
 	}
 
-	if (allowBrowsing_) {
+	if (browseFlags_ & BrowseFlags::NAVIGATE) {
 		gameList_->Add(new DirButton("..", new UI::LinearLayoutParams(UI::FILL_PARENT, UI::FILL_PARENT)))->
 			OnClick.Handle(this, &GameBrowser::NavigateClick);
 
@@ -645,7 +640,7 @@ void GameBrowser::Refresh() {
 	}
 
 	// Show a button to toggle pinning at the very end.
-	if (allowBrowsing_) {
+	if (browseFlags_ & BrowseFlags::PIN) {
 		std::string caption = IsCurrentPathPinned() ? "-" : "+";
 		if (!*gridStyle_) {
 			caption = IsCurrentPathPinned() ? mm->T("UnpinPath", "Unpin") : mm->T("PinPath", "Pin");
@@ -654,7 +649,7 @@ void GameBrowser::Refresh() {
 			OnClick.Handle(this, &GameBrowser::PinToggleClick);
 	}
 
-	if (flags_ & FLAG_HOMEBREWSTOREBUTTON) {
+	if (browseFlags_ & BrowseFlags::HOMEBREW_STORE) {
 		Add(new Spacer());
 		homebrewStoreButton_ = Add(new Choice(mm->T("DownloadFromStore", "Download from the PPSSPP Homebrew Store"), new UI::LinearLayoutParams(UI::WRAP_CONTENT, UI::WRAP_CONTENT)));
 	} else {
@@ -801,7 +796,7 @@ void MainScreen::CreateViews() {
 		ScrollView *scrollRecentGames = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT));
 		scrollRecentGames->SetTag("MainScreenRecentGames");
 		GameBrowser *tabRecentGames = new GameBrowser(
-			"!RECENT", false, &g_Config.bGridView1, "", "", 0,
+			"!RECENT", BrowseFlags::NONE, &g_Config.bGridView1, "", "",
 			new LinearLayoutParams(FILL_PARENT, FILL_PARENT));
 		scrollRecentGames->Add(tabRecentGames);
 		gameBrowsers_.push_back(tabRecentGames);
@@ -819,12 +814,11 @@ void MainScreen::CreateViews() {
 		ScrollView *scrollHomebrew = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT));
 		scrollHomebrew->SetTag("MainScreenHomebrew");
 
-		GameBrowser *tabAllGames = new GameBrowser(g_Config.currentDirectory, true, &g_Config.bGridView2,
-			mm->T("How to get games"), "https://www.ppsspp.org/getgames.html", 0,
+		GameBrowser *tabAllGames = new GameBrowser(g_Config.currentDirectory, BrowseFlags::STANDARD, &g_Config.bGridView2,
+			mm->T("How to get games"), "https://www.ppsspp.org/getgames.html",
 			new LinearLayoutParams(FILL_PARENT, FILL_PARENT));
-		GameBrowser *tabHomebrew = new GameBrowser(GetSysDirectory(DIRECTORY_GAME), false, &g_Config.bGridView3,
+		GameBrowser *tabHomebrew = new GameBrowser(GetSysDirectory(DIRECTORY_GAME), BrowseFlags::HOMEBREW_STORE, &g_Config.bGridView3,
 			mm->T("How to get homebrew & demos", "How to get homebrew && demos"), "https://www.ppsspp.org/gethomebrew.html",
-			FLAG_HOMEBREWSTOREBUTTON,
 			new LinearLayoutParams(FILL_PARENT, FILL_PARENT));
 
 		Choice *hbStore = tabHomebrew->HomebrewStoreButton();
@@ -1274,7 +1268,7 @@ void UmdReplaceScreen::CreateViews() {
 		ScrollView *scrollRecentGames = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT));
 		scrollRecentGames->SetTag("UmdReplaceRecentGames");
 		GameBrowser *tabRecentGames = new GameBrowser(
-			"!RECENT", false, &g_Config.bGridView1, "", "", 0,
+			"!RECENT", BrowseFlags::NONE, &g_Config.bGridView1, "", "",
 			new LinearLayoutParams(FILL_PARENT, FILL_PARENT));
 		scrollRecentGames->Add(tabRecentGames);
 		leftColumn->AddTab(mm->T("Recent"), scrollRecentGames);
@@ -1284,8 +1278,8 @@ void UmdReplaceScreen::CreateViews() {
 	ScrollView *scrollAllGames = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT));
 	scrollAllGames->SetTag("UmdReplaceAllGames");
 
-	GameBrowser *tabAllGames = new GameBrowser(g_Config.currentDirectory, true, &g_Config.bGridView2,
-		mm->T("How to get games"), "https://www.ppsspp.org/getgames.html", 0,
+	GameBrowser *tabAllGames = new GameBrowser(g_Config.currentDirectory, BrowseFlags::STANDARD, &g_Config.bGridView2,
+		mm->T("How to get games"), "https://www.ppsspp.org/getgames.html",
 		new LinearLayoutParams(FILL_PARENT, FILL_PARENT));
 
 	scrollAllGames->Add(tabAllGames);

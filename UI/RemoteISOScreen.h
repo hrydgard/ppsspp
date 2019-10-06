@@ -72,16 +72,18 @@ protected:
 	std::mutex statusLock_;
 	std::string host_;
 	int port_;
+	std::string url_;
 	std::vector<std::string> games_;
 };
 
 class RemoteISOBrowseScreen : public MainScreen {
 public:
-	RemoteISOBrowseScreen(const std::vector<std::string> &games);
+	RemoteISOBrowseScreen(const std::string &url, const std::vector<std::string> &games);
 
 protected:
 	void CreateViews() override;
 
+	std::string url_;
 	std::vector<std::string> games_;
 };
 

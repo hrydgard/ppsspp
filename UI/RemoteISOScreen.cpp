@@ -147,13 +147,8 @@ static bool FindServer(std::string &resultHost, int &resultPort) {
 	return false;
 }
 
-static bool LoadGameList(const std::string &host, int port, std::vector<std::string> &games) {
-	std::string subdir = RemoteSubdir();
-
-	char temp[1024];
-	snprintf(temp, sizeof(temp) - 1, "http://%s:%d%s", host.c_str(), port, subdir.c_str());
-
-	PathBrowser browser(temp);
+static bool LoadGameList(const std::string &url, std::vector<std::string> &games) {
+	PathBrowser browser(url);
 	std::vector<FileInfo> files;
 	browser.GetListing(files, "iso:cso:pbp:elf:prx:ppdmp:", &scanCancelled);
 	if (scanCancelled) {
@@ -163,12 +158,6 @@ static bool LoadGameList(const std::string &host, int port, std::vector<std::str
 		if (RemoteISOFileSupported(file.name)) {
 			games.push_back(file.fullName);
 		}
-	}
-
-	// Save for next time unless manual is true
-	if (!games.empty() && !g_Config.bRemoteISOManual) {
-		g_Config.sLastRemoteISOServer = host;
-		g_Config.iLastRemoteISOPort = port;
 	}
 
 	return !games.empty();
@@ -352,7 +341,7 @@ void RemoteISOConnectScreen::update() {
 
 	case ScanStatus::LOADED:
 		TriggerFinish(DR_OK);
-		screenManager()->push(new RemoteISOBrowseScreen(games_));
+		screenManager()->push(new RemoteISOBrowseScreen(url_, games_));
 		break;
 	}
 }
@@ -373,9 +362,16 @@ ScanStatus RemoteISOConnectScreen::GetStatus() {
 }
 
 void RemoteISOConnectScreen::ExecuteLoad() {
-	bool result = LoadGameList(host_, port_, games_);
+	std::string subdir = RemoteSubdir();
+	url_ = StringFromFormat("http://%s:%d%s", host_.c_str(), port_, subdir.c_str());
+	bool result = LoadGameList(url_, games_);
 	if (scanAborted) {
 		return;
+	}
+
+	if (result && !games_.empty() && !g_Config.bRemoteISOManual) {
+		g_Config.sLastRemoteISOServer = host_;
+		g_Config.iLastRemoteISOPort = port_;
 	}
 
 	std::lock_guard<std::mutex> guard(statusLock_);
@@ -384,8 +380,8 @@ void RemoteISOConnectScreen::ExecuteLoad() {
 
 class RemoteGameBrowser : public GameBrowser {
 public:
-	RemoteGameBrowser(const std::vector<std::string> &games, bool allowBrowsing, bool *gridStyle_, std::string lastText, std::string lastLink, int flags = 0, UI::LayoutParams *layoutParams = 0)
-	: GameBrowser("!REMOTE", allowBrowsing, gridStyle_, lastText, lastLink, flags, layoutParams) {
+	RemoteGameBrowser(const std::string &url, const std::vector<std::string> &games, BrowseFlags browseFlags, bool *gridStyle_, std::string lastText, std::string lastLink, UI::LayoutParams *layoutParams = nullptr)
+	: GameBrowser(url, browseFlags, gridStyle_, lastText, lastLink, layoutParams) {
 		games_ = games;
 		Refresh();
 	}
@@ -397,6 +393,7 @@ protected:
 
 	bool HasSpecialFiles(std::vector<std::string> &filenames) override;
 
+	std::string url_;
 	std::vector<std::string> games_;
 };
 
@@ -405,7 +402,8 @@ bool RemoteGameBrowser::HasSpecialFiles(std::vector<std::string> &filenames) {
 	return true;
 }
 
-RemoteISOBrowseScreen::RemoteISOBrowseScreen(const std::vector<std::string> &games) : games_(games) {
+RemoteISOBrowseScreen::RemoteISOBrowseScreen(const std::string &url, const std::vector<std::string> &games)
+	: url_(url), games_(games) {
 }
 
 void RemoteISOBrowseScreen::CreateViews() {
@@ -426,7 +424,7 @@ void RemoteISOBrowseScreen::CreateViews() {
 	ScrollView *scrollRecentGames = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT));
 	scrollRecentGames->SetTag("RemoteGamesTab");
 	RemoteGameBrowser *tabRemoteGames = new RemoteGameBrowser(
-		games_, false, &g_Config.bGridView1, "", "", 0,
+		url_, games_, BrowseFlags::PIN, &g_Config.bGridView1, "", "",
 		new LinearLayoutParams(FILL_PARENT, FILL_PARENT));
 	scrollRecentGames->Add(tabRemoteGames);
 	gameBrowsers_.push_back(tabRemoteGames);
