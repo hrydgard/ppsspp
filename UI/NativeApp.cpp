@@ -1006,6 +1006,7 @@ void NativeRender(GraphicsContext *graphicsContext) {
 	}
 
 	if (resized) {
+		ILOG("Resized flag set - recalculating bounds");
 		resized = false;
 
 		if (uiContext) {
@@ -1275,6 +1276,7 @@ void NativeMessageReceived(const char *message, const char *value) {
 void NativeResized() {
 	// NativeResized can come from any thread so we just set a flag, then process it later.
 	if (g_graphicsInited) {
+		ILOG("NativeResized - setting flag");
 		resized = true;
 	} else {
 		ILOG("NativeResized ignored, not initialized");
