@@ -31,6 +31,7 @@ import android.text.InputType;
 import android.util.DisplayMetrics;
 import android.util.Log;
 import android.view.Display;
+import android.view.DisplayCutout;
 import android.view.Gravity;
 import android.view.HapticFeedbackConstants;
 import android.view.InputDevice;
@@ -118,6 +119,11 @@ public abstract class NativeActivity extends Activity implements SurfaceHolder.C
 	private float refreshRate;
 	private int pixelWidth;
 	private int pixelHeight;
+
+	private int safeInsetLeft = 0;
+	private int safeInsetRight = 0;
+	private int safeInsetTop = 0;
+	private int safeInsetBottom = 0;
 
 	private static final String[] permissionsForStorage = {
 		Manifest.permission.WRITE_EXTERNAL_STORAGE,
@@ -673,7 +679,7 @@ public abstract class NativeActivity extends Activity implements SurfaceHolder.C
 
 	@TargetApi(Build.VERSION_CODES.KITKAT)
 	void setupSystemUiCallback() {
-		View decorView = getWindow().peekDecorView();
+		final View decorView = getWindow().peekDecorView();
 		if (decorView == null || decorView == navigationCallbackView) {
 			return;
 		}
@@ -688,6 +694,7 @@ public abstract class NativeActivity extends Activity implements SurfaceHolder.C
 				navigationHidden = ((visibility & View.SYSTEM_UI_FLAG_HIDE_NAVIGATION) != 0);
 				// TODO: Check here if it's the state we want.
 				Log.i(TAG, "SystemUiVisibilityChange! visibility=" + visibility + " navigationHidden: " + navigationHidden);
+				Log.i(TAG, "decorView: " + decorView.getWidth() + "x" + decorView.getHeight());
 				updateDisplayMeasurements();
 			}
 		});
@@ -810,6 +817,27 @@ public abstract class NativeActivity extends Activity implements SurfaceHolder.C
 		if (!javaGL) {
 			// Restart the render loop.
 			ensureRenderLoop();
+		}
+	}
+
+	@Override
+	public void onAttachedToWindow() {
+		if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+			Log.i(TAG, "onAttachedToWindow");
+			DisplayCutout cutout = getWindow().getDecorView().getRootWindowInsets().getDisplayCutout();
+			if (cutout != null) {
+				safeInsetLeft = cutout.getSafeInsetLeft();
+				safeInsetRight = cutout.getSafeInsetRight();
+				safeInsetTop = cutout.getSafeInsetTop();
+				safeInsetBottom = cutout.getSafeInsetBottom();
+				Log.i(TAG, "Safe insets: left: " + safeInsetLeft + " right: " + safeInsetRight + " top: " + safeInsetTop + " bottom: " + safeInsetBottom);
+			} else {
+				Log.i(TAG, "Cutout was null");
+				safeInsetLeft = 0;
+				safeInsetRight = 0;
+				safeInsetTop = 0;
+				safeInsetBottom = 0;
+			}
 		}
 	}
 

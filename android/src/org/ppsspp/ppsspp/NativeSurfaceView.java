@@ -116,7 +116,6 @@ public class NativeSurfaceView extends SurfaceView implements SensorEventListene
 	}
 
 	public void onPause() {
-		Log.i(TAG, "onPause");
 		mSensorManager.unregisterListener(this);
 		if (mController != null) {
 			mController.onPause();
@@ -133,7 +132,6 @@ public class NativeSurfaceView extends SurfaceView implements SensorEventListene
 	}
 
 	public void onDestroy() {
-		Log.i(TAG, "onDestroy");
 		if (mController != null) {
 			mController.exit();
 		}

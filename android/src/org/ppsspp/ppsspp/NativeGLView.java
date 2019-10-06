@@ -125,7 +125,6 @@ public class NativeGLView extends GLSurfaceView implements SensorEventListener, 
 
 	@Override
 	public void onResume() {
-		Log.i(TAG, "onResume");
 		super.onResume();
 		mSensorManager.registerListener(this, mAccelerometer, SensorManager.SENSOR_DELAY_GAME);
 		if (mController != null) {
@@ -136,7 +135,6 @@ public class NativeGLView extends GLSurfaceView implements SensorEventListener, 
 	}
 
 	public void onDestroy() {
-		Log.i(TAG, "onDestroy");
 		if (mController != null) {
 			mController.exit();
 		}
