@@ -24,6 +24,7 @@
 #include "json/json_reader.h"
 #include "net/http_client.h"
 #include "net/resolve.h"
+#include "net/url.h"
 #include "Common/Common.h"
 #include "Core/Config.h"
 #include "Core/WebServer.h"
@@ -39,13 +40,7 @@ static bool scanAborted = false;
 
 static std::string RemoteSubdir() {
 	if (g_Config.bRemoteISOManual) {
-		std::string subdir = g_Config.sRemoteISOSubdir;
-		size_t offset = subdir.find_last_of("/");
-		if (offset != subdir.length() - 1 && offset != subdir.npos) {
-			// Truncate everything after last /
-			subdir.erase(offset + 1);
-		}
-		return subdir;
+		return g_Config.sRemoteISOSubdir;
 	}
 
 	return "/";
@@ -142,9 +137,6 @@ static bool FindServer(std::string &resultHost, int &resultPort) {
 		const char *host = entry.getString("ip", "");
 		int port = entry.getInt("p", 0);
 
-		char url[1024] = {};
-		snprintf(url, sizeof(url), "http://%s:%d", host, port);
-
 		if (TryServer(host, port)) {
 			return true;
 		}
@@ -154,23 +146,26 @@ static bool FindServer(std::string &resultHost, int &resultPort) {
 	return false;
 }
 
-static bool LoadGameList(const std::string &host, int port, std::vector<std::string> &games) {
+bool LoadRemoteGameList(const std::string &url, bool *cancel, std::vector<std::string> &games) {
 	http::Client http;
 	Buffer result;
 	int code = 500;
 	std::vector<std::string> responseHeaders;
-	// TODO: Use relative url parsing (URL::Relative) instead.
-	std::string subdir = RemoteSubdir();
+
+	Url baseURL(url);
+	if (!baseURL.Valid()) {
+		return false;
+	}
 
 	// Start by requesting the list of games from the server.
-	if (http.Resolve(host.c_str(), port)) {
-		if (http.Connect(2, 20.0, &scanCancelled)) {
-			code = http.GET(subdir.c_str(), &result, responseHeaders);
+	if (http.Resolve(baseURL.Host().c_str(), baseURL.Port())) {
+		if (http.Connect(2, 20.0, cancel)) {
+			code = http.GET(baseURL.Resource().c_str(), &result, responseHeaders);
 			http.Disconnect();
 		}
 	}
 
-	if (code != 200 || scanCancelled) {
+	if (code != 200 || (cancel && *cancel)) {
 		return false;
 	}
 
@@ -196,7 +191,6 @@ static bool LoadGameList(const std::string &host, int port, std::vector<std::str
 	if (parseText) {
 		// Plain text format - easy.
 		SplitString(listing, '\n', items);
-		subdir.clear();
 	} else if (parseHtml) {
 		// Try to extract from an automatic webserver directory listing...
 		GetQuotedStrings(listing, items);
@@ -210,8 +204,6 @@ static bool LoadGameList(const std::string &host, int port, std::vector<std::str
 		if (item.empty())
 			continue;
 
-		if (item[0] != '/')
-			item.insert(0, "/");
 		if (item.back() == '\r')
 			item.pop_back();
 
@@ -219,10 +211,19 @@ static bool LoadGameList(const std::string &host, int port, std::vector<std::str
 			continue;
 		}
 
-		char temp[1024] = {};
-		snprintf(temp, sizeof(temp) - 1, "http://%s:%d%s%s", host.c_str(), port, subdir.c_str(), item.c_str());
-		games.push_back(temp);
+		games.push_back(baseURL.Relative(item).ToString());
 	}
+
+	return !games.empty();
+}
+
+static bool LoadGameList(const std::string &host, int port, std::vector<std::string> &games) {
+	std::string subdir = RemoteSubdir();
+
+	char temp[1024];
+	snprintf(temp, sizeof(temp) - 1, "http://%s:%d%s", host.c_str(), port, subdir.c_str());
+
+	LoadRemoteGameList(temp, &scanCancelled, games);
 
 	// Save for next time unless manual is true
 	if (!games.empty() && !g_Config.bRemoteISOManual) {
@@ -592,7 +593,7 @@ UI::EventReturn RemoteISOSettingsScreen::OnChangeRemoteISOSubdir(UI::EventParams
 	ReplaceAll(g_Config.sRemoteISOSubdir, " ", "%20");
 	ReplaceAll(g_Config.sRemoteISOSubdir, "\\", "/");
 	//Make sure it begins with /
-	if (g_Config.sRemoteISOSubdir[0] != '/')
+	if (g_Config.sRemoteISOSubdir.empty() || g_Config.sRemoteISOSubdir[0] != '/')
 		g_Config.sRemoteISOSubdir = "/" + g_Config.sRemoteISOSubdir;
 	
 	return UI::EVENT_DONE;
