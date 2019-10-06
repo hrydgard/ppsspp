@@ -468,17 +468,33 @@ public abstract class NativeActivity extends Activity implements SurfaceHolder.C
 		sz.y = NativeApp.getDesiredBackbufferHeight();
 	}
 
+	private SurfaceView getSurfaceView() {
+		if (mGLSurfaceView != null) {
+			return mGLSurfaceView;
+		} else {
+			return mSurfaceView;
+		}
+	}
+
 	@TargetApi(Build.VERSION_CODES.JELLY_BEAN_MR1)
 	public void updateDisplayMeasurements() {
 		Display display = getWindowManager().getDefaultDisplay();
 
+		// Early in startup, we don't have a view to query. Do our best to get some kind of size
+		// that can be used by config default heuristics, and so on.
 		DisplayMetrics metrics = new DisplayMetrics();
-		if (navigationHidden) {
+		if (navigationHidden && Build.VERSION.SDK_INT >= Build.VERSION_CODES.JELLY_BEAN_MR1) {
 			display.getRealMetrics(metrics);
 		} else {
 			display.getMetrics(metrics);
 		}
 
+		// Later on, we have the exact pixel size so let's just use it.
+		SurfaceView view = getSurfaceView();
+		if (view != null) {
+			metrics.widthPixels = view.getWidth();
+			metrics.heightPixels = view.getHeight();
+		}
 		densityDpi = metrics.densityDpi;
 		refreshRate = display.getRefreshRate();
 
