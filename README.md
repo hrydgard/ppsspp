@@ -23,7 +23,12 @@ For build instructions and other development tutorials, see [the wiki](https://g
 
 For game compatibility, see [community compatibility feedback](https://report.ppsspp.org/games).
 
-What's new in 1.9.0/1.9.1
+What's new in 1.9.0/1.9.3
+-------------------------
+* Sizing/touch fixes on Android
+* Fixes for some crashes
+
+What's new in 1.9.0/1.9.2
 -------------------------
 * Flicker fixed in God of War that appeared with newer drivers for Mali GPUs (#12224)
 * Improve performance of God of War on Vulkan (#12242), implement built-in GPU profiler (#12262, #12266)
