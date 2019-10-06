@@ -101,8 +101,9 @@ static int deviceType;
 
 // Should only be used for display detection during startup (for config defaults etc)
 // This is the ACTUAL display size, not the hardware scaled display size.
-static int display_xres;
-static int display_yres;
+// Exposed so it can be displayed on the touchscreen test.
+int display_xres;
+int display_yres;
 static int display_dpi_x;
 static int display_dpi_y;
 static int backbuffer_format;	// Android PixelFormat enum

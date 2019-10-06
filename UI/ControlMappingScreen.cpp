@@ -636,6 +636,11 @@ void TouchTestScreen::CreateViews() {
 	root_->Add(new Button(di->T("Back")))->OnClick.Handle<UIScreen>(this, &UIScreen::OnBack);
 }
 
+#if PPSSPP_PLATFORM(ANDROID)
+extern int display_xres;
+extern int display_yres;
+#endif
+
 void TouchTestScreen::render() {
 	UIDialogScreenWithBackground::render();
 	UIContext *ui_context = screenManager()->getUIContext();
@@ -659,11 +664,17 @@ void TouchTestScreen::render() {
 	}
 
 	snprintf(buffer, sizeof(buffer),
+#if PPSSPP_PLATFORM(ANDROID)
+		"display_res: %dx%d\n"
+#endif
 		"dp_res: %dx%d\n"
 		"pixel_res: %dx%d\n"
 		"g_dpi: %f\n"
 		"g_dpi_scale: %0.3fx%0.3f\n"
 		"g_dpi_scale_real: %0.3fx%0.3f\n",
+#if PPSSPP_PLATFORM(ANDROID)
+		display_xres, display_yres,
+#endif
 		dp_xres, dp_yres,
 		pixel_xres, pixel_yres,
 		g_dpi,

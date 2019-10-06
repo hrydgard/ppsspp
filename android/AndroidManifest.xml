@@ -40,7 +40,7 @@
         android:logo="@drawable/ic_banner"
         android:isGame="true"
         android:banner="@drawable/tv_banner">
-        <meta-data android:name="android.max_aspect" android:value="2.1" />
+        <meta-data android:name="android.max_aspect" android:value="2.4" />
         <activity
             android:name=".PpssppActivity"
             android:configChanges="locale|keyboard|keyboardHidden|navigation|uiMode"
