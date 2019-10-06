@@ -20,6 +20,7 @@
 #include <mutex>
 
 #include "base/timeutil.h"
+#include "file/path.h"
 #include "i18n/i18n.h"
 #include "json/json_reader.h"
 #include "net/http_client.h"
@@ -146,84 +147,21 @@ static bool FindServer(std::string &resultHost, int &resultPort) {
 	return false;
 }
 
-bool LoadRemoteGameList(const std::string &url, bool *cancel, std::vector<std::string> &games) {
-	http::Client http;
-	Buffer result;
-	int code = 500;
-	std::vector<std::string> responseHeaders;
-
-	Url baseURL(url);
-	if (!baseURL.Valid()) {
-		return false;
-	}
-
-	// Start by requesting the list of games from the server.
-	if (http.Resolve(baseURL.Host().c_str(), baseURL.Port())) {
-		if (http.Connect(2, 20.0, cancel)) {
-			code = http.GET(baseURL.Resource().c_str(), &result, responseHeaders);
-			http.Disconnect();
-		}
-	}
-
-	if (code != 200 || (cancel && *cancel)) {
-		return false;
-	}
-
-	std::string listing;
-	std::vector<std::string> items;
-	result.TakeAll(&listing);
-
-	std::string contentType;
-	for (const std::string &header : responseHeaders) {
-		if (startsWithNoCase(header, "Content-Type:")) {
-			contentType = header.substr(strlen("Content-Type:"));
-			// Strip any whitespace (TODO: maybe move this to stringutil?)
-			contentType.erase(0, contentType.find_first_not_of(" \t\r\n"));
-			contentType.erase(contentType.find_last_not_of(" \t\r\n") + 1);
-		}
-	}
-
-	// TODO: Technically, "TExt/hTml    ; chaRSet    =    Utf8" should pass, but "text/htmlese" should not.
-	// But unlikely that'll be an issue.
-	bool parseHtml = startsWithNoCase(contentType, "text/html");
-	bool parseText = startsWithNoCase(contentType, "text/plain");
-
-	if (parseText) {
-		// Plain text format - easy.
-		SplitString(listing, '\n', items);
-	} else if (parseHtml) {
-		// Try to extract from an automatic webserver directory listing...
-		GetQuotedStrings(listing, items);
-	} else {
-		ERROR_LOG(FILESYS, "Unsupported Content-Type: %s", contentType.c_str());
-		return false;
-	}
-
-	for (std::string item : items) {
-		// Apply some workarounds.
-		if (item.empty())
-			continue;
-
-		if (item.back() == '\r')
-			item.pop_back();
-
-		if (!RemoteISOFileSupported(item)) {
-			continue;
-		}
-
-		games.push_back(baseURL.Relative(item).ToString());
-	}
-
-	return !games.empty();
-}
-
 static bool LoadGameList(const std::string &host, int port, std::vector<std::string> &games) {
 	std::string subdir = RemoteSubdir();
 
 	char temp[1024];
 	snprintf(temp, sizeof(temp) - 1, "http://%s:%d%s", host.c_str(), port, subdir.c_str());
 
-	LoadRemoteGameList(temp, &scanCancelled, games);
+	PathBrowser browser(temp);
+	std::vector<FileInfo> files;
+	browser.GetListing(files, "iso:cso:pbp:elf:prx:ppdmp:", &scanCancelled);
+	if (scanCancelled) {
+		return false;
+	}
+	for (auto &file : files) {
+		games.push_back(file.fullName);
+	}
 
 	// Save for next time unless manual is true
 	if (!games.empty() && !g_Config.bRemoteISOManual) {

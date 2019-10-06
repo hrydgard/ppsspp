@@ -16,7 +16,7 @@ public:
 	PathBrowser(std::string path) { SetPath(path); }
 
 	void SetPath(const std::string &path);
-	void GetListing(std::vector<FileInfo> &fileInfo, const char *filter = 0);
+	bool GetListing(std::vector<FileInfo> &fileInfo, const char *filter = nullptr, bool *cancel = nullptr);
 	void Navigate(const std::string &path);
 
 	std::string GetPath() const {

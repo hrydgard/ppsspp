@@ -25,8 +25,6 @@
 #include "UI/MiscScreens.h"
 #include "UI/MainScreen.h"
 
-bool LoadRemoteGameList(const std::string &url, bool *cancel, std::vector<std::string> &games);
-
 class RemoteISOScreen : public UIScreenWithBackground {
 public:
 	RemoteISOScreen();
