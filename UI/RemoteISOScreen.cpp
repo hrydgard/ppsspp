@@ -160,7 +160,9 @@ static bool LoadGameList(const std::string &host, int port, std::vector<std::str
 		return false;
 	}
 	for (auto &file : files) {
-		games.push_back(file.fullName);
+		if (RemoteISOFileSupported(file.name)) {
+			games.push_back(file.fullName);
+		}
 	}
 
 	// Save for next time unless manual is true

@@ -441,7 +441,7 @@ void DirButton::Draw(UIContext &dc) {
 }
 
 GameBrowser::GameBrowser(std::string path, bool allowBrowsing, bool *gridStyle, std::string lastText, std::string lastLink, int flags, UI::LayoutParams *layoutParams)
-	: LinearLayout(UI::ORIENT_VERTICAL, layoutParams), gameList_(0), path_(path), gridStyle_(gridStyle), allowBrowsing_(allowBrowsing), lastText_(lastText), lastLink_(lastLink), flags_(flags) {
+	: LinearLayout(UI::ORIENT_VERTICAL, layoutParams), path_(path), gridStyle_(gridStyle), allowBrowsing_(allowBrowsing), lastText_(lastText), lastLink_(lastLink), flags_(flags) {
 	using namespace UI;
 	Refresh();
 }
@@ -510,10 +510,17 @@ bool GameBrowser::HasSpecialFiles(std::vector<std::string> &filenames) {
 	return false;
 }
 
+void GameBrowser::Update() {
+	LinearLayout::Update();
+	if (listingPending_ && path_.IsListingReady()) {
+		Refresh();
+	}
+}
+
 void GameBrowser::Refresh() {
 	using namespace UI;
 
-	homebrewStoreButton_ = 0;
+	homebrewStoreButton_ = nullptr;
 	// Kill all the contents
 	Clear();
 
@@ -556,12 +563,14 @@ void GameBrowser::Refresh() {
 	std::vector<DirButton *> dirButtons;
 	std::vector<GameButton *> gameButtons;
 
+	listingPending_ = !path_.IsListingReady();
+
 	std::vector<std::string> filenames;
 	if (HasSpecialFiles(filenames)) {
 		for (size_t i = 0; i < filenames.size(); i++) {
 			gameButtons.push_back(new GameButton(filenames[i], *gridStyle_, new UI::LinearLayoutParams(*gridStyle_ == true ? UI::WRAP_CONTENT : UI::FILL_PARENT, UI::WRAP_CONTENT)));
 		}
-	} else {
+	} else if (!listingPending_) {
 		std::vector<FileInfo> fileInfo;
 		path_.GetListing(fileInfo, "iso:cso:pbp:elf:prx:ppdmp:");
 		for (size_t i = 0; i < fileInfo.size(); i++) {
@@ -616,6 +625,10 @@ void GameBrowser::Refresh() {
 		}
 	}
 
+	if (listingPending_) {
+		gameList_->Add(new UI::TextView(mm->T("Loading..."), ALIGN_CENTER, false, new UI::LinearLayoutParams(UI::FILL_PARENT, UI::FILL_PARENT)));
+	}
+
 	for (size_t i = 0; i < dirButtons.size(); i++) {
 		gameList_->Add(dirButtons[i])->OnClick.Handle(this, &GameBrowser::NavigateClick);
 	}
@@ -645,7 +658,7 @@ void GameBrowser::Refresh() {
 		Add(new Spacer());
 		homebrewStoreButton_ = Add(new Choice(mm->T("DownloadFromStore", "Download from the PPSSPP Homebrew Store"), new UI::LinearLayoutParams(UI::WRAP_CONTENT, UI::WRAP_CONTENT)));
 	} else {
-		homebrewStoreButton_ = 0;
+		homebrewStoreButton_ = nullptr;
 	}
 
 	if (!lastText_.empty() && gameButtons.empty()) {

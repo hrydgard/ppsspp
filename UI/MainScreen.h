@@ -26,7 +26,7 @@
 
 class GameBrowser : public UI::LinearLayout {
 public:
-	GameBrowser(std::string path, bool allowBrowsing, bool *gridStyle_, std::string lastText, std::string lastLink, int flags = 0, UI::LayoutParams *layoutParams = 0);
+	GameBrowser(std::string path, bool allowBrowsing, bool *gridStyle, std::string lastText, std::string lastLink, int flags = 0, UI::LayoutParams *layoutParams = nullptr);
 
 	UI::Event OnChoice;
 	UI::Event OnHoldChoice;
@@ -36,6 +36,8 @@ public:
 
 	void FocusGame(const std::string &gamePath);
 	void SetPath(const std::string &path);
+
+	void Update() override;
 
 protected:
 	virtual bool DisplayTopBar();
@@ -57,15 +59,16 @@ private:
 	UI::EventReturn HomeClick(UI::EventParams &e);
 	UI::EventReturn PinToggleClick(UI::EventParams &e);
 
-	UI::ViewGroup *gameList_;
+	UI::ViewGroup *gameList_ = nullptr;
 	PathBrowser path_;
 	bool *gridStyle_;
 	bool allowBrowsing_;
 	std::string lastText_;
 	std::string lastLink_;
 	int flags_;
-	UI::Choice *homebrewStoreButton_;
+	UI::Choice *homebrewStoreButton_ = nullptr;
 	std::string focusGamePath_;
+	bool listingPending_ = false;
 };
 
 class RemoteISOBrowseScreen;
