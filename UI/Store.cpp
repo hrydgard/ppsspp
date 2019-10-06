@@ -43,7 +43,7 @@ std::string ResolveUrl(std::string baseUrl, std::string url) {
 		return baseUrl;
 	} else if (url[0] == '/') {
 		return baseUrl + url.substr(1);
-	} else if (url.substr(0, 7) == "http://") {
+	} else if (startsWith(url, "http://") || startsWith(url, "https://")) {
 		return url;
 	} else {
 		// Huh.
