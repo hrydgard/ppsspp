@@ -258,7 +258,7 @@ public:
 	}
 
 	std::string GetGpuProfileString() const {
-		return frameData_[vulkan_->GetCurFrame()].profileSummary;
+		return frameData_[vulkan_->GetCurFrame()].profile.profileSummary;
 	}
 
 private:
@@ -305,10 +305,8 @@ private:
 		uint32_t curSwapchainImage = -1;
 
 		// Profiling.
-		VkQueryPool timestampQueryPool_ = VK_NULL_HANDLE;
+		QueueProfileContext profile;
 		bool profilingEnabled_;
-		std::vector<std::string> timestampDescriptions;
-		std::string profileSummary;
 	};
 
 	FrameData frameData_[VulkanContext::MAX_INFLIGHT_FRAMES];
