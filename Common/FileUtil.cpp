@@ -136,6 +136,9 @@ static bool ResolvePathVista(const std::wstring &path, wchar_t *buf, DWORD bufSi
 #endif
 
 std::string ResolvePath(const std::string &path) {
+	if (startsWith(path, "http://") || startsWith(path, "https://")) {
+		return path;
+	}
 #ifdef _WIN32
 	static const int BUF_SIZE = 32768;
 	wchar_t *buf = new wchar_t[BUF_SIZE] {};
