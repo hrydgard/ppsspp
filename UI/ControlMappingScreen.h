@@ -105,6 +105,32 @@ public:
 protected:
 	virtual void CreateViews() override;
 
-	UI::TextView *lastKeyEvent_;
-	UI::TextView *lastLastKeyEvent_;
+	UI::TextView *lastKeyEvent_ = nullptr;
+	UI::TextView *lastLastKeyEvent_ = nullptr;
+};
+
+class TouchTestScreen : public UIDialogScreenWithBackground {
+public:
+	TouchTestScreen() {
+		for (int i = 0; i < MAX_TOUCH_POINTS; i++) {
+			touches_[i].id = -1;
+		}
+	}
+
+	bool touch(const TouchInput &touch) override;
+	void render() override;
+
+protected:
+	struct TrackedTouch {
+		int id;
+		float x;
+		float y;
+	};
+	enum {
+		MAX_TOUCH_POINTS = 10,
+	};
+	TrackedTouch touches_[MAX_TOUCH_POINTS]{};
+
+	virtual void CreateViews() override;
+	UI::EventReturn OnImmersiveModeChange(UI::EventParams &e);
 };

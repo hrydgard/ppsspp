@@ -1,3 +1,4 @@
+#include "ppsspp_config.h"
 #include "file/fd_util.h"
 
 #include <errno.h>
@@ -136,7 +137,9 @@ std::string GetLocalIP(int sock) {
 	union {
 		struct sockaddr sa;
 		struct sockaddr_in ipv4;
+#if !PPSSPP_PLATFORM(SWITCH)
 		struct sockaddr_in6 ipv6;
+#endif
 	} server_addr;
 	memset(&server_addr, 0, sizeof(server_addr));
 	socklen_t len = sizeof(server_addr);
@@ -144,11 +147,14 @@ std::string GetLocalIP(int sock) {
 		char temp[64]{};
 
 		// We clear the port below for WSAAddressToStringA.
-		void *addr;
+		void *addr = nullptr;
+#if !PPSSPP_PLATFORM(SWITCH)
 		if (server_addr.sa.sa_family == AF_INET6) {
 			server_addr.ipv6.sin6_port = 0;
 			addr = &server_addr.ipv6.sin6_addr;
-		} else {
+		}
+#endif
+		if (addr == nullptr) {
 			server_addr.ipv4.sin_port = 0;
 			addr = &server_addr.ipv4.sin_addr;
 		}

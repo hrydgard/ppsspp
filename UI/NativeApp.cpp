@@ -318,6 +318,8 @@ static void PostLoadConfig() {
 		g_Config.currentDirectory = g_Config.externalDirectory;
 #elif defined(IOS)
 		g_Config.currentDirectory = g_Config.internalDataDirectory;
+#elif PPSSPP_PLATFORM(SWITCH)
+		g_Config.currentDirectory = "/";
 #else
 		if (getenv("HOME") != nullptr)
 			g_Config.currentDirectory = getenv("HOME");
@@ -446,12 +448,17 @@ void NativeInit(int argc, const char *argv[], const char *savegame_dir, const ch
 	// Packed assets are included in app
 	VFSRegister("", new DirectoryAssetReader(external_dir));
 #endif
-#if !defined(MOBILE_DEVICE) && !defined(_WIN32)
+#if !defined(MOBILE_DEVICE) && !defined(_WIN32) && !PPSSPP_PLATFORM(SWITCH)
 	VFSRegister("", new DirectoryAssetReader((File::GetExeDirectory() + "assets/").c_str()));
 	VFSRegister("", new DirectoryAssetReader((File::GetExeDirectory()).c_str()));
 	VFSRegister("", new DirectoryAssetReader("/usr/share/ppsspp/assets/"));
 #endif
+#if PPSSPP_PLATFORM(SWITCH)
+	std::string assetPath = savegame_dir + "assets/";
+	VFSRegister("", new DirectoryAssetReader(assetPath.c_str()));
+#else
 	VFSRegister("", new DirectoryAssetReader("assets/"));
+#endif
 	VFSRegister("", new DirectoryAssetReader(savegame_dir));
 
 #if (defined(MOBILE_DEVICE) || !defined(USING_QT_UI)) && !PPSSPP_PLATFORM(UWP)
@@ -481,6 +488,9 @@ void NativeInit(int argc, const char *argv[], const char *savegame_dir, const ch
 #elif defined(IOS)
 	g_Config.memStickDirectory = user_data_path;
 	g_Config.flash0Directory = std::string(external_dir) + "/flash0/";
+#elif PPSSPP_PLATFORM(SWITCH)
+	g_Config.memStickDirectory = g_Config.internalDataDirectory + "config/ppsspp/";
+	g_Config.flash0Directory = g_Config.internalDataDirectory + "assets/flash0/";
 #elif !defined(_WIN32)
 	std::string config;
 	if (getenv("XDG_CONFIG_HOME") != NULL)
@@ -869,10 +879,11 @@ void NativeShutdownGraphics() {
 	winAudioBackend = nullptr;
 #endif
 
+	ShutdownWebServer();
+	UIBackgroundShutdown();
+
 	delete g_gameInfoCache;
 	g_gameInfoCache = nullptr;
-
-	UIBackgroundShutdown();
 
 	delete uiContext;
 	uiContext = nullptr;
@@ -1006,6 +1017,7 @@ void NativeRender(GraphicsContext *graphicsContext) {
 	}
 
 	if (resized) {
+		ILOG("Resized flag set - recalculating bounds");
 		resized = false;
 
 		if (uiContext) {
@@ -1281,6 +1293,7 @@ void NativeMessageReceived(const char *message, const char *value) {
 void NativeResized() {
 	// NativeResized can come from any thread so we just set a flag, then process it later.
 	if (g_graphicsInited) {
+		ILOG("NativeResized - setting flag");
 		resized = true;
 	} else {
 		ILOG("NativeResized ignored, not initialized");

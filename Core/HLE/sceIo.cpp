@@ -654,7 +654,6 @@ void __IoInit() {
 	if (ioManagerThreadEnabled) {
 		Core_ListenLifecycle(&__IoWakeManager);
 		ioManagerThread = new std::thread(&__IoManagerThread);
-		ioManagerThread->detach();
 	}
 
 	__KernelRegisterWaitTypeFuncs(WAITTYPE_ASYNCIO, __IoAsyncBeginCallback, __IoAsyncEndCallback);
@@ -731,9 +730,10 @@ void __IoShutdown() {
 	ioManagerThreadEnabled = false;
 	ioManager.SyncThread();
 	ioManager.FinishEventLoop();
-	if (ioManagerThread != NULL) {
+	if (ioManagerThread != nullptr) {
+		ioManagerThread->join();
 		delete ioManagerThread;
-		ioManagerThread = NULL;
+		ioManagerThread = nullptr;
 		ioManager.Shutdown();
 	}
 

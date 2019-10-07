@@ -268,6 +268,7 @@ PSP_LoadingLock::~PSP_LoadingLock() {
 void CPU_Shutdown() {
 	// Since we load on a background thread, wait for startup to complete.
 	PSP_LoadingLock lock;
+	PSPLoaders_Shutdown();
 
 	if (g_Config.bAutoSaveSymbolMap) {
 		host->SaveSymbolMap();

@@ -20,10 +20,12 @@
 #include <mutex>
 
 #include "base/timeutil.h"
+#include "file/path.h"
 #include "i18n/i18n.h"
 #include "json/json_reader.h"
 #include "net/http_client.h"
 #include "net/resolve.h"
+#include "net/url.h"
 #include "Common/Common.h"
 #include "Core/Config.h"
 #include "Core/WebServer.h"
@@ -39,13 +41,7 @@ static bool scanAborted = false;
 
 static std::string RemoteSubdir() {
 	if (g_Config.bRemoteISOManual) {
-		std::string subdir = g_Config.sRemoteISOSubdir;
-		size_t offset = subdir.find_last_of("/");
-		if (offset != subdir.length() - 1 && offset != subdir.npos) {
-			// Truncate everything after last /
-			subdir.erase(offset + 1);
-		}
-		return subdir;
+		return g_Config.sRemoteISOSubdir;
 	}
 
 	return "/";
@@ -142,9 +138,6 @@ static bool FindServer(std::string &resultHost, int &resultPort) {
 		const char *host = entry.getString("ip", "");
 		int port = entry.getInt("p", 0);
 
-		char url[1024] = {};
-		snprintf(url, sizeof(url), "http://%s:%d", host, port);
-
 		if (TryServer(host, port)) {
 			return true;
 		}
@@ -154,80 +147,17 @@ static bool FindServer(std::string &resultHost, int &resultPort) {
 	return false;
 }
 
-static bool LoadGameList(const std::string &host, int port, std::vector<std::string> &games) {
-	http::Client http;
-	Buffer result;
-	int code = 500;
-	std::vector<std::string> responseHeaders;
-	// TODO: Use relative url parsing (URL::Relative) instead.
-	std::string subdir = RemoteSubdir();
-
-	// Start by requesting the list of games from the server.
-	if (http.Resolve(host.c_str(), port)) {
-		if (http.Connect(2, 20.0, &scanCancelled)) {
-			code = http.GET(subdir.c_str(), &result, responseHeaders);
-			http.Disconnect();
-		}
-	}
-
-	if (code != 200 || scanCancelled) {
+static bool LoadGameList(const std::string &url, std::vector<std::string> &games) {
+	PathBrowser browser(url);
+	std::vector<FileInfo> files;
+	browser.GetListing(files, "iso:cso:pbp:elf:prx:ppdmp:", &scanCancelled);
+	if (scanCancelled) {
 		return false;
 	}
-
-	std::string listing;
-	std::vector<std::string> items;
-	result.TakeAll(&listing);
-
-	std::string contentType;
-	for (const std::string &header : responseHeaders) {
-		if (startsWithNoCase(header, "Content-Type:")) {
-			contentType = header.substr(strlen("Content-Type:"));
-			// Strip any whitespace (TODO: maybe move this to stringutil?)
-			contentType.erase(0, contentType.find_first_not_of(" \t\r\n"));
-			contentType.erase(contentType.find_last_not_of(" \t\r\n") + 1);
+	for (auto &file : files) {
+		if (RemoteISOFileSupported(file.name)) {
+			games.push_back(file.fullName);
 		}
-	}
-
-	// TODO: Technically, "TExt/hTml    ; chaRSet    =    Utf8" should pass, but "text/htmlese" should not.
-	// But unlikely that'll be an issue.
-	bool parseHtml = startsWithNoCase(contentType, "text/html");
-	bool parseText = startsWithNoCase(contentType, "text/plain");
-
-	if (parseText) {
-		// Plain text format - easy.
-		SplitString(listing, '\n', items);
-		subdir.clear();
-	} else if (parseHtml) {
-		// Try to extract from an automatic webserver directory listing...
-		GetQuotedStrings(listing, items);
-	} else {
-		ERROR_LOG(FILESYS, "Unsupported Content-Type: %s", contentType.c_str());
-		return false;
-	}
-
-	for (std::string item : items) {
-		// Apply some workarounds.
-		if (item.empty())
-			continue;
-
-		if (item[0] != '/')
-			item.insert(0, "/");
-		if (item.back() == '\r')
-			item.pop_back();
-
-		if (!RemoteISOFileSupported(item)) {
-			continue;
-		}
-
-		char temp[1024] = {};
-		snprintf(temp, sizeof(temp) - 1, "http://%s:%d%s%s", host.c_str(), port, subdir.c_str(), item.c_str());
-		games.push_back(temp);
-	}
-
-	// Save for next time unless manual is true
-	if (!games.empty() && !g_Config.bRemoteISOManual) {
-		g_Config.sLastRemoteISOServer = host;
-		g_Config.iLastRemoteISOPort = port;
 	}
 
 	return !games.empty();
@@ -327,7 +257,6 @@ RemoteISOConnectScreen::RemoteISOConnectScreen() : status_(ScanStatus::SCANNING)
 	scanThread_ = new std::thread([](RemoteISOConnectScreen *thiz) {
 		thiz->ExecuteScan();
 	}, this);
-	scanThread_->detach();
 }
 
 RemoteISOConnectScreen::~RemoteISOConnectScreen() {
@@ -341,6 +270,8 @@ RemoteISOConnectScreen::~RemoteISOConnectScreen() {
 			break;
 		}
 	}
+	if (scanThread_->joinable())
+		scanThread_->join();
 	delete scanThread_;
 }
 
@@ -384,11 +315,12 @@ void RemoteISOConnectScreen::update() {
 		status_ = ScanStatus::LOADING;
 
 		// Let's reuse scanThread_.
+		if (scanThread_->joinable())
+			scanThread_->join();
 		delete scanThread_;
 		scanThread_ = new std::thread([](RemoteISOConnectScreen *thiz) {
 			thiz->ExecuteLoad();
 		}, this);
-		scanThread_->detach();
 		break;
 
 	case ScanStatus::FAILED:
@@ -401,17 +333,18 @@ void RemoteISOConnectScreen::update() {
 			status_ = ScanStatus::SCANNING;
 			nextRetry_ = 0.0;
 
+			if (scanThread_->joinable())
+				scanThread_->join();
 			delete scanThread_;
 			scanThread_ = new std::thread([](RemoteISOConnectScreen *thiz) {
 				thiz->ExecuteScan();
 			}, this);
-			scanThread_->detach();
 		}
 		break;
 
 	case ScanStatus::LOADED:
 		TriggerFinish(DR_OK);
-		screenManager()->push(new RemoteISOBrowseScreen(games_));
+		screenManager()->push(new RemoteISOBrowseScreen(url_, games_));
 		break;
 	}
 }
@@ -432,9 +365,16 @@ ScanStatus RemoteISOConnectScreen::GetStatus() {
 }
 
 void RemoteISOConnectScreen::ExecuteLoad() {
-	bool result = LoadGameList(host_, port_, games_);
+	std::string subdir = RemoteSubdir();
+	url_ = StringFromFormat("http://%s:%d%s", host_.c_str(), port_, subdir.c_str());
+	bool result = LoadGameList(url_, games_);
 	if (scanAborted) {
 		return;
+	}
+
+	if (result && !games_.empty() && !g_Config.bRemoteISOManual) {
+		g_Config.sLastRemoteISOServer = host_;
+		g_Config.iLastRemoteISOPort = port_;
 	}
 
 	std::lock_guard<std::mutex> guard(statusLock_);
@@ -443,8 +383,8 @@ void RemoteISOConnectScreen::ExecuteLoad() {
 
 class RemoteGameBrowser : public GameBrowser {
 public:
-	RemoteGameBrowser(const std::vector<std::string> &games, bool allowBrowsing, bool *gridStyle_, std::string lastText, std::string lastLink, int flags = 0, UI::LayoutParams *layoutParams = 0)
-	: GameBrowser("!REMOTE", allowBrowsing, gridStyle_, lastText, lastLink, flags, layoutParams) {
+	RemoteGameBrowser(const std::string &url, const std::vector<std::string> &games, BrowseFlags browseFlags, bool *gridStyle_, std::string lastText, std::string lastLink, UI::LayoutParams *layoutParams = nullptr)
+	: GameBrowser(url, browseFlags, gridStyle_, lastText, lastLink, layoutParams) {
 		games_ = games;
 		Refresh();
 	}
@@ -456,6 +396,7 @@ protected:
 
 	bool HasSpecialFiles(std::vector<std::string> &filenames) override;
 
+	std::string url_;
 	std::vector<std::string> games_;
 };
 
@@ -464,7 +405,8 @@ bool RemoteGameBrowser::HasSpecialFiles(std::vector<std::string> &filenames) {
 	return true;
 }
 
-RemoteISOBrowseScreen::RemoteISOBrowseScreen(const std::vector<std::string> &games) : games_(games) {
+RemoteISOBrowseScreen::RemoteISOBrowseScreen(const std::string &url, const std::vector<std::string> &games)
+	: url_(url), games_(games) {
 }
 
 void RemoteISOBrowseScreen::CreateViews() {
@@ -485,7 +427,7 @@ void RemoteISOBrowseScreen::CreateViews() {
 	ScrollView *scrollRecentGames = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT));
 	scrollRecentGames->SetTag("RemoteGamesTab");
 	RemoteGameBrowser *tabRemoteGames = new RemoteGameBrowser(
-		games_, false, &g_Config.bGridView1, "", "", 0,
+		url_, games_, BrowseFlags::PIN, &g_Config.bGridView1, "", "",
 		new LinearLayoutParams(FILL_PARENT, FILL_PARENT));
 	scrollRecentGames->Add(tabRemoteGames);
 	gameBrowsers_.push_back(tabRemoteGames);
@@ -592,7 +534,7 @@ UI::EventReturn RemoteISOSettingsScreen::OnChangeRemoteISOSubdir(UI::EventParams
 	ReplaceAll(g_Config.sRemoteISOSubdir, " ", "%20");
 	ReplaceAll(g_Config.sRemoteISOSubdir, "\\", "/");
 	//Make sure it begins with /
-	if (g_Config.sRemoteISOSubdir[0] != '/')
+	if (g_Config.sRemoteISOSubdir.empty() || g_Config.sRemoteISOSubdir[0] != '/')
 		g_Config.sRemoteISOSubdir = "/" + g_Config.sRemoteISOSubdir;
 	
 	return UI::EVENT_DONE;

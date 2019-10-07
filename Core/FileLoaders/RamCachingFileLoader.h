@@ -19,6 +19,7 @@
 
 #include <vector>
 #include <mutex>
+#include <thread>
 
 #include "Common/CommonTypes.h"
 #include "Core/Loaders.h"
@@ -65,6 +66,7 @@ private:
 	std::mutex blocksMutex_;
 	u32 aheadRemaining_;
 	s64 aheadPos_;
-	bool aheadThread_ = false;
+	std::thread aheadThread_;
+	bool aheadThreadRunning_ = false;
 	bool aheadCancel_ = false;
 };

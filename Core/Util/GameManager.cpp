@@ -44,8 +44,7 @@
 
 GameManager g_GameManager;
 
-GameManager::GameManager()
-	: installInProgress_(false), installProgress_(0.0f) {
+GameManager::GameManager() {
 }
 
 std::string GameManager::GetTempFilename() const {
@@ -66,7 +65,7 @@ bool GameManager::IsGameInstalled(std::string name) {
 }
 
 bool GameManager::DownloadAndInstall(std::string storeFileUrl) {
-	if (curDownload_.get() != 0) {
+	if (curDownload_.get() != nullptr) {
 		ERROR_LOG(HLE, "Can only process one download at a time");
 		return false;
 	}
@@ -130,6 +129,15 @@ void GameManager::Update() {
 			File::Delete(fileName.c_str());
 		}
 		curDownload_.reset();
+	}
+
+	if (installDonePending_) {
+		if (installThread_.get() != nullptr) {
+			if (installThread_->joinable())
+				installThread_->join();
+			installThread_.reset();
+		}
+		installDonePending_ = false;
 	}
 }
 
@@ -608,7 +616,6 @@ bool GameManager::InstallGameOnThread(std::string url, std::string fileName, boo
 		return false;
 	}
 	installThread_.reset(new std::thread(std::bind(&GameManager::InstallGame, this, url, fileName, deleteAfter)));
-	installThread_->detach();
 	return true;
 }
 
@@ -628,7 +635,5 @@ bool GameManager::InstallRawISO(const std::string &file, const std::string &orig
 }
 
 void GameManager::InstallDone() {
-	if (installThread_.get() != 0) {
-		installThread_.reset();
-	}
+	installDonePending_ = true;
 }

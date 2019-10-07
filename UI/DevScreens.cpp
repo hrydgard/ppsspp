@@ -42,6 +42,7 @@
 #include "GPU/GPUState.h"
 #include "UI/MiscScreens.h"
 #include "UI/DevScreens.h"
+#include "UI/ControlMappingScreen.h"
 #include "UI/GameSettingsScreen.h"
 
 #ifdef _WIN32

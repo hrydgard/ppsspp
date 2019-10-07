@@ -173,6 +173,14 @@ struct TransitionRequest {
 	VkImageLayout targetLayout;
 };
 
+struct QueueProfileContext {
+	VkQueryPool queryPool;
+	std::vector<std::string> timestampDescriptions;
+	std::string profileSummary;
+	double cpuStartTime;
+	double cpuEndTime;
+};
+
 struct VKRStep {
 	VKRStep(VKRStepType _type) : stepType(_type) {}
 	~VKRStep() {}
@@ -232,7 +240,7 @@ public:
 	}
 
 	// RunSteps can modify steps but will leave it in a valid state.
-	void RunSteps(VkCommandBuffer cmd, std::vector<VKRStep *> &steps, VkQueryPool queryPool, std::vector<std::string> *timestampDescriptions);
+	void RunSteps(VkCommandBuffer cmd, std::vector<VKRStep *> &steps, QueueProfileContext *profile);
 	void LogSteps(const std::vector<VKRStep *> &steps);
 
 	std::string StepToString(const VKRStep &step) const;

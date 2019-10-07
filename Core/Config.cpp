@@ -1160,8 +1160,9 @@ void Config::Load(const char *iniFileName, const char *controllerIniFilename) {
 	vPinnedPaths.clear();
 	for (auto it = pinnedPaths.begin(), end = pinnedPaths.end(); it != end; ++it) {
 		// Unpin paths that are deleted automatically.
-		if (File::Exists(it->second)) {
-			vPinnedPaths.push_back(File::ResolvePath(it->second));
+		const std::string &path = it->second;
+		if (startsWith(path, "http://") || startsWith(path, "https://") || File::Exists(path)) {
+			vPinnedPaths.push_back(File::ResolvePath(path));
 		}
 	}
 

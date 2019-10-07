@@ -210,7 +210,6 @@ bool GenerateVulkanGLSLVertexShader(const VShaderID &id, char *buffer) {
 		WRITE(p, "  return vec4(v.x, v.y, z * v.w, v.w);\n");
 		WRITE(p, "}\n\n");
 	}
-	WRITE(p, "out gl_PerVertex { vec4 gl_Position; };\n");
 
 	if (doBezier || doSpline) {
 		WRITE(p, "struct TessData {\n");
@@ -638,6 +637,7 @@ bool GenerateVulkanGLSLVertexShader(const VShaderID &id, char *buffer) {
 		WRITE(p, "  }\n");
 	}
 	WRITE(p, "  gl_Position = outPos;\n");
+	WRITE(p, "  gl_PointSize = 1.0;\n");
 
 	if (gstate_c.Supports(GPU_NEEDS_Z_EQUAL_W_HACK)) {
 		// See comment in GPU_Vulkan.cpp.

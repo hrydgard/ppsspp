@@ -24,9 +24,30 @@
 #include "ui/viewgroup.h"
 #include "UI/MiscScreens.h"
 
+enum GameBrowserFlags {
+	FLAG_HOMEBREWSTOREBUTTON = 1
+};
+
+enum class BrowseFlags {
+	NONE = 0,
+	NAVIGATE = 1,
+	ARCHIVES = 2,
+	PIN = 4,
+	HOMEBREW_STORE = 8,
+	STANDARD = 1 | 2 | 4,
+};
+
+static inline BrowseFlags operator |(const BrowseFlags &lhs, const BrowseFlags &rhs) {
+	return BrowseFlags((int)lhs | (int)rhs);
+}
+
+static inline bool operator &(const BrowseFlags &lhs, const BrowseFlags &rhs) {
+	return ((int)lhs & (int)rhs) != 0;
+}
+
 class GameBrowser : public UI::LinearLayout {
 public:
-	GameBrowser(std::string path, bool allowBrowsing, bool *gridStyle_, std::string lastText, std::string lastLink, int flags = 0, UI::LayoutParams *layoutParams = 0);
+	GameBrowser(std::string path, BrowseFlags browseFlags, bool *gridStyle, std::string lastText, std::string lastLink, UI::LayoutParams *layoutParams = nullptr);
 
 	UI::Event OnChoice;
 	UI::Event OnHoldChoice;
@@ -36,6 +57,8 @@ public:
 
 	void FocusGame(const std::string &gamePath);
 	void SetPath(const std::string &path);
+
+	void Update() override;
 
 protected:
 	virtual bool DisplayTopBar();
@@ -57,15 +80,15 @@ private:
 	UI::EventReturn HomeClick(UI::EventParams &e);
 	UI::EventReturn PinToggleClick(UI::EventParams &e);
 
-	UI::ViewGroup *gameList_;
+	UI::ViewGroup *gameList_ = nullptr;
 	PathBrowser path_;
 	bool *gridStyle_;
-	bool allowBrowsing_;
+	BrowseFlags browseFlags_;
 	std::string lastText_;
 	std::string lastLink_;
-	int flags_;
-	UI::Choice *homebrewStoreButton_;
+	UI::Choice *homebrewStoreButton_ = nullptr;
 	std::string focusGamePath_;
+	bool listingPending_ = false;
 };
 
 class RemoteISOBrowseScreen;

@@ -15,6 +15,7 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
+#include <deque>
 #include <thread>
 #include <mutex>
 #include <condition_variable>
@@ -70,6 +71,13 @@ namespace Reporting
 	// The latest compatibility result from the server.
 	static std::vector<std::string> lastCompatResult;
 
+	static std::mutex pendingMessageLock;
+	static std::condition_variable pendingMessageCond;
+	static std::deque<int> pendingMessages;
+	static bool pendingMessagesDone = false;
+	static std::thread messageThread;
+	static std::thread compatThread;
+
 	enum class RequestType
 	{
 		NONE,
@@ -93,6 +101,7 @@ namespace Reporting
 	static std::condition_variable crcCond;
 	static std::string crcFilename;
 	static std::map<std::string, u32> crcResults;
+	static std::thread crcThread;
 
 	static int CalculateCRCThread() {
 		setCurrentThreadName("ReportCRC");
@@ -133,8 +142,7 @@ namespace Reporting
 		}
 
 		crcFilename = gamePath;
-		std::thread th(CalculateCRCThread);
-		th.detach();
+		crcThread = std::thread(CalculateCRCThread);
 	}
 
 	u32 RetrieveCRC() {
@@ -148,6 +156,8 @@ namespace Reporting
 			it = crcResults.find(gamePath);
 		}
 
+		if (crcThread.joinable())
+			crcThread.join();
 		return it->second;
 	}
 
@@ -269,6 +279,8 @@ namespace Reporting
 		return "Mac";
 #elif defined(LOONGSON)
 		return "Loongson";
+#elif defined(__SWITCH__)
+		return "Switch";
 #elif defined(__linux__)
 		return "Linux";
 #elif defined(__Bitrig__)
@@ -295,10 +307,20 @@ namespace Reporting
 		logOnceUsed.clear();
 		everUnsupported = false;
 		currentSupported = IsSupported();
+		pendingMessagesDone = false;
 	}
 
 	void Shutdown()
 	{
+		pendingMessageLock.lock();
+		pendingMessagesDone = true;
+		pendingMessageCond.notify_one();
+		pendingMessageLock.unlock();
+		if (compatThread.joinable())
+			compatThread.join();
+		if (messageThread.joinable())
+			messageThread.join();
+
 		// Just so it can be enabled in the menu again.
 		Init();
 	}
@@ -541,6 +563,28 @@ namespace Reporting
 		return -1;
 	}
 
+	int ProcessPending() {
+		setCurrentThreadName("Report");
+
+		std::unique_lock<std::mutex> guard(pendingMessageLock);
+		while (!pendingMessagesDone) {
+			while (!pendingMessages.empty() && !pendingMessagesDone) {
+				int pos = pendingMessages.front();
+				pendingMessages.pop_front();
+
+				guard.unlock();
+				Process(pos);
+				guard.lock();
+			}
+			if (pendingMessagesDone) {
+				break;
+			}
+			pendingMessageCond.wait(guard);
+		}
+
+		return 0;
+	}
+
 	void ReportMessage(const char *message, ...)
 	{
 		if (!IsEnabled() || CheckSpamLimited())
@@ -563,8 +607,13 @@ namespace Reporting
 		payload.string1 = message;
 		payload.string2 = temp;
 
-		std::thread th(Process, pos);
-		th.detach();
+		std::lock_guard<std::mutex> guard(pendingMessageLock);
+		pendingMessages.push_back(pos);
+		pendingMessageCond.notify_one();
+
+		if (!messageThread.joinable()) {
+			messageThread = std::thread(ProcessPending);
+		}
 	}
 
 	void ReportMessageFormatted(const char *message, const char *formatted)
@@ -580,8 +629,13 @@ namespace Reporting
 		payload.string1 = message;
 		payload.string2 = formatted;
 
-		std::thread th(Process, pos);
-		th.detach();
+		std::lock_guard<std::mutex> guard(pendingMessageLock);
+		pendingMessages.push_back(pos);
+		pendingMessageCond.notify_one();
+
+		if (!messageThread.joinable()) {
+			messageThread = std::thread(ProcessPending);
+		}
 	}
 
 	void ReportCompatibility(const char *compat, int graphics, int speed, int gameplay, const std::string &screenshotFilename)
@@ -600,8 +654,9 @@ namespace Reporting
 		payload.int2 = speed;
 		payload.int3 = gameplay;
 
-		std::thread th(Process, pos);
-		th.detach();
+		if (compatThread.joinable())
+			compatThread.join();
+		compatThread = std::thread(Process, pos);
 	}
 
 	std::vector<std::string> CompatibilitySuggestions() {

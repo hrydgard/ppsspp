@@ -1,7 +1,12 @@
+#include "ppsspp_config.h"
 #ifdef _WIN32
 #include <windows.h>
 #undef min
 #undef max
+#endif
+#if PPSSPP_PLATFORM(SWITCH)
+#define _GNU_SOURCE
+#include <stdio.h>
 #endif
 #include <string.h>
 #include <stdarg.h>

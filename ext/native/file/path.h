@@ -1,7 +1,10 @@
 #pragma once
 
+#include <condition_variable>
+#include <mutex>
 #include <string>
 #include <string.h>
+#include <thread>
 #include <vector>
 #include <stdlib.h>
 
@@ -14,9 +17,11 @@ class PathBrowser {
 public:
 	PathBrowser() {}
 	PathBrowser(std::string path) { SetPath(path); }
+	~PathBrowser();
 
 	void SetPath(const std::string &path);
-	void GetListing(std::vector<FileInfo> &fileInfo, const char *filter = 0);
+	bool IsListingReady();
+	bool GetListing(std::vector<FileInfo> &fileInfo, const char *filter = nullptr, bool *cancel = nullptr);
 	void Navigate(const std::string &path);
 
 	std::string GetPath() const {
@@ -39,6 +44,17 @@ public:
 		return str;
 	}
 
+private:
+	void HandlePath();
+
 	std::string path_;
+	std::string pendingPath_;
+	std::vector<FileInfo> pendingFiles_;
+	std::condition_variable pendingCond_;
+	std::mutex pendingLock_;
+	std::thread pendingThread_;
+	bool pendingCancel_ = false;
+	bool pendingStop_ = false;
+	bool ready_ = false;
 };
 

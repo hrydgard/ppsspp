@@ -14,7 +14,12 @@ No BIOS file required to play, PPSSPP is an "HLE" emulator.  Default settings ba
  Includes adhoc between multiply instances of PPSSPP on same PC with some additional options to make that easier.
  ~ LunaMoo
 
-What's new in 1.9.0/1.9.1
+What's new in 1.9.0/1.9.3
+-------------------------
+* Sizing/touch fixes on Android
+* Fixes for some crashes
+
+What's new in 1.9.0/1.9.2
 -------------------------
 * Flicker fixed in God of War that appeared with newer drivers for Mali GPUs (#12224)
 * Improve performance of God of War on Vulkan (#12242), implement built-in GPU profiler (#12262, #12266)
