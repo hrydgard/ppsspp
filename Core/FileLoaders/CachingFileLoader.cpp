@@ -109,9 +109,11 @@ void CachingFileLoader::ShutdownCache() {
 	// TODO: Maybe add some hint that deletion is coming soon?
 	// We can't delete while the thread is running, so have to wait.
 	// This should only happen from the menu.
-	while (aheadThread_) {
+	while (aheadThreadRunning_) {
 		sleep_ms(1);
 	}
+	if (aheadThread_.joinable())
+		aheadThread_.join();
 
 	std::lock_guard<std::recursive_mutex> guard(blocksMutex_);
 	for (auto block : blocks_) {
@@ -252,7 +254,7 @@ bool CachingFileLoader::MakeCacheSpaceFor(size_t blocks, bool readingAhead) {
 
 void CachingFileLoader::StartReadAhead(s64 pos) {
 	std::lock_guard<std::recursive_mutex> guard(blocksMutex_);
-	if (aheadThread_) {
+	if (aheadThreadRunning_) {
 		// Already going.
 		return;
 	}
@@ -261,8 +263,10 @@ void CachingFileLoader::StartReadAhead(s64 pos) {
 		return;
 	}
 
-	aheadThread_ = true;
-	std::thread th([this, pos] {
+	aheadThreadRunning_ = true;
+	if (aheadThread_.joinable())
+		aheadThread_.join();
+	aheadThread_ = std::thread([this, pos] {
 		setCurrentThreadName("FileLoaderReadAhead");
 
 		std::unique_lock<std::recursive_mutex> guard(blocksMutex_);
@@ -278,7 +282,6 @@ void CachingFileLoader::StartReadAhead(s64 pos) {
 			}
 		}
 
-		aheadThread_ = false;
+		aheadThreadRunning_ = false;
 	});
-	th.detach();
 }

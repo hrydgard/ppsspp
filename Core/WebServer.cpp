@@ -288,7 +288,6 @@ bool StartWebServer(WebServerFlags flags) {
 		serverStatus = ServerStatus::STARTING;
 		serverFlags = (int)flags;
 		serverThread = std::thread(&ExecuteWebServer);
-		serverThread.detach();
 		return true;
 
 	default:
@@ -320,4 +319,10 @@ bool WebServerStopped(WebServerFlags flags) {
 		return (serverFlags & (int)flags) == 0;
 	}
 	return serverStatus == ServerStatus::STOPPED;
+}
+
+void ShutdownWebServer() {
+	StopWebServer(WebServerFlags::ALL);
+	if (serverThread.joinable())
+		serverThread.join();
 }
