@@ -153,6 +153,8 @@ void DrawEngineVulkan::InitDeviceObjects() {
 		frame_[i].pushUBO = new VulkanPushBuffer(vulkan_, 8 * 1024 * 1024, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_SRC_BIT);
 		frame_[i].pushVertex = new VulkanPushBuffer(vulkan_, 2 * 1024 * 1024, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT);
 		frame_[i].pushIndex = new VulkanPushBuffer(vulkan_, 1 * 1024 * 1024, VK_BUFFER_USAGE_INDEX_BUFFER_BIT);
+
+		frame_[i].pushLocal = new VulkanPushBuffer(vulkan_, 1 * 1024 * 1024, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
 	}
 
 	VkPipelineLayoutCreateInfo pl{ VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO };
@@ -209,6 +211,11 @@ void DrawEngineVulkan::FrameData::Destroy(VulkanContext *vulkan) {
 		delete pushIndex;
 		pushIndex = nullptr;
 	}
+	if (pushLocal) {
+		pushLocal->Destroy(vulkan);
+		delete pushLocal;
+		pushLocal = nullptr;
+	}
 }
 
 void DrawEngineVulkan::DestroyDeviceObjects() {
@@ -264,10 +271,12 @@ void DrawEngineVulkan::BeginFrame() {
 	frame->pushUBO->Reset();
 	frame->pushVertex->Reset();
 	frame->pushIndex->Reset();
+	frame->pushLocal->Reset();
 
 	frame->pushUBO->Begin(vulkan_);
 	frame->pushVertex->Begin(vulkan_);
 	frame->pushIndex->Begin(vulkan_);
+	frame->pushLocal->Begin(vulkan_);
 
 	// TODO: How can we make this nicer...
 	tessDataTransferVulkan->SetPushBuffer(frame->pushUBO);
@@ -324,6 +333,7 @@ void DrawEngineVulkan::EndFrame() {
 	frame->pushUBO->End();
 	frame->pushVertex->End();
 	frame->pushIndex->End();
+	frame->pushLocal->End();
 	vertexCache_->End();
 }
 

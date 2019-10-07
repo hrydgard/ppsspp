@@ -764,6 +764,7 @@ static ConfigSetting graphicsSettings[] = {
 	ReportedConfigSetting("TexScalingType", &g_Config.iTexScalingType, 0, true, true),
 	ReportedConfigSetting("TexDeposterize", &g_Config.bTexDeposterize, false, true, true),
 	ReportedConfigSetting("TexRealtime", &g_Config.bRealtimeTexScaling, false, true, true),
+	ReportedConfigSetting("TexHardwareScaling", &g_Config.bTexHardwareScaling, false, true, true),
 	ConfigSetting("UnlockCachedScaling", &g_Config.bUnlockCachedScaling, false, true, true),
 	ConfigSetting("VSyncInterval", &g_Config.bVSync, true, true, true),
 	ReportedConfigSetting("BloomHack", &g_Config.iBloomHack, 2, true, true),

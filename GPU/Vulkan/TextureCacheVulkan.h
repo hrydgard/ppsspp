@@ -25,6 +25,7 @@
 #include "Common/Vulkan/VulkanContext.h"
 #include "GPU/Vulkan/TextureScalerVulkan.h"
 #include "GPU/Common/TextureCacheCommon.h"
+#include "GPU/Vulkan/VulkanUtil.h"
 
 struct VirtualFramebuffer;
 class FramebufferManagerVulkan;
@@ -126,6 +127,8 @@ private:
 	VulkanDeviceAllocator *allocator_ = nullptr;
 	VulkanPushBuffer *push_ = nullptr;
 
+	VulkanComputeShaderManager computeShaderManager_;
+
 	SamplerCache samplerCache_;
 
 	TextureScalerVulkan scaler;
@@ -141,6 +144,9 @@ private:
 	ShaderManagerVulkan *shaderManagerVulkan_;
 	DrawEngineVulkan *drawEngine_;
 	Vulkan2D *vulkan2D_;
+
+	VkShaderModule uploadCS_ = VK_NULL_HANDLE;
+	VkShaderModule copyCS_ = VK_NULL_HANDLE;
 
 	// Bound state to emulate an API similar to the others
 	VkImageView imageView_ = VK_NULL_HANDLE;

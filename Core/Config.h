@@ -180,6 +180,7 @@ public:
 	bool bRealtimeTexScaling;
 	bool bTexDeposterize;
 	bool bUnlockCachedScaling;
+	bool bTexHardwareScaling;
 	int iFpsLimit1;
 	int iFpsLimit2;
 	int iMaxRecent;
