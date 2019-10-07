@@ -399,8 +399,9 @@ public:
 	static int GetStaticIDType() { return SCE_KERNEL_TMID_Thread; }
 	int GetIDType() const override { return SCE_KERNEL_TMID_Thread; }
 
-	bool AllocateStack(u32 &stackSize)
-	{
+	bool AllocateStack(u32 &stackSize) {
+		_assert_msg_(SCEKERNEL, stackSize >= 0x200, "thread stack should be 256 bytes or larger");
+
 		FreeStack();
 
 		bool fromTop = (nt.attr & PSP_THREAD_ATTR_LOW_STACK) == 0;
@@ -1181,6 +1182,14 @@ const char *__KernelGetThreadName(SceUID threadID)
 	if (t)
 		return t->nt.name;
 	return "ERROR";
+}
+
+bool KernelIsThreadDormant(SceUID threadID) {
+	u32 error;
+	Thread *t = kernelObjects.Get<Thread>(threadID, error);
+	if (t)
+		return (t->nt.status & (THREADSTATUS_DEAD | THREADSTATUS_DORMANT)) != 0;
+	return 0;
 }
 
 u32 __KernelGetWaitValue(SceUID threadID, u32 &error)
@@ -2122,7 +2131,7 @@ void __KernelReturnFromThread()
 	Thread *thread = __GetCurrentThread();
 	_dbg_assert_msg_(SCEKERNEL, thread != NULL, "Returned from a NULL thread.");
 
-	INFO_LOG(SCEKERNEL,"__KernelReturnFromThread: %d", exitStatus);
+	DEBUG_LOG(SCEKERNEL, "__KernelReturnFromThread: %d", exitStatus);
 	__KernelStopThread(currentThread, exitStatus, "thread returned");
 
 	hleReSchedule("thread returned");
@@ -2350,6 +2359,13 @@ int sceKernelTerminateThread(SceUID threadID) {
 SceUID __KernelGetCurThread()
 {
 	return currentThread;
+}
+
+int KernelCurThreadPriority() {
+	Thread *t = __GetCurrentThread();
+	if (t)
+		return t->nt.currentPriority;
+	return 0;
 }
 
 SceUID __KernelGetCurThreadModuleId()

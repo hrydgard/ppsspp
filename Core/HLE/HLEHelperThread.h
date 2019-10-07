@@ -31,6 +31,10 @@ public:
 
 	void Start(u32 a0, u32 a1);
 	void Terminate();
+	bool Stopped();
+
+	// For savestates.
+	void Forget();
 
 private:
 	void AllocEntry(u32 size);
