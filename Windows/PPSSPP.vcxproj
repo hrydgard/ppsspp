@@ -849,6 +849,7 @@
     </ClInclude>
     <ClInclude Include="..\android\jni\TestRunner.h" />
     <ClInclude Include="..\ios\ViewController.h" />
+    <ClInclude Include="..\ppsspp_config.h" />
     <ClInclude Include="..\Qt\mainwindow.h" />
     <ClInclude Include="..\Qt\QtHost.h">
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>

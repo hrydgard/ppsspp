@@ -68,7 +68,7 @@ ConsoleListener::ConsoleListener() : bHidden(true)
 	bUseColor = false;
 #elif defined(IOS)
 	bUseColor = false;
-#elif PPSSPP_PLATFORM(UWP)
+#elif PPSSPP_PLATFORM(UWP) || PPSSPP_PLATFORM(SWITCH)
 	bUseColor = false;
 #elif defined(_MSC_VER)
 	bUseColor = false;

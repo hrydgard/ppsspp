@@ -269,6 +269,8 @@ namespace Reporting
 		return "Mac";
 #elif defined(LOONGSON)
 		return "Loongson";
+#elif defined(__SWITCH__)
+		return "Switch";
 #elif defined(__linux__)
 		return "Linux";
 #elif defined(__Bitrig__)

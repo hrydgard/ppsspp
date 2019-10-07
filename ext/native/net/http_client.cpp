@@ -86,7 +86,6 @@ bool Connection::Connect(int maxTries, double timeout, bool *cancelConnect) {
 		int maxfd = 1;
 		FD_ZERO(&fds);
 		for (addrinfo *possible = resolved_; possible != nullptr; possible = possible->ai_next) {
-			// TODO: Could support ipv6 without huge difficulty...
 			if (possible->ai_family != AF_INET && possible->ai_family != AF_INET6)
 				continue;
 
