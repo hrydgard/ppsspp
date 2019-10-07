@@ -838,8 +838,10 @@ public abstract class NativeActivity extends Activity implements SurfaceHolder.C
 
 	@Override
 	public void onAttachedToWindow() {
+		Log.i(TAG, "onAttachedToWindow");
+		super.onAttachedToWindow();
+
 		if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
-			Log.i(TAG, "onAttachedToWindow");
 			DisplayCutout cutout = getWindow().getDecorView().getRootWindowInsets().getDisplayCutout();
 			if (cutout != null) {
 				safeInsetLeft = cutout.getSafeInsetLeft();
@@ -854,6 +856,10 @@ public abstract class NativeActivity extends Activity implements SurfaceHolder.C
 				safeInsetTop = 0;
 				safeInsetBottom = 0;
 			}
+		}
+
+		if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.KITKAT) {
+			setupSystemUiCallback();
 		}
 	}
 
