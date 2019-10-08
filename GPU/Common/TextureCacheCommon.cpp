@@ -201,7 +201,7 @@ void TextureCacheCommon::GetSamplingParams(int &minFilt, int &magFilt, bool &sCl
 		}
 	}
 	// addr is set to nullptr for framebuffers
-	if (addr && g_Config.bRealtimeTexScaling && g_Config.iTexScalingLevel != 1) {
+	if (addr && (g_Config.bRealtimeTexScaling && g_Config.iGPUBackend == (int)GPUBackend::DIRECT3D11) && g_Config.iTexScalingLevel != 1) {
 		forceNearest = true;
 	}
 	if (forceNearest) {
@@ -954,8 +954,10 @@ bool TextureCacheCommon::SetOffsetTexture(u32 offset) {
 void TextureCacheCommon::NotifyConfigChanged() {
 	int scaleFactor;
 
-	if (g_Config.bRealtimeTexScaling) {
+	if (g_Config.bRealtimeTexScaling && g_Config.iGPUBackend == (int)GPUBackend::DIRECT3D11) {
 		scaleFactor = 1;
+	} else if (g_Config.bTexHardwareScaling && g_Config.iGPUBackend == (int)GPUBackend::VULKAN) {
+		scaleFactor = 4;
 	} else {
 		// 0 means automatic texture scaling, up to 5x, based on resolution.
 		if (g_Config.iTexScalingLevel == 0) {

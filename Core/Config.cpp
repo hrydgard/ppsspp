@@ -435,7 +435,7 @@ static ConfigSetting generalSettings[] = {
 	ConfigSetting("CheckForNewVersion", &g_Config.bCheckForNewVersion, false),
 	ConfigSetting("Language", &g_Config.sLanguageIni, &DefaultLangRegion),
 	ConfigSetting("ForceLagSync2", &g_Config.bForceLagSync, false, true, true),
-	ConfigSetting("DiscordPresence", &g_Config.bDiscordPresence, false, false, false),  // Or maybe it makes sense to have it per-game? Race conditions abound...
+	ConfigSetting("DiscordPresence", &g_Config.bDiscordPresence, false, true, false),  // Or maybe it makes sense to have it per-game? Race conditions abound...
 
 	ReportedConfigSetting("NumWorkerThreads", &g_Config.iNumWorkerThreads, &DefaultNumWorkers, true, true),
 	ConfigSetting("AutoLoadSaveState", &g_Config.iAutoLoadSaveState, 0, true, true),

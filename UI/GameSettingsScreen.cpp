@@ -430,11 +430,17 @@ void GameSettingsScreen::CreateViews() {
 		return UI::EVENT_CONTINUE;
 	});
 	texScalingChoice->SetDisabledPtr(&g_Config.bSoftwareRendering);
+	if (g_Config.iGPUBackend == (int)GPUBackend::VULKAN) {
+		texScalingChoice->SetDisabledPtr(&g_Config.bTexHardwareScaling);
+	}
 
 	if (!g_Config.bSimpleUI) {
 	static const char *texScaleAlgos[] = { "xBRZ", "Hybrid", "Bicubic", "Hybrid + Bicubic", "4xBRZ (Realtime Scaling)", "xBR (Realtime Scaling)", "SABR (Realtime Scaling)", "Gaussian (Realtime Scaling)", "Cosine (Realtime Scaling)" };
 	PopupMultiChoice *texScalingType = graphicsSettings->Add(new PopupMultiChoice(&g_Config.iTexScalingType, gr->T("Upscale Type"), texScaleAlgos, 0, ARRAY_SIZE(texScaleAlgos), gr->GetName(), screenManager()));
 	texScalingType->SetDisabledPtr(&g_Config.bSoftwareRendering);
+	if (g_Config.iGPUBackend == (int)GPUBackend::VULKAN) {
+		texScalingType->SetDisabledPtr(&g_Config.bTexHardwareScaling);
+	}
 
 	CheckBox *deposterize = graphicsSettings->Add(new CheckBox(&g_Config.bTexDeposterize, gr->T("Deposterize")));
 	deposterize->OnClick.Add([=](EventParams &e) {
@@ -457,6 +463,19 @@ void GameSettingsScreen::CreateViews() {
 	} else {
 		Choice *realtimeScaling = graphicsSettings->Add(new Choice(gr->T("Realtime Scaling requires D3D11 backend!")));
 		realtimeScaling->SetEnabled(false);
+	}
+	if (g_Config.iGPUBackend == (int)GPUBackend::VULKAN) {
+		CheckBox* hardware4xBRZScaling = graphicsSettings->Add(new CheckBox(&g_Config.bTexHardwareScaling, gr->T("Hardware 4xBRZ Scaling(experimental)")));
+		hardware4xBRZScaling->OnClick.Add([=](EventParams& e) {
+			if (g_Config.bTexHardwareScaling == true) {
+				settingInfo_->Show(gr->T("Hardware 4xBRZ Scaling Tip", "Apply 4xBRZ texture scaling filter with compute shader"), e.v);
+			}
+			return UI::EVENT_CONTINUE;
+			});
+		hardware4xBRZScaling->SetDisabledPtr(&g_Config.bSoftwareRendering);
+	} else {
+		Choice* hardware4xBRZScaling = graphicsSettings->Add(new Choice(gr->T("Hardware 4xBRZ Scaling(experimental) requires Vulkan backend!")));
+		hardware4xBRZScaling->SetEnabled(false);
 	}
 	graphicsSettings->Add(new ItemHeader(gr->T("Texture Filtering")));
 	static const char *anisoLevels[] = { "Off", "2x", "4x", "8x", "16x" };
@@ -1464,9 +1483,12 @@ void OtherSettingsScreen::CreateViews() {
 	list->Add(new CheckBox(&g_Config.bFrameSkipUnthrottle, gr->T("Frameskip unthrottle(good for CPU benchmark)")));
 	list->Add(new CheckBox(&g_Config.bShowFrameProfiler, gr->T("Display frame profiler(heavy!)")));
 	list->Add(new CheckBox(&g_Config.bSimpleFrameStats, gr->T("Display simple frame stats(heavy!)")));
+	list->Add(new CheckBox(&g_Config.bFullscreenOnDoubleclick, gr->T("Doubleclick fullscreen(only when no mouse or touch control is used)")));
+	list->Add(new CheckBox(&g_Config.bHideSlowWarnings, gr->T("Hide performance warnings")));
 	list->Add(new CheckBox(&g_Config.bSavestateScreenshotResLimit, gr->T("Limit resolution of savestates screenshots")));
+	list->Add(new CheckBox(&g_Config.bEnableStateUndo, gr->T("Backup existing state on save")));
 	list->Add(new CheckBox(&g_Config.bDiscordPresence, n->T("Send Discord(3rd party software) Presence information")));
-	list->Add(new CheckBox(&g_Config.bUnlockCachedScaling, n->T("Disable texture scaling limiters. Only for testing, this WILL cause stutter even at max FPS! Strongly recommend real time scaling instead!)")));
+	list->Add(new CheckBox(&g_Config.bUnlockCachedScaling, n->T("Disable texture scaling limiters. Only for testing, this WILL cause stutter even at max FPS! Strongly recommend real time(D3D11) or hardware(Vulkan) scaling instead!")));
 #if defined(USING_WIN_UI)
 	list->Add(new CheckBox(&g_Config.bDisableWinMenu, n->T("Disable Windows menu bar")))->OnClick.Handle(this, &OtherSettingsScreen::OnDisableWinBorders);
 	list->Add(new CheckBox(&g_Config.bDisableWinBorders, n->T("Disable Windows borders")))->OnClick.Handle(this, &OtherSettingsScreen::OnDisableWinBorders);
