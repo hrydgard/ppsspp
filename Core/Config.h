@@ -170,6 +170,7 @@ public:
 	int iTexScalingLevel; // 0 = auto, 1 = off, 2 = 2x, ..., 5 = 5x
 	int iTexScalingType; // 0 = xBRZ, 1 = Hybrid
 	bool bTexDeposterize;
+	bool bTexHardwareScaling;
 	int iFpsLimit1;
 	int iFpsLimit2;
 	int iMaxRecent;
