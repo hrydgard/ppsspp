@@ -25,9 +25,9 @@ MainWindow::MainWindow(QWidget *parent, bool fullscreen) :
 	QDesktopWidget *desktop = QApplication::desktop();
 	int screenNum = QProcessEnvironment::systemEnvironment().value("SDL_VIDEO_FULLSCREEN_HEAD", "0").toInt();
 	
-	// Move window to top left coordinate of selected screen
+	// Move window to the center of selected screen
 	QRect rect = desktop->screenGeometry(screenNum);
-	move(rect.topLeft());
+	move((rect.width()-frameGeometry().width()) / 4, (rect.height()-frameGeometry().height()) / 4);
 
 	SetGameTitle("");
 	emugl = new MainUI(this);
