@@ -1487,6 +1487,7 @@ void OtherSettingsScreen::CreateViews() {
 	list->Add(new CheckBox(&g_Config.bHideSlowWarnings, gr->T("Hide performance warnings")));
 	list->Add(new CheckBox(&g_Config.bSavestateScreenshotResLimit, gr->T("Limit resolution of savestates screenshots")));
 	list->Add(new CheckBox(&g_Config.bEnableStateUndo, gr->T("Backup existing state on save")));
+	list->Add(new CheckBox(&g_Config.bFuncHashMap, gr->T("Save hash of a renamed function to knownfuncs.ini")));
 	list->Add(new CheckBox(&g_Config.bDiscordPresence, n->T("Send Discord(3rd party software) Presence information")));
 	list->Add(new CheckBox(&g_Config.bUnlockCachedScaling, n->T("Disable texture scaling limiters. Only for testing, this WILL cause stutter even at max FPS! Strongly recommend real time(D3D11) or hardware(Vulkan) scaling instead!")));
 #if defined(USING_WIN_UI)
