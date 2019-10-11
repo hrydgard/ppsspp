@@ -91,7 +91,8 @@ public:
 			return S_OK;
 		}
 
-		if (!wcscmp(currentDevice_, pwstrDeviceId)) {
+		// pwstrDeviceId can be null. We consider that a new device, I think?
+		if (pwstrDeviceId && !wcscmp(currentDevice_, pwstrDeviceId)) {
 			// Already the current device, nothing to do.
 			return S_OK;
 		}
