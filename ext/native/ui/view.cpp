@@ -824,28 +824,6 @@ void ImageView::Draw(UIContext &dc) {
 	dc.Draw()->DrawImage(atlasImage_, bounds_.x, bounds_.y, scale, 0xFFFFFFFF, ALIGN_TOPLEFT);
 }
 
-void TextureView::GetContentDimensions(const UIContext &dc, float &w, float &h) const {
-	// TODO: involve sizemode
-	if (texture_) {
-		w = (float)texture_->Width();
-		h = (float)texture_->Height();
-	} else {
-		w = 16;
-		h = 16;
-	}
-}
-
-void TextureView::Draw(UIContext &dc) {
-	// TODO: involve sizemode
-	if (texture_) {
-		dc.Flush();
-		dc.GetDrawContext()->BindTexture(0, texture_);
-		dc.Draw()->Rect(bounds_.x, bounds_.y, bounds_.w, bounds_.h, color_);
-		dc.Flush();
-		dc.RebindTexture();
-	}
-}
-
 void TextView::GetContentDimensionsBySpec(const UIContext &dc, MeasureSpec horiz, MeasureSpec vert, float &w, float &h) const {
 	Bounds bounds(0, 0, layoutParams_->width, layoutParams_->height);
 	if (bounds.w < 0) {

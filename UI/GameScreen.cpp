@@ -18,11 +18,8 @@
 #include <algorithm>
 
 #include "ppsspp_config.h"
-#include "base/colorutil.h"
-#include "base/timeutil.h"
 #include "gfx_es2/draw_buffer.h"
 #include "i18n/i18n.h"
-#include "math/curves.h"
 #include "util/text/utf8.h"
 #include "ui/ui_context.h"
 #include "ui/view.h"
@@ -71,7 +68,7 @@ void GameScreen::CreateViews() {
 
 	leftColumn->Add(new Choice(di->T("Back"), "", false, new AnchorLayoutParams(150, WRAP_CONTENT, 10, NONE, NONE, 10)))->OnClick.Handle(this, &GameScreen::OnSwitchBack);
 	if (info) {
-		texvGameIcon_ = leftColumn->Add(new TextureView(0, IS_DEFAULT, new AnchorLayoutParams(144 * 2, 80 * 2, 10, 10, NONE, NONE)));
+		leftColumn->Add(new GameIconView(gamePath_, new AnchorLayoutParams(144 * 2, 80 * 2, 10, 10, NONE, NONE)));
 
 		LinearLayout *infoLayout = new LinearLayout(ORIENT_VERTICAL, new AnchorLayoutParams(10, 200, NONE, NONE));
 		leftColumn->Add(infoLayout);
@@ -91,7 +88,6 @@ void GameScreen::CreateViews() {
 		tvRegion_ = infoLayout->Add(new TextView("", ALIGN_LEFT, true, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT)));
 		tvRegion_->SetShadow(true);
 	} else {
-		texvGameIcon_ = nullptr;
 		tvTitle_ = nullptr;
 		tvGameSize_ = nullptr;
 		tvSaveDataSize_ = nullptr;
@@ -198,20 +194,8 @@ void GameScreen::render() {
 
 	std::shared_ptr<GameInfo> info = g_gameInfoCache->GetInfo(thin3d, gamePath_, GAMEINFO_WANTBG | GAMEINFO_WANTSIZE);
 
-	if (tvTitle_)
+	if (tvTitle_) {
 		tvTitle_->SetText(info->GetTitle() + " (" + info->id + ")");
-	if (info->icon.texture && texvGameIcon_) {
-		texvGameIcon_->SetTexture(info->icon.texture->GetTexture());
-		// Fade the icon with the background.
-		double loadTime = info->icon.timeLoaded;
-		if (info->pic1.texture) {
-			loadTime = std::max(loadTime, info->pic1.timeLoaded);
-		}
-		if (info->pic0.texture) {
-			loadTime = std::max(loadTime, info->pic0.timeLoaded);
-		}
-		uint32_t color = whiteAlpha(ease((time_now_d() - loadTime) * 3));
-		texvGameIcon_->SetColor(color);
 	}
 
 	if (info->gameSize) {
@@ -252,6 +236,7 @@ void GameScreen::render() {
 			btnSetBackground_->SetVisibility(UI::V_VISIBLE);
 		}
 	}
+
 	if (!info->pending) {
 		// At this point, the above buttons won't become visible.  We can show these now.
 		for (UI::Choice *choice : otherChoices_) {
