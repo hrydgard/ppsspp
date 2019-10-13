@@ -1274,6 +1274,11 @@ static Module *__KernelLoadELFFromPtr(const u8 *ptr, size_t elfSize, u32 loadAdd
 		std::vector<SectionID> codeSections = reader.GetCodeSections();
 		for (SectionID id : codeSections) {
 			u32 start = reader.GetSectionAddr(id);
+			if (!Memory::IsValidAddress(start)) {
+				ERROR_LOG(LOADER, "Bad section addr %08x of section %d", start, id);
+				continue;
+			}
+
 			// Note: scan end is inclusive.
 			u32 end = start + reader.GetSectionSize(id) - 4;
 
