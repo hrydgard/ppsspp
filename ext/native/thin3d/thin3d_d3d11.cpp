@@ -360,7 +360,7 @@ void D3D11DrawContext::HandleEvent(Event ev, int width, int height, void *param1
 void D3D11DrawContext::SetViewports(int count, Viewport *viewports) {
 	D3D11_VIEWPORT vp[4];
 	for (int i = 0; i < count; i++) {
-		FRect rc{ viewports[i].TopLeftX , viewports[i].TopLeftY, viewports[i].Width, viewports[i].Height };
+		Rect<float> rc{ viewports[i].TopLeftX , viewports[i].TopLeftY, viewports[i].Width, viewports[i].Height };
 		if (curRenderTargetView_ == bbRenderTargetView_)  // Only the backbuffer is actually rotated wrong!
 			RotateRectToDisplay(rc, curRTWidth_, curRTHeight_);
 		vp[i].TopLeftX = rc.x;
@@ -374,7 +374,7 @@ void D3D11DrawContext::SetViewports(int count, Viewport *viewports) {
 }
 
 void D3D11DrawContext::SetScissorRect(int left, int top, int width, int height) {
-	FRect frc{ (float)left, (float)top, (float)width, (float)height };
+	Rect<float> frc{ (float)left, (float)top, (float)width, (float)height };
 	if (curRenderTargetView_ == bbRenderTargetView_)  // Only the backbuffer is actually rotated wrong!
 		RotateRectToDisplay(frc, curRTWidth_, curRTHeight_);
 	D3D11_RECT rc{};

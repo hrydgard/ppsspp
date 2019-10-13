@@ -1043,11 +1043,10 @@ void VKContext::SetViewports(int count, Viewport *viewports) {
 	if (count > 0) {
 		// Ignore viewports more than the first.
 		VkViewport viewport;
-		FRect rc{ viewports[0].TopLeftX , viewports[0].TopLeftY, viewports[0].Width, viewports[0].Height };
-		viewport.x = rc.x;
-		viewport.y = rc.y;
-		viewport.width = rc.w;
-		viewport.height = rc.h;
+		viewport.x = viewports[0].TopLeftX;
+		viewport.y = viewports[0].TopLeftY;
+		viewport.width = viewports[0].Width;
+		viewport.height = viewports[0].Height;
 		viewport.minDepth = viewports[0].MinDepth;
 		viewport.maxDepth = viewports[0].MaxDepth;
 		renderManager_.SetViewport(viewport);

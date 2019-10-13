@@ -31,7 +31,10 @@ enum class DisplayRotation {
 extern DisplayRotation g_display_rotation;
 extern Matrix4x4 g_display_rot_matrix;
 
-struct FRect {
-	float x, y, w, h;
+template<class T>
+struct Rect {
+	T x, y, w, h;
 };
-void RotateRectToDisplay(FRect &rect, float curRTWidth, float curRTHeight);
+
+void RotateRectToDisplay(Rect<float> &rect, float rtWidth, float rtHeight);
+void RotateRectToDisplay(Rect<int> &rect, int rtWidth, int rtHeight);
