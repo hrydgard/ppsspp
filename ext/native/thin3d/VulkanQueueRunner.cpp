@@ -1000,12 +1000,42 @@ void VulkanQueueRunner::PerformRenderPass(const VKRStep &step, VkCommandBuffer c
 			break;
 
 		case VKRRenderCommand::VIEWPORT:
-			vkCmdSetViewport(cmd, 0, 1, &c.viewport.vp);
+			if (fb != nullptr) {
+				vkCmdSetViewport(cmd, 0, 1, &c.viewport.vp);
+			} else {
+				const VkViewport &vp = c.viewport.vp;
+				Rect<float> rc{ vp.x, vp.y, vp.width, vp.height };
+				RotateRectToDisplay(rc, (float)vulkan_->GetBackbufferWidth(), (float)vulkan_->GetBackbufferHeight());
+				VkViewport final_vp;
+				final_vp.x = rc.x;
+				final_vp.y = rc.y;
+				final_vp.width = rc.w;
+				final_vp.height = rc.h;
+				// We can't allow values outside this range unless we use VK_EXT_depth_range_unrestricted.
+				// Sometimes state mapping produces 65536/65535 which is slightly outside.
+				// TODO: This should be fixed at the source.
+				final_vp.maxDepth = clamp_value(vp.maxDepth, 0.0f, 1.0f);
+				final_vp.minDepth = clamp_value(vp.minDepth, 0.0f, 1.0f);
+				vkCmdSetViewport(cmd, 0, 1, &final_vp);
+			}
 			break;
 
 		case VKRRenderCommand::SCISSOR:
-			vkCmdSetScissor(cmd, 0, 1, &c.scissor.scissor);
-			break;
+		{
+			if (fb != nullptr) {
+				vkCmdSetScissor(cmd, 0, 1, &c.scissor.scissor);
+			} else {
+				// Rendering to backbuffer. Might need to rotate.
+				const VkRect2D &rc = c.scissor.scissor;
+				Rect<int> rotated_rc{ rc.offset.x, rc.offset.y, (int)rc.extent.width, (int)rc.extent.height };
+				RotateRectToDisplay(rotated_rc, vulkan_->GetBackbufferWidth(), vulkan_->GetBackbufferHeight());
+				_dbg_assert_(G3D, rotated_rc.x >= 0);
+				_dbg_assert_(G3D, rotated_rc.y >= 0);
+				VkRect2D finalRect = VkRect2D{ { rotated_rc.x, rotated_rc.y }, { (uint32_t)rotated_rc.w, (uint32_t)rotated_rc.h} };
+				vkCmdSetScissor(cmd, 0, 1, &finalRect);
+				break;
+			}
+		}
 
 		case VKRRenderCommand::BLEND:
 			vkCmdSetBlendConstants(cmd, c.blendColor.color);
