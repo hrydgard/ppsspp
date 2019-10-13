@@ -1011,7 +1011,7 @@ void VulkanQueueRunner::PerformRenderPass(const VKRStep &step, VkCommandBuffer c
 				vkCmdSetViewport(cmd, 0, 1, &c.viewport.vp);
 			} else {
 				const VkViewport &vp = c.viewport.vp;
-				Rect<float> rc{ vp.x, vp.y, vp.width, vp.height };
+				DisplayRect<float> rc{ vp.x, vp.y, vp.width, vp.height };
 				RotateRectToDisplay(rc, (float)vulkan_->GetBackbufferWidth(), (float)vulkan_->GetBackbufferHeight());
 				VkViewport final_vp;
 				final_vp.x = rc.x;
@@ -1031,7 +1031,7 @@ void VulkanQueueRunner::PerformRenderPass(const VKRStep &step, VkCommandBuffer c
 			} else {
 				// Rendering to backbuffer. Might need to rotate.
 				const VkRect2D &rc = c.scissor.scissor;
-				Rect<int> rotated_rc{ rc.offset.x, rc.offset.y, (int)rc.extent.width, (int)rc.extent.height };
+				DisplayRect<int> rotated_rc{ rc.offset.x, rc.offset.y, (int)rc.extent.width, (int)rc.extent.height };
 				RotateRectToDisplay(rotated_rc, vulkan_->GetBackbufferWidth(), vulkan_->GetBackbufferHeight());
 				_dbg_assert_(G3D, rotated_rc.x >= 0);
 				_dbg_assert_(G3D, rotated_rc.y >= 0);

@@ -32,9 +32,9 @@ extern DisplayRotation g_display_rotation;
 extern Matrix4x4 g_display_rot_matrix;
 
 template<class T>
-struct Rect {
+struct DisplayRect {
 	T x, y, w, h;
 };
 
-void RotateRectToDisplay(Rect<float> &rect, float rtWidth, float rtHeight);
-void RotateRectToDisplay(Rect<int> &rect, int rtWidth, int rtHeight);
+void RotateRectToDisplay(DisplayRect<float> &rect, float rtWidth, float rtHeight);
+void RotateRectToDisplay(DisplayRect<int> &rect, int rtWidth, int rtHeight);

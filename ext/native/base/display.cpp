@@ -20,7 +20,7 @@ DisplayRotation g_display_rotation;
 Matrix4x4 g_display_rot_matrix;
 
 template<class T>
-void RotateRectToDisplayImpl(Rect<T> &rect, T curRTWidth, T curRTHeight) {
+void RotateRectToDisplayImpl(DisplayRect<T> &rect, T curRTWidth, T curRTHeight) {
 	switch (g_display_rotation) {
 	case DisplayRotation::ROTATE_180:
 		rect.x = curRTWidth - rect.w - rect.x;
@@ -57,10 +57,10 @@ void RotateRectToDisplayImpl(Rect<T> &rect, T curRTWidth, T curRTHeight) {
 	}
 }
 
-void RotateRectToDisplay(Rect<int> &rect, int curRTWidth, int curRTHeight) {
+void RotateRectToDisplay(DisplayRect<int> &rect, int curRTWidth, int curRTHeight) {
 	RotateRectToDisplayImpl<int>(rect, curRTWidth, curRTHeight);
 }
 
-void RotateRectToDisplay(Rect<float> &rect, float curRTWidth, float curRTHeight) {
+void RotateRectToDisplay(DisplayRect<float> &rect, float curRTWidth, float curRTHeight) {
 	RotateRectToDisplayImpl<float>(rect, curRTWidth, curRTHeight);
 }
