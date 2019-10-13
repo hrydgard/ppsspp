@@ -1033,8 +1033,8 @@ void VulkanQueueRunner::PerformRenderPass(const VKRStep &step, VkCommandBuffer c
 				_dbg_assert_(G3D, rotated_rc.y >= 0);
 				VkRect2D finalRect = VkRect2D{ { rotated_rc.x, rotated_rc.y }, { (uint32_t)rotated_rc.w, (uint32_t)rotated_rc.h} };
 				vkCmdSetScissor(cmd, 0, 1, &finalRect);
-				break;
 			}
+			break;
 		}
 
 		case VKRRenderCommand::BLEND:
