@@ -1,13 +1,20 @@
 #include <algorithm>
 
+#include "base/colorutil.h"
+#include "base/timeutil.h"
 #include "thin3d/thin3d.h"
 #include "image/zim_load.h"
 #include "image/png_load.h"
 #include "math/math_util.h"
+#include "math/curves.h"
 #include "file/vfs.h"
 #include "ext/jpge/jpgd.h"
-#include "UI/TextureUtil.h"
+#include "ui/view.h"
+#include "ui/ui_context.h"
+#include "gfx_es2/draw_buffer.h"
 #include "Common/Log.h"
+#include "UI/TextureUtil.h"
+#include "UI/GameInfoCache.h"
 
 static Draw::DataFormat ZimToT3DFormat(int zim) {
 	switch (zim) {
@@ -208,4 +215,37 @@ std::unique_ptr<ManagedTexture> CreateTextureFromFileData(Draw::DrawContext *dra
 		delete mtex;
 		return std::unique_ptr<ManagedTexture>();
 	}
+}
+
+void GameIconView::GetContentDimensions(const UIContext &dc, float &w, float &h) const {
+	w = textureWidth_;
+	h = textureHeight_;
+}
+
+void GameIconView::Draw(UIContext &dc) {
+	using namespace UI;
+	std::shared_ptr<GameInfo> info = g_gameInfoCache->GetInfo(NULL, gamePath_, GAMEINFO_WANTBG | GAMEINFO_WANTSIZE);
+
+	if (!info->icon.texture) {
+		return;
+	}
+
+	textureWidth_ = info->icon.texture->Width();
+	textureHeight_ = info->icon.texture->Height();
+
+	// Fade icon with the backgrounds.
+	double loadTime = info->icon.timeLoaded;
+	if (info->pic1.texture) {
+		loadTime = std::max(loadTime, info->pic1.timeLoaded);
+	}
+	if (info->pic0.texture) {
+		loadTime = std::max(loadTime, info->pic0.timeLoaded);
+	}
+	uint32_t color = whiteAlpha(ease((time_now_d() - loadTime) * 3));
+
+	dc.Flush();
+	dc.GetDrawContext()->BindTexture(0, info->icon.texture->GetTexture());
+	dc.Draw()->Rect(bounds_.x, bounds_.y, bounds_.w, bounds_.h, color);
+	dc.Flush();
+	dc.RebindTexture();
 }

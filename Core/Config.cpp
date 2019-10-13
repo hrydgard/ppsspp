@@ -795,6 +795,8 @@ static ConfigSetting soundSettings[] = {
 	ConfigSetting("SASVolume", &g_Config.iSASVolume, 8, true, true),
 	ConfigSetting("ATRACMP3Volume", &g_Config.iATRACMP3Volume, 8, true, true),
 	ConfigSetting("AltSpeedVolume", &g_Config.iAltSpeedVolume, -1, true, true),
+	ConfigSetting("AudioDevice", &g_Config.sAudioDevice, "", true, false),
+	ConfigSetting("AutoAudioDevice", &g_Config.bAutoAudioDevice, true, true, false),
 
 	ConfigSetting(false),
 };

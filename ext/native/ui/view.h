@@ -864,25 +864,6 @@ private:
 	ImageSizeMode sizeMode_;
 };
 
-// TextureView takes a texture that is assumed to be alive during the lifetime
-// of the view.
-class TextureView : public InertView {
-public:
-	TextureView(Draw::Texture *texture, ImageSizeMode sizeMode, LayoutParams *layoutParams = 0)
-		: InertView(layoutParams), texture_(texture), color_(0xFFFFFFFF), sizeMode_(sizeMode) {}
-
-	void GetContentDimensions(const UIContext &dc, float &w, float &h) const override;
-	void Draw(UIContext &dc) override;
-
-	void SetTexture(Draw::Texture *texture) { texture_ = texture; }
-	void SetColor(uint32_t color) { color_ = color; }
-
-private:
-	Draw::Texture *texture_;
-	uint32_t color_;
-	ImageSizeMode sizeMode_;
-};
-
 class ProgressBar : public InertView {
 public:
 	ProgressBar(LayoutParams *layoutParams = 0)

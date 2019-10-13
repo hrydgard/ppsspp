@@ -208,6 +208,8 @@ public:
 	int iGlobalVolume, iSASVolume, iATRACMP3Volume;
 	int iAltSpeedVolume;
 	bool bExtraAudioBuffering;  // For bluetooth
+	std::string sAudioDevice;
+	bool bAutoAudioDevice;
 
 	// UI
 	bool bShowDebuggerOnLoad;

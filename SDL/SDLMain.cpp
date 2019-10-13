@@ -81,6 +81,62 @@ int getDisplayNumber(void) {
 	return displayNumber;
 }
 
+extern void mixaudio(void *userdata, Uint8 *stream, int len) {
+	NativeMix((short *)stream, len / 4);
+}
+
+static SDL_AudioDeviceID audioDev = 0;
+
+// Must be called after NativeInit().
+static void InitSDLAudioDevice(const std::string &name = "") {
+	SDL_AudioSpec fmt, ret_fmt;
+	memset(&fmt, 0, sizeof(fmt));
+	fmt.freq = 44100;
+	fmt.format = AUDIO_S16;
+	fmt.channels = 2;
+	fmt.samples = 2048;
+	fmt.callback = &mixaudio;
+	fmt.userdata = nullptr;
+
+	std::string startDevice = name;
+	if (startDevice.empty()) {
+		startDevice = g_Config.sAudioDevice;
+	}
+
+	audioDev = 0;
+	if (!startDevice.empty()) {
+		audioDev = SDL_OpenAudioDevice(startDevice.c_str(), 0, &fmt, &ret_fmt, SDL_AUDIO_ALLOW_FREQUENCY_CHANGE);
+		if (audioDev <= 0) {
+			WLOG("Failed to open audio device: %s", startDevice.c_str());
+		}
+	}
+	if (audioDev <= 0) {
+		audioDev = SDL_OpenAudioDevice(nullptr, 0, &fmt, &ret_fmt, SDL_AUDIO_ALLOW_FREQUENCY_CHANGE);
+	}
+	if (audioDev <= 0) {
+		ELOG("Failed to open audio: %s", SDL_GetError());
+	} else {
+		if (ret_fmt.samples != fmt.samples) // Notify, but still use it
+			ELOG("Output audio samples: %d (requested: %d)", ret_fmt.samples, fmt.samples);
+		if (ret_fmt.freq != fmt.freq || ret_fmt.format != fmt.format || ret_fmt.channels != fmt.channels) {
+			ELOG("Sound buffer format does not match requested format.");
+			ELOG("Output audio freq: %d (requested: %d)", ret_fmt.freq, fmt.freq);
+			ELOG("Output audio format: %d (requested: %d)", ret_fmt.format, fmt.format);
+			ELOG("Output audio channels: %d (requested: %d)", ret_fmt.channels, fmt.channels);
+			ELOG("Provided output format does not match requirement, turning audio off");
+			SDL_CloseAudioDevice(audioDev);
+		}
+		SDL_PauseAudioDevice(audioDev, 0);
+	}
+}
+
+static void StopSDLAudioDevice() {
+	if (audioDev > 0) {
+		SDL_PauseAudioDevice(audioDev, 1);
+		SDL_CloseAudioDevice(audioDev);
+	}
+}
+
 // Simple implementations of System functions
 
 
@@ -120,6 +176,9 @@ void System_SendMessage(const char *command, const char *parameter) {
 		g_QuitRequested = true;
 	} else if (!strcmp(command, "setclipboardtext")) {
 		SDL_SetClipboardText(parameter);
+	} else if (!strcmp(command, "audio_resetDevice")) {
+		StopSDLAudioDevice();
+		InitSDLAudioDevice();
 	}
 }
 
@@ -221,6 +280,24 @@ std::string System_GetProperty(SystemProperty prop) {
 	}
 	case SYSPROP_CLIPBOARD_TEXT:
 		return SDL_HasClipboardText() ? SDL_GetClipboardText() : "";
+	case SYSPROP_AUDIO_DEVICE_LIST:
+		{
+			std::string result;
+			for (int i = 0; i < SDL_GetNumAudioDevices(0); ++i) {
+				const char *name = SDL_GetAudioDeviceName(i, 0);
+				if (!name) {
+					continue;
+				}
+
+				if (i == 0) {
+					result = name;
+				} else {
+					result.append(1, '\0');
+					result.append(name);
+				}
+			}
+			return result;
+		}
 	default:
 		return "";
 	}
@@ -256,10 +333,6 @@ bool System_GetPropertyBool(SystemProperty prop) {
 	default:
 		return false;
 	}
-}
-
-extern void mixaudio(void *userdata, Uint8 *stream, int len) {
-	NativeMix((short *)stream, len / 4);
 }
 
 // returns -1 on failure
@@ -573,32 +646,8 @@ int main(int argc, char *argv[]) {
 	// Ensure that the swap interval is set after context creation (needed for kmsdrm)
 	SDL_GL_SetSwapInterval(1);
 
-	SDL_AudioSpec fmt, ret_fmt;
-	memset(&fmt, 0, sizeof(fmt));
-	fmt.freq = 44100;
-	fmt.format = AUDIO_S16;
-	fmt.channels = 2;
-	fmt.samples = 2048;
-	fmt.callback = &mixaudio;
-	fmt.userdata = (void *)0;
+	InitSDLAudioDevice();
 
-	if (SDL_OpenAudio(&fmt, &ret_fmt) < 0) {
-		ELOG("Failed to open audio: %s", SDL_GetError());
-	} else {
-		if (ret_fmt.samples != fmt.samples) // Notify, but still use it
-			ELOG("Output audio samples: %d (requested: %d)", ret_fmt.samples, fmt.samples);
-		if (ret_fmt.freq != fmt.freq || ret_fmt.format != fmt.format || ret_fmt.channels != fmt.channels) {
-			ELOG("Sound buffer format does not match requested format.");
-			ELOG("Output audio freq: %d (requested: %d)", ret_fmt.freq, fmt.freq);
-			ELOG("Output audio format: %d (requested: %d)", ret_fmt.format, fmt.format);
-			ELOG("Output audio channels: %d (requested: %d)", ret_fmt.channels, fmt.channels);
-			ELOG("Provided output format does not match requirement, turning audio off");
-			SDL_CloseAudio();
-		}
-	}
-
-	// Audio must be unpaused _after_ NativeInit()
-	SDL_PauseAudio(0);
 	if (joystick_enabled) {
 		joystick = new SDLJoystick();
 	} else {
@@ -852,6 +901,29 @@ int main(int argc, char *argv[]) {
 					break;
 				}
 				break;
+
+#if SDL_VERSION_ATLEAST(2, 0, 4)
+			case SDL_AUDIODEVICEADDED:
+				// Automatically switch to the new device.
+				if (event.adevice.iscapture == 0) {
+					const char *name = SDL_GetAudioDeviceName(event.adevice.which, 0);
+					if (!name) {
+						break;
+					}
+					if (g_Config.bAutoAudioDevice || g_Config.sAudioDevice == name) {
+						StopSDLAudioDevice();
+						InitSDLAudioDevice(name ? name : "");
+					}
+				}
+				break;
+			case SDL_AUDIODEVICEREMOVED:
+				if (event.adevice.iscapture == 0 && event.adevice.which == audioDev) {
+					StopSDLAudioDevice();
+					InitSDLAudioDevice();
+				}
+				break;
+#endif
+
 			default:
 				if (joystick) {
 					joystick->ProcessInput(event);
@@ -927,8 +999,10 @@ int main(int argc, char *argv[]) {
 	graphicsContext->ShutdownFromRenderThread();
 	delete graphicsContext;
 
-	SDL_PauseAudio(1);
-	SDL_CloseAudio();
+	if (audioDev > 0) {
+		SDL_PauseAudioDevice(audioDev, 1);
+		SDL_CloseAudioDevice(audioDev);
+	}
 	SDL_Quit();
 #if PPSSPP_PLATFORM(RPI)
 	bcm_host_deinit();

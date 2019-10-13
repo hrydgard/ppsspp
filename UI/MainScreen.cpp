@@ -255,8 +255,8 @@ void GameButton::Draw(UIContext &dc) {
 		float th = texture->Height();
 
 		// Adjust position so we don't stretch the image vertically or horizontally.
-		// TODO: Add a param to specify fit?  The below assumes it's never too wide.
-		float nw = h * tw / th;
+		// Make sure it's not wider than 144 (like Doom Legacy homebrew), ugly in the grid mode.
+		float nw = std::min(h * tw / th, 144.0f);
 		x += (w - nw) / 2.0f;
 		w = nw;
 	}
@@ -291,9 +291,7 @@ void GameButton::Draw(UIContext &dc) {
 			dc.Draw()->DrawImage4Grid(dc.theme->dropShadow4Grid, x - dropsize, y - dropsize*0.5f, x+w + dropsize, y+h+dropsize*1.5, alphaMul(shadowColor, 0.5f), 1.0f);
 			dc.Draw()->Flush();
 		}
-	}
 
-	if (texture) {
 		dc.Draw()->Flush();
 		dc.GetDrawContext()->BindTexture(0, texture);
 		if (holdStart_ != 0.0) {
@@ -383,7 +381,6 @@ public:
 	}
 
 private:
-
 	std::string path_;
 	bool absolute_;
 };
