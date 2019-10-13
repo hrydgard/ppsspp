@@ -1055,7 +1055,8 @@ void VKContext::SetViewports(int count, Viewport *viewports) {
 }
 
 void VKContext::SetBlendFactor(float color[4]) {
-	renderManager_.SetBlendFactor(color);
+	uint32_t col = Float4ToUint8x4(color);
+	renderManager_.SetBlendFactor(col);
 }
 
 void VKContext::SetStencilRef(uint8_t stencilRef) {

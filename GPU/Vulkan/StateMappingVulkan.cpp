@@ -413,8 +413,6 @@ void DrawEngineVulkan::ApplyDrawStateLate(VulkanRenderManager *renderManager, bo
 		renderManager->SetStencilParams(dynState_.stencilWriteMask, dynState_.stencilCompareMask, applyStencilRef ? stencilRef : dynState_.stencilRef);
 	}
 	if (gstate_c.IsDirty(DIRTY_BLEND_STATE) && useBlendConstant) {
-		float bc[4];
-		Uint8x4ToFloat4(bc, dynState_.blendColor);
-		renderManager->SetBlendFactor(bc);
+		renderManager->SetBlendFactor(dynState_.blendColor);
 	}
 }

@@ -164,10 +164,10 @@ public:
 		curRenderStep_->commands.push_back(data);
 	}
 
-	void SetBlendFactor(float color[4]) {
+	void SetBlendFactor(uint32_t color) {
 		_dbg_assert_(G3D, curRenderStep_ && curRenderStep_->stepType == VKRStepType::RENDER);
 		VkRenderData data{ VKRRenderCommand::BLEND };
-		CopyFloat4(data.blendColor.color, color);
+		data.blendColor.color = color;
 		curRenderStep_->commands.push_back(data);
 	}
 

@@ -851,7 +851,7 @@ void VulkanQueueRunner::LogRenderPass(const VKRStep &pass) {
 			ILOG("  BindPipeline(%x)", (int)(intptr_t)cmd.pipeline.pipeline);
 			break;
 		case VKRRenderCommand::BLEND:
-			ILOG("  Blend(%f, %f, %f, %f)", cmd.blendColor.color[0], cmd.blendColor.color[1], cmd.blendColor.color[2], cmd.blendColor.color[3]);
+			ILOG("  BlendColor(%08x)", cmd.blendColor.color);
 			break;
 		case VKRRenderCommand::CLEAR:
 			ILOG("  Clear");
@@ -1015,8 +1015,12 @@ void VulkanQueueRunner::PerformRenderPass(const VKRStep &step, VkCommandBuffer c
 			break;
 
 		case VKRRenderCommand::BLEND:
-			vkCmdSetBlendConstants(cmd, c.blendColor.color);
+		{
+			float bc[4];
+			Uint8x4ToFloat4(bc, c.blendColor.color);
+			vkCmdSetBlendConstants(cmd, bc);
 			break;
+		}
 
 		case VKRRenderCommand::PUSH_CONSTANTS:
 			vkCmdPushConstants(cmd, c.push.pipelineLayout, c.push.stages, c.push.offset, c.push.size, c.push.data);

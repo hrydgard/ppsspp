@@ -141,7 +141,7 @@ struct VkRenderData {
 			uint8_t stencilRef;
 		} stencil;
 		struct {
-			float color[4];
+			uint32_t color;
 		} blendColor;
 		struct {
 			VkPipelineLayout pipelineLayout;
