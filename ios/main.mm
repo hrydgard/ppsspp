@@ -28,7 +28,7 @@ bool get_debugged() {
 	if (rv==0 && flags&CS_DEBUGGED) return true;
 
 	pid_t pid = fork();
-	if (pid) {
+	if (pid > 0) {
 		int st,rv,i=0;
 		do {
 			usleep(500);
