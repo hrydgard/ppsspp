@@ -17,6 +17,7 @@
 
 #define CS_OPS_STATUS	0		/* return status */
 #define CS_DEBUGGED	0x10000000	/* process is currently or has previously been debugged and allowed to run with invalid pages */
+#define PTRACE_TRACEME	0		/* Indicate that this process is to be traced by its parent. */
 #define PT_ATTACHEXC	14		/* attach to running process with signal exception */
 #define PT_DETACH	11		/* stop tracing a process */
 int csops(pid_t pid, unsigned int  ops, void * useraddr, size_t usersize);
@@ -164,7 +165,8 @@ int main(int argc, char *argv[])
 {
 	// see https://github.com/hrydgard/ppsspp/issues/11905
 	if (!get_debugged()) {
-		fprintf(stderr, "Unable to obtain CS_DEBUGGED -  I will probably die now.\n");
+		fprintf(stderr, "Unable to cleanly obtain CS_DEBUGGED - probably not jailbroken.  Attempting old method.\n");
+		ptrace(PTRACE_TRACEME, 0, 0, 0);
 	}
 	
 	PROFILE_INIT();
