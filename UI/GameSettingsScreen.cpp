@@ -448,6 +448,17 @@ void GameSettingsScreen::CreateViews() {
 	PopupMultiChoice *bloomHack = graphicsSettings->Add(new PopupMultiChoice(&g_Config.iBloomHack, gr->T("Lower resolution for effects (reduces artifacts)"), bloomHackOptions, 0, ARRAY_SIZE(bloomHackOptions), gr->GetName(), screenManager()));
 	bloomHackEnable_ = !g_Config.bSoftwareRendering && (g_Config.iInternalResolution != 1);
 	bloomHack->SetEnabledPtr(&bloomHackEnable_);
+	
+	if (GetGPUBackend() == GPUBackend::OPENGL) {
+		PopupSliderChoice *fovHack = graphicsSettings->Add(new PopupSliderChoice(&g_Config.iFovHack, 1, 300, gr->T("Fov hack", "Fov hack (Require HW transform)"), 100, screenManager()));
+		fovHack->SetFormat("%i%%");
+
+		PopupSliderChoice *phongHack = graphicsSettings->Add(new PopupSliderChoice(&g_Config.iPhongHack, 0, 100, gr->T("Phong shading hack", "Phong threshold, 0: disabled"), 0, screenManager()));
+		phongHack->SetFormat("%i%%");
+	
+		if (gpu)
+			gpu->ClearShaderCache();
+	}
 
 	graphicsSettings->Add(new ItemHeader(gr->T("Overlay Information")));
 	static const char *fpsChoices[] = {

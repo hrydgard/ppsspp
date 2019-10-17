@@ -449,8 +449,25 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, uint64_t *uniform
 				WRITE(p, "  }\n");
 			}
 
-			if (texFunc != GE_TEXFUNC_REPLACE || !doTextureAlpha)
+			if (texFunc != GE_TEXFUNC_REPLACE || !doTextureAlpha) {
 				WRITE(p, "  vec4 p = v_color0;\n");
+
+				if (g_Config.iPhongHack != 0) { // Phong hack
+					WRITE(p, "  vec4 K0 = vec4(0.0, -1.0 / 3.0, 2.0 / 3.0, -1.0);\n");
+					WRITE(p, "  vec4 p0 = mix(vec4(p.bg, K0.wz), vec4(p.gb, K0.xy), step(p.b, p.g));\n");
+					WRITE(p, "  vec4 q0 = mix(vec4(p0.xyw, p.r), vec4(p.r, p0.yzx), step(p0.x, p.r));\n");
+					WRITE(p, "  float d0 = q0.x - min(q0.w, q0.y);\n"); 
+					WRITE(p, "  float e0 = 1.0e-10;\n");
+					WRITE(p, "  vec3 hsv = vec3(abs(q0.z + (q0.w - q0.y) / (6.0 * d0 + e0)), d0 / (q0.x + e0), q0.x);\n");
+					WRITE(p, "  if (hsv.z < %f)\n", g_Config.iPhongHack/100.0);
+					WRITE(p, "    hsv.z = 0.4;\n");
+					WRITE(p, "  else\n");
+					WRITE(p, "    hsv.z = 1.0;\n");
+					WRITE(p, "  vec4 K1 = vec4(1.0, 2.0 / 3.0, 1.0 / 3.0, 3.0);\n");
+					WRITE(p, "  vec3 p1 = abs(fract(hsv.xxx + K1.xyz) * 6.0 - K1.www);\n");
+					WRITE(p, "  p.rgb = hsv.z * mix(K1.xxx, clamp(p1 - K1.xxx, 0.0, 1.0), hsv.y);\n");
+				}
+			}
 
 			if (doTextureAlpha) { // texfmt == RGBA
 				switch (texFunc) {

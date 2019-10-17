@@ -754,6 +754,8 @@ static ConfigSetting graphicsSettings[] = {
 	ReportedConfigSetting("TexHardwareScaling", &g_Config.bTexHardwareScaling, false, true, true),
 	ConfigSetting("VSyncInterval", &g_Config.bVSync, false, true, true),
 	ReportedConfigSetting("BloomHack", &g_Config.iBloomHack, 0, true, true),
+	ConfigSetting("FovHack", &g_Config.iFovHack, 100, true, true),
+	ConfigSetting("FovHack", &g_Config.iPhongHack, 0, true, true),
 
 	// Not really a graphics setting...
 	ReportedConfigSetting("SplineBezierQuality", &g_Config.iSplineBezierQuality, 2, true, true),

@@ -598,6 +598,10 @@ void GenerateVertexShader(const VShaderID &id, char *buffer, uint32_t *attrMask,
 
 		WRITE(p, "  vec4 viewPos = u_view * vec4(worldpos, 1.0);\n");
 
+		// Fov Hack
+		if (g_Config.iFovHack != 100)
+			WRITE(p, "  viewPos.xy *= %f;\n", 100.0/g_Config.iFovHack);
+
 		// Final view and projection transforms.
 		if (gstate_c.Supports(GPU_ROUND_DEPTH_TO_16BIT)) {
 			WRITE(p, "  vec4 outPos = depthRoundZVP(u_proj * viewPos);\n");

@@ -182,6 +182,8 @@ public:
 	bool bReloadCheats;
 	int iCwCheatRefreshRate;
 	int iBloomHack; //0 = off, 1 = safe, 2 = balanced, 3 = aggressive
+	int iFovHack;
+	int iPhongHack; // 0 = off, other value as %
 	bool bBlockTransferGPU;
 	bool bDisableSlowFramebufEffects;
 	bool bFragmentTestCache;
