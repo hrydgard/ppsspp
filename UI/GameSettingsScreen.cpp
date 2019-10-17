@@ -450,10 +450,10 @@ void GameSettingsScreen::CreateViews() {
 	bloomHack->SetEnabledPtr(&bloomHackEnable_);
 	
 	if (GetGPUBackend() == GPUBackend::OPENGL) {
-		PopupSliderChoice *fovHack = graphicsSettings->Add(new PopupSliderChoice(&g_Config.iFovHack, 1, 300, gr->T("Fov hack", "Fov hack (Require HW transform)"), 100, screenManager()));
+		PopupSliderChoice *fovHack = graphicsSettings->Add(new PopupSliderChoice(&g_Config.iFovHack, 1, 300, gr->T("Fov hack", "Fov hack (Require HW transform)"), 1, screenManager()));
 		fovHack->SetFormat("%i%%");
 
-		PopupSliderChoice *phongHack = graphicsSettings->Add(new PopupSliderChoice(&g_Config.iPhongHack, 0, 100, gr->T("Phong shading hack", "Phong threshold, 0: disabled"), 0, screenManager()));
+		PopupSliderChoice *phongHack = graphicsSettings->Add(new PopupSliderChoice(&g_Config.iPhongHack, 0, 100, gr->T("Phong shading hack", "Phong threshold, 0: disabled"), 1, screenManager()));
 		phongHack->SetFormat("%i%%");
 	
 		if (gpu)
