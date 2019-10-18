@@ -598,9 +598,25 @@ void GenerateVertexShader(const VShaderID &id, char *buffer, uint32_t *attrMask,
 
 		WRITE(p, "  vec4 viewPos = u_view * vec4(worldpos, 1.0);\n");
 
-		// Fov Hack
-		if (g_Config.iFovHack != 100)
+		// Round World hack
+		if (g_Config.iRoundWorldHack != 0) {
+			WRITE(p, "  float rotAngle1 = length(viewPos)*%f;\n", g_Config.iRoundWorldHack/100000.0);
+			WRITE(p, "  viewPos.yz = vec2(viewPos.y*cos(rotAngle1)+viewPos.z*sin(rotAngle1), viewPos.z*cos(rotAngle1)-viewPos.y*sin(rotAngle1));\n");
+		}
+
+		// Camera hacks
+		if (g_Config.iCamXHack != 0 || g_Config.iCamYHack != 0 || g_Config.iCamZHack != 0) {
+			WRITE(p, "  viewPos.xyz += vec3(%d.0, %d.0, %d.0)*viewPos.w;\n", g_Config.iCamXHack, g_Config.iCamYHack, g_Config.iCamZHack);
+		}
+
+		if (g_Config.iCamRotHack != 0) {
+			WRITE(p, "  float rotAngle = %f;\n", M_PI*g_Config.iCamRotHack/180.0);
+			WRITE(p, "  viewPos.yz = vec2(viewPos.y*cos(rotAngle)+viewPos.z*sin(rotAngle), viewPos.z*cos(rotAngle)-viewPos.y*sin(rotAngle));\n");
+		}
+
+		if (g_Config.iFovHack != 100) {
 			WRITE(p, "  viewPos.xy *= %f;\n", 100.0/g_Config.iFovHack);
+		}
 
 		// Final view and projection transforms.
 		if (gstate_c.Supports(GPU_ROUND_DEPTH_TO_16BIT)) {

@@ -755,7 +755,12 @@ static ConfigSetting graphicsSettings[] = {
 	ConfigSetting("VSyncInterval", &g_Config.bVSync, false, true, true),
 	ReportedConfigSetting("BloomHack", &g_Config.iBloomHack, 0, true, true),
 	ConfigSetting("FovHack", &g_Config.iFovHack, 100, true, true),
+	ConfigSetting("CamXHack", &g_Config.iCamXHack, 0, true, true),
+	ConfigSetting("CamYHack", &g_Config.iCamYHack, 0, true, true),
+	ConfigSetting("CamZHack", &g_Config.iCamZHack, 0, true, true),
+	ConfigSetting("CamRotHack", &g_Config.iCamRotHack, 0, true, true),
 	ConfigSetting("PhongHack", &g_Config.iPhongHack, 0, true, true),
+	ConfigSetting("PhongHack", &g_Config.iRoundWorldHack, 0, true, true),
 
 	// Not really a graphics setting...
 	ReportedConfigSetting("SplineBezierQuality", &g_Config.iSplineBezierQuality, 2, true, true),

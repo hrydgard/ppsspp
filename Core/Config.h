@@ -183,6 +183,11 @@ public:
 	int iCwCheatRefreshRate;
 	int iBloomHack; //0 = off, 1 = safe, 2 = balanced, 3 = aggressive
 	int iFovHack;
+	int iCamXHack;
+	int iCamYHack;
+	int iCamZHack;
+	int iCamRotHack;
+	int iRoundWorldHack;
 	int iPhongHack; // 0 = off, other value as %
 	bool bBlockTransferGPU;
 	bool bDisableSlowFramebufEffects;

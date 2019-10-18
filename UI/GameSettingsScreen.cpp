@@ -449,15 +449,28 @@ void GameSettingsScreen::CreateViews() {
 	bloomHackEnable_ = !g_Config.bSoftwareRendering && (g_Config.iInternalResolution != 1);
 	bloomHack->SetEnabledPtr(&bloomHackEnable_);
 	
+	// Horrible hacks
 	if (GetGPUBackend() == GPUBackend::OPENGL) {
-		PopupSliderChoice *fovHack = graphicsSettings->Add(new PopupSliderChoice(&g_Config.iFovHack, 1, 300, gr->T("Fov hack", "Fov hack (Require HW transform)"), 1, screenManager()));
+		graphicsSettings->Add(new ItemHeader(gr->T("Graphic Hack", "Graphic Hack Settings (these WILL cause glitches and WILL NOT work with many games)")));
+
+		PopupSliderChoice *fovHack = graphicsSettings->Add(new PopupSliderChoice(&g_Config.iFovHack, 1, 300, gr->T("Fov override"), 1, screenManager()));
 		fovHack->SetFormat("%i%%");
 
-		PopupSliderChoice *phongHack = graphicsSettings->Add(new PopupSliderChoice(&g_Config.iPhongHack, 0, 100, gr->T("Phong shading hack", "Phong threshold, 0: disabled"), 1, screenManager()));
+		PopupSliderChoice *camXHack = graphicsSettings->Add(new PopupSliderChoice(&g_Config.iCamXHack, -1000, 1000, gr->T("Camera offset X"), 1, screenManager()));
+		PopupSliderChoice *camYHack = graphicsSettings->Add(new PopupSliderChoice(&g_Config.iCamYHack, -1000, 1000, gr->T("Camera offset Y"), 1, screenManager()));
+		PopupSliderChoice *camZHack = graphicsSettings->Add(new PopupSliderChoice(&g_Config.iCamZHack, -1000, 1000, gr->T("Camera offset Z"), 1, screenManager()));
+		PopupSliderChoice *camRotHack = graphicsSettings->Add(new PopupSliderChoice(&g_Config.iCamRotHack, -180, 180, gr->T("Camera Rotation"), 1, screenManager()));
+		camRotHack->SetFormat("%i°");
+
+		PopupSliderChoice *roundWorldHack = graphicsSettings->Add(new PopupSliderChoice(&g_Config.iRoundWorldHack, -30, 30, gr->T("Round World"), 1, screenManager()));
+
+		PopupSliderChoice *phongHack = graphicsSettings->Add(new PopupSliderChoice(&g_Config.iPhongHack, 0, 100, gr->T("Phong threshold (0: disabled)"), 1, screenManager()));
 		phongHack->SetFormat("%i%%");
-	
-		if (gpu)
-			gpu->ClearShaderCache();
+
+		if (gpu) {
+			Choice *applyHack = graphicsSettings->Add(new Choice(gr->T("Apply graphic hack")));
+			applyHack->OnClick.Handle(this, &GameSettingsScreen::ClearShaderCache);
+		}
 	}
 
 	graphicsSettings->Add(new ItemHeader(gr->T("Overlay Information")));
@@ -1043,6 +1056,13 @@ UI::EventReturn GameSettingsScreen::OnHwScaleChange(UI::EventParams &e) {
 UI::EventReturn GameSettingsScreen::OnDumpNextFrameToLog(UI::EventParams &e) {
 	if (gpu) {
 		gpu->DumpNextFrame();
+	}
+	return UI::EVENT_DONE;
+}
+
+UI::EventReturn GameSettingsScreen::ClearShaderCache(UI::EventParams &e) {
+	if (gpu) {
+		gpu->ClearShaderCache();
 	}
 	return UI::EVENT_DONE;
 }
