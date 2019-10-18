@@ -610,7 +610,7 @@ void GenerateVertexShader(const VShaderID &id, char *buffer, uint32_t *attrMask,
 		}
 
 		if (g_Config.iCamRotHack != 0) {
-			WRITE(p, "  float rotAngle = %f;\n", M_PI*g_Config.iCamRotHack/180.0);
+			WRITE(p, "  float rotAngle = %f;\n", 3.14159265358979323846*g_Config.iCamRotHack/180.0);
 			WRITE(p, "  viewPos.yz = vec2(viewPos.y*cos(rotAngle)+viewPos.z*sin(rotAngle), viewPos.z*cos(rotAngle)-viewPos.y*sin(rotAngle));\n");
 		}
 
