@@ -364,6 +364,11 @@ void GenerateVertexShader(const VShaderID &id, char *buffer, uint32_t *attrMask,
 		}
 	}
 
+	// Round World hack
+	if (g_Config.iFarCullHack != 1000) {
+		WRITE(p, "%s float h_farcull;\n",  varying);
+	}
+
 	// See comment above this function (GenerateVertexShader).
 	if (!isModeThrough && gstate_c.Supports(GPU_ROUND_DEPTH_TO_16BIT)) {
 		// Apply the projection and viewport to get the Z buffer value, floor to integer, undo the viewport and projection.
@@ -623,6 +628,10 @@ void GenerateVertexShader(const VShaderID &id, char *buffer, uint32_t *attrMask,
 			WRITE(p, "  vec4 outPos = depthRoundZVP(u_proj * viewPos);\n");
 		} else {
 			WRITE(p, "  vec4 outPos = u_proj * viewPos;\n");
+		}
+		
+		if (g_Config.iFarCullHack != 1000) {
+			WRITE(p, "  if(outPos.z/outPos.w > %f) h_farcull = 1.0; else h_farcull = 0.0;\n", g_Config.iFarCullHack/1000.0);
 		}
 
 		// TODO: Declare variables for dots for shade mapping if needed.

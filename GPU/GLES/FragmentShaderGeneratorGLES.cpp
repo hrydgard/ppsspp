@@ -251,6 +251,10 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, uint64_t *uniform
 		WRITE(p, "%s %s vec3 v_texcoord;\n", varying, highpTexcoord ? "highp" : "mediump");
 	}
 
+	if (g_Config.iFarCullHack != 1000) {
+		WRITE(p, "%s float h_farcull;\n", varying);
+	}
+
 	if (!g_Config.bFragmentTestCache) {
 		if (enableAlphaTest && !alphaTestAgainstZero) {
 			if (bitwiseOps) {
@@ -834,7 +838,7 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, uint64_t *uniform
 
 	// Round World hack
 	if (g_Config.iFarCullHack != 1000) {
-		WRITE(p, "  if (gl_FragCoord.z > %f)\n", g_Config.iFarCullHack/1000.0);
+		WRITE(p, "  if (h_farcull > 0.5)\n");
 		WRITE(p, "    %s = vec4(0, 0, 0, 1);\n", fragColor0);
 	}
 
