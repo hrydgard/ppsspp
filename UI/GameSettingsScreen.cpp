@@ -459,13 +459,12 @@ void GameSettingsScreen::CreateViews() {
 		PopupSliderChoice *camXHack = graphicsSettings->Add(new PopupSliderChoice(&g_Config.iCamXHack, -1000, 1000, gr->T("Camera offset X"), 1, screenManager()));
 		PopupSliderChoice *camYHack = graphicsSettings->Add(new PopupSliderChoice(&g_Config.iCamYHack, -1000, 1000, gr->T("Camera offset Y"), 1, screenManager()));
 		PopupSliderChoice *camZHack = graphicsSettings->Add(new PopupSliderChoice(&g_Config.iCamZHack, -1000, 1000, gr->T("Camera offset Z"), 1, screenManager()));
-		PopupSliderChoice *camRotHack = graphicsSettings->Add(new PopupSliderChoice(&g_Config.iCamRotHack, -180, 180, gr->T("Camera Rotation"), 1, screenManager()));
-		camRotHack->SetFormat("%i°");
+		PopupSliderChoice *camRotHack = graphicsSettings->Add(new PopupSliderChoice(&g_Config.iCamRotHack, -180, 180, gr->T("Camera rotation"), 1, screenManager()));
 
-		PopupSliderChoice *roundWorldHack = graphicsSettings->Add(new PopupSliderChoice(&g_Config.iRoundWorldHack, -30, 30, gr->T("Round World"), 1, screenManager()));
+		PopupSliderChoice *roundWorldHack = graphicsSettings->Add(new PopupSliderChoice(&g_Config.iRoundWorldHack, -30, 30, gr->T("Round world"), 1, screenManager()));
+		PopupSliderChoice *farCullHack = graphicsSettings->Add(new PopupSliderChoice(&g_Config.iFarCullHack, 0, 1000, gr->T("Round world far cull"), 1, screenManager()));
 
 		PopupSliderChoice *phongHack = graphicsSettings->Add(new PopupSliderChoice(&g_Config.iPhongHack, 0, 100, gr->T("Phong threshold (0: disabled)"), 1, screenManager()));
-		phongHack->SetFormat("%i%%");
 
 		if (gpu) {
 			Choice *applyHack = graphicsSettings->Add(new Choice(gr->T("Apply graphic hack")));

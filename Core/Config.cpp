@@ -760,7 +760,8 @@ static ConfigSetting graphicsSettings[] = {
 	ConfigSetting("CamZHack", &g_Config.iCamZHack, 0, true, true),
 	ConfigSetting("CamRotHack", &g_Config.iCamRotHack, 0, true, true),
 	ConfigSetting("PhongHack", &g_Config.iPhongHack, 0, true, true),
-	ConfigSetting("PhongHack", &g_Config.iRoundWorldHack, 0, true, true),
+	ConfigSetting("WorldHack", &g_Config.iRoundWorldHack, 0, true, true),
+	ConfigSetting("FarCullHack", &g_Config.iFarCullHack, 1000, true, true),
 
 	// Not really a graphics setting...
 	ReportedConfigSetting("SplineBezierQuality", &g_Config.iSplineBezierQuality, 2, true, true),

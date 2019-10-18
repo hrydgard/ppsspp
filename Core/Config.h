@@ -187,6 +187,7 @@ public:
 	int iCamYHack;
 	int iCamZHack;
 	int iCamRotHack;
+	int iFarCullHack;
 	int iRoundWorldHack;
 	int iPhongHack; // 0 = off, other value as %
 	bool bBlockTransferGPU;
