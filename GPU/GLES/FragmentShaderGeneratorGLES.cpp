@@ -833,7 +833,7 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, uint64_t *uniform
 	}
 
 	// Round World hack
-	if (g_Config.iRoundWorldHack != 0) {
+	if (g_Config.iFarCullHack != 1000) {
 		WRITE(p, "  if (gl_FragCoord.z > %f)\n", g_Config.iFarCullHack/1000.0);
 		WRITE(p, "    %s = vec4(0, 0, 0, 1);\n", fragColor0);
 	}
