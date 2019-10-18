@@ -81,10 +81,10 @@ void LibretroGraphicsContext::LostBackbuffer() { draw_->HandleEvent(Draw::Event:
 LibretroGraphicsContext *LibretroGraphicsContext::CreateGraphicsContext() {
 	LibretroGraphicsContext *ctx;
 	
-	unsigned preferred;
-	Libretro::environ_cb(RETRO_ENVIRONMENT_GET_PREFERRED_HW_RENDER, &preferred);
+	unsigned preferred; // This will be set to a const value if GET_PREFERRED_HW_RENDER is not supported
+	if (!Libretro::environ_cb(RETRO_ENVIRONMENT_GET_PREFERRED_HW_RENDER, &preferred)) preferred = 0xFFFFFFFF;
 	
-	if (preferred == RETRO_HW_CONTEXT_OPENGL || preferred == RETRO_HW_CONTEXT_OPENGL_CORE) {
+	if (preferred == RETRO_HW_CONTEXT_OPENGL || preferred == RETRO_HW_CONTEXT_OPENGL_CORE || preferred == 0xFFFFFFFF) {
 		ctx = new LibretroGLContext();
 
 		if (ctx->Init()) {
@@ -93,7 +93,7 @@ LibretroGraphicsContext *LibretroGraphicsContext::CreateGraphicsContext() {
 		delete ctx;
 	}
 	
-	if (preferred == RETRO_HW_CONTEXT_VULKAN) {
+	if (preferred == RETRO_HW_CONTEXT_VULKAN || preferred == 0xFFFFFFFF) {
 		ctx = new LibretroVulkanContext();
 
 		if (ctx->Init()) {
@@ -103,7 +103,7 @@ LibretroGraphicsContext *LibretroGraphicsContext::CreateGraphicsContext() {
 	}
 
 #ifdef _WIN32
-	if (preferred == RETRO_HW_CONTEXT_DIRECT3D) {
+	if (preferred == RETRO_HW_CONTEXT_DIRECT3D || preferred == 0xFFFFFFFF) {
 		ctx = new LibretroD3D11Context();
 
 		if (ctx->Init()) {
