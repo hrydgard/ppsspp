@@ -1715,7 +1715,7 @@ void FramebufferManagerCommon::SetRenderSize(VirtualFramebuffer *vfb) {
 		force1x = vfb->bufferWidth <= 256 || vfb->bufferHeight <= 128;
 		break;
 	case 3:
-		force1x = vfb->bufferWidth < 480 || vfb->bufferHeight < 272;
+		force1x = vfb->bufferWidth < 480 || vfb->bufferWidth > 800 || vfb->bufferHeight < 272; // GOW uses ‭864‬x272
 		break;
 	}
 
