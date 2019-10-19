@@ -251,6 +251,7 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, uint64_t *uniform
 		WRITE(p, "%s %s vec3 v_texcoord;\n", varying, highpTexcoord ? "highp" : "mediump");
 	}
 
+	// Round World far hack
 	if (g_Config.iFarCullHack != 1000) {
 		WRITE(p, "%s float h_farcull;\n", varying);
 	}
@@ -773,6 +774,11 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, uint64_t *uniform
 			break;
 		}
 	}
+	
+	// Round World far hack
+	if (g_Config.iFarCullHack != 1000) {
+		WRITE(p, "  v *= h_farcull;\n");
+	}
 
 	switch (stencilToAlpha) {
 	case REPLACE_ALPHA_DUALSOURCE:
@@ -834,12 +840,6 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, uint64_t *uniform
 			WRITE(p, "  z = (1.0/65535.0) * floor(z * 65535.0);\n");
 		}
 		WRITE(p, "  gl_FragDepth = z;\n");
-	}
-
-	// Round World hack
-	if (g_Config.iFarCullHack != 1000) {
-		WRITE(p, "  if (h_farcull > 0.5)\n");
-		WRITE(p, "    %s = vec4(0, 0, 0, 1);\n", fragColor0);
 	}
 
 	WRITE(p, "}\n");
