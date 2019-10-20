@@ -92,7 +92,7 @@ public:
 
 	void DoState(PointerWrap &p) override;
 	std::vector<PSPFileInfo> GetDirListing(std::string path) override;
-	u32      OpenFile(std::string filename, FileAccess access, const char *devicename=NULL) override;
+	int      OpenFile(std::string filename, FileAccess access, const char *devicename = nullptr) override;
 	void     CloseFile(u32 handle) override;
 	size_t   ReadFile(u32 handle, u8 *pointer, s64 size) override;
 	size_t   ReadFile(u32 handle, u8 *pointer, s64 size, int &usec) override;
@@ -137,7 +137,7 @@ public:
 
 	void DoState(PointerWrap &p) override;
 	std::vector<PSPFileInfo> GetDirListing(std::string path) override;
-	u32      OpenFile(std::string filename, FileAccess access, const char *devicename=NULL) override;
+	int      OpenFile(std::string filename, FileAccess access, const char *devicename = nullptr) override;
 	void     CloseFile(u32 handle) override;
 	size_t   ReadFile(u32 handle, u8 *pointer, s64 size) override;
 	size_t   ReadFile(u32 handle, u8 *pointer, s64 size, int &usec) override;

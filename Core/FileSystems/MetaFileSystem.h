@@ -41,12 +41,13 @@ private:
 	currentDir_t currentDir;
 
 	std::string startingDirectory;
-	int lastOpenError;
 	std::recursive_mutex lock;  // must be recursive
 
 public:
 	MetaFileSystem() {
-		current = 6;  // what?
+		// This used to be 6, probably an attempt to replicate PSP handles.
+		// However, that's an artifact of using psplink anyway...
+		current = 1;
 	}
 
 	void Mount(std::string prefix, IFileSystem *system);
@@ -63,7 +64,8 @@ public:
 	u32 GetNewHandle() override {
 		u32 res = current++;
 		if (current < 0) {
-			current = 0;
+			// Some code assumes it'll never become 0.
+			current = 1;
 		}
 		return res;
 	}
@@ -72,16 +74,17 @@ public:
 	void DoState(PointerWrap &p) override;
 
 	IFileSystem *GetHandleOwner(u32 handle);
-	bool MapFilePath(const std::string &inpath, std::string &outpath, MountPoint **system);
+	int MapFilePath(const std::string &inpath, std::string &outpath, MountPoint **system);
 
-	inline bool MapFilePath(const std::string &_inpath, std::string &outpath, IFileSystem **system) {
+	inline int MapFilePath(const std::string &_inpath, std::string &outpath, IFileSystem **system) {
 		MountPoint *mountPoint;
-		if (MapFilePath(_inpath, outpath, &mountPoint)) {
+		int error = MapFilePath(_inpath, outpath, &mountPoint);
+		if (error == 0) {
 			*system = mountPoint->system;
-			return true;
+			return error;
 		}
 
-		return false;
+		return error;
 	}
 
 	std::string NormalizePrefix(std::string prefix) const;
@@ -90,8 +93,7 @@ public:
 	bool GetHostPath(const std::string &inpath, std::string &outpath) override;
 
 	std::vector<PSPFileInfo> GetDirListing(std::string path) override;
-	u32      OpenFile(std::string filename, FileAccess access, const char *devicename = NULL) override;
-	u32      OpenWithError(int &error, std::string filename, FileAccess access, const char *devicename = NULL);
+	int      OpenFile(std::string filename, FileAccess access, const char *devicename = nullptr) override;
 	void     CloseFile(u32 handle) override;
 	size_t   ReadFile(u32 handle, u8 *pointer, s64 size) override;
 	size_t   ReadFile(u32 handle, u8 *pointer, s64 size, int &usec) override;

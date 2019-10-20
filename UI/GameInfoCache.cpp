@@ -301,7 +301,7 @@ static bool ReadFileToString(IFileSystem *fs, const char *filename, std::string 
 	}
 
 	int handle = fs->OpenFile(filename, FILEACCESS_READ);
-	if (!handle) {
+	if (handle < 0) {
 		return false;
 	}
 
