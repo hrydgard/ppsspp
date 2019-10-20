@@ -190,6 +190,7 @@ public:
 	int iFarCullHack;
 	int iRoundWorldHack;
 	int iPhongHack; // 0 = off, other value as %
+	bool bNoFogHack;
 	bool bBlockTransferGPU;
 	bool bDisableSlowFramebufEffects;
 	bool bFragmentTestCache;

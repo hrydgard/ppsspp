@@ -538,7 +538,7 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, uint64_t *uniform
 			WRITE(p, "  vec4 v = v_color0 %s;\n", secondary);
 		}
 
-		if (enableFog) {
+		if (enableFog && !g_Config.bNoFogHack) {
 			WRITE(p, "  float fogCoef = clamp(v_fogdepth, 0.0, 1.0);\n");
 			WRITE(p, "  v = mix(vec4(u_fogcolor, v.a), v, fogCoef);\n");
 			// WRITE(p, "  v.x = v_depth;\n");
