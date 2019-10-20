@@ -335,6 +335,11 @@ u32 ISOFileSystem::OpenFile(std::string filename, FileAccess access, const char 
 	entry.isRawSector = false;
 	entry.isBlockSectorMode = false;
 
+	if (access & FILEACCESS_WRITE) {
+		ERROR_LOG(FILESYS, "Can't open file %s with write access on an ISO partition", filename.c_str());
+		return SCE_KERNEL_ERROR_ERRNO_INVALID_FLAG;
+	}
+
 	if (filename.compare(0, 8, "/sce_lbn") == 0) {
 		// Raw sector read.
 		u32 sectorStart = 0xFFFFFFFF, readSize = 0xFFFFFFFF;
@@ -362,11 +367,6 @@ u32 ISOFileSystem::OpenFile(std::string filename, FileAccess access, const char 
 
 		entries[newHandle] = entry;
 		return newHandle;
-	}
-
-	if (access & FILEACCESS_WRITE) {
-		ERROR_LOG(FILESYS, "Can't open file %s with write access on an ISO partition", filename.c_str());
-		return 0;
 	}
 
 	// May return entireISO for "umd0:"
