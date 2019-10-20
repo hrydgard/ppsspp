@@ -197,7 +197,7 @@ VkDescriptorSet Vulkan2D::GetDescriptorSet(VkImageView tex1, VkSampler sampler1,
 	int n = 0;
 	VkDescriptorImageInfo image1{};
 	VkDescriptorImageInfo image2{};
-	if (tex1) {
+	if (tex1 && sampler1) {
 #ifdef VULKAN_USE_GENERAL_LAYOUT_FOR_COLOR
 		image1.imageLayout = VK_IMAGE_LAYOUT_GENERAL;
 #else
@@ -213,7 +213,7 @@ VkDescriptorSet Vulkan2D::GetDescriptorSet(VkImageView tex1, VkSampler sampler1,
 		writes[n].dstSet = desc;
 		n++;
 	}
-	if (tex2) {
+	if (tex2 && sampler2) {
 		// TODO: Also support LAYOUT_GENERAL to be able to texture from framebuffers without transitioning them?
 #ifdef VULKAN_USE_GENERAL_LAYOUT_FOR_COLOR
 		image2.imageLayout = VK_IMAGE_LAYOUT_GENERAL;

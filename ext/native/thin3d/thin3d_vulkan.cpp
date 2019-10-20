@@ -912,36 +912,47 @@ VkDescriptorSet VKContext::GetOrCreateDescriptorSet(VkBuffer buf) {
 	bufferDesc.range = curPipeline_->GetUBOSize();
 
 	VkDescriptorImageInfo imageDesc;
-	imageDesc.imageView = boundTextures_[0] ? boundTextures_[0]->GetImageView() : VK_NULL_HANDLE;
-	imageDesc.sampler = boundSamplers_[0] ? boundSamplers_[0]->GetSampler() : VK_NULL_HANDLE;
-#ifdef VULKAN_USE_GENERAL_LAYOUT_FOR_COLOR
-	imageDesc.imageLayout = VK_IMAGE_LAYOUT_GENERAL;
-#else
-	imageDesc.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-#endif
 
 	VkWriteDescriptorSet writes[2] = {};
-	writes[0].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-	writes[0].dstSet = descSet;
-	writes[0].dstArrayElement = 0;
-	writes[0].dstBinding = 0;
-	writes[0].pBufferInfo = &bufferDesc;
-	writes[0].pImageInfo = nullptr;
-	writes[0].pTexelBufferView = nullptr;
-	writes[0].descriptorCount = 1;
-	writes[0].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC;
 
-	writes[1].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-	writes[1].dstSet = descSet;
-	writes[1].dstArrayElement = 0;
-	writes[1].dstBinding = 1;
-	writes[1].pBufferInfo = nullptr;
-	writes[1].pImageInfo = &imageDesc;
-	writes[1].pTexelBufferView = nullptr;
-	writes[1].descriptorCount = 1;
-	writes[1].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+	// If handles are NULL for whatever buggy reason, it's best to leave the descriptors
+	// unwritten instead of trying to write a zero, which is not legal.
 
-	vkUpdateDescriptorSets(device_, 2, writes, 0, nullptr);
+	int numWrites = 0;
+	if (buf) {
+		writes[numWrites].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+		writes[numWrites].dstSet = descSet;
+		writes[numWrites].dstArrayElement = 0;
+		writes[numWrites].dstBinding = 0;
+		writes[numWrites].pBufferInfo = &bufferDesc;
+		writes[numWrites].pImageInfo = nullptr;
+		writes[numWrites].pTexelBufferView = nullptr;
+		writes[numWrites].descriptorCount = 1;
+		writes[numWrites].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC;
+		numWrites++;
+	}
+
+	if (boundTextures_[0] && boundTextures_[0]->GetImageView() && boundSamplers_[0] && boundSamplers_[0]->GetSampler()) {
+		imageDesc.imageView = boundTextures_[0] ? boundTextures_[0]->GetImageView() : VK_NULL_HANDLE;
+		imageDesc.sampler = boundSamplers_[0] ? boundSamplers_[0]->GetSampler() : VK_NULL_HANDLE;
+#ifdef VULKAN_USE_GENERAL_LAYOUT_FOR_COLOR
+		imageDesc.imageLayout = VK_IMAGE_LAYOUT_GENERAL;
+#else
+		imageDesc.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+#endif
+		writes[numWrites].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+		writes[numWrites].dstSet = descSet;
+		writes[numWrites].dstArrayElement = 0;
+		writes[numWrites].dstBinding = 1;
+		writes[numWrites].pBufferInfo = nullptr;
+		writes[numWrites].pImageInfo = &imageDesc;
+		writes[numWrites].pTexelBufferView = nullptr;
+		writes[numWrites].descriptorCount = 1;
+		writes[numWrites].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+		numWrites++;
+	}
+
+	vkUpdateDescriptorSets(device_, numWrites, writes, 0, nullptr);
 
 	frame->descSets_[key] = descSet;
 	return descSet;
