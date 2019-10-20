@@ -32,6 +32,7 @@ public:
 	void Start(u32 a0, u32 a1);
 	void Terminate();
 	bool Stopped();
+	void ChangePriority(u32 prio);
 
 	// For savestates.
 	void Forget();

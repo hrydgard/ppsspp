@@ -162,6 +162,7 @@ KernelObject *__KernelCallbackObject();
 void __KernelScheduleWakeup(int threadnumber, s64 usFromNow);
 SceUID __KernelGetCurThread();
 int KernelCurThreadPriority();
+bool KernelChangeThreadPriority(SceUID threadID, int priority);
 u32 __KernelGetCurThreadStack();
 u32 __KernelGetCurThreadStackStart();
 const char *__KernelGetThreadName(SceUID threadID);

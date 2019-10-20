@@ -2418,6 +2418,28 @@ int sceKernelChangeCurrentThreadAttr(u32 clearAttr, u32 setAttr) {
 	return hleLogSuccessI(SCEKERNEL, 0);
 }
 
+// Assumes validated parameters.
+bool KernelChangeThreadPriority(SceUID threadID, int priority) {
+	u32 error;
+	Thread *thread = kernelObjects.Get<Thread>(threadID, error);
+	if (thread) {
+		int old = thread->nt.currentPriority;
+		threadReadyQueue.remove(old, threadID);
+
+		thread->nt.currentPriority = priority;
+		threadReadyQueue.prepare(thread->nt.currentPriority);
+		if (thread->isRunning()) {
+			thread->nt.status = (thread->nt.status & ~THREADSTATUS_RUNNING) | THREADSTATUS_READY;
+		}
+		if (thread->isReady()) {
+			threadReadyQueue.push_back(thread->nt.currentPriority, threadID);
+		}
+		return true;
+	} else {
+		return false;
+	}
+}
+
 int sceKernelChangeThreadPriority(SceUID threadID, int priority) {
 	if (threadID == 0) {
 		threadID = __KernelGetCurThread();
@@ -2444,17 +2466,7 @@ int sceKernelChangeThreadPriority(SceUID threadID, int priority) {
 			return hleLogError(SCEKERNEL, SCE_KERNEL_ERROR_ILLEGAL_PRIORITY, "bogus priority");
 		}
 
-		int old = thread->nt.currentPriority;
-		threadReadyQueue.remove(old, threadID);
-
-		thread->nt.currentPriority = priority;
-		threadReadyQueue.prepare(thread->nt.currentPriority);
-		if (thread->isRunning()) {
-			thread->nt.status = (thread->nt.status & ~THREADSTATUS_RUNNING) | THREADSTATUS_READY;
-		}
-		if (thread->isReady()) {
-			threadReadyQueue.push_back(thread->nt.currentPriority, threadID);
-		}
+		KernelChangeThreadPriority(threadID, priority);
 
 		hleEatCycles(450);
 		hleReSchedule("change thread priority");

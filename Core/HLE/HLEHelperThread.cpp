@@ -87,6 +87,10 @@ bool HLEHelperThread::Stopped() {
 	return KernelIsThreadDormant(id_);
 }
 
+void HLEHelperThread::ChangePriority(u32 prio) {
+	KernelChangeThreadPriority(id_, prio);
+}
+
 void HLEHelperThread::Forget() {
 	id_ = 0;
 	entry_ = 0;

@@ -1973,6 +1973,10 @@ static int sceIoChangeAsyncPriority(int id, int priority) {
 		return hleLogError(SCEIO, error, "bad file descriptor");
 	}
 
+	if (asyncThreads[id] && !asyncThreads[id]->Stopped()) {
+		asyncThreads[id]->ChangePriority(priority);
+	}
+
 	asyncParams[id].priority = priority;
 	return hleLogSuccessI(SCEIO, 0);
 }
