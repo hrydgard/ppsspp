@@ -737,6 +737,15 @@ void __IoShutdown() {
 		ioManager.Shutdown();
 	}
 
+	for (int i = 0; i < PSP_COUNT_FDS; ++i) {
+		asyncParams[i].op = IoAsyncOp::NONE;
+		asyncParams[i].priority = -1;
+		if (asyncThreads[i])
+			asyncThreads[i]->Forget();
+		delete asyncThreads[i];
+		asyncThreads[i] = nullptr;
+	}
+
 	pspFileSystem.Unmount("ms0:", memstickSystem);
 	pspFileSystem.Unmount("fatms0:", memstickSystem);
 	pspFileSystem.Unmount("fatms:", memstickSystem);
@@ -1962,6 +1971,10 @@ static int sceIoChangeAsyncPriority(int id, int priority) {
 	FileNode *f = __IoGetFd(id, error);
 	if (!f) {
 		return hleLogError(SCEIO, error, "bad file descriptor");
+	}
+
+	if (asyncThreads[id] && !asyncThreads[id]->Stopped()) {
+		asyncThreads[id]->ChangePriority(priority);
 	}
 
 	asyncParams[id].priority = priority;
