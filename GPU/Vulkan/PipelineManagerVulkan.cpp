@@ -126,7 +126,15 @@ static int SetupVertexAttribsPretransformed(VkVertexInputAttributeDescription at
 }
 
 static bool UsesBlendConstant(int factor) {
-	return factor == VK_BLEND_FACTOR_CONSTANT_ALPHA || factor == VK_BLEND_FACTOR_CONSTANT_COLOR;
+	switch (factor) {
+	case VK_BLEND_FACTOR_CONSTANT_ALPHA:
+	case VK_BLEND_FACTOR_CONSTANT_COLOR:
+	case VK_BLEND_FACTOR_ONE_MINUS_CONSTANT_ALPHA:
+	case VK_BLEND_FACTOR_ONE_MINUS_CONSTANT_COLOR:
+		return true;
+	default:
+		return false;
+	}
 }
 
 static VulkanPipeline *CreateVulkanPipeline(VkDevice device, VkPipelineCache pipelineCache, 

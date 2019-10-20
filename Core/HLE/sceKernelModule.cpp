@@ -1276,6 +1276,11 @@ static Module *__KernelLoadELFFromPtr(const u8 *ptr, size_t elfSize, u32 loadAdd
 			u32 start = reader.GetSectionAddr(id);
 			// Note: scan end is inclusive.
 			u32 end = start + reader.GetSectionSize(id) - 4;
+			u32 len = end + 4 - start;
+			if (!Memory::IsValidRange(start, len)) {
+				ERROR_LOG(LOADER, "Bad section %08x (len %08x) of section %d", start, len, id);
+				continue;
+			}
 
 			if (start < module->textStart)
 				module->textStart = start;

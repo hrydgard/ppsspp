@@ -851,7 +851,7 @@ void VulkanQueueRunner::LogRenderPass(const VKRStep &pass) {
 			ILOG("  BindPipeline(%x)", (int)(intptr_t)cmd.pipeline.pipeline);
 			break;
 		case VKRRenderCommand::BLEND:
-			ILOG("  Blend(%f, %f, %f, %f)", cmd.blendColor.color[0], cmd.blendColor.color[1], cmd.blendColor.color[2], cmd.blendColor.color[3]);
+			ILOG("  BlendColor(%08x)", cmd.blendColor.color);
 			break;
 		case VKRRenderCommand::CLEAR:
 			ILOG("  Clear");
@@ -1007,16 +1007,47 @@ void VulkanQueueRunner::PerformRenderPass(const VKRStep &step, VkCommandBuffer c
 			break;
 
 		case VKRRenderCommand::VIEWPORT:
-			vkCmdSetViewport(cmd, 0, 1, &c.viewport.vp);
+			if (fb != nullptr) {
+				vkCmdSetViewport(cmd, 0, 1, &c.viewport.vp);
+			} else {
+				const VkViewport &vp = c.viewport.vp;
+				DisplayRect<float> rc{ vp.x, vp.y, vp.width, vp.height };
+				RotateRectToDisplay(rc, (float)vulkan_->GetBackbufferWidth(), (float)vulkan_->GetBackbufferHeight());
+				VkViewport final_vp;
+				final_vp.x = rc.x;
+				final_vp.y = rc.y;
+				final_vp.width = rc.w;
+				final_vp.height = rc.h;
+				final_vp.maxDepth = vp.maxDepth;
+				final_vp.minDepth = vp.minDepth;
+				vkCmdSetViewport(cmd, 0, 1, &final_vp);
+			}
 			break;
 
 		case VKRRenderCommand::SCISSOR:
-			vkCmdSetScissor(cmd, 0, 1, &c.scissor.scissor);
+		{
+			if (fb != nullptr) {
+				vkCmdSetScissor(cmd, 0, 1, &c.scissor.scissor);
+			} else {
+				// Rendering to backbuffer. Might need to rotate.
+				const VkRect2D &rc = c.scissor.scissor;
+				DisplayRect<int> rotated_rc{ rc.offset.x, rc.offset.y, (int)rc.extent.width, (int)rc.extent.height };
+				RotateRectToDisplay(rotated_rc, vulkan_->GetBackbufferWidth(), vulkan_->GetBackbufferHeight());
+				_dbg_assert_(G3D, rotated_rc.x >= 0);
+				_dbg_assert_(G3D, rotated_rc.y >= 0);
+				VkRect2D finalRect = VkRect2D{ { rotated_rc.x, rotated_rc.y }, { (uint32_t)rotated_rc.w, (uint32_t)rotated_rc.h} };
+				vkCmdSetScissor(cmd, 0, 1, &finalRect);
+			}
 			break;
+		}
 
 		case VKRRenderCommand::BLEND:
-			vkCmdSetBlendConstants(cmd, c.blendColor.color);
+		{
+			float bc[4];
+			Uint8x4ToFloat4(bc, c.blendColor.color);
+			vkCmdSetBlendConstants(cmd, bc);
 			break;
+		}
 
 		case VKRRenderCommand::PUSH_CONSTANTS:
 			vkCmdPushConstants(cmd, c.push.pipelineLayout, c.push.stages, c.push.offset, c.push.size, c.push.data);
