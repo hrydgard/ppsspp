@@ -247,10 +247,10 @@ static int sceUmdCheckMedium()
 {
 	if (UMDInserted) {
 		DEBUG_LOG(SCEIO, "1=sceUmdCheckMedium()");
-		return hleDelayResult(1, "sceUmdCheckMedium", 10000); //non-zero: disc in drive
+		return hleDelayResult(1, "sceUmdCheckMedium", 5); //non-zero: disc in drive
 	}
 	DEBUG_LOG(SCEIO, "0=sceUmdCheckMedium()");
-	return hleDelayResult(0, "sceUmdCheckMedium", 10000);
+	return hleDelayResult(0, "sceUmdCheckMedium", 5);
 }
 	
 static u32 sceUmdGetDiscInfo(u32 infoAddr)
@@ -271,7 +271,7 @@ static u32 sceUmdGetDiscInfo(u32 infoAddr)
 static int sceUmdActivate(u32 mode, const char *name)
 {
 	if (mode < 1 || mode > 2)
-		return hleDelayResult(PSP_ERROR_UMD_INVALID_PARAM, "sceUmdActivate", 10000);
+		return hleDelayResult(PSP_ERROR_UMD_INVALID_PARAM, "sceUmdActivate", 5);
 
 	__KernelUmdActivate();
 
@@ -281,7 +281,7 @@ static int sceUmdActivate(u32 mode, const char *name)
 		ERROR_LOG(SCEIO, "UNTESTED 0=sceUmdActivate(%d, %s)", mode, name);
 	}
 
-	return hleDelayResult(0, "sceUmdActivate", 10000);
+	return hleDelayResult(0, "sceUmdActivate", 5);
 }
 
 static int sceUmdDeactivate(u32 mode, const char *name)
@@ -409,16 +409,16 @@ static int sceUmdWaitDriveStatWithTimer(u32 stat, u32 timeout)
 {
 	if (stat == 0) {
 		DEBUG_LOG(SCEIO, "sceUmdWaitDriveStatWithTimer(stat = %08x, timeout = %d): bad status", stat, timeout);
-		return hleDelayResult(SCE_KERNEL_ERROR_ERRNO_INVALID_ARGUMENT, "sceUmdWaitDriveStatWithTimer", 10000);
+		return hleDelayResult(SCE_KERNEL_ERROR_ERRNO_INVALID_ARGUMENT, "sceUmdWaitDriveStatWithTimer", 5);
 	}
 
 	if (!__KernelIsDispatchEnabled()) {
 		DEBUG_LOG(SCEIO, "sceUmdWaitDriveStatWithTimer(stat = %08x, timeout = %d): dispatch disabled", stat, timeout);
-		return hleDelayResult(SCE_KERNEL_ERROR_CAN_NOT_WAIT, "sceUmdWaitDriveStatWithTimer", 10000);
+		return hleDelayResult(SCE_KERNEL_ERROR_CAN_NOT_WAIT, "sceUmdWaitDriveStatWithTimer", 5);
 	}
 	if (__IsInInterrupt()) {
 		DEBUG_LOG(SCEIO, "sceUmdWaitDriveStatWithTimer(stat = %08x, timeout = %d): inside interrupt", stat, timeout);
-		return hleDelayResult(SCE_KERNEL_ERROR_ILLEGAL_CONTEXT, "sceUmdWaitDriveStatWithTimer", 10000);
+		return hleDelayResult(SCE_KERNEL_ERROR_ILLEGAL_CONTEXT, "sceUmdWaitDriveStatWithTimer", 5);
 	}
 
 	if ((stat & __KernelUmdGetState()) == 0) {
@@ -426,13 +426,13 @@ static int sceUmdWaitDriveStatWithTimer(u32 stat, u32 timeout)
 		__UmdWaitStat(timeout);
 		umdWaitingThreads.push_back(__KernelGetCurThread());
 		__KernelWaitCurThread(WAITTYPE_UMD, 1, stat, 0, 0, "umd stat waited with timer");
-		return hleDelayResult(0, "sceUmdWaitDriveStatWithTimer", 10000);
+		return hleDelayResult(0, "sceUmdWaitDriveStatWithTimer", 5);
 	} else {
 		hleReSchedule("umd stat checked");
 	}
 
 	DEBUG_LOG(SCEIO, "0=sceUmdWaitDriveStatWithTimer(stat = %08x, timeout = %d)", stat, timeout);
-	return hleDelayResult(0, "sceUmdWaitDriveStatWithTimer", 10000);
+	return hleDelayResult(0, "sceUmdWaitDriveStatWithTimer", 5);
 }
 
 static int sceUmdWaitDriveStatCB(u32 stat, u32 timeout)
