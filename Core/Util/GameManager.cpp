@@ -413,9 +413,12 @@ std::string GameManager::GetISOGameID(FileLoader *loader) const {
 	ISOFileSystem umd(&handles, bd);
 
 	PSPFileInfo info = umd.GetFileInfo("/PSP_GAME/PARAM.SFO");
-	int handle = 0;
+	int handle = -1;
 	if (info.exists) {
 		handle = umd.OpenFile("/PSP_GAME/PARAM.SFO", FILEACCESS_READ);
+	}
+	if (handle < 0) {
+		return "";
 	}
 
 	std::string sfoData;

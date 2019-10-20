@@ -62,7 +62,7 @@ namespace
 	bool ReadPSPFile(std::string filename, u8 **data, s64 dataSize, s64 *readSize)
 	{
 		u32 handle = pspFileSystem.OpenFile(filename, FILEACCESS_READ);
-		if (handle == 0)
+		if (handle < 0)
 			return false;
 
 		if(dataSize == -1)
@@ -82,7 +82,7 @@ namespace
 	bool WritePSPFile(std::string filename, u8 *data, SceSize dataSize)
 	{
 		u32 handle = pspFileSystem.OpenFile(filename, (FileAccess)(FILEACCESS_WRITE | FILEACCESS_CREATE | FILEACCESS_TRUNCATE));
-		if (handle == 0)
+		if (handle < 0)
 			return false;
 
 		size_t result = pspFileSystem.WriteFile(handle, data, dataSize);
@@ -209,7 +209,7 @@ void SavedataParam::Init()
 	// Create a nomedia file to hide save icons form Android image viewer
 #ifdef __ANDROID__
 	int handle = pspFileSystem.OpenFile(savePath + ".nomedia", (FileAccess)(FILEACCESS_CREATE | FILEACCESS_WRITE), 0);
-	if (handle) {
+	if (handle >= 0) {
 		pspFileSystem.CloseFile(handle);
 	} else {
 		ELOG("Failed to create .nomedia file");

@@ -30,7 +30,7 @@ public:
 	~VirtualDiscFileSystem();
 
 	void DoState(PointerWrap &p) override;
-	u32      OpenFile(std::string filename, FileAccess access, const char *devicename=NULL) override;
+	int      OpenFile(std::string filename, FileAccess access, const char *devicename = nullptr) override;
 	size_t   SeekFile(u32 handle, s32 position, FileMove type) override;
 	size_t   ReadFile(u32 handle, u8 *pointer, s64 size) override;
 	size_t   ReadFile(u32 handle, u8 *pointer, s64 size, int &usec) override;

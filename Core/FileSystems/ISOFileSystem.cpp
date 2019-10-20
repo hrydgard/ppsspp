@@ -330,10 +330,15 @@ ISOFileSystem::TreeEntry *ISOFileSystem::GetFromPath(const std::string &path, bo
 	}
 }
 
-u32 ISOFileSystem::OpenFile(std::string filename, FileAccess access, const char *devicename) {
+int ISOFileSystem::OpenFile(std::string filename, FileAccess access, const char *devicename) {
 	OpenFileEntry entry;
 	entry.isRawSector = false;
 	entry.isBlockSectorMode = false;
+
+	if (access & FILEACCESS_WRITE) {
+		ERROR_LOG(FILESYS, "Can't open file %s with write access on an ISO partition", filename.c_str());
+		return SCE_KERNEL_ERROR_ERRNO_INVALID_FLAG;
+	}
 
 	if (filename.compare(0, 8, "/sce_lbn") == 0) {
 		// Raw sector read.
@@ -341,7 +346,7 @@ u32 ISOFileSystem::OpenFile(std::string filename, FileAccess access, const char 
 		parseLBN(filename, &sectorStart, &readSize);
 		if (sectorStart > blockDevice->GetNumBlocks()) {
 			WARN_LOG(FILESYS, "Unable to open raw sector, out of range: %s, sector %08x, max %08x", filename.c_str(), sectorStart, blockDevice->GetNumBlocks());
-			return 0;
+			return SCE_KERNEL_ERROR_ERRNO_FILE_NOT_FOUND;
 		}
 		else if (sectorStart == blockDevice->GetNumBlocks())
 		{
@@ -364,15 +369,10 @@ u32 ISOFileSystem::OpenFile(std::string filename, FileAccess access, const char 
 		return newHandle;
 	}
 
-	if (access & FILEACCESS_WRITE) {
-		ERROR_LOG(FILESYS, "Can't open file %s with write access on an ISO partition", filename.c_str());
-		return 0;
-	}
-
 	// May return entireISO for "umd0:"
 	entry.file = GetFromPath(filename);
 	if (!entry.file){
-		return 0;
+		return SCE_KERNEL_ERROR_ERRNO_FILE_NOT_FOUND;
 	}
 
 	if (entry.file == &entireISO)
