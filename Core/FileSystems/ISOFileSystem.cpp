@@ -330,7 +330,7 @@ ISOFileSystem::TreeEntry *ISOFileSystem::GetFromPath(const std::string &path, bo
 	}
 }
 
-u32 ISOFileSystem::OpenFile(std::string filename, FileAccess access, const char *devicename) {
+int ISOFileSystem::OpenFile(std::string filename, FileAccess access, const char *devicename) {
 	OpenFileEntry entry;
 	entry.isRawSector = false;
 	entry.isBlockSectorMode = false;
@@ -346,7 +346,7 @@ u32 ISOFileSystem::OpenFile(std::string filename, FileAccess access, const char 
 		parseLBN(filename, &sectorStart, &readSize);
 		if (sectorStart > blockDevice->GetNumBlocks()) {
 			WARN_LOG(FILESYS, "Unable to open raw sector, out of range: %s, sector %08x, max %08x", filename.c_str(), sectorStart, blockDevice->GetNumBlocks());
-			return 0;
+			return SCE_KERNEL_ERROR_ERRNO_FILE_NOT_FOUND;
 		}
 		else if (sectorStart == blockDevice->GetNumBlocks())
 		{
@@ -372,7 +372,7 @@ u32 ISOFileSystem::OpenFile(std::string filename, FileAccess access, const char 
 	// May return entireISO for "umd0:"
 	entry.file = GetFromPath(filename);
 	if (!entry.file){
-		return 0;
+		return SCE_KERNEL_ERROR_ERRNO_FILE_NOT_FOUND;
 	}
 
 	if (entry.file == &entireISO)

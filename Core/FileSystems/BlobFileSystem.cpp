@@ -36,7 +36,7 @@ std::vector<PSPFileInfo> BlobFileSystem::GetDirListing(std::string path) {
 	return listing;
 }
 
-u32 BlobFileSystem::OpenFile(std::string filename, FileAccess access, const char *devicename) {
+int BlobFileSystem::OpenFile(std::string filename, FileAccess access, const char *devicename) {
 	u32 newHandle = alloc_->GetNewHandle();
 	entries_[newHandle] = 0;
 	return newHandle;

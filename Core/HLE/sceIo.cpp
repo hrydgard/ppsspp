@@ -1425,10 +1425,12 @@ static FileNode *__IoOpen(int &error, const char* filename, int flags, int mode)
 
 	PSPFileInfo info = pspFileSystem.GetFileInfo(filename);
 
-	u32 h = pspFileSystem.OpenWithError(error, filename, (FileAccess) access);
-	if (h == 0) {
-		return NULL;
+	int h = pspFileSystem.OpenFile(filename, (FileAccess)access);
+	if (h < 0) {
+		error = h;
+		return nullptr;
 	}
+	error = 0;
 
 	FileNode *f = new FileNode();
 	SceUID id = kernelObjects.Create(f);

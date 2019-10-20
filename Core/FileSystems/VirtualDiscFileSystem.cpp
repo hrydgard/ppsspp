@@ -321,7 +321,7 @@ int VirtualDiscFileSystem::getFileListIndex(u32 accessBlock, u32 accessSize, boo
 	return -1;
 }
 
-u32 VirtualDiscFileSystem::OpenFile(std::string filename, FileAccess access, const char *devicename)
+int VirtualDiscFileSystem::OpenFile(std::string filename, FileAccess access, const char *devicename)
 {
 	OpenFileEntry entry;
 	entry.curOffset = 0;
@@ -396,7 +396,7 @@ u32 VirtualDiscFileSystem::OpenFile(std::string filename, FileAccess access, con
 		ERROR_LOG(FILESYS, "VirtualDiscFileSystem::OpenFile: FAILED, access = %i", (int)access);
 #endif
 		//wwwwaaaaahh!!
-		return 0;
+		return SCE_KERNEL_ERROR_ERRNO_FILE_NOT_FOUND;
 	} else {
 		u32 newHandle = hAlloc->GetNewHandle();
 		entries[newHandle] = entry;
