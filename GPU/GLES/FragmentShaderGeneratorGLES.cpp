@@ -842,6 +842,10 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, uint64_t *uniform
 		WRITE(p, "  gl_FragDepth = z;\n");
 	}
 
+	// Vertex color only hack
+	if (g_Config.bVertexColor)
+		WRITE(p, "  %s.rgb = v_color0.rgb;\n", fragColor0);
+
 	WRITE(p, "}\n");
 
 	return true;

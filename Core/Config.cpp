@@ -763,6 +763,7 @@ static ConfigSetting graphicsSettings[] = {
 	ConfigSetting("WorldHack", &g_Config.iRoundWorldHack, 0, true, true),
 	ConfigSetting("FarCullHack", &g_Config.iFarCullHack, 1000, true, true),
 	ConfigSetting("DisableFogHack", &g_Config.bNoFogHack, false, true, true),
+	ConfigSetting("VertexColorHack", &g_Config.bVertexColor, false, true, true),
 
 	// Not really a graphics setting...
 	ReportedConfigSetting("SplineBezierQuality", &g_Config.iSplineBezierQuality, 2, true, true),
