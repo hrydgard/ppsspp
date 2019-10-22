@@ -184,6 +184,39 @@ void ProcessRect(const VertexData& v0, const VertexData& v1)
 		ProcessTriangle(*topleft, *bottomleft, *bottomright, buf[3]);
 	} else {
 		// through mode handling
+
+		// Check for simple case: No depth, alpha != 0 testing only, no blend, texture mapping 1:1 etc.
+		// Also check for scissor rectangle etc.
+		// That is, state commonly used in PSX games and ports like Darkstalker.
+		// In that case we can call DrawPSXSprite.
+		int xdiff = v1.screenpos.x - v0.screenpos.x;
+		int ydiff = v1.screenpos.y - v0.screenpos.y;
+		int udiff = (v1.texturecoords.x - v0.texturecoords.x) * 16.0f;
+		int vdiff = (v1.texturecoords.y - v0.texturecoords.y) * 16.0f;
+		bool coord_check =
+			(xdiff == udiff /* || xdiff == -udiff*/) &&
+			(ydiff == vdiff /* || ydiff == -vdiff*/);
+		// TODO: The U/V mirror support is off by one somehow. Predecrement?
+
+		/*
+		bool state_check =
+			!gstate.isModeClear() &&
+			!gstate.isFogEnabled() &&
+			gstate.isTextureMapEnabled() &&
+			!gstate.isDepthTestEnabled() &&
+			!gstate.isStencilTestEnabled();
+		bool alpha_check =
+			gstate.getAlphaTestFunction() == GEComparison::GE_COMP_GREATER &&
+			gstate.getAlphaTestMask() == 0xFF &&
+			gstate.getAlphaTestRef() == 0;
+			*/
+		bool state_check = !gstate.isModeClear();
+		bool alpha_check = true;
+		if ((coord_check || !gstate.isTextureMapEnabled()) && state_check && alpha_check) {
+			Rasterizer::DrawPSXSprite(v0, v1);
+			return;
+		}
+
 		VertexData buf[4];
 		buf[0].screenpos = ScreenCoords(v0.screenpos.x, v0.screenpos.y, v1.screenpos.z);
 		buf[0].texturecoords = v0.texturecoords;

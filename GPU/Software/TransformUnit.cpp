@@ -470,6 +470,27 @@ void TransformUnit::SubmitPrimitive(void* vertices, void* indices, GEPrimitiveTy
 					data[2].color0 == data[3].color0) {
 					// It's a rectangle!
 					Clipper::ProcessRect(data[0], data[3]);
+					break;
+				}
+				// There's the other vertex order too...
+				if (data[0].screenpos.x == data[2].screenpos.x &&
+					data[0].screenpos.y == data[1].screenpos.y &&
+					data[1].screenpos.x == data[3].screenpos.x &&
+					data[2].screenpos.y == data[3].screenpos.y &&
+					data[2].screenpos.y > data[0].screenpos.y &&  // Avoid rotation handling
+					data[1].screenpos.x > data[0].screenpos.x &&
+					data[0].texturecoords.x == data[2].texturecoords.x &&
+					data[0].texturecoords.y == data[1].texturecoords.y &&
+					data[1].texturecoords.x == data[3].texturecoords.x &&
+					data[2].texturecoords.y == data[3].texturecoords.y &&
+					data[2].texturecoords.y > data[0].texturecoords.y &&
+					data[1].texturecoords.x > data[0].texturecoords.x &&
+					data[0].color0 == data[1].color0 &&
+					data[1].color0 == data[2].color0 &&
+					data[2].color0 == data[3].color0) {
+					// It's a rectangle!
+					Clipper::ProcessRect(data[0], data[3]);
+					break;
 				}
 			}
 
