@@ -515,9 +515,16 @@ struct DeviceCaps {
 	std::string deviceName;  // The device name to use when creating the thin3d context, to get the same one.
 };
 
+// Some predefined swizzle
+enum class TextureSwizzle {
+	NO_SWIZZLE = 0,
+	BGRA = 1,
+};
+
 struct TextureDesc {
 	TextureType type;
 	DataFormat format;
+	TextureSwizzle swizzle;
 	int width;
 	int height;
 	int depth;

@@ -163,6 +163,9 @@ void SoftGPU::CopyToCurrentFboFromDisplayRam(int srcwidth, int srcheight) {
 	// For accuracy, try to handle 0 stride - sometimes used.
 	if (displayStride_ == 0) {
 		srcheight = 1;
+		u1 = 1.0f;
+	} else {
+		u1 = (float)srcwidth / displayStride_;
 	}
 
 	Draw::TextureDesc desc{};
@@ -181,11 +184,13 @@ void SoftGPU::CopyToCurrentFboFromDisplayRam(int srcwidth, int srcheight) {
 		desc.height = srcheight;
 		desc.initData.push_back(data);
 		desc.format = Draw::DataFormat::R8G8B8A8_UNORM;
-		if (displayStride_ != 0) {
-			u1 = (float)srcwidth / displayStride_;
-		} else {
-			u1 = 1.0f;
-		}
+	} else if (g_Config.iGPUBackend == (int)GPUBackend::VULKAN && displayFormat_ == GE_FORMAT_5551) {
+		u8 *data = Memory::GetPointer(displayFramebuf_);
+		desc.swizzle = Draw::TextureSwizzle::BGRA;
+		desc.format = Draw::DataFormat::A1R5G5B5_UNORM_PACK16;
+		desc.width = displayStride_ == 0 ? srcwidth : displayStride_;
+		desc.height = srcheight;
+		desc.initData.push_back(data);
 	} else {
 		// TODO: This should probably be converted in a shader instead..
 		fbTexBuffer.resize(srcwidth * srcheight);
