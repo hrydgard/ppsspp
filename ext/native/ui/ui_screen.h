@@ -2,8 +2,11 @@
 
 #include <set>
 
+#include "math/lin/vec3.h"
 #include "ui/screen.h"
 #include "ui/viewgroup.h"
+
+using namespace Lin;
 
 class I18NCategory;
 namespace Draw {

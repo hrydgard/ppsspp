@@ -426,7 +426,7 @@ void CGEDebugger::UpdatePrimPreview(u32 op, int which) {
 			272.0f / (float)PSP_CoreParameter().renderHeight,
 		};
 
-		Matrix4x4 ortho;
+		Lin::Matrix4x4 ortho;
 		ortho.setOrtho(-(float)gstate_c.curRTOffsetX, (primaryWindow->TexWidth() - (int)gstate_c.curRTOffsetX) * scale[0], primaryWindow->TexHeight() * scale[1], 0, -1, 1);
 		glUniformMatrix4fv(previewProgram->u_viewproj, 1, GL_FALSE, ortho.getReadPtr());
 		if (previewVao != 0) {
@@ -488,7 +488,7 @@ void CGEDebugger::UpdatePrimPreview(u32 op, int which) {
 			glBufferData(GL_ELEMENT_ARRAY_BUFFER, indices.size() * sizeof(u16), indices.data(), GL_STREAM_DRAW);
 		}
 
-		Matrix4x4 ortho;
+		Lin::Matrix4x4 ortho;
 		ortho.setOrtho(0.0f - (float)gstate_c.curTextureXOffset * invRealTexWidth, 1.0f - (float)gstate_c.curTextureXOffset * invRealTexWidth, 1.0f - (float)gstate_c.curTextureYOffset * invRealTexHeight, 0.0f - (float)gstate_c.curTextureYOffset * invRealTexHeight, -1.0f, 1.0f);
 		glUniformMatrix4fv(texPreviewProgram->u_viewproj, 1, GL_FALSE, ortho.getReadPtr());
 		if (texPreviewVao != 0) {

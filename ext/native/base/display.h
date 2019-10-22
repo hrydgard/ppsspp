@@ -29,7 +29,7 @@ enum class DisplayRotation {
 };
 
 extern DisplayRotation g_display_rotation;
-extern Matrix4x4 g_display_rot_matrix;
+extern Lin::Matrix4x4 g_display_rot_matrix;
 
 template<class T>
 struct DisplayRect {

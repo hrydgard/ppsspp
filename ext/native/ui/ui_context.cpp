@@ -222,6 +222,8 @@ void UIContext::FillRect(const UI::Drawable &drawable, const Bounds &bounds) {
 void UIContext::PushTransform(const UITransform &transform) {
 	Flush();
 
+	using namespace Lin;
+
 	Matrix4x4 m = Draw()->GetDrawMatrix();
 	const Vec3 &t = transform.translate;
 	Vec3 scaledTranslate = Vec3(

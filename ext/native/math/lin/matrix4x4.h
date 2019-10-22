@@ -3,6 +3,8 @@
 
 #include "math/lin/vec3.h"
 
+namespace Lin {
+
 class Quaternion;
 
 class Matrix4x4 {
@@ -157,6 +159,8 @@ public:
 		wz = wz * scale.z + ww * trans.z;
 	}
 };
+
+}  // namespace Lin
 
 #endif	// _MATH_LIN_MATRIX4X4_H
 

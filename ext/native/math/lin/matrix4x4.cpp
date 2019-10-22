@@ -14,6 +14,8 @@
 // See http://code.google.com/p/oolongengine/source/browse/trunk/Oolong+Engine2/Math/neonmath/neon_matrix_impl.cpp?spec=svn143&r=143	when we need speed
 // no wait. http://code.google.com/p/math-neon/
 
+namespace Lin {
+
 Matrix4x4 Matrix4x4::simpleInverse() const {
 	Matrix4x4 out;
 	out.xx = xx;
@@ -151,7 +153,6 @@ void Matrix4x4::setViewLookAtD3D(const Vec3 &vFrom, const Vec3 &vAt, const Vec3 
 	ww = 1.0f;
 }
 
-
 void Matrix4x4::setViewFrame(const Vec3 &pos, const Vec3 &vRight, const Vec3 &vView, const Vec3 &vUp) {
 	xx = vRight.x; xy = vUp.x; xz=vView.x; xw = 0.0f;
 	yx = vRight.y; yy = vUp.y; yz=vView.y; yw = 0.0f;
@@ -247,4 +248,6 @@ void Matrix4x4::print() const {
 	char buffer[256];
 	toText(buffer, 256);
 	puts(buffer);
+}
+
 }

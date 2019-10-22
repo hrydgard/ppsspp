@@ -3,6 +3,8 @@
 
 #include "math/lin/vec3.h"
 
+namespace Lin {
+
 class Matrix4x4;
 
 class Quaternion
@@ -88,5 +90,7 @@ public:
 		x*=f; y*=f; z*=f; w*=f;
 	}
 };
+
+}  // namespace Lin
 
 #endif	// _MATH_LIN_QUAT_H
