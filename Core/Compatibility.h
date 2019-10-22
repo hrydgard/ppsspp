@@ -67,6 +67,7 @@ struct CompatFlags {
 	bool JitInvalidationHack;
 	bool HideISOFiles;
 	bool MoreAccurateVMMUL;
+	bool ForceSoftwareRenderer;
 };
 
 class IniFile;
