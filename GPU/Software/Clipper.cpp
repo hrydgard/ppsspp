@@ -51,26 +51,28 @@ static inline int CalcClipMask(const ClipCoords& v)
 
 #define AddInterpolatedVertex(t, out, in, numVertices) \
 { \
-	Vertices[numVertices]->Lerp(t, *Vertices[out], *Vertices[in]); \
-	numVertices++; \
+	Vertices[numVertices++]->Lerp(t, *Vertices[out], *Vertices[in]); \
 }
 
-#define DIFFERENT_SIGNS(x,y) ((x <= 0 && y > 0) || (x > 0 && y <= 0))
+inline bool DIFFERENT_SIGNS(float x, float y) {
+	return ((x <= 0 && y > 0) || (x > 0 && y <= 0));
+}
 
-#define CLIP_DOTPROD(I, A, B, C, D) \
-	(Vertices[I]->clippos.x * A + Vertices[I]->clippos.y * B + Vertices[I]->clippos.z * C + Vertices[I]->clippos.w * D)
+inline float CLIP_DOTPROD(const VertexData &vert, float A, float B, float C, float D) {
+	return (vert.clippos.x * A + vert.clippos.y * B + vert.clippos.z * C + vert.clippos.w * D);
+}
 
 #define POLY_CLIP( PLANE_BIT, A, B, C, D )							\
 {																	\
 	if (mask & PLANE_BIT) {											\
 		int idxPrev = inlist[0];									\
-		float dpPrev = CLIP_DOTPROD(idxPrev, A, B, C, D );			\
+		float dpPrev = CLIP_DOTPROD(*Vertices[idxPrev], A, B, C, D );\
 		int outcount = 0;											\
 																	\
 		inlist[n] = inlist[0];										\
 		for (int j = 1; j <= n; j++) { 								\
 			int idx = inlist[j];									\
-			float dp = CLIP_DOTPROD(idx, A, B, C, D );				\
+			float dp = CLIP_DOTPROD(*Vertices[idx], A, B, C, D );	\
 			if (dpPrev >= 0) {										\
 				outlist[outcount++] = idxPrev;						\
 			}														\
@@ -104,9 +106,9 @@ static inline int CalcClipMask(const ClipCoords& v)
 
 #define CLIP_LINE(PLANE_BIT, A, B, C, D)						\
 {																\
-	if (mask & PLANE_BIT) {											\
-		float dp0 = CLIP_DOTPROD(0, A, B, C, D );				\
-		float dp1 = CLIP_DOTPROD(1, A, B, C, D );				\
+	if (mask & PLANE_BIT) {										\
+		float dp0 = CLIP_DOTPROD(*Vertices[0], A, B, C, D );		\
+		float dp1 = CLIP_DOTPROD(*Vertices[1], A, B, C, D );		\
 		int i = 0;												\
 																\
 		if (mask0 & PLANE_BIT) {								\
@@ -116,7 +118,7 @@ static inline int CalcClipMask(const ClipCoords& v)
 				AddInterpolatedVertex(t, 1, 0, i);				\
 			}													\
 		}														\
-		dp0 = CLIP_DOTPROD(0, A, B, C, D );						\
+		dp0 = CLIP_DOTPROD(*Vertices[0], A, B, C, D );						\
 																\
 		if (mask1 & PLANE_BIT) {								\
 			if (dp1 < 0) {										\
