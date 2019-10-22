@@ -14,7 +14,9 @@
 #include "base/logging.h"
 #include "DataFormat.h"
 
+namespace Lin {
 class Matrix4x4;
+}
 
 namespace Draw {
 

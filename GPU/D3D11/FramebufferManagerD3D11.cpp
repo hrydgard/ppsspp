@@ -348,7 +348,7 @@ void FramebufferManagerD3D11::MakePixelTexture(const u8 *srcPixels, GEBufferForm
 
 void FramebufferManagerD3D11::DrawActiveTexture(float x, float y, float w, float h, float destW, float destH, float u0, float v0, float u1, float v1, int uvRotation, int flags) {
 	struct Coord {
-		Vec3 pos; float u, v;
+		Lin::Vec3 pos; float u, v;
 	};
 	Coord coord[4] = {
 		{{x, y, 0}, u0, v0},

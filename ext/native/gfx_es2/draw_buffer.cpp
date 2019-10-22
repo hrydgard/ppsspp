@@ -92,7 +92,7 @@ void DrawBuffer::Flush(bool set_blend_state) {
 	draw_->BindPipeline(pipeline_);
 
 	VsTexColUB ub{};
-	memcpy(ub.WorldViewProj, drawMatrix_.getReadPtr(), sizeof(Matrix4x4));
+	memcpy(ub.WorldViewProj, drawMatrix_.getReadPtr(), sizeof(Lin::Matrix4x4));
 	draw_->UpdateDynamicUniformBuffer(&ub, sizeof(ub));
 	if (vbuf_) {
 		draw_->UpdateBuffer(vbuf_, (const uint8_t *)verts_, 0, sizeof(Vertex) * count_, Draw::UPDATE_DISCARD);
