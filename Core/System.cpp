@@ -349,6 +349,11 @@ bool PSP_InitStart(const CoreParameter &coreParam, std::string *error_string) {
 
 	CPU_Init();
 
+	// Compat flags get loaded in CPU_Init (which is a bit of a misnomer) so we check for SW renderer here.
+	if (g_Config.bSoftwareRendering || PSP_CoreParameter().compat.flags().ForceSoftwareRenderer) {
+		coreParameter.gpuCore = GPUCORE_SOFTWARE;
+	}
+
 	*error_string = coreParameter.errorString;
 	bool success = coreParameter.fileToStart != "";
 	if (!success) {
