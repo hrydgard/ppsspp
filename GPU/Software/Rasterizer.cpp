@@ -1287,6 +1287,54 @@ void DrawTriangleSlice(
 	}
 }
 
+void DrawPSXSprite(const VertexData& v0, const VertexData& v1) {
+	u8 *texptr = nullptr;
+
+	GETextureFormat texfmt = gstate.getTextureFormat();
+	u32 texaddr = gstate.getTextureAddress(0);
+	int texbufw = GetTextureBufw(0, texaddr, texfmt);
+	if (Memory::IsValidAddress(texaddr))
+		texptr = Memory::GetPointerUnchecked(texaddr);
+
+	ScreenCoords pprime(v0.screenpos.x, v0.screenpos.y, 0);
+	Sampler::Funcs sampler = Sampler::GetFuncs();
+
+	DrawingCoords pos0 = TransformUnit::ScreenToDrawing(v0.screenpos);
+	DrawingCoords pos1 = TransformUnit::ScreenToDrawing(v1.screenpos);
+
+	int z = pos0.z;
+	float fog = 1.0f;
+
+	if (gstate.isTextureMapEnabled()) {
+		// 1:1 (but with mirror support) texture mapping!
+		int s = v0.texturecoords.x;
+		int t = v0.texturecoords.y;
+		int ds = v1.texturecoords.x > v0.texturecoords.x ? 1 : -1;
+		int dt = v1.texturecoords.y > v0.texturecoords.y ? 1 : -1;
+		for (int y = pos0.y; y < pos1.y; y++) {
+			s = v0.texturecoords.x;
+			for (int x = pos0.x; x < pos1.x; x++) {
+				Vec4<int> prim_color = v0.color0;
+				Vec4<int> tex_color = Vec4<int>::FromRGBA(sampler.nearest(s, t, texptr, texbufw, 0));
+				prim_color = GetTextureFunctionOutput(prim_color, tex_color);
+				DrawingCoords pos(x, y, z);
+				DrawSinglePixel<false>(pos, (u16)z, fog, prim_color);
+				s += ds;
+			}
+			t += dt;
+		}
+	}
+	else {
+		for (int y = pos0.y; y < pos1.y; y++) {
+			for (int x = pos0.x; x < pos1.x; x++) {
+				Vec4<int> prim_color = v0.color0;
+				DrawingCoords pos(x, y, z);
+				DrawSinglePixel<false>(pos, (u16)z, fog, prim_color);
+			}
+		}
+	}
+}
+
 // Draws triangle, vertices specified in counter-clockwise direction
 void DrawTriangle(const VertexData& v0, const VertexData& v1, const VertexData& v2)
 {
