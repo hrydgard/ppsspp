@@ -319,8 +319,7 @@ void TransformUnit::SubmitPrimitive(void* vertices, void* indices, GEPrimitiveTy
 
 	VertexReader vreader(buf, vtxfmt, vertex_type);
 
-	const int max_vtcs_per_prim = 3;
-	static VertexData data[max_vtcs_per_prim];
+	static VertexData data[4];  // Normally max verts per prim is 3, but we temporarily need 4 to detect rectangles from strips.
 	// This is the index of the next vert in data (or higher, may need modulus.)
 	static int data_index = 0;
 
@@ -438,6 +437,41 @@ void TransformUnit::SubmitPrimitive(void* vertices, void* indices, GEPrimitiveTy
 		{
 			// Don't draw a triangle when loading the first two vertices.
 			int skip_count = data_index >= 2 ? 0 : 2 - data_index;
+
+			// If index count == 4, check if we can convert to a rectangle.
+			// This is for Darkstalkers (and should speed up many 2D games).
+			if (vertex_count == 4 && gstate.isModeThrough()) {
+				for (int vtx = 0; vtx < 4; ++vtx) {
+					if (indices) {
+						vreader.Goto(ConvertIndex(vtx) - index_lower_bound);
+					}
+					else {
+						vreader.Goto(vtx);
+					}
+					data[vtx] = ReadVertex(vreader);
+				}
+
+				// OK, now let's look at data to detect rectangles. There are a few possibilities
+				// but we focus on Darkstalkers for now.
+				if (data[0].screenpos.x == data[1].screenpos.x &&
+					data[0].screenpos.y == data[2].screenpos.y &&
+					data[2].screenpos.x == data[3].screenpos.x &&
+					data[1].screenpos.y == data[3].screenpos.y &&
+					data[1].screenpos.y > data[0].screenpos.y &&  // Avoid rotation handling
+					data[2].screenpos.x > data[0].screenpos.x &&
+					data[0].texturecoords.x == data[1].texturecoords.x &&
+					data[0].texturecoords.y == data[2].texturecoords.y &&
+					data[2].texturecoords.x == data[3].texturecoords.x &&
+					data[1].texturecoords.y == data[3].texturecoords.y &&
+					data[1].texturecoords.y >  data[0].texturecoords.y &&
+					data[2].texturecoords.x >  data[0].texturecoords.x &&
+					data[0].color0 == data[1].color0 &&
+					data[1].color0 == data[2].color0 &&
+					data[2].color0 == data[3].color0) {
+					// It's a rectangle!
+					Clipper::ProcessRect(data[0], data[3]);
+				}
+			}
 
 			for (int vtx = 0; vtx < vertex_count; ++vtx) {
 				if (indices) {
