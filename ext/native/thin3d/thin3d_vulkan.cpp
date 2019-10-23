@@ -1371,6 +1371,8 @@ uint32_t VKContext::GetDataFormatSupport(DataFormat fmt) const {
 		return 0;
 	case DataFormat::A4R4G4B4_UNORM_PACK16:
 		return 0;
+	case DataFormat::A1R5G5B5_UNORM_PACK16:
+		return FMT_RENDERTARGET | FMT_TEXTURE;
 
 	case DataFormat::R8G8B8A8_UNORM:
 		return FMT_RENDERTARGET | FMT_TEXTURE | FMT_INPUTLAYOUT;
