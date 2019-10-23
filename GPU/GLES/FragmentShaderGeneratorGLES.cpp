@@ -252,8 +252,8 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, uint64_t *uniform
 	}
 
 	// Round World far hack
-	if (g_Config.iFarCullHack != 1000) {
-		WRITE(p, "%s float h_farcull;\n", varying);
+	if (g_Config.iFarCullHack != 1000 || g_Config.bHideHudHack) {
+		WRITE(p, "%s float h_depth;\n", varying);
 	}
 
 	if (!g_Config.bFragmentTestCache) {
@@ -777,7 +777,7 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, uint64_t *uniform
 	
 	// Round World far hack
 	if (g_Config.iFarCullHack != 1000) {
-		WRITE(p, "  v *= h_farcull;\n");
+		WRITE(p, "  if (h_depth > %f) v.rgb = vec3(0.0);\n", g_Config.iFarCullHack/1000.0 );
 	}
 
 	switch (stencilToAlpha) {
@@ -845,6 +845,11 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, uint64_t *uniform
 	// Vertex color only hack
 	if (g_Config.bVertexColor)
 		WRITE(p, "  %s.rgb = v_color0.rgb;\n", fragColor0);
+
+	// Hide HUD hack
+	if (g_Config.bHideHudHack) {
+		WRITE(p, "  if (h_depth < 0.001) discard;\n");
+	}
 
 	WRITE(p, "}\n");
 

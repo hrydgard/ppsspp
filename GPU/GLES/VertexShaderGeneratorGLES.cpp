@@ -365,8 +365,8 @@ void GenerateVertexShader(const VShaderID &id, char *buffer, uint32_t *attrMask,
 	}
 
 	// Round World far hack
-	if (g_Config.iFarCullHack != 1000) {
-		WRITE(p, "%s float h_farcull;\n",  varying);
+	if (g_Config.iFarCullHack != 1000 || g_Config.bHideHudHack) {
+		WRITE(p, "%s float h_depth;\n",  varying);
 	}
 
 	// See comment above this function (GenerateVertexShader).
@@ -502,10 +502,6 @@ void GenerateVertexShader(const VShaderID &id, char *buffer, uint32_t *attrMask,
 				WRITE(p, "  vec4 outPos = u_proj * vec4(position.xyz, 1.0);\n");
 			}
 		}
-		// Round World far hack
-		if (g_Config.iFarCullHack != 1000) {
-			WRITE(p, "  h_farcull = 1.0;\n", g_Config.iFarCullHack/1000.0);
-		}
 	} else {
 		// Step 1: World Transform / Skinning
 		if (!enableBones) {
@@ -632,11 +628,6 @@ void GenerateVertexShader(const VShaderID &id, char *buffer, uint32_t *attrMask,
 			WRITE(p, "  vec4 outPos = depthRoundZVP(u_proj * viewPos);\n");
 		} else {
 			WRITE(p, "  vec4 outPos = u_proj * viewPos;\n");
-		}
-		
-		// Round World far hack
-		if (g_Config.iFarCullHack != 1000) {
-			WRITE(p, "  if(outPos.z/outPos.w > %f) h_farcull = 0.0; else h_farcull = 1.0;\n", g_Config.iFarCullHack/1000.0);
 		}
 
 		// TODO: Declare variables for dots for shade mapping if needed.
@@ -881,6 +872,10 @@ void GenerateVertexShader(const VShaderID &id, char *buffer, uint32_t *attrMask,
 		WRITE(p, "  }\n");
 	}
 	WRITE(p, "  gl_Position = outPos;\n");
+
+	if (g_Config.iFarCullHack != 1000 || g_Config.bHideHudHack) {
+		WRITE(p, "  h_depth = outPos.z/outPos.w;\n");
+	}
 
 	WRITE(p, "}\n");
 }

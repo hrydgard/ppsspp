@@ -764,6 +764,7 @@ static ConfigSetting graphicsSettings[] = {
 	ConfigSetting("FarCullHack", &g_Config.iFarCullHack, 1000, true, true),
 	ConfigSetting("DisableFogHack", &g_Config.bNoFogHack, false, true, true),
 	ConfigSetting("VertexColorHack", &g_Config.bVertexColor, false, true, true),
+	ConfigSetting("HideHudHack", &g_Config.bHideHudHack, false, true, true),
 
 	// Not really a graphics setting...
 	ReportedConfigSetting("SplineBezierQuality", &g_Config.iSplineBezierQuality, 2, true, true),

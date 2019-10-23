@@ -466,6 +466,7 @@ void GameSettingsScreen::CreateViews() {
 
 		PopupSliderChoice *phongHack = graphicsSettings->Add(new PopupSliderChoice(&g_Config.iPhongHack, 0, 100, gr->T("Phong threshold (0: disabled)"), 1, screenManager()));
 
+		CheckBox *hideHud = graphicsSettings->Add(new CheckBox(&g_Config.bHideHudHack, gr->T("Hide game HUD")));
 		CheckBox *noFogHack = graphicsSettings->Add(new CheckBox(&g_Config.bNoFogHack, gr->T("Disable fog")));
 		CheckBox *vertexColor = graphicsSettings->Add(new CheckBox(&g_Config.bVertexColor, gr->T("Show only vertex color")));
 
