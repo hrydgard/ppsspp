@@ -148,12 +148,16 @@ void SoftGPU::SetDisplayFramebuffer(u32 framebuf, u32 stride, GEBufferFormat for
 	GPURecord::NotifyDisplay(framebuf, stride, format);
 }
 
+bool g_DarkStalkerStretch;
+
 // Copies RGBA8 data from RAM to the currently bound render target.
 void SoftGPU::CopyToCurrentFboFromDisplayRam(int srcwidth, int srcheight) {
 	if (!draw_)
 		return;
 	float u0 = 0.0f;
 	float u1;
+	float v0 = 1.0f;
+	float v1 = 0.0f;
 
 	if (fbTex) {
 		fbTex->Release();
@@ -175,7 +179,19 @@ void SoftGPU::CopyToCurrentFboFromDisplayRam(int srcwidth, int srcheight) {
 	desc.mipLevels = 1;
 	desc.tag = "SoftGPU";
 	bool hasImage = true;
-	if (!Memory::IsValidAddress(displayFramebuf_) || srcwidth == 0 || srcheight == 0) {
+	if (PSP_CoreParameter().compat.flags().DarkStalkersPresentHack && displayFormat_ == GE_FORMAT_5551 && g_DarkStalkerStretch) {
+		u8 *data = Memory::GetPointer(0x04088000);
+		desc.swizzle = Draw::TextureSwizzle::BGRA;
+		desc.format = Draw::DataFormat::A1R5G5B5_UNORM_PACK16;
+		desc.width = displayStride_ == 0 ? srcwidth : displayStride_;
+		desc.height = srcheight;
+		desc.initData.push_back(data);
+		u0 = 64.0f / 512.0f;
+		u1 = 448.0f / 512.0f;
+		v1 = 16.0f / 272.0f;
+		v0 = 240.0f / 272.0f;
+		g_DarkStalkerStretch = false;
+	} else if (!Memory::IsValidAddress(displayFramebuf_) || srcwidth == 0 || srcheight == 0) {
 		hasImage = false;
 		u1 = 1.0f;
 	} else if (displayFormat_ == GE_FORMAT_8888) {
@@ -252,12 +268,10 @@ void SoftGPU::CopyToCurrentFboFromDisplayRam(int srcwidth, int srcheight) {
 	x2 -= 1.0f;
 	y2 -= 1.0f;
 
-	float v0 = 1.0f;
-	float v1 = 0.0f;
-
 	if (GetGPUBackend() == GPUBackend::VULKAN) {
 		std::swap(v0, v1);
 	}
+
 	draw_->BindFramebufferAsRenderTarget(nullptr, { Draw::RPAction::CLEAR, Draw::RPAction::DONT_CARE, Draw::RPAction::DONT_CARE });
 	Draw::Viewport viewport = { 0.0f, 0.0f, dstwidth, dstheight, 0.0f, 1.0f };
 	draw_->SetViewports(1, &viewport);

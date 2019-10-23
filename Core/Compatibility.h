@@ -68,6 +68,7 @@ struct CompatFlags {
 	bool HideISOFiles;
 	bool MoreAccurateVMMUL;
 	bool ForceSoftwareRenderer;
+	bool DarkStalkersPresentHack;
 };
 
 class IniFile;

@@ -17,12 +17,17 @@
 
 #include <algorithm>
 
+#include "Core/System.h"
+
 #include "GPU/GPUState.h"
 
 #include "GPU/Software/Clipper.h"
 #include "GPU/Software/Rasterizer.h"
 
 #include "profiler/profiler.h"
+
+
+extern bool g_DarkStalkerStretch;
 
 namespace Clipper {
 
@@ -204,6 +209,13 @@ void ProcessRect(const VertexData& v0, const VertexData& v1)
 		bool alpha_check = true;
 		if ((coord_check || !gstate.isTextureMapEnabled()) && state_check && alpha_check) {
 			Rasterizer::DrawPSXSprite(v0, v1);
+			return;
+		}
+
+		// Eliminate the stretch blit in DarkStalkers.
+		// We compensate for that when blitting the framebuffer in SoftGpu.cpp.
+		if (PSP_CoreParameter().compat.flags().DarkStalkersPresentHack && v0.texturecoords.x == 64.0f && v0.texturecoords.y == 16.0f && v1.texturecoords.x == 448.0f && v1.texturecoords.y == 240.0f) {
+			g_DarkStalkerStretch = true;
 			return;
 		}
 
