@@ -49,16 +49,11 @@ static inline int CalcClipMask(const ClipCoords& v)
 	return mask;
 }
 
-#define AddInterpolatedVertex(t, out, in, numVertices) \
-{ \
-	Vertices[numVertices++]->Lerp(t, *Vertices[out], *Vertices[in]); \
-}
-
-inline bool DIFFERENT_SIGNS(float x, float y) {
+inline bool different_signs(float x, float y) {
 	return ((x <= 0 && y > 0) || (x > 0 && y <= 0));
 }
 
-inline float CLIP_DOTPROD(const VertexData &vert, float A, float B, float C, float D) {
+inline float clip_dotprod(const VertexData &vert, float A, float B, float C, float D) {
 	return (vert.clippos.x * A + vert.clippos.y * B + vert.clippos.z * C + vert.clippos.w * D);
 }
 
@@ -66,24 +61,24 @@ inline float CLIP_DOTPROD(const VertexData &vert, float A, float B, float C, flo
 {																	\
 	if (mask & PLANE_BIT) {											\
 		int idxPrev = inlist[0];									\
-		float dpPrev = CLIP_DOTPROD(*Vertices[idxPrev], A, B, C, D );\
+		float dpPrev = clip_dotprod(*Vertices[idxPrev], A, B, C, D );\
 		int outcount = 0;											\
 																	\
 		inlist[n] = inlist[0];										\
 		for (int j = 1; j <= n; j++) { 								\
 			int idx = inlist[j];									\
-			float dp = CLIP_DOTPROD(*Vertices[idx], A, B, C, D );	\
+			float dp = clip_dotprod(*Vertices[idx], A, B, C, D );	\
 			if (dpPrev >= 0) {										\
 				outlist[outcount++] = idxPrev;						\
 			}														\
 																	\
-			if (DIFFERENT_SIGNS(dp, dpPrev)) {						\
+			if (different_signs(dp, dpPrev)) {						\
 				if (dp < 0) {										\
 					float t = dp / (dp - dpPrev);					\
-					AddInterpolatedVertex(t, idx, idxPrev, numVertices);		\
+					Vertices[numVertices++]->Lerp(t, *Vertices[idx], *Vertices[idxPrev]);		\
 				} else {											\
 					float t = dpPrev / (dpPrev - dp);				\
-					AddInterpolatedVertex(t, idxPrev, idx, numVertices);		\
+					Vertices[numVertices++]->Lerp(t, *Vertices[idxPrev], *Vertices[idx]);		\
 				}													\
 				outlist[outcount++] = numVertices - 1;				\
 			}														\
@@ -107,24 +102,22 @@ inline float CLIP_DOTPROD(const VertexData &vert, float A, float B, float C, flo
 #define CLIP_LINE(PLANE_BIT, A, B, C, D)						\
 {																\
 	if (mask & PLANE_BIT) {										\
-		float dp0 = CLIP_DOTPROD(*Vertices[0], A, B, C, D );		\
-		float dp1 = CLIP_DOTPROD(*Vertices[1], A, B, C, D );		\
-		int i = 0;												\
+		float dp0 = clip_dotprod(*Vertices[0], A, B, C, D );	\
+		float dp1 = clip_dotprod(*Vertices[1], A, B, C, D );	\
+		int numVertices = 0;												\
 																\
 		if (mask0 & PLANE_BIT) {								\
 			if (dp0 < 0) {										\
 				float t = dp1 / (dp1 - dp0);					\
-				i = 0;											\
-				AddInterpolatedVertex(t, 1, 0, i);				\
+				Vertices[0]->Lerp(t, *Vertices[1], *Vertices[0]); \
 			}													\
 		}														\
-		dp0 = CLIP_DOTPROD(*Vertices[0], A, B, C, D );						\
+		dp0 = clip_dotprod(*Vertices[0], A, B, C, D );			\
 																\
 		if (mask1 & PLANE_BIT) {								\
 			if (dp1 < 0) {										\
 				float t = dp1 / (dp1- dp0);						\
-				i = 1;											\
-				AddInterpolatedVertex(t, 1, 0, i);				\
+				Vertices[1]->Lerp(t, *Vertices[1], *Vertices[0]);	\
 			}													\
 		}														\
 	}															\
@@ -185,17 +178,14 @@ void ProcessRect(const VertexData& v0, const VertexData& v1)
 	} else {
 		// through mode handling
 
-		// Check for simple case: No depth, alpha != 0 testing only, no blend, texture mapping 1:1 etc.
-		// Also check for scissor rectangle etc.
-		// That is, state commonly used in PSX games and ports like Darkstalker.
-		// In that case we can call DrawPSXSprite.
+		// Check for 1:1 texture mapping. In that case we can call DrawSprite.
 		int xdiff = v1.screenpos.x - v0.screenpos.x;
 		int ydiff = v1.screenpos.y - v0.screenpos.y;
 		int udiff = (v1.texturecoords.x - v0.texturecoords.x) * 16.0f;
 		int vdiff = (v1.texturecoords.y - v0.texturecoords.y) * 16.0f;
 		bool coord_check =
-			(xdiff == udiff /* || xdiff == -udiff*/) &&
-			(ydiff == vdiff /* || ydiff == -vdiff*/);
+			(xdiff == udiff || xdiff == -udiff) &&
+			(ydiff == vdiff || ydiff == -vdiff);
 		// TODO: The U/V mirror support is off by one somehow. Predecrement?
 
 		/*
