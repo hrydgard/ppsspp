@@ -277,7 +277,7 @@ bool OpenGLShaderModule::Compile(GLRenderManager *render, ShaderLanguage languag
 
 class OpenGLInputLayout : public InputLayout {
 public:
-	OpenGLInputLayout(GLRenderManager *render) : render_(render), stride(0) {}
+	OpenGLInputLayout(GLRenderManager *render) : render_(render) {}
 	~OpenGLInputLayout();
 
 	void Compile(const InputLayoutDesc &desc);
@@ -286,7 +286,7 @@ public:
 	}
 
 	GLRInputLayout *inputLayout_ = nullptr;
-	int stride;
+	int stride = 0;
 private:
 	GLRenderManager *render_;
 };
@@ -718,6 +718,15 @@ public:
 	FBColorDepth colorDepth = FBO_8888;
 };
 
+// TODO: SSE/NEON optimize, and move to ColorConv.cpp.
+void MoveABit(u16 *dest, const u16 *src, size_t count) {
+	for (int i = 0; i < count; i++) {
+		u16 data = src[i];
+		data = (data >> 15) | (data << 1);
+		dest[i] = data;
+	}
+}
+
 void OpenGLTexture::SetImageData(int x, int y, int z, int width, int height, int depth, int level, int stride, const uint8_t *data) {
 	if (width != width_ || height != height_ || depth != depth_) {
 		// When switching to texStorage we need to handle this correctly.
@@ -729,12 +738,20 @@ void OpenGLTexture::SetImageData(int x, int y, int z, int width, int height, int
 	if (stride == 0)
 		stride = width;
 
-
 	size_t alignment = DataFormatSizeInBytes(format_);
 	// Make a copy of data with stride eliminated.
 	uint8_t *texData = new uint8_t[(size_t)(width * height * alignment)];
-	for (int y = 0; y < height; y++) {
-		memcpy(texData + y * width * alignment, data + y * stride * alignment, width * alignment);
+
+	// Emulate support for DataFormat::A1R5G5B5_UNORM_PACK16.
+	if (format_ == DataFormat::A1R5G5B5_UNORM_PACK16) {
+		format_ = DataFormat::R5G5B5A1_UNORM_PACK16;
+		for (int y = 0; y < height; y++) {
+			MoveABit((u16 *)(texData + y * width * alignment), (const u16 *)(data + y * stride * alignment), width);
+		}
+	} else {
+		for (int y = 0; y < height; y++) {
+			memcpy(texData + y * width * alignment, data + y * stride * alignment, width * alignment);
+		}
 	}
 	render_->TextureImage(tex_, level, width, height, format_, texData);
 }
@@ -1219,6 +1236,9 @@ uint32_t OpenGLContext::GetDataFormatSupport(DataFormat fmt) const {
 
 	case DataFormat::R8G8B8A8_UNORM:
 		return FMT_RENDERTARGET | FMT_TEXTURE | FMT_INPUTLAYOUT | FMT_AUTOGEN_MIPS;
+
+	case DataFormat::A1R5G5B5_UNORM_PACK16:
+		return FMT_TEXTURE;  // we will emulate this! Very fast to convert from R5G5B5A1_UNORM_PACK16 during upload.
 
 	case DataFormat::R32_FLOAT:
 	case DataFormat::R32G32_FLOAT:

@@ -30,6 +30,7 @@ enum class DataFormat : uint8_t {
 	R5G5B5A1_UNORM_PACK16, // A1 in the LOWER bit
 	B5G5R5A1_UNORM_PACK16, // A1 in the LOWER bit
 	A1R5G5B5_UNORM_PACK16, // A1 in the UPPER bit.
+	A1B5G5R5_UNORM_PACK16, // A1 in the UPPER bit. OpenGL-only.
 
 	R16_FLOAT,
 	R16G16_FLOAT,

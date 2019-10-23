@@ -191,15 +191,23 @@ void SoftGPU::CopyToCurrentFboFromDisplayRam(int srcwidth, int srcheight) {
 	Draw::Pipeline *pipeline = texColor;
 	if (PSP_CoreParameter().compat.flags().DarkStalkersPresentHack && displayFormat_ == GE_FORMAT_5551 && g_DarkStalkerStretch) {
 		u8 *data = Memory::GetPointer(0x04088000);
-		desc.format = Draw::DataFormat::A1R5G5B5_UNORM_PACK16;
+		if (draw_->GetDataFormatSupport(Draw::DataFormat::A1B5G5R5_UNORM_PACK16) & Draw::FMT_TEXTURE) {
+			// The perfect one.
+			desc.format = Draw::DataFormat::A1B5G5R5_UNORM_PACK16;
+		} else if (draw_->GetDataFormatSupport(Draw::DataFormat::A1R5G5B5_UNORM_PACK16) & Draw::FMT_TEXTURE) {
+			// RB swapped, compensate with a shader.
+			desc.format = Draw::DataFormat::A1R5G5B5_UNORM_PACK16;
+			pipeline = texColorRBSwizzle;
+		} else {
+			// Shouldn't happen (once I'm done with the backends).
+		}
 		desc.width = displayStride_ == 0 ? srcwidth : displayStride_;
 		desc.height = srcheight;
 		desc.initData.push_back(data);
-		u0 = 64.0f / 512.0f;
-		u1 = 448.0f / 512.0f;
+		u0 = 64.5f / 512.0f;
+		u1 = 447.5f / 512.0f;
 		v1 = 16.0f / 272.0f;
 		v0 = 240.0f / 272.0f;
-		pipeline = texColorRBSwizzle;
 		g_DarkStalkerStretch = false;
 	} else if (!Memory::IsValidAddress(displayFramebuf_) || srcwidth == 0 || srcheight == 0) {
 		hasImage = false;

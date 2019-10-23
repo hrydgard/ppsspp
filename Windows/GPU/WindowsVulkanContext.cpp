@@ -116,6 +116,7 @@ bool WindowsVulkanContext::Init(HINSTANCE hInst, HWND hWnd, std::string *error_m
 		if (!g_Config.sVulkanDevice.empty())
 			g_Config.sVulkanDevice = g_Vulkan->GetPhysicalDeviceProperties(deviceNum).properties.deviceName;
 	}
+
 	g_Vulkan->ChooseDevice(deviceNum);
 	if (g_Vulkan->CreateDevice() != VK_SUCCESS) {
 		*error_message = g_Vulkan->InitError();
