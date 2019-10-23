@@ -73,8 +73,6 @@ SoftGPU::SoftGPU(GraphicsContext *gfxCtx, Draw::DrawContext *draw)
 		},
 	};
 
-	ShaderModule *vshader = draw_->GetVshaderPreset(VS_TEXTURE_COLOR_2D);
-
 	vdata = draw_->CreateBuffer(sizeof(Vertex) * 4, BufferUsageFlag::DYNAMIC | BufferUsageFlag::VERTEXDATA);
 	idata = draw_->CreateBuffer(sizeof(int) * 6, BufferUsageFlag::DYNAMIC | BufferUsageFlag::INDEXDATA);
 
@@ -92,6 +90,14 @@ SoftGPU::SoftGPU(GraphicsContext *gfxCtx, Draw::DrawContext *draw)
 		inputLayout, depth, blendstateOff, rasterNoCull, &vsTexColBufDesc
 	};
 	texColor = draw_->CreateGraphicsPipeline(pipelineDesc);
+
+	PipelineDesc pipelineDescRBSwizzle{
+		Primitive::TRIANGLE_LIST,
+		{ draw_->GetVshaderPreset(VS_TEXTURE_COLOR_2D), draw_->GetFshaderPreset(FS_TEXTURE_COLOR_2D_RB_SWIZZLE) },
+		inputLayout, depth, blendstateOff, rasterNoCull, &vsTexColBufDesc
+	};
+	texColorRBSwizzle = draw_->CreateGraphicsPipeline(pipelineDescRBSwizzle);
+
 	inputLayout->Release();
 	depth->Release();
 	blendstateOff->Release();
@@ -122,6 +128,8 @@ void SoftGPU::DeviceRestore() {
 SoftGPU::~SoftGPU() {
 	texColor->Release();
 	texColor = nullptr;
+	texColorRBSwizzle->Release();
+	texColorRBSwizzle = nullptr;
 
 	if (fbTex) {
 		fbTex->Release();
@@ -179,9 +187,10 @@ void SoftGPU::CopyToCurrentFboFromDisplayRam(int srcwidth, int srcheight) {
 	desc.mipLevels = 1;
 	desc.tag = "SoftGPU";
 	bool hasImage = true;
+
+	Draw::Pipeline *pipeline = texColor;
 	if (PSP_CoreParameter().compat.flags().DarkStalkersPresentHack && displayFormat_ == GE_FORMAT_5551 && g_DarkStalkerStretch) {
 		u8 *data = Memory::GetPointer(0x04088000);
-		desc.swizzle = Draw::TextureSwizzle::BGRA;
 		desc.format = Draw::DataFormat::A1R5G5B5_UNORM_PACK16;
 		desc.width = displayStride_ == 0 ? srcwidth : displayStride_;
 		desc.height = srcheight;
@@ -190,6 +199,7 @@ void SoftGPU::CopyToCurrentFboFromDisplayRam(int srcwidth, int srcheight) {
 		u1 = 448.0f / 512.0f;
 		v1 = 16.0f / 272.0f;
 		v0 = 240.0f / 272.0f;
+		pipeline = texColorRBSwizzle;
 		g_DarkStalkerStretch = false;
 	} else if (!Memory::IsValidAddress(displayFramebuf_) || srcwidth == 0 || srcheight == 0) {
 		hasImage = false;
@@ -307,7 +317,7 @@ void SoftGPU::CopyToCurrentFboFromDisplayRam(int srcwidth, int srcheight) {
 
 	Draw::VsTexColUB ub{};
 	memcpy(ub.WorldViewProj, g_display_rot_matrix.m, sizeof(float) * 16);
-	draw_->BindPipeline(texColor);
+	draw_->BindPipeline(pipeline);
 	draw_->UpdateDynamicUniformBuffer(&ub, sizeof(ub));
 	draw_->BindVertexBuffers(0, 1, &vdata, nullptr);
 	draw_->BindIndexBuffer(idata, 0);

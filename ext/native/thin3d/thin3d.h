@@ -146,6 +146,7 @@ enum VertexShaderPreset : int {
 enum FragmentShaderPreset : int {
 	FS_COLOR_2D,
 	FS_TEXTURE_COLOR_2D,
+	FS_TEXTURE_COLOR_2D_RB_SWIZZLE,
 	FS_MAX_PRESET,
 };
 
