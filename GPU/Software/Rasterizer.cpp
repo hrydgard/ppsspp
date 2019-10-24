@@ -1289,45 +1289,54 @@ void DrawTriangleSlice(
 
 
 // Through mode, with the specific Darkstalker settings.
-inline void DrawSinglePixelFast(const DrawingCoords &p, const Vec4<int> &color_in) {
-	Vec4<int> prim_color = color_in.Clamp(0, 255);
-	if (gstate.isAlphaTestEnabled())
-		if (!AlphaTestPassed(prim_color.a()))
-			return;
+inline void DrawSinglePixel5551(const DrawingCoords &p, const Vec4<int> &color_in) {
+	Vec4<int> prim_color = color_in;
+	if (prim_color.a() == 0)
+		return;
 
 	const u32 old_color = GetPixelColor(p.x, p.y);
 	u32 new_color;
 
 	u8 stencil = GetPixelStencil(p.x, p.y);
 
-	// Dithering happens before the logic op and regardless of framebuffer format or clear mode.
-	// We do it while alpha blending because it happens before clamping.
-	if (gstate.isAlphaBlendEnabled()) {
-		const Vec4<int> dst = Vec4<int>::FromRGBA(old_color);
-		Vec3<int> blended = AlphaBlendingResult(prim_color, dst);
-		if (gstate.isDitherEnabled()) {
-			blended += Vec3<int>::AssignToAll(gstate.getDitherValue(p.x, p.y));
-		}
+	const Vec4<int> dst = Vec4<int>::FromRGBA(old_color);
+	Vec3<int> blended = AlphaBlendingResult(prim_color, dst);
 
-		// ToRGB() always automatically clamps.
-		new_color = blended.ToRGB();
-		new_color |= stencil << 24;
-	} else {
-		if (gstate.isDitherEnabled()) {
-			// We'll discard alpha anyway.
-			prim_color += Vec4<int>::AssignToAll(gstate.getDitherValue(p.x, p.y));
-		}
-
-#if defined(_M_SSE)
-		new_color = Vec3<int>(prim_color.ivec).ToRGB();
-		new_color |= stencil << 24;
-#else
-		new_color = Vec4<int>(prim_color.r(), prim_color.g(), prim_color.b(), stencil).ToRGBA();
-#endif
-	}
-
+	// ToRGB() always automatically clamps.
+	new_color = blended.ToRGB();
+	new_color |= stencil << 24;
 	new_color = (new_color & ~gstate.getColorMask()) | (old_color & gstate.getColorMask());
 	SetPixelColor(p.x, p.y, new_color);
+}
+
+static inline Vec4<int> ModulateRGBA(const Vec4<int>& prim_color, const Vec4<int>& texcolor) {
+	Vec3<int> out_rgb;
+	int out_a;
+
+#if defined(_M_SSE)
+	// We can be accurate up to 24 bit integers, should be enough.
+	const __m128 p = _mm_cvtepi32_ps(prim_color.ivec);
+	const __m128 t = _mm_cvtepi32_ps(texcolor.ivec);
+	const __m128 b = _mm_mul_ps(p, t);
+	if (gstate.isColorDoublingEnabled()) {
+		// We double right here, only for modulate.  Other tex funcs do not color double.
+		const __m128 doubleColor = _mm_setr_ps(2.0f / 255.0f, 2.0f / 255.0f, 2.0f / 255.0f, 1.0f / 255.0f);
+		out_rgb.ivec = _mm_cvtps_epi32(_mm_mul_ps(b, doubleColor));
+	} else {
+		out_rgb.ivec = _mm_cvtps_epi32(_mm_mul_ps(b, _mm_set_ps1(1.0f / 255.0f)));
+	}
+	return Vec4<int>(out_rgb.ivec);
+#else
+	if (gstate.isColorDoublingEnabled()) {
+		out_rgb = (prim_color.rgb() * texcolor.rgb() * 2) / 255;
+	} else {
+		out_rgb = prim_color.rgb() * texcolor.rgb() / 255;
+	}
+	out_a = (rgba) ? (prim_color.a() * texcolor.a() / 255) : prim_color.a();
+#endif
+
+	return Vec4<int>(out_rgb.r(), out_rgb.g(), out_rgb.b(), out_a);
+
 }
 
 
@@ -1382,7 +1391,15 @@ void DrawSprite(const VertexData& v0, const VertexData& v1) {
 		if (!gstate.isStencilTestEnabled() &&
 			!gstate.isDepthTestEnabled() &&
 			!gstate.isLogicOpEnabled() &&
-			!gstate.isColorTestEnabled()) {
+			!gstate.isColorTestEnabled() &&
+			!gstate.isDitherEnabled() &&
+			gstate.isAlphaTestEnabled() &&
+			gstate.getAlphaTestRef() == 0 &&
+			gstate.getAlphaTestMask() == 0xFF &&
+			gstate.isAlphaBlendEnabled() &&
+			gstate.isTextureAlphaUsed() &&
+			gstate.getTextureFunction() == GE_TEXFUNC_MODULATE &&
+			gstate.FrameBufFormat() == GE_FORMAT_5551) {
 			int t = t_start;
 			for (int y = pos0.y; y < pos1.y; y++) {
 				int s = s_start;
@@ -1390,9 +1407,9 @@ void DrawSprite(const VertexData& v0, const VertexData& v1) {
 				for (int x = pos0.x; x < pos1.x; x++) {
 					Vec4<int> prim_color = v0.color0;
 					Vec4<int> tex_color = Vec4<int>::FromRGBA(nearestFunc(s, t, texptr, texbufw, 0));
-					prim_color = GetTextureFunctionOutput(prim_color, tex_color);
+					prim_color = ModulateRGBA(prim_color, tex_color);
 					DrawingCoords pos(x, y, z);
-					DrawSinglePixelFast(pos, prim_color);
+					DrawSinglePixel5551(pos, prim_color);
 					s += ds;
 				}
 				t += dt;
