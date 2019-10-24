@@ -76,10 +76,10 @@ protected:
 
 private:
 	void UpdateSamplingParams(TexCacheEntry &entry, bool force);
-	void LoadTextureLevel(TexCacheEntry &entry, ReplacedTexture &replaced, int level, int scaleFactor, GLenum dstFmt);
-	GLenum GetDestFormat(GETextureFormat format, GEPaletteFormat clutFormat) const;
+	void LoadTextureLevel(TexCacheEntry &entry, ReplacedTexture &replaced, int level, int scaleFactor, Draw::DataFormat dstFmt);
+	Draw::DataFormat GetDestFormat(GETextureFormat format, GEPaletteFormat clutFormat) const;
 
-	TexCacheEntry::TexStatus CheckAlpha(const uint8_t *pixelData, GLenum dstFmt, int stride, int w, int h);
+	TexCacheEntry::TexStatus CheckAlpha(const uint8_t *pixelData, Draw::DataFormat dstFmt, int stride, int w, int h);
 	void UpdateCurrentClut(GEPaletteFormat clutFormat, u32 clutBase, bool clutIndexIsSimple) override;
 	void ApplyTextureFramebuffer(TexCacheEntry *entry, VirtualFramebuffer *framebuffer) override;
 
@@ -101,4 +101,4 @@ private:
 	enum { INVALID_TEX = -1 };
 };
 
-GLenum getClutDestFormat(GEPaletteFormat format);
+Draw::DataFormat getClutDestFormat(GEPaletteFormat format);

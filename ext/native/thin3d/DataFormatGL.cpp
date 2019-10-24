@@ -57,6 +57,13 @@ bool Thin3DFormatToFormatAndType(DataFormat fmt, GLuint &internalFormat, GLuint 
 		alignment = 2;
 		break;
 
+	case DataFormat::R32G32B32A32_FLOAT:
+		internalFormat = GL_RGBA32F;
+		format = GL_RGBA;
+		type = GL_FLOAT;
+		alignment = 16;
+		break;
+
 #ifndef USING_GLES2
 	case DataFormat::A4R4G4B4_UNORM_PACK16:
 		internalFormat = GL_RGBA;

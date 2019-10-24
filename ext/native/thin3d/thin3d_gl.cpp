@@ -726,23 +726,17 @@ void OpenGLTexture::SetImageData(int x, int y, int z, int width, int height, int
 		depth_ = depth;
 	}
 
-	GLuint internalFormat;
-	GLuint format;
-	GLuint type;
-	int alignment;
-	if (!Thin3DFormatToFormatAndType(format_, internalFormat, format, type, alignment)) {
-		return;
-	}
-
 	if (stride == 0)
 		stride = width;
 
+
+	size_t alignment = DataFormatSizeInBytes(format_);
 	// Make a copy of data with stride eliminated.
 	uint8_t *texData = new uint8_t[(size_t)(width * height * alignment)];
 	for (int y = 0; y < height; y++) {
 		memcpy(texData + y * width * alignment, data + y * stride * alignment, width * alignment);
 	}
-	render_->TextureImage(tex_, level, width, height, internalFormat, format, type, texData);
+	render_->TextureImage(tex_, level, width, height, format_, texData);
 }
 
 #ifdef DEBUG_READ_PIXELS

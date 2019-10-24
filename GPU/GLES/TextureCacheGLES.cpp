@@ -86,18 +86,18 @@ void TextureCacheGLES::Clear(bool delete_them) {
 	TextureCacheCommon::Clear(delete_them);
 }
 
-GLenum getClutDestFormat(GEPaletteFormat format) {
+Draw::DataFormat getClutDestFormat(GEPaletteFormat format) {
 	switch (format) {
 	case GE_CMODE_16BIT_ABGR4444:
-		return GL_UNSIGNED_SHORT_4_4_4_4;
+		return Draw::DataFormat::B4G4R4A4_UNORM_PACK16;
 	case GE_CMODE_16BIT_ABGR5551:
-		return GL_UNSIGNED_SHORT_5_5_5_1;
+		return Draw::DataFormat::B5G5R5A1_UNORM_PACK16;
 	case GE_CMODE_16BIT_BGR5650:
-		return GL_UNSIGNED_SHORT_5_6_5;
+		return Draw::DataFormat::B5G6R5_UNORM_PACK16;
 	case GE_CMODE_32BIT_ABGR8888:
-		return GL_UNSIGNED_BYTE;
+		return Draw::DataFormat::R8G8B8A8_UNORM;
 	}
-	return 0;
+	return Draw::DataFormat::UNDEFINED;;
 }
 
 static const GLuint MinFiltGL[8] = {
@@ -188,18 +188,18 @@ void TextureCacheGLES::SetFramebufferSamplingParams(u16 bufferWidth, u16 bufferH
 	render_->SetTextureSampler(TEX_SLOT_PSP_TEXTURE, sClamp ? GL_CLAMP_TO_EDGE : GL_REPEAT, tClamp ? GL_CLAMP_TO_EDGE : GL_REPEAT, MagFiltGL[magFilt], MinFiltGL[minFilt], aniso);
 }
 
-static void ConvertColors(void *dstBuf, const void *srcBuf, GLuint dstFmt, int numPixels) {
+static void ConvertColors(void *dstBuf, const void *srcBuf, Draw::DataFormat dstFmt, int numPixels) {
 	const u32 *src = (const u32 *)srcBuf;
 	u32 *dst = (u32 *)dstBuf;
 	switch (dstFmt) {
-	case GL_UNSIGNED_SHORT_4_4_4_4:
+	case Draw::DataFormat::B4G4R4A4_UNORM_PACK16:
 		ConvertRGBA4444ToABGR4444((u16 *)dst, (const u16 *)src, numPixels);
 		break;
 	// Final Fantasy 2 uses this heavily in animated textures.
-	case GL_UNSIGNED_SHORT_5_5_5_1:
+	case Draw::DataFormat::B5G5R5A1_UNORM_PACK16:
 		ConvertRGBA5551ToABGR1555((u16 *)dst, (const u16 *)src, numPixels);
 		break;
-	case GL_UNSIGNED_SHORT_5_6_5:
+	case Draw::DataFormat::B5G6R5_UNORM_PACK16:
 		ConvertRGB565ToBGR565((u16 *)dst, (const u16 *)src, numPixels);
 		break;
 	default:
@@ -514,22 +514,22 @@ void TextureCacheGLES::ApplyTextureFramebuffer(TexCacheEntry *entry, VirtualFram
 	gstate_c.Dirty(DIRTY_BLEND_STATE | DIRTY_DEPTHSTENCIL_STATE | DIRTY_RASTER_STATE | DIRTY_VIEWPORTSCISSOR_STATE);
 }
 
-ReplacedTextureFormat FromGLESFormat(GLenum fmt) {
+ReplacedTextureFormat FromDataFormat(Draw::DataFormat fmt) {
 	// TODO: 16-bit formats are incorrect, since swizzled.
 	switch (fmt) {
-	case GL_UNSIGNED_SHORT_5_6_5: return ReplacedTextureFormat::F_0565_ABGR;
-	case GL_UNSIGNED_SHORT_5_5_5_1: return ReplacedTextureFormat::F_1555_ABGR;
-	case GL_UNSIGNED_SHORT_4_4_4_4: return ReplacedTextureFormat::F_4444_ABGR;
-	case GL_UNSIGNED_BYTE: default: return ReplacedTextureFormat::F_8888;
+	case Draw::DataFormat::B5G6R5_UNORM_PACK16: return ReplacedTextureFormat::F_0565_ABGR;
+	case Draw::DataFormat::B5G5R5A1_UNORM_PACK16: return ReplacedTextureFormat::F_1555_ABGR;
+	case Draw::DataFormat::B4G4R4A4_UNORM_PACK16: return ReplacedTextureFormat::F_4444_ABGR;
+	case Draw::DataFormat::R8G8B8A8_UNORM: default: return ReplacedTextureFormat::F_8888;
 	}
 }
 
-GLenum ToGLESFormat(ReplacedTextureFormat fmt) {
+Draw::DataFormat ToDataFormat(ReplacedTextureFormat fmt) {
 	switch (fmt) {
-	case ReplacedTextureFormat::F_5650: return GL_UNSIGNED_SHORT_5_6_5;
-	case ReplacedTextureFormat::F_5551: return GL_UNSIGNED_SHORT_5_5_5_1;
-	case ReplacedTextureFormat::F_4444: return GL_UNSIGNED_SHORT_4_4_4_4;
-	case ReplacedTextureFormat::F_8888: default: return GL_UNSIGNED_BYTE;
+	case ReplacedTextureFormat::F_5650: return Draw::DataFormat::B5G6R5_UNORM_PACK16;
+	case ReplacedTextureFormat::F_5551: return Draw::DataFormat::B5G5R5A1_UNORM_PACK16;
+	case ReplacedTextureFormat::F_4444: return Draw::DataFormat::B4G4R4A4_UNORM_PACK16;
+	case ReplacedTextureFormat::F_8888: default: return Draw::DataFormat::R8G8B8A8_UNORM;
 	}
 }
 
@@ -592,7 +592,7 @@ void TextureCacheGLES::BuildTexture(TexCacheEntry *const entry) {
 	}
 
 	// If GLES3 is available, we can preallocate the storage, which makes texture loading more efficient.
-	GLenum dstFmt = GetDestFormat(GETextureFormat(entry->format), gstate.getClutPaletteFormat());
+	Draw::DataFormat dstFmt = GetDestFormat(GETextureFormat(entry->format), gstate.getClutPaletteFormat());
 
 	int scaleFactor = standardScaleFactor_;
 
@@ -700,7 +700,7 @@ void TextureCacheGLES::BuildTexture(TexCacheEntry *const entry) {
 	UpdateSamplingParams(*entry, true);
 }
 
-GLenum TextureCacheGLES::GetDestFormat(GETextureFormat format, GEPaletteFormat clutFormat) const {
+Draw::DataFormat TextureCacheGLES::GetDestFormat(GETextureFormat format, GEPaletteFormat clutFormat) const {
 	switch (format) {
 	case GE_TFMT_CLUT4:
 	case GE_TFMT_CLUT8:
@@ -708,30 +708,30 @@ GLenum TextureCacheGLES::GetDestFormat(GETextureFormat format, GEPaletteFormat c
 	case GE_TFMT_CLUT32:
 		return getClutDestFormat(clutFormat);
 	case GE_TFMT_4444:
-		return GL_UNSIGNED_SHORT_4_4_4_4;
+		return Draw::DataFormat::B4G4R4A4_UNORM_PACK16;
 	case GE_TFMT_5551:
-		return GL_UNSIGNED_SHORT_5_5_5_1;
+		return Draw::DataFormat::B5G5R5A1_UNORM_PACK16;
 	case GE_TFMT_5650:
-		return GL_UNSIGNED_SHORT_5_6_5;
+		return Draw::DataFormat::B5G6R5_UNORM_PACK16;
 	case GE_TFMT_8888:
 	case GE_TFMT_DXT1:
 	case GE_TFMT_DXT3:
 	case GE_TFMT_DXT5:
 	default:
-		return GL_UNSIGNED_BYTE;
+		return Draw::DataFormat::R8G8B8A8_UNORM;
 	}
 }
 
-TexCacheEntry::TexStatus TextureCacheGLES::CheckAlpha(const uint8_t *pixelData, GLenum dstFmt, int stride, int w, int h) {
+TexCacheEntry::TexStatus TextureCacheGLES::CheckAlpha(const uint8_t *pixelData, Draw::DataFormat dstFmt, int stride, int w, int h) {
 	CheckAlphaResult res;
 	switch (dstFmt) {
-	case GL_UNSIGNED_SHORT_4_4_4_4:
+	case Draw::DataFormat::B4G4R4A4_UNORM_PACK16:
 		res = CheckAlphaABGR4444Basic((const uint32_t *)pixelData, stride, w, h);
 		break;
-	case GL_UNSIGNED_SHORT_5_5_5_1:
+	case Draw::DataFormat::B5G5R5A1_UNORM_PACK16:
 		res = CheckAlphaABGR1555Basic((const uint32_t *)pixelData, stride, w, h);
 		break;
-	case GL_UNSIGNED_SHORT_5_6_5:
+	case Draw::DataFormat::B5G6R5_UNORM_PACK16:
 		// Never has any alpha.
 		res = CHECKALPHA_FULL;
 		break;
@@ -743,7 +743,7 @@ TexCacheEntry::TexStatus TextureCacheGLES::CheckAlpha(const uint8_t *pixelData, 
 	return (TexCacheEntry::TexStatus)res;
 }
 
-void TextureCacheGLES::LoadTextureLevel(TexCacheEntry &entry, ReplacedTexture &replaced, int level, int scaleFactor, GLenum dstFmt) {
+void TextureCacheGLES::LoadTextureLevel(TexCacheEntry &entry, ReplacedTexture &replaced, int level, int scaleFactor, Draw::DataFormat dstFmt) {
 	int w = gstate.getTextureWidth(level);
 	int h = gstate.getTextureHeight(level);
 	uint8_t *pixelData;
@@ -760,7 +760,7 @@ void TextureCacheGLES::LoadTextureLevel(TexCacheEntry &entry, ReplacedTexture &r
 		replaced.Load(level, rearrange, decPitch);
 		pixelData = rearrange;
 
-		dstFmt = ToGLESFormat(replaced.Format(level));
+		dstFmt = ToDataFormat(replaced.Format(level));
 	} else {
 		PROFILE_THIS_SCOPE("decodetex");
 
@@ -768,7 +768,7 @@ void TextureCacheGLES::LoadTextureLevel(TexCacheEntry &entry, ReplacedTexture &r
 		u32 texaddr = gstate.getTextureAddress(level);
 		int bufw = GetTextureBufw(level, texaddr, GETextureFormat(entry.format));
 
-		int pixelSize = dstFmt == GL_UNSIGNED_BYTE ? 4 : 2;
+		int pixelSize = dstFmt == Draw::DataFormat::R8G8B8A8_UNORM ? 4 : 2;
 		// We leave GL_UNPACK_ALIGNMENT at 4, so this must be at least 4.
 		decPitch = std::max(w * pixelSize, 4);
 
@@ -785,7 +785,9 @@ void TextureCacheGLES::LoadTextureLevel(TexCacheEntry &entry, ReplacedTexture &r
 
 		if (scaleFactor > 1) {
 			uint8_t *rearrange = (uint8_t *)AllocateAlignedMemory(w * scaleFactor * h * scaleFactor * 4, 16);
-			scaler.ScaleAlways((u32 *)rearrange, (u32 *)pixelData, dstFmt, w, h, scaleFactor);
+			u32 dFmt = (u32)dstFmt;
+			scaler.ScaleAlways((u32 *)rearrange, (u32 *)pixelData, dFmt, w, h, scaleFactor);
+			dstFmt = (Draw::DataFormat)dFmt;
 			FreeAlignedMemory(pixelData);
 			pixelData = rearrange;
 			decPitch = w * 4;
@@ -799,21 +801,17 @@ void TextureCacheGLES::LoadTextureLevel(TexCacheEntry &entry, ReplacedTexture &r
 			replacedInfo.isVideo = videos_.find(entry.addr & 0x3FFFFFFF) != videos_.end();
 			replacedInfo.isFinal = (entry.status & TexCacheEntry::STATUS_TO_SCALE) == 0;
 			replacedInfo.scaleFactor = scaleFactor;
-			replacedInfo.fmt = FromGLESFormat(dstFmt);
+			replacedInfo.fmt = FromDataFormat(dstFmt);
 
 			replacer_.NotifyTextureDecoded(replacedInfo, pixelData, decPitch, level, w, h);
 		}
 	}
-
-	GLuint components = dstFmt == GL_UNSIGNED_SHORT_5_6_5 ? GL_RGB : GL_RGBA;
-
-	GLuint components2 = components;
-
+	
 	PROFILE_THIS_SCOPE("loadtex");
 	if (IsFakeMipmapChange())
-		render_->TextureImage(entry.textureName, 0, w, h, components, components2, dstFmt, pixelData, GLRAllocType::ALIGNED);
+		render_->TextureImage(entry.textureName, 0, w, h, dstFmt, pixelData, GLRAllocType::ALIGNED);
 	else
-		render_->TextureImage(entry.textureName, level, w, h, components, components2, dstFmt, pixelData, GLRAllocType::ALIGNED);
+		render_->TextureImage(entry.textureName, level, w, h, dstFmt, pixelData, GLRAllocType::ALIGNED);
 }
 
 bool TextureCacheGLES::GetCurrentTextureDebug(GPUDebugBuffer &buffer, int level) {
