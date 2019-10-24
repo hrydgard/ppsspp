@@ -89,11 +89,11 @@ void TextureCacheGLES::Clear(bool delete_them) {
 Draw::DataFormat getClutDestFormat(GEPaletteFormat format) {
 	switch (format) {
 	case GE_CMODE_16BIT_ABGR4444:
-		return Draw::DataFormat::B4G4R4A4_UNORM_PACK16;
+		return Draw::DataFormat::R4G4B4A4_UNORM_PACK16;
 	case GE_CMODE_16BIT_ABGR5551:
-		return Draw::DataFormat::B5G5R5A1_UNORM_PACK16;
+		return Draw::DataFormat::R5G5B5A1_UNORM_PACK16;
 	case GE_CMODE_16BIT_BGR5650:
-		return Draw::DataFormat::B5G6R5_UNORM_PACK16;
+		return Draw::DataFormat::R5G6B5_UNORM_PACK16;
 	case GE_CMODE_32BIT_ABGR8888:
 		return Draw::DataFormat::R8G8B8A8_UNORM;
 	}
@@ -192,14 +192,14 @@ static void ConvertColors(void *dstBuf, const void *srcBuf, Draw::DataFormat dst
 	const u32 *src = (const u32 *)srcBuf;
 	u32 *dst = (u32 *)dstBuf;
 	switch (dstFmt) {
-	case Draw::DataFormat::B4G4R4A4_UNORM_PACK16:
+	case Draw::DataFormat::R4G4B4A4_UNORM_PACK16:
 		ConvertRGBA4444ToABGR4444((u16 *)dst, (const u16 *)src, numPixels);
 		break;
 	// Final Fantasy 2 uses this heavily in animated textures.
-	case Draw::DataFormat::B5G5R5A1_UNORM_PACK16:
+	case Draw::DataFormat::R5G5B5A1_UNORM_PACK16:
 		ConvertRGBA5551ToABGR1555((u16 *)dst, (const u16 *)src, numPixels);
 		break;
-	case Draw::DataFormat::B5G6R5_UNORM_PACK16:
+	case Draw::DataFormat::R5G6B5_UNORM_PACK16:
 		ConvertRGB565ToBGR565((u16 *)dst, (const u16 *)src, numPixels);
 		break;
 	default:
@@ -517,18 +517,18 @@ void TextureCacheGLES::ApplyTextureFramebuffer(TexCacheEntry *entry, VirtualFram
 ReplacedTextureFormat FromDataFormat(Draw::DataFormat fmt) {
 	// TODO: 16-bit formats are incorrect, since swizzled.
 	switch (fmt) {
-	case Draw::DataFormat::B5G6R5_UNORM_PACK16: return ReplacedTextureFormat::F_0565_ABGR;
-	case Draw::DataFormat::B5G5R5A1_UNORM_PACK16: return ReplacedTextureFormat::F_1555_ABGR;
-	case Draw::DataFormat::B4G4R4A4_UNORM_PACK16: return ReplacedTextureFormat::F_4444_ABGR;
+	case Draw::DataFormat::R5G6B5_UNORM_PACK16: return ReplacedTextureFormat::F_0565_ABGR;
+	case Draw::DataFormat::R5G5B5A1_UNORM_PACK16: return ReplacedTextureFormat::F_1555_ABGR;
+	case Draw::DataFormat::R4G4B4A4_UNORM_PACK16: return ReplacedTextureFormat::F_4444_ABGR;
 	case Draw::DataFormat::R8G8B8A8_UNORM: default: return ReplacedTextureFormat::F_8888;
 	}
 }
 
 Draw::DataFormat ToDataFormat(ReplacedTextureFormat fmt) {
 	switch (fmt) {
-	case ReplacedTextureFormat::F_5650: return Draw::DataFormat::B5G6R5_UNORM_PACK16;
-	case ReplacedTextureFormat::F_5551: return Draw::DataFormat::B5G5R5A1_UNORM_PACK16;
-	case ReplacedTextureFormat::F_4444: return Draw::DataFormat::B4G4R4A4_UNORM_PACK16;
+	case ReplacedTextureFormat::F_5650: return Draw::DataFormat::R5G6B5_UNORM_PACK16;
+	case ReplacedTextureFormat::F_5551: return Draw::DataFormat::R5G5B5A1_UNORM_PACK16;
+	case ReplacedTextureFormat::F_4444: return Draw::DataFormat::R4G4B4A4_UNORM_PACK16;
 	case ReplacedTextureFormat::F_8888: default: return Draw::DataFormat::R8G8B8A8_UNORM;
 	}
 }
@@ -708,11 +708,11 @@ Draw::DataFormat TextureCacheGLES::GetDestFormat(GETextureFormat format, GEPalet
 	case GE_TFMT_CLUT32:
 		return getClutDestFormat(clutFormat);
 	case GE_TFMT_4444:
-		return Draw::DataFormat::B4G4R4A4_UNORM_PACK16;
+		return Draw::DataFormat::R4G4B4A4_UNORM_PACK16;
 	case GE_TFMT_5551:
-		return Draw::DataFormat::B5G5R5A1_UNORM_PACK16;
+		return Draw::DataFormat::R5G5B5A1_UNORM_PACK16;
 	case GE_TFMT_5650:
-		return Draw::DataFormat::B5G6R5_UNORM_PACK16;
+		return Draw::DataFormat::R5G6B5_UNORM_PACK16;
 	case GE_TFMT_8888:
 	case GE_TFMT_DXT1:
 	case GE_TFMT_DXT3:
@@ -725,13 +725,13 @@ Draw::DataFormat TextureCacheGLES::GetDestFormat(GETextureFormat format, GEPalet
 TexCacheEntry::TexStatus TextureCacheGLES::CheckAlpha(const uint8_t *pixelData, Draw::DataFormat dstFmt, int stride, int w, int h) {
 	CheckAlphaResult res;
 	switch (dstFmt) {
-	case Draw::DataFormat::B4G4R4A4_UNORM_PACK16:
+	case Draw::DataFormat::R4G4B4A4_UNORM_PACK16:
 		res = CheckAlphaABGR4444Basic((const uint32_t *)pixelData, stride, w, h);
 		break;
-	case Draw::DataFormat::B5G5R5A1_UNORM_PACK16:
+	case Draw::DataFormat::R5G5B5A1_UNORM_PACK16:
 		res = CheckAlphaABGR1555Basic((const uint32_t *)pixelData, stride, w, h);
 		break;
-	case Draw::DataFormat::B5G6R5_UNORM_PACK16:
+	case Draw::DataFormat::R5G6B5_UNORM_PACK16:
 		// Never has any alpha.
 		res = CHECKALPHA_FULL;
 		break;

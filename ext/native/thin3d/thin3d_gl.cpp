@@ -1212,9 +1212,9 @@ void OpenGLContext::GetFramebufferDimensions(Framebuffer *fbo, int *w, int *h) {
 
 uint32_t OpenGLContext::GetDataFormatSupport(DataFormat fmt) const {
 	switch (fmt) {
-	case DataFormat::B4G4R4A4_UNORM_PACK16:
-	case DataFormat::B5G6R5_UNORM_PACK16:
-	case DataFormat::B5G5R5A1_UNORM_PACK16:
+	case DataFormat::R4G4B4A4_UNORM_PACK16:
+	case DataFormat::R5G6B5_UNORM_PACK16:
+	case DataFormat::R5G5B5A1_UNORM_PACK16:
 		return FMT_RENDERTARGET | FMT_TEXTURE | FMT_AUTOGEN_MIPS;  // native support
 
 	case DataFormat::R8G8B8A8_UNORM:

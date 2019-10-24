@@ -36,21 +36,21 @@ bool Thin3DFormatToFormatAndType(DataFormat fmt, GLuint &internalFormat, GLuint 
 		alignment = 1;
 		break;
 
-	case DataFormat::B4G4R4A4_UNORM_PACK16:
+	case DataFormat::R4G4B4A4_UNORM_PACK16:
 		internalFormat = GL_RGBA;
 		format = GL_RGBA;
 		type = GL_UNSIGNED_SHORT_4_4_4_4;
 		alignment = 2;
 		break;
 
-	case DataFormat::B5G6R5_UNORM_PACK16:
+	case DataFormat::R5G6B5_UNORM_PACK16:
 		internalFormat = GL_RGB;
 		format = GL_RGB;
 		type = GL_UNSIGNED_SHORT_5_6_5;
 		alignment = 2;
 		break;
 
-	case DataFormat::B5G5R5A1_UNORM_PACK16:
+	case DataFormat::R5G5B5A1_UNORM_PACK16:
 		internalFormat = GL_RGBA;
 		format = GL_RGBA;
 		type = GL_UNSIGNED_SHORT_5_5_5_1;

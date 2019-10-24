@@ -258,6 +258,8 @@ void TextDrawerWin32::DrawString(DrawBuffer &target, const char *str, float x, f
 			texFormat = Draw::DataFormat::A4R4G4B4_UNORM_PACK16;
 		else if (draw_->GetDataFormatSupport(Draw::DataFormat::B4G4R4A4_UNORM_PACK16) & FMT_TEXTURE)
 			texFormat = Draw::DataFormat::B4G4R4A4_UNORM_PACK16;
+		else if (draw_->GetDataFormatSupport(Draw::DataFormat::R4G4B4A4_UNORM_PACK16) & FMT_TEXTURE)
+			texFormat = Draw::DataFormat::R4G4B4A4_UNORM_PACK16;
 		else
 			texFormat = Draw::DataFormat::R8G8B8A8_UNORM;
 
@@ -275,7 +277,7 @@ void TextDrawerWin32::DrawString(DrawBuffer &target, const char *str, float x, f
 				}
 			}
 			desc.initData.push_back((uint8_t *)bitmapData32);
-		} else if (texFormat == Draw::DataFormat::B4G4R4A4_UNORM_PACK16) {
+		} else if (texFormat == Draw::DataFormat::B4G4R4A4_UNORM_PACK16 || texFormat == Draw::DataFormat::R4G4B4A4_UNORM_PACK16) {
 			bitmapData16 = new uint16_t[entry->bmWidth * entry->bmHeight];
 			for (int y = 0; y < entry->bmHeight; y++) {
 				for (int x = 0; x < entry->bmWidth; x++) {
