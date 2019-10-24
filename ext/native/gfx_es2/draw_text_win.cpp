@@ -256,10 +256,10 @@ void TextDrawerWin32::DrawString(DrawBuffer &target, const char *str, float x, f
 		// For our purposes these are equivalent, so just choose the supported one. D3D can emulate them.
 		if (draw_->GetDataFormatSupport(Draw::DataFormat::A4R4G4B4_UNORM_PACK16) & FMT_TEXTURE)
 			texFormat = Draw::DataFormat::A4R4G4B4_UNORM_PACK16;
-		else if (draw_->GetDataFormatSupport(Draw::DataFormat::B4G4R4A4_UNORM_PACK16) & FMT_TEXTURE)
-			texFormat = Draw::DataFormat::B4G4R4A4_UNORM_PACK16;
 		else if (draw_->GetDataFormatSupport(Draw::DataFormat::R4G4B4A4_UNORM_PACK16) & FMT_TEXTURE)
 			texFormat = Draw::DataFormat::R4G4B4A4_UNORM_PACK16;
+		else if (draw_->GetDataFormatSupport(Draw::DataFormat::B4G4R4A4_UNORM_PACK16) & FMT_TEXTURE)
+			texFormat = Draw::DataFormat::B4G4R4A4_UNORM_PACK16;
 		else
 			texFormat = Draw::DataFormat::R8G8B8A8_UNORM;
 

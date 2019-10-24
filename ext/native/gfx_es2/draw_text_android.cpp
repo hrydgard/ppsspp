@@ -201,7 +201,7 @@ void TextDrawerAndroid::DrawString(DrawBuffer &target, const char *str, float x,
 
 		TextureDesc desc{};
 		desc.type = TextureType::LINEAR2D;
-		desc.format = Draw::DataFormat::B4G4R4A4_UNORM_PACK16;
+		desc.format = Draw::DataFormat::R4G4B4A4_UNORM_PACK16;
 		desc.width = entry->bmWidth;
 		desc.height = entry->bmHeight;
 		desc.depth = 1;
