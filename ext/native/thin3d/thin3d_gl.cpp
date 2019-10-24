@@ -1212,7 +1212,6 @@ void OpenGLContext::GetFramebufferDimensions(Framebuffer *fbo, int *w, int *h) {
 
 uint32_t OpenGLContext::GetDataFormatSupport(DataFormat fmt) const {
 	switch (fmt) {
-	case DataFormat::B8G8R8A8_UNORM:
 	case DataFormat::B4G4R4A4_UNORM_PACK16:
 	case DataFormat::B5G6R5_UNORM_PACK16:
 	case DataFormat::B5G5R5A1_UNORM_PACK16:
