@@ -73,8 +73,6 @@ SoftGPU::SoftGPU(GraphicsContext *gfxCtx, Draw::DrawContext *draw)
 		},
 	};
 
-	ShaderModule *vshader = draw_->GetVshaderPreset(VS_TEXTURE_COLOR_2D);
-
 	vdata = draw_->CreateBuffer(sizeof(Vertex) * 4, BufferUsageFlag::DYNAMIC | BufferUsageFlag::VERTEXDATA);
 	idata = draw_->CreateBuffer(sizeof(int) * 6, BufferUsageFlag::DYNAMIC | BufferUsageFlag::INDEXDATA);
 
@@ -92,6 +90,14 @@ SoftGPU::SoftGPU(GraphicsContext *gfxCtx, Draw::DrawContext *draw)
 		inputLayout, depth, blendstateOff, rasterNoCull, &vsTexColBufDesc
 	};
 	texColor = draw_->CreateGraphicsPipeline(pipelineDesc);
+
+	PipelineDesc pipelineDescRBSwizzle{
+		Primitive::TRIANGLE_LIST,
+		{ draw_->GetVshaderPreset(VS_TEXTURE_COLOR_2D), draw_->GetFshaderPreset(FS_TEXTURE_COLOR_2D_RB_SWIZZLE) },
+		inputLayout, depth, blendstateOff, rasterNoCull, &vsTexColBufDesc
+	};
+	texColorRBSwizzle = draw_->CreateGraphicsPipeline(pipelineDescRBSwizzle);
+
 	inputLayout->Release();
 	depth->Release();
 	blendstateOff->Release();
@@ -122,6 +128,8 @@ void SoftGPU::DeviceRestore() {
 SoftGPU::~SoftGPU() {
 	texColor->Release();
 	texColor = nullptr;
+	texColorRBSwizzle->Release();
+	texColorRBSwizzle = nullptr;
 
 	if (fbTex) {
 		fbTex->Release();
@@ -148,12 +156,16 @@ void SoftGPU::SetDisplayFramebuffer(u32 framebuf, u32 stride, GEBufferFormat for
 	GPURecord::NotifyDisplay(framebuf, stride, format);
 }
 
+bool g_DarkStalkerStretch;
+
 // Copies RGBA8 data from RAM to the currently bound render target.
 void SoftGPU::CopyToCurrentFboFromDisplayRam(int srcwidth, int srcheight) {
 	if (!draw_)
 		return;
 	float u0 = 0.0f;
 	float u1;
+	float v0 = 1.0f;
+	float v1 = 0.0f;
 
 	if (fbTex) {
 		fbTex->Release();
@@ -163,6 +175,9 @@ void SoftGPU::CopyToCurrentFboFromDisplayRam(int srcwidth, int srcheight) {
 	// For accuracy, try to handle 0 stride - sometimes used.
 	if (displayStride_ == 0) {
 		srcheight = 1;
+		u1 = 1.0f;
+	} else {
+		u1 = (float)srcwidth / displayStride_;
 	}
 
 	Draw::TextureDesc desc{};
@@ -172,7 +187,29 @@ void SoftGPU::CopyToCurrentFboFromDisplayRam(int srcwidth, int srcheight) {
 	desc.mipLevels = 1;
 	desc.tag = "SoftGPU";
 	bool hasImage = true;
-	if (!Memory::IsValidAddress(displayFramebuf_) || srcwidth == 0 || srcheight == 0) {
+
+	Draw::Pipeline *pipeline = texColor;
+	if (PSP_CoreParameter().compat.flags().DarkStalkersPresentHack && displayFormat_ == GE_FORMAT_5551 && g_DarkStalkerStretch) {
+		u8 *data = Memory::GetPointer(0x04088000);
+		if (draw_->GetDataFormatSupport(Draw::DataFormat::A1B5G5R5_UNORM_PACK16) & Draw::FMT_TEXTURE) {
+			// The perfect one.
+			desc.format = Draw::DataFormat::A1B5G5R5_UNORM_PACK16;
+		} else if (draw_->GetDataFormatSupport(Draw::DataFormat::A1R5G5B5_UNORM_PACK16) & Draw::FMT_TEXTURE) {
+			// RB swapped, compensate with a shader.
+			desc.format = Draw::DataFormat::A1R5G5B5_UNORM_PACK16;
+			pipeline = texColorRBSwizzle;
+		} else {
+			// Shouldn't happen (once I'm done with the backends).
+		}
+		desc.width = displayStride_ == 0 ? srcwidth : displayStride_;
+		desc.height = srcheight;
+		desc.initData.push_back(data);
+		u0 = 64.5f / 512.0f;
+		u1 = 447.5f / 512.0f;
+		v1 = 16.0f / 272.0f;
+		v0 = 240.0f / 272.0f;
+		g_DarkStalkerStretch = false;
+	} else if (!Memory::IsValidAddress(displayFramebuf_) || srcwidth == 0 || srcheight == 0) {
 		hasImage = false;
 		u1 = 1.0f;
 	} else if (displayFormat_ == GE_FORMAT_8888) {
@@ -181,11 +218,13 @@ void SoftGPU::CopyToCurrentFboFromDisplayRam(int srcwidth, int srcheight) {
 		desc.height = srcheight;
 		desc.initData.push_back(data);
 		desc.format = Draw::DataFormat::R8G8B8A8_UNORM;
-		if (displayStride_ != 0) {
-			u1 = (float)srcwidth / displayStride_;
-		} else {
-			u1 = 1.0f;
-		}
+	} else if (g_Config.iGPUBackend == (int)GPUBackend::VULKAN && displayFormat_ == GE_FORMAT_5551) {
+		u8 *data = Memory::GetPointer(displayFramebuf_);
+		desc.swizzle = Draw::TextureSwizzle::BGRA;
+		desc.format = Draw::DataFormat::A1R5G5B5_UNORM_PACK16;
+		desc.width = displayStride_ == 0 ? srcwidth : displayStride_;
+		desc.height = srcheight;
+		desc.initData.push_back(data);
 	} else {
 		// TODO: This should probably be converted in a shader instead..
 		fbTexBuffer.resize(srcwidth * srcheight);
@@ -247,12 +286,10 @@ void SoftGPU::CopyToCurrentFboFromDisplayRam(int srcwidth, int srcheight) {
 	x2 -= 1.0f;
 	y2 -= 1.0f;
 
-	float v0 = 1.0f;
-	float v1 = 0.0f;
-
 	if (GetGPUBackend() == GPUBackend::VULKAN) {
 		std::swap(v0, v1);
 	}
+
 	draw_->BindFramebufferAsRenderTarget(nullptr, { Draw::RPAction::CLEAR, Draw::RPAction::DONT_CARE, Draw::RPAction::DONT_CARE });
 	Draw::Viewport viewport = { 0.0f, 0.0f, dstwidth, dstheight, 0.0f, 1.0f };
 	draw_->SetViewports(1, &viewport);
@@ -288,7 +325,7 @@ void SoftGPU::CopyToCurrentFboFromDisplayRam(int srcwidth, int srcheight) {
 
 	Draw::VsTexColUB ub{};
 	memcpy(ub.WorldViewProj, g_display_rot_matrix.m, sizeof(float) * 16);
-	draw_->BindPipeline(texColor);
+	draw_->BindPipeline(pipeline);
 	draw_->UpdateDynamicUniformBuffer(&ub, sizeof(ub));
 	draw_->BindVertexBuffers(0, 1, &vdata, nullptr);
 	draw_->BindIndexBuffer(idata, 0);

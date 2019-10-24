@@ -348,6 +348,10 @@ bool D3D9Texture::Create(const TextureDesc &desc) {
 	format_ = desc.format;
 	tex_ = NULL;
 	d3dfmt_ = FormatToD3DFMT(desc.format);
+
+	if (d3dfmt_ == D3DFMT_UNKNOWN) {
+		return false;
+	}
 	HRESULT hr = E_FAIL;
 
 	D3DPOOL pool = D3DPOOL_MANAGED;
@@ -424,6 +428,7 @@ void D3D9Texture::SetImageData(int x, int y, int z, int width, int height, int d
 					}
 					break;
 				case DataFormat::A4R4G4B4_UNORM_PACK16:
+				case DataFormat::A1R5G5B5_UNORM_PACK16:
 					// Native
 					memcpy(dest, source, width * sizeof(uint16_t));
 					break;
@@ -436,6 +441,10 @@ void D3D9Texture::SetImageData(int x, int y, int z, int width, int height, int d
 
 				case DataFormat::B8G8R8A8_UNORM:
 					memcpy(dest, source, sizeof(uint32_t) * width);
+					break;
+				default:
+					// Unhandled data format copy.
+					DebugBreak();
 					break;
 				}
 			}

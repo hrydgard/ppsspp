@@ -1287,6 +1287,97 @@ void DrawTriangleSlice(
 	}
 }
 
+// Slow but can handle all input.
+void SafeScanline(int s, int ds, int t, int x1, int x2, int y, int z, const u8 *texptr, int texbufw, Sampler::Funcs &sampler, Vec4<int> v0_color) {
+	for (int x = x1; x < x2; x++) {
+		Vec4<int> prim_color = v0_color;
+		Vec4<int> tex_color = Vec4<int>::FromRGBA(sampler.nearest(s, t, texptr, texbufw, 0));
+		prim_color = GetTextureFunctionOutput(prim_color, tex_color);
+		DrawingCoords pos(x, y, z);
+		DrawSinglePixel<false>(pos, (u16)z, 1.0f, prim_color);
+		s += ds;
+	}
+}
+
+void DrawPSXSprite(const VertexData& v0, const VertexData& v1) {
+	const u8 *texptr = nullptr;
+
+	GETextureFormat texfmt = gstate.getTextureFormat();
+	u32 texaddr = gstate.getTextureAddress(0);
+	int texbufw = GetTextureBufw(0, texaddr, texfmt);
+	if (Memory::IsValidAddress(texaddr))
+		texptr = Memory::GetPointerUnchecked(texaddr);
+
+	ScreenCoords pprime(v0.screenpos.x, v0.screenpos.y, 0);
+	Sampler::Funcs sampler = Sampler::GetFuncs();
+
+	DrawingCoords pos0 = TransformUnit::ScreenToDrawing(v0.screenpos);
+	DrawingCoords pos1 = TransformUnit::ScreenToDrawing(v1.screenpos);
+
+	DrawingCoords scissorTL(gstate.getScissorX1(), gstate.getScissorY1(), 0);
+	DrawingCoords scissorBR(gstate.getScissorX2(), gstate.getScissorY2(), 0);
+
+	int z = pos0.z;
+	float fog = 1.0f;
+
+	if (gstate.isTextureMapEnabled()) {
+		// 1:1 (but with mirror support) texture mapping!
+		int s_start = v0.texturecoords.x;
+		int t_start = v0.texturecoords.y;
+		int ds = v1.texturecoords.x > v0.texturecoords.x ? 1 : -1;
+		int dt = v1.texturecoords.y > v0.texturecoords.y ? 1 : -1;
+
+		if (ds < 0) {
+			s_start += ds;
+		}
+		if (dt < 0) {
+			t_start += dt;
+		}
+
+		// First clip the right and bottom sides, since we don't need to adjust the deltas.
+		if (pos1.x > scissorBR.x) pos1.x = scissorBR.x;
+		if (pos1.y > scissorBR.y) pos1.y = scissorBR.y;
+		// Now clip the other sides.
+		if (pos0.x < scissorTL.x) {
+			s_start += (scissorTL.x - pos0.x) * ds;
+			pos0.x = scissorTL.x;
+		}
+		if (pos0.y < scissorTL.y) {
+			t_start += (scissorTL.y - pos0.y) * dt;
+			pos0.y = scissorTL.y;
+		}
+
+		int t = t_start;
+		for (int y = pos0.y; y < pos1.y; y++) {
+			int s = s_start;
+			SafeScanline(s, ds, t, pos0.x, pos1.x, y, z, texptr, texbufw, sampler, v0.color0);
+			/*
+			for (int x = pos0.x; x < pos1.x; x++) {
+				Vec4<int> prim_color = v0.color0;
+				Vec4<int> tex_color = Vec4<int>::FromRGBA(sampler.nearest(s, t, texptr, texbufw, 0));
+				prim_color = GetTextureFunctionOutput(prim_color, tex_color);
+				DrawingCoords pos(x, y, z);
+				DrawSinglePixel<false>(pos, (u16)z, fog, prim_color);
+				s += ds;
+			}
+			*/
+			t += dt;
+		}
+	} else {
+		if (pos1.x > scissorBR.x) pos1.x = scissorBR.x;
+		if (pos1.y > scissorBR.y) pos1.y = scissorBR.y;
+		if (pos0.x < scissorTL.x) pos0.x = scissorTL.x;
+		if (pos0.y < scissorTL.y) pos0.y = scissorTL.y;
+		for (int y = pos0.y; y < pos1.y; y++) {
+			for (int x = pos0.x; x < pos1.x; x++) {
+				Vec4<int> prim_color = v0.color0;
+				DrawingCoords pos(x, y, z);
+				DrawSinglePixel<false>(pos, (u16)z, fog, prim_color);
+			}
+		}
+	}
+}
+
 // Draws triangle, vertices specified in counter-clockwise direction
 void DrawTriangle(const VertexData& v0, const VertexData& v1, const VertexData& v2)
 {

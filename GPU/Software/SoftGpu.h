@@ -108,6 +108,7 @@ private:
 
 	Draw::Texture *fbTex;
 	Draw::Pipeline *texColor;
+	Draw::Pipeline *texColorRBSwizzle;
 	std::vector<u32> fbTexBuffer;
 
 	Draw::SamplerState *samplerNearest = nullptr;

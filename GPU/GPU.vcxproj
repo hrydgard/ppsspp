@@ -197,6 +197,7 @@
       <RuntimeLibrary>MultiThreadedDebug</RuntimeLibrary>
       <ForcedIncludeFiles>Common/DbgNew.h</ForcedIncludeFiles>
       <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
+      <SupportJustMyCode>false</SupportJustMyCode>
     </ClCompile>
     <Link>
       <GenerateDebugInformation>true</GenerateDebugInformation>

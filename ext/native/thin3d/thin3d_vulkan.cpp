@@ -699,7 +699,20 @@ bool VKTexture::Create(VkCommandBuffer cmd, VulkanPushBuffer *push, const Textur
 		// Gonna have to generate some, which requires TRANSFER_SRC
 		usageBits |= VK_IMAGE_USAGE_TRANSFER_SRC_BIT;
 	}
-	if (!vkTex_->CreateDirect(cmd, alloc, width_, height_, mipLevels_, vulkanFormat, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, usageBits)) {
+
+	VkComponentMapping mapping{};  // Defaults to no swizzle
+	switch (desc.swizzle) {
+	case TextureSwizzle::NO_SWIZZLE:
+		break;
+	case TextureSwizzle::BGRA:
+		mapping.r = VK_COMPONENT_SWIZZLE_B;
+		mapping.g = VK_COMPONENT_SWIZZLE_G;
+		mapping.b = VK_COMPONENT_SWIZZLE_R;
+		mapping.a = VK_COMPONENT_SWIZZLE_A;
+		break;
+	}
+
+	if (!vkTex_->CreateDirect(cmd, alloc, width_, height_, mipLevels_, vulkanFormat, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, usageBits, &mapping)) {
 		ELOG("Failed to create VulkanTexture: %dx%dx%d fmt %d, %d levels", width_, height_, depth_, (int)vulkanFormat, mipLevels_);
 		return false;
 	}
@@ -1358,6 +1371,8 @@ uint32_t VKContext::GetDataFormatSupport(DataFormat fmt) const {
 		return 0;
 	case DataFormat::A4R4G4B4_UNORM_PACK16:
 		return 0;
+	case DataFormat::A1R5G5B5_UNORM_PACK16:
+		return FMT_RENDERTARGET | FMT_TEXTURE;
 
 	case DataFormat::R8G8B8A8_UNORM:
 		return FMT_RENDERTARGET | FMT_TEXTURE | FMT_INPUTLAYOUT;
