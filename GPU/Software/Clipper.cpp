@@ -208,7 +208,7 @@ void ProcessRect(const VertexData& v0, const VertexData& v1)
 		bool state_check = !gstate.isModeClear();
 		bool alpha_check = true;
 		if ((coord_check || !gstate.isTextureMapEnabled()) && state_check && alpha_check) {
-			Rasterizer::DrawPSXSprite(v0, v1);
+			Rasterizer::DrawSprite(v0, v1);
 			return;
 		}
 
