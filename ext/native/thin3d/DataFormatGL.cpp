@@ -36,49 +36,33 @@ bool Thin3DFormatToFormatAndType(DataFormat fmt, GLuint &internalFormat, GLuint 
 		alignment = 1;
 		break;
 
-	case DataFormat::B4G4R4A4_UNORM_PACK16:
+	case DataFormat::R4G4B4A4_UNORM_PACK16:
 		internalFormat = GL_RGBA;
 		format = GL_RGBA;
 		type = GL_UNSIGNED_SHORT_4_4_4_4;
 		alignment = 2;
 		break;
 
-	case DataFormat::B5G6R5_UNORM_PACK16:
+	case DataFormat::R5G6B5_UNORM_PACK16:
 		internalFormat = GL_RGB;
 		format = GL_RGB;
 		type = GL_UNSIGNED_SHORT_5_6_5;
 		alignment = 2;
 		break;
 
-	case DataFormat::B5G5R5A1_UNORM_PACK16:
+	case DataFormat::R5G5B5A1_UNORM_PACK16:
 		internalFormat = GL_RGBA;
 		format = GL_RGBA;
 		type = GL_UNSIGNED_SHORT_5_5_5_1;
 		alignment = 2;
 		break;
 
-#ifndef USING_GLES2
-	case DataFormat::A4R4G4B4_UNORM_PACK16:
-		internalFormat = GL_RGBA;
+	case DataFormat::R32G32B32A32_FLOAT:
+		internalFormat = GL_RGBA32F;
 		format = GL_RGBA;
-		type = GL_UNSIGNED_SHORT_4_4_4_4_REV;
-		alignment = 2;
+		type = GL_FLOAT;
+		alignment = 16;
 		break;
-
-	case DataFormat::R5G6B5_UNORM_PACK16:
-		internalFormat = GL_RGB;
-		format = GL_RGB;
-		type = GL_UNSIGNED_SHORT_5_6_5_REV;
-		alignment = 2;
-		break;
-
-	case DataFormat::A1R5G5B5_UNORM_PACK16:
-		internalFormat = GL_RGBA;
-		format = GL_RGBA;
-		type = GL_UNSIGNED_SHORT_1_5_5_5_REV;
-		alignment = 2;
-		break;
-#endif
 
 	default:
 		return false;

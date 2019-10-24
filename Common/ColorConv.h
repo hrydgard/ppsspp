@@ -107,6 +107,9 @@ void convert5551_dx9(u16* data, u32* out, int width, int l, int u);
 
 // "Complete" set of color conversion functions between the usual formats.
 
+// TODO: Need to revisit the naming convention of these. Seems totally backwards
+// now that we've standardized on Draw::DataFormat.
+
 typedef void (*Convert16bppTo16bppFunc)(u16 *dst, const u16 *src, u32 numPixels);
 typedef void (*Convert16bppTo32bppFunc)(u32 *dst, const u16 *src, u32 numPixels);
 typedef void (*Convert32bppTo16bppFunc)(u16 *dst, const u32 *src, u32 numPixels);
