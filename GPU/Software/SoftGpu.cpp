@@ -15,6 +15,8 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
+#include "base/display.h"
+
 #include "GPU/GPUState.h"
 #include "GPU/ge_constants.h"
 #include "GPU/Common/TextureDecoder.h"
@@ -285,7 +287,7 @@ void SoftGPU::CopyToCurrentFboFromDisplayRam(int srcwidth, int srcheight) {
 	};
 
 	Draw::VsTexColUB ub{};
-	memcpy(ub.WorldViewProj, identity4x4, sizeof(float) * 16);
+	memcpy(ub.WorldViewProj, g_display_rot_matrix.m, sizeof(float) * 16);
 	draw_->BindPipeline(texColor);
 	draw_->UpdateDynamicUniformBuffer(&ub, sizeof(ub));
 	draw_->BindVertexBuffers(0, 1, &vdata, nullptr);

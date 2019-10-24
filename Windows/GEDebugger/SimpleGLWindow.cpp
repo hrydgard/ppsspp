@@ -24,6 +24,8 @@
 
 const wchar_t *SimpleGLWindow::windowClass = L"SimpleGLWindow";
 
+using namespace Lin;
+
 void SimpleGLWindow::RegisterClass() {
 	WNDCLASSEX wndClass;
 

@@ -3,6 +3,8 @@
 #include "math/lin/vec3.h"
 #include "math/lin/matrix4x4.h"
 
+namespace Lin {
+
 Vec3 Vec3::operator *(const Matrix4x4 &m) const {
 	return Vec3(x*m.xx + y*m.yx + z*m.zx + m.wx,
 		x*m.xy + y*m.yy + z*m.zy + m.wy,
@@ -26,3 +28,5 @@ Vec3 Vec3::rotatedBy(const Matrix4x4 &m) const {
 		x*m.xy + y*m.yy + z*m.zy,
 		x*m.xz + y*m.yz + z*m.zz);
 }
+
+}  // namespace Lin

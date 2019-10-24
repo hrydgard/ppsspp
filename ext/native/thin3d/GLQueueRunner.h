@@ -142,8 +142,7 @@ struct GLRRenderData {
 		} texture;
 		struct {
 			GLRTexture *texture;
-			GLenum format;
-			GLenum type;
+			Draw::DataFormat format;
 			int level;
 			int x;
 			int y;
@@ -254,9 +253,7 @@ struct GLRInitStep {
 		} buffer_subdata;
 		struct {
 			GLRTexture *texture;
-			GLenum internalFormat;
-			GLenum format;
-			GLenum type;
+			Draw::DataFormat format;
 			int level;
 			int width;
 			int height;

@@ -35,8 +35,8 @@ class DrawBuffer;
 
 struct UITransform {
 	// TODO: Or just use a matrix?
-	Vec3 translate;
-	Vec3 scale;
+	Lin::Vec3 translate;
+	Lin::Vec3 scale;
 	float alpha;
 };
 

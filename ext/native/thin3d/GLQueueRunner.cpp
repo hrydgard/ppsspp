@@ -9,6 +9,7 @@
 #include "gfx/gl_common.h"
 #include "gfx/gl_debug_log.h"
 #include "gfx_es2/gpu_features.h"
+#include "thin3d/DataFormatGL.h"
 #include "math/dataconv.h"
 #include "math/math_util.h"
 
@@ -315,7 +316,11 @@ void GLQueueRunner::RunInitSteps(const std::vector<GLRInitStep> &steps, bool ski
 			if (!step.texture_image.data && step.texture_image.allocType != GLRAllocType::NONE)
 				Crash();
 			// For things to show in RenderDoc, need to split into glTexImage2D(..., nullptr) and glTexSubImage.
-			glTexImage2D(tex->target, step.texture_image.level, step.texture_image.internalFormat, step.texture_image.width, step.texture_image.height, 0, step.texture_image.format, step.texture_image.type, step.texture_image.data);
+
+			GLenum internalFormat, format, type;
+			int alignment;
+			Thin3DFormatToFormatAndType(step.texture_image.format, internalFormat, format, type, alignment);
+			glTexImage2D(tex->target, step.texture_image.level, internalFormat, step.texture_image.width, step.texture_image.height, 0, format, type, step.texture_image.data);
 			allocatedTextures = true;
 			if (step.texture_image.allocType == GLRAllocType::ALIGNED) {
 				FreeAlignedMemory(step.texture_image.data);
@@ -1110,7 +1115,10 @@ void GLQueueRunner::PerformRenderPass(const GLRStep &step) {
 			if (!c.texture_subimage.data)
 				Crash();
 			// For things to show in RenderDoc, need to split into glTexImage2D(..., nullptr) and glTexSubImage.
-			glTexSubImage2D(tex->target, c.texture_subimage.level, c.texture_subimage.x, c.texture_subimage.y, c.texture_subimage.width, c.texture_subimage.height, c.texture_subimage.format, c.texture_subimage.type, c.texture_subimage.data);
+			GLuint internalFormat, format, type;
+			int alignment;
+			Thin3DFormatToFormatAndType(c.texture_subimage.format, internalFormat, format, type, alignment);
+			glTexSubImage2D(tex->target, c.texture_subimage.level, c.texture_subimage.x, c.texture_subimage.y, c.texture_subimage.width, c.texture_subimage.height, format, type, c.texture_subimage.data);
 			if (c.texture_subimage.allocType == GLRAllocType::ALIGNED) {
 				FreeAlignedMemory(c.texture_subimage.data);
 			} else if (c.texture_subimage.allocType == GLRAllocType::NEW) {

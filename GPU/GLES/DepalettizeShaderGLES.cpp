@@ -92,17 +92,15 @@ GLRTexture *DepalShaderCacheGLES::GetClutTexture(GEPaletteFormat clutFormat, con
 		return oldtex->second->texture;
 	}
 
-	GLuint dstFmt = getClutDestFormat(clutFormat);
+	Draw::DataFormat dstFmt = getClutDestFormat(clutFormat);
 	int texturePixels = clutFormat == GE_CMODE_32BIT_ABGR8888 ? 256 : 512;
 
 	DepalTexture *tex = new DepalTexture();
 	tex->texture = render_->CreateTexture(GL_TEXTURE_2D);
-	GLuint components = dstFmt == GL_UNSIGNED_SHORT_5_6_5 ? GL_RGB : GL_RGBA;
-	GLuint components2 = components;
 
 	uint8_t *clutCopy = new uint8_t[1024];
 	memcpy(clutCopy, rawClut, 1024);
-	render_->TextureImage(tex->texture, 0, texturePixels, 1, components, components2, dstFmt, clutCopy, GLRAllocType::NEW, false);
+	render_->TextureImage(tex->texture, 0, texturePixels, 1, dstFmt, clutCopy, GLRAllocType::NEW, false);
 
 	tex->lastFrame = gpuStats.numFlips;
 	texCache_[clutId] = tex;

@@ -726,23 +726,17 @@ void OpenGLTexture::SetImageData(int x, int y, int z, int width, int height, int
 		depth_ = depth;
 	}
 
-	GLuint internalFormat;
-	GLuint format;
-	GLuint type;
-	int alignment;
-	if (!Thin3DFormatToFormatAndType(format_, internalFormat, format, type, alignment)) {
-		return;
-	}
-
 	if (stride == 0)
 		stride = width;
 
+
+	size_t alignment = DataFormatSizeInBytes(format_);
 	// Make a copy of data with stride eliminated.
 	uint8_t *texData = new uint8_t[(size_t)(width * height * alignment)];
 	for (int y = 0; y < height; y++) {
 		memcpy(texData + y * width * alignment, data + y * stride * alignment, width * alignment);
 	}
-	render_->TextureImage(tex_, level, width, height, internalFormat, format, type, texData);
+	render_->TextureImage(tex_, level, width, height, format_, texData);
 }
 
 #ifdef DEBUG_READ_PIXELS
@@ -1218,13 +1212,10 @@ void OpenGLContext::GetFramebufferDimensions(Framebuffer *fbo, int *w, int *h) {
 
 uint32_t OpenGLContext::GetDataFormatSupport(DataFormat fmt) const {
 	switch (fmt) {
-	case DataFormat::B8G8R8A8_UNORM:
-		return FMT_RENDERTARGET | FMT_TEXTURE | FMT_AUTOGEN_MIPS;
-	case DataFormat::B4G4R4A4_UNORM_PACK16:
+	case DataFormat::R4G4B4A4_UNORM_PACK16:
+	case DataFormat::R5G6B5_UNORM_PACK16:
+	case DataFormat::R5G5B5A1_UNORM_PACK16:
 		return FMT_RENDERTARGET | FMT_TEXTURE | FMT_AUTOGEN_MIPS;  // native support
-	case DataFormat::A4R4G4B4_UNORM_PACK16:
-		// Can support this if _REV formats are supported.
-		return gl_extensions.IsGLES ? 0 : FMT_TEXTURE;
 
 	case DataFormat::R8G8B8A8_UNORM:
 		return FMT_RENDERTARGET | FMT_TEXTURE | FMT_INPUTLAYOUT | FMT_AUTOGEN_MIPS;

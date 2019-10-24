@@ -379,7 +379,7 @@ void FramebufferManagerGLES::MakePixelTexture(const u8 *srcPixels, GEBufferForma
 			break;
 		}
 	}
-	render_->TextureImage(drawPixelsTex_, 0, width, height, GL_RGBA, GL_RGBA, GL_UNSIGNED_BYTE, convBuf, GLRAllocType::NEW, false);
+	render_->TextureImage(drawPixelsTex_, 0, width, height, Draw::DataFormat::R8G8B8A8_UNORM, convBuf, GLRAllocType::NEW, false);
 	render_->FinalizeTexture(drawPixelsTex_, 0, false);
 
 	// TODO: Return instead?

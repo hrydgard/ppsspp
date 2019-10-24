@@ -14,6 +14,8 @@
 #include "Core/Reporting.h"
 #include "Core/Config.h"
 
+using namespace Lin;
+
 static void ConvertProjMatrixToVulkan(Matrix4x4 &in) {
 	const Vec3 trans(0, 0, gstate_c.vpZOffset * 0.5f + 0.5f);
 	const Vec3 scale(gstate_c.vpWidthScale, gstate_c.vpHeightScale, gstate_c.vpDepthScale * 0.5f);

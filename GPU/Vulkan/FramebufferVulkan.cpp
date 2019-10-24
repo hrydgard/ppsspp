@@ -317,7 +317,7 @@ void FramebufferManagerVulkan::DrawActiveTexture(float x, float y, float w, floa
 
 	if ((flags & DRAWTEX_TO_BACKBUFFER) && g_display_rotation != DisplayRotation::ROTATE_0) {
 		for (int i = 0; i < 4; i++) {
-			Vec3 v(vtx[i].x, vtx[i].y, 0.0f);
+			Lin::Vec3 v(vtx[i].x, vtx[i].y, 0.0f);
 			// backwards notation, should fix that...
 			v = v * g_display_rot_matrix;
 			vtx[i].x = v.x;
