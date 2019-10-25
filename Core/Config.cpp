@@ -696,7 +696,7 @@ struct ConfigTranslator {
 typedef ConfigTranslator<GPUBackend, GPUBackendToString, GPUBackendFromString> GPUBackendTranslator;
 
 static ConfigSetting graphicsSettings[] = {
-	ConfigSetting("EnableCardboard", &g_Config.bEnableCardboard, false, true, true),
+	ConfigSetting("EnableCardboardVR", &g_Config.bEnableCardboardVR, false, true, true),
 	ConfigSetting("CardboardScreenSize", &g_Config.iCardboardScreenSize, 50, true, true),
 	ConfigSetting("CardboardXShift", &g_Config.iCardboardXShift, 0, true, true),
 	ConfigSetting("CardboardYShift", &g_Config.iCardboardXShift, 0, true, true),

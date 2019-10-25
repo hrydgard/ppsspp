@@ -1035,7 +1035,7 @@ UI::EventReturn EmuScreen::OnDevTools(UI::EventParams &params) {
 }
 
 UI::EventReturn EmuScreen::OnDisableCardboard(UI::EventParams &params) {
-	g_Config.bEnableCardboard = false;
+	g_Config.bEnableCardboardVR = false;
 	return UI::EVENT_DONE;
 }
 
@@ -1292,7 +1292,7 @@ void EmuScreen::render() {
 		return;
 
 	if (hasVisibleUI()) {
-		cardboardDisableButton_->SetVisibility(g_Config.bEnableCardboard ? UI::V_VISIBLE : UI::V_GONE);
+		cardboardDisableButton_->SetVisibility(g_Config.bEnableCardboardVR ? UI::V_VISIBLE : UI::V_GONE);
 		screenManager()->getUIContext()->BeginFrame();
 		renderUI();
 	}
@@ -1321,7 +1321,7 @@ bool EmuScreen::hasVisibleUI() {
 		return true;
 	if (!osm.IsEmpty() || g_Config.bShowTouchControls || g_Config.iShowFPSCounter != 0)
 		return true;
-	if (g_Config.bEnableCardboard)
+	if (g_Config.bEnableCardboardVR)
 		return true;
 	// Debug UI.
 	if (g_Config.bShowDebugStats || g_Config.bShowDeveloperMenu || g_Config.bShowAudioDebug || g_Config.bShowFrameProfiler)

@@ -1030,7 +1030,7 @@ void FramebufferManagerCommon::CopyDisplayToOutput() {
 			Bind2DShader();
 			flags = (!postShaderIsUpscalingFilter_ && g_Config.iBufFilter == SCALE_LINEAR) ? DRAWTEX_LINEAR : DRAWTEX_NEAREST;
 			flags = flags | DRAWTEX_TO_BACKBUFFER;
-			if (g_Config.bEnableCardboard) {
+			if (g_Config.bEnableCardboardVR) {
 				// Left Eye Image
 				SetViewport2D(cardboardSettings.leftEyeXPosition, cardboardSettings.screenYPosition, cardboardSettings.screenWidth, cardboardSettings.screenHeight);
 				DrawActiveTexture(x, y, w, h, (float)pixelWidth_, (float)pixelHeight_, u0, v0, u1, v1, ROTATION_LOCKED_HORIZONTAL, flags | DRAWTEX_KEEP_TEX);
@@ -1058,7 +1058,7 @@ void FramebufferManagerCommon::CopyDisplayToOutput() {
 			PostShaderUniforms uniforms{};
 			CalculatePostShaderUniforms(vfb->bufferWidth, vfb->bufferHeight, vfb->renderWidth, vfb->renderHeight, &uniforms);
 			BindPostShader(uniforms);
-			if (g_Config.bEnableCardboard) {
+			if (g_Config.bEnableCardboardVR) {
 				// Left Eye Image
 				SetViewport2D(cardboardSettings.leftEyeXPosition, cardboardSettings.screenYPosition, cardboardSettings.screenWidth, cardboardSettings.screenHeight);
 				DrawActiveTexture(x, y, w, h, (float)pixelWidth_, (float)pixelHeight_, u0, v0, u1, v1, ROTATION_LOCKED_HORIZONTAL, flags | DRAWTEX_KEEP_TEX);
@@ -1862,7 +1862,7 @@ void FramebufferManagerCommon::GetCardboardSettings(CardboardSettings *cardboard
 	float cardboardUserYShift = g_Config.iCardboardYShift / 100.0f * cardboardMaxYShift;
 	float cardboardScreenY = cardboardMaxYShift + cardboardUserYShift;
 
-	cardboardSettings->enabled = g_Config.bEnableCardboard;
+	cardboardSettings->enabled = g_Config.bEnableCardboardVR;
 	cardboardSettings->leftEyeXPosition = cardboardLeftEyeX;
 	cardboardSettings->rightEyeXPosition = cardboardRightEyeX;
 	cardboardSettings->screenYPosition = cardboardScreenY;

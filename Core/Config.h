@@ -150,7 +150,7 @@ public:
 	bool bAutoFrameSkip;
 	bool bFrameSkipUnthrottle;
 
-	bool bEnableCardboard; // Cardboard Master Switch
+	bool bEnableCardboardVR; // Cardboard Master Switch
 	int iCardboardScreenSize; // Screen Size (in %)
 	int iCardboardXShift; // X-Shift of Screen (in %)
 	int iCardboardYShift; // Y-Shift of Screen (in %)
