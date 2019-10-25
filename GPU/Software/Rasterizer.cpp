@@ -1332,7 +1332,7 @@ static inline Vec4<int> ModulateRGBA(const Vec4<int>& prim_color, const Vec4<int
 	} else {
 		out_rgb = prim_color.rgb() * texcolor.rgb() / 255;
 	}
-	out_a = (rgba) ? (prim_color.a() * texcolor.a() / 255) : prim_color.a();
+	out_a = (prim_color.a() * texcolor.a() / 255);
 #endif
 
 	return Vec4<int>(out_rgb.r(), out_rgb.g(), out_rgb.b(), out_a);
