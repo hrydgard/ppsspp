@@ -700,19 +700,7 @@ bool VKTexture::Create(VkCommandBuffer cmd, VulkanPushBuffer *push, const Textur
 		usageBits |= VK_IMAGE_USAGE_TRANSFER_SRC_BIT;
 	}
 
-	VkComponentMapping mapping{};  // Defaults to no swizzle
-	switch (desc.swizzle) {
-	case TextureSwizzle::NO_SWIZZLE:
-		break;
-	case TextureSwizzle::BGRA:
-		mapping.r = VK_COMPONENT_SWIZZLE_B;
-		mapping.g = VK_COMPONENT_SWIZZLE_G;
-		mapping.b = VK_COMPONENT_SWIZZLE_R;
-		mapping.a = VK_COMPONENT_SWIZZLE_A;
-		break;
-	}
-
-	if (!vkTex_->CreateDirect(cmd, alloc, width_, height_, mipLevels_, vulkanFormat, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, usageBits, &mapping)) {
+	if (!vkTex_->CreateDirect(cmd, alloc, width_, height_, mipLevels_, vulkanFormat, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, usageBits)) {
 		ELOG("Failed to create VulkanTexture: %dx%dx%d fmt %d, %d levels", width_, height_, depth_, (int)vulkanFormat, mipLevels_);
 		return false;
 	}
