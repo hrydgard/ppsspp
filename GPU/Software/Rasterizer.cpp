@@ -1287,26 +1287,26 @@ void DrawTriangleSlice(
 	}
 }
 
-
 // Through mode, with the specific Darkstalker settings.
 inline void DrawSinglePixel5551(const DrawingCoords &p, const Vec4<int> &color_in) {
-	Vec4<int> prim_color = color_in;
-	if (prim_color.a() == 0)
+	if (color_in.a() == 0)
 		return;
 
-	const u32 old_color = GetPixelColor(p.x, p.y);
+	u16 *pixel = fb.Get16Ptr(p.x, p.y, gstate.FrameBufStride());
+
 	u32 new_color;
+	if (color_in.a() == 255) {
+		const u32 old_color = RGBA5551ToRGBA8888(*pixel);
+		const Vec4<int> dst = Vec4<int>::FromRGBA(old_color);
+		Vec3<int> blended = AlphaBlendingResult(color_in, dst);
+		// ToRGB() always automatically clamps.
+		new_color = blended.ToRGB();
+	} else {
+		new_color = color_in.ToRGBA() & 0xFFFFFF;
+	}
 
-	u8 stencil = GetPixelStencil(p.x, p.y);
-
-	const Vec4<int> dst = Vec4<int>::FromRGBA(old_color);
-	Vec3<int> blended = AlphaBlendingResult(prim_color, dst);
-
-	// ToRGB() always automatically clamps.
-	new_color = blended.ToRGB();
-	new_color |= stencil << 24;
-	new_color = (new_color & ~gstate.getColorMask()) | (old_color & gstate.getColorMask());
-	SetPixelColor(p.x, p.y, new_color);
+	new_color |= (*pixel & 0x8000) ? 0xff000000 : 0x00000000;
+	*pixel = RGBA8888ToRGBA5551(new_color);
 }
 
 static inline Vec4<int> ModulateRGBA(const Vec4<int>& prim_color, const Vec4<int>& texcolor) {
@@ -1339,7 +1339,6 @@ static inline Vec4<int> ModulateRGBA(const Vec4<int>& prim_color, const Vec4<int
 
 }
 
-
 void DrawSprite(const VertexData& v0, const VertexData& v1) {
 	const u8 *texptr = nullptr;
 
@@ -1360,6 +1359,8 @@ void DrawSprite(const VertexData& v0, const VertexData& v1) {
 
 	int z = pos0.z;
 	float fog = 1.0f;
+
+	bool isWhite = v0.color0 == Vec4<int>(255, 255, 255, 255);
 
 	if (gstate.isTextureMapEnabled()) {
 		// 1:1 (but with mirror support) texture mapping!
@@ -1399,18 +1400,27 @@ void DrawSprite(const VertexData& v0, const VertexData& v1) {
 			gstate.isAlphaBlendEnabled() &&
 			gstate.isTextureAlphaUsed() &&
 			gstate.getTextureFunction() == GE_TEXFUNC_MODULATE &&
+			gstate.getColorMask() == 0x000000 &&
 			gstate.FrameBufFormat() == GE_FORMAT_5551) {
 			int t = t_start;
 			for (int y = pos0.y; y < pos1.y; y++) {
 				int s = s_start;
-				// Not really that fast but faster than triangle.
-				for (int x = pos0.x; x < pos1.x; x++) {
-					Vec4<int> prim_color = v0.color0;
-					Vec4<int> tex_color = Vec4<int>::FromRGBA(nearestFunc(s, t, texptr, texbufw, 0));
-					prim_color = ModulateRGBA(prim_color, tex_color);
-					DrawingCoords pos(x, y, z);
-					DrawSinglePixel5551(pos, prim_color);
-					s += ds;
+				if (isWhite) {
+					for (int x = pos0.x; x < pos1.x; x++) {
+						Vec4<int> tex_color = Vec4<int>::FromRGBA(nearestFunc(s, t, texptr, texbufw, 0));
+						DrawingCoords pos(x, y, z);
+						DrawSinglePixel5551(pos, tex_color);
+						s += ds;
+					}
+				} else {
+					for (int x = pos0.x; x < pos1.x; x++) {
+						Vec4<int> prim_color = v0.color0;
+						Vec4<int> tex_color = Vec4<int>::FromRGBA(nearestFunc(s, t, texptr, texbufw, 0));
+						prim_color = ModulateRGBA(prim_color, tex_color);
+						DrawingCoords pos(x, y, z);
+						DrawSinglePixel5551(pos, prim_color);
+						s += ds;
+					}
 				}
 				t += dt;
 			}
@@ -1435,11 +1445,34 @@ void DrawSprite(const VertexData& v0, const VertexData& v1) {
 		if (pos1.y > scissorBR.y) pos1.y = scissorBR.y;
 		if (pos0.x < scissorTL.x) pos0.x = scissorTL.x;
 		if (pos0.y < scissorTL.y) pos0.y = scissorTL.y;
-		for (int y = pos0.y; y < pos1.y; y++) {
-			for (int x = pos0.x; x < pos1.x; x++) {
-				Vec4<int> prim_color = v0.color0;
-				DrawingCoords pos(x, y, z);
-				DrawSinglePixel<false>(pos, (u16)z, fog, prim_color);
+		if (!gstate.isStencilTestEnabled() &&
+			!gstate.isDepthTestEnabled() &&
+			!gstate.isLogicOpEnabled() &&
+			!gstate.isColorTestEnabled() &&
+			!gstate.isDitherEnabled() &&
+			gstate.isAlphaTestEnabled() &&
+			gstate.getAlphaTestRef() == 0 &&
+			gstate.getAlphaTestMask() == 0xFF &&
+			gstate.isAlphaBlendEnabled() &&
+			gstate.isTextureAlphaUsed() &&
+			gstate.getTextureFunction() == GE_TEXFUNC_MODULATE &&
+			gstate.getColorMask() == 0x000000 &&
+			gstate.FrameBufFormat() == GE_FORMAT_5551) {
+
+			for (int y = pos0.y; y < pos1.y; y++) {
+				for (int x = pos0.x; x < pos1.x; x++) {
+					Vec4<int> prim_color = v0.color0;
+					DrawingCoords pos(x, y, z);
+					DrawSinglePixel5551(pos, prim_color);
+				}
+			}
+		} else {
+			for (int y = pos0.y; y < pos1.y; y++) {
+				for (int x = pos0.x; x < pos1.x; x++) {
+					Vec4<int> prim_color = v0.color0;
+					DrawingCoords pos(x, y, z);
+					DrawSinglePixel<false>(pos, (u16)z, fog, prim_color);
+				}
 			}
 		}
 	}
