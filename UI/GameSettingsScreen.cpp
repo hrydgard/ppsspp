@@ -489,8 +489,19 @@ void GameSettingsScreen::CreateViews() {
 	static const char *bufFilters[] = { "Linear", "Nearest", };
 	graphicsSettings->Add(new PopupMultiChoice(&g_Config.iBufFilter, gr->T("Screen Scaling Filter"), bufFilters, 1, ARRAY_SIZE(bufFilters), gr->GetName(), screenManager()));
 
-	graphicsSettings->Add(new ItemHeader(gr->T("Hack Settings")));
+#if PPSSPP_PLATFORM(ANDROID) || PPSSPP_PLATFORM(IOS)
+	graphicsSettings->Add(new ItemHeader(gr->T("Cardboard VR Settings", "Cardboard VR Settings")));
+	CheckBox *cardboardMode = graphicsSettings->Add(new CheckBox(&g_Config.bEnableCardboardVR, gr->T("Enable Cardboard VR", "Enable Cardboard VR")));
+	cardboardMode->SetDisabledPtr(&g_Config.bSoftwareRendering);
+	PopupSliderChoice * cardboardScreenSize = graphicsSettings->Add(new PopupSliderChoice(&g_Config.iCardboardScreenSize, 30, 100, gr->T("Cardboard Screen Size", "Screen Size (in % of the viewport)"), 1, screenManager(), gr->T("% of viewport")));
+	cardboardScreenSize->SetDisabledPtr(&g_Config.bSoftwareRendering);
+	PopupSliderChoice *cardboardXShift = graphicsSettings->Add(new PopupSliderChoice(&g_Config.iCardboardXShift, -100, 100, gr->T("Cardboard Screen X Shift", "X Shift (in % of the void)"), 1, screenManager(), gr->T("% of the void")));
+	cardboardXShift->SetDisabledPtr(&g_Config.bSoftwareRendering);
+	PopupSliderChoice *cardboardYShift = graphicsSettings->Add(new PopupSliderChoice(&g_Config.iCardboardYShift, -100, 100, gr->T("Cardboard Screen Y Shift", "Y Shift (in % of the void)"), 1, screenManager(), gr->T("% of the void")));
+	cardboardYShift->SetDisabledPtr(&g_Config.bSoftwareRendering);
+#endif
 
+	graphicsSettings->Add(new ItemHeader(gr->T("Hack Settings")));
 	static const char *bloomHackOptions[] = { "Off", "Safe", "Balanced", "Aggressive" };
 	PopupMultiChoice *bloomHack = graphicsSettings->Add(new PopupMultiChoice(&g_Config.iBloomHack, gr->T("Lower resolution for effects (reduces artifacts)"), bloomHackOptions, 0, ARRAY_SIZE(bloomHackOptions), gr->GetName(), screenManager()));
 	bloomHackEnable_ = !g_Config.bSoftwareRendering && (g_Config.iInternalResolution != 1);
