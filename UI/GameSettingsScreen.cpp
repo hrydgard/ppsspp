@@ -442,9 +442,9 @@ void GameSettingsScreen::CreateViews() {
 	static const char *bufFilters[] = { "Linear", "Nearest", };
 	graphicsSettings->Add(new PopupMultiChoice(&g_Config.iBufFilter, gr->T("Screen Scaling Filter"), bufFilters, 1, ARRAY_SIZE(bufFilters), gr->GetName(), screenManager()));
 
-#ifdef __ANDROID__
-	graphicsSettings->Add(new ItemHeader(gr->T("Cardboard Settings", "Cardboard Settings")));
-	CheckBox *cardboardMode = graphicsSettings->Add(new CheckBox(&g_Config.bEnableCardboard, gr->T("Enable Cardboard", "Enable Cardboard")));
+#if PPSSPP_PLATFORM(ANDROID) || PPSSPP_PLATFORM(IOS)
+	graphicsSettings->Add(new ItemHeader(gr->T("Cardboard VR Settings", "Cardboard VR Settings")));
+	CheckBox *cardboardMode = graphicsSettings->Add(new CheckBox(&g_Config.bEnableCardboard, gr->T("Enable Cardboard VR", "Enable Cardboard VR")));
 	cardboardMode->SetDisabledPtr(&g_Config.bSoftwareRendering);
 	PopupSliderChoice * cardboardScreenSize = graphicsSettings->Add(new PopupSliderChoice(&g_Config.iCardboardScreenSize, 30, 100, gr->T("Cardboard Screen Size", "Screen Size (in % of the viewport)"), 1, screenManager(), gr->T("% of viewport")));
 	cardboardScreenSize->SetDisabledPtr(&g_Config.bSoftwareRendering);
