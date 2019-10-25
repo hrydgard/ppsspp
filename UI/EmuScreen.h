@@ -51,6 +51,7 @@ public:
 protected:
 	void CreateViews() override;
 	UI::EventReturn OnDevTools(UI::EventParams &params);
+	UI::EventReturn OnDisableCardboard(UI::EventParams &params);
 
 private:
 	void bootGame(const std::string &filename);
@@ -102,4 +103,6 @@ private:
 	UI::VisibilityTween *loadingViewVisible_ = nullptr;
 	UI::Spinner *loadingSpinner_ = nullptr;
 	UI::TextView *loadingTextView_ = nullptr;
+
+	UI::Button *cardboardDisableButton_ = nullptr;
 };
