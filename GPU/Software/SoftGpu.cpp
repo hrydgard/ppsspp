@@ -208,7 +208,6 @@ void SoftGPU::CopyToCurrentFboFromDisplayRam(int srcwidth, int srcheight) {
 		u1 = 447.5f / 512.0f;
 		v1 = 16.0f / 272.0f;
 		v0 = 240.0f / 272.0f;
-		g_DarkStalkerStretch = false;
 	} else if (!Memory::IsValidAddress(displayFramebuf_) || srcwidth == 0 || srcheight == 0) {
 		hasImage = false;
 		u1 = 1.0f;
