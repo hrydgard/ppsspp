@@ -28,6 +28,8 @@
 
 
 extern bool g_DarkStalkerStretch;
+// For Darkstalkers hack. Ugh.
+extern bool currentDialogActive;
 
 namespace Clipper {
 
@@ -139,8 +141,11 @@ static void RotateUVThrough(const VertexData &tl, const VertexData &br, VertexDa
 	}
 }
 
+bool needsClear = false;
+
 void ProcessRect(const VertexData& v0, const VertexData& v1)
 {
+	g_DarkStalkerStretch = false;
 	if (!gstate.isModeThrough()) {
 		VertexData buf[4];
 		buf[0].clippos = ClipCoords(v0.clippos.x, v0.clippos.y, v1.clippos.z, v1.clippos.w);
@@ -191,23 +196,8 @@ void ProcessRect(const VertexData& v0, const VertexData& v1)
 		bool coord_check =
 			(xdiff == udiff || xdiff == -udiff) &&
 			(ydiff == vdiff || ydiff == -vdiff);
-		// TODO: The U/V mirror support is off by one somehow. Predecrement?
-
-		/*
-		bool state_check =
-			!gstate.isModeClear() &&
-			!gstate.isFogEnabled() &&
-			gstate.isTextureMapEnabled() &&
-			!gstate.isDepthTestEnabled() &&
-			!gstate.isStencilTestEnabled();
-		bool alpha_check =
-			gstate.getAlphaTestFunction() == GEComparison::GE_COMP_GREATER &&
-			gstate.getAlphaTestMask() == 0xFF &&
-			gstate.getAlphaTestRef() == 0;
-			*/
-		bool state_check = !gstate.isModeClear();
-		bool alpha_check = true;
-		if ((coord_check || !gstate.isTextureMapEnabled()) && state_check && alpha_check) {
+		bool state_check = !gstate.isModeClear();  // TODO: Add support for clear modes in Rasterizer::DrawSprite.
+		if ((coord_check || !gstate.isTextureMapEnabled()) && state_check) {
 			Rasterizer::DrawSprite(v0, v1);
 			return;
 		}
@@ -215,8 +205,24 @@ void ProcessRect(const VertexData& v0, const VertexData& v1)
 		// Eliminate the stretch blit in DarkStalkers.
 		// We compensate for that when blitting the framebuffer in SoftGpu.cpp.
 		if (PSP_CoreParameter().compat.flags().DarkStalkersPresentHack && v0.texturecoords.x == 64.0f && v0.texturecoords.y == 16.0f && v1.texturecoords.x == 448.0f && v1.texturecoords.y == 240.0f) {
-			g_DarkStalkerStretch = true;
-			return;
+			if (v0.screenpos.x == 0x7100 && v0.screenpos.y == 0x7780 && v1.screenpos.x == 0x8f00 && v1.screenpos.y == 0x8880) {
+				// Also check for save/load dialog.
+				if (!currentDialogActive) {
+					g_DarkStalkerStretch = true;
+					if (needsClear) {
+						needsClear = false;
+						// Afterwards, we also need to clear the actual destination. Can do a fast rectfill.
+						gstate.textureMapEnable &= ~1;
+						VertexData newV0 = v0;
+						newV0.color0 = Vec4<int>(0, 0, 0, 255);
+						Rasterizer::DrawSprite(newV0, v1);
+						gstate.textureMapEnable |= 1;
+					}
+					return;
+				} else {
+					needsClear = true;
+				}
+			} // else, handle the Capcom screen stretch, or the non-wide stretch? Or let's just not bother.
 		}
 
 		VertexData buf[4];

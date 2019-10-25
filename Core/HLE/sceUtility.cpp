@@ -130,7 +130,7 @@ enum UtilityDialogType {
 
 // Only a single dialog is allowed at a time.
 static UtilityDialogType currentDialogType;
-static bool currentDialogActive;
+bool currentDialogActive;
 static PSPSaveDialog saveDialog;
 static PSPMsgDialog msgDialog;
 static PSPOskDialog oskDialog;
