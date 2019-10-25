@@ -1288,12 +1288,7 @@ void DrawTriangleSlice(
 }
 
 // Through mode, with the specific Darkstalker settings.
-inline void DrawSinglePixel5551(const DrawingCoords &p, const Vec4<int> &color_in) {
-	if (color_in.a() == 0)
-		return;
-
-	u16 *pixel = fb.Get16Ptr(p.x, p.y, gstate.FrameBufStride());
-
+inline void DrawSinglePixel5551(u16 *pixel, const Vec4<int> &color_in) {
 	u32 new_color;
 	if (color_in.a() == 255) {
 		const u32 old_color = RGBA5551ToRGBA8888(*pixel);
@@ -1405,21 +1400,26 @@ void DrawSprite(const VertexData& v0, const VertexData& v1) {
 			int t = t_start;
 			for (int y = pos0.y; y < pos1.y; y++) {
 				int s = s_start;
+				u16 *pixel = fb.Get16Ptr(pos0.x, y, gstate.FrameBufStride());
 				if (isWhite) {
 					for (int x = pos0.x; x < pos1.x; x++) {
-						Vec4<int> tex_color = Vec4<int>::FromRGBA(nearestFunc(s, t, texptr, texbufw, 0));
-						DrawingCoords pos(x, y, z);
-						DrawSinglePixel5551(pos, tex_color);
+						u32 tex_color = nearestFunc(s, t, texptr, texbufw, 0);
+						if (tex_color & 0xFF000000) {
+							DrawSinglePixel5551(pixel, Vec4<int>::FromRGBA(tex_color));
+						}
 						s += ds;
+						pixel++;
 					}
 				} else {
 					for (int x = pos0.x; x < pos1.x; x++) {
 						Vec4<int> prim_color = v0.color0;
 						Vec4<int> tex_color = Vec4<int>::FromRGBA(nearestFunc(s, t, texptr, texbufw, 0));
 						prim_color = ModulateRGBA(prim_color, tex_color);
-						DrawingCoords pos(x, y, z);
-						DrawSinglePixel5551(pos, prim_color);
+						if (prim_color.a() > 0) {
+							DrawSinglePixel5551(pixel, prim_color);
+						}
 						s += ds;
+						pixel++;
 					}
 				}
 				t += dt;
@@ -1458,12 +1458,15 @@ void DrawSprite(const VertexData& v0, const VertexData& v1) {
 			gstate.getTextureFunction() == GE_TEXFUNC_MODULATE &&
 			gstate.getColorMask() == 0x000000 &&
 			gstate.FrameBufFormat() == GE_FORMAT_5551) {
+			if (v0.color0.a() == 0)
+				return;
 
 			for (int y = pos0.y; y < pos1.y; y++) {
+				u16 *pixel = fb.Get16Ptr(pos0.x, y, gstate.FrameBufStride());
 				for (int x = pos0.x; x < pos1.x; x++) {
 					Vec4<int> prim_color = v0.color0;
-					DrawingCoords pos(x, y, z);
-					DrawSinglePixel5551(pos, prim_color);
+					DrawSinglePixel5551(pixel, prim_color);
+					pixel++;
 				}
 			}
 		} else {
