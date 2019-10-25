@@ -198,8 +198,6 @@ void SoftGPU::CopyToCurrentFboFromDisplayRam(int srcwidth, int srcheight) {
 			// RB swapped, compensate with a shader.
 			desc.format = Draw::DataFormat::A1R5G5B5_UNORM_PACK16;
 			pipeline = texColorRBSwizzle;
-		} else {
-			// Shouldn't happen (once I'm done with the backends).
 		}
 		desc.width = displayStride_ == 0 ? srcwidth : displayStride_;
 		desc.height = srcheight;
@@ -217,10 +215,17 @@ void SoftGPU::CopyToCurrentFboFromDisplayRam(int srcwidth, int srcheight) {
 		desc.height = srcheight;
 		desc.initData.push_back(data);
 		desc.format = Draw::DataFormat::R8G8B8A8_UNORM;
-	} else if (g_Config.iGPUBackend == (int)GPUBackend::VULKAN && displayFormat_ == GE_FORMAT_5551) {
+	} else if (displayFormat_ == GE_FORMAT_5551) {
 		u8 *data = Memory::GetPointer(displayFramebuf_);
-		desc.swizzle = Draw::TextureSwizzle::BGRA;
 		desc.format = Draw::DataFormat::A1R5G5B5_UNORM_PACK16;
+		if (draw_->GetDataFormatSupport(Draw::DataFormat::A1B5G5R5_UNORM_PACK16) & Draw::FMT_TEXTURE) {
+			// The perfect one.
+			desc.format = Draw::DataFormat::A1B5G5R5_UNORM_PACK16;
+		} else if (draw_->GetDataFormatSupport(Draw::DataFormat::A1R5G5B5_UNORM_PACK16) & Draw::FMT_TEXTURE) {
+			// RB swapped, compensate with a shader.
+			desc.format = Draw::DataFormat::A1R5G5B5_UNORM_PACK16;
+			pipeline = texColorRBSwizzle;
+		}
 		desc.width = displayStride_ == 0 ? srcwidth : displayStride_;
 		desc.height = srcheight;
 		desc.initData.push_back(data);
