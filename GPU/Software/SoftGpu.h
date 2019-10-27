@@ -44,6 +44,10 @@ struct FormatBuffer {
 	inline u32 Get32(int x, int y, int stride) {
 		return as32[x + y * stride];
 	}
+
+	inline u16 *Get16Ptr(int x, int y, int stride) {
+		return &as16[x + y * stride];
+	}
 };
 
 class SoftwareDrawEngine;
@@ -108,6 +112,7 @@ private:
 
 	Draw::Texture *fbTex;
 	Draw::Pipeline *texColor;
+	Draw::Pipeline *texColorRBSwizzle;
 	std::vector<u32> fbTexBuffer;
 
 	Draw::SamplerState *samplerNearest = nullptr;

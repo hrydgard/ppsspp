@@ -625,6 +625,10 @@ public:
 		*this = *this / f;
 	}
 
+	bool operator ==(const Vec4 &other) const {
+		return x == other.x && y == other.y && z == other.z && w == other.w;
+	}
+
 	T Length2() const
 	{
 		return x*x + y*y + z*z + w*w;

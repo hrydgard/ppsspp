@@ -1287,6 +1287,200 @@ void DrawTriangleSlice(
 	}
 }
 
+// Through mode, with the specific Darkstalker settings.
+inline void DrawSinglePixel5551(u16 *pixel, const Vec4<int> &color_in) {
+	u32 new_color;
+	if (color_in.a() == 255) {
+		new_color = color_in.ToRGBA() & 0xFFFFFF;
+	} else {
+		const u32 old_color = RGBA5551ToRGBA8888(*pixel);
+		const Vec4<int> dst = Vec4<int>::FromRGBA(old_color);
+		Vec3<int> blended = AlphaBlendingResult(color_in, dst);
+		// ToRGB() always automatically clamps.
+		new_color = blended.ToRGB();
+	}
+
+	new_color |= (*pixel & 0x8000) ? 0xff000000 : 0x00000000;
+	*pixel = RGBA8888ToRGBA5551(new_color);
+}
+
+static inline Vec4<int> ModulateRGBA(const Vec4<int>& prim_color, const Vec4<int>& texcolor) {
+	Vec3<int> out_rgb;
+	int out_a;
+
+#if defined(_M_SSE)
+	// We can be accurate up to 24 bit integers, should be enough.
+	const __m128 p = _mm_cvtepi32_ps(prim_color.ivec);
+	const __m128 t = _mm_cvtepi32_ps(texcolor.ivec);
+	const __m128 b = _mm_mul_ps(p, t);
+	if (gstate.isColorDoublingEnabled()) {
+		// We double right here, only for modulate.  Other tex funcs do not color double.
+		const __m128 doubleColor = _mm_setr_ps(2.0f / 255.0f, 2.0f / 255.0f, 2.0f / 255.0f, 1.0f / 255.0f);
+		out_rgb.ivec = _mm_cvtps_epi32(_mm_mul_ps(b, doubleColor));
+	} else {
+		out_rgb.ivec = _mm_cvtps_epi32(_mm_mul_ps(b, _mm_set_ps1(1.0f / 255.0f)));
+	}
+	return Vec4<int>(out_rgb.ivec);
+#else
+	if (gstate.isColorDoublingEnabled()) {
+		out_rgb = (prim_color.rgb() * texcolor.rgb() * 2) / 255;
+	} else {
+		out_rgb = prim_color.rgb() * texcolor.rgb() / 255;
+	}
+	out_a = (prim_color.a() * texcolor.a() / 255);
+#endif
+
+	return Vec4<int>(out_rgb.r(), out_rgb.g(), out_rgb.b(), out_a);
+
+}
+
+void DrawSprite(const VertexData& v0, const VertexData& v1) {
+	const u8 *texptr = nullptr;
+
+	GETextureFormat texfmt = gstate.getTextureFormat();
+	u32 texaddr = gstate.getTextureAddress(0);
+	int texbufw = GetTextureBufw(0, texaddr, texfmt);
+	if (Memory::IsValidAddress(texaddr))
+		texptr = Memory::GetPointerUnchecked(texaddr);
+
+	ScreenCoords pprime(v0.screenpos.x, v0.screenpos.y, 0);
+	Sampler::NearestFunc nearestFunc = Sampler::GetNearestFunc();  // Looks at gstate.
+
+	DrawingCoords pos0 = TransformUnit::ScreenToDrawing(v0.screenpos);
+	DrawingCoords pos1 = TransformUnit::ScreenToDrawing(v1.screenpos);
+
+	DrawingCoords scissorTL(gstate.getScissorX1(), gstate.getScissorY1(), 0);
+	DrawingCoords scissorBR(gstate.getScissorX2(), gstate.getScissorY2(), 0);
+
+	int z = pos0.z;
+	float fog = 1.0f;
+
+	bool isWhite = v0.color0 == Vec4<int>(255, 255, 255, 255);
+
+	if (gstate.isTextureMapEnabled()) {
+		// 1:1 (but with mirror support) texture mapping!
+		int s_start = v0.texturecoords.x;
+		int t_start = v0.texturecoords.y;
+		int ds = v1.texturecoords.x > v0.texturecoords.x ? 1 : -1;
+		int dt = v1.texturecoords.y > v0.texturecoords.y ? 1 : -1;
+
+		if (ds < 0) {
+			s_start += ds;
+		}
+		if (dt < 0) {
+			t_start += dt;
+		}
+
+		// First clip the right and bottom sides, since we don't need to adjust the deltas.
+		if (pos1.x > scissorBR.x) pos1.x = scissorBR.x + 1;
+		if (pos1.y > scissorBR.y) pos1.y = scissorBR.y + 1;
+		// Now clip the other sides.
+		if (pos0.x < scissorTL.x) {
+			s_start += (scissorTL.x - pos0.x) * ds;
+			pos0.x = scissorTL.x;
+		}
+		if (pos0.y < scissorTL.y) {
+			t_start += (scissorTL.y - pos0.y) * dt;
+			pos0.y = scissorTL.y;
+		}
+
+		if (!gstate.isStencilTestEnabled() &&
+			!gstate.isDepthTestEnabled() &&
+			!gstate.isLogicOpEnabled() &&
+			!gstate.isColorTestEnabled() &&
+			!gstate.isDitherEnabled() &&
+			gstate.isAlphaTestEnabled() &&
+			gstate.getAlphaTestRef() == 0 &&
+			gstate.getAlphaTestMask() == 0xFF &&
+			gstate.isAlphaBlendEnabled() &&
+			gstate.isTextureAlphaUsed() &&
+			gstate.getTextureFunction() == GE_TEXFUNC_MODULATE &&
+			gstate.getColorMask() == 0x000000 &&
+			gstate.FrameBufFormat() == GE_FORMAT_5551) {
+			int t = t_start;
+			for (int y = pos0.y; y < pos1.y; y++) {
+				int s = s_start;
+				u16 *pixel = fb.Get16Ptr(pos0.x, y, gstate.FrameBufStride());
+				if (isWhite) {
+					for (int x = pos0.x; x < pos1.x; x++) {
+						u32 tex_color = nearestFunc(s, t, texptr, texbufw, 0);
+						if (tex_color & 0xFF000000) {
+							DrawSinglePixel5551(pixel, Vec4<int>::FromRGBA(tex_color));
+						}
+						s += ds;
+						pixel++;
+					}
+				} else {
+					for (int x = pos0.x; x < pos1.x; x++) {
+						Vec4<int> prim_color = v0.color0;
+						Vec4<int> tex_color = Vec4<int>::FromRGBA(nearestFunc(s, t, texptr, texbufw, 0));
+						prim_color = ModulateRGBA(prim_color, tex_color);
+						if (prim_color.a() > 0) {
+							DrawSinglePixel5551(pixel, prim_color);
+						}
+						s += ds;
+						pixel++;
+					}
+				}
+				t += dt;
+			}
+		} else {
+			int t = t_start;
+			for (int y = pos0.y; y < pos1.y; y++) {
+				int s = s_start;
+				// Not really that fast but faster than triangle.
+				for (int x = pos0.x; x < pos1.x; x++) {
+					Vec4<int> prim_color = v0.color0;
+					Vec4<int> tex_color = Vec4<int>::FromRGBA(nearestFunc(s, t, texptr, texbufw, 0));
+					prim_color = GetTextureFunctionOutput(prim_color, tex_color);
+					DrawingCoords pos(x, y, z);
+					DrawSinglePixel<false>(pos, (u16)z, 1.0f, prim_color);
+					s += ds;
+				}
+				t += dt;
+			}
+		}
+	} else {
+		if (pos1.x > scissorBR.x) pos1.x = scissorBR.x;
+		if (pos1.y > scissorBR.y) pos1.y = scissorBR.y;
+		if (pos0.x < scissorTL.x) pos0.x = scissorTL.x;
+		if (pos0.y < scissorTL.y) pos0.y = scissorTL.y;
+		if (!gstate.isStencilTestEnabled() &&
+			!gstate.isDepthTestEnabled() &&
+			!gstate.isLogicOpEnabled() &&
+			!gstate.isColorTestEnabled() &&
+			!gstate.isDitherEnabled() &&
+			gstate.isAlphaTestEnabled() &&
+			gstate.getAlphaTestRef() == 0 &&
+			gstate.getAlphaTestMask() == 0xFF &&
+			gstate.isAlphaBlendEnabled() &&
+			gstate.isTextureAlphaUsed() &&
+			gstate.getTextureFunction() == GE_TEXFUNC_MODULATE &&
+			gstate.getColorMask() == 0x000000 &&
+			gstate.FrameBufFormat() == GE_FORMAT_5551) {
+			if (v0.color0.a() == 0)
+				return;
+
+			for (int y = pos0.y; y < pos1.y; y++) {
+				u16 *pixel = fb.Get16Ptr(pos0.x, y, gstate.FrameBufStride());
+				for (int x = pos0.x; x < pos1.x; x++) {
+					Vec4<int> prim_color = v0.color0;
+					DrawSinglePixel5551(pixel, prim_color);
+					pixel++;
+				}
+			}
+		} else {
+			for (int y = pos0.y; y < pos1.y; y++) {
+				for (int x = pos0.x; x < pos1.x; x++) {
+					Vec4<int> prim_color = v0.color0;
+					DrawingCoords pos(x, y, z);
+					DrawSinglePixel<false>(pos, (u16)z, fog, prim_color);
+				}
+			}
+		}
+	}
+}
+
 // Draws triangle, vertices specified in counter-clockwise direction
 void DrawTriangle(const VertexData& v0, const VertexData& v1, const VertexData& v2)
 {
