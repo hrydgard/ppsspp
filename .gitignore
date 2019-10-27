@@ -68,6 +68,7 @@ build.ios
 versionname.txt
 versioncode.txt
 build*/
+android/.cxx
 
 # Temp file used by jenkins windows build (TODO: remove)
 desc.txt

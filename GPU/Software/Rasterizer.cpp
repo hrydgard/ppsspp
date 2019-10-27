@@ -1291,13 +1291,13 @@ void DrawTriangleSlice(
 inline void DrawSinglePixel5551(u16 *pixel, const Vec4<int> &color_in) {
 	u32 new_color;
 	if (color_in.a() == 255) {
+		new_color = color_in.ToRGBA() & 0xFFFFFF;
+	} else {
 		const u32 old_color = RGBA5551ToRGBA8888(*pixel);
 		const Vec4<int> dst = Vec4<int>::FromRGBA(old_color);
 		Vec3<int> blended = AlphaBlendingResult(color_in, dst);
 		// ToRGB() always automatically clamps.
 		new_color = blended.ToRGB();
-	} else {
-		new_color = color_in.ToRGBA() & 0xFFFFFF;
 	}
 
 	new_color |= (*pixel & 0x8000) ? 0xff000000 : 0x00000000;
