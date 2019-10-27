@@ -456,19 +456,20 @@ void GameSettingsScreen::CreateViews() {
 		PopupSliderChoice *fovHack = graphicsSettings->Add(new PopupSliderChoice(&g_Config.iFovHack, 1, 300, gr->T("Fov override"), 1, screenManager()));
 		fovHack->SetFormat("%i%%");
 
-		PopupSliderChoice *camXHack = graphicsSettings->Add(new PopupSliderChoice(&g_Config.iCamXHack, -1000, 1000, gr->T("Camera offset X"), 1, screenManager()));
-		PopupSliderChoice *camYHack = graphicsSettings->Add(new PopupSliderChoice(&g_Config.iCamYHack, -1000, 1000, gr->T("Camera offset Y"), 1, screenManager()));
-		PopupSliderChoice *camZHack = graphicsSettings->Add(new PopupSliderChoice(&g_Config.iCamZHack, -1000, 1000, gr->T("Camera offset Z"), 1, screenManager()));
+		PopupSliderChoice *camXHack = graphicsSettings->Add(new PopupSliderChoice(&g_Config.iCamXHack, -2000, 2000, gr->T("Camera offset X"), 1, screenManager()));
+		PopupSliderChoice *camYHack = graphicsSettings->Add(new PopupSliderChoice(&g_Config.iCamYHack, -2000, 2000, gr->T("Camera offset Y"), 1, screenManager()));
+		PopupSliderChoice *camZHack = graphicsSettings->Add(new PopupSliderChoice(&g_Config.iCamZHack, -2000, 2000, gr->T("Camera offset Z"), 1, screenManager()));
 		PopupSliderChoice *camRotHack = graphicsSettings->Add(new PopupSliderChoice(&g_Config.iCamRotHack, -180, 180, gr->T("Camera rotation"), 1, screenManager()));
 
 		PopupSliderChoice *roundWorldHack = graphicsSettings->Add(new PopupSliderChoice(&g_Config.iRoundWorldHack, -30, 30, gr->T("Round world"), 1, screenManager()));
 		PopupSliderChoice *farCullHack = graphicsSettings->Add(new PopupSliderChoice(&g_Config.iFarCullHack, 0, 1000, gr->T("Round world far cull"), 1, screenManager()));
 
-		PopupSliderChoice *phongHack = graphicsSettings->Add(new PopupSliderChoice(&g_Config.iPhongHack, 0, 100, gr->T("Phong threshold (0: disabled)"), 1, screenManager()));
+		PopupSliderChoice *toonHack = graphicsSettings->Add(new PopupSliderChoice(&g_Config.iToonHack, 0, 100, gr->T("Toon threshold (0: disabled)"), 1, screenManager()));
 
-		CheckBox *hideHud = graphicsSettings->Add(new CheckBox(&g_Config.bHideHudHack, gr->T("Hide game HUD")));
+		CheckBox *hideHudHack = graphicsSettings->Add(new CheckBox(&g_Config.bHideHudHack, gr->T("Hide game HUD")));
 		CheckBox *noFogHack = graphicsSettings->Add(new CheckBox(&g_Config.bNoFogHack, gr->T("Disable fog")));
-		CheckBox *vertexColor = graphicsSettings->Add(new CheckBox(&g_Config.bVertexColor, gr->T("Show only vertex color")));
+		CheckBox *limboHack = graphicsSettings->Add(new CheckBox(&g_Config.bLimboHack, gr->T("Limbo hack")));
+		CheckBox *vertexColorHack = graphicsSettings->Add(new CheckBox(&g_Config.bVertexColorHack, gr->T("Show only vertex color")));
 
 		if (gpu) {
 			Choice *applyHack = graphicsSettings->Add(new Choice(gr->T("Apply graphic hack")));

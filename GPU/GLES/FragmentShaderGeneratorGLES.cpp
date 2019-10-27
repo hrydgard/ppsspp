@@ -457,14 +457,14 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, uint64_t *uniform
 			if (texFunc != GE_TEXFUNC_REPLACE || !doTextureAlpha) {
 				WRITE(p, "  vec4 p = v_color0;\n");
 
-				if (g_Config.iPhongHack != 0) { // Phong hack
+				if (g_Config.iToonHack != 0) { // Toon hack
 					WRITE(p, "  vec4 K0 = vec4(0.0, -1.0 / 3.0, 2.0 / 3.0, -1.0);\n");
 					WRITE(p, "  vec4 p0 = mix(vec4(p.bg, K0.wz), vec4(p.gb, K0.xy), step(p.b, p.g));\n");
 					WRITE(p, "  vec4 q0 = mix(vec4(p0.xyw, p.r), vec4(p.r, p0.yzx), step(p0.x, p.r));\n");
 					WRITE(p, "  float d0 = q0.x - min(q0.w, q0.y);\n"); 
 					WRITE(p, "  float e0 = 1.0e-10;\n");
 					WRITE(p, "  vec3 hsv = vec3(abs(q0.z + (q0.w - q0.y) / (6.0 * d0 + e0)), d0 / (q0.x + e0), q0.x);\n");
-					WRITE(p, "  if (hsv.z < %f)\n", g_Config.iPhongHack/100.0);
+					WRITE(p, "  if (hsv.z < %f)\n", g_Config.iToonHack/100.0);
 					WRITE(p, "    hsv.z = 0.4;\n");
 					WRITE(p, "  else\n");
 					WRITE(p, "    hsv.z = 1.0;\n");
@@ -843,7 +843,7 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, uint64_t *uniform
 	}
 
 	// Vertex color only hack
-	if (g_Config.bVertexColor)
+	if (g_Config.bVertexColorHack)
 		WRITE(p, "  %s.rgb = v_color0.rgb;\n", fragColor0);
 
 	// Hide HUD hack

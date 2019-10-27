@@ -759,12 +759,13 @@ static ConfigSetting graphicsSettings[] = {
 	ConfigSetting("CamYHack", &g_Config.iCamYHack, 0, true, true),
 	ConfigSetting("CamZHack", &g_Config.iCamZHack, 0, true, true),
 	ConfigSetting("CamRotHack", &g_Config.iCamRotHack, 0, true, true),
-	ConfigSetting("PhongHack", &g_Config.iPhongHack, 0, true, true),
+	ConfigSetting("ToonHack", &g_Config.iToonHack, 0, true, true),
 	ConfigSetting("WorldHack", &g_Config.iRoundWorldHack, 0, true, true),
 	ConfigSetting("FarCullHack", &g_Config.iFarCullHack, 1000, true, true),
 	ConfigSetting("DisableFogHack", &g_Config.bNoFogHack, false, true, true),
-	ConfigSetting("VertexColorHack", &g_Config.bVertexColor, false, true, true),
+	ConfigSetting("VertexColorHack", &g_Config.bVertexColorHack, false, true, true),
 	ConfigSetting("HideHudHack", &g_Config.bHideHudHack, false, true, true),
+	ConfigSetting("LimboHack", &g_Config.bLimboHack, false, true, true),
 
 	// Not really a graphics setting...
 	ReportedConfigSetting("SplineBezierQuality", &g_Config.iSplineBezierQuality, 2, true, true),

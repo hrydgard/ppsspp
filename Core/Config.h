@@ -189,9 +189,10 @@ public:
 	int iCamRotHack;
 	int iFarCullHack;
 	int iRoundWorldHack;
-	bool bVertexColor;
+	bool bVertexColorHack;
 	bool bHideHudHack;
-	int iPhongHack; // 0 = off, other value as %
+	int iToonHack; // 0 = off, other value as %
+	bool bLimboHack;
 	bool bNoFogHack;
 	bool bBlockTransferGPU;
 	bool bDisableSlowFramebufEffects;

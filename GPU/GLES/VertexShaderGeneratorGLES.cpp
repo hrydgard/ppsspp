@@ -860,6 +860,11 @@ void GenerateVertexShader(const VShaderID &id, char *buffer, uint32_t *attrMask,
 			WRITE(p, "  v_fogdepth = (viewPos.z + u_fogcoef.x) * u_fogcoef.y;\n");
 	}
 
+	// Limbo Hack
+	if (g_Config.bLimboHack) {
+		 WRITE(p, "v_color0.rgb = vec3(0.0);\n");
+	}
+
 	if (!isModeThrough && gstate_c.Supports(GPU_SUPPORTS_VS_RANGE_CULLING)) {
 		WRITE(p, "  vec3 projPos = outPos.xyz / outPos.w;\n");
 		// Vertex range culling doesn't happen when depth is clamped, so only do this if in range.
