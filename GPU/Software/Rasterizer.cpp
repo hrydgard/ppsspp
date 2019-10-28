@@ -780,7 +780,7 @@ static inline Vec3<int> GetDestFactor(const Vec4<int>& source, const Vec4<int>& 
 }
 
 // Removed inline here - it was never chosen to be inlined by the compiler anyway, too complex.
-inline Vec3<int> AlphaBlendingResult(const Vec4<int> &source, const Vec4<int> &dst)
+Vec3<int> AlphaBlendingResult(const Vec4<int> &source, const Vec4<int> &dst)
 {
 	// Note: These factors cannot go below 0, but they can go above 255 when doubling.
 	Vec3<int> srcfactor = GetSourceFactor(source, dst);
