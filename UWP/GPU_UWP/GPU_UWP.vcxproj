@@ -429,6 +429,7 @@
     <ClInclude Include="..\..\GPU\Software\Clipper.h" />
     <ClInclude Include="..\..\GPU\Software\Lighting.h" />
     <ClInclude Include="..\..\GPU\Software\Rasterizer.h" />
+    <ClInclude Include="..\..\GPU\Software\RasterizerRectangle.h" />
     <ClInclude Include="..\..\GPU\Software\Sampler.h" />
     <ClInclude Include="..\..\GPU\Software\SoftGpu.h" />
     <ClInclude Include="..\..\GPU\Software\TransformUnit.h" />
@@ -487,6 +488,7 @@
     <ClCompile Include="..\..\GPU\Software\Clipper.cpp" />
     <ClCompile Include="..\..\GPU\Software\Lighting.cpp" />
     <ClCompile Include="..\..\GPU\Software\Rasterizer.cpp" />
+    <ClCompile Include="..\..\GPU\Software\RasterizerRectangle.cpp" />
     <ClCompile Include="..\..\GPU\Software\Sampler.cpp" />
     <ClCompile Include="..\..\GPU\Software\SoftGpu.cpp" />
     <ClCompile Include="..\..\GPU\Software\TransformUnit.cpp" />

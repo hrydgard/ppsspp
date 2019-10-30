@@ -188,6 +188,7 @@ SOURCES_CXX += \
 	$(GPUDIR)/Software/Clipper.cpp \
 	$(GPUDIR)/Software/Lighting.cpp \
 	$(GPUDIR)/Software/Rasterizer.cpp \
+	$(GPUDIR)/Software/RasterizerRectangle.cpp \
 	$(GPUDIR)/GLES/DepalettizeShaderGLES.cpp \
 	$(GPUDIR)/GLES/DepthBufferGLES.cpp \
 	$(GPUDIR)/GLES/VertexShaderGeneratorGLES.cpp \
