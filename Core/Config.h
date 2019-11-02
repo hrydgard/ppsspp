@@ -190,6 +190,7 @@ public:
 	int iFarCullHack;
 	int iRoundWorldHack;
 	bool bVertexColorHack;
+	bool bNormalHack;
 	bool bHideHudHack;
 	int iToonHack; // 0 = off, other value as %
 	bool bLimboHack;

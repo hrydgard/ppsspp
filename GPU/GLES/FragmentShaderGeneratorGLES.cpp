@@ -256,6 +256,11 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, uint64_t *uniform
 		WRITE(p, "%s float h_depth;\n", varying);
 	}
 
+	// Normal hack
+	if (g_Config.bNormalHack) {
+		WRITE(p, "%s vec3 h_normal;\n", varying);
+	}
+
 	if (!g_Config.bFragmentTestCache) {
 		if (enableAlphaTest && !alphaTestAgainstZero) {
 			if (bitwiseOps) {
@@ -845,6 +850,12 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, uint64_t *uniform
 	// Vertex color only hack
 	if (g_Config.bVertexColorHack)
 		WRITE(p, "  %s.rgb = v_color0.rgb;\n", fragColor0);
+
+	// Normal hack
+	if (g_Config.bNormalHack) {
+		WRITE(p, "  if (h_normal.x > -0.5)\n"); // is -1.0 if we have no normal
+		WRITE(p, "    %s.rgb = h_normal.xyz;\n", fragColor0);
+	}
 
 	// Hide HUD hack
 	if (g_Config.bHideHudHack) {

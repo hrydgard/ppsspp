@@ -470,6 +470,7 @@ void GameSettingsScreen::CreateViews() {
 		CheckBox *noFogHack = graphicsSettings->Add(new CheckBox(&g_Config.bNoFogHack, gr->T("Disable fog")));
 		CheckBox *limboHack = graphicsSettings->Add(new CheckBox(&g_Config.bLimboHack, gr->T("Limbo hack")));
 		CheckBox *vertexColorHack = graphicsSettings->Add(new CheckBox(&g_Config.bVertexColorHack, gr->T("Show only vertex color")));
+		CheckBox *normalHack = graphicsSettings->Add(new CheckBox(&g_Config.bNormalHack, gr->T("Show normal")));
 
 		if (gpu) {
 			Choice *applyHack = graphicsSettings->Add(new Choice(gr->T("Apply graphic hack")));

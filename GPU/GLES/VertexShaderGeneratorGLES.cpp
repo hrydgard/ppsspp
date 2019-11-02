@@ -369,6 +369,11 @@ void GenerateVertexShader(const VShaderID &id, char *buffer, uint32_t *attrMask,
 		WRITE(p, "%s float h_depth;\n",  varying);
 	}
 
+	// Normal hack
+	if (g_Config.bNormalHack) {
+		WRITE(p, "%s vec3 h_normal;\n",  varying);
+	}
+
 	// See comment above this function (GenerateVertexShader).
 	if (!isModeThrough && gstate_c.Supports(GPU_ROUND_DEPTH_TO_16BIT)) {
 		// Apply the projection and viewport to get the Z buffer value, floor to integer, undo the viewport and projection.
@@ -878,8 +883,17 @@ void GenerateVertexShader(const VShaderID &id, char *buffer, uint32_t *attrMask,
 	}
 	WRITE(p, "  gl_Position = outPos;\n");
 
+	// Round World far hack
 	if (g_Config.iFarCullHack != 1000 || g_Config.bHideHudHack) {
 		WRITE(p, "  h_depth = outPos.z/outPos.w;\n");
+	}
+
+	// Normal hack
+	if (g_Config.bNormalHack) {
+		if (hasNormal)
+			WRITE(p, "  h_normal = worldnormal*0.5+0.5;\n");
+		else
+			WRITE(p, "  h_normal = vec3(-1.0);\n");
 	}
 
 	WRITE(p, "}\n");

@@ -764,6 +764,7 @@ static ConfigSetting graphicsSettings[] = {
 	ConfigSetting("FarCullHack", &g_Config.iFarCullHack, 1000, true, true),
 	ConfigSetting("DisableFogHack", &g_Config.bNoFogHack, false, true, true),
 	ConfigSetting("VertexColorHack", &g_Config.bVertexColorHack, false, true, true),
+	ConfigSetting("NormalHack", &g_Config.bNormalHack, false, true, true),
 	ConfigSetting("HideHudHack", &g_Config.bHideHudHack, false, true, true),
 	ConfigSetting("LimboHack", &g_Config.bLimboHack, false, true, true),
 
