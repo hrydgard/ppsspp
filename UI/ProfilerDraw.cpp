@@ -143,11 +143,17 @@ void DrawProfile(UIContext &ui) {
 
 		float scale = (graphHeight) / (maxVal - minVal);
 
+		float y_20th = ui.GetBounds().y2() - 10 - (1.0f / 20.0f) * scale;
+		float y_30th = ui.GetBounds().y2() - 10 - (1.0f / 30.0f) * scale;
 		float y_60th = ui.GetBounds().y2() - 10 - (1.0f / 60.0f) * scale;
 		float y_1ms = ui.GetBounds().y2() - 10 - (1.0f / 1000.0f) * scale;
 
+		ui.FillRect(UI::Drawable(0x80FFFF00), Bounds(0, y_20th, graphWidth, 2));
+		ui.FillRect(UI::Drawable(0x80FFFF00), Bounds(0, y_30th, graphWidth, 2));
 		ui.FillRect(UI::Drawable(0x80FFFF00), Bounds(0, y_60th, graphWidth, 2));
 		ui.FillRect(UI::Drawable(0x80FFFF00), Bounds(0, y_1ms, graphWidth, 2));
+		ui.DrawTextShadow("1/20s", 5, y_20th, 0x80FFFF00);
+		ui.DrawTextShadow("1/30s", 5, y_30th, 0x80FFFF00);
 		ui.DrawTextShadow("1/60s", 5, y_60th, 0x80FFFF00);
 		ui.DrawTextShadow("1ms", 5, y_1ms, 0x80FFFF00);
 
