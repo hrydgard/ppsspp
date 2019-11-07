@@ -371,20 +371,19 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, uint64_t *uniform
 					if (g_Config.bTextureBorderHack) {
 
 						// Sobel edge detect
-						WRITE(p, "  vec2 tex_uv = %s.xy;\n", texcoord);
 						WRITE(p, "  float dlt = 0.005;\n");
 						WRITE(p, "  vec3 lum = vec3(0.299, 0.587, 0.114);\n");
 
-						WRITE(p, "  float c0 = dot(lum, texture2D(tex, tex_uv+vec2(-dlt, -dlt)).rgb);\n");
-						WRITE(p, "  float c1 = dot(lum, texture2D(tex, tex_uv+vec2(0.0, -dlt)).rgb);\n");
-						WRITE(p, "  float c2 = dot(lum, texture2D(tex, tex_uv+vec2(dlt, -dlt)).rgb);\n");
+						WRITE(p, "  float c0 = dot(lum, %s(tex, %s.xy+vec2(-dlt, -dlt)).rgb);\n", texture, texcoord);
+						WRITE(p, "  float c1 = dot(lum, %s(tex, %s.xy+vec2(0.0, -dlt)).rgb);\n", texture, texcoord);
+						WRITE(p, "  float c2 = dot(lum, %s(tex, %s.xy+vec2(dlt, -dlt)).rgb);\n", texture, texcoord);
 
-						WRITE(p, "  float c3 = dot(lum, texture2D(tex, tex_uv+vec2(-dlt, 0.0)).rgb);\n");
-						WRITE(p, "  float c5 = dot(lum, texture2D(tex, tex_uv+vec2(dlt, 0.0)).rgb);\n");
+						WRITE(p, "  float c3 = dot(lum, %s(tex, %s.xy+vec2(-dlt, 0.0)).rgb);\n", texture, texcoord);
+						WRITE(p, "  float c5 = dot(lum, %s(tex, %s.xy+vec2(dlt, 0.0)).rgb);\n", texture, texcoord);
 
-						WRITE(p, "  float c6 = dot(lum, texture2D(tex, tex_uv+vec2(-dlt, dlt)).rgb);\n");
-						WRITE(p, "  float c7 = dot(lum, texture2D(tex, tex_uv+vec2(0.0, dlt)).rgb);\n");
-						WRITE(p, "  float c8 = dot(lum, texture2D(tex, tex_uv+vec2(dlt, dlt)).rgb);\n");
+						WRITE(p, "  float c6 = dot(lum, %s(tex, %s.xy+vec2(-dlt, dlt)).rgb);\n", texture, texcoord);
+						WRITE(p, "  float c7 = dot(lum, %s(tex, %s.xy+vec2(0.0, dlt)).rgb);\n", texture, texcoord);
+						WRITE(p, "  float c8 = dot(lum, %s(tex, %s.xy+vec2(dlt, dlt)).rgb);\n", texture, texcoord);
 
 						WRITE(p, "  float dh = c0+c1+c1+c2-(c6+c7+c7+c8);\n");
 						WRITE(p, "  float dv = c0+c3+c3+c6-(c2+c5+c5+c8);\n");
