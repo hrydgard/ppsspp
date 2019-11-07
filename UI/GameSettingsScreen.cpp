@@ -452,20 +452,16 @@ void GameSettingsScreen::CreateViews() {
 	// Horrible hacks
 	if (GetGPUBackend() == GPUBackend::OPENGL) {
 		graphicsSettings->Add(new ItemHeader(gr->T("Graphic Hack", "Graphic Hack Settings (these WILL cause glitches and WILL NOT work with many games)")));
-
 		PopupSliderChoice *fovHack = graphicsSettings->Add(new PopupSliderChoice(&g_Config.iFovHack, 1, 300, gr->T("Fov override"), 1, screenManager()));
 		fovHack->SetFormat("%i%%");
-
 		PopupSliderChoice *camXHack = graphicsSettings->Add(new PopupSliderChoice(&g_Config.iCamXHack, -2000, 2000, gr->T("Camera offset X"), 1, screenManager()));
 		PopupSliderChoice *camYHack = graphicsSettings->Add(new PopupSliderChoice(&g_Config.iCamYHack, -2000, 2000, gr->T("Camera offset Y"), 1, screenManager()));
 		PopupSliderChoice *camZHack = graphicsSettings->Add(new PopupSliderChoice(&g_Config.iCamZHack, -2000, 2000, gr->T("Camera offset Z"), 1, screenManager()));
 		PopupSliderChoice *camRotHack = graphicsSettings->Add(new PopupSliderChoice(&g_Config.iCamRotHack, -180, 180, gr->T("Camera rotation"), 1, screenManager()));
-
 		PopupSliderChoice *roundWorldHack = graphicsSettings->Add(new PopupSliderChoice(&g_Config.iRoundWorldHack, -30, 30, gr->T("Round world"), 1, screenManager()));
 		PopupSliderChoice *farCullHack = graphicsSettings->Add(new PopupSliderChoice(&g_Config.iFarCullHack, 0, 1000, gr->T("Round world far cull"), 1, screenManager()));
-
 		PopupSliderChoice *toonHack = graphicsSettings->Add(new PopupSliderChoice(&g_Config.iToonHack, 0, 100, gr->T("Toon threshold (0: disabled)"), 1, screenManager()));
-
+		CheckBox *textureBorderHack = graphicsSettings->Add(new CheckBox(&g_Config.bTextureBorderHack, gr->T("Black texture border (Sobel detect)")));
 		CheckBox *hideHudHack = graphicsSettings->Add(new CheckBox(&g_Config.bHideHudHack, gr->T("Hide game HUD")));
 		CheckBox *noFogHack = graphicsSettings->Add(new CheckBox(&g_Config.bNoFogHack, gr->T("Disable fog")));
 		CheckBox *limboHack = graphicsSettings->Add(new CheckBox(&g_Config.bLimboHack, gr->T("Limbo hack")));
