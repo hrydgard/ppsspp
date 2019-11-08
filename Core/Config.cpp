@@ -766,7 +766,7 @@ static ConfigSetting graphicsSettings[] = {
 	ConfigSetting("VertexColorHack", &g_Config.bVertexColorHack, false, true, true),
 	ConfigSetting("NormalHack", &g_Config.bNormalHack, false, true, true),
 	ConfigSetting("HideHudHack", &g_Config.bHideHudHack, false, true, true),
-	ConfigSetting("TextureBorderHack", &g_Config.bTextureBorderHack, false, true, true),
+	ConfigSetting("TextureBorderHack", &g_Config.iTextureBorderHack, 0, true, true),
 	ConfigSetting("LimboHack", &g_Config.bLimboHack, false, true, true),
 
 	// Not really a graphics setting...

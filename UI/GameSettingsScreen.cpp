@@ -461,7 +461,7 @@ void GameSettingsScreen::CreateViews() {
 		PopupSliderChoice *roundWorldHack = graphicsSettings->Add(new PopupSliderChoice(&g_Config.iRoundWorldHack, -30, 30, gr->T("Round world"), 1, screenManager()));
 		PopupSliderChoice *farCullHack = graphicsSettings->Add(new PopupSliderChoice(&g_Config.iFarCullHack, 0, 1000, gr->T("Round world far cull"), 1, screenManager()));
 		PopupSliderChoice *toonHack = graphicsSettings->Add(new PopupSliderChoice(&g_Config.iToonHack, 0, 100, gr->T("Toon threshold (0: disabled)"), 1, screenManager()));
-		CheckBox *textureBorderHack = graphicsSettings->Add(new CheckBox(&g_Config.bTextureBorderHack, gr->T("Black texture border (Sobel detect)")));
+		PopupSliderChoice *textureBorderHack = graphicsSettings->Add(new PopupSliderChoice(&g_Config.iTextureBorderHack, 0, 100, gr->T("Texture border (0: disabled)"), 1, screenManager()));
 		CheckBox *hideHudHack = graphicsSettings->Add(new CheckBox(&g_Config.bHideHudHack, gr->T("Hide game HUD")));
 		CheckBox *noFogHack = graphicsSettings->Add(new CheckBox(&g_Config.bNoFogHack, gr->T("Disable fog")));
 		CheckBox *limboHack = graphicsSettings->Add(new CheckBox(&g_Config.bLimboHack, gr->T("Limbo hack")));

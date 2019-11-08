@@ -368,10 +368,10 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, uint64_t *uniform
 					WRITE(p, "  vec4 t = %s(tex, %s.xy);\n", texture, texcoord);
 					
 					// Texture border
-					if (g_Config.bTextureBorderHack) {
+					if (g_Config.iTextureBorderHack != 0) {
 
 						// Sobel edge detect
-						WRITE(p, "  float dlt = 0.005;\n");
+						WRITE(p, "  float dlt = 0.004;\n");
 						WRITE(p, "  vec3 lum = vec3(0.299, 0.587, 0.114);\n");
 
 						WRITE(p, "  float c0 = dot(lum, %s(tex, %s.xy+vec2(-dlt, -dlt)).rgb);\n", texture, texcoord);
@@ -389,7 +389,7 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, uint64_t *uniform
 						WRITE(p, "  float dv = c0+c3+c3+c6-(c2+c5+c5+c8);\n");
 
 						// Set edge to black
-						WRITE(p, "  if (sqrt(dh*dh+dv*dv) > 0.8)\n");
+						WRITE(p, "  if (sqrt(dh*dh+dv*dv) > %f)\n", 1.0-g_Config.iTextureBorderHack/100.0);
 						WRITE(p, "    t.rgb = vec3(0.0);\n");
 					}
 				
