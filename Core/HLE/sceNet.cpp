@@ -15,6 +15,14 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
+#if __linux__ || __APPLE__
+#include <unistd.h>
+#include <sys/types.h>
+#include <sys/mman.h>
+#include <fcntl.h>
+#include <netinet/in.h>
+#endif
+
 #include "net/resolve.h"
 #include "util/text/parsers.h"
 
@@ -45,6 +53,165 @@ static struct SceNetMallocStat netMallocStat;
 
 static std::map<int, ApctlHandler> apctlHandlers;
 
+#ifdef _WIN32
+static HANDLE hIDMapFile = NULL;
+#elif __linux__ || __APPLE__
+static int hIDMapFile = 0;
+#endif
+static int32_t* pIDBuf = NULL;
+#define ID_SHM_NAME "/PPSSPP_ID"
+
+// Get current number of instance of PPSSPP running.
+static uint8_t getInstanceNumber() {
+#ifdef _WIN32
+#if defined(_XBOX)
+	uint32_t BUF_SIZE = 0x10000; // 64k in 360;
+#else
+	uint32_t BUF_SIZE = 4096;
+	SYSTEM_INFO sysInfo;
+
+	GetSystemInfo(&sysInfo);
+	int gran = sysInfo.dwAllocationGranularity ? sysInfo.dwAllocationGranularity : 0x10000;
+	BUF_SIZE = (BUF_SIZE + gran - 1) & ~(gran - 1);
+#endif
+
+	hIDMapFile = CreateFileMapping(
+		INVALID_HANDLE_VALUE,    // use paging file
+		NULL,                    // default security
+		PAGE_READWRITE,          // read/write access
+		0,                       // maximum object size (high-order DWORD)
+		BUF_SIZE,                // maximum object size (low-order DWORD)
+		TEXT(ID_SHM_NAME));       // name of mapping object
+
+	DWORD lasterr = GetLastError();
+	if (hIDMapFile == NULL)
+	{
+		ERROR_LOG(SCENET, "Could not create %s file mapping object (%d).", ID_SHM_NAME, lasterr);
+		return 1;
+	}
+	pIDBuf = (int32_t*)MapViewOfFile(hIDMapFile,   // handle to map object
+		FILE_MAP_ALL_ACCESS, // read/write permission
+		0,
+		0,
+		sizeof(int32_t)); //BUF_SIZE
+
+	if (pIDBuf == NULL)
+	{
+		ERROR_LOG(SCENET, "Could not map view of file %s (%d).", ID_SHM_NAME, GetLastError());
+		//CloseHandle(hIDMapFile);
+		return 1;
+	}
+
+	(*pIDBuf)++;
+	int id = *pIDBuf;
+	UnmapViewOfFile(pIDBuf);
+	//CloseHandle(hIDMapFile); //Should be called when program exits
+	//hIDMapFile = NULL;
+
+	return id;
+#elif __linux__ || __APPLE__
+	long BUF_SIZE = 4096;
+	//caddr_t pIDBuf;
+	int status;
+
+	// Create shared memory object 
+
+	hIDMapFile = shm_open(ID_SHM_NAME, O_CREAT | O_RDWR, 0);
+	BUF_SIZE = (BUF_SIZE < sysconf(_SC_PAGE_SIZE)) ? sysconf(_SC_PAGE_SIZE) : BUF_SIZE;
+
+	if ((ftruncate(hIDMapFile, BUF_SIZE)) == -1) {    // Set the size 
+		ERROR_LOG(SCENET, "ftruncate(%s) failure.", ID_SHM_NAME);
+		return 1;
+	}
+
+	pIDBuf = (int32_t*)mmap(0, BUF_SIZE, PROT_READ | PROT_WRITE, MAP_SHARED, hIDMapFile, 0);
+	if (pIDBuf == MAP_FAILED) {    // Set the size 
+		ERROR_LOG(SCENET, "mmap(%s) failure.", ID_SHM_NAME);
+		pIDBuf = NULL;
+		return 1;
+	}
+
+	int id = 1;
+	if (mlock(pIDBuf, BUF_SIZE) == 0) {
+		(*pIDBuf)++;
+		id = *pIDBuf;
+		munlock(pIDBuf, BUF_SIZE);
+	}
+
+	status = munmap(pIDBuf, BUF_SIZE);  // Unmap the page 
+	//status = close(hIDMapFile);                   //   Close file, should be called when program exits?
+	//status = shm_unlink(ID_SHM_NAME);     // Unlink [& delete] shared-memory object, should be called when program exits
+
+	return id;
+#else
+	return 1;
+#endif
+}
+
+static void PPSSPPIDCleanup() {
+#ifdef _WIN32
+	if (hIDMapFile != NULL) {
+		CloseHandle(hIDMapFile); // If program exited(or crashed?) or the last handle reference closed the shared memory object will be deleted.
+		hIDMapFile = NULL;
+	}
+#elif __linux__ || __APPLE__
+	// TODO : This unlink should be called when program exits instead of everytime the game reset.
+	if (hIDMapFile != 0) {
+		close(hIDMapFile);
+		shm_unlink(ID_SHM_NAME);     // If program exited or crashed before unlinked the shared memory object and it's contents will persist.
+		hIDMapFile = 0;
+	}
+#endif
+}
+
+static int InitLocalIP() {
+	// find local IP
+	addrinfo* localAddr;
+	addrinfo* ptr;
+	char ipstr[256];
+	sprintf(ipstr, "127.0.0.%u", PPSSPP_ID);
+	int iResult = getaddrinfo(ipstr, 0, NULL, &localAddr);
+	if (iResult != 0) {
+		ERROR_LOG(SCENET, "DNS Error (%s) result: %d\n", ipstr, iResult);
+		//osm.Show("DNS Error, can't resolve client bind " + ipstr, 8.0f);
+		((sockaddr_in*)&localIP)->sin_family = AF_INET;
+		((sockaddr_in*)&localIP)->sin_addr.s_addr = inet_addr(ipstr); //"127.0.0.1"
+		((sockaddr_in*)&localIP)->sin_port = 0;
+		return iResult;
+	}
+	for (ptr = localAddr; ptr != NULL; ptr = ptr->ai_next) {
+		switch (ptr->ai_family) {
+		case AF_INET:
+			memcpy(&localIP, ptr->ai_addr, sizeof(sockaddr));
+			break;
+		}
+	}
+	((sockaddr_in*)&localIP)->sin_port = 0;
+	freeaddrinfo(localAddr);
+
+	// Resolve server dns
+	addrinfo* resultAddr;
+	in_addr serverIp;
+	serverIp.s_addr = INADDR_NONE;
+
+	iResult = getaddrinfo(g_Config.proAdhocServer.c_str(), 0, NULL, &resultAddr);
+	if (iResult != 0) {
+		ERROR_LOG(SCENET, "DNS Error (%s)\n", g_Config.proAdhocServer.c_str());
+		return iResult;
+	}
+	for (ptr = resultAddr; ptr != NULL; ptr = ptr->ai_next) {
+		switch (ptr->ai_family) {
+		case AF_INET:
+			serverIp = ((sockaddr_in*)ptr->ai_addr)->sin_addr;
+			break;
+		}
+	}
+	freeaddrinfo(resultAddr);
+	isLocalServer = (((uint8_t*)&serverIp.s_addr)[0] == 0x7f); // (serverIp.S_un.S_un_b.s_b1 = 0x7f);
+
+	return 0;
+}
+
 static void __ResetInitNetLib() {
 	netInited = false;
 	netApctlInited = false;
@@ -55,11 +222,30 @@ static void __ResetInitNetLib() {
 
 void __NetInit() {
 	portOffset = g_Config.iPortOffset;
+	//if (PPSSPP_ID == 0) // Each instance should use the same ID (and IP) once it's automatically assigned for consistency reason, But doesn't work well if PPSSPP_ID reseted everytime emulation restarted
+	{
+		PPSSPP_ID = getInstanceNumber(); // This should be called when program started instead of when the game started/reseted
+	}
+#ifdef _WIN32
+	WSADATA data;
+	int iResult = WSAStartup(MAKEWORD(2, 2), &data);
+	if (iResult != NOERROR) {
+		ERROR_LOG(SCENET, "WSA Failed");
+	}
+#endif
+	InitLocalIP();
+	INFO_LOG(SCENET, "LocalHost IP will be %s", inet_ntoa(((sockaddr_in*)&localIP)->sin_addr));
+	//net::Init();
 	__ResetInitNetLib();
 }
 
 void __NetShutdown() {
 	__ResetInitNetLib();
+	//net::Shutdown();
+#ifdef _WIN32
+	WSACleanup();
+#endif
+	PPSSPPIDCleanup(); //This should be called when program exited, otherwise everytime emulation restarted PPSSPP_ID will reset causing more than one instance might have the same ID and IP.
 }
 
 static void __UpdateApctlHandlers(int oldState, int newState, int flag, int error) {
@@ -125,6 +311,10 @@ static u32 sceNetInit(u32 poolSize, u32 calloutPri, u32 calloutStack, u32 netini
 static u32 sceWlanGetEtherAddr(u32 addrAddr) {
 	// Read MAC Address from config
 	uint8_t mac[6] = {0};
+	if (PPSSPP_ID > 1) {
+		memset(&mac, PPSSPP_ID, sizeof(mac));
+	}
+	else
 	if (!ParseMacAddress(g_Config.sMACAddress.c_str(), mac)) {
 		ERROR_LOG(SCENET, "Error parsing mac address %s", g_Config.sMACAddress.c_str());
 	}
@@ -316,7 +506,7 @@ int sceNetInetPoll(void *fds, u32 nfds, int timeout) { // timeout in miliseconds
 	DEBUG_LOG(SCENET, "UNTESTED sceNetInetPoll(%p, %d, %i) at %08x", fds, nfds, timeout, currentMIPS->pc);
 	int retval = -1;
 	SceNetInetPollfd *fdarray = (SceNetInetPollfd *)fds; // SceNetInetPollfd/pollfd, sceNetInetPoll() have similarity to BSD poll() but pollfd have different size on 64bit
-//#ifdef _MSC_VER
+//#ifdef _WIN32
 	//WSAPoll only available for Vista or newer, so we'll use an alternative way for XP since Windows doesn't have poll function like *NIX
 	if (nfds > FD_SETSIZE) return -1;
 	fd_set readfds, writefds, exceptfds;
