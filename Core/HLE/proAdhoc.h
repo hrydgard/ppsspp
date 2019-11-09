@@ -36,7 +36,10 @@
 class PointerWrap;
 
 // Net stuff
-#if defined(_WIN32)
+#ifdef _XBOX
+#include <winsockx.h>
+typedef int socklen_t;
+#elif defined(_WIN32)
 #include <WS2tcpip.h>
 #else
 #include <unistd.h>
@@ -797,6 +800,9 @@ extern SceNetAdhocPtpStat * ptp[255];
 extern std::map<int, AdhocctlHandler> adhocctlHandlers;
 
 extern uint16_t portOffset;
+extern bool isLocalServer;
+extern uint8_t PPSSPP_ID;
+extern sockaddr localIP;
 extern uint32_t fakePoolSize;
 extern SceNetAdhocMatchingContext * contexts;
 extern int one;                 
