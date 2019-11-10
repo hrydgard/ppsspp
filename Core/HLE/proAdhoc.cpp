@@ -22,9 +22,7 @@
 // All credit goes to him!
 
 #if !defined(_WIN32)
-#include <netdb.h>
 #include <unistd.h>
-#include <netinet/in.h>
 #endif
 
 #include <cstring>
