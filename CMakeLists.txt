@@ -181,7 +181,9 @@ if(USING_EGL)
 	set(OPENGL_LIBRARIES ${OPENGL_LIBRARIES} ${EGL_LIBRARIES})
 endif()
 
-find_package(SDL2)
+if(NOT LIBRETRO)
+	find_package(SDL2)
+endif()
 include(FindThreads)
 
 if(APPLE)
