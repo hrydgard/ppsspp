@@ -20,7 +20,6 @@
 #include <sys/types.h>
 #include <sys/mman.h>
 #include <fcntl.h>
-#include <netinet/in.h>
 #endif
 
 #include "net/resolve.h"
@@ -113,6 +112,9 @@ static uint8_t getInstanceNumber() {
 	//hIDMapFile = NULL;
 
 	return id;
+#elif __ANDROID__
+	// TODO : replace shm_open & shm_unlink with ashmem or android-shmem
+	return 1;
 #elif __linux__ || __APPLE__
 	long BUF_SIZE = 4096;
 	//caddr_t pIDBuf;
@@ -157,6 +159,13 @@ static void PPSSPPIDCleanup() {
 	if (hIDMapFile != NULL) {
 		CloseHandle(hIDMapFile); // If program exited(or crashed?) or the last handle reference closed the shared memory object will be deleted.
 		hIDMapFile = NULL;
+	}
+#elif __ANDROID__
+	if (hIDMapFile != 0) {
+		close(hIDMapFile);
+		// TODO : replace shm_unlink with ashmem or android-shmem
+		//shm_unlink(ID_SHM_NAME);     // If program exited or crashed before unlinked the shared memory object and it's contents will persist.
+		hIDMapFile = 0;
 	}
 #elif __linux__ || __APPLE__
 	// TODO : This unlink should be called when program exits instead of everytime the game reset.
