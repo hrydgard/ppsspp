@@ -272,6 +272,9 @@ static int sceNetAdhocPdpCreate(const char *mac, u32 port, int bufferSize, u32 u
 					sockaddr_in addr;
 					addr.sin_family = AF_INET;
 					addr.sin_addr.s_addr = INADDR_ANY;
+					if (isLocalServer) {
+						getLocalIp(&addr);
+					}
 
 					//if (port < 7) addr.sin_port = htons(port + 1341); else // <= 443
 					addr.sin_port = htons(port + portOffset ); // This not safe in any way...
@@ -1660,6 +1663,9 @@ static int sceNetAdhocPtpOpen(const char *srcmac, int sport, const char *dstmac,
 						// addr.sin_len = sizeof(addr);
 						addr.sin_family = AF_INET;
 						addr.sin_addr.s_addr = INADDR_ANY;
+						if (isLocalServer) {
+							getLocalIp(&addr);
+						}
 						addr.sin_port = htons(sport + portOffset);
 						
 						// Bound Socket to local Port
@@ -2132,6 +2138,9 @@ static int sceNetAdhocPtpListen(const char *srcmac, int sport, int bufsize, int 
 						sockaddr_in addr;
 						addr.sin_family = AF_INET;
 						addr.sin_addr.s_addr = INADDR_ANY;
+						if (isLocalServer) {
+							getLocalIp(&addr);
+						}
 						addr.sin_port = htons(sport + portOffset);
 						
 						int iResult = 0;
