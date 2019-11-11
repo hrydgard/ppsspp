@@ -168,15 +168,6 @@ u32 sceNetAdhocInit() {
 		// Library initialized
 		netAdhocInited = true;
 
-		// Create fake PSP Thread for callback
-		// TODO: Should use a separated threads for friendFinder, matchingEvent, and matchingInput and created on AdhocctlInit & AdhocMatchingStart instead of here
-		#define PSP_THREAD_ATTR_KERNEL 0x00001000 // PSP_THREAD_ATTR_KERNEL is located in sceKernelThread.cpp instead of sceKernelThread.h :(
-		// TODO: This should probably be a user thread, but maybe from sceNetAdhocctlInit?
-		threadAdhocID = __KernelCreateThread("AdhocThread", __KernelGetCurThreadModuleId(), dummyThreadHackAddr, 0x10, 0x1000, PSP_THREAD_ATTR_KERNEL, 0, true);
-		if (threadAdhocID > 0) {
-			__KernelStartThread(threadAdhocID, 0, 0);
-		}
-
 		// Return Success
 		return hleLogSuccessInfoI(SCENET, 0, "at %08x", currentMIPS->pc);
 	}
@@ -189,9 +180,20 @@ static u32 sceNetAdhocctlInit(int stackSize, int prio, u32 productAddr) {
 	
 	if (netAdhocctlInited)
 		return ERROR_NET_ADHOCCTL_ALREADY_INITIALIZED;
+
+	// Create fake PSP Thread for callback
+	// TODO: Should use a separated threads for friendFinder, matchingEvent, and matchingInput and created on AdhocctlInit & AdhocMatchingStart instead of here
+#define PSP_THREAD_ATTR_KERNEL 0x00001000 // Using constants instead of numbers for readability reason, since PSP_THREAD_ATTR_KERNEL/USER is located in sceKernelThread.cpp instead of sceKernelThread.h
+#define PSP_THREAD_ATTR_USER 0x80000000
+
+	threadAdhocID = __KernelCreateThread("AdhocThread", __KernelGetCurThreadModuleId(), dummyThreadHackAddr, prio, stackSize, PSP_THREAD_ATTR_USER, 0, false);
+	if (threadAdhocID > 0) {
+		__KernelStartThread(threadAdhocID, 0, 0);
+	}
 	
 	if(g_Config.bEnableWlan) {
 		if (initNetwork((SceNetAdhocctlAdhocId *)Memory::GetPointer(productAddr)) == 0) {
+			// TODO: Merging friendFinder (real) thread to AdhocThread (fake) thread on PSP side
 			if (!friendFinderRunning) {
 				friendFinderRunning = true;
 				friendFinderThread = std::thread(friendFinder);
@@ -1138,6 +1140,12 @@ int sceNetAdhocctlTerm() {
 		// Free stuff here
 		closesocket(metasocket);
 		metasocket = (int)INVALID_SOCKET;
+		// Delete fake PSP Thread
+		if (threadAdhocID != 0) {
+			__KernelStopThread(threadAdhocID, SCE_KERNEL_ERROR_THREAD_TERMINATED, "AdhocThread stopped");
+			__KernelDeleteThread(threadAdhocID, SCE_KERNEL_ERROR_THREAD_TERMINATED, "AdhocThread deleted");
+			threadAdhocID = 0;
+		}
 /*#ifdef _MSC_VER
 		WSACleanup(); // Might be better to call WSAStartup/WSACleanup from sceNetInit/sceNetTerm isn't? since it's the first/last network function being used, even better to put it in __NetInit/__NetShutdown as it's only called once
 #endif*/
@@ -1426,12 +1434,6 @@ int sceNetAdhocTerm() {
 
 	// Library is initialized
 	if (netAdhocInited) {
-		// Delete fake PSP Thread
-		if (threadAdhocID != 0) {
-			__KernelStopThread(threadAdhocID, SCE_KERNEL_ERROR_THREAD_TERMINATED, "AdhocThread stopped");
-			__KernelDeleteThread(threadAdhocID, SCE_KERNEL_ERROR_THREAD_TERMINATED, "AdhocThread deleted");
-		}
-
 		// Delete PDP Sockets
 		deleteAllPDP();
 
@@ -3489,6 +3491,7 @@ void __NetTriggerCallbacks()
 
 			for (std::map<int, AdhocctlHandler>::iterator it = adhocctlHandlers.begin(); it != adhocctlHandlers.end(); ++it) {
 				args[2] = it->second.argument;
+				__KernelSwitchToThread(threadAdhocID, "AdhocctlHandler Mipscall");
 				__KernelDirectMipsCall(it->second.entryPoint, NULL, args, 3, true);
 			}
 		}
@@ -3499,6 +3502,8 @@ void __NetTriggerCallbacks()
 			u32_le *args = (u32_le *) param;
 			AfterMatchingMipsCall *after = (AfterMatchingMipsCall *) __KernelCreateAction(actionAfterMatchingMipsCall);
 			after->SetContextID(args[0], args[1]);
+			// Need to make sure currentThread is AdhocMatching's eventThread before calling the callback
+			__KernelSwitchToThread(threadAdhocID, "AdhocMatchingEvent Mipscall");
 			__KernelDirectMipsCall(args[5], after, args, 5, true);
 		}
 		matchingEvents.clear();
