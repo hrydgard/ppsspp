@@ -65,7 +65,7 @@ static int32_t* pIDBuf = NULL;
 #define ID_SHM_NAME "/PPSSPP_ID"
 
 // Get current number of instance of PPSSPP running.
-static uint8_t getInstanceNumber() {
+static uint8_t getPPSSPPInstanceNumber() {
 #ifdef _WIN32
 #if defined(_XBOX)
 	uint32_t BUF_SIZE = 0x10000; // 64k in 360;
@@ -235,9 +235,9 @@ static void __ResetInitNetLib() {
 
 void __NetInit() {
 	portOffset = g_Config.iPortOffset;
-	//if (PPSSPP_ID == 0) // Each instance should use the same ID (and IP) once it's automatically assigned for consistency reason, But doesn't work well if PPSSPP_ID reseted everytime emulation restarted
+	if (PPSSPP_ID == 0) // For persistent ID/IP, New instances may have a possibility to have the same ID/IP if PPSSPPIDCleanup() being called on every reset
 	{
-		PPSSPP_ID = getInstanceNumber(); // This should be called when program started instead of when the game started/reseted
+		PPSSPP_ID = getPPSSPPInstanceNumber(); // This should be called when program started instead of when the game started/reseted
 	}
 #ifdef _WIN32
 	WSADATA data;
@@ -258,7 +258,7 @@ void __NetShutdown() {
 #ifdef _WIN32
 	WSACleanup();
 #endif
-	PPSSPPIDCleanup(); //This should be called when program exited, otherwise everytime emulation restarted PPSSPP_ID will reset causing more than one instance might have the same ID and IP.
+	//PPSSPPIDCleanup(); // To make the ID/IP persistent on every reset, we should just let the OS closes all open handles instead of calling PPSSPPIDCleanup() on every reset
 }
 
 static void __UpdateApctlHandlers(int oldState, int newState, int flag, int error) {
