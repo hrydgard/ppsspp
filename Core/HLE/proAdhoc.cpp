@@ -935,11 +935,13 @@ void AfterMatchingMipsCall::run(MipsCall &call) {
 	}
 	context->eventlock->unlock();  //peerlock.unlock();
 	//call.setReturnValue(v0);
+	if (Memory::IsValidAddress(bufAddr)) userMemory.Free(bufAddr);
 	DEBUG_LOG(SCENET, "Leaving AfterMatchingMipsCall::run [ID=%i][Event=%d] [retV0: %08x]", context->id, EventID, currentMIPS->r[MIPS_REG_V0]);
 }
 
-void AfterMatchingMipsCall::SetContextID(u32 ContextID, u32 eventId) {
+void AfterMatchingMipsCall::SetContextID(u32 ContextID, u32 eventId, u32_le BufAddr) {
 	EventID = eventId;
+	bufAddr = BufAddr;
 	peerlock.lock();
 	context = findMatchingContext(ContextID);
 	peerlock.unlock();
@@ -949,7 +951,7 @@ void AfterMatchingMipsCall::SetContextID(u32 ContextID, u32 eventId) {
 void notifyAdhocctlHandlers(u32 flag, u32 error) {
 	__UpdateAdhocctlHandlers(flag, error);
 	// TODO: We should use after action instead of guessing the time like this
-	sleep_ms(20); // Ugly workaround to give time for the mips callback to fully executed, usually only need <16ms
+	//sleep_ms(20); // Ugly workaround to give time for the mips callback to fully executed, usually only need <16ms
 }
 
 // Matching callback is void function: typedef void(*SceNetAdhocMatchingHandler)(int id, int event, SceNetEtherAddr * peer, int optlen, void * opt);
@@ -957,33 +959,37 @@ void notifyAdhocctlHandlers(u32 flag, u32 error) {
 // Note: Must not lock peerlock within this function to prevent race-condition with other thread whos owning peerlock and trying to lock context->eventlock owned by this thread
 void notifyMatchingHandler(SceNetAdhocMatchingContext * context, ThreadMessage * msg, void * opt, u32 &bufAddr, u32 &bufLen, u32_le * args) {
 	//u32_le args[5] = { 0, 0, 0, 0, 0 };
-	if ((s32)bufLen < (msg->optlen + 8)) {
+	/*if ((s32)bufLen < (msg->optlen + 8)) {
 		bufLen = msg->optlen + 8;
 		if (Memory::IsValidAddress(bufAddr)) userMemory.Free(bufAddr);
-		bufAddr = userMemory.Alloc(bufLen);
+		bufAddr = userMemory.Alloc(bufLen); // Max bufLen should be context->rxbuflen
 		INFO_LOG(SCENET, "MatchingHandler: Alloc(%i -> %i) = %08x", msg->optlen + 8, bufLen, bufAddr);
-	}
+	}*/
+	MatchingArgs argsNew;
+	bufAddr = userMemory.Alloc(bufLen); // We will free this after returning from mipscall
 	u8 * optPtr = Memory::GetPointer(bufAddr);
 	memcpy(optPtr, &msg->mac, sizeof(msg->mac));
 	if (msg->optlen > 0) memcpy(optPtr + 8, opt, msg->optlen);
-	args[0] = context->id;
-	args[1] = msg->opcode;
-	args[2] = bufAddr; // PSP_GetScratchpadMemoryBase() + 0x6000; 
-	args[3] = msg->optlen;
-	args[4] = args[2] + 8;
-	args[5] = context->handler.entryPoint; //not part of callback argument, just borrowing a space to store callback address so i don't need to search the context first later
+	argsNew.data[0] = context->id;
+	argsNew.data[1] = msg->opcode;
+	argsNew.data[2] = bufAddr; // PSP_GetScratchpadMemoryBase() + 0x6000; 
+	argsNew.data[3] = msg->optlen;
+	argsNew.data[4] = argsNew.data[2] + 8; // OptData Addr
+	argsNew.data[5] = context->handler.entryPoint; //not part of callback argument, just borrowing a space to store callback address so i don't need to search the context first later
 	
+	context->eventlock->lock();
 	context->IsMatchingInCB = true;
+	context->eventlock->unlock();
 	// ScheduleEvent_Threadsafe_Immediate seems to get mixed up with interrupt (returning from mipscall inside an interrupt) and getting invalid address before returning from interrupt
-	__UpdateMatchingHandler((u64) args);
+	__UpdateMatchingHandler(argsNew);
 
 	// Make sure MIPS call have been fully executed before the next notifyMatchingHandler
-	int count = 0;
-	while (/*(after != NULL) &&*/ IsMatchingInCallback(context) && (count < 250)) {
+	/*int count = 0;
+	while ( IsMatchingInCallback(context) && (count < 250)) {
 		sleep_ms(1);
 		count++;
 	}
-	if (count >= 250) ERROR_LOG(SCENET, "MatchingHandler: Callback Failed to Return within %dms!", count);
+	if (count >= 250) ERROR_LOG(SCENET, "MatchingHandler: Callback Failed to Return within %dms! [ID=%i][Opcode=%d][OptSize=%d][MAC=%012X]", count, context->id, msg->opcode, msg->optlen, htonl(*(u_long*)&msg->mac));*/
 	//sleep_ms(20); // Wait a little more (for context switching may be?) to prevent DBZ Tag Team from getting connection lost, but this will cause lags on Lord of Arcana
 }
 
