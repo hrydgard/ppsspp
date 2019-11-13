@@ -37,8 +37,14 @@ public:
 
 protected:
 	UI::EventReturn OnToggleAll(UI::EventParams &e);
+	UI::EventReturn RightAnalogBindScreen(UI::EventParams &e);
 
 private:
 	std::vector<TouchButtonToggle> toggles_;
 	bool nextToggleAll_ = true;
+};
+
+class RightAnalogMappingScreen : public UIDialogScreenWithBackground {
+public:
+	void CreateViews() override;
 };

@@ -29,6 +29,7 @@
 #include "gfx/texture_atlas.h"
 #include "math/math_util.h"
 #include "ui/ui_context.h"
+#include "Core/Util/AudioFormat.h"  // for clamp_u8
 
 static u32 GetButtonColor() {
 	return g_Config.iTouchButtonStyle != 0 ? 0xFFFFFF : 0xc0b080;
@@ -461,6 +462,140 @@ void PSPStick::ProcessTouch(float x, float y, bool down) {
 	}
 }
 
+PSPCustomStick::PSPCustomStick(ImageID bgImg, ImageID stickImg, ImageID stickDownImg, float scale, UI::LayoutParams *layoutParams)
+	: PSPStick(bgImg, stickImg, stickDownImg, -1, scale, layoutParams) {
+	posX_ = clamp_u8((int)ceilf(127.5f));
+	posY_ = clamp_u8((int)ceilf(127.5f));
+}
+
+void PSPCustomStick::Draw(UIContext &dc) {
+	float opacity = GetButtonOpacity();
+	if (opacity <= 0.0f)
+		return;
+
+	if (dragPointerId_ != -1 && g_Config.iTouchButtonStyle == 2) {
+		opacity *= 1.35f;
+	}
+
+	uint32_t colorBg = colorAlpha(GetButtonColor(), opacity);
+	uint32_t downBg = colorAlpha(0x00FFFFFF, opacity * 0.5f);
+	uint32_t color = colorAlpha(0x808080, opacity);
+
+	if (centerX_ < 0.0f) {
+		centerX_ = bounds_.centerX();
+		centerY_ = bounds_.centerY();
+	}
+
+	float stickX = centerX_;
+	float stickY = centerY_;
+
+	float dx, dy;
+	dx = (posX_ - 127.5f) / 127.5f;
+	dy = -(posY_ - 127.5f) / 127.5f;
+
+	dc.Draw()->DrawImage(bgImg_, stickX, stickY, 1.0f * scale_, colorBg, ALIGN_CENTER);
+	if (dragPointerId_ != -1 && g_Config.iTouchButtonStyle == 2 && stickDownImg_ != stickImageIndex_)
+		dc.Draw()->DrawImage(stickDownImg_, stickX + dx * stick_size_ * scale_, stickY - dy * stick_size_ * scale_, 1.0f * scale_, downBg, ALIGN_CENTER);
+	dc.Draw()->DrawImage(stickImageIndex_, stickX + dx * stick_size_ * scale_, stickY - dy * stick_size_ * scale_, 1.0f * scale_, colorBg, ALIGN_CENTER);
+}
+
+void PSPCustomStick::Touch(const TouchInput &input) {
+	GamepadView::Touch(input);
+	if (input.flags & TOUCH_RELEASE_ALL) {
+		dragPointerId_ = -1;
+		centerX_ = bounds_.centerX();
+		centerY_ = bounds_.centerY();
+		posX_ = clamp_u8((int)ceilf(127.5f));
+		posY_ = clamp_u8((int)ceilf(127.5f));
+		return;
+	}
+	if (input.flags & TOUCH_DOWN) {
+		if (dragPointerId_ == -1 && bounds_.Contains(input.x, input.y)) {
+			if (g_Config.bAutoCenterTouchAnalog) {
+				centerX_ = input.x;
+				centerY_ = input.y;
+			} else {
+				centerX_ = bounds_.centerX();
+				centerY_ = bounds_.centerY();
+			}
+			dragPointerId_ = input.id;
+			ProcessTouch(input.x, input.y, true);
+		}
+	}
+	if (input.flags & TOUCH_MOVE) {
+		if (input.id == dragPointerId_) {
+			ProcessTouch(input.x, input.y, true);
+		}
+	}
+	if (input.flags & TOUCH_UP) {
+		if (input.id == dragPointerId_) {
+			dragPointerId_ = -1;
+			centerX_ = bounds_.centerX();
+			centerY_ = bounds_.centerY();
+			ProcessTouch(input.x, input.y, false);
+		}
+	}
+}
+
+void PSPCustomStick::ProcessTouch(float x, float y, bool down) {
+	static const int button[16] = {CTRL_LTRIGGER, CTRL_RTRIGGER, CTRL_SQUARE, CTRL_TRIANGLE, CTRL_CIRCLE, CTRL_CROSS, CTRL_UP, CTRL_DOWN, CTRL_LEFT, CTRL_RIGHT, CTRL_START, CTRL_SELECT};
+
+	if (down && centerX_ >= 0.0f) {
+		float inv_stick_size = 1.0f / (stick_size_ * scale_);
+
+		float dx = (x - centerX_) * inv_stick_size;
+		float dy = (y - centerY_) * inv_stick_size;
+
+		dx = std::min(1.0f, std::max(-1.0f, dx));
+		dy = std::min(1.0f, std::max(-1.0f, dy));
+
+		if (g_Config.iRightAnalogRight != 0) {
+			if (dx > 0.5f)
+				__CtrlButtonDown(button[g_Config.iRightAnalogRight-1]);
+			else
+				__CtrlButtonUp(button[g_Config.iRightAnalogRight-1]);
+		}
+		if (g_Config.iRightAnalogLeft != 0) {
+			if (dx < -0.5f)
+				__CtrlButtonDown(button[g_Config.iRightAnalogLeft-1]);
+			else
+				__CtrlButtonUp(button[g_Config.iRightAnalogLeft-1]);
+		}
+		if (g_Config.iRightAnalogUp != 0) {
+			if (dy < -0.5f)
+				__CtrlButtonDown(button[g_Config.iRightAnalogUp-1]);
+			else
+				__CtrlButtonUp(button[g_Config.iRightAnalogUp-1]);
+		}
+		if (g_Config.iRightAnalogDown != 0) {
+			if (dy > 0.5f)
+				__CtrlButtonDown(button[g_Config.iRightAnalogDown-1]);
+			else
+				__CtrlButtonUp(button[g_Config.iRightAnalogDown-1]);
+		}
+		if (g_Config.iRightAnalogPress != 0)
+			__CtrlButtonDown(button[g_Config.iRightAnalogPress-1]);
+
+		posX_ = clamp_u8((int)ceilf(dx * 127.5f + 127.5f));
+		posY_ = clamp_u8((int)ceilf(dy * 127.5f + 127.5f));
+
+	} else {
+		if (g_Config.iRightAnalogUp != 0)
+			__CtrlButtonUp(button[g_Config.iRightAnalogUp-1]);
+		if (g_Config.iRightAnalogDown != 0)
+			__CtrlButtonUp(button[g_Config.iRightAnalogDown-1]);
+		if (g_Config.iRightAnalogLeft != 0)
+			__CtrlButtonUp(button[g_Config.iRightAnalogLeft-1]);
+		if (g_Config.iRightAnalogRight != 0)
+			__CtrlButtonUp(button[g_Config.iRightAnalogRight-1]);
+		if (g_Config.iRightAnalogPress != 0)
+			__CtrlButtonUp(button[g_Config.iRightAnalogPress-1]);
+
+		posX_ = clamp_u8((int)ceilf(127.5f));
+		posY_ = clamp_u8((int)ceilf(127.5f));
+	}
+}
+
 void InitPadLayout(float xres, float yres, float globalScale) {
 	const float scale = globalScale;
 	const int halfW = xres / 2;
@@ -679,8 +814,12 @@ UI::ViewGroup *CreatePadLayout(float xres, float yres, bool *pause) {
 	if (g_Config.touchAnalogStick.show)
 		root->Add(new PSPStick(stickBg, stickImage, ImageID("I_STICK"), 0, g_Config.touchAnalogStick.scale, buttonLayoutParams(g_Config.touchAnalogStick)));
 
-	if (g_Config.touchRightAnalogStick.show)
-		root->Add(new PSPStick(stickBg, stickImage, ImageID("I_STICK"), 1, g_Config.touchRightAnalogStick.scale, buttonLayoutParams(g_Config.touchRightAnalogStick)));
+	if (g_Config.touchRightAnalogStick.show) {
+		if (g_Config.bRightAnalogCustom)
+			root->Add(new PSPCustomStick(stickBg, stickImage, ImageID("I_STICK"), g_Config.touchRightAnalogStick.scale, buttonLayoutParams(g_Config.touchRightAnalogStick)));
+		else
+			root->Add(new PSPStick(stickBg, stickImage, ImageID("I_STICK"), 1, g_Config.touchRightAnalogStick.scale, buttonLayoutParams(g_Config.touchRightAnalogStick)));
+	}
 
 	addComboKey(g_Config.iCombokey0, g_Config.bComboToggle0, roundImage, ImageID("I_ROUND"), comboKeyImages[0], g_Config.touchCombo0);
 	addComboKey(g_Config.iCombokey1, g_Config.bComboToggle1, roundImage, ImageID("I_ROUND"), comboKeyImages[1], g_Config.touchCombo1);

@@ -271,6 +271,14 @@ public:
 	//Combo key screen flag
 	int iComboMode;
 
+	// Right analog binding
+	int iRightAnalogUp;
+	int iRightAnalogDown;
+	int iRightAnalogLeft;
+	int iRightAnalogRight;
+	int iRightAnalogPress;
+	bool bRightAnalogCustom;
+
 	// Disable diagonals
 	bool bDisableDpadDiagonals;
 	bool bGamepadOnlyFocused;

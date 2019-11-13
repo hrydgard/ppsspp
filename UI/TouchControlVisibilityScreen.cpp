@@ -70,6 +70,7 @@ void TouchControlVisibilityScreen::CreateViews() {
 	gridsettings.fillCells = true;
 	GridLayout *grid = vert->Add(new GridLayout(gridsettings, new LayoutParams(FILL_PARENT, WRAP_CONTENT)));
 
+	static const char* rightAnalogKey = "Right Analog Stick (tap to customize)";
 	toggles_.clear();
 	toggles_.push_back({ "Circle", &g_Config.bShowTouchCircle, ImageID("I_CIRCLE") });
 	toggles_.push_back({ "Cross", &g_Config.bShowTouchCross, ImageID("I_CROSS") });
@@ -81,7 +82,7 @@ void TouchControlVisibilityScreen::CreateViews() {
 	toggles_.push_back({ "Select", &g_Config.touchSelectKey.show, ImageID("I_SELECT") });
 	toggles_.push_back({ "Dpad", &g_Config.touchDpad.show, ImageID::invalid() });
 	toggles_.push_back({ "Analog Stick", &g_Config.touchAnalogStick.show, ImageID::invalid() });
-	toggles_.push_back({ "Right Analog Stick\n(not used by most games)", &g_Config.touchRightAnalogStick.show, ImageID::invalid() });
+	toggles_.push_back({ rightAnalogKey, &g_Config.touchRightAnalogStick.show, ImageID::invalid() });
 	toggles_.push_back({ "Unthrottle", &g_Config.touchUnthrottleKey.show, ImageID::invalid() });
 	toggles_.push_back({ "Combo0", &g_Config.touchCombo0.show, ImageID("I_1") });
 	toggles_.push_back({ "Combo1", &g_Config.touchCombo1.show, ImageID("I_2") });
@@ -93,7 +94,6 @@ void TouchControlVisibilityScreen::CreateViews() {
 	toggles_.push_back({ "RapidFire", &g_Config.touchRapidFireKey.show, ImageID::invalid() });
 
 	auto mc = GetI18NCategory("MappableControls");
-
 	for (auto toggle : toggles_) {
 		LinearLayout *row = new LinearLayout(ORIENT_HORIZONTAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT));
 		row->SetSpacing(0);
@@ -101,16 +101,20 @@ void TouchControlVisibilityScreen::CreateViews() {
 		CheckBox *checkbox = new CheckBox(toggle.show, "", "", new LinearLayoutParams(50, WRAP_CONTENT));
 		row->Add(checkbox);
 
-		Choice *choice;
-		if (toggle.img.isValid()) {
-			choice = new CheckBoxChoice(toggle.img, checkbox, new LinearLayoutParams(1.0f));
+		if (toggle.key == rightAnalogKey) {
+			Choice *rightAnalog = new Choice(co->T(rightAnalogKey), "", false,  new LinearLayoutParams(1.0f));
+			rightAnalog->SetCentered(true);
+			row->Add(rightAnalog)->OnClick.Handle(this, &TouchControlVisibilityScreen::RightAnalogBindScreen);
 		} else {
-			choice = new CheckBoxChoice(mc->T(toggle.key), checkbox, new LinearLayoutParams(1.0f));
+			Choice *choice;
+			if (toggle.img.isValid()) {
+				choice = new CheckBoxChoice(toggle.img, checkbox, new LinearLayoutParams(1.0f));
+			} else {
+				choice = new CheckBoxChoice(mc->T(toggle.key), checkbox, new LinearLayoutParams(1.0f));
+			}
+			choice->SetCentered(true);
+			row->Add(choice);
 		}
-
-		choice->SetCentered(true);
-
-		row->Add(choice);
 		grid->Add(row);
 	}
 }
@@ -119,11 +123,49 @@ void TouchControlVisibilityScreen::onFinish(DialogResult result) {
 	g_Config.Save("TouchControlVisibilityScreen::onFinish");
 }
 
+void RightAnalogMappingScreen::CreateViews() {
+	using namespace UI;
+
+	auto di = GetI18NCategory("Dialog");
+	auto co = GetI18NCategory("Controls");
+
+	root_ = new AnchorLayout(new LayoutParams(FILL_PARENT, FILL_PARENT));
+	Choice *back = new Choice(di->T("Back"), "", false, new AnchorLayoutParams(leftColumnWidth - 10, WRAP_CONTENT, 10, NONE, NONE, 10));
+	root_->Add(back)->OnClick.Handle<UIScreen>(this, &UIScreen::OnBack);
+	TabHolder *tabHolder = new TabHolder(ORIENT_VERTICAL, leftColumnWidth, new AnchorLayoutParams(10, 0, 10, 0, false));
+	root_->Add(tabHolder);
+	ScrollView *rightPanel = new ScrollView(ORIENT_VERTICAL);
+	tabHolder->AddTab(co->T("Binds"), rightPanel);
+	LinearLayout *vert = rightPanel->Add(new LinearLayout(ORIENT_VERTICAL, new LayoutParams(FILL_PARENT, FILL_PARENT)));
+	vert->SetSpacing(0);
+
+	static const char *rightAnalogButton[] = {"None", "Left trigger", "Right trigger", "Square", "Triangle", "Circle", "Cross", "D-PAD Up", "D-PAD Down", "D-PAD Left", "D-PAD Right", "Start", "Select"};
+
+	vert->Add(new CheckBox(&g_Config.bRightAnalogCustom, co->T("Use custom right analog")));
+	PopupMultiChoice *rightAnalogUp = vert->Add(new PopupMultiChoice(&g_Config.iRightAnalogUp, co->T("Right analog up"), rightAnalogButton, 0, ARRAY_SIZE(rightAnalogButton), co->GetName(), screenManager()));
+	PopupMultiChoice *rightAnalogDown = vert->Add(new PopupMultiChoice(&g_Config.iRightAnalogDown, co->T("Right analog down"), rightAnalogButton, 0, ARRAY_SIZE(rightAnalogButton), co->GetName(), screenManager()));
+	PopupMultiChoice *rightAnalogLeft = vert->Add(new PopupMultiChoice(&g_Config.iRightAnalogLeft, co->T("Right analog left"), rightAnalogButton, 0, ARRAY_SIZE(rightAnalogButton), co->GetName(), screenManager()));
+	PopupMultiChoice *rightAnalogRight = vert->Add(new PopupMultiChoice(&g_Config.iRightAnalogRight, co->T("Right analog right"), rightAnalogButton, 0, ARRAY_SIZE(rightAnalogButton), co->GetName(), screenManager()));
+	PopupMultiChoice *rightAnalogPress = vert->Add(new PopupMultiChoice(&g_Config.iRightAnalogPress, co->T("Keep this button pressed when right analog is pressed"), rightAnalogButton, 0, ARRAY_SIZE(rightAnalogButton), co->GetName(), screenManager()));
+	vert->Add(new CheckBox(&g_Config.touchRightAnalogStick.show, co->T("Show right analog")));
+	rightAnalogUp->SetEnabledPtr(&g_Config.bRightAnalogCustom);
+	rightAnalogDown->SetEnabledPtr(&g_Config.bRightAnalogCustom);
+	rightAnalogLeft->SetEnabledPtr(&g_Config.bRightAnalogCustom);
+	rightAnalogRight->SetEnabledPtr(&g_Config.bRightAnalogCustom);
+	rightAnalogPress->SetEnabledPtr(&g_Config.bRightAnalogCustom);
+}
+
 UI::EventReturn TouchControlVisibilityScreen::OnToggleAll(UI::EventParams &e) {
 	for (auto toggle : toggles_) {
 		*toggle.show = nextToggleAll_;
 	}
 	nextToggleAll_ = !nextToggleAll_;
+
+	return UI::EVENT_DONE;
+}
+
+UI::EventReturn TouchControlVisibilityScreen::RightAnalogBindScreen(UI::EventParams &e) {
+	screenManager()->push(new RightAnalogMappingScreen());
 
 	return UI::EVENT_DONE;
 }
