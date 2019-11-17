@@ -181,7 +181,9 @@ if(USING_EGL)
 	set(OPENGL_LIBRARIES ${OPENGL_LIBRARIES} ${EGL_LIBRARIES})
 endif()
 
-find_package(SDL2)
+if(NOT LIBRETRO)
+	find_package(SDL2)
+endif()
 include(FindThreads)
 
 if(APPLE)
@@ -1408,6 +1410,8 @@ set(GPU_SOURCES
 	GPU/Software/Lighting.h
 	GPU/Software/Rasterizer.cpp
 	GPU/Software/Rasterizer.h
+	GPU/Software/RasterizerRectangle.cpp
+	GPU/Software/RasterizerRectangle.h
 	GPU/Software/Sampler.cpp
 	GPU/Software/Sampler.h
 	GPU/Software/SoftGpu.cpp

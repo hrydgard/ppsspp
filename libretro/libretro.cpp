@@ -171,7 +171,7 @@ static RetroOption<bool> ppsspp_auto_frameskip("ppsspp_auto_frameskip", "Auto Fr
 static RetroOption<int> ppsspp_frameskip("ppsspp_frameskip", "Frameskip", 0, 10);
 static RetroOption<int> ppsspp_frameskiptype("ppsspp_frameskiptype", "Frameskip Type", 0, 10);
 static RetroOption<int> ppsspp_audio_latency("ppsspp_audio_latency", "Audio latency", { "low", "medium", "high" });
-static RetroOption<int> ppsspp_internal_resolution("ppsspp_internal_resolution", "Internal Resolution", 1, { "480x272", "960x544", "1440x816", "1920x1088", "2400x1360", "2880x1632", "3360x1904", "3840x2176", "4320x2448", "4800x2720" });
+static RetroOption<int> ppsspp_internal_resolution("ppsspp_internal_resolution", "Internal Resolution (restart)", 1, { "480x272", "960x544", "1440x816", "1920x1088", "2400x1360", "2880x1632", "3360x1904", "3840x2176", "4320x2448", "4800x2720" });
 static RetroOption<int> ppsspp_button_preference("ppsspp_button_preference", "Confirmation Button", { { "cross", PSP_SYSTEMPARAM_BUTTON_CROSS }, { "circle", PSP_SYSTEMPARAM_BUTTON_CIRCLE } });
 static RetroOption<bool> ppsspp_fast_memory("ppsspp_fast_memory", "Fast Memory (Speedhack)", true);
 static RetroOption<bool> ppsspp_block_transfer_gpu("ppsspp_block_transfer_gpu", "Block Transfer GPU", true);
@@ -184,7 +184,6 @@ static RetroOption<bool> ppsspp_texture_deposterize("ppsspp_texture_deposterize"
 static RetroOption<bool> ppsspp_texture_replacement("ppsspp_texture_replacement", "Texture Replacement", false);
 static RetroOption<bool> ppsspp_gpu_hardware_transform("ppsspp_gpu_hardware_transform", "GPU Hardware T&L", true);
 static RetroOption<bool> ppsspp_vertex_cache("ppsspp_vertex_cache", "Vertex Cache (Speedhack)", true);
-static RetroOption<bool> ppsspp_separate_io_thread("ppsspp_separate_io_thread", "IO Threading", false);
 static RetroOption<bool> ppsspp_unsafe_func_replacements("ppsspp_unsafe_func_replacements", "Unsafe FuncReplacements", true);
 static RetroOption<bool> ppsspp_cheats("ppsspp_cheats", "Internal Cheats Support", false);
 static RetroOption<IOTimingMethods> ppsspp_io_timing_method("ppsspp_io_timing_method", "IO Timing Method", { { "Fast", IOTimingMethods::IOTIMING_FAST }, { "Host", IOTimingMethods::IOTIMING_HOST }, { "Simulate UMD delays", IOTimingMethods::IOTIMING_REALISTIC } });
@@ -212,7 +211,6 @@ void retro_set_environment(retro_environment_t cb) {
 	vars.push_back(ppsspp_texture_replacement.GetOptions());
 	vars.push_back(ppsspp_gpu_hardware_transform.GetOptions());
 	vars.push_back(ppsspp_vertex_cache.GetOptions());
-	vars.push_back(ppsspp_separate_io_thread.GetOptions());
 	vars.push_back(ppsspp_unsafe_func_replacements.GetOptions());
 	vars.push_back(ppsspp_cheats.GetOptions());
 	vars.push_back(ppsspp_io_timing_method.GetOptions());
@@ -276,7 +274,6 @@ static void check_variables(CoreParameter &coreParam) {
 	ppsspp_texture_anisotropic_filtering.Update(&g_Config.iAnisotropyLevel);
 	ppsspp_texture_deposterize.Update(&g_Config.bTexDeposterize);
 	ppsspp_texture_replacement.Update(&g_Config.bReplaceTextures);
-	ppsspp_separate_io_thread.Update(&g_Config.bSeparateIOThread);
 	ppsspp_unsafe_func_replacements.Update(&g_Config.bFuncReplacements);
 	ppsspp_cheats.Update(&g_Config.bEnableCheats);
 	ppsspp_locked_cpu_speed.Update(&g_Config.iLockedCPUSpeed);
@@ -289,7 +286,7 @@ static void check_variables(CoreParameter &coreParam) {
 		g_Config.iLanguage = get_language_auto();
 	}
 
-	if (ppsspp_internal_resolution.Update(&g_Config.iInternalResolution)) {
+	if (!PSP_IsInited() && ppsspp_internal_resolution.Update(&g_Config.iInternalResolution)) {
 		coreParam.pixelWidth = coreParam.renderWidth = g_Config.iInternalResolution * 480;
 		coreParam.pixelHeight = coreParam.renderHeight = g_Config.iInternalResolution * 272;
 		if (gpu) {

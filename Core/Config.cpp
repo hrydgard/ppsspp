@@ -501,7 +501,6 @@ static ConfigSetting cpuSettings[] = {
 	ReportedConfigSetting("CPUCore", &g_Config.iCpuCore, &DefaultCpuCore, true, true),
 	ConfigSetting("VulkanMultithreading", &g_Config.bVulkanMultithreading, false, true, true),
 	ReportedConfigSetting("SeparateSASThread", &g_Config.bSeparateSASThread, &DefaultSasThread, true, true),
-	ReportedConfigSetting("SeparateIOThread", &g_Config.bSeparateIOThread, true, true, true),
 	ReportedConfigSetting("IOTimingMethod", &g_Config.iIOTimingMethod, IOTIMING_REALISTIC, true, true),
 	ConfigSetting("IOManualDelay", &g_Config.iIOManualDelay, 1, true, true),
 	ConfigSetting("FastMemoryAccess", &g_Config.bFastMemory, false, true, true),

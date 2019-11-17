@@ -129,7 +129,7 @@ static MemStickFatState lastMemStickFatState;
 
 static AsyncIOManager ioManager;
 static bool ioManagerThreadEnabled = false;
-static std::thread *ioManagerThread;
+static std::thread ioManagerThread;
 
 // TODO: Is it better to just put all on the thread?
 // Let's try. (was 256)
@@ -649,12 +649,10 @@ void __IoInit() {
 
 	memset(fds, 0, sizeof(fds));
 
-	ioManagerThreadEnabled = g_Config.bSeparateIOThread;
+	ioManagerThreadEnabled = true;
 	ioManager.SetThreadEnabled(ioManagerThreadEnabled);
-	if (ioManagerThreadEnabled) {
-		Core_ListenLifecycle(&__IoWakeManager);
-		ioManagerThread = new std::thread(&__IoManagerThread);
-	}
+	Core_ListenLifecycle(&__IoWakeManager);
+	ioManagerThread = std::thread(&__IoManagerThread);
 
 	__KernelRegisterWaitTypeFuncs(WAITTYPE_ASYNCIO, __IoAsyncBeginCallback, __IoAsyncEndCallback);
 
@@ -730,12 +728,8 @@ void __IoShutdown() {
 	ioManagerThreadEnabled = false;
 	ioManager.SyncThread();
 	ioManager.FinishEventLoop();
-	if (ioManagerThread != nullptr) {
-		ioManagerThread->join();
-		delete ioManagerThread;
-		ioManagerThread = nullptr;
-		ioManager.Shutdown();
-	}
+	ioManagerThread.join();
+	ioManager.Shutdown();
 
 	for (int i = 0; i < PSP_COUNT_FDS; ++i) {
 		asyncParams[i].op = IoAsyncOp::NONE;
