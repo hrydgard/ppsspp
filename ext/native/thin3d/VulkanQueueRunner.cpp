@@ -469,7 +469,7 @@ void VulkanQueueRunner::RunSteps(VkCommandBuffer cmd, std::vector<VKRStep *> &st
 			break;
 		}
 
-		if (profile) {
+		if (profile && profile->timestampDescriptions.size() + 1 < MAX_TIMESTAMP_QUERIES) {
 			vkCmdWriteTimestamp(cmd, VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, profile->queryPool, (uint32_t)profile->timestampDescriptions.size());
 			profile->timestampDescriptions.push_back(StepToString(step));
 		}
