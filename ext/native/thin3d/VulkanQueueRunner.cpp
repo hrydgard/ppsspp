@@ -789,11 +789,13 @@ void VulkanQueueRunner::ApplyRenderPassMerge(std::vector<VKRStep *> &steps) {
 					if (steps[j]->copy.src == fb || steps[j]->copy.dst == fb) {
 						goto done_fb;
 					}
+					touchedFramebuffers.insert(steps[j]->copy.dst);
 					break;
 				case VKRStepType::BLIT:
 					if (steps[j]->blit.src == fb || steps[j]->blit.dst == fb) {
 						goto done_fb;
 					}
+					touchedFramebuffers.insert(steps[j]->blit.dst);
 					break;
 				case VKRStepType::READBACK:
 					// Not sure this has much effect, when executed READBACK is always the last step
