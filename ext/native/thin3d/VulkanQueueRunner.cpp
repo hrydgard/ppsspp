@@ -469,7 +469,7 @@ void VulkanQueueRunner::RunSteps(VkCommandBuffer cmd, std::vector<VKRStep *> &st
 			break;
 		}
 
-		if (profile) {
+		if (profile && profile->timestampDescriptions.size() + 1 < MAX_TIMESTAMP_QUERIES) {
 			vkCmdWriteTimestamp(cmd, VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, profile->queryPool, (uint32_t)profile->timestampDescriptions.size());
 			profile->timestampDescriptions.push_back(StepToString(step));
 		}
@@ -789,11 +789,13 @@ void VulkanQueueRunner::ApplyRenderPassMerge(std::vector<VKRStep *> &steps) {
 					if (steps[j]->copy.src == fb || steps[j]->copy.dst == fb) {
 						goto done_fb;
 					}
+					touchedFramebuffers.insert(steps[j]->copy.dst);
 					break;
 				case VKRStepType::BLIT:
 					if (steps[j]->blit.src == fb || steps[j]->blit.dst == fb) {
 						goto done_fb;
 					}
+					touchedFramebuffers.insert(steps[j]->blit.dst);
 					break;
 				case VKRStepType::READBACK:
 					// Not sure this has much effect, when executed READBACK is always the last step

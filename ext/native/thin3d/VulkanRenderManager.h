@@ -85,6 +85,10 @@ enum class VKRRunType {
 	SYNC,
 };
 
+enum {
+	MAX_TIMESTAMP_QUERIES = 128,
+};
+
 class VulkanRenderManager {
 public:
 	VulkanRenderManager(VulkanContext *vulkan);
@@ -298,10 +302,6 @@ private:
 	};
 
 	FrameData frameData_[VulkanContext::MAX_INFLIGHT_FRAMES];
-
-	enum {
-		MAX_TIMESTAMP_QUERIES = 256,
-	};
 
 	// Submission time state
 	int curWidth_ = -1;
