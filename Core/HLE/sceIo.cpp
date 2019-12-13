@@ -2532,8 +2532,8 @@ static int __IoIoctl(u32 id, u32 cmd, u32 indataPtr, u32 inlen, u32 outdataPtr, 
 		INFO_LOG(SCEIO, "sceIoIoctl: Sector seek for file %i", id);
 		// Even if the size is 4, it still actually reads a 16 byte struct, it seems.
 
-		if (GetIOTimingMethod() == IOTIMING_REALISTIC)
-			usec = 15000;// Fantasy Golf Pangya Portable(KS) needs a delay over 15000us.
+		//if (GetIOTimingMethod() == IOTIMING_REALISTIC) // Need a check for io timing method?
+		usec = 15000;// Fantasy Golf Pangya Portable(KS) needs a delay over 15000us.
 
 		if (Memory::IsValidAddress(indataPtr) && inlen >= 4) {
 			struct SeekInfo {
