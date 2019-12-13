@@ -226,7 +226,7 @@ int MetaFileSystem::MapFilePath(const std::string &_inpath, std::string &outpath
 		currentDirectory = &(it->second);
 	}
 
-	if ( RealPath(*currentDirectory, inpath, realpath) )
+	if (RealPath(*currentDirectory, inpath, realpath))
 	{
 		std::string prefix = realpath;
 		size_t prefixPos = realpath.find(':');
@@ -243,7 +243,10 @@ int MetaFileSystem::MapFilePath(const std::string &_inpath, std::string &outpath
 
 				VERBOSE_LOG(FILESYS, "MapFilePath: mapped \"%s\" to prefix: \"%s\", path: \"%s\"", inpath.c_str(), fileSystems[i].prefix.c_str(), outpath.c_str());
 
-				return 0;
+				if (error == SCE_KERNEL_ERROR_NOCWD)
+					return error;
+				else
+					return 0;
 			}
 		}
 	}
@@ -339,9 +342,13 @@ int MetaFileSystem::OpenFile(std::string filename, FileAccess access, const char
 	std::string of;
 	MountPoint *mount;
 	int error = MapFilePath(filename, of, &mount);
-	if (error == 0)
-		return mount->system->OpenFile(of, access, mount->prefix.c_str());
-	else
+	if (error == 0 || error == SCE_KERNEL_ERROR_NOCWD) {
+		int h = mount->system->OpenFile(of, access, mount->prefix.c_str());
+		if (h < 0 && error == SCE_KERNEL_ERROR_NOCWD)
+			return SCE_KERNEL_ERROR_NOCWD;
+		else
+			return h;
+	} else
 		return error == -1 ? SCE_KERNEL_ERROR_ERRNO_FILE_NOT_FOUND : error;
 }
 
@@ -350,7 +357,8 @@ PSPFileInfo MetaFileSystem::GetFileInfo(std::string filename)
 	std::lock_guard<std::recursive_mutex> guard(lock);
 	std::string of;
 	IFileSystem *system;
-	if (MapFilePath(filename, of, &system) == 0)
+	int error = MapFilePath(filename, of, &system);
+	if (error == 0 || error == SCE_KERNEL_ERROR_NOCWD)
 	{
 		return system->GetFileInfo(of);
 	}
@@ -366,7 +374,8 @@ bool MetaFileSystem::GetHostPath(const std::string &inpath, std::string &outpath
 	std::lock_guard<std::recursive_mutex> guard(lock);
 	std::string of;
 	IFileSystem *system;
-	if (MapFilePath(inpath, of, &system) == 0) {
+	int error = MapFilePath(inpath, of, &system);
+	if (error == 0 || error == SCE_KERNEL_ERROR_NOCWD) {
 		return system->GetHostPath(of, outpath);
 	} else {
 		return false;
@@ -378,7 +387,8 @@ std::vector<PSPFileInfo> MetaFileSystem::GetDirListing(std::string path)
 	std::lock_guard<std::recursive_mutex> guard(lock);
 	std::string of;
 	IFileSystem *system;
-	if (MapFilePath(path, of, &system) == 0)
+	int error = MapFilePath(path, of, &system);
+	if (error == 0 || error == SCE_KERNEL_ERROR_NOCWD)
 	{
 		return system->GetDirListing(of);
 	}
@@ -406,7 +416,8 @@ int MetaFileSystem::ChDir(const std::string &dir)
 	
 	std::string of;
 	MountPoint *mountPoint;
-	if (MapFilePath(dir, of, &mountPoint) == 0)
+	int error = MapFilePath(dir, of, &mountPoint);
+	if (error == 0 || error == SCE_KERNEL_ERROR_NOCWD)
 	{
 		currentDir[curThread] = mountPoint->prefix + of;
 		return 0;
@@ -435,7 +446,8 @@ bool MetaFileSystem::MkDir(const std::string &dirname)
 	std::lock_guard<std::recursive_mutex> guard(lock);
 	std::string of;
 	IFileSystem *system;
-	if (MapFilePath(dirname, of, &system) == 0)
+	int error = MapFilePath(dirname, of, &system);
+	if (error == 0 || error == SCE_KERNEL_ERROR_NOCWD)
 	{
 		return system->MkDir(of);
 	}
@@ -450,7 +462,8 @@ bool MetaFileSystem::RmDir(const std::string &dirname)
 	std::lock_guard<std::recursive_mutex> guard(lock);
 	std::string of;
 	IFileSystem *system;
-	if (MapFilePath(dirname, of, &system) == 0)
+	int error = MapFilePath(dirname, of, &system);
+	if (error == 0 || error == SCE_KERNEL_ERROR_NOCWD)
 	{
 		return system->RmDir(of);
 	}
@@ -467,12 +480,14 @@ int MetaFileSystem::RenameFile(const std::string &from, const std::string &to)
 	std::string rf;
 	IFileSystem *osystem;
 	IFileSystem *rsystem = NULL;
-	if (MapFilePath(from, of, &osystem) == 0)
+	int error = MapFilePath(from, of, &osystem);
+	if (error == 0 || error == SCE_KERNEL_ERROR_NOCWD)
 	{
 		// If it's a relative path, it seems to always use from's filesystem.
 		if (to.find(":/") != to.npos)
 		{
-			if (!MapFilePath(to, rf, &rsystem))
+			error = MapFilePath(to, rf, &rsystem);
+			if (error != 0)
 				return -1;
 		}
 		else
@@ -497,7 +512,8 @@ bool MetaFileSystem::RemoveFile(const std::string &filename)
 	std::lock_guard<std::recursive_mutex> guard(lock);
 	std::string of;
 	IFileSystem *system;
-	if (MapFilePath(filename, of, &system) == 0)
+	int error = MapFilePath(filename, of, &system);
+	if (error == 0 || error == SCE_KERNEL_ERROR_NOCWD)
 	{
 		return system->RemoveFile(of);
 	}
@@ -604,7 +620,8 @@ u64 MetaFileSystem::FreeSpace(const std::string &path)
 	std::lock_guard<std::recursive_mutex> guard(lock);
 	std::string of;
 	IFileSystem *system;
-	if (MapFilePath(path, of, &system) == 0)
+	int error = MapFilePath(path, of, &system);
+	if (error == 0 || error == SCE_KERNEL_ERROR_NOCWD)
 		return system->FreeSpace(of);
 	else
 		return 0;
