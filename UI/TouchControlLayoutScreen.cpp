@@ -245,13 +245,13 @@ bool TouchControlLayoutScreen::touch(const TouchInput &touch) {
 				newX = touch.x;
 				// Snap to grid
 				if (g_Config.bTouchSnapToGrid)
-					newX -= (int)(touch.x-bounds.centerX()) % g_Config.iTouchSnapGridSize;
+					newX -= (int)(touch.x - bounds.w) % g_Config.iTouchSnapGridSize;
 			}
 			if (touch.y > minTouchY && touch.y < maxTouchY) {
 				newY = touch.y;
 				// Snap to grid
 				if (g_Config.bTouchSnapToGrid)
-					newY -= (int)(touch.y-bounds.centerY()) % g_Config.iTouchSnapGridSize;
+					newY -= (int)(touch.y - bounds.h) % g_Config.iTouchSnapGridSize;
 			}
 			pickedControl_->ReplaceLayoutParams(new UI::AnchorLayoutParams(newX, newY, NONE, NONE, true));
 		} else if (mode == 1) {
