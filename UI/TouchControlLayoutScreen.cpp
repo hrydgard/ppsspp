@@ -364,7 +364,7 @@ void TouchControlLayoutScreen::CreateViews() {
 
 	I18NCategory *ms = GetI18NCategory("MainSettings");
 
-	tabHolder->AddTab(ms->T("Controls"), controlsHolder);
+	//tabHolder->AddTab(ms->T("Controls"), controlsHolder);
 
 	if (!g_Config.bShowTouchControls) {
 		// Shouldn't even be able to get here as the way into this dialog should be closed.
