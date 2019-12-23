@@ -45,8 +45,8 @@
 #include "Core/Instance.h"
 
 static bool netInited;
-static bool netInetInited;
-static bool netApctlInited;
+bool netInetInited;
+bool netApctlInited;
 u32 netDropRate = 0;
 u32 netDropDuration = 0;
 u32 netPoolAddr = 0;
@@ -118,12 +118,25 @@ void __NetInit() {
 
 	net::Init();
 	InitLocalIP();
-	INFO_LOG(SCENET, "LocalHost IP will be %s", inet_ntoa(((sockaddr_in*)&localIP)->sin_addr));
+
+	char tmpmac[18];
+	SceNetEtherAddr mac;
+	getLocalMac(&mac);
+	INFO_LOG(SCENET, "LocalHost IP will be %s [MAC: %s]", inet_ntoa(((sockaddr_in*)&localIP)->sin_addr), mac2str(&mac, tmpmac));
 	//net::Init();
 	__ResetInitNetLib();
 }
 
 void __NetShutdown() {
+	// Checks to avoid confusing logspam
+	if (netAdhocctlInited) sceNetAdhocctlTerm();
+	if (netAdhocInited) sceNetAdhocTerm();
+
+	if (netApctlInited) sceNetApctlTerm();
+	if (netInetInited) sceNetInetTerm();
+
+	if (netInited) sceNetTerm();
+	
 	__ResetInitNetLib();
 
 	net::Shutdown();
@@ -149,6 +162,10 @@ void __NetDoState(PointerWrap &p) {
 	if (!s)
 		return;
 
+	auto cur_netInited = netInited;
+	auto cur_netInetInited = netInetInited;
+	auto cur_netApctlInited = netApctlInited;
+
 	p.Do(netInited);
 	p.Do(netInetInited);
 	p.Do(netApctlInited);
@@ -170,6 +187,12 @@ void __NetDoState(PointerWrap &p) {
 		p.Do(netThread1Addr);
 		p.Do(netThread2Addr);
 	}
+	// Let's not change "Inited" value when Loading SaveState in the middle of multiplayer to prevent memory & port leaks
+	if (p.mode == p.MODE_READ) {
+		netApctlInited = cur_netApctlInited;
+		netInetInited = cur_netInetInited;
+		netInited = cur_netInited;
+	}
 }
 
 static inline u32 AllocUser(u32 size, bool fromTop, const char *name) {
@@ -186,9 +209,31 @@ static inline void FreeUser(u32 &addr) {
 }
 
 static u32 sceNetTerm() {
-	//May also need to Terminate netAdhocctl and netAdhoc since the game (ie. GTA:VCS, Wipeout Pulse, etc) might not called them before calling sceNetTerm and causing them to behave strangely on the next sceNetInit+sceNetAdhocInit
+	// May also need to Terminate netAdhocctl and netAdhoc to free some resources & threads, since the game (ie. GTA:VCS, Wipeout Pulse, etc) might not called them before calling sceNetTerm and causing them to behave strangely on the next sceNetInit & sceNetAdhocInit
 	if (netAdhocctlInited) sceNetAdhocctlTerm();
 	if (netAdhocInited) sceNetAdhocTerm();
+
+	if (netApctlInited) sceNetApctlTerm();
+	if (netInetInited) sceNetInetTerm();
+
+	// Library is initialized
+	if (netInited) {
+		// Delete PDP Sockets
+		deleteAllPDP();
+
+		// Delete PTP Sockets
+		deleteAllPTP();
+
+		// Delete GameMode Buffer
+		//deleteAllGMB();
+
+		// Terminate Internet Library
+		//sceNetInetTerm();
+
+		// Unload Internet Modules (Just keep it in memory... unloading crashes?!)
+		// if (_manage_modules != 0) sceUtilityUnloadModule(PSP_MODULE_NET_INET);
+		// Library shutdown
+	}
 
 	WARN_LOG(SCENET, "sceNetTerm()");
 	netInited = false;
@@ -199,12 +244,20 @@ static u32 sceNetTerm() {
 	return 0;
 }
 
-// TODO: should that struct actually be initialized here?
-static int sceNetInit(u32 poolSize, u32 calloutPri, u32 calloutStack, u32 netinitPri, u32 netinitStack)  {
+/*
+Parameters:
+	poolsize	- Memory pool size (appears to be for the whole of the networking library).
+	calloutprio	- Priority of the SceNetCallout thread.
+	calloutstack	- Stack size of the SceNetCallout thread (defaults to 4096 on non 1.5 firmware regardless of what value is passed).
+	netintrprio	- Priority of the SceNetNetintr thread.
+	netintrstack	- Stack size of the SceNetNetintr thread (defaults to 4096 on non 1.5 firmware regardless of what value is passed).
+*/
+static u32 sceNetInit(u32 poolSize, u32 calloutPri, u32 calloutStack, u32 netinitPri, u32 netinitStack)  {
+	// TODO: Create Network Threads using given priority & stack
 	// TODO: The correct behavior is actually to allocate more and leak the other threads/pool.
 	// But we reset here for historic reasons (GTA:VCS potentially triggers this.)
 	if (netInited)
-		sceNetTerm();
+		sceNetTerm(); // This cleanup attempt might not worked when SaveState were loaded in the middle of multiplayer game and re-entering multiplayer, thus causing memory leaks & wasting binded ports. May be we shouldn't save/load "Inited" vars on SaveState?
 
 	if (poolSize == 0) {
 		return hleLogError(SCENET, SCE_KERNEL_ERROR_ILLEGAL_MEMSIZE, "invalid pool size");
@@ -236,11 +289,30 @@ static int sceNetInit(u32 poolSize, u32 calloutPri, u32 calloutStack, u32 netini
 
 	WARN_LOG(SCENET, "sceNetInit(poolsize=%d, calloutpri=%i, calloutstack=%d, netintrpri=%i, netintrstack=%d) at %08x", poolSize, calloutPri, calloutStack, netinitPri, netinitStack, currentMIPS->pc);
 	netInited = true;
-	netMallocStat.maximum = poolSize;
-	netMallocStat.free = poolSize;
-	netMallocStat.pool = 0;
+	netMallocStat.pool = poolSize; // This should be the poolSize isn't?
+	netMallocStat.maximum = poolSize/2; // According to JPCSP's sceNetGetMallocStat this is Currently Used size = (poolSize - free), faked to half the pool
+	netMallocStat.free = poolSize - netMallocStat.maximum;
+
+	// Clear Socket Translator Memory
+	memset(&pdp, 0, sizeof(pdp));
+	memset(&ptp, 0, sizeof(ptp));
 	
 	return hleLogSuccessI(SCENET, 0);
+}
+
+// Free(delete) thread info / data. 
+// Normal usage: sceKernelDeleteThread followed by sceNetFreeThreadInfo with the same threadID as argument
+static int sceNetFreeThreadinfo(SceUID thid) {
+	ERROR_LOG(SCENET, "UNIMPL sceNetFreeThreadinfo(%i)", thid);
+
+	return 0;
+}
+
+// Abort a thread.
+static int sceNetThreadAbort(SceUID thid) {
+	ERROR_LOG(SCENET, "UNIMPL sceNetThreadAbort(%i)", thid);
+
+	return 0;
 }
 
 static u32 sceWlanGetEtherAddr(u32 addrAddr) {
@@ -364,7 +436,7 @@ static int sceNetInetInit() {
 	return 0;
 }
 
-static int sceNetInetTerm() {
+int sceNetInetTerm() {
 	ERROR_LOG(SCENET, "UNIMPL sceNetInetTerm()");
 	netInetInited = false;
 
@@ -380,7 +452,7 @@ static int sceNetApctlInit() {
 	return 0;
 }
 
-static int sceNetApctlTerm() {
+int sceNetApctlTerm() {
 	ERROR_LOG(SCENET, "UNIMPL sceNeApctlTerm()");
 	netApctlInited = false;
 	
@@ -602,9 +674,9 @@ const HLEFunction sceNet[] = {
 	{0X89360950, &WrapI_UU<sceNetEtherNtostr>,       "sceNetEtherNtostr",               'i', "xx"   },
 	{0XD27961C9, &WrapI_UU<sceNetEtherStrton>,       "sceNetEtherStrton",               'i', "xx"   },
 	{0X0BF0A3AE, &WrapU_U<sceNetGetLocalEtherAddr>,  "sceNetGetLocalEtherAddr",         'x', "x"    },
-	{0X50647530, nullptr,                            "sceNetFreeThreadinfo",            '?', ""     },
+	{0X50647530, &WrapI_I<sceNetFreeThreadinfo>,     "sceNetFreeThreadinfo",            'i', "i"    },
 	{0XCC393E48, &WrapI_U<sceNetGetMallocStat>,      "sceNetGetMallocStat",             'i', "x"    },
-	{0XAD6844C6, nullptr,                            "sceNetThreadAbort",               '?', ""     },
+	{0XAD6844C6, &WrapI_I<sceNetThreadAbort>,        "sceNetThreadAbort",               'i', "i"    },
 };
 
 const HLEFunction sceNetResolver[] = {
