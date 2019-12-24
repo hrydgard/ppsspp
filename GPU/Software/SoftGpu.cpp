@@ -158,6 +158,38 @@ void SoftGPU::SetDisplayFramebuffer(u32 framebuf, u32 stride, GEBufferFormat for
 
 bool g_DarkStalkerStretch;
 
+void SoftGPU::ConvertTextureDescFrom16(Draw::TextureDesc &desc, int srcwidth, int srcheight) {
+	// TODO: This should probably be converted in a shader instead..
+	fbTexBuffer_.resize(srcwidth * srcheight);
+	FormatBuffer displayBuffer;
+	displayBuffer.data = Memory::GetPointer(displayFramebuf_);
+	for (int y = 0; y < srcheight; ++y) {
+		u32 *buf_line = &fbTexBuffer_[y * srcwidth];
+		const u16 *fb_line = &displayBuffer.as16[y * displayStride_];
+
+		switch (displayFormat_) {
+		case GE_FORMAT_565:
+			ConvertRGBA565ToRGBA8888(buf_line, fb_line, srcwidth);
+			break;
+
+		case GE_FORMAT_5551:
+			ConvertRGBA5551ToRGBA8888(buf_line, fb_line, srcwidth);
+			break;
+
+		case GE_FORMAT_4444:
+			ConvertRGBA4444ToRGBA8888(buf_line, fb_line, srcwidth);
+			break;
+
+		default:
+			ERROR_LOG_REPORT(G3D, "Software: Unexpected framebuffer format: %d", displayFormat_);
+		}
+	}
+
+	desc.width = srcwidth;
+	desc.height = srcheight;
+	desc.initData.push_back((uint8_t *)fbTexBuffer_.data());
+}
+
 // Copies RGBA8 data from RAM to the currently bound render target.
 void SoftGPU::CopyToCurrentFboFromDisplayRam(int srcwidth, int srcheight) {
 	if (!draw_)
@@ -191,6 +223,7 @@ void SoftGPU::CopyToCurrentFboFromDisplayRam(int srcwidth, int srcheight) {
 	Draw::Pipeline *pipeline = texColor;
 	if (PSP_CoreParameter().compat.flags().DarkStalkersPresentHack && displayFormat_ == GE_FORMAT_5551 && g_DarkStalkerStretch) {
 		u8 *data = Memory::GetPointer(0x04088000);
+		bool fillDesc = true;
 		if (draw_->GetDataFormatSupport(Draw::DataFormat::A1B5G5R5_UNORM_PACK16) & Draw::FMT_TEXTURE) {
 			// The perfect one.
 			desc.format = Draw::DataFormat::A1B5G5R5_UNORM_PACK16;
@@ -198,10 +231,15 @@ void SoftGPU::CopyToCurrentFboFromDisplayRam(int srcwidth, int srcheight) {
 			// RB swapped, compensate with a shader.
 			desc.format = Draw::DataFormat::A1R5G5B5_UNORM_PACK16;
 			pipeline = texColorRBSwizzle;
+		} else {
+			ConvertTextureDescFrom16(desc, srcwidth, srcheight);
+			fillDesc = false;
 		}
-		desc.width = displayStride_ == 0 ? srcwidth : displayStride_;
-		desc.height = srcheight;
-		desc.initData.push_back(data);
+		if (fillDesc) {
+			desc.width = displayStride_ == 0 ? srcwidth : displayStride_;
+			desc.height = srcheight;
+			desc.initData.push_back(data);
+		}
 		u0 = 64.5f / 512.0f;
 		u1 = 447.5f / 512.0f;
 		v1 = 16.0f / 272.0f;
@@ -217,6 +255,7 @@ void SoftGPU::CopyToCurrentFboFromDisplayRam(int srcwidth, int srcheight) {
 		desc.format = Draw::DataFormat::R8G8B8A8_UNORM;
 	} else if (displayFormat_ == GE_FORMAT_5551) {
 		u8 *data = Memory::GetPointer(displayFramebuf_);
+		bool fillDesc = true;
 		desc.format = Draw::DataFormat::A1R5G5B5_UNORM_PACK16;
 		if (draw_->GetDataFormatSupport(Draw::DataFormat::A1B5G5R5_UNORM_PACK16) & Draw::FMT_TEXTURE) {
 			// The perfect one.
@@ -225,40 +264,17 @@ void SoftGPU::CopyToCurrentFboFromDisplayRam(int srcwidth, int srcheight) {
 			// RB swapped, compensate with a shader.
 			desc.format = Draw::DataFormat::A1R5G5B5_UNORM_PACK16;
 			pipeline = texColorRBSwizzle;
+		} else {
+			ConvertTextureDescFrom16(desc, srcwidth, srcheight);
+			fillDesc = false;
 		}
-		desc.width = displayStride_ == 0 ? srcwidth : displayStride_;
-		desc.height = srcheight;
-		desc.initData.push_back(data);
+		if (fillDesc) {
+			desc.width = displayStride_ == 0 ? srcwidth : displayStride_;
+			desc.height = srcheight;
+			desc.initData.push_back(data);
+		}
 	} else {
-		// TODO: This should probably be converted in a shader instead..
-		fbTexBuffer.resize(srcwidth * srcheight);
-		FormatBuffer displayBuffer;
-		displayBuffer.data = Memory::GetPointer(displayFramebuf_);
-		for (int y = 0; y < srcheight; ++y) {
-			u32 *buf_line = &fbTexBuffer[y * srcwidth];
-			const u16 *fb_line = &displayBuffer.as16[y * displayStride_];
-
-			switch (displayFormat_) {
-			case GE_FORMAT_565:
-				ConvertRGBA565ToRGBA8888(buf_line, fb_line, srcwidth);
-				break;
-
-			case GE_FORMAT_5551:
-				ConvertRGBA5551ToRGBA8888(buf_line, fb_line, srcwidth);
-				break;
-
-			case GE_FORMAT_4444:
-				ConvertRGBA4444ToRGBA8888(buf_line, fb_line, srcwidth);
-				break;
-
-			default:
-				ERROR_LOG_REPORT(G3D, "Software: Unexpected framebuffer format: %d", displayFormat_);
-			}
-		}
-
-		desc.width = srcwidth;
-		desc.height = srcheight;
-		desc.initData.push_back((uint8_t *)fbTexBuffer.data());
+		ConvertTextureDescFrom16(desc, srcwidth, srcheight);
 		u1 = 1.0f;
 	}
 	if (!hasImage) {
