@@ -19,9 +19,15 @@
 
 #include "Core/HLE/proAdhoc.h"
 
+#ifdef _MSC_VER
+#pragma pack(push,1)
+#endif
 typedef struct MatchingArgs {
 	u32_le data[6]; //ContextID, Opcode, bufAddr[ to MAC], OptLen, OptAddr[, EntryPoint]
-} PACK;
+} PACK MatchingArgs;
+#ifdef _MSC_VER
+#pragma pack(pop)
+#endif
 
 class PointerWrap;
 

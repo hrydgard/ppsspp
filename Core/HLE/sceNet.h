@@ -55,6 +55,9 @@ enum {
 	PSP_NET_APCTL_EVENT_DISCONNECT_REQUEST	= 5,
 };
 
+#ifdef _MSC_VER
+#pragma pack(push,1)
+#endif
 // Sockaddr
 typedef struct SceNetInetSockaddr {
 	uint8_t sa_len;
@@ -82,6 +85,9 @@ typedef struct ProductStruct { // Similar to SceNetAdhocctlAdhocId ?
 	s32_le unknown; // Unknown, set to 0 // Product Type ?
 	char product[PRODUCT_CODE_LENGTH]; // Game ID (Example: ULUS10000)
 } PACK ProductStruct;
+#ifdef _MSC_VER
+#pragma pack(pop)
+#endif
 
 struct ApctlHandler {
 	u32 entryPoint;

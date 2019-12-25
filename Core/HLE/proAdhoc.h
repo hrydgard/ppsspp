@@ -17,25 +17,6 @@
 
 #pragma once
 
-#include <thread>
-#include <mutex>
-
-#include "base/timeutil.h"
-#include "net/resolve.h"
-#include "Common/ChunkFile.h"
-
-#include "Core/CoreTiming.h"
-#include "Core/MemMap.h"
-#include "Core/HLE/HLE.h"
-#include "Core/HLE/HLEHelperThread.h"
-#include "Core/HLE/sceNetAdhoc.h"
-#include "Core/HLE/sceKernelThread.h"
-#include "Core/HLE/sceKernel.h"
-#include "Core/HLE/sceKernelMutex.h"
-#include "Core/HLE/sceUtility.h"
-
-class PointerWrap;
-
 // Net stuff
 #if defined(_WIN32)
 #include <WS2tcpip.h>
@@ -56,6 +37,24 @@ class PointerWrap;
 #else
 #define PACK __attribute__((packed))
 #endif
+
+#include <thread>
+#include <mutex>
+
+#include "base/timeutil.h"
+#include "net/resolve.h"
+#include "Common/ChunkFile.h"
+
+#include "Core/Config.h"
+#include "Core/CoreTiming.h"
+#include "Core/MemMap.h"
+#include "Core/HLE/HLE.h"
+#include "Core/HLE/HLEHelperThread.h"
+#include "Core/HLE/sceNetAdhoc.h"
+#include "Core/HLE/sceKernelThread.h"
+#include "Core/HLE/sceKernel.h"
+#include "Core/HLE/sceKernelMutex.h"
+#include "Core/HLE/sceUtility.h"
 
 #ifdef _WIN32
 #undef errno
@@ -778,6 +777,8 @@ typedef struct {
 #ifdef _MSC_VER 
 #pragma pack(pop)
 #endif
+
+class PointerWrap;
 
 class AfterAdhocMipsCall : public PSPAction {
 public:

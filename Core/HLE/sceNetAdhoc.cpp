@@ -15,6 +15,10 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
+#if !defined(_WIN32)
+#include <netinet/tcp.h>
+#endif
+
 #include <mutex>
 #include "thread/threadutil.h"
 // sceNetAdhoc
@@ -52,8 +56,8 @@ bool networkInited;
 static bool netAdhocMatchingInited;
 int netAdhocMatchingStarted = 0;
 int adhocDefaultTimeout = 5000;
-int adhocEventPollDelayMS = 10; // 16;
-int adhocMatchingEventDelayMS = 100; // 33;
+int adhocEventPollDelayMS = 10;
+int adhocMatchingEventDelayMS = 100;
 int adhocEventDelayMS = 500; // This will affect the duration of "Connecting..." dialog/message box in .Hack//Link and Naruto Ultimate Ninja Heroes 3
 
 SceUID threadAdhocID;
@@ -2653,7 +2657,7 @@ static int sceNetAdhocPtpFlush(int id, int timeout, int nonblock) {
 
 				// Send Empty Data just to trigger Nagle on/off effect to flush the send buffer, Do we need to trigger this at all or is it automatically flushed?
 				changeBlockingMode(socket->id, nonblock);
-				int sent = send(socket->id, NULL, NULL, 0);
+				int sent = send(socket->id, 0, 0, 0);
 				int error = errno;
 				changeBlockingMode(socket->id, 0);
 
@@ -3592,26 +3596,24 @@ static int sceNetAdhocMatchingGetMembers(int matchingId, u32 sizeAddr, u32 buf) 
 								for (; peer != NULL && filledpeers < requestedpeers; peer = peer->next)
 								{
 									// Should we exclude timedout members?
-									if (!excludeTimedout || peer->lastping != 0)
-									// Parent Mode
-									if (context->mode == PSP_ADHOC_MATCHING_MODE_PARENT)
-									{
-										// Interested in Children (Michael Jackson Style)
-										if (peer->state == PSP_ADHOC_MATCHING_PEER_CHILD)
-										{
-											// Add Child MAC
-											buf2[filledpeers++].mac_addr = peer->mac;
+									if (!excludeTimedout || peer->lastping != 0) {
+										// Parent Mode
+										if (context->mode == PSP_ADHOC_MATCHING_MODE_PARENT) {
+											// Interested in Children (Michael Jackson Style)
+											if (peer->state == PSP_ADHOC_MATCHING_PEER_CHILD) {
+												// Add Child MAC
+												buf2[filledpeers++].mac_addr = peer->mac;
+											}
 										}
-									}
 
-									// Children Mode
-									else
-									{
-										// Interested in Parent & Siblings
-										if (peer->state == PSP_ADHOC_MATCHING_PEER_CHILD || peer->state == PSP_ADHOC_MATCHING_PEER_PARENT)
-										{
-											// Add Peer MAC
-											buf2[filledpeers++].mac_addr = peer->mac;
+										// Children Mode
+										else {
+											// Interested in Parent & Siblings
+											if (peer->state == PSP_ADHOC_MATCHING_PEER_CHILD ||
+												peer->state == PSP_ADHOC_MATCHING_PEER_PARENT) {
+												// Add Peer MAC
+												buf2[filledpeers++].mac_addr = peer->mac;
+											}
 										}
 									}
 								}
@@ -3874,7 +3876,7 @@ void __NetTriggerCallbacks()
 				__KernelDirectMipsCall(it->second.entryPoint, after, args, 3, true);
 			}
 			adhocctlEvents.pop_front();
-			delayus = adhocEventDelayMS * 1000;
+			delayus = (adhocEventDelayMS + adhocEventPollDelayMS) * 1000; //Added an extra delay to prevent I/O Timing method from causing disconnection
 		}
 	}
 
@@ -3919,7 +3921,7 @@ void __NetMatchingCallbacks()
 			SetMatchingInCallback(context, true);
 			__KernelDirectMipsCall(args[5], after, args, 5, true);
 			matchingEvents.pop_front();
-			delayus = adhocMatchingEventDelayMS * 1000; //adhocEventPollDelayMS * 1000;
+			delayus = (adhocMatchingEventDelayMS + adhocEventPollDelayMS) * 1000; //Added an extra delay to prevent I/O Timing method from causing disconnection
 		}
 	}
 
@@ -4093,7 +4095,7 @@ static int sceNetAdhocctlGetAddrByName(const char *nickName, u32 sizeAddr, u32 b
 	memcpy(nckName, nickName, ADHOCCTL_NICKNAME_LEN); // Copied to null-terminated var to prevent unexpected behaviour on Logs
 	nckName[ADHOCCTL_NICKNAME_LEN - 1] = 0;
 	
-	WARN_LOG(SCENET, "UNTESTED sceNetAdhocctlGetAddrByName(%s, [%08x]=%i/%i, %08x)", nckName, sizeAddr, buflen ? *buflen : -1, sizeof(SceNetAdhocctlPeerInfoEmu), bufAddr);
+	WARN_LOG(SCENET, "UNTESTED sceNetAdhocctlGetAddrByName(%s, [%08x]=%d/%zu, %08x)", nckName, sizeAddr, buflen ? *buflen : -1, sizeof(SceNetAdhocctlPeerInfoEmu), bufAddr);
 	
 	// Library initialized
 	if (netAdhocctlInited)
