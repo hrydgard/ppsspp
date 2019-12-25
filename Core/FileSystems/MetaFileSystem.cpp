@@ -243,10 +243,7 @@ int MetaFileSystem::MapFilePath(const std::string &_inpath, std::string &outpath
 
 				VERBOSE_LOG(FILESYS, "MapFilePath: mapped \"%s\" to prefix: \"%s\", path: \"%s\"", inpath.c_str(), fileSystems[i].prefix.c_str(), outpath.c_str());
 
-				if (error == SCE_KERNEL_ERROR_NOCWD)
-					return 1; // This means successful mapping but carry with SCE_KERNEL_ERROR_NOCWD error.
-				else
-					return 0;
+				return error == SCE_KERNEL_ERROR_NOCWD ? error : 0;
 			}
 		}
 	}
@@ -342,13 +339,9 @@ int MetaFileSystem::OpenFile(std::string filename, FileAccess access, const char
 	std::string of;
 	MountPoint *mount;
 	int error = MapFilePath(filename, of, &mount);
-	if (error >= 0) {
-		int h = mount->system->OpenFile(of, access, mount->prefix.c_str());
-		if (h < 0 && error == 1)
-			return SCE_KERNEL_ERROR_NOCWD;
-		else
-			return h;
-	} else
+	if (error == 0)
+		return mount->system->OpenFile(of, access, mount->prefix.c_str());
+	else
 		return error == -1 ? SCE_KERNEL_ERROR_ERRNO_FILE_NOT_FOUND : error;
 }
 
@@ -358,7 +351,7 @@ PSPFileInfo MetaFileSystem::GetFileInfo(std::string filename)
 	std::string of;
 	IFileSystem *system;
 	int error = MapFilePath(filename, of, &system);
-	if (error >= 0)
+	if (error == 0)
 	{
 		return system->GetFileInfo(of);
 	}
@@ -375,7 +368,7 @@ bool MetaFileSystem::GetHostPath(const std::string &inpath, std::string &outpath
 	std::string of;
 	IFileSystem *system;
 	int error = MapFilePath(inpath, of, &system);
-	if (error >= 0) {
+	if (error == 0) {
 		return system->GetHostPath(of, outpath);
 	} else {
 		return false;
@@ -388,7 +381,7 @@ std::vector<PSPFileInfo> MetaFileSystem::GetDirListing(std::string path)
 	std::string of;
 	IFileSystem *system;
 	int error = MapFilePath(path, of, &system);
-	if (error >= 0)
+	if (error == 0)
 	{
 		return system->GetDirListing(of);
 	}
@@ -417,7 +410,7 @@ int MetaFileSystem::ChDir(const std::string &dir)
 	std::string of;
 	MountPoint *mountPoint;
 	int error = MapFilePath(dir, of, &mountPoint);
-	if (error >= 0)
+	if (error == 0)
 	{
 		currentDir[curThread] = mountPoint->prefix + of;
 		return 0;
@@ -447,7 +440,7 @@ bool MetaFileSystem::MkDir(const std::string &dirname)
 	std::string of;
 	IFileSystem *system;
 	int error = MapFilePath(dirname, of, &system);
-	if (error >= 0)
+	if (error == 0)
 	{
 		return system->MkDir(of);
 	}
@@ -463,7 +456,7 @@ bool MetaFileSystem::RmDir(const std::string &dirname)
 	std::string of;
 	IFileSystem *system;
 	int error = MapFilePath(dirname, of, &system);
-	if (error >= 0)
+	if (error == 0)
 	{
 		return system->RmDir(of);
 	}
@@ -481,7 +474,7 @@ int MetaFileSystem::RenameFile(const std::string &from, const std::string &to)
 	IFileSystem *osystem;
 	IFileSystem *rsystem = NULL;
 	int error = MapFilePath(from, of, &osystem);
-	if (error >= 0)
+	if (error == 0)
 	{
 		// If it's a relative path, it seems to always use from's filesystem.
 		if (to.find(":/") != to.npos)
@@ -513,7 +506,7 @@ bool MetaFileSystem::RemoveFile(const std::string &filename)
 	std::string of;
 	IFileSystem *system;
 	int error = MapFilePath(filename, of, &system);
-	if (error >= 0)
+	if (error == 0)
 	{
 		return system->RemoveFile(of);
 	}
@@ -621,7 +614,7 @@ u64 MetaFileSystem::FreeSpace(const std::string &path)
 	std::string of;
 	IFileSystem *system;
 	int error = MapFilePath(path, of, &system);
-	if (error >= 0)
+	if (error == 0)
 		return system->FreeSpace(of);
 	else
 		return 0;

@@ -79,7 +79,7 @@ public:
 	inline int MapFilePath(const std::string &_inpath, std::string &outpath, IFileSystem **system) {
 		MountPoint *mountPoint;
 		int error = MapFilePath(_inpath, outpath, &mountPoint);
-		if (error >= 0) {
+		if (error == 0) {
 			*system = mountPoint->system;
 			return error;
 		}
