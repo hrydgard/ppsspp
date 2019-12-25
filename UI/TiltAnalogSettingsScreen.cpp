@@ -35,6 +35,7 @@ void TiltAnalogSettingsScreen::CreateViews() {
 	settings->Add(new ItemHeader(co->T("Invert Axes")));
 	settings->Add(new CheckBox(&g_Config.bInvertTiltX, co->T("Invert Tilt along X axis")));
 	settings->Add(new CheckBox(&g_Config.bInvertTiltY, co->T("Invert Tilt along Y axis")));
+	settings->Add(new CheckBox(&g_Config.TiltVertical, co->T("Tilt along Z axis instead of X")));
 
 	settings->Add(new ItemHeader(co->T("Sensitivity")));
 	//TODO: allow values greater than 100? I'm not sure if that's needed.

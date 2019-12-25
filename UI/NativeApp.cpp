@@ -1266,7 +1266,10 @@ bool NativeAxis(const AxisInput &axis) {
 	// see [http://developer.android.com/guide/topics/sensors/sensors_overview.html] for details
 	bool portrait = dp_yres > dp_xres;
 	switch (axis.axisId) {
+		//TODO: make this generic.
 		case JOYSTICK_AXIS_ACCELEROMETER_X:
+			if (g_Config.TiltVertical) // use Z axis instead
+				return false;
 			if (portrait) {
 				currentTilt.x_ = axis.value;
 			} else {
@@ -1283,9 +1286,14 @@ bool NativeAxis(const AxisInput &axis) {
 			break;
 
 		case JOYSTICK_AXIS_ACCELEROMETER_Z:
-			//don't handle this now as only landscape is enabled.
-			//TODO: make this generic.
-			return false;
+			if (!g_Config.TiltVertical) // use X axis instead
+				return false;
+			if (portrait) {
+				currentTilt.x_ = axis.value;
+			} else {
+				currentTilt.y_ = axis.value;
+			}
+			break;
 			
 		case JOYSTICK_AXIS_OUYA_UNKNOWN1:
 		case JOYSTICK_AXIS_OUYA_UNKNOWN2:
