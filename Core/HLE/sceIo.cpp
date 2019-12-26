@@ -697,29 +697,28 @@ void __IoDoState(PointerWrap &p) {
 	}
 
 	for (int i = 0; i < PSP_COUNT_FDS; ++i) {
+		auto clearThread = [&]() {
+			if (asyncThreads[i])
+				asyncThreads[i]->Forget();
+			delete asyncThreads[i];
+			asyncThreads[i] = nullptr;
+		};
+
 		if (s >= 4) {
 			p.DoVoid(&asyncParams[i], (int)sizeof(IoAsyncParams));
 			bool hasThread = asyncThreads[i] != nullptr;
 			p.Do(hasThread);
 			if (hasThread) {
-				if (asyncThreads[i])
-					asyncThreads[i]->Forget();
-				delete asyncThreads[i];
-				asyncThreads[i] = nullptr;
+				if (p.GetMode() == p.MODE_READ)
+					clearThread();
 				p.DoClass(asyncThreads[i]);
 			} else if (!hasThread) {
-				if (asyncThreads[i])
-					asyncThreads[i]->Forget();
-				delete asyncThreads[i];
-				asyncThreads[i] = nullptr;
+				clearThread();
 			}
 		} else {
 			asyncParams[i].op = IoAsyncOp::NONE;
 			asyncParams[i].priority = -1;
-			if (asyncThreads[i])
-				asyncThreads[i]->Forget();
-			delete asyncThreads[i];
-			asyncThreads[i] = nullptr;
+			clearThread();
 		}
 	}
 }
