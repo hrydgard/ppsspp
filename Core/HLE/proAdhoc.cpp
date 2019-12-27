@@ -151,7 +151,8 @@ void addFriend(SceNetAdhocctlConnectPacketS2C * packet) {
 	// Already existed
 	if (peer != NULL) {
 		char tmpmac[18];
-		WARN_LOG(SCENET, "Friend Peer Already Existed! Updating [%s][%s][%s]", packet->name.data, mac2str(&packet->mac, tmpmac), inet_ntoa(*(in_addr*)&packet->ip));
+		u32 tmpip = packet->ip;
+		WARN_LOG(SCENET, "Friend Peer Already Existed! Updating [%s][%s][%s]", packet->name.data, mac2str(&packet->mac, tmpmac), inet_ntoa(*(struct in_addr*)&tmpip)); //inet_ntoa(*(in_addr*)&packet->ip)
 		peer->nickname = packet->name;
 		peer->mac_addr = packet->mac;
 		peer->ip_addr = packet->ip;
@@ -323,7 +324,8 @@ void deleteFriendByIP(uint32_t ip) {
 			*/
 
 			char tmpmac[18];
-			INFO_LOG(SCENET, "Removing Friend Peer %s [%s]", mac2str(&peer->mac_addr, tmpmac), inet_ntoa(*(in_addr*)&peer->ip_addr));
+			u32 tmpip = peer->ip_addr;
+			INFO_LOG(SCENET, "Removing Friend Peer %s [%s]", mac2str(&peer->mac_addr, tmpmac), inet_ntoa(*(struct in_addr *)&tmpip)); //inet_ntoa(*(in_addr*)&peer->ip_addr)
 
 			// Free Memory
 			//free(peer);
