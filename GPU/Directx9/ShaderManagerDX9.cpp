@@ -342,7 +342,7 @@ void ShaderManagerDX9::VSUpdateUniforms(u64 dirtyUniforms) {
 			flippedMatrix[12] = -flippedMatrix[12];
 		}
 
-		ConvertProjMatrixToD3D(flippedMatrix, invertedX, invertedY);
+		ConvertProjMatrixToD3D(flippedMatrix, invertedX, !invertedY);
 
 		VSSetMatrix(CONST_VS_PROJ, flippedMatrix.getReadPtr());
 	}

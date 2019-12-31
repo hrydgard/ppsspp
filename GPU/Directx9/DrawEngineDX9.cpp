@@ -43,7 +43,7 @@
 
 namespace DX9 {
 
-const D3DPRIMITIVETYPE glprim[8] = {
+const D3DPRIMITIVETYPE d3d9prim[8] = {
 	D3DPT_POINTLIST,
 	D3DPT_LINELIST,
 	D3DPT_LINESTRIP,
@@ -499,9 +499,9 @@ rotateVBO:
 			device_->SetVertexDeclaration(pHardwareVertexDecl);
 			if (vb_ == NULL) {
 				if (useElements) {
-					device_->DrawIndexedPrimitiveUP(glprim[prim], 0, maxIndex + 1, D3DPrimCount(glprim[prim], vertexCount), decIndex, D3DFMT_INDEX16, decoded, dec_->GetDecVtxFmt().stride);
+					device_->DrawIndexedPrimitiveUP(d3d9prim[prim], 0, maxIndex + 1, D3DPrimCount(d3d9prim[prim], vertexCount), decIndex, D3DFMT_INDEX16, decoded, dec_->GetDecVtxFmt().stride);
 				} else {
-					device_->DrawPrimitiveUP(glprim[prim], D3DPrimCount(glprim[prim], vertexCount), decoded, dec_->GetDecVtxFmt().stride);
+					device_->DrawPrimitiveUP(d3d9prim[prim], D3DPrimCount(d3d9prim[prim], vertexCount), decoded, dec_->GetDecVtxFmt().stride);
 				}
 			} else {
 				device_->SetStreamSource(0, vb_, 0, dec_->GetDecVtxFmt().stride);
@@ -509,9 +509,9 @@ rotateVBO:
 				if (useElements) {
 					device_->SetIndices(ib_);
 
-					device_->DrawIndexedPrimitive(glprim[prim], 0, 0, maxIndex + 1, 0, D3DPrimCount(glprim[prim], vertexCount));
+					device_->DrawIndexedPrimitive(d3d9prim[prim], 0, 0, maxIndex + 1, 0, D3DPrimCount(d3d9prim[prim], vertexCount));
 				} else {
-					device_->DrawPrimitive(glprim[prim], 0, D3DPrimCount(glprim[prim], vertexCount));
+					device_->DrawPrimitive(d3d9prim[prim], 0, D3DPrimCount(d3d9prim[prim], vertexCount));
 				}
 			}
 		}
@@ -568,9 +568,9 @@ rotateVBO:
 
 			device_->SetVertexDeclaration(transformedVertexDecl_);
 			if (drawIndexed) {
-				device_->DrawIndexedPrimitiveUP(glprim[prim], 0, maxIndex, D3DPrimCount(glprim[prim], numTrans), inds, D3DFMT_INDEX16, drawBuffer, sizeof(TransformedVertex));
+				device_->DrawIndexedPrimitiveUP(d3d9prim[prim], 0, maxIndex, D3DPrimCount(d3d9prim[prim], numTrans), inds, D3DFMT_INDEX16, drawBuffer, sizeof(TransformedVertex));
 			} else {
-				device_->DrawPrimitiveUP(glprim[prim], D3DPrimCount(glprim[prim], numTrans), drawBuffer, sizeof(TransformedVertex));
+				device_->DrawPrimitiveUP(d3d9prim[prim], D3DPrimCount(d3d9prim[prim], numTrans), drawBuffer, sizeof(TransformedVertex));
 			}
 		} else if (result.action == SW_CLEAR) {
 			u32 clearColor = result.color;
