@@ -266,8 +266,7 @@ public:
 	//the base x and y tilt. this inclination is treated as (0,0) and the tilt input
 	//considers this orientation to be equal to no movement of the analog stick.
 	float fTiltBaseX, fTiltBaseY;
-	//tilt vertically will use Z accelerometer axis as X (X would require phone on flat plane)
-	bool TiltVertical;
+	int iTiltOrientation;
 	//whether the x axes and y axes should invert directions (left becomes right, top becomes bottom.)
 	bool bInvertTiltX, bInvertTiltY;
 	//the sensitivity of the tilt in the x direction

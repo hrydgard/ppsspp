@@ -857,7 +857,7 @@ static ConfigSetting controlSettings[] = {
 #ifdef MOBILE_DEVICE
 	ConfigSetting("TiltBaseX", &g_Config.fTiltBaseX, 0.0f, true, true),
 	ConfigSetting("TiltBaseY", &g_Config.fTiltBaseY, 0.0f, true, true),
-	ConfigSetting("TiltVertical", &g_Config.TiltVertical, false, true, true),
+	ConfigSetting("TiltOrientation", &g_Config.iTiltOrientation, 0, true, true),
 	ConfigSetting("InvertTiltX", &g_Config.bInvertTiltX, false, true, true),
 	ConfigSetting("InvertTiltY", &g_Config.bInvertTiltY, true, true, true),
 	ConfigSetting("TiltSensitivityX", &g_Config.iTiltSensitivityX, 100, true, true),
