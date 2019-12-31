@@ -562,6 +562,12 @@ rotateVBO:
 		if (vertexCount > 0x10000 / 3)
 			vertexCount = 0x10000 / 3;
 #endif
+		// Update viewport width & height before ST.
+		if (gstate_c.IsDirty(DIRTY_VIEWPORTSCISSOR_STATE)) {
+			gstate_c.vpWidth = gstate.getViewportXScale() * 2.0f;
+			gstate_c.vpHeight = gstate.getViewportYScale() * 2.0f;
+		}
+
 		SoftwareTransform(
 			prim, vertexCount,
 			dec_->VertexType(), inds, GE_VTYPE_IDX_16BIT, dec_->GetDecVtxFmt(),

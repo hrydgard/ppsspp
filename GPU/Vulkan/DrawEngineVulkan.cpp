@@ -895,6 +895,12 @@ void DrawEngineVulkan::DoFlush() {
 		params.allowSeparateAlphaClear = false;
 		params.provokeFlatFirst = true;
 
+		// Update viewport width & height before ST.
+		if (gstate_c.IsDirty(DIRTY_VIEWPORTSCISSOR_STATE)) {
+			gstate_c.vpWidth = gstate.getViewportXScale() * 2.0f;
+			gstate_c.vpHeight = gstate.getViewportYScale() * 2.0f;
+		}
+
 		int maxIndex = indexGen.MaxIndex();
 		SoftwareTransform(
 			prim, indexGen.VertexCount(),
