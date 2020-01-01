@@ -910,7 +910,9 @@ int main(int argc, char *argv[]) {
 					if (!name) {
 						break;
 					}
-					if (g_Config.bAutoAudioDevice || g_Config.sAudioDevice == name) {
+					// Don't start auto switching for a second, because some devices init on start.
+					bool doAutoSwitch = g_Config.bAutoAudioDevice && framecount > 60;
+					if (doAutoSwitch || g_Config.sAudioDevice == name) {
 						StopSDLAudioDevice();
 						InitSDLAudioDevice(name ? name : "");
 					}
