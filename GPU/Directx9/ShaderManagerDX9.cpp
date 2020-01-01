@@ -327,8 +327,9 @@ void ShaderManagerDX9::VSUpdateUniforms(u64 dirtyUniforms) {
 		Matrix4x4 flippedMatrix;
 		memcpy(&flippedMatrix, gstate.projMatrix, 16 * sizeof(float));
 
-		const bool invertedY = gstate_c.vpHeight < 0;
-		if (!invertedY) {
+		// Invert value because d3d uses a different coordinate system from opengl.
+		const bool invertedY = !(gstate_c.vpHeight < 0);
+		if (invertedY) {
 			flippedMatrix[1] = -flippedMatrix[1];
 			flippedMatrix[5] = -flippedMatrix[5];
 			flippedMatrix[9] = -flippedMatrix[9];
@@ -342,7 +343,7 @@ void ShaderManagerDX9::VSUpdateUniforms(u64 dirtyUniforms) {
 			flippedMatrix[12] = -flippedMatrix[12];
 		}
 
-		ConvertProjMatrixToD3D(flippedMatrix, invertedX, !invertedY);
+		ConvertProjMatrixToD3D(flippedMatrix, invertedX, invertedY);
 
 		VSSetMatrix(CONST_VS_PROJ, flippedMatrix.getReadPtr());
 	}

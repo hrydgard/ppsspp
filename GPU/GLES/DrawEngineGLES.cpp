@@ -562,21 +562,17 @@ rotateVBO:
 		if (vertexCount > 0x10000 / 3)
 			vertexCount = 0x10000 / 3;
 #endif
-		// Update viewport width & height before ST.
-		if (gstate_c.IsDirty(DIRTY_VIEWPORTSCISSOR_STATE)) {
-			gstate_c.vpWidth = gstate.getViewportXScale() * 2.0f;
-			gstate_c.vpHeight = gstate.getViewportYScale() * 2.0f;
-		}
+		if (textureNeedsApply)
+			textureCache_->ApplyTexture();
+
+		// Should update draw state before ST.
+		ApplyDrawState(prim);
 
 		SoftwareTransform(
 			prim, vertexCount,
 			dec_->VertexType(), inds, GE_VTYPE_IDX_16BIT, dec_->GetDecVtxFmt(),
 			maxIndex, drawBuffer, numTrans, drawIndexed, &params, &result);
 
-		if (textureNeedsApply)
-			textureCache_->ApplyTexture();
-
-		ApplyDrawState(prim);
 		ApplyDrawStateLate(result.setStencil, result.stencilValue);
 
 		LinkedShader *program = shaderManager_->ApplyFragmentShader(vsid, vshader, lastVType_, prim);
