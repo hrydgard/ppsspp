@@ -496,8 +496,10 @@ static u32 sceUmdGetErrorStat()
 
 void __UmdReplace(std::string filepath) {
 	char *error = "";
-	if (!UmdReplace(filepath, error))
+	if (!UmdReplace(filepath, error)) {
 		ERROR_LOG(SCEIO, "UMD Replace failed: %s", error);
+		return;
+	}
 
 	UMDInserted = false;
 	CoreTiming::ScheduleEvent(usToCycles(200*1000), umdInsertChangeEvent, 0); // Wait sceUmdCheckMedium call
