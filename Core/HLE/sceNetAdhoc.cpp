@@ -55,7 +55,7 @@ bool networkInited;
 
 static bool netAdhocMatchingInited;
 int netAdhocMatchingStarted = 0;
-int adhocDefaultTimeout = 5000;
+int adhocDefaultTimeout = 2000;
 int adhocEventPollDelayMS = 10;
 int adhocMatchingEventDelayMS = 100;
 int adhocEventDelayMS = 500; // This will affect the duration of "Connecting..." dialog/message box in .Hack//Link and Naruto Ultimate Ninja Heroes 3
@@ -3876,7 +3876,7 @@ void __NetTriggerCallbacks()
 				__KernelDirectMipsCall(it->second.entryPoint, after, args, 3, true);
 			}
 			adhocctlEvents.pop_front();
-			delayus = (adhocEventDelayMS + adhocEventPollDelayMS) * 1000; //Added an extra delay to prevent I/O Timing method from causing disconnection
+			delayus = (adhocEventDelayMS + 4*adhocEventPollDelayMS) * 1000; //Added an extra delay to prevent I/O Timing method from causing disconnection
 		}
 	}
 
@@ -3921,7 +3921,7 @@ void __NetMatchingCallbacks()
 			SetMatchingInCallback(context, true);
 			__KernelDirectMipsCall(args[5], after, args, 5, true);
 			matchingEvents.pop_front();
-			delayus = (adhocMatchingEventDelayMS + adhocEventPollDelayMS) * 1000; //Added an extra delay to prevent I/O Timing method from causing disconnection
+			delayus = (adhocMatchingEventDelayMS + 4*adhocEventPollDelayMS) * 1000; //Added an extra delay to prevent I/O Timing method from causing disconnection
 		}
 	}
 
