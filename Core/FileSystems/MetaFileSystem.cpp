@@ -270,8 +270,7 @@ std::string MetaFileSystem::NormalizePrefix(std::string prefix) const {
 	return prefix;
 }
 
-void MetaFileSystem::Mount(std::string prefix, IFileSystem *system)
-{
+void MetaFileSystem::Mount(std::string prefix, IFileSystem *system) {
 	std::lock_guard<std::recursive_mutex> guard(lock);
 	MountPoint x;
 	x.prefix = prefix;
@@ -279,8 +278,7 @@ void MetaFileSystem::Mount(std::string prefix, IFileSystem *system)
 	fileSystems.push_back(x);
 }
 
-void MetaFileSystem::Unmount(std::string prefix, IFileSystem *system)
-{
+void MetaFileSystem::Unmount(std::string prefix, IFileSystem *system) {
 	std::lock_guard<std::recursive_mutex> guard(lock);
 	MountPoint x;
 	x.prefix = prefix;
@@ -288,10 +286,13 @@ void MetaFileSystem::Unmount(std::string prefix, IFileSystem *system)
 	fileSystems.erase(std::remove(fileSystems.begin(), fileSystems.end(), x), fileSystems.end());
 }
 
-void MetaFileSystem::Remount(IFileSystem *oldSystem, IFileSystem *newSystem) {
-	for (auto it = fileSystems.begin(); it != fileSystems.end(); ++it) {
-		if (it->system == oldSystem) {
-			it->system = newSystem;
+void MetaFileSystem::Remount(std::string prefix, IFileSystem *newSystem, bool delOldSystem) {
+	std::lock_guard<std::recursive_mutex> guard(lock);
+	for (auto &it : fileSystems) {
+		if (it.prefix == prefix) {
+			if (delOldSystem)
+				delete it.system;
+			it.system = newSystem;
 		}
 	}
 }

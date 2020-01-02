@@ -83,7 +83,7 @@ void InitMemoryForGameISO(FileLoader *fileLoader) {
 
 	IFileSystem *fileSystem = nullptr;
 	IFileSystem *blockSystem = nullptr;
-	bool actualIso = false;
+	//bool actualIso = false;
 	if (fileLoader->IsDirectory()) {
 		fileSystem = new VirtualDiscFileSystem(&pspFileSystem, fileLoader->Path());
 		blockSystem = fileSystem;
@@ -142,6 +142,40 @@ void InitMemoryForGameISO(FileLoader *fileLoader) {
 	if (g_RemasterMode) {
 		INFO_LOG(LOADER, "HDRemaster found, using increased memory");
 	}
+}
+
+bool ReInitMemoryForGameISO(FileLoader *fileLoader) {
+	if (!fileLoader->Exists()) {
+		return false;
+	}
+
+	IFileSystem *fileSystem = nullptr;
+	IFileSystem *blockSystem = nullptr;
+
+	if (fileLoader->IsDirectory()) {
+		fileSystem = new VirtualDiscFileSystem(&pspFileSystem, fileLoader->Path());
+		blockSystem = fileSystem;
+	}
+	else {
+		auto bd = constructBlockDevice(fileLoader);
+		if (!bd)
+			return false;
+
+		ISOFileSystem *iso = new ISOFileSystem(&pspFileSystem, bd);
+		fileSystem = iso;
+		blockSystem = new ISOBlockSystem(iso);
+	}
+
+	if (pspFileSystem.GetSystem("disc0:") != pspFileSystem.GetSystem("umd0:")) {
+		// We mounted an ISO block system separately.
+		pspFileSystem.Remount("umd0:", blockSystem, false);
+		pspFileSystem.Remount("umd1:", blockSystem, false);
+		pspFileSystem.Remount("umd:", blockSystem);
+	}
+	
+	pspFileSystem.Remount("disc0:", fileSystem);
+	
+	return true;
 }
 
 void InitMemoryForGamePBP(FileLoader *fileLoader) {
