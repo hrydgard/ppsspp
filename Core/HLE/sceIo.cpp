@@ -295,8 +295,11 @@ public:
 
 u64 __IoCompleteAsyncIO(FileNode *f);
 
-static void IoAsyncCleanupThread(int fd, bool force = false) {
-	if (asyncThreads[fd] && (asyncThreads[fd]->Stopped() || force)) {
+static void IoAsyncCleanupThread(int fd) {
+	if (asyncThreads[fd]) {
+		if (!asyncThreads[fd]->Stopped()) {
+			asyncThreads[fd]->Terminate();
+		}
 		delete asyncThreads[fd];
 		asyncThreads[fd] = nullptr;
 	}
@@ -438,8 +441,6 @@ static void __IoAsyncNotify(u64 userdata, int cyclesLate) {
 		if (f->closePending) {
 			__IoFreeFd(fd, error);
 		}
-
-		IoAsyncCleanupThread(fd);
 	}
 }
 
@@ -488,8 +489,6 @@ static void __IoSyncNotify(u64 userdata, int cyclesLate) {
 
 	HLEKernel::ResumeFromWait(threadID, WAITTYPE_IO, fd, result);
 	f->waitingSyncThreads.erase(std::remove(f->waitingSyncThreads.begin(), f->waitingSyncThreads.end(), threadID), f->waitingSyncThreads.end());
-
-	IoAsyncCleanupThread(fd);
 }
 
 static void __IoAsyncBeginCallback(SceUID threadID, SceUID prevCallbackId) {
@@ -778,12 +777,20 @@ u32 __IoGetFileHandleFromId(u32 id, u32 &outError)
 }
 
 static void IoStartAsyncThread(int id, FileNode *f) {
-	IoAsyncCleanupThread(id, true);
-	int priority = asyncParams[id].priority == -1 ? asyncDefaultPriority : asyncParams[id].priority;
-	if (priority == -1)
-		priority = KernelCurThreadPriority();
-	asyncThreads[id] = new HLEHelperThread("SceIoAsync", "IoFileMgrForUser", "__IoAsyncFinish", priority, 0x200);
-	asyncThreads[id]->Start(id, 0);
+	if (asyncThreads[id] && !asyncThreads[id]->Stopped()) {
+		// Wake the thread up.
+		if (asyncParams[id].priority == -1 && sceKernelGetCompiledSdkVersion() >= 0x04020000) {
+			asyncThreads[id]->ChangePriority(KernelCurThreadPriority());
+		}
+		asyncThreads[id]->Resume(WAITTYPE_ASYNCIO, id, 0);
+	} else {
+		IoAsyncCleanupThread(id);
+		int priority = asyncParams[id].priority;
+		if (priority == -1)
+			priority = KernelCurThreadPriority();
+		asyncThreads[id] = new HLEHelperThread("SceIoAsync", "IoFileMgrForUser", "__IoAsyncFinish", priority, 0x200);
+		asyncThreads[id]->Start(id, 0);
+	}
 	f->pendingAsyncResult = true;
 }
 
@@ -1491,7 +1498,7 @@ static u32 sceIoOpen(const char *filename, int flags, int mode) {
 		return id;
 	} else {
 		DEBUG_LOG(SCEIO, "%i=sceIoOpen(%s, %08x, %08x)", id, filename, flags, mode);
-		asyncParams[id].priority = -1;
+		asyncParams[id].priority = asyncDefaultPriority;
 		// Timing is not accurate, aiming low for now.
 		return hleDelayResult(id, "file opened", 100);
 	}
@@ -1984,6 +1991,9 @@ static int sceIoChangeAsyncPriority(int id, int priority) {
 	}
 
 	if (asyncThreads[id] && !asyncThreads[id]->Stopped()) {
+		if (priority == -1) {
+			priority = KernelCurThreadPriority();
+		}
 		asyncThreads[id]->ChangePriority(priority);
 	}
 
@@ -2101,7 +2111,6 @@ static u32 sceIoGetAsyncStat(int id, u32 poll, u32 address) {
 			DEBUG_LOG(SCEIO, "%lli = sceIoGetAsyncStat(%i, %i, %08x)", f->asyncResult, id, poll, address);
 			Memory::Write_U64((u64) f->asyncResult, address);
 			f->hasAsyncResult = false;
-			IoAsyncCleanupThread(id);
 
 			if (f->closePending) {
 				__IoFreeFd(id, error);
@@ -2139,7 +2148,6 @@ static int sceIoWaitAsync(int id, u32 address) {
 			}
 			Memory::Write_U64((u64) f->asyncResult, address);
 			f->hasAsyncResult = false;
-			IoAsyncCleanupThread(id);
 
 			if (f->closePending) {
 				__IoFreeFd(id, error);
@@ -2173,7 +2181,6 @@ static int sceIoWaitAsyncCB(int id, u32 address) {
 		} else if (f->hasAsyncResult) {
 			Memory::Write_U64((u64) f->asyncResult, address);
 			f->hasAsyncResult = false;
-			IoAsyncCleanupThread(id);
 
 			if (f->closePending) {
 				__IoFreeFd(id, error);
@@ -2197,7 +2204,6 @@ static u32 sceIoPollAsync(int id, u32 address) {
 		} else if (f->hasAsyncResult) {
 			Memory::Write_U64((u64) f->asyncResult, address);
 			f->hasAsyncResult = false;
-			IoAsyncCleanupThread(id);
 
 			if (f->closePending) {
 				__IoFreeFd(id, error);
@@ -2671,6 +2677,8 @@ static int IoAsyncFinish(int id) {
 	if (f) {
 		// Reset this so the Io funcs don't reject the request.
 		f->pendingAsyncResult = false;
+		// Reset the PC back so we will run again on resume.
+		currentMIPS->pc = asyncThreads[id]->Entry();
 
 		auto &params = asyncParams[id];
 
@@ -2732,6 +2740,7 @@ static int IoAsyncFinish(int id) {
 
 		__IoSchedAsync(f, id, us);
 		__KernelWaitCurThread(WAITTYPE_ASYNCIO, id, 0, 0, false, "async io");
+		hleSkipDeadbeef();
 
 		params.op = IoAsyncOp::NONE;
 		return 0;
