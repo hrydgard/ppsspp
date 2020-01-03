@@ -21,10 +21,8 @@
 #include "Common/ChunkFile.h"
 
 struct ThreadQueueList {
-	// 
-	static const int INDEX_OFFSET = 1;
 	// Number of queues (number of priority levels starting at 0.)
-	static const int NUM_QUEUES = 128 + INDEX_OFFSET;
+	static const int NUM_QUEUES = 128;
 	// Initial number of threads a single queue can handle.
 	static const int INITIAL_CAPACITY = 32;
 
@@ -59,9 +57,6 @@ struct ThreadQueueList {
 	~ThreadQueueList() {
 		clear();
 	}
-	inline int getQueueIdxwithOffset(u32 priority) {
-		return priority + INDEX_OFFSET;
-	}
 
 	// Only for debugging, returns priority level.
 	int contains(const SceUID uid) {
@@ -72,7 +67,7 @@ struct ThreadQueueList {
 			Queue *cur = &queues[i];
 			for (int j = cur->first; j < cur->end; ++j) {
 				if (cur->data[j] == uid)
-					return i - INDEX_OFFSET;
+					return i;
 			}
 		}
 
@@ -94,7 +89,7 @@ struct ThreadQueueList {
 	inline SceUID pop_first_better(u32 priority) {
 		Queue *cur = first;
 		// Don't bother looking past (worse than) this priority.
-		Queue *stop = &queues[getQueueIdxwithOffset(priority)];
+		Queue *stop = &queues[priority];
 		while (cur < stop) {
 			if (cur->size() > 0)
 				return cur->data[cur->first++];
@@ -116,7 +111,7 @@ struct ThreadQueueList {
 	}
 
 	inline void push_front(u32 priority, const SceUID threadID) {
-		Queue *cur = &queues[getQueueIdxwithOffset(priority)];
+		Queue *cur = &queues[priority];
 		cur->data[--cur->first] = threadID;
 		// If we ran out of room toward the front, add more room for next time.
 		if (cur->first == 0)
@@ -124,14 +119,14 @@ struct ThreadQueueList {
 	}
 
 	inline void push_back(u32 priority, const SceUID threadID) {
-		Queue *cur = &queues[getQueueIdxwithOffset(priority)];
+		Queue *cur = &queues[priority];
 		cur->data[cur->end++] = threadID;
 		if (cur->full())
 			rebalance(priority);
 	}
 
 	inline void remove(u32 priority, const SceUID threadID) {
-		Queue *cur = &queues[getQueueIdxwithOffset(priority)];
+		Queue *cur = &queues[priority];
 		_dbg_assert_msg_(SCEKERNEL, cur->next != nullptr, "ThreadQueueList::Queue should already be linked up.");
 
 		for (int i = cur->first; i < cur->end; ++i) {
@@ -152,7 +147,7 @@ struct ThreadQueueList {
 	}
 
 	inline void rotate(u32 priority) {
-		Queue *cur = &queues[getQueueIdxwithOffset(priority)];
+		Queue *cur = &queues[priority];
 		_dbg_assert_msg_(SCEKERNEL, cur->next != nullptr, "ThreadQueueList::Queue should already be linked up.");
 
 		if (cur->size() > 1) {
@@ -172,13 +167,13 @@ struct ThreadQueueList {
 		first = invalid();
 	}
 
-	inline bool empty(u32 priority) {
-		const Queue *cur = &queues[getQueueIdxwithOffset(priority)];
+	inline bool empty(u32 priority) const {
+		const Queue *cur = &queues[priority];
 		return cur->empty();
 	}
 
 	inline void prepare(u32 priority) {
-		Queue *cur = &queues[getQueueIdxwithOffset(priority)];
+		Queue *cur = &queues[priority];
 		if (cur->next == nullptr)
 			link(priority, INITIAL_CAPACITY);
 	}
@@ -227,7 +222,7 @@ private:
 
 	// Initialize a priority level and link to other queues.
 	void link(u32 priority, int size) {
-		_dbg_assert_msg_(SCEKERNEL, queues[getQueueIdxwithOffset(priority)].data == nullptr, "ThreadQueueList::Queue should only be initialized once.");
+		_dbg_assert_msg_(SCEKERNEL, queues[priority].data == nullptr, "ThreadQueueList::Queue should only be initialized once.");
 
 		// Make sure we stay a multiple of INITIAL_CAPACITY.
 		if (size <= INITIAL_CAPACITY)
@@ -240,19 +235,19 @@ private:
 		}
 
 		// Allocate the queue.
-		Queue *cur = &queues[getQueueIdxwithOffset(priority)];
+		Queue *cur = &queues[priority];
 		cur->data = (SceUID *)malloc(sizeof(SceUID) * size);
 		cur->capacity = size;
 		// Start smack in the middle so it can move both directions.
 		cur->first = size / 2;
 		cur->end = size / 2;
 
-		for (int i = (int)priority - 1; i >= -1; --i) {
+		for (int i = (int)priority - 1; i >= 0; --i) {
 			// This queue is before ours, and points past us.
 			// We'll have it point to our new queue, inserting into the chain.
-			if (queues[getQueueIdxwithOffset(i)].next != nullptr) {
-				cur->next = queues[getQueueIdxwithOffset(i)].next;
-				queues[getQueueIdxwithOffset(i)].next = cur;
+			if (queues[i].next != nullptr) {
+				cur->next = queues[i].next;
+				queues[i].next = cur;
 				return;
 			}
 		}
@@ -265,7 +260,7 @@ private:
 
 	// Move or allocate as necessary to maintain free space on both sides.
 	void rebalance(u32 priority) {
-		Queue *cur = &queues[getQueueIdxwithOffset(priority)];
+		Queue *cur = &queues[priority];
 		int size = cur->size();
 		// Basically full.  Time for a larger queue?
 		if (size >= cur->capacity - 2) {

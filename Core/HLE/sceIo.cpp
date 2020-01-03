@@ -1967,7 +1967,7 @@ static u32 sceIoChdir(const char *dirname) {
 }
 
 static int sceIoChangeAsyncPriority(int id, int priority) {
-	// priority = -1 is valid
+	// priority = -1 is valid,means the current thread'priority
 	if (priority != -1 && (priority < 0x08 || priority > 0x77)) {
 		return hleLogError(SCEIO, SCE_KERNEL_ERROR_ILLEGAL_PRIORITY, "illegal priority %d", priority);
 	}
@@ -1976,6 +1976,9 @@ static int sceIoChangeAsyncPriority(int id, int priority) {
 		asyncDefaultPriority = priority;
 		return hleLogSuccessI(SCEIO, 0);
 	}
+
+	if (priority == -1)
+		priority = KernelCurThreadPriority();
 
 	u32 error;
 	FileNode *f = __IoGetFd(id, error);

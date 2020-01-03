@@ -380,7 +380,11 @@ bool UmdReplace(std::string filepath, char *error) {
 	case IdentifiedFileType::PSP_ISO:
 	case IdentifiedFileType::PSP_ISO_NP:
 	case IdentifiedFileType::PSP_DISC_DIRECTORY:
-		ReInitMemoryForGameISO(loadedFile);
+		if (!ReInitMemoryForGameISO(loadedFile)) {
+			error = "reinit memory failed";
+			return false;
+		}
+
 		break;
 	default:
 		sprintf(error, "Unsupported file type: %i", type);
