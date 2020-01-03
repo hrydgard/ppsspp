@@ -16,9 +16,11 @@
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
 #include "Common/ChunkFile.h"
+#include "Core/CoreTiming.h"
 #include "Core/MemMapHelpers.h"
 #include "Core/HLE/HLE.h"
 #include "Core/HLE/HLEHelperThread.h"
+#include "Core/HLE/KernelWaitHelpers.h"
 #include "Core/HLE/sceKernelThread.h"
 #include "Core/HLE/sceKernelMemory.h"
 #include "Core/MIPS/MIPSCodeUtils.h"
@@ -89,6 +91,13 @@ bool HLEHelperThread::Stopped() {
 
 void HLEHelperThread::ChangePriority(u32 prio) {
 	KernelChangeThreadPriority(id_, prio);
+}
+
+void HLEHelperThread::Resume(WaitType waitType, SceUID uid, int result) {
+	bool res = HLEKernel::ResumeFromWait(id_, waitType, uid, result);
+	if (!res) {
+		ERROR_LOG(HLE, "Failed to wake helper thread from wait");
+	}
 }
 
 void HLEHelperThread::Forget() {
