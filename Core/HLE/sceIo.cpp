@@ -1265,17 +1265,14 @@ static u32 sceIoGetDevType(int id) {
 
 static u32 sceIoCancel(int id)
 {
-	ERROR_LOG_REPORT(SCEIO, "UNIMPL sceIoCancel(%d)", id);
 	u32 error;
 	FileNode *f = __IoGetFd(id, error);
 	if (f) {
-		// TODO: Cancel the async operation if possible?
+		// It seems like this is unsupported for UMDs and memory sticks, based on tests.
+		return hleReportError(SCEIO, SCE_KERNEL_ERROR_UNSUP, "unimplemented or unsupported");
 	} else {
-		ERROR_LOG(SCEIO, "sceIoCancel: unknown id %d", id);
-		error = SCE_KERNEL_ERROR_BADF;
+		return hleLogError(SCEIO, SCE_KERNEL_ERROR_BADF, "invalid fd");
 	}
-
-	return error;
 }
 
 static u32 npdrmLseek(FileNode *f, s32 where, FileMove whence)
