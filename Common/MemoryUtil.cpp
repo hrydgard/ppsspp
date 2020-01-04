@@ -118,6 +118,10 @@ static void *SearchForFreeMem(size_t size) {
 // This is purposely not a full wrapper for virtualalloc/mmap, but it
 // provides exactly the primitive operations that PPSSPP needs.
 
+#if PPSSPP_PLATFORM(MAC)
+#undef MAP_32BIT
+#endif
+
 void *AllocateExecutableMemory(size_t size) {
 #if defined(_WIN32)
 	void *ptr = nullptr;
@@ -193,7 +197,7 @@ void *AllocateExecutableMemory(size_t size) {
 
 	if (ptr == failed_result) {
 		ptr = nullptr;
-		ERROR_LOG(MEMMAP, "Failed to allocate executable memory (%d)", (int)size);
+		ERROR_LOG(MEMMAP, "Failed to allocate executable memory (%d) errno=%d", (int)size, errno);
 		PanicAlert("Failed to allocate executable memory\n%s", GetLastErrorMsg());
 	}
 #if defined(_M_X64) && !defined(_WIN32) && !defined(MAP_32BIT)
