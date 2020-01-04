@@ -1683,7 +1683,7 @@ static int sceNetAdhocGetPdpStat(u32 structSize, u32 structAddr) {
 
 					// Link Previous Element
 					if (i > 0) 
-						buf[i - 1].next = structAddr + ((i - 1) * sizeof(SceNetAdhocPdpStat)) + sizeof(SceNetAdhocPdpStat); //buf[i - 1].next = &buf[i];
+						buf[i - 1].next = structAddr + ((i - 1LL) * sizeof(SceNetAdhocPdpStat)) + sizeof(SceNetAdhocPdpStat);
 
 					// Increment Counter
 					i++;
@@ -1759,7 +1759,7 @@ static int sceNetAdhocGetPtpStat(u32 structSize, u32 structAddr) {
 					
 					// Link previous Element to this one
 					if (i > 0)
-						buf[i - 1].next = structAddr + ((i - 1) * sizeof(SceNetAdhocPtpStat)) + sizeof(SceNetAdhocPtpStat);
+						buf[i - 1].next = structAddr + ((i - 1LL) * sizeof(SceNetAdhocPtpStat)) + sizeof(SceNetAdhocPtpStat);
 					
 					// Increment Counter
 					i++;
@@ -4302,7 +4302,7 @@ void broadcastHelloMessage(SceNetAdhocMatchingContext * context)
 
 	// Allocate Hello Message Buffer, reuse when necessary
 	if ((int32_t)context->hellolen > len) {
-		uint8_t* tmp = (uint8_t *)realloc(hello, 5 + context->hellolen);
+		uint8_t* tmp = (uint8_t *)realloc(hello, 5LL + context->hellolen);
 		if (tmp != NULL) {
 			hello = tmp;
 			len = context->hellolen;
@@ -4356,7 +4356,7 @@ void sendAcceptPacket(SceNetAdhocMatchingContext * context, SceNetEtherAddr * ma
 		int siblingcount = siblingbuflen / sizeof(SceNetEtherAddr);
 
 		// Allocate Accept Message Buffer
-		uint8_t * accept = (uint8_t *)malloc(9 + (uint32_t)optlen + siblingbuflen);
+		uint8_t * accept = (uint8_t *)malloc(9LL + optlen + siblingbuflen);
 
 		// Allocated Accept Message Buffer
 		if (accept != NULL)
@@ -4428,7 +4428,7 @@ void sendJoinPacket(SceNetAdhocMatchingContext * context, SceNetEtherAddr * mac,
 	if (peer != NULL && peer->state == PSP_ADHOC_MATCHING_PEER_OUTGOING_REQUEST)
 	{
 		// Allocate Join Message Buffer
-		uint8_t * join = (uint8_t *)malloc(5 + optlen);
+		uint8_t * join = (uint8_t *)malloc(5LL + optlen);
 
 		// Allocated Join Message Buffer
 		if (join != NULL)
@@ -4463,7 +4463,7 @@ void sendJoinPacket(SceNetAdhocMatchingContext * context, SceNetEtherAddr * mac,
 void sendCancelPacket(SceNetAdhocMatchingContext * context, SceNetEtherAddr * mac, int optlen, void * opt)
 {
 	// Allocate Cancel Message Buffer
-	uint8_t * cancel = (uint8_t *)malloc(5 + optlen);
+	uint8_t * cancel = (uint8_t *)malloc(5LL + optlen);
 
 	// Allocated Cancel Message Buffer
 	if (cancel != NULL)
@@ -4525,7 +4525,7 @@ void sendBulkDataPacket(SceNetAdhocMatchingContext * context, SceNetEtherAddr * 
 		//if (peer->sending == 0) return;
 
 		// Allocate Send Message Buffer
-		uint8_t * send = (uint8_t *)malloc(5 + datalen);
+		uint8_t * send = (uint8_t *)malloc(5LL + datalen);
 
 		// Allocated Send Message Buffer
 		if (send != NULL)
@@ -4869,7 +4869,7 @@ void actOnAcceptPacket(SceNetAdhocMatchingContext * context, SceNetEtherAddr * s
 				int siblingcount = 0; memcpy(&siblingcount, context->rxbuf + 5, sizeof(siblingcount));
 
 				// Complete Valid Packet available
-				if (optlen >= 0 && length >= (9 + optlen + sizeof(SceNetEtherAddr) * siblingcount))
+				if (optlen >= 0 && length >= (9LL + optlen + static_cast<long long>(sizeof(SceNetEtherAddr)) * siblingcount))
 				{
 					// Set Default Null Data
 					void * opt = NULL;
