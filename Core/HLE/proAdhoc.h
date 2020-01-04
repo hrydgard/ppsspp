@@ -1163,6 +1163,11 @@ int getSockBufferSize(int sock, int opt);
 */
 int setSockBufferSize(int sock, int opt, int size);
 
+/*
+* Set Socket KeepAlive (opt = SO_KEEPALIVE)
+*/
+int setSockKeepAlive(int sock, bool keepalive, const int keepcnt = 20, const int keepidle = 180, const int keepinvl = 60);
+
 /**
 * Return the Number of Players with the chosen Nickname in the Local Users current Network
 * @param nickname To-be-searched Nickname

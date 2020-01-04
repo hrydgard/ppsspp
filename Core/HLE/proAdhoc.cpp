@@ -23,6 +23,7 @@
 
 #if !defined(_WIN32)
 #include <unistd.h>
+#include <netinet/tcp.h>
 #endif
 
 #include <cstring>
@@ -1562,6 +1563,24 @@ int setSockBufferSize(int sock, int opt, int size) { // opt = SO_RCVBUF/SO_SNDBU
 	return setsockopt(sock, SOL_SOCKET, opt, (char *)&n, sizeof(n));
 }
 
+int setSockKeepAlive(int sock, bool keepalive, const int keepcnt, const int keepidle, const int keepinvl) {
+	int optval = keepalive ? 1 : 0;
+	int optlen = sizeof(optval);
+	int result = setsockopt(sock, SOL_SOCKET, SO_KEEPALIVE, (char*)&optval, optlen);
+	if (result == 0 && keepalive) {
+		if (getsockopt(sock, SOL_SOCKET, SO_TYPE, (char*)&optval, (socklen_t*)&optlen) == 0 && optval == SOCK_STREAM) {
+			optlen = sizeof(optval);
+			optval = keepcnt; //20
+			setsockopt(sock, IPPROTO_TCP, TCP_KEEPCNT, (char*)&optval, optlen);
+			optval = keepidle; //180
+			setsockopt(sock, IPPROTO_TCP, TCP_KEEPIDLE, (char*)&optval, optlen);
+			optval = keepinvl; //60
+			setsockopt(sock, IPPROTO_TCP, TCP_KEEPINTVL, (char*)&optval, optlen);
+		}
+	}
+	return result;
+}
+
 /**
 * Return the Number of Players with the chosen Nickname in the Local Users current Network
 * @param nickname To-be-searched Nickname
@@ -1625,6 +1644,8 @@ int initNetwork(SceNetAdhocctlAdhocId *adhoc_id){
 		ERROR_LOG(SCENET, "Invalid socket");
 		return SOCKET_ERROR;
 	}
+	setSockKeepAlive(metasocket, true);
+
 	struct sockaddr_in server_addr;
 	server_addr.sin_family = AF_INET;
 	server_addr.sin_port = htons(SERVER_PORT); //27312 // Maybe read this from config too

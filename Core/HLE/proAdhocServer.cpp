@@ -1724,6 +1724,19 @@ void enable_address_reuse(int fd)
 }
 
 /**
+ * Enable KeepAlive on Socket
+ * @param fd Socket
+ */
+void enable_keepalive(int fd)
+{
+	// Enable Value
+	int on = 1;
+
+	// Enable Port Reuse
+	setsockopt(fd, SOL_SOCKET, SO_KEEPALIVE, (const char*)&on, sizeof(on));
+}
+
+/**
  * Change Socket Blocking Mode
  * @param fd Socket
  * @param nonblocking 1 for Nonblocking, 0 for Blocking
@@ -1770,6 +1783,9 @@ int create_listen_socket(uint16_t port)
 	// Created Socket
 	if(fd != -1)
 	{
+		// Enable KeepAlive
+		enable_keepalive(fd);
+
 		// Enable Address Reuse
 		enable_address_reuse(fd); // Shouldn't Reuse the port for built-in AdhocServer to prevent conflict with Dedicated AdhocServer
 
