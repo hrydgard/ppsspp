@@ -284,10 +284,18 @@ bool Load_PSP_ISO(FileLoader *fileLoader, std::string *error_string) {
 
 static std::string NormalizePath(const std::string &path) {
 #ifdef _WIN32
-	wchar_t buf[512] = {0};
 	std::wstring wpath = ConvertUTF8ToWString(path);
-	if (GetFullPathName(wpath.c_str(), (int)ARRAY_SIZE(buf) - 1, buf, NULL) == 0)
-		return "";
+	std::wstring buf;
+	buf.resize(512);
+	size_t sz = GetFullPathName(wpath.c_str(), (DWORD)buf.size(), &buf[0], nullptr);
+	if (sz != 0 && sz < buf.size()) {
+		buf.resize(sz);
+	} else if (sz > buf.size()) {
+		buf.resize(sz);
+		sz = GetFullPathName(wpath.c_str(), (DWORD)buf.size(), &buf[0], nullptr);
+		// This should truncate off the null terminator.
+		buf.resize(sz);
+	}
 	return ConvertWStringToUTF8(buf);
 #else
 	char buf[PATH_MAX + 1];

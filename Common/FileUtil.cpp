@@ -792,12 +792,23 @@ const std::string &GetExeDirectory()
 
 	if (ExePath.empty()) {
 #ifdef _WIN32
-		TCHAR program_path[4096] = {0};
-		GetModuleFileName(NULL, program_path, ARRAY_SIZE(program_path) - 1);
-		program_path[ARRAY_SIZE(program_path) - 1] = '\0';
-		TCHAR *last_slash = _tcsrchr(program_path, '\\');
-		if (last_slash != NULL)
-			*(last_slash + 1) = '\0';
+#ifdef UNICODE
+		std::wstring program_path;
+#else
+		std::string program_path;
+#endif
+		size_t sz;
+		do {
+			program_path.resize(program_path.size() + MAX_PATH);
+			// On failure, this will return the same value as passed in, but success will always be one lower.
+			sz = GetModuleFileName(nullptr, &program_path[0], (DWORD)program_path.size());
+		} while (sz >= program_path.size());
+
+		TCHAR *last_slash = _tcsrchr(&program_path[0], '\\');
+		if (last_slash != nullptr)
+			program_path.resize(last_slash - &program_path[0] + 1);
+		else
+			program_path.resize(sz);
 #ifdef UNICODE
 		ExePath = ConvertWStringToUTF8(program_path);
 #else
