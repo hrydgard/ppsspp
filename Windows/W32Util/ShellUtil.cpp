@@ -33,7 +33,7 @@ namespace W32Util
 		auto idList = SHBrowseForFolder(&info);
 		HMODULE shell32 = GetModuleHandle(L"shell32.dll");
 		typedef BOOL (WINAPI *SHGetPathFromIDListEx_f)(PCIDLIST_ABSOLUTE pidl, PWSTR pszPath, DWORD cchPath, GPFIDL_FLAGS uOpts);
-		SHGetPathFromIDListEx_f SHGetPathFromIDListEx_= (SHGetPathFromIDListEx_f)GetProcAddress(shell32, "SHGetPathFromIDListEx");
+		SHGetPathFromIDListEx_f SHGetPathFromIDListEx_ = (SHGetPathFromIDListEx_f)GetProcAddress(shell32, "SHGetPathFromIDListEx");
 
 		std::string result;
 		if (SHGetPathFromIDListEx_) {
@@ -150,6 +150,28 @@ namespace W32Util
 			}
 		}
 		return files;
+	}
+
+	std::string UserDocumentsPath() {
+		std::string result;
+		HMODULE shell32 = GetModuleHandle(L"shell32.dll");
+		typedef HRESULT(WINAPI *SHGetKnownFolderPath_f)(REFKNOWNFOLDERID rfid, DWORD dwFlags, HANDLE hToken, PWSTR *ppszPath);
+		SHGetKnownFolderPath_f SHGetKnownFolderPath_ = (SHGetKnownFolderPath_f)GetProcAddress(shell32, "SHGetKnownFolderPath");
+		if (SHGetKnownFolderPath_) {
+			PWSTR path = nullptr;
+			if (SHGetKnownFolderPath_(FOLDERID_Documents, 0, nullptr, &path) == S_OK) {
+				result = ConvertWStringToUTF8(path);
+			}
+			if (path)
+				CoTaskMemFree(path);
+		} else {
+			wchar_t path[MAX_PATH];
+			if (SHGetFolderPath(nullptr, CSIDL_PERSONAL, nullptr, SHGFP_TYPE_CURRENT, path) == S_OK) {
+				result = ConvertWStringToUTF8(path);
+			}
+		}
+
+		return result;
 	}
 
 	AsyncBrowseDialog::AsyncBrowseDialog(HWND parent, UINT completeMsg, std::wstring title)

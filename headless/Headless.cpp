@@ -379,6 +379,7 @@ int main(int argc, const char* argv[])
 	g_Config.iAudioLatency = 1;
 
 #ifdef _WIN32
+	g_Config.internalDataDirectory = "";
 	InitSysDirectories();
 #endif
 

@@ -493,6 +493,7 @@ int WINAPI WinMain(HINSTANCE _hInstance, HINSTANCE hPrevInstance, LPSTR szCmdLin
 
 	// On Win32 it makes more sense to initialize the system directories here 
 	// because the next place it was called was in the EmuThread, and it's too late by then.
+	g_Config.internalDataDirectory = W32Util::UserDocumentsPath();
 	InitSysDirectories();
 
 	// Load config up here, because those changes below would be overwritten
