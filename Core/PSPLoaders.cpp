@@ -165,10 +165,10 @@ bool ReInitMemoryForGameISO(FileLoader *fileLoader) {
 		blockSystem = new ISOBlockSystem(iso);
 	}
 
-		pspFileSystem.Remount("umd0:", blockSystem);
-		pspFileSystem.Remount("umd1:", blockSystem);
-		pspFileSystem.Remount("umd:", blockSystem);
-		pspFileSystem.Remount("disc0:", fileSystem);
+	pspFileSystem.Remount("umd0:", blockSystem);
+	pspFileSystem.Remount("umd1:", blockSystem);
+	pspFileSystem.Remount("umd:", blockSystem);
+	pspFileSystem.Remount("disc0:", fileSystem);
 
 	return true;
 }
