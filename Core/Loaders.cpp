@@ -356,7 +356,7 @@ bool LoadFile(FileLoader **fileLoaderPtr, std::string *error_string) {
 	return false;
 }
 
-bool UmdReplace(std::string filepath, char *error) {
+bool UmdReplace(std::string filepath, std::string &error) {
 	IFileSystem* currentUMD = pspFileSystem.GetSystem("disc0:");
 
 	if (!currentUMD) {
@@ -368,7 +368,7 @@ bool UmdReplace(std::string filepath, char *error) {
 
 	if (!loadedFile->Exists()) {
 		delete loadedFile;
-		sprintf(error, "%s doesn't exist", loadedFile->Path().c_str());
+		error = loadedFile->Path() + " doesn't exist";
 		return false;
 	}
 	UpdateLoadedFile(loadedFile);
@@ -387,7 +387,7 @@ bool UmdReplace(std::string filepath, char *error) {
 
 		break;
 	default:
-		sprintf(error, "Unsupported file type: %i", type);
+		error = "Unsupported file type:" + std::to_string((int)type);
 		return false;
 		break;
 	}

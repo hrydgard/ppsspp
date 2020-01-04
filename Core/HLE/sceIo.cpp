@@ -1977,9 +1977,6 @@ static int sceIoChangeAsyncPriority(int id, int priority) {
 		return hleLogSuccessI(SCEIO, 0);
 	}
 
-	if (priority == -1)
-		priority = KernelCurThreadPriority();
-
 	u32 error;
 	FileNode *f = __IoGetFd(id, error);
 	if (!f) {

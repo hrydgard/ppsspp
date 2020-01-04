@@ -52,7 +52,7 @@ public:
 
 	void Mount(std::string prefix, IFileSystem *system);
 	void Unmount(std::string prefix, IFileSystem *system);
-	void Remount(std::string prefix, IFileSystem *newSystem, bool delOldSystem = true);
+	void Remount(std::string prefix, IFileSystem *newSystem);
 
 	IFileSystem *GetSystem(const std::string &prefix);
 	IFileSystem *GetSystemFromFilename(const std::string &filename);

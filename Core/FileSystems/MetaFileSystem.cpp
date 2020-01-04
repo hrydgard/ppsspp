@@ -286,15 +286,25 @@ void MetaFileSystem::Unmount(std::string prefix, IFileSystem *system) {
 	fileSystems.erase(std::remove(fileSystems.begin(), fileSystems.end(), x), fileSystems.end());
 }
 
-void MetaFileSystem::Remount(std::string prefix, IFileSystem *newSystem, bool delOldSystem) {
+void MetaFileSystem::Remount(std::string prefix, IFileSystem *newSystem) {
 	std::lock_guard<std::recursive_mutex> guard(lock);
+	IFileSystem *oldSystem = nullptr;
 	for (auto &it : fileSystems) {
 		if (it.prefix == prefix) {
-			if (delOldSystem)
-				delete it.system;
+			oldSystem = it.system;
 			it.system = newSystem;
 		}
 	}
+
+	bool delOldSystem = true;
+	for (auto &it : fileSystems) {
+		if (it.system == oldSystem) {
+			delOldSystem = false;
+		}
+	}
+
+	if (delOldSystem)
+		delete oldSystem;
 }
 
 IFileSystem *MetaFileSystem::GetSystemFromFilename(const std::string &filename) {
