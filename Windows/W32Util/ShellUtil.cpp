@@ -66,7 +66,9 @@ namespace W32Util
 		ofn.nMaxFileTitle = 0;
 		ofn.lpstrDefExt = _pExtension;
 		ofn.hwndOwner = _hParent;
-		ofn.Flags = OFN_NOCHANGEDIR | OFN_EXPLORER | OFN_HIDEREADONLY;
+		ofn.Flags = OFN_NOCHANGEDIR | OFN_EXPLORER;
+		if (!_bLoad)
+			ofn.Flags |= OFN_HIDEREADONLY;
 
 		int success = _bLoad ? GetOpenFileName(&ofn) : GetSaveFileName(&ofn);
 		if (success == 0 && CommDlgExtendedError() == FNERR_BUFFERTOOSMALL) {
@@ -103,7 +105,9 @@ namespace W32Util
 		ofn.nMaxFileTitle = 0;
 		ofn.lpstrDefExt = _pExtension;
 		ofn.hwndOwner = _hParent;
-		ofn.Flags = OFN_NOCHANGEDIR | OFN_EXPLORER | OFN_HIDEREADONLY | OFN_ALLOWMULTISELECT;
+		ofn.Flags = OFN_NOCHANGEDIR | OFN_EXPLORER | OFN_ALLOWMULTISELECT;
+		if (!_bLoad)
+			ofn.Flags |= OFN_HIDEREADONLY;
 
 		std::vector<std::string> files;
 		int success = _bLoad ? GetOpenFileName(&ofn) : GetSaveFileName(&ofn);
