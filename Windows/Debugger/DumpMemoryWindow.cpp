@@ -1,11 +1,28 @@
-#include "DumpMemoryWindow.h"
-#include "../resource.h"
-#include <stdio.h>
-#include "Core/MemMap.h"
-#include "Windows/W32Util/ShellUtil.h"
+#include <algorithm>
+#include <cstdio>
+#include "util/text/utf8.h"
 #include "Core/Core.h"
+#include "Core/MemMap.h"
+#include "Windows/Debugger/DumpMemoryWindow.h"
+#include "Windows/resource.h"
+#include "Windows/W32Util/ShellUtil.h"
 
 DumpMemoryWindow* DumpMemoryWindow::bp;
+
+void DumpMemoryWindow::HandleBrowseClick(HWND hwnd) {
+	std::wstring buffer;
+	HWND filenameWnd = GetDlgItem(hwnd, IDC_DUMP_FILENAME);
+	buffer.resize(GetWindowTextLengthW(filenameWnd) + 1);
+	GetWindowTextW(filenameWnd, &buffer[0], (int)buffer.size());
+	std::string fn = ConvertWStringToUTF8(buffer);
+
+	bool result = W32Util::BrowseForFileName(false, hwnd, L"Select filename", NULL, NULL, NULL, fn);
+	if (result) {
+		filenameChosen_ = true;
+		buffer = ConvertUTF8ToWString(fn);
+		SetWindowTextW(filenameWnd, buffer.c_str());
+	}
+}
 	
 INT_PTR CALLBACK DumpMemoryWindow::dlgFunc(HWND hwnd, UINT iMsg, WPARAM wParam, LPARAM lParam)
 {
@@ -53,16 +70,7 @@ INT_PTR CALLBACK DumpMemoryWindow::dlgFunc(HWND hwnd, UINT iMsg, WPARAM wParam, 
 			switch (HIWORD(wParam))
 			{
 			case BN_CLICKED:
-				char str[MAX_PATH];
-				GetWindowTextA(GetDlgItem(hwnd,IDC_DUMP_FILENAME),str,MAX_PATH);
-				std::string fn = str;
-
-				bool result = W32Util::BrowseForFileName(false, hwnd, L"Select filename", NULL,NULL,NULL,fn);
-				if (result)
-				{
-					bp->filenameChosen = true;
-					SetWindowTextA(GetDlgItem(hwnd,IDC_DUMP_FILENAME),fn.c_str());
-				}
+				bp->HandleBrowseClick(hwnd);
 				break;
 			}
 			break;
@@ -73,10 +81,10 @@ INT_PTR CALLBACK DumpMemoryWindow::dlgFunc(HWND hwnd, UINT iMsg, WPARAM wParam, 
 				if (!PSP_IsInited())
 					break;
 
-				FILE* output = fopen(bp->fileName,"wb");
+				FILE *output = _wfopen(bp->fileName_.c_str(), L"wb");
 				if (output == NULL) {
 					char errorMessage[2048];
-					snprintf(errorMessage, sizeof(errorMessage), "Could not open file \"%s\".",bp->fileName);
+					snprintf(errorMessage, sizeof(errorMessage), "Could not open file \"%S\".", bp->fileName_.c_str());
 					MessageBoxA(hwnd,errorMessage,"Error",MB_OK);
 					break;
 				}
@@ -140,8 +148,10 @@ bool DumpMemoryWindow::fetchDialogData(HWND hwnd)
 	}
 	
 	// get filename
-	GetWindowTextA(GetDlgItem(hwnd,IDC_DUMP_FILENAME),fileName,MAX_PATH);
-	if (strlen(fileName) == 0) return false;
+	fileName_.resize(GetWindowTextLengthW(GetDlgItem(hwnd, IDC_DUMP_FILENAME)) + 1);
+	GetWindowTextW(GetDlgItem(hwnd, IDC_DUMP_FILENAME), &fileName_[0], (int)fileName_.size());
+	if (fileName_.size() == 0)
+		return false;
 
 	// now check if data makes sense...
 	bool invalidSize = false;
@@ -190,7 +200,7 @@ void DumpMemoryWindow::changeMode(HWND hwnd, Mode newMode)
 		EnableWindow(GetDlgItem(hwnd,IDC_DUMP_STARTADDRESS),TRUE);
 		EnableWindow(GetDlgItem(hwnd,IDC_DUMP_SIZE),TRUE);
 
-		if (filenameChosen == false)
+		if (filenameChosen_ == false)
 			SetWindowTextA(GetDlgItem(hwnd,IDC_DUMP_FILENAME),"Custom.dump");
 	} else {
 		u32 start, size;
@@ -223,7 +233,7 @@ void DumpMemoryWindow::changeMode(HWND hwnd, Mode newMode)
 		SetWindowTextA(GetDlgItem(hwnd,IDC_DUMP_SIZE),buffer);
 		EnableWindow(GetDlgItem(hwnd,IDC_DUMP_SIZE),FALSE);
 		
-		if (filenameChosen == false)
+		if (filenameChosen_ == false)
 			SetWindowTextA(GetDlgItem(hwnd,IDC_DUMP_FILENAME),defaultFileName);
 	}
 }
