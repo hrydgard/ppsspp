@@ -31,14 +31,30 @@ namespace W32Util
 
 		//info.pszDisplayName
 		auto idList = SHBrowseForFolder(&info);
+		HMODULE shell32 = GetModuleHandle(L"shell32.dll");
+		typedef BOOL (WINAPI *SHGetPathFromIDListEx_f)(PCIDLIST_ABSOLUTE pidl, PWSTR pszPath, DWORD cchPath, GPFIDL_FLAGS uOpts);
+		SHGetPathFromIDListEx_f SHGetPathFromIDListEx_= (SHGetPathFromIDListEx_f)GetProcAddress(shell32, "SHGetPathFromIDListEx");
 
-		wchar_t temp[MAX_PATH];
-		SHGetPathFromIDList(idList, temp);
+		std::string result;
+		if (SHGetPathFromIDListEx_) {
+			std::wstring temp;
+			do {
+				// Assume it's failing if it goes on too long.
+				if (temp.size() > 32768 * 10) {
+					temp.clear();
+					break;
+				}
+				temp.resize(temp.size() + MAX_PATH);
+			} while (SHGetPathFromIDListEx_(idList, &temp[0], (DWORD)temp.size(), GPFIDL_DEFAULT) == 0);
+			result = ConvertWStringToUTF8(temp);
+		} else {
+			wchar_t temp[MAX_PATH]{};
+			SHGetPathFromIDList(idList, temp);
+			result = ConvertWStringToUTF8(temp);
+		}
+
 		CoTaskMemFree(idList);
-		if (wcslen(temp))
-			return ConvertWStringToUTF8(temp);
-		else
-			return "";
+		return result;
 	}
 
 	//---------------------------------------------------------------------------------------------------
