@@ -2062,7 +2062,7 @@ static u32 sceIoOpenAsync(const char *filename, int flags, int mode)
 
 	auto &params = asyncParams[fd];
 	params.op = IoAsyncOp::OPEN;
-	params.priority = -1;
+	params.priority = asyncDefaultPriority;
 	params.open.filenameAddr = PARAM(0);
 	params.open.flags = flags;
 	params.open.mode = mode;
