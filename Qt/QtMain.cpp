@@ -42,7 +42,7 @@
 #include <string.h>
 
 MainUI *emugl = nullptr;
-static int refreshRate = 60000;
+static float refreshRate = 60.f;
 static int browseFileEvent = -1;
 static int browseFolderEvent = -1;
 
@@ -145,8 +145,6 @@ int System_GetPropertyInt(SystemProperty prop) {
 	switch (prop) {
 	case SYSPROP_AUDIO_SAMPLE_RATE:
 		return 44100;
-	case SYSPROP_DISPLAY_REFRESH_RATE:
-		return refreshRate;
 	case SYSPROP_DEVICE_TYPE:
 #if defined(__ANDROID__)
 		return DEVICE_TYPE_MOBILE;
@@ -166,14 +164,16 @@ int System_GetPropertyInt(SystemProperty prop) {
 	}
 }
 
-int System_GetPropertyFloat(SystemProperty prop) {
+float System_GetPropertyFloat(SystemProperty prop) {
 	switch (prop) {
+	case SYSPROP_DISPLAY_REFRESH_RATE:
+		return refreshRate;
 	case SYSPROP_DISPLAY_LOGICAL_DPI:
 		return QApplication::primaryScreen()->logicalDotsPerInch();
 	case SYSPROP_DISPLAY_DPI:
 		return QApplication::primaryScreen()->physicalDotsPerInch();
 	default:
-		return System_GetPropertyInt(prop);
+		return -1;
 	}
 }
 
@@ -645,7 +645,7 @@ int main(int argc, char *argv[])
 	dp_xres = (int)(pixel_xres * g_dpi_scale_x);
 	dp_yres = (int)(pixel_yres * g_dpi_scale_y);
 
-	refreshRate = (int)(screen->refreshRate() * 1000);
+	refreshRate = screen->refreshRate();
 
 	std::string savegame_dir = ".";
 	std::string external_dir = ".";

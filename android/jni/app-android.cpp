@@ -303,8 +303,15 @@ int System_GetPropertyInt(SystemProperty prop) {
 		return optimalSampleRate;
 	case SYSPROP_AUDIO_OPTIMAL_FRAMES_PER_BUFFER:
 		return optimalFramesPerBuffer;
+	default:
+		return -1;
+	}
+}
+
+float System_GetPropertyFloat(SystemProperty prop) {
+	switch (prop) {
 	case SYSPROP_DISPLAY_REFRESH_RATE:
-		return (int)(display_hz * 1000.0);
+		return display_hz;
 	default:
 		return -1;
 	}
@@ -682,7 +689,7 @@ extern "C" void Java_org_ppsspp_ppsspp_NativeRenderer_displayRender(JNIEnv *env,
 		hasSetThreadName = true;
 		setCurrentThreadName("AndroidRender");
 	}
-	
+
 	if (useCPUThread) {
 		// This is the "GPU thread".
 		if (graphicsContext)

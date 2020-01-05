@@ -435,8 +435,7 @@ static bool IsRunningSlow() {
 			best = std::max(fpsHistory[index], best);
 		}
 
-		// Note that SYSPROP_DISPLAY_REFRESH_RATE is multiplied by 1000.
-		return best < System_GetPropertyInt(SYSPROP_DISPLAY_REFRESH_RATE) * (1.0 / 1001.0);
+		return best < System_GetPropertyFloat(SYSPROP_DISPLAY_REFRESH_RATE) * 0.999;
 	}
 
 	return false;
@@ -510,12 +509,12 @@ static void DoFrameDropLogging(float scaledTimestep) {
 
 static int CalculateFrameSkip() {
 	int frameSkipNum;
-	if (g_Config.iFrameSkipType == 1) { 
+	if (g_Config.iFrameSkipType == 1) {
 		// Calculate the frames to skip dynamically using the set percentage of the current fps
-		frameSkipNum = ceil( flips * (static_cast<double>(g_Config.iFrameSkip) / 100.00) ); 
-	} else { 
+		frameSkipNum = ceil( flips * (static_cast<double>(g_Config.iFrameSkip) / 100.00) );
+	} else {
 		// Use the set number of frames to skip
-		frameSkipNum = g_Config.iFrameSkip; 
+		frameSkipNum = g_Config.iFrameSkip;
 	}
 	return frameSkipNum;
 }

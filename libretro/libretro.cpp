@@ -322,10 +322,10 @@ void retro_init(void) {
 	g_Config.bEnableSound = true;
 	g_Config.bAudioResampler = false;
 	g_Config.iCwCheatRefreshRate = 60;
-	
+
 	g_Config.iFirmwareVersion = PSP_DEFAULT_FIRMWARE;
 	g_Config.iPSPModel = PSP_MODEL_SLIM;
-	
+
 	LogManager::Init();
 
 	host = new LibretroHost;
@@ -730,7 +730,7 @@ bool retro_serialize(void *data, size_t size) {
 	if (useEmuThread) {
 		EmuThreadPause(); // Does nothing if already paused
 	}
-	
+
 	SaveState::SaveStart state;
 	assert(CChunkFileReader::MeasurePtr(state) <= size);
 	bool retVal = CChunkFileReader::SavePtr((u8 *)data, state) == CChunkFileReader::ERROR_NONE;
@@ -739,7 +739,7 @@ bool retro_serialize(void *data, size_t size) {
 		EmuThreadStart();
 		sleep_ms(4);
 	}
-	
+
 	return retVal;
 }
 
@@ -786,8 +786,15 @@ int System_GetPropertyInt(SystemProperty prop) {
 	switch (prop) {
 	case SYSPROP_AUDIO_SAMPLE_RATE:
 		return SAMPLERATE;
+	default:
+		return -1;
+	}
+}
+
+float System_GetPropertyFloat(SystemProperty prop) {
+	switch (prop) {
 	case SYSPROP_DISPLAY_REFRESH_RATE:
-		return 60000;
+		return 60.f;
 	default:
 		return -1;
 	}

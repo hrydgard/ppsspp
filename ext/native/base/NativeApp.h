@@ -148,7 +148,7 @@ enum SystemProperty {
 	SYSPROP_SYSTEMVERSION,
 	SYSPROP_DISPLAY_XRES,
 	SYSPROP_DISPLAY_YRES,
-	SYSPROP_DISPLAY_REFRESH_RATE,  // returns 1000*the refresh rate in Hz as it can be non-integer
+	SYSPROP_DISPLAY_REFRESH_RATE,
 	SYSPROP_DISPLAY_LOGICAL_DPI,
 	SYSPROP_DISPLAY_DPI,
 	SYSPROP_DISPLAY_COUNT,
@@ -174,7 +174,7 @@ enum SystemProperty {
 
 std::string System_GetProperty(SystemProperty prop);
 int System_GetPropertyInt(SystemProperty prop);
-int System_GetPropertyFloat(SystemProperty prop);
+float System_GetPropertyFloat(SystemProperty prop);
 bool System_GetPropertyBool(SystemProperty prop);
 
 std::vector<std::string> __cameraGetDeviceList();

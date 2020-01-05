@@ -156,7 +156,7 @@ bool UpdateScreenScale(int width, int height) {
 	g_dpi_scale_x = g_logical_dpi / g_dpi;
 	g_dpi_scale_y = g_logical_dpi / g_dpi;
 #elif PPSSPP_PLATFORM(WINDOWS) && !PPSSPP_PLATFORM(UWP)
-	g_dpi = (float)System_GetPropertyInt(SYSPROP_DISPLAY_DPI);
+	g_dpi = System_GetPropertyFloat(SYSPROP_DISPLAY_DPI);
 	g_dpi_scale_x = 96.0f / g_dpi;
 	g_dpi_scale_y = 96.0f / g_dpi;
 #else

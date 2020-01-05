@@ -74,6 +74,9 @@ std::string System_GetProperty(SystemProperty prop) { return ""; }
 int System_GetPropertyInt(SystemProperty prop) {
 	return -1;
 }
+float System_GetPropertyFloat(SystemProperty prop) {
+	return -1;
+}
 bool System_GetPropertyBool(SystemProperty prop) {
 	return false;
 }
@@ -225,7 +228,7 @@ int main(int argc, const char* argv[])
 	const char *stateToLoad = 0;
 	GPUCore gpuCore = GPUCORE_NULL;
 	CPUCore cpuCore = CPUCore::JIT;
-	
+
 	std::vector<std::string> testFilenames;
 	const char *mountIso = 0;
 	const char *mountRoot = 0;
@@ -321,7 +324,7 @@ int main(int argc, const char* argv[])
 
 	LogManager::Init();
 	LogManager *logman = LogManager::GetInstance();
-	
+
 	PrintfLogger *printfLogger = new PrintfLogger();
 
 	for (int i = 0; i < LogTypes::NUMBER_OF_LOGS; i++) {

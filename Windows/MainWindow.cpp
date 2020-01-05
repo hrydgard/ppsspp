@@ -154,7 +154,7 @@ namespace MainWindow
 		// Register classes - Main Window
 		WNDCLASSEX wcex;
 		memset(&wcex, 0, sizeof(wcex));
-		wcex.cbSize = sizeof(WNDCLASSEX); 
+		wcex.cbSize = sizeof(WNDCLASSEX);
 		wcex.style = 0;  // Show in taskbar
 		wcex.lpfnWndProc = (WNDPROC)WndProc;
 		wcex.hInstance = hInstance;
@@ -228,7 +228,7 @@ namespace MainWindow
 			if (++g_Config.iInternalResolution > RESOLUTION_MAX)
 				g_Config.iInternalResolution = 0;
 		}
-		
+
 		// Taking auto-texture scaling into account
 		if (g_Config.iTexScalingLevel == TEXSCALING_AUTO)
 			setTexScalingMultiplier(0);
@@ -329,7 +329,7 @@ namespace MainWindow
 			dwStyle &= ~WS_POPUP;
 			// Re-add caption and border styles.
 			dwStyle |= WS_OVERLAPPEDWINDOW;
-			
+
 			// Put back the menu bar.
 			::SetMenu(hWnd, menu);
 		} else {
@@ -437,7 +437,7 @@ namespace MainWindow
 			bool portrait = g_Config.IsPortrait();
 
 			// We want to adjust for DPI but still get an integer pixel scaling ratio.
-			double dpi_scale = 96.0 / System_GetPropertyInt(SYSPROP_DISPLAY_DPI);
+			double dpi_scale = 96.0 / System_GetPropertyFloat(SYSPROP_DISPLAY_DPI);
 			int scale = (int)ceil(2.0 / dpi_scale);
 
 			GetWindowSizeAtResolution(scale * (portrait ? 272 : 480), scale * (portrait ? 480 : 272), &windowWidth, &windowHeight);
@@ -547,7 +547,7 @@ namespace MainWindow
 		if (disasmWindow[0])
 			delete disasmWindow[0];
 		disasmWindow[0] = 0;
-		
+
 #if PPSSPP_API(ANY_GL)
 		DialogManager::RemoveDlg(geDebuggerWindow);
 		if (geDebuggerWindow)
@@ -682,7 +682,7 @@ namespace MainWindow
 		}
 		return 0;
 	}
-	
+
 	LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)	{
 		switch (message) {
 		case WM_CREATE:
@@ -691,7 +691,7 @@ namespace MainWindow
 				RemoveMenu(GetMenu(hWnd), ID_OPTIONS_DIRECT3D11, MF_BYCOMMAND);
 			}
 			break;
-			
+
 		case WM_GETMINMAXINFO:
 			{
 				MINMAXINFO *minmax = reinterpret_cast<MINMAXINFO *>(lParam);
@@ -975,10 +975,10 @@ namespace MainWindow
 		case WM_SYSCOMMAND:
 			{
 				switch (wParam) {
-				case SC_SCREENSAVE:  
+				case SC_SCREENSAVE:
 					return 0;
 				case SC_MONITORPOWER:
-					return 0;      
+					return 0;
 				}
 				return DefWindowProc(hWnd, message, wParam, lParam);
 			}
@@ -988,7 +988,7 @@ namespace MainWindow
 		}
 		return 0;
 	}
-	
+
 	void Redraw() {
 		InvalidateRect(hwndDisplay,0,0);
 	}

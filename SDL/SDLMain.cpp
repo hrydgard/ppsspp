@@ -65,7 +65,7 @@ static int g_QuitRequested = 0;
 
 static int g_DesktopWidth = 0;
 static int g_DesktopHeight = 0;
-static int g_RefreshRate = 60000;
+static float g_RefreshRate = 60.f;
 
 int getDisplayNumber(void) {
 	int displayNumber = 0;
@@ -307,8 +307,6 @@ int System_GetPropertyInt(SystemProperty prop) {
 	switch (prop) {
 	case SYSPROP_AUDIO_SAMPLE_RATE:
 		return 44100;
-	case SYSPROP_DISPLAY_REFRESH_RATE:
-		return g_RefreshRate;
 	case SYSPROP_DEVICE_TYPE:
 #if defined(MOBILE_DEVICE)
 		return DEVICE_TYPE_MOBILE;
@@ -317,6 +315,15 @@ int System_GetPropertyInt(SystemProperty prop) {
 #endif
 	case SYSPROP_DISPLAY_COUNT:
 		return SDL_GetNumVideoDisplays();
+	default:
+		return -1;
+	}
+}
+
+float System_GetPropertyFloat(SystemProperty prop) {
+	switch (prop) {
+	case SYSPROP_DISPLAY_REFRESH_RATE:
+		return g_RefreshRate;
 	default:
 		return -1;
 	}
@@ -511,7 +518,7 @@ int main(int argc, char *argv[]) {
 	}
 	g_DesktopWidth = displayMode.w;
 	g_DesktopHeight = displayMode.h;
-	g_RefreshRate = (int)(displayMode.refresh_rate * 1000);
+	g_RefreshRate = displayMode.refresh_rate;
 
 	SDL_GL_SetAttribute(SDL_GL_RED_SIZE, 8);
 	SDL_GL_SetAttribute(SDL_GL_GREEN_SIZE, 8);
