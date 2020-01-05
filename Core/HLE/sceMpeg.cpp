@@ -1898,7 +1898,7 @@ static u32 sceMpegAtracDecode(u32 mpeg, u32 auAddr, u32 bufferAddr, int init)
 		return -1;
 	}
 
-	if (!Memory::IsValidAddress(bufferAddr) || !Memory::IsValidAddress(auAddr)) {
+	if (!Memory::IsValidAddress(bufferAddr)) {
 		WARN_LOG(ME, "sceMpegAtracDecode(%08x, %08x, %08x, %i): invalid addresses", mpeg, auAddr, bufferAddr, init);
 		return -1;
 	}
