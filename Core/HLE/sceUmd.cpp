@@ -425,7 +425,7 @@ static int sceUmdWaitDriveStatWithTimer(u32 stat, u32 timeout)
 		DEBUG_LOG(SCEIO, "sceUmdWaitDriveStatWithTimer(stat = %08x, timeout = %d): waiting", stat, timeout);
 		__UmdWaitStat(timeout);
 		umdWaitingThreads.push_back(__KernelGetCurThread());
-		__KernelWaitCurThread(WAITTYPE_UMD, 1, stat, 0, 0, "umd stat waited with timer");
+		__KernelWaitCurThread(WAITTYPE_UMD, 1, stat, 0, false, "umd stat waited with timer");
 		return 0;
 	} else {
 		hleReSchedule("umd stat checked");
@@ -495,45 +495,17 @@ static u32 sceUmdGetErrorStat()
 }
 
 void __UmdReplace(std::string filepath) {
-	// TODO: This should really go through Loaders, no?  What if it's an invalid file?
-
-	// Only get system from disc0 seems have been enough.
-	IFileSystem* currentUMD = pspFileSystem.GetSystem("disc0:");
-	IFileSystem* currentISOBlock = pspFileSystem.GetSystem("umd0:");
-	if (!currentUMD)
-		return;
-
-	FileLoader *loadedFile = ConstructFileLoader(filepath);
-
-	IFileSystem* umd2;
-	if (!loadedFile->Exists()) {
-		delete loadedFile;
+	std::string error = "";
+	if (!UmdReplace(filepath, error)) {
+		ERROR_LOG(SCEIO, "UMD Replace failed: %s", error.c_str());
 		return;
 	}
-	UpdateLoadedFile(loadedFile);
 
-	if (loadedFile->IsDirectory()) {
-		umd2 = new VirtualDiscFileSystem(&pspFileSystem, filepath);
-	} else {
-		auto bd = constructBlockDevice(loadedFile);
-		if (!bd)
-			return;
-		umd2 = new ISOFileSystem(&pspFileSystem, bd);
-		pspFileSystem.Remount(currentUMD, umd2);
-
-		if (currentUMD != currentISOBlock) {
-			// We mounted an ISO block system separately.
-			IFileSystem *iso = new ISOBlockSystem(static_cast<ISOFileSystem *>(umd2));
-			pspFileSystem.Remount(currentISOBlock, iso);
-			delete currentISOBlock;
-		}
-	}
-	delete currentUMD;
 	UMDInserted = false;
 	CoreTiming::ScheduleEvent(usToCycles(200*1000), umdInsertChangeEvent, 0); // Wait sceUmdCheckMedium call
 	// TODO Is this always correct if UMD was not activated?
 	u32 notifyArg = PSP_UMD_PRESENT | PSP_UMD_READABLE | PSP_UMD_CHANGED;
-	if (driveCBId != -1)
+	if (driveCBId != 0)
 		__KernelNotifyCallback(driveCBId, notifyArg);
 }
 
