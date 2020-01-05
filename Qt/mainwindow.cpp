@@ -24,7 +24,7 @@ MainWindow::MainWindow(QWidget *parent, bool fullscreen) :
 {
 	QDesktopWidget *desktop = QApplication::desktop();
 	int screenNum = QProcessEnvironment::systemEnvironment().value("SDL_VIDEO_FULLSCREEN_HEAD", "0").toInt();
-	
+
 	// Move window to the center of selected screen
 	QRect rect = desktop->screenGeometry(screenNum);
 	move((rect.width()-frameGeometry().width()) / 4, (rect.height()-frameGeometry().height()) / 4);
@@ -295,19 +295,22 @@ void MainWindow::consoleAct()
 void MainWindow::raiseTopMost()
 {
 	setWindowState( (windowState() & ~Qt::WindowMinimized) | Qt::WindowActive);
-	raise();  
+	raise();
 	activateWindow();
 }
 
 void MainWindow::SetFullScreen(bool fullscreen) {
 	if (fullscreen) {
+#if !PPSSPP_PLATFORM(MAC)
 		menuBar()->hide();
-		
+
 		emugl->setFixedSize(QWIDGETSIZE_MAX, QWIDGETSIZE_MAX);
+		// TODO: Shouldn't this be physicalSize()?
 		emugl->resizeGL(emugl->size().width(), emugl->size().height());
 		// TODO: Won't showFullScreen do this for us?
 		setMaximumSize(QWIDGETSIZE_MAX, QWIDGETSIZE_MAX);
 		setFixedSize(QWIDGETSIZE_MAX, QWIDGETSIZE_MAX);
+#endif
 
 		showFullScreen();
 		InitPadLayout(dp_xres, dp_yres);
@@ -315,8 +318,10 @@ void MainWindow::SetFullScreen(bool fullscreen) {
 		if (GetUIState() == UISTATE_INGAME && !g_Config.bShowTouchControls)
 			QApplication::setOverrideCursor(QCursor(Qt::BlankCursor));
 	} else {
+#if !PPSSPP_PLATFORM(MAC)
 		menuBar()->show();
 		updateMenus();
+#endif
 
 		showNormal();
 		SetWindowScale(-1);
@@ -346,7 +351,7 @@ void MainWindow::forumAct()
 	QDesktopServices::openUrl(QUrl("https://forums.ppsspp.org/"));
 }
 
-void MainWindow::gitAct() 
+void MainWindow::gitAct()
 {
 	QDesktopServices::openUrl(QUrl("https://github.com/hrydgard/ppsspp/"));
 }
@@ -394,9 +399,14 @@ void MainWindow::SetWindowScale(int zoom) {
 	g_Config.iWindowWidth = width;
 	g_Config.iWindowHeight = height;
 
+#if !PPSSPP_PLATFORM(MAC)
 	emugl->setFixedSize(g_Config.iWindowWidth, g_Config.iWindowHeight);
+	// TODO: Shouldn't this be scaled size?
 	emugl->resizeGL(g_Config.iWindowWidth, g_Config.iWindowHeight);
 	setFixedSize(sizeHint());
+#else
+	resize(g_Config.iWindowWidth, g_Config.iWindowHeight);
+#endif
 }
 
 void MainWindow::SetGameTitle(QString text)
@@ -585,7 +595,7 @@ void MainWindow::createMenus()
 		}
 	}
 	langMenu->addActions(langGroup->actions());
-	
+
 	// Help
 	MenuTree* helpMenu = new MenuTree(this, menuBar(),    QT_TR_NOOP("&Help"));
 	helpMenu->add(new MenuAction(this, SLOT(websiteAct()),    QT_TR_NOOP("Official &website"), QKeySequence::HelpContents));
