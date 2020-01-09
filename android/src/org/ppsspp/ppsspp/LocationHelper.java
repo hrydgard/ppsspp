@@ -50,12 +50,13 @@ class LocationHelper implements LocationListener {
 	public void onLocationChanged(Location location) {
 		float latitude = (float) location.getLatitude();
 		float longitude = (float) location.getLongitude();
+		// Android altitude is in meters above the WGS 84 reference ellipsoid
 		float altitude = (float) location.getAltitude();
 		float speed = location.getSpeed();
 		float bearing = location.getBearing();
 		long time = location.getTime() / 1000; // ms to s !!
 
-		NativeApp.pushNewGpsData(latitude, longitude, altitude, speed, bearing, time);
+		NativeApp.setGpsDataAndroid(latitude, longitude, altitude, speed, bearing, time);
 	}
 
 	@Override

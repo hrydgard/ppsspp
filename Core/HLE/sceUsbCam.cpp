@@ -205,8 +205,18 @@ static int sceUsbCamSetupStillEx(u32 paramAddr) {
 	return 0;
 }
 
-static int sceUsbCamAutoImageReverseSW(int rev) {
-	INFO_LOG(HLE, "UNIMPL sceUsbCamAutoImageReverseSW");
+static int sceUsbCamAutoImageReverseSW(int on) {
+	INFO_LOG(HLE, "UNIMPL sceUsbCamAutoImageReverseSW: %d", on);
+	return 0;
+}
+
+static int sceUsbCamGetLensDirection() {
+	INFO_LOG(HLE, "UNIMPL sceUsbCamGetLensDirection");
+	return 0;
+}
+
+static int sceUsbCamSetReverseMode(int reverseflags) {
+	INFO_LOG(HLE, "UNIMPL sceUsbCamSetReverseMode %d", reverseflags);
 	return 0;
 }
 
@@ -244,7 +254,7 @@ const HLEFunction sceUsbCam[] =
 
 	{ 0XF93C4669, &WrapI_I<sceUsbCamAutoImageReverseSW>,      "sceUsbCamAutoImageReverseSW",             'i', "i" },
 	{ 0X11A1F128, nullptr,                                    "sceUsbCamGetAutoImageReverseState",       '?', "" },
-	{ 0X4C34F553, nullptr,                                    "sceUsbCamGetLensDirection",               '?', "" },
+	{ 0X4C34F553, &WrapI_V<sceUsbCamGetLensDirection>,        "sceUsbCamGetLensDirection",               'i', "" },
 
 	{ 0X383E9FA8, nullptr,                                    "sceUsbCamGetSaturation",                  '?', "" },
 	{ 0X6E205974, nullptr,                                    "sceUsbCamSetSaturation",                  '?', "" },
@@ -259,7 +269,7 @@ const HLEFunction sceUsbCam[] =
 	{ 0X2BCD50C0, nullptr,                                    "sceUsbCamGetEvLevel",                     '?', "" },
 	{ 0X1D686870, nullptr,                                    "sceUsbCamSetEvLevel",                     '?', "" },
 	{ 0XD5279339, nullptr,                                    "sceUsbCamGetReverseMode",                 '?', "" },
-	{ 0X951BEDF5, nullptr,                                    "sceUsbCamSetReverseMode",                 '?', "" },
+	{ 0X951BEDF5, &WrapI_I<sceUsbCamSetReverseMode>,          "sceUsbCamSetReverseMode",                 'i', "i" },
 	{ 0X9E8AAF8D, nullptr,                                    "sceUsbCamGetZoom",                        '?', "" },
 	{ 0XC484901F, nullptr,                                    "sceUsbCamSetZoom",                        '?', "" },
 	{ 0XAA7D94BA, nullptr,                                    "sceUsbCamGetAntiFlicker",                 '?', "" },
@@ -275,7 +285,9 @@ void Register_sceUsbCam()
 }
 
 std::vector<std::string> Camera::getDeviceList() {
-	#if PPSSPP_PLATFORM(LINUX) && !PPSSPP_PLATFORM(ANDROID)
+	#if PPSSPP_PLATFORM(ANDROID) || PPSSPP_PLATFORM(IOS)
+		return __cameraGetDeviceList();
+	#elif PPSSPP_PLATFORM(LINUX)
 		return __v4l_getDeviceList();
 	#elif defined(_WIN32) && !PPSSPP_PLATFORM(UWP)
 		if (winCamera) {
@@ -291,7 +303,7 @@ int Camera::startCapture() {
 	INFO_LOG(HLE, "%s resolution: %dx%d", __FUNCTION__, width, height);
 
 	config->mode = Camera::Mode::Video;
-	#if PPSSPP_PLATFORM(ANDROID)
+	#if PPSSPP_PLATFORM(ANDROID) || PPSSPP_PLATFORM(IOS)
 		System_SendMessage("camera_command", "startVideo");
 	#elif PPSSPP_PLATFORM(LINUX)
 		__v4l_startCapture(width, height);
@@ -312,7 +324,7 @@ int Camera::startCapture() {
 
 int Camera::stopCapture() {
 	INFO_LOG(HLE, "%s", __FUNCTION__);
-	#if PPSSPP_PLATFORM(ANDROID)
+	#if PPSSPP_PLATFORM(ANDROID) || PPSSPP_PLATFORM(IOS)
 		System_SendMessage("camera_command", "stopVideo");
 	#elif PPSSPP_PLATFORM(LINUX)
 		__v4l_stopCapture();
@@ -326,6 +338,13 @@ int Camera::stopCapture() {
 	#endif
 	config->mode = Camera::Mode::Unused;
 	return 0;
+}
+
+void Camera::onCameraDeviceChange() {
+	if (config != nullptr && config->mode == Camera::Mode::Video) {
+		stopCapture();
+		startCapture();
+	}
 }
 
 void Camera::pushCameraImage(long long length, unsigned char* image) {

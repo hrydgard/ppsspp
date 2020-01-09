@@ -1358,7 +1358,7 @@ void NativeShutdown() {
 	// I think we handle most globals correctly or correct-enough now.
 }
 
-void PushNewGpsData(float latitude, float longitude, float altitude, float speed, float bearing, long long time) {
+void SetGpsData(float latitude, float longitude, float altitude, float speed, float bearing, long long time) {
 	GPS::setGpsData(latitude, longitude, altitude, speed, bearing, time);
 }
 

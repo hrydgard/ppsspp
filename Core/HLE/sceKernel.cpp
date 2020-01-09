@@ -169,6 +169,7 @@ void __KernelShutdown()
 	kernelObjects.Clear();
 
 	__UsbCamShutdown();
+	__UsbGpsShutdown();
 
 	__AudioCodecShutdown();
 	__VideoPmpShutdown();

@@ -112,6 +112,18 @@ void System_SendMessage(const char *command, const char *parameter) {
 		// [sharedViewController shutdown];
 		//	exit(0);
 		// });
+	} else if (!strcmp(command, "camera_command")) {
+		if (!strcmp(parameter, "startVideo")) {
+			startVideo();
+		} else if (!strcmp(parameter, "stopVideo")) {
+			stopVideo();
+		}
+	} else if (!strcmp(command, "gps_command")) {
+		if (!strcmp(parameter, "open")) {
+			startLocation();
+		} else if (!strcmp(parameter, "close")) {
+			stopLocation();
+		}
 	}
 }
 

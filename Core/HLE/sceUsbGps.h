@@ -21,6 +21,7 @@ void Register_sceUsbGps();
 
 void __UsbGpsInit();
 void __UsbGpsDoState(PointerWrap &p);
+void __UsbGpsShutdown();
 
 #pragma pack(push, 1)
 

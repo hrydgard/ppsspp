@@ -117,6 +117,7 @@ namespace Camera {
 	} Config;
 
 	std::vector<std::string> getDeviceList();
+	void onCameraDeviceChange();
 	int startCapture();
 	int stopCapture();
 	void pushCameraImage(long long length, unsigned char *image);

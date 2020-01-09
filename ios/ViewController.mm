@@ -84,6 +84,8 @@ static bool threadStopped = false;
 
 __unsafe_unretained ViewController* sharedViewController;
 static GraphicsContext *graphicsContext;
+static CameraHelper *cameraHelper;
+static LocationHelper *locationHelper;
 
 @interface ViewController () {
 	std::map<uint16_t, uint16_t> iCadeToKeyMap;
@@ -202,6 +204,12 @@ static GraphicsContext *graphicsContext;
 	volume.delegate = self;
 	[self.view addSubview:volume];
 	[self.view bringSubviewToFront:volume];
+
+	cameraHelper = [[CameraHelper alloc] init];
+	[cameraHelper setDelegate:self];
+
+	locationHelper = [[LocationHelper alloc] init];
+	[locationHelper setDelegate:self];
 	
 	dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_HIGH, 0), ^{
 		NativeInitGraphics(graphicsContext);
@@ -666,6 +674,33 @@ static GraphicsContext *graphicsContext;
 	};
 }
 #endif
+
+void startVideo() {
+    [cameraHelper startVideo];
+}
+
+void stopVideo() {
+    [cameraHelper stopVideo];
+}
+
+-(void) PushCameraImageIOS:(long long)len buffer:(unsigned char*)data {
+    PushCameraImage(len, data);
+}
+
+void startLocation() {
+    [locationHelper startLocationUpdates];
+}
+
+void stopLocation() {
+    [locationHelper stopLocationUpdates];
+}
+
+-(void) SetGpsDataIOS:(CLLocation *)newLocation {
+    NSLog(@"SetGpsDataIOS: speed: %f", newLocation.speed); // m/s
+    SetGpsData(newLocation.coordinate.latitude, newLocation.coordinate.longitude,
+                   newLocation.altitude, 0 /* speed */, 0 /* bearing */,
+                   (long long)newLocation.timestamp.timeIntervalSince1970);
+}
 
 @end
 

@@ -4,6 +4,12 @@
 <dict>
 	<key>UISupportsDocumentBrowser</key>
 	<true/>
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>Your location may be used to emulate Go!Explore, a GPS accessory</string>
+	<key>NSCameraUsageDescription</key>
+	<string>Your camera may be used to emulate Go!Cam, a camera accessory</string>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>Your microphone may be used to emulate Go!Cam/Talkman, a microphone accessory</string>
 	<key>CFBundleDevelopmentRegion</key>
 	<string>en</string>
 	<key>CFBundleDisplayName</key>
