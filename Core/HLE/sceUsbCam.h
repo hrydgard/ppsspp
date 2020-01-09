@@ -17,16 +17,18 @@
 
 #pragma once
 
+#include <stdint.h>
+#include <string>
+#include <vector>
+#include "Core/HLE/FunctionWrappers.h"
+
 void Register_sceUsbCam();
 
 void __UsbCamInit();
+void __UsbCamDoState(PointerWrap &p);
 void __UsbCamShutdown();
 
-namespace Camera {
-	void pushCameraImage(long long length, unsigned char *image);
-}
-
-typedef struct PspUsbCamSetupMicParam {
+typedef struct {
 	int size;
 	u32 unk;
 	int gain;
@@ -34,7 +36,30 @@ typedef struct PspUsbCamSetupMicParam {
 	int frequency;
 } PspUsbCamSetupMicParam;
 
-typedef struct PspUsbCamSetupVideoParam {
+typedef struct {
+	int size;
+	int resolution;
+	int jpegsize;
+	int reverseflags;
+	int delay;
+	int complevel;
+} PspUsbCamSetupStillParam;
+
+typedef struct {
+	int size;
+	u32 unk;
+	int resolution;
+	int jpegsize;
+	int complevel;
+	u32 unk2;
+	u32 unk3;
+	int flip;
+	int mirror;
+	int delay;
+	u32 unk4[5];
+} PspUsbCamSetupStillExParam;
+
+typedef struct {
 	int size;
 	int resolution;
 	int framerate;
@@ -48,6 +73,54 @@ typedef struct PspUsbCamSetupVideoParam {
 	u32 unk;
 	int evlevel;
 } PspUsbCamSetupVideoParam;
+
+typedef struct {
+	int size;
+	u32 unk;
+	int resolution;
+	int framerate;
+	u32 unk2;
+	u32 unk3;
+	int wb;
+	int saturation;
+	int brightness;
+	int contrast;
+	int sharpness;
+	u32 unk4;
+	u32 unk5;
+	u32 unk6[3];
+	int effectmode;
+	u32 unk7;
+	u32 unk8;
+	u32 unk9;
+	u32 unk10;
+	u32 unk11;
+	int framesize;
+	u32 unk12;
+	int evlevel;
+} PspUsbCamSetupVideoExParam;
+
+namespace Camera {
+	enum Mode       { Unused, Still, Video };
+	enum ConfigType { CfNone, CfStill, CfStillEx, CfVideo, CfVideoEx };
+
+	typedef struct {
+		Mode mode;
+		ConfigType type;
+		PspUsbCamSetupMicParam         micParam;
+		union {
+			PspUsbCamSetupStillParam   stillParam;
+			PspUsbCamSetupStillExParam stillExParam;
+			PspUsbCamSetupVideoParam   videoParam;
+			PspUsbCamSetupVideoExParam videoExParam;
+		};
+	} Config;
+
+	std::vector<std::string> getDeviceList();
+	int startCapture();
+	int stopCapture();
+	void pushCameraImage(long long length, unsigned char *image);
+}
 
 static const unsigned char sceUsbCamDummyImage[] = {
 	0xFF, 0xD8, 0xFF, 0xE0, 0x00, 0x10, 0x4A, 0x46, 0x49, 0x46, 0x00, 0x01, 0x01, 0x01, 0x00, 0x60,

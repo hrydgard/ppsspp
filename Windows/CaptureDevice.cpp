@@ -283,7 +283,7 @@ void ReaderCallback::imgConvert(
 void ReaderCallback::imgInvert(unsigned char *dst, unsigned char *src, const int &srcW, const int &srcH, const GUID &srcFormat, const int &srcStride) {
 	AVPixelFormat srcAvFormat = getAVVideoFormatbyMFVideoFormat(srcFormat);
 	int dstLineSizes[4] = { 0, 0, 0, 0 };
-	
+
 	av_image_fill_linesizes(dstLineSizes, srcAvFormat, srcW);
 
 	if(srcFormat == MFVideoFormat_RGB32)
@@ -453,7 +453,7 @@ bool WindowsCaptureDevice::start() {
 	switch (state) {
 	case CAPTUREDEVIDE_STATE::STOPPED:
 		for (auto &name : deviceList) {
-			if (name == g_Config.sWinCameraDevice) {
+			if (name == g_Config.sCameraDevice) {
 				selection = count;
 				break;
 			}
@@ -510,7 +510,7 @@ bool WindowsCaptureDevice::start() {
 				);
 				if (SUCCEEDED(hr))
 					hr = setDeviceParam(pType);*/ // Don't support on Win7
-				
+
 				// Request the first frame, in asnyc mode, OnReadSample will be called when ReadSample completed.
 				if (SUCCEEDED(hr)) {
 					hr = m_pReader->ReadSample(
