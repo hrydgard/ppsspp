@@ -870,6 +870,10 @@ static ConfigSetting controlSettings[] = {
 	ConfigSetting("TouchButtonHideSeconds", &g_Config.iTouchButtonHideSeconds, 20, true, true),
 	ConfigSetting("AutoCenterTouchAnalog", &g_Config.bAutoCenterTouchAnalog, false, true, true),
 
+	// Snap touch control position
+	ConfigSetting("TouchSnapToGrid", &g_Config.bTouchSnapToGrid, false, true, true),
+	ConfigSetting("TouchSnapGridSize", &g_Config.iTouchSnapGridSize, 64, true, true),
+
 	// -1.0f means uninitialized, set in GamepadEmu::CreatePadLayout().
 	ConfigSetting("ActionButtonSpacing2", &g_Config.fActionButtonSpacing, 1.0f, true, true),
 	ConfigSetting("ActionButtonCenterX", "ActionButtonCenterY", "ActionButtonScale", nullptr, &g_Config.touchActionButtonCenter, defaultTouchPosShow, true, true),

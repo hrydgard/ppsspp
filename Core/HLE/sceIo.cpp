@@ -199,6 +199,7 @@ struct IoAsyncParams {
 
 static IoAsyncParams asyncParams[PSP_COUNT_FDS];
 static HLEHelperThread *asyncThreads[PSP_COUNT_FDS]{};
+static int asyncDefaultPriority = -1;
 
 class FileNode : public KernelObject {
 public:
@@ -294,8 +295,11 @@ public:
 
 u64 __IoCompleteAsyncIO(FileNode *f);
 
-static void IoAsyncCleanupThread(int fd, bool force = false) {
-	if (asyncThreads[fd] && (asyncThreads[fd]->Stopped() || force)) {
+static void IoAsyncCleanupThread(int fd) {
+	if (asyncThreads[fd]) {
+		if (!asyncThreads[fd]->Stopped()) {
+			asyncThreads[fd]->Terminate();
+		}
 		delete asyncThreads[fd];
 		asyncThreads[fd] = nullptr;
 	}
@@ -437,8 +441,6 @@ static void __IoAsyncNotify(u64 userdata, int cyclesLate) {
 		if (f->closePending) {
 			__IoFreeFd(fd, error);
 		}
-
-		IoAsyncCleanupThread(fd);
 	}
 }
 
@@ -487,8 +489,6 @@ static void __IoSyncNotify(u64 userdata, int cyclesLate) {
 
 	HLEKernel::ResumeFromWait(threadID, WAITTYPE_IO, fd, result);
 	f->waitingSyncThreads.erase(std::remove(f->waitingSyncThreads.begin(), f->waitingSyncThreads.end(), threadID), f->waitingSyncThreads.end());
-
-	IoAsyncCleanupThread(fd);
 }
 
 static void __IoAsyncBeginCallback(SceUID threadID, SceUID prevCallbackId) {
@@ -662,7 +662,7 @@ void __IoInit() {
 }
 
 void __IoDoState(PointerWrap &p) {
-	auto s = p.Section("sceIo", 1, 4);
+	auto s = p.Section("sceIo", 1, 5);
 	if (!s)
 		return;
 
@@ -697,30 +697,35 @@ void __IoDoState(PointerWrap &p) {
 	}
 
 	for (int i = 0; i < PSP_COUNT_FDS; ++i) {
+		auto clearThread = [&]() {
+			if (asyncThreads[i])
+				asyncThreads[i]->Forget();
+			delete asyncThreads[i];
+			asyncThreads[i] = nullptr;
+		};
+
 		if (s >= 4) {
 			p.DoVoid(&asyncParams[i], (int)sizeof(IoAsyncParams));
 			bool hasThread = asyncThreads[i] != nullptr;
 			p.Do(hasThread);
 			if (hasThread) {
-				if (asyncThreads[i])
-					asyncThreads[i]->Forget();
-				delete asyncThreads[i];
-				asyncThreads[i] = nullptr;
+				if (p.GetMode() == p.MODE_READ)
+					clearThread();
 				p.DoClass(asyncThreads[i]);
 			} else if (!hasThread) {
-				if (asyncThreads[i])
-					asyncThreads[i]->Forget();
-				delete asyncThreads[i];
-				asyncThreads[i] = nullptr;
+				clearThread();
 			}
 		} else {
 			asyncParams[i].op = IoAsyncOp::NONE;
 			asyncParams[i].priority = -1;
-			if (asyncThreads[i])
-				asyncThreads[i]->Forget();
-			delete asyncThreads[i];
-			asyncThreads[i] = nullptr;
+			clearThread();
 		}
+	}
+
+	if (s >= 5) {
+		p.Do(asyncDefaultPriority);
+	} else {
+		asyncDefaultPriority = -1;
 	}
 }
 
@@ -739,6 +744,7 @@ void __IoShutdown() {
 		delete asyncThreads[i];
 		asyncThreads[i] = nullptr;
 	}
+	asyncDefaultPriority = -1;
 
 	pspFileSystem.Unmount("ms0:", memstickSystem);
 	pspFileSystem.Unmount("fatms0:", memstickSystem);
@@ -771,10 +777,20 @@ u32 __IoGetFileHandleFromId(u32 id, u32 &outError)
 }
 
 static void IoStartAsyncThread(int id, FileNode *f) {
-	IoAsyncCleanupThread(id, true);
-	int priority = asyncParams[id].priority == -1 ? KernelCurThreadPriority() : asyncParams[id].priority;
-	asyncThreads[id] = new HLEHelperThread("SceIoAsync", "IoFileMgrForUser", "__IoAsyncFinish", priority, 0x200);
-	asyncThreads[id]->Start(id, 0);
+	if (asyncThreads[id] && !asyncThreads[id]->Stopped()) {
+		// Wake the thread up.
+		if (asyncParams[id].priority == -1 && sceKernelGetCompiledSdkVersion() >= 0x04020000) {
+			asyncThreads[id]->ChangePriority(KernelCurThreadPriority());
+		}
+		asyncThreads[id]->Resume(WAITTYPE_ASYNCIO, id, 0);
+	} else {
+		IoAsyncCleanupThread(id);
+		int priority = asyncParams[id].priority;
+		if (priority == -1)
+			priority = KernelCurThreadPriority();
+		asyncThreads[id] = new HLEHelperThread("SceIoAsync", "IoFileMgrForUser", "__IoAsyncFinish", priority, 0x200);
+		asyncThreads[id]->Start(id, 0);
+	}
 	f->pendingAsyncResult = true;
 }
 
@@ -1249,17 +1265,14 @@ static u32 sceIoGetDevType(int id) {
 
 static u32 sceIoCancel(int id)
 {
-	ERROR_LOG_REPORT(SCEIO, "UNIMPL sceIoCancel(%d)", id);
 	u32 error;
 	FileNode *f = __IoGetFd(id, error);
 	if (f) {
-		// TODO: Cancel the async operation if possible?
+		// It seems like this is unsupported for UMDs and memory sticks, based on tests.
+		return hleReportError(SCEIO, SCE_KERNEL_ERROR_UNSUP, "unimplemented or unsupported");
 	} else {
-		ERROR_LOG(SCEIO, "sceIoCancel: unknown id %d", id);
-		error = SCE_KERNEL_ERROR_BADF;
+		return hleLogError(SCEIO, SCE_KERNEL_ERROR_BADF, "invalid fd");
 	}
-
-	return error;
 }
 
 static u32 npdrmLseek(FileNode *f, s32 where, FileMove whence)
@@ -1482,7 +1495,7 @@ static u32 sceIoOpen(const char *filename, int flags, int mode) {
 		return id;
 	} else {
 		DEBUG_LOG(SCEIO, "%i=sceIoOpen(%s, %08x, %08x)", id, filename, flags, mode);
-		asyncParams[id].priority = -1;
+		asyncParams[id].priority = asyncDefaultPriority;
 		// Timing is not accurate, aiming low for now.
 		return hleDelayResult(id, "file opened", 100);
 	}
@@ -1958,9 +1971,14 @@ static u32 sceIoChdir(const char *dirname) {
 }
 
 static int sceIoChangeAsyncPriority(int id, int priority) {
-	// priority = -1 is valid
+	// priority = -1 is valid,means the current thread'priority
 	if (priority != -1 && (priority < 0x08 || priority > 0x77)) {
 		return hleLogError(SCEIO, SCE_KERNEL_ERROR_ILLEGAL_PRIORITY, "illegal priority %d", priority);
+	}
+
+	if (id == -1) {
+		asyncDefaultPriority = priority;
+		return hleLogSuccessI(SCEIO, 0);
 	}
 
 	u32 error;
@@ -1970,6 +1988,9 @@ static int sceIoChangeAsyncPriority(int id, int priority) {
 	}
 
 	if (asyncThreads[id] && !asyncThreads[id]->Stopped()) {
+		if (priority == -1) {
+			priority = KernelCurThreadPriority();
+		}
 		asyncThreads[id]->ChangePriority(priority);
 	}
 
@@ -2041,7 +2062,7 @@ static u32 sceIoOpenAsync(const char *filename, int flags, int mode)
 
 	auto &params = asyncParams[fd];
 	params.op = IoAsyncOp::OPEN;
-	params.priority = -1;
+	params.priority = asyncDefaultPriority;
 	params.open.filenameAddr = PARAM(0);
 	params.open.flags = flags;
 	params.open.mode = mode;
@@ -2087,7 +2108,6 @@ static u32 sceIoGetAsyncStat(int id, u32 poll, u32 address) {
 			DEBUG_LOG(SCEIO, "%lli = sceIoGetAsyncStat(%i, %i, %08x)", f->asyncResult, id, poll, address);
 			Memory::Write_U64((u64) f->asyncResult, address);
 			f->hasAsyncResult = false;
-			IoAsyncCleanupThread(id);
 
 			if (f->closePending) {
 				__IoFreeFd(id, error);
@@ -2125,7 +2145,6 @@ static int sceIoWaitAsync(int id, u32 address) {
 			}
 			Memory::Write_U64((u64) f->asyncResult, address);
 			f->hasAsyncResult = false;
-			IoAsyncCleanupThread(id);
 
 			if (f->closePending) {
 				__IoFreeFd(id, error);
@@ -2159,7 +2178,6 @@ static int sceIoWaitAsyncCB(int id, u32 address) {
 		} else if (f->hasAsyncResult) {
 			Memory::Write_U64((u64) f->asyncResult, address);
 			f->hasAsyncResult = false;
-			IoAsyncCleanupThread(id);
 
 			if (f->closePending) {
 				__IoFreeFd(id, error);
@@ -2183,7 +2201,6 @@ static u32 sceIoPollAsync(int id, u32 address) {
 		} else if (f->hasAsyncResult) {
 			Memory::Write_U64((u64) f->asyncResult, address);
 			f->hasAsyncResult = false;
-			IoAsyncCleanupThread(id);
 
 			if (f->closePending) {
 				__IoFreeFd(id, error);
@@ -2531,6 +2548,10 @@ static int __IoIoctl(u32 id, u32 cmd, u32 indataPtr, u32 inlen, u32 outdataPtr, 
 		// TODO: Should probably move this to something common between ISOFileSystem and VirtualDiscSystem.
 		INFO_LOG(SCEIO, "sceIoIoctl: Sector seek for file %i", id);
 		// Even if the size is 4, it still actually reads a 16 byte struct, it seems.
+
+		//if (GetIOTimingMethod() == IOTIMING_REALISTIC) // Need a check for io timing method?
+		usec = 15000;// Fantasy Golf Pangya Portable(KS) needs a delay over 15000us.
+
 		if (Memory::IsValidAddress(indataPtr) && inlen >= 4) {
 			struct SeekInfo {
 				u64 offset;
@@ -2653,6 +2674,8 @@ static int IoAsyncFinish(int id) {
 	if (f) {
 		// Reset this so the Io funcs don't reject the request.
 		f->pendingAsyncResult = false;
+		// Reset the PC back so we will run again on resume.
+		currentMIPS->pc = asyncThreads[id]->Entry();
 
 		auto &params = asyncParams[id];
 
@@ -2714,6 +2737,7 @@ static int IoAsyncFinish(int id) {
 
 		__IoSchedAsync(f, id, us);
 		__KernelWaitCurThread(WAITTYPE_ASYNCIO, id, 0, 0, false, "async io");
+		hleSkipDeadbeef();
 
 		params.op = IoAsyncOp::NONE;
 		return 0;

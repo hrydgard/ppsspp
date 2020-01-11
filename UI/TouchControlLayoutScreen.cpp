@@ -243,9 +243,15 @@ bool TouchControlLayoutScreen::touch(const TouchInput &touch) {
 				// if the leftmost point of the control is ahead of the margin,
 				// move it. Otherwise, don't.
 				newX = touch.x;
+				// Snap to grid
+				if (g_Config.bTouchSnapToGrid)
+					newX -= (int)(touch.x - bounds.w) % g_Config.iTouchSnapGridSize;
 			}
 			if (touch.y > minTouchY && touch.y < maxTouchY) {
 				newY = touch.y;
+				// Snap to grid
+				if (g_Config.bTouchSnapToGrid)
+					newY -= (int)(touch.y - bounds.h) % g_Config.iTouchSnapGridSize;
 			}
 			pickedControl_->ReplaceLayoutParams(new UI::AnchorLayoutParams(newX, newY, NONE, NONE, true));
 		} else if (mode == 1) {
@@ -324,11 +330,15 @@ void TouchControlLayoutScreen::CreateViews() {
 
 	Choice *reset = new Choice(di->T("Reset"), "", false, new AnchorLayoutParams(leftColumnWidth, WRAP_CONTENT, 10, NONE, NONE, 84));
 	Choice *back = new Choice(di->T("Back"), "", false, new AnchorLayoutParams(leftColumnWidth, WRAP_CONTENT, 10, NONE, NONE, 10));
-	Choice *visibility = new Choice(co->T("Visibility"), "", false, new AnchorLayoutParams(leftColumnWidth, WRAP_CONTENT, 10, NONE, NONE, 158));
+	Choice *visibility = new Choice(co->T("Visibility"), "", false, new AnchorLayoutParams(leftColumnWidth, WRAP_CONTENT, 10, NONE, NONE, 298));
 	// controlsSettings->Add(new PopupSliderChoiceFloat(&g_Config.fButtonScale, 0.80, 2.0, co->T("Button Scaling"), screenManager()))
 	// 	->OnChange.Handle(this, &GameSettingsScreen::OnChangeControlScaling);
 
-	mode_ = new ChoiceStrip(ORIENT_VERTICAL, new AnchorLayoutParams(leftColumnWidth, WRAP_CONTENT, 10, NONE, NONE, 158 + 64 + 10));
+	CheckBox *snap = new CheckBox(&g_Config.bTouchSnapToGrid, di->T("Snap"), "", new AnchorLayoutParams(leftColumnWidth, WRAP_CONTENT, 10, NONE, NONE, 228));
+	PopupSliderChoice *gridSize = new PopupSliderChoice(&g_Config.iTouchSnapGridSize, 1, 256, di->T("Grid"), screenManager(), "", new AnchorLayoutParams(leftColumnWidth, WRAP_CONTENT, 10, NONE, NONE, 158));
+	gridSize->SetEnabledPtr(&g_Config.bTouchSnapToGrid);
+
+	mode_ = new ChoiceStrip(ORIENT_VERTICAL, new AnchorLayoutParams(leftColumnWidth, WRAP_CONTENT, 10, NONE, NONE, 140 + 158 + 64 + 10));
 	mode_->AddChoice(di->T("Move"));
 	mode_->AddChoice(di->T("Resize"));
 	mode_->SetSelection(0);
@@ -338,6 +348,8 @@ void TouchControlLayoutScreen::CreateViews() {
 	visibility->OnClick.Handle(this, &TouchControlLayoutScreen::OnVisibility);
 	root_->Add(mode_);
 	root_->Add(visibility);
+	root_->Add(snap);
+	root_->Add(gridSize);
 	root_->Add(reset);
 	root_->Add(back);
 
@@ -352,7 +364,7 @@ void TouchControlLayoutScreen::CreateViews() {
 
 	I18NCategory *ms = GetI18NCategory("MainSettings");
 
-	tabHolder->AddTab(ms->T("Controls"), controlsHolder);
+	//tabHolder->AddTab(ms->T("Controls"), controlsHolder);
 
 	if (!g_Config.bShowTouchControls) {
 		// Shouldn't even be able to get here as the way into this dialog should be closed.

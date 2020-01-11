@@ -117,7 +117,6 @@ static void *SearchForFreeMem(size_t size) {
 
 // This is purposely not a full wrapper for virtualalloc/mmap, but it
 // provides exactly the primitive operations that PPSSPP needs.
-
 void *AllocateExecutableMemory(size_t size) {
 #if defined(_WIN32)
 	void *ptr = nullptr;
@@ -157,7 +156,7 @@ void *AllocateExecutableMemory(size_t size) {
 	}
 #else
 	static char *map_hint = 0;
-#if defined(_M_X64) && !defined(MAP_32BIT)
+#if defined(_M_X64)
 	// Try to request one that is close to our memory location if we're in high memory.
 	// We use a dummy global variable to give us a good location to start from.
 	if (!map_hint) {
@@ -165,9 +164,7 @@ void *AllocateExecutableMemory(size_t size) {
 			map_hint = (char*)round_page(&hint_location) - 0x20000000; // 0.5gb lower than our approximate location
 		else
 			map_hint = (char*)0x20000000; // 0.5GB mark in memory
-	}
-	else if ((uintptr_t) map_hint > 0xFFFFFFFFULL)
-	{
+	} else if ((uintptr_t) map_hint > 0xFFFFFFFFULL) {
 		map_hint -= round_page(size); /* round down to the next page if we're in high memory */
 	}
 #endif
@@ -176,13 +173,7 @@ void *AllocateExecutableMemory(size_t size) {
 	if (PlatformIsWXExclusive())
 		prot = PROT_READ | PROT_WRITE;  // POST_EXEC is added later in this case.
 
-	void* ptr = mmap(map_hint, size, prot,
-		MAP_ANON | MAP_PRIVATE
-#if defined(_M_X64) && defined(MAP_32BIT)
-		| MAP_32BIT
-#endif
-		, -1, 0);
-
+	void* ptr = mmap(map_hint, size, prot, MAP_ANON | MAP_PRIVATE, -1, 0);
 #endif /* defined(_WIN32) */
 
 #if !defined(_WIN32)
@@ -193,10 +184,11 @@ void *AllocateExecutableMemory(size_t size) {
 
 	if (ptr == failed_result) {
 		ptr = nullptr;
-		ERROR_LOG(MEMMAP, "Failed to allocate executable memory (%d)", (int)size);
+		ERROR_LOG(MEMMAP, "Failed to allocate executable memory (%d) errno=%d", (int)size, errno);
 		PanicAlert("Failed to allocate executable memory\n%s", GetLastErrorMsg());
 	}
-#if defined(_M_X64) && !defined(_WIN32) && !defined(MAP_32BIT)
+
+#if defined(_M_X64) && !defined(_WIN32)
 	else if ((uintptr_t)map_hint <= 0xFFFFFFFF) {
 		// Round up if we're below 32-bit mark, probably allocating sequentially.
 		map_hint += round_page(size);

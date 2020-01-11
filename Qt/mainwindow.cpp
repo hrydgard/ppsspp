@@ -29,6 +29,8 @@ MainWindow::MainWindow(QWidget *parent, bool fullscreen) :
 	QRect rect = desktop->screenGeometry(screenNum);
 	move((rect.width()-frameGeometry().width()) / 4, (rect.height()-frameGeometry().height()) / 4);
 
+	setWindowIcon(QIcon(qApp->applicationDirPath() + "/assets/icon_regular_72.png"));
+
 	SetGameTitle("");
 	emugl = new MainUI(this);
 

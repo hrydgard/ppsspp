@@ -101,6 +101,7 @@ public:
 protected:
 	void FastRunLoop(DisplayList &list) override;
 	void CopyToCurrentFboFromDisplayRam(int srcwidth, int srcheight);
+	void ConvertTextureDescFrom16(Draw::TextureDesc &desc, int srcwidth, int srcheight);
 
 private:
 	bool framebufferDirty_;
@@ -113,7 +114,7 @@ private:
 	Draw::Texture *fbTex;
 	Draw::Pipeline *texColor;
 	Draw::Pipeline *texColorRBSwizzle;
-	std::vector<u32> fbTexBuffer;
+	std::vector<u32> fbTexBuffer_;
 
 	Draw::SamplerState *samplerNearest = nullptr;
 	Draw::SamplerState *samplerLinear = nullptr;

@@ -285,6 +285,11 @@ public:
 	int iTouchButtonStyle;
 	int iTouchButtonOpacity;
 	int iTouchButtonHideSeconds;
+
+	// Snap touch control position
+	bool bTouchSnapToGrid;
+	int iTouchSnapGridSize;
+
 	// Floating analog stick (recenters on thumb on press).
 	bool bAutoCenterTouchAnalog;
 

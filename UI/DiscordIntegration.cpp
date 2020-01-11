@@ -64,11 +64,12 @@ void Discord::Init() {
 }
 
 void Discord::Shutdown() {
-	assert(initialized_);
+	if (initialized_) {
 #ifdef ENABLE_DISCORD
-	Discord_Shutdown();
+		Discord_Shutdown();
 #endif
-	initialized_ = false;
+		initialized_ = false;
+	}
 }
 
 void Discord::Update() {
