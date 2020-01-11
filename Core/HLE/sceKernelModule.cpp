@@ -19,6 +19,8 @@
 #include <algorithm>
 #include <set>
 
+#include "zlib.h"
+
 #include "base/stringutil.h"
 #include "Common/ChunkFile.h"
 #include "Common/FileUtil.h"
@@ -1060,6 +1062,32 @@ static bool KernelImportModuleFuncs(Module *module, u32 *firstImportStubAddr, bo
 	return true;
 }
 
+static int gzipDecompress(u8 *OutBuffer, int OutBufferLength, u8 *InBuffer) {
+	int err;
+	uLong crc;
+	z_stream stream;
+	u8 *outBufferPtr;
+
+	outBufferPtr = OutBuffer;
+	stream.next_in = InBuffer;
+	stream.avail_in = (uInt)OutBufferLength;
+	stream.next_out = outBufferPtr;
+	stream.avail_out = (uInt)OutBufferLength;
+	stream.zalloc = (alloc_func)0;
+	stream.zfree = (free_func)0;
+	err = inflateInit2(&stream, 16+MAX_WBITS);
+	if (err != Z_OK) {
+		return -1;
+	}
+	err = inflate(&stream, Z_FINISH);
+	if (err != Z_STREAM_END) {
+		inflateEnd(&stream);
+		return -2;
+	}
+	inflateEnd(&stream);
+	return stream.total_out;
+}
+
 static Module *__KernelLoadELFFromPtr(const u8 *ptr, size_t elfSize, u32 loadAddress, bool fromTop, std::string *error_string, u32 *magic, u32 &error) {
 	Module *module = new Module;
 	kernelObjects.Create(module);
@@ -1097,6 +1125,7 @@ static Module *__KernelLoadELFFromPtr(const u8 *ptr, size_t elfSize, u32 loadAdd
 		}
 
 		const u8 *in = ptr;
+		const auto isGzip = head->comp_attribute & 1;
 		// Kind of odd.
 		u32 size = head->psp_size;
 		if (size > elfSize) {
@@ -1105,11 +1134,12 @@ static Module *__KernelLoadELFFromPtr(const u8 *ptr, size_t elfSize, u32 loadAdd
 			kernelObjects.Destroy<Module>(module->GetUID());
 			return nullptr;
 		}
-		newptr = new u8[std::max(head->elf_size, head->psp_size)];
+		const auto maxElfSize = std::max(head->elf_size, head->psp_size);
+		newptr = new u8[maxElfSize];
 		ptr = newptr;
 		magicPtr = (u32_le *)ptr;
 		int ret = pspDecryptPRX(in, (u8*)ptr, head->psp_size);
-		if (ret == MISSING_KEY) {
+		if (reportedModule) {
 			// This should happen for all "kernel" modules.
 			*error_string = "Missing key";
 			delete [] newptr;
@@ -1149,6 +1179,15 @@ static Module *__KernelLoadELFFromPtr(const u8 *ptr, size_t elfSize, u32 loadAdd
 		} else {
 			// TODO: Is this right?
 			module->nm.bss_size = head->bss_size;
+
+			// decompress if required
+			if (isGzip)
+			{
+				auto temp = new u8[ret];
+				memcpy(temp, ptr, ret);
+				gzipDecompress((u8 *)ptr, maxElfSize, temp);
+				delete[] temp;
+			}
 
 			// If we've made it this far, it should be safe to dump.
 			if (g_Config.bDumpDecryptedEboot) {
