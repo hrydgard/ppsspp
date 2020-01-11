@@ -1064,7 +1064,6 @@ static bool KernelImportModuleFuncs(Module *module, u32 *firstImportStubAddr, bo
 
 static int gzipDecompress(u8 *OutBuffer, int OutBufferLength, u8 *InBuffer) {
 	int err;
-	uLong crc;
 	z_stream stream;
 	u8 *outBufferPtr;
 
