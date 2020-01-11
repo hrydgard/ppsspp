@@ -96,8 +96,14 @@ static bool IsTempPath(const std::string &str) {
 	// Normalize slashes.
 	item = ReplaceAll(str, "/", "\\");
 
-	wchar_t tempPath[MAX_PATH];
-	GetTempPath(MAX_PATH, tempPath);
+	std::wstring tempPath(MAX_PATH, '\0');
+	size_t sz = GetTempPath((DWORD)tempPath.size(), &tempPath[0]);
+	if (sz >= tempPath.size()) {
+		tempPath.resize(sz);
+		sz = GetTempPath((DWORD)tempPath.size(), &tempPath[0]);
+	}
+	// Need to resize off the null terminator either way.
+	tempPath.resize(sz);
 	if (testPath(ConvertWStringToUTF8(tempPath)))
 		return true;
 #endif

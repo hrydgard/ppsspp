@@ -4,6 +4,7 @@
 #include "Core/MemMap.h"
 #include "Core/MIPS/JitCommon/JitCommon.h"
 #include "Windows/W32Util/Misc.h"
+#include "Windows/W32Util/ShellUtil.h"
 #include "Windows/MainWindow.h"
 #include "Windows/InputBox.h"
 
@@ -1323,47 +1324,31 @@ std::string CtrlDisAsmView::disassembleRange(u32 start, u32 size)
 	return result;
 }
 
-void CtrlDisAsmView::disassembleToFile()
-{
-	wchar_t fileName[MAX_PATH];
-	u32 size;
-
+void CtrlDisAsmView::disassembleToFile() {
 	// get size
-	if (executeExpressionWindow(wnd,debugger,size) == false) return;
-	if (size == 0 || size > 10*1024*1024)
-	{
+	u32 size;
+	if (executeExpressionWindow(wnd,debugger,size) == false)
+		return;
+	if (size == 0 || size > 10*1024*1024) {
 		MessageBox(wnd,L"Invalid size!",L"Error",MB_OK);
 		return;
 	}
 
-	// get file name
-	OPENFILENAME ofn;
-	ZeroMemory( &ofn , sizeof( ofn));
-	ofn.lStructSize = sizeof ( ofn );
-	ofn.hwndOwner = NULL ;
-	ofn.lpstrFile = fileName ;
-	ofn.lpstrFile[0] = '\0';
-	ofn.nMaxFile = sizeof( fileName );
-	ofn.lpstrFilter = L"All Files\0*.*\0\0";
-	ofn.nFilterIndex = 1;
-	ofn.lpstrFileTitle = NULL ;
-	ofn.nMaxFileTitle = 0 ;
-	ofn.lpstrInitialDir = NULL ;
-	ofn.Flags = OFN_PATHMUSTEXIST|OFN_FILEMUSTEXIST|OFN_OVERWRITEPROMPT;
+	std::string filename;
+	if (W32Util::BrowseForFileName(false, nullptr, L"Save Disassembly As...", nullptr, L"All Files\0*.*\0\0", nullptr, filename)) {
+		std::wstring fileName = ConvertUTF8ToWString(filename);
+		FILE *output = _wfopen(fileName.c_str(), L"wb");
+		if (output == nullptr) {
+			MessageBox(wnd, L"Could not open file!", L"Error", MB_OK);
+			return;
+		}
 
-	if (GetSaveFileName(&ofn) == false) return;
+		std::string disassembly = disassembleRange(curAddress, size);
+		fprintf(output, "%s", disassembly.c_str());
 
-	FILE* output = _wfopen(fileName, L"wb");
-	if (output == NULL) {
-		MessageBox(wnd,L"Could not open file!",L"Error",MB_OK);
-		return;
+		fclose(output);
+		MessageBox(wnd, L"Finished!", L"Done", MB_OK);
 	}
-
-	std::string disassembly = disassembleRange(curAddress,size);
-	fprintf(output,"%s",disassembly.c_str());
-
-	fclose(output);
-	MessageBox(wnd,L"Finished!",L"Done",MB_OK);
 }
 
 void CtrlDisAsmView::getOpcodeText(u32 address, char* dest, int bufsize)

@@ -52,15 +52,18 @@ bool checkDllExistsW(const WCHAR* fname, bool bIncludeExeDir) {
 	return ::GetFileAttributesW(fname) != DWORD(-1);
 }
 
-bool checkExistsDllW(const WCHAR* sDllFilename) {
-	std::wstring sfullpath;
-	WCHAR bufsysdir[MAX_PATH];
-
-	if (!::GetSystemDirectoryW(bufsysdir, MAX_PATH)) {
+bool checkExistsDllW(const WCHAR *sDllFilename) {
+	std::wstring sfullpath(MAX_PATH, '\0');
+	size_t sz = ::GetSystemDirectoryW(&sfullpath[0], (UINT)sfullpath.size());
+	if (sz >= sfullpath.size()) {
+		sfullpath.resize(sz);
+		sz = ::GetSystemDirectoryW(&sfullpath[0], (UINT)sfullpath.size());
+	}
+	sfullpath.resize(sz);
+	if (sz == 0) {
 		throw (std::runtime_error("system error"));
 	}
 
-	sfullpath = bufsysdir;
 	sfullpath += L'\\';
 	sfullpath += sDllFilename;
 

@@ -9,10 +9,10 @@
 
 #include "util/text/utf8.h"
 #include "ShellUtil.h"
-#include "CommDlg.h"
 
 #include <shlobj.h>
 #include <commdlg.h>
+#include <cderr.h>
 
 namespace W32Util
 {
@@ -31,93 +31,147 @@ namespace W32Util
 
 		//info.pszDisplayName
 		auto idList = SHBrowseForFolder(&info);
+		HMODULE shell32 = GetModuleHandle(L"shell32.dll");
+		typedef BOOL (WINAPI *SHGetPathFromIDListEx_f)(PCIDLIST_ABSOLUTE pidl, PWSTR pszPath, DWORD cchPath, GPFIDL_FLAGS uOpts);
+		SHGetPathFromIDListEx_f SHGetPathFromIDListEx_ = (SHGetPathFromIDListEx_f)GetProcAddress(shell32, "SHGetPathFromIDListEx");
 
-		wchar_t temp[MAX_PATH];
-		SHGetPathFromIDList(idList, temp);
+		std::string result;
+		if (SHGetPathFromIDListEx_) {
+			std::wstring temp;
+			do {
+				// Assume it's failing if it goes on too long.
+				if (temp.size() > 32768 * 10) {
+					temp.clear();
+					break;
+				}
+				temp.resize(temp.size() + MAX_PATH);
+			} while (SHGetPathFromIDListEx_(idList, &temp[0], (DWORD)temp.size(), GPFIDL_DEFAULT) == 0);
+			result = ConvertWStringToUTF8(temp);
+		} else {
+			wchar_t temp[MAX_PATH]{};
+			SHGetPathFromIDList(idList, temp);
+			result = ConvertWStringToUTF8(temp);
+		}
+
 		CoTaskMemFree(idList);
-		if (wcslen(temp))
-			return ConvertWStringToUTF8(temp);
-		else
-			return "";
+		return result;
 	}
 
 	//---------------------------------------------------------------------------------------------------
 	// function WinBrowseForFileName
 	//---------------------------------------------------------------------------------------------------
-	bool BrowseForFileName (bool _bLoad, HWND _hParent, const wchar_t *_pTitle,
-		const wchar_t *_pInitialFolder,const wchar_t *_pFilter,const wchar_t *_pExtension, 
-		std::string& _strFileName)
-	{
-		wchar_t szFile [MAX_PATH+1] = {0};
-		wchar_t szFileTitle [MAX_PATH+1] = {0};
+	bool BrowseForFileName(bool _bLoad, HWND _hParent, const wchar_t *_pTitle,
+		const wchar_t *_pInitialFolder, const wchar_t *_pFilter, const wchar_t *_pExtension,
+		std::string &_strFileName) {
+		// Let's hope this is large enough, don't want to trigger the dialog twice...
+		std::wstring filenameBuffer(32768 * 10, '\0');
 
 		OPENFILENAME ofn{ sizeof(OPENFILENAME) };
 
+		auto resetFileBuffer = [&] {
+			ofn.nMaxFile = (DWORD)filenameBuffer.size();
+			ofn.lpstrFile = &filenameBuffer[0];
+			if (!_strFileName.empty())
+				wcsncpy(ofn.lpstrFile, ConvertUTF8ToWString(_strFileName).c_str(), filenameBuffer.size() - 1);
+		};
+
+		resetFileBuffer();
 		ofn.lpstrInitialDir = _pInitialFolder;
 		ofn.lpstrFilter = _pFilter;
-		ofn.nMaxFile = ARRAY_SIZE(szFile);
-		ofn.lpstrFile = szFile;
-		ofn.lpstrFileTitle = szFileTitle;
-		ofn.nMaxFileTitle = ARRAY_SIZE(szFileTitle);
+		ofn.lpstrFileTitle = nullptr;
+		ofn.nMaxFileTitle = 0;
 		ofn.lpstrDefExt = _pExtension;
 		ofn.hwndOwner = _hParent;
-		ofn.Flags = OFN_NOCHANGEDIR | OFN_EXPLORER | OFN_HIDEREADONLY;
+		ofn.Flags = OFN_NOCHANGEDIR | OFN_EXPLORER;
+		if (!_bLoad)
+			ofn.Flags |= OFN_HIDEREADONLY;
 
-		if (!_strFileName.empty())
-			wcsncpy(ofn.lpstrFile, ConvertUTF8ToWString(_strFileName).c_str(), MAX_PATH);
+		int success = _bLoad ? GetOpenFileName(&ofn) : GetSaveFileName(&ofn);
+		if (success == 0 && CommDlgExtendedError() == FNERR_BUFFERTOOSMALL) {
+			size_t sz = *(unsigned short *)&filenameBuffer[0];
+			// Documentation is unclear if this is WCHARs to CHARs.
+			filenameBuffer.resize(filenameBuffer.size() + sz * 2);
+			resetFileBuffer();
+			success = _bLoad ? GetOpenFileName(&ofn) : GetSaveFileName(&ofn);
+		}
 
-		if (((_bLoad) ? GetOpenFileName(&ofn) : GetSaveFileName(&ofn)))
-		{
+		if (success) {
 			_strFileName = ConvertWStringToUTF8(ofn.lpstrFile);
 			return true;
 		}
-		else
-			return false;
+		return false;
 	}
 	
 	std::vector<std::string> BrowseForFileNameMultiSelect(bool _bLoad, HWND _hParent, const wchar_t *_pTitle,
-		const wchar_t *_pInitialFolder,const wchar_t *_pFilter,const wchar_t *_pExtension)
-	{
-		wchar_t szFile [MAX_PATH+1+2048*2] = {0};
-		wchar_t szFileTitle [MAX_PATH+1] = {0};
+		const wchar_t *_pInitialFolder, const wchar_t *_pFilter, const wchar_t *_pExtension) {
+		// Let's hope this is large enough, don't want to trigger the dialog twice...
+		std::wstring filenameBuffer(32768 * 10, '\0');
 
 		OPENFILENAME ofn{ sizeof(OPENFILENAME) };
 
+		auto resetFileBuffer = [&] {
+			ofn.nMaxFile = (DWORD)filenameBuffer.size();
+			ofn.lpstrFile = &filenameBuffer[0];
+		};
+
+		resetFileBuffer();
 		ofn.lpstrInitialDir = _pInitialFolder;
 		ofn.lpstrFilter = _pFilter;
-		ofn.nMaxFile = ARRAY_SIZE(szFile);
-		ofn.lpstrFile = szFile;
-		ofn.lpstrFileTitle = szFileTitle;
-		ofn.nMaxFileTitle = ARRAY_SIZE(szFileTitle);
+		ofn.lpstrFileTitle = nullptr;
+		ofn.nMaxFileTitle = 0;
 		ofn.lpstrDefExt = _pExtension;
 		ofn.hwndOwner = _hParent;
-		ofn.Flags = OFN_NOCHANGEDIR | OFN_EXPLORER | OFN_HIDEREADONLY | OFN_ALLOWMULTISELECT;
+		ofn.Flags = OFN_NOCHANGEDIR | OFN_EXPLORER | OFN_ALLOWMULTISELECT;
+		if (!_bLoad)
+			ofn.Flags |= OFN_HIDEREADONLY;
 
 		std::vector<std::string> files;
+		int success = _bLoad ? GetOpenFileName(&ofn) : GetSaveFileName(&ofn);
+		if (success == 0 && CommDlgExtendedError() == FNERR_BUFFERTOOSMALL) {
+			size_t sz = *(unsigned short *)&filenameBuffer[0];
+			// Documentation is unclear if this is WCHARs to CHARs.
+			filenameBuffer.resize(filenameBuffer.size() + sz * 2);
+			resetFileBuffer();
+			success = _bLoad ? GetOpenFileName(&ofn) : GetSaveFileName(&ofn);
+		}
 
-		if (((_bLoad) ? GetOpenFileName(&ofn) : GetSaveFileName(&ofn)))
-		{
+		if (success) {
 			std::string directory = ConvertWStringToUTF8(ofn.lpstrFile);
 			wchar_t *temp = ofn.lpstrFile;
-			wchar_t *oldtemp = temp;
-			temp += wcslen(temp)+1;
-			if (*temp==0)
-			{
+			temp += wcslen(temp) + 1;
+			if (*temp == 0) {
 				//we only got one file
-				files.push_back(ConvertWStringToUTF8(oldtemp));
-			}
-			else
-			{
-				while (*temp)
-				{
-					files.push_back(directory+"\\"+ConvertWStringToUTF8(temp));
-					temp += wcslen(temp)+1;
+				files.push_back(directory);
+			} else {
+				while (*temp) {
+					files.push_back(directory + "\\" + ConvertWStringToUTF8(temp));
+					temp += wcslen(temp) + 1;
 				}
 			}
-			return files;
 		}
-		else
-			return std::vector<std::string>(); // empty vector;
+		return files;
+	}
+
+	std::string UserDocumentsPath() {
+		std::string result;
+		HMODULE shell32 = GetModuleHandle(L"shell32.dll");
+		typedef HRESULT(WINAPI *SHGetKnownFolderPath_f)(REFKNOWNFOLDERID rfid, DWORD dwFlags, HANDLE hToken, PWSTR *ppszPath);
+		SHGetKnownFolderPath_f SHGetKnownFolderPath_ = (SHGetKnownFolderPath_f)GetProcAddress(shell32, "SHGetKnownFolderPath");
+		if (SHGetKnownFolderPath_) {
+			PWSTR path = nullptr;
+			if (SHGetKnownFolderPath_(FOLDERID_Documents, 0, nullptr, &path) == S_OK) {
+				result = ConvertWStringToUTF8(path);
+			}
+			if (path)
+				CoTaskMemFree(path);
+		} else {
+			wchar_t path[MAX_PATH];
+			if (SHGetFolderPath(nullptr, CSIDL_PERSONAL, nullptr, SHGFP_TYPE_CURRENT, path) == S_OK) {
+				result = ConvertWStringToUTF8(path);
+			}
+		}
+
+		return result;
 	}
 
 	AsyncBrowseDialog::AsyncBrowseDialog(HWND parent, UINT completeMsg, std::wstring title)

@@ -374,17 +374,17 @@ static std::string GetDefaultLangRegion() {
 static const int EXIT_CODE_VULKAN_WORKS = 42;
 
 static bool DetectVulkanInExternalProcess() {
-	wchar_t moduleFilename[MAX_PATH];
-	wchar_t workingDirectory[MAX_PATH];
-	GetCurrentDirectoryW(MAX_PATH, workingDirectory);
+	std::wstring workingDirectory;
+	std::wstring moduleFilename;
+	W32Util::GetSelfExecuteParams(workingDirectory, moduleFilename);
+
 	const wchar_t *cmdline = L"--vulkan-available-check";
-	GetModuleFileName(GetModuleHandle(NULL), moduleFilename, MAX_PATH);
 
 	SHELLEXECUTEINFO info{ sizeof(SHELLEXECUTEINFO) };
 	info.fMask = SEE_MASK_NOCLOSEPROCESS;
-	info.lpFile = moduleFilename;
+	info.lpFile = moduleFilename.c_str();
 	info.lpParameters = cmdline;
-	info.lpDirectory = workingDirectory;
+	info.lpDirectory = workingDirectory.c_str();
 	info.nShow = SW_HIDE;
 	if (ShellExecuteEx(&info) != TRUE) {
 		return false;
@@ -493,6 +493,7 @@ int WINAPI WinMain(HINSTANCE _hInstance, HINSTANCE hPrevInstance, LPSTR szCmdLin
 
 	// On Win32 it makes more sense to initialize the system directories here 
 	// because the next place it was called was in the EmuThread, and it's too late by then.
+	g_Config.internalDataDirectory = W32Util::UserDocumentsPath();
 	InitSysDirectories();
 
 	// Load config up here, because those changes below would be overwritten
