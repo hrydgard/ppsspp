@@ -221,6 +221,20 @@ int kirk_CMD4(u8* outbuff, u8* inbuff, int size)
   return KIRK_OPERATION_SUCCESS;
 }
 
+void kirk4(u8* outbuff, const u8* inbuff, size_t size, int keyId)
+{
+  AES_ctx aesKey;
+  u8* key = kirk_4_7_get_key(keyId);
+
+  if (key == (u8*)KIRK_INVALID_SIZE)
+  {
+    return;
+  }
+  
+  AES_set_key(&aesKey, key, 128);
+  AES_cbc_encrypt(&aesKey, inbuff, outbuff, size);
+}
+
 int kirk_CMD7(u8* outbuff, u8* inbuff, int size)
 {
   KIRK_AES128CBC_HEADER *header = (KIRK_AES128CBC_HEADER*)inbuff;
@@ -239,6 +253,20 @@ int kirk_CMD7(u8* outbuff, u8* inbuff, int size)
   AES_cbc_decrypt(&aesKey, inbuff+sizeof(KIRK_AES128CBC_HEADER), outbuff, header->data_size);
   
   return KIRK_OPERATION_SUCCESS;
+}
+
+void kirk7(u8* outbuff, const u8* inbuff, size_t size, int keyId)
+{
+  AES_ctx aesKey;
+  u8* key = kirk_4_7_get_key(keyId);
+
+  if (key == (u8*)KIRK_INVALID_SIZE)
+  {
+    return;
+  }
+
+  AES_set_key(&aesKey, key, 128);
+  AES_cbc_decrypt(&aesKey, inbuff, outbuff, size);
 }
 
 int kirk_CMD10(u8* inbuff, int insize)

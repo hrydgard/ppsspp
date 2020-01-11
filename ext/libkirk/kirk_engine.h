@@ -208,6 +208,10 @@ int kirk_CMD17(u8* inbuff, int insize);
 int kirk_init(); //CMD 0xF?
 int kirk_init2(u8 *, u32, u32, u32);
 
+// overhead free functions
+void kirk4(u8* outbuff, const u8* inbuff, size_t size, int keyId);
+void kirk7(u8* outbuff, const u8* inbuff, size_t size, int keyId);
+
 //helper funcs
 u8* kirk_4_7_get_key(int key_type);
 
