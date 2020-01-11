@@ -1,8 +1,11 @@
+#include <algorithm>
+#include <array>
 #include <string.h>
 
 extern "C"
 {
 #include "ext/libkirk/kirk_engine.h"
+#include "ext/libkirk/SHA1.h"
 }
 #include "Common/Common.h"
 #include "Common/Swap.h"
@@ -119,8 +122,6 @@ static const u8 key_2E5E10F0[] = {0x9D, 0x5C, 0x5B, 0xAF, 0x8C, 0xD8, 0x69, 0x7E
 static const u8 key_2E5E12F0[] = {0x8A, 0x7B, 0xC9, 0xD6, 0x52, 0x58, 0x88, 0xEA, 0x51, 0x83, 0x60, 0xCA, 0x16, 0x79, 0xE2, 0x07};
 static const u8 key_2E5E13F0[] = {0xFF, 0xA4, 0x68, 0xC3, 0x31, 0xCA, 0xB7, 0x4C, 0xF1, 0x23, 0xFF, 0x01, 0x65, 0x3D, 0x26, 0x36};
 static const u8 key_2FD30BF0[] = {0xD8, 0x58, 0x79, 0xF9, 0xA4, 0x22, 0xAF, 0x86, 0x90, 0xAC, 0xDA, 0x45, 0xCE, 0x60, 0x40, 0x3F};
-static const u8 key_2FD311F0[] = {0x3A, 0x6B, 0x48, 0x96, 0x86, 0xA5, 0xC8, 0x80, 0x69, 0x6C, 0xE6, 0x4B, 0xF6, 0x04, 0x17, 0x44};
-static const u8 key_2FD312F0[] = {0xC5, 0xFB, 0x69, 0x03, 0x20, 0x7A, 0xCF, 0xBA, 0x2C, 0x90, 0xF8, 0xB8, 0x4D, 0xD2, 0xF1, 0xDE};
 static const u8 keys02G_E[] = {0x9D, 0x09, 0xFD, 0x20, 0xF3, 0x8F, 0x10, 0x69, 0x0D, 0xB2, 0x6F, 0x00, 0xCC, 0xC5, 0x51, 0x2E};
 static const u8 keys03G_E[] = {0x4F, 0x44, 0x5C, 0x62, 0xB3, 0x53, 0xC4, 0x30, 0xFC, 0x3A, 0xA4, 0x5B, 0xEC, 0xFE, 0x51, 0xEA};
 static const u8 keys05G_E[] = {0x5D, 0xAA, 0x72, 0xF2, 0x26, 0x60, 0x4D, 0x1C, 0xE7, 0x2D, 0xC8, 0xA3, 0x2F, 0x79, 0xC5, 0x54};
@@ -144,6 +145,11 @@ static const u8 key_380283F0[] = {0x34, 0x20, 0x0C, 0x8E, 0xA1, 0x86, 0x79, 0x84
 static const u8 key_407810F0[] = {0xAF, 0xAD, 0xCA, 0xF1, 0x95, 0x59, 0x91, 0xEC, 0x1B, 0x27, 0xD0, 0x4E, 0x8A, 0xF3, 0x3D, 0xE7};
 static const u8 drmkeys_6XX_1[] = {0x36, 0xEF, 0x82, 0x4E, 0x74, 0xFB, 0x17, 0x5B, 0x14, 0x14, 0x05, 0xF3, 0xB3, 0x8A, 0x76, 0x18};
 static const u8 drmkeys_6XX_2[] = {0x21, 0x52, 0x5D, 0x76, 0xF6, 0x81, 0x0F, 0x15, 0x2F, 0x4A, 0x40, 0x89, 0x63, 0xA0, 0x10, 0x55};
+static const u8 pauth_98b83b5d_1[] = {0xB0, 0x24, 0xC8, 0x16, 0x43, 0xE8, 0xF0, 0x1C, 0x8C, 0x30, 0x67, 0x73, 0x3E, 0x96, 0x35, 0xEF};
+static const u8 pauth_98b83b5d_xor[] = {0xA9, 0x1E, 0xDD, 0x7B, 0x09, 0xBB, 0x22, 0xB5, 0x9D, 0xA3, 0x30, 0x69, 0x13, 0x6E, 0x0E, 0xD8};
+static const u8 pauth_f7aa47f6_1[] = {0xC5, 0xFB, 0x69, 0x03, 0x20, 0x7A, 0xCF, 0xBA, 0x2C, 0x90, 0xF8, 0xB8, 0x4D, 0xD2, 0xF1, 0xDE};
+static const u8 pauth_f7aa47f6_2[] = {0x3A, 0x6B, 0x48, 0x96, 0x86, 0xA5, 0xC8, 0x80, 0x69, 0x6C, 0xE6, 0x4B, 0xF6, 0x04, 0x17, 0x44};
+static const u8 pauth_f7aa47f6_xor[] = {0xA9, 0x1E, 0xDD, 0x7B, 0x09, 0xBB, 0x22, 0xB5, 0x9D, 0xA3, 0x30, 0x69, 0x13, 0x6E, 0x0E, 0xD8};
 
 // PRXDecrypter 144-byte tag keys.
 static const u32 g_key0[] = {
@@ -295,165 +301,12 @@ static const TAG_INFO g_tagInfo[] =
 	{ 0xBB67C59F, g_key_GAMESHARE2xx, 0x5E, 0x5E }
 };
 
-bool HasKey(int key)
-{
-	switch (key)
-	{
-		case 0x02: case 0x03: case 0x04: case 0x05: case 0x07: case 0x0C: case 0x0D: case 0x0E: case 0x0F:
-		case 0x10: case 0x11: case 0x12:
-		case 0x38: case 0x39: case 0x3A: case 0x44: case 0x4B:
-		case 0x53: case 0x57: case 0x5D: case 0x60:
-		case 0x63: case 0x64:
-			return true;
-		default:
-			INFO_LOG(LOADER, "Missing key %02X, cannot decrypt module", key);
-			return false;
-	}
-}
-
 static const TAG_INFO *GetTagInfo(u32 tagFind)
 {
 	for (u32 iTag = 0; iTag < sizeof(g_tagInfo)/sizeof(TAG_INFO); iTag++)
 		if (g_tagInfo[iTag].tag == tagFind)
 			return &g_tagInfo[iTag];
 	return NULL; // not found
-}
-
-static void ExtraV2Mangle(u8* buffer1, u8 codeExtra)
-{
-	u8 buffer2[ROUNDUP16(0x14+0xA0)];
-
-	memcpy(buffer2+0x14, buffer1, 0xA0);
-
-	u32_le* pl2 = (u32_le*)buffer2;
-	pl2[0] = 5;
-	pl2[1] = pl2[2] = 0;
-	pl2[3] = codeExtra;
-	pl2[4] = 0xA0;
-
-	sceUtilsBufferCopyWithRange(buffer2, 20+0xA0, buffer2, 20+0xA0, KIRK_CMD_DECRYPT_IV_0);
-	// copy result back
-	memcpy(buffer1, buffer2, 0xA0);
-}
-
-static int Scramble(u32_le *buf, u32 size, u32 code)
-{
-	buf[0] = 5;
-	buf[1] = buf[2] = 0;
-	buf[3] = code;
-	buf[4] = size;
-
-	if (sceUtilsBufferCopyWithRange((u8*)buf, size+0x14, (u8*)buf, size+0x14, KIRK_CMD_DECRYPT_IV_0) < 0)
-	{
-		return -1;
-	}
-
-	return 0;
-}
-
-static int DecryptPRX1(const u8* pbIn, u8* pbOut, int cbTotal, u32 tag)
-{
-	int i;
-	s32_le retsize;
-	u8 bD0[0x80], b80[0x50], b00[0x80], bB0[0x20];
-
-	const TAG_INFO *pti = GetTagInfo(tag);
-	if (pti == NULL)
-	{
-		return -1;
-	}
-	if (!HasKey(pti->code) || 
-		(pti->codeExtra != 0 && !HasKey(pti->codeExtra)))
-	{
-		return MISSING_KEY;
-	}
-
-	retsize = *(s32_le*)&pbIn[0xB0];
-
-	for (i = 0; i < 0x14; i++)
-	{
-		if (pti->key[i] != 0)
-			break;
-	}
-
-	// Scramble the key (!)
-	//
-	// NOTE: I can't make much sense out of this code. Scramble seems really odd, appears
-	// to write to stuff that should be before the actual key.
-	u8 key[0x90];
-	memcpy(key, pti->key, 0x90);
-	if (i == 0x14)
-	{
-		Scramble((u32_le *)key, 0x90, pti->code);
-	}
-
-	// build conversion into pbOut
-
-	if (pbIn != pbOut)
-		memcpy(pbOut, pbIn, cbTotal);
-
-	memcpy(bD0, pbIn+0xD0, 0x80);
-	memcpy(b80, pbIn+0x80, 0x50);
-	memcpy(b00, pbIn+0x00, 0x80);
-	memcpy(bB0, pbIn+0xB0, 0x20);
-
-	memset(pbOut, 0, 0x150);
-	memset(pbOut, 0x55, 0x40); // first $40 bytes ignored
-
-	// step3 demangle in place
-	u32_le* pl = (u32_le*)(pbOut+0x2C);
-	pl[0] = 5; // number of ulongs in the header
-	pl[1] = pl[2] = 0;
-	pl[3] = pti->code; // initial seed for PRX
-	pl[4] = 0x70;   // size
-
-	// redo part of the SIG check (step2)
-	u8 buffer1[0x150];
-	memcpy(buffer1+0x00, bD0, 0x80);
-	memcpy(buffer1+0x80, b80, 0x50);
-	memcpy(buffer1+0xD0, b00, 0x80);
-	if (pti->codeExtra != 0)
-		ExtraV2Mangle(buffer1+0x10, pti->codeExtra);
-	memcpy(pbOut+0x40, buffer1+0x40, 0x40);
-
-	int ret;
-	int iXOR;
-	for (iXOR = 0; iXOR < 0x70; iXOR++)
-#ifdef COMMON_BIG_ENDIAN
-		pbOut[0x40+iXOR] = pbOut[0x40+iXOR] ^ key[(0x14+iXOR) ^3];
-#else
-		pbOut[0x40+iXOR] = pbOut[0x40+iXOR] ^ key[0x14+iXOR];
-#endif
-
-	ret = sceUtilsBufferCopyWithRange(pbOut+0x2C, 20+0x70, pbOut+0x2C, 20+0x70, 7);
-	if (ret != 0)
-	{
-		return -1;
-	}
-
-	for (iXOR = 0x6F; iXOR >= 0; iXOR--)
-#ifdef COMMON_BIG_ENDIAN
-		pbOut[0x40+iXOR] = pbOut[0x2C+iXOR] ^ key[(0x20+iXOR) ^ 3];
-#else
-		pbOut[0x40+iXOR] = pbOut[0x2C+iXOR] ^ key[0x20+iXOR];
-#endif
-
-	memset(pbOut+0x80, 0, 0x30); // $40 bytes kept, clean up
-	pbOut[0xA0] = 1;
-	// copy unscrambled parts from header
-	memcpy(pbOut+0xB0, bB0, 0x20); // file size + lots of zeros
-	memcpy(pbOut+0xD0, b00, 0x80); // ~PSP header
-
-	// step4: do the actual decryption of code block
-	//  point 0x40 bytes into the buffer to key info
-	ret = sceUtilsBufferCopyWithRange(pbOut, cbTotal, pbOut+0x40, cbTotal-0x40, 0x1);
-	if (ret != 0)
-	{
-		return -1;
-	}
-
-	// return cbTotal - 0x150; // rounded up size
-	return retsize;
 }
 
 ////////// Decryption 2 //////////
@@ -464,6 +317,7 @@ struct TAG_INFO2
 	const u8 *key; // 16 bytes keys
 	u8 code; // code for scramble
 	u8 type;
+	const u8 *seed;
 };
 
 static const TAG_INFO2 g_tagInfo2[] =
@@ -547,8 +401,6 @@ static const TAG_INFO2 g_tagInfo2[] =
 	{ 0x2E5E12F0, key_2E5E12F0, 0x48 },
 	{ 0x2E5E13F0, key_2E5E13F0, 0x48 },
 	{ 0x2FD30BF0, key_2FD30BF0, 0x47 },
-	{ 0x2FD311F0, key_2FD311F0, 0x47 },
-	{ 0x2FD312F0, key_2FD312F0, 0x47 },
 	{ 0xD91605F0, key_D91605F0, 0x5D, 2},
 	{ 0xD91606F0, key_D91606F0, 0x5D, 2},
 	{ 0xD91608F0, key_D91608F0, 0x5D, 2},
@@ -595,9 +447,11 @@ static const TAG_INFO2 g_tagInfo2[] =
 	{ 0x380283F0, key_380283F0, 0x5A },
 	{ 0x407810F0, key_407810F0, 0x6A },
 	{ 0xE92410F0, drmkeys_6XX_1, 0x40 },
-	{ 0x692810F0, drmkeys_6XX_2, 0x40 }
+	{ 0x692810F0, drmkeys_6XX_2, 0x40 },
+	{ 0x2FD313F0, pauth_98b83b5d_1, 0x47, 5, pauth_98b83b5d_xor },
+	{ 0x2FD312F0, pauth_f7aa47f6_1, 0x47, 5, pauth_f7aa47f6_xor },
+	{ 0x2FD311F0, pauth_f7aa47f6_2, 0x47, 5, pauth_f7aa47f6_xor },
 };
-
 
 static const TAG_INFO2 *GetTagInfo2(u32 tagFind)
 {
@@ -612,163 +466,565 @@ static const TAG_INFO2 *GetTagInfo2(u32 tagFind)
 	return NULL; // not found
 }
 
-
-static int DecryptPRX2(const u8 *inbuf, u8 *outbuf, u32 size, u32 tag)
+static std::array<u8, 0x90> expandSeed(const u8 *seed, int key, const u8 *bonusSeed = nullptr)
 {
-	const TAG_INFO2 *pti = GetTagInfo2(tag);
+	std::array<u8, 0x90> expandedSeed;
+
+	// perform some AES-CTR like encryption of seed
+	for (auto i = 0u; i < expandedSeed.size(); i += 0x10)
+{
+		memcpy(expandedSeed.data()+i, seed, 0x10);
+		expandedSeed[i] = i/0x10;
+	}
+
+	kirk7(expandedSeed.data(), expandedSeed.data(), expandedSeed.size(), key);
+
+	if (bonusSeed)
+	{
+		for (auto i = 0u; i < expandedSeed.size(); ++i)
+		{
+			expandedSeed[i] ^= bonusSeed[i % 0x10];
+		}
+	}
+
+	return expandedSeed;
+}
+
+template<typename It>
+static void decryptKirkHeader(u8 *outbuf, const u8 *inbuf, It xorbuf, int key)
+{
+	for (auto i = 0; i < 0x40; ++i)
+	{
+		outbuf[i] = inbuf[i] ^ *xorbuf++;
+	}
+
+	kirk7(outbuf, outbuf, 0x40, key);
+
+	for (auto i = 0; i < 0x40; ++i)
+	{
+		outbuf[i] = outbuf[i] ^ *xorbuf++;
+	}
+}
+
+template <typename T>
+static void decryptKirkHeaderType0(u8 *outbuf, const u8 *inbuf, T xorbuf, int key)
+{
+	for (auto i = 0; i < 0x70; ++i)
+	{
+		outbuf[i] = inbuf[i] ^ xorbuf[i+0x14];
+	}
+
+	kirk7(outbuf, outbuf, 0x70, key);
+
+	for (auto i = 0; i < 0x70; ++i)
+	{
+		outbuf[i] = outbuf[i] ^ xorbuf[i+0x20];
+	}
+}
+
+struct PRXType0
+{
+	explicit PRXType0(const u8 *prx)
+	{
+		memcpy(tag, prx+0xD0, sizeof(tag));
+		memcpy(sha1, prx+0xD4, sizeof(sha1));
+		memcpy(unused, prx+0xE8, sizeof(unused));
+		memcpy(kirkBlock, prx+0x110, 0x40); // key data
+		memcpy(kirkBlock+0x40, prx+0x80, sizeof(kirkBlock)-0x40);
+		memcpy(prxHeader, prx, sizeof(prxHeader));
+	}
+
+	u8 tag[4];
+	u8 sha1[0x14];
+	u8 unused[0x28];
+	u8 kirkBlock[0x90];
+	u8 prxHeader[0x80];
+};
+
+static_assert(sizeof(PRXType0) == 0x150, "inconsistent size of PRX Type 0");
+
+struct PRXType1
+{
+	explicit PRXType1(const u8 *prx)
+	{
+		memcpy(tag, prx+0xD0, sizeof(tag));
+		memcpy(sha1, prx+0xD4, sizeof(sha1));
+		memcpy(unused, prx+0xE8, sizeof(unused));
+		memcpy(kirkBlock, prx+0x110, 0x40); // key data
+		memcpy(kirkBlock+0x40, prx+0x80, sizeof(kirkBlock)-0x40);
+		memcpy(prxHeader, prx, sizeof(prxHeader));
+	}
+
+	void decrypt(int key)
+	{
+		kirk7(sha1+0xC, sha1+0xC, 0xA0, key);
+	}
+
+	u8 tag[4];
+	u8 sha1[0x14];
+	u8 unused[0x28];
+	u8 kirkBlock[0x90];
+	u8 prxHeader[0x80];
+};
+
+static_assert(sizeof(PRXType1) == 0x150, "inconsistent size of PRX Type 1");
+
+struct PRXType2
+{
+	explicit PRXType2(const u8 *prx)
+	{
+		memcpy(tag, prx+0xD0, sizeof(tag));
+		memset(empty, 0, sizeof(empty));
+		memcpy(id, prx+0x140, sizeof(id));
+		memcpy(sha1, prx+0x12C, sizeof(sha1));
+		// kirk header is split between 0x80->0xB0 and 0xC0->0xD0
+		memcpy(kirkHeader, prx+0x80, sizeof(kirkHeader)-0x10);
+		memcpy(kirkHeader+0x30, prx+0xC0, 0x10);
+		memcpy(kirkMetadata, prx+0xB0, sizeof(kirkMetadata));
+		memcpy(prxHeader, prx, sizeof(prxHeader));
+	}
+
+	void decrypt(int key)
+	{
+		kirk7(id, id, 0x60, key);
+	}
+
+	u8 tag[4];
+	u8 empty[0x58];
+	u8 id[0x10];
+	u8 sha1[0x14];
+	u8 kirkHeader[0x40];
+	u8 kirkMetadata[0x10];
+	u8 prxHeader[0x80];
+};
+static_assert(sizeof(PRXType2) == 0x150, "inconsistent size of PRX Type 2");
+
+struct PRXType5
+{
+	explicit PRXType5(const u8 *prx)
+	{
+		memcpy(tag, prx+0xD0, sizeof(tag));
+		memset(empty, 0, sizeof(empty));
+		memcpy(id, prx+0x140, sizeof(id));
+		memcpy(sha1, prx+0x12C, sizeof(sha1));
+		// kirk header is split between 0x80->0xB0 and 0xC0->0xD0
+		memcpy(kirkHeader, prx+0x80, sizeof(kirkHeader)-0x10);
+		memcpy(kirkHeader+0x30, prx+0xC0, 0x10);
+		memcpy(kirkMetadata, prx+0xB0, sizeof(kirkMetadata));
+		memcpy(prxHeader, prx, sizeof(prxHeader));
+	}
+
+	void decrypt(int key, const u8 *xor1, const u8 *xor2)
+	{
+		// first step is to decrypt kirk header + SHA1
+		u8 data[0x50];
+		memcpy(data, kirkHeader, sizeof(kirkHeader));
+		memcpy(data+sizeof(kirkHeader), sha1, 0x10);
+
+		for (auto i = 0; i < 0x50; ++i)
+		{
+			if (xor1)
+			{
+				data[i] ^= xor1[i % 0x10];
+			}
+
+			if (xor2)
+			{
+				data[i] ^= xor2[i % 0x10];
+			}
+		}
+
+		kirk7(data, data, 0x50, key);
+
+		// copy the result back
+		memcpy(kirkHeader, data, sizeof(kirkHeader));
+		memcpy(sha1, data+sizeof(kirkHeader), 0x10);
+
+		// second step is a XOR then decrypt id through to kirk header
+		if (xor1)
+		{
+			u8 *p = id;
+			for (auto i = 0; i < 0x60; ++i)
+			{
+				p[i] ^= xor1[i % 0x10];
+			}
+		}
+
+		kirk7(id, id, 0x60, key);
+	}
+
+	u8 tag[4];
+	u8 empty[0x58];
+	u8 id[0x10];
+	u8 sha1[0x14];
+	u8 kirkHeader[0x40];
+	u8 kirkMetadata[0x10];
+	u8 prxHeader[0x80];
+};
+static_assert(sizeof(PRXType5) == 0x150, "inconsistent size of PRX Type 5");
+
+struct PRXType6
+{
+	explicit PRXType6(const u8 *prx)
+	{
+		memcpy(tag, prx+0xD0, sizeof(tag));
+		memset(empty, 0, sizeof(empty));
+		memcpy(ecdsaSignatureTail, prx+0x10C, sizeof(ecdsaSignatureTail));
+		memcpy(id, prx+0x140, sizeof(id));
+		memcpy(sha1, prx+0x12C, sizeof(sha1));
+		// kirk header is split between 0x80->0xB0 and 0xC0->0xD0
+		memcpy(kirkHeader, prx+0x80, sizeof(kirkHeader)-0x10);
+		memcpy(kirkHeader+0x30, prx+0xC0, 0x10);
+		memcpy(kirkMetadata, prx+0xB0, sizeof(kirkMetadata));
+		memcpy(prxHeader, prx, sizeof(prxHeader));
+	}
+	
+	void decrypt(int key)
+	{
+		kirk7(id, id, 0x60, key);
+	}
+
+	u8 tag[4];
+	u8 empty[0x38];
+	u8 ecdsaSignatureTail[0x20];
+	u8 id[0x10];
+	u8 sha1[0x14];
+	u8 kirkHeader[0x40];
+	u8 kirkMetadata[0x10];
+	u8 prxHeader[0x80];
+};
+static_assert(sizeof(PRXType6) == 0x150, "inconsistent size of PRX Type 6");
+
+static int pspDecryptType0(const u8 *inbuf, u8 *outbuf, u32 size)
+{
+	INFO_LOG(LOADER, "Decrypting tag %02X", (u32)*(u32_le *)&inbuf[0xD0]);
+	const auto decryptSize = *(s32_le*)&inbuf[0xB0];
+	const auto pti = GetTagInfo((u32)*(u32_le *)&inbuf[0xD0]);
 
 	if (!pti)
 	{
 		return -1;
 	}
-	if (!HasKey(pti->code))
+
+	// no need to expand seed, and no need to decrypt
+	// normally this would be a kirk7 op, but we have the seed pre-decrypted
+	std::array<u8, 0x90> xorbuf;
+	memcpy(xorbuf.data(), reinterpret_cast<const u8 *>(pti->key), xorbuf.size());
+
+	// construct the header format for a type 0 prx
+	PRXType0 type0(inbuf);
+
+	SHA_CTX ctx;
+	SHAInit(&ctx);
+	SHAUpdate(&ctx, xorbuf.data(), 0x14);
+	SHAUpdate(&ctx, type0.unused, sizeof(type0.unused));
+	SHAUpdate(&ctx, type0.kirkBlock, sizeof(type0.kirkBlock));
+	SHAUpdate(&ctx, type0.prxHeader, sizeof(type0.prxHeader));
+
+	u8 sha1[0x14];
+	SHAFinal(sha1, &ctx);
+
+	if (memcmp(sha1, type0.sha1, sizeof(sha1)) != 0)
 	{
-		return MISSING_KEY;
+		return -3;
 	}
 
-	// only type2 and type6 can be process by this code.
-	if(pti->type!=2 && pti->type!=6)
-		return -12;
+	constexpr auto offset = sizeof(PSP_Header)-sizeof(KIRK_CMD1_HEADER)-sizeof(type0.prxHeader);
+	KIRK_CMD1_HEADER *header = reinterpret_cast<KIRK_CMD1_HEADER *>(outbuf+offset);
 
-	s32_le retsize = *(const s32_le *)&inbuf[0xB0];
-	u8 tmp1[0x150] = {0};
-	u8 tmp2[ROUNDUP16(0x90+0x14)] = {0};
-	u8 tmp3[ROUNDUP16(0x90+0x14)] = {0};
-	u8 tmp4[ROUNDUP16(0x20)] = {0};
-
-	if (inbuf != outbuf)
+	if (outbuf != inbuf)
+	{
 		memcpy(outbuf, inbuf, size);
-
-	if (size < 0x160)
-	{
-		return -2;
 	}
+	
+	memcpy(header, type0.kirkBlock, sizeof(KIRK_CMD1_HEADER));
+	memcpy(reinterpret_cast<u8*>(header)+sizeof(KIRK_CMD1_HEADER), type0.prxHeader, sizeof(type0.prxHeader));
+	decryptKirkHeaderType0(reinterpret_cast<u8*>(header), type0.kirkBlock, xorbuf, pti->code);
 
-	if (((int)size - 0x150) < retsize)
+	if (sceUtilsBufferCopyWithRange(outbuf, size, reinterpret_cast<u8*>(header), size - offset, KIRK_CMD_DECRYPT_PRIVATE) != 0)
 	{
 		return -4;
 	}
 
-	memcpy(tmp1, outbuf, 0x150);
+	return decryptSize;
+}
 
-	int i;
-	u8 *p = tmp2 + 0x14;
+static int pspDecryptType1(const u8 *inbuf, u8 *outbuf, u32 size)
+{
+	INFO_LOG(LOADER, "Decrypting tag %02X", (u32)*(u32_le *)&inbuf[0xD0]);
+	const auto decryptSize = *(s32_le*)&inbuf[0xB0];
+	const auto pti = GetTagInfo((u32)*(u32_le *)&inbuf[0xD0]);
 
-	// Writes 0x90 bytes to tmp2 + 0x14.
-	for (i = 0; i < 9; i++)
-	{
-		memcpy(p+(i<<4), pti->key, 0x10);
-		p[(i << 4)] = i;   // really? this is very odd
-	}
-
-	if (Scramble((u32_le  *)tmp2, 0x90, pti->code) < 0)
-	{
-		return -5;
-	}
-
-	memcpy(outbuf, tmp1+0xD0, 0x5C);
-	memcpy(outbuf+0x5C, tmp1+0x140, 0x10);
-	memcpy(outbuf+0x6C, tmp1+0x12C, 0x14);
-	memcpy(outbuf+0x80, tmp1+0x080, 0x30);
-	memcpy(outbuf+0xB0, tmp1+0x0C0, 0x10);
-	memcpy(outbuf+0xC0, tmp1+0x0B0, 0x10);
-	memcpy(outbuf+0xD0, tmp1+0x000, 0x80);
-
-	memcpy(tmp3+0x14, outbuf+0x5C, 0x60);
-
-	if (Scramble((u32_le  *)tmp3, 0x60, pti->code) < 0)
-	{
-		return -6;
-	}
-
-	memcpy(outbuf+0x5C, tmp3, 0x60);
-	memcpy(tmp3, outbuf+0x6C, 0x14);
-	memcpy(outbuf+0x70, outbuf+0x5C, 0x10);
-
-	if(pti->type == 6)
-	{
-		memcpy(tmp4, outbuf+0x3C, 0x20);
-		memcpy(outbuf+0x50, tmp4, 0x20);
-		memset(outbuf+0x18, 0, 0x38);
-	}else
-		memset(outbuf+0x18, 0, 0x58);
-
-	memcpy(outbuf+0x04, outbuf, 0x04);
-	*((u32_le *)outbuf) = 0x014C;
-	memcpy(outbuf+0x08, tmp2, 0x10);
-
-	/* sha-1 */
-
-	if (sceUtilsBufferCopyWithRange(outbuf, 3000000, outbuf, 3000000, 0x0B) != 0)
-	{
-		return -7;
-	}
-
-	if (memcmp(outbuf, tmp3, 0x14) != 0)
-	{
-		return -8;
-	}
-
-	for (i=0; i<0x40; i++)
-	{
-		tmp3[i+0x14] = outbuf[i+0x80] ^ tmp2[i+0x10];
-	}
-
-	if (Scramble((u32_le  *)tmp3, 0x40, pti->code) != 0)
-	{
-		return -9;
-	}
-
-	for (i=0; i<0x40; i++)
-	{
-		outbuf[i+0x40] = tmp3[i] ^ tmp2[i+0x50];
-	}
-
-	if (pti->type == 6)
-	{
-		memcpy(outbuf+0x80, tmp4, 0x20);
-		memset(outbuf+0xA0, 0, 0x10);
-		*(u32_le*)&outbuf[0xA4] = 1;
-		*(u32_le*)&outbuf[0xA0] = 1;
-	}
-	else
-	{
-		memset(outbuf+0x80, 0, 0x30);
-		*(u32_le*)&outbuf[0xA0] = 1;
-	}
-
-	memcpy(outbuf+0xB0, outbuf+0xC0, 0x10);
-	memset(outbuf+0xC0, 0, 0x10);
-
-	// The real decryption
-	if (sceUtilsBufferCopyWithRange(outbuf, size, outbuf + 0x40, size - 0x40, 0x1) != 0)
+	if (!pti)
 	{
 		return -1;
 	}
 
-	if (retsize < 0x150)
+	// no need to expand seed, and no need to decrypt
+	// normally this would be a kirk7 op, but we have the seed pre-decrypted
+	std::array<u8, 0x90> xorbuf;
+	memcpy(xorbuf.data(), reinterpret_cast<const u8 *>(pti->key), xorbuf.size());
+
+	// construct the header format for a type 1 prx
+	PRXType1 type1(inbuf);
+	type1.decrypt(pti->code);
+
+	SHA_CTX ctx;
+	SHAInit(&ctx);
+	SHAUpdate(&ctx, xorbuf.data(), 0x14);
+	SHAUpdate(&ctx, type1.unused, sizeof(type1.unused));
+	SHAUpdate(&ctx, type1.kirkBlock, sizeof(type1.kirkBlock));
+	SHAUpdate(&ctx, type1.prxHeader, sizeof(type1.prxHeader));
+
+	u8 sha1[0x14];
+	SHAFinal(sha1, &ctx);
+
+	if (memcmp(sha1, type1.sha1, sizeof(sha1)) != 0)
 	{
-		// Fill with 0
-		memset(outbuf+retsize, 0, 0x150-retsize);
+		return -3;
 	}
 
-	return retsize;
+	constexpr auto offset = sizeof(PSP_Header)-sizeof(KIRK_CMD1_HEADER)-sizeof(type1.prxHeader);
+	KIRK_CMD1_HEADER *header = reinterpret_cast<KIRK_CMD1_HEADER *>(outbuf+offset);
+
+	if (outbuf != inbuf)
+	{
+		memcpy(outbuf, inbuf, size);
+	}
+
+	memcpy(header, type1.kirkBlock, sizeof(KIRK_CMD1_HEADER));
+	memcpy(reinterpret_cast<u8*>(header)+sizeof(KIRK_CMD1_HEADER), type1.prxHeader, sizeof(type1.prxHeader));
+	decryptKirkHeaderType0(reinterpret_cast<u8*>(header), type1.kirkBlock, xorbuf, pti->code);
+
+	if (sceUtilsBufferCopyWithRange(outbuf, size, reinterpret_cast<u8*>(header), size - offset, KIRK_CMD_DECRYPT_PRIVATE) != 0)
+	{
+		return -4;
+	}
+
+	return decryptSize;
 }
 
-int pspDecryptPRX(const u8 *inbuf, u8 *outbuf, u32 size)
+static int pspDecryptType2(const u8 *inbuf, u8 *outbuf, u32 size)
+{
+	INFO_LOG(LOADER, "Decrypting tag %02X", (u32)*(u32_le *)&inbuf[0xD0]);
+	const auto decryptSize = *(s32_le*)&inbuf[0xB0];
+	const auto pti = GetTagInfo2((u32)*(u32_le *)&inbuf[0xD0]);
+
+	if (!pti)
+	{
+		return -1;
+	}
+
+	// check if range is non-zero
+	if (std::any_of(inbuf+0xD4, inbuf+0xD4+0x58, [](u8 x) { return x != 0; }))
+	{
+		return -2;
+	}
+
+	// expand the seed into a xor buffer
+	auto xorbuf = expandSeed(pti->key, pti->code);
+
+	// construct the header format for a type 2 prx
+	PRXType2 type2(inbuf);
+	type2.decrypt(pti->code);
+
+	SHA_CTX ctx;
+	SHAInit(&ctx);
+	SHAUpdate(&ctx, type2.tag, sizeof(type2.tag));
+	SHAUpdate(&ctx, xorbuf.data(), 0x10);
+	SHAUpdate(&ctx, type2.empty, sizeof(type2.empty));
+	SHAUpdate(&ctx, type2.id, sizeof(type2.id));
+	SHAUpdate(&ctx, type2.kirkHeader, sizeof(type2.kirkHeader));
+	SHAUpdate(&ctx, type2.kirkMetadata, sizeof(type2.kirkMetadata));
+	SHAUpdate(&ctx, type2.prxHeader, sizeof(type2.prxHeader));
+
+	u8 sha1[0x14];
+	SHAFinal(sha1, &ctx);
+
+	if (memcmp(sha1, type2.sha1, sizeof(sha1)) != 0)
+	{
+		return -3;
+	}
+
+	constexpr auto offset = sizeof(PSP_Header)-sizeof(KIRK_CMD1_HEADER)-sizeof(type2.prxHeader);
+	KIRK_CMD1_HEADER *header = reinterpret_cast<KIRK_CMD1_HEADER *>(outbuf+offset);
+
+	if (outbuf != inbuf)
+	{
+		memcpy(outbuf, inbuf, size);
+	}
+	
+	memset(header, 0, sizeof(KIRK_CMD1_HEADER));
+	memcpy(reinterpret_cast<u8*>(&header->data_size), type2.kirkMetadata, sizeof(type2.kirkMetadata));
+	memcpy(reinterpret_cast<u8*>(header)+sizeof(KIRK_CMD1_HEADER), type2.prxHeader, sizeof(type2.prxHeader));
+	decryptKirkHeader(reinterpret_cast<u8*>(header), type2.kirkHeader, xorbuf.cbegin()+0x10, pti->code);
+	header->mode = 1;
+
+	if (sceUtilsBufferCopyWithRange(outbuf, size, reinterpret_cast<u8*>(header), size - offset, KIRK_CMD_DECRYPT_PRIVATE) != 0)
+	{
+		return -4;
+	}
+
+	return decryptSize;
+}
+
+static int pspDecryptType5(const u8 *inbuf, u8 *outbuf, u32 size, const u8 *seed)
+	{
+	INFO_LOG(LOADER, "Decrypting tag %02X", (u32)*(u32_le *)&inbuf[0xD0]);
+	const auto decryptSize = *(s32_le*)&inbuf[0xB0];
+	const auto pti = GetTagInfo2((u32)*(u32_le *)&inbuf[0xD0]);
+
+	if (!pti)
+	{
+		return -1;
+	}
+
+	// check if range is non-zero
+	if (std::any_of(inbuf+0xD4+1, inbuf+0xD4+0x58, [](u8 x) { return x != 0; }))
+	{
+		return -2;
+	}
+
+	// expand the seed into a xor buffer
+	auto xorbuf = expandSeed(pti->key, pti->code, seed);
+
+	// construct the header format for a type 2 prx
+	PRXType5 type5(inbuf);
+	type5.decrypt(pti->code, pti->seed, seed);
+
+	SHA_CTX ctx;
+	SHAInit(&ctx);
+	SHAUpdate(&ctx, type5.tag, sizeof(type5.tag));
+	SHAUpdate(&ctx, xorbuf.data(), 0x10);
+	SHAUpdate(&ctx, type5.empty, sizeof(type5.empty));
+	SHAUpdate(&ctx, type5.id, sizeof(type5.id));
+	SHAUpdate(&ctx, type5.kirkHeader, sizeof(type5.kirkHeader));
+	SHAUpdate(&ctx, type5.kirkMetadata, sizeof(type5.kirkMetadata));
+	SHAUpdate(&ctx, type5.prxHeader, sizeof(type5.prxHeader));
+
+	u8 sha1[0x14];
+	SHAFinal(sha1, &ctx);
+
+	if (memcmp(sha1, type5.sha1, sizeof(sha1)) != 0)
+	{
+		return -3;
+	}
+
+	constexpr auto offset = sizeof(PSP_Header)-sizeof(KIRK_CMD1_HEADER)-sizeof(type5.prxHeader);
+	KIRK_CMD1_HEADER *header = reinterpret_cast<KIRK_CMD1_HEADER *>(outbuf+offset);
+
+	if (outbuf != inbuf)
+	{
+		memcpy(outbuf, inbuf, size);
+	}
+
+	memset(header, 0, sizeof(KIRK_CMD1_HEADER));
+	memcpy(reinterpret_cast<u8*>(&header->data_size), type5.kirkMetadata, sizeof(type5.kirkMetadata));
+	memcpy(reinterpret_cast<u8*>(header)+sizeof(KIRK_CMD1_HEADER), type5.prxHeader, sizeof(type5.prxHeader));
+	decryptKirkHeader(reinterpret_cast<u8*>(header), type5.kirkHeader, xorbuf.cbegin()+0x10, pti->code);
+	header->mode = 1;
+
+	if (sceUtilsBufferCopyWithRange(outbuf, size, reinterpret_cast<u8*>(header), size - offset, KIRK_CMD_DECRYPT_PRIVATE) != 0)
+	{
+		return -4;
+	}
+
+	return decryptSize;
+	}
+
+static int pspDecryptType6(const u8 *inbuf, u8 *outbuf, u32 size)
+{
+	INFO_LOG(LOADER, "Decrypting tag %02X", (u32)*(u32_le *)&inbuf[0xD0]);
+	const auto decryptSize = *(s32_le*)&inbuf[0xB0];
+	const auto pti = GetTagInfo2((u32)*(u32_le *)&inbuf[0xD0]);
+
+	if (!pti)
+	{
+		return -1;
+	}
+
+	// check if range is non-zero
+	if (std::any_of(inbuf+0xD4, inbuf+0xD4+0x38, [](u8 x) { return x != 0; }))
+	{
+		return -2;
+	}
+
+	// expand the seed into a xor buffer
+	auto xorbuf = expandSeed(pti->key, pti->code);
+
+	// construct the header format for a type 2 prx
+	PRXType6 type6(inbuf);
+	type6.decrypt(pti->code);
+
+	SHA_CTX ctx;
+	SHAInit(&ctx);
+	SHAUpdate(&ctx, type6.tag, sizeof(type6.tag));
+	SHAUpdate(&ctx, xorbuf.data(), 0x10);
+	SHAUpdate(&ctx, type6.empty, sizeof(type6.empty));
+	SHAUpdate(&ctx, type6.ecdsaSignatureTail, sizeof(type6.ecdsaSignatureTail));
+	SHAUpdate(&ctx, type6.id, sizeof(type6.id));
+	SHAUpdate(&ctx, type6.kirkHeader, sizeof(type6.kirkHeader));
+	SHAUpdate(&ctx, type6.kirkMetadata, sizeof(type6.kirkMetadata));
+	SHAUpdate(&ctx, type6.prxHeader, sizeof(type6.prxHeader));
+
+	u8 sha1[0x14];
+	SHAFinal(sha1, &ctx);
+
+	if (memcmp(sha1, type6.sha1, sizeof(sha1)) != 0)
+	{
+		return -3;
+}
+
+	constexpr auto offset = sizeof(PSP_Header)-sizeof(KIRK_CMD1_ECDSA_HEADER)-sizeof(type6.prxHeader);
+	KIRK_CMD1_ECDSA_HEADER *header = reinterpret_cast<KIRK_CMD1_ECDSA_HEADER *>(outbuf+offset);
+
+	if (outbuf != inbuf)
+	{
+		memcpy(outbuf, inbuf, size);
+	}
+
+	memset(header, 0, sizeof(KIRK_CMD1_ECDSA_HEADER));
+	memcpy(outbuf+offset+0x40, type6.ecdsaSignatureTail, sizeof(type6.ecdsaSignatureTail));
+	memcpy(reinterpret_cast<u8*>(&header->data_size), type6.kirkMetadata, sizeof(type6.kirkMetadata));
+	memcpy(reinterpret_cast<u8*>(header)+sizeof(KIRK_CMD1_ECDSA_HEADER), type6.prxHeader, sizeof(type6.prxHeader));
+	decryptKirkHeader(reinterpret_cast<u8*>(header), type6.kirkHeader, xorbuf.cbegin()+0x10, pti->code);
+	header->mode = 1;
+	header->ecdsa_hash = 1;
+
+	if (sceUtilsBufferCopyWithRange(outbuf, size, reinterpret_cast<u8*>(header), size - offset, KIRK_CMD_DECRYPT_PRIVATE) != 0)
+	{
+		return -4;
+	}
+
+	return decryptSize;
+}
+
+int pspDecryptPRX(const u8 *inbuf, u8 *outbuf, u32 size, const u8 *seed)
 {
 	kirk_init();
-	int retsize = DecryptPRX1(inbuf, outbuf, size, (u32)*(u32_le *)&inbuf[0xD0]);
-	if (retsize == MISSING_KEY)
-	{
-		return MISSING_KEY;
-	}
 
-	if (retsize <= 0)
-	{
-		retsize = DecryptPRX2(inbuf, outbuf, size, (u32)*(u32_le *)&inbuf[0xD0]);
-	}
+	// this would be significantly better if we had a log of the tags
+	// and their appropriate prx types
+	// since we don't know the PRX type we attempt a decrypt using all
+	auto res = pspDecryptType0(inbuf, outbuf, size);
 
-	return retsize;
+	if (res >= 0)
+		return res;
+	
+	res = pspDecryptType1(inbuf, outbuf, size);
+
+	if (res >= 0)
+		return res;
+	
+	res = pspDecryptType2(inbuf, outbuf, size);
+
+	if (res >= 0)
+		return res;
+	
+	res = pspDecryptType5(inbuf, outbuf, size, seed);
+
+	if (res >= 0)
+		return res;
+	
+	return pspDecryptType6(inbuf, outbuf, size);
 }
-
