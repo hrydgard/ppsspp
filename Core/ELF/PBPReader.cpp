@@ -37,7 +37,7 @@ PBPReader::PBPReader(FileLoader *fileLoader) : file_(nullptr), header_(), isELF_
 	}
 	if (memcmp(header_.magic, "\0PBP", 4) != 0) {
 		if (memcmp(header_.magic, "\nFLE", 4) != 0) {
-			DEBUG_LOG(LOADER, "%s: File actually an ELF, not a PBP", fileLoader->Path().c_str());
+			VERBOSE_LOG(LOADER, "%s: File actually an ELF, not a PBP", fileLoader->Path().c_str());
 			isELF_ = true;
 		} else {
 			ERROR_LOG(LOADER, "Magic number in %s indicated no PBP: %s", fileLoader->Path().c_str(), header_.magic);
