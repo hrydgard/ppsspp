@@ -893,6 +893,8 @@ static bool IsHLEVersionedModule(const char *name) {
 		"sceCcc_Library",
 		"SceParseHTTPheader_Library",
 		"SceParseURI_Library",
+		"sceDEFLATE_Library",
+		"sceMD5_Library",
 		// Guessing.
 		"sceJpeg",
 		"sceJpeg_library",
