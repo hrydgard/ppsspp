@@ -69,35 +69,50 @@ public slots:
 private slots:
 	// File
 	void openAct();
-	void closeAct();
+	void opendirAct();
+	void openmsAct();
+
+	void saveStateGroup_triggered(QAction *action) { g_Config.iCurrentStateSlot = action->data().toInt(); }
+
 	void qlstateAct();
 	void qsstateAct();
 	void lstateAct();
 	void sstateAct();
+
+	void recordDisplayAct() { g_Config.bDumpFrames = !g_Config.bDumpFrames; }
+	void useLosslessCodecAct() { g_Config.bUseFFV1 = !g_Config.bUseFFV1; }
+	void useOutputBufferAct() { g_Config.bDumpVideoOutput = !g_Config.bDumpVideoOutput; }
+	void recordAudioAct() { g_Config.bDumpAudio = !g_Config.bDumpAudio; }
+
 	void exitAct();
 
 	// Emulation
 	void runAct();
 	void pauseAct();
+	void stopAct();
 	void resetAct();
-	void runonloadAct();
+	
+	void displayRotationGroup_triggered(QAction *action) { g_Config.iInternalScreenRotation = action->data().toInt(); }
 
 	// Debug
+	void breakonloadAct();
+	void ignoreIllegalAct() { g_Config.bIgnoreBadMemAccess = !g_Config.bIgnoreBadMemAccess; }
 	void lmapAct();
 	void smapAct();
+	void lsymAct();
+	void ssymAct();
 	void resetTableAct();
 	void dumpNextAct();
 	void takeScreen() { g_TakeScreenshot = true; }
 	void consoleAct();
 
-	// Options
-	// Core
-	void vertexDynarecAct() { g_Config.bVertexDecoderJit = !g_Config.bVertexDecoderJit; }
-	void fastmemAct() { g_Config.bFastMemory = !g_Config.bFastMemory; }
-	void ignoreIllegalAct() { g_Config.bIgnoreBadMemAccess = !g_Config.bIgnoreBadMemAccess; }
-
-	// Video
-	void anisotropicGroup_triggered(QAction *action) { g_Config.iAnisotropyLevel = action->data().toInt(); }
+	// Game settings
+	void keepOnTopAct() { g_Config.bTopMost = !g_Config.bTopMost; }
+	void pauseWhenNotFocusedAct() { g_Config.bPauseOnLostFocus = !g_Config.bPauseOnLostFocus; }
+	void languageAct() { NativeMessageReceived("language screen", ""); }
+	void controlMappingAct() { NativeMessageReceived("control mapping", ""); }
+	void displayLayoutEditorAct() { NativeMessageReceived("display layout editor", ""); }
+	void moreSettingsAct() { NativeMessageReceived("settings", ""); }
 
 	void bufferRenderAct() {
 		g_Config.iRenderingMode = !g_Config.iRenderingMode;
@@ -105,12 +120,23 @@ private slots:
 	}
 	void linearAct() { g_Config.iTexFiltering = (g_Config.iTexFiltering != 0) ? 0 : 3; }
 
-	void screenGroup_triggered(QAction *action) { SetWindowScale(action->data().toInt()); }
+	void postprocessingShaderGroup_triggered(QAction *action) { g_Config.sPostShaderName = action->data().toInt(); }
+	void renderingResolutionGroup_triggered(QAction *action) { g_Config.iInternalResolution = action->data().toInt(); }
+	void windowGroup_triggered(QAction *action) { SetWindowScale(action->data().toInt()); }
 
 	void displayLayoutGroup_triggered(QAction *action) {
 		g_Config.iSmallDisplayZoomType = action->data().toInt();
 		NativeMessageReceived("gpu_resized", "");
 	}
+	void renderingModeGroup_triggered(QAction *action) { g_Config.iRenderingMode = action->data().toInt(); }
+	void autoframeskipAct() { g_Config.bAutoFrameSkip = !g_Config.bAutoFrameSkip; }
+	void frameSkippingGroup_triggered(QAction *action) { g_Config.iFrameSkip = action->data().toInt(); }
+	void frameSkippingTypeGroup_triggered(QAction *action) { g_Config.iFrameSkipType = action->data().toInt(); }
+	void textureFilteringGroup_triggered(QAction *action) { g_Config.iTexFiltering = action->data().toInt(); }
+	void screenScalingFilterGroup_triggered(QAction *action) { g_Config.iBufFilter = action->data().toInt(); }
+	void textureScalingLevelGroup_triggered(QAction *action) { g_Config.iTexScalingLevel = action->data().toInt(); }
+	void textureScalingTypeGroup_triggered(QAction *action) { g_Config.iTexScalingType = action->data().toInt(); }
+	void deposterizeAct() { g_Config.bTexDeposterize = !g_Config.bTexDeposterize; }
 	void transformAct() { g_Config.bHardwareTransform = !g_Config.bHardwareTransform; }
 	void vertexCacheAct() { g_Config.bVertexCache = !g_Config.bVertexCache; }
 	void frameskipAct() { g_Config.iFrameSkip = !g_Config.iFrameSkip; }
@@ -119,32 +145,24 @@ private slots:
 	// Sound
 	void audioAct() { g_Config.bEnableSound = !g_Config.bEnableSound; }
 
+	// Cheats
+	void cheatsAct() { g_Config.bEnableCheats = !g_Config.bEnableCheats; }
+
 	void fullscrAct();
 	void raiseTopMost();
 	void statsAct() {
 		g_Config.bShowDebugStats = !g_Config.bShowDebugStats;
 		NativeMessageReceived("clear jit", "");
 	}
+	void VSyncAct() { g_Config.bVSync = !g_Config.bVSync; }
 	void showFPSAct() { g_Config.iShowFPSCounter = !g_Config.iShowFPSCounter; }
-
-	// Logs
-	void defaultLogGroup_triggered(QAction * action) {
-		LogTypes::LOG_LEVELS level = (LogTypes::LOG_LEVELS)action->data().toInt();
-		for (int i = 0; i < LogTypes::NUMBER_OF_LOGS; i++)
-		{
-			LogTypes::LOG_TYPE type = (LogTypes::LOG_TYPE)i;
-			if(type == LogTypes::G3D || type == LogTypes::HLE)
-				continue;
-			LogManager::GetInstance()->SetLogLevel(type, level);
-		}
-	 }
-	void g3dLogGroup_triggered(QAction * action) { LogManager::GetInstance()->SetLogLevel(LogTypes::G3D, (LogTypes::LOG_LEVELS)action->data().toInt()); }
-	void hleLogGroup_triggered(QAction * action) { LogManager::GetInstance()->SetLogLevel(LogTypes::HLE, (LogTypes::LOG_LEVELS)action->data().toInt()); }
 
 	// Help
 	void websiteAct();
 	void forumAct();
+	void goldAct();
 	void gitAct();
+	void discordAct();
 	void aboutAct();
 
 	// Others
@@ -164,8 +182,12 @@ private:
 	CoreState nextState;
 	GlobalUIState lastUIState;
 
-	QActionGroup *anisotropicGroup, *screenGroup, *displayLayoutGroup,
-	             *defaultLogGroup, *g3dLogGroup, *hleLogGroup;
+	QActionGroup *windowGroup, *postprocessingShaderGroup,
+	             *displayRotationGroup, *saveStateGroup,
+	             *textureScalingLevelGroup, *textureScalingTypeGroup,
+	             *screenScalingFilterGroup, *textureFilteringGroup,
+	             *frameSkippingTypeGroup, *frameSkippingGroup,
+	             *renderingModeGroup, *renderingResolutionGroup;
 
 	std::queue<MainWindowMsg> msgQueue_;
 	std::mutex msgMutex_;
