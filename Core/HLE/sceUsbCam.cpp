@@ -25,6 +25,12 @@
 #include "Core/HLE/sceUsbCam.h"
 #include "Core/MemMapHelpers.h"
 
+#ifdef _WIN32
+#include "Windows/CaptureDevice.h"
+#undef min
+#endif
+
+
 PspUsbCamSetupMicParam micParam;
 PspUsbCamSetupVideoParam videoParam;
 
@@ -32,6 +38,7 @@ unsigned int videoBufferLength = 0;
 unsigned int nextVideoFrame = 0;
 uint8_t *videoBuffer;
 std::mutex videoBufferMutex;
+bool isShutDown = false;
 
 enum {
 	VIDEO_BUFFER_SIZE = 40 * 1000,
@@ -39,9 +46,17 @@ enum {
 
 void __UsbCamInit() {
 	videoBuffer = new uint8_t[VIDEO_BUFFER_SIZE];
+	isShutDown = false;
 }
 
 void __UsbCamShutdown() {
+#ifdef _WIN32
+	if (winCamera) {
+		winCamera->sendMessage({ CAPTUREDEVIDE_COMMAND::SHUTDOWN, nullptr });
+	}		
+#endif	
+	isShutDown = true;
+
 	delete[] videoBuffer;
 	videoBuffer = nullptr;
 }
@@ -97,13 +112,31 @@ static int sceUsbCamSetupVideo(u32 paramAddr, u32 workareaAddr, int wasize) {
 
 static int sceUsbCamStartVideo() {
 	INFO_LOG(HLE, "UNIMPL sceUsbCamStartVideo");
+#ifdef _WIN32
+	if (winCamera) {
+		if (winCamera->isShutDown()) {
+			delete winCamera;
+			winCamera = new WindowsCaptureDevice(CAPTUREDEVIDE_TYPE::VIDEO);
+			winCamera->sendMessage({ CAPTUREDEVIDE_COMMAND::INITIALIZE, nullptr });
+		}
+
+		winCamera->sendMessage({ CAPTUREDEVIDE_COMMAND::START, nullptr });
+	}
+
+#else
 	System_SendMessage("camera_command", "startVideo");
+#endif
 	return 0;
 }
 
 static int sceUsbCamStopVideo() {
 	INFO_LOG(HLE, "UNIMPL sceUsbCamStopVideo");
+#ifdef _WIN32
+	if (winCamera)
+		winCamera->sendMessage({ CAPTUREDEVIDE_COMMAND::STOP, nullptr });
+#else
 	System_SendMessage("camera_command", "stopVideo");
+#endif
 	return 0;
 }
 
@@ -114,7 +147,6 @@ static int sceUsbCamAutoImageReverseSW(int rev) {
 
 static int sceUsbCamReadVideoFrameBlocking(u32 bufAddr, u32 size) {
 	std::lock_guard<std::mutex> lock(videoBufferMutex);
-
 	u32 transferSize = std::min(videoBufferLength, size);
 	if (Memory::IsValidRange(bufAddr, size)) {
 		Memory::Memcpy(bufAddr, videoBuffer, transferSize);
@@ -203,6 +235,8 @@ void Register_sceUsbCam()
 
 void Camera::pushCameraImage(long long length, unsigned char* image) {
 	std::lock_guard<std::mutex> lock(videoBufferMutex);
+	if (isShutDown)
+		return;
 	memset(videoBuffer, 0, VIDEO_BUFFER_SIZE);
 	if (length > VIDEO_BUFFER_SIZE) {
 		videoBufferLength = 0;

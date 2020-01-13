@@ -37,6 +37,7 @@
 #if defined(_WIN32)
 #include "Windows/WindowsAudio.h"
 #include "Windows/MainWindow.h"
+#include "Windows/CaptureDevice.h"
 #endif
 
 #include "base/display.h"
@@ -67,6 +68,7 @@
 #include "Common/LogManager.h"
 #include "Common/MemArena.h"
 #include "Common/GraphicsContext.h"
+#include "Common/OSVersion.h"
 #include "Core/Config.h"
 #include "Core/ConfigValues.h"
 #include "Core/Core.h"
@@ -855,6 +857,13 @@ bool NativeInitGraphics(GraphicsContext *graphicsContext) {
 #endif
 #endif
 
+#ifdef _WIN32
+	if (IsVistaOrHigher()) {
+		winCamera = new WindowsCaptureDevice(CAPTUREDEVIDE_TYPE::VIDEO);
+		winCamera->sendMessage({ CAPTUREDEVIDE_COMMAND::INITIALIZE, nullptr });
+	}
+#endif
+
 	g_gameInfoCache = new GameInfoCache();
 
 	if (gpu)
@@ -877,6 +886,11 @@ void NativeShutdownGraphics() {
 #ifdef _WIN32
 	delete winAudioBackend;
 	winAudioBackend = nullptr;
+#endif
+
+#ifdef _WIN32
+	delete winCamera;
+	winCamera = nullptr;
 #endif
 
 	ShutdownWebServer();

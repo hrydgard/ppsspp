@@ -1864,6 +1864,9 @@ set(WindowsFiles
 	Windows/GEDebugger/GEDebugger.h
 	Windows/GEDebugger/TabDisplayLists.h
 	Windows/GEDebugger/TabVertices.h
+	Windows/BufferLock.h
+	Windows/CaptureDevice.cpp
+	Windows/CaptureDevice.h
 	Windows/DinputDevice.cpp
 	Windows/DinputDevice.h
 	Windows/DSoundStream.cpp
@@ -1917,7 +1920,7 @@ set(WindowsFiles
 list(APPEND LinkCommon ${CoreLibName} ${CMAKE_THREAD_LIBS_INIT})
 
 if(WIN32)
-	list(APPEND LinkCommon kernel32 user32 gdi32 shell32 comctl32 dsound xinput d3d9 winmm dinput8 ole32 winspool ksuser)
+	list(APPEND LinkCommon kernel32 user32 gdi32 shell32 comctl32 dsound xinput d3d9 winmm dinput8 ole32 winspool ksuser mf mfplat mfreadwrite mfuuid shlwapi)
 	#setup_target_project(${TargetBin} Windows)
 	list(APPEND NativeAppSource ${WindowsFiles})
 endif()

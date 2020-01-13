@@ -70,6 +70,11 @@
 #include "Windows/W32Util/ShellUtil.h"
 #endif
 
+#ifdef _WIN32
+#include "Windows/CaptureDevice.h"
+#endif
+
+
 GameSettingsScreen::GameSettingsScreen(std::string gamePath, std::string gameID, bool editThenRestore)
 	: UIDialogScreenWithGameBackground(gamePath), gameID_(gameID), enableReports_(false), editThenRestore_(editThenRestore) {
 	lastVertical_ = UseVerticalLayout();
@@ -261,6 +266,14 @@ void GameSettingsScreen::CreateViews() {
 		if (PSP_IsInited())
 			softwareGPU->SetEnabled(false);
 	}
+
+#ifdef _WIN32
+	if (winCamera && winCamera->getDeviceList().size() >= 1) {
+		graphicsSettings->Add(new ItemHeader(gr->T("Camera")));
+			PopupMultiChoiceDynamic *cameraChoice = graphicsSettings->Add(new PopupMultiChoiceDynamic(&g_Config.sWinCameraDevice, gr->T("Camera Device"), winCamera->getDeviceList(), nullptr, screenManager()));
+	}
+#endif
+
 
 	graphicsSettings->Add(new ItemHeader(gr->T("Frame Rate Control")));
 	static const char *frameSkip[] = {"Off", "1", "2", "3", "4", "5", "6", "7", "8"};
