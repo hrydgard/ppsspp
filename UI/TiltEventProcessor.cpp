@@ -106,12 +106,12 @@ void TiltEventProcessor::GenerateDPadEvent(const Tilt &tilt) {
 	static const int dir[4] = {CTRL_RIGHT, CTRL_DOWN, CTRL_LEFT, CTRL_UP};
 
 	if (tilt.x_ == 0) {
-		__CtrlButtonUp(CTRL_RIGHT | CTRL_LEFT);
+		__CtrlButtonUp(tiltButtonsDown & (CTRL_RIGHT | CTRL_LEFT));
 		tiltButtonsDown &= ~(CTRL_LEFT | CTRL_RIGHT);
 	}
 
 	if (tilt.y_ == 0) {
-		__CtrlButtonUp(CTRL_UP | CTRL_DOWN);
+		__CtrlButtonUp(tiltButtonsDown & (CTRL_UP | CTRL_DOWN));
 		tiltButtonsDown &= ~(CTRL_UP | CTRL_DOWN);
 	}
 
@@ -131,7 +131,6 @@ void TiltEventProcessor::GenerateDPadEvent(const Tilt &tilt) {
 	case 6: ctrlMask |= CTRL_UP; break;
 	case 7: ctrlMask |= CTRL_UP | CTRL_RIGHT; break;
 	}
-
 	__CtrlButtonDown(ctrlMask);
 	tiltButtonsDown |= ctrlMask;
 }
@@ -140,12 +139,12 @@ void TiltEventProcessor::GenerateActionButtonEvent(const Tilt &tilt) {
 	static const int buttons[4] = {CTRL_CIRCLE, CTRL_CROSS, CTRL_SQUARE, CTRL_TRIANGLE};
 
 	if (tilt.x_ == 0) {
-		__CtrlButtonUp(CTRL_SQUARE | CTRL_CIRCLE);
+		__CtrlButtonUp(tiltButtonsDown & (CTRL_SQUARE | CTRL_CIRCLE));
 		tiltButtonsDown &= ~(CTRL_SQUARE | CTRL_CIRCLE);
 	}
 
 	if (tilt.y_ == 0) {
-		__CtrlButtonUp(CTRL_TRIANGLE | CTRL_CROSS);
+		__CtrlButtonUp(tiltButtonsDown & (CTRL_TRIANGLE | CTRL_CROSS));
 		tiltButtonsDown &= ~(CTRL_TRIANGLE | CTRL_CROSS);
 	}
 
@@ -161,8 +160,10 @@ void TiltEventProcessor::GenerateActionButtonEvent(const Tilt &tilt) {
 void TiltEventProcessor::GenerateTriggerButtonEvent(const Tilt &tilt) {
 	u32 upButtons = 0;
 	u32 downButtons = 0;
-	// KISS, let's only look at X.  Expect deadzone to already be applied.
-	if (tilt.x_ == 0.0f) {
+	// Y axis for both
+	if (tilt.y_ < 0.0f) {
+		downButtons = CTRL_LTRIGGER | CTRL_RTRIGGER;
+	} else if (tilt.x_ == 0.0f) {
 		upButtons = CTRL_LTRIGGER | CTRL_RTRIGGER;
 	} else if (tilt.x_ < 0.0f) {
 		downButtons = CTRL_LTRIGGER;
@@ -172,7 +173,7 @@ void TiltEventProcessor::GenerateTriggerButtonEvent(const Tilt &tilt) {
 		upButtons = CTRL_LTRIGGER;
 	}
 
-	__CtrlButtonUp(upButtons);
+	__CtrlButtonUp(tiltButtonsDown & upButtons);
 	__CtrlButtonDown(downButtons);
 	tiltButtonsDown = (tiltButtonsDown & ~upButtons) | downButtons;
 }
