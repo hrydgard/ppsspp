@@ -155,7 +155,6 @@ static int sceUsbCamReadVideoFrameBlocking(u32 bufAddr, u32 size) {
 }
 
 static int sceUsbCamReadVideoFrame(u32 bufAddr, u32 size) {
-	ERROR_LOG(HLE, "%s", winCamera->getErrorMessage().c_str());
 	std::lock_guard<std::mutex> lock(videoBufferMutex);
 	u32 transferSize = std::min(videoBufferLength, size);
 	if (Memory::IsValidRange(bufAddr, size)) {
