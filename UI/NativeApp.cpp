@@ -889,8 +889,10 @@ void NativeShutdownGraphics() {
 #endif
 
 #ifdef _WIN32
-	delete winCamera;
-	winCamera = nullptr;
+	if (winCamera) {
+		delete winCamera;
+		winCamera = nullptr;
+	}
 #endif
 
 	ShutdownWebServer();

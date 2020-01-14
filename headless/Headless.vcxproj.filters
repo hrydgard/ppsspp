@@ -26,6 +26,9 @@
     <ClCompile Include="SDLHeadlessHost.cpp">
       <Filter>Other Platforms</Filter>
     </ClCompile>
+    <ClCompile Include="..\Windows\CaptureDevice.cpp">
+      <Filter>Windows</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <None Include="headless.txt" />

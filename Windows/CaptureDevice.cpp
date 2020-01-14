@@ -20,6 +20,7 @@
 #include "CaptureDevice.h"
 #include "BufferLock.h"
 #include "ext/jpge/jpge.h"
+#include "CommonTypes.h"
 #include "Core/HLE/sceUsbCam.h"
 #include "Core/Config.h"
 
@@ -112,8 +113,7 @@ HRESULT ReaderCallback::OnReadSample(
 						imgConvert(
 							device->imageRGB, dstW, dstH, device->imgRGBLineSizes,
 							pbScanline0, srcW, srcH, srcMFVideoFormat, srcPadding);
-					}
-					else {
+					} else {
 						// If stride < 0, the pointer to the first row of source image is the last row in memory,should invert it in memory.
 						invertedSrcImg = (unsigned char*)av_malloc(av_image_get_buffer_size(getAVVideoFormatbyMFVideoFormat(srcMFVideoFormat), srcW, srcH, 1));
 						imgInvert(invertedSrcImg, pbScanline0, srcW, srcH, device->deviceParam.videoFormat, lStride);
@@ -523,6 +523,8 @@ std::vector<std::string> WindowsCaptureDevice::getDeviceList(int *pActuallCount)
 			deviceList.push_back(strName);
 		}
 
+		CoTaskMemFree(pwstrName);
+
 		if (FAILED(hr)) {
 			setError(CAPTUREDEVIDE_ERROR_GETNAMES_FAILED, "Error occurred,gotten " + std::to_string((int)count) + " device names");
 			if(pActuallCount)
@@ -640,6 +642,7 @@ void WindowsCaptureDevice::messageHandler() {
 	std::lock_guard<std::mutex> lock(sdMutex);
 	SafeRelease(&m_pSource);
 	SafeRelease(&m_pReader);
+	CoTaskMemFree(param.ppDevices);
 	delete m_pCallback;
 
 	MFShutdown();
