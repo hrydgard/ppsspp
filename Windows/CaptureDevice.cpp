@@ -24,6 +24,66 @@
 #include "Core/HLE/sceUsbCam.h"
 #include "Core/Config.h"
 
+namespace MFAPI {
+	HINSTANCE Mflib;
+	HINSTANCE Mfplatlib;
+	HINSTANCE Mfreadwritelib;
+
+	typedef HRESULT(WINAPI *MFEnumDeviceSourcesFunc)(IMFAttributes *, IMFActivate ***, UINT32 *);
+	typedef HRESULT(WINAPI *MFGetStrideForBitmapInfoHeaderFunc)(DWORD, DWORD, LONG *);
+	typedef HRESULT(WINAPI *MFCreateSourceReaderFromMediaSourceFunc)(IMFMediaSource *, IMFAttributes *, IMFSourceReader **);
+	typedef HRESULT(WINAPI *MFCopyImageFunc)(BYTE *, LONG, const BYTE *, LONG, DWORD, DWORD);
+
+	MFEnumDeviceSourcesFunc EnumDeviceSources;
+	MFGetStrideForBitmapInfoHeaderFunc GetStrideForBitmapInfoHeader;
+	MFCreateSourceReaderFromMediaSourceFunc CreateSourceReaderFromMediaSource;
+	MFCopyImageFunc CopyImage;
+}
+
+using namespace MFAPI;
+
+bool RegisterCMPTMFApis(){
+	//For the compatibility,these funcs don't be supported on vista.
+	Mflib = LoadLibrary(L"Mf.dll");
+	Mfplatlib = LoadLibrary(L"Mfplat.dll");
+	Mfreadwritelib = LoadLibrary(L"Mfreadwrite.dll");
+	if (!Mflib || !Mfplatlib || !Mfreadwritelib)
+		return false;
+
+	EnumDeviceSources = (MFEnumDeviceSourcesFunc)GetProcAddress(Mflib, "MFEnumDeviceSources");
+	GetStrideForBitmapInfoHeader = (MFGetStrideForBitmapInfoHeaderFunc)GetProcAddress(Mfplatlib, "MFGetStrideForBitmapInfoHeader");
+	MFAPI::CopyImage = (MFCopyImageFunc)GetProcAddress(Mfplatlib, "MFCopyImage");
+	CreateSourceReaderFromMediaSource = (MFCreateSourceReaderFromMediaSourceFunc)GetProcAddress(Mfreadwritelib, "MFCreateSourceReaderFromMediaSource");
+	if (!EnumDeviceSources || !GetStrideForBitmapInfoHeader || !CreateSourceReaderFromMediaSource || !MFAPI::CopyImage)
+		return false;
+
+	return true;
+}
+
+bool unRegisterCMPTMFApis() {
+	if (Mflib) {
+		FreeLibrary(Mflib);
+		Mflib = nullptr;
+	}
+
+	if (Mfplatlib) {
+		FreeLibrary(Mfplatlib);
+		Mfplatlib = nullptr;
+	}
+
+	if (Mfreadwritelib) {
+		FreeLibrary(Mfreadwritelib);
+		Mfreadwritelib = nullptr;
+	}
+
+	EnumDeviceSources = nullptr;
+	GetStrideForBitmapInfoHeader = nullptr;
+	CreateSourceReaderFromMediaSource = nullptr;
+	MFAPI::CopyImage = nullptr;
+
+	return true;
+}
+
 WindowsCaptureDevice *winCamera;
 
 // TODO: Add more formats, but need some tests.
@@ -237,7 +297,7 @@ void ReaderCallback::imgInvert(unsigned char *dst, unsigned char *src, const int
 }
 
 void ReaderCallback::imgInvertRGBA(unsigned char *dst, int &dstStride, unsigned char *src, const int &srcStride, const int &h) {
-	MFCopyImage(dst, dstStride, src, srcStride, dstStride, h);
+	MFAPI::CopyImage(dst, dstStride, src, srcStride, dstStride, h);
 }
 
 void ReaderCallback::imgInvertRGB(unsigned char *dst, int &dstStride, unsigned char *src, const int &srcStride, const int &h) {
@@ -333,6 +393,11 @@ bool WindowsCaptureDevice::init() {
 	param = { 0 };
 	IMFAttributes *pAttributes = nullptr;
 
+	if (!RegisterCMPTMFApis()) {
+		setError(CAPTUREDEVIDE_ERROR_INIT_FAILED, "Cannot register devices");
+		return false;
+	}
+
 	hr = MFCreateAttributes(&pAttributes, 1);
 	if (SUCCEEDED(hr)) {
 		switch (type) {
@@ -357,7 +422,7 @@ bool WindowsCaptureDevice::init() {
 	}
 
 	if (SUCCEEDED(hr))
-		hr = MFEnumDeviceSources(pAttributes, &param.ppDevices, &param.count);
+		hr = EnumDeviceSources(pAttributes, &param.ppDevices, &param.count);
 
 	if (FAILED(hr)) {
 		setError(CAPTUREDEVIDE_ERROR_INIT_FAILED, "Cannot enumerate devices");
@@ -410,7 +475,7 @@ bool WindowsCaptureDevice::start() {
 			hr = pAttributes->SetUINT32(MF_READWRITE_DISABLE_CONVERTERS, TRUE);
 
 		if (SUCCEEDED(hr)) {
-			hr = MFCreateSourceReaderFromMediaSource(
+			hr = CreateSourceReaderFromMediaSource(
 					m_pSource,
 					pAttributes,
 					&m_pReader
@@ -423,13 +488,28 @@ bool WindowsCaptureDevice::start() {
 		if (SUCCEEDED(hr)) {
 			switch (type) {
 			case CAPTUREDEVIDE_TYPE::VIDEO:
+				for (DWORD i = 0; ; i++) {
+					hr = m_pReader->GetNativeMediaType(
+						(DWORD)MF_SOURCE_READER_FIRST_VIDEO_STREAM,
+						i,
+						&pType
+					);
+
+					if (FAILED(hr)) { break; }
+
+					hr = setDeviceParam(pType);
+
+					if (SUCCEEDED(hr))
+						break;
+				}
+				/*
 				hr = m_pReader->GetNativeMediaType(
 					(DWORD)MF_SOURCE_READER_FIRST_VIDEO_STREAM,
 					(DWORD)0xFFFFFFFF,//MF_SOURCE_READER_CURRENT_TYPE_INDEX
 					&pType
 				);
 				if (SUCCEEDED(hr))
-					hr = setDeviceParam(pType);
+					hr = setDeviceParam(pType);*/ // Don't support on Win7
 				
 				// Request the first frame, in asnyc mode, OnReadSample will be called when ReadSample completed.
 				if (SUCCEEDED(hr)) {
@@ -644,6 +724,7 @@ void WindowsCaptureDevice::messageHandler() {
 	SafeRelease(&m_pReader);
 	CoTaskMemFree(param.ppDevices);
 	delete m_pCallback;
+	unRegisterCMPTMFApis();
 
 	MFShutdown();
 	CoUninitialize();
@@ -680,7 +761,7 @@ HRESULT GetDefaultStride(IMFMediaType *pType, LONG *plStride)
 		}
 		if (SUCCEEDED(hr))
 		{
-			hr = MFGetStrideForBitmapInfoHeader(subtype.Data1, width, &lStride);
+			hr = GetStrideForBitmapInfoHeader(subtype.Data1, width, &lStride);
 		}
 
 		// Set the attribute for later reference.

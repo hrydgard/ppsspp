@@ -25,7 +25,7 @@
 #include "Core/HLE/sceUsbCam.h"
 #include "Core/MemMapHelpers.h"
 
-#ifdef _WIN32
+#if defined(_WIN32) && !PPSSPP_PLATFORM(UWP)
 #include "Windows/CaptureDevice.h"
 #undef min
 #endif
@@ -50,7 +50,7 @@ void __UsbCamInit() {
 }
 
 void __UsbCamShutdown() {
-#ifdef _WIN32
+#if defined(_WIN32) && !PPSSPP_PLATFORM(UWP)
 	if (winCamera) {
 		winCamera->sendMessage({ CAPTUREDEVIDE_COMMAND::SHUTDOWN, nullptr });
 	}		
@@ -112,7 +112,7 @@ static int sceUsbCamSetupVideo(u32 paramAddr, u32 workareaAddr, int wasize) {
 
 static int sceUsbCamStartVideo() {
 	INFO_LOG(HLE, "UNIMPL sceUsbCamStartVideo");
-#ifdef _WIN32
+#if defined(_WIN32) && !PPSSPP_PLATFORM(UWP)
 	if (winCamera) {
 		if (winCamera->isShutDown()) {
 			delete winCamera;
@@ -131,7 +131,7 @@ static int sceUsbCamStartVideo() {
 
 static int sceUsbCamStopVideo() {
 	INFO_LOG(HLE, "UNIMPL sceUsbCamStopVideo");
-#ifdef _WIN32
+#if defined(_WIN32) && !PPSSPP_PLATFORM(UWP)
 	if (winCamera)
 		winCamera->sendMessage({ CAPTUREDEVIDE_COMMAND::STOP, nullptr });
 #else
@@ -155,6 +155,7 @@ static int sceUsbCamReadVideoFrameBlocking(u32 bufAddr, u32 size) {
 }
 
 static int sceUsbCamReadVideoFrame(u32 bufAddr, u32 size) {
+	ERROR_LOG(HLE, "%s", winCamera->getErrorMessage().c_str());
 	std::lock_guard<std::mutex> lock(videoBufferMutex);
 	u32 transferSize = std::min(videoBufferLength, size);
 	if (Memory::IsValidRange(bufAddr, size)) {

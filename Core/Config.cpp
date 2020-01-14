@@ -706,6 +706,8 @@ static ConfigSetting graphicsSettings[] = {
 	ConfigSetting("VulkanDevice", &g_Config.sVulkanDevice, "", true, false),
 #ifdef _WIN32
 	ConfigSetting("D3D11Device", &g_Config.sD3D11Device, "", true, false),
+#endif
+#if defined(_WIN32) && !PPSSPP_PLATFORM(UWP)
 	ConfigSetting("WinCameraDevice", &g_Config.sWinCameraDevice, "", true, false),
 #endif
 	ConfigSetting("VendorBugChecksEnabled", &g_Config.bVendorBugChecksEnabled, true, false, false),

@@ -37,6 +37,9 @@
 #if defined(_WIN32)
 #include "Windows/WindowsAudio.h"
 #include "Windows/MainWindow.h"
+#endif
+
+#if defined(_WIN32) && !PPSSPP_PLATFORM(UWP)
 #include "Windows/CaptureDevice.h"
 #endif
 
@@ -857,8 +860,8 @@ bool NativeInitGraphics(GraphicsContext *graphicsContext) {
 #endif
 #endif
 
-#ifdef _WIN32
-	if (IsVistaOrHigher()) {
+#if defined(_WIN32) && !PPSSPP_PLATFORM(UWP)
+	if (IsWin7OrHigher()) {
 		winCamera = new WindowsCaptureDevice(CAPTUREDEVIDE_TYPE::VIDEO);
 		winCamera->sendMessage({ CAPTUREDEVIDE_COMMAND::INITIALIZE, nullptr });
 	}
@@ -888,7 +891,7 @@ void NativeShutdownGraphics() {
 	winAudioBackend = nullptr;
 #endif
 
-#ifdef _WIN32
+#if defined(_WIN32) && !PPSSPP_PLATFORM(UWP)
 	if (winCamera) {
 		delete winCamera;
 		winCamera = nullptr;
