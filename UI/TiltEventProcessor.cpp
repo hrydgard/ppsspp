@@ -131,6 +131,7 @@ void TiltEventProcessor::GenerateDPadEvent(const Tilt &tilt) {
 	case 6: ctrlMask |= CTRL_UP; break;
 	case 7: ctrlMask |= CTRL_UP | CTRL_RIGHT; break;
 	}
+	ctrlMask &= ~__CtrlPeekButtons();
 	__CtrlButtonDown(ctrlMask);
 	tiltButtonsDown |= ctrlMask;
 }
@@ -153,8 +154,9 @@ void TiltEventProcessor::GenerateActionButtonEvent(const Tilt &tilt) {
 	}
 
 	int direction = (int)(floorf((atan2f(tilt.y_, tilt.x_) / (2.0f * (float)M_PI) * 4.0f) + 0.5f)) & 3;
-	__CtrlButtonDown(buttons[direction]);
-	tiltButtonsDown |= buttons[direction];
+	int downButtons = buttons[direction] & ~__CtrlPeekButtons();
+	__CtrlButtonDown(downButtons);
+	tiltButtonsDown |= downButtons;
 }
 
 void TiltEventProcessor::GenerateTriggerButtonEvent(const Tilt &tilt) {
@@ -173,6 +175,7 @@ void TiltEventProcessor::GenerateTriggerButtonEvent(const Tilt &tilt) {
 		upButtons = CTRL_LTRIGGER;
 	}
 
+	downButtons &= ~__CtrlPeekButtons();
 	__CtrlButtonUp(tiltButtonsDown & upButtons);
 	__CtrlButtonDown(downButtons);
 	tiltButtonsDown = (tiltButtonsDown & ~upButtons) | downButtons;
