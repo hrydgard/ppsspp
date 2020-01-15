@@ -39,6 +39,10 @@
 #include "Windows/MainWindow.h"
 #endif
 
+#if defined(_WIN32) && !PPSSPP_PLATFORM(UWP)
+#include "Windows/CaptureDevice.h"
+#endif
+
 #include "base/display.h"
 #include "base/timeutil.h"
 #include "base/logging.h"
@@ -67,6 +71,7 @@
 #include "Common/LogManager.h"
 #include "Common/MemArena.h"
 #include "Common/GraphicsContext.h"
+#include "Common/OSVersion.h"
 #include "Core/Config.h"
 #include "Core/ConfigValues.h"
 #include "Core/Core.h"
@@ -855,6 +860,13 @@ bool NativeInitGraphics(GraphicsContext *graphicsContext) {
 #endif
 #endif
 
+#if defined(_WIN32) && !PPSSPP_PLATFORM(UWP)
+	if (IsWin7OrHigher()) {
+		winCamera = new WindowsCaptureDevice(CAPTUREDEVIDE_TYPE::VIDEO);
+		winCamera->sendMessage({ CAPTUREDEVIDE_COMMAND::INITIALIZE, nullptr });
+	}
+#endif
+
 	g_gameInfoCache = new GameInfoCache();
 
 	if (gpu)
@@ -877,6 +889,13 @@ void NativeShutdownGraphics() {
 #ifdef _WIN32
 	delete winAudioBackend;
 	winAudioBackend = nullptr;
+#endif
+
+#if defined(_WIN32) && !PPSSPP_PLATFORM(UWP)
+	if (winCamera) {
+		delete winCamera;
+		winCamera = nullptr;
+	}
 #endif
 
 	ShutdownWebServer();

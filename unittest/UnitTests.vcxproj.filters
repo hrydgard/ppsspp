@@ -8,10 +8,18 @@
     <ClCompile Include="TestArm64Emitter.cpp" />
     <ClCompile Include="TestVertexJit.cpp" />
     <ClCompile Include="..\ext\glew\glew.c" />
+    <ClCompile Include="..\Windows\CaptureDevice.cpp">
+      <Filter>Windows</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="JitHarness.h" />
     <ClInclude Include="UnitTest.h" />
     <ClInclude Include="TestVertexJit.h" />
+  </ItemGroup>
+  <ItemGroup>
+    <Filter Include="Windows">
+      <UniqueIdentifier>{584f25d4-e7a1-461f-ba21-7588497a83f1}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
 </Project>
