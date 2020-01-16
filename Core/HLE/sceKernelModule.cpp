@@ -93,6 +93,7 @@ static const char * const lieAboutSuccessModules[] = {
 	"disc0:/PSP_GAME/SYSDIR/UPDATE/EBOOT.BIN",
 };
 
+// Modules to not load. TODO: Look into loosening this a little (say sceFont).
 static const char * const blacklistedModules[] = {
 	"sceATRAC3plus_Library",
 	"sceFont_Library",
@@ -109,6 +110,8 @@ static const char * const blacklistedModules[] = {
 	"sceNetResolver_Library",
 	"sceNet_Library",
 	"sceSsl_Module",
+	"sceDEFLATE_Library",
+	"sceMD5_Library",
 };
 
 struct VarSymbolImport {
