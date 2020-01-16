@@ -225,6 +225,7 @@ public:
 
 	void Draw(UIContext &dc) override {
 		if (g_Config.bTouchSnapToGrid) {
+			dc.Flush();
 			dc.BeginNoTex();
 			for (int x = x1; x < x2; x += g_Config.iTouchSnapGridSize)
 				dc.Draw()->vLine(x, y1, y2, col);
@@ -355,7 +356,6 @@ void TouchControlLayoutScreen::CreateViews() {
 
 	root_ = new AnchorLayout(new LayoutParams(FILL_PARENT, FILL_PARENT));
 
-	root_->Add(new SnapGrid(leftColumnWidth+10, bounds.w, 0, bounds.h, 0x3FFFFFFF));
 	Choice *reset = new Choice(di->T("Reset"), "", false, new AnchorLayoutParams(leftColumnWidth, WRAP_CONTENT, 10, NONE, NONE, 84));
 	Choice *back = new Choice(di->T("Back"), "", false, new AnchorLayoutParams(leftColumnWidth, WRAP_CONTENT, 10, NONE, NONE, 10));
 	Choice *visibility = new Choice(co->T("Visibility"), "", false, new AnchorLayoutParams(leftColumnWidth, WRAP_CONTENT, 10, NONE, NONE, 298));
@@ -483,6 +483,8 @@ void TouchControlLayoutScreen::CreateViews() {
 	for (size_t i = 0; i < controls_.size(); i++) {
 		root_->Add(controls_[i]);
 	}
+
+	root_->Add(new SnapGrid(leftColumnWidth+10, bounds.w, 0, bounds.h, 0x3FFFFFFF));
 }
 
 // return the control which was picked up by the touchEvent. If a control
