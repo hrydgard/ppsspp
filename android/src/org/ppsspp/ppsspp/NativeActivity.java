@@ -1409,12 +1409,6 @@ public abstract class NativeActivity extends Activity implements SurfaceHolder.C
 				// Only keep the screen bright ingame.
 				window.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
 			}
-		} else if (command.equals("event")) {
-			if (params.equals("exitgame")) {
-				if (mCameraHelper != null) {
-					mCameraHelper.stopCamera();
-				}
-			}
 		}
 		return false;
 	}

@@ -58,6 +58,7 @@
 #include "Core/Reporting.h"
 #include "Core/TextureReplacer.h"
 #include "Core/WebServer.h"
+#include "Core/HLE/sceUsbCam.h"
 #include "GPU/Common/PostShader.h"
 #include "android/jni/TestRunner.h"
 #include "GPU/GPUInterface.h"
@@ -68,7 +69,6 @@
 #include "Windows/MainWindow.h"
 #include <shlobj.h>
 #include "Windows/W32Util/ShellUtil.h"
-#include "Windows/CaptureDevice.h"
 #endif
 
 GameSettingsScreen::GameSettingsScreen(std::string gamePath, std::string gameID, bool editThenRestore)
@@ -263,13 +263,13 @@ void GameSettingsScreen::CreateViews() {
 			softwareGPU->SetEnabled(false);
 	}
 
-#if defined(_WIN32) && !PPSSPP_PLATFORM(UWP)
-	if (winCamera && winCamera->getDeviceList().size() >= 1) {
+#if (defined(_WIN32) && !PPSSPP_PLATFORM(UWP)) || PPSSPP_PLATFORM(LINUX)
+	std::vector<std::string> cameraList = Camera::getDeviceList();
+	if (cameraList.size() >= 1) {
 		graphicsSettings->Add(new ItemHeader(gr->T("Camera")));
-			PopupMultiChoiceDynamic *cameraChoice = graphicsSettings->Add(new PopupMultiChoiceDynamic(&g_Config.sWinCameraDevice, gr->T("Camera Device"), winCamera->getDeviceList(), nullptr, screenManager()));
+		PopupMultiChoiceDynamic *cameraChoice = graphicsSettings->Add(new PopupMultiChoiceDynamic(&g_Config.sCameraDevice, gr->T("Camera Device"), cameraList, nullptr, screenManager()));
 	}
 #endif
-
 
 	graphicsSettings->Add(new ItemHeader(gr->T("Frame Rate Control")));
 	static const char *frameSkip[] = {"Off", "1", "2", "3", "4", "5", "6", "7", "8"};

@@ -375,6 +375,7 @@
     <ClCompile Include="HLE\sceUsbAcc.cpp" />
     <ClCompile Include="HLE\sceUsbCam.cpp" />
     <ClCompile Include="HLE\sceUsbMic.cpp" />
+    <ClCompile Include="HW\Camera.cpp" />
     <ClCompile Include="MIPS\IR\IRAsm.cpp" />
     <ClCompile Include="MIPS\IR\IRCompALU.cpp" />
     <ClCompile Include="MIPS\IR\IRCompBranch.cpp" />
@@ -903,6 +904,7 @@
     <ClInclude Include="HLE\sceUsbAcc.h" />
     <ClInclude Include="HLE\sceUsbCam.h" />
     <ClInclude Include="HLE\sceUsbMic.h" />
+    <ClInclude Include="HW\Camera.h" />
     <ClInclude Include="MIPS\IR\IRFrontend.h" />
     <ClInclude Include="MIPS\IR\IRInst.h" />
     <ClInclude Include="MIPS\IR\IRInterpreter.h" />
