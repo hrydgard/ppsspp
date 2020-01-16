@@ -213,6 +213,34 @@ private:
 	float &spacing_;
 };
 
+class SnapGrid : public UI::View {
+public:
+	SnapGrid(int leftMargin, int rightMargin, int topMargin, int bottomMargin, u32 color) {
+		x1 = leftMargin;
+		x2 = rightMargin;
+		y1 = topMargin;
+		y2 = bottomMargin;
+		col = color;
+	}
+
+	void Draw(UIContext &dc) override {
+		if (g_Config.bTouchSnapToGrid) {
+			dc.Flush();
+			dc.BeginNoTex();
+			for (int x = x1; x < x2; x += g_Config.iTouchSnapGridSize)
+				dc.Draw()->vLine(x, y1, y2, col);
+			for (int y = y1; y < y2; y += g_Config.iTouchSnapGridSize)
+				dc.Draw()->hLine(x1, y, x2, col);
+			dc.Flush();
+			dc.Begin();
+		}
+	}
+
+private:
+	int x1, x2, y1, y2;
+	u32 col;
+};
+
 TouchControlLayoutScreen::TouchControlLayoutScreen() {
 	pickedControl_ = 0;
 };
@@ -455,6 +483,8 @@ void TouchControlLayoutScreen::CreateViews() {
 	for (size_t i = 0; i < controls_.size(); i++) {
 		root_->Add(controls_[i]);
 	}
+
+	root_->Add(new SnapGrid(leftColumnWidth+10, bounds.w, 0, bounds.h, 0x3FFFFFFF));
 }
 
 // return the control which was picked up by the touchEvent. If a control
