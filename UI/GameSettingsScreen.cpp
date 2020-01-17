@@ -693,6 +693,7 @@ void GameSettingsScreen::CreateViews() {
 	networkingSettings->Add(new CheckBox(&g_Config.bEnableUPnP, n->T("Enable UPnP", "Enable UPnP (need a few seconds to detect)")));
 	networkingSettings->Add(new ChoiceWithValueDisplay(&g_Config.sMACAddress, n->T("Change Mac Address"), (const char *)nullptr))->OnClick.Handle(this, &GameSettingsScreen::OnChangeMacAddress);
 	networkingSettings->Add(new PopupSliderChoice(&g_Config.iPortOffset, 0, 60000, n->T("Port offset", "Port offset(0 = PSP compatibility)"), 100, screenManager()));
+	networkingSettings->Add(new PopupSliderChoice(&g_Config.iMinTimeout, 1, 15000, n->T("Minimum Timeout", "Minimum Timeout (override low latency communication in milliseconds)"), 100, screenManager()));
 
 	networkingSettings->Add(new ItemHeader(n->T("Chat")));
 	networkingSettings->Add(new CheckBox(&g_Config.bEnableNetworkChat, n->T("Enable network chat", "Enable network chat")));

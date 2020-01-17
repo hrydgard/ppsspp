@@ -37,6 +37,7 @@
 #else
 #include <sys/socket.h>
 #include <netinet/in.h>
+#include <netinet/tcp.h>
 #endif
 
 #include <fcntl.h>
@@ -476,6 +477,8 @@ const char * strcpyxml(char * out, const char * in, uint32_t size);
 // Function Prototypes
 void interrupt(int sig);
 void enable_address_reuse(int fd);
+void enable_keepalive(int fd);
+void change_nodelay_mode(int fd, int flag);
 void change_blocking_mode(int fd, int nonblocking);
 int create_listen_socket(uint16_t port);
 int server_loop(int server);
@@ -1744,6 +1747,17 @@ void enable_keepalive(int fd)
 }
 
 /**
+ * Change TCP Socket TCP_NODELAY (Nagle Algo) mode
+ * @param fd Socket
+ * @param nonblocking 1 for Nonblocking, 0 for Blocking
+ */
+void change_nodelay_mode(int fd, int flag)
+{
+	int opt = flag;
+	setsockopt(fd, IPPROTO_TCP, TCP_NODELAY, (char*)&opt, sizeof(opt));
+}
+
+/**
  * Change Socket Blocking Mode
  * @param fd Socket
  * @param nonblocking 1 for Nonblocking, 0 for Blocking
@@ -1798,6 +1812,9 @@ int create_listen_socket(uint16_t port)
 
 		// Make Socket Nonblocking
 		change_blocking_mode(fd, 1);
+
+		// Make TCP Socket send immediately
+		change_nodelay_mode(fd, 1);
 
 		// Prepare Local Address Information
 		struct sockaddr_in local;

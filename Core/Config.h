@@ -396,9 +396,7 @@ public:
 
 	// SystemParam
 	std::string sNickName;
-	std::string proAdhocServer;
 	std::string sMACAddress;
-	int iPortOffset;
 	int iLanguage;
 	int iTimeFormat;
 	int iDateFormat;
@@ -410,9 +408,12 @@ public:
 	bool bSavedataUpgrade;
 
 	// Networking
+	std::string proAdhocServer;
 	bool bEnableWlan;
 	bool bEnableAdhocServer;
 	bool bEnableUPnP;
+	int iPortOffset;
+	int iMinTimeout;
 	int iWlanAdhocChannel;
 	bool bWlanPowerSave;
 	bool bEnableNetworkChat;
