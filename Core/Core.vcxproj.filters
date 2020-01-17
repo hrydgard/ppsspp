@@ -745,6 +745,9 @@
     </ClCompile>
     <ClCompile Include="MemFault.cpp">
       <Filter>Core</Filter>
+	</ClCompile>
+    <ClCompile Include="Util\PortManager.cpp">
+      <Filter>Util</Filter>
     </ClCompile>
     <ClCompile Include="Instance.cpp">
       <Filter>Core</Filter>
@@ -1387,6 +1390,9 @@
     </ClInclude>
     <ClInclude Include="MemFault.h">
       <Filter>Core</Filter>
+	</ClInclude>
+    <ClInclude Include="Util\PortManager.h">
+      <Filter>Util</Filter>
     </ClInclude>
     <ClInclude Include="Instance.h">
       <Filter>Core</Filter>

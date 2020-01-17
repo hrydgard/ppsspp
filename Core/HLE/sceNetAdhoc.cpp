@@ -30,6 +30,7 @@
 #include "Core/MemMapHelpers.h"
 #include "Common/ChunkFile.h"
 #include "Core/MIPS/MIPSCodeUtils.h"
+#include "Core/Util/PortManager.h"
 
 #include "Core/HLE/HLEHelperThread.h"
 #include "Core/HLE/FunctionWrappers.h"
@@ -55,7 +56,7 @@ bool networkInited;
 
 static bool netAdhocMatchingInited;
 int netAdhocMatchingStarted = 0;
-int adhocDefaultTimeout = 2000;
+int adhocDefaultTimeout = 2000; //5000
 int adhocEventPollDelayMS = 10;
 int adhocMatchingEventDelayMS = 100;
 int adhocEventDelayMS = 500; // This will affect the duration of "Connecting..." dialog/message box in .Hack//Link and Naruto Ultimate Ninja Heroes 3
@@ -340,7 +341,7 @@ static int sceNetAdhocPdpCreate(const char *mac, int port, int bufferSize, u32 u
 						getLocalIp(&addr);
 					}
 
-					addr.sin_port = htons(port + portOffset );
+					addr.sin_port = htons(port + portOffset);
 					// The port might be under 1024 (ie. GTA:VCS use port 1, Ford Street Racing use port 0 (UNUSED_PORT), etc) and already used by other application/host OS, should we add 1024 to the port whenever it tried to use an already used port?
 
 					// Bound Socket to local Port
@@ -377,7 +378,8 @@ static int sceNetAdhocPdpCreate(const char *mac, int port, int bufferSize, u32 u
 								pdp[i] = internal;
 
 								// Forward Port on Router
-								//sceNetPortOpen("UDP", port); // I need to figure out how to use this in windows/linux
+								//sceNetPortOpen("UDP", port);
+								g_PortManager.Add(port + portOffset, IP_PROTOCOL_UDP);
 								
 								// Success
 								return i + 1;
@@ -927,9 +929,10 @@ static int sceNetAdhocPdpDelete(int id, int unknown) {
 
 				// Remove Port Forward from Router
 				//sceNetPortClose("UDP", sock->lport);
+				//g_PortManager.Remove(sock->lport + portOffset, IP_PROTOCOL_UDP); // Let's not remove mapping in real-time as it could cause lags/disconnection when joining a room with slow routers
 
 				// Free Memory
-				// free(sock);
+				free(sock);
 
 				// Free Translation Slot
 				pdp[id - 1] = NULL;
@@ -1888,7 +1891,8 @@ static int sceNetAdhocPtpOpen(const char *srcmac, int sport, const char *dstmac,
 									ptp[i] = internal;
 									
 									// Add Port Forward to Router
-									// sceNetPortOpen("TCP", sport);
+									//sceNetPortOpen("TCP", sport);
+									g_PortManager.Add(sport + portOffset, IP_PROTOCOL_TCP);
 									
 									// Return PTP Socket Pointer
 									return i + 1;
@@ -2074,7 +2078,8 @@ static int sceNetAdhocPtpAccept(int id, u32 peerMacAddrPtr, u32 peerPortPtr, int
 										ptp[i] = internal;
 										
 										// Add Port Forward to Router
-										// sceNetPortOpen("TCP", internal->lport);
+										//sceNetPortOpen("TCP", internal->lport);
+										g_PortManager.Add(internal->lport + portOffset, IP_PROTOCOL_TCP);
 
 										INFO_LOG(SCENET, "sceNetAdhocPtpAccept[%i->%i:%u]: Established (%s:%u)", id, i+1, internal->lport, inet_ntoa(peeraddr.sin_addr), internal->pport);
 										
@@ -2264,7 +2269,8 @@ static int sceNetAdhocPtpClose(int id, int unknown) {
 			closesocket(socket->id);
 			
 			// Remove Port Forward from Router
-			// sceNetPortClose("TCP", socket->lport);
+			//sceNetPortClose("TCP", socket->lport);
+			//g_PortManager.Remove(socket->lport + portOffset, IP_PROTOCOL_TCP); // Let's not remove mapping in real-time as it could cause lags/disconnection when joining a room with slow routers
 			
 			// Free Memory
 			free(socket);
@@ -2393,7 +2399,8 @@ static int sceNetAdhocPtpListen(const char *srcmac, int sport, int bufsize, int 
 										ptp[i] = internal;
 										
 										// Add Port Forward to Router
-										// sceNetPortOpen("TCP", sport);
+										//sceNetPortOpen("TCP", sport);
+										g_PortManager.Add(sport + portOffset, IP_PROTOCOL_TCP);
 										
 										// Return PTP Socket Pointer
 										return i + 1;

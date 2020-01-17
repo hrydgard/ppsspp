@@ -28,3 +28,6 @@
 [submodule "ext/native/tools/prebuilt"]
 	path = ext/native/tools/prebuilt
 	url = https://github.com/hrydgard/ppsspp-freetype.git
+[submodule "ext/miniupnp"]
+	path = ext/miniupnp
+	url = https://github.com/miniupnp/miniupnp.git

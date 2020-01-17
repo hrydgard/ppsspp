@@ -412,6 +412,7 @@ public:
 	// Networking
 	bool bEnableWlan;
 	bool bEnableAdhocServer;
+	bool bEnableUPnP;
 	int iWlanAdhocChannel;
 	bool bWlanPowerSave;
 	bool bEnableNetworkChat;

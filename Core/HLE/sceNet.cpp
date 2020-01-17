@@ -32,6 +32,7 @@
 #include "Core/MIPS/MIPS.h"
 #include "Core/Config.h"
 #include "Core/MemMapHelpers.h"
+#include "Core/Util/PortManager.h"
 
 #include "sceKernel.h"
 #include "sceKernelThread.h"
@@ -121,7 +122,11 @@ void __NetInit() {
 	char tmpmac[18];
 	SceNetEtherAddr mac;
 	getLocalMac(&mac);
-	INFO_LOG(SCENET, "LocalHost IP will be %s [%s]", inet_ntoa(((sockaddr_in*)&LocalhostIP)->sin_addr), mac2str(&mac, tmpmac));
+	INFO_LOG(SCENET, "LocalHost IP will be %s [MAC: %s]", inet_ntoa(((sockaddr_in*)&LocalhostIP)->sin_addr), mac2str(&mac, tmpmac));
+	// Only initialize when UPnP is enabled since it takes a few seconds to detect UPnP device (may affect people who don't have UPnP device)
+	if (g_Config.bEnableUPnP) {
+		g_PortManager.Init();
+	}
 
 	__ResetInitNetLib();
 }
@@ -137,6 +142,14 @@ void __NetShutdown() {
 	if (netInited) sceNetTerm();
 	
 	__ResetInitNetLib();
+
+	if (g_Config.bEnableUPnP) {
+		g_PortManager.Clear();
+		g_PortManager.Restore();
+		g_PortManager.Deinit();
+	}
+
+	//PPSSPPIDCleanup(); // To make the ID/IP persistent on every reset, we should just let the OS closes all open handles instead of calling PPSSPPIDCleanup() on every reset
 }
 
 static void __UpdateApctlHandlers(int oldState, int newState, int flag, int error) {

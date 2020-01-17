@@ -44,6 +44,7 @@
 //#include <sqlite3.h>
 #include "thread/threadutil.h"
 #include "Common/FileUtil.h"
+#include "Core/Util/PortManager.h"
 #include "Core/Core.h"
 #include "Core/Host.h"
 #include "Core/HLE/proAdhocServer.h"
@@ -1675,13 +1676,19 @@ int proAdhocServerThread(int port) // (int argc, char * argv[])
 	int server = create_listen_socket(port); //SERVER_PORT
 
 	// Created Listening Socket
-	if(server != -1)
+	if(server != SOCKET_ERROR)
 	{
 		// Notify User
 		INFO_LOG(SCENET, "AdhocServer: Listening for Connections on TCP Port %u", port); //SERVER_PORT
 
+		// Port forward
+		g_PortManager.Add(port, IP_PROTOCOL_TCP);
+
 		// Enter Server Loop
 		result = server_loop(server);
+
+		// Remove Port mapping
+		g_PortManager.Remove(port, IP_PROTOCOL_TCP);
 
 		// Notify User
 		INFO_LOG(SCENET, "AdhocServer: Shutdown complete");

@@ -1765,14 +1765,23 @@ int initNetwork(SceNetAdhocctlAdhocId *adhoc_id){
 	product_code.type = adhoc_id->type;
 	memcpy(product_code.data, adhoc_id->data, ADHOCCTL_ADHOCID_LEN);
 
+	// Switch to Nonblocking Behaviour
+	changeBlockingMode(metasocket, 1);
 	// Connect to Adhoc Server
 	server_addr.sin_addr = serverIp;
-	iResult = connect(metasocket,(sockaddr *)&server_addr,sizeof(server_addr));
-	if (iResult == SOCKET_ERROR) {
+	int errorcode = 0;
+	int cnt = 0;
+	while ((iResult = connect(metasocket, (sockaddr*)&server_addr, sizeof(server_addr))) == SOCKET_ERROR && (errorcode = errno) != EISCONN && cnt < adhocDefaultTimeout) {
+		sleep_ms(1);
+		cnt++;
+	}
+	// Switch back to Blocking Behaviour
+	changeBlockingMode(metasocket, 0);
+	if (iResult == SOCKET_ERROR && errorcode != EISCONN) {
 		char buffer[512];
-		snprintf(buffer, sizeof(buffer), "Socket error (%i) when connecting to AdhocServer [%s/%s:%u]", errno, g_Config.proAdhocServer.c_str(), inet_ntoa(server_addr.sin_addr), ntohs(server_addr.sin_port));
+		snprintf(buffer, sizeof(buffer), "Socket error (%i) when connecting to AdhocServer [%s/%s:%u]", errorcode, g_Config.proAdhocServer.c_str(), inet_ntoa(server_addr.sin_addr), ntohs(server_addr.sin_port));
 		ERROR_LOG(SCENET, "%s", buffer);
-		host->NotifyUserMessage(buffer, 5.0f, 0x0000ff);
+		host->NotifyUserMessage(n->T("Failed to connect to Adhoc Server"), 6.0f, 0x0000ff);
 		return iResult;
 	}
 
