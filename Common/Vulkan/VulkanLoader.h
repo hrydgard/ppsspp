@@ -25,6 +25,8 @@
 #ifndef NOMINMAX
 #define NOMINMAX
 #endif
+#elif defined(__APPLE__)
+#define VK_USE_PLATFORM_METAL_EXT
 #endif
 
 #define VK_NO_PROTOTYPES
@@ -173,6 +175,8 @@ extern PFN_vkCmdExecuteCommands vkCmdExecuteCommands;
 extern PFN_vkCreateAndroidSurfaceKHR vkCreateAndroidSurfaceKHR;
 #elif defined(_WIN32)
 extern PFN_vkCreateWin32SurfaceKHR vkCreateWin32SurfaceKHR;
+#elif defined(VK_USE_PLATFORM_METAL_EXT)
+extern PFN_vkCreateMetalSurfaceEXT vkCreateMetalSurfaceEXT;
 #endif
 #if defined(VK_USE_PLATFORM_XLIB_KHR)
 extern PFN_vkCreateXlibSurfaceKHR vkCreateXlibSurfaceKHR;

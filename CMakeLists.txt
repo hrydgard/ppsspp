@@ -84,8 +84,8 @@ if(${CMAKE_SYSTEM_NAME} MATCHES "Android")
 	set(ANDROID ON)
 endif()
 
-# We only support Vulkan on Unix, Android and Windows.
-if(ANDROID OR WIN32 OR (UNIX AND NOT APPLE AND NOT ARM_NO_VULKAN))
+# We only support Vulkan on Unix, macOS (by MoltenVK), Android and Windows.
+if(ANDROID OR WIN32 OR (UNIX AND NOT ARM_NO_VULKAN))
 	set(VULKAN ON)
 endif()
 
@@ -188,6 +188,7 @@ include(FindThreads)
 
 if(APPLE)
 	find_library(COCOA_LIBRARY Cocoa)
+	find_library(QUARTZ_CORE_LIBRARY QuartzCore)
 endif()
 
 include_directories("${CMAKE_SOURCE_DIR}")
@@ -828,8 +829,8 @@ elseif(TARGET SDL2::SDL2)
 	)
 	set(nativeExtraLibs ${nativeExtraLibs} SDL2::SDL2)
 	if(APPLE)
-		set(nativeExtra ${nativeExtra} SDL/SDLMain.h SDL/SDLMain.mm)
-		set(nativeExtraLibs ${nativeExtraLibs} ${COCOA_LIBRARY})
+		set(nativeExtra ${nativeExtra} SDL/SDLMain.h SDL/SDLMain.mm SDL/SDLCocoaMetalLayer.h SDL/SDLCocoaMetalLayer.mm)
+		set(nativeExtraLibs ${nativeExtraLibs} ${COCOA_LIBRARY} ${QUARTZ_CORE_LIBRARY})
 	elseif(USING_EGL)
 		set(nativeExtraLibs ${nativeExtraLibs} pthread)
 	endif()
@@ -1955,7 +1956,7 @@ if(HEADLESS)
 		headless/SDLHeadlessHost.cpp
 		headless/SDLHeadlessHost.h
 	)
-	target_link_libraries(PPSSPPHeadless ${COCOA_LIBRARY} ${LinkCommon})
+	target_link_libraries(PPSSPPHeadless ${COCOA_LIBRARY} ${QUARTZ_CORE_LIBRARY} ${LinkCommon})
 	setup_target_project(PPSSPPHeadless headless)
 endif()
 
@@ -1970,7 +1971,7 @@ if(UNITTEST)
 		Core/MIPS/ARM/ArmRegCache.cpp
 		Core/MIPS/ARM/ArmRegCacheFPU.cpp
 	)
-	target_link_libraries(unitTest ${COCOA_LIBRARY} ${LinkCommon} Common)
+	target_link_libraries(unitTest ${COCOA_LIBRARY} ${QUARTZ_CORE_LIBRARY} ${LinkCommon} Common)
 	setup_target_project(unitTest unittest)
 endif()
 

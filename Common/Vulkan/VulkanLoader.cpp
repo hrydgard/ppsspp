@@ -176,6 +176,9 @@ PFN_vkCreateAndroidSurfaceKHR vkCreateAndroidSurfaceKHR;
 #elif defined(_WIN32)
 PFN_vkCreateWin32SurfaceKHR vkCreateWin32SurfaceKHR;
 #endif
+#if defined(VK_USE_PLATFORM_METAL_EXT)
+PFN_vkCreateMetalSurfaceEXT vkCreateMetalSurfaceEXT;
+#endif
 #if defined(VK_USE_PLATFORM_XLIB_KHR)
 PFN_vkCreateXlibSurfaceKHR vkCreateXlibSurfaceKHR;
 #endif
@@ -236,9 +239,13 @@ static const char *device_name_blacklist[] = {
 };
 
 static const char *so_names[] = {
+#if defined(__APPLE__)
+	"libMoltenVK.dylib",
+#else
 	"libvulkan.so",
 #if !defined(__ANDROID__)
 	"libvulkan.so.1",
+#endif
 #endif
 };
 
@@ -310,6 +317,8 @@ bool VulkanMayBeAvailable() {
 	const char * const platformSurfaceExtension = VK_KHR_WIN32_SURFACE_EXTENSION_NAME;
 #elif defined(__ANDROID__)
 	const char *platformSurfaceExtension = VK_KHR_ANDROID_SURFACE_EXTENSION_NAME;
+#elif defined(VK_USE_PLATFORM_METAL_EXT)
+	const char * const platformSurfaceExtension = VK_EXT_METAL_SURFACE_EXTENSION_NAME;
 #else
 	const char *platformSurfaceExtension = 0;
 #endif
@@ -515,6 +524,8 @@ void VulkanLoadInstanceFunctions(VkInstance instance, const VulkanDeviceExtensio
 	LOAD_INSTANCE_FUNC(instance, vkCreateWin32SurfaceKHR);
 #elif defined(__ANDROID__)
 	LOAD_INSTANCE_FUNC(instance, vkCreateAndroidSurfaceKHR);
+#elif defined(VK_USE_PLATFORM_METAL_EXT)
+	LOAD_INSTANCE_FUNC(instance, vkCreateMetalSurfaceEXT);
 #endif
 #if defined(VK_USE_PLATFORM_XLIB_KHR)
 	LOAD_INSTANCE_FUNC(instance, vkCreateXlibSurfaceKHR);
