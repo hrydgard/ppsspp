@@ -75,9 +75,15 @@ bool SDLVulkanGraphicsContext::Init(SDL_Window *&window, int x, int y, int mode,
 		break;
 #endif
 #if defined(VK_USE_PLATFORM_METAL_EXT)
+#if defined(PPSSPP_PLATFORM_MAC)
 	case SDL_SYSWM_COCOA:
 		vulkan_->InitSurface(WINDOWSYSTEM_METAL_EXT, makeWindowMetalCompatible(sys_info.info.cocoa.window), nullptr);
 		break;
+#else
+	case SDL_SYSWM_UIKIT:
+		vulkan_->InitSurface(WINDOWSYSTEM_METAL_EXT, makeWindowMetalCompatible(sys_info.info.uikit.window), nullptr);
+		break;
+#endif
 #endif
 	default:
 		fprintf(stderr, "Vulkan subsystem %d not supported\n", sys_info.subsystem);
