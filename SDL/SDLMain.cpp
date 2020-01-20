@@ -35,9 +35,7 @@ SDLJoystick *joystick = NULL;
 #include "thread/threadutil.h"
 #include "math.h"
 
-#if !defined(__APPLE__)
 #include "SDL_syswm.h"
-#endif
 
 #if defined(VK_USE_PLATFORM_XLIB_KHR)
 #include <X11/Xlib.h>
@@ -66,6 +64,7 @@ static int g_QuitRequested = 0;
 
 static int g_DesktopWidth = 0;
 static int g_DesktopHeight = 0;
+static int g_RefreshRate = 60000;
 
 int getDisplayNumber(void) {
 	int displayNumber = 0;
@@ -308,13 +307,15 @@ int System_GetPropertyInt(SystemProperty prop) {
 	case SYSPROP_AUDIO_SAMPLE_RATE:
 		return 44100;
 	case SYSPROP_DISPLAY_REFRESH_RATE:
-		return 60000;
+		return g_RefreshRate;
 	case SYSPROP_DEVICE_TYPE:
 #if defined(MOBILE_DEVICE)
 		return DEVICE_TYPE_MOBILE;
 #else
 		return DEVICE_TYPE_DESKTOP;
 #endif
+	case SYSPROP_DISPLAY_COUNT:
+		return SDL_GetNumVideoDisplays();
 	default:
 		return -1;
 	}
@@ -509,6 +510,7 @@ int main(int argc, char *argv[]) {
 	}
 	g_DesktopWidth = displayMode.w;
 	g_DesktopHeight = displayMode.h;
+	g_RefreshRate = (int)(displayMode.refresh_rate * 1000);
 
 	SDL_GL_SetAttribute(SDL_GL_RED_SIZE, 8);
 	SDL_GL_SetAttribute(SDL_GL_GREEN_SIZE, 8);
