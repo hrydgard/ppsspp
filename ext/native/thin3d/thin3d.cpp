@@ -262,7 +262,7 @@ static const std::vector<ShaderSource> vsCol = {
 	"};\n"
 	"VS_OUTPUT main(VS_INPUT input) {\n"
 	"  VS_OUTPUT output;\n"
-	"  output.Position = mul(float4(input.Position, 1.0), WorldViewProj);\n"
+	"  output.Position = mul(WorldViewProj, float4(input.Position, 1.0));\n"
 	"  output.Color0 = input.Color0;\n"
 	"  return output;\n"
 	"}\n"
