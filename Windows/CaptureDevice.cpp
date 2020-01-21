@@ -483,7 +483,7 @@ bool WindowsCaptureDevice::start() {
 		}
 
 		if (!m_pReader)
-			hr = -1;
+			hr = E_FAIL;
 
 		if (SUCCEEDED(hr)) {
 			switch (type) {
@@ -730,6 +730,9 @@ void WindowsCaptureDevice::messageHandler() {
 	CoUninitialize();
 
 	updateState(CAPTUREDEVIDE_STATE::SHUTDOWN);
+
+	// Make sure we don't try to loop through the devices later in getDeviceList()...
+	param = {};
 }
 
 //-----------------------------------------------------------------------------
