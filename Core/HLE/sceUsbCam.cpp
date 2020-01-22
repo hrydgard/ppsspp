@@ -319,7 +319,6 @@ int Camera::stopCapture() {
 	#elif defined(_WIN32) && !PPSSPP_PLATFORM(UWP)
 		if (winCamera) {
 			winCamera->sendMessage({ CAPTUREDEVIDE_COMMAND::STOP, nullptr });
-			winCamera->sendMessage({ CAPTUREDEVIDE_COMMAND::SHUTDOWN, nullptr });
 		}
 	#else
 		ERROR_LOG(HLE, "%s not implemented", __FUNCTION__);
