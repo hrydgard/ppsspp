@@ -24,6 +24,7 @@ SDLJoystick *joystick = NULL;
 #include "base/logging.h"
 #include "base/timeutil.h"
 #include "ext/glslang/glslang/Public/ShaderLang.h"
+#include "image/png_load.h"
 #include "input/input_state.h"
 #include "input/keycodes.h"
 #include "net/resolve.h"
@@ -630,6 +631,20 @@ int main(int argc, char *argv[]) {
 	bool useEmuThread = g_Config.iGPUBackend == (int)GPUBackend::OPENGL;
 
 	SDL_SetWindowTitle(window, (app_name_nice + " " + PPSSPP_GIT_VERSION).c_str());
+
+	char iconPath[PATH_MAX];
+	snprintf(iconPath, PATH_MAX, "%sassets/icon_regular_72.png", SDL_GetBasePath() ? SDL_GetBasePath() : "");
+	int width = 0, height = 0;
+	unsigned char *imageData;
+	if (pngLoad(iconPath, &width, &height, &imageData, false) == 1) {
+		SDL_Surface *surface = SDL_CreateRGBSurface(0, width, height, 32,
+							0x000000ff, 0x0000ff00, 0x00ff0000, 0xff000000);
+		memcpy(surface->pixels, imageData, width*height*4);
+		SDL_SetWindowIcon(window, surface);
+		SDL_FreeSurface(surface);
+		free(imageData);
+		imageData = NULL;
+	}
 
 	// Since we render from the main thread, there's nothing done here, but we call it to avoid confusion.
 	if (!graphicsContext->InitFromRenderThread(&error_message)) {
