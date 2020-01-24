@@ -257,7 +257,7 @@ std::string System_GetProperty(SystemProperty prop) {
 #elif __linux__
 		return "SDL:Linux";
 #elif __APPLE__
-		return "SDL:OSX";
+		return "SDL:macOS";
 #else
 		return "SDL:";
 #endif

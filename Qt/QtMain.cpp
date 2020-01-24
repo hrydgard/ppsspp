@@ -108,7 +108,7 @@ std::string System_GetProperty(SystemProperty prop) {
 #elif defined(_WIN32)
 		return "Qt:Windows";
 #elif defined(Q_OS_MAC)
-		return "Qt:Mac";
+		return "Qt:macOS";
 #else
 		return "Qt";
 #endif
