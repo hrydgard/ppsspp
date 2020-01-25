@@ -27,6 +27,8 @@
 #include "Core/Config.h"
 #include "Core/ConfigValues.h"
 #include "Core/System.h"
+#include "Core/HLE/sceUsbCam.h"
+#include "Core/HLE/sceUsbGps.h"
 #include "Common/GraphicsContext.h"
 
 #include <sys/types.h>
@@ -684,7 +686,7 @@ void stopVideo() {
 }
 
 -(void) PushCameraImageIOS:(long long)len buffer:(unsigned char*)data {
-    PushCameraImage(len, data);
+    Camera::pushCameraImage(len, data);
 }
 
 void startLocation() {
@@ -697,7 +699,7 @@ void stopLocation() {
 
 -(void) SetGpsDataIOS:(CLLocation *)newLocation {
     NSLog(@"SetGpsDataIOS: speed: %f", newLocation.speed); // m/s
-    SetGpsData(newLocation.coordinate.latitude, newLocation.coordinate.longitude,
+    GPS::setGpsData(newLocation.coordinate.latitude, newLocation.coordinate.longitude,
                    newLocation.altitude, 0 /* speed */, 0 /* bearing */,
                    (long long)newLocation.timestamp.timeIntervalSince1970);
 }

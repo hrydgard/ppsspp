@@ -46,6 +46,8 @@
 #include "Core/ConfigValues.h"
 #include "Core/Loaders.h"
 #include "Core/System.h"
+#include "Core/HLE/sceUsbCam.h"
+#include "Core/HLE/sceUsbGps.h"
 #include "Common/CPUDetect.h"
 #include "Common/Log.h"
 #include "UI/GameInfoCache.h"
@@ -951,7 +953,12 @@ extern "C" jint Java_org_ppsspp_ppsspp_NativeApp_getSelectedCamera(JNIEnv *, jcl
 
 extern "C" void JNICALL Java_org_ppsspp_ppsspp_NativeApp_setGpsDataAndroid(JNIEnv *, jclass,
 		jfloat latitude, jfloat longitude, jfloat altitude, jfloat speed, jfloat bearing, jlong time) {
-	SetGpsData(latitude, longitude, altitude, speed, bearing, time);
+	GPS::setGpsData(latitude, longitude, altitude, speed, bearing, time);
+}
+
+extern "C" void JNICALL Java_org_ppsspp_ppsspp_NativeApp_setSatInfoAndroid(JNIEnv *, jclass,
+	   jshort index, jshort id, jshort elevation, jshort azimuth, jshort snr, jshort good) {
+	GPS::setSatInfo(index, id, elevation, azimuth, snr, good);
 }
 
 extern "C" void JNICALL Java_org_ppsspp_ppsspp_NativeApp_pushCameraImageAndroid(JNIEnv *env, jclass,
@@ -960,7 +967,7 @@ extern "C" void JNICALL Java_org_ppsspp_ppsspp_NativeApp_pushCameraImageAndroid(
 	if (image != NULL) {
 		jlong size = env->GetArrayLength(image);
 		jbyte* buffer = env->GetByteArrayElements(image, NULL);
-		PushCameraImage(size, (unsigned char *)buffer);
+		Camera::pushCameraImage(size, (unsigned char *)buffer);
 		env->ReleaseByteArrayElements(image, buffer, JNI_ABORT);
 	}
 }

@@ -17,6 +17,8 @@
 
 #pragma once
 
+#include "Core/HLE/FunctionWrappers.h"
+
 void Register_sceUsbGps();
 
 void __UsbGpsInit();
@@ -64,6 +66,7 @@ namespace GPS {
 	void init();
 	void setGpsTime(time_t *time);
 	void setGpsData(float latitude, float longitude, float altitude, float speed, float bearing, long long time);
+	void setSatInfo(short index, unsigned char id, unsigned char elevation, short azimuth, unsigned char snr, unsigned char good);
 	GpsData *getGpsData();
 	SatData *getSatData();
 }

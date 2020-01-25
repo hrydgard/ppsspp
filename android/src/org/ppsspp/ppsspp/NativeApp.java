@@ -53,5 +53,6 @@ public class NativeApp {
 
 	public static native int getSelectedCamera();
 	public static native void setGpsDataAndroid(float latitude, float longitude, float altitude, float speed, float bearing, long time);
+	public static native void setSatInfoAndroid(short index, short id, short elevation, short azimuth, short snr, short good);
 	public static native void pushCameraImageAndroid(byte[] image);
 }

@@ -120,7 +120,7 @@ void GPS::init() {
 	gpsData.bearing   = 35.0f;
 
 	satData.satellites_in_view = 6;
-	for (int i = 0; i < satData.satellites_in_view; i++) {
+	for (unsigned char i = 0; i < satData.satellites_in_view; i++) {
 		satData.satInfo[i].id = i + 1; // 1 .. 32
 		satData.satInfo[i].elevation = i * 10;
 		satData.satInfo[i].azimuth = i * 50;
@@ -131,7 +131,7 @@ void GPS::init() {
 
 void GPS::setGpsTime(time_t *time) {
 	struct tm *gpsTime;
-	gpsTime = localtime(time);
+	gpsTime = gmtime(time);
 
 	gpsData.year   = (short)(gpsTime->tm_year + 1900);
 	gpsData.month  = (short)(gpsTime->tm_mon + 1);
@@ -149,6 +149,15 @@ void GPS::setGpsData(float latitude, float longitude, float altitude, float spee
 	gpsData.altitude  = altitude;
 	gpsData.speed     = speed;
 	gpsData.bearing   = bearing;
+}
+
+void GPS::setSatInfo(short index, unsigned char id, unsigned char elevation, short azimuth, unsigned char snr, unsigned char good) {
+	satData.satInfo[index].id = id;
+	satData.satInfo[index].elevation = elevation;
+	satData.satInfo[index].azimuth = azimuth;
+	satData.satInfo[index].snr = snr;
+	satData.satInfo[index].good = good;
+	satData.satellites_in_view = index + 1;
 }
 
 GpsData* GPS::getGpsData() {
