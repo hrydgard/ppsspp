@@ -163,7 +163,7 @@ public:
 	static void CheckDevices();
 
 	bool init();
-	bool start();
+	bool start(UINT32 width, UINT32 height);
 	bool stop();
 
 	CAPTUREDEVIDE_ERROR getError() const { return error; }

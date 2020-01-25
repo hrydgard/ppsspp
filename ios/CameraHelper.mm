@@ -7,6 +7,8 @@
 @interface CameraHelper() {
     AVCaptureSession *captureSession;
     AVCaptureVideoPreviewLayer *previewLayer;
+    int mWidth;
+    int mHeight;
 }
 @end
 
@@ -52,6 +54,12 @@ NSString *getSelectedCamera() {
             return 0;
         }
     }
+}
+
+-(void) setCameraSize: (int)width h:(int)height {
+	NSLog(@"CameraHelper::setCameraSize %dx%d", width, height);
+	mWidth = width;
+	mHeight = height;
 }
 
 -(void) startVideo {
@@ -100,7 +108,7 @@ NSString *getSelectedCamera() {
         previewLayer = [[AVCaptureVideoPreviewLayer alloc] initWithSession:captureSession];
         previewLayer.videoGravity = AVLayerVideoGravityResizeAspectFill;
 
-        [previewLayer setFrame:CGRectMake(0, 0, 480, 272)];
+        [previewLayer setFrame:CGRectMake(0, 0, mWidth, mHeight)];
 
         [captureSession startRunning];
     });
@@ -132,13 +140,19 @@ NSString *getSelectedCamera() {
     size_t height = CVPixelBufferGetHeight(imageBuffer);
     CGColorSpaceRef colorSpace = CGColorSpaceCreateDeviceRGB();
 
-    CGContextRef newContext = CGBitmapContextCreate(baseAddress, width, height, 8, bytesPerRow, colorSpace, kCGBitmapByteOrder32Little | kCGImageAlphaPremultipliedFirst);
-    CGImageRef newImage = CGBitmapContextCreateImage(newContext);
-    CGContextRelease(newContext);
+    CGContextRef inContext = CGBitmapContextCreate(baseAddress, width, height, 8, bytesPerRow, colorSpace, kCGBitmapByteOrder32Little | kCGImageAlphaPremultipliedFirst);
+    CGImageRef inImage = CGBitmapContextCreateImage(inContext);
+    CGContextRelease(inContext);
+
+    CGRect outRect = CGRectMake(0, 0, width, height);
+    CGContextRef outContext = CGBitmapContextCreate(nil, mWidth, mHeight, 8, mWidth * 4, colorSpace, kCGImageAlphaPremultipliedFirst);
+    CGContextDrawImage(outContext, outRect, inImage);
+    CGImageRelease(inImage);
+    CGImageRef outImage = CGBitmapContextCreateImage(outContext);
 
     CGColorSpaceRelease(colorSpace);
-    CVPixelBufferUnlockBaseAddress(imageBuffer,0);
-    return newImage;
+    CVPixelBufferUnlockBaseAddress(imageBuffer, 0);
+    return outImage;
 }
 
 @end

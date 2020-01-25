@@ -53,6 +53,8 @@ import java.io.File;
 import java.lang.reflect.Field;
 import java.util.List;
 import java.util.Locale;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 public abstract class NativeActivity extends Activity implements SurfaceHolder.Callback {
 	// Remember to loadLibrary your JNI .so in a static {} block
@@ -1396,7 +1398,14 @@ public abstract class NativeActivity extends Activity implements SurfaceHolder.C
 				mLocationHelper.stopLocationUpdates();
 			}
 		} else if (command.equals("camera_command")) {
-			if (params.equals("startVideo")) {
+			if (params.startsWith("startVideo")) {
+				Pattern pattern = Pattern.compile("startVideo_(\\d+)x(\\d+)");
+				Matcher matcher = pattern.matcher(params);
+				if (!matcher.matches())
+					return false;
+				int width = Integer.parseInt(matcher.group(1));
+				int height = Integer.parseInt(matcher.group(2));
+				mCameraHelper.setCameraSize(width, height);
 				if (mCameraHelper != null && !askForPermissions(permissionsForCamera, REQUEST_CODE_CAMERA_PERMISSION)) {
 					mCameraHelper.startCamera();
 				}

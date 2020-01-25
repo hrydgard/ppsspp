@@ -99,8 +99,7 @@ VideoFormatTransform g_VideoFormats[] =
 
 const int g_cVideoFormats = 4;
 
-
-MediaParam defaultVideoParam = { 480, 272, 0, MFVideoFormat_RGB24 };
+MediaParam defaultVideoParam = { 640, 480, 0, MFVideoFormat_RGB24 };
 MediaParam defaultAudioParam = { 44100, 2, 0, MFAudioFormat_PCM };
 
 HRESULT GetDefaultStride(IMFMediaType *pType, LONG *plStride);
@@ -363,7 +362,6 @@ WindowsCaptureDevice::WindowsCaptureDevice(CAPTUREDEVIDE_TYPE type) :
 	case CAPTUREDEVIDE_TYPE::VIDEO:
 		targetMediaParam = defaultVideoParam;
 		imageRGB = (unsigned char*)av_malloc(av_image_get_buffer_size(AV_PIX_FMT_RGB24, targetMediaParam.width, targetMediaParam.height, 1));
-		av_image_fill_linesizes(imgRGBLineSizes, AV_PIX_FMT_RGB24, targetMediaParam.width);
 		imgJpegSize = av_image_get_buffer_size(AV_PIX_FMT_YUVJ411P, targetMediaParam.width, targetMediaParam.height, 1);
 		imageJpeg = (unsigned char*)av_malloc(imgJpegSize);
 		break;
@@ -414,7 +412,7 @@ bool WindowsCaptureDevice::init() {
 	return true;
 }
 
-bool WindowsCaptureDevice::start() {
+bool WindowsCaptureDevice::start(UINT32 width, UINT32 height) {
 	HRESULT hr = S_OK;
 	IMFAttributes *pAttributes = nullptr;
 	IMFMediaType *pType = nullptr;
@@ -435,6 +433,10 @@ bool WindowsCaptureDevice::start() {
 		setError(CAPTUREDEVIDE_ERROR_START_FAILED, "Has no device");
 		return false;
 	}
+
+	targetMediaParam.width = width;
+	targetMediaParam.height = height;
+	av_image_fill_linesizes(imgRGBLineSizes, AV_PIX_FMT_RGB24, targetMediaParam.width);
 
 	m_pCallback = new ReaderCallback(this);
 
@@ -699,6 +701,7 @@ void WindowsCaptureDevice::messageHandler() {
 	CoInitializeEx(NULL, COINIT_MULTITHREADED);
 	MFStartup(MF_VERSION);
 	CAPTUREDEVIDE_MESSAGE message;
+	std::vector<int>* resolution;
 
 	if (type == CAPTUREDEVIDE_TYPE::VIDEO) {
 		setCurrentThreadName("Camera");
@@ -710,7 +713,8 @@ void WindowsCaptureDevice::messageHandler() {
 			init();
 			break;
 		case CAPTUREDEVIDE_COMMAND::START:
-			start();
+			resolution = static_cast<std::vector<int>*>(message.opacity);
+			start(resolution->at(0), resolution->at(1));
 			break;
 		case CAPTUREDEVIDE_COMMAND::STOP:
 			stop();

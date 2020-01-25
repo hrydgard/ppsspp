@@ -59,6 +59,7 @@ void __UsbCamDoState(PointerWrap &p) {
 
 	p.Do(*config);
 	if (config->mode == Camera::Mode::Video) { // stillImage? TBD
+		Camera::stopCapture();
 		Camera::startCapture();
 	}
 }
@@ -153,9 +154,21 @@ static int sceUsbCamSetupVideoEx(u32 paramAddr, u32 workareaAddr, int wasize) {
 
 static int sceUsbCamStartVideo() {
 	std::lock_guard<std::mutex> lock(videoBufferMutex);
-	videoBufferLength = sizeof(sceUsbCamDummyImage);
+
+	int width, height;
+	getCameraResolution(config->type, &width, &height);
+
+	unsigned char* jpegData = nullptr;
+	int jpegLen = 0;
+	__cameraDummyImage(width, height, &jpegData, &jpegLen);
+	videoBufferLength = jpegLen;
 	memset(videoBuffer, 0, VIDEO_BUFFER_SIZE);
-	memcpy(videoBuffer, sceUsbCamDummyImage, sizeof(sceUsbCamDummyImage));
+	if (jpegData) {
+		memcpy(videoBuffer, jpegData, jpegLen);
+		free(jpegData);
+		jpegData = nullptr;
+	}
+
 	Camera::startCapture();
 	return 0;
 }
@@ -287,14 +300,16 @@ void Register_sceUsbCam()
 }
 
 std::vector<std::string> Camera::getDeviceList() {
-	#if PPSSPP_PLATFORM(ANDROID) || PPSSPP_PLATFORM(IOS)
-		return __cameraGetDeviceList();
-	#elif PPSSPP_PLATFORM(LINUX)
-		return __v4l_getDeviceList();
-	#elif defined(_WIN32) && !PPSSPP_PLATFORM(UWP)
+	#if defined(_WIN32) && !PPSSPP_PLATFORM(UWP)
 		if (winCamera) {
 			return winCamera->getDeviceList();
 		}
+	#elif PPSSPP_PLATFORM(ANDROID) || PPSSPP_PLATFORM(IOS)
+		return __cameraGetDeviceList();
+	#elif defined(USING_QT_UI) // Qt:macOS / Qt:Linux
+		return __qt_getDeviceList();
+	#elif PPSSPP_PLATFORM(LINUX) // SDL:Linux
+		return __v4l_getDeviceList();
 	#endif
 	return std::vector<std::string>();
 }
@@ -305,19 +320,22 @@ int Camera::startCapture() {
 	INFO_LOG(HLE, "%s resolution: %dx%d", __FUNCTION__, width, height);
 
 	config->mode = Camera::Mode::Video;
-	#if PPSSPP_PLATFORM(ANDROID) || PPSSPP_PLATFORM(IOS)
-		System_SendMessage("camera_command", "startVideo");
-	#elif PPSSPP_PLATFORM(LINUX)
-		__v4l_startCapture(width, height);
-	#elif defined(_WIN32) && !PPSSPP_PLATFORM(UWP)
+	#if defined(_WIN32) && !PPSSPP_PLATFORM(UWP)
 		if (winCamera) {
 			if (winCamera->isShutDown()) {
 				delete winCamera;
 				winCamera = new WindowsCaptureDevice(CAPTUREDEVIDE_TYPE::VIDEO);
 				winCamera->sendMessage({ CAPTUREDEVIDE_COMMAND::INITIALIZE, nullptr });
 			}
-			winCamera->sendMessage({ CAPTUREDEVIDE_COMMAND::START, nullptr });
+			void* resolution = static_cast<void*>(new std::vector<int>({ width, height }));
+			winCamera->sendMessage({ CAPTUREDEVIDE_COMMAND::START, resolution });
 		}
+	#elif PPSSPP_PLATFORM(ANDROID) || PPSSPP_PLATFORM(IOS) || defined(USING_QT_UI)
+		char command[40] = {0};
+		snprintf(command, sizeof(command), "startVideo_%dx%d", width, height);
+		System_SendMessage("camera_command", command);
+	#elif PPSSPP_PLATFORM(LINUX)
+		__v4l_startCapture(width, height);
 	#else
 		ERROR_LOG(HLE, "%s not implemented", __FUNCTION__);
 	#endif
@@ -326,14 +344,14 @@ int Camera::startCapture() {
 
 int Camera::stopCapture() {
 	INFO_LOG(HLE, "%s", __FUNCTION__);
-	#if PPSSPP_PLATFORM(ANDROID) || PPSSPP_PLATFORM(IOS)
-		System_SendMessage("camera_command", "stopVideo");
-	#elif PPSSPP_PLATFORM(LINUX)
-		__v4l_stopCapture();
-	#elif defined(_WIN32) && !PPSSPP_PLATFORM(UWP)
+	#if defined(_WIN32) && !PPSSPP_PLATFORM(UWP)
 		if (winCamera) {
 			winCamera->sendMessage({ CAPTUREDEVIDE_COMMAND::STOP, nullptr });
 		}
+	#elif PPSSPP_PLATFORM(ANDROID) || PPSSPP_PLATFORM(IOS) || defined(USING_QT_UI)
+		System_SendMessage("camera_command", "stopVideo");
+	#elif PPSSPP_PLATFORM(LINUX)
+		__v4l_stopCapture();
 	#else
 		ERROR_LOG(HLE, "%s not implemented", __FUNCTION__);
 	#endif

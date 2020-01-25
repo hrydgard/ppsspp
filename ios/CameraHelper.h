@@ -10,7 +10,7 @@
 
 @property (nonatomic, strong) id<CameraFrameDelegate> delegate;
 
-- (int) checkPermission;
+- (void) setCameraSize:(int)width h:(int)height;
 - (void) startVideo;
 - (void) stopVideo;
 

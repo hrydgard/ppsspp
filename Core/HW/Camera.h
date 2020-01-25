@@ -19,26 +19,9 @@
 
 #include "ppsspp_config.h"
 #include "Core/Config.h"
+#include "Core/HLE/sceUsbCam.h"
 #include "Log.h"
 
-#if PPSSPP_PLATFORM(LINUX) && !PPSSPP_PLATFORM(ANDROID)
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <assert.h>
-#include <fcntl.h>
-#include <unistd.h>
-#include <errno.h>
-#include <malloc.h>
-#include <sys/types.h>
-#include <sys/mman.h>
-#include <sys/ioctl.h>
-#include <vector>
-
-#include "thread/threadutil.h"
-#include "Core/HLE/sceUsbCam.h"
-
-#include <linux/videodev2.h>
 #include "ext/jpge/jpgd.h"
 #include "ext/jpge/jpge.h"
 
@@ -46,6 +29,36 @@ extern "C" {
 #include "libswscale/swscale.h"
 #include "libavutil/imgutils.h"
 }
+
+void __cameraDummyImage(int width, int height, unsigned char** outData, int* outLen);
+
+#if defined(USING_QT_UI)
+#include <QAbstractVideoSurface>
+#include <QCameraInfo>
+
+	class MyViewfinder : public QAbstractVideoSurface {
+		Q_OBJECT
+	public:
+		QList<QVideoFrame::PixelFormat> supportedPixelFormats(QAbstractVideoBuffer::HandleType handleType) const;
+		bool present(const QVideoFrame &frame);
+	};
+
+	static int        qtc_ideal_width;
+	static int        qtc_ideal_height;
+	static QCamera *qt_camera;
+	static QAbstractVideoSurface *qt_viewfinder;
+
+	std::vector<std::string> __qt_getDeviceList();
+	int __qt_startCapture(int width, int height);
+	int __qt_stopCapture();
+
+#elif PPSSPP_PLATFORM(LINUX) && !PPSSPP_PLATFORM(ANDROID)
+#include <fcntl.h>
+#include <linux/videodev2.h>
+#include <sys/ioctl.h>
+#include <sys/mman.h>
+
+#include "thread/threadutil.h"
 
 	static int        v4l_fd = -1;
 	static uint32_t   v4l_format;
@@ -58,7 +71,6 @@ extern "C" {
 	static pthread_t  v4l_thread;
 	static void      *v4l_buffer;
 	static int        v4l_length;
-	static struct SwsContext *sws_context;
 
 	std::vector<std::string> __v4l_getDeviceList();
 	int __v4l_startCapture(int width, int height);

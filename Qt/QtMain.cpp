@@ -38,6 +38,7 @@
 #include "util/text/utf8.h"
 #include "Core/Config.h"
 #include "Core/ConfigValues.h"
+#include "Core/HW/Camera.h"
 
 #include <string.h>
 
@@ -45,6 +46,7 @@ MainUI *emugl = nullptr;
 static float refreshRate = 60.f;
 static int browseFileEvent = -1;
 static int browseFolderEvent = -1;
+QTCamera *qtcamera = nullptr;
 
 #ifdef SDL
 static SDL_AudioDeviceID audioDev = 0;
@@ -204,6 +206,14 @@ void System_SendMessage(const char *command, const char *parameter) {
 	} else if (!strcmp(command, "graphics_restart")) {
 		// Should find a way to properly restart the app.
 		qApp->exit(0);
+	} else if (!strcmp(command, "camera_command")) {
+		if (!strncmp(parameter, "startVideo", 10)) {
+			int width = 0, height = 0;
+			sscanf(parameter, "startVideo_%dx%d", &width, &height);
+			emit(qtcamera->onStartCamera(width, height));
+		} else if (!strcmp(parameter, "stopVideo")) {
+			emit(qtcamera->onStopCamera());
+		}
 	} else if (!strcmp(command, "setclipboardtext")) {
 		QApplication::clipboard()->setText(parameter);
 #if defined(SDL)
@@ -606,6 +616,14 @@ void MainAudio::timerEvent(QTimerEvent *) {
 #endif
 
 
+void QTCamera::startCamera(int width, int height) {
+	__qt_startCapture(width, height);
+}
+
+void QTCamera::stopCamera() {
+	__qt_stopCapture();
+}
+
 #ifndef SDL
 Q_DECL_EXPORT
 #endif
@@ -633,6 +651,7 @@ int main(int argc, char *argv[])
 	QApplication a(argc, argv);
 	QScreen* screen = a.primaryScreen();
 	QSizeF res = screen->physicalSize();
+
 	if (res.width() < res.height())
 		res.transpose();
 	pixel_xres = res.width();
@@ -646,6 +665,10 @@ int main(int argc, char *argv[])
 	dp_yres = (int)(pixel_yres * g_dpi_scale_y);
 
 	refreshRate = screen->refreshRate();
+
+	qtcamera = new QTCamera;
+	QObject::connect(qtcamera, SIGNAL(onStartCamera(int, int)), qtcamera, SLOT(startCamera(int, int)));
+	QObject::connect(qtcamera, SIGNAL(onStopCamera()),  qtcamera, SLOT(stopCamera()));
 
 	std::string savegame_dir = ".";
 	std::string external_dir = ".";
