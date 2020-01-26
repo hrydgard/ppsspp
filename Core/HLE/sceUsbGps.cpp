@@ -141,9 +141,10 @@ void GPS::setGpsTime(time_t *time) {
 	gpsData.second = (short)gpsTime->tm_sec;
 }
 
-void GPS::setGpsData(float latitude, float longitude, float altitude, float speed, float bearing, long long gpsTime) {
+void GPS::setGpsData(long long gpsTime, float hdop, float latitude, float longitude, float altitude, float speed, float bearing) {
 	setGpsTime((time_t*)&gpsTime);
 
+	gpsData.hdop      = hdop;
 	gpsData.latitude  = latitude;
 	gpsData.longitude = longitude;
 	gpsData.altitude  = altitude;

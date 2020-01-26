@@ -698,10 +698,12 @@ void stopLocation() {
 }
 
 -(void) SetGpsDataIOS:(CLLocation *)newLocation {
-    NSLog(@"SetGpsDataIOS: speed: %f", newLocation.speed); // m/s
-    GPS::setGpsData(newLocation.coordinate.latitude, newLocation.coordinate.longitude,
-                   newLocation.altitude, 0 /* speed */, 0 /* bearing */,
-                   (long long)newLocation.timestamp.timeIntervalSince1970);
+    GPS::setGpsData((long long)newLocation.timestamp.timeIntervalSince1970,
+					newLocation.horizontalAccuracy/5.0,
+					newLocation.coordinate.latitude, newLocation.coordinate.longitude,
+					newLocation.altitude,
+					MAX(newLocation.speed * 3.6, 0.0), /* m/s to km/h */
+					0 /* bearing */);
 }
 
 @end

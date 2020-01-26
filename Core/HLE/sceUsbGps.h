@@ -65,7 +65,7 @@ typedef struct {
 namespace GPS {
 	void init();
 	void setGpsTime(time_t *time);
-	void setGpsData(float latitude, float longitude, float altitude, float speed, float bearing, long long time);
+	void setGpsData(long long time, float hdop, float latitude, float longitude, float altitude, float speed, float bearing);
 	void setSatInfo(short index, unsigned char id, unsigned char elevation, short azimuth, unsigned char snr, unsigned char good);
 	GpsData *getGpsData();
 	SatData *getSatData();
