@@ -12,10 +12,12 @@ import android.util.Log;
 
 import java.util.Iterator;
 
-class LocationHelper implements LocationListener, GpsStatus.Listener {
+class LocationHelper implements LocationListener, GpsStatus.Listener, GpsStatus.NmeaListener {
 	private static final String TAG = LocationHelper.class.getSimpleName();
 	private LocationManager mLocationManager;
 	private boolean mLocationEnable;
+	private float mAltitudeAboveSeaLevel = 0f;
+	private float mHdop = 0f;
 
 	LocationHelper(Context context) {
 		mLocationManager = (LocationManager) context.getSystemService(Context.LOCATION_SERVICE);
@@ -33,6 +35,7 @@ class LocationHelper implements LocationListener, GpsStatus.Listener {
 				mLocationManager.requestLocationUpdates(LocationManager.GPS_PROVIDER, 1000, 0, this);
 				mLocationManager.requestLocationUpdates(LocationManager.NETWORK_PROVIDER, 1000, 0, this);
 				mLocationManager.addGpsStatusListener(this);
+				mLocationManager.addNmeaListener(this);
 				mLocationEnable = true;
 			} catch (SecurityException e) {
 				Log.e(TAG, "Cannot start location updates: " + e.toString());
@@ -52,17 +55,20 @@ class LocationHelper implements LocationListener, GpsStatus.Listener {
 		}
 	}
 
+
+	/*
+	 * LocationListener
+	 */
+
 	@Override
 	public void onLocationChanged(Location location) {
+		long time = location.getTime() / 1000; // ms to s !!
 		float latitude = (float) location.getLatitude();
 		float longitude = (float) location.getLongitude();
-		// Android altitude is in meters above the WGS 84 reference ellipsoid
-		float altitude = (float) location.getAltitude();
-		float speed = location.getSpeed();
+		float speed = location.getSpeed() * 3.6f; // m/s to km/h !!
 		float bearing = location.getBearing();
-		long time = location.getTime() / 1000; // ms to s !!
 
-		NativeApp.setGpsDataAndroid(latitude, longitude, altitude, speed, bearing, time);
+		NativeApp.setGpsDataAndroid(time, mHdop, latitude, longitude, mAltitudeAboveSeaLevel, speed, bearing);
 	}
 
 	@Override
@@ -77,6 +83,10 @@ class LocationHelper implements LocationListener, GpsStatus.Listener {
 	public void onProviderDisabled(String provider) {
 	}
 
+
+	/*
+	 * GpsStatus.Listener
+	 */
 
 	@Override
 	public void onGpsStatusChanged(int i) {
@@ -108,6 +118,26 @@ class LocationHelper implements LocationListener, GpsStatus.Listener {
 				}
 				break;
 			}
+		}
+	}
+
+
+	/*
+	 * GpsStatus.Listener
+	 */
+
+	@Override
+	public void onNmeaReceived(long timestamp, String nmea) {
+		String[] tokens = nmea.split(",");
+		Log.e(TAG, nmea);
+		if (tokens.length < 10 || !tokens[0].equals("$GPGGA")) {
+			return;
+		}
+		if (!tokens[8].isEmpty()) {
+			mHdop = Float.valueOf(tokens[8]);
+		}
+		if (!tokens[9].isEmpty()) {
+			mAltitudeAboveSeaLevel = Float.valueOf(tokens[9]);
 		}
 	}
 }
