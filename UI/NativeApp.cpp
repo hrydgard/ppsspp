@@ -893,6 +893,8 @@ void NativeShutdownGraphics() {
 
 #if defined(_WIN32) && !PPSSPP_PLATFORM(UWP)
 	if (winCamera) {
+		winCamera->sendMessage({ CAPTUREDEVIDE_COMMAND::SHUTDOWN, nullptr });
+		while (!winCamera->isShutDown()) {};// Wait for shutting down.
 		delete winCamera;
 		winCamera = nullptr;
 	}

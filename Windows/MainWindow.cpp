@@ -72,6 +72,7 @@
 #include "Windows/W32Util/ShellUtil.h"
 #include "Windows/W32Util/Misc.h"
 #include "Windows/RawInput.h"
+#include "Windows/CaptureDevice.h"
 #include "Windows/TouchInputHandler.h"
 #include "Windows/MainWindowMenu.h"
 #include "GPU/GPUInterface.h"
@@ -848,6 +849,7 @@ namespace MainWindow
 #ifndef _M_ARM
 			DinputDevice::CheckDevices();
 #endif
+			WindowsCaptureDevice::CheckDevices();
 			return DefWindowProc(hWnd, message, wParam, lParam);
 
 		case WM_VERYSLEEPY_MSG:

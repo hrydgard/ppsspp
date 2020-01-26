@@ -24,6 +24,8 @@
 #include "Core/HLE/sceUsbCam.h"
 #include "Core/Config.h"
 
+bool isDeviceChanged = false;
+
 namespace MFAPI {
 	HINSTANCE Mflib;
 	HINSTANCE Mfplatlib;
@@ -355,6 +357,7 @@ WindowsCaptureDevice::WindowsCaptureDevice(CAPTUREDEVIDE_TYPE type) :
 	error(CAPTUREDEVIDE_ERROR_NO_ERROR),
 	errorMessage(""),
 	state(CAPTUREDEVIDE_STATE::UNINITIALIZED) {
+	param = { 0 };
 
 	switch (type) {
 	case CAPTUREDEVIDE_TYPE::VIDEO:
@@ -387,50 +390,26 @@ WindowsCaptureDevice::~WindowsCaptureDevice() {
 		break;
 	}
 }
+void WindowsCaptureDevice::CheckDevices() {
+	isDeviceChanged = true;
+}
 
 bool WindowsCaptureDevice::init() {
 	HRESULT hr = S_OK;
-	param = { 0 };
-	IMFAttributes *pAttributes = nullptr;
 
 	if (!RegisterCMPTMFApis()) {
 		setError(CAPTUREDEVIDE_ERROR_INIT_FAILED, "Cannot register devices");
 		return false;
 	}
-
-	hr = MFCreateAttributes(&pAttributes, 1);
-	if (SUCCEEDED(hr)) {
-		switch (type) {
-		case CAPTUREDEVIDE_TYPE::VIDEO:
-			hr = pAttributes->SetGUID(
-				MF_DEVSOURCE_ATTRIBUTE_SOURCE_TYPE,
-				MF_DEVSOURCE_ATTRIBUTE_SOURCE_TYPE_VIDCAP_GUID
-			);
-
-			break;
-		case CAPTUREDEVIDE_TYPE::AUDIO:
-			hr = pAttributes->SetGUID(
-				MF_DEVSOURCE_ATTRIBUTE_SOURCE_TYPE,
-				MF_DEVSOURCE_ATTRIBUTE_SOURCE_TYPE_AUDCAP_GUID
-			);
-
-			break;
-		default:
-			setError(CAPTUREDEVIDE_ERROR_UNKNOWN_TYPE, "Unknown device type");
-			return false;
-		}
-	}
-
-	if (SUCCEEDED(hr))
-		hr = EnumDeviceSources(pAttributes, &param.ppDevices, &param.count);
+	std::unique_lock<std::mutex> lock(paramMutex);
+	hr = enumDevices();
+	lock.unlock();
 
 	if (FAILED(hr)) {
 		setError(CAPTUREDEVIDE_ERROR_INIT_FAILED, "Cannot enumerate devices");
-		SafeRelease(&pAttributes);
 		return false;
 	}
 
-	SafeRelease(&pAttributes);
 	updateState(CAPTUREDEVIDE_STATE::STOPPED);
 	return true;
 }
@@ -441,7 +420,16 @@ bool WindowsCaptureDevice::start() {
 	IMFMediaType *pType = nullptr;
 	UINT32 selection = 0;
 	UINT32 count = 0;
-	std::vector<std::string> deviceList = getDeviceList();
+
+	// Release old sources first(if any).
+	SafeRelease(&m_pSource);
+	SafeRelease(&m_pReader);
+	if (m_pCallback) {
+		delete m_pCallback;
+		m_pCallback = nullptr;
+	}
+	// Need to re-enumerate the list,because old sources were released.
+	std::vector<std::string> deviceList = getDeviceList(true);
 
 	if (deviceList.size() < 1) {
 		setError(CAPTUREDEVIDE_ERROR_START_FAILED, "Has no device");
@@ -511,7 +499,7 @@ bool WindowsCaptureDevice::start() {
 				if (SUCCEEDED(hr))
 					hr = setDeviceParam(pType);*/ // Don't support on Win7
 
-				// Request the first frame, in asnyc mode, OnReadSample will be called when ReadSample completed.
+				// Request the first frame, in async mode, OnReadSample will be called when ReadSample completed.
 				if (SUCCEEDED(hr)) {
 					hr = m_pReader->ReadSample(
 						(DWORD)MF_SOURCE_READER_FIRST_VIDEO_STREAM,
@@ -572,7 +560,7 @@ bool WindowsCaptureDevice::stop() {
 	return true;
 };
 
-std::vector<std::string> WindowsCaptureDevice::getDeviceList(int *pActuallCount) {
+std::vector<std::string> WindowsCaptureDevice::getDeviceList(bool forceEnum, int *pActuallCount) {
 	HRESULT hr = S_OK;
 	UINT32 count = 0;
 	LPWSTR pwstrName = nullptr;
@@ -580,6 +568,23 @@ std::vector<std::string> WindowsCaptureDevice::getDeviceList(int *pActuallCount)
 	std::string strName;
 	DWORD dwMinSize = 0;
 	std::vector<std::string> deviceList;
+
+	if (isDeviceChanged || forceEnum) {
+		std::unique_lock<std::mutex> lock(paramMutex);
+		for (DWORD i = 0; i < param.count; i++) {
+			SafeRelease(&param.ppDevices[i]);
+		}
+		CoTaskMemFree(param.ppDevices); // Null pointer is okay.
+
+		hr = enumDevices();
+
+		lock.unlock();
+
+		if (SUCCEEDED(hr))
+			isDeviceChanged = false;
+		else
+			return deviceList;
+	}
 
 	for (; count < param.count; count++) {
 		hr = param.ppDevices[count]->GetAllocatedString(
@@ -722,17 +727,54 @@ void WindowsCaptureDevice::messageHandler() {
 	std::lock_guard<std::mutex> lock(sdMutex);
 	SafeRelease(&m_pSource);
 	SafeRelease(&m_pReader);
-	CoTaskMemFree(param.ppDevices);
 	delete m_pCallback;
 	unRegisterCMPTMFApis();
+
+	std::unique_lock<std::mutex> lock2(paramMutex);
+	for (DWORD i = 0; i < param.count; i++) {
+		SafeRelease(&param.ppDevices[i]);
+	}
+	CoTaskMemFree(param.ppDevices); // Null pointer is okay.
+	lock2.unlock();
 
 	MFShutdown();
 	CoUninitialize();
 
 	updateState(CAPTUREDEVIDE_STATE::SHUTDOWN);
+}
 
-	// Make sure we don't try to loop through the devices later in getDeviceList()...
-	param = {};
+HRESULT WindowsCaptureDevice::enumDevices() {
+	HRESULT hr = S_OK;
+	IMFAttributes *pAttributes = nullptr;
+
+	hr = MFCreateAttributes(&pAttributes, 1);
+	if (SUCCEEDED(hr)) {
+		switch (type) {
+		case CAPTUREDEVIDE_TYPE::VIDEO:
+			hr = pAttributes->SetGUID(
+				MF_DEVSOURCE_ATTRIBUTE_SOURCE_TYPE,
+				MF_DEVSOURCE_ATTRIBUTE_SOURCE_TYPE_VIDCAP_GUID
+			);
+
+			break;
+		case CAPTUREDEVIDE_TYPE::AUDIO:
+			hr = pAttributes->SetGUID(
+				MF_DEVSOURCE_ATTRIBUTE_SOURCE_TYPE,
+				MF_DEVSOURCE_ATTRIBUTE_SOURCE_TYPE_AUDCAP_GUID
+			);
+
+			break;
+		default:
+			setError(CAPTUREDEVIDE_ERROR_UNKNOWN_TYPE, "Unknown device type");
+			return E_FAIL;
+		}
+	}
+	if (SUCCEEDED(hr)) {
+		hr = EnumDeviceSources(pAttributes, &param.ppDevices, &param.count);
+	}
+
+	SafeRelease(&pAttributes);
+	return hr;
 }
 
 //-----------------------------------------------------------------------------
