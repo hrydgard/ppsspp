@@ -1359,11 +1359,3 @@ void NativeShutdown() {
 	// Previously we did exit() here on Android but that makes it hard to do things like restart on backend change.
 	// I think we handle most globals correctly or correct-enough now.
 }
-
-void PushNewGpsData(float latitude, float longitude, float altitude, float speed, float bearing, long long time) {
-	GPS::setGpsData(latitude, longitude, altitude, speed, bearing, time);
-}
-
-void PushCameraImage(long long length, unsigned char* image) {
-	Camera::pushCameraImage(length, image);
-}

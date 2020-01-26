@@ -46,6 +46,8 @@
 #include "Core/ConfigValues.h"
 #include "Core/Loaders.h"
 #include "Core/System.h"
+#include "Core/HLE/sceUsbCam.h"
+#include "Core/HLE/sceUsbGps.h"
 #include "Common/CPUDetect.h"
 #include "Common/Log.h"
 #include "UI/GameInfoCache.h"
@@ -921,18 +923,51 @@ extern "C" jint JNICALL Java_org_ppsspp_ppsspp_NativeApp_getDesiredBackbufferHei
 	return desiredBackbufferSizeY;
 }
 
-extern "C" void JNICALL Java_org_ppsspp_ppsspp_NativeApp_pushNewGpsData(JNIEnv *, jclass,
-		jfloat latitude, jfloat longitude, jfloat altitude, jfloat speed, jfloat bearing, jlong time) {
-	PushNewGpsData(latitude, longitude, altitude, speed, bearing, time);
+
+std::vector<std::string> __cameraGetDeviceList() {
+	jclass cameraClass = findClass("org/ppsspp/ppsspp/CameraHelper");
+	jmethodID deviceListMethod = getEnv()->GetStaticMethodID(cameraClass, "getDeviceList", "()Ljava/util/ArrayList;");
+	jobject deviceListObject = getEnv()->CallStaticObjectMethod(cameraClass, deviceListMethod);
+	jclass arrayListClass = getEnv()->FindClass("java/util/ArrayList");
+	jmethodID arrayListSize = getEnv()->GetMethodID(arrayListClass, "size", "()I");
+	jmethodID arrayListGet = getEnv()->GetMethodID(arrayListClass, "get", "(I)Ljava/lang/Object;");
+
+	jint arrayListObjectLen = getEnv()->CallIntMethod(deviceListObject, arrayListSize);
+	std::vector<std::string> deviceListVector;
+
+	for (int i=0; i < arrayListObjectLen; i++) {
+		jstring dev = static_cast<jstring>(getEnv()->CallObjectMethod(deviceListObject, arrayListGet, i));
+		const char* cdev = getEnv()->GetStringUTFChars(dev, nullptr);
+		deviceListVector.push_back(cdev);
+		getEnv()->ReleaseStringUTFChars(dev, cdev);
+		getEnv()->DeleteLocalRef(dev);
+	}
+	return deviceListVector;
 }
 
-extern "C" void JNICALL Java_org_ppsspp_ppsspp_NativeApp_pushCameraImage(JNIEnv *env, jclass,
+extern "C" jint Java_org_ppsspp_ppsspp_NativeApp_getSelectedCamera(JNIEnv *, jclass) {
+	int cameraId = 0;
+	sscanf(g_Config.sCameraDevice.c_str(), "%d:", &cameraId);
+	return cameraId;
+}
+
+extern "C" void JNICALL Java_org_ppsspp_ppsspp_NativeApp_setGpsDataAndroid(JNIEnv *, jclass,
+		jfloat latitude, jfloat longitude, jfloat altitude, jfloat speed, jfloat bearing, jlong time) {
+	GPS::setGpsData(latitude, longitude, altitude, speed, bearing, time);
+}
+
+extern "C" void JNICALL Java_org_ppsspp_ppsspp_NativeApp_setSatInfoAndroid(JNIEnv *, jclass,
+	   jshort index, jshort id, jshort elevation, jshort azimuth, jshort snr, jshort good) {
+	GPS::setSatInfo(index, id, elevation, azimuth, snr, good);
+}
+
+extern "C" void JNICALL Java_org_ppsspp_ppsspp_NativeApp_pushCameraImageAndroid(JNIEnv *env, jclass,
 		jbyteArray image) {
 
 	if (image != NULL) {
 		jlong size = env->GetArrayLength(image);
 		jbyte* buffer = env->GetByteArrayElements(image, NULL);
-		PushCameraImage(size, (unsigned char *)buffer);
+		Camera::pushCameraImage(size, (unsigned char *)buffer);
 		env->ReleaseByteArrayElements(image, buffer, JNI_ABORT);
 	}
 }

@@ -1,6 +1,7 @@
 #pragma once
 
 #include <string>
+#include <vector>
 
 // The Native App API.
 //
@@ -174,5 +175,4 @@ std::string System_GetProperty(SystemProperty prop);
 int System_GetPropertyInt(SystemProperty prop);
 bool System_GetPropertyBool(SystemProperty prop);
 
-void PushNewGpsData(float latitude, float longitude, float altitude, float speed, float bearing, long long time);
-void PushCameraImage(long long length, unsigned char* image);
+std::vector<std::string> __cameraGetDeviceList();

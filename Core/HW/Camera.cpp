@@ -192,9 +192,10 @@ int __v4l_startCapture(int ideal_width, int ideal_height) {
 		frmsize.index++;
 		if (frmsize.type == V4L2_FRMSIZE_TYPE_DISCRETE) {
 			INFO_LOG(HLE, "V4L2: frame size supported: %dx%d", frmsize.discrete.width, frmsize.discrete.height);
-			if (fmt.fmt.pix.width != 0 && fmt.fmt.pix.height != 0) {
-				continue;
-			} else if (frmsize.discrete.width >= ideal_width && frmsize.discrete.height >= ideal_height) {
+			if (frmsize.discrete.width >= ideal_width && frmsize.discrete.height >= ideal_height
+					&& fmt.fmt.pix.width == 0 && fmt.fmt.pix.height == 0
+			 || frmsize.discrete.width >= ideal_width && frmsize.discrete.height >= ideal_height
+					&& frmsize.discrete.width < fmt.fmt.pix.width && frmsize.discrete.height < fmt.fmt.pix.height) {
 				fmt.fmt.pix.width  = frmsize.discrete.width;
 				fmt.fmt.pix.height = frmsize.discrete.height;
 			}
