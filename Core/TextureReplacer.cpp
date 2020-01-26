@@ -168,7 +168,7 @@ bool TextureReplacer::LoadIniValues(IniFile &ini, bool isOverride) {
 	}
 
 	if (filenameWarning) {
-		I18NCategory *err = GetI18NCategory("Error");
+		auto err = GetI18NCategory("Error");
 		host->NotifyUserMessage(err->T("textures.ini filenames may not be cross-platform"), 6.0f);
 	}
 

@@ -471,7 +471,7 @@ bool MainUI::event(QEvent *e) {
 			}
 			break;
 		} else if (e->type() == browseFolderEvent) {
-			I18NCategory *mm = GetI18NCategory("MainMenu");
+			auto mm = GetI18NCategory("MainMenu");
 			QString fileName = QFileDialog::getExistingDirectory(nullptr, mm->T("Choose folder"), g_Config.currentDirectory.c_str());
 			if (QDir(fileName).exists()) {
 				NativeMessageReceived("browse_folderSelect", fileName.toStdString().c_str());

@@ -236,7 +236,7 @@ bool WindowsGLContext::InitFromRenderThread(std::string *error_message) {
 
 	// GL_VERSION                        GL_VENDOR        GL_RENDERER
 	// "1.4.0 - Build 8.14.10.2364"      "intel"          intel Pineview Platform
-	I18NCategory *err = GetI18NCategory("Error");
+	auto err = GetI18NCategory("Error");
 
 	std::string glVersion = (const char *)glGetString(GL_VERSION);
 	std::string glRenderer = (const char *)glGetString(GL_RENDERER);

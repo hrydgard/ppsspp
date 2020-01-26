@@ -19,6 +19,7 @@
 
 #include <functional>
 #include <map>
+#include <memory>
 #include <string>
 #include <vector>
 
@@ -31,7 +32,7 @@
 
 class DevMenu : public PopupScreen {
 public:
-	DevMenu(I18NCategory *i18n) : PopupScreen(i18n->T("Dev Tools")) {}
+	DevMenu(std::shared_ptr<I18NCategory> i18n) : PopupScreen(i18n->T("Dev Tools")) {}
 
 	void CreatePopupContents(UI::ViewGroup *parent) override;
 	void dialogFinished(const Screen *dialog, DialogResult result) override;

@@ -23,8 +23,8 @@
 void TiltAnalogSettingsScreen::CreateViews() {
 	using namespace UI;
 
-	I18NCategory *co = GetI18NCategory("Controls");
-	I18NCategory *di = GetI18NCategory("Dialog");
+	auto co = GetI18NCategory("Controls");
+	auto di = GetI18NCategory("Dialog");
 
 	root_ = new ScrollView(ORIENT_VERTICAL);
 	root_->SetTag("TiltAnalogSettings");

@@ -112,7 +112,7 @@ GPU_GLES::GPU_GLES(GraphicsContext *gfxCtx, Draw::DrawContext *draw)
 		if (!gstate_c.SupportsAll(GPU_SUPPORTS_VERTEX_TEXTURE_FETCH | GPU_SUPPORTS_TEXTURE_FLOAT) || !hasTexelFetch) {
 			g_Config.bHardwareTessellation = false;
 			ERROR_LOG(G3D, "Hardware Tessellation is unsupported, falling back to software tessellation");
-			I18NCategory *gr = GetI18NCategory("Graphics");
+			auto gr = GetI18NCategory("Graphics");
 			host->NotifyUserMessage(gr->T("Turn off Hardware Tessellation - unsupported"), 2.5f, 0xFF3030FF);
 		}
 	}

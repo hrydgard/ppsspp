@@ -62,14 +62,14 @@ void PSPNetconfDialog::DrawBanner() {
 
 	// TODO: Draw a hexagon icon
 	PPGeDrawImage(10, 6, 12.0f, 12.0f, 1, 10, 1, 10, 10, 10, CalcFadedColor(0xFFFFFFFF));
-	I18NCategory *di = GetI18NCategory("Dialog");
+	auto di = GetI18NCategory("Dialog");
 	PPGeDrawText(di->T("Network Connection"), 30, 11, PPGE_ALIGN_VCENTER, 0.6f, CalcFadedColor(0xFFFFFFFF));
 }
 
 int PSPNetconfDialog::Update(int animSpeed) {
 	UpdateButtons();
-	I18NCategory *di = GetI18NCategory("Dialog");
-	I18NCategory *err = GetI18NCategory("Error");
+	auto di = GetI18NCategory("Dialog");
+	auto err = GetI18NCategory("Error");
 	const float WRAP_WIDTH = 254.0f;
 	const int confirmBtnImage = g_Config.iButtonPreference == PSP_SYSTEMPARAM_BUTTON_CROSS ? I_CROSS : I_CIRCLE;
 	const int confirmBtn = g_Config.iButtonPreference == PSP_SYSTEMPARAM_BUTTON_CROSS ? CTRL_CROSS : CTRL_CIRCLE;

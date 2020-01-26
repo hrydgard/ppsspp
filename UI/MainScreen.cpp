@@ -523,7 +523,7 @@ void GameBrowser::Refresh() {
 	Clear();
 
 	Add(new Spacer(1.0f));
-	I18NCategory *mm = GetI18NCategory("MainMenu");
+	auto mm = GetI18NCategory("MainMenu");
 
 	// No topbar on recent screen
 	if (DisplayTopBar()) {
@@ -777,7 +777,7 @@ void MainScreen::CreateViews() {
 
 	bool vertical = UseVerticalLayout();
 
-	I18NCategory *mm = GetI18NCategory("MainMenu");
+	auto mm = GetI18NCategory("MainMenu");
 
 	Margins actionMenuMargins(0, 10, 10, 0);
 
@@ -954,7 +954,7 @@ void MainScreen::CreateViews() {
 		root_->SetDefaultFocusView(tabHolder_);
 	}
 
-	I18NCategory *u = GetI18NCategory("Upgrade");
+	auto u = GetI18NCategory("Upgrade");
 
 	upgradeBar_ = 0;
 	if (!g_Config.upgradeMessage.empty()) {
@@ -1255,8 +1255,8 @@ void MainScreen::dialogFinished(const Screen *dialog, DialogResult result) {
 void UmdReplaceScreen::CreateViews() {
 	using namespace UI;
 	Margins actionMenuMargins(0, 100, 15, 0);
-	I18NCategory *mm = GetI18NCategory("MainMenu");
-	I18NCategory *di = GetI18NCategory("Dialog");
+	auto mm = GetI18NCategory("MainMenu");
+	auto di = GetI18NCategory("Dialog");
 
 	TabHolder *leftColumn = new TabHolder(ORIENT_HORIZONTAL, 64, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT, 1.0));
 	leftColumn->SetTag("UmdReplace");

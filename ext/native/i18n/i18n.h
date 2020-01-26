@@ -9,6 +9,7 @@
 // As usual, everything is UTF-8. Nothing else allowed.
 
 #include <map>
+#include <memory>
 #include <string>
 #include <vector>
 
@@ -76,7 +77,7 @@ public:
 
 	std::string LanguageID();
 
-	I18NCategory *GetCategory(const char *categoryName);
+	std::shared_ptr<I18NCategory> GetCategory(const char *categoryName);
 	bool HasCategory(const char *categoryName) const {
 		return cats_.find(categoryName) != cats_.end();
 	}
@@ -86,9 +87,9 @@ private:
 	std::string GetIniPath(const std::string &languageID) const;
 	void Clear();
 	I18NCategory *LoadSection(const IniFile::Section *section, const char *name);
-	void SaveSection(IniFile &ini, IniFile::Section *section, I18NCategory *cat);
+	void SaveSection(IniFile &ini, IniFile::Section *section, std::shared_ptr<I18NCategory> cat);
 
-	std::map<std::string, I18NCategory *> cats_;
+	std::map<std::string, std::shared_ptr<I18NCategory>> cats_;
 	std::string languageID_;
 
 	DISALLOW_COPY_AND_ASSIGN(I18NRepo);
@@ -98,7 +99,7 @@ extern I18NRepo i18nrepo;
 
 // These are simply talking to the one global instance of I18NRepo.
 
-inline I18NCategory *GetI18NCategory(const char *categoryName) {
+inline std::shared_ptr<I18NCategory> GetI18NCategory(const char *categoryName) {
 	if (!categoryName)
 		return nullptr;
 	return i18nrepo.GetCategory(categoryName);

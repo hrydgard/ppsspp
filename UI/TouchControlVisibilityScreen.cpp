@@ -42,8 +42,8 @@ private:
 void TouchControlVisibilityScreen::CreateViews() {
 	using namespace UI;
 
-	I18NCategory *di = GetI18NCategory("Dialog");
-	I18NCategory *co = GetI18NCategory("Controls");
+	auto di = GetI18NCategory("Dialog");
+	auto co = GetI18NCategory("Controls");
 
 	root_ = new AnchorLayout(new LayoutParams(FILL_PARENT, FILL_PARENT));
 
@@ -91,7 +91,7 @@ void TouchControlVisibilityScreen::CreateViews() {
 	toggles_.push_back({ "Alt speed 2", &g_Config.touchSpeed2Key.show, -1 });
 	toggles_.push_back({ "Rapid Fire", &g_Config.touchRapidFireKey.show, -1 });
 
-	I18NCategory *mc = GetI18NCategory("MappableControls");
+	auto mc = GetI18NCategory("MappableControls");
 
 	for (auto toggle : toggles_) {
 		LinearLayout *row = new LinearLayout(ORIENT_HORIZONTAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT));

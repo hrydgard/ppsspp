@@ -340,7 +340,7 @@ void CWCheatEngine::CreateCheatFile() {
 			fclose(f);
 		}
 		if (!File::Exists(activeCheatFile)) {
-			I18NCategory *err = GetI18NCategory("Error");
+			auto err = GetI18NCategory("Error");
 			host->NotifyUserMessage(err->T("Unable to create cheat file, disk may be full"));
 		}
 	}

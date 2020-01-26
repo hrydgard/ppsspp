@@ -356,8 +356,8 @@ void TouchControlLayoutScreen::CreateViews() {
 
 	using namespace UI;
 
-	I18NCategory *co = GetI18NCategory("Controls");
-	I18NCategory *di = GetI18NCategory("Dialog");
+	auto co = GetI18NCategory("Controls");
+	auto di = GetI18NCategory("Dialog");
 
 	root_ = new AnchorLayout(new LayoutParams(FILL_PARENT, FILL_PARENT));
 
@@ -395,7 +395,7 @@ void TouchControlLayoutScreen::CreateViews() {
 	// serves no other purpose.
 	AnchorLayout *controlsHolder = new AnchorLayout(new LayoutParams(FILL_PARENT, FILL_PARENT));
 
-	I18NCategory *ms = GetI18NCategory("MainSettings");
+	auto ms = GetI18NCategory("MainSettings");
 
 	//tabHolder->AddTab(ms->T("Controls"), controlsHolder);
 

@@ -297,7 +297,7 @@ void System_SendMessage(const char *command, const char *parameter) {
 	} else if (!strcmp(command, "browse_file")) {
 		MainWindow::BrowseAndBoot("");
 	} else if (!strcmp(command, "browse_folder")) {
-		I18NCategory *mm = GetI18NCategory("MainMenu");
+		auto mm = GetI18NCategory("MainMenu");
 		std::string folder = W32Util::BrowseForFolder(MainWindow::GetHWND(), mm->T("Choose folder"));
 		if (folder.size())
 			NativeMessageReceived("browse_folderSelect", folder.c_str());
