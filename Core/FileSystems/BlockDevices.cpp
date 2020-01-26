@@ -134,18 +134,11 @@ CISOFileBlockDevice::CISOFileBlockDevice(FileLoader *fileLoader)
 
 	CISO_H hdr;
 	size_t readSize = fileLoader->ReadAt(0, sizeof(CISO_H), 1, &hdr);
-	if (readSize != 1 || memcmp(hdr.magic, "CISO", 4) != 0)
-	{
+	if (readSize != 1 || memcmp(hdr.magic, "CISO", 4) != 0) {
 		WARN_LOG(LOADER, "Invalid CSO!");
 	}
-	else
-	{
-		VERBOSE_LOG(LOADER, "Valid CSO!");
-	}
-	if (hdr.ver > 1)
-	{
-		ERROR_LOG(LOADER, "CSO version too high!");
-		//ARGH!
+	if (hdr.ver > 1) {
+		WARN_LOG(LOADER, "CSO version too high!");
 	}
 
 	frameSize = hdr.block_size;
@@ -174,10 +167,11 @@ CISOFileBlockDevice::CISOFileBlockDevice(FileLoader *fileLoader)
 	zlibBufferFrame = numFrames;
 
 	const u32 indexSize = numFrames + 1;
+	const size_t headerEnd = hdr.ver > 1 ? (size_t)hdr.header_size : sizeof(hdr);
 
 #if COMMON_LITTLE_ENDIAN
 	index = new u32[indexSize];
-	if (fileLoader->ReadAt(sizeof(hdr), sizeof(u32), indexSize, index) != indexSize) {
+	if (fileLoader->ReadAt(headerEnd, sizeof(u32), indexSize, index) != indexSize) {
 		NotifyReadError();
 		memset(index, 0, indexSize * sizeof(u32));
 	}
@@ -185,7 +179,7 @@ CISOFileBlockDevice::CISOFileBlockDevice(FileLoader *fileLoader)
 	index = new u32[indexSize];
 	u32_le *indexTemp = new u32_le[indexSize];
 
-	if (fileLoader->ReadAt(sizeof(hdr), sizeof(u32), indexSize, indexTemp) != indexSize) {
+	if (fileLoader->ReadAt(headerEnd, sizeof(u32), indexSize, indexTemp) != indexSize) {
 		NotifyReadError();
 		memset(indexTemp, 0, indexSize * sizeof(u32_le));
 	}
@@ -195,6 +189,8 @@ CISOFileBlockDevice::CISOFileBlockDevice(FileLoader *fileLoader)
 
 	delete[] indexTemp;
 #endif
+
+	ver_ = hdr.ver;
 
 	// Double check that the CSO is not truncated.  In most cases, this will be the exact size.
 	u64 fileSize = fileLoader->FileSize();
@@ -216,8 +212,7 @@ CISOFileBlockDevice::~CISOFileBlockDevice()
 bool CISOFileBlockDevice::ReadBlock(int blockNumber, u8 *outPtr, bool uncached)
 {
 	FileLoader::Flags flags = uncached ? FileLoader::Flags::HINT_UNCACHED : FileLoader::Flags::NONE;
-	if ((u32)blockNumber >= numBlocks)
-	{
+	if ((u32)blockNumber >= numBlocks) {
 		memset(outPtr, 0, GetBlockSize());
 		return false;
 	}
@@ -233,20 +228,19 @@ bool CISOFileBlockDevice::ReadBlock(int blockNumber, u8 *outPtr, bool uncached)
 	const size_t compressedReadSize = (size_t)(compressedReadEnd - compressedReadPos);
 	const u32 compressedOffset = (blockNumber & ((1 << blockShift) - 1)) * GetBlockSize();
 
-	const int plain = idx & 0x80000000;
-	if (plain)
-	{
+	bool plain = (idx & 0x80000000) != 0;
+	if (ver_ >= 2) {
+		// CSO v2+ requires blocks be uncompressed if large enough to be.  High bit means other things.
+		plain = compressedReadSize >= frameSize;
+	}
+	if (plain) {
 		int readSize = (u32)fileLoader_->ReadAt(compressedReadPos + compressedOffset, 1, GetBlockSize(), outPtr, flags);
 		if (readSize < GetBlockSize())
 			memset(outPtr + readSize, 0, GetBlockSize() - readSize);
-	}
-	else if (zlibBufferFrame == frameNumber)
-	{
+	} else if (zlibBufferFrame == frameNumber) {
 		// We already have it.  Just apply the offset and copy.
 		memcpy(outPtr, zlibBuffer + compressedOffset, GetBlockSize());
-	}
-	else
-	{
+	} else {
 		const u32 readSize = (u32)fileLoader_->ReadAt(compressedReadPos, 1, compressedReadSize, readBuffer, flags);
 
 		z.zalloc = Z_NULL;
