@@ -64,7 +64,9 @@ void __UsbCamDoState(PointerWrap &p) {
 }
 
 void __UsbCamShutdown() {
-	Camera::stopCapture();
+	if (config->mode == Camera::Mode::Video) { // stillImage? TBD
+		Camera::stopCapture();
+	}
 	delete[] videoBuffer;
 	videoBuffer = nullptr;
 	delete[] config;
