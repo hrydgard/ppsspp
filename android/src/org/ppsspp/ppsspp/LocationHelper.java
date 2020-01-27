@@ -1,21 +1,28 @@
 package org.ppsspp.ppsspp;
 
-
+import android.annotation.TargetApi;
 import android.content.Context;
+import android.location.GnssStatus;
 import android.location.GpsSatellite;
 import android.location.GpsStatus;
 import android.location.Location;
 import android.location.LocationListener;
 import android.location.LocationManager;
+import android.location.OnNmeaMessageListener;
+import android.os.Build;
 import android.os.Bundle;
 import android.util.Log;
 
 import java.util.Iterator;
 
-class LocationHelper implements LocationListener, GpsStatus.Listener, GpsStatus.NmeaListener {
+class LocationHelper implements LocationListener {
 	private static final String TAG = LocationHelper.class.getSimpleName();
 	private LocationManager mLocationManager;
 	private boolean mLocationEnable;
+	private GpsStatus.Listener mGpsStatusListener;
+	private GnssStatus.Callback mGnssStatusCallback;
+	private OnNmeaMessageListener mNmeaMessageListener;
+	private GpsStatus.NmeaListener mNmeaListener;
 	private float mAltitudeAboveSeaLevel = 0f;
 	private float mHdop = 0f;
 
@@ -34,8 +41,37 @@ class LocationHelper implements LocationListener, GpsStatus.Listener, GpsStatus.
 				isNetworkEnabled = mLocationManager.isProviderEnabled(LocationManager.NETWORK_PROVIDER);
 				mLocationManager.requestLocationUpdates(LocationManager.GPS_PROVIDER, 1000, 0, this);
 				mLocationManager.requestLocationUpdates(LocationManager.NETWORK_PROVIDER, 1000, 0, this);
-				mLocationManager.addGpsStatusListener(this);
-				mLocationManager.addNmeaListener(this);
+				if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+					mGnssStatusCallback = new GnssStatus.Callback() {
+						@Override
+						public void onSatelliteStatusChanged(GnssStatus status) {
+							onSatelliteStatus(status);
+						}
+					};
+					mLocationManager.registerGnssStatusCallback(mGnssStatusCallback);
+					mNmeaMessageListener = new OnNmeaMessageListener() {
+						@Override
+						public void onNmeaMessage(String message, long timestamp) {
+							onNmea(message);
+						}
+					};
+					mLocationManager.addNmeaListener(mNmeaMessageListener);
+				} else {
+					mGpsStatusListener = new GpsStatus.Listener() {
+						@Override
+						public void onGpsStatusChanged(int event) {
+							onGpsStatus(event);
+						}
+					};
+					mLocationManager.addGpsStatusListener(mGpsStatusListener);
+					mNmeaListener = new GpsStatus.NmeaListener() {
+						@Override
+						public void onNmeaReceived(long timestamp, String nmea) {
+							onNmea(nmea);
+						}
+					};
+					mLocationManager.addNmeaListener(mNmeaListener);
+				}
 				mLocationEnable = true;
 			} catch (SecurityException e) {
 				Log.e(TAG, "Cannot start location updates: " + e.toString());
@@ -49,6 +85,25 @@ class LocationHelper implements LocationListener, GpsStatus.Listener, GpsStatus.
 
 	void stopLocationUpdates() {
 		Log.d(TAG, "stopLocationUpdates");
+		if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+			if (mGnssStatusCallback != null) {
+				mLocationManager.unregisterGnssStatusCallback(mGnssStatusCallback);
+				mGnssStatusCallback = null;
+			}
+			if (mNmeaMessageListener != null) {
+				mLocationManager.removeNmeaListener(mNmeaMessageListener);
+				mNmeaMessageListener = null;
+			}
+		} else {
+			if (mGpsStatusListener != null) {
+				mLocationManager.removeGpsStatusListener(mGpsStatusListener);
+				mGpsStatusListener = null;
+			}
+			if (mNmeaListener != null) {
+				mLocationManager.removeNmeaListener(mNmeaListener);
+				mNmeaListener = null;
+			}
+		}
 		if (mLocationEnable) {
 			mLocationEnable = false;
 			mLocationManager.removeUpdates(this);
@@ -84,13 +139,25 @@ class LocationHelper implements LocationListener, GpsStatus.Listener, GpsStatus.
 	}
 
 
-	/*
-	 * GpsStatus.Listener
-	 */
 
-	@Override
-	public void onGpsStatusChanged(int i) {
-		switch (i) {
+	@TargetApi(Build.VERSION_CODES.N)
+	private void onSatelliteStatus(GnssStatus status) {
+		short index = 0;
+		for (short i = 0; i < status.getSatelliteCount(); i++) {
+			if (status.getConstellationType(i) != GnssStatus.CONSTELLATION_GPS) {
+				continue;
+			}
+			NativeApp.setSatInfoAndroid(index, (short) status.getSvid(i), (short) status.getElevationDegrees(i),
+				(short) status.getAzimuthDegrees(i), (short) status.getCn0DbHz(i), status.usedInFix(i) ? (short) 1 : (short) 0);
+			index++;
+			if (index == 24) {
+				break;
+			}
+		}
+	}
+
+	private void onGpsStatus(int event) {
+		switch (event) {
 			case GpsStatus.GPS_EVENT_STARTED:
 			case GpsStatus.GPS_EVENT_STOPPED:
 			case GpsStatus.GPS_EVENT_FIRST_FIX:
@@ -121,15 +188,8 @@ class LocationHelper implements LocationListener, GpsStatus.Listener, GpsStatus.
 		}
 	}
 
-
-	/*
-	 * GpsStatus.Listener
-	 */
-
-	@Override
-	public void onNmeaReceived(long timestamp, String nmea) {
+	private void onNmea(String nmea) {
 		String[] tokens = nmea.split(",");
-		Log.e(TAG, nmea);
 		if (tokens.length < 10 || !tokens[0].equals("$GPGGA")) {
 			return;
 		}
