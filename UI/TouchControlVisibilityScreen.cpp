@@ -89,6 +89,7 @@ void TouchControlVisibilityScreen::CreateViews() {
 	toggles_.push_back({ "Combo4", &g_Config.touchCombo4.show, I_5 });
 	toggles_.push_back({ "Alt speed 1", &g_Config.touchSpeed1Key.show, -1 });
 	toggles_.push_back({ "Alt speed 2", &g_Config.touchSpeed2Key.show, -1 });
+	toggles_.push_back({ "Rapid Fire", &g_Config.touchRapidFireKey.show, -1 });
 
 	I18NCategory *mc = GetI18NCategory("MappableControls");
 

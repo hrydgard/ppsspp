@@ -453,6 +453,12 @@ void TouchControlLayoutScreen::CreateViews() {
 		controls_.push_back(speed2);
 	}
 
+	if (g_Config.touchRapidFireKey.show) {
+		DragDropButton *rapidFire = new DragDropButton(g_Config.touchRapidFireKey, rectImage, I_ARROW);
+		rapidFire->SetAngle(90.0f, 180.0f);
+		controls_.push_back(rapidFire);
+	}
+
 	if (g_Config.touchLKey.show) {
 		controls_.push_back(new DragDropButton(g_Config.touchLKey, shoulderImage, I_L));
 	}
