@@ -628,6 +628,9 @@ void EmuScreen::onVKeyDown(int virtualKeyCode) {
 			osm.Show(sc->T("replaceTextures_false", "Textures no longer are being replaced"), 2.0);
 		NativeMessageReceived("gpu_clearCache", "");
 		break;
+	case VIRTKEY_RAPID_FIRE:
+		__CtrlSetRapidFire(true);
+		break;
 	}
 }
 
@@ -675,6 +678,10 @@ void EmuScreen::onVKeyUp(int virtualKeyCode) {
 		setVKeyAnalogY(CTRL_STICK_LEFT, VIRTKEY_AXIS_Y_MIN, VIRTKEY_AXIS_Y_MAX);
 		setVKeyAnalogX(CTRL_STICK_RIGHT, VIRTKEY_AXIS_RIGHT_X_MIN, VIRTKEY_AXIS_RIGHT_X_MAX);
 		setVKeyAnalogY(CTRL_STICK_RIGHT, VIRTKEY_AXIS_RIGHT_Y_MIN, VIRTKEY_AXIS_RIGHT_Y_MAX);
+		break;
+
+	case VIRTKEY_RAPID_FIRE:
+		__CtrlSetRapidFire(false);
 		break;
 
 	default:
@@ -1079,9 +1086,6 @@ void EmuScreen::update() {
 
 	if (invalid_)
 		return;
-
-	// Virtual keys.
-	__CtrlSetRapidFire(virtKeys[VIRTKEY_RAPID_FIRE - VIRTKEY_FIRST]);
 
 	// This is here to support the iOS on screen back button.
 	if (pauseTrigger_) {

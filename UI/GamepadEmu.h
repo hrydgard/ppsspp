@@ -97,6 +97,15 @@ private:
 	FPSLimit limit_;
 };
 
+class RapidFireButton : public MultiTouchButton {
+public:
+	RapidFireButton(int bgImg, int bgDownImg, int img, float scale, UI::LayoutParams *layoutParams)
+		: MultiTouchButton(bgImg, bgDownImg, img, scale, layoutParams) {
+	}
+	void Touch(const TouchInput &input) override;
+	bool IsDown() override;
+};
+
 class PSPButton : public MultiTouchButton {
 public:
 	PSPButton(int pspButtonBit, int bgImg, int bgDownImg, int img, float scale, UI::LayoutParams *layoutParams)

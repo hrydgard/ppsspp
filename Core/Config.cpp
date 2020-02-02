@@ -881,6 +881,7 @@ static ConfigSetting controlSettings[] = {
 	ConfigSetting("fcombo4X", "fcombo4Y", "comboKeyScale4", "ShowComboKey4", &g_Config.touchCombo4, defaultTouchPosHide, true, true),
 	ConfigSetting("Speed1KeyX", "Speed1KeyY", "Speed1KeyScale", "ShowSpeed1Key", &g_Config.touchSpeed1Key, defaultTouchPosHide, true, true),
 	ConfigSetting("Speed2KeyX", "Speed2KeyY", "Speed2KeyScale", "ShowSpeed2Key", &g_Config.touchSpeed2Key, defaultTouchPosHide, true, true),
+	ConfigSetting("RapidFireKeyX", "RapidFireKeyY", "RapidFireKeyScale", "ShowRapidFireKey", &g_Config.touchRapidFireKey, defaultTouchPosHide, true, true),
 
 #ifdef _WIN32
 	ConfigSetting("DInputAnalogDeadzone", &g_Config.fDInputAnalogDeadzone, 0.1f, true, true),
@@ -1599,6 +1600,7 @@ void Config::ResetControlLayout() {
 	reset(g_Config.touchCombo4);
 	reset(g_Config.touchSpeed1Key);
 	reset(g_Config.touchSpeed2Key);
+	reset(g_Config.touchRapidFireKey);
 }
 
 void Config::GetReportingInfo(UrlEncoder &data) {

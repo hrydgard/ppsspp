@@ -308,6 +308,7 @@ public:
 	ConfigTouchPos touchCombo4;
 	ConfigTouchPos touchSpeed1Key;
 	ConfigTouchPos touchSpeed2Key;
+	ConfigTouchPos touchRapidFireKey;
 
 	// Controls Visibility
 	bool bShowTouchControls;
