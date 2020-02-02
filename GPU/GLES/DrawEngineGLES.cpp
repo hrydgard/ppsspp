@@ -562,15 +562,18 @@ rotateVBO:
 		if (vertexCount > 0x10000 / 3)
 			vertexCount = 0x10000 / 3;
 #endif
+
+		if (textureNeedsApply)
+			textureCache_->ApplyTexture();
+
+		// Need to ApplyDrawState after ApplyTexture because depal can launch a render pass and that wrecks the state.
+		ApplyDrawState(prim);
+
 		SoftwareTransform(
 			prim, vertexCount,
 			dec_->VertexType(), inds, GE_VTYPE_IDX_16BIT, dec_->GetDecVtxFmt(),
 			maxIndex, drawBuffer, numTrans, drawIndexed, &params, &result);
 
-		if (textureNeedsApply)
-			textureCache_->ApplyTexture();
-
-		ApplyDrawState(prim);
 		ApplyDrawStateLate(result.setStencil, result.stencilValue);
 
 		LinkedShader *program = shaderManager_->ApplyFragmentShader(vsid, vshader, lastVType_, prim);

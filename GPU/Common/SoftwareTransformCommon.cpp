@@ -62,13 +62,15 @@ static void SwapUVs(TransformedVertex &a, TransformedVertex &b) {
 
 // Note: 0 is BR and 2 is TL.
 
-static void RotateUV(TransformedVertex v[4], float flippedMatrix[16], float ySign) {
+static void RotateUV(TransformedVertex v[4], float flippedMatrix[16], bool flippedY) {
 	// Transform these two coordinates to figure out whether they're flipped or not.
 	Vec4f tl;
 	Vec3ByMatrix44(tl.AsArray(), v[2].pos, flippedMatrix);
 
 	Vec4f br;
 	Vec3ByMatrix44(br.AsArray(), v[0].pos, flippedMatrix);
+
+	float ySign = flippedY ? -1.0 : 1.0;
 
 	const float invtlw = 1.0f / tl.w;
 	const float invbrw = 1.0f / br.w;
@@ -153,6 +155,7 @@ static int ColorIndexOffset(int prim, GEShadeMode shadeMode, bool clearMode) {
 	return 0;
 }
 
+// NOTE: The viewport must be up to date!
 void SoftwareTransform(
 	int prim, int vertexCount, u32 vertType, u16 *&inds, int indexType,
 	const DecVtxFormat &decVtxFormat, int &maxIndex, TransformedVertex *&drawBuffer, int &numTrans, bool &drawIndexed, const SoftwareTransformParams *params, SoftwareTransformResult *result) {
@@ -161,7 +164,6 @@ void SoftwareTransform(
 	TextureCacheCommon *texCache = params->texCache;
 	TransformedVertex *transformed = params->transformed;
 	TransformedVertex *transformedExpanded = params->transformedExpanded;
-	float ySign = 1.0f;
 	bool throughmode = (vertType & GE_VTYPE_THROUGH_MASK) != 0;
 	bool lmode = gstate.isUsingSecondaryColor() && gstate.isLightingEnabled();
 
@@ -515,20 +517,24 @@ void SoftwareTransform(
 	numTrans = 0;
 	drawIndexed = false;
 
+	bool useBufferedRendering = g_Config.iRenderingMode != FB_NON_BUFFERED_MODE;
+
+	bool flippedY = g_Config.iGPUBackend == (int)GPUBackend::OPENGL && !useBufferedRendering;
+
 	if (prim != GE_PRIM_RECTANGLES) {
 		// We can simply draw the unexpanded buffer.
 		numTrans = vertexCount;
 		drawIndexed = true;
 	} else {
-		bool useBufferedRendering = g_Config.iRenderingMode != FB_NON_BUFFERED_MODE;
-		if (useBufferedRendering)
-			ySign = -ySign;
+		// Pretty bad hackery where we re-do the transform (in RotateUV) to see if the vertices are flipped in screen space.
+		// Since we've already got API-specific assumptions (Y direction, etc) baked into the projMatrix (which we arguably shouldn't),
+		// this gets nasty and very hard to understand.
 
 		float flippedMatrix[16];
 		if (!throughmode) {
 			memcpy(&flippedMatrix, gstate.projMatrix, 16 * sizeof(float));
 
-			const bool invertedY = useBufferedRendering ? (gstate_c.vpHeight < 0) : (gstate_c.vpHeight > 0);
+			const bool invertedY = flippedY ? (gstate_c.vpHeight < 0) : (gstate_c.vpHeight > 0);
 			if (invertedY) {
 				flippedMatrix[1] = -flippedMatrix[1];
 				flippedMatrix[5] = -flippedMatrix[5];
@@ -584,7 +590,7 @@ void SoftwareTransform(
 			if (throughmode)
 				RotateUVThrough(trans);
 			else
-				RotateUV(trans, flippedMatrix, ySign);
+				RotateUV(trans, flippedMatrix, flippedY);
 
 			// Triangle: BR-TR-TL
 			indsOut[0] = i * 2 + 0;
