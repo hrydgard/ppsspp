@@ -20,6 +20,7 @@
 #ifdef __ANDROID__
 
 #include "base/logging.h"
+#include "base/NativeApp.h"
 #include "MemoryUtil.h"
 #include "MemArena.h"
 #include "StringUtils.h"
@@ -39,14 +40,6 @@
 
 bool MemArena::NeedsProbing() {
 	return false;
-}
-
-static int get_sdk_version() {
-	char sdk[PROP_VALUE_MAX] = {0};
-	if (__system_property_get("ro.build.version.sdk", sdk) != 0) {
-		return atoi(sdk);
-	}
-	return -1;
 }
 
 // ashmem_create_region - creates a new ashmem region and returns the file
@@ -111,7 +104,7 @@ void MemArena::GrabLowMemSpace(size_t size) {
 	const char* name = "PPSSPP_RAM";
 
 	// Since version 26 Android provides a new api for accessing SharedMemory.
-	if (get_sdk_version() >= 26) {
+	if (System_GetPropertyInt(SYSPROP_SYSTEMVERSION) >= 26) {
 		fd = ashmem_create_region(name, size);
 	} else {
 		fd = legacy_ashmem_create_region(name, size);
