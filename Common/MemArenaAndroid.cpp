@@ -32,7 +32,6 @@
 #include <sys/ioctl.h>
 #include <linux/ashmem.h>
 #include <dlfcn.h>
-#include <sys/system_properties.h>
 
 // Hopefully this ABI will never change...
 
