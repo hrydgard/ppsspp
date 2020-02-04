@@ -67,9 +67,6 @@ static int g_DesktopWidth = 0;
 static int g_DesktopHeight = 0;
 static int g_RefreshRate = 60000;
 
-static float g_mouseDeltaX = 0;
-static float g_mouseDeltaY = 0;
-
 int getDisplayNumber(void) {
 	int displayNumber = 0;
 	char * displayNumberStr;
@@ -683,6 +680,9 @@ int main(int argc, char *argv[]) {
 	}
 	graphicsContext->ThreadStart();
 
+	float mouseDeltaX;
+	float mouseDeltaY;
+	bool mouseCaptured = false;
 	bool windowHidden = false;
 	while (true) {
 		double startTime = time_now_d();
@@ -897,12 +897,9 @@ int main(int argc, char *argv[]) {
 					input.id = 0;
 					NativeTouch(input);
 				}
-				if (g_Config.bMouseControl && ((GetUIState() == UISTATE_INGAME && g_Config.bMouseConfine) || g_Config.bMapMouse)) {
-					g_mouseDeltaX = event.motion.xrel;
-					g_mouseDeltaY = event.motion.yrel;
-					SDL_SetRelativeMouseMode(SDL_TRUE);
-				} else {
-					SDL_SetRelativeMouseMode(SDL_FALSE);
+				if (g_Config.bMouseControl) {
+					mouseDeltaX = event.motion.xrel;
+					mouseDeltaY = event.motion.yrel;
 				}
 				break;
 			case SDL_MOUSEBUTTONUP:
@@ -986,17 +983,25 @@ int main(int argc, char *argv[]) {
 			AxisInput axisX, axisY;
 			axisX.axisId = JOYSTICK_AXIS_MOUSE_REL_X;
 			axisX.deviceId = DEVICE_ID_MOUSE;
-			axisX.value = std::max(-1.0f, std::min(1.0f, g_mouseDeltaX * scaleFactor_x));
+			axisX.value = std::max(-1.0f, std::min(1.0f, mouseDeltaX * scaleFactor_x));
 			axisY.axisId = JOYSTICK_AXIS_MOUSE_REL_Y;
 			axisY.deviceId = DEVICE_ID_MOUSE;
-			axisY.value = std::max(-1.0f, std::min(1.0f, g_mouseDeltaY * scaleFactor_y));
+			axisY.value = std::max(-1.0f, std::min(1.0f, mouseDeltaY * scaleFactor_y));
 
 			if (GetUIState() == UISTATE_INGAME || g_Config.bMapMouse) {
 				NativeAxis(axisX);
 				NativeAxis(axisY);
 			}
-			g_mouseDeltaX *= g_Config.fMouseSmoothing;
-			g_mouseDeltaY *= g_Config.fMouseSmoothing;
+			mouseDeltaX *= g_Config.fMouseSmoothing;
+			mouseDeltaY *= g_Config.fMouseSmoothing;
+		}
+		bool captureMouseCondition = g_Config.bMouseControl && ((GetUIState() == UISTATE_INGAME && g_Config.bMouseConfine) || g_Config.bMapMouse);
+		if (mouseCaptured != captureMouseCondition) {
+			mouseCaptured = captureMouseCondition;
+			if (captureMouseCondition)
+				SDL_SetRelativeMouseMode(SDL_TRUE);
+			else
+				SDL_SetRelativeMouseMode(SDL_FALSE);
 		}
 
 		if (framecount % 60 == 0) {
