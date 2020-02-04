@@ -680,8 +680,8 @@ int main(int argc, char *argv[]) {
 	}
 	graphicsContext->ThreadStart();
 
-	float mouseDeltaX;
-	float mouseDeltaY;
+	float mouseDeltaX = 0;
+	float mouseDeltaY = 0;
 	bool mouseCaptured = false;
 	bool windowHidden = false;
 	while (true) {
@@ -897,10 +897,8 @@ int main(int argc, char *argv[]) {
 					input.id = 0;
 					NativeTouch(input);
 				}
-				if (g_Config.bMouseControl) {
-					mouseDeltaX = event.motion.xrel;
-					mouseDeltaY = event.motion.yrel;
-				}
+				mouseDeltaX = event.motion.xrel;
+				mouseDeltaY = event.motion.yrel;
 				break;
 			case SDL_MOUSEBUTTONUP:
 				switch (event.button.button) {
