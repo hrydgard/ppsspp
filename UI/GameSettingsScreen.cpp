@@ -626,7 +626,7 @@ void GameSettingsScreen::CreateViews() {
 		settingInfo_->Show(co->T("AnalogLimiter Tip", "When the analog limiter button is pressed"), e.v);
 		return UI::EVENT_CONTINUE;
 	});
-#if defined(USING_WIN_UI)
+#if defined(USING_WIN_UI) || defined(SDL)
 	controlsSettings->Add(new ItemHeader(co->T("Mouse", "Mouse settings")));
 	CheckBox *mouseControl = controlsSettings->Add(new CheckBox(&g_Config.bMouseControl, co->T("Use Mouse Control")));
 	mouseControl->OnClick.Add([=](EventParams &e) {
