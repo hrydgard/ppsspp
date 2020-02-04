@@ -71,7 +71,7 @@ StereoResampler::StereoResampler()
 
 	// Some Android devices are v-synced to non-60Hz framerates. We simply timestretch audio to fit.
 	// TODO: should only do this if auto frameskip is off?
-	float refresh = System_GetPropertyInt(SYSPROP_DISPLAY_REFRESH_RATE) / 1000.0f;
+	float refresh = System_GetPropertyFloat(SYSPROP_DISPLAY_REFRESH_RATE);
 
 	// If framerate is "close"...
 	if (refresh != 60.0f && refresh > 50.0f && refresh < 70.0f) {

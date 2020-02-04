@@ -80,12 +80,19 @@ int System_GetPropertyInt(SystemProperty prop) {
 	switch (prop) {
 		case SYSPROP_AUDIO_SAMPLE_RATE:
 			return 44100;
-		case SYSPROP_DISPLAY_REFRESH_RATE:
-			return 60000;
 		case SYSPROP_DEVICE_TYPE:
 			return DEVICE_TYPE_MOBILE;
 		default:
 			return -1;
+	}
+}
+
+float System_GetPropertyFloat(SystemProperty prop) {
+	switch (prop) {
+	case SYSPROP_DISPLAY_REFRESH_RATE:
+		return 60.f;
+	default:
+		return -1;
 	}
 }
 
@@ -139,7 +146,7 @@ BOOL SupportsTaptic()
 	{
 		return NO;
 	}
-	
+
 	// http://www.mikitamanko.com/blog/2017/01/29/haptic-feedback-with-uifeedbackgenerator/
 	// use private API against UIDevice to determine the haptic stepping
 	// 2 - iPhone 7 or above, full taptic feedback
@@ -150,7 +157,7 @@ BOOL SupportsTaptic()
 }
 
 void Vibrate(int mode) {
-	
+
 	if(SupportsTaptic())
 	{
 		PPSSPPUIApplication* app = (PPSSPPUIApplication*)[UIApplication sharedApplication];
@@ -165,10 +172,10 @@ void Vibrate(int mode) {
 	{
 		NSMutableDictionary *dictionary = [NSMutableDictionary dictionary];
 		NSArray *pattern = @[@YES, @30, @NO, @2];
-		
+
 		dictionary[@"VibePattern"] = pattern;
 		dictionary[@"Intensity"] = @2;
-		
+
 		AudioServicesPlaySystemSoundWithVibration(kSystemSoundID_Vibrate, nil, dictionary);
 	}
 }
@@ -180,15 +187,15 @@ int main(int argc, char *argv[])
 		fprintf(stderr, "Unable to cleanly obtain CS_DEBUGGED - probably not jailbroken.  Attempting old method.\n");
 		ptrace(PTRACE_TRACEME, 0, 0, 0);
 	}
-	
+
 	PROFILE_INIT();
-	
+
 	@autoreleasepool {
 		NSString *documentsPath = [NSSearchPathForDirectoriesInDomains(NSDocumentDirectory, NSUserDomainMask, YES) objectAtIndex:0];
 		NSString *bundlePath = [[[NSBundle mainBundle] resourcePath] stringByAppendingString:@"/assets/"];
-		
+
 		NativeInit(argc, (const char**)argv, documentsPath.UTF8String, bundlePath.UTF8String, NULL);
-		
+
 		return UIApplicationMain(argc, argv, NSStringFromClass([PPSSPPUIApplication class]), NSStringFromClass([AppDelegate class]));
 	}
 }

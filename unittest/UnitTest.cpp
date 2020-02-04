@@ -55,6 +55,9 @@ std::string System_GetProperty(SystemProperty prop) { return ""; }
 int System_GetPropertyInt(SystemProperty prop) {
 	return -1;
 }
+float System_GetPropertyFloat(SystemProperty prop) {
+	return -1;
+}
 bool System_GetPropertyBool(SystemProperty prop) {
 	return false;
 }
@@ -157,7 +160,7 @@ void fcs(float angle, float &sinout, float &cosout) {
 	int phasein = angle * (1 << BITSPERQUARTER);
 	// Modulo phase into quarter, convert to float 0..1
 	float modphase = (phasein & ((1<<BITSPERQUARTER)-1)) * (1.0f / (1<<BITSPERQUARTER));
-	// Extract quarter bits 
+	// Extract quarter bits
 	int quarter = phasein >> BITSPERQUARTER;
 	// Recognize quarter
 	if (!quarter) {
