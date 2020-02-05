@@ -718,7 +718,7 @@ if(ANDROID)
 		Common/GL/GLInterfaceBase.h
 	)
 
-	set(nativeExtra ${nativeExtra}
+	set(NativeAppSource ${NativeAppSource}
 		ext/native/base/NativeApp.h
 		android/jni/app-android.cpp
 		android/jni/AndroidEGLContext.cpp
@@ -885,7 +885,10 @@ if(ANDROID)
 	elseif(ARM64)
 		set(NativeAppSource ${NativeAppSource} android/jni/Arm64EmitterTest.cpp)
 	endif()
-	set(nativeExtra ${nativeExtra} ${NativeAppSource})
+
+	if (NOT LIBRETRO)
+		set(nativeExtra ${nativeExtra} ${NativeAppSource})
+	endif()
 endif()
 
 set(THIN3D_PLATFORMS ext/native/thin3d/thin3d_gl.cpp
