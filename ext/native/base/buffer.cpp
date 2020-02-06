@@ -26,9 +26,13 @@ Buffer::Buffer() { }
 Buffer::~Buffer() { }
 
 char *Buffer::Append(ssize_t length) {
-  size_t old_size = data_.size();
-  data_.resize(old_size + length);
-  return &data_[0] + old_size;
+	if (length > 0) {
+		size_t old_size = data_.size();
+		data_.resize(old_size + length);
+		return &data_[0] + old_size;
+	} else {
+		return nullptr;
+	}
 }
 
 void Buffer::Append(const std::string &str) {
@@ -44,8 +48,10 @@ void Buffer::Append(const char *str) {
 
 void Buffer::Append(const Buffer &other) {
 	size_t len = other.size();
-	char *dest = Append(len);
-	memcpy(dest, &other.data_[0], len);
+	if (len > 0) {
+		char *dest = Append(len);
+		memcpy(dest, &other.data_[0], len);
+	}
 }
 
 void Buffer::AppendValue(int value) {
@@ -175,7 +181,7 @@ bool Buffer::ReadAll(int fd, int hintSize) {
 	} else if (hintSize >= 1024 * 16) {
 		buf.resize(hintSize / 16);
 	} else {
-		buf.resize(1024);
+		buf.resize(4096);
 	}
 
 	while (true) {
