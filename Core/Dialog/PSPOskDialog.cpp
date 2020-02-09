@@ -917,7 +917,7 @@ int PSPOskDialog::Update(int animSpeed) {
 	PPGeDrawRect(0, 0, 480, 272, CalcFadedColor(0x63636363));
 	RenderKeyboard();
 
-	I18NCategory *di = GetI18NCategory("Dialog");
+	auto di = GetI18NCategory("Dialog");
 
 	PPGeDrawImage(I_SQUARE, 365, 222, 16, 16, 0, CalcFadedColor(0xFFFFFFFF));
 	PPGeDrawText(di->T("Space"), 390, 222, PPGE_ALIGN_LEFT, 0.5f, CalcFadedColor(0xFFFFFFFF));

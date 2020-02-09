@@ -261,7 +261,7 @@ bool GameManager::InstallGame(const std::string &url, const std::string &fileNam
 		return InstallRawISO(fileName, shortFilename, deleteAfter);
 	}
 
-	I18NCategory *sy = GetI18NCategory("System");
+	auto sy = GetI18NCategory("System");
 	installInProgress_ = true;
 
 	std::string pspGame = GetSysDirectory(DIRECTORY_GAME);
@@ -312,7 +312,7 @@ bool GameManager::InstallGame(const std::string &url, const std::string &fileNam
 }
 
 bool GameManager::DetectTexturePackDest(struct zip *z, int iniIndex, std::string *dest) {
-	I18NCategory *iz = GetI18NCategory("InstallZip");
+	auto iz = GetI18NCategory("InstallZip");
 
 	struct zip_stat zstat;
 	zip_stat_index(z, iniIndex, 0, &zstat);
@@ -491,7 +491,7 @@ bool GameManager::InstallMemstickGame(struct zip *z, const std::string &zipfile,
 	size_t allBytes = 0;
 	size_t bytesCopied = 0;
 
-	I18NCategory *sy = GetI18NCategory("System");
+	auto sy = GetI18NCategory("System");
 
 	auto fileAllowed = [&](const char *fn) {
 		if (!allowRoot && strchr(fn, '/') == 0)

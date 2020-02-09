@@ -1457,7 +1457,7 @@ int initNetwork(SceNetAdhocctlAdhocId *adhoc_id){
 	int sent = send(metasocket, (char*)&packet, sizeof(packet), 0);
 	changeBlockingMode(metasocket, 1); // Change to non-blocking
 	if (sent > 0) {
-		I18NCategory *n = GetI18NCategory("Networking");
+		auto n = GetI18NCategory("Networking");
 		host->NotifyUserMessage(n->T("Network Initialized"), 1.0);
 		return 0;
 	}

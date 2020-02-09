@@ -15,7 +15,7 @@ std::string I18NRepo::LanguageID() {
 
 void I18NRepo::Clear() {
 	for (auto iter = cats_.begin(); iter != cats_.end(); ++iter) {
-		delete iter->second;
+		iter->second.reset();
 	}
 	cats_.clear();
 }
@@ -52,14 +52,14 @@ void I18NCategory::SetMap(const std::map<std::string, std::string> &m) {
 	}
 }
 
-I18NCategory *I18NRepo::GetCategory(const char *category) {
+std::shared_ptr<I18NCategory> I18NRepo::GetCategory(const char *category) {
 	auto iter = cats_.find(category);
 	if (iter != cats_.end()) {
 		return iter->second;
 	} else {
 		I18NCategory *c = new I18NCategory(this, category);
-		cats_[category] = c;
-		return c;
+		cats_[category].reset(c);
+		return cats_[category];
 	}
 }
 
@@ -96,7 +96,7 @@ bool I18NRepo::LoadIni(const std::string &languageID, const std::string &overrid
 
 	for (auto iter = sections.begin(); iter != sections.end(); ++iter) {
 		if (iter->name() != "") {
-			cats_[iter->name()] = LoadSection(&(*iter), iter->name().c_str());
+			cats_[iter->name()].reset(LoadSection(&(*iter), iter->name().c_str()));
 		}
 	}
 
@@ -124,7 +124,7 @@ void I18NRepo::SaveIni(const std::string &languageID) {
 	ini.Save(GetIniPath(languageID));
 }
 
-void I18NRepo::SaveSection(IniFile &ini, IniFile::Section *section, I18NCategory *cat) {
+void I18NRepo::SaveSection(IniFile &ini, IniFile::Section *section, std::shared_ptr<I18NCategory> cat) {
 	const std::map<std::string, std::string> &missed = cat->Missed();
 
 	for (auto iter = missed.begin(); iter != missed.end(); ++iter) {

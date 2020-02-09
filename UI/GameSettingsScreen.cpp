@@ -110,7 +110,7 @@ bool DoesBackendSupportHWTess() {
 }
 
 static std::string PostShaderTranslateName(const char *value) {
-	I18NCategory *ps = GetI18NCategory("PostShaders");
+	auto ps = GetI18NCategory("PostShaders");
 	const ShaderInfo *info = GetPostShaderInfo(value);
 	if (info) {
 		return ps->T(value, info ? info->name.c_str() : value);
@@ -149,16 +149,16 @@ void GameSettingsScreen::CreateViews() {
 	// Scrolling action menu to the right.
 	using namespace UI;
 
-	I18NCategory *di = GetI18NCategory("Dialog");
-	I18NCategory *gr = GetI18NCategory("Graphics");
-	I18NCategory *co = GetI18NCategory("Controls");
-	I18NCategory *a = GetI18NCategory("Audio");
-	I18NCategory *sa = GetI18NCategory("Savedata");
-	I18NCategory *sy = GetI18NCategory("System");
-	I18NCategory *n = GetI18NCategory("Networking");
-	I18NCategory *ms = GetI18NCategory("MainSettings");
-	I18NCategory *dev = GetI18NCategory("Developer");
-	I18NCategory *ri = GetI18NCategory("RemoteISO");
+	auto di = GetI18NCategory("Dialog");
+	auto gr = GetI18NCategory("Graphics");
+	auto co = GetI18NCategory("Controls");
+	auto a = GetI18NCategory("Audio");
+	auto sa = GetI18NCategory("Savedata");
+	auto sy = GetI18NCategory("System");
+	auto n = GetI18NCategory("Networking");
+	auto ms = GetI18NCategory("MainSettings");
+	auto dev = GetI18NCategory("Developer");
+	auto ri = GetI18NCategory("RemoteISO");
 
 	root_ = new AnchorLayout(new LayoutParams(FILL_PARENT, FILL_PARENT));
 
@@ -291,7 +291,7 @@ void GameSettingsScreen::CreateViews() {
 	graphicsSettings->Add(new ItemHeader(gr->T("Features")));
 	// Hide postprocess option on unsupported backends to avoid confusion.
 	if (GetGPUBackend() != GPUBackend::DIRECT3D9) {
-		I18NCategory *ps = GetI18NCategory("PostShaders");
+		auto ps = GetI18NCategory("PostShaders");
 		postProcChoice_ = graphicsSettings->Add(new ChoiceWithValueDisplay(&g_Config.sPostShaderName, gr->T("Postprocessing Shader"), &PostShaderTranslateName));
 		postProcChoice_->OnClick.Handle(this, &GameSettingsScreen::OnPostProcShader);
 		postProcEnable_ = !g_Config.bSoftwareRendering && (g_Config.iRenderingMode != FB_NON_BUFFERED_MODE);
@@ -871,7 +871,7 @@ void RecreateActivity() {
 		System_SendMessage("recreate", "");
 		ILOG("Got back from recreate");
 	} else {
-		I18NCategory *gr = GetI18NCategory("Graphics");
+		auto gr = GetI18NCategory("Graphics");
 		System_SendMessage("toast", gr->T("Must Restart", "You must restart PPSSPP for this change to take effect"));
 	}
 }
@@ -918,7 +918,7 @@ UI::EventReturn GameSettingsScreen::OnJitAffectingSetting(UI::EventParams &e) {
 #if PPSSPP_PLATFORM(ANDROID)
 
 UI::EventReturn GameSettingsScreen::OnChangeMemStickDir(UI::EventParams &e) {
-	I18NCategory *sy = GetI18NCategory("System");
+	auto sy = GetI18NCategory("System");
 	System_SendMessage("inputbox", (std::string(sy->T("Memory Stick Folder")) + ":" + g_Config.memStickDirectory).c_str());
 	return UI::EVENT_DONE;
 }
@@ -956,7 +956,7 @@ UI::EventReturn GameSettingsScreen::OnSavePathMydoc(UI::EventParams &e) {
 UI::EventReturn GameSettingsScreen::OnSavePathOther(UI::EventParams &e) {
 	const std::string PPSSPPpath = File::GetExeDirectory();
 	if (otherinstalled_) {
-		I18NCategory *di = GetI18NCategory("Dialog");
+		auto di = GetI18NCategory("Dialog");
 		std::string folder = W32Util::BrowseForFolder(MainWindow::GetHWND(), di->T("Choose PPSSPP save folder"));
 		if (folder.size()) {
 			g_Config.memStickDirectory = folder;
@@ -1085,8 +1085,8 @@ void GameSettingsScreen::onFinish(DialogResult result) {
 void GameSettingsScreen::sendMessage(const char *message, const char *value) {
 	UIDialogScreenWithGameBackground::sendMessage(message, value);
 
-	I18NCategory *sy = GetI18NCategory("System");
-	I18NCategory *di = GetI18NCategory("Dialog");
+	auto sy = GetI18NCategory("System");
+	auto di = GetI18NCategory("Dialog");
 
 	if (!strcmp(message, "inputbox_completed")) {
 		std::vector<std::string> inputboxValue;
@@ -1121,7 +1121,7 @@ void GameSettingsScreen::sendMessage(const char *message, const char *value) {
 
 #if PPSSPP_PLATFORM(ANDROID)
 void GameSettingsScreen::CallbackMemstickFolder(bool yes) {
-	I18NCategory *sy = GetI18NCategory("System");
+	auto sy = GetI18NCategory("System");
 
 	if (yes) {
 		std::string memstickDirFile = g_Config.internalDataDirectory + "/memstick_dir.txt";
@@ -1177,7 +1177,7 @@ void GameSettingsScreen::CallbackRenderingDevice(bool yes) {
 }
 
 UI::EventReturn GameSettingsScreen::OnRenderingBackend(UI::EventParams &e) {
-	I18NCategory *di = GetI18NCategory("Dialog");
+	auto di = GetI18NCategory("Dialog");
 
 	// It only makes sense to show the restart prompt if the backend was actually changed.
 	if (g_Config.iGPUBackend != (int)GetGPUBackend()) {
@@ -1188,7 +1188,7 @@ UI::EventReturn GameSettingsScreen::OnRenderingBackend(UI::EventParams &e) {
 }
 
 UI::EventReturn GameSettingsScreen::OnRenderingDevice(UI::EventParams &e) {
-	I18NCategory *di = GetI18NCategory("Dialog");
+	auto di = GetI18NCategory("Dialog");
 
 	// It only makes sense to show the restart prompt if the device was actually changed.
 	std::string *deviceNameSetting = GPUDeviceNameSetting();
@@ -1205,7 +1205,7 @@ UI::EventReturn GameSettingsScreen::OnCameraDeviceChange(UI::EventParams& e) {
 }
 
 UI::EventReturn GameSettingsScreen::OnAudioDevice(UI::EventParams &e) {
-	I18NCategory *a = GetI18NCategory("Audio");
+	auto a = GetI18NCategory("Audio");
 	if (g_Config.sAudioDevice == a->T("Auto")) {
 		g_Config.sAudioDevice.clear();
 	}
@@ -1231,7 +1231,7 @@ UI::EventReturn GameSettingsScreen::OnChangeNickname(UI::EventParams &e) {
 }
 
 UI::EventReturn GameSettingsScreen::OnChangeproAdhocServerAddress(UI::EventParams &e) {
-	I18NCategory *sy = GetI18NCategory("System");
+	auto sy = GetI18NCategory("System");
 
 #if defined(__ANDROID__)
 	System_SendMessage("inputbox", ("IP:" + g_Config.proAdhocServer).c_str());
@@ -1254,7 +1254,7 @@ UI::EventReturn GameSettingsScreen::OnComboKey(UI::EventParams &e) {
 }
 
 UI::EventReturn GameSettingsScreen::OnLanguage(UI::EventParams &e) {
-	I18NCategory *dev = GetI18NCategory("Developer");
+	auto dev = GetI18NCategory("Developer");
 	auto langScreen = new NewLanguageScreen(dev->T("Language"));
 	langScreen->OnChoice.Handle(this, &GameSettingsScreen::OnLanguageChange);
 	if (e.v)
@@ -1273,7 +1273,7 @@ UI::EventReturn GameSettingsScreen::OnLanguageChange(UI::EventParams &e) {
 }
 
 UI::EventReturn GameSettingsScreen::OnPostProcShader(UI::EventParams &e) {
-	I18NCategory *gr = GetI18NCategory("Graphics");
+	auto gr = GetI18NCategory("Graphics");
 	auto procScreen = new PostProcScreen(gr->T("Postprocessing Shader"));
 	procScreen->OnChoice.Handle(this, &GameSettingsScreen::OnPostProcShaderChange);
 	if (e.v)
@@ -1337,11 +1337,11 @@ void DeveloperToolsScreen::CreateViews() {
 	settingsScroll->SetTag("DevToolsSettings");
 	root_->Add(settingsScroll);
 
-	I18NCategory *di = GetI18NCategory("Dialog");
-	I18NCategory *dev = GetI18NCategory("Developer");
-	I18NCategory *gr = GetI18NCategory("Graphics");
-	I18NCategory *a = GetI18NCategory("Audio");
-	I18NCategory *sy = GetI18NCategory("System");
+	auto di = GetI18NCategory("Dialog");
+	auto dev = GetI18NCategory("Developer");
+	auto gr = GetI18NCategory("Graphics");
+	auto a = GetI18NCategory("Audio");
+	auto sy = GetI18NCategory("System");
 
 	AddStandardBack(root_);
 
@@ -1413,8 +1413,8 @@ void GameSettingsScreen::CallbackRestoreDefaults(bool yes) {
 }
 
 UI::EventReturn GameSettingsScreen::OnRestoreDefaultSettings(UI::EventParams &e) {
-	I18NCategory *dev = GetI18NCategory("Developer");
-	I18NCategory *di = GetI18NCategory("Dialog");
+	auto dev = GetI18NCategory("Developer");
+	auto di = GetI18NCategory("Dialog");
 	if (g_Config.bGameSpecific)
 	{
 		screenManager()->push(
@@ -1506,9 +1506,9 @@ void DeveloperToolsScreen::update() {
 
 void HostnameSelectScreen::CreatePopupContents(UI::ViewGroup *parent) {
 	using namespace UI;
-	I18NCategory *sy = GetI18NCategory("System");
-	I18NCategory *di = GetI18NCategory("Dialog");
-	I18NCategory *n = GetI18NCategory("Networking");
+	auto sy = GetI18NCategory("System");
+	auto di = GetI18NCategory("Dialog");
+	auto n = GetI18NCategory("Networking");
 
 	LinearLayout *valueRow = new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, FILL_PARENT, Margins(0, 0, 0, 10)));
 

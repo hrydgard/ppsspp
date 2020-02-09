@@ -18,8 +18,9 @@
 #pragma once
 
 #include <functional>
-#include <vector>
+#include <memory>
 #include <mutex>
+#include <vector>
 
 #include "i18n/i18n.h"
 #include "ui/view.h"
@@ -51,7 +52,7 @@ private:
 
 class KeyMappingNewKeyDialog : public PopupScreen {
 public:
-	explicit KeyMappingNewKeyDialog(int btn, bool replace, std::function<void(KeyDef)> callback, I18NCategory *i18n)
+	explicit KeyMappingNewKeyDialog(int btn, bool replace, std::function<void(KeyDef)> callback, std::shared_ptr<I18NCategory> i18n)
 		: PopupScreen(i18n->T("Map Key"), "Cancel", ""), callback_(callback), mapped_(false) {
 		pspBtn_ = btn;
 	}
@@ -74,7 +75,7 @@ private:
 
 class KeyMappingNewMouseKeyDialog : public PopupScreen {
 public:
-	explicit KeyMappingNewMouseKeyDialog(int btn, bool replace, std::function<void(KeyDef)> callback, I18NCategory *i18n)
+	explicit KeyMappingNewMouseKeyDialog(int btn, bool replace, std::function<void(KeyDef)> callback, std::shared_ptr<I18NCategory> i18n)
 		: PopupScreen(i18n->T("Map Mouse"), "", ""), callback_(callback), mapped_(false) {
 		pspBtn_ = btn;
 	}

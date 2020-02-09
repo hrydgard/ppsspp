@@ -381,7 +381,7 @@ namespace SaveState
 			return StringFromFormat("%s (%c)", title.c_str(), slotChar);
 		}
 		if (detectSlot(UNDO_STATE_EXTENSION)) {
-			I18NCategory *sy = GetI18NCategory("System");
+			auto sy = GetI18NCategory("System");
 			// Allow the number to be positioned where it makes sense.
 			std::string undo = sy->T("undo %c");
 			return title + " (" + StringFromFormat(undo.c_str(), slotChar) + ")";
@@ -402,7 +402,7 @@ namespace SaveState
 		}
 
 		// The file can't be loaded - let's note that.
-		I18NCategory *sy = GetI18NCategory("System");
+		auto sy = GetI18NCategory("System");
 		return File::GetFilename(filename) + " " + sy->T("(broken)");
 	}
 
@@ -437,7 +437,7 @@ namespace SaveState
 		if (!fn.empty()) {
 			Load(fn, callback, cbUserData);
 		} else {
-			I18NCategory *sy = GetI18NCategory("System");
+			auto sy = GetI18NCategory("System");
 			if (callback)
 				callback(Status::FAILURE, sy->T("Failed to load state. Error in the file system."), cbUserData);
 		}
@@ -494,7 +494,7 @@ namespace SaveState
 			SaveScreenshot(shot, Callback(), 0);
 			Save(fn + ".tmp", renameCallback, cbUserData);
 		} else {
-			I18NCategory *sy = GetI18NCategory("System");
+			auto sy = GetI18NCategory("System");
 			if (callback)
 				callback(Status::FAILURE, sy->T("Failed to save state. Error in the file system."), cbUserData);
 		}
@@ -729,7 +729,7 @@ namespace SaveState
 			std::string reason;
 			std::string title;
 
-			I18NCategory *sc = GetI18NCategory("Screen");
+			auto sc = GetI18NCategory("Screen");
 			const char *i18nLoadFailure = sc->T("Load savestate failed", "");
 			const char *i18nSaveFailure = sc->T("Save State Failed", "");
 			if (strlen(i18nLoadFailure) == 0)

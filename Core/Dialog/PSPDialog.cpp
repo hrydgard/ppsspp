@@ -202,7 +202,7 @@ void PSPDialog::DisplayButtons(int flags, const char *caption)
 		truncate_cpy(safeCaption, caption);
 	}
 
-	I18NCategory *di = GetI18NCategory("Dialog");
+	auto di = GetI18NCategory("Dialog");
 	float x1 = 183.5f, x2 = 261.5f;
 	if (GetCommonParam()->buttonSwap == 1) {
 		x1 = 261.5f;
