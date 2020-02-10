@@ -388,7 +388,7 @@ void GamePauseScreen::CreateViews() {
 		I18NCategory *mm = GetI18NCategory("MainMenu");
 
 		rightColumnItems->Add(new Choice(pa->T("Exit to Menu")))->OnClick.Handle(this, &GamePauseScreen::OnExitToMenu);
-		rightColumnItems->Add(new Choice(mm->T("Exit to Desktop")))->OnClick.Handle(this, &GamePauseScreen::OnExit);
+		rightColumnItems->Add(new Choice(mm->T("Exit to Desktop")))->OnClick.Handle(this, &GamePauseScreen::OnExitToDesktop);
 	}
 }
 
@@ -449,11 +449,11 @@ UI::EventReturn GamePauseScreen::OnExit(UI::EventParams &e) {
 	// However, let's make sure the config was saved, since it may not have been.
 	g_Config.Save("MainScreen::OnExit");
 
-#ifdef __ANDROID__
-#ifdef ANDROID_NDK_PROFILER
-	moncleanup();
-#endif
-#endif
+	#ifdef __ANDROID__
+	#ifdef ANDROID_NDK_PROFILER
+		moncleanup();
+	#endif
+	#endif
 
 	UpdateUIState(UISTATE_EXIT);
 	return UI::EVENT_DONE;

@@ -1,7 +1,22 @@
 ﻿PPSSPP - a fast and portable PSP emulator
 =========================================
 
-Created by Henrik Rydgård
+Compile Instructions:
+
+[https://github.com/hrydgard/ppsspp/wiki/Build-instructions](https://github.com/hrydgard/ppsspp/wiki/Build-instructions)
+
+Instructions for macOS:
+
+* Install homebrew from [https://brew.sh](https://brew.sh)
+* Input the following commands one at a time in the terminal:
+
+- brew install git sdl2 make cmake libzip snappy gcc g++
+- git clone --recurse-submodules https://github.com/hrydgard/ppsspp.git
+- cd ~/ppsspp
+- ./b.sh
+
+=========================================
+Created by Henrik Rydgård - Modified by HuntingRedux
 
 Additional code by many contributors, see the Credits screen
 
