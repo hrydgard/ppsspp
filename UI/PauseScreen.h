@@ -40,7 +40,11 @@ protected:
 private:
 	UI::EventReturn OnGameSettings(UI::EventParams &e);
 	UI::EventReturn OnExitToMenu(UI::EventParams &e);
+<<<<<<< HEAD
 	UI::EventReturn OnExit(UI::EventParams &e);
+=======
+	UI::EventReturn OnExit(UI::EventParams & e);
+>>>>>>> 42a94311d842f6e06589632bc449a98745ae565d
 	UI::EventReturn OnReportFeedback(UI::EventParams &e);
 
 	UI::EventReturn OnRewind(UI::EventParams &e);
