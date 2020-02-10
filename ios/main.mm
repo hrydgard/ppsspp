@@ -120,7 +120,10 @@ void System_SendMessage(const char *command, const char *parameter) {
 		//	exit(0);
 		// });
 	} else if (!strcmp(command, "camera_command")) {
-		if (!strcmp(parameter, "startVideo")) {
+		if (!strncmp(parameter, "startVideo", 10)) {
+			int width = 0, height = 0;
+			sscanf(parameter, "startVideo_%dx%d", &width, &height);
+			setCameraSize(width, height);
 			startVideo();
 		} else if (!strcmp(parameter, "stopVideo")) {
 			stopVideo();

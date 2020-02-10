@@ -23,6 +23,8 @@ import java.util.List;
 class CameraHelper {
 	private static final String TAG = CameraHelper.class.getSimpleName();
 	private Display mDisplay;
+	private int mTargetWidth = 0;
+	private int mTargetHeight = 0;
 	private Camera mCamera = null;
 	private boolean mIsCameraRunning = false;
 	private int mCameraFacing = 0;
@@ -110,18 +112,14 @@ class CameraHelper {
 			}
 			mLastFrameTime = currentTime;
 
-			// the expected values arrives in sceUsbCamSetupVideo
-			int targetW = 480;
-			int targetH = 272;
-
 			int cameraRotation = getCameraRotation();
 			byte[] newPreviewData = rotateNV21(previewData, mPreviewSize.width, mPreviewSize.height,
-					targetW, targetH, cameraRotation);
-			YuvImage yuvImage = new YuvImage(newPreviewData, ImageFormat.NV21, targetW, targetH, null);
+					mTargetWidth, mTargetHeight, cameraRotation);
+			YuvImage yuvImage = new YuvImage(newPreviewData, ImageFormat.NV21, mTargetWidth, mTargetHeight, null);
 			ByteArrayOutputStream baos = new ByteArrayOutputStream();
 
 			// convert to Jpeg
-			Rect crop = new Rect(0, 0, targetW, targetH);
+			Rect crop = new Rect(0, 0, mTargetWidth, mTargetHeight);
 			yuvImage.compressToJpeg(crop, 80, baos);
 			NativeApp.pushCameraImageAndroid(baos.toByteArray());
 			try {
@@ -150,10 +148,15 @@ class CameraHelper {
 		return deviceList;
 	}
 
+	void setCameraSize(int width, int height) {
+		mTargetWidth = width;
+		mTargetHeight = height;
+	}
+
 	void startCamera() {
 		try {
 			int cameraId = NativeApp.getSelectedCamera();
-			Log.d(TAG, "startCamera: " + cameraId);
+			Log.d(TAG, "startCamera [id=" + cameraId + ", res=" + mTargetWidth + "x" + mTargetHeight + "]");
 
 			Camera.CameraInfo info = new Camera.CameraInfo();
 			Camera.getCameraInfo(cameraId, info);

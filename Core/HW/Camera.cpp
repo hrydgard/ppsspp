@@ -17,7 +17,179 @@
 
 #include "Camera.h"
 
-#if PPSSPP_PLATFORM(LINUX) && !PPSSPP_PLATFORM(ANDROID)
+void convert_frame(int inw, int inh, unsigned char *inData, AVPixelFormat inFormat,
+					int outw, int outh, unsigned char **outData, int *outLen) {
+
+	struct SwsContext *sws_context = sws_getContext(
+				inw, inh, inFormat,
+				outw, outh, AV_PIX_FMT_RGB24,
+				SWS_BICUBIC, NULL, NULL, NULL);
+
+	// resize
+	uint8_t *src[4] = {0};
+	uint8_t *dst[4] = {0};
+	int srcStride[4], dstStride[4];
+
+	unsigned char *rgbData = (unsigned char*)malloc(outw * outh * 4);
+
+	av_image_fill_linesizes(srcStride, inFormat,         inw);
+	av_image_fill_linesizes(dstStride, AV_PIX_FMT_RGB24, outw);
+
+	av_image_fill_pointers(src, inFormat,         inh,  inData,  srcStride);
+	av_image_fill_pointers(dst, AV_PIX_FMT_RGB24, outh, rgbData, dstStride);
+
+	sws_scale(sws_context,
+		src, srcStride, 0, inh,
+		dst, dstStride);
+
+	// compress jpeg
+	*outLen = outw * outh * 2;
+	*outData = (unsigned char*)malloc(*outLen);
+
+	jpge::params params;
+	params.m_quality = 60;
+	params.m_subsampling = jpge::H2V2;
+	params.m_two_pass_flag = false;
+	jpge::compress_image_to_jpeg_file_in_memory(
+		*outData, *outLen, outw, outh, 3, rgbData, params);
+	free(rgbData);
+}
+
+void __cameraDummyImage(int width, int height, unsigned char** outData, int* outLen) {
+	unsigned char* rgbData = (unsigned char*)malloc(3 * width * height);
+	for (int y = 0; y < height; y++) {
+		for (int x = 0; x < width; x++) {
+			rgbData[3 * (y * width + x) + 0] = x*255/width;
+			rgbData[3 * (y * width + x) + 1] = x*255/width;
+			rgbData[3 * (y * width + x) + 2] = y*255/height;
+		}
+	}
+
+	*outLen = width * height * 2;
+	*outData = (unsigned char*)malloc(*outLen);
+
+	jpge::params params;
+	params.m_quality = 60;
+	params.m_subsampling = jpge::H2V2;
+	params.m_two_pass_flag = false;
+	jpge::compress_image_to_jpeg_file_in_memory(
+		*outData, *outLen, width, height, 3, rgbData, params);
+	free(rgbData);
+}
+
+
+#if defined(USING_QT_UI)
+
+std::vector<std::string> __qt_getDeviceList() {
+	std::vector<std::string> deviceList;
+	const QList<QCameraInfo> cameras = QCameraInfo::availableCameras();
+	for (const QCameraInfo &cameraInfo : cameras) {
+		deviceList.push_back(cameraInfo.deviceName().toStdString()
+			+ " (" + cameraInfo.description().toStdString() + ")");
+	}
+	return deviceList;
+}
+
+QList<QVideoFrame::PixelFormat> MyViewfinder::supportedPixelFormats(QAbstractVideoBuffer::HandleType handleType) const {
+	Q_UNUSED(handleType);
+	// Return the formats you will support
+	return QList<QVideoFrame::PixelFormat>()
+		<< QVideoFrame::Format_RGB24
+		<< QVideoFrame::Format_YUYV
+		;
+}
+
+bool MyViewfinder::present(const QVideoFrame &frame) {
+	if (frame.isValid()) {
+		QVideoFrame cloneFrame(frame);
+		cloneFrame.map(QAbstractVideoBuffer::ReadOnly);
+
+		unsigned char *jpegData = nullptr;
+		int jpegLen = 0;
+
+		QVideoFrame::PixelFormat frameFormat = cloneFrame.pixelFormat();
+		if (frameFormat == QVideoFrame::Format_RGB24) {
+			convert_frame(cloneFrame.size().width(), cloneFrame.size().height(),
+				(unsigned char*)cloneFrame.bits(), AV_PIX_FMT_RGB24,
+				qtc_ideal_width, qtc_ideal_height, &jpegData, &jpegLen);
+
+		} else if (frameFormat == QVideoFrame::Format_YUYV) {
+			convert_frame(cloneFrame.size().width(), cloneFrame.size().height(),
+				(unsigned char*)cloneFrame.bits(), AV_PIX_FMT_YUYV422,
+				qtc_ideal_width, qtc_ideal_height, &jpegData, &jpegLen);
+		}
+
+		if (jpegData) {
+			Camera::pushCameraImage(jpegLen, jpegData);
+			free(jpegData);
+			jpegData = nullptr;
+		}
+
+		cloneFrame.unmap();
+		return true;
+	}
+	return false;
+}
+
+int __qt_startCapture(int width, int height) {
+	if (qt_camera != nullptr) {
+		ERROR_LOG(HLE, "camera already started");
+		return -1;
+	}
+
+	char selectedCamera[80];
+	sscanf(g_Config.sCameraDevice.c_str(), "%80s ", &selectedCamera[0]);
+
+	const QList<QCameraInfo> availableCameras = QCameraInfo::availableCameras();
+	if (availableCameras.size() < 1) {
+		delete qt_camera;
+		qt_camera = nullptr;
+		ERROR_LOG(HLE, "no camera found");
+		return -1;
+	}
+	for (const QCameraInfo &cameraInfo : availableCameras) {
+		if (cameraInfo.deviceName() == selectedCamera) {
+			qt_camera = new QCamera(cameraInfo);
+		}
+	}
+	if (qt_camera == nullptr) {
+		qt_camera = new QCamera();
+		if (qt_camera == nullptr) {
+			ERROR_LOG(HLE, "cannot open camera");
+			return -1;
+		}
+	}
+
+	qtc_ideal_width = width;
+	qtc_ideal_height = height;
+
+	qt_viewfinder = new MyViewfinder;
+
+	QCameraViewfinderSettings viewfinderSettings = qt_camera->viewfinderSettings();
+	viewfinderSettings.setResolution(640, 480);
+	viewfinderSettings.setMinimumFrameRate(15.0);
+	viewfinderSettings.setMaximumFrameRate(15.0);
+
+	qt_camera->setViewfinderSettings(viewfinderSettings);
+	qt_camera->setViewfinder(qt_viewfinder);
+	qt_camera->start();
+
+	return 0;
+}
+
+int __qt_stopCapture() {
+	if (qt_camera != nullptr) {
+		qt_camera->stop();
+		qt_camera->unload();
+		delete qt_camera;
+		delete qt_viewfinder;
+		qt_camera = nullptr;
+	}
+	return 0;
+}
+
+//endif defined(USING_QT_UI)
+#elif PPSSPP_PLATFORM(LINUX) && !PPSSPP_PLATFORM(ANDROID)
 
 std::vector<std::string> __v4l_getDeviceList() {
 	std::vector<std::string> deviceList;
@@ -48,37 +220,6 @@ cont:
 	return deviceList;
 }
 
-void convert_frame(unsigned char *inData, AVPixelFormat inFormat, unsigned char **outData, int *outLen) {
-	// resize
-	uint8_t *src[4] = {0};
-	uint8_t *dst[4] = {0};
-	int srcStride[4], dstStride[4];
-
-	unsigned char *rgbData = (unsigned char*)malloc(v4l_ideal_width * v4l_ideal_height * 3);
-
-	av_image_fill_linesizes(srcStride, inFormat,         v4l_hw_width);
-	av_image_fill_linesizes(dstStride, AV_PIX_FMT_RGB24, v4l_ideal_width);
-
-	av_image_fill_pointers(src, inFormat,         v4l_hw_height,    inData,  srcStride);
-	av_image_fill_pointers(dst, AV_PIX_FMT_RGB24, v4l_ideal_height, rgbData, dstStride);
-
-	sws_scale(sws_context,
-		src, srcStride, 0, v4l_height_fixed_aspect,
-		dst, dstStride);
-
-	// compress jpeg
-	*outLen = v4l_ideal_width * v4l_ideal_height * 3;
-	*outData = (unsigned char*)malloc(*outLen);
-
-	jpge::params params;
-	params.m_quality = 60;
-	params.m_subsampling = jpge::H2V2;
-	params.m_two_pass_flag = false;
-	jpge::compress_image_to_jpeg_file_in_memory(
-		*outData, *outLen, v4l_ideal_width, v4l_ideal_height, 3, rgbData, params);
-	free(rgbData);
-}
-
 void *v4l_loop(void *data) {
 	setCurrentThreadName("v4l_loop");
 	while (v4l_fd >= 0) {
@@ -97,23 +238,28 @@ void *v4l_loop(void *data) {
 			}
 		}
 
-		unsigned char *jpegData;
-		int jpegLen;
+		unsigned char *jpegData = nullptr;
+		int jpegLen = 0;
 
 		if (v4l_format == V4L2_PIX_FMT_YUYV) {
-			convert_frame((unsigned char*)v4l_buffer, AV_PIX_FMT_YUYV422, &jpegData, &jpegLen);
+			convert_frame(v4l_hw_width, v4l_hw_height, (unsigned char*)v4l_buffer, AV_PIX_FMT_YUYV422,
+				v4l_ideal_width, v4l_ideal_height, &jpegData, &jpegLen);
 		} else if (v4l_format == V4L2_PIX_FMT_MJPEG) {
 			// decompress jpeg
 			int width, height, req_comps;
 			unsigned char *rgbData = jpgd::decompress_jpeg_image_from_memory(
 				(unsigned char*)v4l_buffer, buf.bytesused, &width, &height, &req_comps, 3);
 
-			convert_frame(rgbData, AV_PIX_FMT_RGB24, &jpegData, &jpegLen);
+			convert_frame(v4l_hw_width, v4l_hw_height, (unsigned char*)v4l_buffer, AV_PIX_FMT_RGB24,
+				v4l_ideal_width, v4l_ideal_height, &jpegData, &jpegLen);
 			free(rgbData);
 		}
 
-		Camera::pushCameraImage(jpegLen, jpegData);
-		free(jpegData);
+		if (jpegData) {
+			Camera::pushCameraImage(jpegLen, jpegData);
+			free(jpegData);
+			jpegData = nullptr;
+		}
 
 		buf.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
 		buf.memory = V4L2_MEMORY_MMAP;
@@ -216,20 +362,6 @@ int __v4l_startCapture(int ideal_width, int ideal_height) {
 	INFO_LOG(HLE, "V4L2: will receive %dx%d", v4l_hw_width, v4l_hw_height);
 	v4l_height_fixed_aspect = v4l_hw_width * ideal_height / ideal_width;
 	INFO_LOG(HLE, "V4L2: will use     %dx%d", v4l_hw_width, v4l_height_fixed_aspect);
-
-	// create a converter context
-	if (v4l_format == V4L2_PIX_FMT_YUYV) {
-		sws_context = sws_getContext(
-			v4l_hw_width, v4l_height_fixed_aspect, AV_PIX_FMT_YUYV422,
-			ideal_width, ideal_height, AV_PIX_FMT_RGB24,
-			SWS_BICUBIC, NULL, NULL, NULL);
-	} else if (v4l_format == V4L2_PIX_FMT_MJPEG) {
-		sws_context = sws_getContext(
-			v4l_hw_width, v4l_height_fixed_aspect, AV_PIX_FMT_RGB24,
-			ideal_width, ideal_height, AV_PIX_FMT_RGB24,
-			SWS_BICUBIC, NULL, NULL, NULL);
-	}
-
 
 	struct v4l2_requestbuffers req;
 	memset(&req, 0, sizeof(req));

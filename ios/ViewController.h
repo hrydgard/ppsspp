@@ -17,6 +17,7 @@
 @end
 
 extern __unsafe_unretained ViewController* sharedViewController;
+void setCameraSize(int width, int height);
 void startVideo();
 void stopVideo();
 void startLocation();

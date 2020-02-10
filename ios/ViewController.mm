@@ -677,8 +677,12 @@ static LocationHelper *locationHelper;
 }
 #endif
 
+void setCameraSize(int width, int height) {
+	[cameraHelper setCameraSize: width h:height];
+}
+
 void startVideo() {
-    [cameraHelper startVideo];
+	[cameraHelper startVideo];
 }
 
 void stopVideo() {
