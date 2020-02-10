@@ -384,7 +384,7 @@ static int sceNetAdhocPdpCreate(const char *mac, int port, int bufferSize, u32 u
 						retval = ERROR_NET_ADHOC_PORT_IN_USE;
 						if (iResult == SOCKET_ERROR) {
 							ERROR_LOG(SCENET, "Socket error (%i) when binding port %u", errno, ntohs(addr.sin_port));
-							I18NCategory* n = GetI18NCategory("Networking");
+							auto n = GetI18NCategory("Networking");
 							host->NotifyUserMessage(std::string(n->T("Failed to Bind Port")) + " " + std::to_string(port + portOffset) + "\n" + std::string(n->T("Please change your Port Offset")), 3.0, 0x0000ff);
 						}
 					}
@@ -1889,7 +1889,7 @@ static int sceNetAdhocPtpOpen(const char *srcmac, int sport, const char *dstmac,
 						}
 						else {
 							ERROR_LOG(SCENET, "Socket error (%i) when binding port %u", errno, ntohs(addr.sin_port));
-							I18NCategory* n = GetI18NCategory("Networking");
+							auto n = GetI18NCategory("Networking");
 							host->NotifyUserMessage(std::string(n->T("Failed to Bind Port")) + " " + std::to_string(sport + portOffset) + "\n" + std::string(n->T("Please change your Port Offset")), 3.0, 0x0000ff);
 						}
 						
@@ -2391,7 +2391,7 @@ static int sceNetAdhocPtpListen(const char *srcmac, int sport, int bufsize, int 
 							}
 						}
 						else {
-							I18NCategory* n = GetI18NCategory("Networking");
+							auto n = GetI18NCategory("Networking");
 							host->NotifyUserMessage(std::string(n->T("Failed to Bind Port")) + " " + std::to_string(sport + portOffset) + "\n" + std::string(n->T("Please change your Port Offset")), 3.0, 0x0000ff);
 						}
 						
