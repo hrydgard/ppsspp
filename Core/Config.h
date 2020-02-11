@@ -401,6 +401,7 @@ public:
 	// Double edged sword: much easier debugging, but not accurate.
 	bool bSkipDeadbeefFilling;
 	bool bFuncHashMap;
+	bool bDrawFrameGraph;
 
 	// Volatile development settings
 	bool bShowFrameProfiler;

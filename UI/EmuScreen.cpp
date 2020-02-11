@@ -1190,6 +1190,21 @@ static void DrawFPS(DrawBuffer *draw2d, const Bounds &bounds) {
 	draw2d->SetFontScale(1.0f, 1.0f);
 }
 
+static void DrawFrameTimes(UIContext *ctx) {
+	int valid, pos;
+	double *history = __DisplayGetFrameTimes(&valid, &pos);
+
+	ctx->Flush();
+	ctx->BeginNoTex();
+	int bottom = ctx->GetBounds().y2();
+	for (int i = 0; i < valid; ++i) {
+		ctx->Draw()->vLine(i, bottom, bottom - history[i]*10000,  0x7F3fFF3f);
+	}
+	ctx->Draw()->vLine(pos, bottom, bottom - 512, 0xFFffFFff);
+	ctx->Flush();
+	ctx->Begin();
+}
+
 void EmuScreen::preRender() {
 	using namespace Draw;
 	DrawContext *draw = screenManager()->getDrawContext();
@@ -1365,6 +1380,10 @@ void EmuScreen::renderUI() {
 
 	if (g_Config.iShowFPSCounter && !invalid_) {
 		DrawFPS(draw2d, ctx->GetBounds());
+	}
+
+	if (g_Config.bDrawFrameGraph && !invalid_) {
+		DrawFrameTimes(ctx);
 	}
 
 #if !PPSSPP_PLATFORM(UWP)
