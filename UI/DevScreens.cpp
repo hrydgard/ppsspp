@@ -89,6 +89,7 @@ void DevMenu::CreatePopupContents(UI::ViewGroup *parent) {
 #ifdef USE_PROFILER
 	items->Add(new CheckBox(&g_Config.bShowFrameProfiler, dev->T("Frame Profiler"), ""));
 #endif
+	items->Add(new CheckBox(&g_Config.bDrawFrameGraph, dev->T("Draw Frametimes Graph")));
 
 	scroll->Add(items);
 	parent->Add(scroll);
