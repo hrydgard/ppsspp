@@ -1193,16 +1193,26 @@ static void DrawFPS(DrawBuffer *draw2d, const Bounds &bounds) {
 static void DrawFrameTimes(UIContext *ctx) {
 	int valid, pos;
 	double *history = __DisplayGetFrameTimes(&valid, &pos);
+	int scale = 7000;
+	int width = 600;
 
 	ctx->Flush();
 	ctx->BeginNoTex();
 	int bottom = ctx->GetBounds().y2();
 	for (int i = 0; i < valid; ++i) {
-		ctx->Draw()->vLine(i, bottom, bottom - history[i]*10000,  0x7F3fFF3f);
+		ctx->Draw()->vLine(i, bottom, bottom - history[i]*scale,  0xFF3fFF3f);
 	}
-	ctx->Draw()->vLine(pos, bottom, bottom - 512, 0xFFffFFff);
+	ctx->Draw()->vLine(pos, bottom, bottom - 512, 0xFFff3F3f);
+
+	ctx->Draw()->hLine(0, bottom - 0.0333*scale, width, 0xFF3f3Fff);
+	ctx->Draw()->hLine(0, bottom - 0.0167*scale, width, 0xFF3f3Fff);
+
 	ctx->Flush();
 	ctx->Begin();
+	ctx->Draw()->SetFontScale(0.5f, 0.5f);
+	ctx->Draw()->DrawText(UBUNTU24, "33.3ms", width, bottom - 0.0333*scale, 0xFF3f3Fff, ALIGN_BOTTOMLEFT | FLAG_DYNAMIC_ASCII);
+	ctx->Draw()->DrawText(UBUNTU24, "16.7ms", width, bottom - 0.0167*scale, 0xFF3f3Fff, ALIGN_BOTTOMLEFT | FLAG_DYNAMIC_ASCII);
+	ctx->Draw()->SetFontScale(1.0f, 1.0f);
 }
 
 void EmuScreen::preRender() {
