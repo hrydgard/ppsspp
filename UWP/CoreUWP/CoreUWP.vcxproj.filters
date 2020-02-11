@@ -703,6 +703,9 @@
     <ClCompile Include="..\..\Core\MIPS\ARM64\Arm64RegCacheFPU.cpp">
       <Filter>MIPS\ARM64</Filter>
     </ClCompile>
+    <ClCompile Include="..\..\Core\HW\Camera.cpp">
+      <Filter>HW</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="pch.h" />
@@ -1296,6 +1299,9 @@
     </ClInclude>
     <ClInclude Include="..\..\Core\MIPS\ARM64\Arm64RegCacheFPU.h">
       <Filter>MIPS\ARM64</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Core\HW\Camera.h">
+      <Filter>HW</Filter>
     </ClInclude>
   </ItemGroup>
 </Project>
