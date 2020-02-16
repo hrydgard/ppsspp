@@ -523,7 +523,7 @@ void SystemInfoScreen::CreateViews() {
 	deviceSpecs->Add(new InfoItem(si->T("Native Resolution"), StringFromFormat("%dx%d",
 		System_GetPropertyInt(SYSPROP_DISPLAY_XRES),
 		System_GetPropertyInt(SYSPROP_DISPLAY_YRES))));
-	deviceSpecs->Add(new InfoItem(si->T("Refresh rate"), StringFromFormat("%0.3f Hz", (float)System_GetPropertyInt(SYSPROP_DISPLAY_REFRESH_RATE) / 1000.0f)));
+	deviceSpecs->Add(new InfoItem(si->T("Refresh rate"), StringFromFormat("%0.3f Hz", (float)System_GetPropertyFloat(SYSPROP_DISPLAY_REFRESH_RATE))));
 #endif
 
 #if 0
