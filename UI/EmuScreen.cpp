@@ -1192,7 +1192,8 @@ static void DrawFPS(DrawBuffer *draw2d, const Bounds &bounds) {
 
 static void DrawFrameTimes(UIContext *ctx) {
 	int valid, pos;
-	double *history = __DisplayGetFrameTimes(&valid, &pos);
+	double *sleepHistory;
+	double *history = __DisplayGetFrameTimes(&valid, &pos, &sleepHistory);
 	int scale = 7000;
 	int width = 600;
 
@@ -1200,7 +1201,9 @@ static void DrawFrameTimes(UIContext *ctx) {
 	ctx->BeginNoTex();
 	int bottom = ctx->GetBounds().y2();
 	for (int i = 0; i < valid; ++i) {
-		ctx->Draw()->vLine(i, bottom, bottom - history[i]*scale,  0xFF3fFF3f);
+		double activeTime = history[i] - sleepHistory[i];
+		ctx->Draw()->vLine(i, bottom, bottom - activeTime * scale, 0xFF3FFF3F);
+		ctx->Draw()->vLine(i, bottom - activeTime * scale, bottom - history[i] * scale, 0x7F3FFF3F);
 	}
 	ctx->Draw()->vLine(pos, bottom, bottom - 512, 0xFFff3F3f);
 
