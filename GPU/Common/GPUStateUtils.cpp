@@ -709,13 +709,27 @@ void ConvertViewportAndScissor(bool useBufferedRendering, float renderWidth, flo
 		float zOffset = halfActualZRange < std::numeric_limits<float>::epsilon() ? 0.0f : (vpZCenter - (minz + halfActualZRange)) / halfActualZRange;
 
 		if (!gstate_c.Supports(GPU_SUPPORTS_ACCURATE_DEPTH)) {
-			zScale = 1.0f;
-			zOffset = 0.0f;
-			out.depthRangeMin = ToScaledDepthFromIntegerScale(vpZCenter - vpZScale);
-			out.depthRangeMax = ToScaledDepthFromIntegerScale(vpZCenter + vpZScale);
+			if (gstate_c.Supports(GPU_SUPPORTS_REVERSE_Z)) {
+				zScale = 1.0f;
+				zOffset = 0.0f;
+				out.depthRangeMin = ToScaledDepthFromIntegerScale(vpZCenter - vpZScale);
+				out.depthRangeMax = ToScaledDepthFromIntegerScale(vpZCenter + vpZScale);
+			} else {
+				zScale = zScale < 0 ? -1.0f : 1.0f;
+				zOffset = 0.0f;
+				out.depthRangeMin = ToScaledDepthFromIntegerScale(vpZCenter - fabsf(vpZScale));
+				out.depthRangeMax = ToScaledDepthFromIntegerScale(vpZCenter + fabsf(vpZScale));
+			}	
 		} else {
-			out.depthRangeMin = ToScaledDepthFromIntegerScale(minz);
-			out.depthRangeMax = ToScaledDepthFromIntegerScale(maxz);
+			if (gstate_c.Supports(GPU_SUPPORTS_REVERSE_Z)) {
+				out.depthRangeMin = zScale < 0 ? ToScaledDepthFromIntegerScale(maxz) : ToScaledDepthFromIntegerScale(minz);
+				out.depthRangeMax = zScale < 0 ? ToScaledDepthFromIntegerScale(minz) : ToScaledDepthFromIntegerScale(maxz);
+				zScale = fabsf(zScale);
+				zOffset = fabsf(zOffset);
+			} else {
+				out.depthRangeMin = ToScaledDepthFromIntegerScale(minz);
+				out.depthRangeMax = ToScaledDepthFromIntegerScale(maxz);
+			}
 		}
 
 		// OpenGL will clamp these for us anyway, and Direct3D will error if not clamped.

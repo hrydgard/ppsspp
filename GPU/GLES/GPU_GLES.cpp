@@ -144,9 +144,16 @@ GPU_GLES::~GPU_GLES() {
 
 // Take the raw GL extension and versioning data and turn into feature flags.
 void GPU_GLES::CheckGPUFeatures() {
-	u32 features = 0;
+	u64 features = 0;
 
 	features |= GPU_SUPPORTS_16BIT_FORMATS;
+
+	if (!PSP_CoreParameter().compat.flags().DisableAccurateDepth) {
+		features |= GPU_SUPPORTS_ACCURATE_DEPTH;
+	}
+	if (!PSP_CoreParameter().compat.flags().DisableReverseZ) {
+		features |= GPU_SUPPORTS_REVERSE_Z;
+	}
 
 	if (!draw_->GetBugs().Has(Draw::Bugs::BROKEN_NAN_IN_CONDITIONAL)) {
 		if (!PSP_CoreParameter().compat.flags().DepthRangeHack) {

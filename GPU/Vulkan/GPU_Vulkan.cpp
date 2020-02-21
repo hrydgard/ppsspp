@@ -183,28 +183,30 @@ GPU_Vulkan::~GPU_Vulkan() {
 }
 
 void GPU_Vulkan::CheckGPUFeatures() {
-	uint32_t features = 0;
+	uint64_t features = 0;
 
 	if (!PSP_CoreParameter().compat.flags().DepthRangeHack) {
 		features |= GPU_SUPPORTS_VS_RANGE_CULLING;
+	}
+	if (!PSP_CoreParameter().compat.flags().DisableAccurateDepth) {
+		features |= GPU_SUPPORTS_ACCURATE_DEPTH;
 	}
 
 	switch (vulkan_->GetPhysicalDeviceProperties().properties.vendorID) {
 	case VULKAN_VENDOR_AMD:
 		// Accurate depth is required on AMD (due to reverse-Z driver bug) so we ignore the compat flag to disable it on those. See #9545
-		features |= GPU_SUPPORTS_ACCURATE_DEPTH;
 		break;
 	case VULKAN_VENDOR_QUALCOMM:
 		// Accurate depth is required on Adreno too (seems to also have a reverse-Z driver bug).
-		features |= GPU_SUPPORTS_ACCURATE_DEPTH;
 		break;
 	case VULKAN_VENDOR_ARM:
 	{
 		// This check is probably not exactly accurate. But old drivers had problems with reverse-Z, just like AMD and Qualcomm.
 		bool driverTooOld = IsHashMaliDriverVersion(vulkan_->GetPhysicalDeviceProperties().properties)
 			|| VK_VERSION_MAJOR(vulkan_->GetPhysicalDeviceProperties().properties.driverVersion) < 14;
-		if (!PSP_CoreParameter().compat.flags().DisableAccurateDepth || driverTooOld) {
-			features |= GPU_SUPPORTS_ACCURATE_DEPTH;
+
+		if (!PSP_CoreParameter().compat.flags().DisableReverseZ && !driverTooOld) {
+			features |= GPU_SUPPORTS_REVERSE_Z;
 		}
 		// These GPUs (up to some certain hardware version?) has a bug where draws where gl_Position.w == .z
 		// corrupt the depth buffer. This is easily worked around by simply scaling Z down a tiny bit when this case
@@ -213,8 +215,8 @@ void GPU_Vulkan::CheckGPUFeatures() {
 		break;
 	}
 	default:
-		if (!PSP_CoreParameter().compat.flags().DisableAccurateDepth) {
-			features |= GPU_SUPPORTS_ACCURATE_DEPTH;
+		if (!PSP_CoreParameter().compat.flags().DisableReverseZ) {
+			features |= GPU_SUPPORTS_REVERSE_Z;
 		}
 		break;
 	}

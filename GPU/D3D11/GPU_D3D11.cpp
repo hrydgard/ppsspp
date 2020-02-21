@@ -125,7 +125,7 @@ GPU_D3D11::~GPU_D3D11() {
 }
 
 void GPU_D3D11::CheckGPUFeatures() {
-	u32 features = 0;
+	u64 features = 0;
 
 	if (!PSP_CoreParameter().compat.flags().DepthRangeHack) {
 		features |= GPU_SUPPORTS_VS_RANGE_CULLING;
@@ -133,11 +133,14 @@ void GPU_D3D11::CheckGPUFeatures() {
 	features |= GPU_SUPPORTS_BLEND_MINMAX;
 	features |= GPU_PREFER_CPU_DOWNLOAD;
 
-	// Accurate depth is required on AMD/nVidia (for reverse Z) so we ignore the compat flag to disable it on those. See #9545
 	auto vendor = draw_->GetDeviceCaps().vendor;
 
-	if (!PSP_CoreParameter().compat.flags().DisableAccurateDepth || vendor == Draw::GPUVendor::VENDOR_AMD || vendor == Draw::GPUVendor::VENDOR_NVIDIA) {
+	if (!PSP_CoreParameter().compat.flags().DisableAccurateDepth) {
 		features |= GPU_SUPPORTS_ACCURATE_DEPTH;  // Breaks text in PaRappa for some reason.
+	}
+	// Disable reverse Z on AMD/nVidia, See #9545
+	if (!PSP_CoreParameter().compat.flags().DisableReverseZ && vendor != Draw::GPUVendor::VENDOR_AMD && vendor != Draw::GPUVendor::VENDOR_NVIDIA) {
+		features |= GPU_SUPPORTS_REVERSE_Z;
 	}
 
 #ifndef _M_ARM

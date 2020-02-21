@@ -62,7 +62,11 @@ void CalcCullRange(float minValues[4], float maxValues[4], bool flipViewport, bo
 		} else {
 			// In old-style depth mode, we're comparing against a value scaled to viewport.
 			// (and possibly incorrectly clipped against it.)
-			scale = vpZScale;
+			if (gstate_c.Supports(GPU_SUPPORTS_REVERSE_Z)) {
+				scale = vpZScale;
+			} else {
+				scale = fabsf(vpZScale);
+			}
 			center = vpZCenter;
 		}
 

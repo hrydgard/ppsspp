@@ -463,14 +463,24 @@ void LinkedShader::UpdateUniforms(u32 vertType, const ShaderID &vsid) {
 		float vpZScale = gstate.getViewportZScale();
 		float vpZCenter = gstate.getViewportZCenter();
 
-		// These are just the reverse of the formulas in GPUStateUtils.
-		float halfActualZRange = vpZScale / gstate_c.vpDepthScale;
-		float minz = -((gstate_c.vpZOffset * halfActualZRange) - vpZCenter) - halfActualZRange;
-		float viewZScale = halfActualZRange;
-		float viewZCenter = minz + halfActualZRange;
+		float viewZScale, viewZCenter;
+		if (gstate_c.Supports(GPU_SUPPORTS_ACCURATE_DEPTH)) {
+			// These are just the reverse of the formulas in GPUStateUtils.
+			float halfActualZRange = vpZScale * (1.0f / gstate_c.vpDepthScale);
+			float minz = -((gstate_c.vpZOffset * halfActualZRange) - vpZCenter) - halfActualZRange;
 
-		if (!gstate_c.Supports(GPU_SUPPORTS_ACCURATE_DEPTH)) {
-			viewZScale = vpZScale;
+			// In accurate depth mode, we're comparing against a value scaled to (minz, maxz).
+			// And minz might be very negative, (e.g. if we're clamping in that direction.)
+			viewZScale = halfActualZRange;
+			viewZCenter = minz + halfActualZRange;
+		} else {
+			// In old-style depth mode, we're comparing against a value scaled to viewport.
+			// (and possibly incorrectly clipped against it.)
+			if (gstate_c.Supports(GPU_SUPPORTS_REVERSE_Z)) {
+				viewZScale = vpZScale;
+			} else {
+				viewZScale = fabsf(vpZScale);
+			}
 			viewZCenter = vpZCenter;
 		}
 

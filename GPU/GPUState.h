@@ -461,11 +461,11 @@ struct UVScale {
 	float uOff, vOff;
 };
 
-#define FLAG_BIT(x) (1 << x)
+#define FLAG_BIT(x) ((u64)1 << x)
 
 // Some of these are OpenGL-specific even though this file is neutral, unfortunately.
 // Might want to move this mechanism into the backend later.
-enum {
+enum : unsigned __int64 {
 	GPU_SUPPORTS_DUALSOURCE_BLEND = FLAG_BIT(0),
 	GPU_SUPPORTS_GLSL_ES_300 = FLAG_BIT(1),
 	GPU_SUPPORTS_GLSL_330 = FLAG_BIT(2),
@@ -484,20 +484,21 @@ enum {
 	GPU_SUPPORTS_32BIT_INT_FSHADER = FLAG_BIT(15),
 	GPU_SUPPORTS_LARGE_VIEWPORTS = FLAG_BIT(16),
 	GPU_SUPPORTS_ACCURATE_DEPTH = FLAG_BIT(17),
-	GPU_SUPPORTS_VAO = FLAG_BIT(18),
-	GPU_SUPPORTS_ANY_COPY_IMAGE = FLAG_BIT(19),
-	GPU_SUPPORTS_ANY_FRAMEBUFFER_FETCH = FLAG_BIT(20),
-	GPU_SCALE_DEPTH_FROM_24BIT_TO_16BIT = FLAG_BIT(21),
-	GPU_ROUND_FRAGMENT_DEPTH_TO_16BIT = FLAG_BIT(22),
-	GPU_ROUND_DEPTH_TO_16BIT = FLAG_BIT(23),  // Can be disabled either per game or if we use a real 16-bit depth buffer
-	GPU_SUPPORTS_TEXTURE_LOD_CONTROL = FLAG_BIT(24),
-	GPU_SUPPORTS_FBO = FLAG_BIT(25),
-	GPU_SUPPORTS_ARB_FRAMEBUFFER_BLIT = FLAG_BIT(26),
-	GPU_SUPPORTS_NV_FRAMEBUFFER_BLIT = FLAG_BIT(27),
-	GPU_SUPPORTS_OES_TEXTURE_NPOT = FLAG_BIT(28),
-	GPU_NEEDS_Z_EQUAL_W_HACK = FLAG_BIT(29),
-	GPU_PREFER_CPU_DOWNLOAD = FLAG_BIT(30),
-	GPU_PREFER_REVERSE_COLOR_ORDER = FLAG_BIT(31),
+	GPU_SUPPORTS_REVERSE_Z = FLAG_BIT(18),
+	GPU_SUPPORTS_VAO = FLAG_BIT(19),
+	GPU_SUPPORTS_ANY_COPY_IMAGE = FLAG_BIT(20),
+	GPU_SUPPORTS_ANY_FRAMEBUFFER_FETCH = FLAG_BIT(21),
+	GPU_SCALE_DEPTH_FROM_24BIT_TO_16BIT = FLAG_BIT(22),
+	GPU_ROUND_FRAGMENT_DEPTH_TO_16BIT = FLAG_BIT(23),
+	GPU_ROUND_DEPTH_TO_16BIT = FLAG_BIT(24),  // Can be disabled either per game or if we use a real 16-bit depth buffer
+	GPU_SUPPORTS_TEXTURE_LOD_CONTROL = FLAG_BIT(25),
+	GPU_SUPPORTS_FBO = FLAG_BIT(26),
+	GPU_SUPPORTS_ARB_FRAMEBUFFER_BLIT = FLAG_BIT(27),
+	GPU_SUPPORTS_NV_FRAMEBUFFER_BLIT = FLAG_BIT(28),
+	GPU_SUPPORTS_OES_TEXTURE_NPOT = FLAG_BIT(29),
+	GPU_NEEDS_Z_EQUAL_W_HACK = FLAG_BIT(30),
+	GPU_PREFER_CPU_DOWNLOAD = FLAG_BIT(31),
+	GPU_PREFER_REVERSE_COLOR_ORDER = FLAG_BIT(32),
 };
 
 struct KnownVertexBounds {
@@ -508,8 +509,8 @@ struct KnownVertexBounds {
 };
 
 struct GPUStateCache {
-	bool Supports(u32 flags) { return (featureFlags & flags) != 0; } // Return true if ANY of flags are true.
-	bool SupportsAll(u32 flags) { return (featureFlags & flags) == flags; } // Return true if ALL flags are true.
+	bool Supports(u64 flags) { return (featureFlags & flags) != 0; } // Return true if ANY of flags are true.
+	bool SupportsAll(u64 flags) { return (featureFlags & flags) == flags; } // Return true if ALL flags are true.
 	uint64_t GetDirtyUniforms() { return dirty & DIRTY_ALL_UNIFORMS; }
 	void Dirty(u64 what) {
 		dirty |= what;
@@ -550,7 +551,7 @@ struct GPUStateCache {
 		}
 	}
 
-	u32 featureFlags;
+	u64 featureFlags;
 
 	u32 vertexAddr;
 	u32 indexAddr;

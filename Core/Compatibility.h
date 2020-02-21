@@ -57,6 +57,7 @@ struct CompatFlags {
 	bool RequireDefaultCPUClock;
 	bool DisableReadbacks;
 	bool DisableAccurateDepth;
+	bool DisableReverseZ;
 	bool MGS2AcidHack;
 	bool SonicRivalsHack;
 	bool BlockTransferAllowCreateFB;
