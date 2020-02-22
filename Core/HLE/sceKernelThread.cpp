@@ -1256,23 +1256,20 @@ u32 sceKernelReferThreadStatus(u32 threadID, u32 statusPtr)
 
 	u32 error;
 	Thread *t = kernelObjects.Get<Thread>(threadID, error);
-	if (!t)
-	{
-		ERROR_LOG(SCEKERNEL, "%08x=sceKernelReferThreadStatus(%i, %08x): bad thread", error, threadID, statusPtr);
-		return error;
+	if (!t) {
+		hleEatCycles(700);
+		hleReSchedule("refer thread status");
+		return hleLogError(SCEKERNEL, error, "bad thread");
 	}
 
 	u32 wantedSize = Memory::Read_U32(statusPtr);
 
-	if (sceKernelGetCompiledSdkVersion() > 0x02060010)
-	{
-		if (wantedSize > THREADINFO_SIZE_AFTER_260)
-		{
-			ERROR_LOG(SCEKERNEL, "%08x=sceKernelReferThreadStatus(%i, %08x): bad size %d", SCE_KERNEL_ERROR_ILLEGAL_SIZE, threadID, statusPtr, wantedSize);
-			return SCE_KERNEL_ERROR_ILLEGAL_SIZE;
+	if (sceKernelGetCompiledSdkVersion() > 0x02060010) {
+		if (wantedSize > THREADINFO_SIZE_AFTER_260) {
+			hleEatCycles(1200);
+			hleReSchedule("refer thread status");
+			return hleLogError(SCEKERNEL, SCE_KERNEL_ERROR_ILLEGAL_SIZE, "bad size %d", wantedSize);
 		}
-
-		VERBOSE_LOG(SCEKERNEL, "sceKernelReferThreadStatus(%i, %08x)", threadID, statusPtr);
 
 		t->nt.nativeSize = THREADINFO_SIZE_AFTER_260;
 		if (wantedSize != 0)
@@ -1280,20 +1277,16 @@ u32 sceKernelReferThreadStatus(u32 threadID, u32 statusPtr)
 		// TODO: What is this value?  Basic tests show 0...
 		if (wantedSize > sizeof(t->nt))
 			Memory::Memset(statusPtr + sizeof(t->nt), 0, wantedSize - sizeof(t->nt));
-	}
-	else
-	{
-		VERBOSE_LOG(SCEKERNEL, "sceKernelReferThreadStatus(%i, %08x)", threadID, statusPtr);
-
+	} else {
 		t->nt.nativeSize = THREADINFO_SIZE;
 		u32 sz = std::min(THREADINFO_SIZE, wantedSize);
 		if (sz != 0)
 			Memory::Memcpy(statusPtr, &t->nt, sz);
 	}
 
-	hleEatCycles(1220);
+	hleEatCycles(1400);
 	hleReSchedule("refer thread status");
-	return 0;
+	return hleLogSuccessVerboseI(SCEKERNEL, 0);
 }
 
 // Thanks JPCSP
