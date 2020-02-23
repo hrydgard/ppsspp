@@ -217,7 +217,8 @@ void GameScreen::render() {
 			"USA",
 			"Europe",
 			"Hong Kong",
-			"Asia"
+			"Asia",
+			"Korea"
 		};
 		tvRegion_->SetText(ga->T(regionNames[info->region]));
 	} else if (info->region > GAMEREGION_MAX){

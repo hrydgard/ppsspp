@@ -363,6 +363,17 @@ void GameButton::Draw(UIContext &dc) {
 	if (ginfo->hasConfig && !ginfo->id.empty()) {
 		dc.Draw()->DrawImage(I_GEAR, x, y + h - ui_images[I_GEAR].h, 1.0f);
 	}
+	if (g_Config.bShowRegionOnGameIcon && ginfo->region >= 0 && ginfo->region < GAMEREGION_MAX && ginfo->region != GAMEREGION_OTHER) {
+		static const int regionIcons[GAMEREGION_MAX] = {
+			I_FLAG_JP,
+			I_FLAG_US,
+			I_FLAG_EU,
+			I_FLAG_HK,
+			I_FLAG_AS,
+			I_FLAG_KO
+		};
+		dc.Draw()->DrawImage(regionIcons[ginfo->region], x + w - ui_images[regionIcons[ginfo->region]].w - 5, y + h - ui_images[regionIcons[ginfo->region]].h - 5, 1.0f);
+	}
 	if (overlayColor) {
 		dc.FillRect(Drawable(overlayColor), overlayBounds);
 	}
