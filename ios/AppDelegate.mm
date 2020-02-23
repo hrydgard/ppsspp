@@ -105,4 +105,8 @@
 	NativeMessageReceived("got_focus", "");	
 }
 
+- (void)applicationWillTerminate:(UIApplication *)application {
+	exit(0);
+}
+
 @end
