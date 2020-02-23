@@ -210,6 +210,7 @@ public:
 	bool bShowDebuggerOnLoad;
 	int iShowFPSCounter;
 	bool bShowRegionOnGameIcon;
+	bool bShowIDOnGameIcon;
 
 	// TODO: Maybe move to a separate theme system.
 	uint32_t uItemStyleFg;
