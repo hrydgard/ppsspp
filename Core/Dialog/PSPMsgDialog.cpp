@@ -156,7 +156,7 @@ void PSPMsgDialog::DisplayMessage(std::string text, bool hasYesNo, bool hasOK)
 
 	if (hasYesNo)
 	{
-		I18NCategory *di = GetI18NCategory("Dialog");
+		auto di = GetI18NCategory("Dialog");
 		const char *choiceText;
 		u32 yesColor, noColor;
 		float x, w;
@@ -193,7 +193,7 @@ void PSPMsgDialog::DisplayMessage(std::string text, bool hasYesNo, bool hasOK)
 	} 
 	
 	if (hasOK) {
-		I18NCategory *di = GetI18NCategory("Dialog");
+		auto di = GetI18NCategory("Dialog");
 		float x, w;
 		x = 240.0f;
 		w = 15.0f;

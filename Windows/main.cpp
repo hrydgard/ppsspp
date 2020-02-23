@@ -126,7 +126,7 @@ std::string GetVideoCardDriverVersion() {
 	}
 
 	IWbemLocator *pIWbemLocator = NULL;
-	hr = CoCreateInstance(__uuidof(WbemLocator), NULL, CLSCTX_INPROC_SERVER, 
+	hr = CoCreateInstance(__uuidof(WbemLocator), NULL, CLSCTX_INPROC_SERVER,
 		__uuidof(IWbemLocator), (LPVOID *)&pIWbemLocator);
 	if (FAILED(hr)) {
 		CoUninitialize();
@@ -143,9 +143,9 @@ std::string GetVideoCardDriverVersion() {
 		return retvalue;
 	}
 
-	hr = CoSetProxyBlanket(pIWbemServices, RPC_C_AUTHN_WINNT, RPC_C_AUTHZ_NONE, 
+	hr = CoSetProxyBlanket(pIWbemServices, RPC_C_AUTHN_WINNT, RPC_C_AUTHZ_NONE,
 		NULL, RPC_C_AUTHN_LEVEL_CALL, RPC_C_IMP_LEVEL_IMPERSONATE, NULL,EOAC_DEFAULT);
-	
+
 	BSTR bstrWQL = SysAllocString(L"WQL");
 	BSTR bstrPath = SysAllocString(L"select * from Win32_VideoController");
 	IEnumWbemClassObject* pEnum;
@@ -232,14 +232,21 @@ int System_GetPropertyInt(SystemProperty prop) {
 	switch (prop) {
 	case SYSPROP_AUDIO_SAMPLE_RATE:
 		return winAudioBackend ? winAudioBackend->GetSampleRate() : -1;
-	case SYSPROP_DISPLAY_REFRESH_RATE:
-		return 60000;
 	case SYSPROP_DEVICE_TYPE:
 		return DEVICE_TYPE_DESKTOP;
-	case SYSPROP_DISPLAY_DPI:
-		return ScreenDPI();
 	case SYSPROP_DISPLAY_COUNT:
 		return GetSystemMetrics(SM_CMONITORS);
+	default:
+		return -1;
+	}
+}
+
+float System_GetPropertyFloat(SystemProperty prop) {
+	switch (prop) {
+	case SYSPROP_DISPLAY_REFRESH_RATE:
+		return 60.f;
+	case SYSPROP_DISPLAY_DPI:
+		return (float)ScreenDPI();
 	default:
 		return -1;
 	}
@@ -290,7 +297,7 @@ void System_SendMessage(const char *command, const char *parameter) {
 	} else if (!strcmp(command, "browse_file")) {
 		MainWindow::BrowseAndBoot("");
 	} else if (!strcmp(command, "browse_folder")) {
-		I18NCategory *mm = GetI18NCategory("MainMenu");
+		auto mm = GetI18NCategory("MainMenu");
 		std::string folder = W32Util::BrowseForFolder(MainWindow::GetHWND(), mm->T("Choose folder"));
 		if (folder.size())
 			NativeMessageReceived("browse_folderSelect", folder.c_str());
@@ -374,17 +381,17 @@ static std::string GetDefaultLangRegion() {
 static const int EXIT_CODE_VULKAN_WORKS = 42;
 
 static bool DetectVulkanInExternalProcess() {
-	wchar_t moduleFilename[MAX_PATH];
-	wchar_t workingDirectory[MAX_PATH];
-	GetCurrentDirectoryW(MAX_PATH, workingDirectory);
+	std::wstring workingDirectory;
+	std::wstring moduleFilename;
+	W32Util::GetSelfExecuteParams(workingDirectory, moduleFilename);
+
 	const wchar_t *cmdline = L"--vulkan-available-check";
-	GetModuleFileName(GetModuleHandle(NULL), moduleFilename, MAX_PATH);
 
 	SHELLEXECUTEINFO info{ sizeof(SHELLEXECUTEINFO) };
 	info.fMask = SEE_MASK_NOCLOSEPROCESS;
-	info.lpFile = moduleFilename;
+	info.lpFile = moduleFilename.c_str();
 	info.lpParameters = cmdline;
-	info.lpDirectory = workingDirectory;
+	info.lpDirectory = workingDirectory.c_str();
 	info.nShow = SW_HIDE;
 	if (ShellExecuteEx(&info) != TRUE) {
 		return false;
@@ -491,8 +498,9 @@ int WINAPI WinMain(HINSTANCE _hInstance, HINSTANCE hPrevInstance, LPSTR szCmdLin
 
 	LogManager::Init();
 
-	// On Win32 it makes more sense to initialize the system directories here 
+	// On Win32 it makes more sense to initialize the system directories here
 	// because the next place it was called was in the EmuThread, and it's too late by then.
+	g_Config.internalDataDirectory = W32Util::UserDocumentsPath();
 	InitSysDirectories();
 
 	// Load config up here, because those changes below would be overwritten
@@ -588,7 +596,7 @@ int WINAPI WinMain(HINSTANCE _hInstance, HINSTANCE hPrevInstance, LPSTR szCmdLin
 	//   - The -l switch is expected to show the log console, REGARDLESS of config settings.
 	//   - It should be possible to log to a file without showing the console.
 	LogManager::GetInstance()->GetConsoleListener()->Init(showLog, 150, 120, "PPSSPP Debug Console");
-	
+
 	if (debugLogLevel)
 		LogManager::GetInstance()->SetAllLogLevels(LogTypes::LDEBUG);
 
@@ -602,7 +610,7 @@ int WINAPI WinMain(HINSTANCE _hInstance, HINSTANCE hPrevInstance, LPSTR szCmdLin
 
 	HWND hwndMain = MainWindow::GetHWND();
 	HWND hwndDisplay = MainWindow::GetDisplayHWND();
-	
+
 	//initialize custom controls
 	CtrlDisAsmView::init();
 	CtrlMemView::init();
@@ -635,7 +643,7 @@ int WINAPI WinMain(HINSTANCE _hInstance, HINSTANCE hPrevInstance, LPSTR szCmdLin
 		{
 			//hack to enable/disable menu command accelerate keys
 			MainWindow::UpdateCommands();
-			 
+
 			//hack to make it possible to get to main window from floating windows with Esc
 			if (msg.hwnd != hwndMain && msg.wParam == VK_ESCAPE)
 				BringWindowToTop(hwndMain);

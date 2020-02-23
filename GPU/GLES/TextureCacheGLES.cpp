@@ -219,7 +219,7 @@ void TextureCacheGLES::StartFrame() {
 		lowMemoryMode_ = true;
 		decimationCounter_ = 0;
 
-		I18NCategory *err = GetI18NCategory("Error");
+		auto err = GetI18NCategory("Error");
 		if (standardScaleFactor_ > 1) {
 			host->NotifyUserMessage(err->T("Warning: Video memory FULL, reducing upscaling and switching to slow caching mode"), 2.0f);
 		} else {

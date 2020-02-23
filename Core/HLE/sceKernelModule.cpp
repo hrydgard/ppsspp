@@ -93,6 +93,7 @@ static const char * const lieAboutSuccessModules[] = {
 	"disc0:/PSP_GAME/SYSDIR/UPDATE/EBOOT.BIN",
 };
 
+// Modules to not load. TODO: Look into loosening this a little (say sceFont).
 static const char * const blacklistedModules[] = {
 	"sceATRAC3plus_Library",
 	"sceFont_Library",
@@ -109,6 +110,8 @@ static const char * const blacklistedModules[] = {
 	"sceNetResolver_Library",
 	"sceNet_Library",
 	"sceSsl_Module",
+	"sceDEFLATE_Library",
+	"sceMD5_Library",
 };
 
 struct VarSymbolImport {
@@ -1064,7 +1067,6 @@ static bool KernelImportModuleFuncs(Module *module, u32 *firstImportStubAddr, bo
 
 static int gzipDecompress(u8 *OutBuffer, int OutBufferLength, u8 *InBuffer) {
 	int err;
-	uLong crc;
 	z_stream stream;
 	u8 *outBufferPtr;
 
@@ -1335,16 +1337,21 @@ static Module *__KernelLoadELFFromPtr(const u8 *ptr, size_t elfSize, u32 loadAdd
 		if (scan && codeSections.empty()) {
 			u32 scanStart = module->textStart;
 			u32 scanEnd = module->textEnd;
-			// Skip the exports and imports sections, they're not code.
-			if (scanEnd >= std::min(modinfo->libent, modinfo->libstub)) {
-				insertSymbols = MIPSAnalyst::ScanForFunctions(scanStart, std::min(modinfo->libent, modinfo->libstub) - 4, insertSymbols);
-				scanStart = std::min(modinfo->libentend, modinfo->libstubend);
+
+			if (Memory::IsValidRange(scanStart, scanEnd - scanStart)) {
+				// Skip the exports and imports sections, they're not code.
+				if (scanEnd >= std::min(modinfo->libent, modinfo->libstub)) {
+					insertSymbols = MIPSAnalyst::ScanForFunctions(scanStart, std::min(modinfo->libent, modinfo->libstub) - 4, insertSymbols);
+					scanStart = std::min(modinfo->libentend, modinfo->libstubend);
+				}
+				if (scanEnd >= std::max(modinfo->libent, modinfo->libstub)) {
+					insertSymbols = MIPSAnalyst::ScanForFunctions(scanStart, std::max(modinfo->libent, modinfo->libstub) - 4, insertSymbols);
+					scanStart = std::max(modinfo->libentend, modinfo->libstubend);
+				}
+				insertSymbols = MIPSAnalyst::ScanForFunctions(scanStart, scanEnd, insertSymbols);
+			} else {
+				ERROR_LOG(LOADER, "Bad text scan range %08x-%08x", scanStart, scanEnd);
 			}
-			if (scanEnd >= std::max(modinfo->libent, modinfo->libstub)) {
-				insertSymbols = MIPSAnalyst::ScanForFunctions(scanStart, std::max(modinfo->libent, modinfo->libstub) - 4, insertSymbols);
-				scanStart = std::max(modinfo->libentend, modinfo->libstubend);
-			}
-			insertSymbols = MIPSAnalyst::ScanForFunctions(scanStart, scanEnd, insertSymbols);
 		}
 
 		if (scan) {

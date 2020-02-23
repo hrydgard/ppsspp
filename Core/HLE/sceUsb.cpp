@@ -99,6 +99,16 @@ static int sceUsbDeactivate(u32 pid) {
 	return 0;
 }
 
+static int sceUsbWaitState(int state, int waitMode, u32 timeoutAddr) {
+	ERROR_LOG(HLE, "UNIMPL sceUsbWaitStat(%i, %i, %08x)", state, waitMode, timeoutAddr);
+	return sceUsbGetState();
+}
+
+static int sceUsbWaitStateCB(int state, int waitMode, u32 timeoutAddr) {
+	ERROR_LOG(HLE, "UNIMPL sceUsbWaitStateCB(%i, %i, %08x)", state, waitMode, timeoutAddr);
+	return 0;
+}
+
 const HLEFunction sceUsb[] =
 {
 	{0XAE5DE6AF, &WrapI_CUU<sceUsbStart>,            "sceUsbStart",                             'i', "sxx"},
@@ -108,8 +118,8 @@ const HLEFunction sceUsb[] =
 	{0X112CC951, nullptr,                            "sceUsbGetDrvState",                       '?', ""   },
 	{0X586DB82C, &WrapI_U<sceUsbActivate>,           "sceUsbActivate",                          'i', "x"  },
 	{0XC572A9C8, &WrapI_U<sceUsbDeactivate>,         "sceUsbDeactivate",                        'i', "x"  },
-	{0X5BE0E002, nullptr,                            "sceUsbWaitState",                         '?', ""   },
-	{0X616F2B61, nullptr,                            "sceUsbWaitStateCB",                       '?', ""   },
+	{0X5BE0E002, &WrapI_IIU<sceUsbWaitState>,        "sceUsbWaitState",                         '?', "xxx"},
+	{0X616F2B61, &WrapI_IIU<sceUsbWaitStateCB>,      "sceUsbWaitStateCB",                       '?', "xxx"},
 	{0X1C360735, nullptr,                            "sceUsbWaitCancel",                        '?', ""   },
 };
 

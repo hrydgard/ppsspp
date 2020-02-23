@@ -51,7 +51,8 @@ public class NativeApp {
 
 	public static native String queryConfig(String queryName);
 
-	public static native void pushNewGpsData(float latitude, float longitude, float altitude, float speed, float bearing, long time);
-
-	public static native void pushCameraImage(byte[] image);
+	public static native int getSelectedCamera();
+	public static native void setGpsDataAndroid(long time, float hdop, float latitude, float longitude, float altitude, float speed, float bearing);
+	public static native void setSatInfoAndroid(short index, short id, short elevation, short azimuth, short snr, short good);
+	public static native void pushCameraImageAndroid(byte[] image);
 }

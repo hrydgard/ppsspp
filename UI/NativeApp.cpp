@@ -39,6 +39,10 @@
 #include "Windows/MainWindow.h"
 #endif
 
+#if defined(_WIN32) && !PPSSPP_PLATFORM(UWP)
+#include "Windows/CaptureDevice.h"
+#endif
+
 #include "base/display.h"
 #include "base/timeutil.h"
 #include "base/logging.h"
@@ -67,6 +71,7 @@
 #include "Common/LogManager.h"
 #include "Common/MemArena.h"
 #include "Common/GraphicsContext.h"
+#include "Common/OSVersion.h"
 #include "Core/Config.h"
 #include "Core/ConfigValues.h"
 #include "Core/Core.h"
@@ -656,7 +661,7 @@ void NativeInit(int argc, const char *argv[], const char *savegame_dir, const ch
 	}
 
 
-	I18NCategory *des = GetI18NCategory("DesktopUI");
+	auto des = GetI18NCategory("DesktopUI");
 	// Note to translators: do not translate this/add this to PPSSPP-lang's files.
 	// It's intended to be custom for every user.
 	// Only add it to your own personal copies of PPSSPP.
@@ -855,6 +860,13 @@ bool NativeInitGraphics(GraphicsContext *graphicsContext) {
 #endif
 #endif
 
+#if defined(_WIN32) && !PPSSPP_PLATFORM(UWP)
+	if (IsWin7OrHigher()) {
+		winCamera = new WindowsCaptureDevice(CAPTUREDEVIDE_TYPE::VIDEO);
+		winCamera->sendMessage({ CAPTUREDEVIDE_COMMAND::INITIALIZE, nullptr });
+	}
+#endif
+
 	g_gameInfoCache = new GameInfoCache();
 
 	if (gpu)
@@ -877,6 +889,15 @@ void NativeShutdownGraphics() {
 #ifdef _WIN32
 	delete winAudioBackend;
 	winAudioBackend = nullptr;
+#endif
+
+#if defined(_WIN32) && !PPSSPP_PLATFORM(UWP)
+	if (winCamera) {
+		winCamera->sendMessage({ CAPTUREDEVIDE_COMMAND::SHUTDOWN, nullptr });
+		while (!winCamera->isShutDown()) {};// Wait for shutting down.
+		delete winCamera;
+		winCamera = nullptr;
+	}
 #endif
 
 	ShutdownWebServer();
@@ -935,7 +956,7 @@ void TakeScreenshot() {
 	if (success) {
 		osm.Show(filename);
 	} else {
-		I18NCategory *err = GetI18NCategory("Error");
+		auto err = GetI18NCategory("Error");
 		osm.Show(err->T("Could not save screenshot file"));
 	}
 }
@@ -1084,7 +1105,7 @@ void HandleGlobalMessage(const std::string &msg, const std::string &value) {
 		UIBackgroundInit(*uiContext);
 	}
 	if (msg == "savestate_displayslot") {
-		I18NCategory *sy = GetI18NCategory("System");
+		auto sy = GetI18NCategory("System");
 		std::string msg = StringFromFormat("%s: %d", sy->T("Savestate Slot"), SaveState::GetCurrentSlot() + 1);
 		// Show for the same duration as the preview.
 		osm.Show(msg, 2.0f, 0xFFFFFF, -1, true, "savestate_slot");
@@ -1104,7 +1125,7 @@ void HandleGlobalMessage(const std::string &msg, const std::string &value) {
 	}
 	if (msg == "core_powerSaving") {
 		if (value != "false") {
-			I18NCategory *sy = GetI18NCategory("System");
+			auto sy = GetI18NCategory("System");
 #ifdef __ANDROID__
 			osm.Show(sy->T("WARNING: Android battery save mode is on"), 2.0f, 0xFFFFFF, -1, true, "core_powerSaving");
 #else
@@ -1343,12 +1364,4 @@ void NativeShutdown() {
 
 	// Previously we did exit() here on Android but that makes it hard to do things like restart on backend change.
 	// I think we handle most globals correctly or correct-enough now.
-}
-
-void PushNewGpsData(float latitude, float longitude, float altitude, float speed, float bearing, long long time) {
-	GPS::setGpsData(latitude, longitude, altitude, speed, bearing, time);
-}
-
-void PushCameraImage(long long length, unsigned char* image) {
-	Camera::pushCameraImage(length, image);
 }

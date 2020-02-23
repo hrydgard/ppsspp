@@ -147,6 +147,21 @@ private:
 	std::atomic<int> emuThreadState;
 };
 
+class QTCamera : public QObject {
+	Q_OBJECT
+public:
+	QTCamera() {}
+	~QTCamera() {};
+
+signals:
+	void onStartCamera(int width, int height);
+	void onStopCamera();
+
+public slots:
+	void startCamera(int width, int height);
+	void stopCamera();
+};
+
 extern MainUI* emugl;
 
 #ifndef SDL

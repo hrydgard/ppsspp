@@ -383,6 +383,11 @@ int Client::ReadResponseEntity(Buffer *readbuf, const std::vector<std::string> &
 		}
 	}
 
+	if (contentLength < 0) {
+		// Just sanity checking...
+		contentLength = 0;
+	}
+
 	if (!contentLength && progress) {
 		// Content length is unknown.
 		// Set progress to 1% so it looks like something is happening...

@@ -181,8 +181,8 @@ void RemoteISOScreen::update() {
 }
 
 void RemoteISOScreen::CreateViews() {
-	I18NCategory *di = GetI18NCategory("Dialog");
-	I18NCategory *ri = GetI18NCategory("RemoteISO");
+	auto di = GetI18NCategory("Dialog");
+	auto ri = GetI18NCategory("RemoteISO");
 
 	Margins actionMenuMargins(0, 20, 15, 0);
 	Margins contentMargins(0, 20, 5, 5);
@@ -276,8 +276,8 @@ RemoteISOConnectScreen::~RemoteISOConnectScreen() {
 }
 
 void RemoteISOConnectScreen::CreateViews() {
-	I18NCategory *di = GetI18NCategory("Dialog");
-	I18NCategory *ri = GetI18NCategory("RemoteISO");
+	auto di = GetI18NCategory("Dialog");
+	auto ri = GetI18NCategory("RemoteISO");
 
 	Margins actionMenuMargins(0, 20, 15, 0);
 	Margins contentMargins(0, 20, 5, 5);
@@ -300,7 +300,7 @@ void RemoteISOConnectScreen::CreateViews() {
 }
 
 void RemoteISOConnectScreen::update() {
-	I18NCategory *ri = GetI18NCategory("RemoteISO");
+	auto ri = GetI18NCategory("RemoteISO");
 
 	UIScreenWithBackground::update();
 
@@ -412,8 +412,8 @@ RemoteISOBrowseScreen::RemoteISOBrowseScreen(const std::string &url, const std::
 void RemoteISOBrowseScreen::CreateViews() {
 	bool vertical = UseVerticalLayout();
 
-	I18NCategory *di = GetI18NCategory("Dialog");
-	I18NCategory *ri = GetI18NCategory("RemoteISO");
+	auto di = GetI18NCategory("Dialog");
+	auto ri = GetI18NCategory("RemoteISO");
 
 	Margins actionMenuMargins(0, 10, 10, 0);
 
@@ -478,7 +478,7 @@ void RemoteISOSettingsScreen::update() {
 }
 
 void RemoteISOSettingsScreen::CreateViews() {
-	I18NCategory *ri = GetI18NCategory("RemoteISO");
+	auto ri = GetI18NCategory("RemoteISO");
 	
 	ViewGroup *remoteisoSettingsScroll = new ScrollView(ORIENT_VERTICAL, new LayoutParams(FILL_PARENT, FILL_PARENT));
 	remoteisoSettingsScroll->SetTag("RemoteISOSettings");

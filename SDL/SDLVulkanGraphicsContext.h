@@ -1,7 +1,5 @@
 #include "SDL.h"
-#if !defined(__APPLE__)
 #include "SDL_syswm.h"
-#endif
 
 #include "Common/GraphicsContext.h"
 #include "Common/Vulkan/VulkanContext.h"

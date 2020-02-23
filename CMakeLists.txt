@@ -84,8 +84,8 @@ if(${CMAKE_SYSTEM_NAME} MATCHES "Android")
 	set(ANDROID ON)
 endif()
 
-# We only support Vulkan on Unix, Android and Windows.
-if(ANDROID OR WIN32 OR (UNIX AND NOT APPLE AND NOT ARM_NO_VULKAN))
+# We only support Vulkan on Unix, macOS (by MoltenVK), Android and Windows.
+if(ANDROID OR WIN32 OR (UNIX AND NOT ARM_NO_VULKAN))
 	set(VULKAN ON)
 endif()
 
@@ -188,6 +188,7 @@ include(FindThreads)
 
 if(APPLE)
 	find_library(COCOA_LIBRARY Cocoa)
+	find_library(QUARTZ_CORE_LIBRARY QuartzCore)
 endif()
 
 include_directories("${CMAKE_SOURCE_DIR}")
@@ -717,7 +718,7 @@ if(ANDROID)
 		Common/GL/GLInterfaceBase.h
 	)
 
-	set(nativeExtra ${nativeExtra}
+	set(NativeAppSource ${NativeAppSource}
 		ext/native/base/NativeApp.h
 		android/jni/app-android.cpp
 		android/jni/AndroidEGLContext.cpp
@@ -744,6 +745,10 @@ elseif(IOS)
 		ios/ViewController.h
 		ios/iOSCoreAudio.mm
 		ios/iOSCoreAudio.h
+		ios/CameraHelper.mm
+		ios/CameraHelper.h
+		ios/LocationHelper.mm
+		ios/LocationHelper.h
 		ios/PPSSPPUIApplication.h
 		ios/PPSSPPUIApplication.mm
 		ios/SmartKeyboardMap.cpp
@@ -754,7 +759,7 @@ elseif(IOS)
 		ios/iCade/iCadeReaderView.m
 		ios/iCade/iCadeState.h
 	)
-	set(nativeExtraLibs ${nativeExtraLibs} "-framework Foundation -framework MediaPlayer -framework AudioToolbox -framework CoreGraphics -framework QuartzCore -framework UIKit -framework GLKit -framework OpenAL -framework AVFoundation")
+	set(nativeExtraLibs ${nativeExtraLibs} "-framework Foundation -framework MediaPlayer -framework AudioToolbox -framework CoreGraphics -framework QuartzCore -framework UIKit -framework GLKit -framework OpenAL -framework AVFoundation -framework CoreLocation -framework CoreVideo -framework CoreMedia" )
 	if(EXISTS "${CMAKE_IOS_SDK_ROOT}/System/Library/Frameworks/GameController.framework")
 		set(nativeExtraLibs ${nativeExtraLibs} "-weak_framework GameController")
 	endif()
@@ -769,15 +774,13 @@ elseif(IOS)
 	set_source_files_properties(ios/PPSSPPUIApplication.mm PROPERTIES COMPILE_FLAGS -fobjc-arc)
 	set_source_files_properties(ios/iCade/iCadeReaderView.m PROPERTIES COMPILE_FLAGS -fobjc-arc)
 	set_source_files_properties(ios/main.mm PROPERTIES COMPILE_FLAGS -fobjc-arc)
-
+	set_source_files_properties(ios/CameraHelper.mm PROPERTIES COMPILE_FLAGS -fobjc-arc)
+	set_source_files_properties(ios/LocationHelper.mm PROPERTIES COMPILE_FLAGS -fobjc-arc)
 
 	set(TargetBin PPSSPP)
 elseif(USING_QT_UI)
 	set(CMAKE_AUTOMOC ON)
-	find_package(Qt5 COMPONENTS OpenGL Gui Core)
-	if(NOT SDL2_FOUND)
-		find_package(Qt5 COMPONENTS Multimedia)
-	endif(NOT SDL2_FOUND)
+	find_package(Qt5 COMPONENTS OpenGL Gui Core Multimedia)
 	list(APPEND NativeAppSource
 		Qt/QtMain.cpp
 		Qt/QtMain.h
@@ -791,7 +794,7 @@ elseif(USING_QT_UI)
 		add_definitions(-DQT_OPENGL_ES -DQT_OPENGL_ES_2)
 	endif()
 	include_directories(${CMAKE_CURRENT_BINARY_DIR} Qt)
-	set(nativeExtraLibs ${nativeExtraLibs} Qt5::OpenGL Qt5::Gui Qt5::Core)
+	set(nativeExtraLibs ${nativeExtraLibs} Qt5::OpenGL Qt5::Gui Qt5::Core Qt5::Multimedia)
 	set(TargetBin PPSSPPQt)
 
 	# Enable SDL if found
@@ -802,8 +805,6 @@ elseif(USING_QT_UI)
 			SDL/SDLJoystick.cpp
 		)
 		set(nativeExtraLibs ${nativeExtraLibs} SDL2::SDL2)
-	else(SDL2_FOUND)
-		set(nativeExtraLibs ${nativeExtraLibs} Qt5::Multimedia)
 	endif()
 
 elseif(WIN32)
@@ -828,8 +829,8 @@ elseif(TARGET SDL2::SDL2)
 	)
 	set(nativeExtraLibs ${nativeExtraLibs} SDL2::SDL2)
 	if(APPLE)
-		set(nativeExtra ${nativeExtra} SDL/SDLMain.h SDL/SDLMain.mm)
-		set(nativeExtraLibs ${nativeExtraLibs} ${COCOA_LIBRARY})
+		set(nativeExtra ${nativeExtra} SDL/SDLMain.h SDL/SDLMain.mm SDL/SDLCocoaMetalLayer.h SDL/SDLCocoaMetalLayer.mm)
+		set(nativeExtraLibs ${nativeExtraLibs} ${COCOA_LIBRARY} ${QUARTZ_CORE_LIBRARY})
 	elseif(USING_EGL)
 		set(nativeExtraLibs ${nativeExtraLibs} pthread)
 	endif()
@@ -879,7 +880,10 @@ if(ANDROID)
 	elseif(ARM64)
 		set(NativeAppSource ${NativeAppSource} android/jni/Arm64EmitterTest.cpp)
 	endif()
-	set(nativeExtra ${nativeExtra} ${NativeAppSource})
+
+	if (NOT LIBRETRO)
+		set(nativeExtra ${nativeExtra} ${NativeAppSource})
+	endif()
 endif()
 
 set(THIN3D_PLATFORMS ext/native/thin3d/thin3d_gl.cpp
@@ -1668,6 +1672,8 @@ add_library(${CoreLibName} ${CoreLinkType}
 	Core/HW/SimpleAudioDec.h
 	Core/HW/AsyncIOManager.cpp
 	Core/HW/AsyncIOManager.h
+	Core/HW/Camera.cpp
+	Core/HW/Camera.h
 	Core/HW/MediaEngine.cpp
 	Core/HW/MediaEngine.h
 	Core/HW/MpegDemux.cpp
@@ -1864,6 +1870,9 @@ set(WindowsFiles
 	Windows/GEDebugger/GEDebugger.h
 	Windows/GEDebugger/TabDisplayLists.h
 	Windows/GEDebugger/TabVertices.h
+	Windows/BufferLock.h
+	Windows/CaptureDevice.cpp
+	Windows/CaptureDevice.h
 	Windows/DinputDevice.cpp
 	Windows/DinputDevice.h
 	Windows/DSoundStream.cpp
@@ -1917,7 +1926,7 @@ set(WindowsFiles
 list(APPEND LinkCommon ${CoreLibName} ${CMAKE_THREAD_LIBS_INIT})
 
 if(WIN32)
-	list(APPEND LinkCommon kernel32 user32 gdi32 shell32 comctl32 dsound xinput d3d9 winmm dinput8 ole32 winspool ksuser)
+	list(APPEND LinkCommon kernel32 user32 gdi32 shell32 comctl32 dsound xinput d3d9 winmm dinput8 ole32 winspool ksuser mf mfplat mfreadwrite mfuuid shlwapi)
 	#setup_target_project(${TargetBin} Windows)
 	list(APPEND NativeAppSource ${WindowsFiles})
 endif()
@@ -1951,7 +1960,7 @@ if(HEADLESS)
 		headless/SDLHeadlessHost.cpp
 		headless/SDLHeadlessHost.h
 	)
-	target_link_libraries(PPSSPPHeadless ${COCOA_LIBRARY} ${LinkCommon})
+	target_link_libraries(PPSSPPHeadless ${COCOA_LIBRARY} ${QUARTZ_CORE_LIBRARY} ${LinkCommon})
 	setup_target_project(PPSSPPHeadless headless)
 endif()
 
@@ -1966,7 +1975,7 @@ if(UNITTEST)
 		Core/MIPS/ARM/ArmRegCache.cpp
 		Core/MIPS/ARM/ArmRegCacheFPU.cpp
 	)
-	target_link_libraries(unitTest ${COCOA_LIBRARY} ${LinkCommon} Common)
+	target_link_libraries(unitTest ${COCOA_LIBRARY} ${QUARTZ_CORE_LIBRARY} ${LinkCommon} Common)
 	setup_target_project(unitTest unittest)
 endif()
 
@@ -2003,6 +2012,8 @@ if(TargetBin)
 			add_executable(${TargetBin} MACOSX_BUNDLE ${ICON_PATH_ABS} ${NativeAssets} ${SHADER_FILES} ${FLASH0_FILES} ${LANG_FILES} ${NativeAppSource})
 			if(TARGET SDL2::SDL2 AND NOT USING_QT_UI)
 				add_custom_command(TARGET ${TargetBin} POST_BUILD COMMAND /bin/bash "${CMAKE_SOURCE_DIR}/SDL/macbundle.sh" "${CMAKE_BINARY_DIR}/PPSSPPSDL.app")
+			elseif(USING_QT_UI)
+				add_custom_command(TARGET ${TargetBin} POST_BUILD COMMAND /bin/bash "${CMAKE_SOURCE_DIR}/Qt/macbundle.sh" "${CMAKE_BINARY_DIR}/PPSSPPQt.app")
 			endif()
 		endif()
 	elseif(WIN32)

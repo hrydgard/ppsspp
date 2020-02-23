@@ -38,13 +38,15 @@
 #include "util/text/utf8.h"
 #include "Core/Config.h"
 #include "Core/ConfigValues.h"
+#include "Core/HW/Camera.h"
 
 #include <string.h>
 
 MainUI *emugl = nullptr;
-static int refreshRate = 60000;
+static float refreshRate = 60.f;
 static int browseFileEvent = -1;
 static int browseFolderEvent = -1;
+QTCamera *qtcamera = nullptr;
 
 #ifdef SDL
 static SDL_AudioDeviceID audioDev = 0;
@@ -108,7 +110,7 @@ std::string System_GetProperty(SystemProperty prop) {
 #elif defined(_WIN32)
 		return "Qt:Windows";
 #elif defined(Q_OS_MAC)
-		return "Qt:Mac";
+		return "Qt:macOS";
 #else
 		return "Qt";
 #endif
@@ -145,8 +147,6 @@ int System_GetPropertyInt(SystemProperty prop) {
 	switch (prop) {
 	case SYSPROP_AUDIO_SAMPLE_RATE:
 		return 44100;
-	case SYSPROP_DISPLAY_REFRESH_RATE:
-		return refreshRate;
 	case SYSPROP_DEVICE_TYPE:
 #if defined(__ANDROID__)
 		return DEVICE_TYPE_MOBILE;
@@ -159,6 +159,21 @@ int System_GetPropertyInt(SystemProperty prop) {
 #else
 		return DEVICE_TYPE_DESKTOP;
 #endif
+	case SYSPROP_DISPLAY_COUNT:
+		return QApplication::screens().size();
+	default:
+		return -1;
+	}
+}
+
+float System_GetPropertyFloat(SystemProperty prop) {
+	switch (prop) {
+	case SYSPROP_DISPLAY_REFRESH_RATE:
+		return refreshRate;
+	case SYSPROP_DISPLAY_LOGICAL_DPI:
+		return QApplication::primaryScreen()->logicalDotsPerInch();
+	case SYSPROP_DISPLAY_DPI:
+		return QApplication::primaryScreen()->physicalDotsPerInch();
 	default:
 		return -1;
 	}
@@ -191,6 +206,14 @@ void System_SendMessage(const char *command, const char *parameter) {
 	} else if (!strcmp(command, "graphics_restart")) {
 		// Should find a way to properly restart the app.
 		qApp->exit(0);
+	} else if (!strcmp(command, "camera_command")) {
+		if (!strncmp(parameter, "startVideo", 10)) {
+			int width = 0, height = 0;
+			sscanf(parameter, "startVideo_%dx%d", &width, &height);
+			emit(qtcamera->onStartCamera(width, height));
+		} else if (!strcmp(parameter, "stopVideo")) {
+			emit(qtcamera->onStopCamera());
+		}
 	} else if (!strcmp(command, "setclipboardtext")) {
 		QApplication::clipboard()->setText(parameter);
 #if defined(SDL)
@@ -227,16 +250,6 @@ void OpenDirectory(const char *path) {
 void LaunchBrowser(const char *url)
 {
 	QDesktopServices::openUrl(QUrl(url));
-}
-
-float CalculateDPIScale()
-{
-	// Sane default rather than check DPI
-#if defined(USING_GLES2)
-	return 1.2f;
-#else
-	return 1.0f;
-#endif
 }
 
 static int mainInternal(QApplication &a) {
@@ -468,7 +481,7 @@ bool MainUI::event(QEvent *e) {
 			}
 			break;
 		} else if (e->type() == browseFolderEvent) {
-			I18NCategory *mm = GetI18NCategory("MainMenu");
+			auto mm = GetI18NCategory("MainMenu");
 			QString fileName = QFileDialog::getExistingDirectory(nullptr, mm->T("Choose folder"), g_Config.currentDirectory.c_str());
 			if (QDir(fileName).exists()) {
 				NativeMessageReceived("browse_folderSelect", fileName.toStdString().c_str());
@@ -603,6 +616,14 @@ void MainAudio::timerEvent(QTimerEvent *) {
 #endif
 
 
+void QTCamera::startCamera(int width, int height) {
+	__qt_startCapture(width, height);
+}
+
+void QTCamera::stopCamera() {
+	__qt_stopCapture();
+}
+
 #ifndef SDL
 Q_DECL_EXPORT
 #endif
@@ -628,19 +649,26 @@ int main(int argc, char *argv[])
 	QGLFormat::setDefaultFormat(format);
 
 	QApplication a(argc, argv);
-	QSize res = QApplication::desktop()->screenGeometry().size();
+	QScreen* screen = a.primaryScreen();
+	QSizeF res = screen->physicalSize();
+
 	if (res.width() < res.height())
 		res.transpose();
 	pixel_xres = res.width();
 	pixel_yres = res.height();
-	g_dpi_scale_x = CalculateDPIScale();
-	g_dpi_scale_y = CalculateDPIScale();
+
+	g_dpi_scale_x = screen->logicalDotsPerInchX() / screen->physicalDotsPerInchX();
+	g_dpi_scale_y = screen->logicalDotsPerInchY() / screen->physicalDotsPerInchY();
 	g_dpi_scale_real_x = g_dpi_scale_x;
 	g_dpi_scale_real_y = g_dpi_scale_y;
 	dp_xres = (int)(pixel_xres * g_dpi_scale_x);
 	dp_yres = (int)(pixel_yres * g_dpi_scale_y);
 
-	refreshRate = (int)(a.primaryScreen()->refreshRate() * 1000);
+	refreshRate = screen->refreshRate();
+
+	qtcamera = new QTCamera;
+	QObject::connect(qtcamera, SIGNAL(onStartCamera(int, int)), qtcamera, SLOT(startCamera(int, int)));
+	QObject::connect(qtcamera, SIGNAL(onStopCamera()),  qtcamera, SLOT(stopCamera()));
 
 	std::string savegame_dir = ".";
 	std::string external_dir = ".";
@@ -669,4 +697,3 @@ int main(int argc, char *argv[])
 	glslang::FinalizeProcess();
 	return ret;
 }
-

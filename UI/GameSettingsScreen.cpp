@@ -58,6 +58,7 @@
 #include "Core/Reporting.h"
 #include "Core/TextureReplacer.h"
 #include "Core/WebServer.h"
+#include "Core/HLE/sceUsbCam.h"
 #include "GPU/Common/PostShader.h"
 #include "android/jni/TestRunner.h"
 #include "GPU/GPUInterface.h"
@@ -113,7 +114,7 @@ bool DoesBackendSupportHWTess() {
 }
 
 static std::string PostShaderTranslateName(const char *value) {
-	I18NCategory *ps = GetI18NCategory("PostShaders");
+	auto ps = GetI18NCategory("PostShaders");
 	const ShaderInfo *info = GetPostShaderInfo(value);
 	if (info) {
 		return ps->T(value, info ? info->name.c_str() : value);
@@ -152,16 +153,16 @@ void GameSettingsScreen::CreateViews() {
 	// Scrolling action menu to the right.
 	using namespace UI;
 
-	I18NCategory *di = GetI18NCategory("Dialog");
-	I18NCategory *gr = GetI18NCategory("Graphics");
-	I18NCategory *co = GetI18NCategory("Controls");
-	I18NCategory *a = GetI18NCategory("Audio");
-	I18NCategory *sa = GetI18NCategory("Savedata");
-	I18NCategory *sy = GetI18NCategory("System");
-	I18NCategory *n = GetI18NCategory("Networking");
-	I18NCategory *ms = GetI18NCategory("MainSettings");
-	I18NCategory *dev = GetI18NCategory("Developer");
-	I18NCategory *ri = GetI18NCategory("RemoteISO");
+	auto di = GetI18NCategory("Dialog");
+	auto gr = GetI18NCategory("Graphics");
+	auto co = GetI18NCategory("Controls");
+	auto a = GetI18NCategory("Audio");
+	auto sa = GetI18NCategory("Savedata");
+	auto sy = GetI18NCategory("System");
+	auto n = GetI18NCategory("Networking");
+	auto ms = GetI18NCategory("MainSettings");
+	auto dev = GetI18NCategory("Developer");
+	auto ri = GetI18NCategory("RemoteISO");
 
 	root_ = new AnchorLayout(new LayoutParams(FILL_PARENT, FILL_PARENT));
 
@@ -267,6 +268,13 @@ void GameSettingsScreen::CreateViews() {
 			softwareGPU->SetEnabled(false);
 	}
 
+	std::vector<std::string> cameraList = Camera::getDeviceList();
+	if (cameraList.size() >= 1) {
+		graphicsSettings->Add(new ItemHeader(gr->T("Camera")));
+		PopupMultiChoiceDynamic *cameraChoice = graphicsSettings->Add(new PopupMultiChoiceDynamic(&g_Config.sCameraDevice, gr->T("Camera Device"), cameraList, nullptr, screenManager()));
+		cameraChoice->OnChoice.Handle(this, &GameSettingsScreen::OnCameraDeviceChange);
+	}
+
 	graphicsSettings->Add(new ItemHeader(gr->T("Frame Rate Control")));
 	static const char *frameSkip[] = { "Off", "1", "2", "3", "4", "5", "6", "7", "8" };
 	graphicsSettings->Add(new PopupMultiChoice(&g_Config.iFrameSkip, gr->T("Frame Skipping"), frameSkip, 0, ARRAY_SIZE(frameSkip), gr->GetName(), screenManager()));
@@ -289,7 +297,7 @@ void GameSettingsScreen::CreateViews() {
 	graphicsSettings->Add(new ItemHeader(gr->T("Features")));
 	// Hide postprocess option on unsupported backends to avoid confusion.
 	if (GetGPUBackend() != GPUBackend::DIRECT3D9) {
-		I18NCategory *ps = GetI18NCategory("PostShaders");
+		auto ps = GetI18NCategory("PostShaders");
 		postProcChoice_ = graphicsSettings->Add(new ChoiceWithValueDisplay(&g_Config.sPostShaderName, gr->T("Postprocessing Shader"), &PostShaderTranslateName));
 		postProcChoice_->OnClick.Handle(this, &GameSettingsScreen::OnPostProcShader);
 		postProcEnable_ = !g_Config.bSoftwareRendering && (g_Config.iRenderingMode != FB_NON_BUFFERED_MODE);
@@ -812,13 +820,12 @@ void GameSettingsScreen::CreateViews() {
 	SavePathInOtherChoice = systemSettings->Add(new CheckBox(&otherinstalled_, sy->T("Save path in installed.txt", "Save path in installed.txt")));
 	SavePathInOtherChoice->SetEnabled(false);
 	SavePathInOtherChoice->OnClick.Handle(this, &GameSettingsScreen::OnSavePathOther);
-	wchar_t myDocumentsPath[MAX_PATH];
-	const HRESULT result = SHGetFolderPath(NULL, CSIDL_PERSONAL, NULL, SHGFP_TYPE_CURRENT, myDocumentsPath);
+	const bool myDocsExists = W32Util::UserDocumentsPath().size() != 0;
 	const std::string PPSSPPpath = File::GetExeDirectory();
 	const std::string installedFile = PPSSPPpath + "installed.txt";
 	installed_ = File::Exists(installedFile);
 	otherinstalled_ = false;
-	if (!installed_ && result == S_OK) {
+	if (!installed_ && myDocsExists) {
 		if (File::CreateEmptyFile(PPSSPPpath + "installedTEMP.txt")) {
 			// Disable the setting whether cannot create & delete file
 			if (!(File::Delete(PPSSPPpath + "installedTEMP.txt")))
@@ -828,7 +835,7 @@ void GameSettingsScreen::CreateViews() {
 		} else
 			SavePathInMyDocumentChoice->SetEnabled(false);
 	} else {
-		if (installed_ && (result == S_OK)) {
+		if (installed_ && myDocsExists) {
 #ifdef _MSC_VER
 			std::ifstream inputFile(ConvertUTF8ToWString(installedFile));
 #else
@@ -848,8 +855,9 @@ void GameSettingsScreen::CreateViews() {
 				}
 			}
 			inputFile.close();
-		} else if (result != S_OK)
+		} else if (!myDocsExists) {
 			SavePathInMyDocumentChoice->SetEnabled(false);
+		}
 	}
 #endif
 
@@ -941,7 +949,7 @@ void RecreateActivity() {
 		System_SendMessage("recreate", "");
 		ILOG("Got back from recreate");
 	} else {
-		I18NCategory *gr = GetI18NCategory("Graphics");
+		auto gr = GetI18NCategory("Graphics");
 		System_SendMessage("toast", gr->T("Must Restart", "You must restart PPSSPP for this change to take effect"));
 	}
 }
@@ -988,7 +996,7 @@ UI::EventReturn GameSettingsScreen::OnJitAffectingSetting(UI::EventParams &e) {
 #if PPSSPP_PLATFORM(ANDROID)
 
 UI::EventReturn GameSettingsScreen::OnChangeMemStickDir(UI::EventParams &e) {
-	I18NCategory *sy = GetI18NCategory("System");
+	auto sy = GetI18NCategory("System");
 	System_SendMessage("inputbox", (std::string(sy->T("Memory Stick Folder")) + ":" + g_Config.memStickDirectory).c_str());
 	return UI::EVENT_DONE;
 }
@@ -1003,26 +1011,20 @@ UI::EventReturn GameSettingsScreen::OnSavePathMydoc(UI::EventParams &e) {
 		File::Delete(PPSSPPpath + "installed.txt");
 		File::CreateEmptyFile(PPSSPPpath + "installed.txt");
 		otherinstalled_ = false;
-		wchar_t myDocumentsPath[MAX_PATH];
-		const HRESULT result = SHGetFolderPath(NULL, CSIDL_PERSONAL, NULL, SHGFP_TYPE_CURRENT, myDocumentsPath);
-		const std::string myDocsPath = ConvertWStringToUTF8(myDocumentsPath) + "/PPSSPP/";
+		const std::string myDocsPath = W32Util::UserDocumentsPath() + "/PPSSPP/";
 		g_Config.memStickDirectory = myDocsPath;
-	}
-	else if (installed_) {
+	} else if (installed_) {
 		File::Delete(PPSSPPpath + "installed.txt");
 		installed_ = false;
 		g_Config.memStickDirectory = PPSSPPpath + "memstick/";
-	}
-	else {
+	} else {
 		std::ofstream myfile;
 		myfile.open(PPSSPPpath + "installed.txt");
 		if (myfile.is_open()){
 			myfile.close();
 		}
 
-		wchar_t myDocumentsPath[MAX_PATH];
-		const HRESULT result = SHGetFolderPath(NULL, CSIDL_PERSONAL, NULL, SHGFP_TYPE_CURRENT, myDocumentsPath);
-		const std::string myDocsPath = ConvertWStringToUTF8(myDocumentsPath) + "/PPSSPP/";
+		const std::string myDocsPath = W32Util::UserDocumentsPath() + "/PPSSPP/";
 		g_Config.memStickDirectory = myDocsPath;
 		installed_ = true;
 	}
@@ -1032,7 +1034,7 @@ UI::EventReturn GameSettingsScreen::OnSavePathMydoc(UI::EventParams &e) {
 UI::EventReturn GameSettingsScreen::OnSavePathOther(UI::EventParams &e) {
 	const std::string PPSSPPpath = File::GetExeDirectory();
 	if (otherinstalled_) {
-		I18NCategory *di = GetI18NCategory("Dialog");
+		auto di = GetI18NCategory("Dialog");
 		std::string folder = W32Util::BrowseForFolder(MainWindow::GetHWND(), di->T("Choose PPSSPP save folder"));
 		if (folder.size()) {
 			g_Config.memStickDirectory = folder;
@@ -1162,8 +1164,8 @@ void GameSettingsScreen::onFinish(DialogResult result) {
 void GameSettingsScreen::sendMessage(const char *message, const char *value) {
 	UIDialogScreenWithGameBackground::sendMessage(message, value);
 
-	I18NCategory *sy = GetI18NCategory("System");
-	I18NCategory *di = GetI18NCategory("Dialog");
+	auto sy = GetI18NCategory("System");
+	auto di = GetI18NCategory("Dialog");
 
 	if (!strcmp(message, "inputbox_completed")) {
 		std::vector<std::string> inputboxValue;
@@ -1198,7 +1200,7 @@ void GameSettingsScreen::sendMessage(const char *message, const char *value) {
 
 #if PPSSPP_PLATFORM(ANDROID)
 void GameSettingsScreen::CallbackMemstickFolder(bool yes) {
-	I18NCategory *sy = GetI18NCategory("System");
+	auto sy = GetI18NCategory("System");
 
 	if (yes) {
 		std::string memstickDirFile = g_Config.internalDataDirectory + "/memstick_dir.txt";
@@ -1254,7 +1256,7 @@ void GameSettingsScreen::CallbackRenderingDevice(bool yes) {
 }
 
 UI::EventReturn GameSettingsScreen::OnRenderingBackend(UI::EventParams &e) {
-	I18NCategory *di = GetI18NCategory("Dialog");
+	auto di = GetI18NCategory("Dialog");
 
 	// It only makes sense to show the restart prompt if the backend was actually changed.
 	if (g_Config.iGPUBackend != (int)GetGPUBackend()) {
@@ -1265,7 +1267,7 @@ UI::EventReturn GameSettingsScreen::OnRenderingBackend(UI::EventParams &e) {
 }
 
 UI::EventReturn GameSettingsScreen::OnRenderingDevice(UI::EventParams &e) {
-	I18NCategory *di = GetI18NCategory("Dialog");
+	auto di = GetI18NCategory("Dialog");
 
 	// It only makes sense to show the restart prompt if the device was actually changed.
 	std::string *deviceNameSetting = GPUDeviceNameSetting();
@@ -1276,8 +1278,13 @@ UI::EventReturn GameSettingsScreen::OnRenderingDevice(UI::EventParams &e) {
 	return UI::EVENT_DONE;
 }
 
+UI::EventReturn GameSettingsScreen::OnCameraDeviceChange(UI::EventParams& e) {
+	Camera::onCameraDeviceChange();
+	return UI::EVENT_DONE;
+}
+
 UI::EventReturn GameSettingsScreen::OnAudioDevice(UI::EventParams &e) {
-	I18NCategory *a = GetI18NCategory("Audio");
+	auto a = GetI18NCategory("Audio");
 	if (g_Config.sAudioDevice == a->T("Auto")) {
 		g_Config.sAudioDevice.clear();
 	}
@@ -1303,7 +1310,7 @@ UI::EventReturn GameSettingsScreen::OnChangeNickname(UI::EventParams &e) {
 }
 
 UI::EventReturn GameSettingsScreen::OnChangeproAdhocServerAddress(UI::EventParams &e) {
-	I18NCategory *sy = GetI18NCategory("System");
+	auto sy = GetI18NCategory("System");
 
 #if defined(__ANDROID__)
 	System_SendMessage("inputbox", ("IP:" + g_Config.proAdhocServer).c_str());
@@ -1326,7 +1333,7 @@ UI::EventReturn GameSettingsScreen::OnComboKey(UI::EventParams &e) {
 }
 
 UI::EventReturn GameSettingsScreen::OnLanguage(UI::EventParams &e) {
-	I18NCategory *dev = GetI18NCategory("Developer");
+	auto dev = GetI18NCategory("Developer");
 	auto langScreen = new NewLanguageScreen(dev->T("Language"));
 	langScreen->OnChoice.Handle(this, &GameSettingsScreen::OnLanguageChange);
 	if (e.v)
@@ -1345,7 +1352,7 @@ UI::EventReturn GameSettingsScreen::OnLanguageChange(UI::EventParams &e) {
 }
 
 UI::EventReturn GameSettingsScreen::OnPostProcShader(UI::EventParams &e) {
-	I18NCategory *gr = GetI18NCategory("Graphics");
+	auto gr = GetI18NCategory("Graphics");
 	auto procScreen = new PostProcScreen(gr->T("Postprocessing Shader"));
 	procScreen->OnChoice.Handle(this, &GameSettingsScreen::OnPostProcShaderChange);
 	if (e.v)
@@ -1414,11 +1421,11 @@ void DeveloperToolsScreen::CreateViews() {
 	settingsScroll->SetTag("DevToolsSettings");
 	root_->Add(settingsScroll);
 
-	I18NCategory *di = GetI18NCategory("Dialog");
-	I18NCategory *dev = GetI18NCategory("Developer");
-	I18NCategory *gr = GetI18NCategory("Graphics");
-	I18NCategory *a = GetI18NCategory("Audio");
-	I18NCategory *sy = GetI18NCategory("System");
+	auto di = GetI18NCategory("Dialog");
+	auto dev = GetI18NCategory("Developer");
+	auto gr = GetI18NCategory("Graphics");
+	auto a = GetI18NCategory("Audio");
+	auto sy = GetI18NCategory("System");
 
 	AddStandardBack(root_);
 
@@ -1491,9 +1498,10 @@ void OtherSettingsScreen::CreateViews() {
 	settingsScroll->SetTag("OtherSettings");
 	root_->Add(settingsScroll);
 
-	I18NCategory *gr = GetI18NCategory("Graphics");
-	I18NCategory *sy = GetI18NCategory("System");
-	I18NCategory *n = GetI18NCategory("Networking");
+	auto gr = GetI18NCategory("Graphics");
+	auto sy = GetI18NCategory("System");
+	auto n = GetI18NCategory("Networking");
+	auto dev = GetI18NCategory("Developer");
 
 	AddStandardBack(root_);
 
@@ -1508,6 +1516,7 @@ void OtherSettingsScreen::CreateViews() {
 	list->Add(new CheckBox(&g_Config.bFrameSkipUnthrottle, gr->T("Frameskip unthrottle(good for CPU benchmark)")));
 	list->Add(new CheckBox(&g_Config.bShowFrameProfiler, gr->T("Display frame profiler(heavy!)")));
 	list->Add(new CheckBox(&g_Config.bSimpleFrameStats, gr->T("Display simple frame stats(heavy!)")));
+	list->Add(new CheckBox(&g_Config.bDrawFrameGraph, dev->T("Draw Frametimes Graph")));
 	list->Add(new CheckBox(&g_Config.bFullscreenOnDoubleclick, gr->T("Doubleclick fullscreen(only when no mouse or touch control is used)")));
 	list->Add(new CheckBox(&g_Config.bHideSlowWarnings, gr->T("Hide performance warnings")));
 	list->Add(new CheckBox(&g_Config.bSavestateScreenshotResLimit, gr->T("Limit resolution of savestates screenshots")));
@@ -1558,8 +1567,8 @@ void GameSettingsScreen::CallbackRestoreDefaults(bool yes) {
 }
 
 UI::EventReturn GameSettingsScreen::OnRestoreDefaultSettings(UI::EventParams &e) {
-	I18NCategory *dev = GetI18NCategory("Developer");
-	I18NCategory *di = GetI18NCategory("Dialog");
+	auto dev = GetI18NCategory("Developer");
+	auto di = GetI18NCategory("Dialog");
 	if (g_Config.bGameSpecific)
 	{
 		screenManager()->push(
@@ -1651,9 +1660,9 @@ void DeveloperToolsScreen::update() {
 
 void HostnameSelectScreen::CreatePopupContents(UI::ViewGroup *parent) {
 	using namespace UI;
-	I18NCategory *sy = GetI18NCategory("System");
-	I18NCategory *di = GetI18NCategory("Dialog");
-	I18NCategory *n = GetI18NCategory("Networking");
+	auto sy = GetI18NCategory("System");
+	auto di = GetI18NCategory("Dialog");
+	auto n = GetI18NCategory("Networking");
 
 	LinearLayout *valueRow = new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, FILL_PARENT, Margins(0, 0, 0, 10)));
 

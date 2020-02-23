@@ -280,7 +280,7 @@ const std::string PSPSaveDialog::GetSelectedSaveDirName() const
 
 void PSPSaveDialog::DisplayBanner(int which)
 {
-	I18NCategory *di = GetI18NCategory("Dialog");
+	auto di = GetI18NCategory("Dialog");
 	PPGeDrawRect(0, 0, 480, 23, CalcFadedColor(0x65636358));
 	const char *title;
 	switch (which)
@@ -394,7 +394,7 @@ void PSPSaveDialog::DisplaySaveDataInfo1()
 {
 	std::lock_guard<std::mutex> guard(paramLock);
 	if (param.GetFileInfo(currentSelectedSave).size == 0) {
-		I18NCategory *di = GetI18NCategory("Dialog");
+		auto di = GetI18NCategory("Dialog");
 		PPGeDrawText(di->T("NEW DATA"), 180, 136, PPGE_ALIGN_VCENTER, 0.6f, CalcFadedColor(0xFFFFFFFF));
 	} else {
 		char title[512];
@@ -539,7 +539,7 @@ void PSPSaveDialog::DisplayMessage(std::string text, bool hasYesNo)
 	float h2 = h * (float)n / 2.0f;
 	if (hasYesNo)
 	{
-		I18NCategory *di = GetI18NCategory("Dialog");
+		auto di = GetI18NCategory("Dialog");
 		const char *choiceText;
 		u32 yesColor, noColor;
 		float x, w;
@@ -621,7 +621,7 @@ int PSPSaveDialog::Update(int animSpeed)
 		cancelButtonFlag = CTRL_CIRCLE;
 	}
 
-	I18NCategory *di = GetI18NCategory("Dialog");
+	auto di = GetI18NCategory("Dialog");
 
 	switch (display)
 	{

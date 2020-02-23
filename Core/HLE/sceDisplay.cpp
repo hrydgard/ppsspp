@@ -153,6 +153,12 @@ static double fpsHistory[120];
 static int fpsHistorySize = (int)ARRAY_SIZE(fpsHistory);
 static int fpsHistoryPos = 0;
 static int fpsHistoryValid = 0;
+static double frameTimeHistory[600];
+static double frameSleepHistory[600];
+static const int frameTimeHistorySize = (int)ARRAY_SIZE(frameTimeHistory);
+static int frameTimeHistoryPos = 0;
+static int frameTimeHistoryValid = 0;
+static double lastFrameTimeHistory = 0.0;
 static double monitorFpsUntil = 0.0;
 static int lastNumFlips = 0;
 static float flips = 0.0f;
@@ -235,6 +241,9 @@ void __DisplayInit() {
 	lastNumFlips = 0;
 	fpsHistoryValid = 0;
 	fpsHistoryPos = 0;
+	frameTimeHistoryValid = 0;
+	frameTimeHistoryPos = 0;
+	lastFrameTimeHistory = 0.0;
 
 	__KernelRegisterWaitTypeFuncs(WAITTYPE_VBLANK, __DisplayVblankBeginCallback, __DisplayVblankEndCallback);
 }
@@ -435,8 +444,7 @@ static bool IsRunningSlow() {
 			best = std::max(fpsHistory[index], best);
 		}
 
-		// Note that SYSPROP_DISPLAY_REFRESH_RATE is multiplied by 1000.
-		return best < System_GetPropertyInt(SYSPROP_DISPLAY_REFRESH_RATE) * (1.0 / 1001.0);
+		return best < System_GetPropertyFloat(SYSPROP_DISPLAY_REFRESH_RATE) * 0.999;
 	}
 
 	return false;
@@ -464,6 +472,23 @@ static void CalculateFPS() {
 			++fpsHistoryValid;
 		}
 	}
+
+	if (g_Config.bDrawFrameGraph) {
+		frameTimeHistory[frameTimeHistoryPos++] = now - lastFrameTimeHistory;
+		lastFrameTimeHistory = now;
+		frameTimeHistoryPos = frameTimeHistoryPos % frameTimeHistorySize;
+		if (frameTimeHistoryValid < frameTimeHistorySize) {
+			++frameTimeHistoryValid;
+		}
+		frameSleepHistory[frameTimeHistoryPos] = 0.0;
+	}
+}
+
+double *__DisplayGetFrameTimes(int *out_valid, int *out_pos, double **out_sleep) {
+	*out_valid = frameTimeHistoryValid;
+	*out_pos = frameTimeHistoryPos;
+	*out_sleep = frameSleepHistory;
+	return frameTimeHistory;
 }
 
 void __DisplayGetDebugStats(char *stats, size_t bufsize) {
@@ -510,12 +535,12 @@ static void DoFrameDropLogging(float scaledTimestep) {
 
 static int CalculateFrameSkip() {
 	int frameSkipNum;
-	if (g_Config.iFrameSkipType == 1) { 
+	if (g_Config.iFrameSkipType == 1) {
 		// Calculate the frames to skip dynamically using the set percentage of the current fps
-		frameSkipNum = ceil( flips * (static_cast<double>(g_Config.iFrameSkip) / 100.00) ); 
-	} else { 
+		frameSkipNum = ceil( flips * (static_cast<double>(g_Config.iFrameSkip) / 100.00) );
+	} else {
 		// Use the set number of frames to skip
-		frameSkipNum = g_Config.iFrameSkip; 
+		frameSkipNum = g_Config.iFrameSkip;
 	}
 	return frameSkipNum;
 }
@@ -616,7 +641,8 @@ static void DoFrameIdleTiming() {
 
 	time_update();
 
-	double dist = time_now_d() - lastFrameTime;
+	double before = time_now_d();
+	double dist = before - lastFrameTime;
 	// Ignore if the distance is just crazy.  May mean wrap or pause.
 	if (dist < 0.0 || dist >= 15 * timePerVblank) {
 		return;
@@ -634,7 +660,7 @@ static void DoFrameIdleTiming() {
 	// This prevents fast forward during loading screens.
 	// Give a little extra wiggle room in case the next vblank does more work.
 	const double goal = lastFrameTime + (numVBlanksSinceFlip - 1) * scaledVblank - 0.001;
-	if (numVBlanksSinceFlip >= 2 && time_now_d() < goal) {
+	if (numVBlanksSinceFlip >= 2 && before < goal) {
 		while (time_now_d() < goal) {
 #ifdef _WIN32
 			sleep_ms(1);
@@ -643,6 +669,10 @@ static void DoFrameIdleTiming() {
 			usleep((long)(left * 1000000));
 #endif
 			time_update();
+		}
+
+		if (g_Config.bDrawFrameGraph) {
+			frameSleepHistory[frameTimeHistoryPos] += time_now_d() - before;
 		}
 	}
 }
@@ -714,6 +744,7 @@ void __DisplayFlip(int cyclesLate) {
 		postEffectRequiresFlip = shaderInfo->requires60fps;
 	const bool fbDirty = gpu->FramebufferDirty();
 	if (fbDirty || noRecentFlip || postEffectRequiresFlip) {
+		int frameSleepPos = frameTimeHistoryPos;
 		CalculateFPS();
 
 		// Let the user know if we're running slow, so they know to adjust settings.
@@ -721,7 +752,7 @@ void __DisplayFlip(int cyclesLate) {
 		static bool hasNotifiedSlow = false;
 		if (!g_Config.bHideSlowWarnings && !hasNotifiedSlow && PSP_CoreParameter().fpsLimit == FPSLimit::NORMAL && IsRunningSlow()) {
 #ifndef _DEBUG
-			I18NCategory *err = GetI18NCategory("Error");
+			auto err = GetI18NCategory("Error");
 			if (g_Config.bSoftwareRendering) {
 				host->NotifyUserMessage(err->T("Running slow: Try turning off Software Rendering"), 6.0f, 0xFF30D0D0);
 			} else {
@@ -775,6 +806,11 @@ void __DisplayFlip(int cyclesLate) {
 
 		CoreTiming::ScheduleEvent(0 - cyclesLate, afterFlipEvent, 0);
 		numVBlanksSinceFlip = 0;
+
+		if (g_Config.bDrawFrameGraph) {
+			// Track how long we sleep (whether vsync or sleep_ms.)
+			frameSleepHistory[frameSleepPos] += real_time_now() - lastFrameTimeHistory;
+		}
 	} else {
 		// Okay, there's no new frame to draw.  But audio may be playing, so we need to time still.
 		DoFrameIdleTiming();
@@ -821,6 +857,7 @@ void hleLagSync(u64 userdata, int cyclesLate) {
 
 	const double goal = lastLagSync + (scale / 1000.0f);
 	time_update();
+	double before = time_now_d();
 	// Don't lag too long ever, if they leave it paused.
 	while (time_now_d() < goal && goal < time_now_d() + 0.01) {
 #ifndef _WIN32
@@ -833,6 +870,10 @@ void hleLagSync(u64 userdata, int cyclesLate) {
 	const int emuOver = (int)cyclesToUs(cyclesLate);
 	const int over = (int)((time_now_d() - goal) * 1000000);
 	ScheduleLagSync(over - emuOver);
+
+	if (g_Config.bDrawFrameGraph) {
+		frameSleepHistory[frameTimeHistoryPos] += time_now_d() - before;
+	}
 }
 
 static u32 sceDisplayIsVblank() {

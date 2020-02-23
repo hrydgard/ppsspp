@@ -240,8 +240,8 @@ void ProductView::CreateViews() {
 	Add(new TextView(entry_.name));
 	Add(new TextView(entry_.author));
 
-	I18NCategory *st = GetI18NCategory("Store");
-	I18NCategory *di = GetI18NCategory("Dialog");
+	auto st = GetI18NCategory("Store");
+	auto di = GetI18NCategory("Dialog");
 	wasInstalled_ = IsGameInstalled();
 	if (!wasInstalled_) {
 		installButton_ = Add(new Button(st->T("Install")));
@@ -431,8 +431,8 @@ void StoreScreen::CreateViews() {
 
 	root_ = new LinearLayout(ORIENT_VERTICAL);
 	
-	I18NCategory *di = GetI18NCategory("Dialog");
-	I18NCategory *st = GetI18NCategory("Store");
+	auto di = GetI18NCategory("Dialog");
+	auto st = GetI18NCategory("Store");
 
 	// Top bar
 	LinearLayout *topBar = root_->Add(new LinearLayout(ORIENT_HORIZONTAL));

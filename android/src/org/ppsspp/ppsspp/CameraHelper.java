@@ -15,6 +15,7 @@ import android.view.WindowManager;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.List;
 
 @TargetApi(23)
@@ -22,8 +23,11 @@ import java.util.List;
 class CameraHelper {
 	private static final String TAG = CameraHelper.class.getSimpleName();
 	private Display mDisplay;
+	private int mTargetWidth = 0;
+	private int mTargetHeight = 0;
 	private Camera mCamera = null;
 	private boolean mIsCameraRunning = false;
+	private int mCameraFacing = 0;
 	private int mCameraOrientation = 0;
 	private Camera.Size mPreviewSize = null;
 	private long mLastFrameTime = 0;
@@ -38,7 +42,11 @@ class CameraHelper {
 			case Surface.ROTATION_180: displayDegrees = 180; break;
 			case Surface.ROTATION_270: displayDegrees = 270; break;
 		}
-		return (mCameraOrientation - displayDegrees + 360) % 360;
+		if (mCameraFacing == Camera.CameraInfo.CAMERA_FACING_FRONT) {
+			return (mCameraOrientation + displayDegrees) % 360;
+		} else {
+			return (mCameraOrientation - displayDegrees + 360) % 360;
+		}
 	}
 
 	static byte[] rotateNV21(final byte[] input, final int inWidth, final int inHeight,
@@ -104,20 +112,16 @@ class CameraHelper {
 			}
 			mLastFrameTime = currentTime;
 
-			// the expected values arrives in sceUsbCamSetupVideo
-			int targetW = 480;
-			int targetH = 272;
-
 			int cameraRotation = getCameraRotation();
 			byte[] newPreviewData = rotateNV21(previewData, mPreviewSize.width, mPreviewSize.height,
-					targetW, targetH, cameraRotation);
-			YuvImage yuvImage = new YuvImage(newPreviewData, ImageFormat.NV21, targetW, targetH, null);
+					mTargetWidth, mTargetHeight, cameraRotation);
+			YuvImage yuvImage = new YuvImage(newPreviewData, ImageFormat.NV21, mTargetWidth, mTargetHeight, null);
 			ByteArrayOutputStream baos = new ByteArrayOutputStream();
 
 			// convert to Jpeg
-			Rect crop = new Rect(0, 0, targetW, targetH);
+			Rect crop = new Rect(0, 0, mTargetWidth, mTargetHeight);
 			yuvImage.compressToJpeg(crop, 80, baos);
-			NativeApp.pushCameraImage(baos.toByteArray());
+			NativeApp.pushCameraImageAndroid(baos.toByteArray());
 			try {
 				baos.close();
 			} catch (IOException e) {
@@ -132,14 +136,34 @@ class CameraHelper {
 		mSurfaceTexture = new SurfaceTexture(10);
 	}
 
+	static ArrayList<String> getDeviceList() {
+		ArrayList<String> deviceList = new ArrayList<>();
+		int nrCam = Camera.getNumberOfCameras();
+		for (int index = 0; index < nrCam; index++) {
+			Camera.CameraInfo info = new Camera.CameraInfo();
+			Camera.getCameraInfo(index, info);
+			String devName = index + ":" + (info.facing == Camera.CameraInfo.CAMERA_FACING_BACK ? "Back Camera" : "Front Camera");
+			deviceList.add(devName);
+		}
+		return deviceList;
+	}
+
+	void setCameraSize(int width, int height) {
+		mTargetWidth = width;
+		mTargetHeight = height;
+	}
+
 	void startCamera() {
-		Log.d(TAG, "startCamera");
 		try {
-			Camera.CameraInfo info = new android.hardware.Camera.CameraInfo();
-			Camera.getCameraInfo(0, info);
+			int cameraId = NativeApp.getSelectedCamera();
+			Log.d(TAG, "startCamera [id=" + cameraId + ", res=" + mTargetWidth + "x" + mTargetHeight + "]");
+
+			Camera.CameraInfo info = new Camera.CameraInfo();
+			Camera.getCameraInfo(cameraId, info);
+			mCameraFacing = info.facing;
 			mCameraOrientation = info.orientation;
 
-			mCamera = Camera.open();
+			mCamera = Camera.open(cameraId);
 			Camera.Parameters param = mCamera.getParameters();
 
 			// Set preview size

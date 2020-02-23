@@ -101,7 +101,7 @@ void Discord::SetPresenceGame(const char *gameTitle) {
 	}
 
 #ifdef ENABLE_DISCORD
-	I18NCategory *sc = GetI18NCategory("Screen");
+	auto sc = GetI18NCategory("Screen");
 
 	DiscordRichPresence discordPresence{};
 	discordPresence.state = gameTitle;
@@ -123,7 +123,7 @@ void Discord::SetPresenceMenu() {
 	}
 
 #ifdef ENABLE_DISCORD
-	I18NCategory *sc = GetI18NCategory("Screen");
+	auto sc = GetI18NCategory("Screen");
 
 	DiscordRichPresence discordPresence{};
 	discordPresence.state = sc->T("In menu");

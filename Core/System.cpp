@@ -23,6 +23,9 @@
 #include <ShlObj.h>
 #include <string>
 #include <codecvt>
+#if !PPSSPP_PLATFORM(UWP)
+#include "Windows/W32Util/ShellUtil.h"
+#endif
 #endif
 
 #include <thread>
@@ -560,14 +563,14 @@ void InitSysDirectories() {
 	// We set g_Config.memStickDirectory outside.
 
 #else
-	wchar_t myDocumentsPath[MAX_PATH];
-	const HRESULT result = SHGetFolderPath(NULL, CSIDL_PERSONAL, NULL, SHGFP_TYPE_CURRENT, myDocumentsPath);
-	const std::string myDocsPath = ConvertWStringToUTF8(myDocumentsPath) + "/PPSSPP/";
+	// Caller sets this to the Documents folder.
+	const std::string rootMyDocsPath = g_Config.internalDataDirectory;
+	const std::string myDocsPath = rootMyDocsPath + "/PPSSPP/";
 	const std::string installedFile = path + "installed.txt";
 	const bool installed = File::Exists(installedFile);
 
 	// If installed.txt exists(and we can determine the Documents directory)
-	if (installed && (result == S_OK))	{
+	if (installed && rootMyDocsPath.size() > 0) {
 #if defined(_WIN32) && defined(__MINGW32__)
 		std::ifstream inputFile(installedFile);
 #else

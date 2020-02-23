@@ -78,8 +78,8 @@ GPUDriverTestScreen::~GPUDriverTestScreen() {
 void GPUDriverTestScreen::CreateViews() {
 	// Don't bother with views for now.
 	using namespace UI;
-	I18NCategory *di = GetI18NCategory("Dialog");
-	I18NCategory *cr = GetI18NCategory("PSPCredits");
+	auto di = GetI18NCategory("Dialog");
+	auto cr = GetI18NCategory("PSPCredits");
 
 	AnchorLayout *anchor = new AnchorLayout();
 	root_ = anchor;

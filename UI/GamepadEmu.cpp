@@ -157,6 +157,19 @@ void FPSLimitButton::Touch(const TouchInput &input) {
 	}
 }
 
+void RapidFireButton::Touch(const TouchInput &input) {
+	bool lastDown = pointerDownMask_ != 0;
+	MultiTouchButton::Touch(input);
+	bool down = pointerDownMask_ != 0;
+	if (down && !lastDown) {
+		__CtrlSetRapidFire(!__CtrlGetRapidFire());
+	}
+}
+
+bool RapidFireButton::IsDown() {
+	return __CtrlGetRapidFire();
+}
+
 bool FPSLimitButton::IsDown() {
 	return PSP_CoreParameter().fpsLimit == limit_;
 }
@@ -510,6 +523,7 @@ void InitPadLayout(float xres, float yres, float globalScale) {
 
 	initTouchPos(g_Config.touchSpeed1Key, unthrottle_key_X, unthrottle_key_Y - 60 * scale);
 	initTouchPos(g_Config.touchSpeed2Key, unthrottle_key_X + bottom_key_spacing * scale, unthrottle_key_Y - 60 * scale);
+	initTouchPos(g_Config.touchRapidFireKey, unthrottle_key_X + 2*bottom_key_spacing * scale, unthrottle_key_Y - 60 * scale);
 
 	// L and R------------------------------------------------------------
 	// Put them above the analog stick / above the buttons to the right.
@@ -631,6 +645,11 @@ UI::ViewGroup *CreatePadLayout(float xres, float yres, bool *pause) {
 			}
 			return UI::EVENT_DONE;
 		});
+	}
+
+	if (g_Config.touchRapidFireKey.show) {
+		auto rapidFire = root->Add(new RapidFireButton(rectImage, I_RECT, I_ARROW, g_Config.touchRapidFireKey.scale, buttonLayoutParams(g_Config.touchRapidFireKey)));
+		rapidFire->SetAngle(90.0f, 180.0f);
 	}
 
 	FPSLimitButton *speed1 = addFPSLimitButton(FPSLimit::CUSTOM1, rectImage, I_RECT, I_ARROW, g_Config.touchSpeed1Key);

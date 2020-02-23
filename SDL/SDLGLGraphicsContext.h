@@ -1,6 +1,4 @@
-#if !defined(__APPLE__)
 #include "SDL_syswm.h"
-#endif
 #include "SDL.h"
 
 #include "thin3d/GLRenderManager.h"

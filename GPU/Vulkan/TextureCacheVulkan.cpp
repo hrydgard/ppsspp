@@ -1127,7 +1127,7 @@ void TextureCacheVulkan::BuildTexture(TexCacheEntry *const entry) {
 			// TODO: We should stall the GPU here and wipe things out of memory.
 			// As is, it will almost definitely fail the second time, but next frame it may recover.
 
-			I18NCategory *err = GetI18NCategory("Error");
+			auto err = GetI18NCategory("Error");
 			if (scaleFactor > 1) {
 				host->NotifyUserMessage(err->T("Warning: Video memory FULL, reducing upscaling and switching to slow caching mode"), 2.0f);
 			} else {

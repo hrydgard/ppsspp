@@ -27,6 +27,8 @@
 #include "Core/Config.h"
 #include "Core/ConfigValues.h"
 #include "Core/System.h"
+#include "Core/HLE/sceUsbCam.h"
+#include "Core/HLE/sceUsbGps.h"
 #include "Common/GraphicsContext.h"
 
 #include <sys/types.h>
@@ -84,6 +86,8 @@ static bool threadStopped = false;
 
 __unsafe_unretained ViewController* sharedViewController;
 static GraphicsContext *graphicsContext;
+static CameraHelper *cameraHelper;
+static LocationHelper *locationHelper;
 
 @interface ViewController () {
 	std::map<uint16_t, uint16_t> iCadeToKeyMap;
@@ -202,6 +206,12 @@ static GraphicsContext *graphicsContext;
 	volume.delegate = self;
 	[self.view addSubview:volume];
 	[self.view bringSubviewToFront:volume];
+
+	cameraHelper = [[CameraHelper alloc] init];
+	[cameraHelper setDelegate:self];
+
+	locationHelper = [[LocationHelper alloc] init];
+	[locationHelper setDelegate:self];
 	
 	dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_HIGH, 0), ^{
 		NativeInitGraphics(graphicsContext);
@@ -666,6 +676,39 @@ static GraphicsContext *graphicsContext;
 	};
 }
 #endif
+
+void setCameraSize(int width, int height) {
+	[cameraHelper setCameraSize: width h:height];
+}
+
+void startVideo() {
+	[cameraHelper startVideo];
+}
+
+void stopVideo() {
+    [cameraHelper stopVideo];
+}
+
+-(void) PushCameraImageIOS:(long long)len buffer:(unsigned char*)data {
+    Camera::pushCameraImage(len, data);
+}
+
+void startLocation() {
+    [locationHelper startLocationUpdates];
+}
+
+void stopLocation() {
+    [locationHelper stopLocationUpdates];
+}
+
+-(void) SetGpsDataIOS:(CLLocation *)newLocation {
+    GPS::setGpsData((long long)newLocation.timestamp.timeIntervalSince1970,
+					newLocation.horizontalAccuracy/5.0,
+					newLocation.coordinate.latitude, newLocation.coordinate.longitude,
+					newLocation.altitude,
+					MAX(newLocation.speed * 3.6, 0.0), /* m/s to km/h */
+					0 /* bearing */);
+}
 
 @end
 

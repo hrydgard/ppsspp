@@ -135,6 +135,7 @@ public:
 	// If not set, will use the "best" device.
 	std::string sVulkanDevice;
 	std::string sD3D11Device;  // Windows only
+	std::string sCameraDevice;
 
 	bool bSoftwareRendering;
 	bool bHardwareTransform; // only used in the GLES backend
@@ -317,6 +318,7 @@ public:
 	ConfigTouchPos touchCombo4;
 	ConfigTouchPos touchSpeed1Key;
 	ConfigTouchPos touchSpeed2Key;
+	ConfigTouchPos touchRapidFireKey;
 
 	// Controls Visibility
 	bool bShowTouchControls;
@@ -416,6 +418,7 @@ public:
 	// Double edged sword: much easier debugging, but not accurate.
 	bool bSkipDeadbeefFilling;
 	bool bFuncHashMap;
+	bool bDrawFrameGraph;
 
 	// Volatile development settings
 	bool bShowFrameProfiler;

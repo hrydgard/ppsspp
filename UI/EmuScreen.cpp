@@ -95,7 +95,7 @@ extern bool g_TakeScreenshot;
 
 static void __EmuScreenVblank()
 {
-	I18NCategory *sy = GetI18NCategory("System");
+	auto sy = GetI18NCategory("System");
 
 	if (frameStep_ && lastNumFlips != gpuStats.numFlips)
 	{
@@ -192,7 +192,7 @@ void EmuScreen::bootGame(const std::string &filename) {
 	if (!bootAllowStorage(filename))
 		return;
 
-	I18NCategory *sc = GetI18NCategory("Screen");
+	auto sc = GetI18NCategory("Screen");
 
 	invalid_ = true;
 
@@ -267,17 +267,17 @@ void EmuScreen::bootGame(const std::string &filename) {
 	}
 
 	if (PSP_CoreParameter().compat.flags().RequireBufferedRendering && g_Config.iRenderingMode == FB_NON_BUFFERED_MODE) {
-		I18NCategory *gr = GetI18NCategory("Graphics");
+		auto gr = GetI18NCategory("Graphics");
 		host->NotifyUserMessage(gr->T("BufferedRenderingRequired", "Warning: This game requires Rendering Mode to be set to Buffered."), 15.0f);
 	}
 
 	if (PSP_CoreParameter().compat.flags().RequireBlockTransfer && g_Config.bBlockTransferGPU == false) {
-		I18NCategory *gr = GetI18NCategory("Graphics");
+		auto gr = GetI18NCategory("Graphics");
 		host->NotifyUserMessage(gr->T("BlockTransferRequired", "Warning: This game requires Simulate Block Transfer Mode to be set to On."), 15.0f);
 	}
 
 	if (PSP_CoreParameter().compat.flags().RequireDefaultCPUClock && g_Config.iLockedCPUSpeed != 0) {
-		I18NCategory *gr = GetI18NCategory("Graphics");
+		auto gr = GetI18NCategory("Graphics");
 		host->NotifyUserMessage(gr->T("DefaultCPUClockRequired", "Warning: This game requires the CPU clock to be set to default."), 15.0f);
 	}
 
@@ -293,7 +293,7 @@ void EmuScreen::bootComplete() {
 	NOTICE_LOG(BOOT, "Loading %s...", PSP_CoreParameter().fileToStart.c_str());
 	autoLoad();
 
-	I18NCategory *sc = GetI18NCategory("Screen");
+	auto sc = GetI18NCategory("Screen");
 
 #ifndef MOBILE_DEVICE
 	if (g_Config.bFirstRun) {
@@ -318,7 +318,7 @@ void EmuScreen::bootComplete() {
 #endif
 
 	if (Core_GetPowerSaving()) {
-		I18NCategory *sy = GetI18NCategory("System");
+		auto sy = GetI18NCategory("System");
 #ifdef __ANDROID__
 		osm.Show(sy->T("WARNING: Android battery save mode is on"), 2.0f, 0xFFFFFF, -1, true, "core_powerSaving");
 #else
@@ -474,7 +474,7 @@ bool EmuScreen::touch(const TouchInput &touch) {
 }
 
 void EmuScreen::onVKeyDown(int virtualKeyCode) {
-	I18NCategory *sc = GetI18NCategory("Screen");
+	auto sc = GetI18NCategory("Screen");
 
 	switch (virtualKeyCode) {
 	case VIRTKEY_UNTHROTTLE:
@@ -628,11 +628,14 @@ void EmuScreen::onVKeyDown(int virtualKeyCode) {
 			osm.Show(sc->T("replaceTextures_false", "Textures no longer are being replaced"), 2.0);
 		NativeMessageReceived("gpu_clearCache", "");
 		break;
+	case VIRTKEY_RAPID_FIRE:
+		__CtrlSetRapidFire(true);
+		break;
 	}
 }
 
 void EmuScreen::onVKeyUp(int virtualKeyCode) {
-	I18NCategory *sc = GetI18NCategory("Screen");
+	auto sc = GetI18NCategory("Screen");
 
 	switch (virtualKeyCode) {
 	case VIRTKEY_UNTHROTTLE:
@@ -675,6 +678,10 @@ void EmuScreen::onVKeyUp(int virtualKeyCode) {
 		setVKeyAnalogY(CTRL_STICK_LEFT, VIRTKEY_AXIS_Y_MIN, VIRTKEY_AXIS_Y_MAX);
 		setVKeyAnalogX(CTRL_STICK_RIGHT, VIRTKEY_AXIS_RIGHT_X_MIN, VIRTKEY_AXIS_RIGHT_X_MAX);
 		setVKeyAnalogY(CTRL_STICK_RIGHT, VIRTKEY_AXIS_RIGHT_Y_MIN, VIRTKEY_AXIS_RIGHT_Y_MAX);
+		break;
+
+	case VIRTKEY_RAPID_FIRE:
+		__CtrlSetRapidFire(false);
 		break;
 
 	default:
@@ -975,8 +982,8 @@ protected:
 void EmuScreen::CreateViews() {
 	using namespace UI;
 
-	I18NCategory *sc = GetI18NCategory("Screen");
-	I18NCategory *dev = GetI18NCategory("Developer");
+	auto sc = GetI18NCategory("Screen");
+	auto dev = GetI18NCategory("Developer");
 
 	const Bounds &bounds = screenManager()->getUIContext()->GetBounds();
 	InitPadLayout(bounds.w, bounds.h);
@@ -1046,7 +1053,7 @@ void EmuScreen::CreateViews() {
 }
 
 UI::EventReturn EmuScreen::OnDevTools(UI::EventParams &params) {
-	I18NCategory *dev = GetI18NCategory("Developer");
+	auto dev = GetI18NCategory("Developer");
 	DevMenu *devMenu = new DevMenu(dev);
 	if (params.v)
 		devMenu->SetPopupOrigin(params.v);
@@ -1088,7 +1095,7 @@ void EmuScreen::update() {
 			quit_ = true;
 			return;
 		}
-		I18NCategory *err = GetI18NCategory("Error");
+		auto err = GetI18NCategory("Error");
 		std::string errLoadingFile = gamePath_ + "\n";
 		errLoadingFile.append(err->T("Error loading file", "Could not load game"));
 		errLoadingFile.append(" ");
@@ -1102,9 +1109,6 @@ void EmuScreen::update() {
 
 	if (invalid_)
 		return;
-
-	// Virtual keys.
-	__CtrlSetRapidFire(virtKeys[VIRTKEY_RAPID_FIRE - VIRTKEY_FIRST]);
 
 	// This is here to support the iOS on screen back button.
 	if (pauseTrigger_) {
@@ -1207,6 +1211,34 @@ static void DrawFPS(DrawBuffer *draw2d, const Bounds &bounds) {
 	draw2d->DrawText(UBUNTU24, fpsbuf, bounds.x2() - 8, 12, 0xc0000000, ALIGN_TOPRIGHT | FLAG_DYNAMIC_ASCII);
 	draw2d->DrawText(UBUNTU24, fpsbuf, bounds.x2() - 10, 10, 0xFF3fFF3f, ALIGN_TOPRIGHT | FLAG_DYNAMIC_ASCII);
 	draw2d->SetFontScale(1.0f, 1.0f);
+}
+
+static void DrawFrameTimes(UIContext *ctx) {
+	int valid, pos;
+	double *sleepHistory;
+	double *history = __DisplayGetFrameTimes(&valid, &pos, &sleepHistory);
+	int scale = 7000;
+	int width = 600;
+
+	ctx->Flush();
+	ctx->BeginNoTex();
+	int bottom = ctx->GetBounds().y2();
+	for (int i = 0; i < valid; ++i) {
+		double activeTime = history[i] - sleepHistory[i];
+		ctx->Draw()->vLine(i, bottom, bottom - activeTime * scale, 0xFF3FFF3F);
+		ctx->Draw()->vLine(i, bottom - activeTime * scale, bottom - history[i] * scale, 0x7F3FFF3F);
+	}
+	ctx->Draw()->vLine(pos, bottom, bottom - 512, 0xFFff3F3f);
+
+	ctx->Draw()->hLine(0, bottom - 0.0333*scale, width, 0xFF3f3Fff);
+	ctx->Draw()->hLine(0, bottom - 0.0167*scale, width, 0xFF3f3Fff);
+
+	ctx->Flush();
+	ctx->Begin();
+	ctx->Draw()->SetFontScale(0.5f, 0.5f);
+	ctx->Draw()->DrawText(UBUNTU24, "33.3ms", width, bottom - 0.0333*scale, 0xFF3f3Fff, ALIGN_BOTTOMLEFT | FLAG_DYNAMIC_ASCII);
+	ctx->Draw()->DrawText(UBUNTU24, "16.7ms", width, bottom - 0.0167*scale, 0xFF3f3Fff, ALIGN_BOTTOMLEFT | FLAG_DYNAMIC_ASCII);
+	ctx->Draw()->SetFontScale(1.0f, 1.0f);
 }
 
 void EmuScreen::preRender() {
@@ -1384,6 +1416,10 @@ void EmuScreen::renderUI() {
 
 	if (g_Config.iShowFPSCounter && !invalid_) {
 		DrawFPS(draw2d, ctx->GetBounds());
+	}
+
+	if (g_Config.bDrawFrameGraph && !invalid_) {
+		DrawFrameTimes(ctx);
 	}
 
 #if !PPSSPP_PLATFORM(UWP)

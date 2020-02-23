@@ -353,6 +353,7 @@ bool WindowsHost::CreateDesktopShortcut(std::string argumentPath, std::string ga
 
 
 	// Get the desktop folder
+	// TODO: Not long path safe.
 	wchar_t *pathbuf = new wchar_t[MAX_PATH + gameTitle.size() + 100];
 	SHGetFolderPath(0, CSIDL_DESKTOPDIRECTORY, NULL, SHGFP_TYPE_CURRENT, pathbuf);
 	
@@ -370,10 +371,16 @@ bool WindowsHost::CreateDesktopShortcut(std::string argumentPath, std::string ga
 	wcscat(pathbuf, L"\\");
 	wcscat(pathbuf, ConvertUTF8ToWString(gameTitle).c_str());
 
-	wchar_t module[MAX_PATH];
-	GetModuleFileName(NULL, module, MAX_PATH);
+	std::wstring moduleFilename;
+	size_t sz;
+	do {
+		moduleFilename.resize(moduleFilename.size() + MAX_PATH);
+		// On failure, this will return the same value as passed in, but success will always be one lower.
+		sz = GetModuleFileName(nullptr, &moduleFilename[0], (DWORD)moduleFilename.size());
+	} while (sz >= moduleFilename.size());
+	moduleFilename.resize(sz);
 
-	CreateLink(module, ConvertUTF8ToWString(argumentPath).c_str(), pathbuf, ConvertUTF8ToWString(gameTitle).c_str());
+	CreateLink(moduleFilename.c_str(), ConvertUTF8ToWString(argumentPath).c_str(), pathbuf, ConvertUTF8ToWString(gameTitle).c_str());
 
 	delete [] pathbuf;
 	return false;

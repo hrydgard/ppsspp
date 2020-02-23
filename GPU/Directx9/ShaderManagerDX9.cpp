@@ -243,14 +243,18 @@ void ShaderManagerDX9::VSSetMatrix(int creg, const float* pMatrix) {
 static void ConvertProjMatrixToD3D(Matrix4x4 &in, bool invertedX, bool invertedY) {
 	// Half pixel offset hack
 	float xoff = 1.0f / gstate_c.curRTRenderWidth;
-	xoff = gstate_c.vpXOffset + (invertedX ? xoff : -xoff);
-	float yoff = -1.0f / gstate_c.curRTRenderHeight;
-	yoff = gstate_c.vpYOffset + (invertedY ? yoff : -yoff);
+	if (invertedX) {
+		xoff = -gstate_c.vpXOffset - xoff;
+	} else {
+		xoff = gstate_c.vpXOffset - xoff;
+	}
 
-	if (invertedX)
-		xoff = -xoff;
-	if (invertedY)
-		yoff = -yoff;
+	float yoff = -1.0f / gstate_c.curRTRenderHeight;
+	if (invertedY) {
+		yoff = gstate_c.vpYOffset - yoff;
+	} else {
+		yoff = -gstate_c.vpYOffset - yoff;
+	}
 
 	const Vec3 trans(xoff, yoff, gstate_c.vpZOffset * 0.5f + 0.5f);
 	const Vec3 scale(gstate_c.vpWidthScale, gstate_c.vpHeightScale, gstate_c.vpDepthScale * 0.5f);
@@ -595,7 +599,7 @@ VSShader *ShaderManagerDX9::ApplyShader(int prim, u32 vertType) {
 		vs = new VSShader(device_, VSID, codeBuffer_, useHWTransform);
 
 		if (vs->Failed()) {
-			I18NCategory *gr = GetI18NCategory("Graphics");
+			auto gr = GetI18NCategory("Graphics");
 			ERROR_LOG(G3D, "Shader compilation failed, falling back to software transform");
 			if (!g_Config.bHideSlowWarnings) {
 				host->NotifyUserMessage(gr->T("hardware transform error - falling back to software"), 2.5f, 0xFF3030FF);

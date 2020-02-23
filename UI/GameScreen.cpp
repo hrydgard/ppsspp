@@ -50,9 +50,9 @@ void GameScreen::CreateViews() {
 	if (info && !info->id.empty())
 		saveDirs = info->GetSaveDataDirectories(); // Get's very heavy, let's not do it in update()
 
-	I18NCategory *di = GetI18NCategory("Dialog");
-	I18NCategory *ga = GetI18NCategory("Game");
-	I18NCategory *pa = GetI18NCategory("Pause");
+	auto di = GetI18NCategory("Dialog");
+	auto ga = GetI18NCategory("Game");
+	auto pa = GetI18NCategory("Pause");
 
 	// Information in the top left.
 	// Back button to the bottom left.
@@ -176,8 +176,8 @@ void GameScreen::CallbackDeleteConfig(bool yes) {
 
 UI::EventReturn GameScreen::OnDeleteConfig(UI::EventParams &e)
 {
-	I18NCategory *di = GetI18NCategory("Dialog");
-	I18NCategory *ga = GetI18NCategory("Game");
+	auto di = GetI18NCategory("Dialog");
+	auto ga = GetI18NCategory("Game");
 	screenManager()->push(
 		new PromptScreen(di->T("DeleteConfirmGameConfig", "Do you really want to delete the settings for this game?"), ga->T("ConfirmDelete"), di->T("Cancel"),
 		std::bind(&GameScreen::CallbackDeleteConfig, this, std::placeholders::_1)));
@@ -188,7 +188,7 @@ UI::EventReturn GameScreen::OnDeleteConfig(UI::EventParams &e)
 void GameScreen::render() {
 	UIScreen::render();
 
-	I18NCategory *ga = GetI18NCategory("Game");
+	auto ga = GetI18NCategory("Game");
 
 	Draw::DrawContext *thin3d = screenManager()->getDrawContext();
 
@@ -277,8 +277,8 @@ UI::EventReturn GameScreen::OnGameSettings(UI::EventParams &e) {
 }
 
 UI::EventReturn GameScreen::OnDeleteSaveData(UI::EventParams &e) {
-	I18NCategory *di = GetI18NCategory("Dialog");
-	I18NCategory *ga = GetI18NCategory("Game");
+	auto di = GetI18NCategory("Dialog");
+	auto ga = GetI18NCategory("Game");
 	std::shared_ptr<GameInfo> info = g_gameInfoCache->GetInfo(NULL, gamePath_, GAMEINFO_WANTBG | GAMEINFO_WANTSIZE);
 	if (info) {
 		// Check that there's any savedata to delete
@@ -303,8 +303,8 @@ void GameScreen::CallbackDeleteSaveData(bool yes) {
 }
 
 UI::EventReturn GameScreen::OnDeleteGame(UI::EventParams &e) {
-	I18NCategory *di = GetI18NCategory("Dialog");
-	I18NCategory *ga = GetI18NCategory("Game");
+	auto di = GetI18NCategory("Dialog");
+	auto ga = GetI18NCategory("Game");
 	std::shared_ptr<GameInfo> info = g_gameInfoCache->GetInfo(NULL, gamePath_, GAMEINFO_WANTBG | GAMEINFO_WANTSIZE);
 	if (info) {
 		screenManager()->push(
@@ -380,7 +380,7 @@ SetBackgroundPopupScreen::SetBackgroundPopupScreen(const std::string &title, con
 }
 
 void SetBackgroundPopupScreen::CreatePopupContents(UI::ViewGroup *parent) {
-	I18NCategory *ga = GetI18NCategory("Game");
+	auto ga = GetI18NCategory("Game");
 	parent->Add(new UI::TextView(ga->T("One moment please..."), ALIGN_LEFT | ALIGN_VCENTER, false, new UI::LinearLayoutParams(UI::Margins(10, 0, 10, 10))));
 }
 
@@ -415,7 +415,7 @@ void SetBackgroundPopupScreen::update() {
 }
 
 UI::EventReturn GameScreen::OnSetBackground(UI::EventParams &e) {
-	I18NCategory *ga = GetI18NCategory("Game");
+	auto ga = GetI18NCategory("Game");
 	// This popup is used to prevent any race condition:
 	// g_gameInfoCache may take time to load the data, and a crash could happen if they exit before then.
 	SetBackgroundPopupScreen *pop = new SetBackgroundPopupScreen(ga->T("Setting Background"), gamePath_);

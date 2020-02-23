@@ -1230,6 +1230,15 @@ static int Hook_starocean_clear_framebuf_after() {
 	return 0;
 }
 
+static int Hook_motorstorm_pixel_read() {
+	u32 fb_address = Memory::Read_U32(currentMIPS->r[MIPS_REG_A0] + 0x18);
+	u32 fb_height = Memory::Read_U16(currentMIPS->r[MIPS_REG_A0] + 0x26);
+	u32 fb_stride = Memory::Read_U16(currentMIPS->r[MIPS_REG_A0] + 0x28);
+	gpu->PerformMemoryDownload(fb_address, fb_height * fb_stride);
+	CBreakPoints::ExecMemCheck(fb_address, true, fb_height * fb_stride, currentMIPS->pc);
+	return 0;
+}
+
 #define JITFUNC(f) (&MIPSComp::MIPSFrontendInterface::f)
 
 // Can either replace with C functions or functions emitted in Asm/ArmAsm.
@@ -1341,6 +1350,7 @@ static const ReplacementTableEntry entries[] = {
 	{ "marvelalliance1_copy", &Hook_marvelalliance1_copy_after, 0, REPFLAG_HOOKENTER, 0x69c },
 	{ "starocean_clear_framebuf", &Hook_starocean_clear_framebuf_before, 0, REPFLAG_HOOKENTER, 0 },
 	{ "starocean_clear_framebuf", &Hook_starocean_clear_framebuf_after, 0, REPFLAG_HOOKEXIT, 0 },
+	{ "motorstorm_pixel_read", &Hook_motorstorm_pixel_read, 0, REPFLAG_HOOKENTER, 0 },
 	{}
 };
 

@@ -1908,7 +1908,7 @@ void FramebufferManagerCommon::UpdateFramebufUsage(VirtualFramebuffer *vfb) {
 }
 
 void FramebufferManagerCommon::ShowScreenResolution() {
-	I18NCategory *gr = GetI18NCategory("Graphics");
+	auto gr = GetI18NCategory("Graphics");
 
 	std::ostringstream messageStream;
 	messageStream << gr->T("Internal Resolution") << ": ";

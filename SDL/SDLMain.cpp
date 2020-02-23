@@ -24,6 +24,7 @@ SDLJoystick *joystick = NULL;
 #include "base/logging.h"
 #include "base/timeutil.h"
 #include "ext/glslang/glslang/Public/ShaderLang.h"
+#include "image/png_load.h"
 #include "input/input_state.h"
 #include "input/keycodes.h"
 #include "net/resolve.h"
@@ -35,9 +36,7 @@ SDLJoystick *joystick = NULL;
 #include "thread/threadutil.h"
 #include "math.h"
 
-#if !defined(__APPLE__)
 #include "SDL_syswm.h"
-#endif
 
 #if defined(VK_USE_PLATFORM_XLIB_KHR)
 #include <X11/Xlib.h>
@@ -66,6 +65,7 @@ static int g_QuitRequested = 0;
 
 static int g_DesktopWidth = 0;
 static int g_DesktopHeight = 0;
+static float g_RefreshRate = 60.f;
 
 int getDisplayNumber(void) {
 	int displayNumber = 0;
@@ -257,7 +257,7 @@ std::string System_GetProperty(SystemProperty prop) {
 #elif __linux__
 		return "SDL:Linux";
 #elif __APPLE__
-		return "SDL:OSX";
+		return "SDL:macOS";
 #else
 		return "SDL:";
 #endif
@@ -307,14 +307,23 @@ int System_GetPropertyInt(SystemProperty prop) {
 	switch (prop) {
 	case SYSPROP_AUDIO_SAMPLE_RATE:
 		return 44100;
-	case SYSPROP_DISPLAY_REFRESH_RATE:
-		return 60000;
 	case SYSPROP_DEVICE_TYPE:
 #if defined(MOBILE_DEVICE)
 		return DEVICE_TYPE_MOBILE;
 #else
 		return DEVICE_TYPE_DESKTOP;
 #endif
+	case SYSPROP_DISPLAY_COUNT:
+		return SDL_GetNumVideoDisplays();
+	default:
+		return -1;
+	}
+}
+
+float System_GetPropertyFloat(SystemProperty prop) {
+	switch (prop) {
+	case SYSPROP_DISPLAY_REFRESH_RATE:
+		return g_RefreshRate;
 	default:
 		return -1;
 	}
@@ -509,6 +518,7 @@ int main(int argc, char *argv[]) {
 	}
 	g_DesktopWidth = displayMode.w;
 	g_DesktopHeight = displayMode.h;
+	g_RefreshRate = displayMode.refresh_rate;
 
 	SDL_GL_SetAttribute(SDL_GL_RED_SIZE, 8);
 	SDL_GL_SetAttribute(SDL_GL_GREEN_SIZE, 8);
@@ -628,6 +638,20 @@ int main(int argc, char *argv[]) {
 	bool useEmuThread = g_Config.iGPUBackend == (int)GPUBackend::OPENGL;
 
 	SDL_SetWindowTitle(window, (app_name_nice + " " + PPSSPP_GIT_VERSION).c_str());
+
+	char iconPath[PATH_MAX];
+	snprintf(iconPath, PATH_MAX, "%sassets/icon_regular_72.png", SDL_GetBasePath() ? SDL_GetBasePath() : "");
+	int width = 0, height = 0;
+	unsigned char *imageData;
+	if (pngLoad(iconPath, &width, &height, &imageData, false) == 1) {
+		SDL_Surface *surface = SDL_CreateRGBSurface(0, width, height, 32,
+							0x000000ff, 0x0000ff00, 0x00ff0000, 0xff000000);
+		memcpy(surface->pixels, imageData, width*height*4);
+		SDL_SetWindowIcon(window, surface);
+		SDL_FreeSurface(surface);
+		free(imageData);
+		imageData = NULL;
+	}
 
 	// Since we render from the main thread, there's nothing done here, but we call it to avoid confusion.
 	if (!graphicsContext->InitFromRenderThread(&error_message)) {

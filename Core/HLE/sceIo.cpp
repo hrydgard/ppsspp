@@ -2719,8 +2719,8 @@ static int IoAsyncFinish(int id) {
 
 		case IoAsyncOp::CLOSE:
 			f->asyncResult = 0;
-			// TODO: Rough estimate.
-			us = 100;
+			// CLOSE shouldn't have a delay. See #12549.
+			us = 0;
 			DEBUG_LOG(SCEIO, "ASYNC %lli = sceIoCloseAsync(%d)", f->asyncResult, id);
 			break;
 

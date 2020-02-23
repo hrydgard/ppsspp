@@ -125,6 +125,11 @@ VkResult VulkanContext::CreateInstance(const CreateInfo &info) {
 		instance_extensions_enabled_.push_back(VK_KHR_WAYLAND_SURFACE_EXTENSION_NAME);
 	}
 #endif
+#if defined(VK_USE_PLATFORM_METAL_EXT)
+	if (IsInstanceExtensionAvailable(VK_EXT_METAL_SURFACE_EXTENSION_NAME)) {
+		instance_extensions_enabled_.push_back(VK_EXT_METAL_SURFACE_EXTENSION_NAME);
+	}
+#endif
 #endif
 
 	if (flags_ & VULKAN_FLAG_VALIDATE) {
@@ -760,6 +765,16 @@ VkResult VulkanContext::ReinitSurface() {
 		return vkCreateAndroidSurfaceKHR(instance_, &android, nullptr, &surface_);
 	}
 #endif
+#if defined(VK_USE_PLATFORM_METAL_EXT)
+	case WINDOWSYSTEM_METAL_EXT:
+	{
+		VkMetalSurfaceCreateInfoEXT metal{ VK_STRUCTURE_TYPE_METAL_SURFACE_CREATE_INFO_EXT };
+		metal.flags = 0;
+		metal.pLayer = winsysData1_;
+		metal.pNext = winsysData2_;
+		return vkCreateMetalSurfaceEXT(instance_, &metal, nullptr, &surface_);
+	}
+#endif
 #if defined(VK_USE_PLATFORM_XLIB_KHR)
 	case WINDOWSYSTEM_XLIB:
 	{
@@ -968,10 +983,10 @@ bool VulkanContext::InitSwapchain() {
 		// Application must settle for fewer images than desired:
 		desiredNumberOfSwapChainImages = surfCapabilities_.maxImageCount;
 	}
-	
+
 	// We mostly follow the practices from
 	// https://arm-software.github.io/vulkan_best_practice_for_mobile_developers/samples/surface_rotation/surface_rotation_tutorial.html
-	// 
+	//
 	VkSurfaceTransformFlagBitsKHR preTransform;
 	std::string supportedTransforms = surface_transforms_to_string(surfCapabilities_.supportedTransforms);
 	std::string currentTransform = surface_transforms_to_string(surfCapabilities_.currentTransform);

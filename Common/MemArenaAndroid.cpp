@@ -20,6 +20,7 @@
 #ifdef __ANDROID__
 
 #include "base/logging.h"
+#include "base/NativeApp.h"
 #include "MemoryUtil.h"
 #include "MemArena.h"
 #include "StringUtils.h"
@@ -30,6 +31,7 @@
 #include <cerrno>
 #include <sys/ioctl.h>
 #include <linux/ashmem.h>
+#include <dlfcn.h>
 
 // Hopefully this ABI will never change...
 
@@ -41,9 +43,31 @@ bool MemArena::NeedsProbing() {
 
 // ashmem_create_region - creates a new ashmem region and returns the file
 // descriptor, or <0 on error
+// This function is defined in much later version of the ndk, so we can only access it via dlopen().
 // `name' is an optional label to give the region (visible in /proc/pid/maps)
 // `size' is the size of the region, in page-aligned bytes
 static int ashmem_create_region(const char *name, size_t size) {
+	static void* handle = dlopen("libandroid.so", RTLD_LAZY | RTLD_LOCAL);
+	using type_ASharedMemory_create = int(*)(const char *name, size_t size);
+	static type_ASharedMemory_create function_create = nullptr;
+
+	if (handle != nullptr) {
+		function_create =
+			reinterpret_cast<type_ASharedMemory_create>(dlsym(handle, "ASharedMemory_create"));
+	}
+
+	if (function_create != nullptr) {
+		return function_create(name, size);
+	} else {
+		return -1;
+	}
+}
+
+// legacy_ashmem_create_region - creates a new ashmem region and returns the file
+// descriptor, or <0 on error
+// `name' is an optional label to give the region (visible in /proc/pid/maps)
+// `size' is the size of the region, in page-aligned bytes
+static int legacy_ashmem_create_region(const char *name, size_t size) {
 	int fd = open(ASHMEM_DEVICE, O_RDWR);
 	if (fd < 0)
 		return fd;
@@ -76,7 +100,14 @@ size_t MemArena::roundup(size_t x) {
 
 void MemArena::GrabLowMemSpace(size_t size) {
 	// Use ashmem so we don't have to allocate a file on disk!
-	fd = ashmem_create_region("PPSSPP_RAM", size);
+	const char* name = "PPSSPP_RAM";
+
+	// Since version 26 Android provides a new api for accessing SharedMemory.
+	if (System_GetPropertyInt(SYSPROP_SYSTEMVERSION) >= 26) {
+		fd = ashmem_create_region(name, size);
+	} else {
+		fd = legacy_ashmem_create_region(name, size);
+	}
 	// Note that it appears that ashmem is pinned by default, so no need to pin.
 	if (fd < 0) {
 		ERROR_LOG(MEMMAP, "Failed to grab ashmem space of size: %08x  errno: %d", (int)size, (int)(errno));

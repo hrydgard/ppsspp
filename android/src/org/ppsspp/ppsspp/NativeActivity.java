@@ -53,6 +53,8 @@ import java.io.File;
 import java.lang.reflect.Field;
 import java.util.List;
 import java.util.Locale;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 public abstract class NativeActivity extends Activity implements SurfaceHolder.Callback {
 	// Remember to loadLibrary your JNI .so in a static {} block
@@ -557,10 +559,13 @@ public abstract class NativeActivity extends Activity implements SurfaceHolder.C
 				mGLSurfaceView.setEGLConfigChooser(new NativeEGLConfigChooser());
 			} else {
 				// Tried to mess around with config choosers (NativeEGLConfigChooser) here but fail completely on Xperia Play.
-				// On the other hand, I think from ICS we should be safe to at least require 8888 and stencil...
-				if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.ICE_CREAM_SANDWICH && !Build.MANUFACTURER.equals("Amazon")) {
-					mGLSurfaceView.setEGLConfigChooser(8, 8, 8, 8, 16, 8);
-				}
+
+				// Then I tried to require 8888/16/8 but that backfired too, does not work on Mali 450 which is
+				// used in popular TVs and boxes like Mi Box. So we'll just get what we get, I guess...
+
+				// if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.ICE_CREAM_SANDWICH && !Build.MANUFACTURER.equals("Amazon")) {
+					// mGLSurfaceView.setEGLConfigChooser(8, 8, 8, 8, 16, 8);
+				// }
 			}
 			mGLSurfaceView.setRenderer(nativeRenderer);
 			setContentView(mGLSurfaceView);
@@ -1393,7 +1398,14 @@ public abstract class NativeActivity extends Activity implements SurfaceHolder.C
 				mLocationHelper.stopLocationUpdates();
 			}
 		} else if (command.equals("camera_command")) {
-			if (params.equals("startVideo")) {
+			if (params.startsWith("startVideo")) {
+				Pattern pattern = Pattern.compile("startVideo_(\\d+)x(\\d+)");
+				Matcher matcher = pattern.matcher(params);
+				if (!matcher.matches())
+					return false;
+				int width = Integer.parseInt(matcher.group(1));
+				int height = Integer.parseInt(matcher.group(2));
+				mCameraHelper.setCameraSize(width, height);
 				if (mCameraHelper != null && !askForPermissions(permissionsForCamera, REQUEST_CODE_CAMERA_PERMISSION)) {
 					mCameraHelper.startCamera();
 				}
@@ -1408,12 +1420,6 @@ public abstract class NativeActivity extends Activity implements SurfaceHolder.C
 			} else {
 				// Only keep the screen bright ingame.
 				window.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
-			}
-		} else if (command.equals("event")) {
-			if (params.equals("exitgame")) {
-				if (mCameraHelper != null) {
-					mCameraHelper.stopCamera();
-				}
 			}
 		}
 		return false;

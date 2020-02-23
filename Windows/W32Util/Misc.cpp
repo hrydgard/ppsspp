@@ -131,15 +131,36 @@ namespace W32Util
 		return cmdline;
 	}
 
+	void GetSelfExecuteParams(std::wstring &workingDirectory, std::wstring &moduleFilename) {
+		workingDirectory.resize(MAX_PATH);
+		size_t sz = GetCurrentDirectoryW((DWORD)workingDirectory.size(), &workingDirectory[0]);
+		if (sz != 0 && sz < workingDirectory.size()) {
+			// This means success, so now we can remove the null terminator.
+			workingDirectory.resize(sz);
+		} else if (sz > workingDirectory.size()) {
+			// If insufficient, sz will include the null terminator, so we remove after.
+			workingDirectory.resize(sz);
+			sz = GetCurrentDirectoryW((DWORD)sz, &workingDirectory[0]);
+			workingDirectory.resize(sz);
+		}
+
+		moduleFilename.clear();
+		do {
+			moduleFilename.resize(moduleFilename.size() + MAX_PATH);
+			// On failure, this will return the same value as passed in, but success will always be one lower.
+			sz = GetModuleFileName(GetModuleHandle(nullptr), &moduleFilename[0], (DWORD)moduleFilename.size());
+		} while (sz >= moduleFilename.size());
+		moduleFilename.resize(sz);
+	}
+
 	void ExitAndRestart() {
 		// This preserves arguments (for example, config file) and working directory.
+		std::wstring workingDirectory;
+		std::wstring moduleFilename;
+		GetSelfExecuteParams(workingDirectory, moduleFilename);
 
-		wchar_t moduleFilename[MAX_PATH];
-		wchar_t workingDirectory[MAX_PATH];
-		GetCurrentDirectoryW(MAX_PATH, workingDirectory);
 		const wchar_t *cmdline = RemoveExecutableFromCommandLine(GetCommandLineW());
-		GetModuleFileName(GetModuleHandle(NULL), moduleFilename, MAX_PATH);
-		ShellExecute(NULL, NULL, moduleFilename, cmdline, workingDirectory, SW_SHOW);
+		ShellExecute(nullptr, nullptr, moduleFilename.c_str(), cmdline, workingDirectory.c_str(), SW_SHOW);
 
 		ExitProcess(0);
 	}

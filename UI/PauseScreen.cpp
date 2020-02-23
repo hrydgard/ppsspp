@@ -16,6 +16,7 @@
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
 #include <algorithm>
+#include <memory>
 #include "i18n/i18n.h"
 #include "gfx_es2/draw_buffer.h"
 #include "ui/view.h"
@@ -155,7 +156,7 @@ void AsyncImageFileView::Draw(UIContext &dc) {
 
 class ScreenshotViewScreen : public PopupScreen {
 public:
-	ScreenshotViewScreen(std::string filename, std::string title, int slot, I18NCategory *i18n)
+	ScreenshotViewScreen(std::string filename, std::string title, int slot, std::shared_ptr<I18NCategory> i18n)
 		: PopupScreen(title, i18n->T("Load State"), "Back"), filename_(filename), slot_(slot) {}   // PopupScreen will translate Back on its own
 
 	int GetSlot() const {
@@ -232,7 +233,7 @@ SaveSlotView::SaveSlotView(const std::string &gameFilename, int slot, UI::Layout
 	AsyncImageFileView *fv = Add(new AsyncImageFileView(screenshotFilename_, IS_DEFAULT, wq, new UI::LayoutParams(80 * 2, 45 * 2)));
 	fv->SetOverlayText(StringFromFormat("%d", slot_ + 1));
 
-	I18NCategory *pa = GetI18NCategory("Pause");
+	auto pa = GetI18NCategory("Pause");
 
 	LinearLayout *buttons = new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(WRAP_CONTENT, WRAP_CONTENT));
 	buttons->SetSpacing(2.0);
@@ -321,8 +322,8 @@ void GamePauseScreen::CreateViews() {
 	using namespace UI;
 	Margins scrollMargins(0, 20, 0, 0);
 	Margins actionMenuMargins(0, 20, 15, 0);
-	I18NCategory *gr = GetI18NCategory("Graphics");
-	I18NCategory *pa = GetI18NCategory("Pause");
+	auto gr = GetI18NCategory("Graphics");
+	auto pa = GetI18NCategory("Pause");
 
 	root_ = new LinearLayout(ORIENT_HORIZONTAL);
 
@@ -377,12 +378,12 @@ void GamePauseScreen::CreateViews() {
 	// TODO, also might be nice to show overall compat rating here?
 	// Based on their platform or even cpu/gpu/config.  Would add an API for it.
 	if (Reporting::IsSupported() && g_paramSFO.GetValueString("DISC_ID").size()) {
-		I18NCategory *rp = GetI18NCategory("Reporting");
+		auto rp = GetI18NCategory("Reporting");
 		rightColumnItems->Add(new Choice(rp->T("ReportButton", "Report Feedback")))->OnClick.Handle(this, &GamePauseScreen::OnReportFeedback);
 	}
 	rightColumnItems->Add(new Spacer(25.0));
 	if (g_Config.bPauseMenuExitsEmulator) {
-		I18NCategory *mm = GetI18NCategory("MainMenu");
+		auto mm = GetI18NCategory("MainMenu");
 		rightColumnItems->Add(new Choice(mm->T("Exit")))->OnClick.Handle(this, &GamePauseScreen::OnExitToMenu);
 	} else {
 		rightColumnItems->Add(new Choice(pa->T("Exit to menu")))->OnClick.Handle(this, &GamePauseScreen::OnExitToMenu);
@@ -421,7 +422,7 @@ UI::EventReturn GamePauseScreen::OnScreenshotClicked(UI::EventParams &e) {
 	if (SaveState::HasSaveInSlot(gamePath_, slot)) {
 		std::string fn = v->GetScreenshotFilename();
 		std::string title = v->GetScreenshotTitle();
-		I18NCategory *pa = GetI18NCategory("Pause");
+		auto pa = GetI18NCategory("Pause");
 		Screen *screen = new ScreenshotViewScreen(fn, title, v->GetSlot(), pa);
 		screenManager()->push(screen);
 	}
@@ -487,8 +488,8 @@ UI::EventReturn GamePauseScreen::OnCreateConfig(UI::EventParams &e)
 
 UI::EventReturn GamePauseScreen::OnDeleteConfig(UI::EventParams &e)
 {
-	I18NCategory *di = GetI18NCategory("Dialog");
-	I18NCategory *ga = GetI18NCategory("Game");
+	auto di = GetI18NCategory("Dialog");
+	auto ga = GetI18NCategory("Game");
 	screenManager()->push(
 		new PromptScreen(di->T("DeleteConfirmGameConfig", "Do you really want to delete the settings for this game?"), ga->T("ConfirmDelete"), di->T("Cancel"),
 		std::bind(&GamePauseScreen::CallbackDeleteConfig, this, std::placeholders::_1)));

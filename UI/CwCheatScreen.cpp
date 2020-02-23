@@ -79,8 +79,8 @@ void CwCheatScreen::CreateCodeList() {
 
 void CwCheatScreen::CreateViews() {
 	using namespace UI;
-	I18NCategory *cw = GetI18NCategory("CwCheats");
-	I18NCategory *di = GetI18NCategory("Dialog");
+	auto cw = GetI18NCategory("CwCheats");
+	auto di = GetI18NCategory("Dialog");
 	CreateCodeList();
 	g_Config.bReloadCheats = true;
 	root_ = new LinearLayout(ORIENT_HORIZONTAL);

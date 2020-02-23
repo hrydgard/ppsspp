@@ -200,6 +200,11 @@ void __CtrlSetRapidFire(bool state)
 	emuRapidFire = state;
 }
 
+bool __CtrlGetRapidFire()
+{
+	return emuRapidFire;
+}
+
 static int __CtrlReadSingleBuffer(PSPPointer<CtrlData> data, bool negative)
 {
 	if (data.IsValid())
