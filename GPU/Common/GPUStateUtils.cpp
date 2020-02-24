@@ -510,6 +510,9 @@ static const float DEPTH_SLICE_FACTOR_HIGH = 4.0f;
 static const float DEPTH_SLICE_FACTOR_16BIT = 256.0f;
 
 float DepthSliceFactor() {
+	if (!gstate.isDepthClampEnabled()) {
+		return 1.0f;
+	}
 	if (gstate_c.Supports(GPU_SCALE_DEPTH_FROM_24BIT_TO_16BIT)) {
 		return DEPTH_SLICE_FACTOR_16BIT;
 	}
