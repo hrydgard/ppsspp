@@ -330,6 +330,8 @@ void GameButton::Draw(UIContext &dc) {
 		if (!currentTitle.empty()) {
 			title_ = ReplaceAll(currentTitle + discNumInfo, "&", "&&");
 			title_ = ReplaceAll(title_, "\n", " ");
+			if (g_Config.bShowIDOnGameIcon)
+				title_ += " (" + ginfo->id_version + ")";
 		}
 
 		dc.MeasureText(dc.GetFontStyle(), 1.0f, 1.0f, title_.c_str(), &tw, &th, 0);
@@ -361,7 +363,11 @@ void GameButton::Draw(UIContext &dc) {
 		dc.Draw()->Flush();
 	}
 	if (ginfo->hasConfig && !ginfo->id.empty()) {
-		dc.Draw()->DrawImage(I_GEAR, x, y + h - ui_images[I_GEAR].h, 1.0f);
+		if (gridStyle_) {
+			dc.Draw()->DrawImage(I_GEAR, x, y + h - ui_images[I_GEAR].h, 1.0f);
+		} else {
+			dc.Draw()->DrawImage(I_GEAR, x + 2 - ui_images[I_GEAR].w, y, 1.0f);
+		}
 	}
 	if (g_Config.bShowRegionOnGameIcon && ginfo->region >= 0 && ginfo->region < GAMEREGION_MAX && ginfo->region != GAMEREGION_OTHER) {
 		static const int regionIcons[GAMEREGION_MAX] = {
@@ -372,10 +378,14 @@ void GameButton::Draw(UIContext &dc) {
 			I_FLAG_AS,
 			I_FLAG_KO
 		};
-		dc.Draw()->DrawImage(regionIcons[ginfo->region], x + w - ui_images[regionIcons[ginfo->region]].w - 5, y + h - ui_images[regionIcons[ginfo->region]].h - 5, 1.0f);
+		if (gridStyle_) {
+			dc.Draw()->DrawImage(regionIcons[ginfo->region], x + w - ui_images[regionIcons[ginfo->region]].w - 5, y + h - ui_images[regionIcons[ginfo->region]].h - 5, 1.0f);
+		} else {
+			dc.Draw()->DrawImage(regionIcons[ginfo->region], x - ui_images[regionIcons[ginfo->region]].w - 3, y + h - ui_images[regionIcons[ginfo->region]].h - 5, 1.0f);
+		}
 	}
-	if (g_Config.bShowIDOnGameIcon) {
-		dc.SetFontScale(0.43f, 0.43f);
+	if (gridStyle_ && g_Config.bShowIDOnGameIcon) {
+		dc.SetFontScale(0.5f, 0.5f);
 		dc.DrawText(ginfo->id_version.c_str(), x+3, y+1, 0xFF000000, ALIGN_TOPLEFT);
 		dc.DrawText(ginfo->id_version.c_str(), x+2, y, 0xFFffFFff, ALIGN_TOPLEFT);
 		dc.SetFontScale(1.0f, 1.0f);
