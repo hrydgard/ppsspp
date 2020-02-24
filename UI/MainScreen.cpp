@@ -375,7 +375,7 @@ void GameButton::Draw(UIContext &dc) {
 		dc.Draw()->DrawImage(regionIcons[ginfo->region], x + w - ui_images[regionIcons[ginfo->region]].w - 5, y + h - ui_images[regionIcons[ginfo->region]].h - 5, 1.0f);
 	}
 	if (g_Config.bShowIDOnGameIcon) {
-		dc.SetFontScale(0.5f, 0.5f);
+		dc.SetFontScale(0.43f, 0.43f);
 		dc.DrawText(ginfo->id_version.c_str(), x+3, y+1, 0xFF000000, ALIGN_TOPLEFT);
 		dc.DrawText(ginfo->id_version.c_str(), x+2, y, 0xFFffFFff, ALIGN_TOPLEFT);
 		dc.SetFontScale(1.0f, 1.0f);
