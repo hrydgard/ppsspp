@@ -57,7 +57,7 @@ static struct SceNetMallocStat netMallocStat;
 
 static std::map<int, ApctlHandler> apctlHandlers;
 
-static int InitLocalIP() {
+static int InitLocalhostIP() {
 	// find local IP
 	addrinfo* localAddr;
 	addrinfo* ptr;
@@ -67,19 +67,19 @@ static int InitLocalIP() {
 	if (iResult != 0) {
 		ERROR_LOG(SCENET, "DNS Error (%s) result: %d\n", ipstr, iResult);
 		//osm.Show("DNS Error, can't resolve client bind " + ipstr, 8.0f);
-		((sockaddr_in*)&localIP)->sin_family = AF_INET;
-		((sockaddr_in*)&localIP)->sin_addr.s_addr = inet_addr(ipstr); //"127.0.0.1"
-		((sockaddr_in*)&localIP)->sin_port = 0;
+		((sockaddr_in*)&LocalhostIP)->sin_family = AF_INET;
+		((sockaddr_in*)&LocalhostIP)->sin_addr.s_addr = inet_addr(ipstr); //"127.0.0.1"
+		((sockaddr_in*)&LocalhostIP)->sin_port = 0;
 		return iResult;
 	}
 	for (ptr = localAddr; ptr != NULL; ptr = ptr->ai_next) {
 		switch (ptr->ai_family) {
 		case AF_INET:
-			memcpy(&localIP, ptr->ai_addr, sizeof(sockaddr));
+			memcpy(&LocalhostIP, ptr->ai_addr, sizeof(sockaddr));
 			break;
 		}
 	}
-	((sockaddr_in*)&localIP)->sin_port = 0;
+	((sockaddr_in*)&LocalhostIP)->sin_port = 0;
 	freeaddrinfo(localAddr);
 
 	// Resolve server dns
@@ -100,7 +100,7 @@ static int InitLocalIP() {
 		}
 	}
 	freeaddrinfo(resultAddr);
-	isLocalServer = (((uint8_t*)&serverIp.s_addr)[0] == 0x7f); // (serverIp.S_un.S_un_b.s_b1 = 0x7f);
+	isLocalServer = (((uint8_t*)&serverIp.s_addr)[0] == 0x7f);
 
 	return 0;
 }
@@ -116,14 +116,13 @@ static void __ResetInitNetLib() {
 void __NetInit() {
 	portOffset = g_Config.iPortOffset;
 
-	net::Init();
-	InitLocalIP();
+	InitLocalhostIP();
 
 	char tmpmac[18];
 	SceNetEtherAddr mac;
 	getLocalMac(&mac);
-	INFO_LOG(SCENET, "LocalHost IP will be %s [MAC: %s]", inet_ntoa(((sockaddr_in*)&localIP)->sin_addr), mac2str(&mac, tmpmac));
-	//net::Init();
+	INFO_LOG(SCENET, "LocalHost IP will be %s [%s]", inet_ntoa(((sockaddr_in*)&LocalhostIP)->sin_addr), mac2str(&mac, tmpmac));
+
 	__ResetInitNetLib();
 }
 
@@ -138,9 +137,6 @@ void __NetShutdown() {
 	if (netInited) sceNetTerm();
 	
 	__ResetInitNetLib();
-
-	net::Shutdown();
-	//PPSSPPIDCleanup(); // To make the ID/IP persistent on every reset, we should just let the OS closes all open handles instead of calling PPSSPPIDCleanup() on every reset
 }
 
 static void __UpdateApctlHandlers(int oldState, int newState, int flag, int error) {

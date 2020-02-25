@@ -842,7 +842,9 @@ extern SceNetAdhocPtpStat * ptp[255];
 
 extern uint16_t portOffset;
 extern bool isLocalServer;
-extern sockaddr localIP;
+extern sockaddr LocalhostIP; // Used to differentiate localhost IP on multiple-instance
+extern sockaddr LocalIP; // IP of Network Adapter used to connect to Adhoc Server (LAN/WAN)
+
 extern uint32_t fakePoolSize;
 extern SceNetAdhocMatchingContext * contexts;
 extern int one;                 
@@ -1147,7 +1149,7 @@ void spawnLocalEvent(SceNetAdhocMatchingContext * context, int event, SceNetEthe
 int getActivePeerCount(const bool excludeTimedout = true);
 
 /**
- * Returns the locall Ip of this machine, TODO: Implement the linux version
+ * Returns the locall Ip of this machine
  * @param SocketAddres OUT: local ip
  */
 int getLocalIp(sockaddr_in * SocketAddress);

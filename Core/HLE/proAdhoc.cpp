@@ -24,6 +24,10 @@
 #if !defined(_WIN32)
 #include <unistd.h>
 #include <netinet/tcp.h>
+#include <sys/ioctl.h>
+#include <sys/socket.h>
+#include <sys/types.h>
+#include <ifaddrs.h>
 #endif
 
 #include <cstring>
@@ -54,7 +58,7 @@ int actionAfterMatchingMipsCall;
 // Broadcast MAC
 uint8_t broadcastMAC[ETHER_ADDR_LEN] = { 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF };
 
-int metasocket;
+int metasocket = (int)INVALID_SOCKET;
 SceNetAdhocctlParameter parameter;
 SceNetAdhocctlAdhocId product_code;
 std::thread friendFinderThread;
@@ -69,7 +73,8 @@ bool chatScreenVisible = false;
 bool updateChatScreen = false;
 int newChat = 0;
 bool isLocalServer = false;
-sockaddr localIP; // This might serves the same purpose with existing "localip" above, but since this is copied from my old code so here it is (too lazy to rewrite the code)
+sockaddr LocalhostIP;
+sockaddr LocalIP;
 
 bool isLocalMAC(const SceNetEtherAddr * addr) {
 	SceNetEtherAddr saddr;
@@ -1484,36 +1489,90 @@ int getActivePeerCount(const bool excludeTimedout) {
 	return count;
 }
 
-int getLocalIp(sockaddr_in * SocketAddress){
+int getLocalIp(sockaddr_in* SocketAddress) {
+	if (metasocket != (int)INVALID_SOCKET) {
+		struct sockaddr_in localAddr;
+		localAddr.sin_addr.s_addr = INADDR_ANY;
+		socklen_t addrLen = sizeof(localAddr);
+		if (SOCKET_ERROR != getsockname(metasocket, (struct sockaddr*) & localAddr, &addrLen)) {
+			if (isLocalServer) {
+				localAddr.sin_addr = ((sockaddr_in*)&LocalhostIP)->sin_addr;
+			}
+			SocketAddress->sin_addr = localAddr.sin_addr;
+			return 0;
+		}
+	}
+
+// Fallback if not connected to AdhocServer
 #if defined(_WIN32)
 	// Get local host name
 	char szHostName[256] = "";
 
-	if(::gethostname(szHostName, sizeof(szHostName))) {
+	if (::gethostname(szHostName, sizeof(szHostName))) {
 		// Error handling 
 	}
 	// Get local IP addresses
-	struct hostent *pHost = 0;
-	pHost = ::gethostbyname(szHostName);
-	if(pHost) {
+	struct hostent* pHost = 0;
+	pHost = ::gethostbyname(szHostName); // On Non-Windows (UNIX/POSIX) gethostbyname("localhost") will always returns a useless 127.0.0.1, while on Windows it returns LAN IP when available
+	if (pHost) {
 		memcpy(&SocketAddress->sin_addr, pHost->h_addr_list[0], pHost->h_length);
 		if (isLocalServer) {
-			SocketAddress->sin_addr = ((sockaddr_in*)&localIP)->sin_addr;
+			SocketAddress->sin_addr = ((sockaddr_in*)&LocalhostIP)->sin_addr;
 		}
 		return 0;
 	}
 	return -1;
-#else
-	char szHostName[256] = "";
-	gethostname(szHostName, sizeof(szHostName));
-	struct hostent* pHost = 0;
-	pHost = gethostbyname(szHostName);
-	if (pHost) {
-		memcpy(&SocketAddress->sin_addr, pHost->h_addr_list[0], pHost->h_length);
+
+#elif defined(getifaddrs) // On Android: Requires __ANDROID_API__ >= 24
+	struct ifaddrs* ifAddrStruct = NULL;
+	struct ifaddrs* ifa = NULL;
+
+	getifaddrs(&ifAddrStruct);
+	if (ifAddrStruct != NULL) {
+		for (ifa = ifAddrStruct; ifa != NULL; ifa = ifa->ifa_next) {
+			if (!ifa->ifa_addr) {
+				continue;
+			}
+			if (ifa->ifa_addr->sa_family == AF_INET) { // check it is IP4
+				// is a valid IP4 Address
+				SocketAddress->sin_addr = ((struct sockaddr_in*)ifa->ifa_addr)->sin_addr;
+				break;
+			}
+		}
+		freeifaddrs(ifAddrStruct);
 		if (isLocalServer) {
-			SocketAddress->sin_addr = ((sockaddr_in*)&localIP)->sin_addr;
+			SocketAddress->sin_addr = ((sockaddr_in*)&LocalhostIP)->sin_addr;
 		}
 		return 0;
+	}
+	return -1;
+
+#else // Alternative way
+	int sock = socket(AF_INET, SOCK_DGRAM, 0);
+	if (sock != SOCKET_ERROR) {
+		const char* kGoogleDnsIp = "8.8.8.8"; // Needs to be an IP string so it can be resolved as fast as possible to IP, doesn't need to be reachable
+		uint16_t kDnsPort = 53;
+		struct sockaddr_in serv;
+		memset(&serv, 0, sizeof(serv));
+		serv.sin_family = AF_INET;
+		serv.sin_addr.s_addr = inet_addr(kGoogleDnsIp);
+		serv.sin_port = htons(kDnsPort);
+
+		int err = connect(sock, (const sockaddr*)&serv, sizeof(serv));
+		if (err != SOCKET_ERROR) {
+			sockaddr_in name;
+			socklen_t namelen = sizeof(name);
+			err = getsockname(sock, (sockaddr*)&name, &namelen);
+			if (err != SOCKET_ERROR) {
+				SocketAddress->sin_addr = name.sin_addr; // May be we should cache this so it doesn't need to use connect all the time, or even better cache it when connecting to adhoc server to get an accurate IP
+				closesocket(sock);
+				if (isLocalServer) {
+					SocketAddress->sin_addr = ((sockaddr_in*)&LocalhostIP)->sin_addr;
+				}
+				return 0;
+			}
+		}
+		closesocket(sock);
 	}
 	return -1;
 #endif
@@ -1525,7 +1584,7 @@ uint32_t getLocalIp(int sock) {
 	socklen_t addrLen = sizeof(localAddr);
 	getsockname(sock, (struct sockaddr*)&localAddr, &addrLen);
 	if (isLocalServer) {
-		localAddr.sin_addr = ((sockaddr_in*)&localIP)->sin_addr;
+		localAddr.sin_addr = ((sockaddr_in*)&LocalhostIP)->sin_addr;
 	}
 	return localAddr.sin_addr.s_addr;
 }
@@ -1679,18 +1738,19 @@ int initNetwork(SceNetAdhocctlAdhocId *adhoc_id){
 		setsockopt(metasocket, SOL_SOCKET, SO_REUSEADDR, (const char*)&on, sizeof(on));
 		setsockopt(metasocket, SOL_SOCKET, SO_DONTROUTE, (const char*)&on, sizeof(on));
 
-		((struct sockaddr_in*) & localIP)->sin_port = 0;
+		((struct sockaddr_in*) & LocalhostIP)->sin_port = 0;
 		// Bind Local Address to Socket
-		iResult = bind(metasocket, (struct sockaddr*) & localIP, sizeof(sockaddr));
+		iResult = bind(metasocket, (struct sockaddr*) & LocalhostIP, sizeof(sockaddr));
 		if (iResult == SOCKET_ERROR) {
-			ERROR_LOG(SCENET, "Bind to alternate localhost[%s] failed(%i).", inet_ntoa(((struct sockaddr_in*) & localIP)->sin_addr), iResult);
-			host->NotifyUserMessage(std::string(n->T("Failed to Bind Localhost IP")) + " " + inet_ntoa(((struct sockaddr_in*) & localIP)->sin_addr), 3.0, 0x0000ff);
+			ERROR_LOG(SCENET, "Bind to alternate localhost[%s] failed(%i).", inet_ntoa(((struct sockaddr_in*) & LocalhostIP)->sin_addr), iResult);
+			host->NotifyUserMessage(std::string(n->T("Failed to Bind Localhost IP")) + " " + inet_ntoa(((struct sockaddr_in*) & LocalhostIP)->sin_addr), 3.0, 0x0000ff);
 		}
 	}
 	
 	// Default/Initial Network
 	memset(&parameter, 0, sizeof(parameter));
-	strcpy((char *)&parameter.nickname.data, g_Config.sNickName.c_str());
+	strncpy((char *)&parameter.nickname.data, g_Config.sNickName.c_str(), ADHOCCTL_NICKNAME_LEN);
+	parameter.nickname.data[ADHOCCTL_NICKNAME_LEN - 1] = 0;
 	parameter.channel = g_Config.iWlanAdhocChannel; // Fake Channel, 0 = Auto where JPCSP use 11 as default for Auto (Commonly for Auto: 1, 6, 11)
 	if (parameter.channel == PSP_SYSTEMPARAM_ADHOC_CHANNEL_AUTOMATIC) parameter.channel = 1;
 	getLocalMac(&parameter.bssid.mac_addr);
@@ -1716,11 +1776,15 @@ int initNetwork(SceNetAdhocctlAdhocId *adhoc_id){
 	SceNetEtherAddr addres;
 	getLocalMac(&addres);
 	packet.mac = addres;
-	strcpy((char *)packet.name.data, g_Config.sNickName.c_str());
+	strncpy((char *)&packet.name.data, g_Config.sNickName.c_str(), ADHOCCTL_NICKNAME_LEN);
+	packet.name.data[ADHOCCTL_NICKNAME_LEN - 1] = 0;
 	memcpy(packet.game.data, adhoc_id->data, ADHOCCTL_ADHOCID_LEN);
 	int sent = send(metasocket, (char*)&packet, sizeof(packet), 0);
 	changeBlockingMode(metasocket, 1); // Change to non-blocking
 	if (sent > 0) {
+		socklen_t addrLen = sizeof(LocalIP);
+		memset(&LocalIP, 0, addrLen);
+		getsockname(metasocket, &LocalIP, &addrLen);
 		host->NotifyUserMessage(n->T("Network Initialized"), 1.0);
 		return 0;
 	}
@@ -1741,7 +1805,7 @@ bool resolveIP(uint32_t ip, SceNetEtherAddr * mac) {
 	getLocalIp(&addr);
 	uint32_t localIp = addr.sin_addr.s_addr;
 
-	if (ip == localIp || ip == ((sockaddr_in*)&localIP)->sin_addr.s_addr){
+	if (ip == localIp || ip == ((sockaddr_in*)&LocalhostIP)->sin_addr.s_addr){
 		getLocalMac(mac);
 		return true;
 	}
