@@ -330,13 +330,19 @@ void GameButton::Draw(UIContext &dc) {
 		if (!currentTitle.empty()) {
 			title_ = ReplaceAll(currentTitle + discNumInfo, "&", "&&");
 			title_ = ReplaceAll(title_, "\n", " ");
-			if (g_Config.bShowIDOnGameIcon)
-				title_ += " (" + ginfo->id_version + ")";
 		}
 
 		dc.MeasureText(dc.GetFontStyle(), 1.0f, 1.0f, title_.c_str(), &tw, &th, 0);
 
 		int availableWidth = bounds_.w - 150;
+		if (g_Config.bShowIDOnGameIcon) {
+			float vw, vh;
+			dc.MeasureText(dc.GetFontStyle(), 0.7f, 0.7f, ginfo->id_version.c_str(), &vw, &vh, 0);
+			availableWidth -= vw + 20;
+			dc.SetFontScale(0.7f, 0.7f);
+			dc.DrawText(ginfo->id_version.c_str(), availableWidth + 160, bounds_.centerY(), style.fgColor, ALIGN_VCENTER);
+			dc.SetFontScale(1.0f, 1.0f);
+		}
 		float sineWidth = std::max(0.0f, (tw - availableWidth)) / 2.0f;
 
 		float tx = 150;
@@ -344,7 +350,7 @@ void GameButton::Draw(UIContext &dc) {
 			tx -= (1.0f + sin(time_now_d() * 1.5f)) * sineWidth;
 			Bounds tb = bounds_;
 			tb.x = bounds_.x + 150;
-			tb.w = bounds_.w - 150;
+			tb.w = availableWidth;
 			dc.PushScissor(tb);
 		}
 		dc.DrawText(title_.c_str(), bounds_.x + tx, bounds_.centerY(), style.fgColor, ALIGN_VCENTER);
