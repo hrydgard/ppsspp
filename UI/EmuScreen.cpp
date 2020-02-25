@@ -631,6 +631,9 @@ void EmuScreen::onVKeyDown(int virtualKeyCode) {
 	case VIRTKEY_RAPID_FIRE:
 		__CtrlSetRapidFire(true);
 		break;
+	case VIRTKEY_MUTE_TOGGLE:
+		g_Config.bEnableSound = !g_Config.bEnableSound;
+		break;
 	}
 }
 
