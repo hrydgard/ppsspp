@@ -123,6 +123,7 @@ void __NetInit() {
 	SceNetEtherAddr mac;
 	getLocalMac(&mac);
 	INFO_LOG(SCENET, "LocalHost IP will be %s [MAC: %s]", inet_ntoa(((sockaddr_in*)&LocalhostIP)->sin_addr), mac2str(&mac, tmpmac));
+
 	// Only initialize when UPnP is enabled since it takes a few seconds to detect UPnP device (may affect people who don't have UPnP device)
 	if (g_Config.bEnableUPnP) {
 		g_PortManager.Init();

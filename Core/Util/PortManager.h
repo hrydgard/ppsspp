@@ -92,6 +92,7 @@ protected:
 	int m_LocalPort = UPNP_LOCAL_PORT_ANY;
 	std::string m_lanip;
 	std::string m_defaultDesc;
+	std::string m_leaseDuration = "43200"; // range(0-604800) in seconds (0 = Indefinite/permanent). Some routers doesn't support non-zero value
 	std::deque<std::pair<std::string, std::string>> m_portList;
 	std::deque<PortMap> m_otherPortList;
 };

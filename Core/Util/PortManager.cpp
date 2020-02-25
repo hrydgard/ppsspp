@@ -40,7 +40,8 @@ PortManager::PortManager():
 	urls(0), 
 	datas(0), 
 	m_InitState(UPNP_INITSTATE_NONE),
-	m_LocalPort(UPNP_LOCAL_PORT_ANY) {
+	m_LocalPort(UPNP_LOCAL_PORT_ANY),
+	m_leaseDuration("43200") {
 }
 
 PortManager::~PortManager() {
@@ -63,6 +64,7 @@ void PortManager::Deinit() {
 	m_portList.clear(); m_portList.shrink_to_fit();
 	m_lanip.clear();
 	m_defaultDesc.clear();
+	m_leaseDuration.clear();
 	m_LocalPort = UPNP_LOCAL_PORT_ANY;
 	m_InitState = UPNP_INITSTATE_DONE;
 }
@@ -102,6 +104,7 @@ bool PortManager::Init(const unsigned int timeout) {
 			break;
 		}
 	}
+	m_leaseDuration = "43200"; // 12 hours
 	m_InitState = UPNP_INITSTATE_BUSY;
 	urls = (UPNPUrls*)malloc(sizeof(struct UPNPUrls));
 	datas = (IGDdatas*)malloc(sizeof(struct IGDdatas));
@@ -131,7 +134,7 @@ bool PortManager::Init(const unsigned int timeout) {
 			GetUPNPUrls(urls, datas, dev->descURL, dev->scope_id);
 		}
 
-		// Get LAN IP address
+		// Get LAN IP address that connects to the router
 		char lanaddr[64] = "unset";
 		int status = UPNP_GetValidIGD(devlist, urls, datas, lanaddr, sizeof(lanaddr)); //possible "status" values, 0 = NO IGD found, 1 = A valid connected IGD has been found, 2 = A valid IGD has been found but it reported as not connected, 3 = an UPnP device has been found but was not recognized as an IGD
 		m_lanip = std::string(lanaddr);
@@ -162,7 +165,7 @@ bool PortManager::Init(const unsigned int timeout) {
 		RefreshPortList();
 		return true;
 	}
-	ERROR_LOG(SCENET, "PortManager - upnpDiscover failed (error: %d) or No UPnP device detected", error);
+	ERROR_LOG(SCENET, "PortManager - upnpDiscover failed (error: %i) or No UPnP device detected", error);
 	auto n = GetI18NCategory("Networking");
 	host->NotifyUserMessage(n->T("Unable to find UPnP device"), 6.0f, 0x0000ff);
 	m_InitState = UPNP_INITSTATE_NONE;
@@ -175,7 +178,6 @@ int PortManager::GetInitState() {
 
 bool PortManager::Add(unsigned short port, const char* protocol) {
 	char port_str[16];
-	std::string leaseDuration = "43200"; // range(0-604800) in seconds (0 = Indefinite/permanent). Some routers doesn't support non-zero value
 	int r;
 	
 	INFO_LOG(SCENET, "PortManager::Add(%d, %s)", port, protocol);
@@ -196,14 +198,21 @@ bool PortManager::Add(unsigned short port, const char* protocol) {
 			r = UPNP_DeletePortMapping(urls->controlURL, datas->first.servicetype, port_str, protocol, NULL);
 		}
 		r = UPNP_AddPortMapping(urls->controlURL, datas->first.servicetype,
-			port_str, port_str, m_lanip.c_str(), m_defaultDesc.c_str(), protocol, NULL, leaseDuration.c_str());
+			port_str, port_str, m_lanip.c_str(), m_defaultDesc.c_str(), protocol, NULL, m_leaseDuration.c_str());
+		if (r == 725 && m_leaseDuration != "0") {
+			m_leaseDuration = "0";
+			r = UPNP_AddPortMapping(urls->controlURL, datas->first.servicetype,
+				port_str, port_str, m_lanip.c_str(), m_defaultDesc.c_str(), protocol, NULL, m_leaseDuration.c_str());
+		}
 		if (r != 0)
 		{
-			ERROR_LOG(SCENET, "PortManager - AddPortMapping failed (error: %d)", r);
-			auto n = GetI18NCategory("Networking");
-			host->NotifyUserMessage(n->T("UPnP need to be reinitialized"), 6.0f, 0x0000ff);
-			Deinit(); // Most of the time errors occurred because the router is no longer reachable (ie. changed networks) so we should invalidate the state to prevent further lags due to timeouts
-			return false;
+			ERROR_LOG(SCENET, "PortManager - AddPortMapping failed (error: %i)", r);
+			if (r == UPNPCOMMAND_HTTP_ERROR) {
+				auto n = GetI18NCategory("Networking");
+				host->NotifyUserMessage(n->T("UPnP need to be reinitialized"), 6.0f, 0x0000ff);
+				Deinit(); // Most of the time errors occurred because the router is no longer reachable (ie. changed networks) so we should invalidate the state to prevent further lags due to timeouts
+				return false;
+			}
 		}
 		m_portList.push_front({ port_str, protocol });
 		// Keep tracks of it to be restored later if it belongs to others
@@ -225,11 +234,13 @@ bool PortManager::Remove(unsigned short port, const char* protocol) {
 	int r = UPNP_DeletePortMapping(urls->controlURL, datas->first.servicetype, port_str, protocol, NULL);
 	if (r != 0)
 	{
-		ERROR_LOG(SCENET, "PortManager - DeletePortMapping failed (error: %d)", r);
-		auto n = GetI18NCategory("Networking");
-		host->NotifyUserMessage(n->T("UPnP need to be reinitialized"), 6.0f, 0x0000ff);
-		Deinit(); // Most of the time errors occurred because the router is no longer reachable (ie. changed networks) so we should invalidate the state to prevent further lags due to timeouts
-		return false;
+		ERROR_LOG(SCENET, "PortManager - DeletePortMapping failed (error: %i)", r);
+		if (r == UPNPCOMMAND_HTTP_ERROR) {
+			auto n = GetI18NCategory("Networking");
+			host->NotifyUserMessage(n->T("UPnP need to be reinitialized"), 6.0f, 0x0000ff);
+			Deinit(); // Most of the time errors occurred because the router is no longer reachable (ie. changed networks) so we should invalidate the state to prevent further lags due to timeouts
+			return false;
+		}
 	}
 	for (auto it = m_portList.begin(); it != m_portList.end(); ) {
 		(it->first == port_str && it->second == protocol) ? it = m_portList.erase(it) : ++it;
@@ -258,8 +269,9 @@ bool PortManager::Restore() {
 					m_portList.erase(el_it);
 				}
 				else {
-					ERROR_LOG(SCENET, "PortManager::Restore - DeletePortMapping failed (error: %d)", r);
-					return false; // Might be better not to exit here, but exiting a loop will avoid long timeouts in the case the router is no longer reachable
+					ERROR_LOG(SCENET, "PortManager::Restore - DeletePortMapping failed (error: %i)", r);
+					if (r == UPNPCOMMAND_HTTP_ERROR)
+						return false; // Might be better not to exit here, but exiting a loop will avoid long timeouts in the case the router is no longer reachable
 				}
 			}
 			// Add the original owner back
@@ -269,8 +281,9 @@ bool PortManager::Restore() {
 				it->taken = false;
 			}
 			else {
-				ERROR_LOG(SCENET, "PortManager::Restore - AddPortMapping failed (error: %d)", r);
-				return false; // Might be better not to exit here, but exiting a loop will avoid long timeouts in the case the router is no longer reachable
+				ERROR_LOG(SCENET, "PortManager::Restore - AddPortMapping failed (error: %i)", r);
+				if (r == UPNPCOMMAND_HTTP_ERROR)
+					return false; // Might be better not to exit here, but exiting a loop will avoid long timeouts in the case the router is no longer reachable
 			}		
 		}
 	}
@@ -314,8 +327,9 @@ bool PortManager::Clear() {
 			int r2 = UPNP_DeletePortMapping(urls->controlURL, datas->first.servicetype, extPort, protocol, rHost);
 			if (r2 != 0)
 			{
-				ERROR_LOG(SCENET, "PortManager::Clear - DeletePortMapping(%s, %s) failed (error: %d)", extPort, protocol, r2);
-				return false;
+				ERROR_LOG(SCENET, "PortManager::Clear - DeletePortMapping(%s, %s) failed (error: %i)", extPort, protocol, r2);
+				if (r2 == UPNPCOMMAND_HTTP_ERROR)
+					return false;
 			}
 			else {
 				i--;
