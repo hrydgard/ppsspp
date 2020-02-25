@@ -280,6 +280,9 @@ void GameButton::Draw(UIContext &dc) {
 	// Render button
 	int dropsize = 10;
 	if (texture) {
+		if (!gridStyle_) {
+			x += 4;
+		}
 		if (txOffset) {
 			dropsize = 3;
 			y += txOffset * 2;
@@ -372,7 +375,7 @@ void GameButton::Draw(UIContext &dc) {
 		if (gridStyle_) {
 			dc.Draw()->DrawImage(I_GEAR, x, y + h - ui_images[I_GEAR].h, 1.0f);
 		} else {
-			dc.Draw()->DrawImage(I_GEAR, x + 2 - ui_images[I_GEAR].w, y, 1.0f);
+			dc.Draw()->DrawImage(I_GEAR, x - ui_images[I_GEAR].w, y, 1.0f);
 		}
 	}
 	if (g_Config.bShowRegionOnGameIcon && ginfo->region >= 0 && ginfo->region < GAMEREGION_MAX && ginfo->region != GAMEREGION_OTHER) {
@@ -387,13 +390,13 @@ void GameButton::Draw(UIContext &dc) {
 		if (gridStyle_) {
 			dc.Draw()->DrawImage(regionIcons[ginfo->region], x + w - ui_images[regionIcons[ginfo->region]].w - 5, y + h - ui_images[regionIcons[ginfo->region]].h - 5, 1.0f);
 		} else {
-			dc.Draw()->DrawImage(regionIcons[ginfo->region], x - ui_images[regionIcons[ginfo->region]].w - 3, y + h - ui_images[regionIcons[ginfo->region]].h - 5, 1.0f);
+			dc.Draw()->DrawImage(regionIcons[ginfo->region], x - 2 - ui_images[regionIcons[ginfo->region]].w - 3, y + h - ui_images[regionIcons[ginfo->region]].h - 5, 1.0f);
 		}
 	}
 	if (gridStyle_ && g_Config.bShowIDOnGameIcon) {
 		dc.SetFontScale(0.5f, 0.5f);
-		dc.DrawText(ginfo->id_version.c_str(), x+3, y+1, 0xFF000000, ALIGN_TOPLEFT);
-		dc.DrawText(ginfo->id_version.c_str(), x+2, y, 0xFFffFFff, ALIGN_TOPLEFT);
+		dc.DrawText(ginfo->id_version.c_str(), x+5, y+1, 0xFF000000, ALIGN_TOPLEFT);
+		dc.DrawText(ginfo->id_version.c_str(), x+4, y, 0xFFffFFff, ALIGN_TOPLEFT);
 		dc.SetFontScale(1.0f, 1.0f);
 	}
 	if (overlayColor) {
