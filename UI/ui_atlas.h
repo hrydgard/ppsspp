@@ -49,7 +49,13 @@
 #define I_5 38
 #define I_6 39
 #define I_PSP_DISPLAY 40
+#define I_FLAG_JP 41
+#define I_FLAG_US 42
+#define I_FLAG_EU 43
+#define I_FLAG_HK 44
+#define I_FLAG_AS 45
+#define I_FLAG_KO 46
 
 
 extern const Atlas ui_atlas;
-extern const AtlasImage ui_images[41];
+extern const AtlasImage ui_images[47];

@@ -280,6 +280,9 @@ void GameButton::Draw(UIContext &dc) {
 	// Render button
 	int dropsize = 10;
 	if (texture) {
+		if (!gridStyle_) {
+			x += 4;
+		}
 		if (txOffset) {
 			dropsize = 3;
 			y += txOffset * 2;
@@ -335,6 +338,14 @@ void GameButton::Draw(UIContext &dc) {
 		dc.MeasureText(dc.GetFontStyle(), 1.0f, 1.0f, title_.c_str(), &tw, &th, 0);
 
 		int availableWidth = bounds_.w - 150;
+		if (g_Config.bShowIDOnGameIcon) {
+			float vw, vh;
+			dc.MeasureText(dc.GetFontStyle(), 0.7f, 0.7f, ginfo->id_version.c_str(), &vw, &vh, 0);
+			availableWidth -= vw + 20;
+			dc.SetFontScale(0.7f, 0.7f);
+			dc.DrawText(ginfo->id_version.c_str(), availableWidth + 160, bounds_.centerY(), style.fgColor, ALIGN_VCENTER);
+			dc.SetFontScale(1.0f, 1.0f);
+		}
 		float sineWidth = std::max(0.0f, (tw - availableWidth)) / 2.0f;
 
 		float tx = 150;
@@ -342,7 +353,7 @@ void GameButton::Draw(UIContext &dc) {
 			tx -= (1.0f + sin(time_now_d() * 1.5f)) * sineWidth;
 			Bounds tb = bounds_;
 			tb.x = bounds_.x + 150;
-			tb.w = bounds_.w - 150;
+			tb.w = availableWidth;
 			dc.PushScissor(tb);
 		}
 		dc.DrawText(title_.c_str(), bounds_.x + tx, bounds_.centerY(), style.fgColor, ALIGN_VCENTER);
@@ -361,7 +372,32 @@ void GameButton::Draw(UIContext &dc) {
 		dc.Draw()->Flush();
 	}
 	if (ginfo->hasConfig && !ginfo->id.empty()) {
-		dc.Draw()->DrawImage(I_GEAR, x, y + h - ui_images[I_GEAR].h, 1.0f);
+		if (gridStyle_) {
+			dc.Draw()->DrawImage(I_GEAR, x, y + h - ui_images[I_GEAR].h, 1.0f);
+		} else {
+			dc.Draw()->DrawImage(I_GEAR, x - ui_images[I_GEAR].w, y, 1.0f);
+		}
+	}
+	if (g_Config.bShowRegionOnGameIcon && ginfo->region >= 0 && ginfo->region < GAMEREGION_MAX && ginfo->region != GAMEREGION_OTHER) {
+		static const int regionIcons[GAMEREGION_MAX] = {
+			I_FLAG_JP,
+			I_FLAG_US,
+			I_FLAG_EU,
+			I_FLAG_HK,
+			I_FLAG_AS,
+			I_FLAG_KO
+		};
+		if (gridStyle_) {
+			dc.Draw()->DrawImage(regionIcons[ginfo->region], x + w - ui_images[regionIcons[ginfo->region]].w - 5, y + h - ui_images[regionIcons[ginfo->region]].h - 5, 1.0f);
+		} else {
+			dc.Draw()->DrawImage(regionIcons[ginfo->region], x - 2 - ui_images[regionIcons[ginfo->region]].w - 3, y + h - ui_images[regionIcons[ginfo->region]].h - 5, 1.0f);
+		}
+	}
+	if (gridStyle_ && g_Config.bShowIDOnGameIcon) {
+		dc.SetFontScale(0.5f, 0.5f);
+		dc.DrawText(ginfo->id_version.c_str(), x+5, y+1, 0xFF000000, ALIGN_TOPLEFT);
+		dc.DrawText(ginfo->id_version.c_str(), x+4, y, 0xFFffFFff, ALIGN_TOPLEFT);
+		dc.SetFontScale(1.0f, 1.0f);
 	}
 	if (overlayColor) {
 		dc.FillRect(Drawable(overlayColor), overlayBounds);
