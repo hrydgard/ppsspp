@@ -970,6 +970,10 @@ bool MediaEngine::IsNoAudioData() {
 	return !m_demux->hasNextAudioFrame(NULL, NULL, NULL, NULL);
 }
 
+bool MediaEngine::IsActuallyPlayAudio() {
+	return getAudioTimeStamp() >= 0;
+}
+
 s64 MediaEngine::getVideoTimeStamp() {
 	return m_videopts;
 }
