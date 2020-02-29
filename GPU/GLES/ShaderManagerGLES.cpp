@@ -981,7 +981,7 @@ bool ShaderManagerGLES::ContinuePrecompile(float sliceTime) {
 	time_update();
 	double finish = time_now_d();
 
-	NOTICE_LOG(G3D, "Compiled and linked %d programs (%d vertex, %d fragment) in %0.1f milliseconds", (int)pending.link.size(), (int)pending.vert.size(), (int)pending.frag.size(), 1000 * (finish - pending.start));
+	NOTICE_LOG(G3D, "Precompile: Compiled and linked %d programs (%d vertex, %d fragment) in %0.1f milliseconds", (int)pending.link.size(), (int)pending.vert.size(), (int)pending.frag.size(), 1000 * (finish - pending.start));
 	pending.Clear();
 
 	return true;

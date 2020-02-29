@@ -79,7 +79,7 @@ VulkanFragmentShader::VulkanFragmentShader(VulkanContext *vulkan, FShaderID id, 
 		failed_ = true;
 		return;
 	} else {
-		DEBUG_LOG(G3D, "Compiled shader:\n%s\n", (const char *)code);
+		VERBOSE_LOG(G3D, "Compiled fragment shader:\n%s\n", (const char *)code);
 	}
 }
 
@@ -136,7 +136,7 @@ VulkanVertexShader::VulkanVertexShader(VulkanContext *vulkan, VShaderID id, cons
 		module_ = VK_NULL_HANDLE;
 		return;
 	} else {
-		DEBUG_LOG(G3D, "Compiled shader:\n%s\n", (const char *)code);
+		VERBOSE_LOG(G3D, "Compiled vertex shader:\n%s\n", (const char *)code);
 	}
 }
 

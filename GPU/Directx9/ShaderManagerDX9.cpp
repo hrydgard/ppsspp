@@ -76,7 +76,7 @@ PSShader::PSShader(LPDIRECT3DDEVICE9 device, FShaderID id, const char *code) : i
 		shader = NULL;
 		return;
 	} else {
-		DEBUG_LOG(G3D, "Compiled shader:\n%s\n", (const char *)code);
+		VERBOSE_LOG(G3D, "Compiled pixel shader:\n%s\n", (const char *)code);
 	}
 }
 
@@ -125,7 +125,7 @@ VSShader::VSShader(LPDIRECT3DDEVICE9 device, VShaderID id, const char *code, boo
 		shader = NULL;
 		return;
 	} else {
-		DEBUG_LOG(G3D, "Compiled shader:\n%s\n", (const char *)code);
+		VERBOSE_LOG(G3D, "Compiled vertex shader:\n%s\n", (const char *)code);
 	}
 }
 
