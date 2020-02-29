@@ -118,9 +118,6 @@
     <None Include="Content\ppge_atlas.zim">
       <Filter>Content</Filter>
     </None>
-    <None Include="Content\ui_atlas_lowmem.zim">
-      <Filter>Content</Filter>
-    </None>
     <None Include="PPSSPP_UWP_TemporaryKey.pfx" />
     <None Include="Content\lang\ar_AE.ini">
       <Filter>Content\lang</Filter>

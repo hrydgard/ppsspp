@@ -1700,9 +1700,6 @@
       <DeploymentContent Condition="'$(Configuration)|$(Platform)'=='Debug|ARM'">true</DeploymentContent>
       <DeploymentContent Condition="'$(Configuration)|$(Platform)'=='Release|ARM'">true</DeploymentContent>
     </None>
-    <None Include="Content\ui_atlas_lowmem.zim">
-      <DeploymentContent>true</DeploymentContent>
-    </None>
     <None Include="PPSSPP_UWP_TemporaryKey.pfx" />
     <None Include="UWP_TemporaryKey.pfx" />
   </ItemGroup>
