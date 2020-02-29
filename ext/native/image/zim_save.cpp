@@ -215,8 +215,7 @@ uint8_t *DownsampleBy2(const uint8_t *image, int width, int height, int pitch) {
 	return out;
 }
 
-void SaveZIM(const char *filename, int width, int height, int pitch, int flags, const uint8_t *image_data) {
-	FILE *f = fopen(filename, "wb");
+void SaveZIM(FILE *f, int width, int height, int pitch, int flags, const uint8_t *image_data) {
 	fwrite(magic, 1, 4, f);
 	fwrite(&width, 1, 4, f);
 	fwrite(&height, 1, 4, f);
@@ -260,5 +259,4 @@ void SaveZIM(const char *filename, int width, int height, int pitch, int flags, 
 		}
 	}
 	delete [] image_data;
-	fclose(f);
 }
