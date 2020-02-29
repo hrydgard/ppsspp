@@ -242,7 +242,7 @@ struct Bucket {
 		dest.resize(image_width, 1);
 		sort(items.begin(), items.end());
 		for (int i = 0; i < (int)items.size(); i++) {
-			if ((i + 1) % 200 == 0) {
+			if ((i + 1) % 2000 == 0) {
 				printf("Resolving (%i / %i)\n", i, (int)items.size());
 			}
 			int idx = (int)items[i].first.dat[0].size();
@@ -388,6 +388,8 @@ void RasterizeFonts(const FontReferenceList &fontRefs, vector<CharRange> &ranges
 	// Wait what - how does this make sense?
 	*metrics_height = totalHeight / (float)fontRefs.size();
 
+	size_t missing_chars = 0;
+
 	// Convert all characters to bitmaps.
 	for (size_t r = 0, rn = ranges.size(); r < rn; r++) {
 		FT_Face_List &tryFonts = fontsByRange[ranges[r].start];
@@ -411,7 +413,8 @@ void RasterizeFonts(const FontReferenceList &fontRefs, vector<CharRange> &ranges
 				}
 			}
 			if (!foundMatch) {
-				fprintf(stderr, "WARNING: No font contains character %x.\n", kar);
+				// fprintf(stderr, "WARNING: No font contains character %x.\n", kar);
+				missing_chars++;
 				continue;
 			}
 
@@ -491,6 +494,10 @@ void RasterizeFonts(const FontReferenceList &fontRefs, vector<CharRange> &ranges
 			dat.effect = (int)Effect::FX_RED_TO_ALPHA_SOLID_WHITE;
 			bucket->AddItem(img, dat);
 		}
+	}
+
+	if (missing_chars) {
+		printf("Chars not found in any font: %d\n", (int)missing_chars);
 	}
 
 	for (size_t i = 0, n = fonts.size(); i < n; ++i) {
