@@ -400,7 +400,7 @@ void RasterizeFonts(const FontReferenceList &fontRefs, vector<CharRange> &ranges
 					filtered = true;
 			}
 
-			FT_Face font;
+			FT_Face font = nullptr;
 			bool foundMatch = false;
 			float vertOffset = 0;
 			for (size_t i = 0, n = tryFonts.size(); i < n; ++i) {
@@ -411,8 +411,10 @@ void RasterizeFonts(const FontReferenceList &fontRefs, vector<CharRange> &ranges
 					break;
 				}
 			}
-			//if (!foundMatch)
-			//	fprintf(stderr, "WARNING: No font contains character %x.\n", kar);
+			if (!foundMatch) {
+				fprintf(stderr, "WARNING: No font contains character %x.\n", kar);
+				continue;
+			}
 
 			Image<unsigned int> img;
 			if (filtered || 0 != FT_Load_Char(font, kar, FT_LOAD_RENDER|FT_LOAD_MONOCHROME)) {

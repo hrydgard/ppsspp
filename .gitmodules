@@ -25,3 +25,6 @@
 [submodule "ext/rapidjson"]
 	path = ext/rapidjson
 	url = https://github.com/Tencent/rapidjson.git
+[submodule "ext/native/tools/prebuilt"]
+	path = ext/native/tools/prebuilt
+	url = https://github.com/hrydgard/ppsspp-freetype.git

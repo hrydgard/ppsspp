@@ -1,6 +1,6 @@
 Microsoft Visual Studio Solution File, Format Version 12.00
-# Visual Studio Version 14
-VisualStudioVersion = 14.0.25420.1
+# Visual Studio Version 16
+VisualStudioVersion = 16.0.29806.167
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "PPSSPPWindows", "PPSSPP.vcxproj", "{567AF8DB-42C1-4D08-96CD-D70A2DFEFC6B}"
 	ProjectSection(ProjectDependencies) = postProject
@@ -78,6 +78,10 @@ EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "SPIRV-Cross", "..\ext\SPIRV-Cross.vcxproj", "{4328A62C-F1E9-47ED-B816-A1A81DAF4363}"
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "discord-rpc", "..\ext\discord-rpc-build\discord-rpc.vcxproj", "{BEB0A821-3C7F-410F-A525-63AFBC69BF8F}"
+EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "AtlasTool", "..\ext\native\tools\AtlasTool\AtlasTool.vcxproj", "{0CF32FA1-7D69-4D0B-B466-FEFEAC9F4AD8}"
+EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "ZimTool", "..\ext\native\tools\ZimTool\ZimTool.vcxproj", "{74CB15D7-5DC1-43D6-964E-EF6330FC9288}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -315,6 +319,26 @@ Global
 		{BEB0A821-3C7F-410F-A525-63AFBC69BF8F}.Release|Win32.Build.0 = Release|Win32
 		{BEB0A821-3C7F-410F-A525-63AFBC69BF8F}.Release|x64.ActiveCfg = Release|x64
 		{BEB0A821-3C7F-410F-A525-63AFBC69BF8F}.Release|x64.Build.0 = Release|x64
+		{0CF32FA1-7D69-4D0B-B466-FEFEAC9F4AD8}.Debug|ARM.ActiveCfg = Debug|x64
+		{0CF32FA1-7D69-4D0B-B466-FEFEAC9F4AD8}.Debug|ARM64.ActiveCfg = Debug|x64
+		{0CF32FA1-7D69-4D0B-B466-FEFEAC9F4AD8}.Debug|Win32.ActiveCfg = Debug|x64
+		{0CF32FA1-7D69-4D0B-B466-FEFEAC9F4AD8}.Debug|x64.ActiveCfg = Debug|x64
+		{0CF32FA1-7D69-4D0B-B466-FEFEAC9F4AD8}.Debug|x64.Build.0 = Debug|x64
+		{0CF32FA1-7D69-4D0B-B466-FEFEAC9F4AD8}.Release|ARM.ActiveCfg = Release|x64
+		{0CF32FA1-7D69-4D0B-B466-FEFEAC9F4AD8}.Release|ARM64.ActiveCfg = Release|x64
+		{0CF32FA1-7D69-4D0B-B466-FEFEAC9F4AD8}.Release|Win32.ActiveCfg = Release|x64
+		{0CF32FA1-7D69-4D0B-B466-FEFEAC9F4AD8}.Release|x64.ActiveCfg = Release|x64
+		{0CF32FA1-7D69-4D0B-B466-FEFEAC9F4AD8}.Release|x64.Build.0 = Release|x64
+		{74CB15D7-5DC1-43D6-964E-EF6330FC9288}.Debug|ARM.ActiveCfg = Debug|x64
+		{74CB15D7-5DC1-43D6-964E-EF6330FC9288}.Debug|ARM64.ActiveCfg = Debug|x64
+		{74CB15D7-5DC1-43D6-964E-EF6330FC9288}.Debug|Win32.ActiveCfg = Debug|x64
+		{74CB15D7-5DC1-43D6-964E-EF6330FC9288}.Debug|x64.ActiveCfg = Debug|x64
+		{74CB15D7-5DC1-43D6-964E-EF6330FC9288}.Debug|x64.Build.0 = Debug|x64
+		{74CB15D7-5DC1-43D6-964E-EF6330FC9288}.Release|ARM.ActiveCfg = Release|x64
+		{74CB15D7-5DC1-43D6-964E-EF6330FC9288}.Release|ARM64.ActiveCfg = Release|x64
+		{74CB15D7-5DC1-43D6-964E-EF6330FC9288}.Release|Win32.ActiveCfg = Release|x64
+		{74CB15D7-5DC1-43D6-964E-EF6330FC9288}.Release|x64.ActiveCfg = Release|x64
+		{74CB15D7-5DC1-43D6-964E-EF6330FC9288}.Release|x64.Build.0 = Release|x64
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
