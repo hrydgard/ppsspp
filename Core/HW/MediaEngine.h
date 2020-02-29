@@ -87,6 +87,7 @@ public:
 
 	bool IsVideoEnd() { return m_isVideoEnd; }
 	bool IsNoAudioData();
+	bool IsActuallyPlayingAudio();
 	int VideoWidth() { return m_desWidth; }
 	int VideoHeight() { return m_desHeight; }
 
