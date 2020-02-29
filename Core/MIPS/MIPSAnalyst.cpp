@@ -1022,6 +1022,8 @@ skip:
 	bool ScanForFunctions(u32 startAddr, u32 endAddr, bool insertSymbols) {
 		std::lock_guard<std::recursive_mutex> guard(functions_lock);
 
+		FunctionsVector new_functions;
+
 		AnalyzedFunction currentFunction = {startAddr};
 
 		u32 furthestBranch = 0;
@@ -1142,7 +1144,7 @@ skip:
 					}
 				}
 
-				functions.push_back(currentFunction);
+				new_functions.push_back(currentFunction);
 
 				furthestBranch = 0;
 				addr += 4;
@@ -1157,10 +1159,10 @@ skip:
 
 		if (addr <= endAddr) {
 			currentFunction.end = addr + 4;
-			functions.push_back(currentFunction);
+			new_functions.push_back(currentFunction);
 		}
 
-		for (auto iter = functions.begin(); iter != functions.end(); iter++) {
+		for (auto iter = new_functions.begin(); iter != new_functions.end(); iter++) {
 			iter->size = iter->end - iter->start + 4;
 			if (insertSymbols && !iter->foundInSymbolMap) {
 				char temp[256];
@@ -1168,6 +1170,8 @@ skip:
 			}
 		}
 
+		// Concatenate the new functions to the end of the old ones.
+		functions.insert(functions.end(), new_functions.begin(), new_functions.end());
 		return insertSymbols;
 	}
 
