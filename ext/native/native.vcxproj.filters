@@ -161,9 +161,6 @@
     <ClInclude Include="ext\cityhash\citycrc.h">
       <Filter>ext</Filter>
     </ClInclude>
-    <ClInclude Include="ext\rg_etc1\rg_etc1.h">
-      <Filter>ext</Filter>
-    </ClInclude>
     <ClInclude Include="thread\prioritizedworkqueue.h">
       <Filter>thread</Filter>
     </ClInclude>
@@ -458,9 +455,6 @@
       <Filter>util</Filter>
     </ClCompile>
     <ClCompile Include="ext\cityhash\city.cpp">
-      <Filter>ext</Filter>
-    </ClCompile>
-    <ClCompile Include="ext\rg_etc1\rg_etc1.cpp">
       <Filter>ext</Filter>
     </ClCompile>
     <ClCompile Include="thread\prioritizedworkqueue.cpp">

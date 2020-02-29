@@ -18,9 +18,7 @@
 
 static Draw::DataFormat ZimToT3DFormat(int zim) {
 	switch (zim) {
-	case ZIM_ETC1: return Draw::DataFormat::ETC1;
 	case ZIM_RGBA8888: return Draw::DataFormat::R8G8B8A8_UNORM;
-	case ZIM_LUMINANCE: return Draw::DataFormat::R8_UNORM;
 	default: return Draw::DataFormat::R8G8B8A8_UNORM;
 	}
 }

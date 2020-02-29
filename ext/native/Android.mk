@@ -15,7 +15,6 @@ LOCAL_SRC_FILES :=\
     base/stringutil.cpp \
     data/base64.cpp \
     data/compression.cpp \
-    ext/rg_etc1/rg_etc1.cpp \
     ext/cityhash/city.cpp \
     ext/libpng17/png.c \
     ext/libpng17/pngerror.c \

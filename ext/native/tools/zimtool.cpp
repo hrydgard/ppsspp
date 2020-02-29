@@ -11,7 +11,7 @@ char magic[5] = "ZIMG";
 bool FLAGS_flip = false;
 
 const char *format_strings[4] = { "8888", "4444", "565", "ETC1" };
-int formats[4] = { ZIM_RGBA8888, ZIM_RGBA4444, ZIM_RGB565, ZIM_ETC1 };
+int formats[3] = { ZIM_RGBA8888, ZIM_RGBA4444, ZIM_RGB565 };
 
 void printusage() {
 	fprintf(stderr, "Usage: zimtool infile.png outfile.zim [-f=FORMAT] [-m] [-g]\n");
@@ -72,12 +72,6 @@ int main(int argc, char **argv) {
 	}
 	// TODO: make setting?
 	flags |= ZIM_ETC1_MEDIUM;
-	if ((flags & ZIM_FORMAT_MASK) == ZIM_ETC1) {
-		if (flags & ZIM_GEN_MIPS) {
-			fprintf(stderr, "WARNING: Cannot generate ETC1 mips at runtime\n");
-			flags &= ~ZIM_GEN_MIPS;
-		}
-	}
 	if (!format_set) {
 		fprintf(stderr, "Must set format\n");
 		printusage();
