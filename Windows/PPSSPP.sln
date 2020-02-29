@@ -1,6 +1,6 @@
 Microsoft Visual Studio Solution File, Format Version 12.00
-# Visual Studio 15
-VisualStudioVersion = 15.0.28307.1022
+# Visual Studio Version 16
+VisualStudioVersion = 16.0.29806.167
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "PPSSPPWindows", "PPSSPP.vcxproj", "{567AF8DB-42C1-4D08-96CD-D70A2DFEFC6B}"
 	ProjectSection(ProjectDependencies) = postProject
@@ -329,16 +329,14 @@ Global
 		{FBE46262-7C2C-400C-92F9-F8A9E72594DD}.Release|Win32.ActiveCfg = Release|x64
 		{FBE46262-7C2C-400C-92F9-F8A9E72594DD}.Release|x64.ActiveCfg = Release|x64
 		{FBE46262-7C2C-400C-92F9-F8A9E72594DD}.Release|x64.Build.0 = Release|x64
-		{B7DED405-40A2-48F8-9382-538F10D442F1}.Debug|ARM.ActiveCfg = Debug|Win32
-		{B7DED405-40A2-48F8-9382-538F10D442F1}.Debug|ARM64.ActiveCfg = Debug|Win32
-		{B7DED405-40A2-48F8-9382-538F10D442F1}.Debug|Win32.ActiveCfg = Debug|Win32
-		{B7DED405-40A2-48F8-9382-538F10D442F1}.Debug|Win32.Build.0 = Debug|Win32
+		{B7DED405-40A2-48F8-9382-538F10D442F1}.Debug|ARM.ActiveCfg = Debug|x64
+		{B7DED405-40A2-48F8-9382-538F10D442F1}.Debug|ARM64.ActiveCfg = Debug|x64
+		{B7DED405-40A2-48F8-9382-538F10D442F1}.Debug|Win32.ActiveCfg = Debug|x64
 		{B7DED405-40A2-48F8-9382-538F10D442F1}.Debug|x64.ActiveCfg = Debug|x64
 		{B7DED405-40A2-48F8-9382-538F10D442F1}.Debug|x64.Build.0 = Debug|x64
-		{B7DED405-40A2-48F8-9382-538F10D442F1}.Release|ARM.ActiveCfg = Release|Win32
-		{B7DED405-40A2-48F8-9382-538F10D442F1}.Release|ARM64.ActiveCfg = Release|Win32
-		{B7DED405-40A2-48F8-9382-538F10D442F1}.Release|Win32.ActiveCfg = Release|Win32
-		{B7DED405-40A2-48F8-9382-538F10D442F1}.Release|Win32.Build.0 = Release|Win32
+		{B7DED405-40A2-48F8-9382-538F10D442F1}.Release|ARM.ActiveCfg = Release|x64
+		{B7DED405-40A2-48F8-9382-538F10D442F1}.Release|ARM64.ActiveCfg = Release|x64
+		{B7DED405-40A2-48F8-9382-538F10D442F1}.Release|Win32.ActiveCfg = Release|x64
 		{B7DED405-40A2-48F8-9382-538F10D442F1}.Release|x64.ActiveCfg = Release|x64
 		{B7DED405-40A2-48F8-9382-538F10D442F1}.Release|x64.Build.0 = Release|x64
 	EndGlobalSection

@@ -409,7 +409,6 @@
     <ClInclude Include="..\..\ext\native\ext\libzip\config.h" />
     <ClInclude Include="..\..\ext\native\ext\libzip\zip.h" />
     <ClInclude Include="..\..\ext\native\ext\libzip\zipint.h" />
-    <ClInclude Include="..\..\ext\native\ext\rg_etc1\rg_etc1.h" />
     <ClInclude Include="..\..\ext\native\ext\sha1\sha1.h" />
     <ClInclude Include="..\..\ext\native\file\chunk_file.h" />
     <ClInclude Include="..\..\ext\native\file\fd_util.h" />
@@ -1454,7 +1453,6 @@
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|x64'">NotUsing</PrecompiledHeader>
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='UWP Gold|x64'">NotUsing</PrecompiledHeader>
     </ClCompile>
-    <ClCompile Include="..\..\ext\native\ext\rg_etc1\rg_etc1.cpp" />
     <ClCompile Include="..\..\ext\native\ext\sha1\sha1.cpp" />
     <ClCompile Include="..\..\ext\native\file\chunk_file.cpp" />
     <ClCompile Include="..\..\ext\native\file\fd_util.cpp" />

@@ -410,7 +410,6 @@
     <ClInclude Include="ext\libzip\config.h" />
     <ClInclude Include="ext\libzip\zip.h" />
     <ClInclude Include="ext\libzip\zipint.h" />
-    <ClInclude Include="ext\rg_etc1\rg_etc1.h" />
     <ClInclude Include="ext\sha1\sha1.h" />
     <ClInclude Include="file\chunk_file.h" />
     <ClInclude Include="file\fd_util.h" />
@@ -1122,7 +1121,6 @@
       <CompileAs Condition="'$(Configuration)|$(Platform)'=='Release|ARM64'">CompileAsCpp</CompileAs>
       <CompileAs Condition="'$(Configuration)|$(Platform)'=='Release|ARM'">CompileAsCpp</CompileAs>
     </ClCompile>
-    <ClCompile Include="ext\rg_etc1\rg_etc1.cpp" />
     <ClCompile Include="ext\sha1\sha1.cpp" />
     <ClCompile Include="file\chunk_file.cpp" />
     <ClCompile Include="file\fd_util.cpp" />

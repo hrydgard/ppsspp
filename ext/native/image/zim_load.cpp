@@ -75,15 +75,6 @@ int LoadZIMPtr(const uint8_t *zim, size_t datasize, int *width, int *height, int
 		case ZIM_RGB565:
 			image_data_size[i] = width[i] * height[i] * 2;
 			break;
-		case ZIM_ETC1:
-			{
-				int data_width = width[i];
-				int data_height = height[i];
-				if (data_width < 4) data_width = 4;
-				if (data_height < 4) data_height = 4;
-				image_data_size[i] = data_width * data_height / 2;
-				break;
-			}
 		default:
 			ELOG("Invalid ZIM format %i", *flags & ZIM_FORMAT_MASK);
 			return 0;

@@ -50,8 +50,7 @@
 
 using namespace std;
 static int global_id;
-static bool etc1 = false;
-static bool highcolor = false;
+static bool highcolor = false;  // Low color mode is used by PPGE, can't delete.
 
 typedef unsigned short u16;
 
@@ -786,10 +785,7 @@ int main(int argc, char **argv) {
 	}
 	CHECK(argc >= 3);
 	if (argc > 3) {
-		if (!strcmp(argv[3], "etc1")) {
-			printf("ETC1 enabled!\n");
-			etc1 = true;
-		} else if (!strcmp(argv[3], "8888")) {
+		if (!strcmp(argv[3], "8888")) {
 			highcolor = true;
 			printf("RGBA8888 enabled!\n");
 		}
@@ -885,10 +881,7 @@ int main(int argc, char **argv) {
 	printf("Resolving...\n");
 
 	vector<Data> results = bucket.Resolve(image_width, dest);
-	if (etc1) {
-		printf("Writing .ZIM %ix%i ETC1...\n", dest.width(), dest.height());
-		dest.SaveZIM(image_name.c_str(), ZIM_ETC1 | ZIM_ZLIB_COMPRESSED);
-	} else if (highcolor) {
+	if (highcolor) {
 		printf("Writing .ZIM %ix%i RGBA8888...\n", dest.width(), dest.height());
 		dest.SaveZIM(image_name.c_str(), ZIM_RGBA8888 | ZIM_ZLIB_COMPRESSED);
 	} else {
