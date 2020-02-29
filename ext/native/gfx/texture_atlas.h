@@ -1,5 +1,19 @@
 #pragma once
 
+#define ATLAS_MAGIC ('A' + ('T' << 8) + ('L' << 16) | ('A' << 24))
+
+// Metadata file structure v0:
+//
+// AtlasHeader
+// For each image:
+//   AtlasImage
+// For each font:
+//   AtlasFontHeader
+//   For each range:
+//     AtlasRange
+//   For each char:
+//     AtlasChar
+
 typedef int ImageID;
 
 struct AtlasChar {
@@ -17,6 +31,15 @@ struct AtlasCharRange {
 	int start;
 	int end;
 	int start_index;
+};
+
+struct AtlasFontHeader {
+	float padding;
+	float height;
+	float ascend;
+	float distslope;
+	int numRanges;
+	int numChars;
 };
 
 struct AtlasFont {
@@ -37,6 +60,19 @@ struct AtlasImage {
 	float u1, v1, u2, v2;
 	int w, h;
 	const char *name;
+};
+
+struct AtlasImage2 {
+	float u1, v1, u2, v2;
+	int w, h;
+	char name[32];
+};
+
+struct AtlasHeader {
+	int magic;
+	int version;
+	int numFonts;
+	int numImages;
 };
 
 struct Atlas {

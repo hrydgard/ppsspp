@@ -620,12 +620,80 @@ struct FontDesc {
 	void OutputHeader(FILE *fil, int index) {
 		fprintf(fil, "#define %s %i\n", name.c_str(), index);
 	}
+
+	AtlasFontHeader GetHeader() {
+		int numChars = 0;
+		for (size_t r = 0; r < ranges.size(); r++) {
+			numChars += ranges[r].end - ranges[r].start;
+		}
+		AtlasFontHeader header;
+		header.padding = height - ascend - descend;
+		header.height = ascend + descend;
+		header.ascend = ascend;
+		header.distslope = distmult / 256.0;
+		header.numChars = numChars;
+		header.numRanges = (int)ranges.size();
+		return header;
+	}
+
+	vector<AtlasCharRange> GetRanges() {
+		int start_index = 0;
+		vector<AtlasCharRange> out_ranges;
+		for (size_t r = 0; r < ranges.size(); r++) {
+			int first_char_id = ranges[r].start;
+			int last_char_id = ranges[r].end;
+			start_index += last_char_id - first_char_id;
+			AtlasCharRange range;
+			range.start = first_char_id;
+			range.end = last_char_id;
+			range.start_index = start_index;
+			out_ranges.push_back(range);
+		}
+		return out_ranges;
+	}
+
+	vector<AtlasChar> GetChars(float tw, float th, const vector<Data> &results) {
+		vector<AtlasChar> chars;
+		for (size_t r = 0; r < ranges.size(); r++) {
+			for (int i = ranges[r].start; i < ranges[r].end; i++) {
+				int idx = i - ranges[r].start + ranges[r].start_index;
+				AtlasChar c;
+				c.sx = results[idx].sx / tw;  // sx, sy, ex, ey
+				c.sy = results[idx].sy / th;
+				c.ex = results[idx].ex / tw;
+				c.ey = results[idx].ey / th;
+				c.ox = results[idx].ox; // ox, oy
+				c.oy = results[idx].oy + results[idx].voffset;
+				c.wx = results[idx].wx; //wx
+				c.pw = results[idx].ex - results[idx].sx; // pw, ph
+				c.ph = results[idx].ey - results[idx].sy;
+				chars.push_back(c);
+			}
+		}
+		return chars;
+	}
 };
 
 struct ImageDesc {
 	string name;
 	Effect effect;
 	int result_index;
+
+	AtlasImage2 ToAtlasImage2(float tw, float th, const vector<Data> &results) {
+		AtlasImage2 img;
+		int i = result_index;
+		float toffx = 0.5f / tw;
+		float toffy = 0.5f / th;
+		img.u1 = results[i].sx / tw + toffx;
+		img.v1 = results[i].sy / th + toffy;
+		img.u2 = results[i].ex / tw - toffx;
+		img.v2 = results[i].ey / th - toffy;
+		img.w = results[i].ex - results[i].sx;
+		img.h = results[i].ey - results[i].sy;
+		strncpy(img.name, name.c_str(), sizeof(img.name));
+		img.name[sizeof(img.name) - 1] = 0;
+		return img;
+	}
 
 	void OutputSelf(FILE *fil, float tw, float th, const vector<Data> &results) {
 		int i = result_index;
@@ -800,6 +868,7 @@ int main(int argc, char **argv) {
 	printf("Reading script %s\n", argv[1]);
 	const char *atlas_name = argv[2];
 	string image_name = string(atlas_name) + "_atlas.zim";
+	string meta_name = string(atlas_name) + "_atlas.meta";
 	out_prefix = argv[2];
 
 	map<string, FontReferenceList> fontRefs;
@@ -895,6 +964,36 @@ int main(int argc, char **argv) {
 		printf("Writing .ZIM %ix%i RGBA4444...\n", dest.width(), dest.height());
 		dest.SaveZIM(image_name.c_str(), ZIM_RGBA4444 | ZIM_ZLIB_COMPRESSED);
 	}
+
+	// Save all the metadata.
+	{
+		FILE *meta = fopen(meta_name.c_str(), "wb");
+		AtlasHeader header;
+		header.magic = ATLAS_MAGIC;
+		header.version = 0;
+		header.numFonts = (int)fonts.size();
+		header.numImages = (int)images.size();
+		fwrite(&header, 1, sizeof(header), meta);
+		// For each image
+		for (int i = 0; i < (int)images.size(); i++) {
+			auto &image = images[i];
+			AtlasImage2 atlas_image = image.ToAtlasImage2(dest.width(), dest.height(), results);
+			fwrite(&atlas_image, 1, sizeof(atlas_image), meta);
+		}
+		// For each font
+		for (int i = 0; i < (int)fonts.size(); i++) {
+			auto &font = fonts[i];
+			font.ComputeHeight(results, distmult);
+			AtlasFontHeader font_header = font.GetHeader();
+			fwrite(&font_header, 1, sizeof(font_header), meta);
+			auto ranges = font.GetRanges();
+			fwrite(ranges.data(), sizeof(AtlasCharRange), ranges.size(), meta);
+			auto chars = font.GetChars(dest.width(), dest.height(), results);
+			fwrite(chars.data(), sizeof(AtlasChar), chars.size(), meta);
+		}
+		fclose(meta);
+	}
+
 	// Also save PNG for debugging.
 	printf("Writing .PNG %s\n", (image_name + ".png").c_str());
 	dest.SavePNG((image_name + ".png").c_str());
