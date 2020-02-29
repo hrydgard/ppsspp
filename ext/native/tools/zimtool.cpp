@@ -92,7 +92,9 @@ int main(int argc, char **argv) {
 		return 1;
 	}
 
-	SaveZIM(FLAGS_outfile, width, height, width * 4, flags, image_data);
+	FILE *f = fopen(FLAGS_outfile, "wb");
+	SaveZIM(f, width, height, width * 4, flags, image_data);
+	fclose(f);
 	int in_file_size = filesize(FLAGS_infile);
 	int out_file_size = filesize(FLAGS_outfile);
 	fprintf(stdout, "Converted %s to %s. %i b to %i b. %ix%i, %s.\n", FLAGS_infile, FLAGS_outfile, in_file_size, out_file_size, width, height, format_strings[flags & ZIM_FORMAT_MASK]);

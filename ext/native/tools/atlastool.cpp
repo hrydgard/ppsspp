@@ -59,7 +59,7 @@ struct CharRange : public AtlasCharRange {
 	std::set<u16> filter;
 };
 
-enum Effect {
+enum class Effect {
 	FX_COPY = 0,
 	FX_RED_TO_ALPHA_SOLID_WHITE = 1,   // for alpha fonts
 	FX_RED_TO_INTENSITY_ALPHA_255 = 2,
@@ -78,7 +78,7 @@ Effect GetEffect(const char *text) {
 			return (Effect)i;
 		}
 	}
-	return FX_INVALID;
+	return Effect::FX_INVALID;
 }
 
 struct FontReference {
@@ -109,22 +109,22 @@ struct Image {
 	int height() const {
 		return (int)dat.size();
 	}
-	void copyfrom(const Image &img, int ox, int oy, int effect) {
+	void copyfrom(const Image &img, int ox, int oy, Effect effect) {
 		CHECK(img.dat[0].size() + ox <= dat[0].size());
 		CHECK(img.dat.size() + oy <= dat.size());
 		for (int y = 0; y < (int)img.dat.size(); y++) {
 			for (int x = 0; x < (int)img.dat[y].size(); x++) {
 				switch (effect) {
-				case FX_COPY:
+				case Effect::FX_COPY:
 					dat[y + oy][ox + x] = img.dat[y][x];
 					break;
-				case FX_RED_TO_ALPHA_SOLID_WHITE:
+				case Effect::FX_RED_TO_ALPHA_SOLID_WHITE:
 					dat[y + oy][ox + x] = 0x00FFFFFF | (img.dat[y][x] << 24);
 					break;
-				case FX_RED_TO_INTENSITY_ALPHA_255:
+				case Effect::FX_RED_TO_INTENSITY_ALPHA_255:
 					dat[y + oy][ox + x] = 0xFF000000 | img.dat[y][x] | (img.dat[y][x] << 8) | (img.dat[y][x] << 16);
 					break;
-				case FX_PREMULTIPLY_ALPHA:
+				case Effect::FX_PREMULTIPLY_ALPHA:
 				{
 					unsigned int color = img.dat[y][x];
 					unsigned int a = color >> 24;
@@ -136,7 +136,7 @@ struct Image {
 					dat[y + oy][ox + x] = color;
 					break;
 				}
-				case FX_PINK_TO_ALPHA:
+				case Effect::FX_PINK_TO_ALPHA:
 					dat[y + oy][ox + x] = ((img.dat[y][x] & 0xFFFFFF) == 0xFF00FF) ? 0x00FFFFFF : (img.dat[y][x] | 0xFF000000);
 					break;
 				default:
@@ -190,7 +190,10 @@ struct Image {
 		for (int y = 0; y < height(); y++) {
 			memcpy(image_data + y * width() * 4, &dat[y][0], width() * 4);
 		}
-		::SaveZIM(zim_name, width(), height(), width() * 4, zim_format | ZIM_DITHER, image_data);
+		FILE *f = fopen(zim_name, "wb");
+		// SaveZIM takes ownership voer image_data, there's no leak.
+		::SaveZIM(f, width(), height(), width() * 4, zim_format | ZIM_DITHER, image_data);
+		fclose(f);
 	}
 };
 
@@ -266,7 +269,7 @@ struct Bucket {
 									}
 								}
 							}
-							dest.copyfrom(items[i].first, tx, ty, items[i].second.effect);
+							dest.copyfrom(items[i].first, tx, ty, (Effect)items[i].second.effect);
 							masq.set(tx, ty, tx + idx + 1, ty + idy + 1, 255);
 
 							items[i].second.sx = tx;
@@ -429,7 +432,7 @@ void RasterizeFonts(const FontReferenceList &fontRefs, vector<CharRange> &ranges
 				dat.wx = 0;
 				dat.voffset = 0;
 				dat.charNum = kar;
-				dat.effect = FX_RED_TO_ALPHA_SOLID_WHITE;
+				dat.effect = (int)Effect::FX_RED_TO_ALPHA_SOLID_WHITE;
 				bucket->AddItem(img, dat);
 				continue;
 			}
@@ -486,7 +489,7 @@ void RasterizeFonts(const FontReferenceList &fontRefs, vector<CharRange> &ranges
 			dat.wx = (float)font->glyph->metrics.horiAdvance / 64 / supersample;
 			dat.charNum = kar;
 
-			dat.effect = FX_RED_TO_ALPHA_SOLID_WHITE;
+			dat.effect = (int)Effect::FX_RED_TO_ALPHA_SOLID_WHITE;
 			bucket->AddItem(img, dat);
 		}
 	}
@@ -526,7 +529,7 @@ bool LoadImage(const char *imagefile, Effect effect, Bucket *bucket) {
 	dat.sy = 0;
 	dat.ex = (int)img.dat[0].size();
 	dat.ey = (int)img.dat.size();
-	dat.effect = effect;
+	dat.effect = (int)effect;
 	bucket->AddItem(img, dat);
 	return true;
 }
