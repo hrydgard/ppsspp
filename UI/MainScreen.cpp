@@ -23,6 +23,7 @@
 #include "base/display.h"
 #include "base/timeutil.h"
 #include "file/path.h"
+#include "gfx/texture_atlas.h"
 #include "gfx_es2/draw_buffer.h"
 #include "math/curves.h"
 #include "base/stringutil.h"
@@ -48,7 +49,6 @@
 #include "UI/DisplayLayoutScreen.h"
 #include "UI/SavedataScreen.h"
 #include "UI/Store.h"
-#include "UI/ui_atlas.h"
 #include "Core/Config.h"
 #include "Core/Loaders.h"
 #include "GPU/GPUInterface.h"
@@ -372,25 +372,32 @@ void GameButton::Draw(UIContext &dc) {
 		dc.Draw()->Flush();
 	}
 	if (ginfo->hasConfig && !ginfo->id.empty()) {
-		if (gridStyle_) {
-			dc.Draw()->DrawImage(I_GEAR, x, y + h - ui_images[I_GEAR].h, 1.0f);
-		} else {
-			dc.Draw()->DrawImage(I_GEAR, x - ui_images[I_GEAR].w, y, 1.0f);
+		const AtlasImage *gearImage = dc.Draw()->GetAtlas()->getImage(ImageID("I_GEAR"));
+		if (gearImage) {
+			if (gridStyle_) {
+				dc.Draw()->DrawImage(ImageID("I_GEAR"), x, y + h - gearImage->h, 1.0f);
+			} else {
+				dc.Draw()->DrawImage(ImageID("I_GEAR"), x - gearImage->w, y, 1.0f);
+			}
 		}
 	}
 	if (g_Config.bShowRegionOnGameIcon && ginfo->region >= 0 && ginfo->region < GAMEREGION_MAX && ginfo->region != GAMEREGION_OTHER) {
-		static const int regionIcons[GAMEREGION_MAX] = {
-			I_FLAG_JP,
-			I_FLAG_US,
-			I_FLAG_EU,
-			I_FLAG_HK,
-			I_FLAG_AS,
-			I_FLAG_KO
+		const ImageID regionIcons[GAMEREGION_MAX] = {
+			ImageID("I_FLAG_JP"),
+			ImageID("I_FLAG_US"),
+			ImageID("I_FLAG_EU"),
+			ImageID("I_FLAG_HK"),
+			ImageID("I_FLAG_AS"),
+			ImageID("I_FLAG_KO"),
+			ImageID::invalid(),
 		};
-		if (gridStyle_) {
-			dc.Draw()->DrawImage(regionIcons[ginfo->region], x + w - ui_images[regionIcons[ginfo->region]].w - 5, y + h - ui_images[regionIcons[ginfo->region]].h - 5, 1.0f);
-		} else {
-			dc.Draw()->DrawImage(regionIcons[ginfo->region], x - 2 - ui_images[regionIcons[ginfo->region]].w - 3, y + h - ui_images[regionIcons[ginfo->region]].h - 5, 1.0f);
+		const AtlasImage *image = dc.Draw()->GetAtlas()->getImage(regionIcons[ginfo->region]);
+		if (image) {
+			if (gridStyle_) {
+				dc.Draw()->DrawImage(regionIcons[ginfo->region], x + w - image->w - 5, y + h - image->h - 5, 1.0f);
+			} else {
+				dc.Draw()->DrawImage(regionIcons[ginfo->region], x - 2 - image->w - 3, y + h - image->h - 5, 1.0f);
+			}
 		}
 	}
 	if (gridStyle_ && g_Config.bShowIDOnGameIcon) {
@@ -439,9 +446,9 @@ void DirButton::Draw(UIContext &dc) {
 
 	const std::string text = GetText();
 
-	int image = I_FOLDER;
+	ImageID image = ImageID("I_FOLDER");
 	if (text == "..") {
-		image = I_UP_DIRECTORY;
+		image = ImageID("I_UP_DIRECTORY");
 	}
 
 	float tw, th;
@@ -452,7 +459,7 @@ void DirButton::Draw(UIContext &dc) {
 	if (compact) {
 		// No icon, except "up"
 		dc.PushScissor(bounds_);
-		if (image == I_FOLDER) {
+		if (image == ImageID("I_FOLDER")) {
 			dc.DrawText(text.c_str(), bounds_.x + 5, bounds_.centerY(), style.fgColor, ALIGN_VCENTER);
 		} else {
 			dc.Draw()->DrawImage(image, bounds_.centerX(), bounds_.centerY(), 1.0f, 0xFFFFFFFF, ALIGN_CENTER);
@@ -577,8 +584,8 @@ void GameBrowser::Refresh() {
 		}
 
 		ChoiceStrip *layoutChoice = topBar->Add(new ChoiceStrip(ORIENT_HORIZONTAL));
-		layoutChoice->AddChoice(I_GRID);
-		layoutChoice->AddChoice(I_LINES);
+		layoutChoice->AddChoice(ImageID("I_GRID"));
+		layoutChoice->AddChoice(ImageID("I_LINES"));
 		layoutChoice->SetSelection(*gridStyle_ ? 0 : 1);
 		layoutChoice->OnChoice.Handle(this, &GameBrowser::LayoutChange);
 		Add(topBar);
@@ -945,11 +952,11 @@ void MainScreen::CreateViews() {
 	rightColumnItems->SetSpacing(0.0f);
 	LinearLayout *logos = new LinearLayout(ORIENT_HORIZONTAL);
 	if (System_GetPropertyBool(SYSPROP_APP_GOLD)) {
-		logos->Add(new ImageView(I_ICONGOLD, IS_DEFAULT, new AnchorLayoutParams(64, 64, 10, 10, NONE, NONE, false)));
+		logos->Add(new ImageView(ImageID("I_ICONGOLD"), IS_DEFAULT, new AnchorLayoutParams(64, 64, 10, 10, NONE, NONE, false)));
 	} else {
-		logos->Add(new ImageView(I_ICON, IS_DEFAULT, new AnchorLayoutParams(64, 64, 10, 10, NONE, NONE, false)));
+		logos->Add(new ImageView(ImageID("I_ICON"), IS_DEFAULT, new AnchorLayoutParams(64, 64, 10, 10, NONE, NONE, false)));
 	}
-	logos->Add(new ImageView(I_LOGO, IS_DEFAULT, new LinearLayoutParams(Margins(-12, 0, 0, 0))));
+	logos->Add(new ImageView(ImageID("I_LOGO"), IS_DEFAULT, new LinearLayoutParams(Margins(-12, 0, 0, 0))));
 	rightColumnItems->Add(logos);
 	TextView *ver = rightColumnItems->Add(new TextView(versionString, new LinearLayoutParams(Margins(70, -6, 0, 0))));
 	ver->SetSmall(true);
@@ -963,7 +970,7 @@ void MainScreen::CreateViews() {
 	if (!System_GetPropertyBool(SYSPROP_APP_GOLD)) {
 		Choice *gold = rightColumnItems->Add(new Choice(mm->T("Buy PPSSPP Gold")));
 		gold->OnClick.Handle(this, &MainScreen::OnSupport);
-		gold->SetIcon(I_ICONGOLD);
+		gold->SetIcon(ImageID("I_ICONGOLD"));
 	}
 
 #if !PPSSPP_PLATFORM(UWP)

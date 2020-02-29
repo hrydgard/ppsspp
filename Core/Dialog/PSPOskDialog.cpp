@@ -919,15 +919,15 @@ int PSPOskDialog::Update(int animSpeed) {
 
 	auto di = GetI18NCategory("Dialog");
 
-	PPGeDrawImage(I_SQUARE, 365, 222, 16, 16, 0, CalcFadedColor(0xFFFFFFFF));
+	PPGeDrawImage(ImageID("I_SQUARE"), 365, 222, 16, 16, 0, CalcFadedColor(0xFFFFFFFF));
 	PPGeDrawText(di->T("Space"), 390, 222, PPGE_ALIGN_LEFT, 0.5f, CalcFadedColor(0xFFFFFFFF));
 
 	if (g_Config.iButtonPreference != PSP_SYSTEMPARAM_BUTTON_CIRCLE) {
-		PPGeDrawImage(I_CROSS, 45, 222, 16, 16, 0, CalcFadedColor(0xFFFFFFFF));
-		PPGeDrawImage(I_CIRCLE, 45, 247, 16, 16, 0, CalcFadedColor(0xFFFFFFFF));
+		PPGeDrawImage(ImageID("I_CROSS"), 45, 222, 16, 16, 0, CalcFadedColor(0xFFFFFFFF));
+		PPGeDrawImage(ImageID("I_CIRCLE"), 45, 247, 16, 16, 0, CalcFadedColor(0xFFFFFFFF));
 	} else {
-		PPGeDrawImage(I_CIRCLE, 45, 222, 16, 16, 0, CalcFadedColor(0xFFFFFFFF));
-		PPGeDrawImage(I_CROSS, 45, 247, 16, 16, 0, CalcFadedColor(0xFFFFFFFF));
+		PPGeDrawImage(ImageID("I_CIRCLE"), 45, 222, 16, 16, 0, CalcFadedColor(0xFFFFFFFF));
+		PPGeDrawImage(ImageID("I_CROSS"), 45, 247, 16, 16, 0, CalcFadedColor(0xFFFFFFFF));
 	}
 
 	PPGeDrawText(di->T("Select"), 75, 222, PPGE_ALIGN_LEFT, 0.5f, CalcFadedColor(0xFFFFFFFF));

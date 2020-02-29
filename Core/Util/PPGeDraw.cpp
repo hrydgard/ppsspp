@@ -18,6 +18,8 @@
 #include <algorithm>
 
 #include "base/stringutil.h"
+#include "file/vfs.h"
+#include "gfx/texture_atlas.h"
 #include "image/zim_load.h"
 #include "image/png_load.h"
 #include "util/text/utf8.h"
@@ -35,6 +37,8 @@
 #include "Core/HLE/sceGe.h"
 #include "Core/MemMapHelpers.h"
 #include "Core/System.h"
+
+Atlas g_ppge_atlas;
 
 static u32 atlasPtr;
 static int atlasWidth;
@@ -189,6 +193,12 @@ void __PPGeInit()
 		ERROR_LOG(SCEGE, "PPGe init failed - no atlas texture. PPGe stuff will not be drawn.");
 		return;
 	}
+
+	size_t atlas_data_size;
+	uint8_t *atlas_data;
+	atlas_data = VFSReadFile("ppge_atlas.meta", &atlas_data_size);
+	g_ppge_atlas.Load(atlas_data, atlas_data_size);
+	delete[] atlas_data;
 
 	u32 atlasSize = height[0] * width[0] / 2;  // it's a 4-bit paletted texture in ram
 	atlasWidth = width[0];
@@ -617,7 +627,7 @@ static AtlasTextMetrics BreakLines(const char *text, const AtlasFont &atlasfont,
 void PPGeMeasureText(float *w, float *h, int *n, 
 					const char *text, float scale, int WrapType, int wrapWidth)
 {
-	const AtlasFont &atlasfont = *ppge_atlas.fonts[0];
+	const AtlasFont &atlasfont = g_ppge_atlas.fonts[0];
 	AtlasTextMetrics metrics = BreakLines(text, atlasfont, 0, 0, 0, scale, scale, WrapType, wrapWidth, true);
 	if (w) *w = metrics.maxWidth;
 	if (h) *h = metrics.lineHeight;
@@ -626,7 +636,7 @@ void PPGeMeasureText(float *w, float *h, int *n,
 
 void PPGePrepareText(const char *text, float x, float y, int align, float scale, float lineHeightScale, int WrapType, int wrapWidth)
 {
-	const AtlasFont &atlasfont = *ppge_atlas.fonts[0];
+	const AtlasFont &atlasfont = g_ppge_atlas.fonts[0];
 	char_lines_metrics = BreakLines(text, atlasfont, x, y, align, scale, lineHeightScale, WrapType, wrapWidth, false);
 }
 
@@ -731,15 +741,16 @@ void PPGeDrawTextWrapped(const char *text, float x, float y, float wrapWidth, fl
 }
 
 // Draws a "4-patch" for button-like things that can be resized
-void PPGeDraw4Patch(int atlasImage, float x, float y, float w, float h, u32 color)
-{
+void PPGeDraw4Patch(ImageID atlasImage, float x, float y, float w, float h, u32 color) {
 	if (!dlPtr)
 		return;
-	const AtlasImage &img = ppge_images[atlasImage];
-	float borderx = img.w / 20;
-	float bordery = img.h / 20;
-	float u1 = img.u1, uhalf = (img.u1 + img.u2) / 2, u2 = img.u2;
-	float v1 = img.v1, vhalf = (img.v1 + img.v2) / 2, v2 = img.v2;
+	const AtlasImage *img = g_ppge_atlas.getImage(atlasImage);
+	if (!img)
+		return;
+	float borderx = img->w / 20;
+	float bordery = img->h / 20;
+	float u1 = img->u1, uhalf = (img->u1 + img->u2) / 2, u2 = img->u2;
+	float v1 = img->v1, vhalf = (img->v1 + img->v2) / 2, v2 = img->v2;
 	float xmid1 = x + borderx;
 	float xmid2 = x + w - borderx;
 	float ymid1 = y + bordery;
@@ -771,8 +782,7 @@ void PPGeDraw4Patch(int atlasImage, float x, float y, float w, float h, u32 colo
 	EndVertexDataAndDraw(GE_PRIM_RECTANGLES);
 }
 
-void PPGeDrawRect(float x1, float y1, float x2, float y2, u32 color)
-{
+void PPGeDrawRect(float x1, float y1, float x2, float y2, u32 color) {
 	if (!dlPtr)
 		return;
 
@@ -787,29 +797,32 @@ void PPGeDrawRect(float x1, float y1, float x2, float y2, u32 color)
 }
 
 // Just blits an image to the screen, multiplied with the color.
-void PPGeDrawImage(int atlasImage, float x, float y, int align, u32 color)
+void PPGeDrawImage(ImageID atlasImage, float x, float y, int align, u32 color)
 {
 	if (!dlPtr)
 		return;
 
-	const AtlasImage &img = ppge_atlas.images[atlasImage];
-	float w = img.w;
-	float h = img.h;
+	const AtlasImage *img = g_ppge_atlas.getImage(atlasImage);
+	if (!img) {
+		return;
+	}
+	float w = img->w;
+	float h = img->h;
 	BeginVertexData();
-	Vertex(x, y, img.u1, img.v1, atlasWidth, atlasHeight, color);
-	Vertex(x + w, y + h, img.u2, img.v2, atlasWidth, atlasHeight, color);
+	Vertex(x, y, img->u1, img->v1, atlasWidth, atlasHeight, color);
+	Vertex(x + w, y + h, img->u2, img->v2, atlasWidth, atlasHeight, color);
 	EndVertexDataAndDraw(GE_PRIM_RECTANGLES);
 }
 
-void PPGeDrawImage(int atlasImage, float x, float y, float w, float h, int align, u32 color)
+void PPGeDrawImage(ImageID atlasImage, float x, float y, float w, float h, int align, u32 color)
 {
 	if (!dlPtr)
 		return;
 
-	const AtlasImage &img = ppge_atlas.images[atlasImage];
+	const AtlasImage *img = g_ppge_atlas.getImage(atlasImage);
 	BeginVertexData();
-	Vertex(x, y, img.u1, img.v1, atlasWidth, atlasHeight, color);
-	Vertex(x + w, y + h, img.u2, img.v2, atlasWidth, atlasHeight, color);
+	Vertex(x, y, img->u1, img->v1, atlasWidth, atlasHeight, color);
+	Vertex(x + w, y + h, img->u2, img->v2, atlasWidth, atlasHeight, color);
 	EndVertexDataAndDraw(GE_PRIM_RECTANGLES);
 }
 

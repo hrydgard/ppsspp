@@ -19,7 +19,9 @@
 
 #include <vector>
 #include <string>
-#include "ppge_atlas.h"
+
+#include "gfx/texture_atlas.h"
+
 #include "Common/CommonTypes.h"
 
 class PointerWrap;
@@ -98,11 +100,11 @@ void PPGeDrawText(const char *text, float x, float y, int align, float scale = 1
 void PPGeDrawTextWrapped(const char *text, float x, float y, float wrapWidth, float wrapHeight, int align, float scale = 1.0f, u32 color = 0xFFFFFFFF);
 
 // Draws a "4-patch" for button-like things that can be resized.
-void PPGeDraw4Patch(int atlasImage, float x, float y, float w, float h, u32 color = 0xFFFFFFFF);
+void PPGeDraw4Patch(ImageID atlasImage, float x, float y, float w, float h, u32 color = 0xFFFFFFFF);
 
 // Just blits an image to the screen, multiplied with the color.
-void PPGeDrawImage(int atlasImage, float x, float y, int align, u32 color = 0xFFFFFFFF);
-void PPGeDrawImage(int atlasImage, float x, float y, float w, float h, int align, u32 color = 0xFFFFFFFF);
+void PPGeDrawImage(ImageID atlasImage, float x, float y, int align, u32 color = 0xFFFFFFFF);
+void PPGeDrawImage(ImageID atlasImage, float x, float y, float w, float h, int align, u32 color = 0xFFFFFFFF);
 void PPGeDrawImage(float x, float y, float w, float h, float u1, float v1, float u2, float v2, int tw, int th, u32 color);
 
 class PPGeImage {

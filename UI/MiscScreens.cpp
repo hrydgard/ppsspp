@@ -32,7 +32,6 @@
 #include "ui/ui.h"
 #include "util/random/rng.h"
 #include "file/vfs.h"
-#include "UI/ui_atlas.h"
 #include "UI/ControlMappingScreen.h"
 #include "UI/DisplayLayoutScreen.h"
 #include "UI/EmuScreen.h"
@@ -49,17 +48,15 @@
 #include "GPU/GPUState.h"
 #include "GPU/Common/PostShader.h"
 
-#include "ui_atlas.h"
-
 #ifdef _MSC_VER
 #pragma execution_character_set("utf-8")
 #endif
 
-static const int symbols[4] = {
-	I_CROSS,
-	I_CIRCLE,
-	I_SQUARE,
-	I_TRIANGLE
+static const ImageID symbols[4] = {
+	ImageID("I_CROSS"),
+	ImageID("I_CIRCLE"),
+	ImageID("I_SQUARE"),
+	ImageID("I_TRIANGLE"),
 };
 
 static const uint32_t colors[4] = {
@@ -120,7 +117,7 @@ void DrawBackground(UIContext &dc, float alpha) {
 		dc.Flush();
 		dc.RebindTexture();
 	} else {
-		ImageID img = I_BG;
+		ImageID img = ImageID("I_BG");
 		ui_draw2d.DrawImageStretch(img, dc.GetBounds(), bgColor);
 	}
 
@@ -493,11 +490,11 @@ void LogoScreen::render() {
 	// Manually formatting UTF-8 is fun.  \xXX doesn't work everywhere.
 	snprintf(temp, sizeof(temp), "%s Henrik Rydg%c%crd", cr->T("created", "Created by"), 0xC3, 0xA5);
 	if (System_GetPropertyBool(SYSPROP_APP_GOLD)) {
-		dc.Draw()->DrawImage(I_ICONGOLD, bounds.centerX() - 120, bounds.centerY() - 30, 1.2f, textColor, ALIGN_CENTER);
+		dc.Draw()->DrawImage(ImageID("I_ICONGOLD"), bounds.centerX() - 120, bounds.centerY() - 30, 1.2f, textColor, ALIGN_CENTER);
 	} else {
-		dc.Draw()->DrawImage(I_ICON, bounds.centerX() - 120, bounds.centerY() - 30, 1.2f, textColor, ALIGN_CENTER);
+		dc.Draw()->DrawImage(ImageID("I_ICON"), bounds.centerX() - 120, bounds.centerY() - 30, 1.2f, textColor, ALIGN_CENTER);
 	}
-	dc.Draw()->DrawImage(I_LOGO, bounds.centerX() + 40, bounds.centerY() - 30, 1.5f, textColor, ALIGN_CENTER);
+	dc.Draw()->DrawImage(ImageID("I_LOGO"), bounds.centerX() + 40, bounds.centerY() - 30, 1.5f, textColor, ALIGN_CENTER);
 	//dc.Draw()->DrawTextShadow(UBUNTU48, "PPSSPP", xres / 2, yres / 2 - 30, textColor, ALIGN_CENTER);
 	dc.SetFontScale(1.0f, 1.0f);
 	dc.SetFontStyle(dc.theme->uiFont);
@@ -544,9 +541,9 @@ void CreditsScreen::CreateViews() {
 	root_->Add(new Button(cr->T("Twitter @PPSSPP_emu"), new AnchorLayoutParams(260, 64, NONE, NONE, 10, rightYOffset + 158, false)))->OnClick.Handle(this, &CreditsScreen::OnTwitter);
 #endif
 	if (System_GetPropertyBool(SYSPROP_APP_GOLD)) {
-		root_->Add(new ImageView(I_ICONGOLD, IS_DEFAULT, new AnchorLayoutParams(100, 64, 10, 10, NONE, NONE, false)));
+		root_->Add(new ImageView(ImageID("I_ICONGOLD"), IS_DEFAULT, new AnchorLayoutParams(100, 64, 10, 10, NONE, NONE, false)));
 	} else {
-		root_->Add(new ImageView(I_ICON, IS_DEFAULT, new AnchorLayoutParams(100, 64, 10, 10, NONE, NONE, false)));
+		root_->Add(new ImageView(ImageID("I_ICON"), IS_DEFAULT, new AnchorLayoutParams(100, 64, 10, 10, NONE, NONE, false)));
 	}
 }
 

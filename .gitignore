@@ -28,8 +28,6 @@ Windows/ARM64
 Windows/ipch
 Windows/bin-release
 Windows/win-version.h
-ui_atlas.zim.png
-ui_atlas_high.zim.png
 android/assets
 ext/_Output
 android/lint.xml
@@ -87,9 +85,9 @@ __testfinish.txt
 __testfailure.bmp
 GameLogNotes.txt
 screenshots
-android/ui_atlas.zim
 android/assets/lang
 android/assets/flash0
+ui_atlas.zim.png
 ppge_atlas.zim.png
 local.properties
 r.sh

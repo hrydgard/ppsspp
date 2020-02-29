@@ -17,6 +17,7 @@
 
 #pragma once
 
+#include "gfx/texture_atlas.h"
 #include "MiscScreens.h"
 
 namespace UI {
@@ -26,7 +27,7 @@ namespace UI {
 struct TouchButtonToggle {
 	const char *key;
 	bool *show;
-	int img;
+	ImageID img;
 };
 
 class TouchControlVisibilityScreen : public UIDialogScreenWithBackground {

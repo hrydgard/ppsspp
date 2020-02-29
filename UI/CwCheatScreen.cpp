@@ -16,6 +16,7 @@
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
 #include <deque>
+
 #include "input/input_state.h"
 #include "ui/ui.h"
 #include "util/text/utf8.h"
@@ -28,7 +29,6 @@
 #include "Core/MIPS/JitCommon/JitCommon.h"
 
 #include "UI/OnScreenDisplay.h"
-#include "UI/ui_atlas.h"
 
 #include "UI/MainScreen.h"
 #include "UI/EmuScreen.h"
@@ -316,7 +316,7 @@ void CheatCheckBox::Draw(UIContext &dc) {
 	int paddingX = 16;
 	int paddingY = 12;
 
-	int image = *toggle_ ? dc.theme->checkOn : dc.theme->checkOff;
+	ImageID image = *toggle_ ? dc.theme->checkOn : dc.theme->checkOff;
 
 	UI::Style style = dc.theme->itemStyle;
 	if (!IsEnabled())

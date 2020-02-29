@@ -18,11 +18,11 @@
 #include <vector>
 
 #include "base/colorutil.h"
+#include "gfx/texture_atlas.h"
 #include "gfx_es2/draw_buffer.h"
 #include "i18n/i18n.h"
 #include "ui/ui_context.h"
 #include "ui/view.h"
-#include "ui_atlas.h"
 
 #include "DisplayLayoutScreen.h"
 #include "Core/Config.h"
@@ -40,8 +40,8 @@ static float local_dp_yres;
 
 class DragDropDisplay : public MultiTouchDisplay {
 public:
-	DragDropDisplay(float &x, float &y, int img, float &scale)
-		: MultiTouchDisplay(img, scale, new UI::AnchorLayoutParams(x*local_dp_xres, y*local_dp_yres, UI::NONE, UI::NONE, true)),
+	DragDropDisplay(float &x, float &y, ImageID img, float &scale)
+		: MultiTouchDisplay(img, scale, new UI::AnchorLayoutParams(x * local_dp_xres, y * local_dp_yres, UI::NONE, UI::NONE, true)),
 		x_(x), y_(y), theScale_(scale) {
 		scale_ = theScale_;
 	}	
@@ -73,7 +73,9 @@ bool DisplayLayoutScreen::touch(const TouchInput &touch) {
 	using namespace UI;
 
 	int mode = mode_ ? mode_->GetSelection() : 0;
-	if (g_Config.iSmallDisplayZoomType == (int)SmallDisplayZoom::AUTO) { mode = -1; }
+	if (g_Config.iSmallDisplayZoomType == (int)SmallDisplayZoom::AUTO) {
+		mode = -1;
+	}
 
 	const Bounds &screen_bounds = screenManager()->getUIContext()->GetBounds();
 	if ((touch.flags & TOUCH_MOVE) && picked_ != 0) {
@@ -304,11 +306,11 @@ void DisplayLayoutScreen::CreateViews() {
 			mode_->AddChoice(di->T("Resize"));
 			mode_->SetSelection(0);
 		}
-		displayRepresentation_ = new DragDropDisplay(g_Config.fSmallDisplayOffsetX, g_Config.fSmallDisplayOffsetY, I_PSP_DISPLAY, displayRepresentationScale_);
+		displayRepresentation_ = new DragDropDisplay(g_Config.fSmallDisplayOffsetX, g_Config.fSmallDisplayOffsetY, ImageID("I_PSP_DISPLAY"), displayRepresentationScale_);
 		displayRepresentation_->SetVisibility(V_VISIBLE);
 	} else { // Stretching
 		label = new HighlightLabel(gr->T("Stretching"), new AnchorLayoutParams(WRAP_CONTENT, 64.0f, local_dp_xres / 2.0f, local_dp_yres / 2.0f, NONE, NONE, true));
-		displayRepresentation_ = new DragDropDisplay(g_Config.fSmallDisplayOffsetX, g_Config.fSmallDisplayOffsetY, I_PSP_DISPLAY, displayRepresentationScale_);
+		displayRepresentation_ = new DragDropDisplay(g_Config.fSmallDisplayOffsetX, g_Config.fSmallDisplayOffsetY, ImageID("I_PSP_DISPLAY"), displayRepresentationScale_);
 		displayRepresentation_->SetVisibility(V_INVISIBLE);
 		float width = previewWidth;
 		float height = previewHeight;
