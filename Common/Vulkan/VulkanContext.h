@@ -176,10 +176,13 @@ public:
 	VkResult InitDebugMsgCallback(PFN_vkDebugReportCallbackEXT dbgFunc, int bits, void *userdata);
 	void DestroyDebugMsgCallback();
 
-	VkPhysicalDevice GetPhysicalDevice(int n = 0) const {
+	VkPhysicalDevice GetPhysicalDevice(int n) const {
 		return physical_devices_[n];
 	}
-	int GetCurrentPhysicalDevice() const {
+	VkPhysicalDevice GetCurrentPhysicalDevice() const {
+		return physical_devices_[physical_device_];
+	}
+	int GetCurrentPhysicalDeviceIndex() const {
 		return physical_device_;
 	}
 	int GetNumPhysicalDevices() const {
@@ -202,7 +205,7 @@ public:
 
 	const PhysicalDeviceProps &GetPhysicalDeviceProperties(int i = -1) const {
 		if (i < 0)
-			i = GetCurrentPhysicalDevice();
+			i = GetCurrentPhysicalDeviceIndex();
 		return physicalDeviceProperties_[i];
 	}
 

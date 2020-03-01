@@ -565,6 +565,8 @@ VkFormat DataFormatToVulkan(DataFormat format) {
 	case DataFormat::R8G8B8_UNORM: return VK_FORMAT_R8G8B8_UNORM;
 	case DataFormat::R8G8B8A8_UNORM: return VK_FORMAT_R8G8B8A8_UNORM;
 	case DataFormat::R4G4_UNORM_PACK8: return VK_FORMAT_R4G4_UNORM_PACK8;
+
+	// Note: A4R4G4B4_UNORM_PACK16 is not supported.
 	case DataFormat::R4G4B4A4_UNORM_PACK16: return VK_FORMAT_R4G4B4A4_UNORM_PACK16;
 	case DataFormat::B4G4R4A4_UNORM_PACK16: return VK_FORMAT_B4G4R4A4_UNORM_PACK16;
 	case DataFormat::R5G5B5A1_UNORM_PACK16: return VK_FORMAT_R5G5B5A1_UNORM_PACK16;
@@ -572,6 +574,7 @@ VkFormat DataFormatToVulkan(DataFormat format) {
 	case DataFormat::R5G6B5_UNORM_PACK16: return VK_FORMAT_R5G6B5_UNORM_PACK16;
 	case DataFormat::B5G6R5_UNORM_PACK16: return VK_FORMAT_B5G6R5_UNORM_PACK16;
 	case DataFormat::A1R5G5B5_UNORM_PACK16: return VK_FORMAT_A1R5G5B5_UNORM_PACK16;
+
 	case DataFormat::R32_FLOAT: return VK_FORMAT_R32_SFLOAT;
 	case DataFormat::R32G32_FLOAT: return VK_FORMAT_R32G32_SFLOAT;
 	case DataFormat::R32G32B32_FLOAT: return VK_FORMAT_R32G32B32_SFLOAT;
@@ -740,7 +743,7 @@ VKContext::VKContext(VulkanContext *vulkan, bool splitSubmit)
 	caps_.framebufferDepthCopySupported = true;   // Will pretty much always be the case.
 	caps_.preferredDepthBufferFormat = DataFormat::D24_S8;  // TODO: Ask vulkan.
 
-	auto deviceProps = vulkan->GetPhysicalDeviceProperties(vulkan_->GetCurrentPhysicalDevice()).properties;
+	auto deviceProps = vulkan->GetPhysicalDeviceProperties(vulkan_->GetCurrentPhysicalDeviceIndex()).properties;
 	switch (deviceProps.vendorID) {
 	case VULKAN_VENDOR_AMD: caps_.vendor = GPUVendor::VENDOR_AMD; break;
 	case VULKAN_VENDOR_ARM: caps_.vendor = GPUVendor::VENDOR_ARM; break;
@@ -1346,41 +1349,25 @@ std::vector<std::string> VKContext::GetExtensionList() const {
 }
 
 uint32_t VKContext::GetDataFormatSupport(DataFormat fmt) const {
-	// TODO: Actually do proper checks
-	switch (fmt) {
-	case DataFormat::B8G8R8A8_UNORM:
-		return FMT_RENDERTARGET | FMT_TEXTURE;
-	case DataFormat::B4G4R4A4_UNORM_PACK16:
-		// This is the one that's guaranteed to be supported.
-		// A four-component, 16-bit packed unsigned normalized format that has a 4-bit B component in bits 12..15, a 4-bit
-		// G component in bits 8..11, a 4 - bit R component in bits 4..7, and a 4 - bit A component in bits 0..3
-		return FMT_RENDERTARGET | FMT_TEXTURE;
-	case DataFormat::R4G4B4A4_UNORM_PACK16:
-		return 0;
-	case DataFormat::A4R4G4B4_UNORM_PACK16:
-		return 0;
-	case DataFormat::A1R5G5B5_UNORM_PACK16:
-		return FMT_RENDERTARGET | FMT_TEXTURE;
+	VkFormat vulkan_format = DataFormatToVulkan(fmt);
+	// TODO: Actually do proper check
+	VkFormatProperties properties;
+	vkGetPhysicalDeviceFormatProperties(vulkan_->GetCurrentPhysicalDevice(), vulkan_format, &properties);
 
-	case DataFormat::R8G8B8A8_UNORM:
-		return FMT_RENDERTARGET | FMT_TEXTURE | FMT_INPUTLAYOUT;
-
-	case DataFormat::R32_FLOAT:
-	case DataFormat::R32G32_FLOAT:
-	case DataFormat::R32G32B32_FLOAT:
-	case DataFormat::R32G32B32A32_FLOAT:
-		return FMT_INPUTLAYOUT;
-
-	case DataFormat::R8_UNORM:
-		return FMT_TEXTURE;
-
-	case DataFormat::BC1_RGBA_UNORM_BLOCK:
-	case DataFormat::BC2_UNORM_BLOCK:
-	case DataFormat::BC3_UNORM_BLOCK:
-		return FMT_TEXTURE;
-	default:
-		return 0;
+	uint32_t flags = 0;
+	if (properties.optimalTilingFeatures & VkFormatFeatureFlagBits::VK_FORMAT_FEATURE_COLOR_ATTACHMENT_BIT) {
+		flags |= FMT_RENDERTARGET;
 	}
+	if (properties.optimalTilingFeatures & VkFormatFeatureFlagBits::VK_FORMAT_FEATURE_DEPTH_STENCIL_ATTACHMENT_BIT) {
+		flags |= FMT_DEPTHSTENCIL;
+	}
+	if (properties.optimalTilingFeatures & VkFormatFeatureFlagBits::VK_FORMAT_FEATURE_SAMPLED_IMAGE_BIT) {
+		flags |= FMT_TEXTURE;
+	}
+	if (properties.bufferFeatures & VkFormatFeatureFlagBits::VK_FORMAT_FEATURE_VERTEX_BUFFER_BIT) {
+		flags |= FMT_INPUTLAYOUT;
+	}
+	return flags;
 }
 
 // A VKFramebuffer is a VkFramebuffer (note caps difference) plus all the textures it owns.
