@@ -606,6 +606,8 @@ void VulkanQueueRunner::ApplyMGSHack(std::vector<VKRStep *> &steps) {
 				case VKRRenderCommand::DRAW_INDEXED:
 					steps[i]->commands.push_back(steps[j]->commands[k]);
 					break;
+				default:
+					break;
 				}
 			}
 			steps[j]->stepType = VKRStepType::RENDER_SKIP;
@@ -618,6 +620,8 @@ void VulkanQueueRunner::ApplyMGSHack(std::vector<VKRStep *> &steps) {
 				case VKRRenderCommand::DRAW:
 				case VKRRenderCommand::DRAW_INDEXED:
 					steps[i + 1]->commands.push_back(steps[j]->commands[k]);
+					break;
+				default:
 					break;
 				}
 			}
@@ -803,6 +807,8 @@ void VulkanQueueRunner::ApplyRenderPassMerge(std::vector<VKRStep *> &steps) {
 					if (steps[j]->readback.src == fb) {
 						goto done_fb;
 					}
+					break;
+				default:
 					break;
 				}
 			}

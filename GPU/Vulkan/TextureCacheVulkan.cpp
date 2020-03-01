@@ -812,12 +812,13 @@ void TextureCacheVulkan::ApplyTextureFramebuffer(TexCacheEntry *entry, VirtualFr
 	uint32_t clutMode = gstate.clutformat & 0xFFFFFF;
 
 	bool useShaderDepal = framebufferManager_->GetCurrentRenderVFB() != framebuffer;
+	bool expand32 = !gstate_c.Supports(GPU_SUPPORTS_16BIT_FORMATS);
 
 	if ((entry->status & TexCacheEntry::STATUS_DEPALETTIZE) && !g_Config.bDisableSlowFramebufEffects) {
 		if (useShaderDepal) {
 			depalShaderCache_->SetPushBuffer(drawEngine_->GetPushBufferForTextureData());
 			const GEPaletteFormat clutFormat = gstate.getClutPaletteFormat();
-			VulkanTexture *clutTexture = depalShaderCache_->GetClutTexture(clutFormat, clutHash_, clutBuf_);
+			VulkanTexture *clutTexture = depalShaderCache_->GetClutTexture(clutFormat, clutHash_, clutBuf_, expand32);
 			drawEngine_->SetDepalTexture(clutTexture ? clutTexture->GetImageView() : VK_NULL_HANDLE);
 			// Only point filtering enabled.
 			samplerKey.magFilt = false;
@@ -844,7 +845,7 @@ void TextureCacheVulkan::ApplyTextureFramebuffer(TexCacheEntry *entry, VirtualFr
 	if (depalShader) {
 		depalShaderCache_->SetPushBuffer(drawEngine_->GetPushBufferForTextureData());
 		const GEPaletteFormat clutFormat = gstate.getClutPaletteFormat();
-		VulkanTexture *clutTexture = depalShaderCache_->GetClutTexture(clutFormat, clutHash_, clutBuf_);
+		VulkanTexture *clutTexture = depalShaderCache_->GetClutTexture(clutFormat, clutHash_, clutBuf_, expand32);
 
 		Draw::Framebuffer *depalFBO = framebufferManager_->GetTempFBO(TempFBO::DEPAL, framebuffer->renderWidth, framebuffer->renderHeight, Draw::FBO_8888);
 		draw_->BindFramebufferAsRenderTarget(depalFBO, { Draw::RPAction::DONT_CARE, Draw::RPAction::DONT_CARE, Draw::RPAction::DONT_CARE });
@@ -1271,6 +1272,9 @@ void TextureCacheVulkan::BuildTexture(TexCacheEntry *const entry) {
 }
 
 VkFormat TextureCacheVulkan::GetDestFormat(GETextureFormat format, GEPaletteFormat clutFormat) const {
+	if (!gstate_c.Supports(GPU_SUPPORTS_16BIT_FORMATS)) {
+		return VK_FORMAT_R8G8B8A8_UNORM;
+	}
 	switch (format) {
 	case GE_TFMT_CLUT4:
 	case GE_TFMT_CLUT8:
@@ -1336,7 +1340,8 @@ void TextureCacheVulkan::LoadTextureLevel(TexCacheEntry &entry, uint8_t *writePt
 			decPitch = w * bpp;
 		}
 
-		DecodeTextureLevel((u8 *)pixelData, decPitch, tfmt, clutformat, texaddr, level, bufw, false, false, false);
+		bool expand32 = !gstate_c.Supports(GPU_SUPPORTS_16BIT_FORMATS);
+				DecodeTextureLevel((u8 *)pixelData, decPitch, tfmt, clutformat, texaddr, level, bufw, false, false, expand32);
 		gpuStats.numTexturesDecoded++;
 
 		// We check before scaling since scaling shouldn't invent alpha from a full alpha texture.

@@ -57,7 +57,7 @@ public:
 
 	// This also uploads the palette and binds the correct texture.
 	DepalShaderVulkan *GetDepalettizeShader(uint32_t clutMode, GEBufferFormat pixelFormat);
-	VulkanTexture *GetClutTexture(GEPaletteFormat clutFormat, const u32 clutHash, u32 *rawClut);
+	VulkanTexture *GetClutTexture(GEPaletteFormat clutFormat, const u32 clutHash, u32 *rawClut, bool expandTo32bit);
 	void Clear();
 	void Decimate();
 
