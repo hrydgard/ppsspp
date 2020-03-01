@@ -346,8 +346,9 @@ void GameSettingsScreen::CreateViews() {
 #endif
 
 	if (GetGPUBackend() == GPUBackend::VULKAN || GetGPUBackend() == GPUBackend::OPENGL) {
-		CheckBox *inflightFrames = graphicsSettings->Add(new CheckBox(&g_Config.bUseInflightFrames, gr->T("Buffer graphics commands (faster, input lag)")));
-		inflightFrames->OnClick.Add([=](EventParams &e) {
+		static const char *bufferOptions[] = { "No buffer", "Up to 1", "Up to 2" };
+		PopupMultiChoice *inflightChoice = graphicsSettings->Add(new PopupMultiChoice(&g_Config.iInflightFrames, gr->T("Buffer graphics commands (faster, input lag)"), bufferOptions, 0, ARRAY_SIZE(bufferOptions), gr->GetName(), screenManager()));
+		inflightChoice->OnChoice.Add([=](EventParams &e) {
 			NativeMessageReceived("gpu_resized", "");
 			return UI::EVENT_CONTINUE;
 		});

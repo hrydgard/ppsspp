@@ -98,7 +98,7 @@ GPU_GLES::GPU_GLES(GraphicsContext *gfxCtx, Draw::DrawContext *draw)
 	textureCacheGL_->NotifyConfigChanged();
 
 	GLRenderManager *rm = (GLRenderManager *)draw_->GetNativeObject(Draw::NativeObject::RENDER_MANAGER);
-	rm->UseInflightFrames(g_Config.bUseInflightFrames);
+	rm->SetInflightFrames(g_Config.iInflightFrames);
 
 	// Load shader cache.
 	std::string discID = g_paramSFO.GetDiscID();
@@ -359,7 +359,7 @@ void GPU_GLES::BeginHostFrame() {
 	UpdateCmdInfo();
 	if (resized_) {
 		GLRenderManager *rm = (GLRenderManager *)draw_->GetNativeObject(Draw::NativeObject::RENDER_MANAGER);
-		rm->UseInflightFrames(g_Config.bUseInflightFrames);
+		rm->SetInflightFrames(g_Config.iInflightFrames);
 
 		CheckGPUFeatures();
 		framebufferManager_->Resized();

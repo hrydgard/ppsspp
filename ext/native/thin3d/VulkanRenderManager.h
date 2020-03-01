@@ -240,8 +240,8 @@ public:
 		splitSubmit_ = split;
 	}
 
-	void UseInflightFrames(bool use) {
-		newInflightFrames_ = use ? VulkanContext::MAX_INFLIGHT_FRAMES : 1;
+	void SetInflightFrames(int f) {
+		newInflightFrames_ = f < 1 || f > VulkanContext::MAX_INFLIGHT_FRAMES ? VulkanContext::MAX_INFLIGHT_FRAMES : f;
 	}
 
 	VulkanContext *GetVulkanContext() {

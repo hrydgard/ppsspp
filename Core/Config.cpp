@@ -772,7 +772,7 @@ static ConfigSetting graphicsSettings[] = {
 	ConfigSetting("GfxDebugSplitSubmit", &g_Config.bGfxDebugSplitSubmit, false, false, false),
 	ConfigSetting("LogFrameDrops", &g_Config.bLogFrameDrops, false, true, false),
 
-	ConfigSetting("UseInflightFrames", &g_Config.bUseInflightFrames, true, true, true),
+	ConfigSetting("InflightFrames", &g_Config.iInflightFrames, 3, true, true),
 
 	ConfigSetting(false),
 };
