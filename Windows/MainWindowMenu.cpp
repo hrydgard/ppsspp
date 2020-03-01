@@ -739,6 +739,7 @@ namespace MainWindow {
 
 		case ID_OPTIONS_VSYNC:
 			g_Config.bVSync = !g_Config.bVSync;
+			NativeResized();
 			break;
 
 		case ID_OPTIONS_FRAMESKIP_AUTO:

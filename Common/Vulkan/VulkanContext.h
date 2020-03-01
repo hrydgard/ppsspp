@@ -13,6 +13,7 @@ enum {
 	VULKAN_FLAG_PRESENT_MAILBOX = 2,
 	VULKAN_FLAG_PRESENT_IMMEDIATE = 4,
 	VULKAN_FLAG_PRESENT_FIFO_RELAXED = 8,
+	VULKAN_FLAG_PRESENT_FIFO = 16,
 };
 
 enum {
@@ -136,6 +137,7 @@ public:
 	VkDevice GetDevice() const { return device_; }
 	VkInstance GetInstance() const { return instance_; }
 	uint32_t GetFlags() const { return flags_; }
+	void UpdateFlags(uint32_t flags) { flags_ = flags; }
 
 	VulkanDeleteList &Delete() { return globalDeleteList_; }
 

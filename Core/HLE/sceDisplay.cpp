@@ -553,7 +553,12 @@ static void DoFrameTiming(bool &throttle, bool &skipFrame, float timestep) {
 	// we have nothing to do here.
 	bool doFrameSkip = g_Config.iFrameSkip != 0;
 
-	if (!throttle && g_Config.bFrameSkipUnthrottle) {
+	bool unthrottleNeedsSkip = g_Config.bFrameSkipUnthrottle;
+	if (g_Config.bVSync && GetGPUBackend() == GPUBackend::VULKAN) {
+		// Vulkan doesn't support the interval setting, so we force frameskip.
+		unthrottleNeedsSkip = true;
+	}
+	if (!throttle && unthrottleNeedsSkip) {
 		doFrameSkip = true;
 		skipFrame = true;
 		if (numSkippedFrames >= 7) {
