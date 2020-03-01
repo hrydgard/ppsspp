@@ -81,6 +81,4 @@ private:
 	DepalShaderCacheD3D11 *depalShaderCache_;
 	DrawEngineD3D11 drawEngine_;
 	ShaderManagerD3D11 *shaderManagerD3D11_;
-
-	int lastVsync_;
 };

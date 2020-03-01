@@ -80,8 +80,6 @@ private:
 	DepalShaderCacheDX9 depalShaderCache_;
 	DrawEngineDX9 drawEngine_;
 	ShaderManagerDX9 *shaderManagerDX9_;
-
-	int lastVsync_;
 };
 
 }  // namespace DX9

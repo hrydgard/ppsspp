@@ -58,8 +58,6 @@ GPU_DX9::GPU_DX9(GraphicsContext *gfxCtx, Draw::DrawContext *draw)
 		drawEngine_(draw) {
 	device_ = (LPDIRECT3DDEVICE9)draw->GetNativeObject(Draw::NativeObject::DEVICE);
 	deviceEx_ = (LPDIRECT3DDEVICE9EX)draw->GetNativeObject(Draw::NativeObject::DEVICE_EX);
-	lastVsync_ = g_Config.bVSync ? 1 : 0;
-	dxstate.SetVSyncInterval(g_Config.bVSync);
 
 	shaderManagerDX9_ = new ShaderManagerDX9(draw, device_);
 	framebufferManagerDX9_ = new FramebufferManagerDX9(draw);
@@ -285,15 +283,6 @@ void GPU_DX9::ReapplyGfxState() {
 }
 
 void GPU_DX9::BeginFrame() {
-	// Turn off vsync when unthrottled
-	int desiredVSyncInterval = g_Config.bVSync ? 1 : 0;
-	if (PSP_CoreParameter().unthrottle || PSP_CoreParameter().fpsLimit != FPSLimit::NORMAL)
-		desiredVSyncInterval = 0;
-	if (desiredVSyncInterval != lastVsync_) {
-		dxstate.SetVSyncInterval(desiredVSyncInterval);
-		lastVsync_ = desiredVSyncInterval;
-	}
-
 	textureCacheDX9_->StartFrame();
 	drawEngine_.DecimateTrackedVertexArrays();
 	depalShaderCache_.Decimate();

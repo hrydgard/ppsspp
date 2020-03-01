@@ -342,7 +342,11 @@ void GameSettingsScreen::CreateViews() {
 #endif
 
 #ifdef _WIN32
-	graphicsSettings->Add(new CheckBox(&g_Config.bVSync, gr->T("VSync")));
+	CheckBox *vSync = graphicsSettings->Add(new CheckBox(&g_Config.bVSync, gr->T("VSync")));
+	vSync->OnClick.Add([=](EventParams &e) {
+		NativeResized();
+		return UI::EVENT_CONTINUE;
+	});
 #endif
 
 	CheckBox *hwTransform = graphicsSettings->Add(new CheckBox(&g_Config.bHardwareTransform, gr->T("Hardware Transform")));

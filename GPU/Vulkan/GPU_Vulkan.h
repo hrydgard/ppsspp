@@ -80,7 +80,6 @@ private:
 	void InitClear() override;
 	void CopyDisplayToOutput() override;
 	void Reinitialize() override;
-	inline void UpdateVsyncInterval(bool force);
 
 	void InitDeviceObjects();
 	void DestroyDeviceObjects();

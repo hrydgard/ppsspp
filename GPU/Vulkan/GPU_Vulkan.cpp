@@ -57,7 +57,6 @@ GPU_Vulkan::GPU_Vulkan(GraphicsContext *gfxCtx, Draw::DrawContext *draw)
 		drawEngine_(vulkan_, draw),
 		depalShaderCache_(draw, vulkan_),
 		vulkan2D_(vulkan_) {
-	UpdateVsyncInterval(true);
 	CheckGPUFeatures();
 
 	shaderManagerVulkan_ = new ShaderManagerVulkan(draw, vulkan_);
@@ -417,10 +416,6 @@ void GPU_Vulkan::InitClear() {
 	if (useNonBufferedRendering) {
 		// TODO?
 	}
-}
-
-void GPU_Vulkan::UpdateVsyncInterval(bool force) {
-	// TODO
 }
 
 void GPU_Vulkan::SetDisplayFramebuffer(u32 framebuf, u32 stride, GEBufferFormat format) {
