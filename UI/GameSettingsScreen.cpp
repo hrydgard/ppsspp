@@ -345,6 +345,14 @@ void GameSettingsScreen::CreateViews() {
 	graphicsSettings->Add(new CheckBox(&g_Config.bVSync, gr->T("VSync")));
 #endif
 
+	if (GetGPUBackend() == GPUBackend::VULKAN || GetGPUBackend() == GPUBackend::OPENGL) {
+		CheckBox *inflightFrames = graphicsSettings->Add(new CheckBox(&g_Config.bUseInflightFrames, gr->T("Buffer graphics commands (faster, input lag)")));
+		inflightFrames->OnClick.Add([=](EventParams &e) {
+			NativeMessageReceived("gpu_resized", "");
+			return UI::EVENT_CONTINUE;
+		});
+	}
+
 	CheckBox *hwTransform = graphicsSettings->Add(new CheckBox(&g_Config.bHardwareTransform, gr->T("Hardware Transform")));
 	hwTransform->OnClick.Handle(this, &GameSettingsScreen::OnHardwareTransform);
 	hwTransform->SetDisabledPtr(&g_Config.bSoftwareRendering);

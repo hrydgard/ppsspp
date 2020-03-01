@@ -28,7 +28,6 @@
 #include "Core/Config.h"
 #include "Core/Debugger/Breakpoints.h"
 #include "Core/MemMapHelpers.h"
-#include "Core/Config.h"
 #include "Core/Reporting.h"
 #include "Core/System.h"
 #include "Core/ELF/ParamSFO.h"
@@ -99,6 +98,8 @@ GPU_Vulkan::GPU_Vulkan(GraphicsContext *gfxCtx, Draw::DrawContext *draw)
 	if (vulkan_->GetDeviceFeatures().enabled.wideLines) {
 		drawEngine_.SetLineWidth(PSP_CoreParameter().renderWidth / 480.0f);
 	}
+	VulkanRenderManager *rm = (VulkanRenderManager *)draw_->GetNativeObject(Draw::NativeObject::RENDER_MANAGER);
+	rm->UseInflightFrames(g_Config.bUseInflightFrames);
 
 	// Load shader cache.
 	std::string discID = g_paramSFO.GetDiscID();
@@ -276,6 +277,9 @@ void GPU_Vulkan::BeginHostFrame() {
 	UpdateCmdInfo();
 
 	if (resized_) {
+		VulkanRenderManager *rm = (VulkanRenderManager *)draw_->GetNativeObject(Draw::NativeObject::RENDER_MANAGER);
+		rm->UseInflightFrames(g_Config.bUseInflightFrames);
+
 		CheckGPUFeatures();
 		// In case the GPU changed.
 		BuildReportingInfo();

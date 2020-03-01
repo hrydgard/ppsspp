@@ -166,7 +166,7 @@ bool GLRenderManager::ThreadFrame() {
 	do {
 		if (nextFrame) {
 			threadFrame_++;
-			if (threadFrame_ >= MAX_INFLIGHT_FRAMES)
+			if (threadFrame_ >= inflightFrames_)
 				threadFrame_ = 0;
 		}
 		FrameData &frameData = frameData_[threadFrame_];
@@ -449,7 +449,11 @@ void GLRenderManager::Finish() {
 	frameData.pull_condVar.notify_all();
 
 	curFrame_++;
-	if (curFrame_ >= MAX_INFLIGHT_FRAMES)
+	if (newInflightFrames_ != -1) {
+		inflightFrames_ = newInflightFrames_;
+		newInflightFrames_ = -1;
+	}
+	if (curFrame_ >= inflightFrames_)
 		curFrame_ = 0;
 
 	insideFrame_ = false;

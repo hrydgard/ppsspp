@@ -862,6 +862,10 @@ public:
 
 	enum { MAX_INFLIGHT_FRAMES = 3 };
 
+	void UseInflightFrames(bool use) {
+		newInflightFrames_ = use ? MAX_INFLIGHT_FRAMES : 1;
+	}
+
 	int GetCurFrame() const {
 		return curFrame_;
 	}
@@ -987,6 +991,9 @@ private:
 	std::function<void()> swapFunction_;
 	std::function<void(int)> swapIntervalFunction_;
 	GLBufferStrategy bufferStrategy_ = GLBufferStrategy::SUBDATA;
+
+	int inflightFrames_ = MAX_INFLIGHT_FRAMES;
+	int newInflightFrames_ = -1;
 
 	int swapInterval_ = 0;
 	bool swapIntervalChanged_ = true;

@@ -249,6 +249,8 @@ public:
 	int GetInflightFrames() const {
 		return inflightFrames_;
 	}
+	// Don't call while a frame is in progress.
+	void UpdateInflightFrames(int n);
 
 	int GetCurFrame() const {
 		return curFrame_;
