@@ -83,7 +83,7 @@ struct AtlasChar {
 struct AtlasCharRange {
 	int start;
 	int end;
-	int start_index;
+	int result_index;
 };
 
 struct AtlasFontHeader {

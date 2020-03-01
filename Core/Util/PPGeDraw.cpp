@@ -196,10 +196,11 @@ void __PPGeInit()
 
 	size_t atlas_data_size;
 	uint8_t *atlas_data;
-	atlas_data = VFSReadFile("ppge_atlas.meta", &atlas_data_size);
-	g_ppge_atlas.Load(atlas_data, atlas_data_size);
-	delete[] atlas_data;
-
+	if (!g_ppge_atlas.IsMetadataLoaded()) {
+		atlas_data = VFSReadFile("ppge_atlas.meta", &atlas_data_size);
+		g_ppge_atlas.Load(atlas_data, atlas_data_size);
+		delete[] atlas_data;
+	}
 	u32 atlasSize = height[0] * width[0] / 2;  // it's a 4-bit paletted texture in ram
 	atlasWidth = width[0];
 	atlasHeight = height[0];
