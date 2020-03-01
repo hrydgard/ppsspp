@@ -142,8 +142,6 @@ static UI::Theme ui_theme;
 ScreenManager *screenManager;
 std::string config_filename;
 
-bool g_graphicsInited;
-
 // Really need to clean this mess of globals up... but instead I add more :P
 bool g_TakeScreenshot;
 static bool isOuya;
@@ -792,6 +790,9 @@ bool NativeInitGraphics(GraphicsContext *graphicsContext) {
 	ILOG("NativeInitGraphics");
 	_assert_msg_(G3D, graphicsContext, "No graphics context!");
 
+	// We set this now so any resize during init is processed later.
+	resized = false;
+
 	using namespace Draw;
 	Core_SetGraphicsContext(graphicsContext);
 	g_draw = graphicsContext->GetDrawContext();
@@ -872,7 +873,6 @@ bool NativeInitGraphics(GraphicsContext *graphicsContext) {
 	if (gpu)
 		gpu->DeviceRestore();
 
-	g_graphicsInited = true;
 	ILOG("NativeInitGraphics completed");
 	return true;
 }
@@ -883,7 +883,6 @@ void NativeShutdownGraphics() {
 	if (gpu)
 		gpu->DeviceLost();
 
-	g_graphicsInited = false;
 	ILOG("NativeShutdownGraphics");
 
 #ifdef _WIN32
@@ -1307,12 +1306,8 @@ void NativeMessageReceived(const char *message, const char *value) {
 
 void NativeResized() {
 	// NativeResized can come from any thread so we just set a flag, then process it later.
-	if (g_graphicsInited) {
-		ILOG("NativeResized - setting flag");
-		resized = true;
-	} else {
-		ILOG("NativeResized ignored, not initialized");
-	}
+	ILOG("NativeResized - setting flag");
+	resized = true;
 }
 
 void NativeSetRestarting() {
