@@ -65,25 +65,31 @@ void Combo_keyScreen::CreateViews() {
 	gridsettings.fillCells = true;
 	GridLayout *grid = rightScroll_->Add(new GridLayout(gridsettings, new LayoutParams(FILL_PARENT, WRAP_CONTENT)));
 
+	bool *toggle;
 	memset(array, 0, sizeof(array));
 	switch (*mode) {
 	case 0: 
+		toggle = &g_Config.bComboToggle0;
 		for (int i = 0; i < 16; i++)
 			array[i] = (0x01 == ((g_Config.iCombokey0 >> i) & 0x01));
 		break;
 	case 1:
+		toggle = &g_Config.bComboToggle1;
 		for (int i = 0; i < 16; i++)
 			array[i] = (0x01 == ((g_Config.iCombokey1 >> i) & 0x01));
 		break;
 	case 2:
+		toggle = &g_Config.bComboToggle2;
 		for (int i = 0; i < 16; i++)
 			array[i] = (0x01 == ((g_Config.iCombokey2 >> i) & 0x01));
 		break;
 	case 3:
+		toggle = &g_Config.bComboToggle3;
 		for (int i = 0; i < 16; i++)
 			array[i] = (0x01 == ((g_Config.iCombokey3 >> i) & 0x01));
 		break;
 	case 4:
+		toggle = &g_Config.bComboToggle4;
 		for (int i = 0; i < 16; i++)
 			array[i] = (0x01 == ((g_Config.iCombokey4 >> i) & 0x01));
 		break;
@@ -138,8 +144,22 @@ void Combo_keyScreen::CreateViews() {
 
 		row->Add(choice);
 		grid->Add(row);
-		
+
 	}
+
+	LinearLayout *row = new LinearLayout(ORIENT_HORIZONTAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT));
+	row->SetSpacing(0);
+
+	CheckBox *checkbox = new CheckBox(toggle, "", "", new LinearLayoutParams(50, WRAP_CONTENT));
+	row->Add(checkbox);
+
+	Choice *choice = new Choice(mc->T("Toggle mode"), new LinearLayoutParams(1.0f));
+	ChoiceEventHandler *choiceEventHandler = new ChoiceEventHandler(checkbox);
+	choice->OnClick.Handle(choiceEventHandler, &ChoiceEventHandler::onChoiceClick);
+	choice->SetCentered(true);
+
+	row->Add(choice);
+	grid->Add(row);
 }
 
 static int arrayToInt(bool ary[16]) {

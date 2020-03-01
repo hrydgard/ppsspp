@@ -172,10 +172,11 @@ const int baseActionButtonSpacing = 60;
 
 class ComboKey : public MultiTouchButton {
 public:
-	ComboKey(int pspButtonBit, int bgImg, int bgDownImg, int img, float scale, UI::LayoutParams *layoutParams)
-		: MultiTouchButton(bgImg, bgDownImg, img, scale, layoutParams), pspButtonBit_(pspButtonBit)  {
+	ComboKey(int pspButtonBit, bool toggle, int bgImg, int bgDownImg, int img, float scale, UI::LayoutParams *layoutParams)
+		: MultiTouchButton(bgImg, bgDownImg, img, scale, layoutParams), pspButtonBit_(pspButtonBit), toggle_(toggle)  {
 	}
 	void Touch(const TouchInput &input) override;
 private:
 	int pspButtonBit_;
+	bool toggle_;
 };

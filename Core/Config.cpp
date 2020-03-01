@@ -826,6 +826,12 @@ static ConfigSetting controlSettings[] = {
 	ConfigSetting("ComboKey3Mapping", &g_Config.iCombokey3, 0, true, true),
 	ConfigSetting("ComboKey4Mapping", &g_Config.iCombokey4, 0, true, true),
 
+	ConfigSetting("ComboKey0Toggle", &g_Config.bComboToggle0, false, true, true),
+	ConfigSetting("ComboKey1Toggle", &g_Config.bComboToggle1, false, true, true),
+	ConfigSetting("ComboKey2Toggle", &g_Config.bComboToggle2, false, true, true),
+	ConfigSetting("ComboKey3Toggle", &g_Config.bComboToggle3, false, true, true),
+	ConfigSetting("ComboKey4Toggle", &g_Config.bComboToggle4, false, true, true),
+
 #if defined(_WIN32)
 	// A win32 user seeing touch controls is likely using PPSSPP on a tablet. There it makes
 	// sense to default this to on.

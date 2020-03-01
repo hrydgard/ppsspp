@@ -201,15 +201,21 @@ void ComboKey::Touch(const TouchInput &input) {
 					if (g_Config.bHapticFeedback) {
 						Vibrate(HAPTIC_VIRTUAL_KEY);
 					}
-					__CtrlButtonDown(combo[i]);
+					if (!toggle_) {
+						__CtrlButtonDown(combo[i]);
+					} else {
+						if (__CtrlPeekButtons() & combo[i])
+							__CtrlButtonUp(combo[i]);
+						else
+							__CtrlButtonDown(combo[i]);
+					}
 				}
-				else if (lastDown && !down) {
+				else if (lastDown && !down && !toggle_) {
 					__CtrlButtonUp(combo[i]);
 				}
 			}
 		}
 	}
-
 }
 
 bool PSPButton::IsDown() {
@@ -600,9 +606,9 @@ UI::ViewGroup *CreatePadLayout(float xres, float yres, bool *pause) {
 		}
 		return nullptr;
 	};
-	auto addComboKey = [=](int buttonBit, int bgImg, int bgDownImg, int img, const ConfigTouchPos &touch) -> ComboKey * {
+	auto addComboKey = [=](int buttonBit, bool toggle, int bgImg, int bgDownImg, int img, const ConfigTouchPos &touch) -> ComboKey * {
 		if (touch.show) {
-			return root->Add(new ComboKey(buttonBit, bgImg, bgDownImg, img, touch.scale, buttonLayoutParams(touch)));
+			return root->Add(new ComboKey(buttonBit, toggle, bgImg, bgDownImg, img, touch.scale, buttonLayoutParams(touch)));
 		}
 		return nullptr;
 	};
@@ -673,11 +679,11 @@ UI::ViewGroup *CreatePadLayout(float xres, float yres, bool *pause) {
 	if (g_Config.touchRightAnalogStick.show)
 		root->Add(new PSPStick(stickBg, stickImage, I_STICK, 1, g_Config.touchRightAnalogStick.scale, buttonLayoutParams(g_Config.touchRightAnalogStick)));
 
-	addComboKey(g_Config.iCombokey0, roundImage, I_ROUND, comboKeyImages[0], g_Config.touchCombo0);
-	addComboKey(g_Config.iCombokey1, roundImage, I_ROUND, comboKeyImages[1], g_Config.touchCombo1);
-	addComboKey(g_Config.iCombokey2, roundImage, I_ROUND, comboKeyImages[2], g_Config.touchCombo2);
-	addComboKey(g_Config.iCombokey3, roundImage, I_ROUND, comboKeyImages[3], g_Config.touchCombo3);
-	addComboKey(g_Config.iCombokey4, roundImage, I_ROUND, comboKeyImages[4], g_Config.touchCombo4);
+	addComboKey(g_Config.iCombokey0, g_Config.bComboToggle0, roundImage, I_ROUND, comboKeyImages[0], g_Config.touchCombo0);
+	addComboKey(g_Config.iCombokey1, g_Config.bComboToggle1, roundImage, I_ROUND, comboKeyImages[1], g_Config.touchCombo1);
+	addComboKey(g_Config.iCombokey2, g_Config.bComboToggle2, roundImage, I_ROUND, comboKeyImages[2], g_Config.touchCombo2);
+	addComboKey(g_Config.iCombokey3, g_Config.bComboToggle3, roundImage, I_ROUND, comboKeyImages[3], g_Config.touchCombo3);
+	addComboKey(g_Config.iCombokey4, g_Config.bComboToggle4, roundImage, I_ROUND, comboKeyImages[4], g_Config.touchCombo4);
 
 	return root;
 }
