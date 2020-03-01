@@ -149,6 +149,8 @@ VulkanTexture *DepalShaderCacheVulkan::GetClutTexture(GEPaletteFormat clutFormat
 		case GE_CMODE_16BIT_BGR5650:
 			ConvertRGBA565ToRGBA8888(expanded, (const uint16_t *)rawClut, texturePixels);
 			break;
+		default:
+			break;
 		}
 		rawClut = expanded;
 		dstFmt = VK_FORMAT_R8G8B8A8_UNORM;
