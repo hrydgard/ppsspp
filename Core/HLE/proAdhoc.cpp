@@ -76,6 +76,7 @@ int newChat = 0;
 bool isLocalServer = false;
 sockaddr LocalhostIP;
 sockaddr LocalIP;
+int defaultWlanChannel = 1;
 
 bool isLocalMAC(const SceNetEtherAddr * addr) {
 	SceNetEtherAddr saddr;
@@ -1239,7 +1240,7 @@ int friendFinder(){
 					}*/
 					
 					// Update User BSSID
-					//parameter.bssid.mac_addr = packet->mac; // The MAC address in this packet seems to Always be the First player joining the Group (group Creator?), Shouldn't it be it self?
+					//parameter.bssid.mac_addr = packet->mac; // This packet seems to contains Adhoc Group Creator's BSSID (similar to AP's BSSID) so it shouldn't get mixed up with local MAC address
 					// Notify Event Handlers
 					//notifyAdhocctlHandlers(ADHOCCTL_EVENT_CONNECT, 0);
 					// Change State
@@ -1416,7 +1417,8 @@ int friendFinder(){
 							group->bssid.mac_addr = packet->mac;
 
 							// Set group parameters
-							group->channel = parameter.channel;
+							// Since 0 is not a valid active channel we fake the channel for Automatic Channel (JPCSP use 11 as default). Ridge Racer 2 will ignore any groups with channel 0 or that doesn't matched with channel value returned from sceUtilityGetSystemParamInt (which mean sceUtilityGetSystemParamInt must not return channel 0 when connected to a network?)
+							group->channel = parameter.channel; //(parameter.channel == PSP_SYSTEMPARAM_ADHOC_CHANNEL_AUTOMATIC) ? defaultWlanChannel : parameter.channel;
 							group->mode = ADHOCCTL_MODE_ADHOC; //adhocctlCurrentMode;
 
 							// Link into Group List
@@ -1808,8 +1810,9 @@ int initNetwork(SceNetAdhocctlAdhocId *adhoc_id){
 	memset(&parameter, 0, sizeof(parameter));
 	strncpy((char *)&parameter.nickname.data, g_Config.sNickName.c_str(), ADHOCCTL_NICKNAME_LEN);
 	parameter.nickname.data[ADHOCCTL_NICKNAME_LEN - 1] = 0;
-	parameter.channel = g_Config.iWlanAdhocChannel; // Fake Channel, 0 = Auto where JPCSP use 11 as default for Auto (Commonly for Auto: 1, 6, 11)
-	if (parameter.channel == PSP_SYSTEMPARAM_ADHOC_CHANNEL_AUTOMATIC) parameter.channel = 1;
+	parameter.channel = g_Config.iWlanAdhocChannel;
+	// Assign a Valid Channel when connected to AP/AdhocGroup if it's Auto. JPCSP use 11 as default for Auto (Commonly for Auto: 1, 6, 11)
+	if (parameter.channel == PSP_SYSTEMPARAM_ADHOC_CHANNEL_AUTOMATIC) parameter.channel = defaultWlanChannel; // Faked Active channel to default channel
 	getLocalMac(&parameter.bssid.mac_addr);
 	
 	// Default ProductId

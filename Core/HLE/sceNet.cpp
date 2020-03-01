@@ -112,6 +112,7 @@ static void __ResetInitNetLib() {
 	netInetInited = false;
 
 	memset(&netMallocStat, 0, sizeof(netMallocStat));
+	memset(&parameter, 0, sizeof(parameter));
 }
 
 void __NetInit() {
@@ -251,6 +252,8 @@ static u32 sceNetTerm() {
 	FreeUser(netThread1Addr);
 	FreeUser(netThread2Addr);
 
+	// Give time to make sure everything are cleaned up
+	hleDelayResult(0, "give time to init/cleanup", adhocEventDelayMS * 1000);
 	return 0;
 }
 

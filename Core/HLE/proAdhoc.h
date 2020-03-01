@@ -242,10 +242,10 @@ typedef struct SceNetAdhocctlNickname {
   uint8_t data[ADHOCCTL_NICKNAME_LEN];
 } PACK SceNetAdhocctlNickname;
 
-// Active Virtual Network Information
+// Active Virtual Network Information (Adhoc Group Host/Creator's device info, similar to AP?)
 typedef struct SceNetAdhocctlParameter {
   s32_le channel;
-  SceNetAdhocctlGroupName group_name;
+  SceNetAdhocctlGroupName group_name; // This group name is probably similar to SSID name on AP
   SceNetAdhocctlBSSId bssid;
   SceNetAdhocctlNickname nickname;
 } PACK SceNetAdhocctlParameter;
@@ -847,6 +847,7 @@ extern uint32_t minSocketTimeoutUS;
 extern bool isLocalServer;
 extern sockaddr LocalhostIP; // Used to differentiate localhost IP on multiple-instance
 extern sockaddr LocalIP; // IP of Network Adapter used to connect to Adhoc Server (LAN/WAN)
+extern int defaultWlanChannel; // Default WLAN Channel for Auto, JPCSP uses 11
 
 extern uint32_t fakePoolSize;
 extern SceNetAdhocMatchingContext * contexts;
