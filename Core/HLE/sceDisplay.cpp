@@ -549,6 +549,9 @@ static int CalculateFrameSkip() {
 static void DoFrameTiming(bool &throttle, bool &skipFrame, float timestep) {
 	PROFILE_THIS_SCOPE("timing");
 	FPSLimit fpsLimiter = PSP_CoreParameter().fpsLimit;
+	int fpsLimit = 60;
+	if (fpsLimiter != FPSLimit::NORMAL)
+		fpsLimit = fpsLimiter == FPSLimit::CUSTOM1 ? g_Config.iFpsLimit1 : g_Config.iFpsLimit2;
 	throttle = FrameTimingThrottled();
 	skipFrame = false;
 
@@ -560,6 +563,10 @@ static void DoFrameTiming(bool &throttle, bool &skipFrame, float timestep) {
 	if (g_Config.bVSync && GetGPUBackend() == GPUBackend::VULKAN) {
 		// Vulkan doesn't support the interval setting, so we force frameskip.
 		unthrottleNeedsSkip = true;
+		// If it's not a clean multiple of 60, we may need frameskip to achieve it.
+		if (fpsLimit == 0 || (fpsLimit >= 0 && fpsLimit != 15 && fpsLimit != 30 && fpsLimit != 60)) {
+			doFrameSkip = true;
+		}
 	}
 	if (!throttle && unthrottleNeedsSkip) {
 		doFrameSkip = true;
@@ -576,10 +583,8 @@ static void DoFrameTiming(bool &throttle, bool &skipFrame, float timestep) {
 	time_update();
 
 	float scaledTimestep = timestep;
-	if (fpsLimiter == FPSLimit::CUSTOM1 && g_Config.iFpsLimit1 > 0) {
-		scaledTimestep *= 60.0f / g_Config.iFpsLimit1;
-	} else if (fpsLimiter == FPSLimit::CUSTOM2 && g_Config.iFpsLimit2 > 0) {
-		scaledTimestep *= 60.0f / g_Config.iFpsLimit2;
+	if (fpsLimit > 0 && fpsLimit != 60) {
+		scaledTimestep *= 60.0f / fpsLimit;
 	}
 
 	if (lastFrameTime == 0.0 || wasPaused) {
@@ -599,13 +604,16 @@ static void DoFrameTiming(bool &throttle, bool &skipFrame, float timestep) {
 
 	// Auto-frameskip automatically if speed limit is set differently than the default.
 	bool useAutoFrameskip = g_Config.bAutoFrameSkip && g_Config.iRenderingMode != FB_NON_BUFFERED_MODE;
-	bool forceFrameskip = (fpsLimiter == FPSLimit::CUSTOM1 && g_Config.iFpsLimit1 > 60) || (fpsLimiter == FPSLimit::CUSTOM2 && g_Config.iFpsLimit2 > 60);
+	bool forceFrameskip = fpsLimit > 60 && unthrottleNeedsSkip;
 	int frameSkipNum = CalculateFrameSkip();
 	if (g_Config.bAutoFrameSkip || forceFrameskip) {
 		// autoframeskip
 		// Argh, we are falling behind! Let's skip a frame and see if we catch up.
 		if (curFrameTime > nextFrameTime && doFrameSkip) {
 			skipFrame = true;
+			if (forceFrameskip) {
+				throttle = false;
+			}
 		}
 	} else if (frameSkipNum >= 1) {
 		// fixed frameskip
