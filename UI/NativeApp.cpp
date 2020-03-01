@@ -900,7 +900,6 @@ void NativeShutdownGraphics() {
 	}
 #endif
 
-	ShutdownWebServer();
 	UIBackgroundShutdown();
 
 	delete g_gameInfoCache;
@@ -1346,6 +1345,8 @@ void NativeShutdown() {
 #endif
 
 	ILOG("NativeShutdown called");
+
+	ShutdownWebServer();
 
 	System_SendMessage("finish", "");
 
