@@ -1315,7 +1315,7 @@ void EmuScreen::render() {
 		thin3d->BindFramebufferAsRenderTarget(nullptr, { RPAction::CLEAR, RPAction::DONT_CARE, RPAction::DONT_CARE });
 		// Just to make sure.
 		if (PSP_IsInited()) {
-			gpu->CopyDisplayToOutput();
+			gpu->CopyDisplayToOutput(true);
 		}
 	} else {
 		// Didn't actually reach the end of the frame, ran out of the blockTicks cycles.

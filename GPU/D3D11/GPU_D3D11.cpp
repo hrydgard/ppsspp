@@ -262,13 +262,13 @@ void GPU_D3D11::SetDisplayFramebuffer(u32 framebuf, u32 stride, GEBufferFormat f
 	framebufferManagerD3D11_->SetDisplayFramebuffer(framebuf, stride, format);
 }
 
-void GPU_D3D11::CopyDisplayToOutput() {
+void GPU_D3D11::CopyDisplayToOutput(bool reallyDirty) {
 	float blendColor[4]{};
 	context_->OMSetBlendState(stockD3D11.blendStateDisabledWithColorMask[0xF], blendColor, 0xFFFFFFFF);
 
 	drawEngine_.Flush();
 
-	framebufferManagerD3D11_->CopyDisplayToOutput();
+	framebufferManagerD3D11_->CopyDisplayToOutput(reallyDirty);
 	framebufferManagerD3D11_->EndFrame();
 
 	// shaderManager_->EndFrame();

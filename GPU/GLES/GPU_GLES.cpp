@@ -400,14 +400,14 @@ void GPU_GLES::SetDisplayFramebuffer(u32 framebuf, u32 stride, GEBufferFormat fo
 	framebufferManagerGL_->SetDisplayFramebuffer(framebuf, stride, format);
 }
 
-void GPU_GLES::CopyDisplayToOutput() {
+void GPU_GLES::CopyDisplayToOutput(bool reallyDirty) {
 	// Flush anything left over.
 	framebufferManagerGL_->RebindFramebuffer();
 	drawEngine_.Flush();
 
 	shaderManagerGL_->DirtyLastShader();
 
-	framebufferManagerGL_->CopyDisplayToOutput();
+	framebufferManagerGL_->CopyDisplayToOutput(reallyDirty);
 	framebufferManagerGL_->EndFrame();
 
 	// If buffered, discard the depth buffer of the backbuffer. Don't even know if we need one.

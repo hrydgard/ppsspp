@@ -431,13 +431,13 @@ void GPU_Vulkan::SetDisplayFramebuffer(u32 framebuf, u32 stride, GEBufferFormat 
 	framebufferManager_->SetDisplayFramebuffer(framebuf, stride, format);
 }
 
-void GPU_Vulkan::CopyDisplayToOutput() {
+void GPU_Vulkan::CopyDisplayToOutput(bool reallyDirty) {
 	// Flush anything left over.
 	drawEngine_.Flush();
 
 	shaderManagerVulkan_->DirtyLastShader();
 
-	framebufferManagerVulkan_->CopyDisplayToOutput();
+	framebufferManagerVulkan_->CopyDisplayToOutput(reallyDirty);
 
 	gstate_c.Dirty(DIRTY_TEXTURE_IMAGE);
 }
