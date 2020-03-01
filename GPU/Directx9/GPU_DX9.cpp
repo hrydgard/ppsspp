@@ -299,13 +299,13 @@ void GPU_DX9::SetDisplayFramebuffer(u32 framebuf, u32 stride, GEBufferFormat for
 	framebufferManagerDX9_->SetDisplayFramebuffer(framebuf, stride, format);
 }
 
-void GPU_DX9::CopyDisplayToOutput() {
+void GPU_DX9::CopyDisplayToOutput(bool reallyDirty) {
 	dxstate.depthWrite.set(true);
 	dxstate.colorMask.set(true, true, true, true);
 
 	drawEngine_.Flush();
 
-	framebufferManagerDX9_->CopyDisplayToOutput();
+	framebufferManagerDX9_->CopyDisplayToOutput(reallyDirty);
 	framebufferManagerDX9_->EndFrame();
 
 	// shaderManager_->EndFrame();

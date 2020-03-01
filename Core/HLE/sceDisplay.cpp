@@ -781,7 +781,7 @@ void __DisplayFlip(int cyclesLate) {
 			// Check first though, might've just quit / been paused.
 			if (coreState == CORE_RUNNING) {
 				coreState = CORE_NEXTFRAME;
-				gpu->CopyDisplayToOutput();
+				gpu->CopyDisplayToOutput(fbReallyDirty);
 				if (fbReallyDirty) {
 					actualFlips++;
 				}

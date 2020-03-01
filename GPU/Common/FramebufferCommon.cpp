@@ -846,7 +846,7 @@ void FramebufferManagerCommon::SetViewport2D(int x, int y, int w, int h) {
 	draw_->SetViewports(1, &vp);
 }
 
-void FramebufferManagerCommon::CopyDisplayToOutput() {
+void FramebufferManagerCommon::CopyDisplayToOutput(bool reallyDirty) {
 	DownloadFramebufferOnSwitch(currentRenderVfb_);
 	shaderManager_->DirtyLastShader();
 
@@ -869,12 +869,16 @@ void FramebufferManagerCommon::CopyDisplayToOutput() {
 	CardboardSettings cardboardSettings;
 	GetCardboardSettings(&cardboardSettings);
 
-	VirtualFramebuffer *vfb = GetVFBAt(displayFramebufPtr_);
+	// If it's not really dirty, we're probably frameskipping.  Use the last working one.
+	u32 fbaddr = reallyDirty ? displayFramebufPtr_ : prevDisplayFramebufPtr_;
+	prevDisplayFramebufPtr_ = fbaddr;
+
+	VirtualFramebuffer *vfb = GetVFBAt(fbaddr);
 	if (!vfb) {
 		// Let's search for a framebuf within this range. Note that we also look for
 		// "framebuffers" sitting in RAM (created from block transfer or similar) so we only take off the kernel
 		// and uncached bits of the address when comparing.
-		const u32 addr = displayFramebufPtr_ & 0x3FFFFFFF;
+		const u32 addr = fbaddr & 0x3FFFFFFF;
 		for (size_t i = 0; i < vfbs_.size(); ++i) {
 			VirtualFramebuffer *v = vfbs_[i];
 			const u32 v_addr = v->fb_address & 0x3FFFFFFF;
@@ -912,7 +916,7 @@ void FramebufferManagerCommon::CopyDisplayToOutput() {
 	}
 
 	if (!vfb) {
-		if (Memory::IsValidAddress(displayFramebufPtr_)) {
+		if (Memory::IsValidAddress(fbaddr)) {
 			// The game is displaying something directly from RAM. In GTA, it's decoded video.
 			if (!vfb) {
 				shaderManager_->DirtyLastShader();
@@ -923,12 +927,12 @@ void FramebufferManagerCommon::CopyDisplayToOutput() {
 				// Just a pointer to plain memory to draw. We should create a framebuffer, then draw to it.
 				SetViewport2D(0, 0, pixelWidth_, pixelHeight_);
 				draw_->SetScissorRect(0, 0, pixelWidth_, pixelHeight_);
-				DrawFramebufferToOutput(Memory::GetPointer(displayFramebufPtr_), displayFormat_, displayStride_, true);
+				DrawFramebufferToOutput(Memory::GetPointer(fbaddr), displayFormat_, displayStride_, true);
 				gstate_c.Dirty(DIRTY_BLEND_STATE);
 				return;
 			}
 		} else {
-			DEBUG_LOG(FRAMEBUF, "Found no FBO to display! displayFBPtr = %08x", displayFramebufPtr_);
+			DEBUG_LOG(FRAMEBUF, "Found no FBO to display! displayFBPtr = %08x", fbaddr);
 			// No framebuffer to display! Clear to black.
 			if (useBufferedRendering_) {
 				shaderManager_->DirtyLastShader();
