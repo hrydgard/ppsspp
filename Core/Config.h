@@ -211,6 +211,7 @@ public:
 	int iShowFPSCounter;
 	bool bShowRegionOnGameIcon;
 	bool bShowIDOnGameIcon;
+	float fGameGridScale;
 
 	// TODO: Maybe move to a separate theme system.
 	uint32_t uItemStyleFg;

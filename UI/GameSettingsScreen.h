@@ -36,7 +36,6 @@ public:
 	void onFinish(DialogResult result) override;
 	void sendMessage(const char *message, const char *value) override;
 	std::string tag() const override { return "settings"; }
-
 	UI::Event OnRecentChanged;
 
 protected:

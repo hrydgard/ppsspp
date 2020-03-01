@@ -722,8 +722,6 @@ void GameSettingsScreen::CreateViews() {
 #endif
 
 	systemSettings->Add(new CheckBox(&g_Config.bCheckForNewVersion, sy->T("VersionCheck", "Check for new versions of PPSSPP")));
-	systemSettings->Add(new CheckBox(&g_Config.bShowIDOnGameIcon, sy->T("Show ID on game selection screen")));
-	systemSettings->Add(new CheckBox(&g_Config.bShowRegionOnGameIcon, sy->T("Show region flag on game selection screen")));
 	if (g_Config.iMaxRecent > 0)
 		systemSettings->Add(new Choice(sy->T("Clear Recent Games List")))->OnClick.Handle(this, &GameSettingsScreen::OnClearRecents);
 

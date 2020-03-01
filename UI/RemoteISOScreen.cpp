@@ -383,8 +383,8 @@ void RemoteISOConnectScreen::ExecuteLoad() {
 
 class RemoteGameBrowser : public GameBrowser {
 public:
-	RemoteGameBrowser(const std::string &url, const std::vector<std::string> &games, BrowseFlags browseFlags, bool *gridStyle_, std::string lastText, std::string lastLink, UI::LayoutParams *layoutParams = nullptr)
-	: GameBrowser(url, browseFlags, gridStyle_, lastText, lastLink, layoutParams) {
+	RemoteGameBrowser(const std::string &url, const std::vector<std::string> &games, BrowseFlags browseFlags, bool *gridStyle_, ScreenManager* screenManager, std::string lastText, std::string lastLink, UI::LayoutParams *layoutParams = nullptr)
+	: GameBrowser(url, browseFlags, gridStyle_, screenManager, lastText, lastLink, layoutParams) {
 		games_ = games;
 		Refresh();
 	}
@@ -427,7 +427,7 @@ void RemoteISOBrowseScreen::CreateViews() {
 	ScrollView *scrollRecentGames = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT));
 	scrollRecentGames->SetTag("RemoteGamesTab");
 	RemoteGameBrowser *tabRemoteGames = new RemoteGameBrowser(
-		url_, games_, BrowseFlags::PIN, &g_Config.bGridView1, "", "",
+		url_, games_, BrowseFlags::PIN, &g_Config.bGridView1, screenManager(), "", "",
 		new LinearLayoutParams(FILL_PARENT, FILL_PARENT));
 	scrollRecentGames->Add(tabRemoteGames);
 	gameBrowsers_.push_back(tabRemoteGames);
