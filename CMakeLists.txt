@@ -863,7 +863,6 @@ list(APPEND NativeAppSource
 	UI/CwCheatScreen.cpp
 	UI/InstallZipScreen.cpp
 	UI/ProfilerDraw.cpp
-	UI/ui_atlas.cpp
 	UI/TextureUtil.cpp
 	UI/ComboKeyMappingScreen.cpp
 )
@@ -1754,8 +1753,6 @@ add_library(${CoreLibName} ${CoreLinkType}
 	Core/Util/BlockAllocator.h
 	Core/Util/PPGeDraw.cpp
 	Core/Util/PPGeDraw.h
-	Core/Util/ppge_atlas.cpp
-	Core/Util/ppge_atlas.h
 	${CORE_NEON}
 	${GPU_SOURCES}
 	ext/disarm.cpp
@@ -1927,6 +1924,7 @@ endif()
 
 set(NativeAssets
 	android/assets/ui_atlas.zim
+	android/assets/ui_atlas.meta
 	assets/lang
 	assets/shaders
 	assets/Roboto-Condensed.ttf
@@ -1935,6 +1933,7 @@ set(NativeAssets
 	assets/gamecontrollerdb.txt
 	assets/langregion.ini
 	assets/ppge_atlas.zim
+	assets/ppge_atlas.meta
 	assets/rargray.png
 	assets/unknown.png
 	assets/zip.png

@@ -31,7 +31,6 @@
 #include "UI/SavedataScreen.h"
 #include "UI/MainScreen.h"
 #include "UI/GameInfoCache.h"
-#include "UI/ui_atlas.h"
 #include "UI/PauseScreen.h"
 
 #include "Common/FileUtil.h"

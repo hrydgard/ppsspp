@@ -17,13 +17,17 @@
 
 #include <algorithm>
 #include "ui/ui_context.h"
-#include "ui_atlas.h"
 #include "UI/DisplayLayoutEditor.h"
 
 void MultiTouchDisplay::GetContentDimensions(const UIContext &dc, float &w, float &h) const {
-	const AtlasImage &image = dc.Draw()->GetAtlas()->images[img_];
-	w = image.w * scale_;
-	h = image.h * scale_;
+	const AtlasImage *image = dc.Draw()->GetAtlas()->getImage(img_);
+	if (image) {
+		w = image->w * scale_;
+		h = image->h * scale_;
+	} else {
+		w = 0.0f;
+		h = 0.0f;
+	}
 }
 
 void MultiTouchDisplay::Touch(const TouchInput &input) {

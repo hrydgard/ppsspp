@@ -393,7 +393,7 @@ void RasterizeFonts(const FontReferenceList &fontRefs, vector<CharRange> &ranges
 	// Convert all characters to bitmaps.
 	for (size_t r = 0, rn = ranges.size(); r < rn; r++) {
 		FT_Face_List &tryFonts = fontsByRange[ranges[r].start];
-		ranges[r].start_index = global_id;
+		ranges[r].result_index = global_id;
 		for (int kar = ranges[r].start; kar < ranges[r].end; kar++) {
 			bool filtered = false;
 			if (ranges[r].filter.size()) {
@@ -415,11 +415,10 @@ void RasterizeFonts(const FontReferenceList &fontRefs, vector<CharRange> &ranges
 			if (!foundMatch) {
 				// fprintf(stderr, "WARNING: No font contains character %x.\n", kar);
 				missing_chars++;
-				continue;
 			}
 
 			Image<unsigned int> img;
-			if (filtered || 0 != FT_Load_Char(font, kar, FT_LOAD_RENDER | FT_LOAD_MONOCHROME)) {
+			if (!foundMatch || filtered || 0 != FT_Load_Char(font, kar, FT_LOAD_RENDER | FT_LOAD_MONOCHROME)) {
 				img.resize(1, 1);
 				Data dat;
 
@@ -559,7 +558,7 @@ struct FontDesc {
 		descend = 0;
 		for (size_t r = 0; r < ranges.size(); r++) {
 			for (int i = ranges[r].start; i < ranges[r].end; i++) {
-				int idx = i - ranges[r].start + ranges[r].start_index;
+				int idx = i - ranges[r].start + ranges[r].result_index;
 				ascend = max(ascend, -results[idx].oy);
 				descend = max(descend, results[idx].ey - results[idx].sy + results[idx].oy);
 			}
@@ -568,13 +567,14 @@ struct FontDesc {
 		height = metrics_height / 64.0 / supersample;
 	}
 
-	void OutputSelf(FILE *fil, float tw, float th, const vector<Data> &results) {
+	void OutputSelf(FILE *fil, float tw, float th, const vector<Data> &results) const {
 		// Dump results as chardata.
 		fprintf(fil, "const AtlasChar font_%s_chardata[] = {\n", name.c_str());
+		int start_index = 0;
 		for (size_t r = 0; r < ranges.size(); r++) {
-			fprintf(fil, "// RANGE: 0x%x - 0x%x, start 0x%x\n", ranges[r].start, ranges[r].end, ranges[r].start_index);
+			fprintf(fil, "// RANGE: 0x%x - 0x%x, start %d, result %d\n", ranges[r].start, ranges[r].end, start_index, ranges[r].result_index);
 			for (int i = ranges[r].start; i < ranges[r].end; i++) {
-				int idx = i - ranges[r].start + ranges[r].start_index;
+				int idx = i - ranges[r].start + ranges[r].result_index;
 				fprintf(fil, "    {%ff, %ff, %ff, %ff, %1.4ff, %1.4ff, %1.4ff, %i, %i},  // %04x\n",
 					/*results[i].id, */
 					results[idx].sx / tw,
@@ -587,12 +587,13 @@ struct FontDesc {
 					results[idx].ex - results[idx].sx, results[idx].ey - results[idx].sy,
 					results[idx].charNum);
 			}
+			start_index += ranges[r].end - ranges[r].start;
 		}
 		fprintf(fil, "};\n");
 
 		fprintf(fil, "const AtlasCharRange font_%s_ranges[] = {\n", name.c_str());
 		// Write range information.
-		int start_index = 0;
+		start_index = 0;
 		for (size_t r = 0; r < ranges.size(); r++) {
 			int first_char_id = ranges[r].start;
 			int last_char_id = ranges[r].end;
@@ -613,12 +614,66 @@ struct FontDesc {
 		fprintf(fil, "};\n");
 	}
 
-	void OutputIndex(FILE *fil) {
+	void OutputIndex(FILE *fil) const {
 		fprintf(fil, "  &font_%s,\n", name.c_str());
 	}
 
-	void OutputHeader(FILE *fil, int index) {
+	void OutputHeader(FILE *fil, int index) const {
 		fprintf(fil, "#define %s %i\n", name.c_str(), index);
+	}
+
+	AtlasFontHeader GetHeader() const {
+		int numChars = 0;
+		for (size_t r = 0; r < ranges.size(); r++) {
+			numChars += ranges[r].end - ranges[r].start;
+		}
+		AtlasFontHeader header;
+		header.padding = height - ascend - descend;
+		header.height = ascend + descend;
+		header.ascend = ascend;
+		header.distslope = distmult / 256.0;
+		strncpy(header.name, name.c_str(), sizeof(header.name));
+		header.name[sizeof(header.name) - 1] = '\0';
+		header.numChars = numChars;
+		header.numRanges = (int)ranges.size();
+		return header;
+	}
+
+	vector<AtlasCharRange> GetRanges() const {
+		int start_index = 0;
+		vector<AtlasCharRange> out_ranges;
+		for (size_t r = 0; r < ranges.size(); r++) {
+			int first_char_id = ranges[r].start;
+			int last_char_id = ranges[r].end;
+			AtlasCharRange range;
+			range.start = first_char_id;
+			range.end = last_char_id;
+			range.result_index = start_index;
+			start_index += last_char_id - first_char_id;
+			out_ranges.push_back(range);
+		}
+		return out_ranges;
+	}
+
+	vector<AtlasChar> GetChars(float tw, float th, const vector<Data> &results) const {
+		vector<AtlasChar> chars;
+		for (size_t r = 0; r < ranges.size(); r++) {
+			for (int i = ranges[r].start; i < ranges[r].end; i++) {
+				int idx = i - ranges[r].start + ranges[r].result_index;
+				AtlasChar c;
+				c.sx = results[idx].sx / tw;  // sx, sy, ex, ey
+				c.sy = results[idx].sy / th;
+				c.ex = results[idx].ex / tw;
+				c.ey = results[idx].ey / th;
+				c.ox = results[idx].ox; // ox, oy
+				c.oy = results[idx].oy + results[idx].voffset;
+				c.wx = results[idx].wx; //wx
+				c.pw = results[idx].ex - results[idx].sx; // pw, ph
+				c.ph = results[idx].ey - results[idx].sy;
+				chars.push_back(c);
+			}
+		}
+		return chars;
 	}
 };
 
@@ -626,6 +681,22 @@ struct ImageDesc {
 	string name;
 	Effect effect;
 	int result_index;
+
+	AtlasImage ToAtlasImage(float tw, float th, const vector<Data> &results) {
+		AtlasImage img;
+		int i = result_index;
+		float toffx = 0.5f / tw;
+		float toffy = 0.5f / th;
+		img.u1 = results[i].sx / tw + toffx;
+		img.v1 = results[i].sy / th + toffy;
+		img.u2 = results[i].ex / tw - toffx;
+		img.v2 = results[i].ey / th - toffy;
+		img.w = results[i].ex - results[i].sx;
+		img.h = results[i].ey - results[i].sy;
+		strncpy(img.name, name.c_str(), sizeof(img.name));
+		img.name[sizeof(img.name) - 1] = 0;
+		return img;
+	}
 
 	void OutputSelf(FILE *fil, float tw, float th, const vector<Data> &results) {
 		int i = result_index;
@@ -651,7 +722,7 @@ CharRange range(int start, int end, const std::set<u16> &filter) {
 	CharRange r;
 	r.start = start;
 	r.end = end + 1;
-	r.start_index = 0;
+	r.result_index = 0;
 	r.filter = filter;
 	return r;
 }
@@ -660,7 +731,7 @@ CharRange range(int start, int end) {
 	CharRange r;
 	r.start = start;
 	r.end = end + 1;
-	r.start_index = 0;
+	r.result_index = 0;
 	return r;
 }
 
@@ -724,7 +795,7 @@ void GetLocales(const char *locales, std::vector<CharRange> &ranges)
 			ranges.push_back(range(32, 127));
 			break;
 		case 'W':  // Latin-1 extras 1
-			ranges.push_back(range(0x80, 0x80));  // euro sign
+			ranges.push_back(range(0x80, 0x80));  // euro sign (??? It's not here?)
 			ranges.push_back(range(0xA2, 0xFF));  // 80 - A0 appears to contain nothing interesting
 			ranges.push_back(range(0x2121, 0x2122));  // TEL symbol and trademark symbol 
 			break;
@@ -800,6 +871,7 @@ int main(int argc, char **argv) {
 	printf("Reading script %s\n", argv[1]);
 	const char *atlas_name = argv[2];
 	string image_name = string(atlas_name) + "_atlas.zim";
+	string meta_name = string(atlas_name) + "_atlas.meta";
 	out_prefix = argv[2];
 
 	map<string, FontReferenceList> fontRefs;
@@ -895,13 +967,42 @@ int main(int argc, char **argv) {
 		printf("Writing .ZIM %ix%i RGBA4444...\n", dest.width(), dest.height());
 		dest.SaveZIM(image_name.c_str(), ZIM_RGBA4444 | ZIM_ZLIB_COMPRESSED);
 	}
+
 	// Also save PNG for debugging.
 	printf("Writing .PNG %s\n", (image_name + ".png").c_str());
 	dest.SavePNG((image_name + ".png").c_str());
 
-	printf("Done. Outputting source files %s_atlas.cpp/h.\n", out_prefix.c_str());
+	printf("Done. Outputting source and meta files %s_atlas.cpp/h/meta.\n", out_prefix.c_str());
 	// Sort items by ID.
 	sort(results.begin(), results.end());
+
+	// Save all the metadata.
+	{
+		FILE *meta = fopen(meta_name.c_str(), "wb");
+		AtlasHeader header;
+		header.magic = ATLAS_MAGIC;
+		header.version = 0;
+		header.numFonts = (int)fonts.size();
+		header.numImages = (int)images.size();
+		fwrite(&header, 1, sizeof(header), meta);
+		// For each image
+		for (int i = 0; i < (int)images.size(); i++) {
+			AtlasImage atlas_image = images[i].ToAtlasImage(dest.width(), dest.height(), results);
+			fwrite(&atlas_image, 1, sizeof(atlas_image), meta);
+		}
+		// For each font
+		for (int i = 0; i < (int)fonts.size(); i++) {
+			auto &font = fonts[i];
+			font.ComputeHeight(results, distmult);
+			AtlasFontHeader font_header = font.GetHeader();
+			fwrite(&font_header, 1, sizeof(font_header), meta);
+			auto ranges = font.GetRanges();
+			fwrite(ranges.data(), sizeof(AtlasCharRange), ranges.size(), meta);
+			auto chars = font.GetChars(dest.width(), dest.height(), results);
+			fwrite(chars.data(), sizeof(AtlasChar), chars.size(), meta);
+		}
+		fclose(meta);
+	}
 
 	FILE *cpp_file = fopen((out_prefix + "_atlas.cpp").c_str(), "wb");
 	fprintf(cpp_file, "// C++ generated by atlastool from %s (hrydgard@gmail.com)\n\n", argv[1]);

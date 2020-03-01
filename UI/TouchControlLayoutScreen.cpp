@@ -22,7 +22,6 @@
 #include "gfx_es2/draw_buffer.h"
 #include "i18n/i18n.h"
 #include "ui/ui_context.h"
-#include "ui_atlas.h"
 
 #include "TouchControlLayoutScreen.h"
 #include "TouchControlVisibilityScreen.h"
@@ -42,7 +41,7 @@ static u32 GetButtonColor() {
 
 class DragDropButton : public MultiTouchButton {
 public:
-	DragDropButton(ConfigTouchPos &pos, int bgImg, int img)
+	DragDropButton(ConfigTouchPos &pos, ImageID bgImg, ImageID img)
 	: MultiTouchButton(bgImg, bgImg, img, pos.scale, new UI::AnchorLayoutParams(fromFullscreenCoord(pos.x), pos.y * local_dp_yres, UI::NONE, UI::NONE, true)),
 		x_(pos.x), y_(pos.y), theScale_(pos.scale) {
 		scale_ = theScale_;
@@ -90,16 +89,9 @@ private:
 class PSPActionButtons : public DragDropButton {
 public:
 	PSPActionButtons(ConfigTouchPos &pos, float &spacing)
-	: DragDropButton(pos, -1, -1), spacing_(spacing) {
+		: DragDropButton(pos, ImageID::invalid(), ImageID::invalid()), spacing_(spacing) {
 		using namespace UI;
-		roundId_ = g_Config.iTouchButtonStyle ? I_ROUND_LINE : I_ROUND;
-
-		circleId_ = I_CIRCLE;
-		crossId_ = I_CROSS;
-		triangleId_ = I_TRIANGLE;
-		squareId_ = I_SQUARE;
-
-		circleVisible_ = triangleVisible_ = squareVisible_ = crossVisible_ = true;
+		roundId_ = g_Config.iTouchButtonStyle ? ImageID("I_ROUND_LINE") : ImageID("I_ROUND");
 	};
 
 	void setCircleVisibility(bool visible){
@@ -152,20 +144,23 @@ public:
 	};
 
 	void GetContentDimensions(const UIContext &dc, float &w, float &h) const override {
-		const AtlasImage &image = dc.Draw()->GetAtlas()->images[roundId_];
+		const AtlasImage *image = dc.Draw()->GetAtlas()->getImage(roundId_);
 
-		w = (2 * baseActionButtonSpacing * spacing_) + image.w * scale_;
-		h = (2 * baseActionButtonSpacing * spacing_) + image.h * scale_;
+		w = (2.0f * baseActionButtonSpacing * spacing_) + image->w * scale_;
+		h = (2.0f * baseActionButtonSpacing * spacing_) + image->h * scale_;
 	}
 
 	float GetSpacing() const override { return spacing_; }
 	void SetSpacing(float s) override { spacing_ = s; }
 
 private:
-	bool circleVisible_, crossVisible_, triangleVisible_, squareVisible_;
+	bool circleVisible_ = true, crossVisible_ = true, triangleVisible_ = true, squareVisible_ = true;
 
-	int roundId_;
-	int circleId_, crossId_, triangleId_, squareId_;
+	ImageID roundId_ = ImageID::invalid();
+	ImageID circleId_ = ImageID("I_CIRCLE");
+	ImageID crossId_ = ImageID("I_CROSS");
+	ImageID triangleId_ = ImageID("I_TRIANGLE");
+	ImageID squareId_ = ImageID("I_SQUARE");
 
 	float &spacing_;
 };
@@ -173,7 +168,7 @@ private:
 class PSPDPadButtons : public DragDropButton {
 public:
 	PSPDPadButtons(ConfigTouchPos &pos, float &spacing)
-		: DragDropButton(pos, -1, -1), spacing_(spacing) {
+		: DragDropButton(pos, ImageID::invalid(), ImageID::invalid()), spacing_(spacing) {
 	}
 
 	void Draw(UIContext &dc) override {
@@ -185,7 +180,7 @@ public:
 		static const float xoff[4] = {1, 0, -1, 0};
 		static const float yoff[4] = {0, 1, 0, -1};
 
-		int dirImage = g_Config.iTouchButtonStyle ? I_DIR_LINE : I_DIR;
+		ImageID dirImage = g_Config.iTouchButtonStyle ? ImageID("I_DIR_LINE") : ImageID("I_DIR");
 
 		for (int i = 0; i < 4; i++) {
 			float r = D_pad_Radius * spacing_;
@@ -196,14 +191,14 @@ public:
 			float angle = i * M_PI / 2;
 
 			dc.Draw()->DrawImageRotated(dirImage, x, y, scale_, angle + PI, colorBg, false);
-			dc.Draw()->DrawImageRotated(I_ARROW, x2, y2, scale_, angle + PI, color);
+			dc.Draw()->DrawImageRotated(ImageID("I_ARROW"), x2, y2, scale_, angle + PI, color);
 		}
 	}
 
 	void GetContentDimensions(const UIContext &dc, float &w, float &h) const override {
-		const AtlasImage &image = dc.Draw()->GetAtlas()->images[I_DIR];
-		w = 2 * D_pad_Radius * spacing_ + image.w * scale_;
-		h = 2 * D_pad_Radius * spacing_ + image.h * scale_;
+		const AtlasImage *image = dc.Draw()->GetAtlas()->getImage(ImageID("I_DIR"));
+		w = 2 * D_pad_Radius * spacing_ + image->w * scale_;
+		h = 2 * D_pad_Radius * spacing_ + image->h * scale_;
 	};
 
 	float GetSpacing() const override { return spacing_; }
@@ -414,57 +409,57 @@ void TouchControlLayoutScreen::CreateViews() {
 
 	controls_.push_back(actionButtons);
 
-	int rectImage = g_Config.iTouchButtonStyle ? I_RECT_LINE : I_RECT;
-	int shoulderImage = g_Config.iTouchButtonStyle ? I_SHOULDER_LINE : I_SHOULDER;
-	int dirImage = g_Config.iTouchButtonStyle ? I_DIR_LINE : I_DIR;
-	int stickImage = g_Config.iTouchButtonStyle ? I_STICK_LINE : I_STICK;
-	int stickBg = g_Config.iTouchButtonStyle ? I_STICK_BG_LINE : I_STICK_BG;
-	int roundImage = g_Config.iTouchButtonStyle ? I_ROUND_LINE : I_ROUND;
+	ImageID rectImage = g_Config.iTouchButtonStyle ? ImageID("I_RECT_LINE") : ImageID("I_RECT");
+	ImageID shoulderImage = g_Config.iTouchButtonStyle ? ImageID("I_SHOULDER_LINE") : ImageID("I_SHOULDER");
+	ImageID dirImage = g_Config.iTouchButtonStyle ? ImageID("I_DIR_LINE") : ImageID("I_DIR");
+	ImageID stickImage = g_Config.iTouchButtonStyle ? ImageID("I_STICK_LINE") : ImageID("I_STICK");
+	ImageID stickBg = g_Config.iTouchButtonStyle ? ImageID("I_STICK_BG_LINE") : ImageID("I_STICK_BG");
+	ImageID roundImage = g_Config.iTouchButtonStyle ? ImageID("I_ROUND_LINE") : ImageID("I_ROUND");
 
-	const int comboKeyImages[5] = { I_1, I_2, I_3, I_4, I_5 };
+	const ImageID comboKeyImages[5] = { ImageID("I_1"), ImageID("I_2"), ImageID("I_3"), ImageID("I_4"), ImageID("I_5") };
 
 	if (g_Config.touchDpad.show) {
 		controls_.push_back(new PSPDPadButtons(g_Config.touchDpad, g_Config.fDpadSpacing));
 	}
 
 	if (g_Config.touchSelectKey.show) {
-		controls_.push_back(new DragDropButton(g_Config.touchSelectKey, rectImage, I_SELECT));
+		controls_.push_back(new DragDropButton(g_Config.touchSelectKey, rectImage, ImageID("I_SELECT")));
 	}
 
 	if (g_Config.touchStartKey.show) {
-		controls_.push_back(new DragDropButton(g_Config.touchStartKey, rectImage, I_START));
+		controls_.push_back(new DragDropButton(g_Config.touchStartKey, rectImage, ImageID("I_START")));
 	}
 
 	if (g_Config.touchUnthrottleKey.show) {
-		DragDropButton *unthrottle = new DragDropButton(g_Config.touchUnthrottleKey, rectImage, I_ARROW);
+		DragDropButton *unthrottle = new DragDropButton(g_Config.touchUnthrottleKey, rectImage, ImageID("I_ARROW"));
 		unthrottle->SetAngle(180.0f);
 		controls_.push_back(unthrottle);
 	}
 
 	if (g_Config.touchSpeed1Key.show) {
-		DragDropButton *speed1 = new DragDropButton(g_Config.touchSpeed1Key, rectImage, I_ARROW);
+		DragDropButton *speed1 = new DragDropButton(g_Config.touchSpeed1Key, rectImage, ImageID("I_ARROW"));
 		speed1->SetAngle(170.0f, 180.0f);
 		controls_.push_back(speed1);
 	}
 
 	if (g_Config.touchSpeed2Key.show) {
-		DragDropButton *speed2 = new DragDropButton(g_Config.touchSpeed2Key, rectImage, I_ARROW);
+		DragDropButton *speed2 = new DragDropButton(g_Config.touchSpeed2Key, rectImage, ImageID("I_ARROW"));
 		speed2->SetAngle(190.0f, 180.0f);
 		controls_.push_back(speed2);
 	}
 
 	if (g_Config.touchRapidFireKey.show) {
-		DragDropButton *rapidFire = new DragDropButton(g_Config.touchRapidFireKey, rectImage, I_ARROW);
+		DragDropButton *rapidFire = new DragDropButton(g_Config.touchRapidFireKey, rectImage, ImageID("I_ARROW"));
 		rapidFire->SetAngle(90.0f, 180.0f);
 		controls_.push_back(rapidFire);
 	}
 
 	if (g_Config.touchLKey.show) {
-		controls_.push_back(new DragDropButton(g_Config.touchLKey, shoulderImage, I_L));
+		controls_.push_back(new DragDropButton(g_Config.touchLKey, shoulderImage, ImageID("I_L")));
 	}
 
 	if (g_Config.touchRKey.show) {
-		DragDropButton *rbutton = new DragDropButton(g_Config.touchRKey, shoulderImage, I_R);
+		DragDropButton *rbutton = new DragDropButton(g_Config.touchRKey, shoulderImage, ImageID("I_R"));
 		rbutton->FlipImageH(true);
 		controls_.push_back(rbutton);
 	}

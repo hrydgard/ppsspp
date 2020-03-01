@@ -24,6 +24,7 @@
 #include "base/timeutil.h"
 #include "profiler/profiler.h"
 
+#include "gfx/texture_atlas.h"
 #include "gfx_es2/gpu_features.h"
 #include "gfx_es2/draw_text.h"
 
@@ -62,7 +63,6 @@
 #include "Core/MIPS/MIPS.h"
 #include "Core/HLE/__sceAudio.h"
 
-#include "UI/ui_atlas.h"
 #include "UI/BackgroundAudio.h"
 #include "UI/OnScreenDisplay.h"
 #include "UI/GamepadEmu.h"
@@ -988,12 +988,13 @@ void EmuScreen::CreateViews() {
 	TextView *loadingTextView = root_->Add(new TextView(sc->T(PSP_GetLoading()), new AnchorLayoutParams(bounds.centerX(), NONE, NONE, 40, true)));
 	loadingTextView_ = loadingTextView;
 
-	static const int symbols[4] = {
-		I_CROSS,
-		I_CIRCLE,
-		I_SQUARE,
-		I_TRIANGLE
+	static const ImageID symbols[4] = {
+		ImageID("I_CROSS"),
+		ImageID("I_CIRCLE"),
+		ImageID("I_SQUARE"),
+		ImageID("I_TRIANGLE"),
 	};
+
 	Spinner *loadingSpinner = root_->Add(new Spinner(symbols, ARRAY_SIZE(symbols), new AnchorLayoutParams(NONE, NONE, 45, 45, true)));
 	loadingSpinner_ = loadingSpinner;
 
@@ -1140,19 +1141,22 @@ void EmuScreen::checkPowerDown() {
 }
 
 static void DrawDebugStats(DrawBuffer *draw2d) {
+	FontID ubuntu24("UBUNTU24");
+
 	char statbuf[4096];
 	__DisplayGetDebugStats(statbuf, sizeof(statbuf));
 	draw2d->SetFontScale(.7f, .7f);
-	draw2d->DrawText(UBUNTU24, statbuf, 11, 31, 0xc0000000, FLAG_DYNAMIC_ASCII);
-	draw2d->DrawText(UBUNTU24, statbuf, 10, 30, 0xFFFFFFFF, FLAG_DYNAMIC_ASCII);
+	draw2d->DrawText(ubuntu24, statbuf, 11, 31, 0xc0000000, FLAG_DYNAMIC_ASCII);
+	draw2d->DrawText(ubuntu24, statbuf, 10, 30, 0xFFFFFFFF, FLAG_DYNAMIC_ASCII);
 
 	__SasGetDebugStats(statbuf, sizeof(statbuf));
-	draw2d->DrawText(UBUNTU24, statbuf, PSP_CoreParameter().pixelWidth / 2 + 11, 31, 0xc0000000, FLAG_DYNAMIC_ASCII);
-	draw2d->DrawText(UBUNTU24, statbuf, PSP_CoreParameter().pixelWidth / 2 + 10, 30, 0xFFFFFFFF, FLAG_DYNAMIC_ASCII);
+	draw2d->DrawText(ubuntu24, statbuf, PSP_CoreParameter().pixelWidth / 2 + 11, 31, 0xc0000000, FLAG_DYNAMIC_ASCII);
+	draw2d->DrawText(ubuntu24, statbuf, PSP_CoreParameter().pixelWidth / 2 + 10, 30, 0xFFFFFFFF, FLAG_DYNAMIC_ASCII);
 	draw2d->SetFontScale(1.0f, 1.0f);
 }
 
 static void DrawAudioDebugStats(DrawBuffer *draw2d) {
+	FontID ubuntu24("UBUNTU24");
 	char statbuf[1024] = { 0 };
 	const AudioDebugStats *stats = __AudioGetDebugStats();
 	snprintf(statbuf, sizeof(statbuf),
@@ -1167,12 +1171,13 @@ static void DrawAudioDebugStats(DrawBuffer *draw2d) {
 		stats->instantSampleRate,
 		stats->lastPushSize);
 	draw2d->SetFontScale(0.7f, 0.7f);
-	draw2d->DrawText(UBUNTU24, statbuf, 11, 31, 0xc0000000, FLAG_DYNAMIC_ASCII);
-	draw2d->DrawText(UBUNTU24, statbuf, 10, 30, 0xFFFFFFFF, FLAG_DYNAMIC_ASCII);
+	draw2d->DrawText(ubuntu24, statbuf, 11, 31, 0xc0000000, FLAG_DYNAMIC_ASCII);
+	draw2d->DrawText(ubuntu24, statbuf, 10, 30, 0xFFFFFFFF, FLAG_DYNAMIC_ASCII);
 	draw2d->SetFontScale(1.0f, 1.0f);
 }
 
 static void DrawFPS(DrawBuffer *draw2d, const Bounds &bounds) {
+	FontID ubuntu24("UBUNTU24");
 	float vps, fps, actual_fps;
 	__DisplayGetFPS(&vps, &fps, &actual_fps);
 	char fpsbuf[256];
@@ -1188,12 +1193,13 @@ static void DrawFPS(DrawBuffer *draw2d, const Bounds &bounds) {
 	}
 
 	draw2d->SetFontScale(0.7f, 0.7f);
-	draw2d->DrawText(UBUNTU24, fpsbuf, bounds.x2() - 8, 12, 0xc0000000, ALIGN_TOPRIGHT | FLAG_DYNAMIC_ASCII);
-	draw2d->DrawText(UBUNTU24, fpsbuf, bounds.x2() - 10, 10, 0xFF3fFF3f, ALIGN_TOPRIGHT | FLAG_DYNAMIC_ASCII);
+	draw2d->DrawText(ubuntu24, fpsbuf, bounds.x2() - 8, 12, 0xc0000000, ALIGN_TOPRIGHT | FLAG_DYNAMIC_ASCII);
+	draw2d->DrawText(ubuntu24, fpsbuf, bounds.x2() - 10, 10, 0xFF3fFF3f, ALIGN_TOPRIGHT | FLAG_DYNAMIC_ASCII);
 	draw2d->SetFontScale(1.0f, 1.0f);
 }
 
 static void DrawFrameTimes(UIContext *ctx) {
+	FontID ubuntu24("UBUNTU24");
 	int valid, pos;
 	double *sleepHistory;
 	double *history = __DisplayGetFrameTimes(&valid, &pos, &sleepHistory);
@@ -1216,8 +1222,8 @@ static void DrawFrameTimes(UIContext *ctx) {
 	ctx->Flush();
 	ctx->Begin();
 	ctx->Draw()->SetFontScale(0.5f, 0.5f);
-	ctx->Draw()->DrawText(UBUNTU24, "33.3ms", width, bottom - 0.0333*scale, 0xFF3f3Fff, ALIGN_BOTTOMLEFT | FLAG_DYNAMIC_ASCII);
-	ctx->Draw()->DrawText(UBUNTU24, "16.7ms", width, bottom - 0.0167*scale, 0xFF3f3Fff, ALIGN_BOTTOMLEFT | FLAG_DYNAMIC_ASCII);
+	ctx->Draw()->DrawText(ubuntu24, "33.3ms", width, bottom - 0.0333*scale, 0xFF3f3Fff, ALIGN_BOTTOMLEFT | FLAG_DYNAMIC_ASCII);
+	ctx->Draw()->DrawText(ubuntu24, "16.7ms", width, bottom - 0.0167*scale, 0xFF3f3Fff, ALIGN_BOTTOMLEFT | FLAG_DYNAMIC_ASCII);
 	ctx->Draw()->SetFontScale(1.0f, 1.0f);
 }
 

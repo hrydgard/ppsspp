@@ -4,7 +4,6 @@
     <ClCompile Include="GameInfoCache.cpp" />
     <ClCompile Include="GamepadEmu.cpp" />
     <ClCompile Include="NativeApp.cpp" />
-    <ClCompile Include="ui_atlas.cpp" />
     <ClCompile Include="OnScreenDisplay.cpp" />
     <ClCompile Include="EmuScreen.cpp">
       <Filter>Screens</Filter>
@@ -78,7 +77,6 @@
   <ItemGroup>
     <ClInclude Include="GameInfoCache.h" />
     <ClInclude Include="GamepadEmu.h" />
-    <ClInclude Include="ui_atlas.h" />
     <ClInclude Include="OnScreenDisplay.h" />
     <ClInclude Include="EmuScreen.h">
       <Filter>Screens</Filter>

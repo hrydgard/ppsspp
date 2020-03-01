@@ -610,13 +610,13 @@ int PSPSaveDialog::Update(int animSpeed)
 	UpdateButtons();
 	UpdateFade(animSpeed);
 
-	okButtonImg = I_CIRCLE;
-	cancelButtonImg = I_CROSS;
+	okButtonImg = ImageID("I_CIRCLE");
+	cancelButtonImg = ImageID("I_CROSS");
 	okButtonFlag = CTRL_CIRCLE;
 	cancelButtonFlag = CTRL_CROSS;
 	if (param.GetPspParam()->common.buttonSwap == 1) {
-		okButtonImg = I_CROSS;
-		cancelButtonImg = I_CIRCLE;
+		okButtonImg = ImageID("I_CROSS");
+		cancelButtonImg = ImageID("I_CIRCLE");
 		okButtonFlag = CTRL_CROSS;
 		cancelButtonFlag = CTRL_CIRCLE;
 	}

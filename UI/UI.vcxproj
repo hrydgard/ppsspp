@@ -65,7 +65,6 @@
     <ClCompile Include="TouchControlLayoutScreen.cpp" />
     <ClCompile Include="TouchControlVisibilityScreen.cpp" />
     <ClCompile Include="InstallZipScreen.cpp" />
-    <ClCompile Include="ui_atlas.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="BackgroundAudio.h" />
@@ -98,7 +97,6 @@
     <ClInclude Include="TouchControlLayoutScreen.h" />
     <ClInclude Include="TouchControlVisibilityScreen.h" />
     <ClInclude Include="InstallZipScreen.h" />
-    <ClInclude Include="ui_atlas.h" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\ext\discord-rpc-build\discord-rpc.vcxproj">

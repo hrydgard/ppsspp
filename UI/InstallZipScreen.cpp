@@ -20,7 +20,6 @@
 #include "ui/ui.h"
 #include "ui/view.h"
 #include "ui/viewgroup.h"
-#include "UI/ui_atlas.h"
 #include "file/file_util.h"
 
 #include "Common/StringUtils.h"
