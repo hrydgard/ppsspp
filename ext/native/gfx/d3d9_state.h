@@ -484,9 +484,6 @@ public:
 	DxSampler0State1<D3DSAMP_MAXMIPLEVEL, 0> texMaxMipLevel;
 	DxSampler0State1<D3DSAMP_ADDRESSU, D3DTADDRESS_CLAMP> texAddressU;
 	DxSampler0State1<D3DSAMP_ADDRESSV, D3DTADDRESS_CLAMP> texAddressV;
-
-	// Only works on Win32, all other platforms are "force-vsync"
-	void SetVSyncInterval(int interval);  // one of the above VSYNC, or a higher number for multi-frame waits (could be useful for 30hz games)
 };
 
 #undef STATE1

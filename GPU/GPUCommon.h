@@ -276,6 +276,7 @@ protected:
 	}
 
 	void BeginFrame() override;
+	void UpdateVsyncInterval(bool force);
 
 	virtual void FastRunLoop(DisplayList &list);
 
@@ -362,6 +363,10 @@ private:
 	// Debug stats.
 	double timeSteppingStarted_;
 	double timeSpentStepping_;
+
+#ifdef _WIN32
+	int lastVsync_;
+#endif
 };
 
 struct CommonCommandTableEntry {

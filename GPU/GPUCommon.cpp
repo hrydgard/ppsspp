@@ -6,6 +6,7 @@
 #include "profiler/profiler.h"
 
 #include "Common/ColorConv.h"
+#include "Common/GraphicsContext.h"
 #include "Core/Reporting.h"
 #include "GPU/GeDisasm.h"
 #include "GPU/GPU.h"
@@ -408,6 +409,7 @@ GPUCommon::GPUCommon(GraphicsContext *gfxCtx, Draw::DrawContext *draw) :
 	}
 
 	UpdateCmdInfo();
+	UpdateVsyncInterval(true);
 }
 
 GPUCommon::~GPUCommon() {
@@ -432,6 +434,7 @@ void GPUCommon::UpdateCmdInfo() {
 }
 
 void GPUCommon::BeginHostFrame() {
+	UpdateVsyncInterval(resized_);
 	ReapplyGfxState();
 
 	// TODO: Assume config may have changed - maybe move to resize.
@@ -456,6 +459,30 @@ void GPUCommon::Reinitialize() {
 	busyTicks = 0;
 	timeSpentStepping_ = 0.0;
 	interruptsEnabled_ = true;
+}
+
+void GPUCommon::UpdateVsyncInterval(bool force) {
+#ifdef _WIN32
+	int desiredVSyncInterval = g_Config.bVSync ? 1 : 0;
+	if (PSP_CoreParameter().unthrottle) {
+		desiredVSyncInterval = 0;
+	}
+	if (PSP_CoreParameter().fpsLimit != FPSLimit::NORMAL) {
+		int limit = PSP_CoreParameter().fpsLimit == FPSLimit::CUSTOM1 ? g_Config.iFpsLimit1 : g_Config.iFpsLimit2;
+		// For an alternative speed that is a clean factor of 60, the user probably still wants vsync.
+		if (limit == 0 || (limit >= 0 && limit != 15 && limit != 30 && limit != 60)) {
+			desiredVSyncInterval = 0;
+		}
+	}
+
+	if (desiredVSyncInterval != lastVsync_ || force) {
+		// Disabled EXT_swap_control_tear for now, it never seems to settle at the correct timing
+		// so it just keeps tearing. Not what I hoped for... (gl_extensions.EXT_swap_control_tear)
+		// See http://developer.download.nvidia.com/opengl/specs/WGL_EXT_swap_control_tear.txt
+		gfxCtx_->SwapInterval(desiredVSyncInterval);
+		lastVsync_ = desiredVSyncInterval;
+	}
+#endif
 }
 
 int GPUCommon::EstimatePerVertexCost() {
