@@ -1350,10 +1350,8 @@ std::vector<std::string> VKContext::GetExtensionList() const {
 
 uint32_t VKContext::GetDataFormatSupport(DataFormat fmt) const {
 	VkFormat vulkan_format = DataFormatToVulkan(fmt);
-	// TODO: Actually do proper check
 	VkFormatProperties properties;
 	vkGetPhysicalDeviceFormatProperties(vulkan_->GetCurrentPhysicalDevice(), vulkan_format, &properties);
-
 	uint32_t flags = 0;
 	if (properties.optimalTilingFeatures & VkFormatFeatureFlagBits::VK_FORMAT_FEATURE_COLOR_ATTACHMENT_BIT) {
 		flags |= FMT_RENDERTARGET;

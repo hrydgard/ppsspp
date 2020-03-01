@@ -436,16 +436,19 @@ void DrawBuffer::MeasureTextCount(FontID font, const char *text, int count, floa
 
 void DrawBuffer::MeasureTextRect(FontID font_id, const char *text, int count, const Bounds &bounds, float *w, float *h, int align) {
 	if (!text || font_id.isInvalid()) {
-		*w = 0;
-		*h = 0;
+		*w = 0.0f;
+		*h = 0.0f;
 		return;
 	}
 
 	std::string toMeasure = std::string(text, count);
 	if (align & FLAG_WRAP_TEXT) {
 		const AtlasFont *font = atlas->getFont(font_id);
-		if (!font)
+		if (!font) {
+			*w = 0.0f;
+			*h = 0.0f;
 			return;
+		}
 		AtlasWordWrapper wrapper(*font, fontscalex, toMeasure.c_str(), bounds.w);
 		toMeasure = wrapper.Wrapped();
 	}
