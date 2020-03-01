@@ -78,7 +78,7 @@ size_t RamCachingFileLoader::ReadAt(s64 absolutePos, size_t bytes, void *data, F
 			size_t bytesFromCache = ReadFromCache(absolutePos + readSize, bytes - readSize, (u8 *)data + readSize);
 			readSize += bytesFromCache;
 			if (bytesFromCache == 0) {
-			// We can't read any more.
+				// We can't read any more.
 				break;
 			}
 		}

@@ -349,6 +349,15 @@ void GameSettingsScreen::CreateViews() {
 	});
 #endif
 
+	if (GetGPUBackend() == GPUBackend::VULKAN || GetGPUBackend() == GPUBackend::OPENGL) {
+		static const char *bufferOptions[] = { "No buffer", "Up to 1", "Up to 2" };
+		PopupMultiChoice *inflightChoice = graphicsSettings->Add(new PopupMultiChoice(&g_Config.iInflightFrames, gr->T("Buffer graphics commands (faster, input lag)"), bufferOptions, 0, ARRAY_SIZE(bufferOptions), gr->GetName(), screenManager()));
+		inflightChoice->OnChoice.Add([=](EventParams &e) {
+			NativeMessageReceived("gpu_resized", "");
+			return UI::EVENT_CONTINUE;
+		});
+	}
+
 	CheckBox *hwTransform = graphicsSettings->Add(new CheckBox(&g_Config.bHardwareTransform, gr->T("Hardware Transform")));
 	hwTransform->OnClick.Handle(this, &GameSettingsScreen::OnHardwareTransform);
 	hwTransform->SetDisabledPtr(&g_Config.bSoftwareRendering);

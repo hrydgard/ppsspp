@@ -285,6 +285,14 @@ void VulkanContext::EndFrame() {
 	}
 }
 
+void VulkanContext::UpdateInflightFrames(int n) {
+	assert(n >= 1 && n <= MAX_INFLIGHT_FRAMES);
+	inflightFrames_ = n;
+	if (curFrame_ >= inflightFrames_) {
+		curFrame_ = 0;
+	}
+}
+
 void VulkanContext::WaitUntilQueueIdle() {
 	// Should almost never be used
 	vkQueueWaitIdle(gfx_queue_);

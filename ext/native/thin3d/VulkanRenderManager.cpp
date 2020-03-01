@@ -914,6 +914,10 @@ void VulkanRenderManager::Finish() {
 		frameData.pull_condVar.notify_all();
 	}
 	vulkan_->EndFrame();
+	if (newInflightFrames_ != -1) {
+		vulkan_->UpdateInflightFrames(newInflightFrames_);
+		newInflightFrames_ = -1;
+	}
 
 	insideFrame_ = false;
 }

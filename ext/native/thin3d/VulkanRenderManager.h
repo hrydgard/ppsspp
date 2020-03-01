@@ -240,6 +240,10 @@ public:
 		splitSubmit_ = split;
 	}
 
+	void SetInflightFrames(int f) {
+		newInflightFrames_ = f < 1 || f > VulkanContext::MAX_INFLIGHT_FRAMES ? VulkanContext::MAX_INFLIGHT_FRAMES : f;
+	}
+
 	VulkanContext *GetVulkanContext() {
 		return vulkan_;
 	}
@@ -302,6 +306,7 @@ private:
 	};
 
 	FrameData frameData_[VulkanContext::MAX_INFLIGHT_FRAMES];
+	int newInflightFrames_ = -1;
 
 	// Submission time state
 	int curWidth_ = -1;
