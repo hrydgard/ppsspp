@@ -66,24 +66,24 @@ void ChatMenu::CreateViews() {
 	float yres = screenManager()->getUIContext()->GetBounds().h;
 
 	switch (g_Config.iChatScreenPosition) {
-	// the chat screen size is still static 280,250 need a dynamic size based on device resolution 
+	// the chat screen size is still static 280x240 need a dynamic size based on device resolution 
 	case 0:
-		box_ = new LinearLayout(ORIENT_VERTICAL, new AnchorLayoutParams(PopupWidth(), FillVertical() ? yres - 30 : WRAP_CONTENT, 280, NONE, NONE, 250, true));
+		box_ = new LinearLayout(ORIENT_VERTICAL, new AnchorLayoutParams(PopupWidth(), FillVertical() ? yres - 30 : WRAP_CONTENT, 280, NONE, NONE, 240, true));
 		break;
 	case 1:
-		box_ = new LinearLayout(ORIENT_VERTICAL, new AnchorLayoutParams(PopupWidth(), FillVertical() ? yres - 30 : WRAP_CONTENT, dc.GetBounds().centerX(), NONE, NONE, 250, true));
+		box_ = new LinearLayout(ORIENT_VERTICAL, new AnchorLayoutParams(PopupWidth(), FillVertical() ? yres - 30 : WRAP_CONTENT, dc.GetBounds().centerX(), NONE, NONE, 240, true));
 		break;
 	case 2:
-		box_ = new LinearLayout(ORIENT_VERTICAL, new AnchorLayoutParams(PopupWidth(), FillVertical() ? yres - 30 : WRAP_CONTENT, NONE, NONE, 280, 250, true));
+		box_ = new LinearLayout(ORIENT_VERTICAL, new AnchorLayoutParams(PopupWidth(), FillVertical() ? yres - 30 : WRAP_CONTENT, NONE, NONE, 280, 240, true));
 		break;
 	case 3:
-		box_ = new LinearLayout(ORIENT_VERTICAL, new AnchorLayoutParams(PopupWidth(), FillVertical() ? yres - 30 : WRAP_CONTENT, 280, 250, NONE, NONE, true));
+		box_ = new LinearLayout(ORIENT_VERTICAL, new AnchorLayoutParams(PopupWidth(), FillVertical() ? yres - 30 : WRAP_CONTENT, 280, 240, NONE, NONE, true));
 		break;
 	case 4:
-		box_ = new LinearLayout(ORIENT_VERTICAL, new AnchorLayoutParams(PopupWidth(), FillVertical() ? yres - 30 : WRAP_CONTENT, dc.GetBounds().centerX(), 250, NONE, NONE, true));
+		box_ = new LinearLayout(ORIENT_VERTICAL, new AnchorLayoutParams(PopupWidth(), FillVertical() ? yres - 30 : WRAP_CONTENT, dc.GetBounds().centerX(), 240, NONE, NONE, true));
 		break;
 	case 5:
-		box_ = new LinearLayout(ORIENT_VERTICAL, new AnchorLayoutParams(PopupWidth(), FillVertical() ? yres - 30 : WRAP_CONTENT, NONE, 250, 280, NONE, true));
+		box_ = new LinearLayout(ORIENT_VERTICAL, new AnchorLayoutParams(PopupWidth(), FillVertical() ? yres - 30 : WRAP_CONTENT, NONE, 240, 280, NONE, true));
 		break;
 	}
 
@@ -167,7 +167,7 @@ std::vector<std::string> Split(const std::string& str)
 	int secondSentenceEnd = 0;
 	int spliton = 45;
 
-	for (auto i = 0; i<str.length(); i++) {
+	for (int i = 0; i<(int)str.length(); i++) {
 		if (isspace(str[i])) {
 			if (i < spliton) {
 				if(str[i-1]!=':')
