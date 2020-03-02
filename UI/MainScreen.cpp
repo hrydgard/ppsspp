@@ -861,6 +861,25 @@ UI::EventReturn GameBrowser::NavigateClick(UI::EventParams &e) {
 	return UI::EVENT_DONE;
 }
 
+UI::EventReturn GameBrowser::GridSettingsClick(UI::EventParams &e) {
+	auto sy = GetI18NCategory("System");
+	auto gridSettings = new GridSettingsScreen(sy->T("Games list settings"));
+	gridSettings->OnRecentChanged.Handle(this, &GameBrowser::OnRecentClear);
+	if (e.v)
+		gridSettings->SetPopupOrigin(e.v);
+
+	screenManager_->push(gridSettings);
+	return UI::EVENT_DONE;
+}
+
+UI::EventReturn GameBrowser::OnRecentClear(UI::EventParams &e) {
+	screenManager_->RecreateAllViews();
+	if (host) {
+		host->UpdateUI();
+	}
+	return UI::EVENT_DONE;
+}
+
 MainScreen::MainScreen() : highlightProgress_(0.0f), prevHighlightProgress_(0.0f), backFromStore_(false), lockBackgroundAudio_(false) {
 	System_SendMessage("event", "mainscreen");
 	SetBackgroundAudioGame("");
@@ -1267,27 +1286,7 @@ UI::EventReturn MainScreen::OnGameSelectedInstant(UI::EventParams &e) {
 }
 
 UI::EventReturn MainScreen::OnGameSettings(UI::EventParams &e) {
-	auto gameSettings = new GameSettingsScreen("", "");
-	gameSettings->OnRecentChanged.Handle(this, &MainScreen::OnRecentChange);
-	screenManager()->push(gameSettings);
-	return UI::EVENT_DONE;
-}
-
-UI::EventReturn MainScreen::OnRecentChange(UI::EventParams &e) {
-	RecreateViews();
-	if (host) {
-		host->UpdateUI();
-	}
-	return UI::EVENT_DONE;
-}
-
-UI::EventReturn GameBrowser::GridSettingsClick(UI::EventParams &e) {
-	auto sy = GetI18NCategory("System");
-	auto *gridSettings = new GridSettingsScreen(sy->T("Games list settings"));
-	if (e.v)
-		gridSettings->SetPopupOrigin(e.v);
-
-	screenManager_->push(gridSettings);
+	screenManager()->push(new GameSettingsScreen("", ""));
 	return UI::EVENT_DONE;
 }
 
@@ -1456,7 +1455,6 @@ void GridSettingsScreen::CreatePopupContents(UI::ViewGroup *parent) {
 	ScrollView *scroll = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT, 1.0f));
 	LinearLayout *items = new LinearLayout(ORIENT_VERTICAL);
 
-	items->Add(new ItemHeader(sy->T("View style")));
 	items->Add(new CheckBox(&g_Config.bGridView1, sy->T("Display Recent on a grid")));
 	items->Add(new CheckBox(&g_Config.bGridView2, sy->T("Display Games on a grid")));
 	items->Add(new CheckBox(&g_Config.bGridView3, sy->T("Display Homebrew on a grid")));
@@ -1465,9 +1463,14 @@ void GridSettingsScreen::CreatePopupContents(UI::ViewGroup *parent) {
 	items->Add(new Choice(sy->T("Increase size")))->OnClick.Handle(this, &GridSettingsScreen::GridPlusClick);
 	items->Add(new Choice(sy->T("Decrease size")))->OnClick.Handle(this, &GridSettingsScreen::GridMinusClick);
 
-	items->Add(new ItemHeader(sy->T("Extra info")));
-	items->Add(new CheckBox(&g_Config.bShowIDOnGameIcon, sy->T("Show ID on game selection screen")));
-	items->Add(new CheckBox(&g_Config.bShowRegionOnGameIcon, sy->T("Show region flag on game selection screen")));
+	items->Add(new ItemHeader(sy->T("Display Extra Info")));
+	items->Add(new CheckBox(&g_Config.bShowIDOnGameIcon, sy->T("Show ID")));
+	items->Add(new CheckBox(&g_Config.bShowRegionOnGameIcon, sy->T("Show region flag")));
+
+	if (g_Config.iMaxRecent > 0) {
+		items->Add(new ItemHeader(sy->T("Clear Recent")));
+		items->Add(new Choice(sy->T("Clear Recent Games List")))->OnClick.Handle(this, &GridSettingsScreen::OnRecentClearClick);
+	}
 
 	scroll->Add(items);
 	parent->Add(scroll);
@@ -1480,5 +1483,11 @@ UI::EventReturn GridSettingsScreen::GridPlusClick(UI::EventParams &e) {
 
 UI::EventReturn GridSettingsScreen::GridMinusClick(UI::EventParams &e) {
 	g_Config.fGameGridScale = std::max(g_Config.fGameGridScale/1.25f, MIN_GAME_GRID_SCALE);
+	return UI::EVENT_DONE;
+}
+
+UI::EventReturn GridSettingsScreen::OnRecentClearClick(UI::EventParams &e) {
+	g_Config.recentIsos.clear();
+	OnRecentChanged.Trigger(e);
 	return UI::EVENT_DONE;
 }

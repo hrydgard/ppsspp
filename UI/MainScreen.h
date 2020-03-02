@@ -80,6 +80,7 @@ private:
 	UI::EventReturn HomeClick(UI::EventParams &e);
 	UI::EventReturn PinToggleClick(UI::EventParams &e);
 	UI::EventReturn GridSettingsClick(UI::EventParams &e);
+	UI::EventReturn OnRecentClear(UI::EventParams &e);
 
 	UI::ViewGroup *gameList_ = nullptr;
 	PathBrowser path_;
@@ -123,7 +124,6 @@ protected:
 	// Event handlers
 	UI::EventReturn OnLoadFile(UI::EventParams &e);
 	UI::EventReturn OnGameSettings(UI::EventParams &e);
-	UI::EventReturn OnRecentChange(UI::EventParams &e);
 	UI::EventReturn OnCredits(UI::EventParams &e);
 	UI::EventReturn OnSupport(UI::EventParams &e);
 	UI::EventReturn OnPPSSPPOrg(UI::EventParams &e);
@@ -173,10 +173,12 @@ class GridSettingsScreen : public PopupScreen {
 public:
 	GridSettingsScreen(std::string label) : PopupScreen(label) {}
 	void CreatePopupContents(UI::ViewGroup *parent) override;
+	UI::Event OnRecentChanged;
 
 private:
 	UI::EventReturn GridPlusClick(UI::EventParams &e);
 	UI::EventReturn GridMinusClick(UI::EventParams &e);
+	UI::EventReturn OnRecentClearClick(UI::EventParams &e);
 	const float MAX_GAME_GRID_SCALE = 3.0;
 	const float MIN_GAME_GRID_SCALE = 0.8;
 };
