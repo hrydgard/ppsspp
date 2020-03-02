@@ -194,16 +194,16 @@ void ChatMenu::UpdateChat() {
 		std::vector<std::string> chatLog = getChatLog();
 		for (auto i : chatLog) {
 			//split long text
-			uint32_t namecolor = 0xF6B629;
+			uint32_t namecolor = 0x29B6F6;
 			uint32_t textcolor = 0xFFFFFF;
-			uint32_t infocolor = 0x35D8FD;
+			uint32_t infocolor = 0xFDD835;
 
 			std::string name = g_Config.sNickName.c_str();
 			std::string displayname = i.substr(0, i.find(':'));
 			std::string chattext = i.substr(displayname.length());
 			
 			if (name.substr(0, 8) == displayname) {
-				namecolor = 0x3539E5;
+				namecolor = 0xE53935;
 			}
 
 			if (i[displayname.length()] != ':') {
