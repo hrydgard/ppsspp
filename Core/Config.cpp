@@ -450,6 +450,7 @@ static ConfigSetting generalSettings[] = {
 
 	ConfigSetting("ShowRegionOnGameIcon", &g_Config.bShowRegionOnGameIcon, false, true, true),
 	ConfigSetting("ShowIDOnGameIcon", &g_Config.bShowIDOnGameIcon, false, true, true),
+	ConfigSetting("GameGridScale", &g_Config.fGameGridScale, 1.0, true, true),
 	ConfigSetting("GridView1", &g_Config.bGridView1, true),
 	ConfigSetting("GridView2", &g_Config.bGridView2, true),
 	ConfigSetting("GridView3", &g_Config.bGridView3, false),

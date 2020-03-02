@@ -37,8 +37,6 @@ public:
 	void sendMessage(const char *message, const char *value) override;
 	std::string tag() const override { return "settings"; }
 
-	UI::Event OnRecentChanged;
-
 protected:
 	void CreateViews() override;
 	void CallbackRestoreDefaults(bool yes);
@@ -87,7 +85,6 @@ private:
 	UI::EventReturn OnChangeNickname(UI::EventParams &e);
 	UI::EventReturn OnChangeproAdhocServerAddress(UI::EventParams &e);
 	UI::EventReturn OnChangeMacAddress(UI::EventParams &e);
-	UI::EventReturn OnClearRecents(UI::EventParams &e);
 	UI::EventReturn OnChangeBackground(UI::EventParams &e);
 	UI::EventReturn OnFullscreenChange(UI::EventParams &e);
 	UI::EventReturn OnDisplayLayoutEditor(UI::EventParams &e);
