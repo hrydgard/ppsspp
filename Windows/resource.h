@@ -370,6 +370,7 @@
 #define IDC_GEDBG_STEPCOUNT_JUMP         40202
 #define IDC_GEDBG_STEPCOUNT_COMBO        40203
 #define ID_FILE_DUMP_VIDEO_OUTPUT        40204
+#define ID_EMULATION_CHAT                40205
 
 // Dummy option to let the buffered rendering hotkey cycle through all the options.
 #define ID_OPTIONS_BUFFEREDRENDERINGDUMMY 40500

@@ -62,6 +62,7 @@
 #include "Core/SaveState.h"
 #include "Core/MIPS/MIPS.h"
 #include "Core/HLE/__sceAudio.h"
+#include "Core/HLE/proAdhoc.h"
 
 #include "UI/BackgroundAudio.h"
 #include "UI/OnScreenDisplay.h"
@@ -78,6 +79,7 @@
 #include "UI/InstallZipScreen.h"
 #include "UI/ProfilerDraw.h"
 #include "UI/DiscordIntegration.h"
+#include "UI/ChatScreen.h"
 
 #if defined(_WIN32) && !PPSSPP_PLATFORM(UWP)
 #include "Windows/MainWindow.h"
@@ -86,6 +88,8 @@
 #ifndef MOBILE_DEVICE
 static AVIDump avi;
 #endif
+
+UI::ChoiceWithValueDisplay *chatButtons;
 
 static bool frameStep_;
 static int lastNumFlips;
@@ -136,6 +140,7 @@ EmuScreen::EmuScreen(const std::string &filename)
 		coreState = CORE_STEPPING;
 
 	OnDevMenu.Handle(this, &EmuScreen::OnDevTools);
+	OnChatMenu.Handle(this, &EmuScreen::OnChat);
 }
 
 bool EmuScreen::bootAllowStorage(const std::string &filename) {
@@ -438,6 +443,26 @@ void EmuScreen::sendMessage(const char *message, const char *value) {
 		} else {
 			gstate_c.skipDrawReason &= ~SKIPDRAW_WINDOW_MINIMIZED;
 		}
+	} else if (!strcmp(message, "chat screen")) {
+		releaseButtons();
+#if defined(USING_WIN_UI)
+		//temporary workaround for hotkey its freeze the ui when open chat screen using hotkey and native keyboard is enable
+		if (g_Config.bBypassOSKWithKeyboard) {
+			osm.Show("Disable windows native keyboard options to use ctrl + c hotkey", 2.0f);
+		} else {
+			if (g_Config.bEnableNetworkChat) {
+				releaseButtons();
+				UI::EventParams e{};
+				OnChatMenu.Trigger(e);
+			}
+		}
+#else
+		if (g_Config.bEnableNetworkChat) {
+			releaseButtons();
+			UI::EventParams e{};
+			OnChatMenu.Trigger(e);
+		}
+#endif
 	}
 }
 
@@ -525,6 +550,14 @@ void EmuScreen::onVKeyDown(int virtualKeyCode) {
 		else if (!frameStep_)
 		{
 			Core_EnableStepping(true);
+		}
+		break;
+
+	case VIRTKEY_OPENCHAT:
+		if (g_Config.bEnableNetworkChat) {
+			releaseButtons();
+			UI::EventParams e{};
+			OnChatMenu.Trigger(e);
 		}
 		break;
 
@@ -976,6 +1009,40 @@ void EmuScreen::CreateViews() {
 	cardboardDisableButton_->OnClick.Handle(this, &EmuScreen::OnDisableCardboard);
 	cardboardDisableButton_->SetVisibility(V_GONE);
 
+	if (g_Config.bEnableNetworkChat) {
+		switch (g_Config.iChatButtonPosition) {
+		case 0:
+			chatButtons = new ChoiceWithValueDisplay(&newChat, sc->T("Chat"), new AnchorLayoutParams(130, WRAP_CONTENT, 80, NONE, NONE, 50, true));
+			break;
+		case 1:
+			chatButtons = new ChoiceWithValueDisplay(&newChat, sc->T("Chat"), new AnchorLayoutParams(130, WRAP_CONTENT, bounds.centerX(), NONE, NONE, 50, true));
+			break;
+		case 2:
+			chatButtons = new ChoiceWithValueDisplay(&newChat, sc->T("Chat"), new AnchorLayoutParams(130, WRAP_CONTENT, NONE, NONE, 80, 50, true));
+			break;
+		case 3:
+			chatButtons = new ChoiceWithValueDisplay(&newChat, sc->T("Chat"), new AnchorLayoutParams(130, WRAP_CONTENT, 80, 50, NONE, NONE, true));
+			break;
+		case 4:
+			chatButtons = new ChoiceWithValueDisplay(&newChat, sc->T("Chat"), new AnchorLayoutParams(130, WRAP_CONTENT, bounds.centerX(), 50, NONE, NONE, true));
+			break;
+		case 5:
+			chatButtons = new ChoiceWithValueDisplay(&newChat, sc->T("Chat"), new AnchorLayoutParams(130, WRAP_CONTENT, NONE, 50, 80, NONE, true));
+			break;
+		case 6:
+			chatButtons = new ChoiceWithValueDisplay(&newChat, sc->T("Chat"), new AnchorLayoutParams(130, WRAP_CONTENT, 80, bounds.centerY(), NONE, NONE, true));
+			break;
+		case 7:
+			chatButtons = new ChoiceWithValueDisplay(&newChat, sc->T("Chat"), new AnchorLayoutParams(130, WRAP_CONTENT, NONE, bounds.centerY(), 80, NONE, true));
+			break;
+		default:
+			chatButtons = new ChoiceWithValueDisplay(&newChat, sc->T("Chat"), new AnchorLayoutParams(130, WRAP_CONTENT, 80, NONE, NONE, 50, true));
+			break;
+		}
+
+		root_->Add(chatButtons)->OnClick.Handle(this, &EmuScreen::OnChat);
+	}
+
 	saveStatePreview_ = new AsyncImageFileView("", IS_FIXED, nullptr, new AnchorLayoutParams(bounds.centerX(), 100, NONE, NONE, true));
 	saveStatePreview_->SetFixedSize(160, 90);
 	saveStatePreview_->SetColor(0x90FFFFFF);
@@ -1047,7 +1114,14 @@ UI::EventReturn EmuScreen::OnDisableCardboard(UI::EventParams &params) {
 	return UI::EVENT_DONE;
 }
 
+UI::EventReturn EmuScreen::OnChat(UI::EventParams& params) {
+	if (chatButtons->GetVisibility() == UI::V_VISIBLE) chatButtons->SetVisibility(UI::V_GONE);
+	screenManager()->push(new ChatMenu());
+	return UI::EVENT_DONE;
+}
+
 void EmuScreen::update() {
+
 	UIScreen::update();
 
 	if (bootPending_)
@@ -1126,6 +1200,7 @@ void EmuScreen::update() {
 			}
 		}
 	}
+
 }
 
 void EmuScreen::checkPowerDown() {

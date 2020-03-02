@@ -52,6 +52,7 @@ protected:
 	void CreateViews() override;
 	UI::EventReturn OnDevTools(UI::EventParams &params);
 	UI::EventReturn OnDisableCardboard(UI::EventParams &params);
+	UI::EventReturn OnChat(UI::EventParams &params);
 
 private:
 	void bootGame(const std::string &filename);
@@ -71,7 +72,7 @@ private:
 	void checkPowerDown();
 
 	UI::Event OnDevMenu;
-
+	UI::Event OnChatMenu;
 	bool bootPending_;
 	std::string gamePath_;
 

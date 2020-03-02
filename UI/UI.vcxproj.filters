@@ -73,6 +73,9 @@
     <ClCompile Include="GPUDriverTestScreen.cpp">
       <Filter>Screens</Filter>
     </ClCompile>
+    <ClCompile Include="ChatScreen.cpp">
+      <Filter>Screens</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="GameInfoCache.h" />
@@ -145,6 +148,9 @@
     <ClInclude Include="TextureUtil.h" />
     <ClInclude Include="DiscordIntegration.h" />
     <ClInclude Include="GPUDriverTestScreen.h">
+      <Filter>Screens</Filter>
+    </ClInclude>
+    <ClInclude Include="ChatScreen.h">
       <Filter>Screens</Filter>
     </ClInclude>
   </ItemGroup>
