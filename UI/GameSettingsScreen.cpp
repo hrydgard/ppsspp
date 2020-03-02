@@ -708,19 +708,19 @@ void GameSettingsScreen::CreateViews() {
 	qc5->SetEnabledPtr(&g_Config.bEnableQuickChat);
 	qc5->OnClick.Handle(this, &GameSettingsScreen::OnChangeQuickChat4);
 #elif defined(__ANDROID__)
-	ChoiceWithValueDisplay *qc1 = networkingSettings->Add(new ChoiceWithValueDisplay(&g_Config.sQuickChat0, sy->T("Quick Chat 1"), nullptr));
+	ChoiceWithValueDisplay *qc1 = networkingSettings->Add(new ChoiceWithValueDisplay(&g_Config.sQuickChat0, sy->T("Quick Chat 1"), (const char *)nullptr));
 	qc1->OnClick.Handle(this, &GameSettingsScreen::OnChangeQuickChat0);
 	qc1->SetEnabledPtr(&g_Config.bEnableQuickChat);
-	ChoiceWithValueDisplay *qc2 = networkingSettings->Add(new ChoiceWithValueDisplay(&g_Config.sQuickChat1, sy->T("Quick Chat 2"), nullptr));
+	ChoiceWithValueDisplay *qc2 = networkingSettings->Add(new ChoiceWithValueDisplay(&g_Config.sQuickChat1, sy->T("Quick Chat 2"), (const char *)nullptr));
 	qc2->OnClick.Handle(this, &GameSettingsScreen::OnChangeQuickChat1);
 	qc2->SetEnabledPtr(&g_Config.bEnableQuickChat);
-	ChoiceWithValueDisplay *qc3 = networkingSettings->Add(new ChoiceWithValueDisplay(&g_Config.sQuickChat2, sy->T("Quick Chat 3"), nullptr));
+	ChoiceWithValueDisplay *qc3 = networkingSettings->Add(new ChoiceWithValueDisplay(&g_Config.sQuickChat2, sy->T("Quick Chat 3"), (const char *)nullptr));
 	qc3->OnClick.Handle(this, &GameSettingsScreen::OnChangeQuickChat2);
 	qc3->SetEnabledPtr(&g_Config.bEnableQuickChat);
-	ChoiceWithValueDisplay *qc4 = networkingSettings->Add(new ChoiceWithValueDisplay(&g_Config.sQuickChat3, sy->T("Quick Chat 4"), nullptr));
+	ChoiceWithValueDisplay *qc4 = networkingSettings->Add(new ChoiceWithValueDisplay(&g_Config.sQuickChat3, sy->T("Quick Chat 4"), (const char *)nullptr));
 	qc4->OnClick.Handle(this, &GameSettingsScreen::OnChangeQuickChat3);
 	qc4->SetEnabledPtr(&g_Config.bEnableQuickChat);
-	ChoiceWithValueDisplay *qc5 = networkingSettings->Add(new ChoiceWithValueDisplay(&g_Config.sQuickChat4, sy->T("Quick Chat 5"), nullptr));
+	ChoiceWithValueDisplay *qc5 = networkingSettings->Add(new ChoiceWithValueDisplay(&g_Config.sQuickChat4, sy->T("Quick Chat 5"), (const char *)nullptr));
 	qc5->OnClick.Handle(this, &GameSettingsScreen::OnChangeQuickChat4);
 	qc5->SetEnabledPtr(&g_Config.bEnableQuickChat);
 #endif

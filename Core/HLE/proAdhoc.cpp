@@ -990,7 +990,7 @@ void freeFriendsRecursive(SceNetAdhocctlPeerInfo * node) {
 
 void sendChat(std::string chatString) {
 	SceNetAdhocctlChatPacketC2S chat;
-	I18NCategory *n = GetI18NCategory("Networking");
+	auto n = GetI18NCategory("Networking");
 	chat.base.opcode = OPCODE_CHAT;
 	//TODO check network inited, check send success or not, chatlog.pushback error on failed send, pushback error on not connected
 	if (friendFinderRunning)

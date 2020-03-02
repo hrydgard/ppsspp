@@ -15,7 +15,7 @@
 
 void ChatMenu::CreatePopupContents(UI::ViewGroup *parent) {
 	using namespace UI;
-	I18NCategory *n = GetI18NCategory("Networking");
+	auto n = GetI18NCategory("Networking");
 	LinearLayout *outer = new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT,400));
 	scroll_ = outer->Add(new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(1.0)));
 	LinearLayout *bottom = outer->Add(new LinearLayout(ORIENT_HORIZONTAL, new LayoutParams(FILL_PARENT, WRAP_CONTENT)));
@@ -56,7 +56,7 @@ void ChatMenu::CreatePopupContents(UI::ViewGroup *parent) {
 void ChatMenu::CreateViews() {
 	using namespace UI;
 
-	I18NCategory *n = GetI18NCategory("Networking");
+	auto n = GetI18NCategory("Networking");
 	UIContext &dc = *screenManager()->getUIContext();
 
 	AnchorLayout *anchor = new AnchorLayout(new LayoutParams(FILL_PARENT, FILL_PARENT));

@@ -444,21 +444,19 @@ void EmuScreen::sendMessage(const char *message, const char *value) {
 			gstate_c.skipDrawReason &= ~SKIPDRAW_WINDOW_MINIMIZED;
 		}
 	} else if (!strcmp(message, "chat screen")) {
-		releaseButtons();
+
 #if defined(USING_WIN_UI)
 		//temporary workaround for hotkey its freeze the ui when open chat screen using hotkey and native keyboard is enable
 		if (g_Config.bBypassOSKWithKeyboard) {
 			osm.Show("Disable windows native keyboard options to use ctrl + c hotkey", 2.0f);
 		} else {
 			if (g_Config.bEnableNetworkChat) {
-				releaseButtons();
 				UI::EventParams e{};
 				OnChatMenu.Trigger(e);
 			}
 		}
 #else
 		if (g_Config.bEnableNetworkChat) {
-			releaseButtons();
 			UI::EventParams e{};
 			OnChatMenu.Trigger(e);
 		}
@@ -555,7 +553,6 @@ void EmuScreen::onVKeyDown(int virtualKeyCode) {
 
 	case VIRTKEY_OPENCHAT:
 		if (g_Config.bEnableNetworkChat) {
-			releaseButtons();
 			UI::EventParams e{};
 			OnChatMenu.Trigger(e);
 		}
