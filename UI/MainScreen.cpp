@@ -1452,7 +1452,7 @@ void GridSettingsScreen::CreatePopupContents(UI::ViewGroup *parent) {
 	auto di = GetI18NCategory("Dialog");
 	auto sy = GetI18NCategory("System");
 
-	ScrollView *scroll = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT, 1.0f));
+	ScrollView *scroll = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT));
 	LinearLayout *items = new LinearLayout(ORIENT_VERTICAL);
 
 	items->Add(new CheckBox(&g_Config.bGridView1, sy->T("Display Recent on a grid")));
