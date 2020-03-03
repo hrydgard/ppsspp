@@ -888,6 +888,7 @@ int main(int argc, char *argv[]) {
 					key.flags = KEY_UP;
 					NativeKey(key);
 				}
+				break;
 			case SDL_MOUSEMOTION:
 				if (mouseDown) {
 					TouchInput input;
@@ -897,8 +898,8 @@ int main(int argc, char *argv[]) {
 					input.id = 0;
 					NativeTouch(input);
 				}
-				mouseDeltaX = event.motion.xrel;
-				mouseDeltaY = event.motion.yrel;
+				mouseDeltaX += event.motion.xrel;
+				mouseDeltaY += event.motion.yrel;
 				break;
 			case SDL_MOUSEBUTTONUP:
 				switch (event.button.button) {
