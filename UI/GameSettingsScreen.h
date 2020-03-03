@@ -42,6 +42,7 @@ protected:
 	void CallbackRestoreDefaults(bool yes);
 	void CallbackRenderingBackend(bool yes);
 	void CallbackRenderingDevice(bool yes);
+	void CallbackInflightFrames(bool yes);
 #if PPSSPP_PLATFORM(ANDROID)
 	void CallbackMemstickFolder(bool yes);
 #endif
@@ -94,6 +95,7 @@ private:
 	UI::EventReturn OnRenderingMode(UI::EventParams &e);
 	UI::EventReturn OnRenderingBackend(UI::EventParams &e);
 	UI::EventReturn OnRenderingDevice(UI::EventParams &e);
+	UI::EventReturn OnInflightFramesChoice(UI::EventParams &e);
 	UI::EventReturn OnCameraDeviceChange(UI::EventParams& e);
 	UI::EventReturn OnAudioDevice(UI::EventParams &e);
 	UI::EventReturn OnJitAffectingSetting(UI::EventParams &e);
@@ -129,6 +131,7 @@ private:
 	bool resolutionEnable_;
 	bool bloomHackEnable_;
 	bool tessHWEnable_;
+	int prevInflightFrames_;
 
 #if PPSSPP_PLATFORM(ANDROID)
 	std::string pendingMemstickFolder_;
