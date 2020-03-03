@@ -179,6 +179,6 @@ private:
 	UI::EventReturn GridPlusClick(UI::EventParams &e);
 	UI::EventReturn GridMinusClick(UI::EventParams &e);
 	UI::EventReturn OnRecentClearClick(UI::EventParams &e);
-	const float MAX_GAME_GRID_SCALE = 3.0;
-	const float MIN_GAME_GRID_SCALE = 0.8;
+	const float MAX_GAME_GRID_SCALE = 3.0f;
+	const float MIN_GAME_GRID_SCALE = 0.8f;
 };
