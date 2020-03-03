@@ -41,6 +41,7 @@ LOCAL_SRC_FILES := \
     ../glslang/hlsl/hlslGrammar.cpp \
     ../glslang/hlsl/hlslOpMap.cpp \
     ../glslang/hlsl/hlslParseables.cpp \
+    ../glslang/hlsl/hlslParseHelper.cpp \
     ../glslang/hlsl/hlslScanContext.cpp \
     ../glslang/hlsl/hlslTokenStream.cpp \
     ../glslang/SPIRV/disassemble.cpp \

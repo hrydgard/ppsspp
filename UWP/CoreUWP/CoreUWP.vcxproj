@@ -569,7 +569,6 @@
     <ClInclude Include="..\..\Core\Util\DisArm64.h" />
     <ClInclude Include="..\..\Core\Util\GameManager.h" />
     <ClInclude Include="..\..\Core\Util\PPGeDraw.h" />
-    <ClInclude Include="..\..\Core\Util\ppge_atlas.h" />
     <ClInclude Include="..\..\Core\WaveFile.h" />
     <ClInclude Include="..\..\ext\disarm.h" />
     <ClInclude Include="..\..\ext\sfmt19937\SFMT-common.h" />
@@ -806,7 +805,6 @@
     <ClCompile Include="..\..\Core\Util\DisArm64.cpp" />
     <ClCompile Include="..\..\Core\Util\GameManager.cpp" />
     <ClCompile Include="..\..\Core\Util\PPGeDraw.cpp" />
-    <ClCompile Include="..\..\Core\Util\ppge_atlas.cpp" />
     <ClCompile Include="..\..\Core\WaveFile.cpp" />
     <ClCompile Include="..\..\ext\disarm.cpp" />
     <ClCompile Include="..\..\ext\sfmt19937\SFMT.c">

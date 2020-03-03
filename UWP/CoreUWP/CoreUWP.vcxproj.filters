@@ -236,9 +236,6 @@
     <ClCompile Include="..\..\Core\Util\GameManager.cpp">
       <Filter>Util</Filter>
     </ClCompile>
-    <ClCompile Include="..\..\Core\Util\ppge_atlas.cpp">
-      <Filter>Util</Filter>
-    </ClCompile>
     <ClCompile Include="..\..\Core\Util\PPGeDraw.cpp">
       <Filter>Util</Filter>
     </ClCompile>
@@ -828,9 +825,6 @@
       <Filter>Util</Filter>
     </ClInclude>
     <ClInclude Include="..\..\Core\Util\GameManager.h">
-      <Filter>Util</Filter>
-    </ClInclude>
-    <ClInclude Include="..\..\Core\Util\ppge_atlas.h">
       <Filter>Util</Filter>
     </ClInclude>
     <ClInclude Include="..\..\Core\Util\PPGeDraw.h">

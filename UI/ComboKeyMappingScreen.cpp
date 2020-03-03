@@ -65,7 +65,7 @@ void Combo_keyScreen::CreateViews() {
 	gridsettings.fillCells = true;
 	GridLayout *grid = rightScroll_->Add(new GridLayout(gridsettings, new LayoutParams(FILL_PARENT, WRAP_CONTENT)));
 
-	bool *toggle;
+	bool *toggle = nullptr;
 	memset(array, 0, sizeof(array));
 	switch (*mode) {
 	case 0: 
@@ -92,6 +92,10 @@ void Combo_keyScreen::CreateViews() {
 		toggle = &g_Config.bComboToggle4;
 		for (int i = 0; i < 16; i++)
 			array[i] = (0x01 == ((g_Config.iCombokey4 >> i) & 0x01));
+		break;
+	default:
+		// This shouldn't happen, let's just not crash.
+		toggle = &g_Config.bComboToggle0;
 		break;
 	}
 

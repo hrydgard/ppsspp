@@ -353,6 +353,12 @@
     <None Include="Content\shaders\videoAA.fsh">
       <Filter>Content\shaders</Filter>
     </None>
+    <None Include="..\assets\ppge_atlas.meta">
+      <Filter>Content</Filter>
+    </None>
+    <None Include="..\assets\ui_atlas.meta">
+      <Filter>Content</Filter>
+    </None>
   </ItemGroup>
   <ItemGroup>
     <Text Include="Content\gamecontrollerdb.txt">

@@ -596,6 +596,12 @@
       <DeploymentContent>true</DeploymentContent>
       <FileType>Document</FileType>
     </Image>
+    <None Include="..\assets\ppge_atlas.meta">
+      <DeploymentContent>true</DeploymentContent>
+    </None>
+    <None Include="..\assets\ui_atlas.meta">
+      <DeploymentContent>true</DeploymentContent>
+    </None>
     <None Include="Content\compat.ini">
       <DeploymentContent>true</DeploymentContent>
     </None>
