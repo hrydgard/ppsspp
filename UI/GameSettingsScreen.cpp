@@ -74,6 +74,7 @@
 GameSettingsScreen::GameSettingsScreen(std::string gamePath, std::string gameID, bool editThenRestore)
 	: UIDialogScreenWithGameBackground(gamePath), gameID_(gameID), enableReports_(false), editThenRestore_(editThenRestore) {
 	lastVertical_ = UseVerticalLayout();
+	prevInflightFrames_ = g_Config.iInflightFrames;
 }
 
 bool GameSettingsScreen::UseVerticalLayout() const {
@@ -352,10 +353,7 @@ void GameSettingsScreen::CreateViews() {
 	if (GetGPUBackend() == GPUBackend::VULKAN || GetGPUBackend() == GPUBackend::OPENGL) {
 		static const char *bufferOptions[] = { "No buffer", "Up to 1", "Up to 2" };
 		PopupMultiChoice *inflightChoice = graphicsSettings->Add(new PopupMultiChoice(&g_Config.iInflightFrames, gr->T("Buffer graphics commands (faster, input lag)"), bufferOptions, 0, ARRAY_SIZE(bufferOptions), gr->GetName(), screenManager()));
-		inflightChoice->OnChoice.Add([=](EventParams &e) {
-			NativeMessageReceived("gpu_resized", "");
-			return UI::EVENT_CONTINUE;
-		});
+		inflightChoice->OnChoice.Handle(this, &GameSettingsScreen::OnInflightFramesChoice);
 	}
 
 	CheckBox *hwTransform = graphicsSettings->Add(new CheckBox(&g_Config.bHardwareTransform, gr->T("Hardware Transform")));
@@ -1191,6 +1189,15 @@ void GameSettingsScreen::CallbackRenderingDevice(bool yes) {
 	}
 }
 
+void GameSettingsScreen::CallbackInflightFrames(bool yes) {
+	if (yes) {
+		g_Config.Save("GameSettingsScreen::InflightFramesYes");
+		System_SendMessage("graphics_restart", "");
+	} else {
+		g_Config.iInflightFrames = prevInflightFrames_;
+	}
+}
+
 UI::EventReturn GameSettingsScreen::OnRenderingBackend(UI::EventParams &e) {
 	auto di = GetI18NCategory("Dialog");
 
@@ -1210,6 +1217,15 @@ UI::EventReturn GameSettingsScreen::OnRenderingDevice(UI::EventParams &e) {
 	if (deviceNameSetting && *deviceNameSetting != GetGPUBackendDevice()) {
 		screenManager()->push(new PromptScreen(di->T("ChangingGPUBackends", "Changing GPU backends requires PPSSPP to restart. Restart now?"), di->T("Yes"), di->T("No"),
 			std::bind(&GameSettingsScreen::CallbackRenderingDevice, this, std::placeholders::_1)));
+	}
+	return UI::EVENT_DONE;
+}
+
+UI::EventReturn GameSettingsScreen::OnInflightFramesChoice(UI::EventParams &e) {
+	auto di = GetI18NCategory("Dialog");
+	if (g_Config.iInflightFrames != prevInflightFrames_) {
+		screenManager()->push(new PromptScreen(di->T("ChangingInflightFrames", "Changing graphics command buffering requires PPSSPP to restart. Restart now?"), di->T("Yes"), di->T("No"),
+			std::bind(&GameSettingsScreen::CallbackInflightFrames, this, std::placeholders::_1)));
 	}
 	return UI::EVENT_DONE;
 }

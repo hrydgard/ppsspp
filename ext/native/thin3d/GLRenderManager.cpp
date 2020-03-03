@@ -95,6 +95,12 @@ void GLRenderManager::ThreadStart(Draw::DrawContext *draw) {
 	threadFrame_ = threadInitFrame_;
 	renderThreadId = std::this_thread::get_id();
 
+	if (newInflightFrames_ != -1) {
+		ILOG("Updating inflight frames to %d", newInflightFrames_);
+		inflightFrames_ = newInflightFrames_;
+		newInflightFrames_ = -1;
+	}
+
 	// Don't save draw, we don't want any thread safety confusion.
 	bool mapBuffers = draw->GetBugs().Has(Draw::Bugs::ANY_MAP_BUFFER_RANGE_SLOW);
 	bool hasBufferStorage = gl_extensions.ARB_buffer_storage || gl_extensions.EXT_buffer_storage;
@@ -449,10 +455,6 @@ void GLRenderManager::Finish() {
 	frameData.pull_condVar.notify_all();
 
 	curFrame_++;
-	if (newInflightFrames_ != -1) {
-		inflightFrames_ = newInflightFrames_;
-		newInflightFrames_ = -1;
-	}
 	if (curFrame_ >= inflightFrames_)
 		curFrame_ = 0;
 
