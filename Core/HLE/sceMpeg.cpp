@@ -1939,6 +1939,14 @@ static u32 sceMpegAvcCsc(u32 mpeg, u32 sourceAddr, u32 rangeAddr, int frameWidth
 
 	DEBUG_LOG(ME, "sceMpegAvcCsc(%08x, %08x, %08x, %i, %08x)", mpeg, sourceAddr, rangeAddr, frameWidth, destAddr);
 
+	if (frameWidth == 0) {
+		if (!ctx->defaultFrameWidth) {
+			frameWidth = ctx->avc.avcDetailFrameWidth;
+		} else {
+			frameWidth = ctx->defaultFrameWidth;
+		}
+	}
+
 	int x = Memory::Read_U32(rangeAddr);
 	int y = Memory::Read_U32(rangeAddr + 4);
 	int width = Memory::Read_U32(rangeAddr + 8);
