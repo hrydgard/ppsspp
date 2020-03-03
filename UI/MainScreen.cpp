@@ -653,7 +653,7 @@ void GameBrowser::Refresh() {
 		LinearLayout *gridOptionColumn = new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(64.0, 64.0f));
 		gridOptionColumn->Add(new Spacer(12.0));
 		gridOptionColumn->Add(new Choice(ImageID("I_GEAR"), new LayoutParams(64.0f, 64.0f)))->OnClick.Handle(this, &GameBrowser::GridSettingsClick);
-		LinearLayout *grid = new LinearLayout(ORIENT_HORIZONTAL);
+		LinearLayout *grid = new LinearLayout(ORIENT_HORIZONTAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT));
 		gameList_->ReplaceLayoutParams(new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT, 0.75));
 		grid->Add(gameList_);
 		grid->Add(gridOptionColumn);
