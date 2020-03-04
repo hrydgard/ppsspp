@@ -57,7 +57,7 @@ LOCAL_SRC_FILES := \
 
 LOCAL_CFLAGS := -O3 -fsigned-char -fno-strict-aliasing -Wall -Wno-multichar -D__STDC_CONSTANT_MACROS -DENABLE_HLSL
 LOCAL_CPPFLAGS := -fno-exceptions -std=gnu++11 -fno-rtti -Wno-reorder
-LOCAL_C_INCLUDES := $(LOCAL_PATH)/ext $(LOCAL_PATH)/ext/libzip ..
+LOCAL_C_INCLUDES := $(LOCAL_PATH)/ext $(LOCAL_PATH)/ext/libzip $(LOCAL_PATH)/ext/glslang ..
 
 ifeq ($(findstring armeabi-v7a,$(TARGET_ARCH_ABI)),armeabi-v7a)
 LOCAL_CFLAGS := $(LOCAL_CFLAGS) -DARM -DARMEABI_V7A
