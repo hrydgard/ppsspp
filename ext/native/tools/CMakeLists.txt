@@ -28,6 +28,7 @@ include_directories(../ext)
 include_directories(../math/lin)
 include_directories(../image)
 include_directories(/usr/local/include)
+include_directories(../../..)
 
 link_directories(/opt/local/lib)
 
