@@ -10,7 +10,13 @@ void SameThreadExecutor::Run(std::function<void()> func) {
 }
 
 void NewThreadExecutor::Run(std::function<void()> func) {
-	std::thread(func).detach();
+	thread_ = std::thread(func);
+}
+
+NewThreadExecutor::~NewThreadExecutor() {
+	// If Run was ever called...
+	if (thread_.joinable())
+		thread_.join();
 }
 
 }  // namespace threading

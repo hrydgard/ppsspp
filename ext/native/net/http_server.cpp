@@ -131,6 +131,10 @@ Server::Server(threading::Executor *executor)
   SetFallbackHandler(std::bind(&Server::Handle404, this, std::placeholders::_1));
 }
 
+Server::~Server() {
+	delete executor_;
+}
+
 void Server::RegisterHandler(const char *url_path, UrlHandlerFunc handler) {
   handlers_[std::string(url_path)] = handler;
 }
