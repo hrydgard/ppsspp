@@ -5,6 +5,7 @@
 #include <unistd.h>
 #include <pwd.h>
 
+#include "ppsspp_config.h"
 #include "SDL.h"
 #include "SDL/SDLJoystick.h"
 SDLJoystick *joystick = NULL;
@@ -196,7 +197,11 @@ void OpenDirectory(const char *path) {
 }
 
 void LaunchBrowser(const char *url) {
-#if defined(MOBILE_DEVICE)
+#if PPSSPP_PLATFORM(SWITCH)
+	WebWifiConfig conf;
+	webWifiCreate(&conf, NULL, url, 0, 0);
+	webWifiShow(&conf, NULL);
+#elif defined(MOBILE_DEVICE)
 	ILOG("Would have gone to %s but LaunchBrowser is not implemented on this platform", url);
 #elif defined(_WIN32)
 	std::wstring wurl = ConvertUTF8ToWString(url);
@@ -214,7 +219,11 @@ void LaunchBrowser(const char *url) {
 }
 
 void LaunchMarket(const char *url) {
-#if defined(MOBILE_DEVICE)
+#if PPSSPP_PLATFORM(SWITCH)
+	WebWifiConfig conf;
+	webWifiCreate(&conf, NULL, url, 0, 0);
+	webWifiShow(&conf, NULL);
+#elif defined(MOBILE_DEVICE)
 	ILOG("Would have gone to %s but LaunchMarket is not implemented on this platform", url);
 #elif defined(_WIN32)
 	std::wstring wurl = ConvertUTF8ToWString(url);
@@ -258,6 +267,8 @@ std::string System_GetProperty(SystemProperty prop) {
 		return "SDL:Linux";
 #elif __APPLE__
 		return "SDL:macOS";
+#elif PPSSPP_PLATFORM(SWITCH)
+		return "SDL:Horizon";
 #else
 		return "SDL:";
 #endif

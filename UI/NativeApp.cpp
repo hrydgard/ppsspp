@@ -459,7 +459,7 @@ void NativeInit(int argc, const char *argv[], const char *savegame_dir, const ch
 	VFSRegister("", new DirectoryAssetReader("/usr/share/ppsspp/assets/"));
 #endif
 #if PPSSPP_PLATFORM(SWITCH)
-	std::string assetPath = savegame_dir + "assets/";
+	std::string assetPath = user_data_path + "assets/";
 	VFSRegister("", new DirectoryAssetReader(assetPath.c_str()));
 #else
 	VFSRegister("", new DirectoryAssetReader("assets/"));

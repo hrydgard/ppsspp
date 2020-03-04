@@ -511,7 +511,7 @@ UI::EventReturn GameBrowser::LastClick(UI::EventParams &e) {
 }
 
 UI::EventReturn GameBrowser::HomeClick(UI::EventParams &e) {
-#ifdef __ANDROID__
+#if PPSSPP_PLATFORM(ANDROID) || PPSSPP_PLATFORM(SWITCH)
 	SetPath(g_Config.memStickDirectory);
 #elif defined(USING_QT_UI) || defined(USING_WIN_UI)
 	if (System_GetPropertyBool(SYSPROP_HAS_FILE_BROWSER)) {

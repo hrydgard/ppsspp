@@ -64,11 +64,7 @@ ConsoleListener::ConsoleListener() : bHidden(true)
 		logPending = new char[LOG_PENDING_MAX];
 	}
 	++refCount;
-#elif defined(ANDROID)
-	bUseColor = false;
-#elif defined(IOS)
-	bUseColor = false;
-#elif PPSSPP_PLATFORM(UWP) || PPSSPP_PLATFORM(SWITCH)
+#elif PPSSPP_PLATFORM(ANDROID) || PPSSPP_PLATFORM(IOS) || PPSSPP_PLATFORM(UWP) || PPSSPP_PLATFORM(SWITCH)
 	bUseColor = false;
 #elif defined(_MSC_VER)
 	bUseColor = false;
