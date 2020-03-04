@@ -442,7 +442,8 @@ void DirectoryFileHandle::Close()
 		if (SetEndOfFile(hFile) == 0) {
 			ERROR_LOG_REPORT(FILESYS, "Failed to truncate file.");
 		}
-#else
+#elif !PPSSPP_PLATFORM(SWITCH)
+		// Note: it's not great that Switch cannot truncate appropriately...
 		if (ftruncate(hFile, (off_t)needsTrunc_) != 0) {
 			ERROR_LOG_REPORT(FILESYS, "Failed to truncate file.");
 		}

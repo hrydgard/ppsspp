@@ -8,6 +8,7 @@
 #define strcasecmp _stricmp
 #endif
 #else
+#include <strings.h>
 #include <dirent.h>
 #include <unistd.h>
 #include <errno.h>
@@ -28,6 +29,13 @@
 #if !defined(__linux__) && !defined(_WIN32) && !defined(__QNX__)
 #define stat64 stat
 #endif
+
+#ifdef HAVE_LIBNX
+// Far from optimal, but I guess it works...
+#define fseeko fseek
+#define ftello ftell
+#define fileno
+#endif // HAVE_LIBNX
 
 FILE *openCFile(const std::string &filename, const char *mode)
 {
