@@ -35,7 +35,7 @@ void TiltAnalogSettingsScreen::CreateViews() {
 	settings->Add(new ItemHeader(co->T("Invert Axes")));
 	settings->Add(new CheckBox(&g_Config.bInvertTiltX, co->T("Invert Tilt along X axis")));
 	settings->Add(new CheckBox(&g_Config.bInvertTiltY, co->T("Invert Tilt along Y axis")));
-	static const char* tiltMode[] = { "Screen parallel to ground", "Screen orthogonal to ground", "Auto-switch" };
+	static const char* tiltMode[] = { "Screen aligned to ground", "Screen at right angle to ground", "Auto-switch" };
 	settings->Add(new PopupMultiChoice(&g_Config.iTiltOrientation, co->T("Base tilt position"), tiltMode, 0, ARRAY_SIZE(tiltMode), co->GetName(), screenManager()));
 
 	settings->Add(new ItemHeader(co->T("Sensitivity")));
