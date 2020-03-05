@@ -682,10 +682,22 @@ int main(int argc, char *argv[]) {
 
 	float mouseDeltaX = 0;
 	float mouseDeltaY = 0;
+	int mouseWheelMovedDir = 0;
 	bool mouseCaptured = false;
 	bool windowHidden = false;
 	while (true) {
 		double startTime = time_now_d();
+
+		// SDL2 doesn't consider the mousewheel a button anymore
+		// so let's send the KEY_UP if it was moved last cycle
+		if (mouseWheelMovedDir != 0) {
+			KeyInput key;
+			key.deviceId = DEVICE_ID_MOUSE;
+			key.keyCode = mouseWheelMovedDir > 0 ? NKCODE_EXT_MOUSEWHEEL_UP : NKCODE_EXT_MOUSEWHEEL_DOWN;
+			key.flags = KEY_UP;
+			NativeKey(key);
+			mouseWheelMovedDir = 0;
+		}
 		SDL_Event event, touchEvent;
 		while (SDL_PollEvent(&event)) {
 			float mx = event.motion.x * g_dpi_scale_x;
@@ -868,6 +880,24 @@ int main(int argc, char *argv[]) {
 						NativeKey(key);
 					}
 					break;
+				case SDL_BUTTON_MIDDLE:
+					{
+						KeyInput key(DEVICE_ID_MOUSE, NKCODE_EXT_MOUSEBUTTON_3, KEY_DOWN);
+						NativeKey(key);
+					}
+					break;
+				case SDL_BUTTON_X1:
+					{
+						KeyInput key(DEVICE_ID_MOUSE, NKCODE_EXT_MOUSEBUTTON_4, KEY_DOWN);
+						NativeKey(key);
+					}
+					break;
+				case SDL_BUTTON_X2:
+					{
+						KeyInput key(DEVICE_ID_MOUSE, NKCODE_EXT_MOUSEBUTTON_5, KEY_DOWN);
+						NativeKey(key);
+					}
+					break;
 				}
 				break;
 			case SDL_MOUSEWHEEL:
@@ -876,16 +906,12 @@ int main(int argc, char *argv[]) {
 					key.deviceId = DEVICE_ID_MOUSE;
 					if (event.wheel.y > 0) {
 						key.keyCode = NKCODE_EXT_MOUSEWHEEL_UP;
+						mouseWheelMovedDir = 1;
 					} else {
 						key.keyCode = NKCODE_EXT_MOUSEWHEEL_DOWN;
+						mouseWheelMovedDir = -1;
 					}
 					key.flags = KEY_DOWN;
-					NativeKey(key);
-
-					// SDL2 doesn't consider the mousewheel a button anymore
-					// so let's send the KEY_UP right away.
-					// Maybe KEY_UP alone will suffice?
-					key.flags = KEY_UP;
 					NativeKey(key);
 				}
 				break;
@@ -919,6 +945,24 @@ int main(int argc, char *argv[]) {
 				case SDL_BUTTON_RIGHT:
 					{
 						KeyInput key(DEVICE_ID_MOUSE, NKCODE_EXT_MOUSEBUTTON_2, KEY_UP);
+						NativeKey(key);
+					}
+					break;
+				case SDL_BUTTON_MIDDLE:
+					{
+						KeyInput key(DEVICE_ID_MOUSE, NKCODE_EXT_MOUSEBUTTON_3, KEY_UP);
+						NativeKey(key);
+					}
+					break;
+				case SDL_BUTTON_X1:
+					{
+						KeyInput key(DEVICE_ID_MOUSE, NKCODE_EXT_MOUSEBUTTON_4, KEY_UP);
+						NativeKey(key);
+					}
+					break;
+				case SDL_BUTTON_X2:
+					{
+						KeyInput key(DEVICE_ID_MOUSE, NKCODE_EXT_MOUSEBUTTON_5, KEY_UP);
 						NativeKey(key);
 					}
 					break;
