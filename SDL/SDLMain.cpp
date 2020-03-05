@@ -698,9 +698,37 @@ int main(int argc, char *argv[]) {
 	}
 	graphicsContext->ThreadStart();
 
+	float mouseDeltaX = 0;
+	float mouseDeltaY = 0;
+	int mouseWheelMovedUpFrames = 0;
+	int mouseWheelMovedDownFrames = 0;
+	bool mouseCaptured = false;
 	bool windowHidden = false;
 	while (true) {
 		double startTime = time_now_d();
+
+		// SDL2 doesn't consider the mousewheel a button anymore
+		// so let's send the KEY_UP if it was moved after some frames
+		if (mouseWheelMovedUpFrames > 0) {
+			mouseWheelMovedUpFrames--;
+			if (mouseWheelMovedUpFrames == 0) {
+				KeyInput key;
+				key.deviceId = DEVICE_ID_MOUSE;
+				key.keyCode = NKCODE_EXT_MOUSEWHEEL_UP;
+				key.flags = KEY_UP;
+				NativeKey(key);
+			}
+		}
+		if (mouseWheelMovedDownFrames > 0) {
+			mouseWheelMovedDownFrames--;
+			if (mouseWheelMovedDownFrames == 0) {
+				KeyInput key;
+				key.deviceId = DEVICE_ID_MOUSE;
+				key.keyCode = NKCODE_EXT_MOUSEWHEEL_DOWN;
+				key.flags = KEY_UP;
+				NativeKey(key);
+			}
+		}
 		SDL_Event event, touchEvent;
 		while (SDL_PollEvent(&event)) {
 			float mx = event.motion.x * g_dpi_scale_x;
@@ -883,6 +911,24 @@ int main(int argc, char *argv[]) {
 						NativeKey(key);
 					}
 					break;
+				case SDL_BUTTON_MIDDLE:
+					{
+						KeyInput key(DEVICE_ID_MOUSE, NKCODE_EXT_MOUSEBUTTON_3, KEY_DOWN);
+						NativeKey(key);
+					}
+					break;
+				case SDL_BUTTON_X1:
+					{
+						KeyInput key(DEVICE_ID_MOUSE, NKCODE_EXT_MOUSEBUTTON_4, KEY_DOWN);
+						NativeKey(key);
+					}
+					break;
+				case SDL_BUTTON_X2:
+					{
+						KeyInput key(DEVICE_ID_MOUSE, NKCODE_EXT_MOUSEBUTTON_5, KEY_DOWN);
+						NativeKey(key);
+					}
+					break;
 				}
 				break;
 			case SDL_MOUSEWHEEL:
@@ -891,18 +937,15 @@ int main(int argc, char *argv[]) {
 					key.deviceId = DEVICE_ID_MOUSE;
 					if (event.wheel.y > 0) {
 						key.keyCode = NKCODE_EXT_MOUSEWHEEL_UP;
+						mouseWheelMovedUpFrames = 5;
 					} else {
 						key.keyCode = NKCODE_EXT_MOUSEWHEEL_DOWN;
+						mouseWheelMovedDownFrames = 5;
 					}
 					key.flags = KEY_DOWN;
 					NativeKey(key);
-
-					// SDL2 doesn't consider the mousewheel a button anymore
-					// so let's send the KEY_UP right away.
-					// Maybe KEY_UP alone will suffice?
-					key.flags = KEY_UP;
-					NativeKey(key);
 				}
+				break;
 			case SDL_MOUSEMOTION:
 				if (mouseDown) {
 					TouchInput input;
@@ -912,6 +955,8 @@ int main(int argc, char *argv[]) {
 					input.id = 0;
 					NativeTouch(input);
 				}
+				mouseDeltaX += event.motion.xrel;
+				mouseDeltaY += event.motion.yrel;
 				break;
 			case SDL_MOUSEBUTTONUP:
 				switch (event.button.button) {
@@ -931,6 +976,24 @@ int main(int argc, char *argv[]) {
 				case SDL_BUTTON_RIGHT:
 					{
 						KeyInput key(DEVICE_ID_MOUSE, NKCODE_EXT_MOUSEBUTTON_2, KEY_UP);
+						NativeKey(key);
+					}
+					break;
+				case SDL_BUTTON_MIDDLE:
+					{
+						KeyInput key(DEVICE_ID_MOUSE, NKCODE_EXT_MOUSEBUTTON_3, KEY_UP);
+						NativeKey(key);
+					}
+					break;
+				case SDL_BUTTON_X1:
+					{
+						KeyInput key(DEVICE_ID_MOUSE, NKCODE_EXT_MOUSEBUTTON_4, KEY_UP);
+						NativeKey(key);
+					}
+					break;
+				case SDL_BUTTON_X2:
+					{
+						KeyInput key(DEVICE_ID_MOUSE, NKCODE_EXT_MOUSEBUTTON_5, KEY_UP);
 						NativeKey(key);
 					}
 					break;
@@ -985,6 +1048,35 @@ int main(int argc, char *argv[]) {
 				SDL_ShowCursor(SDL_ENABLE);
 		}
 #endif
+
+		// Disabled by default, needs a workaround to map to psp keys.
+		if (g_Config.bMouseControl) {
+			float scaleFactor_x = g_dpi_scale_x * 0.1 * g_Config.fMouseSensitivity;
+			float scaleFactor_y = g_dpi_scale_y * 0.1 * g_Config.fMouseSensitivity;
+
+			AxisInput axisX, axisY;
+			axisX.axisId = JOYSTICK_AXIS_MOUSE_REL_X;
+			axisX.deviceId = DEVICE_ID_MOUSE;
+			axisX.value = std::max(-1.0f, std::min(1.0f, mouseDeltaX * scaleFactor_x));
+			axisY.axisId = JOYSTICK_AXIS_MOUSE_REL_Y;
+			axisY.deviceId = DEVICE_ID_MOUSE;
+			axisY.value = std::max(-1.0f, std::min(1.0f, mouseDeltaY * scaleFactor_y));
+
+			if (GetUIState() == UISTATE_INGAME || g_Config.bMapMouse) {
+				NativeAxis(axisX);
+				NativeAxis(axisY);
+			}
+			mouseDeltaX *= g_Config.fMouseSmoothing;
+			mouseDeltaY *= g_Config.fMouseSmoothing;
+		}
+		bool captureMouseCondition = g_Config.bMouseControl && ((GetUIState() == UISTATE_INGAME && g_Config.bMouseConfine) || g_Config.bMapMouse);
+		if (mouseCaptured != captureMouseCondition) {
+			mouseCaptured = captureMouseCondition;
+			if (captureMouseCondition)
+				SDL_SetRelativeMouseMode(SDL_TRUE);
+			else
+				SDL_SetRelativeMouseMode(SDL_FALSE);
+		}
 
 		if (framecount % 60 == 0) {
 			// glsl_refresh(); // auto-reloads modified GLSL shaders once per second.
