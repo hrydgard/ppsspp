@@ -56,6 +56,7 @@
     <ClCompile Include="..\..\GPU\Software\SoftGpu.cpp" />
     <ClCompile Include="..\..\GPU\Software\TransformUnit.cpp" />
     <ClCompile Include="pch.cpp" />
+    <ClCompile Include="..\..\GPU\Software\RasterizerRectangle.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\..\GPU\Common\DepalettizeShaderCommon.h" />
@@ -113,5 +114,6 @@
     <ClInclude Include="..\..\GPU\Software\TransformUnit.h" />
     <ClInclude Include="pch.h" />
     <ClInclude Include="targetver.h" />
+    <ClInclude Include="..\..\GPU\Software\RasterizerRectangle.h" />
   </ItemGroup>
 </Project>

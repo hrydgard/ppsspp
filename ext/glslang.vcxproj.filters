@@ -143,6 +143,9 @@
     <ClCompile Include="glslang\SPIRV\SpvPostProcess.cpp">
       <Filter>SPIRV</Filter>
     </ClCompile>
+    <ClCompile Include="glslang\hlsl\hlslParseHelper.cpp">
+      <Filter>HLSL</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="glslang\SPIRV\disassemble.h">
@@ -298,6 +301,9 @@
     </ClInclude>
     <ClInclude Include="glslang\glslang\MachineIndependent\attribute.h">
       <Filter>glslang</Filter>
+    </ClInclude>
+    <ClInclude Include="glslang\hlsl\hlslParseHelper.h">
+      <Filter>HLSL</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>

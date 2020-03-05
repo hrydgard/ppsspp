@@ -166,6 +166,10 @@ endif()
 
 include_directories(ext/native)
 
+# Work around for some misfeature of the current glslang build system 
+include_directories(ext/glslang)
+
+
 if(NOT OPENGL_LIBRARIES AND USING_GLES2)
 	set(OPENGL_LIBRARIES GLESv2 EGL)
 endif()
