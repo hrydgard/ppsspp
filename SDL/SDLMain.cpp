@@ -682,21 +682,34 @@ int main(int argc, char *argv[]) {
 
 	float mouseDeltaX = 0;
 	float mouseDeltaY = 0;
-	int mouseWheelMovedDir = 0;
+	int mouseWheelMovedUpFrames = 0;
+	int mouseWheelMovedDownFrames = 0;
 	bool mouseCaptured = false;
 	bool windowHidden = false;
 	while (true) {
 		double startTime = time_now_d();
 
 		// SDL2 doesn't consider the mousewheel a button anymore
-		// so let's send the KEY_UP if it was moved last cycle
-		if (mouseWheelMovedDir != 0) {
-			KeyInput key;
-			key.deviceId = DEVICE_ID_MOUSE;
-			key.keyCode = mouseWheelMovedDir > 0 ? NKCODE_EXT_MOUSEWHEEL_UP : NKCODE_EXT_MOUSEWHEEL_DOWN;
-			key.flags = KEY_UP;
-			NativeKey(key);
-			mouseWheelMovedDir = 0;
+		// so let's send the KEY_UP if it was moved after some frames
+		if (mouseWheelMovedUpFrames > 0) {
+			mouseWheelMovedUpFrames--;
+			if (mouseWheelMovedUpFrames == 0) {
+				KeyInput key;
+				key.deviceId = DEVICE_ID_MOUSE;
+				key.keyCode = NKCODE_EXT_MOUSEWHEEL_UP;
+				key.flags = KEY_UP;
+				NativeKey(key);
+			}
+		}
+		if (mouseWheelMovedDownFrames > 0) {
+			mouseWheelMovedDownFrames--;
+			if (mouseWheelMovedDownFrames == 0) {
+				KeyInput key;
+				key.deviceId = DEVICE_ID_MOUSE;
+				key.keyCode = NKCODE_EXT_MOUSEWHEEL_DOWN;
+				key.flags = KEY_UP;
+				NativeKey(key);
+			}
 		}
 		SDL_Event event, touchEvent;
 		while (SDL_PollEvent(&event)) {
@@ -906,10 +919,10 @@ int main(int argc, char *argv[]) {
 					key.deviceId = DEVICE_ID_MOUSE;
 					if (event.wheel.y > 0) {
 						key.keyCode = NKCODE_EXT_MOUSEWHEEL_UP;
-						mouseWheelMovedDir = 1;
+						mouseWheelMovedUpFrames = 5;
 					} else {
 						key.keyCode = NKCODE_EXT_MOUSEWHEEL_DOWN;
-						mouseWheelMovedDir = -1;
+						mouseWheelMovedDownFrames = 5;
 					}
 					key.flags = KEY_DOWN;
 					NativeKey(key);
