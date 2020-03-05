@@ -174,8 +174,8 @@ public:
 private:
 	void ProcessTouch(float x, float y, bool down);
 
-	u8 posX_;
-	u8 posY_;
+	float posX_ = 0.0f;
+	float posY_ = 0.0f;
 };
 
 //initializes the layout from Config. if a default layout does not exist,

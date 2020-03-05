@@ -29,7 +29,6 @@
 #include "gfx/texture_atlas.h"
 #include "math/math_util.h"
 #include "ui/ui_context.h"
-#include "Core/Util/AudioFormat.h"  // for clamp_u8
 
 static u32 GetButtonColor() {
 	return g_Config.iTouchButtonStyle != 0 ? 0xFFFFFF : 0xc0b080;
@@ -464,8 +463,6 @@ void PSPStick::ProcessTouch(float x, float y, bool down) {
 
 PSPCustomStick::PSPCustomStick(ImageID bgImg, ImageID stickImg, ImageID stickDownImg, float scale, UI::LayoutParams *layoutParams)
 	: PSPStick(bgImg, stickImg, stickDownImg, -1, scale, layoutParams) {
-	posX_ = clamp_u8((int)ceilf(127.5f));
-	posY_ = clamp_u8((int)ceilf(127.5f));
 }
 
 void PSPCustomStick::Draw(UIContext &dc) {
@@ -490,8 +487,8 @@ void PSPCustomStick::Draw(UIContext &dc) {
 	float stickY = centerY_;
 
 	float dx, dy;
-	dx = (posX_ - 127.5f) / 127.5f;
-	dy = -(posY_ - 127.5f) / 127.5f;
+	dx = posX_;
+	dy = -posY_;
 
 	dc.Draw()->DrawImage(bgImg_, stickX, stickY, 1.0f * scale_, colorBg, ALIGN_CENTER);
 	if (dragPointerId_ != -1 && g_Config.iTouchButtonStyle == 2 && stickDownImg_ != stickImageIndex_)
@@ -505,8 +502,8 @@ void PSPCustomStick::Touch(const TouchInput &input) {
 		dragPointerId_ = -1;
 		centerX_ = bounds_.centerX();
 		centerY_ = bounds_.centerY();
-		posX_ = clamp_u8((int)ceilf(127.5f));
-		posY_ = clamp_u8((int)ceilf(127.5f));
+		posX_ = 0.0f;
+		posY_ = 0.0f;
 		return;
 	}
 	if (input.flags & TOUCH_DOWN) {
@@ -576,8 +573,8 @@ void PSPCustomStick::ProcessTouch(float x, float y, bool down) {
 		if (g_Config.iRightAnalogPress != 0)
 			__CtrlButtonDown(button[g_Config.iRightAnalogPress-1]);
 
-		posX_ = clamp_u8((int)ceilf(dx * 127.5f + 127.5f));
-		posY_ = clamp_u8((int)ceilf(dy * 127.5f + 127.5f));
+		posX_ = dx;
+		posY_ = dy;
 
 	} else {
 		if (g_Config.iRightAnalogUp != 0)
@@ -591,8 +588,8 @@ void PSPCustomStick::ProcessTouch(float x, float y, bool down) {
 		if (g_Config.iRightAnalogPress != 0)
 			__CtrlButtonUp(button[g_Config.iRightAnalogPress-1]);
 
-		posX_ = clamp_u8((int)ceilf(127.5f));
-		posY_ = clamp_u8((int)ceilf(127.5f));
+		posX_ = 0.0f;
+		posY_ = 0.0f;
 	}
 }
 
