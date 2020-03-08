@@ -307,6 +307,7 @@ private:
 
 	FrameData frameData_[VulkanContext::MAX_INFLIGHT_FRAMES];
 	int newInflightFrames_ = -1;
+	int inflightFramesAtStart_ = 0;
 
 	// Submission time state
 	int curWidth_ = -1;

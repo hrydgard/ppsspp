@@ -113,7 +113,8 @@ VulkanRenderManager::VulkanRenderManager(VulkanContext *vulkan) : vulkan_(vulkan
 	res = vkCreateSemaphore(vulkan_->GetDevice(), &semaphoreCreateInfo, nullptr, &renderingCompleteSemaphore_);
 	assert(res == VK_SUCCESS);
 
-	for (int i = 0; i < vulkan_->GetInflightFrames(); i++) {
+	inflightFramesAtStart_ = vulkan_->GetInflightFrames();
+	for (int i = 0; i < inflightFramesAtStart_; i++) {
 		VkCommandPoolCreateInfo cmd_pool_info = { VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO };
 		cmd_pool_info.queueFamilyIndex = vulkan_->GetGraphicsQueueFamilyIndex();
 		cmd_pool_info.flags = VK_COMMAND_POOL_CREATE_TRANSIENT_BIT | VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT;
@@ -298,7 +299,7 @@ VulkanRenderManager::~VulkanRenderManager() {
 	VkDevice device = vulkan_->GetDevice();
 	vkDestroySemaphore(device, acquireSemaphore_, nullptr);
 	vkDestroySemaphore(device, renderingCompleteSemaphore_, nullptr);
-	for (int i = 0; i < vulkan_->GetInflightFrames(); i++) {
+	for (int i = 0; i < inflightFramesAtStart_; i++) {
 		vkFreeCommandBuffers(device, frameData_[i].cmdPoolInit, 1, &frameData_[i].initCmd);
 		vkFreeCommandBuffers(device, frameData_[i].cmdPoolMain, 1, &frameData_[i].mainCmd);
 		vkDestroyCommandPool(device, frameData_[i].cmdPoolInit, nullptr);
