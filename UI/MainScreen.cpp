@@ -27,6 +27,7 @@
 #include "gfx_es2/draw_buffer.h"
 #include "math/curves.h"
 #include "base/stringutil.h"
+#include "ui/root.h"
 #include "ui/ui_context.h"
 #include "ui/view.h"
 #include "ui/viewgroup.h"

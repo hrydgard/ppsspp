@@ -1,4 +1,5 @@
 #include <mutex>
+#include <deque>
 
 #include "base/timeutil.h"
 #include "ui/root.h"
@@ -9,6 +10,94 @@ namespace UI {
 static std::mutex focusLock;
 static std::vector<int> focusMoves;
 extern bool focusForced;
+
+static View *focusedView;
+static bool focusMovementEnabled;
+bool focusForced;
+static std::mutex eventMutex_;  // needs recursivity!
+
+struct DispatchQueueItem {
+	Event *e;
+	EventParams params;
+};
+
+std::deque<DispatchQueueItem> g_dispatchQueue;
+
+void EventTriggered(Event *e, EventParams params) {
+	DispatchQueueItem item;
+	item.e = e;
+	item.params = params;
+
+	std::unique_lock<std::mutex> guard(eventMutex_);
+	g_dispatchQueue.push_front(item);
+}
+
+void DispatchEvents() {
+	while (true) {
+		DispatchQueueItem item;
+		{
+			std::unique_lock<std::mutex> guard(eventMutex_);
+			if (g_dispatchQueue.empty())
+				break;
+			item = g_dispatchQueue.back();
+			g_dispatchQueue.pop_back();
+		}
+		if (item.e) {
+			item.e->Dispatch(item.params);
+		}
+	}
+}
+
+void RemoveQueuedEventsByView(View *view) {
+	for (auto it = g_dispatchQueue.begin(); it != g_dispatchQueue.end(); ) {
+		if (it->params.v == view) {
+			it = g_dispatchQueue.erase(it);
+		} else {
+			++it;
+		}
+	}
+}
+
+void RemoveQueuedEventsByEvent(Event *event) {
+	for (auto it = g_dispatchQueue.begin(); it != g_dispatchQueue.end(); ) {
+		if (it->e == event) {
+			it = g_dispatchQueue.erase(it);
+		} else {
+			++it;
+		}
+	}
+}
+
+View *GetFocusedView() {
+	return focusedView;
+}
+
+void SetFocusedView(View *view, bool force) {
+	if (focusedView) {
+		focusedView->FocusChanged(FF_LOSTFOCUS);
+	}
+	focusedView = view;
+	if (focusedView) {
+		focusedView->FocusChanged(FF_GOTFOCUS);
+		if (force) {
+			focusForced = true;
+		}
+	}
+}
+
+void EnableFocusMovement(bool enable) {
+	focusMovementEnabled = enable;
+	if (!enable) {
+		if (focusedView) {
+			focusedView->FocusChanged(FF_LOSTFOCUS);
+		}
+		focusedView = 0;
+	}
+}
+
+bool IsFocusMovementEnabled() {
+	return focusMovementEnabled;
+}
 
 void LayoutViewHierarchy(const UIContext &dc, ViewGroup *root) {
 	if (!root) {

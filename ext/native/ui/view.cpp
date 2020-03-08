@@ -1,4 +1,3 @@
-#include <queue>
 #include <algorithm>
 #include <mutex>
 
@@ -13,102 +12,15 @@
 #include "ui/view.h"
 #include "ui/ui_context.h"
 #include "ui/ui_tween.h"
+#include "ui/root.h"
 #include "thin3d/thin3d.h"
 #include "base/NativeApp.h"
 
 namespace UI {
 
-static View *focusedView;
-static bool focusMovementEnabled;
-bool focusForced;
-static std::mutex eventMutex_;  // needs recursivity!
-
 const float ITEM_HEIGHT = 64.f;
 const float MIN_TEXT_SCALE = 0.8f;
 const float MAX_ITEM_SIZE = 65535.0f;
-
-struct DispatchQueueItem {
-	Event *e;
-	EventParams params;
-};
-
-std::deque<DispatchQueueItem> g_dispatchQueue;
-
-void EventTriggered(Event *e, EventParams params) {
-	DispatchQueueItem item;
-	item.e = e;
-	item.params = params;
-
-	std::unique_lock<std::mutex> guard(eventMutex_);
-	g_dispatchQueue.push_front(item);
-}
-
-void DispatchEvents() {
-	while (true) {
-		DispatchQueueItem item;
-		{
-			std::unique_lock<std::mutex> guard(eventMutex_);
-			if (g_dispatchQueue.empty())
-				break;
-			item = g_dispatchQueue.back();
-			g_dispatchQueue.pop_back();
-		}
-		if (item.e) {
-			item.e->Dispatch(item.params);
-		}
-	}
-}
-
-void RemoveQueuedEvents(View *v) {
-	for (auto it = g_dispatchQueue.begin(); it != g_dispatchQueue.end(); ) {
-		if (it->params.v == v) {
-			it = g_dispatchQueue.erase(it);
-		} else {
-			++it;
-		}
-	}
-}
-
-void RemoveQueuedEvents(Event *e) {
-	for (auto it = g_dispatchQueue.begin(); it != g_dispatchQueue.end(); ) {
-		if (it->e == e) {
-			it = g_dispatchQueue.erase(it);
-		} else {
-			++it;
-		}
-	}
-}
-
-View *GetFocusedView() {
-	return focusedView;
-}
-
-void SetFocusedView(View *view, bool force) {
-	if (focusedView) {
-		focusedView->FocusChanged(FF_LOSTFOCUS);
-	}
-	focusedView = view;
-	if (focusedView) {
-		focusedView->FocusChanged(FF_GOTFOCUS);
-		if (force) {
-			focusForced = true;
-		}
-	}
-}
-
-void EnableFocusMovement(bool enable) {
-	focusMovementEnabled = enable;
-	if (!enable) {
-		if (focusedView) {
-			focusedView->FocusChanged(FF_LOSTFOCUS); 
-		}
-		focusedView = 0;
-	}
-}
-
-bool IsFocusMovementEnabled() {
-	return focusMovementEnabled;
-}
 
 void MeasureBySpec(Size sz, float contentWidth, MeasureSpec spec, float *measured) {
 	*measured = sz;
@@ -172,13 +84,13 @@ EventReturn Event::Dispatch(EventParams &e) {
 
 Event::~Event() {
 	handlers_.clear();
-	RemoveQueuedEvents(this);
+	RemoveQueuedEventsByEvent(this);
 }
 
 View::~View() {
 	if (HasFocus())
 		SetFocusedView(0);
-	RemoveQueuedEvents(this);
+	RemoveQueuedEventsByView(this);
 
 	// Could use unique_ptr, but then we have to include tween everywhere.
 	for (auto &tween : tweens_)

@@ -28,6 +28,7 @@
 #include "gfx_es2/draw_buffer.h"
 #include "i18n/i18n.h"
 #include "util/text/utf8.h"
+#include "ui/root.h"
 #include "ui/view.h"
 #include "ui/viewgroup.h"
 #include "ui/ui_context.h"
@@ -1403,7 +1404,7 @@ UI::EventReturn GameSettingsScreen::OnChangeMacAddress(UI::EventParams &e) {
 }
 
 UI::EventReturn GameSettingsScreen::OnComboKey(UI::EventParams &e) {
-	screenManager()->push(new Combo_keyScreen(&g_Config.iComboMode));
+	screenManager()->push(new ComboKeyScreen(&g_Config.iComboMode));
 	return UI::EVENT_DONE;
 }
 

@@ -45,13 +45,6 @@ namespace UI {
 
 class View;
 
-// The ONLY global is the currently focused item.
-// Can be and often is null.
-void EnableFocusMovement(bool enable);
-bool IsFocusMovementEnabled();
-View *GetFocusedView();
-void SetFocusedView(View *view, bool force = false);
-
 enum DrawableType {
 	DRAW_NOTHING,
 	DRAW_SOLID_COLOR,
@@ -908,8 +901,6 @@ private:
 
 void MeasureBySpec(Size sz, float contentWidth, MeasureSpec spec, float *measured);
 
-void EventTriggered(Event *e, EventParams params);
-void DispatchEvents();
 bool IsDPadKey(const KeyInput &key);
 bool IsAcceptKey(const KeyInput &key);
 bool IsEscapeKey(const KeyInput &key);
