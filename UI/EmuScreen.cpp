@@ -81,7 +81,7 @@
 #include "UI/DiscordIntegration.h"
 #include "UI/ChatScreen.h"
 
-#if defined(_WIN32) && !PPSSPP_PLATFORM(UWP)
+#if PPSSPP_PLATFORM(WINDOWS) && !PPSSPP_PLATFORM(UWP)
 #include "Windows/MainWindow.h"
 #endif
 

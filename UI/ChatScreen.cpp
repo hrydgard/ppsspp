@@ -1,3 +1,4 @@
+#include "ppsspp_config.h"
 #include "ui/ui_context.h"
 #include "ui/view.h"
 #include "ui/viewgroup.h"
@@ -19,7 +20,7 @@ void ChatMenu::CreatePopupContents(UI::ViewGroup *parent) {
 	LinearLayout *outer = new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT,400));
 	scroll_ = outer->Add(new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(1.0)));
 	LinearLayout *bottom = outer->Add(new LinearLayout(ORIENT_HORIZONTAL, new LayoutParams(FILL_PARENT, WRAP_CONTENT)));
-#if defined(_WIN32) || defined(USING_QT_UI)
+#if PPSSPP_PLATFORM(WINDOWS) || defined(USING_QT_UI)
 	chatEdit_ = bottom->Add(new TextEdit("", n->T("Chat Here"), new LinearLayoutParams(1.0)));
 #if defined(USING_WIN_UI)
 	//freeze  the ui when using ctrl + C hotkey need workaround
@@ -35,7 +36,7 @@ void ChatMenu::CreatePopupContents(UI::ViewGroup *parent) {
 	}
 #endif
 	chatEdit_->OnEnter.Handle(this, &ChatMenu::OnSubmit);
-#elif defined(__ANDROID__)
+#elif PPSSPP_PLATFORM(ANDROID)
 	bottom->Add(new Button(n->T("Chat Here"),new LayoutParams(FILL_PARENT, WRAP_CONTENT)))->OnClick.Handle(this, &ChatMenu::OnSubmit);
 	bottom->Add(new Button(n->T("Send")))->OnClick.Handle(this, &ChatMenu::OnSubmit);
 #endif
@@ -95,7 +96,7 @@ void ChatMenu::CreateViews() {
 	box_->Add(title);
 
 	CreatePopupContents(box_);
-#if defined(_WIN32) || defined(USING_QT_UI)
+#if PPSSPP_PLATFORM(WINDOWS) || defined(USING_QT_UI)
 	UI::EnableFocusMovement(true);
 	root_->SetDefaultFocusView(box_);
 	box_->SubviewFocused(chatEdit_);
@@ -116,12 +117,12 @@ void ChatMenu::dialogFinished(const Screen *dialog, DialogResult result) {
 }
 
 UI::EventReturn ChatMenu::OnSubmit(UI::EventParams &e) {
-#if defined(_WIN32) || defined(USING_QT_UI)
+#if PPSSPP_PLATFORM(WINDOWS) || defined(USING_QT_UI)
 	std::string chat = chatEdit_->GetText();
 	chatEdit_->SetText("");
 	chatEdit_->SetFocus();
 	sendChat(chat);
-#elif defined(__ANDROID__)
+#elif PPSSPP_PLATFORM(ANDROID)
 	System_SendMessage("inputbox", "Chat:");
 #endif
 	return UI::EVENT_DONE;
