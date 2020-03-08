@@ -37,7 +37,6 @@ void Vulkan2D::DestroyDeviceObjects() {
 	for (int i = 0; i < vulkan_->GetInflightFrames(); i++) {
 		if (frameData_[i].descPool != VK_NULL_HANDLE) {
 			vulkan_->Delete().QueueDeleteDescriptorPool(frameData_[i].descPool);
-			frameData_[i].descPool = VK_NULL_HANDLE;
 		}
 	}
 	for (auto it : pipelines_) {
@@ -97,7 +96,7 @@ void Vulkan2D::InitDeviceObjects() {
 	dp.maxSets = 3000;
 	dp.pPoolSizes = dpTypes;
 	dp.poolSizeCount = ARRAY_SIZE(dpTypes);
-	for (int i = 0; i < ARRAY_SIZE(frameData_); i++) {
+	for (int i = 0; i < vulkan_->GetInflightFrames(); i++) {
 		VkResult res = vkCreateDescriptorPool(vulkan_->GetDevice(), &dp, nullptr, &frameData_[i].descPool);
 		assert(VK_SUCCESS == res);
 	}
