@@ -145,6 +145,9 @@
     <ClCompile Include="..\..\ext\native\input\input_state.cpp">
       <Filter>input</Filter>
     </ClCompile>
+    <ClCompile Include="..\..\ext\native\ui\root.cpp">
+      <Filter>ui</Filter>
+    </ClCompile>
     <ClCompile Include="..\..\ext\native\ui\screen.cpp">
       <Filter>ui</Filter>
     </ClCompile>
@@ -582,6 +585,9 @@
     </ClInclude>
     <ClInclude Include="..\..\ext\native\input\keycodes.h">
       <Filter>input</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\ext\native\ui\root.h">
+      <Filter>ui</Filter>
     </ClInclude>
     <ClInclude Include="..\..\ext\native\ui\screen.h">
       <Filter>ui</Filter>

@@ -1,9 +1,10 @@
 set(SRCS
   ui.cpp
   ui_context.cpp
-	view.cpp
-	viewgroup.cpp
+  view.cpp
+  viewgroup.cpp
   screen.cpp
+  root.cpp
 )
 
 set(SRCS ${SRCS})

@@ -30,6 +30,7 @@
 
 #include "input/input_state.h"
 #include "math/curves.h"
+#include "ui/root.h"
 #include "ui/ui.h"
 #include "ui/ui_context.h"
 #include "ui/ui_tween.h"

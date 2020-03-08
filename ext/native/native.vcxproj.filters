@@ -347,6 +347,9 @@
     <ClInclude Include="thin3d\d3d9_d3dcompiler_loader.h">
       <Filter>thin3d</Filter>
     </ClInclude>
+    <ClInclude Include="ui\root.h">
+      <Filter>ui</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="gfx\gl_debug_log.cpp">
@@ -825,6 +828,9 @@
     </ClCompile>
     <ClCompile Include="thin3d\d3d9_d3dcompiler_loader.cpp">
       <Filter>thin3d</Filter>
+    </ClCompile>
+    <ClCompile Include="ui\root.cpp">
+      <Filter>ui</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
