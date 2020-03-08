@@ -494,6 +494,7 @@ LOCAL_SRC_FILES := \
   $(SRC)/android/jni/native-audio-so.cpp \
   $(SRC)/UI/BackgroundAudio.cpp \
   $(SRC)/UI/DiscordIntegration.cpp \
+  $(SRC)/UI/ChatScreen.cpp \
   $(SRC)/UI/DevScreens.cpp \
   $(SRC)/UI/DisplayLayoutEditor.cpp \
   $(SRC)/UI/DisplayLayoutScreen.cpp \

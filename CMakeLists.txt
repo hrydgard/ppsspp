@@ -842,6 +842,7 @@ list(APPEND NativeAppSource
 	UI/DiscordIntegration.cpp
 	UI/NativeApp.cpp
 	UI/BackgroundAudio.cpp
+	UI/ChatScreen.cpp
 	UI/DevScreens.cpp
 	UI/DisplayLayoutEditor.cpp
 	UI/DisplayLayoutScreen.cpp

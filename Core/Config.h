@@ -27,6 +27,17 @@
 
 extern const char *PPSSPP_GIT_VERSION;
 
+enum ChatPositions {
+	BOTTOM_LEFT = 0,
+	BOTTOM_CENTER = 1,
+	BOTOM_RIGHT = 2,
+	TOP_LEFT = 3,
+	TOP_CENTER = 4,
+	TOP_RIGHT = 5,
+	CENTER_LEFT = 6,
+	CENTER_RIGHT = 7,
+};
+
 namespace http {
 	class Download;
 	class Downloader;
@@ -385,6 +396,17 @@ public:
 	bool bEnableAdhocServer;
 	int iWlanAdhocChannel;
 	bool bWlanPowerSave;
+	bool bEnableNetworkChat;
+	//for chat position , moveable buttons is better than this 
+	int iChatButtonPosition;
+	int iChatScreenPosition;
+
+	bool bEnableQuickChat;
+	std::string sQuickChat0;
+	std::string sQuickChat1;
+	std::string sQuickChat2;
+	std::string sQuickChat3;
+	std::string sQuickChat4;
 
 	int iPSPModel;
 	int iFirmwareVersion;

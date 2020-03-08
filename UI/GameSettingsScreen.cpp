@@ -669,6 +669,60 @@ void GameSettingsScreen::CreateViews() {
 	networkingSettings->Add(new ChoiceWithValueDisplay(&g_Config.sMACAddress, n->T("Change Mac Address"), (const char *)nullptr))->OnClick.Handle(this, &GameSettingsScreen::OnChangeMacAddress);
 	networkingSettings->Add(new PopupSliderChoice(&g_Config.iPortOffset, 0, 60000, n->T("Port offset", "Port offset(0 = PSP compatibility)"), 100, screenManager()));
 
+
+	networkingSettings->Add(new ItemHeader(ms->T("Chat")));
+	networkingSettings->Add(new CheckBox(&g_Config.bEnableNetworkChat, n->T("Enable network chat", "Enable network chat")));
+	static const char *chatButtonPositions[] = { "Bottom Left", "Bottom Center","Bottom Right","Top Left","Top Center", "Top Right","Center Left","Center Right" };
+	networkingSettings->Add(new PopupMultiChoice(&g_Config.iChatButtonPosition, n->T("Chat Button Position"), chatButtonPositions, 0, ARRAY_SIZE(chatButtonPositions), "Chat Button Position", screenManager()))->SetEnabledPtr(&g_Config.bEnableNetworkChat);
+	static const char *chatScreenPositions[] = { "Bottom Left", "Bottom Center","Bottom Right","Top Left","Top Center", "Top Right" };
+	networkingSettings->Add(new PopupMultiChoice(&g_Config.iChatScreenPosition, n->T("Chat Screen Position"), chatScreenPositions, 0, ARRAY_SIZE(chatScreenPositions), "Chat Screen Position", screenManager()))->SetEnabledPtr(&g_Config.bEnableNetworkChat);
+	networkingSettings->Add(new ItemHeader(co->T("QuickChat", "Quick Chat")));
+	networkingSettings->Add(new CheckBox(&g_Config.bEnableQuickChat, co->T("QuickChat", "Enable Quick Chat")));
+#if !defined(MOBILE_DEVICE) && !defined(USING_QT_UI)  // TODO: Add all platforms where KEY_CHAR support is added
+	PopupTextInputChoice *qc1 = networkingSettings->Add(new PopupTextInputChoice(&g_Config.sQuickChat0, sy->T("Quick Chat 1"), "", 32, screenManager()));
+	qc1->SetEnabledPtr(&g_Config.bEnableQuickChat);
+	PopupTextInputChoice *qc2 = networkingSettings->Add(new PopupTextInputChoice(&g_Config.sQuickChat1, sy->T("Quick Chat 2"), "", 32, screenManager()));
+	qc2->SetEnabledPtr(&g_Config.bEnableQuickChat);
+	PopupTextInputChoice *qc3 = networkingSettings->Add(new PopupTextInputChoice(&g_Config.sQuickChat2, sy->T("Quick Chat 3"), "", 32, screenManager()));
+	qc3->SetEnabledPtr(&g_Config.bEnableQuickChat);
+	PopupTextInputChoice *qc4 = networkingSettings->Add(new PopupTextInputChoice(&g_Config.sQuickChat3, sy->T("Quick Chat 4"), "", 32, screenManager()));
+	qc4->SetEnabledPtr(&g_Config.bEnableQuickChat);
+	PopupTextInputChoice *qc5 = networkingSettings->Add(new PopupTextInputChoice(&g_Config.sQuickChat4, sy->T("Quick Chat 5"), "", 32, screenManager()));
+	qc5->SetEnabledPtr(&g_Config.bEnableQuickChat);
+#elif defined(USING_QT_UI)
+	Choice *qc1 = networkingSettings->Add(new Choice(sy->T("Quick Chat 1")));
+	qc1->SetEnabledPtr(&g_Config.bEnableQuickChat);
+	qc1->OnClick.Handle(this, &GameSettingsScreen::OnChangeQuickChat0);
+	Choice *qc2 = networkingSettings->Add(new Choice(sy->T("Quick Chat 2")));
+	qc2->SetEnabledPtr(&g_Config.bEnableQuickChat);
+	qc2->OnClick.Handle(this, &GameSettingsScreen::OnChangeQuickChat1);
+	Choice *qc3 = networkingSettings->Add(new Choice(sy->T("Quick Chat 3")));
+	qc3->SetEnabledPtr(&g_Config.bEnableQuickChat);
+	qc3->OnClick.Handle(this, &GameSettingsScreen::OnChangeQuickChat2);
+	Choice *qc4 = networkingSettings->Add(new Choice(sy->T("Quick Chat 4")));
+	qc4->SetEnabledPtr(&g_Config.bEnableQuickChat);
+	qc4->OnClick.Handle(this, &GameSettingsScreen::OnChangeQuickChat3);
+	Choice *qc5 = networkingSettings->Add(new Choice(sy->T("Quick Chat 5")));
+	qc5->SetEnabledPtr(&g_Config.bEnableQuickChat);
+	qc5->OnClick.Handle(this, &GameSettingsScreen::OnChangeQuickChat4);
+#elif defined(__ANDROID__)
+	ChoiceWithValueDisplay *qc1 = networkingSettings->Add(new ChoiceWithValueDisplay(&g_Config.sQuickChat0, sy->T("Quick Chat 1"), (const char *)nullptr));
+	qc1->OnClick.Handle(this, &GameSettingsScreen::OnChangeQuickChat0);
+	qc1->SetEnabledPtr(&g_Config.bEnableQuickChat);
+	ChoiceWithValueDisplay *qc2 = networkingSettings->Add(new ChoiceWithValueDisplay(&g_Config.sQuickChat1, sy->T("Quick Chat 2"), (const char *)nullptr));
+	qc2->OnClick.Handle(this, &GameSettingsScreen::OnChangeQuickChat1);
+	qc2->SetEnabledPtr(&g_Config.bEnableQuickChat);
+	ChoiceWithValueDisplay *qc3 = networkingSettings->Add(new ChoiceWithValueDisplay(&g_Config.sQuickChat2, sy->T("Quick Chat 3"), (const char *)nullptr));
+	qc3->OnClick.Handle(this, &GameSettingsScreen::OnChangeQuickChat2);
+	qc3->SetEnabledPtr(&g_Config.bEnableQuickChat);
+	ChoiceWithValueDisplay *qc4 = networkingSettings->Add(new ChoiceWithValueDisplay(&g_Config.sQuickChat3, sy->T("Quick Chat 4"), (const char *)nullptr));
+	qc4->OnClick.Handle(this, &GameSettingsScreen::OnChangeQuickChat3);
+	qc4->SetEnabledPtr(&g_Config.bEnableQuickChat);
+	ChoiceWithValueDisplay *qc5 = networkingSettings->Add(new ChoiceWithValueDisplay(&g_Config.sQuickChat4, sy->T("Quick Chat 5"), (const char *)nullptr));
+	qc5->OnClick.Handle(this, &GameSettingsScreen::OnChangeQuickChat4);
+	qc5->SetEnabledPtr(&g_Config.bEnableQuickChat);
+#endif
+
 	ViewGroup *toolsScroll = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, FILL_PARENT));
 	toolsScroll->SetTag("GameSettingsTools");
 	LinearLayout *tools = new LinearLayout(ORIENT_VERTICAL);
@@ -1230,6 +1284,86 @@ UI::EventReturn GameSettingsScreen::OnAudioDevice(UI::EventParams &e) {
 		g_Config.sAudioDevice.clear();
 	}
 	System_SendMessage("audio_resetDevice", "");
+	return UI::EVENT_DONE;
+}
+
+UI::EventReturn GameSettingsScreen::OnChangeQuickChat0(UI::EventParams &e) {
+#if PPSSPP_PLATFORM(WINDOWS) || defined(USING_QT_UI)
+	const size_t chat_len = 64;
+
+	char chat[chat_len];
+	memset(chat, 0, sizeof(chat));
+
+	if (System_InputBoxGetString("Enter Quick Chat 1", g_Config.sQuickChat0.c_str(), chat, chat_len)) {
+		g_Config.sQuickChat0 = chat;
+	}
+#elif defined(__ANDROID__)
+	System_SendMessage("inputbox", ("quickchat0:" + g_Config.sQuickChat0).c_str());
+#endif
+	return UI::EVENT_DONE;
+}
+
+UI::EventReturn GameSettingsScreen::OnChangeQuickChat1(UI::EventParams &e) {
+#if PPSSPP_PLATFORM(WINDOWS) || defined(USING_QT_UI)
+	const size_t chat_len = 64;
+
+	char chat[chat_len];
+	memset(chat, 0, sizeof(chat));
+
+	if (System_InputBoxGetString("Enter Quick Chat 2", g_Config.sQuickChat1.c_str(), chat, chat_len)) {
+		g_Config.sQuickChat1 = chat;
+	}
+#elif defined(__ANDROID__)
+	System_SendMessage("inputbox", ("quickchat1:" + g_Config.sQuickChat1).c_str());
+#endif
+	return UI::EVENT_DONE;
+}
+
+UI::EventReturn GameSettingsScreen::OnChangeQuickChat2(UI::EventParams &e) {
+#if PPSSPP_PLATFORM(WINDOWS) || defined(USING_QT_UI)
+	const size_t chat_len = 64;
+
+	char chat[chat_len];
+	memset(chat, 0, sizeof(chat));
+
+	if (System_InputBoxGetString("Enter Quick Chat 3", g_Config.sQuickChat2.c_str(), chat, chat_len)) {
+		g_Config.sQuickChat2 = chat;
+	}
+#elif defined(__ANDROID__)
+	System_SendMessage("inputbox", ("quickchat2:" + g_Config.sQuickChat2).c_str());
+#endif
+	return UI::EVENT_DONE;
+}
+
+UI::EventReturn GameSettingsScreen::OnChangeQuickChat3(UI::EventParams &e) {
+#if PPSSPP_PLATFORM(WINDOWS) || defined(USING_QT_UI)
+	const size_t chat_len = 64;
+
+	char chat[chat_len];
+	memset(chat, 0, sizeof(chat));
+
+	if (System_InputBoxGetString("Enter Quick Chat 4", g_Config.sQuickChat3.c_str(), chat, chat_len)) {
+		g_Config.sQuickChat3 = chat;
+	}
+#elif defined(__ANDROID__)
+	System_SendMessage("inputbox", ("quickchat3:" + g_Config.sQuickChat3).c_str());
+#endif
+	return UI::EVENT_DONE;
+}
+
+UI::EventReturn GameSettingsScreen::OnChangeQuickChat4(UI::EventParams &e) {
+#if PPSSPP_PLATFORM(WINDOWS) || defined(USING_QT_UI)
+	const size_t chat_len = 64;
+
+	char chat[chat_len];
+	memset(chat, 0, sizeof(chat));
+
+	if (System_InputBoxGetString("Enter Quick Chat 5", g_Config.sQuickChat4.c_str(), chat, chat_len)) {
+		g_Config.sQuickChat4 = chat;
+	}
+#elif defined(__ANDROID__)
+	System_SendMessage("inputbox", ("quickchat4:" + g_Config.sQuickChat4).c_str());
+#endif
 	return UI::EVENT_DONE;
 }
 
