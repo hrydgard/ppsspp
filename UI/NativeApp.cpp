@@ -1174,7 +1174,7 @@ void HandleGlobalMessage(const std::string &msg, const std::string &value) {
 		// and I can't risk it before 1.9.0.
 		int gpuBackend = g_Config.iGPUBackend;
 		ILOG("Reloading config after storage permission grant.");
-		g_Config.Load();
+		g_Config.Reload();
 		PostLoadConfig();
 		g_Config.iGPUBackend = gpuBackend;
 	}
