@@ -20,7 +20,7 @@ void ChatMenu::CreatePopupContents(UI::ViewGroup *parent) {
 	LinearLayout *outer = new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT,400));
 	scroll_ = outer->Add(new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(1.0)));
 	LinearLayout *bottom = outer->Add(new LinearLayout(ORIENT_HORIZONTAL, new LayoutParams(FILL_PARENT, WRAP_CONTENT)));
-#if PPSSPP_PLATFORM(WINDOWS) || defined(USING_QT_UI)
+#if PPSSPP_PLATFORM(WINDOWS) || defined(USING_QT_UI) || defined(SDL)
 	chatEdit_ = bottom->Add(new TextEdit("", n->T("Chat Here"), new LinearLayoutParams(1.0)));
 #if defined(USING_WIN_UI)
 	//freeze  the ui when using ctrl + C hotkey need workaround
@@ -98,7 +98,7 @@ void ChatMenu::CreateViews() {
 		box_->Add(title);
 
 		CreatePopupContents(box_);
-#if PPSSPP_PLATFORM(WINDOWS) || defined(USING_QT_UI)
+#if PPSSPP_PLATFORM(WINDOWS) || defined(USING_QT_UI) || defined(SDL)
 		UI::EnableFocusMovement(true);
 		root_->SetDefaultFocusView(box_);
 		box_->SubviewFocused(chatEdit_);
@@ -120,7 +120,7 @@ void ChatMenu::dialogFinished(const Screen *dialog, DialogResult result) {
 }
 
 UI::EventReturn ChatMenu::OnSubmit(UI::EventParams &e) {
-#if PPSSPP_PLATFORM(WINDOWS) || defined(USING_QT_UI)
+#if PPSSPP_PLATFORM(WINDOWS) || defined(USING_QT_UI) || defined(SDL)
 	std::string chat = chatEdit_->GetText();
 	chatEdit_->SetText("");
 	chatEdit_->SetFocus();
