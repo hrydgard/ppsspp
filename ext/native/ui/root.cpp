@@ -14,7 +14,7 @@ extern bool focusForced;
 static View *focusedView;
 static bool focusMovementEnabled;
 bool focusForced;
-static std::mutex eventMutex_;  // needs recursivity!
+static std::mutex eventMutex_;
 
 struct DispatchQueueItem {
 	Event *e;
