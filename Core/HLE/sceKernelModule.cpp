@@ -1635,8 +1635,6 @@ void __KernelLoadReset() {
 		HLEShutdown();
 		Replacement_Init();
 		HLEInit();
-		assert(gpu);
-		gpu->Reinitialize();
 	}
 
 	__KernelModuleInit();
@@ -1836,6 +1834,9 @@ int sceKernelLoadExec(const char *filename, u32 paramPtr)
 		Core_UpdateState(CORE_ERROR);
 		return -1;
 	}
+	if (gpu) {
+		gpu->Reinitialize();
+	}
 	return 0;
 }
 
@@ -1920,6 +1921,9 @@ u32 sceKernelLoadModule(const char *name, u32 flags, u32 optionAddr) {
 			NOTICE_LOG_REPORT(LOADER, "Module %s is blacklisted or undecryptable - we try __KernelLoadExec", name);
 			// Name might get deleted.
 			const std::string safeName = name;
+			if (gpu) {
+				gpu->Reinitialize();
+			}
 			return __KernelLoadExec(safeName.c_str(), 0, &error_string);
 		} else {
 			hleLogError(LOADER, error, "failed to load");
