@@ -36,6 +36,8 @@
 #include "Core/System.h"
 #include "Core/Host.h"
 #include "Core/Reporting.h"
+#include "Core/ELF/PBPReader.h"
+#include "Core/ELF/ParamSFO.h"
 #include "Core/Util/GameManager.h"
 
 #include "UI/BackgroundAudio.h"
@@ -598,6 +600,27 @@ void GameBrowser::Draw(UIContext &dc) {
 	}
 }
 
+static bool IsValidPBP(const std::string &path) {
+	if (!File::Exists(path))
+		return false;
+
+	std::unique_ptr<FileLoader> loader(ConstructFileLoader(path));
+	PBPReader pbp(loader.get());
+	std::vector<u8> sfoData;
+	if (!pbp.GetSubFile(PBP_PARAM_SFO, &sfoData))
+		return false;
+
+	ParamSFOData sfo;
+	sfo.ReadSFO(sfoData);
+	if (sfo.GetValueString("DISC_ID").empty())
+		return false;
+
+	if (sfo.GetValueString("CATEGORY") == "ME")
+		return false;
+
+	return true;
+}
+
 void GameBrowser::Refresh() {
 	using namespace UI;
 
@@ -678,7 +701,7 @@ void GameBrowser::Refresh() {
 			bool isGame = !fileInfo[i].isDirectory;
 			bool isSaveData = false;
 			// Check if eboot directory
-			if (!isGame && path_.GetPath().size() >= 4 && File::Exists(path_.GetPath() + fileInfo[i].name + "/EBOOT.PBP"))
+			if (!isGame && path_.GetPath().size() >= 4 && IsValidPBP(path_.GetPath() + fileInfo[i].name + "/EBOOT.PBP"))
 				isGame = true;
 			else if (!isGame && File::Exists(path_.GetPath() + fileInfo[i].name + "/PSP_GAME/SYSDIR"))
 				isGame = true;
