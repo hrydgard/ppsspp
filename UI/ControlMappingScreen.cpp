@@ -26,6 +26,7 @@
 #include "i18n/i18n.h"
 #include "input/keycodes.h"
 #include "input/input_state.h"
+#include "ui/root.h"
 #include "ui/ui.h"
 #include "ui/ui_context.h"
 #include "ui/view.h"

@@ -455,6 +455,7 @@
     <ClInclude Include="..\..\ext\native\thread\prioritizedworkqueue.h" />
     <ClInclude Include="..\..\ext\native\thread\threadpool.h" />
     <ClInclude Include="..\..\ext\native\thread\threadutil.h" />
+    <ClInclude Include="..\..\ext\native\ui\root.h" />
     <ClInclude Include="..\..\ext\native\ui\screen.h" />
     <ClInclude Include="..\..\ext\native\ui\ui.h" />
     <ClInclude Include="..\..\ext\native\ui\ui_context.h" />
@@ -1608,6 +1609,7 @@
     <ClCompile Include="..\..\ext\native\thread\prioritizedworkqueue.cpp" />
     <ClCompile Include="..\..\ext\native\thread\threadpool.cpp" />
     <ClCompile Include="..\..\ext\native\thread\threadutil.cpp" />
+    <ClCompile Include="..\..\ext\native\ui\root.cpp" />
     <ClCompile Include="..\..\ext\native\ui\screen.cpp" />
     <ClCompile Include="..\..\ext\native\ui\ui.cpp" />
     <ClCompile Include="..\..\ext\native\ui\ui_context.cpp" />

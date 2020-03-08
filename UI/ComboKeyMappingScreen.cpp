@@ -31,7 +31,7 @@
 #include "ui/view.h"
 #include "ui/viewgroup.h"
 
-void Combo_keyScreen::CreateViews() {
+void ComboKeyScreen::CreateViews() {
 	using namespace UI;
 	auto co = GetI18NCategory("Controls");
 	root_ = new LinearLayout(ORIENT_VERTICAL);
@@ -51,7 +51,7 @@ void Combo_keyScreen::CreateViews() {
 		comboselect->AddChoice(comboKeyImages[i]);
 	}
 	comboselect->SetSelection(*mode);
-	comboselect->OnChoice.Handle(this, &Combo_keyScreen::onCombo);
+	comboselect->OnChoice.Handle(this, &ComboKeyScreen::onCombo);
 	leftColumn->Add(comboselect);
 	root__->Add(leftColumn);
 	rightScroll_ = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, FILL_PARENT, 1.0f));
@@ -175,7 +175,7 @@ static int arrayToInt(bool ary[16]) {
 	return value >> 1;
 }
 
-void Combo_keyScreen::onFinish(DialogResult result) {
+void ComboKeyScreen::onFinish(DialogResult result) {
 	switch (*mode) {
 	case 0:
 		g_Config.iCombokey0 = arrayToInt(array);
@@ -193,17 +193,17 @@ void Combo_keyScreen::onFinish(DialogResult result) {
 		g_Config.iCombokey4 = arrayToInt(array);
 		break;
 	}
-	g_Config.Save("Combo_keyScreen::onFInish");
+	g_Config.Save("ComboKeyScreen::onFInish");
 }
 
-UI::EventReturn Combo_keyScreen::ChoiceEventHandler::onChoiceClick(UI::EventParams &e){
+UI::EventReturn ComboKeyScreen::ChoiceEventHandler::onChoiceClick(UI::EventParams &e){
 	checkbox_->Toggle();
 
 
 	return UI::EVENT_DONE;
 };
 
-UI::EventReturn Combo_keyScreen::onCombo(UI::EventParams &e) {
+UI::EventReturn ComboKeyScreen::onCombo(UI::EventParams &e) {
 	switch (*mode){
 	case 0:g_Config.iCombokey0 = arrayToInt(array);
 		break;
