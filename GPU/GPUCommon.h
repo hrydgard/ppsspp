@@ -365,7 +365,7 @@ private:
 	double timeSpentStepping_;
 
 #ifdef _WIN32
-	int lastVsync_;
+	int lastVsync_ = -1;
 #endif
 };
 

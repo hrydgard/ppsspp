@@ -479,7 +479,8 @@ void GPUCommon::UpdateVsyncInterval(bool force) {
 		// Disabled EXT_swap_control_tear for now, it never seems to settle at the correct timing
 		// so it just keeps tearing. Not what I hoped for... (gl_extensions.EXT_swap_control_tear)
 		// See http://developer.download.nvidia.com/opengl/specs/WGL_EXT_swap_control_tear.txt
-		gfxCtx_->SwapInterval(desiredVSyncInterval);
+		if (gfxCtx_)
+			gfxCtx_->SwapInterval(desiredVSyncInterval);
 		lastVsync_ = desiredVSyncInterval;
 	}
 #endif
