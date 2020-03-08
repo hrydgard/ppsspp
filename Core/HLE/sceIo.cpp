@@ -2732,6 +2732,7 @@ static int IoAsyncFinish(int id) {
 
 		default:
 			ERROR_LOG_REPORT(SCEIO, "Unknown async op %d", params.op);
+			us = 0;
 			break;
 		}
 

@@ -1114,6 +1114,12 @@ std::map<std::string, std::pair<std::string, int>> GetLangValuesMapping() {
 	return langValuesMapping;
 }
 
+void Config::Reload() {
+	reload_ = true;
+	Load();
+	reload_ = false;
+}
+
 void Config::Load(const char *iniFileName, const char *controllerIniFilename) {
 	const bool useIniFilename = iniFileName != nullptr && strlen(iniFileName) > 0;
 	iniFilename_ = FindConfigFile(useIniFilename ? iniFileName : "ppsspp.ini");
@@ -1489,7 +1495,8 @@ bool Config::hasGameConfig(const std::string &pGameId) {
 }
 
 void Config::changeGameSpecific(const std::string &pGameId, const std::string &title) {
-	Save("changeGameSpecific");
+	if (!reload_)
+		Save("changeGameSpecific");
 	gameId_ = pGameId;
 	gameIdTitle_ = title;
 	bGameSpecific = !pGameId.empty();
@@ -1568,7 +1575,7 @@ bool Config::loadGameConfig(const std::string &pGameId, const std::string &title
 }
 
 void Config::unloadGameConfig() {
-	if (bGameSpecific){
+	if (bGameSpecific) {
 		changeGameSpecific();
 
 		IniFile iniFile;

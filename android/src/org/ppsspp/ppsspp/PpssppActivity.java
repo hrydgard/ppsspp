@@ -88,6 +88,7 @@ public class PpssppActivity extends NativeActivity {
 				super.setShortcutParam(getIntent().getStringExtra(SHORTCUT_EXTRA_KEY));
 			} else {
 				Log.e(TAG, "Shortcut missing parameter!");
+				super.setShortcutParam("");
 			}
 		}
 		super.onCreate(savedInstanceState);

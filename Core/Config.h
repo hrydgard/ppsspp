@@ -452,6 +452,7 @@ public:
 
 	void Load(const char *iniFileName = nullptr, const char *controllerIniFilename = nullptr);
 	void Save(const char *saveReason);
+	void Reload();
 	void RestoreDefaults();
 
 	//per game config managment, should maybe be in it's own class
@@ -490,6 +491,7 @@ protected:
 	void LoadStandardControllerIni();
 
 private:
+	bool reload_ = false;
 	std::string gameId_;
 	std::string gameIdTitle_;
 	std::string iniFilename_;
