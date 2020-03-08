@@ -246,6 +246,65 @@ bool TouchEvent(const TouchInput &touch, ViewGroup *root) {
 }
 
 bool AxisEvent(const AxisInput &axis, ViewGroup *root) {
+	enum {
+		DIR_POS = 1,
+		DIR_NEG = 2,
+	};
+
+	static uint32_t x_state = 0;
+	static uint32_t y_state = 0;
+
+	const float THRESHOLD = 0.75;
+
+	// Cannot use the remapper since this is for the menu, so we provide our own
+	// axis->button emulation here.
+	auto GenerateKeyFromAxis = [&](uint32_t old, uint32_t cur, keycode_t neg_key, keycode_t pos_key) {
+		if (old == cur)
+			return;
+		if (old == DIR_POS) {
+			KeyEvent(KeyInput{ DEVICE_ID_KEYBOARD, pos_key, KEY_UP }, root);
+		} else if (old == DIR_NEG) {
+			KeyEvent(KeyInput{ DEVICE_ID_KEYBOARD, neg_key, KEY_UP }, root);
+		}
+		if (cur == DIR_POS) {
+			KeyEvent(KeyInput{ DEVICE_ID_KEYBOARD, pos_key, KEY_DOWN }, root);
+		} else if (cur == DIR_NEG) {
+			KeyEvent(KeyInput{ DEVICE_ID_KEYBOARD, neg_key, KEY_DOWN }, root);
+		}
+	};
+
+	switch (axis.deviceId) {
+	case DEVICE_ID_PAD_0:
+	case DEVICE_ID_PAD_1:
+	case DEVICE_ID_PAD_2:
+	case DEVICE_ID_PAD_3:
+	case DEVICE_ID_X360_0:
+	case DEVICE_ID_X360_1:
+	case DEVICE_ID_X360_2:
+	case DEVICE_ID_X360_3:
+	{
+		uint32_t dir = 0;
+		if (axis.axisId == JOYSTICK_AXIS_X) {
+			if (axis.value < -THRESHOLD)
+				dir = DIR_NEG;
+			else if (axis.value > THRESHOLD)
+				dir = DIR_POS;
+			GenerateKeyFromAxis(x_state, dir, NKCODE_DPAD_LEFT, NKCODE_DPAD_RIGHT);
+			x_state = dir;
+		}
+		if (axis.axisId == JOYSTICK_AXIS_Y) {
+			if (axis.value < -THRESHOLD)
+				dir = DIR_NEG;
+			else if (axis.value > THRESHOLD)
+				dir = DIR_POS;
+			// TODO: What do we do with devices that are reversed... ?
+			GenerateKeyFromAxis(y_state, dir, NKCODE_DPAD_DOWN, NKCODE_DPAD_UP);
+			y_state = dir;
+		}
+		break;
+	}
+	}
+
 	root->Axis(axis);
 	return true;
 }

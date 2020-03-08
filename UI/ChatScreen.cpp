@@ -25,8 +25,7 @@ void ChatMenu::CreatePopupContents(UI::ViewGroup *parent) {
 	chatEdit_ = bottom->Add(new TextEdit("", n->T("Chat Here"), new LinearLayoutParams(1.0)));
 #if defined(USING_WIN_UI)
 	//freeze  the ui when using ctrl + C hotkey need workaround
-	if (g_Config.bBypassOSKWithKeyboard && !g_Config.bFullScreen)
-	{
+	if (g_Config.bBypassOSKWithKeyboard && !g_Config.bFullScreen) {
 		std::wstring titleText = ConvertUTF8ToWString(n->T("Chat"));
 		std::wstring defaultText = ConvertUTF8ToWString(n->T("Chat Here"));
 		std::wstring inputChars;
