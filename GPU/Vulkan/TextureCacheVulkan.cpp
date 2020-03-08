@@ -38,19 +38,14 @@
 
 #include "GPU/ge_constants.h"
 #include "GPU/GPUState.h"
+#include "GPU/Common/TextureCacheCommon.h"
+#include "GPU/Common/TextureDecoder.h"
 #include "GPU/Vulkan/TextureCacheVulkan.h"
 #include "GPU/Vulkan/FramebufferVulkan.h"
 #include "GPU/Vulkan/FragmentShaderGeneratorVulkan.h"
 #include "GPU/Vulkan/DepalettizeShaderVulkan.h"
 #include "GPU/Vulkan/ShaderManagerVulkan.h"
 #include "GPU/Vulkan/DrawEngineVulkan.h"
-#include "GPU/Common/TextureDecoder.h"
-
-#ifdef _M_SSE
-#include <emmintrin.h>
-#endif
-
-#define TEXCACHE_MAX_TEXELS_SCALED (256*256)  // Per frame
 
 #define TEXCACHE_MIN_SLAB_SIZE (8 * 1024 * 1024)
 #define TEXCACHE_MAX_SLAB_SIZE (32 * 1024 * 1024)
@@ -1356,7 +1351,9 @@ void TextureCacheVulkan::LoadTextureLevel(TexCacheEntry &entry, uint8_t *writePt
 
 		if (scaleFactor > 1) {
 			u32 fmt = dstFmt;
-			scaler.ScaleAlways((u32 *)writePtr, pixelData, fmt, w, h, scaleFactor);
+			// CPU scaling reads from the destination buffer so we want cached RAM.
+			uint8_t *rearrange = (uint8_t *)AllocateAlignedMemory(w * scaleFactor * h * scaleFactor * 4, 16);
+			scaler.ScaleAlways((u32 *)rearrange, pixelData, fmt, w, h, scaleFactor);
 			pixelData = (u32 *)writePtr;
 			dstFmt = (VkFormat)fmt;
 
@@ -1366,13 +1363,14 @@ void TextureCacheVulkan::LoadTextureLevel(TexCacheEntry &entry, uint8_t *writePt
 			decPitch = w * bpp;
 
 			if (decPitch != rowPitch) {
-				// Rearrange in place to match the requested pitch.
-				// (it can only be larger than w * bpp, and a match is likely.)
-				for (int y = h - 1; y >= 0; --y) {
-					memcpy(writePtr + rowPitch * y, writePtr + decPitch * y, w * bpp);
+				for (int y = 0; y < h; ++y) {
+					memcpy(writePtr + rowPitch * y, rearrange + decPitch * y, w * bpp);
 				}
 				decPitch = rowPitch;
+			} else {
+				memcpy(writePtr, rearrange, w * h * 4);
 			}
+			FreeAlignedMemory(rearrange);
 		}
 	}
 }
