@@ -50,7 +50,7 @@ static SYSTEM_INFO sys_info;
 #endif
 
 #define MEM_PAGE_MASK ((MEM_PAGE_SIZE)-1)
-#define round_page(x) ((((uintptr_t)(x)) + MEM_PAGE_MASK) & ~(MEM_PAGE_MASK))
+#define ppsspp_round_page(x) ((((uintptr_t)(x)) + MEM_PAGE_MASK) & ~(MEM_PAGE_MASK))
 
 #ifdef _WIN32
 // Win32 flags are odd...
@@ -127,7 +127,7 @@ void *AllocateExecutableMemory(size_t size) {
 		GetSystemInfo(&sys_info);
 #if defined(_M_X64)
 	if ((uintptr_t)&hint_location > 0xFFFFFFFFULL) {
-		size_t aligned_size = round_page(size);
+		size_t aligned_size = ppsspp_round_page(size);
 #if 1   // Turn off to hunt for RIP bugs on x86-64.
 		ptr = SearchForFreeMem(aligned_size);
 		if (!ptr) {
@@ -161,11 +161,11 @@ void *AllocateExecutableMemory(size_t size) {
 	// We use a dummy global variable to give us a good location to start from.
 	if (!map_hint) {
 		if ((uintptr_t) &hint_location > 0xFFFFFFFFULL)
-			map_hint = (char*)round_page(&hint_location) - 0x20000000; // 0.5gb lower than our approximate location
+			map_hint = (char*)ppsspp_round_page(&hint_location) - 0x20000000; // 0.5gb lower than our approximate location
 		else
 			map_hint = (char*)0x20000000; // 0.5GB mark in memory
 	} else if ((uintptr_t) map_hint > 0xFFFFFFFFULL) {
-		map_hint -= round_page(size); /* round down to the next page if we're in high memory */
+		map_hint -= ppsspp_round_page(size); /* round down to the next page if we're in high memory */
 	}
 #endif
 
@@ -191,7 +191,7 @@ void *AllocateExecutableMemory(size_t size) {
 #if defined(_M_X64) && !defined(_WIN32)
 	else if ((uintptr_t)map_hint <= 0xFFFFFFFF) {
 		// Round up if we're below 32-bit mark, probably allocating sequentially.
-		map_hint += round_page(size);
+		map_hint += ppsspp_round_page(size);
 
 		// If we moved ahead too far, skip backwards and recalculate.
 		// When we free, we keep moving forward and eventually move too far.
@@ -204,7 +204,7 @@ void *AllocateExecutableMemory(size_t size) {
 }
 
 void *AllocateMemoryPages(size_t size, uint32_t memProtFlags) {
-	size = round_page(size);
+	size = ppsspp_round_page(size);
 #ifdef _WIN32
 	if (sys_info.dwPageSize == 0)
 		GetSystemInfo(&sys_info);
