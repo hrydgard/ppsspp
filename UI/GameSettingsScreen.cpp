@@ -265,13 +265,6 @@ void GameSettingsScreen::CreateViews() {
 			softwareGPU->SetEnabled(false);
 	}
 
-	std::vector<std::string> cameraList = Camera::getDeviceList();
-	if (cameraList.size() >= 1) {
-		graphicsSettings->Add(new ItemHeader(gr->T("Camera")));
-		PopupMultiChoiceDynamic *cameraChoice = graphicsSettings->Add(new PopupMultiChoiceDynamic(&g_Config.sCameraDevice, gr->T("Camera Device"), cameraList, nullptr, screenManager()));
-		cameraChoice->OnChoice.Handle(this, &GameSettingsScreen::OnCameraDeviceChange);
-	}
-
 	graphicsSettings->Add(new ItemHeader(gr->T("Frame Rate Control")));
 	static const char *frameSkip[] = {"Off", "1", "2", "3", "4", "5", "6", "7", "8"};
 	graphicsSettings->Add(new PopupMultiChoice(&g_Config.iFrameSkip, gr->T("Frame Skipping"), frameSkip, 0, ARRAY_SIZE(frameSkip), gr->GetName(), screenManager()));
@@ -471,6 +464,13 @@ void GameSettingsScreen::CreateViews() {
 	PopupSliderChoice *cardboardYShift = graphicsSettings->Add(new PopupSliderChoice(&g_Config.iCardboardYShift, -100, 100, gr->T("Cardboard Screen Y Shift", "Y Shift (in % of the void)"), 1, screenManager(), gr->T("% of the void")));
 	cardboardYShift->SetDisabledPtr(&g_Config.bSoftwareRendering);
 #endif
+
+	std::vector<std::string> cameraList = Camera::getDeviceList();
+	if (cameraList.size() >= 1) {
+		graphicsSettings->Add(new ItemHeader(gr->T("Camera")));
+		PopupMultiChoiceDynamic *cameraChoice = graphicsSettings->Add(new PopupMultiChoiceDynamic(&g_Config.sCameraDevice, gr->T("Camera Device"), cameraList, nullptr, screenManager()));
+		cameraChoice->OnChoice.Handle(this, &GameSettingsScreen::OnCameraDeviceChange);
+	}
 
 	graphicsSettings->Add(new ItemHeader(gr->T("Hack Settings", "Hack Settings (these WILL cause glitches)")));
 
@@ -982,7 +982,32 @@ UI::EventReturn GameSettingsScreen::OnJitAffectingSetting(UI::EventParams &e) {
 
 UI::EventReturn GameSettingsScreen::OnChangeMemStickDir(UI::EventParams &e) {
 	auto sy = GetI18NCategory("System");
-	System_SendMessage("inputbox", (std::string(sy->T("Memory Stick Folder")) + ":" + g_Config.memStickDirectory).c_str());
+	System_InputBoxGetString(sy->T("Memory Stick Folder"), g_Config.memStickDirectory, [&](bool result, const std::string &value) {
+		auto sy = GetI18NCategory("System");
+		auto di = GetI18NCategory("Dialog");
+
+		if (result) {
+			std::string newPath = value;
+			size_t pos = newPath.find_last_not_of("/");
+			// Gotta have at least something but a /, and also needs to start with a /.
+			if (newPath.empty() || pos == newPath.npos || newPath[0] != '/') {
+				settingInfo_->Show(sy->T("ChangingMemstickPathInvalid", "That path couldn't be used to save Memory Stick files."), nullptr);
+				return;
+			}
+			if (pos != newPath.size() - 1) {
+				newPath = newPath.substr(0, pos + 1);
+			}
+
+			pendingMemstickFolder_ = newPath;
+			std::string promptMessage = sy->T("ChangingMemstickPath", "Save games, save states, and other data will not be copied to this folder.\n\nChange the Memory Stick folder?");
+			if (!File::Exists(newPath)) {
+				promptMessage = sy->T("ChangingMemstickPathNotExists", "That folder doesn't exist yet.\n\nSave games, save states, and other data will not be copied to this folder.\n\nCreate a new Memory Stick folder?");
+			}
+			// Add the path for clarity and proper confirmation.
+			promptMessage += "\n\n" + newPath + "/";
+			screenManager()->push(new PromptScreen(promptMessage, di->T("Yes"), di->T("No"), std::bind(&GameSettingsScreen::CallbackMemstickFolder, this, std::placeholders::_1)));
+		}
+	});
 	return UI::EVENT_DONE;
 }
 
@@ -1139,43 +1164,6 @@ void GameSettingsScreen::onFinish(DialogResult result) {
 	NativeMessageReceived("gpu_clearCache", "");
 }
 
-void GameSettingsScreen::sendMessage(const char *message, const char *value) {
-	UIDialogScreenWithGameBackground::sendMessage(message, value);
-
-	auto sy = GetI18NCategory("System");
-	auto di = GetI18NCategory("Dialog");
-
-	if (!strcmp(message, "inputbox_completed")) {
-		std::vector<std::string> inputboxValue;
-		SplitString(value, ':', inputboxValue);
-
-#if PPSSPP_PLATFORM(ANDROID)
-		if (inputboxValue.size() >= 2 && inputboxValue[0] == sy->T("Memory Stick Folder")) {
-			// Allow colons in the path.
-			std::string newPath = std::string(value).substr(inputboxValue[0].size() + 1);
-			size_t pos = newPath.find_last_not_of("/");
-			// Gotta have at least something but a /, and also needs to start with a /.
-			if (newPath.empty() || pos == newPath.npos || newPath[0] != '/') {
-				settingInfo_->Show(sy->T("ChangingMemstickPathInvalid", "That path couldn't be used to save Memory Stick files."), nullptr);
-				return;
-			}
-			if (pos != newPath.size() - 1) {
-				newPath = newPath.substr(0, pos + 1);
-			}
-
-			pendingMemstickFolder_ = newPath;
-			std::string promptMessage = sy->T("ChangingMemstickPath", "Save games, save states, and other data will not be copied to this folder.\n\nChange the Memory Stick folder?");
-			if (!File::Exists(newPath)) {
-				promptMessage = sy->T("ChangingMemstickPathNotExists", "That folder doesn't exist yet.\n\nSave games, save states, and other data will not be copied to this folder.\n\nCreate a new Memory Stick folder?");
-			}
-			// Add the path for clarity and proper confirmation.
-			promptMessage += "\n\n" + newPath + "/";
-			screenManager()->push(new PromptScreen(promptMessage, di->T("Yes"), di->T("No"), std::bind(&GameSettingsScreen::CallbackMemstickFolder, this, std::placeholders::_1)));
-		}
-#endif
-	}
-}
-
 #if PPSSPP_PLATFORM(ANDROID)
 void GameSettingsScreen::CallbackMemstickFolder(bool yes) {
 	auto sy = GetI18NCategory("System");
@@ -1289,98 +1277,73 @@ UI::EventReturn GameSettingsScreen::OnAudioDevice(UI::EventParams &e) {
 }
 
 UI::EventReturn GameSettingsScreen::OnChangeQuickChat0(UI::EventParams &e) {
-#if PPSSPP_PLATFORM(WINDOWS) || defined(USING_QT_UI)
-	const size_t chat_len = 64;
-
-	char chat[chat_len];
-	memset(chat, 0, sizeof(chat));
-
-	if (System_InputBoxGetString("Enter Quick Chat 1", g_Config.sQuickChat0.c_str(), chat, chat_len)) {
-		g_Config.sQuickChat0 = chat;
-	}
-#elif defined(__ANDROID__)
-	System_SendMessage("inputbox", ("quickchat0:" + g_Config.sQuickChat0).c_str());
+#if PPSSPP_PLATFORM(WINDOWS) || defined(USING_QT_UI) || defined(__ANDROID__)
+	auto n = GetI18NCategory("Networking");
+	System_InputBoxGetString(n->T("Enter Quick Chat 1"), g_Config.sQuickChat0, [](bool result, const std::string &value) {
+		if (result) {
+			g_Config.sQuickChat0 = value;
+		}
+	});
 #endif
 	return UI::EVENT_DONE;
 }
 
 UI::EventReturn GameSettingsScreen::OnChangeQuickChat1(UI::EventParams &e) {
-#if PPSSPP_PLATFORM(WINDOWS) || defined(USING_QT_UI)
-	const size_t chat_len = 64;
-
-	char chat[chat_len];
-	memset(chat, 0, sizeof(chat));
-
-	if (System_InputBoxGetString("Enter Quick Chat 2", g_Config.sQuickChat1.c_str(), chat, chat_len)) {
-		g_Config.sQuickChat1 = chat;
-	}
-#elif defined(__ANDROID__)
-	System_SendMessage("inputbox", ("quickchat1:" + g_Config.sQuickChat1).c_str());
+#if PPSSPP_PLATFORM(WINDOWS) || defined(USING_QT_UI) || defined(__ANDROID__)
+	auto n = GetI18NCategory("Networking");
+	System_InputBoxGetString(n->T("Enter Quick Chat 2"), g_Config.sQuickChat1, [](bool result, const std::string &value) {
+		if (result) {
+			g_Config.sQuickChat1 = value;
+		}
+	});
 #endif
 	return UI::EVENT_DONE;
 }
 
 UI::EventReturn GameSettingsScreen::OnChangeQuickChat2(UI::EventParams &e) {
-#if PPSSPP_PLATFORM(WINDOWS) || defined(USING_QT_UI)
-	const size_t chat_len = 64;
-
-	char chat[chat_len];
-	memset(chat, 0, sizeof(chat));
-
-	if (System_InputBoxGetString("Enter Quick Chat 3", g_Config.sQuickChat2.c_str(), chat, chat_len)) {
-		g_Config.sQuickChat2 = chat;
-	}
-#elif defined(__ANDROID__)
-	System_SendMessage("inputbox", ("quickchat2:" + g_Config.sQuickChat2).c_str());
+#if PPSSPP_PLATFORM(WINDOWS) || defined(USING_QT_UI) || defined(__ANDROID__)
+	auto n = GetI18NCategory("Networking");
+	System_InputBoxGetString(n->T("Enter Quick Chat 3"), g_Config.sQuickChat2, [](bool result, const std::string &value) {
+		if (result) {
+			g_Config.sQuickChat2 = value;
+		}
+	});
 #endif
 	return UI::EVENT_DONE;
 }
 
 UI::EventReturn GameSettingsScreen::OnChangeQuickChat3(UI::EventParams &e) {
-#if PPSSPP_PLATFORM(WINDOWS) || defined(USING_QT_UI)
-	const size_t chat_len = 64;
-
-	char chat[chat_len];
-	memset(chat, 0, sizeof(chat));
-
-	if (System_InputBoxGetString("Enter Quick Chat 4", g_Config.sQuickChat3.c_str(), chat, chat_len)) {
-		g_Config.sQuickChat3 = chat;
-	}
-#elif defined(__ANDROID__)
-	System_SendMessage("inputbox", ("quickchat3:" + g_Config.sQuickChat3).c_str());
+#if PPSSPP_PLATFORM(WINDOWS) || defined(USING_QT_UI) || defined(__ANDROID__)
+	auto n = GetI18NCategory("Networking");
+	System_InputBoxGetString(n->T("Enter Quick Chat 4"), g_Config.sQuickChat3, [](bool result, const std::string &value) {
+		if (result) {
+			g_Config.sQuickChat3 = value;
+		}
+	});
 #endif
 	return UI::EVENT_DONE;
 }
 
 UI::EventReturn GameSettingsScreen::OnChangeQuickChat4(UI::EventParams &e) {
-#if PPSSPP_PLATFORM(WINDOWS) || defined(USING_QT_UI)
-	const size_t chat_len = 64;
-
-	char chat[chat_len];
-	memset(chat, 0, sizeof(chat));
-
-	if (System_InputBoxGetString("Enter Quick Chat 5", g_Config.sQuickChat4.c_str(), chat, chat_len)) {
-		g_Config.sQuickChat4 = chat;
-	}
-#elif defined(__ANDROID__)
-	System_SendMessage("inputbox", ("quickchat4:" + g_Config.sQuickChat4).c_str());
+#if PPSSPP_PLATFORM(WINDOWS) || defined(USING_QT_UI) || defined(__ANDROID__)
+	auto n = GetI18NCategory("Networking");
+	System_InputBoxGetString(n->T("Enter Quick Chat 5"), g_Config.sQuickChat4, [](bool result, const std::string &value) {
+		if (result) {
+			g_Config.sQuickChat4 = value;
+		}
+	});
 #endif
 	return UI::EVENT_DONE;
 }
 
 UI::EventReturn GameSettingsScreen::OnChangeNickname(UI::EventParams &e) {
-#if PPSSPP_PLATFORM(WINDOWS) || defined(USING_QT_UI)
-	const size_t name_len = 256;
-
-	char name[name_len];
-	memset(name, 0, sizeof(name));
-
-	if (System_InputBoxGetString("Enter a new PSP nickname", g_Config.sNickName.c_str(), name, name_len)) {
-		g_Config.sNickName = StripSpaces(name);
-	}
-#elif defined(__ANDROID__)
-	// TODO: The return value is handled in NativeApp::inputbox_completed. This is horrific.
-	System_SendMessage("inputbox", ("nickname:" + g_Config.sNickName).c_str());
+#if PPSSPP_PLATFORM(WINDOWS) || defined(USING_QT_UI) || defined(__ANDROID__)
+	auto n = GetI18NCategory("Networking");
+	System_InputBoxGetString(n->T("Enter a new PSP nickname"), g_Config.sNickName, [](bool result, const std::string &value) {
+		if (result) {
+			g_Config.sNickName = StripSpaces(value);
+		}
+	});
 #endif
 	return UI::EVENT_DONE;
 }
@@ -1389,7 +1352,12 @@ UI::EventReturn GameSettingsScreen::OnChangeproAdhocServerAddress(UI::EventParam
 	auto sy = GetI18NCategory("System");
 
 #if defined(__ANDROID__)
-	System_SendMessage("inputbox", ("IP:" + g_Config.proAdhocServer).c_str());
+	auto n = GetI18NCategory("Networking");
+	System_InputBoxGetString(n->T("IP"), g_Config.proAdhocServer, [](bool result, const std::string &value) {
+		if (result) {
+			g_Config.proAdhocServer = value;
+		}
+	});
 #else
 	screenManager()->push(new HostnameSelectScreen(&g_Config.proAdhocServer, sy->T("proAdhocServer Address:")));
 #endif

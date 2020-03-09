@@ -123,6 +123,8 @@ static jmethodID postCommand;
 static jobject nativeActivity;
 static volatile bool exitRenderLoop;
 static bool renderLoopRunning;
+static int inputBoxSequence = 1;
+std::map<int, std::function<void(bool, const std::string &)>> inputBoxCallbacks;
 
 static float dp_xscale = 1.0f;
 static float dp_yscale = 1.0f;
@@ -572,6 +574,7 @@ extern "C" void Java_org_ppsspp_ppsspp_NativeApp_shutdown(JNIEnv *, jclass) {
 		ILOG("Not shutting down renderer - not initialized");
 	}
 
+	inputBoxCallbacks.clear();
 	NativeShutdown();
 	VFSShutdown();
 	while (frameCommands.size())
@@ -665,6 +668,33 @@ extern "C" void JNICALL Java_org_ppsspp_ppsspp_NativeApp_backbufferResize(JNIEnv
 	} else {
 		ILOG("NativeApp::backbufferResize: Size didn't change.");
 	}
+}
+
+void System_InputBoxGetString(const std::string &title, const std::string &defaultValue, std::function<void(bool, const std::string &)> cb) {
+	int seq = inputBoxSequence++;
+	inputBoxCallbacks[seq] = cb;
+
+	std::string serialized = StringFromFormat("%d:@:%s:@:%s", seq, title.c_str(), defaultValue.c_str());
+	System_SendMessage("inputbox", serialized.c_str());
+}
+
+extern "C" void JNICALL Java_org_ppsspp_ppsspp_NativeApp_sendInputBox(JNIEnv *env, jclass, jstring jseqID, jboolean result, jstring jvalue) {
+	std::string seqID = GetJavaString(env, jseqID);
+	std::string value = GetJavaString(env, jvalue);
+
+	int seq = 0;
+	if (!TryParse(seqID, &seq)) {
+		ELOG("Invalid inputbox seqID value: %s", seqID.c_str());
+		return;
+	}
+
+	auto entry = inputBoxCallbacks.find(seq);
+	if (entry == inputBoxCallbacks.end()) {
+		ELOG("Did not find inputbox callback for %s, shutdown?", seqID.c_str());
+		return;
+	}
+
+	NativeInputBoxReceived(entry->second, result, value);
 }
 
 void UpdateRunLoopAndroid(JNIEnv *env) {

@@ -26,13 +26,11 @@ void ChatMenu::CreatePopupContents(UI::ViewGroup *parent) {
 #if defined(USING_WIN_UI)
 	//freeze  the ui when using ctrl + C hotkey need workaround
 	if (g_Config.bBypassOSKWithKeyboard && !g_Config.bFullScreen) {
-		std::wstring titleText = ConvertUTF8ToWString(n->T("Chat"));
-		std::wstring defaultText = ConvertUTF8ToWString(n->T("Chat Here"));
-		std::wstring inputChars;
-		if (System_InputBoxGetWString(titleText.c_str(), defaultText, inputChars)) {
-			//chatEdit_->SetText(ConvertWStringToUTF8(inputChars));
-			sendChat(ConvertWStringToUTF8(inputChars));
-		}
+		System_InputBoxGetString(n->T("Chat"), n->T("Chat Here"), [](bool result, const std::string &value) {
+			if (result) {
+				sendChat(value);
+			}
+		});
 	}
 #endif
 	chatEdit_->OnEnter.Handle(this, &ChatMenu::OnSubmit);
@@ -123,7 +121,10 @@ UI::EventReturn ChatMenu::OnSubmit(UI::EventParams &e) {
 	chatEdit_->SetFocus();
 	sendChat(chat);
 #elif PPSSPP_PLATFORM(ANDROID)
-	System_SendMessage("inputbox", "Chat:");
+	auto n = GetI18NCategory("Networking");
+	System_InputBoxGetString(n->T("Chat"), "", [](bool result, const std::string &value) {
+		sendChat(value);
+	});
 #endif
 	return UI::EVENT_DONE;
 }

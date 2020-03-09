@@ -159,13 +159,19 @@ struct PendingMessage {
 	std::string value;
 };
 
+struct PendingInputBox {
+	std::function<void(bool, const std::string &)> cb;
+	bool result;
+	std::string value;
+};
+
 static std::mutex pendingMutex;
 static std::vector<PendingMessage> pendingMessages;
+static std::vector<PendingInputBox> pendingInputBoxes;
 static Draw::DrawContext *g_draw;
 static Draw::Pipeline *colorPipeline;
 static Draw::Pipeline *texColorPipeline;
 static UIContext *uiContext;
-static std::vector<std::string> inputboxValue;
 
 #ifdef _WIN32
 WindowsAudioBackend *winAudioBackend;
@@ -445,6 +451,7 @@ void NativeInit(int argc, const char *argv[], const char *savegame_dir, const ch
 	setlocale( LC_ALL, "C" );
 	std::string user_data_path = savegame_dir;
 	pendingMessages.clear();
+	pendingInputBoxes.clear();
 #ifdef IOS
 	user_data_path += "/";
 #endif
@@ -1094,42 +1101,6 @@ void HandleGlobalMessage(const std::string &msg, const std::string &value) {
 	if (msg == "inputDeviceConnected") {
 		KeyMap::NotifyPadConnected(value);
 	}
-	if (msg == "inputbox_completed") {
-		SplitString(value, ':', inputboxValue);
-		std::string setString = inputboxValue.size() > 1 ? inputboxValue[1] : "";
-		if (inputboxValue[0] == "IP")
-			g_Config.proAdhocServer = setString;
-		else if (inputboxValue[0] == "nickname")
-			g_Config.sNickName = setString;
-		else if (inputboxValue[0] == "remoteiso_subdir")
-			g_Config.sRemoteISOSubdir = setString;
-		else if (inputboxValue[0] == "remoteiso_server")
-			g_Config.sLastRemoteISOServer = setString;
-
-		if (inputboxValue[0] == "quickchat0")
-			g_Config.sQuickChat0 = setString;
-		if (inputboxValue[0] == "quickchat1")
-			g_Config.sQuickChat1 = setString;
-		if (inputboxValue[0] == "quickchat2")
-			g_Config.sQuickChat2 = setString;
-		if (inputboxValue[0] == "quickchat3")
-			g_Config.sQuickChat3 = setString;
-		if (inputboxValue[0] == "quickchat4")
-			g_Config.sQuickChat4 = setString;
-		if (inputboxValue[0] == "nickname")
-			g_Config.sNickName = setString;
-		if (inputboxValue[0] == "Chat") {
-			if (inputboxValue.size() > 2) 
-			{
-				std::string chatString = value;
-				chatString.erase(0, 5);
-				sendChat(chatString);
-			} else {
-				sendChat(setString);
-			}
-		}
-		inputboxValue.clear();
-	}
 	if (msg == "bgImage_updated") {
 		if (!value.empty()) {
 			std::string dest = GetSysDirectory(DIRECTORY_SYSTEM) + (endsWithNoCase(value, ".jpg") ? "background.jpg" : "background.png");
@@ -1184,15 +1155,21 @@ void NativeUpdate() {
 	PROFILE_END_FRAME();
 
 	std::vector<PendingMessage> toProcess;
+	std::vector<PendingInputBox> inputToProcess;
 	{
 		std::lock_guard<std::mutex> lock(pendingMutex);
 		toProcess = std::move(pendingMessages);
+		inputToProcess = std::move(pendingInputBoxes);
 		pendingMessages.clear();
+		pendingInputBoxes.clear();
 	}
 
-	for (size_t i = 0; i < toProcess.size(); i++) {
-		HandleGlobalMessage(toProcess[i].msg, toProcess[i].value);
-		screenManager->sendMessage(toProcess[i].msg.c_str(), toProcess[i].value.c_str());
+	for (const auto &item : toProcess) {
+		HandleGlobalMessage(item.msg, item.value);
+		screenManager->sendMessage(item.msg.c_str(), item.value.c_str());
+	}
+	for (const auto &item : inputToProcess) {
+		item.cb(item.result, item.value);
 	}
 
 	g_DownloadManager.Update();
@@ -1337,6 +1314,15 @@ void NativeMessageReceived(const char *message, const char *value) {
 	pendingMessage.msg = message;
 	pendingMessage.value = value;
 	pendingMessages.push_back(pendingMessage);
+}
+
+void NativeInputBoxReceived(std::function<void(bool, const std::string &)> cb, bool result, const std::string &value) {
+	std::lock_guard<std::mutex> lock(pendingMutex);
+	PendingInputBox pendingMessage;
+	pendingMessage.cb = cb;
+	pendingMessage.result = result;
+	pendingMessage.value = value;
+	pendingInputBoxes.push_back(pendingMessage);
 }
 
 void NativeResized() {
