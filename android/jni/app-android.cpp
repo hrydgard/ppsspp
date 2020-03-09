@@ -674,7 +674,7 @@ void System_InputBoxGetString(const std::string &title, const std::string &defau
 	int seq = inputBoxSequence++;
 	inputBoxCallbacks[seq] = cb;
 
-	std::string serialized = StringFromFormat("%d:%s:%s", seq, title.c_str(), defaultValue.c_str());
+	std::string serialized = StringFromFormat("%d:@:%s:@:%s", seq, title.c_str(), defaultValue.c_str());
 	System_SendMessage("inputbox", serialized.c_str());
 }
 

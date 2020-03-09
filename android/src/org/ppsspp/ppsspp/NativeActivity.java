@@ -1314,7 +1314,7 @@ public abstract class NativeActivity extends Activity implements SurfaceHolder.C
 			String seqID = "";
 			String title = "Input";
 			String defString = "";
-			String[] param = params.split(":", 3);
+			String[] param = params.split(":@:", 3);
 			seqID = param[0];
 			if (param.length > 1 && param[1].length() > 0)
 				title = param[1];
