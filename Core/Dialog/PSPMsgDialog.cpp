@@ -45,7 +45,7 @@ int PSPMsgDialog::Init(unsigned int paramAddr) {
 	// Ignore if already running
 	if (GetStatus() != SCE_UTILITY_STATUS_NONE) {
 		ERROR_LOG_REPORT(SCEUTILITY, "sceUtilityMsgDialogInitStart: invalid status");
-		return 0;
+		return SCE_ERROR_UTILITY_INVALID_STATUS;
 	}
 
 	messageDialogAddr = paramAddr;
