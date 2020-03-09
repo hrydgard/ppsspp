@@ -1541,11 +1541,9 @@ void GPUCommon::Execute_Prim(u32 op, u32 diff) {
 
 	// Discard AA lines as we can't do anything that makes sense with these anyway. The SW plugin might, though.
 	if (gstate.isAntiAliasEnabled()) {
-		// Discard AA lines in DOA
-		if (prim == GE_PRIM_LINE_STRIP)
-			return;
-		// Discard AA lines in Summon Night 5
-		if ((prim == GE_PRIM_LINES) && gstate.isSkinningEnabled())
+		// Heuristic derived from discussions in #6483 and #12588.
+		// Discard AA lines in Persona 3 Portable, DOA Paradise and Summon Night 5, while still keeping AA lines in Echochrome.
+		if ((prim == GE_PRIM_LINE_STRIP || prim == GE_PRIM_LINES) && gstate.getTextureFunction() == GE_TEXFUNC_REPLACE)
 			return;
 	}
 
