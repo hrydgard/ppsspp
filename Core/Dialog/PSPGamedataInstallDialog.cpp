@@ -211,7 +211,7 @@ void PSPGamedataInstallDialog::WriteSfoFile() {
 	size_t sfoSize;
 	sfoFile.WriteSFO(&sfoData,&sfoSize);
 
-	u32 handle = pspFileSystem.OpenFile(sfopath, (FileAccess)(FILEACCESS_WRITE | FILEACCESS_CREATE | FILEACCESS_TRUNCATE));
+	int handle = pspFileSystem.OpenFile(sfopath, (FileAccess)(FILEACCESS_WRITE | FILEACCESS_CREATE | FILEACCESS_TRUNCATE));
 	if (handle >= 0) {
 		pspFileSystem.WriteFile(handle, sfoData, sfoSize);
 		pspFileSystem.CloseFile(handle);
