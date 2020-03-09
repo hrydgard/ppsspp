@@ -265,13 +265,6 @@ void GameSettingsScreen::CreateViews() {
 			softwareGPU->SetEnabled(false);
 	}
 
-	std::vector<std::string> cameraList = Camera::getDeviceList();
-	if (cameraList.size() >= 1) {
-		graphicsSettings->Add(new ItemHeader(gr->T("Camera")));
-		PopupMultiChoiceDynamic *cameraChoice = graphicsSettings->Add(new PopupMultiChoiceDynamic(&g_Config.sCameraDevice, gr->T("Camera Device"), cameraList, nullptr, screenManager()));
-		cameraChoice->OnChoice.Handle(this, &GameSettingsScreen::OnCameraDeviceChange);
-	}
-
 	graphicsSettings->Add(new ItemHeader(gr->T("Frame Rate Control")));
 	static const char *frameSkip[] = {"Off", "1", "2", "3", "4", "5", "6", "7", "8"};
 	graphicsSettings->Add(new PopupMultiChoice(&g_Config.iFrameSkip, gr->T("Frame Skipping"), frameSkip, 0, ARRAY_SIZE(frameSkip), gr->GetName(), screenManager()));
@@ -471,6 +464,13 @@ void GameSettingsScreen::CreateViews() {
 	PopupSliderChoice *cardboardYShift = graphicsSettings->Add(new PopupSliderChoice(&g_Config.iCardboardYShift, -100, 100, gr->T("Cardboard Screen Y Shift", "Y Shift (in % of the void)"), 1, screenManager(), gr->T("% of the void")));
 	cardboardYShift->SetDisabledPtr(&g_Config.bSoftwareRendering);
 #endif
+
+	std::vector<std::string> cameraList = Camera::getDeviceList();
+	if (cameraList.size() >= 1) {
+		graphicsSettings->Add(new ItemHeader(gr->T("Camera")));
+		PopupMultiChoiceDynamic *cameraChoice = graphicsSettings->Add(new PopupMultiChoiceDynamic(&g_Config.sCameraDevice, gr->T("Camera Device"), cameraList, nullptr, screenManager()));
+		cameraChoice->OnChoice.Handle(this, &GameSettingsScreen::OnCameraDeviceChange);
+	}
 
 	graphicsSettings->Add(new ItemHeader(gr->T("Hack Settings", "Hack Settings (these WILL cause glitches)")));
 
