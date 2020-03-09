@@ -1,5 +1,6 @@
 #pragma once
 
+#include <functional>
 #include <string>
 #include <vector>
 
@@ -119,8 +120,7 @@ void OpenDirectory(const char *path);
 void LaunchBrowser(const char *url);
 void LaunchMarket(const char *url);
 void LaunchEmail(const char *email_address);
-bool System_InputBoxGetString(const char *title, const char *defaultValue, char *outValue, size_t outlength);
-bool System_InputBoxGetWString(const wchar_t *title, const std::wstring &defaultValue, std::wstring &outValue);
+void System_InputBoxGetString(const std::string &title, const std::string &defaultValue, std::function<void(bool, const std::string &)> cb);
 void System_SendMessage(const char *command, const char *parameter);
 PermissionStatus System_GetPermissionStatus(SystemPermission permission);
 void System_AskForPermission(SystemPermission permission);

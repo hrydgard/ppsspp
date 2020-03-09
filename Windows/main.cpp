@@ -18,6 +18,7 @@
 #include "stdafx.h"
 #include <algorithm>
 #include <cmath>
+#include <functional>
 
 #include "Common/CommonWindows.h"
 #include "Common/OSVersion.h"
@@ -337,23 +338,12 @@ void EnableCrashingOnCrashes() {
 	FreeLibrary(kernel32);
 }
 
-bool System_InputBoxGetString(const char *title, const char *defaultValue, char *outValue, size_t outLength)
-{
+void System_InputBoxGetString(const std::string &title, const std::string &defaultValue, std::function<void(bool, const std::string &)> cb) {
 	std::string out;
 	if (InputBox_GetString(MainWindow::GetHInstance(), MainWindow::GetHWND(), ConvertUTF8ToWString(title).c_str(), defaultValue, out)) {
-		strcpy(outValue, out.c_str());
-		return true;
+		cb(true, out);
 	} else {
-		return false;
-	}
-}
-
-bool System_InputBoxGetWString(const wchar_t *title, const std::wstring &defaultvalue, std::wstring &outvalue)
-{
-	if (InputBox_GetWString(MainWindow::GetHInstance(), MainWindow::GetHWND(), title, defaultvalue, outvalue)) {
-		return true;
-	} else {
-		return false;
+		cb(false, "");
 	}
 }
 

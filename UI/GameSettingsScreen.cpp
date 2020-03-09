@@ -1290,14 +1290,12 @@ UI::EventReturn GameSettingsScreen::OnAudioDevice(UI::EventParams &e) {
 
 UI::EventReturn GameSettingsScreen::OnChangeQuickChat0(UI::EventParams &e) {
 #if PPSSPP_PLATFORM(WINDOWS) || defined(USING_QT_UI)
-	const size_t chat_len = 64;
-
-	char chat[chat_len];
-	memset(chat, 0, sizeof(chat));
-
-	if (System_InputBoxGetString("Enter Quick Chat 1", g_Config.sQuickChat0.c_str(), chat, chat_len)) {
-		g_Config.sQuickChat0 = chat;
-	}
+	auto n = GetI18NCategory("Networking");
+	System_InputBoxGetString(n->T("Enter Quick Chat 1"), g_Config.sQuickChat0, [](bool result, const std::string &value) {
+		if (result) {
+			g_Config.sQuickChat0 = value;
+		}
+	});
 #elif defined(__ANDROID__)
 	System_SendMessage("inputbox", ("quickchat0:" + g_Config.sQuickChat0).c_str());
 #endif
@@ -1306,14 +1304,12 @@ UI::EventReturn GameSettingsScreen::OnChangeQuickChat0(UI::EventParams &e) {
 
 UI::EventReturn GameSettingsScreen::OnChangeQuickChat1(UI::EventParams &e) {
 #if PPSSPP_PLATFORM(WINDOWS) || defined(USING_QT_UI)
-	const size_t chat_len = 64;
-
-	char chat[chat_len];
-	memset(chat, 0, sizeof(chat));
-
-	if (System_InputBoxGetString("Enter Quick Chat 2", g_Config.sQuickChat1.c_str(), chat, chat_len)) {
-		g_Config.sQuickChat1 = chat;
-	}
+	auto n = GetI18NCategory("Networking");
+	System_InputBoxGetString(n->T("Enter Quick Chat 2"), g_Config.sQuickChat1, [](bool result, const std::string &value) {
+		if (result) {
+			g_Config.sQuickChat1 = value;
+		}
+	});
 #elif defined(__ANDROID__)
 	System_SendMessage("inputbox", ("quickchat1:" + g_Config.sQuickChat1).c_str());
 #endif
@@ -1322,14 +1318,12 @@ UI::EventReturn GameSettingsScreen::OnChangeQuickChat1(UI::EventParams &e) {
 
 UI::EventReturn GameSettingsScreen::OnChangeQuickChat2(UI::EventParams &e) {
 #if PPSSPP_PLATFORM(WINDOWS) || defined(USING_QT_UI)
-	const size_t chat_len = 64;
-
-	char chat[chat_len];
-	memset(chat, 0, sizeof(chat));
-
-	if (System_InputBoxGetString("Enter Quick Chat 3", g_Config.sQuickChat2.c_str(), chat, chat_len)) {
-		g_Config.sQuickChat2 = chat;
-	}
+	auto n = GetI18NCategory("Networking");
+	System_InputBoxGetString(n->T("Enter Quick Chat 3"), g_Config.sQuickChat2, [](bool result, const std::string &value) {
+		if (result) {
+			g_Config.sQuickChat2 = value;
+		}
+	});
 #elif defined(__ANDROID__)
 	System_SendMessage("inputbox", ("quickchat2:" + g_Config.sQuickChat2).c_str());
 #endif
@@ -1338,14 +1332,12 @@ UI::EventReturn GameSettingsScreen::OnChangeQuickChat2(UI::EventParams &e) {
 
 UI::EventReturn GameSettingsScreen::OnChangeQuickChat3(UI::EventParams &e) {
 #if PPSSPP_PLATFORM(WINDOWS) || defined(USING_QT_UI)
-	const size_t chat_len = 64;
-
-	char chat[chat_len];
-	memset(chat, 0, sizeof(chat));
-
-	if (System_InputBoxGetString("Enter Quick Chat 4", g_Config.sQuickChat3.c_str(), chat, chat_len)) {
-		g_Config.sQuickChat3 = chat;
-	}
+	auto n = GetI18NCategory("Networking");
+	System_InputBoxGetString(n->T("Enter Quick Chat 4"), g_Config.sQuickChat3, [](bool result, const std::string &value) {
+		if (result) {
+			g_Config.sQuickChat3 = value;
+		}
+	});
 #elif defined(__ANDROID__)
 	System_SendMessage("inputbox", ("quickchat3:" + g_Config.sQuickChat3).c_str());
 #endif
@@ -1354,14 +1346,12 @@ UI::EventReturn GameSettingsScreen::OnChangeQuickChat3(UI::EventParams &e) {
 
 UI::EventReturn GameSettingsScreen::OnChangeQuickChat4(UI::EventParams &e) {
 #if PPSSPP_PLATFORM(WINDOWS) || defined(USING_QT_UI)
-	const size_t chat_len = 64;
-
-	char chat[chat_len];
-	memset(chat, 0, sizeof(chat));
-
-	if (System_InputBoxGetString("Enter Quick Chat 5", g_Config.sQuickChat4.c_str(), chat, chat_len)) {
-		g_Config.sQuickChat4 = chat;
-	}
+	auto n = GetI18NCategory("Networking");
+	System_InputBoxGetString(n->T("Enter Quick Chat 5"), g_Config.sQuickChat4, [](bool result, const std::string &value) {
+		if (result) {
+			g_Config.sQuickChat4 = value;
+		}
+	});
 #elif defined(__ANDROID__)
 	System_SendMessage("inputbox", ("quickchat4:" + g_Config.sQuickChat4).c_str());
 #endif
@@ -1370,14 +1360,12 @@ UI::EventReturn GameSettingsScreen::OnChangeQuickChat4(UI::EventParams &e) {
 
 UI::EventReturn GameSettingsScreen::OnChangeNickname(UI::EventParams &e) {
 #if PPSSPP_PLATFORM(WINDOWS) || defined(USING_QT_UI)
-	const size_t name_len = 256;
-
-	char name[name_len];
-	memset(name, 0, sizeof(name));
-
-	if (System_InputBoxGetString("Enter a new PSP nickname", g_Config.sNickName.c_str(), name, name_len)) {
-		g_Config.sNickName = StripSpaces(name);
-	}
+	auto n = GetI18NCategory("Networking");
+	System_InputBoxGetString(n->T("Enter a new PSP nickname"), g_Config.sNickName, [](bool result, const std::string &value) {
+		if (result) {
+			g_Config.sNickName = StripSpaces(value);
+		}
+	});
 #elif defined(__ANDROID__)
 	// TODO: The return value is handled in NativeApp::inputbox_completed. This is horrific.
 	System_SendMessage("inputbox", ("nickname:" + g_Config.sNickName).c_str());

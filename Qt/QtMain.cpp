@@ -227,13 +227,13 @@ void System_SendMessage(const char *command, const char *parameter) {
 void System_AskForPermission(SystemPermission permission) {}
 PermissionStatus System_GetPermissionStatus(SystemPermission permission) { return PERMISSION_STATUS_GRANTED; }
 
-bool System_InputBoxGetString(const char *title, const char *defaultValue, char *outValue, size_t outLength)
-{
-	QString text = emugl->InputBoxGetQString(QString(title), QString(defaultValue));
-	if (text.isEmpty())
-		return false;
-	strcpy(outValue, text.toStdString().c_str());
-	return true;
+void System_InputBoxGetString(const std::string &title, const std::string &defaultValue, std::function<void(bool, const std::string &)> cb) {
+	QString text = emugl->InputBoxGetQString(QString::fromStdString(title), QString::fromStdString(defaultValue));
+	if (text.isEmpty()) {
+		cb(false, "");
+	} else {
+		cb(true, text.toStdString());
+	}
 }
 
 void Vibrate(int length_ms) {

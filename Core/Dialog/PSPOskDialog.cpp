@@ -15,9 +15,10 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
+#include <algorithm>
 #include "i18n/i18n.h"
 #include "math/math_util.h"
-#include <algorithm>
+#include "util/text/utf8.h"
 
 #include "Core/Dialog/PSPOskDialog.h"
 #include "Core/Util/PPGeDraw.h"
@@ -853,14 +854,19 @@ int PSPOskDialog::NativeKeyboard() {
 	if (defaultText.empty())
 		defaultText.assign(L"VALUE");
 
-	if (System_InputBoxGetWString(titleText.c_str(), defaultText, inputChars)) {
-		u32 maxLength = FieldMaxLength();
-		if (inputChars.length() > maxLength) {
-			ERROR_LOG(SCEUTILITY, "NativeKeyboard: input text too long(%d characters/glyphs max), truncating to game-requested length.", maxLength);
-			inputChars.erase(maxLength, std::string::npos);
+	// TODO: This is USING_WIN_UI only, so we rely on it being synchronous...
+	// But we should really have this set some state that is checked each time NativeKeyboard is called.
+	System_InputBoxGetString(ConvertWStringToUTF8(titleText), ConvertWStringToUTF8(defaultText), [&](bool result, const std::string &value) {
+		if (result) {
+			inputChars = ConvertUTF8ToWString(value);
+			u32 maxLength = FieldMaxLength();
+			if (inputChars.length() > maxLength) {
+				ERROR_LOG(SCEUTILITY, "NativeKeyboard: input text too long(%d characters/glyphs max), truncating to game-requested length.", maxLength);
+				inputChars.erase(maxLength, std::string::npos);
+			}
 		}
-	}
-	ChangeStatus(SCE_UTILITY_STATUS_FINISHED, 0);
+		ChangeStatus(SCE_UTILITY_STATUS_FINISHED, 0);
+	});
 	
 	u16_le *outText = oskParams->fields[0].outtext;
 
