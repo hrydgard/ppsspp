@@ -121,7 +121,10 @@ UI::EventReturn ChatMenu::OnSubmit(UI::EventParams &e) {
 	chatEdit_->SetFocus();
 	sendChat(chat);
 #elif PPSSPP_PLATFORM(ANDROID)
-	System_SendMessage("inputbox", "Chat:");
+	auto n = GetI18NCategory("Networking");
+	System_InputBoxGetString(n->T("Chat"), "", [](bool result, const std::string &value) {
+		sendChat(value);
+	});
 #endif
 	return UI::EVENT_DONE;
 }

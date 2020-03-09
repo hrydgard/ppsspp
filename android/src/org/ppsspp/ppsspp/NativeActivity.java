@@ -1169,8 +1169,8 @@ public abstract class NativeActivity extends Activity implements SurfaceHolder.C
 		return bld;
 	}
 
-	// The return value is sent elsewhere. TODO in java, in SendMessage in C++.
-	public void inputBox(final String title, String defaultText, String defaultAction) {
+	// The return value is sent to C++ via seqID.
+	public void inputBox(final String seqID, final String title, String defaultText, String defaultAction) {
 		final FrameLayout fl = new FrameLayout(this);
 		final EditText input = new EditText(this);
 		input.setGravity(Gravity.CENTER);
@@ -1202,14 +1202,14 @@ public abstract class NativeActivity extends Activity implements SurfaceHolder.C
 			.setPositiveButton(defaultAction, new DialogInterface.OnClickListener() {
 				@Override
 				public void onClick(DialogInterface d, int which) {
-					NativeApp.sendMessage("inputbox_completed", title + ":" + input.getText().toString());
+					NativeApp.sendInputBox(seqID, true, input.getText().toString());
 					d.dismiss();
 				}
 			})
 			.setNegativeButton("Cancel", new DialogInterface.OnClickListener() {
 				@Override
 				public void onClick(DialogInterface d, int which) {
-					NativeApp.sendMessage("inputbox_failed", "");
+					NativeApp.sendInputBox(seqID, false, "");
 					d.cancel();
 				}
 			})
@@ -1311,15 +1311,17 @@ public abstract class NativeActivity extends Activity implements SurfaceHolder.C
 			inputMethodManager.toggleSoftInputFromWindow(surfView.getApplicationWindowToken(), InputMethodManager.SHOW_FORCED, 0);
 			return true;
 		} else if (command.equals("inputbox")) {
+			String seqID = "";
 			String title = "Input";
 			String defString = "";
-			String[] param = params.split(":");
-			if (param[0].length() > 0)
-				title = param[0];
-			if (param.length > 1)
-				defString = param[1];
-			Log.i(TAG, "Launching inputbox: " + title + " " + defString);
-			inputBox(title, defString, "OK");
+			String[] param = params.split(":", 3);
+			seqID = param[0];
+			if (param.length > 1 && param[1].length() > 0)
+				title = param[1];
+			if (param.length > 2)
+				defString = param[2];
+			Log.i(TAG, "Launching inputbox: #" + seqID + " " + title + " " + defString);
+			inputBox(seqID, title, defString, "OK");
 			return true;
 		} else if (command.equals("vibrate")) {
 			int milliseconds = -1;

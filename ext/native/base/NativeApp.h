@@ -35,6 +35,9 @@ void NativeGetAppInfo(std::string *app_dir_name, std::string *app_nice_name, boo
 // Generic host->C++ messaging, used for functionality like system-native popup input boxes.
 void NativeMessageReceived(const char *message, const char *value);
 
+// This is used to communicate back and thread requested input box strings.
+void NativeInputBoxReceived(std::function<void(bool, const std::string &)> cb, bool result, const std::string &value);
+
 // Easy way for the Java side to ask the C++ side for configuration options, such as
 // the rotation lock which must be controlled from Java on Android.
 // It is currently not called on non-Android platforms.

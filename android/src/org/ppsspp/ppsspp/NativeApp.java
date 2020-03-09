@@ -48,6 +48,7 @@ public class NativeApp {
 	public static native boolean accelerometer(float x, float y, float z);
 
 	public static native void sendMessage(String msg, String arg);
+	public static native void sendInputBox(String seqID, boolean result, String value);
 
 	public static native String queryConfig(String queryName);
 
