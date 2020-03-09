@@ -658,7 +658,7 @@ std::wstring PSPOskDialog::CombinationString(bool isInput)
 				string += inputChars[i];
 			}
 
-			if (string.size() <= FieldMaxLength())
+			if (string.size() < FieldMaxLength())
 			{
 				string += oskKeys[currentKeyboard][selectedRow][selectedCol];
 			}
@@ -870,7 +870,7 @@ int PSPOskDialog::NativeKeyboard() {
 	// Only write the bytes of the output and the null terminator, don't write the rest.
 	for (size_t i = 0; i < end; ++i) {
 		u16 value = 0;
-		if (i < FieldMaxLength())
+		if (i < FieldMaxLength() && i < inputChars.size())
 			value = inputChars[i];
 		outText[i] = value;
 	}
@@ -1070,7 +1070,7 @@ int PSPOskDialog::Update(int animSpeed) {
 	for (size_t i = 0; i < end; ++i)
 	{
 		u16 value = 0;
-		if (i < inputChars.size())
+		if (i < FieldMaxLength() && i < inputChars.size())
 			value = inputChars[i];
 		outText[i] = value;
 	}
