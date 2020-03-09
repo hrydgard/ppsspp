@@ -237,7 +237,7 @@ public:
 		return mediaengine->IsVideoEnd() && (mediaengine->IsNoAudioData() || !mediaengine->IsActuallyPlayingAudio());
 	}
 
-	u32 filehandle;
+	int filehandle;
 	u32 fileoffset;
 	int readSize;
 	int streamSize;
