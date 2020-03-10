@@ -16,6 +16,7 @@
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
 #include <algorithm>
+#include "base/NativeApp.h"
 #include "i18n/i18n.h"
 #include "math/math_util.h"
 #include "util/text/utf8.h"
@@ -29,10 +30,6 @@
 #include "Core/Reporting.h"
 #include "Common/ChunkFile.h"
 #include "GPU/GPUState.h"
-
-#if defined(USING_WIN_UI)
-#include "base/NativeApp.h"
-#endif
 
 #ifndef _WIN32
 #include <ctype.h>
@@ -331,6 +328,9 @@ int PSPOskDialog::Init(u32 oskPtr) {
 
 	// Eat any keys pressed before the dialog inited.
 	UpdateButtons();
+
+	std::lock_guard<std::mutex> guard(nativeMutex_);
+	nativeStatus_ = PSPOskNativeStatus::IDLE;
 
 	StartFade(true);
 	return 0;
@@ -837,7 +837,6 @@ void PSPOskDialog::RenderKeyboard()
 	}
 }
 
-#if defined(USING_WIN_UI)
 // TODO: Why does this have a 2 button press lag/delay when
 // re-opening the dialog box? I don't get it.
 int PSPOskDialog::NativeKeyboard() {
@@ -845,28 +844,51 @@ int PSPOskDialog::NativeKeyboard() {
 		return SCE_ERROR_UTILITY_INVALID_STATUS;
 	}
 
-	std::wstring titleText;
-	GetWideStringFromPSPPointer(titleText, oskParams->fields[0].desc);
+#if defined(USING_WIN_UI) || defined(USING_QT_UI) || PPSSPP_PLATFORM(ANDROID)
+	bool beginInputBox = false;
+	if (nativeStatus_ == PSPOskNativeStatus::IDLE) {
+		std::lock_guard<std::mutex> guard(nativeMutex_);
+		if (nativeStatus_ == PSPOskNativeStatus::IDLE) {
+			nativeStatus_ = PSPOskNativeStatus::WAITING;
+			beginInputBox = true;
+		}
+	}
 
-	std::wstring defaultText;
-	GetWideStringFromPSPPointer(defaultText, oskParams->fields[0].intext);
+	if (beginInputBox) {
+		std::wstring titleText;
+		GetWideStringFromPSPPointer(titleText, oskParams->fields[0].desc);
 
-	if (defaultText.empty())
-		defaultText.assign(L"VALUE");
+		std::wstring defaultText;
+		GetWideStringFromPSPPointer(defaultText, oskParams->fields[0].intext);
 
-	// TODO: This is USING_WIN_UI only, so we rely on it being synchronous...
-	// But we should really have this set some state that is checked each time NativeKeyboard is called.
-	System_InputBoxGetString(ConvertWStringToUTF8(titleText), ConvertWStringToUTF8(defaultText), [&](bool result, const std::string &value) {
-		if (result) {
-			inputChars = ConvertUTF8ToWString(value);
-			u32 maxLength = FieldMaxLength();
-			if (inputChars.length() > maxLength) {
-				ERROR_LOG(SCEUTILITY, "NativeKeyboard: input text too long(%d characters/glyphs max), truncating to game-requested length.", maxLength);
-				inputChars.erase(maxLength, std::string::npos);
+		if (defaultText.empty())
+			defaultText.assign(L"VALUE");
+
+		System_InputBoxGetString(ConvertWStringToUTF8(titleText), ConvertWStringToUTF8(defaultText), [&](bool result, const std::string &value) {
+			std::lock_guard<std::mutex> guard(nativeMutex_);
+			if (nativeStatus_ != PSPOskNativeStatus::WAITING) {
+				return;
 			}
+
+			nativeValue_ = value;
+			nativeStatus_ = result ? PSPOskNativeStatus::SUCCESS : PSPOskNativeStatus::FAILURE;
+		});
+	} else if (nativeStatus_ == PSPOskNativeStatus::SUCCESS) {
+		inputChars = ConvertUTF8ToWString(nativeValue_);
+		nativeValue_.clear();
+
+		u32 maxLength = FieldMaxLength();
+		if (inputChars.length() > maxLength) {
+			ERROR_LOG(SCEUTILITY, "NativeKeyboard: input text too long(%d characters/glyphs max), truncating to game-requested length.", maxLength);
+			inputChars.erase(maxLength, std::string::npos);
 		}
 		ChangeStatus(SCE_UTILITY_STATUS_FINISHED, 0);
-	});
+		nativeStatus_ = PSPOskNativeStatus::DONE;
+	} else if (nativeStatus_ == PSPOskNativeStatus::FAILURE) {
+		ChangeStatus(SCE_UTILITY_STATUS_FINISHED, 0);
+		nativeStatus_ = PSPOskNativeStatus::DONE;
+	}
+#endif
 	
 	u16_le *outText = oskParams->fields[0].outtext;
 
@@ -886,7 +908,6 @@ int PSPOskDialog::NativeKeyboard() {
 
 	return 0;
 }
-#endif
 
 int PSPOskDialog::Update(int animSpeed) {
 	if (GetStatus() != SCE_UTILITY_STATUS_RUNNING) {
@@ -908,12 +929,10 @@ int PSPOskDialog::Update(int animSpeed) {
 	int selectedRow = selectedChar / numKeyCols[currentKeyboard];
 	int selectedExtra = selectedChar % numKeyCols[currentKeyboard];
 
-	// TODO: Add your platforms here when you have a NativeKeyboard func.
-
-#if defined(USING_WIN_UI)
+#if defined(USING_WIN_UI) || defined(USING_QT_UI) || PPSSPP_PLATFORM(ANDROID)
 	// Windows: Fall back to the OSK/continue normally if we're in fullscreen.
 	// The dialog box doesn't work right if in fullscreen.
-	if(g_Config.bBypassOSKWithKeyboard && !g_Config.bFullScreen)
+	if (g_Config.bBypassOSKWithKeyboard && !g_Config.bFullScreen)
 		return NativeKeyboard();
 #endif
 
@@ -1095,6 +1114,7 @@ int PSPOskDialog::Shutdown(bool force)
 	if (!force) {
 		ChangeStatusShutdown(OSK_SHUTDOWN_DELAY_US);
 	}
+	nativeStatus_ = PSPOskNativeStatus::IDLE;
 
 	return 0;
 }
@@ -1113,6 +1133,7 @@ void PSPOskDialog::DoState(PointerWrap &p)
 	p.Do(oskOuttext);
 	p.Do(selectedChar);
 	p.Do(inputChars);
+	// Don't need to save state native status or value.
 }
 
 pspUtilityDialogCommon *PSPOskDialog::GetCommonParam()
