@@ -45,10 +45,6 @@ void __PPGeShutdown();
 void PPGeBegin();
 void PPGeEnd();
 
-// If you want to draw using this texture but not go through the PSP GE emulation,
-// jsut call this. Will bind the texture to unit 0.
-void PPGeBindTexture();
-
 enum {
 	PPGE_ALIGN_LEFT        = 0,
 	PPGE_ALIGN_RIGHT       = 16,
@@ -66,11 +62,6 @@ enum {
 };
 
 enum {
-	PPGE_ESCAPE_NONE,
-	PPGE_ESCAPE_BACKSLASHED,
-};
-
-enum {
 	PPGE_LINE_NONE         = 0,
 	PPGE_LINE_USE_ELLIPSIS = 1, // use ellipses in too long words
 	PPGE_LINE_WRAP_WORD    = 2,
@@ -80,19 +71,6 @@ enum {
 // Get the metrics of the bounding box of the text without changing the buffer or state.
 void PPGeMeasureText(float *w, float *h, int *n, 
 					const char *text, float scale, int WrapType = PPGE_LINE_NONE, int wrapWidth = 0);
-
-// Overwrite the current text lines buffer so it can be drawn later.
-void PPGePrepareText(const char *text, float x, float y, int align, float scale, float lineHeightScale,
-					int WrapType = PPGE_LINE_NONE, int wrapWidth = 0);
-
-// Get the metrics of the bounding box of the currently stated text.
-void PPGeMeasureCurrentText(float *x, float *y, float *w, float *h, int *n);
-
-// These functions must be called between PPGeBegin and PPGeEnd.
-
-// Draw currently buffered text using the state from PPGeGetTextBoundingBox() call.
-// Clears the buffer and state when done.
-void PPGeDrawCurrentText(u32 color = 0xFFFFFFFF);
 
 // Draws some text using the one font we have.
 // Clears the text buffer when done.
@@ -152,6 +130,5 @@ private:
 void PPGeDrawRect(float x1, float y1, float x2, float y2, u32 color);
 
 void PPGeSetDefaultTexture();
-void PPGeSetTexture(u32 dataAddr, int width, int height);
 void PPGeDisableTexture();
 

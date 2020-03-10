@@ -103,6 +103,21 @@ static AtlasCharLine char_one_line;
 static AtlasLineArray char_lines;
 static AtlasTextMetrics char_lines_metrics;
 
+// Overwrite the current text lines buffer so it can be drawn later.
+void PPGePrepareText(const char *text, float x, float y, int align, float scale, float lineHeightScale,
+	int WrapType = PPGE_LINE_NONE, int wrapWidth = 0);
+
+// Get the metrics of the bounding box of the currently stated text.
+void PPGeMeasureCurrentText(float *x, float *y, float *w, float *h, int *n);
+
+// These functions must be called between PPGeBegin and PPGeEnd.
+
+// Draw currently buffered text using the state from PPGeGetTextBoundingBox() call.
+// Clears the buffer and state when done.
+void PPGeDrawCurrentText(u32 color = 0xFFFFFFFF);
+
+void PPGeSetTexture(u32 dataAddr, int width, int height);
+
 //only 0xFFFFFF of data is used
 static void WriteCmd(u8 cmd, u32 data) {
 	Memory::Write_U32((cmd << 24) | (data & 0xFFFFFF), dlWritePtr);
