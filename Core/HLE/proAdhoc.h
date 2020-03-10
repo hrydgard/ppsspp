@@ -940,7 +940,7 @@ SceNetAdhocctlScanInfo * findGroup(SceNetEtherAddr * MAC);
 /*
 * Deletes all groups in networks
 */
-void freeGroupsRecursive(SceNetAdhocctlScanInfo * node);
+void freeGroupsRecursive(SceNetAdhocctlScanInfo *& node);
 
 /**
  * Closes & Deletes all PDP Sockets
@@ -962,9 +962,9 @@ void deleteFriendByIP(uint32_t ip);
  * Recursive Memory Freeing-Helper for Friend-Structures
  * @param node Current Node in List
  */
-void freeFriendsRecursive(SceNetAdhocctlPeerInfo * node, int32_t* count);
+void freeFriendsRecursive(SceNetAdhocctlPeerInfo *& node, int32_t* count);
 
-void timeoutFriendsRecursive(SceNetAdhocctlPeerInfo* node, int32_t* count);
+void timeoutFriendsRecursive(SceNetAdhocctlPeerInfo *& node, int32_t* count);
 
 /**
  * Friend Finder Thread (Receives Peer Information)
@@ -1094,7 +1094,7 @@ s32_le countChildren(SceNetAdhocMatchingContext * context, const bool excludeTim
 * @param context Matching Context Pointer
 * @param peer Internal Peer Reference
 */
-void deletePeer(SceNetAdhocMatchingContext * context, SceNetAdhocMatchingMemberInternal * peer);
+void deletePeer(SceNetAdhocMatchingContext * context, SceNetAdhocMatchingMemberInternal *& peer);
 
 /**
 * Find Peer in Context by MAC

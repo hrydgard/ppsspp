@@ -283,7 +283,7 @@ SceNetAdhocctlScanInfo * findGroup(SceNetEtherAddr * MAC) {
 	return group;
 }
 
-void freeGroupsRecursive(SceNetAdhocctlScanInfo * node) {
+void freeGroupsRecursive(SceNetAdhocctlScanInfo *& node) {
 	// End of List
 	if (node == NULL) return;
 
@@ -603,7 +603,7 @@ SceNetAdhocMatchingMemberInternal * findP2P(SceNetAdhocMatchingContext * context
 * @param context Matching Context Pointer
 * @param peer Internal Peer Reference
 */
-void deletePeer(SceNetAdhocMatchingContext * context, SceNetAdhocMatchingMemberInternal * peer)
+void deletePeer(SceNetAdhocMatchingContext * context, SceNetAdhocMatchingMemberInternal *& peer)
 {
 	// Valid Arguments
 	if (context != NULL && peer != NULL)
@@ -729,7 +729,8 @@ void sendGenericMessage(SceNetAdhocMatchingContext * context, int stack, SceNetE
 
 	peerlock.lock();
 	// Out of Memory Emergency Delete
-	deletePeer(context, findPeer(context, mac));
+	auto peer = findPeer(context, mac);
+	deletePeer(context, peer);
 	peerlock.unlock();
 }
 
@@ -924,7 +925,7 @@ void handleTimeout(SceNetAdhocMatchingContext * context)
 * Recursive Stack Cleaner
 * @param node Current Thread Message Node
 */
-void clearStackRecursive(ThreadMessage * node)
+void clearStackRecursive(ThreadMessage *& node)
 {
 	// Not End of List
 	if (node != NULL) clearStackRecursive(node->next);
@@ -1094,7 +1095,7 @@ void notifyMatchingHandler(SceNetAdhocMatchingContext * context, ThreadMessage *
 	__UpdateMatchingHandler(argsNew);
 }
 
-void freeFriendsRecursive(SceNetAdhocctlPeerInfo * node, int32_t* count) {
+void freeFriendsRecursive(SceNetAdhocctlPeerInfo *& node, int32_t* count) {
 	// End of List
 	if (node == NULL) return;
 
@@ -1107,7 +1108,7 @@ void freeFriendsRecursive(SceNetAdhocctlPeerInfo * node, int32_t* count) {
 	if (count != NULL) (*count)++;
 }
 
-void timeoutFriendsRecursive(SceNetAdhocctlPeerInfo* node, int32_t* count) {
+void timeoutFriendsRecursive(SceNetAdhocctlPeerInfo *& node, int32_t* count) {
 	// End of List
 	if (node == NULL) return;
 
@@ -1389,41 +1390,30 @@ int friendFinder(){
 					// Multithreading Lock
 					peerlock.lock();
 
-					// Should only add non-existing group (or replace an existing group) to prevent Ford Street Racing from showing a strange game session list
-					SceNetAdhocctlScanInfo * group = findGroup(&packet->mac);
+					// Allocate Structure Data
+					SceNetAdhocctlScanInfo* group = (SceNetAdhocctlScanInfo*)malloc(sizeof(SceNetAdhocctlScanInfo));
 
+					// Allocated Structure Data
 					if (group != NULL) {
+						// Clear Memory, should this be done only when allocating new group?
+						memset(group, 0, sizeof(SceNetAdhocctlScanInfo));
+
+						// Link to existing Groups
+						group->next = newnetworks;
+
 						// Copy Group Name
 						group->group_name = packet->group;
 
 						// Set Group Host
 						group->bssid.mac_addr = packet->mac;
-					} else {
-						// Allocate Structure Data
-						SceNetAdhocctlScanInfo * group = (SceNetAdhocctlScanInfo *)malloc(sizeof(SceNetAdhocctlScanInfo));
 
-						// Allocated Structure Data
-						if (group != NULL) {
-							// Clear Memory, should this be done only when allocating new group?
-							memset(group, 0, sizeof(SceNetAdhocctlScanInfo));
+						// Set group parameters
+						// Since 0 is not a valid active channel we fake the channel for Automatic Channel (JPCSP use 11 as default). Ridge Racer 2 will ignore any groups with channel 0 or that doesn't matched with channel value returned from sceUtilityGetSystemParamInt (which mean sceUtilityGetSystemParamInt must not return channel 0 when connected to a network?)
+						group->channel = parameter.channel; //(parameter.channel == PSP_SYSTEMPARAM_ADHOC_CHANNEL_AUTOMATIC) ? defaultWlanChannel : parameter.channel;
+						group->mode = ADHOCCTL_MODE_ADHOC; //adhocctlCurrentMode;
 
-							// Link to existing Groups
-							group->next = newnetworks;
-
-							// Copy Group Name
-							group->group_name = packet->group;
-
-							// Set Group Host
-							group->bssid.mac_addr = packet->mac;
-
-							// Set group parameters
-							// Since 0 is not a valid active channel we fake the channel for Automatic Channel (JPCSP use 11 as default). Ridge Racer 2 will ignore any groups with channel 0 or that doesn't matched with channel value returned from sceUtilityGetSystemParamInt (which mean sceUtilityGetSystemParamInt must not return channel 0 when connected to a network?)
-							group->channel = parameter.channel; //(parameter.channel == PSP_SYSTEMPARAM_ADHOC_CHANNEL_AUTOMATIC) ? defaultWlanChannel : parameter.channel;
-							group->mode = ADHOCCTL_MODE_ADHOC; //adhocctlCurrentMode;
-
-							// Link into Group List
-							newnetworks = group;
-						}
+						// Link into Group List
+						newnetworks = group;
 					}
 
 					// Multithreading Unlock
@@ -1443,10 +1433,12 @@ int friendFinder(){
 				// Log Scan Completion
 				INFO_LOG(SCENET, "FriendFinder: Incoming Scan complete response...");
 
-				// Reset current networks to prevent leaving host to be listed again
+				// Reset current networks to prevent disbanded host to be listed again
 				peerlock.lock();
-				freeGroupsRecursive(networks);
-				networks = newnetworks;
+				if (networks != newnetworks) {
+					freeGroupsRecursive(networks);
+					networks = newnetworks;
+				}
 				newnetworks = NULL;
 				peerlock.unlock();
 
