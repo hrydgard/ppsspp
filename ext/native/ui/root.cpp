@@ -1,6 +1,7 @@
 #include <mutex>
 #include <deque>
 
+#include "ppsspp_config.h"
 #include "base/timeutil.h"
 #include "ui/root.h"
 #include "ui/viewgroup.h"
@@ -297,8 +298,14 @@ bool AxisEvent(const AxisInput &axis, ViewGroup *root) {
 				dir = DIR_NEG;
 			else if (axis.value > THRESHOLD)
 				dir = DIR_POS;
-			// TODO: What do we do with devices that are reversed... ?
+			// We stupidly interpret the joystick Y axis backwards on Android instead of reversing
+			// it early (see keymaps...). Too late to fix without invalidating a lot of config files, so we
+			// reverse it here too.
+#if PPSSPP_PLATFORM(ANDROID)
+			GenerateKeyFromAxis(y_state, dir, NKCODE_DPAD_UP, NKCODE_DPAD_DOWN);
+#else
 			GenerateKeyFromAxis(y_state, dir, NKCODE_DPAD_DOWN, NKCODE_DPAD_UP);
+#endif
 			y_state = dir;
 		}
 		break;
