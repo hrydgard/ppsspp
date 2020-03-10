@@ -125,7 +125,15 @@ void TextDrawerQt::DrawStringBitmap(std::vector<uint8_t> &bitmapData, TextString
 				bitmapData16[entry.bmWidth * y + x] = 0xfff0 | (image.pixel(x, y) >> 28);
 			}
 		}
+	} else if (texFormat == Draw::DataFormat::R8_UNORM) {
+		bitmapData.resize(entry.bmWidth * entry.bmHeight);
+		for (int x = 0; x < entry.bmWidth; x++) {
+			for (int y = 0; y < entry.bmHeight; y++) {
+				bitmapData[entry.bmWidth * y + x] = image.pixel(x, y) >> 24;
+			}
+		}
 	} else {
+		ELOG("Bad TextDrawer format");
 		assert(false);
 	}
 }

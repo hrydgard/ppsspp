@@ -1,3 +1,4 @@
+#include <cassert>
 #include "base/display.h"
 #include "base/logging.h"
 #include "base/stringutil.h"
@@ -271,6 +272,17 @@ void TextDrawerWin32::DrawStringBitmap(std::vector<uint8_t> &bitmapData, TextStr
 				bitmapData16[entry.bmWidth * y + x] = (bAlpha << 12) | 0x0fff;
 			}
 		}
+	} else if (texFormat == Draw::DataFormat::R8_UNORM) {
+		bitmapData.resize(entry.bmWidth * entry.bmHeight);
+		for (int y = 0; y < entry.bmHeight; y++) {
+			for (int x = 0; x < entry.bmWidth; x++) {
+				uint8_t bAlpha = ctx_->pBitmapBits[MAX_TEXT_WIDTH * y + x] & 0xff;
+				bitmapData[entry.bmWidth * y + x] = bAlpha;
+			}
+		}
+	} else {
+		ELOG("Bad TextDrawer format");
+		assert(false);
 	}
 }
 

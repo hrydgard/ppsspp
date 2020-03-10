@@ -191,7 +191,6 @@ void TextDrawerAndroid::DrawStringBitmap(std::vector<uint8_t> &bitmapData, TextS
 	assert(env_->GetArrayLength(imageData) == imageWidth * imageHeight);
 	if (texFormat == Draw::DataFormat::B4G4R4A4_UNORM_PACK16 || texFormat == Draw::DataFormat::R4G4B4A4_UNORM_PACK16) {
 		bitmapData.resize(entry.bmWidth * entry.bmHeight * sizeof(uint16_t));
-
 		uint16_t *bitmapData16 = (uint16_t *)&bitmapData[0];
 		for (int x = 0; x < entry.bmWidth; x++) {
 			for (int y = 0; y < entry.bmHeight; y++) {
@@ -200,7 +199,17 @@ void TextDrawerAndroid::DrawStringBitmap(std::vector<uint8_t> &bitmapData, TextS
 				bitmapData16[entry.bmWidth * y + x] = (uint16_t)v;
 			}
 		}
+	} else if (texFormat == Draw::DataFormat::R8_UNORM) {
+		bitmapData.resize(entry.bmWidth * entry.bmHeight);
+		for (int x = 0; x < entry.bmWidth; x++) {
+			for (int y = 0; y < entry.bmHeight; y++) {
+				uint32_t v = jimage[imageWidth * y + x];
+				v = (v >> 12) & 0xF;  // Just grab some bits from the green channel.
+				bitmapData[entry.bmWidth * y + x] = (uint8_t)(v | (v << 4));
+			}
+		}
 	} else {
+		ELOG("Bad TextDrawer format");
 		assert(false);
 	}
 	env_->ReleaseIntArrayElements(imageData, jimage, 0);
