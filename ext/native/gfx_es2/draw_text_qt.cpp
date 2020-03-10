@@ -34,7 +34,7 @@ uint32_t TextDrawerQt::SetFont(const char *fontName, int size, int flags) {
 		return fontHash;
 	}
 
-	QFont* font = fontName ? new QFont(fontName) : new QFont();
+	QFont *font = fontName ? new QFont(fontName) : new QFont();
 	font->setPixelSize(size + 6);
 	fontMap_[fontHash] = font;
 	fontHash_ = fontHash;
@@ -42,15 +42,36 @@ uint32_t TextDrawerQt::SetFont(const char *fontName, int size, int flags) {
 }
 
 void TextDrawerQt::SetFont(uint32_t fontHandle) {
-
+	uint32_t fontHash = fontHandle;
+	auto iter = fontMap_.find(fontHash);
+	if (iter != fontMap_.end()) {
+		fontHash_ = fontHandle;
+	} else {
+		ELOG("Invalid font handle %08x", fontHandle);
+	}
 }
 
 void TextDrawerQt::MeasureString(const char *str, size_t len, float *w, float *h) {
-	QFont* font = fontMap_.find(fontHash_)->second;
-	QFontMetrics fm(*font);
-	QSize size = fm.size(0, QString::fromUtf8(str, (int)len));
-	*w = (float)size.width() * fontScaleX_;
-	*h = (float)size.height() * fontScaleY_;
+	CacheKey key{ std::string(str, len), fontHash_ };
+
+	TextMeasureEntry *entry;
+	auto iter = sizeCache_.find(key);
+	if (iter != sizeCache_.end()) {
+		entry = iter->second.get();
+	} else {
+		QFont* font = fontMap_.find(fontHash_)->second;
+		QFontMetrics fm(*font);
+		QSize size = fm.size(0, QString::fromUtf8(str, (int)len));
+
+		entry = new TextMeasureEntry();
+		entry->width = size.width();
+		entry->height = size.height();
+		sizeCache_[key] = std::unique_ptr<TextMeasureEntry>(entry);
+	}
+
+	entry->lastUsedFrame = frameCount_;
+	*w = entry->width * fontScaleX_ * dpiScale_;
+	*h = entry->height * fontScaleY_ * dpiScale_;
 }
 
 void TextDrawerQt::MeasureStringRect(const char *str, size_t len, const Bounds &bounds, float *w, float *h, int align) {
@@ -78,6 +99,7 @@ void TextDrawerQt::DrawStringBitmap(std::vector<uint8_t> &bitmapData, TextString
 	QSize size = fm.size(0, QString::fromUtf8(str));
 	QImage image((size.width() + 3) & ~3, (size.height() + 3) & ~3, QImage::Format_ARGB32_Premultiplied);
 	if (image.isNull()) {
+		bitmapData.clear();
 		return;
 	}
 	image.fill(0);
@@ -113,14 +135,12 @@ void TextDrawerQt::DrawString(DrawBuffer &target, const char *str, float x, floa
 	if (!strlen(str))
 		return;
 
-	uint32_t stringHash = hash::Adler32((const uint8_t *)str, strlen(str));
-	uint32_t entryHash = stringHash ^ fontHash_ ^ (align << 24);
-
+	CacheKey key{ std::string(str), fontHash_ };
 	target.Flush(true);
 
 	TextStringEntry *entry;
 
-	auto iter = cache_.find(entryHash);
+	auto iter = cache_.find(key);
 	if (iter != cache_.end()) {
 		entry = iter->second.get();
 		entry->lastUsedFrame = frameCount_;
@@ -142,15 +162,15 @@ void TextDrawerQt::DrawString(DrawBuffer &target, const char *str, float x, floa
 		desc.mipLevels = 1;
 		desc.tag = "TextDrawer";
 		entry->texture = draw_->CreateTexture(desc);
-		cache_[entryHash] = std::unique_ptr<TextStringEntry>(entry);
+		cache_[key] = std::unique_ptr<TextStringEntry>(entry);
 	}
 
 	if (entry->texture) {
 		draw_->BindTexture(0, entry->texture);
 	}
 
-	float w = entry->bmWidth * fontScaleX_;
-	float h = entry->bmHeight * fontScaleY_;
+	float w = entry->bmWidth * fontScaleX_ * dpiScale_;
+	float h = entry->bmHeight * fontScaleY_ * dpiScale_;
 	DrawBuffer::DoAlign(align, &x, &y, &w, &h);
 	if (entry->texture) {
 		target.DrawTexRect(x, y, x + w, y + h, 0.0f, 0.0f, 1.0f, 1.0f, color);
