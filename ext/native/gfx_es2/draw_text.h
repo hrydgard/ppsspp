@@ -64,6 +64,10 @@ public:
 	virtual void OncePerFrame() = 0;
 
 	float CalculateDPIScale();
+	void SetForcedDPIScale(float dpi) {
+		dpiScale_ = dpi;
+		ignoreGlobalDpi_ = true;
+	}
 
 	// Factory function that selects implementation.
 	static TextDrawer *Create(Draw::DrawContext *draw);
@@ -87,10 +91,11 @@ protected:
 		uint32_t fontHash;
 	};
 
-	int frameCount_;
-	float fontScaleX_;
-	float fontScaleY_;
-	float dpiScale_;
+	int frameCount_ = 0;
+	float fontScaleX_ = 1.0f;
+	float fontScaleY_ = 1.0f;
+	float dpiScale_ = 1.0f;
+	bool ignoreGlobalDpi_ = false;
 };
 
 
