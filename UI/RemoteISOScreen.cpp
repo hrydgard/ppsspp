@@ -15,9 +15,15 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
+#include "ppsspp_config.h"
 #include <algorithm>
 #include <thread>
 #include <mutex>
+
+#if PPSSPP_PLATFORM(WINDOWS) && !PPSSPP_PLATFORM(UWP)
+#include "Common/CommonWindows.h"
+#include <netfw.h>
+#endif
 
 #include "base/timeutil.h"
 #include "file/path.h"
@@ -40,6 +46,49 @@ static const int REPORT_PORT = 80;
 
 static bool scanCancelled = false;
 static bool scanAborted = false;
+
+enum class ServerAllowStatus {
+	NO,
+	YES,
+	UNKNOWN,
+};
+
+static ServerAllowStatus IsServerAllowed(int port) {
+#if PPSSPP_PLATFORM(WINDOWS) && !PPSSPP_PLATFORM(UWP)
+	INetFwMgr *fwMgr = nullptr;
+	HRESULT hr = CoCreateInstance(__uuidof(NetFwMgr), nullptr, CLSCTX_INPROC_SERVER, __uuidof(INetFwMgr), (void **)&fwMgr);
+	if (FAILED(hr)) {
+		return ServerAllowStatus::UNKNOWN;
+	}
+
+	std::wstring app;
+	size_t sz;
+	do {
+		app.resize(app.size() + MAX_PATH);
+		// On failure, this will return the same value as passed in, but success will always be one lower.
+		sz = GetModuleFileName(nullptr, &app[0], (DWORD)app.size());
+	} while (sz >= app.size());
+
+	VARIANT allowedV, restrictedV;
+	VariantInit(&allowedV);
+	VariantInit(&restrictedV);
+	hr = fwMgr->IsPortAllowed(&app[0], NET_FW_IP_VERSION_ANY, port, nullptr, NET_FW_IP_PROTOCOL_TCP, &allowedV, &restrictedV);
+	fwMgr->Release();
+
+	if (FAILED(hr)) {
+		return ServerAllowStatus::UNKNOWN;
+	}
+
+	bool allowed = allowedV.vt == VT_BOOL && allowedV.boolVal != VARIANT_FALSE;
+	bool restricted = restrictedV.vt == VT_BOOL && restrictedV.boolVal != VARIANT_FALSE;
+	if (!allowed || restricted) {
+		return ServerAllowStatus::NO;
+	}
+	return ServerAllowStatus::YES;
+#else
+	return ServerAllowStatus::UNKNOWN;
+#endif
+}
 
 static std::string RemoteSubdir() {
 	if (g_Config.bRemoteISOManual) {
@@ -203,11 +252,20 @@ static bool LoadGameList(const std::string &url, std::vector<std::string> &games
 	return !games.empty();
 }
 
-RemoteISOScreen::RemoteISOScreen() : serverRunning_(false), serverStopping_(false) {
+RemoteISOScreen::RemoteISOScreen() {
 }
 
 void RemoteISOScreen::update() {
 	UIScreenWithBackground::update();
+
+	if (!WebServerStopped(WebServerFlags::DISCS)) {
+		auto result = IsServerAllowed(g_Config.iRemoteISOPort);
+		if (result == ServerAllowStatus::NO) {
+			firewallWarning_->SetVisibility(V_VISIBLE);
+		} else if (result == ServerAllowStatus::YES) {
+			firewallWarning_->SetVisibility(V_GONE);
+		}
+	}
 
 	bool nowRunning = !WebServerStopped(WebServerFlags::DISCS);
 	if (serverStopping_ && !nowRunning) {
@@ -233,6 +291,9 @@ void RemoteISOScreen::CreateViews() {
 
 	leftColumnItems->Add(new TextView(ri->T("RemoteISODesc", "Games in your recent list will be shared"), new LinearLayoutParams(Margins(12, 5, 0, 5))));
 	leftColumnItems->Add(new TextView(ri->T("RemoteISOWifi", "Note: Connect both devices to the same wifi"), new LinearLayoutParams(Margins(12, 5, 0, 5))));
+	firewallWarning_ = leftColumnItems->Add(new TextView(ri->T("RemoteISOWinFirewall", "WARNING: Windows Firewall is blocking sharing"), new LinearLayoutParams(Margins(12, 5, 0, 5))));
+	firewallWarning_->SetTextColor(0xFF0000FF);
+	firewallWarning_->SetVisibility(V_GONE);
 
 	rightColumnItems->SetSpacing(0.0f);
 	Choice *browseChoice = new Choice(ri->T("Browse Games"));

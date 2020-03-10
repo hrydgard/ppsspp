@@ -38,8 +38,9 @@ protected:
 	UI::EventReturn HandleBrowse(UI::EventParams &e);
 	UI::EventReturn HandleSettings(UI::EventParams &e);
 
-	bool serverRunning_;
-	bool serverStopping_;
+	UI::TextView *firewallWarning_ = nullptr;
+	bool serverRunning_ = false;
+	bool serverStopping_ = false;
 };
 
 enum class ScanStatus {
