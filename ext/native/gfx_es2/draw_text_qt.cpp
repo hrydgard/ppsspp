@@ -1,3 +1,4 @@
+#include <cassert>
 #include "base/display.h"
 #include "base/logging.h"
 #include "base/stringutil.h"
@@ -66,6 +67,47 @@ void TextDrawerQt::MeasureStringRect(const char *str, size_t len, const Bounds &
 	*h = (float)size.height() * fontScaleY_;
 }
 
+void TextDrawerQt::DrawStringBitmap(std::vector<uint8_t> &bitmapData, TextStringEntry &entry, Draw::DataFormat texFormat, const char *str, int align) {
+	if (!strlen(str)) {
+		bitmapData.clear();
+		return;
+	}
+
+	QFont *font = fontMap_.find(fontHash_)->second;
+	QFontMetrics fm(*font);
+	QSize size = fm.size(0, QString::fromUtf8(str));
+	QImage image((size.width() + 3) & ~3, (size.height() + 3) & ~3, QImage::Format_ARGB32_Premultiplied);
+	if (image.isNull()) {
+		return;
+	}
+	image.fill(0);
+
+	QPainter painter;
+	painter.begin(&image);
+	painter.setFont(*font);
+	painter.setPen(0xFFFFFFFF);
+	// TODO: Involve ALIGN_HCENTER (bounds etc.)
+	painter.drawText(image.rect(), Qt::AlignTop | Qt::AlignLeft, QString::fromUtf8(str).replace("&&", "&"));
+	painter.end();
+
+	entry.texture = nullptr;
+	entry.bmWidth = entry.width = image.width();
+	entry.bmHeight = entry.height = image.height();
+	entry.lastUsedFrame = frameCount_;
+
+	if (texFormat == Draw::DataFormat::B4G4R4A4_UNORM_PACK16 || texFormat == Draw::DataFormat::R4G4B4A4_UNORM_PACK16) {
+		bitmapData.resize(entry.bmWidth * entry.bmHeight * sizeof(uint16_t));
+		uint16_t *bitmapData16 = (uint16_t *)&bitmapData[0];
+		for (int x = 0; x < entry.bmWidth; x++) {
+			for (int y = 0; y < entry.bmHeight; y++) {
+				bitmapData16[entry.bmWidth * y + x] = 0xfff0 | (image.pixel(x, y) >> 28);
+			}
+		}
+	} else {
+		assert(false);
+	}
+}
+
 void TextDrawerQt::DrawString(DrawBuffer &target, const char *str, float x, float y, uint32_t color, int align) {
 	using namespace Draw;
 	if (!strlen(str))
@@ -81,56 +123,39 @@ void TextDrawerQt::DrawString(DrawBuffer &target, const char *str, float x, floa
 	auto iter = cache_.find(entryHash);
 	if (iter != cache_.end()) {
 		entry = iter->second.get();
+		entry->lastUsedFrame = frameCount_;
 	} else {
-		QFont *font = fontMap_.find(fontHash_)->second;
-		QFontMetrics fm(*font);
-		QSize size = fm.size(0, QString::fromUtf8(str));
-		QImage image((size.width() + 3) & ~3, (size.height() + 3) & ~3, QImage::Format_ARGB32_Premultiplied);
-		if (image.isNull()) {
-			return;
-		}
-		image.fill(0);
-
-		QPainter painter;
-		painter.begin(&image);
-		painter.setFont(*font);
-		painter.setPen(color);
-		// TODO: Involve ALIGN_HCENTER (bounds etc.)
-		painter.drawText(image.rect(), Qt::AlignTop | Qt::AlignLeft, QString::fromUtf8(str).replace("&&", "&"));
-		painter.end();
+		DataFormat texFormat = Draw::DataFormat::R4G4B4A4_UNORM_PACK16;
 
 		entry = new TextStringEntry();
-		entry->bmWidth = entry->width = image.width();
-		entry->bmHeight = entry->height = image.height();
 
 		TextureDesc desc{};
+		std::vector<uint8_t> bitmapData;
+		DrawStringBitmap(bitmapData, *entry, texFormat, str, align);
+		desc.initData.push_back(&bitmapData[0]);
+
 		desc.type = TextureType::LINEAR2D;
-		desc.format = Draw::DataFormat::R4G4B4A4_UNORM_PACK16;
+		desc.format = texFormat;
 		desc.width = entry->bmWidth;
 		desc.height = entry->bmHeight;
 		desc.depth = 1;
 		desc.mipLevels = 1;
 		desc.tag = "TextDrawer";
-
-		uint16_t *bitmapData = new uint16_t[entry->bmWidth * entry->bmHeight];
-		for (int x = 0; x < entry->bmWidth; x++) {
-			for (int y = 0; y < entry->bmHeight; y++) {
-				bitmapData[entry->bmWidth * y + x] = 0xfff0 | image.pixel(x, y) >> 28;
-			}
-		}
-		desc.initData.push_back((uint8_t *)bitmapData);
 		entry->texture = draw_->CreateTexture(desc);
-		delete[] bitmapData;
 		cache_[entryHash] = std::unique_ptr<TextStringEntry>(entry);
+	}
+
+	if (entry->texture) {
+		draw_->BindTexture(0, entry->texture);
 	}
 
 	float w = entry->bmWidth * fontScaleX_;
 	float h = entry->bmHeight * fontScaleY_;
-	entry->lastUsedFrame = frameCount_;
-	draw_->BindTexture(0, entry->texture);
 	DrawBuffer::DoAlign(align, &x, &y, &w, &h);
-	target.DrawTexRect(x, y, x + w, y + h, 0.0f, 0.0f, 1.0f, 1.0f, color);
-	target.Flush(true);
+	if (entry->texture) {
+		target.DrawTexRect(x, y, x + w, y + h, 0.0f, 0.0f, 1.0f, 1.0f, color);
+		target.Flush(true);
+	}
 }
 
 void TextDrawerQt::ClearCache() {
@@ -146,29 +171,6 @@ void TextDrawerQt::ClearCache() {
 	}
 	fontMap_.clear();
 	fontHash_ = 0;
-}
-
-void TextDrawerQt::DrawStringRect(DrawBuffer &target, const char *str, const Bounds &bounds, uint32_t color, int align) {
-	float x = bounds.x;
-	float y = bounds.y;
-	if (align & ALIGN_HCENTER) {
-		x = bounds.centerX();
-	} else if (align & ALIGN_RIGHT) {
-		x = bounds.x2();
-	}
-	if (align & ALIGN_VCENTER) {
-		y = bounds.centerY();
-	} else if (align & ALIGN_BOTTOM) {
-		y = bounds.y2();
-	}
-
-	std::string toDraw = str;
-	if (align & FLAG_WRAP_TEXT) {
-		bool rotated = (align & (ROTATE_90DEG_LEFT | ROTATE_90DEG_RIGHT)) != 0;
-		WrapString(toDraw, str, rotated ? bounds.h : bounds.w);
-	}
-
-	DrawString(target, toDraw.c_str(), x, y, color, align);
 }
 
 void TextDrawerQt::OncePerFrame() {

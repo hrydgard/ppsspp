@@ -58,7 +58,8 @@ public:
 	virtual void MeasureString(const char *str, size_t len, float *w, float *h) = 0;
 	virtual void MeasureStringRect(const char *str, size_t len, const Bounds &bounds, float *w, float *h, int align = ALIGN_TOPLEFT) = 0;
 	virtual void DrawString(DrawBuffer &target, const char *str, float x, float y, uint32_t color, int align = ALIGN_TOPLEFT) = 0;
-	virtual void DrawStringRect(DrawBuffer &target, const char *str, const Bounds &bounds, uint32_t color, int align) = 0;
+	void DrawStringRect(DrawBuffer &target, const char *str, const Bounds &bounds, uint32_t color, int align);
+	virtual void DrawStringBitmap(std::vector<uint8_t> &bitmapData, TextStringEntry &entry, Draw::DataFormat texFormat, const char *str, int align = ALIGN_TOPLEFT) = 0;
 	// Use for housekeeping like throwing out old strings.
 	virtual void OncePerFrame() = 0;
 

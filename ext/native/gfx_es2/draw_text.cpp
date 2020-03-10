@@ -42,6 +42,29 @@ float TextDrawer::CalculateDPIScale() {
 	return scale;
 }
 
+void TextDrawer::DrawStringRect(DrawBuffer &target, const char *str, const Bounds &bounds, uint32_t color, int align) {
+	float x = bounds.x;
+	float y = bounds.y;
+	if (align & ALIGN_HCENTER) {
+		x = bounds.centerX();
+	} else if (align & ALIGN_RIGHT) {
+		x = bounds.x2();
+	}
+	if (align & ALIGN_VCENTER) {
+		y = bounds.centerY();
+	} else if (align & ALIGN_BOTTOM) {
+		y = bounds.y2();
+	}
+
+	std::string toDraw = str;
+	if (align & FLAG_WRAP_TEXT) {
+		bool rotated = (align & (ROTATE_90DEG_LEFT | ROTATE_90DEG_RIGHT)) != 0;
+		WrapString(toDraw, str, rotated ? bounds.h : bounds.w);
+	}
+
+	DrawString(target, toDraw.c_str(), x, y, color, align);
+}
+
 TextDrawer *TextDrawer::Create(Draw::DrawContext *draw) {
 	TextDrawer *drawer = nullptr;
 #if defined(_WIN32) && !PPSSPP_PLATFORM(UWP)
