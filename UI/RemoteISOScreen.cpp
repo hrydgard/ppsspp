@@ -21,6 +21,8 @@
 
 #include "base/timeutil.h"
 #include "file/path.h"
+// TODO: For text align flags, probably shouldn't be in gfx_es2/...
+#include "gfx_es2/draw_buffer.h"
 #include "i18n/i18n.h"
 #include "json/json_reader.h"
 #include "net/http_client.h"
@@ -47,45 +49,71 @@ static std::string RemoteSubdir() {
 	return "/";
 }
 
-static bool FindServer(std::string &resultHost, int &resultPort) {
+bool RemoteISOConnectScreen::FindServer(std::string &resultHost, int &resultPort) {
 	http::Client http;
 	Buffer result;
 	int code = 500;
+	bool hadTimeouts = false;
 
 	std::string subdir = RemoteSubdir();
 
+	auto ri = GetI18NCategory("RemoteISO");
+	auto SetStatus = [&](const std::string &key, const std::string &host, int port) {
+		std::string formatted = ReplaceAll(ri->T(key), "[URL]", StringFromFormat("http://%s:%d/", host.c_str(), port));
+
+		std::lock_guard<std::mutex> guard(statusLock_);
+		statusMessage_ = formatted;
+	};
+
 	auto TryServer = [&](const std::string &host, int port) {
+		SetStatus("Resolving [URL]...", host, port);
+		if (!http.Resolve(host.c_str(), port)) {
+			SetStatus("Could not resolve [URL]", host, port);
+			return false;
+		}
+
+		SetStatus("Connecting to [URL]...", host, port);
 		// Don't wait as long for a connect - we need a good connection for smooth streaming anyway.
 		// This way if it's down, we'll find the right one faster.
-		if (http.Resolve(host.c_str(), port) && http.Connect(1, 10.0, &scanCancelled)) {
-			code = http.GET(subdir.c_str(), &result);
-			http.Disconnect();
+		if (!http.Connect(1, 10.0, &scanCancelled)) {
+			hadTimeouts = true;
+			SetStatus("Could not connect to [URL]", host, port);
+			return false;
+		}
 
-			if (code != 200) {
-				return false;
+		SetStatus("Loading game list from [URL]...", host, port);
+		code = http.GET(subdir.c_str(), &result);
+		http.Disconnect();
+
+		if (code != 200) {
+			if (code < 0) {
+				hadTimeouts = true;
 			}
+			SetStatus("Game list failed from [URL]", host, port);
+			return false;
+		}
 
-			// Make sure this isn't just the debugger.  If so, move on.
-			std::string listing;
-			std::vector<std::string> items;
-			result.TakeAll(&listing);
-			SplitString(listing, '\n', items);
+		// Make sure this isn't just the debugger.  If so, move on.
+		std::string listing;
+		std::vector<std::string> items;
+		result.TakeAll(&listing);
+		SplitString(listing, '\n', items);
 
-			bool supported = false;
-			for (const std::string &item : items) {
-				if (!RemoteISOFileSupported(item)) {
-					continue;
-				}
-				supported = true;
-				break;
+		bool supported = false;
+		for (const std::string &item : items) {
+			if (!RemoteISOFileSupported(item)) {
+				continue;
 			}
+			supported = true;
+			break;
+		}
 
-			if (supported) {
-				resultHost = host;
-				resultPort = port;
-				NOTICE_LOG(HLE, "RemoteISO found: %s : %d", host.c_str(), port);
-				return true;
-			}
+		if (supported) {
+			resultHost = host;
+			resultPort = port;
+			SetStatus("Connected to [URL]", host, port);
+			NOTICE_LOG(SYSTEM, "RemoteISO found: %s : %d", host.c_str(), port);
+			return true;
 		}
 
 		return false;
@@ -104,6 +132,7 @@ static bool FindServer(std::string &resultHost, int &resultPort) {
 	}
 
 	// Start by requesting a list of recent local ips for this network.
+	SetStatus("Looking for peers...", "", 0);
 	if (http.Resolve(REPORT_HOSTNAME, REPORT_PORT)) {
 		if (http.Connect(2, 20.0, &scanCancelled)) {
 			code = http.GET("/match/list", &result);
@@ -112,6 +141,9 @@ static bool FindServer(std::string &resultHost, int &resultPort) {
 	}
 
 	if (code != 200 || scanCancelled) {
+		if (!scanCancelled) {
+			SetStatus("Could not load peers, retrying soon...", "", 0);
+		}
 		return false;
 	}
 
@@ -122,11 +154,13 @@ static bool FindServer(std::string &resultHost, int &resultPort) {
 
 	JsonReader reader(json.c_str(), json.size());
 	if (!reader.ok()) {
+		SetStatus("Could not load peers, retrying soon...", "", 0);
 		return false;
 	}
 
 	const JsonValue entries = reader.rootArray();
 	if (entries.getTag() != JSON_ARRAY) {
+		SetStatus("Could not load peers, retrying soon...", "", 0);
 		return false;
 	}
 
@@ -143,7 +177,13 @@ static bool FindServer(std::string &resultHost, int &resultPort) {
 		}
 	}
 
-	// None of the local IPs were reachable.
+	// None of the local IPs were reachable.  We'll retry again.
+	std::lock_guard<std::mutex> guard(statusLock_);
+	if (hadTimeouts) {
+		statusMessage_ = ri->T("RemoteISOScanningTimeout", "Scanning... check your desktop's firewall settings");
+	} else {
+		statusMessage_ = ri->T("RemoteISOScanning", "Scanning... click Share Games on your desktop");
+	}
 	return false;
 }
 
@@ -250,7 +290,7 @@ UI::EventReturn RemoteISOScreen::HandleSettings(UI::EventParams &e) {
 	return EVENT_DONE;
 }
 
-RemoteISOConnectScreen::RemoteISOConnectScreen() : status_(ScanStatus::SCANNING), nextRetry_(0.0) {
+RemoteISOConnectScreen::RemoteISOConnectScreen() {
 	scanCancelled = false;
 	scanAborted = false;
 
@@ -286,7 +326,7 @@ void RemoteISOConnectScreen::CreateViews() {
 	ViewGroup *rightColumn = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(300, FILL_PARENT, actionMenuMargins));
 	LinearLayout *rightColumnItems = new LinearLayout(ORIENT_VERTICAL);
 
-	statusView_ = leftColumnItems->Add(new TextView(ri->T("RemoteISOScanning", "Scanning... click Share Games on your desktop"), new LinearLayoutParams(Margins(12, 5, 0, 5))));
+	statusView_ = leftColumnItems->Add(new TextView(ri->T("RemoteISOScanning", "Scanning... click Share Games on your desktop"), FLAG_WRAP_TEXT, false, new LinearLayoutParams(Margins(12, 5, 0, 5))));
 
 	rightColumnItems->SetSpacing(0.0f);
 	rightColumnItems->Add(new Choice(di->T("Cancel"), "", false, new AnchorLayoutParams(150, WRAP_CONTENT, 10, NONE, NONE, 10)))->OnClick.Handle<UIScreen>(this, &UIScreen::OnBack);
@@ -318,13 +358,14 @@ void RemoteISOConnectScreen::update() {
 		if (scanThread_->joinable())
 			scanThread_->join();
 		delete scanThread_;
+		statusMessage_.clear();
 		scanThread_ = new std::thread([](RemoteISOConnectScreen *thiz) {
 			thiz->ExecuteLoad();
 		}, this);
 		break;
 
 	case ScanStatus::FAILED:
-		nextRetry_ = real_time_now() + 30.0;
+		nextRetry_ = real_time_now() + 15.0;
 		status_ = ScanStatus::RETRY_SCAN;
 		break;
 
@@ -336,6 +377,7 @@ void RemoteISOConnectScreen::update() {
 			if (scanThread_->joinable())
 				scanThread_->join();
 			delete scanThread_;
+			statusMessage_.clear();
 			scanThread_ = new std::thread([](RemoteISOConnectScreen *thiz) {
 				thiz->ExecuteScan();
 			}, this);
@@ -346,6 +388,11 @@ void RemoteISOConnectScreen::update() {
 		TriggerFinish(DR_OK);
 		screenManager()->push(new RemoteISOBrowseScreen(url_, games_));
 		break;
+	}
+
+	std::lock_guard<std::mutex> guard(statusLock_);
+	if (!statusMessage_.empty()) {
+		statusView_->SetText(statusMessage_);
 	}
 }
 

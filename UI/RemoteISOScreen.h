@@ -63,11 +63,13 @@ protected:
 	ScanStatus GetStatus();
 	void ExecuteScan();
 	void ExecuteLoad();
+	bool FindServer(std::string &resultHost, int &resultPort);
 
 	UI::TextView *statusView_;
 
-	ScanStatus status_;
-	double nextRetry_;
+	ScanStatus status_ = ScanStatus::SCANNING;
+	std::string statusMessage_;
+	double nextRetry_ = 0.0;
 	std::thread *scanThread_;
 	std::mutex statusLock_;
 	std::string host_;
