@@ -341,9 +341,9 @@ void EnableCrashingOnCrashes() {
 void System_InputBoxGetString(const std::string &title, const std::string &defaultValue, std::function<void(bool, const std::string &)> cb) {
 	std::string out;
 	if (InputBox_GetString(MainWindow::GetHInstance(), MainWindow::GetHWND(), ConvertUTF8ToWString(title).c_str(), defaultValue, out)) {
-		cb(true, out);
+		NativeInputBoxReceived(cb, true, out);
 	} else {
-		cb(false, "");
+		NativeInputBoxReceived(cb, false, "");
 	}
 }
 

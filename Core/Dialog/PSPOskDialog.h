@@ -17,6 +17,7 @@
 
 #pragma once
 
+#include <mutex>
 #include <string>
 
 #include "Core/Dialog/PSPDialog.h"
@@ -202,6 +203,14 @@ static const std::string OskKeyboardNames[] =
 	"English Full-width",
 };
 
+enum class PSPOskNativeStatus {
+	IDLE,
+	DONE,
+	WAITING,
+	SUCCESS,
+	FAILURE,
+};
+
 class PSPOskDialog: public PSPDialog {
 public:
 	PSPOskDialog();
@@ -222,9 +231,7 @@ private:
 	void ConvertUCS2ToUTF8(std::string& _string, const PSPPointer<u16_le>& em_address);
 	void ConvertUCS2ToUTF8(std::string& _string, const wchar_t *input);
 	void RenderKeyboard();
-#if defined(USING_WIN_UI)
 	int NativeKeyboard();
-#endif
 
 	std::wstring CombinationString(bool isInput); // for Japanese, Korean
 	std::wstring CombinationKorean(bool isInput); // for Korea
@@ -243,6 +250,10 @@ private:
 	OskKeyboardDisplay currentKeyboard;
 	OskKeyboardLanguage currentKeyboardLanguage;
 	bool isCombinated;
+
+	std::mutex nativeMutex_;
+	PSPOskNativeStatus nativeStatus_ = PSPOskNativeStatus::IDLE;
+	std::string nativeValue_;
 
 	int i_level; // for Korean Keyboard support
 	int i_value[3]; // for Korean Keyboard support
