@@ -2,6 +2,7 @@
 
 #include <functional>
 #include <thread>
+#include <vector>
 
 namespace threading {
 
@@ -23,7 +24,7 @@ public:
 	void Run(std::function<void()> func) override;
 
 private:
-	std::thread thread_;
+	std::vector<std::thread> threads_;
 };
 
 }  // namespace threading
