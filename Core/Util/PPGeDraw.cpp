@@ -703,6 +703,8 @@ void PPGeMeasureText(float *w, float *h, int *n,
 		float mw, mh;
 		textDrawer->SetFontScale(scale, scale);
 		int dtalign = (WrapType & PPGE_LINE_WRAP_WORD) ? FLAG_WRAP_TEXT : 0;
+		if (WrapType & PPGE_LINE_USE_ELLIPSIS)
+			dtalign |= FLAG_ELLIPSIZE_TEXT;
 		Bounds b(0, 0, wrapWidth <= 0 ? 480.0f : wrapWidth, 272.0f);
 		textDrawer->MeasureStringRect(text, strlen(text), b, &mw, &mh, dtalign);
 
@@ -792,6 +794,7 @@ int GetPow2(int x) {
 
 static PPGeTextDrawerImage PPGeGetTextImage(const char *text, int align, float scale, float maxWidth, bool wrap) {
 	int tdalign = (align & PPGE_ALIGN_HCENTER) ? ALIGN_HCENTER : 0;
+	tdalign |= FLAG_ELLIPSIZE_TEXT;
 	if (wrap) {
 		tdalign |= FLAG_WRAP_TEXT;
 	}
@@ -806,7 +809,6 @@ static PPGeTextDrawerImage PPGeGetTextImage(const char *text, int align, float s
 	} else {
 		std::vector<uint8_t> bitmapData;
 		textDrawer->SetFontScale(scale, scale);
-		// TODO: Ellipsis on long lines...
 		Bounds b(0, 0, maxWidth, 272.0f);
 		textDrawer->DrawStringBitmapRect(bitmapData, im.entry, Draw::DataFormat::R8_UNORM, text, b, tdalign);
 

@@ -4,8 +4,8 @@
 
 class WordWrapper {
 public:
-	WordWrapper(const char *str, float maxW)
-		: str_(str), maxW_(maxW) {
+	WordWrapper(const char *str, float maxW, int flags)
+		: str_(str), maxW_(maxW), flags_(flags) {
 	}
 
 	std::string Wrapped();
@@ -23,7 +23,9 @@ protected:
 
 	const char *const str_;
 	const float maxW_;
+	const int flags_;
 	std::string out_;
+
 	// Index of last output / start of current word.
 	int lastIndex_ = 0;
 	// Index of last line start.
@@ -32,6 +34,10 @@ protected:
 	float x_ = 0.0f;
 	// Most recent width of word since last index.
 	float wordWidth_ = 0.0f;
+	// Width of "..." when flag is set, zero otherwise.
+	float ellipsisWidth_ = 0.0f;
 	// Force the next word to cut partially and wrap.
 	bool forceEarlyWrap_ = false;
+	// Skip all characters until the next newline.
+	bool scanForNewline_ = false;
 };

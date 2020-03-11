@@ -78,7 +78,7 @@ protected:
 
 	Draw::DrawContext *draw_;
 	virtual void ClearCache() = 0;
-	void WrapString(std::string &out, const char *str, float maxWidth);
+	void WrapString(std::string &out, const char *str, float maxWidth, int flags);
 
 	struct CacheKey {
 		bool operator < (const CacheKey &other) const {
@@ -102,7 +102,7 @@ protected:
 
 class TextDrawerWordWrapper : public WordWrapper {
 public:
-	TextDrawerWordWrapper(TextDrawer *drawer, const char *str, float maxW) : WordWrapper(str, maxW), drawer_(drawer) {
+	TextDrawerWordWrapper(TextDrawer *drawer, const char *str, float maxW, int flags) : WordWrapper(str, maxW, flags), drawer_(drawer) {
 	}
 
 protected:
