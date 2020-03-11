@@ -39,6 +39,7 @@ enum {
 	FLAG_DYNAMIC_ASCII = 2048,
 	FLAG_NO_PREFIX = 4096,  // means to not process ampersands
 	FLAG_WRAP_TEXT = 8192,
+	FLAG_ELLIPSIZE_TEXT = 16384,
 };
 
 namespace Draw {

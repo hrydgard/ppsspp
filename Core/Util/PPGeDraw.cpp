@@ -20,6 +20,7 @@
 #include "base/stringutil.h"
 #include "file/vfs.h"
 #include "gfx/texture_atlas.h"
+#include "gfx_es2/draw_text.h"
 #include "image/zim_load.h"
 #include "image/png_load.h"
 #include "util/text/utf8.h"
@@ -103,6 +104,41 @@ static AtlasCharLine char_one_line;
 static AtlasLineArray char_lines;
 static AtlasTextMetrics char_lines_metrics;
 
+static bool textDrawerInited = false;
+static TextDrawer *textDrawer = nullptr;
+struct PPGeTextDrawerCacheKey {
+	bool operator < (const PPGeTextDrawerCacheKey &other) const {
+		if (align != other.align)
+			return align < other.align;
+		if (wrapWidth != other.wrapWidth)
+			return wrapWidth < other.wrapWidth;
+		return text < other.text;
+	}
+	std::string text;
+	int align;
+	float wrapWidth;
+};
+struct PPGeTextDrawerImage {
+	TextStringEntry entry;
+	u32 ptr;
+};
+std::map<PPGeTextDrawerCacheKey, PPGeTextDrawerImage> textDrawerImages;
+
+// Overwrite the current text lines buffer so it can be drawn later.
+void PPGePrepareText(const char *text, float x, float y, int align, float scale, float lineHeightScale,
+	int WrapType = PPGE_LINE_NONE, int wrapWidth = 0);
+
+// Get the metrics of the bounding box of the currently stated text.
+void PPGeMeasureCurrentText(float *x, float *y, float *w, float *h, int *n);
+
+// These functions must be called between PPGeBegin and PPGeEnd.
+
+// Draw currently buffered text using the state from PPGeGetTextBoundingBox() call.
+// Clears the buffer and state when done.
+void PPGeDrawCurrentText(u32 color = 0xFFFFFFFF);
+
+void PPGeSetTexture(u32 dataAddr, int width, int height);
+
 //only 0xFFFFFF of data is used
 static void WriteCmd(u8 cmd, u32 data) {
 	Memory::Write_U32((cmd << 24) | (data & 0xFFFFFF), dlWritePtr);
@@ -129,18 +165,18 @@ static void BeginVertexData() {
 	vertexStart = dataWritePtr;
 }
 
-static void Vertex(float x, float y, float u, float v, int tw, int th, u32 color = 0xFFFFFFFF) {
+static void Vertex(float x, float y, float u, float v, int tw, int th, u32 color = 0xFFFFFFFF, float off = -0.5f) {
 	if (g_RemasterMode) {
 		PPGeRemasterVertex vtx;
-		vtx.x = x - 0.5f; vtx.y = y - 0.5f; vtx.z = 0;
-		vtx.u = u * tw - 0.5f; vtx.v = v * th - 0.5f;
+		vtx.x = x + off; vtx.y = y + off; vtx.z = 0;
+		vtx.u = u * tw + off; vtx.v = v * th + off;
 		vtx.color = color;
 		Memory::WriteStruct(dataWritePtr, &vtx);
 		dataWritePtr += sizeof(vtx);
 	} else {
 		PPGeVertex vtx;
-		vtx.x = x - 0.5f; vtx.y = y - 0.5f; vtx.z = 0;
-		vtx.u = u * tw - 0.5f; vtx.v = v * th - 0.5f;
+		vtx.x = x + off; vtx.y = y + off; vtx.z = 0;
+		vtx.u = u * tw + off; vtx.v = v * th + off;
 		vtx.color = color;
 		Memory::WriteStruct(dataWritePtr, &vtx);
 		dataWritePtr += sizeof(vtx);
@@ -232,13 +268,18 @@ void __PPGeInit()
 	
 	free(imageData[0]);
 
+	// We can't create it here, because Android needs it on the right thread.
+	textDrawerInited = false;
+	textDrawer = nullptr;
+	textDrawerImages.clear();
+
 	DEBUG_LOG(SCEGE, "PPGe drawing library initialized. DL: %08x Data: %08x Atlas: %08x (%i) Args: %08x",
 		dlPtr, dataPtr, atlasPtr, atlasSize, listArgs.ptr);
 }
 
 void __PPGeDoState(PointerWrap &p)
 {
-	auto s = p.Section("PPGeDraw", 1, 2);
+	auto s = p.Section("PPGeDraw", 1, 3);
 	if (!s)
 		return;
 
@@ -254,6 +295,30 @@ void __PPGeDoState(PointerWrap &p)
 		listArgs = 0;
 	} else {
 		p.Do(listArgs);
+	}
+
+	if (s >= 3) {
+		uint32_t sz = (uint32_t)textDrawerImages.size();
+		p.Do(sz);
+
+		switch (p.mode) {
+		case PointerWrap::MODE_READ:
+			textDrawerImages.clear();
+			for (uint32_t i = 0; i < sz; ++i) {
+				// We only care about the pointers, so we can free them.  We'll decimate right away.
+				PPGeTextDrawerCacheKey key{ StringFromFormat("__savestate__%d", i), -1, -1 };
+				textDrawerImages[key] = PPGeTextDrawerImage{};
+				p.Do(textDrawerImages[key].ptr);
+			}
+			break;
+		default:
+			for (const auto &im : textDrawerImages) {
+				p.Do(im.second.ptr);
+			}
+			break;
+		}
+	} else {
+		textDrawerImages.clear();
 	}
 
 	p.Do(dlPtr);
@@ -291,6 +356,9 @@ void __PPGeShutdown()
 	dlPtr = 0;
 	savedContextPtr = 0;
 	listArgs = 0;
+
+	delete textDrawer;
+	textDrawer = nullptr;
 }
 
 void PPGeBegin()
@@ -625,9 +693,51 @@ static AtlasTextMetrics BreakLines(const char *text, const AtlasFont &atlasfont,
 	return metrics;
 }
 
+static bool HasTextDrawer() {
+	// We create this on first use so it's on the correct thread.
+	if (textDrawerInited) {
+		return textDrawer != nullptr;
+	}
+
+	// TODO: Should we pass a draw_?
+	textDrawer = TextDrawer::Create(nullptr);
+	if (textDrawer) {
+		textDrawer->SetFontScale(1.0f, 1.0f);
+		textDrawer->SetForcedDPIScale(1.0f);
+		textDrawer->SetFont(g_Config.sFont.c_str(), 20, 0);
+	}
+	textDrawerInited = true;
+	return textDrawer != nullptr;
+}
+
 void PPGeMeasureText(float *w, float *h, int *n, 
 					const char *text, float scale, int WrapType, int wrapWidth)
 {
+	if (HasTextDrawer()) {
+		float mw, mh;
+		textDrawer->SetFontScale(scale, scale);
+		int dtalign = (WrapType & PPGE_LINE_WRAP_WORD) ? FLAG_WRAP_TEXT : 0;
+		if (WrapType & PPGE_LINE_USE_ELLIPSIS)
+			dtalign |= FLAG_ELLIPSIZE_TEXT;
+		Bounds b(0, 0, wrapWidth <= 0 ? 480.0f : wrapWidth, 272.0f);
+		textDrawer->MeasureStringRect(text, strlen(text), b, &mw, &mh, dtalign);
+
+		if (w)
+			*w = mw;
+		if (h)
+			*h = mh;
+		if (n) {
+			// Cheap way to get the n.
+			float oneLine, twoLines;
+			textDrawer->MeasureString("|", 1, &mw, &oneLine);
+			textDrawer->MeasureStringRect("|\n|", 3, Bounds(0, 0, 480, 272), &mw, &twoLines);
+
+			float lineHeight = twoLines - oneLine;
+			*n = (int)((mh + (lineHeight - 1)) / lineHeight);
+		}
+		return;
+	}
+
 	const AtlasFont &atlasfont = g_ppge_atlas.fonts[0];
 	AtlasTextMetrics metrics = BreakLines(text, atlasfont, 0, 0, 0, scale, scale, WrapType, wrapWidth, true);
 	if (w) *w = metrics.maxWidth;
@@ -683,8 +793,110 @@ void PPGeDrawCurrentText(u32 color)
 	PPGeResetCurrentText();
 }
 
-void PPGeDrawText(const char *text, float x, float y, int align, float scale, u32 color)
-{
+// Return a value such that (1 << value) >= x
+int GetPow2(int x) {
+#ifdef __GNUC__
+	int ret = 31 - __builtin_clz(x | 1);
+	if ((1 << ret) < x)
+#else
+	int ret = 0;
+	while ((1 << ret) < x)
+#endif
+		ret++;
+	return ret;
+}
+
+static PPGeTextDrawerImage PPGeGetTextImage(const char *text, int align, float scale, float maxWidth, bool wrap) {
+	int tdalign = (align & PPGE_ALIGN_HCENTER) ? ALIGN_HCENTER : 0;
+	tdalign |= FLAG_ELLIPSIZE_TEXT;
+	if (wrap) {
+		tdalign |= FLAG_WRAP_TEXT;
+	}
+
+	PPGeTextDrawerCacheKey key{ text, tdalign, maxWidth / scale };
+	PPGeTextDrawerImage im;
+
+	auto cacheItem = textDrawerImages.find(key);
+	if (cacheItem != textDrawerImages.end()) {
+		im = cacheItem->second;
+		cacheItem->second.entry.lastUsedFrame = gpuStats.numFlips;
+	} else {
+		std::vector<uint8_t> bitmapData;
+		textDrawer->SetFontScale(scale, scale);
+		Bounds b(0, 0, maxWidth, 272.0f);
+		std::string cleaned = ReplaceAll(text, "\r", "");
+		textDrawer->DrawStringBitmapRect(bitmapData, im.entry, Draw::DataFormat::R8_UNORM, cleaned.c_str(), b, tdalign);
+
+		int bufwBytes = ((im.entry.bmWidth + 31) / 32) * 16;
+		u32 sz = bufwBytes * (im.entry.bmHeight + 1);
+		u32 origSz = sz;
+		im.ptr = __PPGeDoAlloc(sz, true, "PPGeText");
+
+		if (bitmapData.size() & 1)
+			bitmapData.resize(bitmapData.size() + 1);
+
+		if (im.ptr) {
+			int wBytes = (im.entry.bmWidth + 1) / 2;
+			u8 *ramPtr = (u8 *)Memory::GetPointer(im.ptr);
+			for (int y = 0; y < im.entry.bmHeight; ++y) {
+				for (int x = 0; x < wBytes; ++x) {
+					uint8_t c1 = bitmapData[y * im.entry.bmWidth + x * 2];
+					uint8_t c2 = bitmapData[y * im.entry.bmWidth + x * 2 + 1];
+					// Convert this to 4-bit palette values.
+					ramPtr[y * bufwBytes + x] = (c2 & 0xF0) | (c1 >> 4);
+				}
+				if (bufwBytes != wBytes) {
+					memset(ramPtr + y * bufwBytes + wBytes, 0, bufwBytes - wBytes);
+				}
+			}
+			memset(ramPtr + im.entry.bmHeight * bufwBytes, 0, bufwBytes + sz - origSz);
+		}
+
+		im.entry.lastUsedFrame = gpuStats.numFlips;
+		textDrawerImages[key] = im;
+	}
+
+	return im;
+}
+
+static void PPGeDrawTextImage(PPGeTextDrawerImage im, float x, float y, int align, float scale, u32 color) {
+	int bufw = ((im.entry.bmWidth + 31) / 32) * 32;
+	int wp2 = GetPow2(im.entry.bmWidth);
+	int hp2 = GetPow2(im.entry.bmHeight);
+	WriteCmd(GE_CMD_TEXADDR0, im.ptr & 0xFFFFF0);
+	WriteCmd(GE_CMD_TEXBUFWIDTH0, bufw | ((im.ptr & 0xFF000000) >> 8));
+	WriteCmd(GE_CMD_TEXSIZE0, wp2 | (hp2 << 8));
+	WriteCmd(GE_CMD_TEXFLUSH, 0);
+
+	float w = im.entry.width * scale;
+	float h = im.entry.height * scale;
+
+	if (align & PPGE_ALIGN_HCENTER)
+		x -= w / 2.0f;
+	else if (align & PPGE_ALIGN_RIGHT)
+		x -= w;
+	if (align & PPGE_ALIGN_VCENTER)
+		y -= h / 2.0f;
+	else if (align & PPGE_ALIGN_BOTTOM)
+		y -= h;
+
+	BeginVertexData();
+	float u1 = (float)im.entry.width / (1 << wp2);
+	float v1 = (float)im.entry.height / (1 << hp2);
+	Vertex(x, y, 0, 0, 1 << wp2, 1 << hp2, color, 0.0f);
+	Vertex(x + w, y + h, u1, v1, 1 << wp2, 1 << hp2, color, 0.0f);
+	EndVertexDataAndDraw(GE_PRIM_RECTANGLES);
+
+	PPGeSetDefaultTexture();
+}
+
+void PPGeDrawText(const char *text, float x, float y, int align, float scale, u32 color) {
+	if (HasTextDrawer()) {
+		PPGeTextDrawerImage im = PPGeGetTextImage(text, align, scale, 480.0f - x, false);
+		PPGeDrawTextImage(im, x, y, align, scale, color);
+		return;
+	}
+
 	PPGePrepareText(text, x, y, align, scale, scale, PPGE_LINE_USE_ELLIPSIS);
 	PPGeDrawCurrentText(color);
 }
@@ -718,10 +930,40 @@ void PPGeDrawTextWrapped(const char *text, float x, float y, float wrapWidth, fl
 		s = StripTrailingWhite(s);
 	}
 
-	PPGePrepareText(s.c_str(), x, y, align, scale, scale, PPGE_LINE_USE_ELLIPSIS | PPGE_LINE_WRAP_WORD, wrapWidth);
-
 	int zoom = (PSP_CoreParameter().pixelHeight + 479) / 480;
 	float maxScaleDown = zoom == 1 ? 1.3f : 2.0f;
+
+	if (HasTextDrawer()) {
+		float actualWidth, actualHeight;
+		Bounds b(0, 0, wrapWidth <= 0 ? 480.0f - x : wrapWidth, wrapHeight);
+		int tdalign = (align & PPGE_ALIGN_HCENTER) ? ALIGN_HCENTER : 0;
+		textDrawer->SetFontScale(scale, scale);
+		textDrawer->MeasureStringRect(s.c_str(), s.size(), b, &actualWidth, &actualHeight, tdalign | FLAG_WRAP_TEXT);
+		if (wrapHeight != 0.0f && actualHeight > wrapHeight) {
+			// Cheap way to get the line height.
+			float oneLine, twoLines;
+			textDrawer->MeasureString("|", 1, &actualWidth, &oneLine);
+			textDrawer->MeasureStringRect("|\n|", 3, Bounds(0, 0, 480, 272), &actualWidth, &twoLines);
+
+			float lineHeight = twoLines - oneLine;
+			if (actualHeight > wrapHeight * maxScaleDown) {
+				float maxLines = floor(wrapHeight * maxScaleDown / lineHeight);
+				actualHeight = (maxLines + 1) * lineHeight;
+				// Add an ellipsis if it's just too long to be readable.
+				// On a PSP, it does this without scaling it down.
+				s = StripTrailingWhite(CropLinesToCount(s, (int)maxLines)) + "\n...";
+			}
+
+			scale *= wrapHeight / actualHeight;
+		}
+
+		PPGeTextDrawerImage im = PPGeGetTextImage(s.c_str(), align, scale, wrapWidth <= 0 ? 480.0f - x : wrapWidth, true);
+		PPGeDrawTextImage(im, x, y, align, scale, color);
+		return;
+	}
+
+	PPGePrepareText(s.c_str(), x, y, align, scale, scale, PPGE_LINE_USE_ELLIPSIS | PPGE_LINE_WRAP_WORD, wrapWidth);
+
 	float actualHeight = char_lines_metrics.lineHeight * char_lines_metrics.numLines;
 	if (wrapHeight != 0.0f && actualHeight > wrapHeight) {
 		if (actualHeight > wrapHeight * maxScaleDown) {
@@ -835,20 +1077,6 @@ void PPGeDrawImage(float x, float y, float w, float h, float u1, float v1, float
 	Vertex(x, y, u1, v1, tw, th, color);
 	Vertex(x + w, y + h, u2, v2, tw, th, color);
 	EndVertexDataAndDraw(GE_PRIM_RECTANGLES);
-}
-
-// Return a value such that (1 << value) >= x
-int GetPow2(int x)
-{
-#ifdef __GNUC__
-	int ret = 31 - __builtin_clz(x|1);
-	if ((1 << ret) < x)
-#else
-	int ret = 0;
-	while ((1 << ret) < x)
-#endif
-		ret++;
-	return ret;
 }
 
 void PPGeSetDefaultTexture()
@@ -1004,3 +1232,20 @@ void PPGeImage::SetTexture() {
 	}
 }
 
+void PPGeNotifyFrame() {
+	if (textDrawer) {
+		textDrawer->OncePerFrame();
+	}
+
+	// Do this always, in case the platform has no TextDrawer but save state did.
+	for (auto it = textDrawerImages.begin(); it != textDrawerImages.end(); ) {
+		if (it->second.entry.lastUsedFrame - gpuStats.numFlips >= 97) {
+			kernelMemory.Free(it->second.ptr);
+			it = textDrawerImages.erase(it);
+		} else {
+			++it;
+		}
+	}
+
+	PPGeImage::Decimate();
+}
