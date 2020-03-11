@@ -24,6 +24,7 @@ int JsonGet::numChildren() const {
 	int count = 0;
 	if (value_.getTag() == JSON_OBJECT || value_.getTag() == JSON_ARRAY) {
 		for (auto it : value_) {
+			(void)it;
 			count++;
 		}
 	}

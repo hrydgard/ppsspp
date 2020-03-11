@@ -30,7 +30,6 @@ void RotateRectToDisplayImpl(DisplayRect<T> &rect, T curRTWidth, T curRTHeight) 
 		// Note that curRTWidth_ and curRTHeight_ are "swapped"!
 		T origX = rect.x;
 		T origY = rect.y;
-		T rtw = curRTHeight;
 		T rth = curRTWidth;
 		rect.x = clamp_value(rth - rect.h - origY, T{}, curRTHeight);
 		rect.y = origX;
@@ -43,7 +42,6 @@ void RotateRectToDisplayImpl(DisplayRect<T> &rect, T curRTWidth, T curRTHeight) 
 		T origX = rect.x;
 		T origY = rect.y;
 		T rtw = curRTHeight;
-		T rth = curRTWidth;
 		rect.x = origY;
 		rect.y = clamp_value(rtw - rect.w - origX, T{}, curRTWidth);
 		T temp = rect.w;
