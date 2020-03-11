@@ -824,7 +824,8 @@ static PPGeTextDrawerImage PPGeGetTextImage(const char *text, int align, float s
 		std::vector<uint8_t> bitmapData;
 		textDrawer->SetFontScale(scale, scale);
 		Bounds b(0, 0, maxWidth, 272.0f);
-		textDrawer->DrawStringBitmapRect(bitmapData, im.entry, Draw::DataFormat::R8_UNORM, text, b, tdalign);
+		std::string cleaned = ReplaceAll(text, "\r", "");
+		textDrawer->DrawStringBitmapRect(bitmapData, im.entry, Draw::DataFormat::R8_UNORM, cleaned.c_str(), b, tdalign);
 
 		int bufwBytes = ((im.entry.bmWidth + 31) / 32) * 16;
 		u32 sz = bufwBytes * im.entry.bmHeight;
