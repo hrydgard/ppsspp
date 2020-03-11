@@ -828,7 +828,7 @@ static PPGeTextDrawerImage PPGeGetTextImage(const char *text, int align, float s
 		textDrawer->DrawStringBitmapRect(bitmapData, im.entry, Draw::DataFormat::R8_UNORM, cleaned.c_str(), b, tdalign);
 
 		int bufwBytes = ((im.entry.bmWidth + 31) / 32) * 16;
-		u32 sz = bufwBytes * im.entry.bmHeight;
+		u32 sz = bufwBytes * (im.entry.bmHeight + 1);
 		u32 origSz = sz;
 		im.ptr = __PPGeDoAlloc(sz, true, "PPGeText");
 
@@ -836,15 +836,20 @@ static PPGeTextDrawerImage PPGeGetTextImage(const char *text, int align, float s
 			bitmapData.resize(bitmapData.size() + 1);
 
 		if (im.ptr) {
+			int wBytes = (im.entry.bmWidth + 1) / 2;
 			u8 *ramPtr = (u8 *)Memory::GetPointer(im.ptr);
 			for (int y = 0; y < im.entry.bmHeight; ++y) {
-				for (int x = 0; x < (im.entry.bmWidth + 1) / 2; ++x) {
+				for (int x = 0; x < wBytes; ++x) {
 					uint8_t c1 = bitmapData[y * im.entry.bmWidth + x * 2];
 					uint8_t c2 = bitmapData[y * im.entry.bmWidth + x * 2 + 1];
 					// Convert this to 4-bit palette values.
 					ramPtr[y * bufwBytes + x] = (c2 & 0xF0) | (c1 >> 4);
 				}
+				if (bufwBytes != wBytes) {
+					memset(ramPtr + y * bufwBytes + wBytes, 0, bufwBytes - wBytes);
+				}
 			}
+			memset(ramPtr + im.entry.bmHeight * bufwBytes, 0, bufwBytes + sz - origSz);
 		}
 
 		im.entry.lastUsedFrame = gpuStats.numFlips;
