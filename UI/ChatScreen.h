@@ -1,10 +1,12 @@
 #pragma once
+
+#include "ppsspp_config.h"
 #include "file/file_util.h"
 #include "ui/ui_screen.h"
 
 class ChatMenu : public PopupScreen {
 public:
-	ChatMenu() : PopupScreen("Chat") , toBottom_(true) {}
+	ChatMenu(): PopupScreen("Chat") {}
 	~ChatMenu();
 	void CreatePopupContents(UI::ViewGroup *parent) override;
 	void CreateViews() override;
@@ -12,7 +14,9 @@ public:
 	bool touch(const TouchInput &touch) override;
 	void update() override;
 	void UpdateChat();
-	bool toBottom_;
+
+	bool toBottom_ = true;
+
 private:
 	UI::EventReturn OnSubmit(UI::EventParams &e);
 	UI::EventReturn OnQuickChat1(UI::EventParams &e);
@@ -20,8 +24,11 @@ private:
 	UI::EventReturn OnQuickChat3(UI::EventParams &e);
 	UI::EventReturn OnQuickChat4(UI::EventParams &e);
 	UI::EventReturn OnQuickChat5(UI::EventParams &e);
-	UI::TextEdit *chatEdit_;
-	UI::ScrollView *scroll_;
-	UI::LinearLayout *chatVert_;
-	UI::ViewGroup *box_;
+
+#if PPSSPP_PLATFORM(WINDOWS) || defined(USING_QT_UI)
+	UI::TextEdit *chatEdit_ = nullptr;
+#endif
+	UI::ScrollView *scroll_ = nullptr;
+	UI::LinearLayout *chatVert_ = nullptr;
+	UI::ViewGroup *box_ = nullptr;
 };

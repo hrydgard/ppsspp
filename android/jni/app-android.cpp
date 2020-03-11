@@ -1043,32 +1043,32 @@ extern "C" bool JNICALL Java_org_ppsspp_ppsspp_NativeActivity_runEGLRenderLoop(J
 		return false;
 	}
 
-retry:
+	auto tryInit = [&]() {
+		if (graphicsContext->InitFromRenderThread(wnd, desiredBackbufferSizeX, desiredBackbufferSizeY, backbuffer_format, androidVersion)) {
+			return true;
+		}
 
-	bool vulkan = g_Config.iGPUBackend == (int)GPUBackend::VULKAN;
-
-	int tries = 0;
-
-	if (!graphicsContext->InitFromRenderThread(wnd, desiredBackbufferSizeX, desiredBackbufferSizeY, backbuffer_format, androidVersion)) {
 		ELOG("Failed to initialize graphics context.");
+		return false;
+	};
 
-		if (!exitRenderLoop && (vulkan && tries < 2)) {
+	bool initSuccess = tryInit();
+	if (!initSuccess) {
+		if (!exitRenderLoop && g_Config.iGPUBackend == (int)GPUBackend::VULKAN) {
 			ILOG("Trying again, this time with OpenGL.");
-			g_Config.iGPUBackend = (int)GPUBackend::OPENGL;
-			SetGPUBackend((GPUBackend)g_Config.iGPUBackend);
-			// If we were still supporting EGL for GL:
-			// tries++;
-			// goto retry;
+			SetGPUBackend(GPUBackend::OPENGL);
+			g_Config.iGPUBackend = (int)GetGPUBackend();
+
+			// If we were still supporting EGL for GL, we'd retry here:
+			//initSuccess = tryInit();
+		}
+
+		if (!initSuccess) {
 			delete graphicsContext;
 			graphicsContext = nullptr;
 			renderLoopRunning = false;
 			return false;
 		}
-
-		delete graphicsContext;
-		graphicsContext = nullptr;
-		renderLoopRunning = false;
-		return false;
 	}
 
 	if (!exitRenderLoop) {
