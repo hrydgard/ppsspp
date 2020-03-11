@@ -159,6 +159,9 @@ void TextDrawerWin32::MeasureStringRect(const char *str, size_t len, const Bound
 		WrapString(toMeasure, toMeasure.c_str(), rotated ? bounds.h : bounds.w);
 	}
 
+	TEXTMETRIC metrics{};
+	GetTextMetrics(ctx_->hDC, &metrics);
+
 	std::vector<std::string> lines;
 	SplitString(toMeasure, '\n', lines);
 	float total_w = 0.0f;
@@ -185,8 +188,10 @@ void TextDrawerWin32::MeasureStringRect(const char *str, size_t len, const Bound
 		if (total_w < entry->width * fontScaleX_) {
 			total_w = entry->width * fontScaleX_;
 		}
-		total_h += entry->height * fontScaleY_;
+		int h = i == lines.size() - 1 ? entry->height : metrics.tmHeight + metrics.tmExternalLeading;
+		total_h += h * fontScaleY_;
 	}
+
 	*w = total_w * dpiScale_;
 	*h = total_h * dpiScale_;
 }
@@ -197,7 +202,6 @@ void TextDrawerWin32::DrawStringBitmap(std::vector<uint8_t> &bitmapData, TextStr
 		return;
 	}
 
-	// Render the string to our bitmap and save to a GL texture.
 	std::wstring wstr = ConvertUTF8ToWString(ReplaceAll(str, "\n", "\r\n"));
 	SIZE size;
 

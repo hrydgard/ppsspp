@@ -67,6 +67,16 @@ void TextDrawer::DrawStringRect(DrawBuffer &target, const char *str, const Bound
 	DrawString(target, toDraw.c_str(), x, y, color, align);
 }
 
+void TextDrawer::DrawStringBitmapRect(std::vector<uint8_t> &bitmapData, TextStringEntry &entry, Draw::DataFormat texFormat, const char *str, const Bounds &bounds, int align) {
+	std::string toDraw = str;
+	if (align & FLAG_WRAP_TEXT) {
+		bool rotated = (align & (ROTATE_90DEG_LEFT | ROTATE_90DEG_RIGHT)) != 0;
+		WrapString(toDraw, str, rotated ? bounds.h : bounds.w);
+	}
+
+	DrawStringBitmap(bitmapData, entry, texFormat, toDraw.c_str(), align);
+}
+
 TextDrawer *TextDrawer::Create(Draw::DrawContext *draw) {
 	TextDrawer *drawer = nullptr;
 #if defined(_WIN32) && !PPSSPP_PLATFORM(UWP)

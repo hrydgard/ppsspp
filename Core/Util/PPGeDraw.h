@@ -85,6 +85,8 @@ void PPGeDrawImage(ImageID atlasImage, float x, float y, int align, u32 color = 
 void PPGeDrawImage(ImageID atlasImage, float x, float y, float w, float h, int align, u32 color = 0xFFFFFFFF);
 void PPGeDrawImage(float x, float y, float w, float h, float u1, float v1, float u2, float v2, int tw, int th, u32 color);
 
+void PPGeNotifyFrame();
+
 class PPGeImage {
 public:
 	PPGeImage(const std::string &pspFilename);
@@ -110,8 +112,9 @@ public:
 		return height_;
 	}
 
-private:
 	static void Decimate();
+
+private:
 	static std::vector<PPGeImage *> loadedTextures_;
 
 	std::string filename_;
