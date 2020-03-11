@@ -104,6 +104,7 @@ static AtlasCharLine char_one_line;
 static AtlasLineArray char_lines;
 static AtlasTextMetrics char_lines_metrics;
 
+static bool textDrawerInited = false;
 static TextDrawer *textDrawer = nullptr;
 struct PPGeTextDrawerCacheKey {
 	bool operator < (const PPGeTextDrawerCacheKey &other) const {
@@ -267,13 +268,9 @@ void __PPGeInit()
 	
 	free(imageData[0]);
 
-	// TODO: Should we pass a draw_?
-	textDrawer = TextDrawer::Create(nullptr);
-	if (textDrawer) {
-		textDrawer->SetFontScale(1.0f, 1.0f);
-		textDrawer->SetForcedDPIScale(1.0f);
-		textDrawer->SetFont(g_Config.sFont.c_str(), 20, 0);
-	}
+	// We can't create it here, because Android needs it on the right thread.
+	textDrawerInited = false;
+	textDrawer = nullptr;
 	textDrawerImages.clear();
 
 	DEBUG_LOG(SCEGE, "PPGe drawing library initialized. DL: %08x Data: %08x Atlas: %08x (%i) Args: %08x",
@@ -696,10 +693,27 @@ static AtlasTextMetrics BreakLines(const char *text, const AtlasFont &atlasfont,
 	return metrics;
 }
 
+static bool HasTextDrawer() {
+	// We create this on first use so it's on the correct thread.
+	if (textDrawerInited) {
+		return textDrawer != nullptr;
+	}
+
+	// TODO: Should we pass a draw_?
+	textDrawer = TextDrawer::Create(nullptr);
+	if (textDrawer) {
+		textDrawer->SetFontScale(1.0f, 1.0f);
+		textDrawer->SetForcedDPIScale(1.0f);
+		textDrawer->SetFont(g_Config.sFont.c_str(), 20, 0);
+	}
+	textDrawerInited = true;
+	return textDrawer != nullptr;
+}
+
 void PPGeMeasureText(float *w, float *h, int *n, 
 					const char *text, float scale, int WrapType, int wrapWidth)
 {
-	if (textDrawer) {
+	if (HasTextDrawer()) {
 		float mw, mh;
 		textDrawer->SetFontScale(scale, scale);
 		int dtalign = (WrapType & PPGE_LINE_WRAP_WORD) ? FLAG_WRAP_TEXT : 0;
@@ -871,7 +885,7 @@ static void PPGeDrawTextImage(PPGeTextDrawerImage im, float x, float y, int alig
 }
 
 void PPGeDrawText(const char *text, float x, float y, int align, float scale, u32 color) {
-	if (textDrawer) {
+	if (HasTextDrawer()) {
 		PPGeTextDrawerImage im = PPGeGetTextImage(text, align, scale, 480.0f - x, false);
 		PPGeDrawTextImage(im, x, y, align, scale, color);
 		return;
@@ -913,7 +927,7 @@ void PPGeDrawTextWrapped(const char *text, float x, float y, float wrapWidth, fl
 	int zoom = (PSP_CoreParameter().pixelHeight + 479) / 480;
 	float maxScaleDown = zoom == 1 ? 1.3f : 2.0f;
 
-	if (textDrawer) {
+	if (HasTextDrawer()) {
 		float actualWidth, actualHeight;
 		Bounds b(0, 0, wrapWidth <= 0 ? 480.0f - x : wrapWidth, wrapHeight);
 		int tdalign = (align & PPGE_ALIGN_HCENTER) ? ALIGN_HCENTER : 0;
