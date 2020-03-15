@@ -498,13 +498,11 @@ public:
 	}
 
 	void Done() {
-		bool needPending = false;
 		for (size_t i = 0; i < fonts_.size(); i++) {
 			if (isfontopen_[i] == FONT_IS_OPEN) {
 				CloseFont(fontMap[fonts_[i]]);
 				delete fontMap[fonts_[i]];
 				fontMap.erase(fonts_[i]);
-				needPending = true; // Pending all the next mipcalls.
 			}
 		}
 		u32 args[2] = { params_.userDataAddr, (u32)handle_ };
@@ -620,24 +618,19 @@ public:
 		return loadedFont;
 	}
 
-	void CloseFont(LoadedFont *font, bool needPending = false) {
-		if (charInfoBitmapAddress_ != 0)
-			needPending = true;
-
-		flushFont();
-
+	void CloseFont(LoadedFont *font) {
 		for (size_t i = 0; i < fonts_.size(); i++) {
 			if (fonts_[i] == font->Handle()) {
 				isfontopen_[i] = 0;
 				if (openAllocatedAddresses_[i] != 0) {
 					u32 args[2] = { userDataAddr(), openAllocatedAddresses_[i] };
-					__KernelDirectMipsCall(freeFuncAddr(), 0, args, 2, true, needPending);
+					__KernelDirectMipsCall(freeFuncAddr(), 0, args, 2, true);
 					openAllocatedAddresses_[i] = 0;
 				}
 				break;
 			}
 		}
-
+		flushFont();
 		font->Close();
 	}
 
@@ -763,7 +756,7 @@ void PostCharInfoFreeCallback::run(MipsCall &call) {
 	action->SetFontLib(fontLibID_);
 
 	u32 args[2] = { fontLib->userDataAddr(), allocSize };
-	__KernelDirectMipsCall(fontLib->allocFuncAddr(), action, args, 2, true, true);
+	__KernelDirectMipsCall(fontLib->allocFuncAddr(), action, args, 2, true);
 }
 
 inline bool LoadedFont::GetCharInfo(int charCode, PGFCharInfo *charInfo, int glyphType) const {
