@@ -10,6 +10,7 @@
 
 #include <map>
 #include <memory>
+#include <mutex>
 #include <string>
 #include <vector>
 
@@ -44,20 +45,22 @@ public:
 	}
 
 	const std::map<std::string, std::string> &Missed() const {
+		std::lock_guard<std::mutex> guard(missedKeyLock_);
 		return missedKeyLog_;
 	}
 
-	void SetMap(const std::map<std::string, std::string> &m);
 	const std::map<std::string, I18NEntry> &GetMap() { return map_; }
 	void ClearMissed() { missedKeyLog_.clear(); }
 	const char *GetName() const { return name_.c_str(); }
 
 private:
 	I18NCategory(I18NRepo *repo, const char *name) : name_(name) {}
+	void SetMap(const std::map<std::string, std::string> &m);
 
 	std::string name_;
 
 	std::map<std::string, I18NEntry> map_;
+	mutable std::mutex missedKeyLock_;
 	std::map<std::string, std::string> missedKeyLog_;
 
 	// Noone else can create these.
@@ -79,6 +82,7 @@ public:
 
 	std::shared_ptr<I18NCategory> GetCategory(const char *categoryName);
 	bool HasCategory(const char *categoryName) const {
+		std::lock_guard<std::mutex> guard(catsLock_);
 		return cats_.find(categoryName) != cats_.end();
 	}
 	const char *T(const char *category, const char *key, const char *def = 0);
@@ -89,6 +93,7 @@ private:
 	I18NCategory *LoadSection(const IniFile::Section *section, const char *name);
 	void SaveSection(IniFile &ini, IniFile::Section *section, std::shared_ptr<I18NCategory> cat);
 
+	mutable std::mutex catsLock_;
 	std::map<std::string, std::shared_ptr<I18NCategory>> cats_;
 	std::string languageID_;
 
