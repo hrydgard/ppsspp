@@ -21,6 +21,7 @@
 #include "Common/ChunkFile.h"
 #include "Core/HLE/HLE.h"
 #include "Core/HLE/FunctionWrappers.h"
+#include "Core/HLE/sceKernelMemory.h"
 #include "Core/MIPS/MIPS.h"
 #include "Core/Config.h"
 #include "Core/MemMapHelpers.h"
@@ -40,6 +41,9 @@ static bool netInetInited;
 static bool netApctlInited;
 u32 netDropRate = 0;
 u32 netDropDuration = 0;
+u32 netPoolAddr = 0;
+u32 netThread1Addr = 0;
+u32 netThread2Addr = 0;
 
 static struct SceNetMallocStat netMallocStat;
 
@@ -78,7 +82,7 @@ static void __UpdateApctlHandlers(int oldState, int newState, int flag, int erro
 
 // This feels like a dubious proposition, mostly...
 void __NetDoState(PointerWrap &p) {
-	auto s = p.Section("sceNet", 1, 2);
+	auto s = p.Section("sceNet", 1, 3);
 	if (!s)
 		return;
 
@@ -94,6 +98,28 @@ void __NetDoState(PointerWrap &p) {
 		p.Do(netDropRate);
 		p.Do(netDropDuration);
 	}
+	if (s < 3) {
+		netPoolAddr = 0;
+		netThread1Addr = 0;
+		netThread2Addr = 0;
+	} else {
+		p.Do(netPoolAddr);
+		p.Do(netThread1Addr);
+		p.Do(netThread2Addr);
+	}
+}
+
+static inline u32 AllocUser(u32 size, bool fromTop, const char *name) {
+	u32 addr = userMemory.Alloc(size, true, "netstack1");
+	if (addr == -1)
+		return 0;
+	return addr;
+}
+
+static inline void FreeUser(u32 &addr) {
+	if (addr != 0)
+		userMemory.Free(addr);
+	addr = 0;
 }
 
 static u32 sceNetTerm() {
@@ -103,15 +129,47 @@ static u32 sceNetTerm() {
 
 	WARN_LOG(SCENET, "sceNetTerm()");
 	netInited = false;
+	FreeUser(netPoolAddr);
+	FreeUser(netThread1Addr);
+	FreeUser(netThread2Addr);
 
 	return 0;
 }
 
 // TODO: should that struct actually be initialized here?
-static u32 sceNetInit(u32 poolSize, u32 calloutPri, u32 calloutStack, u32 netinitPri, u32 netinitStack)  {
-	// May need to Terminate old one first since the game (ie. GTA:VCS) might not called sceNetTerm before the next sceNetInit and behave strangely
-	if (netInited) 
+static int sceNetInit(u32 poolSize, u32 calloutPri, u32 calloutStack, u32 netinitPri, u32 netinitStack)  {
+	// TODO: The correct behavior is actually to allocate more and leak the other threads/pool.
+	// But we reset here for historic reasons (GTA:VCS potentially triggers this.)
+	if (netInited)
 		sceNetTerm();
+
+	if (poolSize == 0) {
+		return hleLogError(SCENET, SCE_KERNEL_ERROR_ILLEGAL_MEMSIZE, "invalid pool size");
+	} else if (calloutPri < 0x08 || calloutPri > 0x77) {
+		return hleLogError(SCENET, SCE_KERNEL_ERROR_ILLEGAL_PRIORITY, "invalid callout thread priority");
+	} else if (netinitPri < 0x08 || netinitPri > 0x77) {
+		return hleLogError(SCENET, SCE_KERNEL_ERROR_ILLEGAL_PRIORITY, "invalid init thread priority");
+	}
+
+	// TODO: Should also start the threads, probably?  For now, let's just allocate.
+	// TODO: Respect the stack size if firmware set to 1.50?
+	u32 stackSize = 4096;
+	netThread1Addr = AllocUser(stackSize, true, "netstack1");
+	if (netThread1Addr == 0) {
+		return hleLogError(SCENET, SCE_KERNEL_ERROR_NO_MEMORY, "unable to allocate thread");
+	}
+	netThread2Addr = AllocUser(stackSize, true, "netstack2");
+	if (netThread2Addr == 0) {
+		FreeUser(netThread1Addr);
+		return hleLogError(SCENET, SCE_KERNEL_ERROR_NO_MEMORY, "unable to allocate thread");
+	}
+
+	netPoolAddr = AllocUser(poolSize, false, "netpool");
+	if (netPoolAddr == 0) {
+		FreeUser(netThread1Addr);
+		FreeUser(netThread2Addr);
+		return hleLogError(SCENET, SCE_KERNEL_ERROR_NO_MEMORY, "unable to allocate pool");
+	}
 
 	WARN_LOG(SCENET, "sceNetInit(poolsize=%d, calloutpri=%i, calloutstack=%d, netintrpri=%i, netintrstack=%d) at %08x", poolSize, calloutPri, calloutStack, netinitPri, netinitStack, currentMIPS->pc);
 	netInited = true;
@@ -119,19 +177,25 @@ static u32 sceNetInit(u32 poolSize, u32 calloutPri, u32 calloutStack, u32 netini
 	netMallocStat.free = poolSize;
 	netMallocStat.pool = 0;
 	
-	return 0;
+	return hleLogSuccessI(SCENET, 0);
 }
 
 static u32 sceWlanGetEtherAddr(u32 addrAddr) {
-	// Read MAC Address from config
-	uint8_t mac[6] = {0};
-	if (!ParseMacAddress(g_Config.sMACAddress.c_str(), mac)) {
-		ERROR_LOG(SCENET, "Error parsing mac address %s", g_Config.sMACAddress.c_str());
+	if (!Memory::IsValidRange(addrAddr, 6)) {
+		// More correctly, it should crash.
+		return hleLogError(SCENET, SCE_KERNEL_ERROR_ILLEGAL_ADDR, "illegal address");
 	}
-	DEBUG_LOG(SCENET, "sceWlanGetEtherAddr(%08x)", addrAddr);
-	for (int i = 0; i < 6; i++)
-		Memory::Write_U8(mac[i], addrAddr + i);
-	return 0;
+
+	u8 *addr = Memory::GetPointer(addrAddr);
+	// Read MAC Address from config
+	if (!ParseMacAddress(g_Config.sMACAddress.c_str(), addr)) {
+		ERROR_LOG(SCENET, "Error parsing mac address %s", g_Config.sMACAddress.c_str());
+		Memory::Memset(addrAddr, 0, 6);
+	} else {
+		CBreakPoints::ExecMemCheck(addrAddr, true, 6, currentMIPS->pc);
+	}
+
+	return hleLogSuccessI(SCENET, hleDelayResult(0, "get ether mac", 200));
 }
 
 static u32 sceNetGetLocalEtherAddr(u32 addrAddr) {
@@ -139,13 +203,11 @@ static u32 sceNetGetLocalEtherAddr(u32 addrAddr) {
 }
 
 static u32 sceWlanDevIsPowerOn() {
-	DEBUG_LOG(SCENET, "UNTESTED sceWlanDevIsPowerOn()");
-	return g_Config.bEnableWlan ? 1 : 0;
+	return hleLogSuccessVerboseI(SCENET, g_Config.bEnableWlan ? 1 : 0);
 }
 
 static u32 sceWlanGetSwitchState() {
-	VERBOSE_LOG(SCENET, "sceWlanGetSwitchState()");
-	return g_Config.bEnableWlan ? 1 : 0;
+	return hleLogSuccessVerboseI(SCENET, g_Config.bEnableWlan ? 1 : 0);
 }
 
 // Probably a void function, but often returns a useful value.
@@ -468,7 +530,7 @@ static int sceNetSetDropRate(u32 dropRate, u32 dropDuration)
 }
 
 const HLEFunction sceNet[] = {
-	{0X39AF39A6, &WrapU_UUUUU<sceNetInit>,           "sceNetInit",                      'x', "xxxxx"},
+	{0X39AF39A6, &WrapI_UUUUU<sceNetInit>,           "sceNetInit",                      'i', "xxxxx"},
 	{0X281928A9, &WrapU_V<sceNetTerm>,               "sceNetTerm",                      'x', ""     },
 	{0X89360950, &WrapI_UU<sceNetEtherNtostr>,       "sceNetEtherNtostr",               'i', "xx"   },
 	{0XD27961C9, &WrapI_UU<sceNetEtherStrton>,       "sceNetEtherStrton",               'i', "xx"   },
