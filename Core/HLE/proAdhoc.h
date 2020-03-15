@@ -764,10 +764,10 @@ typedef struct {
 #pragma pack(pop)
 #endif
 
-class AfterMatchingMipsCall : public Action {
+class AfterMatchingMipsCall : public PSPAction {
 public:
 	AfterMatchingMipsCall() {}
-	static Action *Create() { return new AfterMatchingMipsCall(); }
+	static PSPAction *Create() { return new AfterMatchingMipsCall(); }
 	void DoState(PointerWrap &p) override {
 		auto s = p.Section("AfterMatchingMipsCall", 1, 2);
 		if (!s)

@@ -48,15 +48,13 @@ static const u32 PSP_NUMBER_SUBINTERRUPTS = 32;
 // INTERRUPT MANAGEMENT
 //////////////////////////////////////////////////////////////////////////
 
-class InterruptState
-{
+class InterruptState {
 public:
 	void save();
 	void restore();
 	void clear();
 
-	void DoState(PointerWrap &p)
-	{
+	void DoState(PointerWrap &p) {
 		auto s = p.Section("InterruptState", 1);
 		if (!s)
 			return;
@@ -64,7 +62,7 @@ public:
 		p.Do(savedCpu);
 	}
 
-	ThreadContext savedCpu;
+	PSPThreadContext savedCpu;
 };
 
 // STATE

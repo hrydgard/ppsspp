@@ -37,16 +37,14 @@ struct NativeAlarm
 	u32_le commonPtr;
 };
 
-struct Alarm : public KernelObject
-{
+struct PSPAlarm : public KernelObject {
 	const char *GetName() override {return "[Alarm]";}
 	const char *GetTypeName() override {return "Alarm";}
 	static u32 GetMissingErrorCode() { return SCE_KERNEL_ERROR_UNKNOWN_ALMID; }
 	static int GetStaticIDType() { return SCE_KERNEL_TMID_Alarm; }
 	int GetIDType() const override { return SCE_KERNEL_TMID_Alarm; }
 
-	void DoState(PointerWrap &p) override
-	{
+	void DoState(PointerWrap &p) override {
 		auto s = p.Section("Alarm", 1);
 		if (!s)
 			return;
@@ -57,7 +55,7 @@ struct Alarm : public KernelObject
 	NativeAlarm alm;
 };
 
-void __KernelScheduleAlarm(Alarm *alarm, u64 micro);
+void __KernelScheduleAlarm(PSPAlarm *alarm, u64 micro);
 
 class AlarmIntrHandler : public IntrHandler
 {
@@ -69,7 +67,7 @@ public:
 		u32 error;
 		int alarmID = triggeredAlarm.front();
 
-		Alarm *alarm = kernelObjects.Get<Alarm>(alarmID, error);
+		PSPAlarm *alarm = kernelObjects.Get<PSPAlarm>(alarmID, error);
 		if (error)
 		{
 			WARN_LOG(SCEKERNEL, "Ignoring deleted alarm %08x", alarmID);
@@ -95,7 +93,7 @@ public:
 		{
 			DEBUG_LOG(SCEKERNEL, "Rescheduling alarm %08x for +%dms", alarmID, result);
 			u32 error;
-			Alarm *alarm = kernelObjects.Get<Alarm>(alarmID, error);
+			PSPAlarm *alarm = kernelObjects.Get<PSPAlarm>(alarmID, error);
 			__KernelScheduleAlarm(alarm, result);
 		}
 		else
@@ -106,21 +104,19 @@ public:
 			DEBUG_LOG(SCEKERNEL, "Finished alarm %08x", alarmID);
 
 			// Delete the alarm if it's not rescheduled.
-			kernelObjects.Destroy<Alarm>(alarmID);
+			kernelObjects.Destroy<PSPAlarm>(alarmID);
 		}
 	}
 };
 
 static int alarmTimer = -1;
 
-static void __KernelTriggerAlarm(u64 userdata, int cyclesLate)
-{
+static void __KernelTriggerAlarm(u64 userdata, int cyclesLate) {
 	int uid = (int) userdata;
 
 	u32 error;
-	Alarm *alarm = kernelObjects.Get<Alarm>(uid, error);
-	if (alarm)
-	{
+	PSPAlarm *alarm = kernelObjects.Get<PSPAlarm>(uid, error);
+	if (alarm) {
 		triggeredAlarm.push_back(uid);
 		__TriggerInterrupt(PSP_INTR_IMMEDIATE, PSP_SYSTIMER0_INTR);
 	}
@@ -144,14 +140,12 @@ void __KernelAlarmDoState(PointerWrap &p)
 	CoreTiming::RestoreRegisterEvent(alarmTimer, "Alarm", __KernelTriggerAlarm);
 }
 
-KernelObject *__KernelAlarmObject()
-{
+KernelObject *__KernelAlarmObject() {
 	// Default object to load from state.
-	return new Alarm;
+	return new PSPAlarm;
 }
 
-void __KernelScheduleAlarm(Alarm *alarm, u64 micro)
-{
+void __KernelScheduleAlarm(PSPAlarm *alarm, u64 micro) {
 	alarm->alm.schedule = CoreTiming::GetGlobalTimeUs() + micro;
 	CoreTiming::ScheduleEvent(usToCycles(micro), alarmTimer, alarm->GetUID());
 }
@@ -161,7 +155,7 @@ static SceUID __KernelSetAlarm(u64 micro, u32 handlerPtr, u32 commonPtr)
 	if (!Memory::IsValidAddress(handlerPtr))
 		return SCE_KERNEL_ERROR_ILLEGAL_ADDR;
 
-	Alarm *alarm = new Alarm;
+	PSPAlarm *alarm = new PSPAlarm();
 	SceUID uid = kernelObjects.Create(alarm);
 
 	alarm->alm.size = NATIVEALARM_SIZE;
@@ -197,13 +191,13 @@ int sceKernelCancelAlarm(SceUID uid)
 
 	CoreTiming::UnscheduleEvent(alarmTimer, uid);
 
-	return kernelObjects.Destroy<Alarm>(uid);
+	return kernelObjects.Destroy<PSPAlarm>(uid);
 }
 
 int sceKernelReferAlarmStatus(SceUID uid, u32 infoPtr)
 {
 	u32 error;
-	Alarm *alarm = kernelObjects.Get<Alarm>(uid, error);
+	PSPAlarm *alarm = kernelObjects.Get<PSPAlarm>(uid, error);
 	if (!alarm)
 	{
 		ERROR_LOG(SCEKERNEL, "sceKernelReferAlarmStatus(%08x, %08x): invalid alarm", uid, infoPtr);
