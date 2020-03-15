@@ -41,6 +41,9 @@ do
 		--libretro) echo "Build Libretro core"
 			CMAKE_ARGS="-DLIBRETRO=ON ${CMAKE_ARGS}"
 			;;
+		--libretro_android) echo "Build Libretro Android core"
+		        CMAKE_ARGS="-DLIBRETRO=ON -DCMAKE_TOOLCHAIN_FILE=${NDK}/build/cmake/android.toolchain.cmake -DANDROID_ABI=${APP_ABI} ${CMAKE_ARGS}"
+			;;
 		--unittest) echo "Build unittest"
 			CMAKE_ARGS="-DUNITTEST=ON ${CMAKE_ARGS}"
 			;;
