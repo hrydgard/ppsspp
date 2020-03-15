@@ -219,7 +219,7 @@ int sceKernelReferCallbackStatus(SceUID cbId, u32 statusAddr);
 class Action;
 
 // Not an official Callback object, just calls a mips function on the current thread.
-void __KernelDirectMipsCall(u32 entryPoint, Action *afterAction, u32 args[], int numargs, bool reschedAfter);
+void __KernelDirectMipsCall(u32 entryPoint, Action *afterAction, u32 args[], int numargs, bool reschedAfter, bool forcePending = false);
 
 void __KernelReturnFromMipsCall();  // Called as HLE function
 bool __KernelInCallback();

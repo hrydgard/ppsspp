@@ -3128,7 +3128,7 @@ static bool __CanExecuteCallbackNow(Thread *thread) {
 	return g_inCbCount == 0;
 }
 
-void __KernelCallAddress(Thread *thread, u32 entryPoint, Action *afterAction, const u32 args[], int numargs, bool reschedAfter, SceUID cbId)
+void __KernelCallAddress(Thread *thread, u32 entryPoint, Action *afterAction, const u32 args[], int numargs, bool reschedAfter, SceUID cbId, bool forcePending = false)
 {
 	if (!thread || thread->isStopped()) {
 		WARN_LOG_REPORT(SCEKERNEL, "Running mipscall on dormant thread");
@@ -3179,7 +3179,7 @@ void __KernelCallAddress(Thread *thread, u32 entryPoint, Action *afterAction, co
 	u32 callId = mipsCalls.add(call);
 
 	bool called = false;
-	if (!thread || thread == __GetCurrentThread()) {
+	if ((!thread || thread == __GetCurrentThread()) && !forcePending) {
 		if (__CanExecuteCallbackNow(thread)) {
 			thread = __GetCurrentThread();
 			__KernelChangeThreadState(thread, THREADSTATUS_RUNNING);
@@ -3197,9 +3197,9 @@ void __KernelCallAddress(Thread *thread, u32 entryPoint, Action *afterAction, co
 	}
 }
 
-void __KernelDirectMipsCall(u32 entryPoint, Action *afterAction, u32 args[], int numargs, bool reschedAfter)
+void __KernelDirectMipsCall(u32 entryPoint, Action *afterAction, u32 args[], int numargs, bool reschedAfter, bool forcePending)
 {
-	__KernelCallAddress(__GetCurrentThread(), entryPoint, afterAction, args, numargs, reschedAfter, 0);
+	__KernelCallAddress(__GetCurrentThread(), entryPoint, afterAction, args, numargs, reschedAfter, 0, forcePending);
 }
 
 bool __KernelExecuteMipsCallOnCurrentThread(u32 callId, bool reschedAfter)
@@ -3272,7 +3272,7 @@ void __KernelReturnFromMipsCall()
 
 	// Value returned by the callback function
 	u32 retVal = currentMIPS->r[MIPS_REG_V0];
-	DEBUG_LOG(SCEKERNEL,"__KernelReturnFromMipsCall(), returned %08x", retVal);
+	DEBUG_LOG(SCEKERNEL, "__KernelReturnFromMipsCall(), returned %08x", retVal);
 
 	// Should also save/restore wait state here.
 	if (call->doAfter)
