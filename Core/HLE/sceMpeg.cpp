@@ -355,11 +355,11 @@ static void AnalyzeMpeg(u8 *buffer, u32 validSize, MpegContext *ctx) {
 	INFO_LOG(ME, "First timestamp: %lld, Last timestamp: %lld", ctx->mpegFirstTimestamp, ctx->mpegLastTimestamp);
 }
 
-class PostPutAction : public Action {
+class PostPutAction : public PSPAction {
 public:
 	PostPutAction() {}
 	void setRingAddr(u32 ringAddr) { ringAddr_ = ringAddr; }
-	static Action *Create() { return new PostPutAction; }
+	static PSPAction *Create() { return new PostPutAction; }
 	void DoState(PointerWrap &p) override {
 		auto s = p.Section("PostPutAction", 1);
 		if (!s)
