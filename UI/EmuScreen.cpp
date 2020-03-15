@@ -1403,6 +1403,8 @@ void EmuScreen::render() {
 		return;
 
 	if (hasVisibleUI()) {
+		// In most cases, this should already be bound and a no-op.
+		thin3d->BindFramebufferAsRenderTarget(nullptr, { RPAction::KEEP, RPAction::DONT_CARE, RPAction::DONT_CARE });
 		cardboardDisableButton_->SetVisibility(g_Config.bEnableCardboardVR ? UI::V_VISIBLE : UI::V_GONE);
 		screenManager()->getUIContext()->BeginFrame();
 		renderUI();
