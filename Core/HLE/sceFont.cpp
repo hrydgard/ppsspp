@@ -35,6 +35,9 @@ enum {
 	FONT_IS_OPEN   = 1,
 };
 
+// For the save states.
+static bool useAllocCallbacks = true;
+
 // Actions
 static int actionPostAllocCallback;
 static int actionPostOpenCallback;
@@ -601,6 +604,9 @@ public:
 		}
 		fontMap[loadedFont->Handle()] = loadedFont;
 
+		if (!useAllocCallbacks)
+			return loadedFont;
+
 		u32 allocSize = 12;
 		if (mode == FONT_OPEN_INTERNAL_STINGY) {
 			allocSize = 0x239B4;
@@ -894,7 +900,7 @@ void __FontShutdown() {
 }
 
 void __FontDoState(PointerWrap &p) {
-	auto s = p.Section("sceFont", 1);
+	auto s = p.Section("sceFont", 1, 2);
 	if (!s)
 		return;
 
@@ -907,13 +913,17 @@ void __FontDoState(PointerWrap &p) {
 	p.Do(actionPostAllocCallback);
 	__KernelRestoreActionType(actionPostAllocCallback, PostAllocCallback::Create);
 	p.Do(actionPostOpenCallback);
-	__KernelRestoreActionType(actionPostOpenCallback, PostOpenCallback::Create);
-	p.Do(actionPostOpenAllocCallback);
-	__KernelRestoreActionType(actionPostOpenAllocCallback, PostOpenAllocCallback::Create);
-	p.Do(actionPostCharInfoAllocCallback);
-	__KernelRestoreActionType(actionPostCharInfoAllocCallback, PostCharInfoAllocCallback::Create);
-	p.Do(actionPostCharInfoFreeCallback);
-	__KernelRestoreActionType(actionPostCharInfoFreeCallback, PostCharInfoFreeCallback::Create);
+	if (s >= 2) {
+		__KernelRestoreActionType(actionPostOpenCallback, PostOpenCallback::Create);
+		p.Do(actionPostOpenAllocCallback);
+		__KernelRestoreActionType(actionPostOpenAllocCallback, PostOpenAllocCallback::Create);
+		p.Do(actionPostCharInfoAllocCallback);
+		__KernelRestoreActionType(actionPostCharInfoAllocCallback, PostCharInfoAllocCallback::Create);
+		p.Do(actionPostCharInfoFreeCallback);
+		__KernelRestoreActionType(actionPostCharInfoFreeCallback, PostCharInfoFreeCallback::Create);
+	} else {
+		useAllocCallbacks = false;
+	}
 }
 
 static u32 sceFontNewLib(u32 paramPtr, u32 errorCodePtr) {
@@ -1264,6 +1274,9 @@ static int sceFontGetCharInfo(u32 fontHandle, u32 charCode, u32 charInfoPtr) {
 	DEBUG_LOG(SCEFONT, "sceFontGetCharInfo(%08x, %i, %08x)", fontHandle, charCode, charInfoPtr);
 	auto charInfo = PSPPointer<PGFCharInfo>::Create(charInfoPtr);
 	font->GetCharInfo(charCode, charInfo);
+
+	if (!useAllocCallbacks)
+		return 0;
 
 	u32 allocSize = charInfo->bitmapWidth * charInfo->bitmapHeight;
 	if (charInfo->sfp26AdvanceH != 0 || charInfo->sfp26AdvanceV != 0) {
