@@ -11,6 +11,10 @@
 #include <unistd.h>
 #endif
 
+#ifdef HAVE_LIBNX
+#include <switch.h>
+#endif // HAVE_LIBNX
+
 static double curtime = 0;
 static float curtime_f = 0;
 
@@ -79,6 +83,8 @@ int time_now_ms() {
 void sleep_ms(int ms) {
 #ifdef _WIN32
 	Sleep(ms);
+#elif defined(HAVE_LIBNX)
+	svcSleepThread(ms * 1000000);
 #else
 	usleep(ms * 1000);
 #endif
