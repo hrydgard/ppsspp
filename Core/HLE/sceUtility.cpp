@@ -760,6 +760,18 @@ static u32 sceUtilityUnloadNetModule(u32 module)
 	return 0;
 }
 
+static int sceUtilityNpSigninInitStart(u32 paramsPtr) {
+	return hleLogError(SCEUTILITY, 0, "not implemented");
+}
+
+static int sceUtilityNpSigninUpdate(int animSpeed) {
+	return hleLogError(SCEUTILITY, 0, "not implemented");
+}
+
+static int sceUtilityNpSigninGetStatus() {
+	return hleLogError(SCEUTILITY, 0, "not implemented");
+}
+
 static void sceUtilityInstallInitStart(u32 unknown)
 {
 	WARN_LOG_REPORT(SCEUTILITY, "UNIMPL sceUtilityInstallInitStart()");
@@ -925,7 +937,7 @@ const HLEFunction sceUtility[] =
 
 	{0X0251B134, &WrapI_U<sceUtilityScreenshotInitStart>,          "sceUtilityScreenshotInitStart",          'i', "x"  },
 	{0XF9E0008C, &WrapI_V<sceUtilityScreenshotShutdownStart>,      "sceUtilityScreenshotShutdownStart",      'i', ""   },
-	{0XAB083EA9, &WrapI_U<sceUtilityScreenshotUpdate>,             "sceUtilityScreenshotUpdate",             'i', "x"  },
+	{0XAB083EA9, &WrapI_U<sceUtilityScreenshotUpdate>,             "sceUtilityScreenshotUpdate",             'i', "i"  },
 	{0XD81957B7, &WrapI_V<sceUtilityScreenshotGetStatus>,          "sceUtilityScreenshotGetStatus",          'i', ""   },
 	{0X86A03A27, &WrapI_U<sceUtilityScreenshotContStart>,          "sceUtilityScreenshotContStart",          'i', "x"  },
 
@@ -938,10 +950,10 @@ const HLEFunction sceUtility[] =
 	{0XB57E95D9, &WrapI_V<sceUtilityGamedataInstallGetStatus>,     "sceUtilityGamedataInstallGetStatus",     'i', ""   },
 	{0X180F7B62, &WrapI_V<sceUtilityGamedataInstallAbort>,         "sceUtilityGamedataInstallAbort",         'i', ""   },
 
-	{0X16D02AF0, nullptr,                                          "sceUtilityNpSigninInitStart",            '?', ""   },
-	{0XE19C97D6, nullptr,                                          "sceUtilityNpSigninShutdownStart",        '?', ""   },
-	{0XF3FBC572, nullptr,                                          "sceUtilityNpSigninUpdate",               '?', ""   },
-	{0X86ABDB1B, nullptr,                                          "sceUtilityNpSigninGetStatus",            '?', ""   },
+	{0X16D02AF0, &WrapI_U<sceUtilityNpSigninInitStart>,            "sceUtilityNpSigninInitStart",            'i', "x"  },
+	{0XE19C97D6, nullptr,                                          "sceUtilityNpSigninShutdownStart",        'i', ""   },
+	{0XF3FBC572, &WrapI_I<sceUtilityNpSigninUpdate>,               "sceUtilityNpSigninUpdate",               'i', "i"  },
+	{0X86ABDB1B, &WrapI_V<sceUtilityNpSigninGetStatus>,            "sceUtilityNpSigninGetStatus",            'i', ""   },
 
 	{0X1281DA8E, &WrapV_U<sceUtilityInstallInitStart>,             "sceUtilityInstallInitStart",             'v', "x"  },
 	{0X5EF1C24A, nullptr,                                          "sceUtilityInstallShutdownStart",         '?', ""   },
