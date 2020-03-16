@@ -874,6 +874,7 @@ int GetInternalFontIndex(Font *font) {
 }
 
 void __FontInit() {
+	useAllocCallbacks = true;
 	actionPostAllocCallback = __KernelRegisterActionType(PostAllocCallback::Create);
 	actionPostOpenCallback = __KernelRegisterActionType(PostOpenCallback::Create);
 	actionPostOpenAllocCallback = __KernelRegisterActionType(PostOpenAllocCallback::Create);
