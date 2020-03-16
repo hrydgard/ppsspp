@@ -389,10 +389,10 @@ private:
 	u32 fontLibID_;
 };
 
-class PostOpenAllocCallback : public Action {
+class PostOpenAllocCallback : public PSPAction {
 public:
 	PostOpenAllocCallback() {}
-	static Action *Create() { return new PostOpenAllocCallback(); }
+	static PSPAction *Create() { return new PostOpenAllocCallback(); }
 	void DoState(PointerWrap &p) override {
 		auto s = p.Section("PostOpenAllocCallback", 1);
 		if (!s)
@@ -412,10 +412,10 @@ private:
 	int fontIndex_;
 };
 
-class PostCharInfoAllocCallback : public Action {
+class PostCharInfoAllocCallback : public PSPAction {
 public:
 	PostCharInfoAllocCallback() {}
-	static Action *Create() { return new PostCharInfoAllocCallback(); }
+	static PSPAction *Create() { return new PostCharInfoAllocCallback(); }
 	void DoState(PointerWrap &p) override {
 		auto s = p.Section("PostCharInfoAllocCallback", 1);
 		if (!s)
@@ -430,10 +430,10 @@ private:
 	u32 fontLibID_;
 };
 
-class PostCharInfoFreeCallback : public Action {
+class PostCharInfoFreeCallback : public PSPAction {
 public:
 	PostCharInfoFreeCallback() {}
-	static Action *Create() { return new PostCharInfoFreeCallback(); }
+	static PSPAction *Create() { return new PostCharInfoFreeCallback(); }
 	void DoState(PointerWrap &p) override {
 		auto s = p.Section("PostCharInfoFreeCallback", 1);
 		if (!s)
@@ -684,7 +684,8 @@ public:
 
 	u32 GetOpenAllocatedAddress(int index) const { 
 		if(index < numFonts())
-			return openAllocatedAddresses_[index]; 
+			return openAllocatedAddresses_[index];
+		return 0;
 	}
 
 	void SetOpenAllocatedAddress(int index, u32 addr) {
