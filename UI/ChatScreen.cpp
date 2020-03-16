@@ -14,7 +14,6 @@
 #include <ctype.h>
 #include "util/text/utf8.h"
 
-
 void ChatMenu::CreatePopupContents(UI::ViewGroup *parent) {
 	using namespace UI;
 	auto n = GetI18NCategory("Networking");
@@ -34,6 +33,7 @@ void ChatMenu::CreatePopupContents(UI::ViewGroup *parent) {
 	}
 #endif
 	chatEdit_->OnEnter.Handle(this, &ChatMenu::OnSubmit);
+
 #elif PPSSPP_PLATFORM(ANDROID)
 	bottom->Add(new Button(n->T("Chat Here"),new LayoutParams(FILL_PARENT, WRAP_CONTENT)))->OnClick.Handle(this, &ChatMenu::OnSubmit);
 	bottom->Add(new Button(n->T("Send")))->OnClick.Handle(this, &ChatMenu::OnSubmit);
@@ -84,26 +84,31 @@ void ChatMenu::CreateViews() {
 	case 5:
 		box_ = new LinearLayout(ORIENT_VERTICAL, new AnchorLayoutParams(PopupWidth(), FillVertical() ? yres - 30 : WRAP_CONTENT, NONE, 240, 280, NONE, true));
 		break;
+	default:
+		box_ = nullptr;
+		break;
 	}
 
-	root_->Add(box_);
-	box_->SetBG(UI::Drawable(0x99303030));
-	box_->SetHasDropShadow(false);
+	if (box_) {
+		root_->Add(box_);
+		box_->SetBG(UI::Drawable(0x99303030));
+		box_->SetHasDropShadow(false);
 
-	View *title = new PopupHeader(n->T("Chat"));
-	box_->Add(title);
+		View *title = new PopupHeader(n->T("Chat"));
+		box_->Add(title);
 
-	CreatePopupContents(box_);
+		CreatePopupContents(box_);
 #if PPSSPP_PLATFORM(WINDOWS) || defined(USING_QT_UI)
-	UI::EnableFocusMovement(true);
-	root_->SetDefaultFocusView(box_);
-	box_->SubviewFocused(chatEdit_);
-	root_->SetFocus();
+		UI::EnableFocusMovement(true);
+		root_->SetDefaultFocusView(box_);
+		box_->SubviewFocused(chatEdit_);
+		root_->SetFocus();
 #else
-	//root_->SetDefaultFocusView(box_);
-	//box_->SubviewFocused(scroll_);
-	//root_->SetFocus();
+		//root_->SetDefaultFocusView(box_);
+		//box_->SubviewFocused(scroll_);
+		//root_->SetFocus();
 #endif
+	}
 	chatScreenVisible = true;
 	newChat = 0;
 
@@ -128,7 +133,6 @@ UI::EventReturn ChatMenu::OnSubmit(UI::EventParams &e) {
 #endif
 	return UI::EVENT_DONE;
 }
-
 
 UI::EventReturn ChatMenu::OnQuickChat1(UI::EventParams &e) {
 	sendChat(g_Config.sQuickChat0);
@@ -191,7 +195,7 @@ std::vector<std::string> Split(const std::string& str)
 
 void ChatMenu::UpdateChat() {
 	using namespace UI;
-	if (chatVert_ != NULL) {
+	if (chatVert_ != nullptr) {
 		chatVert_->Clear(); //read Access violation is proadhoc.cpp use NULL_->Clear() pointer?
 		std::vector<std::string> chatLog = getChatLog();
 		for (auto i : chatLog) {
@@ -208,11 +212,10 @@ void ChatMenu::UpdateChat() {
 				namecolor = 0xE53935;
 			}
 
-			if (i[displayname.length()] != ':') {
+			if (i.length() <= displayname.length() || i[displayname.length()] != ':') {
 				TextView *v = chatVert_->Add(new TextView(i, FLAG_DYNAMIC_ASCII, true));
 				v->SetTextColor(0xFF000000 | infocolor);
-			}
-			else {
+			} else {
 				LinearLayout *line = chatVert_->Add(new LinearLayout(ORIENT_HORIZONTAL, new LayoutParams(FILL_PARENT, FILL_PARENT)));
 				TextView *nameView = line->Add(new TextView(displayname, FLAG_DYNAMIC_ASCII, true));
 				nameView->SetTextColor(0xFF000000 | namecolor);

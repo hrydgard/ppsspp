@@ -236,6 +236,7 @@ bool g_vulkanMayBeAvailable = false;
 
 static const char *device_name_blacklist[] = {
 	"NVIDIA:SHIELD Tablet K1",
+	"SDL:Horizon",
 };
 
 static const char *so_names[] = {

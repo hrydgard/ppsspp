@@ -349,10 +349,10 @@ private:
 	DISALLOW_COPY_AND_ASSIGN(LoadedFont);
 };
 
-class PostAllocCallback : public Action {
+class PostAllocCallback : public PSPAction {
 public:
 	PostAllocCallback() {}
-	static Action *Create() { return new PostAllocCallback(); }
+	static PSPAction *Create() { return new PostAllocCallback(); }
 	void DoState(PointerWrap &p) override {
 		auto s = p.Section("PostAllocCallback", 1, 2);
 		if (!s)
@@ -371,10 +371,10 @@ private:
 	u32 errorCodePtr_;
 };
 
-class PostOpenCallback : public Action {
+class PostOpenCallback : public PSPAction {
 public:
 	PostOpenCallback() {}
-	static Action *Create() { return new PostOpenCallback(); }
+	static PSPAction *Create() { return new PostOpenCallback(); }
 	void DoState(PointerWrap &p) override {
 		auto s = p.Section("PostOpenCallback", 1);
 		if (!s)

@@ -198,8 +198,9 @@ void OpenDirectory(const char *path) {
 
 void LaunchBrowser(const char *url) {
 #if PPSSPP_PLATFORM(SWITCH)
+	Uuid uuid = { 0 };
 	WebWifiConfig conf;
-	webWifiCreate(&conf, NULL, url, 0, 0);
+	webWifiCreate(&conf, NULL, url, uuid, 0);
 	webWifiShow(&conf, NULL);
 #elif defined(MOBILE_DEVICE)
 	ILOG("Would have gone to %s but LaunchBrowser is not implemented on this platform", url);
@@ -220,8 +221,9 @@ void LaunchBrowser(const char *url) {
 
 void LaunchMarket(const char *url) {
 #if PPSSPP_PLATFORM(SWITCH)
+	Uuid uuid = { 0 };
 	WebWifiConfig conf;
-	webWifiCreate(&conf, NULL, url, 0, 0);
+	webWifiCreate(&conf, NULL, url, uuid, 0);
 	webWifiShow(&conf, NULL);
 #elif defined(MOBILE_DEVICE)
 	ILOG("Would have gone to %s but LaunchMarket is not implemented on this platform", url);
@@ -448,6 +450,11 @@ int main(int argc, char *argv[]) {
 		}
 	}
 
+#ifdef HAVE_LIBNX
+	socketInitializeDefault();
+	nxlinkStdio();
+#endif // HAVE_LIBNX
+
 	glslang::InitializeProcess();
 
 #if PPSSPP_PLATFORM(RPI)
@@ -544,9 +551,9 @@ int main(int argc, char *argv[]) {
 	}
 
 	// If we're on mobile, don't try for windowed either.
-#if defined(MOBILE_DEVICE)
+#if defined(MOBILE_DEVICE) && !PPSSPP_PLATFORM(SWITCH)
 	mode |= SDL_WINDOW_FULLSCREEN;
-#elif defined(USING_FBDEV)
+#elif defined(USING_FBDEV) || PPSSPP_PLATFORM(SWITCH)
 	mode |= SDL_WINDOW_FULLSCREEN_DESKTOP;
 #else
 	mode |= SDL_WINDOW_RESIZABLE;
@@ -592,14 +599,19 @@ int main(int argc, char *argv[]) {
 
 	// Mac / Linux
 	char path[2048];
+#if PPSSPP_PLATFORM(SWITCH)
+	strcpy(path, "/switch/ppsspp/");
+#else
 	const char *the_path = getenv("HOME");
 	if (!the_path) {
-		struct passwd* pwd = getpwuid(getuid());
+		struct passwd *pwd = getpwuid(getuid());
 		if (pwd)
 			the_path = pwd->pw_dir;
 	}
-	strcpy(path, the_path);
-	if (path[strlen(path)-1] != '/')
+	if (the_path)
+		strcpy(path, the_path);
+#endif
+	if (strlen(path) > 0 && path[strlen(path) - 1] != '/')
 		strcat(path, "/");
 
 	NativeInit(remain_argc, (const char **)remain_argv, path, "/tmp", nullptr);
@@ -1139,5 +1151,8 @@ int main(int argc, char *argv[]) {
 
 	glslang::FinalizeProcess();
 	ILOG("Leaving main");
+#ifdef HAVE_LIBNX
+	socketExit();
+#endif
 	return 0;
 }

@@ -19,7 +19,7 @@
 
 #include <mfapi.h>
 #include <mfidl.h>
-#include <Mfreadwrite.h>
+#include <mfreadwrite.h>
 #include <mutex>
 #include <condition_variable>
 #include <vector>

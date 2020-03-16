@@ -207,6 +207,7 @@ public:
 	bool bGfxDebugOutput;
 	bool bGfxDebugSplitSubmit;
 	int iInflightFrames;
+	bool bRenderDuplicateFrames;
 
 	// Sound
 	bool bEnableSound;
@@ -410,7 +411,6 @@ public:
 
 	int iPSPModel;
 	int iFirmwareVersion;
-	// TODO: Make this work with your platform, too!
 	bool bBypassOSKWithKeyboard;
 
 	// Debugger

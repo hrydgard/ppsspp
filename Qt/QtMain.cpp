@@ -230,9 +230,9 @@ PermissionStatus System_GetPermissionStatus(SystemPermission permission) { retur
 void System_InputBoxGetString(const std::string &title, const std::string &defaultValue, std::function<void(bool, const std::string &)> cb) {
 	QString text = emugl->InputBoxGetQString(QString::fromStdString(title), QString::fromStdString(defaultValue));
 	if (text.isEmpty()) {
-		cb(false, "");
+		NativeInputBoxReceived(cb, false, "");
 	} else {
-		cb(true, text.toStdString());
+		NativeInputBoxReceived(cb, true, text.toStdString());
 	}
 }
 

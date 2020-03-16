@@ -49,6 +49,7 @@
 #include "Core/HLE/sceKernel.h"
 #include "Core/HLE/sceKernelThread.h"
 #include "Core/HLE/sceKernelInterrupt.h"
+#include "Core/Util/PPGeDraw.h"
 
 #include "GPU/GPU.h"
 #include "GPU/GPUState.h"
@@ -753,9 +754,11 @@ void __DisplayFlip(int cyclesLate) {
 	// Also let's always flip for animated shaders.
 	const ShaderInfo *shaderInfo = g_Config.sPostShaderName == "Off" ? nullptr : GetPostShaderInfo(g_Config.sPostShaderName);
 	bool postEffectRequiresFlip = false;
+	// postEffectRequiresFlip is not compatible with frameskip unthrottling, see #12325.
 	if (shaderInfo && g_Config.iRenderingMode != FB_NON_BUFFERED_MODE)
-		postEffectRequiresFlip = shaderInfo->requires60fps;
+		postEffectRequiresFlip = (shaderInfo->requires60fps || g_Config.bRenderDuplicateFrames) && !(g_Config.bFrameSkipUnthrottle && !FrameTimingThrottled());
 	const bool fbDirty = gpu->FramebufferDirty();
+
 	if (fbDirty || noRecentFlip || postEffectRequiresFlip) {
 		int frameSleepPos = frameTimeHistoryPos;
 		CalculateFPS();
@@ -832,6 +835,7 @@ void __DisplayFlip(int cyclesLate) {
 
 void hleAfterFlip(u64 userdata, int cyclesLate) {
 	gpu->BeginFrame();  // doesn't really matter if begin or end of frame.
+	PPGeNotifyFrame();
 
 	// This seems like as good a time as any to check if the config changed.
 	if (lagSyncScheduled != g_Config.bForceLagSync) {

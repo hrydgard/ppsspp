@@ -184,8 +184,8 @@ void DrawSprite(const VertexData& v0, const VertexData& v1) {
 			}
 		}
 	} else {
-		if (pos1.x > scissorBR.x) pos1.x = scissorBR.x;
-		if (pos1.y > scissorBR.y) pos1.y = scissorBR.y;
+		if (pos1.x > scissorBR.x) pos1.x = scissorBR.x + 1;
+		if (pos1.y > scissorBR.y) pos1.y = scissorBR.y + 1;
 		if (pos0.x < scissorTL.x) pos0.x = scissorTL.x;
 		if (pos0.y < scissorTL.y) pos0.y = scissorTL.y;
 		if (!gstate.isStencilTestEnabled() &&

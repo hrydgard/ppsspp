@@ -1,4 +1,5 @@
 #include <cstring>
+#include "gfx_es2/draw_buffer.h"
 #include "util/text/utf8.h"
 #include "util/text/wrap_text.h"
 
@@ -75,39 +76,58 @@ std::string WordWrapper::Wrapped() {
 }
 
 bool WordWrapper::WrapBeforeWord() {
-	if (x_ + wordWidth_ > maxW_ && out_.size() > 0) {
-		if (IsShy(out_[out_.size() - 1])) {
-			// Soft hyphen, replace it with a real hyphen since we wrapped at it.
-			// TODO: There's an edge case here where the hyphen might not fit.
-			out_[out_.size() - 1] = '-';
+	if (flags_ & FLAG_WRAP_TEXT) {
+		if (x_ + wordWidth_ > maxW_ && !out_.empty()) {
+			if (IsShy(out_[out_.size() - 1])) {
+				// Soft hyphen, replace it with a real hyphen since we wrapped at it.
+				// TODO: There's an edge case here where the hyphen might not fit.
+				out_[out_.size() - 1] = '-';
+			}
+			out_ += "\n";
+			lastLineStart_ = out_.size();
+			x_ = 0.0f;
+			forceEarlyWrap_ = false;
+			return true;
 		}
-		out_ += "\n";
-		lastLineStart_ = out_.size();
-		x_ = 0.0f;
-		forceEarlyWrap_ = false;
-		return true;
+	}
+	if (flags_ & FLAG_ELLIPSIZE_TEXT) {
+		if (x_ + wordWidth_ > maxW_) {
+			if (!out_.empty() && IsSpace(out_[out_.size() - 1])) {
+				out_[out_.size() - 1] = '.';
+				out_ += "..";
+			} else {
+				out_ += "...";
+			}
+			x_ = maxW_;
+		}
 	}
 	return false;
 }
 
 void WordWrapper::AppendWord(int endIndex, bool addNewline) {
-	int nextWordIndex = lastIndex_;
+	int lastWordStartIndex = lastIndex_;
 	if (WrapBeforeWord()) {
 		// Advance to the first non-whitespace UTF-8 character in the following word (if any) to prevent starting the new line with a whitespace
-		UTF8 utf8Word(str_, nextWordIndex);
-		while (nextWordIndex < endIndex) {
+		UTF8 utf8Word(str_, lastWordStartIndex);
+		while (lastWordStartIndex < endIndex) {
 			const uint32_t c = utf8Word.next();
 			if (!IsSpace(c)) {
 				break;
 			}
-			nextWordIndex = utf8Word.byteIndex();
+			lastWordStartIndex = utf8Word.byteIndex();
 		}
 	}
+
 	// This will include the newline.
-	out_.append(str_ + nextWordIndex, str_ + endIndex);
-	if (addNewline) {
+	if (x_ < maxW_) {
+		out_.append(str_ + lastWordStartIndex, str_ + endIndex);
+	} else {
+		scanForNewline_ = true;
+	}
+	if (addNewline && (flags_ & FLAG_WRAP_TEXT)) {
 		out_ += "\n";
 		lastLineStart_ = out_.size();
+		scanForNewline_ = false;
 	} else {
 		// We may have appended a newline - check.
 		size_t pos = out_.substr(lastLineStart_).find_last_of("\n");
@@ -129,6 +149,10 @@ void WordWrapper::Wrap() {
 		return;
 	}
 
+	if (flags_ & FLAG_ELLIPSIZE_TEXT) {
+		ellipsisWidth_ = MeasureWidth("...", 3);
+	}
+
 	for (UTF8 utf(str_); !utf.end(); ) {
 		int beforeIndex = utf.byteIndex();
 		uint32_t c = utf.next();
@@ -142,6 +166,13 @@ void WordWrapper::Wrap() {
 			wordWidth_ = 0.0f;
 			// We wrapped once, so stop forcing.
 			forceEarlyWrap_ = false;
+			scanForNewline_ = false;
+			continue;
+		}
+
+		if (scanForNewline_) {
+			// We're discarding the rest of the characters until a newline (no wrapping.)
+			lastIndex_ = afterIndex;
 			continue;
 		}
 
@@ -175,11 +206,31 @@ void WordWrapper::Wrap() {
 			}
 			// Now, add the word so far (without this latest character) and break.
 			AppendWord(beforeIndex, true);
-			x_ = 0.0f;
+			if (lastLineStart_ != out_.size()) {
+				x_ = MeasureWidth(out_.c_str() + lastLineStart_, out_.size() - lastLineStart_);
+			} else {
+				x_ = 0.0f;
+			}
 			wordWidth_ = 0.0f;
 			forceEarlyWrap_ = false;
 			// The current character will be handled as part of the next word.
 			continue;
+		}
+
+		if ((flags_ & FLAG_ELLIPSIZE_TEXT) && wordWidth_ > 0.0f && x_ + newWordWidth + ellipsisWidth_ > maxW_) {
+			if ((flags_ & FLAG_WRAP_TEXT) == 0) {
+				// Now, add the word so far (without this latest character) and show the ellipsis.
+				AppendWord(beforeIndex, true);
+				if (lastLineStart_ != out_.size()) {
+					x_ = MeasureWidth(out_.c_str() + lastLineStart_, out_.size() - lastLineStart_);
+				} else {
+					x_ = 0.0f;
+				}
+				wordWidth_ = 0.0f;
+				forceEarlyWrap_ = false;
+				// The current character will be handled as part of the next word.
+				continue;
+			}
 		}
 
 		wordWidth_ = newWordWidth;

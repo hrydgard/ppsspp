@@ -21,7 +21,7 @@
 
 class KernelThreadDebugInterface : public MIPSDebugInterface {
 public:
-	KernelThreadDebugInterface(MIPSState *c, ThreadContext &t) : MIPSDebugInterface(c), ctx(t) {
+	KernelThreadDebugInterface(MIPSState *c, PSPThreadContext &t) : MIPSDebugInterface(c), ctx(t) {
 	}
 
 	unsigned int getPC() override { return ctx.pc; }
@@ -86,5 +86,5 @@ public:
 	}
 
 protected:
-	ThreadContext &ctx;
+	PSPThreadContext &ctx;
 };
