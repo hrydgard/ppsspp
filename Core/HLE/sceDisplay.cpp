@@ -946,6 +946,8 @@ void __DisplaySetFramebuf(u32 topaddr, int linesize, int pixelFormat, int sync) 
 	if (sync == PSP_DISPLAY_SETBUF_IMMEDIATE) {
 		// Write immediately to the current framebuffer parameters.
 		framebuf = fbstate;
+		// Also update latchedFramebuf for any sceDisplayGetFramebuf() after this.
+		latchedFramebuf = fbstate;
 		gpu->SetDisplayFramebuffer(framebuf.topaddr, framebuf.stride, framebuf.fmt);
 		// IMMEDIATE means that the buffer is fine. We can just flip immediately.
 		// Doing it in non-buffered though creates problems (black screen) on occasion though
@@ -1050,9 +1052,7 @@ bool __DisplayGetFramebuf(PSPPointer<u8> *topaddr, u32 *linesize, u32 *pixelForm
 }
 
 static u32 sceDisplayGetFramebuf(u32 topaddrPtr, u32 linesizePtr, u32 pixelFormatPtr, int latchedMode) {
-	// NOTE: This is wrong and partially reverts #8753. Presumably there's something else involved here as well.
-	// See #8816. Could also be a firmware version difference, there are a few of those...
-	const FrameBufferState &fbState = (latchedMode == PSP_DISPLAY_SETBUF_NEXTFRAME && framebufIsLatched) ? latchedFramebuf : framebuf;
+	const FrameBufferState &fbState = latchedMode == PSP_DISPLAY_SETBUF_NEXTFRAME ? latchedFramebuf : framebuf;
 
 	if (Memory::IsValidAddress(topaddrPtr))
 		Memory::Write_U32(fbState.topaddr, topaddrPtr);
