@@ -755,8 +755,14 @@ void __DisplayFlip(int cyclesLate) {
 	const ShaderInfo *shaderInfo = g_Config.sPostShaderName == "Off" ? nullptr : GetPostShaderInfo(g_Config.sPostShaderName);
 	bool postEffectRequiresFlip = false;
 	// postEffectRequiresFlip is not compatible with frameskip unthrottling, see #12325.
-	if (shaderInfo && g_Config.iRenderingMode != FB_NON_BUFFERED_MODE)
-		postEffectRequiresFlip = (shaderInfo->requires60fps || g_Config.bRenderDuplicateFrames) && !(g_Config.bFrameSkipUnthrottle && !FrameTimingThrottled());
+	if (g_Config.iRenderingMode != FB_NON_BUFFERED_MODE && !(g_Config.bFrameSkipUnthrottle && !FrameTimingThrottled())) {
+		if (shaderInfo) {
+			postEffectRequiresFlip = (shaderInfo->requires60fps || g_Config.bRenderDuplicateFrames);
+		} else {
+			postEffectRequiresFlip = g_Config.bRenderDuplicateFrames;
+		}
+	}
+
 	const bool fbDirty = gpu->FramebufferDirty();
 
 	if (fbDirty || noRecentFlip || postEffectRequiresFlip) {
