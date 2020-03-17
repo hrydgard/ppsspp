@@ -213,10 +213,6 @@ struct SceKernelVplHeader {
 		do {
 			auto b = prev->next;
 			if (b->sizeInBlocks > allocBlocks) {
-				if (nextFreeBlock_ == b) {
-					nextFreeBlock_ = prev;
-				}
-				prev = b;
 				b = SplitBlock(b, allocBlocks);
 			}
 
@@ -289,16 +285,13 @@ struct SceKernelVplHeader {
 	void UnlinkFreeBlock(PSPPointer<SceKernelVplBlock> b, PSPPointer<SceKernelVplBlock> prev) {
 		allocatedInBlocks_ += b->sizeInBlocks;
 		prev->next = b->next;
-		if (nextFreeBlock_ == b) {
-			nextFreeBlock_ = prev;
-		}
+		nextFreeBlock_ = prev;
 		b->next = SentinelPtr();
 	}
 
 	PSPPointer<SceKernelVplBlock> SplitBlock(PSPPointer<SceKernelVplBlock> b, u32 allocBlocks) {
-		u32 prev = b->next.ptr;
+		u32 prev = b.ptr;
 		b->sizeInBlocks -= allocBlocks;
-		b->next = b + b->sizeInBlocks;
 
 		b += b->sizeInBlocks;
 		b->sizeInBlocks = allocBlocks;
