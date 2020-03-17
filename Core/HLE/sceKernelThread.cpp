@@ -3070,8 +3070,9 @@ void __KernelChangeThreadState(PSPThread *thread, ThreadStatus newStatus) {
 }
 
 
+
 static bool __CanExecuteCallbackNow(PSPThread *thread) {
-	return g_inCbCount == 0;
+	return currentCallbackThreadID == 0 && g_inCbCount == 0;
 }
 
 void __KernelCallAddress(PSPThread *thread, u32 entryPoint, PSPAction *afterAction, const u32 args[], int numargs, bool reschedAfter, SceUID cbId) {
@@ -3124,7 +3125,7 @@ void __KernelCallAddress(PSPThread *thread, u32 entryPoint, PSPAction *afterActi
 	u32 callId = mipsCalls.add(call);
 
 	bool called = false;
-	if (!thread || thread == __GetCurrentThread()) {
+	if ((!thread || thread == __GetCurrentThread())) {
 		if (__CanExecuteCallbackNow(thread)) {
 			thread = __GetCurrentThread();
 			__KernelChangeThreadState(thread, THREADSTATUS_RUNNING);
@@ -3216,7 +3217,7 @@ void __KernelReturnFromMipsCall()
 
 	// Value returned by the callback function
 	u32 retVal = currentMIPS->r[MIPS_REG_V0];
-	DEBUG_LOG(SCEKERNEL,"__KernelReturnFromMipsCall(), returned %08x", retVal);
+	DEBUG_LOG(SCEKERNEL, "__KernelReturnFromMipsCall(), returned %08x", retVal);
 
 	// Should also save/restore wait state here.
 	if (call->doAfter)
