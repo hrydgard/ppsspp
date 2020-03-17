@@ -220,6 +220,12 @@ void CPU_Init() {
 		// ERROR_LOG(LOADER, "PBP directory resolution failed.");
 		InitMemoryForGamePBP(loadedFile);
 		break;
+	case IdentifiedFileType::PSP_ELF:
+		if (Memory::g_PSPModel != PSP_MODEL_FAT) {
+			INFO_LOG(LOADER, "ELF, using full PSP-2000 memory access");
+			Memory::g_MemorySize = Memory::RAM_DOUBLE_SIZE;
+		}
+		break;
 	default:
 		break;
 	}
