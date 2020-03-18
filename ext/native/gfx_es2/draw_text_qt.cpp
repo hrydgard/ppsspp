@@ -35,7 +35,7 @@ uint32_t TextDrawerQt::SetFont(const char *fontName, int size, int flags) {
 	}
 
 	QFont *font = fontName ? new QFont(fontName) : new QFont();
-	font->setPixelSize(size + 6);
+	font->setPixelSize((int)((size + 6) / dpiScale_));
 	fontMap_[fontHash] = font;
 	fontHash_ = fontHash;
 	return fontHash;
@@ -85,8 +85,8 @@ void TextDrawerQt::MeasureStringRect(const char *str, size_t len, const Bounds &
 	QFont* font = fontMap_.find(fontHash_)->second;
 	QFontMetrics fm(*font);
 	QSize size = fm.size(0, QString::fromUtf8(toMeasure.c_str(), (int)toMeasure.size()));
-	*w = (float)size.width() * fontScaleX_;
-	*h = (float)size.height() * fontScaleY_;
+	*w = (float)size.width() * fontScaleX_ * dpiScale_;
+	*h = (float)size.height() * fontScaleY_ * dpiScale_;
 }
 
 void TextDrawerQt::DrawStringBitmap(std::vector<uint8_t> &bitmapData, TextStringEntry &entry, Draw::DataFormat texFormat, const char *str, int align) {
