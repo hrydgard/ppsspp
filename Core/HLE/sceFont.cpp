@@ -961,6 +961,7 @@ static int sceFontDoneLib(u32 fontLibHandle) {
 	INFO_LOG(SCEFONT, "sceFontDoneLib(%08x)", fontLibHandle);
 	FontLib *fl = GetFontLib(fontLibHandle);
 	if (fl) {
+		currentMIPS->r[MIPS_REG_V0] = 0;
 		fl->Done();
 	}
 	return 0;
@@ -1094,8 +1095,10 @@ static int sceFontClose(u32 fontHandle) {
 	if (font) {
 		DEBUG_LOG(SCEFONT, "sceFontClose(%x)", fontHandle);
 		FontLib *fontLib = font->GetFontLib();
-		if (fontLib)
+		if (fontLib) {
+			currentMIPS->r[MIPS_REG_V0] = 0;
 			fontLib->CloseFont(font);
+		}
 	} else
 		ERROR_LOG(SCEFONT, "sceFontClose(%x) - font not open?", fontHandle);
 	return 0;
@@ -1420,6 +1423,7 @@ static int sceFontFlush(u32 fontHandle) {
 		return ERROR_FONT_INVALID_PARAMETER;
 	}
 
+	currentMIPS->r[MIPS_REG_V0] = 0;
 	font->GetFontLib()->flushFont();
 
 	return 0;

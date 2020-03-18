@@ -474,6 +474,7 @@ static int sceNetApctlDisconnect() {
 	ERROR_LOG(SCENET, "UNIMPL %s()", __FUNCTION__);
 	// Like its 'sister' function sceNetAdhocctlDisconnect, we need to alert Apctl handlers that a disconnect took place
 	// or else games like Phantasy Star Portable 2 will hang at certain points (e.g. returning to the main menu after trying to connect to PSN).
+	currentMIPS->r[MIPS_REG_V0] = 0;
 	__UpdateApctlHandlers(0, 0, PSP_NET_APCTL_EVENT_DISCONNECT_REQUEST, 0);
 	return 0;
 }
