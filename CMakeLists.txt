@@ -1804,7 +1804,7 @@ if(FFmpeg_FOUND)
 endif()
 
 # Discord integration
-if(USE_DISCORD AND NOT IOS)
+if(USE_DISCORD AND NOT IOS AND NOT LIBRETRO)
 	add_definitions(-DUSE_DISCORD=1)
 	target_link_libraries(${CoreLibName} discord-rpc)
 endif()
