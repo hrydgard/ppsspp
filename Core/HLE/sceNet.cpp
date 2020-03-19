@@ -363,7 +363,7 @@ static u32 sceWlanGetSwitchState() {
 }
 
 // Probably a void function, but often returns a useful value.
-static int sceNetEtherNtostr(u32 macPtr, u32 bufferPtr) {
+static void sceNetEtherNtostr(u32 macPtr, u32 bufferPtr) {
 	DEBUG_LOG(SCENET, "sceNetEtherNtostr(%08x, %08x)", macPtr, bufferPtr);
 
 	if (Memory::IsValidAddress(bufferPtr) && Memory::IsValidAddress(macPtr)) {
@@ -371,11 +371,10 @@ static int sceNetEtherNtostr(u32 macPtr, u32 bufferPtr) {
 		const u8 *mac = Memory::GetPointer(macPtr);
 
 		// MAC address is always 6 bytes / 48 bits.
-		return sprintf(buffer, "%02x:%02x:%02x:%02x:%02x:%02x",
+		sprintf(buffer, "%02x:%02x:%02x:%02x:%02x:%02x",
 			mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
-	} else {
-		// Possibly a void function, seems to return this on bad args.
-		return 0x09d40000;
+
+		VERBOSE_LOG(SCENET, "sceNetEtherNtostr - [%s]", buffer);
 	}
 }
 
@@ -390,7 +389,7 @@ static int hex_to_digit(int c) {
 }
 
 // Probably a void function, but sometimes returns a useful-ish value.
-static int sceNetEtherStrton(u32 bufferPtr, u32 macPtr) {
+static void sceNetEtherStrton(u32 bufferPtr, u32 macPtr) {
 	DEBUG_LOG(SCENET, "sceNetEtherStrton(%08x, %08x)", bufferPtr, macPtr);
 
 	if (Memory::IsValidAddress(bufferPtr) && Memory::IsValidAddress(macPtr)) {
@@ -421,11 +420,9 @@ static int sceNetEtherStrton(u32 bufferPtr, u32 macPtr) {
 			}
 		}
 
+		VERBOSE_LOG(SCENET, "sceNetEtherStrton - [%s]", mac2str((SceNetEtherAddr*)Memory::GetPointer(macPtr)));
 		// Seems to maybe kinda return the last value.  Probably returns void.
-		return value;
-	} else {
-		// Possibly a void function, seems to return this on bad args (or crash.)
-		return 0;
+		//return value;
 	}
 }
 
@@ -684,8 +681,8 @@ static int sceNetSetDropRate(u32 dropRate, u32 dropDuration)
 const HLEFunction sceNet[] = {
 	{0X39AF39A6, &WrapI_UUUUU<sceNetInit>,           "sceNetInit",                      'i', "xxxxx"},
 	{0X281928A9, &WrapU_V<sceNetTerm>,               "sceNetTerm",                      'x', ""     },
-	{0X89360950, &WrapI_UU<sceNetEtherNtostr>,       "sceNetEtherNtostr",               'i', "xx"   },
-	{0XD27961C9, &WrapI_UU<sceNetEtherStrton>,       "sceNetEtherStrton",               'i', "xx"   },
+	{0X89360950, &WrapV_UU<sceNetEtherNtostr>,       "sceNetEtherNtostr",               'v', "xx"   },
+	{0XD27961C9, &WrapV_UU<sceNetEtherStrton>,       "sceNetEtherStrton",               'v', "xx"   },
 	{0X0BF0A3AE, &WrapU_U<sceNetGetLocalEtherAddr>,  "sceNetGetLocalEtherAddr",         'x', "x"    },
 	{0X50647530, &WrapI_I<sceNetFreeThreadinfo>,     "sceNetFreeThreadinfo",            'i', "i"    },
 	{0XCC393E48, &WrapI_U<sceNetGetMallocStat>,      "sceNetGetMallocStat",             'i', "x"    },
