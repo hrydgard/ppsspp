@@ -377,7 +377,7 @@ static int sceNetAdhocPdpCreate(const char *mac, int port, int bufferSize, u32 u
 								// Fill in Data
 								internal->id = usocket;
 								internal->laddr = *saddr;
-								internal->lport = port; //getLocalPort(usocket) - portOffset; //should use the port given to the socket (in case it's UNUSED_PORT port) isn't?
+								internal->lport = port; //getLocalPort(usocket) - portOffset;
 								internal->rcv_sb_cc = bufferSize;
 
 								// Link Socket to Translator ID
@@ -385,7 +385,7 @@ static int sceNetAdhocPdpCreate(const char *mac, int port, int bufferSize, u32 u
 
 								// Forward Port on Router
 								//sceNetPortOpen("UDP", port);
-								g_PortManager.Add(port + portOffset, IP_PROTOCOL_UDP);
+								g_PortManager.Add(IP_PROTOCOL_UDP, isOriPort ? port : port + portOffset, port + portOffset);
 								
 								// Success
 								return i + 1;
@@ -519,6 +519,9 @@ static int sceNetAdhocPdpSend(int id, const char *mac, u32 port, void *data, int
 
 								// Get Peer IP
 								if (resolveMAC((SceNetEtherAddr *)daddr, (uint32_t *)&target.sin_addr.s_addr)) {
+									// Some games (ie. PSP2) might try to talk to it's self, not sure if they talked through WAN or LAN when using public Adhoc Server tho
+									target.sin_port = htons(dport + ((isOriPort && !isPrivateIP(target.sin_addr.s_addr)) ? 0 : portOffset));
+
 									// Acquire Network Lock
 									//_acquireNetworkLock();
 
@@ -588,7 +591,7 @@ static int sceNetAdhocPdpSend(int id, const char *mac, u32 port, void *data, int
 									sockaddr_in target;
 									target.sin_family = AF_INET;
 									target.sin_addr.s_addr = peer->ip_addr;
-									target.sin_port = htons(dport + portOffset);
+									target.sin_port = htons(dport + ((isOriPort && !isPrivateIP(peer->ip_addr)) ? 0 : portOffset));
 									
 									int sent = sendto(socket->id, (const char *)data, len, 0, (sockaddr *)&target, sizeof(target));
 									int error = errno;
@@ -980,7 +983,7 @@ static int sceNetAdhocPdpDelete(int id, int unknown) {
 
 				// Remove Port Forward from Router
 				//sceNetPortClose("UDP", sock->lport);
-				//g_PortManager.Remove(sock->lport + portOffset, IP_PROTOCOL_UDP); // Let's not remove mapping in real-time as it could cause lags/disconnection when joining a room with slow routers
+				//g_PortManager.Remove(IP_PROTOCOL_UDP, isOriPort ? sock->lport : sock->lport + portOffset); // Let's not remove mapping in real-time as it could cause lags/disconnection when joining a room with slow routers
 
 				// Free Memory
 				free(sock);
@@ -1870,6 +1873,7 @@ static int sceNetAdhocPtpOpen(const char *srcmac, int sport, const char *dstmac,
 	}
 	SceNetEtherAddr* saddr = (SceNetEtherAddr*)srcmac;
 	SceNetEtherAddr* daddr = (SceNetEtherAddr*)dstmac;
+	bool isClient = false;
 	// Library is initialized
 	if (netAdhocInited) {
 		// Some games (ie. DBZ Shin Budokai 2) might be getting the saddr/srcmac content from SaveState and causing problems if current MAC is different :( So we try to fix it here
@@ -1880,6 +1884,7 @@ static int sceNetAdhocPtpOpen(const char *srcmac, int sport, const char *dstmac,
 		if (saddr != NULL && isLocalMAC(saddr) && daddr != NULL && !isBroadcastMAC(daddr)) {
 			// Random Port required
 			if (sport == 0) {
+				isClient = true;
 				// Find unused Port
 				// while (sport == 0 || _IsPTPPortInUse(sport)) {
 				// 	// Generate Port Number
@@ -1963,7 +1968,8 @@ static int sceNetAdhocPtpOpen(const char *srcmac, int sport, const char *dstmac,
 									
 									// Add Port Forward to Router. We may not even need to forward this local port, since PtpOpen usually have port 0 (any port) as source port and followed by PtpConnect (which mean acting as Client), right?
 									//sceNetPortOpen("TCP", sport);
-									//g_PortManager.Add(sport + portOffset, IP_PROTOCOL_TCP);
+									if (!isClient)
+										g_PortManager.Add(IP_PROTOCOL_TCP, isOriPort ? sport : sport + portOffset, sport + portOffset);
 									
 									// Return PTP Socket Pointer
 									return i + 1;
@@ -2153,7 +2159,7 @@ static int sceNetAdhocPtpAccept(int id, u32 peerMacAddrPtr, u32 peerPortPtr, int
 										
 										// Add Port Forward to Router. Or may be doesn't need to be forwarded since local port already accessible from outside if others were able to connect & get accepted at this point, right?
 										//sceNetPortOpen("TCP", internal->lport);
-										//g_PortManager.Add(internal->lport + portOffset, IP_PROTOCOL_TCP);
+										//g_PortManager.Add(IP_PROTOCOL_TCP, internal->lport + portOffset);
 
 										INFO_LOG(SCENET, "sceNetAdhocPtpAccept[%i->%i:%u]: Established (%s:%u)", id, i+1, internal->lport, inet_ntoa(peeraddr.sin_addr), internal->pport);
 										
@@ -2234,6 +2240,9 @@ static int sceNetAdhocPtpConnect(int id, int timeout, int flag) {
 				
 				// Grab Peer IP
 				if (resolveMAC(&socket->paddr, (uint32_t *)&sin.sin_addr.s_addr)) {
+					// Some games (ie. PSP2) might try to talk to it's self, not sure if they talked through WAN or LAN when using public Adhoc Server tho
+					sin.sin_port = htons(socket->pport + ((isOriPort && !isPrivateIP(sin.sin_addr.s_addr)) ? 0 : portOffset));
+
 					// Grab Nonblocking Flag
 					uint32_t nbio = getBlockingFlag(socket->id);
 
@@ -2245,7 +2254,7 @@ static int sceNetAdhocPtpConnect(int id, int timeout, int flag) {
 					}*/
 					
 					// Connect Socket to Peer (Nonblocking)
-					// Fixme: The First Non-blocking POSIX connect will always returns EAGAIN/EWOULDBLOCK because it returns without waiting for ACK, But GvG Next Plus is treating non-blocking connect just like blocking connect, May be on a real PSP the first non-blocking sceNetAdhocPtpConnect can be successfull?
+					// NOTE: Based on what i read at stackoverflow, The First Non-blocking POSIX connect will always returns EAGAIN/EWOULDBLOCK because it returns without waiting for ACK/handshake, But GvG Next Plus is treating non-blocking PtpConnect just like blocking connect, May be on a real PSP the first non-blocking sceNetAdhocPtpConnect can be successfull?
 					int connectresult = connect(socket->id, (sockaddr *)&sin, sizeof(sin));
 					
 					// Grab Error Code
@@ -2352,7 +2361,7 @@ static int sceNetAdhocPtpClose(int id, int unknown) {
 			
 			// Remove Port Forward from Router
 			//sceNetPortClose("TCP", socket->lport);
-			//g_PortManager.Remove(socket->lport + portOffset, IP_PROTOCOL_TCP); // Let's not remove mapping in real-time as it could cause lags/disconnection when joining a room with slow routers
+			//g_PortManager.Remove(IP_PROTOCOL_TCP, isOriPort ? socket->lport : socket->lport + portOffset); // Let's not remove mapping in real-time as it could cause lags/disconnection when joining a room with slow routers
 			
 			// Free Memory
 			free(socket);
@@ -2488,7 +2497,7 @@ static int sceNetAdhocPtpListen(const char *srcmac, int sport, int bufsize, int 
 										
 										// Add Port Forward to Router
 										//sceNetPortOpen("TCP", sport);
-										g_PortManager.Add(sport + portOffset, IP_PROTOCOL_TCP);
+										g_PortManager.Add(IP_PROTOCOL_TCP, isOriPort ? sport : sport + portOffset, sport + portOffset);
 										
 										// Return PTP Socket Pointer
 										return i + 1;

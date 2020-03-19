@@ -957,8 +957,9 @@ static ConfigSetting networkSettings[] = {
 	ConfigSetting("EnableAdhocServer", &g_Config.bEnableAdhocServer, false, true, true),
 	ConfigSetting("proAdhocServer", &g_Config.proAdhocServer, "myneighborsushicat.com", true, true),
 	ConfigSetting("PortOffset", &g_Config.iPortOffset, 0, true, true),
-	ConfigSetting("EnableUPnP", &g_Config.bEnableUPnP, false, true, true),
 	ConfigSetting("MinTimeout", &g_Config.iMinTimeout, 1, true, true),
+	ConfigSetting("EnableUPnP", &g_Config.bEnableUPnP, false, true, true),
+	ConfigSetting("UPnPUseOriginalPort", &g_Config.bUPnPUseOriginalPort, true, true, true),
 
 	ConfigSetting("EnableNetworkChat", &g_Config.bEnableNetworkChat, false, true, true),
 	ConfigSetting("ChatButtonPosition",&g_Config.iChatButtonPosition,BOTTOM_LEFT,true,true),

@@ -118,6 +118,7 @@ static void __ResetInitNetLib() {
 void __NetInit() {
 	// Windows: Assuming WSAStartup already called beforehand
 	portOffset = g_Config.iPortOffset;
+	isOriPort = g_Config.bEnableUPnP && g_Config.bUPnPUseOriginalPort;
 	minSocketTimeoutUS = g_Config.iMinTimeout * 1000UL;
 
 	InitLocalhostIP();

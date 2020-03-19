@@ -30,8 +30,8 @@
 #include <Core/System.h>
 #include <Core/Host.h>
 #include <Core/ELF/ParamSFO.h>
-#include "Core/HLE/proAdhoc.h" // This import is only used to get product id that was used to connect to adhoc server
 #include "Core/Util/PortManager.h"
+#include <Common/Log.h>
 #include "i18n/i18n.h"
 
 
@@ -77,7 +77,7 @@ bool PortManager::Init(const unsigned int timeout) {
 	char* descXML;
 	int descXMLsize = 0;
 	int descXMLstatus = 0;
-	int localport = m_LocalPort; // UPNP_LOCAL_PORT_ANY (0), or UPNP_LOCAL_PORT_SAME (1) as an alias for 1900 for backwards compatability?
+	int localport = m_LocalPort; // UPNP_LOCAL_PORT_ANY (0), or UPNP_LOCAL_PORT_SAME (1) as an alias for 1900 (for backwards compatability?)
 	int ipv6 = 0; // 0 = IPv4, 1 = IPv6
 	unsigned char ttl = 2; // defaulting to 2
 	int error = 0;
@@ -151,13 +151,8 @@ bool PortManager::Init(const unsigned int timeout) {
 			INFO_LOG(SCENET, "PortManager - Connection Type: %s", connectionType);
 		}
 
-		// Using Game ID & Player Name as default description for mapping (prioritizing the ID sent by the game to Adhoc server)
-		char productid[10] = { 0 };
-		memcpy(productid, product_code.data, sizeof(product_code.data));
-		std::string gameID = std::string(productid);
-		if (productid[0] == '\0') {
-			gameID = g_paramSFO.GetDiscID();
-		}
+		// Using Game ID & Player Name as default description for mapping
+		std::string gameID = g_paramSFO.GetDiscID();
 		m_defaultDesc = "PPSSPP:" + gameID + ":" + g_Config.sNickName;
 
 		freeUPNPDevlist(devlist);
@@ -179,17 +174,21 @@ int PortManager::GetInitState() {
 	return m_InitState;
 }
 
-bool PortManager::Add(unsigned short port, const char* protocol) {
+bool PortManager::Add(const char* protocol, unsigned short port, unsigned short intport) {
 	char port_str[16];
+	char intport_str[16];
 	int r;
 	
-	INFO_LOG(SCENET, "PortManager::Add(%d, %s)", port, protocol);
+	if (intport == 0)
+		intport = port;
+	INFO_LOG(SCENET, "PortManager::Add(%s, %d, %d)", protocol, port, intport);
 	if (urls == NULL || urls->controlURL == NULL || urls->controlURL[0] == '\0')
 	{
 		if (g_Config.bEnableUPnP) WARN_LOG(SCENET, "PortManager::Add - the init was not done !");
 		return false;
 	}
 	sprintf(port_str, "%d", port);
+	sprintf(intport_str, "%d", intport);
 	// Only add new port map if it's not previously created by PPSSPP for current IP
 	auto el_it = std::find_if(m_portList.begin(), m_portList.end(),
 		[port_str, protocol](const std::pair<std::string, std::string> &el) { return el.first == port_str && el.second == protocol; });
@@ -201,11 +200,11 @@ bool PortManager::Add(unsigned short port, const char* protocol) {
 			r = UPNP_DeletePortMapping(urls->controlURL, datas->first.servicetype, port_str, protocol, NULL);
 		}
 		r = UPNP_AddPortMapping(urls->controlURL, datas->first.servicetype,
-			port_str, port_str, m_lanip.c_str(), m_defaultDesc.c_str(), protocol, NULL, m_leaseDuration.c_str());
+			port_str, intport_str, m_lanip.c_str(), m_defaultDesc.c_str(), protocol, NULL, m_leaseDuration.c_str());
 		if (r == 725 && m_leaseDuration != "0") {
 			m_leaseDuration = "0";
 			r = UPNP_AddPortMapping(urls->controlURL, datas->first.servicetype,
-				port_str, port_str, m_lanip.c_str(), m_defaultDesc.c_str(), protocol, NULL, m_leaseDuration.c_str());
+				port_str, intport_str, m_lanip.c_str(), m_defaultDesc.c_str(), protocol, NULL, m_leaseDuration.c_str());
 		}
 		if (r != 0)
 		{
@@ -224,10 +223,10 @@ bool PortManager::Add(unsigned short port, const char* protocol) {
 	return true;
 }
 
-bool PortManager::Remove(unsigned short port, const char* protocol) {
+bool PortManager::Remove(const char* protocol, unsigned short port) {
 	char port_str[16];
 
-	INFO_LOG(SCENET, "PortManager::Remove(%d, %s)", port, protocol);
+	INFO_LOG(SCENET, "PortManager::Remove(%s, %d)", protocol, port);
 	if (urls == NULL || urls->controlURL == NULL || urls->controlURL[0] == '\0')
 	{
 		if (g_Config.bEnableUPnP) WARN_LOG(SCENET, "PortManager::Remove - the init was not done !");

@@ -69,19 +69,19 @@ public:
 	// Get UPnP Initialization status
 	int GetInitState();
 
-	// Add a port & protocol (TCP, UDP or vendor-defined) to map for forwarding
-	bool Add(unsigned short port, const char* protocol);
+	// Add a port & protocol (TCP, UDP or vendor-defined) to map for forwarding (intport = 0 : same as [external] port)
+	bool Add(const char* protocol, unsigned short port, unsigned short intport = 0);
 
-	// Remove a port mapping
-	bool Remove(unsigned short port, const char* protocol);
+	// Remove a port mapping (external port)
+	bool Remove(const char* protocol, unsigned short port);
 
-	// Removes any lingering mapped ports from previous crashes
+	// Removes any lingering mapped ports created by PPSSPP from previous crashes
 	bool Clear();
 
 	// Restore ports mapped by others that were taken by PPSSPP, better used after Clear()
 	bool Restore();
 
-	// Get port list mapped by PPSSPP for current LAN IP & others
+	// Get port lists mapped by PPSSPP for current LAN IP & other's applications
 	bool RefreshPortList();
 
 protected:

@@ -412,6 +412,7 @@ public:
 	bool bEnableWlan;
 	bool bEnableAdhocServer;
 	bool bEnableUPnP;
+	bool bUPnPUseOriginalPort;
 	int iPortOffset;
 	int iMinTimeout;
 	int iWlanAdhocChannel;
