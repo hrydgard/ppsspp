@@ -1293,7 +1293,7 @@ void TextureCacheCommon::DecodeTextureLevel(u8 *out, int outPitch, GETextureForm
 					memcpy(out + outPitch * y, texptr + bufw * sizeof(u16) * y, w * sizeof(u16));
 				}
 			}
-		} else if (h >= 8 && !expandTo32bit) {
+		} else if (h >= 8 && bufw <= w && !expandTo32bit) {
 			// Note: this is always safe since h must be a power of 2, so a multiple of 8.
 			UnswizzleFromMem((u32 *)out, outPitch, texptr, bufw, h, 2);
 			if (reverseColors) {
@@ -1332,7 +1332,7 @@ void TextureCacheCommon::DecodeTextureLevel(u8 *out, int outPitch, GETextureForm
 					memcpy(out + outPitch * y, texptr + bufw * sizeof(u32) * y, w * sizeof(u32));
 				}
 			}
-		} else if (h >= 8) {
+		} else if (h >= 8 && bufw <= w) {
 			UnswizzleFromMem((u32 *)out, outPitch, texptr, bufw, h, 4);
 			if (reverseColors) {
 				ReverseColors(out, out, format, h * outPitch / 4, useBGRA);
