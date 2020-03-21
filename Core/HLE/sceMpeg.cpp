@@ -1524,7 +1524,7 @@ static u32 sceMpegRingbufferPut(u32 ringbufferAddr, int numPackets, int availabl
 		int writeOffset = ringbuffer->packetsWritePos % (s32)ringbuffer->packets;
 		u32 packetsThisRound = std::min(numPackets, (s32)ringbuffer->packets - writeOffset);
 		u32 args[3] = {(u32)ringbuffer->data + (u32)writeOffset * 2048, packetsThisRound, (u32)ringbuffer->callback_args};
-		__KernelDirectMipsCall(ringbuffer->callback_addr, action, args, 3, false);
+		hleEnqueueCall(ringbuffer->callback_addr, 3, args, action);
 	} else {
 		ERROR_LOG_REPORT(ME, "sceMpegRingbufferPut: callback_addr zero");
 	}

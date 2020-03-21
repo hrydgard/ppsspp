@@ -204,7 +204,8 @@ void __KernelReturnFromExtendStack();
 
 void __KernelIdle();
 
-u32 __KernelMipsCallReturnAddress();
+u32 HLEMipsCallReturnAddress();
+u32 __KernelCallbackReturnAddress();
 u32 __KernelInterruptReturnAddress();  // TODO: remove
 
 SceUID sceKernelCreateCallback(const char *name, u32 entrypoint, u32 signalArg);

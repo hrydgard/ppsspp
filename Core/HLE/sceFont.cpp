@@ -492,8 +492,8 @@ public:
 		PostAllocCallback *action = (PostAllocCallback *) __KernelCreateAction(actionPostAllocCallback);
 		action->SetFontLib(GetListID(), errorCodePtr);
 
-		u32 args[2] = { params_.userDataAddr, allocSize };
-		__KernelDirectMipsCall(params_.allocFuncAddr, action, args, 2, true);
+		u32 args[2] = { userDataAddr(), allocSize };
+		hleEnqueueCall(allocFuncAddr(), 2, args, action);
 	}
 
 	u32 GetListID() {
@@ -508,11 +508,11 @@ public:
 				fontMap.erase(fonts_[i]);
 			}
 		}
-		u32 args[2] = { params_.userDataAddr, (u32)handle_ };
+		u32 args[2] = { userDataAddr(), (u32)handle_ };
 		// TODO: The return value of this is leaking.
 		if (handle_) {  // Avoid calling free-callback on double-free
 			if (coreState != CORE_POWERDOWN) {
-				__KernelDirectMipsCall(params_.freeFuncAddr, 0, args, 2, false);
+				hleEnqueueCall(freeFuncAddr(), 2, args);
 			}
 		}
 		handle_ = 0;
@@ -620,8 +620,8 @@ public:
 		action->SetFontLib(GetListID());
 		action->SetFont(loadedFont->Handle(), freeFontIndex);
 
-		u32 args[2] = { params_.userDataAddr, allocSize };
-		__KernelDirectMipsCall(params_.allocFuncAddr, action, args, 2, true);
+		u32 args[2] = { userDataAddr(), allocSize };
+		hleEnqueueCall(allocFuncAddr(), 2, args, action);
 
 		return loadedFont;
 	}
@@ -632,7 +632,7 @@ public:
 				isfontopen_[i] = 0;
 				if (openAllocatedAddresses_[i] != 0 && coreState != CORE_POWERDOWN) {
 					u32 args[2] = { userDataAddr(), openAllocatedAddresses_[i] };
-					__KernelDirectMipsCall(freeFuncAddr(), 0, args, 2, true);
+					hleEnqueueCall(freeFuncAddr(), 2, args);
 					openAllocatedAddresses_[i] = 0;
 				}
 				break;
@@ -645,7 +645,7 @@ public:
 	void flushFont() {
 		if (charInfoBitmapAddress_ != 0 && coreState != CORE_POWERDOWN) {
 			u32 args[2] = { userDataAddr(), charInfoBitmapAddress_ };
-			__KernelDirectMipsCall(freeFuncAddr(), 0, args, 2, true);
+			hleEnqueueCall(freeFuncAddr(), 2, args);
 			charInfoBitmapAddress_ = 0;
 		}
 	}
@@ -727,6 +727,7 @@ void PostAllocCallback::run(MipsCall &call) {
 		FontLib *fontLib = fontLibList[fontLibID_];
 		fontLib->AllocDone(v0);
 		fontLibMap[fontLib->handle()] = fontLibID_;
+		// This is the same as v0 above.
 		call.setReturnValue(fontLib->handle());
 	}
 	INFO_LOG(SCEFONT, "Leaving PostAllocCallback::run");
@@ -742,7 +743,6 @@ void PostOpenAllocCallback::run(MipsCall &call) {
 	FontLib *fontLib = fontLibList[fontLibID_];
 	u32 v0 = currentMIPS->r[MIPS_REG_V0];
 	fontLib->SetOpenAllocatedAddress(fontIndex_, v0);
-	call.setReturnValue(fontHandle_);
 }
 
 void PostCharInfoAllocCallback::run(MipsCall &call) {
@@ -752,7 +752,6 @@ void PostCharInfoAllocCallback::run(MipsCall &call) {
 		call.setReturnValue(ERROR_FONT_OUT_OF_MEMORY); // From JPCSP, if alloc size is 0, still this error value?
 	} else {
 		fontLib->SetCharInfoBitmapAddress(v0);
-		call.setReturnValue(0);
 	}
 }
 
@@ -765,7 +764,7 @@ void PostCharInfoFreeCallback::run(MipsCall &call) {
 	action->SetFontLib(fontLibID_);
 
 	u32 args[2] = { fontLib->userDataAddr(), allocSize };
-	__KernelDirectMipsCall(fontLib->allocFuncAddr(), action, args, 2, true);
+	hleEnqueueCall(fontLib->allocFuncAddr(), 2, args, action);
 }
 
 inline bool LoadedFont::GetCharInfo(int charCode, PGFCharInfo *charInfo, int glyphType) const {
@@ -917,8 +916,8 @@ void __FontDoState(PointerWrap &p) {
 	p.Do(actionPostAllocCallback);
 	__KernelRestoreActionType(actionPostAllocCallback, PostAllocCallback::Create);
 	p.Do(actionPostOpenCallback);
+	__KernelRestoreActionType(actionPostOpenCallback, PostOpenCallback::Create);
 	if (s >= 2) {
-		__KernelRestoreActionType(actionPostOpenCallback, PostOpenCallback::Create);
 		p.Do(actionPostOpenAllocCallback);
 		__KernelRestoreActionType(actionPostOpenAllocCallback, PostOpenAllocCallback::Create);
 		p.Do(actionPostCharInfoAllocCallback);
@@ -963,7 +962,6 @@ static int sceFontDoneLib(u32 fontLibHandle) {
 	INFO_LOG(SCEFONT, "sceFontDoneLib(%08x)", fontLibHandle);
 	FontLib *fl = GetFontLib(fontLibHandle);
 	if (fl) {
-		currentMIPS->r[MIPS_REG_V0] = 0;
 		fl->Done();
 	}
 	return 0;
@@ -1098,7 +1096,6 @@ static int sceFontClose(u32 fontHandle) {
 		DEBUG_LOG(SCEFONT, "sceFontClose(%x)", fontHandle);
 		FontLib *fontLib = font->GetFontLib();
 		if (fontLib) {
-			currentMIPS->r[MIPS_REG_V0] = 0;
 			fontLib->CloseFont(font);
 		}
 	} else
@@ -1293,13 +1290,13 @@ static int sceFontGetCharInfo(u32 fontHandle, u32 charCode, u32 charInfoPtr) {
 			action->SetCharInfo(charInfo);
 
 			u32 args[2] = { font->GetFontLib()->userDataAddr(), font->GetFontLib()->GetCharInfoBitmapAddress() };
-			__KernelDirectMipsCall(font->GetFontLib()->freeFuncAddr(), action, args, 2, true);
+			hleEnqueueCall(font->GetFontLib()->freeFuncAddr(), 2, args, action);
 		} else {
 			PostCharInfoAllocCallback *action = (PostCharInfoAllocCallback *)__KernelCreateAction(actionPostCharInfoAllocCallback);
 			action->SetFontLib(font->GetFontLib()->GetListID());
 
 			u32 args[2] = { font->GetFontLib()->userDataAddr(), allocSize };
-			__KernelDirectMipsCall(font->GetFontLib()->allocFuncAddr(), action, args, 2, true);
+			hleEnqueueCall(font->GetFontLib()->allocFuncAddr(), 2, args, action);
 		}
 	}
 
@@ -1425,7 +1422,6 @@ static int sceFontFlush(u32 fontHandle) {
 		return ERROR_FONT_INVALID_PARAMETER;
 	}
 
-	currentMIPS->r[MIPS_REG_V0] = 0;
 	font->GetFontLib()->flushFont();
 
 	return 0;
