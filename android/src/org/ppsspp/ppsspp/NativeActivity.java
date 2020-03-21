@@ -1213,6 +1213,12 @@ public abstract class NativeActivity extends Activity implements SurfaceHolder.C
 					d.cancel();
 				}
 			})
+			.setOnDismissListener(new DialogInterface.OnDismissListener() {
+				@Override
+				public void onDismiss(DialogInterface d) {
+					NativeApp.sendInputBox(seqID, false, "");
+				}
+			})
 			.create();
 
 		dlg.setCancelable(true);

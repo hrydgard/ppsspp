@@ -682,6 +682,14 @@ extern "C" void JNICALL Java_org_ppsspp_ppsspp_NativeApp_sendInputBox(JNIEnv *en
 	std::string seqID = GetJavaString(env, jseqID);
 	std::string value = GetJavaString(env, jvalue);
 
+	static std::string lastSeqID = "";
+	if (lastSeqID == seqID) {
+		// We send this on dismiss, so twice in many cases.
+		DLOG("Ignoring duplicate sendInputBox");
+		return;
+	}
+	lastSeqID = seqID;
+
 	int seq = 0;
 	if (!TryParse(seqID, &seq)) {
 		ELOG("Invalid inputbox seqID value: %s", seqID.c_str());
