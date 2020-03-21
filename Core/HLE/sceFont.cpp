@@ -511,7 +511,9 @@ public:
 		u32 args[2] = { params_.userDataAddr, (u32)handle_ };
 		// TODO: The return value of this is leaking.
 		if (handle_) {  // Avoid calling free-callback on double-free
-			__KernelDirectMipsCall(params_.freeFuncAddr, 0, args, 2, false);
+			if (coreState != CORE_POWERDOWN) {
+				__KernelDirectMipsCall(params_.freeFuncAddr, 0, args, 2, false);
+			}
 		}
 		handle_ = 0;
 		fonts_.clear();
@@ -628,7 +630,7 @@ public:
 		for (size_t i = 0; i < fonts_.size(); i++) {
 			if (fonts_[i] == font->Handle()) {
 				isfontopen_[i] = 0;
-				if (openAllocatedAddresses_[i] != 0) {
+				if (openAllocatedAddresses_[i] != 0 && coreState != CORE_POWERDOWN) {
 					u32 args[2] = { userDataAddr(), openAllocatedAddresses_[i] };
 					__KernelDirectMipsCall(freeFuncAddr(), 0, args, 2, true);
 					openAllocatedAddresses_[i] = 0;
@@ -641,7 +643,7 @@ public:
 	}
 
 	void flushFont() {
-		if (charInfoBitmapAddress_ != 0) {
+		if (charInfoBitmapAddress_ != 0 && coreState != CORE_POWERDOWN) {
 			u32 args[2] = { userDataAddr(), charInfoBitmapAddress_ };
 			__KernelDirectMipsCall(freeFuncAddr(), 0, args, 2, true);
 			charInfoBitmapAddress_ = 0;
