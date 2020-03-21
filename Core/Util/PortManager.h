@@ -61,10 +61,10 @@ public:
 
 	// Initialize UPnP
 	// timeout: milliseconds to wait for a router to respond (default = 2000 ms)
-	bool Init(const unsigned int timeout = 2000);
+	bool Initialize(const unsigned int timeout = 2000);
 
 	// Uninitialize/Reset the state
-	void Deinit();
+	void Terminate();
 
 	// Get UPnP Initialization status
 	int GetInitState();
@@ -75,13 +75,13 @@ public:
 	// Remove a port mapping (external port)
 	bool Remove(const char* protocol, unsigned short port);
 
-	// Removes any lingering mapped ports created by PPSSPP from previous crashes
+	// Removes any lingering mapped ports created by PPSSPP (including from previous crashes)
 	bool Clear();
 
 	// Restore ports mapped by others that were taken by PPSSPP, better used after Clear()
 	bool Restore();
 
-	// Get port lists mapped by PPSSPP for current LAN IP & other's applications
+	// Retrieves port lists mapped by PPSSPP for current LAN IP & other's applications
 	bool RefreshPortList();
 
 protected:

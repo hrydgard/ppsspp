@@ -130,7 +130,8 @@ void __NetInit() {
 
 	// Only initialize when UPnP is enabled since it takes a few seconds to detect UPnP device (may affect people who don't have UPnP device)
 	if (g_Config.bEnableUPnP) {
-		g_PortManager.Init();
+		// TODO: May be we should initialize & cleanup somewhere else than here for PortManager to be used as general purpose for whatever port forwarding PPSSPP needed
+		g_PortManager.Initialize();
 	}
 
 	__ResetInitNetLib();
@@ -148,10 +149,11 @@ void __NetShutdown() {
 	
 	__ResetInitNetLib();
 
-	if (g_Config.bEnableUPnP) {
+	// Since PortManager supposed to be general purpose for whatever port forwarding PPSSPP needed, may be we shouldn't clear & restore ports in here? But currently there is an issue with UPnP functions used in PortManager's destructor :(
+	if (g_PortManager.GetInitState() == UPNP_INITSTATE_DONE) {
 		g_PortManager.Clear();
 		g_PortManager.Restore();
-		g_PortManager.Deinit();
+		g_PortManager.Terminate();
 	}
 }
 

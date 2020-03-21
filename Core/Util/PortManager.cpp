@@ -46,12 +46,13 @@ PortManager::PortManager():
 }
 
 PortManager::~PortManager() {
+	// FIXME: It seems using any UPnP functions in this destructor that gets triggered when exiting PPSSPP will resulting to UPNPCOMMAND_HTTP_ERROR :( Did miniUPnPc library already shutted down at this point?
 	Clear();
 	Restore();
-	Deinit();
+	Terminate();
 }
 
-void PortManager::Deinit() {
+void PortManager::Terminate() {
 	if (urls) {
 		FreeUPNPUrls(urls);
 		free(urls);
@@ -67,10 +68,10 @@ void PortManager::Deinit() {
 	m_defaultDesc.clear();
 	m_leaseDuration.clear();
 	m_LocalPort = UPNP_LOCAL_PORT_ANY;
-	m_InitState = UPNP_INITSTATE_DONE;
+	m_InitState = UPNP_INITSTATE_NONE;
 }
 
-bool PortManager::Init(const unsigned int timeout) {
+bool PortManager::Initialize(const unsigned int timeout) {
 	// Windows: Assuming WSAStartup already called beforehand
 	struct UPNPDev* devlist;
 	struct UPNPDev* dev;
@@ -95,12 +96,11 @@ bool PortManager::Init(const unsigned int timeout) {
 			WARN_LOG(SCENET, "PortManager - Initialization already in progress");
 			return false;
 		}
-		// We should redetect UPnP just in case the player switched to a different network in the middle
-		/*case UPNP_INITSTATE_DONE: {
+		// Should we redetect UPnP? just in case the player switched to a different network in the middle
+		case UPNP_INITSTATE_DONE: {
 			WARN_LOG(SCENET, "PortManager - Already Initialized");
-			return false;
+			return true;
 		}
-		*/
 		default:
 			break;
 		}
@@ -153,7 +153,7 @@ bool PortManager::Init(const unsigned int timeout) {
 
 		// Using Game ID & Player Name as default description for mapping
 		std::string gameID = g_paramSFO.GetDiscID();
-		m_defaultDesc = "PPSSPP:" + gameID + ":" + g_Config.sNickName;
+		m_defaultDesc = "PPSSPP:" + gameID + ":" + g_Config.sNickName; // Some routers may automatically prefixed it with "UPnP:"
 
 		freeUPNPDevlist(devlist);
 
@@ -212,7 +212,7 @@ bool PortManager::Add(const char* protocol, unsigned short port, unsigned short 
 			if (r == UPNPCOMMAND_HTTP_ERROR) {
 				auto n = GetI18NCategory("Networking");
 				host->NotifyUserMessage(n->T("UPnP need to be reinitialized"), 6.0f, 0x0000ff);
-				Deinit(); // Most of the time errors occurred because the router is no longer reachable (ie. changed networks) so we should invalidate the state to prevent further lags due to timeouts
+				Terminate(); // Most of the time errors occurred because the router is no longer reachable (ie. changed networks) so we should invalidate the state to prevent further lags due to timeouts
 				return false;
 			}
 		}
@@ -240,7 +240,7 @@ bool PortManager::Remove(const char* protocol, unsigned short port) {
 		if (r == UPNPCOMMAND_HTTP_ERROR) {
 			auto n = GetI18NCategory("Networking");
 			host->NotifyUserMessage(n->T("UPnP need to be reinitialized"), 6.0f, 0x0000ff);
-			Deinit(); // Most of the time errors occurred because the router is no longer reachable (ie. changed networks) so we should invalidate the state to prevent further lags due to timeouts
+			Terminate(); // Most of the time errors occurred because the router is no longer reachable (ie. changed networks) so we should invalidate the state to prevent further lags due to timeouts
 			return false;
 		}
 	}
@@ -316,8 +316,9 @@ bool PortManager::Clear() {
 	do {
 		snprintf(index, 6, "%d", i);
 		rHost[0] = '\0'; enabled[0] = '\0';
-		duration[0] = '\0'; desc[0] = '\0';
+		duration[0] = '\0'; desc[0] = '\0'; protocol[0] = '\0';
 		extPort[0] = '\0'; intPort[0] = '\0'; intAddr[0] = '\0';
+		// May gets UPNPCOMMAND_HTTP_ERROR when called while exiting PPSSPP (ie. used in destructor)
 		r = UPNP_GetGenericPortMappingEntry(urls->controlURL,
 			datas->first.servicetype,
 			index,
@@ -325,7 +326,7 @@ bool PortManager::Clear() {
 			protocol, desc, enabled,
 			rHost, duration);
 		// Only removes port mappings created by PPSSPP for current LAN IP
-		if (r == 0 && intAddr == m_lanip && std::strncmp(desc, "PPSSPP", 6) == 0) {
+		if (r == 0 && intAddr == m_lanip && std::string(desc).find("PPSSPP:") != std::string::npos) {
 			int r2 = UPNP_DeletePortMapping(urls->controlURL, datas->first.servicetype, extPort, protocol, rHost);
 			if (r2 != 0)
 			{
@@ -371,7 +372,7 @@ bool PortManager::RefreshPortList() {
 	do {
 		snprintf(index, 6, "%d", i);
 		rHost[0] = '\0'; enabled[0] = '\0';
-		duration[0] = '\0'; desc[0] = '\0';
+		duration[0] = '\0'; desc[0] = '\0'; protocol[0] = '\0';
 		extPort[0] = '\0'; intPort[0] = '\0'; intAddr[0] = '\0';
 		r = UPNP_GetGenericPortMappingEntry(urls->controlURL,
 			datas->first.servicetype,
@@ -380,13 +381,17 @@ bool PortManager::RefreshPortList() {
 			protocol, desc, enabled,
 			rHost, duration);
 		if (r == 0) {
+			std::string desc_str = std::string(desc);
+			// Some router might prefix the description with "UPnP:" so we may need to truncate it to prevent it from getting multiple prefix when restored later
+			if (desc_str.find("UPnP:") == 0)
+				desc_str = desc_str.substr(5);
 			// Only include port mappings created by PPSSPP for current LAN IP
-			if (intAddr == m_lanip && std::strncmp(desc, "PPSSPP", 6) == 0) {
+			if (intAddr == m_lanip && desc_str.find("PPSSPP:") != std::string::npos) {
 				m_portList.push_back({ extPort, protocol });
 			}
 			// Port mappings belong to others that might be taken by PPSSPP later
 			else {
-				m_otherPortList.push_back({ false, protocol, extPort, intPort, intAddr, rHost, desc, duration, enabled });
+				m_otherPortList.push_back({ false, protocol, extPort, intPort, intAddr, rHost, desc_str, duration, enabled });
 			}
 		}
 		i++;
