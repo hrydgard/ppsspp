@@ -82,13 +82,13 @@ bool UTF8StringHasNonASCII(const char *utf8string);
 
 std::string ConvertWStringToUTF8(const std::wstring &wstr);
 std::string ConvertWStringToUTF8(const wchar_t *wstr);
-
-#else
-
-std::string ConvertWStringToUTF8(const std::wstring &wstr);
+void ConvertUTF8ToWString(wchar_t *dest, size_t destSize, const std::string &source);
+std::wstring ConvertUTF8ToWString(const std::string &source);
 
 #endif
 
+std::string ConvertUCS16ToUTF8(const std::u16string &wstr);
+
 // Dest size in units, not bytes.
-void ConvertUTF8ToWString(wchar_t *dest, size_t destSize, const std::string &source);
-std::wstring ConvertUTF8ToWString(const std::string &source);
+void ConvertUTF8ToUCS16(char16_t *dest, size_t destSize, const std::string &source);
+std::u16string ConvertUTF8ToUCS16(const std::string &source);

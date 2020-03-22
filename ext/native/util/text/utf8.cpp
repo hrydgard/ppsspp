@@ -461,9 +461,9 @@ std::wstring ConvertUTF8ToWString(const std::string &source) {
 	return str;
 }
 
-#else
+#endif
 
-std::string ConvertWStringToUTF8(const std::wstring &wstr) {
+std::string ConvertUCS16ToUTF8(const std::u16string &wstr) {
 	std::string s;
 	// Worst case.
 	s.resize(wstr.size() * 4);
@@ -477,9 +477,9 @@ std::string ConvertWStringToUTF8(const std::wstring &wstr) {
 	return s;
 }
 
-static size_t ConvertUTF8ToWStringInternal(wchar_t *dest, size_t destSize, const std::string &source) {
-	const wchar_t *const orig = dest;
-	const wchar_t *const destEnd = dest + destSize;
+static size_t ConvertUTF8ToUCS16Internal(char16_t *dest, size_t destSize, const std::string &source) {
+	const char16_t *const orig = dest;
+	const char16_t *const destEnd = dest + destSize;
 
 	UTF8 utf(source.c_str());
 
@@ -509,17 +509,15 @@ static size_t ConvertUTF8ToWStringInternal(wchar_t *dest, size_t destSize, const
 	return dest - orig;
 }
 
-void ConvertUTF8ToWString(wchar_t *dest, size_t destSize, const std::string &source) {
-	ConvertUTF8ToWStringInternal(dest, destSize, source);
+void ConvertUTF8ToUCS16(char16_t *dest, size_t destSize, const std::string &source) {
+	ConvertUTF8ToUCS16Internal(dest, destSize, source);
 }
 
-std::wstring ConvertUTF8ToWString(const std::string &source) {
-	std::wstring dst;
+std::u16string ConvertUTF8ToUCS16(const std::string &source) {
+	std::u16string dst;
 	// utf-8 won't be less bytes than there are characters.  But need +1 for terminator.
 	dst.resize(source.size() + 1, 0);
-	size_t realLen = ConvertUTF8ToWStringInternal(&dst[0], source.size() + 1, source);
+	size_t realLen = ConvertUTF8ToUCS16Internal(&dst[0], source.size() + 1, source);
 	dst.resize(realLen);
 	return dst;
 }
-
-#endif
