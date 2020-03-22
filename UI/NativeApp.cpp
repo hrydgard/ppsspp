@@ -818,7 +818,7 @@ bool NativeInitGraphics(GraphicsContext *graphicsContext) {
 	size_t atlas_data_size = 0;
 	if (!g_ui_atlas.IsMetadataLoaded()) {
 		const uint8_t *atlas_data = VFSReadFile("ui_atlas.meta", &atlas_data_size);
-		bool load_success = g_ui_atlas.Load(atlas_data, atlas_data_size);
+		bool load_success = atlas_data != nullptr && g_ui_atlas.Load(atlas_data, atlas_data_size);
 		_assert_msg_(G3D, load_success, "Failed to load ui_atlas.meta");
 		delete[] atlas_data;
 	}

@@ -250,6 +250,9 @@ inline void rot(float *v, float angle, float xc, float yc) {
 
 void DrawBuffer::DrawImageRotated(ImageID atlas_image, float x, float y, float scale, float angle, Color color, bool mirror_h) {
 	const AtlasImage *image = atlas->getImage(atlas_image);
+	if (!image)
+		return;
+
 	float w = (float)image->w * scale;
 	float h = (float)image->h * scale;
 	float x1 = x - w / 2;
