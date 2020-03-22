@@ -496,8 +496,9 @@ void DrawBuffer::DrawTextRect(FontID font, const char *text, float x, float y, f
 
 	std::string toDraw = text;
 	int wrap = align & (FLAG_WRAP_TEXT | FLAG_ELLIPSIZE_TEXT);
-	if (wrap) {
-		AtlasWordWrapper wrapper(*atlas->getFont(font), fontscalex, toDraw.c_str(), w, wrap);
+	const AtlasFont *atlasfont = atlas->getFont(font);
+	if (wrap && atlasfont) {
+		AtlasWordWrapper wrapper(*atlasfont, fontscalex, toDraw.c_str(), w, wrap);
 		toDraw = wrapper.Wrapped();
 	}
 
