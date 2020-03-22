@@ -1003,6 +1003,7 @@ void SymbolMap::GetLabels(std::vector<LabelDefinition> &dest) {
 	if (activeNeedUpdate_)
 		UpdateActiveSymbols();
 
+#ifdef _WIN32
 	std::lock_guard<std::recursive_mutex> guard(lock_);
 	for (auto it = activeLabels.begin(); it != activeLabels.end(); it++) {
 		LabelDefinition entry;
@@ -1010,6 +1011,7 @@ void SymbolMap::GetLabels(std::vector<LabelDefinition> &dest) {
 		entry.name = ConvertUTF8ToWString(it->second.name);
 		dest.push_back(entry);
 	}
+#endif
 }
 
 #if defined(_WIN32) && !PPSSPP_PLATFORM(UWP)

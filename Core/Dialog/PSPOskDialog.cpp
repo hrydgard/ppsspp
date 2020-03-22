@@ -864,7 +864,8 @@ int PSPOskDialog::NativeKeyboard() {
 		if (defaultText.empty())
 			defaultText.assign(u"VALUE");
 
-		System_InputBoxGetString(ConvertUCS16ToUTF8(titleText), ConvertUCS16ToUTF8(defaultText), [&](bool result, const std::string &value) {
+		// There's already ConvertUCS2ToUTF8 in this file. Should we use that instead of the global ones?
+		System_InputBoxGetString(::ConvertUCS2ToUTF8(titleText), ::ConvertUCS2ToUTF8(defaultText), [&](bool result, const std::string &value) {
 			std::lock_guard<std::mutex> guard(nativeMutex_);
 			if (nativeStatus_ != PSPOskNativeStatus::WAITING) {
 				return;
@@ -874,7 +875,7 @@ int PSPOskDialog::NativeKeyboard() {
 			nativeStatus_ = result ? PSPOskNativeStatus::SUCCESS : PSPOskNativeStatus::FAILURE;
 		});
 	} else if (nativeStatus_ == PSPOskNativeStatus::SUCCESS) {
-		inputChars = ConvertUTF8ToUCS16(nativeValue_);
+		inputChars = ConvertUTF8ToUCS2(nativeValue_);
 		nativeValue_.clear();
 
 		u32 maxLength = FieldMaxLength();
