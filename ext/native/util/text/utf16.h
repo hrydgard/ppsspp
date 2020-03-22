@@ -17,12 +17,12 @@ uint16_t UTF16_Swap(uint16_t u) {
 template <bool is_little>
 struct UTF16_Type {
 public:
-	static const uint32_t INVALID = (uint32_t)-1;
+	static const char32_t INVALID = (char32_t)-1;
 
-	UTF16_Type(const uint16_t *c) : c_(c), index_(0) {}
+	UTF16_Type(const char16_t *c) : c_(c), index_(0) {}
 
-	uint32_t next() {
-		const uint32_t u = UTF16_Swap<is_little>(c_[index_++]);
+	char32_t next() {
+		const char32_t u = UTF16_Swap<is_little>(c_[index_++]);
 
 		// Surrogate pair.  UTF-16 is so simple.  We assume it's valid.
 		if ((u & 0xF800) == 0xD800) {
@@ -46,19 +46,29 @@ public:
 		return index_;
 	}
 
-	static int encode(uint16_t *dest, uint32_t u) {
+	static int encode(char16_t *dest, char32_t u) {
 		if (u >= 0x10000) {
 			u -= 0x10000;
 			*dest++ = UTF16_Swap<is_little>(0xD800 + ((u >> 10) & 0x3FF));
 			*dest = UTF16_Swap<is_little>(0xDC00 + ((u >>  0) & 0x3FF));
 			return 2;
 		} else {
-			*dest = UTF16_Swap<is_little>((uint16_t)u);
+			*dest = UTF16_Swap<is_little>((char16_t)u);
 			return 1;
 		}
 	}
 
-	static int encodeUnits(uint32_t u) {
+	// Rejects non-UCS2 codepoints.
+	static int encodeUCS2(char16_t *dest, char32_t u) {
+		if (u >= 0x10000 || (u >= 0xD800 && u <= 0xDFFF)) {
+			return 0;
+		} else {
+			*dest = UTF16_Swap<is_little>((char16_t)u);
+			return 1;
+		}
+	}
+
+	static int encodeUnits(char32_t u) {
 		if (u >= 0x10000) {
 			return 2;
 		} else {
@@ -66,8 +76,15 @@ public:
 		}
 	}
 
+	static int encodeUnitsUCS2(char32_t u) {
+		if (u >= 0x10000 || (u >= 0xD800 && u <= 0xDFFF)) {
+			return 0;
+		} else {
+			return 1;
+		}
+	}
 private:
-	const uint16_t *c_;
+	const char16_t *c_;
 	int index_;
 };
 

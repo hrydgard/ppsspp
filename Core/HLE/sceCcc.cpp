@@ -28,9 +28,9 @@
 #include "Core/Reporting.h"
 
 typedef PSPPointer<char> PSPCharPointer;
-typedef PSPPointer<u16> PSPWCharPointer;
+typedef PSPPointer<char16_t> PSPWCharPointer;
 typedef PSPPointer<const char> PSPConstCharPointer;
-typedef PSPPointer<const u16> PSPConstWCharPointer;
+typedef PSPPointer<const char16_t> PSPConstWCharPointer;
 
 static u16 errorUTF8;
 static u16 errorUTF16;

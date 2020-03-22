@@ -486,14 +486,12 @@ static size_t ConvertUTF8ToUCS2Internal(char16_t *dest, size_t destSize, const s
 	char16_t *destw = (char16_t *)dest;
 	const char16_t *const destwEnd = destw + destSize;
 
-	// TODO: Ignore characters that are invalid in UCS2 by encoding to UTF-16, as we do, and
-	// then failing/ignoring any 16-bit unit produced by UTF-16 in the range U+D800 — U+DFFF.
+	// Ignores characters outside the BMP.
 	while (uint32_t c = utf.next()) {
-		if (destw + UTF16LE::encodeUnits(c) >= destwEnd) {
+		if (destw + UTF16LE::encodeUnitsUCS2(c) >= destwEnd) {
 			break;
 		}
-		// TODO: Update UTF16LE to take char16_t
-		destw += UTF16LE::encode((uint16_t *)destw, c);
+		destw += UTF16LE::encodeUCS2(destw, c);
 	}
 
 	// No ++ to not count the terminal in length.
