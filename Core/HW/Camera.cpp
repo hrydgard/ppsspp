@@ -231,10 +231,10 @@ void *v4l_loop(void *data) {
 		if (ioctl(v4l_fd, VIDIOC_DQBUF, &buf) == -1) {
 			ERROR_LOG(HLE, "VIDIOC_DQBUF; errno=%d(%s)", errno, strerror(errno));
 			switch (errno) {
-				case EAGAIN:
-					continue;
-				default:
-					return NULL;
+			case EAGAIN:
+				continue;
+			default:
+				return nullptr;
 			}
 		}
 
@@ -265,9 +265,10 @@ void *v4l_loop(void *data) {
 		buf.memory = V4L2_MEMORY_MMAP;
 		if (ioctl(v4l_fd, VIDIOC_QBUF, &buf) == -1) {
 			ERROR_LOG(HLE, "VIDIOC_QBUF");
-			return NULL;
+			return nullptr;
 		}
 	}
+	return nullptr;
 }
 
 int __v4l_startCapture(int ideal_width, int ideal_height) {
