@@ -44,7 +44,6 @@ private:
 	UI::ChoiceStrip *mode_;
 	UI::PopupMultiChoice *zoom_;
 	UI::PopupMultiChoice *rotation_;
-	bool displayRotEnable_;
 	bool bRotated;
 	bool stickToEdgeX;
 	bool stickToEdgeY;

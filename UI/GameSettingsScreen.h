@@ -121,21 +121,15 @@ private:
 	UI::EventReturn OnSavedataManager(UI::EventParams &e);
 	UI::EventReturn OnSysInfo(UI::EventParams &e);
 
-	// Temporaries to convert setting types.
+	// Temporaries to convert setting types, cache enabled, etc.
 	int iAlternateSpeedPercent1_;
 	int iAlternateSpeedPercent2_;
+	int prevInflightFrames_;
 	bool enableReports_;
+	bool tessHWEnable_;
 
 	//edit the game-specific settings and restore the global settings after exiting
 	bool editThenRestore_;
-
-	// Cached booleans
-	bool vtxCacheEnable_;
-	bool postProcEnable_;
-	bool resolutionEnable_;
-	bool bloomHackEnable_;
-	bool tessHWEnable_;
-	int prevInflightFrames_;
 
 #if PPSSPP_PLATFORM(ANDROID)
 	std::string pendingMemstickFolder_;

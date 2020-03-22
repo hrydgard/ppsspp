@@ -261,10 +261,12 @@ void DisplayLayoutScreen::CreateViews() {
 
 	static const char *displayRotation[] = { "Landscape", "Portrait", "Landscape Reversed", "Portrait Reversed" };
 	rotation_ = new PopupMultiChoice(&g_Config.iInternalScreenRotation, gr->T("Rotation"), displayRotation, 1, ARRAY_SIZE(displayRotation), co->GetName(), screenManager(), new AnchorLayoutParams(400, WRAP_CONTENT, previewWidth - 200.0f, 10, NONE, local_dp_yres - 64 - 10));
-	rotation_->SetEnabledPtr(&displayRotEnable_);
-	displayRotEnable_ = (g_Config.iRenderingMode != FB_NON_BUFFERED_MODE);
+	rotation_->SetEnabledFunc([] {
+		return g_Config.iRenderingMode != FB_NON_BUFFERED_MODE;
+	});
+	bool displayRotEnable = (g_Config.iRenderingMode != FB_NON_BUFFERED_MODE);
 	bRotated = false;
-	if (displayRotEnable_ && (g_Config.iInternalScreenRotation == ROTATION_LOCKED_VERTICAL || g_Config.iInternalScreenRotation == ROTATION_LOCKED_VERTICAL180)) {
+	if (displayRotEnable && (g_Config.iInternalScreenRotation == ROTATION_LOCKED_VERTICAL || g_Config.iInternalScreenRotation == ROTATION_LOCKED_VERTICAL180)) {
 		bRotated = true;
 	}
 	displayRepresentationScale_ = g_Config.fSmallDisplayZoomLevel * 8.0f; // Visual representation image is just icon size and have to be scaled 8 times to match PSP native resolution which is used as 1.0 for zoom
