@@ -96,6 +96,7 @@ const HLEFunction FakeSysCalls[] = {
 	{NID_MODULERETURN, __KernelReturnFromModuleFunc, "__KernelReturnFromModuleFunc"},
 	{NID_IDLE, __KernelIdle, "_sceKernelIdle"},
 	{NID_GPUREPLAY, __KernelGPUReplay, "__KernelGPUReplay"},
+	{NID_HLECALLRETURN, HLEReturnFromMipsCall, "HLEReturnFromMipsCall"},
 };
 
 const HLEFunction UtilsForUser[] = 

@@ -59,6 +59,8 @@ enum
 	HLE_AFTER_DEBUG_BREAK       = 0x20,
 	// Don't fill temp regs with 0xDEADBEEF.
 	HLE_AFTER_SKIP_DEADBEEF     = 0x40,
+	// Execute pending mips calls.
+	HLE_AFTER_QUEUED_CALLS      = 0x80,
 };
 
 static std::vector<HLEModule> moduleDB;
@@ -67,6 +69,33 @@ static int hleAfterSyscall = HLE_AFTER_NOTHING;
 static const char *hleAfterSyscallReschedReason;
 static const HLEFunction *latestSyscall = nullptr;
 static int idleOp;
+
+struct HLEMipsCallInfo {
+	u32 func;
+	PSPAction *action;
+	std::vector<u32> args;
+};
+
+struct HLEMipsCallStack {
+	u32_le nextOff;
+	union {
+		struct {
+			u32_le func;
+			u32_le actionIndex;
+			u32_le argc;
+		};
+		struct {
+			u32_le ra;
+			u32_le v0;
+			u32_le v1;
+		};
+	};
+};
+
+// No need to save state, always flushed at a syscall end.
+static std::vector<HLEMipsCallInfo> enqueuedMipsCalls;
+// Does need to be saved, referenced by the stack and owned.
+static std::vector<PSPAction *> mipsCallActions;
 
 void hleDelayResultFinish(u64 userdata, int cycleslate)
 {
@@ -86,16 +115,14 @@ void hleDelayResultFinish(u64 userdata, int cycleslate)
 		WARN_LOG(HLE, "Someone else woke up HLE-blocked thread?");
 }
 
-void HLEInit()
-{
+void HLEInit() {
 	RegisterAllModules();
 	delayedResultEvent = CoreTiming::RegisterEvent("HLEDelayedResult", hleDelayResultFinish);
 	idleOp = GetSyscallOp("FakeSysCalls", NID_IDLE);
 }
 
-void HLEDoState(PointerWrap &p)
-{
-	auto s = p.Section("HLE", 1);
+void HLEDoState(PointerWrap &p) {
+	auto s = p.Section("HLE", 1, 2);
 	if (!s)
 		return;
 
@@ -103,13 +130,35 @@ void HLEDoState(PointerWrap &p)
 	latestSyscall = nullptr;
 	p.Do(delayedResultEvent);
 	CoreTiming::RestoreRegisterEvent(delayedResultEvent, "HLEDelayedResult", hleDelayResultFinish);
+
+	if (s >= 2) {
+		int actions = (int)mipsCallActions.size();
+		p.Do(actions);
+		if (actions != (int)mipsCallActions.size()) {
+			mipsCallActions.resize(actions);
+		}
+
+		for (auto &action : mipsCallActions) {
+			int actionTypeID = action != nullptr ? action->actionTypeID : -1;
+			p.Do(actionTypeID);
+			if (actionTypeID != -1) {
+				if (p.mode == p.MODE_READ)
+					action = __KernelCreateAction(actionTypeID);
+				action->DoState(p);
+			}
+		}
+	}
 }
 
-void HLEShutdown()
-{
+void HLEShutdown() {
 	hleAfterSyscall = HLE_AFTER_NOTHING;
 	latestSyscall = nullptr;
 	moduleDB.clear();
+	enqueuedMipsCalls.clear();
+	for (auto p : mipsCallActions) {
+		delete p;
+	}
+	mipsCallActions.clear();
 }
 
 void RegisterModule(const char *name, int numFunctions, const HLEFunction *funcTable)
@@ -354,6 +403,136 @@ bool hleIsKernelMode() {
 	return latestSyscall && (latestSyscall->flags & HLE_KERNEL_SYSCALL) != 0;
 }
 
+void hleEnqueueCall(u32 func, int argc, const u32 *argv, PSPAction *afterAction) {
+	std::vector<u32> args;
+	args.resize(argc);
+	memcpy(args.data(), argv, argc * sizeof(u32));
+
+	enqueuedMipsCalls.push_back({ func, afterAction, args });
+
+	hleAfterSyscall |= HLE_AFTER_QUEUED_CALLS;
+}
+
+void hleFlushCalls() {
+	u32 &sp = currentMIPS->r[MIPS_REG_SP];
+	PSPPointer<HLEMipsCallStack> stackData;
+	VERBOSE_LOG(HLE, "Flushing %d HLE mips calls from %s, sp=%08x", (int)enqueuedMipsCalls.size(), latestSyscall ? latestSyscall->name : "?", sp);
+
+	// First, we'll add a marker for the final return.
+	sp -= sizeof(HLEMipsCallStack);
+	stackData.ptr = sp;
+	stackData->nextOff = 0xFFFFFFFF;
+	stackData->ra = currentMIPS->pc;
+	stackData->v0 = currentMIPS->r[MIPS_REG_V0];
+	stackData->v1 = currentMIPS->r[MIPS_REG_V1];
+
+	// Now we'll set up the first in the chain.
+	currentMIPS->pc = enqueuedMipsCalls[0].func;
+	currentMIPS->r[MIPS_REG_RA] = HLEMipsCallReturnAddress();
+	for (int i = 0; i < (int)enqueuedMipsCalls[0].args.size(); i++) {
+		currentMIPS->r[MIPS_REG_A0 + i] = enqueuedMipsCalls[0].args[i];
+	}
+
+	// For stack info, process the first enqueued call last, so we run it first.
+	// We don't actually need to store 0's args, but keep it consistent.
+	for (int i = (int)enqueuedMipsCalls.size() - 1; i >= 0; --i) {
+		auto &info = enqueuedMipsCalls[i];
+		u32 stackRequired = (int)info.args.size() * sizeof(u32) + sizeof(HLEMipsCallStack);
+		u32 stackAligned = (stackRequired + 0xF) & ~0xF;
+
+		sp -= stackAligned;
+		stackData.ptr = sp;
+		stackData->nextOff = stackAligned;
+		stackData->func = info.func;
+		if (info.action) {
+			stackData->actionIndex = (int)mipsCallActions.size();
+			mipsCallActions.push_back(info.action);
+		} else {
+			stackData->actionIndex = 0xFFFFFFFF;
+		}
+		stackData->argc = (int)info.args.size();
+		for (int j = 0; j < (int)info.args.size(); ++j) {
+			Memory::Write_U32(info.args[j], sp + sizeof(HLEMipsCallStack) + j * sizeof(u32));
+		}
+	}
+	enqueuedMipsCalls.clear();
+
+	DEBUG_LOG(HLE, "Executing HLE mips call at %08x, sp=%08x", currentMIPS->pc, sp);
+}
+
+void HLEReturnFromMipsCall() {
+	u32 &sp = currentMIPS->r[MIPS_REG_SP];
+	PSPPointer<HLEMipsCallStack> stackData;
+
+	// At this point, we may have another mips call to run, or be at the end...
+	stackData.ptr = sp;
+
+	if ((stackData->nextOff & 0x0000000F) != 0 || !Memory::IsValidAddress(sp + stackData->nextOff)) {
+		ERROR_LOG(HLE, "Corrupt stack on HLE mips call return: %08x", stackData->nextOff);
+		Core_UpdateState(CORE_ERROR);
+		return;
+	}
+
+	if (stackData->actionIndex != 0xFFFFFFFF && stackData->actionIndex < (u32)mipsCallActions.size()) {
+		PSPAction *&action = mipsCallActions[stackData->actionIndex];
+		VERBOSE_LOG(HLE, "Executing action for HLE mips call at %08x, sp=%08x", stackData->func, sp);
+
+		// Search for the saved v0/v1 values, to preserve the PSPAction API...
+		PSPPointer<HLEMipsCallStack> finalMarker = stackData;
+		while ((finalMarker->nextOff & 0x0000000F) == 0 && Memory::IsValidAddress(finalMarker.ptr + finalMarker->nextOff)) {
+			finalMarker.ptr += finalMarker->nextOff;
+		}
+		if (finalMarker->nextOff != 0xFFFFFFFF) {
+			ERROR_LOG(HLE, "Corrupt stack on HLE mips call return action: %08x", finalMarker->nextOff);
+			Core_UpdateState(CORE_ERROR);
+			return;
+		}
+
+		MipsCall mc;
+		mc.savedV0 = finalMarker->v0;
+		mc.savedV1 = finalMarker->v1;
+		action->run(mc);
+		finalMarker->v0 = mc.savedV0;
+		finalMarker->v1 = mc.savedV1;
+
+		delete action;
+		action = nullptr;
+
+		// Note: the action could actually enqueue more, adding another layer on stack after this.
+	}
+
+	sp += stackData->nextOff;
+	stackData.ptr = sp;
+
+	if (stackData->nextOff == 0xFFFFFFFF) {
+		// We're done.  Grab the HLE result's v0/v1 and return from the syscall.
+		currentMIPS->pc = stackData->ra;
+		currentMIPS->r[MIPS_REG_V0] = stackData->v0;
+		currentMIPS->r[MIPS_REG_V1] = stackData->v1;
+
+		sp += sizeof(HLEMipsCallStack);
+
+		bool canClear = true;
+		for (auto p : mipsCallActions) {
+			canClear = canClear && p == nullptr;
+		}
+		if (canClear) {
+			mipsCallActions.clear();
+		}
+
+		VERBOSE_LOG(HLE, "Finished HLE mips calls, v0=%08x, sp=%08x", currentMIPS->r[MIPS_REG_V0], sp);
+		return;
+	}
+
+	// Alright, we have another to call.
+	DEBUG_LOG(HLE, "Executing HLE mips call at %08x, sp=%08x", currentMIPS->pc, sp);
+	currentMIPS->pc = stackData->func;
+	currentMIPS->r[MIPS_REG_RA] = HLEMipsCallReturnAddress();
+	for (int i = 0; i < (int)stackData->argc; i++) {
+		currentMIPS->r[MIPS_REG_A0 + i] = Memory::Read_U32(sp + sizeof(HLEMipsCallStack) + i * sizeof(u32));
+	}
+}
+
 const static u32 deadbeefRegs[12] = {0xDEADBEEF, 0xDEADBEEF, 0xDEADBEEF, 0xDEADBEEF, 0xDEADBEEF, 0xDEADBEEF, 0xDEADBEEF, 0xDEADBEEF, 0xDEADBEEF, 0xDEADBEEF, 0xDEADBEEF, 0xDEADBEEF};
 inline static void SetDeadbeefRegs()
 {
@@ -375,6 +554,8 @@ inline void hleFinishSyscall(const HLEFunction &info)
 	if ((hleAfterSyscall & HLE_AFTER_SKIP_DEADBEEF) == 0)
 		SetDeadbeefRegs();
 
+	if ((hleAfterSyscall & HLE_AFTER_QUEUED_CALLS) != 0)
+		hleFlushCalls();
 	if ((hleAfterSyscall & HLE_AFTER_CURRENT_CALLBACKS) != 0 && (hleAfterSyscall & HLE_AFTER_RESCHED_CALLBACKS) == 0)
 		__KernelForceCallbacks();
 

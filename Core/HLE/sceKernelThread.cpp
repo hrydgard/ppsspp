@@ -630,6 +630,7 @@ SceUID currentThread;
 PSPThread *currentThreadPtr;
 u32 idleThreadHackAddr;
 u32 threadReturnHackAddr;
+u32 hleReturnHackAddr;
 u32 cbReturnHackAddr;
 u32 intReturnHackAddr;
 u32 extendReturnHackAddr;
@@ -742,7 +743,7 @@ inline void __SetCurrentThread(PSPThread *thread, SceUID threadID, const char *n
 	hleCurrentThreadName = name;
 }
 
-u32 __KernelMipsCallReturnAddress() {
+u32 __KernelCallbackReturnAddress() {
 	return cbReturnHackAddr;
 }
 
@@ -889,6 +890,16 @@ static void __KernelWriteFakeSysCall(u32 nid, u32 *ptr, u32 &pos)
 	MIPSAnalyst::PrecompileFunction(*ptr, 8);
 }
 
+u32 HLEMipsCallReturnAddress() {
+	if (hleReturnHackAddr == 0) {
+		// From an old save state, likely... try to recover.
+		u32 blockSize = 2 * sizeof(u32);
+		u32 pos = kernelMemory.Alloc(blockSize, false, "hlerethack");
+		__KernelWriteFakeSysCall(NID_HLECALLRETURN, &hleReturnHackAddr, pos);
+	}
+	return hleReturnHackAddr;
+}
+
 void __KernelThreadingInit()
 {
 	struct ThreadHack
@@ -912,6 +923,7 @@ void __KernelThreadingInit()
 		{NID_INTERRUPTRETURN, &intReturnHackAddr},
 		{NID_EXTENDRETURN, &extendReturnHackAddr},
 		{NID_MODULERETURN, &moduleReturnHackAddr},
+		{NID_HLECALLRETURN, &hleReturnHackAddr},
 	};
 	u32 blockSize = sizeof(idleThreadCode) + ARRAY_SIZE(threadHacks) * 2 * 4;  // The thread code above plus 8 bytes per "hack"
 
@@ -953,7 +965,7 @@ void __KernelThreadingInit()
 
 void __KernelThreadingDoState(PointerWrap &p)
 {
-	auto s = p.Section("sceKernelThread", 1, 3);
+	auto s = p.Section("sceKernelThread", 1, 4);
 	if (!s)
 		return;
 
@@ -966,6 +978,12 @@ void __KernelThreadingDoState(PointerWrap &p)
 	p.Do(intReturnHackAddr);
 	p.Do(extendReturnHackAddr);
 	p.Do(moduleReturnHackAddr);
+
+	if (s >= 4) {
+		p.Do(hleReturnHackAddr);
+	} else {
+		hleReturnHackAddr = 0;
+	}
 
 	p.Do(currentThread);
 	SceUID dv = 0;
@@ -1158,6 +1176,7 @@ void __KernelThreadingShutdown() {
 	mipsCalls.clear();
 	threadReturnHackAddr = 0;
 	cbReturnHackAddr = 0;
+	hleReturnHackAddr = 0;
 	__SetCurrentThread(NULL, 0, NULL);
 	intReturnHackAddr = 0;
 	pausedDelays.clear();
@@ -3188,7 +3207,7 @@ bool __KernelExecuteMipsCallOnCurrentThread(u32 callId, bool reschedAfter)
 
 	// Set up the new state
 	currentMIPS->pc = call->entryPoint;
-	currentMIPS->r[MIPS_REG_RA] = __KernelMipsCallReturnAddress();
+	currentMIPS->r[MIPS_REG_RA] = __KernelCallbackReturnAddress();
 	cur->currentMipscallId = callId;
 	for (int i = 0; i < call->numArgs; i++) {
 		currentMIPS->r[MIPS_REG_A0 + i] = call->args[i];
