@@ -229,12 +229,12 @@ protected:
 
 private:
 	void ConvertUCS2ToUTF8(std::string& _string, const PSPPointer<u16_le>& em_address);
-	void ConvertUCS2ToUTF8(std::string& _string, const wchar_t *input);
+	void ConvertUCS2ToUTF8(std::string& _string, const char16_t *input);
 	void RenderKeyboard();
 	int NativeKeyboard();
 
-	std::wstring CombinationString(bool isInput); // for Japanese, Korean
-	std::wstring CombinationKorean(bool isInput); // for Korea
+	std::u16string CombinationString(bool isInput); // for Japanese, Korean
+	std::u16string CombinationKorean(bool isInput); // for Korea
 	void RemoveKorean(); // for Korean character removal
 
 	u32 FieldMaxLength();
@@ -246,7 +246,7 @@ private:
 	std::string oskOuttext;
 
 	int selectedChar;
-	std::wstring inputChars;
+	std::u16string inputChars;
 	OskKeyboardDisplay currentKeyboard;
 	OskKeyboardLanguage currentKeyboardLanguage;
 	bool isCombinated;

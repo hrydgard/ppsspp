@@ -82,13 +82,19 @@ bool UTF8StringHasNonASCII(const char *utf8string);
 
 std::string ConvertWStringToUTF8(const std::wstring &wstr);
 std::string ConvertWStringToUTF8(const wchar_t *wstr);
+void ConvertUTF8ToWString(wchar_t *dest, size_t destSize, const std::string &source);
+std::wstring ConvertUTF8ToWString(const std::string &source);
 
 #else
 
+// Used by SymbolMap/assembler
+std::wstring ConvertUTF8ToWString(const std::string &source);
 std::string ConvertWStringToUTF8(const std::wstring &wstr);
 
 #endif
 
+std::string ConvertUCS2ToUTF8(const std::u16string &wstr);
+
 // Dest size in units, not bytes.
-void ConvertUTF8ToWString(wchar_t *dest, size_t destSize, const std::string &source);
-std::wstring ConvertUTF8ToWString(const std::string &source);
+void ConvertUTF8ToUCS2(char16_t *dest, size_t destSize, const std::string &source);
+std::u16string ConvertUTF8ToUCS2(const std::string &source);

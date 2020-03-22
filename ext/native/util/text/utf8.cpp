@@ -461,7 +461,63 @@ std::wstring ConvertUTF8ToWString(const std::string &source) {
 	return str;
 }
 
-#else
+#endif
+
+std::string ConvertUCS2ToUTF8(const std::u16string &wstr) {
+	std::string s;
+	// Worst case.
+	s.resize(wstr.size() * 4);
+
+	size_t pos = 0;
+	for (wchar_t c : wstr) {
+		pos += UTF8::encode(&s[pos], c);
+	}
+
+	s.resize(pos);
+	return s;
+}
+
+static size_t ConvertUTF8ToUCS2Internal(char16_t *dest, size_t destSize, const std::string &source) {
+	const char16_t *const orig = dest;
+	const char16_t *const destEnd = dest + destSize;
+
+	UTF8 utf(source.c_str());
+
+	char16_t *destw = (char16_t *)dest;
+	const char16_t *const destwEnd = destw + destSize;
+
+	// Ignores characters outside the BMP.
+	while (uint32_t c = utf.next()) {
+		if (destw + UTF16LE::encodeUnitsUCS2(c) >= destwEnd) {
+			break;
+		}
+		destw += UTF16LE::encodeUCS2(destw, c);
+	}
+
+	// No ++ to not count the terminal in length.
+	if (dest < destEnd) {
+		*dest = 0;
+	}
+
+	return dest - orig;
+}
+
+void ConvertUTF8ToUCS2(char16_t *dest, size_t destSize, const std::string &source) {
+	ConvertUTF8ToUCS2Internal(dest, destSize, source);
+}
+
+std::u16string ConvertUTF8ToUCS2(const std::string &source) {
+	std::u16string dst;
+	// utf-8 won't be less bytes than there are characters.  But need +1 for terminator.
+	dst.resize(source.size() + 1, 0);
+	size_t realLen = ConvertUTF8ToUCS2Internal(&dst[0], source.size() + 1, source);
+	dst.resize(realLen);
+	return dst;
+}
+
+#ifndef _WIN32
+
+// Replacements for the Win32 wstring functions. Not to be used from emulation code!
 
 std::string ConvertWStringToUTF8(const std::wstring &wstr) {
 	std::string s;
@@ -484,16 +540,16 @@ static size_t ConvertUTF8ToWStringInternal(wchar_t *dest, size_t destSize, const
 	UTF8 utf(source.c_str());
 
 	if (sizeof(wchar_t) == 2) {
-		uint16_t *destw = (uint16_t *)dest;
-		const uint16_t *const destwEnd = destw + destSize;
-		while (uint32_t c = utf.next()) {
+		char16_t *destw = (char16_t *)dest;
+		const char16_t *const destwEnd = destw + destSize;
+		while (char32_t c = utf.next()) {
 			if (destw + UTF16LE::encodeUnits(c) >= destwEnd) {
 				break;
 			}
 			destw += UTF16LE::encode(destw, c);
 		}
 	} else {
-		while (uint32_t c = utf.next()) {
+		while (char32_t c = utf.next()) {
 			if (dest + 1 >= destEnd) {
 				break;
 			}
@@ -507,10 +563,6 @@ static size_t ConvertUTF8ToWStringInternal(wchar_t *dest, size_t destSize, const
 	}
 
 	return dest - orig;
-}
-
-void ConvertUTF8ToWString(wchar_t *dest, size_t destSize, const std::string &source) {
-	ConvertUTF8ToWStringInternal(dest, destSize, source);
 }
 
 std::wstring ConvertUTF8ToWString(const std::string &source) {
