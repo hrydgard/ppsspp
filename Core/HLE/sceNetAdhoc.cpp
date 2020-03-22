@@ -1917,7 +1917,7 @@ static int sceNetAdhocPtpOpen(const char *srcmac, int sport, const char *dstmac,
 						setSockTimeout(tcpsocket, SO_SNDTIMEO, rexmt_int);
 
 						// Disable Nagle Algo to send immediately. Or may be we shouldn't disable Nagle since there is PtpFlush function?
-						//setSockNoDelay(tcpsocket, 1);
+						if (g_Config.bTCPNoDelay) setSockNoDelay(tcpsocket, 1);
 						
 						// Binding Information for local Port
 						sockaddr_in addr;
@@ -2107,7 +2107,7 @@ static int sceNetAdhocPtpAccept(int id, u32 peerMacAddrPtr, u32 peerPortPtr, int
 						setsockopt(newsocket, SOL_SOCKET, SO_REUSEADDR, (const char*)&one, sizeof(one));
 
 						// Disable Nagle Algo to send immediately. Or may be we shouldn't disable Nagle since there is PtpFlush function?
-						//setSockNoDelay(newsocket, 1);
+						if (g_Config.bTCPNoDelay) setSockNoDelay(newsocket, 1);
 						
 						// Grab Local Address
 						if (getsockname(newsocket, (sockaddr *)&local, &locallen) == 0) {
@@ -2444,7 +2444,7 @@ static int sceNetAdhocPtpListen(const char *srcmac, int sport, int bufsize, int 
 						setSockTimeout(tcpsocket, SO_RCVTIMEO, rexmt_int);
 
 						// Disable Nagle Algo to send immediately. Or may be we shouldn't disable Nagle since there is PtpFlush function?
-						//setSockNoDelay(tcpsocket, 1);
+						if (g_Config.bTCPNoDelay) setSockNoDelay(tcpsocket, 1);
 						
 						// Binding Information for local Port
 						sockaddr_in addr;
