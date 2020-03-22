@@ -225,7 +225,7 @@ void GameSettingsScreen::CreateViews() {
 		}
 	}
 
-	static const char *renderingMode[] = { "Non-Buffered Rendering", "Buffered Rendering"};
+	static const char *renderingMode[] = { "Non-Buffered Rendering", "Buffered Rendering" };
 	PopupMultiChoice *renderingModeChoice = graphicsSettings->Add(new PopupMultiChoice(&g_Config.iRenderingMode, gr->T("Mode"), renderingMode, 0, ARRAY_SIZE(renderingMode), gr->GetName(), screenManager()));
 	renderingModeChoice->OnChoice.Add([=](EventParams &e) {
 		switch (g_Config.iRenderingMode) {
@@ -289,8 +289,9 @@ void GameSettingsScreen::CreateViews() {
 		auto ps = GetI18NCategory("PostShaders");
 		postProcChoice_ = graphicsSettings->Add(new ChoiceWithValueDisplay(&g_Config.sPostShaderName, gr->T("Postprocessing Shader"), &PostShaderTranslateName));
 		postProcChoice_->OnClick.Handle(this, &GameSettingsScreen::OnPostProcShader);
-		postProcEnable_ = !g_Config.bSoftwareRendering && (g_Config.iRenderingMode != FB_NON_BUFFERED_MODE);
-		postProcChoice_->SetEnabledPtr(&postProcEnable_);
+		postProcChoice_->SetEnabledFunc([] {
+			return !g_Config.bSoftwareRendering && g_Config.iRenderingMode != FB_NON_BUFFERED_MODE;
+		});
 	}
 
 #if !defined(MOBILE_DEVICE)
@@ -315,14 +316,15 @@ void GameSettingsScreen::CreateViews() {
 
 	graphicsSettings->Add(new ItemHeader(gr->T("Performance")));
 #ifndef MOBILE_DEVICE
-	static const char *internalResolutions[] = {"Auto (1:1)", "1x PSP", "2x PSP", "3x PSP", "4x PSP", "5x PSP", "6x PSP", "7x PSP", "8x PSP", "9x PSP", "10x PSP" };
+	static const char *internalResolutions[] = { "Auto (1:1)", "1x PSP", "2x PSP", "3x PSP", "4x PSP", "5x PSP", "6x PSP", "7x PSP", "8x PSP", "9x PSP", "10x PSP" };
 #else
-	static const char *internalResolutions[] = {"Auto (1:1)", "1x PSP", "2x PSP", "3x PSP", "4x PSP", "5x PSP" };
+	static const char *internalResolutions[] = { "Auto (1:1)", "1x PSP", "2x PSP", "3x PSP", "4x PSP", "5x PSP" };
 #endif
 	resolutionChoice_ = graphicsSettings->Add(new PopupMultiChoice(&g_Config.iInternalResolution, gr->T("Rendering Resolution"), internalResolutions, 0, ARRAY_SIZE(internalResolutions), gr->GetName(), screenManager()));
 	resolutionChoice_->OnChoice.Handle(this, &GameSettingsScreen::OnResolutionChange);
-	resolutionEnable_ = !g_Config.bSoftwareRendering && (g_Config.iRenderingMode != FB_NON_BUFFERED_MODE);
-	resolutionChoice_->SetEnabledPtr(&resolutionEnable_);
+	resolutionChoice_->SetEnabledFunc([] {
+		return !g_Config.bSoftwareRendering && g_Config.iRenderingMode != FB_NON_BUFFERED_MODE;
+	});
 
 #ifdef __ANDROID__
 	if (System_GetPropertyInt(SYSPROP_DEVICE_TYPE) != DEVICE_TYPE_TV) {
@@ -344,6 +346,9 @@ void GameSettingsScreen::CreateViews() {
 	});
 #endif
 	CheckBox *frameDuplication = graphicsSettings->Add(new CheckBox(&g_Config.bRenderDuplicateFrames, gr->T("Render duplicate frames to 60hz")));
+	frameDuplication->SetEnabledFunc([] {
+		return g_Config.iRenderingMode != FB_NON_BUFFERED_MODE || (g_Config.bSoftwareRendering && g_Config.iFrameSkip != 0);
+	});
 	frameDuplication->OnClick.Add([=](EventParams &e) {
 		settingInfo_->Show(gr->T("RenderDuplicateFrames Tip", "Can make framerate smoother in games that run at lower framerates"), e.v);
 		return UI::EVENT_CONTINUE;
@@ -371,8 +376,9 @@ void GameSettingsScreen::CreateViews() {
 		settingInfo_->Show(gr->T("VertexCache Tip", "Faster, but may cause temporary flicker"), e.v);
 		return UI::EVENT_CONTINUE;
 	});
-	vtxCacheEnable_ = !g_Config.bSoftwareRendering && g_Config.bHardwareTransform;
-	vtxCache->SetEnabledPtr(&vtxCacheEnable_);
+	vtxCache->SetEnabledFunc([] {
+		return !g_Config.bSoftwareRendering && g_Config.bHardwareTransform;
+	});
 
 	CheckBox *texBackoff = graphicsSettings->Add(new CheckBox(&g_Config.bTextureBackoffCache, gr->T("Lazy texture caching", "Lazy texture caching (speedup)")));
 	texBackoff->SetDisabledPtr(&g_Config.bSoftwareRendering);
@@ -394,7 +400,7 @@ void GameSettingsScreen::CreateViews() {
 		vtxJit->SetEnabled(false);
 	}*/
 
-	static const char *quality[] = { "Low", "Medium", "High"};
+	static const char *quality[] = { "Low", "Medium", "High" };
 	PopupMultiChoice *beziersChoice = graphicsSettings->Add(new PopupMultiChoice(&g_Config.iSplineBezierQuality, gr->T("LowCurves", "Spline/Bezier curves quality"), quality, 0, ARRAY_SIZE(quality), gr->GetName(), screenManager()));
 	beziersChoice->OnChoice.Add([=](EventParams &e) {
 		if (g_Config.iSplineBezierQuality != 0) {
@@ -481,8 +487,9 @@ void GameSettingsScreen::CreateViews() {
 
 	static const char *bloomHackOptions[] = { "Off", "Safe", "Balanced", "Aggressive" };
 	PopupMultiChoice *bloomHack = graphicsSettings->Add(new PopupMultiChoice(&g_Config.iBloomHack, gr->T("Lower resolution for effects (reduces artifacts)"), bloomHackOptions, 0, ARRAY_SIZE(bloomHackOptions), gr->GetName(), screenManager()));
-	bloomHackEnable_ = !g_Config.bSoftwareRendering && (g_Config.iInternalResolution != 1);
-	bloomHack->SetEnabledPtr(&bloomHackEnable_);
+	bloomHack->SetEnabledFunc([] {
+		return !g_Config.bSoftwareRendering && g_Config.iInternalResolution != 1;
+	});
 
 	graphicsSettings->Add(new ItemHeader(gr->T("Overlay Information")));
 	static const char *fpsChoices[] = { "None", "Speed", "FPS", "Both" };
@@ -563,12 +570,14 @@ void GameSettingsScreen::CreateViews() {
 
 #if defined(MOBILE_DEVICE)
 	controlsSettings->Add(new CheckBox(&g_Config.bHapticFeedback, co->T("HapticFeedback", "Haptic Feedback (vibration)")));
-	static const char *tiltTypes[] = { "None (Disabled)", "Analog Stick", "D-PAD", "PSP Action Buttons", "L/R Trigger Buttons"};
+	static const char *tiltTypes[] = { "None (Disabled)", "Analog Stick", "D-PAD", "PSP Action Buttons", "L/R Trigger Buttons" };
 	controlsSettings->Add(new PopupMultiChoice(&g_Config.iTiltInputType, co->T("Tilt Input Type"), tiltTypes, 0, ARRAY_SIZE(tiltTypes), co->GetName(), screenManager()))->OnClick.Handle(this, &GameSettingsScreen::OnTiltTypeChange);
 
 	Choice *customizeTilt = controlsSettings->Add(new Choice(co->T("Customize tilt")));
 	customizeTilt->OnClick.Handle(this, &GameSettingsScreen::OnTiltCustomize);
-	customizeTilt->SetEnabledPtr((bool *)&g_Config.iTiltInputType); //<- dirty int-to-bool cast
+	customizeTilt->SetEnabledFunc([] {
+		return g_Config.iTiltInputType != 0;
+	});
 #endif
 
 	// TVs don't have touch control, at least not yet.
@@ -768,6 +777,10 @@ void GameSettingsScreen::CreateViews() {
 	View *ioTimingMethod = systemSettings->Add(new PopupMultiChoice(&g_Config.iIOTimingMethod, sy->T("IO timing method"), ioTimingMethods, 0, ARRAY_SIZE(ioTimingMethods), sy->GetName(), screenManager()));
 	systemSettings->Add(new CheckBox(&g_Config.bForceLagSync, sy->T("Force real clock sync (slower, less lag)")));
 	PopupSliderChoice *lockedMhz = systemSettings->Add(new PopupSliderChoice(&g_Config.iLockedCPUSpeed, 0, 1000, sy->T("Change CPU Clock", "Change CPU Clock (unstable)"), screenManager(), sy->T("MHz, 0:default")));
+	lockedMhz->OnChange.Add([&](UI::EventParams &) {
+		enableReportsCheckbox_->SetEnabled(Reporting::IsSupported());
+		return UI::EVENT_CONTINUE;
+	});
 	lockedMhz->SetZeroLabel(sy->T("Auto"));
 	PopupSliderChoice *rewindFreq = systemSettings->Add(new PopupSliderChoice(&g_Config.iRewindFlipFrequency, 0, 1800, sy->T("Rewind Snapshot Frequency", "Rewind Snapshot Frequency (mem hog)"), screenManager(), sy->T("frames, 0:off")));
 	rewindFreq->SetZeroLabel(sy->T("Off"));
@@ -864,10 +877,12 @@ void GameSettingsScreen::CreateViews() {
 	systemSettings->Add(new CheckBox(&g_Config.bCacheFullIsoInRam, sy->T("Cache ISO in RAM", "Cache full ISO in RAM")));
 #endif
 
-//#ifndef __ANDROID__
 	systemSettings->Add(new ItemHeader(sy->T("Cheats", "Cheats (experimental, see forums)")));
-	systemSettings->Add(new CheckBox(&g_Config.bEnableCheats, sy->T("Enable Cheats")));
-//#endif
+	CheckBox *enableCheats = systemSettings->Add(new CheckBox(&g_Config.bEnableCheats, sy->T("Enable Cheats")));
+	enableCheats->OnClick.Add([&](UI::EventParams &) {
+		enableReportsCheckbox_->SetEnabled(Reporting::IsSupported());
+		return UI::EVENT_CONTINUE;
+	});
 	systemSettings->SetSpacing(0);
 
 	systemSettings->Add(new ItemHeader(sy->T("PSP Settings")));
@@ -910,16 +925,11 @@ UI::EventReturn GameSettingsScreen::OnAutoFrameskip(UI::EventParams &e) {
 }
 
 UI::EventReturn GameSettingsScreen::OnSoftwareRendering(UI::EventParams &e) {
-	vtxCacheEnable_ = !g_Config.bSoftwareRendering && g_Config.bHardwareTransform;
-	postProcEnable_ = !g_Config.bSoftwareRendering && (g_Config.iRenderingMode != FB_NON_BUFFERED_MODE);
-	resolutionEnable_ = !g_Config.bSoftwareRendering && (g_Config.iRenderingMode != FB_NON_BUFFERED_MODE);
-	bloomHackEnable_ = !g_Config.bSoftwareRendering && (g_Config.iInternalResolution != 1);
 	tessHWEnable_ = DoesBackendSupportHWTess() && !g_Config.bSoftwareRendering && g_Config.bHardwareTransform;
 	return UI::EVENT_DONE;
 }
 
 UI::EventReturn GameSettingsScreen::OnHardwareTransform(UI::EventParams &e) {
-	vtxCacheEnable_ = !g_Config.bSoftwareRendering && g_Config.bHardwareTransform;
 	tessHWEnable_ = DoesBackendSupportHWTess() && !g_Config.bSoftwareRendering && g_Config.bHardwareTransform;
 	return UI::EVENT_DONE;
 }
@@ -968,9 +978,6 @@ UI::EventReturn GameSettingsScreen::OnRenderingMode(UI::EventParams &e) {
 	Reporting::UpdateConfig();
 	enableReports_ = Reporting::IsEnabled();
 	enableReportsCheckbox_->SetEnabled(Reporting::IsSupported());
-
-	postProcEnable_ = !g_Config.bSoftwareRendering && (g_Config.iRenderingMode != FB_NON_BUFFERED_MODE);
-	resolutionEnable_ = !g_Config.bSoftwareRendering && (g_Config.iRenderingMode != FB_NON_BUFFERED_MODE);
 
 	if (g_Config.iRenderingMode == FB_NON_BUFFERED_MODE) {
 		g_Config.bAutoFrameSkip = false;
@@ -1114,7 +1121,6 @@ UI::EventReturn GameSettingsScreen::OnResolutionChange(UI::EventParams &e) {
 	if (g_Config.iAndroidHwScale == 1) {
 		RecreateActivity();
 	}
-	bloomHackEnable_ = !g_Config.bSoftwareRendering && g_Config.iInternalResolution != 1;
 	Reporting::UpdateConfig();
 	return UI::EVENT_DONE;
 }

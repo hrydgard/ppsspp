@@ -401,15 +401,34 @@ public:
 		return GetFocusedView() == this;
 	}
 
-	void SetEnabled(bool enabled) { enabled_ = enabled; enabledMeansDisabled_ = false; }
+	void SetEnabled(bool enabled) {
+		enabledFunc_ = nullptr;
+		enabledPtr_ = nullptr;
+		enabled_ = enabled;
+		enabledMeansDisabled_ = false;
+	}
 	bool IsEnabled() const {
+		if (enabledFunc_)
+			return enabledFunc_() != enabledMeansDisabled_;
 		if (enabledPtr_)
 			return *enabledPtr_ != enabledMeansDisabled_;
-		else
-			return enabled_ != enabledMeansDisabled_;
+		return enabled_ != enabledMeansDisabled_;
 	}
-	void SetEnabledPtr(bool *enabled) { enabledPtr_ = enabled; enabledMeansDisabled_ = false; }
-	void SetDisabledPtr(bool *disabled) { enabledPtr_ = disabled; enabledMeansDisabled_ = true;  }
+	void SetEnabledFunc(std::function<bool()> func) {
+		enabledFunc_ = func;
+		enabledPtr_ = nullptr;
+		enabledMeansDisabled_ = false;
+	}
+	void SetEnabledPtr(bool *enabled) {
+		enabledFunc_ = nullptr;
+		enabledPtr_ = enabled;
+		enabledMeansDisabled_ = false;
+	}
+	void SetDisabledPtr(bool *disabled) {
+		enabledFunc_ = nullptr;
+		enabledPtr_ = disabled;
+		enabledMeansDisabled_ = true;
+	}
 
 	virtual void SetVisibility(Visibility visibility) { visibility_ = visibility; }
 	Visibility GetVisibility() const { return visibility_; }
@@ -445,6 +464,7 @@ protected:
 	std::vector<Tween *> tweens_;
 
 private:
+	std::function<bool()> enabledFunc_;
 	bool *enabledPtr_;
 	bool enabled_;
 	bool enabledMeansDisabled_;
