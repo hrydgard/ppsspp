@@ -486,12 +486,13 @@ static size_t ConvertUTF8ToUCS2Internal(char16_t *dest, size_t destSize, const s
 	char16_t *destw = (char16_t *)dest;
 	const char16_t *const destwEnd = destw + destSize;
 
-	// TODO: Instead of encoding UTF16 here we should encode UCS2.
+	// TODO: Ignore characters that are invalid in UCS2 by encoding to UTF-16, as we do, and
+	// then failing/ignoring any 16-bit unit produced by UTF-16 in the range U+D800 — U+DFFF.
 	while (uint32_t c = utf.next()) {
 		if (destw + UTF16LE::encodeUnits(c) >= destwEnd) {
 			break;
 		}
-		// TODO: Update UTF16LE to take uint16_t
+		// TODO: Update UTF16LE to take char16_t
 		destw += UTF16LE::encode((uint16_t *)destw, c);
 	}
 
@@ -518,7 +519,7 @@ std::u16string ConvertUTF8ToUCS2(const std::string &source) {
 
 #ifndef _WIN32
 
-// Replacements for the Win32 functions. Not to be used from emulation code!
+// Replacements for the Win32 wstring functions. Not to be used from emulation code!
 
 std::string ConvertWStringToUTF8(const std::wstring &wstr) {
 	std::string s;
