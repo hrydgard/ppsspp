@@ -454,6 +454,11 @@ void TouchControlLayoutScreen::CreateViews() {
 		controls_.push_back(rapidFire);
 	}
 
+	if (g_Config.touchAnalogRotationKey.show) {
+		DragDropButton *analogRotation = new DragDropButton(g_Config.touchAnalogRotationKey, rectImage, ImageID("I_R"));
+		controls_.push_back(analogRotation);
+	}
+
 	if (g_Config.touchLKey.show) {
 		controls_.push_back(new DragDropButton(g_Config.touchLKey, shoulderImage, ImageID("I_L")));
 	}

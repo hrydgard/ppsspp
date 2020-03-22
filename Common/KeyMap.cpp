@@ -700,6 +700,7 @@ const KeyMap_IntStrPair psp_button_names[] = {
 	{VIRTKEY_TEXTURE_REPLACE, "Texture Replacement"},
 	{VIRTKEY_SCREENSHOT, "Screenshot"},
 	{VIRTKEY_MUTE_TOGGLE, "Mute toggle"},
+	{VIRTKEY_ANALOG_ROTATE, "Auto Rotate Analog"},
 
 	{CTRL_HOME, "Home"},
 	{CTRL_HOLD, "Hold"},

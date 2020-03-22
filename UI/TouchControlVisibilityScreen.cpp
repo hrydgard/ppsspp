@@ -91,6 +91,7 @@ void TouchControlVisibilityScreen::CreateViews() {
 	toggles_.push_back({ "Alt speed 1", &g_Config.touchSpeed1Key.show, ImageID::invalid() });
 	toggles_.push_back({ "Alt speed 2", &g_Config.touchSpeed2Key.show, ImageID::invalid() });
 	toggles_.push_back({ "RapidFire", &g_Config.touchRapidFireKey.show, ImageID::invalid() });
+	toggles_.push_back({ "Auto Analog Rotation", &g_Config.touchAnalogRotationKey.show, ImageID::invalid() });
 
 	auto mc = GetI18NCategory("MappableControls");
 
