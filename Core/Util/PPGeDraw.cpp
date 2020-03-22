@@ -231,7 +231,8 @@ void __PPGeInit() {
 		uint8_t *atlas_data;
 		if (!g_ppge_atlas.IsMetadataLoaded()) {
 			atlas_data = VFSReadFile("ppge_atlas.meta", &atlas_data_size);
-			g_ppge_atlas.Load(atlas_data, atlas_data_size);
+			if (atlas_data)
+				g_ppge_atlas.Load(atlas_data, atlas_data_size);
 			delete[] atlas_data;
 		}
 	}
