@@ -38,7 +38,6 @@ void UIContext::BeginFrame() {
 		uitexture_ = CreateTextureFromFile(draw_, "ui_atlas.zim", ImageFileType::ZIM, false);
 		if (!uitexture_) {
 			PanicAlert("Failed to load ui_atlas.zim.\n\nPlace it in the directory \"assets\" under your PPSSPP directory.");
-			FLOG("Failed to load ui_atlas.zim");
 		}
 	}
 	uidrawbufferTop_->SetCurZ(0.0f);
@@ -47,9 +46,7 @@ void UIContext::BeginFrame() {
 }
 
 void UIContext::Begin() {
-	draw_->BindSamplerStates(0, 1, &sampler_);
-	draw_->BindTexture(0, uitexture_->GetTexture());
-	UIBegin(ui_pipeline_);
+	BeginPipeline(ui_pipeline_, sampler_);
 }
 
 void UIContext::BeginNoTex() {
@@ -58,13 +55,14 @@ void UIContext::BeginNoTex() {
 }
 
 void UIContext::BeginPipeline(Draw::Pipeline *pipeline, Draw::SamplerState *samplerState) {
-	draw_->BindSamplerStates(0, 1, &sampler_);
-	draw_->BindTexture(0, uitexture_->GetTexture());
+	draw_->BindSamplerStates(0, 1, &samplerState);
+	RebindTexture();
 	UIBegin(pipeline);
 }
 
 void UIContext::RebindTexture() const {
-	draw_->BindTexture(0, uitexture_->GetTexture());
+	if (uitexture_)
+		draw_->BindTexture(0, uitexture_->GetTexture());
 }
 
 void UIContext::Flush() {

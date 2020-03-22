@@ -211,39 +211,38 @@ void __PPGeSetupListArgs()
 	}
 }
 
-void __PPGeInit()
-{
+void __PPGeInit() {
 	// PPGe isn't really important for headless, and LoadZIM takes a long time.
-	if (PSP_CoreParameter().gpuCore == GPUCORE_NULL || host->ShouldSkipUI()) {
-		// Let's just not bother.
-		dlPtr = 0;
-		NOTICE_LOG(SCEGE, "Not initializing PPGe - GPU is NullGpu");
-		return;
-	}
-	u8 *imageData[12];
-	int width[12];
-	int height[12];
-	int flags;
-	if (!LoadZIM("ppge_atlas.zim", width, height, &flags, imageData)) {
+	bool skipZIM = PSP_CoreParameter().gpuCore == GPUCORE_NULL || host->ShouldSkipUI();
+
+	u8 *imageData[12]{};
+	int width[12]{};
+	int height[12]{};
+	int flags = 0;
+
+	bool loadedZIM = !skipZIM && LoadZIM("ppge_atlas.zim", width, height, &flags, imageData);
+	if (!skipZIM && !loadedZIM) {
 		PanicAlert("Failed to load ppge_atlas.zim.\n\nPlace it in the directory \"assets\" under your PPSSPP directory.");
 		ERROR_LOG(SCEGE, "PPGe init failed - no atlas texture. PPGe stuff will not be drawn.");
-		return;
 	}
 
-	size_t atlas_data_size;
-	uint8_t *atlas_data;
-	if (!g_ppge_atlas.IsMetadataLoaded()) {
-		atlas_data = VFSReadFile("ppge_atlas.meta", &atlas_data_size);
-		g_ppge_atlas.Load(atlas_data, atlas_data_size);
-		delete[] atlas_data;
+	if (loadedZIM) {
+		size_t atlas_data_size;
+		uint8_t *atlas_data;
+		if (!g_ppge_atlas.IsMetadataLoaded()) {
+			atlas_data = VFSReadFile("ppge_atlas.meta", &atlas_data_size);
+			g_ppge_atlas.Load(atlas_data, atlas_data_size);
+			delete[] atlas_data;
+		}
 	}
+
 	u32 atlasSize = height[0] * width[0] / 2;  // it's a 4-bit paletted texture in ram
 	atlasWidth = width[0];
 	atlasHeight = height[0];
 	dlPtr = __PPGeDoAlloc(dlSize, false, "PPGe Display List");
 	dataPtr = __PPGeDoAlloc(dataSize, false, "PPGe Vertex Data");
 	__PPGeSetupListArgs();
-	atlasPtr = __PPGeDoAlloc(atlasSize, false, "PPGe Atlas Texture");
+	atlasPtr = atlasSize == 0 ? 0 : __PPGeDoAlloc(atlasSize, false, "PPGe Atlas Texture");
 	palette = __PPGeDoAlloc(paletteSize, false, "PPGe Texture Palette");
 
 	// Generate 16-greyscale palette. All PPGe graphics are greyscale so we can use a tiny paletted texture.
@@ -253,7 +252,7 @@ void __PPGeInit()
 	}
 
 	const u32_le *imagePtr = (u32_le *)imageData[0];
-	u8 *ramPtr = (u8 *)Memory::GetPointer(atlasPtr);
+	u8 *ramPtr = atlasPtr == 0 ? nullptr : (u8 *)Memory::GetPointer(atlasPtr);
 
 	// Palettize to 4-bit, the easy way.
 	for (int i = 0; i < width[0] * height[0] / 2; i++) {
@@ -738,6 +737,16 @@ void PPGeMeasureText(float *w, float *h, int *n,
 		return;
 	}
 
+	if (!g_ppge_atlas.IsMetadataLoaded() || g_ppge_atlas.num_fonts < 1) {
+		if (w)
+			*w = 0;
+		if (h)
+			*h = 0;
+		if (n)
+			*n = 0;
+		return;
+	}
+
 	const AtlasFont &atlasfont = g_ppge_atlas.fonts[0];
 	AtlasTextMetrics metrics = BreakLines(text, atlasfont, 0, 0, 0, scale, scale, WrapType, wrapWidth, true);
 	if (w) *w = metrics.maxWidth;
@@ -748,6 +757,9 @@ void PPGeMeasureText(float *w, float *h, int *n,
 void PPGePrepareText(const char *text, float x, float y, int align, float scale, float lineHeightScale, int WrapType, int wrapWidth)
 {
 	const AtlasFont &atlasfont = g_ppge_atlas.fonts[0];
+	if (!g_ppge_atlas.IsMetadataLoaded() || g_ppge_atlas.num_fonts < 1) {
+		return;
+	}
 	char_lines_metrics = BreakLines(text, atlasfont, x, y, align, scale, lineHeightScale, WrapType, wrapWidth, false);
 }
 
@@ -1063,6 +1075,9 @@ void PPGeDrawImage(ImageID atlasImage, float x, float y, float w, float h, int a
 		return;
 
 	const AtlasImage *img = g_ppge_atlas.getImage(atlasImage);
+	if (!img) {
+		return;
+	}
 	BeginVertexData();
 	Vertex(x, y, img->u1, img->v1, atlasWidth, atlasHeight, color);
 	Vertex(x + w, y + h, img->u2, img->v2, atlasWidth, atlasHeight, color);

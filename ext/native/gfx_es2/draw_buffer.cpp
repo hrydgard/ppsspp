@@ -250,6 +250,9 @@ inline void rot(float *v, float angle, float xc, float yc) {
 
 void DrawBuffer::DrawImageRotated(ImageID atlas_image, float x, float y, float scale, float angle, Color color, bool mirror_h) {
 	const AtlasImage *image = atlas->getImage(atlas_image);
+	if (!image)
+		return;
+
 	float w = (float)image->w * scale;
 	float h = (float)image->h * scale;
 	float x1 = x - w / 2;
@@ -493,8 +496,9 @@ void DrawBuffer::DrawTextRect(FontID font, const char *text, float x, float y, f
 
 	std::string toDraw = text;
 	int wrap = align & (FLAG_WRAP_TEXT | FLAG_ELLIPSIZE_TEXT);
-	if (wrap) {
-		AtlasWordWrapper wrapper(*atlas->getFont(font), fontscalex, toDraw.c_str(), w, wrap);
+	const AtlasFont *atlasfont = atlas->getFont(font);
+	if (wrap && atlasfont) {
+		AtlasWordWrapper wrapper(*atlasfont, fontscalex, toDraw.c_str(), w, wrap);
 		toDraw = wrapper.Wrapped();
 	}
 
