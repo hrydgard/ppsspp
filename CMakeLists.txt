@@ -660,13 +660,16 @@ else()
 	set(LIBZIP_LIBRARY libzip)
 endif()
 
-# FindPNG does a few things we don't want. So do it ourselves. Fixed to libpng17
-find_path(PNG_PNG_INCLUDE_DIR NAMES "libpng17/png.h")
-find_library(PNG_LIBRARY NAMES png17 libpng17)
-find_package(PackageHandleStandardArgs)
-find_package_handle_standard_args(PNG REQUIRED_VARS PNG_LIBRARY PNG_PNG_INCLUDE_DIR)
+# Arm platforms require at least libpng17.
+if(ANDROID OR ARMV7 OR ARM64 OR ARM OR IOS)
+	set(PNG_REQUIRED_VERSION 1.7)
+else()
+	set(PNG_REQUIRED_VERSION 1.6)
+endif()
+
+find_package(PNG ${PNG_REQUIRED_VERSION})
 if(PNG_FOUND)
-	include_directories(${PNG_PNG_INCLUDE_DIR})
+	include_directories(${PNG_INCLUDE_DIRS})
 else()
 	if(ARM)
 		set(PNG_ARM_INCLUDES
@@ -700,8 +703,8 @@ else()
 		ext/native/ext/libpng17/pngwutil.c
 		${PNG_ARM_INCLUDES}
 	)
-	set(PNG_LIBRARY png17)
-	include_directories(ext/native/ext)
+	set(PNG_LIBRARIES png17)
+	include_directories(ext/native/ext/libpng17)
 endif()
 
 set(nativeExtra)
@@ -1083,7 +1086,7 @@ if(ANDROID)
 	set(ATOMIC_LIB atomic)
 endif()
 
-target_link_libraries(native ${LIBZIP_LIBRARY} ${PNG_LIBRARY} ${ZLIB_LIBRARY} gason udis86 ${RT_LIB} ${nativeExtraLibs} ${ATOMIC_LIB})
+target_link_libraries(native ${LIBZIP_LIBRARY} ${PNG_LIBRARIES} ${ZLIB_LIBRARY} gason udis86 ${RT_LIB} ${nativeExtraLibs} ${ATOMIC_LIB})
 if(TARGET Ext::GLEW)
 	target_link_libraries(native Ext::GLEW)
 endif()

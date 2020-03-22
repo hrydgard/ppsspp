@@ -21,7 +21,7 @@
 #ifdef USING_QT_UI
 #include <QtGui/QImage>
 #else
-#include <libpng17/png.h>
+#include <png.h>
 #include "ext/jpge/jpge.h"
 #endif
 
