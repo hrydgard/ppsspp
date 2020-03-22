@@ -540,16 +540,16 @@ static size_t ConvertUTF8ToWStringInternal(wchar_t *dest, size_t destSize, const
 	UTF8 utf(source.c_str());
 
 	if (sizeof(wchar_t) == 2) {
-		uint16_t *destw = (uint16_t *)dest;
-		const uint16_t *const destwEnd = destw + destSize;
-		while (uint32_t c = utf.next()) {
+		char16_t *destw = (char16_t *)dest;
+		const char16_t *const destwEnd = destw + destSize;
+		while (char32_t c = utf.next()) {
 			if (destw + UTF16LE::encodeUnits(c) >= destwEnd) {
 				break;
 			}
 			destw += UTF16LE::encode(destw, c);
 		}
 	} else {
-		while (uint32_t c = utf.next()) {
+		while (char32_t c = utf.next()) {
 			if (dest + 1 >= destEnd) {
 				break;
 			}
