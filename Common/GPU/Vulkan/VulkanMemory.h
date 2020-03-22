@@ -3,7 +3,6 @@
 #include <cstdint>
 #include <functional>
 #include <vector>
-#include <unordered_map>
 
 #include "Common/GPU/Vulkan/VulkanContext.h"
 

@@ -29,6 +29,7 @@
 #include "Common/Serialize/SerializeFuncs.h"
 #include "Common/StringUtils.h"
 #include "Core/Config.h"
+#include "Common/BitScan.h"
 #include "Core/HDRemaster.h"
 #include "Core/Host.h"
 #include "GPU/ge_constants.h"
@@ -841,14 +842,9 @@ void PPGeDrawCurrentText(u32 color)
 }
 
 // Return a value such that (1 << value) >= x
-int GetPow2(int x) {
-#ifdef __GNUC__
-	int ret = 31 - __builtin_clz(x | 1);
+inline int GetPow2(int x) {
+	int ret = 31 - clz32_nonzero(x | 1);
 	if ((1 << ret) < x)
-#else
-	int ret = 0;
-	while ((1 << ret) < x)
-#endif
 		ret++;
 	return ret;
 }
