@@ -1514,6 +1514,7 @@ void __KernelWaitCurThread(WaitType type, SceUID waitID, u32 waitValue, u32 time
 	}
 
 	PSPThread *thread = __GetCurrentThread();
+	assert(thread != nullptr);
 	thread->nt.waitID = waitID;
 	thread->nt.waitType = type;
 	__KernelChangeThreadState(thread, ThreadStatus(THREADSTATUS_WAIT | (thread->nt.status & THREADSTATUS_SUSPEND)));

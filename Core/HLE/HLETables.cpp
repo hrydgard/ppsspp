@@ -89,14 +89,14 @@
 //sound
 //zlibdec
 const HLEFunction FakeSysCalls[] = {
-	{NID_THREADRETURN, __KernelReturnFromThread, "__KernelReturnFromThread"},
-	{NID_CALLBACKRETURN, __KernelReturnFromMipsCall, "__KernelReturnFromMipsCall"},
-	{NID_INTERRUPTRETURN, __KernelReturnFromInterrupt, "__KernelReturnFromInterrupt"},
-	{NID_EXTENDRETURN, __KernelReturnFromExtendStack, "__KernelReturnFromExtendStack"},
-	{NID_MODULERETURN, __KernelReturnFromModuleFunc, "__KernelReturnFromModuleFunc"},
-	{NID_IDLE, __KernelIdle, "_sceKernelIdle"},
-	{NID_GPUREPLAY, __KernelGPUReplay, "__KernelGPUReplay"},
-	{NID_HLECALLRETURN, HLEReturnFromMipsCall, "HLEReturnFromMipsCall"},
+	{NID_THREADRETURN, __KernelReturnFromThread, "__KernelReturnFromThread", 'x', ""},
+	{NID_CALLBACKRETURN, __KernelReturnFromMipsCall, "__KernelReturnFromMipsCall", 'x', ""},
+	{NID_INTERRUPTRETURN, __KernelReturnFromInterrupt, "__KernelReturnFromInterrupt", 'x', ""},
+	{NID_EXTENDRETURN, __KernelReturnFromExtendStack, "__KernelReturnFromExtendStack", 'x', ""},
+	{NID_MODULERETURN, __KernelReturnFromModuleFunc, "__KernelReturnFromModuleFunc", 'x', ""},
+	{NID_IDLE, __KernelIdle, "_sceKernelIdle", 'x', ""},
+	{NID_GPUREPLAY, __KernelGPUReplay, "__KernelGPUReplay", 'x', ""},
+	{NID_HLECALLRETURN, HLEReturnFromMipsCall, "HLEReturnFromMipsCall", 'x', ""},
 };
 
 const HLEFunction UtilsForUser[] = 
