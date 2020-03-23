@@ -33,6 +33,7 @@
 #include "Core/Util/PortManager.h"
 #include <Common/Log.h>
 #include "i18n/i18n.h"
+#include "net/resolve.h"
 
 
 PortManager g_PortManager;
@@ -43,16 +44,20 @@ PortManager::PortManager():
 	m_InitState(UPNP_INITSTATE_NONE),
 	m_LocalPort(UPNP_LOCAL_PORT_ANY),
 	m_leaseDuration("43200") {
+	// Since WSAStartup can be used multiple times it should be safe to do this right?
+	net::Init();
 }
 
 PortManager::~PortManager() {
-	// FIXME: It seems using any UPnP functions in this destructor that gets triggered when exiting PPSSPP will resulting to UPNPCOMMAND_HTTP_ERROR :( Did miniUPnPc library already shutted down at this point?
+	// FIXME: On Windows it seems using any UPnP functions in this destructor that gets triggered when exiting PPSSPP will resulting to UPNPCOMMAND_HTTP_ERROR due to early WSACleanup (miniupnpc was getting WSANOTINITIALISED internally)
 	Clear();
 	Restore();
 	Terminate();
+	net::Shutdown();
 }
 
 void PortManager::Terminate() {
+	INFO_LOG(SCENET, "PortManager::Terminate()");
 	if (urls) {
 		FreeUPNPUrls(urls);
 		free(urls);
@@ -83,9 +88,9 @@ bool PortManager::Initialize(const unsigned int timeout) {
 	unsigned char ttl = 2; // defaulting to 2
 	int error = 0;
 	
-	INFO_LOG(SCENET, "PortManager::Init(%d)", timeout);
+	INFO_LOG(SCENET, "PortManager::Initialize(%d)", timeout);
 	if (!g_Config.bEnableUPnP) {
-		ERROR_LOG(SCENET, "PortManager::Init - UPnP is Disabled on Networking Settings");
+		ERROR_LOG(SCENET, "PortManager::Initialize - UPnP is Disabled on Networking Settings");
 		return false;
 	}
 

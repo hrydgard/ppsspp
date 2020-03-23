@@ -149,7 +149,7 @@ void __NetShutdown() {
 	
 	__ResetInitNetLib();
 
-	// Since PortManager supposed to be general purpose for whatever port forwarding PPSSPP needed, may be we shouldn't clear & restore ports in here? But currently there is an issue with UPnP functions used in PortManager's destructor :(
+	// Since PortManager supposed to be general purpose for whatever port forwarding PPSSPP needed, may be we shouldn't clear & restore ports in here? it will be cleared and restored by PortManager's destructor when exiting PPSSPP anyway
 	if (g_PortManager.GetInitState() == UPNP_INITSTATE_DONE) {
 		g_PortManager.Clear();
 		g_PortManager.Restore();
