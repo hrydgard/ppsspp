@@ -247,29 +247,41 @@ bool TouchEvent(const TouchInput &touch, ViewGroup *root) {
 }
 
 bool AxisEvent(const AxisInput &axis, ViewGroup *root) {
-	enum {
-		DIR_POS = 1,
-		DIR_NEG = 2,
+	enum class DirState {
+		NONE = 0,
+		POS = 1,
+		NEG = 2,
 	};
+	struct PrevState {
+		DirState x = DirState::NONE;
+		DirState y = DirState::NONE;
+	};
+	struct StateKey {
+		int deviceId;
+		int axisId;
 
-	static uint32_t x_state = 0;
-	static uint32_t y_state = 0;
+		bool operator <(const StateKey &other) const {
+			return std::tie(deviceId, axisId) < std::tie(other.deviceId, other.axisId);
+		}
+	};
+	static std::map<StateKey, PrevState> state;
+	StateKey stateKey{ axis.deviceId, axis.axisId };
 
 	const float THRESHOLD = 0.75;
 
 	// Cannot use the remapper since this is for the menu, so we provide our own
 	// axis->button emulation here.
-	auto GenerateKeyFromAxis = [&](uint32_t old, uint32_t cur, keycode_t neg_key, keycode_t pos_key) {
+	auto GenerateKeyFromAxis = [&](DirState old, DirState cur, keycode_t neg_key, keycode_t pos_key) {
 		if (old == cur)
 			return;
-		if (old == DIR_POS) {
+		if (old == DirState::POS) {
 			KeyEvent(KeyInput{ DEVICE_ID_KEYBOARD, pos_key, KEY_UP }, root);
-		} else if (old == DIR_NEG) {
+		} else if (old == DirState::NEG) {
 			KeyEvent(KeyInput{ DEVICE_ID_KEYBOARD, neg_key, KEY_UP }, root);
 		}
-		if (cur == DIR_POS) {
+		if (cur == DirState::POS) {
 			KeyEvent(KeyInput{ DEVICE_ID_KEYBOARD, pos_key, KEY_DOWN }, root);
-		} else if (cur == DIR_NEG) {
+		} else if (cur == DirState::NEG) {
 			KeyEvent(KeyInput{ DEVICE_ID_KEYBOARD, neg_key, KEY_DOWN }, root);
 		}
 	};
@@ -284,29 +296,27 @@ bool AxisEvent(const AxisInput &axis, ViewGroup *root) {
 	case DEVICE_ID_X360_2:
 	case DEVICE_ID_X360_3:
 	{
-		uint32_t dir = 0;
-		if (axis.axisId == JOYSTICK_AXIS_X) {
-			if (axis.value < -THRESHOLD)
-				dir = DIR_NEG;
-			else if (axis.value > THRESHOLD)
-				dir = DIR_POS;
-			GenerateKeyFromAxis(x_state, dir, NKCODE_DPAD_LEFT, NKCODE_DPAD_RIGHT);
-			x_state = dir;
+		PrevState &old = state[stateKey];
+		DirState dir = DirState::NONE;
+		if (axis.value < -THRESHOLD)
+			dir = DirState::NEG;
+		else if (axis.value > THRESHOLD)
+			dir = DirState::POS;
+
+		if (axis.axisId == JOYSTICK_AXIS_X || axis.axisId == JOYSTICK_AXIS_HAT_X) {
+			GenerateKeyFromAxis(old.x, dir, NKCODE_DPAD_LEFT, NKCODE_DPAD_RIGHT);
+			old.x = dir;
 		}
-		if (axis.axisId == JOYSTICK_AXIS_Y) {
-			if (axis.value < -THRESHOLD)
-				dir = DIR_NEG;
-			else if (axis.value > THRESHOLD)
-				dir = DIR_POS;
+		if (axis.axisId == JOYSTICK_AXIS_Y || axis.axisId == JOYSTICK_AXIS_HAT_Y) {
 			// We stupidly interpret the joystick Y axis backwards on Android instead of reversing
 			// it early (see keymaps...). Too late to fix without invalidating a lot of config files, so we
 			// reverse it here too.
 #if PPSSPP_PLATFORM(ANDROID)
-			GenerateKeyFromAxis(y_state, dir, NKCODE_DPAD_UP, NKCODE_DPAD_DOWN);
+			GenerateKeyFromAxis(old.y, dir, NKCODE_DPAD_UP, NKCODE_DPAD_DOWN);
 #else
-			GenerateKeyFromAxis(y_state, dir, NKCODE_DPAD_DOWN, NKCODE_DPAD_UP);
+			GenerateKeyFromAxis(old.y, dir, NKCODE_DPAD_DOWN, NKCODE_DPAD_UP);
 #endif
-			y_state = dir;
+			old.y = dir;
 		}
 		break;
 	}
