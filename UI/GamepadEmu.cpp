@@ -162,6 +162,10 @@ void FPSLimitButton::Touch(const TouchInput &input) {
 	}
 }
 
+bool FPSLimitButton::IsDown() {
+	return PSP_CoreParameter().fpsLimit == limit_;
+}
+
 void RapidFireButton::Touch(const TouchInput &input) {
 	bool lastDown = pointerDownMask_ != 0;
 	MultiTouchButton::Touch(input);
@@ -175,8 +179,32 @@ bool RapidFireButton::IsDown() {
 	return __CtrlGetRapidFire();
 }
 
-bool FPSLimitButton::IsDown() {
-	return PSP_CoreParameter().fpsLimit == limit_;
+void AnalogRotationButton::Touch(const TouchInput &input) {
+	bool lastDown = pointerDownMask_ != 0;
+	MultiTouchButton::Touch(input);
+	bool down = pointerDownMask_ != 0;
+	if (down && !lastDown) {
+		autoRotating_ = true;
+	} else if (lastDown && !down) {
+		autoRotating_ = false;
+		__CtrlSetAnalogX(0.0f, 0);
+		__CtrlSetAnalogY(0.0f, 0);
+	}
+}
+
+void AnalogRotationButton::Update() {
+	const float now = time_now();
+	float delta = now - lastFrameTime_;
+	if (delta > 0) {
+		secondsWithoutTouch_ += delta;
+	}
+	lastFrameTime_ = now;
+
+	if (autoRotating_) {
+		float speed = clockWise_ ? -g_Config.fAnalogAutoRotSpeed : g_Config.fAnalogAutoRotSpeed;
+		__CtrlSetAnalogX(cos(now*speed), 0);
+		__CtrlSetAnalogY(sin(now*speed), 0);
+	}
 }
 
 void PSPButton::Touch(const TouchInput &input) {
@@ -533,6 +561,8 @@ void InitPadLayout(float xres, float yres, float globalScale) {
 	initTouchPos(g_Config.touchSpeed1Key, unthrottle_key_X, unthrottle_key_Y - 60 * scale);
 	initTouchPos(g_Config.touchSpeed2Key, unthrottle_key_X + bottom_key_spacing * scale, unthrottle_key_Y - 60 * scale);
 	initTouchPos(g_Config.touchRapidFireKey, unthrottle_key_X + 2*bottom_key_spacing * scale, unthrottle_key_Y - 60 * scale);
+	initTouchPos(g_Config.touchAnalogRotationCCWKey, unthrottle_key_X, unthrottle_key_Y - 120 * scale);
+	initTouchPos(g_Config.touchAnalogRotationCWKey, unthrottle_key_X + bottom_key_spacing * scale, unthrottle_key_Y - 120 * scale);
 
 	// L and R------------------------------------------------------------
 	// Put them above the analog stick / above the buttons to the right.
@@ -659,6 +689,16 @@ UI::ViewGroup *CreatePadLayout(float xres, float yres, bool *pause) {
 	if (g_Config.touchRapidFireKey.show) {
 		auto rapidFire = root->Add(new RapidFireButton(rectImage, ImageID("I_RECT"), ImageID("I_ARROW"), g_Config.touchRapidFireKey.scale, buttonLayoutParams(g_Config.touchRapidFireKey)));
 		rapidFire->SetAngle(90.0f, 180.0f);
+	}
+
+	if (g_Config.touchAnalogRotationCWKey.show) {
+		auto analogRotationCC = root->Add(new AnalogRotationButton(true, rectImage, ImageID("I_RECT"), ImageID("I_ARROW"), g_Config.touchAnalogRotationCWKey.scale, buttonLayoutParams(g_Config.touchAnalogRotationCWKey)));
+		analogRotationCC->SetAngle(190.0f, 180.0f);
+	}
+
+	if (g_Config.touchAnalogRotationCCWKey.show) {
+		auto analogRotationCCW = root->Add(new AnalogRotationButton(false, rectImage, ImageID("I_RECT"), ImageID("I_ARROW"), g_Config.touchAnalogRotationCCWKey.scale, buttonLayoutParams(g_Config.touchAnalogRotationCCWKey)));
+		analogRotationCCW->SetAngle(350.0f, 180.0f);
 	}
 
 	FPSLimitButton *speed1 = addFPSLimitButton(FPSLimit::CUSTOM1, rectImage, ImageID("I_RECT"), ImageID("I_ARROW"), g_Config.touchSpeed1Key);

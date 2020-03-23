@@ -292,6 +292,8 @@ public:
 	int iTouchButtonStyle;
 	int iTouchButtonOpacity;
 	int iTouchButtonHideSeconds;
+	// Auto rotation speed
+	float fAnalogAutoRotSpeed;
 
 	// Snap touch control position
 	bool bTouchSnapToGrid;
@@ -325,6 +327,8 @@ public:
 	ConfigTouchPos touchSpeed1Key;
 	ConfigTouchPos touchSpeed2Key;
 	ConfigTouchPos touchRapidFireKey;
+	ConfigTouchPos touchAnalogRotationCWKey;
+	ConfigTouchPos touchAnalogRotationCCWKey;
 
 	// Controls Visibility
 	bool bShowTouchControls;

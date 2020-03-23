@@ -665,6 +665,14 @@ void EmuScreen::onVKeyDown(int virtualKeyCode) {
 	case VIRTKEY_MUTE_TOGGLE:
 		g_Config.bEnableSound = !g_Config.bEnableSound;
 		break;
+	case VIRTKEY_ANALOG_ROTATE_CW:
+		autoRotatingAnalogCW_ = true;
+		autoRotatingAnalogCCW_ = false;
+		break;
+	case VIRTKEY_ANALOG_ROTATE_CCW:
+		autoRotatingAnalogCW_ = false;
+		autoRotatingAnalogCCW_ = true;
+		break;
 	}
 }
 
@@ -716,6 +724,18 @@ void EmuScreen::onVKeyUp(int virtualKeyCode) {
 
 	case VIRTKEY_RAPID_FIRE:
 		__CtrlSetRapidFire(false);
+		break;
+
+	case VIRTKEY_ANALOG_ROTATE_CW:
+		autoRotatingAnalogCW_ = false;
+		__CtrlSetAnalogX(0.0f, 0);
+		__CtrlSetAnalogY(0.0f, 0);
+		break;
+
+	case VIRTKEY_ANALOG_ROTATE_CCW:
+		autoRotatingAnalogCCW_ = false;
+		__CtrlSetAnalogX(0.0f, 0);
+		__CtrlSetAnalogY(0.0f, 0);
 		break;
 
 	default:
@@ -1162,6 +1182,16 @@ void EmuScreen::update() {
 
 	if (invalid_)
 		return;
+
+	if (autoRotatingAnalogCW_) {
+		const float now = time_now_d();
+		__CtrlSetAnalogX(cos(now*-g_Config.fAnalogAutoRotSpeed), 0);
+		__CtrlSetAnalogY(sin(now*-g_Config.fAnalogAutoRotSpeed), 0);
+	} else if (autoRotatingAnalogCCW_) {
+		const float now = time_now_d();
+		__CtrlSetAnalogX(cos(now*g_Config.fAnalogAutoRotSpeed), 0);
+		__CtrlSetAnalogY(sin(now*g_Config.fAnalogAutoRotSpeed), 0);
+	}
 
 	// This is here to support the iOS on screen back button.
 	if (pauseTrigger_) {
