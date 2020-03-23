@@ -685,56 +685,55 @@ void GameSettingsScreen::CreateViews() {
 	networkingSettings->Add(new ChoiceWithValueDisplay(&g_Config.sMACAddress, n->T("Change Mac Address"), (const char *)nullptr))->OnClick.Handle(this, &GameSettingsScreen::OnChangeMacAddress);
 	networkingSettings->Add(new PopupSliderChoice(&g_Config.iPortOffset, 0, 60000, n->T("Port offset", "Port offset(0 = PSP compatibility)"), 100, screenManager()));
 
-
-	networkingSettings->Add(new ItemHeader(ms->T("Chat")));
+	networkingSettings->Add(new ItemHeader(n->T("Chat")));
 	networkingSettings->Add(new CheckBox(&g_Config.bEnableNetworkChat, n->T("Enable network chat", "Enable network chat")));
-	static const char *chatButtonPositions[] = { "Bottom Left", "Bottom Center","Bottom Right","Top Left","Top Center", "Top Right","Center Left","Center Right" };
-	networkingSettings->Add(new PopupMultiChoice(&g_Config.iChatButtonPosition, n->T("Chat Button Position"), chatButtonPositions, 0, ARRAY_SIZE(chatButtonPositions), "Chat Button Position", screenManager()))->SetEnabledPtr(&g_Config.bEnableNetworkChat);
-	static const char *chatScreenPositions[] = { "Bottom Left", "Bottom Center","Bottom Right","Top Left","Top Center", "Top Right" };
-	networkingSettings->Add(new PopupMultiChoice(&g_Config.iChatScreenPosition, n->T("Chat Screen Position"), chatScreenPositions, 0, ARRAY_SIZE(chatScreenPositions), "Chat Screen Position", screenManager()))->SetEnabledPtr(&g_Config.bEnableNetworkChat);
-	networkingSettings->Add(new ItemHeader(co->T("QuickChat", "Quick Chat")));
-	networkingSettings->Add(new CheckBox(&g_Config.bEnableQuickChat, co->T("QuickChat", "Enable Quick Chat")));
+	static const char *chatButtonPositions[] = { "Bottom Left", "Bottom Center", "Bottom Right", "Top Left", "Top Center", "Top Right", "Center Left", "Center Right" };
+	networkingSettings->Add(new PopupMultiChoice(&g_Config.iChatButtonPosition, n->T("Chat Button Position"), chatButtonPositions, 0, ARRAY_SIZE(chatButtonPositions), n->GetName(), screenManager()))->SetEnabledPtr(&g_Config.bEnableNetworkChat);
+	static const char *chatScreenPositions[] = { "Bottom Left", "Bottom Center", "Bottom Right", "Top Left", "Top Center", "Top Right" };
+	networkingSettings->Add(new PopupMultiChoice(&g_Config.iChatScreenPosition, n->T("Chat Screen Position"), chatScreenPositions, 0, ARRAY_SIZE(chatScreenPositions), n->GetName(), screenManager()))->SetEnabledPtr(&g_Config.bEnableNetworkChat);
+	networkingSettings->Add(new ItemHeader(n->T("QuickChat", "Quick Chat")));
+	networkingSettings->Add(new CheckBox(&g_Config.bEnableQuickChat, n->T("QuickChat", "Enable Quick Chat")));
 #if !defined(MOBILE_DEVICE) && !defined(USING_QT_UI)  // TODO: Add all platforms where KEY_CHAR support is added
-	PopupTextInputChoice *qc1 = networkingSettings->Add(new PopupTextInputChoice(&g_Config.sQuickChat0, sy->T("Quick Chat 1"), "", 32, screenManager()));
+	PopupTextInputChoice *qc1 = networkingSettings->Add(new PopupTextInputChoice(&g_Config.sQuickChat0, n->T("Quick Chat 1"), "", 32, screenManager()));
 	qc1->SetEnabledPtr(&g_Config.bEnableQuickChat);
-	PopupTextInputChoice *qc2 = networkingSettings->Add(new PopupTextInputChoice(&g_Config.sQuickChat1, sy->T("Quick Chat 2"), "", 32, screenManager()));
+	PopupTextInputChoice *qc2 = networkingSettings->Add(new PopupTextInputChoice(&g_Config.sQuickChat1, n->T("Quick Chat 2"), "", 32, screenManager()));
 	qc2->SetEnabledPtr(&g_Config.bEnableQuickChat);
-	PopupTextInputChoice *qc3 = networkingSettings->Add(new PopupTextInputChoice(&g_Config.sQuickChat2, sy->T("Quick Chat 3"), "", 32, screenManager()));
+	PopupTextInputChoice *qc3 = networkingSettings->Add(new PopupTextInputChoice(&g_Config.sQuickChat2, n->T("Quick Chat 3"), "", 32, screenManager()));
 	qc3->SetEnabledPtr(&g_Config.bEnableQuickChat);
-	PopupTextInputChoice *qc4 = networkingSettings->Add(new PopupTextInputChoice(&g_Config.sQuickChat3, sy->T("Quick Chat 4"), "", 32, screenManager()));
+	PopupTextInputChoice *qc4 = networkingSettings->Add(new PopupTextInputChoice(&g_Config.sQuickChat3, n->T("Quick Chat 4"), "", 32, screenManager()));
 	qc4->SetEnabledPtr(&g_Config.bEnableQuickChat);
-	PopupTextInputChoice *qc5 = networkingSettings->Add(new PopupTextInputChoice(&g_Config.sQuickChat4, sy->T("Quick Chat 5"), "", 32, screenManager()));
+	PopupTextInputChoice *qc5 = networkingSettings->Add(new PopupTextInputChoice(&g_Config.sQuickChat4, n->T("Quick Chat 5"), "", 32, screenManager()));
 	qc5->SetEnabledPtr(&g_Config.bEnableQuickChat);
 #elif defined(USING_QT_UI)
-	Choice *qc1 = networkingSettings->Add(new Choice(sy->T("Quick Chat 1")));
+	Choice *qc1 = networkingSettings->Add(new Choice(n->T("Quick Chat 1")));
 	qc1->SetEnabledPtr(&g_Config.bEnableQuickChat);
 	qc1->OnClick.Handle(this, &GameSettingsScreen::OnChangeQuickChat0);
-	Choice *qc2 = networkingSettings->Add(new Choice(sy->T("Quick Chat 2")));
+	Choice *qc2 = networkingSettings->Add(new Choice(n->T("Quick Chat 2")));
 	qc2->SetEnabledPtr(&g_Config.bEnableQuickChat);
 	qc2->OnClick.Handle(this, &GameSettingsScreen::OnChangeQuickChat1);
-	Choice *qc3 = networkingSettings->Add(new Choice(sy->T("Quick Chat 3")));
+	Choice *qc3 = networkingSettings->Add(new Choice(n->T("Quick Chat 3")));
 	qc3->SetEnabledPtr(&g_Config.bEnableQuickChat);
 	qc3->OnClick.Handle(this, &GameSettingsScreen::OnChangeQuickChat2);
-	Choice *qc4 = networkingSettings->Add(new Choice(sy->T("Quick Chat 4")));
+	Choice *qc4 = networkingSettings->Add(new Choice(n->T("Quick Chat 4")));
 	qc4->SetEnabledPtr(&g_Config.bEnableQuickChat);
 	qc4->OnClick.Handle(this, &GameSettingsScreen::OnChangeQuickChat3);
-	Choice *qc5 = networkingSettings->Add(new Choice(sy->T("Quick Chat 5")));
+	Choice *qc5 = networkingSettings->Add(new Choice(n->T("Quick Chat 5")));
 	qc5->SetEnabledPtr(&g_Config.bEnableQuickChat);
 	qc5->OnClick.Handle(this, &GameSettingsScreen::OnChangeQuickChat4);
 #elif defined(__ANDROID__)
-	ChoiceWithValueDisplay *qc1 = networkingSettings->Add(new ChoiceWithValueDisplay(&g_Config.sQuickChat0, sy->T("Quick Chat 1"), (const char *)nullptr));
+	ChoiceWithValueDisplay *qc1 = networkingSettings->Add(new ChoiceWithValueDisplay(&g_Config.sQuickChat0, n->T("Quick Chat 1"), (const char *)nullptr));
 	qc1->OnClick.Handle(this, &GameSettingsScreen::OnChangeQuickChat0);
 	qc1->SetEnabledPtr(&g_Config.bEnableQuickChat);
-	ChoiceWithValueDisplay *qc2 = networkingSettings->Add(new ChoiceWithValueDisplay(&g_Config.sQuickChat1, sy->T("Quick Chat 2"), (const char *)nullptr));
+	ChoiceWithValueDisplay *qc2 = networkingSettings->Add(new ChoiceWithValueDisplay(&g_Config.sQuickChat1, n->T("Quick Chat 2"), (const char *)nullptr));
 	qc2->OnClick.Handle(this, &GameSettingsScreen::OnChangeQuickChat1);
 	qc2->SetEnabledPtr(&g_Config.bEnableQuickChat);
-	ChoiceWithValueDisplay *qc3 = networkingSettings->Add(new ChoiceWithValueDisplay(&g_Config.sQuickChat2, sy->T("Quick Chat 3"), (const char *)nullptr));
+	ChoiceWithValueDisplay *qc3 = networkingSettings->Add(new ChoiceWithValueDisplay(&g_Config.sQuickChat2, n->T("Quick Chat 3"), (const char *)nullptr));
 	qc3->OnClick.Handle(this, &GameSettingsScreen::OnChangeQuickChat2);
 	qc3->SetEnabledPtr(&g_Config.bEnableQuickChat);
-	ChoiceWithValueDisplay *qc4 = networkingSettings->Add(new ChoiceWithValueDisplay(&g_Config.sQuickChat3, sy->T("Quick Chat 4"), (const char *)nullptr));
+	ChoiceWithValueDisplay *qc4 = networkingSettings->Add(new ChoiceWithValueDisplay(&g_Config.sQuickChat3, n->T("Quick Chat 4"), (const char *)nullptr));
 	qc4->OnClick.Handle(this, &GameSettingsScreen::OnChangeQuickChat3);
 	qc4->SetEnabledPtr(&g_Config.bEnableQuickChat);
-	ChoiceWithValueDisplay *qc5 = networkingSettings->Add(new ChoiceWithValueDisplay(&g_Config.sQuickChat4, sy->T("Quick Chat 5"), (const char *)nullptr));
+	ChoiceWithValueDisplay *qc5 = networkingSettings->Add(new ChoiceWithValueDisplay(&g_Config.sQuickChat4, n->T("Quick Chat 5"), (const char *)nullptr));
 	qc5->OnClick.Handle(this, &GameSettingsScreen::OnChangeQuickChat4);
 	qc5->SetEnabledPtr(&g_Config.bEnableQuickChat);
 #endif
@@ -1364,8 +1363,7 @@ UI::EventReturn GameSettingsScreen::OnChangeproAdhocServerAddress(UI::EventParam
 	auto sy = GetI18NCategory("System");
 
 #if defined(__ANDROID__)
-	auto n = GetI18NCategory("Networking");
-	System_InputBoxGetString(n->T("IP"), g_Config.proAdhocServer, [](bool result, const std::string &value) {
+	System_InputBoxGetString(sy->T("proAdhocServer Address:"), g_Config.proAdhocServer, [](bool result, const std::string &value) {
 		if (result) {
 			g_Config.proAdhocServer = value;
 		}

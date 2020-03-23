@@ -41,11 +41,11 @@ void ChatMenu::CreatePopupContents(UI::ViewGroup *parent) {
 
 	if (g_Config.bEnableQuickChat) {
 		LinearLayout *quickChat = outer->Add(new LinearLayout(ORIENT_HORIZONTAL, new LayoutParams(FILL_PARENT, WRAP_CONTENT)));
-		quickChat->Add(new Button(n->T("1"), new LinearLayoutParams(1.0)))->OnClick.Handle(this, &ChatMenu::OnQuickChat1);
-		quickChat->Add(new Button(n->T("2"), new LinearLayoutParams(1.0)))->OnClick.Handle(this, &ChatMenu::OnQuickChat2);
-		quickChat->Add(new Button(n->T("3"), new LinearLayoutParams(1.0)))->OnClick.Handle(this, &ChatMenu::OnQuickChat3);
-		quickChat->Add(new Button(n->T("4"), new LinearLayoutParams(1.0)))->OnClick.Handle(this, &ChatMenu::OnQuickChat4);
-		quickChat->Add(new Button(n->T("5"), new LinearLayoutParams(1.0)))->OnClick.Handle(this, &ChatMenu::OnQuickChat5);
+		quickChat->Add(new Button("1", new LinearLayoutParams(1.0)))->OnClick.Handle(this, &ChatMenu::OnQuickChat1);
+		quickChat->Add(new Button("2", new LinearLayoutParams(1.0)))->OnClick.Handle(this, &ChatMenu::OnQuickChat2);
+		quickChat->Add(new Button("3", new LinearLayoutParams(1.0)))->OnClick.Handle(this, &ChatMenu::OnQuickChat3);
+		quickChat->Add(new Button("4", new LinearLayoutParams(1.0)))->OnClick.Handle(this, &ChatMenu::OnQuickChat4);
+		quickChat->Add(new Button("5", new LinearLayoutParams(1.0)))->OnClick.Handle(this, &ChatMenu::OnQuickChat5);
 	}
 	chatVert_ = scroll_->Add(new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT)));
 	chatVert_->SetSpacing(0);
