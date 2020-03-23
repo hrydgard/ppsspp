@@ -842,6 +842,7 @@ void hleDoLogInternal(LogTypes::LOG_TYPE t, LogTypes::LOG_LEVELS level, u64 res,
 	const char *funcName = "?";
 	u32 funcFlags = 0;
 	if (latestSyscall) {
+		_dbg_assert_(HLE, latestSyscall->argmask != nullptr);
 		hleFormatLogArgs(formatted_args, sizeof(formatted_args), latestSyscall->argmask);
 
 		// This acts as an override (for error returns which are usually hex.)
