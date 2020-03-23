@@ -253,8 +253,11 @@ bool AxisEvent(const AxisInput &axis, ViewGroup *root) {
 		NEG = 2,
 	};
 	struct PrevState {
-		DirState x = DirState::NONE;
-		DirState y = DirState::NONE;
+		PrevState() : x(DirState::NONE), y(DirState::NONE) {
+		}
+
+		DirState x;
+		DirState y;
 	};
 	struct StateKey {
 		int deviceId;
