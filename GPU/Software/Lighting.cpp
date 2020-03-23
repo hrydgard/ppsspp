@@ -26,7 +26,7 @@ static inline Vec3f GetLightVec(u32 lparams[12], int light) {
 }
 
 static inline float pspLightPow(float v, float e) {
-	if (e == 0.0f) {
+	if (e <= 0.0f) {
 		return 1.0f;
 	}
 	if (v > 0.0f) {
