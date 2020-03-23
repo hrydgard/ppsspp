@@ -525,8 +525,8 @@ void HLEReturnFromMipsCall() {
 	}
 
 	// Alright, we have another to call.
-	DEBUG_LOG(HLE, "Executing HLE mips call at %08x, sp=%08x", currentMIPS->pc, sp);
 	currentMIPS->pc = stackData->func;
+	DEBUG_LOG(HLE, "Executing next HLE mips call at %08x, sp=%08x", currentMIPS->pc, sp);
 	currentMIPS->r[MIPS_REG_RA] = HLEMipsCallReturnAddress();
 	for (int i = 0; i < (int)stackData->argc; i++) {
 		currentMIPS->r[MIPS_REG_A0 + i] = Memory::Read_U32(sp + sizeof(HLEMipsCallStack) + i * sizeof(u32));
