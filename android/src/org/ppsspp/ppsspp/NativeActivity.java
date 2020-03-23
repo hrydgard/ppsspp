@@ -1217,6 +1217,7 @@ public abstract class NativeActivity extends Activity implements SurfaceHolder.C
 				@Override
 				public void onDismiss(DialogInterface d) {
 					NativeApp.sendInputBox(seqID, false, "");
+					updateSystemUiVisibility();
 				}
 			})
 			.create();
