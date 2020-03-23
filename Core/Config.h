@@ -327,7 +327,8 @@ public:
 	ConfigTouchPos touchSpeed1Key;
 	ConfigTouchPos touchSpeed2Key;
 	ConfigTouchPos touchRapidFireKey;
-	ConfigTouchPos touchAnalogRotationKey;
+	ConfigTouchPos touchAnalogRotationCWKey;
+	ConfigTouchPos touchAnalogRotationCCWKey;
 
 	// Controls Visibility
 	bool bShowTouchControls;

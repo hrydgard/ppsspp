@@ -895,7 +895,8 @@ static ConfigSetting controlSettings[] = {
 	ConfigSetting("Speed1KeyX", "Speed1KeyY", "Speed1KeyScale", "ShowSpeed1Key", &g_Config.touchSpeed1Key, defaultTouchPosHide, true, true),
 	ConfigSetting("Speed2KeyX", "Speed2KeyY", "Speed2KeyScale", "ShowSpeed2Key", &g_Config.touchSpeed2Key, defaultTouchPosHide, true, true),
 	ConfigSetting("RapidFireKeyX", "RapidFireKeyY", "RapidFireKeyScale", "ShowRapidFireKey", &g_Config.touchRapidFireKey, defaultTouchPosHide, true, true),
-	ConfigSetting("AnalogRotationKeyX", "AnalogRotationKeyY", "AnalogRotationKeyScale", "ShowAnalogRotationKey", &g_Config.touchAnalogRotationKey, defaultTouchPosHide, true, true),
+	ConfigSetting("AnalogRotationCWKeyX", "AnalogRotationKeyCWY", "AnalogRotationKeyCWScale", "ShowAnalogRotationCWKey", &g_Config.touchAnalogRotationCWKey, defaultTouchPosHide, true, true),
+	ConfigSetting("AnalogRotationCCWKeyX", "AnalogRotationKeyCCWY", "AnalogRotationKeyCCWScale", "ShowAnalogRotationCCWKey", &g_Config.touchAnalogRotationCCWKey, defaultTouchPosHide, true, true),
 
 #ifdef _WIN32
 	ConfigSetting("DInputAnalogDeadzone", &g_Config.fDInputAnalogDeadzone, 0.1f, true, true),
@@ -1631,7 +1632,8 @@ void Config::ResetControlLayout() {
 	reset(g_Config.touchSpeed1Key);
 	reset(g_Config.touchSpeed2Key);
 	reset(g_Config.touchRapidFireKey);
-	reset(g_Config.touchAnalogRotationKey);
+	reset(g_Config.touchAnalogRotationCWKey);
+	reset(g_Config.touchAnalogRotationCCWKey);
 }
 
 void Config::GetReportingInfo(UrlEncoder &data) {

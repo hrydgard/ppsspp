@@ -641,7 +641,7 @@ void GameSettingsScreen::CreateViews() {
 #else
 	controlsSettings->Add(new PopupSliderChoiceFloat(&g_Config.fXInputAnalogSensitivity, 0.0f, 10.0f, co->T("Analog Axis Sensitivity", "Analog Axis Sensitivity"), 0.01f, screenManager(), "x"));
 #endif
-	controlsSettings->Add(new PopupSliderChoiceFloat(&g_Config.fAnalogAutoRotSpeed, -25.0f, 25.0f, co->T("Analog auto-rotation speed"), 1.0f, screenManager()));
+	controlsSettings->Add(new PopupSliderChoiceFloat(&g_Config.fAnalogAutoRotSpeed, 0.0f, 25.0f, co->T("Analog auto-rotation speed"), 1.0f, screenManager()));
 
 	controlsSettings->Add(new ItemHeader(co->T("Keyboard", "Keyboard Control Settings")));
 #if defined(USING_WIN_UI)

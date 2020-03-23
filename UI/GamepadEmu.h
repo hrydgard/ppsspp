@@ -108,14 +108,15 @@ public:
 
 class AnalogRotationButton : public MultiTouchButton {
 public:
-	AnalogRotationButton(ImageID bgImg, ImageID bgDownImg, ImageID img, float scale, UI::LayoutParams *layoutParams)
-		: MultiTouchButton(bgImg, bgDownImg, img, scale, layoutParams) {
+	AnalogRotationButton(bool clockWise, ImageID bgImg, ImageID bgDownImg, ImageID img, float scale, UI::LayoutParams *layoutParams)
+		: MultiTouchButton(bgImg, bgDownImg, img, scale, layoutParams), clockWise_(clockWise) {
 	}
 	void Touch(const TouchInput &input) override;
 	void Update() override;
 
 private:
 	bool autoRotating_ = false;
+	bool clockWise_;
 };
 
 class PSPButton : public MultiTouchButton {
