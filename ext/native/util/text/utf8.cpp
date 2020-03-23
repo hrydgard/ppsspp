@@ -495,11 +495,11 @@ static size_t ConvertUTF8ToUCS2Internal(char16_t *dest, size_t destSize, const s
 	}
 
 	// No ++ to not count the terminal in length.
-	if (dest < destEnd) {
-		*dest = 0;
+	if (destw < destEnd) {
+		*destw = 0;
 	}
 
-	return dest - orig;
+	return destw - orig;
 }
 
 void ConvertUTF8ToUCS2(char16_t *dest, size_t destSize, const std::string &source) {
@@ -548,6 +548,7 @@ static size_t ConvertUTF8ToWStringInternal(wchar_t *dest, size_t destSize, const
 			}
 			destw += UTF16LE::encode(destw, c);
 		}
+		dest = (wchar_t *)destw;
 	} else {
 		while (char32_t c = utf.next()) {
 			if (dest + 1 >= destEnd) {
