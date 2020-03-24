@@ -1124,7 +1124,7 @@ void PSPOskDialog::DoState(PointerWrap &p)
 {
 	PSPDialog::DoState(p);
 
-	auto s = p.Section("PSPOskDialog", 2);
+	auto s = p.Section("PSPOskDialog", 1, 2);
 	if (!s)
 		return;
 
