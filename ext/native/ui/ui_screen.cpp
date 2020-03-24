@@ -14,7 +14,7 @@
 static const bool ClickDebug = false;
 
 UIScreen::UIScreen()
-	: Screen(), root_(nullptr), translation_(0.0f), scale_(1.0f), recreateViews_(true), hatDown_(0) {
+	: Screen() {
 }
 
 UIScreen::~UIScreen() {
@@ -182,39 +182,11 @@ void UIDialogScreen::sendMessage(const char *msg, const char *value) {
 }
 
 bool UIScreen::axis(const AxisInput &axis) {
-	// Simple translation of hat to keys for Shield and other modern pads.
-	// TODO: Use some variant of keymap?
-	int flags = 0;
-	if (axis.axisId == JOYSTICK_AXIS_HAT_X) {
-		if (axis.value < -0.7f)
-			flags |= PAD_BUTTON_LEFT;
-		if (axis.value > 0.7f)
-			flags |= PAD_BUTTON_RIGHT;
-	}
-	if (axis.axisId == JOYSTICK_AXIS_HAT_Y) {
-		if (axis.value < -0.7f)
-			flags |= PAD_BUTTON_UP;
-		if (axis.value > 0.7f)
-			flags |= PAD_BUTTON_DOWN;
-	}
-
-	// Yeah yeah, this should be table driven..
-	int pressed = flags & ~hatDown_;
-	int released = ~flags & hatDown_;
-	if (pressed & PAD_BUTTON_LEFT) key(KeyInput(DEVICE_ID_KEYBOARD, NKCODE_DPAD_LEFT, KEY_DOWN));
-	if (pressed & PAD_BUTTON_RIGHT) key(KeyInput(DEVICE_ID_KEYBOARD, NKCODE_DPAD_RIGHT, KEY_DOWN));
-	if (pressed & PAD_BUTTON_UP) key(KeyInput(DEVICE_ID_KEYBOARD, NKCODE_DPAD_UP, KEY_DOWN));
-	if (pressed & PAD_BUTTON_DOWN) key(KeyInput(DEVICE_ID_KEYBOARD, NKCODE_DPAD_DOWN, KEY_DOWN));
-	if (released & PAD_BUTTON_LEFT) key(KeyInput(DEVICE_ID_KEYBOARD, NKCODE_DPAD_LEFT, KEY_UP));
-	if (released & PAD_BUTTON_RIGHT) key(KeyInput(DEVICE_ID_KEYBOARD, NKCODE_DPAD_RIGHT, KEY_UP));
-	if (released & PAD_BUTTON_UP) key(KeyInput(DEVICE_ID_KEYBOARD, NKCODE_DPAD_UP, KEY_UP));
-	if (released & PAD_BUTTON_DOWN) key(KeyInput(DEVICE_ID_KEYBOARD, NKCODE_DPAD_DOWN, KEY_UP));
-	hatDown_ = flags;
 	if (root_) {
 		UI::AxisEvent(axis, root_);
 		return true;
 	}
-	return (pressed & (PAD_BUTTON_LEFT | PAD_BUTTON_RIGHT | PAD_BUTTON_UP | PAD_BUTTON_DOWN)) != 0;
+	return false;
 }
 
 UI::EventReturn UIScreen::OnBack(UI::EventParams &e) {
