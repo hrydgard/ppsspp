@@ -68,7 +68,7 @@ void GameScreen::CreateViews() {
 
 	leftColumn->Add(new Choice(di->T("Back"), "", false, new AnchorLayoutParams(150, WRAP_CONTENT, 10, NONE, NONE, 10)))->OnClick.Handle(this, &GameScreen::OnSwitchBack);
 	if (info) {
-		leftColumn->Add(new GameIconView(gamePath_, new AnchorLayoutParams(144 * 2, 80 * 2, 10, 10, NONE, NONE)));
+		leftColumn->Add(new GameIconView(gamePath_, 2.0f, new AnchorLayoutParams(144 * 2, 80 * 2, 10, 10, NONE, NONE)));
 
 		LinearLayout *infoLayout = new LinearLayout(ORIENT_VERTICAL, new AnchorLayoutParams(10, 200, NONE, NONE));
 		leftColumn->Add(infoLayout);
