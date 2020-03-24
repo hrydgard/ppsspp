@@ -534,9 +534,8 @@ void PSPSaveDialog::DisplayMessage(std::string text, bool hasYesNo)
 {
 	const float WRAP_WIDTH = 254.0f;
 	float y = 136.0f, h;
-	int n;
-	PPGeMeasureText(0, &h, &n, text.c_str(), FONT_SCALE, PPGE_LINE_WRAP_WORD, WRAP_WIDTH);
-	float h2 = h * (float)n / 2.0f;
+	PPGeMeasureText(nullptr, &h, text.c_str(), FONT_SCALE, PPGE_LINE_WRAP_WORD, WRAP_WIDTH);
+	float h2 = h / 2.0f;
 	if (hasYesNo)
 	{
 		auto di = GetI18NCategory("Dialog");
@@ -555,7 +554,7 @@ void PSPSaveDialog::DisplayMessage(std::string text, bool hasYesNo)
 			yesColor = 0xFFFFFFFF;
 			noColor  = 0xFFFFFFFF;
 		}
-		PPGeMeasureText(&w, &h, 0, choiceText, FONT_SCALE);
+		PPGeMeasureText(&w, &h, choiceText, FONT_SCALE);
 		w = w / 2.0f + 5.5f;
 		h /= 2.0f;
 		float y2 = y + h2 + 4.0f;

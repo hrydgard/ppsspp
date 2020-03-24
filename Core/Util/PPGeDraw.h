@@ -69,8 +69,7 @@ enum {
 };
 
 // Get the metrics of the bounding box of the text without changing the buffer or state.
-void PPGeMeasureText(float *w, float *h, int *n, 
-					const char *text, float scale, int WrapType = PPGE_LINE_NONE, int wrapWidth = 0);
+void PPGeMeasureText(float *w, float *h, const char *text, float scale, int WrapType = PPGE_LINE_NONE, int wrapWidth = 0);
 
 // Draws some text using the one font we have.
 // Clears the text buffer when done.
