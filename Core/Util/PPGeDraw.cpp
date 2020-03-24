@@ -128,9 +128,6 @@ std::map<PPGeTextDrawerCacheKey, PPGeTextDrawerImage> textDrawerImages;
 void PPGePrepareText(const char *text, float x, float y, int align, float scale, float lineHeightScale,
 	int WrapType = PPGE_LINE_NONE, int wrapWidth = 0);
 
-// Get the metrics of the bounding box of the currently stated text.
-void PPGeMeasureCurrentText(float *x, float *y, float *w, float *h, int *n);
-
 // These functions must be called between PPGeBegin and PPGeEnd.
 
 // Draw currently buffered text using the state from PPGeGetTextBoundingBox() call.
@@ -710,9 +707,7 @@ static bool HasTextDrawer() {
 	return textDrawer != nullptr;
 }
 
-void PPGeMeasureText(float *w, float *h, int *n, 
-					const char *text, float scale, int WrapType, int wrapWidth)
-{
+void PPGeMeasureText(float *w, float *h, const char *text, float scale, int WrapType, int wrapWidth) {
 	if (HasTextDrawer()) {
 		float mw, mh;
 		textDrawer->SetFontScale(scale, scale);
@@ -726,15 +721,6 @@ void PPGeMeasureText(float *w, float *h, int *n,
 			*w = mw;
 		if (h)
 			*h = mh;
-		if (n) {
-			// Cheap way to get the n.
-			float oneLine, twoLines;
-			textDrawer->MeasureString("|", 1, &mw, &oneLine);
-			textDrawer->MeasureStringRect("|\n|", 3, Bounds(0, 0, 480, 272), &mw, &twoLines);
-
-			float lineHeight = twoLines - oneLine;
-			*n = (int)((mh + (lineHeight - 1)) / lineHeight);
-		}
 		return;
 	}
 
@@ -743,16 +729,13 @@ void PPGeMeasureText(float *w, float *h, int *n,
 			*w = 0;
 		if (h)
 			*h = 0;
-		if (n)
-			*n = 0;
 		return;
 	}
 
 	const AtlasFont &atlasfont = g_ppge_atlas.fonts[0];
 	AtlasTextMetrics metrics = BreakLines(text, atlasfont, 0, 0, 0, scale, scale, WrapType, wrapWidth, true);
 	if (w) *w = metrics.maxWidth;
-	if (h) *h = metrics.lineHeight;
-	if (n) *n = metrics.numLines;
+	if (h) *h = metrics.lineHeight * metrics.numLines;
 }
 
 void PPGePrepareText(const char *text, float x, float y, int align, float scale, float lineHeightScale, int WrapType, int wrapWidth)
@@ -762,15 +745,6 @@ void PPGePrepareText(const char *text, float x, float y, int align, float scale,
 		return;
 	}
 	char_lines_metrics = BreakLines(text, atlasfont, x, y, align, scale, lineHeightScale, WrapType, wrapWidth, false);
-}
-
-void PPGeMeasureCurrentText(float *x, float *y, float *w, float *h, int *n)
-{
-	if (x) *x = char_lines_metrics.x;
-	if (y) *y = char_lines_metrics.y;
-	if (w) *w = char_lines_metrics.maxWidth;
-	if (h) *h = char_lines_metrics.lineHeight;
-	if (n) *n = char_lines_metrics.numLines;
 }
 
 static void PPGeResetCurrentText() {
