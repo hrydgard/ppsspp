@@ -1013,8 +1013,9 @@ protected:
 void EmuScreen::CreateViews() {
 	using namespace UI;
 
-	auto sc = GetI18NCategory("Screen");
 	auto dev = GetI18NCategory("Developer");
+	auto n = GetI18NCategory("Networking");
+	auto sc = GetI18NCategory("Screen");
 
 	const Bounds &bounds = screenManager()->getUIContext()->GetBounds();
 	InitPadLayout(bounds.w, bounds.h);
@@ -1030,31 +1031,31 @@ void EmuScreen::CreateViews() {
 	if (g_Config.bEnableNetworkChat) {
 		switch (g_Config.iChatButtonPosition) {
 		case 0:
-			chatButtons = new ChoiceWithValueDisplay(&newChat, sc->T("Chat"), new AnchorLayoutParams(130, WRAP_CONTENT, 80, NONE, NONE, 50, true));
+			chatButtons = new ChoiceWithValueDisplay(&newChat, n->T("Chat"), new AnchorLayoutParams(130, WRAP_CONTENT, 80, NONE, NONE, 50, true));
 			break;
 		case 1:
-			chatButtons = new ChoiceWithValueDisplay(&newChat, sc->T("Chat"), new AnchorLayoutParams(130, WRAP_CONTENT, bounds.centerX(), NONE, NONE, 50, true));
+			chatButtons = new ChoiceWithValueDisplay(&newChat, n->T("Chat"), new AnchorLayoutParams(130, WRAP_CONTENT, bounds.centerX(), NONE, NONE, 50, true));
 			break;
 		case 2:
-			chatButtons = new ChoiceWithValueDisplay(&newChat, sc->T("Chat"), new AnchorLayoutParams(130, WRAP_CONTENT, NONE, NONE, 80, 50, true));
+			chatButtons = new ChoiceWithValueDisplay(&newChat, n->T("Chat"), new AnchorLayoutParams(130, WRAP_CONTENT, NONE, NONE, 80, 50, true));
 			break;
 		case 3:
-			chatButtons = new ChoiceWithValueDisplay(&newChat, sc->T("Chat"), new AnchorLayoutParams(130, WRAP_CONTENT, 80, 50, NONE, NONE, true));
+			chatButtons = new ChoiceWithValueDisplay(&newChat, n->T("Chat"), new AnchorLayoutParams(130, WRAP_CONTENT, 80, 50, NONE, NONE, true));
 			break;
 		case 4:
-			chatButtons = new ChoiceWithValueDisplay(&newChat, sc->T("Chat"), new AnchorLayoutParams(130, WRAP_CONTENT, bounds.centerX(), 50, NONE, NONE, true));
+			chatButtons = new ChoiceWithValueDisplay(&newChat, n->T("Chat"), new AnchorLayoutParams(130, WRAP_CONTENT, bounds.centerX(), 50, NONE, NONE, true));
 			break;
 		case 5:
-			chatButtons = new ChoiceWithValueDisplay(&newChat, sc->T("Chat"), new AnchorLayoutParams(130, WRAP_CONTENT, NONE, 50, 80, NONE, true));
+			chatButtons = new ChoiceWithValueDisplay(&newChat, n->T("Chat"), new AnchorLayoutParams(130, WRAP_CONTENT, NONE, 50, 80, NONE, true));
 			break;
 		case 6:
-			chatButtons = new ChoiceWithValueDisplay(&newChat, sc->T("Chat"), new AnchorLayoutParams(130, WRAP_CONTENT, 80, bounds.centerY(), NONE, NONE, true));
+			chatButtons = new ChoiceWithValueDisplay(&newChat, n->T("Chat"), new AnchorLayoutParams(130, WRAP_CONTENT, 80, bounds.centerY(), NONE, NONE, true));
 			break;
 		case 7:
-			chatButtons = new ChoiceWithValueDisplay(&newChat, sc->T("Chat"), new AnchorLayoutParams(130, WRAP_CONTENT, NONE, bounds.centerY(), 80, NONE, true));
+			chatButtons = new ChoiceWithValueDisplay(&newChat, n->T("Chat"), new AnchorLayoutParams(130, WRAP_CONTENT, NONE, bounds.centerY(), 80, NONE, true));
 			break;
 		default:
-			chatButtons = new ChoiceWithValueDisplay(&newChat, sc->T("Chat"), new AnchorLayoutParams(130, WRAP_CONTENT, 80, NONE, NONE, 50, true));
+			chatButtons = new ChoiceWithValueDisplay(&newChat, n->T("Chat"), new AnchorLayoutParams(130, WRAP_CONTENT, 80, NONE, NONE, 50, true));
 			break;
 		}
 
