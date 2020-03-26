@@ -867,6 +867,10 @@ void ScrollView::SetVisibility(Visibility visibility) {
 	}
 }
 
+float ScrollView::GetScrollPosition() {
+	return scrollPos_;
+}
+
 void ScrollView::ScrollTo(float newScrollPos) {
 	scrollTarget_ = newScrollPos;
 	scrollToTarget_ = true;

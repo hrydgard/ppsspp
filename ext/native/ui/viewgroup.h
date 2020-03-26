@@ -241,6 +241,7 @@ public:
 	void ScrollTo(float newScrollPos);
 	void ScrollToBottom();
 	void ScrollRelative(float distance);
+	float GetScrollPosition();
 	bool CanScroll() const;
 	void Update() override;
 
