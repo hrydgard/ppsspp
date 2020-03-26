@@ -138,14 +138,8 @@ void __NetInit() {
 }
 
 void __NetShutdown() {
-	// Checks to avoid confusing logspam
-	if (netAdhocctlInited) sceNetAdhocctlTerm();
-	if (netAdhocInited) sceNetAdhocTerm();
-
-	if (netApctlInited) sceNetApctlTerm();
-	if (netInetInited) sceNetInetTerm();
-
-	if (netInited) sceNetTerm();
+	// Network Cleanup
+	Net_Term();
 	
 	__ResetInitNetLib();
 
@@ -222,13 +216,14 @@ static inline void FreeUser(u32 &addr) {
 	addr = 0;
 }
 
-static u32 sceNetTerm() {
+u32 Net_Term() {
 	// May also need to Terminate netAdhocctl and netAdhoc to free some resources & threads, since the game (ie. GTA:VCS, Wipeout Pulse, etc) might not called them before calling sceNetTerm and causing them to behave strangely on the next sceNetInit & sceNetAdhocInit
-	if (netAdhocctlInited) sceNetAdhocctlTerm();
-	if (netAdhocInited) sceNetAdhocTerm();
+	NetAdhocctl_Term();
+	NetAdhoc_Term();
 
-	if (netApctlInited) sceNetApctlTerm();
-	if (netInetInited) sceNetInetTerm();
+	// TODO: Not implemented yet
+	//sceNetApctl_Term();
+	//NetInet_Term();
 
 	// Library is initialized
 	if (netInited) {
@@ -249,15 +244,21 @@ static u32 sceNetTerm() {
 		// Library shutdown
 	}
 
-	WARN_LOG(SCENET, "sceNetTerm()");
-	netInited = false;
 	FreeUser(netPoolAddr);
 	FreeUser(netThread1Addr);
 	FreeUser(netThread2Addr);
+	netInited = false;
+
+	return 0;
+}
+
+static u32 sceNetTerm() {
+	WARN_LOG(SCENET, "sceNetTerm()");
+	int retval = Net_Term();
 
 	// Give time to make sure everything are cleaned up
-	hleDelayResult(0, "give time to init/cleanup", adhocEventDelayMS * 1000);
-	return 0;
+	hleDelayResult(retval, "give time to init/cleanup", adhocEventDelayMS * 1000);
+	return retval;
 }
 
 /*

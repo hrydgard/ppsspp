@@ -954,27 +954,13 @@ int sceNetAdhocPollSocket(u32 socketStructAddr, int count, int timeout, int nonb
 	return ERROR_NET_ADHOC_NOT_INITIALIZED;
 }
 
-/**
- * Adhoc Emulator PDP Socket Delete
- * @param id Socket File Descriptor
- * @param flag Bitflags (Unused)
- * @return 0 on success or... ADHOC_INVALID_ARG, ADHOC_NOT_INITIALIZED, ADHOC_INVALID_SOCKET_ID
- */
-static int sceNetAdhocPdpDelete(int id, int unknown) {
-	// WLAN might be disabled in the middle of successfull multiplayer, but we still need to cleanup right?
-	INFO_LOG(SCENET, "sceNetAdhocPdpDelete(%d, %d) at %08x", id, unknown, currentMIPS->pc);
-	/*
-	if (!g_Config.bEnableWlan) {
-		return 0;
-	}
-	*/
-
+int NetAdhocPdp_Delete(int id, int unknown) {
 	// Library is initialized
 	if (netAdhocInited) {
 		// Valid Arguments
 		if (id > 0 && id <= 255) {
 			// Cast Socket
-			SceNetAdhocPdpStat * sock = pdp[id - 1];
+			SceNetAdhocPdpStat* sock = pdp[id - 1];
 
 			// Valid Socket
 			if (sock != NULL) {
@@ -1005,6 +991,24 @@ static int sceNetAdhocPdpDelete(int id, int unknown) {
 
 	// Library is uninitialized
 	return ERROR_NET_ADHOC_NOT_INITIALIZED;
+}
+
+/**
+ * Adhoc Emulator PDP Socket Delete
+ * @param id Socket File Descriptor
+ * @param flag Bitflags (Unused)
+ * @return 0 on success or... ADHOC_INVALID_ARG, ADHOC_NOT_INITIALIZED, ADHOC_INVALID_SOCKET_ID
+ */
+static int sceNetAdhocPdpDelete(int id, int unknown) {
+	// WLAN might be disabled in the middle of successfull multiplayer, but we still need to cleanup right?
+	INFO_LOG(SCENET, "sceNetAdhocPdpDelete(%d, %d) at %08x", id, unknown, currentMIPS->pc);
+	/*
+	if (!g_Config.bEnableWlan) {
+		return 0;
+	}
+	*/
+
+	return NetAdhocPdp_Delete(id, unknown);
 }
 
 static int sceNetAdhocctlGetAdhocId(u32 productStructAddr) {
@@ -1230,12 +1234,7 @@ static u32 sceNetAdhocctlAddHandler(u32 handlerPtr, u32 handlerArg) {
 	return retval;
 }
 
-static u32 sceNetAdhocctlDisconnect() {
-	// WLAN might be disabled in the middle of successfull multiplayer, but we still need to cleanup right?
-	char grpName[9] = { 0 };
-	memcpy(grpName, parameter.group_name.data, ADHOCCTL_GROUPNAME_LEN); // Copied to null-terminated var to prevent unexpected behaviour on Logs
-	INFO_LOG(SCENET, "sceNetAdhocctlDisconnect() at %08x [group=%s]", currentMIPS->pc, grpName);
-
+u32 NetAdhocctl_Disconnect() {
 	// Library initialized
 	if (netAdhocctlInited) {
 		// Connected State (Adhoc Mode)
@@ -1253,7 +1252,7 @@ static u32 sceNetAdhocctlDisconnect() {
 			//_acquireNetworkLock();
 
 			// Send Disconnect Request Packet
-			int iResult = send(metasocket, (const char *)&opcode, 1, 0);
+			int iResult = send(metasocket, (const char*)&opcode, 1, 0);
 			if (iResult == SOCKET_ERROR) {
 				ERROR_LOG(SCENET, "Socket error (%i) when sending", errno);
 			}
@@ -1283,9 +1282,9 @@ static u32 sceNetAdhocctlDisconnect() {
 
 		// Multithreading Unlock
 		//peerlock.unlock();
-		
+
 		// Notify Event Handlers (even if we weren't connected, not doing this will freeze games like God Eater, which expect this behaviour)
-		notifyAdhocctlHandlers(ADHOCCTL_EVENT_DISCONNECT, 0);		
+		notifyAdhocctlHandlers(ADHOCCTL_EVENT_DISCONNECT, 0);
 		hleCheckCurrentCallbacks();
 
 		// Return Success, some games might ignore returned value and always treat it as success, otherwise repeatedly calling this function
@@ -1294,6 +1293,15 @@ static u32 sceNetAdhocctlDisconnect() {
 
 	// Library uninitialized
 	return 0; //ERROR_NET_ADHOC_NOT_INITIALIZED; // Wipeout Pulse will repeatedly calling this function if returned value is ERROR_NET_ADHOC_NOT_INITIALIZED
+}
+
+static u32 sceNetAdhocctlDisconnect() {
+	// WLAN might be disabled in the middle of successfull multiplayer, but we still need to cleanup right?
+	char grpName[9] = { 0 };
+	memcpy(grpName, parameter.group_name.data, ADHOCCTL_GROUPNAME_LEN); // Copied to null-terminated var to prevent unexpected behaviour on Logs
+	INFO_LOG(SCENET, "sceNetAdhocctlDisconnect() at %08x [group=%s]", currentMIPS->pc, grpName);
+
+	return NetAdhocctl_Disconnect();
 }
 
 static u32 sceNetAdhocctlDelHandler(u32 handlerID) {
@@ -1307,14 +1315,11 @@ static u32 sceNetAdhocctlDelHandler(u32 handlerID) {
 	return 0;
 }
 
-int sceNetAdhocctlTerm() {
-	// WLAN might be disabled in the middle of successfull multiplayer, but we still need to cleanup right?
-	INFO_LOG(SCENET, "sceNetAdhocctlTerm()");
-
-	//if (netAdhocMatchingInited) sceNetAdhocMatchingTerm();
-
+int NetAdhocctl_Term() {
 	if (netAdhocctlInited) {
-		if (threadStatus != ADHOCCTL_STATE_DISCONNECTED) sceNetAdhocctlDisconnect();
+		if (threadStatus != ADHOCCTL_STATE_DISCONNECTED) 
+			NetAdhocctl_Disconnect();
+
 		if (networkInited) {
 			// Terminate Adhoc Threads
 			friendFinderRunning = false;
@@ -1343,6 +1348,15 @@ int sceNetAdhocctlTerm() {
 	}
 
 	return 0;
+}
+
+int sceNetAdhocctlTerm() {
+	// WLAN might be disabled in the middle of successfull multiplayer, but we still need to cleanup right?
+	INFO_LOG(SCENET, "sceNetAdhocctlTerm()");
+
+	//if (netAdhocMatchingInited) NetAdhocMatching_Term();
+
+	return NetAdhocctl_Term();
 }
 
 static int sceNetAdhocctlGetNameByAddr(const char *mac, u32 nameAddr) {
@@ -1669,12 +1683,12 @@ int sceNetAdhocctlCreateEnterGameModeMin(const char *group_name, int game_type, 
 	return sceNetAdhocctlCreateEnterGameMode(group_name, game_type, num_members, membersAddr, timeout, flag); //0;
 }
 
-int sceNetAdhocTerm() {
-	// WLAN might be disabled in the middle of successfull multiplayer, but we still need to cleanup all the sockets right?
-
+int NetAdhoc_Term() {
 	// Since Adhocctl & AdhocMatching uses Sockets & Threads we should terminate them also to release their resources
-	if (netAdhocMatchingInited) sceNetAdhocMatchingTerm();
-	if (netAdhocctlInited) sceNetAdhocctlTerm();
+	if (netAdhocMatchingInited) 
+		NetAdhocMatching_Term();
+	if (netAdhocctlInited)
+		NetAdhocctl_Term();
 
 	// Library is initialized
 	if (netAdhocInited) {
@@ -1693,14 +1707,23 @@ int sceNetAdhocTerm() {
 		// Unload Internet Modules (Just keep it in memory... unloading crashes?!)
 		// if (_manage_modules != 0) sceUtilityUnloadModule(PSP_MODULE_NET_INET);
 		// Library shutdown
-		
+
 		netAdhocInited = false;
-		return hleLogSuccessInfoI(SCENET, 0);
-	} else {
+		//return hleLogSuccessInfoI(SCENET, 0);
+	}
+	/*else {
 		// TODO: Reportedly returns SCE_KERNEL_ERROR_LWMUTEX_NOT_FOUND in some cases?
 		// Only seen returning 0 in tests.
 		return hleLogWarning(SCENET, 0, "already uninitialized");
-	}
+	}*/
+
+	return 0;
+}
+
+int sceNetAdhocTerm() {
+	// WLAN might be disabled in the middle of successfull multiplayer, but we still need to cleanup all the sockets right?
+
+	return hleLogSuccessInfoI(SCENET, NetAdhoc_Term());
 }
 
 static int sceNetAdhocGetPdpStat(u32 structSize, u32 structAddr) {
@@ -2338,6 +2361,39 @@ static int sceNetAdhocPtpConnect(int id, int timeout, int flag) {
 	return ERROR_NET_ADHOC_NOT_INITIALIZED;
 }
 
+int NetAdhocPtp_Close(int id, int unknown) {
+	// Library is initialized
+	if (netAdhocInited) {
+		// Valid Arguments & Atleast one Socket
+		if (id > 0 && id <= 255 && ptp[id - 1] != NULL) {
+			// Cast Socket
+			SceNetAdhocPtpStat* socket = ptp[id - 1];
+
+			// Close Connection
+			closesocket(socket->id);
+
+			// Remove Port Forward from Router
+			//sceNetPortClose("TCP", socket->lport);
+			//g_PortManager.Remove(IP_PROTOCOL_TCP, isOriPort ? socket->lport : socket->lport + portOffset); // Let's not remove mapping in real-time as it could cause lags/disconnection when joining a room with slow routers
+
+			// Free Memory
+			free(socket);
+
+			// Free Reference
+			ptp[id - 1] = NULL;
+
+			// Success
+			return 0;
+		}
+
+		// Invalid Argument
+		return ERROR_NET_ADHOC_INVALID_SOCKET_ID;
+	}
+
+	// Library is uninitialized
+	return ERROR_NET_ADHOC_NOT_INITIALIZED;
+}
+
 /**
  * Adhoc Emulator PTP Socket Closer
  * @param id Socket File Descriptor
@@ -2346,39 +2402,11 @@ static int sceNetAdhocPtpConnect(int id, int timeout, int flag) {
  */
 static int sceNetAdhocPtpClose(int id, int unknown) {
 	INFO_LOG(SCENET,"sceNetAdhocPtpClose(%d,%d) at %08x",id,unknown,currentMIPS->pc);
-	if (!g_Config.bEnableWlan) {
+	/*if (!g_Config.bEnableWlan) {
 		return 0;
-	}
-	// Library is initialized
-	if (netAdhocInited) {
-		// Valid Arguments & Atleast one Socket
-		if (id > 0 && id <= 255 && ptp[id - 1] != NULL) {
-			// Cast Socket
-			SceNetAdhocPtpStat * socket = ptp[id - 1];
-			
-			// Close Connection
-			closesocket(socket->id);
-			
-			// Remove Port Forward from Router
-			//sceNetPortClose("TCP", socket->lport);
-			//g_PortManager.Remove(IP_PROTOCOL_TCP, isOriPort ? socket->lport : socket->lport + portOffset); // Let's not remove mapping in real-time as it could cause lags/disconnection when joining a room with slow routers
-			
-			// Free Memory
-			free(socket);
-			
-			// Free Reference
-			ptp[id - 1] = NULL;
-			
-			// Success
-			return 0;
-		}
-		
-		// Invalid Argument
-		return ERROR_NET_ADHOC_INVALID_SOCKET_ID;
-	}
+	}*/
 	
-	// Library is uninitialized
-	return ERROR_NET_ADHOC_NOT_INITIALIZED;
+	return NetAdhocPtp_Close(id, unknown);
 }
 
 
@@ -2842,10 +2870,8 @@ int sceNetAdhocGetSocketAlert(int id, u32 flagPtr) {
 	return 0;
 }
 
-int sceNetAdhocMatchingStop(int matchingId) {
-	WARN_LOG(SCENET, "UNTESTED sceNetAdhocMatchingStop(%i) at %08x", matchingId, currentMIPS->pc);
-
-	SceNetAdhocMatchingContext * item = findMatchingContext(matchingId);
+int NetAdhocMatching_Stop(int matchingId) {
+	SceNetAdhocMatchingContext* item = findMatchingContext(matchingId);
 
 	if (item != NULL) {
 		item->inputRunning = false;
@@ -2887,17 +2913,21 @@ int sceNetAdhocMatchingStop(int matchingId) {
 	return 0;
 }
 
-int sceNetAdhocMatchingDelete(int matchingId) {
-	// WLAN might be disabled in the middle of successfull multiplayer, but we still need to cleanup right?
+int sceNetAdhocMatchingStop(int matchingId) {
+	WARN_LOG(SCENET, "UNTESTED sceNetAdhocMatchingStop(%i) at %08x", matchingId, currentMIPS->pc);
 
+	return NetAdhocMatching_Stop(matchingId);
+}
+
+int NetAdhocMatching_Delete(int matchingId) {
 	// Previous Context Reference
-	SceNetAdhocMatchingContext * prev = NULL;
+	SceNetAdhocMatchingContext* prev = NULL;
 
 	// Multithreading Lock
 	peerlock.lock(); //contextlock.lock();
 
 	// Context Pointer
-	SceNetAdhocMatchingContext * item = contexts;
+	SceNetAdhocMatchingContext* item = contexts;
 
 	// Iterate contexts
 	for (; item != NULL; item = item->next) {
@@ -2911,7 +2941,7 @@ int sceNetAdhocMatchingDelete(int matchingId) {
 
 			// Stop it first if it's still running
 			if (item->running) {
-				sceNetAdhocMatchingStop(matchingId);
+				NetAdhocMatching_Stop(matchingId);
 			}
 			// Delete the Fake PSP Thread
 			//__KernelDeleteThread(item->matching_thid, SCE_KERNEL_ERROR_THREAD_TERMINATED, "AdhocMatching deleted");
@@ -2919,7 +2949,7 @@ int sceNetAdhocMatchingDelete(int matchingId) {
 			// Make sure nobody locking/using the socket
 			item->socketlock->lock();
 			// Delete the socket
-			sceNetAdhocPdpDelete(item->socket, 0); // item->connected = (sceNetAdhocPdpDelete(item->socket, 0) < 0);
+			NetAdhocPdp_Delete(item->socket, 0); // item->connected = (sceNetAdhocPdpDelete(item->socket, 0) < 0);
 			item->socketlock->unlock();
 			// Free allocated memories
 			free(item->hello);
@@ -2928,10 +2958,10 @@ int sceNetAdhocMatchingDelete(int matchingId) {
 			// Destroy locks
 			item->eventlock->lock(); // Make sure it's not locked when being deleted
 			item->eventlock->unlock();
-			delete item->eventlock; 
+			delete item->eventlock;
 			item->inputlock->lock(); // Make sure it's not locked when being deleted
 			item->inputlock->unlock();
-			delete item->inputlock; 
+			delete item->inputlock;
 			item->socketlock->lock(); // Make sure it's not locked when being deleted
 			item->socketlock->unlock();
 			delete item->socketlock;
@@ -2949,6 +2979,14 @@ int sceNetAdhocMatchingDelete(int matchingId) {
 
 	// Multithreading Unlock
 	peerlock.unlock(); //contextlock.unlock();
+
+	return 0;
+}
+
+int sceNetAdhocMatchingDelete(int matchingId) {
+	// WLAN might be disabled in the middle of successfull multiplayer, but we still need to cleanup right?
+
+	NetAdhocMatching_Delete(matchingId);
 
 	WARN_LOG(SCENET, "UNTESTED sceNetAdhocMatchingDelete(%i) at %08x", matchingId, currentMIPS->pc);
 
@@ -2974,21 +3012,27 @@ int sceNetAdhocMatchingInit(u32 memsize) {
 	return 0;
 }
 
-int sceNetAdhocMatchingTerm() {
-	WARN_LOG(SCENET, "UNTESTED sceNetAdhocMatchingTerm()");
-	// Should we cleanup all created matching contexts first? just in case there are games that doesn't delete them before calling this
+int NetAdhocMatching_Term() {
 	if (netAdhocMatchingInited) {
 		// Delete all Matching contexts
 		SceNetAdhocMatchingContext* next = NULL;
-		SceNetAdhocMatchingContext * context = contexts; 
+		SceNetAdhocMatchingContext* context = contexts;
 		while (context != NULL) {
 			next = context->next;
-			//if (context->running) sceNetAdhocMatchingStop(context->id);
-			sceNetAdhocMatchingDelete(context->id);
+			//if (context->running) NetAdhocMatching_Stop(context->id);
+			NetAdhocMatching_Delete(context->id);
 			context = next;
 		}
 		contexts = NULL;
 	}
+
+	return 0;
+}
+
+int sceNetAdhocMatchingTerm() {
+	WARN_LOG(SCENET, "UNTESTED sceNetAdhocMatchingTerm()");
+	// Should we cleanup all created matching contexts first? just in case there are games that doesn't delete them before calling this
+	NetAdhocMatching_Term();
 	
 	netAdhocMatchingInited = false;
 	return 0;

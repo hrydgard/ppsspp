@@ -109,6 +109,8 @@ void __NetInit();
 void __NetShutdown();
 void __NetDoState(PointerWrap &p);
 
+u32 Net_Term();
+
 int sceNetInetPoll(void *fds, u32 nfds, int timeout);
 int sceNetInetTerm();
 int sceNetApctlTerm();
