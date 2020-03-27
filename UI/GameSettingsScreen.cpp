@@ -592,6 +592,10 @@ void GameSettingsScreen::CreateViews() {
 		CheckBox *floatingAnalog = controlsSettings->Add(new CheckBox(&g_Config.bAutoCenterTouchAnalog, co->T("Auto-centering analog stick")));
 		floatingAnalog->SetEnabledPtr(&g_Config.bShowTouchControls);
 
+		// Sticky touch analog
+		CheckBox *stickyAnalog = controlsSettings->Add(new CheckBox(&g_Config.bStickyTouchAnalog, co->T("Sticky analog stick (tap to reset)")));
+		stickyAnalog->SetEnabledPtr(&g_Config.bShowTouchControls);
+
 		// Combo key setup
 		Choice *comboKey = controlsSettings->Add(new Choice(co->T("Combo Key Setup")));
 		comboKey->OnClick.Handle(this, &GameSettingsScreen::OnComboKey);

@@ -444,6 +444,7 @@ void PSPStick::Touch(const TouchInput &input) {
 				centerY_ = bounds_.centerY();
 			}
 			dragPointerId_ = input.id;
+			lastTouchDownTime_ = time_now();
 			ProcessTouch(input.x, input.y, true);
 		}
 	}
@@ -483,7 +484,7 @@ void PSPStick::ProcessTouch(float x, float y, bool down) {
 
 		__CtrlSetAnalogX(dx, stick_);
 		__CtrlSetAnalogY(-dy, stick_);
-	} else {
+	} else if (!g_Config.bStickyTouchAnalog || time_now() - lastTouchDownTime_ < 0.2f) {
 		__CtrlSetAnalogX(0.0f, stick_);
 		__CtrlSetAnalogY(0.0f, stick_);
 	}

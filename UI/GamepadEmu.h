@@ -174,6 +174,7 @@ private:
 
 	float centerX_;
 	float centerY_;
+	float lastTouchDownTime_;
 };
 
 //initializes the layout from Config. if a default layout does not exist,

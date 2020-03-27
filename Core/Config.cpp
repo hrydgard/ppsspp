@@ -868,6 +868,7 @@ static ConfigSetting controlSettings[] = {
 	ConfigSetting("TouchButtonOpacity", &g_Config.iTouchButtonOpacity, 65, true, true),
 	ConfigSetting("TouchButtonHideSeconds", &g_Config.iTouchButtonHideSeconds, 20, true, true),
 	ConfigSetting("AutoCenterTouchAnalog", &g_Config.bAutoCenterTouchAnalog, false, true, true),
+	ConfigSetting("StickyTouchAnalog", &g_Config.bStickyTouchAnalog, false, true, true),
 	ConfigSetting("AnalogAutoRotSpeed", &g_Config.fAnalogAutoRotSpeed, 15.0f, true, true),
 
 	// Snap touch control position
