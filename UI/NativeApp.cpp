@@ -650,15 +650,6 @@ void NativeInit(int argc, const char *argv[], const char *savegame_dir, const ch
 
 	PostLoadConfig();
 
-	// Hard reset the logs. TODO: Get rid of this and read from config.
-#ifndef _WIN32
-	for (int i = 0; i < LogTypes::NUMBER_OF_LOGS; i++) {
-		LogTypes::LOG_TYPE type = (LogTypes::LOG_TYPE)i;
-		logman->SetEnabled(type, true);
-		logman->SetLogLevel(type, logLevel);
-	}
-#endif
-
 #if defined(__ANDROID__) || (defined(MOBILE_DEVICE) && !defined(_DEBUG))
 	// Enable basic logging for any kind of mobile device, since LogManager doesn't.
 	// The MOBILE_DEVICE/_DEBUG condition matches LogManager.cpp.
