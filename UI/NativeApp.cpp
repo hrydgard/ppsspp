@@ -402,8 +402,11 @@ static void CheckFailedGPUBackends() {
 
 	// Okay, let's not try a backend in the failed list.
 	g_Config.iGPUBackend = g_Config.NextValidBackend();
-	if (lastBackend != g_Config.iGPUBackend)
-		WARN_LOG(LOADER, "Failed graphics backend switched from %d to %d", lastBackend, g_Config.iGPUBackend);
+	if (lastBackend != g_Config.iGPUBackend) {
+		std::string param = GPUBackendToString((GPUBackend)lastBackend) + " -> " + GPUBackendToString((GPUBackend)g_Config.iGPUBackend);
+		System_SendMessage("graphics_failedBackend", param.c_str());
+		WARN_LOG(LOADER, "Failed graphics backend switched from %s (%d to %d)", param.c_str(), lastBackend, g_Config.iGPUBackend);
+	}
 	// And then let's - for now - add the current to the failed list.
 	if (g_Config.sFailedGPUBackends.empty()) {
 		g_Config.sFailedGPUBackends = GPUBackendToString((GPUBackend)g_Config.iGPUBackend);

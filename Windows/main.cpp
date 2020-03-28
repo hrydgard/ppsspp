@@ -284,6 +284,12 @@ void System_SendMessage(const char *command, const char *parameter) {
 			g_Config.bRestartRequired = true;
 			PostMessage(MainWindow::GetHWND(), WM_CLOSE, 0, 0);
 		}
+	} else if (!strcmp(command, "graphics_failedBackend")) {
+		auto err = GetI18NCategory("Error");
+		const char *backendSwitchError = err->T("GenericBackendSwitchError", "PPSSPP crashed while initializing graphics. Try upgrading your graphics drivers.\n\nGraphics backend has been switched:");
+		std::wstring full_error = ConvertUTF8ToWString(StringFromFormat("%s %s", backendSwitchError, parameter));
+		std::wstring title = ConvertUTF8ToWString(err->T("GenericGraphicsError", "Graphics Error"));
+		MessageBox(MainWindow::GetHWND(), full_error.c_str(), title.c_str(), MB_OK);
 	} else if (!strcmp(command, "setclipboardtext")) {
 		if (OpenClipboard(MainWindow::GetDisplayHWND())) {
 			std::wstring data = ConvertUTF8ToWString(parameter);

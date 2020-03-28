@@ -132,6 +132,18 @@ void MainThreadFunc() {
 	bool performingRestart = NativeIsRestarting();
 	NativeInit(static_cast<int>(args.size()), &args[0], "1234", "1234", nullptr);
 
+	if (g_Config.iGPUBackend == (int)GPUBackend::OPENGL) {
+		if (!useEmuThread) {
+			// Okay, we must've switched to OpenGL.  Let's flip the emu thread on.
+			useEmuThread = true;
+			setCurrentThreadName("Render");
+		}
+	} else if (useEmuThread) {
+		// We must've failed over from OpenGL, flip the emu thread off.
+		useEmuThread = false;
+		setCurrentThreadName("Emu");
+	}
+
 	if (g_Config.sFailedGPUBackends.find("ALL") != std::string::npos) {
 		Reporting::ReportMessage("Graphics init error: %s", "ALL");
 
