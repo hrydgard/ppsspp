@@ -692,7 +692,7 @@ void GameSettingsScreen::CreateViews() {
 	static const char *chatScreenPositions[] = { "Bottom Left", "Bottom Center", "Bottom Right", "Top Left", "Top Center", "Top Right" };
 	networkingSettings->Add(new PopupMultiChoice(&g_Config.iChatScreenPosition, n->T("Chat Screen Position"), chatScreenPositions, 0, ARRAY_SIZE(chatScreenPositions), n->GetName(), screenManager()))->SetEnabledPtr(&g_Config.bEnableNetworkChat);
 	networkingSettings->Add(new ItemHeader(n->T("QuickChat", "Quick Chat")));
-	networkingSettings->Add(new CheckBox(&g_Config.bEnableQuickChat, n->T("QuickChat", "Enable Quick Chat")));
+	networkingSettings->Add(new CheckBox(&g_Config.bEnableQuickChat, n->T("EnableQuickChat", "Enable Quick Chat")));
 #if !defined(MOBILE_DEVICE) && !defined(USING_QT_UI)  // TODO: Add all platforms where KEY_CHAR support is added
 	PopupTextInputChoice *qc1 = networkingSettings->Add(new PopupTextInputChoice(&g_Config.sQuickChat0, n->T("Quick Chat 1"), "", 32, screenManager()));
 	qc1->SetEnabledPtr(&g_Config.bEnableQuickChat);
