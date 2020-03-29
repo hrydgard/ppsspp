@@ -172,6 +172,8 @@ void DrawEngineVulkan::ConvertStateToVulkanKey(FramebufferManagerVulkan &fbManag
 					// Until next time, force it off.
 					ResetShaderBlending();
 					gstate_c.SetAllowShaderBlend(false);
+					// Make sure we recompute the fragment shader ID to one that doesn't try to use shader blending.
+					gstate_c.Dirty(DIRTY_FRAGMENTSHADER_STATE);
 				}
 			} else if (blendState.resetShaderBlending) {
 				ResetShaderBlending();
