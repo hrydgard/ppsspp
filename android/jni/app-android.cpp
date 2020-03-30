@@ -118,6 +118,10 @@ JavaVM* gJvm = nullptr;
 static jobject gClassLoader;
 static jmethodID gFindClassMethod;
 
+static float g_safeInsetLeft = 0.0;
+static float g_safeInsetRight = 0.0;
+static float g_safeInsetTop = 0.0;
+static float g_safeInsetBottom = 0.0;
 
 static jmethodID postCommand;
 static jobject nativeActivity;
@@ -314,6 +318,14 @@ float System_GetPropertyFloat(SystemProperty prop) {
 	switch (prop) {
 	case SYSPROP_DISPLAY_REFRESH_RATE:
 		return display_hz;
+	case SYSPROP_DISPLAY_SAFE_INSET_LEFT:
+		return g_safeInsetLeft;
+	case SYSPROP_DISPLAY_SAFE_INSET_RIGHT:
+		return g_safeInsetRight;
+	case SYSPROP_DISPLAY_SAFE_INSET_TOP:
+		return g_safeInsetTop;
+	case SYSPROP_DISPLAY_SAFE_INSET_BOTTOM:
+		return g_safeInsetBottom;
 	default:
 		return -1;
 	}
@@ -883,6 +895,16 @@ extern "C" void JNICALL Java_org_ppsspp_ppsspp_NativeApp_sendMessage(JNIEnv *env
 		permissions[SYSTEM_PERMISSION_STORAGE] = PERMISSION_STATUS_GRANTED;
 	} else if (msg == "sustained_perf_supported") {
 		sustainedPerfSupported = true;
+	} else if (msg == "safe_insets") {
+		ILOG("Got insets: %s", prm.c_str());
+		// We don't bother with supporting exact rectangular regions. Safe insets are good enough.
+		int left, right, top, bottom;
+		if (4 == sscanf(prm.c_str(), "%d:%d:%d:%d", &left, &right, &top, &bottom)) {
+			g_safeInsetLeft = (float)left * g_dpi_scale_x;
+			g_safeInsetRight = (float)right * g_dpi_scale_x;
+			g_safeInsetTop = (float)top * g_dpi_scale_y;
+			g_safeInsetBottom = (float)bottom * g_dpi_scale_y;
+		}
 	}
 
 	// Ensures that the receiver can handle it on a sensible thread.
@@ -967,7 +989,6 @@ extern "C" jint JNICALL Java_org_ppsspp_ppsspp_NativeApp_getDesiredBackbufferWid
 extern "C" jint JNICALL Java_org_ppsspp_ppsspp_NativeApp_getDesiredBackbufferHeight(JNIEnv *, jclass) {
 	return desiredBackbufferSizeY;
 }
-
 
 std::vector<std::string> __cameraGetDeviceList() {
 	jclass cameraClass = findClass("org/ppsspp/ppsspp/CameraHelper");

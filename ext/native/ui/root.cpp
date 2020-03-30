@@ -105,7 +105,8 @@ void LayoutViewHierarchy(const UIContext &dc, ViewGroup *root) {
 		ELOG("Tried to layout a view hierarchy from a zero pointer root");
 		return;
 	}
-	const Bounds &rootBounds = dc.GetBounds();
+
+	Bounds rootBounds = dc.GetLayoutBounds();
 
 	MeasureSpec horiz(EXACTLY, rootBounds.w);
 	MeasureSpec vert(EXACTLY, rootBounds.h);
