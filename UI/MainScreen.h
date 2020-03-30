@@ -68,6 +68,8 @@ private:
 	UI::EventReturn NavigateClick(UI::EventParams &e);
 	UI::EventReturn LayoutChange(UI::EventParams &e);
 	UI::EventReturn LastClick(UI::EventParams &e);
+	UI::EventReturn BrowseClick(UI::EventParams &e);
+	UI::EventReturn StorageClick(UI::EventParams &e);
 	UI::EventReturn HomeClick(UI::EventParams &e);
 	UI::EventReturn PinToggleClick(UI::EventParams &e);
 	UI::EventReturn GridSettingsClick(UI::EventParams &e);

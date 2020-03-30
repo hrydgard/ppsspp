@@ -540,6 +540,17 @@ UI::EventReturn GameBrowser::LastClick(UI::EventParams &e) {
 	return UI::EVENT_DONE;
 }
 
+UI::EventReturn GameBrowser::BrowseClick(UI::EventParams &e) {
+	System_SendMessage("browse_folder", "");
+	return UI::EVENT_DONE;
+}
+
+UI::EventReturn GameBrowser::StorageClick(UI::EventParams &e) {
+	// TODO: Get the SD card directory on Android.
+	SetPath("");
+	return UI::EVENT_DONE;
+}
+
 UI::EventReturn GameBrowser::HomeClick(UI::EventParams &e) {
 #if PPSSPP_PLATFORM(ANDROID) || PPSSPP_PLATFORM(SWITCH) || defined(USING_QT_UI) || defined(USING_WIN_UI) || PPSSPP_PLATFORM(UWP)
 	if (System_GetPropertyBool(SYSPROP_HAS_FOLDER_BROWSER)) {
@@ -661,6 +672,10 @@ void GameBrowser::Refresh() {
 			} else {
 				topBar->Add(new Choice(mm->T("Home"), new LayoutParams(WRAP_CONTENT, 64.0f)))->OnClick.Handle(this, &GameBrowser::HomeClick);
 			}
+			if (System_GetPropertyBool(SYSPROP_HAS_EXTERNAL_STORAGE)) {
+				topBar->Add(new Choice(ImageID("I_SDCARD"), new LayoutParams(WRAP_CONTENT, 64.0f)))->OnClick.Handle(this, &GameBrowser::StorageClick);
+			}
+			topBar->Add(new Choice(ImageID("I_HOME"), new LayoutParams(WRAP_CONTENT, 64.0f)))->OnClick.Handle(this, &GameBrowser::HomeClick);
 		} else {
 			topBar->Add(new Spacer(new LinearLayoutParams(FILL_PARENT, 64.0f, 1.0f)));
 		}
@@ -762,6 +777,7 @@ void GameBrowser::Refresh() {
 			gameList_->Add(new DirButton("..", *gridStyle_, new UI::LinearLayoutParams(UI::FILL_PARENT, UI::FILL_PARENT)))->
 				OnClick.Handle(this, &GameBrowser::NavigateClick);
 		}
+
 		// Add any pinned paths before other directories.
 		auto pinnedPaths = GetPinnedPaths();
 		for (auto it = pinnedPaths.begin(), end = pinnedPaths.end(); it != end; ++it) {
@@ -1079,6 +1095,13 @@ void MainScreen::CreateViews() {
 		logos->Add(new ImageView(ImageID("I_ICON"), IS_DEFAULT, new AnchorLayoutParams(64, 64, 10, 10, NONE, NONE, false)));
 	}
 	logos->Add(new ImageView(ImageID("I_LOGO"), IS_DEFAULT, new LinearLayoutParams(Margins(-12, 0, 0, 0))));
+
+#if defined(USING_WIN_UI) || defined(USING_QT_UI) || PPSSPP_PLATFORM(UWP)
+	if (!g_Config.bFullScreen) {
+		logos->Add(new ImageView(ImageID("I_FULLSCREEN"), IS_DEFAULT, new AnchorLayoutParams(64, 64, NONE, 0, 0, NONE, false)));
+	}
+#endif
+
 	rightColumnItems->Add(logos);
 	TextView *ver = rightColumnItems->Add(new TextView(versionString, new LinearLayoutParams(Margins(70, -6, 0, 0))));
 	ver->SetSmall(true);

@@ -27,6 +27,10 @@ public:
 	void NavigateUp();
 	void Navigate(const std::string &path);
 
+	bool HasParent() const {
+		return path_ != "" && path_ != "/";
+	}
+
 	std::string GetPath() const {
 		if (path_ != "/")
 			return path_;
