@@ -3,6 +3,8 @@
 #include <algorithm>
 
 #include "base/display.h"
+#include "base/NativeApp.h"
+#include "base/logging.h"
 #include "ui/ui.h"
 #include "ui/view.h"
 #include "ui/ui_context.h"
@@ -102,6 +104,25 @@ Bounds UIContext::GetScissorBounds() {
 		return scissorStack_.back();
 	else
 		return bounds_;
+}
+
+Bounds UIContext::GetLayoutBounds() const {
+	Bounds bounds = GetBounds();
+
+	float left = System_GetPropertyFloat(SYSPROP_DISPLAY_SAFE_INSET_LEFT);
+	float right = System_GetPropertyFloat(SYSPROP_DISPLAY_SAFE_INSET_RIGHT);
+	float top = System_GetPropertyFloat(SYSPROP_DISPLAY_SAFE_INSET_TOP);
+	float bottom = System_GetPropertyFloat(SYSPROP_DISPLAY_SAFE_INSET_BOTTOM);
+
+	// ILOG("Insets: %f %f %f %f", left, right, top, bottom);
+
+	// Adjust left edge to compensate for cutouts (notches) if any.
+	bounds.x += left;
+	bounds.w -= (left + right);
+	bounds.y += top;
+	bounds.h -= (top + bottom);
+
+	return bounds;
 }
 
 void UIContext::ActivateTopScissor() {

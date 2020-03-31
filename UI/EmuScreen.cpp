@@ -1017,7 +1017,7 @@ void EmuScreen::CreateViews() {
 	auto n = GetI18NCategory("Networking");
 	auto sc = GetI18NCategory("Screen");
 
-	const Bounds &bounds = screenManager()->getUIContext()->GetBounds();
+	const Bounds &bounds = screenManager()->getUIContext()->GetLayoutBounds();
 	InitPadLayout(bounds.w, bounds.h);
 	root_ = CreatePadLayout(bounds.w, bounds.h, &pauseTrigger_);
 	if (g_Config.bShowDeveloperMenu) {

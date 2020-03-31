@@ -5,9 +5,10 @@
 		<item name="android:windowFullscreen">true</item>
 		<item name="android:windowNoTitle">true</item>
 		<item name="android:navigationBarColor">@color/black</item>
-		<!-- TODO: Our rendering is not ready for these yet.
 		<item name="android:windowLayoutInDisplayCutoutMode">shortEdges</item>
 		<item name="android:windowTranslucentStatus">true</item>
-		<item name="android:windowTranslucentNavigation">true</item> -->
+		<!-- TODO: Our rendering is not ready for these yet.
+		<item name="android:windowTranslucentNavigation">true</item>
+		-->
 	</style>
 </resources>
