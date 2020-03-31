@@ -38,6 +38,7 @@ import android.view.InputDevice;
 import android.view.InputEvent;
 import android.view.KeyEvent;
 import android.view.MotionEvent;
+import android.view.OrientationEventListener;
 import android.view.Surface;
 import android.view.SurfaceHolder;
 import android.view.SurfaceView;
@@ -571,6 +572,16 @@ public abstract class NativeActivity extends Activity implements SurfaceHolder.C
 			}
 			mGLSurfaceView.setRenderer(nativeRenderer);
 			setContentView(mGLSurfaceView);
+
+			if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+				mGLSurfaceView.setOnApplyWindowInsetsListener(new View.OnApplyWindowInsetsListener() {
+					@Override
+					public WindowInsets onApplyWindowInsets(View view, WindowInsets windowInsets) {
+						checkInsets(windowInsets);
+						return windowInsets;
+					}
+				});
+			}
 		} else {
 			if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.ICE_CREAM_SANDWICH) {
 				updateSystemUiVisibility();
@@ -582,6 +593,16 @@ public abstract class NativeActivity extends Activity implements SurfaceHolder.C
 			setContentView(mSurfaceView);
 			Log.i(TAG, "setcontentview after");
 			ensureRenderLoop();
+
+			if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+				mSurfaceView.setOnApplyWindowInsetsListener(new View.OnApplyWindowInsetsListener() {
+					@Override
+					public WindowInsets onApplyWindowInsets(View view, WindowInsets windowInsets) {
+						checkInsets(windowInsets);
+						return windowInsets;
+					}
+				});
+			}
 		}
 	}
 
@@ -843,13 +864,12 @@ public abstract class NativeActivity extends Activity implements SurfaceHolder.C
 		}
 	}
 
-	@Override
-	public void onAttachedToWindow() {
-		Log.i(TAG, "onAttachedToWindow");
-		super.onAttachedToWindow();
-
+	private void checkInsets(WindowInsets insets) {
+		if (insets == null) {
+			return;
+		}
 		if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
-			DisplayCutout cutout = getWindow().getDecorView().getRootWindowInsets().getDisplayCutout();
+			DisplayCutout cutout = insets.getDisplayCutout();
 			if (cutout != null) {
 				safeInsetLeft = cutout.getSafeInsetLeft();
 				safeInsetRight = cutout.getSafeInsetRight();
@@ -865,6 +885,12 @@ public abstract class NativeActivity extends Activity implements SurfaceHolder.C
 			}
 			NativeApp.sendMessage("safe_insets", safeInsetLeft + ":" + safeInsetRight + ":" + safeInsetTop + ":" + safeInsetBottom);
 		}
+	}
+
+	@Override
+	public void onAttachedToWindow() {
+		Log.i(TAG, "onAttachedToWindow");
+		super.onAttachedToWindow();
 
 		if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.KITKAT) {
 			setupSystemUiCallback();
