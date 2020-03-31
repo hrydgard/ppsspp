@@ -86,11 +86,11 @@ matrix:
       env: PPSSPP_BUILD_TYPE=Linux
            LIBRETRO=TRUE
     - os: osx
-      osx_image: xcode8.3
+      osx_image: xcode9
       compiler: "clang"
       env: PPSSPP_BUILD_TYPE=macOS
     - os: osx
-      osx_image: xcode8.3
+      osx_image: xcode9
       compiler: "clang"
       env: PPSSPP_BUILD_TYPE=iOS
     - os: windows

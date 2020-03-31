@@ -46,6 +46,11 @@ void *exception_handler(void *argument) {
 	return NULL;
 }
 
+static float g_safeInsetLeft = 0.0;
+static float g_safeInsetRight = 0.0;
+static float g_safeInsetTop = 0.0;
+static float g_safeInsetBottom = 0.0;
+
 
 std::string System_GetProperty(SystemProperty prop) {
 	switch (prop) {
@@ -73,6 +78,14 @@ float System_GetPropertyFloat(SystemProperty prop) {
 	switch (prop) {
 	case SYSPROP_DISPLAY_REFRESH_RATE:
 		return 60.f;
+	case SYSPROP_DISPLAY_SAFE_INSET_LEFT:
+		return g_safeInsetLeft;
+	case SYSPROP_DISPLAY_SAFE_INSET_RIGHT:
+		return g_safeInsetRight;
+	case SYSPROP_DISPLAY_SAFE_INSET_TOP:
+		return g_safeInsetTop;
+	case SYSPROP_DISPLAY_SAFE_INSET_BOTTOM:
+		return g_safeInsetBottom;
 	default:
 		return -1;
 	}
@@ -115,6 +128,14 @@ void System_SendMessage(const char *command, const char *parameter) {
 			startLocation();
 		} else if (!strcmp(parameter, "close")) {
 			stopLocation();
+		}
+	} else if (!strcmp(command, "safe_insets")) {
+		float left, right, top, bottom;
+		if (4 == sscanf(parameter, "%f:%f:%f:%f", &left, &right, &top, &bottom)) {
+			g_safeInsetLeft = left;
+			g_safeInsetRight = right;
+			g_safeInsetTop = top;
+			g_safeInsetBottom = bottom;
 		}
 	}
 }
