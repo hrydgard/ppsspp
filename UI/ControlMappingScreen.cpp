@@ -648,6 +648,8 @@ extern int display_yres;
 void TouchTestScreen::render() {
 	UIDialogScreenWithBackground::render();
 	UIContext *ui_context = screenManager()->getUIContext();
+	Bounds bounds = ui_context->GetLayoutBounds();
+
 	ui_context->BeginNoTex();
 	for (int i = 0; i < MAX_TOUCH_POINTS; i++) {
 		if (touches_[i].id != -1) {
@@ -685,7 +687,7 @@ void TouchTestScreen::render() {
 		g_dpi_scale_x, g_dpi_scale_y,
 		g_dpi_scale_real_x, g_dpi_scale_real_y);
 
-	ui_context->DrawTextShadow(buffer, 20.0f, dp_yres / 2.0f, 0xFFFFFFFF, ALIGN_VCENTER | FLAG_DYNAMIC_ASCII);
+	ui_context->DrawTextShadow(buffer, bounds.x + 20.0f, dp_yres / 2.0f, 0xFFFFFFFF, ALIGN_VCENTER | FLAG_DYNAMIC_ASCII);
 	ui_context->Flush();
 }
 

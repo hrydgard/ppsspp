@@ -746,7 +746,7 @@ void CreditsScreen::render() {
 
 	UIContext &dc = *screenManager()->getUIContext();
 	dc.Begin();
-	const Bounds &bounds = dc.GetBounds();
+	const Bounds &bounds = dc.GetLayoutBounds();
 
 	const int numItems = ARRAY_SIZE(credits);
 	int itemHeight = 36;
@@ -758,7 +758,7 @@ void CreditsScreen::render() {
 
 		if (alpha > 0.0f) {
 			dc.SetFontScale(ease(alpha), ease(alpha));
-			dc.DrawText(credits[i], dc.GetBounds().centerX(), y, textColor, ALIGN_HCENTER);
+			dc.DrawText(credits[i], bounds.centerX(), y, textColor, ALIGN_HCENTER);
 			dc.SetFontScale(1.0f, 1.0f);
 		}
 		y += itemHeight;
