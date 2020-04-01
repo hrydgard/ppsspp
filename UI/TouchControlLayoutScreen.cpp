@@ -264,15 +264,9 @@ bool TouchControlLayoutScreen::touch(const TouchInput &touch) {
 			validRange.y += bounds.h * 0.5f;
 			validRange.h -= bounds.h;
 
-			// Check x and y independently, since even if x is blocked, y may not be.
-			if (validRange.Contains(touch.x, newPos.y) || validRange.Contains(touch.x, touch.y)) {
-				newPos.x = touch.x;
-			}
-			if (validRange.Contains(newPos.x, touch.y) || validRange.Contains(touch.x, touch.y)) {
-				newPos.y = touch.y;
-			}
+			newPos.x = touch.x;
+			newPos.y = touch.y;
 			if (g_Config.bTouchSnapToGrid) {
-				newPos = ClampTo(newPos, validRange);
 				newPos.x -= (int)(newPos.x - bounds.w) % g_Config.iTouchSnapGridSize;
 				newPos.y -= (int)(newPos.y - bounds.h) % g_Config.iTouchSnapGridSize;
 			}
