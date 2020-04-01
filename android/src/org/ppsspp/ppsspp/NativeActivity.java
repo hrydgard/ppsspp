@@ -1332,7 +1332,7 @@ public abstract class NativeActivity extends Activity implements SurfaceHolder.C
 			// http://developer.android.com/guide/publishing/publishing.html#marketintent
 			return false;
 		} else if (command.equals("toast")) {
-			Toast toast = Toast.makeText(this, params, Toast.LENGTH_SHORT);
+			Toast toast = Toast.makeText(this, params, Toast.LENGTH_LONG);
 			toast.show();
 			Log.i(TAG, params);
 			return true;
