@@ -21,13 +21,15 @@
 #include "base/colorutil.h"
 #include "gfx_es2/draw_buffer.h"
 #include "i18n/i18n.h"
+#include "math/math_util.h"
 #include "ui/ui_context.h"
 
-#include "TouchControlLayoutScreen.h"
-#include "TouchControlVisibilityScreen.h"
+#include "Common/Common.h"
 #include "Core/Config.h"
 #include "Core/System.h"
-#include "GamepadEmu.h"
+#include "UI/GamepadEmu.h"
+#include "UI/TouchControlLayoutScreen.h"
+#include "UI/TouchControlVisibilityScreen.h"
 
 static const int leftColumnWidth = 140;
 
@@ -240,43 +242,43 @@ TouchControlLayoutScreen::TouchControlLayoutScreen() {
 	pickedControl_ = 0;
 };
 
+static Point ClampTo(const Point &p, const Bounds &b) {
+	return Point(clamp_value(p.x, b.x, b.x + b.w), clamp_value(p.y, b.y, b.y + b.h));
+}
+
 bool TouchControlLayoutScreen::touch(const TouchInput &touch) {
 	UIScreen::touch(touch);
 
 	using namespace UI;
 
-	int mode = mode_->GetSelection();
-
-	const Bounds &screen_bounds = screenManager()->getUIContext()->GetBounds();
-
-	if ((touch.flags & TOUCH_MOVE) && pickedControl_ != 0) {
+	if ((touch.flags & TOUCH_MOVE) && pickedControl_ != nullptr) {
+		int mode = mode_->GetSelection();
 		if (mode == 0) {
 			const Bounds &bounds = pickedControl_->GetBounds();
+			const auto &prevParams = pickedControl_->GetLayoutParams()->As<AnchorLayoutParams>();
+			Point newPos(prevParams->left, prevParams->top);
 
-			int mintouchX = leftColumnWidth + bounds.w * 0.5;
-			int maxTouchX = screen_bounds.w - bounds.w * 0.5;
+			Bounds validRange = screenManager()->getUIContext()->GetBounds();
+			validRange.x += leftColumnWidth + bounds.w * 0.5f;
+			validRange.w -= leftColumnWidth + bounds.w;
+			validRange.y += bounds.h * 0.5f;
+			validRange.h -= bounds.h;
 
-			int minTouchY = bounds.h * 0.5;
-			int maxTouchY = screen_bounds.h - bounds.h * 0.5;
-
-			int newX = bounds.centerX(), newY = bounds.centerY();
-
-			// we have to handle x and y separately since even if x is blocked, y may not be.
-			if (touch.x > mintouchX && touch.x < maxTouchX) {
-				// if the leftmost point of the control is ahead of the margin,
-				// move it. Otherwise, don't.
-				newX = touch.x;
-				// Snap to grid
-				if (g_Config.bTouchSnapToGrid)
-					newX -= (int)(touch.x - bounds.w) % g_Config.iTouchSnapGridSize;
+			// Check x and y independently, since even if x is blocked, y may not be.
+			if (validRange.Contains(touch.x, newPos.y) || validRange.Contains(touch.x, touch.y)) {
+				newPos.x = touch.x;
 			}
-			if (touch.y > minTouchY && touch.y < maxTouchY) {
-				newY = touch.y;
-				// Snap to grid
-				if (g_Config.bTouchSnapToGrid)
-					newY -= (int)(touch.y - bounds.h) % g_Config.iTouchSnapGridSize;
+			if (validRange.Contains(newPos.x, touch.y) || validRange.Contains(touch.x, touch.y)) {
+				newPos.y = touch.y;
 			}
-			pickedControl_->ReplaceLayoutParams(new UI::AnchorLayoutParams(newX, newY, NONE, NONE, true));
+			if (g_Config.bTouchSnapToGrid) {
+				newPos = ClampTo(newPos, validRange);
+				newPos.x -= (int)(newPos.x - bounds.w) % g_Config.iTouchSnapGridSize;
+				newPos.y -= (int)(newPos.y - bounds.h) % g_Config.iTouchSnapGridSize;
+			}
+
+			newPos = ClampTo(newPos, validRange);
+			pickedControl_->ReplaceLayoutParams(new AnchorLayoutParams(newPos.x, newPos.y, NONE, NONE, true));
 		} else if (mode == 1) {
 			// Resize. Vertical = scaling, horizontal = spacing;
 			// Up should be bigger so let's negate in that direction
