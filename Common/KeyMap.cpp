@@ -339,6 +339,7 @@ void UpdateNativeMenuKeys() {
 		KeyDef(DEVICE_ID_KEYBOARD, NKCODE_ESCAPE),
 		KeyDef(DEVICE_ID_ANY, NKCODE_BACK),
 		KeyDef(DEVICE_ID_ANY, NKCODE_BUTTON_B),
+		KeyDef(DEVICE_ID_MOUSE, NKCODE_EXT_MOUSEBUTTON_4),
 	};
 
 	for (size_t i = 0; i < ARRAY_SIZE(hardcodedCancelKeys); i++) {

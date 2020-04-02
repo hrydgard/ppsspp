@@ -419,11 +419,29 @@ bool MainUI::event(QEvent *e) {
 		break;
 	case QEvent::MouseButtonPress:
 	case QEvent::MouseButtonRelease:
-		input.x = ((QMouseEvent*)e)->pos().x() * g_dpi_scale_x * xscale;
-		input.y = ((QMouseEvent*)e)->pos().y() * g_dpi_scale_y * yscale;
-		input.flags = (e->type() == QEvent::MouseButtonPress) ? TOUCH_DOWN : TOUCH_UP;
-		input.id = 0;
-		NativeTouch(input);
+		switch(((QMouseEvent*)e)->button()) {
+		case Qt::LeftButton:
+			input.x = ((QMouseEvent*)e)->pos().x() * g_dpi_scale_x * xscale;
+			input.y = ((QMouseEvent*)e)->pos().y() * g_dpi_scale_y * yscale;
+			input.flags = (e->type() == QEvent::MouseButtonPress) ? TOUCH_DOWN : TOUCH_UP;
+			input.id = 0;
+			NativeTouch(input);
+			break;
+		case Qt::RightButton:
+			NativeKey(KeyInput(DEVICE_ID_MOUSE, NKCODE_EXT_MOUSEBUTTON_2, (e->type() == QEvent::MouseButtonPress) ? KEY_DOWN : KEY_UP));
+			break;
+		case Qt::MiddleButton:
+			NativeKey(KeyInput(DEVICE_ID_MOUSE, NKCODE_EXT_MOUSEBUTTON_3, (e->type() == QEvent::MouseButtonPress) ? KEY_DOWN : KEY_UP));
+			break;
+		case Qt::ExtraButton1:
+			NativeKey(KeyInput(DEVICE_ID_MOUSE, NKCODE_EXT_MOUSEBUTTON_4, (e->type() == QEvent::MouseButtonPress) ? KEY_DOWN : KEY_UP));
+			break;
+		case Qt::ExtraButton2:
+			NativeKey(KeyInput(DEVICE_ID_MOUSE, NKCODE_EXT_MOUSEBUTTON_5, (e->type() == QEvent::MouseButtonPress) ? KEY_DOWN : KEY_UP));
+			break;
+		default:
+			break;
+		}
 		break;
 	case QEvent::MouseMove:
 		input.x = ((QMouseEvent*)e)->pos().x() * g_dpi_scale_x * xscale;
