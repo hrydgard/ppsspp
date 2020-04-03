@@ -11,7 +11,7 @@
 #include "android/jni/app-android.h"
 #include <assert.h>
 
-#if PPSSPP_PLATFORM(ANDROID)
+#if PPSSPP_PLATFORM(ANDROID) && !defined(__LIBRETRO__)
 
 #include <jni.h>
 
