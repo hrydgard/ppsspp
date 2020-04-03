@@ -81,7 +81,9 @@ void TextDrawer::DrawStringBitmapRect(std::vector<uint8_t> &bitmapData, TextStri
 
 TextDrawer *TextDrawer::Create(Draw::DrawContext *draw) {
 	TextDrawer *drawer = nullptr;
-#if defined(_WIN32) && !PPSSPP_PLATFORM(UWP)
+#if defined(__LIBRETRO__)
+	// No text drawer
+#elif defined(_WIN32) && !PPSSPP_PLATFORM(UWP)
 	drawer = new TextDrawerWin32(draw);
 #elif PPSSPP_PLATFORM(UWP)
 	drawer = new TextDrawerUWP(draw);
