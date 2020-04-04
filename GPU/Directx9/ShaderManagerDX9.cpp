@@ -546,15 +546,15 @@ void ShaderManagerDX9::DirtyLastShader() { // disables vertex arrays
 	lastPShader_ = nullptr;
 }
 
-VSShader *ShaderManagerDX9::ApplyShader(int prim, u32 vertType) {
+VSShader *ShaderManagerDX9::ApplyShader(bool useHWTransform, bool useHWTessellation, u32 vertType) {
 	// Always use software for flat shading to fix the provoking index.
 	bool tess = gstate_c.bezier || gstate_c.spline;
-	bool useHWTransform = CanUseHardwareTransform(prim) && (tess || gstate.getShadeMode() != GE_SHADE_FLAT);
+	useHWTransform = useHWTransform && (tess || gstate.getShadeMode() != GE_SHADE_FLAT);
 
 	VShaderID VSID;
 	if (gstate_c.IsDirty(DIRTY_VERTEXSHADER_STATE)) {
 		gstate_c.Clean(DIRTY_VERTEXSHADER_STATE);
-		ComputeVertexShaderID(&VSID, vertType, useHWTransform);
+		ComputeVertexShaderID(&VSID, vertType, useHWTransform, useHWTessellation);
 	} else {
 		VSID = lastVSID_;
 	}
@@ -595,7 +595,7 @@ VSShader *ShaderManagerDX9::ApplyShader(int prim, u32 vertType) {
 			}
 			delete vs;
 
-			ComputeVertexShaderID(&VSID, vertType, false);
+			ComputeVertexShaderID(&VSID, vertType, false, false);
 
 			// TODO: Look for existing shader with the appropriate ID, use that instead of generating a new one - however, need to make sure
 			// that that shader ID is not used when computing the linked shader ID below, because then IDs won't match

@@ -419,8 +419,7 @@ void GPU_Vulkan::Reinitialize() {
 }
 
 void GPU_Vulkan::InitClear() {
-	bool useNonBufferedRendering = g_Config.iRenderingMode == FB_NON_BUFFERED_MODE;
-	if (useNonBufferedRendering) {
+	if (!framebufferManager_->UseBufferedRendering()) {
 		// TODO?
 	}
 }

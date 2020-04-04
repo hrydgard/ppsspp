@@ -207,8 +207,6 @@ void SoftwareTessellation(OutputBuffers &output, const Surface &surface, u32 ori
 
 } // namespace Spline
 
-bool CanUseHardwareTessellation(GEPatchPrimType prim);
-
 // Define function object for TemplateParameterDispatcher
 #define TEMPLATE_PARAMETER_DISPATCHER_FUNCTION(NAME, FUNCNAME, FUNCTYPE) \
 struct NAME { \

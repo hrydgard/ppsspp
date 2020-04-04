@@ -214,11 +214,11 @@ void ShaderManagerVulkan::DirtyLastShader() {
 	gstate_c.Dirty(DIRTY_VERTEXSHADER_STATE | DIRTY_FRAGMENTSHADER_STATE);
 }
 
-uint64_t ShaderManagerVulkan::UpdateUniforms() {
+uint64_t ShaderManagerVulkan::UpdateUniforms(bool useBufferedRendering) {
 	uint64_t dirty = gstate_c.GetDirtyUniforms();
 	if (dirty != 0) {
 		if (dirty & DIRTY_BASE_UNIFORMS)
-			BaseUpdateUniforms(&ub_base, dirty, false);
+			BaseUpdateUniforms(&ub_base, dirty, false, useBufferedRendering);
 		if (dirty & DIRTY_LIGHT_UNIFORMS)
 			LightUpdateUniforms(&ub_lights, dirty);
 		if (dirty & DIRTY_BONE_UNIFORMS)
@@ -228,11 +228,11 @@ uint64_t ShaderManagerVulkan::UpdateUniforms() {
 	return dirty;
 }
 
-void ShaderManagerVulkan::GetShaders(int prim, u32 vertType, VulkanVertexShader **vshader, VulkanFragmentShader **fshader, bool useHWTransform) {
+void ShaderManagerVulkan::GetShaders(int prim, u32 vertType, VulkanVertexShader **vshader, VulkanFragmentShader **fshader, bool useHWTransform, bool useHWTessellation) {
 	VShaderID VSID;
 	if (gstate_c.IsDirty(DIRTY_VERTEXSHADER_STATE)) {
 		gstate_c.Clean(DIRTY_VERTEXSHADER_STATE);
-		ComputeVertexShaderID(&VSID, vertType, useHWTransform);
+		ComputeVertexShaderID(&VSID, vertType, useHWTransform, useHWTessellation);
 	} else {
 		VSID = lastVSID_;
 	}

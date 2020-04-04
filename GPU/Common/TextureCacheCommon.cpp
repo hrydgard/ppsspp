@@ -788,7 +788,7 @@ bool TextureCacheCommon::AttachFramebuffer(TexCacheEntry *entry, u32 address, Vi
 		}
 	} else {
 		// Apply to buffered mode only.
-		if (!(g_Config.iRenderingMode == FB_BUFFERED_MODE))
+		if (!framebufferManager_->UseBufferedRendering())
 			return false;
 
 		const bool clutFormat =
@@ -868,8 +868,7 @@ void TextureCacheCommon::SetTextureFramebuffer(TexCacheEntry *entry, VirtualFram
 	_dbg_assert_msg_(G3D, framebuffer != nullptr, "Framebuffer must not be null.");
 
 	framebuffer->usageFlags |= FB_USAGE_TEXTURE;
-	bool useBufferedRendering = g_Config.iRenderingMode != FB_NON_BUFFERED_MODE;
-	if (useBufferedRendering) {
+	if (framebufferManager_->UseBufferedRendering()) {
 		const u64 cachekey = entry->CacheKey();
 		const auto &fbInfo = fbTexInfo_[cachekey];
 
@@ -910,7 +909,7 @@ void TextureCacheCommon::SetTextureFramebuffer(TexCacheEntry *entry, VirtualFram
 }
 
 bool TextureCacheCommon::SetOffsetTexture(u32 offset) {
-	if (g_Config.iRenderingMode != FB_BUFFERED_MODE) {
+	if (!framebufferManager_->UseBufferedRendering()) {
 		return false;
 	}
 	u32 texaddr = gstate.getTextureAddress(0);

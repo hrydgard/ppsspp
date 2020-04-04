@@ -1803,7 +1803,7 @@ void GPUCommon::Execute_Bezier(u32 op, u32 diff) {
 
 	SetDrawType(DRAW_BEZIER, PatchPrimToPrim(surface.primType));
 
-	if (CanUseHardwareTessellation(surface.primType)) {
+	if (drawEngineCommon_->CanUseHardwareTessellation(surface.primType)) {
 		gstate_c.Dirty(DIRTY_VERTEXSHADER_STATE);
 		gstate_c.bezier = true;
 		if (gstate_c.spline_num_points_u != surface.num_points_u) {
@@ -1869,7 +1869,7 @@ void GPUCommon::Execute_Spline(u32 op, u32 diff) {
 
 	SetDrawType(DRAW_SPLINE, PatchPrimToPrim(surface.primType));
 
-	if (CanUseHardwareTessellation(surface.primType)) {
+	if (drawEngineCommon_->CanUseHardwareTessellation(surface.primType)) {
 		gstate_c.Dirty(DIRTY_VERTEXSHADER_STATE);
 		gstate_c.spline = true;
 		if (gstate_c.spline_num_points_u != surface.num_points_u) {

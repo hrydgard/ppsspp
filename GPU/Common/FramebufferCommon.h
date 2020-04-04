@@ -264,6 +264,10 @@ public:
 		return displayFramebuf_ ? displayFormat_ : GE_FORMAT_INVALID;
 	}
 
+	bool UseBufferedRendering() {
+		return useBufferedRendering_;
+	}
+
 	bool MayIntersectFramebuffer(u32 start) {
 		// Clear the cache/kernel bits.
 		start = start & 0x3FFFFFFF;

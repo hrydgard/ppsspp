@@ -108,9 +108,7 @@ GPU_GLES::GPU_GLES(GraphicsContext *gfxCtx, Draw::DrawContext *draw)
 
 	if (g_Config.bHardwareTessellation) {
 		// Disable hardware tessellation if device is unsupported.
-		bool hasTexelFetch = gl_extensions.GLES3 || (!gl_extensions.IsGLES && gl_extensions.VersionGEThan(3, 3, 0)) || gl_extensions.EXT_gpu_shader4;
-		if (!gstate_c.SupportsAll(GPU_SUPPORTS_VERTEX_TEXTURE_FETCH | GPU_SUPPORTS_TEXTURE_FLOAT) || !hasTexelFetch) {
-			g_Config.bHardwareTessellation = false;
+		if (!drawEngine_.SupportsHWTessellation()) {
 			ERROR_LOG(G3D, "Hardware Tessellation is unsupported, falling back to software tessellation");
 			auto gr = GetI18NCategory("Graphics");
 			host->NotifyUserMessage(gr->T("Turn off Hardware Tessellation - unsupported"), 2.5f, 0xFF3030FF);
@@ -413,7 +411,7 @@ void GPU_GLES::CopyDisplayToOutput(bool reallyDirty) {
 	// If buffered, discard the depth buffer of the backbuffer. Don't even know if we need one.
 #if 0
 #ifdef USING_GLES2
-	if (gl_extensions.EXT_discard_framebuffer && g_Config.iRenderingMode != FB_NON_BUFFERED_MODE) {
+	if (gl_extensions.EXT_discard_framebuffer && framebufferManager_->UseBufferedRendering()) {
 		GLenum attachments[] = {GL_DEPTH_EXT, GL_STENCIL_EXT};
 		glDiscardFramebufferEXT(GL_FRAMEBUFFER, 2, attachments);
 	}
