@@ -131,6 +131,8 @@ protected:
 		return 1;
 	}
 
+	bool useHWTransform_ = false;
+
 	// Vertex collector buffers
 	u8 *decoded = nullptr;
 	u16 *decIndex = nullptr;

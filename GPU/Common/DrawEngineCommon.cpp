@@ -37,6 +37,7 @@ DrawEngineCommon::DrawEngineCommon() : decoderMap_(16) {
 	decJitCache_ = new VertexDecoderJitCache();
 	transformed = (TransformedVertex *)AllocateMemoryPages(TRANSFORMED_VERTEX_BUFFER_SIZE, MEM_PROT_READ | MEM_PROT_WRITE);
 	transformedExpanded = (TransformedVertex *)AllocateMemoryPages(3 * TRANSFORMED_VERTEX_BUFFER_SIZE, MEM_PROT_READ | MEM_PROT_WRITE);
+	useHWTransform_ = g_Config.bHardwareTransform;
 }
 
 DrawEngineCommon::~DrawEngineCommon() {
@@ -171,6 +172,8 @@ void DrawEngineCommon::Resized() {
 	});
 	decoderMap_.Clear();
 	ClearTrackedVertexArrays();
+
+	useHWTransform_ = g_Config.bHardwareTransform;
 }
 
 u32 DrawEngineCommon::NormalizeVertices(u8 *outPtr, u8 *bufPtr, const u8 *inPtr, int lowerBound, int upperBound, u32 vertType, int *vertexSize) {
@@ -738,7 +741,7 @@ void DrawEngineCommon::SubmitPrim(void *verts, void *inds, GEPrimitiveType prim,
 }
 
 bool DrawEngineCommon::CanUseHardwareTransform(int prim) {
-	if (!g_Config.bHardwareTransform)
+	if (!useHWTransform_)
 		return false;
 	return !gstate.isModeThrough() && prim != GE_PRIM_RECTANGLES;
 }
