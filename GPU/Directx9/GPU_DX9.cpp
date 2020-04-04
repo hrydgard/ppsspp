@@ -256,8 +256,7 @@ void GPU_DX9::DeviceRestore() {
 }
 
 void GPU_DX9::InitClear() {
-	bool useNonBufferedRendering = g_Config.iRenderingMode == FB_NON_BUFFERED_MODE;
-	if (useNonBufferedRendering) {
+	if (!framebufferManager_->UseBufferedRendering()) {
 		dxstate.depthWrite.set(true);
 		dxstate.colorMask.set(true, true, true, true);
 		device_->Clear(0, NULL, D3DCLEAR_STENCIL|D3DCLEAR_TARGET|D3DCLEAR_ZBUFFER, D3DCOLOR_XRGB(0, 0, 0), 1.f, 0);

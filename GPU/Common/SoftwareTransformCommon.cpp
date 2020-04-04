@@ -517,7 +517,7 @@ void SoftwareTransform(
 	numTrans = 0;
 	drawIndexed = false;
 
-	bool useBufferedRendering = g_Config.iRenderingMode != FB_NON_BUFFERED_MODE;
+	bool useBufferedRendering = fbman->UseBufferedRendering();
 
 	bool flippedY = g_Config.iGPUBackend == (int)GPUBackend::OPENGL && !useBufferedRendering;
 
