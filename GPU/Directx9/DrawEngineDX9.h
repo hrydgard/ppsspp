@@ -140,6 +140,10 @@ public:
 
 	void DispatchFlush() override { Flush(); }
 
+protected:
+	// Not currently supported.
+	bool UpdateUseHWTessellation(bool enable) override { return false; }
+
 private:
 	void DoFlush();
 

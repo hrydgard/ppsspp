@@ -813,7 +813,7 @@ void DrawEngineVulkan::DoFlush() {
 				ConvertStateToVulkanKey(*framebufferManager_, shaderManager_, prim, pipelineKey_, dynState_);
 			}
 
-			shaderManager_->GetShaders(prim, lastVType_, &vshader, &fshader, true);  // usehwtransform
+			shaderManager_->GetShaders(prim, lastVType_, &vshader, &fshader, true, useHWTessellation_);  // usehwtransform
 			_dbg_assert_msg_(G3D, vshader->UseHWTransform(), "Bad vshader");
 
 			Draw::NativeObject object = framebufferManager_->UseBufferedRendering() ? Draw::NativeObject::FRAMEBUFFER_RENDERPASS : Draw::NativeObject::BACKBUFFER_RENDERPASS;
@@ -923,7 +923,7 @@ void DrawEngineVulkan::DoFlush() {
 					sampler = nullSampler_;
 			}
 			if (!lastPipeline_ || gstate_c.IsDirty(DIRTY_BLEND_STATE | DIRTY_VIEWPORTSCISSOR_STATE | DIRTY_RASTER_STATE | DIRTY_DEPTHSTENCIL_STATE | DIRTY_VERTEXSHADER_STATE | DIRTY_FRAGMENTSHADER_STATE) || prim != lastPrim_) {
-				shaderManager_->GetShaders(prim, lastVType_, &vshader, &fshader, false);  // usehwtransform
+				shaderManager_->GetShaders(prim, lastVType_, &vshader, &fshader, false, false);  // usehwtransform
 				_dbg_assert_msg_(G3D, !vshader->UseHWTransform(), "Bad vshader");
 				if (prim != lastPrim_ || gstate_c.IsDirty(DIRTY_BLEND_STATE | DIRTY_VIEWPORTSCISSOR_STATE | DIRTY_RASTER_STATE | DIRTY_DEPTHSTENCIL_STATE)) {
 					ConvertStateToVulkanKey(*framebufferManager_, shaderManager_, prim, pipelineKey_, dynState_);

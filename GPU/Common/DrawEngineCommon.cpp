@@ -38,6 +38,7 @@ DrawEngineCommon::DrawEngineCommon() : decoderMap_(16) {
 	transformed = (TransformedVertex *)AllocateMemoryPages(TRANSFORMED_VERTEX_BUFFER_SIZE, MEM_PROT_READ | MEM_PROT_WRITE);
 	transformedExpanded = (TransformedVertex *)AllocateMemoryPages(3 * TRANSFORMED_VERTEX_BUFFER_SIZE, MEM_PROT_READ | MEM_PROT_WRITE);
 	useHWTransform_ = g_Config.bHardwareTransform;
+	useHWTessellation_ = UpdateUseHWTessellation(g_Config.bHardwareTessellation);
 }
 
 DrawEngineCommon::~DrawEngineCommon() {
@@ -174,6 +175,7 @@ void DrawEngineCommon::Resized() {
 	ClearTrackedVertexArrays();
 
 	useHWTransform_ = g_Config.bHardwareTransform;
+	useHWTessellation_ = UpdateUseHWTessellation(g_Config.bHardwareTessellation);
 }
 
 u32 DrawEngineCommon::NormalizeVertices(u8 *outPtr, u8 *bufPtr, const u8 *inPtr, int lowerBound, int upperBound, u32 vertType, int *vertexSize) {
@@ -747,7 +749,7 @@ bool DrawEngineCommon::CanUseHardwareTransform(int prim) {
 }
 
 bool DrawEngineCommon::CanUseHardwareTessellation(GEPatchPrimType prim) {
-	if (g_Config.bHardwareTessellation && !g_Config.bSoftwareRendering) {
+	if (useHWTessellation_) {
 		return CanUseHardwareTransform(PatchPrimToPrim(prim));
 	}
 	return false;

@@ -182,6 +182,11 @@ public:
 
 	void ClearInputLayoutMap();
 
+	bool SupportsHWTessellation() const;
+
+protected:
+	bool UpdateUseHWTessellation(bool enable) override;
+
 private:
 	void InitDeviceObjects();
 	void DestroyDeviceObjects();

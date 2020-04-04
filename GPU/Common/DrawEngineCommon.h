@@ -104,6 +104,7 @@ public:
 	VertexDecoder *GetVertexDecoder(u32 vtype);
 
 protected:
+	virtual bool UpdateUseHWTessellation(bool enabled) { return enabled; }
 	virtual void ClearTrackedVertexArrays() {}
 
 	int ComputeNumVertsToDecode() const;
@@ -132,6 +133,7 @@ protected:
 	}
 
 	bool useHWTransform_ = false;
+	bool useHWTessellation_ = false;
 
 	// Vertex collector buffers
 	u8 *decoded = nullptr;

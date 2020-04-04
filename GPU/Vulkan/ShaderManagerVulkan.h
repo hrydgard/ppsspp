@@ -88,7 +88,7 @@ public:
 
 	void DeviceRestore(VulkanContext *vulkan, Draw::DrawContext *draw);
 
-	void GetShaders(int prim, u32 vertType, VulkanVertexShader **vshader, VulkanFragmentShader **fshader, bool useHWTransform);
+	void GetShaders(int prim, u32 vertType, VulkanVertexShader **vshader, VulkanFragmentShader **fshader, bool useHWTransform, bool useHWTessellation);
 	void ClearShaders();
 	void DirtyShader();
 	void DirtyLastShader() override;
