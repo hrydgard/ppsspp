@@ -86,6 +86,9 @@ public:
 	void SubmitCurve(const void *control_points, const void *indices, Surface &surface, u32 vertType, int *bytesRead, const char *scope);
 	void ClearSplineBezierWeights();
 
+	bool CanUseHardwareTransform(int prim);
+	bool CanUseHardwareTessellation(GEPatchPrimType prim);
+
 	std::vector<std::string> DebugGetVertexLoaderIDs();
 	std::string DebugGetVertexLoaderString(std::string id, DebugShaderStringType stringType);
 

@@ -159,8 +159,8 @@ public:
 
 	// This is the old ApplyShader split into two parts, because of annoying information dependencies.
 	// If you call ApplyVertexShader, you MUST call ApplyFragmentShader soon afterwards.
-	Shader *ApplyVertexShader(int prim, u32 vertType, VShaderID *VSID);
-	LinkedShader *ApplyFragmentShader(VShaderID VSID, Shader *vs, u32 vertType, int prim, bool useBufferedRendering);
+	Shader *ApplyVertexShader(bool useHWTransform, u32 vertType, VShaderID *VSID);
+	LinkedShader *ApplyFragmentShader(VShaderID VSID, Shader *vs, u32 vertType, bool useBufferedRendering);
 
 	void DeviceLost();
 	void DeviceRestore(Draw::DrawContext *draw);
