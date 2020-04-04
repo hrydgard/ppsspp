@@ -511,7 +511,7 @@ rotateVBO:
 		ApplyDrawState(prim);
 		ApplyDrawStateLate(false, 0);
 		
-		LinkedShader *program = shaderManager_->ApplyFragmentShader(vsid, vshader, lastVType_, prim);
+		LinkedShader *program = shaderManager_->ApplyFragmentShader(vsid, vshader, lastVType_, prim, framebufferManager_->UseBufferedRendering());
 		GLRInputLayout *inputLayout = SetupDecFmtForDraw(program, dec_->GetDecVtxFmt());
 		render_->BindVertexBuffer(inputLayout, vertexBuffer, vertexBufferOffset);
 		if (useElements) {
@@ -576,7 +576,7 @@ rotateVBO:
 
 		ApplyDrawStateLate(result.setStencil, result.stencilValue);
 
-		LinkedShader *program = shaderManager_->ApplyFragmentShader(vsid, vshader, lastVType_, prim);
+		LinkedShader *program = shaderManager_->ApplyFragmentShader(vsid, vshader, lastVType_, prim, framebufferManager_->UseBufferedRendering());
 
 		if (result.action == SW_DRAW_PRIMITIVES) {
 			const int vertexSize = sizeof(transformed[0]);

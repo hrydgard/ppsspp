@@ -518,7 +518,7 @@ rotateVBO:
 		ID3D11InputLayout *inputLayout = SetupDecFmtForDraw(vshader, dec_->GetDecVtxFmt(), dec_->VertexType());
 		context_->PSSetShader(fshader->GetShader(), nullptr, 0);
 		context_->VSSetShader(vshader->GetShader(), nullptr, 0);
-		shaderManager_->UpdateUniforms();
+		shaderManager_->UpdateUniforms(framebufferManager_->UseBufferedRendering());
 		shaderManager_->BindUniforms();
 
 		context_->IASetInputLayout(inputLayout);
@@ -601,7 +601,7 @@ rotateVBO:
 			shaderManager_->GetShaders(prim, lastVType_, &vshader, &fshader, false);
 			context_->PSSetShader(fshader->GetShader(), nullptr, 0);
 			context_->VSSetShader(vshader->GetShader(), nullptr, 0);
-			shaderManager_->UpdateUniforms();
+			shaderManager_->UpdateUniforms(framebufferManager_->UseBufferedRendering());
 			shaderManager_->BindUniforms();
 
 			// We really do need a vertex layout for each vertex shader (or at least check its ID bits for what inputs it uses)!
