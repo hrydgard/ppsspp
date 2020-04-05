@@ -1424,11 +1424,7 @@ void Config::AddRecent(const std::string &file) {
 	// We'll add it back below.  This makes sure it's at the front, and only once.
 	RemoveRecent(file);
 	const std::string filename = File::ResolvePath(file);
-	std::string filename2 = filename;
-#ifdef _WIN32
-	filename2 = ReplaceAll(filename, "\\", "/");
-#endif
-	recentIsos.insert(recentIsos.begin(), filename2);
+	recentIsos.insert(recentIsos.begin(), filename);
 	if ((int)recentIsos.size() > iMaxRecent)
 		recentIsos.resize(iMaxRecent);
 }

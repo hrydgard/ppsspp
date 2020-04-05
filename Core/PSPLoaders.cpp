@@ -363,7 +363,7 @@ bool Load_PSP_ELF_PBP(FileLoader *fileLoader, std::string *error_string) {
 
 #ifdef _WIN32
 	// Turn the slashes back to the Windows way.
-	//path = ReplaceAll(path, "/", "\\");
+	path = ReplaceAll(path, "/", "\\");
 #endif
 
 	if (!PSP_CoreParameter().mountRoot.empty()) {
