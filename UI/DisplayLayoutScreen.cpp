@@ -35,10 +35,6 @@
 static const int leftColumnWidth = 200;
 static const float orgRatio = 1.764706f;
 
-// Ugly hackery, need to rework some stuff to get around this
-static float local_dp_xres;
-static float local_dp_yres;
-
 static float ScaleSettingToUI() {
 	float scale = g_Config.fSmallDisplayZoomLevel * 8.0f;
 	// Account for 1x display doubling dps.
@@ -62,32 +58,31 @@ static void UpdateScaleSettingFromUI(float scale) {
 
 class DragDropDisplay : public MultiTouchDisplay {
 public:
-	DragDropDisplay(float &x, float &y, ImageID img, float &scale)
-		: MultiTouchDisplay(img, scale, new UI::AnchorLayoutParams(x * local_dp_xres, y * local_dp_yres, UI::NONE, UI::NONE, true)),
-		x_(x), y_(y), theScale_(scale) {
+	DragDropDisplay(float &x, float &y, ImageID img, float &scale, const Bounds &screenBounds)
+		: MultiTouchDisplay(img, scale, new UI::AnchorLayoutParams(x * screenBounds.w, y * screenBounds.h, UI::NONE, UI::NONE, true)),
+		x_(x), y_(y), theScale_(scale), screenBounds_(screenBounds) {
 		scale_ = theScale_;
 	}	
 
 	virtual void SaveDisplayPosition() {
-		x_ = bounds_.centerX() / local_dp_xres;
-		y_ = bounds_.centerY() / local_dp_yres;
+		x_ = bounds_.centerX() / screenBounds_.w;
+		y_ = bounds_.centerY() / screenBounds_.h;
 		scale_ = theScale_;
 	}
 
 	virtual float GetScale() const { return theScale_; }
 	virtual void SetScale(float s) { theScale_ = s; scale_ = s; }
 
-	private:
-
+private:
 	float &x_, &y_;
 	float &theScale_;
+	const Bounds &screenBounds_;
 };
 
 DisplayLayoutScreen::DisplayLayoutScreen() {
-	picked_ = 0;
+	picked_ = nullptr;
 	mode_ = nullptr;
 };
-
 
 bool DisplayLayoutScreen::touch(const TouchInput &touch) {
 	UIScreen::touch(touch);
@@ -100,17 +95,18 @@ bool DisplayLayoutScreen::touch(const TouchInput &touch) {
 	}
 
 	const Bounds &screen_bounds = screenManager()->getUIContext()->GetBounds();
-	if ((touch.flags & TOUCH_MOVE) && picked_ != 0) {
+	if ((touch.flags & TOUCH_MOVE) && picked_ != nullptr) {
 		int touchX = touch.x - offsetTouchX;
 		int touchY = touch.y - offsetTouchY;
 		if (mode == 0) {
-			const Bounds &bounds = picked_->GetBounds();
+			const auto &prevParams = picked_->GetLayoutParams()->As<AnchorLayoutParams>();
+			Point newPos(prevParams->left, prevParams->top);
 
 			int limitX = g_Config.fSmallDisplayZoomLevel * 120;
 			int limitY = g_Config.fSmallDisplayZoomLevel * 68;
 
-			const int quarterResX = local_dp_xres / 4;
-			const int quarterResY = local_dp_yres / 4;
+			const int quarterResX = screen_bounds.w / 4;
+			const int quarterResY = screen_bounds.h / 4;
 
 			if (bRotated) {
 				//swap X/Y limit for rotated display
@@ -131,10 +127,10 @@ bool DisplayLayoutScreen::touch(const TouchInput &touch) {
 			if (touchY > windowUpperEdge - 8 + limitY && touchY < windowUpperEdge + 8 + limitY) { touchY = windowUpperEdge + limitY; stickToEdgeY = true; }
 			if (touchY > windowLowerEdge - 8 - limitY && touchY < windowLowerEdge + 8 - limitY) { touchY = windowLowerEdge - limitY; stickToEdgeY = true; }
 
-			const int minX = local_dp_xres / 2;
-			const int maxX = local_dp_xres + minX;
-			const int minY = local_dp_yres / 2;
-			const int maxY = local_dp_yres + minY;
+			const int minX = screen_bounds.w / 2;
+			const int maxX = screen_bounds.w + minX;
+			const int minY = screen_bounds.h / 2;
+			const int maxY = screen_bounds.h + minY;
 			// Display visualization disappear outside of those bounds, so we have to limit
 			if (touchX < -minX) touchX = -minX;
 			if (touchX >  maxX) touchX =  maxX;
@@ -145,15 +141,14 @@ bool DisplayLayoutScreen::touch(const TouchInput &touch) {
 			if (quarterResX > limitX) limitX = quarterResX;
 			if (quarterResY > limitY) limitY = quarterResY;
 
-			int newX = bounds.centerX(), newY = bounds.centerY();
 			// Allow moving zoomed in display freely as long as at least noticeable portion of the screen is occupied
 			if (touchX > minX - limitX - 10 && touchX < minX + limitX + 10) {
-				newX = touchX;
+				newPos.x = touchX;
 			}
 			if (touchY > minY - limitY - 10 && touchY < minY + limitY + 10) {
-				newY = touchY;
+				newPos.y = touchY;
 			}
-			picked_->ReplaceLayoutParams(new UI::AnchorLayoutParams(newX, newY, NONE, NONE, true));
+			picked_->ReplaceLayoutParams(new AnchorLayoutParams(newPos.x, newPos.y, NONE, NONE, true));
 		} else if (mode == 1) {
 			// Resize. Vertical = scaling, horizontal = spacing;
 			// Up should be bigger so let's negate in that direction
@@ -183,11 +178,9 @@ bool DisplayLayoutScreen::touch(const TouchInput &touch) {
 	}
 	if ((touch.flags & TOUCH_UP) && picked_ != 0) {
 		const Bounds &bounds = picked_->GetBounds();
-		float saveX_ = touch.x;
-		float saveY_ = touch.y;
 		startScale_ = picked_->GetScale();
 		picked_->SaveDisplayPosition();
-		picked_ = 0;
+		picked_ = nullptr;
 	}
 	return true;
 }
@@ -249,9 +242,6 @@ public:
 
 void DisplayLayoutScreen::CreateViews() {
 	const Bounds &bounds = screenManager()->getUIContext()->GetBounds();
-
-	local_dp_xres = bounds.w;
-	local_dp_yres = bounds.h;
 
 	using namespace UI;
 
@@ -334,11 +324,11 @@ void DisplayLayoutScreen::CreateViews() {
 			mode_->AddChoice(di->T("Resize"));
 			mode_->SetSelection(0);
 		}
-		displayRepresentation_ = new DragDropDisplay(g_Config.fSmallDisplayOffsetX, g_Config.fSmallDisplayOffsetY, ImageID("I_PSP_DISPLAY"), displayRepresentationScale_);
+		displayRepresentation_ = new DragDropDisplay(g_Config.fSmallDisplayOffsetX, g_Config.fSmallDisplayOffsetY, ImageID("I_PSP_DISPLAY"), displayRepresentationScale_, bounds);
 		displayRepresentation_->SetVisibility(V_VISIBLE);
 	} else { // Stretching
 		label = new HighlightLabel(gr->T("Stretching"), new AnchorLayoutParams(WRAP_CONTENT, 64.0f, bounds.w / 2.0f, bounds.h / 2.0f, NONE, NONE, true));
-		displayRepresentation_ = new DragDropDisplay(g_Config.fSmallDisplayOffsetX, g_Config.fSmallDisplayOffsetY, ImageID("I_PSP_DISPLAY"), displayRepresentationScale_);
+		displayRepresentation_ = new DragDropDisplay(g_Config.fSmallDisplayOffsetX, g_Config.fSmallDisplayOffsetY, ImageID("I_PSP_DISPLAY"), displayRepresentationScale_, bounds);
 		displayRepresentation_->SetVisibility(V_INVISIBLE);
 		float width = previewWidth;
 		float height = previewHeight;
