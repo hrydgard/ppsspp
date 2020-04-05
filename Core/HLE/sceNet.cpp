@@ -109,7 +109,7 @@ void __NetDoState(PointerWrap &p) {
 }
 
 static inline u32 AllocUser(u32 size, bool fromTop, const char *name) {
-	u32 addr = userMemory.Alloc(size, true, "netstack1");
+	u32 addr = userMemory.Alloc(size, fromTop, name);
 	if (addr == -1)
 		return 0;
 	return addr;
