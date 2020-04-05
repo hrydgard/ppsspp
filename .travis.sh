@@ -83,9 +83,13 @@ travis_script() {
             export NDK_TOOLCHAIN_VERSION=clang
         fi
 
-        pushd android
-        ./ab.sh -j2 APP_ABI=$APP_ABI
-        popd
+        if [ "$LIBRETRO" = "TRUE" ]; then
+            ./b.sh --libretro_android ppsspp_libretro
+        else
+            pushd android
+            ./ab.sh -j2 APP_ABI=$APP_ABI
+            popd
+        fi
 
 #        When we can get this to work...
 #        chmod +x gradlew
