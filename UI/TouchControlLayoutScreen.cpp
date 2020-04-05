@@ -33,19 +33,15 @@
 
 static const int leftColumnWidth = 140;
 
-// Ugly hackery, need to rework some stuff to get around this
-static float local_dp_xres;
-static float local_dp_yres;
-
 static u32 GetButtonColor() {
 	return g_Config.iTouchButtonStyle != 0 ? 0xFFFFFF : 0xc0b080;
 }
 
 class DragDropButton : public MultiTouchButton {
 public:
-	DragDropButton(ConfigTouchPos &pos, ImageID bgImg, ImageID img)
-	: MultiTouchButton(bgImg, bgImg, img, pos.scale, new UI::AnchorLayoutParams(fromFullscreenCoord(pos.x), pos.y * local_dp_yres, UI::NONE, UI::NONE, true)),
-		x_(pos.x), y_(pos.y), theScale_(pos.scale) {
+	DragDropButton(ConfigTouchPos &pos, ImageID bgImg, ImageID img, const Bounds &screenBounds)
+	: MultiTouchButton(bgImg, bgImg, img, pos.scale, new UI::AnchorLayoutParams(fromFullscreenCoord(pos.x, screenBounds), pos.y * screenBounds.h, UI::NONE, UI::NONE, true)),
+		x_(pos.x), y_(pos.y), theScale_(pos.scale), screenBounds_(screenBounds) {
 		scale_ = theScale_;
 	}
 
@@ -57,7 +53,7 @@ public:
 
 	virtual void SavePosition() {
 		x_ = toFullscreenCoord(bounds_.centerX());
-		y_ = bounds_.centerY() / local_dp_yres;
+		y_ = bounds_.centerY() / screenBounds_.h;
 		scale_ = theScale_;
 	}
 
@@ -76,22 +72,23 @@ protected:
 private:
 	// convert from screen coordinates (leftColumnWidth to dp_xres) to actual fullscreen coordinates (0 to 1.0)
 	inline float toFullscreenCoord(int screenx) {
-		return  (float)(screenx - leftColumnWidth) / (local_dp_xres - leftColumnWidth);
+		return  (float)(screenx - leftColumnWidth) / (screenBounds_.w - leftColumnWidth);
 	}
 
 	// convert from external fullscreen  coordinates(0 to 1.0)  to the current partial coordinates (leftColumnWidth to dp_xres)
-	inline int fromFullscreenCoord(float controllerX) {
-		return leftColumnWidth + (local_dp_xres - leftColumnWidth) * controllerX;
+	inline int fromFullscreenCoord(float controllerX, const Bounds &screenBounds) {
+		return leftColumnWidth + (screenBounds.w - leftColumnWidth) * controllerX;
 	};
 
 	float &x_, &y_;
 	float &theScale_;
+	const Bounds &screenBounds_;
 };
 
 class PSPActionButtons : public DragDropButton {
 public:
-	PSPActionButtons(ConfigTouchPos &pos, float &spacing)
-		: DragDropButton(pos, ImageID::invalid(), ImageID::invalid()), spacing_(spacing) {
+	PSPActionButtons(ConfigTouchPos &pos, float &spacing, const Bounds &screenBounds)
+		: DragDropButton(pos, ImageID::invalid(), ImageID::invalid(), screenBounds), spacing_(spacing) {
 		using namespace UI;
 		roundId_ = g_Config.iTouchButtonStyle ? ImageID("I_ROUND_LINE") : ImageID("I_ROUND");
 	};
@@ -169,8 +166,8 @@ private:
 
 class PSPDPadButtons : public DragDropButton {
 public:
-	PSPDPadButtons(ConfigTouchPos &pos, float &spacing)
-		: DragDropButton(pos, ImageID::invalid(), ImageID::invalid()), spacing_(spacing) {
+	PSPDPadButtons(ConfigTouchPos &pos, float &spacing, const Bounds &screenBounds)
+		: DragDropButton(pos, ImageID::invalid(), ImageID::invalid(), screenBounds), spacing_(spacing) {
 	}
 
 	void Draw(UIContext &dc) override {
@@ -342,9 +339,6 @@ void TouchControlLayoutScreen::CreateViews() {
 	const Bounds &bounds = screenManager()->getUIContext()->GetBounds();
 	InitPadLayout(bounds.w, bounds.h);
 
-	local_dp_xres = bounds.w;
-	local_dp_yres = bounds.h;
-
 	using namespace UI;
 
 	auto co = GetI18NCategory("Controls");
@@ -397,7 +391,7 @@ void TouchControlLayoutScreen::CreateViews() {
 
 	controls_.clear();
 
-	PSPActionButtons *actionButtons = new PSPActionButtons(g_Config.touchActionButtonCenter, g_Config.fActionButtonSpacing);
+	PSPActionButtons *actionButtons = new PSPActionButtons(g_Config.touchActionButtonCenter, g_Config.fActionButtonSpacing, bounds);
 	actionButtons->setCircleVisibility(g_Config.bShowTouchCircle);
 	actionButtons->setCrossVisibility(g_Config.bShowTouchCross);
 	actionButtons->setTriangleVisibility(g_Config.bShowTouchTriangle);
@@ -414,85 +408,53 @@ void TouchControlLayoutScreen::CreateViews() {
 
 	const ImageID comboKeyImages[5] = { ImageID("I_1"), ImageID("I_2"), ImageID("I_3"), ImageID("I_4"), ImageID("I_5") };
 
-	if (g_Config.touchDpad.show) {
-		controls_.push_back(new PSPDPadButtons(g_Config.touchDpad, g_Config.fDpadSpacing));
-	}
-
-	if (g_Config.touchSelectKey.show) {
-		controls_.push_back(new DragDropButton(g_Config.touchSelectKey, rectImage, ImageID("I_SELECT")));
-	}
-
-	if (g_Config.touchStartKey.show) {
-		controls_.push_back(new DragDropButton(g_Config.touchStartKey, rectImage, ImageID("I_START")));
-	}
-
-	if (g_Config.touchUnthrottleKey.show) {
-		DragDropButton *unthrottle = new DragDropButton(g_Config.touchUnthrottleKey, rectImage, ImageID("I_ARROW"));
-		unthrottle->SetAngle(180.0f);
-		controls_.push_back(unthrottle);
-	}
-
-	if (g_Config.touchSpeed1Key.show) {
-		DragDropButton *speed1 = new DragDropButton(g_Config.touchSpeed1Key, rectImage, ImageID("I_ARROW"));
-		speed1->SetAngle(170.0f, 180.0f);
-		controls_.push_back(speed1);
-	}
-
-	if (g_Config.touchSpeed2Key.show) {
-		DragDropButton *speed2 = new DragDropButton(g_Config.touchSpeed2Key, rectImage, ImageID("I_ARROW"));
-		speed2->SetAngle(190.0f, 180.0f);
-		controls_.push_back(speed2);
-	}
-
-	if (g_Config.touchRapidFireKey.show) {
-		DragDropButton *rapidFire = new DragDropButton(g_Config.touchRapidFireKey, rectImage, ImageID("I_ARROW"));
-		rapidFire->SetAngle(90.0f, 180.0f);
-		controls_.push_back(rapidFire);
-	}
-
-	if (g_Config.touchAnalogRotationCWKey.show) {
-		DragDropButton *analogRotationCW = new DragDropButton(g_Config.touchAnalogRotationCWKey, rectImage, ImageID("I_ARROW"));
-		analogRotationCW->SetAngle(190.0f, 180.0f);
-		controls_.push_back(analogRotationCW);
-	}
-
-	if (g_Config.touchAnalogRotationCCWKey.show) {
-		DragDropButton *analogRotationCCW = new DragDropButton(g_Config.touchAnalogRotationCCWKey, rectImage, ImageID("I_ARROW"));
-		analogRotationCCW->SetAngle(350.0f, 180.0f);
-		controls_.push_back(analogRotationCCW);
-	}
-
-	if (g_Config.touchLKey.show) {
-		controls_.push_back(new DragDropButton(g_Config.touchLKey, shoulderImage, ImageID("I_L")));
-	}
-
-	if (g_Config.touchRKey.show) {
-		DragDropButton *rbutton = new DragDropButton(g_Config.touchRKey, shoulderImage, ImageID("I_R"));
-		rbutton->FlipImageH(true);
-		controls_.push_back(rbutton);
-	}
-
-	if (g_Config.touchAnalogStick.show) {
-		controls_.push_back(new DragDropButton(g_Config.touchAnalogStick, stickBg, stickImage));
-	}
-	if (g_Config.touchRightAnalogStick.show) {
-		controls_.push_back(new DragDropButton(g_Config.touchRightAnalogStick, stickBg, stickImage));
-	}
-	if (g_Config.touchCombo0.show) {
-		controls_.push_back(new DragDropButton(g_Config.touchCombo0, roundImage, comboKeyImages[0]));
-	}
-	if (g_Config.touchCombo1.show) {
-		controls_.push_back(new DragDropButton(g_Config.touchCombo1, roundImage, comboKeyImages[1]));
-	}
-	if (g_Config.touchCombo2.show) {
-		controls_.push_back(new DragDropButton(g_Config.touchCombo2, roundImage, comboKeyImages[2]));
-	}
-	if (g_Config.touchCombo3.show) {
-		controls_.push_back(new DragDropButton(g_Config.touchCombo3, roundImage, comboKeyImages[3]));
-	}
-	if (g_Config.touchCombo4.show) {
-		controls_.push_back(new DragDropButton(g_Config.touchCombo4, roundImage, comboKeyImages[4]));
+	auto addDragDropButton = [&](ConfigTouchPos &pos, ImageID bgImg, ImageID img) {
+		DragDropButton *b = nullptr;
+		if (pos.show) {
+			b = new DragDropButton(pos, bgImg, img, bounds);
+			controls_.push_back(b);
+		}
+		return b;
 	};
+
+	if (g_Config.touchDpad.show) {
+		controls_.push_back(new PSPDPadButtons(g_Config.touchDpad, g_Config.fDpadSpacing, bounds));
+	}
+
+	addDragDropButton(g_Config.touchSelectKey, rectImage, ImageID("I_SELECT"));
+	addDragDropButton(g_Config.touchStartKey, rectImage, ImageID("I_START"));
+
+	if (auto *unthrottle = addDragDropButton(g_Config.touchUnthrottleKey, rectImage, ImageID("I_ARROW"))) {
+		unthrottle->SetAngle(180.0f);
+	}
+	if (auto *speed1 = addDragDropButton(g_Config.touchSpeed1Key, rectImage, ImageID("I_ARROW"))) {
+		speed1->SetAngle(170.0f, 180.0f);
+	}
+	if (auto *speed2 = addDragDropButton(g_Config.touchSpeed2Key, rectImage, ImageID("I_ARROW"))) {
+		speed2->SetAngle(190.0f, 180.0f);
+	}
+	if (auto *rapidFire = addDragDropButton(g_Config.touchRapidFireKey, rectImage, ImageID("I_ARROW"))) {
+		rapidFire->SetAngle(90.0f, 180.0f);
+	}
+	if (auto *analogRotationCW = addDragDropButton(g_Config.touchAnalogRotationCWKey, rectImage, ImageID("I_ARROW"))) {
+		analogRotationCW->SetAngle(190.0f, 180.0f);
+	}
+	if (auto *analogRotationCCW = addDragDropButton(g_Config.touchAnalogRotationCCWKey, rectImage, ImageID("I_ARROW"))) {
+		analogRotationCCW->SetAngle(350.0f, 180.0f);
+	}
+
+	addDragDropButton(g_Config.touchLKey, shoulderImage, ImageID("I_L"));
+	if (auto *rbutton = addDragDropButton(g_Config.touchRKey, shoulderImage, ImageID("I_R"))) {
+		rbutton->FlipImageH(true);
+	}
+
+	addDragDropButton(g_Config.touchAnalogStick, stickBg, stickImage);
+	addDragDropButton(g_Config.touchRightAnalogStick, stickBg, stickImage);
+	addDragDropButton(g_Config.touchCombo0, roundImage, comboKeyImages[0]);
+	addDragDropButton(g_Config.touchCombo1, roundImage, comboKeyImages[1]);
+	addDragDropButton(g_Config.touchCombo2, roundImage, comboKeyImages[2]);
+	addDragDropButton(g_Config.touchCombo3, roundImage, comboKeyImages[3]);
+	addDragDropButton(g_Config.touchCombo4, roundImage, comboKeyImages[4]);
 
 	for (size_t i = 0; i < controls_.size(); i++) {
 		root_->Add(controls_[i]);
