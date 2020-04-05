@@ -217,9 +217,9 @@ void __PPGeInit() {
 	int height[12]{};
 	int flags = 0;
 
-	bool loadedZIM = !skipZIM && LoadZIM("ppge_atlas.zim", width, height, &flags, imageData);
+	bool loadedZIM = !skipZIM && LoadZIM("ppge_atlas_luna.zim", width, height, &flags, imageData);
 	if (!skipZIM && !loadedZIM) {
-		PanicAlert("Failed to load ppge_atlas.zim.\n\nPlace it in the directory \"assets\" under your PPSSPP directory.");
+		PanicAlert("Failed to load ppge_atlas_luna.zim.\n\nPlace it in the directory \"assets\" under your PPSSPP directory.");
 		ERROR_LOG(SCEGE, "PPGe init failed - no atlas texture. PPGe stuff will not be drawn.");
 	}
 
@@ -227,7 +227,7 @@ void __PPGeInit() {
 		size_t atlas_data_size;
 		uint8_t *atlas_data;
 		if (!g_ppge_atlas.IsMetadataLoaded()) {
-			atlas_data = VFSReadFile("ppge_atlas.meta", &atlas_data_size);
+			atlas_data = VFSReadFile("ppge_atlas_luna.meta", &atlas_data_size);
 			if (atlas_data)
 				g_ppge_atlas.Load(atlas_data, atlas_data_size);
 			delete[] atlas_data;
