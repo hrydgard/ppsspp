@@ -18,6 +18,7 @@
 #include <vector>
 
 #include "base/colorutil.h"
+#include "base/display.h"
 #include "gfx/texture_atlas.h"
 #include "gfx_es2/draw_buffer.h"
 #include "i18n/i18n.h"
@@ -37,6 +38,27 @@ static const float orgRatio = 1.764706f;
 // Ugly hackery, need to rework some stuff to get around this
 static float local_dp_xres;
 static float local_dp_yres;
+
+static float ScaleSettingToUI() {
+	float scale = g_Config.fSmallDisplayZoomLevel * 8.0f;
+	// Account for 1x display doubling dps.
+	if (g_dpi_scale_x > 1.0f) {
+		scale *= g_dpi_scale_x;
+	}
+	return scale;
+}
+
+static void UpdateScaleSetting(float scale) {
+	// Account for 1x display doubling dps.
+	if (g_dpi_scale_x > 1.0f) {
+		scale /= g_dpi_scale_x;
+	}
+	g_Config.fSmallDisplayZoomLevel = scale;
+}
+
+static void UpdateScaleSettingFromUI(float scale) {
+	UpdateScaleSetting(scale / 8.0f);
+}
 
 class DragDropDisplay : public MultiTouchDisplay {
 public:
@@ -145,7 +167,7 @@ bool DisplayLayoutScreen::touch(const TouchInput &touch) {
 			if (newScale < 8.0f) newScale = 8.0f;
 			picked_->SetScale(newScale);
 			scaleUpdate_ = picked_->GetScale();
-			g_Config.fSmallDisplayZoomLevel = scaleUpdate_ / 8.0f;
+			UpdateScaleSettingFromUI(scaleUpdate_);
 		}
 	}
 	if ((touch.flags & TOUCH_DOWN) && picked_ == 0) {
@@ -191,8 +213,8 @@ UI::EventReturn DisplayLayoutScreen::OnZoomTypeChange(UI::EventParams &e) {
 	if (g_Config.iSmallDisplayZoomType < (int)SmallDisplayZoom::MANUAL) {
 		const Bounds &bounds = screenManager()->getUIContext()->GetBounds();
 		float autoBound = bounds.w / 480.0f;
-		g_Config.fSmallDisplayZoomLevel = autoBound;
-		displayRepresentationScale_ = g_Config.fSmallDisplayZoomLevel * 8.0f;
+		UpdateScaleSetting(autoBound);
+		displayRepresentationScale_ = ScaleSettingToUI();
 		g_Config.fSmallDisplayOffsetX = 0.5f;
 		g_Config.fSmallDisplayOffsetY = 0.5f;
 	}
@@ -239,12 +261,12 @@ void DisplayLayoutScreen::CreateViews() {
 
 	root_ = new AnchorLayout(new LayoutParams(FILL_PARENT, FILL_PARENT));
 
-	const float previewWidth = local_dp_xres / 2.0f;
-	const float previewHeight = local_dp_yres / 2.0f;
+	const float previewWidth = bounds.w / 2.0f;
+	const float previewHeight = bounds.h / 2.0f;
 
 	// Just visual boundaries of the screen, should be easier to use than imagination
-	const float horizPreviewPadding = local_dp_xres / 4.0f;
-	const float vertPreviewPadding = local_dp_yres / 4.0f;
+	const float horizPreviewPadding = bounds.w / 4.0f;
+	const float vertPreviewPadding = bounds.h / 4.0f;
 	const float horizBoundariesWidth = 4.0f;
 	// This makes it have at least 10.0f padding below at 1x.
 	const float vertBoundariesHeight = 52.0f;
@@ -260,7 +282,7 @@ void DisplayLayoutScreen::CreateViews() {
 	zoom_->OnChoice.Handle(this, &DisplayLayoutScreen::OnZoomTypeChange);
 
 	static const char *displayRotation[] = { "Landscape", "Portrait", "Landscape Reversed", "Portrait Reversed" };
-	rotation_ = new PopupMultiChoice(&g_Config.iInternalScreenRotation, gr->T("Rotation"), displayRotation, 1, ARRAY_SIZE(displayRotation), co->GetName(), screenManager(), new AnchorLayoutParams(400, WRAP_CONTENT, previewWidth - 200.0f, 10, NONE, local_dp_yres - 64 - 10));
+	rotation_ = new PopupMultiChoice(&g_Config.iInternalScreenRotation, gr->T("Rotation"), displayRotation, 1, ARRAY_SIZE(displayRotation), co->GetName(), screenManager(), new AnchorLayoutParams(400, WRAP_CONTENT, previewWidth - 200.0f, 10, NONE, bounds.h - 64 - 10));
 	rotation_->SetEnabledFunc([] {
 		return g_Config.iRenderingMode != FB_NON_BUFFERED_MODE;
 	});
@@ -269,39 +291,43 @@ void DisplayLayoutScreen::CreateViews() {
 	if (displayRotEnable && (g_Config.iInternalScreenRotation == ROTATION_LOCKED_VERTICAL || g_Config.iInternalScreenRotation == ROTATION_LOCKED_VERTICAL180)) {
 		bRotated = true;
 	}
-	displayRepresentationScale_ = g_Config.fSmallDisplayZoomLevel * 8.0f; // Visual representation image is just icon size and have to be scaled 8 times to match PSP native resolution which is used as 1.0 for zoom
+	// Visual representation image is just icon size and have to be scaled 8 times to match PSP native resolution which is used as 1.0 for zoom
+	displayRepresentationScale_ = ScaleSettingToUI();
 
 	HighlightLabel *label = nullptr;
 	mode_ = nullptr;
 	if (g_Config.iSmallDisplayZoomType >= (int)SmallDisplayZoom::AUTO) { // Scaling
 		if (g_Config.iSmallDisplayZoomType == (int)SmallDisplayZoom::AUTO) {
-			label = new HighlightLabel(gr->T("Auto Scaling"), new AnchorLayoutParams(WRAP_CONTENT, 64.0f, local_dp_xres / 2.0f, local_dp_yres / 2.0f, NONE, NONE, true));
-			float autoBound = local_dp_yres / 270.0f;
+			label = new HighlightLabel(gr->T("Auto Scaling"), new AnchorLayoutParams(WRAP_CONTENT, 64.0f, bounds.w / 2.0f, bounds.h / 2.0f, NONE, NONE, true));
+			float autoBound = bounds.h / 270.0f;
 			// Case of screen rotated ~ only works with buffered rendering
 			if (bRotated) {
-				autoBound = local_dp_yres / 480.0f;
-			}
-			else { // Without rotation in common cases like 1080p we cut off 2 pixels of height, this reflects other cases
+				autoBound = bounds.h / 480.0f;
+			} else { // Without rotation in common cases like 1080p we cut off 2 pixels of height, this reflects other cases
 				float resCommonWidescreen = autoBound - floor(autoBound);
 				if (resCommonWidescreen != 0.0f) {
-					float ratio = local_dp_xres / local_dp_yres;
+					float ratio = bounds.w / bounds.h;
 					if (ratio < orgRatio) {
-						autoBound = local_dp_xres / 480.0f;
+						autoBound = bounds.w / 480.0f;
 					}
 					else {
-						autoBound = local_dp_yres / 272.0f;
+						autoBound = bounds.h / 272.0f;
 					}
 				}
 			}
-			g_Config.fSmallDisplayZoomLevel = autoBound;
-			displayRepresentationScale_ = g_Config.fSmallDisplayZoomLevel * 8.0f;
+			UpdateScaleSetting(autoBound);
+			displayRepresentationScale_ = ScaleSettingToUI();
 			g_Config.fSmallDisplayOffsetX = 0.5f;
 			g_Config.fSmallDisplayOffsetY = 0.5f;
 		} else { // Manual Scaling
 			Choice *center = new Choice(di->T("Center"), "", false, new AnchorLayoutParams(leftColumnWidth, WRAP_CONTENT, 10, NONE, NONE, 74));
 			center->OnClick.Handle(this, &DisplayLayoutScreen::OnCenter);
 			root_->Add(center);
-			PopupSliderChoiceFloat *zoomlvl = new PopupSliderChoiceFloat(&g_Config.fSmallDisplayZoomLevel, 1.0f, 10.0f, di->T("Zoom"), 1.0f, screenManager(), di->T("* PSP res"), new AnchorLayoutParams(leftColumnWidth, WRAP_CONTENT, 10, NONE, NONE, 10 + 64 + 64));
+			float minZoom = 1.0f;
+			if (g_dpi_scale_x > 1.0f) {
+				minZoom /= g_dpi_scale_x;
+			}
+			PopupSliderChoiceFloat *zoomlvl = new PopupSliderChoiceFloat(&g_Config.fSmallDisplayZoomLevel, minZoom, 10.0f, di->T("Zoom"), 1.0f, screenManager(), di->T("* PSP res"), new AnchorLayoutParams(leftColumnWidth, WRAP_CONTENT, 10, NONE, NONE, 10 + 64 + 64));
 			root_->Add(zoomlvl);
 			mode_ = new ChoiceStrip(ORIENT_VERTICAL, new AnchorLayoutParams(leftColumnWidth, WRAP_CONTENT, 10, NONE, NONE, 158 + 64 + 10));
 			mode_->AddChoice(di->T("Move"));
@@ -311,7 +337,7 @@ void DisplayLayoutScreen::CreateViews() {
 		displayRepresentation_ = new DragDropDisplay(g_Config.fSmallDisplayOffsetX, g_Config.fSmallDisplayOffsetY, ImageID("I_PSP_DISPLAY"), displayRepresentationScale_);
 		displayRepresentation_->SetVisibility(V_VISIBLE);
 	} else { // Stretching
-		label = new HighlightLabel(gr->T("Stretching"), new AnchorLayoutParams(WRAP_CONTENT, 64.0f, local_dp_xres / 2.0f, local_dp_yres / 2.0f, NONE, NONE, true));
+		label = new HighlightLabel(gr->T("Stretching"), new AnchorLayoutParams(WRAP_CONTENT, 64.0f, bounds.w / 2.0f, bounds.h / 2.0f, NONE, NONE, true));
 		displayRepresentation_ = new DragDropDisplay(g_Config.fSmallDisplayOffsetX, g_Config.fSmallDisplayOffsetY, ImageID("I_PSP_DISPLAY"), displayRepresentationScale_);
 		displayRepresentation_->SetVisibility(V_INVISIBLE);
 		float width = previewWidth;
