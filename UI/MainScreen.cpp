@@ -79,9 +79,9 @@ static bool IsTempPath(const std::string &str) {
 
 	const auto testPath = [&](std::string temp) {
 #ifdef _WIN32
-		temp = ReplaceAll(temp, "\\", "/");
-		if (!temp.empty() && temp[temp.size() - 1] != '/')
-			temp += "/";
+		temp = ReplaceAll(temp, "/", "\\");
+		if (!temp.empty() && temp[temp.size() - 1] != '\\')
+			temp += "\\";
 #else
 		if (!temp.empty() && temp[temp.size() - 1] != '/')
 			temp += "/";
@@ -97,7 +97,7 @@ static bool IsTempPath(const std::string &str) {
 
 #ifdef _WIN32
 	// Normalize slashes.
-	item = ReplaceAll(str, "\\", "/");
+	item = ReplaceAll(str, "/", "\\");
 
 	std::wstring tempPath(MAX_PATH, '\0');
 	size_t sz = GetTempPath((DWORD)tempPath.size(), &tempPath[0]);

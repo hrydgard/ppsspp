@@ -413,7 +413,7 @@ static void __IoAsyncNotify(u64 userdata, int cyclesLate) {
 		u64 finishTicks = __IoCompleteAsyncIO(f);
 		if (finishTicks > CoreTiming::GetTicks()) {
 			// Reschedule for later, since we now know how long it ought to take.
-			CoreTiming::ScheduleEvent((finishTicks - CoreTiming::GetTicks()), asyncNotifyEvent, userdata);
+			CoreTiming::ScheduleEvent(finishTicks - CoreTiming::GetTicks(), asyncNotifyEvent, userdata);
 			return;
 		}
 	} else {
