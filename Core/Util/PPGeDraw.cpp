@@ -266,7 +266,8 @@ void __PPGeInit() {
 	free(imageData[0]);
 
 	// We can't create it here, because Android needs it on the right thread.
-	textDrawerInited = false;
+	// Avoid creating ever on headless just to be safe.
+	textDrawerInited = PSP_CoreParameter().headLess;
 	textDrawer = nullptr;
 	textDrawerImages.clear();
 

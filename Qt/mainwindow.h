@@ -111,7 +111,10 @@ private slots:
 		g_Config.iSmallDisplayZoomType = action->data().toInt();
 		NativeMessageReceived("gpu_resized", "");
 	}
-	void transformAct() { g_Config.bHardwareTransform = !g_Config.bHardwareTransform; }
+	void transformAct() {
+		g_Config.bHardwareTransform = !g_Config.bHardwareTransform;
+		NativeMessageReceived("gpu_resized", "");
+	}
 	void vertexCacheAct() { g_Config.bVertexCache = !g_Config.bVertexCache; }
 	void frameskipAct() { g_Config.iFrameSkip = !g_Config.iFrameSkip; }
 	void frameskipTypeAct() { g_Config.iFrameSkipType = !g_Config.iFrameSkipType; }

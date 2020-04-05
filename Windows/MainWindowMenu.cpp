@@ -804,6 +804,7 @@ namespace MainWindow {
 
 		case ID_OPTIONS_HARDWARETRANSFORM:
 			g_Config.bHardwareTransform = !g_Config.bHardwareTransform;
+			NativeMessageReceived("gpu_resized", "");
 			osm.ShowOnOff(gr->T("Hardware Transform"), g_Config.bHardwareTransform);
 			break;
 
