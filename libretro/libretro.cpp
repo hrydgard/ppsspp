@@ -176,8 +176,7 @@ static RetroOption<int> ppsspp_button_preference("ppsspp_button_preference", "Co
 static RetroOption<bool> ppsspp_fast_memory("ppsspp_fast_memory", "Fast Memory (Speedhack)", true);
 static RetroOption<bool> ppsspp_block_transfer_gpu("ppsspp_block_transfer_gpu", "Block Transfer GPU", true);
 static RetroOption<int> ppsspp_texture_scaling_level("ppsspp_texture_scaling_level", "Texture Scaling Level", { { "1", 1 }, { "2", 2 }, { "3", 3 }, { "4", 4 }, { "5", 5 }, { "0", 0 } });
-static RetroOption<int> ppsspp_texture_scaling_type("ppsspp_texture_scaling_type", "Texture Scaling Type", { { "xbrz", TextureScalerCommon::XBRZ }, { "hybrid", TextureScalerCommon::HYBRID }, { "bicubic", TextureScalerCommon::BICUBIC }, { "hybrid_bicubic", TextureScalerCommon::HYBRID_BICUBIC }, { "4xBRZ", TextureScalerCommon::_4XBRZ }, { "XBR", TextureScalerCommon::XBR }, { "SABR", TextureScalerCommon::SABR }, { "gaussian", TextureScalerCommon::GAUSSIAN }, { "cosine", TextureScalerCommon::COSINE } });
-static RetroOption<bool> ppsspp_texture_scaling_realtime("ppsspp_texture_scaling_realtime", "Realtime Texture Scaling", false);
+static RetroOption<int> ppsspp_texture_scaling_type("ppsspp_texture_scaling_type", "Texture Scaling Type", { { "xbrz", TextureScalerCommon::XBRZ }, { "hybrid", TextureScalerCommon::HYBRID }, { "bicubic", TextureScalerCommon::BICUBIC }, { "hybrid_bicubic", TextureScalerCommon::HYBRID_BICUBIC } });
 static RetroOption<int> ppsspp_texture_filtering("ppsspp_texture_filtering", "Texture Filtering", { { "auto", 1 }, { "nearest", 2 }, { "linear", 3 }, { "linear(FMV)", 4 } });
 static RetroOption<int> ppsspp_texture_anisotropic_filtering("ppsspp_texture_anisotropic_filtering", "Anisotropic Filtering", { "off", "1x", "2x", "4x", "8x", "16x" });
 static RetroOption<bool> ppsspp_texture_deposterize("ppsspp_texture_deposterize", "Texture Deposterize", false);
@@ -207,7 +206,6 @@ void retro_set_environment(retro_environment_t cb) {
 	vars.push_back(ppsspp_texture_filtering.GetOptions());
 	vars.push_back(ppsspp_texture_anisotropic_filtering.GetOptions());
 	vars.push_back(ppsspp_texture_deposterize.GetOptions());
-	vars.push_back(ppsspp_texture_scaling_realtime.GetOptions());
 	vars.push_back(ppsspp_texture_replacement.GetOptions());
 	vars.push_back(ppsspp_gpu_hardware_transform.GetOptions());
 	vars.push_back(ppsspp_vertex_cache.GetOptions());
@@ -297,13 +295,12 @@ static void check_variables(CoreParameter &coreParam) {
 		}
 	}
 
-	bool clear_cache = ppsspp_texture_scaling_type.Update(&g_Config.iTexScalingType);
-	clear_cache |= ppsspp_texture_scaling_level.Update(&g_Config.iTexScalingLevel);
-	clear_cache |= ppsspp_texture_scaling_realtime.Update(&g_Config.bRealtimeTexScaling);
-	if (clear_cache && gpu) {
+	if (ppsspp_texture_scaling_type.Update(&g_Config.iTexScalingType) && gpu) {
 		gpu->ClearCacheNextFrame();
-		gpu->ClearShaderCache();
-		gpu->Resized();
+	}
+
+	if (ppsspp_texture_scaling_level.Update(&g_Config.iTexScalingLevel) && gpu) {
+		gpu->ClearCacheNextFrame();
 	}
 }
 

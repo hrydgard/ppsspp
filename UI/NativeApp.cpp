@@ -1119,12 +1119,6 @@ void HandleGlobalMessage(const std::string &msg, const std::string &value) {
 		}
 		Reporting::UpdateConfig();
 	}
-	if (msg == "gpu_clearShaderCache") {
-		if (gpu) {
-			gpu->ClearShaderCache();
-		}
-		Reporting::UpdateConfig();
-	}
 	if (msg == "core_powerSaving") {
 		if (value != "false") {
 			auto sy = GetI18NCategory("System");

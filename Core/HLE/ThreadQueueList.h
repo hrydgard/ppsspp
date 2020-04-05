@@ -82,7 +82,7 @@ struct ThreadQueueList {
 			cur = cur->next;
 		}
 
-		//_dbg_assert_msg_(SCEKERNEL, false, "ThreadQueueList should not be empty.");
+		_dbg_assert_msg_(SCEKERNEL, false, "ThreadQueueList should not be empty.");
 		return 0;
 	}
 

@@ -26,7 +26,6 @@
 #include "math/lin/matrix4x4.h"
 #include "math/math_util.h"
 #include "math/dataconv.h"
-#include "file/vfs.h"
 #include "thin3d/thin3d.h"
 #include "util/text/utf8.h"
 #include "Common/Common.h"
@@ -91,13 +90,13 @@ std::string D3D11VertexShader::GetShaderString(DebugShaderStringType type) const
 }
 
 ShaderManagerD3D11::ShaderManagerD3D11(Draw::DrawContext *draw, ID3D11Device *device, ID3D11DeviceContext *context, D3D_FEATURE_LEVEL featureLevel)
-	: ShaderManagerCommon(draw), device_(device), context_(context), featureLevel_(featureLevel), lastVShader_(nullptr), lastFShader_(nullptr), scalerCode_(nullptr) {
-	codeBuffer_ = new char[16384 * 2];
+	: ShaderManagerCommon(draw), device_(device), context_(context), featureLevel_(featureLevel), lastVShader_(nullptr), lastFShader_(nullptr) {
+	codeBuffer_ = new char[16384];
 	memset(&ub_base, 0, sizeof(ub_base));
 	memset(&ub_lights, 0, sizeof(ub_lights));
 	memset(&ub_bones, 0, sizeof(ub_bones));
 
-	static_assert(sizeof(ub_base) <= 512 + 16, "ub_base grew too big");
+	static_assert(sizeof(ub_base) <= 512, "ub_base grew too big");
 	static_assert(sizeof(ub_lights) <= 512, "ub_lights grew too big");
 	static_assert(sizeof(ub_bones) <= 384, "ub_bones grew too big");
 
@@ -105,7 +104,6 @@ ShaderManagerD3D11::ShaderManagerD3D11(Draw::DrawContext *draw, ID3D11Device *de
 	ASSERT_SUCCESS(device_->CreateBuffer(&desc, nullptr, &push_base));
 	desc.ByteWidth = sizeof(ub_lights);
 	ASSERT_SUCCESS(device_->CreateBuffer(&desc, nullptr, &push_lights));
-	needScalerCode = g_Config.bRealtimeTexScaling && g_Config.iTexScalingLevel != 1;
 	desc.ByteWidth = sizeof(ub_bones);
 	ASSERT_SUCCESS(device_->CreateBuffer(&desc, nullptr, &push_bones));
 }
@@ -136,9 +134,6 @@ void ShaderManagerD3D11::ClearShaders() {
 	Clear();
 	DirtyLastShader();
 	gstate_c.Dirty(DIRTY_ALL_UNIFORMS);
-	free(scalerCode_);
-	scalerCode_ = nullptr;
-	needScalerCode = g_Config.bRealtimeTexScaling && g_Config.iTexScalingLevel != 1;
 }
 
 void ShaderManagerD3D11::DirtyLastShader() {
@@ -225,29 +220,7 @@ void ShaderManagerD3D11::GetShaders(int prim, u32 vertType, D3D11VertexShader **
 	D3D11FragmentShader *fs;
 	if (fsIter == fsCache_.end()) {
 		// Fragment shader not in cache. Let's compile it.
-		if(needScalerCode && !scalerCode_) {
-			static const char* filenames[] = {
-				"scalers/xbrz.hlsl",
-				"scalers/hybrid.hlsl",
-				"scalers/bicubic.hlsl",
-				"scalers/hybrid_bicubic.hlsl",
-				"scalers/4xbrz.hlsl",
-				"scalers/xbr.hlsl",
-				"scalers/sabr.hlsl",
-				"scalers/gaussian.hlsl",
-				"scalers/cosine.hlsl",
-			};
-			if ((g_Config.iTexScalingType < 0) || (g_Config.iTexScalingType >= sizeof(filenames) / sizeof(*filenames))) {
-				ERROR_LOG(G3D, "Unknown scaling type: %i", g_Config.iTexScalingType);
-			} else {
-				size_t sz;
-				scalerCode_ = (char *)VFSReadFile(filenames[g_Config.iTexScalingType], &sz);
-				if(!scalerCode_)
-					ERROR_LOG(G3D, "Scaler not found: %s", filenames[g_Config.iTexScalingType]);
-			}
-			needScalerCode = false;
-		}
-		GenerateFragmentShaderD3D11(FSID, codeBuffer_, scalerCode_, featureLevel_ <= D3D_FEATURE_LEVEL_9_3 ? HLSL_D3D11_LEVEL9 : HLSL_D3D11);
+		GenerateFragmentShaderD3D11(FSID, codeBuffer_, featureLevel_ <= D3D_FEATURE_LEVEL_9_3 ? HLSL_D3D11_LEVEL9 : HLSL_D3D11);
 		fs = new D3D11FragmentShader(device_, featureLevel_, FSID, codeBuffer_, useHWTransform);
 		fsCache_[FSID] = fs;
 	} else {

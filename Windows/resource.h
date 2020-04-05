@@ -343,49 +343,42 @@
 #define ID_OPTIONS_WINDOW9X              40175
 #define ID_OPTIONS_WINDOW10X             40176
 #define ID_EMULATION_PAUSE               40177
-#define ID_TEXTURESCALING_REALTIME       40178
-#define ID_TEXTURESCALING_REALTIME_HC    40179
-#define ID_TEXTURESCALING_4XBRZ          40180
-#define ID_TEXTURESCALING_XBR            40181
-#define ID_TEXTURESCALING_SABR           40182
-#define ID_TEXTURESCALING_GAUSSIAN       40183
-#define ID_TEXTURESCALING_COSINE         40184
-#define IDC_GEDBG_STEPCURVE              40185
-#define ID_OPTIONS_FRAMESKIPTYPE_COUNT   40186
-#define ID_OPTIONS_FRAMESKIPTYPE_PRCNT   40187
-#define ID_FILE_MENU                     40188
-#define ID_EMULATION_MENU                40189
-#define ID_DEBUG_MENU                    40190
-#define ID_OPTIONS_MENU                  40191
-#define ID_HELP_MENU                     40192
-#define ID_SIMPLEUI_MENU                 40193
-#define ID_GEDBG_REPLACEMENT_FILENAME    40194
-#define ID_SIMPLEUI_TOGGLE               40195
-#define ID_SIMPLEUI_HIDE                 40196
-#define ID_FILE_SAVESTATE_SLOT_MENU      40197
-#define ID_FILE_RECORD_MENU              40198
-#define ID_EMULATION_ROTATION_MENU       40199
-#define ID_OPTIONS_SCREEN_MENU           40200
-#define ID_OPTIONS_WINDOW_MENU           40201
-#define ID_OPTIONS_BACKEND_MENU          40202
-#define ID_OPTIONS_RENDERMODE_MENU       40203
-#define ID_OPTIONS_FRAMESKIP_MENU        40204
-#define ID_OPTIONS_FRAMESKIPTYPE_MENU    40205
-#define ID_OPTIONS_TEXTUREFILTERING_MENU 40206
-#define ID_OPTIONS_SCREENFILTER_MENU     40207
-#define ID_OPTIONS_TEXTURESCALING_MENU   40208
-#define IDC_GEDBG_STEPCOUNT              40209
-#define IDC_GEDBG_STEPCOUNT_DEC          40210
-#define IDC_GEDBG_STEPCOUNT_INC          40211
-#define IDC_GEDBG_STEPCOUNT_JUMP         40212
-#define IDC_GEDBG_STEPCOUNT_COMBO        40213
-#define ID_FILE_DUMP_VIDEO_OUTPUT        40214
-#define ID_EMULATION_CHAT                40215
+#define ID_GEDBG_REPLACEMENT_FILENAME    40178
+#define IDC_GEDBG_STEPCURVE              40179
+#define ID_OPTIONS_FRAMESKIPTYPE_COUNT   40180
+#define ID_OPTIONS_FRAMESKIPTYPE_PRCNT   40181
+#define ID_FILE_MENU                     40182
+#define ID_EMULATION_MENU                40183
+#define ID_DEBUG_MENU                    40184
+#define ID_OPTIONS_MENU                  40185
+#define ID_HELP_MENU                     40186
+#define ID_FILE_SAVESTATE_SLOT_MENU      40187
+#define ID_FILE_RECORD_MENU              40188
+#define ID_EMULATION_ROTATION_MENU       40189
+#define ID_OPTIONS_SCREEN_MENU           40190
+#define ID_OPTIONS_WINDOW_MENU           40191
+#define ID_OPTIONS_BACKEND_MENU          40192
+#define ID_OPTIONS_RENDERMODE_MENU       40193
+#define ID_OPTIONS_FRAMESKIP_MENU        40194
+#define ID_OPTIONS_FRAMESKIPTYPE_MENU    40195
+#define ID_OPTIONS_TEXTUREFILTERING_MENU 40196
+#define ID_OPTIONS_SCREENFILTER_MENU     40197
+#define ID_OPTIONS_TEXTURESCALING_MENU   40198
+#define IDC_GEDBG_STEPCOUNT              40199
+#define IDC_GEDBG_STEPCOUNT_DEC          40200
+#define IDC_GEDBG_STEPCOUNT_INC          40201
+#define IDC_GEDBG_STEPCOUNT_JUMP         40202
+#define IDC_GEDBG_STEPCOUNT_COMBO        40203
+#define ID_FILE_DUMP_VIDEO_OUTPUT        40204
+#define ID_EMULATION_CHAT                40205
 
 // Dummy option to let the buffered rendering hotkey cycle through all the options.
 #define ID_OPTIONS_BUFFEREDRENDERINGDUMMY 40500
-#define ID_TEXTURESCALING_6X              40400
 #define IDC_STEPOUT                       40501
+#define ID_TEXTURESCALING_6X              40502
+#define ID_SIMPLEUI_MENU                  40503
+#define ID_SIMPLEUI_TOGGLE                40504
+#define ID_SIMPLEUI_HIDE                  40505
 
 #define IDC_STATIC                      -1
 
@@ -393,7 +386,7 @@
 #ifdef APSTUDIO_INVOKED
 #ifndef APSTUDIO_READONLY_SYMBOLS
 #define _APS_NEXT_RESOURCE_VALUE        256
-#define _APS_NEXT_COMMAND_VALUE         40216
+#define _APS_NEXT_COMMAND_VALUE         40206
 #define _APS_NEXT_CONTROL_VALUE         1202
 #define _APS_NEXT_SYMED_VALUE           101
 #endif

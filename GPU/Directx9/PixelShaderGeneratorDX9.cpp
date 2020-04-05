@@ -23,7 +23,6 @@
 #include "GPU/Directx9/PixelShaderGeneratorDX9.h"
 #include "GPU/ge_constants.h"
 #include "GPU/Common/GPUStateUtils.h"
-#include "GPU/Common/TextureScalerCommon.h"
 #include "GPU/GPUState.h"
 #include "GPU/Common/ShaderUniforms.h"
 
@@ -35,7 +34,7 @@ namespace DX9 {
 
 // Missing: Z depth range
 // Also, logic ops etc, of course, as they are not supported in DX9.
-bool GenerateFragmentShaderHLSL(const FShaderID &id, char *buffer, char* scalerCode, ShaderLanguage lang) {
+bool GenerateFragmentShaderHLSL(const FShaderID &id, char *buffer, ShaderLanguage lang) {
 	char *p = buffer;
 
 	bool lmode = id.Bit(FS_BIT_LMODE);
@@ -71,10 +70,8 @@ bool GenerateFragmentShaderHLSL(const FShaderID &id, char *buffer, char* scalerC
 	StencilValueType replaceAlphaWithStencilType = (StencilValueType)id.Bits(FS_BIT_REPLACE_ALPHA_WITH_STENCIL_TYPE, 4);
 
 	if (lang == HLSL_DX9) {
-		if (doTexture) {
+		if (doTexture)
 			WRITE(p, "sampler tex : register(s0);\n");
-			WRITE(p, "float4 u_texSize : register(c%i);\n", CONST_PS_TEXSIZE);
-		}
 		if (!isModeClear && replaceBlend > REPLACE_BLEND_STANDARD) {
 			if (replaceBlend == REPLACE_BLEND_COPY_FBO) {
 				WRITE(p, "float2 u_fbotexSize : register(c%i);\n", CONST_PS_FBOTEXSIZE);
@@ -152,26 +149,6 @@ bool GenerateFragmentShaderHLSL(const FShaderID &id, char *buffer, char* scalerC
 	}
 	WRITE(p, "};\n");
 
-	if (!isModeClear && doTexture) {
-		if (doTextureAlpha) {
-			WRITE(p, "#define BLEND_ALPHA\n");
-		}
-
-		WRITE(p, "float4 tex_sample_direct(float2 coord) {\n");
-		if (lang == HLSL_D3D11 || lang == HLSL_D3D11_LEVEL9) {
-				WRITE(p, "  return tex.Sample(samp, coord)%s;\n", bgraTexture ? ".bgra" : "");
-		} else {
-				WRITE(p, "  return tex2D(tex, coord)%s;\n", bgraTexture ? ".bgra" : "");
-		}
-		WRITE(p, "};\n");
-
-		if (scalerCode && !gstate_c.curTextureIsRT) {
-			WRITE(p, scalerCode);
-		} else {
-			WRITE(p, "#define tex_sample(x) tex_sample_direct(x)\n");
-		}
-	}
-
 	if (lang == HLSL_DX9) {
 		WRITE(p, "float4 main( PS_IN In ) : COLOR {\n");
 	} else {
@@ -205,10 +182,7 @@ bool GenerateFragmentShaderHLSL(const FShaderID &id, char *buffer, char* scalerC
 		}
 
 		if (doTexture) {
-			const char *texcoord = "In.v_texcoord.xy";
-			if (doTextureProjection) {
-				texcoord = "In.v_texcoord.xy / In.v_texcoord.z";
-			}
+			const char *texcoord = "In.v_texcoord";
 			// TODO: Not sure the right way to do this for projection.
 			if (needShaderTexClamp) {
 				// We may be clamping inside a larger surface (tex = 64x64, buffer=480x272).
@@ -238,9 +212,23 @@ bool GenerateFragmentShaderHLSL(const FShaderID &id, char *buffer, char* scalerC
 
 				WRITE(p, "  float2 fixedcoord = float2(%s, %s);\n", ucoord.c_str(), vcoord.c_str());
 				texcoord = "fixedcoord";
+				// We already projected it.
+				doTextureProjection = false;
 			}
 
-			WRITE(p, "  float4 t = tex_sample(%s);\n", texcoord);
+			if (lang == HLSL_D3D11 || lang == HLSL_D3D11_LEVEL9) {
+				if (doTextureProjection) {
+					WRITE(p, "  float4 t = tex.Sample(samp, In.v_texcoord.xy / In.v_texcoord.z)%s;\n", bgraTexture ? ".bgra" : "");
+				} else {
+					WRITE(p, "  float4 t = tex.Sample(samp, %s.xy)%s;\n", texcoord, bgraTexture ? ".bgra" : "");
+				}
+			} else {
+				if (doTextureProjection) {
+					WRITE(p, "  float4 t = tex2Dproj(tex, float4(In.v_texcoord.x, In.v_texcoord.y, 0, In.v_texcoord.z))%s;\n", bgraTexture ? ".bgra" : "");
+				} else {
+					WRITE(p, "  float4 t = tex2D(tex, %s.xy)%s;\n", texcoord, bgraTexture ? ".bgra" : "");
+				}
+			}
 			WRITE(p, "  float4 p = In.v_color0;\n");
 
 			if (doTextureAlpha) { // texfmt == RGBA

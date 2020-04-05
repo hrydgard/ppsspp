@@ -1938,7 +1938,6 @@ set(NativeAssets
 	android/assets/ui_atlas_luna.meta
 	assets/lang
 	assets/shaders
-	assets/scalers
 	assets/Roboto-Condensed.ttf
 	assets/7z.png
 	assets/compat.ini

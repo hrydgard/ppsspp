@@ -34,29 +34,32 @@
 alignas(16) static s16 volumeValues[4] = {};
 
 void AdjustVolumeBlockNEON(s16 *out, s16 *in, size_t size, int leftVol, int rightVol) {
-	volumeValues[0] = leftVol >> 1;
-	volumeValues[1] = rightVol >> 1;
-	volumeValues[2] = leftVol >> 1;
-	volumeValues[3] = rightVol >> 1;
+	if (leftVol <= 0xFFFF && -leftVol <= 0x10000 && rightVol <= 0xFFFF && -rightVol <= 0x10000) {
+		// Note: vqshrn_n_s32 takes a const argument, so we always go with 1 here, 15 there.
+		volumeValues[0] = leftVol >> 1;
+		volumeValues[1] = rightVol >> 1;
+		volumeValues[2] = leftVol >> 1;
+		volumeValues[3] = rightVol >> 1;
 
-	const int16x4_t vol = vld1_s16(volumeValues);
+		const int16x4_t vol = vld1_s16(volumeValues);
 
-	while (size >= 16) {
-		int16x8_t indata1 = vld1q_s16(in);
-		int16x8_t indata2 = vld1q_s16(in + 8);
+		while (size >= 16) {
+			int16x8_t indata1 = vld1q_s16(in);
+			int16x8_t indata2 = vld1q_s16(in + 8);
 
-		int32x4_t outh1 = vmull_s16(vget_high_s16(indata1), vol);
-		int32x4_t outh2 = vmull_s16(vget_high_s16(indata2), vol);
-		int32x4_t outl1 = vmull_s16(vget_low_s16(indata1), vol);
-		int32x4_t outl2 = vmull_s16(vget_low_s16(indata2), vol);
+			int32x4_t outh1 = vmull_s16(vget_high_s16(indata1), vol);
+			int32x4_t outh2 = vmull_s16(vget_high_s16(indata2), vol);
+			int32x4_t outl1 = vmull_s16(vget_low_s16(indata1), vol);
+			int32x4_t outl2 = vmull_s16(vget_low_s16(indata2), vol);
 
-		int16x8_t outdata1 = vcombine_s16(vqshrn_n_s32(outl1, 15), vqshrn_n_s32(outh1, 15));
-		int16x8_t outdata2 = vcombine_s16(vqshrn_n_s32(outl2, 15), vqshrn_n_s32(outh2, 15));
-		vst1q_s16(out, outdata1);
-		vst1q_s16(out + 8, outdata2);
-		in += 16;
-		out += 16;
-		size -= 16;
+			int16x8_t outdata1 = vcombine_s16(vqshrn_n_s32(outl1, 15), vqshrn_n_s32(outh1, 15));
+			int16x8_t outdata2 = vcombine_s16(vqshrn_n_s32(outl2, 15), vqshrn_n_s32(outh2, 15));
+			vst1q_s16(out, outdata1);
+			vst1q_s16(out + 8, outdata2);
+			in += 16;
+			out += 16;
+			size -= 16;
+		}
 	}
 
 	if (leftVol <= 0x7fff && -leftVol <= 0x8000 && rightVol <= 0x7fff && -rightVol <= 0x8000) {

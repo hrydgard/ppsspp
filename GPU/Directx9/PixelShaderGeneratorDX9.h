@@ -22,7 +22,7 @@
 
 namespace DX9 {
 
-bool GenerateFragmentShaderHLSL(const FShaderID &id, char *buffer, char *scalerCode = nullptr, ShaderLanguage lang = HLSL_DX9);
+bool GenerateFragmentShaderHLSL(const FShaderID &id, char *buffer, ShaderLanguage lang = HLSL_DX9);
 
 #define CONST_PS_TEXENV 0
 #define CONST_PS_ALPHACOLORREF 1
@@ -38,6 +38,4 @@ bool GenerateFragmentShaderHLSL(const FShaderID &id, char *buffer, char *scalerC
 // For stencil upload
 #define CONST_PS_STENCILVALUE 10
 
-// For scaling filters
-#define CONST_PS_TEXSIZE 11
 };

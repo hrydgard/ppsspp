@@ -92,11 +92,10 @@ enum : uint64_t {
 	DIRTY_BEZIERSPLINE = 1ULL << 32,
 	DIRTY_TEXCLAMP = 1ULL << 33,
 	DIRTY_CULLRANGE = 1ULL << 34,
-	DIRTY_TEXSIZE = 1ULL << 35,
 
-	DIRTY_DEPAL = 1ULL << 36,
+	DIRTY_DEPAL = 1ULL << 35,
 
-	// space for 4 more uniform dirty flags. Remember to update DIRTY_ALL_UNIFORMS.
+	// space for 5 more uniform dirty flags. Remember to update DIRTY_ALL_UNIFORMS.
 
 	DIRTY_BONE_UNIFORMS = 0xFF000000ULL,
 

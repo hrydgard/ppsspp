@@ -506,7 +506,6 @@ static ConfigSetting cpuSettings[] = {
 	ConfigSetting("VulkanMultithreading", &g_Config.bVulkanMultithreading, false, true, true),
 	ReportedConfigSetting("SeparateSASThread", &g_Config.bSeparateSASThread, &DefaultSasThread, true, true),
 	ReportedConfigSetting("IOTimingMethod", &g_Config.iIOTimingMethod, IOTIMING_REALISTIC, true, true),
-	ConfigSetting("IOManualDelay", &g_Config.iIOManualDelay, 1, true, true),
 	ConfigSetting("FastMemoryAccess", &g_Config.bFastMemory, false, true, true),
 	ReportedConfigSetting("FuncReplacements", &g_Config.bFuncReplacements, true, true, true),
 	ConfigSetting("HideSlowWarnings", &g_Config.bHideSlowWarnings, true, true, false),
@@ -599,12 +598,12 @@ int Config::NextValidBackend() {
 	}
 
 	// Count these as "failed" too so we don't pick them.
-	/*SplitString(sDisabledGPUBackends, ',', split);
+	SplitString(sDisabledGPUBackends, ',', split);
 	for (const auto &str : split) {
 		if (!str.empty()) {
 			failed.insert(GPUBackendFromString(str));
 		}
-	}*/
+	}
 
 	if (failed.count((GPUBackend)iGPUBackend)) {
 		ERROR_LOG(LOADER, "Graphics backend failed for %d, trying another", iGPUBackend);
@@ -646,17 +645,14 @@ int Config::NextValidBackend() {
 bool Config::IsBackendEnabled(GPUBackend backend, bool validate) {
 	std::vector<std::string> split;
 
-	// Disabled due to some xstring std::basic_string exception affecting only d3d11 in this branch.
-	// No idea why, maybe cause realtime texture scaling as that's the primary difference with d3d11,
-	// however just adding any new std::string to config seems to be enough to cause the failure
-	/*SplitString(sDisabledGPUBackends, ',', split);
+	SplitString(sDisabledGPUBackends, ',', split);
 	for (const auto &str : split) {
 		if (str.empty())
 			continue;
 		auto match = GPUBackendFromString(str);
 		if (match == backend)
 			return false;
-	}*/
+	}
 
 #if PPSSPP_PLATFORM(IOS)
 	if (backend != GPUBackend::OPENGL)
@@ -717,7 +713,7 @@ static ConfigSetting graphicsSettings[] = {
 	ConfigSetting("ShowFPSCounter", &g_Config.iShowFPSCounter, 0, true, true),
 	ReportedConfigSetting("GraphicsBackend", &g_Config.iGPUBackend, &DefaultGPUBackend, &GPUBackendTranslator::To, &GPUBackendTranslator::From, true, false),
 	ConfigSetting("FailedGraphicsBackends", &g_Config.sFailedGPUBackends, ""),
-	//ConfigSetting("DisabledGraphicsBackends", &g_Config.sDisabledGPUBackends, ""),
+	ConfigSetting("DisabledGraphicsBackends", &g_Config.sDisabledGPUBackends, ""),
 	ConfigSetting("VulkanDevice", &g_Config.sVulkanDevice, "", true, false),
 #ifdef _WIN32
 	ConfigSetting("D3D11Device", &g_Config.sD3D11Device, "", true, false),
@@ -771,7 +767,6 @@ static ConfigSetting graphicsSettings[] = {
 	ReportedConfigSetting("TexScalingLevel", &g_Config.iTexScalingLevel, 1, true, true),
 	ReportedConfigSetting("TexScalingType", &g_Config.iTexScalingType, 0, true, true),
 	ReportedConfigSetting("TexDeposterize", &g_Config.bTexDeposterize, false, true, true),
-	ReportedConfigSetting("TexRealtime", &g_Config.bRealtimeTexScaling, false, true, true),
 	ReportedConfigSetting("TexHardwareScaling", &g_Config.bTexHardwareScaling, false, true, true),
 	ConfigSetting("UnlockCachedScaling", &g_Config.bUnlockCachedScaling, false, true, true),
 	ConfigSetting("VSyncInterval", &g_Config.bVSync, true, true, true),

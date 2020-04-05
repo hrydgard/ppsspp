@@ -92,14 +92,10 @@ bool CheckSupportShaderTessellationGLES() {
 	int maxVertexTextureImageUnits = gl_extensions.maxVertexTextureUnits;
 	bool vertexTexture = maxVertexTextureImageUnits >= 3; // At least 3 for hardware tessellation
 
-	bool canUseInstanceID = gl_extensions.EXT_draw_instanced || gl_extensions.ARB_draw_instanced;
-	bool canDefInstanceID = gl_extensions.IsGLES || gl_extensions.EXT_gpu_shader4 || gl_extensions.VersionGEThan(3, 1);
-	bool instanceRendering = gl_extensions.GLES3 || (canUseInstanceID && canDefInstanceID);
-
 	bool textureFloat = gl_extensions.ARB_texture_float || gl_extensions.OES_texture_float;
 	bool hasTexelFetch = gl_extensions.GLES3 || (!gl_extensions.IsGLES && gl_extensions.VersionGEThan(3, 3, 0)) || gl_extensions.EXT_gpu_shader4;
 
-	return instanceRendering && vertexTexture && textureFloat && hasTexelFetch;
+	return vertexTexture && textureFloat && hasTexelFetch;
 #endif
 }
 
@@ -451,18 +447,16 @@ void GameSettingsScreen::CreateViews() {
 		}
 		return UI::EVENT_CONTINUE;
 	});
-	texScalingChoice->SetDisabledPtr(&g_Config.bSoftwareRendering);
-	if (g_Config.iGPUBackend == (int)GPUBackend::VULKAN) {
-		texScalingChoice->SetDisabledPtr(&g_Config.bTexHardwareScaling);
-	}
+	texScalingChoice->SetEnabledFunc([] {
+		return !g_Config.bSoftwareRendering && (!g_Config.iGPUBackend == (int)GPUBackend::VULKAN || !g_Config.bTexHardwareScaling);
+	});
 
 	if (!g_Config.bSimpleUI) {
-	static const char *texScaleAlgos[] = { "xBRZ", "Hybrid", "Bicubic", "Hybrid + Bicubic", "4xBRZ (Realtime Scaling)", "xBR (Realtime Scaling)", "SABR (Realtime Scaling)", "Gaussian (Realtime Scaling)", "Cosine (Realtime Scaling)" };
+	static const char *texScaleAlgos[] = { "xBRZ", "Hybrid", "Bicubic", "Hybrid + Bicubic" };
 	PopupMultiChoice *texScalingType = graphicsSettings->Add(new PopupMultiChoice(&g_Config.iTexScalingType, gr->T("Upscale Type"), texScaleAlgos, 0, ARRAY_SIZE(texScaleAlgos), gr->GetName(), screenManager()));
-	texScalingType->SetDisabledPtr(&g_Config.bSoftwareRendering);
-	if (g_Config.iGPUBackend == (int)GPUBackend::VULKAN) {
-		texScalingType->SetDisabledPtr(&g_Config.bTexHardwareScaling);
-	}
+	texScalingType->SetEnabledFunc([] {
+		return !g_Config.bSoftwareRendering && (!g_Config.iGPUBackend == (int)GPUBackend::VULKAN || !g_Config.bTexHardwareScaling);
+	});
 
 	CheckBox *deposterize = graphicsSettings->Add(new CheckBox(&g_Config.bTexDeposterize, gr->T("Deposterize")));
 	deposterize->OnClick.Add([=](EventParams &e) {
@@ -473,19 +467,6 @@ void GameSettingsScreen::CreateViews() {
 	});
 	deposterize->SetDisabledPtr(&g_Config.bSoftwareRendering);
 
-	if (g_Config.iGPUBackend == (int)GPUBackend::DIRECT3D11) {
-		CheckBox *realtimeScaling = graphicsSettings->Add(new CheckBox(&g_Config.bRealtimeTexScaling, gr->T("Realtime Scaling")));
-		realtimeScaling->OnClick.Add([=](EventParams &e) {
-			if (g_Config.bRealtimeTexScaling == true) {
-				settingInfo_->Show(gr->T("Realtime Scaling Tip", "GPU heavy - apply texture scaling filters with shaders during rendering"), e.v);
-			}
-			return UI::EVENT_CONTINUE;
-		});
-		realtimeScaling->SetDisabledPtr(&g_Config.bSoftwareRendering);
-	} else {
-		Choice *realtimeScaling = graphicsSettings->Add(new Choice(gr->T("Realtime Scaling requires D3D11 backend!")));
-		realtimeScaling->SetEnabled(false);
-	}
 	if (g_Config.iGPUBackend == (int)GPUBackend::VULKAN) {
 		CheckBox* hardware4xBRZScaling = graphicsSettings->Add(new CheckBox(&g_Config.bTexHardwareScaling, gr->T("Hardware 4xBRZ Scaling(experimental)")));
 		hardware4xBRZScaling->OnClick.Add([=](EventParams& e) {
@@ -493,11 +474,15 @@ void GameSettingsScreen::CreateViews() {
 				settingInfo_->Show(gr->T("Hardware 4xBRZ Scaling Tip", "Apply 4xBRZ texture scaling filter with compute shader"), e.v);
 			}
 			return UI::EVENT_CONTINUE;
-			});
-		hardware4xBRZScaling->SetDisabledPtr(&g_Config.bSoftwareRendering);
+		});
+		hardware4xBRZScaling->SetEnabledFunc([] {
+			return !g_Config.bSoftwareRendering;
+		});
 	} else {
 		Choice* hardware4xBRZScaling = graphicsSettings->Add(new Choice(gr->T("Hardware 4xBRZ Scaling(experimental) requires Vulkan backend!")));
-		hardware4xBRZScaling->SetEnabled(false);
+		hardware4xBRZScaling->SetEnabledFunc([] {
+			return false;
+		});
 	}
 	graphicsSettings->Add(new ItemHeader(gr->T("Texture Filtering")));
 	static const char *anisoLevels[] = { "Off", "2x", "4x", "8x", "16x" };
@@ -1251,7 +1236,6 @@ void GameSettingsScreen::onFinish(DialogResult result) {
 	// Wipe some caches after potentially changing settings.
 	NativeMessageReceived("gpu_resized", "");
 	NativeMessageReceived("gpu_clearCache", "");
-	NativeMessageReceived("gpu_clearShaderCache", "");
 }
 
 #if PPSSPP_PLATFORM(ANDROID)

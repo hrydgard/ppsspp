@@ -11,7 +11,7 @@ enum : uint64_t {
 	DIRTY_WORLDMATRIX | DIRTY_PROJTHROUGHMATRIX | DIRTY_VIEWMATRIX | DIRTY_TEXMATRIX | DIRTY_ALPHACOLORREF |
 	DIRTY_PROJMATRIX | DIRTY_FOGCOLOR | DIRTY_FOGCOEF | DIRTY_TEXENV | DIRTY_STENCILREPLACEVALUE |
 	DIRTY_ALPHACOLORMASK | DIRTY_SHADERBLEND | DIRTY_UVSCALEOFFSET | DIRTY_TEXCLAMP | DIRTY_DEPTHRANGE | DIRTY_MATAMBIENTALPHA |
-	DIRTY_BEZIERSPLINE | DIRTY_TEXSIZE | DIRTY_DEPAL,
+	DIRTY_BEZIERSPLINE | DIRTY_DEPAL,
 	DIRTY_LIGHT_UNIFORMS =
 	DIRTY_LIGHT0 | DIRTY_LIGHT1 | DIRTY_LIGHT2 | DIRTY_LIGHT3 |
 	DIRTY_MATDIFFUSE | DIRTY_MATSPECULAR | DIRTY_MATEMISSIVE | DIRTY_AMBIENT,
@@ -43,7 +43,6 @@ struct UB_VS_FS_Base {
 	float blendFixB[4];
 	float texClamp[4];
 	float texClampOffset[4];
-	float texSize[4];
 };
 
 static const char *ub_baseStr =
@@ -71,7 +70,6 @@ R"(  mat4 proj_mtx;
   vec3 blendFixB;
   vec4 texclamp;
   vec2 texclampoff;
-  vec4 texsize;
 )";
 
 // HLSL code is shared so these names are changed to match those in DX9.
@@ -100,7 +98,6 @@ R"(  float4x4 u_proj;
   float3 u_blendFixB;
   float4 u_texclamp;
   float2 u_texclampoff;
-  float4 u_texSize;
 )";
 
 // 512 bytes. Would like to shrink more. Some colors only have 8-bit precision and we expand

@@ -141,7 +141,7 @@ public:
 	// GFX
 	int iGPUBackend;
 	std::string sFailedGPUBackends;
-	//std::string sDisabledGPUBackends;
+	std::string sDisabledGPUBackends;
 	// We have separate device parameters for each backend so it doesn't get erased if you switch backends.
 	// If not set, will use the "best" device.
 	std::string sVulkanDevice;
@@ -193,7 +193,6 @@ public:
 	bool bIgnoreTextureFilenames;
 	int iTexScalingLevel; // 0 = auto, 1 = off, 2 = 2x, ..., 5 = 5x
 	int iTexScalingType; // 0 = xBRZ, 1 = Hybrid
-	bool bRealtimeTexScaling;
 	bool bTexDeposterize;
 	bool bUnlockCachedScaling;
 	bool bTexHardwareScaling;

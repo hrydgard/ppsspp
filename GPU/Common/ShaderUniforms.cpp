@@ -163,7 +163,6 @@ void BaseUpdateUniforms(UB_VS_FS_Base *ub, uint64_t dirtyUniforms, bool flipView
 		if (!useBufferedRendering && g_display_rotation != DisplayRotation::ROTATE_0) {
 			proj_through = proj_through * g_display_rot_matrix;
 		}
-		// proj_through.translateAndScale(Vec3(0, 0, 0), Vec3(1.0f / debugscale, 1.0f / debugscale, 0));
 		CopyMatrix4x4(ub->proj_through, proj_through.getReadPtr());
 	}
 
@@ -273,14 +272,6 @@ void BaseUpdateUniforms(UB_VS_FS_Base *ub, uint64_t dirtyUniforms, bool flipView
 		val |= gstate.isMagnifyFilteringEnabled() << 31;
 		ub->depal_mask_shift_off_fmt = val;
 	}
-
-	if (dirtyUniforms & DIRTY_TEXSIZE) {
-		ub->texSize[0] = (float)gstate_c.curTextureWidth;
-		ub->texSize[1] = (float)gstate_c.curTextureHeight;
-		ub->texSize[2] = 1.0f / (float)gstate_c.curTextureWidth;
-		ub->texSize[3] = 1.0f / (float)gstate_c.curTextureHeight;
-	}
-
 }
 
 void LightUpdateUniforms(UB_VS_Lights *ub, uint64_t dirtyUniforms) {
