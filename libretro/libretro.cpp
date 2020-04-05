@@ -812,4 +812,8 @@ bool System_InputBoxGetWString(const wchar_t *title, const std::wstring &default
 
 #if PPSSPP_PLATFORM(ANDROID) || PPSSPP_PLATFORM(IOS)
 std::vector<std::string> __cameraGetDeviceList() { return std::vector<std::string>(); }
+
+void System_InputBoxGetString(const std::string &title, const std::string &defaultValue, std::function<void(bool, const std::string &)> cb) {
+	cb(false, "");
+}
 #endif

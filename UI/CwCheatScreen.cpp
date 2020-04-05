@@ -16,6 +16,7 @@
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
 #include <deque>
+
 #include "input/input_state.h"
 #include "ui/ui.h"
 #include "util/text/utf8.h"
@@ -28,7 +29,6 @@
 #include "Core/MIPS/JitCommon/JitCommon.h"
 
 #include "UI/OnScreenDisplay.h"
-#include "UI/ui_atlas.h"
 
 #include "UI/MainScreen.h"
 #include "UI/EmuScreen.h"
@@ -97,15 +97,16 @@ void CwCheatScreen::CreateViews() {
 	leftColumn->Add(new Choice(cw->T("Enable/Disable All")))->OnClick.Handle(this, &CwCheatScreen::OnEnableAll);
 	leftColumn->Add(new PopupSliderChoice(&g_Config.iCwCheatRefreshRate, 1, 1000, cw->T("Refresh Rate"), 1, screenManager()));
 
-	ScrollView *rightScroll = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(0.5f));
-	rightScroll->SetTag("CwCheats");
-	rightScroll->SetScrollToTop(false);
+	rightScroll_ = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(0.5f));
+	rightScroll_->SetTag("CwCheats");
+	rightScroll_->SetScrollToTop(false);
+	rightScroll_->ScrollTo(g_Config.fCwCheatScrollPosition);
 	LinearLayout *rightColumn = new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(200, FILL_PARENT, actionMenuMargins));
 	LayoutParams *layout = new LayoutParams(500, 50, LP_PLAIN);
-	rightScroll->Add(rightColumn);
+	rightScroll_->Add(rightColumn);
 
 	root_->Add(leftColumn);
-	root_->Add(rightScroll);
+	root_->Add(rightScroll_);
 	rightColumn->Add(new ItemHeader(cw->T("Cheats")));
 	for (size_t i = 0; i < formattedList_.size(); i++) {
 		name = formattedList_[i].c_str();
@@ -129,6 +130,7 @@ void CwCheatScreen::onFinish(DialogResult result) {
 	if (MIPSComp::jit) {
 		MIPSComp::jit->ClearCache();
 	}
+	g_Config.fCwCheatScrollPosition = rightScroll_->GetScrollPosition();
 }
 
 UI::EventReturn CwCheatScreen::OnEnableAll(UI::EventParams &params) {
@@ -324,7 +326,7 @@ void CheatCheckBox::Draw(UIContext &dc) {
 	int paddingX = 16;
 	int paddingY = 12;
 
-	int image = *toggle_ ? dc.theme->checkOn : dc.theme->checkOff;
+	ImageID image = *toggle_ ? dc.theme->checkOn : dc.theme->checkOff;
 
 	UI::Style style = dc.theme->itemStyle;
 	if (!IsEnabled())

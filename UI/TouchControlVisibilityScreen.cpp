@@ -15,9 +15,10 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
+#include "gfx/texture_atlas.h"
+
 #include "TouchControlVisibilityScreen.h"
 #include "Core/Config.h"
-#include "UI/ui_atlas.h"
 #include "i18n/i18n.h"
 
 static const int leftColumnWidth = 140;
@@ -70,26 +71,28 @@ void TouchControlVisibilityScreen::CreateViews() {
 	GridLayout *grid = vert->Add(new GridLayout(gridsettings, new LayoutParams(FILL_PARENT, WRAP_CONTENT)));
 
 	toggles_.clear();
-	toggles_.push_back({ "Circle", &g_Config.bShowTouchCircle, I_CIRCLE });
-	toggles_.push_back({ "Cross", &g_Config.bShowTouchCross, I_CROSS });
-	toggles_.push_back({ "Square", &g_Config.bShowTouchSquare, I_SQUARE });
-	toggles_.push_back({ "Triangle", &g_Config.bShowTouchTriangle, I_TRIANGLE });
-	toggles_.push_back({ "L", &g_Config.touchLKey.show, I_L });
-	toggles_.push_back({ "R", &g_Config.touchRKey.show, I_R });
-	toggles_.push_back({ "Start", &g_Config.touchStartKey.show, I_START });
-	toggles_.push_back({ "Select", &g_Config.touchSelectKey.show, I_SELECT });
-	toggles_.push_back({ "Dpad", &g_Config.touchDpad.show, -1 });
-	toggles_.push_back({ "Analog Stick", &g_Config.touchAnalogStick.show, -1 });
-	toggles_.push_back({ "Right Analog Stick\n(not used by most games)", &g_Config.touchRightAnalogStick.show, -1 });
-	toggles_.push_back({ "Unthrottle", &g_Config.touchUnthrottleKey.show, -1 });
-	toggles_.push_back({ "Combo0", &g_Config.touchCombo0.show, I_1 });
-	toggles_.push_back({ "Combo1", &g_Config.touchCombo1.show, I_2 });
-	toggles_.push_back({ "Combo2", &g_Config.touchCombo2.show, I_3 });
-	toggles_.push_back({ "Combo3", &g_Config.touchCombo3.show, I_4 });
-	toggles_.push_back({ "Combo4", &g_Config.touchCombo4.show, I_5 });
-	toggles_.push_back({ "Alt speed 1", &g_Config.touchSpeed1Key.show, -1 });
-	toggles_.push_back({ "Alt speed 2", &g_Config.touchSpeed2Key.show, -1 });
-	toggles_.push_back({ "Rapid Fire", &g_Config.touchRapidFireKey.show, -1 });
+	toggles_.push_back({ "Circle", &g_Config.bShowTouchCircle, ImageID("I_CIRCLE") });
+	toggles_.push_back({ "Cross", &g_Config.bShowTouchCross, ImageID("I_CROSS") });
+	toggles_.push_back({ "Square", &g_Config.bShowTouchSquare, ImageID("I_SQUARE") });
+	toggles_.push_back({ "Triangle", &g_Config.bShowTouchTriangle, ImageID("I_TRIANGLE") });
+	toggles_.push_back({ "L", &g_Config.touchLKey.show, ImageID("I_L") });
+	toggles_.push_back({ "R", &g_Config.touchRKey.show, ImageID("I_R") });
+	toggles_.push_back({ "Start", &g_Config.touchStartKey.show, ImageID("I_START") });
+	toggles_.push_back({ "Select", &g_Config.touchSelectKey.show, ImageID("I_SELECT") });
+	toggles_.push_back({ "Dpad", &g_Config.touchDpad.show, ImageID::invalid() });
+	toggles_.push_back({ "Analog Stick", &g_Config.touchAnalogStick.show, ImageID::invalid() });
+	toggles_.push_back({ "Right Analog Stick\n(not used by most games)", &g_Config.touchRightAnalogStick.show, ImageID::invalid() });
+	toggles_.push_back({ "Unthrottle", &g_Config.touchUnthrottleKey.show, ImageID::invalid() });
+	toggles_.push_back({ "Combo0", &g_Config.touchCombo0.show, ImageID("I_1") });
+	toggles_.push_back({ "Combo1", &g_Config.touchCombo1.show, ImageID("I_2") });
+	toggles_.push_back({ "Combo2", &g_Config.touchCombo2.show, ImageID("I_3") });
+	toggles_.push_back({ "Combo3", &g_Config.touchCombo3.show, ImageID("I_4") });
+	toggles_.push_back({ "Combo4", &g_Config.touchCombo4.show, ImageID("I_5") });
+	toggles_.push_back({ "Alt speed 1", &g_Config.touchSpeed1Key.show, ImageID::invalid() });
+	toggles_.push_back({ "Alt speed 2", &g_Config.touchSpeed2Key.show, ImageID::invalid() });
+	toggles_.push_back({ "RapidFire", &g_Config.touchRapidFireKey.show, ImageID::invalid() });
+	toggles_.push_back({ "Auto Analog Rotation (CW)", &g_Config.touchAnalogRotationCWKey.show, ImageID::invalid() });
+	toggles_.push_back({ "Auto Analog Rotation (CCW)", &g_Config.touchAnalogRotationCCWKey.show, ImageID::invalid() });
 
 	auto mc = GetI18NCategory("MappableControls");
 
@@ -101,7 +104,7 @@ void TouchControlVisibilityScreen::CreateViews() {
 		row->Add(checkbox);
 
 		Choice *choice;
-		if (toggle.img != -1) {
+		if (toggle.img.isValid()) {
 			choice = new CheckBoxChoice(toggle.img, checkbox, new LinearLayoutParams(1.0f));
 		} else {
 			choice = new CheckBoxChoice(mc->T(toggle.key), checkbox, new LinearLayoutParams(1.0f));

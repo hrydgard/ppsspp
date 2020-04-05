@@ -10,8 +10,10 @@ LOCAL_C_INCLUDES := \
   $(LOCAL_PATH)/../.. \
   $(LOCAL_PATH)/../../ext \
   $(LOCAL_PATH)/../../ext/snappy \
+  $(LOCAL_PATH)/../../ext/glslang \
   $(LOCAL_PATH)/$(NATIVE)/base \
   $(LOCAL_PATH)/$(NATIVE)/ext \
+  $(LOCAL_PATH)/$(NATIVE)/ext/libpng17 \
   $(LOCAL_PATH)/$(NATIVE)/ext/libzip \
   $(LOCAL_PATH)/$(NATIVE) \
   $(LOCAL_PATH)

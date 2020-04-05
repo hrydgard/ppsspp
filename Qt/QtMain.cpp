@@ -227,13 +227,13 @@ void System_SendMessage(const char *command, const char *parameter) {
 void System_AskForPermission(SystemPermission permission) {}
 PermissionStatus System_GetPermissionStatus(SystemPermission permission) { return PERMISSION_STATUS_GRANTED; }
 
-bool System_InputBoxGetString(const char *title, const char *defaultValue, char *outValue, size_t outLength)
-{
-	QString text = emugl->InputBoxGetQString(QString(title), QString(defaultValue));
-	if (text.isEmpty())
-		return false;
-	strcpy(outValue, text.toStdString().c_str());
-	return true;
+void System_InputBoxGetString(const std::string &title, const std::string &defaultValue, std::function<void(bool, const std::string &)> cb) {
+	QString text = emugl->InputBoxGetQString(QString::fromStdString(title), QString::fromStdString(defaultValue));
+	if (text.isEmpty()) {
+		NativeInputBoxReceived(cb, false, "");
+	} else {
+		NativeInputBoxReceived(cb, true, text.toStdString());
+	}
 }
 
 void Vibrate(int length_ms) {
@@ -419,11 +419,29 @@ bool MainUI::event(QEvent *e) {
 		break;
 	case QEvent::MouseButtonPress:
 	case QEvent::MouseButtonRelease:
-		input.x = ((QMouseEvent*)e)->pos().x() * g_dpi_scale_x * xscale;
-		input.y = ((QMouseEvent*)e)->pos().y() * g_dpi_scale_y * yscale;
-		input.flags = (e->type() == QEvent::MouseButtonPress) ? TOUCH_DOWN : TOUCH_UP;
-		input.id = 0;
-		NativeTouch(input);
+		switch(((QMouseEvent*)e)->button()) {
+		case Qt::LeftButton:
+			input.x = ((QMouseEvent*)e)->pos().x() * g_dpi_scale_x * xscale;
+			input.y = ((QMouseEvent*)e)->pos().y() * g_dpi_scale_y * yscale;
+			input.flags = (e->type() == QEvent::MouseButtonPress) ? TOUCH_DOWN : TOUCH_UP;
+			input.id = 0;
+			NativeTouch(input);
+			break;
+		case Qt::RightButton:
+			NativeKey(KeyInput(DEVICE_ID_MOUSE, NKCODE_EXT_MOUSEBUTTON_2, (e->type() == QEvent::MouseButtonPress) ? KEY_DOWN : KEY_UP));
+			break;
+		case Qt::MiddleButton:
+			NativeKey(KeyInput(DEVICE_ID_MOUSE, NKCODE_EXT_MOUSEBUTTON_3, (e->type() == QEvent::MouseButtonPress) ? KEY_DOWN : KEY_UP));
+			break;
+		case Qt::ExtraButton1:
+			NativeKey(KeyInput(DEVICE_ID_MOUSE, NKCODE_EXT_MOUSEBUTTON_4, (e->type() == QEvent::MouseButtonPress) ? KEY_DOWN : KEY_UP));
+			break;
+		case Qt::ExtraButton2:
+			NativeKey(KeyInput(DEVICE_ID_MOUSE, NKCODE_EXT_MOUSEBUTTON_5, (e->type() == QEvent::MouseButtonPress) ? KEY_DOWN : KEY_UP));
+			break;
+		default:
+			break;
+		}
 		break;
 	case QEvent::MouseMove:
 		input.x = ((QMouseEvent*)e)->pos().x() * g_dpi_scale_x * xscale;

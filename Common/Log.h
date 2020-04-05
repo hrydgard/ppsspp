@@ -122,7 +122,7 @@ void AndroidAssertLog(const char *func, const char *file, int line, const char *
 #if MAX_LOGLEVEL >= DEBUG_LEVEL
 #define _dbg_assert_(_t_, _a_) \
 	if (!(_a_)) {\
-		ERROR_LOG(_t_, "Error...\n\n  Line: %d\n  File: %s\n\nIgnore and continue?", \
+		ERROR_LOG(_t_, #_a_ "\n\nError...\n\n  Line: %d\n  File: %s\n\nIgnore and continue?", \
 					   __LINE__, __FILE__); \
 		if (!PanicYesNo("*** Assertion ***\n")) { Crash(); } \
 	}

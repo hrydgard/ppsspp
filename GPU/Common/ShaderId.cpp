@@ -60,7 +60,7 @@ std::string VertexShaderDesc(const VShaderID &id) {
 	return desc.str();
 }
 
-void ComputeVertexShaderID(VShaderID *id_out, u32 vertType, bool useHWTransform) {
+void ComputeVertexShaderID(VShaderID *id_out, u32 vertType, bool useHWTransform, bool useHWTessellation) {
 	bool isModeThrough = (vertType & GE_VTYPE_THROUGH) != 0;
 	bool doTexture = gstate.isTextureMapEnabled() && !gstate.isModeClear();
 	bool doTextureTransform = gstate.getUVGenMode() == GE_TEXMAP_TEXTURE_MATRIX;
@@ -131,7 +131,7 @@ void ComputeVertexShaderID(VShaderID *id_out, u32 vertType, bool useHWTransform)
 		id.SetBit(VS_BIT_NORM_REVERSE, gstate.areNormalsReversed());
 		id.SetBit(VS_BIT_HAS_TEXCOORD, hasTexcoord);
 
-		if (g_Config.bHardwareTessellation) {
+		if (useHWTessellation) {
 			id.SetBit(VS_BIT_BEZIER, doBezier);
 			id.SetBit(VS_BIT_SPLINE, doSpline);
 			if (doBezier || doSpline) {

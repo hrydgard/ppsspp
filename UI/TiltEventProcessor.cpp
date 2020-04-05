@@ -18,9 +18,9 @@ inline float tiltInputCurve (float x, float deadzone, float sensitivity) {
 	const float factor = sensitivity * 1.0f / (1.0f - deadzone);
 
 	if (x > deadzone) {
-		return (x - deadzone) * factor * factor;
+		return (x - deadzone) * factor * factor + g_Config.fTiltDeadzoneSkip;
 	} else if (x < -deadzone) {
-		return (x + deadzone) * factor * factor;
+		return (x + deadzone) * factor * factor - g_Config.fTiltDeadzoneSkip;
 	} else {
 		return 0.0f;
 	}

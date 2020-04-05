@@ -173,8 +173,10 @@ void DrawBuffer::Rect(float x, float y, float w, float h,
 		V(x,	   y + h, 0, color, u, v + uh);
 }
 
-void DrawBuffer::Line(int atlas_image, float x1, float y1, float x2, float y2, float thickness, uint32_t color) {
-	const AtlasImage &image = atlas->images[atlas_image];
+void DrawBuffer::Line(ImageID atlas_image, float x1, float y1, float x2, float y2, float thickness, uint32_t color) {
+	const AtlasImage *image = atlas->getImage(atlas_image);
+	if (!image)
+		return;
 
 	// No caps yet!
 	// Pre-rotated - we are making a thick line here
@@ -190,24 +192,34 @@ void DrawBuffer::Line(int atlas_image, float x1, float y1, float x2, float y2, f
 	float x[4] = { x1 - dx, x2 - dx, x1 + dx, x2 + dx };
 	float y[4] = { y1 - dy, y2 - dy, y1 + dy, y2 + dy };
 
-	V(x[0],	y[0], color, image.u1, image.v1);
-	V(x[1],	y[1], color, image.u2, image.v1);
-	V(x[2],	y[2], color, image.u1, image.v2);
-	V(x[2],	y[2], color, image.u1, image.v2);
-	V(x[1],	y[1], color, image.u2, image.v1);
-	V(x[3],	y[3], color, image.u2, image.v2);
+	V(x[0],	y[0], color, image->u1, image->v1);
+	V(x[1],	y[1], color, image->u2, image->v1);
+	V(x[2],	y[2], color, image->u1, image->v2);
+	V(x[2],	y[2], color, image->u1, image->v2);
+	V(x[1],	y[1], color, image->u2, image->v1);
+	V(x[3],	y[3], color, image->u2, image->v2);
 }
 
-void DrawBuffer::MeasureImage(ImageID atlas_image, float *w, float *h) {
-	const AtlasImage &image = atlas->images[atlas_image];
-	*w = (float)image.w;
-	*h = (float)image.h;
+bool DrawBuffer::MeasureImage(ImageID atlas_image, float *w, float *h) {
+	const AtlasImage *image = atlas->getImage(atlas_image);
+	if (image) {
+		*w = (float)image->w;
+		*h = (float)image->h;
+		return true;
+	} else {
+		*w = 0;
+		*h = 0;
+		return false;
+	}
 }
 
 void DrawBuffer::DrawImage(ImageID atlas_image, float x, float y, float scale, Color color, int align) {
-	const AtlasImage &image = atlas->images[atlas_image];
-	float w = (float)image.w * scale;
-	float h = (float)image.h * scale;
+	const AtlasImage *image = atlas->getImage(atlas_image);
+	if (!image)
+		return;
+
+	float w = (float)image->w * scale;
+	float h = (float)image->h * scale;
 	if (align & ALIGN_HCENTER) x -= w / 2;
 	if (align & ALIGN_RIGHT) x -= w;
 	if (align & ALIGN_VCENTER) y -= h / 2;
@@ -216,13 +228,15 @@ void DrawBuffer::DrawImage(ImageID atlas_image, float x, float y, float scale, C
 }
 
 void DrawBuffer::DrawImageStretch(ImageID atlas_image, float x1, float y1, float x2, float y2, Color color) {
-	const AtlasImage &image = atlas->images[atlas_image];
-	V(x1,	y1, color, image.u1, image.v1);
-	V(x2,	y1, color, image.u2, image.v1);
-	V(x2,	y2, color, image.u2, image.v2);
-	V(x1,	y1, color, image.u1, image.v1);
-	V(x2,	y2, color, image.u2, image.v2);
-	V(x1,	y2, color, image.u1, image.v2);
+	const AtlasImage *image = atlas->getImage(atlas_image);
+	if (!image)
+		return;
+	V(x1,	y1, color, image->u1, image->v1);
+	V(x2,	y1, color, image->u2, image->v1);
+	V(x2,	y2, color, image->u2, image->v2);
+	V(x1,	y1, color, image->u1, image->v1);
+	V(x2,	y2, color, image->u2, image->v2);
+	V(x1,	y2, color, image->u1, image->v2);
 }
 
 inline void rot(float *v, float angle, float xc, float yc) {
@@ -235,9 +249,12 @@ inline void rot(float *v, float angle, float xc, float yc) {
 }
 
 void DrawBuffer::DrawImageRotated(ImageID atlas_image, float x, float y, float scale, float angle, Color color, bool mirror_h) {
-	const AtlasImage &image = atlas->images[atlas_image];
-	float w = (float)image.w * scale;
-	float h = (float)image.h * scale;
+	const AtlasImage *image = atlas->getImage(atlas_image);
+	if (!image)
+		return;
+
+	float w = (float)image->w * scale;
+	float h = (float)image->h * scale;
 	float x1 = x - w / 2;
 	float x2 = x + w / 2;
 	float y1 = y - h / 2;
@@ -250,20 +267,20 @@ void DrawBuffer::DrawImageRotated(ImageID atlas_image, float x, float y, float s
 		{x2, y2},
 		{x1, y2},
 	};
-	float u1 = image.u1;
-	float u2 = image.u2;
+	float u1 = image->u1;
+	float u2 = image->u2;
 	if (mirror_h) {
 		float temp = u1;
 		u1 = u2;
 		u2 = temp;
 	}
 	const float uv[6][2] = {
-		{u1, image.v1},
-		{u2, image.v1},
-		{u2, image.v2},
-		{u1, image.v1},
-		{u2, image.v2},
-		{u1, image.v2},
+		{u1, image->v1},
+		{u2, image->v1},
+		{u2, image->v2},
+		{u1, image->v1},
+		{u2, image->v2},
+		{u1, image->v2},
 	};
 	for (int i = 0; i < 6; i++) {
 		rot(v[i], angle, x, y);
@@ -306,13 +323,17 @@ void DrawBuffer::DrawTexRect(float x1, float y1, float x2, float y2, float u1, f
 }
 
 void DrawBuffer::DrawImage4Grid(ImageID atlas_image, float x1, float y1, float x2, float y2, Color color, float corner_scale) {
-	const AtlasImage &image = atlas->images[atlas_image];
+	const AtlasImage *image = atlas->getImage(atlas_image);
 
-	float u1 = image.u1, v1 = image.v1, u2 = image.u2, v2 = image.v2;
+	if (!image) {
+		return;
+	}
+
+	float u1 = image->u1, v1 = image->v1, u2 = image->u2, v2 = image->v2;
 	float um = (u2 + u1) * 0.5f;
 	float vm = (v2 + v1) * 0.5f;
-	float iw2 = (image.w * 0.5f) * corner_scale;
-	float ih2 = (image.h * 0.5f) * corner_scale;
+	float iw2 = (image->w * 0.5f) * corner_scale;
+	float ih2 = (image->h * 0.5f) * corner_scale;
 	float xa = x1 + iw2;
 	float xb = x2 - iw2;
 	float ya = y1 + ih2;
@@ -332,13 +353,13 @@ void DrawBuffer::DrawImage4Grid(ImageID atlas_image, float x1, float y1, float x
 }
 
 void DrawBuffer::DrawImage2GridH(ImageID atlas_image, float x1, float y1, float x2, Color color, float corner_scale) {
-	const AtlasImage &image = atlas->images[atlas_image];
-	float um = (image.u1 + image.u2) * 0.5f;
-	float iw2 = (image.w * 0.5f) * corner_scale;
+	const AtlasImage *image = atlas->getImage(atlas_image);
+	float um = (image->u1 + image->u2) * 0.5f;
+	float iw2 = (image->w * 0.5f) * corner_scale;
 	float xa = x1 + iw2;
 	float xb = x2 - iw2;
-	float u1 = image.u1, v1 = image.v1, u2 = image.u2, v2 = image.v2;
-	float y2 = y1 + image.h;
+	float u1 = image->u1, v1 = image->v1, u2 = image->u2, v2 = image->v2;
+	float y2 = y1 + image->h;
 	DrawTexRect(x1, y1, xa, y2, u1, v1, um, v2, color);
 	DrawTexRect(xa, y1, xb, y2, um, v1, um, v2, color);
 	DrawTexRect(xb, y1, x2, y2, um, v1, u2, v2, color);
@@ -347,7 +368,7 @@ void DrawBuffer::DrawImage2GridH(ImageID atlas_image, float x1, float y1, float 
 class AtlasWordWrapper : public WordWrapper {
 public:
 	// Note: maxW may be height if rotated.
-	AtlasWordWrapper(const AtlasFont &atlasfont, float scale, const char *str, float maxW) : WordWrapper(str, maxW), atlasfont_(atlasfont), scale_(scale) {
+	AtlasWordWrapper(const AtlasFont &atlasfont, float scale, const char *str, float maxW, int flags) : WordWrapper(str, maxW, flags), atlasfont_(atlasfont), scale_(scale) {
 	}
 
 protected:
@@ -374,8 +395,13 @@ float AtlasWordWrapper::MeasureWidth(const char *str, size_t bytes) {
 	return w;
 }
 
-void DrawBuffer::MeasureTextCount(int font, const char *text, int count, float *w, float *h) {
-	const AtlasFont &atlasfont = *atlas->fonts[font];
+void DrawBuffer::MeasureTextCount(FontID font, const char *text, int count, float *w, float *h) {
+	const AtlasFont *atlasfont = atlas->getFont(font);
+	if (!atlasfont) {
+		*w = 0.0f;
+		*h = 0.0f;
+		return;
+	}
 
 	unsigned int cval;
 	float wacc = 0;
@@ -402,35 +428,42 @@ void DrawBuffer::MeasureTextCount(int font, const char *text, int count, float *
 			// Ignore lone ampersands
 			continue;
 		}
-		const AtlasChar *c = atlasfont.getChar(cval);
+		const AtlasChar *c = atlasfont->getChar(cval);
 		if (c) {
 			wacc += c->wx * fontscalex;
 		}
 	}
 	if (w) *w = std::max(wacc, maxX);
-	if (h) *h = atlasfont.height * fontscaley * lines;
+	if (h) *h = atlasfont->height * fontscaley * lines;
 }
 
-void DrawBuffer::MeasureTextRect(int font, const char *text, int count, const Bounds &bounds, float *w, float *h, int align) {
-	if (!text || (uint32_t)font >= (uint32_t)atlas->num_fonts) {
-		*w = 0;
-		*h = 0;
+void DrawBuffer::MeasureTextRect(FontID font_id, const char *text, int count, const Bounds &bounds, float *w, float *h, int align) {
+	if (!text || font_id.isInvalid()) {
+		*w = 0.0f;
+		*h = 0.0f;
 		return;
 	}
 
 	std::string toMeasure = std::string(text, count);
-	if (align & FLAG_WRAP_TEXT) {
-		AtlasWordWrapper wrapper(*atlas->fonts[font], fontscalex, toMeasure.c_str(), bounds.w);
+	int wrap = align & (FLAG_WRAP_TEXT | FLAG_ELLIPSIZE_TEXT);
+	if (wrap) {
+		const AtlasFont *font = atlas->getFont(font_id);
+		if (!font) {
+			*w = 0.0f;
+			*h = 0.0f;
+			return;
+		}
+		AtlasWordWrapper wrapper(*font, fontscalex, toMeasure.c_str(), bounds.w, wrap);
 		toMeasure = wrapper.Wrapped();
 	}
-	MeasureTextCount(font, toMeasure.c_str(), (int)toMeasure.length(), w, h);
+	MeasureTextCount(font_id, toMeasure.c_str(), (int)toMeasure.length(), w, h);
 }
 
-void DrawBuffer::MeasureText(int font, const char *text, float *w, float *h) {
+void DrawBuffer::MeasureText(FontID font, const char *text, float *w, float *h) {
 	return MeasureTextCount(font, text, (int)strlen(text), w, h);
 }
 
-void DrawBuffer::DrawTextShadow(int font, const char *text, float x, float y, Color color, int flags) {
+void DrawBuffer::DrawTextShadow(FontID font, const char *text, float x, float y, Color color, int flags) {
 	uint32_t alpha = (color >> 1) & 0xFF000000;
 	DrawText(font, text, x + 2, y + 2, alpha, flags);
 	DrawText(font, text, x, y, color, flags);
@@ -449,7 +482,7 @@ void DrawBuffer::DoAlign(int flags, float *x, float *y, float *w, float *h) {
 
 
 // TODO: Actually use the rect properly, take bounds.
-void DrawBuffer::DrawTextRect(int font, const char *text, float x, float y, float w, float h, Color color, int align) {
+void DrawBuffer::DrawTextRect(FontID font, const char *text, float x, float y, float w, float h, Color color, int align) {
 	if (align & ALIGN_HCENTER) {
 		x += w / 2;
 	} else if (align & ALIGN_RIGHT) {
@@ -462,8 +495,10 @@ void DrawBuffer::DrawTextRect(int font, const char *text, float x, float y, floa
 	}
 
 	std::string toDraw = text;
-	if (align & FLAG_WRAP_TEXT) {
-		AtlasWordWrapper wrapper(*atlas->fonts[font], fontscalex, toDraw.c_str(), w);
+	int wrap = align & (FLAG_WRAP_TEXT | FLAG_ELLIPSIZE_TEXT);
+	const AtlasFont *atlasfont = atlas->getFont(font);
+	if (wrap && atlasfont) {
+		AtlasWordWrapper wrapper(*atlasfont, fontscalex, toDraw.c_str(), w, wrap);
 		toDraw = wrapper.Wrapped();
 	}
 
@@ -493,7 +528,7 @@ void DrawBuffer::DrawTextRect(int font, const char *text, float x, float y, floa
 }
 
 // ROTATE_* doesn't yet work right.
-void DrawBuffer::DrawText(int font, const char *text, float x, float y, Color color, int align) {
+void DrawBuffer::DrawText(FontID font, const char *text, float x, float y, Color color, int align) {
 	// rough estimate
 	size_t textLen = strlen(text);
 	if (count_ + textLen * 6 > MAX_VERTS) {
@@ -503,7 +538,9 @@ void DrawBuffer::DrawText(int font, const char *text, float x, float y, Color co
 		}
 	}
 
-	const AtlasFont &atlasfont = *atlas->fonts[font];
+	const AtlasFont *atlasfont = atlas->getFont(font);
+	if (!atlasfont)
+		return;
 	unsigned int cval;
 	float w, h;
 	MeasureText(font, text, &w, &h);
@@ -512,10 +549,10 @@ void DrawBuffer::DrawText(int font, const char *text, float x, float y, Color co
 	}
 
 	if (align & ROTATE_90DEG_LEFT) {
-		x -= atlasfont.ascend * fontscaley;
+		x -= atlasfont->ascend * fontscaley;
 		// y += h;
 	} else {
-		y += atlasfont.ascend * fontscaley;
+		y += atlasfont->ascend * fontscaley;
 	}
 	float sx = x;
 	UTF8 utf(text);
@@ -527,7 +564,7 @@ void DrawBuffer::DrawText(int font, const char *text, float x, float y, Color co
 		if (cval == 0xA0) {
 			cval = ' ';
 		} else if (cval == '\n') {
-			y += atlasfont.height * fontscaley;
+			y += atlasfont->height * fontscaley;
 			x = sx;
 			continue;
 		} else if (cval == '\t') {
@@ -536,9 +573,9 @@ void DrawBuffer::DrawText(int font, const char *text, float x, float y, Color co
 			// Ignore lone ampersands
 			continue;
 		}
-		const AtlasChar *ch = atlasfont.getChar(cval);
+		const AtlasChar *ch = atlasfont->getChar(cval);
 		if (!ch)
-			ch = atlasfont.getChar('?');
+			ch = atlasfont->getChar('?');
 		if (ch) {
 			const AtlasChar &c = *ch;
 			float cx1, cy1, cx2, cy2;

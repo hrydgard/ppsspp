@@ -93,7 +93,7 @@ u32 GetTextureBufw(int level, u32 texaddr, GETextureFormat format) {
 		return gstate.texbufwidth[level] & 0x1FFF;
 
 	u32 bufw = gstate.texbufwidth[level] & textureAlignMask16[format];
-	if (bufw == 0) {
+	if (bufw == 0 && format <= GE_TFMT_DXT5) {
 		// If it's less than 16 bytes, use 16 bytes.
 		bufw = (8 * 16) / textureBitsPerPixel[format];
 	}

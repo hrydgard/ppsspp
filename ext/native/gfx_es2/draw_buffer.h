@@ -39,6 +39,7 @@ enum {
 	FLAG_DYNAMIC_ASCII = 2048,
 	FLAG_NO_PREFIX = 4096,  // means to not process ampersands
 	FLAG_WRAP_TEXT = 8192,
+	FLAG_ELLIPSIZE_TEXT = 16384,
 };
 
 namespace Draw {
@@ -79,7 +80,7 @@ public:
 	void vLine(float x, float y1, float y2, uint32_t color);
 	void vLineAlpha50(float x, float y1, float y2, uint32_t color);
 
-	void Line(int atlas_image, float x1, float y1, float x2, float y2, float thickness, uint32_t color);
+	void Line(ImageID atlas_image, float x1, float y1, float x2, float y2, float thickness, uint32_t color);
 
 	void RectOutline(float x, float y, float w, float h, uint32_t color, int align = ALIGN_TOPLEFT);
 
@@ -109,7 +110,7 @@ public:
 		atlas = _atlas;
 	}
 	const Atlas *GetAtlas() const { return atlas; }
-	void MeasureImage(ImageID atlas_image, float *w, float *h);
+	bool MeasureImage(ImageID atlas_image, float *w, float *h);
 	void DrawImage(ImageID atlas_image, float x, float y, float scale, Color color = COLOR(0xFFFFFF), int align = ALIGN_TOPLEFT);
 	void DrawImageStretch(ImageID atlas_image, float x1, float y1, float x2, float y2, Color color = COLOR(0xFFFFFF));
 	void DrawImageStretch(ImageID atlas_image, const Bounds &bounds, Color color = COLOR(0xFFFFFF)) {
@@ -125,15 +126,15 @@ public:
 	// This is only 6 triangles, much cheaper.
 	void DrawImage2GridH(ImageID atlas_image, float x1, float y1, float x2, Color color = COLOR(0xFFFFFF), float scale = 1.0);
 
-	void MeasureText(int font, const char *text, float *w, float *h);
+	void MeasureText(FontID font, const char *text, float *w, float *h);
 
 	// NOTE: Count is in plain chars not utf-8 chars!
-	void MeasureTextCount(int font, const char *text, int count, float *w, float *h);
-	void MeasureTextRect(int font, const char *text, int count, const Bounds &bounds, float *w, float *h, int align = 0);
+	void MeasureTextCount(FontID font, const char *text, int count, float *w, float *h);
+	void MeasureTextRect(FontID font, const char *text, int count, const Bounds &bounds, float *w, float *h, int align = 0);
 
-	void DrawTextRect(int font, const char *text, float x, float y, float w, float h, Color color = 0xFFFFFFFF, int align = 0);
-	void DrawText(int font, const char *text, float x, float y, Color color = 0xFFFFFFFF, int align = 0);
-	void DrawTextShadow(int font, const char *text, float x, float y, Color color = 0xFFFFFFFF, int align = 0);
+	void DrawTextRect(FontID font, const char *text, float x, float y, float w, float h, Color color = 0xFFFFFFFF, int align = 0);
+	void DrawText(FontID font, const char *text, float x, float y, Color color = 0xFFFFFFFF, int align = 0);
+	void DrawTextShadow(FontID font, const char *text, float x, float y, Color color = 0xFFFFFFFF, int align = 0);
 
 	void SetFontScale(float xs, float ys) {
 		fontscalex = xs;

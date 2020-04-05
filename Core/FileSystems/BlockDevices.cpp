@@ -197,7 +197,8 @@ CISOFileBlockDevice::CISOFileBlockDevice(FileLoader *fileLoader)
 	u64 lastIndexPos = index[indexSize - 1] & 0x7FFFFFFF;
 	u64 expectedFileSize = lastIndexPos << indexShift;
 	if (expectedFileSize > fileSize) {
-		ERROR_LOG(LOADER, "Expected CSO to at least be %lld bytes, but file is %lld bytes", expectedFileSize, fileSize);
+		ERROR_LOG(LOADER, "Expected CSO to at least be %lld bytes, but file is %lld bytes. File: '%s'",
+			expectedFileSize, fileSize, fileLoader->Path().c_str());
 		NotifyReadError();
 	}
 }

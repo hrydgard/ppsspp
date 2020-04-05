@@ -45,7 +45,7 @@ int PSPMsgDialog::Init(unsigned int paramAddr) {
 	// Ignore if already running
 	if (GetStatus() != SCE_UTILITY_STATUS_NONE) {
 		ERROR_LOG_REPORT(SCEUTILITY, "sceUtilityMsgDialogInitStart: invalid status");
-		return 0;
+		return SCE_ERROR_UTILITY_INVALID_STATUS;
 	}
 
 	messageDialogAddr = paramAddr;
@@ -148,10 +148,9 @@ void PSPMsgDialog::DisplayMessage(std::string text, bool hasYesNo, bool hasOK)
 		WRAP_WIDTH = 372.0f;
 
 	float y = 140.0f;
-	float h, sy ,ey;
-	int n;
-	PPGeMeasureText(0, &h, &n, text.c_str(), FONT_SCALE, PPGE_LINE_WRAP_WORD, WRAP_WIDTH);
-	float h2 = h * n / 2.0f;
+	float h, sy, ey;
+	PPGeMeasureText(nullptr, &h, text.c_str(), FONT_SCALE, PPGE_LINE_WRAP_WORD, WRAP_WIDTH);
+	float h2 = h / 2.0f;
 	ey = y + h2 + 20.0f;
 
 	if (hasYesNo)
@@ -172,7 +171,7 @@ void PSPMsgDialog::DisplayMessage(std::string text, bool hasYesNo, bool hasOK)
 			yesColor = 0xFFFFFFFF;
 			noColor  = 0xFFFFFFFF;
 		}
-		PPGeMeasureText(&w, &h, 0, choiceText, FONT_SCALE);
+		PPGeMeasureText(&w, &h, choiceText, FONT_SCALE);
 		w = 15.0f;
 		h = 8.0f;
 		float y2 = y + h2 + 8.0f;
@@ -225,14 +224,14 @@ int PSPMsgDialog::Update(int animSpeed) {
 		UpdateButtons();
 		UpdateFade(animSpeed);
 
-		okButtonImg = I_CIRCLE;
-		cancelButtonImg = I_CROSS;
+		okButtonImg = ImageID("I_CIRCLE");
+		cancelButtonImg = ImageID("I_CROSS");
 		okButtonFlag = CTRL_CIRCLE;
 		cancelButtonFlag = CTRL_CROSS;
 		if (messageDialog.common.buttonSwap == 1)
 		{
-			okButtonImg = I_CROSS;
-			cancelButtonImg = I_CIRCLE;
+			okButtonImg = ImageID("I_CROSS");
+			cancelButtonImg = ImageID("I_CIRCLE");
 			okButtonFlag = CTRL_CROSS;
 			cancelButtonFlag = CTRL_CIRCLE;
 		}

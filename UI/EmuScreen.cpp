@@ -24,11 +24,13 @@
 #include "base/timeutil.h"
 #include "profiler/profiler.h"
 
+#include "gfx/texture_atlas.h"
 #include "gfx_es2/gpu_features.h"
 #include "gfx_es2/draw_text.h"
 
 #include "input/input_state.h"
 #include "math/curves.h"
+#include "ui/root.h"
 #include "ui/ui.h"
 #include "ui/ui_context.h"
 #include "ui/ui_tween.h"
@@ -61,8 +63,8 @@
 #include "Core/SaveState.h"
 #include "Core/MIPS/MIPS.h"
 #include "Core/HLE/__sceAudio.h"
+#include "Core/HLE/proAdhoc.h"
 
-#include "UI/ui_atlas.h"
 #include "UI/BackgroundAudio.h"
 #include "UI/OnScreenDisplay.h"
 #include "UI/GamepadEmu.h"
@@ -78,14 +80,17 @@
 #include "UI/InstallZipScreen.h"
 #include "UI/ProfilerDraw.h"
 #include "UI/DiscordIntegration.h"
+#include "UI/ChatScreen.h"
 
-#if defined(_WIN32) && !PPSSPP_PLATFORM(UWP)
+#if PPSSPP_PLATFORM(WINDOWS) && !PPSSPP_PLATFORM(UWP)
 #include "Windows/MainWindow.h"
 #endif
 
 #ifndef MOBILE_DEVICE
 static AVIDump avi;
 #endif
+
+UI::ChoiceWithValueDisplay *chatButtons;
 
 static bool frameStep_;
 static int lastNumFlips;
@@ -136,6 +141,7 @@ EmuScreen::EmuScreen(const std::string &filename)
 		coreState = CORE_STEPPING;
 
 	OnDevMenu.Handle(this, &EmuScreen::OnDevTools);
+	OnChatMenu.Handle(this, &EmuScreen::OnChat);
 }
 
 bool EmuScreen::bootAllowStorage(const std::string &filename) {
@@ -438,6 +444,24 @@ void EmuScreen::sendMessage(const char *message, const char *value) {
 		} else {
 			gstate_c.skipDrawReason &= ~SKIPDRAW_WINDOW_MINIMIZED;
 		}
+	} else if (!strcmp(message, "chat screen")) {
+
+#if defined(USING_WIN_UI)
+		//temporary workaround for hotkey its freeze the ui when open chat screen using hotkey and native keyboard is enable
+		if (g_Config.bBypassOSKWithKeyboard) {
+			osm.Show("Disable windows native keyboard options to use ctrl + c hotkey", 2.0f);
+		} else {
+			if (g_Config.bEnableNetworkChat) {
+				UI::EventParams e{};
+				OnChatMenu.Trigger(e);
+			}
+		}
+#else
+		if (g_Config.bEnableNetworkChat) {
+			UI::EventParams e{};
+			OnChatMenu.Trigger(e);
+		}
+#endif
 	}
 }
 
@@ -525,6 +549,13 @@ void EmuScreen::onVKeyDown(int virtualKeyCode) {
 		else if (!frameStep_)
 		{
 			Core_EnableStepping(true);
+		}
+		break;
+
+	case VIRTKEY_OPENCHAT:
+		if (g_Config.bEnableNetworkChat) {
+			UI::EventParams e{};
+			OnChatMenu.Trigger(e);
 		}
 		break;
 
@@ -631,6 +662,17 @@ void EmuScreen::onVKeyDown(int virtualKeyCode) {
 	case VIRTKEY_RAPID_FIRE:
 		__CtrlSetRapidFire(true);
 		break;
+	case VIRTKEY_MUTE_TOGGLE:
+		g_Config.bEnableSound = !g_Config.bEnableSound;
+		break;
+	case VIRTKEY_ANALOG_ROTATE_CW:
+		autoRotatingAnalogCW_ = true;
+		autoRotatingAnalogCCW_ = false;
+		break;
+	case VIRTKEY_ANALOG_ROTATE_CCW:
+		autoRotatingAnalogCW_ = false;
+		autoRotatingAnalogCCW_ = true;
+		break;
 	}
 }
 
@@ -682,6 +724,18 @@ void EmuScreen::onVKeyUp(int virtualKeyCode) {
 
 	case VIRTKEY_RAPID_FIRE:
 		__CtrlSetRapidFire(false);
+		break;
+
+	case VIRTKEY_ANALOG_ROTATE_CW:
+		autoRotatingAnalogCW_ = false;
+		__CtrlSetAnalogX(0.0f, 0);
+		__CtrlSetAnalogY(0.0f, 0);
+		break;
+
+	case VIRTKEY_ANALOG_ROTATE_CCW:
+		autoRotatingAnalogCCW_ = false;
+		__CtrlSetAnalogX(0.0f, 0);
+		__CtrlSetAnalogY(0.0f, 0);
 		break;
 
 	default:
@@ -982,10 +1036,11 @@ protected:
 void EmuScreen::CreateViews() {
 	using namespace UI;
 
-	auto sc = GetI18NCategory("Screen");
 	auto dev = GetI18NCategory("Developer");
+	auto n = GetI18NCategory("Networking");
+	auto sc = GetI18NCategory("Screen");
 
-	const Bounds &bounds = screenManager()->getUIContext()->GetBounds();
+	const Bounds &bounds = screenManager()->getUIContext()->GetLayoutBounds();
 	InitPadLayout(bounds.w, bounds.h);
 	root_ = CreatePadLayout(bounds.w, bounds.h, &pauseTrigger_);
 	if (g_Config.bShowDeveloperMenu) {
@@ -995,6 +1050,40 @@ void EmuScreen::CreateViews() {
 	cardboardDisableButton_ = root_->Add(new Button(sc->T("Cardboard VR OFF"), new AnchorLayoutParams(bounds.centerX(), NONE, NONE, 30, true)));
 	cardboardDisableButton_->OnClick.Handle(this, &EmuScreen::OnDisableCardboard);
 	cardboardDisableButton_->SetVisibility(V_GONE);
+
+	if (g_Config.bEnableNetworkChat) {
+		switch (g_Config.iChatButtonPosition) {
+		case 0:
+			chatButtons = new ChoiceWithValueDisplay(&newChat, n->T("Chat"), new AnchorLayoutParams(130, WRAP_CONTENT, 80, NONE, NONE, 50, true));
+			break;
+		case 1:
+			chatButtons = new ChoiceWithValueDisplay(&newChat, n->T("Chat"), new AnchorLayoutParams(130, WRAP_CONTENT, bounds.centerX(), NONE, NONE, 50, true));
+			break;
+		case 2:
+			chatButtons = new ChoiceWithValueDisplay(&newChat, n->T("Chat"), new AnchorLayoutParams(130, WRAP_CONTENT, NONE, NONE, 80, 50, true));
+			break;
+		case 3:
+			chatButtons = new ChoiceWithValueDisplay(&newChat, n->T("Chat"), new AnchorLayoutParams(130, WRAP_CONTENT, 80, 50, NONE, NONE, true));
+			break;
+		case 4:
+			chatButtons = new ChoiceWithValueDisplay(&newChat, n->T("Chat"), new AnchorLayoutParams(130, WRAP_CONTENT, bounds.centerX(), 50, NONE, NONE, true));
+			break;
+		case 5:
+			chatButtons = new ChoiceWithValueDisplay(&newChat, n->T("Chat"), new AnchorLayoutParams(130, WRAP_CONTENT, NONE, 50, 80, NONE, true));
+			break;
+		case 6:
+			chatButtons = new ChoiceWithValueDisplay(&newChat, n->T("Chat"), new AnchorLayoutParams(130, WRAP_CONTENT, 80, bounds.centerY(), NONE, NONE, true));
+			break;
+		case 7:
+			chatButtons = new ChoiceWithValueDisplay(&newChat, n->T("Chat"), new AnchorLayoutParams(130, WRAP_CONTENT, NONE, bounds.centerY(), 80, NONE, true));
+			break;
+		default:
+			chatButtons = new ChoiceWithValueDisplay(&newChat, n->T("Chat"), new AnchorLayoutParams(130, WRAP_CONTENT, 80, NONE, NONE, 50, true));
+			break;
+		}
+
+		root_->Add(chatButtons)->OnClick.Handle(this, &EmuScreen::OnChat);
+	}
 
 	saveStatePreview_ = new AsyncImageFileView("", IS_FIXED, nullptr, new AnchorLayoutParams(bounds.centerX(), 100, NONE, NONE, true));
 	saveStatePreview_->SetFixedSize(160, 90);
@@ -1008,12 +1097,13 @@ void EmuScreen::CreateViews() {
 	TextView *loadingTextView = root_->Add(new TextView(sc->T(PSP_GetLoading()), new AnchorLayoutParams(bounds.centerX(), NONE, NONE, 40, true)));
 	loadingTextView_ = loadingTextView;
 
-	static const int symbols[4] = {
-		I_CROSS,
-		I_CIRCLE,
-		I_SQUARE,
-		I_TRIANGLE
+	static const ImageID symbols[4] = {
+		ImageID("I_CROSS"),
+		ImageID("I_CIRCLE"),
+		ImageID("I_SQUARE"),
+		ImageID("I_TRIANGLE"),
 	};
+
 	Spinner *loadingSpinner = root_->Add(new Spinner(symbols, ARRAY_SIZE(symbols), new AnchorLayoutParams(NONE, NONE, 45, 45, true)));
 	loadingSpinner_ = loadingSpinner;
 
@@ -1066,7 +1156,14 @@ UI::EventReturn EmuScreen::OnDisableCardboard(UI::EventParams &params) {
 	return UI::EVENT_DONE;
 }
 
+UI::EventReturn EmuScreen::OnChat(UI::EventParams& params) {
+	if (chatButtons->GetVisibility() == UI::V_VISIBLE) chatButtons->SetVisibility(UI::V_GONE);
+	screenManager()->push(new ChatMenu());
+	return UI::EVENT_DONE;
+}
+
 void EmuScreen::update() {
+
 	UIScreen::update();
 
 	if (bootPending_)
@@ -1110,6 +1207,16 @@ void EmuScreen::update() {
 	if (invalid_)
 		return;
 
+	if (autoRotatingAnalogCW_) {
+		const float now = time_now_d();
+		__CtrlSetAnalogX(cos(now*-g_Config.fAnalogAutoRotSpeed), 0);
+		__CtrlSetAnalogY(sin(now*-g_Config.fAnalogAutoRotSpeed), 0);
+	} else if (autoRotatingAnalogCCW_) {
+		const float now = time_now_d();
+		__CtrlSetAnalogX(cos(now*g_Config.fAnalogAutoRotSpeed), 0);
+		__CtrlSetAnalogY(sin(now*g_Config.fAnalogAutoRotSpeed), 0);
+	}
+
 	// This is here to support the iOS on screen back button.
 	if (pauseTrigger_) {
 		pauseTrigger_ = false;
@@ -1145,6 +1252,7 @@ void EmuScreen::update() {
 			}
 		}
 	}
+
 }
 
 void EmuScreen::checkPowerDown() {
@@ -1160,19 +1268,22 @@ void EmuScreen::checkPowerDown() {
 }
 
 static void DrawDebugStats(DrawBuffer *draw2d) {
+	FontID ubuntu24("UBUNTU24");
+
 	char statbuf[4096];
 	__DisplayGetDebugStats(statbuf, sizeof(statbuf));
 	draw2d->SetFontScale(.7f, .7f);
-	draw2d->DrawText(UBUNTU24, statbuf, 11, 31, 0xc0000000, FLAG_DYNAMIC_ASCII);
-	draw2d->DrawText(UBUNTU24, statbuf, 10, 30, 0xFFFFFFFF, FLAG_DYNAMIC_ASCII);
+	draw2d->DrawText(ubuntu24, statbuf, 11, 31, 0xc0000000, FLAG_DYNAMIC_ASCII);
+	draw2d->DrawText(ubuntu24, statbuf, 10, 30, 0xFFFFFFFF, FLAG_DYNAMIC_ASCII);
 
 	__SasGetDebugStats(statbuf, sizeof(statbuf));
-	draw2d->DrawText(UBUNTU24, statbuf, PSP_CoreParameter().pixelWidth / 2 + 11, 31, 0xc0000000, FLAG_DYNAMIC_ASCII);
-	draw2d->DrawText(UBUNTU24, statbuf, PSP_CoreParameter().pixelWidth / 2 + 10, 30, 0xFFFFFFFF, FLAG_DYNAMIC_ASCII);
+	draw2d->DrawText(ubuntu24, statbuf, PSP_CoreParameter().pixelWidth / 2 + 11, 31, 0xc0000000, FLAG_DYNAMIC_ASCII);
+	draw2d->DrawText(ubuntu24, statbuf, PSP_CoreParameter().pixelWidth / 2 + 10, 30, 0xFFFFFFFF, FLAG_DYNAMIC_ASCII);
 	draw2d->SetFontScale(1.0f, 1.0f);
 }
 
 static void DrawAudioDebugStats(DrawBuffer *draw2d) {
+	FontID ubuntu24("UBUNTU24");
 	char statbuf[1024] = { 0 };
 	const AudioDebugStats *stats = __AudioGetDebugStats();
 	snprintf(statbuf, sizeof(statbuf),
@@ -1187,12 +1298,13 @@ static void DrawAudioDebugStats(DrawBuffer *draw2d) {
 		stats->instantSampleRate,
 		stats->lastPushSize);
 	draw2d->SetFontScale(0.7f, 0.7f);
-	draw2d->DrawText(UBUNTU24, statbuf, 11, 31, 0xc0000000, FLAG_DYNAMIC_ASCII);
-	draw2d->DrawText(UBUNTU24, statbuf, 10, 30, 0xFFFFFFFF, FLAG_DYNAMIC_ASCII);
+	draw2d->DrawText(ubuntu24, statbuf, 11, 31, 0xc0000000, FLAG_DYNAMIC_ASCII);
+	draw2d->DrawText(ubuntu24, statbuf, 10, 30, 0xFFFFFFFF, FLAG_DYNAMIC_ASCII);
 	draw2d->SetFontScale(1.0f, 1.0f);
 }
 
 static void DrawFPS(DrawBuffer *draw2d, const Bounds &bounds) {
+	FontID ubuntu24("UBUNTU24");
 	float vps, fps, actual_fps;
 	__DisplayGetFPS(&vps, &fps, &actual_fps);
 	char fpsbuf[256];
@@ -1208,12 +1320,13 @@ static void DrawFPS(DrawBuffer *draw2d, const Bounds &bounds) {
 	}
 
 	draw2d->SetFontScale(0.7f, 0.7f);
-	draw2d->DrawText(UBUNTU24, fpsbuf, bounds.x2() - 8, 12, 0xc0000000, ALIGN_TOPRIGHT | FLAG_DYNAMIC_ASCII);
-	draw2d->DrawText(UBUNTU24, fpsbuf, bounds.x2() - 10, 10, 0xFF3fFF3f, ALIGN_TOPRIGHT | FLAG_DYNAMIC_ASCII);
+	draw2d->DrawText(ubuntu24, fpsbuf, bounds.x2() - 8, 12, 0xc0000000, ALIGN_TOPRIGHT | FLAG_DYNAMIC_ASCII);
+	draw2d->DrawText(ubuntu24, fpsbuf, bounds.x2() - 10, 10, 0xFF3fFF3f, ALIGN_TOPRIGHT | FLAG_DYNAMIC_ASCII);
 	draw2d->SetFontScale(1.0f, 1.0f);
 }
 
 static void DrawFrameTimes(UIContext *ctx) {
+	FontID ubuntu24("UBUNTU24");
 	int valid, pos;
 	double *sleepHistory;
 	double *history = __DisplayGetFrameTimes(&valid, &pos, &sleepHistory);
@@ -1236,8 +1349,8 @@ static void DrawFrameTimes(UIContext *ctx) {
 	ctx->Flush();
 	ctx->Begin();
 	ctx->Draw()->SetFontScale(0.5f, 0.5f);
-	ctx->Draw()->DrawText(UBUNTU24, "33.3ms", width, bottom - 0.0333*scale, 0xFF3f3Fff, ALIGN_BOTTOMLEFT | FLAG_DYNAMIC_ASCII);
-	ctx->Draw()->DrawText(UBUNTU24, "16.7ms", width, bottom - 0.0167*scale, 0xFF3f3Fff, ALIGN_BOTTOMLEFT | FLAG_DYNAMIC_ASCII);
+	ctx->Draw()->DrawText(ubuntu24, "33.3ms", width, bottom - 0.0333*scale, 0xFF3f3Fff, ALIGN_BOTTOMLEFT | FLAG_DYNAMIC_ASCII);
+	ctx->Draw()->DrawText(ubuntu24, "16.7ms", width, bottom - 0.0167*scale, 0xFF3f3Fff, ALIGN_BOTTOMLEFT | FLAG_DYNAMIC_ASCII);
 	ctx->Draw()->SetFontScale(1.0f, 1.0f);
 }
 
@@ -1329,7 +1442,7 @@ void EmuScreen::render() {
 		thin3d->BindFramebufferAsRenderTarget(nullptr, { RPAction::CLEAR, RPAction::DONT_CARE, RPAction::DONT_CARE });
 		// Just to make sure.
 		if (PSP_IsInited()) {
-			gpu->CopyDisplayToOutput();
+			gpu->CopyDisplayToOutput(true);
 		}
 	} else {
 		// Didn't actually reach the end of the frame, ran out of the blockTicks cycles.
@@ -1344,6 +1457,8 @@ void EmuScreen::render() {
 		return;
 
 	if (hasVisibleUI()) {
+		// In most cases, this should already be bound and a no-op.
+		thin3d->BindFramebufferAsRenderTarget(nullptr, { RPAction::KEEP, RPAction::DONT_CARE, RPAction::DONT_CARE });
 		cardboardDisableButton_->SetVisibility(g_Config.bEnableCardboardVR ? UI::V_VISIBLE : UI::V_GONE);
 		screenManager()->getUIContext()->BeginFrame();
 		renderUI();

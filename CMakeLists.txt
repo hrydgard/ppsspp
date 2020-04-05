@@ -166,6 +166,10 @@ endif()
 
 include_directories(ext/native)
 
+# Work around for some misfeature of the current glslang build system 
+include_directories(ext/glslang)
+
+
 if(NOT OPENGL_LIBRARIES AND USING_GLES2)
 	set(OPENGL_LIBRARIES GLESv2 EGL)
 endif()
@@ -268,6 +272,7 @@ if(NOT MSVC)
 	# Disable some warnings
 	add_definitions(-Wno-multichar)
 	add_definitions(-Wno-deprecated-register)
+	add_definitions(-Wno-tautological-pointer-compare)
 
 	# Don't compile with strict aliasing, we're not 100% aliasing-safe
 	add_compile_options(-fno-strict-aliasing)
@@ -485,12 +490,6 @@ add_library(gason STATIC
 	ext/native/ext/gason/gason.h
 )
 
-add_library(rg_etc1 STATIC
-	ext/native/ext/rg_etc1/rg_etc1.cpp
-	ext/native/ext/rg_etc1/rg_etc1.h
-)
-include_directories(ext/native/ext/rg_etc1)
-
 if(USE_FFMPEG)
 	if(NOT FFMPEG_DIR)
 		if(NOT USE_SYSTEM_FFMPEG)
@@ -661,13 +660,16 @@ else()
 	set(LIBZIP_LIBRARY libzip)
 endif()
 
-# FindPNG does a few things we don't want. So do it ourselves. Fixed to libpng17
-find_path(PNG_PNG_INCLUDE_DIR NAMES "libpng17/png.h")
-find_library(PNG_LIBRARY NAMES png17 libpng17)
-find_package(PackageHandleStandardArgs)
-find_package_handle_standard_args(PNG REQUIRED_VARS PNG_LIBRARY PNG_PNG_INCLUDE_DIR)
+# Arm platforms require at least libpng17.
+if(ANDROID OR ARMV7 OR ARM64 OR ARM OR IOS)
+	set(PNG_REQUIRED_VERSION 1.7)
+else()
+	set(PNG_REQUIRED_VERSION 1.6)
+endif()
+
+find_package(PNG ${PNG_REQUIRED_VERSION})
 if(PNG_FOUND)
-	include_directories(${PNG_PNG_INCLUDE_DIR})
+	include_directories(${PNG_INCLUDE_DIRS})
 else()
 	if(ARM)
 		set(PNG_ARM_INCLUDES
@@ -701,8 +703,8 @@ else()
 		ext/native/ext/libpng17/pngwutil.c
 		${PNG_ARM_INCLUDES}
 	)
-	set(PNG_LIBRARY png17)
-	include_directories(ext/native/ext)
+	set(PNG_LIBRARIES png17)
+	include_directories(ext/native/ext/libpng17)
 endif()
 
 set(nativeExtra)
@@ -844,6 +846,7 @@ list(APPEND NativeAppSource
 	UI/DiscordIntegration.cpp
 	UI/NativeApp.cpp
 	UI/BackgroundAudio.cpp
+	UI/ChatScreen.cpp
 	UI/DevScreens.cpp
 	UI/DisplayLayoutEditor.cpp
 	UI/DisplayLayoutScreen.cpp
@@ -869,7 +872,6 @@ list(APPEND NativeAppSource
 	UI/CwCheatScreen.cpp
 	UI/InstallZipScreen.cpp
 	UI/ProfilerDraw.cpp
-	UI/ui_atlas.cpp
 	UI/TextureUtil.cpp
 	UI/ComboKeyMappingScreen.cpp
 )
@@ -1042,6 +1044,8 @@ add_library(native STATIC
 	ext/native/thread/threadutil.h
 	ext/native/thread/threadpool.cpp
 	ext/native/thread/threadpool.h
+	ext/native/ui/root.cpp
+	ext/native/ui/root.h
 	ext/native/ui/screen.cpp
 	ext/native/ui/screen.h
 	ext/native/ui/ui.cpp
@@ -1082,7 +1086,7 @@ if(ANDROID)
 	set(ATOMIC_LIB atomic)
 endif()
 
-target_link_libraries(native ${LIBZIP_LIBRARY} ${PNG_LIBRARY} ${ZLIB_LIBRARY} rg_etc1 gason udis86 ${RT_LIB} ${nativeExtraLibs} ${ATOMIC_LIB})
+target_link_libraries(native ${LIBZIP_LIBRARY} ${PNG_LIBRARIES} ${ZLIB_LIBRARY} gason udis86 ${RT_LIB} ${nativeExtraLibs} ${ATOMIC_LIB})
 if(TARGET Ext::GLEW)
 	target_link_libraries(native Ext::GLEW)
 endif()
@@ -1760,8 +1764,6 @@ add_library(${CoreLibName} ${CoreLinkType}
 	Core/Util/BlockAllocator.h
 	Core/Util/PPGeDraw.cpp
 	Core/Util/PPGeDraw.h
-	Core/Util/ppge_atlas.cpp
-	Core/Util/ppge_atlas.h
 	${CORE_NEON}
 	${GPU_SOURCES}
 	ext/disarm.cpp
@@ -1805,7 +1807,7 @@ if(FFmpeg_FOUND)
 endif()
 
 # Discord integration
-if(USE_DISCORD AND NOT IOS)
+if(USE_DISCORD AND NOT IOS AND NOT LIBRETRO)
 	add_definitions(-DUSE_DISCORD=1)
 	target_link_libraries(${CoreLibName} discord-rpc)
 endif()
@@ -1933,6 +1935,7 @@ endif()
 
 set(NativeAssets
 	android/assets/ui_atlas_luna.zim
+	android/assets/ui_atlas_luna.meta
 	assets/lang
 	assets/shaders
 	assets/scalers
@@ -1941,7 +1944,8 @@ set(NativeAssets
 	assets/compat.ini
 	assets/gamecontrollerdb.txt
 	assets/langregion.ini
-	assets/ppge_atlas.zim
+	assets/ppge_atlas_luna.zim
+	assets/ppge_atlas_luna.meta
 	assets/rargray.png
 	assets/unknown.png
 	assets/zip.png

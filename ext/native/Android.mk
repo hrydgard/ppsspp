@@ -15,7 +15,6 @@ LOCAL_SRC_FILES :=\
     base/stringutil.cpp \
     data/base64.cpp \
     data/compression.cpp \
-    ext/rg_etc1/rg_etc1.cpp \
     ext/cityhash/city.cpp \
     ext/libpng17/png.c \
     ext/libpng17/pngerror.c \
@@ -90,6 +89,7 @@ LOCAL_SRC_FILES :=\
     thin3d/VulkanRenderManager.cpp \
     thin3d/VulkanQueueRunner.cpp \
     thin3d/DataFormatGL.cpp \
+    ui/root.cpp \
     ui/view.cpp \
     ui/viewgroup.cpp \
     ui/ui.cpp \
@@ -104,7 +104,7 @@ LOCAL_SRC_FILES :=\
 
 LOCAL_CFLAGS := -O3 -DUSING_GLES2 -fsigned-char -fno-strict-aliasing -Wall -Wno-multichar -D__STDC_CONSTANT_MACROS
 LOCAL_CPPFLAGS := -fno-exceptions -std=gnu++11 -fno-rtti -Wno-reorder
-LOCAL_C_INCLUDES := $(LOCAL_PATH)/ext $(LOCAL_PATH)/ext/libzip ..
+LOCAL_C_INCLUDES := $(LOCAL_PATH)/ext $(LOCAL_PATH)/ext/libpng17 $(LOCAL_PATH)/ext/libzip $(LOCAL_PATH)/ext/glslang ..
 
 #Portable native and separate code on android in future is easy you needs add files 
 #by ($(target_arch_ABI),arquitecture (armeabi-v7a , armeabi , x86 , MIPS)

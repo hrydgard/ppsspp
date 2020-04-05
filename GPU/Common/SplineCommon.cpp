@@ -28,13 +28,6 @@
 #include "GPU/ge_constants.h"
 #include "GPU/GPUState.h"  // only needed for UVScale stuff
 
-bool CanUseHardwareTessellation(GEPatchPrimType prim) {
-	if (g_Config.bHardwareTessellation && !g_Config.bSoftwareRendering) {
-		return CanUseHardwareTransform(PatchPrimToPrim(prim));
-	}
-	return false;
-}
-
 class SimpleBufferManager {
 private:
 	u8 *buf_;

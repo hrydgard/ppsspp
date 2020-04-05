@@ -249,7 +249,7 @@ bool Load_PSP_ISO(FileLoader *fileLoader, std::string *error_string) {
 	}
 
 	bool hasEncrypted = false;
-	u32 fd;
+	int fd;
 	if ((fd = pspFileSystem.OpenFile(bootpath, FILEACCESS_READ)) >= 0)
 	{
 		u8 head[4];

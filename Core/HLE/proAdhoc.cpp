@@ -63,6 +63,13 @@ std::recursive_mutex peerlock;
 SceNetAdhocPdpStat * pdp[255];
 SceNetAdhocPtpStat * ptp[255];
 uint32_t localip;
+std::vector<std::string> chatLog;
+std::string name = "";
+std::string incoming = "";
+std::string message = "";
+bool chatScreenVisible = false;
+bool updateChatScreen = false;
+int newChat = 0;
 
 int isLocalMAC(const SceNetEtherAddr * addr) {
 	SceNetEtherAddr saddr;
@@ -1011,6 +1018,45 @@ void freeFriendsRecursive(SceNetAdhocctlPeerInfo * node) {
 	free(node);
 }
 
+void sendChat(std::string chatString) {
+	SceNetAdhocctlChatPacketC2S chat;
+	auto n = GetI18NCategory("Networking");
+	chat.base.opcode = OPCODE_CHAT;
+	//TODO check network inited, check send success or not, chatlog.pushback error on failed send, pushback error on not connected
+	if (friendFinderRunning)
+	{
+		// Send Chat to Server 
+		if (!chatString.empty()) {
+			//maximum char allowed is 64 character for compability with original server (pro.coldbird.net)
+			message = chatString.substr(0, 60); // 64 return chat variable corrupted is it out of memory?
+			strcpy(chat.message, message.c_str());
+			//Send Chat Messages
+			int chatResult = send(metasocket, (const char *)&chat, sizeof(chat), 0);
+			NOTICE_LOG(SCENET, "Send Chat %s to Adhoc Server", chat.message);
+			name = g_Config.sNickName.c_str();
+			chatLog.push_back(name.substr(0, 8) + ": " + chat.message);
+			if (chatScreenVisible) {
+				updateChatScreen = true;
+			}
+		}
+	}
+	else {
+		chatLog.push_back(n->T("You're in Offline Mode, go to lobby or online hall"));
+		if (chatScreenVisible) {
+			updateChatScreen = true;
+		}
+	}
+}
+
+std::vector<std::string> getChatLog() {
+	// this log used by chat screen
+	if (chatLog.size() > 50) {
+		//erase the first 40 element limit the chatlog size
+		chatLog.erase(chatLog.begin(), chatLog.begin() + 40);
+	}
+	return chatLog;
+}
+
 int friendFinder(){
 	// Receive Buffer
 	int rxpos = 0;
@@ -1053,13 +1099,6 @@ int friendFinder(){
 			//friendFinderRunning = false;
 			}*/
 		}
-
-		// Send Chat Messages
-		//while(popFromOutbox(chat.message))
-		//{
-		//  // Send Chat to Server
-		//  sceNetInetSend(metasocket, (const char *)&chat, sizeof(chat), 0);
-		//}
 
 		// Wait for Incoming Data
 		int received = recv(metasocket, (char *)(rx + rxpos), sizeof(rx) - rxpos, 0);
@@ -1110,14 +1149,23 @@ int friendFinder(){
 				if (rxpos >= (int)sizeof(SceNetAdhocctlChatPacketS2C)) {
 					// Cast Packet
 					SceNetAdhocctlChatPacketS2C * packet = (SceNetAdhocctlChatPacketS2C *)rx;
-
-					// Fix for Idiots that try to troll the "ME" Nametag
-					if (strcasecmp((char *)packet->name.data, "ME") == 0) strcpy((char *)packet->name.data, "NOT ME");
-
 					// Add Incoming Chat to HUD
-					//printf("Receive chat message %s", packet->base.message);
-					DEBUG_LOG(SCENET, "Received chat message %s", packet->base.message);
-
+					NOTICE_LOG(SCENET, "Received chat message %s", packet->base.message);
+					incoming = "";
+					name = (char *)packet->name.data;
+					incoming.append(name.substr(0, 8));
+					incoming.append(": ");
+					incoming.append((char *)packet->base.message);
+					chatLog.push_back(incoming);
+					//im new to pointer btw :( doesn't know its safe or not this should update the chat screen when data coming
+					if (chatScreenVisible) {
+						updateChatScreen = true;
+					}
+					else {
+						if (newChat < 50) {
+							newChat += 1;
+						}
+					}
 					// Move RX Buffer
 					memmove(rx, rx + sizeof(SceNetAdhocctlChatPacketS2C), sizeof(rx) - sizeof(SceNetAdhocctlChatPacketS2C));
 
@@ -1139,7 +1187,16 @@ int friendFinder(){
 
 					// Add User
 					addFriend(packet);
-
+					incoming = "";
+					incoming.append((char *)packet->name.data);
+					incoming.append(" Joined ");
+					//do we need ip?
+					//joined.append((char *)packet->ip);
+					chatLog.push_back(incoming);
+					//im new to pointer btw :( doesn't know its safe or not this should update the chat screen when data coming
+					if (chatScreenVisible) {
+						updateChatScreen = true;
+					}
 					// Update HUD User Count
 #ifdef LOCALHOST_AS_PEER
 					setUserCount(getActivePeerCount());

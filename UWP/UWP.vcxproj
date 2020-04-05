@@ -596,6 +596,12 @@
       <DeploymentContent>true</DeploymentContent>
       <FileType>Document</FileType>
     </Image>
+    <None Include="..\assets\ppge_atlas.meta">
+      <DeploymentContent>true</DeploymentContent>
+    </None>
+    <None Include="..\assets\ui_atlas.meta">
+      <DeploymentContent>true</DeploymentContent>
+    </None>
     <None Include="Content\compat.ini">
       <DeploymentContent>true</DeploymentContent>
     </None>
@@ -1699,9 +1705,6 @@
       <DeploymentContent Condition="'$(Configuration)|$(Platform)'=='UWP Gold|ARM'">true</DeploymentContent>
       <DeploymentContent Condition="'$(Configuration)|$(Platform)'=='Debug|ARM'">true</DeploymentContent>
       <DeploymentContent Condition="'$(Configuration)|$(Platform)'=='Release|ARM'">true</DeploymentContent>
-    </None>
-    <None Include="Content\ui_atlas_lowmem.zim">
-      <DeploymentContent>true</DeploymentContent>
     </None>
     <None Include="PPSSPP_UWP_TemporaryKey.pfx" />
     <None Include="UWP_TemporaryKey.pfx" />

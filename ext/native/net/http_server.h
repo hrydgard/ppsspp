@@ -62,8 +62,9 @@ private:
 // Register handlers on this class to serve stuff.
 class Server {
 public:
+	// Takes ownership.
 	Server(threading::Executor *executor);
-	virtual ~Server() {}
+	virtual ~Server();
 
 	typedef std::function<void(const Request &)> UrlHandlerFunc;
 	typedef std::map<std::string, UrlHandlerFunc> UrlHandlerMap;

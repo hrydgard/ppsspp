@@ -21,11 +21,6 @@ enum {
 	ZIM_RGBA8888 = 0,	// Assumed format if no other format is set
 	ZIM_RGBA4444 = 1,	// GL_UNSIGNED_SHORT_4_4_4_4
 	ZIM_RGB565 = 2,		// GL_UNSIGNED_SHORT_5_6_5
-	ZIM_ETC1 = 3,
-	ZIM_RGB888 = 4,
-	ZIM_LUMINANCE_ALPHA = 5,
-	ZIM_LUMINANCE = 6,
-	ZIM_ALPHA = 7,
 	// There's space for plenty more formats.
 	ZIM_FORMAT_MASK = 15,
 	ZIM_HAS_MIPS = 16,	// If set, assumes that a full mip chain is present. Mips are zlib-compressed individually and stored in sequence. Always half sized.

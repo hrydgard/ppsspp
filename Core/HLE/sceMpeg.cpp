@@ -355,11 +355,11 @@ static void AnalyzeMpeg(u8 *buffer, u32 validSize, MpegContext *ctx) {
 	INFO_LOG(ME, "First timestamp: %lld, Last timestamp: %lld", ctx->mpegFirstTimestamp, ctx->mpegLastTimestamp);
 }
 
-class PostPutAction : public Action {
+class PostPutAction : public PSPAction {
 public:
 	PostPutAction() {}
 	void setRingAddr(u32 ringAddr) { ringAddr_ = ringAddr; }
-	static Action *Create() { return new PostPutAction; }
+	static PSPAction *Create() { return new PostPutAction; }
 	void DoState(PointerWrap &p) override {
 		auto s = p.Section("PostPutAction", 1);
 		if (!s)
@@ -1524,7 +1524,7 @@ static u32 sceMpegRingbufferPut(u32 ringbufferAddr, int numPackets, int availabl
 		int writeOffset = ringbuffer->packetsWritePos % (s32)ringbuffer->packets;
 		u32 packetsThisRound = std::min(numPackets, (s32)ringbuffer->packets - writeOffset);
 		u32 args[3] = {(u32)ringbuffer->data + (u32)writeOffset * 2048, packetsThisRound, (u32)ringbuffer->callback_args};
-		__KernelDirectMipsCall(ringbuffer->callback_addr, action, args, 3, false);
+		hleEnqueueCall(ringbuffer->callback_addr, 3, args, action);
 	} else {
 		ERROR_LOG_REPORT(ME, "sceMpegRingbufferPut: callback_addr zero");
 	}
@@ -1938,6 +1938,14 @@ static u32 sceMpegAvcCsc(u32 mpeg, u32 sourceAddr, u32 rangeAddr, int frameWidth
 	}
 
 	DEBUG_LOG(ME, "sceMpegAvcCsc(%08x, %08x, %08x, %i, %08x)", mpeg, sourceAddr, rangeAddr, frameWidth, destAddr);
+
+	if (frameWidth == 0) {
+		if (!ctx->defaultFrameWidth) {
+			frameWidth = ctx->avc.avcDetailFrameWidth;
+		} else {
+			frameWidth = ctx->defaultFrameWidth;
+		}
+	}
 
 	int x = Memory::Read_U32(rangeAddr);
 	int y = Memory::Read_U32(rangeAddr + 4);

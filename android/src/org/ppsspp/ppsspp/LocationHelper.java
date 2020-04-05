@@ -13,6 +13,8 @@ import android.os.Build;
 import android.os.Bundle;
 import android.util.Log;
 
+import java.lang.reflect.InvocationTargetException;
+import java.lang.reflect.Method;
 import java.util.Iterator;
 
 class LocationHelper implements LocationListener {
@@ -25,6 +27,8 @@ class LocationHelper implements LocationListener {
 	private GpsStatus.NmeaListener mNmeaListener;
 	private float mAltitudeAboveSeaLevel = 0f;
 	private float mHdop = 0f;
+	private Method addNmeaListenerMethod = null;
+	private Method removeNmeaListenerMethod = null;
 
 	LocationHelper(Context context) {
 		mLocationManager = (LocationManager) context.getSystemService(Context.LOCATION_SERVICE);
@@ -70,7 +74,17 @@ class LocationHelper implements LocationListener {
 							onNmea(nmea);
 						}
 					};
-					mLocationManager.addNmeaListener(mNmeaListener);
+
+					// Use reflection to work around a bug in the Android 29 SDK.
+					// https://stackoverflow.com/questions/57975969/accessing-nmea-on-android-api-level-24-when-compiled-for-target-api-level-29
+					try {
+						if (addNmeaListenerMethod == null) {
+							addNmeaListenerMethod = LocationManager.class.getMethod("addNmeaListener", GpsStatus.NmeaListener.class);
+						}
+						addNmeaListenerMethod.invoke(mLocationManager, mNmeaListener);
+					} catch (Exception e) {
+						Log.w(TAG, "Couldn't get the nmea add method: " + e.toString());
+					}
 				}
 				mLocationEnable = true;
 			} catch (SecurityException e) {
@@ -100,7 +114,16 @@ class LocationHelper implements LocationListener {
 				mGpsStatusListener = null;
 			}
 			if (mNmeaListener != null) {
-				mLocationManager.removeNmeaListener(mNmeaListener);
+				// Use reflection to work around a bug in the Android 29 SDK.
+				// https://stackoverflow.com/questions/57975969/accessing-nmea-on-android-api-level-24-when-compiled-for-target-api-level-29
+				try {
+					if (removeNmeaListenerMethod == null) {
+						removeNmeaListenerMethod = LocationManager.class.getMethod("removeNmeaListener", GpsStatus.NmeaListener.class);
+					}
+					removeNmeaListenerMethod.invoke(mLocationManager, mNmeaListener);
+				} catch (Exception e) {
+					Log.w(TAG, "Couldn't get the nmea remove method: " + e.toString());
+				}
 				mNmeaListener = null;
 			}
 		}

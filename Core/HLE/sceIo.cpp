@@ -930,7 +930,7 @@ static u32 sceIoGetstat(const char *filename, u32 addr) {
 }
 
 static u32 sceIoChstat(const char *filename, u32 iostatptr, u32 changebits) {
-	ERROR_LOG(SCEIO, "UNIMPL sceIoChstat(%s, %08x, %08x)", filename, iostatptr, changebits);
+	ERROR_LOG_REPORT(SCEIO, "UNIMPL sceIoChstat(%s, %08x, %08x)", filename, iostatptr, changebits);
 	if (changebits & SCE_CST_MODE)
 		ERROR_LOG(SCEIO, "sceIoChstat: change mode requested");
 	if (changebits & SCE_CST_ATTR)
@@ -2731,7 +2731,8 @@ static int IoAsyncFinish(int id) {
 			break;
 
 		default:
-			ERROR_LOG_REPORT(SCEIO, "Unknown async op %d", params.op);
+			ERROR_LOG_REPORT(SCEIO, "Unknown async op %d", (int)params.op);
+			us = 0;
 			break;
 		}
 

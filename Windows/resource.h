@@ -380,6 +380,7 @@
 #define IDC_GEDBG_STEPCOUNT_JUMP         40212
 #define IDC_GEDBG_STEPCOUNT_COMBO        40213
 #define ID_FILE_DUMP_VIDEO_OUTPUT        40214
+#define ID_EMULATION_CHAT                40215
 
 // Dummy option to let the buffered rendering hotkey cycle through all the options.
 #define ID_OPTIONS_BUFFEREDRENDERINGDUMMY 40500
@@ -392,7 +393,7 @@
 #ifdef APSTUDIO_INVOKED
 #ifndef APSTUDIO_READONLY_SYMBOLS
 #define _APS_NEXT_RESOURCE_VALUE        256
-#define _APS_NEXT_COMMAND_VALUE         40215
+#define _APS_NEXT_COMMAND_VALUE         40216
 #define _APS_NEXT_CONTROL_VALUE         1202
 #define _APS_NEXT_SYMED_VALUE           101
 #endif

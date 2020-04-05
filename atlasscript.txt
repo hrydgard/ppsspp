@@ -40,3 +40,9 @@ image I_4 source_assets/image/4.png copy
 image I_5 source_assets/image/5.png copy
 image I_6 source_assets/image/6.png copy
 image I_PSP_DISPLAY source_assets/image/psp_display.png copy
+image I_FLAG_JP source_assets/image/flag_jp.png copy
+image I_FLAG_US source_assets/image/flag_us.png copy
+image I_FLAG_EU source_assets/image/flag_eu.png copy
+image I_FLAG_HK source_assets/image/flag_hk.png copy
+image I_FLAG_AS source_assets/image/flag_as.png copy
+image I_FLAG_KO source_assets/image/flag_ko.png copy

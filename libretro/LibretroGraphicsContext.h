@@ -52,7 +52,7 @@ public:
 	void SetRenderTarget() override {}
 	void SwapBuffers() override {
 		if (gstate_c.skipDrawReason) {
-			video_cb(NULL, 0, 0, 0);
+			video_cb(NULL, PSP_CoreParameter().pixelWidth, PSP_CoreParameter().pixelHeight, 0);
 		} else {
 			video_cb(RETRO_HW_FRAME_BUFFER_VALID, PSP_CoreParameter().pixelWidth, PSP_CoreParameter().pixelHeight, 0);
 		}

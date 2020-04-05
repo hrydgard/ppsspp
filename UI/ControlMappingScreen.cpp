@@ -22,9 +22,11 @@
 #include "base/colorutil.h"
 #include "base/logging.h"
 #include "base/display.h"
+#include "gfx/texture_atlas.h"
 #include "i18n/i18n.h"
 #include "input/keycodes.h"
 #include "input/input_state.h"
+#include "ui/root.h"
 #include "ui/ui.h"
 #include "ui/ui_context.h"
 #include "ui/view.h"
@@ -35,7 +37,6 @@
 #include "Core/System.h"
 #include "Common/KeyMap.h"
 #include "Core/Config.h"
-#include "UI/ui_atlas.h"
 #include "UI/ControlMappingScreen.h"
 #include "UI/GameSettingsScreen.h"
 
@@ -90,15 +91,15 @@ void ControlMapper::Refresh() {
 	Clear();
 	auto mc = GetI18NCategory("MappableControls");
 
-	std::map<std::string, int> keyImages;
-	keyImages["Circle"] = I_CIRCLE;
-	keyImages["Cross"] = I_CROSS;
-	keyImages["Square"] = I_SQUARE;
-	keyImages["Triangle"] = I_TRIANGLE;
-	keyImages["Start"] = I_START;
-	keyImages["Select"] = I_SELECT;
-	keyImages["L"] = I_L;
-	keyImages["R"] = I_R;
+	std::map<std::string, ImageID> keyImages;
+	keyImages["Circle"] = ImageID("I_CIRCLE");
+	keyImages["Cross"] = ImageID("I_CROSS");
+	keyImages["Square"] = ImageID("I_SQUARE");
+	keyImages["Triangle"] = ImageID("I_TRIANGLE");
+	keyImages["Start"] = ImageID("I_START");
+	keyImages["Select"] = ImageID("I_SELECT");
+	keyImages["L"] = ImageID("I_L");
+	keyImages["R"] = ImageID("I_R");
 
 	using namespace UI;
 
@@ -465,8 +466,11 @@ private:
 
 void JoystickHistoryView::Draw(UIContext &dc) {
 	if (xAxis_ > -1 && yAxis_ > -1) {
-		const AtlasImage &image = dc.Draw()->GetAtlas()->images[I_CROSS];
-		float minRadius = std::min(bounds_.w, bounds_.h) * 0.5f - image.w;
+		const AtlasImage *image = dc.Draw()->GetAtlas()->getImage(ImageID("I_CROSS"));
+		if (!image) {
+			return;
+		}
+		float minRadius = std::min(bounds_.w, bounds_.h) * 0.5f - image->w;
 		dc.BeginNoTex();
 		dc.Draw()->RectOutline(bounds_.centerX() - minRadius, bounds_.centerY() - minRadius, minRadius * 2.0f, minRadius * 2.0f, 0x80FFFFFF);
 		dc.Flush();
@@ -479,7 +483,7 @@ void JoystickHistoryView::Draw(UIContext &dc) {
 			if (alpha < 0.0f) {
 				alpha = 0.0f;
 			}
-			dc.Draw()->DrawImage(I_CROSS, x, y, 0.8f, colorAlpha(0xFFFFFF, alpha), ALIGN_CENTER);
+			dc.Draw()->DrawImage(ImageID("I_CROSS"), x, y, 0.8f, colorAlpha(0xFFFFFF, alpha), ALIGN_CENTER);
 			a++;
 		}
 		dc.Flush();
@@ -644,6 +648,8 @@ extern int display_yres;
 void TouchTestScreen::render() {
 	UIDialogScreenWithBackground::render();
 	UIContext *ui_context = screenManager()->getUIContext();
+	Bounds bounds = ui_context->GetLayoutBounds();
+
 	ui_context->BeginNoTex();
 	for (int i = 0; i < MAX_TOUCH_POINTS; i++) {
 		if (touches_[i].id != -1) {
@@ -681,7 +687,7 @@ void TouchTestScreen::render() {
 		g_dpi_scale_x, g_dpi_scale_y,
 		g_dpi_scale_real_x, g_dpi_scale_real_y);
 
-	ui_context->DrawTextShadow(buffer, 20.0f, dp_yres / 2.0f, 0xFFFFFFFF, ALIGN_VCENTER | FLAG_DYNAMIC_ASCII);
+	ui_context->DrawTextShadow(buffer, bounds.x + 20.0f, dp_yres / 2.0f, 0xFFFFFFFF, ALIGN_VCENTER | FLAG_DYNAMIC_ASCII);
 	ui_context->Flush();
 }
 

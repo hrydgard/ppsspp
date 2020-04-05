@@ -161,9 +161,6 @@
     <ClInclude Include="ext\cityhash\citycrc.h">
       <Filter>ext</Filter>
     </ClInclude>
-    <ClInclude Include="ext\rg_etc1\rg_etc1.h">
-      <Filter>ext</Filter>
-    </ClInclude>
     <ClInclude Include="thread\prioritizedworkqueue.h">
       <Filter>thread</Filter>
     </ClInclude>
@@ -350,6 +347,9 @@
     <ClInclude Include="thin3d\d3d9_d3dcompiler_loader.h">
       <Filter>thin3d</Filter>
     </ClInclude>
+    <ClInclude Include="ui\root.h">
+      <Filter>ui</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="gfx\gl_debug_log.cpp">
@@ -458,9 +458,6 @@
       <Filter>util</Filter>
     </ClCompile>
     <ClCompile Include="ext\cityhash\city.cpp">
-      <Filter>ext</Filter>
-    </ClCompile>
-    <ClCompile Include="ext\rg_etc1\rg_etc1.cpp">
       <Filter>ext</Filter>
     </ClCompile>
     <ClCompile Include="thread\prioritizedworkqueue.cpp">
@@ -831,6 +828,9 @@
     </ClCompile>
     <ClCompile Include="thin3d\d3d9_d3dcompiler_loader.cpp">
       <Filter>thin3d</Filter>
+    </ClCompile>
+    <ClCompile Include="ui\root.cpp">
+      <Filter>ui</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>

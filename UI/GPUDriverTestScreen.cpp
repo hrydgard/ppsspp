@@ -232,7 +232,6 @@ void GPUDriverTestScreen::DiscardTest() {
 
 	UIContext &dc = *screenManager()->getUIContext();
 	Draw::DrawContext *draw = dc.GetDrawContext();
-	const Bounds &bounds = dc.GetBounds();
 
 	static const char * const writeModeNames[] = { "Stencil+Depth", "Stencil", "Depth" };
 	Pipeline *writePipelines[] = { discardWriteDepthStencil_, discardWriteStencil_, discardWriteDepth_ };
@@ -263,14 +262,16 @@ void GPUDriverTestScreen::DiscardTest() {
 
 	// If everything is OK, both the background and the text should be OK.
 
+	Bounds layoutBounds = dc.GetLayoutBounds();
+
 	dc.Begin();
 	dc.SetFontScale(1.0f, 1.0f);
 	std::string apiName = screenManager()->getDrawContext()->GetInfoString(InfoField::APINAME);
 	std::string vendor = screenManager()->getDrawContext()->GetInfoString(InfoField::VENDORSTRING);
 	std::string driver = screenManager()->getDrawContext()->GetInfoString(InfoField::DRIVER);
-	dc.DrawText(apiName.c_str(), bounds.centerX(), 20, 0xFFFFFFFF, ALIGN_CENTER);
-	dc.DrawText(vendor.c_str(), bounds.centerX(), 60, 0xFFFFFFFF, ALIGN_CENTER);
-	dc.DrawText(driver.c_str(), bounds.centerX(), 100, 0xFFFFFFFF, ALIGN_CENTER);
+	dc.DrawText(apiName.c_str(), layoutBounds.centerX(), 20, 0xFFFFFFFF, ALIGN_CENTER);
+	dc.DrawText(vendor.c_str(), layoutBounds.centerX(), 60, 0xFFFFFFFF, ALIGN_CENTER);
+	dc.DrawText(driver.c_str(), layoutBounds.centerX(), 100, 0xFFFFFFFF, ALIGN_CENTER);
 	dc.Flush();
 
 	float testW = 170.f;
@@ -279,9 +280,9 @@ void GPUDriverTestScreen::DiscardTest() {
 
 	float y = 150;
 	for (int j = 0; j < numWriteModes; j++, y += 120.f + padding) {
-		float x = (dc.GetBounds().w - (float)numTests * testW - (float)(numTests - 1) * padding) / 2.0f;
+		float x = layoutBounds.x + (layoutBounds.w - (float)numTests * testW - (float)(numTests - 1) * padding) / 2.0f;
 		dc.Begin();
-		dc.DrawText(writeModeNames[j], padding, y + 40, 0xFFFFFFFF, FLAG_DYNAMIC_ASCII);
+		dc.DrawText(writeModeNames[j], layoutBounds.x + padding, y + 40, 0xFFFFFFFF, FLAG_DYNAMIC_ASCII);
 		dc.Flush();
 		for (int i = 0; i < numTests; i++, x += testW + padding) {
 			if (!validCombinations[j][i])

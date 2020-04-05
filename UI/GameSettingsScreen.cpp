@@ -28,6 +28,7 @@
 #include "gfx_es2/draw_buffer.h"
 #include "i18n/i18n.h"
 #include "util/text/utf8.h"
+#include "ui/root.h"
 #include "ui/view.h"
 #include "ui/viewgroup.h"
 #include "ui/ui_context.h"
@@ -74,6 +75,7 @@
 GameSettingsScreen::GameSettingsScreen(std::string gamePath, std::string gameID, bool editThenRestore)
 	: UIDialogScreenWithGameBackground(gamePath), gameID_(gameID), enableReports_(false), editThenRestore_(editThenRestore) {
 	lastVertical_ = UseVerticalLayout();
+	prevInflightFrames_ = g_Config.iInflightFrames;
 }
 
 bool GameSettingsScreen::UseVerticalLayout() const {
@@ -268,13 +270,6 @@ void GameSettingsScreen::CreateViews() {
 			softwareGPU->SetEnabled(false);
 	}
 
-	std::vector<std::string> cameraList = Camera::getDeviceList();
-	if (cameraList.size() >= 1) {
-		graphicsSettings->Add(new ItemHeader(gr->T("Camera")));
-		PopupMultiChoiceDynamic *cameraChoice = graphicsSettings->Add(new PopupMultiChoiceDynamic(&g_Config.sCameraDevice, gr->T("Camera Device"), cameraList, nullptr, screenManager()));
-		cameraChoice->OnChoice.Handle(this, &GameSettingsScreen::OnCameraDeviceChange);
-	}
-
 	graphicsSettings->Add(new ItemHeader(gr->T("Frame Rate Control")));
 	static const char *frameSkip[] = { "Off", "1", "2", "3", "4", "5", "6", "7", "8" };
 	graphicsSettings->Add(new PopupMultiChoice(&g_Config.iFrameSkip, gr->T("Frame Skipping"), frameSkip, 0, ARRAY_SIZE(frameSkip), gr->GetName(), screenManager()));
@@ -300,8 +295,9 @@ void GameSettingsScreen::CreateViews() {
 		auto ps = GetI18NCategory("PostShaders");
 		postProcChoice_ = graphicsSettings->Add(new ChoiceWithValueDisplay(&g_Config.sPostShaderName, gr->T("Postprocessing Shader"), &PostShaderTranslateName));
 		postProcChoice_->OnClick.Handle(this, &GameSettingsScreen::OnPostProcShader);
-		postProcEnable_ = !g_Config.bSoftwareRendering && (g_Config.iRenderingMode != FB_NON_BUFFERED_MODE);
-		postProcChoice_->SetEnabledPtr(&postProcEnable_);
+		postProcChoice_->SetEnabledFunc([] {
+			return !g_Config.bSoftwareRendering && g_Config.iRenderingMode != FB_NON_BUFFERED_MODE;
+		});
 	}
 
 #if !defined(MOBILE_DEVICE)
@@ -332,8 +328,9 @@ void GameSettingsScreen::CreateViews() {
 #endif
 	internalResolutions->SetFormat("%ix");
 	internalResolutions->SetZeroLabel(gr->T("Auto (1:1)"));
-	resolutionEnable_ = !g_Config.bSoftwareRendering && (g_Config.iRenderingMode != FB_NON_BUFFERED_MODE);
-	internalResolutions->SetEnabledPtr(&resolutionEnable_);
+	internalResolutions->SetEnabledFunc([] {
+		return !g_Config.bSoftwareRendering && g_Config.iRenderingMode != FB_NON_BUFFERED_MODE;
+	});
 
 #ifdef __ANDROID__
 	if (System_GetPropertyInt(SYSPROP_DEVICE_TYPE) != DEVICE_TYPE_TV) {
@@ -349,18 +346,35 @@ void GameSettingsScreen::CreateViews() {
 
 	if (!g_Config.bSimpleUI) {
 #ifdef _WIN32
-	graphicsSettings->Add(new CheckBox(&g_Config.bVSync, gr->T("VSync")));
+	CheckBox *vSync = graphicsSettings->Add(new CheckBox(&g_Config.bVSync, gr->T("VSync")));
+	vSync->OnClick.Add([=](EventParams &e) {
+		NativeResized();
+		return UI::EVENT_CONTINUE;
+	});
 #endif
 	CheckBox *mipMap = graphicsSettings->Add(new CheckBox(&g_Config.bMipMap, gr->T("Mipmapping")));
 	mipMap->OnClick.Add([=](EventParams &e) {
 		settingInfo_->Show(gr->T("MipMap Tip", "Currently buggy in some games."), e.v);
 		return UI::EVENT_CONTINUE;
 	});
+	CheckBox *frameDuplication = graphicsSettings->Add(new CheckBox(&g_Config.bRenderDuplicateFrames, gr->T("Render duplicate frames to 60hz")));
+	frameDuplication->SetEnabledFunc([] {
+		return g_Config.iRenderingMode != FB_NON_BUFFERED_MODE || (g_Config.bSoftwareRendering && g_Config.iFrameSkip != 0);
+	});
+	frameDuplication->OnClick.Add([=](EventParams &e) {
+		settingInfo_->Show(gr->T("RenderDuplicateFrames Tip", "Can make framerate smoother in games that run at lower framerates"), e.v);
+		return UI::EVENT_CONTINUE;
+	});
+
+	if (GetGPUBackend() == GPUBackend::VULKAN || GetGPUBackend() == GPUBackend::OPENGL) {
+		static const char *bufferOptions[] = { "No buffer", "Up to 1", "Up to 2" };
+		PopupMultiChoice *inflightChoice = graphicsSettings->Add(new PopupMultiChoice(&g_Config.iInflightFrames, gr->T("Buffer graphics commands (faster, input lag)"), bufferOptions, 0, ARRAY_SIZE(bufferOptions), gr->GetName(), screenManager()));
+		inflightChoice->OnChoice.Handle(this, &GameSettingsScreen::OnInflightFramesChoice);
+	}
 
 	CheckBox *hwTransform = graphicsSettings->Add(new CheckBox(&g_Config.bHardwareTransform, gr->T("Hardware Transform")));
 	hwTransform->OnClick.Handle(this, &GameSettingsScreen::OnHardwareTransform);
 	hwTransform->SetDisabledPtr(&g_Config.bSoftwareRendering);
-
 
 	CheckBox *swSkin = graphicsSettings->Add(new CheckBox(&g_Config.bSoftwareSkinning, gr->T("Software Skinning")));
 	swSkin->OnClick.Add([=](EventParams &e) {
@@ -374,8 +388,9 @@ void GameSettingsScreen::CreateViews() {
 		settingInfo_->Show(gr->T("VertexCache Tip", "Faster, but may cause temporary flicker"), e.v);
 		return UI::EVENT_CONTINUE;
 	});
-	vtxCacheEnable_ = !g_Config.bSoftwareRendering && g_Config.bHardwareTransform;
-	vtxCache->SetEnabledPtr(&vtxCacheEnable_);
+	vtxCache->SetEnabledFunc([] {
+		return !g_Config.bSoftwareRendering && g_Config.bHardwareTransform;
+	});
 
 	CheckBox *texBackoff = graphicsSettings->Add(new CheckBox(&g_Config.bTextureBackoffCache, gr->T("Lazy texture caching", "Lazy texture caching (speedup)")));
 	texBackoff->SetDisabledPtr(&g_Config.bSoftwareRendering);
@@ -507,11 +522,20 @@ void GameSettingsScreen::CreateViews() {
 	cardboardYShift->SetDisabledPtr(&g_Config.bSoftwareRendering);
 #endif
 
-	graphicsSettings->Add(new ItemHeader(gr->T("Hack Settings")));
+	std::vector<std::string> cameraList = Camera::getDeviceList();
+	if (cameraList.size() >= 1) {
+		graphicsSettings->Add(new ItemHeader(gr->T("Camera")));
+		PopupMultiChoiceDynamic *cameraChoice = graphicsSettings->Add(new PopupMultiChoiceDynamic(&g_Config.sCameraDevice, gr->T("Camera Device"), cameraList, nullptr, screenManager()));
+		cameraChoice->OnChoice.Handle(this, &GameSettingsScreen::OnCameraDeviceChange);
+	}
+
+	graphicsSettings->Add(new ItemHeader(gr->T("Hack Settings", "Hack Settings")));
+
 	static const char *bloomHackOptions[] = { "Off", "Safe", "Balanced", "Aggressive" };
 	PopupMultiChoice *bloomHack = graphicsSettings->Add(new PopupMultiChoice(&g_Config.iBloomHack, gr->T("Lower resolution for effects (reduces artifacts)"), bloomHackOptions, 0, ARRAY_SIZE(bloomHackOptions), gr->GetName(), screenManager()));
-	bloomHackEnable_ = !g_Config.bSoftwareRendering && (g_Config.iInternalResolution != 1);
-	bloomHack->SetEnabledPtr(&bloomHackEnable_);
+	bloomHack->SetEnabledFunc([] {
+		return !g_Config.bSoftwareRendering && g_Config.iInternalResolution != 1;
+	});
 	}
 	graphicsSettings->Add(new ItemHeader(gr->T("Overlay Information")));
 	static const char *fpsChoices[] = { "None", "Speed", "FPS", "Both" };
@@ -614,7 +638,9 @@ void GameSettingsScreen::CreateViews() {
 
 	Choice *customizeTilt = controlsSettings->Add(new Choice(co->T("Customize tilt")));
 	customizeTilt->OnClick.Handle(this, &GameSettingsScreen::OnTiltCustomize);
-	customizeTilt->SetEnabledPtr((bool *)&g_Config.iTiltInputType); //<- dirty int-to-bool cast
+	customizeTilt->SetEnabledFunc([] {
+		return g_Config.iTiltInputType != 0;
+	});
 #endif
 
 	// TVs don't have touch control, at least not yet.
@@ -678,6 +704,7 @@ void GameSettingsScreen::CreateViews() {
 #else
 	controlsSettings->Add(new PopupSliderChoiceFloat(&g_Config.fXInputAnalogSensitivity, 0.0f, 10.0f, co->T("Analog Axis Sensitivity", "Analog Axis Sensitivity"), 0.01f, screenManager(), "x"));
 #endif
+	controlsSettings->Add(new PopupSliderChoiceFloat(&g_Config.fAnalogAutoRotSpeed, 0.0f, 25.0f, co->T("Analog auto-rotation speed"), 1.0f, screenManager()));
 
 	controlsSettings->Add(new ItemHeader(co->T("Keyboard", "Keyboard Control Settings")));
 #if defined(USING_WIN_UI)
@@ -690,7 +717,7 @@ void GameSettingsScreen::CreateViews() {
 		return UI::EVENT_CONTINUE;
 	});
 	}
-#if defined(USING_WIN_UI)
+#if defined(USING_WIN_UI) || defined(SDL)
 	controlsSettings->Add(new ItemHeader(co->T("Mouse", "Mouse settings")));
 	CheckBox *mouseControl = controlsSettings->Add(new CheckBox(&g_Config.bMouseControl, co->T("Use Mouse Control")));
 	mouseControl->OnClick.Add([=](EventParams &e) {
@@ -721,6 +748,59 @@ void GameSettingsScreen::CreateViews() {
 	networkingSettings->Add(new ChoiceWithValueDisplay(&g_Config.sMACAddress, n->T("Change Mac Address"), (const char *)nullptr))->OnClick.Handle(this, &GameSettingsScreen::OnChangeMacAddress);
 	networkingSettings->Add(new PopupSliderChoice(&g_Config.iPortOffset, 0, 60000, n->T("Port offset", "Port offset(0 = PSP compatibility)"), 100, screenManager()));
 	networkingSettings->Add(new CheckBox(&g_Config.bMOHH2hack, n->T("Medal of Honor Heroes 2 hack", "Medal of Honor Heroes 2 hack")));
+
+	networkingSettings->Add(new ItemHeader(n->T("Chat")));
+	networkingSettings->Add(new CheckBox(&g_Config.bEnableNetworkChat, n->T("Enable network chat", "Enable network chat")));
+	static const char *chatButtonPositions[] = { "Bottom Left", "Bottom Center", "Bottom Right", "Top Left", "Top Center", "Top Right", "Center Left", "Center Right" };
+	networkingSettings->Add(new PopupMultiChoice(&g_Config.iChatButtonPosition, n->T("Chat Button Position"), chatButtonPositions, 0, ARRAY_SIZE(chatButtonPositions), n->GetName(), screenManager()))->SetEnabledPtr(&g_Config.bEnableNetworkChat);
+	static const char *chatScreenPositions[] = { "Bottom Left", "Bottom Center", "Bottom Right", "Top Left", "Top Center", "Top Right" };
+	networkingSettings->Add(new PopupMultiChoice(&g_Config.iChatScreenPosition, n->T("Chat Screen Position"), chatScreenPositions, 0, ARRAY_SIZE(chatScreenPositions), n->GetName(), screenManager()))->SetEnabledPtr(&g_Config.bEnableNetworkChat);
+	networkingSettings->Add(new ItemHeader(n->T("QuickChat", "Quick Chat")));
+	networkingSettings->Add(new CheckBox(&g_Config.bEnableQuickChat, n->T("EnableQuickChat", "Enable Quick Chat")));
+#if !defined(MOBILE_DEVICE) && !defined(USING_QT_UI)  // TODO: Add all platforms where KEY_CHAR support is added
+	PopupTextInputChoice *qc1 = networkingSettings->Add(new PopupTextInputChoice(&g_Config.sQuickChat0, n->T("Quick Chat 1"), "", 32, screenManager()));
+	qc1->SetEnabledPtr(&g_Config.bEnableQuickChat);
+	PopupTextInputChoice *qc2 = networkingSettings->Add(new PopupTextInputChoice(&g_Config.sQuickChat1, n->T("Quick Chat 2"), "", 32, screenManager()));
+	qc2->SetEnabledPtr(&g_Config.bEnableQuickChat);
+	PopupTextInputChoice *qc3 = networkingSettings->Add(new PopupTextInputChoice(&g_Config.sQuickChat2, n->T("Quick Chat 3"), "", 32, screenManager()));
+	qc3->SetEnabledPtr(&g_Config.bEnableQuickChat);
+	PopupTextInputChoice *qc4 = networkingSettings->Add(new PopupTextInputChoice(&g_Config.sQuickChat3, n->T("Quick Chat 4"), "", 32, screenManager()));
+	qc4->SetEnabledPtr(&g_Config.bEnableQuickChat);
+	PopupTextInputChoice *qc5 = networkingSettings->Add(new PopupTextInputChoice(&g_Config.sQuickChat4, n->T("Quick Chat 5"), "", 32, screenManager()));
+	qc5->SetEnabledPtr(&g_Config.bEnableQuickChat);
+#elif defined(USING_QT_UI)
+	Choice *qc1 = networkingSettings->Add(new Choice(n->T("Quick Chat 1")));
+	qc1->SetEnabledPtr(&g_Config.bEnableQuickChat);
+	qc1->OnClick.Handle(this, &GameSettingsScreen::OnChangeQuickChat0);
+	Choice *qc2 = networkingSettings->Add(new Choice(n->T("Quick Chat 2")));
+	qc2->SetEnabledPtr(&g_Config.bEnableQuickChat);
+	qc2->OnClick.Handle(this, &GameSettingsScreen::OnChangeQuickChat1);
+	Choice *qc3 = networkingSettings->Add(new Choice(n->T("Quick Chat 3")));
+	qc3->SetEnabledPtr(&g_Config.bEnableQuickChat);
+	qc3->OnClick.Handle(this, &GameSettingsScreen::OnChangeQuickChat2);
+	Choice *qc4 = networkingSettings->Add(new Choice(n->T("Quick Chat 4")));
+	qc4->SetEnabledPtr(&g_Config.bEnableQuickChat);
+	qc4->OnClick.Handle(this, &GameSettingsScreen::OnChangeQuickChat3);
+	Choice *qc5 = networkingSettings->Add(new Choice(n->T("Quick Chat 5")));
+	qc5->SetEnabledPtr(&g_Config.bEnableQuickChat);
+	qc5->OnClick.Handle(this, &GameSettingsScreen::OnChangeQuickChat4);
+#elif defined(__ANDROID__)
+	ChoiceWithValueDisplay *qc1 = networkingSettings->Add(new ChoiceWithValueDisplay(&g_Config.sQuickChat0, n->T("Quick Chat 1"), (const char *)nullptr));
+	qc1->OnClick.Handle(this, &GameSettingsScreen::OnChangeQuickChat0);
+	qc1->SetEnabledPtr(&g_Config.bEnableQuickChat);
+	ChoiceWithValueDisplay *qc2 = networkingSettings->Add(new ChoiceWithValueDisplay(&g_Config.sQuickChat1, n->T("Quick Chat 2"), (const char *)nullptr));
+	qc2->OnClick.Handle(this, &GameSettingsScreen::OnChangeQuickChat1);
+	qc2->SetEnabledPtr(&g_Config.bEnableQuickChat);
+	ChoiceWithValueDisplay *qc3 = networkingSettings->Add(new ChoiceWithValueDisplay(&g_Config.sQuickChat2, n->T("Quick Chat 3"), (const char *)nullptr));
+	qc3->OnClick.Handle(this, &GameSettingsScreen::OnChangeQuickChat2);
+	qc3->SetEnabledPtr(&g_Config.bEnableQuickChat);
+	ChoiceWithValueDisplay *qc4 = networkingSettings->Add(new ChoiceWithValueDisplay(&g_Config.sQuickChat3, n->T("Quick Chat 4"), (const char *)nullptr));
+	qc4->OnClick.Handle(this, &GameSettingsScreen::OnChangeQuickChat3);
+	qc4->SetEnabledPtr(&g_Config.bEnableQuickChat);
+	ChoiceWithValueDisplay *qc5 = networkingSettings->Add(new ChoiceWithValueDisplay(&g_Config.sQuickChat4, n->T("Quick Chat 5"), (const char *)nullptr));
+	qc5->OnClick.Handle(this, &GameSettingsScreen::OnChangeQuickChat4);
+	qc5->SetEnabledPtr(&g_Config.bEnableQuickChat);
+#endif
 
 	ViewGroup *toolsScroll = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, FILL_PARENT));
 	toolsScroll->SetTag("GameSettingsTools");
@@ -765,6 +845,10 @@ void GameSettingsScreen::CreateViews() {
 	View *ioTimingMethod = systemSettings->Add(new PopupMultiChoice(&g_Config.iIOTimingMethod, sy->T("IO timing method"), ioTimingMethods, 0, ARRAY_SIZE(ioTimingMethods), sy->GetName(), screenManager()));
 	systemSettings->Add(new CheckBox(&g_Config.bForceLagSync, sy->T("Force real clock sync (slower, less lag)")));
 	PopupSliderChoice *lockedMhz = systemSettings->Add(new PopupSliderChoice(&g_Config.iLockedCPUSpeed, 0, 1000, sy->T("Change CPU Clock", "Change CPU Clock (unstable)"), screenManager(), sy->T("MHz, 0:default")));
+	lockedMhz->OnChange.Add([&](UI::EventParams &) {
+		enableReportsCheckbox_->SetEnabled(Reporting::IsSupported());
+		return UI::EVENT_CONTINUE;
+	});
 	lockedMhz->SetZeroLabel(sy->T("Auto"));
 	PopupSliderChoice *rewindFreq = systemSettings->Add(new PopupSliderChoice(&g_Config.iRewindFlipFrequency, 0, 1800, sy->T("Rewind Snapshot Frequency", "Rewind Snapshot Frequency (mem hog)"), screenManager(), sy->T("frames, 0:off")));
 	rewindFreq->SetZeroLabel(sy->T("Off"));
@@ -786,9 +870,6 @@ void GameSettingsScreen::CreateViews() {
 #endif
 	if (!g_Config.bSimpleUI) {
 	systemSettings->Add(new CheckBox(&g_Config.bCheckForNewVersion, sy->T("VersionCheck", "Check for new versions of PPSSPP")));
-	if (g_Config.iMaxRecent > 0)
-		systemSettings->Add(new Choice(sy->T("Clear Recent Games List")))->OnClick.Handle(this, &GameSettingsScreen::OnClearRecents);
-
 	const std::string bgPng = GetSysDirectory(DIRECTORY_SYSTEM) + "background.png";
 	const std::string bgJpg = GetSysDirectory(DIRECTORY_SYSTEM) + "background.jpg";
 	if (File::Exists(bgPng) || File::Exists(bgJpg)) {
@@ -807,8 +888,8 @@ void GameSettingsScreen::CreateViews() {
 	systemSettings->Add(new CheckBox(&g_Config.bEnableStateUndo, sy->T("Savestate slot backups")));
 	static const char *autoLoadSaveStateChoices[] = { "Off", "Oldest Save", "Newest Save", "Slot 1", "Slot 2", "Slot 3", "Slot 4", "Slot 5" };
 	systemSettings->Add(new PopupMultiChoice(&g_Config.iAutoLoadSaveState, sy->T("Auto Load Savestate"), autoLoadSaveStateChoices, 0, ARRAY_SIZE(autoLoadSaveStateChoices), sy->GetName(), screenManager()));
-#if defined(USING_WIN_UI)
-	systemSettings->Add(new CheckBox(&g_Config.bBypassOSKWithKeyboard, sy->T("Enable Windows native keyboard", "Enable Windows native keyboard")));
+#if defined(USING_WIN_UI) || defined(USING_QT_UI) || PPSSPP_PLATFORM(ANDROID)
+	systemSettings->Add(new CheckBox(&g_Config.bBypassOSKWithKeyboard, sy->T("Use system native keyboard")));
 #endif
 #if PPSSPP_PLATFORM(ANDROID)
 	auto memstickPath = systemSettings->Add(new ChoiceWithValueDisplay(&g_Config.memStickDirectory, sy->T("Change Memory Stick folder"), (const char *)nullptr));
@@ -865,10 +946,12 @@ void GameSettingsScreen::CreateViews() {
 	systemSettings->Add(new CheckBox(&g_Config.bCacheFullIsoInRam, sy->T("Cache ISO in RAM", "Cache full ISO in RAM")));
 #endif
 
-//#ifndef __ANDROID__
 	systemSettings->Add(new ItemHeader(sy->T("Cheats", "Cheats (experimental, see forums)")));
-	systemSettings->Add(new CheckBox(&g_Config.bEnableCheats, sy->T("Enable Cheats")));
-//#endif
+	CheckBox *enableCheats = systemSettings->Add(new CheckBox(&g_Config.bEnableCheats, sy->T("Enable Cheats")));
+	enableCheats->OnClick.Add([&](UI::EventParams &) {
+		enableReportsCheckbox_->SetEnabled(Reporting::IsSupported());
+		return UI::EVENT_CONTINUE;
+	});
 	systemSettings->SetSpacing(0);
 	}
 	systemSettings->Add(new ItemHeader(sy->T("PSP Settings")));
@@ -920,16 +1003,11 @@ UI::EventReturn GameSettingsScreen::OnAutoFrameskip(UI::EventParams &e) {
 }
 
 UI::EventReturn GameSettingsScreen::OnSoftwareRendering(UI::EventParams &e) {
-	vtxCacheEnable_ = !g_Config.bSoftwareRendering && g_Config.bHardwareTransform;
-	postProcEnable_ = !g_Config.bSoftwareRendering && (g_Config.iRenderingMode != FB_NON_BUFFERED_MODE);
-	resolutionEnable_ = !g_Config.bSoftwareRendering && (g_Config.iRenderingMode != FB_NON_BUFFERED_MODE);
-	bloomHackEnable_ = !g_Config.bSoftwareRendering && (g_Config.iInternalResolution != 1);
 	tessHWEnable_ = DoesBackendSupportHWTess() && !g_Config.bSoftwareRendering && g_Config.bHardwareTransform;
 	return UI::EVENT_DONE;
 }
 
 UI::EventReturn GameSettingsScreen::OnHardwareTransform(UI::EventParams &e) {
-	vtxCacheEnable_ = !g_Config.bSoftwareRendering && g_Config.bHardwareTransform;
 	tessHWEnable_ = DoesBackendSupportHWTess() && !g_Config.bSoftwareRendering && g_Config.bHardwareTransform;
 	return UI::EVENT_DONE;
 }
@@ -979,9 +1057,6 @@ UI::EventReturn GameSettingsScreen::OnRenderingMode(UI::EventParams &e) {
 	enableReports_ = Reporting::IsEnabled();
 	enableReportsCheckbox_->SetEnabled(Reporting::IsSupported());
 
-	postProcEnable_ = !g_Config.bSoftwareRendering && (g_Config.iRenderingMode != FB_NON_BUFFERED_MODE);
-	resolutionEnable_ = !g_Config.bSoftwareRendering && (g_Config.iRenderingMode != FB_NON_BUFFERED_MODE);
-
 	if (g_Config.iRenderingMode == FB_NON_BUFFERED_MODE) {
 		g_Config.bAutoFrameSkip = false;
 	}
@@ -997,7 +1072,32 @@ UI::EventReturn GameSettingsScreen::OnJitAffectingSetting(UI::EventParams &e) {
 
 UI::EventReturn GameSettingsScreen::OnChangeMemStickDir(UI::EventParams &e) {
 	auto sy = GetI18NCategory("System");
-	System_SendMessage("inputbox", (std::string(sy->T("Memory Stick Folder")) + ":" + g_Config.memStickDirectory).c_str());
+	System_InputBoxGetString(sy->T("Memory Stick Folder"), g_Config.memStickDirectory, [&](bool result, const std::string &value) {
+		auto sy = GetI18NCategory("System");
+		auto di = GetI18NCategory("Dialog");
+
+		if (result) {
+			std::string newPath = value;
+			size_t pos = newPath.find_last_not_of("/");
+			// Gotta have at least something but a /, and also needs to start with a /.
+			if (newPath.empty() || pos == newPath.npos || newPath[0] != '/') {
+				settingInfo_->Show(sy->T("ChangingMemstickPathInvalid", "That path couldn't be used to save Memory Stick files."), nullptr);
+				return;
+			}
+			if (pos != newPath.size() - 1) {
+				newPath = newPath.substr(0, pos + 1);
+			}
+
+			pendingMemstickFolder_ = newPath;
+			std::string promptMessage = sy->T("ChangingMemstickPath", "Save games, save states, and other data will not be copied to this folder.\n\nChange the Memory Stick folder?");
+			if (!File::Exists(newPath)) {
+				promptMessage = sy->T("ChangingMemstickPathNotExists", "That folder doesn't exist yet.\n\nSave games, save states, and other data will not be copied to this folder.\n\nCreate a new Memory Stick folder?");
+			}
+			// Add the path for clarity and proper confirmation.
+			promptMessage += "\n\n" + newPath + "/";
+			screenManager()->push(new PromptScreen(promptMessage, di->T("Yes"), di->T("No"), std::bind(&GameSettingsScreen::CallbackMemstickFolder, this, std::placeholders::_1)));
+		}
+	});
 	return UI::EVENT_DONE;
 }
 
@@ -1062,12 +1162,6 @@ UI::EventReturn GameSettingsScreen::OnSavePathOther(UI::EventParams &e) {
 
 #endif
 
-UI::EventReturn GameSettingsScreen::OnClearRecents(UI::EventParams &e) {
-	g_Config.recentIsos.clear();
-	OnRecentChanged.Trigger(e);
-	return UI::EVENT_DONE;
-}
-
 UI::EventReturn GameSettingsScreen::OnChangeBackground(UI::EventParams &e) {
 	const std::string bgPng = GetSysDirectory(DIRECTORY_SYSTEM) + "background.png";
 	const std::string bgJpg = GetSysDirectory(DIRECTORY_SYSTEM) + "background.jpg";
@@ -1105,7 +1199,6 @@ UI::EventReturn GameSettingsScreen::OnResolutionChange(UI::EventParams &e) {
 	if (g_Config.iAndroidHwScale == 1) {
 		RecreateActivity();
 	}
-	bloomHackEnable_ = !g_Config.bSoftwareRendering && g_Config.iInternalResolution != 1;
 	Reporting::UpdateConfig();
 	return UI::EVENT_DONE;
 }
@@ -1159,43 +1252,6 @@ void GameSettingsScreen::onFinish(DialogResult result) {
 	NativeMessageReceived("gpu_resized", "");
 	NativeMessageReceived("gpu_clearCache", "");
 	NativeMessageReceived("gpu_clearShaderCache", "");
-}
-
-void GameSettingsScreen::sendMessage(const char *message, const char *value) {
-	UIDialogScreenWithGameBackground::sendMessage(message, value);
-
-	auto sy = GetI18NCategory("System");
-	auto di = GetI18NCategory("Dialog");
-
-	if (!strcmp(message, "inputbox_completed")) {
-		std::vector<std::string> inputboxValue;
-		SplitString(value, ':', inputboxValue);
-
-#if PPSSPP_PLATFORM(ANDROID)
-		if (inputboxValue.size() >= 2 && inputboxValue[0] == sy->T("Memory Stick Folder")) {
-			// Allow colons in the path.
-			std::string newPath = std::string(value).substr(inputboxValue[0].size() + 1);
-			size_t pos = newPath.find_last_not_of("/");
-			// Gotta have at least something but a /, and also needs to start with a /.
-			if (newPath.empty() || pos == newPath.npos || newPath[0] != '/') {
-				settingInfo_->Show(sy->T("ChangingMemstickPathInvalid", "That path couldn't be used to save Memory Stick files."), nullptr);
-				return;
-			}
-			if (pos != newPath.size() - 1) {
-				newPath = newPath.substr(0, pos + 1);
-			}
-
-			pendingMemstickFolder_ = newPath;
-			std::string promptMessage = sy->T("ChangingMemstickPath", "Save games, save states, and other data will not be copied to this folder.\n\nChange the Memory Stick folder?");
-			if (!File::Exists(newPath)) {
-				promptMessage = sy->T("ChangingMemstickPathNotExists", "That folder doesn't exist yet.\n\nSave games, save states, and other data will not be copied to this folder.\n\nCreate a new Memory Stick folder?");
-			}
-			// Add the path for clarity and proper confirmation.
-			promptMessage += "\n\n" + newPath + "/";
-			screenManager()->push(new PromptScreen(promptMessage, di->T("Yes"), di->T("No"), std::bind(&GameSettingsScreen::CallbackMemstickFolder, this, std::placeholders::_1)));
-		}
-#endif
-	}
 }
 
 #if PPSSPP_PLATFORM(ANDROID)
@@ -1255,6 +1311,15 @@ void GameSettingsScreen::CallbackRenderingDevice(bool yes) {
 	}
 }
 
+void GameSettingsScreen::CallbackInflightFrames(bool yes) {
+	if (yes) {
+		g_Config.Save("GameSettingsScreen::InflightFramesYes");
+		System_SendMessage("graphics_restart", "");
+	} else {
+		g_Config.iInflightFrames = prevInflightFrames_;
+	}
+}
+
 UI::EventReturn GameSettingsScreen::OnRenderingBackend(UI::EventParams &e) {
 	auto di = GetI18NCategory("Dialog");
 
@@ -1278,6 +1343,15 @@ UI::EventReturn GameSettingsScreen::OnRenderingDevice(UI::EventParams &e) {
 	return UI::EVENT_DONE;
 }
 
+UI::EventReturn GameSettingsScreen::OnInflightFramesChoice(UI::EventParams &e) {
+	auto di = GetI18NCategory("Dialog");
+	if (g_Config.iInflightFrames != prevInflightFrames_) {
+		screenManager()->push(new PromptScreen(di->T("ChangingInflightFrames", "Changing graphics command buffering requires PPSSPP to restart. Restart now?"), di->T("Yes"), di->T("No"),
+			std::bind(&GameSettingsScreen::CallbackInflightFrames, this, std::placeholders::_1)));
+	}
+	return UI::EVENT_DONE;
+}
+
 UI::EventReturn GameSettingsScreen::OnCameraDeviceChange(UI::EventParams& e) {
 	Camera::onCameraDeviceChange();
 	return UI::EVENT_DONE;
@@ -1292,19 +1366,74 @@ UI::EventReturn GameSettingsScreen::OnAudioDevice(UI::EventParams &e) {
 	return UI::EVENT_DONE;
 }
 
+UI::EventReturn GameSettingsScreen::OnChangeQuickChat0(UI::EventParams &e) {
+#if PPSSPP_PLATFORM(WINDOWS) || defined(USING_QT_UI) || defined(__ANDROID__)
+	auto n = GetI18NCategory("Networking");
+	System_InputBoxGetString(n->T("Enter Quick Chat 1"), g_Config.sQuickChat0, [](bool result, const std::string &value) {
+		if (result) {
+			g_Config.sQuickChat0 = value;
+		}
+	});
+#endif
+	return UI::EVENT_DONE;
+}
+
+UI::EventReturn GameSettingsScreen::OnChangeQuickChat1(UI::EventParams &e) {
+#if PPSSPP_PLATFORM(WINDOWS) || defined(USING_QT_UI) || defined(__ANDROID__)
+	auto n = GetI18NCategory("Networking");
+	System_InputBoxGetString(n->T("Enter Quick Chat 2"), g_Config.sQuickChat1, [](bool result, const std::string &value) {
+		if (result) {
+			g_Config.sQuickChat1 = value;
+		}
+	});
+#endif
+	return UI::EVENT_DONE;
+}
+
+UI::EventReturn GameSettingsScreen::OnChangeQuickChat2(UI::EventParams &e) {
+#if PPSSPP_PLATFORM(WINDOWS) || defined(USING_QT_UI) || defined(__ANDROID__)
+	auto n = GetI18NCategory("Networking");
+	System_InputBoxGetString(n->T("Enter Quick Chat 3"), g_Config.sQuickChat2, [](bool result, const std::string &value) {
+		if (result) {
+			g_Config.sQuickChat2 = value;
+		}
+	});
+#endif
+	return UI::EVENT_DONE;
+}
+
+UI::EventReturn GameSettingsScreen::OnChangeQuickChat3(UI::EventParams &e) {
+#if PPSSPP_PLATFORM(WINDOWS) || defined(USING_QT_UI) || defined(__ANDROID__)
+	auto n = GetI18NCategory("Networking");
+	System_InputBoxGetString(n->T("Enter Quick Chat 4"), g_Config.sQuickChat3, [](bool result, const std::string &value) {
+		if (result) {
+			g_Config.sQuickChat3 = value;
+		}
+	});
+#endif
+	return UI::EVENT_DONE;
+}
+
+UI::EventReturn GameSettingsScreen::OnChangeQuickChat4(UI::EventParams &e) {
+#if PPSSPP_PLATFORM(WINDOWS) || defined(USING_QT_UI) || defined(__ANDROID__)
+	auto n = GetI18NCategory("Networking");
+	System_InputBoxGetString(n->T("Enter Quick Chat 5"), g_Config.sQuickChat4, [](bool result, const std::string &value) {
+		if (result) {
+			g_Config.sQuickChat4 = value;
+		}
+	});
+#endif
+	return UI::EVENT_DONE;
+}
+
 UI::EventReturn GameSettingsScreen::OnChangeNickname(UI::EventParams &e) {
-#if PPSSPP_PLATFORM(WINDOWS) || defined(USING_QT_UI)
-	const size_t name_len = 256;
-
-	char name[name_len];
-	memset(name, 0, sizeof(name));
-
-	if (System_InputBoxGetString("Enter a new PSP nickname", g_Config.sNickName.c_str(), name, name_len)) {
-		g_Config.sNickName = StripSpaces(name);
-	}
-#elif defined(__ANDROID__)
-	// TODO: The return value is handled in NativeApp::inputbox_completed. This is horrific.
-	System_SendMessage("inputbox", ("nickname:" + g_Config.sNickName).c_str());
+#if PPSSPP_PLATFORM(WINDOWS) || defined(USING_QT_UI) || defined(__ANDROID__)
+	auto n = GetI18NCategory("Networking");
+	System_InputBoxGetString(n->T("Enter a new PSP nickname"), g_Config.sNickName, [](bool result, const std::string &value) {
+		if (result) {
+			g_Config.sNickName = StripSpaces(value);
+		}
+	});
 #endif
 	return UI::EVENT_DONE;
 }
@@ -1313,7 +1442,11 @@ UI::EventReturn GameSettingsScreen::OnChangeproAdhocServerAddress(UI::EventParam
 	auto sy = GetI18NCategory("System");
 
 #if defined(__ANDROID__)
-	System_SendMessage("inputbox", ("IP:" + g_Config.proAdhocServer).c_str());
+	System_InputBoxGetString(sy->T("proAdhocServer Address:"), g_Config.proAdhocServer, [](bool result, const std::string &value) {
+		if (result) {
+			g_Config.proAdhocServer = value;
+		}
+	});
 #else
 	screenManager()->push(new HostnameSelectScreen(&g_Config.proAdhocServer, sy->T("proAdhocServer Address:")));
 #endif
@@ -1328,7 +1461,7 @@ UI::EventReturn GameSettingsScreen::OnChangeMacAddress(UI::EventParams &e) {
 }
 
 UI::EventReturn GameSettingsScreen::OnComboKey(UI::EventParams &e) {
-	screenManager()->push(new Combo_keyScreen(&g_Config.iComboMode));
+	screenManager()->push(new ComboKeyScreen(&g_Config.iComboMode));
 	return UI::EVENT_DONE;
 }
 

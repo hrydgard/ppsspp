@@ -265,6 +265,7 @@ void GameInfo::ParseParamSFO() {
 		case 'J': region = GAMEREGION_JAPAN; break;
 		case 'H': region = GAMEREGION_HONGKONG; break;
 		case 'A': region = GAMEREGION_ASIA; break;
+		case 'K': region = GAMEREGION_KOREA; break;
 		}
 		/*
 		if (regStr == "NPEZ" || regStr == "NPEG" || regStr == "ULES" || regStr == "UCES" ||

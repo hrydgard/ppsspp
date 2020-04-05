@@ -19,6 +19,7 @@ bool AndroidJavaEGLGraphicsContext::InitFromRenderThread(ANativeWindow *wnd, int
 	g_display_rot_matrix.setIdentity();
 	draw_ = Draw::T3DCreateGLContext();
 	renderManager_ = (GLRenderManager *)draw_->GetNativeObject(Draw::NativeObject::RENDER_MANAGER);
+	renderManager_->SetInflightFrames(g_Config.iInflightFrames);
 	bool success = draw_->CreatePresets();
 	_assert_msg_(G3D, success, "Failed to compile preset shaders");
 	return success;

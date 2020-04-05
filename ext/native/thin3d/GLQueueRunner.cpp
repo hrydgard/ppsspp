@@ -569,8 +569,12 @@ void GLQueueRunner::RunSteps(const std::vector<GLRStep *> &steps, bool skipGLCal
 							}
 						}
 						break;
+					default:
+						break;
 					}
 				}
+				break;
+			default:
 				break;
 			}
 			delete steps[i];

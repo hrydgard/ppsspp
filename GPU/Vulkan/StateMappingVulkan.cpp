@@ -131,7 +131,7 @@ void DrawEngineVulkan::ResetShaderBlending() {
 void DrawEngineVulkan::ConvertStateToVulkanKey(FramebufferManagerVulkan &fbManager, ShaderManagerVulkan *shaderManager, int prim, VulkanPipelineRasterStateKey &key, VulkanDynamicState &dynState) {
 	key.topology = primToVulkan[prim];
 
-	bool useBufferedRendering = g_Config.iRenderingMode != FB_NON_BUFFERED_MODE;
+	bool useBufferedRendering = framebufferManager_->UseBufferedRendering();
 
 	if (gstate_c.IsDirty(DIRTY_BLEND_STATE)) {
 		gstate_c.SetAllowShaderBlend(!g_Config.bDisableSlowFramebufEffects);
@@ -172,6 +172,8 @@ void DrawEngineVulkan::ConvertStateToVulkanKey(FramebufferManagerVulkan &fbManag
 					// Until next time, force it off.
 					ResetShaderBlending();
 					gstate_c.SetAllowShaderBlend(false);
+					// Make sure we recompute the fragment shader ID to one that doesn't try to use shader blending.
+					gstate_c.Dirty(DIRTY_FRAGMENTSHADER_STATE);
 				}
 			} else if (blendState.resetShaderBlending) {
 				ResetShaderBlending();

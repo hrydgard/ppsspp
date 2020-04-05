@@ -1,5 +1,6 @@
 #pragma once
 
+#include <functional>
 #include <string>
 #include <vector>
 
@@ -33,6 +34,9 @@ void NativeGetAppInfo(std::string *app_dir_name, std::string *app_nice_name, boo
 
 // Generic host->C++ messaging, used for functionality like system-native popup input boxes.
 void NativeMessageReceived(const char *message, const char *value);
+
+// This is used to communicate back and thread requested input box strings.
+void NativeInputBoxReceived(std::function<void(bool, const std::string &)> cb, bool result, const std::string &value);
 
 // Easy way for the Java side to ask the C++ side for configuration options, such as
 // the rotation lock which must be controlled from Java on Android.
@@ -119,8 +123,7 @@ void OpenDirectory(const char *path);
 void LaunchBrowser(const char *url);
 void LaunchMarket(const char *url);
 void LaunchEmail(const char *email_address);
-bool System_InputBoxGetString(const char *title, const char *defaultValue, char *outValue, size_t outlength);
-bool System_InputBoxGetWString(const wchar_t *title, const std::wstring &defaultValue, std::wstring &outValue);
+void System_InputBoxGetString(const std::string &title, const std::string &defaultValue, std::function<void(bool, const std::string &)> cb);
 void System_SendMessage(const char *command, const char *parameter);
 PermissionStatus System_GetPermissionStatus(SystemPermission permission);
 void System_AskForPermission(SystemPermission permission);
@@ -153,6 +156,12 @@ enum SystemProperty {
 	SYSPROP_DISPLAY_DPI,
 	SYSPROP_DISPLAY_COUNT,
 	SYSPROP_MOGA_VERSION,
+
+	// Float only:
+	SYSPROP_DISPLAY_SAFE_INSET_LEFT,
+	SYSPROP_DISPLAY_SAFE_INSET_RIGHT,
+	SYSPROP_DISPLAY_SAFE_INSET_TOP,
+	SYSPROP_DISPLAY_SAFE_INSET_BOTTOM,
 
 	SYSPROP_DEVICE_TYPE,
 	SYSPROP_APP_GOLD,  // To avoid having #ifdef GOLD other than in main.cpp and similar.

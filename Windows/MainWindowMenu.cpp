@@ -349,6 +349,7 @@ namespace MainWindow {
 		TranslateMenuItem(menu, ID_OPTIONS_SHOWFPS);
 		TranslateMenuItem(menu, ID_EMULATION_SOUND);
 		TranslateMenuItem(menu, ID_EMULATION_CHEATS, L"\tCtrl+T");
+		TranslateMenuItem(menu, ID_EMULATION_CHAT, L"\tCtrl+C");
 
 		// Help menu: it's translated in CreateHelpMenu.
 		CreateHelpMenu(menu);
@@ -673,7 +674,11 @@ namespace MainWindow {
 			g_Config.bEnableCheats = !g_Config.bEnableCheats;
 			osm.ShowOnOff(gr->T("Cheats"), g_Config.bEnableCheats);
 			break;
-
+		case ID_EMULATION_CHAT:
+			if (GetUIState() == UISTATE_INGAME) {
+				NativeMessageReceived("chat screen", "");
+			}
+			break;
 		case ID_FILE_LOADSTATEFILE:
 			if (W32Util::BrowseForFileName(true, hWnd, L"Load state", 0, L"Save States (*.ppst)\0*.ppst\0All files\0*.*\0\0", L"ppst", fn)) {
 				SetCursor(LoadCursor(0, IDC_WAIT));
@@ -784,6 +789,7 @@ namespace MainWindow {
 
 		case ID_OPTIONS_VSYNC:
 			g_Config.bVSync = !g_Config.bVSync;
+			NativeResized();
 			break;
 
 		case ID_OPTIONS_FRAMESKIP_AUTO:

@@ -118,11 +118,17 @@ JavaVM* gJvm = nullptr;
 static jobject gClassLoader;
 static jmethodID gFindClassMethod;
 
+static float g_safeInsetLeft = 0.0;
+static float g_safeInsetRight = 0.0;
+static float g_safeInsetTop = 0.0;
+static float g_safeInsetBottom = 0.0;
 
 static jmethodID postCommand;
 static jobject nativeActivity;
 static volatile bool exitRenderLoop;
 static bool renderLoopRunning;
+static int inputBoxSequence = 1;
+std::map<int, std::function<void(bool, const std::string &)>> inputBoxCallbacks;
 
 static float dp_xscale = 1.0f;
 static float dp_yscale = 1.0f;
@@ -312,6 +318,14 @@ float System_GetPropertyFloat(SystemProperty prop) {
 	switch (prop) {
 	case SYSPROP_DISPLAY_REFRESH_RATE:
 		return display_hz;
+	case SYSPROP_DISPLAY_SAFE_INSET_LEFT:
+		return g_safeInsetLeft;
+	case SYSPROP_DISPLAY_SAFE_INSET_RIGHT:
+		return g_safeInsetRight;
+	case SYSPROP_DISPLAY_SAFE_INSET_TOP:
+		return g_safeInsetTop;
+	case SYSPROP_DISPLAY_SAFE_INSET_BOTTOM:
+		return g_safeInsetBottom;
 	default:
 		return -1;
 	}
@@ -572,6 +586,7 @@ extern "C" void Java_org_ppsspp_ppsspp_NativeApp_shutdown(JNIEnv *, jclass) {
 		ILOG("Not shutting down renderer - not initialized");
 	}
 
+	inputBoxCallbacks.clear();
 	NativeShutdown();
 	VFSShutdown();
 	while (frameCommands.size())
@@ -665,6 +680,41 @@ extern "C" void JNICALL Java_org_ppsspp_ppsspp_NativeApp_backbufferResize(JNIEnv
 	} else {
 		ILOG("NativeApp::backbufferResize: Size didn't change.");
 	}
+}
+
+void System_InputBoxGetString(const std::string &title, const std::string &defaultValue, std::function<void(bool, const std::string &)> cb) {
+	int seq = inputBoxSequence++;
+	inputBoxCallbacks[seq] = cb;
+
+	std::string serialized = StringFromFormat("%d:@:%s:@:%s", seq, title.c_str(), defaultValue.c_str());
+	System_SendMessage("inputbox", serialized.c_str());
+}
+
+extern "C" void JNICALL Java_org_ppsspp_ppsspp_NativeApp_sendInputBox(JNIEnv *env, jclass, jstring jseqID, jboolean result, jstring jvalue) {
+	std::string seqID = GetJavaString(env, jseqID);
+	std::string value = GetJavaString(env, jvalue);
+
+	static std::string lastSeqID = "";
+	if (lastSeqID == seqID) {
+		// We send this on dismiss, so twice in many cases.
+		DLOG("Ignoring duplicate sendInputBox");
+		return;
+	}
+	lastSeqID = seqID;
+
+	int seq = 0;
+	if (!TryParse(seqID, &seq)) {
+		ELOG("Invalid inputbox seqID value: %s", seqID.c_str());
+		return;
+	}
+
+	auto entry = inputBoxCallbacks.find(seq);
+	if (entry == inputBoxCallbacks.end()) {
+		ELOG("Did not find inputbox callback for %s, shutdown?", seqID.c_str());
+		return;
+	}
+
+	NativeInputBoxReceived(entry->second, result, value);
 }
 
 void UpdateRunLoopAndroid(JNIEnv *env) {
@@ -845,6 +895,16 @@ extern "C" void JNICALL Java_org_ppsspp_ppsspp_NativeApp_sendMessage(JNIEnv *env
 		permissions[SYSTEM_PERMISSION_STORAGE] = PERMISSION_STATUS_GRANTED;
 	} else if (msg == "sustained_perf_supported") {
 		sustainedPerfSupported = true;
+	} else if (msg == "safe_insets") {
+		ILOG("Got insets: %s", prm.c_str());
+		// We don't bother with supporting exact rectangular regions. Safe insets are good enough.
+		int left, right, top, bottom;
+		if (4 == sscanf(prm.c_str(), "%d:%d:%d:%d", &left, &right, &top, &bottom)) {
+			g_safeInsetLeft = (float)left * g_dpi_scale_x;
+			g_safeInsetRight = (float)right * g_dpi_scale_x;
+			g_safeInsetTop = (float)top * g_dpi_scale_y;
+			g_safeInsetBottom = (float)bottom * g_dpi_scale_y;
+		}
 	}
 
 	// Ensures that the receiver can handle it on a sensible thread.
@@ -930,7 +990,6 @@ extern "C" jint JNICALL Java_org_ppsspp_ppsspp_NativeApp_getDesiredBackbufferHei
 	return desiredBackbufferSizeY;
 }
 
-
 std::vector<std::string> __cameraGetDeviceList() {
 	jclass cameraClass = findClass("org/ppsspp/ppsspp/CameraHelper");
 	jmethodID deviceListMethod = getEnv()->GetStaticMethodID(cameraClass, "getDeviceList", "()Ljava/util/ArrayList;");
@@ -1013,32 +1072,32 @@ extern "C" bool JNICALL Java_org_ppsspp_ppsspp_NativeActivity_runEGLRenderLoop(J
 		return false;
 	}
 
-retry:
+	auto tryInit = [&]() {
+		if (graphicsContext->InitFromRenderThread(wnd, desiredBackbufferSizeX, desiredBackbufferSizeY, backbuffer_format, androidVersion)) {
+			return true;
+		}
 
-	bool vulkan = g_Config.iGPUBackend == (int)GPUBackend::VULKAN;
-
-	int tries = 0;
-
-	if (!graphicsContext->InitFromRenderThread(wnd, desiredBackbufferSizeX, desiredBackbufferSizeY, backbuffer_format, androidVersion)) {
 		ELOG("Failed to initialize graphics context.");
+		return false;
+	};
 
-		if (!exitRenderLoop && (vulkan && tries < 2)) {
+	bool initSuccess = tryInit();
+	if (!initSuccess) {
+		if (!exitRenderLoop && g_Config.iGPUBackend == (int)GPUBackend::VULKAN) {
 			ILOG("Trying again, this time with OpenGL.");
-			g_Config.iGPUBackend = (int)GPUBackend::OPENGL;
-			SetGPUBackend((GPUBackend)g_Config.iGPUBackend);
-			// If we were still supporting EGL for GL:
-			// tries++;
-			// goto retry;
+			SetGPUBackend(GPUBackend::OPENGL);
+			g_Config.iGPUBackend = (int)GetGPUBackend();
+
+			// If we were still supporting EGL for GL, we'd retry here:
+			//initSuccess = tryInit();
+		}
+
+		if (!initSuccess) {
 			delete graphicsContext;
 			graphicsContext = nullptr;
 			renderLoopRunning = false;
 			return false;
 		}
-
-		delete graphicsContext;
-		graphicsContext = nullptr;
-		renderLoopRunning = false;
-		return false;
 	}
 
 	if (!exitRenderLoop) {

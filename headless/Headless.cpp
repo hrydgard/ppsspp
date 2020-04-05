@@ -81,7 +81,7 @@ bool System_GetPropertyBool(SystemProperty prop) {
 	return false;
 }
 void System_SendMessage(const char *command, const char *parameter) {}
-bool System_InputBoxGetWString(const wchar_t *title, const std::wstring &defaultvalue, std::wstring &outvalue) { return false; }
+void System_InputBoxGetString(const std::string &title, const std::string &defaultValue, std::function<void(bool, const std::string &)> cb) { cb(false, ""); }
 void System_AskForPermission(SystemPermission permission) {}
 PermissionStatus System_GetPermissionStatus(SystemPermission permission) { return PERMISSION_STATUS_GRANTED; }
 
@@ -382,6 +382,8 @@ int main(int argc, const char* argv[])
 	g_Config.bMemStickInserted = true;
 	g_Config.bFragmentTestCache = true;
 	g_Config.iAudioLatency = 1;
+	g_Config.bEnableWlan = true;
+	g_Config.sMACAddress = "12:34:56:78:9A:BC";
 
 #ifdef _WIN32
 	g_Config.internalDataDirectory = "";

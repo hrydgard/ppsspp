@@ -71,7 +71,7 @@ private:
 
 	void InitClear() override;
 	void BeginFrame() override;
-	void CopyDisplayToOutput() override;
+	void CopyDisplayToOutput(bool reallyDirty) override;
 
 	ID3D11Device *device_;
 	ID3D11DeviceContext *context_;
@@ -81,6 +81,4 @@ private:
 	DepalShaderCacheD3D11 *depalShaderCache_;
 	DrawEngineD3D11 drawEngine_;
 	ShaderManagerD3D11 *shaderManagerD3D11_;
-
-	int lastVsync_;
 };

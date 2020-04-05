@@ -81,6 +81,13 @@ AndroidVulkanContext::~AndroidVulkanContext() {
 	g_Vulkan = nullptr;
 }
 
+static uint32_t FlagsFromConfig() {
+	if (g_Config.bVSync) {
+		return VULKAN_FLAG_PRESENT_FIFO;
+	}
+	return VULKAN_FLAG_PRESENT_MAILBOX | VULKAN_FLAG_PRESENT_FIFO_RELAXED;
+}
+
 bool AndroidVulkanContext::InitAPI() {
 	ILOG("AndroidVulkanContext::Init");
 	init_glslang();
@@ -105,7 +112,7 @@ bool AndroidVulkanContext::InitAPI() {
 	VulkanContext::CreateInfo info{};
 	info.app_name = "PPSSPP";
 	info.app_ver = gitVer.ToInteger();
-	info.flags = VULKAN_FLAG_PRESENT_MAILBOX | VULKAN_FLAG_PRESENT_FIFO_RELAXED;
+	info.flags = FlagsFromConfig();
 	VkResult res = g_Vulkan->CreateInstance(info);
 	if (res != VK_SUCCESS) {
 		ELOG("Failed to create vulkan context: %s", g_Vulkan->InitError().c_str());
@@ -167,6 +174,7 @@ bool AndroidVulkanContext::InitFromRenderThread(ANativeWindow *wnd, int desiredB
 		draw_->HandleEvent(Draw::Event::GOT_BACKBUFFER, g_Vulkan->GetBackbufferWidth(), g_Vulkan->GetBackbufferHeight());
 
 		VulkanRenderManager *renderManager = (VulkanRenderManager *)draw_->GetNativeObject(Draw::NativeObject::RENDER_MANAGER);
+		renderManager->SetInflightFrames(g_Config.iInflightFrames);
 		success = renderManager->HasBackbuffers();
 	} else {
 		success = false;
@@ -216,7 +224,7 @@ void AndroidVulkanContext::Resize() {
 	draw_->HandleEvent(Draw::Event::LOST_BACKBUFFER, g_Vulkan->GetBackbufferWidth(), g_Vulkan->GetBackbufferHeight());
 	g_Vulkan->DestroyObjects();
 
-	// backbufferResize updated these values.	TODO: Notify another way?
+	g_Vulkan->UpdateFlags(FlagsFromConfig());
 	g_Vulkan->ReinitSurface();
 	g_Vulkan->InitObjects();
 	draw_->HandleEvent(Draw::Event::GOT_BACKBUFFER, g_Vulkan->GetBackbufferWidth(), g_Vulkan->GetBackbufferHeight());

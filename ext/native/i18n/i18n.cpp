@@ -14,6 +14,7 @@ std::string I18NRepo::LanguageID() {
 }
 
 void I18NRepo::Clear() {
+	std::lock_guard<std::mutex> guard(catsLock_);
 	for (auto iter = cats_.begin(); iter != cats_.end(); ++iter) {
 		iter->second.reset();
 	}
@@ -33,6 +34,7 @@ const char *I18NCategory::T(const char *key, const char *def) {
 //		ILOG("translation key found in %s: %s", name_.c_str(), key);
 		return iter->second.text.c_str();
 	} else {
+		std::lock_guard<std::mutex> guard(missedKeyLock_);
 		if (def)
 			missedKeyLog_[key] = def;
 		else
@@ -53,6 +55,7 @@ void I18NCategory::SetMap(const std::map<std::string, std::string> &m) {
 }
 
 std::shared_ptr<I18NCategory> I18NRepo::GetCategory(const char *category) {
+	std::lock_guard<std::mutex> guard(catsLock_);
 	auto iter = cats_.find(category);
 	if (iter != cats_.end()) {
 		return iter->second;
@@ -94,6 +97,7 @@ bool I18NRepo::LoadIni(const std::string &languageID, const std::string &overrid
 
 	const std::vector<IniFile::Section> &sections = ini.Sections();
 
+	std::lock_guard<std::mutex> guard(catsLock_);
 	for (auto iter = sections.begin(); iter != sections.end(); ++iter) {
 		if (iter->name() != "") {
 			cats_[iter->name()].reset(LoadSection(&(*iter), iter->name().c_str()));
@@ -116,6 +120,7 @@ I18NCategory *I18NRepo::LoadSection(const IniFile::Section *section, const char 
 void I18NRepo::SaveIni(const std::string &languageID) {
 	IniFile ini;
 	ini.Load(GetIniPath(languageID));
+	std::lock_guard<std::mutex> guard(catsLock_);
 	for (auto iter = cats_.begin(); iter != cats_.end(); ++iter) {
 		std::string categoryName = iter->first;
 		IniFile::Section *section = ini.GetOrCreateSection(categoryName.c_str());

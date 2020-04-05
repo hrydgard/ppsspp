@@ -34,12 +34,6 @@
 
 #include "GPU/Common/GPUStateUtils.h"
 
-bool CanUseHardwareTransform(int prim) {
-	if (!g_Config.bHardwareTransform)
-		return false;
-	return !gstate.isModeThrough() && prim != GE_PRIM_RECTANGLES;
-}
-
 bool IsStencilTestOutputDisabled() {
 	// The mask applies on all stencil ops.
 	if (gstate.isStencilTestEnabled() && (gstate.pmska & 0xFF) != 0xFF) {

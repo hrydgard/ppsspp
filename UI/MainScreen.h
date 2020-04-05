@@ -47,7 +47,7 @@ static inline bool operator &(const BrowseFlags &lhs, const BrowseFlags &rhs) {
 
 class GameBrowser : public UI::LinearLayout {
 public:
-	GameBrowser(std::string path, BrowseFlags browseFlags, bool *gridStyle, std::string lastText, std::string lastLink, UI::LayoutParams *layoutParams = nullptr);
+	GameBrowser(std::string path, BrowseFlags browseFlags, bool *gridStyle, ScreenManager *screenManager, std::string lastText, std::string lastLink, UI::LayoutParams *layoutParams = nullptr);
 
 	UI::Event OnChoice;
 	UI::Event OnHoldChoice;
@@ -57,7 +57,7 @@ public:
 
 	void FocusGame(const std::string &gamePath);
 	void SetPath(const std::string &path);
-
+	void Draw(UIContext &dc) override;
 	void Update() override;
 
 protected:
@@ -79,6 +79,8 @@ private:
 	UI::EventReturn LastClick(UI::EventParams &e);
 	UI::EventReturn HomeClick(UI::EventParams &e);
 	UI::EventReturn PinToggleClick(UI::EventParams &e);
+	UI::EventReturn GridSettingsClick(UI::EventParams &e);
+	UI::EventReturn OnRecentClear(UI::EventParams &e);
 
 	UI::ViewGroup *gameList_ = nullptr;
 	PathBrowser path_;
@@ -89,6 +91,9 @@ private:
 	UI::Choice *homebrewStoreButton_ = nullptr;
 	std::string focusGamePath_;
 	bool listingPending_ = false;
+	float lastScale_ = 1.0f;
+	bool lastLayoutWasGrid_ = true;
+	ScreenManager *screenManager_;
 };
 
 class RemoteISOBrowseScreen;
@@ -163,4 +168,18 @@ private:
 
 	UI::EventReturn OnCancel(UI::EventParams &e);
 	UI::EventReturn OnGameSettings(UI::EventParams &e);
+};
+
+class GridSettingsScreen : public PopupScreen {
+public:
+	GridSettingsScreen(std::string label) : PopupScreen(label) {}
+	void CreatePopupContents(UI::ViewGroup *parent) override;
+	UI::Event OnRecentChanged;
+
+private:
+	UI::EventReturn GridPlusClick(UI::EventParams &e);
+	UI::EventReturn GridMinusClick(UI::EventParams &e);
+	UI::EventReturn OnRecentClearClick(UI::EventParams &e);
+	const float MAX_GAME_GRID_SCALE = 3.0f;
+	const float MIN_GAME_GRID_SCALE = 0.8f;
 };

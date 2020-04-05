@@ -32,7 +32,6 @@
 #include "ui/ui.h"
 #include "util/random/rng.h"
 #include "file/vfs.h"
-#include "UI/ui_atlas.h"
 #include "UI/ControlMappingScreen.h"
 #include "UI/DisplayLayoutScreen.h"
 #include "UI/EmuScreen.h"
@@ -49,17 +48,15 @@
 #include "GPU/GPUState.h"
 #include "GPU/Common/PostShader.h"
 
-#include "ui_atlas.h"
-
 #ifdef _MSC_VER
 #pragma execution_character_set("utf-8")
 #endif
 
-static const int symbols[4] = {
-	I_CROSS,
-	I_CIRCLE,
-	I_SQUARE,
-	I_TRIANGLE
+static const ImageID symbols[4] = {
+	ImageID("I_CROSS"),
+	ImageID("I_CIRCLE"),
+	ImageID("I_SQUARE"),
+	ImageID("I_TRIANGLE"),
 };
 
 static const uint32_t colors[4] = {
@@ -120,7 +117,7 @@ void DrawBackground(UIContext &dc, float alpha) {
 		dc.Flush();
 		dc.RebindTexture();
 	} else {
-		ImageID img = I_BG;
+		ImageID img = ImageID("I_BG");
 		ui_draw2d.DrawImageStretch(img, dc.GetBounds(), bgColor);
 	}
 
@@ -492,9 +489,8 @@ void LogoScreen::render() {
 	char temp[256];
 	// Manually formatting UTF-8 is fun.  \xXX doesn't work everywhere.
 	snprintf(temp, sizeof(temp), "%s Henrik Rydg%c%crd", cr->T("created", "Created by"), 0xC3, 0xA5);
-	dc.Draw()->DrawImage(I_ICON, bounds.centerX() - 120, bounds.centerY() - 30, 1.2f, textColor, ALIGN_CENTER);
-
-	dc.Draw()->DrawImage(I_LOGO, bounds.centerX() + 40, bounds.centerY() - 30, 1.5f, textColor, ALIGN_CENTER);
+	dc.Draw()->DrawImage(ImageID("I_ICON"), bounds.centerX() - 120, bounds.centerY() - 30, 1.2f, textColor, ALIGN_CENTER);
+	dc.Draw()->DrawImage(ImageID("I_LOGO"), bounds.centerX() + 40, bounds.centerY() - 30, 1.5f, textColor, ALIGN_CENTER);
 	//dc.Draw()->DrawTextShadow(UBUNTU48, "PPSSPP", xres / 2, yres / 2 - 30, textColor, ALIGN_CENTER);
 	dc.SetFontScale(1.0f, 1.0f);
 	dc.SetFontStyle(dc.theme->uiFont);
@@ -530,7 +526,7 @@ void CreditsScreen::CreateViews() {
 	root_->Add(new Button(cr->T("Share PPSSPP"), new AnchorLayoutParams(260, 64, NONE, NONE, 10, 84, false)))->OnClick.Handle(this, &CreditsScreen::OnShare);
 	root_->Add(new Button(cr->T("Twitter @PPSSPP_emu"), new AnchorLayoutParams(260, 64, NONE, NONE, 10, 154, false)))->OnClick.Handle(this, &CreditsScreen::OnTwitter);
 #endif
-	root_->Add(new ImageView(I_ICON, IS_DEFAULT, new AnchorLayoutParams(100, 64, 10, 10, NONE, NONE, false)));
+	root_->Add(new ImageView(ImageID("I_ICON"), IS_DEFAULT, new AnchorLayoutParams(100, 64, 10, 10, NONE, NONE, false)));
 }
 
 UI::EventReturn CreditsScreen::OnSupport(UI::EventParams &e) {
@@ -729,7 +725,7 @@ void CreditsScreen::render() {
 
 	UIContext &dc = *screenManager()->getUIContext();
 	dc.Begin();
-	const Bounds &bounds = dc.GetBounds();
+	const Bounds &bounds = dc.GetLayoutBounds();
 
 	const int numItems = ARRAY_SIZE(credits);
 	int itemHeight = 36;
@@ -741,7 +737,7 @@ void CreditsScreen::render() {
 
 		if (alpha > 0.0f) {
 			dc.SetFontScale(ease(alpha), ease(alpha));
-			dc.DrawText(credits[i], dc.GetBounds().centerX(), y, textColor, ALIGN_HCENTER);
+			dc.DrawText(credits[i], bounds.centerX(), y, textColor, ALIGN_HCENTER);
 			dc.SetFontScale(1.0f, 1.0f);
 		}
 		y += itemHeight;

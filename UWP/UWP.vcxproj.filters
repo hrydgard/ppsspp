@@ -118,9 +118,6 @@
     <None Include="Content\ppge_atlas.zim">
       <Filter>Content</Filter>
     </None>
-    <None Include="Content\ui_atlas_lowmem.zim">
-      <Filter>Content</Filter>
-    </None>
     <None Include="PPSSPP_UWP_TemporaryKey.pfx" />
     <None Include="Content\lang\ar_AE.ini">
       <Filter>Content\lang</Filter>
@@ -355,6 +352,12 @@
     </None>
     <None Include="Content\shaders\videoAA.fsh">
       <Filter>Content\shaders</Filter>
+    </None>
+    <None Include="..\assets\ppge_atlas.meta">
+      <Filter>Content</Filter>
+    </None>
+    <None Include="..\assets\ui_atlas.meta">
+      <Filter>Content</Filter>
     </None>
   </ItemGroup>
   <ItemGroup>

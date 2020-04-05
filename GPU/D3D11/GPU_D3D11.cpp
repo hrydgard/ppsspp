@@ -73,7 +73,6 @@ GPU_D3D11::GPU_D3D11(GraphicsContext *gfxCtx, Draw::DrawContext *draw)
 	device_ = (ID3D11Device *)draw->GetNativeObject(Draw::NativeObject::DEVICE);
 	context_ = (ID3D11DeviceContext *)draw->GetNativeObject(Draw::NativeObject::CONTEXT);
 	D3D_FEATURE_LEVEL featureLevel = (D3D_FEATURE_LEVEL)draw->GetNativeObject(Draw::NativeObject::FEATURE_LEVEL);
-	lastVsync_ = g_Config.bVSync ? 1 : 0;
 
 	stockD3D11.Create(device_);
 
@@ -212,8 +211,7 @@ void GPU_D3D11::DeviceRestore() {
 }
 
 void GPU_D3D11::InitClear() {
-	bool useNonBufferedRendering = g_Config.iRenderingMode == FB_NON_BUFFERED_MODE;
-	if (useNonBufferedRendering) {
+	if (!framebufferManager_->UseBufferedRendering()) {
 		// device_->Clear(0, NULL, D3DCLEAR_STENCIL | D3DCLEAR_TARGET | D3DCLEAR_ZBUFFER, D3DCOLOR_XRGB(0, 0, 0), 1.f, 0);
 	}
 }
@@ -263,13 +261,13 @@ void GPU_D3D11::SetDisplayFramebuffer(u32 framebuf, u32 stride, GEBufferFormat f
 	framebufferManagerD3D11_->SetDisplayFramebuffer(framebuf, stride, format);
 }
 
-void GPU_D3D11::CopyDisplayToOutput() {
+void GPU_D3D11::CopyDisplayToOutput(bool reallyDirty) {
 	float blendColor[4]{};
 	context_->OMSetBlendState(stockD3D11.blendStateDisabledWithColorMask[0xF], blendColor, 0xFFFFFFFF);
 
 	drawEngine_.Flush();
 
-	framebufferManagerD3D11_->CopyDisplayToOutput();
+	framebufferManagerD3D11_->CopyDisplayToOutput(reallyDirty);
 	framebufferManagerD3D11_->EndFrame();
 
 	// shaderManager_->EndFrame();

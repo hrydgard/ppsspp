@@ -51,6 +51,7 @@
 #include "file/zip_read.h"
 #include "net/http_client.h"
 #include "net/resolve.h"
+#include "gfx/texture_atlas.h"
 #include "gfx_es2/draw_text.h"
 #include "gfx_es2/gpu_features.h"
 #include "i18n/i18n.h"
@@ -85,12 +86,12 @@
 #include "Core/HLE/sceCtrl.h"
 #include "Core/HLE/sceUsbCam.h"
 #include "Core/HLE/sceUsbGps.h"
+#include "Core/HLE/proAdhoc.h"
 #include "Core/Util/GameManager.h"
 #include "Core/Util/AudioFormat.h"
 #include "Core/WebServer.h"
 #include "GPU/GPUInterface.h"
 
-#include "ui_atlas.h"
 #include "UI/EmuScreen.h"
 #include "UI/GameInfoCache.h"
 #include "UI/HostTypes.h"
@@ -121,6 +122,8 @@
 
 static UI::Theme ui_theme;
 
+Atlas g_ui_atlas;
+
 #if defined(ARM) && defined(__ANDROID__)
 #include "../../android/jni/ArmEmitterTest.h"
 #elif defined(ARM64) && defined(__ANDROID__)
@@ -142,8 +145,6 @@ static UI::Theme ui_theme;
 ScreenManager *screenManager;
 std::string config_filename;
 
-bool g_graphicsInited;
-
 // Really need to clean this mess of globals up... but instead I add more :P
 bool g_TakeScreenshot;
 static bool isOuya;
@@ -158,13 +159,19 @@ struct PendingMessage {
 	std::string value;
 };
 
+struct PendingInputBox {
+	std::function<void(bool, const std::string &)> cb;
+	bool result;
+	std::string value;
+};
+
 static std::mutex pendingMutex;
 static std::vector<PendingMessage> pendingMessages;
+static std::vector<PendingInputBox> pendingInputBoxes;
 static Draw::DrawContext *g_draw;
 static Draw::Pipeline *colorPipeline;
 static Draw::Pipeline *texColorPipeline;
 static UIContext *uiContext;
-static std::vector<std::string> inputboxValue;
 
 #ifdef _WIN32
 WindowsAudioBackend *winAudioBackend;
@@ -395,8 +402,11 @@ static void CheckFailedGPUBackends() {
 
 	// Okay, let's not try a backend in the failed list.
 	g_Config.iGPUBackend = g_Config.NextValidBackend();
-	if (lastBackend != g_Config.iGPUBackend)
-		WARN_LOG(LOADER, "Failed graphics backend switched from %d to %d", lastBackend, g_Config.iGPUBackend);
+	if (lastBackend != g_Config.iGPUBackend) {
+		std::string param = GPUBackendToString((GPUBackend)lastBackend) + " -> " + GPUBackendToString((GPUBackend)g_Config.iGPUBackend);
+		System_SendMessage("graphics_failedBackend", param.c_str());
+		WARN_LOG(LOADER, "Failed graphics backend switched from %s (%d to %d)", param.c_str(), lastBackend, g_Config.iGPUBackend);
+	}
 	// And then let's - for now - add the current to the failed list.
 	if (g_Config.sFailedGPUBackends.empty()) {
 		g_Config.sFailedGPUBackends = GPUBackendToString((GPUBackend)g_Config.iGPUBackend);
@@ -444,6 +454,7 @@ void NativeInit(int argc, const char *argv[], const char *savegame_dir, const ch
 	setlocale( LC_ALL, "C" );
 	std::string user_data_path = savegame_dir;
 	pendingMessages.clear();
+	pendingInputBoxes.clear();
 #ifdef IOS
 	user_data_path += "/";
 #endif
@@ -456,10 +467,13 @@ void NativeInit(int argc, const char *argv[], const char *savegame_dir, const ch
 #if !defined(MOBILE_DEVICE) && !defined(_WIN32) && !PPSSPP_PLATFORM(SWITCH)
 	VFSRegister("", new DirectoryAssetReader((File::GetExeDirectory() + "assets/").c_str()));
 	VFSRegister("", new DirectoryAssetReader((File::GetExeDirectory()).c_str()));
+	VFSRegister("", new DirectoryAssetReader("/usr/local/share/ppsspp/assets/"));
+	VFSRegister("", new DirectoryAssetReader("/usr/local/share/games/ppsspp/assets/"));
 	VFSRegister("", new DirectoryAssetReader("/usr/share/ppsspp/assets/"));
+	VFSRegister("", new DirectoryAssetReader("/usr/share/games/ppsspp/assets/"));
 #endif
 #if PPSSPP_PLATFORM(SWITCH)
-	std::string assetPath = savegame_dir + "assets/";
+	std::string assetPath = user_data_path + "assets/";
 	VFSRegister("", new DirectoryAssetReader(assetPath.c_str()));
 #else
 	VFSRegister("", new DirectoryAssetReader("assets/"));
@@ -537,6 +551,7 @@ void NativeInit(int argc, const char *argv[], const char *savegame_dir, const ch
 	const char *stateToLoad = 0;
 
 	bool gotBootFilename = false;
+	boot_filename = "";
 
 	// Parse command line
 	LogTypes::LOG_LEVELS logLevel = LogTypes::LINFO;
@@ -637,15 +652,6 @@ void NativeInit(int argc, const char *argv[], const char *savegame_dir, const ch
 		LogManager::GetInstance()->ChangeFileLog(fileToLog);
 
 	PostLoadConfig();
-
-	// Hard reset the logs. TODO: Get rid of this and read from config.
-#ifndef _WIN32
-	for (int i = 0; i < LogTypes::NUMBER_OF_LOGS; i++) {
-		LogTypes::LOG_TYPE type = (LogTypes::LOG_TYPE)i;
-		logman->SetEnabled(type, true);
-		logman->SetLogLevel(type, logLevel);
-	}
-#endif
 
 #if defined(__ANDROID__) || (defined(MOBILE_DEVICE) && !defined(_DEBUG))
 	// Enable basic logging for any kind of mobile device, since LogManager doesn't.
@@ -752,20 +758,20 @@ static UI::Style MakeStyle(uint32_t fg, uint32_t bg) {
 
 static void UIThemeInit() {
 #if defined(USING_WIN_UI) || PPSSPP_PLATFORM(UWP) || defined(USING_QT_UI)
-	ui_theme.uiFont = UI::FontStyle(UBUNTU24, g_Config.sFont.c_str(), 22);
-	ui_theme.uiFontSmall = UI::FontStyle(UBUNTU24, g_Config.sFont.c_str(), 15);
-	ui_theme.uiFontSmaller = UI::FontStyle(UBUNTU24, g_Config.sFont.c_str(), 12);
+	ui_theme.uiFont = UI::FontStyle(FontID("UBUNTU24"), g_Config.sFont.c_str(), 22);
+	ui_theme.uiFontSmall = UI::FontStyle(FontID("UBUNTU24"), g_Config.sFont.c_str(), 15);
+	ui_theme.uiFontSmaller = UI::FontStyle(FontID("UBUNTU24"), g_Config.sFont.c_str(), 12);
 #else
-	ui_theme.uiFont = UI::FontStyle(UBUNTU24, "", 20);
-	ui_theme.uiFontSmall = UI::FontStyle(UBUNTU24, "", 14);
-	ui_theme.uiFontSmaller = UI::FontStyle(UBUNTU24, "", 11);
+	ui_theme.uiFont = UI::FontStyle(FontID("UBUNTU24"), "", 20);
+	ui_theme.uiFontSmall = UI::FontStyle(FontID("UBUNTU24"), "", 14);
+	ui_theme.uiFontSmaller = UI::FontStyle(FontID("UBUNTU24"), "", 11);
 #endif
 
-	ui_theme.checkOn = I_CHECKEDBOX;
-	ui_theme.checkOff = I_SQUARE;
-	ui_theme.whiteImage = I_SOLIDWHITE;
-	ui_theme.sliderKnob = I_CIRCLE;
-	ui_theme.dropShadow4Grid = I_DROP_SHADOW;
+	ui_theme.checkOn = ImageID("I_CHECKEDBOX");
+	ui_theme.checkOff = ImageID("I_SQUARE");
+	ui_theme.whiteImage = ImageID("I_SOLIDWHITE");
+	ui_theme.sliderKnob = ImageID("I_CIRCLE");
+	ui_theme.dropShadow4Grid = ImageID("I_DROP_SHADOW");
 
 	ui_theme.itemStyle = MakeStyle(g_Config.uItemStyleFg, g_Config.uItemStyleBg);
 	ui_theme.itemFocusedStyle = MakeStyle(g_Config.uItemFocusedStyleFg, g_Config.uItemFocusedStyleBg);
@@ -792,14 +798,26 @@ bool NativeInitGraphics(GraphicsContext *graphicsContext) {
 	ILOG("NativeInitGraphics");
 	_assert_msg_(G3D, graphicsContext, "No graphics context!");
 
+	// We set this now so any resize during init is processed later.
+	resized = false;
+
 	using namespace Draw;
 	Core_SetGraphicsContext(graphicsContext);
 	g_draw = graphicsContext->GetDrawContext();
 	_assert_msg_(G3D, g_draw, "No draw context available!");
 	_assert_msg_(G3D, g_draw->GetVshaderPreset(VS_COLOR_2D) != nullptr, "Failed to compile presets");
 
-	ui_draw2d.SetAtlas(&ui_atlas);
-	ui_draw2d_front.SetAtlas(&ui_atlas);
+	// Load the atlas.
+
+	size_t atlas_data_size = 0;
+	if (!g_ui_atlas.IsMetadataLoaded()) {
+		const uint8_t *atlas_data = VFSReadFile("ui_atlas_luna.meta", &atlas_data_size);
+		bool load_success = atlas_data != nullptr && g_ui_atlas.Load(atlas_data, atlas_data_size);
+		_assert_msg_(G3D, load_success, "Failed to load ui_atlas_luna.meta");
+		delete[] atlas_data;
+	}
+	ui_draw2d.SetAtlas(&g_ui_atlas);
+	ui_draw2d_front.SetAtlas(&g_ui_atlas);
 
 	UIThemeInit();
 
@@ -872,7 +890,6 @@ bool NativeInitGraphics(GraphicsContext *graphicsContext) {
 	if (gpu)
 		gpu->DeviceRestore();
 
-	g_graphicsInited = true;
 	ILOG("NativeInitGraphics completed");
 	return true;
 }
@@ -883,7 +900,6 @@ void NativeShutdownGraphics() {
 	if (gpu)
 		gpu->DeviceLost();
 
-	g_graphicsInited = false;
 	ILOG("NativeShutdownGraphics");
 
 #ifdef _WIN32
@@ -900,7 +916,6 @@ void NativeShutdownGraphics() {
 	}
 #endif
 
-	ShutdownWebServer();
 	UIBackgroundShutdown();
 
 	delete g_gameInfoCache;
@@ -1051,7 +1066,7 @@ void NativeRender(GraphicsContext *graphicsContext) {
 #if defined(__APPLE__) && !defined(USING_QT_UI)
 			static int dp_xres_old = dp_xres;
 			if (dp_xres != dp_xres_old) {
-				// uiTexture->Load("ui_atlas.zim");
+				// uiTexture->Load("ui_atlas_luna.zim");
 				dp_xres_old = dp_xres;
 			}
 #endif
@@ -1082,19 +1097,6 @@ void NativeRender(GraphicsContext *graphicsContext) {
 void HandleGlobalMessage(const std::string &msg, const std::string &value) {
 	if (msg == "inputDeviceConnected") {
 		KeyMap::NotifyPadConnected(value);
-	}
-	if (msg == "inputbox_completed") {
-		SplitString(value, ':', inputboxValue);
-		std::string setString = inputboxValue.size() > 1 ? inputboxValue[1] : "";
-		if (inputboxValue[0] == "IP")
-			g_Config.proAdhocServer = setString;
-		else if (inputboxValue[0] == "nickname")
-			g_Config.sNickName = setString;
-		else if (inputboxValue[0] == "remoteiso_subdir")
-			g_Config.sRemoteISOSubdir = setString;
-		else if (inputboxValue[0] == "remoteiso_server")
-			g_Config.sLastRemoteISOServer = setString;
-		inputboxValue.clear();
 	}
 	if (msg == "bgImage_updated") {
 		if (!value.empty()) {
@@ -1146,7 +1148,7 @@ void HandleGlobalMessage(const std::string &msg, const std::string &value) {
 		// and I can't risk it before 1.9.0.
 		int gpuBackend = g_Config.iGPUBackend;
 		ILOG("Reloading config after storage permission grant.");
-		g_Config.Load();
+		g_Config.Reload();
 		PostLoadConfig();
 		g_Config.iGPUBackend = gpuBackend;
 	}
@@ -1156,15 +1158,21 @@ void NativeUpdate() {
 	PROFILE_END_FRAME();
 
 	std::vector<PendingMessage> toProcess;
+	std::vector<PendingInputBox> inputToProcess;
 	{
 		std::lock_guard<std::mutex> lock(pendingMutex);
 		toProcess = std::move(pendingMessages);
+		inputToProcess = std::move(pendingInputBoxes);
 		pendingMessages.clear();
+		pendingInputBoxes.clear();
 	}
 
-	for (size_t i = 0; i < toProcess.size(); i++) {
-		HandleGlobalMessage(toProcess[i].msg, toProcess[i].value);
-		screenManager->sendMessage(toProcess[i].msg.c_str(), toProcess[i].value.c_str());
+	for (const auto &item : toProcess) {
+		HandleGlobalMessage(item.msg, item.value);
+		screenManager->sendMessage(item.msg.c_str(), item.value.c_str());
+	}
+	for (const auto &item : inputToProcess) {
+		item.cb(item.result, item.value);
 	}
 
 	g_DownloadManager.Update();
@@ -1311,14 +1319,19 @@ void NativeMessageReceived(const char *message, const char *value) {
 	pendingMessages.push_back(pendingMessage);
 }
 
+void NativeInputBoxReceived(std::function<void(bool, const std::string &)> cb, bool result, const std::string &value) {
+	std::lock_guard<std::mutex> lock(pendingMutex);
+	PendingInputBox pendingMessage;
+	pendingMessage.cb = cb;
+	pendingMessage.result = result;
+	pendingMessage.value = value;
+	pendingInputBoxes.push_back(pendingMessage);
+}
+
 void NativeResized() {
 	// NativeResized can come from any thread so we just set a flag, then process it later.
-	if (g_graphicsInited) {
-		ILOG("NativeResized - setting flag");
-		resized = true;
-	} else {
-		ILOG("NativeResized ignored, not initialized");
-	}
+	ILOG("NativeResized - setting flag");
+	resized = true;
 }
 
 void NativeSetRestarting() {
@@ -1352,6 +1365,8 @@ void NativeShutdown() {
 #endif
 
 	ILOG("NativeShutdown called");
+
+	ShutdownWebServer();
 
 	System_SendMessage("finish", "");
 

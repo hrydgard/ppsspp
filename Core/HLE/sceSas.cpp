@@ -269,7 +269,7 @@ static u32 sceSasGetEndFlag(u32 core) {
 			endFlag |= (1 << i);
 	}
 
-	DEBUG_LOG(SCESAS, "%08x=sceSasGetEndFlag(%08x)", endFlag, core);
+	VERBOSE_LOG(SCESAS, "%08x=sceSasGetEndFlag(%08x)", endFlag, core);
 	return endFlag;
 }
 

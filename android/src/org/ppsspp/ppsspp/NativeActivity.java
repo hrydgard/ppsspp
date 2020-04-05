@@ -38,12 +38,15 @@ import android.view.InputDevice;
 import android.view.InputEvent;
 import android.view.KeyEvent;
 import android.view.MotionEvent;
+import android.view.OrientationEventListener;
 import android.view.Surface;
 import android.view.SurfaceHolder;
 import android.view.SurfaceView;
 import android.view.View;
 import android.view.View.OnSystemUiVisibilityChangeListener;
+import android.view.ViewGroup;
 import android.view.Window;
+import android.view.WindowInsets;
 import android.view.WindowManager;
 import android.view.inputmethod.InputMethodManager;
 import android.widget.EditText;
@@ -569,6 +572,16 @@ public abstract class NativeActivity extends Activity implements SurfaceHolder.C
 			}
 			mGLSurfaceView.setRenderer(nativeRenderer);
 			setContentView(mGLSurfaceView);
+
+			if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+				mGLSurfaceView.setOnApplyWindowInsetsListener(new View.OnApplyWindowInsetsListener() {
+					@Override
+					public WindowInsets onApplyWindowInsets(View view, WindowInsets windowInsets) {
+						checkInsets(windowInsets);
+						return windowInsets;
+					}
+				});
+			}
 		} else {
 			if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.ICE_CREAM_SANDWICH) {
 				updateSystemUiVisibility();
@@ -580,6 +593,16 @@ public abstract class NativeActivity extends Activity implements SurfaceHolder.C
 			setContentView(mSurfaceView);
 			Log.i(TAG, "setcontentview after");
 			ensureRenderLoop();
+
+			if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+				mSurfaceView.setOnApplyWindowInsetsListener(new View.OnApplyWindowInsetsListener() {
+					@Override
+					public WindowInsets onApplyWindowInsets(View view, WindowInsets windowInsets) {
+						checkInsets(windowInsets);
+						return windowInsets;
+					}
+				});
+			}
 		}
 	}
 
@@ -841,13 +864,12 @@ public abstract class NativeActivity extends Activity implements SurfaceHolder.C
 		}
 	}
 
-	@Override
-	public void onAttachedToWindow() {
-		Log.i(TAG, "onAttachedToWindow");
-		super.onAttachedToWindow();
-
+	private void checkInsets(WindowInsets insets) {
+		if (insets == null) {
+			return;
+		}
 		if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
-			DisplayCutout cutout = getWindow().getDecorView().getRootWindowInsets().getDisplayCutout();
+			DisplayCutout cutout = insets.getDisplayCutout();
 			if (cutout != null) {
 				safeInsetLeft = cutout.getSafeInsetLeft();
 				safeInsetRight = cutout.getSafeInsetRight();
@@ -861,7 +883,14 @@ public abstract class NativeActivity extends Activity implements SurfaceHolder.C
 				safeInsetTop = 0;
 				safeInsetBottom = 0;
 			}
+			NativeApp.sendMessage("safe_insets", safeInsetLeft + ":" + safeInsetRight + ":" + safeInsetTop + ":" + safeInsetBottom);
 		}
+	}
+
+	@Override
+	public void onAttachedToWindow() {
+		Log.i(TAG, "onAttachedToWindow");
+		super.onAttachedToWindow();
 
 		if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.KITKAT) {
 			setupSystemUiCallback();
@@ -1169,8 +1198,8 @@ public abstract class NativeActivity extends Activity implements SurfaceHolder.C
 		return bld;
 	}
 
-	// The return value is sent elsewhere. TODO in java, in SendMessage in C++.
-	public void inputBox(final String title, String defaultText, String defaultAction) {
+	// The return value is sent to C++ via seqID.
+	public void inputBox(final String seqID, final String title, String defaultText, String defaultAction) {
 		final FrameLayout fl = new FrameLayout(this);
 		final EditText input = new EditText(this);
 		input.setGravity(Gravity.CENTER);
@@ -1202,15 +1231,22 @@ public abstract class NativeActivity extends Activity implements SurfaceHolder.C
 			.setPositiveButton(defaultAction, new DialogInterface.OnClickListener() {
 				@Override
 				public void onClick(DialogInterface d, int which) {
-					NativeApp.sendMessage("inputbox_completed", title + ":" + input.getText().toString());
+					NativeApp.sendInputBox(seqID, true, input.getText().toString());
 					d.dismiss();
 				}
 			})
 			.setNegativeButton("Cancel", new DialogInterface.OnClickListener() {
 				@Override
 				public void onClick(DialogInterface d, int which) {
-					NativeApp.sendMessage("inputbox_failed", "");
+					NativeApp.sendInputBox(seqID, false, "");
 					d.cancel();
+				}
+			})
+			.setOnDismissListener(new DialogInterface.OnDismissListener() {
+				@Override
+				public void onDismiss(DialogInterface d) {
+					NativeApp.sendInputBox(seqID, false, "");
+					updateSystemUiVisibility();
 				}
 			})
 			.create();
@@ -1296,7 +1332,7 @@ public abstract class NativeActivity extends Activity implements SurfaceHolder.C
 			// http://developer.android.com/guide/publishing/publishing.html#marketintent
 			return false;
 		} else if (command.equals("toast")) {
-			Toast toast = Toast.makeText(this, params, Toast.LENGTH_SHORT);
+			Toast toast = Toast.makeText(this, params, Toast.LENGTH_LONG);
 			toast.show();
 			Log.i(TAG, params);
 			return true;
@@ -1311,15 +1347,17 @@ public abstract class NativeActivity extends Activity implements SurfaceHolder.C
 			inputMethodManager.toggleSoftInputFromWindow(surfView.getApplicationWindowToken(), InputMethodManager.SHOW_FORCED, 0);
 			return true;
 		} else if (command.equals("inputbox")) {
+			String seqID = "";
 			String title = "Input";
 			String defString = "";
-			String[] param = params.split(":");
-			if (param[0].length() > 0)
-				title = param[0];
-			if (param.length > 1)
-				defString = param[1];
-			Log.i(TAG, "Launching inputbox: " + title + " " + defString);
-			inputBox(title, defString, "OK");
+			String[] param = params.split(":@:", 3);
+			seqID = param[0];
+			if (param.length > 1 && param[1].length() > 0)
+				title = param[1];
+			if (param.length > 2)
+				defString = param[2];
+			Log.i(TAG, "Launching inputbox: #" + seqID + " " + title + " " + defString);
+			inputBox(seqID, title, defString, "OK");
 			return true;
 		} else if (command.equals("vibrate")) {
 			int milliseconds = -1;

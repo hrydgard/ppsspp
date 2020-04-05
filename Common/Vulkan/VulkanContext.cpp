@@ -285,6 +285,14 @@ void VulkanContext::EndFrame() {
 	}
 }
 
+void VulkanContext::UpdateInflightFrames(int n) {
+	assert(n >= 1 && n <= MAX_INFLIGHT_FRAMES);
+	inflightFrames_ = n;
+	if (curFrame_ >= inflightFrames_) {
+		curFrame_ = 0;
+	}
+}
+
 void VulkanContext::WaitUntilQueueIdle() {
 	// Should almost never be used
 	vkQueueWaitIdle(gfx_queue_);
@@ -949,20 +957,17 @@ bool VulkanContext::InitSwapchain() {
 		ILOG("Supported present mode: %d (%s)", presentModes[i], PresentModeString(presentModes[i]));
 	}
 	for (size_t i = 0; i < presentModeCount; i++) {
-		if (swapchainPresentMode == VK_PRESENT_MODE_MAX_ENUM_KHR) {
-			// Default to the first present mode from the list.
+		bool match = false;
+		match = match || ((flags_ & VULKAN_FLAG_PRESENT_MAILBOX) && presentModes[i] == VK_PRESENT_MODE_MAILBOX_KHR);
+		match = match || ((flags_ & VULKAN_FLAG_PRESENT_FIFO_RELAXED) && presentModes[i] == VK_PRESENT_MODE_FIFO_RELAXED_KHR);
+		match = match || ((flags_ & VULKAN_FLAG_PRESENT_FIFO) && presentModes[i] == VK_PRESENT_MODE_FIFO_KHR);
+		match = match || ((flags_ & VULKAN_FLAG_PRESENT_IMMEDIATE) && presentModes[i] == VK_PRESENT_MODE_IMMEDIATE_KHR);
+
+		// Default to the first present mode from the list.
+		if (match || swapchainPresentMode == VK_PRESENT_MODE_MAX_ENUM_KHR) {
 			swapchainPresentMode = presentModes[i];
 		}
-		if ((flags_ & VULKAN_FLAG_PRESENT_MAILBOX) && presentModes[i] == VK_PRESENT_MODE_MAILBOX_KHR) {
-			swapchainPresentMode = VK_PRESENT_MODE_MAILBOX_KHR;
-			break;
-		}
-		if ((flags_ & VULKAN_FLAG_PRESENT_FIFO_RELAXED) && presentModes[i] == VK_PRESENT_MODE_FIFO_RELAXED_KHR) {
-			swapchainPresentMode = VK_PRESENT_MODE_FIFO_RELAXED_KHR;
-			break;
-		}
-		if ((flags_ & VULKAN_FLAG_PRESENT_IMMEDIATE) && presentModes[i] == VK_PRESENT_MODE_IMMEDIATE_KHR) {
-			swapchainPresentMode = VK_PRESENT_MODE_IMMEDIATE_KHR;
+		if (match) {
 			break;
 		}
 	}

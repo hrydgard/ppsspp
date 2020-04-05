@@ -24,6 +24,7 @@
 #include "Core/MIPS/MIPS.h"
 
 class PointerWrap;
+class PSPAction;
 typedef void (* HLEFunc)();
 
 enum {
@@ -116,6 +117,8 @@ void hleSkipDeadbeef();
 void hleSetSteppingTime(double t);
 // Check if the current syscall context is kernel.
 bool hleIsKernelMode();
+// Enqueue a MIPS function to be called after this HLE call finishes.
+void hleEnqueueCall(u32 func, int argc, const u32 *argv, PSPAction *afterAction = nullptr);
 
 // Delays the result for usec microseconds, allowing other threads to run during this time.
 u32 hleDelayResult(u32 result, const char *reason, int usec);
@@ -143,6 +146,8 @@ bool WriteSyscall(const char *module, u32 nib, u32 address);
 void CallSyscall(MIPSOpcode op);
 void WriteFuncStub(u32 stubAddr, u32 symAddr);
 void WriteFuncMissingStub(u32 stubAddr, u32 nid);
+
+void HLEReturnFromMipsCall();
 
 const HLEFunction *GetSyscallFuncPointer(MIPSOpcode op);
 // For jit, takes arg: const HLEFunction *

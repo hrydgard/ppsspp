@@ -19,7 +19,9 @@
 
 #include <vector>
 #include <string>
-#include "ppge_atlas.h"
+
+#include "gfx/texture_atlas.h"
+
 #include "Common/CommonTypes.h"
 
 class PointerWrap;
@@ -43,10 +45,6 @@ void __PPGeShutdown();
 void PPGeBegin();
 void PPGeEnd();
 
-// If you want to draw using this texture but not go through the PSP GE emulation,
-// jsut call this. Will bind the texture to unit 0.
-void PPGeBindTexture();
-
 enum {
 	PPGE_ALIGN_LEFT        = 0,
 	PPGE_ALIGN_RIGHT       = 16,
@@ -64,11 +62,6 @@ enum {
 };
 
 enum {
-	PPGE_ESCAPE_NONE,
-	PPGE_ESCAPE_BACKSLASHED,
-};
-
-enum {
 	PPGE_LINE_NONE         = 0,
 	PPGE_LINE_USE_ELLIPSIS = 1, // use ellipses in too long words
 	PPGE_LINE_WRAP_WORD    = 2,
@@ -76,21 +69,7 @@ enum {
 };
 
 // Get the metrics of the bounding box of the text without changing the buffer or state.
-void PPGeMeasureText(float *w, float *h, int *n, 
-					const char *text, float scale, int WrapType = PPGE_LINE_NONE, int wrapWidth = 0);
-
-// Overwrite the current text lines buffer so it can be drawn later.
-void PPGePrepareText(const char *text, float x, float y, int align, float scale, float lineHeightScale,
-					int WrapType = PPGE_LINE_NONE, int wrapWidth = 0);
-
-// Get the metrics of the bounding box of the currently stated text.
-void PPGeMeasureCurrentText(float *x, float *y, float *w, float *h, int *n);
-
-// These functions must be called between PPGeBegin and PPGeEnd.
-
-// Draw currently buffered text using the state from PPGeGetTextBoundingBox() call.
-// Clears the buffer and state when done.
-void PPGeDrawCurrentText(u32 color = 0xFFFFFFFF);
+void PPGeMeasureText(float *w, float *h, const char *text, float scale, int WrapType = PPGE_LINE_NONE, int wrapWidth = 0);
 
 // Draws some text using the one font we have.
 // Clears the text buffer when done.
@@ -98,12 +77,14 @@ void PPGeDrawText(const char *text, float x, float y, int align, float scale = 1
 void PPGeDrawTextWrapped(const char *text, float x, float y, float wrapWidth, float wrapHeight, int align, float scale = 1.0f, u32 color = 0xFFFFFFFF);
 
 // Draws a "4-patch" for button-like things that can be resized.
-void PPGeDraw4Patch(int atlasImage, float x, float y, float w, float h, u32 color = 0xFFFFFFFF);
+void PPGeDraw4Patch(ImageID atlasImage, float x, float y, float w, float h, u32 color = 0xFFFFFFFF);
 
 // Just blits an image to the screen, multiplied with the color.
-void PPGeDrawImage(int atlasImage, float x, float y, int align, u32 color = 0xFFFFFFFF);
-void PPGeDrawImage(int atlasImage, float x, float y, float w, float h, int align, u32 color = 0xFFFFFFFF);
+void PPGeDrawImage(ImageID atlasImage, float x, float y, int align, u32 color = 0xFFFFFFFF);
+void PPGeDrawImage(ImageID atlasImage, float x, float y, float w, float h, int align, u32 color = 0xFFFFFFFF);
 void PPGeDrawImage(float x, float y, float w, float h, float u1, float v1, float u2, float v2, int tw, int th, u32 color);
+
+void PPGeNotifyFrame();
 
 class PPGeImage {
 public:
@@ -130,8 +111,9 @@ public:
 		return height_;
 	}
 
-private:
 	static void Decimate();
+
+private:
 	static std::vector<PPGeImage *> loadedTextures_;
 
 	std::string filename_;
@@ -150,6 +132,5 @@ private:
 void PPGeDrawRect(float x1, float y1, float x2, float y2, u32 color);
 
 void PPGeSetDefaultTexture();
-void PPGeSetTexture(u32 dataAddr, int width, int height);
 void PPGeDisableTexture();
 

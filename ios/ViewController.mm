@@ -44,6 +44,7 @@ public:
 		CheckGLExtensions();
 		draw_ = Draw::T3DCreateGLContext();
 		renderManager_ = (GLRenderManager *)draw_->GetNativeObject(Draw::NativeObject::RENDER_MANAGER);
+		renderManager_->SetInflightFrames(g_Config.iInflightFrames);
 		SetGPUBackend(GPUBackend::OPENGL);
 		bool success = draw_->CreatePresets();
 		_assert_msg_(G3D, success, "Failed to compile preset shaders");
@@ -147,11 +148,23 @@ static LocationHelper *locationHelper;
 - (void)subtleVolume:(SubtleVolume *)volumeView didChange:(CGFloat)value {
 }
 
+- (void)viewSafeAreaInsetsDidChange {
+	if (@available(iOS 11.0, *)) {
+		[super viewSafeAreaInsetsDidChange];
+		char safeArea[100];
+		// we use 0.0f instead of safeAreaInsets.bottom because the bottom overlay isn't disturbing (for now)
+		snprintf(safeArea, sizeof(safeArea), "%f:%f:%f:%f",
+				self.view.safeAreaInsets.left, self.view.safeAreaInsets.right,
+				self.view.safeAreaInsets.top, 0.0f);
+		System_SendMessage("safe_insets", safeArea);
+	}
+}
+
 - (void)viewDidLoad {
 	[super viewDidLoad];
 	[[DisplayManager shared] setupDisplayListener];
 
-    UIScreen* screen = [(AppDelegate*)[UIApplication sharedApplication].delegate screen];
+	UIScreen* screen = [(AppDelegate*)[UIApplication sharedApplication].delegate screen];
 	self.view.frame = [screen bounds];
 	self.view.multipleTouchEnabled = YES;
 	self.context = [[EAGLContext alloc] initWithAPI:kEAGLRenderingAPIOpenGLES3];
@@ -686,23 +699,23 @@ void startVideo() {
 }
 
 void stopVideo() {
-    [cameraHelper stopVideo];
+	[cameraHelper stopVideo];
 }
 
 -(void) PushCameraImageIOS:(long long)len buffer:(unsigned char*)data {
-    Camera::pushCameraImage(len, data);
+	Camera::pushCameraImage(len, data);
 }
 
 void startLocation() {
-    [locationHelper startLocationUpdates];
+	[locationHelper startLocationUpdates];
 }
 
 void stopLocation() {
-    [locationHelper stopLocationUpdates];
+	[locationHelper stopLocationUpdates];
 }
 
 -(void) SetGpsDataIOS:(CLLocation *)newLocation {
-    GPS::setGpsData((long long)newLocation.timestamp.timeIntervalSince1970,
+	GPS::setGpsData((long long)newLocation.timestamp.timeIntervalSince1970,
 					newLocation.horizontalAccuracy/5.0,
 					newLocation.coordinate.latitude, newLocation.coordinate.longitude,
 					newLocation.altitude,

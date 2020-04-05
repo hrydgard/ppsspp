@@ -74,6 +74,7 @@
     <ClInclude Include="Hashmaps.h" />
     <ClInclude Include="Vulkan\VulkanDebug.h" />
     <ClInclude Include="BitScan.h" />
+    <ClInclude Include="MakeUnique.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="stdafx.cpp" />

@@ -234,10 +234,10 @@ public:
 
 	bool HasReachedEnd() {
 		// The pts are ignored - the end is when we're out of data.
-		return mediaengine->IsVideoEnd() && mediaengine->IsNoAudioData();
+		return mediaengine->IsVideoEnd() && (mediaengine->IsNoAudioData() || !mediaengine->IsActuallyPlayingAudio());
 	}
 
-	u32 filehandle;
+	int filehandle;
 	u32 fileoffset;
 	int readSize;
 	int streamSize;
@@ -1617,7 +1617,7 @@ static int scePsmfPlayerGetVideoData(u32 psmfPlayer, u32 videoDataAddr)
 	bool doVideoStep = true;
 	if (psmfplayer->playMode == PSMF_PLAYER_MODE_PAUSE) {
 		doVideoStep = false;
-	} else if (!psmfplayer->mediaengine->IsNoAudioData()) {
+	} else if (!psmfplayer->mediaengine->IsNoAudioData() && psmfplayer->mediaengine->IsActuallyPlayingAudio()) {
 		s64 deltapts = psmfplayer->mediaengine->getVideoTimeStamp() - psmfplayer->mediaengine->getAudioTimeStamp();
 		// Don't skip the very first frame, sometimes audio starts with an early timestamp.
 		if (deltapts > 0 && psmfplayer->mediaengine->getVideoTimeStamp() > 0) {

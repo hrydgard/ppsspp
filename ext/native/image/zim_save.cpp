@@ -2,7 +2,6 @@
 #include <string.h>
 #include <math.h>
 #include "base/logging.h"
-#include "ext/rg_etc1/rg_etc1.h"
 #include "image/zim_save.h"
 #include "zlib.h"
 
@@ -100,43 +99,6 @@ void Convert(const uint8_t *image_data, int width, int height, int pitch, int fl
 				}
 				break;
 			}
-		case ZIM_ETC1: {
-			rg_etc1::pack_etc1_block_init();
-			rg_etc1::etc1_pack_params params;
-			params.m_dithering = false; //(flags & ZIM_ETC1_DITHER) != 0;
-			if (flags & ZIM_ETC1_LOW) {
-				params.m_quality = rg_etc1::cLowQuality;
-			} else if (flags & ZIM_ETC1_MEDIUM) {
-				params.m_quality = rg_etc1::cMediumQuality;
-			} else {
-				params.m_quality = rg_etc1::cHighQuality;
-			}
-
-			// Check for power of 2
-			if (!ispowerof2(width) || !ispowerof2(height)) {
-				FLOG("Image must have power of 2 dimensions, %ix%i just isn't that.", width, height);
-			}
-			// Convert RGBX to ETC1 before saving.
-			int blockw = width/4;
-			int blockh = height/4;
-			*data_size = blockw * blockh * 8;
-			*data = new uint8_t[*data_size];
-#ifndef __ANDROID__
-#pragma omp parallel for 
-#endif
-			for (int y = 0; y < blockh; y++) {
-				for (int x = 0; x < blockw; x++) {
-					uint32_t block[16];
-					for (int iy = 0; iy < 4; iy++) {
-						memcpy(block + 4 * iy, image_data + ((y * 4 + iy) * (pitch/4) + x * 4) * 4, 16);
-					}
-					rg_etc1::pack_etc1_block((*data) + (blockw * y + x) * 8, block, params);
-				}
-			}
-			width = blockw * 4;
-			height = blockh * 4;
-			break;
-									 }
 		case ZIM_RGBA4444:
 			{
 				*data_size = width * height * 2;
@@ -215,8 +177,7 @@ uint8_t *DownsampleBy2(const uint8_t *image, int width, int height, int pitch) {
 	return out;
 }
 
-void SaveZIM(const char *filename, int width, int height, int pitch, int flags, const uint8_t *image_data) {
-	FILE *f = fopen(filename, "wb");
+void SaveZIM(FILE *f, int width, int height, int pitch, int flags, const uint8_t *image_data) {
 	fwrite(magic, 1, 4, f);
 	fwrite(&width, 1, 4, f);
 	fwrite(&height, 1, 4, f);
@@ -252,13 +213,8 @@ void SaveZIM(const char *filename, int width, int height, int pitch, int flags, 
 			image_data = smaller;
 			width /= 2;
 			height /= 2;
-			if ((flags & ZIM_FORMAT_MASK) == ZIM_ETC1) {
-				if (width < 4) width = 4;
-				if (height < 4) height = 4;
-			}
 			pitch = width * 4;
 		}
 	}
 	delete [] image_data;
-	fclose(f);
 }

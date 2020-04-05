@@ -13,6 +13,7 @@ enum {
 	VULKAN_FLAG_PRESENT_MAILBOX = 2,
 	VULKAN_FLAG_PRESENT_IMMEDIATE = 4,
 	VULKAN_FLAG_PRESENT_FIFO_RELAXED = 8,
+	VULKAN_FLAG_PRESENT_FIFO = 16,
 };
 
 enum {
@@ -136,6 +137,7 @@ public:
 	VkDevice GetDevice() const { return device_; }
 	VkInstance GetInstance() const { return instance_; }
 	uint32_t GetFlags() const { return flags_; }
+	void UpdateFlags(uint32_t flags) { flags_ = flags; }
 
 	VulkanDeleteList &Delete() { return globalDeleteList_; }
 
@@ -174,10 +176,13 @@ public:
 	VkResult InitDebugMsgCallback(PFN_vkDebugReportCallbackEXT dbgFunc, int bits, void *userdata);
 	void DestroyDebugMsgCallback();
 
-	VkPhysicalDevice GetPhysicalDevice(int n = 0) const {
+	VkPhysicalDevice GetPhysicalDevice(int n) const {
 		return physical_devices_[n];
 	}
-	int GetCurrentPhysicalDevice() const {
+	VkPhysicalDevice GetCurrentPhysicalDevice() const {
+		return physical_devices_[physical_device_];
+	}
+	int GetCurrentPhysicalDeviceIndex() const {
 		return physical_device_;
 	}
 	int GetNumPhysicalDevices() const {
@@ -200,7 +205,7 @@ public:
 
 	const PhysicalDeviceProps &GetPhysicalDeviceProperties(int i = -1) const {
 		if (i < 0)
-			i = GetCurrentPhysicalDevice();
+			i = GetCurrentPhysicalDeviceIndex();
 		return physicalDeviceProperties_[i];
 	}
 
@@ -249,6 +254,8 @@ public:
 	int GetInflightFrames() const {
 		return inflightFrames_;
 	}
+	// Don't call while a frame is in progress.
+	void UpdateInflightFrames(int n);
 
 	int GetCurFrame() const {
 		return curFrame_;

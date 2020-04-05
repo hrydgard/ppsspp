@@ -74,6 +74,15 @@ static VulkanContext *g_Vulkan;
 
 static VulkanLogOptions g_LogOptions;
 
+static uint32_t FlagsFromConfig() {
+	uint32_t flags = 0;
+	flags = g_Config.bVSync ? VULKAN_FLAG_PRESENT_FIFO : VULKAN_FLAG_PRESENT_MAILBOX;
+	if (g_validate_) {
+		flags |= VULKAN_FLAG_VALIDATE;
+	}
+	return flags;
+}
+
 bool WindowsVulkanContext::Init(HINSTANCE hInst, HWND hWnd, std::string *error_message) {
 	*error_message = "N/A";
 
@@ -100,10 +109,7 @@ bool WindowsVulkanContext::Init(HINSTANCE hInst, HWND hWnd, std::string *error_m
 	VulkanContext::CreateInfo info{};
 	info.app_name = "PPSSPP";
 	info.app_ver = gitVer.ToInteger();
-	info.flags = VULKAN_FLAG_PRESENT_MAILBOX;
-	if (g_validate_) {
-		info.flags |= VULKAN_FLAG_VALIDATE;
-	}
+	info.flags = FlagsFromConfig();
 	if (VK_SUCCESS != g_Vulkan->CreateInstance(info)) {
 		*error_message = g_Vulkan->InitError();
 		delete g_Vulkan;
@@ -153,6 +159,7 @@ bool WindowsVulkanContext::Init(HINSTANCE hInst, HWND hWnd, std::string *error_m
 	draw_->HandleEvent(Draw::Event::GOT_BACKBUFFER, g_Vulkan->GetBackbufferWidth(), g_Vulkan->GetBackbufferHeight());
 
 	VulkanRenderManager *renderManager = (VulkanRenderManager *)draw_->GetNativeObject(Draw::NativeObject::RENDER_MANAGER);
+	renderManager->SetInflightFrames(g_Config.iInflightFrames);
 	if (!renderManager->HasBackbuffers()) {
 		Shutdown();
 		return false;
@@ -184,6 +191,7 @@ void WindowsVulkanContext::Resize() {
 	draw_->HandleEvent(Draw::Event::LOST_BACKBUFFER, g_Vulkan->GetBackbufferWidth(), g_Vulkan->GetBackbufferHeight());
 	g_Vulkan->DestroyObjects();
 
+	g_Vulkan->UpdateFlags(FlagsFromConfig());
 	g_Vulkan->ReinitSurface();
 
 	g_Vulkan->InitObjects();

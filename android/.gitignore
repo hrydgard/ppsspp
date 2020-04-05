@@ -7,8 +7,3 @@ gen
 obj
 .externalNativeBuild
 android.iml
-#ui_atlas_luna.zim
-ui_atlas.zim.png
-#assets/ui_atlas_luna.zim
-#jni/ui_atlas.cpp
-#jni/ui_atlas.h

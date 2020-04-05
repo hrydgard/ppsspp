@@ -44,14 +44,15 @@ std::unique_ptr<ManagedTexture> CreateTextureFromFileData(Draw::DrawContext *dra
 
 class GameIconView : public UI::InertView {
 public:
-	GameIconView(std::string gamePath, UI::LayoutParams *layoutParams = 0)
-		: InertView(layoutParams), gamePath_(gamePath) {}
+	GameIconView(std::string gamePath, float scale, UI::LayoutParams *layoutParams = 0)
+		: InertView(layoutParams), gamePath_(gamePath), scale_(scale) {}
 
 	void GetContentDimensions(const UIContext &dc, float &w, float &h) const override;
 	void Draw(UIContext &dc) override;
 
 private:
 	std::string gamePath_;
+	float scale_ = 1.0f;
 	int textureWidth_ = 0;
 	int textureHeight_ = 0;
 };

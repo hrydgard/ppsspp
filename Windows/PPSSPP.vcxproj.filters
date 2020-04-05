@@ -399,9 +399,6 @@
     <None Include="..\atlasscript.txt">
       <Filter>Other Platforms</Filter>
     </None>
-    <None Include="..\atlasscript_lowmem.txt">
-      <Filter>Other Platforms</Filter>
-    </None>
     <None Include="..\ios\AudioEngine.mm">
       <Filter>Other Platforms</Filter>
     </None>

@@ -10,7 +10,7 @@
 #include <SLES/OpenSLES.h>
 #include <SLES/OpenSLES_Android.h>
 
-#include "../base/logging.h"
+#include "base/logging.h"
 #include "native-audio-so.h"
 
 AudioContext::AudioContext(AndroidAudioCallback cb, int _FramesPerBuffer, int _SampleRate)

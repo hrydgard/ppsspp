@@ -144,8 +144,13 @@ void PSPDialog::DoState(PointerWrap &p)
 	p.Do(isFading);
 	p.Do(fadeIn);
 	p.Do(fadeValue);
+
+	// I don't think we should save these two... Let's just ignore them for now for compat.
+	int okButtonImg = 0;
 	p.Do(okButtonImg);
+	int cancelButtonImg = 0;
 	p.Do(cancelButtonImg);
+
 	p.Do(okButtonFlag);
 	p.Do(cancelButtonFlag);
 

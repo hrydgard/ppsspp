@@ -111,7 +111,7 @@ public:
 	u32  Break(int mode) override;
 	void ReapplyGfxState() override;
 
-	void CopyDisplayToOutput() override = 0;
+	void CopyDisplayToOutput(bool reallyDirty) override = 0;
 	void InitClear() override = 0;
 	bool PerformMemoryCopy(u32 dest, u32 src, int size) override;
 	bool PerformMemorySet(u32 dest, u8 v, int size) override;
@@ -277,6 +277,7 @@ protected:
 	}
 
 	void BeginFrame() override;
+	void UpdateVsyncInterval(bool force);
 
 	virtual void FastRunLoop(DisplayList &list);
 
@@ -363,6 +364,10 @@ private:
 	// Debug stats.
 	double timeSteppingStarted_;
 	double timeSpentStepping_;
+
+#ifdef _WIN32
+	int lastVsync_ = -1;
+#endif
 };
 
 struct CommonCommandTableEntry {

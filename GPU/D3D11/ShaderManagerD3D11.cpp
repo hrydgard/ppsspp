@@ -149,12 +149,12 @@ void ShaderManagerD3D11::DirtyLastShader() {
 	gstate_c.Dirty(DIRTY_VERTEXSHADER_STATE | DIRTY_FRAGMENTSHADER_STATE);
 }
 
-uint64_t ShaderManagerD3D11::UpdateUniforms() {
+uint64_t ShaderManagerD3D11::UpdateUniforms(bool useBufferedRendering) {
 	uint64_t dirty = gstate_c.GetDirtyUniforms();
 	if (dirty != 0) {
 		D3D11_MAPPED_SUBRESOURCE map;
 		if (dirty & DIRTY_BASE_UNIFORMS) {
-			BaseUpdateUniforms(&ub_base, dirty, true);
+			BaseUpdateUniforms(&ub_base, dirty, true, useBufferedRendering);
 			context_->Map(push_base, 0, D3D11_MAP_WRITE_DISCARD, 0, &map);
 			memcpy(map.pData, &ub_base, sizeof(ub_base));
 			context_->Unmap(push_base, 0);
@@ -183,13 +183,13 @@ void ShaderManagerD3D11::BindUniforms() {
 	context_->PSSetConstantBuffers(0, 1, ps_cbs);
 }
 
-void ShaderManagerD3D11::GetShaders(int prim, u32 vertType, D3D11VertexShader **vshader, D3D11FragmentShader **fshader, bool useHWTransform) {
+void ShaderManagerD3D11::GetShaders(int prim, u32 vertType, D3D11VertexShader **vshader, D3D11FragmentShader **fshader, bool useHWTransform, bool useHWTessellation) {
 	VShaderID VSID;
 	FShaderID FSID;
 
 	if (gstate_c.IsDirty(DIRTY_VERTEXSHADER_STATE)) {
 		gstate_c.Clean(DIRTY_VERTEXSHADER_STATE);
-		ComputeVertexShaderID(&VSID, vertType, useHWTransform);
+		ComputeVertexShaderID(&VSID, vertType, useHWTransform, useHWTessellation);
 	} else {
 		VSID = lastVSID_;
 	}

@@ -73,9 +73,6 @@ void CheckGLExtensions() {
 	memset(&gl_extensions, 0, sizeof(gl_extensions));
 }
 
-void DirectXState::SetVSyncInterval(int interval) {
-}
-
 }  // namespace DX9
 
 #endif  // _MSC_VER

@@ -160,8 +160,6 @@ void __NetAdhocInit() {
 }
 
 u32 sceNetAdhocInit() {
-	// Library uninitialized
-	INFO_LOG(SCENET, "sceNetAdhocInit() at %08x", currentMIPS->pc);
 	if (!netAdhocInited) {
 		// Clear Translator Memory
 		memset(&pdp, 0, sizeof(pdp));
@@ -173,17 +171,17 @@ u32 sceNetAdhocInit() {
 		// Create fake PSP Thread for callback
 		// TODO: Should use a separated threads for friendFinder, matchingEvent, and matchingInput and created on AdhocctlInit & AdhocMatchingStart instead of here
 		#define PSP_THREAD_ATTR_KERNEL 0x00001000 // PSP_THREAD_ATTR_KERNEL is located in sceKernelThread.cpp instead of sceKernelThread.h :(
-		//threadAdhocID = __KernelCreateThreadInternal("AdhocThread", __KernelGetCurThreadModuleId(), dummyThreadHackAddr, 0x30, 4096, PSP_THREAD_ATTR_KERNEL);
-		threadAdhocID = __KernelCreateThread("AdhocThread", __KernelGetCurThreadModuleId(), dummyThreadHackAddr, 0x10, 0x1000, 0, 0, false);
+		// TODO: This should probably be a user thread, but maybe from sceNetAdhocctlInit?
+		threadAdhocID = __KernelCreateThread("AdhocThread", __KernelGetCurThreadModuleId(), dummyThreadHackAddr, 0x10, 0x1000, PSP_THREAD_ATTR_KERNEL, 0, true);
 		if (threadAdhocID > 0) {
 			__KernelStartThread(threadAdhocID, 0, 0);
 		}
 
 		// Return Success
-		return 0;
+		return hleLogSuccessInfoI(SCENET, 0, "at %08x", currentMIPS->pc);
 	}
 	// Already initialized
-	return ERROR_NET_ADHOC_ALREADY_INITIALIZED;
+	return hleLogWarning(SCENET, ERROR_NET_ADHOC_ALREADY_INITIALIZED, "already initialized");
 }
 
 static u32 sceNetAdhocctlInit(int stackSize, int prio, u32 productAddr) {
@@ -1424,7 +1422,6 @@ int sceNetAdhocctlCreateEnterGameModeMin(const char *group_name, int game_type, 
 }
 
 int sceNetAdhocTerm() {
-	INFO_LOG(SCENET, "sceNetAdhocTerm()");
 	// WLAN might be disabled in the middle of successfull multiplayer, but we still need to cleanup all the sockets right?
 
 	if (netAdhocctlInited) sceNetAdhocctlTerm();
@@ -1453,10 +1450,11 @@ int sceNetAdhocTerm() {
 		// if (_manage_modules != 0) sceUtilityUnloadModule(PSP_MODULE_NET_INET);
 		// Library shutdown
 		netAdhocInited = false;
-		return 0;
+		return hleLogSuccessInfoI(SCENET, 0);
 	} else {
-		// Seems to return this when called a second time after being terminated without another initialisation
-		return SCE_KERNEL_ERROR_LWMUTEX_NOT_FOUND;
+		// TODO: Reportedly returns SCE_KERNEL_ERROR_LWMUTEX_NOT_FOUND in some cases?
+		// Only seen returning 0 in tests.
+		return hleLogWarning(SCENET, 0, "already uninitialized");
 	}
 }
 

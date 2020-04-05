@@ -228,7 +228,7 @@ public:
 	void RebindFramebuffer();
 	std::vector<FramebufferInfo> GetFramebufferList();
 
-	void CopyDisplayToOutput();
+	void CopyDisplayToOutput(bool reallyDirty);
 
 	bool NotifyFramebufferCopy(u32 src, u32 dest, int size, bool isMemset, u32 skipDrawReason);
 	void NotifyVideoUpload(u32 addr, int size, int width, GEBufferFormat fmt);
@@ -262,6 +262,10 @@ public:
 	}
 	GEBufferFormat DisplayFramebufFormat() {
 		return displayFramebuf_ ? displayFormat_ : GE_FORMAT_INVALID;
+	}
+
+	bool UseBufferedRendering() {
+		return useBufferedRendering_;
 	}
 
 	bool MayIntersectFramebuffer(u32 start) {
@@ -383,6 +387,7 @@ protected:
 	u32 displayFramebufPtr_ = 0;
 	u32 displayStride_ = 0;
 	GEBufferFormat displayFormat_;
+	u32 prevDisplayFramebufPtr_ = 0;
 
 	VirtualFramebuffer *displayFramebuf_ = nullptr;
 	VirtualFramebuffer *prevDisplayFramebuf_ = nullptr;

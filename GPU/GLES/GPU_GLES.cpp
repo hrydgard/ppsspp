@@ -108,9 +108,7 @@ GPU_GLES::GPU_GLES(GraphicsContext *gfxCtx, Draw::DrawContext *draw)
 
 	if (g_Config.bHardwareTessellation) {
 		// Disable hardware tessellation if device is unsupported.
-		bool hasTexelFetch = gl_extensions.GLES3 || (!gl_extensions.IsGLES && gl_extensions.VersionGEThan(3, 3, 0)) || gl_extensions.EXT_gpu_shader4;
-		if (!gstate_c.SupportsAll(GPU_SUPPORTS_VERTEX_TEXTURE_FETCH | GPU_SUPPORTS_TEXTURE_FLOAT) || !hasTexelFetch) {
-			g_Config.bHardwareTessellation = false;
+		if (!drawEngine_.SupportsHWTessellation()) {
 			ERROR_LOG(G3D, "Hardware Tessellation is unsupported, falling back to software tessellation");
 			auto gr = GetI18NCategory("Graphics");
 			host->NotifyUserMessage(gr->T("Turn off Hardware Tessellation - unsupported"), 2.5f, 0xFF3030FF);
@@ -360,6 +358,7 @@ void GPU_GLES::BeginHostFrame() {
 		drawEngine_.Resized();
 		shaderManagerGL_->DirtyShader();
 		textureCacheGL_->NotifyConfigChanged();
+		resized_ = false;
 	}
 
 	drawEngine_.BeginFrame();
@@ -369,42 +368,11 @@ void GPU_GLES::EndHostFrame() {
 	drawEngine_.EndFrame();
 }
 
-inline void GPU_GLES::UpdateVsyncInterval(bool force) {
-#ifdef _WIN32
-	int desiredVSyncInterval = g_Config.bVSync ? 1 : 0;
-	if (PSP_CoreParameter().unthrottle) {
-		desiredVSyncInterval = 0;
-	}
-	if (PSP_CoreParameter().fpsLimit != FPSLimit::NORMAL) {
-		int limit = PSP_CoreParameter().fpsLimit == FPSLimit::CUSTOM1 ? g_Config.iFpsLimit1 : g_Config.iFpsLimit2;
-		// For an alternative speed that is a clean factor of 60, the user probably still wants vsync.
-		if (limit == 0 || (limit >= 0 && limit != 15 && limit != 30 && limit != 60)) {
-			desiredVSyncInterval = 0;
-		}
-	}
-
-	if (desiredVSyncInterval != lastVsync_ || force) {
-		// Disabled EXT_swap_control_tear for now, it never seems to settle at the correct timing
-		// so it just keeps tearing. Not what I hoped for...
-		//if (gl_extensions.EXT_swap_control_tear) {
-		//	// See http://developer.download.nvidia.com/opengl/specs/WGL_EXT_swap_control_tear.txt
-		//	glstate.SetVSyncInterval(-desiredVSyncInterval);
-		//} else {
-		gfxCtx_->SwapInterval(desiredVSyncInterval);
-		//}
-		lastVsync_ = desiredVSyncInterval;
-	}
-#endif
-}
-
 void GPU_GLES::ReapplyGfxState() {
 	GPUCommon::ReapplyGfxState();
 }
 
 void GPU_GLES::BeginFrame() {
-	UpdateVsyncInterval(resized_);
-	resized_ = false;
-
 	textureCacheGL_->StartFrame();
 	drawEngine_.DecimateTrackedVertexArrays();
 	depalShaderCache_.Decimate();
@@ -430,20 +398,20 @@ void GPU_GLES::SetDisplayFramebuffer(u32 framebuf, u32 stride, GEBufferFormat fo
 	framebufferManagerGL_->SetDisplayFramebuffer(framebuf, stride, format);
 }
 
-void GPU_GLES::CopyDisplayToOutput() {
+void GPU_GLES::CopyDisplayToOutput(bool reallyDirty) {
 	// Flush anything left over.
 	framebufferManagerGL_->RebindFramebuffer();
 	drawEngine_.Flush();
 
 	shaderManagerGL_->DirtyLastShader();
 
-	framebufferManagerGL_->CopyDisplayToOutput();
+	framebufferManagerGL_->CopyDisplayToOutput(reallyDirty);
 	framebufferManagerGL_->EndFrame();
 
 	// If buffered, discard the depth buffer of the backbuffer. Don't even know if we need one.
 #if 0
 #ifdef USING_GLES2
-	if (gl_extensions.EXT_discard_framebuffer && g_Config.iRenderingMode != FB_NON_BUFFERED_MODE) {
+	if (gl_extensions.EXT_discard_framebuffer && framebufferManager_->UseBufferedRendering()) {
 		GLenum attachments[] = {GL_DEPTH_EXT, GL_STENCIL_EXT};
 		glDiscardFramebufferEXT(GL_FRAMEBUFFER, 2, attachments);
 	}

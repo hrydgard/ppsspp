@@ -5,6 +5,7 @@
 #include <unistd.h>
 #include <pwd.h>
 
+#include "ppsspp_config.h"
 #include "SDL.h"
 #include "SDL/SDLJoystick.h"
 SDLJoystick *joystick = NULL;
@@ -196,7 +197,12 @@ void OpenDirectory(const char *path) {
 }
 
 void LaunchBrowser(const char *url) {
-#if defined(MOBILE_DEVICE)
+#if PPSSPP_PLATFORM(SWITCH)
+	Uuid uuid = { 0 };
+	WebWifiConfig conf;
+	webWifiCreate(&conf, NULL, url, uuid, 0);
+	webWifiShow(&conf, NULL);
+#elif defined(MOBILE_DEVICE)
 	ILOG("Would have gone to %s but LaunchBrowser is not implemented on this platform", url);
 #elif defined(_WIN32)
 	std::wstring wurl = ConvertUTF8ToWString(url);
@@ -214,7 +220,12 @@ void LaunchBrowser(const char *url) {
 }
 
 void LaunchMarket(const char *url) {
-#if defined(MOBILE_DEVICE)
+#if PPSSPP_PLATFORM(SWITCH)
+	Uuid uuid = { 0 };
+	WebWifiConfig conf;
+	webWifiCreate(&conf, NULL, url, uuid, 0);
+	webWifiShow(&conf, NULL);
+#elif defined(MOBILE_DEVICE)
 	ILOG("Would have gone to %s but LaunchMarket is not implemented on this platform", url);
 #elif defined(_WIN32)
 	std::wstring wurl = ConvertUTF8ToWString(url);
@@ -258,6 +269,8 @@ std::string System_GetProperty(SystemProperty prop) {
 		return "SDL:Linux";
 #elif __APPLE__
 		return "SDL:macOS";
+#elif PPSSPP_PLATFORM(SWITCH)
+		return "SDL:Horizon";
 #else
 		return "SDL:";
 #endif
@@ -437,6 +450,11 @@ int main(int argc, char *argv[]) {
 		}
 	}
 
+#ifdef HAVE_LIBNX
+	socketInitializeDefault();
+	nxlinkStdio();
+#endif // HAVE_LIBNX
+
 	glslang::InitializeProcess();
 
 #if PPSSPP_PLATFORM(RPI)
@@ -533,9 +551,9 @@ int main(int argc, char *argv[]) {
 	}
 
 	// If we're on mobile, don't try for windowed either.
-#if defined(MOBILE_DEVICE)
+#if defined(MOBILE_DEVICE) && !PPSSPP_PLATFORM(SWITCH)
 	mode |= SDL_WINDOW_FULLSCREEN;
-#elif defined(USING_FBDEV)
+#elif defined(USING_FBDEV) || PPSSPP_PLATFORM(SWITCH)
 	mode |= SDL_WINDOW_FULLSCREEN_DESKTOP;
 #else
 	mode |= SDL_WINDOW_RESIZABLE;
@@ -581,14 +599,19 @@ int main(int argc, char *argv[]) {
 
 	// Mac / Linux
 	char path[2048];
+#if PPSSPP_PLATFORM(SWITCH)
+	strcpy(path, "/switch/ppsspp/");
+#else
 	const char *the_path = getenv("HOME");
 	if (!the_path) {
-		struct passwd* pwd = getpwuid(getuid());
+		struct passwd *pwd = getpwuid(getuid());
 		if (pwd)
 			the_path = pwd->pw_dir;
 	}
-	strcpy(path, the_path);
-	if (path[strlen(path)-1] != '/')
+	if (the_path)
+		strcpy(path, the_path);
+#endif
+	if (strlen(path) > 0 && path[strlen(path) - 1] != '/')
 		strcat(path, "/");
 
 	NativeInit(remain_argc, (const char **)remain_argv, path, "/tmp", nullptr);
@@ -687,9 +710,37 @@ int main(int argc, char *argv[]) {
 	}
 	graphicsContext->ThreadStart();
 
+	float mouseDeltaX = 0;
+	float mouseDeltaY = 0;
+	int mouseWheelMovedUpFrames = 0;
+	int mouseWheelMovedDownFrames = 0;
+	bool mouseCaptured = false;
 	bool windowHidden = false;
 	while (true) {
 		double startTime = time_now_d();
+
+		// SDL2 doesn't consider the mousewheel a button anymore
+		// so let's send the KEY_UP if it was moved after some frames
+		if (mouseWheelMovedUpFrames > 0) {
+			mouseWheelMovedUpFrames--;
+			if (mouseWheelMovedUpFrames == 0) {
+				KeyInput key;
+				key.deviceId = DEVICE_ID_MOUSE;
+				key.keyCode = NKCODE_EXT_MOUSEWHEEL_UP;
+				key.flags = KEY_UP;
+				NativeKey(key);
+			}
+		}
+		if (mouseWheelMovedDownFrames > 0) {
+			mouseWheelMovedDownFrames--;
+			if (mouseWheelMovedDownFrames == 0) {
+				KeyInput key;
+				key.deviceId = DEVICE_ID_MOUSE;
+				key.keyCode = NKCODE_EXT_MOUSEWHEEL_DOWN;
+				key.flags = KEY_UP;
+				NativeKey(key);
+			}
+		}
 		SDL_Event event, touchEvent;
 		while (SDL_PollEvent(&event)) {
 			float mx = event.motion.x * g_dpi_scale_x;
@@ -872,6 +923,24 @@ int main(int argc, char *argv[]) {
 						NativeKey(key);
 					}
 					break;
+				case SDL_BUTTON_MIDDLE:
+					{
+						KeyInput key(DEVICE_ID_MOUSE, NKCODE_EXT_MOUSEBUTTON_3, KEY_DOWN);
+						NativeKey(key);
+					}
+					break;
+				case SDL_BUTTON_X1:
+					{
+						KeyInput key(DEVICE_ID_MOUSE, NKCODE_EXT_MOUSEBUTTON_4, KEY_DOWN);
+						NativeKey(key);
+					}
+					break;
+				case SDL_BUTTON_X2:
+					{
+						KeyInput key(DEVICE_ID_MOUSE, NKCODE_EXT_MOUSEBUTTON_5, KEY_DOWN);
+						NativeKey(key);
+					}
+					break;
 				}
 				break;
 			case SDL_MOUSEWHEEL:
@@ -880,18 +949,15 @@ int main(int argc, char *argv[]) {
 					key.deviceId = DEVICE_ID_MOUSE;
 					if (event.wheel.y > 0) {
 						key.keyCode = NKCODE_EXT_MOUSEWHEEL_UP;
+						mouseWheelMovedUpFrames = 5;
 					} else {
 						key.keyCode = NKCODE_EXT_MOUSEWHEEL_DOWN;
+						mouseWheelMovedDownFrames = 5;
 					}
 					key.flags = KEY_DOWN;
 					NativeKey(key);
-
-					// SDL2 doesn't consider the mousewheel a button anymore
-					// so let's send the KEY_UP right away.
-					// Maybe KEY_UP alone will suffice?
-					key.flags = KEY_UP;
-					NativeKey(key);
 				}
+				break;
 			case SDL_MOUSEMOTION:
 				if (mouseDown) {
 					TouchInput input;
@@ -901,6 +967,8 @@ int main(int argc, char *argv[]) {
 					input.id = 0;
 					NativeTouch(input);
 				}
+				mouseDeltaX += event.motion.xrel;
+				mouseDeltaY += event.motion.yrel;
 				break;
 			case SDL_MOUSEBUTTONUP:
 				switch (event.button.button) {
@@ -920,6 +988,24 @@ int main(int argc, char *argv[]) {
 				case SDL_BUTTON_RIGHT:
 					{
 						KeyInput key(DEVICE_ID_MOUSE, NKCODE_EXT_MOUSEBUTTON_2, KEY_UP);
+						NativeKey(key);
+					}
+					break;
+				case SDL_BUTTON_MIDDLE:
+					{
+						KeyInput key(DEVICE_ID_MOUSE, NKCODE_EXT_MOUSEBUTTON_3, KEY_UP);
+						NativeKey(key);
+					}
+					break;
+				case SDL_BUTTON_X1:
+					{
+						KeyInput key(DEVICE_ID_MOUSE, NKCODE_EXT_MOUSEBUTTON_4, KEY_UP);
+						NativeKey(key);
+					}
+					break;
+				case SDL_BUTTON_X2:
+					{
+						KeyInput key(DEVICE_ID_MOUSE, NKCODE_EXT_MOUSEBUTTON_5, KEY_UP);
 						NativeKey(key);
 					}
 					break;
@@ -974,6 +1060,35 @@ int main(int argc, char *argv[]) {
 				SDL_ShowCursor(SDL_ENABLE);
 		}
 #endif
+
+		// Disabled by default, needs a workaround to map to psp keys.
+		if (g_Config.bMouseControl) {
+			float scaleFactor_x = g_dpi_scale_x * 0.1 * g_Config.fMouseSensitivity;
+			float scaleFactor_y = g_dpi_scale_y * 0.1 * g_Config.fMouseSensitivity;
+
+			AxisInput axisX, axisY;
+			axisX.axisId = JOYSTICK_AXIS_MOUSE_REL_X;
+			axisX.deviceId = DEVICE_ID_MOUSE;
+			axisX.value = std::max(-1.0f, std::min(1.0f, mouseDeltaX * scaleFactor_x));
+			axisY.axisId = JOYSTICK_AXIS_MOUSE_REL_Y;
+			axisY.deviceId = DEVICE_ID_MOUSE;
+			axisY.value = std::max(-1.0f, std::min(1.0f, mouseDeltaY * scaleFactor_y));
+
+			if (GetUIState() == UISTATE_INGAME || g_Config.bMapMouse) {
+				NativeAxis(axisX);
+				NativeAxis(axisY);
+			}
+			mouseDeltaX *= g_Config.fMouseSmoothing;
+			mouseDeltaY *= g_Config.fMouseSmoothing;
+		}
+		bool captureMouseCondition = g_Config.bMouseControl && ((GetUIState() == UISTATE_INGAME && g_Config.bMouseConfine) || g_Config.bMapMouse);
+		if (mouseCaptured != captureMouseCondition) {
+			mouseCaptured = captureMouseCondition;
+			if (captureMouseCondition)
+				SDL_SetRelativeMouseMode(SDL_TRUE);
+			else
+				SDL_SetRelativeMouseMode(SDL_FALSE);
+		}
 
 		if (framecount % 60 == 0) {
 			// glsl_refresh(); // auto-reloads modified GLSL shaders once per second.
@@ -1036,5 +1151,8 @@ int main(int argc, char *argv[]) {
 
 	glslang::FinalizeProcess();
 	ILOG("Leaving main");
+#ifdef HAVE_LIBNX
+	socketExit();
+#endif
 	return 0;
 }

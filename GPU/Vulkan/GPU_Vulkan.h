@@ -78,9 +78,8 @@ private:
 	void CheckFlushOp(int cmd, u32 diff);
 	void BuildReportingInfo();
 	void InitClear() override;
-	void CopyDisplayToOutput() override;
+	void CopyDisplayToOutput(bool reallyDirty) override;
 	void Reinitialize() override;
-	inline void UpdateVsyncInterval(bool force);
 
 	void InitDeviceObjects();
 	void DestroyDeviceObjects();

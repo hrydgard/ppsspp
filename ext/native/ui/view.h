@@ -28,6 +28,8 @@ struct KeyInput;
 struct TouchInput;
 struct AxisInput;
 
+struct ImageID;
+
 class DrawBuffer;
 class Texture;
 class UIContext;
@@ -43,13 +45,6 @@ namespace UI {
 
 class View;
 
-// The ONLY global is the currently focused item.
-// Can be and often is null.
-void EnableFocusMovement(bool enable);
-bool IsFocusMovementEnabled();
-View *GetFocusedView();
-void SetFocusedView(View *view, bool force = false);
-
 enum DrawableType {
 	DRAW_NOTHING,
 	DRAW_SOLID_COLOR,
@@ -64,29 +59,29 @@ enum Visibility {
 };
 
 struct Drawable {
-	Drawable() : type(DRAW_NOTHING), image(-1), color(0xFFFFFFFF) {}
-	explicit Drawable(uint32_t col) : type(DRAW_SOLID_COLOR), image(-1), color(col) {}
-	Drawable(DrawableType t, int img, uint32_t col = 0xFFFFFFFF) : type(t), image(img), color(col) {}
+	Drawable() : type(DRAW_NOTHING), image(ImageID::invalid()), color(0xFFFFFFFF) {}
+	explicit Drawable(uint32_t col) : type(DRAW_SOLID_COLOR), image(ImageID::invalid()), color(col) {}
+	Drawable(DrawableType t, ImageID img, uint32_t col = 0xFFFFFFFF) : type(t), image(img), color(col) {}
 
 	DrawableType type;
-	uint32_t image;
+	ImageID image;
 	uint32_t color;
 };
 
 struct Style {
-	Style() : fgColor(0xFFFFFFFF), background(0xFF303030), image(-1) {}
+	Style() : fgColor(0xFFFFFFFF), background(0xFF303030), image(ImageID::invalid()) {}
 
 	uint32_t fgColor;
 	Drawable background;
-	int image;  // where applicable.
+	ImageID image;  // where applicable.
 };
 
 struct FontStyle {
 	FontStyle() : atlasFont(0), sizePts(0), flags(0) {}
 	FontStyle(const char *name, int size) : atlasFont(0), fontName(name), sizePts(size), flags(0) {}
-	FontStyle(int atlasFnt, const char *name, int size) : atlasFont(atlasFnt), fontName(name), sizePts(size), flags(0) {}
+	FontStyle(FontID atlasFnt, const char *name, int size) : atlasFont(atlasFnt), fontName(name), sizePts(size), flags(0) {}
 
-	int atlasFont;
+	FontID atlasFont;
 	// For native fonts:
 	std::string fontName;
 	int sizePts;
@@ -99,11 +94,12 @@ struct Theme {
 	FontStyle uiFont;
 	FontStyle uiFontSmall;
 	FontStyle uiFontSmaller;
-	int checkOn;
-	int checkOff;
-	int sliderKnob;
-	int whiteImage;
-	int dropShadow4Grid;
+
+	ImageID checkOn;
+	ImageID checkOff;
+	ImageID sliderKnob;
+	ImageID whiteImage;
+	ImageID dropShadow4Grid;
 
 	Style buttonStyle;
 	Style buttonFocusedStyle;
@@ -405,15 +401,34 @@ public:
 		return GetFocusedView() == this;
 	}
 
-	void SetEnabled(bool enabled) { enabled_ = enabled; enabledMeansDisabled_ = false; }
+	void SetEnabled(bool enabled) {
+		enabledFunc_ = nullptr;
+		enabledPtr_ = nullptr;
+		enabled_ = enabled;
+		enabledMeansDisabled_ = false;
+	}
 	bool IsEnabled() const {
+		if (enabledFunc_)
+			return enabledFunc_() != enabledMeansDisabled_;
 		if (enabledPtr_)
 			return *enabledPtr_ != enabledMeansDisabled_;
-		else
-			return enabled_ != enabledMeansDisabled_;
+		return enabled_ != enabledMeansDisabled_;
 	}
-	void SetEnabledPtr(bool *enabled) { enabledPtr_ = enabled; enabledMeansDisabled_ = false; }
-	void SetDisabledPtr(bool *disabled) { enabledPtr_ = disabled; enabledMeansDisabled_ = true;  }
+	void SetEnabledFunc(std::function<bool()> func) {
+		enabledFunc_ = func;
+		enabledPtr_ = nullptr;
+		enabledMeansDisabled_ = false;
+	}
+	void SetEnabledPtr(bool *enabled) {
+		enabledFunc_ = nullptr;
+		enabledPtr_ = enabled;
+		enabledMeansDisabled_ = false;
+	}
+	void SetDisabledPtr(bool *disabled) {
+		enabledFunc_ = nullptr;
+		enabledPtr_ = disabled;
+		enabledMeansDisabled_ = true;
+	}
 
 	virtual void SetVisibility(Visibility visibility) { visibility_ = visibility; }
 	Visibility GetVisibility() const { return visibility_; }
@@ -449,6 +464,7 @@ protected:
 	std::vector<Tween *> tweens_;
 
 private:
+	std::function<bool()> enabledFunc_;
 	bool *enabledPtr_;
 	bool enabled_;
 	bool enabledMeansDisabled_;
@@ -497,7 +513,7 @@ protected:
 class Button : public Clickable {
 public:
 	Button(const std::string &text, LayoutParams *layoutParams = 0)
-		: Clickable(layoutParams), text_(text), imageID_(-1) {}
+		: Clickable(layoutParams), text_(text), imageID_(ImageID::invalid()) {}
 	Button(ImageID imageID, LayoutParams *layoutParams = 0)
 		: Clickable(layoutParams), imageID_(imageID) {}
 	Button(const std::string &text, ImageID imageID, LayoutParams *layoutParams = 0)
@@ -585,7 +601,7 @@ private:
 // Suitable for controller simulation (ABXY etc).
 class TriggerButton : public View {
 public:
-	TriggerButton(uint32_t *bitField, uint32_t bit, int imageBackground, int imageForeground, LayoutParams *layoutParams)
+	TriggerButton(uint32_t *bitField, uint32_t bit, ImageID imageBackground, ImageID imageForeground, LayoutParams *layoutParams)
 		: View(layoutParams), down_(0.0), bitField_(bitField), bit_(bit), imageBackground_(imageBackground), imageForeground_(imageForeground) {}
 
 	void Touch(const TouchInput &input) override;
@@ -598,8 +614,8 @@ private:
 	uint32_t *bitField_;
 	uint32_t bit_;
 
-	int imageBackground_;
-	int imageForeground_;
+	ImageID imageBackground_;
+	ImageID imageForeground_;
 };
 
 
@@ -627,9 +643,9 @@ public:
 	Choice(const std::string &text, LayoutParams *layoutParams = nullptr)
 		: Choice(text, std::string(), false, layoutParams) {}
 	Choice(const std::string &text, const std::string &smallText, bool selected = false, LayoutParams *layoutParams = nullptr)
-		: ClickableItem(layoutParams), text_(text), smallText_(smallText), atlasImage_(-1), iconImage_(-1), centered_(false), highlighted_(false), selected_(selected) {}
+		: ClickableItem(layoutParams), text_(text), smallText_(smallText), atlasImage_(ImageID::invalid()), iconImage_(ImageID::invalid()), centered_(false), highlighted_(false), selected_(selected) {}
 	Choice(ImageID image, LayoutParams *layoutParams = nullptr)
-		: ClickableItem(layoutParams), atlasImage_(image), iconImage_(-1), centered_(false), highlighted_(false), selected_(false) {}
+		: ClickableItem(layoutParams), atlasImage_(image), iconImage_(ImageID::invalid()), centered_(false), highlighted_(false), selected_(false) {}
 
 	virtual void HighlightChanged(bool highlighted);
 	void GetContentDimensionsBySpec(const UIContext &dc, MeasureSpec horiz, MeasureSpec vert, float &w, float &h) const override;
@@ -853,14 +869,14 @@ enum ImageSizeMode {
 
 class ImageView : public InertView {
 public:
-	ImageView(int atlasImage, ImageSizeMode sizeMode, LayoutParams *layoutParams = 0)
+	ImageView(ImageID atlasImage, ImageSizeMode sizeMode, LayoutParams *layoutParams = 0)
 		: InertView(layoutParams), atlasImage_(atlasImage), sizeMode_(sizeMode) {}
 
 	void GetContentDimensions(const UIContext &dc, float &w, float &h) const override;
 	void Draw(UIContext &dc) override;
 
 private:
-	int atlasImage_;
+	ImageID atlasImage_;
 	ImageSizeMode sizeMode_;
 };
 
@@ -889,7 +905,7 @@ private:
 
 class Spinner : public InertView {
 public:
-	Spinner(const int *images, int numImages, LayoutParams *layoutParams = 0)
+	Spinner(const ImageID *images, int numImages, LayoutParams *layoutParams = 0)
 		: InertView(layoutParams), images_(images), numImages_(numImages) {
 	}
 
@@ -898,15 +914,13 @@ public:
 	void SetColor(uint32_t color) { color_ = color; }
 
 private:
-	const int *images_;
+	const ImageID *images_;
 	int numImages_;
 	uint32_t color_ = 0xFFFFFFFF;
 };
 
 void MeasureBySpec(Size sz, float contentWidth, MeasureSpec spec, float *measured);
 
-void EventTriggered(Event *e, EventParams params);
-void DispatchEvents();
 bool IsDPadKey(const KeyInput &key);
 bool IsAcceptKey(const KeyInput &key);
 bool IsEscapeKey(const KeyInput &key);
