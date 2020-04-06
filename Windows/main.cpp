@@ -248,6 +248,11 @@ float System_GetPropertyFloat(SystemProperty prop) {
 		return 60.f;
 	case SYSPROP_DISPLAY_DPI:
 		return (float)ScreenDPI();
+	case SYSPROP_DISPLAY_SAFE_INSET_LEFT:
+	case SYSPROP_DISPLAY_SAFE_INSET_RIGHT:
+	case SYSPROP_DISPLAY_SAFE_INSET_TOP:
+	case SYSPROP_DISPLAY_SAFE_INSET_BOTTOM:
+		return 0.0f;
 	default:
 		return -1;
 	}
