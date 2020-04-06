@@ -5,6 +5,9 @@
 #include <cstdio>
 #include <cstdlib>
 #include <limits>
+#if defined(ANDROID)
+#include <jni.h>
+#endif
 
 #include "file/zip_read.h"
 #include "profiler/profiler.h"
@@ -36,6 +39,16 @@
 #ifdef ANDROID_NDK_PROFILER
 #include <stdlib.h>
 #include "android/android-ndk-profiler/prof.h"
+#endif
+
+#if defined(ANDROID)
+JNIEnv *getEnv() {
+	return nullptr;
+}
+
+jclass findClass(const char *name) {
+	return nullptr;
+}
 #endif
 
 class PrintfLogger : public LogListener {
