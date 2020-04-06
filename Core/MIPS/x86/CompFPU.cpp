@@ -50,6 +50,8 @@ namespace MIPSComp {
 using namespace Gen;
 using namespace X64JitConstants;
 
+alignas(16) const u32 reverseQNAN[4] = { 0x803FFFFF, 0x803FFFFF, 0x803FFFFF, 0x803FFFFF };
+
 void Jit::CopyFPReg(X64Reg dst, OpArg src) {
 	if (src.IsSimpleReg()) {
 		MOVAPS(dst, src);
@@ -90,7 +92,28 @@ void Jit::Comp_FPU3op(MIPSOpcode op) {
 	switch (op & 0x3f) {
 	case 0: CompFPTriArith(op, &XEmitter::ADDSS, false); break; //F(fd) = F(fs) + F(ft); //add
 	case 1: CompFPTriArith(op, &XEmitter::SUBSS, true); break;  //F(fd) = F(fs) - F(ft); //sub
-	case 2: CompFPTriArith(op, &XEmitter::MULSS, false); break; //F(fd) = F(fs) * F(ft); //mul
+	case 2: //F(fd) = F(fs) * F(ft); //mul
+		// XMM1 = !my_isnan(fs) && !my_isnan(ft)
+		MOVSS(XMM1, fpr.R(_FS));
+		CMPORDSS(XMM1, fpr.R(_FT));
+		CompFPTriArith(op, &XEmitter::MULSS, false);
+
+		// fd must still be in a reg, save it in XMM0 for now.
+		MOVAPS(XMM0, fpr.R(_FD));
+		// fd = my_isnan(fd) && !my_isnan(fs) && !my_isnan(ft)
+		CMPUNORDSS(fpr.RX(_FD), fpr.R(_FD));
+		ANDPS(fpr.RX(_FD), R(XMM1));
+		// At this point fd = FFFFFFFF if non-NAN inputs produced a NAN output.
+		// We'll AND it with the inverse QNAN bits to clear (00000000 means no change.)
+		if (RipAccessible(&reverseQNAN)) {
+			ANDPS(fpr.RX(_FD), M(&reverseQNAN));  // rip accessible
+		} else {
+			MOV(PTRBITS, R(TEMPREG), ImmPtr(&reverseQNAN));
+			ANDPS(fpr.RX(_FD), MatR(TEMPREG));
+		}
+		// ANDN is backwards, which is why we saved XMM0 to start.  Now put it back.
+		ANDNPS(fpr.RX(_FD), R(XMM0));
+		break;
 	case 3: CompFPTriArith(op, &XEmitter::DIVSS, true); break;  //F(fd) = F(fs) / F(ft); //div
 	default:
 		_dbg_assert_msg_(CPU,0,"Trying to compile FPU3Op instruction that can't be interpreted");
