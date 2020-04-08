@@ -27,8 +27,6 @@ addons:
     update: true
     packages:
       - ccache
-      - python
-      - sdl2
 
 cache:
   apt: true
