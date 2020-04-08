@@ -989,6 +989,8 @@ static ConfigSetting systemParamSettings[] = {
 	ConfigSetting("WlanAdhocChannel", &g_Config.iWlanAdhocChannel, PSP_SYSTEMPARAM_ADHOC_CHANNEL_AUTOMATIC, true, true),
 #if defined(USING_WIN_UI) || defined(USING_QT_UI) || PPSSPP_PLATFORM(ANDROID)
 	ConfigSetting("BypassOSKWithKeyboard", &g_Config.bBypassOSKWithKeyboard, false, true, true),
+#endif
+#if defined(USING_WIN_UI)
 	ConfigSetting("DisableWinMenu", &g_Config.bDisableWinMenu, false, true, true),
 	ConfigSetting("DisableWinBorders", &g_Config.bDisableWinBorders, false, true, true),
 #endif
