@@ -785,7 +785,6 @@ static ConfigSetting graphicsSettings[] = {
 static ConfigSetting soundSettings[] = {
 	ConfigSetting("Enable", &g_Config.bEnableSound, true, true, true),
 	ConfigSetting("AudioBackend", &g_Config.iAudioBackend, 0, true, true),
-	ConfigSetting("AudioLatency", &g_Config.iAudioLatency, 1, true, true),
 	ConfigSetting("ExtraAudioBuffering", &g_Config.bExtraAudioBuffering, false, true, false),
 	ConfigSetting("AudioResampler", &g_Config.bAudioResampler, true, true, true),
 	ConfigSetting("GlobalVolume", &g_Config.iGlobalVolume, VOLUME_MAX, true, true),
