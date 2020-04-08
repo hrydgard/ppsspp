@@ -170,7 +170,6 @@ static RetroOption<int> ppsspp_rendering_mode("ppsspp_rendering_mode", "Renderin
 static RetroOption<bool> ppsspp_auto_frameskip("ppsspp_auto_frameskip", "Auto Frameskip", false);
 static RetroOption<int> ppsspp_frameskip("ppsspp_frameskip", "Frameskip", 0, 10);
 static RetroOption<int> ppsspp_frameskiptype("ppsspp_frameskiptype", "Frameskip Type", 0, 10);
-static RetroOption<int> ppsspp_audio_latency("ppsspp_audio_latency", "Audio latency", { "low", "medium", "high" });
 static RetroOption<int> ppsspp_internal_resolution("ppsspp_internal_resolution", "Internal Resolution (restart)", 1, { "480x272", "960x544", "1440x816", "1920x1088", "2400x1360", "2880x1632", "3360x1904", "3840x2176", "4320x2448", "4800x2720" });
 static RetroOption<int> ppsspp_button_preference("ppsspp_button_preference", "Confirmation Button", { { "cross", PSP_SYSTEMPARAM_BUTTON_CROSS }, { "circle", PSP_SYSTEMPARAM_BUTTON_CIRCLE } });
 static RetroOption<bool> ppsspp_fast_memory("ppsspp_fast_memory", "Fast Memory (Speedhack)", true);
@@ -196,7 +195,6 @@ void retro_set_environment(retro_environment_t cb) {
 	vars.push_back(ppsspp_auto_frameskip.GetOptions());
 	vars.push_back(ppsspp_frameskip.GetOptions());
 	vars.push_back(ppsspp_frameskiptype.GetOptions());
-	vars.push_back(ppsspp_audio_latency.GetOptions());
 	vars.push_back(ppsspp_internal_resolution.GetOptions());
 	vars.push_back(ppsspp_button_preference.GetOptions());
 	vars.push_back(ppsspp_fast_memory.GetOptions());
@@ -265,7 +263,6 @@ static void check_variables(CoreParameter &coreParam) {
 	ppsspp_gpu_hardware_transform.Update(&g_Config.bHardwareTransform);
 	ppsspp_frameskip.Update(&g_Config.iFrameSkip);
 	ppsspp_frameskiptype.Update(&g_Config.iFrameSkipType);
-	ppsspp_audio_latency.Update(&g_Config.iAudioLatency);
 	ppsspp_auto_frameskip.Update(&g_Config.bAutoFrameSkip);
 	ppsspp_block_transfer_gpu.Update(&g_Config.bBlockTransferGPU);
 	ppsspp_texture_filtering.Update(&g_Config.iTexFiltering);

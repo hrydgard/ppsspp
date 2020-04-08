@@ -49,6 +49,7 @@ public:
 	// This also uploads the palette and binds the correct texture.
 	DepalShader *GetDepalettizeShader(uint32_t clutMode, GEBufferFormat pixelFormat);
 	GLRTexture *GetClutTexture(GEPaletteFormat clutFormat, const u32 clutHash, u32 *rawClut);
+	void Init();
 	void Clear();
 	void Decimate();
 	std::vector<std::string> DebugGetShaderIDs(DebugShaderType type);

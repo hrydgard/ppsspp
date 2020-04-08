@@ -975,7 +975,7 @@ namespace MIPSInt
 		case 0: F(fd) = F(fs) + F(ft); break; // add.s
 		case 1: F(fd) = F(fs) - F(ft); break; // sub.s
 		case 2: // mul.s
-			if ((my_isinf(F(fs)) && F(ft) == 0.0f) || (F(fs) == 0.0f && my_isinf(F(ft)))) {
+			if ((my_isinf(F(fs)) && F(ft) == 0.0f) || (my_isinf(F(ft)) && F(fs) == 0.0f)) {
 				// Must be positive NAN, see #12519.
 				FI(fd) = 0x7fc00000;
 			} else {

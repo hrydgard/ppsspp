@@ -708,7 +708,7 @@ u32 IRInterpret(MIPSState *mips, const IRInst *inst, int count) {
 			mips->f[inst->dest] = mips->f[inst->src1] - mips->f[inst->src2];
 			break;
 		case IROp::FMul:
-			if ((my_isinf(mips->f[inst->src1]) && mips->f[inst->src2] == 0.0f) || (mips->f[inst->src1] == 0.0f && my_isinf(mips->f[inst->src2]))) {
+			if ((my_isinf(mips->f[inst->src1]) && mips->f[inst->src2] == 0.0f) || (my_isinf(mips->f[inst->src2]) && mips->f[inst->src1] == 0.0f)) {
 				mips->fi[inst->dest] = 0x7fc00000;
 			} else {
 				mips->f[inst->dest] = mips->f[inst->src1] * mips->f[inst->src2];

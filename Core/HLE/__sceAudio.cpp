@@ -53,12 +53,6 @@ AudioDebugStats g_AudioDebugStats;
 // atomic locks are used on the lock. TODO: make this lock-free
 std::atomic_flag atomicLock_;
 
-enum latency {
-	LOW_LATENCY = 0,
-	MEDIUM_LATENCY = 1,
-	HIGH_LATENCY = 2,
-};
-
 int eventAudioUpdate = -1;
 int eventHostAudioUpdate = -1;
 int mixFrequency = 44100;
@@ -110,27 +104,10 @@ void __AudioInit() {
 	mixFrequency = 44100;
 	srcFrequency = 0;
 
-	switch (g_Config.iAudioLatency) {
-	case LOW_LATENCY:
-		chanQueueMaxSizeFactor = 1;
-		chanQueueMinSizeFactor = 1;
-		hwBlockSize = 16;
-		hostAttemptBlockSize = 256;
-		break;
-	case MEDIUM_LATENCY:
-		chanQueueMaxSizeFactor = 2;
-		chanQueueMinSizeFactor = 1;
-		hwBlockSize = 64;
-		hostAttemptBlockSize = 512;
-		break;
-	case HIGH_LATENCY:
-		chanQueueMaxSizeFactor = 4;
-		chanQueueMinSizeFactor = 2;
-		hwBlockSize = 64;
-		hostAttemptBlockSize = 512;
-		break;
-
-	}
+	chanQueueMaxSizeFactor = 2;
+	chanQueueMinSizeFactor = 1;
+	hwBlockSize = 64;
+	hostAttemptBlockSize = 512;
 
 	__AudioCPUMHzChange();
 

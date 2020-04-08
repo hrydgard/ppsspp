@@ -221,7 +221,6 @@ public:
 
 	// Sound
 	bool bEnableSound;
-	int iAudioLatency; // 0 = low , 1 = medium(default) , 2 = high
 	int iAudioBackend;
 	int iGlobalVolume, iSASVolume, iATRACMP3Volume;
 	int iAltSpeedVolume;
