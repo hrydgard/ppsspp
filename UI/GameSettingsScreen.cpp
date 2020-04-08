@@ -542,9 +542,6 @@ void GameSettingsScreen::CreateViews() {
 	audioSettings->Add(new CheckBox(&g_Config.bAutoAudioDevice, a->T("Switch on new audio device")));
 #endif
 
-	static const char *latency[] = { "Low", "Medium", "High" };
-	PopupMultiChoice *lowAudio = audioSettings->Add(new PopupMultiChoice(&g_Config.iAudioLatency, a->T("Audio Latency"), latency, 0, ARRAY_SIZE(latency), gr->GetName(), screenManager()));
-	lowAudio->SetEnabledPtr(&g_Config.bEnableSound);
 #if defined(__ANDROID__)
 	CheckBox *extraAudio = audioSettings->Add(new CheckBox(&g_Config.bExtraAudioBuffering, a->T("AudioBufferingForBluetooth", "Bluetooth-friendly buffer (slower)")));
 	extraAudio->SetEnabledPtr(&g_Config.bEnableSound);
