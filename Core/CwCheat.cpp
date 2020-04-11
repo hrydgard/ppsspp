@@ -22,8 +22,6 @@
 #endif
 
 static int CheatEvent = -1;
-std::string gameTitle;
-std::string activeCheatFile;
 static CWCheatEngine *cheatEngine;
 static bool cheatsEnabled;
 void hleCheat(u64 userdata, int cyclesLate);
@@ -43,9 +41,9 @@ class CheatFileParser {
 public:
 	CheatFileParser(const std::string &filename, const std::string &gameID = "") {
 #if defined(_WIN32) && !defined(__MINGW32__)
-		file_.open(ConvertUTF8ToWString(activeCheatFile));
+		file_.open(ConvertUTF8ToWString(filename));
 #else
-		file_.open(activeCheatFile.c_str());
+		file_.open(filename.c_str());
 #endif
 
 		validGameID_ = ReplaceAll(gameID, "-", "");
@@ -247,13 +245,13 @@ static void __CheatStop() {
 static void __CheatStart() {
 	__CheatStop();
 
-	gameTitle = g_paramSFO.GetValueString("DISC_ID");
-
-	if (gameTitle != "") { //this only generates ini files on boot, let's leave homebrew ini file for UI
+	std::string gameID = g_paramSFO.GetValueString("DISC_ID");
+	cheatEngine = new CWCheatEngine(gameID);
+	// This only generates ini files on boot, let's leave homebrew ini file for UI.
+	if (!gameID.empty()) {
 		cheatEngine->CreateCheatFile();
 	}
 
-	cheatEngine = new CWCheatEngine();
 	cheatEngine->ParseCheats();
 	g_Config.bReloadCheats = false;
 	cheatsEnabled = true;
@@ -348,28 +346,32 @@ void hleCheat(u64 userdata, int cyclesLate) {
 	cheatEngine->Run();
 }
 
-CWCheatEngine::CWCheatEngine() {
+CWCheatEngine::CWCheatEngine(const std::string &gameID) : gameID_(gameID) {
 }
 
 void CWCheatEngine::CreateCheatFile() {
-	activeCheatFile = GetSysDirectory(DIRECTORY_CHEATS) + gameTitle + ".ini";
+	filename_ = GetSysDirectory(DIRECTORY_CHEATS) + gameID_ + ".ini";
 	File::CreateFullPath(GetSysDirectory(DIRECTORY_CHEATS));
 
-	if (!File::Exists(activeCheatFile)) {
-		FILE *f = File::OpenCFile(activeCheatFile, "wb");
+	if (!File::Exists(filename_)) {
+		FILE *f = File::OpenCFile(filename_, "wb");
 		if (f) {
 			fwrite("\xEF\xBB\xBF\n", 1, 4, f);
 			fclose(f);
 		}
-		if (!File::Exists(activeCheatFile)) {
+		if (!File::Exists(filename_)) {
 			auto err = GetI18NCategory("Error");
 			host->NotifyUserMessage(err->T("Unable to create cheat file, disk may be full"));
 		}
 	}
 }
 
+std::string CWCheatEngine::CheatFilename() {
+	return filename_;
+}
+
 void CWCheatEngine::ParseCheats() {
-	CheatFileParser parser(activeCheatFile, gameTitle);
+	CheatFileParser parser(filename_, gameID_);
 
 	parser.Parse();
 	// TODO: Report errors.
@@ -384,7 +386,7 @@ u32 CWCheatEngine::GetAddress(u32 value) {
 }
 
 std::vector<CheatFileInfo> CWCheatEngine::FileInfo() {
-	CheatFileParser parser(activeCheatFile, gameTitle);
+	CheatFileParser parser(filename_, gameID_);
 
 	parser.Parse();
 	return parser.GetFileInfo();

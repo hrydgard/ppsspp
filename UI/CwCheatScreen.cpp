@@ -31,32 +31,41 @@
 
 static const int FILE_CHECK_FRAME_INTERVAL = 53;
 
-CwCheatScreen::CwCheatScreen(std::string gamePath)
+CwCheatScreen::CwCheatScreen(const std::string &gamePath)
 	: UIDialogScreenWithBackground() {
 	gamePath_ = gamePath;
 }
 
+CwCheatScreen::~CwCheatScreen() {
+	delete engine_;
+}
+
 void CwCheatScreen::LoadCheatInfo() {
 	std::shared_ptr<GameInfo> info = g_gameInfoCache->GetInfo(nullptr, gamePath_, 0);
+	std::string gameID;
 	if (info && info->paramSFOLoaded) {
-		gameTitle = info->paramSFO.GetValueString("DISC_ID");
+		gameID = info->paramSFO.GetValueString("DISC_ID");
 	}
 	if ((info->id.empty() || !info->disc_total)
 		&& gamePath_.find("/PSP/GAME/") != std::string::npos) {
-		gameTitle = g_paramSFO.GenerateFakeID(gamePath_);
+		gameID = g_paramSFO.GenerateFakeID(gamePath_);
+	}
+
+	if (engine_ == nullptr || gameID != gameID_) {
+		gameID_ = gameID;
+		delete engine_;
+		engine_ = new CWCheatEngine(gameID_);
+		engine_->CreateCheatFile();
 	}
 
 	// We won't parse this, just using it to detect changes to the file.
 	std::string str;
-	if (readFileToString(true, activeCheatFile.c_str(), str)) {
+	if (readFileToString(true, engine_->CheatFilename().c_str(), str)) {
 		fileCheckHash_ = CityHash64(str.c_str(), str.size());
 	}
 	fileCheckCounter_ = 0;
 
-	CWCheatEngine *cheatEngine2 = new CWCheatEngine();
-	cheatEngine2->CreateCheatFile();
-	fileInfo_ = cheatEngine2->FileInfo();
-	delete cheatEngine2;
+	fileInfo_ = engine_->FileInfo();
 
 	// Let's also trigger a reload, in case it changed.
 	g_Config.bReloadCheats = true;
@@ -105,10 +114,10 @@ void CwCheatScreen::CreateViews() {
 }
 
 void CwCheatScreen::update() {
-	if (fileCheckCounter_++ >= FILE_CHECK_FRAME_INTERVAL) {
+	if (fileCheckCounter_++ >= FILE_CHECK_FRAME_INTERVAL && engine_) {
 		// Check if the file has changed.  If it has, we'll reload.
 		std::string str;
-		if (readFileToString(true, activeCheatFile.c_str(), str)) {
+		if (readFileToString(true, engine_->CheatFilename().c_str(), str)) {
 			uint64_t newHash = CityHash64(str.c_str(), str.size());
 			if (newHash != fileCheckHash_) {
 				// This will update the hash.
@@ -160,17 +169,19 @@ UI::EventReturn CwCheatScreen::OnEditCheatFile(UI::EventParams &params) {
 	if (MIPSComp::jit) {
 		MIPSComp::jit->ClearCache();
 	}
+	if (engine_) {
 #if PPSSPP_PLATFORM(UWP)
-	LaunchBrowser(activeCheatFile.c_str());
+		LaunchBrowser(engine_->CheatFilename().c_str());
 #else
-	File::openIniFile(activeCheatFile);
+		File::openIniFile(engine_->CheatFilename());
 #endif
+	}
 	return UI::EVENT_DONE;
 }
 
 UI::EventReturn CwCheatScreen::OnImportCheat(UI::EventParams &params) {
-	if (gameTitle.length() != 9) {
-		WARN_LOG(COMMON, "CWCHEAT: Incorrect ID(%s) - can't import cheats.", gameTitle.c_str());
+	if (gameID_.length() != 9 || !engine_) {
+		WARN_LOG(COMMON, "CWCHEAT: Incorrect ID(%s) - can't import cheats.", gameID_.c_str());
 		return UI::EVENT_DONE;
 	}
 	std::string line;
@@ -179,7 +190,7 @@ UI::EventReturn CwCheatScreen::OnImportCheat(UI::EventParams &params) {
 	std::vector<std::string> newList;
 
 	std::string cheatFile = GetSysDirectory(DIRECTORY_CHEATS) + "cheat.db";
-	std::string gameID = StringFromFormat("_S %s-%s", gameTitle.substr(0, 4).c_str(), gameTitle.substr(4).c_str());
+	std::string gameID = StringFromFormat("_S %s-%s", gameID_.substr(0, 4).c_str(), gameID_.substr(4).c_str());
 
 	std::fstream fs;
 	File::OpenCPPFile(fs, cheatFile, std::ios::in);
@@ -226,10 +237,10 @@ UI::EventReturn CwCheatScreen::OnImportCheat(UI::EventParams &params) {
 	}
 	fs.close();
 	std::string title2;
-	File::OpenCPPFile(fs, activeCheatFile, std::ios::in);
+	File::OpenCPPFile(fs, engine_->CheatFilename(), std::ios::in);
 	getline(fs, title2);
 	fs.close();
-	File::OpenCPPFile(fs, activeCheatFile, std::ios::out | std::ios::app);
+	File::OpenCPPFile(fs, engine_->CheatFilename(), std::ios::out | std::ios::app);
 
 	auto it = title.begin();
 	if (((title2[0] == '_' && title2[1] != 'S') || title2[0] == '/' || title2[0] == '#') && it != title.end() && (++it) != title.end()) {
@@ -266,7 +277,7 @@ UI::EventReturn CwCheatScreen::OnCheckBox(int index) {
 
 bool CwCheatScreen::RebuildCheatFile(int index) {
 	std::fstream fs;
-	if (!File::OpenCPPFile(fs, activeCheatFile, std::ios::in)) {
+	if (!engine_ || !File::OpenCPPFile(fs, engine_->CheatFilename(), std::ios::in)) {
 		return false;
 	}
 
@@ -292,8 +303,9 @@ bool CwCheatScreen::RebuildCheatFile(int index) {
 			}
 
 			line = (info.enabled ? "_C1 " : "_C0 ") + info.name;
+			return true;
 		}
-		return true;
+		return false;
 	};
 
 	if (index == INDEX_ALL) {
@@ -310,7 +322,7 @@ bool CwCheatScreen::RebuildCheatFile(int index) {
 	}
 
 
-	if (!File::OpenCPPFile(fs, activeCheatFile, std::ios::out | std::ios::trunc)) {
+	if (!File::OpenCPPFile(fs, engine_->CheatFilename(), std::ios::out | std::ios::trunc)) {
 		return false;
 	}
 

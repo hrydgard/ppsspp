@@ -24,13 +24,12 @@
 #include "UI/MiscScreens.h"
 
 struct CheatFileInfo;
-
-extern std::string activeCheatFile;
-extern std::string gameTitle;
+class CWCheatEngine;
 
 class CwCheatScreen : public UIDialogScreenWithBackground {
 public:
-	CwCheatScreen(std::string gamePath);
+	CwCheatScreen(const std::string &gamePath);
+	~CwCheatScreen();
 
 	void LoadCheatInfo();
 
@@ -52,8 +51,10 @@ private:
 	bool RebuildCheatFile(int index);
 
 	UI::ScrollView *rightScroll_ = nullptr;
+	CWCheatEngine *engine_ = nullptr;
 	std::vector<CheatFileInfo> fileInfo_;
 	std::string gamePath_;
+	std::string gameID_;
 	int fileCheckCounter_ = 0;
 	uint64_t fileCheckHash_;
 	bool enableAllFlag_ = false;
