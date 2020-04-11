@@ -28,12 +28,11 @@ extern std::string gameTitle;
 class CwCheatScreen : public UIDialogScreenWithBackground {
 public:
 	CwCheatScreen(std::string gamePath);
-	CwCheatScreen() {}
+
 	void CreateCodeList();
 	void processFileOn(std::string activatedCheat);
 	void processFileOff(std::string deactivatedCheat);
-	const char * name;
-	std::string activatedCheat, deactivatedCheat;
+
 	UI::EventReturn OnAddCheat(UI::EventParams &params);
 	UI::EventReturn OnImportCheat(UI::EventParams &params);
 	UI::EventReturn OnEditCheatFile(UI::EventParams &params);
@@ -49,34 +48,16 @@ private:
 	UI::ScrollView *rightScroll_;
 };
 
-// TODO: Instead just hook the OnClick event on a regular checkbox.
-class CheatCheckBox : public UI::ClickableItem, public CwCheatScreen {
+class CheatCheckBox : public UI::CheckBox {
 public:
-	CheatCheckBox(bool *toggle, const std::string &text, const std::string &smallText = "", UI::LayoutParams *layoutParams = 0)
-		: UI::ClickableItem(layoutParams), toggle_(toggle), text_(text) {
-			OnClick.Handle(this, &CheatCheckBox::OnClicked);
+	CheatCheckBox(bool *toggle, const std::string &text, UI::LayoutParams *layoutParams = nullptr)
+		: UI::CheckBox(toggle, text, "", layoutParams), text_(text) {
 	}
 
-	virtual void Draw(UIContext &dc);
-
-	UI::EventReturn OnClicked(UI::EventParams &e) {
-		bool temp = false;
-		if (toggle_) {
-			*toggle_ = !(*toggle_);
-			temp = *toggle_;
-		}
-		if (temp) {
-			activatedCheat = text_;
-			processFileOn(activatedCheat);
-		} else {
-			deactivatedCheat = text_;
-			processFileOff(deactivatedCheat);
-		}
-		return UI::EVENT_DONE;
+	std::string Text() {
+		return text_;
 	}
 
 private:
-	bool *toggle_;
 	std::string text_;
-	std::string smallText_;
 };

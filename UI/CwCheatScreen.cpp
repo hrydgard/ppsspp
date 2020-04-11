@@ -81,14 +81,15 @@ void CwCheatScreen::CreateViews() {
 	using namespace UI;
 	auto cw = GetI18NCategory("CwCheats");
 	auto di = GetI18NCategory("Dialog");
+
+	root_ = new AnchorLayout(new LayoutParams(FILL_PARENT, FILL_PARENT));
+
 	CreateCodeList();
 	g_Config.bReloadCheats = true;
-	root_ = new LinearLayout(ORIENT_HORIZONTAL);
 	Margins actionMenuMargins(50, -15, 15, 0);
 
 	LinearLayout *leftColumn = new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(400, FILL_PARENT));
 	leftColumn->Add(new ItemHeader(cw->T("Options")));
-	leftColumn->Add(new Choice(di->T("Back")))->OnClick.Handle<UIScreen>(this, &UIScreen::OnBack);
 	//leftColumn->Add(new Choice(cw->T("Add Cheat")))->OnClick.Handle(this, &CwCheatScreen::OnAddCheat);
 	leftColumn->Add(new Choice(cw->T("Import Cheats")))->OnClick.Handle(this, &CwCheatScreen::OnImportCheat);
 #if !defined(MOBILE_DEVICE)
@@ -97,21 +98,24 @@ void CwCheatScreen::CreateViews() {
 	leftColumn->Add(new Choice(cw->T("Enable/Disable All")))->OnClick.Handle(this, &CwCheatScreen::OnEnableAll);
 	leftColumn->Add(new PopupSliderChoice(&g_Config.iCwCheatRefreshRate, 1, 1000, cw->T("Refresh Rate"), 1, screenManager()));
 
-	rightScroll_ = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(0.5f));
+	rightScroll_ = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, FILL_PARENT, 0.5f));
 	rightScroll_->SetTag("CwCheats");
 	rightScroll_->SetScrollToTop(false);
 	rightScroll_->ScrollTo(g_Config.fCwCheatScrollPosition);
 	LinearLayout *rightColumn = new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(200, FILL_PARENT, actionMenuMargins));
-	LayoutParams *layout = new LayoutParams(500, 50, LP_PLAIN);
 	rightScroll_->Add(rightColumn);
 
-	root_->Add(leftColumn);
-	root_->Add(rightScroll_);
 	rightColumn->Add(new ItemHeader(cw->T("Cheats")));
 	for (size_t i = 0; i < formattedList_.size(); i++) {
-		name = formattedList_[i].c_str();
-		rightColumn->Add(new CheatCheckBox(&bEnableCheat[i], cw->T(name), ""))->OnClick.Handle(this, &CwCheatScreen::OnCheckBox);
+		rightColumn->Add(new CheatCheckBox(&bEnableCheat[i], formattedList_[i]))->OnClick.Handle(this, &CwCheatScreen::OnCheckBox);
 	}
+
+	LinearLayout *layout = new LinearLayout(ORIENT_HORIZONTAL, new LayoutParams(FILL_PARENT, FILL_PARENT));
+	layout->Add(leftColumn);
+	layout->Add(rightScroll_);
+	root_->Add(layout);
+
+	AddStandardBack(root_);
 }
 
 void CwCheatScreen::onFinish(DialogResult result) {
@@ -268,6 +272,12 @@ UI::EventReturn CwCheatScreen::OnImportCheat(UI::EventParams &params) {
 }
 
 UI::EventReturn CwCheatScreen::OnCheckBox(UI::EventParams &params) {
+	CheatCheckBox *checkbox = (CheatCheckBox *)params.v;
+	if (checkbox->Toggled()) {
+		processFileOn(checkbox->Text());
+	} else {
+		processFileOff(checkbox->Text());
+	}
 	return UI::EVENT_DONE;
 }
 
@@ -311,21 +321,5 @@ void CwCheatScreen::processFileOff(std::string deactivatedCheat) {
 		}
 	}
 	fs.close();
-}
-
-void CheatCheckBox::Draw(UIContext &dc) {
-	ClickableItem::Draw(dc);
-	int paddingX = 16;
-	int paddingY = 12;
-
-	ImageID image = *toggle_ ? dc.theme->checkOn : dc.theme->checkOff;
-
-	UI::Style style = dc.theme->itemStyle;
-	if (!IsEnabled())
-		style = dc.theme->itemDisabledStyle;
-
-	dc.SetFontStyle(dc.theme->uiFont);
-	dc.DrawText(text_.c_str(), bounds_.x + paddingX, bounds_.centerY(), style.fgColor, ALIGN_VCENTER);
-	dc.Draw()->DrawImage(image, bounds_.x2() - paddingX, bounds_.centerY(), 1.0f, style.fgColor, ALIGN_RIGHT | ALIGN_VCENTER);
 }
 
