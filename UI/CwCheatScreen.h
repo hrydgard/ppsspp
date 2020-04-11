@@ -15,6 +15,7 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
+#include <cstdint>
 #include <functional>
 
 #include "ui/view.h"
@@ -38,6 +39,7 @@ public:
 	UI::EventReturn OnEditCheatFile(UI::EventParams &params);
 	UI::EventReturn OnEnableAll(UI::EventParams &params);
 
+	void update() override;
 	void onFinish(DialogResult result) override;
 
 protected:
@@ -52,6 +54,8 @@ private:
 	UI::ScrollView *rightScroll_ = nullptr;
 	std::vector<CheatFileInfo> fileInfo_;
 	std::string gamePath_;
+	int fileCheckCounter_ = 0;
+	uint64_t fileCheckHash_;
 	bool enableAllFlag_ = false;
 };
 

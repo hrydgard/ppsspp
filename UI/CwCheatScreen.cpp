@@ -15,9 +15,10 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
+#include "ext/cityhash/city.h"
+#include "i18n/i18n.h"
 #include "ui/ui.h"
 #include "util/text/utf8.h"
-#include "i18n/i18n.h"
 
 #include "Common/FileUtil.h"
 #include "Core/Core.h"
@@ -27,6 +28,8 @@
 
 #include "UI/GameInfoCache.h"
 #include "UI/CwCheatScreen.h"
+
+static const int FILE_CHECK_FRAME_INTERVAL = 53;
 
 CwCheatScreen::CwCheatScreen(std::string gamePath)
 	: UIDialogScreenWithBackground() {
@@ -43,10 +46,20 @@ void CwCheatScreen::LoadCheatInfo() {
 		gameTitle = g_paramSFO.GenerateFakeID(gamePath_);
 	}
 
+	// We won't parse this, just using it to detect changes to the file.
+	std::string str;
+	if (readFileToString(true, activeCheatFile.c_str(), str)) {
+		fileCheckHash_ = CityHash64(str.c_str(), str.size());
+	}
+	fileCheckCounter_ = 0;
+
 	CWCheatEngine *cheatEngine2 = new CWCheatEngine();
 	cheatEngine2->CreateCheatFile();
 	fileInfo_ = cheatEngine2->FileInfo();
 	delete cheatEngine2;
+
+	// Let's also trigger a reload, in case it changed.
+	g_Config.bReloadCheats = true;
 }
 
 void CwCheatScreen::CreateViews() {
@@ -79,7 +92,7 @@ void CwCheatScreen::CreateViews() {
 	rightColumn->Add(new ItemHeader(cw->T("Cheats")));
 	for (size_t i = 0; i < fileInfo_.size(); ++i) {
 		rightColumn->Add(new CheatCheckBox(&fileInfo_[i].enabled, fileInfo_[i].name))->OnClick.Add([=](UI::EventParams &) {
-			return OnCheckBox(i);
+			return OnCheckBox((int)i);
 		});
 	}
 
@@ -89,6 +102,23 @@ void CwCheatScreen::CreateViews() {
 	root_->Add(layout);
 
 	AddStandardBack(root_);
+}
+
+void CwCheatScreen::update() {
+	if (fileCheckCounter_++ >= FILE_CHECK_FRAME_INTERVAL) {
+		// Check if the file has changed.  If it has, we'll reload.
+		std::string str;
+		if (readFileToString(true, activeCheatFile.c_str(), str)) {
+			uint64_t newHash = CityHash64(str.c_str(), str.size());
+			if (newHash != fileCheckHash_) {
+				// This will update the hash.
+				RecreateViews();
+			}
+		}
+		fileCheckCounter_ = 0;
+	}
+
+	UIDialogScreenWithBackground::update();
 }
 
 void CwCheatScreen::onFinish(DialogResult result) {
@@ -130,7 +160,6 @@ UI::EventReturn CwCheatScreen::OnEditCheatFile(UI::EventParams &params) {
 	if (MIPSComp::jit) {
 		MIPSComp::jit->ClearCache();
 	}
-	TriggerFinish(DR_OK);
 #if PPSSPP_PLATFORM(UWP)
 	LaunchBrowser(activeCheatFile.c_str());
 #else
