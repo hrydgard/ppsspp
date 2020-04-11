@@ -245,10 +245,17 @@ static void __CheatStop() {
 static void __CheatStart() {
 	__CheatStop();
 
-	std::string gameID = g_paramSFO.GetValueString("DISC_ID");
+	std::string realGameID = g_paramSFO.GetValueString("DISC_ID");
+	std::string gameID = realGameID;
+	const std::string gamePath = PSP_CoreParameter().fileToStart;
+	const bool badGameSFO = realGameID.empty() || !g_paramSFO.GetValueInt("DISC_TOTAL");
+	if (badGameSFO && gamePath.find("/PSP/GAME/") != std::string::npos) {
+		gameID = g_paramSFO.GenerateFakeID(gamePath);
+	}
+
 	cheatEngine = new CWCheatEngine(gameID);
 	// This only generates ini files on boot, let's leave homebrew ini file for UI.
-	if (!gameID.empty()) {
+	if (!realGameID.empty()) {
 		cheatEngine->CreateCheatFile();
 	}
 
@@ -347,10 +354,10 @@ void hleCheat(u64 userdata, int cyclesLate) {
 }
 
 CWCheatEngine::CWCheatEngine(const std::string &gameID) : gameID_(gameID) {
+	filename_ = GetSysDirectory(DIRECTORY_CHEATS) + gameID_ + ".ini";
 }
 
 void CWCheatEngine::CreateCheatFile() {
-	filename_ = GetSysDirectory(DIRECTORY_CHEATS) + gameID_ + ".ini";
 	File::CreateFullPath(GetSysDirectory(DIRECTORY_CHEATS));
 
 	if (!File::Exists(filename_)) {
