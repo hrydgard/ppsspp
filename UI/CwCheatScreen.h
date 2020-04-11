@@ -58,17 +58,3 @@ private:
 	uint64_t fileCheckHash_;
 	bool enableAllFlag_ = false;
 };
-
-class CheatCheckBox : public UI::CheckBox {
-public:
-	CheatCheckBox(bool *toggle, const std::string &text, UI::LayoutParams *layoutParams = nullptr)
-		: UI::CheckBox(toggle, text, "", layoutParams), text_(text) {
-	}
-
-	std::string Text() {
-		return text_;
-	}
-
-private:
-	std::string text_;
-};
