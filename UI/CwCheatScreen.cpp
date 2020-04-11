@@ -15,9 +15,6 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
-#include <deque>
-
-#include "input/input_state.h"
 #include "ui/ui.h"
 #include "util/text/utf8.h"
 #include "i18n/i18n.h"
@@ -28,28 +25,16 @@
 #include "Core/CwCheat.h"
 #include "Core/MIPS/JitCommon/JitCommon.h"
 
-#include "UI/OnScreenDisplay.h"
-
-#include "UI/MainScreen.h"
-#include "UI/EmuScreen.h"
 #include "UI/GameInfoCache.h"
-#include "UI/MiscScreens.h"
 #include "UI/CwCheatScreen.h"
-
-static bool enableAll = false;
-static std::vector<std::string> cheatList;
-static CWCheatEngine *cheatEngine2;
-static std::deque<bool> bEnableCheat;
-static std::string gamePath_;
-
 
 CwCheatScreen::CwCheatScreen(std::string gamePath)
 	: UIDialogScreenWithBackground() {
 	gamePath_ = gamePath;
 }
 
-void CwCheatScreen::CreateCodeList() {
-	std::shared_ptr<GameInfo> info = g_gameInfoCache->GetInfo(NULL, gamePath_, 0);
+void CwCheatScreen::LoadCheatInfo() {
+	std::shared_ptr<GameInfo> info = g_gameInfoCache->GetInfo(nullptr, gamePath_, 0);
 	if (info && info->paramSFOLoaded) {
 		gameTitle = info->paramSFO.GetValueString("DISC_ID");
 	}
@@ -58,22 +43,9 @@ void CwCheatScreen::CreateCodeList() {
 		gameTitle = g_paramSFO.GenerateFakeID(gamePath_);
 	}
 
-	cheatEngine2 = new CWCheatEngine();
+	CWCheatEngine *cheatEngine2 = new CWCheatEngine();
 	cheatEngine2->CreateCheatFile();
-	cheatList = cheatEngine2->GetCodesList();
-
-	bEnableCheat.clear();
-	formattedList_.clear();
-	for (size_t i = 0; i < cheatList.size(); i++) {
-		if (cheatList[i][0] == '_' && cheatList[i][1] == 'C') {
-			formattedList_.push_back(cheatList[i].substr(4));
-			if (cheatList[i][2] == '0') {
-				bEnableCheat.push_back(false);
-			} else {
-				bEnableCheat.push_back(true);
-			}
-		}
-	}
+	fileInfo_ = cheatEngine2->FileInfo();
 	delete cheatEngine2;
 }
 
@@ -84,8 +56,7 @@ void CwCheatScreen::CreateViews() {
 
 	root_ = new AnchorLayout(new LayoutParams(FILL_PARENT, FILL_PARENT));
 
-	CreateCodeList();
-	g_Config.bReloadCheats = true;
+	LoadCheatInfo();
 	Margins actionMenuMargins(50, -15, 15, 0);
 
 	LinearLayout *leftColumn = new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(400, FILL_PARENT));
@@ -106,8 +77,10 @@ void CwCheatScreen::CreateViews() {
 	rightScroll_->Add(rightColumn);
 
 	rightColumn->Add(new ItemHeader(cw->T("Cheats")));
-	for (size_t i = 0; i < formattedList_.size(); i++) {
-		rightColumn->Add(new CheatCheckBox(&bEnableCheat[i], formattedList_[i]))->OnClick.Handle(this, &CwCheatScreen::OnCheckBox);
+	for (size_t i = 0; i < fileInfo_.size(); ++i) {
+		rightColumn->Add(new CheatCheckBox(&fileInfo_[i].enabled, fileInfo_[i].name))->OnClick.Add([=](UI::EventParams &) {
+			return OnCheckBox(i);
+		});
 	}
 
 	LinearLayout *layout = new LinearLayout(ORIENT_HORIZONTAL, new LayoutParams(FILL_PARENT, FILL_PARENT));
@@ -119,18 +92,9 @@ void CwCheatScreen::CreateViews() {
 }
 
 void CwCheatScreen::onFinish(DialogResult result) {
-	std::fstream fs;
 	if (result != DR_BACK) // This only works for BACK here.
 		return;
-	File::OpenCPPFile(fs, activeCheatFile, std::ios::out);
-	for (int j = 0; j < (int)cheatList.size(); j++) {
-		fs << cheatList[j];
-		if (j < (int)cheatList.size() - 1) {
-			fs << "\n";
-		}
-	}
-	fs.close();
-	g_Config.bReloadCheats = true;
+
 	if (MIPSComp::jit) {
 		MIPSComp::jit->ClearCache();
 	}
@@ -138,30 +102,20 @@ void CwCheatScreen::onFinish(DialogResult result) {
 }
 
 UI::EventReturn CwCheatScreen::OnEnableAll(UI::EventParams &params) {
-	std::fstream fs;
-	enableAll = !enableAll;
-	File::OpenCPPFile(fs, activeCheatFile, std::ios::out);
-	for (int j = 0; j < (int)cheatList.size(); j++) {
-		if (cheatList[j][0] == '_' && cheatList[j][1] == 'C') {
-			if (cheatList[j][2] == '0' && enableAll) {
-				cheatList[j][2] = '1';
-			} else if (cheatList[j][2] != '0' && !enableAll) {
-				cheatList[j][2] = '0';
-			}
-		}
-	}
-	for (size_t y = 0; y < bEnableCheat.size(); y++) {
-		bEnableCheat[y] = enableAll;
-	}
-	for (int i = 0; i < (int)cheatList.size(); i++) {
-		fs << cheatList[i];
-		if (i < (int)cheatList.size() - 1) {
-			fs << "\n";
-		}
-	}
-	fs.close();
+	enableAllFlag_ = !enableAllFlag_;
 
-	g_Config.bReloadCheats = true;
+	// Flip all the switches.
+	for (auto &info : fileInfo_) {
+		info.enabled = enableAllFlag_;
+	}
+
+	if (!RebuildCheatFile(INDEX_ALL)) {
+		// Probably the file was modified outside PPSSPP, refresh.
+		// TODO: Report error.
+		RecreateViews();
+		return UI::EVENT_SKIPPED;
+	}
+
 	return UI::EVENT_DONE;
 }
 
@@ -216,9 +170,9 @@ UI::EventReturn CwCheatScreen::OnImportCheat(UI::EventParams &params) {
 					getline(fs, line);
 				}
 				if (line[0] == '_' && line[1] == 'C') {
-					//Test if cheat already exists in cheatList
-					for (size_t j = 0; j < formattedList_.size(); j++) {
-						if (line.substr(4) == formattedList_[j]) {
+					// Test if cheat already exists.
+					for (const auto &existing : fileInfo_) {
+						if (line.substr(4) == existing.name) {
 							finished = false;
 							goto loop;
 						}
@@ -265,61 +219,78 @@ UI::EventReturn CwCheatScreen::OnImportCheat(UI::EventParams &params) {
 		}
 	}
 	fs.close();
+
 	g_Config.bReloadCheats = true;
-	//Need a better way to refresh the screen, rather than exiting and having to re-enter.
-	TriggerFinish(DR_OK);
+	RecreateViews();
 	return UI::EVENT_DONE;
 }
 
-UI::EventReturn CwCheatScreen::OnCheckBox(UI::EventParams &params) {
-	CheatCheckBox *checkbox = (CheatCheckBox *)params.v;
-	if (checkbox->Toggled()) {
-		processFileOn(checkbox->Text());
+UI::EventReturn CwCheatScreen::OnCheckBox(int index) {
+	if (!RebuildCheatFile(index)) {
+		// TODO: Report error.  Let's reload the file, presumably it changed.
+		RecreateViews();
+		return UI::EVENT_SKIPPED;
+	}
+
+	return UI::EVENT_DONE;
+}
+
+bool CwCheatScreen::RebuildCheatFile(int index) {
+	std::fstream fs;
+	if (!File::OpenCPPFile(fs, activeCheatFile, std::ios::in)) {
+		return false;
+	}
+
+	// In case lines were edited while we weren't looking, reload them.
+	std::vector<std::string> lines;
+	for (; fs && !fs.eof(); ) {
+		std::string line;
+		std::getline(fs, line, '\n');
+		lines.push_back(line);
+	}
+	fs.close();
+
+	auto updateLine = [&](const CheatFileInfo &info) {
+		// Line numbers start with one, not zero.
+		size_t lineIndex = info.lineNum - 1;
+		if (lines.size() > lineIndex) {
+			auto &line = lines[lineIndex];
+			// This is the one to change.  Let's see if it matches - maybe the file changed.
+			bool isCheatDef = line.find("_C") != line.npos;
+			bool hasCheatName = !info.name.empty() && line.find(info.name) != line.npos;
+			if (!isCheatDef || !hasCheatName) {
+				return false;
+			}
+
+			line = (info.enabled ? "_C1 " : "_C0 ") + info.name;
+		}
+		return true;
+	};
+
+	if (index == INDEX_ALL) {
+		for (const auto &info : fileInfo_) {
+			// Bail out if any don't match with no changes.
+			if (!updateLine(info)) {
+				return false;
+			}
+		}
 	} else {
-		processFileOff(checkbox->Text());
-	}
-	return UI::EVENT_DONE;
-}
-
-void CwCheatScreen::processFileOn(std::string activatedCheat) {
-	std::fstream fs;
-	for (size_t i = 0; i < cheatList.size(); i++) {
-		if (cheatList[i].length() >= 4) {
-			if (cheatList[i].substr(4) == activatedCheat) {
-				cheatList[i] = "_C1 " + activatedCheat;
-			}
+		if (!updateLine(fileInfo_[index])) {
+			return false;
 		}
 	}
 
-	File::OpenCPPFile(fs, activeCheatFile, std::ios::out);
 
-	for (size_t j = 0; j < cheatList.size(); j++) {
-		fs << cheatList[j];
-		if (j < cheatList.size() - 1) {
-			fs << "\n";
-		}
+	if (!File::OpenCPPFile(fs, activeCheatFile, std::ios::out | std::ios::trunc)) {
+		return false;
+	}
+
+	for (const auto &line : lines) {
+		fs << line << '\n';
 	}
 	fs.close();
+
+	// Cheats will need to be reparsed now.
+	g_Config.bReloadCheats = true;
+	return true;
 }
-
-void CwCheatScreen::processFileOff(std::string deactivatedCheat) {
-	std::fstream fs;
-	for (size_t i = 0; i < cheatList.size(); i++) {
-		if (cheatList[i].length() >= 4) {
-			if (cheatList[i].substr(4) == deactivatedCheat) {
-				cheatList[i] = "_C0 " + deactivatedCheat;
-			}
-		}
-	}
-
-	File::OpenCPPFile(fs, activeCheatFile, std::ios::out);
-
-	for (size_t j = 0; j < cheatList.size(); j++) {
-		fs << cheatList[j];
-		if (j < cheatList.size() - 1) {
-			fs << "\n";
-		}
-	}
-	fs.close();
-}
-

@@ -22,6 +22,8 @@
 #include "ui/ui_context.h"
 #include "UI/MiscScreens.h"
 
+struct CheatFileInfo;
+
 extern std::string activeCheatFile;
 extern std::string gameTitle;
 
@@ -29,9 +31,7 @@ class CwCheatScreen : public UIDialogScreenWithBackground {
 public:
 	CwCheatScreen(std::string gamePath);
 
-	void CreateCodeList();
-	void processFileOn(std::string activatedCheat);
-	void processFileOff(std::string deactivatedCheat);
+	void LoadCheatInfo();
 
 	UI::EventReturn OnAddCheat(UI::EventParams &params);
 	UI::EventReturn OnImportCheat(UI::EventParams &params);
@@ -39,13 +39,20 @@ public:
 	UI::EventReturn OnEnableAll(UI::EventParams &params);
 
 	void onFinish(DialogResult result) override;
+
 protected:
 	void CreateViews() override;
 
 private:
-	UI::EventReturn OnCheckBox(UI::EventParams &params);
-	std::vector<std::string> formattedList_;
-	UI::ScrollView *rightScroll_;
+	UI::EventReturn OnCheckBox(int index);
+
+	enum { INDEX_ALL = -1 };
+	bool RebuildCheatFile(int index);
+
+	UI::ScrollView *rightScroll_ = nullptr;
+	std::vector<CheatFileInfo> fileInfo_;
+	std::string gamePath_;
+	bool enableAllFlag_ = false;
 };
 
 class CheatCheckBox : public UI::CheckBox {

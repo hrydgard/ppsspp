@@ -1,6 +1,8 @@
 // Rough and ready CwCheats implementation, disabled by default.
 // Will not enable by default until the TOOD:s have been addressed.
 
+#pragma once
+
 #include <string>
 #include <vector>
 #include <iostream>
@@ -34,12 +36,18 @@ struct CheatCode {
 	std::vector<CheatLine> lines;
 };
 
+struct CheatFileInfo {
+	int lineNum;
+	std::string name;
+	bool enabled;
+};
+
 struct CheatOperation;
 
 class CWCheatEngine {
 public:
 	CWCheatEngine();
-	std::vector<std::string> GetCodesList();
+	std::vector<CheatFileInfo> FileInfo();
 	void ParseCheats();
 	void CreateCheatFile();
 	void Run();
