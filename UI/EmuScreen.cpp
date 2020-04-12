@@ -1244,22 +1244,25 @@ void EmuScreen::checkPowerDown() {
 	}
 }
 
-static void DrawDebugStats(DrawBuffer *draw2d) {
+static void DrawDebugStats(DrawBuffer *draw2d, const Bounds &bounds) {
 	FontID ubuntu24("UBUNTU24");
+
+	float left = std::max(bounds.w / 2 - 20.0f, 550.0f);
+	float right = bounds.w - left - 20.0f;
 
 	char statbuf[4096];
 	__DisplayGetDebugStats(statbuf, sizeof(statbuf));
 	draw2d->SetFontScale(.7f, .7f);
-	draw2d->DrawText(ubuntu24, statbuf, 11, 31, 0xc0000000, FLAG_DYNAMIC_ASCII);
-	draw2d->DrawText(ubuntu24, statbuf, 10, 30, 0xFFFFFFFF, FLAG_DYNAMIC_ASCII);
+	draw2d->DrawTextRect(ubuntu24, statbuf, bounds.x + 11, bounds.y + 31, left, bounds.h - 30, 0xc0000000, FLAG_DYNAMIC_ASCII | FLAG_WRAP_TEXT);
+	draw2d->DrawTextRect(ubuntu24, statbuf, bounds.x + 10, bounds.y + 30, left, bounds.h - 30, 0xFFFFFFFF, FLAG_DYNAMIC_ASCII | FLAG_WRAP_TEXT);
 
 	__SasGetDebugStats(statbuf, sizeof(statbuf));
-	draw2d->DrawText(ubuntu24, statbuf, PSP_CoreParameter().pixelWidth / 2 + 11, 31, 0xc0000000, FLAG_DYNAMIC_ASCII);
-	draw2d->DrawText(ubuntu24, statbuf, PSP_CoreParameter().pixelWidth / 2 + 10, 30, 0xFFFFFFFF, FLAG_DYNAMIC_ASCII);
+	draw2d->DrawTextRect(ubuntu24, statbuf, bounds.x + left + 21, bounds.y + 31, right, bounds.h - 30, 0xc0000000, FLAG_DYNAMIC_ASCII | FLAG_WRAP_TEXT);
+	draw2d->DrawTextRect(ubuntu24, statbuf, bounds.x + left + 20, bounds.y + 30, right, bounds.h - 30, 0xFFFFFFFF, FLAG_DYNAMIC_ASCII | FLAG_WRAP_TEXT);
 	draw2d->SetFontScale(1.0f, 1.0f);
 }
 
-static void DrawAudioDebugStats(DrawBuffer *draw2d) {
+static void DrawAudioDebugStats(DrawBuffer *draw2d, const Bounds &bounds) {
 	FontID ubuntu24("UBUNTU24");
 	char statbuf[1024] = { 0 };
 	const AudioDebugStats *stats = __AudioGetDebugStats();
@@ -1275,8 +1278,8 @@ static void DrawAudioDebugStats(DrawBuffer *draw2d) {
 		stats->instantSampleRate,
 		stats->lastPushSize);
 	draw2d->SetFontScale(0.7f, 0.7f);
-	draw2d->DrawText(ubuntu24, statbuf, 11, 31, 0xc0000000, FLAG_DYNAMIC_ASCII);
-	draw2d->DrawText(ubuntu24, statbuf, 10, 30, 0xFFFFFFFF, FLAG_DYNAMIC_ASCII);
+	draw2d->DrawTextRect(ubuntu24, statbuf, bounds.x + 11, bounds.y + 31, bounds.w - 20, bounds.h - 30, 0xc0000000, FLAG_DYNAMIC_ASCII | FLAG_WRAP_TEXT);
+	draw2d->DrawTextRect(ubuntu24, statbuf, bounds.x + 10, bounds.y + 30, bounds.w - 20, bounds.h - 30, 0xFFFFFFFF, FLAG_DYNAMIC_ASCII | FLAG_WRAP_TEXT);
 	draw2d->SetFontScale(1.0f, 1.0f);
 }
 
@@ -1302,7 +1305,7 @@ static void DrawFPS(DrawBuffer *draw2d, const Bounds &bounds) {
 	draw2d->SetFontScale(1.0f, 1.0f);
 }
 
-static void DrawFrameTimes(UIContext *ctx) {
+static void DrawFrameTimes(UIContext *ctx, const Bounds &bounds) {
 	FontID ubuntu24("UBUNTU24");
 	int valid, pos;
 	double *sleepHistory;
@@ -1312,22 +1315,22 @@ static void DrawFrameTimes(UIContext *ctx) {
 
 	ctx->Flush();
 	ctx->BeginNoTex();
-	int bottom = ctx->GetBounds().y2();
+	int bottom = bounds.y2();
 	for (int i = 0; i < valid; ++i) {
 		double activeTime = history[i] - sleepHistory[i];
-		ctx->Draw()->vLine(i, bottom, bottom - activeTime * scale, 0xFF3FFF3F);
-		ctx->Draw()->vLine(i, bottom - activeTime * scale, bottom - history[i] * scale, 0x7F3FFF3F);
+		ctx->Draw()->vLine(bounds.x + i, bottom, bottom - activeTime * scale, 0xFF3FFF3F);
+		ctx->Draw()->vLine(bounds.x + i, bottom - activeTime * scale, bottom - history[i] * scale, 0x7F3FFF3F);
 	}
-	ctx->Draw()->vLine(pos, bottom, bottom - 512, 0xFFff3F3f);
+	ctx->Draw()->vLine(bounds.x + pos, bottom, bottom - 512, 0xFFff3F3f);
 
-	ctx->Draw()->hLine(0, bottom - 0.0333*scale, width, 0xFF3f3Fff);
-	ctx->Draw()->hLine(0, bottom - 0.0167*scale, width, 0xFF3f3Fff);
+	ctx->Draw()->hLine(bounds.x, bottom - 0.0333 * scale, bounds.x + width, 0xFF3f3Fff);
+	ctx->Draw()->hLine(bounds.x, bottom - 0.0167 * scale, bounds.x + width, 0xFF3f3Fff);
 
 	ctx->Flush();
 	ctx->Begin();
 	ctx->Draw()->SetFontScale(0.5f, 0.5f);
-	ctx->Draw()->DrawText(ubuntu24, "33.3ms", width, bottom - 0.0333*scale, 0xFF3f3Fff, ALIGN_BOTTOMLEFT | FLAG_DYNAMIC_ASCII);
-	ctx->Draw()->DrawText(ubuntu24, "16.7ms", width, bottom - 0.0167*scale, 0xFF3f3Fff, ALIGN_BOTTOMLEFT | FLAG_DYNAMIC_ASCII);
+	ctx->Draw()->DrawText(ubuntu24, "33.3ms", bounds.x + width, bottom - 0.0333 * scale, 0xFF3f3Fff, ALIGN_BOTTOMLEFT | FLAG_DYNAMIC_ASCII);
+	ctx->Draw()->DrawText(ubuntu24, "16.7ms", bounds.x + width, bottom - 0.0167 * scale, 0xFF3f3Fff, ALIGN_BOTTOMLEFT | FLAG_DYNAMIC_ASCII);
 	ctx->Draw()->SetFontScale(1.0f, 1.0f);
 }
 
@@ -1499,19 +1502,19 @@ void EmuScreen::renderUI() {
 	}
 
 	if (g_Config.bShowDebugStats && !invalid_) {
-		DrawDebugStats(draw2d);
+		DrawDebugStats(draw2d, ctx->GetLayoutBounds());
 	}
 
 	if (g_Config.bShowAudioDebug && !invalid_) {
-		DrawAudioDebugStats(draw2d);
+		DrawAudioDebugStats(draw2d, ctx->GetLayoutBounds());
 	}
 
 	if (g_Config.iShowFPSCounter && !invalid_) {
-		DrawFPS(draw2d, ctx->GetBounds());
+		DrawFPS(draw2d, ctx->GetLayoutBounds());
 	}
 
 	if (g_Config.bDrawFrameGraph && !invalid_) {
-		DrawFrameTimes(ctx);
+		DrawFrameTimes(ctx, ctx->GetLayoutBounds());
 	}
 
 #if !PPSSPP_PLATFORM(UWP)
