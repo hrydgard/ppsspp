@@ -15,6 +15,7 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
+#include <cstdint>
 #include <functional>
 
 #include "ui/view.h"
@@ -22,62 +23,39 @@
 #include "ui/ui_context.h"
 #include "UI/MiscScreens.h"
 
-extern std::string activeCheatFile;
-extern std::string gameTitle;
+struct CheatFileInfo;
+class CWCheatEngine;
 
 class CwCheatScreen : public UIDialogScreenWithBackground {
 public:
-	CwCheatScreen(std::string gamePath);
-	CwCheatScreen() {}
-	void CreateCodeList();
-	void processFileOn(std::string activatedCheat);
-	void processFileOff(std::string deactivatedCheat);
+	CwCheatScreen(const std::string &gamePath);
+	~CwCheatScreen();
+
+	void LoadCheatInfo();
 	void ParseCheatDB(std::string line, std::vector<std::string> title, std::vector<std::string> newList, std::string cheatFile);
-	const char * name;
-	std::string activatedCheat, deactivatedCheat;
 	UI::EventReturn OnAddCheat(UI::EventParams &params);
 	UI::EventReturn OnImportCheat(UI::EventParams &params);
 	UI::EventReturn OnEditCheatFile(UI::EventParams &params);
 	UI::EventReturn OnEnableAll(UI::EventParams &params);
 
+	void update() override;
 	void onFinish(DialogResult result) override;
+
 protected:
 	void CreateViews() override;
 
 private:
-	UI::EventReturn OnCheckBox(UI::EventParams &params);
-	std::vector<std::string> formattedList_;
-	UI::ScrollView *rightScroll_;
-};
+	UI::EventReturn OnCheckBox(int index);
 
-// TODO: Instead just hook the OnClick event on a regular checkbox.
-class CheatCheckBox : public UI::ClickableItem, public CwCheatScreen {
-public:
-	CheatCheckBox(bool *toggle, const std::string &text, const std::string &smallText = "", UI::LayoutParams *layoutParams = 0)
-		: UI::ClickableItem(layoutParams), toggle_(toggle), text_(text) {
-			OnClick.Handle(this, &CheatCheckBox::OnClicked);
-	}
+	enum { INDEX_ALL = -1 };
+	bool RebuildCheatFile(int index);
 
-	virtual void Draw(UIContext &dc);
-
-	UI::EventReturn OnClicked(UI::EventParams &e) {
-		bool temp = false;
-		if (toggle_) {
-			*toggle_ = !(*toggle_);
-			temp = *toggle_;
-		}
-		if (temp) {
-			activatedCheat = text_;
-			processFileOn(activatedCheat);
-		} else {
-			deactivatedCheat = text_;
-			processFileOff(deactivatedCheat);
-		}
-		return UI::EVENT_DONE;
-	}
-
-private:
-	bool *toggle_;
-	std::string text_;
-	std::string smallText_;
+	UI::ScrollView *rightScroll_ = nullptr;
+	CWCheatEngine *engine_ = nullptr;
+	std::vector<CheatFileInfo> fileInfo_;
+	std::string gamePath_;
+	std::string gameID_;
+	int fileCheckCounter_ = 0;
+	uint64_t fileCheckHash_;
+	bool enableAllFlag_ = false;
 };
