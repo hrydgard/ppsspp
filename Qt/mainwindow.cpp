@@ -522,7 +522,7 @@ void MainWindow::createMenus()
 {
 	// File
 	MenuTree* fileMenu = new MenuTree(this, menuBar(),    QT_TR_NOOP("&File"));
-	fileMenu->add(new MenuAction(this, SLOT(loadAct()),       QT_TR_NOOP("&Load...")))
+	fileMenu->add(new MenuAction(this, SLOT(loadAct()),       QT_TR_NOOP("&Load..."), QKeySequence::Open))
 		->addEnableState(UISTATE_MENU);
 	fileMenu->add(new MenuAction(this, SLOT(closeAct()),      QT_TR_NOOP("&Close"), QKeySequence::Close))
 		->addDisableState(UISTATE_MENU);
@@ -543,7 +543,7 @@ void MainWindow::createMenus()
 	fileMenu->add(new MenuAction(this, SLOT(sstateAct()),     QT_TR_NOOP("&Save state file...")))
 		->addDisableState(UISTATE_MENU);
 	fileMenu->addSeparator();
-	fileMenu->add(new MenuAction(this, SLOT(exitAct()),       QT_TR_NOOP("E&xit"), Qt::ALT + Qt::Key_F4));
+	fileMenu->add(new MenuAction(this, SLOT(exitAct()),       QT_TR_NOOP("E&xit"), QKeySequence::Quit));
 
 	// Emulation
 	MenuTree* emuMenu = new MenuTree(this, menuBar(),     QT_TR_NOOP("&Emulation"));
@@ -569,9 +569,9 @@ void MainWindow::createMenus()
 		->addDisableState(UISTATE_MENU);
 	debugMenu->add(new MenuAction(this, SLOT(smapAct()),      QT_TR_NOOP("&Save MAP file...")))
 		->addDisableState(UISTATE_MENU);
-	debugMenu->add(new MenuAction(this, SLOT(lmapAct()),      QT_TR_NOOP("Lo&ad SYM file...")))
+	debugMenu->add(new MenuAction(this, SLOT(lsymAct()),      QT_TR_NOOP("Lo&ad SYM file...")))
 		->addDisableState(UISTATE_MENU);
-	debugMenu->add(new MenuAction(this, SLOT(smapAct()),      QT_TR_NOOP("Sav&e SYM file...")))
+	debugMenu->add(new MenuAction(this, SLOT(ssymAct()),      QT_TR_NOOP("Sav&e SYM file...")))
 		->addDisableState(UISTATE_MENU);
 	debugMenu->add(new MenuAction(this, SLOT(resetTableAct()),QT_TR_NOOP("Reset s&ymbol table")))
 		->addDisableState(UISTATE_MENU);
@@ -588,10 +588,6 @@ void MainWindow::createMenus()
 
 	// Game settings
 	MenuTree* gameSettingsMenu = new MenuTree(this, menuBar(), QT_TR_NOOP("&Game settings"));
-	gameSettingsMenu->add(new MenuAction(this, SLOT(keepOnTopAct()),   QT_TR_NOOP("&Keep PPSSPP on top")))
-		->addEventChecked(&g_Config.bTopMost);
-	gameSettingsMenu->add(new MenuAction(this, SLOT(pauseWhenNotFocusedAct()),   QT_TR_NOOP("&Pause when not focused")))
-		->addEventChecked(&g_Config.bPauseOnLostFocus);
 	gameSettingsMenu->add(new MenuAction(this, SLOT(languageAct()),        QT_TR_NOOP("La&nguage...")));
 	gameSettingsMenu->add(new MenuAction(this, SLOT(controlMappingAct()),        QT_TR_NOOP("C&ontrol mapping...")));
 	gameSettingsMenu->add(new MenuAction(this, SLOT(displayLayoutEditorAct()),        QT_TR_NOOP("Display layout editor...")));
@@ -603,12 +599,6 @@ void MainWindow::createMenus()
 	gameSettingsMenu->add(new MenuAction(this, SLOT(fullscrAct()), QT_TR_NOOP("Fu&llscreen"), QKeySequence::FullScreen))
 #endif
 		->addEventChecked(&g_Config.bFullScreen);
-	gameSettingsMenu->add(new MenuAction(this, SLOT(VSyncAct()),   QT_TR_NOOP("VS&ync")))
-		->addEventChecked(&g_Config.bVSync);
-	MenuTree* postprocessingShaderMenu = new MenuTree(this, gameSettingsMenu, QT_TR_NOOP("Postprocessin&g shader"));
-	postprocessingShaderGroup = new MenuActionGroup(this, postprocessingShaderMenu, SLOT(postprocessingShaderGroup_triggered(QAction *)),
-		QStringList() << "Off" << "FXAA Antialiasing" << "CRT scanlines" << "Natural Colors" << "Natural Colors (no blur)" << "Vignette" << "Grayscale" << "Bloom" << "Sharpen" << "Inverse Colors" << "Scanlines (CRT)" << "Cartoon" << "4xHQ GLSL" << "AA-Color" << "Spline36 Upscaler" << "5xBR" << "5xBR-lv2" << "Video Smoothing AA" << "Super Sampling AA (Gauss)",
-		QList<int>() << 0 << 1 << 2 << 3 << 4 << 5 << 6 << 7 << 8 << 9 << 10 << 11 << 12 << 13 << 14 << 15 << 16 << 17 << 18);
 	MenuTree* renderingResolutionMenu = new MenuTree(this, gameSettingsMenu, QT_TR_NOOP("&Rendering resolution"));
 	renderingResolutionGroup = new MenuActionGroup(this, renderingResolutionMenu, SLOT(renderingResolutionGroup_triggered(QAction *)),
 		QStringList() << "&Auto" << "&1x" << "&2x" << "&3x" << "&4x" << "&5x" << "&6x" << "&7x" << "&8x" << "&9x" << "1&0x",

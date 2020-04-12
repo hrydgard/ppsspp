@@ -97,8 +97,6 @@ private slots:
 	void consoleAct();
 
 	// Game settings
-	void keepOnTopAct() { g_Config.bTopMost = !g_Config.bTopMost; }
-	void pauseWhenNotFocusedAct() { g_Config.bPauseOnLostFocus = !g_Config.bPauseOnLostFocus; }
 	void languageAct() { NativeMessageReceived("language screen", ""); }
 	void controlMappingAct() { NativeMessageReceived("control mapping", ""); }
 	void displayLayoutEditorAct() { NativeMessageReceived("display layout editor", ""); }
@@ -110,23 +108,47 @@ private slots:
 	}
 	void linearAct() { g_Config.iTexFiltering = (g_Config.iTexFiltering != 0) ? 0 : 3; }
 
-	void postprocessingShaderGroup_triggered(QAction *action) { g_Config.sPostShaderName = action->data().toInt(); }
-	void renderingResolutionGroup_triggered(QAction *action) { g_Config.iInternalResolution = action->data().toInt(); }
+	void renderingResolutionGroup_triggered(QAction *action) {
+		g_Config.iInternalResolution = action->data().toInt();
+		NativeMessageReceived("gpu_resized", "");
+		if (g_Config.iTexScalingLevel == TEXSCALING_AUTO) {
+			NativeMessageReceived("gpu_clearCache", "");
+	}
+	}
 	void windowGroup_triggered(QAction *action) { SetWindowScale(action->data().toInt()); }
 
 	void displayLayoutGroup_triggered(QAction *action) {
 		g_Config.iSmallDisplayZoomType = action->data().toInt();
 		NativeMessageReceived("gpu_resized", "");
 	}
-	void renderingModeGroup_triggered(QAction *action) { g_Config.iRenderingMode = action->data().toInt(); }
-	void autoframeskipAct() { g_Config.bAutoFrameSkip = !g_Config.bAutoFrameSkip; }
+	void renderingModeGroup_triggered(QAction *action) {
+		g_Config.iRenderingMode = action->data().toInt();
+		g_Config.bAutoFrameSkip = false;
+		NativeMessageReceived("gpu_resized", "");
+	}
+	void autoframeskipAct() {
+		g_Config.bAutoFrameSkip = !g_Config.bAutoFrameSkip;
+		if (g_Config.iRenderingMode == FB_NON_BUFFERED_MODE) {
+			g_Config.iRenderingMode = FB_BUFFERED_MODE;
+			NativeMessageReceived("gpu_resized", "");
+	}
+	}
 	void frameSkippingGroup_triggered(QAction *action) { g_Config.iFrameSkip = action->data().toInt(); }
 	void frameSkippingTypeGroup_triggered(QAction *action) { g_Config.iFrameSkipType = action->data().toInt(); }
 	void textureFilteringGroup_triggered(QAction *action) { g_Config.iTexFiltering = action->data().toInt(); }
 	void screenScalingFilterGroup_triggered(QAction *action) { g_Config.iBufFilter = action->data().toInt(); }
-	void textureScalingLevelGroup_triggered(QAction *action) { g_Config.iTexScalingLevel = action->data().toInt(); }
-	void textureScalingTypeGroup_triggered(QAction *action) { g_Config.iTexScalingType = action->data().toInt(); }
-	void deposterizeAct() { g_Config.bTexDeposterize = !g_Config.bTexDeposterize; }
+	void textureScalingLevelGroup_triggered(QAction *action) {
+		g_Config.iTexScalingLevel = action->data().toInt();
+		NativeMessageReceived("gpu_clearCache", "");
+	}
+	void textureScalingTypeGroup_triggered(QAction *action) {
+		g_Config.iTexScalingType = action->data().toInt();
+		NativeMessageReceived("gpu_clearCache", "");
+	}
+	void deposterizeAct() {
+		g_Config.bTexDeposterize = !g_Config.bTexDeposterize;
+		NativeMessageReceived("gpu_clearCache", "");
+	}
 	void transformAct() {
 		g_Config.bHardwareTransform = !g_Config.bHardwareTransform;
 		NativeMessageReceived("gpu_resized", "");
@@ -136,7 +158,11 @@ private slots:
 	void frameskipTypeAct() { g_Config.iFrameSkipType = !g_Config.iFrameSkipType; }
 
 	// Sound
-	void audioAct() { g_Config.bEnableSound = !g_Config.bEnableSound; }
+	void audioAct() {
+		g_Config.bEnableSound = !g_Config.bEnableSound;
+		if (PSP_IsInited() && !IsAudioInitialised())
+			Audio_Init();
+	}
 
 	// Cheats
 	void cheatsAct() { g_Config.bEnableCheats = !g_Config.bEnableCheats; }
@@ -147,8 +173,7 @@ private slots:
 		g_Config.bShowDebugStats = !g_Config.bShowDebugStats;
 		NativeMessageReceived("clear jit", "");
 	}
-	void VSyncAct() { g_Config.bVSync = !g_Config.bVSync; }
-	void showFPSAct() { g_Config.iShowFPSCounter = !g_Config.iShowFPSCounter; }
+	void showFPSAct() { g_Config.iShowFPSCounter = g_Config.iShowFPSCounter ? 0 : 3; } // 3 = both speed and FPS
 
 	// Help
 	void websiteAct();
@@ -175,7 +200,7 @@ private:
 	CoreState nextState;
 	GlobalUIState lastUIState;
 
-	QActionGroup *windowGroup, *postprocessingShaderGroup,
+	QActionGroup *windowGroup,
 	             *textureScalingLevelGroup, *textureScalingTypeGroup,
 	             *screenScalingFilterGroup, *textureFilteringGroup,
 	             *frameSkippingTypeGroup, *frameSkippingGroup,
