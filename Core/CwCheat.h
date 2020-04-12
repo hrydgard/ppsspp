@@ -44,7 +44,6 @@ public:
 	void CreateCheatFile();
 	void Run();
 	bool HasCheats();
-
 	void InvalidateICache(u32 addr, int size);
 private:
 	u32 GetAddress(u32 value);

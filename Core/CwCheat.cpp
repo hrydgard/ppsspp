@@ -26,6 +26,8 @@ std::string gameTitle;
 std::string activeCheatFile;
 static CWCheatEngine *cheatEngine;
 static bool cheatsEnabled;
+using namespace SceCtrl;
+
 void hleCheat(u64 userdata, int cyclesLate);
 
 static inline std::string TrimString(const std::string &s) {
@@ -412,6 +414,8 @@ enum class CheatOp {
 	MultiWrite,
 
 	CopyBytesFrom,
+	Vibration,
+	VibrationFromMemory,
 	Delay,
 
 	Assert,
@@ -460,6 +464,12 @@ struct CheatOperation {
 			int count;
 			int type;
 		} pointerCommands;
+		struct {
+			uint16_t vibrL;
+			uint16_t vibrR;
+			uint8_t vibrLTime;
+			uint8_t vibrRTime;
+		} vibrationValues;
 	};
 };
 
@@ -590,6 +600,25 @@ CheatOperation CWCheatEngine::InterpretNextCwCheat(const CheatCode &cheat, size_
 			return op;
 		}
 		return { CheatOp::Invalid };
+
+	case 0xA: // PPSSPP specific cheats
+		switch (line1.part1 >> 24 & 0xF) {
+		case 0x0: // 0x0 sets gamepad vibration by cheat parameters
+			{
+				CheatOperation op = { CheatOp::Vibration };
+				op.vibrationValues.vibrL = line1.part1 & 0x0000FFFF;
+				op.vibrationValues.vibrR = line1.part2 & 0x0000FFFF;
+				op.vibrationValues.vibrLTime = (line1.part1 >> 16) & 0x000000FF;
+				op.vibrationValues.vibrRTime = (line1.part2 >> 16) & 0x000000FF;
+				return op;
+			}
+		case 0x1: // 0x1 reads value for gamepad vibration from memory
+			addr = line1.part2;
+			return { CheatOp::VibrationFromMemory, addr };
+		// Place for other PPSSPP specific cheats
+		default:
+			return { CheatOp::Invalid };
+		}
 
 	case 0xB: // Delay command.
 		return { CheatOp::Delay, 0, 0, arg };
@@ -856,6 +885,32 @@ void CWCheatEngine::ExecuteOp(const CheatOperation &op, const CheatCode &cheat, 
 			InvalidateICache(op.copyBytesFrom.destAddr, op.val);
 
 			Memory::MemcpyUnchecked(op.copyBytesFrom.destAddr, op.addr, op.val);
+		}
+		break;
+
+	case CheatOp::Vibration:
+		if (op.vibrationValues.vibrL > 0) {
+			SetLeftVibration(op.vibrationValues.vibrL);
+			SetVibrationLeftDropout(op.vibrationValues.vibrLTime);
+		}
+		if (op.vibrationValues.vibrR > 0) {
+			SetRightVibration(op.vibrationValues.vibrR);
+			SetVibrationRightDropout(op.vibrationValues.vibrRTime);
+		}
+		break;
+
+	case CheatOp::VibrationFromMemory:
+		if (Memory::IsValidAddress(op.addr) && Memory::IsValidAddress(op.addr + 0x4)) {
+			uint16_t checkLeftVibration = Memory::Read_U16(op.addr);
+			uint16_t checkRightVibration = Memory::Read_U16(op.addr + 0x2);
+			if (checkLeftVibration > 0) {
+				SetLeftVibration(checkLeftVibration);
+				SetVibrationLeftDropout(Memory::Read_U8(op.addr + 0x4));
+			}
+			if (checkRightVibration > 0) {
+				SetRightVibration(checkRightVibration);
+				SetVibrationRightDropout(Memory::Read_U8(op.addr + 0x6));
+			}
 		}
 		break;
 
