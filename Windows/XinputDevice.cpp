@@ -11,14 +11,18 @@
 #include "input/input_state.h"
 #include "input/keycodes.h"
 #include "XinputDevice.h"
+#include "Core/Core.h"
+#include "Core/HLE/sceCtrl.h"
 
 // Utilities to dynamically load XInput. Adapted from SDL.
 
 #if !PPSSPP_PLATFORM(UWP)
 
 typedef DWORD (WINAPI *XInputGetState_t) (DWORD dwUserIndex, XINPUT_STATE* pState);
+typedef DWORD (WINAPI *XInputSetState_t) (DWORD dwUserIndex, XINPUT_VIBRATION* pVibration);
 
 static XInputGetState_t PPSSPP_XInputGetState = NULL;
+static XInputSetState_t PPSSPP_XInputSetState = NULL;
 static DWORD PPSSPP_XInputVersion = 0;
 static HMODULE s_pXInputDLL = 0;
 static int s_XInputDLLRefCount = 0;
@@ -65,6 +69,17 @@ static int LoadXInputDLL() {
 		return -1;
 	}
 
+	/* Let's try the name first, then fall back to a non-Ex version (xinput9_1_0.dll doesn't have Ex) */
+	PPSSPP_XInputSetState = (XInputSetState_t)GetProcAddress((HMODULE)s_pXInputDLL, "XInputSetStateEx");
+	if (!PPSSPP_XInputSetState) {
+		PPSSPP_XInputSetState = (XInputSetState_t)GetProcAddress((HMODULE)s_pXInputDLL, "XInputSetState");
+	}
+
+	if (!PPSSPP_XInputSetState) {
+		UnloadXInputDLL();
+		return -1;
+	}
+
 	return 0;
 }
 
@@ -81,6 +96,7 @@ static void UnloadXInputDLL() {
 static int LoadXInputDLL() { return 0; }
 static void UnloadXInputDLL() {}
 #define PPSSPP_XInputGetState XInputGetState
+#define PPSSPP_XInputSetState XInputSetState
 #endif
 
 #ifndef XUSER_MAX_COUNT
@@ -231,11 +247,13 @@ int XinputDevice::UpdateState() {
 	for (int i = 0; i < XUSER_MAX_COUNT; i++) {
 		XINPUT_STATE state;
 		ZeroMemory(&state, sizeof(XINPUT_STATE));
+		XINPUT_VIBRATION vibration;
+		ZeroMemory(&vibration, sizeof(XINPUT_VIBRATION));
 		if (check_delay[i]-- > 0)
 			continue;
 		DWORD dwResult = PPSSPP_XInputGetState(i, &state);
 		if (dwResult == ERROR_SUCCESS) {
-			UpdatePad(i, state);
+			UpdatePad(i, state, vibration);
 			anySuccess = true;
 		} else {
 			check_delay[i] = 30;
@@ -247,13 +265,14 @@ int XinputDevice::UpdateState() {
 	return anySuccess ? (g_Config.bEnableDInputWithXInput ? 0 : UPDATESTATE_SKIP_PAD) : 0;
 }
 
-void XinputDevice::UpdatePad(int pad, const XINPUT_STATE &state) {
+void XinputDevice::UpdatePad(int pad, const XINPUT_STATE &state, XINPUT_VIBRATION &vibration) {
 	static bool notified = false;
 	if (!notified) {
 		notified = true;
 		KeyMap::NotifyPadConnected("Xbox 360 Pad");
 	}
 	ApplyButtons(pad, state);
+	ApplyVibration(pad, vibration);
 
 	const float STICK_DEADZONE = g_Config.fXInputAnalogDeadzone;
 	const int STICK_INV_MODE = g_Config.iXInputAnalogInverseMode;
@@ -338,3 +357,21 @@ void XinputDevice::ApplyButtons(int pad, const XINPUT_STATE &state) {
 		}
 	}
 }
+
+
+void XinputDevice::ApplyVibration(int pad, XINPUT_VIBRATION &vibration) {
+	if (PSP_IsInited()) {
+		vibration.wLeftMotorSpeed = GetLeftVibration(); // use any value between 0-65535 here
+		vibration.wRightMotorSpeed = GetRightVibration(); // use any value between 0-65535 here
+		if (prevVibration[pad].wLeftMotorSpeed != vibration.wLeftMotorSpeed || prevVibration[pad].wRightMotorSpeed != vibration.wRightMotorSpeed) {
+			PPSSPP_XInputSetState(pad, &vibration);
+			prevVibration[pad] = vibration;
+		}
+	} else {
+		DWORD dwResult = PPSSPP_XInputSetState(pad, &vibration);
+		if (dwResult != ERROR_SUCCESS) {
+			check_delay[pad] = 30;
+		}
+	}
+}
+

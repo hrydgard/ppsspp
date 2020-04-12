@@ -24,6 +24,9 @@
 static int CheatEvent = -1;
 static CWCheatEngine *cheatEngine;
 static bool cheatsEnabled;
+SceCtrl vibrationCheat;
+static u16 checkLeftVibration = 0;
+static u16 checkRightVibration = 0;
 void hleCheat(u64 userdata, int cyclesLate);
 
 static inline std::string TrimString(const std::string &s) {
@@ -593,6 +596,19 @@ CheatOperation CWCheatEngine::InterpretNextCwCheat(const CheatCode &cheat, size_
 			op.multiWrite.step = (arg & 0xFFFF) * (is8Bit ? 1 : 2);
 			op.multiWrite.add = line2.part2;
 			return op;
+		}
+		return { CheatOp::Invalid };
+
+	case 0xA: // Vibration command(PPSSPP specific)
+		checkLeftVibration = line1.part1 & 0x0000FFFF;
+		checkRightVibration = line1.part2 & 0x0000FFFF;
+		if (checkLeftVibration > 0) {
+			vibrationCheat.SetLeftVibration(checkLeftVibration);
+			vibrationCheat.SetVibrationLeftDropout(line1.part1 >> 16 & 0x000000FF);
+		}
+		if (checkRightVibration > 0) {
+			vibrationCheat.SetRightVibration(checkRightVibration);
+			vibrationCheat.SetVibrationRightDropout(line1.part2 >> 16 & 0x000000FF);
 		}
 		return { CheatOp::Invalid };
 
