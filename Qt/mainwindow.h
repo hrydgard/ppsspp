@@ -68,8 +68,10 @@ public slots:
 
 private slots:
 	// File
-	void openAct();
+	void loadAct();
 	void closeAct();
+	void openmsAct();
+	void saveStateGroup_triggered(QAction *action) { g_Config.iCurrentStateSlot = action->data().toInt(); }
 	void qlstateAct();
 	void qsstateAct();
 	void lstateAct();
@@ -178,7 +180,7 @@ private:
 	             *screenScalingFilterGroup, *textureFilteringGroup,
 	             *frameSkippingTypeGroup, *frameSkippingGroup,
 	             *renderingModeGroup, *renderingResolutionGroup,
-	             *displayRotationGroup;
+	             *displayRotationGroup, *saveStateGroup;
 
 	std::queue<MainWindowMsg> msgQueue_;
 	std::mutex msgMutex_;

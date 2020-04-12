@@ -80,6 +80,13 @@ void MainWindow::newFrame()
 
 void MainWindow::updateMenus()
 {
+	foreach(QAction * action, saveStateGroup->actions()) {
+		if (g_Config.iCurrentStateSlot == action->data().toInt()) {
+			action->setChecked(true);
+			break;
+		}
+	}
+
 	foreach(QAction * action, displayRotationGroup->actions()) {
 		if (g_Config.iInternalScreenRotation == action->data().toInt()) {
 			action->setChecked(true);
@@ -165,7 +172,7 @@ void MainWindow::bootDone()
 }
 
 /* SIGNALS */
-void MainWindow::openAct()
+void MainWindow::loadAct()
 {
 	QString filename = QFileDialog::getOpenFileName(NULL, "Load File", g_Config.currentDirectory.c_str(), "PSP ROMs (*.pbp *.elf *.iso *.cso *.prx)");
 	if (QFile::exists(filename))
@@ -182,6 +189,13 @@ void MainWindow::closeAct()
 
 	NativeMessageReceived("stop", "");
 	SetGameTitle("");
+}
+
+void MainWindow::openmsAct()
+{
+	QString confighome = getenv("XDG_CONFIG_HOME");
+	QString memorystick = confighome + "/ppsspp/PSP";
+	QDesktopServices::openUrl(QUrl(memorystick));
 }
 
 void SaveStateActionFinished(SaveState::Status status, const std::string &message, void *userdata)
@@ -508,21 +522,28 @@ void MainWindow::createMenus()
 {
 	// File
 	MenuTree* fileMenu = new MenuTree(this, menuBar(),    QT_TR_NOOP("&File"));
-	fileMenu->add(new MenuAction(this, SLOT(openAct()),       QT_TR_NOOP("&Open..."), QKeySequence::Open))
+	fileMenu->add(new MenuAction(this, SLOT(loadAct()),       QT_TR_NOOP("&Load...")))
 		->addEnableState(UISTATE_MENU);
 	fileMenu->add(new MenuAction(this, SLOT(closeAct()),      QT_TR_NOOP("&Close"), QKeySequence::Close))
 		->addDisableState(UISTATE_MENU);
 	fileMenu->addSeparator();
-	fileMenu->add(new MenuAction(this, SLOT(qlstateAct()),    QT_TR_NOOP("Quickload State"), Qt::Key_F4))
+	fileMenu->add(new MenuAction(this, SLOT(openmsAct()),       QT_TR_NOOP("Open &Memory stick")))
+		->addEnableState(UISTATE_MENU);
+	fileMenu->addSeparator();
+	MenuTree* savestateMenu = new MenuTree(this, fileMenu, QT_TR_NOOP("Saves&tate slot"));
+	saveStateGroup = new MenuActionGroup(this, savestateMenu, SLOT(saveStateGroup_triggered(QAction *)),
+		QStringList() << "1" << "2" << "3" << "4" << "5",
+		QList<int>() << 0 << 1 << 2 << 3 << 4);
+	fileMenu->add(new MenuAction(this, SLOT(qlstateAct()),    QT_TR_NOOP("L&oad state"), Qt::Key_F4))
 		->addDisableState(UISTATE_MENU);
-	fileMenu->add(new MenuAction(this, SLOT(qsstateAct()),    QT_TR_NOOP("Quicksave State"), Qt::Key_F2))
+	fileMenu->add(new MenuAction(this, SLOT(qsstateAct()),    QT_TR_NOOP("S&ave state"), Qt::Key_F2))
 		->addDisableState(UISTATE_MENU);
-	fileMenu->add(new MenuAction(this, SLOT(lstateAct()),     QT_TR_NOOP("&Load State File...")))
+	fileMenu->add(new MenuAction(this, SLOT(lstateAct()),     QT_TR_NOOP("&Load state file...")))
 		->addDisableState(UISTATE_MENU);
-	fileMenu->add(new MenuAction(this, SLOT(sstateAct()),     QT_TR_NOOP("&Save State File...")))
+	fileMenu->add(new MenuAction(this, SLOT(sstateAct()),     QT_TR_NOOP("&Save state file...")))
 		->addDisableState(UISTATE_MENU);
 	fileMenu->addSeparator();
-	fileMenu->add(new MenuAction(this, SLOT(exitAct()),       QT_TR_NOOP("E&xit"), QKeySequence::Quit));
+	fileMenu->add(new MenuAction(this, SLOT(exitAct()),       QT_TR_NOOP("E&xit"), Qt::ALT + Qt::Key_F4));
 
 	// Emulation
 	MenuTree* emuMenu = new MenuTree(this, menuBar(),     QT_TR_NOOP("&Emulation"));
