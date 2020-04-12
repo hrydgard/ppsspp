@@ -260,6 +260,11 @@ void MainWindow::runonloadAct()
 	g_Config.bAutoRun = !g_Config.bAutoRun;
 }
 
+void MainWindow::breakonloadAct()
+{
+	g_Config.bAutoRun = !g_Config.bAutoRun;
+}
+
 void MainWindow::lmapAct()
 {
 	QFileDialog dialog(0,"Load .MAP");
@@ -292,6 +297,41 @@ void MainWindow::smapAct()
 	{
 		fileNames = dialog.selectedFiles();
 		g_symbolMap->SaveSymbolMap(fileNames[0].toStdString().c_str());
+	}
+}
+
+void MainWindow::lsymAct()
+{
+	QFileDialog dialog(0,"Load .SYM");
+	dialog.setFileMode(QFileDialog::ExistingFile);
+	QStringList filters;
+	filters << "Symbols (*.sym)" << "|All files (*.*)";
+	dialog.setNameFilters(filters);
+	dialog.setAcceptMode(QFileDialog::AcceptOpen);
+	QStringList fileNames;
+	if (dialog.exec())
+		fileNames = dialog.selectedFiles();
+
+	if (fileNames.count() > 0)
+	{
+		QString fileName = QFileInfo(fileNames[0]).absoluteFilePath();
+		g_symbolMap->LoadNocashSym(fileName.toStdString().c_str());
+	}
+}
+
+void MainWindow::ssymAct()
+{
+	QFileDialog dialog(0,"Save .SYM");
+	dialog.setFileMode(QFileDialog::AnyFile);
+	dialog.setAcceptMode(QFileDialog::AcceptSave);
+	QStringList filters;
+	filters << "Save .SYM (*.sym)" << "|All files (*.*)";
+	dialog.setNameFilters(filters);
+	QStringList fileNames;
+	if (dialog.exec())
+	{
+		fileNames = dialog.selectedFiles();
+		g_symbolMap->SaveNocashSym(fileNames[0].toStdString().c_str());
 	}
 }
 
@@ -495,20 +535,31 @@ void MainWindow::createMenus()
 		->addEventChecked(&g_Config.bAutoRun);
 
 	// Debug
-	MenuTree* debugMenu = new MenuTree(this, menuBar(),   QT_TR_NOOP("De&bug"));
-	debugMenu->add(new MenuAction(this, SLOT(lmapAct()),      QT_TR_NOOP("Load Map File...")))
+	MenuTree* debugMenu = new MenuTree(this, menuBar(),   QT_TR_NOOP("&Debug"));
+	debugMenu->add(new MenuAction(this, SLOT(breakonloadAct()),   QT_TR_NOOP("Break on load")))
+		->addEventChecked(&g_Config.bAutoRun);
+	debugMenu->add(new MenuAction(this, SLOT(ignoreIllegalAct()),  QT_TR_NOOP("&Ignore illegal reads/writes")))
+		->addEventChecked(&g_Config.bIgnoreBadMemAccess);
+	debugMenu->addSeparator();
+	debugMenu->add(new MenuAction(this, SLOT(lmapAct()),      QT_TR_NOOP("&Load MAP file...")))
 		->addDisableState(UISTATE_MENU);
-	debugMenu->add(new MenuAction(this, SLOT(smapAct()),      QT_TR_NOOP("Save Map File...")))
+	debugMenu->add(new MenuAction(this, SLOT(smapAct()),      QT_TR_NOOP("&Save MAP file...")))
 		->addDisableState(UISTATE_MENU);
-	debugMenu->add(new MenuAction(this, SLOT(resetTableAct()),QT_TR_NOOP("Reset Symbol Table")))
+	debugMenu->add(new MenuAction(this, SLOT(lmapAct()),      QT_TR_NOOP("Lo&ad SYM file...")))
+		->addDisableState(UISTATE_MENU);
+	debugMenu->add(new MenuAction(this, SLOT(smapAct()),      QT_TR_NOOP("Sav&e SYM file...")))
+		->addDisableState(UISTATE_MENU);
+	debugMenu->add(new MenuAction(this, SLOT(resetTableAct()),QT_TR_NOOP("Reset s&ymbol table")))
 		->addDisableState(UISTATE_MENU);
 	debugMenu->addSeparator();
-	debugMenu->add(new MenuAction(this, SLOT(dumpNextAct()),  QT_TR_NOOP("Dump next frame to log")))
+	debugMenu->add(new MenuAction(this, SLOT(takeScreen()),  QT_TR_NOOP("&Take screenshot"), Qt::Key_F12))
 		->addDisableState(UISTATE_MENU);
-	debugMenu->add(new MenuAction(this, SLOT(takeScreen()),  QT_TR_NOOP("Take Screenshot"), Qt::Key_F12))
+	debugMenu->add(new MenuAction(this, SLOT(dumpNextAct()),  QT_TR_NOOP("D&ump next frame to log")))
 		->addDisableState(UISTATE_MENU);
+	debugMenu->add(new MenuAction(this, SLOT(statsAct()),   QT_TR_NOOP("Show debu&g statistics")))
+		->addEventChecked(&g_Config.bShowDebugStats);
 	debugMenu->addSeparator();
-	debugMenu->add(new MenuAction(this, SLOT(consoleAct()),   QT_TR_NOOP("Log Console")))
+	debugMenu->add(new MenuAction(this, SLOT(consoleAct()),   QT_TR_NOOP("&Log console"), Qt::CTRL + Qt::Key_L))
 		->addDisableState(UISTATE_MENU);
 
 	// Game settings

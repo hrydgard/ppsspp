@@ -83,8 +83,12 @@ private slots:
 	void runonloadAct();
 
 	// Debug
+	void breakonloadAct();
+	void ignoreIllegalAct() { g_Config.bIgnoreBadMemAccess = !g_Config.bIgnoreBadMemAccess; }
 	void lmapAct();
 	void smapAct();
+	void lsymAct();
+	void ssymAct();
 	void resetTableAct();
 	void dumpNextAct();
 	void takeScreen() { g_TakeScreenshot = true; }
