@@ -87,6 +87,12 @@ static std::mutex ctrlMutex;
 
 static int ctrlTimer = -1;
 
+static u16 leftVibration = 0;
+static u16 rightVibration = 0;
+// The higher the dropout, the longer Vibration will run
+static u8 vibrationLeftDropout = 160;
+static u8 vibrationRightDropout = 160;
+
 // STATE END
 //////////////////////////////////////////////////////////////////////////
 
@@ -287,6 +293,10 @@ retry:
 static void __CtrlVblank()
 {
 	emuRapidFireFrames++;
+
+	// Reduce gamepad Vibration by set % each frame
+	leftVibration *= (float)vibrationLeftDropout / 256.0f;
+	rightVibration *= (float)vibrationRightDropout / 256.0f;
 
 	// This always runs, so make sure we're in vblank mode.
 	if (ctrlCycle == 0)
@@ -562,4 +572,26 @@ void Register_sceCtrl()
 void Register_sceCtrl_driver()
 {
 	RegisterModule("sceCtrl_driver", ARRAY_SIZE(sceCtrl), sceCtrl);
+}
+
+u16 GetRightVibration() {
+	return rightVibration;
+}
+
+u16 GetLeftVibration() {
+	return leftVibration;
+}
+
+void SceCtrl::SetRightVibration(u16 rVibration) {
+	rightVibration = rVibration;
+}
+void SceCtrl::SetLeftVibration(u16 lVibration) {
+	leftVibration = lVibration;
+}
+void SceCtrl::SetVibrationRightDropout(u8 vibrationRDropout) {
+	vibrationRightDropout = vibrationRDropout;
+
+}
+void SceCtrl::SetVibrationLeftDropout(u8 vibrationLDropout) {
+	vibrationLeftDropout = vibrationLDropout;
 }
