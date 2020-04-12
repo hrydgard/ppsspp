@@ -646,14 +646,6 @@ Shader *ShaderManagerGLES::CompileVertexShader(VShaderID VSID) {
 }
 
 Shader *ShaderManagerGLES::ApplyVertexShader(bool useHWTransform, bool useHWTessellation, u32 vertType, VShaderID *VSID) {
-	uint64_t dirty = gstate_c.GetDirtyUniforms();
-	if (dirty) {
-		if (lastShader_)
-			lastShader_->dirtyUniforms |= dirty;
-		shaderSwitchDirtyUniforms_ |= dirty;
-		gstate_c.CleanUniforms();
-	}
-
 	if (gstate_c.IsDirty(DIRTY_VERTEXSHADER_STATE)) {
 		gstate_c.Clean(DIRTY_VERTEXSHADER_STATE);
 		ComputeVertexShaderID(VSID, vertType, useHWTransform, useHWTessellation);
@@ -661,7 +653,7 @@ Shader *ShaderManagerGLES::ApplyVertexShader(bool useHWTransform, bool useHWTess
 		*VSID = lastVSID_;
 	}
 
-	if (lastShader_ != 0 && *VSID == lastVSID_) {
+	if (lastShader_ != nullptr && *VSID == lastVSID_) {
 		lastVShaderSame_ = true;
 		return lastShader_->vs_;  	// Already all set.
 	} else {
@@ -698,6 +690,14 @@ Shader *ShaderManagerGLES::ApplyVertexShader(bool useHWTransform, bool useHWTess
 }
 
 LinkedShader *ShaderManagerGLES::ApplyFragmentShader(VShaderID VSID, Shader *vs, u32 vertType, bool useBufferedRendering) {
+	uint64_t dirty = gstate_c.GetDirtyUniforms();
+	if (dirty) {
+		if (lastShader_)
+			lastShader_->dirtyUniforms |= dirty;
+		shaderSwitchDirtyUniforms_ |= dirty;
+		gstate_c.CleanUniforms();
+	}
+
 	FShaderID FSID;
 	if (gstate_c.IsDirty(DIRTY_FRAGMENTSHADER_STATE)) {
 		gstate_c.Clean(DIRTY_FRAGMENTSHADER_STATE);
