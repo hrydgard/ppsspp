@@ -80,7 +80,7 @@ private slots:
 	void runAct();
 	void pauseAct();
 	void resetAct();
-	void runonloadAct();
+	void displayRotationGroup_triggered(QAction *action) { g_Config.iInternalScreenRotation = action->data().toInt(); }
 
 	// Debug
 	void breakonloadAct();
@@ -177,7 +177,8 @@ private:
 	             *textureScalingLevelGroup, *textureScalingTypeGroup,
 	             *screenScalingFilterGroup, *textureFilteringGroup,
 	             *frameSkippingTypeGroup, *frameSkippingGroup,
-	             *renderingModeGroup, *renderingResolutionGroup;
+	             *renderingModeGroup, *renderingResolutionGroup,
+	             *displayRotationGroup;
 
 	std::queue<MainWindowMsg> msgQueue_;
 	std::mutex msgMutex_;

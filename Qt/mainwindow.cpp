@@ -80,6 +80,13 @@ void MainWindow::newFrame()
 
 void MainWindow::updateMenus()
 {
+	foreach(QAction * action, displayRotationGroup->actions()) {
+		if (g_Config.iInternalScreenRotation == action->data().toInt()) {
+			action->setChecked(true);
+			break;
+		}
+	}
+
 	foreach(QAction * action, windowGroup->actions()) {
 		int width = (g_Config.IsPortrait() ? 272 : 480) * action->data().toInt();
 		int height = (g_Config.IsPortrait() ? 480 : 272) * action->data().toInt();
@@ -253,11 +260,6 @@ void MainWindow::resetAct()
 	updateMenus();
 
 	NativeMessageReceived("reset", "");
-}
-
-void MainWindow::runonloadAct()
-{
-	g_Config.bAutoRun = !g_Config.bAutoRun;
 }
 
 void MainWindow::breakonloadAct()
@@ -530,9 +532,10 @@ void MainWindow::createMenus()
 		->addEnableState(UISTATE_INGAME);
 	emuMenu->add(new MenuAction(this, SLOT(resetAct()),       QT_TR_NOOP("Re&set")))
 		->addEnableState(UISTATE_INGAME);
-	emuMenu->addSeparator();
-	emuMenu->add(new MenuAction(this, SLOT(runonloadAct()),   QT_TR_NOOP("Run on &load")))
-		->addEventChecked(&g_Config.bAutoRun);
+	MenuTree* displayRotationMenu = new MenuTree(this, emuMenu, QT_TR_NOOP("Display rotation"));
+	displayRotationGroup = new MenuActionGroup(this, displayRotationMenu, SLOT(displayRotationGroup_triggered(QAction *)),
+		QStringList() << "Landscape" << "Portrait" << "Landscape reversed" << "Portrait reversed",
+		QList<int>() << 1 << 2 << 3 << 4);
 
 	// Debug
 	MenuTree* debugMenu = new MenuTree(this, menuBar(),   QT_TR_NOOP("&Debug"));
