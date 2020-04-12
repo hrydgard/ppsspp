@@ -351,9 +351,19 @@ void MainWindow::forumAct()
 	QDesktopServices::openUrl(QUrl("https://forums.ppsspp.org/"));
 }
 
+void MainWindow::goldAct()
+{
+	QDesktopServices::openUrl(QUrl("https://central.ppsspp.org/buygold"));
+}
+
 void MainWindow::gitAct()
 {
 	QDesktopServices::openUrl(QUrl("https://github.com/hrydgard/ppsspp/"));
+}
+
+void MainWindow::discordAct()
+{
+	QDesktopServices::openUrl(QUrl("https://discord.gg/5NJB6dD"));
 }
 
 void MainWindow::aboutAct()
@@ -598,10 +608,13 @@ void MainWindow::createMenus()
 
 	// Help
 	MenuTree* helpMenu = new MenuTree(this, menuBar(),    QT_TR_NOOP("&Help"));
-	helpMenu->add(new MenuAction(this, SLOT(websiteAct()),    QT_TR_NOOP("Official &website"), QKeySequence::HelpContents));
-	helpMenu->add(new MenuAction(this, SLOT(forumAct()),      QT_TR_NOOP("Official &forum")));
-	helpMenu->add(new MenuAction(this, SLOT(gitAct()),        QT_TR_NOOP("&GitHub")));
-	helpMenu->add(new MenuAction(this, SLOT(aboutAct()),      QT_TR_NOOP("&About PPSSPP..."), QKeySequence::WhatsThis));
+	helpMenu->add(new MenuAction(this, SLOT(websiteAct()),    QT_TR_NOOP("Visit www.&ppsspp.org")));
+	helpMenu->add(new MenuAction(this, SLOT(forumAct()),      QT_TR_NOOP("PPSSPP &forums")));
+	helpMenu->add(new MenuAction(this, SLOT(goldAct()),       QT_TR_NOOP("Buy &Gold")));
+	helpMenu->add(new MenuAction(this, SLOT(gitAct()),        QT_TR_NOOP("Git&Hub")));
+	helpMenu->add(new MenuAction(this, SLOT(discordAct()),      QT_TR_NOOP("Discord")));
+	helpMenu->addSeparator();
+	helpMenu->add(new MenuAction(this, SLOT(aboutAct()),      QT_TR_NOOP("&About PPSSPP...")));
 
 	retranslate();
 }

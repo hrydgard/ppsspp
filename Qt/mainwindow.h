@@ -147,7 +147,9 @@ private slots:
 	// Help
 	void websiteAct();
 	void forumAct();
+	void goldAct();
 	void gitAct();
+	void discordAct();
 	void aboutAct();
 
 	// Others
