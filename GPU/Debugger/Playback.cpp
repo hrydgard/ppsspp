@@ -18,6 +18,7 @@
 #include <algorithm>
 #include <cstring>
 #include <functional>
+#include <mutex>
 #include <vector>
 #include <snappy-c.h>
 #include "profiler/profiler.h"
@@ -43,6 +44,7 @@ namespace GPURecord {
 static std::string lastExecFilename;
 static std::vector<Command> lastExecCommands;
 static std::vector<u8> lastExecPushbuf;
+static std::mutex executeLock;
 
 // This class maps pushbuffer (dump data) sections to PSP memory.
 // Dumps can be larger than available PSP memory, because they include generated data too.
@@ -654,6 +656,8 @@ static bool ReadCompressed(u32 fp, void *dest, size_t sz) {
 }
 
 static void ReplayStop() {
+	// This can happen from a separate thread.
+	std::lock_guard<std::mutex> guard(executeLock);
 	lastExecFilename.clear();
 	lastExecCommands.clear();
 	lastExecPushbuf.clear();
@@ -662,6 +666,7 @@ static void ReplayStop() {
 bool RunMountedReplay(const std::string &filename) {
 	_assert_msg_(SYSTEM, !GPURecord::IsActivePending(), "Cannot run replay while recording.");
 
+	std::lock_guard<std::mutex> guard(executeLock);
 	Core_ListenStopRequest(&ReplayStop);
 	if (lastExecFilename != filename) {
 		PROFILE_THIS_SCOPE("ReplayLoad");
