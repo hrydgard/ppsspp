@@ -222,6 +222,11 @@ public:
 	// UI
 	bool bShowDebuggerOnLoad;
 	int iShowFPSCounter;
+	int iFPSCounterPosition;
+	int iFPSCounterColor;
+	int iFPSCounterBackground;
+	bool bFPSCounterShadow;
+	float fFPSCounterSize;
 	bool bShowRegionOnGameIcon;
 	bool bShowIDOnGameIcon;
 	float fGameGridScale;

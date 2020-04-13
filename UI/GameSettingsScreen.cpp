@@ -488,7 +488,16 @@ void GameSettingsScreen::CreateViews() {
 
 	graphicsSettings->Add(new ItemHeader(gr->T("Overlay Information")));
 	static const char *fpsChoices[] = { "None", "Speed", "FPS", "Both" };
+	static const char *fpsPosition[] = { "Top Right", "Top Left", "Bottom Right", "Bottom Left" };
+	static const char *fpsColor[] = { "Green", "White", "Red", "Black", "Blue" };
+	static const char *fpsBackground[] = { "None", "Solid White", "Solid Black", "Transparent White", "Transparent Black" };
 	graphicsSettings->Add(new PopupMultiChoice(&g_Config.iShowFPSCounter, gr->T("Show FPS Counter"), fpsChoices, 0, ARRAY_SIZE(fpsChoices), gr->GetName(), screenManager()));
+	graphicsSettings->Add(new PopupMultiChoice(&g_Config.iFPSCounterPosition, gr->T("FPS Counter Position"), fpsPosition, 0, ARRAY_SIZE(fpsPosition), gr->GetName(), screenManager()));
+	graphicsSettings->Add(new PopupSliderChoiceFloat(&g_Config.fFPSCounterSize, 0.5f, 3.0f, gr->T("FPS Counter Size"), 0.01f, screenManager()));
+	graphicsSettings->Add(new PopupMultiChoice(&g_Config.iFPSCounterColor, gr->T("FPS Counter Color"), fpsColor, 0, ARRAY_SIZE(fpsColor), gr->GetName(), screenManager()));
+	graphicsSettings->Add(new CheckBox(&g_Config.bFPSCounterShadow, gr->T("FPS Counter Shadow")));
+	graphicsSettings->Add(new PopupMultiChoice(&g_Config.iFPSCounterBackground, gr->T("FPS Counter Background Style"), fpsBackground, 0, ARRAY_SIZE(fpsBackground), gr->GetName(), screenManager()));
+
 	graphicsSettings->Add(new CheckBox(&g_Config.bShowDebugStats, gr->T("Show Debug Statistics")))->OnClick.Handle(this, &GameSettingsScreen::OnJitAffectingSetting);
 
 	// Developer tools are not accessible ingame, so it goes here.
