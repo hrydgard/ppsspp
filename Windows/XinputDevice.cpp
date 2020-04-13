@@ -13,6 +13,7 @@
 #include "XinputDevice.h"
 #include "Core/Core.h"
 #include "Core/HLE/sceCtrl.h"
+#include "Common/Timer.h"
 
 // Utilities to dynamically load XInput. Adapted from SDL.
 
@@ -26,6 +27,7 @@ static XInputSetState_t PPSSPP_XInputSetState = NULL;
 static DWORD PPSSPP_XInputVersion = 0;
 static HMODULE s_pXInputDLL = 0;
 static int s_XInputDLLRefCount = 0;
+static int newVibrationTime = 0;
 
 static void UnloadXInputDLL();
 
@@ -361,17 +363,24 @@ void XinputDevice::ApplyButtons(int pad, const XINPUT_STATE &state) {
 
 void XinputDevice::ApplyVibration(int pad, XINPUT_VIBRATION &vibration) {
 	if (PSP_IsInited()) {
-		if (GetUIState() == UISTATE_INGAME) {
-			vibration.wLeftMotorSpeed = sceCtrlGetLeftVibration(); // use any value between 0-65535 here
-			vibration.wRightMotorSpeed = sceCtrlGetRightVibration(); // use any value between 0-65535 here
-		} else {
-			vibration.wLeftMotorSpeed = 0;
-			vibration.wRightMotorSpeed = 0;
-		}
+		newVibrationTime = Common::Timer::GetTimeMs() >> 6;
+		// We have to run PPSSPP_XInputSetState at time intervals
+		// since it bugs otherwise with very high unthrottle speeds
+		// and freezes at constant vibration or no vibration at all.
+		if (abs(newVibrationTime - prevVibrationTime) >= 1) {
+			if (GetUIState() == UISTATE_INGAME) {
+				vibration.wLeftMotorSpeed = sceCtrlGetLeftVibration(); // use any value between 0-65535 here
+				vibration.wRightMotorSpeed = sceCtrlGetRightVibration(); // use any value between 0-65535 here
+			} else {
+				vibration.wLeftMotorSpeed = 0;
+				vibration.wRightMotorSpeed = 0;
+			}
 
-		if (prevVibration[pad].wLeftMotorSpeed != vibration.wLeftMotorSpeed || prevVibration[pad].wRightMotorSpeed != vibration.wRightMotorSpeed) {
-			PPSSPP_XInputSetState(pad, &vibration);
-			prevVibration[pad] = vibration;
+			if ((prevVibration[pad].wLeftMotorSpeed != vibration.wLeftMotorSpeed || prevVibration[pad].wRightMotorSpeed != vibration.wRightMotorSpeed)) {
+				PPSSPP_XInputSetState(pad, &vibration);
+				prevVibration[pad] = vibration;
+			}
+			prevVibrationTime = newVibrationTime;
 		}
 	} else {
 		DWORD dwResult = PPSSPP_XInputSetState(pad, &vibration);
