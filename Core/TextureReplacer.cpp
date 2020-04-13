@@ -80,6 +80,7 @@ bool TextureReplacer::LoadIni() {
 	allowVideo_ = false;
 	ignoreAddress_ = false;
 	reduceHash_ = false;
+	disallowMipmap_ = false;
 
 	if (File::Exists(basePath_ + INI_FILENAME)) {
 		IniFile ini;
@@ -128,6 +129,7 @@ bool TextureReplacer::LoadIniValues(IniFile &ini, bool isOverride) {
 	options->Get("ignoreAddress", &ignoreAddress_, ignoreAddress_);
 	// Multiplies sizeInRAM/bytesPerLine in XXHASH by 0.5.
 	options->Get("reduceHash", &reduceHash_, reduceHash_);
+	options->Get("disallowMipmap", &disallowMipmap_, disallowMipmap_);
 	if (reduceHash_ && hash_ == ReplacedTextureHash::QUICK) {
 		reduceHash_ = false;
 		ERROR_LOG(G3D, "Texture Replacement: reduceHash option requires safer hash, use xxh32 or xxh64 instead.");
@@ -410,6 +412,9 @@ void TextureReplacer::NotifyTextureDecoded(const ReplacedTextureDecodeInfo &repl
 	u64 cachekey = replacedInfo.cachekey;
 	if (ignoreAddress_) {
 		cachekey = cachekey & 0xFFFFFFFFULL;
+	}
+	if (disallowMipmap_ && level > 0) {
+		return;
 	}
 
 	std::string hashfile = LookupHashFile(cachekey, replacedInfo.hash, level);
