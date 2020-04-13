@@ -88,11 +88,10 @@ u32 __CtrlReadLatch();
 
 void Register_sceCtrl_driver();
 
-u16 GetRightVibration();
-u16 GetLeftVibration();
+u16 sceCtrlGetRightVibration();
+u16 sceCtrlGetLeftVibration();
 
-class SceCtrl {
-public:
+namespace SceCtrl {
 	void SetLeftVibration(u16 lVibration);
 	void SetRightVibration(u16 rVibration);
 	void SetVibrationLeftDropout(u8 vibrationLDropout);

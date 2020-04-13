@@ -24,7 +24,8 @@
 static int CheatEvent = -1;
 static CWCheatEngine *cheatEngine;
 static bool cheatsEnabled;
-SceCtrl vibrationCheat;
+using namespace SceCtrl;
+
 void hleCheat(u64 userdata, int cyclesLate);
 
 static inline std::string TrimString(const std::string &s) {
@@ -472,6 +473,12 @@ struct CheatOperation {
 			int count;
 			int type;
 		} pointerCommands;
+		struct {
+			uint16_t vibrL;
+			uint16_t vibrR;
+			uint8_t vibrLTime;
+			uint8_t vibrRTime;
+		} vibrationValues;
 	};
 };
 
@@ -610,10 +617,10 @@ CheatOperation CWCheatEngine::InterpretNextCwCheat(const CheatCode &cheat, size_
 			return { CheatOp::VibrationFromMemory, addr };
 		} else { // 0xA0 sets vibration by cheat parameters
 			CheatOperation op = { CheatOp::Vibration };
-			op.vibrL = line1.part1 & 0x0000FFFF;
-			op.vibrR = line1.part2 & 0x0000FFFF;
-			op.vibrLTime = (line1.part1 >> 16) & 0x000000FF;
-			op.vibrRTime = (line1.part2 >> 16) & 0x000000FF;
+			op.vibrationValues.vibrL = line1.part1 & 0x0000FFFF;
+			op.vibrationValues.vibrR = line1.part2 & 0x0000FFFF;
+			op.vibrationValues.vibrLTime = (line1.part1 >> 16) & 0x000000FF;
+			op.vibrationValues.vibrRTime = (line1.part2 >> 16) & 0x000000FF;
 			return op;
 		}
 		return { CheatOp::Invalid };
@@ -887,13 +894,13 @@ void CWCheatEngine::ExecuteOp(const CheatOperation &op, const CheatCode &cheat, 
 		break;
 
 	case CheatOp::Vibration:
-		if (op.vibrL > 0) {
-			vibrationCheat.SetLeftVibration(op.vibrL);
-			vibrationCheat.SetVibrationLeftDropout(op.vibrLTime);
+		if (op.vibrationValues.vibrL > 0) {
+			SetLeftVibration(op.vibrationValues.vibrL);
+			SetVibrationLeftDropout(op.vibrationValues.vibrLTime);
 		}
-		if (op.vibrR > 0) {
-			vibrationCheat.SetRightVibration(op.vibrR);
-			vibrationCheat.SetVibrationRightDropout(op.vibrRTime);
+		if (op.vibrationValues.vibrR > 0) {
+			SetRightVibration(op.vibrationValues.vibrR);
+			SetVibrationRightDropout(op.vibrationValues.vibrRTime);
 		}
 		break;
 
@@ -902,12 +909,12 @@ void CWCheatEngine::ExecuteOp(const CheatOperation &op, const CheatCode &cheat, 
 			uint16_t checkLeftVibration = Memory::Read_U16(op.addr);
 			uint16_t checkRightVibration = Memory::Read_U16(op.addr + 0x2);
 			if (checkLeftVibration > 0) {
-				vibrationCheat.SetLeftVibration(checkLeftVibration);
-				vibrationCheat.SetVibrationLeftDropout(Memory::Read_U8(op.addr + 0x4));
+				SetLeftVibration(checkLeftVibration);
+				SetVibrationLeftDropout(Memory::Read_U8(op.addr + 0x4));
 			}
 			if (checkRightVibration > 0) {
-				vibrationCheat.SetRightVibration(checkRightVibration);
-				vibrationCheat.SetVibrationRightDropout(Memory::Read_U8(op.addr + 0x6));
+				SetRightVibration(checkRightVibration);
+				SetVibrationRightDropout(Memory::Read_U8(op.addr + 0x6));
 			}
 		}
 		break;

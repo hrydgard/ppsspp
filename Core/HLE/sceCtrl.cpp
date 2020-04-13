@@ -574,24 +574,25 @@ void Register_sceCtrl_driver()
 	RegisterModule("sceCtrl_driver", ARRAY_SIZE(sceCtrl), sceCtrl);
 }
 
-u16 GetRightVibration() {
+u16 sceCtrlGetRightVibration() {
 	return rightVibration;
 }
 
-u16 GetLeftVibration() {
+u16 sceCtrlGetLeftVibration() {
 	return leftVibration;
 }
 
-void SceCtrl::SetRightVibration(u16 rVibration) {
-	rightVibration = rVibration;
-}
-void SceCtrl::SetLeftVibration(u16 lVibration) {
-	leftVibration = lVibration;
-}
-void SceCtrl::SetVibrationRightDropout(u8 vibrationRDropout) {
-	vibrationRightDropout = vibrationRDropout;
-
-}
-void SceCtrl::SetVibrationLeftDropout(u8 vibrationLDropout) {
-	vibrationLeftDropout = vibrationLDropout;
+namespace SceCtrl {
+	void SetRightVibration(u16 rVibration) {
+		rightVibration = rVibration;
+	}
+	void SetLeftVibration(u16 lVibration) {
+		leftVibration = lVibration;
+	}
+	void SetVibrationRightDropout(u8 vibrationRDropout) {
+		vibrationRightDropout = vibrationRDropout;
+	}
+	void SetVibrationLeftDropout(u8 vibrationLDropout) {
+		vibrationLeftDropout = vibrationLDropout;
+	}
 }
