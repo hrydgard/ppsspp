@@ -361,8 +361,14 @@ void XinputDevice::ApplyButtons(int pad, const XINPUT_STATE &state) {
 
 void XinputDevice::ApplyVibration(int pad, XINPUT_VIBRATION &vibration) {
 	if (PSP_IsInited()) {
-		vibration.wLeftMotorSpeed = GetLeftVibration(); // use any value between 0-65535 here
-		vibration.wRightMotorSpeed = GetRightVibration(); // use any value between 0-65535 here
+		if (GetUIState() == UISTATE_INGAME) {
+			vibration.wLeftMotorSpeed = sceCtrlGetLeftVibration(); // use any value between 0-65535 here
+			vibration.wRightMotorSpeed = sceCtrlGetRightVibration(); // use any value between 0-65535 here
+		} else {
+			vibration.wLeftMotorSpeed = 0;
+			vibration.wRightMotorSpeed = 0;
+		}
+
 		if (prevVibration[pad].wLeftMotorSpeed != vibration.wLeftMotorSpeed || prevVibration[pad].wRightMotorSpeed != vibration.wRightMotorSpeed) {
 			PPSSPP_XInputSetState(pad, &vibration);
 			prevVibration[pad] = vibration;
