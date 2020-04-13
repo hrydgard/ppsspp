@@ -423,7 +423,7 @@ static ConfigSetting generalSettings[] = {
 	ConfigSetting("FirstRun", &g_Config.bFirstRun, true),
 	ConfigSetting("RunCount", &g_Config.iRunCount, 0),
 	ConfigSetting("Enable Logging", &g_Config.bEnableLogging, true),
-	ConfigSetting("AutoRun", &g_Config.bAutoRun, false),
+	ConfigSetting("AutoRun", &g_Config.bAutoRun, true),
 	ConfigSetting("Browse", &g_Config.bBrowse, false),
 	ConfigSetting("IgnoreBadMemAccess", &g_Config.bIgnoreBadMemAccess, true, true),
 	ConfigSetting("CurrentDirectory", &g_Config.currentDirectory, ""),

@@ -113,7 +113,7 @@ private slots:
 		NativeMessageReceived("gpu_resized", "");
 		if (g_Config.iTexScalingLevel == TEXSCALING_AUTO) {
 			NativeMessageReceived("gpu_clearCache", "");
-	}
+		}
 	}
 	void windowGroup_triggered(QAction *action) { SetWindowScale(action->data().toInt()); }
 
@@ -131,7 +131,7 @@ private slots:
 		if (g_Config.iRenderingMode == FB_NON_BUFFERED_MODE) {
 			g_Config.iRenderingMode = FB_BUFFERED_MODE;
 			NativeMessageReceived("gpu_resized", "");
-	}
+		}
 	}
 	void frameSkippingGroup_triggered(QAction *action) { g_Config.iFrameSkip = action->data().toInt(); }
 	void frameSkippingTypeGroup_triggered(QAction *action) { g_Config.iFrameSkipType = action->data().toInt(); }
@@ -233,7 +233,7 @@ public:
 	}
 	// Add to QActionGroup
 	MenuAction(QWidget* parent, QActionGroup* group, QVariant data, QString text, QKeySequence key = 0) :
-		QAction(parent), _eventCheck(0), _stateEnable(-1), _stateDisable(-1), _enableStepping(false)
+		QAction(parent), _eventCheck(0), _eventUncheck(0), _stateEnable(-1), _stateDisable(-1), _enableStepping(false)
 	{
 		this->setCheckable(true);
 		this->setData(data);
@@ -254,6 +254,11 @@ public:
 		this->setCheckable(true);
 		_eventCheck = (bool*)event;
 	}
+	// Event which causes it to be unchecked
+	void addEventUnchecked(bool* event) {
+		this->setCheckable(true);
+		_eventUncheck = event;
+	}
 	// UI State which causes it to be enabled
 	void addEnableState(int state) {
 		_stateEnable = state;
@@ -272,6 +277,8 @@ public slots:
 	void update() {
 		if (_eventCheck)
 			setChecked(*_eventCheck);
+		if (_eventUncheck)
+			setChecked(false);
 		if (_stateEnable >= 0)
 			setEnabled(GetUIState() == _stateEnable);
 		if (_stateDisable >= 0)
@@ -282,6 +289,7 @@ public slots:
 private:
 	const char *_text;
 	bool *_eventCheck;
+	bool *_eventUncheck;
 	int _stateEnable, _stateDisable;
 	bool _enableStepping;
 };

@@ -561,7 +561,7 @@ void MainWindow::createMenus()
 	// Debug
 	MenuTree* debugMenu = new MenuTree(this, menuBar(),   QT_TR_NOOP("&Debug"));
 	debugMenu->add(new MenuAction(this, SLOT(breakonloadAct()),   QT_TR_NOOP("Break on load")))
-		->addEventChecked(&g_Config.bAutoRun);
+		->addEventUnchecked(&g_Config.bAutoRun);
 	debugMenu->add(new MenuAction(this, SLOT(ignoreIllegalAct()),  QT_TR_NOOP("&Ignore illegal reads/writes")))
 		->addEventChecked(&g_Config.bIgnoreBadMemAccess);
 	debugMenu->addSeparator();
