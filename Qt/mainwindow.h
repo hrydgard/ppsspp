@@ -19,6 +19,12 @@ extern bool g_TakeScreenshot;
 class MenuAction;
 class MenuTree;
 
+enum {
+	FB_NON_BUFFERED_MODE = 0,
+	FB_BUFFERED_MODE = 1,
+	TEXSCALING_AUTO = 0,
+};
+
 // hacky, should probably use qt signals or something, but whatever..
 enum class MainWindowMsg {
 	BOOT_DONE,
@@ -221,7 +227,7 @@ class MenuAction : public QAction
 public:
 	// Add to QMenu
 	MenuAction(QWidget* parent, const char *callback, const char *text, QKeySequence key = 0) :
-		QAction(parent), _text(text), _eventCheck(0), _stateEnable(-1), _stateDisable(-1), _enableStepping(false)
+		QAction(parent), _text(text), _eventCheck(0), _eventUncheck(0), _stateEnable(-1), _stateDisable(-1), _enableStepping(false)
 	{
 		if (key != (QKeySequence)0) {
 			this->setShortcut(key);
@@ -278,7 +284,7 @@ public slots:
 		if (_eventCheck)
 			setChecked(*_eventCheck);
 		if (_eventUncheck)
-			setChecked(false);
+			setChecked(!*_eventUncheck);
 		if (_stateEnable >= 0)
 			setEnabled(GetUIState() == _stateEnable);
 		if (_stateDisable >= 0)
