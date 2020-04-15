@@ -1861,7 +1861,6 @@ void ColorPickerScreen::CreatePopupContents(UI::ViewGroup *parent) {
 	using namespace UI;
 
 	auto di = GetI18NCategory("Dialog");
-	auto sy = GetI18NCategory("System");
 
 	red_ = *color_ & 0x000000ff;
 	green_ = (*color_ & 0x0000ff00) >> 8;
@@ -1871,56 +1870,86 @@ void ColorPickerScreen::CreatePopupContents(UI::ViewGroup *parent) {
 	ScrollView *scroll = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, 50, 1.0f));
 	LinearLayout *items = new LinearLayout(ORIENT_VERTICAL);
 
-	items->Add(new ItemHeader(sy->T("Red")));
-	items->Add(new Slider(&red_, 0, 255, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT)));
-	items->Add(new ItemHeader(sy->T("Green")));
-	items->Add(new Slider(&green_, 0, 255, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT)));
-	items->Add(new ItemHeader(sy->T("Blue")));
-	items->Add(new Slider(&blue_, 0, 255, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT)));
-	items->Add(new ItemHeader(sy->T("Opacity")));
-	items->Add(new Slider(&alpha_, 0, 255, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT)));
+	items->Add(new ItemHeader(di->T("Red")));
+	items->Add(new Slider(&red_, 0, 255, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT, Margins(15, 10))));
+	items->Add(new ItemHeader(di->T("Green")));
+	items->Add(new Slider(&green_, 0, 255, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT, Margins(15, 10))));
+	items->Add(new ItemHeader(di->T("Blue")));
+	items->Add(new Slider(&blue_, 0, 255, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT, Margins(15, 10))));
+	items->Add(new ItemHeader(di->T("Opacity")));
+	items->Add(new Slider(&alpha_, 0, 255, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT, Margins(15, 10))));
 
-	items->Add(new ItemHeader(sy->T("Presets")));
+	items->Add(new ItemHeader(di->T("Presets")));
 	UI::GridLayoutSettings gridsettings(128, 64, 5);
 	gridsettings.fillCells = true;
 	GridLayout *grid = items->Add(new GridLayout(gridsettings, new LayoutParams(FILL_PARENT, WRAP_CONTENT)));
-	grid->Add(new Choice(sy->T("Green")))->OnClick.Add([=](EventParams &e) {
-		red_ = 63;
+
+	Choice *white = new Choice(di->T("White"));
+	white->SetCentered(true);
+	grid->Add(white)->OnClick.Add([=](EventParams &e) {
+		red_ = 255;
 		green_ = 255;
-		blue_ = 63;
+		blue_ = 255;
 		return UI::EVENT_CONTINUE;
 	});
-	grid->Add(new Choice(sy->T("White")))->OnClick.Add([=](EventParams &e) {
-		red_ = 240;
-		green_ = 240;
-		blue_ = 240;
+	Choice *black = new Choice(di->T("Black"));
+	black->SetCentered(true);
+	grid->Add(black)->OnClick.Add([=](EventParams &e) {
+		red_ = 0;
+		green_ = 0;
+		blue_ = 0;
 		return UI::EVENT_CONTINUE;
 	});
-	grid->Add(new Choice(sy->T("Red")))->OnClick.Add([=](EventParams &e) {
+	Choice *red = new Choice(di->T("Red"));
+	red->SetCentered(true);
+	grid->Add(red)->OnClick.Add([=](EventParams &e) {
 		red_ = 255;
 		green_ = 63;
 		blue_ = 63;
 		return UI::EVENT_CONTINUE;
 	});
-	grid->Add(new Choice(sy->T("Black")))->OnClick.Add([=](EventParams &e) {
-		red_ = 20;
-		green_ = 20;
-		blue_ = 20;
+	Choice *green = new Choice(di->T("Green"));
+	green->SetCentered(true);
+	grid->Add(green)->OnClick.Add([=](EventParams &e) {
+		red_ = 63;
+		green_ = 255;
+		blue_ = 63;
 		return UI::EVENT_CONTINUE;
 	});
-	grid->Add(new Choice(sy->T("Blue")))->OnClick.Add([=](EventParams &e) {
+	Choice *blue = new Choice(di->T("Blue"));
+	blue->SetCentered(true);
+	grid->Add(blue)->OnClick.Add([=](EventParams &e) {
 		red_ = 63;
 		green_ = 63;
 		blue_ = 255;
 		return UI::EVENT_CONTINUE;
 	});
-	grid->Add(new Choice(sy->T("Yellow")))->OnClick.Add([=](EventParams &e) {
+	Choice *magenta = new Choice(di->T("Magenta"));
+	magenta->SetCentered(true);
+	grid->Add(magenta)->OnClick.Add([=](EventParams &e) {
+		red_ = 255;
+		green_ = 63;
+		blue_ = 255;
+		return UI::EVENT_CONTINUE;
+	});
+	Choice *yellow = new Choice(di->T("Yellow"));
+	yellow->SetCentered(true);
+	grid->Add(yellow)->OnClick.Add([=](EventParams &e) {
 		red_ = 255;
 		green_ = 255;
 		blue_ = 63;
 		return UI::EVENT_CONTINUE;
 	});
+	Choice *cyan = new Choice(di->T("Cyan"));
+	cyan->SetCentered(true);
+	grid->Add(cyan)->OnClick.Add([=](EventParams &e) {
+		red_ = 63;
+		green_ = 255;
+		blue_ = 255;
+		return UI::EVENT_CONTINUE;
+	});
 
+	items->Add(new Button(di->T("OK"), new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT)))->OnClick.Handle<UIScreen>(this, &UIScreen::OnOK);
 	scroll->Add(items);
 	parent->Add(scroll);
 }

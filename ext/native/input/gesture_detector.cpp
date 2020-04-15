@@ -13,7 +13,7 @@ GestureDetector::GestureDetector() {
 	memset(pointers, 0, sizeof(pointers));
 }
 
-TouchInput GestureDetector::Update(const TouchInput &touch, const Bounds &bounds) {
+TouchInput GestureDetector::Update(const TouchInput &touch, const Bounds &bounds, bool processVerticalDrag, bool processHorizontalDrag) {
 	if (touch.id < 0 || touch.id >= MAX_PTRS) {
 		return touch;
 	}
@@ -45,7 +45,7 @@ TouchInput GestureDetector::Update(const TouchInput &touch, const Bounds &bounds
 		p.lastY = touch.y;
 	}
 
-	if (p.distanceY > p.distanceX) {
+	if (processVerticalDrag && p.distanceY > p.distanceX) {
 		if (p.down) {
 			double timeDown = time_now_d() - p.downTime;
 			if (!p.active && p.distanceY * timeDown > 3) {
@@ -60,7 +60,7 @@ TouchInput GestureDetector::Update(const TouchInput &touch, const Bounds &bounds
 		}
 	}
 
-	if (p.distanceX > p.distanceY) {
+	if (processHorizontalDrag && p.distanceX > p.distanceY) {
 		if (p.down) {
 			double timeDown = time_now_d() - p.downTime;
 			if (!p.active && p.distanceX * timeDown > 3) {

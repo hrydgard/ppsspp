@@ -17,7 +17,7 @@ enum Gesture {
 class GestureDetector {
 public:
 	GestureDetector();
-	TouchInput Update(const TouchInput &touch, const Bounds &bounds);
+	TouchInput Update(const TouchInput &touch, const Bounds &bounds, bool processVerticalDrag, bool processHorizontalDrag);
 	void UpdateFrame();
 	bool IsGestureActive(Gesture gesture, int touchId) const;
 	bool GetGestureInfo(Gesture gesture, int touchId, float info[4]) const;
