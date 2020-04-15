@@ -173,6 +173,9 @@ private slots:
 	// Cheats
 	void cheatsAct() { g_Config.bEnableCheats = !g_Config.bEnableCheats; }
 
+	// Chat
+	void chatAct() { NativeMessageReceived("chat screen", ""); }
+
 	void fullscrAct();
 	void raiseTopMost();
 	void statsAct() {
