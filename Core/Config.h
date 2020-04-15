@@ -223,8 +223,8 @@ public:
 	bool bShowDebuggerOnLoad;
 	int iShowFPSCounter;
 	int iFPSCounterPosition;
-	int iFPSCounterColor;
-	int iFPSCounterBackground;
+	uint32_t uFPSCounterColor;
+	uint32_t uFPSCounterBackground;
 	bool bFPSCounterShadow;
 	float fFPSCounterSize;
 	bool bShowRegionOnGameIcon;

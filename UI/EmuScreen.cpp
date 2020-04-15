@@ -1301,8 +1301,6 @@ static void DrawFPS(UIContext *ctx) {
 	}
 
 	ctx->Draw()->SetFontScale(g_Config.fFPSCounterSize, g_Config.fFPSCounterSize);
-	static const unsigned int color[] = { 0xFF3FFF3F, 0xFFF0F0F0, 0xFF3F3FFF, 0xFF101010, 0xFFFF3F3F };
-	static const unsigned int bgColor[] = { 0xFFF0F0F0, 0xFF202020, 0x7FF0F0F0, 0x7F101010 };
 	int shadowOffset = g_Config.fFPSCounterSize*2;
 	int xPos, yPos, align;
 	float textW, textH;
@@ -1331,17 +1329,17 @@ static void DrawFPS(UIContext *ctx) {
 		break;
 	}
 
-	if (g_Config.iFPSCounterBackground != 0) {
+	if ((g_Config.uFPSCounterBackground & 0xFF000000) != 0) {
 		ctx->Flush();
 		ctx->BeginNoTex();
-		ctx->Draw()->Rect(xPos, yPos, textW, textH, bgColor[g_Config.iFPSCounterBackground-1], align);
+		ctx->Draw()->Rect(xPos, yPos, textW, textH, g_Config.uFPSCounterBackground, align);
 		ctx->Flush();
 		ctx->Begin();
 	}
 	if (g_Config.bFPSCounterShadow)
 		ctx->Draw()->DrawText(ubuntu24, fpsbuf, xPos+shadowOffset, yPos+shadowOffset, 0xc0000000, align | FLAG_DYNAMIC_ASCII);
 
-	ctx->Draw()->DrawText(ubuntu24, fpsbuf, xPos, yPos, color[g_Config.iFPSCounterColor], align | FLAG_DYNAMIC_ASCII);
+	ctx->Draw()->DrawText(ubuntu24, fpsbuf, xPos, yPos, g_Config.uFPSCounterColor, align | FLAG_DYNAMIC_ASCII);
 	ctx->Draw()->SetFontScale(1.0f, 1.0f);
 }
 

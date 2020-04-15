@@ -489,15 +489,12 @@ void GameSettingsScreen::CreateViews() {
 	graphicsSettings->Add(new ItemHeader(gr->T("Overlay Information")));
 	static const char *fpsChoices[] = { "None", "Speed", "FPS", "Both" };
 	static const char *fpsPosition[] = { "Top Right", "Top Left", "Bottom Right", "Bottom Left" };
-	static const char *fpsColor[] = { "Green", "White", "Red", "Black", "Blue" };
-	static const char *fpsBackground[] = { "None", "Solid White", "Solid Black", "Transparent White", "Transparent Black" };
 	graphicsSettings->Add(new PopupMultiChoice(&g_Config.iShowFPSCounter, gr->T("Show FPS Counter"), fpsChoices, 0, ARRAY_SIZE(fpsChoices), gr->GetName(), screenManager()));
 	graphicsSettings->Add(new PopupMultiChoice(&g_Config.iFPSCounterPosition, gr->T("FPS Counter Position"), fpsPosition, 0, ARRAY_SIZE(fpsPosition), gr->GetName(), screenManager()));
 	graphicsSettings->Add(new PopupSliderChoiceFloat(&g_Config.fFPSCounterSize, 0.5f, 3.0f, gr->T("FPS Counter Size"), 0.01f, screenManager()));
-	graphicsSettings->Add(new PopupMultiChoice(&g_Config.iFPSCounterColor, gr->T("FPS Counter Color"), fpsColor, 0, ARRAY_SIZE(fpsColor), gr->GetName(), screenManager()));
+	graphicsSettings->Add(new Choice(gr->T("FPS Counter Color")))->OnClick.Handle(this, &GameSettingsScreen::OnFPSCounterColorClick);
 	graphicsSettings->Add(new CheckBox(&g_Config.bFPSCounterShadow, gr->T("FPS Counter Shadow")));
-	graphicsSettings->Add(new PopupMultiChoice(&g_Config.iFPSCounterBackground, gr->T("FPS Counter Background Style"), fpsBackground, 0, ARRAY_SIZE(fpsBackground), gr->GetName(), screenManager()));
-
+	graphicsSettings->Add(new Choice(gr->T("FPS Background Color")))->OnClick.Handle(this, &GameSettingsScreen::OnFPSBackGroundColorClick);
 	graphicsSettings->Add(new CheckBox(&g_Config.bShowDebugStats, gr->T("Show Debug Statistics")))->OnClick.Handle(this, &GameSettingsScreen::OnJitAffectingSetting);
 
 	// Developer tools are not accessible ingame, so it goes here.
@@ -1838,4 +1835,96 @@ void SettingInfoMessage::Draw(UIContext &dc) {
 
 	text_->SetTextColor(whiteAlpha(alpha));
 	ViewGroup::Draw(dc);
+}
+
+UI::EventReturn GameSettingsScreen::OnFPSCounterColorClick(UI::EventParams &e) {
+	auto sy = GetI18NCategory("System");
+	auto colorSettings = new ColorPickerScreen(sy->T("FPS Counter Color"), &g_Config.uFPSCounterColor);
+	if (e.v)
+		colorSettings->SetPopupOrigin(e.v);
+
+	screenManager()->push(colorSettings);
+	return UI::EVENT_DONE;
+}
+
+UI::EventReturn GameSettingsScreen::OnFPSBackGroundColorClick(UI::EventParams &e) {
+	auto sy = GetI18NCategory("System");
+	auto colorSettings = new ColorPickerScreen(sy->T("FPS Background Color"), &g_Config.uFPSCounterBackground);
+	if (e.v)
+		colorSettings->SetPopupOrigin(e.v);
+
+	screenManager()->push(colorSettings);
+	return UI::EVENT_DONE;
+}
+
+void ColorPickerScreen::CreatePopupContents(UI::ViewGroup *parent) {
+	using namespace UI;
+
+	auto di = GetI18NCategory("Dialog");
+	auto sy = GetI18NCategory("System");
+
+	red_ = *color_ & 0x000000ff;
+	green_ = (*color_ & 0x0000ff00) >> 8;
+	blue_ = (*color_ & 0x00ff0000) >> 16;
+	alpha_ = (*color_ & 0xff000000) >> 24;
+
+	ScrollView *scroll = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, 50, 1.0f));
+	LinearLayout *items = new LinearLayout(ORIENT_VERTICAL);
+
+	items->Add(new ItemHeader(sy->T("Red")));
+	items->Add(new Slider(&red_, 0, 255, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT)));
+	items->Add(new ItemHeader(sy->T("Green")));
+	items->Add(new Slider(&green_, 0, 255, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT)));
+	items->Add(new ItemHeader(sy->T("Blue")));
+	items->Add(new Slider(&blue_, 0, 255, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT)));
+	items->Add(new ItemHeader(sy->T("Opacity")));
+	items->Add(new Slider(&alpha_, 0, 255, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT)));
+
+	items->Add(new ItemHeader(sy->T("Presets")));
+	UI::GridLayoutSettings gridsettings(128, 64, 5);
+	gridsettings.fillCells = true;
+	GridLayout *grid = items->Add(new GridLayout(gridsettings, new LayoutParams(FILL_PARENT, WRAP_CONTENT)));
+	grid->Add(new Choice(sy->T("Green")))->OnClick.Add([=](EventParams &e) {
+		red_ = 63;
+		green_ = 255;
+		blue_ = 63;
+		return UI::EVENT_CONTINUE;
+	});
+	grid->Add(new Choice(sy->T("White")))->OnClick.Add([=](EventParams &e) {
+		red_ = 240;
+		green_ = 240;
+		blue_ = 240;
+		return UI::EVENT_CONTINUE;
+	});
+	grid->Add(new Choice(sy->T("Red")))->OnClick.Add([=](EventParams &e) {
+		red_ = 255;
+		green_ = 63;
+		blue_ = 63;
+		return UI::EVENT_CONTINUE;
+	});
+	grid->Add(new Choice(sy->T("Black")))->OnClick.Add([=](EventParams &e) {
+		red_ = 20;
+		green_ = 20;
+		blue_ = 20;
+		return UI::EVENT_CONTINUE;
+	});
+	grid->Add(new Choice(sy->T("Blue")))->OnClick.Add([=](EventParams &e) {
+		red_ = 63;
+		green_ = 63;
+		blue_ = 255;
+		return UI::EVENT_CONTINUE;
+	});
+	grid->Add(new Choice(sy->T("Yellow")))->OnClick.Add([=](EventParams &e) {
+		red_ = 255;
+		green_ = 255;
+		blue_ = 63;
+		return UI::EVENT_CONTINUE;
+	});
+
+	scroll->Add(items);
+	parent->Add(scroll);
+}
+
+void ColorPickerScreen::onFinish(DialogResult result) {
+	*color_ = (alpha_ << 24)|(blue_ << 16)|(green_ << 8)|red_;
 }
