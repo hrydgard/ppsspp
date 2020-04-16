@@ -569,9 +569,6 @@ void MainWindow::createMenus()
 		->addEventChecked(&g_Config.bUseFFV1);
 	recordMenu->add(new MenuAction(this, SLOT(useOutputBufferAct()),       QT_TR_NOOP("Use output buffer for video")))
 		->addEventChecked(&g_Config.bDumpVideoOutput);
-	/*recordGroup = new MenuActionGroup(this, recordMenu, SLOT(recordGroup_triggered(QAction *)),
-		QStringList() << "Record &display" << "&Use lossless video codec (FFV1)" << "Use output buffer for video",
-		QList<int>() << 0 << 1 << 2);*/
 	recordMenu->addSeparator();
 	recordMenu->add(new MenuAction(this, SLOT(recordAudioAct()),        QT_TR_NOOP("Record &audio")))
 		->addEventChecked(&g_Config.bDumpAudio);
