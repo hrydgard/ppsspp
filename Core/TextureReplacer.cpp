@@ -693,6 +693,8 @@ bool TextureReplacer::GenerateIni(const std::string &gameID, std::string *genera
 		fs << "[options]\n";
 		fs << "version = 1\n";
 		fs << "hash = quick\n";
+		fs << "ignoreMipmap = false\n";
+		fs << "\n";
 		fs << "[games]\n";
 		fs << "# Used to make it easier to install, and override settings for other regions.\n";
 		fs << "# Files still have to be copied to each TEXTURES folder.";
