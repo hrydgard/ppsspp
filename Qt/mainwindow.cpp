@@ -253,6 +253,26 @@ void MainWindow::sstateAct()
 	}
 }
 
+void MainWindow::recordDisplayAct()
+{
+	g_Config.bDumpFrames = !g_Config.bDumpFrames;
+}
+
+void MainWindow::useLosslessVideoCodecAct()
+{
+	g_Config.bUseFFV1 = !g_Config.bUseFFV1;
+}
+
+void MainWindow::useOutputBufferAct()
+{
+	g_Config.bDumpVideoOutput = !g_Config.bDumpVideoOutput;
+}
+
+void MainWindow::recordAudioAct()
+{
+	g_Config.bDumpAudio = !g_Config.bDumpAudio;
+}
+
 void MainWindow::exitAct()
 {
 	closeAct();
@@ -527,7 +547,7 @@ void MainWindow::createMenus()
 	fileMenu->add(new MenuAction(this, SLOT(closeAct()),      QT_TR_NOOP("&Close"), QKeySequence::Close))
 		->addDisableState(UISTATE_MENU);
 	fileMenu->addSeparator();
-	fileMenu->add(new MenuAction(this, SLOT(openmsAct()),       QT_TR_NOOP("Open &Memory stick")))
+	fileMenu->add(new MenuAction(this, SLOT(openmsAct()),       QT_TR_NOOP("Open &Memory Stick")))
 		->addEnableState(UISTATE_MENU);
 	fileMenu->addSeparator();
 	MenuTree* savestateMenu = new MenuTree(this, fileMenu, QT_TR_NOOP("Saves&tate slot"));
@@ -542,6 +562,16 @@ void MainWindow::createMenus()
 		->addDisableState(UISTATE_MENU);
 	fileMenu->add(new MenuAction(this, SLOT(sstateAct()),     QT_TR_NOOP("&Save state file...")))
 		->addDisableState(UISTATE_MENU);
+	MenuTree* recordMenu = new MenuTree(this, fileMenu, QT_TR_NOOP("&Record"));
+	recordMenu->add(new MenuAction(this, SLOT(recordDisplayAct()),         QT_TR_NOOP("Record &display")))
+		->addEventChecked(&g_Config.bDumpFrames);
+	recordMenu->add(new MenuAction(this, SLOT(useLosslessVideoCodecAct()), QT_TR_NOOP("&Use lossless video codec (FFV1)")))
+		->addEventChecked(&g_Config.bUseFFV1);
+	recordMenu->add(new MenuAction(this, SLOT(useOutputBufferAct()),       QT_TR_NOOP("Use output buffer for video")))
+		->addEventChecked(&g_Config.bDumpVideoOutput);
+	recordMenu->addSeparator();
+	recordMenu->add(new MenuAction(this, SLOT(recordAudioAct()),        QT_TR_NOOP("Record &audio")))
+		->addEventChecked(&g_Config.bDumpAudio);
 	fileMenu->addSeparator();
 	fileMenu->add(new MenuAction(this, SLOT(exitAct()),       QT_TR_NOOP("E&xit"), QKeySequence::Quit));
 
