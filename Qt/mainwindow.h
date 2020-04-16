@@ -91,6 +91,7 @@ private slots:
 	// Emulation
 	void runAct();
 	void pauseAct();
+	void stopAct();
 	void resetAct();
 	void displayRotationGroup_triggered(QAction *action) { g_Config.iInternalScreenRotation = action->data().toInt(); }
 
