@@ -82,6 +82,10 @@ private slots:
 	void qsstateAct();
 	void lstateAct();
 	void sstateAct();
+	void recordDisplayAct();
+	void useLosslessVideoCodecAct();
+	void useOutputBufferAct();
+	void recordAudioAct();
 	void exitAct();
 
 	// Emulation
