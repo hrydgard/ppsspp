@@ -319,7 +319,7 @@ void GameSettingsScreen::CreateViews() {
 #ifndef MOBILE_DEVICE
 	PopupSliderChoice *internalResolutions = graphicsSettings->Add(new PopupSliderChoice(&g_Config.iInternalResolution, 0, 32, gr->T("Rendering Resolution", "Rendering Resolution"), 1, screenManager(), gr->T("* PSP res, 0:Auto")));
 #else
-	PopupSliderChoice *internalResolutions = graphicsSettings->Add(new PopupSliderChoice(&g_Config.iInternalResolution, 0, 8, gr->T("Rendering Resolution", "Rendering Resolution"), 1, screenManager(), gr->T("* PSP res, 0:Auto")));
+	PopupSliderChoice *internalResolutions = graphicsSettings->Add(new PopupSliderChoice(&g_Config.iInternalResolution, 0, 16, gr->T("Rendering Resolution", "Rendering Resolution"), 1, screenManager(), gr->T("* PSP res, 0:Auto")));
 #endif
 	internalResolutions->SetFormat("%ix");
 	internalResolutions->SetZeroLabel(gr->T("Auto (1:1)"));

@@ -27,7 +27,7 @@ MainWindow::MainWindow(QWidget *parent, bool fullscreen) :
 
 	// Move window to the center of selected screen
 	QRect rect = desktop->screenGeometry(screenNum);
-	move((rect.width()-frameGeometry().width()) / 4, (rect.height()-frameGeometry().height()) / 4);
+	move((rect.width() - frameGeometry().width()) / 4, (rect.height() - frameGeometry().height()) / 4);
 
 	setWindowIcon(QIcon(qApp->applicationDirPath() + "/assets/icon_regular_72.png"));
 
@@ -80,14 +80,21 @@ void MainWindow::newFrame()
 
 void MainWindow::updateMenus()
 {
-	foreach(QAction * action, anisotropicGroup->actions()) {
-		if (g_Config.iAnisotropyLevel == action->data().toInt()) {
+	foreach(QAction * action, saveStateGroup->actions()) {
+		if (g_Config.iCurrentStateSlot == action->data().toInt()) {
 			action->setChecked(true);
 			break;
 		}
 	}
 
-	foreach(QAction * action, screenGroup->actions()) {
+	foreach(QAction * action, displayRotationGroup->actions()) {
+		if (g_Config.iInternalScreenRotation == action->data().toInt()) {
+			action->setChecked(true);
+			break;
+		}
+	}
+
+	foreach(QAction * action, windowGroup->actions()) {
 		int width = (g_Config.IsPortrait() ? 272 : 480) * action->data().toInt();
 		int height = (g_Config.IsPortrait() ? 480 : 272) * action->data().toInt();
 		if (g_Config.iWindowWidth == width && g_Config.iWindowHeight == height) {
@@ -96,32 +103,57 @@ void MainWindow::updateMenus()
 		}
 	}
 
-	foreach(QAction * action, displayLayoutGroup->actions()) {
-		if (g_Config.iSmallDisplayZoomType == action->data().toInt()) {
+	foreach(QAction * action, renderingResolutionGroup->actions()) {
+		if (g_Config.iInternalResolution == action->data().toInt()) {
 			action->setChecked(true);
 			break;
 		}
 	}
 
-	int defaultLevel = LogManager::GetInstance()->GetLogLevel(LogTypes::COMMON);
-	foreach(QAction * action, defaultLogGroup->actions()) {
-		if (defaultLevel == action->data().toInt()) {
+	foreach(QAction * action, renderingModeGroup->actions()) {
+		if (g_Config.iRenderingMode == action->data().toInt()) {
 			action->setChecked(true);
 			break;
 		}
 	}
 
-	int g3dLevel = LogManager::GetInstance()->GetLogLevel(LogTypes::G3D);
-	foreach(QAction * action, g3dLogGroup->actions()) {
-		if (g3dLevel == action->data().toInt()) {
+	foreach(QAction * action, frameSkippingGroup->actions()) {
+		if (g_Config.iFrameSkip == action->data().toInt()) {
 			action->setChecked(true);
 			break;
 		}
 	}
 
-	int hleLevel = LogManager::GetInstance()->GetLogLevel(LogTypes::HLE);
-	foreach(QAction * action, hleLogGroup->actions()) {
-		if (hleLevel == action->data().toInt()) {
+	foreach(QAction * action, frameSkippingTypeGroup->actions()) {
+		if (g_Config.iFrameSkipType == action->data().toInt()) {
+			action->setChecked(true);
+			break;
+		}
+	}
+
+	foreach(QAction * action, textureFilteringGroup->actions()) {
+		if (g_Config.iTexFiltering == action->data().toInt()) {
+			action->setChecked(true);
+			break;
+		}
+	}
+
+	foreach(QAction * action, screenScalingFilterGroup->actions()) {
+		if (g_Config.iBufFilter == action->data().toInt()) {
+			action->setChecked(true);
+			break;
+		}
+	}
+
+	foreach(QAction * action, textureScalingLevelGroup->actions()) {
+		if (g_Config.iTexScalingLevel == action->data().toInt()) {
+			action->setChecked(true);
+			break;
+		}
+	}
+
+	foreach(QAction * action, textureScalingTypeGroup->actions()) {
+		if (g_Config.iTexScalingType == action->data().toInt()) {
 			action->setChecked(true);
 			break;
 		}
@@ -140,7 +172,7 @@ void MainWindow::bootDone()
 }
 
 /* SIGNALS */
-void MainWindow::openAct()
+void MainWindow::loadAct()
 {
 	QString filename = QFileDialog::getOpenFileName(NULL, "Load File", g_Config.currentDirectory.c_str(), "PSP ROMs (*.pbp *.elf *.iso *.cso *.prx)");
 	if (QFile::exists(filename))
@@ -157,6 +189,13 @@ void MainWindow::closeAct()
 
 	NativeMessageReceived("stop", "");
 	SetGameTitle("");
+}
+
+void MainWindow::openmsAct()
+{
+	QString confighome = getenv("XDG_CONFIG_HOME");
+	QString memorystick = confighome + "/ppsspp/PSP";
+	QDesktopServices::openUrl(QUrl(memorystick));
 }
 
 void SaveStateActionFinished(SaveState::Status status, const std::string &message, void *userdata)
@@ -214,6 +253,26 @@ void MainWindow::sstateAct()
 	}
 }
 
+void MainWindow::recordDisplayAct()
+{
+	g_Config.bDumpFrames = !g_Config.bDumpFrames;
+}
+
+void MainWindow::useLosslessVideoCodecAct()
+{
+	g_Config.bUseFFV1 = !g_Config.bUseFFV1;
+}
+
+void MainWindow::useOutputBufferAct()
+{
+	g_Config.bDumpVideoOutput = !g_Config.bDumpVideoOutput;
+}
+
+void MainWindow::recordAudioAct()
+{
+	g_Config.bDumpAudio = !g_Config.bDumpAudio;
+}
+
 void MainWindow::exitAct()
 {
 	closeAct();
@@ -230,6 +289,12 @@ void MainWindow::pauseAct()
 	NativeMessageReceived("pause", "");
 }
 
+void MainWindow::stopAct()
+{
+	Core_Stop();
+	NativeMessageReceived("stop", "");
+}
+
 void MainWindow::resetAct()
 {
 	updateMenus();
@@ -237,7 +302,7 @@ void MainWindow::resetAct()
 	NativeMessageReceived("reset", "");
 }
 
-void MainWindow::runonloadAct()
+void MainWindow::breakonloadAct()
 {
 	g_Config.bAutoRun = !g_Config.bAutoRun;
 }
@@ -274,6 +339,41 @@ void MainWindow::smapAct()
 	{
 		fileNames = dialog.selectedFiles();
 		g_symbolMap->SaveSymbolMap(fileNames[0].toStdString().c_str());
+	}
+}
+
+void MainWindow::lsymAct()
+{
+	QFileDialog dialog(0,"Load .SYM");
+	dialog.setFileMode(QFileDialog::ExistingFile);
+	QStringList filters;
+	filters << "Symbols (*.sym)" << "|All files (*.*)";
+	dialog.setNameFilters(filters);
+	dialog.setAcceptMode(QFileDialog::AcceptOpen);
+	QStringList fileNames;
+	if (dialog.exec())
+		fileNames = dialog.selectedFiles();
+
+	if (fileNames.count() > 0)
+	{
+		QString fileName = QFileInfo(fileNames[0]).absoluteFilePath();
+		g_symbolMap->LoadNocashSym(fileName.toStdString().c_str());
+	}
+}
+
+void MainWindow::ssymAct()
+{
+	QFileDialog dialog(0,"Save .SYM");
+	dialog.setFileMode(QFileDialog::AnyFile);
+	dialog.setAcceptMode(QFileDialog::AcceptSave);
+	QStringList filters;
+	filters << "Save .SYM (*.sym)" << "|All files (*.*)";
+	dialog.setNameFilters(filters);
+	QStringList fileNames;
+	if (dialog.exec())
+	{
+		fileNames = dialog.selectedFiles();
+		g_symbolMap->SaveNocashSym(fileNames[0].toStdString().c_str());
 	}
 }
 
@@ -351,9 +451,19 @@ void MainWindow::forumAct()
 	QDesktopServices::openUrl(QUrl("https://forums.ppsspp.org/"));
 }
 
+void MainWindow::goldAct()
+{
+	QDesktopServices::openUrl(QUrl("https://central.ppsspp.org/buygold"));
+}
+
 void MainWindow::gitAct()
 {
 	QDesktopServices::openUrl(QUrl("https://github.com/hrydgard/ppsspp/"));
+}
+
+void MainWindow::discordAct()
+{
+	QDesktopServices::openUrl(QUrl("https://discord.gg/5NJB6dD"));
 }
 
 void MainWindow::aboutAct()
@@ -438,170 +548,161 @@ void MainWindow::createMenus()
 {
 	// File
 	MenuTree* fileMenu = new MenuTree(this, menuBar(),    QT_TR_NOOP("&File"));
-	fileMenu->add(new MenuAction(this, SLOT(openAct()),       QT_TR_NOOP("&Open..."), QKeySequence::Open))
+	fileMenu->add(new MenuAction(this, SLOT(loadAct()),       QT_TR_NOOP("&Load..."), QKeySequence::Open))
 		->addEnableState(UISTATE_MENU);
-	fileMenu->add(new MenuAction(this, SLOT(closeAct()),      QT_TR_NOOP("&Close"), QKeySequence::Close))
-		->addDisableState(UISTATE_MENU);
 	fileMenu->addSeparator();
-	fileMenu->add(new MenuAction(this, SLOT(qlstateAct()),    QT_TR_NOOP("Quickload State"), Qt::Key_F4))
+	fileMenu->add(new MenuAction(this, SLOT(openmsAct()),       QT_TR_NOOP("Open &Memory Stick")))
+		->addEnableState(UISTATE_MENU);
+	fileMenu->addSeparator();
+	MenuTree* savestateMenu = new MenuTree(this, fileMenu, QT_TR_NOOP("Saves&tate slot"));
+	saveStateGroup = new MenuActionGroup(this, savestateMenu, SLOT(saveStateGroup_triggered(QAction *)),
+		QStringList() << "1" << "2" << "3" << "4" << "5",
+		QList<int>() << 0 << 1 << 2 << 3 << 4);
+	fileMenu->add(new MenuAction(this, SLOT(qlstateAct()),    QT_TR_NOOP("L&oad state"), Qt::Key_F4))
 		->addDisableState(UISTATE_MENU);
-	fileMenu->add(new MenuAction(this, SLOT(qsstateAct()),    QT_TR_NOOP("Quicksave State"), Qt::Key_F2))
+	fileMenu->add(new MenuAction(this, SLOT(qsstateAct()),    QT_TR_NOOP("S&ave state"), Qt::Key_F2))
 		->addDisableState(UISTATE_MENU);
-	fileMenu->add(new MenuAction(this, SLOT(lstateAct()),     QT_TR_NOOP("&Load State File...")))
+	fileMenu->add(new MenuAction(this, SLOT(lstateAct()),     QT_TR_NOOP("&Load state file...")))
 		->addDisableState(UISTATE_MENU);
-	fileMenu->add(new MenuAction(this, SLOT(sstateAct()),     QT_TR_NOOP("&Save State File...")))
+	fileMenu->add(new MenuAction(this, SLOT(sstateAct()),     QT_TR_NOOP("&Save state file...")))
 		->addDisableState(UISTATE_MENU);
+	MenuTree* recordMenu = new MenuTree(this, fileMenu, QT_TR_NOOP("&Record"));
+	recordMenu->add(new MenuAction(this, SLOT(recordDisplayAct()),         QT_TR_NOOP("Record &display")))
+		->addEventChecked(&g_Config.bDumpFrames);
+	recordMenu->add(new MenuAction(this, SLOT(useLosslessVideoCodecAct()), QT_TR_NOOP("&Use lossless video codec (FFV1)")))
+		->addEventChecked(&g_Config.bUseFFV1);
+	recordMenu->add(new MenuAction(this, SLOT(useOutputBufferAct()),       QT_TR_NOOP("Use output buffer for video")))
+		->addEventChecked(&g_Config.bDumpVideoOutput);
+	recordMenu->addSeparator();
+	recordMenu->add(new MenuAction(this, SLOT(recordAudioAct()),        QT_TR_NOOP("Record &audio")))
+		->addEventChecked(&g_Config.bDumpAudio);
 	fileMenu->addSeparator();
 	fileMenu->add(new MenuAction(this, SLOT(exitAct()),       QT_TR_NOOP("E&xit"), QKeySequence::Quit));
 
 	// Emulation
 	MenuTree* emuMenu = new MenuTree(this, menuBar(),     QT_TR_NOOP("&Emulation"));
-	emuMenu->add(new MenuAction(this, SLOT(runAct()),         QT_TR_NOOP("&Run"), Qt::Key_F7))
-		->addEnableStepping()->addEnableState(UISTATE_PAUSEMENU);
-	emuMenu->add(new MenuAction(this, SLOT(pauseAct()),       QT_TR_NOOP("&Pause"), Qt::Key_F8))
+	emuMenu->add(new MenuAction(this, SLOT(pauseAct()),       QT_TR_NOOP("&Pause")))
 		->addEnableState(UISTATE_INGAME);
-	emuMenu->add(new MenuAction(this, SLOT(resetAct()),       QT_TR_NOOP("Re&set")))
+	emuMenu->add(new MenuAction(this, SLOT(stopAct()),       QT_TR_NOOP("&Stop"), Qt::CTRL + Qt::Key_W))
 		->addEnableState(UISTATE_INGAME);
-	emuMenu->addSeparator();
-	emuMenu->add(new MenuAction(this, SLOT(runonloadAct()),   QT_TR_NOOP("Run on &load")))
-		->addEventChecked(&g_Config.bAutoRun);
+	emuMenu->add(new MenuAction(this, SLOT(resetAct()),       QT_TR_NOOP("R&eset"), Qt::CTRL + Qt::Key_B))
+		->addEnableState(UISTATE_INGAME);
+	MenuTree* displayRotationMenu = new MenuTree(this, emuMenu, QT_TR_NOOP("Display rotation"));
+	displayRotationGroup = new MenuActionGroup(this, displayRotationMenu, SLOT(displayRotationGroup_triggered(QAction *)),
+		QStringList() << "Landscape" << "Portrait" << "Landscape reversed" << "Portrait reversed",
+		QList<int>() << 1 << 2 << 3 << 4);
 
 	// Debug
-	MenuTree* debugMenu = new MenuTree(this, menuBar(),   QT_TR_NOOP("De&bug"));
-	debugMenu->add(new MenuAction(this, SLOT(lmapAct()),      QT_TR_NOOP("Load Map File...")))
-		->addDisableState(UISTATE_MENU);
-	debugMenu->add(new MenuAction(this, SLOT(smapAct()),      QT_TR_NOOP("Save Map File...")))
-		->addDisableState(UISTATE_MENU);
-	debugMenu->add(new MenuAction(this, SLOT(resetTableAct()),QT_TR_NOOP("Reset Symbol Table")))
-		->addDisableState(UISTATE_MENU);
-	debugMenu->addSeparator();
-	debugMenu->add(new MenuAction(this, SLOT(dumpNextAct()),  QT_TR_NOOP("Dump next frame to log")))
-		->addDisableState(UISTATE_MENU);
-	debugMenu->add(new MenuAction(this, SLOT(takeScreen()),  QT_TR_NOOP("Take Screenshot"), Qt::Key_F12))
-		->addDisableState(UISTATE_MENU);
-	debugMenu->addSeparator();
-	debugMenu->add(new MenuAction(this, SLOT(consoleAct()),   QT_TR_NOOP("Log Console")))
-		->addDisableState(UISTATE_MENU);
-
-	// Options
-	MenuTree* optionsMenu = new MenuTree(this, menuBar(), QT_TR_NOOP("&Options"));
-	// - Core
-	MenuTree* coreMenu = new MenuTree(this, optionsMenu,      QT_TR_NOOP("&Core"));
-	coreMenu->add(new MenuAction(this, SLOT(vertexDynarecAct()),  QT_TR_NOOP("&Vertex Decoder Dynarec")))
-		->addEventChecked(&g_Config.bVertexDecoderJit);
-	coreMenu->add(new MenuAction(this, SLOT(fastmemAct()),        QT_TR_NOOP("Fast &Memory (unstable)")))
-		->addEventChecked(&g_Config.bFastMemory);
-	coreMenu->add(new MenuAction(this, SLOT(ignoreIllegalAct()),  QT_TR_NOOP("&Ignore Illegal reads/writes")))
+	MenuTree* debugMenu = new MenuTree(this, menuBar(),   QT_TR_NOOP("&Debug"));
+	debugMenu->add(new MenuAction(this, SLOT(breakonloadAct()),   QT_TR_NOOP("Break on load")))
+		->addEventUnchecked(&g_Config.bAutoRun);
+	debugMenu->add(new MenuAction(this, SLOT(ignoreIllegalAct()),  QT_TR_NOOP("&Ignore illegal reads/writes")))
 		->addEventChecked(&g_Config.bIgnoreBadMemAccess);
-	// - Video
-	MenuTree* videoMenu = new MenuTree(this, optionsMenu,     QT_TR_NOOP("&Video"));
-	// - Anisotropic Filtering
-	MenuTree* anisotropicMenu = new MenuTree(this, videoMenu,     QT_TR_NOOP("&Anisotropic Filtering"));
-	anisotropicGroup = new MenuActionGroup(this, anisotropicMenu, SLOT(anisotropicGroup_triggered(QAction *)),
-		QStringList() << "Off" << "2x" << "4x" << "8x" << "16x",
-		QList<int>()  << 0     << 1    << 2    << 3    << 4);
-	videoMenu->add(new MenuAction(this, SLOT(bufferRenderAct()),  QT_TR_NOOP("&Buffered Rendering")))
-		->addEventChecked(&g_Config.iRenderingMode);
-	videoMenu->add(new MenuAction(this, SLOT(linearAct()),        QT_TR_NOOP("&Linear Filtering")))
-		->addEventChecked(&g_Config.iTexFiltering);
-	videoMenu->addSeparator();
-	// - Screen Size
-	MenuTree* screenMenu = new MenuTree(this, videoMenu, QT_TR_NOOP("&Screen Size"));
-	screenGroup = new MenuActionGroup(this, screenMenu, SLOT(screenGroup_triggered(QAction *)),
-		QStringList() << "1x" << "2x" << "3x" << "4x" << "5x" << "6x" << "7x" << "8x" << "9x" << "10x",
-		QList<int>() << 1 << 2 << 3 << 4 << 5 << 6 << 7 << 8 << 9 << 10,
-		QList<int>() << Qt::CTRL + Qt::Key_1 << Qt::CTRL + Qt::Key_2 << Qt::CTRL + Qt::Key_3 << Qt::CTRL + Qt::Key_4 << Qt::CTRL + Qt::Key_5
-		<< Qt::CTRL + Qt::Key_6 << Qt::CTRL + Qt::Key_7 << Qt::CTRL + Qt::Key_8 << Qt::CTRL + Qt::Key_9 << Qt::CTRL + Qt::Key_0);
+	debugMenu->addSeparator();
+	debugMenu->add(new MenuAction(this, SLOT(lmapAct()),      QT_TR_NOOP("&Load MAP file...")))
+		->addDisableState(UISTATE_MENU);
+	debugMenu->add(new MenuAction(this, SLOT(smapAct()),      QT_TR_NOOP("&Save MAP file...")))
+		->addDisableState(UISTATE_MENU);
+	debugMenu->add(new MenuAction(this, SLOT(lsymAct()),      QT_TR_NOOP("Lo&ad SYM file...")))
+		->addDisableState(UISTATE_MENU);
+	debugMenu->add(new MenuAction(this, SLOT(ssymAct()),      QT_TR_NOOP("Sav&e SYM file...")))
+		->addDisableState(UISTATE_MENU);
+	debugMenu->add(new MenuAction(this, SLOT(resetTableAct()),QT_TR_NOOP("Reset s&ymbol table")))
+		->addDisableState(UISTATE_MENU);
+	debugMenu->addSeparator();
+	debugMenu->add(new MenuAction(this, SLOT(takeScreen()),  QT_TR_NOOP("&Take screenshot"), Qt::Key_F12))
+		->addDisableState(UISTATE_MENU);
+	debugMenu->add(new MenuAction(this, SLOT(dumpNextAct()),  QT_TR_NOOP("D&ump next frame to log")))
+		->addDisableState(UISTATE_MENU);
+	debugMenu->add(new MenuAction(this, SLOT(statsAct()),   QT_TR_NOOP("Show debu&g statistics")))
+		->addEventChecked(&g_Config.bShowDebugStats);
+	debugMenu->addSeparator();
+	debugMenu->add(new MenuAction(this, SLOT(consoleAct()),   QT_TR_NOOP("&Log console"), Qt::CTRL + Qt::Key_L))
+		->addDisableState(UISTATE_MENU);
 
-	MenuTree* displayLayoutMenu = new MenuTree(this, videoMenu, QT_TR_NOOP("&Display Layout Options"));
-	displayLayoutGroup = new MenuActionGroup(this, displayLayoutMenu, SLOT(displayLayoutGroup_triggered(QAction *)),
-		QStringList() << "Stretched" << "Partialy stretched" << "Auto Scaling" << "Manual Scaling",
-		QList<int>() << 0 << 1 << 2 << 3);
-	videoMenu->addSeparator();
-	videoMenu->add(new MenuAction(this, SLOT(transformAct()),     QT_TR_NOOP("&Hardware Transform"), Qt::Key_F6))
-		->addEventChecked(&g_Config.bHardwareTransform);
-	videoMenu->add(new MenuAction(this, SLOT(vertexCacheAct()),   QT_TR_NOOP("&Vertex Cache")))
-		->addEventChecked(&g_Config.bVertexCache);
-	videoMenu->add(new MenuAction(this, SLOT(frameskipAct()),     QT_TR_NOOP("&Frameskip")))
-		->addEventChecked(&g_Config.iFrameSkip);
-	videoMenu->add(new MenuAction(this, SLOT(frameskipTypeAct()),     QT_TR_NOOP("&FrameSkipType")))
-		->addEventChecked(&g_Config.iFrameSkipType);
-	optionsMenu->add(new MenuAction(this, SLOT(audioAct()),   QT_TR_NOOP("&Audio")))
-		->addEventChecked(&g_Config.bEnableSound);
-	optionsMenu->addSeparator();
+	// Game settings
+	MenuTree* gameSettingsMenu = new MenuTree(this, menuBar(), QT_TR_NOOP("&Game settings"));
+	gameSettingsMenu->add(new MenuAction(this, SLOT(languageAct()),        QT_TR_NOOP("La&nguage...")));
+	gameSettingsMenu->add(new MenuAction(this, SLOT(controlMappingAct()),        QT_TR_NOOP("C&ontrol mapping...")));
+	gameSettingsMenu->add(new MenuAction(this, SLOT(displayLayoutEditorAct()),        QT_TR_NOOP("Display layout editor...")));
+	gameSettingsMenu->add(new MenuAction(this, SLOT(moreSettingsAct()),        QT_TR_NOOP("&More settings...")));
+	gameSettingsMenu->addSeparator();
 #if QT_VERSION < QT_VERSION_CHECK(5, 0, 0)
-	optionsMenu->add(new MenuAction(this, SLOT(fullscrAct()), QT_TR_NOOP("&Fullscreen"), Qt::Key_F11))
+	gameSettingsMenu->add(new MenuAction(this, SLOT(fullscrAct()), QT_TR_NOOP("&Fullscreen"), Qt::Key_F11))
 #else
-	optionsMenu->add(new MenuAction(this, SLOT(fullscrAct()), QT_TR_NOOP("&Fullscreen"), QKeySequence::FullScreen))
+	gameSettingsMenu->add(new MenuAction(this, SLOT(fullscrAct()), QT_TR_NOOP("Fu&llscreen"), QKeySequence::FullScreen))
 #endif
 		->addEventChecked(&g_Config.bFullScreen);
-	optionsMenu->add(new MenuAction(this, SLOT(statsAct()),   QT_TR_NOOP("&Show debug statistics")))
-		->addEventChecked(&g_Config.bShowDebugStats);
-	optionsMenu->add(new MenuAction(this, SLOT(showFPSAct()), QT_TR_NOOP("&Show FPS")))
+	MenuTree* renderingResolutionMenu = new MenuTree(this, gameSettingsMenu, QT_TR_NOOP("&Rendering resolution"));
+	renderingResolutionGroup = new MenuActionGroup(this, renderingResolutionMenu, SLOT(renderingResolutionGroup_triggered(QAction *)),
+		QStringList() << "&Auto" << "&1x" << "&2x" << "&3x" << "&4x" << "&5x" << "&6x" << "&7x" << "&8x" << "&9x" << "1&0x",
+		QList<int>() << 0 << 1 << 2 << 3 << 4 << 5 << 6 << 7 << 8 << 9 << 10);
+	// - Window Size
+	MenuTree* windowMenu = new MenuTree(this, gameSettingsMenu, QT_TR_NOOP("&Window size"));
+	windowGroup = new MenuActionGroup(this, windowMenu, SLOT(windowGroup_triggered(QAction *)),
+		QStringList() << "&1x" << "&2x" << "&3x" << "&4x" << "&5x" << "&6x" << "&7x" << "&8x" << "&9x" << "1&0x",
+		QList<int>() << 1 << 2 << 3 << 4 << 5 << 6 << 7 << 8 << 9 << 10);
+
+	MenuTree* renderingModeMenu = new MenuTree(this, gameSettingsMenu, QT_TR_NOOP("Rendering m&ode"));
+	renderingModeGroup = new MenuActionGroup(this, renderingModeMenu, SLOT(renderingModeGroup_triggered(QAction *)),
+		QStringList() << "&Skip buffered effects (non-buffered, faster)" << "&Buffered rendering",
+		QList<int>() << 0 << 1);
+	MenuTree* frameSkippingMenu = new MenuTree(this, gameSettingsMenu, QT_TR_NOOP("&Frame skipping"));
+	frameSkippingMenu->add(new MenuAction(this, SLOT(autoframeskipAct()),        QT_TR_NOOP("&Auto")))
+		->addEventChecked(&g_Config.bAutoFrameSkip);
+	frameSkippingMenu->addSeparator();
+	frameSkippingGroup = new MenuActionGroup(this, frameSkippingMenu, SLOT(frameSkippinGroup_triggered(QAction *)),
+		QStringList() << "&Off" << "&1" << "&2" << "&3" << "&4" << "&5" << "&6" << "&7" << "&8",
+		QList<int>() << 0 << 1 << 2 << 3 << 4 << 5 << 6 << 7 << 8);
+	MenuTree* frameSkippingTypeMenu = new MenuTree(this, gameSettingsMenu, QT_TR_NOOP("Frame skipping type"));
+	frameSkippingTypeGroup = new MenuActionGroup(this, frameSkippingTypeMenu, SLOT(frameSkippingTypeGroup_triggered(QAction *)),
+		QStringList() << "Skip number of frames" << "Skip percent of FPS",
+		QList<int>() << 0 << 1);
+	MenuTree* textureFilteringMenu = new MenuTree(this, gameSettingsMenu, QT_TR_NOOP("Te&xture filtering"));
+	textureFilteringGroup = new MenuActionGroup(this, textureFilteringMenu, SLOT(textureFilteringGroup_triggered(QAction *)),
+		QStringList() << "&Auto" << "&Nearest" << "&Linear" << "Linear on &FMV",
+		QList<int>() << 1 << 2 << 3 << 4);
+	MenuTree* screenScalingFilterMenu = new MenuTree(this, gameSettingsMenu, QT_TR_NOOP("Scr&een scaling filter"));
+	screenScalingFilterGroup = new MenuActionGroup(this, screenScalingFilterMenu, SLOT(screenScalingFilterGroup_triggered(QAction *)),
+		QStringList() << "&Linear" << "&Nearest",
+		QList<int>() << 0 << 1);
+
+	MenuTree* textureScalingMenu = new MenuTree(this, gameSettingsMenu, QT_TR_NOOP("&Texture scaling"));
+	textureScalingLevelGroup = new MenuActionGroup(this, textureScalingMenu, SLOT(textureScalingLevelGroup_triggered(QAction *)),
+		QStringList() << "&Off" << "&Auto" << "&2x" << "&3x" << "&4x" << "&5x",
+		QList<int>() << 1 << 2 << 3 << 4 << 5 << 6);
+	textureScalingMenu->addSeparator();
+	textureScalingTypeGroup = new MenuActionGroup(this, textureScalingMenu, SLOT(textureScalingTypeGroup_triggered(QAction *)),
+		QStringList() << "&xBRZ" << "&Hybrid" << "&Bicubic" << "H&ybrid + bicubic",
+		QList<int>() << 0 << 1 << 2 << 3);
+	textureScalingMenu->addSeparator();
+	textureScalingMenu->add(new MenuAction(this, SLOT(deposterizeAct()),        QT_TR_NOOP("&Deposterize")))
+		->addEventChecked(&g_Config.bTexDeposterize);
+
+	gameSettingsMenu->add(new MenuAction(this, SLOT(transformAct()),     QT_TR_NOOP("&Hardware transform")))
+		->addEventChecked(&g_Config.bHardwareTransform);
+	gameSettingsMenu->add(new MenuAction(this, SLOT(vertexCacheAct()),   QT_TR_NOOP("&Vertex cache")))
+		->addEventChecked(&g_Config.bVertexCache);
+	gameSettingsMenu->add(new MenuAction(this, SLOT(showFPSAct()), QT_TR_NOOP("&Show FPS counter")))
 		->addEventChecked(&g_Config.iShowFPSCounter);
-	optionsMenu->addSeparator();
-	// - Log Levels
-	MenuTree* levelsMenu = new MenuTree(this, optionsMenu,    QT_TR_NOOP("Lo&g levels"));
-	QMenu* defaultLogMenu = levelsMenu->addMenu("Default");
-	defaultLogGroup = new MenuActionGroup(this, defaultLogMenu, SLOT(defaultLogGroup_triggered(QAction *)),
-		QStringList() << "Debug"          << "Warning"          << "Info"          << "Error",
-		QList<int>()  << LogTypes::LDEBUG << LogTypes::LWARNING << LogTypes::LINFO << LogTypes::LERROR);
-	QMenu* g3dLogMenu = levelsMenu->addMenu("G3D");
-	g3dLogGroup = new MenuActionGroup(this, g3dLogMenu, SLOT(g3dLogGroup_triggered(QAction *)),
-		QStringList() << "Debug"          << "Warning"          << "Info"          << "Error",
-		QList<int>()  << LogTypes::LDEBUG << LogTypes::LWARNING << LogTypes::LINFO << LogTypes::LERROR);
-	QMenu* hleLogMenu = levelsMenu->addMenu("HLE");
-	hleLogGroup = new MenuActionGroup(this, hleLogMenu, SLOT(hleLogGroup_triggered(QAction *)),
-		QStringList() << "Debug"          << "Warning"          << "Info"          << "Error",
-		QList<int>()  << LogTypes::LDEBUG << LogTypes::LWARNING << LogTypes::LINFO << LogTypes::LERROR);
-	optionsMenu->addSeparator();
-	// - Language
-	MenuTree* langMenu = new MenuTree(this, optionsMenu,      QT_TR_NOOP("&Language"));
-	QActionGroup* langGroup = new QActionGroup(this);
-	QStringList fileNames = QDir(":/languages").entryList(QStringList("ppsspp_*.qm"));
-
-	if (fileNames.size() == 0)
-	{
-		QAction *action = new QAction("No translations", this);
-		action->setDisabled(true);
-		langGroup->addAction(action);
-	} else {
-		connect(langGroup, SIGNAL(triggered(QAction *)), this, SLOT(langChanged(QAction *)));
-		bool found = false;
-		QString currentLocale = g_Config.sLanguageIni.c_str();
-		QString currentLang = currentLocale.split('_').first();
-		for (int i = 0; i < fileNames.size(); ++i)
-		{
-			QString locale = fileNames[i];
-			locale.truncate(locale.lastIndexOf('.'));
-			locale.remove(0, locale.indexOf('_') + 1);
-
-#if QT_VERSION >= QT_VERSION_CHECK(4, 8, 0)
-			QString language = QLocale(locale).nativeLanguageName();
-#else
-			QString language = QLocale::languageToString(QLocale(locale).language());
-#endif
-			QAction *action = new MenuAction(this, langGroup, locale, language);
-			std::string testLang = g_Config.sLanguageIni;
-			if (currentLocale == locale || currentLang == locale) {
-				action->setChecked(true);
-				loadLanguage(locale, false);
-				found = true;
-			}
-
-			if (!found && locale == "en") {
-				action->setChecked(true);
-			}
-		}
-	}
-	langMenu->addActions(langGroup->actions());
+	gameSettingsMenu->addSeparator();
+	gameSettingsMenu->add(new MenuAction(this, SLOT(audioAct()),   QT_TR_NOOP("Enable s&ound")))
+		->addEventChecked(&g_Config.bEnableSound);
+	gameSettingsMenu->addSeparator();
+	gameSettingsMenu->add(new MenuAction(this, SLOT(cheatsAct()),   QT_TR_NOOP("Enable &cheats"), Qt::CTRL + Qt::Key_T))
+		->addEventChecked(&g_Config.bEnableCheats);
+	gameSettingsMenu->addSeparator();
+	gameSettingsMenu->add(new MenuAction(this, SLOT(chatAct()),   QT_TR_NOOP("Enable chat"), Qt::CTRL + Qt::Key_C));
 
 	// Help
 	MenuTree* helpMenu = new MenuTree(this, menuBar(),    QT_TR_NOOP("&Help"));
-	helpMenu->add(new MenuAction(this, SLOT(websiteAct()),    QT_TR_NOOP("Official &website"), QKeySequence::HelpContents));
-	helpMenu->add(new MenuAction(this, SLOT(forumAct()),      QT_TR_NOOP("Official &forum")));
-	helpMenu->add(new MenuAction(this, SLOT(gitAct()),        QT_TR_NOOP("&GitHub")));
-	helpMenu->add(new MenuAction(this, SLOT(aboutAct()),      QT_TR_NOOP("&About PPSSPP..."), QKeySequence::WhatsThis));
+	helpMenu->add(new MenuAction(this, SLOT(websiteAct()),    QT_TR_NOOP("Visit www.&ppsspp.org")));
+	helpMenu->add(new MenuAction(this, SLOT(forumAct()),      QT_TR_NOOP("PPSSPP &forums")));
+	helpMenu->add(new MenuAction(this, SLOT(goldAct()),       QT_TR_NOOP("Buy &Gold")));
+	helpMenu->add(new MenuAction(this, SLOT(gitAct()),        QT_TR_NOOP("Git&Hub")));
+	helpMenu->add(new MenuAction(this, SLOT(discordAct()),      QT_TR_NOOP("Discord")));
+	helpMenu->addSeparator();
+	helpMenu->add(new MenuAction(this, SLOT(aboutAct()),      QT_TR_NOOP("&About PPSSPP...")));
 
 	retranslate();
 }

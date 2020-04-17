@@ -446,10 +446,6 @@ struct CheatOperation {
 	uint32_t addr;
 	int sz;
 	uint32_t val;
-	uint16_t vibrL;
-	uint16_t vibrR;
-	uint8_t vibrLTime;
-	uint8_t vibrRTime;
 
 	union {
 		struct {
@@ -610,20 +606,24 @@ CheatOperation CWCheatEngine::InterpretNextCwCheat(const CheatCode &cheat, size_
 		}
 		return { CheatOp::Invalid };
 
-	case 0xA: // Vibration command(PPSSPP specific)
-		// 0xA1 reads vibration from memory
-		if (((line1.part1 >> 24) & 0xFF) == 0xA1) {
+	case 0xA: // PPSSPP specific cheats
+		switch (line1.part1 >> 24 & 0xF) {
+		case 0x0: // 0x0 sets gamepad vibration by cheat parameters
+			{
+				CheatOperation op = { CheatOp::Vibration };
+				op.vibrationValues.vibrL = line1.part1 & 0x0000FFFF;
+				op.vibrationValues.vibrR = line1.part2 & 0x0000FFFF;
+				op.vibrationValues.vibrLTime = (line1.part1 >> 16) & 0x000000FF;
+				op.vibrationValues.vibrRTime = (line1.part2 >> 16) & 0x000000FF;
+				return op;
+			}
+		case 0x1: // 0x1 reads value for gamepad vibration from memory
 			addr = line1.part2;
 			return { CheatOp::VibrationFromMemory, addr };
-		} else { // 0xA0 sets vibration by cheat parameters
-			CheatOperation op = { CheatOp::Vibration };
-			op.vibrationValues.vibrL = line1.part1 & 0x0000FFFF;
-			op.vibrationValues.vibrR = line1.part2 & 0x0000FFFF;
-			op.vibrationValues.vibrLTime = (line1.part1 >> 16) & 0x000000FF;
-			op.vibrationValues.vibrRTime = (line1.part2 >> 16) & 0x000000FF;
-			return op;
+		// Place for other PPSSPP specific cheats
+		default:
+			return { CheatOp::Invalid };
 		}
-		return { CheatOp::Invalid };
 
 	case 0xB: // Delay command.
 		return { CheatOp::Delay, 0, 0, arg };

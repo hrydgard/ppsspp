@@ -203,6 +203,7 @@ protected:
 	bool allowVideo_ = false;
 	bool ignoreAddress_ = false;
 	bool reduceHash_ = false;
+	bool ignoreMipmap_ = false;
 	std::string gameID_;
 	std::string basePath_;
 	ReplacedTextureHash hash_ = ReplacedTextureHash::QUICK;

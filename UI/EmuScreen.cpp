@@ -1209,12 +1209,13 @@ void EmuScreen::update() {
 
 	if (autoRotatingAnalogCW_) {
 		const float now = time_now_d();
-		__CtrlSetAnalogX(cos(now*-g_Config.fAnalogAutoRotSpeed), 0);
-		__CtrlSetAnalogY(sin(now*-g_Config.fAnalogAutoRotSpeed), 0);
+		// Clamp to a square
+		__CtrlSetAnalogX(std::min(1.0f, std::max(-1.0f, 1.42f*cosf(now*-g_Config.fAnalogAutoRotSpeed))), 0);
+		__CtrlSetAnalogY(std::min(1.0f, std::max(-1.0f, 1.42f*sinf(now*-g_Config.fAnalogAutoRotSpeed))), 0);
 	} else if (autoRotatingAnalogCCW_) {
 		const float now = time_now_d();
-		__CtrlSetAnalogX(cos(now*g_Config.fAnalogAutoRotSpeed), 0);
-		__CtrlSetAnalogY(sin(now*g_Config.fAnalogAutoRotSpeed), 0);
+		__CtrlSetAnalogX(std::min(1.0f, std::max(-1.0f, 1.42f*cosf(now*g_Config.fAnalogAutoRotSpeed))), 0);
+		__CtrlSetAnalogY(std::min(1.0f, std::max(-1.0f, 1.42f*sinf(now*g_Config.fAnalogAutoRotSpeed))), 0);
 	}
 
 	// This is here to support the iOS on screen back button.

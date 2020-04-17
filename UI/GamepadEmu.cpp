@@ -202,8 +202,9 @@ void AnalogRotationButton::Update() {
 
 	if (autoRotating_) {
 		float speed = clockWise_ ? -g_Config.fAnalogAutoRotSpeed : g_Config.fAnalogAutoRotSpeed;
-		__CtrlSetAnalogX(cos(now*speed), 0);
-		__CtrlSetAnalogY(sin(now*speed), 0);
+		// Clamp to a square
+		__CtrlSetAnalogX(std::min(1.0f, std::max(-1.0f, 1.42f*cosf(now*speed))), 0);
+		__CtrlSetAnalogY(std::min(1.0f, std::max(-1.0f, 1.42f*sinf(now*speed))), 0);
 	}
 }
 
