@@ -27,7 +27,7 @@ MainWindow::MainWindow(QWidget *parent, bool fullscreen) :
 
 	// Move window to the center of selected screen
 	QRect rect = desktop->screenGeometry(screenNum);
-	move((rect.width()-frameGeometry().width()) / 4, (rect.height()-frameGeometry().height()) / 4);
+	move((rect.width() - frameGeometry().width()) / 4, (rect.height() - frameGeometry().height()) / 4);
 
 	setWindowIcon(QIcon(qApp->applicationDirPath() + "/assets/icon_regular_72.png"));
 
@@ -289,6 +289,12 @@ void MainWindow::pauseAct()
 	NativeMessageReceived("pause", "");
 }
 
+void MainWindow::stopAct()
+{
+	Core_Stop();
+	NativeMessageReceived("stop", "");
+}
+
 void MainWindow::resetAct()
 {
 	updateMenus();
@@ -544,8 +550,6 @@ void MainWindow::createMenus()
 	MenuTree* fileMenu = new MenuTree(this, menuBar(),    QT_TR_NOOP("&File"));
 	fileMenu->add(new MenuAction(this, SLOT(loadAct()),       QT_TR_NOOP("&Load..."), QKeySequence::Open))
 		->addEnableState(UISTATE_MENU);
-	fileMenu->add(new MenuAction(this, SLOT(closeAct()),      QT_TR_NOOP("&Close"), QKeySequence::Close))
-		->addDisableState(UISTATE_MENU);
 	fileMenu->addSeparator();
 	fileMenu->add(new MenuAction(this, SLOT(openmsAct()),       QT_TR_NOOP("Open &Memory Stick")))
 		->addEnableState(UISTATE_MENU);
@@ -577,11 +581,11 @@ void MainWindow::createMenus()
 
 	// Emulation
 	MenuTree* emuMenu = new MenuTree(this, menuBar(),     QT_TR_NOOP("&Emulation"));
-	emuMenu->add(new MenuAction(this, SLOT(runAct()),         QT_TR_NOOP("&Run"), Qt::Key_F7))
-		->addEnableStepping()->addEnableState(UISTATE_PAUSEMENU);
-	emuMenu->add(new MenuAction(this, SLOT(pauseAct()),       QT_TR_NOOP("&Pause"), Qt::Key_F8))
+	emuMenu->add(new MenuAction(this, SLOT(pauseAct()),       QT_TR_NOOP("&Pause")))
 		->addEnableState(UISTATE_INGAME);
-	emuMenu->add(new MenuAction(this, SLOT(resetAct()),       QT_TR_NOOP("Re&set")))
+	emuMenu->add(new MenuAction(this, SLOT(stopAct()),       QT_TR_NOOP("&Stop"), Qt::CTRL + Qt::Key_W))
+		->addEnableState(UISTATE_INGAME);
+	emuMenu->add(new MenuAction(this, SLOT(resetAct()),       QT_TR_NOOP("R&eset"), Qt::CTRL + Qt::Key_B))
 		->addEnableState(UISTATE_INGAME);
 	MenuTree* displayRotationMenu = new MenuTree(this, emuMenu, QT_TR_NOOP("Display rotation"));
 	displayRotationGroup = new MenuActionGroup(this, displayRotationMenu, SLOT(displayRotationGroup_triggered(QAction *)),
