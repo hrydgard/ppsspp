@@ -73,8 +73,7 @@ private:
 	UI::EventReturn OnTiltTypeChange(UI::EventParams &e);
 	UI::EventReturn OnTiltCustomize(UI::EventParams &e);
 	UI::EventReturn OnComboKey(UI::EventParams &e);
-	UI::EventReturn OnFPSCounterColorClick(UI::EventParams &e);
-	UI::EventReturn OnFPSBackGroundColorClick(UI::EventParams &e);
+	UI::EventReturn OnCustomizeFPSCounterClick(UI::EventParams &e);
 
 	// Global settings handlers
 	UI::EventReturn OnLanguage(UI::EventParams &e);
@@ -244,4 +243,12 @@ private:
 	int green_;
 	int blue_;
 	int alpha_;
+};
+
+class CustomizeFPSCounterScreen : public UIDialogScreenWithBackground {
+public:
+	void CreateViews() override;
+private:
+	UI::EventReturn OnFPSCounterColorClick(UI::EventParams &e);
+	UI::EventReturn OnFPSBackGroundColorClick(UI::EventParams &e);
 };

@@ -488,13 +488,8 @@ void GameSettingsScreen::CreateViews() {
 
 	graphicsSettings->Add(new ItemHeader(gr->T("Overlay Information")));
 	static const char *fpsChoices[] = { "None", "Speed", "FPS", "Both" };
-	static const char *fpsPosition[] = { "Top Right", "Top Left", "Bottom Right", "Bottom Left" };
 	graphicsSettings->Add(new PopupMultiChoice(&g_Config.iShowFPSCounter, gr->T("Show FPS Counter"), fpsChoices, 0, ARRAY_SIZE(fpsChoices), gr->GetName(), screenManager()));
-	graphicsSettings->Add(new PopupMultiChoice(&g_Config.iFPSCounterPosition, gr->T("FPS Counter Position"), fpsPosition, 0, ARRAY_SIZE(fpsPosition), gr->GetName(), screenManager()));
-	graphicsSettings->Add(new PopupSliderChoiceFloat(&g_Config.fFPSCounterSize, 0.5f, 3.0f, gr->T("FPS Counter Size"), 0.01f, screenManager()));
-	graphicsSettings->Add(new Choice(gr->T("FPS Counter Color")))->OnClick.Handle(this, &GameSettingsScreen::OnFPSCounterColorClick);
-	graphicsSettings->Add(new CheckBox(&g_Config.bFPSCounterShadow, gr->T("FPS Counter Shadow")));
-	graphicsSettings->Add(new Choice(gr->T("FPS Background Color")))->OnClick.Handle(this, &GameSettingsScreen::OnFPSBackGroundColorClick);
+	graphicsSettings->Add(new Choice(gr->T("FPS Counter Layout")))->OnClick.Handle(this, &GameSettingsScreen::OnCustomizeFPSCounterClick);
 	graphicsSettings->Add(new CheckBox(&g_Config.bShowDebugStats, gr->T("Show Debug Statistics")))->OnClick.Handle(this, &GameSettingsScreen::OnJitAffectingSetting);
 
 	// Developer tools are not accessible ingame, so it goes here.
@@ -1837,7 +1832,7 @@ void SettingInfoMessage::Draw(UIContext &dc) {
 	ViewGroup::Draw(dc);
 }
 
-UI::EventReturn GameSettingsScreen::OnFPSCounterColorClick(UI::EventParams &e) {
+UI::EventReturn CustomizeFPSCounterScreen::OnFPSCounterColorClick(UI::EventParams &e) {
 	auto sy = GetI18NCategory("System");
 	auto colorSettings = new ColorPickerScreen(sy->T("FPS Counter Color"), &g_Config.uFPSCounterColor);
 	if (e.v)
@@ -1847,7 +1842,7 @@ UI::EventReturn GameSettingsScreen::OnFPSCounterColorClick(UI::EventParams &e) {
 	return UI::EVENT_DONE;
 }
 
-UI::EventReturn GameSettingsScreen::OnFPSBackGroundColorClick(UI::EventParams &e) {
+UI::EventReturn CustomizeFPSCounterScreen::OnFPSBackGroundColorClick(UI::EventParams &e) {
 	auto sy = GetI18NCategory("System");
 	auto colorSettings = new ColorPickerScreen(sy->T("FPS Background Color"), &g_Config.uFPSCounterBackground);
 	if (e.v)
@@ -1956,4 +1951,34 @@ void ColorPickerScreen::CreatePopupContents(UI::ViewGroup *parent) {
 
 void ColorPickerScreen::onFinish(DialogResult result) {
 	*color_ = (alpha_ << 24)|(blue_ << 16)|(green_ << 8)|red_;
+}
+
+void CustomizeFPSCounterScreen::CreateViews() {
+	using namespace UI;
+
+	auto di = GetI18NCategory("Dialog");
+	auto gr = GetI18NCategory("Graphics");
+
+	root_ = new AnchorLayout(new LayoutParams(FILL_PARENT, FILL_PARENT));
+	Choice *back = new Choice(di->T("Back"), "", false, new AnchorLayoutParams(130, WRAP_CONTENT, 10, NONE, NONE, 10));
+	root_->Add(back)->OnClick.Handle<UIScreen>(this, &UIScreen::OnBack);
+	TabHolder *tabHolder = new TabHolder(ORIENT_VERTICAL, 140, new AnchorLayoutParams(10, 0, 10, 0, false));
+	root_->Add(tabHolder);
+	ScrollView *rightPanel = new ScrollView(ORIENT_VERTICAL);
+	tabHolder->AddTab(gr->T("FPS"), rightPanel);
+	LinearLayout *vert = rightPanel->Add(new LinearLayout(ORIENT_VERTICAL, new LayoutParams(FILL_PARENT, FILL_PARENT)));
+	vert->SetSpacing(0);
+
+	static const char *fpsPosition[] = { "Top Right", "Top Left", "Bottom Right", "Bottom Left" };
+	vert->Add(new PopupMultiChoice(&g_Config.iFPSCounterPosition, gr->T("FPS Counter Position"), fpsPosition, 0, ARRAY_SIZE(fpsPosition), gr->GetName(), screenManager()));
+	vert->Add(new PopupSliderChoiceFloat(&g_Config.fFPSCounterSize, 0.5f, 3.0f, gr->T("FPS Counter Size"), 0.01f, screenManager()));
+	vert->Add(new Choice(gr->T("FPS Counter Color")))->OnClick.Handle(this, &CustomizeFPSCounterScreen::OnFPSCounterColorClick);
+	vert->Add(new CheckBox(&g_Config.bFPSCounterShadow, gr->T("FPS Counter Shadow")));
+	vert->Add(new Choice(gr->T("FPS Background Color")))->OnClick.Handle(this, &CustomizeFPSCounterScreen::OnFPSBackGroundColorClick);
+}
+
+UI::EventReturn GameSettingsScreen::OnCustomizeFPSCounterClick(UI::EventParams &e) {
+	screenManager()->push(new CustomizeFPSCounterScreen());
+
+	return UI::EVENT_DONE;
 }
