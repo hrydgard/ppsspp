@@ -95,6 +95,7 @@ private slots:
 	void pauseAct();
 	void stopAct();
 	void resetAct();
+	void switchUMDAct();
 	void displayRotationGroup_triggered(QAction *action) { g_Config.iInternalScreenRotation = action->data().toInt(); }
 
 	// Debug
