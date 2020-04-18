@@ -41,6 +41,8 @@ public:
 
 	CoreState GetNextState() { return nextState; }
 
+	void updateMenuGroupInt(QActionGroup *group, int value);
+
 	void updateMenus();
 
 	void Notify(MainWindowMsg msg) {

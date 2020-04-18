@@ -78,82 +78,29 @@ void MainWindow::newFrame()
 	}
 }
 
+void MainWindow::updateMenuGroupInt(QActionGroup *group, int value) {
+	foreach (QAction *action, group->actions()) {
+		action->setChecked(action->data().toInt() == value);
+	}
+}
+
 void MainWindow::updateMenus()
 {
-	foreach(QAction * action, saveStateGroup->actions()) {
-		if (g_Config.iCurrentStateSlot == action->data().toInt()) {
-			action->setChecked(true);
-			break;
-		}
-	}
-
-	foreach(QAction * action, displayRotationGroup->actions()) {
-		if (g_Config.iInternalScreenRotation == action->data().toInt()) {
-			action->setChecked(true);
-			break;
-		}
-	}
+	updateMenuGroupInt(saveStateGroup, g_Config.iCurrentStateSlot);
+	updateMenuGroupInt(displayRotationGroup, g_Config.iInternalScreenRotation);
+	updateMenuGroupInt(renderingResolutionGroup, g_Config.iInternalResolution);
+	updateMenuGroupInt(renderingModeGroup, g_Config.iRenderingMode);
+	updateMenuGroupInt(frameSkippingGroup, g_Config.iFrameSkip);
+	updateMenuGroupInt(frameSkippingTypeGroup, g_Config.iFrameSkipType);
+	updateMenuGroupInt(textureFilteringGroup, g_Config.iTexFiltering);
+	updateMenuGroupInt(screenScalingFilterGroup, g_Config.iBufFilter);
+	updateMenuGroupInt(textureScalingLevelGroup, g_Config.iTexScalingLevel);
+	updateMenuGroupInt(textureScalingTypeGroup, g_Config.iTexScalingType);
 
 	foreach(QAction * action, windowGroup->actions()) {
 		int width = (g_Config.IsPortrait() ? 272 : 480) * action->data().toInt();
 		int height = (g_Config.IsPortrait() ? 480 : 272) * action->data().toInt();
 		if (g_Config.iWindowWidth == width && g_Config.iWindowHeight == height) {
-			action->setChecked(true);
-			break;
-		}
-	}
-
-	foreach(QAction * action, renderingResolutionGroup->actions()) {
-		if (g_Config.iInternalResolution == action->data().toInt()) {
-			action->setChecked(true);
-			break;
-		}
-	}
-
-	foreach(QAction * action, renderingModeGroup->actions()) {
-		if (g_Config.iRenderingMode == action->data().toInt()) {
-			action->setChecked(true);
-			break;
-		}
-	}
-
-	foreach(QAction * action, frameSkippingGroup->actions()) {
-		if (g_Config.iFrameSkip == action->data().toInt()) {
-			action->setChecked(true);
-			break;
-		}
-	}
-
-	foreach(QAction * action, frameSkippingTypeGroup->actions()) {
-		if (g_Config.iFrameSkipType == action->data().toInt()) {
-			action->setChecked(true);
-			break;
-		}
-	}
-
-	foreach(QAction * action, textureFilteringGroup->actions()) {
-		if (g_Config.iTexFiltering == action->data().toInt()) {
-			action->setChecked(true);
-			break;
-		}
-	}
-
-	foreach(QAction * action, screenScalingFilterGroup->actions()) {
-		if (g_Config.iBufFilter == action->data().toInt()) {
-			action->setChecked(true);
-			break;
-		}
-	}
-
-	foreach(QAction * action, textureScalingLevelGroup->actions()) {
-		if (g_Config.iTexScalingLevel == action->data().toInt()) {
-			action->setChecked(true);
-			break;
-		}
-	}
-
-	foreach(QAction * action, textureScalingTypeGroup->actions()) {
-		if (g_Config.iTexScalingType == action->data().toInt()) {
 			action->setChecked(true);
 			break;
 		}
