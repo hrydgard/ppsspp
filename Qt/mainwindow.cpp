@@ -11,6 +11,7 @@
 #include "base/NativeApp.h"
 #include "Core/MIPS/MIPSDebugInterface.h"
 #include "Core/Debugger/SymbolMap.h"
+#include "Core/HLE/sceUmd.h"
 #include "Core/SaveState.h"
 #include "Core/System.h"
 #include "GPU/GPUInterface.h"
@@ -141,7 +142,7 @@ void MainWindow::closeAct()
 void MainWindow::openmsAct()
 {
 	QString confighome = getenv("XDG_CONFIG_HOME");
-	QString memorystick = confighome + "/ppsspp/PSP";
+	QString memorystick = confighome + "/ppsspp";
 	QDesktopServices::openUrl(QUrl(memorystick));
 }
 
@@ -247,6 +248,17 @@ void MainWindow::resetAct()
 	updateMenus();
 
 	NativeMessageReceived("reset", "");
+}
+
+void MainWindow::switchUMDAct()
+{
+	QString filename = QFileDialog::getOpenFileName(NULL, "Switch UMD", g_Config.currentDirectory.c_str(), "PSP ROMs (*.pbp *.elf *.iso *.cso *.prx)");
+	if (QFile::exists(filename))
+	{
+		QFileInfo info(filename);
+		g_Config.currentDirectory = info.absolutePath().toStdString();
+		__UmdReplace(filename.toStdString().c_str());
+	}
 }
 
 void MainWindow::breakonloadAct()
@@ -533,6 +545,8 @@ void MainWindow::createMenus()
 	emuMenu->add(new MenuAction(this, SLOT(stopAct()),       QT_TR_NOOP("&Stop"), Qt::CTRL + Qt::Key_W))
 		->addEnableState(UISTATE_INGAME);
 	emuMenu->add(new MenuAction(this, SLOT(resetAct()),       QT_TR_NOOP("R&eset"), Qt::CTRL + Qt::Key_B))
+		->addEnableState(UISTATE_INGAME);
+	emuMenu->add(new MenuAction(this, SLOT(switchUMDAct()),       QT_TR_NOOP("Switch UMD"), Qt::CTRL + Qt::Key_U))
 		->addEnableState(UISTATE_INGAME);
 	MenuTree* displayRotationMenu = new MenuTree(this, emuMenu, QT_TR_NOOP("Display rotation"));
 	displayRotationGroup = new MenuActionGroup(this, displayRotationMenu, SLOT(displayRotationGroup_triggered(QAction *)),
