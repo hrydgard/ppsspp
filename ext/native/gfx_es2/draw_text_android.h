@@ -35,7 +35,6 @@ private:
 	std::string NormalizeString(std::string str);
 
 	// JNI functions
-	JNIEnv *env_;
 	jclass cls_textRenderer;
 	jmethodID method_measureText;
 	jmethodID method_renderText;
