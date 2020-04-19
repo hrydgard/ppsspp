@@ -132,12 +132,10 @@ void GPU_D3D11::CheckGPUFeatures() {
 	features |= GPU_SUPPORTS_BLEND_MINMAX;
 	features |= GPU_PREFER_CPU_DOWNLOAD;
 
-	// Accurate depth is required on AMD/nVidia (for reverse Z) so we ignore the compat flag to disable it on those. See #9545
-	auto vendor = draw_->GetDeviceCaps().vendor;
-
-	if (!PSP_CoreParameter().compat.flags().DisableAccurateDepth || vendor == Draw::GPUVendor::VENDOR_AMD || vendor == Draw::GPUVendor::VENDOR_NVIDIA) {
-		features |= GPU_SUPPORTS_ACCURATE_DEPTH;  // Breaks text in PaRappa for some reason.
-	}
+	// Accurate depth is required because the Direct3D API does not support inverse Z.
+	// So we cannot incorrectly use the viewport transform as the depth range on Direct3D.
+	// TODO: Breaks text in PaRappa for some reason?
+	features |= GPU_SUPPORTS_ACCURATE_DEPTH;
 
 #ifndef _M_ARM
 	// TODO: Do proper feature detection
