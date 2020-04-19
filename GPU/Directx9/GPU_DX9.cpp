@@ -167,12 +167,12 @@ void GPU_DX9::CheckGPUFeatures() {
 	features |= GPU_SUPPORTS_TEXTURE_LOD_CONTROL;
 	features |= GPU_PREFER_CPU_DOWNLOAD;
 
-	auto vendor = draw_->GetDeviceCaps().vendor;
-	// Accurate depth is required on AMD/nVidia (for reverse Z) so we ignore the compat flag to disable it on those. See #9545
-	if (!PSP_CoreParameter().compat.flags().DisableAccurateDepth || vendor == Draw::GPUVendor::VENDOR_AMD || vendor == Draw::GPUVendor::VENDOR_NVIDIA) {
-		features |= GPU_SUPPORTS_ACCURATE_DEPTH;
-	}
+	// Accurate depth is required because the Direct3D API does not support inverse Z.
+	// So we cannot incorrectly use the viewport transform as the depth range on Direct3D.
+	// TODO: Breaks text in PaRappa for some reason?
+	features |= GPU_SUPPORTS_ACCURATE_DEPTH;
 
+	auto vendor = draw_->GetDeviceCaps().vendor;
 	if (!PSP_CoreParameter().compat.flags().DepthRangeHack) {
 		// VS range culling (killing triangles in the vertex shader using NaN) causes problems on Intel.
 		// Also causes problems on old NVIDIA.
