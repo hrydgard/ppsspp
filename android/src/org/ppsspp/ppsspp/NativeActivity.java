@@ -1307,7 +1307,8 @@ public abstract class NativeActivity extends Activity implements SurfaceHolder.C
 				sendIntent.setType("text/plain");
 				sendIntent.putExtra(Intent.EXTRA_TEXT, params);
 				sendIntent.setAction(Intent.ACTION_SEND);
-				startActivity(sendIntent);
+				Intent shareIntent = Intent.createChooser(sendIntent, null);
+				startActivity(shareIntent);
 				return true;
 			} catch (Exception e) { // For example, android.content.ActivityNotFoundException
 				Log.e(TAG, e.toString());
