@@ -114,6 +114,9 @@ void System_SendMessage(const char *command, const char *parameter) {
 		// [sharedViewController shutdown];
 		//	exit(0);
 		// });
+	} else if (!strcmp(command, "sharetext")) {
+		NSString *text = [NSString stringWithUTF8String:parameter];
+		[sharedViewController shareText:text];
 	} else if (!strcmp(command, "camera_command")) {
 		if (!strncmp(parameter, "startVideo", 10)) {
 			int width = 0, height = 0;

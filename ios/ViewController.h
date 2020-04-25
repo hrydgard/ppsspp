@@ -12,6 +12,7 @@
 @interface ViewController : GLKViewController <iCadeEventDelegate,
             LocationHandlerDelegate, CameraFrameDelegate>
 
+- (void)shareText:(NSString *)text;
 - (void)shutdown;
 
 @end

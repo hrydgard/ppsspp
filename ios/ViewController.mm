@@ -148,6 +148,14 @@ static LocationHelper *locationHelper;
 - (void)subtleVolume:(SubtleVolume *)volumeView didChange:(CGFloat)value {
 }
 
+- (void)shareText:(NSString *)text {
+	NSArray *items = @[text];
+	UIActivityViewController * viewController = [[UIActivityViewController alloc] initWithActivityItems:items applicationActivities:nil];
+	dispatch_async(dispatch_get_main_queue(), ^{
+		[self presentViewController:viewController animated:YES completion:nil];
+	});
+}
+
 - (void)viewSafeAreaInsetsDidChange {
 	if (@available(iOS 11.0, *)) {
 		[super viewSafeAreaInsetsDidChange];

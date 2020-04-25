@@ -535,7 +535,7 @@ void CreditsScreen::CreateViews() {
 	root_->Add(new Button("www.ppsspp.org", new AnchorLayoutParams(260, 64, 10, NONE, NONE, 10, false)))->OnClick.Handle(this, &CreditsScreen::OnPPSSPPOrg);
 	root_->Add(new Button(cr->T("Privacy Policy"), new AnchorLayoutParams(260, 64, 10, NONE, NONE, 84, false)))->OnClick.Handle(this, &CreditsScreen::OnPrivacy);
 	root_->Add(new Button(cr->T("Twitter @PPSSPP_emu"), new AnchorLayoutParams(260, 64, NONE, NONE, 10, rightYOffset + 84, false)))->OnClick.Handle(this, &CreditsScreen::OnTwitter);
-#if PPSSPP_PLATFORM(ANDROID)
+#if PPSSPP_PLATFORM(ANDROID) || PPSSPP_PLATFORM(IOS)
 	root_->Add(new Button(cr->T("Share PPSSPP"), new AnchorLayoutParams(260, 64, NONE, NONE, 10, rightYOffset + 158, false)))->OnClick.Handle(this, &CreditsScreen::OnShare);
 #endif
 	if (System_GetPropertyBool(SYSPROP_APP_GOLD)) {
