@@ -1,9 +1,8 @@
 # https://travis-ci.org
 
-sudo: required
-
 language: cpp
 
+os: linux
 dist: xenial
 
 addons:
@@ -25,8 +24,6 @@ addons:
       - sourceline: 'ppa:ubuntu-sdk-team/ppa'
   homebrew:
     update: true
-    packages:
-      - ccache
 
 cache:
   apt: true
@@ -47,7 +44,7 @@ notifications:
     template:
       - "%{repository_slug}:%{branch} - %{message} %{build_url}"
 
-matrix:
+jobs:
   include:
     - os: linux
       compiler: "gcc"
