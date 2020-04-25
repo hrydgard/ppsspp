@@ -585,7 +585,7 @@ UI::EventReturn CreditsScreen::OnDiscord(UI::EventParams &e) {
 
 UI::EventReturn CreditsScreen::OnShare(UI::EventParams &e) {
 	auto cr = GetI18NCategory("PSPCredits");
-	System_SendMessage("sharetext", cr->T("CheckOutPPSSPP", "Check out PPSSPP, the awesome PSP emulator: http://www.ppsspp.org/"));
+	System_SendMessage("sharetext", cr->T("CheckOutPPSSPP", "Check out PPSSPP, the awesome PSP emulator: https://www.ppsspp.org/"));
 	return UI::EVENT_DONE;
 }
 
