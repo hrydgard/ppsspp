@@ -740,6 +740,9 @@
     <ClCompile Include="HW\Camera.cpp">
       <Filter>HW</Filter>
     </ClCompile>
+    <ClCompile Include="HLE\sceKernelHeap.cpp">
+      <Filter>HLE\Kernel</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="ELF\ElfReader.h">
@@ -1372,6 +1375,9 @@
     </ClInclude>
     <ClInclude Include="HW\Camera.h">
       <Filter>HW</Filter>
+    </ClInclude>
+    <ClInclude Include="HLE\sceKernelHeap.h">
+      <Filter>HLE\Kernel</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>

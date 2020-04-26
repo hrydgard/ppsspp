@@ -368,6 +368,9 @@
     <ClCompile Include="..\..\Core\HLE\sceKernelInterrupt.cpp">
       <Filter>HLE</Filter>
     </ClCompile>
+    <ClCompile Include="..\..\Core\HLE\sceKernelHeap.cpp">
+      <Filter>HLE</Filter>
+    </ClCompile>
     <ClCompile Include="..\..\Core\HLE\sceKernelMbx.cpp">
       <Filter>HLE</Filter>
     </ClCompile>
@@ -966,6 +969,9 @@
       <Filter>HLE</Filter>
     </ClInclude>
     <ClInclude Include="..\..\Core\HLE\sceKernelInterrupt.h">
+      <Filter>HLE</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\Core\HLE\sceKernelHeap.h">
       <Filter>HLE</Filter>
     </ClInclude>
     <ClInclude Include="..\..\Core\HLE\sceKernelMbx.h">

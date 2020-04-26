@@ -1590,6 +1590,8 @@ add_library(${CoreLibName} ${CoreLinkType}
 	Core/HLE/sceKernelAlarm.h
 	Core/HLE/sceKernelEventFlag.cpp
 	Core/HLE/sceKernelEventFlag.h
+	Core/HLE/sceKernelHeap.cpp
+	Core/HLE/sceKernelHeap.h
 	Core/HLE/sceKernelInterrupt.cpp
 	Core/HLE/sceKernelInterrupt.h
 	Core/HLE/sceKernelMbx.cpp

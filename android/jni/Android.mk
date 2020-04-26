@@ -360,6 +360,7 @@ EXEC_AND_LIB_FILES := \
   $(SRC)/Core/HLE/sceKernel.cpp \
   $(SRC)/Core/HLE/sceKernelAlarm.cpp \
   $(SRC)/Core/HLE/sceKernelEventFlag.cpp \
+  $(SRC)/Core/HLE/sceKernelHeap.cpp \
   $(SRC)/Core/HLE/sceKernelInterrupt.cpp \
   $(SRC)/Core/HLE/sceKernelMemory.cpp \
   $(SRC)/Core/HLE/sceKernelModule.cpp \
