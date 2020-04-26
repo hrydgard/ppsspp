@@ -493,8 +493,10 @@ void FramebufferManagerVulkan::BlitFramebuffer(VirtualFramebuffer *dst, int dstX
 		h -= srcY + h - src->bufferHeight;
 	}
 
-	if (w == 0 || h == 0)
+	if (w <= 0 || h <= 0) {
+		// The whole rectangle got clipped.
 		return;
+	}
 
 	float srcXFactor = (float)src->renderWidth / (float)src->bufferWidth;
 	float srcYFactor = (float)src->renderHeight / (float)src->bufferHeight;
