@@ -2065,6 +2065,7 @@ if(IOS)
 	add_custom_command(TARGET PPSSPP POST_BUILD
 		COMMAND mkdir -p \"${APP_DIR_NAME}\"
 		COMMAND tar -c -C ${CMAKE_CURRENT_BINARY_DIR} --exclude .DS_Store --exclude .git assets *.png | tar -x -C \"${APP_DIR_NAME}\"
+		COMMAND /bin/bash "${CMAKE_SOURCE_DIR}/ios/macbundle.sh" \"${APP_DIR_NAME}\"
 	)
 	set(MACOSX_DEPLOYMENT_TARGET ${DEPLOYMENT_TARGET})
 	set_target_properties(${TargetBin} PROPERTIES
