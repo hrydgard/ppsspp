@@ -585,7 +585,8 @@ static int sceNetAdhocPdpSend(int id, const char *mac, u32 port, void *data, int
 								SceNetAdhocctlPeerInfo * peer = friends;
 								for (; peer != NULL; peer = peer->next) {
 									// Does Skipping sending to timed out friends could cause desync when players moving group at the time MP game started?
-									//if (peer->last_recv == 0) continue;
+									if (peer->last_recv == 0) 
+										continue;
 
 									// Fill in Target Structure
 									sockaddr_in target;
@@ -736,10 +737,10 @@ static int sceNetAdhocPdpRecv(int id, void *addr, void * port, void *buf, void *
 						*sport = ntohs(sin.sin_port) - portOffset;
 
 						// Update last recv timestamp, may cause disconnection not detected properly tho
-						/*peerlock.lock();
+						peerlock.lock();
 						auto peer = findFriend(&mac);
 						if (peer != NULL) peer->last_recv = CoreTiming::GetGlobalTimeUsScaled();
-						peerlock.unlock();*/
+						peerlock.unlock();
 					}
 
 					// Free Network Lock
@@ -785,10 +786,10 @@ static int sceNetAdhocPdpRecv(int id, void *addr, void * port, void *buf, void *
 						*len = received; // Kurok homebrew seems to use the new value of len than returned value as data length
 
 						// Update last recv timestamp, may cause disconnection not detected properly tho
-						/*peerlock.lock();
+						peerlock.lock();
 						auto peer = findFriend(&mac);
 						if (peer != NULL) peer->last_recv = CoreTiming::GetGlobalTimeUsScaled();
-						peerlock.unlock();*/
+						peerlock.unlock();
 
 						// Free Network Lock
 						//_freeNetworkLock();
@@ -1367,10 +1368,9 @@ static int sceNetAdhocctlGetNameByAddr(const char *mac, u32 nameAddr) {
 	if (netAdhocctlInited)
 	{
 		// Valid Arguments
-		if (mac != NULL && nameAddr != 0)
+		if (mac != NULL && Memory::IsValidAddress(nameAddr))
 		{
-			SceNetAdhocctlNickname * nickname = NULL;
-			if (Memory::IsValidAddress(nameAddr)) nickname = (SceNetAdhocctlNickname *)Memory::GetPointer(nameAddr);
+			SceNetAdhocctlNickname * nickname = (SceNetAdhocctlNickname *)Memory::GetPointer(nameAddr);
 			// Get Local MAC Address
 			SceNetEtherAddr localmac; 
 			getLocalMac(&localmac);
@@ -2733,10 +2733,10 @@ static int sceNetAdhocPtpRecv(int id, u32 dataAddr, u32 dataSizeAddr, int timeou
 					*len = received;
 
 					// Update last recv timestamp, may cause disconnection not detected properly tho
-					/*peerlock.lock();
+					peerlock.lock();
 					auto peer = findFriend(&socket->paddr);
 					if (peer != NULL) peer->last_recv = CoreTiming::GetGlobalTimeUsScaled();
-					peerlock.unlock();*/
+					peerlock.unlock();
 
 					char tmpmac[18];
 					DEBUG_LOG(SCENET, "sceNetAdhocPtpRecv[%i:%u]: Received %u bytes from %s:%u", id, socket->lport, received, mac2str(&socket->paddr, tmpmac), socket->pport);
@@ -3209,13 +3209,13 @@ static int sceNetAdhocMatchingStart(int matchingId, int evthPri, int evthStack, 
 			peer->state = PSP_ADHOC_MATCHING_PEER_P2P;
 		}*/
 
-		// Create & Start the Fake PSP Thread
+		// Create & Start the Fake PSP Thread ("matching_ev%d" and "matching_io%d")
 		std::string thrname = std::string("MatchingThr") + std::to_string(matchingId);
-		item->matching_thid = __KernelCreateThread(thrname.c_str(), __KernelGetCurThreadModuleId(), matchingThreadHackAddr, evthPri, evthStack, PSP_THREAD_ATTR_USER, 0, false);
-		//item->matchingThread = new HLEHelperThread(thrname, "sceNetAdhocMatching", "AdhocMatchingFunc", inthPri, inthStack);
+		item->matching_thid = sceKernelCreateThread(thrname.c_str(), matchingThreadHackAddr, evthPri, evthStack, 0, 0);
+		//item->matchingThread = new HLEHelperThread(thrname.c_str(), "sceNetAdhocMatching", "__NetMatchingCallbacks", inthPri, inthStack);
 		if (item->matching_thid > 0) {
-			__KernelStartThread(item->matching_thid, 0, 0);
-			//item->matchingThread->Start(0, 0);
+			sceKernelStartThread(item->matching_thid, 0, 0); //sceKernelStartThread(context->event_thid, sizeof(context), &context);
+			//item->matchingThread->Start(matchingId, 0);
 		}
 
 		//Create the threads
@@ -4029,7 +4029,7 @@ int sceNetAdhocMatchingGetPoolStat(u32 poolstatPtr) {
 void __NetTriggerCallbacks()
 {
 	std::lock_guard<std::recursive_mutex> adhocGuard(adhocEvtMtx);
-	int delayus = 1000;
+	int delayus = 10000;
 	
 	auto params = adhocctlEvents.begin();
 	if (params != adhocctlEvents.end())
@@ -4047,14 +4047,15 @@ void __NetTriggerCallbacks()
 				args[2] = it->second.argument;
 				AfterAdhocMipsCall* after = (AfterAdhocMipsCall*)__KernelCreateAction(actionAfterAdhocMipsCall);
 				after->SetData(it->first, flags, args[2]);
-				SetAdhocctlInCallback(true);
-				__KernelDirectMipsCall(it->second.entryPoint, after, args, 3, true);
+				//SetAdhocctlInCallback(true);
+				//__KernelDirectMipsCall(it->second.entryPoint, after, args, 3, true);
+				hleEnqueueCall(it->second.entryPoint, 3, args, after);
 			}
 			adhocctlEvents.pop_front();
 			if (flags == ADHOCCTL_EVENT_CONNECT)
-				delayus = (adhocEventDelayMS + 2*adhocExtraPollDelayMS) * 1000;
+				delayus = (adhocEventDelayMS + 2*adhocExtraPollDelayMS) * 1000; // May affects Dissidia 012 and GTA VCS
 			else
-				delayus = (adhocEventPollDelayMS + 2*adhocExtraPollDelayMS) * 1000; //Added an extra delay to prevent I/O Timing method from causing disconnection
+				delayus = (adhocEventPollDelayMS + 2*adhocExtraPollDelayMS) * 1000; // Added an extra delay to prevent I/O Timing method from causing disconnection
 		}
 	}
 
@@ -4062,10 +4063,10 @@ void __NetTriggerCallbacks()
 	hleDelayResult(0, "Prevent Adhocctl thread from blocking", delayus);
 }
 
-void __NetMatchingCallbacks()
+void __NetMatchingCallbacks() //(int matchingId)
 {
 	std::lock_guard<std::recursive_mutex> adhocGuard(adhocEvtMtx);
-	int delayus = 1000;
+	int delayus = 10000;
 
 	auto params = matchingEvents.begin();
 	if (params != matchingEvents.end())
@@ -4079,9 +4080,10 @@ void __NetMatchingCallbacks()
 			AfterMatchingMipsCall* after = (AfterMatchingMipsCall*)__KernelCreateAction(actionAfterMatchingMipsCall);
 			after->SetData(args[0], args[1], args[2]);
 			//SetMatchingInCallback(context, true);
-			__KernelDirectMipsCall(args[5], after, args, 5, true);
+			//__KernelDirectMipsCall(args[5], after, args, 5, true);
+			hleEnqueueCall(args[5], 5, args, after);
 			matchingEvents.pop_front();
-			delayus = (adhocMatchingEventDelayMS + 2*adhocExtraPollDelayMS) * 1000; //Added an extra delay to prevent I/O Timing method from causing disconnection
+			delayus = (adhocMatchingEventDelayMS + 2*adhocExtraPollDelayMS) * 1000; // Added an extra delay to prevent I/O Timing method from causing disconnection
 		}
 	}
 
@@ -4175,7 +4177,7 @@ static int sceNetAdhocctlGetPeerList(u32 sizeAddr, u32 bufAddr) {
 			// Multithreading Lock
 			peerlock.lock();
 
-			bool excludeTimedout = false; //true;
+			bool excludeTimedout = true;
 			// Length Calculation Mode
 			if (buf == NULL) {
 				int activePeers = getActivePeerCount(excludeTimedout);
@@ -5457,7 +5459,7 @@ int matchingEventThread(int matchingId)
 			}
 
 			// Share CPU Time
-			sleep_ms(1); //10 //sceKernelDelayThread(10000);
+			sleep_ms(10); //1 //sceKernelDelayThread(10000);
 
 			// Don't do anything if it's paused, otherwise the log will be flooded
 			while (Core_IsStepping() && coreState != CORE_POWERDOWN && contexts != NULL && context->eventRunning) sleep_ms(1);
@@ -5688,7 +5690,7 @@ int matchingInputThread(int matchingId) // TODO: The MatchingInput thread is usi
 				handleTimeout(context);
 			}
 			// Share CPU Time
-			sleep_ms(1); //10 //sceKernelDelayThread(10000);
+			sleep_ms(10); //1 //sceKernelDelayThread(10000);
 
 			// Don't do anything if it's paused, otherwise the log will be flooded
 			while (Core_IsStepping() && coreState != CORE_POWERDOWN && contexts != NULL && context->inputRunning) sleep_ms(1);

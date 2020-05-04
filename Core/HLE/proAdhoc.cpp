@@ -160,7 +160,7 @@ void addFriend(SceNetAdhocctlConnectPacketS2C * packet) {
 	if (peer != NULL) {
 		char tmpmac[18];
 		u32 tmpip = packet->ip;
-		WARN_LOG(SCENET, "Friend Peer Already Existed! Updating [%s][%s][%s]", packet->name.data, mac2str(&packet->mac, tmpmac), inet_ntoa(*(struct in_addr*)&tmpip)); //inet_ntoa(*(in_addr*)&packet->ip)
+		WARN_LOG(SCENET, "Friend Peer Already Existed! Updating [%s][%s][%s]", mac2str(&packet->mac, tmpmac), inet_ntoa(*(struct in_addr*)&tmpip), packet->name.data); //inet_ntoa(*(in_addr*)&packet->ip)
 		peer->nickname = packet->name;
 		peer->mac_addr = packet->mac;
 		peer->ip_addr = packet->ip;
@@ -1007,7 +1007,7 @@ void AfterMatchingMipsCall::run(MipsCall &call) {
 	u32 v0 = currentMIPS->r[MIPS_REG_V0];
 	if (__IsInInterrupt()) ERROR_LOG(SCENET, "AfterMatchingMipsCall::run [ID=%i][Event=%d] is Returning Inside an Interrupt!", contextID, EventID);
 	if (Memory::IsValidAddress(bufAddr)) userMemory.Free(bufAddr);
-	SetMatchingInCallback(context, false);
+	//SetMatchingInCallback(context, false);
 	DEBUG_LOG(SCENET, "AfterMatchingMipsCall::run [ID=%i][Event=%d] [cbId: %u][retV0: %08x]", contextID, EventID, call.cbId, v0);
 	//call.setReturnValue(v0);
 }
@@ -1300,13 +1300,11 @@ int friendFinder(){
 					// Cast Packet
 					SceNetAdhocctlConnectPacketS2C * packet = (SceNetAdhocctlConnectPacketS2C *)rx;
 
-					DEBUG_LOG(SCENET, "FriendFinder: OPCODE_CONNECT");
-
 					// Fix strings with null-terminated
 					packet->name.data[ADHOCCTL_NICKNAME_LEN - 1] = 0;
 
 					// Log Incoming Peer
-					INFO_LOG(SCENET, "Incoming Peer Data...");
+					INFO_LOG(SCENET, "FriendFinder: Incoming OPCODE_CONNECT [%s][%s][%s]", mac2str(&packet->mac), inet_ntoa(*(in_addr*)&packet->ip), packet->name.data);
 
 					// Add User
 					addFriend(packet);

@@ -274,7 +274,7 @@ static int sceNetInit(u32 poolSize, u32 calloutPri, u32 calloutStack, u32 netini
 	// TODO: The correct behavior is actually to allocate more and leak the other threads/pool.
 	// But we reset here for historic reasons (GTA:VCS potentially triggers this.)
 	if (netInited)
-		sceNetTerm(); // This cleanup attempt might not worked when SaveState were loaded in the middle of multiplayer game and re-entering multiplayer, thus causing memory leaks & wasting binded ports. May be we shouldn't save/load "Inited" vars on SaveState?
+		Net_Term(); // This cleanup attempt might not worked when SaveState were loaded in the middle of multiplayer game and re-entering multiplayer, thus causing memory leaks & wasting binded ports. May be we shouldn't save/load "Inited" vars on SaveState?
 
 	if (poolSize == 0) {
 		return hleLogError(SCENET, SCE_KERNEL_ERROR_ILLEGAL_MEMSIZE, "invalid pool size");
