@@ -44,6 +44,7 @@
 #include "Windows/W32Util/Misc.h"
 #include "Windows/InputBox.h"
 #include "Windows/main.h"
+#include "Windows/W32Util/DarkMode.h"
 
 #include "Core/HLE/sceUmd.h"
 #include "Core/SaveState.h"
@@ -65,7 +66,7 @@ namespace MainWindow {
 	static bool menuShaderInfoLoaded = false;
 	std::vector<ShaderInfo> menuShaderInfo;
 
-	LRESULT CALLBACK About(HWND, UINT, WPARAM, LPARAM);
+	LRESULT CALLBACK AboutDlgProc(HWND, UINT, WPARAM, LPARAM);
 
 	void SetIngameMenuItemStates(HMENU menu, const GlobalUIState state) {
 		UINT menuEnable = state == UISTATE_INGAME || state == UISTATE_EXCEPTION ? MF_ENABLED : MF_GRAYED;
@@ -942,7 +943,7 @@ namespace MainWindow {
 
 		case ID_HELP_ABOUT:
 			DialogManager::EnableAll(FALSE);
-			DialogBox(hInst, (LPCTSTR)IDD_ABOUTBOX, hWnd, (DLGPROC)About);
+			DialogBox(hInst, (LPCTSTR)IDD_ABOUTBOX, hWnd, (DLGPROC)AboutDlgProc);
 			DialogManager::EnableAll(TRUE);
 			break;
 
@@ -1274,24 +1275,31 @@ namespace MainWindow {
 	}
 
 	// Message handler for about box.
-	LRESULT CALLBACK About(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam) {
+	LRESULT CALLBACK AboutDlgProc(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam) {
 		switch (message) {
-		case WM_INITDIALOG:
-		{
-			W32Util::CenterWindow(hDlg);
-			HWND versionBox = GetDlgItem(hDlg, IDC_VERSION);
-			std::string windowText = System_GetPropertyBool(SYSPROP_APP_GOLD) ? "PPSSPP Gold " : "PPSSPP ";
-			windowText.append(PPSSPP_GIT_VERSION);
-			SetWindowText(versionBox, ConvertUTF8ToWString(windowText).c_str());
-		}
-		return TRUE;
-
-		case WM_COMMAND:
-			if (LOWORD(wParam) == IDOK || LOWORD(wParam) == IDCANCEL) {
-				EndDialog(hDlg, LOWORD(wParam));
+			case WM_INITDIALOG:
+			{
+				W32Util::CenterWindow(hDlg);
+				HWND versionBox = GetDlgItem(hDlg, IDC_VERSION);
+				std::string windowText = System_GetPropertyBool(SYSPROP_APP_GOLD) ? "PPSSPP Gold " : "PPSSPP ";
+				windowText.append(PPSSPP_GIT_VERSION);
+				SetWindowText(versionBox, ConvertUTF8ToWString(windowText).c_str());
+				DarkModeInitDialog(hDlg);
 				return TRUE;
 			}
-			break;
+
+			case WM_COMMAND:
+			{
+				if (LOWORD(wParam) == IDOK || LOWORD(wParam) == IDCANCEL) {
+					EndDialog(hDlg, LOWORD(wParam));
+					return TRUE;
+				}
+				break;
+				return FALSE;
+			}
+
+			default:
+				return DarkModeDlgProc(hDlg, message, wParam, lParam);
 		}
 		return FALSE;
 	}

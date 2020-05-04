@@ -56,6 +56,7 @@
 #include "Windows/GPU/WindowsGLContext.h"
 #include "Windows/GEDebugger/GEDebugger.h"
 #endif
+#include "Windows/W32Util/DarkMode.h"
 #include "Windows/Debugger/Debugger_Disasm.h"
 #include "Windows/Debugger/Debugger_MemoryDlg.h"
 
@@ -735,6 +736,9 @@ namespace MainWindow
 				// Remove the D3D11 choice on versions below XP
 				RemoveMenu(GetMenu(hWnd), ID_OPTIONS_DIRECT3D11, MF_BYCOMMAND);
 			}
+			if (g_darkModeSupported) {
+				SendMessageW(hWnd, WM_THEMECHANGED, 0, 0);
+			}
 			break;
 
 		case WM_USER_GET_BASE_POINTER:
@@ -1048,6 +1052,23 @@ namespace MainWindow
 				}
 				return DefWindowProc(hWnd, message, wParam, lParam);
 			}
+			break;
+		case WM_SETTINGCHANGE:
+			{
+				if (g_darkModeSupported && IsColorSchemeChangeMessage(lParam))
+					SendMessageW(hWnd, WM_THEMECHANGED, 0, 0);
+			}
+			return DefWindowProc(hWnd, message, wParam, lParam);
+
+		case WM_THEMECHANGED:
+		{
+			if (g_darkModeSupported)
+			{
+				_AllowDarkModeForWindow(hWnd, g_darkModeEnabled);
+				RefreshTitleBarThemeColor(hWnd);
+			}
+			return DefWindowProc(hWnd, message, wParam, lParam);
+		}
 
 		default:
 			return DefWindowProc(hWnd, message, wParam, lParam);

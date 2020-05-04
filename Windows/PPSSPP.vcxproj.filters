@@ -59,6 +59,9 @@
     <Filter Include="Build\CMake">
       <UniqueIdentifier>{8f39c005-9738-41c5-a8d8-cfc05bf178e8}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Windows\Darkmode">
+      <UniqueIdentifier>{e6f1a7f6-807b-484e-9595-bdb58ecaa2ae}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Debugger\CtrlDisAsmView.cpp">
@@ -270,6 +273,9 @@
     </ClCompile>
     <ClCompile Include="..\libretro\LibretroGLCoreContext.cpp">
       <Filter>Other Platforms\libretro</Filter>
+    </ClCompile>
+    <ClCompile Include="W32Util\DarkMode.cpp">
+      <Filter>Windows\W32Util</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
@@ -552,6 +558,12 @@
     </ClInclude>
     <ClInclude Include="..\ios\iCade\iCadeReaderView.h">
       <Filter>Other Platforms\iOS\iCade</Filter>
+    </ClInclude>
+    <ClInclude Include="W32Util\DarkMode.h">
+      <Filter>Windows\W32Util</Filter>
+    </ClInclude>
+    <ClInclude Include="W32Util\IatHook.h">
+      <Filter>Windows\W32Util</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
