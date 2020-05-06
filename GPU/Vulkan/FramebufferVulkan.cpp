@@ -85,7 +85,7 @@ FramebufferManagerVulkan::FramebufferManagerVulkan(Draw::DrawContext *draw, Vulk
 	FramebufferManagerCommon(draw),
 	vulkan_(vulkan) {
 
-	InitDeviceObjects();
+	DeviceRestore(vulkan, draw);
 
 	// After a blit we do need to rebind for the VulkanRenderManager to know what to do.
 	needGLESRebinds_ = true;
@@ -94,7 +94,7 @@ FramebufferManagerVulkan::FramebufferManagerVulkan(Draw::DrawContext *draw, Vulk
 FramebufferManagerVulkan::~FramebufferManagerVulkan() {
 	delete[] convBuf_;
 
-	DestroyDeviceObjects();
+	DeviceLost();
 }
 
 void FramebufferManagerVulkan::SetTextureCache(TextureCacheVulkan *tc) {
@@ -207,9 +207,12 @@ void FramebufferManagerVulkan::MakePixelTexture(const u8 *srcPixels, GEBufferFor
 	VkCommandBuffer initCmd = (VkCommandBuffer)draw_->GetNativeObject(Draw::NativeObject::INIT_COMMANDBUFFER);
 
 	// There's only ever a few of these alive, don't need to stress the allocator with these big ones.
+	// OR NOT! Hot Shot Golf (#12355) does tons of these in a frame in some situations! So actually,
+	// we do use an allocator. In fact, I've now banned allocator-less textures.
+
 	drawPixelsTex_ = new VulkanTexture(vulkan_);
 	drawPixelsTex_->SetTag("DrawPixels");
-	if (!drawPixelsTex_->CreateDirect(initCmd, nullptr, width, height, 1, VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT)) {
+	if (!drawPixelsTex_->CreateDirect(initCmd, allocator_, width, height, 1, VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT)) {
 		// out of memory?
 		delete drawPixelsTex_;
 		drawPixelsTex_ = nullptr;
@@ -551,11 +554,26 @@ void FramebufferManagerVulkan::EndFrame() {
 void FramebufferManagerVulkan::DeviceLost() {
 	DestroyAllFBOs();
 	DestroyDeviceObjects();
+
+	if (allocator_) {
+		allocator_->Destroy();
+
+		// We have to delete on queue, so this can free its queued deletions.
+		vulkan_->Delete().QueueCallback([](void *ptr) {
+			auto allocator = static_cast<VulkanDeviceAllocator *>(ptr);
+			delete allocator;
+		}, allocator_);
+		allocator_ = nullptr;
+	}
 }
 
 void FramebufferManagerVulkan::DeviceRestore(VulkanContext *vulkan, Draw::DrawContext *draw) {
 	vulkan_ = vulkan;
 	draw_ = draw;
+
+	_assert_(!allocator_);
+
+	allocator_ = new VulkanDeviceAllocator(vulkan_, 1 * 1024 * 1024, 8 * 1024 * 1024);
 
 	InitDeviceObjects();
 }
