@@ -5,7 +5,7 @@
 class VulkanDeviceAllocator;
 
 // Wrapper around what you need to use a texture.
-// Not very optimal - if you have many small textures you should use other strategies.
+// ALWAYS use an allocator when calling CreateDirect.
 class VulkanTexture {
 public:
 	VulkanTexture(VulkanContext *vulkan)
