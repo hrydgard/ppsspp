@@ -538,9 +538,6 @@ rotateVBO:
 		if (prim == GE_PRIM_TRIANGLE_STRIP)
 			prim = GE_PRIM_TRIANGLES;
 
-		TransformedVertex *drawBuffer = NULL;
-		int numTrans;
-		bool drawIndexed = false;
 		u16 *inds = decIndex;
 		SoftwareTransformResult result{};
 		// TODO: Keep this static?  Faster than repopulating?
@@ -563,23 +560,19 @@ rotateVBO:
 			vertexCount = 0x10000 / 3;
 #endif
 
+		SoftwareTransform swTransform(params);
+		swTransform.Decode(prim, dec_->VertexType(), dec_->GetDecVtxFmt(), maxIndex, &result);
+		if (result.action == SW_NOT_READY)
+			swTransform.DetectOffsetTexture(maxIndex);
+
 		if (textureNeedsApply)
 			textureCache_->ApplyTexture();
 
 		// Need to ApplyDrawState after ApplyTexture because depal can launch a render pass and that wrecks the state.
 		ApplyDrawState(prim);
 
-		SoftwareTransform(
-			prim, vertexCount,
-			dec_->VertexType(), inds, GE_VTYPE_IDX_16BIT, dec_->GetDecVtxFmt(),
-			maxIndex, drawBuffer, numTrans, drawIndexed, &params, &result);
-
-		// We have an offset texture to apply.
-		if (result.textureChanged) {
-			textureCache_->ApplyTexture();
-			// Apply again in case of depal.
-			ApplyDrawState(prim);
-		}
+		if (result.action == SW_NOT_READY)
+			swTransform.BuildDrawingParams(prim, vertexCount, dec_->VertexType(), inds, maxIndex, &result);
 
 		ApplyDrawStateLate(result.setStencil, result.stencilValue);
 
@@ -590,16 +583,16 @@ rotateVBO:
 
 			bool doTextureProjection = gstate.getUVGenMode() == GE_TEXMAP_TEXTURE_MATRIX;
 
-			if (drawIndexed) {
-				vertexBufferOffset = (uint32_t)frameData.pushVertex->Push(drawBuffer, maxIndex * sizeof(TransformedVertex), &vertexBuffer);
-				indexBufferOffset = (uint32_t)frameData.pushIndex->Push(inds, sizeof(uint16_t) * numTrans, &indexBuffer);
+			if (result.drawIndexed) {
+				vertexBufferOffset = (uint32_t)frameData.pushVertex->Push(result.drawBuffer, maxIndex * sizeof(TransformedVertex), &vertexBuffer);
+				indexBufferOffset = (uint32_t)frameData.pushIndex->Push(inds, sizeof(uint16_t) * result.drawNumTrans, &indexBuffer);
 				render_->BindVertexBuffer(softwareInputLayout_, vertexBuffer, vertexBufferOffset);
 				render_->BindIndexBuffer(indexBuffer);
-				render_->DrawIndexed(glprim[prim], numTrans, GL_UNSIGNED_SHORT, (void *)(intptr_t)indexBufferOffset);
+				render_->DrawIndexed(glprim[prim], result.drawNumTrans, GL_UNSIGNED_SHORT, (void *)(intptr_t)indexBufferOffset);
 			} else {
-				vertexBufferOffset = (uint32_t)frameData.pushVertex->Push(drawBuffer, numTrans * sizeof(TransformedVertex), &vertexBuffer);
+				vertexBufferOffset = (uint32_t)frameData.pushVertex->Push(result.drawBuffer, result.drawNumTrans * sizeof(TransformedVertex), &vertexBuffer);
 				render_->BindVertexBuffer(softwareInputLayout_, vertexBuffer, vertexBufferOffset);
-				render_->Draw(glprim[prim], 0, numTrans);
+				render_->Draw(glprim[prim], 0, result.drawNumTrans);
 			}
 		} else if (result.action == SW_CLEAR) {
 			u32 clearColor = result.color;

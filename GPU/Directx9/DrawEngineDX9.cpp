@@ -530,10 +530,7 @@ rotateVBO:
 			prim = GE_PRIM_TRIANGLES;
 		VERBOSE_LOG(G3D, "Flush prim %i SW! %i verts in one go", prim, indexGen.VertexCount());
 
-		int numTrans = 0;
-		bool drawIndexed = false;
 		u16 *inds = decIndex;
-		TransformedVertex *drawBuffer = NULL;
 		SoftwareTransformResult result{};
 		SoftwareTransformParams params{};
 		params.decoded = decoded;
@@ -546,10 +543,12 @@ rotateVBO:
 		params.provokeFlatFirst = true;
 
 		int maxIndex = indexGen.MaxIndex();
-		SoftwareTransform(
-			prim, indexGen.VertexCount(),
-			dec_->VertexType(), inds, GE_VTYPE_IDX_16BIT, dec_->GetDecVtxFmt(),
-			maxIndex, drawBuffer, numTrans, drawIndexed, &params, &result);
+		SoftwareTransform swTransform(params);
+		swTransform.Decode(prim, dec_->VertexType(), dec_->GetDecVtxFmt(), maxIndex, &result);
+		if (result.action == SW_NOT_READY) {
+			swTransform.DetectOffsetTexture(maxIndex);
+			swTransform.BuildDrawingParams(prim, indexGen.VertexCount(), dec_->VertexType(), inds, maxIndex, &result);
+		}
 
 		ApplyDrawStateLate();
 		vshader = shaderManager_->ApplyShader(false, false, lastVType_);
@@ -566,10 +565,10 @@ rotateVBO:
 			const int vertexSize = sizeof(transformed[0]);
 
 			device_->SetVertexDeclaration(transformedVertexDecl_);
-			if (drawIndexed) {
-				device_->DrawIndexedPrimitiveUP(d3d_prim[prim], 0, maxIndex, D3DPrimCount(d3d_prim[prim], numTrans), inds, D3DFMT_INDEX16, drawBuffer, sizeof(TransformedVertex));
+			if (result.drawIndexed) {
+				device_->DrawIndexedPrimitiveUP(d3d_prim[prim], 0, maxIndex, D3DPrimCount(d3d_prim[prim], result.drawNumTrans), inds, D3DFMT_INDEX16, result.drawBuffer, sizeof(TransformedVertex));
 			} else {
-				device_->DrawPrimitiveUP(d3d_prim[prim], D3DPrimCount(d3d_prim[prim], numTrans), drawBuffer, sizeof(TransformedVertex));
+				device_->DrawPrimitiveUP(d3d_prim[prim], D3DPrimCount(d3d_prim[prim], result.drawNumTrans), result.drawBuffer, sizeof(TransformedVertex));
 			}
 		} else if (result.action == SW_CLEAR) {
 			u32 clearColor = result.color;
