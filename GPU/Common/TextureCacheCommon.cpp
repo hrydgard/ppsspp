@@ -29,8 +29,9 @@
 #include "GPU/Common/ShaderId.h"
 #include "GPU/Common/GPUStateUtils.h"
 #include "GPU/Debugger/Debugger.h"
-#include "GPU/GPUState.h"
+#include "GPU/GPUCommon.h"
 #include "GPU/GPUInterface.h"
+#include "GPU/GPUState.h"
 
 #if defined(_M_SSE)
 #include <emmintrin.h>
@@ -750,10 +751,13 @@ void TextureCacheCommon::DetachFramebuffer(TexCacheEntry *entry, u32 address, Vi
 	}
 }
 
-bool TextureCacheCommon::AttachFramebuffer(TexCacheEntry *entry, u32 address, VirtualFramebuffer *framebuffer, u32 texaddrOffset) {
+bool TextureCacheCommon::AttachFramebuffer(TexCacheEntry *entry, u32 address, VirtualFramebuffer *framebuffer, u32 yOffset) {
 	static const u32 MAX_SUBAREA_Y_OFFSET_SAFE = 32;
 
 	AttachedFramebufferInfo fbInfo = { 0 };
+
+	const u32 bpp = framebuffer->format == GE_FORMAT_8888 ? 4 : 2;
+	const u32 texaddrOffset = yOffset * framebuffer->fb_stride * bpp;
 
 	const u32 mirrorMask = 0x00600000;
 	u32 addr = address & 0x3FFFFFFF;
@@ -908,12 +912,12 @@ void TextureCacheCommon::SetTextureFramebuffer(TexCacheEntry *entry, VirtualFram
 	nextNeedsRebuild_ = false;
 }
 
-bool TextureCacheCommon::SetOffsetTexture(u32 offset) {
+bool TextureCacheCommon::SetOffsetTexture(u32 yOffset) {
 	if (!framebufferManager_->UseBufferedRendering()) {
 		return false;
 	}
 	u32 texaddr = gstate.getTextureAddress(0);
-	if (!Memory::IsValidAddress(texaddr) || !Memory::IsValidAddress(texaddr + offset)) {
+	if (!Memory::IsValidAddress(texaddr)) {
 		return false;
 	}
 
@@ -928,7 +932,7 @@ bool TextureCacheCommon::SetOffsetTexture(u32 offset) {
 	bool success = false;
 	for (size_t i = 0, n = fbCache_.size(); i < n; ++i) {
 		auto framebuffer = fbCache_[i];
-		if (AttachFramebuffer(entry, framebuffer->fb_address, framebuffer, offset)) {
+		if (AttachFramebuffer(entry, framebuffer->fb_address, framebuffer, yOffset)) {
 			success = true;
 		}
 	}
