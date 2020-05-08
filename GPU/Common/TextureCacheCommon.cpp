@@ -751,13 +751,10 @@ void TextureCacheCommon::DetachFramebuffer(TexCacheEntry *entry, u32 address, Vi
 	}
 }
 
-bool TextureCacheCommon::AttachFramebuffer(TexCacheEntry *entry, u32 address, VirtualFramebuffer *framebuffer, u32 yOffset) {
+bool TextureCacheCommon::AttachFramebuffer(TexCacheEntry *entry, u32 address, VirtualFramebuffer *framebuffer, u32 texaddrOffset) {
 	static const u32 MAX_SUBAREA_Y_OFFSET_SAFE = 32;
 
 	AttachedFramebufferInfo fbInfo = { 0 };
-
-	const u32 bpp = framebuffer->format == GE_FORMAT_8888 ? 4 : 2;
-	const u32 texaddrOffset = yOffset * framebuffer->fb_stride * bpp;
 
 	const u32 mirrorMask = 0x00600000;
 	u32 addr = address & 0x3FFFFFFF;
@@ -916,13 +913,18 @@ bool TextureCacheCommon::SetOffsetTexture(u32 yOffset) {
 	if (!framebufferManager_->UseBufferedRendering()) {
 		return false;
 	}
+
 	u32 texaddr = gstate.getTextureAddress(0);
-	if (!Memory::IsValidAddress(texaddr)) {
+	GETextureFormat fmt = gstate.getTextureFormat();
+	const u32 bpp = fmt == GE_FORMAT_8888 ? 4 : 2;
+	const u32 texaddrOffset = yOffset * gstate.getTextureWidth(0) * bpp;
+
+	if (!Memory::IsValidAddress(texaddr) || !Memory::IsValidAddress(texaddr + texaddrOffset)) {
 		return false;
 	}
 
 	const u16 dim = gstate.getTextureDimension(0);
-	u64 cachekey = TexCacheEntry::CacheKey(texaddr, gstate.getTextureFormat(), dim, 0);
+	u64 cachekey = TexCacheEntry::CacheKey(texaddr, fmt, dim, 0);
 	TexCache::iterator iter = cache_.find(cachekey);
 	if (iter == cache_.end()) {
 		return false;
@@ -932,7 +934,7 @@ bool TextureCacheCommon::SetOffsetTexture(u32 yOffset) {
 	bool success = false;
 	for (size_t i = 0, n = fbCache_.size(); i < n; ++i) {
 		auto framebuffer = fbCache_[i];
-		if (AttachFramebuffer(entry, framebuffer->fb_address, framebuffer, yOffset)) {
+		if (AttachFramebuffer(entry, framebuffer->fb_address, framebuffer, texaddrOffset)) {
 			success = true;
 		}
 	}
