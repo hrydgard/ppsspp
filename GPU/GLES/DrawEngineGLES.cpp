@@ -575,8 +575,11 @@ rotateVBO:
 			maxIndex, drawBuffer, numTrans, drawIndexed, &params, &result);
 
 		// We have an offset texture to apply.
-		if (result.textureChanged)
+		if (result.textureChanged) {
 			textureCache_->ApplyTexture();
+			// Apply again in case of depal.
+			ApplyDrawState(prim);
+		}
 
 		ApplyDrawStateLate(result.setStencil, result.stencilValue);
 
