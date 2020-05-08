@@ -46,7 +46,9 @@ public:
 
 		if (currentDevice_)
 			CoTaskMemFree(currentDevice_);
-		device->GetId(&currentDevice_);
+		if (!device || FAILED(device->GetId(&currentDevice_))) {
+			currentDevice_ = nullptr;
+		}
 		deviceChanged_ = false;
 	}
 
@@ -75,7 +77,7 @@ public:
 			AddRef();
 			*ppvInterface = (IMMNotificationClient*)this;
 		} else {
-			*ppvInterface = NULL;
+			*ppvInterface = nullptr;
 			return E_NOINTERFACE;
 		}
 		return S_OK;
@@ -92,7 +94,11 @@ public:
 		}
 
 		// pwstrDeviceId can be null. We consider that a new device, I think?
-		if (pwstrDeviceId && !wcscmp(currentDevice_, pwstrDeviceId)) {
+		bool same = currentDevice_ == pwstrDeviceId;
+		if (!same && currentDevice_ && pwstrDeviceId) {
+			same = !wcscmp(currentDevice_, pwstrDeviceId);
+		}
+		if (same) {
 			// Already the current device, nothing to do.
 			return S_OK;
 		}
@@ -226,12 +232,14 @@ WASAPIAudioThread::~WASAPIAudioThread() {
 }
 
 bool WASAPIAudioThread::ActivateDefaultDevice() {
+	assert(device_ == nullptr);
 	HRESULT hresult = deviceEnumerator_->GetDefaultAudioEndpoint(eRender, eMultimedia, &device_);
-	if (FAILED(hresult))
+	if (FAILED(hresult) || device_ == nullptr)
 		return false;
 
-	hresult = device_->Activate(IID_IAudioClient, CLSCTX_ALL, NULL, (void **)&audioInterface_);
-	if (FAILED(hresult))
+	assert(audioInterface_ == nullptr);
+	hresult = device_->Activate(IID_IAudioClient, CLSCTX_ALL, nullptr, (void **)&audioInterface_);
+	if (FAILED(hresult) || audioInterface_ == nullptr)
 		return false;
 
 	return true;
@@ -239,14 +247,22 @@ bool WASAPIAudioThread::ActivateDefaultDevice() {
 
 bool WASAPIAudioThread::InitAudioDevice() {
 	REFERENCE_TIME hnsBufferDuration = REFTIMES_PER_SEC;
+	assert(deviceFormat_ == nullptr);
 	HRESULT hresult = audioInterface_->GetMixFormat((WAVEFORMATEX **)&deviceFormat_);
-	hresult = audioInterface_->Initialize(AUDCLNT_SHAREMODE_SHARED, 0, hnsBufferDuration, 0, &deviceFormat_->Format, nullptr);
-	hresult = audioInterface_->GetService(IID_IAudioRenderClient, (void **)&renderClient_);
-	if (FAILED(hresult))
+	if (FAILED(hresult) || !deviceFormat_)
 		return false;
 
-	hresult = audioInterface_->GetBufferSize(&numBufferFrames);
+	hresult = audioInterface_->Initialize(AUDCLNT_SHAREMODE_SHARED, 0, hnsBufferDuration, 0, &deviceFormat_->Format, nullptr);
 	if (FAILED(hresult))
+		return false;
+	assert(renderClient_ == nullptr);
+	hresult = audioInterface_->GetService(IID_IAudioRenderClient, (void **)&renderClient_);
+	if (FAILED(hresult) || !renderClient_)
+		return false;
+
+	numBufferFrames = 0;
+	hresult = audioInterface_->GetBufferSize(&numBufferFrames);
+	if (FAILED(hresult) || numBufferFrames == 0)
 		return false;
 
 	sampleRate_ = deviceFormat_->Format.nSamplesPerSec;
@@ -291,17 +307,23 @@ bool WASAPIAudioThread::DetectFormat() {
 		return false;
 	}
 
-	BYTE *pData;
+	BYTE *pData = nullptr;
 	HRESULT hresult = renderClient_->GetBuffer(numBufferFrames, &pData);
+	if (FAILED(hresult) || !pData)
+		return false;
+
 	const int numSamples = numBufferFrames * deviceFormat_->Format.nChannels;
 	if (format_ == Format::IEEE_FLOAT) {
 		memset(pData, 0, sizeof(float) * numSamples);
-		shortBuf_ = new short[numBufferFrames * deviceFormat_->Format.nChannels];
+		shortBuf_ = new short[numSamples];
 	} else if (format_ == Format::PCM16) {
 		memset(pData, 0, sizeof(short) * numSamples);
 	}
 
 	hresult = renderClient_->ReleaseBuffer(numBufferFrames, 0);
+	if (FAILED(hresult))
+		return false;
+
 	actualDuration_ = (REFERENCE_TIME)((double)REFTIMES_PER_SEC * numBufferFrames / deviceFormat_->Format.nSamplesPerSec);
 	return true;
 }
@@ -309,10 +331,11 @@ bool WASAPIAudioThread::DetectFormat() {
 void WASAPIAudioThread::Run() {
 	// Adapted from http://msdn.microsoft.com/en-us/library/windows/desktop/dd316756(v=vs.85).aspx
 
+	assert(deviceEnumerator_ == nullptr);
 	HRESULT hresult = CoCreateInstance(CLSID_MMDeviceEnumerator,
 		nullptr, /* Object is not created as the part of the aggregate */
 		CLSCTX_ALL, IID_IMMDeviceEnumerator, (void **)&deviceEnumerator_);
-	if (FAILED(hresult))
+	if (FAILED(hresult) || deviceEnumerator_ == nullptr)
 		return;
 
 	if (!ActivateDefaultDevice()) {
@@ -339,12 +362,16 @@ void WASAPIAudioThread::Run() {
 	}
 
 	hresult = audioInterface_->Start();
+	if (FAILED(hresult)) {
+		ERROR_LOG(SCEAUDIO, "WASAPI: Failed to start audio stream");
+		return;
+	}
 
 	DWORD flags = 0;
 	while (flags != AUDCLNT_BUFFERFLAGS_SILENT) {
 		Sleep((DWORD)(actualDuration_ / REFTIMES_PER_MILLISEC / 2));
 
-		uint32_t pNumPaddingFrames;
+		uint32_t pNumPaddingFrames = 0;
 		hresult = audioInterface_->GetCurrentPadding(&pNumPaddingFrames);
 		if (FAILED(hresult)) {
 			// What to do?
@@ -352,9 +379,9 @@ void WASAPIAudioThread::Run() {
 		}
 		uint32_t pNumAvFrames = numBufferFrames - pNumPaddingFrames;
 
-		BYTE *pData;
+		BYTE *pData = nullptr;
 		hresult = renderClient_->GetBuffer(pNumAvFrames, &pData);
-		if (FAILED(hresult)) {
+		if (FAILED(hresult) || pData == nullptr) {
 			// What to do?
 		} else if (pNumAvFrames) {
 			switch (format_) {
@@ -382,9 +409,11 @@ void WASAPIAudioThread::Run() {
 			flags = AUDCLNT_BUFFERFLAGS_SILENT;
 		}
 
-		hresult = renderClient_->ReleaseBuffer(pNumAvFrames, flags);
-		if (FAILED(hresult)) {
-			// Not much to do here either...
+		if (!FAILED(hresult) && pData) {
+			hresult = renderClient_->ReleaseBuffer(pNumAvFrames, flags);
+			if (FAILED(hresult)) {
+				// Not much to do here either...
+			}
 		}
 
 		// Check if we should use a new device.
@@ -407,6 +436,10 @@ void WASAPIAudioThread::Run() {
 			}
 
 			hresult = audioInterface_->Start();
+			if (FAILED(hresult)) {
+				ERROR_LOG(SCEAUDIO, "WASAPI: Failed to start audio stream");
+				return;
+			}
 		}
 	}
 
@@ -414,6 +447,9 @@ void WASAPIAudioThread::Run() {
 	Sleep((DWORD)(actualDuration_ / REFTIMES_PER_MILLISEC / 2));
 
 	hresult = audioInterface_->Stop();
+	if (FAILED(hresult)) {
+		ERROR_LOG(SCEAUDIO, "WASAPI: Failed to stop audio stream");
+	}
 }
 
 int WASAPIAudioBackend::RunThread() {
