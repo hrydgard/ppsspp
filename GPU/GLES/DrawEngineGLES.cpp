@@ -574,6 +574,13 @@ rotateVBO:
 			dec_->VertexType(), inds, GE_VTYPE_IDX_16BIT, dec_->GetDecVtxFmt(),
 			maxIndex, drawBuffer, numTrans, drawIndexed, &params, &result);
 
+		// We have an offset texture to apply.
+		if (result.textureChanged) {
+			textureCache_->ApplyTexture();
+			// Apply again in case of depal.
+			ApplyDrawState(prim);
+		}
+
 		ApplyDrawStateLate(result.setStencil, result.stencilValue);
 
 		LinkedShader *program = shaderManager_->ApplyFragmentShader(vsid, vshader, lastVType_, framebufferManager_->UseBufferedRendering());

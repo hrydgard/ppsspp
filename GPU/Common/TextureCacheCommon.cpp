@@ -29,8 +29,9 @@
 #include "GPU/Common/ShaderId.h"
 #include "GPU/Common/GPUStateUtils.h"
 #include "GPU/Debugger/Debugger.h"
-#include "GPU/GPUState.h"
+#include "GPU/GPUCommon.h"
 #include "GPU/GPUInterface.h"
+#include "GPU/GPUState.h"
 
 #if defined(_M_SSE)
 #include <emmintrin.h>
@@ -908,17 +909,22 @@ void TextureCacheCommon::SetTextureFramebuffer(TexCacheEntry *entry, VirtualFram
 	nextNeedsRebuild_ = false;
 }
 
-bool TextureCacheCommon::SetOffsetTexture(u32 offset) {
+bool TextureCacheCommon::SetOffsetTexture(u32 yOffset) {
 	if (!framebufferManager_->UseBufferedRendering()) {
 		return false;
 	}
+
 	u32 texaddr = gstate.getTextureAddress(0);
-	if (!Memory::IsValidAddress(texaddr) || !Memory::IsValidAddress(texaddr + offset)) {
+	GETextureFormat fmt = gstate.getTextureFormat();
+	const u32 bpp = fmt == GE_FORMAT_8888 ? 4 : 2;
+	const u32 texaddrOffset = yOffset * gstate.getTextureWidth(0) * bpp;
+
+	if (!Memory::IsValidAddress(texaddr) || !Memory::IsValidAddress(texaddr + texaddrOffset)) {
 		return false;
 	}
 
 	const u16 dim = gstate.getTextureDimension(0);
-	u64 cachekey = TexCacheEntry::CacheKey(texaddr, gstate.getTextureFormat(), dim, 0);
+	u64 cachekey = TexCacheEntry::CacheKey(texaddr, fmt, dim, 0);
 	TexCache::iterator iter = cache_.find(cachekey);
 	if (iter == cache_.end()) {
 		return false;
@@ -928,7 +934,7 @@ bool TextureCacheCommon::SetOffsetTexture(u32 offset) {
 	bool success = false;
 	for (size_t i = 0, n = fbCache_.size(); i < n; ++i) {
 		auto framebuffer = fbCache_[i];
-		if (AttachFramebuffer(entry, framebuffer->fb_address, framebuffer, offset)) {
+		if (AttachFramebuffer(entry, framebuffer->fb_address, framebuffer, texaddrOffset)) {
 			success = true;
 		}
 	}

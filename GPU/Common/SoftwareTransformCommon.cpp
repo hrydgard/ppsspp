@@ -15,6 +15,7 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
+#include <algorithm>
 #include <cmath>
 #include "math/math_util.h"
 #include "gfx_es2/gpu_features.h"
@@ -156,6 +157,7 @@ static int ColorIndexOffset(int prim, GEShadeMode shadeMode, bool clearMode) {
 }
 
 // NOTE: The viewport must be up to date!
+// Also, this assumes SetTexture() has already figured out the actual texture height.
 void SoftwareTransform(
 	int prim, int vertexCount, u32 vertType, u16 *&inds, int indexType,
 	const DecVtxFormat &decVtxFormat, int &maxIndex, TransformedVertex *&drawBuffer, int &numTrans, bool &drawIndexed, const SoftwareTransformParams *params, SoftwareTransformResult *result) {
@@ -471,43 +473,58 @@ void SoftwareTransform(
 		}
 	}
 
-	// This means we're using a framebuffer (and one that isn't big enough.)
+	// Breath of Fire 3 does some interesting rendering here, probably from being a port.
+	// It draws at 384x240 to two buffers in VRAM, one right after the other.
+	// We end up creating separate framebuffers, and rendering to each.
+	// But the game then stretches this to the screen - and reads from a single 512 tall texture.
+	// We initially use the first framebuffer.  This code detects the read from the second.
+	//
+	// First Vs: 12, 228 - second Vs: 252, 468 - estimated fb height: 272
+
+	// If curTextureHeight is < h, it must be a framebuffer that wasn't full height.
 	if (gstate_c.curTextureHeight < (u32)h && maxIndex >= 2) {
-		// Even if not rectangles, this will detect if either of the first two are outside the framebuffer.
-		// HACK: Adding one pixel margin to this detection fixes issues in Assassin's Creed : Bloodlines,
-		// while still keeping BOF working (see below).
+		// This is the max V that will still land within the framebuffer (since it's shorter.)
+		// We already adjusted V to the framebuffer above.
+		const float maxAvailableV = 1.0f;
+		// This is the max V that would've been inside the original texture size.
+		const float maxValidV = heightFactor;
+
+		// Apaprently, Assassin's Creed: Bloodlines accesses just outside.
 		const float invTexH = 1.0f / gstate_c.curTextureHeight; // size of one texel.
-		bool tlOutside;
-		bool tlAlmostOutside;
-		bool brOutside;
-		// If we're outside heightFactor, then v must be wrapping or clamping.  Avoid this workaround.
-		// If we're <= 1.0f, we're inside the framebuffer (workaround not needed.)
-		// We buffer that 1.0f a little more with a texel to avoid some false positives.
-		tlOutside = transformed[0].v <= heightFactor && transformed[0].v > 1.0f + invTexH;
-		brOutside = transformed[1].v <= heightFactor && transformed[1].v > 1.0f + invTexH;
-		// Careful: if br is outside, but tl is well inside, this workaround still doesn't make sense.
-		// We go with halfway, since we overestimate framebuffer heights sometimes but not by much.
-		tlAlmostOutside = transformed[0].v <= heightFactor && transformed[0].v >= 0.5f;
+
+		// Are either TL or BR inside the texture but outside the framebuffer?
+		const bool tlOutside = transformed[0].v > maxAvailableV + invTexH && transformed[0].v <= maxValidV;
+		const bool brOutside = transformed[1].v > maxAvailableV + invTexH && transformed[1].v <= maxValidV;
+
+		// If TL isn't outside, is it at least near the end?
+		const bool tlAlmostOutside = transformed[0].v > maxAvailableV * 0.5f && transformed[0].v <= maxValidV;
+
 		if (tlOutside || (brOutside && tlAlmostOutside)) {
-			// Okay, so we're texturing from outside the framebuffer, but inside the texture height.
-			// Breath of Fire 3 does this to access a render surface at an offset.
-			const u32 bpp = fbman->GetTargetFormat() == GE_FORMAT_8888 ? 4 : 2;
-			const u32 prevH = texCache->AttachedDrawingHeight();
-			const u32 fb_size = bpp * fbman->GetTargetStride() * prevH;
+			// This is how far the nearest coord is, so that's where we'll look for the next framebuf.
+			const u32 prevXOffset = gstate_c.curTextureXOffset;
 			const u32 prevYOffset = gstate_c.curTextureYOffset;
-			if (texCache->SetOffsetTexture(fb_size)) {
+			const u32 yOffset = (int)(gstate_c.curTextureHeight * std::min(transformed[0].v, transformed[1].v));
+			if (texCache->SetOffsetTexture(yOffset)) {
 				const float oldWidthFactor = widthFactor;
 				const float oldHeightFactor = heightFactor;
-				widthFactor = (float) w / (float) gstate_c.curTextureWidth;
-				heightFactor = (float) h / (float) gstate_c.curTextureHeight;
+				widthFactor = (float)w / (float)gstate_c.curTextureWidth;
+				heightFactor = (float)h / (float)gstate_c.curTextureHeight;
 
-				// We've already baked in the old gstate_c.curTextureYOffset, so correct.
-				const float yDiff = (float) (prevH + prevYOffset - gstate_c.curTextureYOffset) / (float) h;
+				// We need to subtract this offset from the Vs to address the new framebuf.
+				const float adjustedYOffset = yOffset + prevYOffset - gstate_c.curTextureYOffset;
+				const float yDiff = (float)adjustedYOffset / (float)h;
+				const float adjustedXOffset = prevXOffset - gstate_c.curTextureXOffset;
+				const float xDiff = (float)adjustedXOffset / (float)w;
+
 				for (int index = 0; index < maxIndex; ++index) {
-					transformed[index].u *= widthFactor / oldWidthFactor;
-					// Inverse it back to scale to the new FBO, and add 1.0f to account for old FBO.
+					transformed[index].u = (transformed[index].u / oldWidthFactor - xDiff) * widthFactor;
 					transformed[index].v = (transformed[index].v / oldHeightFactor - yDiff) * heightFactor;
 				}
+
+				// We undid the offset, so reset.  This avoids a different shader.
+				gstate_c.curTextureXOffset = prevXOffset;
+				gstate_c.curTextureYOffset = prevYOffset;
+				result->textureChanged = true;
 			}
 		}
 	}

@@ -35,6 +35,7 @@ struct SoftwareTransformResult {
 	float depth;
 
 	bool setStencil;
+	bool textureChanged;
 	u8 stencilValue;
 };
 
