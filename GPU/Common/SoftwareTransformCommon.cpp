@@ -501,6 +501,8 @@ void SoftwareTransform(
 
 		if (tlOutside || (brOutside && tlAlmostOutside)) {
 			// This is how far the nearest coord is, so that's where we'll look for the next framebuf.
+			const u32 prevXOffset = gstate_c.curTextureXOffset;
+			const u32 prevYOffset = gstate_c.curTextureYOffset;
 			const u32 yOffset = (int)(gstate_c.curTextureHeight * std::min(transformed[0].v, transformed[1].v));
 			if (texCache->SetOffsetTexture(yOffset)) {
 				const float oldWidthFactor = widthFactor;
@@ -509,13 +511,19 @@ void SoftwareTransform(
 				heightFactor = (float)h / (float)gstate_c.curTextureHeight;
 
 				// We need to subtract this offset from the Vs to address the new framebuf.
-				// Note: SetOffsetTexture() will account for any overshoot in yOffset.
-				const float yDiff = (float)yOffset / (float)h;
+				const float adjustedYOffset = yOffset + prevYOffset - gstate_c.curTextureYOffset;
+				const float yDiff = (float)adjustedYOffset / (float)h;
+				const float adjustedXOffset = prevXOffset - gstate_c.curTextureXOffset;
+				const float xDiff = (float)adjustedXOffset / (float)w;
+
 				for (int index = 0; index < maxIndex; ++index) {
-					transformed[index].u *= widthFactor / oldWidthFactor;
+					transformed[index].u = (transformed[index].u / oldWidthFactor - xDiff) * widthFactor;
 					transformed[index].v = (transformed[index].v / oldHeightFactor - yDiff) * heightFactor;
 				}
 
+				// We undid the offset, so reset.  This avoids a different shader.
+				gstate_c.curTextureXOffset = prevXOffset;
+				gstate_c.curTextureYOffset = prevYOffset;
 				result->textureChanged = true;
 			}
 		}
