@@ -120,5 +120,6 @@ extern std::string g_all_egl_extensions;
 
 void CheckGLExtensions();
 void SetGLCoreContext(bool flag);
+void ResetGLExtensions();
 
 std::string ApplyGLSLPrelude(const std::string &source, uint32_t stage);

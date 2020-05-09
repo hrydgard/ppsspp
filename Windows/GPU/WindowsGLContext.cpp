@@ -290,6 +290,9 @@ bool WindowsGLContext::InitFromRenderThread(std::string *error_message) {
 	// Unfortunately, glew will generate an invalid enum error, ignore.
 	glGetError();
 
+	// Reset in case we're in a backend switch.
+	ResetGLExtensions();
+
 	int contextFlags = g_Config.bGfxDebugOutput ? WGL_CONTEXT_DEBUG_BIT_ARB : 0;
 
 	HGLRC m_hrc = nullptr;
