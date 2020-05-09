@@ -18,6 +18,7 @@ public class SizeManager implements SurfaceHolder.Callback {
 	private static String TAG = "PPSSPPSizeManager";
 
 	final NativeActivity activity;
+	SurfaceView surfaceView = null;
 
 	private int safeInsetLeft = 0;
 	private int safeInsetRight = 0;
@@ -29,6 +30,8 @@ public class SizeManager implements SurfaceHolder.Callback {
 	private int pixelWidth;
 	private int pixelHeight;
 
+	private boolean navigationHidden = false;
+
 	private Point desiredSize = new Point();
 	private int badOrientationCount = 0;
 
@@ -37,7 +40,11 @@ public class SizeManager implements SurfaceHolder.Callback {
 	}
 
 	@TargetApi(Build.VERSION_CODES.P)
-	public void setupSurfaceView(SurfaceView surfaceView) {
+	public void setSurfaceView(SurfaceView view) {
+		surfaceView = view;
+		if (surfaceView == null)
+			return;
+
 		surfaceView.getHolder().addCallback(this);
 
 		if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
@@ -94,8 +101,8 @@ public class SizeManager implements SurfaceHolder.Callback {
 		Log.w(TAG, "Surface changed. Resolution: " + width + "x" + height + " Format: " + format);
 		// The window size might have changed (immersive mode, native fullscreen on some devices)
 		NativeApp.backbufferResize(width, height, format);
+		updateDisplayMeasurements();
 
-		activity.updateDisplayMeasurements();
 		activity.notifySurface(holder.getSurface());
 	}
 
@@ -108,7 +115,8 @@ public class SizeManager implements SurfaceHolder.Callback {
 	}
 
 	@TargetApi(Build.VERSION_CODES.JELLY_BEAN_MR1)
-	public void updateDisplayMeasurements(Display display, SurfaceView view, boolean navigationHidden) {
+	public void updateDisplayMeasurements() {
+		Display display = activity.getWindowManager().getDefaultDisplay();
 		// Early in startup, we don't have a view to query. Do our best to get some kind of size
 		// that can be used by config default heuristics, and so on.
 		DisplayMetrics metrics = new DisplayMetrics();
@@ -119,14 +127,32 @@ public class SizeManager implements SurfaceHolder.Callback {
 		}
 
 		// Later on, we have the exact pixel size so let's just use it.
-		if (view != null) {
-			metrics.widthPixels = view.getWidth();
-			metrics.heightPixels = view.getHeight();
+		if (surfaceView != null) {
+			metrics.widthPixels = surfaceView.getWidth();
+			metrics.heightPixels = surfaceView.getHeight();
 		}
 		densityDpi = metrics.densityDpi;
 		refreshRate = display.getRefreshRate();
 
 		NativeApp.setDisplayParameters(metrics.widthPixels, metrics.heightPixels, (int)densityDpi, refreshRate);
+	}
+
+	@TargetApi(Build.VERSION_CODES.KITKAT)
+	public void setupSystemUiCallback(final View view) {
+		view.setOnSystemUiVisibilityChangeListener(new View.OnSystemUiVisibilityChangeListener() {
+			@Override
+			public void onSystemUiVisibilityChange(int visibility) {
+				// Called when the system UI's visibility changes, regardless of
+				// whether it's because of our or system actions.
+				// We will try to force it to follow our preference but will not stupidly
+				// act as if it's visible if it's not.
+				navigationHidden = ((visibility & View.SYSTEM_UI_FLAG_HIDE_NAVIGATION) != 0);
+				// TODO: Check here if it's the state we want.
+				Log.i(TAG, "SystemUiVisibilityChange! visibility=" + visibility + " navigationHidden: " + navigationHidden);
+				Log.i(TAG, "decorView: " + view.getWidth() + "x" + view.getHeight());
+				updateDisplayMeasurements();
+			}
+		});
 	}
 
 	public void updateDpi(float dpi) {

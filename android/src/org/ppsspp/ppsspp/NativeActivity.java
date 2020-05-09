@@ -85,7 +85,6 @@ public abstract class NativeActivity extends Activity {
 
 	private boolean sustainedPerfSupported;
 
-	private boolean navigationHidden;
 	private View navigationCallbackView = null;
 
 	// audioFocusChangeListener to listen to changes in audio state
@@ -421,7 +420,7 @@ public abstract class NativeActivity extends Activity {
 		} else {
 			Log.e(TAG, "updateSystemUiVisibility: decor view not yet created, ignoring for now");
 		}
-		updateDisplayMeasurements();
+		sizeManager.updateDisplayMeasurements();
 	}
 
 	// Need API 11 to check for existence of a vibrator? Zany.
@@ -451,19 +450,6 @@ public abstract class NativeActivity extends Activity {
 	// Tells the render loop thread to exit, so we can restart it.
 	public native void exitEGLRenderLoop();
 
-	private SurfaceView getSurfaceView() {
-		if (mGLSurfaceView != null) {
-			return mGLSurfaceView;
-		} else {
-			return mSurfaceView;
-		}
-	}
-
-	public void updateDisplayMeasurements() {
-		Display display = getWindowManager().getDefaultDisplay();
-		sizeManager.updateDisplayMeasurements(display, getSurfaceView(), navigationHidden);
-	}
-
 	@Override
 	public void onCreate(Bundle savedInstanceState) {
 		super.onCreate(savedInstanceState);
@@ -475,7 +461,7 @@ public abstract class NativeActivity extends Activity {
 		// This calls NativeApp.setDisplayParameters. Make sure that's done early in order
 		// to be able to set defaults when loading config for the first time. Like figuring out
 		// whether to start at 1x or 2x.
-		updateDisplayMeasurements();
+		sizeManager.updateDisplayMeasurements();
 
 		if (!initialized) {
 			Initialize();
@@ -499,7 +485,7 @@ public abstract class NativeActivity extends Activity {
 			mGLSurfaceView = new NativeGLView(this);
 			nativeRenderer = new NativeRenderer(this);
 			mGLSurfaceView.setEGLContextClientVersion(2);
-			sizeManager.setupSurfaceView(mGLSurfaceView);
+			sizeManager.setSurfaceView(mGLSurfaceView);
 
 			// Setup the GLSurface and ask android for the correct
 			// Number of bits for r, g, b, a, depth and stencil components
@@ -537,7 +523,7 @@ public abstract class NativeActivity extends Activity {
 			}
 
 			mSurfaceView = new NativeSurfaceView(NativeActivity.this);
-			sizeManager.setupSurfaceView(mSurfaceView);
+			sizeManager.setSurfaceView(mSurfaceView);
 			Log.i(TAG, "setcontentview before");
 			setContentView(mSurfaceView);
 			Log.i(TAG, "setcontentview after");
@@ -611,20 +597,7 @@ public abstract class NativeActivity extends Activity {
 			return;
 		}
 
-		decorView.setOnSystemUiVisibilityChangeListener(new View.OnSystemUiVisibilityChangeListener() {
-			@Override
-			public void onSystemUiVisibilityChange(int visibility) {
-				// Called when the system UI's visibility changes, regardless of
-				// whether it's because of our or system actions.
-				// We will try to force it to follow our preference but will not stupidly
-				// act as if it's visible if it's not.
-				navigationHidden = ((visibility & View.SYSTEM_UI_FLAG_HIDE_NAVIGATION) != 0);
-				// TODO: Check here if it's the state we want.
-				Log.i(TAG, "SystemUiVisibilityChange! visibility=" + visibility + " navigationHidden: " + navigationHidden);
-				Log.i(TAG, "decorView: " + decorView.getWidth() + "x" + decorView.getHeight());
-				updateDisplayMeasurements();
-			}
-		});
+		sizeManager.setupSystemUiCallback(decorView);
 		navigationCallbackView = decorView;
 	}
 
@@ -659,6 +632,7 @@ public abstract class NativeActivity extends Activity {
 			mSurfaceView.onDestroy();
 			mSurfaceView = null;
 		}
+		sizeManager.setSurfaceView(null);
 		if (mPowerSaveModeReceiver != null) {
 			mPowerSaveModeReceiver.destroy(this);
 			mPowerSaveModeReceiver = null;
@@ -774,7 +748,7 @@ public abstract class NativeActivity extends Activity {
 		// onConfigurationChanged not called on multi-window change
 		Log.i(TAG, "onMultiWindowModeChanged: isInMultiWindowMode = " + isInMultiWindowMode);
 		super.onMultiWindowModeChanged(isInMultiWindowMode, newConfig);
-		updateDisplayMeasurements();
+		sizeManager.updateDisplayMeasurements();
 	}
 
 	// keep this static so we can call this even if we don't
