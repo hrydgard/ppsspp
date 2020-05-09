@@ -29,14 +29,12 @@ import android.os.Vibrator;
 import android.provider.MediaStore;
 import android.text.InputType;
 import android.util.Log;
-import android.view.Display;
 import android.view.Gravity;
 import android.view.HapticFeedbackConstants;
 import android.view.InputDevice;
 import android.view.InputEvent;
 import android.view.KeyEvent;
 import android.view.MotionEvent;
-import android.view.OrientationEventListener;
 import android.view.Surface;
 import android.view.SurfaceView;
 import android.view.View;
@@ -423,7 +421,7 @@ public abstract class NativeActivity extends Activity {
 		} else {
 			Log.e(TAG, "updateSystemUiVisibility: decor view not yet created, ignoring for now");
 		}
-		sizeManager.updateDisplayMeasurements();
+		sizeManager.checkDisplayMeasurements();
 	}
 
 	// Need API 11 to check for existence of a vibrator? Zany.
@@ -751,7 +749,7 @@ public abstract class NativeActivity extends Activity {
 		// onConfigurationChanged not called on multi-window change
 		Log.i(TAG, "onMultiWindowModeChanged: isInMultiWindowMode = " + isInMultiWindowMode);
 		super.onMultiWindowModeChanged(isInMultiWindowMode, newConfig);
-		sizeManager.updateDisplayMeasurements();
+		sizeManager.checkDisplayMeasurements();
 	}
 
 	// keep this static so we can call this even if we don't

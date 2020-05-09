@@ -5,6 +5,8 @@ import android.app.Activity;
 import android.content.pm.ActivityInfo;
 import android.graphics.Point;
 import android.os.Build;
+import android.os.Handler;
+import android.os.Looper;
 import android.util.DisplayMetrics;
 import android.util.Log;
 import android.view.Display;
@@ -13,6 +15,7 @@ import android.view.SurfaceHolder;
 import android.view.SurfaceView;
 import android.view.View;
 import android.view.WindowInsets;
+import java.lang.Runnable;
 
 public class SizeManager implements SurfaceHolder.Callback {
 	private static String TAG = "PPSSPPSizeManager";
@@ -31,6 +34,7 @@ public class SizeManager implements SurfaceHolder.Callback {
 	private int pixelHeight;
 
 	private boolean navigationHidden = false;
+	private boolean displayUpdatePending = false;
 
 	private Point desiredSize = new Point();
 	private int badOrientationCount = 0;
@@ -114,8 +118,27 @@ public class SizeManager implements SurfaceHolder.Callback {
 		holder.setSizeFromLayout();
 	}
 
+	public void checkDisplayMeasurements() {
+		if (displayUpdatePending) {
+			return;
+		}
+		displayUpdatePending = true;
+
+		final Runnable updater = new Runnable() {
+			public void run() {
+				Log.d(TAG, "checkDisplayMeasurements: checking now");
+				updateDisplayMeasurements();
+			}
+		};
+
+		final Handler handler = new Handler(Looper.getMainLooper());
+		handler.postDelayed(updater, 10);
+	}
+
 	@TargetApi(Build.VERSION_CODES.JELLY_BEAN_MR1)
 	public void updateDisplayMeasurements() {
+		displayUpdatePending = false;
+
 		Display display = activity.getWindowManager().getDefaultDisplay();
 		// Early in startup, we don't have a view to query. Do our best to get some kind of size
 		// that can be used by config default heuristics, and so on.
@@ -150,7 +173,7 @@ public class SizeManager implements SurfaceHolder.Callback {
 				// TODO: Check here if it's the state we want.
 				Log.i(TAG, "SystemUiVisibilityChange! visibility=" + visibility + " navigationHidden: " + navigationHidden);
 				Log.i(TAG, "decorView: " + view.getWidth() + "x" + view.getHeight());
-				updateDisplayMeasurements();
+				checkDisplayMeasurements();
 			}
 		});
 	}

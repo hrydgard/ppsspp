@@ -1026,14 +1026,21 @@ void getDesiredBackbufferSize(int &sz_x, int &sz_y) {
 
 extern "C" void JNICALL Java_org_ppsspp_ppsspp_NativeApp_setDisplayParameters(JNIEnv *, jclass, jint xres, jint yres, jint dpi, jfloat refreshRate) {
 	ILOG("NativeApp.setDisplayParameters(%d x %d, dpi=%d, refresh=%0.2f)", xres, yres, dpi, refreshRate);
-	display_xres = xres;
-	display_yres = yres;
-	display_dpi_x = dpi;
-	display_dpi_y = dpi;
-	display_hz = refreshRate;
+	bool changed = false;
+	changed = changed || display_xres != xres || display_yres != yres;
+	changed = changed || display_dpi_x != dpi || display_dpi_y != dpi;
+	changed = changed || display_hz != refreshRate;
 
-	recalculateDpi();
-	NativeResized();
+	if (changed) {
+		display_xres = xres;
+		display_yres = yres;
+		display_dpi_x = dpi;
+		display_dpi_y = dpi;
+		display_hz = refreshRate;
+
+		recalculateDpi();
+		NativeResized();
+	}
 }
 
 extern "C" void JNICALL Java_org_ppsspp_ppsspp_NativeApp_computeDesiredBackbufferDimensions() {
