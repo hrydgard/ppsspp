@@ -28,10 +28,8 @@ import android.os.PowerManager;
 import android.os.Vibrator;
 import android.provider.MediaStore;
 import android.text.InputType;
-import android.util.DisplayMetrics;
 import android.util.Log;
 import android.view.Display;
-import android.view.DisplayCutout;
 import android.view.Gravity;
 import android.view.HapticFeedbackConstants;
 import android.view.InputDevice;
@@ -40,13 +38,9 @@ import android.view.KeyEvent;
 import android.view.MotionEvent;
 import android.view.OrientationEventListener;
 import android.view.Surface;
-import android.view.SurfaceHolder;
 import android.view.SurfaceView;
 import android.view.View;
-import android.view.View.OnSystemUiVisibilityChangeListener;
-import android.view.ViewGroup;
 import android.view.Window;
-import android.view.WindowInsets;
 import android.view.WindowManager;
 import android.view.inputmethod.InputMethodManager;
 import android.widget.EditText;
@@ -59,7 +53,7 @@ import java.util.Locale;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-public abstract class NativeActivity extends Activity implements SurfaceHolder.Callback {
+public abstract class NativeActivity extends Activity {
 	// Remember to loadLibrary your JNI .so in a static {} block
 
 	// Adjust these as necessary
@@ -116,19 +110,9 @@ public abstract class NativeActivity extends Activity implements SurfaceHolder.C
 	private String inputPlayerADesc;
 
 	private PowerSaveModeReceiver mPowerSaveModeReceiver = null;
-
+	private SizeManager sizeManager = null;
 	private static LocationHelper mLocationHelper;
 	private static CameraHelper mCameraHelper;
-
-	private float densityDpi;
-	private float refreshRate;
-	private int pixelWidth;
-	private int pixelHeight;
-
-	private int safeInsetLeft = 0;
-	private int safeInsetRight = 0;
-	private int safeInsetTop = 0;
-	private int safeInsetBottom = 0;
 
 	private static final String[] permissionsForStorage = {
 		Manifest.permission.WRITE_EXTERNAL_STORAGE,
@@ -467,12 +451,6 @@ public abstract class NativeActivity extends Activity implements SurfaceHolder.C
 	// Tells the render loop thread to exit, so we can restart it.
 	public native void exitEGLRenderLoop();
 
-	public void getDesiredBackbufferSize(Point sz) {
-		NativeApp.computeDesiredBackbufferDimensions();
-		sz.x = NativeApp.getDesiredBackbufferWidth();
-		sz.y = NativeApp.getDesiredBackbufferHeight();
-	}
-
 	private SurfaceView getSurfaceView() {
 		if (mGLSurfaceView != null) {
 			return mGLSurfaceView;
@@ -481,34 +459,15 @@ public abstract class NativeActivity extends Activity implements SurfaceHolder.C
 		}
 	}
 
-	@TargetApi(Build.VERSION_CODES.JELLY_BEAN_MR1)
 	public void updateDisplayMeasurements() {
 		Display display = getWindowManager().getDefaultDisplay();
-
-		// Early in startup, we don't have a view to query. Do our best to get some kind of size
-		// that can be used by config default heuristics, and so on.
-		DisplayMetrics metrics = new DisplayMetrics();
-		if (navigationHidden && Build.VERSION.SDK_INT >= Build.VERSION_CODES.JELLY_BEAN_MR1) {
-			display.getRealMetrics(metrics);
-		} else {
-			display.getMetrics(metrics);
-		}
-
-		// Later on, we have the exact pixel size so let's just use it.
-		SurfaceView view = getSurfaceView();
-		if (view != null) {
-			metrics.widthPixels = view.getWidth();
-			metrics.heightPixels = view.getHeight();
-		}
-		densityDpi = metrics.densityDpi;
-		refreshRate = display.getRefreshRate();
-
-		NativeApp.setDisplayParameters(metrics.widthPixels, metrics.heightPixels, (int) densityDpi, refreshRate);
+		sizeManager.updateDisplayMeasurements(display, getSurfaceView(), navigationHidden);
 	}
 
 	@Override
 	public void onCreate(Bundle savedInstanceState) {
 		super.onCreate(savedInstanceState);
+		sizeManager = new SizeManager(this);
 		TextRenderer.init(this);
 		shuttingDown = false;
 		registerCallbacks();
@@ -540,7 +499,7 @@ public abstract class NativeActivity extends Activity implements SurfaceHolder.C
 			mGLSurfaceView = new NativeGLView(this);
 			nativeRenderer = new NativeRenderer(this);
 			mGLSurfaceView.setEGLContextClientVersion(2);
-			mGLSurfaceView.getHolder().addCallback(NativeActivity.this);
+			sizeManager.setupSurfaceView(mGLSurfaceView);
 
 			// Setup the GLSurface and ask android for the correct
 			// Number of bits for r, g, b, a, depth and stencil components
@@ -572,71 +531,18 @@ public abstract class NativeActivity extends Activity implements SurfaceHolder.C
 			}
 			mGLSurfaceView.setRenderer(nativeRenderer);
 			setContentView(mGLSurfaceView);
-
-			if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
-				mGLSurfaceView.setOnApplyWindowInsetsListener(new View.OnApplyWindowInsetsListener() {
-					@Override
-					public WindowInsets onApplyWindowInsets(View view, WindowInsets windowInsets) {
-						checkInsets(windowInsets);
-						return windowInsets;
-					}
-				});
-			}
 		} else {
 			if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.ICE_CREAM_SANDWICH) {
 				updateSystemUiVisibility();
 			}
 
 			mSurfaceView = new NativeSurfaceView(NativeActivity.this);
-			mSurfaceView.getHolder().addCallback(NativeActivity.this);
+			sizeManager.setupSurfaceView(mSurfaceView);
 			Log.i(TAG, "setcontentview before");
 			setContentView(mSurfaceView);
 			Log.i(TAG, "setcontentview after");
 			ensureRenderLoop();
-
-			if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
-				mSurfaceView.setOnApplyWindowInsetsListener(new View.OnApplyWindowInsetsListener() {
-					@Override
-					public WindowInsets onApplyWindowInsets(View view, WindowInsets windowInsets) {
-						checkInsets(windowInsets);
-						return windowInsets;
-					}
-				});
-			}
 		}
-	}
-
-	private Point desiredSize = new Point();
-	private int badOrientationCount = 0;
-
-	@Override
-	public void surfaceCreated(SurfaceHolder holder) {
-		pixelWidth = holder.getSurfaceFrame().width();
-		pixelHeight = holder.getSurfaceFrame().height();
-
-		// Workaround for terrible bug when locking and unlocking the screen in landscape mode on Nexus 5X.
-		int requestedOr = getRequestedOrientation();
-		boolean requestedPortrait = requestedOr == ActivityInfo.SCREEN_ORIENTATION_PORTRAIT || requestedOr == ActivityInfo.SCREEN_ORIENTATION_REVERSE_PORTRAIT;
-		boolean detectedPortrait = pixelHeight > pixelWidth;
-		if (Build.VERSION.SDK_INT < Build.VERSION_CODES.KITKAT && badOrientationCount < 3 && requestedPortrait != detectedPortrait && requestedOr != ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED) {
-			Log.e(TAG, "Bad orientation detected (w=" + pixelWidth + " h=" + pixelHeight + "! Recreating activity.");
-			badOrientationCount++;
-			recreate();
-			return;
-		} else if (requestedPortrait == detectedPortrait) {
-			Log.i(TAG, "Correct orientation detected, resetting orientation counter.");
-			badOrientationCount = 0;
-		} else {
-			Log.i(TAG, "Bad orientation detected but ignored" + (Build.VERSION.SDK_INT < Build.VERSION_CODES.KITKAT ? " (sdk version)" : ""));
-		}
-
-		Log.d(TAG, "Surface created. pixelWidth=" + pixelWidth + ", pixelHeight=" + pixelHeight + " holder: " + holder.toString() + " or: " + requestedOr);
-		NativeApp.setDisplayParameters(pixelWidth, pixelHeight, (int) densityDpi, refreshRate);
-		getDesiredBackbufferSize(desiredSize);
-
-		// Note that desiredSize might be 0,0 here - but that's fine when calling setFixedSize! It means auto.
-		Log.d(TAG, "Setting fixed size " + desiredSize.x + " x " + desiredSize.y);
-		holder.setFixedSize(desiredSize.x, desiredSize.y);
 	}
 
 	@Override
@@ -645,20 +551,8 @@ public abstract class NativeActivity extends Activity implements SurfaceHolder.C
 		updateSustainedPerformanceMode();
 	}
 
-	@Override
-	public void surfaceChanged(SurfaceHolder holder, int format, int width, int height) {
-		Log.v(TAG, "surfaceChanged: isCreating:" + holder.isCreating() + " holder: " + holder.toString());
-		if (holder.isCreating() && desiredSize.x > 0 && desiredSize.y > 0) {
-			// We have called setFixedSize which will trigger another surfaceChanged after the initial
-			// one. This one is the original one and we don't care about it.
-			Log.w(TAG, "holder.isCreating = true, ignoring. width=" + width + " height=" + height + " desWidth=" + desiredSize.x + " desHeight=" + desiredSize.y);
-			return;
-		}
-		Log.w(TAG, "Surface changed. Resolution: " + width + "x" + height + " Format: " + format);
-		// The window size might have changed (immersive mode, native fullscreen on some devices)
-		NativeApp.backbufferResize(width, height, format);
-		updateDisplayMeasurements();
-		mSurface = holder.getSurface();
+	public void notifySurface(Surface surface) {
+		mSurface = surface;
 		if (!javaGL) {
 			// If we got a surface, this starts the thread. If not, it doesn't.
 			if (mSurface == null) {
@@ -668,17 +562,6 @@ public abstract class NativeActivity extends Activity implements SurfaceHolder.C
 			}
 		}
 		updateSustainedPerformanceMode();
-	}
-
-	@Override
-	public void surfaceDestroyed(SurfaceHolder holder) {
-		mSurface = null;
-		Log.w(TAG, "Surface destroyed.");
-		if (!javaGL) {
-			joinRenderLoopThread();
-		}
-		// Autosize the next created surface.
-		holder.setSizeFromLayout();
 	}
 
 	// Invariants: After this, mRenderLoopThread will be set, and the thread will be running.
@@ -728,7 +611,7 @@ public abstract class NativeActivity extends Activity implements SurfaceHolder.C
 			return;
 		}
 
-		decorView.setOnSystemUiVisibilityChangeListener(new OnSystemUiVisibilityChangeListener() {
+		decorView.setOnSystemUiVisibilityChangeListener(new View.OnSystemUiVisibilityChangeListener() {
 			@Override
 			public void onSystemUiVisibilityChange(int visibility) {
 				// Called when the system UI's visibility changes, regardless of
@@ -864,29 +747,6 @@ public abstract class NativeActivity extends Activity implements SurfaceHolder.C
 		}
 	}
 
-	private void checkInsets(WindowInsets insets) {
-		if (insets == null) {
-			return;
-		}
-		if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
-			DisplayCutout cutout = insets.getDisplayCutout();
-			if (cutout != null) {
-				safeInsetLeft = cutout.getSafeInsetLeft();
-				safeInsetRight = cutout.getSafeInsetRight();
-				safeInsetTop = cutout.getSafeInsetTop();
-				safeInsetBottom = cutout.getSafeInsetBottom();
-				Log.i(TAG, "Safe insets: left: " + safeInsetLeft + " right: " + safeInsetRight + " top: " + safeInsetTop + " bottom: " + safeInsetBottom);
-			} else {
-				Log.i(TAG, "Cutout was null");
-				safeInsetLeft = 0;
-				safeInsetRight = 0;
-				safeInsetTop = 0;
-				safeInsetBottom = 0;
-			}
-			NativeApp.sendMessage("safe_insets", safeInsetLeft + ":" + safeInsetRight + ":" + safeInsetTop + ":" + safeInsetBottom);
-		}
-	}
-
 	@Override
 	public void onAttachedToWindow() {
 		Log.i(TAG, "onAttachedToWindow");
@@ -905,7 +765,7 @@ public abstract class NativeActivity extends Activity implements SurfaceHolder.C
 			updateSystemUiVisibility();
 		}
 		if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.JELLY_BEAN_MR1) {
-			densityDpi = (float)newConfig.densityDpi;
+			sizeManager.updateDpi((float)newConfig.densityDpi);
 		}
 	}
 

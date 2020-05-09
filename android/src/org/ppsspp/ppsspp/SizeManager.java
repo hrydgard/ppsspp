@@ -1,0 +1,165 @@
+package org.ppsspp.ppsspp;
+
+import android.annotation.TargetApi;
+import android.app.Activity;
+import android.content.pm.ActivityInfo;
+import android.graphics.Point;
+import android.os.Build;
+import android.util.DisplayMetrics;
+import android.util.Log;
+import android.view.Display;
+import android.view.DisplayCutout;
+import android.view.SurfaceHolder;
+import android.view.SurfaceView;
+import android.view.View;
+import android.view.WindowInsets;
+
+public class SizeManager implements SurfaceHolder.Callback {
+	private static String TAG = "PPSSPPSizeManager";
+
+	final NativeActivity activity;
+
+	private int safeInsetLeft = 0;
+	private int safeInsetRight = 0;
+	private int safeInsetTop = 0;
+	private int safeInsetBottom = 0;
+
+	private float densityDpi;
+	private float refreshRate;
+	private int pixelWidth;
+	private int pixelHeight;
+
+	private Point desiredSize = new Point();
+	private int badOrientationCount = 0;
+
+	public SizeManager(final NativeActivity a) {
+		activity = a;
+	}
+
+	@TargetApi(Build.VERSION_CODES.P)
+	public void setupSurfaceView(SurfaceView surfaceView) {
+		surfaceView.getHolder().addCallback(this);
+
+		if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+			surfaceView.setOnApplyWindowInsetsListener(new View.OnApplyWindowInsetsListener() {
+				@Override
+				public WindowInsets onApplyWindowInsets(View view, WindowInsets windowInsets) {
+					updateInsets(windowInsets);
+					return windowInsets;
+				}
+			});
+		}
+	}
+
+	@Override
+	public void surfaceCreated(SurfaceHolder holder) {
+		pixelWidth = holder.getSurfaceFrame().width();
+		pixelHeight = holder.getSurfaceFrame().height();
+
+		// Workaround for terrible bug when locking and unlocking the screen in landscape mode on Nexus 5X.
+		int requestedOr = activity.getRequestedOrientation();
+		boolean requestedPortrait = requestedOr == ActivityInfo.SCREEN_ORIENTATION_PORTRAIT || requestedOr == ActivityInfo.SCREEN_ORIENTATION_REVERSE_PORTRAIT;
+		boolean detectedPortrait = pixelHeight > pixelWidth;
+		if (Build.VERSION.SDK_INT < Build.VERSION_CODES.KITKAT && badOrientationCount < 3 && requestedPortrait != detectedPortrait && requestedOr != ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED) {
+			Log.e(TAG, "Bad orientation detected (w=" + pixelWidth + " h=" + pixelHeight + "! Recreating activity.");
+			badOrientationCount++;
+			activity.recreate();
+			return;
+		} else if (requestedPortrait == detectedPortrait) {
+			Log.i(TAG, "Correct orientation detected, resetting orientation counter.");
+			badOrientationCount = 0;
+		} else {
+			Log.i(TAG, "Bad orientation detected but ignored" + (Build.VERSION.SDK_INT < Build.VERSION_CODES.KITKAT ? " (sdk version)" : ""));
+		}
+
+		Log.d(TAG, "Surface created. pixelWidth=" + pixelWidth + ", pixelHeight=" + pixelHeight + " holder: " + holder.toString() + " or: " + requestedOr);
+		NativeApp.setDisplayParameters(pixelWidth, pixelHeight, (int)densityDpi, refreshRate);
+		getDesiredBackbufferSize(desiredSize);
+
+		// Note that desiredSize might be 0,0 here - but that's fine when calling setFixedSize! It means auto.
+		Log.d(TAG, "Setting fixed size " + desiredSize.x + " x " + desiredSize.y);
+		holder.setFixedSize(desiredSize.x, desiredSize.y);
+	}
+
+	@Override
+	public void surfaceChanged(SurfaceHolder holder, int format, int width, int height) {
+		Log.v(TAG, "surfaceChanged: isCreating:" + holder.isCreating() + " holder: " + holder.toString());
+		if (holder.isCreating() && desiredSize.x > 0 && desiredSize.y > 0) {
+			// We have called setFixedSize which will trigger another surfaceChanged after the initial
+			// one. This one is the original one and we don't care about it.
+			Log.w(TAG, "holder.isCreating = true, ignoring. width=" + width + " height=" + height + " desWidth=" + desiredSize.x + " desHeight=" + desiredSize.y);
+			return;
+		}
+
+		Log.w(TAG, "Surface changed. Resolution: " + width + "x" + height + " Format: " + format);
+		// The window size might have changed (immersive mode, native fullscreen on some devices)
+		NativeApp.backbufferResize(width, height, format);
+
+		activity.updateDisplayMeasurements();
+		activity.notifySurface(holder.getSurface());
+	}
+
+	@Override
+	public void surfaceDestroyed(SurfaceHolder holder) {
+		activity.notifySurface(null);
+
+		// Autosize the next created surface.
+		holder.setSizeFromLayout();
+	}
+
+	@TargetApi(Build.VERSION_CODES.JELLY_BEAN_MR1)
+	public void updateDisplayMeasurements(Display display, SurfaceView view, boolean navigationHidden) {
+		// Early in startup, we don't have a view to query. Do our best to get some kind of size
+		// that can be used by config default heuristics, and so on.
+		DisplayMetrics metrics = new DisplayMetrics();
+		if (navigationHidden && Build.VERSION.SDK_INT >= Build.VERSION_CODES.JELLY_BEAN_MR1) {
+			display.getRealMetrics(metrics);
+		} else {
+			display.getMetrics(metrics);
+		}
+
+		// Later on, we have the exact pixel size so let's just use it.
+		if (view != null) {
+			metrics.widthPixels = view.getWidth();
+			metrics.heightPixels = view.getHeight();
+		}
+		densityDpi = metrics.densityDpi;
+		refreshRate = display.getRefreshRate();
+
+		NativeApp.setDisplayParameters(metrics.widthPixels, metrics.heightPixels, (int)densityDpi, refreshRate);
+	}
+
+	public void updateDpi(float dpi) {
+		densityDpi = dpi;
+	}
+
+	private void getDesiredBackbufferSize(Point sz) {
+		NativeApp.computeDesiredBackbufferDimensions();
+		sz.x = NativeApp.getDesiredBackbufferWidth();
+		sz.y = NativeApp.getDesiredBackbufferHeight();
+	}
+
+	@TargetApi(Build.VERSION_CODES.P)
+	private void updateInsets(WindowInsets insets) {
+		if (insets == null) {
+			return;
+		}
+		if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+			DisplayCutout cutout = insets.getDisplayCutout();
+			if (cutout != null) {
+				safeInsetLeft = cutout.getSafeInsetLeft();
+				safeInsetRight = cutout.getSafeInsetRight();
+				safeInsetTop = cutout.getSafeInsetTop();
+				safeInsetBottom = cutout.getSafeInsetBottom();
+				Log.i(TAG, "Safe insets: left: " + safeInsetLeft + " right: " + safeInsetRight + " top: " + safeInsetTop + " bottom: " + safeInsetBottom);
+			} else {
+				Log.i(TAG, "Safe insets: Cutout was null");
+				safeInsetLeft = 0;
+				safeInsetRight = 0;
+				safeInsetTop = 0;
+				safeInsetBottom = 0;
+			}
+			NativeApp.sendMessage("safe_insets", safeInsetLeft + ":" + safeInsetRight + ":" + safeInsetTop + ":" + safeInsetBottom);
+		}
+	}
+}
