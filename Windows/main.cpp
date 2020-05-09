@@ -291,7 +291,7 @@ void System_SendMessage(const char *command, const char *parameter) {
 		}
 	} else if (!strcmp(command, "graphics_failedBackend")) {
 		auto err = GetI18NCategory("Error");
-		const char *backendSwitchError = err->T("GenericBackendSwitchError", "PPSSPP crashed while initializing graphics. Try upgrading your graphics drivers.\n\nGraphics backend has been switched:");
+		const char *backendSwitchError = err->T("GenericBackendSwitchCrash", "PPSSPP crashed while starting. This usually means a graphics driver problem. Try upgrading your graphics drivers.\n\nGraphics backend has been switched:");
 		std::wstring full_error = ConvertUTF8ToWString(StringFromFormat("%s %s", backendSwitchError, parameter));
 		std::wstring title = ConvertUTF8ToWString(err->T("GenericGraphicsError", "Graphics Error"));
 		MessageBox(MainWindow::GetHWND(), full_error.c_str(), title.c_str(), MB_OK);
