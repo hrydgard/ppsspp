@@ -1316,6 +1316,7 @@ public abstract class NativeActivity extends Activity {
 			if (params.equals("ingame")) {
 				// Keep the screen bright - very annoying if it goes dark when tilting away
 				window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
+				updateSustainedPerformanceMode();
 			} else {
 				// Only keep the screen bright ingame.
 				window.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
