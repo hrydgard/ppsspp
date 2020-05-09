@@ -324,12 +324,8 @@ void SoftwareTransform::Decode(int prim, u32 vertType, const DecVtxFormat &decVt
 					}
 				}
 			} else {
-				if (reader.hasColor0()) {
-					for (int j = 0; j < 4; j++) {
-						c0[j] = unlitColor[j];
-					}
-				} else {
-					c0 = Vec4f::FromRGBA(gstate.getMaterialAmbientRGBA());
+				for (int j = 0; j < 4; j++) {
+					c0[j] = unlitColor[j];
 				}
 				if (lmode) {
 					// c1 is already 0.
