@@ -114,8 +114,8 @@ private:
 
 class LogoScreen : public UIScreen {
 public:
-	LogoScreen()
-		: frames_(0), switched_(false) {}
+	LogoScreen(bool gotoGameSettings = false)
+		: gotoGameSettings_(gotoGameSettings) {}
 	bool key(const KeyInput &key) override;
 	bool touch(const TouchInput &touch) override;
 	void update() override;
@@ -125,8 +125,9 @@ public:
 
 private:
 	void Next();
-	int frames_;
-	bool switched_;
+	int frames_ = 0;
+	bool switched_ = false;
+	bool gotoGameSettings_ = false;
 };
 
 class CreditsScreen : public UIDialogScreenWithBackground {

@@ -96,6 +96,8 @@ static std::string langRegion;
 static std::string osName;
 static std::string gpuDriverVersion;
 
+static std::string restartArgs;
+
 HMENU g_hPopupMenus;
 int g_activeWindow = 0;
 
@@ -283,6 +285,7 @@ void System_SendMessage(const char *command, const char *parameter) {
 			PostMessage(MainWindow::GetHWND(), WM_CLOSE, 0, 0);
 		}
 	} else if (!strcmp(command, "graphics_restart")) {
+		restartArgs = parameter == nullptr ? "" : parameter;
 		if (IsDebuggerPresent()) {
 			PostMessage(MainWindow::GetHWND(), MainWindow::WM_USER_RESTART_EMUTHREAD, 0, 0);
 		} else {
@@ -415,7 +418,14 @@ static bool DetectVulkanInExternalProcess() {
 std::vector<std::wstring> GetWideCmdLine() {
 	wchar_t **wargv;
 	int wargc = -1;
-	wargv = CommandLineToArgvW(GetCommandLineW(), &wargc);
+	// This is used for the WM_USER_RESTART_EMUTHREAD path.
+	if (!restartArgs.empty()) {
+		std::wstring wargs = ConvertUTF8ToWString("PPSSPP " + restartArgs);
+		wargv = CommandLineToArgvW(wargs.c_str(), &wargc);
+		restartArgs.clear();
+	} else {
+		wargv = CommandLineToArgvW(GetCommandLineW(), &wargc);
+	}
 
 	std::vector<std::wstring> wideArgs(wargv, wargv + wargc);
 	LocalFree(wargv);
@@ -447,12 +457,12 @@ static void WinMainInit() {
 }
 
 static void WinMainCleanup() {
-	if (g_Config.bRestartRequired) {
-		W32Util::ExitAndRestart();
-	}
-
 	net::Shutdown();
 	CoUninitialize();
+
+	if (g_Config.bRestartRequired) {
+		W32Util::ExitAndRestart(!restartArgs.empty(), restartArgs);
+	}
 }
 
 int WINAPI WinMain(HINSTANCE _hInstance, HINSTANCE hPrevInstance, LPSTR szCmdLine, int iCmdShow) {

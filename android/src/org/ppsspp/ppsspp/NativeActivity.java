@@ -75,6 +75,7 @@ public abstract class NativeActivity extends Activity {
 	protected NativeRenderer nativeRenderer;
 
 	private String shortcutParam = "";
+	private static String overrideShortcutParam = null;
 
 	public static String runCommand;
 	public static String commandParameter;
@@ -302,9 +303,11 @@ public abstract class NativeActivity extends Activity {
 
 		String model = Build.MANUFACTURER + ":" + Build.MODEL;
 		String languageRegion = Locale.getDefault().getLanguage() + "_" + Locale.getDefault().getCountry();
+		String shortcut = overrideShortcutParam == null ? shortcutParam : overrideShortcutParam;
+		overrideShortcutParam = null;
 
 		NativeApp.audioConfig(optimalFramesPerBuffer, optimalSampleRate);
-		NativeApp.init(model, deviceType, languageRegion, apkFilePath, dataDir, externalStorageDir, libraryDir, cacheDir, shortcutParam, Build.VERSION.SDK_INT, Build.BOARD);
+		NativeApp.init(model, deviceType, languageRegion, apkFilePath, dataDir, externalStorageDir, libraryDir, cacheDir, shortcut, Build.VERSION.SDK_INT, Build.BOARD);
 
 		// Allow C++ to tell us to use JavaGL or not.
 		javaGL = "true".equalsIgnoreCase(NativeApp.queryConfig("androidJavaGL"));
@@ -1254,6 +1257,9 @@ public abstract class NativeActivity extends Activity {
 			recreate();
 		} else if (command.equals("graphics_restart")) {
 			Log.i(TAG, "graphics_restart");
+			if (params != null && !params.equals("")) {
+				overrideShortcutParam = params;
+			}
 			shuttingDown = true;
 			recreate();
 		} else if (command.equals("ask_permission") && params.equals("storage")) {

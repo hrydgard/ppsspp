@@ -420,7 +420,14 @@ void NewLanguageScreen::OnCompleted(DialogResult result) {
 void LogoScreen::Next() {
 	if (!switched_) {
 		switched_ = true;
-		if (boot_filename.size()) {
+		if (gotoGameSettings_) {
+			if (boot_filename.size()) {
+				screenManager()->switchScreen(new EmuScreen(boot_filename));
+			} else {
+				screenManager()->switchScreen(new MainScreen());
+			}
+			screenManager()->push(new GameSettingsScreen(boot_filename));
+		} else if (boot_filename.size()) {
 			screenManager()->switchScreen(new EmuScreen(boot_filename));
 		} else {
 			screenManager()->switchScreen(new MainScreen());
