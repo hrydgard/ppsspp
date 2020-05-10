@@ -17,6 +17,8 @@
 
 #pragma once
 
+#include "GPU/Common/ShaderCommon.h"
+
 struct CardboardSettings {
 	bool enabled;
 	float leftEyeXPosition;
@@ -29,7 +31,9 @@ struct CardboardSettings {
 struct PostShaderUniforms {
 	float texelDelta[2]; float pixelDelta[2];
 	float time[4];
-	float video;
+	float video; float pad[3];
+	// Used on Direct3D9.
+	float gl_HalfPixel[4];
 };
 
 void CenterDisplayOutputRect(float *x, float *y, float *w, float *h, float origW, float origH, float frameW, float frameH, int rotation);
@@ -40,6 +44,7 @@ class DrawContext;
 class Framebuffer;
 class Pipeline;
 class SamplerState;
+class ShaderModule;
 class Texture;
 }
 
@@ -69,26 +74,40 @@ public:
 	PresentationCommon(Draw::DrawContext *draw);
 	~PresentationCommon();
 
-	void UpdateSize(int w, int h) {
+	void UpdateSize(int w, int h, int rw, int rh) {
 		pixelWidth_ = w;
 		pixelHeight_ = h;
+		renderWidth_ = rw;
+		renderHeight_ = rh;
 	}
+	void SetLanguage(ShaderLanguage lang) {
+		lang_ = lang;
+	}
+
+	bool UpdatePostShader();
 	void UpdateShaderInfo(const ShaderInfo *shaderInfo);
 
 	void DeviceLost();
 	void DeviceRestore(Draw::DrawContext *draw);
 
 	void GetCardboardSettings(CardboardSettings *cardboardSettings);
-	void CalculatePostShaderUniforms(int bufferWidth, int bufferHeight, int renderWidth, int renderHeight, bool hasVideo, PostShaderUniforms *uniforms);
+	void CalculatePostShaderUniforms(int bufferWidth, int bufferHeight, bool hasVideo, PostShaderUniforms *uniforms);
 
-	// TODO: Cleanup
 	void SourceTexture(Draw::Texture *texture);
 	void SourceFramebuffer(Draw::Framebuffer *fb);
-	void CopyToOutput(OutputFlags flags, int uvRotation, float u0, float v0, float u1, float v1);
+	void CopyToOutput(OutputFlags flags, int uvRotation, float u0, float v0, float u1, float v1, const PostShaderUniforms &uniforms);
 
 protected:
 	void CreateDeviceObjects();
 	void DestroyDeviceObjects();
+	void DestroyPostShader();
+
+	void ShowPostShaderError(const std::string &errorString);
+
+	Draw::ShaderModule *CompileShaderModule(Draw::ShaderStage stage, ShaderLanguage lang, const std::string &src, std::string *errorString);
+	Draw::Pipeline *CreatePipeline(std::vector<Draw::ShaderModule *> shaders, bool postShader, const Draw::UniformBufferDesc *uniformDesc);
+
+	void BindSource();
 
 	Draw::DrawContext *draw_;
 	Draw::Pipeline *texColor_ = nullptr;
@@ -98,10 +117,21 @@ protected:
 	Draw::Buffer *vdata_ = nullptr;
 	Draw::Buffer *idata_ = nullptr;
 
+	std::vector<Draw::ShaderModule *> postShaderModules_;
+	std::vector<Draw::Pipeline *> postShaderPipelines_;
+	std::vector<Draw::Framebuffer *> postShaderFramebuffers_;
+
 	Draw::Texture *srcTexture_ = nullptr;
 	Draw::Framebuffer *srcFramebuffer_ = nullptr;
 
 	int pixelWidth_ = 0;
 	int pixelHeight_ = 0;
+	int renderWidth_ = 0;
+	int renderHeight_ = 0;
+
+	bool usePostShader_ = false;
+	bool restorePostShader_ = false;
 	bool postShaderAtOutputResolution_ = false;
+	bool postShaderIsUpscalingFilter_ = false;
+	ShaderLanguage lang_;
 };

@@ -76,10 +76,7 @@ private:
 
 	void MakePixelTexture(const u8 *srcPixels, GEBufferFormat srcPixelFormat, int srcStride, int width, int height, float &u1, float &v1) override;
 	void Bind2DShader() override;
-	void BindPostShader(const PostShaderUniforms &uniforms) override;
-	void ShowPostShaderError(const std::string &errorMessage);
 	void CompileDraw2DProgram();
-	void CompilePostShader();
 
 	void PackDepthbuffer(VirtualFramebuffer *vfb, int x, int y, int w, int h);
 
@@ -94,7 +91,6 @@ private:
 	u8 *convBuf_ = nullptr;
 	u32 convBufSize_ = 0;
 	GLRProgram *draw2dprogram_ = nullptr;
-	GLRProgram *postShaderProgram_ = nullptr;
 	std::vector<GLRShader *> postShaderModules_;
 
 	GLRProgram *stencilUploadProgram_ = nullptr;

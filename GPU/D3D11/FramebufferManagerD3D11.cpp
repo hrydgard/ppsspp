@@ -87,13 +87,6 @@ const D3D11_INPUT_ELEMENT_DESC FramebufferManagerD3D11::g_QuadVertexElements[2] 
 	{ "TEXCOORD", 0, DXGI_FORMAT_R32G32_FLOAT, 0, 12, },
 };
 
-// The current simple shader translator outputs everything as semantic texcoords, so let's just play along
-// for simplicity.
-const D3D11_INPUT_ELEMENT_DESC FramebufferManagerD3D11::g_PostVertexElements[2] = {
-	{ "TEXCOORD", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 0, },
-	{ "TEXCOORD", 1, DXGI_FORMAT_R32G32_FLOAT, 0, 12, },
-};
-
 FramebufferManagerD3D11::FramebufferManagerD3D11(Draw::DrawContext *draw)
 	: FramebufferManagerCommon(draw) {
 	device_ = (ID3D11Device *)draw->GetNativeObject(Draw::NativeObject::DEVICE);
@@ -124,10 +117,6 @@ FramebufferManagerD3D11::FramebufferManagerD3D11(Draw::DrawContext *draw)
 	vb.Usage = D3D11_USAGE_DYNAMIC;
 	vb.CPUAccessFlags = D3D11_CPU_ACCESS_WRITE;
 	ASSERT_SUCCESS(device_->CreateBuffer(&vb, nullptr, &quadBuffer_));
-	vb.ByteWidth = ROUND_UP(sizeof(PostShaderUniforms), 16);
-	vb.Usage = D3D11_USAGE_DYNAMIC;
-	vb.BindFlags = D3D11_BIND_CONSTANT_BUFFER;
-	ASSERT_SUCCESS(device_->CreateBuffer(&vb, nullptr, &postConstants_));
 
 	D3D11_TEXTURE2D_DESC desc{};
 	desc.CPUAccessFlags = 0;
@@ -146,7 +135,7 @@ FramebufferManagerD3D11::FramebufferManagerD3D11(Draw::DrawContext *draw)
 
 	ShaderTranslationInit();
 
-	CompilePostShader();
+	presentation_->SetLanguage(HLSL_D3D11);
 }
 
 FramebufferManagerD3D11::~FramebufferManagerD3D11() {
@@ -160,22 +149,11 @@ FramebufferManagerD3D11::~FramebufferManagerD3D11() {
 	quadInputLayout_->Release();
 	quadBuffer_->Release();
 	fsQuadBuffer_->Release();
-	postConstants_->Release();
 
 	if (drawPixelsTex_)
 		drawPixelsTex_->Release();
 	if (drawPixelsTexView_)
 		drawPixelsTexView_->Release();
-
-	if (postVertexShader_) {
-		postVertexShader_->Release();
-	}
-	if (postPixelShader_) {
-		postPixelShader_->Release();
-	}
-	if (postInputLayout_) {
-		postInputLayout_->Release();
-	}
 
 	// Temp FBOs cleared by FramebufferCommon.
 	delete[] convBuf;
@@ -213,74 +191,6 @@ void FramebufferManagerD3D11::SetShaderManager(ShaderManagerD3D11 *sm) {
 void FramebufferManagerD3D11::SetDrawEngine(DrawEngineD3D11 *td) {
 	drawEngineD3D11_ = td;
 	drawEngine_ = td;
-}
-
-void FramebufferManagerD3D11::CompilePostShader() {
-	std::string vsSource;
-	std::string psSource;
-
-	if (postVertexShader_) {
-		postVertexShader_->Release();
-		postVertexShader_ = nullptr;
-	}
-	if (postPixelShader_) {
-		postPixelShader_->Release();
-		postPixelShader_ = nullptr;
-	}
-	if (postInputLayout_) {
-		postInputLayout_->Release();
-		postInputLayout_ = nullptr;
-	}
-
-	const ShaderInfo *shaderInfo = nullptr;
-	if (g_Config.sPostShaderName == "Off") {
-		usePostShader_ = false;
-		return;
-	}
-
-	usePostShader_ = false;
-
-	ReloadAllPostShaderInfo();
-	shaderInfo = GetPostShaderInfo(g_Config.sPostShaderName);
-	if (shaderInfo) {
-		postShaderAtOutputResolution_ = shaderInfo->outputResolution;
-		presentation_->UpdateShaderInfo(shaderInfo);
-		size_t sz;
-		char *vs = (char *)VFSReadFile(shaderInfo->vertexShaderFile.c_str(), &sz);
-		if (!vs)
-			return;
-		char *ps = (char *)VFSReadFile(shaderInfo->fragmentShaderFile.c_str(), &sz);
-		if (!ps) {
-			free(vs);
-			return;
-		}
-		std::string vsSourceGLSL = vs;
-		std::string psSourceGLSL = ps;
-		free(vs);
-		free(ps);
-		TranslatedShaderMetadata metaVS, metaFS;
-		std::string errorVS, errorFS;
-		if (!TranslateShader(&vsSource, HLSL_D3D11, &metaVS, vsSourceGLSL, GLSL_140, Draw::ShaderStage::VERTEX, &errorVS))
-			return;
-		if (!TranslateShader(&psSource, HLSL_D3D11, &metaFS, psSourceGLSL, GLSL_140, Draw::ShaderStage::FRAGMENT, &errorFS))
-			return;
-	} else {
-		return;
-	}
-
-	UINT flags = D3DCOMPILE_ENABLE_BACKWARDS_COMPATIBILITY;
-	std::vector<uint8_t> byteCode;
-	postVertexShader_ = CreateVertexShaderD3D11(device_, vsSource.data(), vsSource.size(), &byteCode, featureLevel_, flags);
-	if (!postVertexShader_) {
-		return;
-	}
-	postPixelShader_ = CreatePixelShaderD3D11(device_, psSource.data(), psSource.size(), featureLevel_, flags);
-	if (!postPixelShader_) {
-		postVertexShader_->Release();
-		return;
-	}
-	ASSERT_SUCCESS(device_->CreateInputLayout(g_PostVertexElements, 2, byteCode.data(), byteCode.size(), &postInputLayout_));
-	usePostShader_ = true;
 }
 
 void FramebufferManagerD3D11::MakePixelTexture(const u8 *srcPixels, GEBufferFormat srcPixelFormat, int srcStride, int width, int height, float &u1, float &v1) {
@@ -420,33 +330,6 @@ void FramebufferManagerD3D11::Bind2DShader() {
 	context_->IASetInputLayout(quadInputLayout_);
 	context_->PSSetShader(quadPixelShader_, 0, 0);
 	context_->VSSetShader(quadVertexShader_, 0, 0);
-}
-
-void FramebufferManagerD3D11::BindPostShader(const PostShaderUniforms &uniforms) {
-	if (!postPixelShader_) {
-		if (usePostShader_) {
-			CompilePostShader();
-		}
-		if (!usePostShader_) {
-			SetNumExtraFBOs(0);
-			context_->IASetInputLayout(quadInputLayout_);
-			context_->PSSetShader(quadPixelShader_, 0, 0);
-			context_->VSSetShader(quadVertexShader_, 0, 0);
-			return;
-		} else {
-			SetNumExtraFBOs(1);
-		}
-	}
-	context_->IASetInputLayout(postInputLayout_);
-	context_->PSSetShader(postPixelShader_, 0, 0);
-	context_->VSSetShader(postVertexShader_, 0, 0);
-
-	D3D11_MAPPED_SUBRESOURCE map;
-	ASSERT_SUCCESS(context_->Map(postConstants_, 0, D3D11_MAP_WRITE_DISCARD, 0, &map));
-	memcpy(map.pData, &uniforms, sizeof(uniforms));
-	context_->Unmap(postConstants_, 0);
-	context_->VSSetConstantBuffers(0, 1, &postConstants_);  // Probably not necessary
-	context_->PSSetConstantBuffers(0, 1, &postConstants_);
 }
 
 void FramebufferManagerD3D11::ReformatFramebufferFrom(VirtualFramebuffer *vfb, GEBufferFormat old) {
@@ -718,8 +601,6 @@ void FramebufferManagerD3D11::DestroyAllFBOs() {
 		tempFB.second.fbo->Release();
 	}
 	tempFBOs_.clear();
-
-	SetNumExtraFBOs(0);
 }
 
 void FramebufferManagerD3D11::Resized() {
@@ -730,5 +611,5 @@ void FramebufferManagerD3D11::Resized() {
 	}
 
 	// Might have a new post shader - let's compile it.
-	CompilePostShader();
+	presentation_->UpdatePostShader();
 }

@@ -69,7 +69,6 @@ public:
 
 protected:
 	void Bind2DShader() override;
-	void BindPostShader(const PostShaderUniforms &uniforms) override;
 	void DecimateFBOs() override;
 
 	// Used by ReadFramebufferToMemory and later framebuffer block copies

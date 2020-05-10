@@ -68,8 +68,6 @@ protected:
 	void UpdateDownloadTempBuffer(VirtualFramebuffer *nvfb) override;
 
 private:
-	void CompilePostShader();
-	void BindPostShader(const PostShaderUniforms &uniforms) override;
 	void Bind2DShader() override;
 	void MakePixelTexture(const u8 *srcPixels, GEBufferFormat srcPixelFormat, int srcStride, int width, int height, float &u1, float &v1) override;
 	void PackDepthbuffer(VirtualFramebuffer *vfb, int x, int y, int w, int h);
@@ -116,9 +114,5 @@ private:
 
 	// Used by post-processing shader
 	// Postprocessing
-	ID3D11VertexShader *postVertexShader_ = nullptr;
-	ID3D11PixelShader *postPixelShader_ = nullptr;
-	ID3D11InputLayout *postInputLayout_ = nullptr;
-	ID3D11Buffer *postConstants_ = nullptr;
 	static const D3D11_INPUT_ELEMENT_DESC g_PostVertexElements[2];
 };

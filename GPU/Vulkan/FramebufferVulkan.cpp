@@ -84,6 +84,7 @@ void main() {
 FramebufferManagerVulkan::FramebufferManagerVulkan(Draw::DrawContext *draw, VulkanContext *vulkan) :
 	FramebufferManagerCommon(draw),
 	vulkan_(vulkan) {
+	presentation_->SetLanguage(GLSL_VULKAN);
 
 	DeviceRestore(vulkan, draw);
 
@@ -158,16 +159,6 @@ void FramebufferManagerVulkan::DestroyDeviceObjects() {
 		vulkan_->Delete().QueueDeleteSampler(linearSampler_);
 	if (nearestSampler_ != VK_NULL_HANDLE)
 		vulkan_->Delete().QueueDeleteSampler(nearestSampler_);
-
-	if (postVs_) {
-		vulkan2D_->PurgeVertexShader(postVs_);
-		vulkan_->Delete().QueueDeleteShaderModule(postVs_);
-	}
-	if (postFs_) {
-		vulkan2D_->PurgeFragmentShader(postFs_);
-		vulkan_->Delete().QueueDeleteShaderModule(postFs_);
-	}
-	pipelinePostShader_ = VK_NULL_HANDLE;  // actual pipeline should get destroyed by vulkan2d.
 }
 
 void FramebufferManagerVulkan::NotifyClear(bool clearColor, bool clearAlpha, bool clearDepth, uint32_t color, float depth) {
@@ -329,35 +320,12 @@ void FramebufferManagerVulkan::DrawActiveTexture(float x, float y, float w, floa
 	VkBuffer vbuffer;
 	VkDeviceSize offset = push_->Push(vtx, sizeof(vtx), &vbuffer);
 	renderManager->BindPipeline(cur2DPipeline_);
-	if (cur2DPipeline_ == pipelinePostShader_) {
-		renderManager->PushConstants(vulkan2D_->GetPipelineLayout(), VK_SHADER_STAGE_FRAGMENT_BIT | VK_SHADER_STAGE_VERTEX_BIT, 0, (int)sizeof(postShaderUniforms_), &postShaderUniforms_);
-	}
 	renderManager->Draw(vulkan2D_->GetPipelineLayout(), descSet, 0, nullptr, vbuffer, offset, 4);
 }
 
 void FramebufferManagerVulkan::Bind2DShader() {
 	VkRenderPass rp = (VkRenderPass)draw_->GetNativeObject(Draw::NativeObject::COMPATIBLE_RENDERPASS);
 	cur2DPipeline_ = vulkan2D_->GetPipeline(rp, vsBasicTex_, fsBasicTex_);
-}
-
-void FramebufferManagerVulkan::BindPostShader(const PostShaderUniforms &uniforms) {
-	if (!pipelinePostShader_) {
-		if (usePostShader_) {
-			CompilePostShader();
-		}
-		if (!usePostShader_) {
-			SetNumExtraFBOs(0);
-			Bind2DShader();
-			return;
-		} else {
-			SetNumExtraFBOs(1);
-		}
-	}
-
-	postShaderUniforms_ = uniforms;
-	cur2DPipeline_ = pipelinePostShader_;
-
-	gstate_c.Dirty(DIRTY_VERTEXSHADER_STATE);
 }
 
 int FramebufferManagerVulkan::GetLineWidth() {
@@ -591,8 +559,6 @@ void FramebufferManagerVulkan::DestroyAllFBOs() {
 		tempFB.second.fbo->Release();
 	}
 	tempFBOs_.clear();
-
-	SetNumExtraFBOs(0);
 }
 
 void FramebufferManagerVulkan::Resized() {
@@ -603,89 +569,5 @@ void FramebufferManagerVulkan::Resized() {
 	}
 
 	// Might have a new post shader - let's compile it.
-	CompilePostShader();
-}
-
-void FramebufferManagerVulkan::CompilePostShader() {
-	if (postVs_) {
-		vulkan2D_->PurgeVertexShader(postVs_);
-		vulkan_->Delete().QueueDeleteShaderModule(postVs_);
-	}
-	if (postFs_) {
-		vulkan2D_->PurgeFragmentShader(postFs_);
-		vulkan_->Delete().QueueDeleteShaderModule(postFs_);
-	}
-
-	const ShaderInfo *shaderInfo = nullptr;
-	if (g_Config.sPostShaderName == "Off") {
-		usePostShader_ = false;
-		return;
-	}
-
-	usePostShader_ = false;
-
-	ReloadAllPostShaderInfo();
-	shaderInfo = GetPostShaderInfo(g_Config.sPostShaderName);
-	std::string errorVSX, errorFSX;
-	std::string vsSource;
-	std::string fsSource;
-	if (shaderInfo) {
-		postShaderAtOutputResolution_ = shaderInfo->outputResolution;
-		presentation_->UpdateShaderInfo(shaderInfo);
-		size_t sz;
-		char *vs = (char *)VFSReadFile(shaderInfo->vertexShaderFile.c_str(), &sz);
-		if (!vs)
-			return;
-		char *fs = (char *)VFSReadFile(shaderInfo->fragmentShaderFile.c_str(), &sz);
-		if (!fs) {
-			free(vs);
-			return;
-		}
-		std::string vsSourceGLSL = vs;
-		std::string fsSourceGLSL = fs;
-		free(vs);
-		free(fs);
-		TranslatedShaderMetadata metaVS, metaFS;
-		if (!TranslateShader(&vsSource, GLSL_VULKAN, &metaVS, vsSourceGLSL, GLSL_140, Draw::ShaderStage::VERTEX, &errorVSX))
-			return;
-		if (!TranslateShader(&fsSource, GLSL_VULKAN, &metaFS, fsSourceGLSL, GLSL_140, Draw::ShaderStage::FRAGMENT, &errorFSX))
-			return;
-	} else {
-		return;
-	}
-
-	// TODO: Delete the old pipeline?
-
-	std::string errorVS;
-	std::string errorFS;
-	postVs_ = CompileShaderModule(vulkan_, VK_SHADER_STAGE_VERTEX_BIT, vsSource.c_str(), &errorVS);
-	postFs_ = CompileShaderModule(vulkan_, VK_SHADER_STAGE_FRAGMENT_BIT, fsSource.c_str(), &errorFS);
-
-	VkRenderPass backbufferRP = (VkRenderPass)draw_->GetNativeObject(Draw::NativeObject::BACKBUFFER_RENDERPASS);
-
-	if (postVs_ && postFs_) {
-		pipelinePostShader_ = vulkan2D_->GetPipeline(backbufferRP, postVs_, postFs_, true, Vulkan2D::VK2DDepthStencilMode::NONE);
-		usePostShader_ = true;
-	} else {
-		ELOG("Failed to compile.");
-		pipelinePostShader_ = VK_NULL_HANDLE;
-		usePostShader_ = false;
-
-		std::string firstLine;
-		std::string errorString = errorVS + "\n" + errorFS;
-		size_t start = 0;
-		for (size_t i = 0; i < errorString.size(); i++) {
-			if (errorString[i] == '\n' && i == start) {
-				start = i + 1;
-			} else if (errorString[i] == '\n') {
-				firstLine = errorString.substr(start, i - start);
-				break;
-			}
-		}
-		if (!firstLine.empty()) {
-			host->NotifyUserMessage("Post-shader error: " + firstLine + "...", 10.0f, 0xFF3090FF);
-		} else {
-			host->NotifyUserMessage("Post-shader error, see log for details", 10.0f, 0xFF3090FF);
-		}
-	}
+	presentation_->UpdatePostShader();
 }

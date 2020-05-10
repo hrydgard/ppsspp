@@ -236,9 +236,12 @@ void SoftGPU::CopyToCurrentFboFromDisplayRam(int srcwidth, int srcheight) {
 		std::swap(v0, v1);
 	}
 
-	presentation_->UpdateSize(PSP_CoreParameter().pixelWidth, PSP_CoreParameter().pixelHeight);
+	// TODO, also deal with RB swizzle.
+	PostShaderUniforms uniforms{};
+
+	presentation_->UpdateSize(PSP_CoreParameter().pixelWidth, PSP_CoreParameter().pixelHeight, PSP_CoreParameter().renderWidth, PSP_CoreParameter().renderHeight);
 	presentation_->SourceTexture(fbTex);
-	presentation_->CopyToOutput(outputFlags, g_Config.iInternalScreenRotation, u0, v0, u1, v1);
+	presentation_->CopyToOutput(outputFlags, g_Config.iInternalScreenRotation, u0, v0, u1, v1, uniforms);
 }
 
 void SoftGPU::CopyDisplayToOutput(bool reallyDirty) {

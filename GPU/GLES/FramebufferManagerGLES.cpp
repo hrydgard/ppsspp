@@ -99,164 +99,11 @@ void FramebufferManagerGLES::CompileDraw2DProgram() {
 		draw2dprogram_ = render_->CreateProgram(shaders, semantics, queries, initializers, false);
 		for (auto shader : shaders)
 			render_->DeleteShader(shader);
-		CompilePostShader();
-	}
-}
-
-void FramebufferManagerGLES::CompilePostShader() {
-	SetNumExtraFBOs(0);
-	const ShaderInfo *shaderInfo = 0;
-	if (g_Config.sPostShaderName != "Off") {
-		ReloadAllPostShaderInfo();
-		shaderInfo = GetPostShaderInfo(g_Config.sPostShaderName);
-	}
-
-	if (shaderInfo) {
-		std::string errorString;
-		postShaderAtOutputResolution_ = shaderInfo->outputResolution;
-		presentation_->UpdateShaderInfo(shaderInfo);
-
-		size_t sz;
-		char *vs = (char *)VFSReadFile(shaderInfo->vertexShaderFile.c_str(), &sz);
-		if (!vs)
-			return;
-		char *fs = (char *)VFSReadFile(shaderInfo->fragmentShaderFile.c_str(), &sz);
-		if (!fs) {
-			free(vs);
-			return;
-		}
-
-		std::string vshader;
-		std::string fshader;
-		bool translationFailed = false;
-		if (gl_extensions.IsCoreContext) {
-			// Gonna have to upconvert the shaders.
-			if (!TranslateShader(&vshader, GLSL_300, nullptr, vs, GLSL_140, Draw::ShaderStage::VERTEX, &errorString)) {
-				translationFailed = true;
-				ELOG("Failed to translate post-vshader: %s", errorString.c_str());
-			}
-			if (!TranslateShader(&fshader, GLSL_300, nullptr, fs, GLSL_140, Draw::ShaderStage::FRAGMENT, &errorString)) {
-				translationFailed = true;
-				ELOG("Failed to translate post-fshader: %s", errorString.c_str());
-			}
-		} else {
-			vshader = vs;
-			fshader = fs;
-		}
-
-		if (!translationFailed) {
-			SetNumExtraFBOs(1);
-
-			std::vector<GLRShader *> shaders;
-			shaders.push_back(render_->CreateShader(GL_VERTEX_SHADER, vshader, "postshader"));
-			shaders.push_back(render_->CreateShader(GL_FRAGMENT_SHADER, fshader, "postshader"));
-			std::vector<GLRProgram::UniformLocQuery> queries;
-			queries.push_back({ &u_postShaderTex, "tex" });
-			queries.push_back({ &deltaLoc_, "u_texelDelta" });
-			queries.push_back({ &pixelDeltaLoc_, "u_pixelDelta" });
-			queries.push_back({ &timeLoc_, "u_time" });
-			queries.push_back({ &videoLoc_, "u_video" });
-
-			std::vector<GLRProgram::Initializer> inits;
-			inits.push_back({ &u_postShaderTex, 0, 0 });
-			std::vector<GLRProgram::Semantic> semantics;
-			semantics.push_back({ 0, "a_position" });
-			semantics.push_back({ 1, "a_texcoord0" });
-			postShaderProgram_ = render_->CreateProgram(shaders, semantics, queries, inits, false);
-			postShaderModules_ = shaders;
-		} else {
-			ERROR_LOG(FRAMEBUF, "Failed to translate post shader!");
-		}
-		free(vs);
-		free(fs);
-
-		if (!postShaderProgram_) {
-			// DO NOT turn this into a report, as it will pollute our logs with all kinds of
-			// user shader experiments.
-			ERROR_LOG(FRAMEBUF, "Failed to build post-processing program from %s and %s!\n%s", shaderInfo->vertexShaderFile.c_str(), shaderInfo->fragmentShaderFile.c_str(), errorString.c_str());
-			ShowPostShaderError(errorString);
-			usePostShader_ = false;
-		} else {
-			usePostShader_ = true;
-		}
-	} else {
-		postShaderProgram_ = nullptr;
-		usePostShader_ = false;
-	}
-}
-
-void FramebufferManagerGLES::ShowPostShaderError(const std::string &errorString) {
-	// let's show the first line of the error string as an OSM.
-	std::set<std::string> blacklistedLines;
-	// These aren't useful to show, skip to the first interesting line.
-	blacklistedLines.insert("Fragment shader failed to compile with the following errors:");
-	blacklistedLines.insert("Vertex shader failed to compile with the following errors:");
-	blacklistedLines.insert("Compile failed.");
-	blacklistedLines.insert("");
-
-	std::string firstLine;
-	size_t start = 0;
-	for (size_t i = 0; i < errorString.size(); i++) {
-		if (errorString[i] == '\n' && i == start) {
-			start = i + 1;
-		} else if (errorString[i] == '\n') {
-			firstLine = errorString.substr(start, i - start);
-			if (blacklistedLines.find(firstLine) == blacklistedLines.end()) {
-				break;
-			}
-			start = i + 1;
-			firstLine.clear();
-		}
-	}
-	if (!firstLine.empty()) {
-		host->NotifyUserMessage("Post-shader error: " + firstLine + "...", 10.0f, 0xFF3090FF);
-	} else {
-		host->NotifyUserMessage("Post-shader error, see log for details", 10.0f, 0xFF3090FF);
 	}
 }
 
 void FramebufferManagerGLES::Bind2DShader() {
 	render_->BindProgram(draw2dprogram_);
-}
-
-void FramebufferManagerGLES::BindPostShader(const PostShaderUniforms &uniforms) {
-	// Make sure we've compiled the shader.
-	if (!postShaderProgram_) {
-		CompileDraw2DProgram();
-	}
-
-	bool failed = false;
-	std::string errorMessage;
-	for (size_t i = 0; i < postShaderModules_.size(); ++i) {
-		auto &shader = postShaderModules_[i];
-		if (shader->failed) {
-			failed = true;
-			errorMessage += shader->error + "\n";
-		}
-
-		if (shader->valid || shader->failed) {
-			render_->DeleteShader(shader);
-			postShaderModules_.erase(postShaderModules_.begin() + i);
-			// Check this index again.
-			i--;
-		}
-	}
-
-	if (failed) {
-		ShowPostShaderError(errorMessage);
-		// Show stuff if possible in an upcoming frame.
-		usePostShader_ = false;
-	}
-
-	render_->BindProgram(postShaderProgram_);
-	if (deltaLoc_ != -1)
-		render_->SetUniformF(&deltaLoc_, 2, uniforms.texelDelta);
-	if (pixelDeltaLoc_ != -1)
-		render_->SetUniformF(&pixelDeltaLoc_, 2, uniforms.pixelDelta);
-	if (timeLoc_ != -1)
-		render_->SetUniformF(&timeLoc_, 4, uniforms.time);
-	if (videoLoc_ != -1)
-		render_->SetUniformF(&videoLoc_, 1, &uniforms.video);
 }
 
 FramebufferManagerGLES::FramebufferManagerGLES(Draw::DrawContext *draw, GLRenderManager *render) :
@@ -267,6 +114,7 @@ FramebufferManagerGLES::FramebufferManagerGLES(Draw::DrawContext *draw, GLRender
 	needGLESRebinds_ = true;
 	CreateDeviceObjects();
 	render_ = (GLRenderManager *)draw_->GetNativeObject(Draw::NativeObject::RENDER_MANAGER);
+	presentation_->SetLanguage(gl_extensions.IsCoreContext ? GLSL_300 : GLSL_140);
 }
 
 void FramebufferManagerGLES::Init() {
@@ -309,10 +157,6 @@ void FramebufferManagerGLES::DestroyDeviceObjects() {
 	if (draw2dprogram_) {
 		render_->DeleteProgram(draw2dprogram_);
 		draw2dprogram_ = nullptr;
-	}
-	if (postShaderProgram_) {
-		render_->DeleteProgram(postShaderProgram_);
-		postShaderProgram_ = nullptr;
 	}
 	// Will usually be clear already.
 	for (auto iter : postShaderModules_) {
@@ -693,8 +537,6 @@ void FramebufferManagerGLES::DestroyAllFBOs() {
 		tempFB.second.fbo->Release();
 	}
 	tempFBOs_.clear();
-
-	SetNumExtraFBOs(0);
 }
 
 void FramebufferManagerGLES::Resized() {
@@ -706,7 +548,7 @@ void FramebufferManagerGLES::Resized() {
 	}
 
 	// Might have a new post shader - let's compile it.
-	CompilePostShader();
+	presentation_->UpdatePostShader();
 
 	// render_->SetLineWidth(renderWidth_ / 480.0f);
 }

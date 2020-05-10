@@ -31,6 +31,8 @@
 
 #include "gfx/d3d9_state.h"
 #include "GPU/Common/FramebufferCommon.h"
+#include "GPU/Common/PresentationCommon.h"
+#include "GPU/Common/ShaderTranslation.h"
 #include "GPU/Common/TextureDecoder.h"
 #include "GPU/Directx9/FramebufferDX9.h"
 #include "GPU/Directx9/ShaderManagerDX9.h"
@@ -112,6 +114,10 @@ static const D3DVERTEXELEMENT9 g_FramebufferVertexElements[] = {
 		nullTex_->LockRect(0, &rect, nullptr, D3DLOCK_DISCARD);
 		memset(rect.pBits, 0, 4);
 		nullTex_->UnlockRect(0);
+
+		ShaderTranslationInit();
+
+		presentation_->SetLanguage(HLSL_DX9);
 	}
 
 	FramebufferManagerDX9::~FramebufferManagerDX9() {
@@ -305,10 +311,6 @@ static const D3DVERTEXELEMENT9 g_FramebufferVertexElements[] = {
 		device_->SetVertexDeclaration(pFramebufferVertexDecl);
 		device_->SetPixelShader(pFramebufferPixelShader);
 		device_->SetVertexShader(pFramebufferVertexShader);
-	}
-
-	void FramebufferManagerDX9::BindPostShader(const PostShaderUniforms &uniforms) {
-		Bind2DShader();
 	}
 
 	void FramebufferManagerDX9::ReformatFramebufferFrom(VirtualFramebuffer *vfb, GEBufferFormat old) {
@@ -702,8 +704,6 @@ static const D3DVERTEXELEMENT9 g_FramebufferVertexElements[] = {
 			it.second.surface->Release();
 		}
 		offscreenSurfaces_.clear();
-
-		SetNumExtraFBOs(0);
 	}
 
 	void FramebufferManagerDX9::Resized() {
@@ -712,6 +712,7 @@ static const D3DVERTEXELEMENT9 g_FramebufferVertexElements[] = {
 		if (UpdateSize()) {
 			DestroyAllFBOs();
 		}
+		presentation_->UpdatePostShader();
 	}
 
 	bool FramebufferManagerDX9::GetFramebuffer(u32 fb_address, int fb_stride, GEBufferFormat fb_format, GPUDebugBuffer &buffer, int maxRes) {

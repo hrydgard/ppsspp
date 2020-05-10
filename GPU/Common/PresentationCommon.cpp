@@ -17,15 +17,20 @@
 
 #include <cassert>
 #include <cmath>
+#include <set>
 #include "base/display.h"
 #include "base/timeutil.h"
+#include "file/vfs.h"
+#include "file/zip_read.h"
 #include "thin3d/thin3d.h"
 #include "Core/Config.h"
 #include "Core/ConfigValues.h"
+#include "Core/Host.h"
 #include "Core/System.h"
 #include "Core/HLE/sceDisplay.h"
 #include "GPU/Common/PostShader.h"
 #include "GPU/Common/PresentationCommon.h"
+#include "GPU/Common/ShaderTranslation.h"
 
 struct Vertex {
 	float x, y, z;
@@ -133,11 +138,11 @@ void PresentationCommon::GetCardboardSettings(CardboardSettings *cardboardSettin
 	cardboardSettings->screenHeight = cardboardScreenHeight;
 }
 
-void PresentationCommon::CalculatePostShaderUniforms(int bufferWidth, int bufferHeight, int renderWidth, int renderHeight, bool hasVideo, PostShaderUniforms *uniforms) {
+void PresentationCommon::CalculatePostShaderUniforms(int bufferWidth, int bufferHeight, bool hasVideo, PostShaderUniforms *uniforms) {
 	float u_delta = 1.0f / bufferWidth;
 	float v_delta = 1.0f / bufferHeight;
-	float u_pixel_delta = 1.0f / renderWidth;
-	float v_pixel_delta = 1.0f / renderHeight;
+	float u_pixel_delta = 1.0f / renderWidth_;
+	float v_pixel_delta = 1.0f / renderHeight_;
 	if (postShaderAtOutputResolution_) {
 		float x, y, w, h;
 		CenterDisplayOutputRect(&x, &y, &w, &h, 480.0f, 272.0f, (float)pixelWidth_, (float)pixelHeight_, ROTATION_LOCKED_HORIZONTAL);
@@ -154,6 +159,106 @@ void PresentationCommon::CalculatePostShaderUniforms(int bufferWidth, int buffer
 	uniforms->pixelDelta[1] = v_pixel_delta;
 	memcpy(uniforms->time, time, 4 * sizeof(float));
 	uniforms->video = hasVideo;
+
+	// The shader translator tacks this onto our shaders, if we don't set it they render garbage.
+	uniforms->gl_HalfPixel[0] = u_pixel_delta * 0.5f;
+	uniforms->gl_HalfPixel[1] = v_pixel_delta * 0.5f;
+}
+
+static std::string ReadShaderSrc(const std::string &filename) {
+	size_t sz = 0;
+	char *data = (char *)VFSReadFile(filename.c_str(), &sz);
+	if (!data)
+		return "";
+
+	std::string src(data, sz);
+	free(data);
+	return src;
+}
+
+// Note: called on resize and settings changes.
+bool PresentationCommon::UpdatePostShader() {
+	const ShaderInfo *shaderInfo = nullptr;
+	if (g_Config.sPostShaderName != "Off") {
+		ReloadAllPostShaderInfo();
+		shaderInfo = GetPostShaderInfo(g_Config.sPostShaderName);
+	}
+
+	DestroyPostShader();
+	if (shaderInfo == nullptr)
+		return false;
+
+	std::string vsSourceGLSL = ReadShaderSrc(shaderInfo->vertexShaderFile);
+	std::string fsSourceGLSL = ReadShaderSrc(shaderInfo->fragmentShaderFile);
+	if (vsSourceGLSL.empty() || fsSourceGLSL.empty()) {
+		return false;
+	}
+
+	std::string vsError, fsError;
+	Draw::ShaderModule *vs = CompileShaderModule(Draw::ShaderStage::VERTEX, GLSL_140, vsSourceGLSL, &vsError);
+	Draw::ShaderModule *fs = CompileShaderModule(Draw::ShaderStage::FRAGMENT, GLSL_140, fsSourceGLSL, &fsError);
+
+	// Don't worry, CompileShaderModule makes sure they get freed if one succeeded.
+	if (!fs || !vs) {
+		std::string errorString = vsError + "\n" + fsError;
+		// DO NOT turn this into a report, as it will pollute our logs with all kinds of
+		// user shader experiments.
+		ERROR_LOG(FRAMEBUF, "Failed to build post-processing program from %s and %s!\n%s", shaderInfo->vertexShaderFile.c_str(), shaderInfo->fragmentShaderFile.c_str(), errorString.c_str());
+		ShowPostShaderError(errorString);
+		return false;
+	}
+
+	Draw::UniformBufferDesc postShaderDesc{ sizeof(PostShaderUniforms), {
+		{ "gl_HalfPixel", 0, -1, Draw::UniformType::FLOAT4, offsetof(PostShaderUniforms, gl_HalfPixel) },
+		{ "u_texelDelta", 1, 1, Draw::UniformType::FLOAT2, offsetof(PostShaderUniforms, texelDelta) },
+		{ "u_pixelDelta", 2, 2, Draw::UniformType::FLOAT2, offsetof(PostShaderUniforms, pixelDelta) },
+		{ "u_time", 3, 3, Draw::UniformType::FLOAT4, offsetof(PostShaderUniforms, time) },
+		{ "u_video", 4, 4, Draw::UniformType::FLOAT1, offsetof(PostShaderUniforms, video) },
+	} };
+	Draw::Pipeline *pipeline = CreatePipeline({ vs, fs }, true, &postShaderDesc);
+	if (!pipeline)
+		return false;
+
+	// No depth/stencil for post processing
+	Draw::Framebuffer *fbo = draw_->CreateFramebuffer({ (int)renderWidth_, (int)renderHeight_, 1, 1, false, Draw::FBO_8888 });
+	if (fbo)
+		postShaderFramebuffers_.push_back(fbo);
+
+	usePostShader_ = true;
+	postShaderPipelines_.push_back(pipeline);
+	postShaderAtOutputResolution_ = shaderInfo->outputResolution;
+	postShaderIsUpscalingFilter_ = shaderInfo->isUpscalingFilter;
+	return true;
+}
+
+void PresentationCommon::ShowPostShaderError(const std::string &errorString) {
+	// let's show the first line of the error string as an OSM.
+	std::set<std::string> blacklistedLines;
+	// These aren't useful to show, skip to the first interesting line.
+	blacklistedLines.insert("Fragment shader failed to compile with the following errors:");
+	blacklistedLines.insert("Vertex shader failed to compile with the following errors:");
+	blacklistedLines.insert("Compile failed.");
+	blacklistedLines.insert("");
+
+	std::string firstLine;
+	size_t start = 0;
+	for (size_t i = 0; i < errorString.size(); i++) {
+		if (errorString[i] == '\n' && i == start) {
+			start = i + 1;
+		} else if (errorString[i] == '\n') {
+			firstLine = errorString.substr(start, i - start);
+			if (blacklistedLines.find(firstLine) == blacklistedLines.end()) {
+				break;
+			}
+			start = i + 1;
+			firstLine.clear();
+		}
+	}
+	if (!firstLine.empty()) {
+		host->NotifyUserMessage("Post-shader error: " + firstLine + "...", 10.0f, 0xFF3090FF);
+	} else {
+		host->NotifyUserMessage("Post-shader error, see log for details", 10.0f, 0xFF3090FF);
+	}
 }
 
 void PresentationCommon::UpdateShaderInfo(const ShaderInfo *shaderInfo) {
@@ -169,8 +274,16 @@ void PresentationCommon::DeviceRestore(Draw::DrawContext *draw) {
 	CreateDeviceObjects();
 }
 
-void PresentationCommon::CreateDeviceObjects() {
+Draw::Pipeline *PresentationCommon::CreatePipeline(std::vector<Draw::ShaderModule *> shaders, bool postShader, const Draw::UniformBufferDesc *uniformDesc) {
 	using namespace Draw;
+
+	Semantic pos = SEM_POSITION;
+	Semantic tc = SEM_TEXCOORD0;
+	// Shader translation marks these both as "TEXCOORDs" on HLSL...
+	if (postShader && (lang_ == HLSL_D3D11 || lang_ == HLSL_D3D11_LEVEL9 || lang_ == HLSL_DX9)) {
+		pos = SEM_TEXCOORD0;
+		tc = SEM_TEXCOORD1;
+	}
 
 	// TODO: Maybe get rid of color0.
 	InputLayoutDesc inputDesc = {
@@ -178,42 +291,44 @@ void PresentationCommon::CreateDeviceObjects() {
 			{ sizeof(Vertex), false },
 		},
 		{
-			{ 0, SEM_POSITION, DataFormat::R32G32B32_FLOAT, 0 },
-			{ 0, SEM_TEXCOORD0, DataFormat::R32G32_FLOAT, 12 },
+			{ 0, pos, DataFormat::R32G32B32_FLOAT, 0 },
+			{ 0, tc, DataFormat::R32G32_FLOAT, 12 },
 			{ 0, SEM_COLOR0, DataFormat::R8G8B8A8_UNORM, 20 },
 		},
 	};
-
-	vdata_ = draw_->CreateBuffer(sizeof(Vertex) * 4, BufferUsageFlag::DYNAMIC | BufferUsageFlag::VERTEXDATA);
-	// TODO: Use 4 and a strip?  shorts?
-	idata_ = draw_->CreateBuffer(sizeof(int) * 6, BufferUsageFlag::DYNAMIC | BufferUsageFlag::INDEXDATA);
 
 	InputLayout *inputLayout = draw_->CreateInputLayout(inputDesc);
 	DepthStencilState *depth = draw_->CreateDepthStencilState({ false, false, Comparison::LESS });
 	BlendState *blendstateOff = draw_->CreateBlendState({ false, 0xF });
 	RasterState *rasterNoCull = draw_->CreateRasterState({});
 
-	samplerNearest_ = draw_->CreateSamplerState({ TextureFilter::NEAREST, TextureFilter::NEAREST, TextureFilter::NEAREST });
-	samplerLinear_ = draw_->CreateSamplerState({ TextureFilter::LINEAR, TextureFilter::LINEAR, TextureFilter::LINEAR });
-
-	PipelineDesc pipelineDesc{
-		Primitive::TRIANGLE_LIST,
-		{ draw_->GetVshaderPreset(VS_TEXTURE_COLOR_2D), draw_->GetFshaderPreset(FS_TEXTURE_COLOR_2D) },
-		inputLayout, depth, blendstateOff, rasterNoCull, &vsTexColBufDesc
-	};
-	texColor_ = draw_->CreateGraphicsPipeline(pipelineDesc);
-
-	PipelineDesc pipelineDescRBSwizzle{
-		Primitive::TRIANGLE_LIST,
-		{ draw_->GetVshaderPreset(VS_TEXTURE_COLOR_2D), draw_->GetFshaderPreset(FS_TEXTURE_COLOR_2D_RB_SWIZZLE) },
-		inputLayout, depth, blendstateOff, rasterNoCull, &vsTexColBufDesc
-	};
-	texColorRBSwizzle_ = draw_->CreateGraphicsPipeline(pipelineDescRBSwizzle);
+	PipelineDesc pipelineDesc{ Primitive::TRIANGLE_LIST, shaders, inputLayout, depth, blendstateOff, rasterNoCull, uniformDesc };
+	Pipeline *pipeline = draw_->CreateGraphicsPipeline(pipelineDesc);
 
 	inputLayout->Release();
 	depth->Release();
 	blendstateOff->Release();
 	rasterNoCull->Release();
+
+	return pipeline;
+}
+
+void PresentationCommon::CreateDeviceObjects() {
+	using namespace Draw;
+
+	vdata_ = draw_->CreateBuffer(sizeof(Vertex) * 4, BufferUsageFlag::DYNAMIC | BufferUsageFlag::VERTEXDATA);
+	// TODO: Use 4 and a strip?  shorts?
+	idata_ = draw_->CreateBuffer(sizeof(int) * 6, BufferUsageFlag::DYNAMIC | BufferUsageFlag::INDEXDATA);
+
+	samplerNearest_ = draw_->CreateSamplerState({ TextureFilter::NEAREST, TextureFilter::NEAREST, TextureFilter::NEAREST });
+	samplerLinear_ = draw_->CreateSamplerState({ TextureFilter::LINEAR, TextureFilter::LINEAR, TextureFilter::LINEAR });
+
+	texColor_ = CreatePipeline({ draw_->GetVshaderPreset(VS_TEXTURE_COLOR_2D), draw_->GetFshaderPreset(FS_TEXTURE_COLOR_2D) }, false, &vsTexColBufDesc);
+	texColorRBSwizzle_ = CreatePipeline({ draw_->GetVshaderPreset(VS_TEXTURE_COLOR_2D), draw_->GetFshaderPreset(FS_TEXTURE_COLOR_2D_RB_SWIZZLE) }, false, &vsTexColBufDesc);
+
+	if (restorePostShader_)
+		UpdatePostShader();
+	restorePostShader_ = false;
 }
 
 template <typename T>
@@ -221,6 +336,13 @@ static void DoRelease(T *&obj) {
 	if (obj)
 		obj->Release();
 	obj = nullptr;
+}
+
+template <typename T>
+static void DoReleaseVector(std::vector<T *> &list) {
+	for (auto &obj : list)
+		obj->Release();
+	list.clear();
 }
 
 void PresentationCommon::DestroyDeviceObjects() {
@@ -232,6 +354,57 @@ void PresentationCommon::DestroyDeviceObjects() {
 	DoRelease(idata_);
 	DoRelease(srcTexture_);
 	DoRelease(srcFramebuffer_);
+
+	DestroyPostShader();
+}
+
+void PresentationCommon::DestroyPostShader() {
+	restorePostShader_ = usePostShader_;
+	usePostShader_ = false;
+
+	DoReleaseVector(postShaderModules_);
+	DoReleaseVector(postShaderPipelines_);
+	DoReleaseVector(postShaderFramebuffers_);
+}
+
+Draw::ShaderModule *PresentationCommon::CompileShaderModule(Draw::ShaderStage stage, ShaderLanguage lang, const std::string &src, std::string *errorString) {
+	std::string translated = src;
+	bool translationFailed = false;
+	if (lang != lang_) {
+		// Gonna have to upconvert the shader.
+		if (!TranslateShader(&translated, lang_, nullptr, src, lang, stage, errorString)) {
+			ERROR_LOG(FRAMEBUF, "Failed to translate post-shader: %s", errorString->c_str());
+			return nullptr;
+		}
+	}
+
+	Draw::ShaderLanguage mappedLang;
+	// These aren't exact, unfortunately, but we just need the type Draw will accept.
+	switch (lang_) {
+	case GLSL_140:
+		mappedLang = Draw::ShaderLanguage::GLSL_ES_200;
+		break;
+	case GLSL_300:
+		mappedLang = Draw::ShaderLanguage::GLSL_410;
+		break;
+	case GLSL_VULKAN:
+		mappedLang = Draw::ShaderLanguage::GLSL_VULKAN;
+		break;
+	case HLSL_DX9:
+		mappedLang = Draw::ShaderLanguage::HLSL_D3D9;
+		break;
+	case HLSL_D3D11:
+	case HLSL_D3D11_LEVEL9:
+		mappedLang = Draw::ShaderLanguage::HLSL_D3D11;
+		break;
+	default:
+		mappedLang = Draw::ShaderLanguage::GLSL_ES_200;
+		break;
+	}
+	Draw::ShaderModule *shader = draw_->CreateShaderModule(stage, mappedLang, (const uint8_t *)translated.c_str(), translated.size(), "postshader");
+	if (shader)
+		postShaderModules_.push_back(shader);
+	return shader;
 }
 
 void PresentationCommon::SourceTexture(Draw::Texture *texture) {
@@ -250,17 +423,70 @@ void PresentationCommon::SourceFramebuffer(Draw::Framebuffer *fb) {
 	srcFramebuffer_ = fb;
 }
 
-void PresentationCommon::CopyToOutput(OutputFlags flags, int uvRotation, float u0, float v0, float u1, float v1) {
+void PresentationCommon::BindSource() {
+	if (srcTexture_) {
+		draw_->BindTexture(0, srcTexture_);
+	} else if (srcFramebuffer_) {
+		draw_->BindFramebufferAsTexture(srcFramebuffer_, 0, Draw::FB_COLOR_BIT, 0);
+	} else {
+		assert(false);
+	}
+}
+
+void PresentationCommon::CopyToOutput(OutputFlags flags, int uvRotation, float u0, float v0, float u1, float v1, const PostShaderUniforms &uniforms) {
+	// Make sure Direct3D 11 clears state, since we set shaders outside Draw.
+	draw_->BindPipeline(nullptr);
+
+	// TODO: If shader objects have been created by now, we might have received errors.
+	// GLES can have the shader fail later, shader->failed / shader->error.
+	// This should auto-disable usePostShader_ and call ShowPostShaderError().
+
+	bool useNearest = flags & OutputFlags::NEAREST;
+	bool usePostShader = usePostShader_ && !(flags & OutputFlags::RB_SWIZZLE);
+
+	if (usePostShader && postShaderFramebuffers_.size() == 1 && !postShaderAtOutputResolution_) {
+		draw_->BindFramebufferAsRenderTarget(postShaderFramebuffers_[0], { Draw::RPAction::DONT_CARE, Draw::RPAction::DONT_CARE, Draw::RPAction::DONT_CARE });
+		BindSource();
+
+		int fbo_w, fbo_h;
+		draw_->GetFramebufferDimensions(postShaderFramebuffers_[0], &fbo_w, &fbo_h);
+		Draw::Viewport viewport{ 0, 0, (float)fbo_w, (float)fbo_h, 0.0f, 1.0f };
+		draw_->SetViewports(1, &viewport);
+		draw_->SetScissorRect(0, 0, fbo_w, fbo_h);
+
+		draw_->BindPipeline(postShaderPipelines_.front());
+		draw_->UpdateDynamicUniformBuffer(&uniforms, sizeof(uniforms));
+
+		Draw::SamplerState *sampler = useNearest ? samplerNearest_ : samplerLinear_;
+		draw_->BindSamplerStates(0, 1, &sampler);
+
+		Vertex verts[4] = {
+			{ -1, -1, 0, 0, 1, 0xFFFFFFFF }, // TL
+			{ -1, 1, 0, 0, 0, 0xFFFFFFFF }, // BL
+			{ 1, 1, 0, 1, 0, 0xFFFFFFFF }, // BR
+			{ 1, -1, 0, 1, 1, 0xFFFFFFFF }, // TR
+		};
+
+		draw_->UpdateBuffer(vdata_, (const uint8_t *)verts, 0, sizeof(verts), Draw::UPDATE_DISCARD);
+
+		int indexes[] = { 0, 1, 2, 0, 2, 3 };
+		draw_->UpdateBuffer(idata_, (const uint8_t *)indexes, 0, sizeof(indexes), Draw::UPDATE_DISCARD);
+
+		draw_->BindVertexBuffers(0, 1, &vdata_, nullptr);
+		draw_->BindIndexBuffer(idata_, 0);
+		draw_->DrawIndexed(6, 0);
+		draw_->BindIndexBuffer(nullptr, 0);
+	}
+
+	if (postShaderIsUpscalingFilter_)
+		useNearest = true;
+
 	CardboardSettings cardboardSettings;
 	GetCardboardSettings(&cardboardSettings);
 
 	Draw::Pipeline *pipeline = flags & OutputFlags::RB_SWIZZLE ? texColorRBSwizzle_ : texColor_;
-
-	Draw::SamplerState *sampler;
-	if (flags & OutputFlags::NEAREST) {
-		sampler = samplerNearest_;
-	} else {
-		sampler = samplerLinear_;
+	if (usePostShader && postShaderAtOutputResolution_) {
+		pipeline = postShaderPipelines_.front();
 	}
 
 	// These are the output coordinates.
@@ -269,7 +495,7 @@ void PresentationCommon::CopyToOutput(OutputFlags flags, int uvRotation, float u
 
 	if (GetGPUBackend() == GPUBackend::DIRECT3D9) {
 		x -= 0.5f;
-		// TODO: This is plus because of some flipping going on, I think?  Investigate...
+		// This is plus because the top is larger y.
 		y += 0.5f;
 	}
 
@@ -280,7 +506,7 @@ void PresentationCommon::CopyToOutput(OutputFlags flags, int uvRotation, float u
 	Vertex verts[4] = {
 		{ x, y, 0, u0, v0, 0xFFFFFFFF }, // TL
 		{ x, y + h, 0, u0, v1, 0xFFFFFFFF }, // BL
-		{ x + w, y + h, 0,  u1, v1, 0xFFFFFFFF }, // BR
+		{ x + w, y + h, 0, u1, v1, 0xFFFFFFFF }, // BR
 		{ x + w, y, 0, u1, v0, 0xFFFFFFFF }, // TR
 	};
 
@@ -327,23 +553,25 @@ void PresentationCommon::CopyToOutput(OutputFlags flags, int uvRotation, float u
 	draw_->BindFramebufferAsRenderTarget(nullptr, { Draw::RPAction::CLEAR, Draw::RPAction::DONT_CARE, Draw::RPAction::DONT_CARE });
 	draw_->SetScissorRect(0, 0, pixelWidth_, pixelHeight_);
 
-	if (srcTexture_) {
-		draw_->BindTexture(0, srcTexture_);
-	} else if (srcFramebuffer_) {
-		draw_->BindFramebufferAsTexture(srcFramebuffer_, 0, Draw::FB_COLOR_BIT, 0);
+	if (usePostShader && !postShaderFramebuffers_.empty() && !postShaderAtOutputResolution_) {
+		draw_->BindFramebufferAsTexture(postShaderFramebuffers_.back(), 0, Draw::FB_COLOR_BIT, 0);
 	} else {
-		assert(false);
+		BindSource();
 	}
-	draw_->BindSamplerStates(0, 1, &sampler);
 
-	Draw::VsTexColUB ub{};
-	memcpy(ub.WorldViewProj, g_display_rot_matrix.m, sizeof(float) * 16);
-	// Make sure Direct3D 11 clears state, since we set shaders outside Draw.
-	draw_->BindPipeline(nullptr);
 	draw_->BindPipeline(pipeline);
-	draw_->UpdateDynamicUniformBuffer(&ub, sizeof(ub));
+	if (usePostShader && postShaderAtOutputResolution_) {
+		draw_->UpdateDynamicUniformBuffer(&uniforms, sizeof(uniforms));
+	} else {
+		Draw::VsTexColUB ub{};
+		memcpy(ub.WorldViewProj, g_display_rot_matrix.m, sizeof(float) * 16);
+		draw_->UpdateDynamicUniformBuffer(&ub, sizeof(ub));
+	}
 	draw_->BindVertexBuffers(0, 1, &vdata_, nullptr);
 	draw_->BindIndexBuffer(idata_, 0);
+
+	Draw::SamplerState *sampler = useNearest ? samplerNearest_ : samplerLinear_;
+	draw_->BindSamplerStates(0, 1, &sampler);
 
 	auto setViewport = [&](float x, float y, float w, float h) {
 		Draw::Viewport viewport{ x, y, w, h, 0.0f, 1.0f };

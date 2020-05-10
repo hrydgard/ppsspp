@@ -313,10 +313,8 @@ protected:
 	virtual void MakePixelTexture(const u8 *srcPixels, GEBufferFormat srcPixelFormat, int srcStride, int width, int height, float &u1, float &v1) = 0;
 	virtual void DrawActiveTexture(float x, float y, float w, float h, float destW, float destH, float u0, float v0, float u1, float v1, int uvRotation, int flags) = 0;
 	virtual void Bind2DShader() = 0;
-	virtual void BindPostShader(const PostShaderUniforms &uniforms) = 0;
 
 	bool UpdateSize();
-	void SetNumExtraFBOs(int num);
 
 	void FlushBeforeCopy();
 	virtual void DecimateFBOs();  // keeping it virtual to let D3D do a little extra
@@ -385,8 +383,6 @@ protected:
 	u32 framebufRangeEnd_ = 0;
 
 	bool useBufferedRendering_ = false;
-	bool usePostShader_ = false;
-	bool postShaderAtOutputResolution_ = false;
 	bool postShaderIsUpscalingFilter_ = false;
 	int postShaderSSAAFilterLevel_ = 0;
 
@@ -401,9 +397,6 @@ protected:
 	int pixelWidth_;
 	int pixelHeight_;
 	int bloomHack_ = 0;
-
-	// Used by post-processing shaders
-	std::vector<Draw::Framebuffer *> extraFBOs_;
 
 	bool needGLESRebinds_ = false;
 

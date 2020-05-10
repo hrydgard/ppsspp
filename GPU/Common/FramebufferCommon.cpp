@@ -68,13 +68,12 @@ FramebufferManagerCommon::~FramebufferManagerCommon() {
 	}
 	bvfbs_.clear();
 
-	SetNumExtraFBOs(0);
-
 	delete presentation_;
 }
 
 void FramebufferManagerCommon::Init() {
 	BeginFrame();
+	presentation_->UpdatePostShader();
 }
 
 bool FramebufferManagerCommon::UpdateSize() {
@@ -88,7 +87,7 @@ bool FramebufferManagerCommon::UpdateSize() {
 	bloomHack_ = g_Config.iBloomHack;
 	useBufferedRendering_ = g_Config.iRenderingMode != FB_NON_BUFFERED_MODE;
 
-	presentation_->UpdateSize(pixelWidth_, pixelHeight_);
+	presentation_->UpdateSize(pixelWidth_, pixelHeight_, renderWidth_, renderHeight_);
 
 	return newRender || newSettings;
 }
@@ -126,19 +125,6 @@ u32 FramebufferManagerCommon::ColorBufferByteSize(const VirtualFramebuffer *vfb)
 
 bool FramebufferManagerCommon::ShouldDownloadFramebuffer(const VirtualFramebuffer *vfb) const {
 	return PSP_CoreParameter().compat.flags().Force04154000Download && vfb->fb_address == 0x04154000;
-}
-
-void FramebufferManagerCommon::SetNumExtraFBOs(int num) {
-	for (size_t i = 0; i < extraFBOs_.size(); i++) {
-		extraFBOs_[i]->ReleaseAssertLast();
-	}
-	extraFBOs_.clear();
-	for (int i = 0; i < num; i++) {
-		// No depth/stencil for post processing
-		Draw::Framebuffer *fbo = draw_->CreateFramebuffer({ (int)renderWidth_, (int)renderHeight_, 1, 1, false, Draw::FBO_8888 });
-		extraFBOs_.push_back(fbo);
-	}
-	currentRenderVfb_ = 0;
 }
 
 // Heuristics to figure out the size of FBO to create.
@@ -719,48 +705,40 @@ void FramebufferManagerCommon::DrawFramebufferToOutput(const u8 *srcPixels, GEBu
 	float v0 = 0.0f, v1 = 1.0f;
 	MakePixelTexture(srcPixels, srcPixelFormat, srcStride, 512, 272, u1, v1);
 
-	struct CardboardSettings cardboardSettings;
-	presentation_->GetCardboardSettings(&cardboardSettings);
-
-	// This might draw directly at the backbuffer (if so, applyPostShader is set) so if there's a post shader, we need to apply it here.
-	// Should try to unify this path with the regular path somehow, but this simple solution works for most of the post shaders 
-	// (it always runs at output resolution so FXAA may look odd).
-	float x, y, w, h;
 	int uvRotation = useBufferedRendering_ ? g_Config.iInternalScreenRotation : ROTATION_LOCKED_HORIZONTAL;
-	CenterDisplayOutputRect(&x, &y, &w, &h, 480.0f, 272.0f, (float)pixelWidth_, (float)pixelHeight_, uvRotation);
-	if (applyPostShader && useBufferedRendering_) {
-		// Might've changed if the shader was just changed to Off.
-		if (usePostShader_) {
-			PostShaderUniforms uniforms{};
-			presentation_->CalculatePostShaderUniforms(512, 272, renderWidth_, renderHeight_, textureCache_->VideoIsPlaying(), &uniforms);
-			BindPostShader(uniforms);
-		} else {
-			Bind2DShader();
-		}
-	} else {
+	// TODO: Currently we can't access the texture from Draw.
+	//if (!applyPostShader) {
+		// TODO: Does this need to bind the backbuffer?  What is this doing?
+		float x, y, w, h;
+		CenterDisplayOutputRect(&x, &y, &w, &h, 480.0f, 272.0f, (float)pixelWidth_, (float)pixelHeight_, uvRotation);
+
 		Bind2DShader();
-	}
 
-	// We are drawing directly to the back buffer.
-	if (needBackBufferYSwap_)
-		std::swap(v0, v1);
-
-	DrawTextureFlags flags = g_Config.iBufFilter == SCALE_LINEAR ? DRAWTEX_LINEAR : DRAWTEX_NEAREST;
-	flags = flags | DRAWTEX_TO_BACKBUFFER;
-	if (cardboardSettings.enabled) {
-		// Left Eye Image
-		SetViewport2D(cardboardSettings.leftEyeXPosition, cardboardSettings.screenYPosition, cardboardSettings.screenWidth, cardboardSettings.screenHeight);
-		DrawActiveTexture(x, y, w, h, (float)pixelWidth_, (float)pixelHeight_, u0, v0, u1, v1, ROTATION_LOCKED_HORIZONTAL, flags | DRAWTEX_KEEP_TEX);
-		// Right Eye Image
-		SetViewport2D(cardboardSettings.rightEyeXPosition, cardboardSettings.screenYPosition, cardboardSettings.screenWidth, cardboardSettings.screenHeight);
-		DrawActiveTexture(x, y, w, h, (float)pixelWidth_, (float)pixelHeight_, u0, v0, u1, v1, ROTATION_LOCKED_HORIZONTAL, flags);
-	} else {
-		// Fullscreen Image
+		DrawTextureFlags flags = g_Config.iBufFilter == SCALE_LINEAR ? DRAWTEX_LINEAR : DRAWTEX_NEAREST;
+		flags = flags | DRAWTEX_TO_BACKBUFFER;
 		SetViewport2D(0, 0, pixelWidth_, pixelHeight_);
 		DrawActiveTexture(x, y, w, h, (float)pixelWidth_, (float)pixelHeight_, u0, v0, u1, v1, uvRotation, flags);
-	}
+	/*} else {
+		OutputFlags flags = g_Config.iBufFilter == SCALE_LINEAR ? OutputFlags::LINEAR : OutputFlags::NEAREST;
+		if (needBackBufferYSwap_) {
+			flags |= OutputFlags::BACKBUFFER_FLIPPED;
+		}
 
-	gstate_c.Dirty(DIRTY_BLEND_STATE | DIRTY_DEPTHSTENCIL_STATE | DIRTY_RASTER_STATE);
+		PostShaderUniforms uniforms{};
+		presentation_->CalculatePostShaderUniforms(512, 272, textureCache_->VideoIsPlaying(), &uniforms);
+
+		// TODO: DrawActiveTexture reverses these, but I'm not sure why?  Investigate.
+		if (GetGPUBackend() == GPUBackend::DIRECT3D9 || GetGPUBackend() == GPUBackend::DIRECT3D11) {
+			std::swap(v0, v1);
+		}
+
+		// TODO
+		presentation_->SourceTexture();
+		presentation_->CopyToOutput(flags, uvRotation, u0, v0, u1, v1, uniforms);
+	}*/
+
+	// PresentationCommon sets all kinds of state, we can't rely on anything.
+	gstate_c.Dirty(DIRTY_ALL);
 }
 
 void FramebufferManagerCommon::DownloadFramebufferOnSwitch(VirtualFramebuffer *vfb) {
@@ -793,7 +771,6 @@ void FramebufferManagerCommon::CopyDisplayToOutput(bool reallyDirty) {
 		DEBUG_LOG(FRAMEBUF, "Display disabled, displaying only black");
 		// No framebuffer to display! Clear to black.
 		if (useBufferedRendering_) {
-			shaderManager_->DirtyLastShader();
 			draw_->BindFramebufferAsRenderTarget(nullptr, { Draw::RPAction::CLEAR, Draw::RPAction::CLEAR, Draw::RPAction::CLEAR });
 		}
 		gstate_c.Dirty(DIRTY_BLEND_STATE);
@@ -856,7 +833,6 @@ void FramebufferManagerCommon::CopyDisplayToOutput(bool reallyDirty) {
 		if (Memory::IsValidAddress(fbaddr)) {
 			// The game is displaying something directly from RAM. In GTA, it's decoded video.
 			if (!vfb) {
-				shaderManager_->DirtyLastShader();
 				if (useBufferedRendering_) {
 					// Bind and clear the backbuffer. This should be the first time during the frame that it's bound.
 					draw_->BindFramebufferAsRenderTarget(nullptr, { Draw::RPAction::CLEAR, Draw::RPAction::CLEAR, Draw::RPAction::CLEAR });
@@ -872,7 +848,6 @@ void FramebufferManagerCommon::CopyDisplayToOutput(bool reallyDirty) {
 			DEBUG_LOG(FRAMEBUF, "Found no FBO to display! displayFBPtr = %08x", fbaddr);
 			// No framebuffer to display! Clear to black.
 			if (useBufferedRendering_) {
-				shaderManager_->DirtyLastShader();
 				// Bind and clear the backbuffer. This should be the first time during the frame that it's bound.
 				draw_->BindFramebufferAsRenderTarget(nullptr, { Draw::RPAction::CLEAR, Draw::RPAction::CLEAR, Draw::RPAction::CLEAR });
 			}
@@ -913,88 +888,33 @@ void FramebufferManagerCommon::CopyDisplayToOutput(bool reallyDirty) {
 		float u1 = (480.0f + offsetX) / (float)vfb->bufferWidth;
 		float v1 = (272.0f + offsetY) / (float)vfb->bufferHeight;
 
+		textureCache_->ForgetLastTexture();
+
 		OutputFlags flags = g_Config.iBufFilter == SCALE_LINEAR ? OutputFlags::LINEAR : OutputFlags::NEAREST;
 		if (needBackBufferYSwap_) {
 			flags |= OutputFlags::BACKBUFFER_FLIPPED;
 		}
 
-		if (!usePostShader_) {
-			shaderManager_->DirtyLastShader();
+		PostShaderUniforms uniforms{};
+		int actualWidth = (vfb->bufferWidth * vfb->renderWidth) / vfb->width;
+		int actualHeight = (vfb->bufferHeight * vfb->renderHeight) / vfb->height;
+		presentation_->CalculatePostShaderUniforms(actualWidth, actualHeight, textureCache_->VideoIsPlaying(), &uniforms);
 
-			// TODO: DrawActiveTexture reverses these, but I'm not sure why?  Investigate.
-			if (GetGPUBackend() == GPUBackend::DIRECT3D9 || GetGPUBackend() == GPUBackend::DIRECT3D11) {
-				std::swap(v0, v1);
-			}
-
-			presentation_->SourceFramebuffer(vfb->fbo);
-			presentation_->CopyToOutput(flags, uvRotation, u0, v0, u1, v1);
-		} else if (usePostShader_ && extraFBOs_.size() == 1 && !postShaderAtOutputResolution_) {
-			// An additional pass, post-processing shader to the extra FBO.
-			shaderManager_->DirtyLastShader();  // dirty lastShader_
-			draw_->BindFramebufferAsRenderTarget(extraFBOs_[0], { Draw::RPAction::DONT_CARE, Draw::RPAction::DONT_CARE, Draw::RPAction::DONT_CARE });
-			draw_->BindFramebufferAsTexture(vfb->fbo, 0, Draw::FB_COLOR_BIT, 0);
-			int fbo_w, fbo_h;
-			draw_->GetFramebufferDimensions(extraFBOs_[0], &fbo_w, &fbo_h);
-			SetViewport2D(0, 0, fbo_w, fbo_h);
-			draw_->SetScissorRect(0, 0, fbo_w, fbo_h);
-			PostShaderUniforms uniforms{};
-			int actualWidth = (vfb->bufferWidth * vfb->renderWidth) / vfb->width;
-			int actualHeight = (vfb->bufferHeight * vfb->renderHeight) / vfb->height;
-			presentation_->CalculatePostShaderUniforms(actualWidth, actualHeight, renderWidth_, renderHeight_, textureCache_->VideoIsPlaying(), &uniforms);
-			BindPostShader(uniforms);
-			DrawTextureFlags drawFlags = g_Config.iBufFilter == SCALE_LINEAR ? DRAWTEX_LINEAR : DRAWTEX_NEAREST;
-			DrawActiveTexture(0, 0, fbo_w, fbo_h, fbo_w, fbo_h, 0.0f, 0.0f, 1.0f, 1.0f, ROTATION_LOCKED_HORIZONTAL, drawFlags);
-
-			// Use the extra FBO, with applied post-processing shader, as a texture.
-			// fbo_bind_as_texture(extraFBOs_[0], FB_COLOR_BIT, 0);
-			if (extraFBOs_.size() == 0) {
-				ERROR_LOG(FRAMEBUF, "Unexpected: No extra FBOs?");
-				return;
-			}
-
-			if (postShaderIsUpscalingFilter_) {
-				flags |= OutputFlags::NEAREST;
-			}
-
-			presentation_->SourceFramebuffer(extraFBOs_[0]);
-			presentation_->CopyToOutput(flags, uvRotation, u0, v0, u1, v1);
-		} else {
-			shaderManager_->DirtyLastShader();  // dirty lastShader_ BEFORE drawing
-			draw_->BindFramebufferAsRenderTarget(nullptr, { Draw::RPAction::CLEAR, Draw::RPAction::CLEAR, Draw::RPAction::CLEAR });
-			draw_->BindFramebufferAsTexture(vfb->fbo, 0, Draw::FB_COLOR_BIT, 0);
-			draw_->SetScissorRect(0, 0, pixelWidth_, pixelHeight_);
-			// We are doing the DrawActiveTexture call directly to the backbuffer here. Hence, we must
-			// flip V.
-			if (needBackBufferYSwap_)
-				std::swap(v0, v1);
-			DrawTextureFlags flags2 = (!postShaderIsUpscalingFilter_ && g_Config.iBufFilter == SCALE_LINEAR) ? DRAWTEX_LINEAR : DRAWTEX_NEAREST;
-			flags2 = flags2 | DRAWTEX_TO_BACKBUFFER;
-
-			PostShaderUniforms uniforms{};
-			int actualWidth = (vfb->bufferWidth * vfb->renderWidth) / vfb->width;
-			int actualHeight = (vfb->bufferHeight * vfb->renderHeight) / vfb->height;
-			presentation_->CalculatePostShaderUniforms(actualWidth, actualHeight, vfb->renderWidth, vfb->renderHeight, textureCache_->VideoIsPlaying(), &uniforms);
-			BindPostShader(uniforms);
-			if (g_Config.bEnableCardboardVR) {
-				// Left Eye Image
-				SetViewport2D(cardboardSettings.leftEyeXPosition, cardboardSettings.screenYPosition, cardboardSettings.screenWidth, cardboardSettings.screenHeight);
-				DrawActiveTexture(x, y, w, h, (float)pixelWidth_, (float)pixelHeight_, u0, v0, u1, v1, ROTATION_LOCKED_HORIZONTAL, flags2 | DRAWTEX_KEEP_TEX);
-
-				// Right Eye Image
-				SetViewport2D(cardboardSettings.rightEyeXPosition, cardboardSettings.screenYPosition, cardboardSettings.screenWidth, cardboardSettings.screenHeight);
-				DrawActiveTexture(x, y, w, h, (float)pixelWidth_, (float)pixelHeight_, u0, v0, u1, v1, ROTATION_LOCKED_HORIZONTAL, flags2);
-			} else {
-				// Fullscreen Image
-				SetViewport2D(0, 0, pixelWidth_, pixelHeight_);
-				DrawActiveTexture(x, y, w, h, (float)pixelWidth_, (float)pixelHeight_, u0, v0, u1, v1, uvRotation, flags2);
-			}
+		// DrawActiveTexture reverses these, probably to match "up".
+		// TODO: Maybe use a flag instead.
+		if (GetGPUBackend() == GPUBackend::DIRECT3D9 || GetGPUBackend() == GPUBackend::DIRECT3D11) {
+			std::swap(v0, v1);
 		}
+
+		presentation_->SourceFramebuffer(vfb->fbo);
+		presentation_->CopyToOutput(flags, uvRotation, u0, v0, u1, v1, uniforms);
 	} else if (useBufferedRendering_) {
 		WARN_LOG(FRAMEBUF, "Current VFB lacks an FBO: %08x", vfb->fb_address);
 	}
 
 	// This may get called mid-draw if the game uses an immediate flip.
-	gstate_c.Dirty(DIRTY_VIEWPORTSCISSOR_STATE | DIRTY_BLEND_STATE);
+	// PresentationCommon sets all kinds of state, we can't rely on anything.
+	gstate_c.Dirty(DIRTY_ALL);
 }
 
 void FramebufferManagerCommon::DecimateFBOs() {

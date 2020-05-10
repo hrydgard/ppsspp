@@ -70,9 +70,7 @@ public:
 	void NotifyClear(bool clearColor, bool clearAlpha, bool clearDepth, uint32_t color, float depth);
 
 protected:
-	void CompilePostShader();
 	void Bind2DShader() override;
-	void BindPostShader(const PostShaderUniforms &uniforms) override;
 
 	// Used by ReadFramebufferToMemory and later framebuffer block copies
 	void BlitFramebuffer(VirtualFramebuffer *dst, int dstX, int dstY, VirtualFramebuffer *src, int srcX, int srcY, int w, int h, int bpp) override;
@@ -120,12 +118,6 @@ private:
 
 
 	VkPipeline cur2DPipeline_ = VK_NULL_HANDLE;
-
-	// Postprocessing
-	VkShaderModule postVs_ = VK_NULL_HANDLE;
-	VkShaderModule postFs_ = VK_NULL_HANDLE;
-	VkPipeline pipelinePostShader_ = VK_NULL_HANDLE;
-	PostShaderUniforms postShaderUniforms_;
 
 	VkSampler linearSampler_;
 	VkSampler nearestSampler_;
