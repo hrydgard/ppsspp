@@ -817,7 +817,8 @@ ShaderModule *D3D11DrawContext::CreateShaderModule(ShaderStage stage, ShaderLang
 
 	ID3DBlob *compiledCode = nullptr;
 	ID3DBlob *errorMsgs = nullptr;
-	HRESULT result = ptr_D3DCompile(data, dataSize, nullptr, nullptr, nullptr, "main", target, 0, 0, &compiledCode, &errorMsgs);
+	int flags = D3DCOMPILE_ENABLE_BACKWARDS_COMPATIBILITY;
+	HRESULT result = ptr_D3DCompile(data, dataSize, nullptr, nullptr, nullptr, "main", target, flags, 0, &compiledCode, &errorMsgs);
 	if (compiledCode) {
 		compiled = std::string((const char *)compiledCode->GetBufferPointer(), compiledCode->GetBufferSize());
 		compiledCode->Release();
