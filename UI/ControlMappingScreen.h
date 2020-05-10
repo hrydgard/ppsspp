@@ -132,6 +132,9 @@ protected:
 	};
 	TrackedTouch touches_[MAX_TOUCH_POINTS]{};
 
-	virtual void CreateViews() override;
+	void CreateViews() override;
+
 	UI::EventReturn OnImmersiveModeChange(UI::EventParams &e);
+	UI::EventReturn OnRenderingBackend(UI::EventParams &e);
+	UI::EventReturn OnRecreateActivity(UI::EventParams &e);
 };

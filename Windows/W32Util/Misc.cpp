@@ -153,13 +153,20 @@ namespace W32Util
 		moduleFilename.resize(sz);
 	}
 
-	void ExitAndRestart() {
+	void ExitAndRestart(bool overrideArgs, const std::string &args) {
 		// This preserves arguments (for example, config file) and working directory.
 		std::wstring workingDirectory;
 		std::wstring moduleFilename;
 		GetSelfExecuteParams(workingDirectory, moduleFilename);
 
-		const wchar_t *cmdline = RemoveExecutableFromCommandLine(GetCommandLineW());
+		const wchar_t *cmdline;
+		std::wstring wargs;
+		if (overrideArgs) {
+			wargs = ConvertUTF8ToWString(args);
+			cmdline = wargs.c_str();
+		} else {
+			cmdline = RemoveExecutableFromCommandLine(GetCommandLineW());
+		}
 		ShellExecute(nullptr, nullptr, moduleFilename.c_str(), cmdline, workingDirectory.c_str(), SW_SHOW);
 
 		ExitProcess(0);
