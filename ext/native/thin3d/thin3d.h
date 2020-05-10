@@ -402,6 +402,9 @@ struct InputLayoutDesc {
 class InputLayout : public RefCountedObject { };
 
 enum class UniformType : int8_t {
+	FLOAT1,
+	FLOAT2,
+	FLOAT3,
 	FLOAT4,
 	MATRIX4X4,
 };

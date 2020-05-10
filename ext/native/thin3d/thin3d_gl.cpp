@@ -1030,6 +1030,9 @@ bool OpenGLPipeline::LinkShaders() {
 	semantics.push_back({ SEM_NORMAL, "Normal" });
 	semantics.push_back({ SEM_TANGENT, "Tangent" });
 	semantics.push_back({ SEM_BINORMAL, "Binormal" });
+	// For postshaders.
+	semantics.push_back({ SEM_POSITION, "a_position" });
+	semantics.push_back({ SEM_TEXCOORD0, "a_texcoord0" });
 	std::vector<GLRProgram::UniformLocQuery> queries;
 	std::vector<GLRProgram::Initializer> initialize;
 	program_ = render_->CreateProgram(linkShaders, semantics, queries, initialize, false);
@@ -1054,8 +1057,11 @@ void OpenGLContext::UpdateDynamicUniformBuffer(const void *ub, size_t size) {
 	for (auto &uniform : curPipeline_->dynamicUniforms.uniforms) {
 		const float *data = (const float *)((uint8_t *)ub + uniform.offset);
 		switch (uniform.type) {
+		case UniformType::FLOAT1:
+		case UniformType::FLOAT2:
+		case UniformType::FLOAT3:
 		case UniformType::FLOAT4:
-			renderManager_.SetUniformF(uniform.name, 4, data);
+			renderManager_.SetUniformF(uniform.name, 1 + (int)uniform.type - (int)UniformType::FLOAT1, data);
 			break;
 		case UniformType::MATRIX4X4:
 			renderManager_.SetUniformM4x4(uniform.name, data);

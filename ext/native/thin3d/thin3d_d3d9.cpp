@@ -873,6 +873,9 @@ void D3D9Context::UpdateDynamicUniformBuffer(const void *ub, size_t size) {
 	for (auto &uniform : curPipeline_->dynamicUniforms.uniforms) {
 		int count = 0;
 		switch (uniform.type) {
+		case UniformType::FLOAT1:
+		case UniformType::FLOAT2:
+		case UniformType::FLOAT3:
 		case UniformType::FLOAT4:
 			count = 1;
 			break;
@@ -883,8 +886,11 @@ void D3D9Context::UpdateDynamicUniformBuffer(const void *ub, size_t size) {
 		const float *srcPtr = (const float *)((const uint8_t *)ub + uniform.offset);
 		if (uniform.vertexReg != -1) {
 			float transp[16];
-			Transpose4x4(transp, srcPtr);
-			device_->SetVertexShaderConstantF(uniform.vertexReg, transp, count);
+			if (count == 4) {
+				Transpose4x4(transp, srcPtr);
+				srcPtr = transp;
+			}
+			device_->SetVertexShaderConstantF(uniform.vertexReg, srcPtr, count);
 		}
 		if (uniform.fragmentReg != -1) {
 			device_->SetPixelShaderConstantF(uniform.fragmentReg, srcPtr, count);
