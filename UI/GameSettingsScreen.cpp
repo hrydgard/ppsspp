@@ -161,6 +161,7 @@ void GameSettingsScreen::CreateViews() {
 	auto ms = GetI18NCategory("MainSettings");
 	auto dev = GetI18NCategory("Developer");
 	auto ri = GetI18NCategory("RemoteISO");
+	auto ps = GetI18NCategory("PostShaders");
 
 	root_ = new AnchorLayout(new LayoutParams(FILL_PARENT, FILL_PARENT));
 
@@ -283,15 +284,11 @@ void GameSettingsScreen::CreateViews() {
 	altSpeed2->SetNegativeDisable(gr->T("Disabled"));
 
 	graphicsSettings->Add(new ItemHeader(gr->T("Features")));
-	// Hide postprocess option on unsupported backends to avoid confusion.
-	if (GetGPUBackend() != GPUBackend::DIRECT3D9) {
-		auto ps = GetI18NCategory("PostShaders");
-		postProcChoice_ = graphicsSettings->Add(new ChoiceWithValueDisplay(&g_Config.sPostShaderName, gr->T("Postprocessing Shader"), &PostShaderTranslateName));
-		postProcChoice_->OnClick.Handle(this, &GameSettingsScreen::OnPostProcShader);
-		postProcChoice_->SetEnabledFunc([] {
-			return !g_Config.bSoftwareRendering && g_Config.iRenderingMode != FB_NON_BUFFERED_MODE;
-		});
-	}
+	postProcChoice_ = graphicsSettings->Add(new ChoiceWithValueDisplay(&g_Config.sPostShaderName, gr->T("Postprocessing Shader"), &PostShaderTranslateName));
+	postProcChoice_->OnClick.Handle(this, &GameSettingsScreen::OnPostProcShader);
+	postProcChoice_->SetEnabledFunc([] {
+		return !g_Config.bSoftwareRendering && g_Config.iRenderingMode != FB_NON_BUFFERED_MODE;
+	});
 
 #if !defined(MOBILE_DEVICE)
 	graphicsSettings->Add(new CheckBox(&g_Config.bFullScreen, gr->T("FullScreen", "Full Screen")))->OnClick.Handle(this, &GameSettingsScreen::OnFullscreenChange);

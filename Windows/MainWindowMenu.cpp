@@ -180,21 +180,16 @@ namespace MainWindow {
 		const char *translatedShaderName = nullptr;
 
 		availableShaders.clear();
-		if (GetGPUBackend() == GPUBackend::DIRECT3D9) {
-			translatedShaderName = ps->T("Not available in Direct3D9 backend");
-			AppendMenu(shaderMenu, MF_STRING | MF_BYPOSITION | MF_GRAYED, item++, ConvertUTF8ToWString(translatedShaderName).c_str());
-		} else {
-			for (auto i = info.begin(); i != info.end(); ++i) {
-				int checkedStatus = MF_UNCHECKED;
-				availableShaders.push_back(i->section);
-				if (g_Config.sPostShaderName == i->section) {
-					checkedStatus = MF_CHECKED;
-				}
-
-				translatedShaderName = ps->T(i->section.c_str(), i->name.c_str());
-
-				AppendMenu(shaderMenu, MF_STRING | MF_BYPOSITION | checkedStatus, item++, ConvertUTF8ToWString(translatedShaderName).c_str());
+		for (auto i = info.begin(); i != info.end(); ++i) {
+			int checkedStatus = MF_UNCHECKED;
+			availableShaders.push_back(i->section);
+			if (g_Config.sPostShaderName == i->section) {
+				checkedStatus = MF_CHECKED;
 			}
+
+			translatedShaderName = ps->T(i->section.c_str(), i->name.c_str());
+
+			AppendMenu(shaderMenu, MF_STRING | MF_BYPOSITION | checkedStatus, item++, ConvertUTF8ToWString(translatedShaderName).c_str());
 		}
 
 		menuShaderInfo = info;
