@@ -290,12 +290,12 @@ class VKBuffer;
 class VKSamplerState;
 
 struct DescriptorSetKey {
-	VKTexture *texture_;
+	VkImageView imageView_;
 	VKSamplerState *sampler_;
 	VkBuffer buffer_;
 
 	bool operator < (const DescriptorSetKey &other) const {
-		if (texture_ < other.texture_) return true; else if (texture_ > other.texture_) return false;
+		if (imageView_ < other.imageView_) return true; else if (imageView_ > other.imageView_) return false;
 		if (sampler_ < other.sampler_) return true; else if (sampler_ > other.sampler_) return false;
 		if (buffer_ < other.buffer_) return true; else if (buffer_ > other.buffer_) return false;
 		return false;
@@ -893,7 +893,7 @@ VkDescriptorSet VKContext::GetOrCreateDescriptorSet(VkBuffer buf) {
 
 	FrameData *frame = &frame_[vulkan_->GetCurFrame()];
 
-	key.texture_ = boundTextures_[0];
+	key.imageView_ = boundTextures_[0] ? boundTextures_[0]->GetImageView() : boundImageView_[0];
 	key.sampler_ = boundSamplers_[0];
 	key.buffer_ = buf;
 
@@ -936,8 +936,8 @@ VkDescriptorSet VKContext::GetOrCreateDescriptorSet(VkBuffer buf) {
 		numWrites++;
 	}
 
-	if (boundTextures_[0] && boundTextures_[0]->GetImageView() && boundSamplers_[0] && boundSamplers_[0]->GetSampler()) {
-		imageDesc.imageView = boundTextures_[0] ? boundTextures_[0]->GetImageView() : VK_NULL_HANDLE;
+	if (key.imageView_ && boundSamplers_[0] && boundSamplers_[0]->GetSampler()) {
+		imageDesc.imageView = key.imageView_ ? key.imageView_ : VK_NULL_HANDLE;
 		imageDesc.sampler = boundSamplers_[0] ? boundSamplers_[0]->GetSampler() : VK_NULL_HANDLE;
 #ifdef VULKAN_USE_GENERAL_LAYOUT_FOR_COLOR
 		imageDesc.imageLayout = VK_IMAGE_LAYOUT_GENERAL;
@@ -1464,6 +1464,7 @@ void VKContext::BindFramebufferAsTexture(Framebuffer *fbo, int binding, FBChanne
 	if (channelBit & FBChannel::FB_DEPTH_BIT) aspect |= VK_IMAGE_ASPECT_DEPTH_BIT;
 	if (channelBit & FBChannel::FB_STENCIL_BIT) aspect |= VK_IMAGE_ASPECT_STENCIL_BIT;
 
+	boundTextures_[binding] = nullptr;
 	boundImageView_[binding] = renderManager_.BindFramebufferAsTexture(fb->GetFB(), binding, aspect, attachment);
 }
 
