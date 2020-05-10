@@ -105,25 +105,41 @@ layout(push_constant) uniform data {
 };
 )";
 
+static const char *d3d9RegisterDecl = R"(
+float4 gl_HalfPixel : register(c0);
+float2 u_texelDelta : register(c1);
+float2 u_pixelDelta : register(c2);
+float4 u_time : register(c3);
+float u_video : register(c4);
+)";
+
 // SPIRV-Cross' HLSL output has some deficiencies we need to work around.
 // Also we need to rip out single uniforms and replace them with blocks.
 // Should probably do it in the source shader instead and then back translate to old style GLSL, but
 // SPIRV-Cross currently won't compile with the Android NDK so I can't be bothered.
 std::string Postprocess(std::string code, ShaderLanguage lang, Draw::ShaderStage stage) {
-	if (lang != HLSL_D3D11)
+	if (lang != HLSL_D3D11 && lang != HLSL_DX9)
 		return code;
 
 	std::stringstream out;
 
 	// Output the uniform buffer.
-	out << cbufferDecl;
+	if (lang == HLSL_D3D11)
+		out << cbufferDecl;
+	else if (lang == HLSL_DX9)
+		out << d3d9RegisterDecl;
 
 	// Alright, now let's go through it line by line and zap the single uniforms.
 	std::string line;
 	std::stringstream instream(code);
 	while (std::getline(instream, line)) {
-		if (line.find("uniform float") != std::string::npos)
+		if (line == "uniform sampler2D sampler0;" && lang == HLSL_DX9) {
+			out << "sampler2D sampler0 : register(s0);\n";
 			continue;
+		}
+		if (line.find("uniform float") != std::string::npos) {
+			continue;
+		}
 		out << line << "\n";
 	}
 	std::string output = out.str();
@@ -269,7 +285,8 @@ bool TranslateShader(std::string *dest, ShaderLanguage destLang, TranslatedShade
 		options_common.vertex.fixup_clipspace = true;
 		hlsl.set_hlsl_options(options);
 		hlsl.set_common_options(options_common);
-		*dest = hlsl.compile();
+		std::string raw = hlsl.compile();
+		*dest = Postprocess(raw, destLang, stage);
 		return true;
 	}
 	case HLSL_D3D11:
