@@ -239,11 +239,6 @@ static const D3DVERTEXELEMENT9 g_FramebufferVertexElements[] = {
 		// D3DXSaveTextureToFile("game:\\cc.png", D3DXIFF_PNG, drawPixelsTex_, NULL);
 	}
 
-	void FramebufferManagerDX9::SetViewport2D(int x, int y, int w, int h) {
-		D3DVIEWPORT9 vp{ (DWORD)x, (DWORD)y, (DWORD)w, (DWORD)h, 0.0f, 1.0f };
-		device_->SetViewport(&vp);
-	}
-
 	void FramebufferManagerDX9::DrawActiveTexture(float x, float y, float w, float h, float destW, float destH, float u0, float v0, float u1, float v1, int uvRotation, int flags) {
 		// TODO: StretchRect instead when possible?
 		float coord[20] = {

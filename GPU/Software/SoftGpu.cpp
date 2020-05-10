@@ -39,19 +39,13 @@
 #include "GPU/Software/SoftGpu.h"
 #include "GPU/Software/TransformUnit.h"
 #include "GPU/Common/DrawEngineCommon.h"
-#include "GPU/Common/FramebufferCommon.h"
+#include "GPU/Common/PresentationCommon.h"
 #include "GPU/Common/SplineCommon.h"
 #include "GPU/Debugger/Debugger.h"
 #include "GPU/Debugger/Record.h"
 
 const int FB_WIDTH = 480;
 const int FB_HEIGHT = 272;
-
-struct Vertex {
-	float x, y, z;
-	float u, v;
-	uint32_t rgba;
-};
 
 u32 clut[4096];
 FormatBuffer fb;
@@ -60,49 +54,6 @@ FormatBuffer depthbuf;
 SoftGPU::SoftGPU(GraphicsContext *gfxCtx, Draw::DrawContext *draw)
 	: GPUCommon(gfxCtx, draw)
 {
-	using namespace Draw;
-	fbTex = nullptr;
-	InputLayoutDesc inputDesc = {
-		{
-			{ sizeof(Vertex), false },
-		},
-		{
-			{ 0, SEM_POSITION, DataFormat::R32G32B32_FLOAT, 0 },
-			{ 0, SEM_TEXCOORD0, DataFormat::R32G32_FLOAT, 12 },
-			{ 0, SEM_COLOR0, DataFormat::R8G8B8A8_UNORM, 20 },
-		},
-	};
-
-	vdata = draw_->CreateBuffer(sizeof(Vertex) * 4, BufferUsageFlag::DYNAMIC | BufferUsageFlag::VERTEXDATA);
-	idata = draw_->CreateBuffer(sizeof(int) * 6, BufferUsageFlag::DYNAMIC | BufferUsageFlag::INDEXDATA);
-
-	InputLayout *inputLayout = draw_->CreateInputLayout(inputDesc);
-	DepthStencilState *depth = draw_->CreateDepthStencilState({ false, false, Comparison::LESS });
-	BlendState *blendstateOff = draw_->CreateBlendState({ false, 0xF });
-	RasterState *rasterNoCull = draw_->CreateRasterState({});
-
-	samplerNearest = draw_->CreateSamplerState({ TextureFilter::NEAREST, TextureFilter::NEAREST, TextureFilter::NEAREST });
-	samplerLinear = draw_->CreateSamplerState({ TextureFilter::LINEAR, TextureFilter::LINEAR, TextureFilter::LINEAR });
-
-	PipelineDesc pipelineDesc{
-		Primitive::TRIANGLE_LIST,
-		{ draw_->GetVshaderPreset(VS_TEXTURE_COLOR_2D), draw_->GetFshaderPreset(FS_TEXTURE_COLOR_2D) },
-		inputLayout, depth, blendstateOff, rasterNoCull, &vsTexColBufDesc
-	};
-	texColor = draw_->CreateGraphicsPipeline(pipelineDesc);
-
-	PipelineDesc pipelineDescRBSwizzle{
-		Primitive::TRIANGLE_LIST,
-		{ draw_->GetVshaderPreset(VS_TEXTURE_COLOR_2D), draw_->GetFshaderPreset(FS_TEXTURE_COLOR_2D_RB_SWIZZLE) },
-		inputLayout, depth, blendstateOff, rasterNoCull, &vsTexColBufDesc
-	};
-	texColorRBSwizzle = draw_->CreateGraphicsPipeline(pipelineDescRBSwizzle);
-
-	inputLayout->Release();
-	depth->Release();
-	blendstateOff->Release();
-	rasterNoCull->Release();
-
 	fb.data = Memory::GetPointer(0x44000000); // TODO: correct default address?
 	depthbuf.data = Memory::GetPointer(0x44000000); // TODO: correct default address?
 
@@ -115,34 +66,30 @@ SoftGPU::SoftGPU(GraphicsContext *gfxCtx, Draw::DrawContext *draw)
 	Sampler::Init();
 	drawEngine_ = new SoftwareDrawEngine();
 	drawEngineCommon_ = drawEngine_;
+	presentation_ = new PresentationCommon(draw_);
 }
 
 void SoftGPU::DeviceLost() {
-	// Handled by thin3d.
-}
-
-void SoftGPU::DeviceRestore() {
-	// Handled by thin3d.
-}
-
-SoftGPU::~SoftGPU() {
-	texColor->Release();
-	texColor = nullptr;
-	texColorRBSwizzle->Release();
-	texColorRBSwizzle = nullptr;
-
+	presentation_->DeviceLost();
+	draw_ = nullptr;
 	if (fbTex) {
 		fbTex->Release();
 		fbTex = nullptr;
 	}
-	vdata->Release();
-	vdata = nullptr;
-	idata->Release();
-	idata = nullptr;
-	samplerNearest->Release();
-	samplerNearest = nullptr;
-	samplerLinear->Release();
-	samplerLinear = nullptr;
+}
+
+void SoftGPU::DeviceRestore() {
+	draw_ = (Draw::DrawContext *)PSP_CoreParameter().graphicsContext->GetDrawContext();
+	presentation_->DeviceRestore(draw_);
+}
+
+SoftGPU::~SoftGPU() {
+	if (fbTex) {
+		fbTex->Release();
+		fbTex = nullptr;
+	}
+
+	delete presentation_;
 
 	Sampler::Shutdown();
 }
@@ -220,7 +167,8 @@ void SoftGPU::CopyToCurrentFboFromDisplayRam(int srcwidth, int srcheight) {
 	desc.tag = "SoftGPU";
 	bool hasImage = true;
 
-	Draw::Pipeline *pipeline = texColor;
+	OutputFlags outputFlags = g_Config.iBufFilter == SCALE_NEAREST ? OutputFlags::NEAREST : OutputFlags::LINEAR;
+
 	if (PSP_CoreParameter().compat.flags().DarkStalkersPresentHack && displayFormat_ == GE_FORMAT_5551 && g_DarkStalkerStretch) {
 		u8 *data = Memory::GetPointer(0x04088000);
 		bool fillDesc = true;
@@ -230,7 +178,7 @@ void SoftGPU::CopyToCurrentFboFromDisplayRam(int srcwidth, int srcheight) {
 		} else if (draw_->GetDataFormatSupport(Draw::DataFormat::A1R5G5B5_UNORM_PACK16) & Draw::FMT_TEXTURE) {
 			// RB swapped, compensate with a shader.
 			desc.format = Draw::DataFormat::A1R5G5B5_UNORM_PACK16;
-			pipeline = texColorRBSwizzle;
+			outputFlags |= OutputFlags::RB_SWIZZLE;
 		} else {
 			ConvertTextureDescFrom16(desc, srcwidth, srcheight);
 			fillDesc = false;
@@ -263,7 +211,7 @@ void SoftGPU::CopyToCurrentFboFromDisplayRam(int srcwidth, int srcheight) {
 		} else if (draw_->GetDataFormatSupport(Draw::DataFormat::A1R5G5B5_UNORM_PACK16) & Draw::FMT_TEXTURE) {
 			// RB swapped, compensate with a shader.
 			desc.format = Draw::DataFormat::A1R5G5B5_UNORM_PACK16;
-			pipeline = texColorRBSwizzle;
+			outputFlags |= OutputFlags::RB_SWIZZLE;
 		} else {
 			ConvertTextureDescFrom16(desc, srcwidth, srcheight);
 			fillDesc = false;
@@ -315,42 +263,8 @@ void SoftGPU::CopyToCurrentFboFromDisplayRam(int srcwidth, int srcheight) {
 	draw_->SetViewports(1, &viewport);
 	draw_->SetScissorRect(0, 0, dstwidth, dstheight);
 
-	Draw::SamplerState *sampler;
-	if (g_Config.iBufFilter == SCALE_NEAREST) {
-		sampler = samplerNearest;
-	} else {
-		sampler = samplerLinear;
-	}
-	draw_->BindSamplerStates(0, 1, &sampler);
-
-	const Vertex verts[4] = {
-		{ x, y, 0,    u0, v0,  0xFFFFFFFF }, // TL
-		{ x, y2, 0,   u0, v1,  0xFFFFFFFF }, // BL
-		{ x2, y2, 0,  u1, v1,  0xFFFFFFFF }, // BR
-		{ x2, y, 0,   u1, v0,  0xFFFFFFFF }, // TR
-	};
-	draw_->UpdateBuffer(vdata, (const uint8_t *)verts, 0, sizeof(verts), Draw::UPDATE_DISCARD);
-
-	int indexes[] = { 0, 1, 2, 0, 2, 3 };
-	draw_->UpdateBuffer(idata, (const uint8_t *)indexes, 0, sizeof(indexes), Draw::UPDATE_DISCARD);
-
 	draw_->BindTexture(0, fbTex);
-
-	static const float identity4x4[16] = {
-		1.0f, 0.0f, 0.0f, 0.0f,
-		0.0f, 1.0f, 0.0f, 0.0f,
-		0.0f, 0.0f, 1.0f, 0.0f,
-		0.0f, 0.0f, 0.0f, 1.0f,
-	};
-
-	Draw::VsTexColUB ub{};
-	memcpy(ub.WorldViewProj, g_display_rot_matrix.m, sizeof(float) * 16);
-	draw_->BindPipeline(pipeline);
-	draw_->UpdateDynamicUniformBuffer(&ub, sizeof(ub));
-	draw_->BindVertexBuffers(0, 1, &vdata, nullptr);
-	draw_->BindIndexBuffer(idata, 0);
-	draw_->DrawIndexed(6, 0);
-	draw_->BindIndexBuffer(nullptr, 0);
+	presentation_->CopyToOutput(outputFlags, x, y, x2, y2, u0, v0, u1, v1);
 }
 
 void SoftGPU::CopyDisplayToOutput(bool reallyDirty) {

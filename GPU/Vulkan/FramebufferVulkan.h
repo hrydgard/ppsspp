@@ -18,9 +18,10 @@
 #pragma once
 
 #include "Common/Vulkan/VulkanLoader.h"
-#include "GPU/Common/FramebufferCommon.h"
 #include "GPU/GPUInterface.h"
+#include "GPU/Common/FramebufferCommon.h"
 #include "GPU/Common/GPUDebugInterface.h"
+#include "GPU/Common/PresentationCommon.h"
 #include "GPU/Vulkan/VulkanUtil.h"
 #include "GPU/Vulkan/DepalettizeShaderVulkan.h"
 
@@ -72,7 +73,6 @@ protected:
 	void CompilePostShader();
 	void Bind2DShader() override;
 	void BindPostShader(const PostShaderUniforms &uniforms) override;
-	void SetViewport2D(int x, int y, int w, int h) override;
 
 	// Used by ReadFramebufferToMemory and later framebuffer block copies
 	void BlitFramebuffer(VirtualFramebuffer *dst, int dstX, int dstY, VirtualFramebuffer *src, int srcX, int srcY, int w, int h, int bpp) override;

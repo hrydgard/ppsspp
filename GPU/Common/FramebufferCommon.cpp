@@ -34,90 +34,19 @@
 #include "Core/Reporting.h"
 #include "Core/ELF/ParamSFO.h"
 #include "Core/System.h"
-#include "Core/HLE/sceDisplay.h"
 #include "GPU/Common/DrawEngineCommon.h"
 #include "GPU/Common/FramebufferCommon.h"
 #include "GPU/Common/PostShader.h"
+#include "GPU/Common/PresentationCommon.h"
 #include "GPU/Common/TextureCacheCommon.h"
 #include "GPU/Debugger/Record.h"
 #include "GPU/GPUInterface.h"
 #include "GPU/GPUState.h"
 
-void CenterDisplayOutputRect(float *x, float *y, float *w, float *h, float origW, float origH, float frameW, float frameH, int rotation) {
-	float outW;
-	float outH;
-
-	bool rotated = rotation == ROTATION_LOCKED_VERTICAL || rotation == ROTATION_LOCKED_VERTICAL180;
-
-	if (g_Config.iSmallDisplayZoomType == (int)SmallDisplayZoom::STRETCH) {
-		outW = frameW;
-		outH = frameH;
-	} else {
-		if (g_Config.iSmallDisplayZoomType == (int)SmallDisplayZoom::MANUAL) {
-			float offsetX = (g_Config.fSmallDisplayOffsetX - 0.5f) * 2.0f * frameW;
-			float offsetY = (g_Config.fSmallDisplayOffsetY - 0.5f) * 2.0f * frameH;
-			// Have to invert Y for GL
-			if (GetGPUBackend() == GPUBackend::OPENGL) {
-				offsetY = offsetY * -1.0f;
-			}
-			float customZoom = g_Config.fSmallDisplayZoomLevel;
-			float smallDisplayW = origW * customZoom;
-			float smallDisplayH = origH * customZoom;
-			if (!rotated) {
-				*x = floorf(((frameW - smallDisplayW) / 2.0f) + offsetX);
-				*y = floorf(((frameH - smallDisplayH) / 2.0f) + offsetY);
-				*w = floorf(smallDisplayW);
-				*h = floorf(smallDisplayH);
-				return;
-			} else {
-				*x = floorf(((frameW - smallDisplayH) / 2.0f) + offsetX);
-				*y = floorf(((frameH - smallDisplayW) / 2.0f) + offsetY);
-				*w = floorf(smallDisplayH);
-				*h = floorf(smallDisplayW);
-				return;
-			}
-		} else if (g_Config.iSmallDisplayZoomType == (int)SmallDisplayZoom::AUTO) {
-			// Stretch to 1080 for 272*4.  But don't distort if not widescreen (i.e. ultrawide of halfwide.)
-			float pixelCrop = frameH / 270.0f;
-			float resCommonWidescreen = pixelCrop - floor(pixelCrop);
-			if (!rotated && resCommonWidescreen == 0.0f && frameW >= pixelCrop * 480.0f) {
-				*x = floorf((frameW - pixelCrop * 480.0f) * 0.5f);
-				*y = floorf(-pixelCrop);
-				*w = floorf(pixelCrop * 480.0f);
-				*h = floorf(pixelCrop * 272.0f);
-				return;
-			}
-		}
-
-		float origRatio = !rotated ? origW / origH : origH / origW;
-		float frameRatio = frameW / frameH;
-		
-		if (origRatio > frameRatio) {
-			// Image is wider than frame. Center vertically.
-			outW = frameW;
-			outH = frameW / origRatio;
-			// Stretch a little bit
-			if (!rotated && g_Config.iSmallDisplayZoomType == (int)SmallDisplayZoom::PARTIAL_STRETCH)
-				outH = (frameH + outH) / 2.0f; // (408 + 720) / 2 = 564
-		} else {
-			// Image is taller than frame. Center horizontally.
-			outW = frameH * origRatio;
-			outH = frameH;
-			if (rotated && g_Config.iSmallDisplayZoomType == (int)SmallDisplayZoom::PARTIAL_STRETCH)
-				outW = (frameH + outH) / 2.0f; // (408 + 720) / 2 = 564
-		}
-	}
-
-	*x = floorf((frameW - outW) / 2.0f);
-	*y = floorf((frameH - outH) / 2.0f);
-	*w = floorf(outW);
-	*h = floorf(outH);
-}
-
-
 FramebufferManagerCommon::FramebufferManagerCommon(Draw::DrawContext *draw)
 	: draw_(draw),
 		displayFormat_(GE_FORMAT_565) {
+	presentation_ = new PresentationCommon(draw);
 	UpdateSize();
 }
 
@@ -140,6 +69,8 @@ FramebufferManagerCommon::~FramebufferManagerCommon() {
 	bvfbs_.clear();
 
 	SetNumExtraFBOs(0);
+
+	delete presentation_;
 }
 
 void FramebufferManagerCommon::Init() {
@@ -156,6 +87,8 @@ bool FramebufferManagerCommon::UpdateSize() {
 	pixelHeight_ = PSP_CoreParameter().pixelHeight;
 	bloomHack_ = g_Config.iBloomHack;
 	useBufferedRendering_ = g_Config.iRenderingMode != FB_NON_BUFFERED_MODE;
+
+	presentation_->UpdateSize(pixelWidth_, pixelHeight_);
 
 	return newRender || newSettings;
 }
@@ -787,7 +720,7 @@ void FramebufferManagerCommon::DrawFramebufferToOutput(const u8 *srcPixels, GEBu
 	MakePixelTexture(srcPixels, srcPixelFormat, srcStride, 512, 272, u1, v1);
 
 	struct CardboardSettings cardboardSettings;
-	GetCardboardSettings(&cardboardSettings);
+	presentation_->GetCardboardSettings(&cardboardSettings);
 
 	// This might draw directly at the backbuffer (if so, applyPostShader is set) so if there's a post shader, we need to apply it here.
 	// Should try to unify this path with the regular path somehow, but this simple solution works for most of the post shaders 
@@ -799,7 +732,7 @@ void FramebufferManagerCommon::DrawFramebufferToOutput(const u8 *srcPixels, GEBu
 		// Might've changed if the shader was just changed to Off.
 		if (usePostShader_) {
 			PostShaderUniforms uniforms{};
-			CalculatePostShaderUniforms(512, 272, renderWidth_, renderHeight_, &uniforms);
+			presentation_->CalculatePostShaderUniforms(512, 272, renderWidth_, renderHeight_, textureCache_->VideoIsPlaying(), &uniforms);
 			BindPostShader(uniforms);
 		} else {
 			Bind2DShader();
@@ -871,7 +804,7 @@ void FramebufferManagerCommon::CopyDisplayToOutput(bool reallyDirty) {
 	u32 offsetY = 0;
 
 	CardboardSettings cardboardSettings;
-	GetCardboardSettings(&cardboardSettings);
+	presentation_->GetCardboardSettings(&cardboardSettings);
 
 	// If it's not really dirty, we're probably frameskipping.  Use the last working one.
 	u32 fbaddr = reallyDirty ? displayFramebufPtr_ : prevDisplayFramebufPtr_;
@@ -1017,7 +950,7 @@ void FramebufferManagerCommon::CopyDisplayToOutput(bool reallyDirty) {
 			PostShaderUniforms uniforms{};
 			int actualWidth = (vfb->bufferWidth * vfb->renderWidth) / vfb->width;
 			int actualHeight = (vfb->bufferHeight * vfb->renderHeight) / vfb->height;
-			CalculatePostShaderUniforms(actualWidth, actualHeight, renderWidth_, renderHeight_, &uniforms);
+			presentation_->CalculatePostShaderUniforms(actualWidth, actualHeight, renderWidth_, renderHeight_, textureCache_->VideoIsPlaying(), &uniforms);
 			BindPostShader(uniforms);
 			DrawTextureFlags flags = g_Config.iBufFilter == SCALE_LINEAR ? DRAWTEX_LINEAR : DRAWTEX_NEAREST;
 			DrawActiveTexture(0, 0, fbo_w, fbo_h, fbo_w, fbo_h, 0.0f, 0.0f, 1.0f, 1.0f, ROTATION_LOCKED_HORIZONTAL, flags);
@@ -1068,7 +1001,7 @@ void FramebufferManagerCommon::CopyDisplayToOutput(bool reallyDirty) {
 			PostShaderUniforms uniforms{};
 			int actualWidth = (vfb->bufferWidth * vfb->renderWidth) / vfb->width;
 			int actualHeight = (vfb->bufferHeight * vfb->renderHeight) / vfb->height;
-			CalculatePostShaderUniforms(actualWidth, actualHeight, vfb->renderWidth, vfb->renderHeight, &uniforms);
+			presentation_->CalculatePostShaderUniforms(actualWidth, actualHeight, vfb->renderWidth, vfb->renderHeight, textureCache_->VideoIsPlaying(), &uniforms);
 			BindPostShader(uniforms);
 			if (g_Config.bEnableCardboardVR) {
 				// Left Eye Image
@@ -1836,50 +1769,6 @@ void FramebufferManagerCommon::Resized() {
 		ShowScreenResolution();
 	}
 #endif
-}
-
-void FramebufferManagerCommon::CalculatePostShaderUniforms(int bufferWidth, int bufferHeight, int renderWidth, int renderHeight, PostShaderUniforms *uniforms) {
-	float u_delta = 1.0f / bufferWidth;
-	float v_delta = 1.0f / bufferHeight;
-	float u_pixel_delta = 1.0 / renderWidth;
-	float v_pixel_delta = 1.0 / renderHeight;
-	if (postShaderAtOutputResolution_) {
-		float x, y, w, h;
-		CenterDisplayOutputRect(&x, &y, &w, &h, 480.0f, 272.0f, (float)pixelWidth_, (float)pixelHeight_, ROTATION_LOCKED_HORIZONTAL);
-		u_pixel_delta = 1.0f / w;
-		v_pixel_delta = 1.0f / h;
-	}
-	int flipCount = __DisplayGetFlipCount();
-	int vCount = __DisplayGetVCount();
-	float time[4] = { time_now(), (vCount % 60) * 1.0f / 60.0f, (float)vCount, (float)(flipCount % 60) };
-
-	uniforms->texelDelta[0] = u_delta;
-	uniforms->texelDelta[1] = v_delta;
-	uniforms->pixelDelta[0] = u_pixel_delta;
-	uniforms->pixelDelta[1] = v_pixel_delta;
-	memcpy(uniforms->time, time, 4 * sizeof(float));
-	uniforms->video = textureCache_->VideoIsPlaying();
-}
-
-void FramebufferManagerCommon::GetCardboardSettings(CardboardSettings *cardboardSettings) {
-	// Calculate Cardboard Settings
-	float cardboardScreenScale = g_Config.iCardboardScreenSize / 100.0f;
-	float cardboardScreenWidth = pixelWidth_ / 2.0f * cardboardScreenScale;
-	float cardboardScreenHeight = pixelHeight_ / 2.0f * cardboardScreenScale;
-	float cardboardMaxXShift = (pixelWidth_ / 2.0f - cardboardScreenWidth) / 2.0f;
-	float cardboardUserXShift = g_Config.iCardboardXShift / 100.0f * cardboardMaxXShift;
-	float cardboardLeftEyeX = cardboardMaxXShift + cardboardUserXShift;
-	float cardboardRightEyeX = pixelWidth_ / 2.0f + cardboardMaxXShift - cardboardUserXShift;
-	float cardboardMaxYShift = pixelHeight_ / 2.0f - cardboardScreenHeight / 2.0f;
-	float cardboardUserYShift = g_Config.iCardboardYShift / 100.0f * cardboardMaxYShift;
-	float cardboardScreenY = cardboardMaxYShift + cardboardUserYShift;
-
-	cardboardSettings->enabled = g_Config.bEnableCardboardVR;
-	cardboardSettings->leftEyeXPosition = cardboardLeftEyeX;
-	cardboardSettings->rightEyeXPosition = cardboardRightEyeX;
-	cardboardSettings->screenYPosition = cardboardScreenY;
-	cardboardSettings->screenWidth = cardboardScreenWidth;
-	cardboardSettings->screenHeight = cardboardScreenHeight;
 }
 
 Draw::Framebuffer *FramebufferManagerCommon::GetTempFBO(TempFBO reason, u16 w, u16 h, Draw::FBColorDepth depth) {

@@ -46,22 +46,7 @@ namespace Draw {
 	class Framebuffer;
 }
 
-struct CardboardSettings {
-	bool enabled;
-	float leftEyeXPosition;
-	float rightEyeXPosition;
-	float screenYPosition;
-	float screenWidth;
-	float screenHeight;
-};
-
 class VulkanFBO;
-
-struct PostShaderUniforms {
-	float texelDelta[2]; float pixelDelta[2];
-	float time[4];
-	float video;
-};
 
 struct VirtualFramebuffer {
 	int last_frame_used;
@@ -191,9 +176,11 @@ class DrawContext;
 }
 
 struct GPUDebugBuffer;
-class TextureCacheCommon;
-class ShaderManagerCommon;
+struct PostShaderUniforms;
 class DrawEngineCommon;
+class PresentationCommon;
+class ShaderManagerCommon;
+class TextureCacheCommon;
 
 class FramebufferManagerCommon {
 public:
@@ -322,15 +309,11 @@ public:
 
 protected:
 	virtual void PackFramebufferSync_(VirtualFramebuffer *vfb, int x, int y, int w, int h);
-	virtual void SetViewport2D(int x, int y, int w, int h);
-	void CalculatePostShaderUniforms(int bufferWidth, int bufferHeight, int renderWidth, int renderHeight, PostShaderUniforms *uniforms);
+	void SetViewport2D(int x, int y, int w, int h);
 	virtual void MakePixelTexture(const u8 *srcPixels, GEBufferFormat srcPixelFormat, int srcStride, int width, int height, float &u1, float &v1) = 0;
 	virtual void DrawActiveTexture(float x, float y, float w, float h, float destW, float destH, float u0, float v0, float u1, float v1, int uvRotation, int flags) = 0;
 	virtual void Bind2DShader() = 0;
 	virtual void BindPostShader(const PostShaderUniforms &uniforms) = 0;
-
-	// Cardboard Settings Calculator
-	void GetCardboardSettings(CardboardSettings *cardboardSettings);
 
 	bool UpdateSize();
 	void SetNumExtraFBOs(int num);
@@ -377,6 +360,8 @@ protected:
 		if ((skipDrawReason & SKIPDRAW_SKIPFRAME) == 0)
 			dstBuffer->reallyDirtyAfterDisplay = true;
 	}
+
+	PresentationCommon *presentation_ = nullptr;
 
 	Draw::DrawContext *draw_ = nullptr;
 	TextureCacheCommon *textureCache_ = nullptr;
@@ -437,5 +422,3 @@ protected:
 		FBO_OLD_USAGE_FLAG = 15,
 	};
 };
-
-void CenterDisplayOutputRect(float *x, float *y, float *w, float *h, float origW, float origH, float frameW, float frameH, int rotation);

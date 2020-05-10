@@ -270,18 +270,6 @@ void FramebufferManagerVulkan::MakePixelTexture(const u8 *srcPixels, GEBufferFor
 	overrideImageView_ = drawPixelsTex_->GetImageView();
 }
 
-void FramebufferManagerVulkan::SetViewport2D(int x, int y, int w, int h) {
-	Draw::Viewport vp;
-	vp.MinDepth = 0.0;
-	vp.MaxDepth = 1.0;
-	vp.TopLeftX = (float)x;
-	vp.TopLeftY = (float)y;
-	vp.Width = (float)w;
-	vp.Height = (float)h;
-	// Since we're about to override it.
-	draw_->SetViewports(1, &vp);
-}
-
 void FramebufferManagerVulkan::DrawActiveTexture(float x, float y, float w, float h, float destW, float destH, float u0, float v0, float u1, float v1, int uvRotation, int flags) {
 	float texCoords[8] = {
 		u0,v0,
@@ -554,6 +542,7 @@ void FramebufferManagerVulkan::EndFrame() {
 void FramebufferManagerVulkan::DeviceLost() {
 	DestroyAllFBOs();
 	DestroyDeviceObjects();
+	presentation_->DeviceLost();
 
 	if (allocator_) {
 		allocator_->Destroy();
@@ -570,6 +559,7 @@ void FramebufferManagerVulkan::DeviceLost() {
 void FramebufferManagerVulkan::DeviceRestore(VulkanContext *vulkan, Draw::DrawContext *draw) {
 	vulkan_ = vulkan;
 	draw_ = draw;
+	presentation_->DeviceRestore(draw);
 
 	_assert_(!allocator_);
 
@@ -641,6 +631,7 @@ void FramebufferManagerVulkan::CompilePostShader() {
 	std::string fsSource;
 	if (shaderInfo) {
 		postShaderAtOutputResolution_ = shaderInfo->outputResolution;
+		presentation_->UpdateShaderInfo(shaderInfo);
 		size_t sz;
 		char *vs = (char *)VFSReadFile(shaderInfo->vertexShaderFile.c_str(), &sz);
 		if (!vs)

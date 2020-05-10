@@ -38,9 +38,10 @@
 #include "GPU/Debugger/Stepping.h"
 
 #include "GPU/Common/FramebufferCommon.h"
+#include "GPU/Common/PostShader.h"
+#include "GPU/Common/PresentationCommon.h"
 #include "GPU/Common/ShaderTranslation.h"
 #include "GPU/Common/TextureDecoder.h"
-#include "GPU/Common/PostShader.h"
 #include "GPU/D3D11/FramebufferManagerD3D11.h"
 #include "GPU/D3D11/ShaderManagerD3D11.h"
 #include "GPU/D3D11/TextureCacheD3D11.h"
@@ -243,6 +244,7 @@ void FramebufferManagerD3D11::CompilePostShader() {
 	shaderInfo = GetPostShaderInfo(g_Config.sPostShaderName);
 	if (shaderInfo) {
 		postShaderAtOutputResolution_ = shaderInfo->outputResolution;
+		presentation_->UpdateShaderInfo(shaderInfo);
 		size_t sz;
 		char *vs = (char *)VFSReadFile(shaderInfo->vertexShaderFile.c_str(), &sz);
 		if (!vs)

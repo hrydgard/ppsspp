@@ -37,11 +37,11 @@
 #include "Core/Reporting.h"
 #include "GPU/ge_constants.h"
 #include "GPU/GPUState.h"
-
+#include "GPU/Common/FramebufferCommon.h"
 #include "GPU/Common/PostShader.h"
+#include "GPU/Common/PresentationCommon.h"
 #include "GPU/Common/ShaderTranslation.h"
 #include "GPU/Common/TextureDecoder.h"
-#include "GPU/Common/FramebufferCommon.h"
 #include "GPU/Debugger/Stepping.h"
 #include "GPU/GLES/FramebufferManagerGLES.h"
 #include "GPU/GLES/TextureCacheGLES.h"
@@ -114,6 +114,7 @@ void FramebufferManagerGLES::CompilePostShader() {
 	if (shaderInfo) {
 		std::string errorString;
 		postShaderAtOutputResolution_ = shaderInfo->outputResolution;
+		presentation_->UpdateShaderInfo(shaderInfo);
 
 		size_t sz;
 		char *vs = (char *)VFSReadFile(shaderInfo->vertexShaderFile.c_str(), &sz);
@@ -384,10 +385,6 @@ void FramebufferManagerGLES::MakePixelTexture(const u8 *srcPixels, GEBufferForma
 
 	// TODO: Return instead?
 	render_->BindTexture(TEX_SLOT_PSP_TEXTURE, drawPixelsTex_);
-}
-
-void FramebufferManagerGLES::SetViewport2D(int x, int y, int w, int h) {
-	render_->SetViewport({ (float)x, (float)y, (float)w, (float)h, 0.0f, 1.0f });
 }
 
 // x, y, w, h are relative coordinates against destW/destH, which is not very intuitive.
@@ -663,10 +660,12 @@ void FramebufferManagerGLES::EndFrame() {
 void FramebufferManagerGLES::DeviceLost() {
 	DestroyAllFBOs();
 	DestroyDeviceObjects();
+	presentation_->DeviceLost();
 }
 
 void FramebufferManagerGLES::DeviceRestore(Draw::DrawContext *draw) {
 	draw_ = draw;
+	presentation_->DeviceRestore(draw);
 	render_ = (GLRenderManager *)draw_->GetNativeObject(Draw::NativeObject::RENDER_MANAGER);
 	CreateDeviceObjects();
 }

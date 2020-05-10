@@ -382,6 +382,7 @@
     <ClInclude Include="..\..\GPU\Common\DepalettizeShaderCommon.h" />
     <ClInclude Include="..\..\GPU\Common\DrawEngineCommon.h" />
     <ClInclude Include="..\..\GPU\Common\FramebufferCommon.h" />
+    <ClInclude Include="..\..\GPU\Common\PresentationCommon.h" />
     <ClInclude Include="..\..\GPU\Common\GPUDebugInterface.h" />
     <ClInclude Include="..\..\GPU\Common\GPUStateUtils.h" />
     <ClInclude Include="..\..\GPU\Common\IndexGenerator.h" />
@@ -440,6 +441,7 @@
     <ClCompile Include="..\..\GPU\Common\DepalettizeShaderCommon.cpp" />
     <ClCompile Include="..\..\GPU\Common\DrawEngineCommon.cpp" />
     <ClCompile Include="..\..\GPU\Common\FramebufferCommon.cpp" />
+    <ClCompile Include="..\..\GPU\Common\PresentationCommon.cpp" />
     <ClCompile Include="..\..\GPU\Common\GPUDebugInterface.cpp" />
     <ClCompile Include="..\..\GPU\Common\GPUStateUtils.cpp" />
     <ClCompile Include="..\..\GPU\Common\IndexGenerator.cpp" />
