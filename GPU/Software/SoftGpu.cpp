@@ -238,7 +238,7 @@ void SoftGPU::CopyToCurrentFboFromDisplayRam(int srcwidth, int srcheight) {
 
 	presentation_->UpdateSize(PSP_CoreParameter().pixelWidth, PSP_CoreParameter().pixelHeight);
 	presentation_->SourceTexture(fbTex);
-	presentation_->CopyToOutput(outputFlags, ROTATION_LOCKED_HORIZONTAL, u0, v0, u1, v1);
+	presentation_->CopyToOutput(outputFlags, g_Config.iInternalScreenRotation, u0, v0, u1, v1);
 }
 
 void SoftGPU::CopyDisplayToOutput(bool reallyDirty) {
