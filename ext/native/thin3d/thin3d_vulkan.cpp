@@ -186,7 +186,7 @@ VkShaderStageFlagBits StageToVulkan(ShaderStage stage) {
 // invoke Compile again to recreate the shader then link them together.
 class VKShaderModule : public ShaderModule {
 public:
-	VKShaderModule(ShaderStage stage) : module_(VK_NULL_HANDLE), ok_(false), stage_(stage) {
+	VKShaderModule(ShaderStage stage, const std::string &tag) : stage_(stage), tag_(tag) {
 		vkstage_ = StageToVulkan(stage);
 	}
 	bool Compile(VulkanContext *vulkan, ShaderLanguage language, const uint8_t *data, size_t size);
@@ -203,11 +203,12 @@ public:
 
 private:
 	VulkanContext *vulkan_;
-	VkShaderModule module_;
+	VkShaderModule module_ = VK_NULL_HANDLE;
 	VkShaderStageFlagBits vkstage_;
-	bool ok_;
+	bool ok_ = false;
 	ShaderStage stage_;
 	std::string source_;  // So we can recompile in case of context loss.
+	std::string tag_;
 };
 
 bool VKShaderModule::Compile(VulkanContext *vulkan, ShaderLanguage language, const uint8_t *data, size_t size) {
@@ -367,7 +368,7 @@ public:
 	SamplerState *CreateSamplerState(const SamplerStateDesc &desc) override;
 	RasterState *CreateRasterState(const RasterStateDesc &desc) override;
 	Pipeline *CreateGraphicsPipeline(const PipelineDesc &desc) override;
-	ShaderModule *CreateShaderModule(ShaderStage stage, ShaderLanguage language, const uint8_t *data, size_t dataSize) override;
+	ShaderModule *CreateShaderModule(ShaderStage stage, ShaderLanguage language, const uint8_t *data, size_t dataSize, const std::string &tag) override;
 
 	Texture *CreateTexture(const TextureDesc &desc) override;
 	Buffer *CreateBuffer(size_t size, uint32_t usageFlags) override;
@@ -1196,8 +1197,8 @@ void VKContext::BindTextures(int start, int count, Texture **textures) {
 	}
 }
 
-ShaderModule *VKContext::CreateShaderModule(ShaderStage stage, ShaderLanguage language, const uint8_t *data, size_t size) {
-	VKShaderModule *shader = new VKShaderModule(stage);
+ShaderModule *VKContext::CreateShaderModule(ShaderStage stage, ShaderLanguage language, const uint8_t *data, size_t size, const std::string &tag) {
+	VKShaderModule *shader = new VKShaderModule(stage, tag);
 	if (shader->Compile(vulkan_, language, data, size)) {
 		return shader;
 	} else {

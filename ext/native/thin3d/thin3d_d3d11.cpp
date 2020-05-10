@@ -60,7 +60,7 @@ public:
 	Buffer *CreateBuffer(size_t size, uint32_t usageFlags) override;
 	Pipeline *CreateGraphicsPipeline(const PipelineDesc &desc) override;
 	Texture *CreateTexture(const TextureDesc &desc) override;
-	ShaderModule *CreateShaderModule(ShaderStage stage, ShaderLanguage language, const uint8_t *data, size_t dataSize) override;
+	ShaderModule *CreateShaderModule(ShaderStage stage, ShaderLanguage language, const uint8_t *data, size_t dataSize, const std::string &tag) override;
 	Framebuffer *CreateFramebuffer(const FramebufferDesc &desc) override;
 
 	void UpdateBuffer(Buffer *buffer, const uint8_t *data, size_t offset, size_t size, UpdateBufferFlags flags) override;
@@ -757,6 +757,8 @@ Texture *D3D11DrawContext::CreateTexture(const TextureDesc &desc) {
 
 class D3D11ShaderModule : public ShaderModule {
 public:
+	D3D11ShaderModule(const std::string &tag) : tag_(tag) {
+	}
 	~D3D11ShaderModule() {
 		if (vs)
 			vs->Release();
@@ -769,13 +771,14 @@ public:
 
 	std::vector<uint8_t> byteCode_;
 	ShaderStage stage;
+	std::string tag_;
 
 	ID3D11VertexShader *vs = nullptr;
 	ID3D11PixelShader *ps = nullptr;
 	ID3D11GeometryShader *gs = nullptr;
 };
 
-ShaderModule *D3D11DrawContext::CreateShaderModule(ShaderStage stage, ShaderLanguage language, const uint8_t *data, size_t dataSize) {
+ShaderModule *D3D11DrawContext::CreateShaderModule(ShaderStage stage, ShaderLanguage language, const uint8_t *data, size_t dataSize, const std::string &tag) {
 	if (language != ShaderLanguage::HLSL_D3D11) {
 		ELOG("Unsupported shader language");
 		return nullptr;
@@ -832,7 +835,7 @@ ShaderModule *D3D11DrawContext::CreateShaderModule(ShaderStage stage, ShaderLang
 	// OK, we can now proceed
 	data = (const uint8_t *)compiled.c_str();
 	dataSize = compiled.size();
-	D3D11ShaderModule *module = new D3D11ShaderModule();
+	D3D11ShaderModule *module = new D3D11ShaderModule(tag);
 	module->stage = stage;
 	module->byteCode_ = std::vector<uint8_t>(data, data + dataSize);
 	switch (stage) {

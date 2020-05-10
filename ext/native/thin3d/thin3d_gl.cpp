@@ -230,7 +230,7 @@ GLuint ShaderStageToOpenGL(ShaderStage stage) {
 
 class OpenGLShaderModule : public ShaderModule {
 public:
-	OpenGLShaderModule(GLRenderManager *render, ShaderStage stage) : render_(render), stage_(stage) {
+	OpenGLShaderModule(GLRenderManager *render, ShaderStage stage, const std::string &tag) : render_(render), stage_(stage), tag_(tag) {
 		DLOG("Shader module created (%p)", this);
 		glstage_ = ShaderStageToOpenGL(stage);
 	}
@@ -260,18 +260,19 @@ private:
 	GLRShader *shader_ = nullptr;
 	GLuint glstage_ = 0;
 	std::string source_;  // So we can recompile in case of context loss.
+	std::string tag_;
 };
 
 bool OpenGLShaderModule::Compile(GLRenderManager *render, ShaderLanguage language, const uint8_t *data, size_t dataSize) {
 	source_ = std::string((const char *)data);
-	std::string temp;
 	// Add the prelude on automatically.
 	if (glstage_ == GL_FRAGMENT_SHADER || glstage_ == GL_VERTEX_SHADER) {
-		temp = ApplyGLSLPrelude(source_, glstage_);
-		source_ = temp.c_str();
+		if (source_.find("#version") == source_.npos) {
+			source_ = ApplyGLSLPrelude(source_, glstage_);
+		}
 	}
 
-	shader_ = render->CreateShader(glstage_, source_, "thin3d");
+	shader_ = render->CreateShader(glstage_, source_, tag_);
 	return true;
 }
 
@@ -358,7 +359,7 @@ public:
 	RasterState *CreateRasterState(const RasterStateDesc &desc) override;
 	Pipeline *CreateGraphicsPipeline(const PipelineDesc &desc) override;
 	InputLayout *CreateInputLayout(const InputLayoutDesc &desc) override;
-	ShaderModule *CreateShaderModule(ShaderStage stage, ShaderLanguage language, const uint8_t *data, size_t dataSize) override;
+	ShaderModule *CreateShaderModule(ShaderStage stage, ShaderLanguage language, const uint8_t *data, size_t dataSize, const std::string &tag) override;
 
 	Texture *CreateTexture(const TextureDesc &desc) override;
 	Buffer *CreateBuffer(size_t size, uint32_t usageFlags) override;
@@ -1006,8 +1007,8 @@ void OpenGLContext::ApplySamplers() {
 	}
 }
 
-ShaderModule *OpenGLContext::CreateShaderModule(ShaderStage stage, ShaderLanguage language, const uint8_t *data, size_t dataSize) {
-	OpenGLShaderModule *shader = new OpenGLShaderModule(&renderManager_, stage);
+ShaderModule *OpenGLContext::CreateShaderModule(ShaderStage stage, ShaderLanguage language, const uint8_t *data, size_t dataSize, const std::string &tag) {
+	OpenGLShaderModule *shader = new OpenGLShaderModule(&renderManager_, stage, tag);
 	if (shader->Compile(&renderManager_, language, data, dataSize)) {
 		return shader;
 	} else {

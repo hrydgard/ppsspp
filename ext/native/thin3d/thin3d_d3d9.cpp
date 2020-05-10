@@ -252,7 +252,7 @@ private:
 
 class D3D9ShaderModule : public ShaderModule {
 public:
-	D3D9ShaderModule(ShaderStage stage) : stage_(stage), vshader_(nullptr), pshader_(nullptr) {}
+	D3D9ShaderModule(ShaderStage stage, const std::string &tag) : stage_(stage), tag_(tag) {}
 	~D3D9ShaderModule() {
 		if (vshader_)
 			vshader_->Release();
@@ -271,8 +271,9 @@ public:
 
 private:
 	ShaderStage stage_;
-	LPDIRECT3DVERTEXSHADER9 vshader_;
-	LPDIRECT3DPIXELSHADER9 pshader_;
+	LPDIRECT3DVERTEXSHADER9 vshader_ = nullptr;
+	LPDIRECT3DPIXELSHADER9 pshader_ = nullptr;
+	std::string tag_;
 };
 
 class D3D9Pipeline : public Pipeline {
@@ -489,7 +490,7 @@ public:
 	}
 	uint32_t GetDataFormatSupport(DataFormat fmt) const override;
 
-	ShaderModule *CreateShaderModule(ShaderStage stage, ShaderLanguage language, const uint8_t *data, size_t dataSize) override;
+	ShaderModule *CreateShaderModule(ShaderStage stage, ShaderLanguage language, const uint8_t *data, size_t dataSize, const std::string &tag) override;
 	DepthStencilState *CreateDepthStencilState(const DepthStencilStateDesc &desc) override;
 	BlendState *CreateBlendState(const BlendStateDesc &desc) override;
 	SamplerState *CreateSamplerState(const SamplerStateDesc &desc) override;
@@ -650,8 +651,8 @@ D3D9Context::D3D9Context(IDirect3D9 *d3d, IDirect3D9Ex *d3dEx, int adapterId, ID
 D3D9Context::~D3D9Context() {
 }
 
-ShaderModule *D3D9Context::CreateShaderModule(ShaderStage stage, ShaderLanguage language, const uint8_t *data, size_t size) {
-	D3D9ShaderModule *shader = new D3D9ShaderModule(stage);
+ShaderModule *D3D9Context::CreateShaderModule(ShaderStage stage, ShaderLanguage language, const uint8_t *data, size_t size, const std::string &tag) {
+	D3D9ShaderModule *shader = new D3D9ShaderModule(stage, tag);
 	if (shader->Compile(device_, data, size)) {
 		return shader;
 	} else {

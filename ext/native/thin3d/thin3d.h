@@ -580,7 +580,7 @@ public:
 	// On some hardware, you might get a 24-bit depth buffer even though you only wanted a 16-bit one.
 	virtual Framebuffer *CreateFramebuffer(const FramebufferDesc &desc) = 0;
 
-	virtual ShaderModule *CreateShaderModule(ShaderStage stage, ShaderLanguage language, const uint8_t *data, size_t dataSize) = 0;
+	virtual ShaderModule *CreateShaderModule(ShaderStage stage, ShaderLanguage language, const uint8_t *data, size_t dataSize, const std::string &tag = "thin3d") = 0;
 	virtual Pipeline *CreateGraphicsPipeline(const PipelineDesc &desc) = 0;
 
 	// Copies data from the CPU over into the buffer, at a specific offset. This does not change the size of the buffer and cannot write outside it.
