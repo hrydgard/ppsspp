@@ -230,9 +230,30 @@ void PresentationCommon::DestroyDeviceObjects() {
 	DoRelease(samplerLinear_);
 	DoRelease(vdata_);
 	DoRelease(idata_);
+	DoRelease(srcTexture_);
+	DoRelease(srcFramebuffer_);
 }
 
-void PresentationCommon::CopyToOutput(OutputFlags flags, float x, float y, float x2, float y2, float u0, float v0, float u1, float v1) {
+void PresentationCommon::SourceTexture(Draw::Texture *texture) {
+	DoRelease(srcTexture_);
+	DoRelease(srcFramebuffer_);
+
+	texture->AddRef();
+	srcTexture_ = texture;
+}
+
+void PresentationCommon::SourceFramebuffer(Draw::Framebuffer *fb) {
+	DoRelease(srcTexture_);
+	DoRelease(srcFramebuffer_);
+
+	fb->AddRef();
+	srcFramebuffer_ = fb;
+}
+
+void PresentationCommon::CopyToOutput(OutputFlags flags, int uvRotation, float u0, float v0, float u1, float v1) {
+	CardboardSettings cardboardSettings;
+	GetCardboardSettings(&cardboardSettings);
+
 	Draw::Pipeline *pipeline = flags & OutputFlags::RB_SWIZZLE ? texColorRBSwizzle_ : texColor_;
 
 	Draw::SamplerState *sampler;
@@ -241,25 +262,109 @@ void PresentationCommon::CopyToOutput(OutputFlags flags, float x, float y, float
 	} else {
 		sampler = samplerLinear_;
 	}
-	draw_->BindSamplerStates(0, 1, &sampler);
 
-	const Vertex verts[4] = {
-		{ x, y, 0,    u0, v0,  0xFFFFFFFF }, // TL
-		{ x, y2, 0,   u0, v1,  0xFFFFFFFF }, // BL
-		{ x2, y2, 0,  u1, v1,  0xFFFFFFFF }, // BR
-		{ x2, y, 0,   u1, v0,  0xFFFFFFFF }, // TR
+	// These are the output coordinates.
+	float x, y, w, h;
+	CenterDisplayOutputRect(&x, &y, &w, &h, 480.0f, 272.0f, (float)pixelWidth_, (float)pixelHeight_, uvRotation);
+
+	if (GetGPUBackend() == GPUBackend::DIRECT3D9) {
+		x -= 0.5f;
+		// TODO: This is plus because of some flipping going on, I think?  Investigate...
+		y += 0.5f;
+	}
+
+	if (flags & OutputFlags::BACKBUFFER_FLIPPED) {
+		std::swap(v0, v1);
+	}
+
+	Vertex verts[4] = {
+		{ x, y, 0, u0, v0, 0xFFFFFFFF }, // TL
+		{ x, y + h, 0, u0, v1, 0xFFFFFFFF }, // BL
+		{ x + w, y + h, 0,  u1, v1, 0xFFFFFFFF }, // BR
+		{ x + w, y, 0, u1, v0, 0xFFFFFFFF }, // TR
 	};
+
+	float invDestW = 1.0f / (pixelWidth_ * 0.5f);
+	float invDestH = 1.0f / (pixelHeight_ * 0.5f);
+	for (int i = 0; i < 4; i++) {
+		verts[i].x = verts[i].x * invDestW - 1.0f;
+		verts[i].y = verts[i].y * invDestH - 1.0f;
+	}
+
+	if (uvRotation != ROTATION_LOCKED_HORIZONTAL) {
+		struct {
+			float u;
+			float v;
+		} temp[4];
+		int rotation = 0;
+		// Vertical and Vertical180 needed swapping after we changed the coordinate system.
+		switch (uvRotation) {
+		case ROTATION_LOCKED_HORIZONTAL180: rotation = 2; break;
+		case ROTATION_LOCKED_VERTICAL: rotation = 1; break;
+		case ROTATION_LOCKED_VERTICAL180: rotation = 3; break;
+		}
+
+		// TODO: This doesn't make sense... but Vulkan is flipped only in portrait?  Investigate.
+		if (GetGPUBackend() == GPUBackend::VULKAN && (rotation & 1) != 0) {
+			rotation ^= 2;
+		}
+
+		for (int i = 0; i < 4; i++) {
+			temp[i].u = verts[(i + rotation) & 3].u;
+			temp[i].v = verts[(i + rotation) & 3].v;
+		}
+		for (int i = 0; i < 4; i++) {
+			verts[i].u = temp[i].u;
+			verts[i].v = temp[i].v;
+		}
+	}
+
 	draw_->UpdateBuffer(vdata_, (const uint8_t *)verts, 0, sizeof(verts), Draw::UPDATE_DISCARD);
 
 	int indexes[] = { 0, 1, 2, 0, 2, 3 };
 	draw_->UpdateBuffer(idata_, (const uint8_t *)indexes, 0, sizeof(indexes), Draw::UPDATE_DISCARD);
 
+	draw_->BindFramebufferAsRenderTarget(nullptr, { Draw::RPAction::CLEAR, Draw::RPAction::DONT_CARE, Draw::RPAction::DONT_CARE });
+	draw_->SetScissorRect(0, 0, pixelWidth_, pixelHeight_);
+
+	if (srcTexture_) {
+		draw_->BindTexture(0, srcTexture_);
+	} else if (srcFramebuffer_) {
+		draw_->BindFramebufferAsTexture(srcFramebuffer_, 0, Draw::FB_COLOR_BIT, 0);
+	} else {
+		assert(false);
+	}
+	draw_->BindSamplerStates(0, 1, &sampler);
+
 	Draw::VsTexColUB ub{};
 	memcpy(ub.WorldViewProj, g_display_rot_matrix.m, sizeof(float) * 16);
+	// Make sure Direct3D 11 clears state, since we set shaders outside Draw.
+	draw_->BindPipeline(nullptr);
 	draw_->BindPipeline(pipeline);
 	draw_->UpdateDynamicUniformBuffer(&ub, sizeof(ub));
 	draw_->BindVertexBuffers(0, 1, &vdata_, nullptr);
 	draw_->BindIndexBuffer(idata_, 0);
-	draw_->DrawIndexed(6, 0);
+
+	auto setViewport = [&](float x, float y, float w, float h) {
+		Draw::Viewport viewport{ x, y, w, h, 0.0f, 1.0f };
+		draw_->SetViewports(1, &viewport);
+	};
+
+	if (cardboardSettings.enabled) {
+		// This is what the left eye sees.
+		setViewport(cardboardSettings.leftEyeXPosition, cardboardSettings.screenYPosition, cardboardSettings.screenWidth, cardboardSettings.screenHeight);
+		draw_->DrawIndexed(6, 0);
+
+		// And this is the right eye, unless they're a pirate.
+		setViewport(cardboardSettings.rightEyeXPosition, cardboardSettings.screenYPosition, cardboardSettings.screenWidth, cardboardSettings.screenHeight);
+		draw_->DrawIndexed(6, 0);
+	} else {
+		setViewport(0.0f, 0.0f, (float)pixelWidth_, (float)pixelHeight_);
+		draw_->DrawIndexed(6, 0);
+	}
+
 	draw_->BindIndexBuffer(nullptr, 0);
+
+	DoRelease(srcFramebuffer_);
+	DoRelease(srcTexture_);
 }

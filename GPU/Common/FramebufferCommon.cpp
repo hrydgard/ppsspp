@@ -915,29 +915,19 @@ void FramebufferManagerCommon::CopyDisplayToOutput(bool reallyDirty) {
 
 		if (!usePostShader_) {
 			shaderManager_->DirtyLastShader();
-			draw_->BindFramebufferAsRenderTarget(nullptr, { Draw::RPAction::CLEAR, Draw::RPAction::CLEAR, Draw::RPAction::CLEAR });
-			draw_->BindFramebufferAsTexture(vfb->fbo, 0, Draw::FB_COLOR_BIT, 0);
-			draw_->SetScissorRect(0, 0, pixelWidth_, pixelHeight_);
-			Bind2DShader();
-			DrawTextureFlags flags = g_Config.iBufFilter == SCALE_LINEAR ? DRAWTEX_LINEAR : DRAWTEX_NEAREST;
-			flags = flags | DRAWTEX_TO_BACKBUFFER;
-			// We are doing the DrawActiveTexture call directly to the backbuffer here. Hence, we must
-			// flip V.
-			if (needBackBufferYSwap_)
-				std::swap(v0, v1);
-			if (cardboardSettings.enabled) {
-				// Left Eye Image
-				SetViewport2D(cardboardSettings.leftEyeXPosition, cardboardSettings.screenYPosition, cardboardSettings.screenWidth, cardboardSettings.screenHeight);
-				DrawActiveTexture(x, y, w, h, (float)pixelWidth_, (float)pixelHeight_, u0, v0, u1, v1, ROTATION_LOCKED_HORIZONTAL, flags | DRAWTEX_KEEP_TEX);
 
-				// Right Eye Image
-				SetViewport2D(cardboardSettings.rightEyeXPosition, cardboardSettings.screenYPosition, cardboardSettings.screenWidth, cardboardSettings.screenHeight);
-				DrawActiveTexture(x, y, w, h, (float)pixelWidth_, (float)pixelHeight_, u0, v0, u1, v1, ROTATION_LOCKED_HORIZONTAL, flags);
-			} else {
-				// Fullscreen Image
-				SetViewport2D(0, 0, pixelWidth_, pixelHeight_);
-				DrawActiveTexture(x, y, w, h, (float)pixelWidth_, (float)pixelHeight_, u0, v0, u1, v1, uvRotation, flags);
+			OutputFlags flags = g_Config.iBufFilter == SCALE_LINEAR ? OutputFlags::LINEAR : OutputFlags::NEAREST;
+			if (needBackBufferYSwap_) {
+				flags |= OutputFlags::BACKBUFFER_FLIPPED;
 			}
+
+			// TODO: DrawActiveTexture reverses these, but I'm not sure why?  Investigate.
+			if (GetGPUBackend() == GPUBackend::DIRECT3D9 || GetGPUBackend() == GPUBackend::DIRECT3D11) {
+				std::swap(v0, v1);
+			}
+
+			presentation_->SourceFramebuffer(vfb->fbo);
+			presentation_->CopyToOutput(flags, uvRotation, u0, v0, u1, v1);
 		} else if (usePostShader_ && extraFBOs_.size() == 1 && !postShaderAtOutputResolution_) {
 			// An additional pass, post-processing shader to the extra FBO.
 			shaderManager_->DirtyLastShader();  // dirty lastShader_
@@ -1017,8 +1007,7 @@ void FramebufferManagerCommon::CopyDisplayToOutput(bool reallyDirty) {
 				DrawActiveTexture(x, y, w, h, (float)pixelWidth_, (float)pixelHeight_, u0, v0, u1, v1, uvRotation, flags);
 			}
 		}
-	}
-	else if (useBufferedRendering_) {
+	} else if (useBufferedRendering_) {
 		WARN_LOG(FRAMEBUF, "Current VFB lacks an FBO: %08x", vfb->fb_address);
 	}
 

@@ -37,8 +37,10 @@ void CenterDisplayOutputRect(float *x, float *y, float *w, float *h, float origW
 namespace Draw {
 class Buffer;
 class DrawContext;
+class Framebuffer;
 class Pipeline;
 class SamplerState;
+class Texture;
 }
 
 struct ShaderInfo;
@@ -48,6 +50,7 @@ enum class OutputFlags {
 	LINEAR = 0x0000,
 	NEAREST = 0x0001,
 	RB_SWIZZLE = 0x0002,
+	BACKBUFFER_FLIPPED = 0x0004,
 };
 
 inline OutputFlags operator | (const OutputFlags &lhs, const OutputFlags &rhs) {
@@ -79,7 +82,9 @@ public:
 	void CalculatePostShaderUniforms(int bufferWidth, int bufferHeight, int renderWidth, int renderHeight, bool hasVideo, PostShaderUniforms *uniforms);
 
 	// TODO: Cleanup
-	void CopyToOutput(OutputFlags flags, float x, float y, float x2, float y2, float u0, float v0, float u1, float v1);
+	void SourceTexture(Draw::Texture *texture);
+	void SourceFramebuffer(Draw::Framebuffer *fb);
+	void CopyToOutput(OutputFlags flags, int uvRotation, float u0, float v0, float u1, float v1);
 
 protected:
 	void CreateDeviceObjects();
@@ -92,6 +97,9 @@ protected:
 	Draw::SamplerState *samplerLinear_ = nullptr;
 	Draw::Buffer *vdata_ = nullptr;
 	Draw::Buffer *idata_ = nullptr;
+
+	Draw::Texture *srcTexture_ = nullptr;
+	Draw::Framebuffer *srcFramebuffer_ = nullptr;
 
 	int pixelWidth_ = 0;
 	int pixelHeight_ = 0;

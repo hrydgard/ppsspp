@@ -232,39 +232,13 @@ void SoftGPU::CopyToCurrentFboFromDisplayRam(int srcwidth, int srcheight) {
 
 	fbTex = draw_->CreateTexture(desc);
 
-	float dstwidth = (float)PSP_CoreParameter().pixelWidth;
-	float dstheight = (float)PSP_CoreParameter().pixelHeight;
-
-	float x, y, w, h;
-	CenterDisplayOutputRect(&x, &y, &w, &h, 480.0f, 272.0f, dstwidth, dstheight, ROTATION_LOCKED_HORIZONTAL);
-
-	if (GetGPUBackend() == GPUBackend::DIRECT3D9) {
-		x += 0.5f;
-		y += 0.5f;
-	}
-
-	x /= 0.5f * dstwidth;
-	y /= 0.5f * dstheight;
-	w /= 0.5f * dstwidth;
-	h /= 0.5f * dstheight;
-	float x2 = x + w;
-	float y2 = y + h;
-	x -= 1.0f;
-	y -= 1.0f;
-	x2 -= 1.0f;
-	y2 -= 1.0f;
-
 	if (GetGPUBackend() == GPUBackend::VULKAN) {
 		std::swap(v0, v1);
 	}
 
-	draw_->BindFramebufferAsRenderTarget(nullptr, { Draw::RPAction::CLEAR, Draw::RPAction::DONT_CARE, Draw::RPAction::DONT_CARE });
-	Draw::Viewport viewport = { 0.0f, 0.0f, dstwidth, dstheight, 0.0f, 1.0f };
-	draw_->SetViewports(1, &viewport);
-	draw_->SetScissorRect(0, 0, dstwidth, dstheight);
-
-	draw_->BindTexture(0, fbTex);
-	presentation_->CopyToOutput(outputFlags, x, y, x2, y2, u0, v0, u1, v1);
+	presentation_->UpdateSize(PSP_CoreParameter().pixelWidth, PSP_CoreParameter().pixelHeight);
+	presentation_->SourceTexture(fbTex);
+	presentation_->CopyToOutput(outputFlags, ROTATION_LOCKED_HORIZONTAL, u0, v0, u1, v1);
 }
 
 void SoftGPU::CopyDisplayToOutput(bool reallyDirty) {

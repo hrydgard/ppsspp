@@ -1037,10 +1037,12 @@ bool OpenGLPipeline::LinkShaders() {
 
 void OpenGLContext::BindPipeline(Pipeline *pipeline) {
 	curPipeline_ = (OpenGLPipeline *)pipeline;
-	curPipeline_->blend->Apply(&renderManager_);
-	curPipeline_->depthStencil->Apply(&renderManager_, stencilRef_);
-	curPipeline_->raster->Apply(&renderManager_);
-	renderManager_.BindProgram(curPipeline_->program_);
+	if (curPipeline_) {
+		curPipeline_->blend->Apply(&renderManager_);
+		curPipeline_->depthStencil->Apply(&renderManager_, stencilRef_);
+		curPipeline_->raster->Apply(&renderManager_);
+		renderManager_.BindProgram(curPipeline_->program_);
+	}
 }
 
 void OpenGLContext::UpdateDynamicUniformBuffer(const void *ub, size_t size) {
