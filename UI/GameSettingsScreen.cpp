@@ -461,14 +461,13 @@ void GameSettingsScreen::CreateViews() {
 
 #if PPSSPP_PLATFORM(ANDROID) || PPSSPP_PLATFORM(IOS)
 	graphicsSettings->Add(new ItemHeader(gr->T("Cardboard VR Settings", "Cardboard VR Settings")));
-	CheckBox *cardboardMode = graphicsSettings->Add(new CheckBox(&g_Config.bEnableCardboardVR, gr->T("Enable Cardboard VR", "Enable Cardboard VR")));
-	cardboardMode->SetDisabledPtr(&g_Config.bSoftwareRendering);
-	PopupSliderChoice * cardboardScreenSize = graphicsSettings->Add(new PopupSliderChoice(&g_Config.iCardboardScreenSize, 30, 100, gr->T("Cardboard Screen Size", "Screen Size (in % of the viewport)"), 1, screenManager(), gr->T("% of viewport")));
-	cardboardScreenSize->SetDisabledPtr(&g_Config.bSoftwareRendering);
+	graphicsSettings->Add(new CheckBox(&g_Config.bEnableCardboardVR, gr->T("Enable Cardboard VR", "Enable Cardboard VR")));
+	PopupSliderChoice *cardboardScreenSize = graphicsSettings->Add(new PopupSliderChoice(&g_Config.iCardboardScreenSize, 30, 100, gr->T("Cardboard Screen Size", "Screen Size (in % of the viewport)"), 1, screenManager(), gr->T("% of viewport")));
+	cardboardScreenSize->SetEnabledPtr(&g_Config.bEnableCardboardVR);
 	PopupSliderChoice *cardboardXShift = graphicsSettings->Add(new PopupSliderChoice(&g_Config.iCardboardXShift, -100, 100, gr->T("Cardboard Screen X Shift", "X Shift (in % of the void)"), 1, screenManager(), gr->T("% of the void")));
-	cardboardXShift->SetDisabledPtr(&g_Config.bSoftwareRendering);
+	cardboardXShift->SetEnabledPtr(&g_Config.bEnableCardboardVR);
 	PopupSliderChoice *cardboardYShift = graphicsSettings->Add(new PopupSliderChoice(&g_Config.iCardboardYShift, -100, 100, gr->T("Cardboard Screen Y Shift", "Y Shift (in % of the void)"), 1, screenManager(), gr->T("% of the void")));
-	cardboardYShift->SetDisabledPtr(&g_Config.bSoftwareRendering);
+	cardboardYShift->SetEnabledPtr(&g_Config.bEnableCardboardVR);
 #endif
 
 	std::vector<std::string> cameraList = Camera::getDeviceList();
