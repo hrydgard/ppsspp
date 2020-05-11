@@ -612,4 +612,6 @@ void PresentationCommon::CopyToOutput(OutputFlags flags, int uvRotation, float u
 
 	DoRelease(srcFramebuffer_);
 	DoRelease(srcTexture_);
+
+	draw_->BindPipeline(nullptr);
 }

@@ -120,6 +120,8 @@ static const D3DVERTEXELEMENT9 g_FramebufferVertexElements[] = {
 	}
 
 	FramebufferManagerDX9::~FramebufferManagerDX9() {
+		ShaderTranslationShutdown();
+
 		if (pFramebufferVertexShader) {
 			pFramebufferVertexShader->Release();
 			pFramebufferVertexShader = nullptr;

@@ -287,7 +287,7 @@ void GameSettingsScreen::CreateViews() {
 	postProcChoice_ = graphicsSettings->Add(new ChoiceWithValueDisplay(&g_Config.sPostShaderName, gr->T("Postprocessing Shader"), &PostShaderTranslateName));
 	postProcChoice_->OnClick.Handle(this, &GameSettingsScreen::OnPostProcShader);
 	postProcChoice_->SetEnabledFunc([] {
-		return !g_Config.bSoftwareRendering && g_Config.iRenderingMode != FB_NON_BUFFERED_MODE;
+		return g_Config.iRenderingMode != FB_NON_BUFFERED_MODE;
 	});
 
 #if !defined(MOBILE_DEVICE)

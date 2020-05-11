@@ -16,6 +16,7 @@
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
 #include "base/display.h"
+#include "gfx_es2/gpu_features.h"
 
 #include "GPU/GPUState.h"
 #include "GPU/ge_constants.h"
@@ -40,6 +41,7 @@
 #include "GPU/Software/TransformUnit.h"
 #include "GPU/Common/DrawEngineCommon.h"
 #include "GPU/Common/PresentationCommon.h"
+#include "GPU/Common/ShaderTranslation.h"
 #include "GPU/Common/SplineCommon.h"
 #include "GPU/Debugger/Debugger.h"
 #include "GPU/Debugger/Record.h"
@@ -67,6 +69,24 @@ SoftGPU::SoftGPU(GraphicsContext *gfxCtx, Draw::DrawContext *draw)
 	drawEngine_ = new SoftwareDrawEngine();
 	drawEngineCommon_ = drawEngine_;
 	presentation_ = new PresentationCommon(draw_);
+
+	switch (GetGPUBackend()) {
+	case GPUBackend::OPENGL:
+		presentation_->SetLanguage(gl_extensions.IsCoreContext ? GLSL_300 : GLSL_140);
+		break;
+	case GPUBackend::DIRECT3D9:
+		ShaderTranslationInit();
+		presentation_->SetLanguage(HLSL_DX9);
+		break;
+	case GPUBackend::DIRECT3D11:
+		ShaderTranslationInit();
+		presentation_->SetLanguage(HLSL_D3D11);
+		break;
+	case GPUBackend::VULKAN:
+		presentation_->SetLanguage(GLSL_VULKAN);
+		break;
+	}
+	Resized();
 }
 
 void SoftGPU::DeviceLost() {
@@ -90,6 +110,15 @@ SoftGPU::~SoftGPU() {
 	}
 
 	delete presentation_;
+	switch (GetGPUBackend()) {
+	case GPUBackend::DIRECT3D9:
+	case GPUBackend::DIRECT3D11:
+		ShaderTranslationShutdown();
+		break;
+	case GPUBackend::OPENGL:
+	case GPUBackend::VULKAN:
+		break;
+	}
 
 	Sampler::Shutdown();
 }
@@ -235,11 +264,15 @@ void SoftGPU::CopyToCurrentFboFromDisplayRam(int srcwidth, int srcheight) {
 	if (GetGPUBackend() == GPUBackend::VULKAN) {
 		std::swap(v0, v1);
 	}
+	if (GetGPUBackend() == GPUBackend::OPENGL) {
+		std::swap(v0, v1);
+		outputFlags |= OutputFlags::BACKBUFFER_FLIPPED;
+	}
 
 	// TODO, also deal with RB swizzle.
 	PostShaderUniforms uniforms{};
+	presentation_->CalculatePostShaderUniforms(desc.width, desc.height, false, &uniforms);
 
-	presentation_->UpdateSize(PSP_CoreParameter().pixelWidth, PSP_CoreParameter().pixelHeight, PSP_CoreParameter().renderWidth, PSP_CoreParameter().renderHeight);
 	presentation_->SourceTexture(fbTex);
 	presentation_->CopyToOutput(outputFlags, g_Config.iInternalScreenRotation, u0, v0, u1, v1, uniforms);
 }
@@ -248,7 +281,9 @@ void SoftGPU::CopyDisplayToOutput(bool reallyDirty) {
 	// The display always shows 480x272.
 	CopyToCurrentFboFromDisplayRam(FB_WIDTH, FB_HEIGHT);
 	framebufferDirty_ = false;
+}
 
+void SoftGPU::Resized() {
 	// Force the render params to 480x272 so other things work.
 	if (g_Config.IsPortrait()) {
 		PSP_CoreParameter().renderWidth = 272;
@@ -257,6 +292,9 @@ void SoftGPU::CopyDisplayToOutput(bool reallyDirty) {
 		PSP_CoreParameter().renderWidth = 480;
 		PSP_CoreParameter().renderHeight = 272;
 	}
+
+	presentation_->UpdateSize(PSP_CoreParameter().pixelWidth, PSP_CoreParameter().pixelHeight, PSP_CoreParameter().renderWidth, PSP_CoreParameter().renderHeight);
+	presentation_->UpdatePostShader();
 }
 
 void SoftGPU::FastRunLoop(DisplayList &list) {

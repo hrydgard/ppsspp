@@ -77,7 +77,7 @@ public:
 	void DeviceLost() override;
 	void DeviceRestore() override;
 
-	void Resized() override {}
+	void Resized() override;
 	void GetReportingInfo(std::string &primaryInfo, std::string &fullInfo) override {
 		primaryInfo = "Software";
 		fullInfo = "Software";
