@@ -1242,7 +1242,7 @@ void VKContext::Draw(int vertexCount, int offset) {
 
 	renderManager_.BindPipeline(curPipeline_->vkpipeline);
 	ApplyDynamicState();
-	renderManager_.Draw(pipelineLayout_, descSet, 1, &ubo_offset, vulkanVbuf, (int)vbBindOffset, vertexCount);
+	renderManager_.Draw(pipelineLayout_, descSet, 1, &ubo_offset, vulkanVbuf, (int)vbBindOffset + curVBufferOffsets_[0], vertexCount, offset);
 }
 
 void VKContext::DrawIndexed(int vertexCount, int offset) {
@@ -1258,7 +1258,7 @@ void VKContext::DrawIndexed(int vertexCount, int offset) {
 
 	renderManager_.BindPipeline(curPipeline_->vkpipeline);
 	ApplyDynamicState();
-	renderManager_.DrawIndexed(pipelineLayout_, descSet, 1, &ubo_offset, vulkanVbuf, (int)vbBindOffset, vulkanIbuf, (int)ibBindOffset + offset * sizeof(uint32_t), vertexCount, 1, VK_INDEX_TYPE_UINT32);
+	renderManager_.DrawIndexed(pipelineLayout_, descSet, 1, &ubo_offset, vulkanVbuf, (int)vbBindOffset + curVBufferOffsets_[0], vulkanIbuf, (int)ibBindOffset + offset * sizeof(uint32_t), vertexCount, 1, VK_INDEX_TYPE_UINT32);
 }
 
 void VKContext::DrawUP(const void *vdata, int vertexCount) {
@@ -1270,7 +1270,7 @@ void VKContext::DrawUP(const void *vdata, int vertexCount) {
 
 	renderManager_.BindPipeline(curPipeline_->vkpipeline);
 	ApplyDynamicState();
-	renderManager_.Draw(pipelineLayout_, descSet, 1, &ubo_offset, vulkanVbuf, (int)vbBindOffset, vertexCount);
+	renderManager_.Draw(pipelineLayout_, descSet, 1, &ubo_offset, vulkanVbuf, (int)vbBindOffset + curVBufferOffsets_[0], vertexCount);
 }
 
 void VKContext::Clear(int clearMask, uint32_t colorval, float depthVal, int stencilVal) {
