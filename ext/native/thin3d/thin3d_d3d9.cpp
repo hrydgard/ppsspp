@@ -29,6 +29,10 @@
 #include "thin3d/d3d9_d3dcompiler_loader.h"
 #endif
 
+#ifndef D3DXERR_INVALIDDATA
+#define D3DXERR_INVALIDDATA 0x88760b59
+#endif
+
 #include "base/logging.h"
 #include "math/lin/matrix4x4.h"
 #include "thin3d/thin3d.h"
@@ -1020,12 +1024,18 @@ bool D3D9ShaderModule::Compile(LPDIRECT3DDEVICE9 device, const uint8_t *data, si
 	LPD3DBLOB codeBuffer = nullptr;
 	LPD3DBLOB errorBuffer = nullptr;
 	const char *source = (const char *)data;
-	const char *profile = stage_ == ShaderStage::FRAGMENT ? "ps_2_0" : "vs_2_0";
+	auto compile = [&](const char *profile) -> HRESULT {
 #if PPSSPP_API(D3DX9)
-	HRESULT hr = dyn_D3DXCompileShader(source, (UINT)strlen(source), defines, includes, "main", profile, flags, &codeBuffer, &errorBuffer, nullptr);
+		return dyn_D3DXCompileShader(source, (UINT)strlen(source), defines, includes, "main", profile, flags, &codeBuffer, &errorBuffer, nullptr);
 #elif PPSSPP_API(D3D9_D3DCOMPILER)
-	HRESULT hr = dyn_D3DCompile(source, (UINT)strlen(source), nullptr, defines, includes, "main", profile, 0, 0, &codeBuffer, &errorBuffer);
+		return dyn_D3DCompile(source, (UINT)strlen(source), nullptr, defines, includes, "main", profile, 0, 0, &codeBuffer, &errorBuffer);
 #endif
+	};
+	HRESULT hr = compile(stage_ == ShaderStage::FRAGMENT ? "ps_2_0" : "vs_2_0");
+	if (FAILED(hr) && hr == D3DXERR_INVALIDDATA) {
+		// Might be a post shader.  Let's try using shader model 3.
+		hr = compile(stage_ == ShaderStage::FRAGMENT ? "ps_3_0" : "vs_3_0");
+	}
 	if (FAILED(hr)) {
 		const char *error = errorBuffer ? (const char *)errorBuffer->GetBufferPointer() : "(no errorbuffer returned)";
 		if (hr == ERROR_MOD_NOT_FOUND) {
@@ -1050,6 +1060,9 @@ bool D3D9ShaderModule::Compile(LPDIRECT3DDEVICE9 device, const uint8_t *data, si
 		success = SUCCEEDED(result);
 	}
 
+	// There could have been warnings.
+	if (errorBuffer)
+		errorBuffer->Release();
 	codeBuffer->Release();
 	return true;
 }
