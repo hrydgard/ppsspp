@@ -538,8 +538,9 @@ void PresentationCommon::CopyToOutput(OutputFlags flags, int uvRotation, float u
 		Draw::SamplerState *sampler = useNearest ? samplerNearest_ : samplerLinear_;
 		draw_->BindSamplerStates(0, 1, &sampler);
 
-		float post_v0 = flags & OutputFlags::BACKBUFFER_FLIPPED ? 1.0f : 0.0f;
-		float post_v1 = flags & OutputFlags::BACKBUFFER_FLIPPED ? 0.0f : 1.0f;
+		bool flipped = GetGPUBackend() == GPUBackend::DIRECT3D9 || GetGPUBackend() == GPUBackend::DIRECT3D11;
+		float post_v0 = !flipped ? 1.0f : 0.0f;
+		float post_v1 = !flipped ? 0.0f : 1.0f;
 		verts[4] = { -1, -1, 0, 0, post_v1, 0xFFFFFFFF }; // TL
 		verts[5] = { -1, 1, 0, 0, post_v0, 0xFFFFFFFF }; // BL
 		verts[6] = { 1, 1, 0, 1, post_v0, 0xFFFFFFFF }; // BR

@@ -96,8 +96,8 @@ R"(#version 430
 #extension GL_ARB_shading_language_420pack : enable
 )";
 
-static const char *pushconstantBufferDecl = R"(
-layout(push_constant) uniform data {
+static const char *vulkanUboDecl = R"(
+layout (std140, set = 0, binding = 0) uniform Data {
 	vec2 u_texelDelta;
 	vec2 u_pixelDelta;
 	vec4 u_time;
@@ -155,7 +155,7 @@ bool ConvertToVulkanGLSL(std::string *dest, TranslatedShaderMetadata *destMetada
 		const char *replacement;
 	} replacements[] = {
 		{ Draw::ShaderStage::VERTEX, "attribute vec4 a_position;", "layout(location = 0) in vec4 a_position;" },
-		{ Draw::ShaderStage::VERTEX, "attribute vec2 a_texcoord0;", "layout(location = 1) in vec2 a_texcoord0;"},
+		{ Draw::ShaderStage::VERTEX, "attribute vec2 a_texcoord0;", "layout(location = 2) in vec2 a_texcoord0;"},
 		{ Draw::ShaderStage::VERTEX, "varying vec2 v_position;", "layout(location = 0) out vec2 v_position;" },
 		{ Draw::ShaderStage::FRAGMENT, "varying vec2 v_position;", "layout(location = 0) in vec2 v_position;" },
 		{ Draw::ShaderStage::FRAGMENT, "texture2D(", "texture(" },
@@ -167,7 +167,7 @@ bool ConvertToVulkanGLSL(std::string *dest, TranslatedShaderMetadata *destMetada
 		out << "layout (location = 0) out vec4 fragColor0;\n";
 	}
 	// Output the uniform buffer.
-	out << pushconstantBufferDecl;
+	out << vulkanUboDecl;
 
 	// Alright, now let's go through it line by line and zap the single uniforms
 	// and perform replacements.
@@ -178,7 +178,7 @@ bool ConvertToVulkanGLSL(std::string *dest, TranslatedShaderMetadata *destMetada
 		if (line.find("uniform bool") != std::string::npos) {
 			continue;
 		} else if (line.find("uniform sampler2D") == 0) {
-			line = "layout(set = 0, binding = 0) " + line;
+			line = "layout(set = 0, binding = 1) " + line;
 		} else if (line.find("uniform ") != std::string::npos) {
 			continue;
 		} else if (2 == sscanf(line.c_str(), "varying vec%d v_texcoord%d;", &vecSize, &num)) {
