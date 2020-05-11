@@ -84,6 +84,10 @@ public:
 		lang_ = lang;
 	}
 
+	bool HasPostShader() {
+		return usePostShader_;
+	}
+
 	bool UpdatePostShader();
 	void UpdateShaderInfo(const ShaderInfo *shaderInfo);
 

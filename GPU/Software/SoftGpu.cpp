@@ -197,6 +197,7 @@ void SoftGPU::CopyToCurrentFboFromDisplayRam(int srcwidth, int srcheight) {
 	bool hasImage = true;
 
 	OutputFlags outputFlags = g_Config.iBufFilter == SCALE_NEAREST ? OutputFlags::NEAREST : OutputFlags::LINEAR;
+	bool hasPostShader = presentation_->HasPostShader();
 
 	if (PSP_CoreParameter().compat.flags().DarkStalkersPresentHack && displayFormat_ == GE_FORMAT_5551 && g_DarkStalkerStretch) {
 		u8 *data = Memory::GetPointer(0x04088000);
@@ -204,7 +205,7 @@ void SoftGPU::CopyToCurrentFboFromDisplayRam(int srcwidth, int srcheight) {
 		if (draw_->GetDataFormatSupport(Draw::DataFormat::A1B5G5R5_UNORM_PACK16) & Draw::FMT_TEXTURE) {
 			// The perfect one.
 			desc.format = Draw::DataFormat::A1B5G5R5_UNORM_PACK16;
-		} else if (draw_->GetDataFormatSupport(Draw::DataFormat::A1R5G5B5_UNORM_PACK16) & Draw::FMT_TEXTURE) {
+		} else if (!hasPostShader && (draw_->GetDataFormatSupport(Draw::DataFormat::A1R5G5B5_UNORM_PACK16) & Draw::FMT_TEXTURE)) {
 			// RB swapped, compensate with a shader.
 			desc.format = Draw::DataFormat::A1R5G5B5_UNORM_PACK16;
 			outputFlags |= OutputFlags::RB_SWIZZLE;
@@ -237,7 +238,7 @@ void SoftGPU::CopyToCurrentFboFromDisplayRam(int srcwidth, int srcheight) {
 		if (draw_->GetDataFormatSupport(Draw::DataFormat::A1B5G5R5_UNORM_PACK16) & Draw::FMT_TEXTURE) {
 			// The perfect one.
 			desc.format = Draw::DataFormat::A1B5G5R5_UNORM_PACK16;
-		} else if (draw_->GetDataFormatSupport(Draw::DataFormat::A1R5G5B5_UNORM_PACK16) & Draw::FMT_TEXTURE) {
+		} else if (!hasPostShader && (draw_->GetDataFormatSupport(Draw::DataFormat::A1R5G5B5_UNORM_PACK16) & Draw::FMT_TEXTURE)) {
 			// RB swapped, compensate with a shader.
 			desc.format = Draw::DataFormat::A1R5G5B5_UNORM_PACK16;
 			outputFlags |= OutputFlags::RB_SWIZZLE;
