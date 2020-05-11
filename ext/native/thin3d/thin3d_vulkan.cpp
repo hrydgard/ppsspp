@@ -807,7 +807,7 @@ VKContext::VKContext(VulkanContext *vulkan, bool splitSubmit)
 	bindings[0].descriptorCount = 1;
 	bindings[0].pImmutableSamplers = nullptr;
 	bindings[0].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC;
-	bindings[0].stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
+	bindings[0].stageFlags = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT;
 	bindings[0].binding = 0;
 	bindings[1].descriptorCount = 1;
 	bindings[1].pImmutableSamplers = nullptr;
