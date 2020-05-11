@@ -68,7 +68,6 @@ protected:
 
 private:
 	void Bind2DShader() override;
-	Draw::Texture *MakePixelTexture(const u8 *srcPixels, GEBufferFormat srcPixelFormat, int srcStride, int width, int height, float &u1, float &v1) override;
 	void PackDepthbuffer(VirtualFramebuffer *vfb, int x, int y, int w, int h);
 	void SimpleBlit(
 		Draw::Framebuffer *dest, float destX1, float destY1, float destX2, float destY2,

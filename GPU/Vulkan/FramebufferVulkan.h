@@ -78,9 +78,6 @@ protected:
 	void UpdateDownloadTempBuffer(VirtualFramebuffer *nvfb) override;
 
 private:
-	// The returned texture does not need to be free'd, might be returned from a pool (currently single entry)
-	Draw::Texture *MakePixelTexture(const u8 *srcPixels, GEBufferFormat srcPixelFormat, int srcStride, int width, int height, float &u1, float &v1) override;
-
 	void InitDeviceObjects();
 	void DestroyDeviceObjects();
 

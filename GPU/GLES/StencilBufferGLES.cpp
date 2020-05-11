@@ -177,8 +177,11 @@ bool FramebufferManagerGLES::NotifyStencilUpload(u32 addr, int size, bool skipZe
 
 	float u1 = 1.0f;
 	float v1 = 1.0f;
-	Draw::Texture *tex = MakePixelTexture(src, dstBuffer->format, dstBuffer->fb_stride, dstBuffer->width, dstBuffer->height, u1, v1);
 	textureCacheGL_->ForgetLastTexture();
+	Draw::Texture *tex = MakePixelTexture(src, dstBuffer->format, dstBuffer->fb_stride, dstBuffer->width, dstBuffer->height, u1, v1);
+	if (!tex)
+		return false;
+
 	draw_->BindTextures(TEX_SLOT_PSP_TEXTURE, 1, &tex);
 
 	// We must bind the program after starting the render pass, and set the color mask after clearing.

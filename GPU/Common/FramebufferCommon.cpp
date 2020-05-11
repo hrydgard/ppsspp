@@ -700,6 +700,71 @@ void FramebufferManagerCommon::CopyFramebufferForColorTexture(VirtualFramebuffer
 	}
 }
 
+Draw::Texture *FramebufferManagerCommon::MakePixelTexture(const u8 *srcPixels, GEBufferFormat srcPixelFormat, int srcStride, int width, int height, float &u1, float &v1) {
+	// TODO: We can just change the texture format and flip some bits around instead of this.
+	// Could share code with the texture cache perhaps.
+	auto generateTexture = [&](uint8_t *data, const uint8_t *initData, uint32_t w, uint32_t h, uint32_t d, uint32_t byteStride, uint32_t sliceByteStride) {
+		for (int y = 0; y < height; y++) {
+			const u16_le *src16 = (const u16_le *)srcPixels + srcStride * y;
+			const u32_le *src32 = (const u32_le *)srcPixels + srcStride * y;
+			u32 *dst = (u32 *)(data + byteStride * y);
+			switch (srcPixelFormat) {
+			case GE_FORMAT_565:
+				if (preferredPixelsFormat_ == Draw::DataFormat::B8G8R8A8_UNORM)
+					ConvertRGB565ToBGRA8888(dst, src16, width);
+				else
+					ConvertRGBA565ToRGBA8888(dst, src16, width);
+				break;
+
+			case GE_FORMAT_5551:
+				if (preferredPixelsFormat_ == Draw::DataFormat::B8G8R8A8_UNORM)
+					ConvertRGBA5551ToBGRA8888(dst, src16, width);
+				else
+					ConvertRGBA5551ToRGBA8888(dst, src16, width);
+				break;
+
+			case GE_FORMAT_4444:
+				if (preferredPixelsFormat_ == Draw::DataFormat::B8G8R8A8_UNORM)
+					ConvertRGBA4444ToBGRA8888(dst, src16, width);
+				else
+					ConvertRGBA4444ToRGBA8888(dst, src16, width);
+				break;
+
+			case GE_FORMAT_8888:
+				if (preferredPixelsFormat_ == Draw::DataFormat::B8G8R8A8_UNORM)
+					ConvertRGBA8888ToBGRA8888(dst, src32, width);
+				else
+					memcpy(dst, src32, 4 * width);
+				break;
+
+			case GE_FORMAT_INVALID:
+				_dbg_assert_msg_(G3D, false, "Invalid pixelFormat passed to DrawPixels().");
+				break;
+			}
+		}
+	};
+
+	Draw::TextureDesc desc{
+		Draw::TextureType::LINEAR2D,
+		preferredPixelsFormat_,
+		width,
+		height,
+		1,
+		1,
+		false,
+		"DrawPixels",
+		{ (uint8_t *)srcPixels },
+		generateTexture,
+	};
+	// TODO: On Vulkan, use a custom allocator?  Important to use an allocator:
+	// Hot Shot Golf (#12355) does tons of these in a frame in some situations! So actually,
+	// we do use an allocator. In fact, I've now banned allocator-less textures.
+	Draw::Texture *tex = draw_->CreateTexture(desc);
+	if (!tex)
+		ERROR_LOG(G3D, "Failed to create drawpixels texture");
+	return tex;
+}
+
 void FramebufferManagerCommon::DrawFramebufferToOutput(const u8 *srcPixels, GEBufferFormat srcPixelFormat, int srcStride, bool applyPostShader) {
 	textureCache_->ForgetLastTexture();
 	shaderManager_->DirtyLastShader();
@@ -712,8 +777,7 @@ void FramebufferManagerCommon::DrawFramebufferToOutput(const u8 *srcPixels, GEBu
 	draw_->BindTextures(0, 1, &pixelsTex);
 
 	int uvRotation = useBufferedRendering_ ? g_Config.iInternalScreenRotation : ROTATION_LOCKED_HORIZONTAL;
-	// TODO: Currently we can't access the texture from Draw.
-	//if (!applyPostShader) {
+	if (!applyPostShader) {
 		// TODO: Does this need to bind the backbuffer?  What is this doing?
 		float x, y, w, h;
 		CenterDisplayOutputRect(&x, &y, &w, &h, 480.0f, 272.0f, (float)pixelWidth_, (float)pixelHeight_, uvRotation);
@@ -727,7 +791,7 @@ void FramebufferManagerCommon::DrawFramebufferToOutput(const u8 *srcPixels, GEBu
 		flags = flags | DRAWTEX_TO_BACKBUFFER;
 		SetViewport2D(0, 0, pixelWidth_, pixelHeight_);
 		DrawActiveTexture(x, y, w, h, (float)pixelWidth_, (float)pixelHeight_, u0, v0, u1, v1, uvRotation, flags);
-	/*} else {
+	} else {
 		OutputFlags flags = g_Config.iBufFilter == SCALE_LINEAR ? OutputFlags::LINEAR : OutputFlags::NEAREST;
 		if (needBackBufferYSwap_) {
 			flags |= OutputFlags::BACKBUFFER_FLIPPED;
@@ -741,10 +805,9 @@ void FramebufferManagerCommon::DrawFramebufferToOutput(const u8 *srcPixels, GEBu
 			std::swap(v0, v1);
 		}
 
-		// TODO
-		presentation_->SourceTexture();
+		presentation_->SourceTexture(pixelsTex);
 		presentation_->CopyToOutput(flags, uvRotation, u0, v0, u1, v1, uniforms);
-	}*/
+	}
 
 	pixelsTex->Release();
 

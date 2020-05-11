@@ -129,6 +129,7 @@ FramebufferManagerD3D11::FramebufferManagerD3D11(Draw::DrawContext *draw)
 	ShaderTranslationInit();
 
 	presentation_->SetLanguage(HLSL_D3D11);
+	preferredPixelsFormat_ = Draw::DataFormat::B8G8R8A8_UNORM;
 }
 
 FramebufferManagerD3D11::~FramebufferManagerD3D11() {
@@ -176,54 +177,6 @@ void FramebufferManagerD3D11::SetShaderManager(ShaderManagerD3D11 *sm) {
 void FramebufferManagerD3D11::SetDrawEngine(DrawEngineD3D11 *td) {
 	drawEngineD3D11_ = td;
 	drawEngine_ = td;
-}
-
-Draw::Texture *FramebufferManagerD3D11::MakePixelTexture(const u8 *srcPixels, GEBufferFormat srcPixelFormat, int srcStride, int width, int height, float &u1, float &v1) {
-	auto generateTexture = [&](uint8_t *data, const uint8_t *initData, uint32_t w, uint32_t h, uint32_t d, uint32_t byteStride, uint32_t sliceByteStride) {
-		for (int y = 0; y < height; y++) {
-			const u16_le *src16 = (const u16_le *)srcPixels + srcStride * y;
-			const u32_le *src32 = (const u32_le *)srcPixels + srcStride * y;
-			u32 *dst = (u32 *)(data + byteStride * y);
-			switch (srcPixelFormat) {
-			case GE_FORMAT_565:
-				ConvertRGB565ToBGRA8888(dst, src16, width);
-				break;
-
-			case GE_FORMAT_5551:
-				ConvertRGBA5551ToBGRA8888(dst, src16, width);
-				break;
-
-			case GE_FORMAT_4444:
-				ConvertRGBA4444ToBGRA8888(dst, src16, width);
-				break;
-
-			case GE_FORMAT_8888:
-				ConvertRGBA8888ToBGRA8888(dst, src32, width);
-				break;
-
-			case GE_FORMAT_INVALID:
-				_dbg_assert_msg_(G3D, false, "Invalid pixelFormat passed to DrawPixels().");
-				break;
-			}
-		}
-	};
-
-	Draw::TextureDesc desc{
-		Draw::TextureType::LINEAR2D,
-		Draw::DataFormat::B8G8R8A8_UNORM,
-		width,
-		height,
-		1,
-		1,
-		false,
-		"DrawPixels",
-		{ (uint8_t *)srcPixels },
-		generateTexture,
-	};
-	Draw::Texture *tex = draw_->CreateTexture(desc);
-	if (!tex)
-		ERROR_LOG(G3D, "Failed to create drawpixels texture");
-	return tex;
 }
 
 void FramebufferManagerD3D11::DrawActiveTexture(float x, float y, float w, float h, float destW, float destH, float u0, float v0, float u1, float v1, int uvRotation, int flags) {

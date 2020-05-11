@@ -164,6 +164,9 @@ bool FramebufferManagerVulkan::NotifyStencilUpload(u32 addr, int size, bool skip
 	float u1 = 1.0f;
 	float v1 = 1.0f;
 	Draw::Texture *tex = MakePixelTexture(src, dstBuffer->format, dstBuffer->fb_stride, dstBuffer->bufferWidth, dstBuffer->bufferHeight, u1, v1);
+	if (!tex)
+		return false;
+
 	if (dstBuffer->fbo) {
 		draw_->BindFramebufferAsRenderTarget(dstBuffer->fbo, { Draw::RPAction::KEEP, Draw::RPAction::KEEP, Draw::RPAction::CLEAR });
 	} else {

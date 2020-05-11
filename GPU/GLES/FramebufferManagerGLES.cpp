@@ -166,56 +166,6 @@ FramebufferManagerGLES::~FramebufferManagerGLES() {
 	delete [] convBuf_;
 }
 
-Draw::Texture *FramebufferManagerGLES::MakePixelTexture(const u8 *srcPixels, GEBufferFormat srcPixelFormat, int srcStride, int width, int height, float &u1, float &v1) {
-	// TODO: We can just change the texture format and flip some bits around instead of this.
-	// Could share code with the texture cache perhaps.
-	auto generateTexture = [&](uint8_t *data, const uint8_t *initData, uint32_t w, uint32_t h, uint32_t d, uint32_t byteStride, uint32_t sliceByteStride) {
-		for (int y = 0; y < height; y++) {
-			const u16_le *src16 = (const u16_le *)srcPixels + srcStride * y;
-			const u32_le *src32 = (const u32_le *)srcPixels + srcStride * y;
-			u32 *dst = (u32 *)(data + byteStride * y);
-			switch (srcPixelFormat) {
-			case GE_FORMAT_565:
-				ConvertRGBA565ToRGBA8888(dst, src16, width);
-				break;
-
-			case GE_FORMAT_5551:
-				ConvertRGBA5551ToRGBA8888(dst, src16, width);
-				break;
-
-			case GE_FORMAT_4444:
-				ConvertRGBA4444ToRGBA8888(dst, src16, width);
-				break;
-
-			case GE_FORMAT_8888:
-				memcpy(dst, src32, 4 * width);
-				break;
-
-			case GE_FORMAT_INVALID:
-				_dbg_assert_msg_(G3D, false, "Invalid pixelFormat passed to DrawPixels().");
-				break;
-			}
-		}
-	};
-
-	Draw::TextureDesc desc{
-		Draw::TextureType::LINEAR2D,
-		Draw::DataFormat::R8G8B8A8_UNORM,
-		width,
-		height,
-		1,
-		1,
-		false,
-		"DrawPixels",
-		{ (uint8_t *)srcPixels },
-		generateTexture,
-	};
-	Draw::Texture *tex = draw_->CreateTexture(desc);
-	if (!tex)
-		ERROR_LOG(G3D, "Failed to create drawpixels texture");
-	return tex;
-}
-
 // x, y, w, h are relative coordinates against destW/destH, which is not very intuitive.
 // TODO: This could totally use fbo_blit in many cases.
 void FramebufferManagerGLES::DrawActiveTexture(float x, float y, float w, float h, float destW, float destH, float u0, float v0, float u1, float v1, int uvRotation, int flags) {
