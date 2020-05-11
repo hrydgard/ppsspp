@@ -689,16 +689,18 @@ public:
 	~D3D11Texture() {
 		if (tex)
 			tex->Release();
+		if (stagingTex)
+			stagingTex->Release();
 		if (view)
 			view->Release();
 	}
 
 	ID3D11Texture2D *tex = nullptr;
+	ID3D11Texture2D *stagingTex = nullptr;
 	ID3D11ShaderResourceView *view = nullptr;
 };
 
 Texture *D3D11DrawContext::CreateTexture(const TextureDesc &desc) {
-
 	if (!(GetDataFormatSupport(desc.format) & FMT_TEXTURE)) {
 		// D3D11 does not support this format as a texture format.
 		return nullptr;
@@ -720,25 +722,45 @@ Texture *D3D11DrawContext::CreateTexture(const TextureDesc &desc) {
 	descColor.Format = dataFormatToD3D11(desc.format);
 	descColor.SampleDesc.Count = 1;
 	descColor.SampleDesc.Quality = 0;
+
+	if (desc.initDataCallback) {
+		descColor.Usage = D3D11_USAGE_STAGING;
+		descColor.BindFlags = 0;
+		descColor.MiscFlags = 0;
+		descColor.CPUAccessFlags = D3D11_CPU_ACCESS_WRITE;
+
+		HRESULT hr = device_->CreateTexture2D(&descColor, nullptr, &tex->stagingTex);
+		if (!SUCCEEDED(hr)) {
+			delete tex;
+			return nullptr;
+		}
+	}
+
 	descColor.Usage = D3D11_USAGE_DEFAULT;
 	descColor.BindFlags = generateMips ? (D3D11_BIND_SHADER_RESOURCE | D3D11_BIND_RENDER_TARGET) : D3D11_BIND_SHADER_RESOURCE;
 	descColor.MiscFlags = generateMips ? D3D11_RESOURCE_MISC_GENERATE_MIPS : 0;
 	descColor.CPUAccessFlags = 0;
 
+	D3D11_SUBRESOURCE_DATA *initDataParam = nullptr;
 	D3D11_SUBRESOURCE_DATA initData[12]{};
-	if (desc.initData.size() && !generateMips) {
+	std::vector<uint8_t> initDataBuffer[12];
+	if (desc.initData.size() && !generateMips && !desc.initDataCallback) {
 		int w = desc.width;
 		int h = desc.height;
+		int d = desc.depth;
 		for (int i = 0; i < (int)desc.initData.size(); i++) {
+			uint32_t byteStride = w * (uint32_t)DataFormatSizeInBytes(desc.format);
 			initData[i].pSysMem = desc.initData[i];
-			initData[i].SysMemPitch = (UINT)(w * DataFormatSizeInBytes(desc.format));
-			initData[i].SysMemSlicePitch = (UINT)(w * h * DataFormatSizeInBytes(desc.format));
-			w /= 2;
-			h /= 2;
+			initData[i].SysMemPitch = (UINT)byteStride;
+			initData[i].SysMemSlicePitch = (UINT)(h * byteStride);
+			w = (w + 1) / 2;
+			h = (h + 1) / 2;
+			d = (d + 1) / 2;
 		}
+		initDataParam = initData;
 	}
 
-	HRESULT hr = device_->CreateTexture2D(&descColor, (desc.initData.size() && !generateMips) ? initData : nullptr, &tex->tex);
+	HRESULT hr = device_->CreateTexture2D(&descColor, initDataParam, &tex->tex);
 	if (!SUCCEEDED(hr)) {
 		delete tex;
 		return nullptr;
@@ -749,8 +771,52 @@ Texture *D3D11DrawContext::CreateTexture(const TextureDesc &desc) {
 		return nullptr;
 	}
 	if (generateMips && desc.initData.size() >= 1) {
-		context_->UpdateSubresource(tex->tex, 0, nullptr, desc.initData[0], desc.width * (int)DataFormatSizeInBytes(desc.format), 0);
+		if (desc.initDataCallback) {
+			D3D11_MAPPED_SUBRESOURCE mapped;
+			hr = context_->Map(tex->stagingTex, 0, D3D11_MAP_WRITE, 0, &mapped);
+			if (!SUCCEEDED(hr)) {
+				delete tex;
+				return nullptr;
+			}
+
+			desc.initDataCallback((uint8_t *)mapped.pData, desc.initData[0], desc.width, desc.height, desc.depth, mapped.RowPitch, mapped.DepthPitch);
+			context_->Unmap(tex->tex, 0);
+
+			context_->CopyResource(tex->stagingTex, tex->stagingTex);
+			tex->stagingTex->Release();
+			tex->stagingTex = nullptr;
+		} else {
+			uint32_t byteStride = desc.width * (uint32_t)DataFormatSizeInBytes(desc.format);
+			context_->UpdateSubresource(tex->tex, 0, nullptr, desc.initData[0], byteStride, 0);
+		}
 		context_->GenerateMips(tex->view);
+	} else if (desc.initDataCallback) {
+		int w = desc.width;
+		int h = desc.height;
+		int d = desc.depth;
+		for (int i = 0; i < (int)desc.initData.size(); i++) {
+			D3D11_MAPPED_SUBRESOURCE mapped;
+			hr = context_->Map(tex->stagingTex, i, D3D11_MAP_WRITE, 0, &mapped);
+			if (!SUCCEEDED(hr)) {
+				if (i == 0) {
+					delete tex;
+					return nullptr;
+				} else {
+					break;
+				}
+			}
+
+			desc.initDataCallback((uint8_t *)mapped.pData, desc.initData[i], w, h, d, mapped.RowPitch, mapped.DepthPitch);
+			context_->Unmap(tex->stagingTex, i);
+
+			w = (w + 1) / 2;
+			h = (h + 1) / 2;
+			d = (d + 1) / 2;
+		}
+
+		context_->CopyResource(tex->tex, tex->stagingTex);
+		tex->stagingTex->Release();
+		tex->stagingTex = nullptr;
 	}
 	return tex;
 }

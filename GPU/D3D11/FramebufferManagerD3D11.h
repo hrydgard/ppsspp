@@ -68,7 +68,7 @@ protected:
 
 private:
 	void Bind2DShader() override;
-	void MakePixelTexture(const u8 *srcPixels, GEBufferFormat srcPixelFormat, int srcStride, int width, int height, float &u1, float &v1) override;
+	Draw::Texture *MakePixelTexture(const u8 *srcPixels, GEBufferFormat srcPixelFormat, int srcStride, int width, int height, float &u1, float &v1) override;
 	void PackDepthbuffer(VirtualFramebuffer *vfb, int x, int y, int w, int h);
 	void SimpleBlit(
 		Draw::Framebuffer *dest, float destX1, float destY1, float destX2, float destY2,
@@ -79,12 +79,6 @@ private:
 	ID3D11DeviceContext *context_;
 	D3D_FEATURE_LEVEL featureLevel_;
 
-	// Used by DrawPixels
-	ID3D11Texture2D *drawPixelsTex_ = nullptr;
-	ID3D11ShaderResourceView *drawPixelsTexView_ = nullptr;
-	int drawPixelsTexW_ = 0;
-	int drawPixelsTexH_ = 0;
-
 	ID3D11VertexShader *quadVertexShader_;
 	ID3D11PixelShader *quadPixelShader_;
 	ID3D11InputLayout *quadInputLayout_;
@@ -94,8 +88,6 @@ private:
 	const UINT quadStride_ = 20;
 	const UINT quadOffset_ = 0;
 	static const D3D11_INPUT_ELEMENT_DESC g_QuadVertexElements[2];
-
-	u8 *convBuf = nullptr;
 
 	ID3D11PixelShader *stencilUploadPS_ = nullptr;
 	ID3D11VertexShader *stencilUploadVS_ = nullptr;

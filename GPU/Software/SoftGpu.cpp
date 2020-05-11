@@ -270,7 +270,6 @@ void SoftGPU::CopyToCurrentFboFromDisplayRam(int srcwidth, int srcheight) {
 		outputFlags |= OutputFlags::BACKBUFFER_FLIPPED;
 	}
 
-	// TODO, also deal with RB swizzle.
 	PostShaderUniforms uniforms{};
 	presentation_->CalculatePostShaderUniforms(desc.width, desc.height, false, &uniforms);
 

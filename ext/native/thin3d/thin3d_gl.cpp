@@ -655,7 +655,7 @@ public:
 	}
 
 private:
-	void SetImageData(int x, int y, int z, int width, int height, int depth, int level, int stride, const uint8_t *data);
+	void SetImageData(int x, int y, int z, int width, int height, int depth, int level, int stride, const uint8_t *data, TextureCallback callback);
 
 	GLRenderManager *render_;
 	GLRTexture *tex_;
@@ -680,14 +680,15 @@ OpenGLTexture::OpenGLTexture(GLRenderManager *render, const TextureDesc &desc) :
 
 	canWrap_ = isPowerOf2(width_) && isPowerOf2(height_);
 	mipLevels_ = desc.mipLevels;
-	if (!desc.initData.size())
+	if (desc.initData.empty())
 		return;
 
 	int level = 0;
 	for (auto data : desc.initData) {
-		SetImageData(0, 0, 0, width_, height_, depth_, level, 0, data);
+		SetImageData(0, 0, 0, width_, height_, depth_, level, 0, data, desc.initDataCallback);
 		width_ = (width_ + 1) / 2;
 		height_ = (height_ + 1) / 2;
+		depth_ = (depth_ + 1) / 2;
 		level++;
 	}
 	mipLevels_ = desc.generateMips ? desc.mipLevels : level;
@@ -699,7 +700,6 @@ OpenGLTexture::OpenGLTexture(GLRenderManager *render, const TextureDesc &desc) :
 		generatedMips_ = true;
 	}
 	render->FinalizeTexture(tex_, mipLevels_, genMips);
-
 }
 
 OpenGLTexture::~OpenGLTexture() {
@@ -732,8 +732,8 @@ void MoveABit(u16 *dest, const u16 *src, size_t count) {
 	}
 }
 
-void OpenGLTexture::SetImageData(int x, int y, int z, int width, int height, int depth, int level, int stride, const uint8_t *data) {
-	if (width != width_ || height != height_ || depth != depth_) {
+void OpenGLTexture::SetImageData(int x, int y, int z, int width, int height, int depth, int level, int stride, const uint8_t *data, TextureCallback callback) {
+	if ((width != width_ || height != height_ || depth != depth_) && level == 0) {
 		// When switching to texStorage we need to handle this correctly.
 		width_ = width;
 		height_ = height;
@@ -745,19 +745,28 @@ void OpenGLTexture::SetImageData(int x, int y, int z, int width, int height, int
 
 	size_t alignment = DataFormatSizeInBytes(format_);
 	// Make a copy of data with stride eliminated.
-	uint8_t *texData = new uint8_t[(size_t)(width * height * alignment)];
+	uint8_t *texData = new uint8_t[(size_t)(width * height * depth * alignment)];
 
-	// Emulate support for DataFormat::A1R5G5B5_UNORM_PACK16.
-	if (format_ == DataFormat::A1R5G5B5_UNORM_PACK16) {
-		format_ = DataFormat::R5G5B5A1_UNORM_PACK16;
-		for (int y = 0; y < height; y++) {
-			MoveABit((u16 *)(texData + y * width * alignment), (const u16 *)(data + y * stride * alignment), width);
+	if (callback) {
+		callback(texData, data, width, height, depth, width * (int)alignment, height * width * (int)alignment);
+		if (format_ == DataFormat::A1R5G5B5_UNORM_PACK16) {
+			format_ = DataFormat::R5G5B5A1_UNORM_PACK16;
+			MoveABit((u16 *)texData, (const u16 *)texData, width * height * depth);
 		}
 	} else {
-		for (int y = 0; y < height; y++) {
-			memcpy(texData + y * width * alignment, data + y * stride * alignment, width * alignment);
+		// Emulate support for DataFormat::A1R5G5B5_UNORM_PACK16.
+		if (format_ == DataFormat::A1R5G5B5_UNORM_PACK16) {
+			format_ = DataFormat::R5G5B5A1_UNORM_PACK16;
+			for (int y = 0; y < height; y++) {
+				MoveABit((u16 *)(texData + y * width * alignment), (const u16 *)(data + y * stride * alignment), width);
+			}
+		} else {
+			for (int y = 0; y < height; y++) {
+				memcpy(texData + y * width * alignment, data + y * stride * alignment, width * alignment);
+			}
 		}
 	}
+
 	render_->TextureImage(tex_, level, width, height, format_, texData);
 }
 

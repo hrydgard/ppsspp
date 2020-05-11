@@ -711,15 +711,22 @@ bool VKTexture::Create(VkCommandBuffer cmd, VulkanPushBuffer *push, const Textur
 	if (desc.initData.size()) {
 		int w = width_;
 		int h = height_;
+		int d = depth_;
 		int i;
 		for (i = 0; i < (int)desc.initData.size(); i++) {
 			uint32_t offset;
 			VkBuffer buf;
-			size_t size = w * h * bytesPerPixel;
-			offset = push->PushAligned((const void *)desc.initData[i], size, 16, &buf);
+			size_t size = w * h * d * bytesPerPixel;
+			if (desc.initDataCallback) {
+				uint8_t *dest = (uint8_t *)push->PushAligned(size, &offset, &buf, 16);
+				desc.initDataCallback(dest, desc.initData[0], w, h, d, w * bytesPerPixel, h * w * bytesPerPixel);
+			} else {
+				offset = push->PushAligned((const void *)desc.initData[i], size, 16, &buf);
+			}
 			vkTex_->UploadMip(cmd, i, w, h, buf, offset, w);
 			w = (w + 1) / 2;
 			h = (h + 1) / 2;
+			d = (d + 1) / 2;
 		}
 		// Generate the rest of the mips automatically.
 		for (; i < mipLevels_; i++) {

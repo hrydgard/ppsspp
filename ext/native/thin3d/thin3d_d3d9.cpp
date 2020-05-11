@@ -133,6 +133,7 @@ static const int primCountDivisor[] = {
 D3DFORMAT FormatToD3DFMT(DataFormat fmt) {
 	switch (fmt) {
 	case DataFormat::R8G8B8A8_UNORM: return D3DFMT_A8R8G8B8;
+	case DataFormat::B8G8R8A8_UNORM: return D3DFMT_A8R8G8B8;
 	case DataFormat::R4G4B4A4_UNORM_PACK16: return D3DFMT_A4R4G4B4;  // emulated
 	case DataFormat::B4G4R4A4_UNORM_PACK16: return D3DFMT_A4R4G4B4;  // native
 	case DataFormat::A4R4G4B4_UNORM_PACK16: return D3DFMT_A4R4G4B4;  // emulated
@@ -312,7 +313,7 @@ public:
 	void SetToSampler(LPDIRECT3DDEVICE9 device, int sampler);
 
 private:
-	void SetImageData(int x, int y, int z, int width, int height, int depth, int level, int stride, const uint8_t *data);
+	void SetImageData(int x, int y, int z, int width, int height, int depth, int level, int stride, const uint8_t *data, TextureCallback callback);
 	bool Create(const TextureDesc &desc);
 	LPDIRECT3DDEVICE9 device_;
 	LPDIRECT3DDEVICE9EX deviceEx_;
@@ -384,8 +385,14 @@ bool D3D9Texture::Create(const TextureDesc &desc) {
 		// In D3D9, after setting D3DUSAGE_AUTOGENMIPS, we can only access the top layer. The rest will be
 		// automatically generated.
 		int maxLevel = desc.generateMips ? 1 : (int)desc.initData.size();
+		int w = desc.width;
+		int h = desc.height;
+		int d = desc.depth;
 		for (int i = 0; i < maxLevel; i++) {
-			SetImageData(0, 0, 0, width_, height_, depth_, i, 0, desc.initData[i]);
+			SetImageData(0, 0, 0, w, h, d, i, 0, desc.initData[i], desc.initDataCallback);
+			w = (w + 1) / 2;
+			h = (h + 1) / 2;
+			d = (d + 1) / 2;
 		}
 	}
 	return true;
@@ -396,10 +403,9 @@ inline uint32_t Shuffle8888(uint32_t x) {
 	return (x & 0xFF00FF00) | ((x >> 16) & 0xFF) | ((x << 16) & 0xFF0000);
 }
 
-void D3D9Texture::SetImageData(int x, int y, int z, int width, int height, int depth, int level, int stride, const uint8_t *data) {
+void D3D9Texture::SetImageData(int x, int y, int z, int width, int height, int depth, int level, int stride, const uint8_t *data, TextureCallback callback) {
 	if (!tex_)
 		return;
-
 
 	if (level == 0) {
 		width_ = width;
@@ -417,6 +423,14 @@ void D3D9Texture::SetImageData(int x, int y, int z, int width, int height, int d
 		D3DLOCKED_RECT rect;
 		if (x == 0 && y == 0) {
 			tex_->LockRect(level, &rect, NULL, D3DLOCK_DISCARD);
+
+			if (callback) {
+				callback((uint8_t *)rect.pBits, data, width, height, depth, rect.Pitch, height * rect.Pitch);
+				// Now this is the source.  All conversions below support in-place.
+				data = (const uint8_t *)rect.pBits;
+				stride = rect.Pitch;
+			}
+
 			for (int i = 0; i < height; i++) {
 				uint8_t *dest = (uint8_t *)rect.pBits + rect.Pitch * i;
 				const uint8_t *source = data + stride * i;
@@ -431,7 +445,8 @@ void D3D9Texture::SetImageData(int x, int y, int z, int width, int height, int d
 				case DataFormat::A4R4G4B4_UNORM_PACK16:
 				case DataFormat::A1R5G5B5_UNORM_PACK16:
 					// Native
-					memcpy(dest, source, width * sizeof(uint16_t));
+					if (data != rect.pBits)
+						memcpy(dest, source, width * sizeof(uint16_t));
 					break;
 
 				case DataFormat::R8G8B8A8_UNORM:
@@ -441,7 +456,8 @@ void D3D9Texture::SetImageData(int x, int y, int z, int width, int height, int d
 					break;
 
 				case DataFormat::B8G8R8A8_UNORM:
-					memcpy(dest, source, sizeof(uint32_t) * width);
+					if (data != rect.pBits)
+						memcpy(dest, source, sizeof(uint32_t) * width);
 					break;
 				default:
 					// Unhandled data format copy.

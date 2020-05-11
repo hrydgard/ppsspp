@@ -8,8 +8,9 @@
 
 #include <cstdint>
 #include <cstddef>
-#include <vector>
+#include <functional>
 #include <string>
+#include <vector>
 
 #include "base/logging.h"
 #include "DataFormat.h"
@@ -519,6 +520,10 @@ struct DeviceCaps {
 	std::string deviceName;  // The device name to use when creating the thin3d context, to get the same one.
 };
 
+// Use to write data directly to memory.  initData is the pointer passed in TextureDesc.
+// Important: only write to the provided pointer, don't read from it.
+typedef std::function<void(uint8_t *data, const uint8_t *initData, uint32_t w, uint32_t h, uint32_t d, uint32_t byteStride, uint32_t sliceByteStride)> TextureCallback;
+
 struct TextureDesc {
 	TextureType type;
 	DataFormat format;
@@ -530,7 +535,8 @@ struct TextureDesc {
 	// Optional, for tracking memory usage.
 	std::string tag;
 	// Does not take ownership over pointed-to data.
-	std::vector<uint8_t *> initData;
+	std::vector<const uint8_t *> initData;
+	TextureCallback initDataCallback;
 };
 
 enum class RPAction {

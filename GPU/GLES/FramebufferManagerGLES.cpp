@@ -150,10 +150,6 @@ void FramebufferManagerGLES::DestroyDeviceObjects() {
 		render_->DeleteProgram(draw2dprogram_);
 		draw2dprogram_ = nullptr;
 	}
-	if (drawPixelsTex_) {
-		render_->DeleteTexture(drawPixelsTex_);
-		drawPixelsTex_ = 0;
-	}
 	if (stencilUploadProgram_) {
 		render_->DeleteProgram(stencilUploadProgram_);
 		stencilUploadProgram_ = nullptr;
@@ -170,52 +166,54 @@ FramebufferManagerGLES::~FramebufferManagerGLES() {
 	delete [] convBuf_;
 }
 
-void FramebufferManagerGLES::MakePixelTexture(const u8 *srcPixels, GEBufferFormat srcPixelFormat, int srcStride, int width, int height, float &u1, float &v1) {
-	if (drawPixelsTex_) {
-		render_->DeleteTexture(drawPixelsTex_);
-	}
-
-	drawPixelsTex_ = render_->CreateTexture(GL_TEXTURE_2D);
-	drawPixelsTexW_ = width;
-	drawPixelsTexH_ = height;
-
-	drawPixelsTexFormat_ = srcPixelFormat;
-
+Draw::Texture *FramebufferManagerGLES::MakePixelTexture(const u8 *srcPixels, GEBufferFormat srcPixelFormat, int srcStride, int width, int height, float &u1, float &v1) {
 	// TODO: We can just change the texture format and flip some bits around instead of this.
 	// Could share code with the texture cache perhaps.
-	u32 neededSize = width * height * 4;
-	u8 *convBuf = new u8[neededSize];
-	for (int y = 0; y < height; y++) {
-		const u16_le *src16 = (const u16_le *)srcPixels + srcStride * y;
-		const u32_le *src32 = (const u32_le *)srcPixels + srcStride * y;
-		u32 *dst = (u32 *)convBuf + width * y;
-		switch (srcPixelFormat) {
-		case GE_FORMAT_565:
-			ConvertRGBA565ToRGBA8888((u32 *)dst, src16, width);
-			break;
+	auto generateTexture = [&](uint8_t *data, const uint8_t *initData, uint32_t w, uint32_t h, uint32_t d, uint32_t byteStride, uint32_t sliceByteStride) {
+		for (int y = 0; y < height; y++) {
+			const u16_le *src16 = (const u16_le *)srcPixels + srcStride * y;
+			const u32_le *src32 = (const u32_le *)srcPixels + srcStride * y;
+			u32 *dst = (u32 *)(data + byteStride * y);
+			switch (srcPixelFormat) {
+			case GE_FORMAT_565:
+				ConvertRGBA565ToRGBA8888(dst, src16, width);
+				break;
 
-		case GE_FORMAT_5551:
-			ConvertRGBA5551ToRGBA8888((u32 *)dst, src16, width);
-			break;
+			case GE_FORMAT_5551:
+				ConvertRGBA5551ToRGBA8888(dst, src16, width);
+				break;
 
-		case GE_FORMAT_4444:
-			ConvertRGBA4444ToRGBA8888((u32 *)dst, src16, width);
-			break;
+			case GE_FORMAT_4444:
+				ConvertRGBA4444ToRGBA8888(dst, src16, width);
+				break;
 
-		case GE_FORMAT_8888:
-			memcpy(dst, src32, 4 * width);
-			break;
+			case GE_FORMAT_8888:
+				memcpy(dst, src32, 4 * width);
+				break;
 
-		case GE_FORMAT_INVALID:
-			_dbg_assert_msg_(G3D, false, "Invalid pixelFormat passed to DrawPixels().");
-			break;
+			case GE_FORMAT_INVALID:
+				_dbg_assert_msg_(G3D, false, "Invalid pixelFormat passed to DrawPixels().");
+				break;
+			}
 		}
-	}
-	render_->TextureImage(drawPixelsTex_, 0, width, height, Draw::DataFormat::R8G8B8A8_UNORM, convBuf, GLRAllocType::NEW, false);
-	render_->FinalizeTexture(drawPixelsTex_, 0, false);
+	};
 
-	// TODO: Return instead?
-	render_->BindTexture(TEX_SLOT_PSP_TEXTURE, drawPixelsTex_);
+	Draw::TextureDesc desc{
+		Draw::TextureType::LINEAR2D,
+		Draw::DataFormat::R8G8B8A8_UNORM,
+		width,
+		height,
+		1,
+		1,
+		false,
+		"DrawPixels",
+		{ (uint8_t *)srcPixels },
+		generateTexture,
+	};
+	Draw::Texture *tex = draw_->CreateTexture(desc);
+	if (!tex)
+		ERROR_LOG(G3D, "Failed to create drawpixels texture");
+	return tex;
 }
 
 // x, y, w, h are relative coordinates against destW/destH, which is not very intuitive.

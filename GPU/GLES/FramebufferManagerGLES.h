@@ -73,7 +73,7 @@ private:
 	void CreateDeviceObjects();
 	void DestroyDeviceObjects();
 
-	void MakePixelTexture(const u8 *srcPixels, GEBufferFormat srcPixelFormat, int srcStride, int width, int height, float &u1, float &v1) override;
+	Draw::Texture *MakePixelTexture(const u8 *srcPixels, GEBufferFormat srcPixelFormat, int srcStride, int width, int height, float &u1, float &v1) override;
 	void Bind2DShader() override;
 	void CompileDraw2DProgram();
 
@@ -81,14 +81,9 @@ private:
 
 	GLRenderManager *render_;
 
-	// Used by DrawPixels
-	GLRTexture *drawPixelsTex_ = nullptr;
-	GEBufferFormat drawPixelsTexFormat_ = GE_FORMAT_INVALID;
-	int drawPixelsTexW_ = 0;
-	int drawPixelsTexH_ = 0;
-
 	u8 *convBuf_ = nullptr;
 	u32 convBufSize_ = 0;
+
 	GLRProgram *draw2dprogram_ = nullptr;
 
 	GLRProgram *stencilUploadProgram_ = nullptr;

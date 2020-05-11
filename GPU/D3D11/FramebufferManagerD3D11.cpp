@@ -143,14 +143,6 @@ FramebufferManagerD3D11::~FramebufferManagerD3D11() {
 	quadBuffer_->Release();
 	fsQuadBuffer_->Release();
 
-	if (drawPixelsTex_)
-		drawPixelsTex_->Release();
-	if (drawPixelsTexView_)
-		drawPixelsTexView_->Release();
-
-	// Temp FBOs cleared by FramebufferCommon.
-	delete[] convBuf;
-
 	// Stencil cleanup
 	for (int i = 0; i < 256; i++) {
 		if (stencilMaskStates_[i])
@@ -186,69 +178,52 @@ void FramebufferManagerD3D11::SetDrawEngine(DrawEngineD3D11 *td) {
 	drawEngine_ = td;
 }
 
-void FramebufferManagerD3D11::MakePixelTexture(const u8 *srcPixels, GEBufferFormat srcPixelFormat, int srcStride, int width, int height, float &u1, float &v1) {
-	// TODO: Check / use D3DCAPS2_DYNAMICTEXTURES?
-	if (drawPixelsTex_ && (drawPixelsTexW_ != width || drawPixelsTexH_ != height)) {
-		drawPixelsTex_->Release();
-		drawPixelsTex_ = nullptr;
-		drawPixelsTexView_->Release();
-		drawPixelsTexView_ = nullptr;
-	}
+Draw::Texture *FramebufferManagerD3D11::MakePixelTexture(const u8 *srcPixels, GEBufferFormat srcPixelFormat, int srcStride, int width, int height, float &u1, float &v1) {
+	auto generateTexture = [&](uint8_t *data, const uint8_t *initData, uint32_t w, uint32_t h, uint32_t d, uint32_t byteStride, uint32_t sliceByteStride) {
+		for (int y = 0; y < height; y++) {
+			const u16_le *src16 = (const u16_le *)srcPixels + srcStride * y;
+			const u32_le *src32 = (const u32_le *)srcPixels + srcStride * y;
+			u32 *dst = (u32 *)(data + byteStride * y);
+			switch (srcPixelFormat) {
+			case GE_FORMAT_565:
+				ConvertRGB565ToBGRA8888(dst, src16, width);
+				break;
 
-	if (!drawPixelsTex_) {
-		int usage = 0;
-		D3D11_TEXTURE2D_DESC desc{};
-		desc.Usage = D3D11_USAGE_DYNAMIC;
-		desc.CPUAccessFlags = D3D11_CPU_ACCESS_WRITE;
-		desc.Width = width;
-		desc.Height = height;
-		desc.MipLevels = 1;
-		desc.ArraySize = 1;
-		desc.SampleDesc.Count = 1;
-		desc.Format = DXGI_FORMAT_B8G8R8A8_UNORM;
-		desc.BindFlags = D3D11_BIND_SHADER_RESOURCE;
-		ASSERT_SUCCESS(device_->CreateTexture2D(&desc, nullptr, &drawPixelsTex_));
-		ASSERT_SUCCESS(device_->CreateShaderResourceView(drawPixelsTex_, nullptr, &drawPixelsTexView_));
-		drawPixelsTexW_ = width;
-		drawPixelsTexH_ = height;
-	}
+			case GE_FORMAT_5551:
+				ConvertRGBA5551ToBGRA8888(dst, src16, width);
+				break;
 
-	if (!drawPixelsTex_) {
-		return;
-	}
+			case GE_FORMAT_4444:
+				ConvertRGBA4444ToBGRA8888(dst, src16, width);
+				break;
 
-	D3D11_MAPPED_SUBRESOURCE map;
-	context_->Map(drawPixelsTex_, 0, D3D11_MAP_WRITE_DISCARD, 0, &map);
+			case GE_FORMAT_8888:
+				ConvertRGBA8888ToBGRA8888(dst, src32, width);
+				break;
 
-	for (int y = 0; y < height; y++) {
-		const u16_le *src16 = (const u16_le *)srcPixels + srcStride * y;
-		const u32_le *src32 = (const u32_le *)srcPixels + srcStride * y;
-		u32 *dst = (u32 *)((u8 *)map.pData + map.RowPitch * y);
-		switch (srcPixelFormat) {
-		case GE_FORMAT_565:
-			ConvertRGB565ToBGRA8888(dst, src16, width);
-			break;
-
-		case GE_FORMAT_5551:
-			ConvertRGBA5551ToBGRA8888(dst, src16, width);
-			break;
-
-		case GE_FORMAT_4444:
-			ConvertRGBA4444ToBGRA8888(dst, src16, width);
-			break;
-
-		case GE_FORMAT_8888:
-			ConvertRGBA8888ToBGRA8888(dst, src32, width);
-			break;
-
-		case GE_FORMAT_INVALID:
-			_dbg_assert_msg_(G3D, false, "Invalid pixelFormat passed to DrawPixels().");
-			break;
+			case GE_FORMAT_INVALID:
+				_dbg_assert_msg_(G3D, false, "Invalid pixelFormat passed to DrawPixels().");
+				break;
+			}
 		}
-	}
+	};
 
-	context_->Unmap(drawPixelsTex_, 0);
-	context_->PSSetShaderResources(0, 1, &drawPixelsTexView_);
+	Draw::TextureDesc desc{
+		Draw::TextureType::LINEAR2D,
+		Draw::DataFormat::B8G8R8A8_UNORM,
+		width,
+		height,
+		1,
+		1,
+		false,
+		"DrawPixels",
+		{ (uint8_t *)srcPixels },
+		generateTexture,
+	};
+	Draw::Texture *tex = draw_->CreateTexture(desc);
+	if (!tex)
+		ERROR_LOG(G3D, "Failed to create drawpixels texture");
+	return tex;
 }
 
 void FramebufferManagerD3D11::DrawActiveTexture(float x, float y, float w, float h, float destW, float destH, float u0, float v0, float u1, float v1, int uvRotation, int flags) {

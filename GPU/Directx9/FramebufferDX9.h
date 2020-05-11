@@ -27,7 +27,6 @@
 
 #include "GPU/GPUCommon.h"
 #include "GPU/Common/FramebufferCommon.h"
-#include "ext/native/thin3d/thin3d.h"
 
 namespace DX9 {
 
@@ -77,7 +76,7 @@ protected:
 	void UpdateDownloadTempBuffer(VirtualFramebuffer *nvfb) override;
 
 private:
-	void MakePixelTexture(const u8 *srcPixels, GEBufferFormat srcPixelFormat, int srcStride, int width, int height, float &u1, float &v1) override;
+	Draw::Texture *MakePixelTexture(const u8 *srcPixels, GEBufferFormat srcPixelFormat, int srcStride, int width, int height, float &u1, float &v1) override;
 	void PackFramebufferSync_(VirtualFramebuffer *vfb, int x, int y, int w, int h) override;
 	void PackDepthbuffer(VirtualFramebuffer *vfb, int x, int y, int w, int h);
 	bool GetRenderTargetFramebuffer(LPDIRECT3DSURFACE9 renderTarget, LPDIRECT3DSURFACE9 offscreen, int w, int h, GPUDebugBuffer &buffer);
@@ -85,16 +84,9 @@ private:
 	LPDIRECT3DDEVICE9 device_;
 	LPDIRECT3DDEVICE9 deviceEx_;
 
-	// Used by DrawPixels
-	LPDIRECT3DTEXTURE9 drawPixelsTex_ = nullptr;
-	int drawPixelsTexW_;
-	int drawPixelsTexH_;
-
 	LPDIRECT3DVERTEXSHADER9 pFramebufferVertexShader = nullptr;
 	LPDIRECT3DPIXELSHADER9 pFramebufferPixelShader = nullptr;
 	LPDIRECT3DVERTEXDECLARATION9 pFramebufferVertexDecl = nullptr;
-
-	u8 *convBuf = nullptr;
 
 	LPDIRECT3DPIXELSHADER9 stencilUploadPS_ = nullptr;
 	LPDIRECT3DVERTEXSHADER9 stencilUploadVS_ = nullptr;

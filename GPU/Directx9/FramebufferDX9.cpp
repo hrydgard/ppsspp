@@ -131,13 +131,9 @@ static const D3DVERTEXELEMENT9 g_FramebufferVertexElements[] = {
 			pFramebufferPixelShader = nullptr;
 		}
 		pFramebufferVertexDecl->Release();
-		if (drawPixelsTex_) {
-			drawPixelsTex_->Release();
-		}
 		for (auto &it : offscreenSurfaces_) {
 			it.second.surface->Release();
 		}
-		delete [] convBuf;
 		if (stencilUploadPS_) {
 			stencilUploadPS_->Release();
 		}
@@ -163,87 +159,52 @@ static const D3DVERTEXELEMENT9 g_FramebufferVertexElements[] = {
 		drawEngine_ = td;
 	}
 
-	void FramebufferManagerDX9::MakePixelTexture(const u8 *srcPixels, GEBufferFormat srcPixelFormat, int srcStride, int width, int height, float &u1, float &v1) {
-		u8 *convBuf = NULL;
-		D3DLOCKED_RECT rect;
-
-		// TODO: Check / use D3DCAPS2_DYNAMICTEXTURES?
-		if (drawPixelsTex_ && (drawPixelsTexW_ != width || drawPixelsTexH_ != height)) {
-			drawPixelsTex_->Release();
-			drawPixelsTex_ = nullptr;
-		}
-
-		if (!drawPixelsTex_) {
-			int usage = 0;
-			D3DPOOL pool = D3DPOOL_MANAGED;
-			if (deviceEx_) {
-				pool = D3DPOOL_DEFAULT;
-				usage = D3DUSAGE_DYNAMIC;
-			}
-			HRESULT hr = device_->CreateTexture(width, height, 1, usage, D3DFMT_A8R8G8B8, pool, &drawPixelsTex_, NULL);
-			if (FAILED(hr)) {
-				drawPixelsTex_ = nullptr;
-				ERROR_LOG(G3D, "Failed to create drawpixels texture");
-			}
-			drawPixelsTexW_ = width;
-			drawPixelsTexH_ = height;
-		}
-
-		if (!drawPixelsTex_) {
-			return;
-		}
-
-		drawPixelsTex_->LockRect(0, &rect, NULL, D3DLOCK_DISCARD);
-
-		convBuf = (u8*)rect.pBits;
-
-		// Final format is BGRA(directx)
-		if (srcPixelFormat != GE_FORMAT_8888 || srcStride != 512) {
+	Draw::Texture *FramebufferManagerDX9::MakePixelTexture(const u8 *srcPixels, GEBufferFormat srcPixelFormat, int srcStride, int width, int height, float &u1, float &v1) {
+		auto generateTexture = [&](uint8_t *data, const uint8_t *initData, uint32_t w, uint32_t h, uint32_t d, uint32_t byteStride, uint32_t sliceByteStride) {
 			for (int y = 0; y < height; y++) {
+				const u16_le *src16 = (const u16_le *)srcPixels + srcStride * y;
+				const u32_le *src32 = (const u32_le *)srcPixels + srcStride * y;
+				u32 *dst = (u32 *)(data + byteStride * y);
 				switch (srcPixelFormat) {
 				case GE_FORMAT_565:
-					{
-						const u16_le *src = (const u16_le *)srcPixels + srcStride * y;
-						u32 *dst = (u32 *)(convBuf + rect.Pitch * y);
-						ConvertRGB565ToBGRA8888(dst, src, width);
-					}
+					ConvertRGB565ToBGRA8888(dst, src16, width);
 					break;
-					// faster
+
 				case GE_FORMAT_5551:
-					{
-						const u16_le *src = (const u16_le *)srcPixels + srcStride * y;
-						u32 *dst = (u32 *)(convBuf + rect.Pitch * y);
-						ConvertRGBA5551ToBGRA8888(dst, src, width);
-					}
+					ConvertRGBA5551ToBGRA8888(dst, src16, width);
 					break;
+
 				case GE_FORMAT_4444:
-					{
-						const u16_le *src = (const u16_le *)srcPixels + srcStride * y;
-						u8 *dst = (u8 *)(convBuf + rect.Pitch * y);
-						ConvertRGBA4444ToBGRA8888((u32 *)dst, src, width);
-					}
+					ConvertRGBA4444ToBGRA8888(dst, src16, width);
 					break;
 
 				case GE_FORMAT_8888:
-					{
-						const u32_le *src = (const u32_le *)srcPixels + srcStride * y;
-						u32 *dst = (u32 *)(convBuf + rect.Pitch * y);
-						ConvertRGBA8888ToBGRA8888(dst, src, width);
-					}
+					ConvertRGBA8888ToBGRA8888(dst, src32, width);
+					break;
+
+				case GE_FORMAT_INVALID:
+					_dbg_assert_msg_(G3D, false, "Invalid pixelFormat passed to DrawPixels().");
 					break;
 				}
 			}
-		} else {
-			for (int y = 0; y < height; y++) {
-				const u32_le *src = (const u32_le *)srcPixels + srcStride * y;
-				u32 *dst = (u32 *)(convBuf + rect.Pitch * y);
-				ConvertRGBA8888ToBGRA8888(dst, src, width);
-			}
-		}
+		};
 
-		drawPixelsTex_->UnlockRect(0);
-		device_->SetTexture(0, drawPixelsTex_);
-		// D3DXSaveTextureToFile("game:\\cc.png", D3DXIFF_PNG, drawPixelsTex_, NULL);
+		Draw::TextureDesc desc{
+			Draw::TextureType::LINEAR2D,
+			Draw::DataFormat::B8G8R8A8_UNORM,
+			width,
+			height,
+			1,
+			1,
+			false,
+			"DrawPixels",
+			{ (uint8_t *)srcPixels },
+			generateTexture,
+		};
+		Draw::Texture *tex = draw_->CreateTexture(desc);
+		if (!tex)
+			ERROR_LOG(G3D, "Failed to create drawpixels texture");
+		return tex;
 	}
 
 	void FramebufferManagerDX9::DrawActiveTexture(float x, float y, float w, float h, float destW, float destH, float u0, float v0, float u1, float v1, int uvRotation, int flags) {

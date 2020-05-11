@@ -79,7 +79,7 @@ protected:
 
 private:
 	// The returned texture does not need to be free'd, might be returned from a pool (currently single entry)
-	void MakePixelTexture(const u8 *srcPixels, GEBufferFormat srcPixelFormat, int srcStride, int width, int height, float &u1, float &v1) override;
+	Draw::Texture *MakePixelTexture(const u8 *srcPixels, GEBufferFormat srcPixelFormat, int srcStride, int width, int height, float &u1, float &v1) override;
 
 	void InitDeviceObjects();
 	void DestroyDeviceObjects();
@@ -87,12 +87,6 @@ private:
 	VulkanContext *vulkan_;
 
 	// Used to keep track of command buffers here but have moved all that into Thin3D.
-
-	// Used by DrawPixels
-	VulkanTexture *drawPixelsTex_ = nullptr;
-	GEBufferFormat drawPixelsTexFormat_ = GE_FORMAT_INVALID;
-	u8 *convBuf_ = nullptr;
-	u32 convBufSize_ = 0;
 
 	TextureCacheVulkan *textureCacheVulkan_ = nullptr;
 	ShaderManagerVulkan *shaderManagerVulkan_ = nullptr;
@@ -117,9 +111,6 @@ private:
 
 	VkSampler linearSampler_;
 	VkSampler nearestSampler_;
-
-	// hack!
-	VkImageView overrideImageView_ = VK_NULL_HANDLE;
 
 	// Simple 2D drawing engine.
 	Vulkan2D *vulkan2D_;

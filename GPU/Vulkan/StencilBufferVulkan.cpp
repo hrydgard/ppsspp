@@ -163,7 +163,7 @@ bool FramebufferManagerVulkan::NotifyStencilUpload(u32 addr, int size, bool skip
 	u16 h = dstBuffer->renderHeight;
 	float u1 = 1.0f;
 	float v1 = 1.0f;
-	MakePixelTexture(src, dstBuffer->format, dstBuffer->fb_stride, dstBuffer->bufferWidth, dstBuffer->bufferHeight, u1, v1);
+	Draw::Texture *tex = MakePixelTexture(src, dstBuffer->format, dstBuffer->fb_stride, dstBuffer->bufferWidth, dstBuffer->bufferHeight, u1, v1);
 	if (dstBuffer->fbo) {
 		draw_->BindFramebufferAsRenderTarget(dstBuffer->fbo, { Draw::RPAction::KEEP, Draw::RPAction::KEEP, Draw::RPAction::CLEAR });
 	} else {
@@ -176,7 +176,9 @@ bool FramebufferManagerVulkan::NotifyStencilUpload(u32 addr, int size, bool skip
 	renderManager->SetScissor({ { 0, 0, },{ (uint32_t)w, (uint32_t)h } });
 	gstate_c.Dirty(DIRTY_VIEWPORTSCISSOR_STATE | DIRTY_BLEND_STATE | DIRTY_RASTER_STATE | DIRTY_DEPTHSTENCIL_STATE);
 
-	VkDescriptorSet descSet = vulkan2D_->GetDescriptorSet(overrideImageView_, nearestSampler_, VK_NULL_HANDLE, VK_NULL_HANDLE);
+	draw_->BindTextures(0, 1, &tex);
+	VkImageView drawPixelsImageView = (VkImageView)draw_->GetNativeObject(Draw::NativeObject::BOUND_TEXTURE0_IMAGEVIEW);
+	VkDescriptorSet descSet = vulkan2D_->GetDescriptorSet(drawPixelsImageView, nearestSampler_, VK_NULL_HANDLE, VK_NULL_HANDLE);
 
 	// Note: Even with skipZero, we don't necessarily start framebuffers at 0 in Vulkan.  Clear anyway.
 	// Not an actual clear, because we need to draw to alpha only as well.
@@ -212,7 +214,7 @@ bool FramebufferManagerVulkan::NotifyStencilUpload(u32 addr, int size, bool skip
 		renderManager->Draw(vulkan2D_->GetPipelineLayout(), descSet, 0, nullptr, VK_NULL_HANDLE, 0, 3);  // full screen triangle
 	}
 
-	overrideImageView_ = VK_NULL_HANDLE;
+	tex->Release();
 	RebindFramebuffer();
 	return true;
 }

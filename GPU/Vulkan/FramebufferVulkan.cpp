@@ -85,8 +85,6 @@ FramebufferManagerVulkan::FramebufferManagerVulkan(Draw::DrawContext *draw, Vulk
 }
 
 FramebufferManagerVulkan::~FramebufferManagerVulkan() {
-	delete[] convBuf_;
-
 	DeviceLost();
 }
 
@@ -127,9 +125,6 @@ void FramebufferManagerVulkan::InitDeviceObjects() {
 }
 
 void FramebufferManagerVulkan::DestroyDeviceObjects() {
-	delete drawPixelsTex_;
-	drawPixelsTex_ = nullptr;
-
 	if (fsBasicTex_ != VK_NULL_HANDLE) {
 		vulkan2D_->PurgeFragmentShader(fsBasicTex_);
 		vulkan_->Delete().QueueDeleteShaderModule(fsBasicTex_);
@@ -181,57 +176,23 @@ void FramebufferManagerVulkan::Init() {
 	Resized();
 }
 
-void FramebufferManagerVulkan::MakePixelTexture(const u8 *srcPixels, GEBufferFormat srcPixelFormat, int srcStride, int width, int height, float &u1, float &v1) {
-	if (drawPixelsTex_) {
-		delete drawPixelsTex_;
-		drawPixelsTex_ = nullptr;
-	}
-
-	VkCommandBuffer initCmd = (VkCommandBuffer)draw_->GetNativeObject(Draw::NativeObject::INIT_COMMANDBUFFER);
-
-	// There's only ever a few of these alive, don't need to stress the allocator with these big ones.
-	// OR NOT! Hot Shot Golf (#12355) does tons of these in a frame in some situations! So actually,
-	// we do use an allocator. In fact, I've now banned allocator-less textures.
-
-	drawPixelsTex_ = new VulkanTexture(vulkan_);
-	drawPixelsTex_->SetTag("DrawPixels");
-	if (!drawPixelsTex_->CreateDirect(initCmd, allocator_, width, height, 1, VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT)) {
-		// out of memory?
-		delete drawPixelsTex_;
-		drawPixelsTex_ = nullptr;
-		overrideImageView_ = VK_NULL_HANDLE;
-		return;
-	}
-	// Initialize backbuffer texture for DrawPixels
-	drawPixelsTexFormat_ = srcPixelFormat;
-
-	// TODO: We can just change the texture format and flip some bits around instead of this.
-	// Could share code with the texture cache perhaps.
-	// TODO: Could also convert directly into the pushbuffer easily.
-	const uint8_t *data = srcPixels;
-	if (srcPixelFormat != GE_FORMAT_8888 || srcStride != width) {
-		u32 neededSize = width * height * 4;
-		if (!convBuf_ || convBufSize_ < neededSize) {
-			delete[] convBuf_;
-			convBuf_ = new u8[neededSize];
-			convBufSize_ = neededSize;
-		}
-		data = convBuf_;
+Draw::Texture *FramebufferManagerVulkan::MakePixelTexture(const u8 *srcPixels, GEBufferFormat srcPixelFormat, int srcStride, int width, int height, float &u1, float &v1) {
+	auto generateTexture = [&](uint8_t *data, const uint8_t *initData, uint32_t w, uint32_t h, uint32_t d, uint32_t byteStride, uint32_t sliceByteStride) {
 		for (int y = 0; y < height; y++) {
 			const u16_le *src16 = (const u16_le *)srcPixels + srcStride * y;
 			const u32_le *src32 = (const u32_le *)srcPixels + srcStride * y;
-			u32 *dst = (u32 *)convBuf_ + width * y;
+			u32 *dst = (u32 *)(data + byteStride * y);
 			switch (srcPixelFormat) {
 			case GE_FORMAT_565:
-				ConvertRGBA565ToRGBA8888((u32 *)dst, src16, width);
+				ConvertRGBA565ToRGBA8888(dst, src16, width);
 				break;
 
 			case GE_FORMAT_5551:
-				ConvertRGBA5551ToRGBA8888((u32 *)dst, src16, width);
+				ConvertRGBA5551ToRGBA8888(dst, src16, width);
 				break;
 
 			case GE_FORMAT_4444:
-				ConvertRGBA4444ToRGBA8888((u32 *)dst, src16, width);
+				ConvertRGBA4444ToRGBA8888(dst, src16, width);
 				break;
 
 			case GE_FORMAT_8888:
@@ -243,14 +204,28 @@ void FramebufferManagerVulkan::MakePixelTexture(const u8 *srcPixels, GEBufferFor
 				break;
 			}
 		}
-	}
+	};
 
-	VkBuffer buffer;
-	size_t offset = push_->Push(data, width * height * 4, &buffer);
-	drawPixelsTex_->UploadMip(initCmd, 0, width, height, buffer, (uint32_t)offset, width);
-	drawPixelsTex_->EndCreate(initCmd);
+	// Hot Shot Golf (#12355) does tons of these in a frame in some situations! So actually,
+	// we do use an allocator. In fact, I've now banned allocator-less textures.
 
-	overrideImageView_ = drawPixelsTex_->GetImageView();
+	Draw::TextureDesc desc{
+		Draw::TextureType::LINEAR2D,
+		Draw::DataFormat::R8G8B8A8_UNORM,
+		width,
+		height,
+		1,
+		1,
+		false,
+		"DrawPixels",
+		{ (uint8_t *)srcPixels },
+		generateTexture,
+	};
+	// TODO: Use allocator_ somehow?
+	Draw::Texture *tex = draw_->CreateTexture(desc);
+	if (!tex)
+		ERROR_LOG(G3D, "Failed to create drawpixels texture");
+	return tex;
 }
 
 void FramebufferManagerVulkan::DrawActiveTexture(float x, float y, float w, float h, float destW, float destH, float u0, float v0, float u1, float v1, int uvRotation, int flags) {
@@ -305,9 +280,7 @@ void FramebufferManagerVulkan::DrawActiveTexture(float x, float y, float w, floa
 
 	VulkanRenderManager *renderManager = (VulkanRenderManager *)draw_->GetNativeObject(Draw::NativeObject::RENDER_MANAGER);
 
-	VkImageView view = overrideImageView_ ? overrideImageView_ : (VkImageView)draw_->GetNativeObject(Draw::NativeObject::BOUND_TEXTURE0_IMAGEVIEW);
-	if ((flags & DRAWTEX_KEEP_TEX) == 0)
-		overrideImageView_ = VK_NULL_HANDLE;
+	VkImageView view = (VkImageView)draw_->GetNativeObject(Draw::NativeObject::BOUND_TEXTURE0_IMAGEVIEW);
 	VkDescriptorSet descSet = vulkan2D_->GetDescriptorSet(view, (flags & DRAWTEX_LINEAR) ? linearSampler_ : nearestSampler_, VK_NULL_HANDLE, VK_NULL_HANDLE);
 	VkBuffer vbuffer;
 	VkDeviceSize offset = push_->Push(vtx, sizeof(vtx), &vbuffer);
