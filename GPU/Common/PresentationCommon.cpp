@@ -316,7 +316,7 @@ Draw::Pipeline *PresentationCommon::CreatePipeline(std::vector<Draw::ShaderModul
 void PresentationCommon::CreateDeviceObjects() {
 	using namespace Draw;
 
-	vdata_ = draw_->CreateBuffer(sizeof(Vertex) * 4, BufferUsageFlag::DYNAMIC | BufferUsageFlag::VERTEXDATA);
+	vdata_ = draw_->CreateBuffer(sizeof(Vertex) * 8, BufferUsageFlag::DYNAMIC | BufferUsageFlag::VERTEXDATA);
 	// TODO: Use 4 and a strip?  shorts?
 	idata_ = draw_->CreateBuffer(sizeof(int) * 6, BufferUsageFlag::DYNAMIC | BufferUsageFlag::INDEXDATA);
 
@@ -437,57 +437,19 @@ void PresentationCommon::CopyToOutput(OutputFlags flags, int uvRotation, float u
 	// Make sure Direct3D 11 clears state, since we set shaders outside Draw.
 	draw_->BindPipeline(nullptr);
 
+	int indexes[] = { 0, 1, 2, 0, 2, 3 };
+	draw_->UpdateBuffer(idata_, (const uint8_t *)indexes, 0, sizeof(indexes), Draw::UPDATE_DISCARD);
+
 	// TODO: If shader objects have been created by now, we might have received errors.
 	// GLES can have the shader fail later, shader->failed / shader->error.
 	// This should auto-disable usePostShader_ and call ShowPostShaderError().
 
 	bool useNearest = flags & OutputFlags::NEAREST;
 	bool usePostShader = usePostShader_ && !(flags & OutputFlags::RB_SWIZZLE);
-
-	if (usePostShader && postShaderFramebuffers_.size() == 1 && !postShaderAtOutputResolution_) {
-		draw_->BindFramebufferAsRenderTarget(postShaderFramebuffers_[0], { Draw::RPAction::DONT_CARE, Draw::RPAction::DONT_CARE, Draw::RPAction::DONT_CARE });
-		BindSource();
-
-		int fbo_w, fbo_h;
-		draw_->GetFramebufferDimensions(postShaderFramebuffers_[0], &fbo_w, &fbo_h);
-		Draw::Viewport viewport{ 0, 0, (float)fbo_w, (float)fbo_h, 0.0f, 1.0f };
-		draw_->SetViewports(1, &viewport);
-		draw_->SetScissorRect(0, 0, fbo_w, fbo_h);
-
-		draw_->BindPipeline(postShaderPipelines_.front());
-		draw_->UpdateDynamicUniformBuffer(&uniforms, sizeof(uniforms));
-
-		Draw::SamplerState *sampler = useNearest ? samplerNearest_ : samplerLinear_;
-		draw_->BindSamplerStates(0, 1, &sampler);
-
-		Vertex verts[4] = {
-			{ -1, -1, 0, 0, 1, 0xFFFFFFFF }, // TL
-			{ -1, 1, 0, 0, 0, 0xFFFFFFFF }, // BL
-			{ 1, 1, 0, 1, 0, 0xFFFFFFFF }, // BR
-			{ 1, -1, 0, 1, 1, 0xFFFFFFFF }, // TR
-		};
-
-		draw_->UpdateBuffer(vdata_, (const uint8_t *)verts, 0, sizeof(verts), Draw::UPDATE_DISCARD);
-
-		int indexes[] = { 0, 1, 2, 0, 2, 3 };
-		draw_->UpdateBuffer(idata_, (const uint8_t *)indexes, 0, sizeof(indexes), Draw::UPDATE_DISCARD);
-
-		draw_->BindVertexBuffers(0, 1, &vdata_, nullptr);
-		draw_->BindIndexBuffer(idata_, 0);
-		draw_->DrawIndexed(6, 0);
-		draw_->BindIndexBuffer(nullptr, 0);
-	}
-
-	if (postShaderIsUpscalingFilter_)
-		useNearest = true;
+	bool usePostShaderOutput = false;
 
 	CardboardSettings cardboardSettings;
 	GetCardboardSettings(&cardboardSettings);
-
-	Draw::Pipeline *pipeline = flags & OutputFlags::RB_SWIZZLE ? texColorRBSwizzle_ : texColor_;
-	if (usePostShader && postShaderAtOutputResolution_) {
-		pipeline = postShaderPipelines_.front();
-	}
 
 	// These are the output coordinates.
 	float x, y, w, h;
@@ -503,7 +465,9 @@ void PresentationCommon::CopyToOutput(OutputFlags flags, int uvRotation, float u
 		std::swap(v0, v1);
 	}
 
-	Vertex verts[4] = {
+	// To make buffer updates easier, we use one array of verts.
+	int postVertsOffset = (int)sizeof(Vertex) * 4;
+	Vertex verts[8] = {
 		{ x, y, 0, u0, v0, 0xFFFFFFFF }, // TL
 		{ x, y + h, 0, u0, v1, 0xFFFFFFFF }, // BL
 		{ x + w, y + h, 0, u1, v1, 0xFFFFFFFF }, // BR
@@ -545,21 +509,73 @@ void PresentationCommon::CopyToOutput(OutputFlags flags, int uvRotation, float u
 		}
 	}
 
-	draw_->UpdateBuffer(vdata_, (const uint8_t *)verts, 0, sizeof(verts), Draw::UPDATE_DISCARD);
+	if (usePostShader && postShaderAtOutputResolution_) {
+		// In this mode, we ignore the g_display_rot_matrix.  Apply manually.
+		if (g_display_rotation != DisplayRotation::ROTATE_0) {
+			for (int i = 0; i < 4; i++) {
+				Lin::Vec3 v(verts[i].x, verts[i].y, verts[i].z);
+				// Backwards notation, should fix that...
+				v = v * g_display_rot_matrix;
+				verts[i].x = v.x;
+				verts[i].y = v.y;
+			}
+		}
+	}
 
-	int indexes[] = { 0, 1, 2, 0, 2, 3 };
-	draw_->UpdateBuffer(idata_, (const uint8_t *)indexes, 0, sizeof(indexes), Draw::UPDATE_DISCARD);
+	if (usePostShader && postShaderFramebuffers_.size() == 1 && !postShaderAtOutputResolution_) {
+		draw_->BindFramebufferAsRenderTarget(postShaderFramebuffers_[0], { Draw::RPAction::DONT_CARE, Draw::RPAction::DONT_CARE, Draw::RPAction::DONT_CARE });
+		BindSource();
+
+		int fbo_w, fbo_h;
+		draw_->GetFramebufferDimensions(postShaderFramebuffers_[0], &fbo_w, &fbo_h);
+		Draw::Viewport viewport{ 0, 0, (float)fbo_w, (float)fbo_h, 0.0f, 1.0f };
+		draw_->SetViewports(1, &viewport);
+		draw_->SetScissorRect(0, 0, fbo_w, fbo_h);
+
+		draw_->BindPipeline(postShaderPipelines_.front());
+		draw_->UpdateDynamicUniformBuffer(&uniforms, sizeof(uniforms));
+
+		Draw::SamplerState *sampler = useNearest ? samplerNearest_ : samplerLinear_;
+		draw_->BindSamplerStates(0, 1, &sampler);
+
+		float post_v0 = flags & OutputFlags::BACKBUFFER_FLIPPED ? 1.0f : 0.0f;
+		float post_v1 = flags & OutputFlags::BACKBUFFER_FLIPPED ? 0.0f : 1.0f;
+		verts[4] = { -1, -1, 0, 0, post_v1, 0xFFFFFFFF }; // TL
+		verts[5] = { -1, 1, 0, 0, post_v0, 0xFFFFFFFF }; // BL
+		verts[6] = { 1, 1, 0, 1, post_v0, 0xFFFFFFFF }; // BR
+		verts[7] = { 1, -1, 0, 1, post_v1, 0xFFFFFFFF }; // TR
+
+		draw_->UpdateBuffer(vdata_, (const uint8_t *)verts, 0, sizeof(verts), Draw::UPDATE_DISCARD);
+
+		draw_->BindVertexBuffers(0, 1, &vdata_, &postVertsOffset);
+		draw_->BindIndexBuffer(idata_, 0);
+		draw_->DrawIndexed(6, 0);
+		draw_->BindIndexBuffer(nullptr, 0);
+
+		usePostShaderOutput = true;
+	} else {
+		draw_->UpdateBuffer(vdata_, (const uint8_t *)verts, 0, postVertsOffset, Draw::UPDATE_DISCARD);
+	}
+
+	if (postShaderIsUpscalingFilter_)
+		useNearest = true;
+
+	Draw::Pipeline *pipeline = flags & OutputFlags::RB_SWIZZLE ? texColorRBSwizzle_ : texColor_;
+	if (usePostShader && postShaderAtOutputResolution_) {
+		pipeline = postShaderPipelines_.front();
+	}
 
 	draw_->BindFramebufferAsRenderTarget(nullptr, { Draw::RPAction::CLEAR, Draw::RPAction::DONT_CARE, Draw::RPAction::DONT_CARE });
 	draw_->SetScissorRect(0, 0, pixelWidth_, pixelHeight_);
 
-	if (usePostShader && !postShaderFramebuffers_.empty() && !postShaderAtOutputResolution_) {
+	draw_->BindPipeline(pipeline);
+
+	if (usePostShaderOutput) {
 		draw_->BindFramebufferAsTexture(postShaderFramebuffers_.back(), 0, Draw::FB_COLOR_BIT, 0);
 	} else {
 		BindSource();
 	}
 
-	draw_->BindPipeline(pipeline);
 	if (usePostShader && postShaderAtOutputResolution_) {
 		draw_->UpdateDynamicUniformBuffer(&uniforms, sizeof(uniforms));
 	} else {
@@ -567,6 +583,7 @@ void PresentationCommon::CopyToOutput(OutputFlags flags, int uvRotation, float u
 		memcpy(ub.WorldViewProj, g_display_rot_matrix.m, sizeof(float) * 16);
 		draw_->UpdateDynamicUniformBuffer(&ub, sizeof(ub));
 	}
+
 	draw_->BindVertexBuffers(0, 1, &vdata_, nullptr);
 	draw_->BindIndexBuffer(idata_, 0);
 
