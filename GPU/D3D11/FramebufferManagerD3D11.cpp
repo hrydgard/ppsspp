@@ -15,6 +15,7 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
+#include <algorithm>
 #include <d3d11.h>
 #include <D3Dcompiler.h>
 
@@ -22,12 +23,9 @@
 #include "math/lin/matrix4x4.h"
 #include "ext/native/thin3d/thin3d.h"
 #include "base/basictypes.h"
-#include "file/vfs.h"
-#include "file/zip_read.h"
 
 #include "Common/ColorConv.h"
 #include "Common/MathUtil.h"
-#include "Core/Host.h"
 #include "Core/MemMap.h"
 #include "Core/Config.h"
 #include "Core/ConfigValues.h"
@@ -38,7 +36,6 @@
 #include "GPU/Debugger/Stepping.h"
 
 #include "GPU/Common/FramebufferCommon.h"
-#include "GPU/Common/PostShader.h"
 #include "GPU/Common/PresentationCommon.h"
 #include "GPU/Common/ShaderTranslation.h"
 #include "GPU/Common/TextureDecoder.h"
@@ -46,10 +43,6 @@
 #include "GPU/D3D11/ShaderManagerD3D11.h"
 #include "GPU/D3D11/TextureCacheD3D11.h"
 #include "GPU/D3D11/DrawEngineD3D11.h"
-
-#include "ext/native/thin3d/thin3d.h"
-
-#include <algorithm>
 
 #ifdef _M_SSE
 #include <emmintrin.h>

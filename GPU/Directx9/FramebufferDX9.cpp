@@ -19,7 +19,6 @@
 #include "ext/native/thin3d/thin3d.h"
 
 #include "Common/ColorConv.h"
-#include "Core/Host.h"
 #include "Core/MemMap.h"
 #include "Core/Config.h"
 #include "Core/ConfigValues.h"

@@ -21,7 +21,6 @@
 #include <cmath>
 
 #include "ext/native/thin3d/thin3d.h"
-#include "base/timeutil.h"
 #include "gfx_es2/gpu_features.h"
 
 #include "i18n/i18n.h"
@@ -32,7 +31,6 @@
 #include "Core/CoreParameter.h"
 #include "Core/Host.h"
 #include "Core/Reporting.h"
-#include "Core/ELF/ParamSFO.h"
 #include "Core/System.h"
 #include "GPU/Common/DrawEngineCommon.h"
 #include "GPU/Common/FramebufferCommon.h"

@@ -21,10 +21,8 @@
 #include "profiler/profiler.h"
 
 #include "base/display.h"
-#include "base/timeutil.h"
 #include "math/lin/matrix4x4.h"
 #include "math/dataconv.h"
-#include "ext/native/file/vfs.h"
 #include "ext/native/thin3d/thin3d.h"
 
 #include "Common/Vulkan/VulkanContext.h"
@@ -32,7 +30,6 @@
 #include "Common/Vulkan/VulkanImage.h"
 #include "thin3d/VulkanRenderManager.h"
 #include "Common/ColorConv.h"
-#include "Core/Host.h"
 #include "Core/MemMap.h"
 #include "Core/Config.h"
 #include "Core/ConfigValues.h"
@@ -40,17 +37,12 @@
 #include "Core/Reporting.h"
 #include "Core/HLE/sceDisplay.h"
 #include "GPU/ge_constants.h"
+#include "GPU/GPUInterface.h"
 #include "GPU/GPUState.h"
 
-#include "GPU/Common/ShaderTranslation.h"
-#include "GPU/Common/PostShader.h"
 #include "GPU/Common/TextureDecoder.h"
 #include "GPU/Common/FramebufferCommon.h"
 #include "GPU/Debugger/Stepping.h"
-
-#include "GPU/GPUInterface.h"
-#include "GPU/GPUState.h"
-#include "Common/Vulkan/VulkanImage.h"
 #include "GPU/Vulkan/FramebufferVulkan.h"
 #include "GPU/Vulkan/DrawEngineVulkan.h"
 #include "GPU/Vulkan/TextureCacheVulkan.h"

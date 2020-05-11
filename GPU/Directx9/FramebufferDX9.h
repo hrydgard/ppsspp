@@ -27,7 +27,6 @@
 
 #include "GPU/GPUCommon.h"
 #include "GPU/Common/FramebufferCommon.h"
-#include "Core/Config.h"
 #include "ext/native/thin3d/thin3d.h"
 
 namespace DX9 {
@@ -97,7 +96,6 @@ private:
 
 	u8 *convBuf = nullptr;
 
-	int plainColorLoc_;
 	LPDIRECT3DPIXELSHADER9 stencilUploadPS_ = nullptr;
 	LPDIRECT3DVERTEXSHADER9 stencilUploadVS_ = nullptr;
 	bool stencilUploadFailed_ = false;

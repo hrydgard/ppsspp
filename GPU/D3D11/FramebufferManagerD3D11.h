@@ -25,7 +25,6 @@
 
 #include "GPU/GPUCommon.h"
 #include "GPU/Common/FramebufferCommon.h"
-#include "Core/Config.h"
 #include "ext/native/thin3d/thin3d.h"
 
 class TextureCacheD3D11;
@@ -98,7 +97,6 @@ private:
 
 	u8 *convBuf = nullptr;
 
-	int plainColorLoc_;
 	ID3D11PixelShader *stencilUploadPS_ = nullptr;
 	ID3D11VertexShader *stencilUploadVS_ = nullptr;
 	ID3D11InputLayout *stencilUploadInputLayout_ = nullptr;
@@ -111,8 +109,4 @@ private:
 	TextureCacheD3D11 *textureCacheD3D11_;
 	ShaderManagerD3D11 *shaderManagerD3D11_;
 	DrawEngineD3D11 *drawEngineD3D11_;
-
-	// Used by post-processing shader
-	// Postprocessing
-	static const D3D11_INPUT_ELEMENT_DESC g_PostVertexElements[2];
 };

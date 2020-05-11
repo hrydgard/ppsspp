@@ -23,13 +23,7 @@
 #include "gfx/gl_debug_log.h"
 #include "gfx_es2/glsl_program.h"
 #include "thin3d/thin3d.h"
-
-#include "base/timeutil.h"
-#include "file/vfs.h"
-#include "math/lin/matrix4x4.h"
-
 #include "Common/ColorConv.h"
-#include "Core/Host.h"
 #include "Core/MemMap.h"
 #include "Core/Config.h"
 #include "Core/ConfigValues.h"
@@ -38,9 +32,7 @@
 #include "GPU/ge_constants.h"
 #include "GPU/GPUState.h"
 #include "GPU/Common/FramebufferCommon.h"
-#include "GPU/Common/PostShader.h"
 #include "GPU/Common/PresentationCommon.h"
-#include "GPU/Common/ShaderTranslation.h"
 #include "GPU/Common/TextureDecoder.h"
 #include "GPU/Debugger/Stepping.h"
 #include "GPU/GLES/FramebufferManagerGLES.h"
@@ -158,11 +150,6 @@ void FramebufferManagerGLES::DestroyDeviceObjects() {
 		render_->DeleteProgram(draw2dprogram_);
 		draw2dprogram_ = nullptr;
 	}
-	// Will usually be clear already.
-	for (auto iter : postShaderModules_) {
-		render_->DeleteShader(iter);
-	}
-	postShaderModules_.clear();
 	if (drawPixelsTex_) {
 		render_->DeleteTexture(drawPixelsTex_);
 		drawPixelsTex_ = 0;

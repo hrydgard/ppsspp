@@ -176,7 +176,6 @@ class DrawContext;
 }
 
 struct GPUDebugBuffer;
-struct PostShaderUniforms;
 class DrawEngineCommon;
 class PresentationCommon;
 class ShaderManagerCommon;

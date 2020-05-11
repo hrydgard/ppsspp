@@ -104,9 +104,6 @@ private:
 		MAX_COMMAND_BUFFERS = 32,
 	};
 
-	// This gets copied to the current frame's push buffer as needed.
-	PostShaderUniforms postUniforms_;
-
 	VkPipelineCache pipelineCache2D_;
 
 	// Basic shaders
@@ -115,7 +112,6 @@ private:
 
 	VkShaderModule stencilVs_ = VK_NULL_HANDLE;
 	VkShaderModule stencilFs_ = VK_NULL_HANDLE;
-
 
 	VkPipeline cur2DPipeline_ = VK_NULL_HANDLE;
 

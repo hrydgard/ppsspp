@@ -22,7 +22,6 @@
 // Also provides facilities for drawing and later converting raw
 // pixel data.
 
-#include "Core/Config.h"
 #include "GPU/GPUCommon.h"
 #include "GPU/Common/FramebufferCommon.h"
 #include "thin3d/GLRenderManager.h"
@@ -91,12 +90,10 @@ private:
 	u8 *convBuf_ = nullptr;
 	u32 convBufSize_ = 0;
 	GLRProgram *draw2dprogram_ = nullptr;
-	std::vector<GLRShader *> postShaderModules_;
 
 	GLRProgram *stencilUploadProgram_ = nullptr;
 	int u_stencilUploadTex = -1;
 	int u_stencilValue = -1;
-	int u_postShaderTex = -1;
 
 	GLRProgram *depthDownloadProgram_ = nullptr;
 	int u_depthDownloadTex = -1;
@@ -106,12 +103,6 @@ private:
 	
 	// Cached uniform locs
 	int u_draw2d_tex = -1;
-
-	int plainColorLoc_ = -1;
-	int videoLoc_ = -1;
-	int timeLoc_ = -1;
-	int pixelDeltaLoc_ = -1;
-	int deltaLoc_ = -1;
 
 	TextureCacheGLES *textureCacheGL_ = nullptr;
 	ShaderManagerGLES *shaderManagerGL_ = nullptr;
