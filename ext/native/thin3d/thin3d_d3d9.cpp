@@ -946,7 +946,7 @@ void D3D9Context::DrawIndexed(int vertexCount, int offset) {
 	curPipeline_->inputLayout->Apply(device_);
 	device_->SetStreamSource(0, curVBuffers_[0]->vbuffer_, curVBufferOffsets_[0], curPipeline_->inputLayout->GetStride(0));
 	device_->SetIndices(curIBuffer_->ibuffer_);
-	device_->DrawIndexedPrimitive(curPipeline_->prim, 0, 0, vertexCount, 0, vertexCount / curPipeline_->primDivisor);
+	device_->DrawIndexedPrimitive(curPipeline_->prim, 0, 0, vertexCount, offset, vertexCount / curPipeline_->primDivisor);
 }
 
 void D3D9Context::DrawUP(const void *vdata, int vertexCount) {

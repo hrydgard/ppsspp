@@ -1083,7 +1083,7 @@ void OpenGLContext::DrawIndexed(int vertexCount, int offset) {
 	ApplySamplers();
 	renderManager_.BindVertexBuffer(curPipeline_->inputLayout->inputLayout_, curVBuffers_[0]->buffer_, curVBufferOffsets_[0]);
 	renderManager_.BindIndexBuffer(curIBuffer_->buffer_);
-	renderManager_.DrawIndexed(curPipeline_->prim, vertexCount, GL_UNSIGNED_INT, (void *)(intptr_t)curIBufferOffset_);
+	renderManager_.DrawIndexed(curPipeline_->prim, vertexCount, GL_UNSIGNED_INT, (void *)((intptr_t)curIBufferOffset_ + offset * sizeof(uint32_t)));
 }
 
 void OpenGLContext::DrawUP(const void *vdata, int vertexCount) {

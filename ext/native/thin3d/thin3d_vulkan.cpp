@@ -1258,7 +1258,7 @@ void VKContext::DrawIndexed(int vertexCount, int offset) {
 
 	renderManager_.BindPipeline(curPipeline_->vkpipeline);
 	ApplyDynamicState();
-	renderManager_.DrawIndexed(pipelineLayout_, descSet, 1, &ubo_offset, vulkanVbuf, (int)vbBindOffset, vulkanIbuf, (int)ibBindOffset, vertexCount, 1, VK_INDEX_TYPE_UINT32);
+	renderManager_.DrawIndexed(pipelineLayout_, descSet, 1, &ubo_offset, vulkanVbuf, (int)vbBindOffset, vulkanIbuf, (int)ibBindOffset + offset * sizeof(uint32_t), vertexCount, 1, VK_INDEX_TYPE_UINT32);
 }
 
 void VKContext::DrawUP(const void *vdata, int vertexCount) {
