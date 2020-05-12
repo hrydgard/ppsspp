@@ -765,7 +765,7 @@ Draw::Texture *FramebufferManagerCommon::MakePixelTexture(const u8 *srcPixels, G
 	return tex;
 }
 
-void FramebufferManagerCommon::DrawFramebufferToOutput(const u8 *srcPixels, GEBufferFormat srcPixelFormat, int srcStride, bool applyPostShader) {
+void FramebufferManagerCommon::DrawFramebufferToOutput(const u8 *srcPixels, GEBufferFormat srcPixelFormat, int srcStride) {
 	textureCache_->ForgetLastTexture();
 	shaderManager_->DirtyLastShader();
 
@@ -777,38 +777,21 @@ void FramebufferManagerCommon::DrawFramebufferToOutput(const u8 *srcPixels, GEBu
 	draw_->BindTextures(0, 1, &pixelsTex);
 
 	int uvRotation = useBufferedRendering_ ? g_Config.iInternalScreenRotation : ROTATION_LOCKED_HORIZONTAL;
-	if (!applyPostShader) {
-		// TODO: Does this need to bind the backbuffer?  What is this doing?
-		float x, y, w, h;
-		CenterDisplayOutputRect(&x, &y, &w, &h, 480.0f, 272.0f, (float)pixelWidth_, (float)pixelHeight_, uvRotation);
-
-		Bind2DShader();
-
-		if (needBackBufferYSwap_)
-			std::swap(v0, v1);
-
-		DrawTextureFlags flags = g_Config.iBufFilter == SCALE_LINEAR ? DRAWTEX_LINEAR : DRAWTEX_NEAREST;
-		flags = flags | DRAWTEX_TO_BACKBUFFER;
-		SetViewport2D(0, 0, pixelWidth_, pixelHeight_);
-		DrawActiveTexture(x, y, w, h, (float)pixelWidth_, (float)pixelHeight_, u0, v0, u1, v1, uvRotation, flags);
-	} else {
-		OutputFlags flags = g_Config.iBufFilter == SCALE_LINEAR ? OutputFlags::LINEAR : OutputFlags::NEAREST;
-		if (needBackBufferYSwap_) {
-			flags |= OutputFlags::BACKBUFFER_FLIPPED;
-		}
-
-		PostShaderUniforms uniforms{};
-		presentation_->CalculatePostShaderUniforms(512, 272, textureCache_->VideoIsPlaying(), &uniforms);
-
-		// TODO: DrawActiveTexture reverses these, but I'm not sure why?  Investigate.
-		if (GetGPUBackend() == GPUBackend::DIRECT3D9 || GetGPUBackend() == GPUBackend::DIRECT3D11) {
-			std::swap(v0, v1);
-		}
-
-		presentation_->SourceTexture(pixelsTex);
-		presentation_->CopyToOutput(flags, uvRotation, u0, v0, u1, v1, uniforms);
+	OutputFlags flags = g_Config.iBufFilter == SCALE_LINEAR ? OutputFlags::LINEAR : OutputFlags::NEAREST;
+	if (needBackBufferYSwap_) {
+		flags |= OutputFlags::BACKBUFFER_FLIPPED;
 	}
 
+	PostShaderUniforms uniforms{};
+	presentation_->CalculatePostShaderUniforms(512, 272, textureCache_->VideoIsPlaying(), &uniforms);
+
+	// TODO: DrawActiveTexture reverses these, but I'm not sure why?  Investigate.
+	if (GetGPUBackend() == GPUBackend::DIRECT3D9 || GetGPUBackend() == GPUBackend::DIRECT3D11) {
+		std::swap(v0, v1);
+	}
+
+	presentation_->SourceTexture(pixelsTex);
+	presentation_->CopyToOutput(flags, uvRotation, u0, v0, u1, v1, uniforms);
 	pixelsTex->Release();
 
 	// PresentationCommon sets all kinds of state, we can't rely on anything.
@@ -914,7 +897,7 @@ void FramebufferManagerCommon::CopyDisplayToOutput(bool reallyDirty) {
 				// Just a pointer to plain memory to draw. We should create a framebuffer, then draw to it.
 				SetViewport2D(0, 0, pixelWidth_, pixelHeight_);
 				draw_->SetScissorRect(0, 0, pixelWidth_, pixelHeight_);
-				DrawFramebufferToOutput(Memory::GetPointer(fbaddr), displayFormat_, displayStride_, true);
+				DrawFramebufferToOutput(Memory::GetPointer(fbaddr), displayFormat_, displayStride_);
 				gstate_c.Dirty(DIRTY_BLEND_STATE);
 				return;
 			}
@@ -1604,18 +1587,16 @@ bool FramebufferManagerCommon::NotifyBlockTransferBefore(u32 dstBasePtr, int dst
 }
 
 void FramebufferManagerCommon::NotifyBlockTransferAfter(u32 dstBasePtr, int dstStride, int dstX, int dstY, u32 srcBasePtr, int srcStride, int srcX, int srcY, int width, int height, int bpp, u32 skipDrawReason) {
-	// A few games use this INSTEAD of actually drawing the video image to the screen, they just blast it to
-	// the backbuffer. Detect this and have the framebuffermanager draw the pixels.
-
-	u32 backBuffer = PrevDisplayFramebufAddr();
-	u32 displayBuffer = DisplayFramebufAddr();
-
-	// TODO: Is this not handled by upload?  Should we check !dstBuffer to avoid a double copy?
-	if (((backBuffer != 0 && dstBasePtr == backBuffer) ||
-		(displayBuffer != 0 && dstBasePtr == displayBuffer)) &&
-		dstStride == 512 && height == 272 && !useBufferedRendering_) {
-		FlushBeforeCopy();
-		DrawFramebufferToOutput(Memory::GetPointerUnchecked(dstBasePtr), displayFormat_, 512, false);
+	// If it's a block transfer direct to the screen, and we're not using buffers, draw immediately.
+	// We may still do a partial block draw below if this doesn't pass.
+	if (!useBufferedRendering_ && dstStride >= 480 && width >= 480 && height == 272) {
+		bool isPrevDisplayBuffer = PrevDisplayFramebufAddr() == dstBasePtr;
+		bool isDisplayBuffer = DisplayFramebufAddr() == dstBasePtr;
+		if (isPrevDisplayBuffer || isDisplayBuffer) {
+			FlushBeforeCopy();
+			DrawFramebufferToOutput(Memory::GetPointerUnchecked(dstBasePtr), displayFormat_, dstStride);
+			return;
+		}
 	}
 
 	if (MayIntersectFramebuffer(srcBasePtr) || MayIntersectFramebuffer(dstBasePtr)) {
@@ -1627,6 +1608,8 @@ void FramebufferManagerCommon::NotifyBlockTransferAfter(u32 dstBasePtr, int dstS
 		int dstHeight = height;
 		FindTransferFramebuffers(dstBuffer, srcBuffer, dstBasePtr, dstStride, dstX, dstY, srcBasePtr, srcStride, srcX, srcY, srcWidth, srcHeight, dstWidth, dstHeight, bpp);
 
+		// A few games use this INSTEAD of actually drawing the video image to the screen, they just blast it to
+		// the backbuffer. Detect this and have the framebuffermanager draw the pixels.
 		if (!useBufferedRendering_ && currentRenderVfb_ != dstBuffer) {
 			return;
 		}
