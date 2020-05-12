@@ -646,8 +646,9 @@ void FramebufferManagerCommon::DrawPixels(VirtualFramebuffer *vfb, int dstX, int
 	float u0 = 0.0f, u1 = 1.0f;
 	float v0 = 0.0f, v1 = 1.0f;
 
-	DrawTextureFlags flags = (vfb || g_Config.iBufFilter == SCALE_LINEAR) ? DRAWTEX_LINEAR : DRAWTEX_NEAREST;
+	DrawTextureFlags flags;
 	if (useBufferedRendering_ && vfb && vfb->fbo) {
+		flags = DRAWTEX_LINEAR;
 		draw_->BindFramebufferAsRenderTarget(vfb->fbo, { Draw::RPAction::KEEP, Draw::RPAction::KEEP, Draw::RPAction::KEEP });
 		SetViewport2D(0, 0, vfb->renderWidth, vfb->renderHeight);
 		draw_->SetScissorRect(0, 0, vfb->renderWidth, vfb->renderHeight);
@@ -655,6 +656,7 @@ void FramebufferManagerCommon::DrawPixels(VirtualFramebuffer *vfb, int dstX, int
 		// We are drawing to the back buffer so need to flip.
 		if (needBackBufferYSwap_)
 			std::swap(v0, v1);
+		flags = g_Config.iBufFilter == SCALE_LINEAR ? DRAWTEX_LINEAR : DRAWTEX_NEAREST;
 		flags = flags | DRAWTEX_TO_BACKBUFFER;
 		float x, y, w, h;
 		CenterDisplayOutputRect(&x, &y, &w, &h, 480.0f, 272.0f, (float)pixelWidth_, (float)pixelHeight_, ROTATION_LOCKED_HORIZONTAL);
@@ -665,12 +667,12 @@ void FramebufferManagerCommon::DrawPixels(VirtualFramebuffer *vfb, int dstX, int
 	Draw::Texture *pixelsTex = MakePixelTexture(srcPixels, srcPixelFormat, srcStride, width, height, u1, v1);
 	if (pixelsTex) {
 		draw_->BindTextures(0, 1, &pixelsTex);
-
 		Bind2DShader();
 		DrawActiveTexture(dstX, dstY, width, height, vfb->bufferWidth, vfb->bufferHeight, u0, v0, u1, v1, ROTATION_LOCKED_HORIZONTAL, flags);
 		gpuStats.numUploads++;
-
 		pixelsTex->Release();
+
+		gstate_c.Dirty(DIRTY_BLEND_STATE | DIRTY_RASTER_STATE | DIRTY_DEPTHSTENCIL_STATE | DIRTY_VIEWPORTSCISSOR_STATE);
 	}
 }
 
@@ -774,7 +776,6 @@ void FramebufferManagerCommon::DrawFramebufferToOutput(const u8 *srcPixels, GEBu
 	Draw::Texture *pixelsTex = MakePixelTexture(srcPixels, srcPixelFormat, srcStride, 512, 272, u1, v1);
 	if (!pixelsTex)
 		return;
-	draw_->BindTextures(0, 1, &pixelsTex);
 
 	int uvRotation = useBufferedRendering_ ? g_Config.iInternalScreenRotation : ROTATION_LOCKED_HORIZONTAL;
 	OutputFlags flags = g_Config.iBufFilter == SCALE_LINEAR ? OutputFlags::LINEAR : OutputFlags::NEAREST;
@@ -825,7 +826,10 @@ void FramebufferManagerCommon::CopyDisplayToOutput(bool reallyDirty) {
 	currentRenderVfb_ = 0;
 
 	if (displayFramebufPtr_ == 0) {
-		DEBUG_LOG(FRAMEBUF, "Display disabled, displaying only black");
+		if (coreState == CORE_STEPPING)
+			VERBOSE_LOG(FRAMEBUF, "Display disabled, displaying only black");
+		else
+			DEBUG_LOG(FRAMEBUF, "Display disabled, displaying only black");
 		// No framebuffer to display! Clear to black.
 		if (useBufferedRendering_) {
 			draw_->BindFramebufferAsRenderTarget(nullptr, { Draw::RPAction::CLEAR, Draw::RPAction::CLEAR, Draw::RPAction::CLEAR });
@@ -932,12 +936,6 @@ void FramebufferManagerCommon::CopyDisplayToOutput(bool reallyDirty) {
 		else
 			DEBUG_LOG(FRAMEBUF, "Displaying FBO %08x", vfb->fb_address);
 
-		int uvRotation = useBufferedRendering_ ? g_Config.iInternalScreenRotation : ROTATION_LOCKED_HORIZONTAL;
-
-		// Output coordinates
-		float x, y, w, h;
-		CenterDisplayOutputRect(&x, &y, &w, &h, 480.0f, 272.0f, (float)pixelWidth_, (float)pixelHeight_, uvRotation);
-
 		// TODO ES3: Use glInvalidateFramebuffer to discard depth/stencil data at the end of frame.
 
 		float u0 = offsetX / (float)vfb->bufferWidth;
@@ -947,6 +945,7 @@ void FramebufferManagerCommon::CopyDisplayToOutput(bool reallyDirty) {
 
 		textureCache_->ForgetLastTexture();
 
+		int uvRotation = useBufferedRendering_ ? g_Config.iInternalScreenRotation : ROTATION_LOCKED_HORIZONTAL;
 		OutputFlags flags = g_Config.iBufFilter == SCALE_LINEAR ? OutputFlags::LINEAR : OutputFlags::NEAREST;
 		if (needBackBufferYSwap_) {
 			flags |= OutputFlags::BACKBUFFER_FLIPPED;

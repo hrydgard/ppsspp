@@ -916,7 +916,7 @@ bool TextureCacheCommon::SetOffsetTexture(u32 yOffset) {
 
 	u32 texaddr = gstate.getTextureAddress(0);
 	GETextureFormat fmt = gstate.getTextureFormat();
-	const u32 bpp = fmt == GE_FORMAT_8888 ? 4 : 2;
+	const u32 bpp = fmt == GE_TFMT_8888 ? 4 : 2;
 	const u32 texaddrOffset = yOffset * gstate.getTextureWidth(0) * bpp;
 
 	if (!Memory::IsValidAddress(texaddr) || !Memory::IsValidAddress(texaddr + texaddrOffset)) {
