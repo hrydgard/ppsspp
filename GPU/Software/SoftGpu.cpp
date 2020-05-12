@@ -218,10 +218,10 @@ void SoftGPU::CopyToCurrentFboFromDisplayRam(int srcwidth, int srcheight) {
 			desc.height = srcheight;
 			desc.initData.push_back(data);
 		}
-		u0 = 64.5f / 512.0f;
-		u1 = 447.5f / 512.0f;
-		v1 = 16.0f / 272.0f;
-		v0 = 240.0f / 272.0f;
+		u0 = 64.5f / (float)desc.width;
+		u1 = 447.5f / (float)desc.width;
+		v1 = 16.0f / (float)desc.height;
+		v0 = 240.0f / (float)desc.height;
 	} else if (!Memory::IsValidAddress(displayFramebuf_) || srcwidth == 0 || srcheight == 0) {
 		hasImage = false;
 		u1 = 1.0f;
@@ -234,7 +234,6 @@ void SoftGPU::CopyToCurrentFboFromDisplayRam(int srcwidth, int srcheight) {
 	} else if (displayFormat_ == GE_FORMAT_5551) {
 		u8 *data = Memory::GetPointer(displayFramebuf_);
 		bool fillDesc = true;
-		desc.format = Draw::DataFormat::A1R5G5B5_UNORM_PACK16;
 		if (draw_->GetDataFormatSupport(Draw::DataFormat::A1B5G5R5_UNORM_PACK16) & Draw::FMT_TEXTURE) {
 			// The perfect one.
 			desc.format = Draw::DataFormat::A1B5G5R5_UNORM_PACK16;
@@ -244,6 +243,7 @@ void SoftGPU::CopyToCurrentFboFromDisplayRam(int srcwidth, int srcheight) {
 			outputFlags |= OutputFlags::RB_SWIZZLE;
 		} else {
 			ConvertTextureDescFrom16(desc, srcwidth, srcheight);
+			u1 = 1.0f;
 			fillDesc = false;
 		}
 		if (fillDesc) {
