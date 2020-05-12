@@ -782,15 +782,13 @@ void FramebufferManagerCommon::DrawFramebufferToOutput(const u8 *srcPixels, GEBu
 	if (needBackBufferYSwap_) {
 		flags |= OutputFlags::BACKBUFFER_FLIPPED;
 	}
+	// DrawActiveTexture reverses these, probably to match "up".
+	if (GetGPUBackend() == GPUBackend::DIRECT3D9 || GetGPUBackend() == GPUBackend::DIRECT3D11) {
+		flags |= OutputFlags::POSITION_FLIPPED;
+	}
 
 	PostShaderUniforms uniforms{};
 	presentation_->CalculatePostShaderUniforms(512, 272, textureCache_->VideoIsPlaying(), &uniforms);
-
-	// TODO: DrawActiveTexture reverses these, but I'm not sure why?  Investigate.
-	if (GetGPUBackend() == GPUBackend::DIRECT3D9 || GetGPUBackend() == GPUBackend::DIRECT3D11) {
-		std::swap(v0, v1);
-	}
-
 	presentation_->SourceTexture(pixelsTex);
 	presentation_->CopyToOutput(flags, uvRotation, u0, v0, u1, v1, uniforms);
 	pixelsTex->Release();
@@ -950,18 +948,15 @@ void FramebufferManagerCommon::CopyDisplayToOutput(bool reallyDirty) {
 		if (needBackBufferYSwap_) {
 			flags |= OutputFlags::BACKBUFFER_FLIPPED;
 		}
+		// DrawActiveTexture reverses these, probably to match "up".
+		if (GetGPUBackend() == GPUBackend::DIRECT3D9 || GetGPUBackend() == GPUBackend::DIRECT3D11) {
+			flags |= OutputFlags::POSITION_FLIPPED;
+		}
 
 		PostShaderUniforms uniforms{};
 		int actualWidth = (vfb->bufferWidth * vfb->renderWidth) / vfb->width;
 		int actualHeight = (vfb->bufferHeight * vfb->renderHeight) / vfb->height;
 		presentation_->CalculatePostShaderUniforms(actualWidth, actualHeight, textureCache_->VideoIsPlaying(), &uniforms);
-
-		// DrawActiveTexture reverses these, probably to match "up".
-		// TODO: Maybe use a flag instead.
-		if (GetGPUBackend() == GPUBackend::DIRECT3D9 || GetGPUBackend() == GPUBackend::DIRECT3D11) {
-			std::swap(v0, v1);
-		}
-
 		presentation_->SourceFramebuffer(vfb->fbo);
 		presentation_->CopyToOutput(flags, uvRotation, u0, v0, u1, v1, uniforms);
 	} else if (useBufferedRendering_) {

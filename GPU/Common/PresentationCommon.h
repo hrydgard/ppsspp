@@ -56,6 +56,7 @@ enum class OutputFlags {
 	NEAREST = 0x0001,
 	RB_SWIZZLE = 0x0002,
 	BACKBUFFER_FLIPPED = 0x0004,
+	POSITION_FLIPPED = 0x0008,
 };
 
 inline OutputFlags operator | (const OutputFlags &lhs, const OutputFlags &rhs) {

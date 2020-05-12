@@ -172,8 +172,8 @@ void SoftGPU::CopyToCurrentFboFromDisplayRam(int srcwidth, int srcheight) {
 		return;
 	float u0 = 0.0f;
 	float u1;
-	float v0 = 1.0f;
-	float v1 = 0.0f;
+	float v0 = 0.0f;
+	float v1 = 1.0f;
 
 	if (fbTex) {
 		fbTex->Release();
@@ -220,8 +220,8 @@ void SoftGPU::CopyToCurrentFboFromDisplayRam(int srcwidth, int srcheight) {
 		}
 		u0 = 64.5f / (float)desc.width;
 		u1 = 447.5f / (float)desc.width;
-		v1 = 16.0f / (float)desc.height;
-		v0 = 240.0f / (float)desc.height;
+		v0 = 16.0f / (float)desc.height;
+		v1 = 240.0f / (float)desc.height;
 	} else if (!Memory::IsValidAddress(displayFramebuf_) || srcwidth == 0 || srcheight == 0) {
 		hasImage = false;
 		u1 = 1.0f;
@@ -262,17 +262,20 @@ void SoftGPU::CopyToCurrentFboFromDisplayRam(int srcwidth, int srcheight) {
 
 	fbTex = draw_->CreateTexture(desc);
 
-	if (GetGPUBackend() == GPUBackend::VULKAN) {
-		std::swap(v0, v1);
-	}
-	if (GetGPUBackend() == GPUBackend::OPENGL) {
-		std::swap(v0, v1);
+	switch (GetGPUBackend()) {
+	case GPUBackend::OPENGL:
 		outputFlags |= OutputFlags::BACKBUFFER_FLIPPED;
+		break;
+	case GPUBackend::DIRECT3D9:
+	case GPUBackend::DIRECT3D11:
+		outputFlags |= OutputFlags::POSITION_FLIPPED;
+		break;
+	case GPUBackend::VULKAN:
+		break;
 	}
 
 	PostShaderUniforms uniforms{};
 	presentation_->CalculatePostShaderUniforms(desc.width, desc.height, false, &uniforms);
-
 	presentation_->SourceTexture(fbTex);
 	presentation_->CopyToOutput(outputFlags, g_Config.iInternalScreenRotation, u0, v0, u1, v1, uniforms);
 }

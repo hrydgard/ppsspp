@@ -461,7 +461,7 @@ void PresentationCommon::CopyToOutput(OutputFlags flags, int uvRotation, float u
 		y += 0.5f;
 	}
 
-	if (flags & OutputFlags::BACKBUFFER_FLIPPED) {
+	if ((flags & OutputFlags::BACKBUFFER_FLIPPED) || (flags & OutputFlags::POSITION_FLIPPED)) {
 		std::swap(v0, v1);
 	}
 
@@ -490,13 +490,14 @@ void PresentationCommon::CopyToOutput(OutputFlags flags, int uvRotation, float u
 		// Vertical and Vertical180 needed swapping after we changed the coordinate system.
 		switch (uvRotation) {
 		case ROTATION_LOCKED_HORIZONTAL180: rotation = 2; break;
-		case ROTATION_LOCKED_VERTICAL: rotation = 1; break;
-		case ROTATION_LOCKED_VERTICAL180: rotation = 3; break;
+		case ROTATION_LOCKED_VERTICAL: rotation = 3; break;
+		case ROTATION_LOCKED_VERTICAL180: rotation = 1; break;
 		}
 
-		// TODO: This doesn't make sense... but Vulkan is flipped only in portrait?  Investigate.
-		if (GetGPUBackend() == GPUBackend::VULKAN && (rotation & 1) != 0) {
-			rotation ^= 2;
+		// If we flipped, we rotate the other way.
+		if ((flags & OutputFlags::BACKBUFFER_FLIPPED) || (flags & OutputFlags::POSITION_FLIPPED)) {
+			if ((rotation & 1) != 0)
+				rotation ^= 2;
 		}
 
 		for (int i = 0; i < 4; i++) {
@@ -538,7 +539,7 @@ void PresentationCommon::CopyToOutput(OutputFlags flags, int uvRotation, float u
 		Draw::SamplerState *sampler = useNearest ? samplerNearest_ : samplerLinear_;
 		draw_->BindSamplerStates(0, 1, &sampler);
 
-		bool flipped = GetGPUBackend() == GPUBackend::DIRECT3D9 || GetGPUBackend() == GPUBackend::DIRECT3D11;
+		bool flipped = flags & OutputFlags::POSITION_FLIPPED;
 		float post_v0 = !flipped ? 1.0f : 0.0f;
 		float post_v1 = !flipped ? 0.0f : 1.0f;
 		verts[4] = { -1, -1, 0, 0, post_v1, 0xFFFFFFFF }; // TL
