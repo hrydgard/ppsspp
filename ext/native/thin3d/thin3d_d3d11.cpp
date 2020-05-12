@@ -1059,6 +1059,7 @@ void D3D11DrawContext::ApplyCurrentState() {
 	}
 	if (curPipeline_->dynamicUniforms) {
 		context_->VSSetConstantBuffers(0, 1, &curPipeline_->dynamicUniforms);
+		context_->PSSetConstantBuffers(0, 1, &curPipeline_->dynamicUniforms);
 	}
 }
 
@@ -1330,6 +1331,7 @@ void D3D11DrawContext::BeginFrame() {
 		context_->IASetIndexBuffer(nextIndexBuffer_, DXGI_FORMAT_R32_UINT, nextIndexBufferOffset_);
 		if (curPipeline_->dynamicUniforms) {
 			context_->VSSetConstantBuffers(0, 1, &curPipeline_->dynamicUniforms);
+			context_->PSSetConstantBuffers(0, 1, &curPipeline_->dynamicUniforms);
 		}
 	}
 }
