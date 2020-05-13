@@ -14,9 +14,40 @@
 #include <thread>
 #include <atomic>
 
+#ifndef _MSC_VER
 #include <jni.h>
 #include <android/log.h>
 #include <android/native_window_jni.h>
+#elif !defined(JNIEXPORT)
+// Just for better highlighting in MSVC if opening this file.
+// Not having types makes it get confused and say everything is wrong.
+struct JavaVM;
+typedef void *jmethodID;
+typedef void *jfieldID;
+
+typedef uint8_t jboolean;
+typedef int8_t jbyte;
+typedef int16_t jshort;
+typedef int32_t jint;
+typedef int64_t jlong;
+typedef jint jsize;
+typedef float jfloat;
+typedef double jdouble;
+
+class _jobject {};
+class _jclass : public _jobject {};
+typedef _jobject *jobject;
+typedef _jclass *jclass;
+typedef jobject jstring;
+typedef jobject jbyteArray;
+
+struct JNIEnv {};
+
+#define JNIEXPORT
+#define JNICALL
+// Just a random value to make MSVC highlighting happy.
+#define JNI_VERSION_1_6 16
+#endif
 
 #include "base/basictypes.h"
 #include "base/stringutil.h"
@@ -440,6 +471,10 @@ static void parse_args(std::vector<std::string> &args, const std::string value) 
 				// If it's not the above, it's whitespace.
 				if (!quote) {
 					done = true;
+				} else {
+					sz = strspn(p, " \r\n\t");
+					arg += std::string(p, sz);
+					p += sz;
 				}
 				break;
 			}
