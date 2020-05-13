@@ -597,37 +597,12 @@ static const D3DVERTEXELEMENT9 g_FramebufferVertexElements[] = {
 	}
 
 	void FramebufferManagerDX9::DestroyAllFBOs() {
-		currentRenderVfb_ = 0;
-		displayFramebuf_ = 0;
-		prevDisplayFramebuf_ = 0;
-		prevPrevDisplayFramebuf_ = 0;
-
-		for (size_t i = 0; i < vfbs_.size(); ++i) {
-			VirtualFramebuffer *vfb = vfbs_[i];
-			INFO_LOG(FRAMEBUF, "Destroying FBO for %08x : %i x %i x %i", vfb->fb_address, vfb->width, vfb->height, vfb->format);
-			DestroyFramebuf(vfb);
-		}
-		vfbs_.clear();
-
-		for (size_t i = 0; i < bvfbs_.size(); ++i) {
-			VirtualFramebuffer *vfb = bvfbs_[i];
-			DestroyFramebuf(vfb);
-		}
-		bvfbs_.clear();
+		FramebufferManagerCommon::DestroyAllFBOs();
 
 		for (auto &it : offscreenSurfaces_) {
 			it.second.surface->Release();
 		}
 		offscreenSurfaces_.clear();
-	}
-
-	void FramebufferManagerDX9::Resized() {
-		FramebufferManagerCommon::Resized();
-
-		if (UpdateSize()) {
-			DestroyAllFBOs();
-		}
-		presentation_->UpdatePostShader();
 	}
 
 	bool FramebufferManagerDX9::GetFramebuffer(u32 fb_address, int fb_stride, GEBufferFormat fb_format, GPUDebugBuffer &buffer, int maxRes) {

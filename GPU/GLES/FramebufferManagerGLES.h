@@ -43,8 +43,6 @@ public:
 	// x,y,w,h are relative to destW, destH which fill out the target completely.
 	void DrawActiveTexture(float x, float y, float w, float h, float destW, float destH, float u0, float v0, float u1, float v1, int uvRotation, int flags) override;
 
-	void DestroyAllFBOs();
-
 	virtual void Init() override;
 	void EndFrame();
 	void Resized() override;

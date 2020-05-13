@@ -448,39 +448,3 @@ void FramebufferManagerVulkan::DeviceRestore(VulkanContext *vulkan, Draw::DrawCo
 
 	InitDeviceObjects();
 }
-
-void FramebufferManagerVulkan::DestroyAllFBOs() {
-	currentRenderVfb_ = 0;
-	displayFramebuf_ = 0;
-	prevDisplayFramebuf_ = 0;
-	prevPrevDisplayFramebuf_ = 0;
-
-	for (size_t i = 0; i < vfbs_.size(); ++i) {
-		VirtualFramebuffer *vfb = vfbs_[i];
-		INFO_LOG(FRAMEBUF, "Destroying FBO for %08x : %i x %i x %i", vfb->fb_address, vfb->width, vfb->height, vfb->format);
-		DestroyFramebuf(vfb);
-	}
-	vfbs_.clear();
-
-	for (size_t i = 0; i < bvfbs_.size(); ++i) {
-		VirtualFramebuffer *vfb = bvfbs_[i];
-		DestroyFramebuf(vfb);
-	}
-	bvfbs_.clear();
-
-	for (auto &tempFB : tempFBOs_) {
-		tempFB.second.fbo->Release();
-	}
-	tempFBOs_.clear();
-}
-
-void FramebufferManagerVulkan::Resized() {
-	FramebufferManagerCommon::Resized();
-
-	if (UpdateSize()) {
-		DestroyAllFBOs();
-	}
-
-	// Might have a new post shader - let's compile it.
-	presentation_->UpdatePostShader();
-}

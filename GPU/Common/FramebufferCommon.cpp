@@ -839,9 +839,6 @@ void FramebufferManagerCommon::CopyDisplayToOutput(bool reallyDirty) {
 	u32 offsetX = 0;
 	u32 offsetY = 0;
 
-	CardboardSettings cardboardSettings;
-	presentation_->GetCardboardSettings(&cardboardSettings);
-
 	// If it's not really dirty, we're probably frameskipping.  Use the last working one.
 	u32 fbaddr = reallyDirty ? displayFramebufPtr_ : prevDisplayFramebufPtr_;
 	prevDisplayFramebufPtr_ = fbaddr;
@@ -1705,12 +1702,42 @@ void FramebufferManagerCommon::Resized() {
 
 	gstate_c.skipDrawReason &= ~SKIPDRAW_NON_DISPLAYED_FB;
 
+	if (UpdateSize()) {
+		DestroyAllFBOs();
+	}
+
+	// Might have a new post shader - let's compile it.
+	presentation_->UpdatePostShader();
+
 #ifdef _WIN32
 	// Seems related - if you're ok with numbers all the time, show some more :)
 	if (g_Config.iShowFPSCounter != 0) {
 		ShowScreenResolution();
 	}
 #endif
+}
+
+void FramebufferManagerCommon::DestroyAllFBOs() {
+	currentRenderVfb_ = nullptr;
+	displayFramebuf_ = nullptr;
+	prevDisplayFramebuf_ = nullptr;
+	prevPrevDisplayFramebuf_ = nullptr;
+
+	for (VirtualFramebuffer *vfb : vfbs_) {
+		INFO_LOG(FRAMEBUF, "Destroying FBO for %08x : %i x %i x %i", vfb->fb_address, vfb->width, vfb->height, vfb->format);
+		DestroyFramebuf(vfb);
+	}
+	vfbs_.clear();
+
+	for (VirtualFramebuffer *vfb : bvfbs_) {
+		DestroyFramebuf(vfb);
+	}
+	bvfbs_.clear();
+
+	for (auto &tempFB : tempFBOs_) {
+		tempFB.second.fbo->Release();
+	}
+	tempFBOs_.clear();
 }
 
 Draw::Framebuffer *FramebufferManagerCommon::GetTempFBO(TempFBO reason, u16 w, u16 h, Draw::FBColorDepth depth) {

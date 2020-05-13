@@ -459,6 +459,11 @@ void GPUCommon::Reinitialize() {
 	busyTicks = 0;
 	timeSpentStepping_ = 0.0;
 	interruptsEnabled_ = true;
+
+	if (textureCache_)
+		textureCache_->Clear(true);
+	if (framebufferManager_)
+		framebufferManager_->DestroyAllFBOs();
 }
 
 void GPUCommon::UpdateVsyncInterval(bool force) {

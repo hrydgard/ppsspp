@@ -498,39 +498,3 @@ void FramebufferManagerD3D11::EndFrame() {
 void FramebufferManagerD3D11::DeviceLost() {
 	DestroyAllFBOs();
 }
-
-void FramebufferManagerD3D11::DestroyAllFBOs() {
-	currentRenderVfb_ = nullptr;
-	displayFramebuf_ = nullptr;
-	prevDisplayFramebuf_ = nullptr;
-	prevPrevDisplayFramebuf_ = nullptr;
-
-	for (size_t i = 0; i < vfbs_.size(); ++i) {
-		VirtualFramebuffer *vfb = vfbs_[i];
-		INFO_LOG(FRAMEBUF, "Destroying FBO for %08x : %i x %i x %i", vfb->fb_address, vfb->width, vfb->height, vfb->format);
-		DestroyFramebuf(vfb);
-	}
-	vfbs_.clear();
-
-	for (size_t i = 0; i < bvfbs_.size(); ++i) {
-		VirtualFramebuffer *vfb = bvfbs_[i];
-		DestroyFramebuf(vfb);
-	}
-	bvfbs_.clear();
-
-	for (auto &tempFB : tempFBOs_) {
-		tempFB.second.fbo->Release();
-	}
-	tempFBOs_.clear();
-}
-
-void FramebufferManagerD3D11::Resized() {
-	FramebufferManagerCommon::Resized();
-
-	if (UpdateSize()) {
-		DestroyAllFBOs();
-	}
-
-	// Might have a new post shader - let's compile it.
-	presentation_->UpdatePostShader();
-}

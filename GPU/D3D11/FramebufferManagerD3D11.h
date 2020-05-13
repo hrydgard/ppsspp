@@ -41,10 +41,7 @@ public:
 	void SetDrawEngine(DrawEngineD3D11 *td);
 	void DrawActiveTexture(float x, float y, float w, float h, float destW, float destH, float u0, float v0, float u1, float v1, int uvRotation, int flags) override;
 
-	void DestroyAllFBOs();
-
 	void EndFrame();
-	void Resized() override;
 	void DeviceLost();
 	void ReformatFramebufferFrom(VirtualFramebuffer *vfb, GEBufferFormat old) override;
 

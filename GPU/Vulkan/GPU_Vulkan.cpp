@@ -413,9 +413,7 @@ void GPU_Vulkan::BuildReportingInfo() {
 
 void GPU_Vulkan::Reinitialize() {
 	GPUCommon::Reinitialize();
-	textureCacheVulkan_->Clear(true);
 	depalShaderCache_.Clear();
-	framebufferManagerVulkan_->DestroyAllFBOs();
 }
 
 void GPU_Vulkan::InitClear() {
@@ -613,11 +611,11 @@ void GPU_Vulkan::DoState(PointerWrap &p) {
 	// None of these are necessary when saving.
 	// In Freeze-Frame mode, we don't want to do any of this.
 	if (p.mode == p.MODE_READ && !PSP_CoreParameter().frozen) {
-		textureCacheVulkan_->Clear(true);
+		textureCache_->Clear(true);
 		depalShaderCache_.Clear();
 
 		gstate_c.Dirty(DIRTY_TEXTURE_IMAGE);
-		framebufferManagerVulkan_->DestroyAllFBOs();
+		framebufferManager_->DestroyAllFBOs();
 	}
 }
 

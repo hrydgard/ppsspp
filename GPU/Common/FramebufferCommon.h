@@ -296,6 +296,7 @@ public:
 	void SetSafeSize(u16 w, u16 h);
 
 	virtual void Resized();
+	virtual void DestroyAllFBOs();
 
 	Draw::Framebuffer *GetTempFBO(TempFBO reason, u16 w, u16 h, Draw::FBColorDepth colorDepth = Draw::FBO_8888);
 
