@@ -399,6 +399,8 @@ void TextureCacheD3D11::ApplyTextureFramebuffer(TexCacheEntry *entry, VirtualFra
 		shaderApply.ApplyBounds(gstate_c.vertBounds, gstate_c.curTextureXOffset, gstate_c.curTextureYOffset, xoff, yoff);
 		shaderApply.Use(depalShaderCache_->GetDepalettizeVertexShader(), depalShaderCache_->GetInputLayout());
 
+		ID3D11ShaderResourceView *nullTexture = nullptr;
+		context_->PSSetShaderResources(0, 1, &nullTexture);  // In case the target was used in the last draw call. Happens in Sega Rally.
 		draw_->BindFramebufferAsRenderTarget(depalFBO, { Draw::RPAction::DONT_CARE, Draw::RPAction::DONT_CARE, Draw::RPAction::DONT_CARE });
 		context_->PSSetShaderResources(3, 1, &clutTexture);
 		context_->PSSetSamplers(3, 1, &stockD3D11.samplerPoint2DWrap);

@@ -147,7 +147,6 @@ private:
 	void switchToNext();
 	void processFinishDialog();
 
-	Screen *nextScreen_;
 	UIContext *uiContext_;
 	Draw::DrawContext *thin3DContext_;
 
@@ -166,4 +165,5 @@ private:
 	// Dialog stack. These are shown "on top" of base screens and the Android back button works as expected.
 	// Used for options, in-game menus and other things you expect to be able to back out from onto something.
 	std::vector<Layer> stack_;
+	std::vector<Layer> nextStack_;
 };

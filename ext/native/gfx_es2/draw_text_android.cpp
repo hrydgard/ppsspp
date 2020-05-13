@@ -16,13 +16,13 @@
 #include <jni.h>
 
 TextDrawerAndroid::TextDrawerAndroid(Draw::DrawContext *draw) : TextDrawer(draw) {
-	env_ = getEnv();
+	auto env = getEnv();
 	const char *textRendererClassName = "org/ppsspp/ppsspp/TextRenderer";
 	jclass localClass = findClass(textRendererClassName);
-	cls_textRenderer = reinterpret_cast<jclass>(env_->NewGlobalRef(localClass));
+	cls_textRenderer = reinterpret_cast<jclass>(env->NewGlobalRef(localClass));
 	if (cls_textRenderer) {
-		method_measureText = env_->GetStaticMethodID(cls_textRenderer, "measureText", "(Ljava/lang/String;D)I");
-		method_renderText = env_->GetStaticMethodID(cls_textRenderer, "renderText", "(Ljava/lang/String;D)[I");
+		method_measureText = env->GetStaticMethodID(cls_textRenderer, "measureText", "(Ljava/lang/String;D)I");
+		method_renderText = env->GetStaticMethodID(cls_textRenderer, "renderText", "(Ljava/lang/String;D)[I");
 	} else {
 		ELOG("Failed to find class: '%s'", textRendererClassName);
 	}
@@ -91,9 +91,10 @@ void TextDrawerAndroid::MeasureString(const char *str, size_t len, float *w, flo
 			ELOG("Missing font");
 		}
 		std::string text(NormalizeString(std::string(str, len)));
-		jstring jstr = env_->NewStringUTF(text.c_str());
-		uint32_t size = env_->CallStaticIntMethod(cls_textRenderer, method_measureText, jstr, scaledSize);
-		env_->DeleteLocalRef(jstr);
+		auto env = getEnv();
+		jstring jstr = env->NewStringUTF(text.c_str());
+		uint32_t size = env->CallStaticIntMethod(cls_textRenderer, method_measureText, jstr, scaledSize);
+		env->DeleteLocalRef(jstr);
 
 		entry = new TextMeasureEntry();
 		entry->width = (size >> 16);
@@ -121,6 +122,7 @@ void TextDrawerAndroid::MeasureStringRect(const char *str, size_t len, const Bou
 		WrapString(toMeasure, toMeasure.c_str(), rotated ? bounds.h : bounds.w, wrap);
 	}
 
+	auto env = getEnv();
 	std::vector<std::string> lines;
 	SplitString(toMeasure, '\n', lines);
 	float total_w = 0.0f;
@@ -134,9 +136,9 @@ void TextDrawerAndroid::MeasureStringRect(const char *str, size_t len, const Bou
 			entry = iter->second.get();
 		} else {
 			std::string text(NormalizeString(lines[i]));
-			jstring jstr = env_->NewStringUTF(text.c_str());
-			uint32_t size = env_->CallStaticIntMethod(cls_textRenderer, method_measureText, jstr, scaledSize);
-			env_->DeleteLocalRef(jstr);
+			jstring jstr = env->NewStringUTF(text.c_str());
+			uint32_t size = env->CallStaticIntMethod(cls_textRenderer, method_measureText, jstr, scaledSize);
+			env->DeleteLocalRef(jstr);
 			int sizecx = size >> 16;
 			int sizecy = size & 0xFFFF;
 			entry = new TextMeasureEntry();
@@ -169,8 +171,9 @@ void TextDrawerAndroid::DrawStringBitmap(std::vector<uint8_t> &bitmapData, TextS
 		ELOG("Missing font");
 	}
 
-	jstring jstr = env_->NewStringUTF(str);
-	uint32_t textSize = env_->CallStaticIntMethod(cls_textRenderer, method_measureText, jstr, size);
+	auto env = getEnv();
+	jstring jstr = env->NewStringUTF(str);
+	uint32_t textSize = env->CallStaticIntMethod(cls_textRenderer, method_measureText, jstr, size);
 	int imageWidth = (short)(textSize >> 16);
 	int imageHeight = (short)(textSize & 0xFFFF);
 	if (imageWidth <= 0)
@@ -178,8 +181,8 @@ void TextDrawerAndroid::DrawStringBitmap(std::vector<uint8_t> &bitmapData, TextS
 	if (imageHeight <= 0)
 		imageHeight = 1;
 
-	jintArray imageData = (jintArray)env_->CallStaticObjectMethod(cls_textRenderer, method_renderText, jstr, size);
-	env_->DeleteLocalRef(jstr);
+	jintArray imageData = (jintArray)env->CallStaticObjectMethod(cls_textRenderer, method_renderText, jstr, size);
+	env->DeleteLocalRef(jstr);
 
 	entry.texture = nullptr;
 	entry.bmWidth = imageWidth;
@@ -188,8 +191,8 @@ void TextDrawerAndroid::DrawStringBitmap(std::vector<uint8_t> &bitmapData, TextS
 	entry.height = imageHeight;
 	entry.lastUsedFrame = frameCount_;
 
-	jint *jimage = env_->GetIntArrayElements(imageData, nullptr);
-	assert(env_->GetArrayLength(imageData) == imageWidth * imageHeight);
+	jint *jimage = env->GetIntArrayElements(imageData, nullptr);
+	assert(env->GetArrayLength(imageData) == imageWidth * imageHeight);
 	if (texFormat == Draw::DataFormat::B4G4R4A4_UNORM_PACK16 || texFormat == Draw::DataFormat::R4G4B4A4_UNORM_PACK16) {
 		bitmapData.resize(entry.bmWidth * entry.bmHeight * sizeof(uint16_t));
 		uint16_t *bitmapData16 = (uint16_t *)&bitmapData[0];
@@ -213,8 +216,8 @@ void TextDrawerAndroid::DrawStringBitmap(std::vector<uint8_t> &bitmapData, TextS
 		ELOG("Bad TextDrawer format");
 		assert(false);
 	}
-	env_->ReleaseIntArrayElements(imageData, jimage, 0);
-	env_->DeleteLocalRef(imageData);
+	env->ReleaseIntArrayElements(imageData, jimage, 0);
+	env->DeleteLocalRef(imageData);
 }
 
 void TextDrawerAndroid::DrawString(DrawBuffer &target, const char *str, float x, float y, uint32_t color, int align) {

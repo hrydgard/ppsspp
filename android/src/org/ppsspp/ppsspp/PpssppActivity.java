@@ -12,6 +12,8 @@ public class PpssppActivity extends NativeActivity {
 	private static final String TAG = "PpssppActivity";
 	// Key used by shortcut.
 	public static final String SHORTCUT_EXTRA_KEY = "org.ppsspp.ppsspp.Shortcuts";
+	// Key used for debugging.
+	public static final String ARGS_EXTRA_KEY = "org.ppsspp.ppsspp.Args";
 
 	private static boolean m_hasUnsupportedABI = false;
 	private static boolean m_hasNoNativeBinary = false;
@@ -78,14 +80,18 @@ public class PpssppActivity extends NativeActivity {
 		if (data != null) {
 			String path = intent.getData().getPath();
 			Log.i(TAG, "Found Shortcut Parameter in data: " + path);
-			super.setShortcutParam(path);
+			super.setShortcutParam("\"" + path.replace("\\", "\\\\").replace("\"", "\\\"") + "\"");
 			// Toast.makeText(getApplicationContext(), path, Toast.LENGTH_SHORT).show();
 		} else {
 			String param = getIntent().getStringExtra(SHORTCUT_EXTRA_KEY);
+			String args = getIntent().getStringExtra(ARGS_EXTRA_KEY);
 			Log.e(TAG, "Got ACTION_VIEW without a valid uri, trying param");
 			if (param != null) {
 				Log.i(TAG, "Found Shortcut Parameter in extra-data: " + param);
-				super.setShortcutParam(getIntent().getStringExtra(SHORTCUT_EXTRA_KEY));
+				super.setShortcutParam("\"" + param.replace("\\", "\\\\").replace("\"", "\\\"") + "\"");
+			} else if (args != null) {
+				Log.i(TAG, "Found args parameter in extra-data: " + args);
+				super.setShortcutParam(args);
 			} else {
 				Log.e(TAG, "Shortcut missing parameter!");
 				super.setShortcutParam("");

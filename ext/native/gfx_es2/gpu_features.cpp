@@ -38,9 +38,9 @@ PFNGLISVERTEXARRAYOESPROC glIsVertexArrayOES;
 
 GLExtensions gl_extensions;
 std::string g_all_gl_extensions;
-std::set<std::string> g_set_gl_extensions;
+static std::set<std::string> g_set_gl_extensions;
 std::string g_all_egl_extensions;
-std::set<std::string> g_set_egl_extensions;
+static std::set<std::string> g_set_egl_extensions;
 
 static bool extensionsDone = false;
 static bool useCoreContext = false;
@@ -562,6 +562,15 @@ void SetGLCoreContext(bool flag) {
 	useCoreContext = flag;
 	// For convenience, it'll get reset later.
 	gl_extensions.IsCoreContext = useCoreContext;
+}
+
+void ResetGLExtensions() {
+	extensionsDone = false;
+
+	gl_extensions = {};
+	gl_extensions.IsCoreContext = useCoreContext;
+	g_all_gl_extensions.clear();
+	g_all_egl_extensions.clear();
 }
 
 static const char *glsl_fragment_prelude =

@@ -92,17 +92,18 @@
 #include "Core/WebServer.h"
 #include "GPU/GPUInterface.h"
 
+#include "UI/BackgroundAudio.h"
+#include "UI/ControlMappingScreen.h"
+#include "UI/DiscordIntegration.h"
 #include "UI/EmuScreen.h"
 #include "UI/GameInfoCache.h"
+#include "UI/GPUDriverTestScreen.h"
 #include "UI/HostTypes.h"
-#include "UI/OnScreenDisplay.h"
 #include "UI/MiscScreens.h"
+#include "UI/OnScreenDisplay.h"
 #include "UI/RemoteISOScreen.h"
 #include "UI/TiltEventProcessor.h"
-#include "UI/BackgroundAudio.h"
 #include "UI/TextureUtil.h"
-#include "UI/DiscordIntegration.h"
-#include "UI/GPUDriverTestScreen.h"
 
 #if !defined(MOBILE_DEVICE)
 #include "Common/KeyMap.h"
@@ -551,6 +552,8 @@ void NativeInit(int argc, const char *argv[], const char *savegame_dir, const ch
 	const char *stateToLoad = 0;
 
 	bool gotBootFilename = false;
+	bool gotoGameSettings = false;
+	bool gotoTouchScreenTest = false;
 	boot_filename = "";
 
 	// Parse command line
@@ -593,6 +596,10 @@ void NativeInit(int argc, const char *argv[], const char *savegame_dir, const ch
 					g_Config.bPauseMenuExitsEmulator = true;
 				if (!strcmp(argv[i], "--fullscreen"))
 					g_Config.bFullScreen = true;
+				if (!strcmp(argv[i], "--touchscreentest"))
+					gotoTouchScreenTest = true;
+				if (!strcmp(argv[i], "--gamesettings"))
+					gotoGameSettings = true;
 				break;
 			}
 		} else {
@@ -628,7 +635,7 @@ void NativeInit(int argc, const char *argv[], const char *savegame_dir, const ch
 					std::unique_ptr<FileLoader> fileLoader(ConstructFileLoader(boot_filename));
 					if (!fileLoader->Exists()) {
 						fprintf(stderr, "File not found: %s\n", boot_filename.c_str());
-#ifdef _WIN32
+#if defined(_WIN32) || defined(__ANDROID__)
 						// Ignore and proceed.
 #else
 						// Bail.
@@ -638,7 +645,7 @@ void NativeInit(int argc, const char *argv[], const char *savegame_dir, const ch
 				}
 			} else {
 				fprintf(stderr, "Can only boot one file");
-#ifdef _WIN32
+#if defined(_WIN32) || defined(__ANDROID__)
 				// Ignore and proceed.
 #else
 				// Bail.
@@ -711,7 +718,12 @@ void NativeInit(int argc, const char *argv[], const char *savegame_dir, const ch
 	}
 
 	screenManager = new ScreenManager();
-	if (skipLogo) {
+	if (gotoGameSettings) {
+		screenManager->switchScreen(new LogoScreen(true));
+	} else if (gotoTouchScreenTest) {
+		screenManager->switchScreen(new MainScreen());
+		screenManager->push(new TouchTestScreen());
+	} else if (skipLogo) {
 		screenManager->switchScreen(new EmuScreen(boot_filename));
 	} else {
 		screenManager->switchScreen(new LogoScreen());

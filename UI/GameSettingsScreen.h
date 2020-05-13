@@ -48,6 +48,8 @@ protected:
 	bool UseVerticalLayout() const;
 
 private:
+	void TriggerRestart(const char *why);
+
 	std::string gameID_;
 	bool lastVertical_;
 	UI::CheckBox *enableReportsCheckbox_;

@@ -453,7 +453,7 @@ namespace MainWindow {
 				filter[i] = '\0';
 		}
 
-		if (W32Util::BrowseForFileName(true, GetHWND(), L"Switch Umd", 0, ConvertUTF8ToWString(filter).c_str(), L"*.pbp;*.elf;*.iso;*.cso;", fn)) {
+		if (W32Util::BrowseForFileName(true, GetHWND(), L"Switch UMD", 0, ConvertUTF8ToWString(filter).c_str(), L"*.pbp;*.elf;*.iso;*.cso;", fn)) {
 			fn = ReplaceAll(fn, "\\", "/");
 			__UmdReplace(fn);
 		}
@@ -764,8 +764,10 @@ namespace MainWindow {
 
 		case ID_OPTIONS_FRAMESKIP_AUTO:
 			g_Config.bAutoFrameSkip = !g_Config.bAutoFrameSkip;
-			if (g_Config.bAutoFrameSkip && g_Config.iRenderingMode == FB_NON_BUFFERED_MODE)
+			if (g_Config.bAutoFrameSkip && g_Config.iRenderingMode == FB_NON_BUFFERED_MODE) {
 				g_Config.iRenderingMode = FB_BUFFERED_MODE;
+				NativeMessageReceived("gpu_resized", "");
+			}
 			break;
 
 		case ID_TEXTURESCALING_AUTO: setTexScalingMultiplier(TEXSCALING_AUTO); break;

@@ -8,7 +8,6 @@
 #include "ui/view.h"
 
 ScreenManager::ScreenManager() {
-	nextScreen_ = 0;
 	uiContext_ = 0;
 	dialogFinished_ = 0;
 }
@@ -18,7 +17,7 @@ ScreenManager::~ScreenManager() {
 }
 
 void ScreenManager::switchScreen(Screen *screen) {
-	if (screen == nextScreen_) {
+	if (!nextStack_.empty() && screen == nextStack_.front().screen) {
 		ELOG("Already switching to this screen");
 		return;
 	}
@@ -26,23 +25,23 @@ void ScreenManager::switchScreen(Screen *screen) {
 	// will only become apparent if the dialog is closed. The previous screen will stick around
 	// until that switch.
 	// TODO: is this still true?
-	if (nextScreen_ != 0) {
-		ELOG("Already had a nextScreen_! Asynchronous open while doing something? Deleting the new screen.");
+	if (!nextStack_.empty()) {
+		ELOG("Already had a nextStack_! Asynchronous open while doing something? Deleting the new screen.");
 		delete screen;
 		return;
 	}
-	if (screen == 0) {
+	if (screen == nullptr) {
 		WLOG("Swiching to a zero screen, this can't be good");
 	}
 	if (stack_.empty() || screen != stack_.back().screen) {
-		nextScreen_ = screen;
-		nextScreen_->setScreenManager(this);
+		screen->setScreenManager(this);
+		nextStack_.push_back({ screen, 0 });
 	}
 }
 
 void ScreenManager::update() {
 	std::lock_guard<std::recursive_mutex> guard(inputLock_);
-	if (nextScreen_) {
+	if (!nextStack_.empty()) {
 		switchToNext();
 	}
 
@@ -53,22 +52,25 @@ void ScreenManager::update() {
 
 void ScreenManager::switchToNext() {
 	std::lock_guard<std::recursive_mutex> guard(inputLock_);
-	if (!nextScreen_) {
-		ELOG("switchToNext: No nextScreen_!");
+	if (nextStack_.empty()) {
+		ELOG("switchToNext: No nextStack_!");
 	}
 
-	Layer temp = {0, 0};
+	Layer temp = {nullptr, 0};
 	if (!stack_.empty()) {
 		temp = stack_.back();
 		stack_.pop_back();
 	}
-	Layer newLayer = {nextScreen_, 0};
-	stack_.push_back(newLayer);
+	stack_.push_back(nextStack_.front());
 	if (temp.screen) {
 		delete temp.screen;
 	}
-	nextScreen_ = 0;
-	UI::SetFocusedView(0);
+	UI::SetFocusedView(nullptr);
+
+	for (size_t i = 1; i < nextStack_.size(); ++i) {
+		stack_.push_back(nextStack_[i]);
+	}
+	nextStack_.clear();
 }
 
 bool ScreenManager::touch(const TouchInput &touch) {
@@ -197,19 +199,16 @@ Screen *ScreenManager::topScreen() const {
 
 void ScreenManager::shutdown() {
 	std::lock_guard<std::recursive_mutex> guard(inputLock_);
-	for (auto x = stack_.begin(); x != stack_.end(); x++)
-		delete x->screen;
+	for (auto layer : stack_)
+		delete layer.screen;
 	stack_.clear();
-	delete nextScreen_;
-	nextScreen_ = nullptr;
+	for (auto layer : nextStack_)
+		delete layer.screen;
+	nextStack_.clear();
 }
 
 void ScreenManager::push(Screen *screen, int layerFlags) {
 	std::lock_guard<std::recursive_mutex> guard(inputLock_);
-	if (nextScreen_ && stack_.empty()) {
-		// we're during init, this is OK
-		switchToNext();
-	}
 	screen->setScreenManager(this);
 	if (screen->isTransparent()) {
 		layerFlags |= LAYER_TRANSPARENT;
@@ -224,7 +223,10 @@ void ScreenManager::push(Screen *screen, int layerFlags) {
 	touch(input);
 
 	Layer layer = {screen, layerFlags};
-	stack_.push_back(layer);
+	if (nextStack_.empty())
+		stack_.push_back(layer);
+	else
+		nextStack_.push_back(layer);
 }
 
 void ScreenManager::pop() {

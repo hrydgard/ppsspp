@@ -572,7 +572,11 @@ OpenGLContext::OpenGLContext() {
 		}
 	}
 
-	if (caps_.vendor == GPUVendor::VENDOR_VIVANTE || caps_.vendor == GPUVendor::VENDOR_BROADCOM) {
+	// Try to detect old Tegra chips by checking for sub 3.0 GL versions. Like Vivante and Broadcom,
+	// those can't handle NaN values in conditionals.
+	if (caps_.vendor == GPUVendor::VENDOR_VIVANTE ||
+		caps_.vendor == GPUVendor::VENDOR_BROADCOM ||
+		(caps_.vendor == GPUVendor::VENDOR_NVIDIA && !gl_extensions.VersionGEThan(3, 0, 0))) {
 		bugs_.Infest(Bugs::BROKEN_NAN_IN_CONDITIONAL);
 	}
 

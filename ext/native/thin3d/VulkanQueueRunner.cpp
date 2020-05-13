@@ -776,7 +776,10 @@ void VulkanQueueRunner::ApplyRenderPassMerge(std::vector<VKRStep *> &steps) {
 					if (steps[j]->dependencies.contains(touchedFramebuffers)) {
 						goto done_fb;
 					}
-					if (steps[j]->render.framebuffer == fb) {
+					if (steps[j]->render.framebuffer == fb &&
+						steps[j]->render.color != VKRRenderPassAction::CLEAR &&
+						steps[j]->render.depth != VKRRenderPassAction::CLEAR &&
+						steps[j]->render.stencil != VKRRenderPassAction::CLEAR) {
 						// ok. Now, if it's a render, slurp up all the commands
 						// and kill the step.
 						// Also slurp up any pretransitions.

@@ -636,6 +636,25 @@ void TouchTestScreen::CreateViews() {
 	root_ = new LinearLayout(ORIENT_VERTICAL);
 	LinearLayout *theTwo = new LinearLayout(ORIENT_HORIZONTAL, new LinearLayoutParams(1.0f));
 	root_->Add(theTwo);
+
+#if !PPSSPP_PLATFORM(UWP)
+	static const char *renderingBackend[] = { "OpenGL", "Direct3D 9", "Direct3D 11", "Vulkan" };
+	PopupMultiChoice *renderingBackendChoice = root_->Add(new PopupMultiChoice(&g_Config.iGPUBackend, gr->T("Backend"), renderingBackend, (int)GPUBackend::OPENGL, ARRAY_SIZE(renderingBackend), gr->GetName(), screenManager()));
+	renderingBackendChoice->OnChoice.Handle(this, &TouchTestScreen::OnRenderingBackend);
+
+	if (!g_Config.IsBackendEnabled(GPUBackend::OPENGL))
+		renderingBackendChoice->HideChoice((int)GPUBackend::OPENGL);
+	if (!g_Config.IsBackendEnabled(GPUBackend::DIRECT3D9))
+		renderingBackendChoice->HideChoice((int)GPUBackend::DIRECT3D9);
+	if (!g_Config.IsBackendEnabled(GPUBackend::DIRECT3D11))
+		renderingBackendChoice->HideChoice((int)GPUBackend::DIRECT3D11);
+	if (!g_Config.IsBackendEnabled(GPUBackend::VULKAN))
+		renderingBackendChoice->HideChoice((int)GPUBackend::VULKAN);
+#endif
+
+#if PPSSPP_PLATFORM(ANDROID)
+	root_->Add(new Choice(gr->T("Recreate Activity")))->OnClick.Handle(this, &TouchTestScreen::OnRecreateActivity);
+#endif
 	root_->Add(new CheckBox(&g_Config.bImmersiveMode, gr->T("FullScreen", "Full Screen")))->OnClick.Handle(this, &TouchTestScreen::OnImmersiveModeChange);
 	root_->Add(new Button(di->T("Back")))->OnClick.Handle<UIScreen>(this, &UIScreen::OnBack);
 }
@@ -687,7 +706,7 @@ void TouchTestScreen::render() {
 		g_dpi_scale_x, g_dpi_scale_y,
 		g_dpi_scale_real_x, g_dpi_scale_real_y);
 
-	ui_context->DrawTextShadow(buffer, bounds.x + 20.0f, dp_yres / 2.0f, 0xFFFFFFFF, ALIGN_VCENTER | FLAG_DYNAMIC_ASCII);
+	ui_context->DrawTextShadow(buffer, bounds.x + 20.0f, bounds.y + 20.0f, 0xFFFFFFFF, FLAG_DYNAMIC_ASCII);
 	ui_context->Flush();
 }
 
@@ -698,5 +717,16 @@ UI::EventReturn TouchTestScreen::OnImmersiveModeChange(UI::EventParams &e) {
 	if (g_Config.iAndroidHwScale != 0) {
 		RecreateActivity();
 	}
+	return UI::EVENT_DONE;
+}
+
+UI::EventReturn TouchTestScreen::OnRenderingBackend(UI::EventParams &e) {
+	g_Config.Save("GameSettingsScreen::RenderingBackend");
+	System_SendMessage("graphics_restart", "--touchscreentest");
+	return UI::EVENT_DONE;
+}
+
+UI::EventReturn TouchTestScreen::OnRecreateActivity(UI::EventParams &e) {
+	RecreateActivity();
 	return UI::EVENT_DONE;
 }

@@ -420,7 +420,14 @@ void NewLanguageScreen::OnCompleted(DialogResult result) {
 void LogoScreen::Next() {
 	if (!switched_) {
 		switched_ = true;
-		if (boot_filename.size()) {
+		if (gotoGameSettings_) {
+			if (boot_filename.size()) {
+				screenManager()->switchScreen(new EmuScreen(boot_filename));
+			} else {
+				screenManager()->switchScreen(new MainScreen());
+			}
+			screenManager()->push(new GameSettingsScreen(boot_filename));
+		} else if (boot_filename.size()) {
 			screenManager()->switchScreen(new EmuScreen(boot_filename));
 		} else {
 			screenManager()->switchScreen(new MainScreen());
@@ -564,7 +571,7 @@ UI::EventReturn CreditsScreen::OnForums(UI::EventParams &e) {
 
 UI::EventReturn CreditsScreen::OnShare(UI::EventParams &e) {
 	auto cr = GetI18NCategory("PSPCredits");
-	System_SendMessage("sharetext", cr->T("CheckOutPPSSPP", "Check out PPSSPP, the awesome PSP emulator: http://www.ppsspp.org/"));
+	System_SendMessage("sharetext", cr->T("CheckOutPPSSPP", "Check out PPSSPP, the awesome PSP emulator: https://www.ppsspp.org/"));
 	return UI::EVENT_DONE;
 }
 

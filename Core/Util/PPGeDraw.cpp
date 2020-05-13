@@ -162,18 +162,18 @@ static void BeginVertexData() {
 	vertexStart = dataWritePtr;
 }
 
-static void Vertex(float x, float y, float u, float v, int tw, int th, u32 color = 0xFFFFFFFF, float off = -0.5f) {
+static void Vertex(float x, float y, float u, float v, int tw, int th, u32 color = 0xFFFFFFFF) {
 	if (g_RemasterMode) {
 		PPGeRemasterVertex vtx;
-		vtx.x = x + off; vtx.y = y + off; vtx.z = 0;
-		vtx.u = u * tw + off; vtx.v = v * th + off;
+		vtx.x = x; vtx.y = y; vtx.z = 0;
+		vtx.u = u * tw; vtx.v = v * th;
 		vtx.color = color;
 		Memory::WriteStruct(dataWritePtr, &vtx);
 		dataWritePtr += sizeof(vtx);
 	} else {
 		PPGeVertex vtx;
-		vtx.x = x + off; vtx.y = y + off; vtx.z = 0;
-		vtx.u = u * tw + off; vtx.v = v * th + off;
+		vtx.x = x; vtx.y = y; vtx.z = 0;
+		vtx.u = u * tw; vtx.v = v * th;
 		vtx.color = color;
 		Memory::WriteStruct(dataWritePtr, &vtx);
 		dataWritePtr += sizeof(vtx);
@@ -871,8 +871,8 @@ static void PPGeDrawTextImage(PPGeTextDrawerImage im, float x, float y, int alig
 	BeginVertexData();
 	float u1 = (float)im.entry.width / (1 << wp2);
 	float v1 = (float)im.entry.height / (1 << hp2);
-	Vertex(x, y, 0, 0, 1 << wp2, 1 << hp2, color, 0.0f);
-	Vertex(x + w, y + h, u1, v1, 1 << wp2, 1 << hp2, color, 0.0f);
+	Vertex(x, y, 0, 0, 1 << wp2, 1 << hp2, color);
+	Vertex(x + w, y + h, u1, v1, 1 << wp2, 1 << hp2, color);
 	EndVertexDataAndDraw(GE_PRIM_RECTANGLES);
 
 	PPGeSetDefaultTexture();

@@ -114,6 +114,9 @@ void System_SendMessage(const char *command, const char *parameter) {
 		// [sharedViewController shutdown];
 		//	exit(0);
 		// });
+	} else if (!strcmp(command, "sharetext")) {
+		NSString *text = [NSString stringWithUTF8String:parameter];
+		[sharedViewController shareText:text];
 	} else if (!strcmp(command, "camera_command")) {
 		if (!strncmp(parameter, "startVideo", 10)) {
 			int width = 0, height = 0;
@@ -215,11 +218,6 @@ int main(int argc, char *argv[])
 	PROFILE_INIT();
 
 	@autoreleasepool {
-		NSString *documentsPath = [NSSearchPathForDirectoriesInDomains(NSDocumentDirectory, NSUserDomainMask, YES) objectAtIndex:0];
-		NSString *bundlePath = [[[NSBundle mainBundle] resourcePath] stringByAppendingString:@"/assets/"];
-
-		NativeInit(argc, (const char**)argv, documentsPath.UTF8String, bundlePath.UTF8String, NULL);
-
 		return UIApplicationMain(argc, argv, NSStringFromClass([PPSSPPUIApplication class]), NSStringFromClass([AppDelegate class]));
 	}
 }

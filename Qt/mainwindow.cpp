@@ -11,6 +11,7 @@
 #include "base/NativeApp.h"
 #include "Core/MIPS/MIPSDebugInterface.h"
 #include "Core/Debugger/SymbolMap.h"
+#include "Core/HLE/sceUmd.h"
 #include "Core/SaveState.h"
 #include "Core/System.h"
 #include "GPU/GPUInterface.h"
@@ -78,82 +79,29 @@ void MainWindow::newFrame()
 	}
 }
 
+void MainWindow::updateMenuGroupInt(QActionGroup *group, int value) {
+	foreach (QAction *action, group->actions()) {
+		action->setChecked(action->data().toInt() == value);
+	}
+}
+
 void MainWindow::updateMenus()
 {
-	foreach(QAction * action, saveStateGroup->actions()) {
-		if (g_Config.iCurrentStateSlot == action->data().toInt()) {
-			action->setChecked(true);
-			break;
-		}
-	}
-
-	foreach(QAction * action, displayRotationGroup->actions()) {
-		if (g_Config.iInternalScreenRotation == action->data().toInt()) {
-			action->setChecked(true);
-			break;
-		}
-	}
+	updateMenuGroupInt(saveStateGroup, g_Config.iCurrentStateSlot);
+	updateMenuGroupInt(displayRotationGroup, g_Config.iInternalScreenRotation);
+	updateMenuGroupInt(renderingResolutionGroup, g_Config.iInternalResolution);
+	updateMenuGroupInt(renderingModeGroup, g_Config.iRenderingMode);
+	updateMenuGroupInt(frameSkippingGroup, g_Config.iFrameSkip);
+	updateMenuGroupInt(frameSkippingTypeGroup, g_Config.iFrameSkipType);
+	updateMenuGroupInt(textureFilteringGroup, g_Config.iTexFiltering);
+	updateMenuGroupInt(screenScalingFilterGroup, g_Config.iBufFilter);
+	updateMenuGroupInt(textureScalingLevelGroup, g_Config.iTexScalingLevel);
+	updateMenuGroupInt(textureScalingTypeGroup, g_Config.iTexScalingType);
 
 	foreach(QAction * action, windowGroup->actions()) {
 		int width = (g_Config.IsPortrait() ? 272 : 480) * action->data().toInt();
 		int height = (g_Config.IsPortrait() ? 480 : 272) * action->data().toInt();
 		if (g_Config.iWindowWidth == width && g_Config.iWindowHeight == height) {
-			action->setChecked(true);
-			break;
-		}
-	}
-
-	foreach(QAction * action, renderingResolutionGroup->actions()) {
-		if (g_Config.iInternalResolution == action->data().toInt()) {
-			action->setChecked(true);
-			break;
-		}
-	}
-
-	foreach(QAction * action, renderingModeGroup->actions()) {
-		if (g_Config.iRenderingMode == action->data().toInt()) {
-			action->setChecked(true);
-			break;
-		}
-	}
-
-	foreach(QAction * action, frameSkippingGroup->actions()) {
-		if (g_Config.iFrameSkip == action->data().toInt()) {
-			action->setChecked(true);
-			break;
-		}
-	}
-
-	foreach(QAction * action, frameSkippingTypeGroup->actions()) {
-		if (g_Config.iFrameSkipType == action->data().toInt()) {
-			action->setChecked(true);
-			break;
-		}
-	}
-
-	foreach(QAction * action, textureFilteringGroup->actions()) {
-		if (g_Config.iTexFiltering == action->data().toInt()) {
-			action->setChecked(true);
-			break;
-		}
-	}
-
-	foreach(QAction * action, screenScalingFilterGroup->actions()) {
-		if (g_Config.iBufFilter == action->data().toInt()) {
-			action->setChecked(true);
-			break;
-		}
-	}
-
-	foreach(QAction * action, textureScalingLevelGroup->actions()) {
-		if (g_Config.iTexScalingLevel == action->data().toInt()) {
-			action->setChecked(true);
-			break;
-		}
-	}
-
-	foreach(QAction * action, textureScalingTypeGroup->actions()) {
-		if (g_Config.iTexScalingType == action->data().toInt()) {
 			action->setChecked(true);
 			break;
 		}
@@ -194,7 +142,7 @@ void MainWindow::closeAct()
 void MainWindow::openmsAct()
 {
 	QString confighome = getenv("XDG_CONFIG_HOME");
-	QString memorystick = confighome + "/ppsspp/PSP";
+	QString memorystick = confighome + "/ppsspp";
 	QDesktopServices::openUrl(QUrl(memorystick));
 }
 
@@ -300,6 +248,17 @@ void MainWindow::resetAct()
 	updateMenus();
 
 	NativeMessageReceived("reset", "");
+}
+
+void MainWindow::switchUMDAct()
+{
+	QString filename = QFileDialog::getOpenFileName(NULL, "Switch UMD", g_Config.currentDirectory.c_str(), "PSP ROMs (*.pbp *.elf *.iso *.cso *.prx)");
+	if (QFile::exists(filename))
+	{
+		QFileInfo info(filename);
+		g_Config.currentDirectory = info.absolutePath().toStdString();
+		__UmdReplace(filename.toStdString().c_str());
+	}
 }
 
 void MainWindow::breakonloadAct()
@@ -586,6 +545,8 @@ void MainWindow::createMenus()
 	emuMenu->add(new MenuAction(this, SLOT(stopAct()),       QT_TR_NOOP("&Stop"), Qt::CTRL + Qt::Key_W))
 		->addEnableState(UISTATE_INGAME);
 	emuMenu->add(new MenuAction(this, SLOT(resetAct()),       QT_TR_NOOP("R&eset"), Qt::CTRL + Qt::Key_B))
+		->addEnableState(UISTATE_INGAME);
+	emuMenu->add(new MenuAction(this, SLOT(switchUMDAct()),       QT_TR_NOOP("Switch UMD"), Qt::CTRL + Qt::Key_U))
 		->addEnableState(UISTATE_INGAME);
 	MenuTree* displayRotationMenu = new MenuTree(this, emuMenu, QT_TR_NOOP("Display rotation"));
 	displayRotationGroup = new MenuActionGroup(this, displayRotationMenu, SLOT(displayRotationGroup_triggered(QAction *)),

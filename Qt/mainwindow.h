@@ -41,6 +41,8 @@ public:
 
 	CoreState GetNextState() { return nextState; }
 
+	void updateMenuGroupInt(QActionGroup *group, int value);
+
 	void updateMenus();
 
 	void Notify(MainWindowMsg msg) {
@@ -93,6 +95,7 @@ private slots:
 	void pauseAct();
 	void stopAct();
 	void resetAct();
+	void switchUMDAct();
 	void displayRotationGroup_triggered(QAction *action) { g_Config.iInternalScreenRotation = action->data().toInt(); }
 
 	// Debug

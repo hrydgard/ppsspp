@@ -25,6 +25,7 @@ class FramebufferManagerCommon;
 class TextureCacheCommon;
 
 enum SoftwareTransformAction {
+	SW_NOT_READY,
 	SW_DRAW_PRIMITIVES,
 	SW_CLEAR,
 };
@@ -36,6 +37,10 @@ struct SoftwareTransformResult {
 
 	bool setStencil;
 	u8 stencilValue;
+
+	TransformedVertex *drawBuffer;
+	int drawNumTrans;
+	bool drawIndexed;
 };
 
 struct SoftwareTransformParams {
@@ -49,5 +54,15 @@ struct SoftwareTransformParams {
 	bool provokeFlatFirst;
 };
 
-void SoftwareTransform(int prim, int vertexCount, u32 vertexType, u16 *&inds, int indexType, const DecVtxFormat &decVtxFormat, int &maxIndex, TransformedVertex *&drawBuffer,
-	int &numTrans, bool &drawIndexed, const SoftwareTransformParams *params, SoftwareTransformResult *result);
+class SoftwareTransform {
+public:
+	SoftwareTransform(SoftwareTransformParams &params) : params_(params) {
+	}
+
+	void Decode(int prim, u32 vertexType, const DecVtxFormat &decVtxFormat, int maxIndex, SoftwareTransformResult *result);
+	void DetectOffsetTexture(int maxIndex);
+	void BuildDrawingParams(int prim, int vertexCount, u32 vertType, u16 *&inds, int &maxIndex, SoftwareTransformResult *result);
+
+protected:
+	const SoftwareTransformParams &params_;
+};

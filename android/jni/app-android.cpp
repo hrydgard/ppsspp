@@ -14,9 +14,40 @@
 #include <thread>
 #include <atomic>
 
+#ifndef _MSC_VER
 #include <jni.h>
 #include <android/log.h>
 #include <android/native_window_jni.h>
+#elif !defined(JNIEXPORT)
+// Just for better highlighting in MSVC if opening this file.
+// Not having types makes it get confused and say everything is wrong.
+struct JavaVM;
+typedef void *jmethodID;
+typedef void *jfieldID;
+
+typedef uint8_t jboolean;
+typedef int8_t jbyte;
+typedef int16_t jshort;
+typedef int32_t jint;
+typedef int64_t jlong;
+typedef jint jsize;
+typedef float jfloat;
+typedef double jdouble;
+
+class _jobject {};
+class _jclass : public _jobject {};
+typedef _jobject *jobject;
+typedef _jclass *jclass;
+typedef jobject jstring;
+typedef jobject jbyteArray;
+
+struct JNIEnv {};
+
+#define JNIEXPORT
+#define JNICALL
+// Just a random value to make MSVC highlighting happy.
+#define JNI_VERSION_1_6 16
+#endif
 
 #include "base/basictypes.h"
 #include "base/stringutil.h"
@@ -399,6 +430,64 @@ extern "C" jstring Java_org_ppsspp_ppsspp_NativeApp_queryConfig
 	return jresult;
 }
 
+static void parse_args(std::vector<std::string> &args, const std::string value) {
+	// Simple argument parser so we can take args from extra params.
+	const char *p = value.c_str();
+
+	while (*p != '\0') {
+		while (isspace(*p)) {
+			p++;
+		}
+		if (*p == '\0') {
+			break;
+		}
+
+		bool done = false;
+		bool quote = false;
+		std::string arg;
+
+		while (!done) {
+			size_t sz = strcspn(p, "\"\\ \r\n\t");
+			arg += std::string(p, sz);
+			p += sz;
+
+			switch (*p) {
+			case '"':
+				quote = !quote;
+				p++;
+				break;
+
+			case '\\':
+				p++;
+				arg += std::string(p, 1);
+				p++;
+				break;
+
+			case '\0':
+				done = true;
+				break;
+
+			default:
+				// If it's not the above, it's whitespace.
+				if (!quote) {
+					done = true;
+				} else {
+					sz = strspn(p, " \r\n\t");
+					arg += std::string(p, sz);
+					p += sz;
+				}
+				break;
+			}
+		}
+
+		args.push_back(arg);
+
+		while (isspace(*p)) {
+			p++;
+		}
+	}
+}
+
 extern "C" void Java_org_ppsspp_ppsspp_NativeApp_init
 	(JNIEnv *env, jclass, jstring jmodel, jint jdeviceType, jstring jlangRegion, jstring japkpath,
 		jstring jdataDir, jstring jexternalDir, jstring jlibraryDir, jstring jcacheDir, jstring jshortcutParam,
@@ -455,17 +544,21 @@ extern "C" void Java_org_ppsspp_ppsspp_NativeApp_init
 
 	NativeGetAppInfo(&app_name, &app_nice_name, &landscape, &version);
 
-	// If shortcut_param is not empty, pass it as additional varargs argument to NativeInit() method.
+	// If shortcut_param is not empty, pass it as additional arguments to the NativeInit() method.
 	// NativeInit() is expected to treat extra argument as boot_filename, which in turn will start game immediately.
 	// NOTE: Will only work if ppsspp started from Activity.onCreate(). Won't work if ppsspp app start from onResume().
 
-	if (shortcut_param.empty()) {
-		const char *argv[2] = {app_name.c_str(), 0};
-		NativeInit(1, argv, user_data_path.c_str(), externalDir.c_str(), cacheDir.c_str());
-	} else {
-		const char *argv[3] = {app_name.c_str(), shortcut_param.c_str(), 0};
-		NativeInit(2, argv, user_data_path.c_str(), externalDir.c_str(), cacheDir.c_str());
+	std::vector<const char *> args;
+	std::vector<std::string> temp;
+	args.push_back(app_name.c_str());
+	if (!shortcut_param.empty()) {
+		parse_args(temp, shortcut_param);
+		for (const auto &arg : temp) {
+			args.push_back(arg.c_str());
+		}
 	}
+
+	NativeInit((int)args.size(), &args[0], user_data_path.c_str(), externalDir.c_str(), cacheDir.c_str());
 
 retry:
 	// Now that we've loaded config, set javaGL.
@@ -968,14 +1061,21 @@ void getDesiredBackbufferSize(int &sz_x, int &sz_y) {
 
 extern "C" void JNICALL Java_org_ppsspp_ppsspp_NativeApp_setDisplayParameters(JNIEnv *, jclass, jint xres, jint yres, jint dpi, jfloat refreshRate) {
 	ILOG("NativeApp.setDisplayParameters(%d x %d, dpi=%d, refresh=%0.2f)", xres, yres, dpi, refreshRate);
-	display_xres = xres;
-	display_yres = yres;
-	display_dpi_x = dpi;
-	display_dpi_y = dpi;
-	display_hz = refreshRate;
+	bool changed = false;
+	changed = changed || display_xres != xres || display_yres != yres;
+	changed = changed || display_dpi_x != dpi || display_dpi_y != dpi;
+	changed = changed || display_hz != refreshRate;
 
-	recalculateDpi();
-	NativeResized();
+	if (changed) {
+		display_xres = xres;
+		display_yres = yres;
+		display_dpi_x = dpi;
+		display_dpi_y = dpi;
+		display_hz = refreshRate;
+
+		recalculateDpi();
+		NativeResized();
+	}
 }
 
 extern "C" void JNICALL Java_org_ppsspp_ppsspp_NativeApp_computeDesiredBackbufferDimensions() {

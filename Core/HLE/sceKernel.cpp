@@ -50,6 +50,7 @@
 #include "sceJpeg.h"
 #include "sceKernel.h"
 #include "sceKernelAlarm.h"
+#include "sceKernelHeap.h"
 #include "sceKernelInterrupt.h"
 #include "sceKernelThread.h"
 #include "sceKernelMemory.h"

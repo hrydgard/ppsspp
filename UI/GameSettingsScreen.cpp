@@ -1262,14 +1262,25 @@ void GameSettingsScreen::CallbackMemstickFolder(bool yes) {
 }
 #endif
 
+void GameSettingsScreen::TriggerRestart(const char *why) {
+	// Extra save here to make sure the choice really gets saved even if there are shutdown bugs in
+	// the GPU backend code.
+	g_Config.Save(why);
+	std::string param = "--gamesettings";
+	if (editThenRestore_) {
+		// We won't pass the gameID, so don't resume back into settings.
+		param = "";
+	} else if (!gamePath_.empty()) {
+		param += " \"" + ReplaceAll(ReplaceAll(gamePath_, "\\", "\\\\"), "\"", "\\\"") + "\"";
+	}
+	System_SendMessage("graphics_restart", param.c_str());
+}
+
 void GameSettingsScreen::CallbackRenderingBackend(bool yes) {
 	// If the user ends up deciding not to restart, set the config back to the current backend
 	// so it doesn't get switched by accident.
 	if (yes) {
-		// Extra save here to make sure the choice really gets saved even if there are shutdown bugs in
-		// the GPU backend code.
-		g_Config.Save("GameSettingsScreen::RenderingBackendYes");
-		System_SendMessage("graphics_restart", "");
+		TriggerRestart("GameSettingsScreen::RenderingBackendYes");
 	} else {
 		g_Config.iGPUBackend = (int)GetGPUBackend();
 	}
@@ -1279,10 +1290,7 @@ void GameSettingsScreen::CallbackRenderingDevice(bool yes) {
 	// If the user ends up deciding not to restart, set the config back to the current backend
 	// so it doesn't get switched by accident.
 	if (yes) {
-		// Extra save here to make sure the choice really gets saved even if there are shutdown bugs in
-		// the GPU backend code.
-		g_Config.Save("GameSettingsScreen::RenderingDeviceYes");
-		System_SendMessage("graphics_restart", "");
+		TriggerRestart("GameSettingsScreen::RenderingDeviceYes");
 	} else {
 		std::string *deviceNameSetting = GPUDeviceNameSetting();
 		if (deviceNameSetting)
@@ -1294,8 +1302,7 @@ void GameSettingsScreen::CallbackRenderingDevice(bool yes) {
 
 void GameSettingsScreen::CallbackInflightFrames(bool yes) {
 	if (yes) {
-		g_Config.Save("GameSettingsScreen::InflightFramesYes");
-		System_SendMessage("graphics_restart", "");
+		TriggerRestart("GameSettingsScreen::InflightFramesYes");
 	} else {
 		g_Config.iInflightFrames = prevInflightFrames_;
 	}

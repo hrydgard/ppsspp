@@ -308,7 +308,7 @@ void ConvertRGBA565ToRGBA8888(u32 *dst32, const u16 *src, u32 numPixels) {
 		b = _mm_or_si128(_mm_slli_epi16(b, 3), _mm_srli_epi16(b, 2));
 		b = _mm_and_si128(b, mask8);
 
-		// Always set to 00FF 00FF.
+		// Always set alpha to 00FF 00FF.
 		__m128i a = _mm_slli_epi16(mask8, 8);
 
 		// Now combine them, RRGG RRGG and BBAA BBAA, and then interleave.
@@ -472,36 +472,36 @@ void ConvertRGBA4444ToBGRA8888(u32 *dst32, const u16 *src, u32 numPixels) {
 	u8 *dst = (u8 *)dst32;
 	for (u32 x = 0; x < numPixels; x++) {
 		u16 c = src[x];
-		u32 r = c & 0x000f;
-		u32 g = (c >> 4) & 0x000f;
-		u32 b = (c >> 8) & 0x000f;
-		u32 a = (c >> 12) & 0x000f;
+		u32 r = Convert4To8(c & 0x000f);
+		u32 g = Convert4To8((c >> 4) & 0x000f);
+		u32 b = Convert4To8((c >> 8) & 0x000f);
+		u32 a = Convert4To8((c >> 12) & 0x000f);
 
-		dst[x] = (r << (16 + 4)) | (g << (8 + 4)) | (b << 4) | (a << (24 + 4));
+		dst[x] = (a << 24) | (r << 16) | (g << 8) | b;
 	}
 }
 
 void ConvertRGBA5551ToBGRA8888(u32 *dst, const u16 *src, u32 numPixels) {
 	for (u32 x = 0; x < numPixels; x++) {
 		u16 c = src[x];
-		u32 r = c & 0x001f;
-		u32 g = (c >> 5) & 0x001f;
-		u32 b = (c >> 10) & 0x001f;
+		u32 r = Convert5To8(c & 0x001f);
+		u32 g = Convert6To8((c >> 5) & 0x001f);
+		u32 b = Convert5To8((c >> 10) & 0x001f);
 		// We force an arithmetic shift to get the sign bits/
 		u32 a = ((s32)(s16)c) & 0xff000000;
 
-		dst[x] = (r << (16 + 3)) | (g << (8 + 3)) | (b << 3) | a;
+		dst[x] = a | (r << 16) | (g << 8) | b;
 	}
 }
 
 void ConvertRGB565ToBGRA8888(u32 *dst, const u16 *src, u32 numPixels) {
 	for (u32 x = 0; x < numPixels; x++) {
 		u16 c = src[x];
-		u32 r = c & 0x001f;
-		u32 g = (c >> 5) & 0x003f;
-		u32 b = (c >> 11) & 0x001f;
+		u32 r = Convert5To8(c & 0x001f);
+		u32 g = Convert6To8((c >> 5) & 0x003f);
+		u32 b = Convert5To8((c >> 11) & 0x001f);
 
-		dst[x] = (r << (16 + 3)) | (g << (8 + 2)) | (b << 3) | 0xFF000000;
+		dst[x] = 0xFF000000 | (r << 16) | (g << 8) | b;
 	}
 }
 
