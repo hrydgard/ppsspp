@@ -799,7 +799,7 @@ void FramebufferManagerCommon::DrawFramebufferToOutput(const u8 *srcPixels, GEBu
 		// Might've changed if the shader was just changed to Off.
 		if (usePostShader_) {
 			PostShaderUniforms uniforms{};
-			CalculatePostShaderUniforms(480, 272, renderWidth_, renderHeight_, &uniforms);
+			CalculatePostShaderUniforms(512, 272, renderWidth_, renderHeight_, &uniforms);
 			BindPostShader(uniforms);
 		} else {
 			Bind2DShader();
@@ -1015,7 +1015,9 @@ void FramebufferManagerCommon::CopyDisplayToOutput(bool reallyDirty) {
 			SetViewport2D(0, 0, fbo_w, fbo_h);
 			draw_->SetScissorRect(0, 0, fbo_w, fbo_h);
 			PostShaderUniforms uniforms{};
-			CalculatePostShaderUniforms(vfb->bufferWidth, vfb->bufferHeight, renderWidth_, renderHeight_, &uniforms);
+			int actualWidth = (vfb->bufferWidth * vfb->renderWidth) / vfb->width;
+			int actualHeight = (vfb->bufferHeight * vfb->renderHeight) / vfb->height;
+			CalculatePostShaderUniforms(actualWidth, actualHeight, renderWidth_, renderHeight_, &uniforms);
 			BindPostShader(uniforms);
 			DrawTextureFlags flags = g_Config.iBufFilter == SCALE_LINEAR ? DRAWTEX_LINEAR : DRAWTEX_NEAREST;
 			DrawActiveTexture(0, 0, fbo_w, fbo_h, fbo_w, fbo_h, 0.0f, 0.0f, 1.0f, 1.0f, ROTATION_LOCKED_HORIZONTAL, flags);
@@ -1064,7 +1066,9 @@ void FramebufferManagerCommon::CopyDisplayToOutput(bool reallyDirty) {
 			flags = flags | DRAWTEX_TO_BACKBUFFER;
 
 			PostShaderUniforms uniforms{};
-			CalculatePostShaderUniforms(vfb->bufferWidth, vfb->bufferHeight, vfb->renderWidth, vfb->renderHeight, &uniforms);
+			int actualWidth = (vfb->bufferWidth * vfb->renderWidth) / vfb->width;
+			int actualHeight = (vfb->bufferHeight * vfb->renderHeight) / vfb->height;
+			CalculatePostShaderUniforms(actualWidth, actualHeight, vfb->renderWidth, vfb->renderHeight, &uniforms);
 			BindPostShader(uniforms);
 			if (g_Config.bEnableCardboardVR) {
 				// Left Eye Image
@@ -1835,15 +1839,15 @@ void FramebufferManagerCommon::Resized() {
 }
 
 void FramebufferManagerCommon::CalculatePostShaderUniforms(int bufferWidth, int bufferHeight, int renderWidth, int renderHeight, PostShaderUniforms *uniforms) {
-	float u_delta = 1.0f / renderWidth;
-	float v_delta = 1.0f / renderHeight;
-	float u_pixel_delta = u_delta;
-	float v_pixel_delta = v_delta;
+	float u_delta = 1.0f / bufferWidth;
+	float v_delta = 1.0f / bufferHeight;
+	float u_pixel_delta = 1.0 / renderWidth;
+	float v_pixel_delta = 1.0 / renderHeight;
 	if (postShaderAtOutputResolution_) {
 		float x, y, w, h;
 		CenterDisplayOutputRect(&x, &y, &w, &h, 480.0f, 272.0f, (float)pixelWidth_, (float)pixelHeight_, ROTATION_LOCKED_HORIZONTAL);
-		u_pixel_delta = (1.0f / w) * (480.0f / bufferWidth);
-		v_pixel_delta = (1.0f / h) * (272.0f / bufferHeight);
+		u_pixel_delta = 1.0f / w;
+		v_pixel_delta = 1.0f / h;
 	}
 	int flipCount = __DisplayGetFlipCount();
 	int vCount = __DisplayGetVCount();
