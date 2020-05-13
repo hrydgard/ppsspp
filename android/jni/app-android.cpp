@@ -471,6 +471,10 @@ static void parse_args(std::vector<std::string> &args, const std::string value) 
 				// If it's not the above, it's whitespace.
 				if (!quote) {
 					done = true;
+				} else {
+					sz = strspn(p, " \r\n\t");
+					arg += std::string(p, sz);
+					p += sz;
 				}
 				break;
 			}
