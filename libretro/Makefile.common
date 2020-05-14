@@ -21,6 +21,7 @@ INCFLAGS += \
 	-I$(EXTDIR)/armips \
 	-I$(NATIVEDIR)/ext \
 	-I$(NATIVEDIR) \
+	-I$(NATIVEDIR)/ext/libpng17 \
 	-I$(EXTDIR)/libkirk \
 	-I$(EXTDIR)/xbrz \
 	-I$(EXTDIR)/xxhash \
