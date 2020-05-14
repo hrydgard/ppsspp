@@ -134,11 +134,11 @@ void SoftGPU::SetDisplayFramebuffer(u32 framebuf, u32 stride, GEBufferFormat for
 
 bool g_DarkStalkerStretch;
 
-void SoftGPU::ConvertTextureDescFrom16(Draw::TextureDesc &desc, int srcwidth, int srcheight) {
+void SoftGPU::ConvertTextureDescFrom16(Draw::TextureDesc &desc, int srcwidth, int srcheight, u8 *overrideData) {
 	// TODO: This should probably be converted in a shader instead..
 	fbTexBuffer_.resize(srcwidth * srcheight);
 	FormatBuffer displayBuffer;
-	displayBuffer.data = Memory::GetPointer(displayFramebuf_);
+	displayBuffer.data = overrideData ? overrideData : Memory::GetPointer(displayFramebuf_);
 	for (int y = 0; y < srcheight; ++y) {
 		u32 *buf_line = &fbTexBuffer_[y * srcwidth];
 		const u16 *fb_line = &displayBuffer.as16[y * displayStride_];
@@ -158,6 +158,7 @@ void SoftGPU::ConvertTextureDescFrom16(Draw::TextureDesc &desc, int srcwidth, in
 
 		default:
 			ERROR_LOG_REPORT(G3D, "Software: Unexpected framebuffer format: %d", displayFormat_);
+			break;
 		}
 	}
 
@@ -210,7 +211,7 @@ void SoftGPU::CopyToCurrentFboFromDisplayRam(int srcwidth, int srcheight) {
 			desc.format = Draw::DataFormat::A1R5G5B5_UNORM_PACK16;
 			outputFlags |= OutputFlags::RB_SWIZZLE;
 		} else {
-			ConvertTextureDescFrom16(desc, srcwidth, srcheight);
+			ConvertTextureDescFrom16(desc, srcwidth, srcheight, data);
 			fillDesc = false;
 		}
 		if (fillDesc) {

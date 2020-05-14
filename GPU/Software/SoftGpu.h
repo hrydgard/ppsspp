@@ -102,7 +102,7 @@ public:
 protected:
 	void FastRunLoop(DisplayList &list) override;
 	void CopyToCurrentFboFromDisplayRam(int srcwidth, int srcheight);
-	void ConvertTextureDescFrom16(Draw::TextureDesc &desc, int srcwidth, int srcheight);
+	void ConvertTextureDescFrom16(Draw::TextureDesc &desc, int srcwidth, int srcheight, u8 *overrideData = nullptr);
 
 private:
 	bool framebufferDirty_;
