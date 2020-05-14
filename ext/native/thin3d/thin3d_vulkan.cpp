@@ -186,7 +186,7 @@ VkShaderStageFlagBits StageToVulkan(ShaderStage stage) {
 // invoke Compile again to recreate the shader then link them together.
 class VKShaderModule : public ShaderModule {
 public:
-	VKShaderModule(ShaderStage stage) : module_(VK_NULL_HANDLE), ok_(false), stage_(stage) {
+	VKShaderModule(ShaderStage stage, const std::string &tag) : stage_(stage), tag_(tag) {
 		vkstage_ = StageToVulkan(stage);
 	}
 	bool Compile(VulkanContext *vulkan, ShaderLanguage language, const uint8_t *data, size_t size);
@@ -203,11 +203,12 @@ public:
 
 private:
 	VulkanContext *vulkan_;
-	VkShaderModule module_;
+	VkShaderModule module_ = VK_NULL_HANDLE;
 	VkShaderStageFlagBits vkstage_;
-	bool ok_;
+	bool ok_ = false;
 	ShaderStage stage_;
 	std::string source_;  // So we can recompile in case of context loss.
+	std::string tag_;
 };
 
 bool VKShaderModule::Compile(VulkanContext *vulkan, ShaderLanguage language, const uint8_t *data, size_t size) {
@@ -290,12 +291,12 @@ class VKBuffer;
 class VKSamplerState;
 
 struct DescriptorSetKey {
-	VKTexture *texture_;
+	VkImageView imageView_;
 	VKSamplerState *sampler_;
 	VkBuffer buffer_;
 
 	bool operator < (const DescriptorSetKey &other) const {
-		if (texture_ < other.texture_) return true; else if (texture_ > other.texture_) return false;
+		if (imageView_ < other.imageView_) return true; else if (imageView_ > other.imageView_) return false;
 		if (sampler_ < other.sampler_) return true; else if (sampler_ > other.sampler_) return false;
 		if (buffer_ < other.buffer_) return true; else if (buffer_ > other.buffer_) return false;
 		return false;
@@ -367,7 +368,7 @@ public:
 	SamplerState *CreateSamplerState(const SamplerStateDesc &desc) override;
 	RasterState *CreateRasterState(const RasterStateDesc &desc) override;
 	Pipeline *CreateGraphicsPipeline(const PipelineDesc &desc) override;
-	ShaderModule *CreateShaderModule(ShaderStage stage, ShaderLanguage language, const uint8_t *data, size_t dataSize) override;
+	ShaderModule *CreateShaderModule(ShaderStage stage, ShaderLanguage language, const uint8_t *data, size_t dataSize, const std::string &tag) override;
 
 	Texture *CreateTexture(const TextureDesc &desc) override;
 	Buffer *CreateBuffer(size_t size, uint32_t usageFlags) override;
@@ -710,15 +711,24 @@ bool VKTexture::Create(VkCommandBuffer cmd, VulkanPushBuffer *push, const Textur
 	if (desc.initData.size()) {
 		int w = width_;
 		int h = height_;
+		int d = depth_;
 		int i;
 		for (i = 0; i < (int)desc.initData.size(); i++) {
 			uint32_t offset;
 			VkBuffer buf;
-			size_t size = w * h * bytesPerPixel;
-			offset = push->PushAligned((const void *)desc.initData[i], size, 16, &buf);
+			size_t size = w * h * d * bytesPerPixel;
+			if (desc.initDataCallback) {
+				uint8_t *dest = (uint8_t *)push->PushAligned(size, &offset, &buf, 16);
+				if (!desc.initDataCallback(dest, desc.initData[i], w, h, d, w * bytesPerPixel, h * w * bytesPerPixel)) {
+					memcpy(dest, desc.initData[i], size);
+				}
+			} else {
+				offset = push->PushAligned((const void *)desc.initData[i], size, 16, &buf);
+			}
 			vkTex_->UploadMip(cmd, i, w, h, buf, offset, w);
 			w = (w + 1) / 2;
 			h = (h + 1) / 2;
+			d = (d + 1) / 2;
 		}
 		// Generate the rest of the mips automatically.
 		for (; i < mipLevels_; i++) {
@@ -806,7 +816,7 @@ VKContext::VKContext(VulkanContext *vulkan, bool splitSubmit)
 	bindings[0].descriptorCount = 1;
 	bindings[0].pImmutableSamplers = nullptr;
 	bindings[0].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC;
-	bindings[0].stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
+	bindings[0].stageFlags = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT;
 	bindings[0].binding = 0;
 	bindings[1].descriptorCount = 1;
 	bindings[1].pImmutableSamplers = nullptr;
@@ -893,7 +903,7 @@ VkDescriptorSet VKContext::GetOrCreateDescriptorSet(VkBuffer buf) {
 
 	FrameData *frame = &frame_[vulkan_->GetCurFrame()];
 
-	key.texture_ = boundTextures_[0];
+	key.imageView_ = boundTextures_[0] ? boundTextures_[0]->GetImageView() : boundImageView_[0];
 	key.sampler_ = boundSamplers_[0];
 	key.buffer_ = buf;
 
@@ -936,8 +946,8 @@ VkDescriptorSet VKContext::GetOrCreateDescriptorSet(VkBuffer buf) {
 		numWrites++;
 	}
 
-	if (boundTextures_[0] && boundTextures_[0]->GetImageView() && boundSamplers_[0] && boundSamplers_[0]->GetSampler()) {
-		imageDesc.imageView = boundTextures_[0] ? boundTextures_[0]->GetImageView() : VK_NULL_HANDLE;
+	if (key.imageView_ && boundSamplers_[0] && boundSamplers_[0]->GetSampler()) {
+		imageDesc.imageView = key.imageView_ ? key.imageView_ : VK_NULL_HANDLE;
 		imageDesc.sampler = boundSamplers_[0] ? boundSamplers_[0]->GetSampler() : VK_NULL_HANDLE;
 #ifdef VULKAN_USE_GENERAL_LAYOUT_FOR_COLOR
 		imageDesc.imageLayout = VK_IMAGE_LAYOUT_GENERAL;
@@ -1196,8 +1206,8 @@ void VKContext::BindTextures(int start, int count, Texture **textures) {
 	}
 }
 
-ShaderModule *VKContext::CreateShaderModule(ShaderStage stage, ShaderLanguage language, const uint8_t *data, size_t size) {
-	VKShaderModule *shader = new VKShaderModule(stage);
+ShaderModule *VKContext::CreateShaderModule(ShaderStage stage, ShaderLanguage language, const uint8_t *data, size_t size, const std::string &tag) {
+	VKShaderModule *shader = new VKShaderModule(stage, tag);
 	if (shader->Compile(vulkan_, language, data, size)) {
 		return shader;
 	} else {
@@ -1241,7 +1251,7 @@ void VKContext::Draw(int vertexCount, int offset) {
 
 	renderManager_.BindPipeline(curPipeline_->vkpipeline);
 	ApplyDynamicState();
-	renderManager_.Draw(pipelineLayout_, descSet, 1, &ubo_offset, vulkanVbuf, (int)vbBindOffset, vertexCount);
+	renderManager_.Draw(pipelineLayout_, descSet, 1, &ubo_offset, vulkanVbuf, (int)vbBindOffset + curVBufferOffsets_[0], vertexCount, offset);
 }
 
 void VKContext::DrawIndexed(int vertexCount, int offset) {
@@ -1257,7 +1267,7 @@ void VKContext::DrawIndexed(int vertexCount, int offset) {
 
 	renderManager_.BindPipeline(curPipeline_->vkpipeline);
 	ApplyDynamicState();
-	renderManager_.DrawIndexed(pipelineLayout_, descSet, 1, &ubo_offset, vulkanVbuf, (int)vbBindOffset, vulkanIbuf, (int)ibBindOffset, vertexCount, 1, VK_INDEX_TYPE_UINT32);
+	renderManager_.DrawIndexed(pipelineLayout_, descSet, 1, &ubo_offset, vulkanVbuf, (int)vbBindOffset + curVBufferOffsets_[0], vulkanIbuf, (int)ibBindOffset + offset * sizeof(uint32_t), vertexCount, 1, VK_INDEX_TYPE_UINT32);
 }
 
 void VKContext::DrawUP(const void *vdata, int vertexCount) {
@@ -1269,7 +1279,7 @@ void VKContext::DrawUP(const void *vdata, int vertexCount) {
 
 	renderManager_.BindPipeline(curPipeline_->vkpipeline);
 	ApplyDynamicState();
-	renderManager_.Draw(pipelineLayout_, descSet, 1, &ubo_offset, vulkanVbuf, (int)vbBindOffset, vertexCount);
+	renderManager_.Draw(pipelineLayout_, descSet, 1, &ubo_offset, vulkanVbuf, (int)vbBindOffset + curVBufferOffsets_[0], vertexCount);
 }
 
 void VKContext::Clear(int clearMask, uint32_t colorval, float depthVal, int stencilVal) {
@@ -1464,6 +1474,7 @@ void VKContext::BindFramebufferAsTexture(Framebuffer *fbo, int binding, FBChanne
 	if (channelBit & FBChannel::FB_DEPTH_BIT) aspect |= VK_IMAGE_ASPECT_DEPTH_BIT;
 	if (channelBit & FBChannel::FB_STENCIL_BIT) aspect |= VK_IMAGE_ASPECT_STENCIL_BIT;
 
+	boundTextures_[binding] = nullptr;
 	boundImageView_[binding] = renderManager_.BindFramebufferAsTexture(fb->GetFB(), binding, aspect, attachment);
 }
 

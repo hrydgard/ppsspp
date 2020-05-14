@@ -46,22 +46,7 @@ namespace Draw {
 	class Framebuffer;
 }
 
-struct CardboardSettings {
-	bool enabled;
-	float leftEyeXPosition;
-	float rightEyeXPosition;
-	float screenYPosition;
-	float screenWidth;
-	float screenHeight;
-};
-
 class VulkanFBO;
-
-struct PostShaderUniforms {
-	float texelDelta[2]; float pixelDelta[2];
-	float time[4];
-	float video;
-};
 
 struct VirtualFramebuffer {
 	int last_frame_used;
@@ -153,7 +138,6 @@ enum BindFramebufferColorFlags {
 enum DrawTextureFlags {
 	DRAWTEX_NEAREST = 0,
 	DRAWTEX_LINEAR = 1,
-	DRAWTEX_KEEP_TEX = 2,
 	DRAWTEX_KEEP_STENCIL_ALPHA = 4,
 	DRAWTEX_TO_BACKBUFFER = 8,
 };
@@ -191,9 +175,10 @@ class DrawContext;
 }
 
 struct GPUDebugBuffer;
-class TextureCacheCommon;
-class ShaderManagerCommon;
 class DrawEngineCommon;
+class PresentationCommon;
+class ShaderManagerCommon;
+class TextureCacheCommon;
 
 class FramebufferManagerCommon {
 public:
@@ -244,7 +229,7 @@ public:
 	void ReadFramebufferToMemory(VirtualFramebuffer *vfb, bool sync, int x, int y, int w, int h);
 
 	void DownloadFramebufferForClut(u32 fb_address, u32 loadBytes);
-	void DrawFramebufferToOutput(const u8 *srcPixels, GEBufferFormat srcPixelFormat, int srcStride, bool applyPostShader);
+	void DrawFramebufferToOutput(const u8 *srcPixels, GEBufferFormat srcPixelFormat, int srcStride);
 
 	void DrawPixels(VirtualFramebuffer *vfb, int dstX, int dstY, const u8 *srcPixels, GEBufferFormat srcPixelFormat, int srcStride, int width, int height);
 
@@ -311,6 +296,7 @@ public:
 	void SetSafeSize(u16 w, u16 h);
 
 	virtual void Resized();
+	virtual void DestroyAllFBOs();
 
 	Draw::Framebuffer *GetTempFBO(TempFBO reason, u16 w, u16 h, Draw::FBColorDepth colorDepth = Draw::FBO_8888);
 
@@ -322,18 +308,12 @@ public:
 
 protected:
 	virtual void PackFramebufferSync_(VirtualFramebuffer *vfb, int x, int y, int w, int h);
-	virtual void SetViewport2D(int x, int y, int w, int h);
-	void CalculatePostShaderUniforms(int bufferWidth, int bufferHeight, int renderWidth, int renderHeight, PostShaderUniforms *uniforms);
-	virtual void MakePixelTexture(const u8 *srcPixels, GEBufferFormat srcPixelFormat, int srcStride, int width, int height, float &u1, float &v1) = 0;
+	void SetViewport2D(int x, int y, int w, int h);
+	Draw::Texture *MakePixelTexture(const u8 *srcPixels, GEBufferFormat srcPixelFormat, int srcStride, int width, int height, float &u1, float &v1);
 	virtual void DrawActiveTexture(float x, float y, float w, float h, float destW, float destH, float u0, float v0, float u1, float v1, int uvRotation, int flags) = 0;
 	virtual void Bind2DShader() = 0;
-	virtual void BindPostShader(const PostShaderUniforms &uniforms) = 0;
-
-	// Cardboard Settings Calculator
-	void GetCardboardSettings(CardboardSettings *cardboardSettings);
 
 	bool UpdateSize();
-	void SetNumExtraFBOs(int num);
 
 	void FlushBeforeCopy();
 	virtual void DecimateFBOs();  // keeping it virtual to let D3D do a little extra
@@ -378,6 +358,8 @@ protected:
 			dstBuffer->reallyDirtyAfterDisplay = true;
 	}
 
+	PresentationCommon *presentation_ = nullptr;
+
 	Draw::DrawContext *draw_ = nullptr;
 	TextureCacheCommon *textureCache_ = nullptr;
 	ShaderManagerCommon *shaderManager_ = nullptr;
@@ -400,8 +382,6 @@ protected:
 	u32 framebufRangeEnd_ = 0;
 
 	bool useBufferedRendering_ = false;
-	bool usePostShader_ = false;
-	bool postShaderAtOutputResolution_ = false;
 	bool postShaderIsUpscalingFilter_ = false;
 	int postShaderSSAAFilterLevel_ = 0;
 
@@ -417,10 +397,8 @@ protected:
 	int pixelHeight_;
 	int bloomHack_ = 0;
 
-	// Used by post-processing shaders
-	std::vector<Draw::Framebuffer *> extraFBOs_;
-
 	bool needGLESRebinds_ = false;
+	Draw::DataFormat preferredPixelsFormat_ = Draw::DataFormat::R8G8B8A8_UNORM;
 
 	struct TempFBOInfo {
 		Draw::Framebuffer *fbo;
@@ -437,5 +415,3 @@ protected:
 		FBO_OLD_USAGE_FLAG = 15,
 	};
 };
-
-void CenterDisplayOutputRect(float *x, float *y, float *w, float *h, float origW, float origH, float frameW, float frameH, int rotation);

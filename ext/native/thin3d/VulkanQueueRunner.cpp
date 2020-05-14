@@ -1091,7 +1091,7 @@ void VulkanQueueRunner::PerformRenderPass(const VKRStep &step, VkCommandBuffer c
 			if (c.draw.vbuffer) {
 				vkCmdBindVertexBuffers(cmd, 0, 1, &c.draw.vbuffer, &c.draw.voffset);
 			}
-			vkCmdDraw(cmd, c.draw.count, 1, 0, 0);
+			vkCmdDraw(cmd, c.draw.count, 1, c.draw.offset, 0);
 			break;
 
 		case VKRRenderCommand::CLEAR:

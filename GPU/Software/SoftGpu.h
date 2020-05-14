@@ -50,6 +50,7 @@ struct FormatBuffer {
 	}
 };
 
+class PresentationCommon;
 class SoftwareDrawEngine;
 
 class SoftGPU : public GPUCommon {
@@ -76,7 +77,7 @@ public:
 	void DeviceLost() override;
 	void DeviceRestore() override;
 
-	void Resized() override {}
+	void Resized() override;
 	void GetReportingInfo(std::string &primaryInfo, std::string &fullInfo) override {
 		primaryInfo = "Software";
 		fullInfo = "Software";
@@ -109,17 +110,11 @@ private:
 	u32 displayStride_;
 	GEBufferFormat displayFormat_;
 
+	PresentationCommon *presentation_ = nullptr;
 	SoftwareDrawEngine *drawEngine_ = nullptr;
 
-	Draw::Texture *fbTex;
-	Draw::Pipeline *texColor;
-	Draw::Pipeline *texColorRBSwizzle;
+	Draw::Texture *fbTex = nullptr;
 	std::vector<u32> fbTexBuffer_;
-
-	Draw::SamplerState *samplerNearest = nullptr;
-	Draw::SamplerState *samplerLinear = nullptr;
-	Draw::Buffer *vdata = nullptr;
-	Draw::Buffer *idata = nullptr;
 };
 
 // TODO: These shouldn't be global.

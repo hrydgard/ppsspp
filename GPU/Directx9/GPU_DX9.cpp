@@ -396,11 +396,12 @@ void GPU_DX9::DoState(PointerWrap &p) {
 	// TODO: Some of these things may not be necessary.
 	// None of these are necessary when saving.
 	if (p.mode == p.MODE_READ && !PSP_CoreParameter().frozen) {
-		textureCacheDX9_->Clear(true);
+		textureCache_->Clear(true);
+		depalShaderCache_.Clear();
 		drawEngine_.ClearTrackedVertexArrays();
 
 		gstate_c.Dirty(DIRTY_TEXTURE_IMAGE);
-		framebufferManagerDX9_->DestroyAllFBOs();
+		framebufferManager_->DestroyAllFBOs();
 	}
 }
 

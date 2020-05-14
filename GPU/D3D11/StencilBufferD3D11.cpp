@@ -160,7 +160,9 @@ bool FramebufferManagerD3D11::NotifyStencilUpload(u32 addr, int size, bool skipZ
 	u16 h = dstBuffer->renderHeight;
 	float u1 = 1.0f;
 	float v1 = 1.0f;
-	MakePixelTexture(src, dstBuffer->format, dstBuffer->fb_stride, dstBuffer->bufferWidth, dstBuffer->bufferHeight, u1, v1);
+	Draw::Texture *tex = MakePixelTexture(src, dstBuffer->format, dstBuffer->fb_stride, dstBuffer->bufferWidth, dstBuffer->bufferHeight, u1, v1);
+	if (!tex)
+		return false;
 	if (dstBuffer->fbo) {
 		draw_->BindFramebufferAsRenderTarget(dstBuffer->fbo, { Draw::RPAction::KEEP, Draw::RPAction::KEEP, Draw::RPAction::CLEAR });
 	} else {
@@ -189,7 +191,7 @@ bool FramebufferManagerD3D11::NotifyStencilUpload(u32 addr, int size, bool skipZ
 	context_->IASetInputLayout(stencilUploadInputLayout_);
 	context_->PSSetShader(stencilUploadPS_, nullptr, 0);
 	context_->VSSetShader(stencilUploadVS_, nullptr, 0);
-	context_->PSSetShaderResources(0, 1, &drawPixelsTexView_);
+	draw_->BindTextures(0, 1, &tex);
 	context_->RSSetState(stockD3D11.rasterStateNoCull);
 	context_->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLESTRIP);
 	context_->IASetVertexBuffers(0, 1, &quadBuffer_, &quadStride_, &quadOffset_);
@@ -237,6 +239,8 @@ bool FramebufferManagerD3D11::NotifyStencilUpload(u32 addr, int size, bool skipZ
 		context_->PSSetConstantBuffers(0, 1, &stencilValueBuffer_);
 		context_->Draw(4, 0);
 	}
+
+	tex->Release();
 	RebindFramebuffer();
 	return true;
 }

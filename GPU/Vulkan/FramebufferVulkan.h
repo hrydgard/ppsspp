@@ -18,9 +18,10 @@
 #pragma once
 
 #include "Common/Vulkan/VulkanLoader.h"
-#include "GPU/Common/FramebufferCommon.h"
 #include "GPU/GPUInterface.h"
+#include "GPU/Common/FramebufferCommon.h"
 #include "GPU/Common/GPUDebugInterface.h"
+#include "GPU/Common/PresentationCommon.h"
 #include "GPU/Vulkan/VulkanUtil.h"
 #include "GPU/Vulkan/DepalettizeShaderVulkan.h"
 
@@ -45,14 +46,11 @@ public:
 	// x,y,w,h are relative to destW, destH which fill out the target completely.
 	void DrawActiveTexture(float x, float y, float w, float h, float destW, float destH, float u0, float v0, float u1, float v1, int uvRotation, int flags) override;
 
-	void DestroyAllFBOs();
-
 	virtual void Init() override;
 
 	void BeginFrameVulkan();  // there's a BeginFrame in the base class, which this calls
 	void EndFrame();
 
-	void Resized() override;
 	void DeviceLost();
 	void DeviceRestore(VulkanContext *vulkan, Draw::DrawContext *draw);
 	int GetLineWidth();
@@ -69,10 +67,7 @@ public:
 	void NotifyClear(bool clearColor, bool clearAlpha, bool clearDepth, uint32_t color, float depth);
 
 protected:
-	void CompilePostShader();
 	void Bind2DShader() override;
-	void BindPostShader(const PostShaderUniforms &uniforms) override;
-	void SetViewport2D(int x, int y, int w, int h) override;
 
 	// Used by ReadFramebufferToMemory and later framebuffer block copies
 	void BlitFramebuffer(VirtualFramebuffer *dst, int dstX, int dstY, VirtualFramebuffer *src, int srcX, int srcY, int w, int h, int bpp) override;
@@ -80,21 +75,12 @@ protected:
 	void UpdateDownloadTempBuffer(VirtualFramebuffer *nvfb) override;
 
 private:
-	// The returned texture does not need to be free'd, might be returned from a pool (currently single entry)
-	void MakePixelTexture(const u8 *srcPixels, GEBufferFormat srcPixelFormat, int srcStride, int width, int height, float &u1, float &v1) override;
-
 	void InitDeviceObjects();
 	void DestroyDeviceObjects();
 
 	VulkanContext *vulkan_;
 
 	// Used to keep track of command buffers here but have moved all that into Thin3D.
-
-	// Used by DrawPixels
-	VulkanTexture *drawPixelsTex_ = nullptr;
-	GEBufferFormat drawPixelsTexFormat_ = GE_FORMAT_INVALID;
-	u8 *convBuf_ = nullptr;
-	u32 convBufSize_ = 0;
 
 	TextureCacheVulkan *textureCacheVulkan_ = nullptr;
 	ShaderManagerVulkan *shaderManagerVulkan_ = nullptr;
@@ -106,9 +92,6 @@ private:
 		MAX_COMMAND_BUFFERS = 32,
 	};
 
-	// This gets copied to the current frame's push buffer as needed.
-	PostShaderUniforms postUniforms_;
-
 	VkPipelineCache pipelineCache2D_;
 
 	// Basic shaders
@@ -118,20 +101,10 @@ private:
 	VkShaderModule stencilVs_ = VK_NULL_HANDLE;
 	VkShaderModule stencilFs_ = VK_NULL_HANDLE;
 
-
 	VkPipeline cur2DPipeline_ = VK_NULL_HANDLE;
-
-	// Postprocessing
-	VkShaderModule postVs_ = VK_NULL_HANDLE;
-	VkShaderModule postFs_ = VK_NULL_HANDLE;
-	VkPipeline pipelinePostShader_ = VK_NULL_HANDLE;
-	PostShaderUniforms postShaderUniforms_;
 
 	VkSampler linearSampler_;
 	VkSampler nearestSampler_;
-
-	// hack!
-	VkImageView overrideImageView_ = VK_NULL_HANDLE;
 
 	// Simple 2D drawing engine.
 	Vulkan2D *vulkan2D_;

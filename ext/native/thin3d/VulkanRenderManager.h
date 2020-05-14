@@ -177,10 +177,11 @@ public:
 
 	void Clear(uint32_t clearColor, float clearZ, int clearStencil, int clearMask);
 
-	void Draw(VkPipelineLayout layout, VkDescriptorSet descSet, int numUboOffsets, const uint32_t *uboOffsets, VkBuffer vbuffer, int voffset, int count) {
+	void Draw(VkPipelineLayout layout, VkDescriptorSet descSet, int numUboOffsets, const uint32_t *uboOffsets, VkBuffer vbuffer, int voffset, int count, int offset = 0) {
 		_dbg_assert_(G3D, curRenderStep_ && curRenderStep_->stepType == VKRStepType::RENDER);
 		VkRenderData data{ VKRRenderCommand::DRAW };
 		data.draw.count = count;
+		data.draw.offset = offset;
 		data.draw.pipelineLayout = layout;
 		data.draw.ds = descSet;
 		data.draw.vbuffer = vbuffer;

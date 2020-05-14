@@ -28,9 +28,10 @@
 #include "GPU/ge_constants.h"
 #include "GPU/GPUState.h"
 #include "GPU/Math3D.h"
+#include "GPU/Common/FramebufferCommon.h"
+#include "GPU/Common/PresentationCommon.h"
 #include "GPU/Common/ShaderId.h"
 #include "GPU/Common/VertexDecoderCommon.h"
-#include "GPU/Common/FramebufferCommon.h"
 
 #include "GPU/Common/GPUStateUtils.h"
 

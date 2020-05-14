@@ -466,7 +466,7 @@ void TextureReplacer::NotifyTextureDecoded(const ReplacedTextureDecodeInfo &repl
 		saveBuf.resize((pitch * h) / sizeof(u16));
 		switch (replacedInfo.fmt) {
 		case ReplacedTextureFormat::F_5650:
-			ConvertRGBA565ToRGBA8888(saveBuf.data(), (const u16 *)data, (pitch * h) / sizeof(u16));
+			ConvertRGB565ToRGBA8888(saveBuf.data(), (const u16 *)data, (pitch * h) / sizeof(u16));
 			break;
 		case ReplacedTextureFormat::F_5551:
 			ConvertRGBA5551ToRGBA8888(saveBuf.data(), (const u16 *)data, (pitch * h) / sizeof(u16));
@@ -475,7 +475,7 @@ void TextureReplacer::NotifyTextureDecoded(const ReplacedTextureDecodeInfo &repl
 			ConvertRGBA4444ToRGBA8888(saveBuf.data(), (const u16 *)data, (pitch * h) / sizeof(u16));
 			break;
 		case ReplacedTextureFormat::F_0565_ABGR:
-			ConvertABGR565ToRGBA8888(saveBuf.data(), (const u16 *)data, (pitch * h) / sizeof(u16));
+			ConvertBGR565ToRGBA8888(saveBuf.data(), (const u16 *)data, (pitch * h) / sizeof(u16));
 			break;
 		case ReplacedTextureFormat::F_1555_ABGR:
 			ConvertABGR1555ToRGBA8888(saveBuf.data(), (const u16 *)data, (pitch * h) / sizeof(u16));

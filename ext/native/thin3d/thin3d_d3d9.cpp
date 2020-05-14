@@ -29,6 +29,10 @@
 #include "thin3d/d3d9_d3dcompiler_loader.h"
 #endif
 
+#ifndef D3DXERR_INVALIDDATA
+#define D3DXERR_INVALIDDATA 0x88760b59
+#endif
+
 #include "base/logging.h"
 #include "math/lin/matrix4x4.h"
 #include "thin3d/thin3d.h"
@@ -133,6 +137,7 @@ static const int primCountDivisor[] = {
 D3DFORMAT FormatToD3DFMT(DataFormat fmt) {
 	switch (fmt) {
 	case DataFormat::R8G8B8A8_UNORM: return D3DFMT_A8R8G8B8;
+	case DataFormat::B8G8R8A8_UNORM: return D3DFMT_A8R8G8B8;
 	case DataFormat::R4G4B4A4_UNORM_PACK16: return D3DFMT_A4R4G4B4;  // emulated
 	case DataFormat::B4G4R4A4_UNORM_PACK16: return D3DFMT_A4R4G4B4;  // native
 	case DataFormat::A4R4G4B4_UNORM_PACK16: return D3DFMT_A4R4G4B4;  // emulated
@@ -252,7 +257,7 @@ private:
 
 class D3D9ShaderModule : public ShaderModule {
 public:
-	D3D9ShaderModule(ShaderStage stage) : stage_(stage), vshader_(nullptr), pshader_(nullptr) {}
+	D3D9ShaderModule(ShaderStage stage, const std::string &tag) : stage_(stage), tag_(tag) {}
 	~D3D9ShaderModule() {
 		if (vshader_)
 			vshader_->Release();
@@ -271,8 +276,9 @@ public:
 
 private:
 	ShaderStage stage_;
-	LPDIRECT3DVERTEXSHADER9 vshader_;
-	LPDIRECT3DPIXELSHADER9 pshader_;
+	LPDIRECT3DVERTEXSHADER9 vshader_ = nullptr;
+	LPDIRECT3DPIXELSHADER9 pshader_ = nullptr;
+	std::string tag_;
 };
 
 class D3D9Pipeline : public Pipeline {
@@ -311,7 +317,7 @@ public:
 	void SetToSampler(LPDIRECT3DDEVICE9 device, int sampler);
 
 private:
-	void SetImageData(int x, int y, int z, int width, int height, int depth, int level, int stride, const uint8_t *data);
+	void SetImageData(int x, int y, int z, int width, int height, int depth, int level, int stride, const uint8_t *data, TextureCallback callback);
 	bool Create(const TextureDesc &desc);
 	LPDIRECT3DDEVICE9 device_;
 	LPDIRECT3DDEVICE9EX deviceEx_;
@@ -383,8 +389,14 @@ bool D3D9Texture::Create(const TextureDesc &desc) {
 		// In D3D9, after setting D3DUSAGE_AUTOGENMIPS, we can only access the top layer. The rest will be
 		// automatically generated.
 		int maxLevel = desc.generateMips ? 1 : (int)desc.initData.size();
+		int w = desc.width;
+		int h = desc.height;
+		int d = desc.depth;
 		for (int i = 0; i < maxLevel; i++) {
-			SetImageData(0, 0, 0, width_, height_, depth_, i, 0, desc.initData[i]);
+			SetImageData(0, 0, 0, w, h, d, i, 0, desc.initData[i], desc.initDataCallback);
+			w = (w + 1) / 2;
+			h = (h + 1) / 2;
+			d = (d + 1) / 2;
 		}
 	}
 	return true;
@@ -395,10 +407,9 @@ inline uint32_t Shuffle8888(uint32_t x) {
 	return (x & 0xFF00FF00) | ((x >> 16) & 0xFF) | ((x << 16) & 0xFF0000);
 }
 
-void D3D9Texture::SetImageData(int x, int y, int z, int width, int height, int depth, int level, int stride, const uint8_t *data) {
+void D3D9Texture::SetImageData(int x, int y, int z, int width, int height, int depth, int level, int stride, const uint8_t *data, TextureCallback callback) {
 	if (!tex_)
 		return;
-
 
 	if (level == 0) {
 		width_ = width;
@@ -416,6 +427,15 @@ void D3D9Texture::SetImageData(int x, int y, int z, int width, int height, int d
 		D3DLOCKED_RECT rect;
 		if (x == 0 && y == 0) {
 			tex_->LockRect(level, &rect, NULL, D3DLOCK_DISCARD);
+
+			if (callback) {
+				if (callback((uint8_t *)rect.pBits, data, width, height, depth, rect.Pitch, height * rect.Pitch)) {
+					// Now this is the source.  All conversions below support in-place.
+					data = (const uint8_t *)rect.pBits;
+					stride = rect.Pitch;
+				}
+			}
+
 			for (int i = 0; i < height; i++) {
 				uint8_t *dest = (uint8_t *)rect.pBits + rect.Pitch * i;
 				const uint8_t *source = data + stride * i;
@@ -430,7 +450,8 @@ void D3D9Texture::SetImageData(int x, int y, int z, int width, int height, int d
 				case DataFormat::A4R4G4B4_UNORM_PACK16:
 				case DataFormat::A1R5G5B5_UNORM_PACK16:
 					// Native
-					memcpy(dest, source, width * sizeof(uint16_t));
+					if (data != rect.pBits)
+						memcpy(dest, source, width * sizeof(uint16_t));
 					break;
 
 				case DataFormat::R8G8B8A8_UNORM:
@@ -440,7 +461,8 @@ void D3D9Texture::SetImageData(int x, int y, int z, int width, int height, int d
 					break;
 
 				case DataFormat::B8G8R8A8_UNORM:
-					memcpy(dest, source, sizeof(uint32_t) * width);
+					if (data != rect.pBits)
+						memcpy(dest, source, sizeof(uint32_t) * width);
 					break;
 				default:
 					// Unhandled data format copy.
@@ -489,7 +511,7 @@ public:
 	}
 	uint32_t GetDataFormatSupport(DataFormat fmt) const override;
 
-	ShaderModule *CreateShaderModule(ShaderStage stage, ShaderLanguage language, const uint8_t *data, size_t dataSize) override;
+	ShaderModule *CreateShaderModule(ShaderStage stage, ShaderLanguage language, const uint8_t *data, size_t dataSize, const std::string &tag) override;
 	DepthStencilState *CreateDepthStencilState(const DepthStencilStateDesc &desc) override;
 	BlendState *CreateBlendState(const BlendStateDesc &desc) override;
 	SamplerState *CreateSamplerState(const SamplerStateDesc &desc) override;
@@ -650,8 +672,8 @@ D3D9Context::D3D9Context(IDirect3D9 *d3d, IDirect3D9Ex *d3dEx, int adapterId, ID
 D3D9Context::~D3D9Context() {
 }
 
-ShaderModule *D3D9Context::CreateShaderModule(ShaderStage stage, ShaderLanguage language, const uint8_t *data, size_t size) {
-	D3D9ShaderModule *shader = new D3D9ShaderModule(stage);
+ShaderModule *D3D9Context::CreateShaderModule(ShaderStage stage, ShaderLanguage language, const uint8_t *data, size_t size, const std::string &tag) {
+	D3D9ShaderModule *shader = new D3D9ShaderModule(stage, tag);
 	if (shader->Compile(device_, data, size)) {
 		return shader;
 	} else {
@@ -872,6 +894,9 @@ void D3D9Context::UpdateDynamicUniformBuffer(const void *ub, size_t size) {
 	for (auto &uniform : curPipeline_->dynamicUniforms.uniforms) {
 		int count = 0;
 		switch (uniform.type) {
+		case UniformType::FLOAT1:
+		case UniformType::FLOAT2:
+		case UniformType::FLOAT3:
 		case UniformType::FLOAT4:
 			count = 1;
 			break;
@@ -882,8 +907,11 @@ void D3D9Context::UpdateDynamicUniformBuffer(const void *ub, size_t size) {
 		const float *srcPtr = (const float *)((const uint8_t *)ub + uniform.offset);
 		if (uniform.vertexReg != -1) {
 			float transp[16];
-			Transpose4x4(transp, srcPtr);
-			device_->SetVertexShaderConstantF(uniform.vertexReg, transp, count);
+			if (count == 4) {
+				Transpose4x4(transp, srcPtr);
+				srcPtr = transp;
+			}
+			device_->SetVertexShaderConstantF(uniform.vertexReg, srcPtr, count);
 		}
 		if (uniform.fragmentReg != -1) {
 			device_->SetPixelShaderConstantF(uniform.fragmentReg, srcPtr, count);
@@ -939,7 +967,7 @@ void D3D9Context::DrawIndexed(int vertexCount, int offset) {
 	curPipeline_->inputLayout->Apply(device_);
 	device_->SetStreamSource(0, curVBuffers_[0]->vbuffer_, curVBufferOffsets_[0], curPipeline_->inputLayout->GetStride(0));
 	device_->SetIndices(curIBuffer_->ibuffer_);
-	device_->DrawIndexedPrimitive(curPipeline_->prim, 0, 0, vertexCount, 0, vertexCount / curPipeline_->primDivisor);
+	device_->DrawIndexedPrimitive(curPipeline_->prim, 0, 0, vertexCount, offset, vertexCount / curPipeline_->primDivisor);
 }
 
 void D3D9Context::DrawUP(const void *vdata, int vertexCount) {
@@ -997,12 +1025,18 @@ bool D3D9ShaderModule::Compile(LPDIRECT3DDEVICE9 device, const uint8_t *data, si
 	LPD3DBLOB codeBuffer = nullptr;
 	LPD3DBLOB errorBuffer = nullptr;
 	const char *source = (const char *)data;
-	const char *profile = stage_ == ShaderStage::FRAGMENT ? "ps_2_0" : "vs_2_0";
+	auto compile = [&](const char *profile) -> HRESULT {
 #if PPSSPP_API(D3DX9)
-	HRESULT hr = dyn_D3DXCompileShader(source, (UINT)strlen(source), defines, includes, "main", profile, flags, &codeBuffer, &errorBuffer, nullptr);
+		return dyn_D3DXCompileShader(source, (UINT)strlen(source), defines, includes, "main", profile, flags, &codeBuffer, &errorBuffer, nullptr);
 #elif PPSSPP_API(D3D9_D3DCOMPILER)
-	HRESULT hr = dyn_D3DCompile(source, (UINT)strlen(source), nullptr, defines, includes, "main", profile, 0, 0, &codeBuffer, &errorBuffer);
+		return dyn_D3DCompile(source, (UINT)strlen(source), nullptr, defines, includes, "main", profile, 0, 0, &codeBuffer, &errorBuffer);
 #endif
+	};
+	HRESULT hr = compile(stage_ == ShaderStage::FRAGMENT ? "ps_2_0" : "vs_2_0");
+	if (FAILED(hr) && hr == D3DXERR_INVALIDDATA) {
+		// Might be a post shader.  Let's try using shader model 3.
+		hr = compile(stage_ == ShaderStage::FRAGMENT ? "ps_3_0" : "vs_3_0");
+	}
 	if (FAILED(hr)) {
 		const char *error = errorBuffer ? (const char *)errorBuffer->GetBufferPointer() : "(no errorbuffer returned)";
 		if (hr == ERROR_MOD_NOT_FOUND) {
@@ -1027,6 +1061,9 @@ bool D3D9ShaderModule::Compile(LPDIRECT3DDEVICE9 device, const uint8_t *data, si
 		success = SUCCEEDED(result);
 	}
 
+	// There could have been warnings.
+	if (errorBuffer)
+		errorBuffer->Release();
 	codeBuffer->Release();
 	return true;
 }

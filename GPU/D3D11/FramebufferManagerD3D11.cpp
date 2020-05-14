@@ -15,6 +15,7 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
+#include <algorithm>
 #include <d3d11.h>
 #include <D3Dcompiler.h>
 
@@ -22,12 +23,9 @@
 #include "math/lin/matrix4x4.h"
 #include "ext/native/thin3d/thin3d.h"
 #include "base/basictypes.h"
-#include "file/vfs.h"
-#include "file/zip_read.h"
 
 #include "Common/ColorConv.h"
 #include "Common/MathUtil.h"
-#include "Core/Host.h"
 #include "Core/MemMap.h"
 #include "Core/Config.h"
 #include "Core/ConfigValues.h"
@@ -38,17 +36,13 @@
 #include "GPU/Debugger/Stepping.h"
 
 #include "GPU/Common/FramebufferCommon.h"
+#include "GPU/Common/PresentationCommon.h"
 #include "GPU/Common/ShaderTranslation.h"
 #include "GPU/Common/TextureDecoder.h"
-#include "GPU/Common/PostShader.h"
 #include "GPU/D3D11/FramebufferManagerD3D11.h"
 #include "GPU/D3D11/ShaderManagerD3D11.h"
 #include "GPU/D3D11/TextureCacheD3D11.h"
 #include "GPU/D3D11/DrawEngineD3D11.h"
-
-#include "ext/native/thin3d/thin3d.h"
-
-#include <algorithm>
 
 #ifdef _M_SSE
 #include <emmintrin.h>
@@ -86,13 +80,6 @@ const D3D11_INPUT_ELEMENT_DESC FramebufferManagerD3D11::g_QuadVertexElements[2] 
 	{ "TEXCOORD", 0, DXGI_FORMAT_R32G32_FLOAT, 0, 12, },
 };
 
-// The current simple shader translator outputs everything as semantic texcoords, so let's just play along
-// for simplicity.
-const D3D11_INPUT_ELEMENT_DESC FramebufferManagerD3D11::g_PostVertexElements[2] = {
-	{ "TEXCOORD", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 0, },
-	{ "TEXCOORD", 1, DXGI_FORMAT_R32G32_FLOAT, 0, 12, },
-};
-
 FramebufferManagerD3D11::FramebufferManagerD3D11(Draw::DrawContext *draw)
 	: FramebufferManagerCommon(draw) {
 	device_ = (ID3D11Device *)draw->GetNativeObject(Draw::NativeObject::DEVICE);
@@ -123,10 +110,6 @@ FramebufferManagerD3D11::FramebufferManagerD3D11(Draw::DrawContext *draw)
 	vb.Usage = D3D11_USAGE_DYNAMIC;
 	vb.CPUAccessFlags = D3D11_CPU_ACCESS_WRITE;
 	ASSERT_SUCCESS(device_->CreateBuffer(&vb, nullptr, &quadBuffer_));
-	vb.ByteWidth = ROUND_UP(sizeof(PostShaderUniforms), 16);
-	vb.Usage = D3D11_USAGE_DYNAMIC;
-	vb.BindFlags = D3D11_BIND_CONSTANT_BUFFER;
-	ASSERT_SUCCESS(device_->CreateBuffer(&vb, nullptr, &postConstants_));
 
 	D3D11_TEXTURE2D_DESC desc{};
 	desc.CPUAccessFlags = 0;
@@ -145,7 +128,8 @@ FramebufferManagerD3D11::FramebufferManagerD3D11(Draw::DrawContext *draw)
 
 	ShaderTranslationInit();
 
-	CompilePostShader();
+	presentation_->SetLanguage(HLSL_D3D11);
+	preferredPixelsFormat_ = Draw::DataFormat::B8G8R8A8_UNORM;
 }
 
 FramebufferManagerD3D11::~FramebufferManagerD3D11() {
@@ -159,25 +143,6 @@ FramebufferManagerD3D11::~FramebufferManagerD3D11() {
 	quadInputLayout_->Release();
 	quadBuffer_->Release();
 	fsQuadBuffer_->Release();
-	postConstants_->Release();
-
-	if (drawPixelsTex_)
-		drawPixelsTex_->Release();
-	if (drawPixelsTexView_)
-		drawPixelsTexView_->Release();
-
-	if (postVertexShader_) {
-		postVertexShader_->Release();
-	}
-	if (postPixelShader_) {
-		postPixelShader_->Release();
-	}
-	if (postInputLayout_) {
-		postInputLayout_->Release();
-	}
-
-	// Temp FBOs cleared by FramebufferCommon.
-	delete[] convBuf;
 
 	// Stencil cleanup
 	for (int i = 0; i < 256; i++) {
@@ -212,138 +177,6 @@ void FramebufferManagerD3D11::SetShaderManager(ShaderManagerD3D11 *sm) {
 void FramebufferManagerD3D11::SetDrawEngine(DrawEngineD3D11 *td) {
 	drawEngineD3D11_ = td;
 	drawEngine_ = td;
-}
-
-void FramebufferManagerD3D11::CompilePostShader() {
-	std::string vsSource;
-	std::string psSource;
-
-	if (postVertexShader_) {
-		postVertexShader_->Release();
-		postVertexShader_ = nullptr;
-	}
-	if (postPixelShader_) {
-		postPixelShader_->Release();
-		postPixelShader_ = nullptr;
-	}
-	if (postInputLayout_) {
-		postInputLayout_->Release();
-		postInputLayout_ = nullptr;
-	}
-
-	const ShaderInfo *shaderInfo = nullptr;
-	if (g_Config.sPostShaderName == "Off") {
-		usePostShader_ = false;
-		return;
-	}
-
-	usePostShader_ = false;
-
-	ReloadAllPostShaderInfo();
-	shaderInfo = GetPostShaderInfo(g_Config.sPostShaderName);
-	if (shaderInfo) {
-		postShaderAtOutputResolution_ = shaderInfo->outputResolution;
-		size_t sz;
-		char *vs = (char *)VFSReadFile(shaderInfo->vertexShaderFile.c_str(), &sz);
-		if (!vs)
-			return;
-		char *ps = (char *)VFSReadFile(shaderInfo->fragmentShaderFile.c_str(), &sz);
-		if (!ps) {
-			free(vs);
-			return;
-		}
-		std::string vsSourceGLSL = vs;
-		std::string psSourceGLSL = ps;
-		free(vs);
-		free(ps);
-		TranslatedShaderMetadata metaVS, metaFS;
-		std::string errorVS, errorFS;
-		if (!TranslateShader(&vsSource, HLSL_D3D11, &metaVS, vsSourceGLSL, GLSL_140, Draw::ShaderStage::VERTEX, &errorVS))
-			return;
-		if (!TranslateShader(&psSource, HLSL_D3D11, &metaFS, psSourceGLSL, GLSL_140, Draw::ShaderStage::FRAGMENT, &errorFS))
-			return;
-	} else {
-		return;
-	}
-
-	UINT flags = D3DCOMPILE_ENABLE_BACKWARDS_COMPATIBILITY;
-	std::vector<uint8_t> byteCode;
-	postVertexShader_ = CreateVertexShaderD3D11(device_, vsSource.data(), vsSource.size(), &byteCode, featureLevel_, flags);
-	if (!postVertexShader_) {
-		return;
-	}
-	postPixelShader_ = CreatePixelShaderD3D11(device_, psSource.data(), psSource.size(), featureLevel_, flags);
-	if (!postPixelShader_) {
-		postVertexShader_->Release();
-		return;
-	}
-	ASSERT_SUCCESS(device_->CreateInputLayout(g_PostVertexElements, 2, byteCode.data(), byteCode.size(), &postInputLayout_));
-	usePostShader_ = true;
-}
-
-void FramebufferManagerD3D11::MakePixelTexture(const u8 *srcPixels, GEBufferFormat srcPixelFormat, int srcStride, int width, int height, float &u1, float &v1) {
-	// TODO: Check / use D3DCAPS2_DYNAMICTEXTURES?
-	if (drawPixelsTex_ && (drawPixelsTexW_ != width || drawPixelsTexH_ != height)) {
-		drawPixelsTex_->Release();
-		drawPixelsTex_ = nullptr;
-		drawPixelsTexView_->Release();
-		drawPixelsTexView_ = nullptr;
-	}
-
-	if (!drawPixelsTex_) {
-		int usage = 0;
-		D3D11_TEXTURE2D_DESC desc{};
-		desc.Usage = D3D11_USAGE_DYNAMIC;
-		desc.CPUAccessFlags = D3D11_CPU_ACCESS_WRITE;
-		desc.Width = width;
-		desc.Height = height;
-		desc.MipLevels = 1;
-		desc.ArraySize = 1;
-		desc.SampleDesc.Count = 1;
-		desc.Format = DXGI_FORMAT_B8G8R8A8_UNORM;
-		desc.BindFlags = D3D11_BIND_SHADER_RESOURCE;
-		ASSERT_SUCCESS(device_->CreateTexture2D(&desc, nullptr, &drawPixelsTex_));
-		ASSERT_SUCCESS(device_->CreateShaderResourceView(drawPixelsTex_, nullptr, &drawPixelsTexView_));
-		drawPixelsTexW_ = width;
-		drawPixelsTexH_ = height;
-	}
-
-	if (!drawPixelsTex_) {
-		return;
-	}
-
-	D3D11_MAPPED_SUBRESOURCE map;
-	context_->Map(drawPixelsTex_, 0, D3D11_MAP_WRITE_DISCARD, 0, &map);
-
-	for (int y = 0; y < height; y++) {
-		const u16_le *src16 = (const u16_le *)srcPixels + srcStride * y;
-		const u32_le *src32 = (const u32_le *)srcPixels + srcStride * y;
-		u32 *dst = (u32 *)((u8 *)map.pData + map.RowPitch * y);
-		switch (srcPixelFormat) {
-		case GE_FORMAT_565:
-			ConvertRGB565ToBGRA8888(dst, src16, width);
-			break;
-
-		case GE_FORMAT_5551:
-			ConvertRGBA5551ToBGRA8888(dst, src16, width);
-			break;
-
-		case GE_FORMAT_4444:
-			ConvertRGBA4444ToBGRA8888(dst, src16, width);
-			break;
-
-		case GE_FORMAT_8888:
-			ConvertRGBA8888ToBGRA8888(dst, src32, width);
-			break;
-
-		case GE_FORMAT_INVALID:
-			_dbg_assert_msg_(G3D, false, "Invalid pixelFormat passed to DrawPixels().");
-			break;
-		}
-	}
-
-	context_->Unmap(drawPixelsTex_, 0);
-	context_->PSSetShaderResources(0, 1, &drawPixelsTexView_);
 }
 
 void FramebufferManagerD3D11::DrawActiveTexture(float x, float y, float w, float h, float destW, float destH, float u0, float v0, float u1, float v1, int uvRotation, int flags) {
@@ -418,33 +251,6 @@ void FramebufferManagerD3D11::Bind2DShader() {
 	context_->IASetInputLayout(quadInputLayout_);
 	context_->PSSetShader(quadPixelShader_, 0, 0);
 	context_->VSSetShader(quadVertexShader_, 0, 0);
-}
-
-void FramebufferManagerD3D11::BindPostShader(const PostShaderUniforms &uniforms) {
-	if (!postPixelShader_) {
-		if (usePostShader_) {
-			CompilePostShader();
-		}
-		if (!usePostShader_) {
-			SetNumExtraFBOs(0);
-			context_->IASetInputLayout(quadInputLayout_);
-			context_->PSSetShader(quadPixelShader_, 0, 0);
-			context_->VSSetShader(quadVertexShader_, 0, 0);
-			return;
-		} else {
-			SetNumExtraFBOs(1);
-		}
-	}
-	context_->IASetInputLayout(postInputLayout_);
-	context_->PSSetShader(postPixelShader_, 0, 0);
-	context_->VSSetShader(postVertexShader_, 0, 0);
-
-	D3D11_MAPPED_SUBRESOURCE map;
-	ASSERT_SUCCESS(context_->Map(postConstants_, 0, D3D11_MAP_WRITE_DISCARD, 0, &map));
-	memcpy(map.pData, &uniforms, sizeof(uniforms));
-	context_->Unmap(postConstants_, 0);
-	context_->VSSetConstantBuffers(0, 1, &postConstants_);  // Probably not necessary
-	context_->PSSetConstantBuffers(0, 1, &postConstants_);
 }
 
 void FramebufferManagerD3D11::ReformatFramebufferFrom(VirtualFramebuffer *vfb, GEBufferFormat old) {
@@ -691,42 +497,4 @@ void FramebufferManagerD3D11::EndFrame() {
 
 void FramebufferManagerD3D11::DeviceLost() {
 	DestroyAllFBOs();
-}
-
-void FramebufferManagerD3D11::DestroyAllFBOs() {
-	currentRenderVfb_ = nullptr;
-	displayFramebuf_ = nullptr;
-	prevDisplayFramebuf_ = nullptr;
-	prevPrevDisplayFramebuf_ = nullptr;
-
-	for (size_t i = 0; i < vfbs_.size(); ++i) {
-		VirtualFramebuffer *vfb = vfbs_[i];
-		INFO_LOG(FRAMEBUF, "Destroying FBO for %08x : %i x %i x %i", vfb->fb_address, vfb->width, vfb->height, vfb->format);
-		DestroyFramebuf(vfb);
-	}
-	vfbs_.clear();
-
-	for (size_t i = 0; i < bvfbs_.size(); ++i) {
-		VirtualFramebuffer *vfb = bvfbs_[i];
-		DestroyFramebuf(vfb);
-	}
-	bvfbs_.clear();
-
-	for (auto &tempFB : tempFBOs_) {
-		tempFB.second.fbo->Release();
-	}
-	tempFBOs_.clear();
-
-	SetNumExtraFBOs(0);
-}
-
-void FramebufferManagerD3D11::Resized() {
-	FramebufferManagerCommon::Resized();
-
-	if (UpdateSize()) {
-		DestroyAllFBOs();
-	}
-
-	// Might have a new post shader - let's compile it.
-	CompilePostShader();
 }

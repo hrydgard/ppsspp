@@ -916,7 +916,7 @@ bool TextureCacheCommon::SetOffsetTexture(u32 yOffset) {
 
 	u32 texaddr = gstate.getTextureAddress(0);
 	GETextureFormat fmt = gstate.getTextureFormat();
-	const u32 bpp = fmt == GE_FORMAT_8888 ? 4 : 2;
+	const u32 bpp = fmt == GE_TFMT_8888 ? 4 : 2;
 	const u32 texaddrOffset = yOffset * gstate.getTextureWidth(0) * bpp;
 
 	if (!Memory::IsValidAddress(texaddr) || !Memory::IsValidAddress(texaddr + texaddrOffset)) {
@@ -1178,7 +1178,7 @@ static inline void ConvertFormatToRGBA8888(GETextureFormat format, u32 *dst, con
 		ConvertRGBA5551ToRGBA8888(dst, src, numPixels);
 		break;
 	case GE_TFMT_5650:
-		ConvertRGBA565ToRGBA8888(dst, src, numPixels);
+		ConvertRGB565ToRGBA8888(dst, src, numPixels);
 		break;
 	default:
 		_dbg_assert_msg_(G3D, false, "Incorrect texture format.");

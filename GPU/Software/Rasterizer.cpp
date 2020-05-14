@@ -1169,10 +1169,10 @@ void DrawTriangleSlice(
 	TriangleEdge e2;
 
 	if (byY) {
-		maxY = std::min(maxY, minY + h2 * 16 * 2);
+		maxY = std::min(maxY, minY + h2 * 16 * 2) - 1;
 		minY += h1 * 16 * 2;
 	} else {
-		maxX = std::min(maxX, minX + h2 * 16 * 2);
+		maxX = std::min(maxX, minX + h2 * 16 * 2) - 1;
 		minX += h1 * 16 * 2;
 	}
 
@@ -1187,7 +1187,7 @@ void DrawTriangleSlice(
 
 	Sampler::Funcs sampler = Sampler::GetFuncs();
 
-	for (pprime.y = minY; pprime.y < maxY; pprime.y += 32,
+	for (pprime.y = minY; pprime.y <= maxY; pprime.y += 32,
 										w0_base = e0.StepY(w0_base),
 										w1_base = e1.StepY(w1_base),
 										w2_base = e2.StepY(w2_base)) {
@@ -1197,7 +1197,7 @@ void DrawTriangleSlice(
 
 		// TODO: Maybe we can clip the edges instead?
 		int scissorYPlus1 = pprime.y + 16 > maxY ? -1 : 0;
-		Vec4<int> scissor_mask = Vec4<int>(0, maxX - minX - 1, scissorYPlus1, (maxX - minX - 1) | scissorYPlus1);
+		Vec4<int> scissor_mask = Vec4<int>(0, maxX - minX, scissorYPlus1, (maxX - minX) | scissorYPlus1);
 		Vec4<int> scissor_step = Vec4<int>(0, -32, 0, -32);
 
 		pprime.x = minX;
