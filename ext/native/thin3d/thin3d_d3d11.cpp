@@ -770,17 +770,34 @@ Texture *D3D11DrawContext::CreateTexture(const TextureDesc &desc) {
 		delete tex;
 		return nullptr;
 	}
+
+	auto populateLevelCallback = [&](int level, int w, int h, int d) {
+		D3D11_MAPPED_SUBRESOURCE mapped;
+		hr = context_->Map(tex->stagingTex, level, D3D11_MAP_WRITE, 0, &mapped);
+		if (!SUCCEEDED(hr)) {
+			return false;
+		}
+
+		if (!desc.initDataCallback((uint8_t *)mapped.pData, desc.initData[level], w, h, d, mapped.RowPitch, mapped.DepthPitch)) {
+			for (int s = 0; s < d; ++s) {
+				for (int y = 0; y < h; ++y) {
+					void *dest = (uint8_t *)mapped.pData + mapped.DepthPitch * s + mapped.RowPitch * y;
+					uint32_t byteStride = w * (uint32_t)DataFormatSizeInBytes(desc.format);
+					const void *src = desc.initData[level] + byteStride * (y + h * d);
+					memcpy(dest, src, byteStride);
+				}
+			}
+		}
+		context_->Unmap(tex->stagingTex, level);
+		return true;
+	};
+
 	if (generateMips && desc.initData.size() >= 1) {
 		if (desc.initDataCallback) {
-			D3D11_MAPPED_SUBRESOURCE mapped;
-			hr = context_->Map(tex->stagingTex, 0, D3D11_MAP_WRITE, 0, &mapped);
-			if (!SUCCEEDED(hr)) {
+			if (!populateLevelCallback(0, desc.width, desc.height, desc.depth)) {
 				delete tex;
 				return nullptr;
 			}
-
-			desc.initDataCallback((uint8_t *)mapped.pData, desc.initData[0], desc.width, desc.height, desc.depth, mapped.RowPitch, mapped.DepthPitch);
-			context_->Unmap(tex->tex, 0);
 
 			context_->CopyResource(tex->stagingTex, tex->stagingTex);
 			tex->stagingTex->Release();
@@ -795,9 +812,7 @@ Texture *D3D11DrawContext::CreateTexture(const TextureDesc &desc) {
 		int h = desc.height;
 		int d = desc.depth;
 		for (int i = 0; i < (int)desc.initData.size(); i++) {
-			D3D11_MAPPED_SUBRESOURCE mapped;
-			hr = context_->Map(tex->stagingTex, i, D3D11_MAP_WRITE, 0, &mapped);
-			if (!SUCCEEDED(hr)) {
+			if (!populateLevelCallback(i, desc.width, desc.height, desc.depth)) {
 				if (i == 0) {
 					delete tex;
 					return nullptr;
@@ -805,9 +820,6 @@ Texture *D3D11DrawContext::CreateTexture(const TextureDesc &desc) {
 					break;
 				}
 			}
-
-			desc.initDataCallback((uint8_t *)mapped.pData, desc.initData[i], w, h, d, mapped.RowPitch, mapped.DepthPitch);
-			context_->Unmap(tex->stagingTex, i);
 
 			w = (w + 1) / 2;
 			h = (h + 1) / 2;

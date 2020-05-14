@@ -735,8 +735,9 @@ Draw::Texture *FramebufferManagerCommon::MakePixelTexture(const u8 *srcPixels, G
 			case GE_FORMAT_8888:
 				if (preferredPixelsFormat_ == Draw::DataFormat::B8G8R8A8_UNORM)
 					ConvertRGBA8888ToBGRA8888(dst, src32, width);
+				// This means use original pointer as-is.  May avoid or optimize a copy.
 				else
-					memcpy(dst, src32, 4 * width);
+					return false;
 				break;
 
 			case GE_FORMAT_INVALID:
@@ -744,6 +745,7 @@ Draw::Texture *FramebufferManagerCommon::MakePixelTexture(const u8 *srcPixels, G
 				break;
 			}
 		}
+		return true;
 	};
 
 	Draw::TextureDesc desc{

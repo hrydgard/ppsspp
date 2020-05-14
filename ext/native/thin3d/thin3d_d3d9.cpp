@@ -429,10 +429,11 @@ void D3D9Texture::SetImageData(int x, int y, int z, int width, int height, int d
 			tex_->LockRect(level, &rect, NULL, D3DLOCK_DISCARD);
 
 			if (callback) {
-				callback((uint8_t *)rect.pBits, data, width, height, depth, rect.Pitch, height * rect.Pitch);
-				// Now this is the source.  All conversions below support in-place.
-				data = (const uint8_t *)rect.pBits;
-				stride = rect.Pitch;
+				if (callback((uint8_t *)rect.pBits, data, width, height, depth, rect.Pitch, height * rect.Pitch)) {
+					// Now this is the source.  All conversions below support in-place.
+					data = (const uint8_t *)rect.pBits;
+					stride = rect.Pitch;
+				}
 			}
 
 			for (int i = 0; i < height; i++) {

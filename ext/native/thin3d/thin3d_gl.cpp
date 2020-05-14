@@ -747,8 +747,11 @@ void OpenGLTexture::SetImageData(int x, int y, int z, int width, int height, int
 	// Make a copy of data with stride eliminated.
 	uint8_t *texData = new uint8_t[(size_t)(width * height * depth * alignment)];
 
+	bool texDataPopulated = false;
 	if (callback) {
-		callback(texData, data, width, height, depth, width * (int)alignment, height * width * (int)alignment);
+		texDataPopulated = callback(texData, data, width, height, depth, width * (int)alignment, height * width * (int)alignment);
+	}
+	if (texDataPopulated) {
 		if (format_ == DataFormat::A1R5G5B5_UNORM_PACK16) {
 			format_ = DataFormat::R5G5B5A1_UNORM_PACK16;
 			MoveABit((u16 *)texData, (const u16 *)texData, width * height * depth);
