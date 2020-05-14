@@ -145,7 +145,7 @@ void SoftGPU::ConvertTextureDescFrom16(Draw::TextureDesc &desc, int srcwidth, in
 
 		switch (displayFormat_) {
 		case GE_FORMAT_565:
-			ConvertRGBA565ToRGBA8888(buf_line, fb_line, srcwidth);
+			ConvertRGB565ToRGBA8888(buf_line, fb_line, srcwidth);
 			break;
 
 		case GE_FORMAT_5551:

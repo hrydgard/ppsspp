@@ -1178,7 +1178,7 @@ static inline void ConvertFormatToRGBA8888(GETextureFormat format, u32 *dst, con
 		ConvertRGBA5551ToRGBA8888(dst, src, numPixels);
 		break;
 	case GE_TFMT_5650:
-		ConvertRGBA565ToRGBA8888(dst, src, numPixels);
+		ConvertRGB565ToRGBA8888(dst, src, numPixels);
 		break;
 	default:
 		_dbg_assert_msg_(G3D, false, "Incorrect texture format.");

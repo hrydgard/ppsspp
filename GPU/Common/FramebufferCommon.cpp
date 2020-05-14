@@ -715,7 +715,7 @@ Draw::Texture *FramebufferManagerCommon::MakePixelTexture(const u8 *srcPixels, G
 				if (preferredPixelsFormat_ == Draw::DataFormat::B8G8R8A8_UNORM)
 					ConvertRGB565ToBGRA8888(dst, src16, width);
 				else
-					ConvertRGBA565ToRGBA8888(dst, src16, width);
+					ConvertRGB565ToRGBA8888(dst, src16, width);
 				break;
 
 			case GE_FORMAT_5551:
