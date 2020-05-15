@@ -1066,7 +1066,7 @@ void D3D11DrawContext::ApplyCurrentState() {
 	int numVBs = (int)curPipeline_->input->strides.size();
 	context_->IASetVertexBuffers(0, 1, nextVertexBuffers_, (UINT *)curPipeline_->input->strides.data(), (UINT *)nextVertexBufferOffsets_);
 	if (dirtyIndexBuffer_) {
-		context_->IASetIndexBuffer(nextIndexBuffer_, DXGI_FORMAT_R32_UINT, nextIndexBufferOffset_);
+		context_->IASetIndexBuffer(nextIndexBuffer_, DXGI_FORMAT_R16_UINT, nextIndexBufferOffset_);
 		dirtyIndexBuffer_ = false;
 	}
 	if (curPipeline_->dynamicUniforms) {
@@ -1340,7 +1340,7 @@ void D3D11DrawContext::BeginFrame() {
 	}
 	if (curPipeline_) {
 		context_->IASetVertexBuffers(0, 1, nextVertexBuffers_, (UINT *)curPipeline_->input->strides.data(), (UINT *)nextVertexBufferOffsets_);
-		context_->IASetIndexBuffer(nextIndexBuffer_, DXGI_FORMAT_R32_UINT, nextIndexBufferOffset_);
+		context_->IASetIndexBuffer(nextIndexBuffer_, DXGI_FORMAT_R16_UINT, nextIndexBufferOffset_);
 		if (curPipeline_->dynamicUniforms) {
 			context_->VSSetConstantBuffers(0, 1, &curPipeline_->dynamicUniforms);
 			context_->PSSetConstantBuffers(0, 1, &curPipeline_->dynamicUniforms);

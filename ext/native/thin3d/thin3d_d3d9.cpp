@@ -856,7 +856,7 @@ public:
 	D3D9Buffer(LPDIRECT3DDEVICE9 device, size_t size, uint32_t flags) : vbuffer_(nullptr), ibuffer_(nullptr), maxSize_(size) {
 		if (flags & BufferUsageFlag::INDEXDATA) {
 			DWORD usage = D3DUSAGE_DYNAMIC;
-			device->CreateIndexBuffer((UINT)size, usage, D3DFMT_INDEX32, D3DPOOL_DEFAULT, &ibuffer_, NULL);
+			device->CreateIndexBuffer((UINT)size, usage, D3DFMT_INDEX16, D3DPOOL_DEFAULT, &ibuffer_, NULL);
 		} else {
 			DWORD usage = D3DUSAGE_DYNAMIC;
 			device->CreateVertexBuffer((UINT)size, usage, 0, D3DPOOL_DEFAULT, &vbuffer_, NULL);
