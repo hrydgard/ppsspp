@@ -1214,6 +1214,12 @@ void Config::Load(const char *iniFileName, const char *controllerIniFilename) {
 		}
 	}
 
+	auto postShaderSetting = iniFile.GetOrCreateSection("PostShaderSetting")->ToMap();
+	mPostShaderSetting.clear();
+	for (auto it = postShaderSetting.begin(), end = postShaderSetting.end(); it != end; ++it) {
+		mPostShaderSetting.insert(std::pair<std::string, float>(it->first, std::stof(it->second)));
+	}
+
 	// This caps the exponent 4 (so 16x.)
 	if (iAnisotropyLevel > 4) {
 		iAnisotropyLevel = 4;
@@ -1323,6 +1329,14 @@ void Config::Save(const char *saveReason) {
 			char keyName[64];
 			snprintf(keyName, sizeof(keyName), "Path%d", (int)i);
 			pinnedPaths->Set(keyName, vPinnedPaths[i]);
+		}
+
+		if (!bGameSpecific) {
+			IniFile::Section *postShaderSetting = iniFile.GetOrCreateSection("PostShaderSetting");
+			postShaderSetting->Clear();
+			for (auto it = mPostShaderSetting.begin(), end = mPostShaderSetting.end(); it != end; ++it) {
+				postShaderSetting->Set(it->first.c_str(), it->second);
+			}
 		}
 
 		IniFile::Section *control = iniFile.GetOrCreateSection("Control");
@@ -1575,6 +1589,12 @@ bool Config::saveGameConfig(const std::string &pGameId, const std::string &title
 		}
 	});
 
+	IniFile::Section *postShaderSetting = iniFile.GetOrCreateSection("PostShaderSetting");
+	postShaderSetting->Clear();
+	for (auto it = mPostShaderSetting.begin(), end = mPostShaderSetting.end(); it != end; ++it) {
+		postShaderSetting->Set(it->first.c_str(), it->second);
+	}
+
 	KeyMap::SaveToIni(iniFile);
 	iniFile.Save(fullIniFilePath);
 
@@ -1592,6 +1612,12 @@ bool Config::loadGameConfig(const std::string &pGameId, const std::string &title
 	changeGameSpecific(pGameId, title);
 	IniFile iniFile;
 	iniFile.Load(iniFileNameFull);
+
+	auto postShaderSetting = iniFile.GetOrCreateSection("PostShaderSetting")->ToMap();
+	mPostShaderSetting.clear();
+	for (auto it = postShaderSetting.begin(), end = postShaderSetting.end(); it != end; ++it) {
+		mPostShaderSetting.insert(std::pair<std::string, float>(it->first, std::stof(it->second)));
+	}
 
 	IterateSettings(iniFile, [](IniFile::Section *section, ConfigSetting *setting) {
 		if (setting->perGame_) {

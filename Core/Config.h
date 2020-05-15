@@ -225,6 +225,7 @@ public:
 	float fPostShaderMaxSettingValue4;
 	float fPostShaderMinSettingValue4;
 	float fPostShaderSettingStep4;
+	std::map<std::string, float> mPostShaderSetting;
 	bool bGfxDebugOutput;
 	bool bGfxDebugSplitSubmit;
 	int iInflightFrames;
