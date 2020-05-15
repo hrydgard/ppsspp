@@ -684,6 +684,12 @@ u32 GPUCommon::EnqueueList(u32 listpc, u32 stall, int subIntrBase, PSPPointer<Ps
 		return SCE_KERNEL_ERROR_INVALID_SIZE;
 	}
 	
+	if (stall == 0 & subIntrBase == 0) {
+		ERROR_LOG_REPORT(G3D, "sceGeListEnqueue: invalid size stall=%08x, subIntrBase=%d)",
+			stall, subIntrBase);
+		return SCE_KERNEL_ERROR_INVALID_SIZE;
+	}
+
 	int id = -1;
 	u64 currentTicks = CoreTiming::GetTicks();
 	u32_le stackAddr = args.IsValid() ? args->stackAddr : 0;
