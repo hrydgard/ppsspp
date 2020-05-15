@@ -44,6 +44,26 @@ void LoadPostShaderInfo(std::vector<std::string> directories) {
 	off.isUpscalingFilter = false;
 	off.SSAAFilterLevel = 0;
 	off.requires60fps = false;
+	off.settingName1 = "";
+	off.settingValue1 = 0.0f;
+	off.minSettingValue1 = -1.0f;
+	off.maxSettingValue1 = 1.0f;
+	off.settingStep1 = 0.01f;
+	off.settingName2 = "";
+	off.settingValue2 = 0.0f;
+	off.minSettingValue2 = -1.0f;
+	off.maxSettingValue2 = 1.0f;
+	off.settingStep2 = 0.01f;
+	off.settingName3 = "";
+	off.settingValue3 = 0.0f;
+	off.minSettingValue3 = -1.0f;
+	off.maxSettingValue3 = 1.0f;
+	off.settingStep3 = 0.01f;
+	off.settingName4 = "";
+	off.settingValue4 = 0.0f;
+	off.minSettingValue4 = -1.0f;
+	off.maxSettingValue4 = 1.0f;
+	off.settingStep4 = 0.01f;
 	shaderInfo.push_back(off);
 
 	for (size_t d = 0; d < directories.size(); d++) {
@@ -90,7 +110,26 @@ void LoadPostShaderInfo(std::vector<std::string> directories) {
 					section.Get("Upscaling", &info.isUpscalingFilter, false);
 					section.Get("SSAA", &info.SSAAFilterLevel, 0);
 					section.Get("60fps", &info.requires60fps, false);
-
+					section.Get("SettingName1", &info.settingName1, "");
+					section.Get("SettingDefaultValue1", &info.settingValue1, 0.0f);
+					section.Get("SettingMinValue1", &info.minSettingValue1, -1.0f);
+					section.Get("SettingMaxValue1", &info.maxSettingValue1, 1.0f);
+					section.Get("SettingStep1", &info.settingStep1, 0.01f);
+					section.Get("SettingName2", &info.settingName2, "");
+					section.Get("SettingDefaultValue2", &info.settingValue2, 0.0f);
+					section.Get("SettingMinValue2", &info.minSettingValue2, -1.0f);
+					section.Get("SettingMaxValue2", &info.maxSettingValue2, 1.0f);
+					section.Get("SettingStep2", &info.settingStep2, 0.01f);
+					section.Get("SettingName3", &info.settingName3, "");
+					section.Get("SettingDefaultValue3", &info.settingValue3, 0.0f);
+					section.Get("SettingMinValue3", &info.minSettingValue3, -1.0f);
+					section.Get("SettingMaxValue3", &info.maxSettingValue3, 1.0f);
+					section.Get("SettingStep3", &info.settingStep3, 0.01f);
+					section.Get("SettingName4", &info.settingName4, "");
+					section.Get("SettingDefaultValue4", &info.settingValue4, 0.0f);
+					section.Get("SettingMinValue4", &info.minSettingValue4, -1.0f);
+					section.Get("SettingMaxValue4", &info.maxSettingValue4, 1.0f);
+					section.Get("SettingStep4", &info.settingStep4, 0.01f);
 					// Let's ignore shaders we can't support. TODO: Not a very good check
 					if (gl_extensions.IsGLES && !gl_extensions.GLES3) {
 						bool requiresIntegerSupport;

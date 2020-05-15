@@ -8,13 +8,13 @@ precision mediump int;
 uniform sampler2D sampler0;
 varying vec2 v_texcoord0;
 
-float amount = 1.0; // suitable range = 0.0 - 1.0
-float intensity = 0.5; // suitable range = 0.0 - 1.0
+uniform float u_setting1; // float amount = 1.0; // suitable range = 0.0 - 1.0
+uniform float u_setting2; // float intensity = 0.5; // suitable range = 0.0 - 1.0
 
 void main()
 {
-  float pos0 = ((v_texcoord0.y + 1.0) * 170.0*amount);
-  float pos1 = cos((fract( pos0 ) - 0.5)*3.1415926*intensity)*1.5;
+  float pos0 = ((v_texcoord0.y + 1.0) * 170.0*u_setting1);
+  float pos1 = cos((fract( pos0 ) - 0.5)*3.1415926*u_setting2)*1.5;
   vec4 rgb = texture2D( sampler0, v_texcoord0 );
   
   // slight contrast curve

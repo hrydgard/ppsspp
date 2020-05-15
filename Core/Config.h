@@ -205,6 +205,26 @@ public:
 	int iSplineBezierQuality; // 0 = low , 1 = Intermediate , 2 = High
 	bool bHardwareTessellation;
 	std::string sPostShaderName;  // Off for off.
+	std::string sPostShaderSettingName1;
+	float fPostShaderSettingValue1;
+	float fPostShaderMaxSettingValue1;
+	float fPostShaderMinSettingValue1;
+	float fPostShaderSettingStep1;
+	std::string sPostShaderSettingName2;
+	float fPostShaderSettingValue2;
+	float fPostShaderMaxSettingValue2;
+	float fPostShaderMinSettingValue2;
+	float fPostShaderSettingStep2;
+	std::string sPostShaderSettingName3;
+	float fPostShaderSettingValue3;
+	float fPostShaderMaxSettingValue3;
+	float fPostShaderMinSettingValue3;
+	float fPostShaderSettingStep3;
+	std::string sPostShaderSettingName4;
+	float fPostShaderSettingValue4;
+	float fPostShaderMaxSettingValue4;
+	float fPostShaderMinSettingValue4;
+	float fPostShaderSettingStep4;
 	bool bGfxDebugOutput;
 	bool bGfxDebugSplitSubmit;
 	int iInflightFrames;

@@ -317,6 +317,30 @@ void PostProcScreen::OnCompleted(DialogResult result) {
 	if (result != DR_OK)
 		return;
 	g_Config.sPostShaderName = shaders_[listView_->GetSelected()].section;
+
+	g_Config.sPostShaderSettingName1 = shaders_[listView_->GetSelected()].settingName1;
+	g_Config.fPostShaderSettingValue1 = shaders_[listView_->GetSelected()].settingValue1;
+	g_Config.fPostShaderMaxSettingValue1 = shaders_[listView_->GetSelected()].maxSettingValue1;
+	g_Config.fPostShaderMinSettingValue1 = shaders_[listView_->GetSelected()].minSettingValue1;
+	g_Config.fPostShaderSettingStep1 = shaders_[listView_->GetSelected()].settingStep1;
+
+	g_Config.sPostShaderSettingName2 = shaders_[listView_->GetSelected()].settingName2;
+	g_Config.fPostShaderSettingValue2 = shaders_[listView_->GetSelected()].settingValue2;
+	g_Config.fPostShaderMaxSettingValue2 = shaders_[listView_->GetSelected()].maxSettingValue2;
+	g_Config.fPostShaderMinSettingValue2 = shaders_[listView_->GetSelected()].minSettingValue2;
+	g_Config.fPostShaderSettingStep2 = shaders_[listView_->GetSelected()].settingStep2;
+
+	g_Config.sPostShaderSettingName3 = shaders_[listView_->GetSelected()].settingName3;
+	g_Config.fPostShaderSettingValue3 = shaders_[listView_->GetSelected()].settingValue3;
+	g_Config.fPostShaderMaxSettingValue3 = shaders_[listView_->GetSelected()].maxSettingValue3;
+	g_Config.fPostShaderMinSettingValue3 = shaders_[listView_->GetSelected()].minSettingValue3;
+	g_Config.fPostShaderSettingStep3 = shaders_[listView_->GetSelected()].settingStep3;
+
+	g_Config.sPostShaderSettingName4 = shaders_[listView_->GetSelected()].settingName4;
+	g_Config.fPostShaderSettingValue4 = shaders_[listView_->GetSelected()].settingValue4;
+	g_Config.fPostShaderMaxSettingValue4 = shaders_[listView_->GetSelected()].maxSettingValue4;
+	g_Config.fPostShaderMinSettingValue4 = shaders_[listView_->GetSelected()].minSettingValue4;
+	g_Config.fPostShaderSettingStep4 = shaders_[listView_->GetSelected()].settingStep4;
 }
 
 NewLanguageScreen::NewLanguageScreen(const std::string &title) : ListPopupScreen(title) {

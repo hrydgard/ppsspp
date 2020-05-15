@@ -290,6 +290,15 @@ void GameSettingsScreen::CreateViews() {
 		return g_Config.iRenderingMode != FB_NON_BUFFERED_MODE;
 	});
 
+	if (g_Config.sPostShaderSettingName1 != "")
+		graphicsSettings->Add(new PopupSliderChoiceFloat(&g_Config.fPostShaderSettingValue1, g_Config.fPostShaderMinSettingValue1, g_Config.fPostShaderMaxSettingValue1, g_Config.sPostShaderSettingName1, g_Config.fPostShaderSettingStep1, screenManager()));
+	if (g_Config.sPostShaderSettingName2 != "")
+		graphicsSettings->Add(new PopupSliderChoiceFloat(&g_Config.fPostShaderSettingValue2, g_Config.fPostShaderMinSettingValue2, g_Config.fPostShaderMaxSettingValue2, g_Config.sPostShaderSettingName2, g_Config.fPostShaderSettingStep2, screenManager()));
+	if (g_Config.sPostShaderSettingName3 != "")
+		graphicsSettings->Add(new PopupSliderChoiceFloat(&g_Config.fPostShaderSettingValue3, g_Config.fPostShaderMinSettingValue3, g_Config.fPostShaderMaxSettingValue3, g_Config.sPostShaderSettingName3, g_Config.fPostShaderSettingStep3, screenManager()));
+	if (g_Config.sPostShaderSettingName4 != "")
+		graphicsSettings->Add(new PopupSliderChoiceFloat(&g_Config.fPostShaderSettingValue4, g_Config.fPostShaderMinSettingValue4, g_Config.fPostShaderMaxSettingValue4, g_Config.sPostShaderSettingName4, g_Config.fPostShaderSettingStep4, screenManager()));
+
 #if !defined(MOBILE_DEVICE)
 	graphicsSettings->Add(new CheckBox(&g_Config.bFullScreen, gr->T("FullScreen", "Full Screen")))->OnClick.Handle(this, &GameSettingsScreen::OnFullscreenChange);
 	if (System_GetPropertyInt(SYSPROP_DISPLAY_COUNT) > 1) {
@@ -1413,12 +1422,13 @@ UI::EventReturn GameSettingsScreen::OnPostProcShader(UI::EventParams &e) {
 
 UI::EventReturn GameSettingsScreen::OnPostProcShaderChange(UI::EventParams &e) {
 	NativeMessageReceived("gpu_resized", "");
+	RecreateViews(); // Update setting name
 	return UI::EVENT_DONE;
 }
 
 UI::EventReturn GameSettingsScreen::OnDeveloperTools(UI::EventParams &e) {
-screenManager()->push(new DeveloperToolsScreen());
-return UI::EVENT_DONE;
+	screenManager()->push(new DeveloperToolsScreen());
+	return UI::EVENT_DONE;
 }
 
 UI::EventReturn GameSettingsScreen::OnRemoteISO(UI::EventParams &e) {
