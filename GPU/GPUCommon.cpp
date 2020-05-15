@@ -459,6 +459,11 @@ void GPUCommon::Reinitialize() {
 	busyTicks = 0;
 	timeSpentStepping_ = 0.0;
 	interruptsEnabled_ = true;
+
+	if (textureCache_)
+		textureCache_->Clear(true);
+	if (framebufferManager_)
+		framebufferManager_->DestroyAllFBOs();
 }
 
 void GPUCommon::UpdateVsyncInterval(bool force) {
@@ -673,7 +678,12 @@ u32 GPUCommon::EnqueueList(u32 listpc, u32 stall, int subIntrBase, PSPPointer<Ps
 		ERROR_LOG_REPORT(G3D, "sceGeListEnqueue: invalid address %08x", listpc);
 		return SCE_KERNEL_ERROR_INVALID_POINTER;
 	}
-
+	
+	if (args.IsValid() && args->size >= 256) {
+		ERROR_LOG_REPORT(G3D, "sceGeListEnqueue: invalid size %d", args->size);
+		return SCE_KERNEL_ERROR_INVALID_SIZE;
+	}
+	
 	int id = -1;
 	u64 currentTicks = CoreTiming::GetTicks();
 	u32_le stackAddr = args.IsValid() ? args->stackAddr : 0;

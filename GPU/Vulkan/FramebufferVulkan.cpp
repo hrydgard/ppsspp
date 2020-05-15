@@ -21,10 +21,8 @@
 #include "profiler/profiler.h"
 
 #include "base/display.h"
-#include "base/timeutil.h"
 #include "math/lin/matrix4x4.h"
 #include "math/dataconv.h"
-#include "ext/native/file/vfs.h"
 #include "ext/native/thin3d/thin3d.h"
 
 #include "Common/Vulkan/VulkanContext.h"
@@ -32,7 +30,6 @@
 #include "Common/Vulkan/VulkanImage.h"
 #include "thin3d/VulkanRenderManager.h"
 #include "Common/ColorConv.h"
-#include "Core/Host.h"
 #include "Core/MemMap.h"
 #include "Core/Config.h"
 #include "Core/ConfigValues.h"
@@ -40,17 +37,12 @@
 #include "Core/Reporting.h"
 #include "Core/HLE/sceDisplay.h"
 #include "GPU/ge_constants.h"
+#include "GPU/GPUInterface.h"
 #include "GPU/GPUState.h"
 
-#include "GPU/Common/ShaderTranslation.h"
-#include "GPU/Common/PostShader.h"
 #include "GPU/Common/TextureDecoder.h"
 #include "GPU/Common/FramebufferCommon.h"
 #include "GPU/Debugger/Stepping.h"
-
-#include "GPU/GPUInterface.h"
-#include "GPU/GPUState.h"
-#include "Common/Vulkan/VulkanImage.h"
 #include "GPU/Vulkan/FramebufferVulkan.h"
 #include "GPU/Vulkan/DrawEngineVulkan.h"
 #include "GPU/Vulkan/TextureCacheVulkan.h"
@@ -84,6 +76,7 @@ void main() {
 FramebufferManagerVulkan::FramebufferManagerVulkan(Draw::DrawContext *draw, VulkanContext *vulkan) :
 	FramebufferManagerCommon(draw),
 	vulkan_(vulkan) {
+	presentation_->SetLanguage(GLSL_VULKAN);
 
 	DeviceRestore(vulkan, draw);
 
@@ -92,8 +85,6 @@ FramebufferManagerVulkan::FramebufferManagerVulkan(Draw::DrawContext *draw, Vulk
 }
 
 FramebufferManagerVulkan::~FramebufferManagerVulkan() {
-	delete[] convBuf_;
-
 	DeviceLost();
 }
 
@@ -134,9 +125,6 @@ void FramebufferManagerVulkan::InitDeviceObjects() {
 }
 
 void FramebufferManagerVulkan::DestroyDeviceObjects() {
-	delete drawPixelsTex_;
-	drawPixelsTex_ = nullptr;
-
 	if (fsBasicTex_ != VK_NULL_HANDLE) {
 		vulkan2D_->PurgeFragmentShader(fsBasicTex_);
 		vulkan_->Delete().QueueDeleteShaderModule(fsBasicTex_);
@@ -158,16 +146,6 @@ void FramebufferManagerVulkan::DestroyDeviceObjects() {
 		vulkan_->Delete().QueueDeleteSampler(linearSampler_);
 	if (nearestSampler_ != VK_NULL_HANDLE)
 		vulkan_->Delete().QueueDeleteSampler(nearestSampler_);
-
-	if (postVs_) {
-		vulkan2D_->PurgeVertexShader(postVs_);
-		vulkan_->Delete().QueueDeleteShaderModule(postVs_);
-	}
-	if (postFs_) {
-		vulkan2D_->PurgeFragmentShader(postFs_);
-		vulkan_->Delete().QueueDeleteShaderModule(postFs_);
-	}
-	pipelinePostShader_ = VK_NULL_HANDLE;  // actual pipeline should get destroyed by vulkan2d.
 }
 
 void FramebufferManagerVulkan::NotifyClear(bool clearColor, bool clearAlpha, bool clearDepth, uint32_t color, float depth) {
@@ -196,90 +174,6 @@ void FramebufferManagerVulkan::Init() {
 	FramebufferManagerCommon::Init();
 	// Workaround for upscaling shaders where we force x1 resolution without saving it
 	Resized();
-}
-
-void FramebufferManagerVulkan::MakePixelTexture(const u8 *srcPixels, GEBufferFormat srcPixelFormat, int srcStride, int width, int height, float &u1, float &v1) {
-	if (drawPixelsTex_) {
-		delete drawPixelsTex_;
-		drawPixelsTex_ = nullptr;
-	}
-
-	VkCommandBuffer initCmd = (VkCommandBuffer)draw_->GetNativeObject(Draw::NativeObject::INIT_COMMANDBUFFER);
-
-	// There's only ever a few of these alive, don't need to stress the allocator with these big ones.
-	// OR NOT! Hot Shot Golf (#12355) does tons of these in a frame in some situations! So actually,
-	// we do use an allocator. In fact, I've now banned allocator-less textures.
-
-	drawPixelsTex_ = new VulkanTexture(vulkan_);
-	drawPixelsTex_->SetTag("DrawPixels");
-	if (!drawPixelsTex_->CreateDirect(initCmd, allocator_, width, height, 1, VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT)) {
-		// out of memory?
-		delete drawPixelsTex_;
-		drawPixelsTex_ = nullptr;
-		overrideImageView_ = VK_NULL_HANDLE;
-		return;
-	}
-	// Initialize backbuffer texture for DrawPixels
-	drawPixelsTexFormat_ = srcPixelFormat;
-
-	// TODO: We can just change the texture format and flip some bits around instead of this.
-	// Could share code with the texture cache perhaps.
-	// TODO: Could also convert directly into the pushbuffer easily.
-	const uint8_t *data = srcPixels;
-	if (srcPixelFormat != GE_FORMAT_8888 || srcStride != width) {
-		u32 neededSize = width * height * 4;
-		if (!convBuf_ || convBufSize_ < neededSize) {
-			delete[] convBuf_;
-			convBuf_ = new u8[neededSize];
-			convBufSize_ = neededSize;
-		}
-		data = convBuf_;
-		for (int y = 0; y < height; y++) {
-			const u16_le *src16 = (const u16_le *)srcPixels + srcStride * y;
-			const u32_le *src32 = (const u32_le *)srcPixels + srcStride * y;
-			u32 *dst = (u32 *)convBuf_ + width * y;
-			switch (srcPixelFormat) {
-			case GE_FORMAT_565:
-				ConvertRGBA565ToRGBA8888((u32 *)dst, src16, width);
-				break;
-
-			case GE_FORMAT_5551:
-				ConvertRGBA5551ToRGBA8888((u32 *)dst, src16, width);
-				break;
-
-			case GE_FORMAT_4444:
-				ConvertRGBA4444ToRGBA8888((u32 *)dst, src16, width);
-				break;
-
-			case GE_FORMAT_8888:
-				memcpy(dst, src32, 4 * width);
-				break;
-
-			case GE_FORMAT_INVALID:
-				_dbg_assert_msg_(G3D, false, "Invalid pixelFormat passed to DrawPixels().");
-				break;
-			}
-		}
-	}
-
-	VkBuffer buffer;
-	size_t offset = push_->Push(data, width * height * 4, &buffer);
-	drawPixelsTex_->UploadMip(initCmd, 0, width, height, buffer, (uint32_t)offset, width);
-	drawPixelsTex_->EndCreate(initCmd);
-
-	overrideImageView_ = drawPixelsTex_->GetImageView();
-}
-
-void FramebufferManagerVulkan::SetViewport2D(int x, int y, int w, int h) {
-	Draw::Viewport vp;
-	vp.MinDepth = 0.0;
-	vp.MaxDepth = 1.0;
-	vp.TopLeftX = (float)x;
-	vp.TopLeftY = (float)y;
-	vp.Width = (float)w;
-	vp.Height = (float)h;
-	// Since we're about to override it.
-	draw_->SetViewports(1, &vp);
 }
 
 void FramebufferManagerVulkan::DrawActiveTexture(float x, float y, float w, float h, float destW, float destH, float u0, float v0, float u1, float v1, int uvRotation, int flags) {
@@ -334,42 +228,17 @@ void FramebufferManagerVulkan::DrawActiveTexture(float x, float y, float w, floa
 
 	VulkanRenderManager *renderManager = (VulkanRenderManager *)draw_->GetNativeObject(Draw::NativeObject::RENDER_MANAGER);
 
-	VkImageView view = overrideImageView_ ? overrideImageView_ : (VkImageView)draw_->GetNativeObject(Draw::NativeObject::BOUND_TEXTURE0_IMAGEVIEW);
-	if ((flags & DRAWTEX_KEEP_TEX) == 0)
-		overrideImageView_ = VK_NULL_HANDLE;
+	VkImageView view = (VkImageView)draw_->GetNativeObject(Draw::NativeObject::BOUND_TEXTURE0_IMAGEVIEW);
 	VkDescriptorSet descSet = vulkan2D_->GetDescriptorSet(view, (flags & DRAWTEX_LINEAR) ? linearSampler_ : nearestSampler_, VK_NULL_HANDLE, VK_NULL_HANDLE);
 	VkBuffer vbuffer;
 	VkDeviceSize offset = push_->Push(vtx, sizeof(vtx), &vbuffer);
 	renderManager->BindPipeline(cur2DPipeline_);
-	if (cur2DPipeline_ == pipelinePostShader_) {
-		renderManager->PushConstants(vulkan2D_->GetPipelineLayout(), VK_SHADER_STAGE_FRAGMENT_BIT | VK_SHADER_STAGE_VERTEX_BIT, 0, (int)sizeof(postShaderUniforms_), &postShaderUniforms_);
-	}
 	renderManager->Draw(vulkan2D_->GetPipelineLayout(), descSet, 0, nullptr, vbuffer, offset, 4);
 }
 
 void FramebufferManagerVulkan::Bind2DShader() {
 	VkRenderPass rp = (VkRenderPass)draw_->GetNativeObject(Draw::NativeObject::COMPATIBLE_RENDERPASS);
 	cur2DPipeline_ = vulkan2D_->GetPipeline(rp, vsBasicTex_, fsBasicTex_);
-}
-
-void FramebufferManagerVulkan::BindPostShader(const PostShaderUniforms &uniforms) {
-	if (!pipelinePostShader_) {
-		if (usePostShader_) {
-			CompilePostShader();
-		}
-		if (!usePostShader_) {
-			SetNumExtraFBOs(0);
-			Bind2DShader();
-			return;
-		} else {
-			SetNumExtraFBOs(1);
-		}
-	}
-
-	postShaderUniforms_ = uniforms;
-	cur2DPipeline_ = pipelinePostShader_;
-
-	gstate_c.Dirty(DIRTY_VERTEXSHADER_STATE);
 }
 
 int FramebufferManagerVulkan::GetLineWidth() {
@@ -554,6 +423,7 @@ void FramebufferManagerVulkan::EndFrame() {
 void FramebufferManagerVulkan::DeviceLost() {
 	DestroyAllFBOs();
 	DestroyDeviceObjects();
+	presentation_->DeviceLost();
 
 	if (allocator_) {
 		allocator_->Destroy();
@@ -570,131 +440,11 @@ void FramebufferManagerVulkan::DeviceLost() {
 void FramebufferManagerVulkan::DeviceRestore(VulkanContext *vulkan, Draw::DrawContext *draw) {
 	vulkan_ = vulkan;
 	draw_ = draw;
+	presentation_->DeviceRestore(draw);
 
 	_assert_(!allocator_);
 
 	allocator_ = new VulkanDeviceAllocator(vulkan_, 1 * 1024 * 1024, 8 * 1024 * 1024);
 
 	InitDeviceObjects();
-}
-
-void FramebufferManagerVulkan::DestroyAllFBOs() {
-	currentRenderVfb_ = 0;
-	displayFramebuf_ = 0;
-	prevDisplayFramebuf_ = 0;
-	prevPrevDisplayFramebuf_ = 0;
-
-	for (size_t i = 0; i < vfbs_.size(); ++i) {
-		VirtualFramebuffer *vfb = vfbs_[i];
-		INFO_LOG(FRAMEBUF, "Destroying FBO for %08x : %i x %i x %i", vfb->fb_address, vfb->width, vfb->height, vfb->format);
-		DestroyFramebuf(vfb);
-	}
-	vfbs_.clear();
-
-	for (size_t i = 0; i < bvfbs_.size(); ++i) {
-		VirtualFramebuffer *vfb = bvfbs_[i];
-		DestroyFramebuf(vfb);
-	}
-	bvfbs_.clear();
-
-	for (auto &tempFB : tempFBOs_) {
-		tempFB.second.fbo->Release();
-	}
-	tempFBOs_.clear();
-
-	SetNumExtraFBOs(0);
-}
-
-void FramebufferManagerVulkan::Resized() {
-	FramebufferManagerCommon::Resized();
-
-	if (UpdateSize()) {
-		DestroyAllFBOs();
-	}
-
-	// Might have a new post shader - let's compile it.
-	CompilePostShader();
-}
-
-void FramebufferManagerVulkan::CompilePostShader() {
-	if (postVs_) {
-		vulkan2D_->PurgeVertexShader(postVs_);
-		vulkan_->Delete().QueueDeleteShaderModule(postVs_);
-	}
-	if (postFs_) {
-		vulkan2D_->PurgeFragmentShader(postFs_);
-		vulkan_->Delete().QueueDeleteShaderModule(postFs_);
-	}
-
-	const ShaderInfo *shaderInfo = nullptr;
-	if (g_Config.sPostShaderName == "Off") {
-		usePostShader_ = false;
-		return;
-	}
-
-	usePostShader_ = false;
-
-	ReloadAllPostShaderInfo();
-	shaderInfo = GetPostShaderInfo(g_Config.sPostShaderName);
-	std::string errorVSX, errorFSX;
-	std::string vsSource;
-	std::string fsSource;
-	if (shaderInfo) {
-		postShaderAtOutputResolution_ = shaderInfo->outputResolution;
-		size_t sz;
-		char *vs = (char *)VFSReadFile(shaderInfo->vertexShaderFile.c_str(), &sz);
-		if (!vs)
-			return;
-		char *fs = (char *)VFSReadFile(shaderInfo->fragmentShaderFile.c_str(), &sz);
-		if (!fs) {
-			free(vs);
-			return;
-		}
-		std::string vsSourceGLSL = vs;
-		std::string fsSourceGLSL = fs;
-		free(vs);
-		free(fs);
-		TranslatedShaderMetadata metaVS, metaFS;
-		if (!TranslateShader(&vsSource, GLSL_VULKAN, &metaVS, vsSourceGLSL, GLSL_140, Draw::ShaderStage::VERTEX, &errorVSX))
-			return;
-		if (!TranslateShader(&fsSource, GLSL_VULKAN, &metaFS, fsSourceGLSL, GLSL_140, Draw::ShaderStage::FRAGMENT, &errorFSX))
-			return;
-	} else {
-		return;
-	}
-
-	// TODO: Delete the old pipeline?
-
-	std::string errorVS;
-	std::string errorFS;
-	postVs_ = CompileShaderModule(vulkan_, VK_SHADER_STAGE_VERTEX_BIT, vsSource.c_str(), &errorVS);
-	postFs_ = CompileShaderModule(vulkan_, VK_SHADER_STAGE_FRAGMENT_BIT, fsSource.c_str(), &errorFS);
-
-	VkRenderPass backbufferRP = (VkRenderPass)draw_->GetNativeObject(Draw::NativeObject::BACKBUFFER_RENDERPASS);
-
-	if (postVs_ && postFs_) {
-		pipelinePostShader_ = vulkan2D_->GetPipeline(backbufferRP, postVs_, postFs_, true, Vulkan2D::VK2DDepthStencilMode::NONE);
-		usePostShader_ = true;
-	} else {
-		ELOG("Failed to compile.");
-		pipelinePostShader_ = VK_NULL_HANDLE;
-		usePostShader_ = false;
-
-		std::string firstLine;
-		std::string errorString = errorVS + "\n" + errorFS;
-		size_t start = 0;
-		for (size_t i = 0; i < errorString.size(); i++) {
-			if (errorString[i] == '\n' && i == start) {
-				start = i + 1;
-			} else if (errorString[i] == '\n') {
-				firstLine = errorString.substr(start, i - start);
-				break;
-			}
-		}
-		if (!firstLine.empty()) {
-			host->NotifyUserMessage("Post-shader error: " + firstLine + "...", 10.0f, 0xFF3090FF);
-		} else {
-			host->NotifyUserMessage("Post-shader error, see log for details", 10.0f, 0xFF3090FF);
-		}
-	}
 }

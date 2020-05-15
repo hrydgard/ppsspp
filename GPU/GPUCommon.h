@@ -304,10 +304,10 @@ protected:
 		}
 	}
 
-	FramebufferManagerCommon *framebufferManager_;
-	TextureCacheCommon *textureCache_;
-	DrawEngineCommon *drawEngineCommon_;
-	ShaderManagerCommon *shaderManager_;
+	FramebufferManagerCommon *framebufferManager_ = nullptr;
+	TextureCacheCommon *textureCache_ = nullptr;
+	DrawEngineCommon *drawEngineCommon_ = nullptr;
+	ShaderManagerCommon *shaderManager_ = nullptr;
 
 	GraphicsContext *gfxCtx_;
 	Draw::DrawContext *draw_;

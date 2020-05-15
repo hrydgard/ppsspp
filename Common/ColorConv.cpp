@@ -278,7 +278,7 @@ void ConvertRGBA8888ToRGBA4444(u16 *dst, const u32 *src, u32 numPixels) {
 	}
 }
 
-void ConvertRGBA565ToRGBA8888(u32 *dst32, const u16 *src, u32 numPixels) {
+void ConvertRGB565ToRGBA8888(u32 *dst32, const u16 *src, u32 numPixels) {
 #ifdef _M_SSE
 	const __m128i mask5 = _mm_set1_epi16(0x001f);
 	const __m128i mask6 = _mm_set1_epi16(0x003f);
@@ -435,7 +435,7 @@ void ConvertRGBA4444ToRGBA8888(u32 *dst32, const u16 *src, u32 numPixels) {
 	}
 }
 
-void ConvertABGR565ToRGBA8888(u32 *dst32, const u16 *src, u32 numPixels) {
+void ConvertBGR565ToRGBA8888(u32 *dst32, const u16 *src, u32 numPixels) {
 	u8 *dst = (u8 *)dst32;
 	for (u32 x = 0; x < numPixels; x++) {
 		u16 col = src[x];

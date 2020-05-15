@@ -60,7 +60,7 @@ public:
 	Buffer *CreateBuffer(size_t size, uint32_t usageFlags) override;
 	Pipeline *CreateGraphicsPipeline(const PipelineDesc &desc) override;
 	Texture *CreateTexture(const TextureDesc &desc) override;
-	ShaderModule *CreateShaderModule(ShaderStage stage, ShaderLanguage language, const uint8_t *data, size_t dataSize) override;
+	ShaderModule *CreateShaderModule(ShaderStage stage, ShaderLanguage language, const uint8_t *data, size_t dataSize, const std::string &tag) override;
 	Framebuffer *CreateFramebuffer(const FramebufferDesc &desc) override;
 
 	void UpdateBuffer(Buffer *buffer, const uint8_t *data, size_t offset, size_t size, UpdateBufferFlags flags) override;
@@ -689,16 +689,18 @@ public:
 	~D3D11Texture() {
 		if (tex)
 			tex->Release();
+		if (stagingTex)
+			stagingTex->Release();
 		if (view)
 			view->Release();
 	}
 
 	ID3D11Texture2D *tex = nullptr;
+	ID3D11Texture2D *stagingTex = nullptr;
 	ID3D11ShaderResourceView *view = nullptr;
 };
 
 Texture *D3D11DrawContext::CreateTexture(const TextureDesc &desc) {
-
 	if (!(GetDataFormatSupport(desc.format) & FMT_TEXTURE)) {
 		// D3D11 does not support this format as a texture format.
 		return nullptr;
@@ -720,25 +722,45 @@ Texture *D3D11DrawContext::CreateTexture(const TextureDesc &desc) {
 	descColor.Format = dataFormatToD3D11(desc.format);
 	descColor.SampleDesc.Count = 1;
 	descColor.SampleDesc.Quality = 0;
+
+	if (desc.initDataCallback) {
+		descColor.Usage = D3D11_USAGE_STAGING;
+		descColor.BindFlags = 0;
+		descColor.MiscFlags = 0;
+		descColor.CPUAccessFlags = D3D11_CPU_ACCESS_WRITE;
+
+		HRESULT hr = device_->CreateTexture2D(&descColor, nullptr, &tex->stagingTex);
+		if (!SUCCEEDED(hr)) {
+			delete tex;
+			return nullptr;
+		}
+	}
+
 	descColor.Usage = D3D11_USAGE_DEFAULT;
 	descColor.BindFlags = generateMips ? (D3D11_BIND_SHADER_RESOURCE | D3D11_BIND_RENDER_TARGET) : D3D11_BIND_SHADER_RESOURCE;
 	descColor.MiscFlags = generateMips ? D3D11_RESOURCE_MISC_GENERATE_MIPS : 0;
 	descColor.CPUAccessFlags = 0;
 
+	D3D11_SUBRESOURCE_DATA *initDataParam = nullptr;
 	D3D11_SUBRESOURCE_DATA initData[12]{};
-	if (desc.initData.size() && !generateMips) {
+	std::vector<uint8_t> initDataBuffer[12];
+	if (desc.initData.size() && !generateMips && !desc.initDataCallback) {
 		int w = desc.width;
 		int h = desc.height;
+		int d = desc.depth;
 		for (int i = 0; i < (int)desc.initData.size(); i++) {
+			uint32_t byteStride = w * (uint32_t)DataFormatSizeInBytes(desc.format);
 			initData[i].pSysMem = desc.initData[i];
-			initData[i].SysMemPitch = (UINT)(w * DataFormatSizeInBytes(desc.format));
-			initData[i].SysMemSlicePitch = (UINT)(w * h * DataFormatSizeInBytes(desc.format));
-			w /= 2;
-			h /= 2;
+			initData[i].SysMemPitch = (UINT)byteStride;
+			initData[i].SysMemSlicePitch = (UINT)(h * byteStride);
+			w = (w + 1) / 2;
+			h = (h + 1) / 2;
+			d = (d + 1) / 2;
 		}
+		initDataParam = initData;
 	}
 
-	HRESULT hr = device_->CreateTexture2D(&descColor, (desc.initData.size() && !generateMips) ? initData : nullptr, &tex->tex);
+	HRESULT hr = device_->CreateTexture2D(&descColor, initDataParam, &tex->tex);
 	if (!SUCCEEDED(hr)) {
 		delete tex;
 		return nullptr;
@@ -748,15 +770,73 @@ Texture *D3D11DrawContext::CreateTexture(const TextureDesc &desc) {
 		delete tex;
 		return nullptr;
 	}
+
+	auto populateLevelCallback = [&](int level, int w, int h, int d) {
+		D3D11_MAPPED_SUBRESOURCE mapped;
+		hr = context_->Map(tex->stagingTex, level, D3D11_MAP_WRITE, 0, &mapped);
+		if (!SUCCEEDED(hr)) {
+			return false;
+		}
+
+		if (!desc.initDataCallback((uint8_t *)mapped.pData, desc.initData[level], w, h, d, mapped.RowPitch, mapped.DepthPitch)) {
+			for (int s = 0; s < d; ++s) {
+				for (int y = 0; y < h; ++y) {
+					void *dest = (uint8_t *)mapped.pData + mapped.DepthPitch * s + mapped.RowPitch * y;
+					uint32_t byteStride = w * (uint32_t)DataFormatSizeInBytes(desc.format);
+					const void *src = desc.initData[level] + byteStride * (y + h * d);
+					memcpy(dest, src, byteStride);
+				}
+			}
+		}
+		context_->Unmap(tex->stagingTex, level);
+		return true;
+	};
+
 	if (generateMips && desc.initData.size() >= 1) {
-		context_->UpdateSubresource(tex->tex, 0, nullptr, desc.initData[0], desc.width * (int)DataFormatSizeInBytes(desc.format), 0);
+		if (desc.initDataCallback) {
+			if (!populateLevelCallback(0, desc.width, desc.height, desc.depth)) {
+				delete tex;
+				return nullptr;
+			}
+
+			context_->CopyResource(tex->stagingTex, tex->stagingTex);
+			tex->stagingTex->Release();
+			tex->stagingTex = nullptr;
+		} else {
+			uint32_t byteStride = desc.width * (uint32_t)DataFormatSizeInBytes(desc.format);
+			context_->UpdateSubresource(tex->tex, 0, nullptr, desc.initData[0], byteStride, 0);
+		}
 		context_->GenerateMips(tex->view);
+	} else if (desc.initDataCallback) {
+		int w = desc.width;
+		int h = desc.height;
+		int d = desc.depth;
+		for (int i = 0; i < (int)desc.initData.size(); i++) {
+			if (!populateLevelCallback(i, desc.width, desc.height, desc.depth)) {
+				if (i == 0) {
+					delete tex;
+					return nullptr;
+				} else {
+					break;
+				}
+			}
+
+			w = (w + 1) / 2;
+			h = (h + 1) / 2;
+			d = (d + 1) / 2;
+		}
+
+		context_->CopyResource(tex->tex, tex->stagingTex);
+		tex->stagingTex->Release();
+		tex->stagingTex = nullptr;
 	}
 	return tex;
 }
 
 class D3D11ShaderModule : public ShaderModule {
 public:
+	D3D11ShaderModule(const std::string &tag) : tag_(tag) {
+	}
 	~D3D11ShaderModule() {
 		if (vs)
 			vs->Release();
@@ -769,13 +849,14 @@ public:
 
 	std::vector<uint8_t> byteCode_;
 	ShaderStage stage;
+	std::string tag_;
 
 	ID3D11VertexShader *vs = nullptr;
 	ID3D11PixelShader *ps = nullptr;
 	ID3D11GeometryShader *gs = nullptr;
 };
 
-ShaderModule *D3D11DrawContext::CreateShaderModule(ShaderStage stage, ShaderLanguage language, const uint8_t *data, size_t dataSize) {
+ShaderModule *D3D11DrawContext::CreateShaderModule(ShaderStage stage, ShaderLanguage language, const uint8_t *data, size_t dataSize, const std::string &tag) {
 	if (language != ShaderLanguage::HLSL_D3D11) {
 		ELOG("Unsupported shader language");
 		return nullptr;
@@ -814,7 +895,8 @@ ShaderModule *D3D11DrawContext::CreateShaderModule(ShaderStage stage, ShaderLang
 
 	ID3DBlob *compiledCode = nullptr;
 	ID3DBlob *errorMsgs = nullptr;
-	HRESULT result = ptr_D3DCompile(data, dataSize, nullptr, nullptr, nullptr, "main", target, 0, 0, &compiledCode, &errorMsgs);
+	int flags = D3DCOMPILE_ENABLE_BACKWARDS_COMPATIBILITY;
+	HRESULT result = ptr_D3DCompile(data, dataSize, nullptr, nullptr, nullptr, "main", target, flags, 0, &compiledCode, &errorMsgs);
 	if (compiledCode) {
 		compiled = std::string((const char *)compiledCode->GetBufferPointer(), compiledCode->GetBufferSize());
 		compiledCode->Release();
@@ -832,7 +914,7 @@ ShaderModule *D3D11DrawContext::CreateShaderModule(ShaderStage stage, ShaderLang
 	// OK, we can now proceed
 	data = (const uint8_t *)compiled.c_str();
 	dataSize = compiled.size();
-	D3D11ShaderModule *module = new D3D11ShaderModule();
+	D3D11ShaderModule *module = new D3D11ShaderModule(tag);
 	module->stage = stage;
 	module->byteCode_ = std::vector<uint8_t>(data, data + dataSize);
 	switch (stage) {
@@ -989,6 +1071,7 @@ void D3D11DrawContext::ApplyCurrentState() {
 	}
 	if (curPipeline_->dynamicUniforms) {
 		context_->VSSetConstantBuffers(0, 1, &curPipeline_->dynamicUniforms);
+		context_->PSSetConstantBuffers(0, 1, &curPipeline_->dynamicUniforms);
 	}
 }
 
@@ -1260,6 +1343,7 @@ void D3D11DrawContext::Clear(int mask, uint32_t colorval, float depthVal, int st
 		context_->IASetIndexBuffer(nextIndexBuffer_, DXGI_FORMAT_R32_UINT, nextIndexBufferOffset_);
 		if (curPipeline_->dynamicUniforms) {
 			context_->VSSetConstantBuffers(0, 1, &curPipeline_->dynamicUniforms);
+			context_->PSSetConstantBuffers(0, 1, &curPipeline_->dynamicUniforms);
 		}
 	}
 }*/

@@ -1,0 +1,619 @@
+// Copyright (c) 2012- PPSSPP Project.
+
+// This program is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, version 2.0 or later versions.
+
+// This program is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU General Public License 2.0 for more details.
+
+// A copy of the GPL 2.0 should have been included with the program.
+// If not, see http://www.gnu.org/licenses/
+
+// Official git repository and contact information can be found at
+// https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
+
+#include <cassert>
+#include <cmath>
+#include <set>
+#include "base/display.h"
+#include "base/timeutil.h"
+#include "file/vfs.h"
+#include "file/zip_read.h"
+#include "thin3d/thin3d.h"
+#include "Core/Config.h"
+#include "Core/ConfigValues.h"
+#include "Core/Host.h"
+#include "Core/System.h"
+#include "Core/HLE/sceDisplay.h"
+#include "GPU/Common/PostShader.h"
+#include "GPU/Common/PresentationCommon.h"
+#include "GPU/Common/ShaderTranslation.h"
+
+struct Vertex {
+	float x, y, z;
+	float u, v;
+	uint32_t rgba;
+};
+
+void CenterDisplayOutputRect(float *x, float *y, float *w, float *h, float origW, float origH, float frameW, float frameH, int rotation) {
+	float outW;
+	float outH;
+
+	bool rotated = rotation == ROTATION_LOCKED_VERTICAL || rotation == ROTATION_LOCKED_VERTICAL180;
+
+	if (g_Config.iSmallDisplayZoomType == (int)SmallDisplayZoom::STRETCH) {
+		outW = frameW;
+		outH = frameH;
+	} else {
+		if (g_Config.iSmallDisplayZoomType == (int)SmallDisplayZoom::MANUAL) {
+			float offsetX = (g_Config.fSmallDisplayOffsetX - 0.5f) * 2.0f * frameW;
+			float offsetY = (g_Config.fSmallDisplayOffsetY - 0.5f) * 2.0f * frameH;
+			// Have to invert Y for GL
+			if (GetGPUBackend() == GPUBackend::OPENGL) {
+				offsetY = offsetY * -1.0f;
+			}
+			float customZoom = g_Config.fSmallDisplayZoomLevel;
+			float smallDisplayW = origW * customZoom;
+			float smallDisplayH = origH * customZoom;
+			if (!rotated) {
+				*x = floorf(((frameW - smallDisplayW) / 2.0f) + offsetX);
+				*y = floorf(((frameH - smallDisplayH) / 2.0f) + offsetY);
+				*w = floorf(smallDisplayW);
+				*h = floorf(smallDisplayH);
+				return;
+			} else {
+				*x = floorf(((frameW - smallDisplayH) / 2.0f) + offsetX);
+				*y = floorf(((frameH - smallDisplayW) / 2.0f) + offsetY);
+				*w = floorf(smallDisplayH);
+				*h = floorf(smallDisplayW);
+				return;
+			}
+		} else if (g_Config.iSmallDisplayZoomType == (int)SmallDisplayZoom::AUTO) {
+			// Stretch to 1080 for 272*4.  But don't distort if not widescreen (i.e. ultrawide of halfwide.)
+			float pixelCrop = frameH / 270.0f;
+			float resCommonWidescreen = pixelCrop - floor(pixelCrop);
+			if (!rotated && resCommonWidescreen == 0.0f && frameW >= pixelCrop * 480.0f) {
+				*x = floorf((frameW - pixelCrop * 480.0f) * 0.5f);
+				*y = floorf(-pixelCrop);
+				*w = floorf(pixelCrop * 480.0f);
+				*h = floorf(pixelCrop * 272.0f);
+				return;
+			}
+		}
+
+		float origRatio = !rotated ? origW / origH : origH / origW;
+		float frameRatio = frameW / frameH;
+
+		if (origRatio > frameRatio) {
+			// Image is wider than frame. Center vertically.
+			outW = frameW;
+			outH = frameW / origRatio;
+			// Stretch a little bit
+			if (!rotated && g_Config.iSmallDisplayZoomType == (int)SmallDisplayZoom::PARTIAL_STRETCH)
+				outH = (frameH + outH) / 2.0f; // (408 + 720) / 2 = 564
+		} else {
+			// Image is taller than frame. Center horizontally.
+			outW = frameH * origRatio;
+			outH = frameH;
+			if (rotated && g_Config.iSmallDisplayZoomType == (int)SmallDisplayZoom::PARTIAL_STRETCH)
+				outW = (frameH + outH) / 2.0f; // (408 + 720) / 2 = 564
+		}
+	}
+
+	*x = floorf((frameW - outW) / 2.0f);
+	*y = floorf((frameH - outH) / 2.0f);
+	*w = floorf(outW);
+	*h = floorf(outH);
+}
+
+PresentationCommon::PresentationCommon(Draw::DrawContext *draw) : draw_(draw) {
+	CreateDeviceObjects();
+}
+
+PresentationCommon::~PresentationCommon() {
+	DestroyDeviceObjects();
+}
+
+void PresentationCommon::GetCardboardSettings(CardboardSettings *cardboardSettings) {
+	// Calculate Cardboard Settings
+	float cardboardScreenScale = g_Config.iCardboardScreenSize / 100.0f;
+	float cardboardScreenWidth = pixelWidth_ / 2.0f * cardboardScreenScale;
+	float cardboardScreenHeight = pixelHeight_ / 2.0f * cardboardScreenScale;
+	float cardboardMaxXShift = (pixelWidth_ / 2.0f - cardboardScreenWidth) / 2.0f;
+	float cardboardUserXShift = g_Config.iCardboardXShift / 100.0f * cardboardMaxXShift;
+	float cardboardLeftEyeX = cardboardMaxXShift + cardboardUserXShift;
+	float cardboardRightEyeX = pixelWidth_ / 2.0f + cardboardMaxXShift - cardboardUserXShift;
+	float cardboardMaxYShift = pixelHeight_ / 2.0f - cardboardScreenHeight / 2.0f;
+	float cardboardUserYShift = g_Config.iCardboardYShift / 100.0f * cardboardMaxYShift;
+	float cardboardScreenY = cardboardMaxYShift + cardboardUserYShift;
+
+	cardboardSettings->enabled = g_Config.bEnableCardboardVR;
+	cardboardSettings->leftEyeXPosition = cardboardLeftEyeX;
+	cardboardSettings->rightEyeXPosition = cardboardRightEyeX;
+	cardboardSettings->screenYPosition = cardboardScreenY;
+	cardboardSettings->screenWidth = cardboardScreenWidth;
+	cardboardSettings->screenHeight = cardboardScreenHeight;
+}
+
+void PresentationCommon::CalculatePostShaderUniforms(int bufferWidth, int bufferHeight, bool hasVideo, PostShaderUniforms *uniforms) {
+	float u_delta = 1.0f / bufferWidth;
+	float v_delta = 1.0f / bufferHeight;
+	float u_pixel_delta = 1.0f / renderWidth_;
+	float v_pixel_delta = 1.0f / renderHeight_;
+	if (postShaderAtOutputResolution_) {
+		float x, y, w, h;
+		CenterDisplayOutputRect(&x, &y, &w, &h, 480.0f, 272.0f, (float)pixelWidth_, (float)pixelHeight_, ROTATION_LOCKED_HORIZONTAL);
+		u_pixel_delta = 1.0f / w;
+		v_pixel_delta = 1.0f / h;
+	}
+	int flipCount = __DisplayGetFlipCount();
+	int vCount = __DisplayGetVCount();
+	float time[4] = { time_now(), (vCount % 60) * 1.0f / 60.0f, (float)vCount, (float)(flipCount % 60) };
+
+	uniforms->texelDelta[0] = u_delta;
+	uniforms->texelDelta[1] = v_delta;
+	uniforms->pixelDelta[0] = u_pixel_delta;
+	uniforms->pixelDelta[1] = v_pixel_delta;
+	memcpy(uniforms->time, time, 4 * sizeof(float));
+	uniforms->video = hasVideo;
+
+	// The shader translator tacks this onto our shaders, if we don't set it they render garbage.
+	uniforms->gl_HalfPixel[0] = u_pixel_delta * 0.5f;
+	uniforms->gl_HalfPixel[1] = v_pixel_delta * 0.5f;
+}
+
+static std::string ReadShaderSrc(const std::string &filename) {
+	size_t sz = 0;
+	char *data = (char *)VFSReadFile(filename.c_str(), &sz);
+	if (!data)
+		return "";
+
+	std::string src(data, sz);
+	free(data);
+	return src;
+}
+
+// Note: called on resize and settings changes.
+bool PresentationCommon::UpdatePostShader() {
+	const ShaderInfo *shaderInfo = nullptr;
+	if (g_Config.sPostShaderName != "Off") {
+		ReloadAllPostShaderInfo();
+		shaderInfo = GetPostShaderInfo(g_Config.sPostShaderName);
+	}
+
+	DestroyPostShader();
+	if (shaderInfo == nullptr)
+		return false;
+
+	std::string vsSourceGLSL = ReadShaderSrc(shaderInfo->vertexShaderFile);
+	std::string fsSourceGLSL = ReadShaderSrc(shaderInfo->fragmentShaderFile);
+	if (vsSourceGLSL.empty() || fsSourceGLSL.empty()) {
+		return false;
+	}
+
+	std::string vsError, fsError;
+	Draw::ShaderModule *vs = CompileShaderModule(Draw::ShaderStage::VERTEX, GLSL_140, vsSourceGLSL, &vsError);
+	Draw::ShaderModule *fs = CompileShaderModule(Draw::ShaderStage::FRAGMENT, GLSL_140, fsSourceGLSL, &fsError);
+
+	// Don't worry, CompileShaderModule makes sure they get freed if one succeeded.
+	if (!fs || !vs) {
+		std::string errorString = vsError + "\n" + fsError;
+		// DO NOT turn this into a report, as it will pollute our logs with all kinds of
+		// user shader experiments.
+		ERROR_LOG(FRAMEBUF, "Failed to build post-processing program from %s and %s!\n%s", shaderInfo->vertexShaderFile.c_str(), shaderInfo->fragmentShaderFile.c_str(), errorString.c_str());
+		ShowPostShaderError(errorString);
+		return false;
+	}
+
+	Draw::UniformBufferDesc postShaderDesc{ sizeof(PostShaderUniforms), {
+		{ "gl_HalfPixel", 0, -1, Draw::UniformType::FLOAT4, offsetof(PostShaderUniforms, gl_HalfPixel) },
+		{ "u_texelDelta", 1, 1, Draw::UniformType::FLOAT2, offsetof(PostShaderUniforms, texelDelta) },
+		{ "u_pixelDelta", 2, 2, Draw::UniformType::FLOAT2, offsetof(PostShaderUniforms, pixelDelta) },
+		{ "u_time", 3, 3, Draw::UniformType::FLOAT4, offsetof(PostShaderUniforms, time) },
+		{ "u_video", 4, 4, Draw::UniformType::FLOAT1, offsetof(PostShaderUniforms, video) },
+	} };
+	Draw::Pipeline *pipeline = CreatePipeline({ vs, fs }, true, &postShaderDesc);
+	if (!pipeline)
+		return false;
+
+	// No depth/stencil for post processing
+	Draw::Framebuffer *fbo = draw_->CreateFramebuffer({ (int)renderWidth_, (int)renderHeight_, 1, 1, false, Draw::FBO_8888 });
+	if (fbo)
+		postShaderFramebuffers_.push_back(fbo);
+
+	usePostShader_ = true;
+	postShaderPipelines_.push_back(pipeline);
+	postShaderAtOutputResolution_ = shaderInfo->outputResolution;
+	postShaderIsUpscalingFilter_ = shaderInfo->isUpscalingFilter;
+	return true;
+}
+
+void PresentationCommon::ShowPostShaderError(const std::string &errorString) {
+	// let's show the first line of the error string as an OSM.
+	std::set<std::string> blacklistedLines;
+	// These aren't useful to show, skip to the first interesting line.
+	blacklistedLines.insert("Fragment shader failed to compile with the following errors:");
+	blacklistedLines.insert("Vertex shader failed to compile with the following errors:");
+	blacklistedLines.insert("Compile failed.");
+	blacklistedLines.insert("");
+
+	std::string firstLine;
+	size_t start = 0;
+	for (size_t i = 0; i < errorString.size(); i++) {
+		if (errorString[i] == '\n' && i == start) {
+			start = i + 1;
+		} else if (errorString[i] == '\n') {
+			firstLine = errorString.substr(start, i - start);
+			if (blacklistedLines.find(firstLine) == blacklistedLines.end()) {
+				break;
+			}
+			start = i + 1;
+			firstLine.clear();
+		}
+	}
+	if (!firstLine.empty()) {
+		host->NotifyUserMessage("Post-shader error: " + firstLine + "...", 10.0f, 0xFF3090FF);
+	} else {
+		host->NotifyUserMessage("Post-shader error, see log for details", 10.0f, 0xFF3090FF);
+	}
+}
+
+void PresentationCommon::UpdateShaderInfo(const ShaderInfo *shaderInfo) {
+	postShaderAtOutputResolution_ = shaderInfo->outputResolution;
+}
+
+void PresentationCommon::DeviceLost() {
+	DestroyDeviceObjects();
+}
+
+void PresentationCommon::DeviceRestore(Draw::DrawContext *draw) {
+	draw_ = draw;
+	CreateDeviceObjects();
+}
+
+Draw::Pipeline *PresentationCommon::CreatePipeline(std::vector<Draw::ShaderModule *> shaders, bool postShader, const Draw::UniformBufferDesc *uniformDesc) {
+	using namespace Draw;
+
+	Semantic pos = SEM_POSITION;
+	Semantic tc = SEM_TEXCOORD0;
+	// Shader translation marks these both as "TEXCOORDs" on HLSL...
+	if (postShader && (lang_ == HLSL_D3D11 || lang_ == HLSL_D3D11_LEVEL9 || lang_ == HLSL_DX9)) {
+		pos = SEM_TEXCOORD0;
+		tc = SEM_TEXCOORD1;
+	}
+
+	// TODO: Maybe get rid of color0.
+	InputLayoutDesc inputDesc = {
+		{
+			{ sizeof(Vertex), false },
+		},
+		{
+			{ 0, pos, DataFormat::R32G32B32_FLOAT, 0 },
+			{ 0, tc, DataFormat::R32G32_FLOAT, 12 },
+			{ 0, SEM_COLOR0, DataFormat::R8G8B8A8_UNORM, 20 },
+		},
+	};
+
+	InputLayout *inputLayout = draw_->CreateInputLayout(inputDesc);
+	DepthStencilState *depth = draw_->CreateDepthStencilState({ false, false, Comparison::LESS });
+	BlendState *blendstateOff = draw_->CreateBlendState({ false, 0xF });
+	RasterState *rasterNoCull = draw_->CreateRasterState({});
+
+	PipelineDesc pipelineDesc{ Primitive::TRIANGLE_LIST, shaders, inputLayout, depth, blendstateOff, rasterNoCull, uniformDesc };
+	Pipeline *pipeline = draw_->CreateGraphicsPipeline(pipelineDesc);
+
+	inputLayout->Release();
+	depth->Release();
+	blendstateOff->Release();
+	rasterNoCull->Release();
+
+	return pipeline;
+}
+
+void PresentationCommon::CreateDeviceObjects() {
+	using namespace Draw;
+
+	vdata_ = draw_->CreateBuffer(sizeof(Vertex) * 8, BufferUsageFlag::DYNAMIC | BufferUsageFlag::VERTEXDATA);
+	// TODO: Use 4 and a strip?  shorts?
+	idata_ = draw_->CreateBuffer(sizeof(int) * 6, BufferUsageFlag::DYNAMIC | BufferUsageFlag::INDEXDATA);
+
+	samplerNearest_ = draw_->CreateSamplerState({ TextureFilter::NEAREST, TextureFilter::NEAREST, TextureFilter::NEAREST, 0.0f, TextureAddressMode::CLAMP_TO_EDGE, TextureAddressMode::CLAMP_TO_EDGE, TextureAddressMode::CLAMP_TO_EDGE });
+	samplerLinear_ = draw_->CreateSamplerState({ TextureFilter::LINEAR, TextureFilter::LINEAR, TextureFilter::LINEAR, 0.0f, TextureAddressMode::CLAMP_TO_EDGE, TextureAddressMode::CLAMP_TO_EDGE, TextureAddressMode::CLAMP_TO_EDGE });
+
+	texColor_ = CreatePipeline({ draw_->GetVshaderPreset(VS_TEXTURE_COLOR_2D), draw_->GetFshaderPreset(FS_TEXTURE_COLOR_2D) }, false, &vsTexColBufDesc);
+	texColorRBSwizzle_ = CreatePipeline({ draw_->GetVshaderPreset(VS_TEXTURE_COLOR_2D), draw_->GetFshaderPreset(FS_TEXTURE_COLOR_2D_RB_SWIZZLE) }, false, &vsTexColBufDesc);
+
+	if (restorePostShader_)
+		UpdatePostShader();
+	restorePostShader_ = false;
+}
+
+template <typename T>
+static void DoRelease(T *&obj) {
+	if (obj)
+		obj->Release();
+	obj = nullptr;
+}
+
+template <typename T>
+static void DoReleaseVector(std::vector<T *> &list) {
+	for (auto &obj : list)
+		obj->Release();
+	list.clear();
+}
+
+void PresentationCommon::DestroyDeviceObjects() {
+	DoRelease(texColor_);
+	DoRelease(texColorRBSwizzle_);
+	DoRelease(samplerNearest_);
+	DoRelease(samplerLinear_);
+	DoRelease(vdata_);
+	DoRelease(idata_);
+	DoRelease(srcTexture_);
+	DoRelease(srcFramebuffer_);
+
+	DestroyPostShader();
+}
+
+void PresentationCommon::DestroyPostShader() {
+	restorePostShader_ = usePostShader_;
+	usePostShader_ = false;
+
+	DoReleaseVector(postShaderModules_);
+	DoReleaseVector(postShaderPipelines_);
+	DoReleaseVector(postShaderFramebuffers_);
+}
+
+Draw::ShaderModule *PresentationCommon::CompileShaderModule(Draw::ShaderStage stage, ShaderLanguage lang, const std::string &src, std::string *errorString) {
+	std::string translated = src;
+	bool translationFailed = false;
+	if (lang != lang_) {
+		// Gonna have to upconvert the shader.
+		if (!TranslateShader(&translated, lang_, nullptr, src, lang, stage, errorString)) {
+			ERROR_LOG(FRAMEBUF, "Failed to translate post-shader: %s", errorString->c_str());
+			return nullptr;
+		}
+	}
+
+	Draw::ShaderLanguage mappedLang;
+	// These aren't exact, unfortunately, but we just need the type Draw will accept.
+	switch (lang_) {
+	case GLSL_140:
+		mappedLang = Draw::ShaderLanguage::GLSL_ES_200;
+		break;
+	case GLSL_300:
+		mappedLang = Draw::ShaderLanguage::GLSL_410;
+		break;
+	case GLSL_VULKAN:
+		mappedLang = Draw::ShaderLanguage::GLSL_VULKAN;
+		break;
+	case HLSL_DX9:
+		mappedLang = Draw::ShaderLanguage::HLSL_D3D9;
+		break;
+	case HLSL_D3D11:
+	case HLSL_D3D11_LEVEL9:
+		mappedLang = Draw::ShaderLanguage::HLSL_D3D11;
+		break;
+	default:
+		mappedLang = Draw::ShaderLanguage::GLSL_ES_200;
+		break;
+	}
+	Draw::ShaderModule *shader = draw_->CreateShaderModule(stage, mappedLang, (const uint8_t *)translated.c_str(), translated.size(), "postshader");
+	if (shader)
+		postShaderModules_.push_back(shader);
+	return shader;
+}
+
+void PresentationCommon::SourceTexture(Draw::Texture *texture) {
+	DoRelease(srcTexture_);
+	DoRelease(srcFramebuffer_);
+
+	texture->AddRef();
+	srcTexture_ = texture;
+}
+
+void PresentationCommon::SourceFramebuffer(Draw::Framebuffer *fb) {
+	DoRelease(srcTexture_);
+	DoRelease(srcFramebuffer_);
+
+	fb->AddRef();
+	srcFramebuffer_ = fb;
+}
+
+void PresentationCommon::BindSource() {
+	if (srcTexture_) {
+		draw_->BindTexture(0, srcTexture_);
+	} else if (srcFramebuffer_) {
+		draw_->BindFramebufferAsTexture(srcFramebuffer_, 0, Draw::FB_COLOR_BIT, 0);
+	} else {
+		assert(false);
+	}
+}
+
+void PresentationCommon::CopyToOutput(OutputFlags flags, int uvRotation, float u0, float v0, float u1, float v1, const PostShaderUniforms &uniforms) {
+	// Make sure Direct3D 11 clears state, since we set shaders outside Draw.
+	draw_->BindPipeline(nullptr);
+
+	int indexes[] = { 0, 1, 2, 0, 2, 3 };
+	draw_->UpdateBuffer(idata_, (const uint8_t *)indexes, 0, sizeof(indexes), Draw::UPDATE_DISCARD);
+
+	// TODO: If shader objects have been created by now, we might have received errors.
+	// GLES can have the shader fail later, shader->failed / shader->error.
+	// This should auto-disable usePostShader_ and call ShowPostShaderError().
+
+	bool useNearest = flags & OutputFlags::NEAREST;
+	bool usePostShader = usePostShader_ && !(flags & OutputFlags::RB_SWIZZLE);
+	bool usePostShaderOutput = false;
+
+	CardboardSettings cardboardSettings;
+	GetCardboardSettings(&cardboardSettings);
+
+	// These are the output coordinates.
+	float x, y, w, h;
+	CenterDisplayOutputRect(&x, &y, &w, &h, 480.0f, 272.0f, (float)pixelWidth_, (float)pixelHeight_, uvRotation);
+
+	if (GetGPUBackend() == GPUBackend::DIRECT3D9) {
+		x -= 0.5f;
+		// This is plus because the top is larger y.
+		y += 0.5f;
+	}
+
+	if ((flags & OutputFlags::BACKBUFFER_FLIPPED) || (flags & OutputFlags::POSITION_FLIPPED)) {
+		std::swap(v0, v1);
+	}
+
+	// To make buffer updates easier, we use one array of verts.
+	int postVertsOffset = (int)sizeof(Vertex) * 4;
+	Vertex verts[8] = {
+		{ x, y, 0, u0, v0, 0xFFFFFFFF }, // TL
+		{ x, y + h, 0, u0, v1, 0xFFFFFFFF }, // BL
+		{ x + w, y + h, 0, u1, v1, 0xFFFFFFFF }, // BR
+		{ x + w, y, 0, u1, v0, 0xFFFFFFFF }, // TR
+	};
+
+	float invDestW = 1.0f / (pixelWidth_ * 0.5f);
+	float invDestH = 1.0f / (pixelHeight_ * 0.5f);
+	for (int i = 0; i < 4; i++) {
+		verts[i].x = verts[i].x * invDestW - 1.0f;
+		verts[i].y = verts[i].y * invDestH - 1.0f;
+	}
+
+	if (uvRotation != ROTATION_LOCKED_HORIZONTAL) {
+		struct {
+			float u;
+			float v;
+		} temp[4];
+		int rotation = 0;
+		// Vertical and Vertical180 needed swapping after we changed the coordinate system.
+		switch (uvRotation) {
+		case ROTATION_LOCKED_HORIZONTAL180: rotation = 2; break;
+		case ROTATION_LOCKED_VERTICAL: rotation = 3; break;
+		case ROTATION_LOCKED_VERTICAL180: rotation = 1; break;
+		}
+
+		// If we flipped, we rotate the other way.
+		if ((flags & OutputFlags::BACKBUFFER_FLIPPED) || (flags & OutputFlags::POSITION_FLIPPED)) {
+			if ((rotation & 1) != 0)
+				rotation ^= 2;
+		}
+
+		for (int i = 0; i < 4; i++) {
+			temp[i].u = verts[(i + rotation) & 3].u;
+			temp[i].v = verts[(i + rotation) & 3].v;
+		}
+		for (int i = 0; i < 4; i++) {
+			verts[i].u = temp[i].u;
+			verts[i].v = temp[i].v;
+		}
+	}
+
+	if (usePostShader && postShaderAtOutputResolution_) {
+		// In this mode, we ignore the g_display_rot_matrix.  Apply manually.
+		if (g_display_rotation != DisplayRotation::ROTATE_0) {
+			for (int i = 0; i < 4; i++) {
+				Lin::Vec3 v(verts[i].x, verts[i].y, verts[i].z);
+				// Backwards notation, should fix that...
+				v = v * g_display_rot_matrix;
+				verts[i].x = v.x;
+				verts[i].y = v.y;
+			}
+		}
+	}
+
+	if (usePostShader && postShaderFramebuffers_.size() == 1 && !postShaderAtOutputResolution_) {
+		draw_->BindFramebufferAsRenderTarget(postShaderFramebuffers_[0], { Draw::RPAction::DONT_CARE, Draw::RPAction::DONT_CARE, Draw::RPAction::DONT_CARE });
+		BindSource();
+
+		int fbo_w, fbo_h;
+		draw_->GetFramebufferDimensions(postShaderFramebuffers_[0], &fbo_w, &fbo_h);
+		Draw::Viewport viewport{ 0, 0, (float)fbo_w, (float)fbo_h, 0.0f, 1.0f };
+		draw_->SetViewports(1, &viewport);
+		draw_->SetScissorRect(0, 0, fbo_w, fbo_h);
+
+		draw_->BindPipeline(postShaderPipelines_.front());
+		draw_->UpdateDynamicUniformBuffer(&uniforms, sizeof(uniforms));
+
+		Draw::SamplerState *sampler = useNearest ? samplerNearest_ : samplerLinear_;
+		draw_->BindSamplerStates(0, 1, &sampler);
+
+		bool flipped = flags & OutputFlags::POSITION_FLIPPED;
+		float post_v0 = !flipped ? 1.0f : 0.0f;
+		float post_v1 = !flipped ? 0.0f : 1.0f;
+		verts[4] = { -1, -1, 0, 0, post_v1, 0xFFFFFFFF }; // TL
+		verts[5] = { -1, 1, 0, 0, post_v0, 0xFFFFFFFF }; // BL
+		verts[6] = { 1, 1, 0, 1, post_v0, 0xFFFFFFFF }; // BR
+		verts[7] = { 1, -1, 0, 1, post_v1, 0xFFFFFFFF }; // TR
+
+		draw_->UpdateBuffer(vdata_, (const uint8_t *)verts, 0, sizeof(verts), Draw::UPDATE_DISCARD);
+
+		draw_->BindVertexBuffers(0, 1, &vdata_, &postVertsOffset);
+		draw_->BindIndexBuffer(idata_, 0);
+		draw_->DrawIndexed(6, 0);
+		draw_->BindIndexBuffer(nullptr, 0);
+
+		usePostShaderOutput = true;
+	} else {
+		draw_->UpdateBuffer(vdata_, (const uint8_t *)verts, 0, postVertsOffset, Draw::UPDATE_DISCARD);
+	}
+
+	if (postShaderIsUpscalingFilter_)
+		useNearest = true;
+
+	Draw::Pipeline *pipeline = flags & OutputFlags::RB_SWIZZLE ? texColorRBSwizzle_ : texColor_;
+	if (usePostShader && postShaderAtOutputResolution_) {
+		pipeline = postShaderPipelines_.front();
+	}
+
+	draw_->BindFramebufferAsRenderTarget(nullptr, { Draw::RPAction::CLEAR, Draw::RPAction::DONT_CARE, Draw::RPAction::DONT_CARE });
+	draw_->SetScissorRect(0, 0, pixelWidth_, pixelHeight_);
+
+	draw_->BindPipeline(pipeline);
+
+	if (usePostShaderOutput) {
+		draw_->BindFramebufferAsTexture(postShaderFramebuffers_.back(), 0, Draw::FB_COLOR_BIT, 0);
+	} else {
+		BindSource();
+	}
+
+	if (usePostShader && postShaderAtOutputResolution_) {
+		draw_->UpdateDynamicUniformBuffer(&uniforms, sizeof(uniforms));
+	} else {
+		Draw::VsTexColUB ub{};
+		memcpy(ub.WorldViewProj, g_display_rot_matrix.m, sizeof(float) * 16);
+		draw_->UpdateDynamicUniformBuffer(&ub, sizeof(ub));
+	}
+
+	draw_->BindVertexBuffers(0, 1, &vdata_, nullptr);
+	draw_->BindIndexBuffer(idata_, 0);
+
+	Draw::SamplerState *sampler = useNearest ? samplerNearest_ : samplerLinear_;
+	draw_->BindSamplerStates(0, 1, &sampler);
+
+	auto setViewport = [&](float x, float y, float w, float h) {
+		Draw::Viewport viewport{ x, y, w, h, 0.0f, 1.0f };
+		draw_->SetViewports(1, &viewport);
+	};
+
+	if (cardboardSettings.enabled) {
+		// This is what the left eye sees.
+		setViewport(cardboardSettings.leftEyeXPosition, cardboardSettings.screenYPosition, cardboardSettings.screenWidth, cardboardSettings.screenHeight);
+		draw_->DrawIndexed(6, 0);
+
+		// And this is the right eye, unless they're a pirate.
+		setViewport(cardboardSettings.rightEyeXPosition, cardboardSettings.screenYPosition, cardboardSettings.screenWidth, cardboardSettings.screenHeight);
+		draw_->DrawIndexed(6, 0);
+	} else {
+		setViewport(0.0f, 0.0f, (float)pixelWidth_, (float)pixelHeight_);
+		draw_->DrawIndexed(6, 0);
+	}
+
+	draw_->BindIndexBuffer(nullptr, 0);
+
+	DoRelease(srcFramebuffer_);
+	DoRelease(srcTexture_);
+
+	draw_->BindPipeline(nullptr);
+}

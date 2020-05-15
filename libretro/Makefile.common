@@ -21,6 +21,7 @@ INCFLAGS += \
 	-I$(EXTDIR)/armips \
 	-I$(NATIVEDIR)/ext \
 	-I$(NATIVEDIR) \
+	-I$(NATIVEDIR)/ext/libpng17 \
 	-I$(EXTDIR)/libkirk \
 	-I$(EXTDIR)/xbrz \
 	-I$(EXTDIR)/xxhash \
@@ -157,6 +158,7 @@ SOURCES_CXX += \
 	$(GPUCOMMONDIR)/DrawEngineCommon.cpp \
 	$(GPUCOMMONDIR)/SplineCommon.cpp \
 	$(GPUCOMMONDIR)/FramebufferCommon.cpp \
+	$(GPUCOMMONDIR)/PresentationCommon.cpp \
 	$(GPUCOMMONDIR)/ShaderId.cpp \
 	$(GPUCOMMONDIR)/ShaderCommon.cpp \
 	$(GPUCOMMONDIR)/ShaderUniforms.cpp \

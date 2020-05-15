@@ -342,9 +342,7 @@ void GPU_GLES::DeviceRestore() {
 
 void GPU_GLES::Reinitialize() {
 	GPUCommon::Reinitialize();
-	textureCacheGL_->Clear(true);
 	depalShaderCache_.Clear();
-	framebufferManagerGL_->DestroyAllFBOs();
 }
 
 void GPU_GLES::InitClear() {
@@ -510,11 +508,12 @@ void GPU_GLES::DoState(PointerWrap &p) {
 	// None of these are necessary when saving.
 	// In Freeze-Frame mode, we don't want to do any of this.
 	if (p.mode == p.MODE_READ && !PSP_CoreParameter().frozen) {
-		textureCacheGL_->Clear(true);
+		textureCache_->Clear(true);
+		depalShaderCache_.Clear();
 		drawEngine_.ClearTrackedVertexArrays();
 
 		gstate_c.Dirty(DIRTY_TEXTURE_IMAGE);
-		framebufferManagerGL_->DestroyAllFBOs();
+		framebufferManager_->DestroyAllFBOs();
 	}
 }
 

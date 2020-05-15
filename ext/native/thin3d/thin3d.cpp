@@ -140,7 +140,7 @@ static const std::vector<ShaderSource> fsTexCol = {
 	"#extension GL_ARB_shading_language_420pack : enable\n"
 	"layout(location = 0) in vec4 oColor0;\n"
 	"layout(location = 1) in vec2 oTexCoord0;\n"
-	"layout(location = 0) out vec4 fragColor0\n;"
+	"layout(location = 0) out vec4 fragColor0;\n"
 	"layout(set = 0, binding = 1) uniform sampler2D Sampler0;\n"
 	"void main() { fragColor0 = texture(Sampler0, oTexCoord0) * oColor0; }\n"
 	}
@@ -220,7 +220,7 @@ static const std::vector<ShaderSource> fsCol = {
 	"#extension GL_ARB_separate_shader_objects : enable\n"
 	"#extension GL_ARB_shading_language_420pack : enable\n"
 	"layout(location = 0) in vec4 oColor0;\n"
-	"layout(location = 0) out vec4 fragColor0\n;"
+	"layout(location = 0) out vec4 fragColor0;\n"
 	"void main() { fragColor0 = oColor0; }\n"
 	}
 };

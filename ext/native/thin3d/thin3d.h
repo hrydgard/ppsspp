@@ -8,8 +8,9 @@
 
 #include <cstdint>
 #include <cstddef>
-#include <vector>
+#include <functional>
 #include <string>
+#include <vector>
 
 #include "base/logging.h"
 #include "DataFormat.h"
@@ -402,6 +403,9 @@ struct InputLayoutDesc {
 class InputLayout : public RefCountedObject { };
 
 enum class UniformType : int8_t {
+	FLOAT1,
+	FLOAT2,
+	FLOAT3,
 	FLOAT4,
 	MATRIX4X4,
 };
@@ -516,6 +520,10 @@ struct DeviceCaps {
 	std::string deviceName;  // The device name to use when creating the thin3d context, to get the same one.
 };
 
+// Use to write data directly to texture memory.  initData is the pointer passed in TextureDesc.
+// Important: only write to the provided pointer, don't read from it.
+typedef std::function<bool(uint8_t *data, const uint8_t *initData, uint32_t w, uint32_t h, uint32_t d, uint32_t byteStride, uint32_t sliceByteStride)> TextureCallback;
+
 struct TextureDesc {
 	TextureType type;
 	DataFormat format;
@@ -527,7 +535,8 @@ struct TextureDesc {
 	// Optional, for tracking memory usage.
 	std::string tag;
 	// Does not take ownership over pointed-to data.
-	std::vector<uint8_t *> initData;
+	std::vector<const uint8_t *> initData;
+	TextureCallback initDataCallback;
 };
 
 enum class RPAction {
@@ -580,7 +589,7 @@ public:
 	// On some hardware, you might get a 24-bit depth buffer even though you only wanted a 16-bit one.
 	virtual Framebuffer *CreateFramebuffer(const FramebufferDesc &desc) = 0;
 
-	virtual ShaderModule *CreateShaderModule(ShaderStage stage, ShaderLanguage language, const uint8_t *data, size_t dataSize) = 0;
+	virtual ShaderModule *CreateShaderModule(ShaderStage stage, ShaderLanguage language, const uint8_t *data, size_t dataSize, const std::string &tag = "thin3d") = 0;
 	virtual Pipeline *CreateGraphicsPipeline(const PipelineDesc &desc) = 0;
 
 	// Copies data from the CPU over into the buffer, at a specific offset. This does not change the size of the buffer and cannot write outside it.
