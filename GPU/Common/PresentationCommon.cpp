@@ -286,17 +286,39 @@ bool PresentationCommon::BuildPostShader(const ShaderInfo *shaderInfo, const Sha
 			nextHeight = (int)rc.h;
 		}
 
-		// No depth/stencil for post processing
-		Draw::Framebuffer *fbo = draw_->CreateFramebuffer({ nextWidth, nextHeight, 1, 1, false, Draw::FBO_8888 });
-		if (!fbo) {
+		if (!AllocateFramebuffer(nextWidth, nextHeight)) {
 			pipeline->Release();
 			return false;
 		}
-		postShaderFramebuffers_.push_back(fbo);
 	}
 
 	postShaderPipelines_.push_back(pipeline);
 	postShaderInfo_.push_back(*shaderInfo);
+	return true;
+}
+
+bool PresentationCommon::AllocateFramebuffer(int w, int h) {
+	using namespace Draw;
+
+	// First, let's try to find a framebuffer of the right size that is NOT the most recent.
+	Framebuffer *last = postShaderFramebuffers_.empty() ? nullptr : postShaderFramebuffers_.back();
+	for (const auto &prev : postShaderFBOUsage_) {
+		if (prev.w == w && prev.h == h && prev.fbo != last) {
+			// Great, this one's perfect.  Ref it for when we release.
+			prev.fbo->AddRef();
+			postShaderFramebuffers_.push_back(prev.fbo);
+			return true;
+		}
+	}
+
+	// No depth/stencil for post processing
+	Draw::Framebuffer *fbo = draw_->CreateFramebuffer({ w, h, 1, 1, false, Draw::FBO_8888 });
+	if (!fbo) {
+		return false;
+	}
+
+	postShaderFBOUsage_.push_back({ fbo, w, h });
+	postShaderFramebuffers_.push_back(fbo);
 	return true;
 }
 
@@ -435,6 +457,7 @@ void PresentationCommon::DestroyPostShader() {
 	DoReleaseVector(postShaderPipelines_);
 	DoReleaseVector(postShaderFramebuffers_);
 	postShaderInfo_.clear();
+	postShaderFBOUsage_.clear();
 }
 
 Draw::ShaderModule *PresentationCommon::CompileShaderModule(Draw::ShaderStage stage, ShaderLanguage lang, const std::string &src, std::string *errorString) {
