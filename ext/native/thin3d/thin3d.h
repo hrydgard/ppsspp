@@ -644,9 +644,8 @@ public:
 	// Call this with 0 to signal that you have been drawing on your own, and need the state reset on the next pipeline bind.
 	virtual void BindPipeline(Pipeline *pipeline) = 0;
 
-	// TODO: Add more sophisticated draws with buffer offsets, and multidraws.
 	virtual void Draw(int vertexCount, int offset) = 0;
-	virtual void DrawIndexed(int vertexCount, int offset) = 0;
+	virtual void DrawIndexed(int vertexCount, int offset) = 0;  // Always 16-bit indices.
 	virtual void DrawUP(const void *vdata, int vertexCount) = 0;
 	
 	// Frame management (for the purposes of sync and resource management, necessary with modern APIs). Default implementations here.
