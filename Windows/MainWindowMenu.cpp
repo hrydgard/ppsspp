@@ -194,6 +194,8 @@ namespace MainWindow {
 
 		availableShaders.clear();
 		for (auto i = info.begin(); i != info.end(); ++i) {
+			if (!i->visible)
+				continue;
 			int checkedStatus = MF_UNCHECKED;
 			availableShaders.push_back(i->section);
 			if (g_Config.sPostShaderName == i->section) {

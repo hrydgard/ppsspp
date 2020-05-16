@@ -36,6 +36,8 @@ static std::vector<ShaderInfo> shaderInfo;
 // Additionally, scan the VFS assets. (TODO)
 
 void LoadPostShaderInfo(std::vector<std::string> directories) {
+	std::vector<ShaderInfo> notVisible;
+
 	shaderInfo.clear();
 	ShaderInfo off;
 	off.name = "Off";
@@ -45,6 +47,14 @@ void LoadPostShaderInfo(std::vector<std::string> directories) {
 	off.SSAAFilterLevel = 0;
 	off.requires60fps = false;
 	shaderInfo.push_back(off);
+
+	auto appendShader = [&](const ShaderInfo &info) {
+		auto beginErase = std::remove(shaderInfo.begin(), shaderInfo.end(), info.name);
+		if (beginErase != shaderInfo.end()) {
+			shaderInfo.erase(beginErase, shaderInfo.end());
+		}
+		shaderInfo.push_back(info);
+	};
 
 	for (size_t d = 0; d < directories.size(); d++) {
 		std::vector<FileInfo> fileInfo;
@@ -82,6 +92,8 @@ void LoadPostShaderInfo(std::vector<std::string> directories) {
 					std::string temp;
 					info.section = section.name();
 					section.Get("Name", &info.name, section.name().c_str());
+					section.Get("Parent", &info.parent, "");
+					section.Get("Visible", &info.visible, true);
 					section.Get("Fragment", &temp, "");
 					info.fragmentShaderFile = path + "/" + temp;
 					section.Get("Vertex", &temp, "");
@@ -99,14 +111,19 @@ void LoadPostShaderInfo(std::vector<std::string> directories) {
 							continue;
 					}
 
-					auto beginErase = std::find(shaderInfo.begin(), shaderInfo.end(), info.name);
-					if (beginErase != shaderInfo.end()) {
-						shaderInfo.erase(beginErase, shaderInfo.end());
+					if (info.visible) {
+						appendShader(info);
+					} else {
+						notVisible.push_back(info);
 					}
-					shaderInfo.push_back(info);
 				}
 			}
 		}
+	}
+
+	// We always want the not visible ones at the end.  Makes menus easier.
+	for (const auto &info : notVisible) {
+		appendShader(info);
 	}
 }
 
@@ -118,12 +135,36 @@ void ReloadAllPostShaderInfo() {
 	LoadPostShaderInfo(directories);
 }
 
-const ShaderInfo *GetPostShaderInfo(std::string name) {
+const ShaderInfo *GetPostShaderInfo(const std::string &name) {
 	for (size_t i = 0; i < shaderInfo.size(); i++) {
 		if (shaderInfo[i].section == name)
 			return &shaderInfo[i];
 	}
 	return nullptr;
+}
+
+std::vector<const ShaderInfo *> GetPostShaderChain(const std::string &name) {
+	std::vector<const ShaderInfo *> backwards;
+	const ShaderInfo *shaderInfo = GetPostShaderInfo(name);
+	while (shaderInfo) {
+		backwards.push_back(shaderInfo);
+
+		if (!shaderInfo->parent.empty() && shaderInfo->parent != "Off") {
+			shaderInfo = GetPostShaderInfo(shaderInfo->parent);
+		} else {
+			shaderInfo = nullptr;
+		}
+		auto dup = std::find(backwards.begin(), backwards.end(), shaderInfo);
+		if (dup != backwards.end()) {
+			// Don't loop forever.
+			break;
+		}
+	}
+
+	if (!backwards.empty())
+		std::reverse(backwards.begin(), backwards.end());
+	// Not backwards anymore.
+	return backwards;
 }
 
 const std::vector<ShaderInfo> &GetAllPostShaderInfo() {

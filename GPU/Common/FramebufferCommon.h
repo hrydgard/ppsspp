@@ -383,7 +383,7 @@ protected:
 
 	bool useBufferedRendering_ = false;
 	bool postShaderIsUpscalingFilter_ = false;
-	int postShaderSSAAFilterLevel_ = 0;
+	bool postShaderIsSupersampling_ = false;
 
 	std::vector<VirtualFramebuffer *> vfbs_;
 	std::vector<VirtualFramebuffer *> bvfbs_; // blitting framebuffers (for download)

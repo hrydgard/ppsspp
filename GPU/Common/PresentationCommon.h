@@ -90,17 +90,16 @@ public:
 	}
 
 	bool UpdatePostShader();
-	void UpdateShaderInfo(const ShaderInfo *shaderInfo);
 
 	void DeviceLost();
 	void DeviceRestore(Draw::DrawContext *draw);
 
-	void GetCardboardSettings(CardboardSettings *cardboardSettings);
-	void CalculatePostShaderUniforms(int bufferWidth, int bufferHeight, bool hasVideo, PostShaderUniforms *uniforms);
+	void UpdateUniforms(bool hasVideo);
+	void SourceTexture(Draw::Texture *texture, int bufferWidth, int bufferHeight);
+	void SourceFramebuffer(Draw::Framebuffer *fb, int bufferWidth, int bufferHeight);
+	void CopyToOutput(OutputFlags flags, int uvRotation, float u0, float v0, float u1, float v1);
 
-	void SourceTexture(Draw::Texture *texture);
-	void SourceFramebuffer(Draw::Framebuffer *fb);
-	void CopyToOutput(OutputFlags flags, int uvRotation, float u0, float v0, float u1, float v1, const PostShaderUniforms &uniforms);
+	void CalculateRenderResolution(int *width, int *height, bool *upscaling, bool *ssaa);
 
 protected:
 	void CreateDeviceObjects();
@@ -111,8 +110,12 @@ protected:
 
 	Draw::ShaderModule *CompileShaderModule(Draw::ShaderStage stage, ShaderLanguage lang, const std::string &src, std::string *errorString);
 	Draw::Pipeline *CreatePipeline(std::vector<Draw::ShaderModule *> shaders, bool postShader, const Draw::UniformBufferDesc *uniformDesc);
+	bool BuildPostShader(const ShaderInfo *shaderInfo, const ShaderInfo *next);
 
 	void BindSource();
+
+	void GetCardboardSettings(CardboardSettings *cardboardSettings);
+	void CalculatePostShaderUniforms(int bufferWidth, int bufferHeight, int targetWidth, int targetHeight, const ShaderInfo *shaderInfo, PostShaderUniforms *uniforms);
 
 	Draw::DrawContext *draw_;
 	Draw::Pipeline *texColor_ = nullptr;
@@ -125,9 +128,13 @@ protected:
 	std::vector<Draw::ShaderModule *> postShaderModules_;
 	std::vector<Draw::Pipeline *> postShaderPipelines_;
 	std::vector<Draw::Framebuffer *> postShaderFramebuffers_;
+	std::vector<ShaderInfo> postShaderInfo_;
 
 	Draw::Texture *srcTexture_ = nullptr;
 	Draw::Framebuffer *srcFramebuffer_ = nullptr;
+	int srcWidth_ = 0;
+	int srcHeight_ = 0;
+	bool hasVideo_ = false;
 
 	int pixelWidth_ = 0;
 	int pixelHeight_ = 0;
@@ -136,7 +143,5 @@ protected:
 
 	bool usePostShader_ = false;
 	bool restorePostShader_ = false;
-	bool postShaderAtOutputResolution_ = false;
-	bool postShaderIsUpscalingFilter_ = false;
 	ShaderLanguage lang_;
 };
