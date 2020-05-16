@@ -428,7 +428,7 @@ int main(int argc, const char* argv[])
 #endif
 
 	if (stateToLoad != NULL)
-		SaveState::Load(stateToLoad);
+		SaveState::Load(stateToLoad, -1);
 
 	std::vector<std::string> failedTests;
 	std::vector<std::string> passedTests;
