@@ -313,34 +313,6 @@ void FramebufferManagerGLES::BindFramebufferAsColorTexture(int stage, VirtualFra
 	}
 }
 
-bool FramebufferManagerGLES::CreateDownloadTempBuffer(VirtualFramebuffer *nvfb) {
-	// When updating VRAM, it need to be exact format.
-	if (!gstate_c.Supports(GPU_PREFER_CPU_DOWNLOAD)) {
-		switch (nvfb->format) {
-		case GE_FORMAT_4444:
-			nvfb->colorDepth = Draw::FBO_4444;
-			break;
-		case GE_FORMAT_5551:
-			nvfb->colorDepth = Draw::FBO_5551;
-			break;
-		case GE_FORMAT_565:
-			nvfb->colorDepth = Draw::FBO_565;
-			break;
-		case GE_FORMAT_8888:
-		default:
-			nvfb->colorDepth = Draw::FBO_8888;
-			break;
-		}
-	}
-
-	nvfb->fbo = draw_->CreateFramebuffer({ nvfb->bufferWidth, nvfb->bufferHeight, 1, 1, false, (Draw::FBColorDepth)nvfb->colorDepth });
-	if (!nvfb->fbo) {
-		ERROR_LOG(FRAMEBUF, "Error creating GL FBO! %i x %i", nvfb->renderWidth, nvfb->renderHeight);
-		return false;
-	}
-	return true;
-}
-
 void FramebufferManagerGLES::UpdateDownloadTempBuffer(VirtualFramebuffer *nvfb) {
 	_assert_msg_(G3D, nvfb->fbo, "Expecting a valid nvfb in UpdateDownloadTempBuffer");
 

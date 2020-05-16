@@ -339,7 +339,7 @@ protected:
 	void DownloadFramebufferOnSwitch(VirtualFramebuffer *vfb);
 	void FindTransferFramebuffers(VirtualFramebuffer *&dstBuffer, VirtualFramebuffer *&srcBuffer, u32 dstBasePtr, int dstStride, int &dstX, int &dstY, u32 srcBasePtr, int srcStride, int &srcX, int &srcY, int &srcWidth, int &srcHeight, int &dstWidth, int &dstHeight, int bpp);
 	VirtualFramebuffer *FindDownloadTempBuffer(VirtualFramebuffer *vfb);
-	virtual bool CreateDownloadTempBuffer(VirtualFramebuffer *nvfb) = 0;
+	virtual bool CreateDownloadTempBuffer(VirtualFramebuffer *nvfb);
 	virtual void UpdateDownloadTempBuffer(VirtualFramebuffer *nvfb) = 0;
 
 	VirtualFramebuffer *CreateRAMFramebuffer(uint32_t fbAddress, int width, int height, int stride, GEBufferFormat format);

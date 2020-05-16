@@ -366,19 +366,6 @@ void FramebufferManagerD3D11::BindFramebufferAsColorTexture(int stage, VirtualFr
 	}
 }
 
-bool FramebufferManagerD3D11::CreateDownloadTempBuffer(VirtualFramebuffer *nvfb) {
-	nvfb->colorDepth = Draw::FBO_8888;
-
-	nvfb->fbo = draw_->CreateFramebuffer({ nvfb->bufferWidth, nvfb->bufferHeight, 1, 1, true, (Draw::FBColorDepth)nvfb->colorDepth });
-	if (!(nvfb->fbo)) {
-		ERROR_LOG(FRAMEBUF, "Error creating FBO! %i x %i", nvfb->renderWidth, nvfb->renderHeight);
-		return false;
-	}
-
-	draw_->BindFramebufferAsRenderTarget(nvfb->fbo, { Draw::RPAction::CLEAR, Draw::RPAction::CLEAR, Draw::RPAction::CLEAR });
-	return true;
-}
-
 void FramebufferManagerD3D11::UpdateDownloadTempBuffer(VirtualFramebuffer *nvfb) {
 	// Nothing to do here.
 }
