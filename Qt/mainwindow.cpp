@@ -182,7 +182,7 @@ void MainWindow::lstateAct()
 	if (dialog.exec())
 	{
 		QStringList fileNames = dialog.selectedFiles();
-		SaveState::Load(fileNames[0].toStdString(), SaveStateActionFinished, this);
+		SaveState::Load(fileNames[0].toStdString(), -1, SaveStateActionFinished, this);
 	}
 }
 
@@ -197,7 +197,7 @@ void MainWindow::sstateAct()
 	if (dialog.exec())
 	{
 		QStringList fileNames = dialog.selectedFiles();
-		SaveState::Save(fileNames[0].toStdString(), SaveStateActionFinished, this);
+		SaveState::Save(fileNames[0].toStdString(), -1, SaveStateActionFinished, this);
 	}
 }
 
