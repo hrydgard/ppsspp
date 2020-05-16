@@ -146,7 +146,7 @@ void PresentationCommon::CalculatePostShaderUniforms(int bufferWidth, int buffer
 	float v_pixel_delta = 1.0f / renderHeight_;
 	if (postShaderAtOutputResolution_) {
 		float x, y, w, h;
-		CenterDisplayOutputRect(&x, &y, &w, &h, 480.0f, 272.0f, (float)pixelWidth_, (float)pixelHeight_, ROTATION_LOCKED_HORIZONTAL);
+		CenterDisplayOutputRect(&x, &y, &w, &h, 480.0f, 272.0f, (float)pixelWidth_, (float)pixelHeight_, g_Config.iInternalScreenRotation);
 		u_pixel_delta = 1.0f / w;
 		v_pixel_delta = 1.0f / h;
 	}
@@ -194,6 +194,18 @@ bool PresentationCommon::UpdatePostShader() {
 	if (shaderInfo == nullptr)
 		return false;
 
+	bool pipeline = BuildPostShader(shaderInfo, nullptr);
+	if (!pipeline) {
+		DestroyPostShader();
+		return false;
+	}
+
+	usePostShader_ = true;
+	postShaderAtOutputResolution_ = shaderInfo->outputResolution;
+	return true;
+}
+
+bool PresentationCommon::BuildPostShader(const ShaderInfo *shaderInfo, const ShaderInfo *next) {
 	std::string vsSourceGLSL = ReadShaderSrc(shaderInfo->vertexShaderFile);
 	std::string fsSourceGLSL = ReadShaderSrc(shaderInfo->fragmentShaderFile);
 	if (vsSourceGLSL.empty() || fsSourceGLSL.empty()) {
@@ -226,15 +238,38 @@ bool PresentationCommon::UpdatePostShader() {
 	if (!pipeline)
 		return false;
 
-	// No depth/stencil for post processing
-	Draw::Framebuffer *fbo = draw_->CreateFramebuffer({ (int)renderWidth_, (int)renderHeight_, 1, 1, false, Draw::FBO_8888 });
-	if (fbo)
-		postShaderFramebuffers_.push_back(fbo);
+	if (!shaderInfo->outputResolution || next) {
+		int nextWidth = renderWidth_;
+		int nextHeight = renderHeight_;
 
-	usePostShader_ = true;
+		if (next && next->isUpscalingFilter) {
+			// Force 1x for this shader, so the next can upscale.
+			const bool isPortrait = g_Config.IsPortrait();
+			nextWidth = isPortrait ? 272 : 480;
+			nextHeight = isPortrait ? 480 : 272;
+		} else if (next && next->SSAAFilterLevel >= 2) {
+			// Increase the resolution this shader outputs for the next to SSAA.
+			nextWidth *= next->SSAAFilterLevel;
+			nextHeight *= next->SSAAFilterLevel;
+		} else if (shaderInfo->outputResolution) {
+			// If the current shader uses output res (not next), we will use output res for it.
+			float x, y, w, h;
+			CenterDisplayOutputRect(&x, &y, &w, &h, 480.0f, 272.0f, (float)pixelWidth_, (float)pixelHeight_, g_Config.iInternalScreenRotation);
+			nextWidth = (int)w;
+			nextHeight = (int)h;
+		}
+
+		// No depth/stencil for post processing
+		Draw::Framebuffer *fbo = draw_->CreateFramebuffer({ nextWidth, nextHeight, 1, 1, false, Draw::FBO_8888 });
+		if (!fbo) {
+			pipeline->Release();
+			return false;
+		}
+		postShaderFramebuffers_.push_back(fbo);
+	}
+
 	postShaderPipelines_.push_back(pipeline);
-	postShaderAtOutputResolution_ = shaderInfo->outputResolution;
-	postShaderIsUpscalingFilter_ = shaderInfo->isUpscalingFilter;
+	postShaderInfo_.push_back(*shaderInfo);
 	return true;
 }
 
@@ -266,10 +301,6 @@ void PresentationCommon::ShowPostShaderError(const std::string &errorString) {
 	} else {
 		host->NotifyUserMessage("Post-shader error, see log for details", 10.0f, 0xFF3090FF);
 	}
-}
-
-void PresentationCommon::UpdateShaderInfo(const ShaderInfo *shaderInfo) {
-	postShaderAtOutputResolution_ = shaderInfo->outputResolution;
 }
 
 void PresentationCommon::DeviceLost() {
@@ -365,16 +396,17 @@ void PresentationCommon::DestroyDeviceObjects() {
 	DoRelease(srcTexture_);
 	DoRelease(srcFramebuffer_);
 
+	restorePostShader_ = usePostShader_;
 	DestroyPostShader();
 }
 
 void PresentationCommon::DestroyPostShader() {
-	restorePostShader_ = usePostShader_;
 	usePostShader_ = false;
 
 	DoReleaseVector(postShaderModules_);
 	DoReleaseVector(postShaderPipelines_);
 	DoReleaseVector(postShaderFramebuffers_);
+	postShaderInfo_.clear();
 }
 
 Draw::ShaderModule *PresentationCommon::CompileShaderModule(Draw::ShaderStage stage, ShaderLanguage lang, const std::string &src, std::string *errorString) {
@@ -452,11 +484,9 @@ void PresentationCommon::CopyToOutput(OutputFlags flags, int uvRotation, float u
 	// This should auto-disable usePostShader_ and call ShowPostShaderError().
 
 	bool useNearest = flags & OutputFlags::NEAREST;
-	bool usePostShader = usePostShader_ && !(flags & OutputFlags::RB_SWIZZLE);
+	const bool usePostShader = usePostShader_ && !(flags & OutputFlags::RB_SWIZZLE);
+	const bool isFinalAtOutputResolution = usePostShader && postShaderFramebuffers_.size() < postShaderPipelines_.size();
 	bool usePostShaderOutput = false;
-
-	CardboardSettings cardboardSettings;
-	GetCardboardSettings(&cardboardSettings);
 
 	// These are the output coordinates.
 	float x, y, w, h;
@@ -517,7 +547,7 @@ void PresentationCommon::CopyToOutput(OutputFlags flags, int uvRotation, float u
 		}
 	}
 
-	if (usePostShader && postShaderAtOutputResolution_) {
+	if (isFinalAtOutputResolution) {
 		// In this mode, we ignore the g_display_rot_matrix.  Apply manually.
 		if (g_display_rotation != DisplayRotation::ROTATE_0) {
 			for (int i = 0; i < 4; i++) {
@@ -530,17 +560,21 @@ void PresentationCommon::CopyToOutput(OutputFlags flags, int uvRotation, float u
 		}
 	}
 
-	if (usePostShader && postShaderFramebuffers_.size() == 1 && !postShaderAtOutputResolution_) {
-		draw_->BindFramebufferAsRenderTarget(postShaderFramebuffers_[0], { Draw::RPAction::DONT_CARE, Draw::RPAction::DONT_CARE, Draw::RPAction::DONT_CARE });
+	Draw::Pipeline *postShaderPipeline = usePostShader ? postShaderPipelines_.front() : nullptr;
+	const ShaderInfo *shaderInfo = usePostShader ? &postShaderInfo_[0] : nullptr;
+	Draw::Framebuffer *postShaderFramebuffer = usePostShader && postShaderFramebuffers_.size() >= 1 ? postShaderFramebuffers_.front() : nullptr;
+
+	if (usePostShader && postShaderFramebuffer) {
+		draw_->BindFramebufferAsRenderTarget(postShaderFramebuffer, { Draw::RPAction::DONT_CARE, Draw::RPAction::DONT_CARE, Draw::RPAction::DONT_CARE });
 		BindSource();
 
 		int fbo_w, fbo_h;
-		draw_->GetFramebufferDimensions(postShaderFramebuffers_[0], &fbo_w, &fbo_h);
+		draw_->GetFramebufferDimensions(postShaderFramebuffer, &fbo_w, &fbo_h);
 		Draw::Viewport viewport{ 0, 0, (float)fbo_w, (float)fbo_h, 0.0f, 1.0f };
 		draw_->SetViewports(1, &viewport);
 		draw_->SetScissorRect(0, 0, fbo_w, fbo_h);
 
-		draw_->BindPipeline(postShaderPipelines_.front());
+		draw_->BindPipeline(postShaderPipeline);
 		draw_->UpdateDynamicUniformBuffer(&uniforms, sizeof(uniforms));
 
 		Draw::SamplerState *sampler = useNearest ? samplerNearest_ : samplerLinear_;
@@ -566,12 +600,12 @@ void PresentationCommon::CopyToOutput(OutputFlags flags, int uvRotation, float u
 		draw_->UpdateBuffer(vdata_, (const uint8_t *)verts, 0, postVertsOffset, Draw::UPDATE_DISCARD);
 	}
 
-	if (postShaderIsUpscalingFilter_)
+	if (usePostShader && shaderInfo->isUpscalingFilter)
 		useNearest = true;
 
 	Draw::Pipeline *pipeline = flags & OutputFlags::RB_SWIZZLE ? texColorRBSwizzle_ : texColor_;
-	if (usePostShader && postShaderAtOutputResolution_) {
-		pipeline = postShaderPipelines_.front();
+	if (isFinalAtOutputResolution) {
+		pipeline = postShaderPipeline;
 	}
 
 	draw_->BindFramebufferAsRenderTarget(nullptr, { Draw::RPAction::CLEAR, Draw::RPAction::DONT_CARE, Draw::RPAction::DONT_CARE });
@@ -585,7 +619,7 @@ void PresentationCommon::CopyToOutput(OutputFlags flags, int uvRotation, float u
 		BindSource();
 	}
 
-	if (usePostShader && postShaderAtOutputResolution_) {
+	if (isFinalAtOutputResolution) {
 		draw_->UpdateDynamicUniformBuffer(&uniforms, sizeof(uniforms));
 	} else {
 		Draw::VsTexColUB ub{};
@@ -604,6 +638,8 @@ void PresentationCommon::CopyToOutput(OutputFlags flags, int uvRotation, float u
 		draw_->SetViewports(1, &viewport);
 	};
 
+	CardboardSettings cardboardSettings;
+	GetCardboardSettings(&cardboardSettings);
 	if (cardboardSettings.enabled) {
 		// This is what the left eye sees.
 		setViewport(cardboardSettings.leftEyeXPosition, cardboardSettings.screenYPosition, cardboardSettings.screenWidth, cardboardSettings.screenHeight);
