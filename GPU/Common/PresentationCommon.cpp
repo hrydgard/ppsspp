@@ -139,17 +139,11 @@ void PresentationCommon::GetCardboardSettings(CardboardSettings *cardboardSettin
 	cardboardSettings->screenHeight = cardboardScreenHeight;
 }
 
-void PresentationCommon::CalculatePostShaderUniforms(int bufferWidth, int bufferHeight, bool hasVideo, PostShaderUniforms *uniforms) {
+void PresentationCommon::CalculatePostShaderUniforms(int bufferWidth, int bufferHeight, int targetWidth, int targetHeight, const ShaderInfo *shaderInfo, PostShaderUniforms *uniforms) {
 	float u_delta = 1.0f / bufferWidth;
 	float v_delta = 1.0f / bufferHeight;
-	float u_pixel_delta = 1.0f / renderWidth_;
-	float v_pixel_delta = 1.0f / renderHeight_;
-	if (postShaderAtOutputResolution_) {
-		float x, y, w, h;
-		CenterDisplayOutputRect(&x, &y, &w, &h, 480.0f, 272.0f, (float)pixelWidth_, (float)pixelHeight_, g_Config.iInternalScreenRotation);
-		u_pixel_delta = 1.0f / w;
-		v_pixel_delta = 1.0f / h;
-	}
+	float u_pixel_delta = 1.0f / targetWidth;
+	float v_pixel_delta = 1.0f / targetHeight;
 	int flipCount = __DisplayGetFlipCount();
 	int vCount = __DisplayGetVCount();
 	float time[4] = { time_now(), (vCount % 60) * 1.0f / 60.0f, (float)vCount, (float)(flipCount % 60) };
@@ -159,7 +153,7 @@ void PresentationCommon::CalculatePostShaderUniforms(int bufferWidth, int buffer
 	uniforms->pixelDelta[0] = u_pixel_delta;
 	uniforms->pixelDelta[1] = v_pixel_delta;
 	memcpy(uniforms->time, time, 4 * sizeof(float));
-	uniforms->video = hasVideo;
+	uniforms->video = hasVideo_ ? 1.0f : 0.0f;
 
 	// The shader translator tacks this onto our shaders, if we don't set it they render garbage.
 	uniforms->gl_HalfPixel[0] = u_pixel_delta * 0.5f;
@@ -201,7 +195,6 @@ bool PresentationCommon::UpdatePostShader() {
 	}
 
 	usePostShader_ = true;
-	postShaderAtOutputResolution_ = shaderInfo->outputResolution;
 	return true;
 }
 
@@ -449,20 +442,24 @@ Draw::ShaderModule *PresentationCommon::CompileShaderModule(Draw::ShaderStage st
 	return shader;
 }
 
-void PresentationCommon::SourceTexture(Draw::Texture *texture) {
+void PresentationCommon::SourceTexture(Draw::Texture *texture, int bufferWidth, int bufferHeight) {
 	DoRelease(srcTexture_);
 	DoRelease(srcFramebuffer_);
 
 	texture->AddRef();
 	srcTexture_ = texture;
+	srcWidth_ = bufferWidth;
+	srcHeight_ = bufferHeight;
 }
 
-void PresentationCommon::SourceFramebuffer(Draw::Framebuffer *fb) {
+void PresentationCommon::SourceFramebuffer(Draw::Framebuffer *fb, int bufferWidth, int bufferHeight) {
 	DoRelease(srcTexture_);
 	DoRelease(srcFramebuffer_);
 
 	fb->AddRef();
 	srcFramebuffer_ = fb;
+	srcWidth_ = bufferWidth;
+	srcHeight_ = bufferHeight;
 }
 
 void PresentationCommon::BindSource() {
@@ -475,7 +472,11 @@ void PresentationCommon::BindSource() {
 	}
 }
 
-void PresentationCommon::CopyToOutput(OutputFlags flags, int uvRotation, float u0, float v0, float u1, float v1, const PostShaderUniforms &uniforms) {
+void PresentationCommon::UpdateUniforms(bool hasVideo) {
+	hasVideo_ = hasVideo;
+}
+
+void PresentationCommon::CopyToOutput(OutputFlags flags, int uvRotation, float u0, float v0, float u1, float v1) {
 	// Make sure Direct3D 11 clears state, since we set shaders outside Draw.
 	draw_->BindPipeline(nullptr);
 
@@ -487,6 +488,8 @@ void PresentationCommon::CopyToOutput(OutputFlags flags, int uvRotation, float u
 	const bool usePostShader = usePostShader_ && !(flags & OutputFlags::RB_SWIZZLE);
 	const bool isFinalAtOutputResolution = usePostShader && postShaderFramebuffers_.size() < postShaderPipelines_.size();
 	bool usePostShaderOutput = false;
+	int lastWidth = srcWidth_;
+	int lastHeight = srcHeight_;
 
 	// These are the output coordinates.
 	float x, y, w, h;
@@ -582,11 +585,14 @@ void PresentationCommon::CopyToOutput(OutputFlags flags, int uvRotation, float u
 				BindSource();
 			}
 
-			int fbo_w, fbo_h;
-			draw_->GetFramebufferDimensions(postShaderFramebuffer, &fbo_w, &fbo_h);
-			Draw::Viewport viewport{ 0, 0, (float)fbo_w, (float)fbo_h, 0.0f, 1.0f };
+			int nextWidth, nextHeight;
+			draw_->GetFramebufferDimensions(postShaderFramebuffer, &nextWidth, &nextHeight);
+			Draw::Viewport viewport{ 0, 0, (float)nextWidth, (float)nextHeight, 0.0f, 1.0f };
 			draw_->SetViewports(1, &viewport);
-			draw_->SetScissorRect(0, 0, fbo_w, fbo_h);
+			draw_->SetScissorRect(0, 0, nextWidth, nextHeight);
+
+			PostShaderUniforms uniforms;
+			CalculatePostShaderUniforms(lastWidth, lastHeight, nextWidth, nextHeight, shaderInfo, &uniforms);
 
 			draw_->BindPipeline(postShaderPipeline);
 			draw_->UpdateDynamicUniformBuffer(&uniforms, sizeof(uniforms));
@@ -600,6 +606,8 @@ void PresentationCommon::CopyToOutput(OutputFlags flags, int uvRotation, float u
 			draw_->BindIndexBuffer(nullptr, 0);
 
 			usePostShaderOutput = true;
+			lastWidth = nextWidth;
+			lastHeight = nextHeight;
 			if (shaderInfo->isUpscalingFilter)
 				useNearest = true;
 		}
@@ -624,6 +632,8 @@ void PresentationCommon::CopyToOutput(OutputFlags flags, int uvRotation, float u
 	}
 
 	if (isFinalAtOutputResolution) {
+		PostShaderUniforms uniforms;
+		CalculatePostShaderUniforms(lastWidth, lastHeight, (int)w, (int)h, &postShaderInfo_.back(), &uniforms);
 		draw_->UpdateDynamicUniformBuffer(&uniforms, sizeof(uniforms));
 	} else {
 		Draw::VsTexColUB ub{};
