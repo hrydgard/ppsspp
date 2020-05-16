@@ -114,7 +114,7 @@ static void InitSDLAudioDevice(const std::string &name = "") {
 		}
 	}
 	if (audioDev <= 0) {
-		ILOG("SDL: Trying a different sample rate");
+		ILOG("SDL: Trying a different device");
 		audioDev = SDL_OpenAudioDevice(nullptr, 0, &fmt, &g_retFmt, SDL_AUDIO_ALLOW_FREQUENCY_CHANGE);
 	}
 	if (audioDev <= 0) {
