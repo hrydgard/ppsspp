@@ -111,8 +111,6 @@ FramebufferManagerGLES::FramebufferManagerGLES(Draw::DrawContext *draw, GLRender
 
 void FramebufferManagerGLES::Init() {
 	FramebufferManagerCommon::Init();
-	// Workaround for upscaling shaders where we force x1 resolution without saving it
-	Resized();
 	CompileDraw2DProgram();
 }
 
