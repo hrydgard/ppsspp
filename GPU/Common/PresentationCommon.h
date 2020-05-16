@@ -31,12 +31,8 @@ struct CardboardSettings {
 struct PostShaderUniforms {
 	float texelDelta[2]; float pixelDelta[2];
 	float time[4];
-	float video;
-	float setting1;
-	float setting2;
-	float setting3;
-	float setting4;
-	float pad[3];
+	float setting[4];
+	float video; float pad[3];
 	// Used on Direct3D9.
 	float gl_HalfPixel[4];
 };

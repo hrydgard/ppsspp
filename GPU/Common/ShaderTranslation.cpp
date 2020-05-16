@@ -86,11 +86,8 @@ cbuffer data : register(b0) {
 	float2 u_texelDelta;
 	float2 u_pixelDelta;
 	float4 u_time;
+	float4 u_setting;
 	float u_video;
-	float u_setting1;
-	float u_setting2;
-	float u_setting3;
-	float u_setting4;
 };
 )";
 
@@ -105,11 +102,8 @@ layout (std140, set = 0, binding = 0) uniform Data {
 	vec2 u_texelDelta;
 	vec2 u_pixelDelta;
 	vec4 u_time;
+	vec4 u_setting;
 	float u_video;
-	float u_setting1;
-	float u_setting2;
-	float u_setting3;
-	float u_setting4;
 };
 )";
 
@@ -118,11 +112,8 @@ float4 gl_HalfPixel : register(c0);
 float2 u_texelDelta : register(c1);
 float2 u_pixelDelta : register(c2);
 float4 u_time : register(c3);
-float u_video : register(c4);
-float u_setting1 : register(c5);
-float u_setting2 : register(c6);
-float u_setting3 : register(c7);
-float u_setting4 : register(c8);
+float4 u_setting : register(c4);
+float u_video : register(c5);
 )";
 
 // SPIRV-Cross' HLSL output has some deficiencies we need to work around.

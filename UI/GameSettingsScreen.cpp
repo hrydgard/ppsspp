@@ -290,34 +290,24 @@ void GameSettingsScreen::CreateViews() {
 		return g_Config.iRenderingMode != FB_NON_BUFFERED_MODE;
 	});
 
-	if (g_Config.sPostShaderSettingName1 != "")  {
-		graphicsSettings->Add(new PopupSliderChoiceFloat(&g_Config.fPostShaderSettingValue1, g_Config.fPostShaderMinSettingValue1, g_Config.fPostShaderMaxSettingValue1,
-			g_Config.sPostShaderSettingName1, g_Config.fPostShaderSettingStep1, screenManager()))->OnChange.Add([=](EventParams &e) {
-				g_Config.mPostShaderSetting[g_Config.sPostShaderName + "SettingValue1"] = g_Config.fPostShaderSettingValue1;
-				return UI::EVENT_CONTINUE;
-			});;
+	const ShaderInfo *shaderInfo = GetPostShaderInfo(g_Config.sPostShaderName);
+	if (shaderInfo && !shaderInfo->settingName1.empty()) {
+		auto &value = g_Config.mPostShaderSetting[g_Config.sPostShaderName + "SettingValue1"];
+		graphicsSettings->Add(new PopupSliderChoiceFloat(&value, shaderInfo->minSettingValue1, shaderInfo->maxSettingValue1, shaderInfo->settingName1, shaderInfo->settingStep1, screenManager()));
 	}
-	if (g_Config.sPostShaderSettingName2 != "") {
-		graphicsSettings->Add(new PopupSliderChoiceFloat(&g_Config.fPostShaderSettingValue2, g_Config.fPostShaderMinSettingValue2, g_Config.fPostShaderMaxSettingValue2,
-			g_Config.sPostShaderSettingName2, g_Config.fPostShaderSettingStep2, screenManager()))->OnChange.Add([=](EventParams &e) {
-				g_Config.mPostShaderSetting[g_Config.sPostShaderName + "SettingValue2"] = g_Config.fPostShaderSettingValue2;
-				return UI::EVENT_CONTINUE;
-			});;
+	if (shaderInfo && !shaderInfo->settingName2.empty()) {
+		auto &value = g_Config.mPostShaderSetting[g_Config.sPostShaderName + "SettingValue2"];
+		graphicsSettings->Add(new PopupSliderChoiceFloat(&value, shaderInfo->minSettingValue2, shaderInfo->maxSettingValue2, shaderInfo->settingName2, shaderInfo->settingStep2, screenManager()));
 	}
-	if (g_Config.sPostShaderSettingName3 != "") {
-		graphicsSettings->Add(new PopupSliderChoiceFloat(&g_Config.fPostShaderSettingValue3, g_Config.fPostShaderMinSettingValue3, g_Config.fPostShaderMaxSettingValue3,
-			g_Config.sPostShaderSettingName3, g_Config.fPostShaderSettingStep3, screenManager()))->OnChange.Add([=](EventParams &e) {
-				g_Config.mPostShaderSetting[g_Config.sPostShaderName + "SettingValue3"] = g_Config.fPostShaderSettingValue3;
-				return UI::EVENT_CONTINUE;
-			});;
+	if (shaderInfo && !shaderInfo->settingName3.empty()) {
+		auto &value = g_Config.mPostShaderSetting[g_Config.sPostShaderName + "SettingValue3"];
+		graphicsSettings->Add(new PopupSliderChoiceFloat(&value, shaderInfo->minSettingValue3, shaderInfo->maxSettingValue3, shaderInfo->settingName3, shaderInfo->settingStep3, screenManager()));
 	}
-	if (g_Config.sPostShaderSettingName4 != "") {
-		graphicsSettings->Add(new PopupSliderChoiceFloat(&g_Config.fPostShaderSettingValue4, g_Config.fPostShaderMinSettingValue4, g_Config.fPostShaderMaxSettingValue4,
-			g_Config.sPostShaderSettingName4, g_Config.fPostShaderSettingStep4, screenManager()))->OnChange.Add([=](EventParams &e) {
-				g_Config.mPostShaderSetting[g_Config.sPostShaderName + "SettingValue4"] = g_Config.fPostShaderSettingValue4;
-				return UI::EVENT_CONTINUE;
-			});;
+	if (shaderInfo && !shaderInfo->settingName4.empty()) {
+		auto &value = g_Config.mPostShaderSetting[g_Config.sPostShaderName + "SettingValue4"];
+		graphicsSettings->Add(new PopupSliderChoiceFloat(&value, shaderInfo->minSettingValue4, shaderInfo->maxSettingValue4, shaderInfo->settingName4, shaderInfo->settingStep4, screenManager()));
 	}
+
 #if !defined(MOBILE_DEVICE)
 	graphicsSettings->Add(new CheckBox(&g_Config.bFullScreen, gr->T("FullScreen", "Full Screen")))->OnClick.Handle(this, &GameSettingsScreen::OnFullscreenChange);
 	if (System_GetPropertyInt(SYSPROP_DISPLAY_COUNT) > 1) {

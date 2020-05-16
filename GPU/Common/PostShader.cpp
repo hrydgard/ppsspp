@@ -130,6 +130,16 @@ void LoadPostShaderInfo(std::vector<std::string> directories) {
 					section.Get("SettingMinValue4", &info.minSettingValue4, -1.0f);
 					section.Get("SettingMaxValue4", &info.maxSettingValue4, 1.0f);
 					section.Get("SettingStep4", &info.settingStep4, 0.01f);
+
+					if (g_Config.mPostShaderSetting.find(info.section + "SettingValue1") == g_Config.mPostShaderSetting.end())
+						g_Config.mPostShaderSetting.insert(std::pair<std::string, float>(info.section + "SettingValue1", info.settingValue1));
+					if (g_Config.mPostShaderSetting.find(info.section + "SettingValue2") == g_Config.mPostShaderSetting.end())
+						g_Config.mPostShaderSetting.insert(std::pair<std::string, float>(info.section + "SettingValue2", info.settingValue2));
+					if (g_Config.mPostShaderSetting.find(info.section + "SettingValue3") == g_Config.mPostShaderSetting.end())
+						g_Config.mPostShaderSetting.insert(std::pair<std::string, float>(info.section + "SettingValue3", info.settingValue3));
+					if (g_Config.mPostShaderSetting.find(info.section + "SettingValue4") == g_Config.mPostShaderSetting.end())
+						g_Config.mPostShaderSetting.insert(std::pair<std::string, float>(info.section + "SettingValue4", info.settingValue4));
+
 					// Let's ignore shaders we can't support. TODO: Not a very good check
 					if (gl_extensions.IsGLES && !gl_extensions.GLES3) {
 						bool requiresIntegerSupport;

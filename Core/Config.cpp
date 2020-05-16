@@ -768,30 +768,6 @@ static ConfigSetting graphicsSettings[] = {
 	ReportedConfigSetting("HardwareTessellation", &g_Config.bHardwareTessellation, false, true, true),
 	ReportedConfigSetting("PostShader", &g_Config.sPostShaderName, "Off", true, true),
 
-	ReportedConfigSetting("PostShaderSettingName1", &g_Config.sPostShaderSettingName1, "", true, true),
-	ReportedConfigSetting("PostShaderSettingValue1", &g_Config.fPostShaderSettingValue1, 0.0f, true, true),
-	ConfigSetting("PostShaderSettingMaxValue1", &g_Config.fPostShaderMaxSettingValue1, 1.0f, true, true),
-	ConfigSetting("PostShaderSettingMinValue1", &g_Config.fPostShaderMinSettingValue1, -1.0f, true, true),
-	ConfigSetting("PostShaderSettingStep1", &g_Config.fPostShaderSettingStep1, 0.01f, true, true),
-
-	ReportedConfigSetting("PostShaderSettingName2", &g_Config.sPostShaderSettingName2, "", true, true),
-	ReportedConfigSetting("PostShaderSettingValue2", &g_Config.fPostShaderSettingValue2, 0.0f, true, true),
-	ConfigSetting("PostShaderSettingMaxValue2", &g_Config.fPostShaderMaxSettingValue2, 1.0f, true, true),
-	ConfigSetting("PostShaderSettingMinValue2", &g_Config.fPostShaderMinSettingValue2, -1.0f, true, true),
-	ConfigSetting("PostShaderSettingStep2", &g_Config.fPostShaderSettingStep2, 0.01f, true, true),
-
-	ReportedConfigSetting("PostShaderSettingName3", &g_Config.sPostShaderSettingName3, "", true, true),
-	ReportedConfigSetting("PostShaderSettingValue3", &g_Config.fPostShaderSettingValue3, 0.0f, true, true),
-	ConfigSetting("PostShaderSettingMaxValue3", &g_Config.fPostShaderMaxSettingValue3, 1.0f, true, true),
-	ConfigSetting("PostShaderSettingMinValue3", &g_Config.fPostShaderMinSettingValue3, -1.0f, true, true),
-	ConfigSetting("PostShaderSettingStep3", &g_Config.fPostShaderSettingStep3, 0.01f, true, true),
-
-	ReportedConfigSetting("PostShaderSettingName4", &g_Config.sPostShaderSettingName4, "", true, true),
-	ReportedConfigSetting("PostShaderSettingValue4", &g_Config.fPostShaderSettingValue4, 0.0f, true, true),
-	ConfigSetting("PostShaderSettingMaxValue4", &g_Config.fPostShaderMaxSettingValue4, 1.0f, true, true),
-	ConfigSetting("PostShaderSettingMinValue4", &g_Config.fPostShaderMinSettingValue4, -1.0f, true, true),
-	ConfigSetting("PostShaderSettingStep4", &g_Config.fPostShaderSettingStep4, 0.01f, true, true),
-
 	ReportedConfigSetting("MemBlockTransferGPU", &g_Config.bBlockTransferGPU, true, true, true),
 	ReportedConfigSetting("DisableSlowFramebufEffects", &g_Config.bDisableSlowFramebufEffects, false, true, true),
 	ReportedConfigSetting("FragmentTestCache", &g_Config.bFragmentTestCache, true, true, true),
@@ -1216,8 +1192,8 @@ void Config::Load(const char *iniFileName, const char *controllerIniFilename) {
 
 	auto postShaderSetting = iniFile.GetOrCreateSection("PostShaderSetting")->ToMap();
 	mPostShaderSetting.clear();
-	for (auto it = postShaderSetting.begin(), end = postShaderSetting.end(); it != end; ++it) {
-		mPostShaderSetting.insert(std::pair<std::string, float>(it->first, std::stof(it->second)));
+	for (auto it : postShaderSetting) {
+		mPostShaderSetting[it.first] = std::stof(it.second);
 	}
 
 	// This caps the exponent 4 (so 16x.)
@@ -1615,8 +1591,8 @@ bool Config::loadGameConfig(const std::string &pGameId, const std::string &title
 
 	auto postShaderSetting = iniFile.GetOrCreateSection("PostShaderSetting")->ToMap();
 	mPostShaderSetting.clear();
-	for (auto it = postShaderSetting.begin(), end = postShaderSetting.end(); it != end; ++it) {
-		mPostShaderSetting.insert(std::pair<std::string, float>(it->first, std::stof(it->second)));
+	for (auto it : postShaderSetting) {
+		mPostShaderSetting[it.first] = std::stof(it.second);
 	}
 
 	IterateSettings(iniFile, [](IniFile::Section *section, ConfigSetting *setting) {
@@ -1642,6 +1618,12 @@ void Config::unloadGameConfig() {
 				setting->Get(section);
 			}
 		});
+
+		auto postShaderSetting = iniFile.GetOrCreateSection("PostShaderSetting")->ToMap();
+		mPostShaderSetting.clear();
+		for (auto it : postShaderSetting) {
+			mPostShaderSetting[it.first] = std::stof(it.second);
+		}
 
 		LoadStandardControllerIni();
 	}
