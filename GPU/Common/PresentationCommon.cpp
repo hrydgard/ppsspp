@@ -173,20 +173,22 @@ static std::string ReadShaderSrc(const std::string &filename) {
 
 // Note: called on resize and settings changes.
 bool PresentationCommon::UpdatePostShader() {
-	const ShaderInfo *shaderInfo = nullptr;
+	std::vector<const ShaderInfo *> shaderInfo;
 	if (g_Config.sPostShaderName != "Off") {
 		ReloadAllPostShaderInfo();
-		shaderInfo = GetPostShaderInfo(g_Config.sPostShaderName);
+		shaderInfo = GetPostShaderChain(g_Config.sPostShaderName);
 	}
 
 	DestroyPostShader();
-	if (shaderInfo == nullptr)
+	if (shaderInfo.empty())
 		return false;
 
-	bool pipeline = BuildPostShader(shaderInfo, nullptr);
-	if (!pipeline) {
-		DestroyPostShader();
-		return false;
+	for (int i = 0; i < shaderInfo.size(); ++i) {
+		const ShaderInfo *next = i + 1 < shaderInfo.size() ? shaderInfo[i + 1] : nullptr;
+		if (!BuildPostShader(shaderInfo[i], next)) {
+			DestroyPostShader();
+			return false;
+		}
 	}
 
 	usePostShader_ = true;

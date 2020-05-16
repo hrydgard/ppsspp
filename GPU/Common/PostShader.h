@@ -28,10 +28,13 @@ struct ShaderInfo {
 	std::string iniFile;  // which ini file was this definition in? So we can write settings back later
 	std::string section;  // ini file section. This is saved.
 	std::string name;     // Fancy display name.
+	std::string parent;   // Parent shader ini section name.
 
 	std::string fragmentShaderFile;
 	std::string vertexShaderFile;
 
+	// Show this shader in lists (i.e. not just for chaining.)
+	bool visible;
 	// Run at output instead of input resolution
 	bool outputResolution;
 	// Use x1 rendering res + nearest screen scaling filter
@@ -42,7 +45,7 @@ struct ShaderInfo {
 	bool requires60fps;
 
 	// TODO: Add support for all kinds of fun options like mapping the depth buffer,
-	// SRGB texture reads, multiple shaders chained, etc.
+	// SRGB texture reads, etc.
 
 	bool operator == (const std::string &other) {
 		return name == other;
@@ -54,5 +57,6 @@ struct ShaderInfo {
 
 void ReloadAllPostShaderInfo();
 
-const ShaderInfo *GetPostShaderInfo(std::string name);
+const ShaderInfo *GetPostShaderInfo(const std::string &name);
+std::vector<const ShaderInfo *> GetPostShaderChain(const std::string &name);
 const std::vector<ShaderInfo> &GetAllPostShaderInfo();
