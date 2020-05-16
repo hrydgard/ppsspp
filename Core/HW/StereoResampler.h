@@ -19,7 +19,7 @@
 
 #pragma once
 
-#include <string>
+#include <cstdint>
 
 #include "Common/ChunkFile.h"
 #include "Common/CommonTypes.h"
@@ -57,11 +57,17 @@ protected:
 	volatile u32 m_indexR = 0;
 	float m_numLeftI = 0.0f;
 	u32 m_frac = 0;
+	float sample_rate_ = 0.0;
+	int lastBufSize_ = 0;
+	int lastPushSize_ = 0;
+
 	int underrunCount_ = 0;
 	int overrunCount_ = 0;
 	int underrunCountTotal_ = 0;
 	int overrunCountTotal_ = 0;
-	float sample_rate_ = 0.0;
-	int lastBufSize_ = 0;
-	int lastPushSize_ = 0;
+
+	int64_t inputSampleCount_ = 0;
+	int64_t outputSampleCount_ = 0;
+
+	double startTime_ = 0.0;
 };

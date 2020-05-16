@@ -32,6 +32,7 @@
 #include <cstring>
 
 #include "base/logging.h"
+#include "base/timeutil.h"
 #include "base/NativeApp.h"
 #include "Common/ChunkFile.h"
 #include "Common/MathUtil.h"
@@ -212,6 +213,9 @@ unsigned int StereoResampler::Mix(short* samples, unsigned int numSamples, bool 
 	if (currentSample < numSamples * 2)
 		underrunCount_++;
 
+	// Let's not count the padding here.
+	outputSampleCount_ += currentSample / 2;
+
 	// Padding with the last value to reduce clicking
 	short s[2];
 	s[0] = clamp_s16(m_buffer[(indexR - 1) & INDEX_MASK]);
@@ -233,6 +237,8 @@ unsigned int StereoResampler::Mix(short* samples, unsigned int numSamples, bool 
 }
 
 void StereoResampler::PushSamples(const s32 *samples, unsigned int num_samples) {
+	inputSampleCount_ += num_samples;
+
 	UpdateBufferSize();
 	const int INDEX_MASK = (m_bufsize * 2 - 1);
 	// Cache access in non-volatile variable
@@ -241,9 +247,10 @@ void StereoResampler::PushSamples(const s32 *samples, unsigned int num_samples) 
 	u32 indexW = Common::AtomicLoad(m_indexW);
 
 	u32 cap = m_bufsize * 2;
-	// If unthottling, no need to fill up the entire buffer, just screws up timing after releasing unthrottle.
-	if (PSP_CoreParameter().unthrottle)
+	// If unthrottling, no need to fill up the entire buffer, just screws up timing after releasing unthrottle.
+	if (PSP_CoreParameter().unthrottle) {
 		cap = m_lowwatermark * 2;
+	}
 
 	// Check if we have enough free space
 	// indexW == m_indexR results in empty buffer, so indexR must always be smaller than indexW
@@ -267,11 +274,17 @@ void StereoResampler::PushSamples(const s32 *samples, unsigned int num_samples) 
 }
 
 void StereoResampler::GetAudioDebugStats(char *buf, size_t bufSize) {
+	double elapsed = real_time_now() - startTime_;
+
+	double effective_input_sample_rate = (double)inputSampleCount_ / elapsed;
+	double effective_output_sample_rate = (double)outputSampleCount_ / elapsed;
 	snprintf(buf, bufSize,
 		"Audio buffer: %d/%d (low watermark: %d)\n"
 		"Underruns: %d\n"
 		"Overruns: %d\n"
 		"Sample rate: %d (input: %d)\n"
+		"Effective input sample rate: %0.2f\n"
+		"Effective output sample rate: %0.2f\n"
 		"Push size: %d\n",
 		lastBufSize_,
 		m_bufsize * 2,
@@ -280,11 +293,18 @@ void StereoResampler::GetAudioDebugStats(char *buf, size_t bufSize) {
 		overrunCountTotal_,
 		(int)sample_rate_,
 		m_input_sample_rate,
+		effective_input_sample_rate,
+		effective_output_sample_rate,
 		lastPushSize_);
 	underrunCountTotal_ += underrunCount_;
 	overrunCountTotal_ += overrunCount_;
 	underrunCount_ = 0;
 	overrunCount_ = 0;
+
+	// Try to remove the bias from the startup.
+	if (elapsed > 3.0) {
+		//ResetStatCounters();
+	}
 }
 
 void StereoResampler::ResetStatCounters() {
@@ -292,6 +312,9 @@ void StereoResampler::ResetStatCounters() {
 	overrunCount_ = 0;
 	underrunCountTotal_ = 0;
 	overrunCountTotal_ = 0;
+	inputSampleCount_ = 0;
+	outputSampleCount_ = 0;
+	startTime_ = real_time_now();
 }
 
 void StereoResampler::SetInputSampleRate(unsigned int rate) {
