@@ -679,7 +679,7 @@ u32 GPUCommon::EnqueueList(u32 listpc, u32 stall, int subIntrBase, PSPPointer<Ps
 		return SCE_KERNEL_ERROR_INVALID_POINTER;
 	}
 	
-	if (args.IsValid() && args->numStacks >= 256 ) {
+	if (args.IsValid() && args->numStacks >= 256) {
 		ERROR_LOG_REPORT(G3D, "sceGeListEnqueue: invalid size %d", args->numStacks);
 		return SCE_KERNEL_ERROR_INVALID_SIZE;
 	}
