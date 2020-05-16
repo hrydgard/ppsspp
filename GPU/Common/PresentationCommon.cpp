@@ -676,3 +676,52 @@ void PresentationCommon::CopyToOutput(OutputFlags flags, int uvRotation, float u
 
 	draw_->BindPipeline(nullptr);
 }
+
+void PresentationCommon::CalculateRenderResolution(int *width, int *height, bool *upscaling, bool *ssaa) {
+	// Check if postprocessing shader is doing upscaling as it requires native resolution
+	std::vector<const ShaderInfo *> shaderInfo;
+	if (g_Config.sPostShaderName != "Off") {
+		ReloadAllPostShaderInfo();
+		shaderInfo = GetPostShaderChain(g_Config.sPostShaderName);
+	}
+
+	bool firstIsUpscalingFilter = shaderInfo.empty() ? false : shaderInfo.front()->isUpscalingFilter;
+	int firstSSAAFilterLevel = shaderInfo.empty() ? 0 : shaderInfo.front()->SSAAFilterLevel;
+
+	// Actually, auto mode should be more granular...
+	// Round up to a zoom factor for the render size.
+	int zoom = g_Config.iInternalResolution;
+	if (zoom == 0 || firstSSAAFilterLevel >= 2) {
+		// auto mode, use the longest dimension
+		if (!g_Config.IsPortrait()) {
+			zoom = (PSP_CoreParameter().pixelWidth + 479) / 480;
+		} else {
+			zoom = (PSP_CoreParameter().pixelHeight + 479) / 480;
+		}
+		if (firstSSAAFilterLevel >= 2)
+			zoom *= firstSSAAFilterLevel;
+	}
+	if (zoom <= 1 || firstIsUpscalingFilter)
+		zoom = 1;
+
+	if (upscaling) {
+		*upscaling = firstIsUpscalingFilter;
+		for (auto &info : shaderInfo) {
+			*upscaling = *upscaling || info->isUpscalingFilter;
+		}
+	}
+	if (ssaa) {
+		*ssaa = firstSSAAFilterLevel >= 2;
+		for (auto &info : shaderInfo) {
+			*ssaa = *ssaa || info->SSAAFilterLevel >= 2;
+		}
+	}
+
+	if (g_Config.IsPortrait()) {
+		*width = 272 * zoom;
+		*height = 480 * zoom;
+	} else {
+		*width = 480 * zoom;
+		*height = 272 * zoom;
+	}
+}
