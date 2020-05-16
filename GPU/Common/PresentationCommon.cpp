@@ -554,26 +554,7 @@ void PresentationCommon::CopyToOutput(OutputFlags flags, int uvRotation, float u
 		}
 	}
 
-	Draw::Pipeline *postShaderPipeline = usePostShader ? postShaderPipelines_.front() : nullptr;
-	const ShaderInfo *shaderInfo = usePostShader ? &postShaderInfo_[0] : nullptr;
-	Draw::Framebuffer *postShaderFramebuffer = usePostShader && postShaderFramebuffers_.size() >= 1 ? postShaderFramebuffers_.front() : nullptr;
-
-	if (usePostShader && postShaderFramebuffer) {
-		draw_->BindFramebufferAsRenderTarget(postShaderFramebuffer, { Draw::RPAction::DONT_CARE, Draw::RPAction::DONT_CARE, Draw::RPAction::DONT_CARE });
-		BindSource();
-
-		int fbo_w, fbo_h;
-		draw_->GetFramebufferDimensions(postShaderFramebuffer, &fbo_w, &fbo_h);
-		Draw::Viewport viewport{ 0, 0, (float)fbo_w, (float)fbo_h, 0.0f, 1.0f };
-		draw_->SetViewports(1, &viewport);
-		draw_->SetScissorRect(0, 0, fbo_w, fbo_h);
-
-		draw_->BindPipeline(postShaderPipeline);
-		draw_->UpdateDynamicUniformBuffer(&uniforms, sizeof(uniforms));
-
-		Draw::SamplerState *sampler = useNearest ? samplerNearest_ : samplerLinear_;
-		draw_->BindSamplerStates(0, 1, &sampler);
-
+	if (usePostShader) {
 		bool flipped = flags & OutputFlags::POSITION_FLIPPED;
 		float post_v0 = !flipped ? 1.0f : 0.0f;
 		float post_v1 = !flipped ? 0.0f : 1.0f;
@@ -581,25 +562,48 @@ void PresentationCommon::CopyToOutput(OutputFlags flags, int uvRotation, float u
 		verts[5] = { -1, 1, 0, 0, post_v0, 0xFFFFFFFF }; // BL
 		verts[6] = { 1, 1, 0, 1, post_v0, 0xFFFFFFFF }; // BR
 		verts[7] = { 1, -1, 0, 1, post_v1, 0xFFFFFFFF }; // TR
-
 		draw_->UpdateBuffer(vdata_, (const uint8_t *)verts, 0, sizeof(verts), Draw::UPDATE_DISCARD);
 
-		draw_->BindVertexBuffers(0, 1, &vdata_, &postVertsOffset);
-		draw_->BindIndexBuffer(idata_, 0);
-		draw_->DrawIndexed(6, 0);
-		draw_->BindIndexBuffer(nullptr, 0);
+		for (size_t i = 0; i < postShaderFramebuffers_.size(); ++i) {
+			Draw::Pipeline *postShaderPipeline = postShaderPipelines_[i];
+			const ShaderInfo *shaderInfo = &postShaderInfo_[i];
+			Draw::Framebuffer *postShaderFramebuffer = postShaderFramebuffers_[i];
 
-		usePostShaderOutput = true;
+			draw_->BindFramebufferAsRenderTarget(postShaderFramebuffer, { Draw::RPAction::DONT_CARE, Draw::RPAction::DONT_CARE, Draw::RPAction::DONT_CARE });
+			if (usePostShaderOutput) {
+				draw_->BindFramebufferAsTexture(postShaderFramebuffers_[i - 1], 0, Draw::FB_COLOR_BIT, 0);
+			} else {
+				BindSource();
+			}
+
+			int fbo_w, fbo_h;
+			draw_->GetFramebufferDimensions(postShaderFramebuffer, &fbo_w, &fbo_h);
+			Draw::Viewport viewport{ 0, 0, (float)fbo_w, (float)fbo_h, 0.0f, 1.0f };
+			draw_->SetViewports(1, &viewport);
+			draw_->SetScissorRect(0, 0, fbo_w, fbo_h);
+
+			draw_->BindPipeline(postShaderPipeline);
+			draw_->UpdateDynamicUniformBuffer(&uniforms, sizeof(uniforms));
+
+			Draw::SamplerState *sampler = useNearest ? samplerNearest_ : samplerLinear_;
+			draw_->BindSamplerStates(0, 1, &sampler);
+
+			draw_->BindVertexBuffers(0, 1, &vdata_, &postVertsOffset);
+			draw_->BindIndexBuffer(idata_, 0);
+			draw_->DrawIndexed(6, 0);
+			draw_->BindIndexBuffer(nullptr, 0);
+
+			usePostShaderOutput = true;
+			if (shaderInfo->isUpscalingFilter)
+				useNearest = true;
+		}
 	} else {
 		draw_->UpdateBuffer(vdata_, (const uint8_t *)verts, 0, postVertsOffset, Draw::UPDATE_DISCARD);
 	}
 
-	if (usePostShader && shaderInfo->isUpscalingFilter)
-		useNearest = true;
-
 	Draw::Pipeline *pipeline = flags & OutputFlags::RB_SWIZZLE ? texColorRBSwizzle_ : texColor_;
 	if (isFinalAtOutputResolution) {
-		pipeline = postShaderPipeline;
+		pipeline = postShaderPipelines_.back();
 	}
 
 	draw_->BindFramebufferAsRenderTarget(nullptr, { Draw::RPAction::CLEAR, Draw::RPAction::DONT_CARE, Draw::RPAction::DONT_CARE });
