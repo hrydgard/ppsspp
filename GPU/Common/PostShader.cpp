@@ -154,6 +154,11 @@ std::vector<const ShaderInfo *> GetPostShaderChain(const std::string &name) {
 		} else {
 			shaderInfo = nullptr;
 		}
+		auto dup = std::find(backwards.begin(), backwards.end(), shaderInfo);
+		if (dup != backwards.end()) {
+			// Don't loop forever.
+			break;
+		}
 	}
 
 	if (!backwards.empty())
