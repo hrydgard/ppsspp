@@ -421,6 +421,7 @@ enum class CheatOp {
 	CopyBytesFrom,
 	Vibration,
 	VibrationFromMemory,
+	PostShader,
 	Delay,
 
 	Assert,
@@ -475,6 +476,13 @@ struct CheatOperation {
 			uint8_t vibrLTime;
 			uint8_t vibrRTime;
 		} vibrationValues;
+		struct {
+			union {
+				float f;
+				uint32_t i;
+			} value;
+			uint8_t uniform;
+		} PostShaderUniform;
 	};
 };
 
@@ -620,6 +628,13 @@ CheatOperation CWCheatEngine::InterpretNextCwCheat(const CheatCode &cheat, size_
 		case 0x1: // 0x1 reads value for gamepad vibration from memory
 			addr = line1.part2;
 			return { CheatOp::VibrationFromMemory, addr };
+		case 0x2: // 0x2 sets postprocessing shader uniform
+			{
+				CheatOperation op = { CheatOp::PostShader };
+				op.PostShaderUniform.uniform = line1.part1 & 0x000000FF;
+				op.PostShaderUniform.value.i = line1.part2;
+				return op;
+			}
 		// Place for other PPSSPP specific cheats
 		default:
 			return { CheatOp::Invalid };
@@ -917,6 +932,11 @@ void CWCheatEngine::ExecuteOp(const CheatOperation &op, const CheatCode &cheat, 
 				SetVibrationRightDropout(Memory::Read_U8(op.addr + 0x6));
 			}
 		}
+		break;
+
+	case CheatOp::PostShader:
+		if (op.PostShaderUniform.uniform >= 0 && op.PostShaderUniform.uniform < 4)
+			g_Config.mPostShaderSetting[StringFromFormat("%sSettingValue%d", g_Config.sPostShaderName.c_str(), op.PostShaderUniform.uniform + 1)] = op.PostShaderUniform.value.f;
 		break;
 
 	case CheatOp::Delay:
