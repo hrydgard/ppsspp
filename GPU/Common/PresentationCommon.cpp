@@ -237,6 +237,10 @@ bool PresentationCommon::BuildPostShader(const ShaderInfo *shaderInfo, const Sha
 		int nextWidth = renderWidth_;
 		int nextHeight = renderHeight_;
 
+		// When chaining, we use the previous resolution as a base, rather than the render resolution.
+		if (!postShaderFramebuffers_.empty())
+			draw_->GetFramebufferDimensions(postShaderFramebuffers_.back(), &nextWidth, &nextHeight);
+
 		if (next && next->isUpscalingFilter) {
 			// Force 1x for this shader, so the next can upscale.
 			const bool isPortrait = g_Config.IsPortrait();
