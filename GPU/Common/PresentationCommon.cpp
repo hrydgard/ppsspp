@@ -593,7 +593,7 @@ void PresentationCommon::CopyToOutput(OutputFlags flags, int uvRotation, float u
 			draw_->BindPipeline(postShaderPipeline);
 			draw_->UpdateDynamicUniformBuffer(&uniforms, sizeof(uniforms));
 
-			Draw::SamplerState *sampler = useNearest ? samplerNearest_ : samplerLinear_;
+			Draw::SamplerState *sampler = useNearest || shaderInfo->isUpscalingFilter ? samplerNearest_ : samplerLinear_;
 			draw_->BindSamplerStates(0, 1, &sampler);
 
 			draw_->BindVertexBuffers(0, 1, &vdata_, &postVertsOffset);
@@ -604,9 +604,10 @@ void PresentationCommon::CopyToOutput(OutputFlags flags, int uvRotation, float u
 			usePostShaderOutput = true;
 			lastWidth = nextWidth;
 			lastHeight = nextHeight;
-			if (shaderInfo->isUpscalingFilter)
-				useNearest = true;
 		}
+
+		if (isFinalAtOutputResolution && postShaderInfo_.back().isUpscalingFilter)
+			useNearest = true;
 	} else {
 		draw_->UpdateBuffer(vdata_, (const uint8_t *)verts, 0, postVertsOffset, Draw::UPDATE_DISCARD);
 	}
