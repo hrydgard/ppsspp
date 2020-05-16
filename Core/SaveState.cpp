@@ -70,14 +70,16 @@ namespace SaveState
 
 	struct Operation
 	{
-		Operation(OperationType t, const std::string &f, Callback cb, void *cbUserData_)
-			: type(t), filename(f), callback(cb), cbUserData(cbUserData_)
+		// The slot number is for visual purposes only. Set to -1 for operations where we don't display a message for example.
+		Operation(OperationType t, const std::string &f, int slot_, Callback cb, void *cbUserData_)
+			: type(t), filename(f), callback(cb), slot(slot_), cbUserData(cbUserData_)
 		{
 		}
 
 		OperationType type;
 		std::string filename;
 		Callback callback;
+		int slot;
 		void *cbUserData;
 	};
 
@@ -316,29 +318,29 @@ namespace SaveState
 		Core_UpdateSingleStep();
 	}
 
-	void Load(const std::string &filename, Callback callback, void *cbUserData)
+	void Load(const std::string &filename, int slot, Callback callback, void *cbUserData)
 	{
-		Enqueue(Operation(SAVESTATE_LOAD, filename, callback, cbUserData));
+		Enqueue(Operation(SAVESTATE_LOAD, filename, slot, callback, cbUserData));
 	}
 
-	void Save(const std::string &filename, Callback callback, void *cbUserData)
+	void Save(const std::string &filename, int slot, Callback callback, void *cbUserData)
 	{
-		Enqueue(Operation(SAVESTATE_SAVE, filename, callback, cbUserData));
+		Enqueue(Operation(SAVESTATE_SAVE, filename, slot, callback, cbUserData));
 	}
 
 	void Verify(Callback callback, void *cbUserData)
 	{
-		Enqueue(Operation(SAVESTATE_VERIFY, std::string(""), callback, cbUserData));
+		Enqueue(Operation(SAVESTATE_VERIFY, std::string(""), -1, callback, cbUserData));
 	}
 
 	void Rewind(Callback callback, void *cbUserData)
 	{
-		Enqueue(Operation(SAVESTATE_REWIND, std::string(""), callback, cbUserData));
+		Enqueue(Operation(SAVESTATE_REWIND, std::string(""), -1, callback, cbUserData));
 	}
 
 	void SaveScreenshot(const std::string &filename, Callback callback, void *cbUserData)
 	{
-		Enqueue(Operation(SAVESTATE_SAVE_SCREENSHOT, filename, callback, cbUserData));
+		Enqueue(Operation(SAVESTATE_SAVE_SCREENSHOT, filename, -1, callback, cbUserData));
 	}
 
 	bool CanRewind()
@@ -435,7 +437,7 @@ namespace SaveState
 	{
 		std::string fn = GenerateSaveSlotFilename(gameFilename, slot, STATE_EXTENSION);
 		if (!fn.empty()) {
-			Load(fn, callback, cbUserData);
+			Load(fn, slot, callback, cbUserData);
 		} else {
 			auto sy = GetI18NCategory("System");
 			if (callback)
@@ -492,7 +494,7 @@ namespace SaveState
 				RenameIfExists(shot, shotUndo);
 			}
 			SaveScreenshot(shot, Callback(), 0);
-			Save(fn + ".tmp", renameCallback, cbUserData);
+			Save(fn + ".tmp", slot, renameCallback, cbUserData);
 		} else {
 			auto sy = GetI18NCategory("System");
 			if (callback)
@@ -737,6 +739,8 @@ namespace SaveState
 			if (strlen(i18nSaveFailure) == 0)
 				i18nSaveFailure = sc->T("Failed to save state");
 
+			std::string slot_prefix = op.slot >= 0 ? StringFromFormat("(%d) ", op.slot + 1) : "";
+
 			switch (op.type)
 			{
 			case SAVESTATE_LOAD:
@@ -744,7 +748,7 @@ namespace SaveState
 				// Use the state's latest version as a guess for saveStateInitialGitVersion.
 				result = CChunkFileReader::Load(op.filename, &saveStateInitialGitVersion, state, &reason);
 				if (result == CChunkFileReader::ERROR_NONE) {
-					callbackMessage = sc->T("Loaded State");
+					callbackMessage = slot_prefix + sc->T("Loaded State");
 					callbackResult = Status::SUCCESS;
 					hasLoadedState = true;
 
@@ -753,11 +757,11 @@ namespace SaveState
 						// Using save states instead of saves simulates many hour play sessions.
 						// Sometimes this exposes game bugs that were rarely seen on real devices,
 						// because few people played on a real PSP for 10 hours straight.
-						callbackMessage = sc->T("Loaded.  Save in game, restart, and load for less bugs.");
+						callbackMessage = slot_prefix + sc->T("Loaded.  Save in game, restart, and load for less bugs.");
 						callbackResult = Status::WARNING;
 					} else if (!g_Config.bHideStateWarnings && IsOldVersion()) {
 						// Save states also preserve bugs from old PPSSPP versions, so warn.
-						callbackMessage = sc->T("Loaded.  Save in game, restart, and load for less bugs.");
+						callbackMessage = slot_prefix + sc->T("Loaded.  Save in game, restart, and load for less bugs.");
 						callbackResult = Status::WARNING;
 					}
 
@@ -794,7 +798,7 @@ namespace SaveState
 				}
 				result = CChunkFileReader::Save(op.filename, title, PPSSPP_GIT_VERSION, state);
 				if (result == CChunkFileReader::ERROR_NONE) {
-					callbackMessage = sc->T("Saved State");
+					callbackMessage = slot_prefix + sc->T("Saved State");
 					callbackResult = Status::SUCCESS;
 #ifndef MOBILE_DEVICE
 					if (g_Config.bSaveLoadResetsAVdumping) {
