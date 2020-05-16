@@ -45,7 +45,6 @@ FramebufferManagerCommon::FramebufferManagerCommon(Draw::DrawContext *draw)
 	: draw_(draw),
 		displayFormat_(GE_FORMAT_565) {
 	presentation_ = new PresentationCommon(draw);
-	UpdateSize();
 }
 
 FramebufferManagerCommon::~FramebufferManagerCommon() {
@@ -70,8 +69,8 @@ FramebufferManagerCommon::~FramebufferManagerCommon() {
 }
 
 void FramebufferManagerCommon::Init() {
-	BeginFrame();
-	presentation_->UpdatePostShader();
+	// We may need to override the render size if the shader is upscaling or SSAA.
+	Resized();
 }
 
 bool FramebufferManagerCommon::UpdateSize() {
