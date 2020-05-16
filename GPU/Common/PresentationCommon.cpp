@@ -164,6 +164,11 @@ void PresentationCommon::CalculatePostShaderUniforms(int bufferWidth, int buffer
 	// The shader translator tacks this onto our shaders, if we don't set it they render garbage.
 	uniforms->gl_HalfPixel[0] = u_pixel_delta * 0.5f;
 	uniforms->gl_HalfPixel[1] = v_pixel_delta * 0.5f;
+
+	uniforms->setting[0] = g_Config.mPostShaderSetting[g_Config.sPostShaderName + "SettingValue1"];;
+	uniforms->setting[1] = g_Config.mPostShaderSetting[g_Config.sPostShaderName + "SettingValue2"];
+	uniforms->setting[2] = g_Config.mPostShaderSetting[g_Config.sPostShaderName + "SettingValue3"];
+	uniforms->setting[3] = g_Config.mPostShaderSetting[g_Config.sPostShaderName + "SettingValue4"];
 }
 
 static std::string ReadShaderSrc(const std::string &filename) {
@@ -214,7 +219,8 @@ bool PresentationCommon::UpdatePostShader() {
 		{ "u_texelDelta", 1, 1, Draw::UniformType::FLOAT2, offsetof(PostShaderUniforms, texelDelta) },
 		{ "u_pixelDelta", 2, 2, Draw::UniformType::FLOAT2, offsetof(PostShaderUniforms, pixelDelta) },
 		{ "u_time", 3, 3, Draw::UniformType::FLOAT4, offsetof(PostShaderUniforms, time) },
-		{ "u_video", 4, 4, Draw::UniformType::FLOAT1, offsetof(PostShaderUniforms, video) },
+		{ "u_setting", 4, 4, Draw::UniformType::FLOAT4, offsetof(PostShaderUniforms, setting) },
+		{ "u_video", 5, 5, Draw::UniformType::FLOAT1, offsetof(PostShaderUniforms, video) },
 	} };
 	Draw::Pipeline *pipeline = CreatePipeline({ vs, fs }, true, &postShaderDesc);
 	if (!pipeline)

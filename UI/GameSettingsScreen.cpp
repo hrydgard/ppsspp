@@ -290,6 +290,24 @@ void GameSettingsScreen::CreateViews() {
 		return g_Config.iRenderingMode != FB_NON_BUFFERED_MODE;
 	});
 
+	const ShaderInfo *shaderInfo = GetPostShaderInfo(g_Config.sPostShaderName);
+	if (shaderInfo && !shaderInfo->settingName1.empty()) {
+		auto &value = g_Config.mPostShaderSetting[g_Config.sPostShaderName + "SettingValue1"];
+		graphicsSettings->Add(new PopupSliderChoiceFloat(&value, shaderInfo->minSettingValue1, shaderInfo->maxSettingValue1, shaderInfo->settingName1, shaderInfo->settingStep1, screenManager()));
+	}
+	if (shaderInfo && !shaderInfo->settingName2.empty()) {
+		auto &value = g_Config.mPostShaderSetting[g_Config.sPostShaderName + "SettingValue2"];
+		graphicsSettings->Add(new PopupSliderChoiceFloat(&value, shaderInfo->minSettingValue2, shaderInfo->maxSettingValue2, shaderInfo->settingName2, shaderInfo->settingStep2, screenManager()));
+	}
+	if (shaderInfo && !shaderInfo->settingName3.empty()) {
+		auto &value = g_Config.mPostShaderSetting[g_Config.sPostShaderName + "SettingValue3"];
+		graphicsSettings->Add(new PopupSliderChoiceFloat(&value, shaderInfo->minSettingValue3, shaderInfo->maxSettingValue3, shaderInfo->settingName3, shaderInfo->settingStep3, screenManager()));
+	}
+	if (shaderInfo && !shaderInfo->settingName4.empty()) {
+		auto &value = g_Config.mPostShaderSetting[g_Config.sPostShaderName + "SettingValue4"];
+		graphicsSettings->Add(new PopupSliderChoiceFloat(&value, shaderInfo->minSettingValue4, shaderInfo->maxSettingValue4, shaderInfo->settingName4, shaderInfo->settingStep4, screenManager()));
+	}
+
 #if !defined(MOBILE_DEVICE)
 	graphicsSettings->Add(new CheckBox(&g_Config.bFullScreen, gr->T("FullScreen", "Full Screen")))->OnClick.Handle(this, &GameSettingsScreen::OnFullscreenChange);
 	if (System_GetPropertyInt(SYSPROP_DISPLAY_COUNT) > 1) {
@@ -1413,12 +1431,13 @@ UI::EventReturn GameSettingsScreen::OnPostProcShader(UI::EventParams &e) {
 
 UI::EventReturn GameSettingsScreen::OnPostProcShaderChange(UI::EventParams &e) {
 	NativeMessageReceived("gpu_resized", "");
+	RecreateViews(); // Update setting name
 	return UI::EVENT_DONE;
 }
 
 UI::EventReturn GameSettingsScreen::OnDeveloperTools(UI::EventParams &e) {
-screenManager()->push(new DeveloperToolsScreen());
-return UI::EVENT_DONE;
+	screenManager()->push(new DeveloperToolsScreen());
+	return UI::EVENT_DONE;
 }
 
 UI::EventReturn GameSettingsScreen::OnRemoteISO(UI::EventParams &e) {

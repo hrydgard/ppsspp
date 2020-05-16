@@ -41,6 +41,27 @@ struct ShaderInfo {
 	// Force constant/max refresh for animated filters
 	bool requires60fps;
 
+	std::string settingName1;
+	float settingValue1;
+	float maxSettingValue1;
+	float minSettingValue1;
+	float settingStep1;
+	std::string settingName2;
+	float settingValue2;
+	float maxSettingValue2;
+	float minSettingValue2;
+	float settingStep2;
+	std::string settingName3;
+	float settingValue3;
+	float maxSettingValue3;
+	float minSettingValue3;
+	float settingStep3;
+	std::string settingName4;
+	float settingValue4;
+	float maxSettingValue4;
+	float minSettingValue4;
+	float settingStep4;
+
 	// TODO: Add support for all kinds of fun options like mapping the depth buffer,
 	// SRGB texture reads, multiple shaders chained, etc.
 

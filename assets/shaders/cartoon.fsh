@@ -10,7 +10,7 @@ precision mediump float;
 precision mediump int;
 #endif
 
-const float bb = 0.5; // effects black border sensitivity; from 0.0 to 1.0
+uniform vec4 u_setting;
 
 uniform sampler2D sampler0;
 
@@ -39,7 +39,7 @@ void main()
   float d2=dot(abs(c20-c02),dt);
   float hl=dot(abs(c01-c21),dt);
   float vl=dot(abs(c10-c12),dt);
-  float d = bb*(d1+d2+hl+vl)/(dot(c11,dt)+0.15);
+  float d = u_setting.x*(d1+d2+hl+vl)/(dot(c11,dt)+0.15);
 
   float lc = 4.0*length(c11);
   float f = fract(lc); f*=f;
