@@ -321,6 +321,9 @@ void PresentationCommon::CreateDeviceObjects() {
 	// TODO: Use 4 and a strip?  shorts?
 	idata_ = draw_->CreateBuffer(sizeof(uint16_t) * 6, BufferUsageFlag::DYNAMIC | BufferUsageFlag::INDEXDATA);
 
+	uint16_t indexes[] = { 0, 1, 2, 0, 2, 3 };
+	draw_->UpdateBuffer(idata_, (const uint8_t *)indexes, 0, sizeof(indexes), Draw::UPDATE_DISCARD);
+
 	samplerNearest_ = draw_->CreateSamplerState({ TextureFilter::NEAREST, TextureFilter::NEAREST, TextureFilter::NEAREST, 0.0f, TextureAddressMode::CLAMP_TO_EDGE, TextureAddressMode::CLAMP_TO_EDGE, TextureAddressMode::CLAMP_TO_EDGE });
 	samplerLinear_ = draw_->CreateSamplerState({ TextureFilter::LINEAR, TextureFilter::LINEAR, TextureFilter::LINEAR, 0.0f, TextureAddressMode::CLAMP_TO_EDGE, TextureAddressMode::CLAMP_TO_EDGE, TextureAddressMode::CLAMP_TO_EDGE });
 
@@ -437,10 +440,6 @@ void PresentationCommon::BindSource() {
 void PresentationCommon::CopyToOutput(OutputFlags flags, int uvRotation, float u0, float v0, float u1, float v1, const PostShaderUniforms &uniforms) {
 	// Make sure Direct3D 11 clears state, since we set shaders outside Draw.
 	draw_->BindPipeline(nullptr);
-
-	// Wouldn't it be enough to do this only when creating the index buffer?
-	uint16_t indexes[] = { 0, 1, 2, 0, 2, 3 };
-	draw_->UpdateBuffer(idata_, (const uint8_t *)indexes, 0, sizeof(indexes), Draw::UPDATE_DISCARD);
 
 	// TODO: If shader objects have been created by now, we might have received errors.
 	// GLES can have the shader fail later, shader->failed / shader->error.
