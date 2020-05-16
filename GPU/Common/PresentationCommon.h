@@ -99,6 +99,8 @@ public:
 	void SourceFramebuffer(Draw::Framebuffer *fb, int bufferWidth, int bufferHeight);
 	void CopyToOutput(OutputFlags flags, int uvRotation, float u0, float v0, float u1, float v1);
 
+	void CalculateRenderResolution(int *width, int *height, bool *upscaling, bool *ssaa);
+
 protected:
 	void CreateDeviceObjects();
 	void DestroyDeviceObjects();
