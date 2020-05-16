@@ -90,7 +90,6 @@ public:
 	}
 
 	bool UpdatePostShader();
-	void UpdateShaderInfo(const ShaderInfo *shaderInfo);
 
 	void DeviceLost();
 	void DeviceRestore(Draw::DrawContext *draw);
@@ -111,6 +110,7 @@ protected:
 
 	Draw::ShaderModule *CompileShaderModule(Draw::ShaderStage stage, ShaderLanguage lang, const std::string &src, std::string *errorString);
 	Draw::Pipeline *CreatePipeline(std::vector<Draw::ShaderModule *> shaders, bool postShader, const Draw::UniformBufferDesc *uniformDesc);
+	bool BuildPostShader(const ShaderInfo *shaderInfo, const ShaderInfo *next);
 
 	void BindSource();
 
@@ -125,6 +125,7 @@ protected:
 	std::vector<Draw::ShaderModule *> postShaderModules_;
 	std::vector<Draw::Pipeline *> postShaderPipelines_;
 	std::vector<Draw::Framebuffer *> postShaderFramebuffers_;
+	std::vector<ShaderInfo> postShaderInfo_;
 
 	Draw::Texture *srcTexture_ = nullptr;
 	Draw::Framebuffer *srcFramebuffer_ = nullptr;
@@ -137,6 +138,5 @@ protected:
 	bool usePostShader_ = false;
 	bool restorePostShader_ = false;
 	bool postShaderAtOutputResolution_ = false;
-	bool postShaderIsUpscalingFilter_ = false;
 	ShaderLanguage lang_;
 };
