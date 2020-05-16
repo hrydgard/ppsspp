@@ -279,6 +279,9 @@ void GLRenderManager::BindFramebufferAsRenderTarget(GLRFramebuffer *fb, GLRRende
 	GLRStep *step = new GLRStep{ GLRStepType::RENDER };
 	// This is what queues up new passes, and can end previous ones.
 	step->render.framebuffer = fb;
+	step->render.color = color;
+	step->render.depth = depth;
+	step->render.stencil = stencil;
 	step->render.numDraws = 0;
 	steps_.push_back(step);
 
@@ -308,6 +311,12 @@ void GLRenderManager::BindFramebufferAsRenderTarget(GLRFramebuffer *fb, GLRRende
 	}
 	curRenderStep_ = step;
 
+	if (fb) {
+		if (color == GLRRenderPassAction::KEEP || depth == GLRRenderPassAction::KEEP || stencil == GLRRenderPassAction::KEEP) {
+			step->dependencies.insert(fb);
+		}
+	}
+
 	// Every step clears this state.
 	gstate_c.Dirty(DIRTY_BLEND_STATE | DIRTY_DEPTHSTENCIL_STATE | DIRTY_RASTER_STATE);
 }
@@ -319,6 +328,7 @@ void GLRenderManager::BindFramebufferAsTexture(GLRFramebuffer *fb, int binding, 
 	data.bind_fb_texture.framebuffer = fb;
 	data.bind_fb_texture.aspect = aspectBit;
 	curRenderStep_->commands.push_back(data);
+	curRenderStep_->dependencies.insert(fb);
 }
 
 void GLRenderManager::CopyFramebuffer(GLRFramebuffer *src, GLRect2D srcRect, GLRFramebuffer *dst, GLOffset2D dstPos, int aspectMask) {
@@ -328,6 +338,10 @@ void GLRenderManager::CopyFramebuffer(GLRFramebuffer *src, GLRect2D srcRect, GLR
 	step->copy.src = src;
 	step->copy.dst = dst;
 	step->copy.aspectMask = aspectMask;
+	step->dependencies.insert(src);
+	bool fillsDst = dst && srcRect.x == 0 && srcRect.y == 0 && srcRect.w == dst->width && srcRect.h == dst->height;
+	if (dstPos.x != 0 || dstPos.y != 0 || !fillsDst)
+		step->dependencies.insert(dst);
 	steps_.push_back(step);
 
 	// Every step clears this state.
@@ -342,6 +356,10 @@ void GLRenderManager::BlitFramebuffer(GLRFramebuffer *src, GLRect2D srcRect, GLR
 	step->blit.dst = dst;
 	step->blit.aspectMask = aspectMask;
 	step->blit.filter = filter;
+	step->dependencies.insert(src);
+	bool fillsDst = dst && dstRect.x == 0 && dstRect.y == 0 && dstRect.w == dst->width && dstRect.h == dst->height;
+	if (!fillsDst)
+		step->dependencies.insert(dst);
 	steps_.push_back(step);
 
 	// Every step clears this state.
@@ -356,6 +374,7 @@ bool GLRenderManager::CopyFramebufferToMemorySync(GLRFramebuffer *src, int aspec
 	step->readback.srcRect = { x, y, w, h };
 	step->readback.aspectMask = aspectBits;
 	step->readback.dstFormat = destFormat;
+	step->dependencies.insert(src);
 	steps_.push_back(step);
 
 	// Every step clears this state.

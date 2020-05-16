@@ -6,6 +6,7 @@
 
 #include "gfx/gl_common.h"
 #include "thin3d/DataFormat.h"
+#include "util/tiny_set.h"
 
 struct GLRViewport {
 	float x, y, w, h, minZ, maxZ;
@@ -295,9 +296,14 @@ struct GLRStep {
 	GLRStep(GLRStepType _type) : stepType(_type) {}
 	GLRStepType stepType;
 	std::vector<GLRRenderData> commands;
+	TinySet<const GLRFramebuffer *, 8> dependencies;
 	union {
 		struct {
 			GLRFramebuffer *framebuffer;
+			GLRRenderPassAction color;
+			GLRRenderPassAction depth;
+			GLRRenderPassAction stencil;
+			// Note: not accurate.
 			int numDraws;
 		} render;
 		struct {

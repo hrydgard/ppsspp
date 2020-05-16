@@ -827,13 +827,15 @@ void GLQueueRunner::PerformRenderPass(const GLRStep &step) {
 		{
 			GLenum attachments[3];
 			int count = 0;
+			bool hasDepth = step.render.framebuffer ? step.render.framebuffer->z_stencil_ : false;
 			if (c.clear.clearMask & GL_COLOR_BUFFER_BIT)
 				attachments[count++] = GL_COLOR_ATTACHMENT0;
-			if (c.clear.clearMask & GL_DEPTH_BUFFER_BIT)
+			if (hasDepth && (c.clear.clearMask & GL_DEPTH_BUFFER_BIT))
 				attachments[count++] = GL_DEPTH_ATTACHMENT;
-			if (c.clear.clearMask & GL_STENCIL_BUFFER_BIT)
+			if (hasDepth && (c.clear.clearMask & GL_STENCIL_BUFFER_BIT))
 				attachments[count++] = GL_STENCIL_BUFFER_BIT;
-			glInvalidateFramebuffer(GL_FRAMEBUFFER, count, attachments);
+			if (glInvalidateFramebuffer != nullptr && count != 0)
+				glInvalidateFramebuffer(GL_FRAMEBUFFER, count, attachments);
 			CHECK_GL_ERROR_IF_DEBUG();
 			break;
 		}
