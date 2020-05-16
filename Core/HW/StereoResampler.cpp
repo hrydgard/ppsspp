@@ -56,16 +56,7 @@
 
 StereoResampler::StereoResampler()
 		: m_bufsize(MAX_SAMPLES_DEFAULT)
-	  , m_lowwatermark(LOW_WATERMARK_DEFAULT)
-		, m_input_sample_rate(44100)
-		, m_indexW(0)
-		, m_indexR(0)
-		, m_numLeftI(0.0f)
-		, m_frac(0)
-		, underrunCount_(0)
-		, overrunCount_(0)
-		, sample_rate_(0.0f)
-		, lastBufSize_(0) {
+	  , m_lowwatermark(LOW_WATERMARK_DEFAULT) {
 	// Need to have space for the worst case in case it changes.
 	m_buffer = new int16_t[MAX_SAMPLES_EXTRA * 2]();
 
@@ -75,7 +66,9 @@ StereoResampler::StereoResampler()
 
 	// If framerate is "close"...
 	if (refresh != 60.0f && refresh > 50.0f && refresh < 70.0f) {
-		SetInputSampleRate((int)(44100 * (refresh / 60.0f)));
+		int input_sample_rate = (int)(44100 * (refresh / 60.0f));
+		ILOG("StereoResampler: Adjusting target sample rate to %dHz", input_sample_rate);
+		SetInputSampleRate(input_sample_rate);
 	}
 
 	UpdateBufferSize();
@@ -273,16 +266,32 @@ void StereoResampler::PushSamples(const s32 *samples, unsigned int num_samples) 
 	lastPushSize_ = num_samples;
 }
 
-void StereoResampler::GetAudioDebugStats(AudioDebugStats *stats) {
-	stats->buffered = lastBufSize_;
-	stats->underrunCount += underrunCount_;
+void StereoResampler::GetAudioDebugStats(char *buf, size_t bufSize) {
+	snprintf(buf, bufSize,
+		"Audio buffer: %d/%d (low watermark: %d)\n"
+		"Underruns: %d\n"
+		"Overruns: %d\n"
+		"Sample rate: %d (input: %d)\n"
+		"Push size: %d\n",
+		lastBufSize_,
+		m_bufsize * 2,
+		m_lowwatermark,
+		underrunCountTotal_,
+		overrunCountTotal_,
+		(int)sample_rate_,
+		m_input_sample_rate,
+		lastPushSize_);
+	underrunCountTotal_ += underrunCount_;
+	overrunCountTotal_ += overrunCount_;
 	underrunCount_ = 0;
-	stats->overrunCount += overrunCount_;
 	overrunCount_ = 0;
-	stats->watermark = m_lowwatermark;
-	stats->bufsize = m_bufsize * 2;
-	stats->instantSampleRate = (int)sample_rate_;
-	stats->lastPushSize = lastPushSize_;
+}
+
+void StereoResampler::ResetStatCounters() {
+	underrunCount_ = 0;
+	overrunCount_ = 0;
+	underrunCountTotal_ = 0;
+	overrunCountTotal_ = 0;
 }
 
 void StereoResampler::SetInputSampleRate(unsigned int rate) {

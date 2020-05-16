@@ -42,7 +42,8 @@ public:
 
 	void DoState(PointerWrap &p);
 
-	void GetAudioDebugStats(AudioDebugStats *stats);
+	void GetAudioDebugStats(char *buf, size_t bufSize);
+	void ResetStatCounters();
 
 protected:
 	void UpdateBufferSize();
@@ -50,15 +51,17 @@ protected:
 
 	int m_bufsize;
 	int m_lowwatermark;
-	unsigned int m_input_sample_rate;
+	unsigned int m_input_sample_rate = 44100;
 	int16_t *m_buffer;
-	volatile u32 m_indexW;
-	volatile u32 m_indexR;
-	float m_numLeftI;
-	u32 m_frac;
-	int underrunCount_;
-	int overrunCount_;
-	float sample_rate_;
-	int lastBufSize_;
-	int lastPushSize_;
+	volatile u32 m_indexW = 0;
+	volatile u32 m_indexR = 0;
+	float m_numLeftI = 0.0f;
+	u32 m_frac = 0;
+	int underrunCount_ = 0;
+	int overrunCount_ = 0;
+	int underrunCountTotal_ = 0;
+	int overrunCountTotal_ = 0;
+	float sample_rate_ = 0.0;
+	int lastBufSize_ = 0;
+	int lastPushSize_ = 0;
 };

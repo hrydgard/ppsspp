@@ -1265,19 +1265,8 @@ static void DrawDebugStats(DrawBuffer *draw2d, const Bounds &bounds) {
 
 static void DrawAudioDebugStats(DrawBuffer *draw2d, const Bounds &bounds) {
 	FontID ubuntu24("UBUNTU24");
-	char statbuf[1024] = { 0 };
-	const AudioDebugStats *stats = __AudioGetDebugStats();
-	snprintf(statbuf, sizeof(statbuf),
-		"Audio buffer: %d/%d (low watermark: %d)\n"
-		"Underruns: %d\n"
-		"Overruns: %d\n"
-		"Sample rate: %d\n"
-		"Push size: %d\n",
-		stats->buffered, stats->bufsize, stats->watermark,
-		stats->underrunCount,
-		stats->overrunCount,
-		stats->instantSampleRate,
-		stats->lastPushSize);
+	char statbuf[4096] = { 0 };
+	__AudioGetDebugStats(statbuf, sizeof(statbuf));
 	draw2d->SetFontScale(0.7f, 0.7f);
 	draw2d->DrawTextRect(ubuntu24, statbuf, bounds.x + 11, bounds.y + 31, bounds.w - 20, bounds.h - 30, 0xc0000000, FLAG_DYNAMIC_ASCII | FLAG_WRAP_TEXT);
 	draw2d->DrawTextRect(ubuntu24, statbuf, bounds.x + 10, bounds.y + 30, bounds.w - 20, bounds.h - 30, 0xFFFFFFFF, FLAG_DYNAMIC_ASCII | FLAG_WRAP_TEXT);
