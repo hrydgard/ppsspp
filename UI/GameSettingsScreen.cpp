@@ -290,12 +290,14 @@ void GameSettingsScreen::CreateViews() {
 		return g_Config.iRenderingMode != FB_NON_BUFFERED_MODE;
 	});
 
-	const ShaderInfo *shaderInfo = GetPostShaderInfo(g_Config.sPostShaderName);
-	for (size_t i = 0; shaderInfo && i < ARRAY_SIZE(shaderInfo->settings); ++i) {
-		auto &setting = shaderInfo->settings[i];
-		if (!setting.name.empty()) {
-			auto &value = g_Config.mPostShaderSetting[StringFromFormat("%sSettingValue%d", shaderInfo->section.c_str(), i + 1)];
-			graphicsSettings->Add(new PopupSliderChoiceFloat(&value, setting.minValue, setting.maxValue, ps->T(setting.name), setting.step, screenManager()));
+	auto shaderChain = GetPostShaderChain(g_Config.sPostShaderName);
+	for (auto shaderInfo : shaderChain) {
+		for (size_t i = 0; i < ARRAY_SIZE(shaderInfo->settings); ++i) {
+			auto &setting = shaderInfo->settings[i];
+			if (!setting.name.empty()) {
+				auto &value = g_Config.mPostShaderSetting[StringFromFormat("%sSettingValue%d", shaderInfo->section.c_str(), i + 1)];
+				graphicsSettings->Add(new PopupSliderChoiceFloat(&value, setting.minValue, setting.maxValue, ps->T(setting.name), setting.step, screenManager()));
+			}
 		}
 	}
 

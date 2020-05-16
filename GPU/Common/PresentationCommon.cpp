@@ -159,10 +159,10 @@ void PresentationCommon::CalculatePostShaderUniforms(int bufferWidth, int buffer
 	uniforms->gl_HalfPixel[0] = u_pixel_delta * 0.5f;
 	uniforms->gl_HalfPixel[1] = v_pixel_delta * 0.5f;
 
-	uniforms->setting[0] = g_Config.mPostShaderSetting[g_Config.sPostShaderName + "SettingValue1"];;
-	uniforms->setting[1] = g_Config.mPostShaderSetting[g_Config.sPostShaderName + "SettingValue2"];
-	uniforms->setting[2] = g_Config.mPostShaderSetting[g_Config.sPostShaderName + "SettingValue3"];
-	uniforms->setting[3] = g_Config.mPostShaderSetting[g_Config.sPostShaderName + "SettingValue4"];
+	uniforms->setting[0] = g_Config.mPostShaderSetting[shaderInfo->section + "SettingValue1"];;
+	uniforms->setting[1] = g_Config.mPostShaderSetting[shaderInfo->section + "SettingValue2"];
+	uniforms->setting[2] = g_Config.mPostShaderSetting[shaderInfo->section + "SettingValue3"];
+	uniforms->setting[3] = g_Config.mPostShaderSetting[shaderInfo->section + "SettingValue4"];
 }
 
 static std::string ReadShaderSrc(const std::string &filename) {
