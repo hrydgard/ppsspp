@@ -94,12 +94,10 @@ public:
 	void DeviceLost();
 	void DeviceRestore(Draw::DrawContext *draw);
 
-	void GetCardboardSettings(CardboardSettings *cardboardSettings);
-	void CalculatePostShaderUniforms(int bufferWidth, int bufferHeight, bool hasVideo, PostShaderUniforms *uniforms);
-
-	void SourceTexture(Draw::Texture *texture);
-	void SourceFramebuffer(Draw::Framebuffer *fb);
-	void CopyToOutput(OutputFlags flags, int uvRotation, float u0, float v0, float u1, float v1, const PostShaderUniforms &uniforms);
+	void UpdateUniforms(bool hasVideo);
+	void SourceTexture(Draw::Texture *texture, int bufferWidth, int bufferHeight);
+	void SourceFramebuffer(Draw::Framebuffer *fb, int bufferWidth, int bufferHeight);
+	void CopyToOutput(OutputFlags flags, int uvRotation, float u0, float v0, float u1, float v1);
 
 protected:
 	void CreateDeviceObjects();
@@ -113,6 +111,9 @@ protected:
 	bool BuildPostShader(const ShaderInfo *shaderInfo, const ShaderInfo *next);
 
 	void BindSource();
+
+	void GetCardboardSettings(CardboardSettings *cardboardSettings);
+	void CalculatePostShaderUniforms(int bufferWidth, int bufferHeight, int targetWidth, int targetHeight, const ShaderInfo *shaderInfo, PostShaderUniforms *uniforms);
 
 	Draw::DrawContext *draw_;
 	Draw::Pipeline *texColor_ = nullptr;
@@ -129,6 +130,9 @@ protected:
 
 	Draw::Texture *srcTexture_ = nullptr;
 	Draw::Framebuffer *srcFramebuffer_ = nullptr;
+	int srcWidth_ = 0;
+	int srcHeight_ = 0;
+	bool hasVideo_ = false;
 
 	int pixelWidth_ = 0;
 	int pixelHeight_ = 0;
@@ -137,6 +141,5 @@ protected:
 
 	bool usePostShader_ = false;
 	bool restorePostShader_ = false;
-	bool postShaderAtOutputResolution_ = false;
 	ShaderLanguage lang_;
 };

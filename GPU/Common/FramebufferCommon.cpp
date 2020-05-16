@@ -791,10 +791,9 @@ void FramebufferManagerCommon::DrawFramebufferToOutput(const u8 *srcPixels, GEBu
 		flags |= OutputFlags::POSITION_FLIPPED;
 	}
 
-	PostShaderUniforms uniforms{};
-	presentation_->CalculatePostShaderUniforms(512, 272, textureCache_->VideoIsPlaying(), &uniforms);
-	presentation_->SourceTexture(pixelsTex);
-	presentation_->CopyToOutput(flags, uvRotation, u0, v0, u1, v1, uniforms);
+	presentation_->UpdateUniforms(textureCache_->VideoIsPlaying());
+	presentation_->SourceTexture(pixelsTex, 512, 272);
+	presentation_->CopyToOutput(flags, uvRotation, u0, v0, u1, v1);
 	pixelsTex->Release();
 
 	// PresentationCommon sets all kinds of state, we can't rely on anything.
@@ -954,12 +953,11 @@ void FramebufferManagerCommon::CopyDisplayToOutput(bool reallyDirty) {
 			flags |= OutputFlags::POSITION_FLIPPED;
 		}
 
-		PostShaderUniforms uniforms{};
 		int actualWidth = (vfb->bufferWidth * vfb->renderWidth) / vfb->width;
 		int actualHeight = (vfb->bufferHeight * vfb->renderHeight) / vfb->height;
-		presentation_->CalculatePostShaderUniforms(actualWidth, actualHeight, textureCache_->VideoIsPlaying(), &uniforms);
-		presentation_->SourceFramebuffer(vfb->fbo);
-		presentation_->CopyToOutput(flags, uvRotation, u0, v0, u1, v1, uniforms);
+		presentation_->UpdateUniforms(textureCache_->VideoIsPlaying());
+		presentation_->SourceFramebuffer(vfb->fbo, actualWidth, actualHeight);
+		presentation_->CopyToOutput(flags, uvRotation, u0, v0, u1, v1);
 	} else if (useBufferedRendering_) {
 		WARN_LOG(FRAMEBUF, "Current VFB lacks an FBO: %08x", vfb->fb_address);
 	}
