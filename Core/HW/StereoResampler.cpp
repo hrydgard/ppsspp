@@ -188,12 +188,12 @@ unsigned int StereoResampler::Mix(short* samples, unsigned int numSamples, bool 
 			s16 r1 = m_buffer[(indexR + 1) & INDEX_MASK]; //current
 			samples[currentSample] = l1;
 			samples[currentSample + 1] = r1;
-			indexR += 2;
-			if (((indexW - indexR) & INDEX_MASK) == 0) {
+			if (((indexW - indexR) & INDEX_MASK) <= 2) {
 				// Ran out!
 				underrunCount_++;
 				break;
 			}
+			indexR += 2;
 		}
 		output_sample_rate_ = (float)sample_rate;
 		droppedSamples_ = 0;
@@ -225,6 +225,13 @@ unsigned int StereoResampler::Mix(short* samples, unsigned int numSamples, bool 
 		// TODO: Add a fast path for 1:1.
 		u32 frac = m_frac;
 		for (currentSample = 0; currentSample < numSamples * 2; currentSample += 2) {
+			if (((indexW - indexR) & INDEX_MASK) <= 2) {
+				// Ran out!
+				// int missing = numSamples * 2 - currentSample;
+				// ILOG("Resampler underrun: %d (numSamples: %d, currentSample: %d)", missing, numSamples, currentSample / 2);
+				underrunCount_++;
+				break;
+			}
 			u32 indexR2 = indexR + 2; //next sample
 			s16 l1 = m_buffer[indexR & INDEX_MASK]; //current
 			s16 r1 = m_buffer[(indexR + 1) & INDEX_MASK]; //current
@@ -237,13 +244,6 @@ unsigned int StereoResampler::Mix(short* samples, unsigned int numSamples, bool 
 			frac += ratio;
 			indexR += 2 * (frac >> 16);
 			frac &= 0xffff;
-			if (((indexW - indexR) & INDEX_MASK) == 0) {
-				// Ran out!
-				// int missing = numSamples * 2 - currentSample;
-				// ILOG("Resampler underrun: %d (numSamples: %d, currentSample: %d)", missing, numSamples, currentSample / 2);
-				underrunCount_++;
-				break;
-			}
 		}
 		m_frac = frac;
 	}
