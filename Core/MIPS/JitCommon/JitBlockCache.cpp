@@ -186,7 +186,7 @@ void JitBlockCache::ProxyBlock(u32 rootAddress, u32 startAddress, u32 size, cons
 
 	// Make binary searches and stuff work ok
 	b.normalEntry = codePtr;
-	b.checkedEntry = (u8 *)codePtr;  // Ugh, casting away const..
+	b.checkedEntry = codePtr;
 	proxyBlockMap_.insert(std::make_pair(startAddress, num_blocks_));
 	AddBlockMap(num_blocks_);
 
@@ -541,7 +541,8 @@ void JitBlockCache::DestroyBlock(int block_num, DestroyType type) {
 	if (b->checkedEntry) {
 		// We can skip this if we're clearing anyway, which cuts down on protect back and forth on WX exclusive.
 		if (type != DestroyType::CLEAR) {
-			MIPSComp::jit->UnlinkBlock(b->checkedEntry, b->originalAddress);
+			u8 *writableEntry = codeBlock_->GetWritablePtrFromCodePtr(b->checkedEntry);
+			MIPSComp::jit->UnlinkBlock(writableEntry, b->originalAddress);
 		}
 	} else {
 		ERROR_LOG(JIT, "Unlinking block with no entry: %08x (%d)", b->originalAddress, block_num);
