@@ -1,4 +1,4 @@
-#include <map>
+#include <unordered_map>
 
 #include "base/timeutil.h"
 #include "DataFormat.h"
@@ -752,12 +752,24 @@ std::string VulkanQueueRunner::StepToString(const VKRStep &step) const {
 void VulkanQueueRunner::ApplyRenderPassMerge(std::vector<VKRStep *> &steps) {
 	// First let's count how many times each framebuffer is rendered to.
 	// If it's more than one, let's do our best to merge them. This can help God of War quite a bit.
-	std::map<VKRFramebuffer *, int> counts;
+	std::unordered_map<VKRFramebuffer *, int> counts;
 	for (int i = 0; i < (int)steps.size(); i++) {
 		if (steps[i]->stepType == VKRStepType::RENDER) {
 			counts[steps[i]->render.framebuffer]++;
 		}
 	}
+
+	auto mergeRenderSteps = [](VKRStep *dst, VKRStep *src) {
+		// OK. Now, if it's a render, slurp up all the commands and kill the step.
+		// Also slurp up any pretransitions.
+		dst->preTransitions.insert(dst->preTransitions.end(), src->preTransitions.begin(), src->preTransitions.end());
+		dst->commands.insert(dst->commands.end(), src->commands.begin(), src->commands.end());
+		src->stepType = VKRStepType::RENDER_SKIP;
+	};
+	auto renderHasNoClear = [](const VKRStep *step) {
+		const auto &r = step->render;
+		return r.color != VKRRenderPassAction::CLEAR && r.depth != VKRRenderPassAction::CLEAR && r.stencil != VKRRenderPassAction::CLEAR;
+	};
 
 	// Now, let's go through the steps. If we find one that is rendered to more than once,
 	// we'll scan forward and slurp up any rendering that can be merged across.
@@ -778,16 +790,8 @@ void VulkanQueueRunner::ApplyRenderPassMerge(std::vector<VKRStep *> &steps) {
 					if (steps[j]->dependencies.contains(touchedFramebuffers)) {
 						goto done_fb;
 					}
-					if (steps[j]->render.framebuffer == fb &&
-						steps[j]->render.color != VKRRenderPassAction::CLEAR &&
-						steps[j]->render.depth != VKRRenderPassAction::CLEAR &&
-						steps[j]->render.stencil != VKRRenderPassAction::CLEAR) {
-						// ok. Now, if it's a render, slurp up all the commands
-						// and kill the step.
-						// Also slurp up any pretransitions.
-						steps[i]->preTransitions.insert(steps[i]->preTransitions.end(), steps[j]->preTransitions.begin(), steps[j]->preTransitions.end());
-						steps[i]->commands.insert(steps[i]->commands.end(), steps[j]->commands.begin(), steps[j]->commands.end());
-						steps[j]->stepType = VKRStepType::RENDER_SKIP;
+					if (steps[j]->render.framebuffer == fb && renderHasNoClear(steps[j])) {
+						mergeRenderSteps(steps[i], steps[j]);
 					}
 					// Remember the framebuffer this wrote to. We can't merge with later passes that depend on these.
 					if (steps[j]->render.framebuffer != fb) {
