@@ -93,8 +93,7 @@ void FramebufferManagerGLES::PackDepthbuffer(VirtualFramebuffer *vfb, int x, int
 
 	DEBUG_LOG(FRAMEBUF, "Reading depthbuffer to mem at %08x for vfb=%08x", z_address, vfb->fb_address);
 
-	// TODO: On desktop, we can just directly download, but for now testing.
-	const bool useColorPath = true; // gl_extensions.IsGLES;
+	const bool useColorPath = gl_extensions.IsGLES;
 	bool format16Bit = false;
 
 	if (useColorPath) {
