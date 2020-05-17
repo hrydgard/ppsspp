@@ -1441,8 +1441,6 @@ static int scePsmfPlayerStart(u32 psmfPlayer, u32 psmfPlayerData, int initPts)
 		return ERROR_PSMFPLAYER_INVALID_PARAM;
 	}
 
-	WARN_LOG(ME, "scePsmfPlayerStart(%08x, %08x, %d)", psmfPlayer, psmfPlayerData, initPts);
-
 	psmfplayer->AbortFinish();
 	psmfplayer->mediaengine->setVideoStream(playerData->videoStreamNum);
 	psmfplayer->videoCodec = playerData->videoCodec;
@@ -1454,6 +1452,8 @@ static int scePsmfPlayerStart(u32 psmfPlayer, u32 psmfPlayerData, int initPts)
 	}
 	psmfplayer->playMode = playerData->playMode;
 	psmfplayer->playSpeed = playerData->playSpeed;
+
+	WARN_LOG(ME, "scePsmfPlayerStart(%08x, %08x, %d,(mode %d, speed %d)", psmfPlayer, psmfPlayerData, initPts, playerData->playMode, playerData->playSpeed);
 
 	// Does not alter current pts, it just catches up when Update()/etc. get there.
 
