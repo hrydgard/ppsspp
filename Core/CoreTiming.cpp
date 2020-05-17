@@ -15,7 +15,7 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
-
+#include <atomic>
 #include <vector>
 #include <cstdio>
 #include <mutex>
@@ -76,7 +76,7 @@ Event *eventPool = 0;
 Event *eventTsPool = 0;
 int allocatedTsEvents = 0;
 // Optimization to skip MoveEvents when possible.
-volatile u32 hasTsEvents = 0;
+std::atomic<u32> hasTsEvents;
 
 // Downcount has been moved to currentMIPS, to save a couple of clocks in every ARM JIT block
 // as we can already reach that structure through a register.
@@ -255,7 +255,7 @@ void ScheduleEvent_Threadsafe(s64 cyclesIntoFuture, int event_type, u64 userdata
 		tsLast->next = ne;
 	tsLast = ne;
 
-	Common::AtomicStoreRelease(hasTsEvents, 1);
+	hasTsEvents.store(1, std::memory_order::memory_order_release);
 }
 
 // Same as ScheduleEvent_Threadsafe(0, ...) EXCEPT if we are already on the CPU thread
@@ -535,7 +535,7 @@ void ProcessFifoWaitEvents()
 
 void MoveEvents()
 {
-	Common::AtomicStoreRelease(hasTsEvents, 0);
+	hasTsEvents.store(0, std::memory_order::memory_order_release);
 
 	std::lock_guard<std::mutex> lk(externalEventLock);
 	// Move events from async queue into main queue
@@ -579,7 +579,7 @@ void Advance()
 	globalTimer += cyclesExecuted;
 	currentMIPS->downcount = slicelength;
 
-	if (Common::AtomicLoadAcquire(hasTsEvents))
+	if (hasTsEvents.load(std::memory_order_acquire))
 		MoveEvents();
 	ProcessFifoWaitEvents();
 
