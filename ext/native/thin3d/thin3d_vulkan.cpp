@@ -676,7 +676,7 @@ RasterState *VKContext::CreateRasterState(const RasterStateDesc &desc) {
 
 void VKContext::BindSamplerStates(int start, int count, SamplerState **state) {
 	for (int i = start; i < start + count; i++) {
-		boundSamplers_[i] = (VKSamplerState *)state[i];
+		boundSamplers_[i] = (VKSamplerState *)state[i - start];
 	}
 }
 
@@ -1223,7 +1223,7 @@ void VKContext::UpdateBuffer(Buffer *buffer, const uint8_t *data, size_t offset,
 
 void VKContext::BindTextures(int start, int count, Texture **textures) {
 	for (int i = start; i < start + count; i++) {
-		boundTextures_[i] = static_cast<VKTexture *>(textures[i]);
+		boundTextures_[i] = static_cast<VKTexture *>(textures[i - start]);
 		boundImageView_[i] = boundTextures_[i] ? boundTextures_[i]->GetImageView() : GetNullTexture()->GetImageView();
 	}
 }

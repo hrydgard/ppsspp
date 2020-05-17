@@ -389,7 +389,7 @@ public:
 		}
 		for (int i = 0; i < count; i++) {
 			int index = i + start;
-			boundSamplers_[index] = static_cast<OpenGLSamplerState *>(states[index]);
+			boundSamplers_[index] = static_cast<OpenGLSamplerState *>(states[i]);
 		}
 	}
 
@@ -993,9 +993,9 @@ Pipeline *OpenGLContext::CreateGraphicsPipeline(const PipelineDesc &desc) {
 void OpenGLContext::BindTextures(int start, int count, Texture **textures) {
 	maxTextures_ = std::max(maxTextures_, start + count);
 	for (int i = start; i < start + count; i++) {
-		OpenGLTexture *glTex = static_cast<OpenGLTexture *>(textures[i]);
+		OpenGLTexture *glTex = static_cast<OpenGLTexture *>(textures[i - start]);
 		if (!glTex) {
-			boundTextures_[i] = 0;
+			boundTextures_[i] = nullptr;
 			renderManager_.BindTexture(i, nullptr);
 			continue;
 		}
