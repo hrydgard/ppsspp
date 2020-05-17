@@ -19,7 +19,8 @@
 
 #pragma once
 
-#include <string>
+#include <cstdint>
+#include <atomic>
 
 #include "Common/ChunkFile.h"
 #include "Common/CommonTypes.h"
@@ -45,23 +46,33 @@ public:
 	void GetAudioDebugStats(char *buf, size_t bufSize);
 	void ResetStatCounters();
 
-protected:
+private:
 	void UpdateBufferSize();
-	void SetInputSampleRate(unsigned int rate);
 
-	int m_bufsize;
-	int m_lowwatermark;
+	int m_maxBufsize;
+	int m_targetBufsize;
+
 	unsigned int m_input_sample_rate = 44100;
 	int16_t *m_buffer;
-	volatile u32 m_indexW = 0;
-	volatile u32 m_indexR = 0;
+	std::atomic<u32> m_indexW;
+	std::atomic<u32> m_indexR;
 	float m_numLeftI = 0.0f;
+
 	u32 m_frac = 0;
+	float output_sample_rate_ = 0.0;
+	int lastBufSize_ = 0;
+	int lastPushSize_ = 0;
+	u32 ratio_ = 0;
+
 	int underrunCount_ = 0;
 	int overrunCount_ = 0;
 	int underrunCountTotal_ = 0;
 	int overrunCountTotal_ = 0;
-	float sample_rate_ = 0.0;
-	int lastBufSize_ = 0;
-	int lastPushSize_ = 0;
+
+	int droppedSamples_ = 0;
+
+	int64_t inputSampleCount_ = 0;
+	int64_t outputSampleCount_ = 0;
+
+	double startTime_ = 0.0;
 };

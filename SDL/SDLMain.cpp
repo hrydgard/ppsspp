@@ -84,8 +84,8 @@ int getDisplayNumber(void) {
 	return displayNumber;
 }
 
-extern void mixaudio(void *userdata, Uint8 *stream, int len) {
-	NativeMix((short *)stream, len / 4);
+void sdl_mixaudio_callback(void *userdata, Uint8 *stream, int len) {
+	NativeMix((short *)stream, len / (2 * 2));
 }
 
 static SDL_AudioDeviceID audioDev = 0;
@@ -97,8 +97,8 @@ static void InitSDLAudioDevice(const std::string &name = "") {
 	fmt.freq = 44100;
 	fmt.format = AUDIO_S16;
 	fmt.channels = 2;
-	fmt.samples = 2048;
-	fmt.callback = &mixaudio;
+	fmt.samples = 1024;
+	fmt.callback = &sdl_mixaudio_callback;
 	fmt.userdata = nullptr;
 
 	std::string startDevice = name;
@@ -122,7 +122,7 @@ static void InitSDLAudioDevice(const std::string &name = "") {
 	} else {
 		if (g_retFmt.samples != fmt.samples) // Notify, but still use it
 			ELOG("Output audio samples: %d (requested: %d)", g_retFmt.samples, fmt.samples);
-		if (g_retFmt.freq != fmt.freq || g_retFmt.format != fmt.format || g_retFmt.channels != fmt.channels) {
+		if (g_retFmt.format != fmt.format || g_retFmt.channels != fmt.channels) {
 			ELOG("Sound buffer format does not match requested format.");
 			ELOG("Output audio freq: %d (requested: %d)", g_retFmt.freq, fmt.freq);
 			ELOG("Output audio format: %d (requested: %d)", g_retFmt.format, fmt.format);

@@ -19,23 +19,27 @@
 
 // 16 bit Stereo
 
-#define MAX_SAMPLES_DEFAULT (4096) // 2*64ms - had to double it for nVidia Shield which has huge buffers
-#define MAX_SAMPLES_EXTRA   (8192)
+// These must be powers of 2.
+#define MAX_BUFSIZE_DEFAULT (4096) // 2*64ms - had to double it for nVidia Shield which has huge buffers
+#define MAX_BUFSIZE_EXTRA   (8192)
 
-#define LOW_WATERMARK_DEFAULT   1680 // 40 ms
-#define LOW_WATERMARK_EXTRA 3360 // 80 ms
+#define TARGET_BUFSIZE_MARGIN 512
 
-#define MAX_FREQ_SHIFT  200  // per 32000 Hz
+#define TARGET_BUFSIZE_DEFAULT 1680 // 40 ms
+#define TARGET_BUFSIZE_EXTRA 3360 // 80 ms
+
+#define MAX_FREQ_SHIFT  600.0f  // how far off can we be from 44100 Hz
 #define CONTROL_FACTOR  0.2f // in freq_shift per fifo size offset
-#define CONTROL_AVG     32
+#define CONTROL_AVG     32.0f
 
 #include <cstring>
+#include <atomic>
 
 #include "base/logging.h"
+#include "base/timeutil.h"
 #include "base/NativeApp.h"
 #include "Common/ChunkFile.h"
 #include "Common/MathUtil.h"
-#include "Common/Atomics.h"
 #include "Core/Config.h"
 #include "Core/ConfigValues.h"
 #include "Core/HW/StereoResampler.h"
@@ -55,10 +59,10 @@
 #endif
 
 StereoResampler::StereoResampler()
-		: m_bufsize(MAX_SAMPLES_DEFAULT)
-	  , m_lowwatermark(LOW_WATERMARK_DEFAULT) {
+		: m_maxBufsize(MAX_BUFSIZE_DEFAULT)
+	  , m_targetBufsize(TARGET_BUFSIZE_DEFAULT) {
 	// Need to have space for the worst case in case it changes.
-	m_buffer = new int16_t[MAX_SAMPLES_EXTRA * 2]();
+	m_buffer = new int16_t[MAX_BUFSIZE_EXTRA * 2]();
 
 	// Some Android devices are v-synced to non-60Hz framerates. We simply timestretch audio to fit.
 	// TODO: should only do this if auto frameskip is off?
@@ -68,7 +72,7 @@ StereoResampler::StereoResampler()
 	if (refresh != 60.0f && refresh > 50.0f && refresh < 70.0f) {
 		int input_sample_rate = (int)(44100 * (refresh / 60.0f));
 		ILOG("StereoResampler: Adjusting target sample rate to %dHz", input_sample_rate);
-		SetInputSampleRate(input_sample_rate);
+		m_input_sample_rate = input_sample_rate;
 	}
 
 	UpdateBufferSize();
@@ -81,11 +85,18 @@ StereoResampler::~StereoResampler() {
 
 void StereoResampler::UpdateBufferSize() {
 	if (g_Config.bExtraAudioBuffering) {
-		m_bufsize = MAX_SAMPLES_EXTRA;
-		m_lowwatermark = LOW_WATERMARK_EXTRA;
+		m_maxBufsize = MAX_BUFSIZE_EXTRA;
+		m_targetBufsize = TARGET_BUFSIZE_EXTRA;
 	} else {
-		m_bufsize = MAX_SAMPLES_DEFAULT;
-		m_lowwatermark = LOW_WATERMARK_DEFAULT;
+		m_maxBufsize = MAX_BUFSIZE_DEFAULT;
+		m_targetBufsize = TARGET_BUFSIZE_DEFAULT;
+
+		int systemBufsize = System_GetPropertyInt(SYSPROP_AUDIO_FRAMES_PER_BUFFER);
+		if (systemBufsize > 0 && m_targetBufsize < systemBufsize + TARGET_BUFSIZE_MARGIN) {
+			m_targetBufsize = std::min(4096, systemBufsize + TARGET_BUFSIZE_MARGIN);
+			if (m_targetBufsize * 2 > MAX_BUFSIZE_DEFAULT)
+				m_maxBufsize = MAX_BUFSIZE_EXTRA;
+		}
 	}
 }
 
@@ -147,70 +158,98 @@ inline void ClampBufferToS16WithVolume(s16 *out, const s32 *in, size_t size) {
 }
 
 void StereoResampler::Clear() {
-	memset(m_buffer, 0, m_bufsize * 2 * sizeof(int16_t));
+	memset(m_buffer, 0, m_maxBufsize * 2 * sizeof(int16_t));
 }
 
-// Executed from sound stream thread
+// Executed from sound stream thread, pulling sound out of the buffer.
 unsigned int StereoResampler::Mix(short* samples, unsigned int numSamples, bool consider_framelimit, int sample_rate) {
 	if (!samples)
 		return 0;
 
-	unsigned int currentSample = 0;
+	unsigned int currentSample;
 
 	// Cache access in non-volatile variable
 	// This is the only function changing the read value, so it's safe to
 	// cache it locally although it's written here.
 	// The writing pointer will be modified outside, but it will only increase,
-	// so we will just ignore new written data while interpolating.
+	// so we will just ignore new written data while interpolating (until it wraps...).
 	// Without this cache, the compiler wouldn't be allowed to optimize the
 	// interpolation loop.
-	u32 indexR = Common::AtomicLoad(m_indexR);
-	u32 indexW = Common::AtomicLoad(m_indexW);
+	u32 indexR = m_indexR.load();
+	u32 indexW = m_indexW.load();
 
-	const int INDEX_MASK = (m_bufsize * 2 - 1);
+	const int INDEX_MASK = (m_maxBufsize * 2 - 1);
+	lastBufSize_ = (indexR - m_indexW) & INDEX_MASK;
 
 	// We force on the audio resampler if the output sample rate doesn't match the input.
 	if (!g_Config.bAudioResampler && sample_rate == (int)m_input_sample_rate) {
-		for (; currentSample < numSamples * 2 && ((indexW - indexR) & INDEX_MASK) > 2; currentSample += 2) {
+		for (currentSample = 0; currentSample < numSamples * 2; currentSample += 2) {
 			s16 l1 = m_buffer[indexR & INDEX_MASK]; //current
 			s16 r1 = m_buffer[(indexR + 1) & INDEX_MASK]; //current
 			samples[currentSample] = l1;
 			samples[currentSample + 1] = r1;
 			indexR += 2;
+			if (((indexW - indexR) & INDEX_MASK) == 0) {
+				// Ran out!
+				underrunCount_++;
+				break;
+			}
 		}
-		sample_rate_ = (float)sample_rate;
+		output_sample_rate_ = (float)sample_rate;
+		droppedSamples_ = 0;
 	} else {
-		// Drift prevention mechanism
+		// Drift prevention mechanism.
 		float numLeft = (float)(((indexW - indexR) & INDEX_MASK) / 2);
-		m_numLeftI = (numLeft + m_numLeftI*(CONTROL_AVG - 1)) / CONTROL_AVG;
-		float offset = (m_numLeftI - m_lowwatermark) * CONTROL_FACTOR;
+		// If we had to discard samples the last frame due to underrun,
+		// apply an adjustment here. Otherwise we'll overestimate how many
+		// samples we need.
+		numLeft -= droppedSamples_;
+		droppedSamples_ = 0;
+
+		// m_numLeftI here becomes a lowpass filtered version of numLeft.
+		m_numLeftI = (numLeft + m_numLeftI * (CONTROL_AVG - 1.0f)) / CONTROL_AVG;
+
+		// Here we try to keep the buffer size around m_lowwatermark (which is
+		// really now more like desired_buffer_size) by adjusting the speed.
+		// Note that the speed of adjustment here does not take the buffer size into
+		// account. Since this is called once per "output frame", the frame size
+		// will affect how fast this algorithm reacts, which can't be a good thing.
+		float offset = (m_numLeftI - (float)m_targetBufsize) * CONTROL_FACTOR;
 		if (offset > MAX_FREQ_SHIFT) offset = MAX_FREQ_SHIFT;
 		if (offset < -MAX_FREQ_SHIFT) offset = -MAX_FREQ_SHIFT;
 
-		sample_rate_ = (float)(m_input_sample_rate + offset);
-		const u32 ratio = (u32)(65536.0 * sample_rate_ / (double)sample_rate);
-
+		output_sample_rate_ = (float)(m_input_sample_rate + offset);
+		const u32 ratio = (u32)(65536.0 * output_sample_rate_ / (double)sample_rate);
+		ratio_ = ratio;
 		// TODO: consider a higher-quality resampling algorithm.
 		// TODO: Add a fast path for 1:1.
-		for (; currentSample < numSamples * 2 && ((indexW - indexR) & INDEX_MASK) > 2; currentSample += 2) {
+		u32 frac = m_frac;
+		for (currentSample = 0; currentSample < numSamples * 2; currentSample += 2) {
 			u32 indexR2 = indexR + 2; //next sample
 			s16 l1 = m_buffer[indexR & INDEX_MASK]; //current
 			s16 r1 = m_buffer[(indexR + 1) & INDEX_MASK]; //current
 			s16 l2 = m_buffer[indexR2 & INDEX_MASK]; //next
 			s16 r2 = m_buffer[(indexR2 + 1) & INDEX_MASK]; //next
-			int sampleL = ((l1 << 16) + (l2 - l1) * (u16)m_frac) >> 16;
-			int sampleR = ((r1 << 16) + (r2 - r1) * (u16)m_frac) >> 16;
+			int sampleL = ((l1 << 16) + (l2 - l1) * (u16)frac) >> 16;
+			int sampleR = ((r1 << 16) + (r2 - r1) * (u16)frac) >> 16;
 			samples[currentSample] = sampleL;
 			samples[currentSample + 1] = sampleR;
-			m_frac += ratio;
-			indexR += 2 * (u16)(m_frac >> 16);
-			m_frac &= 0xffff;
+			frac += ratio;
+			indexR += 2 * (frac >> 16);
+			frac &= 0xffff;
+			if (((indexW - indexR) & INDEX_MASK) == 0) {
+				// Ran out!
+				// int missing = numSamples * 2 - currentSample;
+				// ILOG("Resampler underrun: %d (numSamples: %d, currentSample: %d)", missing, numSamples, currentSample / 2);
+				underrunCount_++;
+				break;
+			}
 		}
+		m_frac = frac;
 	}
 
-	int realSamples = currentSample;
-	if (currentSample < numSamples * 2)
-		underrunCount_++;
+	// Let's not count the underrun padding here.
+	outputSampleCount_ += currentSample / 2;
 
 	// Padding with the last value to reduce clicking
 	short s[2];
@@ -222,69 +261,87 @@ unsigned int StereoResampler::Mix(short* samples, unsigned int numSamples, bool 
 	}
 
 	// Flush cached variable
-	Common::AtomicStore(m_indexR, indexR);
+	m_indexR.store(indexR);
 
-	//if (realSamples != numSamples * 2) {
-	//	ILOG("Underrun! %i / %i", realSamples / 2, numSamples);
-	//}
-	lastBufSize_ = (m_indexW - m_indexR) & INDEX_MASK;
-
-	return realSamples / 2;
+	// TODO: What should we actually return here?
+	return currentSample / 2;
 }
 
-void StereoResampler::PushSamples(const s32 *samples, unsigned int num_samples) {
+// Executes on the emulator thread, pushing sound into the buffer.
+void StereoResampler::PushSamples(const s32 *samples, unsigned int numSamples) {
+	inputSampleCount_ += numSamples;
+
 	UpdateBufferSize();
-	const int INDEX_MASK = (m_bufsize * 2 - 1);
+	const int INDEX_MASK = (m_maxBufsize * 2 - 1);
 	// Cache access in non-volatile variable
 	// indexR isn't allowed to cache in the audio throttling loop as it
 	// needs to get updates to not deadlock.
-	u32 indexW = Common::AtomicLoad(m_indexW);
+	u32 indexW = m_indexW.load();
 
-	u32 cap = m_bufsize * 2;
-	// If unthottling, no need to fill up the entire buffer, just screws up timing after releasing unthrottle.
-	if (PSP_CoreParameter().unthrottle)
-		cap = m_lowwatermark * 2;
+	u32 cap = m_maxBufsize * 2;
+	// If unthrottling, no need to fill up the entire buffer, just screws up timing after releasing unthrottle.
+	if (PSP_CoreParameter().unthrottle) {
+		cap = m_targetBufsize * 2;
+	}
 
 	// Check if we have enough free space
 	// indexW == m_indexR results in empty buffer, so indexR must always be smaller than indexW
-	if (num_samples * 2 + ((indexW - Common::AtomicLoad(m_indexR)) & INDEX_MASK) >= cap) {
-		if (!PSP_CoreParameter().unthrottle)
+	if (numSamples * 2 + ((indexW - m_indexR.load()) & INDEX_MASK) >= cap) {
+		if (!PSP_CoreParameter().unthrottle) {
 			overrunCount_++;
+		}
 		// TODO: "Timestretch" by doing a windowed overlap with existing buffer content?
 		return;
 	}
 
-	int over_bytes = num_samples * 4 - (m_bufsize * 2 - (indexW & INDEX_MASK)) * sizeof(short);
+	int over_bytes = numSamples * 4 - (m_maxBufsize * 2 - (indexW & INDEX_MASK)) * sizeof(short);
 	if (over_bytes > 0) {
-		ClampBufferToS16WithVolume(&m_buffer[indexW & INDEX_MASK], samples, (num_samples * 4 - over_bytes) / 2);
-		ClampBufferToS16WithVolume(&m_buffer[0], samples + (num_samples * 4 - over_bytes) / sizeof(short), over_bytes / 2);
+		ClampBufferToS16WithVolume(&m_buffer[indexW & INDEX_MASK], samples, (numSamples * 4 - over_bytes) / 2);
+		ClampBufferToS16WithVolume(&m_buffer[0], samples + (numSamples * 4 - over_bytes) / sizeof(short), over_bytes / 2);
 	} else {
-		ClampBufferToS16WithVolume(&m_buffer[indexW & INDEX_MASK], samples, num_samples * 2);
+		ClampBufferToS16WithVolume(&m_buffer[indexW & INDEX_MASK], samples, numSamples * 2);
 	}
 
-	Common::AtomicAdd(m_indexW, num_samples * 2);
-	lastPushSize_ = num_samples;
+	m_indexW += numSamples * 2;
+	lastPushSize_ = numSamples;
 }
 
 void StereoResampler::GetAudioDebugStats(char *buf, size_t bufSize) {
+	double elapsed = real_time_now() - startTime_;
+
+	double effective_input_sample_rate = (double)inputSampleCount_ / elapsed;
+	double effective_output_sample_rate = (double)outputSampleCount_ / elapsed;
 	snprintf(buf, bufSize,
-		"Audio buffer: %d/%d (low watermark: %d)\n"
+		"Audio buffer: %d/%d (target: %d)\n"
+		"Filtered: %0.2f\n"
 		"Underruns: %d\n"
 		"Overruns: %d\n"
 		"Sample rate: %d (input: %d)\n"
-		"Push size: %d\n",
+		"Effective input sample rate: %0.2f\n"
+		"Effective output sample rate: %0.2f\n"
+		"Push size: %d\n"
+		"Ratio: %0.6f\n",
 		lastBufSize_,
-		m_bufsize * 2,
-		m_lowwatermark,
+		m_maxBufsize,
+		m_targetBufsize,
+		m_numLeftI,
 		underrunCountTotal_,
 		overrunCountTotal_,
-		(int)sample_rate_,
+		(int)output_sample_rate_,
 		m_input_sample_rate,
-		lastPushSize_);
+		effective_input_sample_rate,
+		effective_output_sample_rate,
+		lastPushSize_,
+		(float)ratio_ / 65536.0f);
 	underrunCountTotal_ += underrunCount_;
 	overrunCountTotal_ += overrunCount_;
 	underrunCount_ = 0;
 	overrunCount_ = 0;
+
+	// Use this to remove the bias from the startup.
+	// if (elapsed > 3.0) {
+		//ResetStatCounters();
+	// }
 }
 
 void StereoResampler::ResetStatCounters() {
@@ -292,10 +349,9 @@ void StereoResampler::ResetStatCounters() {
 	overrunCount_ = 0;
 	underrunCountTotal_ = 0;
 	overrunCountTotal_ = 0;
-}
-
-void StereoResampler::SetInputSampleRate(unsigned int rate) {
-	m_input_sample_rate = rate;
+	inputSampleCount_ = 0;
+	outputSampleCount_ = 0;
+	startTime_ = real_time_now();
 }
 
 void StereoResampler::DoState(PointerWrap &p) {
