@@ -114,7 +114,7 @@ protected:
 	bool BuildPostShader(const ShaderInfo *shaderInfo, const ShaderInfo *next);
 	bool AllocateFramebuffer(int w, int h);
 
-	void BindSource();
+	void BindSource(int binding);
 
 	void GetCardboardSettings(CardboardSettings *cardboardSettings);
 	void CalculatePostShaderUniforms(int bufferWidth, int bufferHeight, int targetWidth, int targetHeight, const ShaderInfo *shaderInfo, PostShaderUniforms *uniforms);

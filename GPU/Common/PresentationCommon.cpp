@@ -491,11 +491,11 @@ void PresentationCommon::SourceFramebuffer(Draw::Framebuffer *fb, int bufferWidt
 	srcHeight_ = bufferHeight;
 }
 
-void PresentationCommon::BindSource() {
+void PresentationCommon::BindSource(int binding) {
 	if (srcTexture_) {
-		draw_->BindTexture(0, srcTexture_);
+		draw_->BindTexture(binding, srcTexture_);
 	} else if (srcFramebuffer_) {
-		draw_->BindFramebufferAsTexture(srcFramebuffer_, 0, Draw::FB_COLOR_BIT, 0);
+		draw_->BindFramebufferAsTexture(srcFramebuffer_, binding, Draw::FB_COLOR_BIT, 0);
 	} else {
 		assert(false);
 	}
@@ -611,8 +611,9 @@ void PresentationCommon::CopyToOutput(OutputFlags flags, int uvRotation, float u
 			if (usePostShaderOutput) {
 				draw_->BindFramebufferAsTexture(postShaderFramebuffers_[i - 1], 0, Draw::FB_COLOR_BIT, 0);
 			} else {
-				BindSource();
+				BindSource(0);
 			}
+			BindSource(1);
 
 			int nextWidth, nextHeight;
 			draw_->GetFramebufferDimensions(postShaderFramebuffer, &nextWidth, &nextHeight);
@@ -628,6 +629,7 @@ void PresentationCommon::CopyToOutput(OutputFlags flags, int uvRotation, float u
 
 			Draw::SamplerState *sampler = useNearest || shaderInfo->isUpscalingFilter ? samplerNearest_ : samplerLinear_;
 			draw_->BindSamplerStates(0, 1, &sampler);
+			draw_->BindSamplerStates(1, 1, &sampler);
 
 			draw_->BindVertexBuffers(0, 1, &vdata_, &postVertsOffset);
 			draw_->BindIndexBuffer(idata_, 0);
@@ -658,8 +660,9 @@ void PresentationCommon::CopyToOutput(OutputFlags flags, int uvRotation, float u
 	if (usePostShaderOutput) {
 		draw_->BindFramebufferAsTexture(postShaderFramebuffers_.back(), 0, Draw::FB_COLOR_BIT, 0);
 	} else {
-		BindSource();
+		BindSource(0);
 	}
+	BindSource(1);
 
 	if (isFinalAtOutputResolution) {
 		PostShaderUniforms uniforms;
@@ -676,6 +679,7 @@ void PresentationCommon::CopyToOutput(OutputFlags flags, int uvRotation, float u
 
 	Draw::SamplerState *sampler = useNearest ? samplerNearest_ : samplerLinear_;
 	draw_->BindSamplerStates(0, 1, &sampler);
+	draw_->BindSamplerStates(1, 1, &sampler);
 
 	auto setViewport = [&](float x, float y, float w, float h) {
 		Draw::Viewport viewport{ x, y, w, h, 0.0f, 1.0f };
