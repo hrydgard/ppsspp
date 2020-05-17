@@ -317,7 +317,6 @@ void retro_init(void) {
 	g_Config.iGlobalVolume = VOLUME_MAX - 1;
 	g_Config.iAltSpeedVolume = -1;
 	g_Config.bEnableSound = true;
-	g_Config.bAudioResampler = false;
 	g_Config.iCwCheatRefreshRate = 60;
 
 	g_Config.iFirmwareVersion = PSP_DEFAULT_FIRMWARE;
