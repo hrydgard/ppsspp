@@ -36,35 +36,29 @@ static std::vector<ShaderInfo> shaderInfo;
 // Additionally, scan the VFS assets. (TODO)
 
 void LoadPostShaderInfo(std::vector<std::string> directories) {
+	std::vector<ShaderInfo> notVisible;
+
 	shaderInfo.clear();
-	ShaderInfo off;
+	ShaderInfo off{};
+	off.visible = true;
 	off.name = "Off";
 	off.section = "Off";
-	off.outputResolution = false;
-	off.isUpscalingFilter = false;
-	off.SSAAFilterLevel = 0;
-	off.requires60fps = false;
-	off.settingName1 = "";
-	off.settingValue1 = 0.0f;
-	off.minSettingValue1 = -1.0f;
-	off.maxSettingValue1 = 1.0f;
-	off.settingStep1 = 0.01f;
-	off.settingName2 = "";
-	off.settingValue2 = 0.0f;
-	off.minSettingValue2 = -1.0f;
-	off.maxSettingValue2 = 1.0f;
-	off.settingStep2 = 0.01f;
-	off.settingName3 = "";
-	off.settingValue3 = 0.0f;
-	off.minSettingValue3 = -1.0f;
-	off.maxSettingValue3 = 1.0f;
-	off.settingStep3 = 0.01f;
-	off.settingName4 = "";
-	off.settingValue4 = 0.0f;
-	off.minSettingValue4 = -1.0f;
-	off.maxSettingValue4 = 1.0f;
-	off.settingStep4 = 0.01f;
+	for (size_t i = 0; i < ARRAY_SIZE(off.settings); ++i) {
+		off.settings[i].name = "";
+		off.settings[i].value = 0.0f;
+		off.settings[i].minValue = -1.0f;
+		off.settings[i].maxValue = 1.0f;
+		off.settings[i].step = 0.01f;
+	}
 	shaderInfo.push_back(off);
+
+	auto appendShader = [&](const ShaderInfo &info) {
+		auto beginErase = std::remove(shaderInfo.begin(), shaderInfo.end(), info.name);
+		if (beginErase != shaderInfo.end()) {
+			shaderInfo.erase(beginErase, shaderInfo.end());
+		}
+		shaderInfo.push_back(info);
+	};
 
 	for (size_t d = 0; d < directories.size(); d++) {
 		std::vector<FileInfo> fileInfo;
@@ -102,6 +96,8 @@ void LoadPostShaderInfo(std::vector<std::string> directories) {
 					std::string temp;
 					info.section = section.name();
 					section.Get("Name", &info.name, section.name().c_str());
+					section.Get("Parent", &info.parent, "");
+					section.Get("Visible", &info.visible, true);
 					section.Get("Fragment", &temp, "");
 					info.fragmentShaderFile = path + "/" + temp;
 					section.Get("Vertex", &temp, "");
@@ -110,35 +106,21 @@ void LoadPostShaderInfo(std::vector<std::string> directories) {
 					section.Get("Upscaling", &info.isUpscalingFilter, false);
 					section.Get("SSAA", &info.SSAAFilterLevel, 0);
 					section.Get("60fps", &info.requires60fps, false);
-					section.Get("SettingName1", &info.settingName1, "");
-					section.Get("SettingDefaultValue1", &info.settingValue1, 0.0f);
-					section.Get("SettingMinValue1", &info.minSettingValue1, -1.0f);
-					section.Get("SettingMaxValue1", &info.maxSettingValue1, 1.0f);
-					section.Get("SettingStep1", &info.settingStep1, 0.01f);
-					section.Get("SettingName2", &info.settingName2, "");
-					section.Get("SettingDefaultValue2", &info.settingValue2, 0.0f);
-					section.Get("SettingMinValue2", &info.minSettingValue2, -1.0f);
-					section.Get("SettingMaxValue2", &info.maxSettingValue2, 1.0f);
-					section.Get("SettingStep2", &info.settingStep2, 0.01f);
-					section.Get("SettingName3", &info.settingName3, "");
-					section.Get("SettingDefaultValue3", &info.settingValue3, 0.0f);
-					section.Get("SettingMinValue3", &info.minSettingValue3, -1.0f);
-					section.Get("SettingMaxValue3", &info.maxSettingValue3, 1.0f);
-					section.Get("SettingStep3", &info.settingStep3, 0.01f);
-					section.Get("SettingName4", &info.settingName4, "");
-					section.Get("SettingDefaultValue4", &info.settingValue4, 0.0f);
-					section.Get("SettingMinValue4", &info.minSettingValue4, -1.0f);
-					section.Get("SettingMaxValue4", &info.maxSettingValue4, 1.0f);
-					section.Get("SettingStep4", &info.settingStep4, 0.01f);
 
-					if (g_Config.mPostShaderSetting.find(info.section + "SettingValue1") == g_Config.mPostShaderSetting.end())
-						g_Config.mPostShaderSetting.insert(std::pair<std::string, float>(info.section + "SettingValue1", info.settingValue1));
-					if (g_Config.mPostShaderSetting.find(info.section + "SettingValue2") == g_Config.mPostShaderSetting.end())
-						g_Config.mPostShaderSetting.insert(std::pair<std::string, float>(info.section + "SettingValue2", info.settingValue2));
-					if (g_Config.mPostShaderSetting.find(info.section + "SettingValue3") == g_Config.mPostShaderSetting.end())
-						g_Config.mPostShaderSetting.insert(std::pair<std::string, float>(info.section + "SettingValue3", info.settingValue3));
-					if (g_Config.mPostShaderSetting.find(info.section + "SettingValue4") == g_Config.mPostShaderSetting.end())
-						g_Config.mPostShaderSetting.insert(std::pair<std::string, float>(info.section + "SettingValue4", info.settingValue4));
+					for (size_t i = 0; i < ARRAY_SIZE(info.settings); ++i) {
+						auto &setting = info.settings[i];
+						section.Get(StringFromFormat("SettingName%d", i + 1).c_str(), &setting.name, "");
+						section.Get(StringFromFormat("SettingDefaultValue%d", i + 1).c_str(), &setting.value, 0.0f);
+						section.Get(StringFromFormat("SettingMinValue%d", i + 1).c_str(), &setting.minValue, -1.0f);
+						section.Get(StringFromFormat("SettingMaxValue%d", i + 1).c_str(), &setting.maxValue, 1.0f);
+						section.Get(StringFromFormat("SettingStep%d", i + 1).c_str(), &setting.step, 0.01f);
+
+						// Populate the default setting value.
+						std::string section = StringFromFormat("%sSettingValue%d", info.section.c_str(), i + 1);
+						if (!setting.name.empty() && g_Config.mPostShaderSetting.find(section) == g_Config.mPostShaderSetting.end()) {
+							g_Config.mPostShaderSetting.insert(std::pair<std::string, float>(section, setting.value));
+						}
+					}
 
 					// Let's ignore shaders we can't support. TODO: Not a very good check
 					if (gl_extensions.IsGLES && !gl_extensions.GLES3) {
@@ -148,14 +130,19 @@ void LoadPostShaderInfo(std::vector<std::string> directories) {
 							continue;
 					}
 
-					auto beginErase = std::find(shaderInfo.begin(), shaderInfo.end(), info.name);
-					if (beginErase != shaderInfo.end()) {
-						shaderInfo.erase(beginErase, shaderInfo.end());
+					if (info.visible) {
+						appendShader(info);
+					} else {
+						notVisible.push_back(info);
 					}
-					shaderInfo.push_back(info);
 				}
 			}
 		}
+	}
+
+	// We always want the not visible ones at the end.  Makes menus easier.
+	for (const auto &info : notVisible) {
+		appendShader(info);
 	}
 }
 
@@ -167,12 +154,36 @@ void ReloadAllPostShaderInfo() {
 	LoadPostShaderInfo(directories);
 }
 
-const ShaderInfo *GetPostShaderInfo(std::string name) {
+const ShaderInfo *GetPostShaderInfo(const std::string &name) {
 	for (size_t i = 0; i < shaderInfo.size(); i++) {
 		if (shaderInfo[i].section == name)
 			return &shaderInfo[i];
 	}
 	return nullptr;
+}
+
+std::vector<const ShaderInfo *> GetPostShaderChain(const std::string &name) {
+	std::vector<const ShaderInfo *> backwards;
+	const ShaderInfo *shaderInfo = GetPostShaderInfo(name);
+	while (shaderInfo) {
+		backwards.push_back(shaderInfo);
+
+		if (!shaderInfo->parent.empty() && shaderInfo->parent != "Off") {
+			shaderInfo = GetPostShaderInfo(shaderInfo->parent);
+		} else {
+			shaderInfo = nullptr;
+		}
+		auto dup = std::find(backwards.begin(), backwards.end(), shaderInfo);
+		if (dup != backwards.end()) {
+			// Don't loop forever.
+			break;
+		}
+	}
+
+	if (!backwards.empty())
+		std::reverse(backwards.begin(), backwards.end());
+	// Not backwards anymore.
+	return backwards;
 }
 
 const std::vector<ShaderInfo> &GetAllPostShaderInfo() {

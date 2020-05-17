@@ -290,22 +290,15 @@ void GameSettingsScreen::CreateViews() {
 		return g_Config.iRenderingMode != FB_NON_BUFFERED_MODE;
 	});
 
-	const ShaderInfo *shaderInfo = GetPostShaderInfo(g_Config.sPostShaderName);
-	if (shaderInfo && !shaderInfo->settingName1.empty()) {
-		auto &value = g_Config.mPostShaderSetting[g_Config.sPostShaderName + "SettingValue1"];
-		graphicsSettings->Add(new PopupSliderChoiceFloat(&value, shaderInfo->minSettingValue1, shaderInfo->maxSettingValue1, shaderInfo->settingName1, shaderInfo->settingStep1, screenManager()));
-	}
-	if (shaderInfo && !shaderInfo->settingName2.empty()) {
-		auto &value = g_Config.mPostShaderSetting[g_Config.sPostShaderName + "SettingValue2"];
-		graphicsSettings->Add(new PopupSliderChoiceFloat(&value, shaderInfo->minSettingValue2, shaderInfo->maxSettingValue2, shaderInfo->settingName2, shaderInfo->settingStep2, screenManager()));
-	}
-	if (shaderInfo && !shaderInfo->settingName3.empty()) {
-		auto &value = g_Config.mPostShaderSetting[g_Config.sPostShaderName + "SettingValue3"];
-		graphicsSettings->Add(new PopupSliderChoiceFloat(&value, shaderInfo->minSettingValue3, shaderInfo->maxSettingValue3, shaderInfo->settingName3, shaderInfo->settingStep3, screenManager()));
-	}
-	if (shaderInfo && !shaderInfo->settingName4.empty()) {
-		auto &value = g_Config.mPostShaderSetting[g_Config.sPostShaderName + "SettingValue4"];
-		graphicsSettings->Add(new PopupSliderChoiceFloat(&value, shaderInfo->minSettingValue4, shaderInfo->maxSettingValue4, shaderInfo->settingName4, shaderInfo->settingStep4, screenManager()));
+	auto shaderChain = GetPostShaderChain(g_Config.sPostShaderName);
+	for (auto shaderInfo : shaderChain) {
+		for (size_t i = 0; i < ARRAY_SIZE(shaderInfo->settings); ++i) {
+			auto &setting = shaderInfo->settings[i];
+			if (!setting.name.empty()) {
+				auto &value = g_Config.mPostShaderSetting[StringFromFormat("%sSettingValue%d", shaderInfo->section.c_str(), i + 1)];
+				graphicsSettings->Add(new PopupSliderChoiceFloat(&value, setting.minValue, setting.maxValue, ps->T(setting.name), setting.step, screenManager()));
+			}
+		}
 	}
 
 #if !defined(MOBILE_DEVICE)
