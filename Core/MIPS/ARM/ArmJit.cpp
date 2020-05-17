@@ -304,17 +304,17 @@ const u8 *ArmJit::DoJit(u32 em_address, JitBlock *b)
 		JumpTarget backJump = GetCodePtr();
 		gpr.SetRegImm(R0, js.blockStart);
 		B((const void *)outerLoopPCInR0);
-		b->checkedEntry = (u8 *)GetCodePtr();
+		b->checkedEntry = GetCodePtr();
 		SetCC(CC_LT);
 		B(backJump);
 		SetCC(CC_AL);
 	} else if (jo.useForwardJump) {
-		b->checkedEntry = (u8 *)GetCodePtr();
+		b->checkedEntry = GetCodePtr();
 		SetCC(CC_LT);
 		bail = B();
 		SetCC(CC_AL);
 	} else {
-		b->checkedEntry = (u8 *)GetCodePtr();
+		b->checkedEntry = GetCodePtr();
 		SetCC(CC_LT);
 		gpr.SetRegImm(R0, js.blockStart);
 		B((const void *)outerLoopPCInR0);

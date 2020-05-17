@@ -300,13 +300,13 @@ const u8 *Arm64Jit::DoJit(u32 em_address, JitBlock *b) {
 		const u8 *backJump = GetCodePtr();
 		MOVI2R(SCRATCH1, js.blockStart);
 		B((const void *)outerLoopPCInSCRATCH1);
-		b->checkedEntry = (u8 *)GetCodePtr();
+		b->checkedEntry = GetCodePtr();
 		B(CC_LT, backJump);
 	} else if (jo.useForwardJump) {
-		b->checkedEntry = (u8 *)GetCodePtr();
+		b->checkedEntry = GetCodePtr();
 		bail = B(CC_LT);
 	} else if (jo.enableBlocklink) {
-		b->checkedEntry = (u8 *)GetCodePtr();
+		b->checkedEntry = GetCodePtr();
 		MOVI2R(SCRATCH1, js.blockStart);
 		FixupBranch skip = B(CC_GE);
 		B((const void *)outerLoopPCInSCRATCH1);
@@ -442,7 +442,7 @@ void Arm64Jit::LinkBlock(u8 *exitPoint, const u8 *checkedEntry) {
 	if (PlatformIsWXExclusive()) {
 		ProtectMemoryPages(exitPoint, 32, MEM_PROT_READ | MEM_PROT_WRITE);
 	}
-	ARM64XEmitter emit(exitPoint);
+	ARM64XEmitter emit(GetCodePtrFromWritablePtr(exitPoint), exitPoint);
 	emit.B(checkedEntry);
 	// TODO: Write stuff after, convering up the now-unused instructions.
 	emit.FlushIcache();
@@ -459,7 +459,7 @@ void Arm64Jit::UnlinkBlock(u8 *checkedEntry, u32 originalAddress) {
 		ProtectMemoryPages(checkedEntry, 16, MEM_PROT_READ | MEM_PROT_WRITE);
 	}
 
-	ARM64XEmitter emit(checkedEntry);
+	ARM64XEmitter emit(GetCodePtrFromWritablePtr(checkedEntry), checkedEntry);
 	emit.MOVI2R(SCRATCH1, originalAddress);
 	emit.STR(INDEX_UNSIGNED, SCRATCH1, CTXREG, offsetof(MIPSState, pc));
 	emit.B(MIPSComp::jit->GetDispatcher());

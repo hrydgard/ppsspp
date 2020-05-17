@@ -4,6 +4,7 @@
 
 #pragma once
 
+#include <cstddef>
 #include "Common.h"
 #include "MemoryUtil.h"
 
@@ -22,7 +23,6 @@ public:
 		return (ptr >= region) && (ptr < (region + region_size));
 	}
 
-	virtual void SetCodePtr(u8 *ptr) = 0;
 	virtual const u8 *GetCodePtr() const = 0;
 
 	u8 *GetBasePtr() {
@@ -33,7 +33,13 @@ public:
 		return ptr - region;
 	}
 
+	virtual const u8 *GetCodePtrFromWritablePtr(u8 *ptr) = 0;
+	virtual u8 *GetWritablePtrFromCodePtr(const u8 *ptr) = 0;
+
 protected:
+	virtual void SetCodePtr(u8 *ptr) = 0;
+
+	// Note: this should be the readable/executable side if writable is a different pointer.
 	u8 *region = nullptr;
 	size_t region_size = 0;
 };
@@ -56,7 +62,8 @@ public:
 		region_size = size;
 		// The protection will be set to RW if PlatformIsWXExclusive.
 		region = (u8 *)AllocateExecutableMemory(region_size);
-		T::SetCodePointer(region);
+		writableRegion = region;
+		T::SetCodePointer(region, writableRegion);
 	}
 
 	// Always clear code space with breakpoints, so that if someone accidentally executes
@@ -104,27 +111,42 @@ public:
 		ProtectMemoryPages(region, region_size, MEM_PROT_READ | MEM_PROT_WRITE);
 		FreeMemoryPages(region, region_size);
 		region = nullptr;
+		writableRegion = nullptr;
 		region_size = 0;
-	}
-
-	void SetCodePtr(u8 *ptr) override {
-		T::SetCodePointer(ptr);
 	}
 
 	const u8 *GetCodePtr() const override {
 		return T::GetCodePointer();
 	}
 
-	void ResetCodePtr(int offset) {
-		T::SetCodePointer(region + offset);
+	void ResetCodePtr(size_t offset) {
+		T::SetCodePointer(region + offset, writableRegion + offset);
 	}
 
 	size_t GetSpaceLeft() const {
 		return region_size - (T::GetCodePointer() - region);
 	}
 
+	const u8 *GetCodePtrFromWritablePtr(u8 *ptr) override {
+		// So we can adjust region to writable space.  Might be zero.
+		ptrdiff_t writable = T::GetWritableCodePtr() - T::GetCodePointer();
+		return ptr - writable;
+	}
+
+	u8 *GetWritablePtrFromCodePtr(const u8 *ptr) override {
+		// So we can adjust region to writable space.  Might be zero.
+		ptrdiff_t writable = T::GetWritableCodePtr() - T::GetCodePointer();
+		return (u8 *)ptr + writable;
+	}
+
+protected:
+	void SetCodePtr(u8 *ptr) override {
+		T::SetCodePointer(ptr, GetWritablePtrFromCodePtr(ptr));
+	}
+
 private:
 	// Note: this is a readable pointer.
 	const uint8_t *writeStart_ = nullptr;
+	uint8_t *writableRegion = nullptr;
 };
 

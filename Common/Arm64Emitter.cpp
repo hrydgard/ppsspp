@@ -275,9 +275,14 @@ static int EncodeSize(int size) {
 	}
 }
 
-void ARM64XEmitter::SetCodePointer(u8* ptr)
+ARM64XEmitter::ARM64XEmitter(const u8 *ptr, u8 *writePtr) {
+	SetCodePointer(ptr, writePtr);
+}
+
+void ARM64XEmitter::SetCodePointer(const u8 *ptr, u8 *writePtr)
 {
 	m_code = ptr;
+	m_writable = writePtr;
 	m_lastCacheFlushEnd = ptr;
 }
 
@@ -288,7 +293,7 @@ const u8* ARM64XEmitter::GetCodePointer() const
 
 u8* ARM64XEmitter::GetWritableCodePtr()
 {
-	return m_code;
+	return m_writable;
 }
 
 void ARM64XEmitter::ReserveCodeSpace(u32 bytes)
@@ -320,11 +325,11 @@ void ARM64XEmitter::FlushIcache()
 	m_lastCacheFlushEnd = m_code;
 }
 
-void ARM64XEmitter::FlushIcacheSection(u8* start, u8* end)
+void ARM64XEmitter::FlushIcacheSection(const u8 *start, const u8 *end)
 {
 #if defined(IOS)
 	// Header file says this is equivalent to: sys_icache_invalidate(start, end - start);
-	sys_cache_control(kCacheFunctionPrepareForExecution, start, end - start);
+	sys_cache_control(kCacheFunctionPrepareForExecution, (void *)start, end - start);
 #elif PPSSPP_PLATFORM(WINDOWS)
 	FlushInstructionCache(GetCurrentProcess(), start, end - start);
 #elif PPSSPP_ARCH(ARM64)
@@ -919,7 +924,9 @@ void ARM64XEmitter::SetJumpTarget(FixupBranch const& branch)
 			inst = (0x25 << 26) | MaskImm26(distance);
 		break;
 	}
-	*(u32*)branch.ptr = inst;
+
+	ptrdiff_t writable = m_writable - m_code;
+	*(u32 *)(branch.ptr + writable) = inst;
 }
 
 FixupBranch ARM64XEmitter::CBZ(ARM64Reg Rt)
@@ -3923,8 +3930,11 @@ void ARM64XEmitter::SUBSI2R(ARM64Reg Rd, ARM64Reg Rn, u64 imm, ARM64Reg scratch)
 }
 
 void ARM64CodeBlock::PoisonMemory(int offset) {
-	u32* ptr = (u32*)(region + offset);
-	u32* maxptr = (u32*)(region + region_size - offset);
+	// So we can adjust region to writable space.  Might be zero.
+	ptrdiff_t writable = m_writable - m_code;
+
+	u32 *ptr = (u32 *)(region + offset + writable);
+	u32 *maxptr = (u32 *)(region + region_size - offset + writable);
 	// If our memory isn't a multiple of u32 then this won't write the last remaining bytes with anything
 	// Less than optimal, but there would be nothing we could do but throw a runtime warning anyway.
 	// AArch64: 0xD4200000 = BRK 0

@@ -248,7 +248,7 @@ JittedVertexDecoder VertexDecoderJitCache::Compile(const VertexDecoder &dec, int
 		if (!CompileStep(dec, i)) {
 			EndWrite();
 			// Reset the code ptr (effectively undoing what we generated) and return zero to indicate that we failed.
-			SetCodePtr(const_cast<u8 *>(start));
+			ResetCodePtr(GetOffset(start));
 			char temp[1024] = {0};
 			dec.ToString(temp);
 			ERROR_LOG(G3D, "Could not compile vertex decoder, failed at step %d: %s", i, temp);

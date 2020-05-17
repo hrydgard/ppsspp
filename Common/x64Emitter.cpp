@@ -96,7 +96,7 @@ enum NormalSSEOps
 };
 
 
-void XEmitter::SetCodePointer(u8 *ptr)
+void XEmitter::SetCodePointer(u8 *ptr, u8 *writePtr)
 {
 	code = ptr;
 }
