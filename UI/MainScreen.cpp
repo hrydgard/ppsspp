@@ -628,7 +628,6 @@ void GameBrowser::Refresh() {
 	lastScale_ = g_Config.fGameGridScale;
 	lastLayoutWasGrid_ = *gridStyle_;
 
-	homebrewStoreButton_ = nullptr;
 	// Kill all the contents
 	Clear();
 
@@ -785,9 +784,7 @@ void GameBrowser::Refresh() {
 
 	if (browseFlags_ & BrowseFlags::HOMEBREW_STORE) {
 		Add(new Spacer());
-		homebrewStoreButton_ = Add(new Choice(mm->T("DownloadFromStore", "Download from the PPSSPP Homebrew Store"), new UI::LinearLayoutParams(UI::WRAP_CONTENT, UI::WRAP_CONTENT)));
-	} else {
-		homebrewStoreButton_ = nullptr;
+		Add(new Choice(mm->T("DownloadFromStore", "Download from the PPSSPP Homebrew Store"), new UI::LinearLayoutParams(UI::WRAP_CONTENT, UI::WRAP_CONTENT)))->OnClick.Handle(this, &GameBrowser::OnHomebrewStore);
 	}
 
 	if (!lastText_.empty() && gameButtons.empty()) {
@@ -908,7 +905,12 @@ UI::EventReturn GameBrowser::OnRecentClear(UI::EventParams &e) {
 	return UI::EVENT_DONE;
 }
 
-MainScreen::MainScreen() : highlightProgress_(0.0f), prevHighlightProgress_(0.0f), backFromStore_(false), lockBackgroundAudio_(false) {
+UI::EventReturn GameBrowser::OnHomebrewStore(UI::EventParams &e) {
+	screenManager_->push(new StoreScreen());
+	return UI::EVENT_DONE;
+}
+
+MainScreen::MainScreen() {
 	System_SendMessage("event", "mainscreen");
 	SetBackgroundAudioGame("");
 	lastVertical_ = UseVerticalLayout();
@@ -917,7 +919,6 @@ MainScreen::MainScreen() : highlightProgress_(0.0f), prevHighlightProgress_(0.0f
 MainScreen::~MainScreen() {
 	SetBackgroundAudioGame("");
 }
-
 
 void MainScreen::CreateViews() {
 	// Information in the top left.
@@ -973,11 +974,6 @@ void MainScreen::CreateViews() {
 		GameBrowser *tabHomebrew = new GameBrowser(GetSysDirectory(DIRECTORY_GAME), BrowseFlags::HOMEBREW_STORE, &g_Config.bGridView3, screenManager(),
 			mm->T("How to get homebrew & demos", "How to get homebrew && demos"), "https://www.ppsspp.org/gethomebrew.html",
 			new LinearLayoutParams(FILL_PARENT, FILL_PARENT));
-
-		Choice *hbStore = tabHomebrew->HomebrewStoreButton();
-		if (hbStore) {
-			hbStore->OnClick.Handle(this, &MainScreen::OnHomebrewStore);
-		}
 
 		scrollAllGames->Add(tabAllGames);
 		gameBrowsers_.push_back(tabAllGames);
@@ -1320,11 +1316,6 @@ UI::EventReturn MainScreen::OnGameSettings(UI::EventParams &e) {
 
 UI::EventReturn MainScreen::OnCredits(UI::EventParams &e) {
 	screenManager()->push(new CreditsScreen());
-	return UI::EVENT_DONE;
-}
-
-UI::EventReturn MainScreen::OnHomebrewStore(UI::EventParams &e) {
-	screenManager()->push(new StoreScreen());
 	return UI::EVENT_DONE;
 }
 
