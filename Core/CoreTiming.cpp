@@ -24,7 +24,6 @@
 #include "profiler/profiler.h"
 
 #include "Common/MsgHandler.h"
-#include "Common/Atomics.h"
 #include "Core/CoreTiming.h"
 #include "Core/Core.h"
 #include "Core/Config.h"

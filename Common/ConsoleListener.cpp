@@ -35,7 +35,6 @@
 #include "util/text/utf8.h"
 #include "Common.h"
 #include "ConsoleListener.h" // Common
-#include "Atomics.h"
 
 #if defined(USING_WIN_UI)
 const int LOG_PENDING_MAX = 120 * 10000;
