@@ -21,7 +21,6 @@
 #include "Common/CommonTypes.h"
 #include "Common/ChunkFile.h"
 #include "Common/FixedSizeQueue.h"
-#include "Common/Atomics.h"
 
 #ifdef _M_SSE
 #include <emmintrin.h>

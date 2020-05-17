@@ -16,7 +16,6 @@
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
 #include "Common/Common.h"
-#include "Common/Atomics.h"
 
 #include "Core/Core.h"
 #include "Core/MemMap.h"

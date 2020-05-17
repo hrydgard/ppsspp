@@ -384,9 +384,6 @@
     <ClInclude Include="Arm64Emitter.h" />
     <ClInclude Include="ArmCommon.h" />
     <ClInclude Include="ArmEmitter.h" />
-    <ClInclude Include="Atomics.h" />
-    <ClInclude Include="Atomic_GCC.h" />
-    <ClInclude Include="Atomic_Win32.h" />
     <ClInclude Include="BitScan.h" />
     <ClInclude Include="BitSet.h" />
     <ClInclude Include="ColorConvNEON.h" />
