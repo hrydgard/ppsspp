@@ -456,6 +456,12 @@ static ConfigSetting generalSettings[] = {
 	ConfigSetting("GridView2", &g_Config.bGridView2, true),
 	ConfigSetting("GridView3", &g_Config.bGridView3, false),
 	ConfigSetting("ComboMode", &g_Config.iComboMode, 0),
+	ConfigSetting("RightAnalogUp", &g_Config.iRightAnalogUp, 0),
+	ConfigSetting("RightAnalogDown", &g_Config.iRightAnalogDown, 0),
+	ConfigSetting("RightAnalogLeft", &g_Config.iRightAnalogLeft, 0),
+	ConfigSetting("RightAnalogRight", &g_Config.iRightAnalogRight, 0),
+	ConfigSetting("RightAnalogPress", &g_Config.iRightAnalogPress, 0),
+	ConfigSetting("RightAnalogCustom", &g_Config.bRightAnalogCustom, false),
 
 	// "default" means let emulator decide, "" means disable.
 	ConfigSetting("ReportingHost", &g_Config.sReportHost, "default"),
