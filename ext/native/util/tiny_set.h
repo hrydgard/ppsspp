@@ -47,6 +47,11 @@ struct TinySet {
 		}
 		return false;
 	}
+	void clear() {
+		delete slowLookup_;
+		slowLookup_ = nullptr;
+		fastCount = 0;
+	}
 
 private:
 	void insertSlow(T t) {
@@ -62,6 +67,5 @@ private:
 	}
 	T fastLookup_[MaxFastSize];
 	int fastCount = 0;
-	int slowCount = 0;
 	std::vector<T> *slowLookup_ = nullptr;
 };

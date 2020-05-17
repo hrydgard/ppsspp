@@ -764,11 +764,13 @@ void VulkanQueueRunner::ApplyRenderPassMerge(std::vector<VKRStep *> &steps) {
 		// Also slurp up any pretransitions.
 		dst->preTransitions.insert(dst->preTransitions.end(), src->preTransitions.begin(), src->preTransitions.end());
 		dst->commands.insert(dst->commands.end(), src->commands.begin(), src->commands.end());
+		// So we don't consider it for other things, maybe doesn't matter.
+		src->dependencies.clear();
 		src->stepType = VKRStepType::RENDER_SKIP;
 	};
-	auto renderHasNoClear = [](const VKRStep *step) {
+	auto renderHasClear = [](const VKRStep *step) {
 		const auto &r = step->render;
-		return r.color != VKRRenderPassAction::CLEAR && r.depth != VKRRenderPassAction::CLEAR && r.stencil != VKRRenderPassAction::CLEAR;
+		return r.color == VKRRenderPassAction::CLEAR || r.depth == VKRRenderPassAction::CLEAR || r.stencil == VKRRenderPassAction::CLEAR;
 	};
 
 	// Now, let's go through the steps. If we find one that is rendered to more than once,
@@ -786,30 +788,43 @@ void VulkanQueueRunner::ApplyRenderPassMerge(std::vector<VKRStep *> &steps) {
 				}
 				switch (steps[j]->stepType) {
 				case VKRStepType::RENDER:
-					// Prevent Unknown's example case from https://github.com/hrydgard/ppsspp/pull/12242
-					if (steps[j]->dependencies.contains(touchedFramebuffers)) {
-						goto done_fb;
-					}
-					if (steps[j]->render.framebuffer == fb && renderHasNoClear(steps[j])) {
-						mergeRenderSteps(steps[i], steps[j]);
-					}
-					// Remember the framebuffer this wrote to. We can't merge with later passes that depend on these.
-					if (steps[j]->render.framebuffer != fb) {
+					if (steps[j]->render.framebuffer == fb) {
+						// Prevent Unknown's example case from https://github.com/hrydgard/ppsspp/pull/12242
+						if (renderHasClear(steps[j]) || steps[j]->dependencies.contains(touchedFramebuffers)) {
+							goto done_fb;
+						} else {
+							// Safe to merge, great.
+							mergeRenderSteps(steps[i], steps[j]);
+						}
+					} else {
+						// Remember the framebuffer this wrote to. We can't merge with later passes that depend on these.
 						touchedFramebuffers.insert(steps[j]->render.framebuffer);
 					}
 					break;
 				case VKRStepType::COPY:
+					if (steps[j]->copy.dst == fb) {
+						// Without framebuffer "renaming", we can't merge past a clobbered fb.
+						goto done_fb;
+					}
 					touchedFramebuffers.insert(steps[j]->copy.dst);
 					break;
 				case VKRStepType::BLIT:
+					if (steps[j]->blit.dst == fb) {
+						// Without framebuffer "renaming", we can't merge past a clobbered fb.
+						goto done_fb;
+					}
 					touchedFramebuffers.insert(steps[j]->blit.dst);
 					break;
 				case VKRStepType::READBACK:
 					// Not sure this has much effect, when executed READBACK is always the last step
 					// since we stall the GPU and wait immediately after.
 					break;
-				default:
+				case VKRStepType::RENDER_SKIP:
+				case VKRStepType::READBACK_IMAGE:
 					break;
+				default:
+					// We added a new step?  Might be unsafe.
+					goto done_fb;
 				}
 			}
 			done_fb:
