@@ -48,6 +48,8 @@ static int browseFileEvent = -1;
 static int browseFolderEvent = -1;
 QTCamera *qtcamera = nullptr;
 
+SDL_AudioSpec g_retFmt;
+
 #ifdef SDL
 static SDL_AudioDeviceID audioDev = 0;
 
@@ -56,35 +58,35 @@ extern void mixaudio(void *userdata, Uint8 *stream, int len) {
 }
 
 static void InitSDLAudioDevice() {
-	SDL_AudioSpec fmt, ret_fmt;
+	SDL_AudioSpec fmt;
 	memset(&fmt, 0, sizeof(fmt));
 	fmt.freq = 44100;
 	fmt.format = AUDIO_S16;
 	fmt.channels = 2;
-	fmt.samples = 2048;
+	fmt.samples = 1024;
 	fmt.callback = &mixaudio;
 	fmt.userdata = nullptr;
 
 	audioDev = 0;
 	if (!g_Config.sAudioDevice.empty()) {
-		audioDev = SDL_OpenAudioDevice(g_Config.sAudioDevice.c_str(), 0, &fmt, &ret_fmt, SDL_AUDIO_ALLOW_FREQUENCY_CHANGE);
+		audioDev = SDL_OpenAudioDevice(g_Config.sAudioDevice.c_str(), 0, &fmt, &g_retFmt, SDL_AUDIO_ALLOW_FREQUENCY_CHANGE);
 		if (audioDev <= 0) {
 			WLOG("Failed to open preferred audio device %s", g_Config.sAudioDevice.c_str());
 		}
 	}
 	if (audioDev <= 0) {
-		audioDev = SDL_OpenAudioDevice(nullptr, 0, &fmt, &ret_fmt, SDL_AUDIO_ALLOW_FREQUENCY_CHANGE);
+		audioDev = SDL_OpenAudioDevice(nullptr, 0, &fmt, &g_retFmt, SDL_AUDIO_ALLOW_FREQUENCY_CHANGE);
 	}
 	if (audioDev <= 0) {
 		ELOG("Failed to open audio: %s", SDL_GetError());
 	} else {
-		if (ret_fmt.samples != fmt.samples) // Notify, but still use it
-			ELOG("Output audio samples: %d (requested: %d)", ret_fmt.samples, fmt.samples);
-		if (ret_fmt.freq != fmt.freq || ret_fmt.format != fmt.format || ret_fmt.channels != fmt.channels) {
+		if (g_retFmt.samples != fmt.samples) // Notify, but still use it
+			ELOG("Output audio samples: %d (requested: %d)", g_retFmt.samples, fmt.samples);
+		if (g_retFmt.format != fmt.format || g_retFmt.channels != fmt.channels) {
 			ELOG("Sound buffer format does not match requested format.");
-			ELOG("Output audio freq: %d (requested: %d)", ret_fmt.freq, fmt.freq);
-			ELOG("Output audio format: %d (requested: %d)", ret_fmt.format, fmt.format);
-			ELOG("Output audio channels: %d (requested: %d)", ret_fmt.channels, fmt.channels);
+			ELOG("Output audio freq: %d (requested: %d)", g_retFmt.freq, fmt.freq);
+			ELOG("Output audio format: %d (requested: %d)", g_retFmt.format, fmt.format);
+			ELOG("Output audio channels: %d (requested: %d)", g_retFmt.channels, fmt.channels);
 			ELOG("Provided output format does not match requirement, turning audio off");
 			SDL_CloseAudioDevice(audioDev);
 		}
@@ -146,7 +148,9 @@ std::string System_GetProperty(SystemProperty prop) {
 int System_GetPropertyInt(SystemProperty prop) {
 	switch (prop) {
 	case SYSPROP_AUDIO_SAMPLE_RATE:
-		return 44100;
+		return g_retFmt.freq;
+	case SYSPROP_AUDIO_FRAMES_PER_BUFFER:
+		return g_retFmt.samples;
 	case SYSPROP_DEVICE_TYPE:
 #if defined(__ANDROID__)
 		return DEVICE_TYPE_MOBILE;
