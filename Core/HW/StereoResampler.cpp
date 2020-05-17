@@ -30,13 +30,13 @@
 #define CONTROL_AVG     32
 
 #include <cstring>
+#include <atomic>
 
 #include "base/logging.h"
 #include "base/timeutil.h"
 #include "base/NativeApp.h"
 #include "Common/ChunkFile.h"
 #include "Common/MathUtil.h"
-#include "Common/Atomics.h"
 #include "Core/Config.h"
 #include "Core/ConfigValues.h"
 #include "Core/HW/StereoResampler.h"
@@ -165,8 +165,8 @@ unsigned int StereoResampler::Mix(short* samples, unsigned int numSamples, bool 
 	// so we will just ignore new written data while interpolating.
 	// Without this cache, the compiler wouldn't be allowed to optimize the
 	// interpolation loop.
-	u32 indexR = Common::AtomicLoad(m_indexR);
-	u32 indexW = Common::AtomicLoad(m_indexW);
+	u32 indexR = m_indexR.load();
+	u32 indexW = m_indexW.load();
 
 	const int INDEX_MASK = (m_bufsize * 2 - 1);
 
@@ -226,7 +226,7 @@ unsigned int StereoResampler::Mix(short* samples, unsigned int numSamples, bool 
 	}
 
 	// Flush cached variable
-	Common::AtomicStore(m_indexR, indexR);
+	m_indexR.store(indexR);
 
 	//if (realSamples != numSamples * 2) {
 	//	ILOG("Underrun! %i / %i", realSamples / 2, numSamples);
@@ -244,7 +244,7 @@ void StereoResampler::PushSamples(const s32 *samples, unsigned int num_samples) 
 	// Cache access in non-volatile variable
 	// indexR isn't allowed to cache in the audio throttling loop as it
 	// needs to get updates to not deadlock.
-	u32 indexW = Common::AtomicLoad(m_indexW);
+	u32 indexW = m_indexW.load();
 
 	u32 cap = m_bufsize * 2;
 	// If unthrottling, no need to fill up the entire buffer, just screws up timing after releasing unthrottle.
@@ -254,7 +254,7 @@ void StereoResampler::PushSamples(const s32 *samples, unsigned int num_samples) 
 
 	// Check if we have enough free space
 	// indexW == m_indexR results in empty buffer, so indexR must always be smaller than indexW
-	if (num_samples * 2 + ((indexW - Common::AtomicLoad(m_indexR)) & INDEX_MASK) >= cap) {
+	if (num_samples * 2 + ((indexW - m_indexR.load()) & INDEX_MASK) >= cap) {
 		if (!PSP_CoreParameter().unthrottle)
 			overrunCount_++;
 		// TODO: "Timestretch" by doing a windowed overlap with existing buffer content?
@@ -269,7 +269,7 @@ void StereoResampler::PushSamples(const s32 *samples, unsigned int num_samples) 
 		ClampBufferToS16WithVolume(&m_buffer[indexW & INDEX_MASK], samples, num_samples * 2);
 	}
 
-	Common::AtomicAdd(m_indexW, num_samples * 2);
+	m_indexW += num_samples * 2;
 	lastPushSize_ = num_samples;
 }
 

@@ -20,6 +20,7 @@
 #pragma once
 
 #include <cstdint>
+#include <atomic>
 
 #include "Common/ChunkFile.h"
 #include "Common/CommonTypes.h"
@@ -53,8 +54,8 @@ protected:
 	int m_lowwatermark;
 	unsigned int m_input_sample_rate = 44100;
 	int16_t *m_buffer;
-	volatile u32 m_indexW = 0;
-	volatile u32 m_indexR = 0;
+	std::atomic<u32> m_indexW;
+	std::atomic<u32> m_indexR;
 	float m_numLeftI = 0.0f;
 	u32 m_frac = 0;
 	float sample_rate_ = 0.0;
