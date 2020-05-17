@@ -489,6 +489,7 @@
     <ClInclude Include="util\text\shiftjis.h" />
     <ClInclude Include="util\text\utf16.h" />
     <ClInclude Include="util\text\utf8.h" />
+    <ClInclude Include="util\tiny_set.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="base\backtrace.cpp" />

@@ -350,6 +350,9 @@
     <ClInclude Include="ui\root.h">
       <Filter>ui</Filter>
     </ClInclude>
+    <ClInclude Include="util\tiny_set.h">
+      <Filter>util</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="gfx\gl_debug_log.cpp">
