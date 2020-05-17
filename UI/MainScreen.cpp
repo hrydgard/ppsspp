@@ -601,7 +601,7 @@ void GameBrowser::Draw(UIContext &dc) {
 	}
 }
 
-static bool IsValidPBP(const std::string &path) {
+static bool IsValidPBP(const std::string &path, bool allowHomebrew) {
 	if (!File::Exists(path))
 		return false;
 
@@ -613,7 +613,7 @@ static bool IsValidPBP(const std::string &path) {
 
 	ParamSFOData sfo;
 	sfo.ReadSFO(sfoData);
-	if (sfo.GetValueString("DISC_ID").empty())
+	if (!allowHomebrew && sfo.GetValueString("DISC_ID").empty())
 		return false;
 
 	if (sfo.GetValueString("CATEGORY") == "ME")
@@ -705,7 +705,7 @@ void GameBrowser::Refresh() {
 			bool isGame = !fileInfo[i].isDirectory;
 			bool isSaveData = false;
 			// Check if eboot directory
-			if (!isGame && path_.GetPath().size() >= 4 && IsValidPBP(path_.GetPath() + fileInfo[i].name + "/EBOOT.PBP"))
+			if (!isGame && path_.GetPath().size() >= 4 && IsValidPBP(path_.GetPath() + fileInfo[i].name + "/EBOOT.PBP", true))
 				isGame = true;
 			else if (!isGame && File::Exists(path_.GetPath() + fileInfo[i].name + "/PSP_GAME/SYSDIR"))
 				isGame = true;
