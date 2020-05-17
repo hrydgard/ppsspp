@@ -2442,7 +2442,7 @@ void GPUCommon::DoState(PointerWrap &p) {
 			DisplayList_v1 oldDL;
 			p.Do(oldDL);
 			// On 32-bit, they're the same, on 64-bit oldDL is bigger.
-			memcpy(&dls[i], &oldDL, sizeof(DisplayList));
+			memcpy(&dls[i], &oldDL, sizeof(DisplayList_v1));
 			// Fix the other fields.  Let's hope context wasn't important, it was a pointer.
 			dls[i].context = 0;
 			dls[i].offsetAddr = oldDL.offsetAddr;
