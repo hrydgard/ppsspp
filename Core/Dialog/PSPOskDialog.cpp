@@ -766,7 +766,6 @@ void PSPOskDialog::RenderKeyboard()
 	float previewLeftSide = (480.0f - (12.0f * drawLimit)) / 2.0f;
 	float title = (480.0f - (0.5f * drawLimit)) / 2.0f;
 
-
 	PPGeDrawText(oskDesc.c_str(), title , 20, PPGE_ALIGN_CENTER, 0.5f, CalcFadedColor(0xFFFFFFFF));
 
 	std::u16string result;

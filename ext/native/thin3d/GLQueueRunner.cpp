@@ -161,8 +161,8 @@ void GLQueueRunner::RunInitSteps(const std::vector<GLRInitStep> &steps, bool ski
 		case GLRInitStepType::BUFFER_SUBDATA:
 		{
 			GLRBuffer *buffer = step.buffer_subdata.buffer;
-			glBindBuffer(GL_ARRAY_BUFFER, buffer->buffer_);
-			glBufferSubData(GL_ARRAY_BUFFER, step.buffer_subdata.offset, step.buffer_subdata.size, step.buffer_subdata.data);
+			glBindBuffer(buffer->target_, buffer->buffer_);
+			glBufferSubData(buffer->target_, step.buffer_subdata.offset, step.buffer_subdata.size, step.buffer_subdata.data);
 			if (step.buffer_subdata.deleteData)
 				delete[] step.buffer_subdata.data;
 			CHECK_GL_ERROR_IF_DEBUG();
