@@ -767,11 +767,13 @@ void VulkanQueueRunner::ApplyRenderPassMerge(std::vector<VKRStep *> &steps) {
 			TinySet<VKRFramebuffer *, 8> touchedFramebuffers;  // must be the same fast-size as the dependencies TinySet for annoying reasons.
 			for (int j = i + 1; j < (int)steps.size(); j++) {
 				// If any other passes are reading from this framebuffer as-is, we cancel the scan.
+				if (steps[j]->dependencies.contains(fb)) {
+					// Reading from itself means a KEEP, which is okay.
+					if (steps[j]->stepType != VKRStepType::RENDER || steps[j]->render.framebuffer != fb)
+						break;
+				}
 				switch (steps[j]->stepType) {
 				case VKRStepType::RENDER:
-					if (steps[j]->dependencies.contains(fb)) {
-						goto done_fb;
-					}
 					// Prevent Unknown's example case from https://github.com/hrydgard/ppsspp/pull/12242
 					if (steps[j]->dependencies.contains(touchedFramebuffers)) {
 						goto done_fb;
@@ -793,23 +795,14 @@ void VulkanQueueRunner::ApplyRenderPassMerge(std::vector<VKRStep *> &steps) {
 					}
 					break;
 				case VKRStepType::COPY:
-					if (steps[j]->copy.src == fb || steps[j]->copy.dst == fb) {
-						goto done_fb;
-					}
 					touchedFramebuffers.insert(steps[j]->copy.dst);
 					break;
 				case VKRStepType::BLIT:
-					if (steps[j]->blit.src == fb || steps[j]->blit.dst == fb) {
-						goto done_fb;
-					}
 					touchedFramebuffers.insert(steps[j]->blit.dst);
 					break;
 				case VKRStepType::READBACK:
 					// Not sure this has much effect, when executed READBACK is always the last step
 					// since we stall the GPU and wait immediately after.
-					if (steps[j]->readback.src == fb) {
-						goto done_fb;
-					}
 					break;
 				default:
 					break;
