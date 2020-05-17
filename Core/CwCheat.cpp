@@ -16,6 +16,7 @@
 #include "Core/System.h"
 #include "Core/HLE/sceCtrl.h"
 #include "Core/MIPS/JitCommon/JitCommon.h"
+#include "GPU/Common/PostShader.h"
 
 #ifdef _WIN32
 #include "util/text/utf8.h"
@@ -480,8 +481,9 @@ struct CheatOperation {
 		struct {
 			union {
 				float f;
-				uint32_t i;
+				uint32_t u;
 			} value;
+			uint8_t shader;
 			uint8_t uniform;
 			uint8_t format;
 		} PostShaderUniform;
@@ -634,7 +636,8 @@ CheatOperation CWCheatEngine::InterpretNextCwCheat(const CheatCode &cheat, size_
 			{
 				CheatOperation op = { CheatOp::PostShader };
 				op.PostShaderUniform.uniform = line1.part1 & 0x000000FF;
-				op.PostShaderUniform.value.i = line1.part2;
+				op.PostShaderUniform.shader = (line1.part1 >> 16) & 0x000000FF;
+				op.PostShaderUniform.value.u = line1.part2;
 				return op;
 			}
 		case 0x3: // 0x3 sets postprocessing shader uniform from memory
@@ -643,6 +646,7 @@ CheatOperation CWCheatEngine::InterpretNextCwCheat(const CheatCode &cheat, size_
 				CheatOperation op = { CheatOp::PostShaderFromMemory, addr };
 				op.PostShaderUniform.uniform = line1.part1 & 0x000000FF;
 				op.PostShaderUniform.format = (line1.part1 >> 8) & 0x000000FF;
+				op.PostShaderUniform.shader = (line1.part1 >> 16) & 0x000000FF;
 				return op;
 			}
 		// Place for other PPSSPP specific cheats
@@ -945,30 +949,42 @@ void CWCheatEngine::ExecuteOp(const CheatOperation &op, const CheatCode &cheat, 
 		break;
 
 	case CheatOp::PostShader:
-		if (op.PostShaderUniform.uniform >= 0 && op.PostShaderUniform.uniform < 4)
-			g_Config.mPostShaderSetting[StringFromFormat("%sSettingValue%d", g_Config.sPostShaderName.c_str(), op.PostShaderUniform.uniform + 1)] = op.PostShaderUniform.value.f;
+		{
+			auto shaderChain = GetPostShaderChain(g_Config.sPostShaderName);
+			if (op.PostShaderUniform.shader < shaderChain.size()) {
+				std::string shaderName = shaderChain[op.PostShaderUniform.shader]->section;
+				if (shaderName != "Off")
+					g_Config.mPostShaderSetting[StringFromFormat("%sSettingValue%d", shaderName.c_str(), op.PostShaderUniform.uniform + 1)] = op.PostShaderUniform.value.f;
+			}
+		}
 		break;
 
 	case CheatOp::PostShaderFromMemory:
-		if (Memory::IsValidAddress(op.addr) && op.PostShaderUniform.uniform >= 0 && op.PostShaderUniform.uniform < 4) {
-			union {
-				float f;
-				uint32_t u;
-			} value;
-			value.u = Memory::Read_U32(op.addr);
-			switch (op.PostShaderUniform.format) {
-			case (0):
-				g_Config.mPostShaderSetting[StringFromFormat("%sSettingValue%d", g_Config.sPostShaderName.c_str(), op.PostShaderUniform.uniform + 1)] = value.u & 0x000000FF;
-				break;
-			case (1):
-				g_Config.mPostShaderSetting[StringFromFormat("%sSettingValue%d", g_Config.sPostShaderName.c_str(), op.PostShaderUniform.uniform + 1)] = value.u & 0x0000FFFF;
-				break;
-			case (2):
-				g_Config.mPostShaderSetting[StringFromFormat("%sSettingValue%d", g_Config.sPostShaderName.c_str(), op.PostShaderUniform.uniform + 1)] = value.u;
-				break;
-			case (3):
-				g_Config.mPostShaderSetting[StringFromFormat("%sSettingValue%d", g_Config.sPostShaderName.c_str(), op.PostShaderUniform.uniform + 1)] = value.f;
-				break;
+		{
+			auto shaderChain = GetPostShaderChain(g_Config.sPostShaderName);
+			if (Memory::IsValidAddress(op.addr) && op.PostShaderUniform.shader < shaderChain.size()) {
+				union {
+					float f;
+					uint32_t u;
+				} value;
+				value.u = Memory::Read_U32(op.addr);
+				std::string shaderName = shaderChain[op.PostShaderUniform.shader]->section;
+				if (shaderName != "Off") {
+					switch (op.PostShaderUniform.format) {
+					case (0):
+						g_Config.mPostShaderSetting[StringFromFormat("%sSettingValue%d", shaderName.c_str(), op.PostShaderUniform.uniform + 1)] = value.u & 0x000000FF;
+						break;
+					case (1):
+						g_Config.mPostShaderSetting[StringFromFormat("%sSettingValue%d", shaderName.c_str(), op.PostShaderUniform.uniform + 1)] = value.u & 0x0000FFFF;
+						break;
+					case (2):
+						g_Config.mPostShaderSetting[StringFromFormat("%sSettingValue%d", shaderName.c_str(), op.PostShaderUniform.uniform + 1)] = value.u;
+						break;
+					case (3):
+						g_Config.mPostShaderSetting[StringFromFormat("%sSettingValue%d", shaderName.c_str(), op.PostShaderUniform.uniform + 1)] = value.f;
+						break;
+					}
+				}
 			}
 		}
 		break;
