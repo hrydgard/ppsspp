@@ -21,7 +21,8 @@
 #include "Common/Log.h"
 #include "Common/StringUtils.h"
 #include "Core/Reporting.h"
-#include "DepalettizeShaderGLES.h"
+#include "GPU/GLES/DepalettizeShaderGLES.h"
+#include "GPU/GLES/DrawEngineGLES.h"
 #include "GPU/GLES/TextureCacheGLES.h"
 #include "GPU/Common/DepalettizeShaderCommon.h"
 
@@ -178,8 +179,8 @@ DepalShader *DepalShaderCacheGLES::GetDepalettizeShader(uint32_t clutMode, GEBuf
 	queries.push_back({ &depal->u_pal, "pal" });
 
 	std::vector<GLRProgram::Initializer> initializer;
-	initializer.push_back({ &depal->u_tex, 0, 0 });
-	initializer.push_back({ &depal->u_pal, 0, 3 });
+	initializer.push_back({ &depal->u_tex, 0, TEX_SLOT_PSP_TEXTURE });
+	initializer.push_back({ &depal->u_pal, 0, TEX_SLOT_CLUT });
 
 	std::vector<GLRShader *> shaders{ vertexShader_, fragShader };
 
