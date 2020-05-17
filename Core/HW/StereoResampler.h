@@ -46,9 +46,8 @@ public:
 	void GetAudioDebugStats(char *buf, size_t bufSize);
 	void ResetStatCounters();
 
-protected:
+private:
 	void UpdateBufferSize();
-	void SetInputSampleRate(unsigned int rate);
 
 	int m_maxBufsize;
 	int m_targetBufsize;
