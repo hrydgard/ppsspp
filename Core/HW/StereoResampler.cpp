@@ -181,72 +181,54 @@ unsigned int StereoResampler::Mix(short* samples, unsigned int numSamples, bool 
 	const int INDEX_MASK = (m_maxBufsize * 2 - 1);
 	lastBufSize_ = (indexR - m_indexW) & INDEX_MASK;
 
-	// We force on the audio resampler if the output sample rate doesn't match the input.
-	if (!g_Config.bAudioResampler && sample_rate == (int)m_input_sample_rate) {
-		for (currentSample = 0; currentSample < numSamples * 2; currentSample += 2) {
-			s16 l1 = m_buffer[indexR & INDEX_MASK]; //current
-			s16 r1 = m_buffer[(indexR + 1) & INDEX_MASK]; //current
-			samples[currentSample] = l1;
-			samples[currentSample + 1] = r1;
-			if (((indexW - indexR) & INDEX_MASK) <= 2) {
-				// Ran out!
-				underrunCount_++;
-				break;
-			}
-			indexR += 2;
+	// Drift prevention mechanism.
+	float numLeft = (float)(((indexW - indexR) & INDEX_MASK) / 2);
+	// If we had to discard samples the last frame due to underrun,
+	// apply an adjustment here. Otherwise we'll overestimate how many
+	// samples we need.
+	numLeft -= droppedSamples_;
+	droppedSamples_ = 0;
+
+	// m_numLeftI here becomes a lowpass filtered version of numLeft.
+	m_numLeftI = (numLeft + m_numLeftI * (CONTROL_AVG - 1.0f)) / CONTROL_AVG;
+
+	// Here we try to keep the buffer size around m_lowwatermark (which is
+	// really now more like desired_buffer_size) by adjusting the speed.
+	// Note that the speed of adjustment here does not take the buffer size into
+	// account. Since this is called once per "output frame", the frame size
+	// will affect how fast this algorithm reacts, which can't be a good thing.
+	float offset = (m_numLeftI - (float)m_targetBufsize) * CONTROL_FACTOR;
+	if (offset > MAX_FREQ_SHIFT) offset = MAX_FREQ_SHIFT;
+	if (offset < -MAX_FREQ_SHIFT) offset = -MAX_FREQ_SHIFT;
+
+	output_sample_rate_ = (float)(m_input_sample_rate + offset);
+	const u32 ratio = (u32)(65536.0 * output_sample_rate_ / (double)sample_rate);
+	ratio_ = ratio;
+	// TODO: consider a higher-quality resampling algorithm.
+	// TODO: Add a fast path for 1:1.
+	u32 frac = m_frac;
+	for (currentSample = 0; currentSample < numSamples * 2; currentSample += 2) {
+		if (((indexW - indexR) & INDEX_MASK) <= 2) {
+			// Ran out!
+			// int missing = numSamples * 2 - currentSample;
+			// ILOG("Resampler underrun: %d (numSamples: %d, currentSample: %d)", missing, numSamples, currentSample / 2);
+			underrunCount_++;
+			break;
 		}
-		output_sample_rate_ = (float)sample_rate;
-		droppedSamples_ = 0;
-	} else {
-		// Drift prevention mechanism.
-		float numLeft = (float)(((indexW - indexR) & INDEX_MASK) / 2);
-		// If we had to discard samples the last frame due to underrun,
-		// apply an adjustment here. Otherwise we'll overestimate how many
-		// samples we need.
-		numLeft -= droppedSamples_;
-		droppedSamples_ = 0;
-
-		// m_numLeftI here becomes a lowpass filtered version of numLeft.
-		m_numLeftI = (numLeft + m_numLeftI * (CONTROL_AVG - 1.0f)) / CONTROL_AVG;
-
-		// Here we try to keep the buffer size around m_lowwatermark (which is
-		// really now more like desired_buffer_size) by adjusting the speed.
-		// Note that the speed of adjustment here does not take the buffer size into
-		// account. Since this is called once per "output frame", the frame size
-		// will affect how fast this algorithm reacts, which can't be a good thing.
-		float offset = (m_numLeftI - (float)m_targetBufsize) * CONTROL_FACTOR;
-		if (offset > MAX_FREQ_SHIFT) offset = MAX_FREQ_SHIFT;
-		if (offset < -MAX_FREQ_SHIFT) offset = -MAX_FREQ_SHIFT;
-
-		output_sample_rate_ = (float)(m_input_sample_rate + offset);
-		const u32 ratio = (u32)(65536.0 * output_sample_rate_ / (double)sample_rate);
-		ratio_ = ratio;
-		// TODO: consider a higher-quality resampling algorithm.
-		// TODO: Add a fast path for 1:1.
-		u32 frac = m_frac;
-		for (currentSample = 0; currentSample < numSamples * 2; currentSample += 2) {
-			if (((indexW - indexR) & INDEX_MASK) <= 2) {
-				// Ran out!
-				// int missing = numSamples * 2 - currentSample;
-				// ILOG("Resampler underrun: %d (numSamples: %d, currentSample: %d)", missing, numSamples, currentSample / 2);
-				underrunCount_++;
-				break;
-			}
-			u32 indexR2 = indexR + 2; //next sample
-			s16 l1 = m_buffer[indexR & INDEX_MASK]; //current
-			s16 r1 = m_buffer[(indexR + 1) & INDEX_MASK]; //current
-			s16 l2 = m_buffer[indexR2 & INDEX_MASK]; //next
-			s16 r2 = m_buffer[(indexR2 + 1) & INDEX_MASK]; //next
-			int sampleL = ((l1 << 16) + (l2 - l1) * (u16)frac) >> 16;
-			int sampleR = ((r1 << 16) + (r2 - r1) * (u16)frac) >> 16;
-			samples[currentSample] = sampleL;
-			samples[currentSample + 1] = sampleR;
-			frac += ratio;
-			indexR += 2 * (frac >> 16);
-			frac &= 0xffff;
-		}
-		m_frac = frac;
+		u32 indexR2 = indexR + 2; //next sample
+		s16 l1 = m_buffer[indexR & INDEX_MASK]; //current
+		s16 r1 = m_buffer[(indexR + 1) & INDEX_MASK]; //current
+		s16 l2 = m_buffer[indexR2 & INDEX_MASK]; //next
+		s16 r2 = m_buffer[(indexR2 + 1) & INDEX_MASK]; //next
+		int sampleL = ((l1 << 16) + (l2 - l1) * (u16)frac) >> 16;
+		int sampleR = ((r1 << 16) + (r2 - r1) * (u16)frac) >> 16;
+		samples[currentSample] = sampleL;
+		samples[currentSample + 1] = sampleR;
+		frac += ratio;
+		indexR += 2 * (frac >> 16);
+		frac &= 0xffff;
 	}
+	m_frac = frac;
 
 	// Let's not count the underrun padding here.
 	outputSampleCount_ += currentSample / 2;
