@@ -15,7 +15,7 @@
 
 class CodeBlockCommon {
 public:
-	CodeBlockCommon() : region(nullptr), region_size(0) {}
+	CodeBlockCommon() {}
 	virtual ~CodeBlockCommon() {}
 
 	bool IsInSpace(const u8 *ptr) {
@@ -34,8 +34,8 @@ public:
 	}
 
 protected:
-	u8 *region;
-	size_t region_size;
+	u8 *region = nullptr;
+	size_t region_size = 0;
 };
 
 template<class T> class CodeBlock : public CodeBlockCommon, public T {
@@ -48,14 +48,14 @@ private:
 	virtual void PoisonMemory(int offset) = 0;
 
 public:
-	CodeBlock() : writeStart_(nullptr) {}
+	CodeBlock() {}
 	virtual ~CodeBlock() { if (region) FreeCodeSpace(); }
 
 	// Call this before you generate any code.
 	void AllocCodeSpace(int size) {
 		region_size = size;
 		// The protection will be set to RW if PlatformIsWXExclusive.
-		region = (u8*)AllocateExecutableMemory(region_size);
+		region = (u8 *)AllocateExecutableMemory(region_size);
 		T::SetCodePointer(region);
 	}
 
@@ -124,6 +124,7 @@ public:
 	}
 
 private:
-	const uint8_t *writeStart_;
+	// Note: this is a readable pointer.
+	const uint8_t *writeStart_ = nullptr;
 };
 

@@ -278,7 +278,6 @@ static int EncodeSize(int size) {
 void ARM64XEmitter::SetCodePointer(u8* ptr)
 {
 	m_code = ptr;
-	m_startcode = m_code;
 	m_lastCacheFlushEnd = ptr;
 }
 
@@ -911,7 +910,7 @@ void ARM64XEmitter::SetJumpTarget(FixupBranch const& branch)
 			inst = ((branch.bit & 0x20) << 26) | (0x1B << 25) | (Not << 24) | ((branch.bit & 0x1F) << 19) | (MaskImm14(distance) << 5) | reg;
 		}
 		break;
-		case 5: // B (uncoditional)
+		case 5: // B (unconditional)
 			_assert_msg_(DYNA_REC, IsInRangeImm26(distance), "%s(%d): Received too large distance: %llx", __FUNCTION__, branch.type, distance);
 			inst = (0x5 << 26) | MaskImm26(distance);
 		break;
