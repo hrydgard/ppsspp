@@ -116,13 +116,13 @@ struct GLRRenderData {
 		} drawIndexed;
 		struct {
 			const char *name;  // if null, use loc
-			GLint *loc; // NOTE: This is a pointer so we can immediately use things that are "queried" during program creation.
+			const GLint *loc; // NOTE: This is a pointer so we can immediately use things that are "queried" during program creation.
 			GLint count;
 			float v[4];
 		} uniform4;
 		struct {
 			const char *name;  // if null, use loc
-			GLint *loc;
+			const GLint *loc;
 			float m[16];
 		} uniformMatrix4;
 		struct {

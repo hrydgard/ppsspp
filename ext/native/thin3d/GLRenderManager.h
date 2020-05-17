@@ -630,7 +630,7 @@ public:
 		curRenderStep_->commands.push_back(data);
 	}
 
-	void SetUniformI(GLint *loc, int count, const int *udata) {
+	void SetUniformI(const GLint *loc, int count, const int *udata) {
 		_dbg_assert_(G3D, curRenderStep_ && curRenderStep_->stepType == GLRStepType::RENDER);
 #ifdef _DEBUG
 		assert(curProgram_);
@@ -642,7 +642,7 @@ public:
 		curRenderStep_->commands.push_back(data);
 	}
 
-	void SetUniformI1(GLint *loc, int udata) {
+	void SetUniformI1(const GLint *loc, int udata) {
 		_dbg_assert_(G3D, curRenderStep_ && curRenderStep_->stepType == GLRStepType::RENDER);
 #ifdef _DEBUG
 		assert(curProgram_);
@@ -654,7 +654,7 @@ public:
 		curRenderStep_->commands.push_back(data);
 	}
 
-	void SetUniformF(GLint *loc, int count, const float *udata) {
+	void SetUniformF(const GLint *loc, int count, const float *udata) {
 		_dbg_assert_(G3D, curRenderStep_ && curRenderStep_->stepType == GLRStepType::RENDER);
 #ifdef _DEBUG
 		assert(curProgram_);
@@ -666,7 +666,7 @@ public:
 		curRenderStep_->commands.push_back(data);
 	}
 
-	void SetUniformF1(GLint *loc, const float udata) {
+	void SetUniformF1(const GLint *loc, const float udata) {
 		_dbg_assert_(G3D, curRenderStep_ && curRenderStep_->stepType == GLRStepType::RENDER);
 #ifdef _DEBUG
 		assert(curProgram_);
@@ -690,7 +690,7 @@ public:
 		curRenderStep_->commands.push_back(data);
 	}
 
-	void SetUniformM4x4(GLint *loc, const float *udata) {
+	void SetUniformM4x4(const GLint *loc, const float *udata) {
 		_dbg_assert_(G3D, curRenderStep_ && curRenderStep_->stepType == GLRStepType::RENDER);
 #ifdef _DEBUG
 		assert(curProgram_);
