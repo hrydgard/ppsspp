@@ -463,9 +463,13 @@ void VulkanRenderManager::BindFramebufferAsRenderTarget(VKRFramebuffer *fb, VKRR
 			// Not sure how much this is still happening but probably worth checking for nevertheless.
 			curRenderStep_ = steps_.back();
 			curStepHasViewport_ = false;
+			curStepHasScissor_ = false;
 			for (const auto &c : steps_.back()->commands) {
 				if (c.cmd == VKRRenderCommand::VIEWPORT) {
 					curStepHasViewport_ = true;
+					break;
+				} else if (c.cmd == VKRRenderCommand::SCISSOR) {
+					curStepHasScissor_ = true;
 					break;
 				}
 			}
@@ -507,6 +511,7 @@ void VulkanRenderManager::BindFramebufferAsRenderTarget(VKRFramebuffer *fb, VKRR
 
 	curRenderStep_ = step;
 	curStepHasViewport_ = false;
+	curStepHasScissor_ = false;
 	if (fb) {
 		curWidth_ = fb->width;
 		curHeight_ = fb->height;
