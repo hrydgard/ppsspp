@@ -323,6 +323,8 @@ public:
 
 	// TODO: Optimize by getting the locations first and putting in a custom struct
 	UniformBufferDesc dynamicUniforms;
+	GLint samplerLocs_[8];
+	std::vector<GLint> dynamicUniformLocs_;
 	GLRProgram *program_ = nullptr;
 
 private:
@@ -387,7 +389,7 @@ public:
 		}
 		for (int i = 0; i < count; i++) {
 			int index = i + start;
-			boundSamplers_[index] = static_cast<OpenGLSamplerState *>(states[index]);
+			boundSamplers_[index] = static_cast<OpenGLSamplerState *>(states[i]);
 		}
 	}
 
@@ -960,6 +962,10 @@ Pipeline *OpenGLContext::CreateGraphicsPipeline(const PipelineDesc &desc) {
 			return nullptr;
 		}
 	}
+	if (desc.uniformDesc) {
+		pipeline->dynamicUniforms = *desc.uniformDesc;
+		pipeline->dynamicUniformLocs_.resize(desc.uniformDesc->uniforms.size());
+	}
 	ILOG("Linking shaders.");
 	if (pipeline->LinkShaders()) {
 		// Build the rest of the virtual pipeline object.
@@ -972,8 +978,6 @@ Pipeline *OpenGLContext::CreateGraphicsPipeline(const PipelineDesc &desc) {
 		pipeline->blend->AddRef();
 		pipeline->raster->AddRef();
 		pipeline->inputLayout->AddRef();
-		if (desc.uniformDesc)
-			pipeline->dynamicUniforms = *desc.uniformDesc;
 		return pipeline;
 	} else {
 		ELOG("Failed to create pipeline - shaders failed to link");
@@ -985,9 +989,9 @@ Pipeline *OpenGLContext::CreateGraphicsPipeline(const PipelineDesc &desc) {
 void OpenGLContext::BindTextures(int start, int count, Texture **textures) {
 	maxTextures_ = std::max(maxTextures_, start + count);
 	for (int i = start; i < start + count; i++) {
-		OpenGLTexture *glTex = static_cast<OpenGLTexture *>(textures[i]);
+		OpenGLTexture *glTex = static_cast<OpenGLTexture *>(textures[i - start]);
 		if (!glTex) {
-			boundTextures_[i] = 0;
+			boundTextures_[i] = nullptr;
 			renderManager_.BindTexture(i, nullptr);
 			continue;
 		}
@@ -1046,7 +1050,14 @@ bool OpenGLPipeline::LinkShaders() {
 	semantics.push_back({ SEM_POSITION, "a_position" });
 	semantics.push_back({ SEM_TEXCOORD0, "a_texcoord0" });
 	std::vector<GLRProgram::UniformLocQuery> queries;
+	queries.push_back({ &samplerLocs_[0], "sampler0" });
+	queries.push_back({ &samplerLocs_[1], "sampler1" });
+	for (size_t i = 0; i < dynamicUniforms.uniforms.size(); ++i) {
+		queries.push_back({ &dynamicUniformLocs_[i], dynamicUniforms.uniforms[i].name });
+	}
 	std::vector<GLRProgram::Initializer> initialize;
+	initialize.push_back({ &samplerLocs_[0], 0, 0 });
+	initialize.push_back({ &samplerLocs_[1], 0, 1 });
 	program_ = render_->CreateProgram(linkShaders, semantics, queries, initialize, false);
 	return true;
 }
@@ -1066,17 +1077,19 @@ void OpenGLContext::UpdateDynamicUniformBuffer(const void *ub, size_t size) {
 		Crash();
 	}
 
-	for (auto &uniform : curPipeline_->dynamicUniforms.uniforms) {
+	for (size_t i = 0; i < curPipeline_->dynamicUniforms.uniforms.size(); ++i) {
+		const auto &uniform = curPipeline_->dynamicUniforms.uniforms[i];
+		const GLint &loc = curPipeline_->dynamicUniformLocs_[i];
 		const float *data = (const float *)((uint8_t *)ub + uniform.offset);
 		switch (uniform.type) {
 		case UniformType::FLOAT1:
 		case UniformType::FLOAT2:
 		case UniformType::FLOAT3:
 		case UniformType::FLOAT4:
-			renderManager_.SetUniformF(uniform.name, 1 + (int)uniform.type - (int)UniformType::FLOAT1, data);
+			renderManager_.SetUniformF(&loc, 1 + (int)uniform.type - (int)UniformType::FLOAT1, data);
 			break;
 		case UniformType::MATRIX4X4:
-			renderManager_.SetUniformM4x4(uniform.name, data);
+			renderManager_.SetUniformM4x4(&loc, data);
 			break;
 		}
 	}

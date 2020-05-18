@@ -540,7 +540,7 @@ public:
 	void BindTextures(int start, int count, Texture **textures) override;
 	void BindSamplerStates(int start, int count, SamplerState **states) override {
 		for (int i = 0; i < count; ++i) {
-			D3D9SamplerState *s = static_cast<D3D9SamplerState *>(states[start + i]);
+			D3D9SamplerState *s = static_cast<D3D9SamplerState *>(states[i]);
 			s->Apply(device_, start + i);
 		}
 	}

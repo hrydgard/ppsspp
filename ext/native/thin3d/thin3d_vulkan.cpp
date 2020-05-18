@@ -39,6 +39,7 @@
 // We use a simple descriptor set for all rendering: 1 sampler, 1 texture, 1 UBO binding point.
 // binding 0 - uniform data
 // binding 1 - sampler
+// binding 2 - sampler
 //
 // Vertex data lives in a separate namespace (location = 0, 1, etc)
 
@@ -290,14 +291,20 @@ class VKTexture;
 class VKBuffer;
 class VKSamplerState;
 
+enum {
+	MAX_BOUND_TEXTURES = 2
+};
+
 struct DescriptorSetKey {
-	VkImageView imageView_;
-	VKSamplerState *sampler_;
+	VkImageView imageViews_[MAX_BOUND_TEXTURES];
+	VKSamplerState *samplers_[MAX_BOUND_TEXTURES];
 	VkBuffer buffer_;
 
 	bool operator < (const DescriptorSetKey &other) const {
-		if (imageView_ < other.imageView_) return true; else if (imageView_ > other.imageView_) return false;
-		if (sampler_ < other.sampler_) return true; else if (sampler_ > other.sampler_) return false;
+		for (int i = 0; i < MAX_BOUND_TEXTURES; ++i) {
+			if (imageViews_[i] < other.imageViews_[i]) return true; else if (imageViews_[i] > other.imageViews_[i]) return false;
+			if (samplers_[i] < other.samplers_[i]) return true; else if (samplers_[i] > other.samplers_[i]) return false;
+		}
 		if (buffer_ < other.buffer_) return true; else if (buffer_ > other.buffer_) return false;
 		return false;
 	}
@@ -505,7 +512,6 @@ private:
 	int queueFamilyIndex_;
 
 	enum {
-		MAX_BOUND_TEXTURES = 2,
 		MAX_FRAME_COMMAND_BUFFERS = 256,
 	};
 	VKTexture *boundTextures_[MAX_BOUND_TEXTURES]{};
@@ -669,7 +675,7 @@ RasterState *VKContext::CreateRasterState(const RasterStateDesc &desc) {
 
 void VKContext::BindSamplerStates(int start, int count, SamplerState **state) {
 	for (int i = start; i < start + count; i++) {
-		boundSamplers_[i] = (VKSamplerState *)state[i];
+		boundSamplers_[i] = (VKSamplerState *)state[i - start];
 	}
 }
 
@@ -790,7 +796,7 @@ VKContext::VKContext(VulkanContext *vulkan, bool splitSubmit)
 	VkDescriptorPoolSize dpTypes[2];
 	dpTypes[0].descriptorCount = 200;
 	dpTypes[0].type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC;
-	dpTypes[1].descriptorCount = 200;
+	dpTypes[1].descriptorCount = 200 * MAX_BOUND_TEXTURES;
 	dpTypes[1].type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
 
 	VkDescriptorPoolCreateInfo dp{ VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO };
@@ -811,21 +817,24 @@ VKContext::VKContext(VulkanContext *vulkan, bool splitSubmit)
 	}
 
 	// binding 0 - uniform data
-	// binding 1 - combined sampler/image
-	VkDescriptorSetLayoutBinding bindings[2];
+	// binding 1 - combined sampler/image 0
+	// binding 2 - combined sampler/image 1
+	VkDescriptorSetLayoutBinding bindings[MAX_BOUND_TEXTURES + 1];
 	bindings[0].descriptorCount = 1;
 	bindings[0].pImmutableSamplers = nullptr;
 	bindings[0].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC;
 	bindings[0].stageFlags = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT;
 	bindings[0].binding = 0;
-	bindings[1].descriptorCount = 1;
-	bindings[1].pImmutableSamplers = nullptr;
-	bindings[1].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-	bindings[1].stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
-	bindings[1].binding = 1;
+	for (int i = 0; i < MAX_BOUND_TEXTURES; ++i) {
+		bindings[i + 1].descriptorCount = 1;
+		bindings[i + 1].pImmutableSamplers = nullptr;
+		bindings[i + 1].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+		bindings[i + 1].stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
+		bindings[i + 1].binding = i + 1;
+	}
 
 	VkDescriptorSetLayoutCreateInfo dsl = { VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO };
-	dsl.bindingCount = 2;
+	dsl.bindingCount = ARRAY_SIZE(bindings);
 	dsl.pBindings = bindings;
 	VkResult res = vkCreateDescriptorSetLayout(device_, &dsl, nullptr, &descriptorSetLayout_);
 	assert(VK_SUCCESS == res);
@@ -903,8 +912,10 @@ VkDescriptorSet VKContext::GetOrCreateDescriptorSet(VkBuffer buf) {
 
 	FrameData *frame = &frame_[vulkan_->GetCurFrame()];
 
-	key.imageView_ = boundTextures_[0] ? boundTextures_[0]->GetImageView() : boundImageView_[0];
-	key.sampler_ = boundSamplers_[0];
+	for (int i = 0; i < MAX_BOUND_TEXTURES; ++i) {
+		key.imageViews_[i] = boundTextures_[i] ? boundTextures_[i]->GetImageView() : boundImageView_[i];
+		key.samplers_[i] = boundSamplers_[i];
+	}
 	key.buffer_ = buf;
 
 	auto iter = frame->descSets_.find(key);
@@ -927,7 +938,7 @@ VkDescriptorSet VKContext::GetOrCreateDescriptorSet(VkBuffer buf) {
 
 	VkDescriptorImageInfo imageDesc;
 
-	VkWriteDescriptorSet writes[2] = {};
+	VkWriteDescriptorSet writes[1 + MAX_BOUND_TEXTURES] = {};
 
 	// If handles are NULL for whatever buggy reason, it's best to leave the descriptors
 	// unwritten instead of trying to write a zero, which is not legal.
@@ -946,24 +957,26 @@ VkDescriptorSet VKContext::GetOrCreateDescriptorSet(VkBuffer buf) {
 		numWrites++;
 	}
 
-	if (key.imageView_ && boundSamplers_[0] && boundSamplers_[0]->GetSampler()) {
-		imageDesc.imageView = key.imageView_ ? key.imageView_ : VK_NULL_HANDLE;
-		imageDesc.sampler = boundSamplers_[0] ? boundSamplers_[0]->GetSampler() : VK_NULL_HANDLE;
+	for (int i = 0; i < MAX_BOUND_TEXTURES; ++i) {
+		if (key.imageViews_[i] && key.samplers_[i] && key.samplers_[i]->GetSampler()) {
+			imageDesc.imageView = key.imageViews_[i];
+			imageDesc.sampler = key.samplers_[i]->GetSampler();
 #ifdef VULKAN_USE_GENERAL_LAYOUT_FOR_COLOR
-		imageDesc.imageLayout = VK_IMAGE_LAYOUT_GENERAL;
+			imageDesc.imageLayout = VK_IMAGE_LAYOUT_GENERAL;
 #else
-		imageDesc.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+			imageDesc.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
 #endif
-		writes[numWrites].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-		writes[numWrites].dstSet = descSet;
-		writes[numWrites].dstArrayElement = 0;
-		writes[numWrites].dstBinding = 1;
-		writes[numWrites].pBufferInfo = nullptr;
-		writes[numWrites].pImageInfo = &imageDesc;
-		writes[numWrites].pTexelBufferView = nullptr;
-		writes[numWrites].descriptorCount = 1;
-		writes[numWrites].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-		numWrites++;
+			writes[numWrites].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+			writes[numWrites].dstSet = descSet;
+			writes[numWrites].dstArrayElement = 0;
+			writes[numWrites].dstBinding = i + 1;
+			writes[numWrites].pBufferInfo = nullptr;
+			writes[numWrites].pImageInfo = &imageDesc;
+			writes[numWrites].pTexelBufferView = nullptr;
+			writes[numWrites].descriptorCount = 1;
+			writes[numWrites].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+			numWrites++;
+		}
 	}
 
 	vkUpdateDescriptorSets(device_, numWrites, writes, 0, nullptr);
@@ -1201,7 +1214,7 @@ void VKContext::UpdateBuffer(Buffer *buffer, const uint8_t *data, size_t offset,
 
 void VKContext::BindTextures(int start, int count, Texture **textures) {
 	for (int i = start; i < start + count; i++) {
-		boundTextures_[i] = static_cast<VKTexture *>(textures[i]);
+		boundTextures_[i] = static_cast<VKTexture *>(textures[i - start]);
 		boundImageView_[i] = boundTextures_[i] ? boundTextures_[i]->GetImageView() : GetNullTexture()->GetImageView();
 	}
 }

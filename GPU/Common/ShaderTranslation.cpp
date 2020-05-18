@@ -140,6 +140,10 @@ std::string Postprocess(std::string code, ShaderLanguage lang, Draw::ShaderStage
 			out << "sampler2D sampler0 : register(s0);\n";
 			continue;
 		}
+		if (line == "uniform sampler2D sampler1;" && lang == HLSL_DX9) {
+			out << "sampler2D sampler1 : register(s1);\n";
+			continue;
+		}
 		if (line.find("uniform float") != std::string::npos) {
 			continue;
 		}
@@ -181,7 +185,10 @@ bool ConvertToVulkanGLSL(std::string *dest, TranslatedShaderMetadata *destMetada
 		if (line.find("uniform bool") != std::string::npos) {
 			continue;
 		} else if (line.find("uniform sampler2D") == 0) {
-			line = "layout(set = 0, binding = 1) " + line;
+			if (line.find("sampler0") != line.npos)
+				line = "layout(set = 0, binding = 1) " + line;
+			else
+				line = "layout(set = 0, binding = 2) " + line;
 		} else if (line.find("uniform ") != std::string::npos) {
 			continue;
 		} else if (2 == sscanf(line.c_str(), "varying vec%d v_texcoord%d;", &vecSize, &num)) {

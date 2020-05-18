@@ -112,8 +112,9 @@ protected:
 	Draw::ShaderModule *CompileShaderModule(Draw::ShaderStage stage, ShaderLanguage lang, const std::string &src, std::string *errorString);
 	Draw::Pipeline *CreatePipeline(std::vector<Draw::ShaderModule *> shaders, bool postShader, const Draw::UniformBufferDesc *uniformDesc);
 	bool BuildPostShader(const ShaderInfo *shaderInfo, const ShaderInfo *next);
+	bool AllocateFramebuffer(int w, int h);
 
-	void BindSource();
+	void BindSource(int binding);
 
 	void GetCardboardSettings(CardboardSettings *cardboardSettings);
 	void CalculatePostShaderUniforms(int bufferWidth, int bufferHeight, int targetWidth, int targetHeight, const ShaderInfo *shaderInfo, PostShaderUniforms *uniforms);
@@ -145,4 +146,11 @@ protected:
 	bool usePostShader_ = false;
 	bool restorePostShader_ = false;
 	ShaderLanguage lang_;
+
+	struct PrevFBO {
+		Draw::Framebuffer *fbo;
+		int w;
+		int h;
+	};
+	std::vector<PrevFBO> postShaderFBOUsage_;
 };
