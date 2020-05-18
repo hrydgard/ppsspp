@@ -212,9 +212,10 @@ public:
 	bool bFragmentTestCache;
 	int iSplineBezierQuality; // 0 = low , 1 = Intermediate , 2 = High
 	bool bHardwareTessellation;
-	std::string sPostShaderName;  // Off for off.
-	std::string sTextureShaderName;
+
+	std::vector<std::string> vPostShaderNames; // Off for chain end (only Off for no shader)
 	std::map<std::string, float> mPostShaderSetting;
+	std::string sTextureShaderName;
 	bool bGfxDebugOutput;
 	bool bGfxDebugSplitSubmit;
 	int iInflightFrames;

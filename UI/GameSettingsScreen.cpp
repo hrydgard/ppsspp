@@ -74,6 +74,8 @@
 #include "Windows/W32Util/ShellUtil.h"
 #endif
 
+extern bool g_ShaderNameListChanged;
+
 GameSettingsScreen::GameSettingsScreen(std::string gamePath, std::string gameID, bool editThenRestore)
 	: UIDialogScreenWithGameBackground(gamePath), gameID_(gameID), enableReports_(false), editThenRestore_(editThenRestore) {
 	lastVertical_ = UseVerticalLayout();
@@ -305,24 +307,51 @@ void GameSettingsScreen::CreateViews() {
 	altSpeed2->SetZeroLabel(gr->T("Unlimited"));
 	altSpeed2->SetNegativeDisable(gr->T("Disabled"));
 
-	graphicsSettings->Add(new ItemHeader(gr->T("Features")));
-	postProcChoice_ = graphicsSettings->Add(new ChoiceWithValueDisplay(&g_Config.sPostShaderName, gr->T("Postprocessing Shader"), &PostShaderTranslateName));
-	postProcChoice_->OnClick.Handle(this, &GameSettingsScreen::OnPostProcShader);
-	postProcChoice_->SetEnabledFunc([] {
-		return g_Config.iRenderingMode != FB_NON_BUFFERED_MODE;
-	});
+	graphicsSettings->Add(new ItemHeader(gr->T("Postprocessing effect")));
 
-	auto shaderChain = GetPostShaderChain(g_Config.sPostShaderName);
-	for (auto shaderInfo : shaderChain) {
-		for (size_t i = 0; i < ARRAY_SIZE(shaderInfo->settings); ++i) {
-			auto &setting = shaderInfo->settings[i];
-			if (!setting.name.empty()) {
-				auto &value = g_Config.mPostShaderSetting[StringFromFormat("%sSettingValue%d", shaderInfo->section.c_str(), i + 1)];
-				graphicsSettings->Add(new PopupSliderChoiceFloat(&value, setting.minValue, setting.maxValue, ps->T(setting.name), setting.step, screenManager()));
+	std::vector<std::string> alreadyAddedShader;
+	for (int i = 0; i < g_Config.vPostShaderNames.size() && i < ARRAY_SIZE(shaderNames_); ++i) {
+		// Vector pointer get invalidated on resize, cache name to have always a valid reference for drawing
+		shaderNames_[i] = g_Config.vPostShaderNames[i];
+		postProcChoice_ = graphicsSettings->Add(new ChoiceWithValueDisplay(&shaderNames_[i], StringFromFormat("%s #%d", gr->T("Postprocessing Shader"), i + 1), &PostShaderTranslateName));
+		postProcChoice_->OnClick.Add([=](EventParams &e) {
+			auto gr = GetI18NCategory("Graphics");
+			auto procScreen = new PostProcScreen(gr->T("Postprocessing Shader"), i);
+			procScreen->OnChoice.Handle(this, &GameSettingsScreen::OnPostProcShaderChange);
+			if (e.v)
+				procScreen->SetPopupOrigin(e.v);
+			screenManager()->push(procScreen);
+			return UI::EVENT_DONE;
+		});
+		postProcChoice_->SetEnabledFunc([] {
+			return g_Config.iRenderingMode != FB_NON_BUFFERED_MODE;
+		});
+
+		auto shaderChain = GetPostShaderChain(g_Config.vPostShaderNames[i]);
+		for (auto shaderInfo : shaderChain) {
+			// Disable duplicated shader slider
+			bool duplicated = std::find(alreadyAddedShader.begin(), alreadyAddedShader.end(), shaderInfo->section) != alreadyAddedShader.end();
+			alreadyAddedShader.push_back(shaderInfo->section);
+			for (size_t i = 0; i < ARRAY_SIZE(shaderInfo->settings); ++i) {
+				auto &setting = shaderInfo->settings[i];
+				if (!setting.name.empty()) {
+					auto &value = g_Config.mPostShaderSetting[StringFromFormat("%sSettingValue%d", shaderInfo->section.c_str(), i + 1)];
+					if (duplicated) {
+						auto sliderName = StringFromFormat("%s %s", ps->T(setting.name), ps->T("(duplicated setting, previous slider will be used)"));
+						PopupSliderChoiceFloat *settingValue = graphicsSettings->Add(new PopupSliderChoiceFloat(&value, setting.minValue, setting.maxValue, sliderName, setting.step, screenManager()));
+						settingValue->SetEnabled(false);
+					} else {
+						PopupSliderChoiceFloat *settingValue = graphicsSettings->Add(new PopupSliderChoiceFloat(&value, setting.minValue, setting.maxValue, ps->T(setting.name), setting.step, screenManager()));
+						settingValue->SetEnabledFunc([] {
+							return g_Config.iRenderingMode != FB_NON_BUFFERED_MODE;
+						});
+					}
+				}
 			}
 		}
 	}
 
+	graphicsSettings->Add(new ItemHeader(gr->T("Screen layout")));
 #if !defined(MOBILE_DEVICE)
 	graphicsSettings->Add(new CheckBox(&g_Config.bFullScreen, gr->T("FullScreen", "Full Screen")))->OnClick.Handle(this, &GameSettingsScreen::OnFullscreenChange);
 	if (System_GetPropertyInt(SYSPROP_DISPLAY_COUNT) > 1) {
@@ -1226,6 +1255,10 @@ void GameSettingsScreen::update() {
 		RecreateViews();
 		lastVertical_ = vertical;
 	}
+	if (g_ShaderNameListChanged) {
+		g_ShaderNameListChanged = false;
+		RecreateViews();
+	}
 }
 
 void GameSettingsScreen::onFinish(DialogResult result) {
@@ -1489,19 +1522,11 @@ UI::EventReturn GameSettingsScreen::OnLanguageChange(UI::EventParams &e) {
 	return UI::EVENT_DONE;
 }
 
-UI::EventReturn GameSettingsScreen::OnPostProcShader(UI::EventParams &e) {
-	auto gr = GetI18NCategory("Graphics");
-	auto procScreen = new PostProcScreen(gr->T("Postprocessing Shader"));
-	procScreen->OnChoice.Handle(this, &GameSettingsScreen::OnPostProcShaderChange);
-	if (e.v)
-		procScreen->SetPopupOrigin(e.v);
-	screenManager()->push(procScreen);
-	return UI::EVENT_DONE;
-}
-
 UI::EventReturn GameSettingsScreen::OnPostProcShaderChange(UI::EventParams &e) {
+	g_Config.vPostShaderNames.erase(std::remove(g_Config.vPostShaderNames.begin(), g_Config.vPostShaderNames.end(), "Off"), g_Config.vPostShaderNames.end());
+	g_Config.vPostShaderNames.push_back("Off");
+	g_ShaderNameListChanged = true;
 	NativeMessageReceived("gpu_resized", "");
-	RecreateViews(); // Update setting name
 	return UI::EVENT_DONE;
 }
 
