@@ -269,6 +269,7 @@ void GLRenderManager::BindFramebufferAsRenderTarget(GLRFramebuffer *fb, GLRRende
 	if (steps_.size() && steps_.back()->render.framebuffer == fb && steps_.back()->stepType == GLRStepType::RENDER) {
 		if (color != GLRRenderPassAction::CLEAR && depth != GLRRenderPassAction::CLEAR && stencil != GLRRenderPassAction::CLEAR) {
 			// We don't move to a new step, this bind was unnecessary and we can safely skip it.
+			curRenderStep_ = steps_.back();
 			return;
 		}
 	}

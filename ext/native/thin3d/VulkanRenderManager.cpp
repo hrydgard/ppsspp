@@ -461,6 +461,14 @@ void VulkanRenderManager::BindFramebufferAsRenderTarget(VKRFramebuffer *fb, VKRR
 		if (color != VKRRenderPassAction::CLEAR && depth != VKRRenderPassAction::CLEAR && stencil != VKRRenderPassAction::CLEAR) {
 			// We don't move to a new step, this bind was unnecessary and we can safely skip it.
 			// Not sure how much this is still happening but probably worth checking for nevertheless.
+			curRenderStep_ = steps_.back();
+			curStepHasViewport_ = false;
+			for (const auto &c : steps_.back()->commands) {
+				if (c.cmd == VKRRenderCommand::VIEWPORT) {
+					curStepHasViewport_ = true;
+					break;
+				}
+			}
 			return;
 		}
 	}
@@ -498,6 +506,7 @@ void VulkanRenderManager::BindFramebufferAsRenderTarget(VKRFramebuffer *fb, VKRR
 	}
 
 	curRenderStep_ = step;
+	curStepHasViewport_ = false;
 	if (fb) {
 		curWidth_ = fb->width;
 		curHeight_ = fb->height;
@@ -508,6 +517,7 @@ void VulkanRenderManager::BindFramebufferAsRenderTarget(VKRFramebuffer *fb, VKRR
 }
 
 bool VulkanRenderManager::CopyFramebufferToMemorySync(VKRFramebuffer *src, int aspectBits, int x, int y, int w, int h, Draw::DataFormat destFormat, uint8_t *pixels, int pixelStride) {
+	assert(insideFrame_);
 	for (int i = (int)steps_.size() - 1; i >= 0; i--) {
 		if (steps_[i]->stepType == VKRStepType::RENDER && steps_[i]->render.framebuffer == src) {
 			steps_[i]->render.numReads++;
@@ -568,6 +578,7 @@ bool VulkanRenderManager::CopyFramebufferToMemorySync(VKRFramebuffer *src, int a
 }
 
 void VulkanRenderManager::CopyImageToMemorySync(VkImage image, int mipLevel, int x, int y, int w, int h, Draw::DataFormat destFormat, uint8_t *pixels, int pixelStride) {
+	assert(insideFrame_);
 	VKRStep *step = new VKRStep{ VKRStepType::READBACK_IMAGE };
 	step->readback_image.image = image;
 	step->readback_image.srcRect.offset = { x, y };
