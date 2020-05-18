@@ -59,7 +59,7 @@ enum class DestroyType {
 struct JitBlock {
 	bool ContainsAddress(u32 em_address);
 
-	u8 *checkedEntry;  // not const, may need to write through this to unlink
+	const u8 *checkedEntry;  // const, we have to translate to writable.
 	const u8 *normalEntry;
 
 	u8 *exitPtrs[MAX_JIT_BLOCK_EXITS];      // to be able to rewrite the exit jump

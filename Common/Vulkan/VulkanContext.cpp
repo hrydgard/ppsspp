@@ -36,15 +36,7 @@
 #endif
 
 static const char *validationLayers[] = {
-	"VK_LAYER_LUNARG_standard_validation",
-	/*
-	"VK_LAYER_GOOGLE_threading",
-	"VK_LAYER_LUNARG_draw_state",
-	"VK_LAYER_LUNARG_image",
-	"VK_LAYER_LUNARG_mem_tracker",
-	"VK_LAYER_LUNARG_object_tracker",
-	"VK_LAYER_LUNARG_param_checker",
-	*/
+	"VK_LAYER_KHRONOS_validation",
 	/*
 	// For layers included in the Android NDK.
 	"VK_LAYER_GOOGLE_threading",

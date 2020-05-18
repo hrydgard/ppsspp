@@ -39,13 +39,17 @@ void LoadPostShaderInfo(std::vector<std::string> directories) {
 	std::vector<ShaderInfo> notVisible;
 
 	shaderInfo.clear();
-	ShaderInfo off;
+	ShaderInfo off{};
+	off.visible = true;
 	off.name = "Off";
 	off.section = "Off";
-	off.outputResolution = false;
-	off.isUpscalingFilter = false;
-	off.SSAAFilterLevel = 0;
-	off.requires60fps = false;
+	for (size_t i = 0; i < ARRAY_SIZE(off.settings); ++i) {
+		off.settings[i].name = "";
+		off.settings[i].value = 0.0f;
+		off.settings[i].minValue = -1.0f;
+		off.settings[i].maxValue = 1.0f;
+		off.settings[i].step = 0.01f;
+	}
 	shaderInfo.push_back(off);
 
 	auto appendShader = [&](const ShaderInfo &info) {
@@ -102,6 +106,21 @@ void LoadPostShaderInfo(std::vector<std::string> directories) {
 					section.Get("Upscaling", &info.isUpscalingFilter, false);
 					section.Get("SSAA", &info.SSAAFilterLevel, 0);
 					section.Get("60fps", &info.requires60fps, false);
+
+					for (size_t i = 0; i < ARRAY_SIZE(info.settings); ++i) {
+						auto &setting = info.settings[i];
+						section.Get(StringFromFormat("SettingName%d", i + 1).c_str(), &setting.name, "");
+						section.Get(StringFromFormat("SettingDefaultValue%d", i + 1).c_str(), &setting.value, 0.0f);
+						section.Get(StringFromFormat("SettingMinValue%d", i + 1).c_str(), &setting.minValue, -1.0f);
+						section.Get(StringFromFormat("SettingMaxValue%d", i + 1).c_str(), &setting.maxValue, 1.0f);
+						section.Get(StringFromFormat("SettingStep%d", i + 1).c_str(), &setting.step, 0.01f);
+
+						// Populate the default setting value.
+						std::string section = StringFromFormat("%sSettingValue%d", info.section.c_str(), i + 1);
+						if (!setting.name.empty() && g_Config.mPostShaderSetting.find(section) == g_Config.mPostShaderSetting.end()) {
+							g_Config.mPostShaderSetting.insert(std::pair<std::string, float>(section, setting.value));
+						}
+					}
 
 					// Let's ignore shaders we can't support. TODO: Not a very good check
 					if (gl_extensions.IsGLES && !gl_extensions.GLES3) {

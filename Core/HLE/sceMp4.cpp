@@ -76,16 +76,12 @@ static u32 sceMp4GetMovieInfo(u32 mp4, u32 unknown2)
 	return 0;
 }
 
-static u32 sceMp4TrackSampleBufAvailableSize(u32 mp4, u32 unknown2)
-{
-	ERROR_LOG(ME, "UNIMPL sceMp4TrackSampleBufAvailableSize(mp4 %i, unknown2 %08x)", mp4, unknown2);
-	return 0;
+static u32 sceMp4TrackSampleBufAvailableSize(u32 mp4, u32 trackAddr, u32 writableSamplesAddr, u32 writableBytesAddr) {
+	return hleLogError(ME, 0, "unimplemented");
 }
 
-static u32 sceMp4Delete()
-{
-	ERROR_LOG(ME, "UNIMPL sceMp4Delete()");
-	return 0;
+static u32 sceMp4Delete(u32 mp4) {
+	return hleLogError(ME, 0, "unimplemented");
 }
 
 static u32 sceMp4AacDecodeInitResource(int unknown)
@@ -402,7 +398,7 @@ const HLEFunction sceMp4[] =
 	{0X68651CBC, &WrapU_V<sceMp4Init>,                           "sceMp4Init",                        'x', ""       },
 	{0X9042B257, &WrapU_V<sceMp4Finish>,                         "sceMp4Finish",                      'x', ""       },
 	{0XB1221EE7, &WrapU_UUUU<sceMp4Create>,                      "sceMp4Create",                      'x', "xxxx"   },
-	{0X538C2057, &WrapU_V<sceMp4Delete>,                         "sceMp4Delete",                      'x', ""       },
+	{0X538C2057, &WrapU_U<sceMp4Delete>,                         "sceMp4Delete",                      'x', "x"      },
 	{0X113E9E7B, &WrapU_V<sceMp4GetNumberOfMetaData>,            "sceMp4GetNumberOfMetaData",         'x', ""       },
 	{0X7443AF1D, &WrapU_UU<sceMp4GetMovieInfo>,                  "sceMp4GetMovieInfo",                'x', "xx"     },
 	{0X5EB65F26, &WrapU_V<sceMp4GetNumberOfSpecificTrack>,       "sceMp4GetNumberOfSpecificTrack",    'x', ""       },
@@ -418,7 +414,7 @@ const HLEFunction sceMp4[] =
 	{0XF7C51EC1, &WrapU_V<sceMp4GetSampleInfo>,                  "sceMp4GetSampleInfo",               'x', ""       },
 	{0X74A1CA3E, &WrapU_V<sceMp4SearchSyncSampleNum>,            "sceMp4SearchSyncSampleNum",         'x', ""       },
 	{0XD8250B75, nullptr,                                        "sceMp4PutSampleNum",                '?', ""       },
-	{0X8754ECB8, &WrapU_UU<sceMp4TrackSampleBufAvailableSize>,   "sceMp4TrackSampleBufAvailableSize", 'x', "xx"     },
+	{0X8754ECB8, &WrapU_UUUU<sceMp4TrackSampleBufAvailableSize>, "sceMp4TrackSampleBufAvailableSize", 'x', "xppp"   },
 	{0X31BCD7E0, nullptr,                                        "sceMp4TrackSampleBufPut",           '?', ""       },
 	{0X5601A6F0, &WrapU_UUUU<sceMp4GetAacAu>,                    "sceMp4GetAacAu",                    'x', "xxxx"   },
 	{0X7663CB5C, &WrapU_UUUUU<sceMp4AacDecode>,                  "sceMp4AacDecode",                   'x', "xxxxx"  },

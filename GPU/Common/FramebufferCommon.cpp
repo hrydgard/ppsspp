@@ -1353,11 +1353,10 @@ VirtualFramebuffer *FramebufferManagerCommon::CreateRAMFramebuffer(uint32_t fbAd
 VirtualFramebuffer *FramebufferManagerCommon::FindDownloadTempBuffer(VirtualFramebuffer *vfb) {
 	// For now we'll keep these on the same struct as the ones that can get displayed
 	// (and blatantly copy work already done above while at it).
-	VirtualFramebuffer *nvfb = 0;
+	VirtualFramebuffer *nvfb = nullptr;
 
 	// We maintain a separate vector of framebuffer objects for blitting.
-	for (size_t i = 0; i < bvfbs_.size(); ++i) {
-		VirtualFramebuffer *v = bvfbs_[i];
+	for (VirtualFramebuffer *v : bvfbs_) {
 		if (v->fb_address == vfb->fb_address && v->format == vfb->format) {
 			if (v->bufferWidth == vfb->bufferWidth && v->bufferHeight == vfb->bufferHeight) {
 				nvfb = v;
@@ -1405,6 +1404,34 @@ VirtualFramebuffer *FramebufferManagerCommon::FindDownloadTempBuffer(VirtualFram
 	nvfb->dirtyAfterDisplay = true;
 
 	return nvfb;
+}
+
+bool FramebufferManagerCommon::CreateDownloadTempBuffer(VirtualFramebuffer *nvfb) {
+	// When updating VRAM, it need to be exact format.
+	if (!gstate_c.Supports(GPU_PREFER_CPU_DOWNLOAD)) {
+		switch (nvfb->format) {
+		case GE_FORMAT_4444:
+			nvfb->colorDepth = Draw::FBO_4444;
+			break;
+		case GE_FORMAT_5551:
+			nvfb->colorDepth = Draw::FBO_5551;
+			break;
+		case GE_FORMAT_565:
+			nvfb->colorDepth = Draw::FBO_565;
+			break;
+		case GE_FORMAT_8888:
+		default:
+			nvfb->colorDepth = Draw::FBO_8888;
+			break;
+		}
+	}
+
+	nvfb->fbo = draw_->CreateFramebuffer({ nvfb->bufferWidth, nvfb->bufferHeight, 1, 1, false, (Draw::FBColorDepth)nvfb->colorDepth });
+	if (!nvfb->fbo) {
+		ERROR_LOG(FRAMEBUF, "Error creating GL FBO! %i x %i", nvfb->renderWidth, nvfb->renderHeight);
+		return false;
+	}
+	return true;
 }
 
 void FramebufferManagerCommon::ApplyClearToMemory(int x1, int y1, int x2, int y2, u32 clearColor) {
@@ -1971,8 +1998,10 @@ void FramebufferManagerCommon::ReadFramebufferToMemory(VirtualFramebuffer *vfb, 
 			PackFramebufferSync_(vfb, x, y, w, h);
 		} else {
 			VirtualFramebuffer *nvfb = FindDownloadTempBuffer(vfb);
-			BlitFramebuffer(nvfb, x, y, vfb, x, y, w, h, 0);
-			PackFramebufferSync_(nvfb, x, y, w, h);
+			if (nvfb) {
+				BlitFramebuffer(nvfb, x, y, vfb, x, y, w, h, 0);
+				PackFramebufferSync_(nvfb, x, y, w, h);
+			}
 		}
 
 		textureCache_->ForgetLastTexture();
@@ -2016,9 +2045,10 @@ void FramebufferManagerCommon::DownloadFramebufferForClut(u32 fb_address, u32 lo
 
 			// We'll pseudo-blit framebuffers here to get a resized version of vfb.
 			VirtualFramebuffer *nvfb = FindDownloadTempBuffer(vfb);
-			BlitFramebuffer(nvfb, x, y, vfb, x, y, w, h, 0);
-
-			PackFramebufferSync_(nvfb, x, y, w, h);
+			if (nvfb) {
+				BlitFramebuffer(nvfb, x, y, vfb, x, y, w, h, 0);
+				PackFramebufferSync_(nvfb, x, y, w, h);
+			}
 
 			textureCache_->ForgetLastTexture();
 			RebindFramebuffer();

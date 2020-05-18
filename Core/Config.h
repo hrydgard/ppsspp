@@ -214,6 +214,7 @@ public:
 	int iSplineBezierQuality; // 0 = low , 1 = Intermediate , 2 = High
 	bool bHardwareTessellation;
 	std::string sPostShaderName;  // Off for off.
+	std::map<std::string, float> mPostShaderSetting;
 	bool bGfxDebugOutput;
 	bool bGfxDebugSplitSubmit;
 	int iInflightFrames;
@@ -269,7 +270,6 @@ public:
 	bool bShowDebugStats;
 	bool bShowAudioDebug;
 	bool bShowGpuProfile;
-	bool bAudioResampler;
 
 	//Analog stick tilting
 	//the base x and y tilt. this inclination is treated as (0,0) and the tilt input
@@ -295,6 +295,14 @@ public:
 	bool bGridView3;
 	//Combo key screen flag
 	int iComboMode;
+
+	// Right analog binding
+	int iRightAnalogUp;
+	int iRightAnalogDown;
+	int iRightAnalogLeft;
+	int iRightAnalogRight;
+	int iRightAnalogPress;
+	bool bRightAnalogCustom;
 
 	// Disable diagonals
 	bool bDisableDpadDiagonals;

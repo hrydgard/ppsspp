@@ -383,9 +383,6 @@
     <ClInclude Include="..\..\Common\Arm64Emitter.h" />
     <ClInclude Include="..\..\Common\ArmCommon.h" />
     <ClInclude Include="..\..\Common\ArmEmitter.h" />
-    <ClInclude Include="..\..\Common\Atomics.h" />
-    <ClInclude Include="..\..\Common\Atomic_GCC.h" />
-    <ClInclude Include="..\..\Common\Atomic_Win32.h" />
     <ClInclude Include="..\..\Common\BitSet.h" />
     <ClInclude Include="..\..\Common\ChunkFile.h" />
     <ClInclude Include="..\..\Common\CodeBlock.h" />

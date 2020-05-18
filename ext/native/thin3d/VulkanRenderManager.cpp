@@ -493,6 +493,13 @@ void VulkanRenderManager::BindFramebufferAsRenderTarget(VKRFramebuffer *fb, VKRR
 	step->render.finalColorLayout = !fb ? VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL : VK_IMAGE_LAYOUT_UNDEFINED;
 	steps_.push_back(step);
 
+	if (fb) {
+		// If there's a KEEP, we naturally read from the framebuffer.
+		if (color == VKRRenderPassAction::KEEP || depth == VKRRenderPassAction::KEEP || stencil == VKRRenderPassAction::KEEP) {
+			step->dependencies.insert(fb);
+		}
+	}
+
 	curRenderStep_ = step;
 	if (fb) {
 		curWidth_ = fb->width;
@@ -516,6 +523,7 @@ bool VulkanRenderManager::CopyFramebufferToMemorySync(VKRFramebuffer *src, int a
 	step->readback.src = src;
 	step->readback.srcRect.offset = { x, y };
 	step->readback.srcRect.extent = { (uint32_t)w, (uint32_t)h };
+	step->dependencies.insert(src);
 	steps_.push_back(step);
 
 	curRenderStep_ = nullptr;
@@ -824,6 +832,10 @@ void VulkanRenderManager::CopyFramebuffer(VKRFramebuffer *src, VkRect2D srcRect,
 	step->copy.srcRect = srcRect;
 	step->copy.dst = dst;
 	step->copy.dstPos = dstPos;
+	step->dependencies.insert(src);
+	bool fillsDst = dst && srcRect.offset.x == 0 && srcRect.offset.y == 0 && srcRect.extent.width == dst->width && srcRect.extent.height == dst->height;
+	if (dstPos.x != 0 || dstPos.y != 0 || !fillsDst)
+		step->dependencies.insert(dst);
 
 	std::unique_lock<std::mutex> lock(mutex_);
 	steps_.push_back(step);
@@ -862,6 +874,10 @@ void VulkanRenderManager::BlitFramebuffer(VKRFramebuffer *src, VkRect2D srcRect,
 	step->blit.dst = dst;
 	step->blit.dstRect = dstRect;
 	step->blit.filter = filter;
+	step->dependencies.insert(src);
+	bool fillsDst = dst && dstRect.offset.x == 0 && dstRect.offset.y == 0 && dstRect.extent.width == dst->width && dstRect.extent.height == dst->height;
+	if (!fillsDst)
+		step->dependencies.insert(dst);
 
 	std::unique_lock<std::mutex> lock(mutex_);
 	steps_.push_back(step);

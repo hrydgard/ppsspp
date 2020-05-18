@@ -426,7 +426,7 @@ void DrawEngineGLES::DoFlush() {
 						// for a very minor speed boost.
 						if (useElements) {
 							size_t esz = sizeof(short) * indexGen.VertexCount();
-							vai->ebo = render_->CreateBuffer(GL_ARRAY_BUFFER, esz, GL_STATIC_DRAW);
+							vai->ebo = render_->CreateBuffer(GL_ELEMENT_ARRAY_BUFFER, esz, GL_STATIC_DRAW);
 							render_->BufferSubdata(vai->ebo, 0, esz, (uint8_t *)decIndex, false);
 						} else {
 							vai->ebo = 0;

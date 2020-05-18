@@ -710,7 +710,7 @@ void NativeInit(int argc, const char *argv[], const char *savegame_dir, const ch
 #endif
 
 	if (!boot_filename.empty() && stateToLoad != NULL) {
-		SaveState::Load(stateToLoad, [](SaveState::Status status, const std::string &message, void *) {
+		SaveState::Load(stateToLoad, -1, [](SaveState::Status status, const std::string &message, void *) {
 			if (!message.empty() && (!g_Config.bDumpFrames || !g_Config.bDumpVideoOutput)) {
 				osm.Show(message, status == SaveState::Status::SUCCESS ? 2.0 : 5.0);
 			}

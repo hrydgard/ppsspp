@@ -53,8 +53,6 @@ public:
 	UI::Event OnHoldChoice;
 	UI::Event OnHighlight;
 
-	UI::Choice *HomebrewStoreButton() { return homebrewStoreButton_; }
-
 	void FocusGame(const std::string &gamePath);
 	void SetPath(const std::string &path);
 	void Draw(UIContext &dc) override;
@@ -81,14 +79,14 @@ private:
 	UI::EventReturn PinToggleClick(UI::EventParams &e);
 	UI::EventReturn GridSettingsClick(UI::EventParams &e);
 	UI::EventReturn OnRecentClear(UI::EventParams &e);
+	UI::EventReturn OnHomebrewStore(UI::EventParams &e);
 
 	UI::ViewGroup *gameList_ = nullptr;
 	PathBrowser path_;
-	bool *gridStyle_;
+	bool *gridStyle_ = nullptr;
 	BrowseFlags browseFlags_;
 	std::string lastText_;
 	std::string lastLink_;
-	UI::Choice *homebrewStoreButton_ = nullptr;
 	std::string focusGamePath_;
 	bool listingPending_ = false;
 	float lastScale_ = 1.0f;
@@ -132,21 +130,20 @@ protected:
 	UI::EventReturn OnExit(UI::EventParams &e);
 	UI::EventReturn OnDownloadUpgrade(UI::EventParams &e);
 	UI::EventReturn OnDismissUpgrade(UI::EventParams &e);
-	UI::EventReturn OnHomebrewStore(UI::EventParams &e);
 	UI::EventReturn OnAllowStorage(UI::EventParams &e);
 
-	UI::LinearLayout *upgradeBar_;
-	UI::TabHolder *tabHolder_;
+	UI::LinearLayout *upgradeBar_ = nullptr;
+	UI::TabHolder *tabHolder_ = nullptr;
 
 	std::string restoreFocusGamePath_;
 	std::vector<GameBrowser *> gameBrowsers_;
 
 	std::string highlightedGamePath_;
 	std::string prevHighlightedGamePath_;
-	float highlightProgress_;
-	float prevHighlightProgress_;
-	bool backFromStore_;
-	bool lockBackgroundAudio_;
+	float highlightProgress_ = 0.0f;
+	float prevHighlightProgress_ = 0.0f;
+	bool backFromStore_ = false;
+	bool lockBackgroundAudio_ = false;
 	bool lastVertical_;
 	bool confirmedTemporary_ = false;
 

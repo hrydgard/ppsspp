@@ -38,7 +38,7 @@ bool TestArm64Emitter() {
 
 
 	u32 code[512];
-	ARM64XEmitter emitter((u8 *)code);
+	ARM64XEmitter emitter((u8 *)code, (u8 *)code);
 	ARM64FloatEmitter fp(&emitter);
 
 	emitter.MOVfromSP(X3);

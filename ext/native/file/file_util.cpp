@@ -287,6 +287,7 @@ size_t getFilesInDir(const char *directory, std::vector<FileInfo> *files, const 
 		info.isDirectory = isDirectory(info.fullName);
 		info.exists = true;
 		info.size = 0;
+		info.isWritable = false;  // TODO - implement some kind of check
 		if (!info.isDirectory) {
 			std::string ext = getFileExtension(info.fullName);
 			if (filter) {

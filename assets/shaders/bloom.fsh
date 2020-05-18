@@ -10,8 +10,7 @@ precision mediump int;
 uniform sampler2D sampler0;
 varying vec2 v_texcoord0;	
 
-float amount = 0.60; // suitable range = 0.00 - 1.00
-float power = 0.5; // suitable range = 0.0 - 1.0
+uniform vec4 u_setting;
 
 void main()
 {
@@ -21,9 +20,9 @@ void main()
   
   for(int i= -3 ;i < 3; i++)
   {
-    sum += texture2D(sampler0, v_texcoord0 + vec2(-1, i)*0.004) * amount;
-    sum += texture2D(sampler0, v_texcoord0 + vec2(0, i)*0.004) * amount;
-    sum += texture2D(sampler0, v_texcoord0 + vec2(1, i)*0.004) * amount;
+    sum += texture2D(sampler0, v_texcoord0 + vec2(-1, i)*0.004) * u_setting.x;
+    sum += texture2D(sampler0, v_texcoord0 + vec2(0, i)*0.004) * u_setting.x;
+    sum += texture2D(sampler0, v_texcoord0 + vec2(1, i)*0.004) * u_setting.x;
   }
       
   if (color.r < 0.3 && color.g < 0.3 && color.b < 0.3)
@@ -42,7 +41,7 @@ void main()
       }
   }
   
-  bloom = mix(color, bloom, power);
+  bloom = mix(color, bloom, u_setting.y);
   gl_FragColor.rgb = bloom;
   gl_FragColor.a = 1.0;
 }

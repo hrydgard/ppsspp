@@ -22,7 +22,7 @@ if(NOT PPSSPP_PI_MODEL4)
 endif()
 
 if(PPSSPP_PI_MODEL4)
-  set(ARCH_FLAGS "-march=armv7-a -mcpu=cortex-a72 -mtune=cortex-a72 -mfpu=neon-vfpv4 -mfloat-abi=hard")
+  set(ARCH_FLAGS "-march=armv7-a -mtune=cortex-a72 -mfpu=neon-vfpv4 -mfloat-abi=hard")
 else()
   set(ARCH_FLAGS "-mcpu=cortex-a7 -mfpu=neon -mfloat-abi=hard")
 endif()
