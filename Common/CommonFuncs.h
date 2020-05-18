@@ -77,11 +77,7 @@ inline u64 __rotr64(u64 x, unsigned int shift){
 	#define ftello _ftelli64
 	#define atoll _atoi64
 #endif
-	#if _M_IX86
-		#define Crash() {__asm int 3}
-	#else
-		#define Crash() {__debugbreak();}
-	#endif // M_IX86
+	#define Crash() {__debugbreak();}
 #endif // WIN32 ndef
 
 // Generic function to get last error message.
