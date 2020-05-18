@@ -146,6 +146,7 @@ public:
 		VkRenderData data{ VKRRenderCommand::SCISSOR };
 		data.scissor.scissor = rc;
 		curRenderStep_->commands.push_back(data);
+		curStepHasScissor_ = true;
 	}
 
 	void SetStencilParams(uint8_t writeMask, uint8_t compareMask, uint8_t refValue) {
@@ -179,7 +180,7 @@ public:
 	void Clear(uint32_t clearColor, float clearZ, int clearStencil, int clearMask);
 
 	void Draw(VkPipelineLayout layout, VkDescriptorSet descSet, int numUboOffsets, const uint32_t *uboOffsets, VkBuffer vbuffer, int voffset, int count, int offset = 0) {
-		_dbg_assert_(G3D, curRenderStep_ && curRenderStep_->stepType == VKRStepType::RENDER && curStepHasViewport_);
+		_dbg_assert_(G3D, curRenderStep_ && curRenderStep_->stepType == VKRStepType::RENDER && curStepHasViewport_ && curStepHasScissor_);
 		VkRenderData data{ VKRRenderCommand::DRAW };
 		data.draw.count = count;
 		data.draw.offset = offset;
@@ -196,7 +197,7 @@ public:
 	}
 
 	void DrawIndexed(VkPipelineLayout layout, VkDescriptorSet descSet, int numUboOffsets, const uint32_t *uboOffsets, VkBuffer vbuffer, int voffset, VkBuffer ibuffer, int ioffset, int count, int numInstances, VkIndexType indexType) {
-		_dbg_assert_(G3D, curRenderStep_ && curRenderStep_->stepType == VKRStepType::RENDER && curStepHasViewport_);
+		_dbg_assert_(G3D, curRenderStep_ && curRenderStep_->stepType == VKRStepType::RENDER && curStepHasViewport_ && curStepHasScissor_);
 		VkRenderData data{ VKRRenderCommand::DRAW_INDEXED };
 		data.drawIndexed.count = count;
 		data.drawIndexed.instances = numInstances;
@@ -317,6 +318,7 @@ private:
 	bool insideFrame_ = false;
 	VKRStep *curRenderStep_ = nullptr;
 	bool curStepHasViewport_ = false;
+	bool curStepHasScissor_ = false;
 	std::vector<VKRStep *> steps_;
 	bool splitSubmit_ = false;
 
