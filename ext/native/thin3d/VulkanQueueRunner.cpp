@@ -790,7 +790,7 @@ void VulkanQueueRunner::ApplyRenderPassMerge(std::vector<VKRStep *> &steps) {
 				case VKRStepType::RENDER:
 					if (steps[j]->render.framebuffer == fb) {
 						// Prevent Unknown's example case from https://github.com/hrydgard/ppsspp/pull/12242
-						if (renderHasClear(steps[j]) || steps[j]->dependencies.contains(touchedFramebuffers)) {
+						if (steps[j]->dependencies.contains(touchedFramebuffers)) {
 							goto done_fb;
 						} else {
 							// Safe to merge, great.
