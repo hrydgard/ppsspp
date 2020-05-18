@@ -161,6 +161,28 @@ ReportScreen::ReportScreen(const std::string &gamePath)
 	ratingEnabled_ = enableReporting_;
 }
 
+void ReportScreen::postRender() {
+	// We do this after render because we need it to be within the frame (so the screenshot works).
+	// We could do it mid frame, but then we have to reapply viewport/scissor.
+	if (!tookScreenshot_) {
+		std::string path = GetSysDirectory(DIRECTORY_SCREENSHOT);
+		if (!File::Exists(path)) {
+			File::CreateDir(path);
+		}
+		screenshotFilename_ = path + ".reporting.jpg";
+		if (TakeGameScreenshot(screenshotFilename_.c_str(), ScreenshotFormat::JPG, SCREENSHOT_DISPLAY, nullptr, nullptr, 4)) {
+			// Redo the views already, now with a screenshot included.
+			RecreateViews();
+		} else {
+			// Good news (?), the views are good as-is without a screenshot.
+			screenshotFilename_.clear();
+		}
+		tookScreenshot_ = true;
+	}
+
+	UIDialogScreenWithGameBackground::postRender();
+}
+
 void ReportScreen::update() {
 	if (screenshot_) {
 		if (includeScreenshot_) {
@@ -252,18 +274,13 @@ void ReportScreen::CreateViews() {
 	}
 #endif
 
-	std::string path = GetSysDirectory(DIRECTORY_SCREENSHOT);
-	if (!File::Exists(path)) {
-		File::CreateDir(path);
-	}
-	screenshotFilename_ = path + ".reporting.jpg";
-	int shotWidth = 0, shotHeight = 0;
-	if (TakeGameScreenshot(screenshotFilename_.c_str(), ScreenshotFormat::JPG, SCREENSHOT_DISPLAY, &shotWidth, &shotHeight, 4)) {
-		float scale = 340.0f * (1.0f / g_dpi_scale_y) * (1.0f / shotHeight);
+	if (tookScreenshot_ && !screenshotFilename_.empty()) {
 		leftColumnItems->Add(new CheckBox(&includeScreenshot_, rp->T("FeedbackIncludeScreen", "Include a screenshot")))->SetEnabledPtr(&enableReporting_);
 		screenshot_ = leftColumnItems->Add(new AsyncImageFileView(screenshotFilename_, IS_KEEP_ASPECT, nullptr, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT, Margins(12, 0))));
 	} else {
-		includeScreenshot_ = false;
+		if (tookScreenshot_) {
+			includeScreenshot_ = false;
+		}
 		screenshot_ = nullptr;
 	}
 
@@ -333,7 +350,7 @@ EventReturn ReportScreen::HandleSubmit(EventParams &e) {
 		g_Config.Save("ReportScreen::HandleSubmit");
 	}
 
-	std::string filename = includeScreenshot_ ? screenshotFilename_ : "";
+	std::string filename = tookScreenshot_ && includeScreenshot_ ? screenshotFilename_ : "";
 	Reporting::ReportCompatibility(compat, graphics_ + 1, speed_ + 1, gameplay_ + 1, filename);
 	TriggerFinish(DR_OK);
 	screenManager()->push(new ReportFinishScreen(gamePath_, overall_));
