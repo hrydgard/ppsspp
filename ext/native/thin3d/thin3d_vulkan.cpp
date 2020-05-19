@@ -251,7 +251,8 @@ public:
 		ubo_ = new uint8_t[uboSize_];
 	}
 	~VKPipeline() {
-		vulkan_->Delete().QueueDeletePipeline(vkpipeline);
+		vulkan_->Delete().QueueDeletePipeline(backbufferPipeline);
+		vulkan_->Delete().QueueDeletePipeline(framebufferPipeline);
 		delete[] ubo_;
 	}
 
@@ -272,7 +273,8 @@ public:
 		return false;
 	}
 
-	VkPipeline vkpipeline;
+	VkPipeline backbufferPipeline = VK_NULL_HANDLE;
+	VkPipeline framebufferPipeline = VK_NULL_HANDLE;
 	int stride[4]{};
 	int dynamicUniformSize = 0;
 
@@ -420,6 +422,7 @@ public:
 	void DrawIndexed(int vertexCount, int offset) override;
 	void DrawUP(const void *vdata, int vertexCount) override;
 
+	void BindCompatiblePipeline();
 	void ApplyDynamicState();
 
 	void Clear(int mask, uint32_t colorval, float depthVal, int stencilVal) override;
@@ -1024,30 +1027,40 @@ Pipeline *VKContext::CreateGraphicsPipeline(const PipelineDesc &desc) {
 	VkPipelineRasterizationStateCreateInfo rs{ VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO };
 	raster->ToVulkan(&rs);
 
-	VkGraphicsPipelineCreateInfo info{ VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO };
-	info.flags = 0;
-	info.stageCount = (uint32_t)stages.size();
-	info.pStages = stages.data();
-	info.pColorBlendState = &blend->info;
-	info.pDepthStencilState = &depth->info;
-	info.pDynamicState = &dynamicInfo;
-	info.pInputAssemblyState = &inputAssembly;
-	info.pTessellationState = nullptr;
-	info.pMultisampleState = &ms;
-	info.pVertexInputState = &input->visc;
-	info.pRasterizationState = &rs;
-	info.pViewportState = &vs;  // Must set viewport and scissor counts even if we set the actual state dynamically.
-	info.layout = pipelineLayout_;
-	info.subpass = 0;
-	info.renderPass = renderManager_.GetBackbufferRenderPass();
+	VkGraphicsPipelineCreateInfo createInfo[2];
+	for (auto &info : createInfo) {
+		info.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
+		info.flags = 0;
+		info.stageCount = (uint32_t)stages.size();
+		info.pStages = stages.data();
+		info.pColorBlendState = &blend->info;
+		info.pDepthStencilState = &depth->info;
+		info.pDynamicState = &dynamicInfo;
+		info.pInputAssemblyState = &inputAssembly;
+		info.pTessellationState = nullptr;
+		info.pMultisampleState = &ms;
+		info.pVertexInputState = &input->visc;
+		info.pRasterizationState = &rs;
+		info.pViewportState = &vs;  // Must set viewport and scissor counts even if we set the actual state dynamically.
+		info.layout = pipelineLayout_;
+		info.subpass = 0;
+	}
 
-	// OK, need to create a new pipeline.
-	VkResult result = vkCreateGraphicsPipelines(device_, pipelineCache_, 1, &info, nullptr, &pipeline->vkpipeline);
+	createInfo[0].renderPass = renderManager_.GetBackbufferRenderPass();
+	createInfo[1].renderPass = renderManager_.GetFramebufferRenderPass();
+
+	// OK, need to create new pipelines.
+	VkPipeline pipelines[2]{};
+	VkResult result = vkCreateGraphicsPipelines(device_, pipelineCache_, 2, createInfo, nullptr, pipelines);
 	if (result != VK_SUCCESS) {
 		ELOG("Failed to create graphics pipeline");
 		delete pipeline;
 		return nullptr;
 	}
+
+	pipeline->backbufferPipeline = pipelines[0];
+	pipeline->framebufferPipeline = pipelines[1];
+
 	if (desc.uniformDesc) {
 		pipeline->dynamicUniformSize = (int)desc.uniformDesc->uniformBufferSize;
 	}
@@ -1249,7 +1262,7 @@ void VKContext::Draw(int vertexCount, int offset) {
 
 	VkDescriptorSet descSet = GetOrCreateDescriptorSet(vulkanUBObuf);
 
-	renderManager_.BindPipeline(curPipeline_->vkpipeline);
+	BindCompatiblePipeline();
 	ApplyDynamicState();
 	renderManager_.Draw(pipelineLayout_, descSet, 1, &ubo_offset, vulkanVbuf, (int)vbBindOffset + curVBufferOffsets_[0], vertexCount, offset);
 }
@@ -1265,7 +1278,7 @@ void VKContext::DrawIndexed(int vertexCount, int offset) {
 
 	VkDescriptorSet descSet = GetOrCreateDescriptorSet(vulkanUBObuf);
 
-	renderManager_.BindPipeline(curPipeline_->vkpipeline);
+	BindCompatiblePipeline();
 	ApplyDynamicState();
 	renderManager_.DrawIndexed(pipelineLayout_, descSet, 1, &ubo_offset, vulkanVbuf, (int)vbBindOffset + curVBufferOffsets_[0], vulkanIbuf, (int)ibBindOffset + offset * sizeof(uint32_t), vertexCount, 1, VK_INDEX_TYPE_UINT16);
 }
@@ -1277,9 +1290,18 @@ void VKContext::DrawUP(const void *vdata, int vertexCount) {
 
 	VkDescriptorSet descSet = GetOrCreateDescriptorSet(vulkanUBObuf);
 
-	renderManager_.BindPipeline(curPipeline_->vkpipeline);
+	BindCompatiblePipeline();
 	ApplyDynamicState();
 	renderManager_.Draw(pipelineLayout_, descSet, 1, &ubo_offset, vulkanVbuf, (int)vbBindOffset + curVBufferOffsets_[0], vertexCount);
+}
+
+void VKContext::BindCompatiblePipeline() {
+	VkRenderPass renderPass = renderManager_.GetCompatibleRenderPass();
+	if (renderPass == renderManager_.GetBackbufferRenderPass()) {
+		renderManager_.BindPipeline(curPipeline_->backbufferPipeline);
+	} else {
+		renderManager_.BindPipeline(curPipeline_->framebufferPipeline);
+	}
 }
 
 void VKContext::Clear(int clearMask, uint32_t colorval, float depthVal, int stencilVal) {
