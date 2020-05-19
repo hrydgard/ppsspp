@@ -84,7 +84,6 @@ private:
 	TextureCacheVulkan *textureCacheVulkan_ = nullptr;
 	ShaderManagerVulkan *shaderManagerVulkan_ = nullptr;
 	DrawEngineVulkan *drawEngineVulkan_ = nullptr;
-	VulkanDeviceAllocator *allocator_ = nullptr;
 	VulkanPushBuffer *push_;
 
 	enum {
