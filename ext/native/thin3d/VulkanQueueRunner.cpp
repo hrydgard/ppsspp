@@ -861,9 +861,22 @@ void VulkanQueueRunner::LogSteps(const std::vector<VKRStep *> &steps) {
 	}
 }
 
+const char *RenderPassActionName(VKRRenderPassAction a) {
+	switch (a) {
+	case VKRRenderPassAction::CLEAR:
+		return "CLEAR";
+	case VKRRenderPassAction::DONT_CARE:
+		return "DONT_CARE";
+	case VKRRenderPassAction::KEEP:
+		return "KEEP";
+	}
+	return "?";
+}
+
 void VulkanQueueRunner::LogRenderPass(const VKRStep &pass) {
-	int fb = (int)(intptr_t)(pass.render.framebuffer ? pass.render.framebuffer->framebuf : 0);
-	ILOG("RenderPass Begin(%x)", fb);
+	const auto &r = pass.render;
+	int fb = (int)(intptr_t)(r.framebuffer ? r.framebuffer->framebuf : 0);
+	ILOG("RenderPass Begin(%x, %s, %s, %s)", fb, RenderPassActionName(r.color), RenderPassActionName(r.depth), RenderPassActionName(r.stencil));
 	for (auto &cmd : pass.commands) {
 		switch (cmd.cmd) {
 		case VKRRenderCommand::REMOVED:
