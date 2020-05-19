@@ -352,6 +352,7 @@ Draw::Pipeline *PresentationCommon::CreatePipeline(std::vector<Draw::ShaderModul
 
 void PresentationCommon::CreateDeviceObjects() {
 	using namespace Draw;
+	assert(vdata_ == nullptr);
 
 	vdata_ = draw_->CreateBuffer(sizeof(Vertex) * 8, BufferUsageFlag::DYNAMIC | BufferUsageFlag::VERTEXDATA);
 
