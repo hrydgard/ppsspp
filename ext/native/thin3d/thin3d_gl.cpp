@@ -467,10 +467,10 @@ public:
 		}
 	}
 
-	uintptr_t GetNativeObject(NativeObject obj) override {
+	uint64_t GetNativeObject(NativeObject obj) override {
 		switch (obj) {
 		case NativeObject::RENDER_MANAGER:
-			return (uintptr_t)&renderManager_;
+			return (uint64_t)(uintptr_t)&renderManager_;
 		default:
 			return 0;
 		}

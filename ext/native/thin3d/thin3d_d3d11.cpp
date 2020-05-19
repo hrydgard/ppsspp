@@ -131,26 +131,26 @@ public:
 		}
 	}
 
-	uintptr_t GetNativeObject(NativeObject obj) override {
+	uint64_t GetNativeObject(NativeObject obj) override {
 		switch (obj) {
 		case NativeObject::DEVICE:
-			return (uintptr_t)device_;
+			return (uint64_t)(uintptr_t)device_;
 		case NativeObject::CONTEXT:
-			return (uintptr_t)context_;
+			return (uint64_t)(uintptr_t)context_;
 		case NativeObject::DEVICE_EX:
-			return (uintptr_t)device1_;
+			return (uint64_t)(uintptr_t)device1_;
 		case NativeObject::CONTEXT_EX:
-			return (uintptr_t)context1_;
+			return (uint64_t)(uintptr_t)context1_;
 		case NativeObject::BACKBUFFER_COLOR_TEX:
-			return (uintptr_t)bbRenderTargetTex_;
+			return (uint64_t)(uintptr_t)bbRenderTargetTex_;
 		case NativeObject::BACKBUFFER_DEPTH_TEX:
-			return (uintptr_t)bbDepthStencilTex_;
+			return (uint64_t)(uintptr_t)bbDepthStencilTex_;
 		case NativeObject::BACKBUFFER_COLOR_VIEW:
-			return (uintptr_t)bbRenderTargetView_;
+			return (uint64_t)(uintptr_t)bbRenderTargetView_;
 		case NativeObject::BACKBUFFER_DEPTH_VIEW:
-			return (uintptr_t)bbDepthStencilView_;
+			return (uint64_t)(uintptr_t)bbDepthStencilView_;
 		case NativeObject::FEATURE_LEVEL:
-			return (uintptr_t)featureLevel_;
+			return (uint64_t)(uintptr_t)featureLevel_;
 		default:
 			return 0;
 		}
