@@ -664,7 +664,7 @@ public:
 	}
 
 	virtual std::string GetInfoString(InfoField info) const = 0;
-	virtual uintptr_t GetNativeObject(NativeObject obj) = 0;
+	virtual uint64_t GetNativeObject(NativeObject obj) = 0;
 
 	virtual void HandleEvent(Event ev, int width, int height, void *param1 = nullptr, void *param2 = nullptr) = 0;
 

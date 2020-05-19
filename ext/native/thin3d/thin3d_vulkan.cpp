@@ -455,25 +455,25 @@ public:
 	std::vector<std::string> GetFeatureList() const override;
 	std::vector<std::string> GetExtensionList() const override;
 
-	uintptr_t GetNativeObject(NativeObject obj) override {
+	uint64_t GetNativeObject(NativeObject obj) override {
 		switch (obj) {
 		case NativeObject::FRAMEBUFFER_RENDERPASS:
 			// Return a representative renderpass.
-			return (uintptr_t)renderManager_.GetFramebufferRenderPass();
+			return (uint64_t)renderManager_.GetFramebufferRenderPass();
 		case NativeObject::BACKBUFFER_RENDERPASS:
-			return (uintptr_t)renderManager_.GetBackbufferRenderPass();
+			return (uint64_t)renderManager_.GetBackbufferRenderPass();
 		case NativeObject::COMPATIBLE_RENDERPASS:
-			return (uintptr_t)renderManager_.GetCompatibleRenderPass();
+			return (uint64_t)renderManager_.GetCompatibleRenderPass();
 		case NativeObject::INIT_COMMANDBUFFER:
-			return (uintptr_t)renderManager_.GetInitCmd();
+			return (uint64_t)renderManager_.GetInitCmd();
 		case NativeObject::BOUND_TEXTURE0_IMAGEVIEW:
-			return (uintptr_t)boundImageView_[0];
+			return (uint64_t)boundImageView_[0];
 		case NativeObject::BOUND_TEXTURE1_IMAGEVIEW:
-			return (uintptr_t)boundImageView_[1];
+			return (uint64_t)boundImageView_[1];
 		case NativeObject::RENDER_MANAGER:
-			return (uintptr_t)&renderManager_;
+			return (uint64_t)(uintptr_t)&renderManager_;
 		case NativeObject::NULL_IMAGEVIEW:
-			return (uintptr_t)GetNullTexture()->GetImageView();
+			return (uint64_t)GetNullTexture()->GetImageView();
 		default:
 			Crash();
 			return 0;
