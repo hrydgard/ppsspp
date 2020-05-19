@@ -66,7 +66,7 @@ VS_OUT main(VS_IN In) {
 }
 )";
 
-bool FramebufferManagerDX9::NotifyStencilUpload(u32 addr, int size, bool skipZero) {
+bool FramebufferManagerDX9::NotifyStencilUpload(u32 addr, int size, StencilUpload flags) {
 	addr &= 0x3FFFFFFF;
 	if (!MayIntersectFramebuffer(addr)) {
 		return false;
@@ -113,7 +113,7 @@ bool FramebufferManagerDX9::NotifyStencilUpload(u32 addr, int size, bool skipZer
 	}
 
 	if (usedBits == 0) {
-		if (skipZero) {
+		if (flags == StencilUpload::STENCIL_IS_ZERO) {
 			// Common when creating buffers, it's already 0.  We're done.
 			return false;
 		}
@@ -193,7 +193,9 @@ bool FramebufferManagerDX9::NotifyStencilUpload(u32 addr, int size, bool skipZer
 	u16 h = dstBuffer->renderHeight;
 
 	if (dstBuffer->fbo) {
-		draw_->BindFramebufferAsRenderTarget(dstBuffer->fbo, { Draw::RPAction::KEEP, Draw::RPAction::KEEP, Draw::RPAction::CLEAR });
+		// Typically, STENCIL_IS_ZERO means it's already bound.
+		Draw::RPAction stencilAction = flags == StencilUpload::STENCIL_IS_ZERO ? Draw::RPAction::KEEP : Draw::RPAction::CLEAR;
+		draw_->BindFramebufferAsRenderTarget(dstBuffer->fbo, { Draw::RPAction::KEEP, Draw::RPAction::KEEP, stencilAction });
 	}
 	D3DVIEWPORT9 vp{ 0, 0, w, h, 0.0f, 1.0f };
 	device_->SetViewport(&vp);

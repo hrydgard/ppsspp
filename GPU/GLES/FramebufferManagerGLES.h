@@ -54,7 +54,7 @@ public:
 	// For use when texturing from a framebuffer.  May create a duplicate if target.
 	void BindFramebufferAsColorTexture(int stage, VirtualFramebuffer *framebuffer, int flags);
 
-	bool NotifyStencilUpload(u32 addr, int size, bool skipZero = false) override;
+	bool NotifyStencilUpload(u32 addr, int size, StencilUpload flags = StencilUpload::NEEDS_CLEAR) override;
 
 	bool GetOutputFramebuffer(GPUDebugBuffer &buffer) override;
 

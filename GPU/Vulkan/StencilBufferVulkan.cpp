@@ -96,7 +96,7 @@ void main() {
 // In Vulkan we should be able to simply copy the stencil data directly to a stencil buffer without
 // messing about with bitplane textures and the like. Or actually, maybe not... Let's start with
 // the traditional approach.
-bool FramebufferManagerVulkan::NotifyStencilUpload(u32 addr, int size, bool skipZero) {
+bool FramebufferManagerVulkan::NotifyStencilUpload(u32 addr, int size, StencilUpload flags) {
 	addr &= 0x3FFFFFFF;
 	if (!MayIntersectFramebuffer(addr)) {
 		return false;
@@ -168,7 +168,9 @@ bool FramebufferManagerVulkan::NotifyStencilUpload(u32 addr, int size, bool skip
 		return false;
 
 	if (dstBuffer->fbo) {
-		draw_->BindFramebufferAsRenderTarget(dstBuffer->fbo, { Draw::RPAction::KEEP, Draw::RPAction::KEEP, Draw::RPAction::CLEAR });
+		// Typically, STENCIL_IS_ZERO means it's already bound.
+		Draw::RPAction stencilAction = flags == StencilUpload::STENCIL_IS_ZERO ? Draw::RPAction::KEEP : Draw::RPAction::CLEAR;
+		draw_->BindFramebufferAsRenderTarget(dstBuffer->fbo, { Draw::RPAction::KEEP, Draw::RPAction::KEEP, stencilAction });
 	} else {
 		// something is wrong...
 	}
