@@ -678,17 +678,18 @@ u32 GPUCommon::EnqueueList(u32 listpc, u32 stall, int subIntrBase, PSPPointer<Ps
 		ERROR_LOG_REPORT(G3D, "sceGeListEnqueue: invalid address %08x", listpc);
 		return SCE_KERNEL_ERROR_INVALID_POINTER;
 	}
-	
-	if (args.IsValid() && args->numStacks >= 256) {
-		ERROR_LOG_REPORT(G3D, "sceGeListEnqueue: invalid size %d", args->numStacks);
-		return SCE_KERNEL_ERROR_INVALID_SIZE;
-	}
-	
+
 	int id = -1;
 	u64 currentTicks = CoreTiming::GetTicks();
 	u32_le stackAddr = args.IsValid() ? args->stackAddr : 0;
 	// Check compatibility
 	if (sceKernelGetCompiledSdkVersion() > 0x01FFFFFF) {
+		// See #12908.
+		if (args.IsValid() && args->numStacks >= 256) {
+			ERROR_LOG(G3D, "sceGeListEnqueue: invalid size %08x", args->numStacks);
+			return SCE_KERNEL_ERROR_INVALID_SIZE;
+		}
+
 		//numStacks = 0;
 		//stack = NULL;
 		for (int i = 0; i < DisplayListMaxCount; ++i) {
