@@ -149,7 +149,7 @@ bool FramebufferManagerVulkan::NotifyStencilUpload(u32 addr, int size, StencilUp
 		const char *stencil_fs_source = stencil_fs;
 		// See comment above the stencil_fs_adreno definition.
 		u32 vendorID = vulkan_->GetPhysicalDeviceProperties().properties.vendorID;
-		if (vendorID == VULKAN_VENDOR_QUALCOMM || vendorID == VULKAN_VENDOR_ARM)
+		if (g_Config.bVendorBugChecksEnabled && (draw_->GetBugs().Has(Draw::Bugs::NO_DEPTH_CANNOT_DISCARD_STENCIL) || vendorID == VULKAN_VENDOR_ARM))
 			stencil_fs_source = stencil_fs_adreno;
 
 		stencilVs_ = CompileShaderModule(vulkan_, VK_SHADER_STAGE_VERTEX_BIT, stencil_vs, &error);

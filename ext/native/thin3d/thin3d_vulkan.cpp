@@ -772,7 +772,9 @@ VKContext::VKContext(VulkanContext *vulkan, bool splitSubmit)
 		// Adreno 5xx devices, all known driver versions, fail to discard stencil when depth write is off.
 		// See: https://github.com/hrydgard/ppsspp/pull/11684
 		if (deviceProps.deviceID >= 0x05000000 && deviceProps.deviceID < 0x06000000) {
-			bugs_.Infest(Bugs::NO_DEPTH_CANNOT_DISCARD_STENCIL);
+			if (deviceProps.driverVersion < 0x80180000) {
+				bugs_.Infest(Bugs::NO_DEPTH_CANNOT_DISCARD_STENCIL);
+			}
 		}
 		// Color write mask not masking write in certain scenarios with a depth test, see #10421.
 		// Known still present on driver 0x80180000 and Adreno 5xx (possibly more.)
