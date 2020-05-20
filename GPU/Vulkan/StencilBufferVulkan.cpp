@@ -149,7 +149,7 @@ bool FramebufferManagerVulkan::NotifyStencilUpload(u32 addr, int size, StencilUp
 		const char *stencil_fs_source = stencil_fs;
 		// See comment above the stencil_fs_adreno definition.
 		u32 vendorID = vulkan_->GetPhysicalDeviceProperties().properties.vendorID;
-		if (vendorID == VULKAN_VENDOR_QUALCOMM || vendorID == VULKAN_VENDOR_ARM)
+		if (g_Config.bVendorBugChecksEnabled && (draw_->GetBugs().Has(Draw::Bugs::NO_DEPTH_CANNOT_DISCARD_STENCIL) || vendorID == VULKAN_VENDOR_ARM))
 			stencil_fs_source = stencil_fs_adreno;
 
 		stencilVs_ = CompileShaderModule(vulkan_, VK_SHADER_STAGE_VERTEX_BIT, stencil_vs, &error);
@@ -171,9 +171,9 @@ bool FramebufferManagerVulkan::NotifyStencilUpload(u32 addr, int size, StencilUp
 		return false;
 
 	if (dstBuffer->fbo) {
+		// Use keep because some drivers have trouble when stencilAction != depthAction.
 		// Typically, STENCIL_IS_ZERO means it's already bound, so this bind will be optimized away.
-		Draw::RPAction stencilAction = flags == StencilUpload::STENCIL_IS_ZERO ? Draw::RPAction::KEEP : Draw::RPAction::CLEAR;
-		draw_->BindFramebufferAsRenderTarget(dstBuffer->fbo, { Draw::RPAction::KEEP, Draw::RPAction::KEEP, stencilAction });
+		draw_->BindFramebufferAsRenderTarget(dstBuffer->fbo, { Draw::RPAction::KEEP, Draw::RPAction::KEEP, Draw::RPAction::KEEP });
 	} else {
 		// something is wrong...
 	}
