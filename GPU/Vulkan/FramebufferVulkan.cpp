@@ -331,8 +331,10 @@ void FramebufferManagerVulkan::UpdateDownloadTempBuffer(VirtualFramebuffer *nvfb
 void FramebufferManagerVulkan::BlitFramebuffer(VirtualFramebuffer *dst, int dstX, int dstY, VirtualFramebuffer *src, int srcX, int srcY, int w, int h, int bpp) {
 	if (!dst->fbo || !src->fbo || !useBufferedRendering_) {
 		// This can happen if they recently switched from non-buffered.
-		if (useBufferedRendering_)
+		if (useBufferedRendering_) {
 			draw_->BindFramebufferAsRenderTarget(nullptr, { Draw::RPAction::KEEP, Draw::RPAction::KEEP, Draw::RPAction::KEEP });
+			gstate_c.Dirty(DIRTY_BLEND_STATE | DIRTY_VIEWPORTSCISSOR_STATE);
+		}
 		return;
 	}
 
