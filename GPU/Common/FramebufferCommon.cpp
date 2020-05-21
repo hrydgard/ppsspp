@@ -151,14 +151,15 @@ void FramebufferManagerCommon::EstimateDrawingSize(u32 fb_address, GEBufferForma
 			drawing_width = scissor_width;
 			drawing_height = std::max(drawing_height, scissor_height);
 		}
-		if (scissor_width == 481 && region_width == 480 && scissor_height == 273 && region_height == 272) {
-			drawing_width = 480;
-			drawing_height = 272;
-		}
 	} else {
 		// If viewport wasn't valid, let's just take the greatest anything regardless of stride.
 		drawing_width = std::min(std::max(region_width, scissor_width), fb_stride);
 		drawing_height = std::max(region_height, scissor_height);
+	}
+
+	if (scissor_width == 481 && region_width == 480 && scissor_height == 273 && region_height == 272) {
+		drawing_width = 480;
+		drawing_height = 272;
 	}
 
 	// Assume no buffer is > 512 tall, it couldn't be textured or displayed fully if so.
