@@ -2033,8 +2033,9 @@ static u32 sceIoSetAsyncCallback(int id, u32 clbckId, u32 clbckArg)
 	}
 }
 
-static u32 sceIoOpenAsync(const char *filename, int flags, int mode)
-{
+static u32 sceIoOpenAsync(const char *filename, int flags, int mode) {
+	hleEatCycles(18000);
+
 	// TOOD: Use an internal method so as not to pollute the log?
 	// Intentionally does not work when interrupts disabled.
 	if (!__KernelIsDispatchEnabled())
@@ -2046,6 +2047,9 @@ static u32 sceIoOpenAsync(const char *filename, int flags, int mode)
 	// We have to return an fd here, which may have been destroyed when we reach Wait if it failed.
 	if (f == nullptr) {
 		assert(error != 0);
+		if (error == SCE_KERNEL_ERROR_NODEV)
+			return hleLogError(SCEIO, error, "device not found");
+
 		f = new FileNode();
 		f->handle = kernelObjects.Create(f);
 		f->fullpath = filename;
@@ -2056,7 +2060,7 @@ static u32 sceIoOpenAsync(const char *filename, int flags, int mode)
 	int fd = __IoAllocFd(f);
 	if (fd < 0) {
 		kernelObjects.Destroy<FileNode>(f->GetUID());
-		return hleLogError(SCEIO, fd, "out of fds");
+		return hleLogError(SCEIO, hleDelayResult(fd, "file opened", 1000), "out of fds");
 	}
 
 	auto &params = asyncParams[fd];
