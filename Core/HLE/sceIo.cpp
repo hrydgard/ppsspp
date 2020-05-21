@@ -1482,6 +1482,7 @@ static u32 sceIoOpen(const char *filename, int flags, int mode) {
 			// UMD: Varies between 5-10ms, could take longer if disc spins up.
 			//      TODO: Bad filename at root (disc0:/no.exist) should take ~200us.
 			// Card: Path depth matters, but typically between 10-13ms on a standard Pro Duo.
+			// TODO: If a UMD and spun down, this can easily take 1s+.
 			int delay = pspFileSystem.FlagsFromFilename(filename) & FileSystemFlags::UMD ? 6000 : 10000;
 			return hleLogWarning(SCEIO, hleDelayResult(error, "file opened", delay), "file not found");
 		} else {
@@ -2709,10 +2710,15 @@ static int IoAsyncFinish(int id) {
 			break;
 
 		case IoAsyncOp::OPEN:
-			// TODO: Timing is very inconsistent.  From ms0, 10ms - 20ms depending on filesize/dir depth?  From umd, can take > 1s.
-			// For now let's aim low.
-			us = 100;
+		{
+			// See notes on timing in sceIoOpen.
+			FileSystemFlags flags = pspFileSystem.FlagsFromFilename(Memory::GetCharPointer(params.open.filenameAddr));
+			if (f->asyncResult == (int)SCE_KERNEL_ERROR_ERRNO_FILE_NOT_FOUND)
+				us = flags & FileSystemFlags::UMD ? 6000 : 10000;
+			else
+				us = flags & FileSystemFlags::UMD ? 4000 : 10000;
 			break;
+		}
 
 		case IoAsyncOp::CLOSE:
 			f->asyncResult = 0;
