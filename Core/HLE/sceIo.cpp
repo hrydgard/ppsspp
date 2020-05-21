@@ -1463,7 +1463,10 @@ static FileNode *__IoOpen(int &error, const char* filename, int flags, int mode)
 }
 
 static u32 sceIoOpen(const char *filename, int flags, int mode) {
+	hleEatCycles(18000);
+
 	if (!__KernelIsDispatchEnabled()) {
+		hleEatCycles(48000);
 		return hleLogError(SCEIO, SCE_KERNEL_ERROR_CAN_NOT_WAIT, "dispatch disabled");
 	}
 
@@ -1474,6 +1477,8 @@ static u32 sceIoOpen(const char *filename, int flags, int mode) {
 		if (error == (int)SCE_KERNEL_ERROR_NOCWD) {
 			// TODO: Timing is not accurate.
 			return hleLogError(SCEIO, hleDelayResult(error, "file opened", 10000), "no current working directory");
+		} else if (error == (int)SCE_KERNEL_ERROR_NODEV) {
+			return hleLogError(SCEIO, error, "device not found");
 		} else if (error == (int)SCE_KERNEL_ERROR_ERRNO_FILE_NOT_FOUND) {
 			// TODO: Depends on filesys.
 			return hleLogWarning(SCEIO, hleDelayResult(error, "file opened", 10000), "file not found");
@@ -1485,11 +1490,11 @@ static u32 sceIoOpen(const char *filename, int flags, int mode) {
 	int id = __IoAllocFd(f);
 	if (id < 0) {
 		kernelObjects.Destroy<FileNode>(f->GetUID());
-		return hleLogError(SCEIO, id, "out of fds");
+		return hleLogError(SCEIO, hleDelayResult(id, "file opened", 10000), "out of fds");
 	} else {
 		asyncParams[id].priority = asyncDefaultPriority;
-		// Timing is not accurate, aiming low for now.
-		return hleLogSuccessI(SCEIO, hleDelayResult(id, "file opened", 100));
+		// TODO: Depends on filesys.  Timing is not accurate, aiming low for now.
+		return hleLogSuccessI(SCEIO, hleDelayResult(id, "file opened", 1000));
 	}
 }
 
