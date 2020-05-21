@@ -1479,8 +1479,11 @@ static u32 sceIoOpen(const char *filename, int flags, int mode) {
 		} else if (error == (int)SCE_KERNEL_ERROR_NODEV) {
 			return hleLogError(SCEIO, error, "device not found");
 		} else if (error == (int)SCE_KERNEL_ERROR_ERRNO_FILE_NOT_FOUND) {
-			// TODO: Depends on filesys.
-			return hleLogWarning(SCEIO, hleDelayResult(error, "file opened", 10000), "file not found");
+			// UMD: Varies between 5-10ms, could take longer if disc spins up.
+			//      TODO: Bad filename at root (disc0:/no.exist) should take ~200us.
+			// Card: Path depth matters, but typically between 10-13ms on a standard Pro Duo.
+			int delay = pspFileSystem.FlagsFromFilename(filename) & FileSystemFlags::UMD ? 6000 : 10000;
+			return hleLogWarning(SCEIO, hleDelayResult(error, "file opened", delay), "file not found");
 		} else {
 			return hleLogError(SCEIO, hleDelayResult(error, "file opened", 10000));
 		}
@@ -1489,11 +1492,13 @@ static u32 sceIoOpen(const char *filename, int flags, int mode) {
 	int id = __IoAllocFd(f);
 	if (id < 0) {
 		kernelObjects.Destroy<FileNode>(f->GetUID());
-		return hleLogError(SCEIO, hleDelayResult(id, "file opened", 10000), "out of fds");
+		return hleLogError(SCEIO, hleDelayResult(id, "file opened", 1000), "out of fds");
 	} else {
 		asyncParams[id].priority = asyncDefaultPriority;
-		// TODO: Depends on filesys.  Timing is not accurate, aiming low for now.
-		return hleLogSuccessI(SCEIO, hleDelayResult(id, "file opened", 1000));
+		// UMD: Speed varies from 1-6ms.
+		// Card: Path depth matters, but typically between 10-13ms on a standard Pro Duo.
+		int delay = pspFileSystem.FlagsFromFilename(filename) & FileSystemFlags::UMD ? 4000 : 10000;
+		return hleLogSuccessI(SCEIO, hleDelayResult(id, "file opened", delay));
 	}
 }
 
