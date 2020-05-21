@@ -265,8 +265,14 @@ void FramebufferManagerVulkan::ReformatFramebufferFrom(VirtualFramebuffer *vfb, 
 	// to exactly reproduce in 4444 and 8888 formats.
 
 	if (old == GE_FORMAT_565) {
-		// Previously started a render pass here to clear, but better to just, well, explicitly clear.
-		draw_->Clear(Draw::FBChannel::FB_COLOR_BIT | Draw::FBChannel::FB_STENCIL_BIT, 0, 0.0f, 0);
+		// We have to bind here instead of clear, since it can be that no framebuffer is bound.
+		// The backend can sometimes directly optimize it to a clear.
+		draw_->BindFramebufferAsRenderTarget(vfb->fbo, { Draw::RPAction::CLEAR, Draw::RPAction::KEEP, Draw::RPAction::CLEAR }, "ReformatFramebuffer"); 
+		// draw_->Clear(Draw::FBChannel::FB_COLOR_BIT | Draw::FBChannel::FB_STENCIL_BIT, 0, 0.0f, 0);
+
+		// Need to dirty anything that has command buffer dynamic state, in case we started a new pass above.
+		// Should find a way to feed that information back, maybe... Or simply correct the issue in the rendermanager.
+		gstate_c.Dirty(DIRTY_DEPTHSTENCIL_STATE | DIRTY_VIEWPORTSCISSOR_STATE | DIRTY_BLEND_STATE);
 	}
 }
 
