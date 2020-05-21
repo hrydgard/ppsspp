@@ -894,13 +894,6 @@ void FramebufferManagerCommon::CopyDisplayToOutput(bool reallyDirty) {
 		if (Memory::IsValidAddress(fbaddr)) {
 			// The game is displaying something directly from RAM. In GTA, it's decoded video.
 			if (!vfb) {
-				if (useBufferedRendering_) {
-					// Bind and clear the backbuffer. This should be the first time during the frame that it's bound.
-					draw_->BindFramebufferAsRenderTarget(nullptr, { Draw::RPAction::CLEAR, Draw::RPAction::CLEAR, Draw::RPAction::CLEAR }, "CopyDisplayToOutput_Backbuffer");
-				}
-				// Just a pointer to plain memory to draw. We should create a framebuffer, then draw to it.
-				SetViewport2D(0, 0, pixelWidth_, pixelHeight_);
-				draw_->SetScissorRect(0, 0, pixelWidth_, pixelHeight_);
 				DrawFramebufferToOutput(Memory::GetPointer(fbaddr), displayFormat_, displayStride_);
 				gstate_c.Dirty(DIRTY_BLEND_STATE);
 				return;
