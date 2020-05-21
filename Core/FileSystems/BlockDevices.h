@@ -45,6 +45,7 @@ public:
 	}
 	int GetBlockSize() const { return 2048;}  // forced, it cannot be changed by subclasses
 	virtual u32 GetNumBlocks() = 0;
+	virtual bool IsDisc() = 0;
 
 	u32 CalculateCRC();
 	void NotifyReadError();
@@ -60,6 +61,7 @@ public:
 	bool ReadBlock(int blockNumber, u8 *outPtr, bool uncached = false) override;
 	bool ReadBlocks(u32 minBlock, int count, u8 *outPtr) override;
 	u32 GetNumBlocks() override { return numBlocks; }
+	bool IsDisc() override { return true; }
 
 private:
 	FileLoader *fileLoader_;
@@ -83,6 +85,7 @@ public:
 	bool ReadBlock(int blockNumber, u8 *outPtr, bool uncached = false) override;
 	bool ReadBlocks(u32 minBlock, int count, u8 *outPtr) override;
 	u32 GetNumBlocks() override {return (u32)(filesize_ / GetBlockSize());}
+	bool IsDisc() override { return true; }
 
 private:
 	FileLoader *fileLoader_;
@@ -107,6 +110,7 @@ public:
 
 	bool ReadBlock(int blockNumber, u8 *outPtr, bool uncached = false) override;
 	u32 GetNumBlocks() override {return (u32)lbaSize;}
+	bool IsDisc() override { return false; }
 
 private:
 	FileLoader *fileLoader_;

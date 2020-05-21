@@ -467,6 +467,12 @@ int ISOFileSystem::DevType(u32 handle)
 	return iter->second.isBlockSectorMode ? PSP_DEV_TYPE_BLOCK : PSP_DEV_TYPE_FILE;
 }
 
+FileSystemFlags ISOFileSystem::Flags() {
+	// TODO: Here may be a good place to force things, in case users recompress games
+	// as PBP or CSO when they were originally the other type.
+	return blockDevice->IsDisc() ? FileSystemFlags::UMD : FileSystemFlags::CARD;
+}
+
 size_t ISOFileSystem::ReadFile(u32 handle, u8 *pointer, s64 size)
 {
 	int ignored;

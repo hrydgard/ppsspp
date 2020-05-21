@@ -42,7 +42,7 @@ public:
 	bool     OwnsHandle(u32 handle) override;
 	int      Ioctl(u32 handle, u32 cmd, u32 indataPtr, u32 inlen, u32 outdataPtr, u32 outlen, int &usec) override;
 	int      DevType(u32 handle) override;
-	FileSystemFlags Flags() override { return FileSystemFlags::NONE; }
+	FileSystemFlags Flags() override;
 	u64      FreeSpace(const std::string &path) override { return 0; }
 
 	size_t WriteFile(u32 handle, const u8 *pointer, s64 size) override;

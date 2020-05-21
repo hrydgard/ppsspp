@@ -154,7 +154,7 @@ public:
 	int  RenameFile(const std::string &from, const std::string &to) override;
 	bool RemoveFile(const std::string &filename) override;
 	bool GetHostPath(const std::string &inpath, std::string &outpath) override;
-	FileSystemFlags Flags() override { return FileSystemFlags::NONE; }
+	FileSystemFlags Flags() override { return FileSystemFlags::FLASH; }
 	u64 FreeSpace(const std::string &path) override { return 0; }
 
 private:

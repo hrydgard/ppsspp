@@ -56,6 +56,10 @@ public:
 
 	IFileSystem *GetSystem(const std::string &prefix);
 	IFileSystem *GetSystemFromFilename(const std::string &filename);
+	FileSystemFlags FlagsFromFilename(const std::string &filename) {
+		IFileSystem *sys = GetSystemFromFilename(filename);
+		return sys ? sys->Flags() : FileSystemFlags::NONE;
+	}
 
 	void ThreadEnded(int threadID);
 

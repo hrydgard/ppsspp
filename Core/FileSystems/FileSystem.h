@@ -53,6 +53,9 @@ enum DevType {
 enum class FileSystemFlags {
 	NONE = 0,
 	SIMULATE_FAT32 = 1,
+	UMD = 2,
+	CARD = 4,
+	FLASH = 8,
 };
 
 inline FileSystemFlags operator |(const FileSystemFlags &lhs, const FileSystemFlags &rhs) {
