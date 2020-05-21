@@ -447,8 +447,16 @@ void VulkanQueueRunner::RunSteps(VkCommandBuffer cmd, std::vector<VKRStep *> &st
 		}
 	}
 
+	bool emitLabels = vulkan_->DeviceExtensions().EXT_debug_utils;
 	for (size_t i = 0; i < steps.size(); i++) {
 		const VKRStep &step = *steps[i];
+
+		if (emitLabels) {
+			VkDebugUtilsLabelEXT labelInfo{ VK_STRUCTURE_TYPE_DEBUG_UTILS_LABEL_EXT };
+			labelInfo.pLabelName = step.tag;
+			vkCmdBeginDebugUtilsLabelEXT(cmd, &labelInfo);
+		}
+
 		switch (step.stepType) {
 		case VKRStepType::RENDER:
 			PerformRenderPass(step, cmd);
@@ -472,6 +480,10 @@ void VulkanQueueRunner::RunSteps(VkCommandBuffer cmd, std::vector<VKRStep *> &st
 		if (profile && profile->timestampDescriptions.size() + 1 < MAX_TIMESTAMP_QUERIES) {
 			vkCmdWriteTimestamp(cmd, VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, profile->queryPool, (uint32_t)profile->timestampDescriptions.size());
 			profile->timestampDescriptions.push_back(StepToString(step));
+		}
+
+		if (emitLabels) {
+			vkCmdEndDebugUtilsLabelEXT(cmd);
 		}
 	}
 
