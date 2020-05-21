@@ -1463,41 +1463,33 @@ static FileNode *__IoOpen(int &error, const char* filename, int flags, int mode)
 }
 
 static u32 sceIoOpen(const char *filename, int flags, int mode) {
-	if (!__KernelIsDispatchEnabled())
-		return -1;
+	if (!__KernelIsDispatchEnabled()) {
+		return hleLogError(SCEIO, SCE_KERNEL_ERROR_CAN_NOT_WAIT, "dispatch disabled");
+	}
 
 	int error;
 	FileNode *f = __IoOpen(error, filename, flags, mode);
-	if (f == NULL) 
-	{
-		// Timing is not accurate, aiming low for now.
-		if (error == (int)SCE_KERNEL_ERROR_NOCWD)
-		{
-			ERROR_LOG(SCEIO, "SCE_KERNEL_ERROR_NOCWD=sceIoOpen(%s, %08x, %08x) - no current working directory", filename, flags, mode);
-			return hleDelayResult(SCE_KERNEL_ERROR_NOCWD, "no cwd", 10000);
-		}
-		else if (error != 0)
-		{
-			ERROR_LOG(SCEIO, "%08x=sceIoOpen(%s, %08x, %08x)", error, filename, flags, mode);
-			return hleDelayResult(error, "file opened", 10000);
-		}
-		else
-		{
-			ERROR_LOG(SCEIO, "ERROR_ERRNO_FILE_NOT_FOUND=sceIoOpen(%s, %08x, %08x) - file not found", filename, flags, mode);
-			return hleDelayResult(SCE_KERNEL_ERROR_ERRNO_FILE_NOT_FOUND, "file opened", 10000);
+	if (!f) {
+		assert(error != 0);
+		if (error == (int)SCE_KERNEL_ERROR_NOCWD) {
+			// TODO: Timing is not accurate.
+			return hleLogError(SCEIO, hleDelayResult(error, "file opened", 10000), "no current working directory");
+		} else if (error == (int)SCE_KERNEL_ERROR_ERRNO_FILE_NOT_FOUND) {
+			// TODO: Depends on filesys.
+			return hleLogWarning(SCEIO, hleDelayResult(error, "file opened", 10000), "file not found");
+		} else {
+			return hleLogError(SCEIO, hleDelayResult(error, "file opened", 10000));
 		}
 	}
 
 	int id = __IoAllocFd(f);
 	if (id < 0) {
-		ERROR_LOG(SCEIO, "%08x=sceIoOpen(%s, %08x, %08x): out of fds", id, filename, flags, mode);
 		kernelObjects.Destroy<FileNode>(f->GetUID());
-		return id;
+		return hleLogError(SCEIO, id, "out of fds");
 	} else {
-		DEBUG_LOG(SCEIO, "%i=sceIoOpen(%s, %08x, %08x)", id, filename, flags, mode);
 		asyncParams[id].priority = asyncDefaultPriority;
 		// Timing is not accurate, aiming low for now.
-		return hleDelayResult(id, "file opened", 100);
+		return hleLogSuccessI(SCEIO, hleDelayResult(id, "file opened", 100));
 	}
 }
 
@@ -2044,9 +2036,7 @@ static u32 sceIoOpenAsync(const char *filename, int flags, int mode)
 
 	// We have to return an fd here, which may have been destroyed when we reach Wait if it failed.
 	if (f == nullptr) {
-		if (error == 0)
-			error = SCE_KERNEL_ERROR_ERRNO_FILE_NOT_FOUND;
-
+		assert(error != 0);
 		f = new FileNode();
 		f->handle = kernelObjects.Create(f);
 		f->fullpath = filename;

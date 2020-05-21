@@ -178,7 +178,7 @@ IFileSystem *MetaFileSystem::GetHandleOwner(u32 handle)
 
 int MetaFileSystem::MapFilePath(const std::string &_inpath, std::string &outpath, MountPoint **system)
 {
-	int error = -1;
+	int error = SCE_KERNEL_ERROR_ERRNO_FILE_NOT_FOUND;
 	std::lock_guard<std::recursive_mutex> guard(lock);
 	std::string realpath;
 
@@ -246,6 +246,8 @@ int MetaFileSystem::MapFilePath(const std::string &_inpath, std::string &outpath
 				return error == SCE_KERNEL_ERROR_NOCWD ? error : 0;
 			}
 		}
+
+		error = SCE_KERNEL_ERROR_NODEV;
 	}
 
 	DEBUG_LOG(FILESYS, "MapFilePath: failed mapping \"%s\", returning false", inpath.c_str());
@@ -353,7 +355,7 @@ int MetaFileSystem::OpenFile(std::string filename, FileAccess access, const char
 	if (error == 0)
 		return mount->system->OpenFile(of, access, mount->prefix.c_str());
 	else
-		return error == -1 ? SCE_KERNEL_ERROR_ERRNO_FILE_NOT_FOUND : error;
+		return error;
 }
 
 PSPFileInfo MetaFileSystem::GetFileInfo(std::string filename)
