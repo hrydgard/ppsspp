@@ -456,11 +456,25 @@ VkCommandBuffer VulkanRenderManager::GetInitCmd() {
 
 void VulkanRenderManager::BindFramebufferAsRenderTarget(VKRFramebuffer *fb, VKRRenderPassAction color, VKRRenderPassAction depth, VKRRenderPassAction stencil, uint32_t clearColor, float clearDepth, uint8_t clearStencil, const char *tag) {
 	assert(insideFrame_);
-	// Eliminate dupes.
+	// Eliminate dupes, instantly convert to a clear if possible.
 	if (!steps_.empty() && steps_.back()->stepType == VKRStepType::RENDER && steps_.back()->render.framebuffer == fb) {
-		if (color != VKRRenderPassAction::CLEAR && depth != VKRRenderPassAction::CLEAR && stencil != VKRRenderPassAction::CLEAR) {
-			// We don't move to a new step, this bind was unnecessary and we can safely skip it.
-			// Not sure how much this is still happening but probably worth checking for nevertheless.
+		u32 clearMask = 0;
+		if (color == VKRRenderPassAction::CLEAR) {
+			clearMask |= VK_IMAGE_ASPECT_COLOR_BIT;
+		}
+		if (depth == VKRRenderPassAction::CLEAR) {
+			clearMask |= VK_IMAGE_ASPECT_DEPTH_BIT;
+		}
+		if (stencil == VKRRenderPassAction::CLEAR) {
+			clearMask |= VK_IMAGE_ASPECT_STENCIL_BIT;
+		}
+
+		// If we need a clear and the previous step has commands already, it's best to just add a clear and keep going.
+		// If there's no clear needed, let's also do that.
+		//
+		// However, if we do need a clear and there are no commands in the previous pass,
+		// we want the queuerunner to have the opportunity to merge, so we'll go ahead and make a new renderpass.
+		if (clearMask == 0 || !steps_.back()->commands.empty()) {
 			curRenderStep_ = steps_.back();
 			curStepHasViewport_ = false;
 			curStepHasScissor_ = false;
@@ -472,6 +486,14 @@ void VulkanRenderManager::BindFramebufferAsRenderTarget(VKRFramebuffer *fb, VKRR
 					curStepHasScissor_ = true;
 					break;
 				}
+			}
+			if (clearMask != 0) {
+				VkRenderData data{ VKRRenderCommand::CLEAR };
+				data.clear.clearColor = clearColor;
+				data.clear.clearZ = clearDepth;
+				data.clear.clearStencil = clearStencil;
+				data.clear.clearMask = clearMask;
+				curRenderStep_->commands.push_back(data);
 			}
 			return;
 		}
