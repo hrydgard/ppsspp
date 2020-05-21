@@ -585,7 +585,7 @@ void PresentationCommon::CopyToOutput(OutputFlags flags, int uvRotation, float u
 			const ShaderInfo *shaderInfo = &postShaderInfo_[i];
 			Draw::Framebuffer *postShaderFramebuffer = postShaderFramebuffers_[i];
 
-			draw_->BindFramebufferAsRenderTarget(postShaderFramebuffer, { Draw::RPAction::DONT_CARE, Draw::RPAction::DONT_CARE, Draw::RPAction::DONT_CARE });
+			draw_->BindFramebufferAsRenderTarget(postShaderFramebuffer, { Draw::RPAction::DONT_CARE, Draw::RPAction::DONT_CARE, Draw::RPAction::DONT_CARE }, "PostShader");
 			if (usePostShaderOutput) {
 				draw_->BindFramebufferAsTexture(postShaderFramebuffers_[i - 1], 0, Draw::FB_COLOR_BIT, 0);
 			} else {
@@ -628,7 +628,7 @@ void PresentationCommon::CopyToOutput(OutputFlags flags, int uvRotation, float u
 		pipeline = postShaderPipelines_.back();
 	}
 
-	draw_->BindFramebufferAsRenderTarget(nullptr, { Draw::RPAction::CLEAR, Draw::RPAction::DONT_CARE, Draw::RPAction::DONT_CARE });
+	draw_->BindFramebufferAsRenderTarget(nullptr, { Draw::RPAction::CLEAR, Draw::RPAction::DONT_CARE, Draw::RPAction::DONT_CARE }, "FinalBlit");
 	draw_->SetScissorRect(0, 0, pixelWidth_, pixelHeight_);
 
 	draw_->BindPipeline(pipeline);

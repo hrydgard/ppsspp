@@ -721,23 +721,23 @@ std::string VulkanQueueRunner::StepToString(const VKRStep &step) const {
 	{
 		int w = step.render.framebuffer ? step.render.framebuffer->width : vulkan_->GetBackbufferWidth();
 		int h = step.render.framebuffer ? step.render.framebuffer->height : vulkan_->GetBackbufferHeight();
-		snprintf(buffer, sizeof(buffer), "RenderPass (draws: %d, %dx%d, fb: %p, )", step.render.numDraws, w, h, step.render.framebuffer);
+		snprintf(buffer, sizeof(buffer), "RenderPass %s (draws: %d, %dx%d, fb: %p, )", step.tag, step.render.numDraws, w, h, step.render.framebuffer);
 		break;
 	}
 	case VKRStepType::COPY:
-		snprintf(buffer, sizeof(buffer), "Copy (%dx%d)", step.copy.srcRect.extent.width, step.copy.srcRect.extent.height);
+		snprintf(buffer, sizeof(buffer), "Copy '%s' (%dx%d)", step.tag, step.copy.srcRect.extent.width, step.copy.srcRect.extent.height);
 		break;
 	case VKRStepType::BLIT:
-		snprintf(buffer, sizeof(buffer), "Blit (%dx%d->%dx%d)", step.blit.srcRect.extent.width, step.blit.srcRect.extent.height, step.blit.dstRect.extent.width, step.blit.dstRect.extent.height);
+		snprintf(buffer, sizeof(buffer), "Blit '%s' (%dx%d->%dx%d)", step.tag, step.blit.srcRect.extent.width, step.blit.srcRect.extent.height, step.blit.dstRect.extent.width, step.blit.dstRect.extent.height);
 		break;
 	case VKRStepType::READBACK:
-		snprintf(buffer, sizeof(buffer), "Readback (%dx%d, fb: %p)", step.readback.srcRect.extent.width, step.readback.srcRect.extent.height, step.readback.src);
+		snprintf(buffer, sizeof(buffer), "Readback '%s' (%dx%d, fb: %p)", step.tag, step.readback.srcRect.extent.width, step.readback.srcRect.extent.height, step.readback.src);
 		break;
 	case VKRStepType::READBACK_IMAGE:
-		snprintf(buffer, sizeof(buffer), "ReadbackImage (%dx%d)", step.readback_image.srcRect.extent.width, step.readback_image.srcRect.extent.height);
+		snprintf(buffer, sizeof(buffer), "ReadbackImage '%s' (%dx%d)", step.tag, step.readback_image.srcRect.extent.width, step.readback_image.srcRect.extent.height);
 		break;
 	case VKRStepType::RENDER_SKIP:
-		snprintf(buffer, sizeof(buffer), "(SKIPPED RenderPass)");
+		snprintf(buffer, sizeof(buffer), "(SKIPPED RenderPass) %s", step.tag);
 		break;
 	default:
 		buffer[0] = 0;

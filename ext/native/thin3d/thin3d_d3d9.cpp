@@ -525,11 +525,11 @@ public:
 
 	void UpdateBuffer(Buffer *buffer, const uint8_t *data, size_t offset, size_t size, UpdateBufferFlags flags) override;
 
-	void CopyFramebufferImage(Framebuffer *src, int level, int x, int y, int z, Framebuffer *dst, int dstLevel, int dstX, int dstY, int dstZ, int width, int height, int depth, int channelBits) override {}
-	bool BlitFramebuffer(Framebuffer *src, int srcX1, int srcY1, int srcX2, int srcY2, Framebuffer *dst, int dstX1, int dstY1, int dstX2, int dstY2, int channelBits, FBBlitFilter filter) override;
+	void CopyFramebufferImage(Framebuffer *src, int level, int x, int y, int z, Framebuffer *dst, int dstLevel, int dstX, int dstY, int dstZ, int width, int height, int depth, int channelBits, const char *tag) override {}
+	bool BlitFramebuffer(Framebuffer *src, int srcX1, int srcY1, int srcX2, int srcY2, Framebuffer *dst, int dstX1, int dstY1, int dstX2, int dstY2, int channelBits, FBBlitFilter filter, const char *tag) override;
 
 	// These functions should be self explanatory.
-	void BindFramebufferAsRenderTarget(Framebuffer *fbo, const RenderPassInfo &rp) override;
+	void BindFramebufferAsRenderTarget(Framebuffer *fbo, const RenderPassInfo &rp, const char *tag) override;
 	// color must be 0, for now.
 	void BindFramebufferAsTexture(Framebuffer *fbo, int binding, FBChannel channelBit, int attachment) override;
 	
@@ -1131,7 +1131,7 @@ D3D9Framebuffer::~D3D9Framebuffer() {
 	}
 }
 
-void D3D9Context::BindFramebufferAsRenderTarget(Framebuffer *fbo, const RenderPassInfo &rp) {
+void D3D9Context::BindFramebufferAsRenderTarget(Framebuffer *fbo, const RenderPassInfo &rp, const char *tag) {
 	using namespace DX9;
 	if (fbo) {
 		D3D9Framebuffer *fb = (D3D9Framebuffer *)fbo;
@@ -1219,7 +1219,7 @@ void D3D9Context::GetFramebufferDimensions(Framebuffer *fbo, int *w, int *h) {
 	}
 }
 
-bool D3D9Context::BlitFramebuffer(Framebuffer *srcfb, int srcX1, int srcY1, int srcX2, int srcY2, Framebuffer *dstfb, int dstX1, int dstY1, int dstX2, int dstY2, int channelBits, FBBlitFilter filter) {
+bool D3D9Context::BlitFramebuffer(Framebuffer *srcfb, int srcX1, int srcY1, int srcX2, int srcY2, Framebuffer *dstfb, int dstX1, int dstY1, int dstX2, int dstY2, int channelBits, FBBlitFilter filter, const char *tag) {
 	D3D9Framebuffer *src = (D3D9Framebuffer *)srcfb;
 	D3D9Framebuffer *dst = (D3D9Framebuffer *)dstfb;
 	if (channelBits != FB_COLOR_BIT)

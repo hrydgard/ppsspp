@@ -370,12 +370,12 @@ public:
 
 	void UpdateBuffer(Buffer *buffer, const uint8_t *data, size_t offset, size_t size, UpdateBufferFlags flags) override;
 
-	void CopyFramebufferImage(Framebuffer *src, int level, int x, int y, int z, Framebuffer *dst, int dstLevel, int dstX, int dstY, int dstZ, int width, int height, int depth, int channelBits) override;
-	bool BlitFramebuffer(Framebuffer *src, int srcX1, int srcY1, int srcX2, int srcY2, Framebuffer *dst, int dstX1, int dstY1, int dstX2, int dstY2, int channelBits, FBBlitFilter filter) override;
-	bool CopyFramebufferToMemorySync(Framebuffer *src, int channelBits, int x, int y, int w, int h, Draw::DataFormat format, void *pixels, int pixelStride) override;
+	void CopyFramebufferImage(Framebuffer *src, int level, int x, int y, int z, Framebuffer *dst, int dstLevel, int dstX, int dstY, int dstZ, int width, int height, int depth, int channelBits, const char *tag) override;
+	bool BlitFramebuffer(Framebuffer *src, int srcX1, int srcY1, int srcX2, int srcY2, Framebuffer *dst, int dstX1, int dstY1, int dstX2, int dstY2, int channelBits, FBBlitFilter filter, const char *tag) override;
+	bool CopyFramebufferToMemorySync(Framebuffer *src, int channelBits, int x, int y, int w, int h, Draw::DataFormat format, void *pixels, int pixelStride, const char *tag) override;
 
 	// These functions should be self explanatory.
-	void BindFramebufferAsRenderTarget(Framebuffer *fbo, const RenderPassInfo &rp) override;
+	void BindFramebufferAsRenderTarget(Framebuffer *fbo, const RenderPassInfo &rp, const char *tag) override;
 	// color must be 0, for now.
 	void BindFramebufferAsTexture(Framebuffer *fbo, int binding, FBChannel channelBit, int attachment) override;
 
@@ -809,7 +809,7 @@ static void LogReadPixelsError(GLenum error) {
 }
 #endif
 
-bool OpenGLContext::CopyFramebufferToMemorySync(Framebuffer *src, int channelBits, int x, int y, int w, int h, Draw::DataFormat dataFormat, void *pixels, int pixelStride) {
+bool OpenGLContext::CopyFramebufferToMemorySync(Framebuffer *src, int channelBits, int x, int y, int w, int h, Draw::DataFormat dataFormat, void *pixels, int pixelStride, const char *tag) {
 	if (gl_extensions.IsGLES && (channelBits & FB_COLOR_BIT) == 0) {
 		// Can't readback depth or stencil on GLES.
 		return false;
@@ -822,7 +822,7 @@ bool OpenGLContext::CopyFramebufferToMemorySync(Framebuffer *src, int channelBit
 		aspect |= GL_DEPTH_BUFFER_BIT;
 	if (channelBits & FB_STENCIL_BIT)
 		aspect |= GL_STENCIL_BUFFER_BIT;
-	renderManager_.CopyFramebufferToMemorySync(fb ? fb->framebuffer : nullptr, aspect, x, y, w, h, dataFormat, (uint8_t *)pixels, pixelStride);
+	renderManager_.CopyFramebufferToMemorySync(fb ? fb->framebuffer : nullptr, aspect, x, y, w, h, dataFormat, (uint8_t *)pixels, pixelStride, tag);
 	return true;
 }
 
@@ -1188,16 +1188,16 @@ Framebuffer *OpenGLContext::CreateFramebuffer(const FramebufferDesc &desc) {
 	return fbo;
 }
 
-void OpenGLContext::BindFramebufferAsRenderTarget(Framebuffer *fbo, const RenderPassInfo &rp) {
+void OpenGLContext::BindFramebufferAsRenderTarget(Framebuffer *fbo, const RenderPassInfo &rp, const char *tag) {
 	OpenGLFramebuffer *fb = (OpenGLFramebuffer *)fbo;
 	GLRRenderPassAction color = (GLRRenderPassAction)rp.color;
 	GLRRenderPassAction depth = (GLRRenderPassAction)rp.depth;
 	GLRRenderPassAction stencil = (GLRRenderPassAction)rp.stencil;
 
-	renderManager_.BindFramebufferAsRenderTarget(fb ? fb->framebuffer : nullptr, color, depth, stencil, rp.clearColor, rp.clearDepth, rp.clearStencil);
+	renderManager_.BindFramebufferAsRenderTarget(fb ? fb->framebuffer : nullptr, color, depth, stencil, rp.clearColor, rp.clearDepth, rp.clearStencil, tag);
 }
 
-void OpenGLContext::CopyFramebufferImage(Framebuffer *fbsrc, int srcLevel, int srcX, int srcY, int srcZ, Framebuffer *fbdst, int dstLevel, int dstX, int dstY, int dstZ, int width, int height, int depth, int channelBits) {
+void OpenGLContext::CopyFramebufferImage(Framebuffer *fbsrc, int srcLevel, int srcX, int srcY, int srcZ, Framebuffer *fbdst, int dstLevel, int dstX, int dstY, int dstZ, int width, int height, int depth, int channelBits, const char *tag) {
 	OpenGLFramebuffer *src = (OpenGLFramebuffer *)fbsrc;
 	OpenGLFramebuffer *dst = (OpenGLFramebuffer *)fbdst;
 
@@ -1210,10 +1210,10 @@ void OpenGLContext::CopyFramebufferImage(Framebuffer *fbsrc, int srcLevel, int s
 		if (channelBits & FB_STENCIL_BIT)
 			aspect |= GL_STENCIL_BUFFER_BIT;
 	}
-	renderManager_.CopyFramebuffer(src->framebuffer, GLRect2D{ srcX, srcY, width, height }, dst->framebuffer, GLOffset2D{ dstX, dstY }, aspect);
+	renderManager_.CopyFramebuffer(src->framebuffer, GLRect2D{ srcX, srcY, width, height }, dst->framebuffer, GLOffset2D{ dstX, dstY }, aspect, tag);
 }
 
-bool OpenGLContext::BlitFramebuffer(Framebuffer *fbsrc, int srcX1, int srcY1, int srcX2, int srcY2, Framebuffer *fbdst, int dstX1, int dstY1, int dstX2, int dstY2, int channels, FBBlitFilter linearFilter) {
+bool OpenGLContext::BlitFramebuffer(Framebuffer *fbsrc, int srcX1, int srcY1, int srcX2, int srcY2, Framebuffer *fbdst, int dstX1, int dstY1, int dstX2, int dstY2, int channels, FBBlitFilter linearFilter, const char *tag) {
 	OpenGLFramebuffer *src = (OpenGLFramebuffer *)fbsrc;
 	OpenGLFramebuffer *dst = (OpenGLFramebuffer *)fbdst;
 	GLuint aspect = 0;
@@ -1224,7 +1224,7 @@ bool OpenGLContext::BlitFramebuffer(Framebuffer *fbsrc, int srcX1, int srcY1, in
 	if (channels & FB_STENCIL_BIT)
 		aspect |= GL_STENCIL_BUFFER_BIT;
 
-	renderManager_.BlitFramebuffer(src->framebuffer, GLRect2D{ srcX1, srcY1, srcX2 - srcX1, srcY2 - srcY1 }, dst->framebuffer, GLRect2D{ dstX1, dstY1, dstX2 - dstX1, dstY2 - dstY1 }, aspect, linearFilter == FB_BLIT_LINEAR);
+	renderManager_.BlitFramebuffer(src->framebuffer, GLRect2D{ srcX1, srcY1, srcX2 - srcX1, srcY2 - srcY1 }, dst->framebuffer, GLRect2D{ dstX1, dstY1, dstX2 - dstX1, dstY2 - dstY1 }, aspect, linearFilter == FB_BLIT_LINEAR, tag);
 	return true;
 }
 

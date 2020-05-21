@@ -401,7 +401,7 @@ void TextureCacheD3D11::ApplyTextureFramebuffer(TexCacheEntry *entry, VirtualFra
 
 		ID3D11ShaderResourceView *nullTexture = nullptr;
 		context_->PSSetShaderResources(0, 1, &nullTexture);  // In case the target was used in the last draw call. Happens in Sega Rally.
-		draw_->BindFramebufferAsRenderTarget(depalFBO, { Draw::RPAction::DONT_CARE, Draw::RPAction::DONT_CARE, Draw::RPAction::DONT_CARE });
+		draw_->BindFramebufferAsRenderTarget(depalFBO, { Draw::RPAction::DONT_CARE, Draw::RPAction::DONT_CARE, Draw::RPAction::DONT_CARE }, "ApplyTextureFramebuffer_DepalShader");
 		context_->PSSetShaderResources(3, 1, &clutTexture);
 		context_->PSSetSamplers(3, 1, &stockD3D11.samplerPoint2DWrap);
 		framebufferManagerD3D11_->BindFramebufferAsColorTexture(0, framebuffer, BINDFBCOLOR_SKIP_COPY | BINDFBCOLOR_FORCE_SELF);
@@ -779,7 +779,7 @@ bool TextureCacheD3D11::GetCurrentTextureDebug(GPUDebugBuffer &buffer, int level
 	if (entry->framebuffer) {
 		VirtualFramebuffer *vfb = entry->framebuffer;
 		buffer.Allocate(vfb->bufferWidth, vfb->bufferHeight, GPU_DBG_FORMAT_8888, false);
-		bool retval = draw_->CopyFramebufferToMemorySync(vfb->fbo, Draw::FB_COLOR_BIT, 0, 0, vfb->bufferWidth, vfb->bufferHeight, Draw::DataFormat::R8G8B8A8_UNORM, buffer.GetData(), vfb->bufferWidth);
+		bool retval = draw_->CopyFramebufferToMemorySync(vfb->fbo, Draw::FB_COLOR_BIT, 0, 0, vfb->bufferWidth, vfb->bufferHeight, Draw::DataFormat::R8G8B8A8_UNORM, buffer.GetData(), vfb->bufferWidth, "GetCurrentTextureDebug");
 		// Vulkan requires us to re-apply all dynamic state for each command buffer, and the above will cause us to start a new cmdbuf.
 		// So let's dirty the things that are involved in Vulkan dynamic state. Readbacks are not frequent so this won't hurt other backends.
 		gstate_c.Dirty(DIRTY_VIEWPORTSCISSOR_STATE | DIRTY_BLEND_STATE | DIRTY_DEPTHSTENCIL_STATE);

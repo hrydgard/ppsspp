@@ -80,7 +80,7 @@ void UIScreen::preRender() {
 	}
 	draw->BeginFrame();
 	// Bind and clear the back buffer
-	draw->BindFramebufferAsRenderTarget(nullptr, { RPAction::CLEAR, RPAction::CLEAR, RPAction::CLEAR, 0xFF000000 });
+	draw->BindFramebufferAsRenderTarget(nullptr, { RPAction::CLEAR, RPAction::CLEAR, RPAction::CLEAR, 0xFF000000 }, "UI");
 	screenManager()->getUIContext()->BeginFrame();
 
 	Draw::Viewport viewport;

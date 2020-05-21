@@ -127,6 +127,7 @@ struct VKRStep {
 	std::vector<VkRenderData> commands;
 	std::vector<TransitionRequest> preTransitions;
 	TinySet<VKRFramebuffer *, 8> dependencies;
+	const char *tag;
 	union {
 		struct {
 			VKRFramebuffer *framebuffer;

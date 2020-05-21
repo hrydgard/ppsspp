@@ -532,15 +532,17 @@ void FramebufferManagerCommon::NotifyRenderFramebufferSwitched(VirtualFramebuffe
 				// to it. This broke stuff before, so now it only clears on the first use of an
 				// FBO in a frame. This means that some games won't be able to avoid the on-some-GPUs
 				// performance-crushing framebuffer reloads from RAM, but we'll have to live with that.
+
+				// Wait, can we even do this? Seems highly unsafe.. TODO: Remove
 				if (vfb->last_frame_render != gpuStats.numFlips) {
-					draw_->BindFramebufferAsRenderTarget(vfb->fbo, { Draw::RPAction::CLEAR, Draw::RPAction::CLEAR, Draw::RPAction::CLEAR });
+					draw_->BindFramebufferAsRenderTarget(vfb->fbo, { Draw::RPAction::CLEAR, Draw::RPAction::CLEAR, Draw::RPAction::CLEAR }, "FramebufferSwitch");
 					// GLES resets the blend state on clears.
 					gstate_c.Dirty(DIRTY_BLEND_STATE);
 				} else {
-					draw_->BindFramebufferAsRenderTarget(vfb->fbo, { Draw::RPAction::KEEP, Draw::RPAction::KEEP, Draw::RPAction::KEEP });
+					draw_->BindFramebufferAsRenderTarget(vfb->fbo, { Draw::RPAction::KEEP, Draw::RPAction::KEEP, Draw::RPAction::KEEP }, "FramebufferSwitch");
 				}
 			} else {
-				draw_->BindFramebufferAsRenderTarget(vfb->fbo, { Draw::RPAction::KEEP, Draw::RPAction::KEEP, Draw::RPAction::KEEP });
+				draw_->BindFramebufferAsRenderTarget(vfb->fbo, { Draw::RPAction::KEEP, Draw::RPAction::KEEP, Draw::RPAction::KEEP }, "FramebufferSwitch");
 			}
 		} else {
 			// This should only happen very briefly when toggling useBufferedRendering_.
@@ -649,7 +651,7 @@ void FramebufferManagerCommon::DrawPixels(VirtualFramebuffer *vfb, int dstX, int
 	DrawTextureFlags flags;
 	if (useBufferedRendering_ && vfb && vfb->fbo) {
 		flags = DRAWTEX_LINEAR;
-		draw_->BindFramebufferAsRenderTarget(vfb->fbo, { Draw::RPAction::KEEP, Draw::RPAction::KEEP, Draw::RPAction::KEEP });
+		draw_->BindFramebufferAsRenderTarget(vfb->fbo, { Draw::RPAction::KEEP, Draw::RPAction::KEEP, Draw::RPAction::KEEP }, "DrawPixels");
 		SetViewport2D(0, 0, vfb->renderWidth, vfb->renderHeight);
 		draw_->SetScissorRect(0, 0, vfb->renderWidth, vfb->renderHeight);
 	} else {
@@ -833,7 +835,7 @@ void FramebufferManagerCommon::CopyDisplayToOutput(bool reallyDirty) {
 			DEBUG_LOG(FRAMEBUF, "Display disabled, displaying only black");
 		// No framebuffer to display! Clear to black.
 		if (useBufferedRendering_) {
-			draw_->BindFramebufferAsRenderTarget(nullptr, { Draw::RPAction::CLEAR, Draw::RPAction::CLEAR, Draw::RPAction::CLEAR });
+			draw_->BindFramebufferAsRenderTarget(nullptr, { Draw::RPAction::CLEAR, Draw::RPAction::CLEAR, Draw::RPAction::CLEAR }, "CopyDisplayToOutput");
 		}
 		gstate_c.Dirty(DIRTY_BLEND_STATE);
 		return;
@@ -894,7 +896,7 @@ void FramebufferManagerCommon::CopyDisplayToOutput(bool reallyDirty) {
 			if (!vfb) {
 				if (useBufferedRendering_) {
 					// Bind and clear the backbuffer. This should be the first time during the frame that it's bound.
-					draw_->BindFramebufferAsRenderTarget(nullptr, { Draw::RPAction::CLEAR, Draw::RPAction::CLEAR, Draw::RPAction::CLEAR });
+					draw_->BindFramebufferAsRenderTarget(nullptr, { Draw::RPAction::CLEAR, Draw::RPAction::CLEAR, Draw::RPAction::CLEAR }, "CopyDisplayToOutput_Backbuffer");
 				}
 				// Just a pointer to plain memory to draw. We should create a framebuffer, then draw to it.
 				SetViewport2D(0, 0, pixelWidth_, pixelHeight_);
@@ -908,7 +910,7 @@ void FramebufferManagerCommon::CopyDisplayToOutput(bool reallyDirty) {
 			// No framebuffer to display! Clear to black.
 			if (useBufferedRendering_) {
 				// Bind and clear the backbuffer. This should be the first time during the frame that it's bound.
-				draw_->BindFramebufferAsRenderTarget(nullptr, { Draw::RPAction::CLEAR, Draw::RPAction::CLEAR, Draw::RPAction::CLEAR });
+				draw_->BindFramebufferAsRenderTarget(nullptr, { Draw::RPAction::CLEAR, Draw::RPAction::CLEAR, Draw::RPAction::CLEAR }, "CopyDisplayToOutput_NoFBO");
 			}
 			gstate_c.Dirty(DIRTY_BLEND_STATE);
 			return;
@@ -1067,7 +1069,7 @@ void FramebufferManagerCommon::ResizeFramebufFBO(VirtualFramebuffer *vfb, int w,
 	if (old.fbo) {
 		INFO_LOG(FRAMEBUF, "Resizing FBO for %08x : %d x %d x %d", vfb->fb_address, w, h, vfb->format);
 		if (vfb->fbo) {
-			draw_->BindFramebufferAsRenderTarget(vfb->fbo, { Draw::RPAction::CLEAR, Draw::RPAction::CLEAR, Draw::RPAction::CLEAR });
+			draw_->BindFramebufferAsRenderTarget(vfb->fbo, { Draw::RPAction::CLEAR, Draw::RPAction::CLEAR, Draw::RPAction::CLEAR }, "ResizeFramebufFBO");
 			// GLES resets the blend state on clears.
 			gstate_c.Dirty(DIRTY_BLEND_STATE);
 			if (!skipCopy) {
@@ -1076,10 +1078,10 @@ void FramebufferManagerCommon::ResizeFramebufFBO(VirtualFramebuffer *vfb, int w,
 		}
 		fbosToDelete_.push_back(old.fbo);
 		if (needGLESRebinds_) {
-			draw_->BindFramebufferAsRenderTarget(vfb->fbo, { Draw::RPAction::KEEP, Draw::RPAction::KEEP, Draw::RPAction::KEEP });
+			draw_->BindFramebufferAsRenderTarget(vfb->fbo, { Draw::RPAction::KEEP, Draw::RPAction::KEEP, Draw::RPAction::KEEP }, "ResizeFramebufFBO");
 		}
 	} else {
-		draw_->BindFramebufferAsRenderTarget(vfb->fbo, { Draw::RPAction::CLEAR, Draw::RPAction::CLEAR, Draw::RPAction::CLEAR });
+		draw_->BindFramebufferAsRenderTarget(vfb->fbo, { Draw::RPAction::CLEAR, Draw::RPAction::CLEAR, Draw::RPAction::CLEAR }, "ResizeFramebufFBO");
 		// GLES resets the blend state on clears.
 		gstate_c.Dirty(DIRTY_BLEND_STATE);
 	}
@@ -1848,7 +1850,7 @@ bool FramebufferManagerCommon::GetFramebuffer(u32 fb_address, int fb_stride, GEB
 	// TODO: Maybe should handle flipY inside CopyFramebufferToMemorySync somehow?
 	bool flipY = (GetGPUBackend() == GPUBackend::OPENGL && !useBufferedRendering_) ? true : false;
 	buffer.Allocate(w, h, GE_FORMAT_8888, flipY);
-	bool retval = draw_->CopyFramebufferToMemorySync(bound, Draw::FB_COLOR_BIT, 0, 0, w, h, Draw::DataFormat::R8G8B8A8_UNORM, buffer.GetData(), w);
+	bool retval = draw_->CopyFramebufferToMemorySync(bound, Draw::FB_COLOR_BIT, 0, 0, w, h, Draw::DataFormat::R8G8B8A8_UNORM, buffer.GetData(), w, "GetFramebuffer");
 	gpuStats.numReadbacks++;
 	// After a readback we'll have flushed and started over, need to dirty a bunch of things to be safe.
 	gstate_c.Dirty(DIRTY_VIEWPORTSCISSOR_STATE | DIRTY_BLEND_STATE | DIRTY_DEPTHSTENCIL_STATE | DIRTY_RASTER_STATE | DIRTY_TEXTURE_IMAGE | DIRTY_TEXTURE_PARAMS);
@@ -1884,7 +1886,7 @@ bool FramebufferManagerCommon::GetDepthbuffer(u32 fb_address, int fb_stride, u32
 		buffer.Allocate(w, h, GPU_DBG_FORMAT_FLOAT, flipY);
 	}
 	// No need to free on failure, that's the caller's job (it likely will reuse a buffer.)
-	bool retval = draw_->CopyFramebufferToMemorySync(vfb->fbo, Draw::FB_DEPTH_BIT, 0, 0, w, h, Draw::DataFormat::D32F, buffer.GetData(), w);
+	bool retval = draw_->CopyFramebufferToMemorySync(vfb->fbo, Draw::FB_DEPTH_BIT, 0, 0, w, h, Draw::DataFormat::D32F, buffer.GetData(), w, "GetDepthBuffer");
 	// After a readback we'll have flushed and started over, need to dirty a bunch of things to be safe.
 	gstate_c.Dirty(DIRTY_VIEWPORTSCISSOR_STATE | DIRTY_BLEND_STATE | DIRTY_DEPTHSTENCIL_STATE | DIRTY_RASTER_STATE | DIRTY_TEXTURE_IMAGE | DIRTY_TEXTURE_PARAMS);
 	// That may have unbound the framebuffer, rebind to avoid crashes when debugging.
@@ -1916,7 +1918,7 @@ bool FramebufferManagerCommon::GetStencilbuffer(u32 fb_address, int fb_stride, G
 	bool flipY = (GetGPUBackend() == GPUBackend::OPENGL && !useBufferedRendering_) ? true : false;
 	// No need to free on failure, the caller/destructor will do that.  Usually this is a reused buffer, anyway.
 	buffer.Allocate(w, h, GPU_DBG_FORMAT_8BIT, flipY);
-	bool retval = draw_->CopyFramebufferToMemorySync(vfb->fbo, Draw::FB_STENCIL_BIT, 0, 0, w,h, Draw::DataFormat::S8, buffer.GetData(), w);
+	bool retval = draw_->CopyFramebufferToMemorySync(vfb->fbo, Draw::FB_STENCIL_BIT, 0, 0, w,h, Draw::DataFormat::S8, buffer.GetData(), w, "GetStencilbuffer");
 	// That may have unbound the framebuffer, rebind to avoid crashes when debugging.
 	RebindFramebuffer();
 	return retval;
@@ -1930,7 +1932,7 @@ bool FramebufferManagerCommon::GetOutputFramebuffer(GPUDebugBuffer &buffer) {
 	if (fmt != Draw::DataFormat::B8G8R8A8_UNORM)
 		fmt = Draw::DataFormat::R8G8B8A8_UNORM;
 	buffer.Allocate(w, h, fmt == Draw::DataFormat::R8G8B8A8_UNORM ? GPU_DBG_FORMAT_8888 : GPU_DBG_FORMAT_8888_BGRA, false);
-	bool retval = draw_->CopyFramebufferToMemorySync(nullptr, Draw::FB_COLOR_BIT, 0, 0, w, h, fmt, buffer.GetData(), w);
+	bool retval = draw_->CopyFramebufferToMemorySync(nullptr, Draw::FB_COLOR_BIT, 0, 0, w, h, fmt, buffer.GetData(), w, "GetOutputFramebuffer");
 	// That may have unbound the framebuffer, rebind to avoid crashes when debugging.
 	RebindFramebuffer();
 	return retval;
@@ -1972,7 +1974,7 @@ void FramebufferManagerCommon::PackFramebufferSync_(VirtualFramebuffer *vfb, int
 	DEBUG_LOG(G3D, "Reading framebuffer to mem, fb_address = %08x, ptr=%p", fb_address, destPtr);
 
 	if (destPtr) {
-		draw_->CopyFramebufferToMemorySync(vfb->fbo, Draw::FB_COLOR_BIT, x, y, w, h, destFormat, destPtr, vfb->fb_stride);
+		draw_->CopyFramebufferToMemorySync(vfb->fbo, Draw::FB_COLOR_BIT, x, y, w, h, destFormat, destPtr, vfb->fb_stride, "PackFramebufferSync_");
 	} else {
 		ERROR_LOG(G3D, "PackFramebufferSync_: Tried to readback to bad address %08x (stride = %d)", fb_address + dstByteOffset, vfb->fb_stride);
 	}
@@ -2057,10 +2059,10 @@ void FramebufferManagerCommon::DownloadFramebufferForClut(u32 fb_address, u32 lo
 void FramebufferManagerCommon::RebindFramebuffer() {
 	shaderManager_->DirtyLastShader();
 	if (currentRenderVfb_ && currentRenderVfb_->fbo) {
-		draw_->BindFramebufferAsRenderTarget(currentRenderVfb_->fbo, { Draw::RPAction::KEEP, Draw::RPAction::KEEP, Draw::RPAction::KEEP });
+		draw_->BindFramebufferAsRenderTarget(currentRenderVfb_->fbo, { Draw::RPAction::KEEP, Draw::RPAction::KEEP, Draw::RPAction::KEEP }, "RebindFramebuffer");
 	} else {
 		// Should this even happen?  It could while debugging, but maybe we can just skip binding at all.
-		draw_->BindFramebufferAsRenderTarget(nullptr, { Draw::RPAction::KEEP, Draw::RPAction::KEEP, Draw::RPAction::KEEP });
+		draw_->BindFramebufferAsRenderTarget(nullptr, { Draw::RPAction::KEEP, Draw::RPAction::KEEP, Draw::RPAction::KEEP }, "RebindFramebuffer_Bad");
 	}
 	gstate_c.Dirty(DIRTY_VIEWPORTSCISSOR_STATE);
 }

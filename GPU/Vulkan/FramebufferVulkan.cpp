@@ -277,7 +277,7 @@ void FramebufferManagerVulkan::BlitFramebufferDepth(VirtualFramebuffer *src, Vir
 	bool matchingRenderSize = src->renderWidth == dst->renderWidth && src->renderHeight == dst->renderHeight;
 	if (matchingDepthBuffer && matchingRenderSize && matchingSize) {
 		// TODO: Currently, this copies depth AND stencil, which is a problem.  See #9740.
-		draw_->CopyFramebufferImage(src->fbo, 0, 0, 0, 0, dst->fbo, 0, 0, 0, 0, src->renderWidth, src->renderHeight, 1, Draw::FB_DEPTH_BIT);
+		draw_->CopyFramebufferImage(src->fbo, 0, 0, 0, 0, dst->fbo, 0, 0, 0, 0, src->renderWidth, src->renderHeight, 1, Draw::FB_DEPTH_BIT, "BlitFramebufferDepth");
 		dst->last_frame_depth_updated = gpuStats.numFlips;
 	} else if (matchingDepthBuffer && matchingSize) {
 		/*
@@ -332,7 +332,7 @@ void FramebufferManagerVulkan::BlitFramebuffer(VirtualFramebuffer *dst, int dstX
 	if (!dst->fbo || !src->fbo || !useBufferedRendering_) {
 		// This can happen if they recently switched from non-buffered.
 		if (useBufferedRendering_)
-			draw_->BindFramebufferAsRenderTarget(nullptr, { Draw::RPAction::KEEP, Draw::RPAction::KEEP, Draw::RPAction::KEEP });
+			draw_->BindFramebufferAsRenderTarget(nullptr, { Draw::RPAction::KEEP, Draw::RPAction::KEEP, Draw::RPAction::KEEP }, "BlitFramebuffer_Fail");
 		return;
 	}
 
@@ -393,9 +393,9 @@ void FramebufferManagerVulkan::BlitFramebuffer(VirtualFramebuffer *dst, int dstX
 	const bool xOverlap = src == dst && srcX2 > dstX1 && srcX1 < dstX2;
 	const bool yOverlap = src == dst && srcY2 > dstY1 && srcY1 < dstY2;
 	if (sameSize && sameDepth && srcInsideBounds && dstInsideBounds && !(xOverlap && yOverlap)) {
-		draw_->CopyFramebufferImage(src->fbo, 0, srcX1, srcY1, 0, dst->fbo, 0, dstX1, dstY1, 0, dstX2 - dstX1, dstY2 - dstY1, 1, Draw::FB_COLOR_BIT);
+		draw_->CopyFramebufferImage(src->fbo, 0, srcX1, srcY1, 0, dst->fbo, 0, dstX1, dstY1, 0, dstX2 - dstX1, dstY2 - dstY1, 1, Draw::FB_COLOR_BIT, "BlitFramebuffer_Copy");
 	} else {
-		draw_->BlitFramebuffer(src->fbo, srcX1, srcY1, srcX2, srcY2, dst->fbo, dstX1, dstY1, dstX2, dstY2, Draw::FB_COLOR_BIT, Draw::FB_BLIT_NEAREST);
+		draw_->BlitFramebuffer(src->fbo, srcX1, srcY1, srcX2, srcY2, dst->fbo, dstX1, dstY1, dstX2, dstY2, Draw::FB_COLOR_BIT, Draw::FB_BLIT_NEAREST, "BlitFramebuffer_Blit");
 	}
 }
 
