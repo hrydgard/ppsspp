@@ -297,6 +297,7 @@ struct GLRStep {
 	GLRStepType stepType;
 	std::vector<GLRRenderData> commands;
 	TinySet<const GLRFramebuffer *, 8> dependencies;
+	const char *tag;
 	union {
 		struct {
 			GLRFramebuffer *framebuffer;
