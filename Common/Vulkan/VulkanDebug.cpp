@@ -23,7 +23,7 @@
 #include "Common/Vulkan/VulkanDebug.h"
 #include "base/logging.h"
 
-const char *ObjTypeToString(VkDebugReportObjectTypeEXT type) {
+const char *VulkanObjTypeToString(VkDebugReportObjectTypeEXT type) {
 	switch (type) {
 	case VK_DEBUG_REPORT_OBJECT_TYPE_INSTANCE_EXT: return "Instance";
 	case VK_DEBUG_REPORT_OBJECT_TYPE_PHYSICAL_DEVICE_EXT: return "PhysicalDevice";
@@ -71,7 +71,7 @@ VkBool32 VKAPI_CALL VulkanDebugReportCallback(VkDebugReportFlagsEXT msgFlags, Vk
 	} else if (msgFlags & VK_DEBUG_REPORT_DEBUG_BIT_EXT) {
 		message << "DEBUG: ";
 	}
-	message << "[" << pLayerPrefix << "] " << ObjTypeToString(objType) << " Code " << msgCode << " : " << pMsg << "\n";
+	message << "[" << pLayerPrefix << "] " << VulkanObjTypeToString(objType) << " Code " << msgCode << " : " << pMsg << "\n";
 
 	if (msgCode == 64)  // Another useless perf warning that will be seen less and less as we optimize -  vkCmdClearAttachments() issued on command buffer object 0x00000195296C6D40 prior to any Draw Cmds. It is recommended you use RenderPass LOAD_OP_CLEAR on Attachments prior to any Draw.
 		return false;
