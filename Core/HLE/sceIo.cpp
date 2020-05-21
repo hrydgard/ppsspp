@@ -621,7 +621,7 @@ void __IoInit() {
 	asyncNotifyEvent = CoreTiming::RegisterEvent("IoAsyncNotify", __IoAsyncNotify);
 	syncNotifyEvent = CoreTiming::RegisterEvent("IoSyncNotify", __IoSyncNotify);
 
-	memstickSystem = new DirectoryFileSystem(&pspFileSystem, g_Config.memStickDirectory, FILESYSTEM_SIMULATE_FAT32);
+	memstickSystem = new DirectoryFileSystem(&pspFileSystem, g_Config.memStickDirectory, FileSystemFlags::SIMULATE_FAT32);
 #if defined(USING_WIN_UI) || defined(APPLE)
 	flash0System = new DirectoryFileSystem(&pspFileSystem, g_Config.flash0Directory);
 #else
@@ -637,7 +637,7 @@ void __IoInit() {
 		const std::string gameId = g_paramSFO.GetValueString("DISC_ID");
 		const std::string exdataPath = g_Config.memStickDirectory + "exdata/" + gameId + "/";
 		if (File::Exists(exdataPath)) {
-			exdataSystem = new DirectoryFileSystem(&pspFileSystem, exdataPath, FILESYSTEM_SIMULATE_FAT32);
+			exdataSystem = new DirectoryFileSystem(&pspFileSystem, exdataPath, FileSystemFlags::SIMULATE_FAT32);
 			pspFileSystem.Mount("exdata0:", exdataSystem);
 			INFO_LOG(SCEIO, "Mounted exdata/%s/ under memstick for exdata0:/", gameId.c_str());
 		} else {
@@ -1423,8 +1423,7 @@ static u32 sceIoLseek32Async(int id, int offset, int whence) {
 	return 0;
 }
 
-static FileNode *__IoOpen(int &error, const char* filename, int flags, int mode) {
-	//memory stick filename
+static FileNode *__IoOpen(int &error, const char *filename, int flags, int mode) {
 	int access = FILEACCESS_NONE;
 	if (flags & PSP_O_RDONLY)
 		access |= FILEACCESS_READ;
@@ -2290,7 +2289,7 @@ static u32 sceIoDread(int id, u32 dirent_addr) {
 		
 		bool isFAT = false;
 		IFileSystem *sys = pspFileSystem.GetSystemFromFilename(dir->name);
-		if (sys && (sys->Flags() & FILESYSTEM_SIMULATE_FAT32))
+		if (sys && (sys->Flags() & FileSystemFlags::SIMULATE_FAT32))
 			isFAT = true;
 		else
 			isFAT = false;

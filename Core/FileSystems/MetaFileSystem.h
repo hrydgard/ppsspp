@@ -115,7 +115,7 @@ public:
 	bool RemoveFile(const std::string &filename) override;
 	int  Ioctl(u32 handle, u32 cmd, u32 indataPtr, u32 inlen, u32 outdataPtr, u32 outlen, int &usec) override;
 	int  DevType(u32 handle) override;
-	int  Flags() override { return 0; }
+	FileSystemFlags Flags() override { return FileSystemFlags::NONE; }
 	u64  FreeSpace(const std::string &path) override;
 
 	// Convenience helper - returns < 0 on failure.

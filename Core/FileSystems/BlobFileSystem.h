@@ -44,7 +44,7 @@ public:
 	bool     OwnsHandle(u32 handle) override;
 	int      Ioctl(u32 handle, u32 cmd, u32 indataPtr, u32 inlen, u32 outdataPtr, u32 outlen, int &usec) override;
 	int      DevType(u32 handle) override;
-	int      Flags() override { return 0; }
+	FileSystemFlags Flags() override { return FileSystemFlags::NONE; }
 
 	bool MkDir(const std::string &dirname) override;
 	bool RmDir(const std::string &dirname) override;

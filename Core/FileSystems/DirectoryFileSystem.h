@@ -85,7 +85,7 @@ struct DirectoryFileHandle {
 
 class DirectoryFileSystem : public IFileSystem {
 public:
-	DirectoryFileSystem(IHandleAllocator *_hAlloc, std::string _basePath, int _flags = 0);
+	DirectoryFileSystem(IHandleAllocator *_hAlloc, std::string _basePath, FileSystemFlags _flags = FileSystemFlags::NONE);
 	~DirectoryFileSystem();
 
 	void CloseAll();
@@ -109,7 +109,7 @@ public:
 	int  RenameFile(const std::string &from, const std::string &to) override;
 	bool RemoveFile(const std::string &filename) override;
 	bool GetHostPath(const std::string &inpath, std::string &outpath) override;
-	int Flags() override { return flags; }
+	FileSystemFlags Flags() override { return flags; }
 	u64 FreeSpace(const std::string &path) override;
 
 private:
@@ -123,7 +123,7 @@ private:
 	EntryMap entries;
 	std::string basePath;
 	IHandleAllocator *hAlloc;
-	int flags;
+	FileSystemFlags flags;
 	// In case of Windows: Translate slashes, etc.
 	std::string GetLocalPath(std::string localpath);
 };
@@ -154,7 +154,7 @@ public:
 	int  RenameFile(const std::string &from, const std::string &to) override;
 	bool RemoveFile(const std::string &filename) override;
 	bool GetHostPath(const std::string &inpath, std::string &outpath) override;
-	int Flags() override { return 0; }
+	FileSystemFlags Flags() override { return FileSystemFlags::NONE; }
 	u64 FreeSpace(const std::string &path) override { return 0; }
 
 private:

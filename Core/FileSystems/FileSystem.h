@@ -50,9 +50,17 @@ enum DevType {
 	PSP_DEV_TYPE_ALIAS = 0x20,
 };
 
-enum FileSystemFlags {
-	FILESYSTEM_SIMULATE_FAT32 = 1,
+enum class FileSystemFlags {
+	NONE = 0,
+	SIMULATE_FAT32 = 1,
 };
+
+inline FileSystemFlags operator |(const FileSystemFlags &lhs, const FileSystemFlags &rhs) {
+	return FileSystemFlags((int)lhs | (int)rhs);
+}
+inline bool operator &(const FileSystemFlags &lhs, const FileSystemFlags &rhs) {
+	return ((int)lhs & (int)rhs) != 0;
+}
 
 class IHandleAllocator {
 public:
@@ -126,7 +134,7 @@ public:
 	virtual bool     GetHostPath(const std::string &inpath, std::string &outpath) = 0;
 	virtual int      Ioctl(u32 handle, u32 cmd, u32 indataPtr, u32 inlen, u32 outdataPtr, u32 outlen, int &usec) = 0;
 	virtual int      DevType(u32 handle) = 0;
-	virtual int      Flags() = 0;
+	virtual FileSystemFlags Flags() = 0;
 	virtual u64      FreeSpace(const std::string &path) = 0;
 };
 
@@ -152,7 +160,7 @@ public:
 	virtual bool GetHostPath(const std::string &inpath, std::string &outpath) override {return false;}
 	virtual int Ioctl(u32 handle, u32 cmd, u32 indataPtr, u32 inlen, u32 outdataPtr, u32 outlen, int &usec) override {return SCE_KERNEL_ERROR_ERRNO_FUNCTION_NOT_SUPPORTED; }
 	virtual int DevType(u32 handle) override { return 0; }
-	virtual int Flags() override { return 0; }
+	virtual FileSystemFlags Flags() override { return FileSystemFlags::NONE; }
 	virtual u64 FreeSpace(const std::string &path) override { return 0; }
 };
 

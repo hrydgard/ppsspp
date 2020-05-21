@@ -41,7 +41,7 @@ public:
 	int      DevType(u32 handle) override;
 	bool GetHostPath(const std::string &inpath, std::string &outpath) override;
 	std::vector<PSPFileInfo> GetDirListing(std::string path) override;
-	int  Flags() override { return 0; }
+	FileSystemFlags Flags() override { return FileSystemFlags::NONE; }
 	u64  FreeSpace(const std::string &path) override { return 0; }
 
 	// unsupported operations

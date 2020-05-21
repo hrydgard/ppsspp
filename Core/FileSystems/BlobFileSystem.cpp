@@ -109,7 +109,7 @@ int BlobFileSystem::Ioctl(u32 handle, u32 cmd, u32 indataPtr, u32 inlen, u32 out
 }
 
 int BlobFileSystem::DevType(u32 handle) {
-	return -1;
+	return PSP_DEV_TYPE_FILE;
 }
 
 bool BlobFileSystem::MkDir(const std::string &dirname) {

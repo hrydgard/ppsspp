@@ -150,7 +150,7 @@ bool FixPathCase(const std::string &basePath, std::string &path, FixPathCaseBeha
 
 #endif
 
-DirectoryFileSystem::DirectoryFileSystem(IHandleAllocator *_hAlloc, std::string _basePath, int _flags) : basePath(_basePath), flags(_flags) {
+DirectoryFileSystem::DirectoryFileSystem(IHandleAllocator *_hAlloc, std::string _basePath, FileSystemFlags _flags) : basePath(_basePath), flags(_flags) {
 	File::CreateFullPath(basePath);
 	hAlloc = _hAlloc;
 }
@@ -874,7 +874,9 @@ std::vector<PSPFileInfo> DirectoryFileSystem::GetDirListing(std::string path) {
 			entry.size = 4096;
 		else
 			entry.size = findData.nFileSizeLow | ((u64)findData.nFileSizeHigh<<32);
-		entry.name = SimulateVFATBug(ConvertWStringToUTF8(findData.cFileName));
+		entry.name = ConvertWStringToUTF8(findData.cFileName);
+		if (Flags() & FileSystemFlags::SIMULATE_FAT32)
+			entry.name = SimulateVFATBug(entry.name);
 
 		bool hideFile = false;
 		if (hideISOFiles && (endsWithNoCase(entry.name, ".cso") || endsWithNoCase(entry.name, ".iso"))) {
@@ -921,7 +923,9 @@ std::vector<PSPFileInfo> DirectoryFileSystem::GetDirListing(std::string path) {
 		else
 			entry.type = FILETYPE_NORMAL;
 		entry.access = s.st_mode & 0x1FF;
-		entry.name = SimulateVFATBug(dirp->d_name);
+		entry.name = dirp->d_name;
+		if (Flags() & FileSystemFlags::SIMULATE_FAT32)
+			entry.name = SimulateVFATBug(entry.name);
 		entry.size = s.st_size;
 
 		bool hideFile = false;
