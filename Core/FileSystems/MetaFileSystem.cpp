@@ -258,8 +258,8 @@ std::string MetaFileSystem::NormalizePrefix(std::string prefix) const {
 	// Let's apply some mapping here since it won't break savestates.
 	if (prefix == "memstick:")
 		prefix = "ms0:";
-	// Seems like umd00: etc. work just fine...
-	if (startsWith(prefix, "umd"))
+	// Seems like umd00: etc. work just fine... avoid umd1/umd for tests.
+	if (startsWith(prefix, "umd") && prefix != "umd1:" && prefix != "umd:")
 		prefix = "umd0:";
 	// Seems like umd00: etc. work just fine...
 	if (startsWith(prefix, "host"))
