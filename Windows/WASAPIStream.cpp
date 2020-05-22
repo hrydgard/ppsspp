@@ -384,14 +384,14 @@ void WASAPIAudioThread::Run() {
 		if (FAILED(hresult) || pData == nullptr) {
 			// What to do?
 		} else if (pNumAvFrames) {
+			int chans = deviceFormat_->Format.nChannels;
 			switch (format_) {
 			case Format::IEEE_FLOAT:
-				callback_(shortBuf_, pNumAvFrames, 16, sampleRate_, 2);
-				if (deviceFormat_->Format.nChannels == 2) {
-					ConvertS16ToF32((float *)pData, shortBuf_, pNumAvFrames * deviceFormat_->Format.nChannels);
-				} else {
+				callback_(shortBuf_, pNumAvFrames, 16, sampleRate_, chans);
+				if (chans == 2) {
+					ConvertS16ToF32((float *)pData, shortBuf_, pNumAvFrames * chans);
+				} else if (chans > 2) {
 					float *ptr = (float *)pData;
-					int chans = deviceFormat_->Format.nChannels;
 					memset(ptr, 0, pNumAvFrames * chans * sizeof(float));
 					for (UINT32 i = 0; i < pNumAvFrames; i++) {
 						ptr[i * chans + 0] = (float)shortBuf_[i * 2] * (1.0f / 32768.0f);
@@ -400,7 +400,7 @@ void WASAPIAudioThread::Run() {
 				}
 				break;
 			case Format::PCM16:
-				callback_((short *)pData, pNumAvFrames, 16, sampleRate_, 2);
+				callback_((short *)pData, pNumAvFrames, 16, sampleRate_, chans);
 				break;
 			}
 		}
