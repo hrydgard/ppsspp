@@ -196,6 +196,7 @@ private:
 	bool InitAudioDevice();
 	void ShutdownAudioDevice();
 	bool DetectFormat();
+	bool PrepareFormat();
 
 	std::atomic<int> &threadData_;
 	int &sampleRate_;
@@ -252,6 +253,11 @@ bool WASAPIAudioThread::InitAudioDevice() {
 	if (FAILED(hresult) || !deviceFormat_)
 		return false;
 
+	if (!DetectFormat()) {
+		// Format unsupported - let's not even try to initialize.
+		return false;
+	}
+
 	hresult = audioInterface_->Initialize(AUDCLNT_SHAREMODE_SHARED, 0, hnsBufferDuration, 0, &deviceFormat_->Format, nullptr);
 	if (FAILED(hresult))
 		return false;
@@ -285,7 +291,8 @@ bool WASAPIAudioThread::DetectFormat() {
 
 	if (deviceFormat_->Format.wFormatTag == WAVE_FORMAT_EXTENSIBLE) {
 		if (!memcmp(&deviceFormat_->SubFormat, &KSDATAFORMAT_SUBTYPE_IEEE_FLOAT, sizeof(deviceFormat_->SubFormat))) {
-			format_ = Format::IEEE_FLOAT;
+			if (deviceFormat_->Format.nChannels >= 2)
+				format_ = Format::IEEE_FLOAT;
 		} else {
 			ERROR_LOG_REPORT_ONCE(unexpectedformat, SCEAUDIO, "Got unexpected WASAPI 0xFFFE stream format, expected float!");
 			if (deviceFormat_->Format.wBitsPerSample == 16 && deviceFormat_->Format.nChannels == 2) {
@@ -293,7 +300,8 @@ bool WASAPIAudioThread::DetectFormat() {
 			}
 		}
 	} else if (deviceFormat_->Format.wFormatTag == WAVE_FORMAT_IEEE_FLOAT) {
-		format_ = Format::IEEE_FLOAT;
+		if (deviceFormat_->Format.nChannels >= 2)
+			format_ = Format::IEEE_FLOAT;
 	} else {
 		ERROR_LOG_REPORT_ONCE(unexpectedformat2, SCEAUDIO, "Got unexpected non-extensible WASAPI stream format, expected extensible float!");
 		if (deviceFormat_->Format.wBitsPerSample == 16 && deviceFormat_->Format.nChannels == 2) {
@@ -301,11 +309,12 @@ bool WASAPIAudioThread::DetectFormat() {
 		}
 	}
 
+	return format_ != Format::UNKNOWN;
+}
+
+bool WASAPIAudioThread::PrepareFormat() {
 	delete [] shortBuf_;
 	shortBuf_ = nullptr;
-	if (format_ == Format::UNKNOWN) {
-		return false;
-	}
 
 	BYTE *pData = nullptr;
 	HRESULT hresult = renderClient_->GetBuffer(numBufferFrames, &pData);
@@ -356,7 +365,7 @@ void WASAPIAudioThread::Run() {
 		ERROR_LOG(SCEAUDIO, "WASAPI: Could not init audio device");
 		return;
 	}
-	if (!DetectFormat()) {
+	if (!PrepareFormat()) {
 		ERROR_LOG(SCEAUDIO, "WASAPI: Could not find a suitable audio output format");
 		return;
 	}
@@ -430,7 +439,7 @@ void WASAPIAudioThread::Run() {
 				ERROR_LOG(SCEAUDIO, "WASAPI: Could not init audio device");
 				return;
 			}
-			if (!DetectFormat()) {
+			if (!PrepareFormat()) {
 				ERROR_LOG(SCEAUDIO, "WASAPI: Could not find a suitable audio output format");
 				return;
 			}
