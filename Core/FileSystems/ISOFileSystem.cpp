@@ -617,6 +617,7 @@ PSPFileInfo ISOFileSystem::GetFileInfo(std::string filename) {
 		fileInfo.exists = true;
 		fileInfo.type = FILETYPE_NORMAL;
 		fileInfo.size = readSize;
+		fileInfo.access = 0444;
 		fileInfo.startSector = sectorStart;
 		fileInfo.isOnSectorSystem = true;
 		fileInfo.numSectors = (readSize + sectorSize - 1) / sectorSize;
@@ -625,12 +626,10 @@ PSPFileInfo ISOFileSystem::GetFileInfo(std::string filename) {
 
 	TreeEntry *entry = GetFromPath(filename, false);
 	PSPFileInfo x; 
-	if (!entry) {
-		x.size = 0;
-		x.exists = false;
-	} else {
+	if (entry) {
 		x.name = entry->name;
-		x.access = FILEACCESS_READ;
+		// Strangely, it seems to be executable even for files.
+		x.access = 0555;
 		x.size = entry->size;
 		x.exists = true;
 		x.type = entry->isDirectory ? FILETYPE_DIRECTORY : FILETYPE_NORMAL;
@@ -658,16 +657,14 @@ std::vector<PSPFileInfo> ISOFileSystem::GetDirListing(std::string path) {
 
 		PSPFileInfo x;
 		x.name = e->name;
-		x.access = FILEACCESS_READ;
+		// Strangely, it seems to be executable even for files.
+		x.access = 0555;
 		x.size = e->size;
 		x.type = e->isDirectory ? FILETYPE_DIRECTORY : FILETYPE_NORMAL;
 		x.isOnSectorSystem = true;
 		x.startSector = e->startingPosition/2048;
 		x.sectorSize = sectorSize;
 		x.numSectors = (u32)((e->size + sectorSize - 1) / sectorSize);
-		memset(&x.atime, 0, sizeof(x.atime));
-		memset(&x.mtime, 0, sizeof(x.mtime));
-		memset(&x.ctime, 0, sizeof(x.ctime));
 		myVector.push_back(x);
 	}
 	return myVector;

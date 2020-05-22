@@ -88,29 +88,25 @@ private:
 };
 
 struct PSPFileInfo {
-	PSPFileInfo()
-		: size(0), access(0), exists(false), type(FILETYPE_NORMAL), isOnSectorSystem(false), startSector(0), numSectors(0), sectorSize(0) {
-		memset(&ctime, 0, sizeof(ctime));
-		memset(&atime, 0, sizeof(atime));
-		memset(&mtime, 0, sizeof(mtime));
+	PSPFileInfo() {
 	}
 
 	void DoState(PointerWrap &p);
 
 	std::string name;
-	s64 size;
-	u32 access; //unix 777
-	bool exists;
-	FileType type;
+	s64 size = 0;
+	u32 access = 0; //unix 777
+	bool exists = false;
+	FileType type = FILETYPE_NORMAL;
 
-	tm atime;
-	tm ctime;
-	tm mtime;
+	tm atime{};
+	tm ctime{};
+	tm mtime{};
 
-	bool isOnSectorSystem;
-	u32 startSector;
-	u32 numSectors;
-	u32 sectorSize;
+	bool isOnSectorSystem = false;
+	u32 startSector = 0;
+	u32 numSectors = 0;
+	u32 sectorSize = 0;
 };
 
 

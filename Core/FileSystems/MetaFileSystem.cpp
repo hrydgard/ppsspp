@@ -370,7 +370,7 @@ PSPFileInfo MetaFileSystem::GetFileInfo(std::string filename)
 	}
 	else
 	{
-		PSPFileInfo bogus; // TODO
+		PSPFileInfo bogus;
 		return bogus; 
 	}
 }
