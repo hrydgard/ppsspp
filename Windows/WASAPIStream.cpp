@@ -35,8 +35,7 @@ public:
 	}
 
 	~CMMNotificationClient() {
-		if (currentDevice_)
-			CoTaskMemFree(currentDevice_);
+		CoTaskMemFree(currentDevice_);
 		currentDevice_ = nullptr;
 		SAFE_RELEASE(_pEnumerator)
 	}
@@ -44,8 +43,8 @@ public:
 	void SetCurrentDevice(IMMDevice *device) {
 		std::lock_guard<std::mutex> guard(lock_);
 
-		if (currentDevice_)
-			CoTaskMemFree(currentDevice_);
+		CoTaskMemFree(currentDevice_);
+		currentDevice_ = nullptr;
 		if (!device || FAILED(device->GetId(&currentDevice_))) {
 			currentDevice_ = nullptr;
 		}
@@ -196,6 +195,7 @@ private:
 	bool InitAudioDevice();
 	void ShutdownAudioDevice();
 	bool DetectFormat();
+	bool ValidateFormat(const WAVEFORMATEXTENSIBLE *fmt);
 	bool PrepareFormat();
 
 	std::atomic<int> &threadData_;
@@ -285,26 +285,74 @@ void WASAPIAudioThread::ShutdownAudioDevice() {
 }
 
 bool WASAPIAudioThread::DetectFormat() {
+	if (!ValidateFormat(deviceFormat_)) {
+		// Last chance, let's try to ask for one we support instead.
+		WAVEFORMATEXTENSIBLE fmt{};
+		fmt.Format.cbSize = sizeof(fmt);
+		fmt.Format.wFormatTag = WAVE_FORMAT_IEEE_FLOAT;
+		fmt.Format.nChannels = 2;
+		fmt.Format.nSamplesPerSec = 44100;
+		if (deviceFormat_->Format.nSamplesPerSec >= 22050 && deviceFormat_->Format.nSamplesPerSec <= 192000)
+			fmt.Format.nSamplesPerSec = deviceFormat_->Format.nSamplesPerSec;
+		fmt.Format.nBlockAlign = 2 * sizeof(float);
+		fmt.Format.nAvgBytesPerSec = fmt.Format.nSamplesPerSec * fmt.Format.nBlockAlign;
+		fmt.Format.wBitsPerSample = sizeof(float) * 8;
+		fmt.Samples.wReserved = 0;
+		fmt.dwChannelMask = SPEAKER_FRONT_LEFT | SPEAKER_FRONT_RIGHT;
+		fmt.SubFormat = KSDATAFORMAT_SUBTYPE_IEEE_FLOAT;
+
+		WAVEFORMATEXTENSIBLE *closest = nullptr;
+		HRESULT hr = audioInterface_->IsFormatSupported(AUDCLNT_SHAREMODE_SHARED, &fmt.Format, (WAVEFORMATEX **)&closest);
+		if (hr == S_OK) {
+			// Okay, great.  Let's just use ours.
+			CoTaskMemFree(closest);
+			CoTaskMemFree(deviceFormat_);
+			deviceFormat_ = (WAVEFORMATEXTENSIBLE *)CoTaskMemAlloc(sizeof(fmt));
+			memcpy(deviceFormat_, &fmt, sizeof(fmt));
+
+			// In case something above gets out of date.
+			return ValidateFormat(deviceFormat_);
+		} else if (hr == S_FALSE && closest != nullptr) {
+			// This means check closest.  We'll allow it only if it's less specific on channels.
+			if (ValidateFormat(closest)) {
+				CoTaskMemFree(deviceFormat_);
+				deviceFormat_ = closest;
+			} else {
+				ERROR_LOG_REPORT_ONCE(badfallbackclosest, SCEAUDIO, "WASAPI fallback and closest unsupported");
+				CoTaskMemFree(closest);
+				return false;
+			}
+		} else {
+			CoTaskMemFree(closest);
+			ERROR_LOG_REPORT_ONCE(badfallback, SCEAUDIO, "WASAPI fallback format was unsupported");
+			return false;
+		}
+	}
+
+	return true;
+}
+
+bool WASAPIAudioThread::ValidateFormat(const WAVEFORMATEXTENSIBLE *fmt) {
 	// Don't know if PCM16 ever shows up here, the documentation only talks about float... but let's blindly
 	// try to support it :P
 	format_ = Format::UNKNOWN;
 
-	if (deviceFormat_->Format.wFormatTag == WAVE_FORMAT_EXTENSIBLE) {
-		if (!memcmp(&deviceFormat_->SubFormat, &KSDATAFORMAT_SUBTYPE_IEEE_FLOAT, sizeof(deviceFormat_->SubFormat))) {
-			if (deviceFormat_->Format.nChannels >= 2)
+	if (fmt->Format.wFormatTag == WAVE_FORMAT_EXTENSIBLE) {
+		if (!memcmp(&fmt->SubFormat, &KSDATAFORMAT_SUBTYPE_IEEE_FLOAT, sizeof(fmt->SubFormat))) {
+			if (fmt->Format.nChannels >= 2)
 				format_ = Format::IEEE_FLOAT;
 		} else {
 			ERROR_LOG_REPORT_ONCE(unexpectedformat, SCEAUDIO, "Got unexpected WASAPI 0xFFFE stream format, expected float!");
-			if (deviceFormat_->Format.wBitsPerSample == 16 && deviceFormat_->Format.nChannels == 2) {
+			if (fmt->Format.wBitsPerSample == 16 && fmt->Format.nChannels == 2) {
 				format_ = Format::PCM16;
 			}
 		}
-	} else if (deviceFormat_->Format.wFormatTag == WAVE_FORMAT_IEEE_FLOAT) {
-		if (deviceFormat_->Format.nChannels >= 2)
+	} else if (fmt->Format.wFormatTag == WAVE_FORMAT_IEEE_FLOAT) {
+		if (fmt->Format.nChannels >= 2)
 			format_ = Format::IEEE_FLOAT;
 	} else {
 		ERROR_LOG_REPORT_ONCE(unexpectedformat2, SCEAUDIO, "Got unexpected non-extensible WASAPI stream format, expected extensible float!");
-		if (deviceFormat_->Format.wBitsPerSample == 16 && deviceFormat_->Format.nChannels == 2) {
+		if (fmt->Format.wBitsPerSample == 16 && fmt->Format.nChannels == 2) {
 			format_ = Format::PCM16;
 		}
 	}
