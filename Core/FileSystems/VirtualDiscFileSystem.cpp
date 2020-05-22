@@ -554,7 +554,10 @@ int VirtualDiscFileSystem::Ioctl(u32 handle, u32 cmd, u32 indataPtr, u32 inlen, 
 
 PSPDevType VirtualDiscFileSystem::DevType(u32 handle) {
 	EntryMap::iterator iter = entries.find(handle);
-	return iter->second.type == VFILETYPE_ISO ? PSPDevType::BLOCK : PSPDevType::FILE;
+	PSPDevType type = iter->second.type == VFILETYPE_ISO ? PSPDevType::BLOCK : PSPDevType::FILE;
+	if (iter->second.type == VFILETYPE_LBN)
+		type |= PSPDevType::EMU_LBN;
+	return type;
 }
 
 PSPFileInfo VirtualDiscFileSystem::GetFileInfo(std::string filename) {
