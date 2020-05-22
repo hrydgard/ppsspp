@@ -340,10 +340,9 @@ u32 sceGeListEnQueue(u32 listAddress, u32 stallAddress, int callbackId, u32 optP
 	if ((int)listID >= 0)
 		listID = LIST_ID_MAGIC ^ listID;
 
-	DEBUG_LOG(SCEGE, "List %i enqueued.", listID);
 	hleEatCycles(490);
 	CoreTiming::ForceCheck();
-	return listID;
+	return hleLogSuccessX(SCEGE, listID);
 }
 
 u32 sceGeListEnQueueHead(u32 listAddress, u32 stallAddress, int callbackId, u32 optParamAddr) {
@@ -353,13 +352,12 @@ u32 sceGeListEnQueueHead(u32 listAddress, u32 stallAddress, int callbackId, u32 
 	auto optParam = PSPPointer<PspGeListArgs>::Create(optParamAddr);
 
 	u32 listID = gpu->EnqueueList(listAddress, stallAddress, __GeSubIntrBase(callbackId), optParam, true);
-	if ((int)listID >= 0) {
+	if ((int)listID >= 0)
 		listID = LIST_ID_MAGIC ^ listID;
-		DEBUG_LOG(SCEGE, "List %i enqueued at head.", listID);
-	}
+
 	hleEatCycles(480);
 	CoreTiming::ForceCheck();
-	return listID;
+	return hleLogSuccessX(SCEGE, listID);
 }
 
 static int sceGeListDeQueue(u32 listID) {
@@ -594,8 +592,8 @@ static u32 sceGeEdramSetAddrTranslation(int new_size) {
 
 const HLEFunction sceGe_user[] = {
 	{0XE47E40E4, &WrapU_V<sceGeEdramGetAddr>,            "sceGeEdramGetAddr",            'x', ""    },
-	{0XAB49E76A, &WrapU_UUIU<sceGeListEnQueue>,          "sceGeListEnQueue",             'x', "xxix"},
-	{0X1C0D95A6, &WrapU_UUIU<sceGeListEnQueueHead>,      "sceGeListEnQueueHead",         'x', "xxix"},
+	{0XAB49E76A, &WrapU_UUIU<sceGeListEnQueue>,          "sceGeListEnQueue",             'x', "xxip"},
+	{0X1C0D95A6, &WrapU_UUIU<sceGeListEnQueueHead>,      "sceGeListEnQueueHead",         'x', "xxip"},
 	{0XE0D68148, &WrapI_UU<sceGeListUpdateStallAddr>,    "sceGeListUpdateStallAddr",     'i', "xx"  },
 	{0X03444EB4, &WrapI_UU<sceGeListSync>,               "sceGeListSync",                'i', "xx"  },
 	{0XB287BD61, &WrapU_U<sceGeDrawSync>,                "sceGeDrawSync",                'x', "x"   },
