@@ -538,13 +538,13 @@ int MetaFileSystem::Ioctl(u32 handle, u32 cmd, u32 indataPtr, u32 inlen, u32 out
 	return SCE_KERNEL_ERROR_ERROR;
 }
 
-int MetaFileSystem::DevType(u32 handle)
+PSPDevType MetaFileSystem::DevType(u32 handle)
 {
 	std::lock_guard<std::recursive_mutex> guard(lock);
 	IFileSystem *sys = GetHandleOwner(handle);
 	if (sys)
 		return sys->DevType(handle);
-	return SCE_KERNEL_ERROR_ERROR;
+	return PSPDevType::INVALID;
 }
 
 void MetaFileSystem::CloseFile(u32 handle)

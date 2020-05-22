@@ -41,7 +41,7 @@ public:
 	PSPFileInfo GetFileInfo(std::string filename) override;
 	bool     OwnsHandle(u32 handle) override;
 	int      Ioctl(u32 handle, u32 cmd, u32 indataPtr, u32 inlen, u32 outdataPtr, u32 outlen, int &usec) override;
-	int      DevType(u32 handle) override;
+	PSPDevType DevType(u32 handle) override;
 	FileSystemFlags Flags() override;
 	u64      FreeSpace(const std::string &path) override { return 0; }
 
@@ -134,7 +134,7 @@ public:
 	int      Ioctl(u32 handle, u32 cmd, u32 indataPtr, u32 inlen, u32 outdataPtr, u32 outlen, int &usec) override {
 		return isoFileSystem_->Ioctl(handle, cmd, indataPtr, inlen, outdataPtr, outlen, usec);
 	}
-	int      DevType(u32 handle) override {
+	PSPDevType DevType(u32 handle) override {
 		return isoFileSystem_->DevType(handle);
 	}
 	FileSystemFlags Flags() override { return isoFileSystem_->Flags(); }

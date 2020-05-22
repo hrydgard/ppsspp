@@ -552,9 +552,9 @@ int VirtualDiscFileSystem::Ioctl(u32 handle, u32 cmd, u32 indataPtr, u32 inlen, 
 	return SCE_KERNEL_ERROR_ERRNO_FUNCTION_NOT_SUPPORTED;
 }
 
-int VirtualDiscFileSystem::DevType(u32 handle) {
+PSPDevType VirtualDiscFileSystem::DevType(u32 handle) {
 	EntryMap::iterator iter = entries.find(handle);
-	return iter->second.type == VFILETYPE_ISO ? PSP_DEV_TYPE_BLOCK : PSP_DEV_TYPE_FILE;
+	return iter->second.type == VFILETYPE_ISO ? PSPDevType::BLOCK : PSPDevType::FILE;
 }
 
 PSPFileInfo VirtualDiscFileSystem::GetFileInfo(std::string filename) {
@@ -569,6 +569,7 @@ PSPFileInfo VirtualDiscFileSystem::GetFileInfo(std::string filename) {
 		PSPFileInfo fileInfo;
 		fileInfo.name = filename;
 		fileInfo.exists = true;
+		fileInfo.type = FILETYPE_NORMAL;
 		fileInfo.size = readSize;
 		fileInfo.startSector = sectorStart;
 		fileInfo.isOnSectorSystem = true;

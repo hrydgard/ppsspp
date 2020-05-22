@@ -1245,7 +1245,7 @@ static u32 sceIoWriteAsync(int id, u32 data_addr, int size) {
 static u32 sceIoGetDevType(int id) {
 	if (id == PSP_STDOUT || id == PSP_STDERR || id == PSP_STDIN) {
 		DEBUG_LOG(SCEIO, "sceIoGetDevType(%d)", id);
-		return PSP_DEV_TYPE_FILE;
+		return (u32)PSPDevType::FILE;
 	}
 
 	u32 error;
@@ -1254,7 +1254,7 @@ static u32 sceIoGetDevType(int id) {
 	if (f) {
 		// TODO: When would this return PSP_DEV_TYPE_ALIAS?
 		WARN_LOG(SCEIO, "sceIoGetDevType(%d - %s)", id, f->fullpath.c_str());
-		result = pspFileSystem.DevType(f->handle);
+		result = (u32)pspFileSystem.DevType(f->handle) & (u32)PSPDevType::EMU_MASK;
 	} else {
 		ERROR_LOG(SCEIO, "sceIoGetDevType: unknown id %d", id);
 		result = SCE_KERNEL_ERROR_BADF;
@@ -1496,6 +1496,11 @@ static u32 sceIoOpen(const char *filename, int flags, int mode) {
 		return hleLogError(SCEIO, hleDelayResult(id, "file opened", 1000), "out of fds");
 	} else {
 		asyncParams[id].priority = asyncDefaultPriority;
+		IFileSystem *sys = pspFileSystem.GetSystemFromFilename(filename);
+		if (sys && (sys->DevType(f->handle) & (PSPDevType::BLOCK | PSPDevType::EMU_LBN))) {
+			// These are fast to open, no delay or even rescheduling happens.
+			return hleLogSuccessI(SCEIO, id);
+		}
 		// UMD: Speed varies from 1-6ms.
 		// Card: Path depth matters, but typically between 10-13ms on a standard Pro Duo.
 		int delay = pspFileSystem.FlagsFromFilename(filename) & FileSystemFlags::UMD ? 4000 : 10000;
@@ -2712,11 +2717,20 @@ static int IoAsyncFinish(int id) {
 		case IoAsyncOp::OPEN:
 		{
 			// See notes on timing in sceIoOpen.
-			FileSystemFlags flags = pspFileSystem.FlagsFromFilename(Memory::GetCharPointer(params.open.filenameAddr));
-			if (f->asyncResult == (int)SCE_KERNEL_ERROR_ERRNO_FILE_NOT_FOUND)
-				us = flags & FileSystemFlags::UMD ? 6000 : 10000;
-			else
-				us = flags & FileSystemFlags::UMD ? 4000 : 10000;
+			const std::string filename = Memory::GetCharPointer(params.open.filenameAddr);
+			IFileSystem *sys = pspFileSystem.GetSystemFromFilename(filename);
+			if (sys) {
+				if (f->asyncResult == (int)SCE_KERNEL_ERROR_ERRNO_FILE_NOT_FOUND) {
+					us = sys->Flags() & FileSystemFlags::UMD ? 6000 : 10000;
+				} else if (sys->DevType(f->handle) & (PSPDevType::BLOCK | PSPDevType::EMU_LBN)) {
+					// These are fast to open, no delay or even rescheduling happens.
+					us = 80;
+				} else {
+					us = sys->Flags() & FileSystemFlags::UMD ? 4000 : 10000;
+				}
+			} else {
+				us = 80;
+			}
 			break;
 		}
 

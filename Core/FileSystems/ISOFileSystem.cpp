@@ -461,10 +461,12 @@ int ISOFileSystem::Ioctl(u32 handle, u32 cmd, u32 indataPtr, u32 inlen, u32 outd
 	return SCE_KERNEL_ERROR_ERRNO_FUNCTION_NOT_SUPPORTED;
 }
 
-int ISOFileSystem::DevType(u32 handle)
-{
+PSPDevType ISOFileSystem::DevType(u32 handle) {
 	EntryMap::iterator iter = entries.find(handle);
-	return iter->second.isBlockSectorMode ? PSP_DEV_TYPE_BLOCK : PSP_DEV_TYPE_FILE;
+	PSPDevType type = iter->second.isBlockSectorMode ? PSPDevType::BLOCK : PSPDevType::FILE;
+	if (iter->second.isRawSector)
+		type |= PSPDevType::EMU_LBN;
+	return type;
 }
 
 FileSystemFlags ISOFileSystem::Flags() {
@@ -613,6 +615,7 @@ PSPFileInfo ISOFileSystem::GetFileInfo(std::string filename) {
 		PSPFileInfo fileInfo;
 		fileInfo.name = filename;
 		fileInfo.exists = true;
+		fileInfo.type = FILETYPE_NORMAL;
 		fileInfo.size = readSize;
 		fileInfo.startSector = sectorStart;
 		fileInfo.isOnSectorSystem = true;

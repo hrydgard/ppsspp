@@ -20,6 +20,7 @@
 #include <vector>
 #include <string>
 #include <cstring>
+#include "base/basictypes.h"
 
 #include "Core/HLE/sceKernel.h"
 
@@ -44,11 +45,15 @@ enum FileType {
 	FILETYPE_DIRECTORY = 2
 };
 
-enum DevType {
-	PSP_DEV_TYPE_BLOCK = 0x04,
-	PSP_DEV_TYPE_FILE  = 0x10,
-	PSP_DEV_TYPE_ALIAS = 0x20,
+enum class PSPDevType {
+	INVALID = 0,
+	BLOCK = 0x04,
+	FILE  = 0x10,
+	ALIAS = 0x20,
+	EMU_MASK = 0xFF,
+	EMU_LBN = 0x10000,
 };
+ENUM_CLASS_BITOPS(PSPDevType);
 
 enum class FileSystemFlags {
 	NONE = 0,
@@ -57,13 +62,7 @@ enum class FileSystemFlags {
 	CARD = 4,
 	FLASH = 8,
 };
-
-inline FileSystemFlags operator |(const FileSystemFlags &lhs, const FileSystemFlags &rhs) {
-	return FileSystemFlags((int)lhs | (int)rhs);
-}
-inline bool operator &(const FileSystemFlags &lhs, const FileSystemFlags &rhs) {
-	return ((int)lhs & (int)rhs) != 0;
-}
+ENUM_CLASS_BITOPS(FileSystemFlags);
 
 class IHandleAllocator {
 public:
@@ -136,7 +135,7 @@ public:
 	virtual bool     RemoveFile(const std::string &filename) = 0;
 	virtual bool     GetHostPath(const std::string &inpath, std::string &outpath) = 0;
 	virtual int      Ioctl(u32 handle, u32 cmd, u32 indataPtr, u32 inlen, u32 outdataPtr, u32 outlen, int &usec) = 0;
-	virtual int      DevType(u32 handle) = 0;
+	virtual PSPDevType DevType(u32 handle) = 0;
 	virtual FileSystemFlags Flags() = 0;
 	virtual u64      FreeSpace(const std::string &path) = 0;
 };
@@ -162,7 +161,7 @@ public:
 	virtual bool RemoveFile(const std::string &filename) override {return false;}
 	virtual bool GetHostPath(const std::string &inpath, std::string &outpath) override {return false;}
 	virtual int Ioctl(u32 handle, u32 cmd, u32 indataPtr, u32 inlen, u32 outdataPtr, u32 outlen, int &usec) override {return SCE_KERNEL_ERROR_ERRNO_FUNCTION_NOT_SUPPORTED; }
-	virtual int DevType(u32 handle) override { return 0; }
+	virtual PSPDevType DevType(u32 handle) override { return PSPDevType::INVALID; }
 	virtual FileSystemFlags Flags() override { return FileSystemFlags::NONE; }
 	virtual u64 FreeSpace(const std::string &path) override { return 0; }
 };

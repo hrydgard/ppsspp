@@ -20,8 +20,7 @@
 // TODO: Remove the Windows-specific code, FILE is fine there too.
 
 #include <map>
-
-#include "../Core/FileSystems/FileSystem.h"
+#include "Core/FileSystems/FileSystem.h"
 
 #ifdef _WIN32
 typedef void * HANDLE;
@@ -102,7 +101,7 @@ public:
 	PSPFileInfo GetFileInfo(std::string filename) override;
 	bool     OwnsHandle(u32 handle) override;
 	int      Ioctl(u32 handle, u32 cmd, u32 indataPtr, u32 inlen, u32 outdataPtr, u32 outlen, int &usec) override;
-	int      DevType(u32 handle) override;
+	PSPDevType DevType(u32 handle) override;
 
 	bool MkDir(const std::string &dirname) override;
 	bool RmDir(const std::string &dirname) override;
@@ -147,7 +146,7 @@ public:
 	PSPFileInfo GetFileInfo(std::string filename) override;
 	bool     OwnsHandle(u32 handle) override;
 	int      Ioctl(u32 handle, u32 cmd, u32 indataPtr, u32 inlen, u32 outdataPtr, u32 outlen, int &usec) override;
-	int      DevType(u32 handle) override;
+	PSPDevType DevType(u32 handle) override;
 
 	bool MkDir(const std::string &dirname) override;
 	bool RmDir(const std::string &dirname) override;
