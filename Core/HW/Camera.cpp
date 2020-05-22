@@ -242,15 +242,16 @@ void *v4l_loop(void *data) {
 		int jpegLen = 0;
 
 		if (v4l_format == V4L2_PIX_FMT_YUYV) {
-			convert_frame(v4l_hw_width, v4l_hw_height, (unsigned char*)v4l_buffer, AV_PIX_FMT_YUYV422,
+			convert_frame(v4l_hw_width, v4l_hw_height, (unsigned char*)v4l_buffers[buf.index].start, AV_PIX_FMT_YUYV422,
 				v4l_ideal_width, v4l_ideal_height, &jpegData, &jpegLen);
-		} else if (v4l_format == V4L2_PIX_FMT_MJPEG) {
+		} else if (v4l_format == V4L2_PIX_FMT_JPEG
+				|| v4l_format == V4L2_PIX_FMT_MJPEG) {
 			// decompress jpeg
 			int width, height, req_comps;
 			unsigned char *rgbData = jpgd::decompress_jpeg_image_from_memory(
-				(unsigned char*)v4l_buffer, buf.bytesused, &width, &height, &req_comps, 3);
+				(unsigned char*)v4l_buffers[buf.index].start, buf.bytesused, &width, &height, &req_comps, 3);
 
-			convert_frame(v4l_hw_width, v4l_hw_height, (unsigned char*)v4l_buffer, AV_PIX_FMT_RGB24,
+			convert_frame(v4l_hw_width, v4l_hw_height, (unsigned char*)rgbData, AV_PIX_FMT_RGB24,
 				v4l_ideal_width, v4l_ideal_height, &jpegData, &jpegLen);
 			free(rgbData);
 		}
@@ -318,7 +319,8 @@ int __v4l_startCapture(int ideal_width, int ideal_height) {
 		if (fmt.fmt.pix.pixelformat != 0) {
 			continue;
 		} else if (desc.pixelformat == V4L2_PIX_FMT_YUYV
-			    || desc.pixelformat == V4L2_PIX_FMT_MJPEG) {
+				|| desc.pixelformat == V4L2_PIX_FMT_JPEG
+				|| desc.pixelformat == V4L2_PIX_FMT_MJPEG) {
 			INFO_LOG(HLE, "V4L2: %s selected", desc.description);
 			fmt.fmt.pix.pixelformat = desc.pixelformat;
 			v4l_format              = desc.pixelformat;
@@ -373,38 +375,43 @@ int __v4l_startCapture(int ideal_width, int ideal_height) {
 		ERROR_LOG(HLE, "VIDIOC_REQBUFS");
 		return -1;
 	}
+	v4l_buffer_count = req.count;
+	INFO_LOG(HLE, "V4L2: buffer count: %d", v4l_buffer_count);
+	v4l_buffers = (v4l_buf_t*) calloc(v4l_buffer_count, sizeof(v4l_buf_t));
 
-	struct v4l2_buffer buf;
-	memset(&buf, 0, sizeof(buf));
-	buf.type   = V4L2_BUF_TYPE_VIDEO_CAPTURE;
-	buf.memory = V4L2_MEMORY_MMAP;
-	buf.index  = 0;
-	if (ioctl(v4l_fd, VIDIOC_QUERYBUF, &buf) == -1) {
-		ERROR_LOG(HLE, "VIDIOC_QUERYBUF");
-		return -1;
+	for (int buf_id = 0; buf_id < v4l_buffer_count; buf_id++) {
+		struct v4l2_buffer buf;
+		memset(&buf, 0, sizeof(buf));
+		buf.type   = V4L2_BUF_TYPE_VIDEO_CAPTURE;
+		buf.memory = V4L2_MEMORY_MMAP;
+		buf.index  = buf_id;
+		if (ioctl(v4l_fd, VIDIOC_QUERYBUF, &buf) == -1) {
+			ERROR_LOG(HLE, "VIDIOC_QUERYBUF");
+			return -1;
+		}
+
+		v4l_buffers[buf_id].length = buf.length;
+		v4l_buffers[buf_id].start = mmap(NULL,
+				buf.length,
+				PROT_READ | PROT_WRITE,
+				MAP_SHARED,
+				v4l_fd, buf.m.offset);
+		if (v4l_buffers[buf_id].start == MAP_FAILED) {
+			ERROR_LOG(HLE, "MAP_FAILED");
+			return -1;
+		}
+
+		memset(&buf, 0, sizeof(buf));
+		buf.type   = V4L2_BUF_TYPE_VIDEO_CAPTURE;
+		buf.memory = V4L2_MEMORY_MMAP;
+		buf.index  = buf_id;
+		if (ioctl(v4l_fd, VIDIOC_QBUF, &buf) == -1) {
+			ERROR_LOG(HLE, "VIDIOC_QBUF");
+			return -1;
+		}
 	}
 
-	v4l_length = buf.length;
-	v4l_buffer = mmap(NULL,
-			v4l_length,
-			PROT_READ | PROT_WRITE,
-			MAP_SHARED,
-			v4l_fd, buf.m.offset);
-	if (v4l_buffer == MAP_FAILED) {
-		ERROR_LOG(HLE, "MAP_FAILED");
-		return -1;
-	}
-
-	memset(&buf, 0, sizeof(buf));
 	enum v4l2_buf_type type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
-	buf.type   = type;
-	buf.memory = V4L2_MEMORY_MMAP;
-	buf.index  = 0;
-	if (ioctl(v4l_fd, VIDIOC_QBUF, &buf) == -1) {
-		ERROR_LOG(HLE, "VIDIOC_QBUF");
-		return -1;
-	}
-
 	if (ioctl(v4l_fd, VIDIOC_STREAMON, &type) == -1) {
 		ERROR_LOG(HLE, "VIDIOC_STREAMON");
 		return -1;
@@ -427,9 +434,11 @@ int __v4l_stopCapture() {
 		goto exit;
 	}
 
-	if (munmap(v4l_buffer, v4l_length) == -1) {
-		ERROR_LOG(HLE, "munmap");
-		goto exit;
+	for (int buf_id = 0; buf_id < v4l_buffer_count; buf_id++) {
+		if (munmap(v4l_buffers[buf_id].start, v4l_buffers[buf_id].length) == -1) {
+			ERROR_LOG(HLE, "munmap");
+			goto exit;
+		}
 	}
 
 	if (close(v4l_fd) == -1) {
