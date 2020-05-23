@@ -1686,8 +1686,8 @@ void FramebufferManagerCommon::SetRenderSize(VirtualFramebuffer *vfb) {
 void FramebufferManagerCommon::SetSafeSize(u16 w, u16 h) {
 	VirtualFramebuffer *vfb = currentRenderVfb_;
 	if (vfb) {
-		vfb->safeWidth = std::max(vfb->safeWidth, w);
-		vfb->safeHeight = std::max(vfb->safeHeight, h);
+		vfb->safeWidth = std::min(vfb->bufferWidth, std::max(vfb->safeWidth, w));
+		vfb->safeHeight = std::min(vfb->bufferHeight, std::max(vfb->safeHeight, h));
 	}
 }
 
