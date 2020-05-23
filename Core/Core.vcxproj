@@ -129,6 +129,10 @@
   <ImportGroup Label="ExtensionSettings">
   </ImportGroup>
   <PropertyGroup Label="UserMacros" />
+  <Target Name="CreateTlogDir"
+          BeforeTargets="CustomBuildStep">
+    <MakeDir Directories="$(TLogLocation)" />
+  </Target>
   <PropertyGroup>
     <CustomBuildBeforeTargets>ResolveProjectReferences</CustomBuildBeforeTargets>
   </PropertyGroup>
