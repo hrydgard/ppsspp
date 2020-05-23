@@ -95,7 +95,8 @@ void CMemoryDlg::NotifyMapLoaded()
 	if (m_hDlg)
 	{
 		HWND list = GetDlgItem(m_hDlg,IDC_SYMBOLS);
-		g_symbolMap->FillSymbolListBox(list,ST_DATA);	
+		if (g_symbolMap)
+			g_symbolMap->FillSymbolListBox(list, ST_DATA);
 		HWND lb = GetDlgItem(m_hDlg,IDC_REGIONS);
 		int sel = ComboBox_GetCurSel(lb);
 		ComboBox_ResetContent(lb);
