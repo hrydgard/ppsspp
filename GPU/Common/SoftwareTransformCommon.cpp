@@ -445,7 +445,7 @@ void SoftwareTransform::Decode(int prim, u32 vertType, const DecVtxFormat &decVt
 		int scissorX2 = gstate.getScissorX2() + 1;
 		int scissorY2 = gstate.getScissorY2() + 1;
 		reallyAClear = IsReallyAClear(transformed, maxIndex, scissorX2, scissorY2);
-		if (reallyAClear) {
+		if (reallyAClear && gstate.getColorMask() != 0 && gstate.getClearModeColorMask() != 0) {
 			result->setSafeSize = true;
 			result->safeWidth = scissorX2;
 			result->safeHeight = scissorY2;
@@ -464,6 +464,22 @@ void SoftwareTransform::Decode(int prim, u32 vertType, const DecVtxFormat &decVt
 			result->action = SW_CLEAR;
 			gpuStats.numClears++;
 			return;
+		}
+	}
+
+	// Detect full screen "clears" that might not be so obvious, to set the safe size if possible.
+	if (!result->setSafeSize && prim == GE_PRIM_RECTANGLES && maxIndex == 2) {
+		bool clearingColor = gstate.isModeClear() && gstate.getClearModeColorMask() != 0;
+		bool writingColor = gstate.getColorMask() != 0;
+		bool startsZeroX = transformed[0].x <= 0.0f && transformed[1].x > transformed[0].x;
+		bool startsZeroY = transformed[0].y <= 0.0f && transformed[1].y > transformed[0].y;
+
+		if (startsZeroX && startsZeroY && (clearingColor || writingColor)) {
+			int scissorX2 = gstate.getScissorX2() + 1;
+			int scissorY2 = gstate.getScissorY2() + 1;
+			result->setSafeSize = true;
+			result->safeWidth = std::min(scissorX2, (int)transformed[1].x);
+			result->safeHeight = std::min(scissorY2, (int)transformed[1].y);
 		}
 	}
 }
