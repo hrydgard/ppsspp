@@ -33,39 +33,38 @@ set GIT_MISSING=0
 if not defined GIT (
 	set GIT="git"
 )
-call %GIT% describe --always > NUL 2> NUL
-if errorlevel 1 (
-	echo Git not on path, trying default Msysgit paths...
-	set GIT="%ProgramFiles(x86)%\Git\bin\git.exe"
-	call !GIT! describe > NUL 2> NUL
-	if errorlevel 1 (
-		echo !GIT!
-		set GIT="%ProgramFiles%\Git\bin\git.exe"
-		call !GIT! describe > NUL 2> NUL
-		if errorlevel 1 (
-			set GIT="%ProgramW6432%\Git\bin\git.exe"
-		)
-	)
-)
+call %GIT% describe --always > "%GIT_VERSION_TEMP%" 2> NUL
+if not errorlevel 1 goto gitfound
 
-call %GIT% describe --always > NUL 2> NUL
-if errorlevel 1 (
-	echo Git not on path, trying GitHub Desktop..
-	rem // Cheating using short filenames.
-	set GIT="%USERPROFILE%\AppData\Local\GitHub\PORTAB~1\bin\git.exe"
-	call !GIT! describe > NUL 2> NUL
-	if errorlevel 1 (
-		set GIT="%USERPROFILE%\AppData\Local\GitHub\PORTAB~2\bin\git.exe"
-	)
-)
+echo Git not on path, trying default Msysgit paths...
+set GIT="%ProgramFiles(x86)%\Git\bin\git.exe"
+call %GIT% describe --always > "%GIT_VERSION_TEMP%" 2> NUL
+if not errorlevel 1 goto gitfound
 
-call %GIT% describe --always > NUL 2> NUL
-if errorlevel 1 (
-	set GIT_MISSING=1
-)
+set GIT="%ProgramFiles%\Git\bin\git.exe"
+call %GIT% describe --always > "%GIT_VERSION_TEMP%" 2> NUL
+if not errorlevel 1 goto gitfound
 
+set GIT="%ProgramW6432%\Git\bin\git.exe"
+call %GIT% describe --always > "%GIT_VERSION_TEMP%" 2> NUL
+if not errorlevel 1 goto gitfound
+
+echo Git not on path, trying GitHub Desktop..
+rem // Cheating using short filenames.
+set GIT="%USERPROFILE%\AppData\Local\GitHub\PORTAB~1\bin\git.exe"
+call %GIT% describe --always > "%GIT_VERSION_TEMP%" 2> NUL
+if not errorlevel 1 goto gitfound
+
+set GIT="%USERPROFILE%\AppData\Local\GitHub\PORTAB~2\bin\git.exe"
+call %GIT% describe --always > "%GIT_VERSION_TEMP%" 2> NUL
+if not errorlevel 1 goto gitfound
+
+set GIT_MISSING=1
+
+:gitfound
 if not "%GIT_MISSING%" == "1" (
-	for /F %%I in ('call %GIT% describe --always') do set GIT_VERSION=%%I
+	for /F %%I in ('type "%GIT_VERSION_TEMP%"') do set GIT_VERSION=%%I
+	del "%GIT_VERSION_TEMP%" > NUL 2> NUL
 )
 
 if exist "%GIT_VERSION_FILE%" (
@@ -105,6 +104,11 @@ echo // If you don't want this file to update/recompile, change to 1. >> "%GIT_V
 echo #define PPSSPP_GIT_VERSION_NO_UPDATE 0 >> "%GIT_VERSION_TEMP%"
 
 move /y "%GIT_VERSION_TEMP%" "%GIT_VERSION_FILE%" > NUL
+if errorlevel 1 (
+	rem // Cheap delay tactic.
+	call %GIT% describe --always > NUL 2> NUL
+	move /y "%GIT_VERSION_TEMP%" "%GIT_VERSION_FILE%" > NUL
+)
 :gitdone
 
 if exist "%WIN_VERSION_FILE%" (
@@ -159,5 +163,10 @@ echo // If you don't want this file to update/recompile, change to 1. >> "%WIN_V
 echo #define PPSSPP_WIN_VERSION_NO_UPDATE 0 >> "%WIN_VERSION_TEMP%"
 
 move /y "%WIN_VERSION_TEMP%" "%WIN_VERSION_FILE%" > NUL
+if errorlevel 1 (
+	rem // Cheap delay tactic.
+	call %GIT% describe --always > NUL 2> NUL
+	move /y "%WIN_VERSION_TEMP%" "%WIN_VERSION_FILE%" > NUL
+)
 
 :done
