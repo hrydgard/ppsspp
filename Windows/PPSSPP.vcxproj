@@ -261,7 +261,7 @@
       <AdditionalOptions>/ignore:4049 /ignore:4217 %(AdditionalOptions)</AdditionalOptions>
     </Link>
     <PreBuildEvent>
-      <Command>../Windows/git-version-gen.cmd</Command>
+      <Command>../Windows/git-version-gen.cmd PPSSPPWindows</Command>
       <Message>Updating git-version.cpp</Message>
     </PreBuildEvent>
   </ItemDefinitionGroup>
@@ -298,7 +298,7 @@
       <SubSystem>Windows</SubSystem>
     </Link>
     <PreBuildEvent>
-      <Command>../Windows/git-version-gen.cmd</Command>
+      <Command>../Windows/git-version-gen.cmd PPSSPPWindows</Command>
       <Message>Updating git-version.cpp</Message>
     </PreBuildEvent>
   </ItemDefinitionGroup>
@@ -333,7 +333,7 @@
       <SubSystem>Windows</SubSystem>
     </Link>
     <PreBuildEvent>
-      <Command>../Windows/git-version-gen.cmd</Command>
+      <Command>../Windows/git-version-gen.cmd PPSSPPWindows</Command>
       <Message>Updating git-version.cpp</Message>
     </PreBuildEvent>
   </ItemDefinitionGroup>
@@ -367,7 +367,7 @@
       <SubSystem>Windows</SubSystem>
     </Link>
     <PreBuildEvent>
-      <Command>../Windows/git-version-gen.cmd</Command>
+      <Command>../Windows/git-version-gen.cmd PPSSPPWindows</Command>
       <Message>Updating git-version.cpp</Message>
     </PreBuildEvent>
   </ItemDefinitionGroup>
@@ -409,7 +409,7 @@
       <GenerateMapFile>true</GenerateMapFile>
     </Link>
     <PreBuildEvent>
-      <Command>../Windows/git-version-gen.cmd</Command>
+      <Command>../Windows/git-version-gen.cmd PPSSPPWindows</Command>
       <Message>Updating git-version.cpp</Message>
     </PreBuildEvent>
     <ResourceCompile>
@@ -453,7 +453,7 @@
       <LargeAddressAware>true</LargeAddressAware>
     </Link>
     <PreBuildEvent>
-      <Command>../Windows/git-version-gen.cmd</Command>
+      <Command>../Windows/git-version-gen.cmd PPSSPPWindows</Command>
       <Message>Updating git-version.cpp</Message>
     </PreBuildEvent>
     <ResourceCompile>
@@ -494,7 +494,7 @@
       <LargeAddressAware>true</LargeAddressAware>
     </Link>
     <PreBuildEvent>
-      <Command>../Windows/git-version-gen.cmd</Command>
+      <Command>../Windows/git-version-gen.cmd PPSSPPWindows</Command>
       <Message>Updating git-version.cpp</Message>
     </PreBuildEvent>
     <ResourceCompile>
@@ -535,7 +535,7 @@
       <LargeAddressAware>true</LargeAddressAware>
     </Link>
     <PreBuildEvent>
-      <Command>../Windows/git-version-gen.cmd</Command>
+      <Command>../Windows/git-version-gen.cmd PPSSPPWindows</Command>
       <Message>Updating git-version.cpp</Message>
     </PreBuildEvent>
     <ResourceCompile>

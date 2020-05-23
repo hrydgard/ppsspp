@@ -198,7 +198,7 @@
       <AdditionalLibraryDirectories>../ffmpeg/Windows/x86/lib</AdditionalLibraryDirectories>
     </Link>
     <PreBuildEvent>
-      <Command>../Windows/git-version-gen.cmd</Command>
+      <Command>../Windows/git-version-gen.cmd Headless</Command>
     </PreBuildEvent>
     <PreBuildEvent>
       <Message>Updating git-version.cpp</Message>
@@ -231,7 +231,7 @@
       <AdditionalLibraryDirectories>../ffmpeg/Windows/x86_64/lib</AdditionalLibraryDirectories>
     </Link>
     <PreBuildEvent>
-      <Command>../Windows/git-version-gen.cmd</Command>
+      <Command>../Windows/git-version-gen.cmd Headless</Command>
     </PreBuildEvent>
     <PreBuildEvent>
       <Message>Updating git-version.cpp</Message>
@@ -261,7 +261,7 @@
       <AdditionalLibraryDirectories>../ffmpeg/Windows/aarch64/lib</AdditionalLibraryDirectories>
     </Link>
     <PreBuildEvent>
-      <Command>../Windows/git-version-gen.cmd</Command>
+      <Command>../Windows/git-version-gen.cmd Headless</Command>
     </PreBuildEvent>
     <PreBuildEvent>
       <Message>Updating git-version.cpp</Message>
@@ -292,7 +292,7 @@
       <AdditionalLibraryDirectories>../ffmpeg/Windows/arm/lib</AdditionalLibraryDirectories>
     </Link>
     <PreBuildEvent>
-      <Command>../Windows/git-version-gen.cmd</Command>
+      <Command>../Windows/git-version-gen.cmd Headless</Command>
     </PreBuildEvent>
     <PreBuildEvent>
       <Message>Updating git-version.cpp</Message>
@@ -328,7 +328,7 @@
       <AdditionalLibraryDirectories>../ffmpeg/Windows/x86/lib</AdditionalLibraryDirectories>
     </Link>
     <PreBuildEvent>
-      <Command>../Windows/git-version-gen.cmd</Command>
+      <Command>../Windows/git-version-gen.cmd Headless</Command>
     </PreBuildEvent>
     <PreBuildEvent>
       <Message>Updating git-version.cpp</Message>
@@ -366,7 +366,7 @@
       <AdditionalLibraryDirectories>../ffmpeg/Windows/x86_64/lib</AdditionalLibraryDirectories>
     </Link>
     <PreBuildEvent>
-      <Command>../Windows/git-version-gen.cmd</Command>
+      <Command>../Windows/git-version-gen.cmd Headless</Command>
     </PreBuildEvent>
     <PreBuildEvent>
       <Message>Updating git-version.cpp</Message>
@@ -401,7 +401,7 @@
       <AdditionalLibraryDirectories>../ffmpeg/Windows/aarch64/lib</AdditionalLibraryDirectories>
     </Link>
     <PreBuildEvent>
-      <Command>../Windows/git-version-gen.cmd</Command>
+      <Command>../Windows/git-version-gen.cmd Headless</Command>
     </PreBuildEvent>
     <PreBuildEvent>
       <Message>Updating git-version.cpp</Message>
@@ -436,7 +436,7 @@
       <AdditionalLibraryDirectories>../ffmpeg/Windows/arm/lib</AdditionalLibraryDirectories>
     </Link>
     <PreBuildEvent>
-      <Command>../Windows/git-version-gen.cmd</Command>
+      <Command>../Windows/git-version-gen.cmd Headless</Command>
     </PreBuildEvent>
     <PreBuildEvent>
       <Message>Updating git-version.cpp</Message>
