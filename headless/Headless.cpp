@@ -405,9 +405,10 @@ int main(int argc, const char* argv[])
 #endif
 
 	// Try to find the flash0 directory.  Often this is from a subdirectory.
-	for (int i = 0; i < 3; ++i)
-	{
-		if (!File::Exists(g_Config.flash0Directory))
+	for (int i = 0; i < 4 && !File::Exists(g_Config.flash0Directory); ++i) {
+		if (File::Exists(g_Config.flash0Directory + "../assets/flash0/"))
+			g_Config.flash0Directory += "../assets/flash0/";
+		else
 			g_Config.flash0Directory += "../../flash0/";
 	}
 	// Or else, maybe in the executable's dir.
