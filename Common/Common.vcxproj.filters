@@ -69,9 +69,11 @@
     </ClInclude>
     <ClInclude Include="OSVersion.h" />
     <ClInclude Include="Hashmaps.h" />
-    <ClInclude Include="Vulkan\VulkanDebug.h" />
     <ClInclude Include="BitScan.h" />
     <ClInclude Include="MakeUnique.h" />
+    <ClInclude Include="Vulkan\VulkanDebug.h">
+      <Filter>Vulkan</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="stdafx.cpp" />
@@ -132,7 +134,9 @@
     <ClCompile Include="MemArenaAndroid.cpp" />
     <ClCompile Include="MemArenaDarwin.cpp" />
     <ClCompile Include="OSVersion.cpp" />
-    <ClCompile Include="Vulkan\VulkanDebug.cpp" />
+    <ClCompile Include="Vulkan\VulkanDebug.cpp">
+      <Filter>Vulkan</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <Filter Include="Crypto">
