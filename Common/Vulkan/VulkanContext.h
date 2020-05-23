@@ -370,6 +370,7 @@ bool GLSLtoSPV(const VkShaderStageFlagBits shader_type, const char *pshader, std
 
 const char *VulkanResultToString(VkResult res);
 std::string FormatDriverVersion(const VkPhysicalDeviceProperties &props);
+const char *VulkanObjTypeToString(VkDebugReportObjectTypeEXT type);
 
 // Simple heuristic.
 bool IsHashMaliDriverVersion(const VkPhysicalDeviceProperties &props);
