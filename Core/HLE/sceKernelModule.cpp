@@ -66,7 +66,8 @@
 #include "GPU/GPUState.h"
 
 enum {
-	PSP_THREAD_ATTR_USER = 0x80000000
+	PSP_THREAD_ATTR_KERNEL = 0x00001000,
+	PSP_THREAD_ATTR_USER = 0x80000000,
 };
 
 enum {
@@ -1593,6 +1594,7 @@ static void __KernelStartModule(PSPModule *m, int args, const char *argp, SceKer
 		currentMIPS->pc = m->nm.module_start_func;
 	}
 
+	WARN_LOG(SCEKERNEL, "Root thread attr: %08x", options->attribute);
 	SceUID threadID = __KernelSetupRootThread(m->GetUID(), args, argp, options->priority, options->stacksize, options->attribute);
 	__KernelSetThreadRA(threadID, NID_MODULERETURN);
 }
@@ -1605,6 +1607,16 @@ u32 __KernelGetModuleGP(SceUID uid) {
 		return module->nm.gp_value;
 	} else {
 		return 0;
+	}
+}
+
+bool KernelModuleIsKernelMode(SceUID uid) {
+	u32 error;
+	PSPModule *module = kernelObjects.Get<PSPModule>(uid, error);
+	if (module) {
+		return (module->nm.attribute & 0x1000) != 0;
+	} else {
+		return false;
 	}
 }
 
