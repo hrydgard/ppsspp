@@ -17,6 +17,7 @@
 
 #include <algorithm>
 
+#include "base/colorutil.h"
 #include "base/stringutil.h"
 #include "file/vfs.h"
 #include "gfx/texture_atlas.h"
@@ -140,6 +141,7 @@ void PPGeSetTexture(u32 dataAddr, int width, int height);
 static void WriteCmd(u8 cmd, u32 data) {
 	Memory::Write_U32((cmd << 24) | (data & 0xFFFFFF), dlWritePtr);
 	dlWritePtr += 4;
+	assert(dlWritePtr <= dlPtr + dlSize);
 }
 
 static void WriteCmdAddrWithBase(u8 cmd, u32 addr) {
@@ -178,6 +180,7 @@ static void Vertex(float x, float y, float u, float v, int tw, int th, u32 color
 		Memory::WriteStruct(dataWritePtr, &vtx);
 		dataWritePtr += sizeof(vtx);
 	}
+	assert(dataWritePtr <= dataPtr + dataSize);
 	vertexCount++;
 }
 
@@ -871,8 +874,15 @@ static void PPGeDrawTextImage(PPGeTextDrawerImage im, float x, float y, const PP
 	float u1 = (float)im.entry.width / (1 << wp2);
 	float v1 = (float)im.entry.height / (1 << hp2);
 	if (style.hasShadow) {
-		Vertex(x + 1, y + 2, 0, 0, 1 << wp2, 1 << hp2, style.shadowColor);
-		Vertex(x + 1 + w, y + 2 + h, u1, v1, 1 << wp2, 1 << hp2, style.shadowColor);
+		// Draw more shadows for a blurrier shadow.
+		for (float dy = 0.0f; dy <= 2.0f; dy += 1.0f) {
+			for (float dx = 0.0f; dx <= 1.0f; dx += 0.5f) {
+				if (dx == 0.0f && dy == 0.0f)
+					continue;
+				Vertex(x + dx, y + dy, 0, 0, 1 << wp2, 1 << hp2, alphaMul(style.shadowColor, 0.35f));
+				Vertex(x + dx + w, y + dy + h, u1, v1, 1 << wp2, 1 << hp2, alphaMul(style.shadowColor, 0.35f));
+			}
+		}
 	}
 	Vertex(x, y, 0, 0, 1 << wp2, 1 << hp2, style.color);
 	Vertex(x + w, y + h, u1, v1, 1 << wp2, 1 << hp2, style.color);
@@ -893,6 +903,7 @@ void PPGeDrawText(const char *text, float x, float y, const PPGeStyle &style) {
 	}
 
 	if (style.hasShadow) {
+		// This doesn't have the nicer shadow because it's so many verts.
 		PPGePrepareText(text, x + 1, y + 2, style.align, style.scale, style.scale, PPGE_LINE_USE_ELLIPSIS);
 		PPGeDrawCurrentText(style.shadowColor);
 	}
@@ -990,6 +1001,7 @@ void PPGeDrawTextWrapped(const char *text, float x, float y, float wrapWidth, fl
 		PPGePrepareText(s.c_str(), x + sx, y + sy, style.align, scale, lineHeightScale, PPGE_LINE_USE_ELLIPSIS | PPGE_LINE_WRAP_WORD, wrapWidth);
 	}
 	if (style.hasShadow) {
+		// This doesn't have the nicer shadow because it's so many verts.
 		PPGeDrawCurrentText(style.shadowColor);
 		PPGePrepareText(s.c_str(), x, y, style.align, scale, lineHeightScale, PPGE_LINE_USE_ELLIPSIS | PPGE_LINE_WRAP_WORD, wrapWidth);
 	}
@@ -1065,8 +1077,14 @@ void PPGeDrawImage(ImageID atlasImage, float x, float y, const PPGeStyle &style)
 	float h = img->h;
 	BeginVertexData();
 	if (style.hasShadow) {
-		Vertex(x + 1, y + 2, img->u1, img->v1, atlasWidth, atlasHeight, style.shadowColor);
-		Vertex(x + 1 + w, y + 2 + h, img->u2, img->v2, atlasWidth, atlasHeight, style.shadowColor);
+		for (float dy = 0.0f; dy <= 2.0f; dy += 1.0f) {
+			for (float dx = 0.0f; dx <= 1.0f; dx += 0.5f) {
+				if (dx == 0.0f && dy == 0.0f)
+					continue;
+				Vertex(x + dx, y + dy, img->u1, img->v1, atlasWidth, atlasHeight, alphaMul(style.shadowColor, 0.35f));
+				Vertex(x + dx + w, y + dy + h, img->u2, img->v2, atlasWidth, atlasHeight, alphaMul(style.shadowColor, 0.35f));
+			}
+		}
 	}
 	Vertex(x, y, img->u1, img->v1, atlasWidth, atlasHeight, style.color);
 	Vertex(x + w, y + h, img->u2, img->v2, atlasWidth, atlasHeight, style.color);
@@ -1083,8 +1101,14 @@ void PPGeDrawImage(ImageID atlasImage, float x, float y, float w, float h, const
 	}
 	BeginVertexData();
 	if (style.hasShadow) {
-		Vertex(x + 1, y + 2, img->u1, img->v1, atlasWidth, atlasHeight, style.shadowColor);
-		Vertex(x + 1 + w, y + 2 + h, img->u2, img->v2, atlasWidth, atlasHeight, style.shadowColor);
+		for (float dy = 0.0f; dy <= 2.0f; dy += 1.0f) {
+			for (float dx = 0.0f; dx <= 1.0f; dx += 0.5f) {
+				if (dx == 0.0f && dy == 0.0f)
+					continue;
+				Vertex(x + dx, y + dy, img->u1, img->v1, atlasWidth, atlasHeight, alphaMul(style.shadowColor, 0.35f));
+				Vertex(x + dx + w, y + dy + h, img->u2, img->v2, atlasWidth, atlasHeight, alphaMul(style.shadowColor, 0.35f));
+			}
+		}
 	}
 	Vertex(x, y, img->u1, img->v1, atlasWidth, atlasHeight, style.color);
 	Vertex(x + w, y + h, img->u2, img->v2, atlasWidth, atlasHeight, style.color);
