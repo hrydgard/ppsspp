@@ -1,4 +1,4 @@
-// See comment in header for the purpose of this.
+// See comment in header for the purpose of the code in this file.
 
 #include <algorithm>
 #include <cmath>
@@ -24,7 +24,7 @@
 #include <emmintrin.h>
 #endif
 
-extern bool g_DarkStalkerStretch;
+extern DSStretch g_DarkStalkerStretch;
 // For Darkstalkers hack. Ugh.
 extern bool currentDialogActive;
 
@@ -224,11 +224,11 @@ void DrawSprite(const VertexData& v0, const VertexData& v1) {
 	}
 }
 
-bool needsClear = false;
+bool g_needsClearAfterDialog = false;
 
 // Returns true if the normal path should be skipped.
 bool RectangleFastPath(const VertexData &v0, const VertexData &v1) {
-	g_DarkStalkerStretch = false;
+	g_DarkStalkerStretch = DSStretch::Off;
 	// Check for 1:1 texture mapping. In that case we can call DrawSprite.
 	int xdiff = v1.screenpos.x - v0.screenpos.x;
 	int ydiff = v1.screenpos.y - v0.screenpos.y;
@@ -246,24 +246,28 @@ bool RectangleFastPath(const VertexData &v0, const VertexData &v1) {
 	// Eliminate the stretch blit in DarkStalkers.
 	// We compensate for that when blitting the framebuffer in SoftGpu.cpp.
 	if (PSP_CoreParameter().compat.flags().DarkStalkersPresentHack && v0.texturecoords.x == 64.0f && v0.texturecoords.y == 16.0f && v1.texturecoords.x == 448.0f && v1.texturecoords.y == 240.0f) {
-		if (v0.screenpos.x == 0x7100 && v0.screenpos.y == 0x7780 && v1.screenpos.x == 0x8f00 && v1.screenpos.y == 0x8880) {
-			// Also check for save/load dialog.
-			if (!currentDialogActive) {
-				g_DarkStalkerStretch = true;
-				if (needsClear) {
-					needsClear = false;
-					// Afterwards, we also need to clear the actual destination. Can do a fast rectfill.
-					gstate.textureMapEnable &= ~1;
-					VertexData newV0 = v0;
-					newV0.color0 = Vec4<int>(0, 0, 0, 255);
-					Rasterizer::DrawSprite(newV0, v1);
-					gstate.textureMapEnable |= 1;
-				}
-				return true;
+		// check for save/load dialog.
+		if (!currentDialogActive) {
+			if (v0.screenpos.x == 0x7100 && v0.screenpos.y == 0x7780 && v1.screenpos.x == 0x8f00 && v1.screenpos.y == 0x8880) {
+				g_DarkStalkerStretch = DSStretch::Wide;
+			} else if (v0.screenpos.x == 0x7400 && v0.screenpos.y == 0x7780 && v1.screenpos.x == 0x8C00 && v1.screenpos.y == 0x8880) {
+				g_DarkStalkerStretch = DSStretch::Normal;
 			} else {
-				needsClear = true;
+				return false;
 			}
-		} // else, handle the Capcom screen stretch, or the non-wide stretch? Or let's just not bother.
+			if (g_needsClearAfterDialog) {
+				g_needsClearAfterDialog = false;
+				// Afterwards, we also need to clear the actual destination. Can do a fast rectfill.
+				gstate.textureMapEnable &= ~1;
+				VertexData newV0 = v0;
+				newV0.color0 = Vec4<int>(0, 0, 0, 255);
+				Rasterizer::DrawSprite(newV0, v1);
+				gstate.textureMapEnable |= 1;
+			}
+			return true;
+		} else {
+			g_needsClearAfterDialog = true;
+		}
 	}
 	return false;
 }
