@@ -121,3 +121,10 @@ private:
 extern u32 clut[4096];
 extern FormatBuffer fb;
 extern FormatBuffer depthbuf;
+
+// Type for the DarkStalkers stretch replacement.
+enum class DSStretch {
+	Off = 0,
+	Normal,
+	Wide,
+};

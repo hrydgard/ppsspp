@@ -570,6 +570,13 @@ void PresentationCommon::CopyToOutput(OutputFlags flags, int uvRotation, float u
 		}
 	}
 
+	if (flags & OutputFlags::PILLARBOX) {
+		for (int i = 0; i < 4; i++) {
+			// Looks about right.
+			verts[i].x *= 0.75f;
+		}
+	}
+
 	if (usePostShader) {
 		bool flipped = flags & OutputFlags::POSITION_FLIPPED;
 		float post_v0 = !flipped ? 1.0f : 0.0f;
