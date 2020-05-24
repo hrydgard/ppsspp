@@ -812,7 +812,7 @@ public:
 		curRenderStep_->commands.push_back(data);
 	}
 
-	// If scissorW == 0, no scissor is applied.
+	// If scissorW == 0, no scissor is applied (the whole render target is cleared).
 	void Clear(uint32_t clearColor, float clearZ, int clearStencil, int clearMask, int colorMask, int scissorX, int scissorY, int scissorW, int scissorH) {
 		_dbg_assert_(G3D, curRenderStep_ && curRenderStep_->stepType == GLRStepType::RENDER);
 		if (!clearMask)

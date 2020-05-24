@@ -796,7 +796,6 @@ void GLQueueRunner::PerformRenderPass(const GLRStep &step) {
 			}
 			if (c.clear.colorMask != colorMask) {
 				glColorMask(c.clear.colorMask & 1, (c.clear.colorMask >> 1) & 1, (c.clear.colorMask >> 2) & 1, (c.clear.colorMask >> 3) & 1);
-				colorMask = c.clear.colorMask;
 			}
 			if (c.clear.clearMask & GL_COLOR_BUFFER_BIT) {
 				float color[4];
@@ -818,6 +817,10 @@ void GLQueueRunner::PerformRenderPass(const GLRStep &step) {
 				glClearStencil(c.clear.clearStencil);
 			}
 			glClear(c.clear.clearMask);
+			// Restore the color mask if it was different.
+			if (c.clear.colorMask != colorMask) {
+				glColorMask(colorMask & 1, (colorMask >> 1) & 1, (colorMask >> 2) & 1, (colorMask >> 3) & 1);
+			}
 			if (c.clear.scissorW == 0) {
 				glEnable(GL_SCISSOR_TEST);
 			}
