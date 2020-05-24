@@ -789,14 +789,14 @@ int GetPow2(int x) {
 	return ret;
 }
 
-static PPGeTextDrawerImage PPGeGetTextImage(const char *text, PPGeAlign align, float scale, float maxWidth, bool wrap) {
+static PPGeTextDrawerImage PPGeGetTextImage(const char *text, const PPGeStyle &style, float maxWidth, bool wrap) {
 	int tdalign = 0;
 	tdalign |= FLAG_ELLIPSIZE_TEXT;
 	if (wrap) {
 		tdalign |= FLAG_WRAP_TEXT;
 	}
 
-	PPGeTextDrawerCacheKey key{ text, tdalign, maxWidth / scale };
+	PPGeTextDrawerCacheKey key{ text, tdalign, maxWidth / style.scale };
 	PPGeTextDrawerImage im{};
 
 	auto cacheItem = textDrawerImages.find(key);
@@ -805,7 +805,7 @@ static PPGeTextDrawerImage PPGeGetTextImage(const char *text, PPGeAlign align, f
 		cacheItem->second.entry.lastUsedFrame = gpuStats.numFlips;
 	} else {
 		std::vector<uint8_t> bitmapData;
-		textDrawer->SetFontScale(scale, scale);
+		textDrawer->SetFontScale(style.scale, style.scale);
 		Bounds b(0, 0, maxWidth, 272.0f);
 		std::string cleaned = ReplaceAll(text, "\r", "");
 		textDrawer->DrawStringBitmapRect(bitmapData, im.entry, Draw::DataFormat::R8_UNORM, cleaned.c_str(), b, tdalign);
@@ -842,7 +842,7 @@ static PPGeTextDrawerImage PPGeGetTextImage(const char *text, PPGeAlign align, f
 	return im;
 }
 
-static void PPGeDrawTextImage(PPGeTextDrawerImage im, float x, float y, PPGeAlign align, float scale, u32 color) {
+static void PPGeDrawTextImage(PPGeTextDrawerImage im, float x, float y, const PPGeStyle &style) {
 	if (!im.ptr) {
 		return;
 	}
@@ -855,41 +855,50 @@ static void PPGeDrawTextImage(PPGeTextDrawerImage im, float x, float y, PPGeAlig
 	WriteCmd(GE_CMD_TEXSIZE0, wp2 | (hp2 << 8));
 	WriteCmd(GE_CMD_TEXFLUSH, 0);
 
-	float w = im.entry.width * scale;
-	float h = im.entry.height * scale;
+	float w = im.entry.width * style.scale;
+	float h = im.entry.height * style.scale;
 
-	if (align & PPGeAlign::BOX_HCENTER)
+	if (style.align & PPGeAlign::BOX_HCENTER)
 		x -= w / 2.0f;
-	else if (align & PPGeAlign::BOX_RIGHT)
+	else if (style.align & PPGeAlign::BOX_RIGHT)
 		x -= w;
-	if (align & PPGeAlign::BOX_VCENTER)
+	if (style.align & PPGeAlign::BOX_VCENTER)
 		y -= h / 2.0f;
-	else if (align & PPGeAlign::BOX_BOTTOM)
+	else if (style.align & PPGeAlign::BOX_BOTTOM)
 		y -= h;
 
 	BeginVertexData();
 	float u1 = (float)im.entry.width / (1 << wp2);
 	float v1 = (float)im.entry.height / (1 << hp2);
-	Vertex(x, y, 0, 0, 1 << wp2, 1 << hp2, color);
-	Vertex(x + w, y + h, u1, v1, 1 << wp2, 1 << hp2, color);
+	if (style.hasShadow) {
+		Vertex(x + 1, y + 2, 0, 0, 1 << wp2, 1 << hp2, style.shadowColor);
+		Vertex(x + 1 + w, y + 2 + h, u1, v1, 1 << wp2, 1 << hp2, style.shadowColor);
+	}
+	Vertex(x, y, 0, 0, 1 << wp2, 1 << hp2, style.color);
+	Vertex(x + w, y + h, u1, v1, 1 << wp2, 1 << hp2, style.color);
 	EndVertexDataAndDraw(GE_PRIM_RECTANGLES);
 
 	PPGeSetDefaultTexture();
 }
 
-void PPGeDrawText(const char *text, float x, float y, PPGeAlign align, float scale, u32 color) {
+void PPGeDrawText(const char *text, float x, float y, const PPGeStyle &style) {
 	if (!text || !strlen(text)) {
 		return;
 	}
 
 	if (HasTextDrawer()) {
-		PPGeTextDrawerImage im = PPGeGetTextImage(text, align, scale, 480.0f - x, false);
-		PPGeDrawTextImage(im, x, y, align, scale, color);
+		PPGeTextDrawerImage im = PPGeGetTextImage(text, style, 480.0f - x, false);
+		PPGeDrawTextImage(im, x, y, style);
 		return;
 	}
 
-	PPGePrepareText(text, x, y, align, scale, scale, PPGE_LINE_USE_ELLIPSIS);
-	PPGeDrawCurrentText(color);
+	if (style.hasShadow) {
+		PPGePrepareText(text, x + 1, y + 2, style.align, style.scale, style.scale, PPGE_LINE_USE_ELLIPSIS);
+		PPGeDrawCurrentText(style.shadowColor);
+	}
+
+	PPGePrepareText(text, x, y, style.align, style.scale, style.scale, PPGE_LINE_USE_ELLIPSIS);
+	PPGeDrawCurrentText(style.color);
 }
 
 static std::string StripTrailingWhite(const std::string &s) {
@@ -915,7 +924,7 @@ static std::string CropLinesToCount(const std::string &s, int numLines) {
 	return s.substr(0, len);
 }
 
-void PPGeDrawTextWrapped(const char *text, float x, float y, float wrapWidth, float wrapHeight, PPGeAlign align, float scale, u32 color) {
+void PPGeDrawTextWrapped(const char *text, float x, float y, float wrapWidth, float wrapHeight, const PPGeStyle &style) {
 	std::string s = text;
 	if (wrapHeight != 0.0f) {
 		s = StripTrailingWhite(s);
@@ -928,8 +937,11 @@ void PPGeDrawTextWrapped(const char *text, float x, float y, float wrapWidth, fl
 		float actualWidth, actualHeight;
 		Bounds b(0, 0, wrapWidth <= 0 ? 480.0f - x : wrapWidth, wrapHeight);
 		int tdalign = 0;
-		textDrawer->SetFontScale(scale, scale);
+		textDrawer->SetFontScale(style.scale, style.scale);
 		textDrawer->MeasureStringRect(s.c_str(), s.size(), b, &actualWidth, &actualHeight, tdalign | FLAG_WRAP_TEXT);
+
+		// Check if we need to scale the text down to fit better.
+		PPGeStyle adjustedStyle = style;
 		if (wrapHeight != 0.0f && actualHeight > wrapHeight) {
 			// Cheap way to get the line height.
 			float oneLine, twoLines;
@@ -945,16 +957,20 @@ void PPGeDrawTextWrapped(const char *text, float x, float y, float wrapWidth, fl
 				s = StripTrailingWhite(CropLinesToCount(s, (int)maxLines)) + "\n...";
 			}
 
-			scale *= wrapHeight / actualHeight;
+			adjustedStyle.scale *= wrapHeight / actualHeight;
 		}
 
-		PPGeTextDrawerImage im = PPGeGetTextImage(s.c_str(), align, scale, wrapWidth <= 0 ? 480.0f - x : wrapWidth, true);
-		PPGeDrawTextImage(im, x, y, align, scale, color);
+		PPGeTextDrawerImage im = PPGeGetTextImage(s.c_str(), adjustedStyle, wrapWidth <= 0 ? 480.0f - x : wrapWidth, true);
+		PPGeDrawTextImage(im, x, y, adjustedStyle);
 		return;
 	}
 
-	PPGePrepareText(s.c_str(), x, y, align, scale, scale, PPGE_LINE_USE_ELLIPSIS | PPGE_LINE_WRAP_WORD, wrapWidth);
+	int sx = style.hasShadow ? 1 : 0;
+	int sy = style.hasShadow ? 2 : 0;
+	PPGePrepareText(s.c_str(), x + sx, y + sy, style.align, style.scale, style.scale, PPGE_LINE_USE_ELLIPSIS | PPGE_LINE_WRAP_WORD, wrapWidth);
 
+	float scale = style.scale;
+	float lineHeightScale = style.scale;
 	float actualHeight = char_lines_metrics.lineHeight * char_lines_metrics.numLines;
 	if (wrapHeight != 0.0f && actualHeight > wrapHeight) {
 		if (actualHeight > wrapHeight * maxScaleDown) {
@@ -967,11 +983,17 @@ void PPGeDrawTextWrapped(const char *text, float x, float y, float wrapWidth, fl
 
 		// Measure the text again after scaling down.
 		PPGeResetCurrentText();
-		float reduced = scale * wrapHeight / actualHeight;
+		float reduced = style.scale * wrapHeight / actualHeight;
 		// Try to keep the font as large as possible, so reduce the line height some.
-		PPGePrepareText(s.c_str(), x, y, align, reduced * 1.15, reduced, PPGE_LINE_USE_ELLIPSIS | PPGE_LINE_WRAP_WORD, wrapWidth);
+		scale = reduced * 1.15f;
+		lineHeightScale = reduced;
+		PPGePrepareText(s.c_str(), x + sx, y + sy, style.align, scale, lineHeightScale, PPGE_LINE_USE_ELLIPSIS | PPGE_LINE_WRAP_WORD, wrapWidth);
 	}
-	PPGeDrawCurrentText(color);
+	if (style.hasShadow) {
+		PPGeDrawCurrentText(style.shadowColor);
+		PPGePrepareText(s.c_str(), x, y, style.align, scale, lineHeightScale, PPGE_LINE_USE_ELLIPSIS | PPGE_LINE_WRAP_WORD, wrapWidth);
+	}
+	PPGeDrawCurrentText(style.color);
 }
 
 // Draws a "4-patch" for button-like things that can be resized
@@ -1031,8 +1053,7 @@ void PPGeDrawRect(float x1, float y1, float x2, float y2, u32 color) {
 }
 
 // Just blits an image to the screen, multiplied with the color.
-void PPGeDrawImage(ImageID atlasImage, float x, float y, int align, u32 color)
-{
+void PPGeDrawImage(ImageID atlasImage, float x, float y, const PPGeStyle &style) {
 	if (!dlPtr)
 		return;
 
@@ -1043,13 +1064,16 @@ void PPGeDrawImage(ImageID atlasImage, float x, float y, int align, u32 color)
 	float w = img->w;
 	float h = img->h;
 	BeginVertexData();
-	Vertex(x, y, img->u1, img->v1, atlasWidth, atlasHeight, color);
-	Vertex(x + w, y + h, img->u2, img->v2, atlasWidth, atlasHeight, color);
+	if (style.hasShadow) {
+		Vertex(x + 1, y + 2, img->u1, img->v1, atlasWidth, atlasHeight, style.shadowColor);
+		Vertex(x + 1 + w, y + 2 + h, img->u2, img->v2, atlasWidth, atlasHeight, style.shadowColor);
+	}
+	Vertex(x, y, img->u1, img->v1, atlasWidth, atlasHeight, style.color);
+	Vertex(x + w, y + h, img->u2, img->v2, atlasWidth, atlasHeight, style.color);
 	EndVertexDataAndDraw(GE_PRIM_RECTANGLES);
 }
 
-void PPGeDrawImage(ImageID atlasImage, float x, float y, float w, float h, int align, u32 color)
-{
+void PPGeDrawImage(ImageID atlasImage, float x, float y, float w, float h, const PPGeStyle &style) {
 	if (!dlPtr)
 		return;
 
@@ -1058,8 +1082,12 @@ void PPGeDrawImage(ImageID atlasImage, float x, float y, float w, float h, int a
 		return;
 	}
 	BeginVertexData();
-	Vertex(x, y, img->u1, img->v1, atlasWidth, atlasHeight, color);
-	Vertex(x + w, y + h, img->u2, img->v2, atlasWidth, atlasHeight, color);
+	if (style.hasShadow) {
+		Vertex(x + 1, y + 2, img->u1, img->v1, atlasWidth, atlasHeight, style.shadowColor);
+		Vertex(x + 1 + w, y + 2 + h, img->u2, img->v2, atlasWidth, atlasHeight, style.shadowColor);
+	}
+	Vertex(x, y, img->u1, img->v1, atlasWidth, atlasHeight, style.color);
+	Vertex(x + w, y + h, img->u2, img->v2, atlasWidth, atlasHeight, style.color);
 	EndVertexDataAndDraw(GE_PRIM_RECTANGLES);
 }
 
