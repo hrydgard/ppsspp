@@ -156,6 +156,8 @@ void DrawEngineGLES::ClearInputLayoutMap() {
 }
 
 void DrawEngineGLES::BeginFrame() {
+	DecimateTrackedVertexArrays();
+
 	FrameData &frameData = frameData_[render_->GetCurFrame()];
 	render_->BeginPushBuffer(frameData.pushIndex);
 	render_->BeginPushBuffer(frameData.pushVertex);

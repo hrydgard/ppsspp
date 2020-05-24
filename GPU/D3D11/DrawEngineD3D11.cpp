@@ -307,6 +307,8 @@ void DrawEngineD3D11::BeginFrame() {
 		NOTICE_LOG(G3D, buffer);
 	}
 #endif
+
+	lastRenderStepId_ = -1;
 }
 
 VertexArrayInfoD3D11::~VertexArrayInfoD3D11() {
@@ -324,6 +326,14 @@ static uint32_t SwapRB(uint32_t c) {
 void DrawEngineD3D11::DoFlush() {
 	gpuStats.numFlushes++;
 	gpuStats.numTrackedVertexArrays = (int)vai_.size();
+
+	// In D3D, we're synchronous and state carries over so all we reset here on a new step is the viewport/scissor.
+	int curRenderStepId = draw_->GetCurrentStepId();
+	if (lastRenderStepId_ != curRenderStepId) {
+		// Dirty everything that has dynamic state that will need re-recording.
+		gstate_c.Dirty(DIRTY_VIEWPORTSCISSOR_STATE);
+		lastRenderStepId_ = curRenderStepId;
+	}
 
 	// This is not done on every drawcall, we collect vertex data
 	// until critical state changes. That's when we draw (flush).

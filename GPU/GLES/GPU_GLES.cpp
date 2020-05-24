@@ -373,7 +373,6 @@ void GPU_GLES::ReapplyGfxState() {
 
 void GPU_GLES::BeginFrame() {
 	textureCacheGL_->StartFrame();
-	drawEngine_.DecimateTrackedVertexArrays();
 	depalShaderCache_.Decimate();
 	fragmentTestCache_.Decimate();
 

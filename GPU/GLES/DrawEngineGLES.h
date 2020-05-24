@@ -150,7 +150,6 @@ public:
 	void DeviceRestore(Draw::DrawContext *draw);
 
 	void ClearTrackedVertexArrays() override;
-	void DecimateTrackedVertexArrays();
 
 	void BeginFrame();
 	void EndFrame();
@@ -186,6 +185,7 @@ public:
 
 protected:
 	bool UpdateUseHWTessellation(bool enable) override;
+	void DecimateTrackedVertexArrays();
 
 private:
 	void InitDeviceObjects();

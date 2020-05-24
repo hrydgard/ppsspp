@@ -282,7 +282,7 @@ void GPU_DX9::ReapplyGfxState() {
 
 void GPU_DX9::BeginFrame() {
 	textureCacheDX9_->StartFrame();
-	drawEngine_.DecimateTrackedVertexArrays();
+	drawEngine_.BeginFrame();
 	depalShaderCache_.Decimate();
 	// fragmentTestCache_.Decimate();
 

@@ -599,11 +599,16 @@ public:
 
 	void HandleEvent(Event ev, int width, int height, void *param1, void *param2) override;
 
+	int GetCurrentStepId() const override {
+		return stepId_;
+	}
+
 private:
 	LPDIRECT3D9 d3d_;
 	LPDIRECT3D9EX d3dEx_;
 	LPDIRECT3DDEVICE9 device_;
 	LPDIRECT3DDEVICE9EX deviceEx_;
+	int stepId_ = -1;
 	int adapterId_ = -1;
 	D3DADAPTER_IDENTIFIER9 identifier_{};
 	D3DCAPS9 d3dCaps_;
@@ -1160,6 +1165,7 @@ void D3D9Context::BindFramebufferAsRenderTarget(Framebuffer *fbo, const RenderPa
 
 	dxstate.scissorRect.restore();
 	dxstate.viewport.restore();
+	stepId_++;
 }
 
 uintptr_t D3D9Context::GetFramebufferAPITexture(Framebuffer *fbo, int channelBits, int attachment) {
@@ -1185,10 +1191,6 @@ uintptr_t D3D9Context::GetFramebufferAPITexture(Framebuffer *fbo, int channelBit
 			return (uintptr_t)fb->tex;
 		}
 	}
-}
-
-LPDIRECT3DSURFACE9 fbo_get_color_for_read(D3D9Framebuffer *fbo) {
-	return fbo->surf;
 }
 
 void D3D9Context::BindFramebufferAsTexture(Framebuffer *fbo, int binding, FBChannel channelBit, int color) {
@@ -1228,6 +1230,7 @@ bool D3D9Context::BlitFramebuffer(Framebuffer *srcfb, int srcX1, int srcY1, int 
 	RECT dstRect{ (LONG)dstX1, (LONG)dstY1, (LONG)dstX2, (LONG)dstY2 };
 	LPDIRECT3DSURFACE9 srcSurf = src ? src->surf : deviceRTsurf;
 	LPDIRECT3DSURFACE9 dstSurf = dst ? dst->surf : deviceRTsurf;
+	stepId_++;
 	return SUCCEEDED(device_->StretchRect(srcSurf, &srcRect, dstSurf, &dstRect, filter == FB_BLIT_LINEAR ? D3DTEXF_LINEAR : D3DTEXF_POINT));
 }
 
@@ -1244,6 +1247,9 @@ void D3D9Context::HandleEvent(Event ev, int width, int height, void *param1, voi
 	case Event::GOT_BACKBUFFER:
 		device_->GetRenderTarget(0, &deviceRTsurf);
 		device_->GetDepthStencilSurface(&deviceDSsurf);
+		break;
+	case Event::PRESENTED:
+		stepId_ = 0;
 		break;
 	}
 }
