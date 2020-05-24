@@ -374,6 +374,9 @@ void DrawEngineGLES::DoFlush() {
 					vai->maxIndex = indexGen.MaxIndex();
 					vai->flags = gstate_c.vertexFullAlpha ? VAI_FLAG_VERTEXFULLALPHA : 0;
 
+					size_t size = decodedVerts_ * dec_->GetDecVtxFmt().stride;
+					u8 *dest = (u8 *)frameData.pushVertex->Push(size, &vertexBufferOffset, &vertexBuffer);
+					memcpy(dest, decoded, size);
 					goto rotateVBO;
 				}
 
@@ -394,8 +397,7 @@ void DrawEngineGLES::DoFlush() {
 						}
 						if (newMiniHash != vai->minihash || newHash != vai->hash) {
 							MarkUnreliable(vai);
-							DecodeVerts(decoded);
-							goto rotateVBO;
+							goto skipVBO;
 						}
 						if (vai->numVerts > 64) {
 							// exponential backoff up to 16 draws, then every 32
@@ -413,12 +415,11 @@ void DrawEngineGLES::DoFlush() {
 						u32 newMiniHash = ComputeMiniHash();
 						if (newMiniHash != vai->minihash) {
 							MarkUnreliable(vai);
-							DecodeVerts(decoded);
-							goto rotateVBO;
+							goto skipVBO;
 						}
 					}
 
-					if (vai->vbo == 0) {
+					if (vai->vbo == nullptr) {
 						DecodeVerts(decoded);
 						vai->numVerts = indexGen.VertexCount();
 						vai->prim = indexGen.Prim();
@@ -433,14 +434,18 @@ void DrawEngineGLES::DoFlush() {
 
 						size_t vsz = dec_->GetDecVtxFmt().stride * indexGen.MaxIndex();
 						vai->vbo = render_->CreateBuffer(GL_ARRAY_BUFFER, vsz, GL_STATIC_DRAW);
-						render_->BufferSubdata(vai->vbo, 0, vsz, decoded);
+						uint8_t *vertexData = new uint8_t[vsz];
+						memcpy(vertexData, decoded, vsz);
+						render_->BufferSubdata(vai->vbo, 0, vsz, vertexData);
 						// If there's only been one primitive type, and it's either TRIANGLES, LINES or POINTS,
 						// there is no need for the index buffer we built. We can then use glDrawArrays instead
 						// for a very minor speed boost.
 						if (useElements) {
 							size_t esz = sizeof(short) * indexGen.VertexCount();
 							vai->ebo = render_->CreateBuffer(GL_ELEMENT_ARRAY_BUFFER, esz, GL_STATIC_DRAW);
-							render_->BufferSubdata(vai->ebo, 0, esz, (uint8_t *)decIndex, false);
+							uint8_t *indexData = new uint8_t[esz];
+							memcpy(indexData, decIndex, esz);
+							render_->BufferSubdata(vai->ebo, 0, esz, indexData);
 						} else {
 							vai->ebo = 0;
 							render_->BindIndexBuffer(vai->ebo);
@@ -482,13 +487,13 @@ void DrawEngineGLES::DoFlush() {
 					if (vai->lastFrame != gpuStats.numFlips) {
 						vai->numFrames++;
 					}
-					DecodeVerts(decoded);
-					goto rotateVBO;
+					goto skipVBO;
 				}
 			}
 
 			vai->lastFrame = gpuStats.numFlips;
 		} else {
+skipVBO:
 			if (g_Config.bSoftwareSkinning && (lastVType_ & GE_VTYPE_WEIGHT_MASK)) {
 				// If software skinning, we've already predecoded into "decoded". So push that content.
 				size_t size = decodedVerts_ * dec_->GetDecVtxFmt().stride;
@@ -530,8 +535,8 @@ rotateVBO:
 		if (useElements) {
 			if (!indexBuffer) {
 				indexBufferOffset = (uint32_t)frameData.pushIndex->Push(decIndex, sizeof(uint16_t) * indexGen.VertexCount(), &indexBuffer);
-				render_->BindIndexBuffer(indexBuffer);
 			}
+			render_->BindIndexBuffer(indexBuffer);
 			render_->DrawIndexed(glprim[prim], vertexCount, GL_UNSIGNED_SHORT, (GLvoid*)(intptr_t)indexBufferOffset);
 		} else {
 			render_->Draw(glprim[prim], 0, vertexCount);
