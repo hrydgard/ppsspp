@@ -2,14 +2,13 @@
 
 #include <tchar.h>
 #include <math.h>
-
+#include <iomanip>
 #include "Core/Config.h"
 #include "Windows/resource.h"
 #include "Core/MemMap.h"
 #include "Windows/W32Util/Misc.h"
 #include "Windows/InputBox.h"
 #include "Windows/main.h"
-#include "Core/Debugger/SymbolMap.h"
 #include "base/display.h"
 
 #include "Debugger_Disasm.h"
@@ -172,8 +171,6 @@ CtrlMemView *CtrlMemView::getFrom(HWND hwnd)
 {
 	return (CtrlMemView *)GetWindowLongPtr(hwnd, GWLP_USERDATA);
 }
-
-
 
 
 void CtrlMemView::onPaint(WPARAM wParam, LPARAM lParam)
@@ -634,6 +631,39 @@ void CtrlMemView::scrollCursor(int bytes)
 	redraw();
 }
 
+
+std::vector<u32> CtrlMemView::searchString(std::string searchQuery)
+{
+	
+	std::vector<u32> searchResAddrs;
+	std::vector<u8> searchData;
+
+	auto memLock = Memory::Lock();
+	if (!PSP_IsInited())
+		return searchResAddrs;
+	
+	size_t queryLength = searchQuery.length();
+	u32 segmentStart = PSP_GetKernelMemoryBase(); //RAM start 
+	u32 const segmentEnd   = PSP_GetUserMemoryEnd() - queryLength; //RAM end
+	u8* ptr;
+
+	redraw();
+	for (segmentStart = PSP_GetKernelMemoryBase(); segmentStart < segmentEnd; segmentStart++) {
+		if (KeyDownAsync(VK_ESCAPE))
+		{
+			return searchResAddrs;
+		}
+
+		ptr = Memory::GetPointer(segmentStart);
+		if (memcmp(ptr, searchQuery.c_str(), queryLength) == 0) {
+			searchResAddrs.push_back(segmentStart);
+		}
+	};
+	redraw();
+	
+	return searchResAddrs;
+};
+
 void CtrlMemView::search(bool continueSearch)
 {
 	auto memLock = Memory::Lock();
@@ -641,6 +671,9 @@ void CtrlMemView::search(bool continueSearch)
 		return;
 
 	u32 searchAddress;
+	u32 segmentStart;
+	u32 segmentEnd;
+	u8* dataPointer;
 	if (continueSearch == false || searchQuery[0] == 0)
 	{
 		if (InputBox_GetString(GetModuleHandle(NULL),wnd,L"Search for", "",searchQuery) == false)
@@ -698,11 +731,15 @@ void CtrlMemView::search(bool continueSearch)
 	
 	searching = true;
 	redraw();	// so the cursor is disabled
+	
+
+	
 	for (size_t i = 0; i < memoryAreas.size(); i++)
 	{
-		u32 segmentStart = memoryAreas[i].first;
-		u32 segmentEnd = memoryAreas[i].second;
-		u8* dataPointer = Memory::GetPointer(segmentStart);
+		segmentStart = memoryAreas[i].first;
+		segmentEnd = memoryAreas[i].second;
+		
+		dataPointer = Memory::GetPointer(segmentStart);
 		if (dataPointer == NULL) continue;		// better safe than sorry, I guess
 
 		if (searchAddress < segmentStart) searchAddress = segmentStart;
@@ -756,7 +793,7 @@ void CtrlMemView::drawOffsetScale(HDC hdc)
 
 }
 
-void CtrlMemView::toggleOffsetScale(OffsetToggles toggle)
+void CtrlMemView::toggleOffsetScale(CommonToggles toggle)
 {
 	if (toggle == On) 
 		displayOffsetScale = true;
