@@ -148,9 +148,17 @@ int PSPMsgDialog::Init(unsigned int paramAddr) {
 void PSPMsgDialog::DisplayMessage(std::string text, bool hasYesNo, bool hasOK) {
 	auto di = GetI18NCategory("Dialog");
 
-	float WRAP_WIDTH = 300.0f;
-	if (UTF8StringNonASCIICount(text.c_str()) > 3)
-		WRAP_WIDTH = 372.0f;
+	PPGeStyle buttonStyle = FadedStyle(PPGeAlign::BOX_CENTER, FONT_SCALE);
+	PPGeStyle messageStyle = FadedStyle(PPGeAlign::BOX_HCENTER, FONT_SCALE);
+
+	// Without the scrollbar, we have 390 total pixels.
+	float WRAP_WIDTH = 340.0f;
+	if (UTF8StringNonASCIICount(text.c_str()) >= text.size() / 4) {
+		WRAP_WIDTH = 376.0f;
+		if (text.size() > 12) {
+			messageStyle.scale = 0.6f;
+		}
+	}
 
 	float totalHeight = 0.0f;
 	PPGeMeasureText(nullptr, &totalHeight, text.c_str(), FONT_SCALE, PPGE_LINE_WRAP_WORD, WRAP_WIDTH);
@@ -163,9 +171,6 @@ void PSPMsgDialog::DisplayMessage(std::string text, bool hasYesNo, bool hasOK) {
 	float sy = centerY - h2 - 15.0f;
 	float ey = centerY + h2 + 20.0f;
 	float buttonY = centerY + h2 + 5.0f;
-
-	PPGeStyle textStyle = FadedStyle(PPGeAlign::BOX_CENTER, FONT_SCALE);
-	PPGeStyle messageStyle = FadedStyle(PPGeAlign::BOX_HCENTER, FONT_SCALE);
 
 	auto drawSelectionBoxAndAdjust = [&](float x) {
 		// Box has a fixed size.
@@ -185,8 +190,8 @@ void PSPMsgDialog::DisplayMessage(std::string text, bool hasYesNo, bool hasOK) {
 			drawSelectionBoxAndAdjust(273.0f);
 		}
 
-		PPGeDrawText(di->T("Yes"), 203.0f, buttonY - 1.0f, textStyle);
-		PPGeDrawText(di->T("No"), 272.0f, buttonY - 1.0f, textStyle);
+		PPGeDrawText(di->T("Yes"), 203.0f, buttonY - 1.0f, buttonStyle);
+		PPGeDrawText(di->T("No"), 272.0f, buttonY - 1.0f, buttonStyle);
 		if (IsButtonPressed(CTRL_LEFT) && yesnoChoice == 0) {
 			yesnoChoice = 1;
 		} else if (IsButtonPressed(CTRL_RIGHT) && yesnoChoice == 1) {
@@ -198,7 +203,7 @@ void PSPMsgDialog::DisplayMessage(std::string text, bool hasYesNo, bool hasOK) {
 	if (hasOK) {
 		drawSelectionBoxAndAdjust(240.0f);
 
-		PPGeDrawText(di->T("OK"), 239.0f, buttonY - 1.0f, textStyle);
+		PPGeDrawText(di->T("OK"), 239.0f, buttonY - 1.0f, buttonStyle);
 		buttonY += 8.0f + 5.0f;
 	}
 
