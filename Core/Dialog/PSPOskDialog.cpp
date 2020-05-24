@@ -766,7 +766,7 @@ void PSPOskDialog::RenderKeyboard()
 	float previewLeftSide = (480.0f - (12.0f * drawLimit)) / 2.0f;
 	float title = (480.0f - (0.5f * drawLimit)) / 2.0f;
 
-	PPGeDrawText(oskDesc.c_str(), title , 20, PPGE_ALIGN_CENTER, 0.5f, CalcFadedColor(0xFFFFFFFF));
+	PPGeDrawText(oskDesc.c_str(), title , 20, PPGeAlign::BOX_CENTER, 0.5f, CalcFadedColor(0xFFFFFFFF));
 
 	std::u16string result;
 
@@ -781,7 +781,7 @@ void PSPOskDialog::RenderKeyboard()
 		{
 			temp[0] = result[drawIndex];
 			ConvertUCS2ToUTF8(buffer, temp);
-			PPGeDrawText(buffer.c_str(), previewLeftSide + (i * characterWidth), 40.0f, PPGE_ALIGN_HCENTER, 0.5f, color);
+			PPGeDrawText(buffer.c_str(), previewLeftSide + (i * characterWidth), 40.0f, PPGeAlign::BOX_HCENTER, 0.5f, color);
 		}
 		else
 		{
@@ -798,21 +798,21 @@ void PSPOskDialog::RenderKeyboard()
 
 					ConvertUCS2ToUTF8(buffer, temp);
 
-					PPGeDrawText(buffer.c_str(), previewLeftSide + (i * characterWidth), 40.0f, PPGE_ALIGN_HCENTER, 0.5f, color);
+					PPGeDrawText(buffer.c_str(), previewLeftSide + (i * characterWidth), 40.0f, PPGeAlign::BOX_HCENTER, 0.5f, color);
 
 					// Also draw the underline for the same reason.
 					color = CalcFadedColor(0xFFFFFFFF);
-					PPGeDrawText("_", previewLeftSide + (i * characterWidth), 40.0f, PPGE_ALIGN_HCENTER, 0.5f, color);
+					PPGeDrawText("_", previewLeftSide + (i * characterWidth), 40.0f, PPGeAlign::BOX_HCENTER, 0.5f, color);
 				}
 				else
 				{
 					ConvertUCS2ToUTF8(buffer, temp);
-					PPGeDrawText(buffer.c_str(), previewLeftSide + (i * characterWidth), 40.0f, PPGE_ALIGN_HCENTER, 0.5f, color);
+					PPGeDrawText(buffer.c_str(), previewLeftSide + (i * characterWidth), 40.0f, PPGeAlign::BOX_HCENTER, 0.5f, color);
 				}
 			}
 			else
 			{
-				PPGeDrawText("_", previewLeftSide + (i * characterWidth), 40.0f, PPGE_ALIGN_HCENTER, 0.5f, color);
+				PPGeDrawText("_", previewLeftSide + (i * characterWidth), 40.0f, PPGeAlign::BOX_HCENTER, 0.5f, color);
 			}
 		}
 	}
@@ -828,10 +828,10 @@ void PSPOskDialog::RenderKeyboard()
 			temp[0] = oskKeys[currentKeyboard][row][col];
 
 			ConvertUCS2ToUTF8(buffer, temp);
-			PPGeDrawText(buffer.c_str(), keyboardLeftSide + (25.0f * col) + characterWidth / 2.0, 70.0f + (25.0f * row), PPGE_ALIGN_HCENTER, 0.6f, color);
+			PPGeDrawText(buffer.c_str(), keyboardLeftSide + (25.0f * col) + characterWidth / 2.0, 70.0f + (25.0f * row), PPGeAlign::BOX_HCENTER, 0.6f, color);
 
 			if (selectedRow == row && col == selectedCol)
-				PPGeDrawText("_", keyboardLeftSide + (25.0f * col) + characterWidth / 2.0, 70.0f + (25.0f * row), PPGE_ALIGN_HCENTER, 0.6f, CalcFadedColor(0xFFFFFFFF));
+				PPGeDrawText("_", keyboardLeftSide + (25.0f * col) + characterWidth / 2.0, 70.0f + (25.0f * row), PPGeAlign::BOX_HCENTER, 0.6f, CalcFadedColor(0xFFFFFFFF));
 		}
 	}
 }
@@ -945,7 +945,7 @@ int PSPOskDialog::Update(int animSpeed) {
 	auto di = GetI18NCategory("Dialog");
 
 	PPGeDrawImage(ImageID("I_SQUARE"), 365, 222, 16, 16, 0, CalcFadedColor(0xFFFFFFFF));
-	PPGeDrawText(di->T("Space"), 390, 222, PPGE_ALIGN_LEFT, 0.5f, CalcFadedColor(0xFFFFFFFF));
+	PPGeDrawText(di->T("Space"), 390, 222, PPGeAlign::BOX_LEFT, 0.5f, CalcFadedColor(0xFFFFFFFF));
 
 	if (g_Config.iButtonPreference != PSP_SYSTEMPARAM_BUTTON_CIRCLE) {
 		PPGeDrawImage(ImageID("I_CROSS"), 45, 222, 16, 16, 0, CalcFadedColor(0xFFFFFFFF));
@@ -955,11 +955,11 @@ int PSPOskDialog::Update(int animSpeed) {
 		PPGeDrawImage(ImageID("I_CROSS"), 45, 247, 16, 16, 0, CalcFadedColor(0xFFFFFFFF));
 	}
 
-	PPGeDrawText(di->T("Select"), 75, 222, PPGE_ALIGN_LEFT, 0.5f, CalcFadedColor(0xFFFFFFFF));
-	PPGeDrawText(di->T("Delete"), 75, 247, PPGE_ALIGN_LEFT, 0.5f, CalcFadedColor(0xFFFFFFFF));
+	PPGeDrawText(di->T("Select"), 75, 222, PPGeAlign::BOX_LEFT, 0.5f, CalcFadedColor(0xFFFFFFFF));
+	PPGeDrawText(di->T("Delete"), 75, 247, PPGeAlign::BOX_LEFT, 0.5f, CalcFadedColor(0xFFFFFFFF));
 
-	PPGeDrawText("Start", 135, 220, PPGE_ALIGN_LEFT, 0.6f, CalcFadedColor(0xFFFFFFFF));
-	PPGeDrawText(di->T("Finish"), 185, 222, PPGE_ALIGN_LEFT, 0.5f, CalcFadedColor(0xFFFFFFFF));
+	PPGeDrawText("Start", 135, 220, PPGeAlign::BOX_LEFT, 0.6f, CalcFadedColor(0xFFFFFFFF));
+	PPGeDrawText(di->T("Finish"), 185, 222, PPGeAlign::BOX_LEFT, 0.5f, CalcFadedColor(0xFFFFFFFF));
 
 	auto lookupLangName = [&](int direction) {
 		// First, find the valid one...
@@ -983,20 +983,20 @@ int PSPOskDialog::Update(int animSpeed) {
 	};
 
 	if (OskKeyboardNames[currentKeyboardLanguage] != "ko_KR" && IsKeyboardShiftValid(oskParams->fields[0].inputtype, currentKeyboardLanguage, currentKeyboard)) {
-		PPGeDrawText("Select", 135, 245, PPGE_ALIGN_LEFT, 0.6f, CalcFadedColor(0xFFFFFFFF));
-		PPGeDrawText(di->T("Shift"), 185, 247, PPGE_ALIGN_LEFT, 0.5f, CalcFadedColor(0xFFFFFFFF));
+		PPGeDrawText("Select", 135, 245, PPGeAlign::BOX_LEFT, 0.6f, CalcFadedColor(0xFFFFFFFF));
+		PPGeDrawText(di->T("Shift"), 185, 247, PPGeAlign::BOX_LEFT, 0.5f, CalcFadedColor(0xFFFFFFFF));
 	}
 
 	const char *prevLang = lookupLangName(-1);
 	if (prevLang) {
-		PPGeDrawText("L", 235, 220, PPGE_ALIGN_LEFT, 0.6f, CalcFadedColor(0xFFFFFFFF));
-		PPGeDrawText(prevLang, 255, 222, PPGE_ALIGN_LEFT, 0.5f, CalcFadedColor(0xFFFFFFFF));
+		PPGeDrawText("L", 235, 220, PPGeAlign::BOX_LEFT, 0.6f, CalcFadedColor(0xFFFFFFFF));
+		PPGeDrawText(prevLang, 255, 222, PPGeAlign::BOX_LEFT, 0.5f, CalcFadedColor(0xFFFFFFFF));
 	}
 
 	const char *nextLang = lookupLangName(1);
 	if (nextLang) {
-		PPGeDrawText("R", 235, 245, PPGE_ALIGN_LEFT, 0.6f, CalcFadedColor(0xFFFFFFFF));
-		PPGeDrawText(nextLang, 255, 247, PPGE_ALIGN_LEFT, 0.5f, CalcFadedColor(0xFFFFFFFF));
+		PPGeDrawText("R", 235, 245, PPGeAlign::BOX_LEFT, 0.6f, CalcFadedColor(0xFFFFFFFF));
+		PPGeDrawText(nextLang, 255, 247, PPGeAlign::BOX_LEFT, 0.5f, CalcFadedColor(0xFFFFFFFF));
 	}
 
 	if (IsButtonPressed(CTRL_UP) || IsButtonHeld(CTRL_UP, upBtnFramesHeld, framesHeldThreshold, framesHeldRepeatRate)) {
