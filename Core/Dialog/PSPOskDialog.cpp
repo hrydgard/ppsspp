@@ -767,17 +767,13 @@ void PSPOskDialog::RenderKeyboard()
 	float title = (480.0f - (0.5f * drawLimit)) / 2.0f;
 
 	PPGeStyle descStyle = FadedStyle(PPGeAlign::BOX_CENTER, 0.5f);
-	descStyle.hasShadow = false;
 	PPGeDrawText(oskDesc.c_str(), title, 20, descStyle);
 
 	PPGeStyle textStyle = FadedStyle(PPGeAlign::BOX_HCENTER, 0.5f);
-	textStyle.hasShadow = false;
 
 	PPGeStyle keyStyle = FadedStyle(PPGeAlign::BOX_HCENTER, 0.6f);
-	keyStyle.hasShadow = false;
 	PPGeStyle selectedKeyStyle = FadedStyle(PPGeAlign::BOX_HCENTER, 0.6f);
 	selectedKeyStyle.color = CalcFadedColor(0xFF3060FF);
-	selectedKeyStyle.hasShadow = false;
 
 	std::u16string result;
 
@@ -954,9 +950,7 @@ int PSPOskDialog::Update(int animSpeed) {
 	auto di = GetI18NCategory("Dialog");
 
 	PPGeStyle actionStyle = FadedStyle(PPGeAlign::BOX_LEFT, 0.5f);
-	actionStyle.hasShadow = false;
 	PPGeStyle guideStyle = FadedStyle(PPGeAlign::BOX_LEFT, 0.6f);
-	guideStyle.hasShadow = false;
 
 	PPGeDrawImage(ImageID("I_SQUARE"), 365, 222, 16, 16, guideStyle);
 	PPGeDrawText(di->T("Space"), 390, 222, actionStyle);
