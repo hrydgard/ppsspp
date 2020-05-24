@@ -50,6 +50,7 @@ void DispatchEvents() {
 }
 
 void RemoveQueuedEventsByView(View *view) {
+	std::unique_lock<std::mutex> guard(eventMutex_);
 	for (auto it = g_dispatchQueue.begin(); it != g_dispatchQueue.end(); ) {
 		if (it->params.v == view) {
 			it = g_dispatchQueue.erase(it);
@@ -60,6 +61,7 @@ void RemoveQueuedEventsByView(View *view) {
 }
 
 void RemoveQueuedEventsByEvent(Event *event) {
+	std::unique_lock<std::mutex> guard(eventMutex_);
 	for (auto it = g_dispatchQueue.begin(); it != g_dispatchQueue.end(); ) {
 		if (it->e == event) {
 			it = g_dispatchQueue.erase(it);
