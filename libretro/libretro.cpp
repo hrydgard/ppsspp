@@ -342,7 +342,7 @@ void retro_init(void)
 #endif
 
    g_Config.bEnableLogging = true;
-   g_Config.bFrameSkipUnthrottle = false;
+   g_Config.iUnthrottleMode = (int)UnthrottleMode::CONTINUOUS;
    g_Config.bMemStickInserted = PSP_MEMORYSTICK_STATE_INSERTED;
    g_Config.iGlobalVolume = VOLUME_MAX - 1;
    g_Config.iAltSpeedVolume = -1;
