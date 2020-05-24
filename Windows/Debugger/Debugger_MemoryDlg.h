@@ -6,7 +6,7 @@
 #include "Core/MemMap.h"
 
 #include "Core/Debugger/DebugInterface.h"
-
+#include "CtrlMemView.h"
 #include "Common/CommonWindows.h"
 
 class CMemoryDlg : public Dialog
@@ -14,7 +14,9 @@ class CMemoryDlg : public Dialog
 private:
 	DebugInterface *cpu;
 	static RECT slRect;
-
+	RECT winRect;
+	CtrlMemView *memView;
+	HWND memViewHdl , symListHdl, editWnd, searchBoxHdl, searchResListHdl;
 	BOOL DlgProc(UINT message, WPARAM wParam, LPARAM lParam);
 public:
 	int index; //helper 
@@ -28,6 +30,8 @@ public:
 	void Goto(u32 addr);
 	void Update(void);	
 	void NotifyMapLoaded();
+
+	void NotifySearchCompleted();
 
 	void Size(void);
 };

@@ -176,6 +176,12 @@ CtrlMemView *CtrlMemView::getFrom(HWND hwnd)
 
 
 
+//void CtrlMemView::doSearch(std::string searchString)
+//{
+//	searchQuery = searchString;
+//	search(true);
+//}
+
 void CtrlMemView::onPaint(WPARAM wParam, LPARAM lParam)
 {
 	auto memLock = Memory::Lock();
@@ -634,6 +640,41 @@ void CtrlMemView::scrollCursor(int bytes)
 	redraw();
 }
 
+void CtrlMemView::searchString(std::string searchQuery)
+{
+	auto memLock = Memory::Lock();
+	if (!PSP_IsInited())
+		return;
+
+	//searchQuery = "SNAKE";
+	std::vector<u8*> searchResAddrs;
+	std::vector<u8> searchData;
+
+	//convert string to searchable vector for memcmp
+	std::for_each(searchQuery.begin(), searchQuery.end(), [&searchData](char c) {searchData.push_back(c); });
+
+
+	u32 segmentStart = 0x08000000;
+	u32 segmentEnd   = 0x0A000000;
+
+	u8* dataPointer = Memory::GetPointer(segmentStart);
+
+	redraw();
+
+	for (size_t i = 0; i < segmentEnd - segmentStart - searchData.size(); i++)
+	{
+		if ((i % 256) == 0 && KeyDownAsync(VK_ESCAPE))
+		{
+			return;
+		}
+		if (memcmp(&dataPointer[i], searchData.data(), searchData.size()) == 0) {
+			searchResAddrs.push_back(&dataPointer[i]);
+		}
+	};
+	redraw();
+	return;
+};
+
 void CtrlMemView::search(bool continueSearch)
 {
 	auto memLock = Memory::Lock();
@@ -641,6 +682,9 @@ void CtrlMemView::search(bool continueSearch)
 		return;
 
 	u32 searchAddress;
+	u32 segmentStart;
+	u32 segmentEnd;
+	u8* dataPointer;
 	if (continueSearch == false || searchQuery[0] == 0)
 	{
 		if (InputBox_GetString(GetModuleHandle(NULL),wnd,L"Search for", "",searchQuery) == false)
@@ -698,11 +742,15 @@ void CtrlMemView::search(bool continueSearch)
 	
 	searching = true;
 	redraw();	// so the cursor is disabled
+	
+
+	
 	for (size_t i = 0; i < memoryAreas.size(); i++)
 	{
-		u32 segmentStart = memoryAreas[i].first;
-		u32 segmentEnd = memoryAreas[i].second;
-		u8* dataPointer = Memory::GetPointer(segmentStart);
+		segmentStart = memoryAreas[i].first;
+		segmentEnd = memoryAreas[i].second;
+		
+		dataPointer = Memory::GetPointer(segmentStart);
 		if (dataPointer == NULL) continue;		// better safe than sorry, I guess
 
 		if (searchAddress < segmentStart) searchAddress = segmentStart;
@@ -756,7 +804,7 @@ void CtrlMemView::drawOffsetScale(HDC hdc)
 
 }
 
-void CtrlMemView::toggleOffsetScale(OffsetToggles toggle)
+void CtrlMemView::toggleOffsetScale(CommonToggles toggle)
 {
 	if (toggle == On) 
 		displayOffsetScale = true;
@@ -764,5 +812,13 @@ void CtrlMemView::toggleOffsetScale(OffsetToggles toggle)
 		displayOffsetScale = false;
 
 	updateStatusBarText();
+	redraw();
+}
+
+void CtrlMemView::toggleStringSearch(CommonToggles toggle) {
+	if (toggle == On)
+		searchStringValue = true;
+	else if (toggle = Off)
+		searchStringValue = false;
 	redraw();
 }

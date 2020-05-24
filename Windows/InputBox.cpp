@@ -108,7 +108,7 @@ bool InputBox_GetWString(HINSTANCE hInst, HWND hParent, const wchar_t *title, co
 		return false;
 }
 
-bool InputBox_GetHex(HINSTANCE hInst, HWND hParent, const wchar_t *title, u32 defaultvalue, u32 &outvalue)
+bool InputBox_GetBin(HINSTANCE hInst, HWND hParent, const wchar_t *title, u32 defaultvalue, u32 &outvalue)
 {
 	wchar_t temp[256];
 	wsprintf(temp,L"%08x",defaultvalue);
@@ -125,6 +125,29 @@ bool InputBox_GetHex(HINSTANCE hInst, HWND hParent, const wchar_t *title, u32 de
 		return false;
 	}
 	else 
+	{
+		outvalue = 0;
+		return false;
+	}
+}
+
+bool InputBox_GetHex(HINSTANCE hInst, HWND hParent, const wchar_t* title, u32 defaultvalue, u32& outvalue)
+{
+	wchar_t temp[256];
+	wsprintf(temp, L"%08x", defaultvalue);
+	textBoxContents = temp;
+
+	INT_PTR value = DialogBox(hInst, (LPCWSTR)IDD_INPUTBOX, hParent, InputBoxFunc);
+
+	if (value == IDOK)
+	{
+		if (swscanf(out.c_str(), L"0x%08x", &outvalue) == 1)
+			return true;
+		if (swscanf(out.c_str(), L"%08x", &outvalue) == 1)
+			return true;
+		return false;
+	}
+	else
 	{
 		outvalue = 0;
 		return false;
