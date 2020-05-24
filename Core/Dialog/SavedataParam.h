@@ -17,6 +17,7 @@
 
 #pragma once
 
+#include <set>
 #include "Common/CommonTypes.h"
 #include "Core/MemMap.h"
 #include "Core/HLE/sceRtc.h"

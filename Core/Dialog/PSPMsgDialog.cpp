@@ -17,6 +17,7 @@
 
 #include <algorithm>
 #include "Core/Dialog/PSPMsgDialog.h"
+#include "Core/Dialog/PSPSaveDialog.h"
 #include "Core/Util/PPGeDraw.h"
 #include "Core/HLE/sceCtrl.h"
 #include "Core/MemMapHelpers.h"
@@ -133,7 +134,7 @@ int PSPMsgDialog::Init(unsigned int paramAddr) {
 	}
 
 	if (flag & DS_ERRORMSG) {
-		snprintf(msgText, 512, "Error code: %08x", messageDialog.errorNum);
+		FormatErrorCode(messageDialog.errorNum);
 	} else {
 		truncate_cpy(msgText, messageDialog.string);
 	}
@@ -143,6 +144,40 @@ int PSPMsgDialog::Init(unsigned int paramAddr) {
 	UpdateButtons();
 	StartFade(true);
 	return 0;
+}
+
+
+void PSPMsgDialog::FormatErrorCode(uint32_t code) {
+	auto di = GetI18NCategory("Dialog");
+
+	switch (code) {
+	case SCE_UTILITY_SAVEDATA_ERROR_LOAD_DATA_BROKEN:
+		snprintf(msgText, 512, "%s (%08x)", di->T("MsgErrorSavedataDataBroken", "Save data was corrupt."), code);
+		break;
+
+	case SCE_UTILITY_SAVEDATA_ERROR_LOAD_NO_MS:
+	case SCE_UTILITY_SAVEDATA_ERROR_RW_NO_MEMSTICK:
+	case SCE_UTILITY_SAVEDATA_ERROR_SAVE_NO_MS:
+	case SCE_UTILITY_SAVEDATA_ERROR_DELETE_NO_MS:
+	case SCE_UTILITY_SAVEDATA_ERROR_SIZES_NO_MS:
+		snprintf(msgText, 512, "%s (%08x)", di->T("MsgErrorSavedataNoMS", "Memory stick not inserted."), code);
+		break;
+
+	case SCE_UTILITY_SAVEDATA_ERROR_LOAD_NO_DATA:
+	case SCE_UTILITY_SAVEDATA_ERROR_RW_NO_DATA:
+	case SCE_UTILITY_SAVEDATA_ERROR_DELETE_NO_DATA:
+	case SCE_UTILITY_SAVEDATA_ERROR_SIZES_NO_DATA:
+		snprintf(msgText, 512, "%s (%08x)", di->T("MsgErrorSavedataNoData", "Warning: no save data was found."), code);
+		break;
+
+	case SCE_UTILITY_SAVEDATA_ERROR_RW_MEMSTICK_FULL:
+	case SCE_UTILITY_SAVEDATA_ERROR_SAVE_MS_NOSPACE:
+		snprintf(msgText, 512, "%s (%08x)", di->T("MsgErrorSavedataMSFull", "Memory stick full.  Check your storage space."), code);
+		break;
+
+	default:
+		snprintf(msgText, 512, "%s %08x", di->T("MsgErrorCode", "Error code:"), code);
+	}
 }
 
 void PSPMsgDialog::DisplayMessage(std::string text, bool hasYesNo, bool hasOK) {
