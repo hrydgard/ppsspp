@@ -1,6 +1,6 @@
 // Copyright (c) 2012- PPSSPP Project.
 
-// This program is free software: you can redistribute it and/or modify
+4// This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
 // the Free Software Foundation, version 2.0 or later versions.
 
@@ -537,8 +537,6 @@ void FramebufferManagerCommon::NotifyRenderFramebufferSwitched(VirtualFramebuffe
 				// Wait, can we even do this? Seems highly unsafe.. TODO: Remove
 				if (vfb->last_frame_render != gpuStats.numFlips) {
 					draw_->BindFramebufferAsRenderTarget(vfb->fbo, { Draw::RPAction::CLEAR, Draw::RPAction::CLEAR, Draw::RPAction::CLEAR }, "FramebufferSwitch");
-					// GLES resets the blend state on clears.
-					gstate_c.Dirty(DIRTY_BLEND_STATE);
 				} else {
 					draw_->BindFramebufferAsRenderTarget(vfb->fbo, { Draw::RPAction::KEEP, Draw::RPAction::KEEP, Draw::RPAction::KEEP }, "FramebufferSwitch");
 				}
@@ -549,8 +547,8 @@ void FramebufferManagerCommon::NotifyRenderFramebufferSwitched(VirtualFramebuffe
 			// This should only happen very briefly when toggling useBufferedRendering_.
 			ResizeFramebufFBO(vfb, vfb->width, vfb->height, true);
 		}
-		// GLES resets the blend state on clears. Since we switched target, we also need to redo viewportscissorstate.
-		gstate_c.Dirty(DIRTY_BLEND_STATE | DIRTY_VIEWPORTSCISSOR_STATE);
+		// Since we switched target, we need to redo viewportscissorstate.
+		gstate_c.Dirty(DIRTY_VIEWPORTSCISSOR_STATE);
 	} else {
 		if (vfb->fbo) {
 			// This should only happen very briefly when toggling useBufferedRendering_.
@@ -841,7 +839,7 @@ void FramebufferManagerCommon::CopyDisplayToOutput(bool reallyDirty) {
 		if (useBufferedRendering_) {
 			draw_->BindFramebufferAsRenderTarget(nullptr, { Draw::RPAction::CLEAR, Draw::RPAction::CLEAR, Draw::RPAction::CLEAR }, "CopyDisplayToOutput");
 		}
-		gstate_c.Dirty(DIRTY_BLEND_STATE | DIRTY_VIEWPORTSCISSOR_STATE);
+		gstate_c.Dirty(DIRTY_VIEWPORTSCISSOR_STATE);
 		return;
 	}
 
@@ -899,7 +897,6 @@ void FramebufferManagerCommon::CopyDisplayToOutput(bool reallyDirty) {
 			// The game is displaying something directly from RAM. In GTA, it's decoded video.
 			if (!vfb) {
 				DrawFramebufferToOutput(Memory::GetPointer(fbaddr), displayFormat_, displayStride_);
-				gstate_c.Dirty(DIRTY_BLEND_STATE);
 				return;
 			}
 		} else {
@@ -909,8 +906,7 @@ void FramebufferManagerCommon::CopyDisplayToOutput(bool reallyDirty) {
 				// Bind and clear the backbuffer. This should be the first time during the frame that it's bound.
 				draw_->BindFramebufferAsRenderTarget(nullptr, { Draw::RPAction::CLEAR, Draw::RPAction::CLEAR, Draw::RPAction::CLEAR }, "CopyDisplayToOutput_NoFBO");
 			}
-			// GLES resets the blend state on clears.
-			gstate_c.Dirty(DIRTY_BLEND_STATE | DIRTY_VIEWPORTSCISSOR_STATE);
+			gstate_c.Dirty(DIRTY_VIEWPORTSCISSOR_STATE);
 			return;
 		}
 	}
@@ -1068,8 +1064,7 @@ void FramebufferManagerCommon::ResizeFramebufFBO(VirtualFramebuffer *vfb, int w,
 		INFO_LOG(FRAMEBUF, "Resizing FBO for %08x : %d x %d x %d", vfb->fb_address, w, h, vfb->format);
 		if (vfb->fbo) {
 			draw_->BindFramebufferAsRenderTarget(vfb->fbo, { Draw::RPAction::CLEAR, Draw::RPAction::CLEAR, Draw::RPAction::CLEAR }, "ResizeFramebufFBO");
-			// GLES resets the blend state on clears.
-			gstate_c.Dirty(DIRTY_BLEND_STATE | DIRTY_VIEWPORTSCISSOR_STATE);
+			gstate_c.Dirty(DIRTY_VIEWPORTSCISSOR_STATE);
 			if (!skipCopy) {
 				BlitFramebuffer(vfb, 0, 0, &old, 0, 0, std::min((u16)oldWidth, std::min(vfb->bufferWidth, vfb->width)), std::min((u16)oldHeight, std::min(vfb->height, vfb->bufferHeight)), 0);
 			}
@@ -1081,7 +1076,7 @@ void FramebufferManagerCommon::ResizeFramebufFBO(VirtualFramebuffer *vfb, int w,
 	} else {
 		draw_->BindFramebufferAsRenderTarget(vfb->fbo, { Draw::RPAction::CLEAR, Draw::RPAction::CLEAR, Draw::RPAction::CLEAR }, "ResizeFramebufFBO");
 		// GLES resets the blend state on clears.
-		gstate_c.Dirty(DIRTY_BLEND_STATE | DIRTY_VIEWPORTSCISSOR_STATE);
+		gstate_c.Dirty(DIRTY_VIEWPORTSCISSOR_STATE);
 	}
 
 	if (!vfb->fbo) {
