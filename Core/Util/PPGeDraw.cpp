@@ -387,8 +387,7 @@ void PPGeBegin()
 
 	PPGeSetDefaultTexture();
 
-	WriteCmd(GE_CMD_SCISSOR1, (0 << 10) | 0);
-	WriteCmd(GE_CMD_SCISSOR2, (271 << 10) | 479);
+	PPGeScissor(0, 0, 480, 272);
 	WriteCmd(GE_CMD_MINZ, 0);
 	WriteCmd(GE_CMD_MAXZ, 0xFFFF);
 
@@ -418,6 +417,17 @@ void PPGeEnd()
 		DEBUG_LOG(SCEGE, "PPGe enqueued display list %i", list);
 		gpu->EnableInterrupts(true);
 	}
+}
+
+void PPGeScissor(int x1, int y1, int x2, int y2) {
+	assert(x1 >= 0 && x1 <= 480 && x2 >= 0 && x2 <= 480);
+	assert(y1 >= 0 && y1 <= 272 && y2 >= 0 && y2 <= 272);
+	WriteCmd(GE_CMD_SCISSOR1, (y1 << 10) | x1);
+	WriteCmd(GE_CMD_SCISSOR2, ((y2 - 1) << 10) | (x2 - 1));
+}
+
+void PPGeScissorReset() {
+	PPGeScissor(0, 0, 480, 272);
 }
 
 static const AtlasChar *PPGeGetChar(const AtlasFont &atlasfont, unsigned int cval)

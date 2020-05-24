@@ -98,5 +98,8 @@ private :
 
 	char msgText[512];
 	int yesnoChoice;
+	float scrollPos_ = 0.0f;
+	int framesUpHeld_ = 0;
+	int framesDownHeld_ = 0;
 };
 

@@ -93,6 +93,10 @@ void PPGeDrawImage(ImageID atlasImage, float x, float y, const PPGeStyle &style)
 void PPGeDrawImage(ImageID atlasImage, float x, float y, float w, float h, const PPGeStyle &style);
 void PPGeDrawImage(float x, float y, float w, float h, float u1, float v1, float u2, float v2, int tw, int th, u32 color);
 
+// Note: x2/y2 are exclusive.
+void PPGeScissor(int x1, int y1, int x2, int y2);
+void PPGeScissorReset();
+
 void PPGeNotifyFrame();
 
 class PPGeImage {

@@ -15,6 +15,7 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
+#include <algorithm>
 #include "Core/Dialog/PSPMsgDialog.h"
 #include "Core/Util/PPGeDraw.h"
 #include "Core/HLE/sceCtrl.h"
@@ -66,6 +67,9 @@ int PSPMsgDialog::Init(unsigned int paramAddr) {
 	}
 
 	flag = 0;
+	scrollPos_ = 0.0f;
+	framesUpHeld_ = 0;
+	framesDownHeld_ = 0;
 
 	// Check request invalidity
 	if(messageDialog.type == 0 && !(messageDialog.errorNum & 0x80000000))
@@ -141,67 +145,92 @@ int PSPMsgDialog::Init(unsigned int paramAddr) {
 	return 0;
 }
 
-void PSPMsgDialog::DisplayMessage(std::string text, bool hasYesNo, bool hasOK)
-{
+void PSPMsgDialog::DisplayMessage(std::string text, bool hasYesNo, bool hasOK) {
+	auto di = GetI18NCategory("Dialog");
+
 	float WRAP_WIDTH = 300.0f;
 	if (UTF8StringNonASCIICount(text.c_str()) > 3)
 		WRAP_WIDTH = 372.0f;
 
-	float y = 140.0f;
-	float h, sy, ey;
-	PPGeMeasureText(nullptr, &h, text.c_str(), FONT_SCALE, PPGE_LINE_WRAP_WORD, WRAP_WIDTH);
-	float h2 = h / 2.0f;
-	ey = y + h2 + 20.0f;
+	float totalHeight = 0.0f;
+	PPGeMeasureText(nullptr, &totalHeight, text.c_str(), FONT_SCALE, PPGE_LINE_WRAP_WORD, WRAP_WIDTH);
+	// The PSP normally only shows about 8 lines at a time.
+	// For improved UX, we intentionally show part of the next line.
+	float visibleHeight = std::min(totalHeight, 175.0f);
+	float h2 = visibleHeight / 2.0f;
+
+	float centerY = 135.0f;
+	float sy = centerY - h2 - 15.0f;
+	float ey = centerY + h2 + 20.0f;
+	float buttonY = centerY + h2 + 5.0f;
 
 	PPGeStyle textStyle = FadedStyle(PPGeAlign::BOX_CENTER, FONT_SCALE);
+	PPGeStyle messageStyle = FadedStyle(PPGeAlign::BOX_HCENTER, FONT_SCALE);
 
-	if (hasYesNo)
-	{
-		auto di = GetI18NCategory("Dialog");
-		const char *choiceText;
-		float x, w;
+	auto drawSelectionBoxAndAdjust = [&](float x) {
+		// Box has a fixed size.
+		float w = 15.0f;
+		float h = 8.0f;
+		PPGeDrawRect(x - w, buttonY - h, x + w, buttonY + h, CalcFadedColor(0x6DCFCFCF));
+
+		centerY -= h + 5.0f;
+		sy -= h + 5.0f;
+		ey = buttonY + h * 2.0f + 5.0f;
+	};
+
+	if (hasYesNo) {
 		if (yesnoChoice == 1) {
-			choiceText = di->T("Yes");
-			x = 204.0f;
+			drawSelectionBoxAndAdjust(204.0f);
+		} else {
+			drawSelectionBoxAndAdjust(273.0f);
 		}
-		else {
-			choiceText = di->T("No");
-			x = 273.0f;
-		}
-		PPGeMeasureText(&w, &h, choiceText, FONT_SCALE);
-		w = 15.0f;
-		h = 8.0f;
-		float y2 = y + h2 + 8.0f;
-		h2 += h + 5.0f;
-		y = 135.0f - h;
-		PPGeDrawRect(x - w, y2 - h, x + w, y2 + h, CalcFadedColor(0x6DCFCFCF));
-		PPGeDrawText(di->T("Yes"), 203.0f, y2 - 1.0f, textStyle);
-		PPGeDrawText(di->T("No"), 272.0f, y2 - 1.0f, textStyle);
+
+		PPGeDrawText(di->T("Yes"), 203.0f, buttonY - 1.0f, textStyle);
+		PPGeDrawText(di->T("No"), 272.0f, buttonY - 1.0f, textStyle);
 		if (IsButtonPressed(CTRL_LEFT) && yesnoChoice == 0) {
 			yesnoChoice = 1;
-		}
-		else if (IsButtonPressed(CTRL_RIGHT) && yesnoChoice == 1) {
+		} else if (IsButtonPressed(CTRL_RIGHT) && yesnoChoice == 1) {
 			yesnoChoice = 0;
 		}
-		ey = y2 + 25.0f;
+		buttonY += 8.0f + 5.0f;
 	} 
 	
 	if (hasOK) {
-		auto di = GetI18NCategory("Dialog");
-		float x, w;
-		x = 240.0f;
-		w = 15.0f;
-		h = 8.0f;
-		float y2 = y + h2 + 8.0f;
-		h2 += h + 5.0f;
-		y = 135.0f - h;
-		PPGeDrawRect(x - w, y2 - h, x + w, y2 + h, CalcFadedColor(0x6DCFCFCF));
-		PPGeDrawText(di->T("OK"), 239.0f, y2 - 1.0f, textStyle);
-		ey = y2 + 25.0f;
+		drawSelectionBoxAndAdjust(240.0f);
+
+		PPGeDrawText(di->T("OK"), 239.0f, buttonY - 1.0f, textStyle);
+		buttonY += 8.0f + 5.0f;
 	}
 
-	PPGeDrawTextWrapped(text.c_str(), 240.0f, y, WRAP_WIDTH, 0, textStyle);
-	sy = 125.0f - h2;
+	PPGeScissor(0, (int)(centerY - h2 - 2), 480, (int)(centerY + h2 + 2));
+	PPGeDrawTextWrapped(text.c_str(), 240.0f, centerY - h2 - scrollPos_, WRAP_WIDTH, 0, messageStyle);
+	PPGeScissorReset();
+
+	// Do we need a scrollbar?
+	if (visibleHeight < totalHeight) {
+		float scrollSpeed = 5.0f;
+		float scrollMax = totalHeight - visibleHeight;
+
+		float bobHeight = (visibleHeight / totalHeight) * visibleHeight;
+		float bobOffset = (scrollPos_ / scrollMax) * (visibleHeight - bobHeight);
+		float bobY1 = centerY - h2 + bobOffset;
+		PPGeDrawRect(435.0f, bobY1, 440.0f, bobY1 + bobHeight, CalcFadedColor(0xFFCCCCCC));
+
+		auto buttonDown = [this](int btn, int &held) {
+			if (IsButtonPressed(btn)) {
+				held = 0;
+				return true;
+			}
+			return IsButtonHeld(btn, held, 1, 1);
+		};
+		if (buttonDown(CTRL_DOWN, framesDownHeld_) && scrollPos_ < scrollMax) {
+			scrollPos_ = std::min(scrollMax, scrollPos_ + scrollSpeed);
+		}
+		if (buttonDown(CTRL_UP, framesUpHeld_) && scrollPos_ > 0.0f) {
+			scrollPos_ = std::max(0.0f, scrollPos_ - scrollSpeed);
+		}
+	}
+
 	PPGeDrawRect(40.0f, sy, 440.0f, sy + 1.0f, CalcFadedColor(0xFFFFFFFF));
 	PPGeDrawRect(40.0f, ey, 440.0f, ey + 1.0f, CalcFadedColor(0xFFFFFFFF));
 }
@@ -314,6 +343,13 @@ void PSPMsgDialog::DoState(PointerWrap &p)
 	p.Do(messageDialogAddr);
 	p.DoArray(msgText, sizeof(msgText));
 	p.Do(yesnoChoice);
+
+	// We don't save state this, you'll just have to scroll down again.
+	if (p.mode == p.MODE_READ) {
+		scrollPos_ = 0.0f;
+		framesUpHeld_ = 0;
+		framesDownHeld_ = 0;
+	}
 }
 
 pspUtilityDialogCommon *PSPMsgDialog::GetCommonParam()
