@@ -161,8 +161,8 @@ public:
 	bool bVSync;
 	int iFrameSkip;
 	int iFrameSkipType;
+	int iUnthrottleMode; // See UnthrottleMode in ConfigValues.h.
 	bool bAutoFrameSkip;
-	bool bFrameSkipUnthrottle;
 
 	bool bEnableCardboardVR; // Cardboard Master Switch
 	int iCardboardScreenSize; // Screen Size (in %)

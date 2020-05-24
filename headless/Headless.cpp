@@ -382,7 +382,7 @@ int main(int argc, const char* argv[])
 	g_Config.iButtonPreference = PSP_SYSTEMPARAM_BUTTON_CROSS;
 	g_Config.iLockParentalLevel = 9;
 	g_Config.iInternalResolution = 1;
-	g_Config.bFrameSkipUnthrottle = false;
+	g_Config.iUnthrottleMode = (int)UnthrottleMode::CONTINUOUS;
 	g_Config.bEnableLogging = fullLog;
 	g_Config.iNumWorkerThreads = 1;
 	g_Config.bSoftwareSkinning = true;
