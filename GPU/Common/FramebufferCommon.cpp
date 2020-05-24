@@ -549,6 +549,8 @@ void FramebufferManagerCommon::NotifyRenderFramebufferSwitched(VirtualFramebuffe
 			// This should only happen very briefly when toggling useBufferedRendering_.
 			ResizeFramebufFBO(vfb, vfb->width, vfb->height, true);
 		}
+		// GLES resets the blend state on clears. Since we switched target, we also need to redo viewportscissorstate.
+		gstate_c.Dirty(DIRTY_BLEND_STATE | DIRTY_VIEWPORTSCISSOR_STATE);
 	} else {
 		if (vfb->fbo) {
 			// This should only happen very briefly when toggling useBufferedRendering_.
@@ -653,6 +655,7 @@ void FramebufferManagerCommon::DrawPixels(VirtualFramebuffer *vfb, int dstX, int
 	if (useBufferedRendering_ && vfb && vfb->fbo) {
 		flags = DRAWTEX_LINEAR;
 		draw_->BindFramebufferAsRenderTarget(vfb->fbo, { Draw::RPAction::KEEP, Draw::RPAction::KEEP, Draw::RPAction::KEEP }, "DrawPixels");
+		gstate_c.Dirty(DIRTY_VIEWPORTSCISSOR_STATE);
 		SetViewport2D(0, 0, vfb->renderWidth, vfb->renderHeight);
 		draw_->SetScissorRect(0, 0, vfb->renderWidth, vfb->renderHeight);
 	} else {
@@ -838,7 +841,7 @@ void FramebufferManagerCommon::CopyDisplayToOutput(bool reallyDirty) {
 		if (useBufferedRendering_) {
 			draw_->BindFramebufferAsRenderTarget(nullptr, { Draw::RPAction::CLEAR, Draw::RPAction::CLEAR, Draw::RPAction::CLEAR }, "CopyDisplayToOutput");
 		}
-		gstate_c.Dirty(DIRTY_BLEND_STATE);
+		gstate_c.Dirty(DIRTY_BLEND_STATE | DIRTY_VIEWPORTSCISSOR_STATE);
 		return;
 	}
 
@@ -906,7 +909,8 @@ void FramebufferManagerCommon::CopyDisplayToOutput(bool reallyDirty) {
 				// Bind and clear the backbuffer. This should be the first time during the frame that it's bound.
 				draw_->BindFramebufferAsRenderTarget(nullptr, { Draw::RPAction::CLEAR, Draw::RPAction::CLEAR, Draw::RPAction::CLEAR }, "CopyDisplayToOutput_NoFBO");
 			}
-			gstate_c.Dirty(DIRTY_BLEND_STATE);
+			// GLES resets the blend state on clears.
+			gstate_c.Dirty(DIRTY_BLEND_STATE | DIRTY_VIEWPORTSCISSOR_STATE);
 			return;
 		}
 	}
@@ -1065,7 +1069,7 @@ void FramebufferManagerCommon::ResizeFramebufFBO(VirtualFramebuffer *vfb, int w,
 		if (vfb->fbo) {
 			draw_->BindFramebufferAsRenderTarget(vfb->fbo, { Draw::RPAction::CLEAR, Draw::RPAction::CLEAR, Draw::RPAction::CLEAR }, "ResizeFramebufFBO");
 			// GLES resets the blend state on clears.
-			gstate_c.Dirty(DIRTY_BLEND_STATE);
+			gstate_c.Dirty(DIRTY_BLEND_STATE | DIRTY_VIEWPORTSCISSOR_STATE);
 			if (!skipCopy) {
 				BlitFramebuffer(vfb, 0, 0, &old, 0, 0, std::min((u16)oldWidth, std::min(vfb->bufferWidth, vfb->width)), std::min((u16)oldHeight, std::min(vfb->height, vfb->bufferHeight)), 0);
 			}
@@ -1077,7 +1081,7 @@ void FramebufferManagerCommon::ResizeFramebufFBO(VirtualFramebuffer *vfb, int w,
 	} else {
 		draw_->BindFramebufferAsRenderTarget(vfb->fbo, { Draw::RPAction::CLEAR, Draw::RPAction::CLEAR, Draw::RPAction::CLEAR }, "ResizeFramebufFBO");
 		// GLES resets the blend state on clears.
-		gstate_c.Dirty(DIRTY_BLEND_STATE);
+		gstate_c.Dirty(DIRTY_BLEND_STATE | DIRTY_VIEWPORTSCISSOR_STATE);
 	}
 
 	if (!vfb->fbo) {
