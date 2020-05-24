@@ -68,7 +68,7 @@ void PSPNetconfDialog::DrawBanner() {
 	// TODO: Draw a hexagon icon
 	PPGeDrawImage(10, 6, 12.0f, 12.0f, 1, 10, 1, 10, 10, 10, CalcFadedColor(0xFFFFFFFF));
 	auto di = GetI18NCategory("Dialog");
-	PPGeDrawText(di->T("Network Connection"), 30, 11, PPGE_ALIGN_VCENTER, 0.6f, CalcFadedColor(0xFFFFFFFF));
+	PPGeDrawText(di->T("Network Connection"), 30, 11, PPGeAlign::BOX_VCENTER, 0.6f, CalcFadedColor(0xFFFFFFFF));
 }
 
 int PSPNetconfDialog::Update(int animSpeed) {
@@ -88,9 +88,9 @@ int PSPNetconfDialog::Update(int animSpeed) {
 		StartDraw();
 		DrawBanner();
 		PPGeDrawRect(0, 0, 480, 272, CalcFadedColor(0x63636363));
-		PPGeDrawTextWrapped(err->T("PPSSPPDoesNotSupportInternet", "PPSSPP currently does not support connecting to the Internet for DLC, PSN, or game updates."), 241, 132, WRAP_WIDTH, 0, PPGE_ALIGN_CENTER, 0.5f, CalcFadedColor(0xFFFFFFFF));
+		PPGeDrawTextWrapped(err->T("PPSSPPDoesNotSupportInternet", "PPSSPP currently does not support connecting to the Internet for DLC, PSN, or game updates."), 241, 132, WRAP_WIDTH, 0, PPGeAlign::BOX_CENTER, 0.5f, CalcFadedColor(0xFFFFFFFF));
 		PPGeDrawImage(confirmBtnImage, 195, 250, 20, 20, 0, CalcFadedColor(0xFFFFFFFF));
-		PPGeDrawText(di->T("OK"), 225, 252, PPGE_ALIGN_LEFT, 0.5f, CalcFadedColor(0xFFFFFFFF));
+		PPGeDrawText(di->T("OK"), 225, 252, PPGeAlign::BOX_LEFT, 0.5f, CalcFadedColor(0xFFFFFFFF));
 
 		if (IsButtonPressed(confirmBtn)) {
 			StartFade(false);

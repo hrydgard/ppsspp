@@ -45,21 +45,22 @@ void __PPGeShutdown();
 void PPGeBegin();
 void PPGeEnd();
 
-enum {
-	PPGE_ALIGN_LEFT        = 0,
-	PPGE_ALIGN_RIGHT       = 16,
-	PPGE_ALIGN_TOP         = 0,
-	PPGE_ALIGN_BOTTOM      = 1,
-	PPGE_ALIGN_HCENTER     = 4,
-	PPGE_ALIGN_VCENTER     = 8,
-	PPGE_ALIGN_VBASELINE   = 32,  // text only, possibly not yet working
+enum class PPGeAlign {
+	BOX_LEFT = 0x00,
+	BOX_RIGHT = 0x01,
+	BOX_HCENTER = 0x02,
 
-	PPGE_ALIGN_CENTER      = PPGE_ALIGN_HCENTER | PPGE_ALIGN_VCENTER,
-	PPGE_ALIGN_TOPLEFT     = PPGE_ALIGN_TOP | PPGE_ALIGN_LEFT,
-	PPGE_ALIGN_TOPRIGHT    = PPGE_ALIGN_TOP | PPGE_ALIGN_RIGHT,
-	PPGE_ALIGN_BOTTOMLEFT  = PPGE_ALIGN_BOTTOM | PPGE_ALIGN_LEFT,
-	PPGE_ALIGN_BOTTOMRIGHT = PPGE_ALIGN_BOTTOM | PPGE_ALIGN_RIGHT,
+	BOX_TOP = 0x00,
+	BOX_BOTTOM = 0x10,
+	BOX_VCENTER = 0x20,
+
+	BOX_CENTER = 0x22,
+
+	ANY = 0xFF,
 };
+inline bool operator &(const PPGeAlign &lhs, const PPGeAlign &rhs) {
+	return ((int)lhs & (int)rhs) != 0;
+}
 
 enum {
 	PPGE_LINE_NONE         = 0,
@@ -73,8 +74,8 @@ void PPGeMeasureText(float *w, float *h, const char *text, float scale, int Wrap
 
 // Draws some text using the one font we have.
 // Clears the text buffer when done.
-void PPGeDrawText(const char *text, float x, float y, int align, float scale = 1.0f, u32 color = 0xFFFFFFFF);
-void PPGeDrawTextWrapped(const char *text, float x, float y, float wrapWidth, float wrapHeight, int align, float scale = 1.0f, u32 color = 0xFFFFFFFF);
+void PPGeDrawText(const char *text, float x, float y, PPGeAlign align, float scale = 1.0f, u32 color = 0xFFFFFFFF);
+void PPGeDrawTextWrapped(const char *text, float x, float y, float wrapWidth, float wrapHeight, PPGeAlign align, float scale = 1.0f, u32 color = 0xFFFFFFFF);
 
 // Draws a "4-patch" for button-like things that can be resized.
 void PPGeDraw4Patch(ImageID atlasImage, float x, float y, float w, float h, u32 color = 0xFFFFFFFF);
