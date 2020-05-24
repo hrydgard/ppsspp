@@ -1141,7 +1141,9 @@ void GPUCommon::ReapplyGfxState() {
 	// There are a few here in the middle that we shouldn't execute...
 
 	for (int i = GE_CMD_VIEWPORTXSCALE; i < GE_CMD_TRANSFERSTART; i++) {
-		ExecuteOp(gstate.cmdmem[i], 0xFFFFFFFF);
+		if (i != GE_CMD_LOADCLUT) {
+			ExecuteOp(gstate.cmdmem[i], 0xFFFFFFFF);
+		}
 	}
 
 	// Let's just skip the transfer size stuff, it's just values.
