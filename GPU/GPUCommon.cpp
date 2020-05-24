@@ -1126,6 +1126,9 @@ void GPUCommon::ReapplyGfxState() {
 	// The commands are embedded in the command memory so we can just reexecute the words. Convenient.
 	// To be safe we pass 0xFFFFFFFF as the diff.
 
+	// TODO: Consider whether any of this should really be done. We might be able to get all the way
+	// by simplying dirtying the appropriate gstate_c dirty flags.
+
 	for (int i = GE_CMD_VERTEXTYPE; i < GE_CMD_BONEMATRIXNUMBER; i++) {
 		if (i != GE_CMD_ORIGIN && i != GE_CMD_OFFSETADDR) {
 			ExecuteOp(gstate.cmdmem[i], 0xFFFFFFFF);
@@ -1140,9 +1143,16 @@ void GPUCommon::ReapplyGfxState() {
 
 	// There are a few here in the middle that we shouldn't execute...
 
+	// 0x42 to 0xEA
 	for (int i = GE_CMD_VIEWPORTXSCALE; i < GE_CMD_TRANSFERSTART; i++) {
-		if (i != GE_CMD_LOADCLUT) {
+		switch (i) {
+		case GE_CMD_LOADCLUT:
+		case GE_CMD_TEXSYNC:
+		case GE_CMD_TEXFLUSH:
+			break;
+		default:
 			ExecuteOp(gstate.cmdmem[i], 0xFFFFFFFF);
+			break;
 		}
 	}
 
