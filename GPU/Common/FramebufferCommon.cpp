@@ -1,6 +1,6 @@
 // Copyright (c) 2012- PPSSPP Project.
 
-4// This program is free software: you can redistribute it and/or modify
+// This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
 // the Free Software Foundation, version 2.0 or later versions.
 
@@ -450,13 +450,13 @@ void FramebufferManagerCommon::DestroyFramebuf(VirtualFramebuffer *v) {
 
 	// Wipe some pointers
 	if (currentRenderVfb_ == v)
-		currentRenderVfb_ = 0;
+		currentRenderVfb_ = nullptr;
 	if (displayFramebuf_ == v)
-		displayFramebuf_ = 0;
+		displayFramebuf_ = nullptr;
 	if (prevDisplayFramebuf_ == v)
-		prevDisplayFramebuf_ = 0;
+		prevDisplayFramebuf_ = nullptr;
 	if (prevPrevDisplayFramebuf_ == v)
-		prevPrevDisplayFramebuf_ = 0;
+		prevPrevDisplayFramebuf_ = nullptr;
 
 	delete v;
 }
@@ -471,7 +471,7 @@ void FramebufferManagerCommon::NotifyRenderFramebufferCreated(VirtualFramebuffer
 
 	textureCache_->NotifyFramebuffer(vfb->fb_address, vfb, NOTIFY_FB_CREATED);
 
-	// ugly...
+	// Ugly...
 	if (gstate_c.curRTWidth != vfb->width || gstate_c.curRTHeight != vfb->height) {
 		gstate_c.Dirty(DIRTY_PROJTHROUGHMATRIX | DIRTY_VIEWPORTSCISSOR_STATE | DIRTY_CULLRANGE);
 	}
@@ -1075,7 +1075,6 @@ void FramebufferManagerCommon::ResizeFramebufFBO(VirtualFramebuffer *vfb, int w,
 		}
 	} else {
 		draw_->BindFramebufferAsRenderTarget(vfb->fbo, { Draw::RPAction::CLEAR, Draw::RPAction::CLEAR, Draw::RPAction::CLEAR }, "ResizeFramebufFBO");
-		// GLES resets the blend state on clears.
 		gstate_c.Dirty(DIRTY_VIEWPORTSCISSOR_STATE);
 	}
 

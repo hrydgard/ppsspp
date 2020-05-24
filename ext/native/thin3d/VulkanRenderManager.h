@@ -105,8 +105,27 @@ public:
 	// Zaps queued up commands. Use if you know there's a risk you've queued up stuff that has already been deleted. Can happen during in-game shutdown.
 	void Wipe();
 
+	// This starts a new step containing a render pass.
+	//
+	// After a "CopyFramebuffer" or the other functions that start "steps", you need to call this beforce
+	// making any new render state changes or draw calls.
+	//
+	// The following dynamic state needs to be reset by the caller after calling this (and will thus not safely carry over from
+	// the previous one):
+	//   * Viewport/Scissor
+	//   * Stencil parameters
+	//   * Blend color
+	//
+	// (Most other state is directly decided by your choice of pipeline and descriptor set, so not handled here).
+	//
+	// It can be useful to use GetCurrentStepId() to figure out when you need to send all this state again, if you're
+	// not keeping track of your calls to this function on your own.
 	void BindFramebufferAsRenderTarget(VKRFramebuffer *fb, VKRRenderPassAction color, VKRRenderPassAction depth, VKRRenderPassAction stencil, uint32_t clearColor, float clearDepth, uint8_t clearStencil, const char *tag);
+
+	// Returns an ImageView corresponding to a framebuffer. Is called BindFramebufferAsTexture to maintain a similar interface
+	// as the other backends, even though there's no actual binding happening here.
 	VkImageView BindFramebufferAsTexture(VKRFramebuffer *fb, int binding, int aspectBit, int attachment);
+
 	bool CopyFramebufferToMemorySync(VKRFramebuffer *src, int aspectBits, int x, int y, int w, int h, Draw::DataFormat destFormat, uint8_t *pixels, int pixelStride, const char *tag);
 	void CopyImageToMemorySync(VkImage image, int mipLevel, int x, int y, int w, int h, Draw::DataFormat destFormat, uint8_t *pixels, int pixelStride, const char *tag);
 
@@ -230,6 +249,12 @@ public:
 		} else {
 			return queueRunner_.GetBackbufferRenderPass();
 		}
+	}
+
+	// Gets a frame-unique ID of the current step being recorded. Can be used to figure out
+	// when the current step has changed, which means the caller will need to re-record its state.
+	int GetCurrentStepId() const {
+		return (int)steps_.size();
 	}
 
 	void CreateBackbuffers();

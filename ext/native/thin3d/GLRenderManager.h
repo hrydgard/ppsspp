@@ -501,8 +501,25 @@ public:
 		pushbuffer->End();
 	}
 
+	// This starts a new step (like a "render pass" in Vulkan).
+	//
+	// After a "CopyFramebuffer" or the other functions that start "steps", you need to call this beforce
+	// making any new render state changes or draw calls.
+	//
+	// The following state needs to be reset by the caller after calling this (and will thus not safely carry over from
+	// the previous one):
+	//   * Viewport/Scissor
+	//   * Depth/stencil
+	//   * Blend
+	//   * Raster state like primitive, culling, etc.
+	//
+	// It can be useful to use GetCurrentStepId() to figure out when you need to send all this state again, if you're
+	// not keeping track of your calls to this function on your own.
 	void BindFramebufferAsRenderTarget(GLRFramebuffer *fb, GLRRenderPassAction color, GLRRenderPassAction depth, GLRRenderPassAction stencil, uint32_t clearColor, float clearDepth, uint8_t clearStencil, const char *tag);
+
+	// Binds a framebuffer as a texture, for the following draws.
 	void BindFramebufferAsTexture(GLRFramebuffer *fb, int binding, int aspectBit, int attachment);
+
 	bool CopyFramebufferToMemorySync(GLRFramebuffer *src, int aspectBits, int x, int y, int w, int h, Draw::DataFormat destFormat, uint8_t *pixels, int pixelStride, const char *tag);
 	void CopyImageToMemorySync(GLRTexture *texture, int mipLevel, int x, int y, int w, int h, Draw::DataFormat destFormat, uint8_t *pixels, int pixelStride, const char *tag);
 
@@ -918,6 +935,12 @@ public:
 	// destroyed.
 	void SetSkipGLCalls() {
 		skipGLCalls_ = true;
+	}
+
+	// Gets a frame-unique ID of the current step being recorded. Can be used to figure out
+	// when the current step has changed, which means the caller will need to re-record its state.
+	int GetCurrentStepId() const {
+		return (int)steps_.size();
 	}
 
 private:

@@ -302,4 +302,6 @@ private:
 
 	// Hardware tessellation
 	TessellationDataTransferVulkan *tessDataTransferVulkan;
+
+	int lastRenderStepId_ = -1;
 };

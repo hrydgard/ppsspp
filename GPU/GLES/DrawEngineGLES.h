@@ -229,6 +229,8 @@ private:
 
 	int bufferDecimationCounter_ = 0;
 
+	int lastRenderStepId_ = -1;
+
 	// Hardware tessellation
 	TessellationDataTransferGLES *tessDataTransferGLES;
 };
