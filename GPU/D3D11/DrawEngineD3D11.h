@@ -216,4 +216,6 @@ private:
 
 	// Hardware tessellation
 	TessellationDataTransferD3D11 *tessDataTransferD3D11;
+
+	int lastRenderStepId_ = -1;
 };
