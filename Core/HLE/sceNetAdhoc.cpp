@@ -753,9 +753,9 @@ static int sceNetAdhocPdpRecv(int id, void *addr, void * port, void *buf, void *
 
 				if (flag == 0) {
 					// Simulate blocking behaviour with non-blocking socket
-					uint32_t starttime = (uint32_t)(real_time_now() * 1000.0);
+					uint32_t starttime = (uint32_t)(real_time_now() * 1000000.0);
 					// Wait for Connection. On Windows: recvfrom on UDP can get error WSAECONNRESET when previous sendto's destination is unreachable (or destination port is not bound), may need to disable SIO_UDP_CONNRESET
-					while ((timeout == 0 || ((uint32_t)(real_time_now() * 1000.0) - starttime) < (uint32_t)timeout) && (received == SOCKET_ERROR) && (connectInProgress(error) || error == ECONNRESET)) {
+					while ((timeout == 0 || ((uint32_t)(real_time_now() * 1000000.0) - starttime) < (uint32_t)timeout) && (received == SOCKET_ERROR) && (connectInProgress(error) || error == ECONNRESET)) {
 						received = recvfrom(socket->id, (char*)buf, *len, 0, (sockaddr*)&sin, &sinlen);
 						error = errno;
 						// Wait 1ms
@@ -2096,10 +2096,10 @@ static int sceNetAdhocPtpAccept(int id, u32 peerMacAddrPtr, u32 peerPortPtr, int
 					// Blocking Behaviour
 					if (!flag && newsocket == SOCKET_ERROR) {
 						// Get Start Time
-						uint32_t starttime = (uint32_t)(real_time_now()*1000.0);
+						uint32_t starttime = (uint32_t)(real_time_now()*1000000.0);
 						
 						// Retry until Timeout hits
-						while ((timeout == 0 || ((uint32_t)(real_time_now()*1000.0) - starttime) < (uint32_t)timeout) && (newsocket == SOCKET_ERROR) && connectInProgress(error)) {
+						while ((timeout == 0 || ((uint32_t)(real_time_now()*1000000.0) - starttime) < (uint32_t)timeout) && (newsocket == SOCKET_ERROR) && connectInProgress(error)) {
 							// Accept Connection
 							newsocket = accept(socket->id, (sockaddr *)&peeraddr, &peeraddrlen);
 							error = errno;
@@ -2314,14 +2314,14 @@ static int sceNetAdhocPtpConnect(int id, int timeout, int flag) {
 						// Blocking Mode
 						else {
 							// Grab Connection Start Time
-							uint32_t starttime = (uint32_t)(real_time_now()*1000.0);
+							uint32_t starttime = (uint32_t)(real_time_now()*1000000.0);
 							
 							// Peer Information (for Connection-Polling)
 							sockaddr_in peer;
 							memset(&peer, 0, sizeof(peer));
 							socklen_t peerlen = sizeof(peer);
 							// Wait for Connection
-							while ((timeout == 0 || ( (uint32_t)(real_time_now()*1000.0) - starttime) < (uint32_t)timeout) && getpeername(socket->id, (sockaddr *)&peer, &peerlen) != 0) {
+							while ((timeout == 0 || ( (uint32_t)(real_time_now()*1000000.0) - starttime) < (uint32_t)timeout) && getpeername(socket->id, (sockaddr *)&peer, &peerlen) != 0) {
 								// Wait 1ms
 								sleep_ms(1);
 							}
@@ -2709,9 +2709,9 @@ static int sceNetAdhocPtpRecv(int id, u32 dataAddr, u32 dataSizeAddr, int timeou
 
 				if (flag == 0) {
 					// Simulate blocking behaviour with non-blocking socket
-					uint32_t starttime = (uint32_t)(real_time_now() * 1000.0);
+					uint32_t starttime = (uint32_t)(real_time_now() * 1000000.0);
 					// Wait for Connection
-					while ((timeout == 0 || ((uint32_t)(real_time_now() * 1000.0) - starttime) < (uint32_t)timeout) && (received == SOCKET_ERROR) && connectInProgress(error)) {
+					while ((timeout == 0 || ((uint32_t)(real_time_now() * 1000000.0) - starttime) < (uint32_t)timeout) && (received == SOCKET_ERROR) && connectInProgress(error)) {
 						received = recv(socket->id, (char*)buf, *len, 0);
 						error = errno;
 						// Wait 1ms
