@@ -481,10 +481,8 @@ void VulkanRenderManager::BindFramebufferAsRenderTarget(VKRFramebuffer *fb, VKRR
 			for (const auto &c : steps_.back()->commands) {
 				if (c.cmd == VKRRenderCommand::VIEWPORT) {
 					curStepHasViewport_ = true;
-					break;
 				} else if (c.cmd == VKRRenderCommand::SCISSOR) {
 					curStepHasScissor_ = true;
-					break;
 				}
 			}
 			if (clearMask != 0) {
