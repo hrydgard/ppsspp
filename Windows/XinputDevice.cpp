@@ -15,6 +15,8 @@
 #include "Core/HLE/sceCtrl.h"
 #include "Common/Timer.h"
 
+static int newVibrationTime = 0;
+
 // Utilities to dynamically load XInput. Adapted from SDL.
 
 #if !PPSSPP_PLATFORM(UWP)
@@ -27,7 +29,6 @@ static XInputSetState_t PPSSPP_XInputSetState = NULL;
 static DWORD PPSSPP_XInputVersion = 0;
 static HMODULE s_pXInputDLL = 0;
 static int s_XInputDLLRefCount = 0;
-static int newVibrationTime = 0;
 
 static void UnloadXInputDLL();
 
