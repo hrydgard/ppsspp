@@ -426,6 +426,7 @@
     <ClInclude Include="gfx\texture_atlas.h" />
     <ClInclude Include="gfx_es2\draw_text_android.h" />
     <ClInclude Include="gfx_es2\draw_text_qt.h" />
+    <ClInclude Include="gfx_es2\draw_text_uwp.h" />
     <ClInclude Include="gfx_es2\draw_text_win.h" />
     <ClInclude Include="json\json_reader.h" />
     <ClInclude Include="net\websocket_server.h" />
@@ -1137,6 +1138,7 @@
     <ClCompile Include="gfx\texture_atlas.cpp" />
     <ClCompile Include="gfx_es2\draw_text_android.cpp" />
     <ClCompile Include="gfx_es2\draw_text_qt.cpp" />
+    <ClCompile Include="gfx_es2\draw_text_uwp.cpp" />
     <ClCompile Include="gfx_es2\draw_text_win.cpp" />
     <ClCompile Include="json\json_reader.cpp" />
     <ClCompile Include="math\dataconv.cpp" />
