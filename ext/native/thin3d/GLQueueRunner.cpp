@@ -582,12 +582,26 @@ void GLQueueRunner::RunSteps(const std::vector<GLRStep *> &steps, bool skipGLCal
 		return;
 	}
 
+	size_t totalRenderCount = 0;
+	for (auto &step : steps) {
+		if (step->stepType == GLRStepType::RENDER) {
+			// Skip empty render steps.
+			if (step->commands.empty()) {
+				step->stepType = GLRStepType::RENDER_SKIP;
+				continue;
+			}
+			totalRenderCount++;
+		}
+	}
+
 	CHECK_GL_ERROR_IF_DEBUG();
+	size_t renderCount = 0;
 	for (size_t i = 0; i < steps.size(); i++) {
 		const GLRStep &step = *steps[i];
 		switch (step.stepType) {
 		case GLRStepType::RENDER:
-			PerformRenderPass(step);
+			renderCount++;
+			PerformRenderPass(step, renderCount == 1, renderCount == totalRenderCount);
 			break;
 		case GLRStepType::COPY:
 			PerformCopy(step);
@@ -600,6 +614,8 @@ void GLQueueRunner::RunSteps(const std::vector<GLRStep *> &steps, bool skipGLCal
 			break;
 		case GLRStepType::READBACK_IMAGE:
 			PerformReadbackImage(step);
+			break;
+		case GLRStepType::RENDER_SKIP:
 			break;
 		default:
 			Crash();
@@ -644,27 +660,24 @@ void GLQueueRunner::PerformBlit(const GLRStep &step) {
 	}
 }
 
-void GLQueueRunner::PerformRenderPass(const GLRStep &step) {
+void GLQueueRunner::PerformRenderPass(const GLRStep &step, bool first, bool last) {
 	CHECK_GL_ERROR_IF_DEBUG();
-	// Don't execute empty renderpasses.
-	if (step.commands.empty()) {
-		// Nothing to do.
-		return;
-	}
 
 	PerformBindFramebufferAsRenderTarget(step);
 
-	glDisable(GL_DEPTH_TEST);
-	glDisable(GL_STENCIL_TEST);
-	glDisable(GL_BLEND);
-	glDisable(GL_CULL_FACE);
-	glDisable(GL_DITHER);
-	glEnable(GL_SCISSOR_TEST);
+	if (first) {
+		glDisable(GL_DEPTH_TEST);
+		glDisable(GL_STENCIL_TEST);
+		glDisable(GL_BLEND);
+		glDisable(GL_CULL_FACE);
+		glDisable(GL_DITHER);
+		glEnable(GL_SCISSOR_TEST);
 #ifndef USING_GLES2
-	if (!gl_extensions.IsGLES) {
-		glDisable(GL_COLOR_LOGIC_OP);
-	}
+		if (!gl_extensions.IsGLES) {
+			glDisable(GL_COLOR_LOGIC_OP);
+		}
 #endif
+	}
 
 	/*
 #ifndef USING_GLES2
@@ -678,21 +691,22 @@ void GLQueueRunner::PerformRenderPass(const GLRStep &step) {
 #endif
 	*/
 
-	if (gl_extensions.ARB_vertex_array_object) {
+	if (first && gl_extensions.ARB_vertex_array_object) {
 		glBindVertexArray(globalVAO_);
 	}
 
 	GLRProgram *curProgram = nullptr;
 	int activeSlot = 0;
-	glActiveTexture(GL_TEXTURE0 + activeSlot);
+	if (first)
+		glActiveTexture(GL_TEXTURE0 + activeSlot);
 
 	// State filtering tracking.
 	int attrMask = 0;
 	int colorMask = -1;
 	int depthMask = -1;
 	int depthFunc = -1;
-	GLuint curArrayBuffer = (GLuint)-1;
-	GLuint curElemArrayBuffer = (GLuint)-1;
+	GLuint curArrayBuffer = (GLuint)0;
+	GLuint curElemArrayBuffer = (GLuint)0;
 	bool depthEnabled = false;
 	bool stencilEnabled = false;
 	bool blendEnabled = false;
@@ -929,9 +943,9 @@ void GLQueueRunner::PerformRenderPass(const GLRStep &step) {
 		case GLRRenderCommand::UNIFORMMATRIX:
 		{
 			assert(curProgram);
-			int loc = c.uniform4.loc ? *c.uniform4.loc : -1;
-			if (c.uniform4.name) {
-				loc = curProgram->GetUniformLoc(c.uniform4.name);
+			int loc = c.uniformMatrix4.loc ? *c.uniformMatrix4.loc : -1;
+			if (c.uniformMatrix4.name) {
+				loc = curProgram->GetUniformLoc(c.uniformMatrix4.name);
 			}
 			if (loc >= 0) {
 				glUniformMatrix4fv(loc, 1, false, c.uniformMatrix4.m);
@@ -1179,22 +1193,30 @@ void GLQueueRunner::PerformRenderPass(const GLRStep &step) {
 	CHECK_GL_ERROR_IF_DEBUG();
 
 	// Wipe out the current state.
-	glBindBuffer(GL_ARRAY_BUFFER, 0);
-	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
-	if (gl_extensions.ARB_vertex_array_object) {
+	if (curArrayBuffer != 0)
+		glBindBuffer(GL_ARRAY_BUFFER, 0);
+	if (curElemArrayBuffer != 0)
+		glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
+	if (last && gl_extensions.ARB_vertex_array_object) {
 		glBindVertexArray(0);
 	}
-	glDisable(GL_SCISSOR_TEST);
-	glDisable(GL_DEPTH_TEST);
-	glDisable(GL_STENCIL_TEST);
-	glDisable(GL_BLEND);
-	glDisable(GL_CULL_FACE);
+	if (last)
+		glDisable(GL_SCISSOR_TEST);
+	if (depthEnabled)
+		glDisable(GL_DEPTH_TEST);
+	if (stencilEnabled)
+		glDisable(GL_STENCIL_TEST);
+	if (blendEnabled)
+		glDisable(GL_BLEND);
+	if (cullEnabled)
+		glDisable(GL_CULL_FACE);
 #ifndef USING_GLES2
-	if (!gl_extensions.IsGLES) {
+	if (!gl_extensions.IsGLES && logicEnabled) {
 		glDisable(GL_COLOR_LOGIC_OP);
 	}
 #endif
-	glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
+	if ((colorMask & 15) != 15)
+		glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
 	CHECK_GL_ERROR_IF_DEBUG();
 }
 
