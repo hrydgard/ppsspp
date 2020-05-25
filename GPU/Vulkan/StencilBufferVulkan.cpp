@@ -171,9 +171,8 @@ bool FramebufferManagerVulkan::NotifyStencilUpload(u32 addr, int size, StencilUp
 		return false;
 
 	if (dstBuffer->fbo) {
-		// Use keep because some drivers have trouble when stencilAction != depthAction.
 		// Typically, STENCIL_IS_ZERO means it's already bound, so this bind will be optimized away.
-		draw_->BindFramebufferAsRenderTarget(dstBuffer->fbo, { Draw::RPAction::KEEP, Draw::RPAction::KEEP, Draw::RPAction::KEEP }, "Stencil");
+		draw_->BindFramebufferAsRenderTarget(dstBuffer->fbo, { Draw::RPAction::KEEP, Draw::RPAction::KEEP, Draw::RPAction::DONT_CARE }, "Stencil");
 	} else {
 		// something is wrong...
 	}
