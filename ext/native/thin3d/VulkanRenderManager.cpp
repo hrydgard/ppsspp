@@ -422,6 +422,7 @@ void VulkanRenderManager::BeginFrame(bool enableProfiling) {
 	vulkan_->BeginFrame();
 
 	insideFrame_ = true;
+	renderStepOffset_ = 0;
 
 	frameData.profile.timestampDescriptions.clear();
 	if (frameData_->profilingEnabled_) {
@@ -1173,6 +1174,8 @@ void VulkanRenderManager::EndSyncFrame(int frame) {
 
 void VulkanRenderManager::FlushSync() {
 	// TODO: Reset curRenderStep_?
+	renderStepOffset_ += (int)steps_.size();
+
 	int curFrame = vulkan_->GetCurFrame();
 	FrameData &frameData = frameData_[curFrame];
 	if (!useThread_) {

@@ -254,7 +254,7 @@ public:
 	// Gets a frame-unique ID of the current step being recorded. Can be used to figure out
 	// when the current step has changed, which means the caller will need to re-record its state.
 	int GetCurrentStepId() const {
-		return (int)steps_.size();
+		return renderStepOffset_ + (int)steps_.size();
 	}
 
 	void CreateBackbuffers();
@@ -341,6 +341,8 @@ private:
 	int curWidth_ = -1;
 	int curHeight_ = -1;
 	bool insideFrame_ = false;
+	// This is the offset within this frame, in case of a mid-frame sync.
+	int renderStepOffset_ = 0;
 	VKRStep *curRenderStep_ = nullptr;
 	bool curStepHasViewport_ = false;
 	bool curStepHasScissor_ = false;

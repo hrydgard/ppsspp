@@ -442,6 +442,7 @@ void GLRenderManager::BeginFrame() {
 	// In GL, we have to do deletes on the submission thread.
 
 	insideFrame_ = true;
+	renderStepOffset_ = 0;
 }
 
 void GLRenderManager::Finish() {
@@ -565,6 +566,8 @@ void GLRenderManager::Run(int frame) {
 
 void GLRenderManager::FlushSync() {
 	// TODO: Reset curRenderStep_?
+	renderStepOffset_ += (int)steps_.size();
+
 	int curFrame = curFrame_;
 	FrameData &frameData = frameData_[curFrame];
 	{
