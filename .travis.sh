@@ -171,7 +171,11 @@ travis_script() {
             sed -i 's/>ProgramDatabase<\/DebugInformationFormat>/><\/DebugInformationFormat>/g' $f
         done
 
-        msbuild.exe Windows\\PPSSPP.sln -m -p:CLToolExe=clcache.exe -p:Configuration=Release -p:Platform=x64 -p:TrackFileAccess=false
+        if [ "$UWP" == "TRUE" ]; then
+            msbuild.exe UWP\\PPSSPP_UWP.sln -m -p:CLToolExe=clcache.exe -p:Configuration=Release -p:Platform=x64 -p:TrackFileAccess=false -p:AppxPackageSigningEnabled=false
+        else
+            msbuild.exe Windows\\PPSSPP.sln -m -p:CLToolExe=clcache.exe -p:Configuration=Release -p:Platform=x64 -p:TrackFileAccess=false
+        fi
     fi
 }
 
