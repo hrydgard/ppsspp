@@ -421,4 +421,5 @@ private:
 	std::unordered_map<int, std::string> glStrings_;
 
 	bool sawOutOfMemory_ = false;
+	bool useDebugGroups_ = false;
 };

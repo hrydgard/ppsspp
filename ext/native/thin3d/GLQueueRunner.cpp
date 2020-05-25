@@ -56,6 +56,8 @@ void GLQueueRunner::CreateDeviceObjects() {
 		populate(GL_EXTENSIONS);
 	}
 	CHECK_GL_ERROR_IF_DEBUG();
+
+	useDebugGroups_ = !gl_extensions.IsGLES && gl_extensions.VersionGEThan(4, 3);
 }
 
 void GLQueueRunner::DestroyDeviceObjects() {
@@ -131,6 +133,11 @@ void GLQueueRunner::RunInitSteps(const std::vector<GLRInitStep> &steps, bool ski
 		}
 		return;
 	}
+
+#if !defined(USING_GLES2)
+	if (useDebugGroups_)
+		glPushDebugGroup(GL_DEBUG_SOURCE_APPLICATION, 1, -1, "InitSteps");
+#endif
 
 	CHECK_GL_ERROR_IF_DEBUG();
 	glActiveTexture(GL_TEXTURE0);
@@ -379,6 +386,14 @@ void GLQueueRunner::RunInitSteps(const std::vector<GLRInitStep> &steps, bool ski
 			WARN_LOG(G3D, "Got an error after init: %08x (%s)", err, GLEnumToString(err).c_str());
 		}
 	}
+
+	glBindBuffer(GL_ARRAY_BUFFER, 0);
+	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
+
+#if !defined(USING_GLES2)
+	if (useDebugGroups_)
+		glPopDebugGroup();
+#endif
 }
 
 void GLQueueRunner::InitCreateFramebuffer(const GLRInitStep &step) {
@@ -598,6 +613,12 @@ void GLQueueRunner::RunSteps(const std::vector<GLRStep *> &steps, bool skipGLCal
 	size_t renderCount = 0;
 	for (size_t i = 0; i < steps.size(); i++) {
 		const GLRStep &step = *steps[i];
+
+#if !defined(USING_GLES2)
+		if (useDebugGroups_)
+			glPushDebugGroup(GL_DEBUG_SOURCE_APPLICATION, (GLuint)i + 10000, -1, step.tag);
+#endif
+
 		switch (step.stepType) {
 		case GLRStepType::RENDER:
 			renderCount++;
@@ -621,6 +642,12 @@ void GLQueueRunner::RunSteps(const std::vector<GLRStep *> &steps, bool skipGLCal
 			Crash();
 			break;
 		}
+
+#if !defined(USING_GLES2)
+		if (useDebugGroups_)
+			glPopDebugGroup();
+#endif
+
 		delete steps[i];
 	}
 	CHECK_GL_ERROR_IF_DEBUG();
