@@ -510,6 +510,23 @@ void VulkanRenderManager::BindFramebufferAsRenderTarget(VKRFramebuffer *fb, VKRR
 		VLOG("Empty render step. Usually happens after uploading pixels..");
 	}
 
+	// Older Mali drivers have issues with depth and stencil don't match load/clear/etc.
+	// TODO: Determine which versions and do this only where necessary.
+	u32 lateClearMask = 0;
+	if (depth != stencil && vulkan_->GetPhysicalDeviceProperties().properties.vendorID == VULKAN_VENDOR_ARM) {
+		if (stencil == VKRRenderPassAction::DONT_CARE) {
+			stencil = depth;
+		} else if (depth == VKRRenderPassAction::DONT_CARE) {
+			depth = stencil;
+		} else if (stencil == VKRRenderPassAction::CLEAR) {
+			depth = stencil;
+			lateClearMask |= VK_IMAGE_ASPECT_STENCIL_BIT;
+		} else if (depth == VKRRenderPassAction::CLEAR) {
+			stencil = depth;
+			lateClearMask |= VK_IMAGE_ASPECT_DEPTH_BIT;
+		}
+	}
+
 	VKRStep *step = new VKRStep{ VKRStepType::RENDER };
 	step->render.framebuffer = fb;
 	step->render.color = color;
@@ -540,6 +557,16 @@ void VulkanRenderManager::BindFramebufferAsRenderTarget(VKRFramebuffer *fb, VKRR
 	} else {
 		curWidth_ = vulkan_->GetBackbufferWidth();
 		curHeight_ = vulkan_->GetBackbufferHeight();
+	}
+
+	// See above - we add a clear afterward if only one side for depth/stencil CLEAR/KEEP.
+	if (lateClearMask != 0) {
+		VkRenderData data{ VKRRenderCommand::CLEAR };
+		data.clear.clearColor = clearColor;
+		data.clear.clearZ = clearDepth;
+		data.clear.clearStencil = clearStencil;
+		data.clear.clearMask = lateClearMask;
+		curRenderStep_->commands.push_back(data);
 	}
 }
 
