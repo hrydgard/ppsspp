@@ -499,7 +499,7 @@ void VulkanRenderManager::BindFramebufferAsRenderTarget(VKRFramebuffer *fb, VKRR
 	}
 
 	// More redundant bind elimination.
-	if (curRenderStep_ && curRenderStep_->commands.size() == 0 && curRenderStep_->render.color == VKRRenderPassAction::KEEP && curRenderStep_->render.depth == VKRRenderPassAction::KEEP && curRenderStep_->render.stencil == VKRRenderPassAction::KEEP) {
+	if (curRenderStep_ && curRenderStep_->commands.size() == 0 && curRenderStep_->render.color != VKRRenderPassAction::CLEAR && curRenderStep_->render.depth != VKRRenderPassAction::CLEAR && curRenderStep_->render.stencil != VKRRenderPassAction::CLEAR) {
 		// Can trivially kill the last empty render step.
 		assert(steps_.back() == curRenderStep_);
 		delete steps_.back();
