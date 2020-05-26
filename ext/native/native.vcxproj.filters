@@ -353,6 +353,9 @@
     <ClInclude Include="util\tiny_set.h">
       <Filter>util</Filter>
     </ClInclude>
+    <ClInclude Include="gfx_es2\draw_text_uwp.h">
+      <Filter>gfx</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="gfx\gl_debug_log.cpp">
@@ -834,6 +837,9 @@
     </ClCompile>
     <ClCompile Include="ui\root.cpp">
       <Filter>ui</Filter>
+    </ClCompile>
+    <ClCompile Include="gfx_es2\draw_text_uwp.cpp">
+      <Filter>gfx</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>

@@ -377,6 +377,11 @@ float System_GetPropertyFloat(SystemProperty prop) {
 	switch (prop) {
 	case SYSPROP_DISPLAY_REFRESH_RATE:
 		return 60.f;
+	case SYSPROP_DISPLAY_SAFE_INSET_LEFT:
+	case SYSPROP_DISPLAY_SAFE_INSET_RIGHT:
+	case SYSPROP_DISPLAY_SAFE_INSET_TOP:
+	case SYSPROP_DISPLAY_SAFE_INSET_BOTTOM:
+		return 0.0f;
 	default:
 		return -1;
 	}
@@ -473,12 +478,9 @@ PermissionStatus System_GetPermissionStatus(SystemPermission permission) {
 	return PERMISSION_STATUS_GRANTED;
 }
 
-bool System_InputBoxGetString(const char *title, const char *defaultValue, char *outValue, size_t outLength) {
-	return false;
-}
-
-bool System_InputBoxGetWString(const wchar_t *title, const std::wstring &defaultvalue, std::wstring &outvalue) {
-	return false;
+void System_InputBoxGetString(const std::string &title, const std::string &defaultValue, std::function<void(bool, const std::string &)> cb) {
+	// TODO
+	cb(false, "");
 }
 
 std::string GetCPUBrandString() {
