@@ -39,6 +39,7 @@ void __KernelModuleDoState(PointerWrap &p);
 void __KernelModuleShutdown();
 
 u32 __KernelGetModuleGP(SceUID module);
+bool KernelModuleIsKernelMode(SceUID module);
 bool __KernelLoadGEDump(const std::string &base_filename, std::string *error_string);
 bool __KernelLoadExec(const char *filename, u32 paramPtr, std::string *error_string);
 void __KernelGPUReplay();

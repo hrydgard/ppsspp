@@ -1959,9 +1959,13 @@ int __KernelCreateThread(const char *threadName, SceUID moduleID, u32 entry, u32
 	// Some are USB/VSH specific, probably removes when they are from the wrong module?
 	attr &= ~PSP_THREAD_ATTR_USER_ERASE;
 
-	// We're assuming all threads created are user threads.
-	if ((attr & PSP_THREAD_ATTR_KERNEL) == 0)
-		attr |= PSP_THREAD_ATTR_USER;
+	if ((attr & PSP_THREAD_ATTR_KERNEL) == 0) {
+		if (allowKernel && (attr & PSP_THREAD_ATTR_USER) == 0) {
+			attr |= PSP_THREAD_ATTR_KERNEL;
+		} else {			
+			attr |= PSP_THREAD_ATTR_USER;
+		}
+	}
 
 	SceUID id = __KernelCreateThreadInternal(threadName, moduleID, entry, prio, stacksize, attr);
 	if ((u32)id == SCE_KERNEL_ERROR_NO_MEMORY)
@@ -1986,8 +1990,9 @@ int __KernelCreateThread(const char *threadName, SceUID moduleID, u32 entry, u32
 
 int sceKernelCreateThread(const char *threadName, u32 entry, u32 prio, int stacksize, u32 attr, u32 optionAddr) {
 	PSPThread *cur = __GetCurrentThread();
-	bool allowKernel = cur ? (cur->nt.attr & PSP_THREAD_ATTR_KERNEL) != 0 : false;
-	return __KernelCreateThread(threadName, __KernelGetCurThreadModuleId(), entry, prio, stacksize, attr, optionAddr, allowKernel);
+	SceUID module = __KernelGetCurThreadModuleId();
+	bool allowKernel = KernelModuleIsKernelMode(module) || hleIsKernelMode() || (cur ? (cur->nt.attr & PSP_THREAD_ATTR_KERNEL) != 0 : false);
+	return __KernelCreateThread(threadName, module, entry, prio, stacksize, attr, optionAddr, allowKernel);
 }
 
 int __KernelStartThread(SceUID threadToStartID, int argSize, u32 argBlockPtr, bool forceArgs) {
