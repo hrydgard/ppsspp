@@ -1960,11 +1960,9 @@ int __KernelCreateThread(const char *threadName, SceUID moduleID, u32 entry, u32
 	attr &= ~PSP_THREAD_ATTR_USER_ERASE;
 
 	if ((attr & PSP_THREAD_ATTR_KERNEL) == 0) {
-		if (allowKernel && (attr & PSP_THREAD_ATTR_USER) == 0) {
-			WARN_LOG(SCEKERNEL, "sceKernelCreateThread: Kernel allowed, so creating as a kernel thread");
+		if (allowKernel && (attr & PSP_THREAD_ATTR_USER) == 0) {			
 			attr |= PSP_THREAD_ATTR_KERNEL;
-		} else {
-			WARN_LOG(SCEKERNEL, "sceKernelCreateThread: Kernel not allowed, so creating as a user thread");
+		} else {			
 			attr |= PSP_THREAD_ATTR_USER;
 		}
 	}

@@ -1594,7 +1594,6 @@ static void __KernelStartModule(PSPModule *m, int args, const char *argp, SceKer
 		currentMIPS->pc = m->nm.module_start_func;
 	}
 
-	WARN_LOG(SCEKERNEL, "Root thread attr: %08x", options->attribute);
 	SceUID threadID = __KernelSetupRootThread(m->GetUID(), args, argp, options->priority, options->stacksize, options->attribute);
 	__KernelSetThreadRA(threadID, NID_MODULERETURN);
 }
