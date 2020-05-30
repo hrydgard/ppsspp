@@ -1960,7 +1960,7 @@ int __KernelCreateThread(const char *threadName, SceUID moduleID, u32 entry, u32
 	attr &= ~PSP_THREAD_ATTR_USER_ERASE;
 
 	if ((attr & PSP_THREAD_ATTR_KERNEL) == 0) {
-		if (allowKernel && (attr & PSP_THREAD_ATTR_USER) == 0) {			
+		if (allowKernel && (attr & PSP_THREAD_ATTR_USER) == 0) {
 			attr |= PSP_THREAD_ATTR_KERNEL;
 		} else {			
 			attr |= PSP_THREAD_ATTR_USER;
