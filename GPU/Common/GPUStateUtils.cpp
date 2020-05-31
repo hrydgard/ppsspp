@@ -557,7 +557,12 @@ void ConvertViewportAndScissor(bool useBufferedRendering, float renderWidth, flo
 	} else {
 		float pixelW = PSP_CoreParameter().pixelWidth;
 		float pixelH = PSP_CoreParameter().pixelHeight;
-		CenterDisplayOutputRect(&displayOffsetX, &displayOffsetY, &renderWidth, &renderHeight, 480, 272, pixelW, pixelH, ROTATION_LOCKED_HORIZONTAL);
+		FRect rc;
+		CenterDisplayOutputRect(&rc, 480, 272, pixelW, pixelH, ROTATION_LOCKED_HORIZONTAL);
+		displayOffsetX = rc.x;
+		displayOffsetY = rc.y;
+		renderWidth = rc.w;
+		renderHeight = rc.h;
 		renderWidthFactor = renderWidth / 480.0f;
 		renderHeightFactor = renderHeight / 272.0f;
 	}

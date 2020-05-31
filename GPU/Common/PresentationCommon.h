@@ -37,7 +37,15 @@ struct PostShaderUniforms {
 	float gl_HalfPixel[4];
 };
 
-void CenterDisplayOutputRect(float *x, float *y, float *w, float *h, float origW, float origH, float frameW, float frameH, int rotation);
+// Could use UI::Bounds but don't want to depend on that here.
+struct FRect {
+	float x;
+	float y;
+	float w;
+	float h;
+};
+
+void CenterDisplayOutputRect(FRect *rc, float origW, float origH, float frameW, float frameH, int rotation);
 
 namespace Draw {
 class Buffer;
