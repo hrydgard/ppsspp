@@ -655,13 +655,15 @@ void FramebufferManagerCommon::DrawPixels(VirtualFramebuffer *vfb, int dstX, int
 		SetViewport2D(0, 0, vfb->renderWidth, vfb->renderHeight);
 		draw_->SetScissorRect(0, 0, vfb->renderWidth, vfb->renderHeight);
 	} else {
-		// We are drawing to the back buffer so need to flip.
+		// We are drawing directly to the back buffer so need to flip.
+		// Should more of this be handled by the presentation engine?
 		if (needBackBufferYSwap_)
 			std::swap(v0, v1);
 		flags = g_Config.iBufFilter == SCALE_LINEAR ? DRAWTEX_LINEAR : DRAWTEX_NEAREST;
 		flags = flags | DRAWTEX_TO_BACKBUFFER;
+		FRect frame = GetInsetScreenFrame(pixelWidth_, pixelHeight_);
 		FRect rc;
-		CenterDisplayOutputRect(&rc, 480.0f, 272.0f, (float)pixelWidth_, (float)pixelHeight_, ROTATION_LOCKED_HORIZONTAL);
+		CenterDisplayOutputRect(&rc, 480.0f, 272.0f, frame, ROTATION_LOCKED_HORIZONTAL);
 		SetViewport2D(rc.x, rc.y, rc.w, rc.h);
 		draw_->SetScissorRect(0, 0, pixelWidth_, pixelHeight_);
 	}
