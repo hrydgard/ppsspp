@@ -123,7 +123,8 @@ public:
 	void DestroyDeviceObjects();
 
 	void ClearTrackedVertexArrays() override;
-	void DecimateTrackedVertexArrays();
+
+	void BeginFrame();
 
 	// So that this can be inlined
 	void Flush() {
@@ -143,6 +144,7 @@ public:
 protected:
 	// Not currently supported.
 	bool UpdateUseHWTessellation(bool enable) override { return false; }
+	void DecimateTrackedVertexArrays();
 
 private:
 	void DoFlush();
@@ -156,6 +158,7 @@ private:
 	void MarkUnreliable(VertexArrayInfoDX9 *vai);
 
 	LPDIRECT3DDEVICE9 device_ = nullptr;
+	Draw::DrawContext *draw_;
 
 	PrehashMap<VertexArrayInfoDX9 *, nullptr> vai_;
 	DenseHashMap<u32, IDirect3DVertexDeclaration9 *, nullptr> vertexDeclMap_;
@@ -170,6 +173,8 @@ private:
 
 	// Hardware tessellation
 	TessellationDataTransferDX9 *tessDataTransferDX9;
+
+	int lastRenderStepId_ = -1;
 };
 
 }  // namespace

@@ -132,7 +132,7 @@ void SoftGPU::SetDisplayFramebuffer(u32 framebuf, u32 stride, GEBufferFormat for
 	GPURecord::NotifyDisplay(framebuf, stride, format);
 }
 
-bool g_DarkStalkerStretch;
+DSStretch g_DarkStalkerStretch;
 
 void SoftGPU::ConvertTextureDescFrom16(Draw::TextureDesc &desc, int srcwidth, int srcheight, u8 *overrideData) {
 	// TODO: This should probably be converted in a shader instead..
@@ -200,7 +200,7 @@ void SoftGPU::CopyToCurrentFboFromDisplayRam(int srcwidth, int srcheight) {
 	OutputFlags outputFlags = g_Config.iBufFilter == SCALE_NEAREST ? OutputFlags::NEAREST : OutputFlags::LINEAR;
 	bool hasPostShader = presentation_->HasPostShader();
 
-	if (PSP_CoreParameter().compat.flags().DarkStalkersPresentHack && displayFormat_ == GE_FORMAT_5551 && g_DarkStalkerStretch) {
+	if (PSP_CoreParameter().compat.flags().DarkStalkersPresentHack && displayFormat_ == GE_FORMAT_5551 && g_DarkStalkerStretch != DSStretch::Off) {
 		u8 *data = Memory::GetPointer(0x04088000);
 		bool fillDesc = true;
 		if (draw_->GetDataFormatSupport(Draw::DataFormat::A1B5G5R5_UNORM_PACK16) & Draw::FMT_TEXTURE) {
@@ -223,6 +223,9 @@ void SoftGPU::CopyToCurrentFboFromDisplayRam(int srcwidth, int srcheight) {
 		u1 = 447.5f / (float)desc.width;
 		v0 = 16.0f / (float)desc.height;
 		v1 = 240.0f / (float)desc.height;
+		if (g_DarkStalkerStretch == DSStretch::Normal) {
+			outputFlags |= OutputFlags::PILLARBOX;
+		}
 	} else if (!Memory::IsValidAddress(displayFramebuf_) || srcwidth == 0 || srcheight == 0) {
 		hasImage = false;
 		u1 = 1.0f;

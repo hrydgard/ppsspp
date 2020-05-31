@@ -450,13 +450,13 @@ void FramebufferManagerCommon::DestroyFramebuf(VirtualFramebuffer *v) {
 
 	// Wipe some pointers
 	if (currentRenderVfb_ == v)
-		currentRenderVfb_ = 0;
+		currentRenderVfb_ = nullptr;
 	if (displayFramebuf_ == v)
-		displayFramebuf_ = 0;
+		displayFramebuf_ = nullptr;
 	if (prevDisplayFramebuf_ == v)
-		prevDisplayFramebuf_ = 0;
+		prevDisplayFramebuf_ = nullptr;
 	if (prevPrevDisplayFramebuf_ == v)
-		prevPrevDisplayFramebuf_ = 0;
+		prevPrevDisplayFramebuf_ = nullptr;
 
 	delete v;
 }
@@ -471,7 +471,7 @@ void FramebufferManagerCommon::NotifyRenderFramebufferCreated(VirtualFramebuffer
 
 	textureCache_->NotifyFramebuffer(vfb->fb_address, vfb, NOTIFY_FB_CREATED);
 
-	// ugly...
+	// Ugly...
 	if (gstate_c.curRTWidth != vfb->width || gstate_c.curRTHeight != vfb->height) {
 		gstate_c.Dirty(DIRTY_PROJTHROUGHMATRIX | DIRTY_VIEWPORTSCISSOR_STATE | DIRTY_CULLRANGE);
 	}
@@ -537,8 +537,6 @@ void FramebufferManagerCommon::NotifyRenderFramebufferSwitched(VirtualFramebuffe
 				// Wait, can we even do this? Seems highly unsafe.. TODO: Remove
 				if (vfb->last_frame_render != gpuStats.numFlips) {
 					draw_->BindFramebufferAsRenderTarget(vfb->fbo, { Draw::RPAction::CLEAR, Draw::RPAction::CLEAR, Draw::RPAction::CLEAR }, "FramebufferSwitch");
-					// GLES resets the blend state on clears.
-					gstate_c.Dirty(DIRTY_BLEND_STATE);
 				} else {
 					draw_->BindFramebufferAsRenderTarget(vfb->fbo, { Draw::RPAction::KEEP, Draw::RPAction::KEEP, Draw::RPAction::KEEP }, "FramebufferSwitch");
 				}
@@ -566,7 +564,7 @@ void FramebufferManagerCommon::NotifyRenderFramebufferSwitched(VirtualFramebuffe
 	}
 	textureCache_->NotifyFramebuffer(vfb->fb_address, vfb, NOTIFY_FB_UPDATED);
 
-	// ugly...
+	// ugly... is all this needed?
 	if (gstate_c.curRTWidth != vfb->width || gstate_c.curRTHeight != vfb->height) {
 		gstate_c.Dirty(DIRTY_PROJTHROUGHMATRIX | DIRTY_VIEWPORTSCISSOR_STATE | DIRTY_CULLRANGE);
 	}
@@ -653,6 +651,7 @@ void FramebufferManagerCommon::DrawPixels(VirtualFramebuffer *vfb, int dstX, int
 	if (useBufferedRendering_ && vfb && vfb->fbo) {
 		flags = DRAWTEX_LINEAR;
 		draw_->BindFramebufferAsRenderTarget(vfb->fbo, { Draw::RPAction::KEEP, Draw::RPAction::KEEP, Draw::RPAction::KEEP }, "DrawPixels");
+		gstate_c.Dirty(DIRTY_VIEWPORTSCISSOR_STATE);
 		SetViewport2D(0, 0, vfb->renderWidth, vfb->renderHeight);
 		draw_->SetScissorRect(0, 0, vfb->renderWidth, vfb->renderHeight);
 	} else {
@@ -838,7 +837,7 @@ void FramebufferManagerCommon::CopyDisplayToOutput(bool reallyDirty) {
 		if (useBufferedRendering_) {
 			draw_->BindFramebufferAsRenderTarget(nullptr, { Draw::RPAction::CLEAR, Draw::RPAction::CLEAR, Draw::RPAction::CLEAR }, "CopyDisplayToOutput");
 		}
-		gstate_c.Dirty(DIRTY_BLEND_STATE);
+		gstate_c.Dirty(DIRTY_VIEWPORTSCISSOR_STATE);
 		return;
 	}
 
@@ -896,7 +895,6 @@ void FramebufferManagerCommon::CopyDisplayToOutput(bool reallyDirty) {
 			// The game is displaying something directly from RAM. In GTA, it's decoded video.
 			if (!vfb) {
 				DrawFramebufferToOutput(Memory::GetPointer(fbaddr), displayFormat_, displayStride_);
-				gstate_c.Dirty(DIRTY_BLEND_STATE);
 				return;
 			}
 		} else {
@@ -906,7 +904,7 @@ void FramebufferManagerCommon::CopyDisplayToOutput(bool reallyDirty) {
 				// Bind and clear the backbuffer. This should be the first time during the frame that it's bound.
 				draw_->BindFramebufferAsRenderTarget(nullptr, { Draw::RPAction::CLEAR, Draw::RPAction::CLEAR, Draw::RPAction::CLEAR }, "CopyDisplayToOutput_NoFBO");
 			}
-			gstate_c.Dirty(DIRTY_BLEND_STATE);
+			gstate_c.Dirty(DIRTY_VIEWPORTSCISSOR_STATE);
 			return;
 		}
 	}
@@ -1064,8 +1062,6 @@ void FramebufferManagerCommon::ResizeFramebufFBO(VirtualFramebuffer *vfb, int w,
 		INFO_LOG(FRAMEBUF, "Resizing FBO for %08x : %d x %d x %d", vfb->fb_address, w, h, vfb->format);
 		if (vfb->fbo) {
 			draw_->BindFramebufferAsRenderTarget(vfb->fbo, { Draw::RPAction::CLEAR, Draw::RPAction::CLEAR, Draw::RPAction::CLEAR }, "ResizeFramebufFBO");
-			// GLES resets the blend state on clears.
-			gstate_c.Dirty(DIRTY_BLEND_STATE);
 			if (!skipCopy) {
 				BlitFramebuffer(vfb, 0, 0, &old, 0, 0, std::min((u16)oldWidth, std::min(vfb->bufferWidth, vfb->width)), std::min((u16)oldHeight, std::min(vfb->height, vfb->bufferHeight)), 0);
 			}
@@ -1076,8 +1072,6 @@ void FramebufferManagerCommon::ResizeFramebufFBO(VirtualFramebuffer *vfb, int w,
 		}
 	} else {
 		draw_->BindFramebufferAsRenderTarget(vfb->fbo, { Draw::RPAction::CLEAR, Draw::RPAction::CLEAR, Draw::RPAction::CLEAR }, "ResizeFramebufFBO");
-		// GLES resets the blend state on clears.
-		gstate_c.Dirty(DIRTY_BLEND_STATE);
 	}
 
 	if (!vfb->fbo) {
@@ -1686,8 +1680,8 @@ void FramebufferManagerCommon::SetRenderSize(VirtualFramebuffer *vfb) {
 void FramebufferManagerCommon::SetSafeSize(u16 w, u16 h) {
 	VirtualFramebuffer *vfb = currentRenderVfb_;
 	if (vfb) {
-		vfb->safeWidth = std::max(vfb->safeWidth, w);
-		vfb->safeHeight = std::max(vfb->safeHeight, h);
+		vfb->safeWidth = std::min(vfb->bufferWidth, std::max(vfb->safeWidth, w));
+		vfb->safeHeight = std::min(vfb->bufferHeight, std::max(vfb->safeHeight, h));
 	}
 }
 
@@ -1847,7 +1841,7 @@ bool FramebufferManagerCommon::GetFramebuffer(u32 fb_address, int fb_stride, GEB
 	bool retval = draw_->CopyFramebufferToMemorySync(bound, Draw::FB_COLOR_BIT, 0, 0, w, h, Draw::DataFormat::R8G8B8A8_UNORM, buffer.GetData(), w, "GetFramebuffer");
 	gpuStats.numReadbacks++;
 	// After a readback we'll have flushed and started over, need to dirty a bunch of things to be safe.
-	gstate_c.Dirty(DIRTY_VIEWPORTSCISSOR_STATE | DIRTY_BLEND_STATE | DIRTY_DEPTHSTENCIL_STATE | DIRTY_RASTER_STATE | DIRTY_TEXTURE_IMAGE | DIRTY_TEXTURE_PARAMS);
+	gstate_c.Dirty(DIRTY_TEXTURE_IMAGE | DIRTY_TEXTURE_PARAMS);
 	// We may have blitted to a temp FBO.
 	RebindFramebuffer();
 	return retval;
@@ -1882,7 +1876,7 @@ bool FramebufferManagerCommon::GetDepthbuffer(u32 fb_address, int fb_stride, u32
 	// No need to free on failure, that's the caller's job (it likely will reuse a buffer.)
 	bool retval = draw_->CopyFramebufferToMemorySync(vfb->fbo, Draw::FB_DEPTH_BIT, 0, 0, w, h, Draw::DataFormat::D32F, buffer.GetData(), w, "GetDepthBuffer");
 	// After a readback we'll have flushed and started over, need to dirty a bunch of things to be safe.
-	gstate_c.Dirty(DIRTY_VIEWPORTSCISSOR_STATE | DIRTY_BLEND_STATE | DIRTY_DEPTHSTENCIL_STATE | DIRTY_RASTER_STATE | DIRTY_TEXTURE_IMAGE | DIRTY_TEXTURE_PARAMS);
+	gstate_c.Dirty(DIRTY_TEXTURE_IMAGE | DIRTY_TEXTURE_PARAMS);
 	// That may have unbound the framebuffer, rebind to avoid crashes when debugging.
 	RebindFramebuffer();
 	return retval;
@@ -1973,9 +1967,6 @@ void FramebufferManagerCommon::PackFramebufferSync_(VirtualFramebuffer *vfb, int
 		ERROR_LOG(G3D, "PackFramebufferSync_: Tried to readback to bad address %08x (stride = %d)", fb_address + dstByteOffset, vfb->fb_stride);
 	}
 
-	// A new command buffer will begin after CopyFrameBufferToMemorySync, so we need to trigger
-	// updates of any dynamic command buffer state by dirtying some stuff.
-	gstate_c.Dirty(DIRTY_VIEWPORTSCISSOR_STATE | DIRTY_BLEND_STATE | DIRTY_DEPTHSTENCIL_STATE | DIRTY_RASTER_STATE);
 	gpuStats.numReadbacks++;
 }
 
@@ -2058,7 +2049,6 @@ void FramebufferManagerCommon::RebindFramebuffer() {
 		// Should this even happen?  It could while debugging, but maybe we can just skip binding at all.
 		draw_->BindFramebufferAsRenderTarget(nullptr, { Draw::RPAction::KEEP, Draw::RPAction::KEEP, Draw::RPAction::KEEP }, "RebindFramebuffer_Bad");
 	}
-	gstate_c.Dirty(DIRTY_VIEWPORTSCISSOR_STATE);
 }
 
 std::vector<FramebufferInfo> FramebufferManagerCommon::GetFramebufferList() {

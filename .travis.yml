@@ -96,6 +96,10 @@ jobs:
     - os: windows
       compiler: "msvc2017"
       env: PPSSPP_BUILD_TYPE=Windows
+    - os: windows
+      compiler: "msvc2017"
+      env: PPSSPP_BUILD_TYPE=Windows
+           UWP=TRUE
 
 before_install:
   - travis_retry bash .travis.sh travis_before_install

@@ -156,9 +156,13 @@ void DrawEngineGLES::ClearInputLayoutMap() {
 }
 
 void DrawEngineGLES::BeginFrame() {
+	DecimateTrackedVertexArrays();
+
 	FrameData &frameData = frameData_[render_->GetCurFrame()];
 	render_->BeginPushBuffer(frameData.pushIndex);
 	render_->BeginPushBuffer(frameData.pushVertex);
+
+	lastRenderStepId_ = -1;
 }
 
 void DrawEngineGLES::EndFrame() {
@@ -304,6 +308,15 @@ void DrawEngineGLES::DoFlush() {
 	
 	gpuStats.numFlushes++;
 	gpuStats.numTrackedVertexArrays = (int)vai_.size();
+
+	// A new render step means we need to flush any dynamic state. Really, any state that is reset in
+	// GLQueueRunner::PerformRenderPass.
+	int curRenderStepId = render_->GetCurrentStepId();
+	if (lastRenderStepId_ != curRenderStepId) {
+		// Dirty everything that has dynamic state that will need re-recording.
+		gstate_c.Dirty(DIRTY_VIEWPORTSCISSOR_STATE | DIRTY_DEPTHSTENCIL_STATE | DIRTY_BLEND_STATE | DIRTY_RASTER_STATE);
+		lastRenderStepId_ = curRenderStepId;
+	}
 
 	bool textureNeedsApply = false;
 	if (gstate_c.IsDirty(DIRTY_TEXTURE_IMAGE | DIRTY_TEXTURE_PARAMS) && !gstate.isModeClear() && gstate.isTextureMapEnabled()) {

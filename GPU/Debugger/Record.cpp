@@ -155,30 +155,43 @@ static void GetVertDataSizes(int vcount, const void *indices, u32 &vbytes, u32 &
 	}
 }
 
-static const u8 *mymemmem(const u8 *haystack, size_t hlen, const u8 *needle, size_t nlen) {
+static const u8 *mymemmem(const u8 *haystack, size_t off, size_t hlen, const u8 *needle, size_t nlen, uintptr_t align) {
 	if (!nlen) {
 		return nullptr;
 	}
 
 	const u8 *last_possible = haystack + hlen - nlen;
 	int first = *needle;
-	const u8 *p = haystack;
+	const u8 *p = haystack + off;
+
+	const uintptr_t align_mask = align - 1;
+	auto poffset = [&]() {
+		return ((uintptr_t)(p - haystack) & align_mask);
+	};
+	auto alignp = [&]() {
+		uintptr_t offset = poffset();
+		if (offset != 0)
+			p += align - offset;
+	};
+
+	alignp();
 	while (p <= last_possible) {
 		p = (const u8 *)memchr(p, first, last_possible - p + 1);
 		if (!p) {
 			return nullptr;
 		}
-		if (!memcmp(p, needle, nlen)) {
+		if (poffset() == 0 && !memcmp(p, needle, nlen)) {
 			return p;
 		}
 
 		p++;
+		alignp();
 	}
 
 	return nullptr;
 }
 
-static Command EmitCommandWithRAM(CommandType t, const void *p, u32 sz) {
+static Command EmitCommandWithRAM(CommandType t, const void *p, u32 sz, u32 align) {
 	FlushRegisters();
 
 	Command cmd{t, sz, 0};
@@ -189,10 +202,10 @@ static Command EmitCommandWithRAM(CommandType t, const void *p, u32 sz) {
 		const size_t NEAR_WINDOW = std::max((int)sz * 2, 1024 * 10);
 		// Let's try nearby first... it will often be nearby.
 		if (pushbuf.size() > NEAR_WINDOW) {
-			prev = mymemmem(pushbuf.data() + pushbuf.size() - NEAR_WINDOW, NEAR_WINDOW, (const u8 *)p, sz);
+			prev = mymemmem(pushbuf.data(), pushbuf.size() - NEAR_WINDOW, pushbuf.size(), (const u8 *)p, sz, align);
 		}
 		if (!prev) {
-			prev = mymemmem(pushbuf.data(), pushbuf.size(), (const u8 *)p, sz);
+			prev = mymemmem(pushbuf.data(), 0, pushbuf.size(), (const u8 *)p, sz, align);
 		}
 
 		if (prev) {
@@ -200,8 +213,8 @@ static Command EmitCommandWithRAM(CommandType t, const void *p, u32 sz) {
 		} else {
 			cmd.ptr = (u32)pushbuf.size();
 			int pad = 0;
-			if (cmd.ptr & 0xF) {
-				pad = 0x10 - (cmd.ptr & 0xF);
+			if (cmd.ptr & (align - 1)) {
+				pad = align - (cmd.ptr & (align - 1));
 				cmd.ptr += pad;
 			}
 			pushbuf.resize(pushbuf.size() + sz + pad);
@@ -269,7 +282,7 @@ static void EmitTextureData(int level, u32 texaddr) {
 		}
 
 		// Not there, gotta emit anew.
-		Command cmd = EmitCommandWithRAM(type, p, bytes);
+		Command cmd = EmitCommandWithRAM(type, p, bytes, 16);
 		lastTextures.push_back(cmd.ptr);
 	}
 }
@@ -302,10 +315,10 @@ static void FlushPrimState(int vcount) {
 	GetVertDataSizes(vcount, indices, vbytes, ibytes);
 
 	if (indices && ibytes > 0) {
-		EmitCommandWithRAM(CommandType::INDICES, indices, ibytes);
+		EmitCommandWithRAM(CommandType::INDICES, indices, ibytes, 4);
 	}
 	if (verts && vbytes > 0) {
-		EmitCommandWithRAM(CommandType::VERTICES, verts, vbytes);
+		EmitCommandWithRAM(CommandType::VERTICES, verts, vbytes, 4);
 	}
 }
 
@@ -330,7 +343,7 @@ static void EmitTransfer(u32 op) {
 	srcBytes = Memory::ValidSize(srcBasePtr, srcBytes);
 
 	if (srcBytes != 0) {
-		EmitCommandWithRAM(CommandType::TRANSFERSRC, Memory::GetPointerUnchecked(srcBasePtr), srcBytes);
+		EmitCommandWithRAM(CommandType::TRANSFERSRC, Memory::GetPointerUnchecked(srcBasePtr), srcBytes, 16);
 	}
 
 	lastRegisters.push_back(op);
@@ -342,7 +355,7 @@ static void EmitClut(u32 op) {
 	bytes = Memory::ValidSize(addr, bytes);
 
 	if (bytes != 0) {
-		EmitCommandWithRAM(CommandType::CLUT, Memory::GetPointerUnchecked(addr), bytes);
+		EmitCommandWithRAM(CommandType::CLUT, Memory::GetPointerUnchecked(addr), bytes, 16);
 	}
 
 	lastRegisters.push_back(op);
@@ -463,7 +476,7 @@ void NotifyMemcpy(u32 dest, u32 src, u32 sz) {
 
 		sz = Memory::ValidSize(dest, sz);
 		if (sz != 0) {
-			EmitCommandWithRAM(CommandType::MEMCPYDATA, Memory::GetPointer(dest), sz);
+			EmitCommandWithRAM(CommandType::MEMCPYDATA, Memory::GetPointer(dest), sz, 1);
 		}
 	}
 }

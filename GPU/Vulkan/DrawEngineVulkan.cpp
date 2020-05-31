@@ -259,8 +259,9 @@ void DrawEngineVulkan::DeviceRestore(VulkanContext *vulkan, Draw::DrawContext *d
 }
 
 void DrawEngineVulkan::BeginFrame() {
-	// Too many issues right now to allow reuse.
 	lastPipeline_ = nullptr;
+
+	lastRenderStepId_ = -1;
 
 	int curFrame = vulkan_->GetCurFrame();
 	FrameData *frame = &frame_[curFrame];
@@ -587,10 +588,16 @@ void DrawEngineVulkan::DoFlush() {
 
 	VulkanRenderManager *renderManager = (VulkanRenderManager *)draw_->GetNativeObject(Draw::NativeObject::RENDER_MANAGER);
 	
-	// HACK: These two lines should only execute if we started on a new render pass. Can't tell from in here though...
+	// TODO: Move this into the below if statement. Little scary change though so holding off until 1.11.
 	lastPipeline_ = nullptr;
+
 	// Since we have a new cmdbuf, dirty our dynamic state so it gets re-set.
-	// gstate_c.Dirty(DIRTY_VIEWPORTSCISSOR_STATE|DIRTY_DEPTHSTENCIL_STATE|DIRTY_BLEND_STATE);
+	int curRenderStepId = renderManager->GetCurrentStepId();
+	if (lastRenderStepId_ != curRenderStepId) {
+		// Dirty everything that has dynamic state that will need re-recording.
+		gstate_c.Dirty(DIRTY_VIEWPORTSCISSOR_STATE | DIRTY_DEPTHSTENCIL_STATE | DIRTY_BLEND_STATE);
+		lastRenderStepId_ = curRenderStepId;
+	}
 
 	FrameData *frame = &frame_[vulkan_->GetCurFrame()];
 

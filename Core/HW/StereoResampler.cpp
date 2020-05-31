@@ -179,7 +179,9 @@ unsigned int StereoResampler::Mix(short* samples, unsigned int numSamples, bool 
 	u32 indexW = m_indexW.load();
 
 	const int INDEX_MASK = (m_maxBufsize * 2 - 1);
-	lastBufSize_ = (indexR - m_indexW) & INDEX_MASK;
+
+	// This is only for debug visualization, not used for anything.
+	lastBufSize_ = ((indexW - indexR) & INDEX_MASK) / 2;
 
 	// Drift prevention mechanism.
 	float numLeft = (float)(((indexW - indexR) & INDEX_MASK) / 2);

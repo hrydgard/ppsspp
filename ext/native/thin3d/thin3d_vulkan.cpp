@@ -482,6 +482,10 @@ public:
 
 	void HandleEvent(Event ev, int width, int height, void *param1, void *param2) override;
 
+	int GetCurrentStepId() const override {
+		return renderManager_.GetCurrentStepId();
+	}
+
 private:
 	VulkanTexture *GetNullTexture();
 	VulkanContext *vulkan_ = nullptr;

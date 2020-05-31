@@ -422,6 +422,7 @@ void VulkanRenderManager::BeginFrame(bool enableProfiling) {
 	vulkan_->BeginFrame();
 
 	insideFrame_ = true;
+	renderStepOffset_ = 0;
 
 	frameData.profile.timestampDescriptions.clear();
 	if (frameData_->profilingEnabled_) {
@@ -481,10 +482,8 @@ void VulkanRenderManager::BindFramebufferAsRenderTarget(VKRFramebuffer *fb, VKRR
 			for (const auto &c : steps_.back()->commands) {
 				if (c.cmd == VKRRenderCommand::VIEWPORT) {
 					curStepHasViewport_ = true;
-					break;
 				} else if (c.cmd == VKRRenderCommand::SCISSOR) {
 					curStepHasScissor_ = true;
-					break;
 				}
 			}
 			if (clearMask != 0) {
@@ -500,7 +499,7 @@ void VulkanRenderManager::BindFramebufferAsRenderTarget(VKRFramebuffer *fb, VKRR
 	}
 
 	// More redundant bind elimination.
-	if (curRenderStep_ && curRenderStep_->commands.size() == 0 && curRenderStep_->render.color == VKRRenderPassAction::KEEP && curRenderStep_->render.depth == VKRRenderPassAction::KEEP && curRenderStep_->render.stencil == VKRRenderPassAction::KEEP) {
+	if (curRenderStep_ && curRenderStep_->commands.size() == 0 && curRenderStep_->render.color != VKRRenderPassAction::CLEAR && curRenderStep_->render.depth != VKRRenderPassAction::CLEAR && curRenderStep_->render.stencil != VKRRenderPassAction::CLEAR) {
 		// Can trivially kill the last empty render step.
 		assert(steps_.back() == curRenderStep_);
 		delete steps_.back();
@@ -509,6 +508,23 @@ void VulkanRenderManager::BindFramebufferAsRenderTarget(VKRFramebuffer *fb, VKRR
 	}
 	if (curRenderStep_ && curRenderStep_->commands.size() == 0) {
 		VLOG("Empty render step. Usually happens after uploading pixels..");
+	}
+
+	// Older Mali drivers have issues with depth and stencil don't match load/clear/etc.
+	// TODO: Determine which versions and do this only where necessary.
+	u32 lateClearMask = 0;
+	if (depth != stencil && vulkan_->GetPhysicalDeviceProperties().properties.vendorID == VULKAN_VENDOR_ARM) {
+		if (stencil == VKRRenderPassAction::DONT_CARE) {
+			stencil = depth;
+		} else if (depth == VKRRenderPassAction::DONT_CARE) {
+			depth = stencil;
+		} else if (stencil == VKRRenderPassAction::CLEAR) {
+			depth = stencil;
+			lateClearMask |= VK_IMAGE_ASPECT_STENCIL_BIT;
+		} else if (depth == VKRRenderPassAction::CLEAR) {
+			stencil = depth;
+			lateClearMask |= VK_IMAGE_ASPECT_DEPTH_BIT;
+		}
 	}
 
 	VKRStep *step = new VKRStep{ VKRStepType::RENDER };
@@ -541,6 +557,16 @@ void VulkanRenderManager::BindFramebufferAsRenderTarget(VKRFramebuffer *fb, VKRR
 	} else {
 		curWidth_ = vulkan_->GetBackbufferWidth();
 		curHeight_ = vulkan_->GetBackbufferHeight();
+	}
+
+	// See above - we add a clear afterward if only one side for depth/stencil CLEAR/KEEP.
+	if (lateClearMask != 0) {
+		VkRenderData data{ VKRRenderCommand::CLEAR };
+		data.clear.clearColor = clearColor;
+		data.clear.clearZ = clearDepth;
+		data.clear.clearStencil = clearStencil;
+		data.clear.clearMask = lateClearMask;
+		curRenderStep_->commands.push_back(data);
 	}
 }
 
@@ -1175,6 +1201,8 @@ void VulkanRenderManager::EndSyncFrame(int frame) {
 
 void VulkanRenderManager::FlushSync() {
 	// TODO: Reset curRenderStep_?
+	renderStepOffset_ += (int)steps_.size();
+
 	int curFrame = vulkan_->GetCurFrame();
 	FrameData &frameData = frameData_[curFrame];
 	if (!useThread_) {

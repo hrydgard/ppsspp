@@ -5,7 +5,6 @@
 #include "thin3d/thin3d.h"
 #include "thread/threadutil.h"
 #include "base/logging.h"
-#include "GPU/GPUState.h"
 #include "Common/MemoryUtil.h"
 
 #if 0 // def _DEBUG
@@ -318,9 +317,6 @@ void GLRenderManager::BindFramebufferAsRenderTarget(GLRFramebuffer *fb, GLRRende
 			step->dependencies.insert(fb);
 		}
 	}
-
-	// Every step clears this state.
-	gstate_c.Dirty(DIRTY_BLEND_STATE | DIRTY_DEPTHSTENCIL_STATE | DIRTY_RASTER_STATE);
 }
 
 void GLRenderManager::BindFramebufferAsTexture(GLRFramebuffer *fb, int binding, int aspectBit, int attachment) {
@@ -346,9 +342,6 @@ void GLRenderManager::CopyFramebuffer(GLRFramebuffer *src, GLRect2D srcRect, GLR
 	if (dstPos.x != 0 || dstPos.y != 0 || !fillsDst)
 		step->dependencies.insert(dst);
 	steps_.push_back(step);
-
-	// Every step clears this state.
-	gstate_c.Dirty(DIRTY_BLEND_STATE | DIRTY_DEPTHSTENCIL_STATE | DIRTY_RASTER_STATE);
 }
 
 void GLRenderManager::BlitFramebuffer(GLRFramebuffer *src, GLRect2D srcRect, GLRFramebuffer *dst, GLRect2D dstRect, int aspectMask, bool filter, const char *tag) {
@@ -365,9 +358,6 @@ void GLRenderManager::BlitFramebuffer(GLRFramebuffer *src, GLRect2D srcRect, GLR
 	if (!fillsDst)
 		step->dependencies.insert(dst);
 	steps_.push_back(step);
-
-	// Every step clears this state.
-	gstate_c.Dirty(DIRTY_BLEND_STATE | DIRTY_DEPTHSTENCIL_STATE | DIRTY_RASTER_STATE);
 }
 
 bool GLRenderManager::CopyFramebufferToMemorySync(GLRFramebuffer *src, int aspectBits, int x, int y, int w, int h, Draw::DataFormat destFormat, uint8_t *pixels, int pixelStride, const char *tag) {
@@ -381,9 +371,6 @@ bool GLRenderManager::CopyFramebufferToMemorySync(GLRFramebuffer *src, int aspec
 	step->dependencies.insert(src);
 	step->tag = tag;
 	steps_.push_back(step);
-
-	// Every step clears this state.
-	gstate_c.Dirty(DIRTY_BLEND_STATE | DIRTY_DEPTHSTENCIL_STATE | DIRTY_RASTER_STATE);
 
 	curRenderStep_ = nullptr;
 	FlushSync();
@@ -413,9 +400,6 @@ void GLRenderManager::CopyImageToMemorySync(GLRTexture *texture, int mipLevel, i
 	step->readback_image.srcRect = { x, y, w, h };
 	step->tag = tag;
 	steps_.push_back(step);
-
-	// Every step clears this state.
-	gstate_c.Dirty(DIRTY_BLEND_STATE | DIRTY_DEPTHSTENCIL_STATE | DIRTY_RASTER_STATE);
 
 	curRenderStep_ = nullptr;
 	FlushSync();
@@ -458,6 +442,7 @@ void GLRenderManager::BeginFrame() {
 	// In GL, we have to do deletes on the submission thread.
 
 	insideFrame_ = true;
+	renderStepOffset_ = 0;
 }
 
 void GLRenderManager::Finish() {
@@ -581,6 +566,8 @@ void GLRenderManager::Run(int frame) {
 
 void GLRenderManager::FlushSync() {
 	// TODO: Reset curRenderStep_?
+	renderStepOffset_ += (int)steps_.size();
+
 	int curFrame = curFrame_;
 	FrameData &frameData = frameData_[curFrame];
 	{

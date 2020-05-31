@@ -300,7 +300,7 @@ void PSPSaveDialog::DisplayBanner(int which)
 	}
 	// TODO: Draw a hexagon icon
 	PPGeDrawImage(10, 6, 12.0f, 12.0f, 1, 10, 1, 10, 10, 10, CalcFadedColor(0xFFFFFFFF));
-	PPGeDrawText(title, 30, 11, PPGE_ALIGN_VCENTER, 0.6f, CalcFadedColor(0xFFFFFFFF));
+	PPGeDrawText(title, 30, 11, PPGeAlign::BOX_VCENTER, 0.6f, CalcFadedColor(0xFFFFFFFF));
 }
 
 void PSPSaveDialog::DisplaySaveList(bool canMove) {
@@ -395,7 +395,7 @@ void PSPSaveDialog::DisplaySaveDataInfo1()
 	std::lock_guard<std::mutex> guard(paramLock);
 	if (param.GetFileInfo(currentSelectedSave).size == 0) {
 		auto di = GetI18NCategory("Dialog");
-		PPGeDrawText(di->T("NEW DATA"), 180, 136, PPGE_ALIGN_VCENTER, 0.6f, CalcFadedColor(0xFFFFFFFF));
+		PPGeDrawText(di->T("NEW DATA"), 180, 136, PPGeAlign::BOX_VCENTER, 0.6f, CalcFadedColor(0xFFFFFFFF));
 	} else {
 		char title[512];
 		char time[512];
@@ -452,14 +452,14 @@ void PSPSaveDialog::DisplaySaveDataInfo1()
 		std::string saveTitleTxt = saveTitle;
 		std::string saveDetailTxt = saveDetail;
 
-		PPGeDrawText(titleTxt.c_str(), 181, 138, PPGE_ALIGN_BOTTOM, 0.6f, CalcFadedColor(0x80000000));
-		PPGeDrawText(titleTxt.c_str(), 180, 136, PPGE_ALIGN_BOTTOM, 0.6f, CalcFadedColor(0xFFC0C0C0));
-		PPGeDrawText(timeTxt.c_str(), 181, 139, PPGE_ALIGN_LEFT, 0.5f, CalcFadedColor(0x80000000));
-		PPGeDrawText(timeTxt.c_str(), 180, 137, PPGE_ALIGN_LEFT, 0.5f, CalcFadedColor(0xFFFFFFFF));
-		PPGeDrawText(saveTitleTxt.c_str(), 176, 162, PPGE_ALIGN_LEFT, 0.55f, CalcFadedColor(0x80000000));
-		PPGeDrawText(saveTitleTxt.c_str(), 175, 159, PPGE_ALIGN_LEFT, 0.55f, CalcFadedColor(0xFFFFFFFF));
-		PPGeDrawTextWrapped(saveDetailTxt.c_str(), 176, 183, 480 - 175, 250 - 183, PPGE_ALIGN_LEFT, 0.5f, CalcFadedColor(0x80000000));
-		PPGeDrawTextWrapped(saveDetailTxt.c_str(), 175, 181, 480 - 175, 250 - 181, PPGE_ALIGN_LEFT, 0.5f, CalcFadedColor(0xFFFFFFFF));
+		PPGeDrawText(titleTxt.c_str(), 181, 138, PPGeAlign::BOX_BOTTOM, 0.6f, CalcFadedColor(0x80000000));
+		PPGeDrawText(titleTxt.c_str(), 180, 136, PPGeAlign::BOX_BOTTOM, 0.6f, CalcFadedColor(0xFFC0C0C0));
+		PPGeDrawText(timeTxt.c_str(), 181, 139, PPGeAlign::BOX_LEFT, 0.5f, CalcFadedColor(0x80000000));
+		PPGeDrawText(timeTxt.c_str(), 180, 137, PPGeAlign::BOX_LEFT, 0.5f, CalcFadedColor(0xFFFFFFFF));
+		PPGeDrawText(saveTitleTxt.c_str(), 176, 162, PPGeAlign::BOX_LEFT, 0.55f, CalcFadedColor(0x80000000));
+		PPGeDrawText(saveTitleTxt.c_str(), 175, 159, PPGeAlign::BOX_LEFT, 0.55f, CalcFadedColor(0xFFFFFFFF));
+		PPGeDrawTextWrapped(saveDetailTxt.c_str(), 176, 183, 480 - 175, 250 - 183, PPGeAlign::BOX_LEFT, 0.5f, CalcFadedColor(0x80000000));
+		PPGeDrawTextWrapped(saveDetailTxt.c_str(), 175, 181, 480 - 175, 250 - 181, PPGeAlign::BOX_LEFT, 0.5f, CalcFadedColor(0xFFFFFFFF));
 	}
 }
 
@@ -526,8 +526,8 @@ void PSPSaveDialog::DisplaySaveDataInfo2(bool showNewData) {
 	}
 
 	std::string saveinfoTxt = StringFromFormat("%.128s\n%s  %s\n%lld KB", save_title, date, hour_time, sizeK);
-	PPGeDrawText(saveinfoTxt.c_str(), 9, 202, PPGE_ALIGN_LEFT, 0.5f, CalcFadedColor(0x80000000));
-	PPGeDrawText(saveinfoTxt.c_str(), 8, 200, PPGE_ALIGN_LEFT, 0.5f, CalcFadedColor(0xFFFFFFFF));
+	PPGeDrawText(saveinfoTxt.c_str(), 9, 202, PPGeAlign::BOX_LEFT, 0.5f, CalcFadedColor(0x80000000));
+	PPGeDrawText(saveinfoTxt.c_str(), 8, 200, PPGeAlign::BOX_LEFT, 0.5f, CalcFadedColor(0xFFFFFFFF));
 }
 
 void PSPSaveDialog::DisplayMessage(std::string text, bool hasYesNo)
@@ -561,10 +561,10 @@ void PSPSaveDialog::DisplayMessage(std::string text, bool hasYesNo)
 		h2 += h + 4.0f;
 		y = 132.0f - h;
 		PPGeDrawRect(x - w, y2 - h, x + w, y2 + h, CalcFadedColor(0x40C0C0C0));
-		PPGeDrawText(di->T("Yes"), 303.0f, y2+2, PPGE_ALIGN_CENTER, FONT_SCALE, CalcFadedColor(0x80000000));
-		PPGeDrawText(di->T("Yes"), 302.0f, y2, PPGE_ALIGN_CENTER, FONT_SCALE, CalcFadedColor(yesColor));
-		PPGeDrawText(di->T("No"), 367.0f, y2+2, PPGE_ALIGN_CENTER, FONT_SCALE, CalcFadedColor(0x80000000));
-		PPGeDrawText(di->T("No"), 366.0f, y2, PPGE_ALIGN_CENTER, FONT_SCALE, CalcFadedColor(noColor));
+		PPGeDrawText(di->T("Yes"), 303.0f, y2+2, PPGeAlign::BOX_CENTER, FONT_SCALE, CalcFadedColor(0x80000000));
+		PPGeDrawText(di->T("Yes"), 302.0f, y2, PPGeAlign::BOX_CENTER, FONT_SCALE, CalcFadedColor(yesColor));
+		PPGeDrawText(di->T("No"), 367.0f, y2+2, PPGeAlign::BOX_CENTER, FONT_SCALE, CalcFadedColor(0x80000000));
+		PPGeDrawText(di->T("No"), 366.0f, y2, PPGeAlign::BOX_CENTER, FONT_SCALE, CalcFadedColor(noColor));
 		if (IsButtonPressed(CTRL_LEFT) && yesnoChoice == 0) {
 			yesnoChoice = 1;
 		}
@@ -572,8 +572,8 @@ void PSPSaveDialog::DisplayMessage(std::string text, bool hasYesNo)
 			yesnoChoice = 0;
 		}
 	}
-	PPGeDrawTextWrapped(text.c_str(), 335.0f, y+2, WRAP_WIDTH, 0, PPGE_ALIGN_CENTER, FONT_SCALE, CalcFadedColor(0x80000000));
-	PPGeDrawTextWrapped(text.c_str(), 334.0f, y, WRAP_WIDTH, 0, PPGE_ALIGN_CENTER, FONT_SCALE, CalcFadedColor(0xFFFFFFFF));
+	PPGeDrawTextWrapped(text.c_str(), 335.0f, y+2, WRAP_WIDTH, 0, PPGeAlign::BOX_CENTER, FONT_SCALE, CalcFadedColor(0x80000000));
+	PPGeDrawTextWrapped(text.c_str(), 334.0f, y, WRAP_WIDTH, 0, PPGeAlign::BOX_CENTER, FONT_SCALE, CalcFadedColor(0xFFFFFFFF));
 	float sy = 122.0f - h2, ey = 150.0f + h2;
 	PPGeDrawRect(202.0f, sy, 466.0f, sy + 1.0f, CalcFadedColor(0xFFFFFFFF));
 	PPGeDrawRect(202.0f, ey, 466.0f, ey + 1.0f, CalcFadedColor(0xFFFFFFFF));

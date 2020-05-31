@@ -23,6 +23,7 @@ static EGLSurface               g_eglSurface    = nullptr;
 static EGLNativeDisplayType     g_Display       = nullptr;
 static bool                     g_XDisplayOpen  = false;
 static EGLNativeWindowType      g_Window        = (EGLNativeWindowType)nullptr;
+static bool useEGLSwap = false;
 
 int CheckEGLErrors(const char *file, int line) {
 	EGLenum error;
@@ -328,7 +329,7 @@ int SDLGLGraphicsContext::Init(SDL_Window *&window, int x, int y, int mode, std:
 		SetGLCoreContext(true);
 #endif
 
-		window = SDL_CreateWindow("PPSSPP", x,y, pixel_xres, pixel_yres, mode);
+		window = SDL_CreateWindow("PPSSPP", x, y, pixel_xres, pixel_yres, mode);
 		if (!window) {
 			// Definitely don't shutdown here: we'll keep trying more GL versions.
 			fprintf(stderr, "SDL_CreateWindow failed for GL %d.%d: %s\n", ver.major, ver.minor, SDL_GetError());
@@ -353,7 +354,7 @@ int SDLGLGraphicsContext::Init(SDL_Window *&window, int x, int y, int mode, std:
 		SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 0);
 		SetGLCoreContext(false);
 
-		window = SDL_CreateWindow("PPSSPP", x,y, pixel_xres, pixel_yres, mode);
+		window = SDL_CreateWindow("PPSSPP", x, y, pixel_xres, pixel_yres, mode);
 		if (window == nullptr) {
 			NativeShutdown();
 			fprintf(stderr, "SDL_CreateWindow failed: %s\n", SDL_GetError());
@@ -376,11 +377,10 @@ int SDLGLGraphicsContext::Init(SDL_Window *&window, int x, int y, int mode, std:
 #ifdef USING_EGL
 	if (EGL_Open(window) != 0) {
 		printf("EGL_Open() failed\n");
-		return 1;
-	}
-	if (EGL_Init(window) != 0) {
+	} else if (EGL_Init(window) != 0) {
 		printf("EGL_Init() failed\n");
-		return 1;
+	} else {
+		useEGLSwap = true;
 	}
 #endif
 
@@ -415,7 +415,10 @@ int SDLGLGraphicsContext::Init(SDL_Window *&window, int x, int y, int mode, std:
 	assert(success);
 	renderManager_->SetSwapFunction([&]() {
 #ifdef USING_EGL
-		eglSwapBuffers(g_eglDisplay, g_eglSurface);
+		if (useEGLSwap)
+			eglSwapBuffers(g_eglDisplay, g_eglSurface);
+		else
+			SDL_GL_SwapWindow(window_);
 #else
 		SDL_GL_SwapWindow(window_);
 #endif
@@ -433,7 +436,6 @@ void SDLGLGraphicsContext::ShutdownFromRenderThread() {
 
 #ifdef USING_EGL
 	EGL_Close();
-#else
-	SDL_GL_DeleteContext(glContext);
 #endif
+	SDL_GL_DeleteContext(glContext);
 }

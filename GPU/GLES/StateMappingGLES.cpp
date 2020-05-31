@@ -320,8 +320,8 @@ void DrawEngineGLES::ApplyDrawState(int prim) {
 	}
 }
 
-void DrawEngineGLES::ApplyDrawStateLate(bool setStencil, int stencilValue) {
-	if (setStencil) {
+void DrawEngineGLES::ApplyDrawStateLate(bool setStencilValue, int stencilValue) {
+	if (setStencilValue) {
 		render_->SetStencilFunc(GL_TRUE, GL_ALWAYS, stencilValue, 255);
 	}
 

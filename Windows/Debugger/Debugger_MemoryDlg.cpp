@@ -123,9 +123,12 @@ void CMemoryDlg::NotifyMapLoaded()
 {
 	if (m_hDlg)
 	{
-		g_symbolMap->FillSymbolListBox(symListHdl,ST_DATA);
+
+		if (g_symbolMap)
+			g_symbolMap->FillSymbolListBox(symListHdl, ST_DATA);
 		int sel = ComboBox_GetCurSel(memViewHdl);
 		ComboBox_ResetContent(memViewHdl);
+
     /*
 		for (int i = 0; i < cpu->getMemMap()->numRegions; i++)
 		{
