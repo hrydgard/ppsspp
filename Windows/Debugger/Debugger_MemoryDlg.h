@@ -21,6 +21,8 @@ private:
 public:
 	int index; //helper 
 
+	void searchBoxRedraw(std::vector<u8*>);
+
 	// constructor
 	CMemoryDlg(HINSTANCE _hInstance, HWND _hParent, DebugInterface *_cpu);
 	

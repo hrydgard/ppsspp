@@ -2,14 +2,13 @@
 
 #include <tchar.h>
 #include <math.h>
-
+#include <iomanip>
 #include "Core/Config.h"
 #include "Windows/resource.h"
 #include "Core/MemMap.h"
 #include "Windows/W32Util/Misc.h"
 #include "Windows/InputBox.h"
 #include "Windows/main.h"
-#include "Core/Debugger/SymbolMap.h"
 #include "base/display.h"
 
 #include "Debugger_Disasm.h"
@@ -640,39 +639,42 @@ void CtrlMemView::scrollCursor(int bytes)
 	redraw();
 }
 
-void CtrlMemView::searchString(std::string searchQuery)
-{
-	auto memLock = Memory::Lock();
-	if (!PSP_IsInited())
-		return;
 
-	//searchQuery = "SNAKE";
+std::vector<u8*> CtrlMemView::searchString(std::string searchQuery)
+{
+	
+
 	std::vector<u8*> searchResAddrs;
 	std::vector<u8> searchData;
 
-	//convert string to searchable vector for memcmp
-	std::for_each(searchQuery.begin(), searchQuery.end(), [&searchData](char c) {searchData.push_back(c); });
-
-
-	u32 segmentStart = 0x08000000;
-	u32 segmentEnd   = 0x0A000000;
-
+	auto memLock = Memory::Lock();
+	if (!PSP_IsInited())
+		return searchResAddrs;
+	 
+	u32 segmentStart = 0x08000000; //RAM start - 24MB
+	u32 segmentEnd   = 0x0A000000; //RAM end
 	u8* dataPointer = Memory::GetPointer(segmentStart);
+	    
+	int queryLength = searchQuery.length();
+	u8* endPointer = Memory::GetPointer(segmentEnd - queryLength);
 
 	redraw();
 
-	for (size_t i = 0; i < segmentEnd - segmentStart - searchData.size(); i++)
+	for (u8* dataPointer = Memory::GetPointer(segmentStart); dataPointer < endPointer; dataPointer++)
 	{
-		if ((i % 256) == 0 && KeyDownAsync(VK_ESCAPE))
+		if (KeyDownAsync(VK_ESCAPE))
 		{
-			return;
+			return searchResAddrs;
 		}
-		if (memcmp(&dataPointer[i], searchData.data(), searchData.size()) == 0) {
-			searchResAddrs.push_back(&dataPointer[i]);
+		
+		if (memcmp(dataPointer, searchQuery.c_str(), size_t(queryLength)) == 0) {
+			u8* rpt = dataPointer;
+			searchResAddrs.push_back(rpt);
 		}
 	};
 	redraw();
-	return;
+	
+	return searchResAddrs;
 };
 
 void CtrlMemView::search(bool continueSearch)

@@ -54,6 +54,8 @@ class CtrlMemView
 	int visibleRows;
 	
 	std::string searchQuery;
+	
+
 	int matchAddress;
 	bool searching;
 	bool searchStringValue;
@@ -79,7 +81,7 @@ public:
 	{
 		return debugger;
 	}
-	void searchString(std::string searchQuery);
+	std::vector<u8*> searchString(std::string searchQuery);
 	void onPaint(WPARAM wParam, LPARAM lParam);
 	void onVScroll(WPARAM wParam, LPARAM lParam);
 	void onKeyDown(WPARAM wParam, LPARAM lParam);

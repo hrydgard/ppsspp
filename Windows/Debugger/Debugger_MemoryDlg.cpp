@@ -14,11 +14,14 @@
 #include "CtrlMemView.h"
 #include "DebuggerShared.h"
 #include "LogManager.h"
+#include "winnt.h"
+#include <WindowsX.h>
+#include <algorithm>
 
 
 RECT CMemoryDlg::slRect;
 
-FAR WNDPROC DefAddressEditProc;
+FAR WNDPROC DefAddressEditProc; 
 HWND AddressEditParentHwnd = 0;
 
 LRESULT CALLBACK AddressEditProc(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam)
@@ -96,6 +99,25 @@ void CMemoryDlg::Update(void)
 			memView->redraw();
 	}	
 }
+
+void CMemoryDlg::searchBoxRedraw(std::vector<u8*> results) {
+
+	int index;
+	wchar_t temp[256];
+	//std::lock_guard<std::recursive_mutex> guard(lock_);
+	SendMessage(searchResListHdl, WM_SETREDRAW, FALSE, 0);
+	ListBox_ResetContent(searchResListHdl);
+	int count = sizeof(results) + (int)results.size();
+	SendMessage(searchResListHdl, LB_INITSTORAGE, (WPARAM)count, (LPARAM)count * 30);
+	std::for_each(begin(results), end(results), [&](u8* datum)-> void {
+
+		index = ListBox_AddString(searchResListHdl, "result");
+		ListBox_SetItemData(searchResListHdl, index, 0x00000001); 
+	});
+	SendMessage(searchResListHdl, WM_SETREDRAW, TRUE, 0);
+	RedrawWindow(searchResListHdl, NULL, NULL, RDW_ERASE | RDW_FRAME | RDW_INVALIDATE | RDW_ALLCHILDREN);
+}
+
 
 void CMemoryDlg::NotifyMapLoaded()
 {
@@ -194,7 +216,10 @@ BOOL CMemoryDlg::DlgProc(UINT message, WPARAM wParam, LPARAM lParam)
 				case BN_CLICKED:
 					wchar_t temp[256];
 					GetWindowText(searchBoxHdl, temp, 255);
-					memView->searchString(ConvertWStringToUTF8(temp).c_str());
+					std::vector<u8*> results = memView->searchString(ConvertWStringToUTF8(temp).c_str());
+					if (results.size() > 0){
+						searchBoxRedraw(results);
+					}
 					break;
 				}
 			}
