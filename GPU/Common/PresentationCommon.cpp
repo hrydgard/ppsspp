@@ -100,7 +100,7 @@ void CenterDisplayOutputRect(FRect *rc, float origW, float origH, const FRect &f
 			float pixelCrop = frame.h / 270.0f;
 			float resCommonWidescreen = pixelCrop - floor(pixelCrop);
 			if (!rotated && resCommonWidescreen == 0.0f && frame.w >= pixelCrop * 480.0f) {
-				rc->x = floorf((frame.h - pixelCrop * 480.0f) * 0.5f);
+				rc->x = floorf((frame.w - pixelCrop * 480.0f) * 0.5f);
 				rc->y = floorf(-pixelCrop);
 				rc->w = floorf(pixelCrop * 480.0f);
 				rc->h = floorf(pixelCrop * 272.0f);
