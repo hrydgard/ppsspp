@@ -19,7 +19,7 @@
 #include <algorithm>
 
 
-RECT CMemoryDlg::slRect;
+RECT CMemoryDlg::slRect; //sym list rect
 
 FAR WNDPROC DefAddressEditProc; 
 HWND AddressEditParentHwnd = 0;
@@ -66,7 +66,7 @@ CMemoryDlg::CMemoryDlg(HINSTANCE _hInstance, HWND _hParent, DebugInterface *_cpu
 	memViewHdl = GetDlgItem(m_hDlg, IDC_MEMVIEW);
 	symListHdl = GetDlgItem(m_hDlg, IDC_SYMBOLS);
 	searchBoxHdl = GetDlgItem(m_hDlg, IDC_SEARCH_BOX);
-	searchResListHdl = GetDlgItem(m_hDlg, IDC_SEARCH_RESULTS);
+	srcListHdl = GetDlgItem(m_hDlg, IDC_SEARCH_RESULTS);
 
 	memView = CtrlMemView::getFrom(memViewHdl);
 	memView->setDebugger(_cpu);
@@ -75,6 +75,7 @@ CMemoryDlg::CMemoryDlg(HINSTANCE _hInstance, HWND _hParent, DebugInterface *_cpu
 	Button_SetCheck(GetDlgItem(m_hDlg,IDC_MODESYMBOLS), TRUE);
 
 	GetWindowRect(symListHdl, &slRect);
+	GetWindowRect(srcListHdl, &srRect);
 
 
 	// subclass the edit box
@@ -105,17 +106,18 @@ void CMemoryDlg::searchBoxRedraw(std::vector<u8*> results) {
 	int index;
 	wchar_t temp[256];
 	//std::lock_guard<std::recursive_mutex> guard(lock_);
-	SendMessage(searchResListHdl, WM_SETREDRAW, FALSE, 0);
-	ListBox_ResetContent(searchResListHdl);
+	SendMessage(srcListHdl, WM_SETREDRAW, FALSE, 0);
+	ListBox_ResetContent(srcListHdl);
 	int count = sizeof(results) + (int)results.size();
-	SendMessage(searchResListHdl, LB_INITSTORAGE, (WPARAM)count, (LPARAM)count * 30);
+	SendMessage(srcListHdl, LB_INITSTORAGE, (WPARAM)count, (LPARAM)count * 30);
 	std::for_each(begin(results), end(results), [&](u8* datum)-> void {
 
-		index = ListBox_AddString(searchResListHdl, "result");
-		ListBox_SetItemData(searchResListHdl, index, 0x00000001); 
+		index = ListBox_AddString(srcListHdl, "result");
+		ListBox_SetItemData(srcListHdl, index, 0x00000001); 
 	});
-	SendMessage(searchResListHdl, WM_SETREDRAW, TRUE, 0);
-	RedrawWindow(searchResListHdl, NULL, NULL, RDW_ERASE | RDW_FRAME | RDW_INVALIDATE | RDW_ALLCHILDREN);
+	//for (int i = 0; i < )
+	SendMessage(srcListHdl, WM_SETREDRAW, TRUE, 0);
+	RedrawWindow(srcListHdl, NULL, NULL, RDW_ERASE | RDW_FRAME | RDW_INVALIDATE | RDW_ALLCHILDREN);
 }
 
 
@@ -140,26 +142,6 @@ void CMemoryDlg::NotifyMapLoaded()
 	}
 	Update(); 
 }
-
-void CMemoryDlg::NotifySearchCompleted()
-{
-	if (m_hDlg)
-	{
-		g_symbolMap->FillSymbolListBox(searchResListHdl, ST_DATA);
-		int sel = ComboBox_GetCurSel(memViewHdl);
-		ComboBox_ResetContent(memViewHdl);
-		/*
-			for (int i = 0; i < cpu->getMemMap()->numRegions; i++)
-			{
-				// TODO: wchar_t
-				int n = ComboBox_AddString(lb,cpu->getMemMap()->regions[i].name);
-				ComboBox_SetItemData(lb,n,cpu->getMemMap()->regions[i].start);
-			}*/
-		ComboBox_SetCurSel(memViewHdl, sel >= 0 ? sel : 0);
-	}
-	Update();
-}
-
 
 BOOL CMemoryDlg::DlgProc(UINT message, WPARAM wParam, LPARAM lParam)
 {
@@ -192,12 +174,12 @@ BOOL CMemoryDlg::DlgProc(UINT message, WPARAM wParam, LPARAM lParam)
 				};
 				case IDC_SEARCH_RESULTS:
 					switch (HIWORD(wParam)) {
-					case LBN_DBLCLK: {
-						int n = ListBox_GetCurSel(lb);
-						if (n != -1) {
-							unsigned int addr = (unsigned int)ListBox_GetItemData(lb, n);
-							memView->gotoAddr(addr);
-						}
+						case LBN_DBLCLK: {
+							int n = ListBox_GetCurSel(lb);
+							if (n != -1) {
+								unsigned int addr = (unsigned int)ListBox_GetItemData(lb, n);
+								memView->gotoAddr(addr);
+							}
 					}
 					break;
 					};
@@ -279,12 +261,15 @@ void CMemoryDlg::Size()
 	const float fontScale = 1.0f / g_dpi_scale_real_y;
 
 	GetClientRect(m_hDlg,&winRect);
-	int dw = winRect.right - winRect.left;
-	int dh = winRect.bottom - winRect.top;
+	int dlg_w = winRect.right - winRect.left;
+	int dlg_h = winRect.bottom - winRect.top;
 
 	int wf = slRect.right-slRect.left;
-	int w = dw - 3 * fontScale - wf;
+	int w = dlg_w - 3 * fontScale - wf*2;
 	int top = 48 * fontScale;
-	MoveWindow(symListHdl,0,top,wf,dh-top,TRUE);
-	MoveWindow(memViewHdl,wf+4,top,w,dh-top,TRUE);
+	int height = dlg_h - top;
+	//HWND, X, Y, width, height, repaint
+	MoveWindow(symListHdl,0,top,wf,height,TRUE);
+	MoveWindow(memViewHdl,wf+4,top,w, height,TRUE);
+	MoveWindow(srcListHdl, wf + 4 + w+ 4,wf, top, height, TRUE);
 }

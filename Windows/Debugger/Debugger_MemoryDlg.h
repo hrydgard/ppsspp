@@ -14,9 +14,9 @@ class CMemoryDlg : public Dialog
 private:
 	DebugInterface *cpu;
 	static RECT slRect;
-	RECT winRect;
+	RECT winRect, srRect;
 	CtrlMemView *memView;
-	HWND memViewHdl , symListHdl, editWnd, searchBoxHdl, searchResListHdl;
+	HWND memViewHdl , symListHdl, editWnd, searchBoxHdl, srcListHdl;
 	BOOL DlgProc(UINT message, WPARAM wParam, LPARAM lParam);
 public:
 	int index; //helper 
