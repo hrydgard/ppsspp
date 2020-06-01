@@ -84,7 +84,9 @@ private:
 };
 
 DisplayLayoutScreen::DisplayLayoutScreen() {
-};
+	// Ignore insets - just couldn't get the logic to work.
+	ignoreInsets_ = true;
+}
 
 bool DisplayLayoutScreen::touch(const TouchInput &touch) {
 	UIScreen::touch(touch);
@@ -253,11 +255,14 @@ void DisplayLayoutScreen::CreateViews() {
 	// This makes it have at least 10.0f padding below at 1x.
 	const float vertBoundariesHeight = 52.0f;
 
+	// We manually implement insets here for the buttons. This file defied refactoring :(
+	float leftInset = System_GetPropertyFloat(SYSPROP_DISPLAY_SAFE_INSET_LEFT);
+
 	// Left side, right, top, bottom.
-	root_->Add(new Boundary(new AnchorLayoutParams(horizBoundariesWidth, FILL_PARENT, NONE, 0, horizPreviewPadding + previewWidth, 0)));
+	root_->Add(new Boundary(new AnchorLayoutParams(horizBoundariesWidth, FILL_PARENT, horizPreviewPadding - horizBoundariesWidth, 0, NONE, 0)));
 	root_->Add(new Boundary(new AnchorLayoutParams(horizBoundariesWidth, FILL_PARENT, horizPreviewPadding + previewWidth, 0, NONE, 0)));
 	root_->Add(new Boundary(new AnchorLayoutParams(previewWidth, vertBoundariesHeight, horizPreviewPadding, vertPreviewPadding - vertBoundariesHeight, NONE, NONE)));
-	root_->Add(new Boundary(new AnchorLayoutParams(previewWidth, vertBoundariesHeight, horizPreviewPadding, NONE, NONE, vertPreviewPadding - vertBoundariesHeight)));
+	root_->Add(new Boundary(new AnchorLayoutParams(previewWidth, vertBoundariesHeight, horizPreviewPadding, vertPreviewPadding + previewHeight, NONE, NONE)));
 
 	bool displayRotEnable = (g_Config.iRenderingMode != FB_NON_BUFFERED_MODE) || g_Config.bSoftwareRendering;
 	bRotated_ = false;
@@ -290,16 +295,16 @@ void DisplayLayoutScreen::CreateViews() {
 			g_Config.fSmallDisplayOffsetX = 0.5f;
 			g_Config.fSmallDisplayOffsetY = 0.5f;
 		} else { // Manual Scaling
-			Choice *center = new Choice(di->T("Center"), "", false, new AnchorLayoutParams(leftColumnWidth, WRAP_CONTENT, 10, NONE, NONE, 74));
+			Choice *center = new Choice(di->T("Center"), "", false, new AnchorLayoutParams(leftColumnWidth, WRAP_CONTENT, 10 + leftInset, NONE, NONE, 74));
 			center->OnClick.Handle(this, &DisplayLayoutScreen::OnCenter);
 			root_->Add(center);
 			float minZoom = 1.0f;
 			if (g_dpi_scale_x > 1.0f) {
 				minZoom /= g_dpi_scale_x;
 			}
-			PopupSliderChoiceFloat *zoomlvl = new PopupSliderChoiceFloat(&g_Config.fSmallDisplayZoomLevel, minZoom, 10.0f, di->T("Zoom"), 1.0f, screenManager(), di->T("* PSP res"), new AnchorLayoutParams(leftColumnWidth, WRAP_CONTENT, 10, NONE, NONE, 10 + 64 + 64));
+			PopupSliderChoiceFloat *zoomlvl = new PopupSliderChoiceFloat(&g_Config.fSmallDisplayZoomLevel, minZoom, 10.0f, di->T("Zoom"), 1.0f, screenManager(), di->T("* PSP res"), new AnchorLayoutParams(leftColumnWidth, WRAP_CONTENT, 10 + leftInset, NONE, NONE, 10 + 64 + 64));
 			root_->Add(zoomlvl);
-			mode_ = new ChoiceStrip(ORIENT_VERTICAL, new AnchorLayoutParams(leftColumnWidth, WRAP_CONTENT, 10, NONE, NONE, 158 + 64 + 10));
+			mode_ = new ChoiceStrip(ORIENT_VERTICAL, new AnchorLayoutParams(leftColumnWidth, WRAP_CONTENT, 10 + leftInset, NONE, NONE, 158 + 64 + 10));
 			mode_->AddChoice(di->T("Move"));
 			mode_->AddChoice(di->T("Resize"));
 			mode_->SetSelection(0);
@@ -359,7 +364,7 @@ void DisplayLayoutScreen::CreateViews() {
 	});
 	root_->Add(rotation);
 
-	Choice *back = new Choice(di->T("Back"), "", false, new AnchorLayoutParams(leftColumnWidth, WRAP_CONTENT, 10, NONE, NONE, 10));
+	Choice *back = new Choice(di->T("Back"), "", false, new AnchorLayoutParams(leftColumnWidth, WRAP_CONTENT, 10 + leftInset, NONE, NONE, 10));
 	back->OnClick.Handle<UIScreen>(this, &UIScreen::OnBack);
 	root_->Add(back);
 }

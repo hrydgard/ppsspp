@@ -48,6 +48,7 @@ protected:
 	Vec3 translation_ = Vec3(0.0f);
 	Vec3 scale_ = Vec3(1.0f);
 	float alpha_ = 1.0f;
+	bool ignoreInsets_ = false;
 
 private:
 	void DoRecreateViews();
