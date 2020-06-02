@@ -1487,7 +1487,7 @@ void EmuScreen::renderUI() {
 
 	DrawBuffer *draw2d = ctx->Draw();
 	if (root_) {
-		UI::LayoutViewHierarchy(*ctx, root_);
+		UI::LayoutViewHierarchy(*ctx, root_, false);
 		root_->Draw(*ctx);
 	}
 

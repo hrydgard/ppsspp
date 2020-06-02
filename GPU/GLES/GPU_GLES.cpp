@@ -398,7 +398,7 @@ void GPU_GLES::SetDisplayFramebuffer(u32 framebuf, u32 stride, GEBufferFormat fo
 
 void GPU_GLES::CopyDisplayToOutput(bool reallyDirty) {
 	// Flush anything left over.
-	framebufferManagerGL_->RebindFramebuffer();
+	framebufferManagerGL_->RebindFramebuffer("RebindFramebuffer - CopyDisplayToOutput");
 	drawEngine_.Flush();
 
 	shaderManagerGL_->DirtyLastShader();

@@ -369,7 +369,7 @@ static const D3DVERTEXELEMENT9 g_FramebufferVertexElements[] = {
 				copyInfo.fbo = renderCopy;
 
 				CopyFramebufferForColorTexture(&copyInfo, framebuffer, flags);
-				RebindFramebuffer();
+				RebindFramebuffer("RebindFramebuffer - BindFramebufferAsColorTexture");
 				draw_->BindFramebufferAsTexture(renderCopy, stage, Draw::FB_COLOR_BIT, 0);
 			} else {
 				draw_->BindFramebufferAsTexture(framebuffer->fbo, stage, Draw::FB_COLOR_BIT, 0);

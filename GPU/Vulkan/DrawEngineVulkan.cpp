@@ -588,10 +588,12 @@ void DrawEngineVulkan::DoFlush() {
 
 	VulkanRenderManager *renderManager = (VulkanRenderManager *)draw_->GetNativeObject(Draw::NativeObject::RENDER_MANAGER);
 	
-	// TODO: Move this into the below if statement. Little scary change though so holding off until 1.11.
+	// TODO: Needs to be behind a check for changed render pass, at an appropriate time in this function.
+	// Similar issues as with the lastRenderStepId_ check. Will need a bit of a rethink.
 	lastPipeline_ = nullptr;
-
-	// Since we have a new cmdbuf, dirty our dynamic state so it gets re-set.
+	// If have a new render pass, dirty our dynamic state so it gets re-set.
+	// We have to do this again after the last possible place in DoFlush that can cause a renderpass switch
+	// like a shader blend blit or similar. But before we actually set the state!
 	int curRenderStepId = renderManager->GetCurrentStepId();
 	if (lastRenderStepId_ != curRenderStepId) {
 		// Dirty everything that has dynamic state that will need re-recording.
@@ -831,6 +833,17 @@ void DrawEngineVulkan::DoFlush() {
 				return;
 			}
 			BindShaderBlendTex();  // This might cause copies so important to do before BindPipeline.
+
+			// If have a new render pass, dirty our dynamic state so it gets re-set.
+			// WARNING: We have to do this AFTER the last possible place in DoFlush that can cause a renderpass switch
+			// like a shader blend blit or similar. But before we actually set the state!
+			int curRenderStepId = renderManager->GetCurrentStepId();
+			if (lastRenderStepId_ != curRenderStepId) {
+				// Dirty everything that has dynamic state that will need re-recording.
+				gstate_c.Dirty(DIRTY_VIEWPORTSCISSOR_STATE | DIRTY_DEPTHSTENCIL_STATE | DIRTY_BLEND_STATE);
+				lastRenderStepId_ = curRenderStepId;
+			}
+
 			renderManager->BindPipeline(pipeline->pipeline);
 			if (pipeline != lastPipeline_) {
 				if (lastPipeline_ && !(lastPipeline_->UsesBlendConstant() && pipeline->UsesBlendConstant())) {
@@ -942,6 +955,17 @@ void DrawEngineVulkan::DoFlush() {
 					return;
 				}
 				BindShaderBlendTex();  // This might cause copies so super important to do before BindPipeline.
+
+				// If have a new render pass, dirty our dynamic state so it gets re-set.
+				// WARNING: We have to do this AFTER the last possible place in DoFlush that can cause a renderpass switch
+				// like a shader blend blit or similar. But before we actually set the state!
+				int curRenderStepId = renderManager->GetCurrentStepId();
+				if (lastRenderStepId_ != curRenderStepId) {
+					// Dirty everything that has dynamic state that will need re-recording.
+					gstate_c.Dirty(DIRTY_VIEWPORTSCISSOR_STATE | DIRTY_DEPTHSTENCIL_STATE | DIRTY_BLEND_STATE);
+					lastRenderStepId_ = curRenderStepId;
+				}
+
 				renderManager->BindPipeline(pipeline->pipeline);
 				if (pipeline != lastPipeline_) {
 					if (lastPipeline_ && !lastPipeline_->UsesBlendConstant() && pipeline->UsesBlendConstant()) {

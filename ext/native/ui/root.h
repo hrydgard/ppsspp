@@ -19,7 +19,7 @@ void DispatchEvents();
 
 class ViewGroup;
 
-void LayoutViewHierarchy(const UIContext &dc, ViewGroup *root);
+void LayoutViewHierarchy(const UIContext &dc, ViewGroup *root, bool ignoreInsets);
 void UpdateViewHierarchy(ViewGroup *root);
 // Hooks arrow keys for navigation
 bool KeyEvent(const KeyInput &key, ViewGroup *root);

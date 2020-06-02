@@ -19,8 +19,10 @@
 #include <cmath>
 #include <set>
 #include <cstdint>
+
 #include "base/display.h"
 #include "base/timeutil.h"
+#include "base/NativeApp.h"
 #include "file/vfs.h"
 #include "file/zip_read.h"
 #include "thin3d/thin3d.h"
@@ -39,19 +41,40 @@ struct Vertex {
 	uint32_t rgba;
 };
 
-void CenterDisplayOutputRect(float *x, float *y, float *w, float *h, float origW, float origH, float frameW, float frameH, int rotation) {
+FRect GetInsetScreenFrame(float pixelWidth, float pixelHeight) {
+	FRect rc = FRect{
+		0.0f,
+		0.0f,
+		pixelWidth,
+		pixelHeight,
+	};
+
+	float left = System_GetPropertyFloat(SYSPROP_DISPLAY_SAFE_INSET_LEFT);
+	float right = System_GetPropertyFloat(SYSPROP_DISPLAY_SAFE_INSET_RIGHT);
+	float top = System_GetPropertyFloat(SYSPROP_DISPLAY_SAFE_INSET_TOP);
+	float bottom = System_GetPropertyFloat(SYSPROP_DISPLAY_SAFE_INSET_BOTTOM);
+
+	// Adjust left edge to compensate for cutouts (notches) if any.
+	rc.x += left;
+	rc.w -= (left + right);
+	rc.y += top;
+	rc.h -= (top + bottom);
+	return rc;
+}
+
+void CenterDisplayOutputRect(FRect *rc, float origW, float origH, const FRect &frame, int rotation) {
 	float outW;
 	float outH;
 
 	bool rotated = rotation == ROTATION_LOCKED_VERTICAL || rotation == ROTATION_LOCKED_VERTICAL180;
 
 	if (g_Config.iSmallDisplayZoomType == (int)SmallDisplayZoom::STRETCH) {
-		outW = frameW;
-		outH = frameH;
+		outW = frame.w;
+		outH = frame.h;
 	} else {
 		if (g_Config.iSmallDisplayZoomType == (int)SmallDisplayZoom::MANUAL) {
-			float offsetX = (g_Config.fSmallDisplayOffsetX - 0.5f) * 2.0f * frameW;
-			float offsetY = (g_Config.fSmallDisplayOffsetY - 0.5f) * 2.0f * frameH;
+			float offsetX = (g_Config.fSmallDisplayOffsetX - 0.5f) * 2.0f * frame.w;
+			float offsetY = (g_Config.fSmallDisplayOffsetY - 0.5f) * 2.0f * frame.h;
 			// Have to invert Y for GL
 			if (GetGPUBackend() == GPUBackend::OPENGL) {
 				offsetY = offsetY * -1.0f;
@@ -60,54 +83,54 @@ void CenterDisplayOutputRect(float *x, float *y, float *w, float *h, float origW
 			float smallDisplayW = origW * customZoom;
 			float smallDisplayH = origH * customZoom;
 			if (!rotated) {
-				*x = floorf(((frameW - smallDisplayW) / 2.0f) + offsetX);
-				*y = floorf(((frameH - smallDisplayH) / 2.0f) + offsetY);
-				*w = floorf(smallDisplayW);
-				*h = floorf(smallDisplayH);
+				rc->x = floorf(((frame.w - smallDisplayW) / 2.0f) + offsetX);
+				rc->y = floorf(((frame.h - smallDisplayH) / 2.0f) + offsetY);
+				rc->w = floorf(smallDisplayW);
+				rc->h = floorf(smallDisplayH);
 				return;
 			} else {
-				*x = floorf(((frameW - smallDisplayH) / 2.0f) + offsetX);
-				*y = floorf(((frameH - smallDisplayW) / 2.0f) + offsetY);
-				*w = floorf(smallDisplayH);
-				*h = floorf(smallDisplayW);
+				rc->x = floorf(((frame.w - smallDisplayH) / 2.0f) + offsetX);
+				rc->y = floorf(((frame.h - smallDisplayW) / 2.0f) + offsetY);
+				rc->w = floorf(smallDisplayH);
+				rc->h = floorf(smallDisplayW);
 				return;
 			}
 		} else if (g_Config.iSmallDisplayZoomType == (int)SmallDisplayZoom::AUTO) {
 			// Stretch to 1080 for 272*4.  But don't distort if not widescreen (i.e. ultrawide of halfwide.)
-			float pixelCrop = frameH / 270.0f;
+			float pixelCrop = frame.h / 270.0f;
 			float resCommonWidescreen = pixelCrop - floor(pixelCrop);
-			if (!rotated && resCommonWidescreen == 0.0f && frameW >= pixelCrop * 480.0f) {
-				*x = floorf((frameW - pixelCrop * 480.0f) * 0.5f);
-				*y = floorf(-pixelCrop);
-				*w = floorf(pixelCrop * 480.0f);
-				*h = floorf(pixelCrop * 272.0f);
+			if (!rotated && resCommonWidescreen == 0.0f && frame.w >= pixelCrop * 480.0f) {
+				rc->x = floorf((frame.w - pixelCrop * 480.0f) * 0.5f);
+				rc->y = floorf(-pixelCrop);
+				rc->w = floorf(pixelCrop * 480.0f);
+				rc->h = floorf(pixelCrop * 272.0f);
 				return;
 			}
 		}
 
 		float origRatio = !rotated ? origW / origH : origH / origW;
-		float frameRatio = frameW / frameH;
+		float frameRatio = frame.w / frame.h;
 
 		if (origRatio > frameRatio) {
 			// Image is wider than frame. Center vertically.
-			outW = frameW;
-			outH = frameW / origRatio;
+			outW = frame.w;
+			outH = frame.w / origRatio;
 			// Stretch a little bit
 			if (!rotated && g_Config.iSmallDisplayZoomType == (int)SmallDisplayZoom::PARTIAL_STRETCH)
-				outH = (frameH + outH) / 2.0f; // (408 + 720) / 2 = 564
+				outH = (frame.h + outH) / 2.0f; // (408 + 720) / 2 = 564
 		} else {
 			// Image is taller than frame. Center horizontally.
-			outW = frameH * origRatio;
-			outH = frameH;
+			outW = frame.h * origRatio;
+			outH = frame.h;
 			if (rotated && g_Config.iSmallDisplayZoomType == (int)SmallDisplayZoom::PARTIAL_STRETCH)
-				outW = (frameH + outH) / 2.0f; // (408 + 720) / 2 = 564
+				outW = (frame.h + outH) / 2.0f; // (408 + 720) / 2 = 564
 		}
 	}
 
-	*x = floorf((frameW - outW) / 2.0f);
-	*y = floorf((frameH - outH) / 2.0f);
-	*w = floorf(outW);
-	*h = floorf(outH);
+	rc->x = floorf((frame.w - outW) / 2.0f + frame.x);
+	rc->y = floorf((frame.h - outH) / 2.0f + frame.y);
+	rc->w = floorf(outW);
+	rc->h = floorf(outH);
 }
 
 PresentationCommon::PresentationCommon(Draw::DrawContext *draw) : draw_(draw) {
@@ -119,6 +142,10 @@ PresentationCommon::~PresentationCommon() {
 }
 
 void PresentationCommon::GetCardboardSettings(CardboardSettings *cardboardSettings) {
+	if (!g_Config.bEnableCardboardVR) {
+		cardboardSettings->enabled = false;
+		return;
+	}
 	// Calculate Cardboard Settings
 	float cardboardScreenScale = g_Config.iCardboardScreenSize / 100.0f;
 	float cardboardScreenWidth = pixelWidth_ / 2.0f * cardboardScreenScale;
@@ -131,7 +158,7 @@ void PresentationCommon::GetCardboardSettings(CardboardSettings *cardboardSettin
 	float cardboardUserYShift = g_Config.iCardboardYShift / 100.0f * cardboardMaxYShift;
 	float cardboardScreenY = cardboardMaxYShift + cardboardUserYShift;
 
-	cardboardSettings->enabled = g_Config.bEnableCardboardVR;
+	cardboardSettings->enabled = true;
 	cardboardSettings->leftEyeXPosition = cardboardLeftEyeX;
 	cardboardSettings->rightEyeXPosition = cardboardRightEyeX;
 	cardboardSettings->screenYPosition = cardboardScreenY;
@@ -252,10 +279,11 @@ bool PresentationCommon::BuildPostShader(const ShaderInfo *shaderInfo, const Sha
 			nextHeight *= next->SSAAFilterLevel;
 		} else if (shaderInfo->outputResolution) {
 			// If the current shader uses output res (not next), we will use output res for it.
-			float x, y, w, h;
-			CenterDisplayOutputRect(&x, &y, &w, &h, 480.0f, 272.0f, (float)pixelWidth_, (float)pixelHeight_, g_Config.iInternalScreenRotation);
-			nextWidth = (int)w;
-			nextHeight = (int)h;
+			FRect rc;
+			FRect frame = GetInsetScreenFrame((float)pixelWidth_, (float)pixelHeight_);
+			CenterDisplayOutputRect(&rc, 480.0f, 272.0f, frame, g_Config.iInternalScreenRotation);
+			nextWidth = (int)rc.w;
+			nextHeight = (int)rc.h;
 		}
 
 		// No depth/stencil for post processing
@@ -499,13 +527,14 @@ void PresentationCommon::CopyToOutput(OutputFlags flags, int uvRotation, float u
 	int lastHeight = srcHeight_;
 
 	// These are the output coordinates.
-	float x, y, w, h;
-	CenterDisplayOutputRect(&x, &y, &w, &h, 480.0f, 272.0f, (float)pixelWidth_, (float)pixelHeight_, uvRotation);
+	FRect frame = GetInsetScreenFrame((float)pixelWidth_, (float)pixelHeight_);
+	FRect rc;
+	CenterDisplayOutputRect(&rc, 480.0f, 272.0f, frame, uvRotation);
 
 	if (GetGPUBackend() == GPUBackend::DIRECT3D9) {
-		x -= 0.5f;
+		rc.x -= 0.5f;
 		// This is plus because the top is larger y.
-		y += 0.5f;
+		rc.y += 0.5f;
 	}
 
 	if ((flags & OutputFlags::BACKBUFFER_FLIPPED) || (flags & OutputFlags::POSITION_FLIPPED)) {
@@ -515,10 +544,10 @@ void PresentationCommon::CopyToOutput(OutputFlags flags, int uvRotation, float u
 	// To make buffer updates easier, we use one array of verts.
 	int postVertsOffset = (int)sizeof(Vertex) * 4;
 	Vertex verts[8] = {
-		{ x, y, 0, u0, v0, 0xFFFFFFFF }, // TL
-		{ x, y + h, 0, u0, v1, 0xFFFFFFFF }, // BL
-		{ x + w, y + h, 0, u1, v1, 0xFFFFFFFF }, // BR
-		{ x + w, y, 0, u1, v0, 0xFFFFFFFF }, // TR
+		{ rc.x, rc.y, 0, u0, v0, 0xFFFFFFFF }, // TL
+		{ rc.x, rc.y + rc.h, 0, u0, v1, 0xFFFFFFFF }, // BL
+		{ rc.x + rc.w, rc.y + rc.h, 0, u1, v1, 0xFFFFFFFF }, // BR
+		{ rc.x + rc.w, rc.y, 0, u1, v0, 0xFFFFFFFF }, // TR
 	};
 
 	float invDestW = 1.0f / (pixelWidth_ * 0.5f);
@@ -648,7 +677,7 @@ void PresentationCommon::CopyToOutput(OutputFlags flags, int uvRotation, float u
 
 	if (isFinalAtOutputResolution) {
 		PostShaderUniforms uniforms;
-		CalculatePostShaderUniforms(lastWidth, lastHeight, (int)w, (int)h, &postShaderInfo_.back(), &uniforms);
+		CalculatePostShaderUniforms(lastWidth, lastHeight, (int)rc.w, (int)rc.h, &postShaderInfo_.back(), &uniforms);
 		draw_->UpdateDynamicUniformBuffer(&uniforms, sizeof(uniforms));
 	} else {
 		Draw::VsTexColUB ub{};

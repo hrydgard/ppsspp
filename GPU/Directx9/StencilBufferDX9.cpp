@@ -256,7 +256,7 @@ bool FramebufferManagerDX9::NotifyStencilUpload(u32 addr, int size, StencilUploa
 	tex->Release();
 	dxstate.stencilMask.set(0xFF);
 	dxstate.viewport.restore();
-	RebindFramebuffer();
+	RebindFramebuffer("RebindFramebuffer stencil");
 	return true;
 }
 

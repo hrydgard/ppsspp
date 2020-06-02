@@ -243,6 +243,6 @@ bool FramebufferManagerD3D11::NotifyStencilUpload(u32 addr, int size, StencilUpl
 	}
 
 	tex->Release();
-	RebindFramebuffer();
+	RebindFramebuffer("RebindFramebuffer stencil");
 	return true;
 }
