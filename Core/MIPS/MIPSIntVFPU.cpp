@@ -213,7 +213,7 @@ namespace MIPSInt
 			{
 				if (addr & 0x3)
 				{
-					_dbg_assert_msg_(CPU, 0, "Misaligned lvX.q");
+					_dbg_assert_msg_(CPU, 0, "Misaligned lvX.q at %08x (pc = %08x)", addr, PC);
 				}
 				float d[4];
 				ReadVector(d, V_Quad, vt);
@@ -241,7 +241,7 @@ namespace MIPSInt
 		case 54: //lv.q
 			if (addr & 0xF)
 			{
-				_dbg_assert_msg_(CPU, 0, "Misaligned lv.q");
+				_dbg_assert_msg_(CPU, 0, "Misaligned lv.q at %08x (pc = %08x)", addr, PC);
 			}
 #ifndef COMMON_BIG_ENDIAN
 			WriteVector((const float*)Memory::GetPointer(addr), V_Quad, vt);
@@ -261,7 +261,7 @@ namespace MIPSInt
 			{
 				if (addr & 0x3)
 				{
-					_dbg_assert_msg_(CPU, 0, "Misaligned svX.q");
+					_dbg_assert_msg_(CPU, 0, "Misaligned svX.q at %08x (pc = %08x)", addr, PC);
 				}
 				float d[4];
 				ReadVector(d, V_Quad, vt);
@@ -288,7 +288,7 @@ namespace MIPSInt
 		case 62: //sv.q
 			if (addr & 0xF)
 			{
-				_dbg_assert_msg_(CPU, 0, "Misaligned sv.q");
+				_dbg_assert_msg_(CPU, 0, "Misaligned sv.q at %08x (pc = %08x)", addr, PC);
 			}
 #ifndef COMMON_BIG_ENDIAN
 			ReadVector(reinterpret_cast<float *>(Memory::GetPointer(addr)), V_Quad, vt);
@@ -422,7 +422,7 @@ namespace MIPSInt
 		} else if (type == 7) {
 			f[0] = Float16ToFloat32((u16)uimm16);   // vfim
 		} else {
-			_dbg_assert_msg_(CPU,0,"Trying to interpret instruction that can't be interpreted");
+			_dbg_assert_msg_(CPU, 0, "Invalid Viim opcode type %d", type);
 			f[0] = 0;
 		}
 		
@@ -634,7 +634,7 @@ namespace MIPSInt
 			case 26: { d[i] = -vfpu_sin(s[i]); } break; // vnsin
 			case 28: d[i] = 1.0f / powf(2.0, s[i]); break; // vrexp2
 			default:
-				_dbg_assert_msg_(CPU,0,"Trying to interpret VV2Op instruction that can't be interpreted");
+				_dbg_assert_msg_(CPU, false, "Invalid VV2Op op type %d", optype);
 				break;
 			}
 		}
@@ -993,7 +993,7 @@ namespace MIPSInt
 			break;
 
 		default:
-			_dbg_assert_msg_(CPU,0,"Trying to interpret instruction that can't be interpreted");
+			_dbg_assert_msg_(CPU, false, "Trying to interpret instruction that can't be interpreted");
 			break;
 		}
 
@@ -1051,7 +1051,7 @@ namespace MIPSInt
 			case V_Pair: oz = V_Single; break;
 			case V_Single: oz = V_Single; break;
 			default:
-				_dbg_assert_msg_(CPU, 0, "Trying to interpret instruction that can't be interpreted");
+				_dbg_assert_msg_(CPU, false, "Trying to interpret instruction that can't be interpreted");
 				oz = V_Single;
 				break;
 			}
