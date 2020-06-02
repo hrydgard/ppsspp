@@ -81,7 +81,7 @@ public:
 	{
 		return debugger;
 	}
-	std::vector<u8*> searchString(std::string searchQuery);
+	std::vector<u32> searchString(std::string searchQuery);
 	void onPaint(WPARAM wParam, LPARAM lParam);
 	void onVScroll(WPARAM wParam, LPARAM lParam);
 	void onKeyDown(WPARAM wParam, LPARAM lParam);

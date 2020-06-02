@@ -640,36 +640,32 @@ void CtrlMemView::scrollCursor(int bytes)
 }
 
 
-std::vector<u8*> CtrlMemView::searchString(std::string searchQuery)
+std::vector<u32> CtrlMemView::searchString(std::string searchQuery)
 {
 	
 
-	std::vector<u8*> searchResAddrs;
+	std::vector<u32> searchResAddrs;
 	std::vector<u8> searchData;
 
 	auto memLock = Memory::Lock();
 	if (!PSP_IsInited())
 		return searchResAddrs;
-	 
-	u32 segmentStart = 0x08000000; //RAM start - 24MB
-	u32 segmentEnd   = 0x0A000000; //RAM end
-	u8* dataPointer = Memory::GetPointer(segmentStart);
-	    
+	
 	int queryLength = searchQuery.length();
-	u8* endPointer = Memory::GetPointer(segmentEnd - queryLength);
+	u32 segmentStart = PSP_GetKernelMemoryBase(); //RAM start 
+	u32 segmentEnd   = PSP_GetUserMemoryEnd() - queryLength; //RAM end
+	u8* ptr;
 
 	redraw();
-
-	for (u8* dataPointer = Memory::GetPointer(segmentStart); dataPointer < endPointer; dataPointer++)
-	{
+	for (segmentStart = PSP_GetKernelMemoryBase(); segmentStart < segmentEnd; segmentStart++) {
 		if (KeyDownAsync(VK_ESCAPE))
 		{
 			return searchResAddrs;
 		}
-		
-		if (memcmp(dataPointer, searchQuery.c_str(), size_t(queryLength)) == 0) {
-			u8* rpt = dataPointer;
-			searchResAddrs.push_back(rpt);
+
+		ptr = Memory::GetPointer(segmentStart);
+		if (memcmp(ptr, searchQuery.c_str(), size_t(queryLength)) == 0) {
+			searchResAddrs.push_back(segmentStart);
 		}
 	};
 	redraw();

@@ -101,22 +101,22 @@ void CMemoryDlg::Update(void)
 	}	
 }
 
-void CMemoryDlg::searchBoxRedraw(std::vector<u8*> results) {
+void CMemoryDlg::searchBoxRedraw(std::vector<u32> results) {
 
 	int index;
 	wchar_t temp[256];
 	//std::lock_guard<std::recursive_mutex> guard(lock_);
 	SendMessage(srcListHdl, WM_SETREDRAW, FALSE, 0);
 	ListBox_ResetContent(srcListHdl);
+
 	int count = sizeof(results) + (int)results.size();
 	SendMessage(srcListHdl, LB_INITSTORAGE, (WPARAM)count, (LPARAM)count * 30);
-	std::for_each(begin(results), end(results), [&](u8* datum)-> void {
 
-		index = ListBox_AddString(srcListHdl, "result");
-		ListBox_SetItemData(srcListHdl, index, 0x00000001); 
-	});
-	//for (int i = 0; i < )
-	SendMessage(srcListHdl, WM_SETREDRAW, TRUE, 0);
+	for (int i = 0; i < results.size(); i++) {
+		index = (int)ListBox_AddString(srcListHdl,"result");
+		ListBox_SetItemData(srcListHdl, index, results[i]);
+	}
+   	SendMessage(srcListHdl, WM_SETREDRAW, TRUE, 0);
 	RedrawWindow(srcListHdl, NULL, NULL, RDW_ERASE | RDW_FRAME | RDW_INVALIDATE | RDW_ALLCHILDREN);
 }
 
@@ -201,7 +201,7 @@ BOOL CMemoryDlg::DlgProc(UINT message, WPARAM wParam, LPARAM lParam)
 				case BN_CLICKED:
 					wchar_t temp[256];
 					GetWindowText(searchBoxHdl, temp, 255);
-					std::vector<u8*> results = memView->searchString(ConvertWStringToUTF8(temp).c_str());
+					std::vector<u32> results = memView->searchString(ConvertWStringToUTF8(temp).c_str());
 					if (results.size() > 0){
 						searchBoxRedraw(results);
 					}
