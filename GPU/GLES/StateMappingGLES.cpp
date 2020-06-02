@@ -184,7 +184,7 @@ void DrawEngineGLES::ApplyDrawState(int prim) {
 						fboTexBound_ = true;
 						fboTexNeedBind_ = false;
 
-						framebufferManager_->RebindFramebuffer();
+						framebufferManager_->RebindFramebuffer("RebindFramebuffer - ApplyDrawState");
 						// Must dirty blend state here so we re-copy next time.  Example: Lunar's spell effects.
 						gstate_c.Dirty(DIRTY_BLEND_STATE);
 					}

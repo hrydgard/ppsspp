@@ -222,6 +222,6 @@ bool FramebufferManagerVulkan::NotifyStencilUpload(u32 addr, int size, StencilUp
 	}
 
 	tex->Release();
-	RebindFramebuffer();
+	RebindFramebuffer("RebindFramebuffer - NotifyStencilUpload");
 	return true;
 }
