@@ -173,14 +173,6 @@ CtrlMemView *CtrlMemView::getFrom(HWND hwnd)
 }
 
 
-
-
-//void CtrlMemView::doSearch(std::string searchString)
-//{
-//	searchQuery = searchString;
-//	search(true);
-//}
-
 void CtrlMemView::onPaint(WPARAM wParam, LPARAM lParam)
 {
 	auto memLock = Memory::Lock();
@@ -643,7 +635,6 @@ void CtrlMemView::scrollCursor(int bytes)
 std::vector<u32> CtrlMemView::searchString(std::string searchQuery)
 {
 	
-
 	std::vector<u32> searchResAddrs;
 	std::vector<u8> searchData;
 
@@ -651,9 +642,9 @@ std::vector<u32> CtrlMemView::searchString(std::string searchQuery)
 	if (!PSP_IsInited())
 		return searchResAddrs;
 	
-	int queryLength = searchQuery.length();
+	int queryLength = size_t(searchQuery.length());
 	u32 segmentStart = PSP_GetKernelMemoryBase(); //RAM start 
-	u32 segmentEnd   = PSP_GetUserMemoryEnd() - queryLength; //RAM end
+	u32 const segmentEnd   = PSP_GetUserMemoryEnd() - queryLength; //RAM end
 	u8* ptr;
 
 	redraw();
@@ -664,7 +655,7 @@ std::vector<u32> CtrlMemView::searchString(std::string searchQuery)
 		}
 
 		ptr = Memory::GetPointer(segmentStart);
-		if (memcmp(ptr, searchQuery.c_str(), size_t(queryLength)) == 0) {
+		if (memcmp(ptr, searchQuery.c_str(), queryLength) == 0) {
 			searchResAddrs.push_back(segmentStart);
 		}
 	};
@@ -810,13 +801,5 @@ void CtrlMemView::toggleOffsetScale(CommonToggles toggle)
 		displayOffsetScale = false;
 
 	updateStatusBarText();
-	redraw();
-}
-
-void CtrlMemView::toggleStringSearch(CommonToggles toggle) {
-	if (toggle == On)
-		searchStringValue = true;
-	else if (toggle = Off)
-		searchStringValue = false;
 	redraw();
 }

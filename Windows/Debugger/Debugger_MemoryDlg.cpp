@@ -108,10 +108,6 @@ void CMemoryDlg::searchBoxRedraw(std::vector<u32> results) {
 	//std::lock_guard<std::recursive_mutex> guard(lock_);
 	SendMessage(srcListHdl, WM_SETREDRAW, FALSE, 0);
 	ListBox_ResetContent(srcListHdl);
-
-	/*int count = sizeof(results) + (int)results.size();
-	SendMessage(srcListHdl, LB_INITSTORAGE, (WPARAM)count, (LPARAM)count * 30);*/
-
 	for (int i = 0; i < results.size(); i++) {
 		wsprintf(temp, L"0x%08X", results[i]);
 		index = (int)ListBox_AddString(srcListHdl,temp);
@@ -265,12 +261,13 @@ void CMemoryDlg::Size()
 	int dlg_w = winRect.right - winRect.left;
 	int dlg_h = winRect.bottom - winRect.top;
 
+
 	int wf = slRect.right-slRect.left;
 	int w = dlg_w - 3 * fontScale - wf*2;
 	int top = 48 * fontScale;
 	int height = dlg_h - top;
 	//HWND, X, Y, width, height, repaint
-	MoveWindow(symListHdl,0,top,wf,height,TRUE);
-	MoveWindow(memViewHdl,wf+4,top,w, height,TRUE);
-	MoveWindow(srcListHdl, wf + 4 + w+ 4,wf, top, height, TRUE);
+	MoveWindow(symListHdl, 0    ,top, wf, height, TRUE);
+	MoveWindow(memViewHdl, wf+4 ,top, w, height, TRUE);
+	MoveWindow(srcListHdl, wf + 4 + w+ 4, top, wf-4, height, TRUE);
 }
