@@ -1200,7 +1200,6 @@ void VulkanRenderManager::EndSyncFrame(int frame) {
 }
 
 void VulkanRenderManager::FlushSync() {
-	// TODO: Reset curRenderStep_?
 	renderStepOffset_ += (int)steps_.size();
 
 	int curFrame = vulkan_->GetCurFrame();

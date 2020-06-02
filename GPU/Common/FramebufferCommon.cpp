@@ -635,7 +635,7 @@ void FramebufferManagerCommon::UpdateFromMemory(u32 addr, int size, bool safe) {
 			}
 		}
 
-		RebindFramebuffer();
+		RebindFramebuffer("RebindFramebuffer - UpdateFromMemory");
 	}
 	// TODO: Necessary?
 	gstate_c.Dirty(DIRTY_FRAGMENTSHADER_STATE);
@@ -1167,7 +1167,7 @@ bool FramebufferManagerCommon::NotifyFramebufferCopy(u32 src, u32 dst, int size,
 			// Just do the blit!
 			BlitFramebuffer(dstBuffer, 0, dstY, srcBuffer, 0, srcY, srcBuffer->width, srcH, 0);
 			SetColorUpdated(dstBuffer, skipDrawReason);
-			RebindFramebuffer();
+			RebindFramebuffer("RebindFramebuffer - Inter-buffer memcpy");
 		}
 		return false;
 	} else if (dstBuffer) {
@@ -1179,7 +1179,7 @@ bool FramebufferManagerCommon::NotifyFramebufferCopy(u32 src, u32 dst, int size,
 		const u8 *srcBase = Memory::GetPointerUnchecked(src);
 		DrawPixels(dstBuffer, 0, dstY, srcBase, dstBuffer->format, dstBuffer->fb_stride, dstBuffer->width, dstH);
 		SetColorUpdated(dstBuffer, skipDrawReason);
-		RebindFramebuffer();
+		RebindFramebuffer("RebindFramebuffer - Memcpy fbo upload");
 		// This is a memcpy, let's still copy just in case.
 		return false;
 	} else if (srcBuffer) {
@@ -1556,7 +1556,7 @@ bool FramebufferManagerCommon::NotifyBlockTransferBefore(u32 dstBasePtr, int dst
 				WARN_LOG_ONCE(dstsrc, G3D, "Intra-buffer block transfer %08x -> %08x", srcBasePtr, dstBasePtr);
 				FlushBeforeCopy();
 				BlitFramebuffer(dstBuffer, dstX, dstY, srcBuffer, srcX, srcY, dstWidth, dstHeight, bpp);
-				RebindFramebuffer();
+				RebindFramebuffer("rebind after intra block transfer");
 				SetColorUpdated(dstBuffer, skipDrawReason);
 				return true;
 			} else {
@@ -1568,7 +1568,7 @@ bool FramebufferManagerCommon::NotifyBlockTransferBefore(u32 dstBasePtr, int dst
 			// Just do the blit!
 			FlushBeforeCopy();
 			BlitFramebuffer(dstBuffer, dstX, dstY, srcBuffer, srcX, srcY, dstWidth, dstHeight, bpp);
-			RebindFramebuffer();
+			RebindFramebuffer("RebindFramebuffer - Inter-buffer block transfer");
 			SetColorUpdated(dstBuffer, skipDrawReason);
 			return true;  // No need to actually do the memory copy behind, probably.
 		}
@@ -1645,7 +1645,7 @@ void FramebufferManagerCommon::NotifyBlockTransferAfter(u32 dstBasePtr, int dstS
 			}
 			DrawPixels(dstBuffer, static_cast<int>(dstX * dstXFactor), dstY, srcBase, dstBuffer->format, static_cast<int>(srcStride * dstXFactor), static_cast<int>(dstWidth * dstXFactor), dstHeight);
 			SetColorUpdated(dstBuffer, skipDrawReason);
-			RebindFramebuffer();
+			RebindFramebuffer("RebindFramebuffer - NotifyBlockTransferAfter");
 		}
 	}
 }
@@ -1845,7 +1845,7 @@ bool FramebufferManagerCommon::GetFramebuffer(u32 fb_address, int fb_stride, GEB
 	// After a readback we'll have flushed and started over, need to dirty a bunch of things to be safe.
 	gstate_c.Dirty(DIRTY_TEXTURE_IMAGE | DIRTY_TEXTURE_PARAMS);
 	// We may have blitted to a temp FBO.
-	RebindFramebuffer();
+	RebindFramebuffer("RebindFramebuffer - GetFramebuffer");
 	return retval;
 }
 
@@ -1880,7 +1880,7 @@ bool FramebufferManagerCommon::GetDepthbuffer(u32 fb_address, int fb_stride, u32
 	// After a readback we'll have flushed and started over, need to dirty a bunch of things to be safe.
 	gstate_c.Dirty(DIRTY_TEXTURE_IMAGE | DIRTY_TEXTURE_PARAMS);
 	// That may have unbound the framebuffer, rebind to avoid crashes when debugging.
-	RebindFramebuffer();
+	RebindFramebuffer("RebindFramebuffer - GetDepthbuffer");
 	return retval;
 }
 
@@ -1910,7 +1910,7 @@ bool FramebufferManagerCommon::GetStencilbuffer(u32 fb_address, int fb_stride, G
 	buffer.Allocate(w, h, GPU_DBG_FORMAT_8BIT, flipY);
 	bool retval = draw_->CopyFramebufferToMemorySync(vfb->fbo, Draw::FB_STENCIL_BIT, 0, 0, w,h, Draw::DataFormat::S8, buffer.GetData(), w, "GetStencilbuffer");
 	// That may have unbound the framebuffer, rebind to avoid crashes when debugging.
-	RebindFramebuffer();
+	RebindFramebuffer("RebindFramebuffer - GetStencilbuffer");
 	return retval;
 }
 
@@ -1924,7 +1924,7 @@ bool FramebufferManagerCommon::GetOutputFramebuffer(GPUDebugBuffer &buffer) {
 	buffer.Allocate(w, h, fmt == Draw::DataFormat::R8G8B8A8_UNORM ? GPU_DBG_FORMAT_8888 : GPU_DBG_FORMAT_8888_BGRA, false);
 	bool retval = draw_->CopyFramebufferToMemorySync(nullptr, Draw::FB_COLOR_BIT, 0, 0, w, h, fmt, buffer.GetData(), w, "GetOutputFramebuffer");
 	// That may have unbound the framebuffer, rebind to avoid crashes when debugging.
-	RebindFramebuffer();
+	RebindFramebuffer("RebindFramebuffer - GetOutputFramebuffer");
 	return retval;
 }
 
@@ -1992,7 +1992,7 @@ void FramebufferManagerCommon::ReadFramebufferToMemory(VirtualFramebuffer *vfb, 
 		}
 
 		textureCache_->ForgetLastTexture();
-		RebindFramebuffer();
+		RebindFramebuffer("RebindFramebuffer - ReadFramebufferToMemory");
 	}
 }
 
@@ -2038,15 +2038,15 @@ void FramebufferManagerCommon::DownloadFramebufferForClut(u32 fb_address, u32 lo
 			}
 
 			textureCache_->ForgetLastTexture();
-			RebindFramebuffer();
+			RebindFramebuffer("RebindFramebuffer - DownloadFramebufferForClut");
 		}
 	}
 }
 
-void FramebufferManagerCommon::RebindFramebuffer() {
+void FramebufferManagerCommon::RebindFramebuffer(const char *tag) {
 	shaderManager_->DirtyLastShader();
 	if (currentRenderVfb_ && currentRenderVfb_->fbo) {
-		draw_->BindFramebufferAsRenderTarget(currentRenderVfb_->fbo, { Draw::RPAction::KEEP, Draw::RPAction::KEEP, Draw::RPAction::KEEP }, "RebindFramebuffer");
+		draw_->BindFramebufferAsRenderTarget(currentRenderVfb_->fbo, { Draw::RPAction::KEEP, Draw::RPAction::KEEP, Draw::RPAction::KEEP }, tag);
 	} else {
 		// Should this even happen?  It could while debugging, but maybe we can just skip binding at all.
 		draw_->BindFramebufferAsRenderTarget(nullptr, { Draw::RPAction::KEEP, Draw::RPAction::KEEP, Draw::RPAction::KEEP }, "RebindFramebuffer_Bad");

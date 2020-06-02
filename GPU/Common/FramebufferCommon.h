@@ -215,7 +215,7 @@ public:
 			return vfb;
 		}
 	}
-	void RebindFramebuffer();
+	void RebindFramebuffer(const char *tag);
 	std::vector<FramebufferInfo> GetFramebufferList();
 
 	void CopyDisplayToOutput(bool reallyDirty);

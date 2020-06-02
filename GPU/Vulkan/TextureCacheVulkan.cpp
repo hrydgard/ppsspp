@@ -917,7 +917,7 @@ void TextureCacheVulkan::ApplyTextureFramebuffer(TexCacheEntry *entry, VirtualFr
 		TexCacheEntry::TexStatus alphaStatus = CheckAlpha(clutBuf_, getClutDestFormatVulkan(clutFormat), clutTotalColors, clutTotalColors, 1);
 		gstate_c.SetTextureFullAlpha(alphaStatus == TexCacheEntry::STATUS_ALPHA_FULL);
 
-		framebufferManager_->RebindFramebuffer();
+		framebufferManager_->RebindFramebuffer("RebindFramebuffer - ApplyTextureFramebuffer");
 		draw_->BindFramebufferAsTexture(depalFBO, 0, Draw::FB_COLOR_BIT, 0);
 		imageView_ = (VkImageView)draw_->GetNativeObject(Draw::NativeObject::BOUND_TEXTURE0_IMAGEVIEW);
 
@@ -928,7 +928,6 @@ void TextureCacheVulkan::ApplyTextureFramebuffer(TexCacheEntry *entry, VirtualFr
 	} else {
 		entry->status &= ~TexCacheEntry::STATUS_DEPALETTIZE;
 
-		framebufferManager_->RebindFramebuffer();  // TODO: This line should usually not be needed.
 		imageView_ = framebufferManagerVulkan_->BindFramebufferAsColorTexture(0, framebuffer, BINDFBCOLOR_MAY_COPY_WITH_UV | BINDFBCOLOR_APPLY_TEX_OFFSET);
 		drawEngine_->SetDepalTexture(VK_NULL_HANDLE);
 		gstate_c.SetUseShaderDepal(false);
@@ -1393,7 +1392,7 @@ bool TextureCacheVulkan::GetCurrentTextureDebug(GPUDebugBuffer &buffer, int leve
 		// So let's dirty the things that are involved in Vulkan dynamic state. Readbacks are not frequent so this won't hurt other backends.
 		gstate_c.Dirty(DIRTY_VIEWPORTSCISSOR_STATE | DIRTY_BLEND_STATE | DIRTY_DEPTHSTENCIL_STATE);
 		// We may have blitted to a temp FBO.
-		framebufferManager_->RebindFramebuffer();
+		framebufferManager_->RebindFramebuffer("RebindFramebuffer - GetCurrentTextureDebug");
 		return retval;
 	}
 
@@ -1433,7 +1432,7 @@ bool TextureCacheVulkan::GetCurrentTextureDebug(GPUDebugBuffer &buffer, int leve
 	// Vulkan requires us to re-apply all dynamic state for each command buffer, and the above will cause us to start a new cmdbuf.
 	// So let's dirty the things that are involved in Vulkan dynamic state. Readbacks are not frequent so this won't hurt other backends.
 	gstate_c.Dirty(DIRTY_VIEWPORTSCISSOR_STATE | DIRTY_BLEND_STATE | DIRTY_DEPTHSTENCIL_STATE);
-	framebufferManager_->RebindFramebuffer();
+	framebufferManager_->RebindFramebuffer("RebindFramebuffer - GetCurrentTextureDebug");
 	return true;
 }
 

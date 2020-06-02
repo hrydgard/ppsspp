@@ -408,7 +408,7 @@ void TextureCacheD3D11::ApplyTextureFramebuffer(TexCacheEntry *entry, VirtualFra
 		context_->PSSetSamplers(0, 1, &stockD3D11.samplerPoint2DWrap);
 		shaderApply.Shade();
 
-		framebufferManagerD3D11_->RebindFramebuffer();
+		framebufferManagerD3D11_->RebindFramebuffer("RebindFramebuffer - ApplyTextureFramebuffer");
 		draw_->BindFramebufferAsTexture(depalFBO, 0, Draw::FB_COLOR_BIT, 0);
 
 		const u32 bytesPerColor = clutFormat == GE_CMODE_32BIT_ABGR8888 ? sizeof(u32) : sizeof(u16);
@@ -422,7 +422,7 @@ void TextureCacheD3D11::ApplyTextureFramebuffer(TexCacheEntry *entry, VirtualFra
 		framebufferManagerD3D11_->BindFramebufferAsColorTexture(0, framebuffer, BINDFBCOLOR_MAY_COPY_WITH_UV | BINDFBCOLOR_APPLY_TEX_OFFSET);
 
 		gstate_c.SetTextureFullAlpha(gstate.getTextureFormat() == GE_TFMT_5650);
-		framebufferManagerD3D11_->RebindFramebuffer();  // Probably not necessary.
+		framebufferManagerD3D11_->RebindFramebuffer("RebindFramebuffer - ApplyTextureFramebuffer");  // Probably not necessary.
 	}
 	SamplerCacheKey samplerKey{};
 	SetFramebufferSamplingParams(framebuffer->bufferWidth, framebuffer->bufferHeight, samplerKey);
@@ -784,7 +784,7 @@ bool TextureCacheD3D11::GetCurrentTextureDebug(GPUDebugBuffer &buffer, int level
 		// So let's dirty the things that are involved in Vulkan dynamic state. Readbacks are not frequent so this won't hurt other backends.
 		gstate_c.Dirty(DIRTY_VIEWPORTSCISSOR_STATE | DIRTY_BLEND_STATE | DIRTY_DEPTHSTENCIL_STATE);
 		// We may have blitted to a temp FBO.
-		framebufferManager_->RebindFramebuffer();
+		framebufferManager_->RebindFramebuffer("RebindFramebuffer - GetCurrentTextureDebug");
 		return retval;
 	}
 

@@ -466,7 +466,7 @@ void TextureCacheDX9::ApplyTextureFramebuffer(TexCacheEntry *entry, VirtualFrame
 		gstate_c.SetTextureFullAlpha(gstate.getTextureFormat() == GE_TFMT_5650);
 	}
 
-	framebufferManagerDX9_->RebindFramebuffer();
+	framebufferManagerDX9_->RebindFramebuffer("RebindFramebuffer - ApplyTextureFromFramebuffer");
 	SetFramebufferSamplingParams(framebuffer->bufferWidth, framebuffer->bufferHeight);
 
 	InvalidateLastTexture();

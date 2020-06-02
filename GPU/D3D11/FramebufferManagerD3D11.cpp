@@ -322,7 +322,7 @@ void FramebufferManagerD3D11::BlitFramebufferDepth(VirtualFramebuffer *src, Virt
 	if (matchingDepthBuffer && matchingSize && matchingRenderSize) {
 		// TODO: Currently, this copies depth AND stencil, which is a problem.  See #9740.
 		draw_->CopyFramebufferImage(src->fbo, 0, 0, 0, 0, dst->fbo, 0, 0, 0, 0, src->renderWidth, src->renderHeight, 1, Draw::FB_DEPTH_BIT, "BlitFramebufferDepth");
-		RebindFramebuffer();
+		RebindFramebuffer("RebindFramebuffer - BlitFramebufferDepth");
 		dst->last_frame_depth_updated = gpuStats.numFlips;
 	}
 }
@@ -349,7 +349,7 @@ void FramebufferManagerD3D11::BindFramebufferAsColorTexture(int stage, VirtualFr
 			VirtualFramebuffer copyInfo = *framebuffer;
 			copyInfo.fbo = renderCopy;
 			CopyFramebufferForColorTexture(&copyInfo, framebuffer, flags);
-			RebindFramebuffer();
+			RebindFramebuffer("RebindFramebuffer - BindFramebufferAsColorTexture");
 			draw_->BindFramebufferAsTexture(renderCopy, stage, Draw::FB_COLOR_BIT, 0);
 		} else {
 			draw_->BindFramebufferAsTexture(framebuffer->fbo, stage, Draw::FB_COLOR_BIT, 0);

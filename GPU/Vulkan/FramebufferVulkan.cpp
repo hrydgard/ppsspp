@@ -314,7 +314,7 @@ VkImageView FramebufferManagerVulkan::BindFramebufferAsColorTexture(int stage, V
 			VirtualFramebuffer copyInfo = *framebuffer;
 			copyInfo.fbo = renderCopy;
 			CopyFramebufferForColorTexture(&copyInfo, framebuffer, flags);
-			RebindFramebuffer();
+			RebindFramebuffer("RebindFramebuffer - BindFramebufferAsColorTexture");
 			draw_->BindFramebufferAsTexture(renderCopy, stage, Draw::FB_COLOR_BIT, 0);
 		} else {
 			draw_->BindFramebufferAsTexture(framebuffer->fbo, stage, Draw::FB_COLOR_BIT, 0);
