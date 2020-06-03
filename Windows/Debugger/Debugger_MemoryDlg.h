@@ -16,18 +16,13 @@ private:
 	static RECT slRect;
 	RECT winRect, srRect;
 	CtrlMemView *memView;
-	HWND memViewHdl , symListHdl, editWnd, searchBoxHdl, srcListHdl;
+	HWND memViewHdl, symListHdl, editWnd, searchBoxHdl, srcListHdl;
 	BOOL DlgProc(UINT message, WPARAM wParam, LPARAM lParam);
-	
-	struct SearchResult {
-		u32 address;
-		const char* string;
-	};
 
 public:
 	int index; //helper 
 
-	void searchBoxRedraw(std::vector<u32>);
+	void searchBoxRedraw(std::vector<u32> results);
 
 	// constructor
 	CMemoryDlg(HINSTANCE _hInstance, HWND _hParent, DebugInterface *_cpu);

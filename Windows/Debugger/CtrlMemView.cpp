@@ -642,7 +642,7 @@ std::vector<u32> CtrlMemView::searchString(std::string searchQuery)
 	if (!PSP_IsInited())
 		return searchResAddrs;
 	
-	int queryLength = size_t(searchQuery.length());
+	size_t queryLength = searchQuery.length();
 	u32 segmentStart = PSP_GetKernelMemoryBase(); //RAM start 
 	u32 const segmentEnd   = PSP_GetUserMemoryEnd() - queryLength; //RAM end
 	u8* ptr;

@@ -102,10 +102,8 @@ void CMemoryDlg::Update(void)
 }
 
 void CMemoryDlg::searchBoxRedraw(std::vector<u32> results) {
-
 	int index;
 	wchar_t temp[256];
-	//std::lock_guard<std::recursive_mutex> guard(lock_);
 	SendMessage(srcListHdl, WM_SETREDRAW, FALSE, 0);
 	ListBox_ResetContent(srcListHdl);
 	for (int i = 0; i < results.size(); i++) {
@@ -143,68 +141,68 @@ void CMemoryDlg::NotifyMapLoaded()
 BOOL CMemoryDlg::DlgProc(UINT message, WPARAM wParam, LPARAM lParam)
 {
 	switch(message){
-		case WM_COMMAND:{
-			HWND lb = GetDlgItem(m_hDlg, LOWORD(wParam)); 
-			switch (LOWORD(wParam)){
-				case IDC_REGIONS:
-					switch (HIWORD(wParam)) { 
-						case LBN_DBLCLK:{
-							int n = ComboBox_GetCurSel(lb);
-							if (n!=-1){
-								unsigned int addr = (unsigned int)ComboBox_GetItemData(lb,n);
-								memView->gotoAddr(addr);
-							}
-						}
-						break;
-				};
-				break;
-				case IDC_SYMBOLS: 
-					switch (HIWORD(wParam)) { 
-						case LBN_DBLCLK:{
-							int n = ListBox_GetCurSel(lb);
-							if (n!=-1)	{
-								unsigned int addr = (unsigned int)ListBox_GetItemData(lb,n);
-								memView->gotoAddr(addr);
-							}
+	case WM_COMMAND:{
+		HWND lb = GetDlgItem(m_hDlg, LOWORD(wParam)); 
+		switch (LOWORD(wParam)){
+		case IDC_REGIONS:
+			switch (HIWORD(wParam)) { 
+				case LBN_DBLCLK:{
+					int n = ComboBox_GetCurSel(lb);
+					if (n!=-1){
+						unsigned int addr = (unsigned int)ComboBox_GetItemData(lb,n);
+						memView->gotoAddr(addr);
 					}
-					break;
-				};
-				case IDC_SEARCH_RESULTS:
-					switch (HIWORD(wParam)) {
-						case LBN_DBLCLK: {
-							int n = ListBox_GetCurSel(lb);
-							if (n != -1) {
-								unsigned int addr = (unsigned int)ListBox_GetItemData(lb, n);
-								memView->gotoAddr(addr);
-							}
-					}
-					break;
-					};
-				break;
-			case IDC_SHOWOFFSETS:
-				switch (HIWORD(wParam))
-				{
-				case BN_CLICKED:
-					if (SendDlgItemMessage(m_hDlg, IDC_SHOWOFFSETS, BM_GETCHECK, 0, 0))
-						memView->toggleOffsetScale(On);
-					else
-						memView->toggleOffsetScale(Off);
-					break;
 				}
 				break;
-			case IDC_BUTTON_SEARCH:
-				switch (HIWORD(wParam))
-				{
-				case BN_CLICKED:
-					wchar_t temp[256];
-					GetWindowText(searchBoxHdl, temp, 255);
-					std::vector<u32> results = memView->searchString(ConvertWStringToUTF8(temp).c_str());
-					if (results.size() > 0){
-						searchBoxRedraw(results);
+		};
+		break;
+		case IDC_SYMBOLS: 
+			switch (HIWORD(wParam)) { 
+				case LBN_DBLCLK:{
+					int n = ListBox_GetCurSel(lb);
+					if (n!=-1)	{
+						unsigned int addr = (unsigned int)ListBox_GetItemData(lb,n);
+						memView->gotoAddr(addr);
 					}
-					break;
-				}
 			}
+			break;
+		};
+		case IDC_SEARCH_RESULTS:
+			switch (HIWORD(wParam)) {
+				case LBN_DBLCLK: {
+					int n = ListBox_GetCurSel(lb);
+					if (n != -1) {
+						unsigned int addr = (unsigned int)ListBox_GetItemData(lb, n);
+						memView->gotoAddr(addr);
+					}
+			}
+			break;
+			};
+		break;
+		case IDC_SHOWOFFSETS:
+			switch (HIWORD(wParam))
+			{
+			case BN_CLICKED:
+				if (SendDlgItemMessage(m_hDlg, IDC_SHOWOFFSETS, BM_GETCHECK, 0, 0))
+					memView->toggleOffsetScale(On);
+				else
+					memView->toggleOffsetScale(Off);
+				break;
+			}
+			break;
+		case IDC_BUTTON_SEARCH:
+			switch (HIWORD(wParam))
+			{
+			case BN_CLICKED:
+				wchar_t temp[256];
+				GetWindowText(searchBoxHdl, temp, 255);
+				std::vector<u32> results = memView->searchString(ConvertWStringToUTF8(temp).c_str());
+				if (results.size() > 0){
+					searchBoxRedraw(results);
+				}
+				break;
+			}
+		}
 		}
 		break;
 	case WM_DEB_MAPLOADED:
