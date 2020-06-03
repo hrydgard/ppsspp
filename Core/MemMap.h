@@ -97,7 +97,7 @@ enum
 
 	VRAM_SIZE       = 0x00200000,
 
-	SCRATCHPAD_SIZE = 0x00004000,
+	SCRATCHPAD_SIZE = 0x00010000,
 
 #ifdef MASKED_PSP_MEMORY
 	// This wraparound should work for PSP too.
