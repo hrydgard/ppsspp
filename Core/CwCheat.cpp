@@ -971,16 +971,16 @@ void CWCheatEngine::ExecuteOp(const CheatOperation &op, const CheatCode &cheat, 
 				std::string shaderName = shaderChain[op.PostShaderUniform.shader]->section;
 				if (shaderName != "Off") {
 					switch (op.PostShaderUniform.format) {
-					case (0):
+					case 0:
 						g_Config.mPostShaderSetting[StringFromFormat("%sSettingValue%d", shaderName.c_str(), op.PostShaderUniform.uniform + 1)] = value.u & 0x000000FF;
 						break;
-					case (1):
+					case 1:
 						g_Config.mPostShaderSetting[StringFromFormat("%sSettingValue%d", shaderName.c_str(), op.PostShaderUniform.uniform + 1)] = value.u & 0x0000FFFF;
 						break;
-					case (2):
+					case 2:
 						g_Config.mPostShaderSetting[StringFromFormat("%sSettingValue%d", shaderName.c_str(), op.PostShaderUniform.uniform + 1)] = value.u;
 						break;
-					case (3):
+					case 3:
 						g_Config.mPostShaderSetting[StringFromFormat("%sSettingValue%d", shaderName.c_str(), op.PostShaderUniform.uniform + 1)] = value.f;
 						break;
 					}
