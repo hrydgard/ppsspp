@@ -1261,11 +1261,11 @@ bool NativeAxis(const AxisInput &axis) {
 	static Tilt currentTilt;
 
 	// tilt on x or y?
-	static bool TiltVertical;
+	static bool verticalTilt;
 	if (g_Config.iTiltOrientation == 0)
-		TiltVertical = false;
+		verticalTilt = false;
 	else if (g_Config.iTiltOrientation == 1)
-		TiltVertical = true;
+		verticalTilt = true;
 
 	// x and y are flipped if we are in landscape orientation. The events are
 	// sent with respect to the portrait coordinate system, while we
@@ -1275,9 +1275,9 @@ bool NativeAxis(const AxisInput &axis) {
 	switch (axis.axisId) {
 		//TODO: make this generic.
 		case JOYSTICK_AXIS_ACCELEROMETER_X:
-			if (TiltVertical) {
+			if (verticalTilt) {
 				if (fabs(axis.value) < 0.8f && g_Config.iTiltOrientation == 2) // Auto tilt switch
-					TiltVertical = false;
+					verticalTilt = false;
 				else
 					return false; // Tilt on Z instead
 			}
@@ -1297,9 +1297,9 @@ bool NativeAxis(const AxisInput &axis) {
 			break;
 
 		case JOYSTICK_AXIS_ACCELEROMETER_Z:
-			if (!TiltVertical) {
+			if (!verticalTilt) {
 				if (fabs(axis.value) < 0.8f && g_Config.iTiltOrientation == 2) // Auto tilt switch
-					TiltVertical = true;
+					verticalTilt = true;
 				else
 					return false; // Tilt on X instead
 			}
