@@ -102,13 +102,12 @@ void CMemoryDlg::Update(void)
 }
 
 void CMemoryDlg::searchBoxRedraw(std::vector<u32> results) {
-	int index;
-	wchar_t temp[256];
+	wchar_t temp[256]{};
 	SendMessage(srcListHdl, WM_SETREDRAW, FALSE, 0);
 	ListBox_ResetContent(srcListHdl);
 	for (int i = 0; i < results.size(); i++) {
 		wsprintf(temp, L"0x%08X", results[i]);
-		index = (int)ListBox_AddString(srcListHdl,temp);
+		int index = (int)ListBox_AddString(srcListHdl, temp);
 		ListBox_SetItemData(srcListHdl, index, results[i]);
 	}
    	SendMessage(srcListHdl, WM_SETREDRAW, TRUE, 0);
@@ -139,13 +138,13 @@ BOOL CMemoryDlg::DlgProc(UINT message, WPARAM wParam, LPARAM lParam)
 {
 	switch(message){
 	case WM_COMMAND:{
-		HWND lb = GetDlgItem(m_hDlg, LOWORD(wParam)); 
+		HWND lb = GetDlgItem(m_hDlg, LOWORD(wParam));
 		switch (LOWORD(wParam)){
 		case IDC_REGIONS:
-			switch (HIWORD(wParam)) { 
+			switch (HIWORD(wParam)) {
 				case LBN_DBLCLK:{
 					int n = ComboBox_GetCurSel(lb);
-					if (n!=-1){
+					if (n != -1) {
 						unsigned int addr = (unsigned int)ComboBox_GetItemData(lb,n);
 						memView->gotoAddr(addr);
 					}
@@ -157,7 +156,7 @@ BOOL CMemoryDlg::DlgProc(UINT message, WPARAM wParam, LPARAM lParam)
 			switch (HIWORD(wParam)) { 
 				case LBN_DBLCLK:{
 					int n = ListBox_GetCurSel(lb);
-					if (n!=-1)	{
+					if (n != -1) {
 						unsigned int addr = (unsigned int)ListBox_GetItemData(lb,n);
 						memView->gotoAddr(addr);
 					}
