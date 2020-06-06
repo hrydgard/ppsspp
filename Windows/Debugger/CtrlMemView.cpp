@@ -2,14 +2,13 @@
 
 #include <tchar.h>
 #include <math.h>
-
+#include <iomanip>
 #include "Core/Config.h"
 #include "Windows/resource.h"
 #include "Core/MemMap.h"
 #include "Windows/W32Util/Misc.h"
 #include "Windows/InputBox.h"
 #include "Windows/main.h"
-#include "Core/Debugger/SymbolMap.h"
 #include "base/display.h"
 
 #include "Debugger_Disasm.h"
@@ -172,8 +171,6 @@ CtrlMemView *CtrlMemView::getFrom(HWND hwnd)
 {
 	return (CtrlMemView *)GetWindowLongPtr(hwnd, GWLP_USERDATA);
 }
-
-
 
 
 void CtrlMemView::onPaint(WPARAM wParam, LPARAM lParam)
@@ -634,14 +631,49 @@ void CtrlMemView::scrollCursor(int bytes)
 	redraw();
 }
 
+
+std::vector<u32> CtrlMemView::searchString(std::string searchQuery)
+{
+	std::vector<u32> searchResAddrs;
+	std::vector<u8> searchData;
+
+	auto memLock = Memory::Lock();
+	if (!PSP_IsInited())
+		return searchResAddrs;
+
+	size_t queryLength = searchQuery.length();
+	u32 segmentStart = PSP_GetKernelMemoryBase(); //RAM start 
+	const u32 segmentEnd = PSP_GetUserMemoryEnd() - (u32)queryLength; //RAM end
+	u8* ptr;
+
+	redraw();
+	for (segmentStart = PSP_GetKernelMemoryBase(); segmentStart < segmentEnd; segmentStart++) {
+		if (KeyDownAsync(VK_ESCAPE))
+		{
+			return searchResAddrs;
+		}
+
+		ptr = Memory::GetPointer(segmentStart);
+		if (memcmp(ptr, searchQuery.c_str(), queryLength) == 0) {
+			searchResAddrs.push_back(segmentStart);
+		}
+	};
+	redraw();
+
+	return searchResAddrs;
+};
+
 void CtrlMemView::search(bool continueSearch)
 {
 	auto memLock = Memory::Lock();
 	if (!PSP_IsInited())
 		return;
 
-	u32 searchAddress;
-	if (continueSearch == false || searchQuery[0] == 0)
+	u32 searchAddress = 0;
+	u32 segmentStart = 0;
+	u32 segmentEnd = 0;
+	u8* dataPointer = 0;
+	if (continueSearch == false || searchQuery.empty())
 	{
 		if (InputBox_GetString(GetModuleHandle(NULL),wnd,L"Search for", "",searchQuery) == false)
 		{
@@ -673,7 +705,7 @@ void CtrlMemView::search(bool continueSearch)
 			}
 
 			u8 value = 0;
-			for (int i = 0; i < 2; i++)
+			for (int i = 0; i < 2 && index < searchQuery.size(); i++)
 			{
 				char c = tolower(searchQuery[index++]);
 				if (c >= 'a' && c <= 'f')
@@ -693,35 +725,32 @@ void CtrlMemView::search(bool continueSearch)
 	}
 
 	std::vector<std::pair<u32,u32>> memoryAreas;
-	memoryAreas.push_back(std::pair<u32,u32>(0x04000000,0x04200000));
-	memoryAreas.push_back(std::pair<u32,u32>(0x08000000,0x0A000000));
+	memoryAreas.push_back(std::pair<u32,u32>(0x04000000, 0x04200000));
+	memoryAreas.push_back(std::pair<u32,u32>(0x08000000, 0x0A000000));
 	
 	searching = true;
 	redraw();	// so the cursor is disabled
-	for (size_t i = 0; i < memoryAreas.size(); i++)
-	{
-		u32 segmentStart = memoryAreas[i].first;
-		u32 segmentEnd = memoryAreas[i].second;
-		u8* dataPointer = Memory::GetPointer(segmentStart);
+
+	for (size_t i = 0; i < memoryAreas.size(); i++) {
+		segmentStart = memoryAreas[i].first;
+		segmentEnd = memoryAreas[i].second;
+
+		dataPointer = Memory::GetPointer(segmentStart);
 		if (dataPointer == NULL) continue;		// better safe than sorry, I guess
 
 		if (searchAddress < segmentStart) searchAddress = segmentStart;
 		if (searchAddress >= segmentEnd) continue;
 
 		int index = searchAddress-segmentStart;
-		int endIndex = segmentEnd-segmentStart-(int)searchData.size();
+		int endIndex = segmentEnd-segmentStart - (int)searchData.size();
 
-		while (index < endIndex)
-		{
+		while (index < endIndex) {
 			// cancel search
-			if ((index % 256) == 0 && KeyDownAsync(VK_ESCAPE))
-			{
+			if ((index % 256) == 0 && KeyDownAsync(VK_ESCAPE)) {
 				searching = false;
 				return;
 			}
-		
-			if (memcmp(&dataPointer[index],searchData.data(),searchData.size()) == 0)
-			{
+			if (memcmp(&dataPointer[index], searchData.data(), searchData.size()) == 0) {
 				matchAddress = index+segmentStart;
 				searching = false;
 				gotoAddr(matchAddress);
@@ -746,17 +775,15 @@ void CtrlMemView::drawOffsetScale(HDC hdc)
 	currentX = addressStart + ((8 + 1)*charWidth); // the start offset, the size of the hex addresses and one space 
 	
 	char temp[64];
-
 	for (int i = 0; i < 16; i++) 
 	{
 		sprintf(temp, "%02X", i);
 		TextOutA(hdc, currentX, offsetPositionY, temp, 2);
 		currentX += 3 * charWidth; // hex and space
 	}
-
 }
 
-void CtrlMemView::toggleOffsetScale(OffsetToggles toggle)
+void CtrlMemView::toggleOffsetScale(CommonToggles toggle)
 {
 	if (toggle == On) 
 		displayOffsetScale = true;
