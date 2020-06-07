@@ -969,7 +969,7 @@ static u32 sceKernelTotalFreeMemSize()
 	return retVal;
 }
 
-static int sceKernelAllocPartitionMemory(int partition, const char *name, int type, u32 size, u32 addr)
+int sceKernelAllocPartitionMemory(int partition, const char *name, int type, u32 size, u32 addr)
 {
 	if (name == NULL)
 	{
@@ -1019,14 +1019,14 @@ static int sceKernelAllocPartitionMemory(int partition, const char *name, int ty
 	return uid;
 }
 
-static int sceKernelFreePartitionMemory(SceUID id)
+int sceKernelFreePartitionMemory(SceUID id)
 {
 	DEBUG_LOG(SCEKERNEL,"sceKernelFreePartitionMemory(%d)",id);
 
 	return kernelObjects.Destroy<PartitionMemoryBlock>(id);
 }
 
-static u32 sceKernelGetBlockHeadAddr(SceUID id)
+u32 sceKernelGetBlockHeadAddr(SceUID id)
 {
 	u32 error;
 	PartitionMemoryBlock *block = kernelObjects.Get<PartitionMemoryBlock>(id, error);
