@@ -2865,7 +2865,7 @@ const HLEFunction StdioForKernel[] = {
 	{0X2CCF071A, nullptr,                                            "fdprintf",                                '?', ""   },
 	{0XD97C8CB9, nullptr,                                            "puts",                                    '?', ""   },
 	{0X172D316E, nullptr,                                            "sceKernelStdin",                          '?', ""   },
-	{0XA6BAB2E9, nullptr,                                            "sceKernelStdout",                         '?', ""   },
+	{0XA6BAB2E9, &WrapU_V<sceKernelStdout>,                          "sceKernelStdout",                         'i', "" ,HLE_KERNEL_SYSCALL },	
 	{0XF78BA90A, nullptr,                                            "sceKernelStderr",                         '?', ""   },
 };
 
