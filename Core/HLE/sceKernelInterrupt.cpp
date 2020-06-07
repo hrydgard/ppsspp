@@ -680,8 +680,7 @@ const HLEFunction Kernel_Library[] =
 	{0XFA835CDE, &WrapI_I<sceKernelGetTlsAddr>,                "sceKernelGetTlsAddr",                 'i', "i"    },
 };
 
-static u32 sysclib_memcpy(u32 dst, u32 src, u32 size) {
-	DEBUG_LOG(SCEKERNEL, "Untested sysclib_memcpy(dest=%08x, src=%08x, size=%i)", dst, src, size);
+static u32 sysclib_memcpy(u32 dst, u32 src, u32 size) {	
 	if (Memory::IsValidRange(dst, size) && Memory::IsValidRange(src, size)) {
 		memcpy(Memory::GetPointer(dst), Memory::GetPointer(src), size);
 	}
