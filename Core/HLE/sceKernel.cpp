@@ -870,9 +870,9 @@ const HLEFunction ThreadManForKernel[] =
 	{0xCEADEB47, &WrapI_U<sceKernelDelayThread>,                     "sceKernelDelayThread",                      'i', "x",      HLE_NOT_IN_INTERRUPT | HLE_NOT_DISPATCH_SUSPENDED | HLE_KERNEL_SYSCALL },
 	{0x446D8DE6, &WrapI_CUUIUU<sceKernelCreateThread>,               "sceKernelCreateThread",                     'i', "sxxixx", HLE_NOT_IN_INTERRUPT | HLE_KERNEL_SYSCALL },
 	{0xF475845D, &WrapI_IIU<sceKernelStartThread>,                   "sceKernelStartThread",                      'i', "iix",    HLE_NOT_IN_INTERRUPT | HLE_KERNEL_SYSCALL },
-	{0X9FA03CD3, &WrapI_I<sceKernelDeleteThread>,                    "sceKernelDeleteThread",                     'i', "i" },
-	{0XAA73C935, &WrapV_I<sceKernelExitThread>,                      "sceKernelExitThread",                       'v', "i" },
-	{0X809CE29B, &WrapV_I<sceKernelExitDeleteThread>,                "sceKernelExitDeleteThread",                 'v', "i" },
+	{0X9FA03CD3, &WrapI_I<sceKernelDeleteThread>,                    "sceKernelDeleteThread",                     'i', "i",      HLE_KERNEL_SYSCALL },
+	{0XAA73C935, &WrapV_I<sceKernelExitThread>,                      "sceKernelExitThread",                       'v', "i",      HLE_KERNEL_SYSCALL },
+	{0X809CE29B, &WrapV_I<sceKernelExitDeleteThread>,                "sceKernelExitDeleteThread",                 'v', "i",      HLE_KERNEL_SYSCALL },
 };
 
 void Register_ThreadManForUser()
@@ -901,7 +901,7 @@ const HLEFunction LoadExecForKernel[] =
 	{0x4AC57943, &WrapI_I<sceKernelRegisterExitCallback>,            "sceKernelRegisterExitCallback",             'i', "i",      HLE_KERNEL_SYSCALL },
 	{0XA3D5E142, nullptr,                                            "LoadExecForKernel_a3d5e142",                '?', ""        },
 	{0X28D0D249, &WrapI_CU<sceKernelLoadExec>,                       "sceKernelLoadExec_28D0D249",                'i', "sx"      },
-	{0x6D302D3D, &WrapV_V<sceKernelExitGame>,                        "sceKernelExitVSHKernel",                         'v', "" },// when called in game mode it will have the same effect that sceKernelExitGame 	
+	{0x6D302D3D, &WrapV_V<sceKernelExitGame>,                        "sceKernelExitVSHKernel",                         'v', "", HLE_KERNEL_SYSCALL },// when called in game mode it will have the same effect that sceKernelExitGame 	
 };
  
 void Register_LoadExecForKernel()
