@@ -752,6 +752,17 @@ static u32 sysclib_memset(u32 destAddr, int data, int size) {
 	return 0;
 }
 
+static int sysclib_strstr(u32 s1, u32 s2 ) {
+	ERROR_LOG(SCEKERNEL, "Untested sysclib_strstr(%08x, %08x)", s1, s2);
+	std::string str1 = Memory::GetCharPointer(s1);
+	std::string str2 = Memory::GetCharPointer(s2);
+	int index = str1.find(str2);
+	if (index < 0) {
+		return 0;
+	}
+	return s1 + index;
+}
+
 const HLEFunction SysclibForKernel[] =
 {
 	{0xAB7592FF, &WrapU_UUU<sysclib_memcpy>,                   "memcpy",                              'x', "xxx",    HLE_KERNEL_SYSCALL },
@@ -762,6 +773,7 @@ const HLEFunction SysclibForKernel[] =
 	{0x81D0D1F7, &WrapI_UUU<sysclib_memcmp>,                   "memcmp",                              'i', "xxx",    HLE_KERNEL_SYSCALL },
 	{0x7661E728, &WrapI_UU<sysclib_sprintf>,                   "sprintf",                             'i', "xx",     HLE_KERNEL_SYSCALL },
 	{0x10F3BB61, &WrapU_UII<sysclib_memset>,                   "memset",                              'x', "xii",    HLE_KERNEL_SYSCALL },
+	{0x0D188658, &WrapI_CC<sysclib_strstr>,                    "strstr",                              'i', "xx",     HLE_KERNEL_SYSCALL },
 };
 
 void Register_Kernel_Library()
