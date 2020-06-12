@@ -948,9 +948,8 @@ VkDescriptorSet VKContext::GetOrCreateDescriptorSet(VkBuffer buf) {
 	bufferDesc.offset = 0;
 	bufferDesc.range = curPipeline_->GetUBOSize();
 
-	VkDescriptorImageInfo imageDesc;
-
-	VkWriteDescriptorSet writes[1 + MAX_BOUND_TEXTURES] = {};
+	VkDescriptorImageInfo imageDesc[MAX_BOUND_TEXTURES]{};
+	VkWriteDescriptorSet writes[1 + MAX_BOUND_TEXTURES]{};
 
 	// If handles are NULL for whatever buggy reason, it's best to leave the descriptors
 	// unwritten instead of trying to write a zero, which is not legal.
@@ -971,19 +970,19 @@ VkDescriptorSet VKContext::GetOrCreateDescriptorSet(VkBuffer buf) {
 
 	for (int i = 0; i < MAX_BOUND_TEXTURES; ++i) {
 		if (key.imageViews_[i] && key.samplers_[i] && key.samplers_[i]->GetSampler()) {
-			imageDesc.imageView = key.imageViews_[i];
-			imageDesc.sampler = key.samplers_[i]->GetSampler();
+			imageDesc[i].imageView = key.imageViews_[i];
+			imageDesc[i].sampler = key.samplers_[i]->GetSampler();
 #ifdef VULKAN_USE_GENERAL_LAYOUT_FOR_COLOR
-			imageDesc.imageLayout = VK_IMAGE_LAYOUT_GENERAL;
+			imageDesc[i].imageLayout = VK_IMAGE_LAYOUT_GENERAL;
 #else
-			imageDesc.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+			imageDesc[i].imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
 #endif
 			writes[numWrites].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
 			writes[numWrites].dstSet = descSet;
 			writes[numWrites].dstArrayElement = 0;
 			writes[numWrites].dstBinding = i + 1;
 			writes[numWrites].pBufferInfo = nullptr;
-			writes[numWrites].pImageInfo = &imageDesc;
+			writes[numWrites].pImageInfo = &imageDesc[i];
 			writes[numWrites].pTexelBufferView = nullptr;
 			writes[numWrites].descriptorCount = 1;
 			writes[numWrites].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
