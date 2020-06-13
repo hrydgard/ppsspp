@@ -756,11 +756,11 @@ static int sysclib_strstr(u32 s1, u32 s2) {
 	ERROR_LOG(SCEKERNEL, "Untested sysclib_strstr(%08x, %08x)", s1, s2);
 	std::string str1 = Memory::GetCharPointer(s1);
 	std::string str2 = Memory::GetCharPointer(s2);
-	int index = str1.find(str2);
-	if (index < 0) {
+	size_t index = str1.find(str2);
+	if (index == str1.npos) {
 		return 0;
 	}
-	return s1 + index;
+	return s1 + (uint32_t)index;
 }
 
 const HLEFunction SysclibForKernel[] =
