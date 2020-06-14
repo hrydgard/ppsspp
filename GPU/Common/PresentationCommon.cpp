@@ -49,10 +49,11 @@ FRect GetInsetScreenFrame(float pixelWidth, float pixelHeight) {
 		pixelHeight,
 	};
 
-	float left = System_GetPropertyFloat(SYSPROP_DISPLAY_SAFE_INSET_LEFT);
-	float right = System_GetPropertyFloat(SYSPROP_DISPLAY_SAFE_INSET_RIGHT);
-	float top = System_GetPropertyFloat(SYSPROP_DISPLAY_SAFE_INSET_TOP);
-	float bottom = System_GetPropertyFloat(SYSPROP_DISPLAY_SAFE_INSET_BOTTOM);
+	// Remove the DPI scale to get back to pixels.
+	float left = System_GetPropertyFloat(SYSPROP_DISPLAY_SAFE_INSET_LEFT) / g_dpi_scale_x;
+	float right = System_GetPropertyFloat(SYSPROP_DISPLAY_SAFE_INSET_RIGHT) / g_dpi_scale_x;
+	float top = System_GetPropertyFloat(SYSPROP_DISPLAY_SAFE_INSET_TOP) / g_dpi_scale_y;
+	float bottom = System_GetPropertyFloat(SYSPROP_DISPLAY_SAFE_INSET_BOTTOM) / g_dpi_scale_y;
 
 	// Adjust left edge to compensate for cutouts (notches) if any.
 	rc.x += left;
@@ -73,8 +74,8 @@ void CenterDisplayOutputRect(FRect *rc, float origW, float origH, const FRect &f
 		outH = frame.h;
 	} else {
 		if (g_Config.iSmallDisplayZoomType == (int)SmallDisplayZoom::MANUAL) {
-			float offsetX = (g_Config.fSmallDisplayOffsetX - 0.5f) * 2.0f * frame.w;
-			float offsetY = (g_Config.fSmallDisplayOffsetY - 0.5f) * 2.0f * frame.h;
+			float offsetX = (g_Config.fSmallDisplayOffsetX - 0.5f) * 2.0f * frame.w + frame.x;
+			float offsetY = (g_Config.fSmallDisplayOffsetY - 0.5f) * 2.0f * frame.h + frame.y;
 			// Have to invert Y for GL
 			if (GetGPUBackend() == GPUBackend::OPENGL) {
 				offsetY = offsetY * -1.0f;
@@ -100,8 +101,8 @@ void CenterDisplayOutputRect(FRect *rc, float origW, float origH, const FRect &f
 			float pixelCrop = frame.h / 270.0f;
 			float resCommonWidescreen = pixelCrop - floor(pixelCrop);
 			if (!rotated && resCommonWidescreen == 0.0f && frame.w >= pixelCrop * 480.0f) {
-				rc->x = floorf((frame.w - pixelCrop * 480.0f) * 0.5f);
-				rc->y = floorf(-pixelCrop);
+				rc->x = floorf((frame.w - pixelCrop * 480.0f) * 0.5f + frame.x);
+				rc->y = floorf(-pixelCrop + frame.y);
 				rc->w = floorf(pixelCrop * 480.0f);
 				rc->h = floorf(pixelCrop * 272.0f);
 				return;
