@@ -23,6 +23,26 @@ For build instructions and other development tutorials, see [the wiki](https://g
 
 For game compatibility, see [community compatibility feedback](https://report.ppsspp.org/games).
 
+What's new in 1.10.0
+--------------------
+* Graphics and compatibility fixes (#12800, #12670, ...)
+* Assorted minor performance improvements (#12462, ...)
+* Screen inset (notch) support on Android
+* Analog stick support for menu navigation (#12685)
+* Fixed audio glitches in SDL builds (#12920, ...)
+* Fix missing CJK characters in in-game dialogs
+* Fix some Vulkan-only glitches (#12941, ...)
+* Workaround for Mali driver bugs regarding stencil
+* Fix some crashes (#12908, #12876? ...)
+* Postprocessing shader improvements (can now have parameters)
+* Fix some state bugs in GLES
+* Mac build now supports Vulkan on top of MoltenVK (#12583)
+* VSync fixes, support for frame duplication for 30Hz games
+* HLE timing fixes, helping some games (#12635)
+* Camera supported on Windows (still no microphone though) (#12572)
+* Darkstalkers fixed and working (#12443, ...)
+* Hot Shots Golf slowdown and flicker fixed (#12873, #12746)
+
 What's new in 1.9.0/1.9.3
 -------------------------
 * Sizing/touch fixes on Android
