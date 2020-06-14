@@ -1,4 +1,4 @@
-﻿PPSSPP - a fast and portable PSP emulator
+PPSSPP - a fast and portable PSP emulator
 =========================================
 
 Created by Henrik Rydgård
@@ -25,23 +25,35 @@ For game compatibility, see [community compatibility feedback](https://report.pp
 
 What's new in 1.10.0
 --------------------
-* Graphics and compatibility fixes (#12800, #12670, ...)
-* Assorted minor performance improvements (#12462, ...)
-* Screen inset (notch) support on Android
+* Graphics and compatibility fixes (#12800, #12670, #12635, more)
+* Assorted minor performance improvements (#12462)
+* Screen inset (notch) support on Android (#12779)
 * Analog stick support for menu navigation (#12685)
-* Fixed audio glitches in SDL builds (#12920, ...)
-* Fix missing CJK characters in in-game dialogs
-* Fix some Vulkan-only glitches (#12941, ...)
-* Workaround for Mali driver bugs regarding stencil
-* Fix some crashes (#12908, #12876? ...)
-* Postprocessing shader improvements (can now have parameters)
-* Fix some state bugs in GLES
+* Fixed audio glitches in SDL builds (#12920)
+* Fix missing CJK characters in in-game dialogs (#12702)
+* Fix some Vulkan-only glitches (#12941)
+* Simple multiplayer chat (#12667)
+* More advanced postprocessing (multipass, parameters) (#12905, #12901)
+* Add PPSSPP-specific CWCheat (#12816, #12912)
+* Reintroduce Cardboard VR (#12449)
+* Fix some crashes (#12908, #12876)
 * Mac build now supports Vulkan on top of MoltenVK (#12583)
 * VSync fixes, support for frame duplication for 30Hz games
-* HLE timing fixes, helping some games (#12635)
-* Camera supported on Windows (still no microphone though) (#12572)
-* Darkstalkers fixed and working (#12443, ...)
+* Camera supported on Windows, Linux and Mac (still no microphone though) (#12572, #12580, #12607)
+* Darkstalkers fixed and working through software rendering (#12443)
 * Hot Shots Golf slowdown and flicker fixed (#12873, #12746)
+* Allow rebinding of right touch screen analog (#12486)
+* Add option to prevent mipmaps from being dumped (#12818)
+* Tilt control now have a base radius to help with deadzone (#12756)
+* Mappable auto rotating analog stick to pass some game checks (#12749)
+* Touch control position can now be snapped to a grid (#12517)
+* HiDPI retina display support (#12552)
+* Rapid-fire on touch control (#12601)
+* Toggle mute button (#12643)
+* Add option to resize game icons and more (#12646, #12637)
+* Frames in-flight now configurable to reduce input lag at the cost of speed (#12660)
+* Add toggle mode to combo button (#12623)
+* SDL mouse support (#12612)
 
 What's new in 1.9.0/1.9.3
 -------------------------
