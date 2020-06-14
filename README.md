@@ -39,6 +39,7 @@ What's new in 1.10.0
 * Fix some crashes (#12908, #12876)
 * Ghost in the Shell graphics fixed (JIT inaccuracy with inf*0) (#12519)
 * Mac build now supports Vulkan on top of MoltenVK (#12583)
+* Raspberry Pi 4 EGL crash fixed (#12474)
 * VSync now supported on all backends, frame duplication option added for 30 Hz games
 * Camera supported on Windows, Linux and Mac (still no microphone though) (#12572, #12580, #12607)
 * Darkstalkers fixed and working through software rendering (#12443)
