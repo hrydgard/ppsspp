@@ -485,7 +485,7 @@ void ConvertRGBA5551ToBGRA8888(u32 *dst, const u16 *src, u32 numPixels) {
 	for (u32 x = 0; x < numPixels; x++) {
 		u16 c = src[x];
 		u32 r = Convert5To8(c & 0x001f);
-		u32 g = Convert6To8((c >> 5) & 0x001f);
+		u32 g = Convert5To8((c >> 5) & 0x001f);
 		u32 b = Convert5To8((c >> 10) & 0x001f);
 		// We force an arithmetic shift to get the sign bits/
 		u32 a = ((s32)(s16)c) & 0xff000000;
