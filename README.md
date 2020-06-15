@@ -25,24 +25,23 @@ For game compatibility, see [community compatibility feedback](https://report.pp
 
 What's new in 1.10.0
 --------------------
-* Graphics and compatibility fixes (#12800, #12670, #12635, more)
-* Assorted minor performance improvements (#12462)
+* Graphics and compatibility fixes (#12800, #12670, #12635, #12857, #12941, more)
+* Assorted minor performance improvements, game load speedup (#12462, #12652)
 * Screen inset (notch) support on Android (#12779)
 * Analog stick support for menu navigation (#12685)
 * Fixed audio glitches in SDL builds (#12916, #12920)
 * Support more languages in in-game dialogs (#12702)
-* Fix some Vulkan-only glitches (#12941)
 * Simple multiplayer chat (#12667)
 * More advanced postprocessing (multipass, parameters) (#12905, #12901)
 * Add PPSSPP-specific CWCheat (#12816, #12912)
-* Reintroduce Cardboard VR (#12449)
+* Reintroduce Cardboard VR, allow more resolutions (#12449, #8714)
 * Fix some crashes (#12908, #12876)
 * Ghost in the Shell graphics fixed (JIT inaccuracy with inf*0) (#12519)
 * Mac build now supports Vulkan on top of MoltenVK (#12583)
 * Raspberry Pi 4 EGL crash fixed (#12474)
 * VSync now supported on all backends, frame duplication option added for 30 Hz games
 * Camera supported on Windows, Linux and Mac (still no microphone though) (#12572, #12580, #12607)
-* Darkstalkers fixed and working through software rendering (#12443)
+* Darkstalkers fixed and working through software rendering. SW rendering fixed on GLES 2.0 (#12443, #12898)
 * Hot Shots Golf slowdown and flicker on Vulkan fixed (#12873, #12746)
 * Pangya Golf crashes and hangs fixed (#12718)
 * Allow rebinding of right touch screen analog (#12486)
