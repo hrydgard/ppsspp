@@ -25,12 +25,12 @@ For game compatibility, see [community compatibility feedback](https://report.pp
 
 What's new in 1.10.0
 --------------------
-* Graphics and compatibility fixes (#12800, #12670, #12635, #12857, #12941, more)
+* Graphics and compatibility fixes (#12800, #12670, #12635, #12857, #12941, #11898, #12695, more)
 * Assorted minor performance improvements, game load speedup (#12462, #12652)
 * Screen inset (notch) support on Android (#12779)
 * Analog stick support for menu navigation (#12685)
 * Fixed audio glitches in SDL builds (#12916, #12920)
-* Support more languages in in-game dialogs (#12702)
+* Support more languages in in-game dialogs (#12702). Croatian language added to PPSSPP.
 * Simple multiplayer chat (#12667)
 * More advanced postprocessing (multipass, parameters) (#12905, #12901)
 * Add PPSSPP-specific CWCheat (#12816, #12912)
