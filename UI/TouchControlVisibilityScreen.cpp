@@ -104,7 +104,7 @@ void TouchControlVisibilityScreen::CreateViews() {
 		row->Add(checkbox);
 
 		if (toggle.key == rightAnalogKey) {
-			Choice *rightAnalog = new Choice(co->T(rightAnalogKey), "", false,  new LinearLayoutParams(1.0f));
+			Choice *rightAnalog = new Choice(mc->T(rightAnalogKey), "", false, new LinearLayoutParams(1.0f));
 			rightAnalog->SetCentered(true);
 			row->Add(rightAnalog)->OnClick.Handle(this, &TouchControlVisibilityScreen::RightAnalogBindScreen);
 		} else {
@@ -130,6 +130,7 @@ void RightAnalogMappingScreen::CreateViews() {
 
 	auto di = GetI18NCategory("Dialog");
 	auto co = GetI18NCategory("Controls");
+	auto mc = GetI18NCategory("MappableControls");
 
 	root_ = new AnchorLayout(new LayoutParams(FILL_PARENT, FILL_PARENT));
 	Choice *back = new Choice(di->T("Back"), "", false, new AnchorLayoutParams(leftColumnWidth - 10, WRAP_CONTENT, 10, NONE, NONE, 10));
@@ -141,14 +142,14 @@ void RightAnalogMappingScreen::CreateViews() {
 	LinearLayout *vert = rightPanel->Add(new LinearLayout(ORIENT_VERTICAL, new LayoutParams(FILL_PARENT, FILL_PARENT)));
 	vert->SetSpacing(0);
 
-	static const char *rightAnalogButton[] = {"None", "Left trigger", "Right trigger", "Square", "Triangle", "Circle", "Cross", "D-PAD Up", "D-PAD Down", "D-PAD Left", "D-PAD Right", "Start", "Select"};
+	static const char *rightAnalogButton[] = {"None", "L", "R", "Square", "Triangle", "Circle", "Cross", "D-pad up", "D-pad down", "D-pad left", "D-pad right", "Start", "Select"};
 
 	vert->Add(new CheckBox(&g_Config.bRightAnalogCustom, co->T("Use custom right analog")));
-	PopupMultiChoice *rightAnalogUp = vert->Add(new PopupMultiChoice(&g_Config.iRightAnalogUp, co->T("Right analog up"), rightAnalogButton, 0, ARRAY_SIZE(rightAnalogButton), co->GetName(), screenManager()));
-	PopupMultiChoice *rightAnalogDown = vert->Add(new PopupMultiChoice(&g_Config.iRightAnalogDown, co->T("Right analog down"), rightAnalogButton, 0, ARRAY_SIZE(rightAnalogButton), co->GetName(), screenManager()));
-	PopupMultiChoice *rightAnalogLeft = vert->Add(new PopupMultiChoice(&g_Config.iRightAnalogLeft, co->T("Right analog left"), rightAnalogButton, 0, ARRAY_SIZE(rightAnalogButton), co->GetName(), screenManager()));
-	PopupMultiChoice *rightAnalogRight = vert->Add(new PopupMultiChoice(&g_Config.iRightAnalogRight, co->T("Right analog right"), rightAnalogButton, 0, ARRAY_SIZE(rightAnalogButton), co->GetName(), screenManager()));
-	PopupMultiChoice *rightAnalogPress = vert->Add(new PopupMultiChoice(&g_Config.iRightAnalogPress, co->T("Keep this button pressed when right analog is pressed"), rightAnalogButton, 0, ARRAY_SIZE(rightAnalogButton), co->GetName(), screenManager()));
+	PopupMultiChoice *rightAnalogUp = vert->Add(new PopupMultiChoice(&g_Config.iRightAnalogUp, mc->T("RightAn.Up"), rightAnalogButton, 0, ARRAY_SIZE(rightAnalogButton), mc->GetName(), screenManager()));
+	PopupMultiChoice *rightAnalogDown = vert->Add(new PopupMultiChoice(&g_Config.iRightAnalogDown, mc->T("RightAn.Down"), rightAnalogButton, 0, ARRAY_SIZE(rightAnalogButton), mc->GetName(), screenManager()));
+	PopupMultiChoice *rightAnalogLeft = vert->Add(new PopupMultiChoice(&g_Config.iRightAnalogLeft, mc->T("RightAn.Left"), rightAnalogButton, 0, ARRAY_SIZE(rightAnalogButton), mc->GetName(), screenManager()));
+	PopupMultiChoice *rightAnalogRight = vert->Add(new PopupMultiChoice(&g_Config.iRightAnalogRight, mc->T("RightAn.Right"), rightAnalogButton, 0, ARRAY_SIZE(rightAnalogButton), mc->GetName(), screenManager()));
+	PopupMultiChoice *rightAnalogPress = vert->Add(new PopupMultiChoice(&g_Config.iRightAnalogPress, co->T("Keep this button pressed when right analog is pressed"), rightAnalogButton, 0, ARRAY_SIZE(rightAnalogButton), mc->GetName(), screenManager()));
 	vert->Add(new CheckBox(&g_Config.touchRightAnalogStick.show, co->T("Show right analog")));
 	rightAnalogUp->SetEnabledPtr(&g_Config.bRightAnalogCustom);
 	rightAnalogDown->SetEnabledPtr(&g_Config.bRightAnalogCustom);
