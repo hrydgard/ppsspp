@@ -209,6 +209,8 @@ void VulkanRenderManager::CreateBackbuffers() {
 		newInflightFrames_ = -1;
 	}
 
+	outOfDateFrames_ = 0;
+
 	// Start the thread.
 	if (useThread_ && HasBackbuffers()) {
 		run_ = true;
@@ -1029,11 +1031,14 @@ void VulkanRenderManager::BeginSubmitFrame(int frame) {
 		if (res == VK_SUBOPTIMAL_KHR) {
 			// Hopefully the resize will happen shortly. Ignore - one frame might look bad or something.
 			WLOG("VK_SUBOPTIMAL_KHR returned - ignoring");
+			outOfDateFrames_++;
 		} else if (res == VK_ERROR_OUT_OF_DATE_KHR) {
 			WLOG("VK_ERROR_OUT_OF_DATE_KHR returned - not presenting");
 			frameData.skipSwap = true;
+			outOfDateFrames_++;
 		} else {
 			_assert_msg_(G3D, res == VK_SUCCESS, "vkAcquireNextImageKHR failed! result=%s", VulkanResultToString(res));
+			outOfDateFrames_ = 0;
 		}
 
 		VkCommandBufferBeginInfo begin{ VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO };

@@ -4,6 +4,7 @@
 #include "base/display.h"
 #include "thin3d/thin3d.h"
 #include "thin3d/thin3d_create.h"
+#include "thin3d/VulkanRenderManager.h"
 #include "util/text/parsers.h"
 
 #include "Core/System.h"
@@ -103,6 +104,9 @@ bool SDLVulkanGraphicsContext::Init(SDL_Window *&window, int x, int y, int mode,
 	assert(success);
 	draw_->HandleEvent(Draw::Event::GOT_BACKBUFFER, vulkan_->GetBackbufferWidth(), vulkan_->GetBackbufferHeight());
 
+	renderManager_ = (VulkanRenderManager *)draw_->GetNativeObject(Draw::NativeObject::RENDER_MANAGER);
+	renderManager_->SetInflightFrames(g_Config.iInflightFrames);
+
 	return true;
 }
 
@@ -118,4 +122,19 @@ void SDLVulkanGraphicsContext::Shutdown() {
 	delete vulkan_;
 	vulkan_ = nullptr;
 	finalize_glslang();
+}
+
+void SDLVulkanGraphicsContext::Resize() {
+	draw_->HandleEvent(Draw::Event::LOST_BACKBUFFER, vulkan_->GetBackbufferWidth(), vulkan_->GetBackbufferHeight());
+	vulkan_->DestroyObjects();
+	vulkan_->ReinitSurface();
+	vulkan_->InitObjects();
+	draw_->HandleEvent(Draw::Event::GOT_BACKBUFFER, vulkan_->GetBackbufferWidth(), vulkan_->GetBackbufferHeight());
+}
+
+void SDLVulkanGraphicsContext::Poll() {
+	// Check for existing swapchain to avoid issues during shutdown.
+	if (vulkan_->GetSwapchain() && renderManager_->NeedsSwapchainRecreate()) {
+		Resize();
+	}
 }

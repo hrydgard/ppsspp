@@ -285,6 +285,11 @@ public:
 		return frameData_[vulkan_->GetCurFrame()].profile.profileSummary;
 	}
 
+	bool NeedsSwapchainRecreate() const {
+		// Accepting a few of these makes shutdown simpler.
+		return outOfDateFrames_ > VulkanContext::MAX_INFLIGHT_FRAMES;
+	}
+
 private:
 	bool InitBackbufferFramebuffers(int width, int height);
 	bool InitDepthStencilBuffer(VkCommandBuffer cmd);  // Used for non-buffered rendering.
@@ -336,6 +341,8 @@ private:
 	FrameData frameData_[VulkanContext::MAX_INFLIGHT_FRAMES];
 	int newInflightFrames_ = -1;
 	int inflightFramesAtStart_ = 0;
+
+	int outOfDateFrames_ = 0;
 
 	// Submission time state
 	int curWidth_ = -1;

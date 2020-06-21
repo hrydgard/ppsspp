@@ -1095,6 +1095,9 @@ void NativeRender(GraphicsContext *graphicsContext) {
 			NativeMessageReceived("gpu_resized", "");
 		}
 #endif
+	} else {
+		// ILOG("Polling graphics context");
+		graphicsContext->Poll();
 	}
 
 	ui_draw2d.PopDrawMatrix();
