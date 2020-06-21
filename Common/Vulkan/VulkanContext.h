@@ -170,9 +170,6 @@ public:
 
 	bool MemoryTypeFromProperties(uint32_t typeBits, VkFlags requirements_mask, uint32_t *typeIndex);
 
-	VkResult InitDebugUtilsCallback();
-	void DestroyDebugUtilsCallback();
-
 	VkPhysicalDevice GetPhysicalDevice(int n) const {
 		return physical_devices_[n];
 	}
@@ -276,6 +273,8 @@ public:
 	void GetImageMemoryRequirements(VkImage image, VkMemoryRequirements *mem_reqs, bool *dedicatedAllocation);
 
 private:
+	VkResult InitDebugUtilsCallback();
+
 	// A layer can expose extensions, keep track of those extensions here.
 	struct LayerProperties {
 		VkLayerProperties properties;

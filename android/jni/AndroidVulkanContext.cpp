@@ -120,8 +120,6 @@ bool AndroidVulkanContext::InitFromRenderThread(ANativeWindow *wnd, int desiredB
 	if (!success) {
 		g_Vulkan->DestroyObjects();
 		g_Vulkan->DestroyDevice();
-		g_Vulkan->DestroyDebugUtilsCallback();
-
 		g_Vulkan->DestroyInstance();
 	}
 	return success;
@@ -141,7 +139,6 @@ void AndroidVulkanContext::ShutdownFromRenderThread() {
 void AndroidVulkanContext::Shutdown() {
 	ILOG("Calling NativeShutdownGraphics");
 	g_Vulkan->DestroyDevice();
-	g_Vulkan->DestroyDebugUtilsCallback();
 	g_Vulkan->DestroyInstance();
 	// We keep the g_Vulkan context around to avoid invalidating a ton of pointers around the app.
 	finalize_glslang();

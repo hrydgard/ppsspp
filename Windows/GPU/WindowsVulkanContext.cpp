@@ -127,9 +127,7 @@ bool WindowsVulkanContext::Init(HINSTANCE hInst, HWND hWnd, std::string *error_m
 		g_Vulkan = nullptr;
 		return false;
 	}
-	if (g_validate_) {
-		g_Vulkan->InitDebugUtilsCallback();
-	}
+
 	g_Vulkan->InitSurface(WINDOWSYSTEM_WIN32, (void *)hInst, (void *)hWnd);
 	if (!g_Vulkan->InitObjects()) {
 		*error_message = g_Vulkan->InitError();
@@ -164,7 +162,6 @@ void WindowsVulkanContext::Shutdown() {
 	g_Vulkan->WaitUntilQueueIdle();
 	g_Vulkan->DestroyObjects();
 	g_Vulkan->DestroyDevice();
-	g_Vulkan->DestroyDebugUtilsCallback();
 	g_Vulkan->DestroyInstance();
 
 	delete g_Vulkan;

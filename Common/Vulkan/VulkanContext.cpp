@@ -247,6 +247,11 @@ VkResult VulkanContext::CreateInstance(const CreateInfo &info) {
 			vkGetPhysicalDeviceProperties(physical_devices_[i], &physicalDeviceProperties_[i].properties);
 		}
 	}
+
+	if (extensionsLookup_.EXT_debug_utils) {
+		InitDebugUtilsCallback();
+	}
+
 	return VK_SUCCESS;
 }
 
@@ -255,6 +260,13 @@ VulkanContext::~VulkanContext() {
 }
 
 void VulkanContext::DestroyInstance() {
+	if (extensionsLookup_.EXT_debug_utils) {
+		while (utils_callbacks.size() > 0) {
+			vkDestroyDebugUtilsMessengerEXT(instance_, utils_callbacks.back(), nullptr);
+			utils_callbacks.pop_back();
+		}
+	}
+
 	vkDestroyInstance(instance_, nullptr);
 	VulkanFree();
 	instance_ = VK_NULL_HANDLE;
@@ -685,15 +697,6 @@ VkResult VulkanContext::InitDebugUtilsCallback() {
 		utils_callbacks.push_back(messenger);
 	}
 	return res;
-}
-
-void VulkanContext::DestroyDebugUtilsCallback() {
-	if (extensionsLookup_.EXT_debug_utils) {
-		while (utils_callbacks.size() > 0) {
-			vkDestroyDebugUtilsMessengerEXT(instance_, utils_callbacks.back(), nullptr);
-			utils_callbacks.pop_back();
-		}
-	}
 }
 
 VkResult VulkanContext::InitSurface(WindowSystem winsys, void *data1, void *data2) {
