@@ -13,36 +13,7 @@
 #include "Core/ConfigValues.h"
 #include "Core/System.h"
 
-static VulkanLogOptions g_LogOptions;
-
-static VKAPI_ATTR VkBool32 VKAPI_CALL Vulkan_Dbg(VkDebugReportFlagsEXT msgFlags, VkDebugReportObjectTypeEXT objType, uint64_t srcObject, size_t location, int32_t msgCode, const char* pLayerPrefix, const char* pMsg, void *pUserData) {
-	const VulkanLogOptions *options = (const VulkanLogOptions *)pUserData;
-	int loglevel = ANDROID_LOG_INFO;
-	if (msgFlags & VK_DEBUG_REPORT_ERROR_BIT_EXT) {
-		loglevel = ANDROID_LOG_ERROR;
-	} else if (msgFlags & VK_DEBUG_REPORT_WARNING_BIT_EXT) {
-		loglevel = ANDROID_LOG_WARN;
-	} else if (msgFlags & VK_DEBUG_REPORT_PERFORMANCE_WARNING_BIT_EXT) {
-		loglevel = ANDROID_LOG_WARN;
-	} else if (msgFlags & VK_DEBUG_REPORT_INFORMATION_BIT_EXT) {
-		loglevel = ANDROID_LOG_WARN;
-	} else if (msgFlags & VK_DEBUG_REPORT_DEBUG_BIT_EXT) {
-		loglevel = ANDROID_LOG_WARN;
-	}
-
-	__android_log_print(loglevel, APP_NAME, "[%s] %s Code %d : %s",
-						pLayerPrefix, VulkanObjTypeToString(objType), msgCode, pMsg);
-
-	// false indicates that layer should not bail-out of an
-	// API call that had validation failures. This may mean that the
-	// app dies inside the driver due to invalid parameter(s).
-	// That's what would happen without validation layers, so we'll
-	// keep that behavior here.
-	return false;
-}
-
-AndroidVulkanContext::AndroidVulkanContext() {
-}
+AndroidVulkanContext::AndroidVulkanContext() {}
 
 AndroidVulkanContext::~AndroidVulkanContext() {
 	delete g_Vulkan;
@@ -128,11 +99,6 @@ bool AndroidVulkanContext::InitFromRenderThread(ANativeWindow *wnd, int desiredB
 		return false;
 	}
 
-	if (g_validate_) {
-		int bits = VK_DEBUG_REPORT_ERROR_BIT_EXT | VK_DEBUG_REPORT_WARNING_BIT_EXT | VK_DEBUG_REPORT_PERFORMANCE_WARNING_BIT_EXT;
-		g_Vulkan->InitDebugMsgCallback(&Vulkan_Dbg, bits, &g_LogOptions);
-	}
-
 	bool success = true;
 	if (g_Vulkan->InitObjects()) {
 		draw_ = Draw::T3DCreateVulkanContext(g_Vulkan, g_Config.bGfxDebugSplitSubmit);
@@ -152,9 +118,6 @@ bool AndroidVulkanContext::InitFromRenderThread(ANativeWindow *wnd, int desiredB
 	if (!success) {
 		g_Vulkan->DestroyObjects();
 		g_Vulkan->DestroyDevice();
-		g_Vulkan->DestroyDebugUtilsCallback();
-		g_Vulkan->DestroyDebugMsgCallback();
-
 		g_Vulkan->DestroyInstance();
 	}
 	return success;
@@ -174,9 +137,6 @@ void AndroidVulkanContext::ShutdownFromRenderThread() {
 void AndroidVulkanContext::Shutdown() {
 	ILOG("Calling NativeShutdownGraphics");
 	g_Vulkan->DestroyDevice();
-	g_Vulkan->DestroyDebugUtilsCallback();
-	g_Vulkan->DestroyDebugMsgCallback();
-
 	g_Vulkan->DestroyInstance();
 	// We keep the g_Vulkan context around to avoid invalidating a ton of pointers around the app.
 	finalize_glslang();

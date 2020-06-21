@@ -55,7 +55,6 @@
 #include "Core/System.h"
 #include "Common/Vulkan/VulkanLoader.h"
 #include "Common/Vulkan/VulkanContext.h"
-#include "Common/Vulkan/VulkanDebug.h"
 
 #include "base/stringutil.h"
 #include "thin3d/thin3d.h"
@@ -71,8 +70,6 @@ static const bool g_validate_ = false;
 #endif
 
 static VulkanContext *g_Vulkan;
-
-static VulkanLogOptions g_LogOptions;
 
 static uint32_t FlagsFromConfig() {
 	uint32_t flags = 0;
@@ -130,19 +127,7 @@ bool WindowsVulkanContext::Init(HINSTANCE hInst, HWND hWnd, std::string *error_m
 		g_Vulkan = nullptr;
 		return false;
 	}
-	if (g_validate_) {
-		if (g_Vulkan->DeviceExtensions().EXT_debug_utils) {
-			int bits = VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT
-				| VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT
-				| VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT;
-				// We're intentionally skipping VK_DEBUG_UTILS_MESSAGE_SEVERITY_VERBOSE_BIT_EXT and
-				// VK_DEBUG_UTILS_MESSAGE_SEVERITY_INFO_BIT_EXT, just too spammy.
-			g_Vulkan->InitDebugUtilsCallback(&VulkanDebugUtilsCallback, bits, &g_LogOptions);
-		} else {
-			int bits = VK_DEBUG_REPORT_ERROR_BIT_EXT | VK_DEBUG_REPORT_WARNING_BIT_EXT | VK_DEBUG_REPORT_PERFORMANCE_WARNING_BIT_EXT;
-			g_Vulkan->InitDebugMsgCallback(&VulkanDebugReportCallback, bits, &g_LogOptions);
-		}
-	}
+
 	g_Vulkan->InitSurface(WINDOWSYSTEM_WIN32, (void *)hInst, (void *)hWnd);
 	if (!g_Vulkan->InitObjects()) {
 		*error_message = g_Vulkan->InitError();
@@ -177,8 +162,6 @@ void WindowsVulkanContext::Shutdown() {
 	g_Vulkan->WaitUntilQueueIdle();
 	g_Vulkan->DestroyObjects();
 	g_Vulkan->DestroyDevice();
-	g_Vulkan->DestroyDebugUtilsCallback();
-	g_Vulkan->DestroyDebugMsgCallback();
 	g_Vulkan->DestroyInstance();
 
 	delete g_Vulkan;

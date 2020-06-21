@@ -7,6 +7,7 @@
 
 #include "base/logging.h"
 #include "Common/Vulkan/VulkanLoader.h"
+#include "Common/Vulkan/VulkanDebug.h"
 
 enum {
 	VULKAN_FLAG_VALIDATE = 1,
@@ -169,13 +170,6 @@ public:
 
 	bool MemoryTypeFromProperties(uint32_t typeBits, VkFlags requirements_mask, uint32_t *typeIndex);
 
-	VkResult InitDebugUtilsCallback(PFN_vkDebugUtilsMessengerCallbackEXT callback, int bits, void *userdata);
-	void DestroyDebugUtilsCallback();
-
-	// Legacy reporting
-	VkResult InitDebugMsgCallback(PFN_vkDebugReportCallbackEXT dbgFunc, int bits, void *userdata);
-	void DestroyDebugMsgCallback();
-
 	VkPhysicalDevice GetPhysicalDevice(int n) const {
 		return physical_devices_[n];
 	}
@@ -279,6 +273,8 @@ public:
 	void GetImageMemoryRequirements(VkImage image, VkMemoryRequirements *mem_reqs, bool *dedicatedAllocation);
 
 private:
+	VkResult InitDebugUtilsCallback();
+
 	// A layer can expose extensions, keep track of those extensions here.
 	struct LayerProperties {
 		VkLayerProperties properties;
@@ -342,7 +338,6 @@ private:
 	// the next time the frame comes around again.
 	VulkanDeleteList globalDeleteList_;
 
-	std::vector<VkDebugReportCallbackEXT> msg_callbacks;
 	std::vector<VkDebugUtilsMessengerEXT> utils_callbacks;
 
 	VkSwapchainKHR swapchain_ = VK_NULL_HANDLE;
@@ -370,7 +365,8 @@ bool GLSLtoSPV(const VkShaderStageFlagBits shader_type, const char *pshader, std
 
 const char *VulkanResultToString(VkResult res);
 std::string FormatDriverVersion(const VkPhysicalDeviceProperties &props);
-const char *VulkanObjTypeToString(VkDebugReportObjectTypeEXT type);
 
 // Simple heuristic.
 bool IsHashMaliDriverVersion(const VkPhysicalDeviceProperties &props);
+
+extern VulkanLogOptions g_LogOptions;

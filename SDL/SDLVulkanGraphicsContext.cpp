@@ -114,7 +114,6 @@ void SDLVulkanGraphicsContext::Shutdown() {
 	vulkan_->WaitUntilQueueIdle();
 	vulkan_->DestroyObjects();
 	vulkan_->DestroyDevice();
-	vulkan_->DestroyDebugMsgCallback();
 	vulkan_->DestroyInstance();
 	delete vulkan_;
 	vulkan_ = nullptr;

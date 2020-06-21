@@ -2,8 +2,6 @@
 
 #include "AndroidGraphicsContext.h"
 
-static const bool g_validate_ = true;
-
 class VulkanContext;
 
 class AndroidVulkanContext : public AndroidGraphicsContext {

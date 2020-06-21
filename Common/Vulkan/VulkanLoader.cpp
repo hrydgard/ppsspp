@@ -199,10 +199,6 @@ PFN_vkGetSwapchainImagesKHR vkGetSwapchainImagesKHR;
 PFN_vkAcquireNextImageKHR vkAcquireNextImageKHR;
 PFN_vkQueuePresentKHR vkQueuePresentKHR;
 
-// And the DEBUG_REPORT extension. We dynamically load this.
-PFN_vkCreateDebugReportCallbackEXT vkCreateDebugReportCallbackEXT;
-PFN_vkDestroyDebugReportCallbackEXT vkDestroyDebugReportCallbackEXT;
-
 PFN_vkCreateDebugUtilsMessengerEXT   vkCreateDebugUtilsMessengerEXT;
 PFN_vkDestroyDebugUtilsMessengerEXT	 vkDestroyDebugUtilsMessengerEXT;
 PFN_vkCmdBeginDebugUtilsLabelEXT	 vkCmdBeginDebugUtilsLabelEXT;
@@ -540,11 +536,6 @@ void VulkanLoadInstanceFunctions(VkInstance instance, const VulkanDeviceExtensio
 	if (enabledExtensions.KHR_get_physical_device_properties2) {
 		LOAD_INSTANCE_FUNC(instance, vkGetPhysicalDeviceProperties2KHR);
 		LOAD_INSTANCE_FUNC(instance, vkGetPhysicalDeviceFeatures2KHR);
-	}
-
-	if (enabledExtensions.EXT_debug_report) {
-		LOAD_INSTANCE_FUNC(instance, vkCreateDebugReportCallbackEXT);
-		LOAD_INSTANCE_FUNC(instance, vkDestroyDebugReportCallbackEXT);
 	}
 
 	if (enabledExtensions.EXT_debug_utils) {
