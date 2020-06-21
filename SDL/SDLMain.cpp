@@ -114,7 +114,9 @@ static void InitSDLAudioDevice(const std::string &name = "") {
 		}
 	}
 	if (audioDev <= 0) {
-		ILOG("SDL: Trying a different device");
+		if (!startDevice.empty()) {
+			ILOG("SDL: Trying a different audio device - '%s' was rejected", startDevice.c_str());
+		}
 		audioDev = SDL_OpenAudioDevice(nullptr, 0, &fmt, &g_retFmt, SDL_AUDIO_ALLOW_FREQUENCY_CHANGE);
 	}
 	if (audioDev <= 0) {
