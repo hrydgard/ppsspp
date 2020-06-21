@@ -252,7 +252,6 @@ void RegisterAllModules() {
 	Register_scePsmf();
 	Register_scePsmfPlayer();
 	Register_sceOpenPSID();
-	Register_sceOpenPSID_driver();
 	Register_sceParseUri();
 	Register_sceSsl();
 	Register_sceParseHttp();
@@ -303,7 +302,7 @@ void RegisterAllModules() {
 	Register_KUBridge();
 	Register_sceUsbAcc();
 	Register_sceUsbMic();
-
+	Register_sceOpenPSID_driver();
 	// add new modules here.
 }
 
