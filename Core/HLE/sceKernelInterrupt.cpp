@@ -776,7 +776,7 @@ static int sysclib_strncmp(u32 s1, u32 s2, u32 size) {
 	return 0;
 }
 
-static int sysclib_memmove(u32 dst, u32 src, u32 size) {
+static u32 sysclib_memmove(u32 dst, u32 src, u32 size) {
 	ERROR_LOG(SCEKERNEL, "Untested sysclib_memmove(%08x, %08x, x)", dst, src, size);
 	if (Memory::IsValidRange(dst, size) && Memory::IsValidRange(src, size)) {
 		memmove(Memory::GetPointer(dst), Memory::GetPointer(src), size);
@@ -796,7 +796,7 @@ const HLEFunction SysclibForKernel[] =
 	{0x10F3BB61, &WrapU_UII<sysclib_memset>,                   "memset",                              'x', "xii",    HLE_KERNEL_SYSCALL },
 	{0x0D188658, &WrapI_UU<sysclib_strstr>,                    "strstr",                              'i', "xx",     HLE_KERNEL_SYSCALL },
 	{0x7AB35214, &WrapI_UUU<sysclib_strncmp>,                  "strncmp",                             'i', "xxx",     HLE_KERNEL_SYSCALL },
-	{0xA48D2592, &WrapI_UUU<sysclib_memmove>,                  "memmove",                             'i', "xxx",     HLE_KERNEL_SYSCALL },
+	{0xA48D2592, &WrapU_UUU<sysclib_memmove>,                  "memmove",                             'x', "xxx",     HLE_KERNEL_SYSCALL },
 };
 
 void Register_Kernel_Library()
