@@ -71,8 +71,6 @@ static const bool g_validate_ = false;
 
 static VulkanContext *g_Vulkan;
 
-static VulkanLogOptions g_LogOptions;
-
 static uint32_t FlagsFromConfig() {
 	uint32_t flags = 0;
 	flags = g_Config.bVSync ? VULKAN_FLAG_PRESENT_FIFO : VULKAN_FLAG_PRESENT_MAILBOX;
@@ -130,12 +128,7 @@ bool WindowsVulkanContext::Init(HINSTANCE hInst, HWND hWnd, std::string *error_m
 		return false;
 	}
 	if (g_validate_) {
-		int bits = VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT
-			| VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT
-			| VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT;
-		// We're intentionally skipping VK_DEBUG_UTILS_MESSAGE_SEVERITY_VERBOSE_BIT_EXT and
-		// VK_DEBUG_UTILS_MESSAGE_SEVERITY_INFO_BIT_EXT, just too spammy.
-		g_Vulkan->InitDebugUtilsCallback(bits, &g_LogOptions);
+		g_Vulkan->InitDebugUtilsCallback();
 	}
 	g_Vulkan->InitSurface(WINDOWSYSTEM_WIN32, (void *)hInst, (void *)hWnd);
 	if (!g_Vulkan->InitObjects()) {

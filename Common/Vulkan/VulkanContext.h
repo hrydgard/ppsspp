@@ -170,7 +170,7 @@ public:
 
 	bool MemoryTypeFromProperties(uint32_t typeBits, VkFlags requirements_mask, uint32_t *typeIndex);
 
-	VkResult InitDebugUtilsCallback(int bits, VulkanLogOptions *logOptions);
+	VkResult InitDebugUtilsCallback();
 	void DestroyDebugUtilsCallback();
 
 	VkPhysicalDevice GetPhysicalDevice(int n) const {
@@ -369,3 +369,5 @@ std::string FormatDriverVersion(const VkPhysicalDeviceProperties &props);
 
 // Simple heuristic.
 bool IsHashMaliDriverVersion(const VkPhysicalDeviceProperties &props);
+
+extern VulkanLogOptions g_LogOptions;

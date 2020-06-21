@@ -36,6 +36,8 @@
 #define new DBG_NEW
 #endif
 
+VulkanLogOptions g_LogOptions;
+
 static const char *validationLayers[] = {
 	"VK_LAYER_KHRONOS_validation",
 	/*
@@ -661,12 +663,18 @@ VkResult VulkanContext::CreateDevice() {
 	return res;
 }
 
-VkResult VulkanContext::InitDebugUtilsCallback(int bits, VulkanLogOptions *logOptions) {
+VkResult VulkanContext::InitDebugUtilsCallback() {
+	// We're intentionally skipping VK_DEBUG_UTILS_MESSAGE_SEVERITY_VERBOSE_BIT_EXT and
+	// VK_DEBUG_UTILS_MESSAGE_SEVERITY_INFO_BIT_EXT, just too spammy.
+	int bits = VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT
+		| VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT
+		| VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT;
+
 	VkDebugUtilsMessengerCreateInfoEXT callback1{VK_STRUCTURE_TYPE_DEBUG_UTILS_MESSENGER_CREATE_INFO_EXT};
 	callback1.messageSeverity = bits;
 	callback1.messageType = VK_DEBUG_UTILS_MESSAGE_TYPE_GENERAL_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_TYPE_VALIDATION_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_TYPE_PERFORMANCE_BIT_EXT;
 	callback1.pfnUserCallback = &VulkanDebugUtilsCallback;
-	callback1.pUserData = (void *)logOptions;
+	callback1.pUserData = (void *)&g_LogOptions;
 	VkDebugUtilsMessengerEXT messenger;
 	VkResult res = vkCreateDebugUtilsMessengerEXT(instance_, &callback1, nullptr, &messenger);
 	if (res != VK_SUCCESS) {
@@ -680,14 +688,13 @@ VkResult VulkanContext::InitDebugUtilsCallback(int bits, VulkanLogOptions *logOp
 }
 
 void VulkanContext::DestroyDebugUtilsCallback() {
-	if (!extensionsLookup_.EXT_debug_utils)
-		return;
-	while (utils_callbacks.size() > 0) {
-		vkDestroyDebugUtilsMessengerEXT(instance_, utils_callbacks.back(), nullptr);
-		utils_callbacks.pop_back();
+	if (extensionsLookup_.EXT_debug_utils) {
+		while (utils_callbacks.size() > 0) {
+			vkDestroyDebugUtilsMessengerEXT(instance_, utils_callbacks.back(), nullptr);
+			utils_callbacks.pop_back();
+		}
 	}
 }
-
 
 VkResult VulkanContext::InitSurface(WindowSystem winsys, void *data1, void *data2) {
 	winsys_ = winsys;
