@@ -34,6 +34,10 @@ public:
 	virtual void ThreadEnd() {}
 	virtual void StopThread() {}
 
+	// Useful for checks that need to be performed every frame.
+	// Should strive to get rid of these.
+	virtual void Poll() {}
+
 	virtual Draw::DrawContext *GetDrawContext() = 0;
 };
 

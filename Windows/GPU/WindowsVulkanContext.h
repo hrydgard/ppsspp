@@ -21,6 +21,8 @@
 #include "Windows/GPU/WindowsGraphicsContext.h"
 #include "thin3d/thin3d.h"
 
+class VulkanRenderManager;
+
 class WindowsVulkanContext : public WindowsGraphicsContext {
 public:
 	WindowsVulkanContext() : draw_(nullptr) {}
@@ -29,11 +31,13 @@ public:
 	void SwapInterval(int interval) override {}
 	void SwapBuffers() override {}
 	void Resize() override;
+	void Poll() override;
 
 	void *GetAPIContext();
 
 	Draw::DrawContext *GetDrawContext() override { return draw_; }
 private:
 	Draw::DrawContext *draw_;
+	VulkanRenderManager *renderManager_ = nullptr;
 };
 

@@ -143,9 +143,9 @@ bool WindowsVulkanContext::Init(HINSTANCE hInst, HWND hWnd, std::string *error_m
 	_assert_msg_(G3D, success, "Failed to compile preset shaders");
 	draw_->HandleEvent(Draw::Event::GOT_BACKBUFFER, g_Vulkan->GetBackbufferWidth(), g_Vulkan->GetBackbufferHeight());
 
-	VulkanRenderManager *renderManager = (VulkanRenderManager *)draw_->GetNativeObject(Draw::NativeObject::RENDER_MANAGER);
-	renderManager->SetInflightFrames(g_Config.iInflightFrames);
-	if (!renderManager->HasBackbuffers()) {
+	renderManager_ = (VulkanRenderManager *)draw_->GetNativeObject(Draw::NativeObject::RENDER_MANAGER);
+	renderManager_->SetInflightFrames(g_Config.iInflightFrames);
+	if (!renderManager_->HasBackbuffers()) {
 		Shutdown();
 		return false;
 	}
@@ -166,6 +166,7 @@ void WindowsVulkanContext::Shutdown() {
 
 	delete g_Vulkan;
 	g_Vulkan = nullptr;
+	renderManager_ = nullptr;
 
 	finalize_glslang();
 }
@@ -179,6 +180,13 @@ void WindowsVulkanContext::Resize() {
 
 	g_Vulkan->InitObjects();
 	draw_->HandleEvent(Draw::Event::GOT_BACKBUFFER, g_Vulkan->GetBackbufferWidth(), g_Vulkan->GetBackbufferHeight());
+}
+
+void WindowsVulkanContext::Poll() {
+	// Check for existing swapchain to avoid issues during shutdown.
+	if (g_Vulkan->GetSwapchain() && renderManager_->NeedsSwapchainRecreate()) {
+		Resize();
+	}
 }
 
 void *WindowsVulkanContext::GetAPIContext() {
