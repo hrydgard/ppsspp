@@ -61,6 +61,11 @@ bool AndroidVulkanContext::InitAPI() {
 		return false;
 	}
 
+	if (g_validate_) {
+		int bits = VK_DEBUG_REPORT_ERROR_BIT_EXT | VK_DEBUG_REPORT_WARNING_BIT_EXT | VK_DEBUG_REPORT_PERFORMANCE_WARNING_BIT_EXT;
+		g_Vulkan->InitDebugMsgCallback(&Vulkan_Dbg, bits, &g_LogOptions);
+	}
+
 	int physicalDevice = g_Vulkan->GetBestPhysicalDevice();
 	if (physicalDevice < 0) {
 		ELOG("No usable Vulkan device found.");
@@ -99,24 +104,20 @@ bool AndroidVulkanContext::InitFromRenderThread(ANativeWindow *wnd, int desiredB
 		return false;
 	}
 
-	bool success = true;
-	if (g_Vulkan->InitObjects()) {
-		draw_ = Draw::T3DCreateVulkanContext(g_Vulkan, g_Config.bGfxDebugSplitSubmit);
-		SetGPUBackend(GPUBackend::VULKAN);
-		success = draw_->CreatePresets();  // Doesn't fail, we ship the compiler.
-		_assert_msg_(G3D, success, "Failed to compile preset shaders");
-		draw_->HandleEvent(Draw::Event::GOT_BACKBUFFER, g_Vulkan->GetBackbufferWidth(), g_Vulkan->GetBackbufferHeight());
+	g_Vulkan->RecreateSwapchain();
 
-		VulkanRenderManager *renderManager = (VulkanRenderManager *)draw_->GetNativeObject(Draw::NativeObject::RENDER_MANAGER);
-		renderManager->SetInflightFrames(g_Config.iInflightFrames);
-		success = renderManager->HasBackbuffers();
-	} else {
-		success = false;
-	}
+	draw_ = Draw::T3DCreateVulkanContext(g_Vulkan, g_Config.bGfxDebugSplitSubmit);
+	SetGPUBackend(GPUBackend::VULKAN);
+	bool success = draw_->CreatePresets();  // Doesn't fail, we ship the compiler.
+	_assert_msg_(G3D, success, "Failed to compile preset shaders");
+	draw_->HandleEvent(Draw::Event::GOT_BACKBUFFER, g_Vulkan->GetBackbufferWidth(), g_Vulkan->GetBackbufferHeight());
+
+	VulkanRenderManager *renderManager = (VulkanRenderManager *)draw_->GetNativeObject(Draw::NativeObject::RENDER_MANAGER);
+	renderManager->SetInflightFrames(g_Config.iInflightFrames);
+	success = renderManager->HasBackbuffers();
 
 	ILOG("AndroidVulkanContext::Init completed, %s", success ? "successfully" : "but failed");
 	if (!success) {
-		g_Vulkan->DestroyObjects();
 		g_Vulkan->DestroyDevice();
 		g_Vulkan->DestroyInstance();
 	}
@@ -124,18 +125,20 @@ bool AndroidVulkanContext::InitFromRenderThread(ANativeWindow *wnd, int desiredB
 }
 
 void AndroidVulkanContext::ShutdownFromRenderThread() {
-	ILOG("AndroidVulkanContext::Shutdown");
+	ILOG("AndroidVulkanContext::ShutdownFromRenderThread");
 	draw_->HandleEvent(Draw::Event::LOST_BACKBUFFER, g_Vulkan->GetBackbufferWidth(), g_Vulkan->GetBackbufferHeight());
 	delete draw_;
 	draw_ = nullptr;
+
+	g_Vulkan->DestroySurface();
+
 	g_Vulkan->WaitUntilQueueIdle();
 	g_Vulkan->PerformPendingDeletes();
-	g_Vulkan->DestroyObjects();  // Also destroys the surface, a bit asymmetric
 	ILOG("Done with ShutdownFromRenderThread");
 }
 
 void AndroidVulkanContext::Shutdown() {
-	ILOG("Calling NativeShutdownGraphics");
+	ILOG("AndroidVulkanContext::Shutdown");
 	g_Vulkan->DestroyDevice();
 	g_Vulkan->DestroyInstance();
 	// We keep the g_Vulkan context around to avoid invalidating a ton of pointers around the app.
@@ -146,15 +149,15 @@ void AndroidVulkanContext::Shutdown() {
 void AndroidVulkanContext::SwapBuffers() {
 }
 
+// Is this ever called? Don't we always recreate the context?
 void AndroidVulkanContext::Resize() {
 	ILOG("AndroidVulkanContext::Resize begin (oldsize: %dx%d)", g_Vulkan->GetBackbufferWidth(), g_Vulkan->GetBackbufferHeight());
 
 	draw_->HandleEvent(Draw::Event::LOST_BACKBUFFER, g_Vulkan->GetBackbufferWidth(), g_Vulkan->GetBackbufferHeight());
-	g_Vulkan->DestroyObjects();
 
 	g_Vulkan->UpdateFlags(FlagsFromConfig());
-	g_Vulkan->ReinitSurface();
-	g_Vulkan->InitObjects();
+	g_Vulkan->RecreateSwapchain();
+
 	draw_->HandleEvent(Draw::Event::GOT_BACKBUFFER, g_Vulkan->GetBackbufferWidth(), g_Vulkan->GetBackbufferHeight());
 	ILOG("AndroidVulkanContext::Resize end (final size: %dx%d)", g_Vulkan->GetBackbufferWidth(), g_Vulkan->GetBackbufferHeight());
 }

@@ -145,14 +145,7 @@ public:
 	// The parameters are whatever the chosen window system wants.
 	// The extents will be automatically determined.
 	VkResult InitSurface(WindowSystem winsys, void *data1, void *data2);
-	VkResult ReinitSurface();
 
-	bool InitQueue();
-	bool InitObjects();
-	bool InitSwapchain();
-
-	// Also destroys the surface.
-	void DestroyObjects();
 	void DestroyDevice();
 
 	void PerformPendingDeletes();
@@ -272,8 +265,18 @@ public:
 
 	void GetImageMemoryRequirements(VkImage image, VkMemoryRequirements *mem_reqs, bool *dedicatedAllocation);
 
+	// Call this if the window was resized. Does not recreate the surface so can't switch windows (not sure why you'd
+	// want to do that though).
+	bool RecreateSwapchain();
+
+	// Only used on Android where we predictably lose the entire surface easily.
+	// This also tears down the swap chain.
+	void DestroySurface();
+
 private:
 	VkResult InitDebugUtilsCallback();
+	VkResult ReinitSurface();
+	bool InitQueue();
 
 	// A layer can expose extensions, keep track of those extensions here.
 	struct LayerProperties {

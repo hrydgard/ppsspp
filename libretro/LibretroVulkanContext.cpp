@@ -69,10 +69,6 @@ static bool create_device(retro_vulkan_context *context, VkInstance instance, Vk
 	vk->InitSurface(WINDOWSYSTEM_WAYLAND, nullptr, nullptr);
 #endif
 
-	if (!vk->InitQueue()) {
-		return false;
-	}
-
 	context->gpu = vk->GetPhysicalDevice(physical_device);
 	context->device = vk->GetDevice();
 	context->queue = vk->GetGraphicsQueue();
@@ -116,7 +112,6 @@ void LibretroVulkanContext::Shutdown() {
 
 	vk->WaitUntilQueueIdle();
 
-	vk->DestroyObjects();
 	vk->DestroyDevice();
 	vk->DestroyInstance();
 	delete vk;
@@ -140,9 +135,7 @@ void LibretroVulkanContext::CreateDrawContext() {
 	}
 	vk_libretro_set_hwrender_interface(vulkan);
 
-	vk->ReinitSurface();
-
-	if (!vk->InitSwapchain()) {
+	if (!vk->RecreateSwapchain()) {
 		return;
 	}
 

@@ -19,14 +19,13 @@
 // Initializing a Vulkan context is quite a complex task!
 // That's not really a strange thing though - you really do have control over everything,
 // and everything needs to be specified. There are no nebulous defaults.
-
-// We create a swapchain, and two framebuffers that we can point to two of the images 
+//
+// We create a swapchain, and three framebuffers that we can point to three of the images 
 // we got from the swap chain. These will be used as backbuffers.
 //
 // We also create a depth buffer. The swap chain will not allocate one for us so we need
-// to manage the memory for it ourselves.
-// The depth buffer will not really be used unless we do "non-buffered" rendering, which will happen 
-// directly to one of the backbuffers.
+// to manage the memory for it ourselves. This depth buffer is only used for non-buffered rendering
+// so if we remove that in the future, we can get rid of it.
 // 
 // Render pass usage
 //
@@ -64,9 +63,9 @@
 #include "Windows/GPU/WindowsVulkanContext.h"
 
 #ifdef _DEBUG
-static const bool g_validate_ = true;
+static constexpr bool g_validate_ = true;
 #else
-static const bool g_validate_ = false;
+static constexpr bool g_validate_ = false;
 #endif
 
 static VulkanContext *g_Vulkan;
@@ -129,11 +128,7 @@ bool WindowsVulkanContext::Init(HINSTANCE hInst, HWND hWnd, std::string *error_m
 	}
 
 	g_Vulkan->InitSurface(WINDOWSYSTEM_WIN32, (void *)hInst, (void *)hWnd);
-	if (!g_Vulkan->InitObjects()) {
-		*error_message = g_Vulkan->InitError();
-		Shutdown();
-		return false;
-	}
+	g_Vulkan->RecreateSwapchain();
 
 	bool splitSubmit = g_Config.bGfxDebugSplitSubmit;
 
@@ -160,7 +155,6 @@ void WindowsVulkanContext::Shutdown() {
 	draw_ = nullptr;
 
 	g_Vulkan->WaitUntilQueueIdle();
-	g_Vulkan->DestroyObjects();
 	g_Vulkan->DestroyDevice();
 	g_Vulkan->DestroyInstance();
 
@@ -173,12 +167,10 @@ void WindowsVulkanContext::Shutdown() {
 
 void WindowsVulkanContext::Resize() {
 	draw_->HandleEvent(Draw::Event::LOST_BACKBUFFER, g_Vulkan->GetBackbufferWidth(), g_Vulkan->GetBackbufferHeight());
-	g_Vulkan->DestroyObjects();
 
 	g_Vulkan->UpdateFlags(FlagsFromConfig());
-	g_Vulkan->ReinitSurface();
+	g_Vulkan->RecreateSwapchain();
 
-	g_Vulkan->InitObjects();
 	draw_->HandleEvent(Draw::Event::GOT_BACKBUFFER, g_Vulkan->GetBackbufferWidth(), g_Vulkan->GetBackbufferHeight());
 }
 

@@ -103,7 +103,7 @@ void VulkanQueueRunner::DestroyDeviceObjects() {
 }
 
 void VulkanQueueRunner::InitBackbufferRenderPass() {
-	VkAttachmentDescription attachments[2];
+	VkAttachmentDescription attachments[2]{};
 	attachments[0].format = vulkan_->GetSwapchainFormat();
 	attachments[0].samples = VK_SAMPLE_COUNT_1_BIT;
 	attachments[0].loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
@@ -180,7 +180,7 @@ VkRenderPass VulkanQueueRunner::GetRenderPass(const RPKey &key) {
 		return pass;
 	}
 
-	VkAttachmentDescription attachments[2] = {};
+	VkAttachmentDescription attachments[2]{};
 	attachments[0].format = VK_FORMAT_R8G8B8A8_UNORM;
 	attachments[0].samples = VK_SAMPLE_COUNT_1_BIT;
 	switch (key.colorLoadAction) {

@@ -267,6 +267,11 @@ void VulkanContext::DestroyInstance() {
 		}
 	}
 
+	if (surface_) {
+		vkDestroySurfaceKHR(instance_, surface_, nullptr);
+		surface_ = VK_NULL_HANDLE;
+	}
+
 	vkDestroyInstance(instance_, nullptr);
 	VulkanFree();
 	instance_ = VK_NULL_HANDLE;
@@ -313,28 +318,6 @@ bool VulkanContext::MemoryTypeFromProperties(uint32_t typeBits, VkFlags requirem
 	}
 	// No memory types matched, return failure
 	return false;
-}
-
-bool VulkanContext::InitObjects() {
-	if (!InitQueue()) {
-		return false;
-	}
-
-	if (!InitSwapchain()) {
-		// Destroy queue?
-		return false;
-	}
-	return true;
-}
-
-void VulkanContext::DestroyObjects() {
-	ILOG("VulkanContext::DestroyObjects (including swapchain)");
-	if (swapchain_ != VK_NULL_HANDLE)
-		vkDestroySwapchainKHR(device_, swapchain_, nullptr);
-	swapchain_ = VK_NULL_HANDLE;
-
-	vkDestroySurfaceKHR(instance_, surface_, nullptr);
-	surface_ = VK_NULL_HANDLE;
 }
 
 VkResult VulkanContext::GetInstanceLayerExtensionList(const char *layerName, std::vector<VkExtensionProperties> &extensions) {
@@ -700,20 +683,17 @@ VkResult VulkanContext::InitDebugUtilsCallback() {
 }
 
 VkResult VulkanContext::InitSurface(WindowSystem winsys, void *data1, void *data2) {
+	if (surface_) {
+		ELOG("VulkanContext: Already has a surface, can't initialize another.");
+		return VK_ERROR_INITIALIZATION_FAILED;
+	}
+
 	winsys_ = winsys;
 	winsysData1_ = data1;
 	winsysData2_ = data2;
-	return ReinitSurface();
-}
 
-VkResult VulkanContext::ReinitSurface() {
-	if (surface_ != VK_NULL_HANDLE) {
-		ILOG("Destroying Vulkan surface (%d, %d)", swapChainExtent_.width, swapChainExtent_.height);
-		vkDestroySurfaceKHR(instance_, surface_, nullptr);
-		surface_ = VK_NULL_HANDLE;
-	}
-
-	ILOG("Creating Vulkan surface for window");
+	VkResult retval;
+	ILOG("Creating Vulkan surface for window (%p, %p)", data1, data2);
 	switch (winsys_) {
 #ifdef _WIN32
 	case WINDOWSYSTEM_WIN32:
@@ -722,7 +702,8 @@ VkResult VulkanContext::ReinitSurface() {
 		win32.flags = 0;
 		win32.hwnd = (HWND)winsysData2_;
 		win32.hinstance = (HINSTANCE)winsysData1_;
-		return vkCreateWin32SurfaceKHR(instance_, &win32, nullptr, &surface_);
+		retval = vkCreateWin32SurfaceKHR(instance_, &win32, nullptr, &surface_);
+		break;
 	}
 #endif
 #if defined(__ANDROID__)
@@ -732,7 +713,8 @@ VkResult VulkanContext::ReinitSurface() {
 		VkAndroidSurfaceCreateInfoKHR android{ VK_STRUCTURE_TYPE_ANDROID_SURFACE_CREATE_INFO_KHR };
 		android.flags = 0;
 		android.window = wnd;
-		return vkCreateAndroidSurfaceKHR(instance_, &android, nullptr, &surface_);
+		retval = vkCreateAndroidSurfaceKHR(instance_, &android, nullptr, &surface_);
+		break;
 	}
 #endif
 #if defined(VK_USE_PLATFORM_METAL_EXT)
@@ -742,7 +724,8 @@ VkResult VulkanContext::ReinitSurface() {
 		metal.flags = 0;
 		metal.pLayer = winsysData1_;
 		metal.pNext = winsysData2_;
-		return vkCreateMetalSurfaceEXT(instance_, &metal, nullptr, &surface_);
+		retval = vkCreateMetalSurfaceEXT(instance_, &metal, nullptr, &surface_);
+		break;
 	}
 #endif
 #if defined(VK_USE_PLATFORM_XLIB_KHR)
@@ -752,7 +735,8 @@ VkResult VulkanContext::ReinitSurface() {
 		xlib.flags = 0;
 		xlib.dpy = (Display *)winsysData1_;
 		xlib.window = (Window)winsysData2_;
-		return vkCreateXlibSurfaceKHR(instance_, &xlib, nullptr, &surface_);
+		retval = vkCreateXlibSurfaceKHR(instance_, &xlib, nullptr, &surface_);
+		break;
 	}
 #endif
 #if defined(VK_USE_PLATFORM_XCB_KHR)
@@ -762,7 +746,8 @@ VkResult VulkanContext::ReinitSurface() {
 		xcb.flags = 0;
 		xcb.connection = (Connection *)winsysData1_;
 		xcb.window = (Window)(uintptr_t)winsysData2_;
-		return vkCreateXcbSurfaceKHR(instance_, &xcb, nullptr, &surface_);
+		retval = vkCreateXcbSurfaceKHR(instance_, &xcb, nullptr, &surface_);
+		break;
 	}
 #endif
 #if defined(VK_USE_PLATFORM_WAYLAND_KHR)
@@ -772,7 +757,8 @@ VkResult VulkanContext::ReinitSurface() {
 		wayland.flags = 0;
 		wayland.display = (wl_display *)winsysData1_;
 		wayland.surface = (wl_surface *)winsysData2_;
-		return vkCreateWaylandSurfaceKHR(instance_, &wayland, nullptr, &surface_);
+		retval = vkCreateWaylandSurfaceKHR(instance_, &wayland, nullptr, &surface_);
+		break;
 	}
 #endif
 
@@ -780,6 +766,20 @@ VkResult VulkanContext::ReinitSurface() {
 		_assert_msg_(G3D, false, "Vulkan support for chosen window system not implemented");
 		return VK_ERROR_INITIALIZATION_FAILED;
 	}
+
+	if (retval != VK_SUCCESS) {
+		ELOG("Surface creation failed: %s", VulkanResultToString(retval));
+		return retval;
+	}
+
+	// Initialize the device queue, now that we have a surface.
+	if (!InitQueue()) {
+		// What to do here?
+		vkDestroyDevice(device_, nullptr);
+		device_ = nullptr;
+		return VK_ERROR_INITIALIZATION_FAILED;
+	}
+	return VK_SUCCESS;
 }
 
 bool VulkanContext::InitQueue() {
@@ -840,6 +840,7 @@ bool VulkanContext::InitQueue() {
 	if (res != VK_SUCCESS) {
 		return false;
 	}
+
 	// If the format list includes just one entry of VK_FORMAT_UNDEFINED,
 	// the surface has no preferred format.  Otherwise, at least one
 	// supported format will be returned.
@@ -892,7 +893,26 @@ static std::string surface_transforms_to_string(VkSurfaceTransformFlagsKHR trans
 	return str;
 }
 
-bool VulkanContext::InitSwapchain() {
+void VulkanContext::DestroySurface() {
+	if (swapchain_) {
+		ILOG("Destroying swapchain");
+		vkDestroySwapchainKHR(device_, swapchain_, nullptr);
+		swapchain_ = VK_NULL_HANDLE;
+	}
+
+	if (surface_) {
+		ILOG("Destroying surface");
+		vkDestroySurfaceKHR(instance_, surface_, nullptr);
+		surface_ = VK_NULL_HANDLE;
+	}
+}
+
+bool VulkanContext::RecreateSwapchain() {
+	if (!surface_) {
+		ELOG("Can't recreate a swapchain without a surface");
+		return false;
+	}
+
 	VkResult res = vkGetPhysicalDeviceSurfaceCapabilitiesKHR(physical_devices_[physical_device_], surface_, &surfCapabilities_);
 	assert(res == VK_SUCCESS);
 	uint32_t presentModeCount;
@@ -987,9 +1007,10 @@ bool VulkanContext::InitSwapchain() {
 			assert(false);
 		}
 	} else {
-		// Let the OS rotate the image (potentially slow on many Android devices)
+		// For stranger modes (mirrors) let the OS rotate the image (potentially slow on many Android devices).
 		preTransform = VK_SURFACE_TRANSFORM_IDENTITY_BIT_KHR;
 	}
+
 	std::string preTransformStr = surface_transforms_to_string(preTransform);
 	ILOG("Chosen pretransform transform: %s", preTransformStr.c_str());
 
@@ -1001,6 +1022,8 @@ bool VulkanContext::InitSwapchain() {
 		swapChainExtent_.width &= ~31;
 	}
 
+	VkSwapchainKHR oldSwapchain = swapchain_;
+
 	VkSwapchainCreateInfoKHR swap_chain_info{ VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR };
 	swap_chain_info.surface = surface_;
 	swap_chain_info.minImageCount = desiredNumberOfSwapChainImages;
@@ -1011,12 +1034,9 @@ bool VulkanContext::InitSwapchain() {
 	swap_chain_info.preTransform = preTransform;
 	swap_chain_info.imageArrayLayers = 1;
 	swap_chain_info.presentMode = swapchainPresentMode;
-	swap_chain_info.oldSwapchain = VK_NULL_HANDLE;
+	swap_chain_info.oldSwapchain = swapchain_;
 	swap_chain_info.clipped = true;
 	swap_chain_info.imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
-	// Don't ask for TRANSFER_DST for the swapchain image, we don't use that.
-	// if (surfCapabilities_.supportedUsageFlags & VK_IMAGE_USAGE_TRANSFER_DST_BIT)
-	//	swap_chain_info.imageUsage |= VK_IMAGE_USAGE_TRANSFER_DST_BIT;
 
 #ifndef ANDROID
 	// We don't support screenshots on Android
@@ -1027,7 +1047,8 @@ bool VulkanContext::InitSwapchain() {
 
 	swap_chain_info.imageSharingMode = VK_SHARING_MODE_EXCLUSIVE;
 	swap_chain_info.queueFamilyIndexCount = 0;
-	swap_chain_info.pQueueFamilyIndices = NULL;
+	swap_chain_info.pQueueFamilyIndices = nullptr;
+
 	// OPAQUE is not supported everywhere.
 	if (surfCapabilities_.supportedCompositeAlpha & VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR) {
 		swap_chain_info.compositeAlpha = VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR;
@@ -1036,12 +1057,19 @@ bool VulkanContext::InitSwapchain() {
 		swap_chain_info.compositeAlpha = VK_COMPOSITE_ALPHA_INHERIT_BIT_KHR;
 	}
 
-	res = vkCreateSwapchainKHR(device_, &swap_chain_info, NULL, &swapchain_);
+	res = vkCreateSwapchainKHR(device_, &swap_chain_info, nullptr, &swapchain_);
+
+	if (oldSwapchain) {
+		vkDestroySwapchainKHR(device_, oldSwapchain, nullptr);
+	}
+
 	if (res != VK_SUCCESS) {
-		ELOG("vkCreateSwapchainKHR failed!");
+		ELOG("vkCreateSwapchainKHR failed! %s (oldSwapchain = %p)", VulkanResultToString(res), oldSwapchain);
 		return false;
 	}
 	ILOG("Created swapchain: %dx%d", swap_chain_info.imageExtent.width, swap_chain_info.imageExtent.height);
+
+
 	return true;
 }
 
@@ -1061,6 +1089,11 @@ void VulkanContext::PerformPendingDeletes() {
 }
 
 void VulkanContext::DestroyDevice() {
+	if (swapchain_ != VK_NULL_HANDLE) {
+		vkDestroySwapchainKHR(device_, swapchain_, nullptr);
+		swapchain_ = VK_NULL_HANDLE;
+	}
+
 	ILOG("VulkanContext::DestroyDevice (performing deletes)");
 	PerformPendingDeletes();
 

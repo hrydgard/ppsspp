@@ -92,11 +92,7 @@ bool SDLVulkanGraphicsContext::Init(SDL_Window *&window, int x, int y, int mode,
 		break;
 	}
 
-	if (!vulkan_->InitObjects()) {
-		*error_message = vulkan_->InitError();
-		Shutdown();
-		return false;
-	}
+	vulkan_->RecreateSwapchain();
 
 	draw_ = Draw::T3DCreateVulkanContext(vulkan_, false);
 	SetGPUBackend(GPUBackend::VULKAN);
@@ -116,7 +112,6 @@ void SDLVulkanGraphicsContext::Shutdown() {
 	delete draw_;
 	draw_ = nullptr;
 	vulkan_->WaitUntilQueueIdle();
-	vulkan_->DestroyObjects();
 	vulkan_->DestroyDevice();
 	vulkan_->DestroyInstance();
 	delete vulkan_;
@@ -126,9 +121,7 @@ void SDLVulkanGraphicsContext::Shutdown() {
 
 void SDLVulkanGraphicsContext::Resize() {
 	draw_->HandleEvent(Draw::Event::LOST_BACKBUFFER, vulkan_->GetBackbufferWidth(), vulkan_->GetBackbufferHeight());
-	vulkan_->DestroyObjects();
-	vulkan_->ReinitSurface();
-	vulkan_->InitObjects();
+	vulkan_->RecreateSwapchain();
 	draw_->HandleEvent(Draw::Event::GOT_BACKBUFFER, vulkan_->GetBackbufferWidth(), vulkan_->GetBackbufferHeight());
 }
 
