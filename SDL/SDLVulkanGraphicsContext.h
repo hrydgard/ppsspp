@@ -42,5 +42,4 @@ public:
 private:
 	Draw::DrawContext *draw_ = nullptr;
 	VulkanContext *vulkan_ = nullptr;
-	VulkanLogOptions g_LogOptions;
 };

@@ -23,7 +23,7 @@
 #include "Common/Vulkan/VulkanContext.h"
 #include "Common/Vulkan/VulkanDebug.h"
 
-VkBool32 VKAPI_CALL VulkanDebugUtilsCallback(
+VKAPI_ATTR VkBool32 VKAPI_CALL VulkanDebugUtilsCallback(
 	VkDebugUtilsMessageSeverityFlagBitsEXT           messageSeverity,
 	VkDebugUtilsMessageTypeFlagsEXT                  messageType,
 	const VkDebugUtilsMessengerCallbackDataEXT*      pCallbackData,

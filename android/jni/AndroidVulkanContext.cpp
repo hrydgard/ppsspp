@@ -13,8 +13,6 @@
 #include "Core/ConfigValues.h"
 #include "Core/System.h"
 
-static VulkanLogOptions g_LogOptions;
-
 AndroidVulkanContext::AndroidVulkanContext() {}
 
 AndroidVulkanContext::~AndroidVulkanContext() {
