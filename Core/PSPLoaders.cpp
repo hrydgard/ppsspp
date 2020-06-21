@@ -212,7 +212,7 @@ static const char *altBootNames[] = {
 	"disc0:/PSP_GAME/SYSDIR/EBOOT.LEI",
 	"disc0:/PSP_GAME/SYSDIR/EBOOT.DNR",
 	"disc0:/PSP_GAME/SYSDIR/DBZ2.BIN",
-	"disc0:/PSP_GAME/SYSDIR/ss.RAW",
+	//"disc0:/PSP_GAME/SYSDIR/ss.RAW",//Code Geass: Lost Colors chinese version
 };
 
 bool Load_PSP_ISO(FileLoader *fileLoader, std::string *error_string) {
