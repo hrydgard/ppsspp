@@ -1096,6 +1096,7 @@ void NativeRender(GraphicsContext *graphicsContext) {
 		}
 #endif
 	} else {
+		// ILOG("Polling graphics context");
 		graphicsContext->Poll();
 	}
 

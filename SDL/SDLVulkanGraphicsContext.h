@@ -7,6 +7,8 @@
 
 #include "thin3d/thin3d.h"
 
+class VulkanRenderManager;
+
 class SDLVulkanGraphicsContext : public GraphicsContext {
 public:
 	SDLVulkanGraphicsContext() {}
@@ -22,13 +24,9 @@ public:
 		// We don't do it this way.
 	}
 
-	void Resize() override {
-		draw_->HandleEvent(Draw::Event::LOST_BACKBUFFER, vulkan_->GetBackbufferWidth(), vulkan_->GetBackbufferHeight());
-		vulkan_->DestroyObjects();
-		vulkan_->ReinitSurface();
-		vulkan_->InitObjects();
-		draw_->HandleEvent(Draw::Event::GOT_BACKBUFFER, vulkan_->GetBackbufferWidth(), vulkan_->GetBackbufferHeight());
-	}
+	void Resize() override;
+
+	void Poll() override;
 
 	void SwapInterval(int interval) override {
 	}
@@ -42,4 +40,5 @@ public:
 private:
 	Draw::DrawContext *draw_ = nullptr;
 	VulkanContext *vulkan_ = nullptr;
+	VulkanRenderManager *renderManager_ = nullptr;
 };
