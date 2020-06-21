@@ -398,8 +398,6 @@ source_group(Windows FILES ${CommonWindows})
 set(CommonVulkan ${CommonExtra}
 	Common/Vulkan/VulkanContext.cpp
 	Common/Vulkan/VulkanContext.h
-	Common/Vulkan/VulkanDebug.cpp
-	Common/Vulkan/VulkanDebug.h
 	Common/Vulkan/VulkanImage.cpp
 	Common/Vulkan/VulkanImage.h
 	Common/Vulkan/VulkanLoader.cpp

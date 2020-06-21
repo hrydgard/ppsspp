@@ -7,7 +7,8 @@
 
 #include "base/basictypes.h"
 #include "base/display.h"
-#include "VulkanContext.h"
+#include "Common/Vulkan/VulkanContext.h"
+#include "Common/Vulkan/VulkanDebug.h"
 #include "GPU/Common/ShaderCommon.h"
 #include "Common/StringUtils.h"
 #include "Core/Config.h"
@@ -134,14 +135,6 @@ VkResult VulkanContext::CreateInstance(const CreateInfo &info) {
 			instance_extensions_enabled_.push_back(VK_EXT_DEBUG_UTILS_EXTENSION_NAME);
 			extensionsLookup_.EXT_debug_utils = true;
 			ILOG("Vulkan debug_utils validation enabled.");
-		} else if (IsInstanceExtensionAvailable(VK_EXT_DEBUG_REPORT_EXTENSION_NAME)) {
-			for (size_t i = 0; i < ARRAY_SIZE(validationLayers); i++) {
-				instance_layer_names_.push_back(validationLayers[i]);
-				device_layer_names_.push_back(validationLayers[i]);
-			}
-			instance_extensions_enabled_.push_back(VK_EXT_DEBUG_REPORT_EXTENSION_NAME);
-			extensionsLookup_.EXT_debug_report = true;
-			ILOG("Vulkan debug_report validation enabled.");
 		} else {
 			ELOG("Validation layer extension not available - not enabling Vulkan validation.");
 			flags_ &= ~VULKAN_FLAG_VALIDATE;
@@ -668,47 +661,12 @@ VkResult VulkanContext::CreateDevice() {
 	return res;
 }
 
-VkResult VulkanContext::InitDebugMsgCallback(PFN_vkDebugReportCallbackEXT dbgFunc, int bits, void *userdata) {
-	VkDebugReportCallbackEXT msg_callback;
-
-	if (!(flags_ & VULKAN_FLAG_VALIDATE)) {
-		WLOG("Not registering debug report callback - extension not enabled!");
-		return VK_SUCCESS;
-	}
-	ILOG("Registering debug report callback");
-
-	VkDebugReportCallbackCreateInfoEXT cb{VK_STRUCTURE_TYPE_DEBUG_REPORT_CREATE_INFO_EXT};
-	cb.flags = bits;
-	cb.pfnCallback = dbgFunc;
-	cb.pUserData = userdata;
-	VkResult res = vkCreateDebugReportCallbackEXT(instance_, &cb, nullptr, &msg_callback);
-	switch (res) {
-	case VK_SUCCESS:
-		msg_callbacks.push_back(msg_callback);
-		break;
-	case VK_ERROR_OUT_OF_HOST_MEMORY:
-		return VK_ERROR_INITIALIZATION_FAILED;
-	default:
-		return VK_ERROR_INITIALIZATION_FAILED;
-	}
-	return res;
-}
-
-void VulkanContext::DestroyDebugMsgCallback() {
-	if (!extensionsLookup_.EXT_debug_report)
-		return;
-	while (msg_callbacks.size() > 0) {
-		vkDestroyDebugReportCallbackEXT(instance_, msg_callbacks.back(), nullptr);
-		msg_callbacks.pop_back();
-	}
-}
-
-VkResult VulkanContext::InitDebugUtilsCallback(PFN_vkDebugUtilsMessengerCallbackEXT callback, int bits, void *userdata) {
+VkResult VulkanContext::InitDebugUtilsCallback(int bits, VulkanLogOptions *logOptions) {
 	VkDebugUtilsMessengerCreateInfoEXT callback1{VK_STRUCTURE_TYPE_DEBUG_UTILS_MESSENGER_CREATE_INFO_EXT};
 	callback1.messageSeverity = bits;
 	callback1.messageType = VK_DEBUG_UTILS_MESSAGE_TYPE_GENERAL_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_TYPE_VALIDATION_BIT_EXT | VK_DEBUG_UTILS_MESSAGE_TYPE_PERFORMANCE_BIT_EXT;
-	callback1.pfnUserCallback = callback;
-	callback1.pUserData = userdata;
+	callback1.pfnUserCallback = &VulkanDebugUtilsCallback;
+	callback1.pUserData = (void *)logOptions;
 	VkDebugUtilsMessengerEXT messenger;
 	VkResult res = vkCreateDebugUtilsMessengerEXT(instance_, &callback1, nullptr, &messenger);
 	if (res != VK_SUCCESS) {
@@ -1444,37 +1402,4 @@ std::string FormatDriverVersion(const VkPhysicalDeviceProperties &props) {
 	uint32_t minor = VK_VERSION_MINOR(props.driverVersion);
 	uint32_t branch = VK_VERSION_PATCH(props.driverVersion);
 	return StringFromFormat("%d.%d.%d (%08x)", major, minor, branch, props.driverVersion);
-}
-
-const char *VulkanObjTypeToString(VkDebugReportObjectTypeEXT type) {
-	switch (type) {
-	case VK_DEBUG_REPORT_OBJECT_TYPE_INSTANCE_EXT: return "Instance";
-	case VK_DEBUG_REPORT_OBJECT_TYPE_PHYSICAL_DEVICE_EXT: return "PhysicalDevice";
-	case VK_DEBUG_REPORT_OBJECT_TYPE_DEVICE_EXT: return "Device";
-	case VK_DEBUG_REPORT_OBJECT_TYPE_QUEUE_EXT: return "Queue";
-	case VK_DEBUG_REPORT_OBJECT_TYPE_COMMAND_BUFFER_EXT: return "CommandBuffer";
-	case VK_DEBUG_REPORT_OBJECT_TYPE_DEVICE_MEMORY_EXT: return "DeviceMemory";
-	case VK_DEBUG_REPORT_OBJECT_TYPE_BUFFER_EXT: return "Buffer";
-	case VK_DEBUG_REPORT_OBJECT_TYPE_BUFFER_VIEW_EXT: return "BufferView";
-	case VK_DEBUG_REPORT_OBJECT_TYPE_IMAGE_EXT: return "Image";
-	case VK_DEBUG_REPORT_OBJECT_TYPE_IMAGE_VIEW_EXT: return "ImageView";
-	case VK_DEBUG_REPORT_OBJECT_TYPE_SHADER_MODULE_EXT: return "ShaderModule";
-	case VK_DEBUG_REPORT_OBJECT_TYPE_PIPELINE_EXT: return "Pipeline";
-	case VK_DEBUG_REPORT_OBJECT_TYPE_PIPELINE_LAYOUT_EXT: return "PipelineLayout";
-	case VK_DEBUG_REPORT_OBJECT_TYPE_SAMPLER_EXT: return "Sampler";
-	case VK_DEBUG_REPORT_OBJECT_TYPE_DESCRIPTOR_SET_EXT: return "DescriptorSet";
-	case VK_DEBUG_REPORT_OBJECT_TYPE_DESCRIPTOR_SET_LAYOUT_EXT: return "DescriptorSetLayout";
-	case VK_DEBUG_REPORT_OBJECT_TYPE_DESCRIPTOR_POOL_EXT: return "DescriptorPool";
-	case VK_DEBUG_REPORT_OBJECT_TYPE_FENCE_EXT: return "Fence";
-	case VK_DEBUG_REPORT_OBJECT_TYPE_SEMAPHORE_EXT: return "Semaphore";
-	case VK_DEBUG_REPORT_OBJECT_TYPE_EVENT_EXT: return "Event";
-	case VK_DEBUG_REPORT_OBJECT_TYPE_QUERY_POOL_EXT: return "QueryPool";
-	case VK_DEBUG_REPORT_OBJECT_TYPE_FRAMEBUFFER_EXT: return "Framebuffer";
-	case VK_DEBUG_REPORT_OBJECT_TYPE_RENDER_PASS_EXT: return "RenderPass";
-	case VK_DEBUG_REPORT_OBJECT_TYPE_PIPELINE_CACHE_EXT: return "PipelineCache";
-	case VK_DEBUG_REPORT_OBJECT_TYPE_SURFACE_KHR_EXT: return "SurfaceKHR";
-	case VK_DEBUG_REPORT_OBJECT_TYPE_SWAPCHAIN_KHR_EXT: return "SwapChainKHR";
-	case VK_DEBUG_REPORT_OBJECT_TYPE_COMMAND_POOL_EXT: return "CommandPool";
-	default: return "";
-	}
 }
