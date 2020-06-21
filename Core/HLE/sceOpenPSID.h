@@ -20,3 +20,4 @@
 void __sceOpenPSIDInit();
 
 void Register_sceOpenPSID();
+void Register_sceOpenPSID_driver();
