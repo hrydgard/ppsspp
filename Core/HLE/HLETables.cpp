@@ -302,7 +302,7 @@ void RegisterAllModules() {
 	Register_KUBridge();
 	Register_sceUsbAcc();
 	Register_sceUsbMic();
-
+	Register_sceOpenPSID_driver();
 	// add new modules here.
 }
 
