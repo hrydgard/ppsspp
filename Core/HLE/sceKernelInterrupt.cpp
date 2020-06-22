@@ -767,7 +767,7 @@ static int sysclib_strstr(u32 s1, u32 s2) {
 }
 
 static int sysclib_strncmp(u32 s1, u32 s2, u32 size) {
-	ERROR_LOG(SCEKERNEL, "Untested sysclib_strncmp(%08x, %08x, x)", s1, s2, size);
+	ERROR_LOG(SCEKERNEL, "Untested sysclib_strncmp(%08x, %08x, %08x)", s1, s2, size);
 	if (Memory::IsValidAddress(s1) && Memory::IsValidAddress(s2)) {
 		const char * str1 = Memory::GetCharPointer(s1);
 		const char * str2 = Memory::GetCharPointer(s2);
@@ -777,7 +777,7 @@ static int sysclib_strncmp(u32 s1, u32 s2, u32 size) {
 }
 
 static u32 sysclib_memmove(u32 dst, u32 src, u32 size) {
-	ERROR_LOG(SCEKERNEL, "Untested sysclib_memmove(%08x, %08x, x)", dst, src, size);
+	ERROR_LOG(SCEKERNEL, "Untested sysclib_memmove(%08x, %08x, %08x)", dst, src, size);
 	if (Memory::IsValidRange(dst, size) && Memory::IsValidRange(src, size)) {
 		memmove(Memory::GetPointer(dst), Memory::GetPointer(src), size);
 	}

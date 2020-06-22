@@ -225,9 +225,8 @@ void __PPGeInit() {
 
 	if (loadedZIM) {
 		size_t atlas_data_size;
-		uint8_t *atlas_data;
 		if (!g_ppge_atlas.IsMetadataLoaded()) {
-			atlas_data = VFSReadFile("ppge_atlas.meta", &atlas_data_size);
+			uint8_t *atlas_data = VFSReadFile("ppge_atlas.meta", &atlas_data_size);
 			if (atlas_data)
 				g_ppge_atlas.Load(atlas_data, atlas_data_size);
 			delete[] atlas_data;
@@ -262,7 +261,7 @@ void __PPGeInit() {
 		u8 cval = (a2 << 4) | a1;
 		ramPtr[i] = cval;
 	}
-	
+
 	free(imageData[0]);
 
 	// We can't create it here, because Android needs it on the right thread.
@@ -271,7 +270,7 @@ void __PPGeInit() {
 	textDrawer = nullptr;
 	textDrawerImages.clear();
 
-	DEBUG_LOG(SCEGE, "PPGe drawing library initialized. DL: %08x Data: %08x Atlas: %08x (%i) Args: %08x",
+	INFO_LOG(SCEGE, "PPGe drawing library initialized. DL: %08x Data: %08x Atlas: %08x (%i) Args: %08x",
 		dlPtr, dataPtr, atlasPtr, atlasSize, listArgs.ptr);
 }
 
