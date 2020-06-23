@@ -88,6 +88,9 @@ VkResult VulkanContext::CreateInstance(const CreateInfo &info) {
 		return VK_ERROR_INITIALIZATION_FAILED;
 	}
 
+	instance_layer_names_.clear();
+	device_layer_names_.clear();
+
 	// We can get the list of layers and extensions without an instance so we can use this information
 	// to enable the extensions we need that are available.
 	GetInstanceLayerProperties();
@@ -177,7 +180,7 @@ VkResult VulkanContext::CreateInstance(const CreateInfo &info) {
 #endif
 	if (res != VK_SUCCESS) {
 		if (res == VK_ERROR_LAYER_NOT_PRESENT) {
-			WLOG("Validation on but layers not available - dropping layers");
+			WLOG("Validation on but instance layer not available - dropping layers");
 			// Drop the validation layers and try again.
 			instance_layer_names_.clear();
 			device_layer_names_.clear();
