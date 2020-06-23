@@ -1087,13 +1087,11 @@ void NativeRender(GraphicsContext *graphicsContext) {
 		graphicsContext->Resize();
 		screenManager->resized();
 
-		// TODO: Move this to new GraphicsContext objects for each backend.
-#ifndef _WIN32
-		if (GetGPUBackend() == GPUBackend::OPENGL) {
-			PSP_CoreParameter().pixelWidth = pixel_xres;
-			PSP_CoreParameter().pixelHeight = pixel_yres;
-			NativeMessageReceived("gpu_resized", "");
-		}
+		// TODO: Move this to the GraphicsContext objects for each backend.
+#if !defined(_WIN32) && !defined(ANDROID)
+		PSP_CoreParameter().pixelWidth = pixel_xres;
+		PSP_CoreParameter().pixelHeight = pixel_yres;
+		NativeMessageReceived("gpu_resized", "");
 #endif
 	} else {
 		// ILOG("Polling graphics context");

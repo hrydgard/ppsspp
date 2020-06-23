@@ -292,8 +292,8 @@ void GPU_Vulkan::BeginHostFrame() {
 		if (vulkan_->GetDeviceFeatures().enabled.wideLines) {
 			drawEngine_.SetLineWidth(PSP_CoreParameter().renderWidth / 480.0f);
 		}
+		resized_ = false;
 	}
-	resized_ = false;
 
 	textureCacheVulkan_->StartFrame();
 

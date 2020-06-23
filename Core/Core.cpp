@@ -187,7 +187,7 @@ bool UpdateScreenScale(int width, int height) {
 		dp_yres = new_dp_yres;
 		pixel_xres = width;
 		pixel_yres = height;
-		DEBUG_LOG(SYSTEM, "pixel_res: %dx%d. Calling NativeResized()", pixel_xres, pixel_yres);
+		ILOG("pixel_res: %dx%d. Calling NativeResized()", pixel_xres, pixel_yres);
 		NativeResized();
 		return true;
 	}
