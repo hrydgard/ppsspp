@@ -9,8 +9,15 @@
 
 #include "Core/System.h"
 #include "SDLVulkanGraphicsContext.h"
+
 #if defined(VK_USE_PLATFORM_METAL_EXT)
 #include "SDLCocoaMetalLayer.h"
+#endif
+
+#ifdef _DEBUG
+static const bool g_Validate = true;
+#else
+static const bool g_Validate = false;
 #endif
 
 bool SDLVulkanGraphicsContext::Init(SDL_Window *&window, int x, int y, int mode, std::string *error_message) {
@@ -35,7 +42,10 @@ bool SDLVulkanGraphicsContext::Init(SDL_Window *&window, int x, int y, int mode,
 
 	vulkan_ = new VulkanContext();
 	int vulkanFlags = VULKAN_FLAG_PRESENT_MAILBOX;
-	// vulkanFlags |= VULKAN_FLAG_VALIDATE;
+	if (g_Validate) {
+		vulkanFlags |= VULKAN_FLAG_VALIDATE;
+	}
+
 	VulkanContext::CreateInfo info{};
 	info.app_name = "PPSSPP";
 	info.app_ver = gitVer.ToInteger();
