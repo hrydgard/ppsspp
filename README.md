@@ -56,6 +56,8 @@ What's new in 1.10.0
 * Frames in-flight now configurable to reduce input lag at the cost of speed (#12660)
 * Add toggle mode to combo button (#12623)
 * SDL mouse support, Qt menu upgrades (#12612, #12817)
+* Real support "Hatsune Miku Project Diva Extend" chinese patched version (#13007)
+* Some minor kernel module support (#13028,#12225,#13026,#13004,#13038,#13023)
 
 What's new in 1.9.0/1.9.3
 -------------------------
