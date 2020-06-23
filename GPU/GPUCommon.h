@@ -340,7 +340,7 @@ protected:
 	bool dumpThisFrame_;
 	bool debugRecording_;
 	bool interruptsEnabled_;
-	bool resized_;
+	bool resized_ = false;
 	DrawType lastDraw_ = DRAW_UNKNOWN;
 	GEPrimitiveType lastPrim_ = GE_PRIM_INVALID;
 
