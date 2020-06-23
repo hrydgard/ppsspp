@@ -39,7 +39,7 @@ What's new in 1.10.0
 * Ghost in the Shell graphics fixed (JIT inaccuracy with inf*0) (#12519)
 * Mac build now supports Vulkan on top of MoltenVK (#12583)
 * Raspberry Pi 4 EGL crash fixed (#12474)
-* VSync now supported on all backends, frame duplication option added for 30 Hz games
+* VSync now supported on all backends, frame duplication option added for 30 Hz games (#12659, #12602)
 * Camera supported on Windows, Linux and Mac (still no microphone though) (#12572, #12580, #12607)
 * Darkstalkers fixed and working through software rendering. SW rendering fixed on GLES 2.0 (#12443, #12898)
 * Hot Shots Golf slowdown and flicker on Vulkan fixed (#12873, #12746)
@@ -56,8 +56,8 @@ What's new in 1.10.0
 * Frames in-flight now configurable to reduce input lag at the cost of speed (#12660)
 * Add toggle mode to combo button (#12623)
 * SDL mouse support, Qt menu upgrades (#12612, #12817)
-* Real support "Hatsune Miku Project Diva Extend" chinese patched version (#13007)
-* Some minor kernel module support (#13028,#12225,#13026,#13004,#13038,#13023)
+* Real support for chinese patched version of Hatsune Miku Project Diva Extend (#13007)
+* Some minor kernel module support (#13028, #12225, #13026, #13004, #13038, #13023)
 
 What's new in 1.9.0/1.9.3
 -------------------------
