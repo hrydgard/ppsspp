@@ -17,7 +17,7 @@ No BIOS file required to play, PPSSPP is an "HLE" emulator.  Default settings ba
 
 To contribute, see [the development page](https://www.ppsspp.org/development.html).  Help testing, investigating, or fixing is always welcome.  See [the list of issues](https://github.com/hrydgard/ppsspp/issues).
 
-For the latest source code, see [our github page](https://github.com/hrydgard/ppsspp).
+For the latest source code, see [our GitHub page](https://github.com/hrydgard/ppsspp).
 
 For build instructions and other development tutorials, see [the wiki](https://github.com/hrydgard/ppsspp/wiki).
 
@@ -58,6 +58,7 @@ What's new in 1.10.0
 * SDL mouse support, Qt menu upgrades (#12612, #12817)
 * Real support for chinese patched version of Hatsune Miku Project Diva Extend (#13007)
 * Some minor kernel module support (#13028, #12225, #13026, #13004, #13038, #13023)
+* Fixed fullscreen toggling with Vulkan in SDL builds (#11974)
 
 What's new in 1.9.0/1.9.3
 -------------------------
