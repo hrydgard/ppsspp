@@ -1,4 +1,4 @@
-﻿PPSSPP - a fast and portable PSP emulator
+PPSSPP - a fast and portable PSP emulator
 =========================================
 
 Created by Henrik Rydgård
@@ -17,13 +17,50 @@ No BIOS file required to play, PPSSPP is an "HLE" emulator.  Default settings ba
 
 To contribute, see [the development page](https://www.ppsspp.org/development.html).  Help testing, investigating, or fixing is always welcome.  See [the list of issues](https://github.com/hrydgard/ppsspp/issues).
 
-For the latest source code, see [our github page](https://github.com/hrydgard/ppsspp).
+For the latest source code, see [our GitHub page](https://github.com/hrydgard/ppsspp).
 
 For build instructions and other development tutorials, see [the wiki](https://github.com/hrydgard/ppsspp/wiki).
 
 If you want to download regularly updated builds for Android, Windows x86 and x64, proceed to this [page](https://buildbot.orphis.net/ppsspp/)
 
 For game compatibility, see [community compatibility feedback](https://report.ppsspp.org/games).
+
+What's new in 1.10.0
+--------------------
+* Graphics and compatibility fixes (#12800, #12670, #12635, #12857, #12941, #11898, #12695, more)
+* Assorted minor performance improvements, game load speedup (#12462, #12652)
+* Screen inset (notch) support on Android (#12779)
+* Analog stick support for menu navigation (#12685)
+* Fixed audio glitches in SDL builds (#12916, #12920)
+* Support more languages in in-game dialogs (#12702). Croatian language added to PPSSPP.
+* Simple multiplayer chat (#12667)
+* More advanced postprocessing (multipass, parameters) (#12905, #12901)
+* Add PPSSPP-specific CWCheat (#12816, #12912)
+* Reintroduce Cardboard VR, allow more resolutions (#12449, #8714)
+* Fix some crashes (#12908, #12876)
+* Ghost in the Shell graphics fixed (JIT inaccuracy with inf*0) (#12519)
+* Mac build now supports Vulkan on top of MoltenVK (#12583)
+* Raspberry Pi 4 EGL crash fixed (#12474)
+* VSync now supported on all backends, frame duplication option added for 30 Hz games (#12659, #12602)
+* Camera supported on Windows, Linux and Mac (still no microphone though) (#12572, #12580, #12607)
+* Darkstalkers fixed and working through software rendering. SW rendering fixed on GLES 2.0 (#12443, #12898)
+* Hot Shots Golf slowdown and flicker on Vulkan fixed (#12873, #12746)
+* Pangya Golf crashes and hangs fixed (#12718)
+* Allow rebinding of right touch screen analog (#12486)
+* Add option to prevent mipmaps from being dumped (#12818)
+* Tilt control now have a base radius to help with deadzone (#12756)
+* Mappable auto rotating analog stick to pass some game checks (#12749)
+* Touch control position can now be snapped to a grid (#12517)
+* HiDPI retina display support (#12552)
+* Rapid-fire on touch control (#12601)
+* Toggle mute button (#12643)
+* Add option to resize game icons and more (#12646, #12637)
+* Frames in-flight now configurable to reduce input lag at the cost of speed (#12660)
+* Add toggle mode to combo button (#12623)
+* SDL mouse support, Qt menu upgrades (#12612, #12817)
+* Real support for chinese patched version of Hatsune Miku Project Diva Extend (#13007)
+* Some minor kernel module support (#13028, #12225, #13026, #13004, #13038, #13023)
+* Fixed fullscreen toggling with Vulkan in SDL builds (#11974)
 
 What's new in 1.9.0/1.9.3
 -------------------------
@@ -117,51 +154,6 @@ What's new in 1.7.0
 * Task switching made a lot more robust (fixes GPD XD problems) (#11447)
 * Texture decoding optimizations (#11350)
 * Tons and tons of miscellaneous bugfixes and compatibility fixes
-
-What's new in 1.6.3
--------------------
-* Crashfixes, task switching and one in Phantasy Star Portable
-* Improve graphics in PoP on some devices
-
-What's new in 1.6.1, 1.6.2
---------------------------
-* Crashfixes
-* Fix broken graphics in flOw.
-
-What's new in 1.6.0
--------------------
-* OpenGL backend now properly multithreaded, giving a good speed boost.
-* Various Vulkan performance improvements (like #10911) and memory allocation fixes.
-* GPU command interpreter performance improvements (#10658)
-* Various fixes for app switching and widgets (#10855) on Android
-* Bugfixes and some performance improvements in the ARM64 JIT compiler and IR interpreter
-* Shader cache enabled for Vulkan
-* Multiple iOS fixes, including JIT (#10465) and file browser (#10921).
-* Improved compatibility on Mac (#10113)
-* Texture replacement ID bugfix (note: some textures from 1.5.4 may become incompatible)
-* Adhoc multiplayer fixes (#8975)
-* Vulkan support on Linux/SDL (#10413)
-* Retroarch support
-
-What's new in 1.5.4
--------------------
-* Bugfixes and crashfixes!
-
-What's new in 1.5.0
--------------------
-* Full Vulkan support, also for Android now. Very fast on supported devices. (#10033, #10049)
-* Smarter graphics state management, reduced CPU consumption on all backends (#9899)
-* Android: Support for Arabic and other scripts we couldn't support before
-* Fix Android widgets, screen scaling (#10145)
-* Fixes to video dumping
-* Geometry problems fixed in Medal of Honor
-* Implement immediate draws, fixing Thrillville (#7459)
-* Software rendering improvements, speed and accuracy
-* Hardware tesselation of PSP Beziers and Splines (used by a few games)
-* Partial sceUsbGps and sceUsbCam support (Android)
-* Android "Sustained performance mode" to avoid thermal throttling (#9901)
-* Linux controller mapping fixes (#9997)
-* Assorted bugfixes and compatibility improvements
 
 Looking for [older news](history.md)?
 
