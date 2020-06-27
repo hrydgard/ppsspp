@@ -24,9 +24,9 @@
 #include "base/logging.h"
 #include "util/text/utf8.h"
 
-bool MsgHandler(const char *caption, const char *text, bool yes_no, int Style);
+bool MsgHandler(const char *caption, const char *text, const char *file, int line, bool yes_no, int Style);
 
-bool MsgAlert(bool yes_no, int Style, const char* format, ...) {
+bool MsgAlert(bool yes_no, int Style, const char *file, int line, const char* format,  ...) {
 	// Read message and write it to the log
 	char buffer[2048];
 	static const char *captions[] = {
@@ -42,10 +42,10 @@ bool MsgAlert(bool yes_no, int Style, const char* format, ...) {
 	CharArrayFromFormatV(buffer, sizeof(buffer)-1, format, args);
 	va_end(args);
 	// Normal logging (will also log to Android log)
-	ERROR_LOG(SYSTEM, "%s: %s", caption, buffer);
+	ERROR_LOG(SYSTEM, "(%s:%d) %s: %s", file, line, caption, buffer);
 	// Don't ignore questions, especially AskYesNo, PanicYesNo could be ignored
 	if (Style == QUESTION || Style == CRITICAL)
-		return MsgHandler(caption, buffer, yes_no, Style);
+		return MsgHandler(caption, buffer, file, line, yes_no, Style);
 	return true;
 }
 
@@ -54,7 +54,7 @@ bool MsgAlert(bool yes_no, int Style, const char* format, ...) {
 #endif
 
 // Default non library dependent panic alert
-bool MsgHandler(const char* caption, const char* text, bool yes_no, int Style) {
+bool MsgHandler(const char* caption, const char* text, const char *file, int line, bool yes_no, int Style) {
 #if defined(USING_WIN_UI)
 	int msgBoxStyle = MB_ICONINFORMATION;
 	if (Style == QUESTION) msgBoxStyle = MB_ICONQUESTION;
@@ -69,7 +69,7 @@ bool MsgHandler(const char* caption, const char* text, bool yes_no, int Style) {
 	return false;
 #else
 	// Will use android-log if available, printf if not.
-	ELOG("%s", text);
+	ELOG("(%s:%d) %s", file, line, text);
 	return false;
 #endif
 }
