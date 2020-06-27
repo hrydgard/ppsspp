@@ -793,7 +793,7 @@ int main(int argc, char *argv[]) {
 					g_Config.bFullScreen = fullscreen;
 
 					// Hide/Show cursor correctly toggling fullscreen
-					if (lastUIState == UISTATE_INGAME && fullscreen && !g_Config.bShowTouchControls) {
+					if (lastUIState == UISTATE_INGAME && fullscreen && !g_Config.bShowTouchControls && !g_Config.bShowDeveloperMenu) {
 						SDL_ShowCursor(SDL_DISABLE);
 					} else if (lastUIState != UISTATE_INGAME || !fullscreen) {
 						SDL_ShowCursor(SDL_ENABLE);
