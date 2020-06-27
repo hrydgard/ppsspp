@@ -1040,7 +1040,7 @@ void VulkanRenderManager::BeginSubmitFrame(int frame) {
 			// Hopefully the resize will happen shortly. Ignore - one frame might look bad or something.
 			WLOG("VK_SUBOPTIMAL_KHR returned - ignoring");
 		} else if (res == VK_ERROR_OUT_OF_DATE_KHR) {
-			WLOG("VK_ERROR_OUT_OF_DATE_KHR returned - not presenting");
+			WLOG("VK_ERROR_OUT_OF_DATE_KHR returned - processing the frame, but not presenting");
 			frameData.skipSwap = true;
 		} else {
 			_assert_msg_(G3D, res == VK_SUCCESS, "vkAcquireNextImageKHR failed! result=%s", VulkanResultToString(res));
@@ -1084,11 +1084,7 @@ void VulkanRenderManager::Submit(int frame, bool triggerFrameFence) {
 			submit_info.pCommandBuffers = cmdBufs;
 			res = vkQueueSubmit(vulkan_->GetGraphicsQueue(), 1, &submit_info, VK_NULL_HANDLE);
 			if (res == VK_ERROR_DEVICE_LOST) {
-#ifdef _WIN32
-				_assert_msg_(G3D, false, "Lost the Vulkan device! If this happens again, switch Graphics Backend from Vulkan to Direct3D11");
-#else
-				_assert_msg_(G3D, false, "Lost the Vulkan device! If this happens again, switch Graphics Backend from Vulkan to OpenGL");
-#endif
+				_assert_msg_(G3D, false, "Lost the Vulkan device in split submit! If this happens again, switch Graphics Backend away from Vulkan");
 			} else {
 				_assert_msg_(G3D, res == VK_SUCCESS, "vkQueueSubmit failed (init)! result=%s", VulkanResultToString(res));
 			}
@@ -1112,11 +1108,7 @@ void VulkanRenderManager::Submit(int frame, bool triggerFrameFence) {
 	}
 	res = vkQueueSubmit(vulkan_->GetGraphicsQueue(), 1, &submit_info, triggerFrameFence ? frameData.fence : frameData.readbackFence);
 	if (res == VK_ERROR_DEVICE_LOST) {
-#ifdef _WIN32
-		_assert_msg_(G3D, false, "Lost the Vulkan device! If this happens again, switch Graphics Backend from Vulkan to Direct3D11");
-#else
-		_assert_msg_(G3D, false, "Lost the Vulkan device! If this happens again, switch Graphics Backend from Vulkan to OpenGL");
-#endif
+		_assert_msg_(G3D, false, "Lost the Vulkan device in vkQueueSubmit! If this happens again, switch Graphics Backend away from Vulkan");
 	} else {
 		_assert_msg_(G3D, res == VK_SUCCESS, "vkQueueSubmit failed (main, split=%d)! result=%s", (int)splitSubmit_, VulkanResultToString(res));
 	}

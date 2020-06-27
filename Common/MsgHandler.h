@@ -25,13 +25,13 @@ enum MSG_TYPE {
 	CRITICAL
 };
 
-bool MsgAlert(bool yes_no, int Style, const char* format, ...)
+bool MsgAlert(bool yes_no, int Style, const char *file, int line, const char* format, ...)
 #ifdef __GNUC__
-	__attribute__((format(printf, 3, 4)))
+	__attribute__((format(printf, 5, 6)))
 #endif
 	;
 
-#define PanicAlert(...) MsgAlert(false, WARNING, __VA_ARGS__) 
+#define PanicAlert(...) MsgAlert(false, WARNING, __FILE__, __LINE__, __VA_ARGS__)
 
 // Used only for asserts.
-#define PanicYesNo(...) MsgAlert(true, CRITICAL, __VA_ARGS__) 
+#define PanicYesNo(...) MsgAlert(true, CRITICAL, __FILE__, __LINE__, __VA_ARGS__)
