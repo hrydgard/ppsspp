@@ -13,7 +13,7 @@ if(ANDROID)
 set(ENABLE_HLSL OFF CACHE BOOL "let's not build HLSL support we don't need" FORCE)
 endif()
 
-add_subdirectory(glslang)
+add_subdirectory(glslang EXCLUDE_FROM_ALL)
 add_subdirectory(snappy)
 add_subdirectory(udis86)
 add_subdirectory(SPIRV-Cross-build)
