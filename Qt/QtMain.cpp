@@ -48,9 +48,9 @@ static int browseFileEvent = -1;
 static int browseFolderEvent = -1;
 QTCamera *qtcamera = nullptr;
 
+#ifdef SDL
 SDL_AudioSpec g_retFmt;
 
-#ifdef SDL
 static SDL_AudioDeviceID audioDev = 0;
 
 extern void mixaudio(void *userdata, Uint8 *stream, int len) {
@@ -147,10 +147,12 @@ std::string System_GetProperty(SystemProperty prop) {
 
 int System_GetPropertyInt(SystemProperty prop) {
 	switch (prop) {
+#if defined(SDL)
 	case SYSPROP_AUDIO_SAMPLE_RATE:
 		return g_retFmt.freq;
 	case SYSPROP_AUDIO_FRAMES_PER_BUFFER:
 		return g_retFmt.samples;
+#endif
 	case SYSPROP_DEVICE_TYPE:
 #if defined(__ANDROID__)
 		return DEVICE_TYPE_MOBILE;
