@@ -2,8 +2,8 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     package="org.ppsspp.ppsspp"
     android:installLocation="auto"
-    android:versionCode="19030000"
-    android:versionName="1.9.3.0">
+    android:versionCode="110000000"
+    android:versionName="1.10.0.0">
     <!-- Note that versionCode should be in the format xyzzrrrr. Example: 16030000 -->
     <!-- In this same case, versionName should be 1.6.3.0 -->
     <!-- Also note that we are overriding these values anyway from gradle. -->
