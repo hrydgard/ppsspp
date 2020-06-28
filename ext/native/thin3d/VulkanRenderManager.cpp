@@ -1031,14 +1031,11 @@ void VulkanRenderManager::BeginSubmitFrame(int frame) {
 		if (res == VK_SUBOPTIMAL_KHR) {
 			// Hopefully the resize will happen shortly. Ignore - one frame might look bad or something.
 			WLOG("VK_SUBOPTIMAL_KHR returned - ignoring");
-			outOfDateFrames_++;
 		} else if (res == VK_ERROR_OUT_OF_DATE_KHR) {
 			WLOG("VK_ERROR_OUT_OF_DATE_KHR returned - not presenting");
 			frameData.skipSwap = true;
-			outOfDateFrames_++;
 		} else {
 			_assert_msg_(G3D, res == VK_SUCCESS, "vkAcquireNextImageKHR failed! result=%s", VulkanResultToString(res));
-			outOfDateFrames_ = 0;
 		}
 
 		VkCommandBufferBeginInfo begin{ VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO };
@@ -1141,13 +1138,22 @@ void VulkanRenderManager::EndSubmitFrame(int frame) {
 		present.waitSemaphoreCount = 1;
 
 		VkResult res = vkQueuePresentKHR(vulkan_->GetGraphicsQueue(), &present);
-		// TODO: Deal with VK_SUBOPTIMAL_KHR ?
-		if (res == VK_ERROR_OUT_OF_DATE_KHR || res == VK_SUBOPTIMAL_KHR) {
-			// ignore, it'll be fine. this happens sometimes during resizes, and we do make sure to recreate the swap chain.
+		// TODO: Deal with VK_SUBOPTIMAL_KHR here too?
+		if (res == VK_ERROR_OUT_OF_DATE_KHR) {
+			// We clearly didn't get this in vkAcquireNextImageKHR because of the skipSwap check above.
+			// Do the increment.
+			outOfDateFrames_++;
+		} else if (res == VK_SUBOPTIMAL_KHR) {
+			outOfDateFrames_++;
+		} else if (res != VK_SUCCESS) {
+			_assert_msg_(G3D, false, "vkQueuePresentKHR failed! result=%s", VulkanResultToString(res));
 		} else {
-			_assert_msg_(G3D, res == VK_SUCCESS, "vkQueuePresentKHR failed! result=%s", VulkanResultToString(res));
+			// Success
+			outOfDateFrames_ = 0;
 		}
 	} else {
+		// We only get here if vkAcquireNextImage returned VK_ERROR_OUT_OF_DATE.
+		outOfDateFrames_++;
 		frameData.skipSwap = false;
 	}
 }
