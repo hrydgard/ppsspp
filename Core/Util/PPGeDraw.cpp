@@ -797,7 +797,7 @@ static PPGeTextDrawerImage PPGeGetTextImage(const char *text, PPGeAlign align, f
 	}
 
 	PPGeTextDrawerCacheKey key{ text, tdalign, maxWidth / scale };
-	PPGeTextDrawerImage im;
+	PPGeTextDrawerImage im{};
 
 	auto cacheItem = textDrawerImages.find(key);
 	if (cacheItem != textDrawerImages.end()) {
@@ -843,6 +843,10 @@ static PPGeTextDrawerImage PPGeGetTextImage(const char *text, PPGeAlign align, f
 }
 
 static void PPGeDrawTextImage(PPGeTextDrawerImage im, float x, float y, PPGeAlign align, float scale, u32 color) {
+	if (!im.ptr) {
+		return;
+	}
+
 	int bufw = ((im.entry.bmWidth + 31) / 32) * 32;
 	int wp2 = GetPow2(im.entry.bmWidth);
 	int hp2 = GetPow2(im.entry.bmHeight);
@@ -874,6 +878,10 @@ static void PPGeDrawTextImage(PPGeTextDrawerImage im, float x, float y, PPGeAlig
 }
 
 void PPGeDrawText(const char *text, float x, float y, PPGeAlign align, float scale, u32 color) {
+	if (!text || !strlen(text)) {
+		return;
+	}
+
 	if (HasTextDrawer()) {
 		PPGeTextDrawerImage im = PPGeGetTextImage(text, align, scale, 480.0f - x, false);
 		PPGeDrawTextImage(im, x, y, align, scale, color);
