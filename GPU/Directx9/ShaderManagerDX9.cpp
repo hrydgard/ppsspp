@@ -251,9 +251,9 @@ static void ConvertProjMatrixToD3D(Matrix4x4 &in, bool invertedX, bool invertedY
 
 	float yoff = -1.0f / gstate_c.curRTRenderHeight;
 	if (invertedY) {
-		yoff = gstate_c.vpYOffset - yoff;
-	} else {
 		yoff = -gstate_c.vpYOffset - yoff;
+	} else {
+		yoff = gstate_c.vpYOffset - yoff;
 	}
 
 	const Vec3 trans(xoff, yoff, gstate_c.vpZOffset * 0.5f + 0.5f);
