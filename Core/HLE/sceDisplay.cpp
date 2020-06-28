@@ -754,12 +754,15 @@ void __DisplayFlip(int cyclesLate) {
 	// Also let's always flip for animated shaders.
 	const ShaderInfo *shaderInfo = g_Config.sPostShaderName == "Off" ? nullptr : GetPostShaderInfo(g_Config.sPostShaderName);
 	bool postEffectRequiresFlip = false;
+
+	bool duplicateFrames = g_Config.bRenderDuplicateFrames && g_Config.iFrameSkip == 0;
+
 	// postEffectRequiresFlip is not compatible with frameskip unthrottling, see #12325.
 	if (g_Config.iRenderingMode != FB_NON_BUFFERED_MODE && !(g_Config.bFrameSkipUnthrottle && !FrameTimingThrottled())) {
 		if (shaderInfo) {
-			postEffectRequiresFlip = (shaderInfo->requires60fps || g_Config.bRenderDuplicateFrames);
+			postEffectRequiresFlip = (shaderInfo->requires60fps || duplicateFrames);
 		} else {
-			postEffectRequiresFlip = g_Config.bRenderDuplicateFrames;
+			postEffectRequiresFlip = duplicateFrames;
 		}
 	}
 
