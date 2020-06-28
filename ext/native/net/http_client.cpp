@@ -436,12 +436,18 @@ Download::Download(const std::string &url, const std::string &outfile)
 }
 
 Download::~Download() {
-	if (thread_.joinable())
-		thread_.join();
+	if (!joined_) {
+		FLOG("Download destructed without join");
+	}
 }
 
-void Download::Start(std::shared_ptr<Download> self) {
-	thread_ = std::thread(std::bind(&Download::Do, this, self));
+void Download::Start() {
+	thread_ = std::thread(std::bind(&Download::Do, this));
+}
+
+void Download::Join() {
+	thread_.join();
+	joined_ = true;
 }
 
 void Download::SetFailed(int code) {
@@ -489,11 +495,8 @@ std::string Download::RedirectLocation(const std::string &baseUrl) {
 	return redirectUrl;
 }
 
-void Download::Do(std::shared_ptr<Download> self) {
+void Download::Do() {
 	setCurrentThreadName("Downloader::Do");
-	// as long as this is in scope, we won't get destructed.
-	// yeah this is ugly, I need to think about how life time should be managed for these...
-	std::shared_ptr<Download> self_ = self;
 	resultCode_ = 0;
 
 	std::string downloadURL = url_;
@@ -542,7 +545,7 @@ void Download::Do(std::shared_ptr<Download> self) {
 std::shared_ptr<Download> Downloader::StartDownload(const std::string &url, const std::string &outfile) {
 	std::shared_ptr<Download> dl(new Download(url, outfile));
 	downloads_.push_back(dl);
-	dl->Start(dl);
+	dl->Start();
 	return dl;
 }
 
@@ -553,7 +556,7 @@ std::shared_ptr<Download> Downloader::StartDownloadWithCallback(
 	std::shared_ptr<Download> dl(new Download(url, outfile));
 	dl->SetCallback(callback);
 	downloads_.push_back(dl);
-	dl->Start(dl);
+	dl->Start();
 	return dl;
 }
 
@@ -562,6 +565,7 @@ void Downloader::Update() {
 	for (size_t i = 0; i < downloads_.size(); i++) {
 		if (downloads_[i]->Progress() == 1.0f || downloads_[i]->Failed()) {
 			downloads_[i]->RunCallback();
+			downloads_[i]->Join();
 			downloads_.erase(downloads_.begin() + i);
 			goto restart;
 		}
