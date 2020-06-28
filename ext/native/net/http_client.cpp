@@ -446,6 +446,9 @@ void Download::Start() {
 }
 
 void Download::Join() {
+	if (joined_) {
+		ELOG("Already joined thread!");
+	}
 	thread_.join();
 	joined_ = true;
 }
@@ -584,6 +587,9 @@ std::vector<float> Downloader::GetCurrentProgress() {
 void Downloader::CancelAll() {
 	for (size_t i = 0; i < downloads_.size(); i++) {
 		downloads_[i]->Cancel();
+	}
+	for (size_t i = 0; i < downloads_.size(); i++) {
+		downloads_[i]->Join();
 	}
 	downloads_.clear();
 }
