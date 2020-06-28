@@ -1138,7 +1138,6 @@ void VulkanRenderManager::EndSubmitFrame(int frame) {
 		present.waitSemaphoreCount = 1;
 
 		VkResult res = vkQueuePresentKHR(vulkan_->GetGraphicsQueue(), &present);
-		// TODO: Deal with VK_SUBOPTIMAL_KHR here too?
 		if (res == VK_ERROR_OUT_OF_DATE_KHR) {
 			// We clearly didn't get this in vkAcquireNextImageKHR because of the skipSwap check above.
 			// Do the increment.
