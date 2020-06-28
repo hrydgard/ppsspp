@@ -356,6 +356,9 @@ void GameSettingsScreen::CreateViews() {
 		settingInfo_->Show(gr->T("RenderDuplicateFrames Tip", "Can make framerate smoother in games that run at lower framerates"), e.v);
 		return UI::EVENT_CONTINUE;
 	});
+	frameDuplication->SetEnabledFunc([]() -> bool {
+		return g_Config.iFrameSkip == 0;
+	});
 
 	if (GetGPUBackend() == GPUBackend::VULKAN || GetGPUBackend() == GPUBackend::OPENGL) {
 		static const char *bufferOptions[] = { "No buffer", "Up to 1", "Up to 2" };
