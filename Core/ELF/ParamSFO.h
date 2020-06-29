@@ -67,28 +67,18 @@ private:
 	class ValueData
 	{
 	public:
-		ValueType type;
-		int max_size;
+		ValueType type = VT_INT;
+		int max_size = 0;
 		std::string s_value;
-		int i_value;
+		int i_value = 0;
 
-		u8* u_value;
-		unsigned int u_size;
+		u8* u_value = nullptr;
+		unsigned int u_size = 0;
 
 		void SetData(const u8* data, int size);
 
-		ValueData()
-		{
-			u_value = 0;
-			u_size = 0;
-			type = VT_INT;
-			max_size = 0;
-			i_value = 0;
-		}
-
-		~ValueData()
-		{
-			if(u_value)
+		~ValueData() {
+			if (u_value)
 				delete[] u_value;
 		}
 	};
