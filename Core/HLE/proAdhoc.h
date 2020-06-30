@@ -778,11 +778,10 @@ public:
 	}
 	void run(MipsCall &call) override;
 	void SetContextID(u32 ContextID, u32 eventId);
-	void SetContext(SceNetAdhocMatchingContext *Context, u32 eventId) { context = Context; EventID = eventId; }
 
 private:
-	u32 EventID;
-	SceNetAdhocMatchingContext *context;
+	u32 EventID = 0;
+	SceNetAdhocMatchingContext *context = nullptr;
 };
 
 extern int actionAfterMatchingMipsCall;
