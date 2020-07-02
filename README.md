@@ -31,6 +31,7 @@ The #-numbers below are github issues, to see one go to https://github.com/hrydg
 What's new in 1.10.1
 --------------------
 * Fixes for common crashes (#13077, #13076, see #13057)
+* Fix for offset rendering in D3D9 (#13071)
 
 What's new in 1.10.0
 --------------------
