@@ -23,13 +23,6 @@ if(EXISTS ${GIT_VERSION_FILE})
 	if(NOT ${match} EQUAL "")
 		set(GIT_VERSION_UPDATE "0")
 	endif()
-
-	# Don't update if it's already the same.
-	file(STRINGS ${GIT_VERSION_FILE} match
-		REGEX "${GIT_VERSION}")
-	if(NOT ${match} EQUAL "")
-		set(GIT_VERSION_UPDATE "0")
-	endif()	
 endif()
 
 set(code_string "// This is a generated file.\n\n"
