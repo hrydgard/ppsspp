@@ -25,6 +25,13 @@ If you want to download regularly updated builds for Android, Windows x86 and x6
 
 For game compatibility, see [community compatibility feedback](https://report.ppsspp.org/games).
 
+The #-numbers below are github issues, to see one go to https://github.com/hrydgard/ppsspp/issues/XXXXX where XXXXX is the number.
+
+
+What's new in 1.10.1
+--------------------
+* Fixes for common crashes (#13077, #13076, see #13057)
+
 What's new in 1.10.0
 --------------------
 * Graphics and compatibility fixes (#12800, #12670, #12635, #12857, #12941, #11898, #12695, more)
