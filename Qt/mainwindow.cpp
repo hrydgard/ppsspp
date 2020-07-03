@@ -602,7 +602,7 @@ void MainWindow::createMenus()
 	MenuTree* windowMenu = new MenuTree(this, gameSettingsMenu, QT_TR_NOOP("&Window size"));
 	windowGroup = new MenuActionGroup(this, windowMenu, SLOT(windowGroup_triggered(QAction *)),
 		QStringList() << "&1x" << "&2x" << "&3x" << "&4x" << "&5x" << "&6x" << "&7x" << "&8x" << "&9x" << "1&0x",
-		QList<int>() << 1 << 2 << 3 << 4 << 5 << 6 << 7 << 8 << 9 << 10);
+		QList<int>() << 0 << 1 << 2 << 3 << 4 << 5 << 6 << 7 << 8 << 9);
 
 	MenuTree* renderingModeMenu = new MenuTree(this, gameSettingsMenu, QT_TR_NOOP("Rendering m&ode"));
 	renderingModeGroup = new MenuActionGroup(this, renderingModeMenu, SLOT(renderingModeGroup_triggered(QAction *)),
