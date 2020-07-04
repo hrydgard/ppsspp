@@ -91,7 +91,7 @@ public:
 protected:
 	void ProcessEvent(AsyncIOEvent ref) override;
 	bool ShouldExitEventLoop() override {
-		return coreState == CORE_ERROR || coreState == CORE_POWERDOWN;
+		return coreState == CORE_BOOT_ERROR || coreState == CORE_RUNTIME_ERROR || coreState == CORE_POWERDOWN;
 	}
 
 private:

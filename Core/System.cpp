@@ -433,7 +433,7 @@ void PSP_Shutdown() {
 	// Make sure things know right away that PSP memory, etc. is going away.
 	pspIsQuitting = true;
 	if (coreState == CORE_RUNNING)
-		Core_UpdateState(CORE_ERROR);
+		Core_UpdateState(CORE_POWERDOWN);
 
 #ifndef MOBILE_DEVICE
 	if (g_Config.bFuncHashMap) {
@@ -486,7 +486,7 @@ void PSP_RunLoopWhileState() {
 
 void PSP_RunLoopUntil(u64 globalticks) {
 	SaveState::Process();
-	if (coreState == CORE_POWERDOWN || coreState == CORE_ERROR) {
+	if (coreState == CORE_POWERDOWN || coreState == CORE_BOOT_ERROR || coreState == CORE_RUNTIME_ERROR) {
 		return;
 	} else if (coreState == CORE_STEPPING) {
 		Core_ProcessStepping();

@@ -106,7 +106,8 @@ enum CoreState {
 	CORE_STEPPING,
 	CORE_POWERUP,
 	CORE_POWERDOWN,
-	CORE_ERROR,
+	CORE_BOOT_ERROR,
+	CORE_RUNTIME_ERROR,
 };
 
 extern bool coreCollectDebugStats;

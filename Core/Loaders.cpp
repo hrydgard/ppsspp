@@ -258,7 +258,7 @@ bool LoadFile(FileLoader **fileLoaderPtr, std::string *error_string) {
 				}
 				else if (ebootType == IdentifiedFileType::PSP_PS1_PBP) {
 					*error_string = "PS1 EBOOTs are not supported by PPSSPP.";
-					coreState = CORE_ERROR;
+					coreState = CORE_BOOT_ERROR;
 					return false;
 				}
 				std::string path = fileLoader->Path();
@@ -270,7 +270,7 @@ bool LoadFile(FileLoader **fileLoaderPtr, std::string *error_string) {
 				return Load_PSP_ELF_PBP(fileLoader, error_string);
 			} else {
 				*error_string = "No EBOOT.PBP, misidentified game";
-				coreState = CORE_ERROR;
+				coreState = CORE_BOOT_ERROR;
 				return false;
 			}
 		}
@@ -352,7 +352,7 @@ bool LoadFile(FileLoader **fileLoaderPtr, std::string *error_string) {
 		break;
 	}
 
-	coreState = CORE_ERROR;
+	coreState = CORE_BOOT_ERROR;
 	return false;
 }
 

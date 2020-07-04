@@ -339,7 +339,8 @@ void Core_Run(GraphicsContext *ctx) {
 
 		case CORE_POWERUP:
 		case CORE_POWERDOWN:
-		case CORE_ERROR:
+		case CORE_BOOT_ERROR:
+		case CORE_RUNTIME_ERROR:
 			// Exit loop!!
 			Core_StateProcessed();
 

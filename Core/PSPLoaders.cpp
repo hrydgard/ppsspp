@@ -278,7 +278,7 @@ bool Load_PSP_ISO(FileLoader *fileLoader, std::string *error_string) {
 		} else {
 			*error_string = "A PSP game couldn't be found on the disc.";
 		}
-		coreState = CORE_ERROR;
+		coreState = CORE_BOOT_ERROR;
 		return false;
 	}
 
@@ -303,7 +303,7 @@ bool Load_PSP_ISO(FileLoader *fileLoader, std::string *error_string) {
 		if (success && coreState == CORE_POWERUP) {
 			coreState = PSP_CoreParameter().startBreak ? CORE_STEPPING : CORE_RUNNING;
 		} else {
-			coreState = CORE_ERROR;
+			coreState = CORE_BOOT_ERROR;
 			// TODO: This is a crummy way to communicate the error...
 			PSP_CoreParameter().fileToStart = "";
 		}
@@ -374,7 +374,7 @@ bool Load_PSP_ELF_PBP(FileLoader *fileLoader, std::string *error_string) {
 		// If root is not a subpath of path, we can't boot the game.
 		if (!startsWith(pathNorm, rootNorm)) {
 			*error_string = "Cannot boot ELF located outside mountRoot.";
-			coreState = CORE_ERROR;
+			coreState = CORE_BOOT_ERROR;
 			return false;
 		}
 
@@ -433,7 +433,7 @@ bool Load_PSP_ELF_PBP(FileLoader *fileLoader, std::string *error_string) {
 		if (success && coreState == CORE_POWERUP) {
 			coreState = PSP_CoreParameter().startBreak ? CORE_STEPPING : CORE_RUNNING;
 		} else {
-			coreState = CORE_ERROR;
+			coreState = CORE_BOOT_ERROR;
 			// TODO: This is a crummy way to communicate the error...
 			PSP_CoreParameter().fileToStart = "";
 		}
@@ -457,7 +457,7 @@ bool Load_PSP_GE_Dump(FileLoader *fileLoader, std::string *error_string) {
 		if (success && coreState == CORE_POWERUP) {
 			coreState = PSP_CoreParameter().startBreak ? CORE_STEPPING : CORE_RUNNING;
 		} else {
-			coreState = CORE_ERROR;
+			coreState = CORE_BOOT_ERROR;
 			// TODO: This is a crummy way to communicate the error...
 			PSP_CoreParameter().fileToStart = "";
 		}

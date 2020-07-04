@@ -555,7 +555,7 @@ static VFSFileSystem *flash0System = nullptr;
 
 static void __IoManagerThread() {
 	setCurrentThreadName("IO");
-	while (ioManagerThreadEnabled && coreState != CORE_ERROR && coreState != CORE_POWERDOWN) {
+	while (ioManagerThreadEnabled && coreState != CORE_BOOT_ERROR && coreState != CORE_RUNTIME_ERROR && coreState != CORE_POWERDOWN) {
 		ioManager.RunEventsUntil(CoreTiming::GetTicks() + msToCycles(1000));
 	}
 }

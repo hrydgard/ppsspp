@@ -1414,6 +1414,9 @@ void EmuScreen::render() {
 		if (PSP_IsInited()) {
 			gpu->CopyDisplayToOutput(true);
 		}
+	} else if (coreState == CORE_RUNTIME_ERROR) {
+		// Blue screen :)
+		thin3d->BindFramebufferAsRenderTarget(nullptr, { RPAction::CLEAR, RPAction::DONT_CARE, RPAction::DONT_CARE, 0xFF0000FF }, "EmuScreen_RuntimeError");
 	} else {
 		// Didn't actually reach the end of the frame, ran out of the blockTicks cycles.
 		// In this case we need to bind and wipe the backbuffer, at least.
