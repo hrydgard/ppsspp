@@ -218,6 +218,10 @@ class CameraHelper {
 				}
 			}
 
+			if (mPreviewSize == null) {
+				throw new Exception("Couldn't find a viable preview size");
+			}
+
 			Log.d(TAG, "setPreviewSize(" + mPreviewSize.width + ", " + mPreviewSize.height + ")");
 			param.setPreviewSize(mPreviewSize.width, mPreviewSize.height);
 
@@ -239,7 +243,7 @@ class CameraHelper {
 			mCamera.setPreviewCallback(mPreviewCallback);
 			mCamera.startPreview();
 			mIsCameraRunning = true;
-		} catch (IOException e) {
+		} catch (Exception e) {
 			Log.e(TAG, "Cannot start camera: " + e.toString());
 		}
 	}
