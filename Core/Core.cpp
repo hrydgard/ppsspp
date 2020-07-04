@@ -29,6 +29,7 @@
 #include "profiler/profiler.h"
 
 #include "Common/GraphicsContext.h"
+#include "Common/Log.h"
 #include "Core/Core.h"
 #include "Core/Config.h"
 #include "Core/Host.h"
@@ -367,4 +368,34 @@ void Core_EnableStepping(bool step) {
 
 int Core_GetSteppingCounter() {
 	return steppingCounter;
+}
+
+void Core_MemoryException(u32 address, u32 pc, MemoryExceptionType type) {
+	const char *desc = "";
+	switch (type) {
+	case MemoryExceptionType::READ_WORD: desc = "Read Word"; break;
+	case MemoryExceptionType::WRITE_WORD: desc = "Write Word"; break;
+	case MemoryExceptionType::READ_BLOCK: desc = "Read Block"; break;
+	case MemoryExceptionType::WRITE_BLOCK: desc = "Read/Write Block"; break;
+	}
+
+	// In jit, we only flush PC when bIgnoreBadMemAccess is off.
+	if (g_Config.iCpuCore == (int)CPUCore::JIT && g_Config.bIgnoreBadMemAccess) {
+		WARN_LOG(MEMMAP, "%s: Invalid address %08x", desc, address);
+	} else {
+		WARN_LOG(MEMMAP, "%s: Invalid address %08x PC %08x LR %08x", desc, address, currentMIPS->pc, currentMIPS->r[MIPS_REG_RA]);
+	}
+
+	if (!g_Config.bIgnoreBadMemAccess) {
+		Core_EnableStepping(true);
+		host->SetDebugMode(true);
+	}
+}
+
+void Core_Break() {
+	ERROR_LOG(CPU, "BREAK!");
+	if (!g_Config.bIgnoreBadMemAccess) {
+		Core_EnableStepping(true);
+		host->SetDebugMode(true);
+	}
 }

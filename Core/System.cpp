@@ -97,12 +97,18 @@ bool coreCollectDebugStatsForced = false;
 
 // This can be read and written from ANYWHERE.
 volatile CoreState coreState = CORE_STEPPING;
-// Note: intentionally not used for CORE_NEXTFRAME.
+// Note: intentionally not used for CORE_NEXTFRAME. << TODO: This comment is a lie, it is used!
 volatile bool coreStatePending = false;
+
 static volatile CPUThreadState cpuThreadState = CPU_THREAD_NOT_RUNNING;
 
 static GPUBackend gpuBackend;
 static std::string gpuBackendDevice;
+
+// Ugly!
+static bool pspIsInited = false;
+static bool pspIsIniting = false;
+static bool pspIsQuitting = false;
 
 void ResetUIState() {
 	globalUIState = UISTATE_MENU;
@@ -327,11 +333,6 @@ void Core_UpdateDebugStats(bool collectStats) {
 	kernelStats.ResetFrame();
 	gpuStats.ResetFrame();
 }
-
-// Ugly!
-static bool pspIsInited = false;
-static bool pspIsIniting = false;
-static bool pspIsQuitting = false;
 
 bool PSP_InitStart(const CoreParameter &coreParam, std::string *error_string) {
 	if (pspIsIniting || pspIsQuitting) {

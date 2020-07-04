@@ -26,17 +26,7 @@
 
 #include "Core/MIPS/MIPS.h"
 
-namespace Memory
-{
-
-// =================================
-// From Memmap.cpp
-// ----------------
-
-// Read and write shortcuts
-
-// GetPointer must always return an address in the bottom 32 bits of address space, so that 64-bit
-// programs don't have problems directly addressing any part of memory.
+namespace Memory {
 
 u8 *GetPointer(const u32 address) {
 	if ((address & 0x3E000000) == 0x08000000) {
@@ -52,16 +42,12 @@ u8 *GetPointer(const u32 address) {
 		// More RAM (remasters, etc.)
 		return GetPointerUnchecked(address);
 	} else {
-		ERROR_LOG(MEMMAP, "Unknown GetPointer %08x PC %08x LR %08x", address, currentMIPS->pc, currentMIPS->r[MIPS_REG_RA]);
 		static bool reported = false;
 		if (!reported) {
 			Reporting::ReportMessage("Unknown GetPointer %08x PC %08x LR %08x", address, currentMIPS->pc, currentMIPS->r[MIPS_REG_RA]);
 			reported = true;
 		}
-		if (!g_Config.bIgnoreBadMemAccess) {
-			Core_EnableStepping(true);
-			host->SetDebugMode(true);
-		}
+		Core_MemoryException(address, currentMIPS->pc, MemoryExceptionType::WRITE_BLOCK);
 		return nullptr;
 	}
 }
@@ -86,21 +72,12 @@ inline void ReadFromHardware(T &var, const u32 address) {
 		// More RAM (remasters, etc.)
 		var = *((const T*)GetPointerUnchecked(address));
 	} else {
-		// In jit, we only flush PC when bIgnoreBadMemAccess is off.
-		if (g_Config.iCpuCore == (int)CPUCore::JIT && g_Config.bIgnoreBadMemAccess) {
-			WARN_LOG(MEMMAP, "ReadFromHardware: Invalid address %08x", address);
-		} else {
-			WARN_LOG(MEMMAP, "ReadFromHardware: Invalid address %08x PC %08x LR %08x", address, currentMIPS->pc, currentMIPS->r[MIPS_REG_RA]);
-		}
 		static bool reported = false;
 		if (!reported) {
 			Reporting::ReportMessage("ReadFromHardware: Invalid address %08x near PC %08x LR %08x", address, currentMIPS->pc, currentMIPS->r[MIPS_REG_RA]);
 			reported = true;
 		}
-		if (!g_Config.bIgnoreBadMemAccess) {
-			Core_EnableStepping(true);
-			host->SetDebugMode(true);
-		}
+		Core_MemoryException(address, currentMIPS->pc, MemoryExceptionType::READ_WORD);
 		var = 0;
 	}
 }
@@ -122,21 +99,12 @@ inline void WriteToHardware(u32 address, const T data) {
 		// More RAM (remasters, etc.)
 		*(T*)GetPointerUnchecked(address) = data;
 	} else {
-		// In jit, we only flush PC when bIgnoreBadMemAccess is off.
-		if (g_Config.iCpuCore == (int)CPUCore::JIT && g_Config.bIgnoreBadMemAccess) {
-			WARN_LOG(MEMMAP, "WriteToHardware: Invalid address %08x", address);
-		} else {
-			WARN_LOG(MEMMAP, "WriteToHardware: Invalid address %08x	PC %08x LR %08x", address, currentMIPS->pc, currentMIPS->r[MIPS_REG_RA]);
-		}
 		static bool reported = false;
 		if (!reported) {
 			Reporting::ReportMessage("WriteToHardware: Invalid address %08x near PC %08x LR %08x", address, currentMIPS->pc, currentMIPS->r[MIPS_REG_RA]);
 			reported = true;
 		}
-		if (!g_Config.bIgnoreBadMemAccess) {
-			Core_EnableStepping(true);
-			host->SetDebugMode(true);
-		}
+		Core_MemoryException(address, currentMIPS->pc, MemoryExceptionType::WRITE_WORD);
 	}
 }
 

@@ -76,3 +76,13 @@ void Core_NotifyActivity();
 
 void Core_SetPowerSaving(bool mode);
 bool Core_GetPowerSaving();
+
+enum class MemoryExceptionType {
+	READ_WORD,
+	WRITE_WORD,
+	READ_BLOCK,
+	WRITE_BLOCK,
+};
+
+void Core_MemoryException(u32 address, u32 pc, MemoryExceptionType type);
+void Core_Break();
