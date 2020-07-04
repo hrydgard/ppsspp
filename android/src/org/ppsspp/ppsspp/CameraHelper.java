@@ -33,6 +33,8 @@ class CameraHelper {
 	private long mLastFrameTime = 0;
 	private SurfaceTexture mSurfaceTexture;
 
+	private static boolean firstRotation = true;
+
 	private int getCameraRotation() {
 		int displayRotation = mDisplay.getRotation();
 		int displayDegrees = 0;
@@ -49,8 +51,13 @@ class CameraHelper {
 		}
 	}
 
+	// Does not work if the source is smaller than the destination!
 	static byte[] rotateNV21(final byte[] input, final int inWidth, final int inHeight,
 							 final int outWidth, final int outHeight, final int rotation) {
+		if (firstRotation) {
+			Log.i(TAG, "rotateNV21: in: " + inWidth + "x" + inHeight + " out: " + outWidth + "x" + outHeight + " rotation: " + rotation);
+			firstRotation = false;
+		}
 
 		final int inFrameSize = inWidth * inHeight;
 		final int outFrameSize = outWidth * outHeight;
@@ -59,6 +66,12 @@ class CameraHelper {
 		if (rotation == 0 || rotation == 180) {
 			final int crop_left = (inWidth - outWidth) / 2;
 			final int crop_top = (inHeight - outHeight) / 2;
+
+			if (crop_left < 0 || crop_top < 0) {
+				// Math will fail. Return a black image.
+				return output;
+			}
+
 			for (int j = 0; j < outHeight; j++) {
 				final int yInCol = (crop_top + j) * inWidth + crop_left;
 				final int uvInCol = inFrameSize + ((crop_top + j) >> 1) * inWidth + crop_left;
@@ -79,8 +92,14 @@ class CameraHelper {
 				}
 			}
 		} else if (rotation == 90 || rotation == 270) {
-			int crop_left = (inWidth - outHeight) / 2;
-			int crop_top  = (inHeight - outWidth) / 2;
+			final int crop_left = (inWidth - outHeight) / 2;
+			final int crop_top  = (inHeight - outWidth) / 2;
+
+			if (crop_left < 0 || crop_top < 0) {
+				// Math will fail. Return a black image.
+				return output;
+			}
+
 			for (int j = 0; j < outWidth; j++) {
 				final int yInCol = (crop_top + j) * inWidth + crop_left;
 				final int uvInCol = inFrameSize + ((crop_top + j) >> 1) * inWidth + crop_left;
@@ -98,6 +117,8 @@ class CameraHelper {
 					output[vOut] = input[vIn];
 				}
 			}
+		} else {
+			Log.e(TAG, "Unknown rotation " + rotation);
 		}
 		return output;
 	}
@@ -170,16 +191,41 @@ class CameraHelper {
 			mCamera = Camera.open(cameraId);
 			Camera.Parameters param = mCamera.getParameters();
 
+			List<Integer> supportedPreviewFormats = param.getSupportedPreviewFormats();
+			for (int i = 0; i < supportedPreviewFormats.size(); i++) {
+				Log.i(TAG, "Supported preview format: " + i);
+			}
+
 			// Set preview size
 			List<Camera.Size> previewSizes = param.getSupportedPreviewSizes();
-			mPreviewSize = previewSizes.get(0);
+			mPreviewSize = null;
+
+			// Find the preview size that's the closest above or equal the requested size.
+			// We can not depend on the ordering of the incoming sizes.
 			for (int i = 0; i < previewSizes.size(); i++) {
-				Log.d(TAG, "getSupportedPreviewSizes[" + i + "]: " + previewSizes.get(i).height + " " + previewSizes.get(i).width);
-				if (previewSizes.get(i).width <= 640 && previewSizes.get(i).height <= 480) {
+				int width = previewSizes.get(i).width;
+				int height = previewSizes.get(i).height;
+				Log.d(TAG, "getSupportedPreviewSizes[" + i + "]: " + width + "x" + height);
+
+				// Reject too small preview sizes.
+				if (width < mTargetWidth || height < mTargetHeight) {
+					continue;
+				}
+
+				if (mPreviewSize == null) {
+					Log.i(TAG, "Selected first viable preview size: " + width + "x" + height);
 					mPreviewSize = previewSizes.get(i);
-					break;
+				} else if (width < mPreviewSize.width || height < mPreviewSize.height) {
+					// Only select the new size if it's smaller.
+					Log.i(TAG, "Selected better viable preview size: " + width + "x" + height);
+					mPreviewSize = previewSizes.get(i);
 				}
 			}
+
+			if (mPreviewSize == null) {
+				throw new Exception("Couldn't find a viable preview size");
+			}
+
 			Log.d(TAG, "setPreviewSize(" + mPreviewSize.width + ", " + mPreviewSize.height + ")");
 			param.setPreviewSize(mPreviewSize.width, mPreviewSize.height);
 
@@ -201,7 +247,7 @@ class CameraHelper {
 			mCamera.setPreviewCallback(mPreviewCallback);
 			mCamera.startPreview();
 			mIsCameraRunning = true;
-		} catch (IOException e) {
+		} catch (Exception e) {
 			Log.e(TAG, "Cannot start camera: " + e.toString());
 		}
 	}

@@ -81,6 +81,9 @@ void InstallZipScreen::CreateViews() {
 		returnToHomebrew_ = false;
 	} else {
 		leftColumn->Add(new TextView(iz->T("Zip file does not contain PSP software"), ALIGN_LEFT, false, new AnchorLayoutParams(10, 10, NONE, NONE)));
+		doneView_ = nullptr;
+		progressBar_ = nullptr;
+		installChoice_ = nullptr;
 		backChoice_ = rightColumnItems->Add(new Choice(di->T("Back")));
 	}
 
@@ -99,7 +102,9 @@ bool InstallZipScreen::key(const KeyInput &key) {
 UI::EventReturn InstallZipScreen::OnInstall(UI::EventParams &params) {
 	if (g_GameManager.InstallGameOnThread(zipPath_, zipPath_, deleteZipFile_)) {
 		installStarted_ = true;
-		installChoice_->SetEnabled(false);
+		if (installChoice_) {
+			installChoice_->SetEnabled(false);
+		}
 	}
 	return UI::EVENT_DONE;
 }
