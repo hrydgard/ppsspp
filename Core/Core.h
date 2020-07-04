@@ -93,6 +93,7 @@ enum class ExceptionType {
 	NONE,
 	MEMORY,
 	BREAK,
+	BAD_EXEC_ADDR,
 };
 
 struct ExceptionInfo {

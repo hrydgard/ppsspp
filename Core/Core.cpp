@@ -45,7 +45,6 @@
 #include "Windows/InputDevice.h"
 #endif
 
-
 // Time until we stop considering the core active without user input.
 // Should this be configurable?  2 hours currently.
 static const double ACTIVITY_IDLE_TIMEOUT = 2.0 * 3600.0;
@@ -385,6 +384,7 @@ const char *ExceptionTypeAsString(ExceptionType type) {
 	switch (type) {
 	case ExceptionType::MEMORY: return "Invalid Memory Access";
 	case ExceptionType::BREAK: return "Break";
+	case ExceptionType::BAD_EXEC_ADDR: return "Bad Execution Address";
 	default: return "N/A";
 	}
 }

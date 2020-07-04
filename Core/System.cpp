@@ -97,7 +97,7 @@ bool coreCollectDebugStatsForced = false;
 
 // This can be read and written from ANYWHERE.
 volatile CoreState coreState = CORE_STEPPING;
-// Note: intentionally not used for CORE_NEXTFRAME. << TODO: This comment is a lie, it is used!
+// If true, core state has been changed, but JIT has probably not noticed yet.
 volatile bool coreStatePending = false;
 
 static volatile CPUThreadState cpuThreadState = CPU_THREAD_NOT_RUNNING;
