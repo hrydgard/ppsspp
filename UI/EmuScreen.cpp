@@ -136,7 +136,9 @@ EmuScreen::EmuScreen(const std::string &filename)
 	frameStep_ = false;
 	lastNumFlips = gpuStats.numFlips;
 	startDumping = false;
+
 	// Make sure we don't leave it at powerdown after the last game.
+	// TODO: This really should be handled elsewhere if it isn't.
 	if (coreState == CORE_POWERDOWN)
 		coreState = CORE_STEPPING;
 
@@ -1403,26 +1405,38 @@ void EmuScreen::render() {
 	PSP_RunLoopWhileState();
 
 	// Hopefully coreState is now CORE_NEXTFRAME
-	if (coreState == CORE_NEXTFRAME) {
-		// set back to running for the next frame
+	switch (coreState) {
+	case CORE_NEXTFRAME:
+		// Reached the end of the frame, all good. Set back to running for the next frame
 		coreState = CORE_RUNNING;
-	} else if (coreState == CORE_STEPPING) {
-		// If we're stepping, it's convenient not to clear the screen entirely, so we copy display to output.
-		// This won't work in non-buffered, but that's fine.
-		thin3d->BindFramebufferAsRenderTarget(nullptr, { RPAction::CLEAR, RPAction::DONT_CARE, RPAction::DONT_CARE }, "EmuScreen_Stepping");
-		// Just to make sure.
-		if (PSP_IsInited()) {
-			gpu->CopyDisplayToOutput(true);
+		break;
+	case CORE_STEPPING:
+	case CORE_RUNTIME_ERROR:
+	{
+		// If there's an exception, display information.
+		ExceptionInfo info = Core_GetExceptionInfo();
+		if (info.type != ExceptionType::NONE) {
+			// Blue screen
+			thin3d->BindFramebufferAsRenderTarget(nullptr, { RPAction::CLEAR, RPAction::DONT_CARE, RPAction::DONT_CARE, 0xFF900000 }, "EmuScreen_RuntimeError");
+		} else {
+			// If we're stepping, it's convenient not to clear the screen entirely, so we copy display to output.
+			// This won't work in non-buffered, but that's fine.
+			thin3d->BindFramebufferAsRenderTarget(nullptr, { RPAction::CLEAR, RPAction::DONT_CARE, RPAction::DONT_CARE }, "EmuScreen_Stepping");
+			// Just to make sure.
+			if (PSP_IsInited()) {
+				gpu->CopyDisplayToOutput(true);
+			}
 		}
-	} else if (coreState == CORE_RUNTIME_ERROR) {
-		// Blue screen :)
-		thin3d->BindFramebufferAsRenderTarget(nullptr, { RPAction::CLEAR, RPAction::DONT_CARE, RPAction::DONT_CARE, 0xFF0000FF }, "EmuScreen_RuntimeError");
-	} else {
+		break;
+	}
+	default:
 		// Didn't actually reach the end of the frame, ran out of the blockTicks cycles.
 		// In this case we need to bind and wipe the backbuffer, at least.
 		// It's possible we never ended up outputted anything - make sure we have the backbuffer cleared
 		thin3d->BindFramebufferAsRenderTarget(nullptr, { RPAction::CLEAR, RPAction::CLEAR, RPAction::CLEAR }, "EmuScreen_NoFrame");
+		break;
 	}
+
 	checkPowerDown();
 
 	PSP_EndHostFrame();

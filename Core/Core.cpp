@@ -64,6 +64,8 @@ static double lastKeepAwake = 0.0;
 static GraphicsContext *graphicsContext;
 static bool powerSaving = false;
 
+static ExceptionInfo g_exceptionInfo;
+
 void Core_SetGraphicsContext(GraphicsContext *ctx) {
 	graphicsContext = ctx;
 	PSP_CoreParameter().graphicsContext = graphicsContext;
@@ -366,25 +368,52 @@ void Core_EnableStepping(bool step) {
 	}
 }
 
+bool Core_NextFrame() {
+	if (coreState == CORE_RUNNING) {
+		coreState = CORE_NEXTFRAME;
+		return true;
+	} else {
+		return false;
+	}
+}
+
 int Core_GetSteppingCounter() {
 	return steppingCounter;
 }
 
-void Core_MemoryException(u32 address, u32 pc, MemoryExceptionType type) {
-	const char *desc = "";
+const char *ExceptionTypeToString(ExceptionType type) {
 	switch (type) {
-	case MemoryExceptionType::READ_WORD: desc = "Read Word"; break;
-	case MemoryExceptionType::WRITE_WORD: desc = "Write Word"; break;
-	case MemoryExceptionType::READ_BLOCK: desc = "Read Block"; break;
-	case MemoryExceptionType::WRITE_BLOCK: desc = "Read/Write Block"; break;
+	case ExceptionType::MEMORY: return "Memory";
+	case ExceptionType::BREAK: return "Break";
+	default: return "N/A";
 	}
+}
 
+const char *MemoryExceptionTypeToString(MemoryExceptionType type) {
+	switch (type) {
+	case MemoryExceptionType::READ_WORD: return "Read Word";
+	case MemoryExceptionType::WRITE_WORD: return "Write Word";
+	case MemoryExceptionType::READ_BLOCK: return "Read Block";
+	case MemoryExceptionType::WRITE_BLOCK: return "Read/Write Block";
+	default:
+		return "N/A";
+	}
+}
+
+void Core_MemoryException(u32 address, u32 pc, MemoryExceptionType type) {
+	const char *desc = MemoryExceptionTypeToString(type);
 	// In jit, we only flush PC when bIgnoreBadMemAccess is off.
 	if (g_Config.iCpuCore == (int)CPUCore::JIT && g_Config.bIgnoreBadMemAccess) {
 		WARN_LOG(MEMMAP, "%s: Invalid address %08x", desc, address);
 	} else {
 		WARN_LOG(MEMMAP, "%s: Invalid address %08x PC %08x LR %08x", desc, address, currentMIPS->pc, currentMIPS->r[MIPS_REG_RA]);
 	}
+
+	ExceptionInfo &e = g_exceptionInfo;
+	e = {};
+	e.type = ExceptionType::MEMORY;
+	e.info = "";
+	e.memory_type = type;
 
 	if (!g_Config.bIgnoreBadMemAccess) {
 		Core_EnableStepping(true);
@@ -394,8 +423,18 @@ void Core_MemoryException(u32 address, u32 pc, MemoryExceptionType type) {
 
 void Core_Break() {
 	ERROR_LOG(CPU, "BREAK!");
+
+	ExceptionInfo &e = g_exceptionInfo;
+	e = {};
+	e.type = ExceptionType::BREAK;
+	e.info = "";
+
 	if (!g_Config.bIgnoreBadMemAccess) {
 		Core_EnableStepping(true);
 		host->SetDebugMode(true);
 	}
+}
+
+ExceptionInfo Core_GetExceptionInfo() {
+	return g_exceptionInfo;
 }

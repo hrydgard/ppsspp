@@ -28,10 +28,10 @@
 #include "Common/Common.h"
 #include "Core/Config.h"
 #include "Core/ConfigValues.h"
+#include "Core/Core.h"
 #include "Core/CoreParameter.h"
 #include "Core/Host.h"
 #include "Core/Reporting.h"
-#include "Core/System.h"
 #include "GPU/Common/DrawEngineCommon.h"
 #include "GPU/Common/FramebufferCommon.h"
 #include "GPU/Common/PostShader.h"
@@ -831,7 +831,7 @@ void FramebufferManagerCommon::CopyDisplayToOutput(bool reallyDirty) {
 	currentRenderVfb_ = 0;
 
 	if (displayFramebufPtr_ == 0) {
-		if (coreState == CORE_STEPPING)
+		if (Core_IsStepping())
 			VERBOSE_LOG(FRAMEBUF, "Display disabled, displaying only black");
 		else
 			DEBUG_LOG(FRAMEBUF, "Display disabled, displaying only black");
@@ -925,7 +925,7 @@ void FramebufferManagerCommon::CopyDisplayToOutput(bool reallyDirty) {
 	displayFramebuf_ = vfb;
 
 	if (vfb->fbo) {
-		if (coreState == CORE_STEPPING)
+		if (Core_IsStepping())
 			VERBOSE_LOG(FRAMEBUF, "Displaying FBO %08x", vfb->fb_address);
 		else
 			DEBUG_LOG(FRAMEBUF, "Displaying FBO %08x", vfb->fb_address);

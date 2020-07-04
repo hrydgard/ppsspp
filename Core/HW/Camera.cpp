@@ -16,6 +16,7 @@
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
 #include "Camera.h"
+#include "Core/Config.h"
 
 void convert_frame(int inw, int inh, unsigned char *inData, AVPixelFormat inFormat,
 					int outw, int outh, unsigned char **outData, int *outLen) {

@@ -97,6 +97,7 @@ public:
 
 	// Core
 	bool bIgnoreBadMemAccess;
+
 	bool bFastMemory;
 	int iCpuCore;
 	bool bCheckForNewVersion;
