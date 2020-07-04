@@ -52,8 +52,7 @@ typedef void (*readFn16)(u16&, const u32);
 typedef void (*readFn32)(u32&, const u32);
 typedef void (*readFn64)(u64&, const u32);
 
-namespace Memory
-{
+namespace Memory {
 // Base is a pointer to the base of the memory map. Yes, some MMU tricks
 // are used to set up a full GC or Wii memory map in process memory.	on
 // 32-bit, you have to mask your offsets with 0x3FFFFFFF. This means that
@@ -165,16 +164,6 @@ inline u8* GetPointerUnchecked(const u32 address) {
 #endif
 }
 
-#ifdef SAFE_MEMORY
-u32 ReadUnchecked_U32(const u32 _Address);
-// ONLY for use by GUI and fast interpreter
-u8 ReadUnchecked_U8(const u32 _Address);
-u16 ReadUnchecked_U16(const u32 _Address);
-void WriteUnchecked_U8(const u8 _Data, const u32 _Address);
-void WriteUnchecked_U16(const u16 _Data, const u32 _Address);
-void WriteUnchecked_U32(const u32 _Data, const u32 _Address);
-#else
-
 inline u32 ReadUnchecked_U32(const u32 address) {
 #ifdef MASKED_PSP_MEMORY
 	return *(u32_le *)(base + (address & MEMVIEW32_MASK));
@@ -239,8 +228,6 @@ inline void WriteUnchecked_U8(u8 data, u32 address) {
 #endif
 }
 
-#endif
-
 inline float Read_Float(u32 address) 
 {
 	u32 ifloat = Read_U32(address);
@@ -274,18 +261,15 @@ inline const char* GetCharPointer(const u32 address) {
 	return (const char *)GetPointer(address);
 }
 
-inline void MemcpyUnchecked(void *to_data, const u32 from_address, const u32 len)
-{
+inline void MemcpyUnchecked(void *to_data, const u32 from_address, const u32 len) {
 	memcpy(to_data, GetPointerUnchecked(from_address), len);
 }
 
-inline void MemcpyUnchecked(const u32 to_address, const void *from_data, const u32 len)
-{
+inline void MemcpyUnchecked(const u32 to_address, const void *from_data, const u32 len) {
 	memcpy(GetPointerUnchecked(to_address), from_data, len);
 }
 
-inline void MemcpyUnchecked(const u32 to_address, const u32 from_address, const u32 len)
-{
+inline void MemcpyUnchecked(const u32 to_address, const u32 from_address, const u32 len) {
 	MemcpyUnchecked(GetPointer(to_address), from_address, len);
 }
 
@@ -327,7 +311,7 @@ inline bool IsValidRange(const u32 address, const u32 size) {
 	return IsValidAddress(address) && ValidSize(address, size) == size;
 }
 
-};
+}  // namespace Memory
 
 template <typename T>
 struct PSPPointer
@@ -462,44 +446,36 @@ inline u32 PSP_GetKernelMemoryEnd() { return 0x08400000;}
 // game through sceKernelVolatileMemTryLock.
 
 inline u32 PSP_GetUserMemoryBase() { return 0x08800000;}
-
 inline u32 PSP_GetDefaultLoadAddress() { return 0;}
-//inline u32 PSP_GetDefaultLoadAddress() { return 0x0898dab0;}
 inline u32 PSP_GetVidMemBase() { return 0x04000000;}
 inline u32 PSP_GetVidMemEnd() { return 0x04800000;}
 
 template <typename T>
-inline bool operator==(const PSPPointer<T> &lhs, const PSPPointer<T> &rhs)
-{
+inline bool operator==(const PSPPointer<T> &lhs, const PSPPointer<T> &rhs) {
 	return lhs.ptr == rhs.ptr;
 }
 
 template <typename T>
-inline bool operator!=(const PSPPointer<T> &lhs, const PSPPointer<T> &rhs)
-{
+inline bool operator!=(const PSPPointer<T> &lhs, const PSPPointer<T> &rhs) {
 	return lhs.ptr != rhs.ptr;
 }
 
 template <typename T>
-inline bool operator<(const PSPPointer<T> &lhs, const PSPPointer<T> &rhs)
-{
+inline bool operator<(const PSPPointer<T> &lhs, const PSPPointer<T> &rhs) {
 	return lhs.ptr < rhs.ptr;
 }
 
 template <typename T>
-inline bool operator>(const PSPPointer<T> &lhs, const PSPPointer<T> &rhs)
-{
+inline bool operator>(const PSPPointer<T> &lhs, const PSPPointer<T> &rhs) {
 	return lhs.ptr > rhs.ptr;
 }
 
 template <typename T>
-inline bool operator<=(const PSPPointer<T> &lhs, const PSPPointer<T> &rhs)
-{
+inline bool operator<=(const PSPPointer<T> &lhs, const PSPPointer<T> &rhs) {
 	return lhs.ptr <= rhs.ptr;
 }
 
 template <typename T>
-inline bool operator>=(const PSPPointer<T> &lhs, const PSPPointer<T> &rhs)
-{
+inline bool operator>=(const PSPPointer<T> &lhs, const PSPPointer<T> &rhs) {
 	return lhs.ptr >= rhs.ptr;
 }
