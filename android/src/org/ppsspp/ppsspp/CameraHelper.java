@@ -140,10 +140,14 @@ class CameraHelper {
 		ArrayList<String> deviceList = new ArrayList<>();
 		int nrCam = Camera.getNumberOfCameras();
 		for (int index = 0; index < nrCam; index++) {
-			Camera.CameraInfo info = new Camera.CameraInfo();
-			Camera.getCameraInfo(index, info);
-			String devName = index + ":" + (info.facing == Camera.CameraInfo.CAMERA_FACING_BACK ? "Back Camera" : "Front Camera");
-			deviceList.add(devName);
+			try {
+				Camera.CameraInfo info = new Camera.CameraInfo();
+				Camera.getCameraInfo(index, info);
+				String devName = index + ":" + (info.facing == Camera.CameraInfo.CAMERA_FACING_BACK ? "Back Camera" : "Front Camera");
+				deviceList.add(devName);
+			} catch (Exception e) {
+				Log.e(TAG, "Failed to get camera info: " + e.toString());
+			}
 		}
 		return deviceList;
 	}
