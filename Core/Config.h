@@ -156,6 +156,7 @@ public:
 	float fSmallDisplayZoomLevel; //This is used for zoom values, both in and out.
 	bool bImmersiveMode;  // Mode on Android Kitkat 4.4 that hides the back button etc.
 	bool bSustainedPerformanceMode;  // Android: Slows clocks down to avoid overheating/speed fluctuations.
+	bool bIgnoreScreenInsets;  // Android: Center screen disregarding insets if this is enabled.
 	bool bVSync;
 	int iFrameSkip;
 	int iFrameSkipType;

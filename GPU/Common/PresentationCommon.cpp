@@ -41,7 +41,7 @@ struct Vertex {
 	uint32_t rgba;
 };
 
-FRect GetInsetScreenFrame(float pixelWidth, float pixelHeight) {
+FRect GetScreenFrame(float pixelWidth, float pixelHeight) {
 	FRect rc = FRect{
 		0.0f,
 		0.0f,
@@ -49,17 +49,21 @@ FRect GetInsetScreenFrame(float pixelWidth, float pixelHeight) {
 		pixelHeight,
 	};
 
-	// Remove the DPI scale to get back to pixels.
-	float left = System_GetPropertyFloat(SYSPROP_DISPLAY_SAFE_INSET_LEFT) / g_dpi_scale_x;
-	float right = System_GetPropertyFloat(SYSPROP_DISPLAY_SAFE_INSET_RIGHT) / g_dpi_scale_x;
-	float top = System_GetPropertyFloat(SYSPROP_DISPLAY_SAFE_INSET_TOP) / g_dpi_scale_y;
-	float bottom = System_GetPropertyFloat(SYSPROP_DISPLAY_SAFE_INSET_BOTTOM) / g_dpi_scale_y;
+	bool applyInset = !g_Config.bIgnoreScreenInsets;
 
-	// Adjust left edge to compensate for cutouts (notches) if any.
-	rc.x += left;
-	rc.w -= (left + right);
-	rc.y += top;
-	rc.h -= (top + bottom);
+	if (applyInset) {
+		// Remove the DPI scale to get back to pixels.
+		float left = System_GetPropertyFloat(SYSPROP_DISPLAY_SAFE_INSET_LEFT) / g_dpi_scale_x;
+		float right = System_GetPropertyFloat(SYSPROP_DISPLAY_SAFE_INSET_RIGHT) / g_dpi_scale_x;
+		float top = System_GetPropertyFloat(SYSPROP_DISPLAY_SAFE_INSET_TOP) / g_dpi_scale_y;
+		float bottom = System_GetPropertyFloat(SYSPROP_DISPLAY_SAFE_INSET_BOTTOM) / g_dpi_scale_y;
+
+		// Adjust left edge to compensate for cutouts (notches) if any.
+		rc.x += left;
+		rc.w -= (left + right);
+		rc.y += top;
+		rc.h -= (top + bottom);
+	}
 	return rc;
 }
 
@@ -281,7 +285,7 @@ bool PresentationCommon::BuildPostShader(const ShaderInfo *shaderInfo, const Sha
 		} else if (shaderInfo->outputResolution) {
 			// If the current shader uses output res (not next), we will use output res for it.
 			FRect rc;
-			FRect frame = GetInsetScreenFrame((float)pixelWidth_, (float)pixelHeight_);
+			FRect frame = GetScreenFrame((float)pixelWidth_, (float)pixelHeight_);
 			CenterDisplayOutputRect(&rc, 480.0f, 272.0f, frame, g_Config.iInternalScreenRotation);
 			nextWidth = (int)rc.w;
 			nextHeight = (int)rc.h;
@@ -528,7 +532,7 @@ void PresentationCommon::CopyToOutput(OutputFlags flags, int uvRotation, float u
 	int lastHeight = srcHeight_;
 
 	// These are the output coordinates.
-	FRect frame = GetInsetScreenFrame((float)pixelWidth_, (float)pixelHeight_);
+	FRect frame = GetScreenFrame((float)pixelWidth_, (float)pixelHeight_);
 	FRect rc;
 	CenterDisplayOutputRect(&rc, 480.0f, 272.0f, frame, uvRotation);
 

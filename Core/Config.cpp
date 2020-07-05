@@ -758,6 +758,7 @@ static ConfigSetting graphicsSettings[] = {
 	ConfigSetting("SmallDisplayZoomLevel", &g_Config.fSmallDisplayZoomLevel, 1.0f, true, true),
 	ConfigSetting("ImmersiveMode", &g_Config.bImmersiveMode, false, true, true),
 	ConfigSetting("SustainedPerformanceMode", &g_Config.bSustainedPerformanceMode, false, true, true),
+	ConfigSetting("IgnoreScreenInsets", &g_Config.bIgnoreScreenInsets, true, true, false),
 
 	ReportedConfigSetting("ReplaceTextures", &g_Config.bReplaceTextures, true, true, true),
 	ReportedConfigSetting("SaveNewTextures", &g_Config.bSaveNewTextures, false, true, true),

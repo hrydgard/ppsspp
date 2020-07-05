@@ -313,7 +313,16 @@ void GameSettingsScreen::CreateViews() {
 	displayEditor_ = graphicsSettings->Add(new Choice(gr->T("Display layout editor")));
 	displayEditor_->OnClick.Handle(this, &GameSettingsScreen::OnDisplayLayoutEditor);
 
-#ifdef __ANDROID__
+#if PPSSPP_PLATFORM(ANDROID)
+	// Hide insets option if no insets, or OS too old.
+	if (System_GetPropertyInt(SYSPROP_SYSTEMVERSION) >= 29 &&
+		(System_GetPropertyFloat(SYSPROP_DISPLAY_SAFE_INSET_LEFT) != 0.0f ||
+		 System_GetPropertyFloat(SYSPROP_DISPLAY_SAFE_INSET_TOP) != 0.0f ||
+		 System_GetPropertyFloat(SYSPROP_DISPLAY_SAFE_INSET_RIGHT) != 0.0f ||
+		 System_GetPropertyFloat(SYSPROP_DISPLAY_SAFE_INSET_BOTTOM) != 0.0f)) {
+		graphicsSettings->Add(new CheckBox(&g_Config.bIgnoreScreenInsets, gr->T("Ignore camera inset when centering")));
+	}
+
 	// Hide Immersive Mode on pre-kitkat Android
 	if (System_GetPropertyInt(SYSPROP_SYSTEMVERSION) >= 19) {
 		// Let's reuse the Fullscreen translation string from desktop.
