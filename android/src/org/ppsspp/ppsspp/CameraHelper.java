@@ -191,11 +191,6 @@ class CameraHelper {
 			mCamera = Camera.open(cameraId);
 			Camera.Parameters param = mCamera.getParameters();
 
-			List<Integer> supportedPreviewFormats = param.getSupportedPreviewFormats();
-			for (int i = 0; i < supportedPreviewFormats.size(); i++) {
-				Log.i(TAG, "Supported preview format: " + i);
-			}
-
 			// Set preview size
 			List<Camera.Size> previewSizes = param.getSupportedPreviewSizes();
 			mPreviewSize = null;
