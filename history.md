@@ -14,16 +14,16 @@ What's new in 1.6.1, 1.6.2
 What's new in 1.6.0
 -------------------
 * OpenGL backend now properly multithreaded, giving a good speed boost.
-* Various Vulkan performance improvements (like #10911) and memory allocation fixes.
-* GPU command interpreter performance improvements (#10658)
-* Various fixes for app switching and widgets (#10855) on Android
+* Various Vulkan performance improvements (like [#10911](https://github.com/hrydgard/ppsspp/issues/10911)) and memory allocation fixes.
+* GPU command interpreter performance improvements ([#10658](https://github.com/hrydgard/ppsspp/issues/10658))
+* Various fixes for app switching and widgets ([#10855](https://github.com/hrydgard/ppsspp/issues/10855)) on Android
 * Bugfixes and some performance improvements in the ARM64 JIT compiler and IR interpreter
 * Shader cache enabled for Vulkan
-* Multiple iOS fixes, including JIT (#10465) and file browser (#10921).
-* Improved compatibility on Mac (#10113)
+* Multiple iOS fixes, including JIT ([#10465](https://github.com/hrydgard/ppsspp/issues/10465)) and file browser ([#10921](https://github.com/hrydgard/ppsspp/issues/10921)).
+* Improved compatibility on Mac ([#10113](https://github.com/hrydgard/ppsspp/issues/10113))
 * Texture replacement ID bugfix (note: some textures from 1.5.4 may become incompatible)
-* Adhoc multiplayer fixes (#8975)
-* Vulkan support on Linux/SDL (#10413)
+* Adhoc multiplayer fixes ([#8975](https://github.com/hrydgard/ppsspp/issues/8975))
+* Vulkan support on Linux/SDL ([#10413](https://github.com/hrydgard/ppsspp/issues/10413))
 * Retroarch support
 
 What's new in 1.5.4
@@ -32,18 +32,18 @@ What's new in 1.5.4
 
 What's new in 1.5.0
 -------------------
-* Full Vulkan support, also for Android now. Very fast on supported devices. (#10033, #10049)
-* Smarter graphics state management, reduced CPU consumption on all backends (#9899)
+* Full Vulkan support, also for Android now. Very fast on supported devices. ([#10033](https://github.com/hrydgard/ppsspp/issues/10033), [#10049](https://github.com/hrydgard/ppsspp/issues/10049))
+* Smarter graphics state management, reduced CPU consumption on all backends ([#9899](https://github.com/hrydgard/ppsspp/issues/9899))
 * Android: Support for Arabic and other scripts we couldn't support before
-* Fix Android widgets, screen scaling (#10145)
+* Fix Android widgets, screen scaling ([#10145](https://github.com/hrydgard/ppsspp/issues/10145))
 * Fixes to video dumping
 * Geometry problems fixed in Medal of Honor
-* Implement immediate draws, fixing Thrillville (#7459)
+* Implement immediate draws, fixing Thrillville ([#7459](https://github.com/hrydgard/ppsspp/issues/7459))
 * Software rendering improvements, speed and accuracy
 * Hardware tesselation of PSP Beziers and Splines (used by a few games)
 * Partial sceUsbGps and sceUsbCam support (Android)
-* Android "Sustained performance mode" to avoid thermal throttling (#9901)
-* Linux controller mapping fixes (#9997)
+* Android "Sustained performance mode" to avoid thermal throttling ([#9901](https://github.com/hrydgard/ppsspp/issues/9901))
+* Linux controller mapping fixes ([#9997](https://github.com/hrydgard/ppsspp/issues/9997))
 * Assorted bugfixes and compatibility improvements
 
 What's new in 1.4.2
@@ -55,15 +55,15 @@ What's new in 1.4.2
 
 What's new in 1.4.1
 -------------------
-* Fixes for some common hangs and crashes (#9698, ...)
-* Vertex decoder optimizations (#9674)
-* Corrections to mipmap bias and selection function (#9633)
-* Major improvements and fixes to software renderer, including mipmap support (#9635, ...)
+* Fixes for some common hangs and crashes ([#9698](https://github.com/hrydgard/ppsspp/issues/9698), ...)
+* Vertex decoder optimizations ([#9674](https://github.com/hrydgard/ppsspp/issues/9674))
+* Corrections to mipmap bias and selection function ([#9633](https://github.com/hrydgard/ppsspp/issues/9633))
+* Major improvements and fixes to software renderer, including mipmap support ([#9635](https://github.com/hrydgard/ppsspp/issues/9635), ...)
 * UI background image support
 * Basic mouse input support on Windows
-* Windows desktop touch fixes (#9560)
+* Windows desktop touch fixes ([#9560](https://github.com/hrydgard/ppsspp/issues/9560))
 * D3D11 "depal" color fixes, fixing Sonic Rivals
-* Fix crash in framebuffer blits affecting Persona 3 (#9566)
+* Fix crash in framebuffer blits affecting Persona 3 ([#9566](https://github.com/hrydgard/ppsspp/issues/9566))
 
 What's new in 1.4-2
 -------------------
@@ -72,12 +72,12 @@ What's new in 1.4-2
 What's new in 1.4
 -----------------
 * Support D3D11 (performs better than OpenGL or D3D9 on most hardware)
-* Audio quality improvement (linear interpolation) (#8950)
+* Audio quality improvement (linear interpolation) ([#8950](https://github.com/hrydgard/ppsspp/issues/8950))
 * Hardware spline/bezier tesselation in OpenGL, D3D11 and Vulkan (...)
 * Post-processing shaders in D3D11
-* Prescale UV setting removed, now the default (improves perf) (#9176)
+* Prescale UV setting removed, now the default (improves perf) ([#9176](https://github.com/hrydgard/ppsspp/issues/9176))
 * High DPI display fixes
-* Various fixes for UMD switching for multi-UMD games (#9245, #9256)
+* Various fixes for UMD switching for multi-UMD games ([#9245](https://github.com/hrydgard/ppsspp/issues/9245), [#9256](https://github.com/hrydgard/ppsspp/issues/9256))
 * New audio setting to improve compatibility with Bluetooth headsets
 * Various desktop gamepad compatibility fixes
 * Workaround for mipmap issue, fixing fonts in Tactics Ogre Japanese
@@ -87,25 +87,25 @@ Support for Symbian, Maemo and Blackberry has been removed.
 
 What's new in 1.3.0
 -------------------
-* Fix JIT problems on Galaxy S7 and iOS 9+ devices. (#8965, #8937)
-* Fix Android TV support and use latest FFmpeg. (#8651, #8870)
-* Texture replacement support - for custom textures and upscaling. (#8715, #8821)
-* Initial game recording / TAS features. (#8939, #8945)
-* Correctly map memory on Raspberry Pi 3, much better performance. (#8801)
+* Fix JIT problems on Galaxy S7 and iOS 9+ devices. ([#8965](https://github.com/hrydgard/ppsspp/issues/8965), [#8937](https://github.com/hrydgard/ppsspp/issues/8937))
+* Fix Android TV support and use latest FFmpeg. ([#8651](https://github.com/hrydgard/ppsspp/issues/8651), [#8870](https://github.com/hrydgard/ppsspp/issues/8870))
+* Texture replacement support - for custom textures and upscaling. ([#8715](https://github.com/hrydgard/ppsspp/issues/8715), [#8821](https://github.com/hrydgard/ppsspp/issues/8821))
+* Initial game recording / TAS features. ([#8939](https://github.com/hrydgard/ppsspp/issues/8939), [#8945](https://github.com/hrydgard/ppsspp/issues/8945))
+* Correctly map memory on Raspberry Pi 3, much better performance. ([#8801](https://github.com/hrydgard/ppsspp/issues/8801))
 * Workaround rendering issues on Tegra K1/X1. (8294a54)
-* Disc streaming to play quickly from tablet/phone on wifi. (#8845)
-* Initial Vulkan support - not full featured yet. (#8601, etc.)
-* Experimental new CPU backend and CPU fixes. (#8725)
-* Allow insert/eject of memstick - required by some games. (#8889)
-* Better support for ps3 controller mapping. (#8949)
-* Better UI handling for settings with long names in some languages. (#8900, #8898)
-* Screenshots in compatibility reporting, better website. (#8812)
-* Fix type D cheat codes, allow for homebrew. (#8818)
-* Graphic glitch fixes in several games. (#8686, #8757, #8804)
-* Fix video playback glitches in several games. (#8793, #8803, #8867, #8914)
-* Various performance and compatibility improvements. (#8868, #8884, #8932, #8934, #8813, #8701, #8960)
-* Various debugger and GE debugger improvements. (#8882, #8762)
-* Fix some problems when switching away from and back to the app (#8968)
+* Disc streaming to play quickly from tablet/phone on wifi. ([#8845](https://github.com/hrydgard/ppsspp/issues/8845))
+* Initial Vulkan support - not full featured yet. ([#8601](https://github.com/hrydgard/ppsspp/issues/8601), etc.)
+* Experimental new CPU backend and CPU fixes. ([#8725](https://github.com/hrydgard/ppsspp/issues/8725))
+* Allow insert/eject of memstick - required by some games. ([#8889](https://github.com/hrydgard/ppsspp/issues/8889))
+* Better support for ps3 controller mapping. ([#8949](https://github.com/hrydgard/ppsspp/issues/8949))
+* Better UI handling for settings with long names in some languages. ([#8900](https://github.com/hrydgard/ppsspp/issues/8900), [#8898](https://github.com/hrydgard/ppsspp/issues/8898))
+* Screenshots in compatibility reporting, better website. ([#8812](https://github.com/hrydgard/ppsspp/issues/8812))
+* Fix type D cheat codes, allow for homebrew. ([#8818](https://github.com/hrydgard/ppsspp/issues/8818))
+* Graphic glitch fixes in several games. ([#8686](https://github.com/hrydgard/ppsspp/issues/8686), [#8757](https://github.com/hrydgard/ppsspp/issues/8757), [#8804](https://github.com/hrydgard/ppsspp/issues/8804))
+* Fix video playback glitches in several games. ([#8793](https://github.com/hrydgard/ppsspp/issues/8793), [#8803](https://github.com/hrydgard/ppsspp/issues/8803), [#8867](https://github.com/hrydgard/ppsspp/issues/8867), [#8914](https://github.com/hrydgard/ppsspp/issues/8914))
+* Various performance and compatibility improvements. ([#8868](https://github.com/hrydgard/ppsspp/issues/8868), [#8884](https://github.com/hrydgard/ppsspp/issues/8884), [#8932](https://github.com/hrydgard/ppsspp/issues/8932), [#8934](https://github.com/hrydgard/ppsspp/issues/8934), [#8813](https://github.com/hrydgard/ppsspp/issues/8813), [#8701](https://github.com/hrydgard/ppsspp/issues/8701), [#8960](https://github.com/hrydgard/ppsspp/issues/8960))
+* Various debugger and GE debugger improvements. ([#8882](https://github.com/hrydgard/ppsspp/issues/8882), [#8762](https://github.com/hrydgard/ppsspp/issues/8762))
+* Fix some problems when switching away from and back to the app ([#8968](https://github.com/hrydgard/ppsspp/issues/8968))
 
 What's new in 1.2.2
 -------------------
@@ -319,3 +319,4 @@ Update (Kyhel) :
 go to see there http://forums.ppsspp.org/showthread.php?tid=3595&pid=59241#pid59241
 * Got it tested windows <-> mac osx <-> psp, it works
 * Monster Hunter 3rd HD works too, as well as God Eater Burst.
+
