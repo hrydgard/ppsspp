@@ -272,22 +272,24 @@ Screen *ScreenManager::dialogParent(const Screen *dialog) const {
 
 void ScreenManager::processFinishDialog() {
 	if (dialogFinished_) {
-		std::lock_guard<std::recursive_mutex> guard(inputLock_);
-		// Another dialog may have been pushed before the render, so search for it.
-		Screen *caller = dialogParent(dialogFinished_);
-		for (size_t i = 0; i < stack_.size(); ++i) {
-			if (stack_[i].screen == dialogFinished_) {
-				stack_.erase(stack_.begin() + i);
+		{
+			std::lock_guard<std::recursive_mutex> guard(inputLock_);
+			// Another dialog may have been pushed before the render, so search for it.
+			Screen *caller = dialogParent(dialogFinished_);
+			for (size_t i = 0; i < stack_.size(); ++i) {
+				if (stack_[i].screen == dialogFinished_) {
+					stack_.erase(stack_.begin() + i);
+				}
 			}
-		}
 
-		if (!caller) {
-			ELOG("ERROR: no top screen when finishing dialog");
-		} else if (caller != topScreen()) {
-			// The caller may get confused if we call dialogFinished() now.
-			WLOG("Skipping non-top dialog when finishing dialog.");
-		} else {
-			caller->dialogFinished(dialogFinished_, dialogResult_);
+			if (!caller) {
+				ELOG("ERROR: no top screen when finishing dialog");
+			} else if (caller != topScreen()) {
+				// The caller may get confused if we call dialogFinished() now.
+				WLOG("Skipping non-top dialog when finishing dialog.");
+			} else {
+				caller->dialogFinished(dialogFinished_, dialogResult_);
+			}
 		}
 		delete dialogFinished_;
 		dialogFinished_ = nullptr;
