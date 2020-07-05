@@ -71,9 +71,9 @@ public:
 
 	// HEAD, PUT, DELETE aren't implemented yet, but can be done with SendRequest.
 
-	int SendRequest(const char *method, const char *resource, const char *otherHeaders = nullptr, float *progress = nullptr);
-	int SendRequestWithData(const char *method, const char *resource, const std::string &data, const char *otherHeaders = nullptr, float *progress = nullptr);
-	int ReadResponseHeaders(Buffer *readbuf, std::vector<std::string> &responseHeaders, float *progress = nullptr);
+	int SendRequest(const char *method, const char *resource, const char *otherHeaders = nullptr, float *progress = nullptr, bool *cancelled = nullptr);
+	int SendRequestWithData(const char *method, const char *resource, const std::string &data, const char *otherHeaders = nullptr, float *progress = nullptr, bool *cancelled = nullptr);
+	int ReadResponseHeaders(Buffer *readbuf, std::vector<std::string> &responseHeaders, float *progress = nullptr, bool *cancelled = nullptr);
 	// If your response contains a response, you must read it.
 	int ReadResponseEntity(Buffer *readbuf, const std::vector<std::string> &responseHeaders, Buffer *output, float *progress = nullptr, bool *cancelled = nullptr);
 
