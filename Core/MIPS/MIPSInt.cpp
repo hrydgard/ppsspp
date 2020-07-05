@@ -112,7 +112,7 @@ namespace MIPSInt
 			// Invalidate the instruction cache at this address.
 			// We assume the CPU won't be reset during this, so no locking.
 			if (MIPSComp::jit) {
-				MIPSComp::jit->InvalidateCacheAt(addr, 0x40);
+				MIPSComp::jit->InvalidateCacheAt(addr & ~0x3F, 0x40);
 			}
 			break;
 
