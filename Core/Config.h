@@ -108,6 +108,7 @@ public:
 	uint32_t uJitDisableFlags;
 
 	bool bSeparateSASThread;
+	bool bSeparateIOThread;
 	int iIOTimingMethod;
 	int iLockedCPUSpeed;
 	bool bAutoSaveSymbolMap;
