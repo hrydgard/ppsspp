@@ -513,28 +513,38 @@ bool HandleFault(uintptr_t hostAddress, void *ctx) {
 
 	// TODO: Share the struct between the various analyzers, that will allow us to share most of
 	// the implementations here.
+	bool success = false;
+
+	MemoryExceptionType type = MemoryExceptionType::NONE;
 
 #if PPSSPP_ARCH(AMD64) || PPSSPP_ARCH(X86)
 	// X86, X86-64. Variable instruction size so need to analyze the mov instruction in detail.
 
 	// To ignore the access, we need to disassemble the instruction and modify context->CTX_PC
 	LSInstructionInfo info;
-	X86AnalyzeMOV(codePtr, info);
+	success = X86AnalyzeMOV(codePtr, info);
 #elif PPSSPP_ARCH(ARM64)
 	uint32_t word;
 	memcpy(&word, codePtr, 4);
 	// To ignore the access, we need to disassemble the instruction and modify context->CTX_PC
 	Arm64LSInstructionInfo info;
-	Arm64AnalyzeLoadStore((uint64_t)codePtr, word, &info);
+	success = Arm64AnalyzeLoadStore((uint64_t)codePtr, word, &info);
 #elif PPSSPP_ARCH(ARM)
 	uint32_t word;
 	memcpy(&word, codePtr, 4);
 	// To ignore the access, we need to disassemble the instruction and modify context->CTX_PC
 	ArmLSInstructionInfo info;
-	ArmAnalyzeLoadStore((uint32_t)codePtr, word, &info);
+	success = ArmAnalyzeLoadStore((uint32_t)codePtr, word, &info);
 #endif
+	if (success) {
+		if (info.isMemoryWrite) {
+			type = MemoryExceptionType::WRITE_WORD;
+		} else {
+			type = MemoryExceptionType::READ_WORD;
+		}
+	}
 
-	if (g_Config.bIgnoreBadMemAccess) {
+	if (success && g_Config.bIgnoreBadMemAccess) {
 		if (!info.isMemoryWrite) {
 			// It was a read. Fill the destination register with 0.
 			// TODO
@@ -546,6 +556,10 @@ bool HandleFault(uintptr_t hostAddress, void *ctx) {
 			ERROR_LOG(MEMMAP, "Bad memory access detected and ignored: %08x (%p)", guestAddress, (void *)hostAddress);
 		}
 	} else {
+		// Either bIgnoreBadMemAccess is off, or we failed recovery analysis.
+		uint32_t approximatePC = currentMIPS->pc;
+		Core_MemoryException(guestAddress, currentMIPS->pc, type);
+
 		// Redirect execution to a crash handler that will exit the game.
 		context->CTX_PC = (uintptr_t)MIPSComp::jit->GetCrashHandler();
 		ERROR_LOG(MEMMAP, "Bad memory access detected! %08x (%p) Stopping emulation.", guestAddress, (void *)hostAddress);

@@ -40,7 +40,7 @@ static BadAccessHandler g_badAccessHandler;
 
 static PVOID g_vectoredExceptionHandle;
 
-static LONG NTAPI Handler(PEXCEPTION_POINTERS pPtrs) {
+static LONG NTAPI GlobalExceptionHandler(PEXCEPTION_POINTERS pPtrs) {
 	switch (pPtrs->ExceptionRecord->ExceptionCode) {
 	case EXCEPTION_ACCESS_VIOLATION:
 	{
@@ -96,7 +96,7 @@ void InstallExceptionHandler(BadAccessHandler badAccessHandler) {
 
 	INFO_LOG(SYSTEM, "Installing exception handler");
 	g_badAccessHandler = badAccessHandler;
-	g_vectoredExceptionHandle = AddVectoredExceptionHandler(TRUE, Handler);
+	g_vectoredExceptionHandle = AddVectoredExceptionHandler(TRUE, GlobalExceptionHandler);
 }
 
 void UninstallExceptionHandler() {
