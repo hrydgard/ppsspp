@@ -64,7 +64,7 @@ class Buffer {
 	// written.
 	bool Flush(int fd);
 	bool FlushToFile(const char *filename);
-	bool FlushSocket(uintptr_t sock, double timeout = -1.0);  // Windows portability
+	bool FlushSocket(uintptr_t sock, double timeout = -1.0, bool *cancelled = nullptr);  // Windows portability
 
   bool ReadAll(int fd, int hintSize = 0);
   bool ReadAllWithProgress(int fd, int knownSize, float *progress, bool *cancelled);

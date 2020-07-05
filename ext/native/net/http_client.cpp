@@ -229,13 +229,13 @@ int Client::GET(const char *resource, Buffer *output, std::vector<std::string> &
 	const char *otherHeaders =
 		"Accept: */*\r\n"
 		"Accept-Encoding: gzip\r\n";
-	int err = SendRequest("GET", resource, otherHeaders, progress);
+	int err = SendRequest("GET", resource, otherHeaders, progress, cancelled);
 	if (err < 0) {
 		return err;
 	}
 
 	Buffer readbuf;
-	int code = ReadResponseHeaders(&readbuf, responseHeaders, progress);
+	int code = ReadResponseHeaders(&readbuf, responseHeaders, progress, cancelled);
 	if (code < 0) {
 		return code;
 	}
@@ -283,11 +283,11 @@ int Client::POST(const char *resource, const std::string &data, Buffer *output, 
 	return POST(resource, data, "", output, progress);
 }
 
-int Client::SendRequest(const char *method, const char *resource, const char *otherHeaders, float *progress) {
-	return SendRequestWithData(method, resource, "", otherHeaders, progress);
+int Client::SendRequest(const char *method, const char *resource, const char *otherHeaders, float *progress, bool *cancelled) {
+	return SendRequestWithData(method, resource, "", otherHeaders, progress, cancelled);
 }
 
-int Client::SendRequestWithData(const char *method, const char *resource, const std::string &data, const char *otherHeaders, float *progress) {
+int Client::SendRequestWithData(const char *method, const char *resource, const std::string &data, const char *otherHeaders, float *progress, bool *cancelled) {
 	if (progress) {
 		*progress = 0.01f;
 	}
@@ -314,12 +314,24 @@ int Client::SendRequestWithData(const char *method, const char *resource, const 
 	return 0;
 }
 
-int Client::ReadResponseHeaders(Buffer *readbuf, std::vector<std::string> &responseHeaders, float *progress) {
+int Client::ReadResponseHeaders(Buffer *readbuf, std::vector<std::string> &responseHeaders, float *progress, bool *cancelled) {
 	// Snarf all the data we can into RAM. A little unsafe but hey.
-	if (dataTimeout_ >= 0.0 && !fd_util::WaitUntilReady(sock(), dataTimeout_, false)) {
-		ELOG("HTTP headers timed out");
-		return -1;
-	}
+	static constexpr float CANCEL_INTERVAL = 0.25f;
+	bool ready = false;
+	double leftTimeout = dataTimeout_;
+	while (!ready) {
+		if (cancelled && *cancelled)
+			return -1;
+		ready = fd_util::WaitUntilReady(sock(), CANCEL_INTERVAL, false);
+		if (!ready && leftTimeout >= 0.0) {
+			leftTimeout -= CANCEL_INTERVAL;
+			if (leftTimeout < 0) {
+				ELOG("HTTP headers timed out");
+				return -1;
+			}
+		}
+	};
+	// Let's hope all the headers are available in a single packet...
 	if (readbuf->Read(sock(), 4096) < 0) {
 		ELOG("Failed to read HTTP headers :(");
 		return -1;
@@ -396,7 +408,7 @@ int Client::ReadResponseEntity(Buffer *readbuf, const std::vector<std::string> &
 
 	if (!contentLength || !progress) {
 		// No way to know how far along we are. Let's just not update the progress counter.
-		if (!readbuf->ReadAll(sock(), contentLength))
+		if (!readbuf->ReadAllWithProgress(sock(), contentLength, nullptr, cancelled))
 			return -1;
 	} else {
 		// Let's read in chunks, updating progress between each.
