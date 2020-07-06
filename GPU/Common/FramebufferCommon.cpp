@@ -661,7 +661,7 @@ void FramebufferManagerCommon::DrawPixels(VirtualFramebuffer *vfb, int dstX, int
 			std::swap(v0, v1);
 		flags = g_Config.iBufFilter == SCALE_LINEAR ? DRAWTEX_LINEAR : DRAWTEX_NEAREST;
 		flags = flags | DRAWTEX_TO_BACKBUFFER;
-		FRect frame = GetInsetScreenFrame(pixelWidth_, pixelHeight_);
+		FRect frame = GetScreenFrame(pixelWidth_, pixelHeight_);
 		FRect rc;
 		CenterDisplayOutputRect(&rc, 480.0f, 272.0f, frame, ROTATION_LOCKED_HORIZONTAL);
 		SetViewport2D(rc.x, rc.y, rc.w, rc.h);
