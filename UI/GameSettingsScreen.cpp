@@ -320,7 +320,7 @@ void GameSettingsScreen::CreateViews() {
 		 System_GetPropertyFloat(SYSPROP_DISPLAY_SAFE_INSET_TOP) != 0.0f ||
 		 System_GetPropertyFloat(SYSPROP_DISPLAY_SAFE_INSET_RIGHT) != 0.0f ||
 		 System_GetPropertyFloat(SYSPROP_DISPLAY_SAFE_INSET_BOTTOM) != 0.0f)) {
-		graphicsSettings->Add(new CheckBox(&g_Config.bIgnoreScreenInsets, gr->T("Ignore camera inset when centering")));
+		graphicsSettings->Add(new CheckBox(&g_Config.bIgnoreScreenInsets, gr->T("Ignore camera notch when centering")));
 	}
 
 	// Hide Immersive Mode on pre-kitkat Android
