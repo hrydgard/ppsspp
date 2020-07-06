@@ -912,7 +912,9 @@ bool IsMatchingInCallback(SceNetAdhocMatchingContext * context) {
 }
 
 void AfterMatchingMipsCall::run(MipsCall &call) {
-	if (context == NULL) return;
+	if (!context || !context->eventlock)
+		return;
+
 	DEBUG_LOG(SCENET, "Entering AfterMatchingMipsCall::run [ID=%i][Event=%d] [cbId: %u]", context->id, EventID, call.cbId);
 	//u32 v0 = currentMIPS->r[MIPS_REG_V0];
 	if (__IsInInterrupt()) ERROR_LOG(SCENET, "AfterMatchingMipsCall::run [ID=%i][Event=%d] is Returning Inside an Interrupt!", context->id, EventID);
