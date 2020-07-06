@@ -25,6 +25,11 @@ If you want to download regularly updated builds for Android, Windows x86 and x6
 
 For game compatibility, see [community compatibility feedback](https://report.ppsspp.org/games).
 
+What's new in 1.10.2
+--------------------
+* More crashfixes ([#13094](https://github.com/hrydgard/ppsspp/issues/13094), [#13093](https://github.com/hrydgard/ppsspp/issues/13093))
+* Improve download performance and cancel behavior ([#13095](https://github.com/hrydgard/ppsspp/issues/13095))
+* Restore the removed I/O on Thread option ([#13096](https://github.com/hrydgard/ppsspp/issues/13096))
 
 What's new in 1.10.1
 --------------------
