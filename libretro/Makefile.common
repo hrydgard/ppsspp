@@ -308,6 +308,7 @@ SOURCES_CXX += $(NATIVEDIR)/math/dataconv.cpp \
           $(NATIVEDIR)/thin3d/DataFormatGL.cpp \
 	       $(NATIVEDIR)/thread/threadutil.cpp \
 	       $(NATIVEDIR)/thread/threadpool.cpp \
+	       $(NATIVEDIR)/thread/prioritizedworkqueue.cpp \
 	       $(NATIVEDIR)/ui/root.cpp \
 	       $(NATIVEDIR)/ui/screen.cpp \
 	       $(NATIVEDIR)/ui/ui.cpp \
@@ -478,7 +479,8 @@ SOURCES_CXX += $(NATIVEDIR)/math/dataconv.cpp \
 	       $(COREDIR)/Util/PPGeDraw.cpp \
 	       $(COREDIR)/Util/AudioFormat.cpp \
           $(EXTDIR)/disarm.cpp \
-          $(CORE_DIR)/UI/TextureUtil.cpp
+          $(CORE_DIR)/UI/TextureUtil.cpp \
+          $(CORE_DIR)/UI/GameInfoCache.cpp
 
 SOURCES_CXX += $(COREDIR)/HLE/__sceAudio.cpp
 
