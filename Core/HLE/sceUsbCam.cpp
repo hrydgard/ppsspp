@@ -26,7 +26,11 @@
 #include "Core/HW/Camera.h"
 #include "Core/MemMapHelpers.h"
 
-#if defined(_WIN32) && !PPSSPP_PLATFORM(UWP)
+#if defined(_WIN32) && !PPSSPP_PLATFORM(UWP) && !defined(__LIBRETRO__)
+#define HAVE_WIN32_CAMERA
+#endif
+
+#ifdef HAVE_WIN32_CAMERA
 #ifndef NOMINMAX
 #define NOMINMAX
 #endif
@@ -300,7 +304,7 @@ void Register_sceUsbCam()
 }
 
 std::vector<std::string> Camera::getDeviceList() {
-	#if defined(_WIN32) && !PPSSPP_PLATFORM(UWP)
+   #ifdef HAVE_WIN32_CAMERA
 		if (winCamera) {
 			return winCamera->getDeviceList();
 		}
@@ -320,7 +324,7 @@ int Camera::startCapture() {
 	INFO_LOG(HLE, "%s resolution: %dx%d", __FUNCTION__, width, height);
 
 	config->mode = Camera::Mode::Video;
-	#if defined(_WIN32) && !PPSSPP_PLATFORM(UWP)
+   #ifdef HAVE_WIN32_CAMERA
 		if (winCamera) {
 			if (winCamera->isShutDown()) {
 				delete winCamera;
@@ -344,7 +348,7 @@ int Camera::startCapture() {
 
 int Camera::stopCapture() {
 	INFO_LOG(HLE, "%s", __FUNCTION__);
-	#if defined(_WIN32) && !PPSSPP_PLATFORM(UWP)
+   #ifdef HAVE_WIN32_CAMERA
 		if (winCamera) {
 			winCamera->sendMessage({ CAPTUREDEVIDE_COMMAND::STOP, nullptr });
 		}
