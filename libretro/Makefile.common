@@ -7,6 +7,10 @@ GPUDIR			= $(CORE_DIR)/GPU
 EXTDIR			= $(CORE_DIR)/ext
 NATIVEDIR		= $(EXTDIR)/native
 
+SOURCES_CXX   :=
+SOURCES_C     :=
+SOURCES_ASM   :=
+
 INCFLAGS += \
 	-I$(CORE_DIR) \
 	-I$(COMMONDIR) \
@@ -699,11 +703,7 @@ ifneq (,$(findstring $(GIT_VERSION),$(shell grep -s char $(GIT_VERSION_SRC))))
 endif
 
 ifneq ($(GIT_VERSION_NO_UPDATE),1)
-   $(shell echo '// This is a generated file.' > $(GIT_VERSION_SRC))
-   $(shell echo >> $(GIT_VERSION_SRC))
    $(shell echo 'const char *PPSSPP_GIT_VERSION = "${GIT_VERSION}";' >> $(GIT_VERSION_SRC))
-   $(shell echo >> $(GIT_VERSION_SRC))
-   $(shell echo "// If you don't want this file to update/recompile, change to 1." >> $(GIT_VERSION_SRC))
    $(shell echo '#define PPSSPP_GIT_VERSION_NO_UPDATE 0' >> $(GIT_VERSION_SRC))
 endif
 
