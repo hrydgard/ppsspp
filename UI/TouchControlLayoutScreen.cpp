@@ -225,15 +225,13 @@ private:
 	u32 col;
 };
 
-TouchControlLayoutScreen::TouchControlLayoutScreen() {
-};
-
-
 class DragDropButton;
 
 class ControlLayoutView : public UI::AnchorLayout {
 public:
-	ControlLayoutView(UI::LayoutParams *layoutParams);
+	explicit ControlLayoutView(UI::LayoutParams *layoutParams)
+		: UI::AnchorLayout(layoutParams) {
+	}
 
 	void Touch(const TouchInput &input) override;
 	void CreateViews();
@@ -323,6 +321,111 @@ void ControlLayoutView::Touch(const TouchInput &touch) {
 		pickedControl_ = 0;
 	}
 }
+
+void ControlLayoutView::CreateViews() {
+	const Bounds &bounds = GetBounds();
+	if (bounds.w == 0.0f || bounds.h == 0.0f) {
+		// Layout hasn't happened yet, return.
+		// See comment in TouchControlLayoutScreen::update().
+		return;
+	}
+
+	// Create all the views.
+
+	PSPActionButtons *actionButtons = new PSPActionButtons(g_Config.touchActionButtonCenter, g_Config.fActionButtonSpacing, bounds);
+	actionButtons->setCircleVisibility(g_Config.bShowTouchCircle);
+	actionButtons->setCrossVisibility(g_Config.bShowTouchCross);
+	actionButtons->setTriangleVisibility(g_Config.bShowTouchTriangle);
+	actionButtons->setSquareVisibility(g_Config.bShowTouchSquare);
+
+	controls_.push_back(actionButtons);
+
+	ImageID rectImage = g_Config.iTouchButtonStyle ? ImageID("I_RECT_LINE") : ImageID("I_RECT");
+	ImageID shoulderImage = g_Config.iTouchButtonStyle ? ImageID("I_SHOULDER_LINE") : ImageID("I_SHOULDER");
+	ImageID dirImage = g_Config.iTouchButtonStyle ? ImageID("I_DIR_LINE") : ImageID("I_DIR");
+	ImageID stickImage = g_Config.iTouchButtonStyle ? ImageID("I_STICK_LINE") : ImageID("I_STICK");
+	ImageID stickBg = g_Config.iTouchButtonStyle ? ImageID("I_STICK_BG_LINE") : ImageID("I_STICK_BG");
+	ImageID roundImage = g_Config.iTouchButtonStyle ? ImageID("I_ROUND_LINE") : ImageID("I_ROUND");
+
+	const ImageID comboKeyImages[5] = { ImageID("I_1"), ImageID("I_2"), ImageID("I_3"), ImageID("I_4"), ImageID("I_5") };
+
+	auto addDragDropButton = [&](ConfigTouchPos &pos, ImageID bgImg, ImageID img) {
+		DragDropButton *b = nullptr;
+		if (pos.show) {
+			b = new DragDropButton(pos, bgImg, img, bounds);
+			controls_.push_back(b);
+		}
+		return b;
+	};
+
+	if (g_Config.touchDpad.show) {
+		controls_.push_back(new PSPDPadButtons(g_Config.touchDpad, g_Config.fDpadSpacing, bounds));
+	}
+
+	addDragDropButton(g_Config.touchSelectKey, rectImage, ImageID("I_SELECT"));
+	addDragDropButton(g_Config.touchStartKey, rectImage, ImageID("I_START"));
+
+	if (auto *unthrottle = addDragDropButton(g_Config.touchUnthrottleKey, rectImage, ImageID("I_ARROW"))) {
+		unthrottle->SetAngle(180.0f);
+	}
+	if (auto *speed1 = addDragDropButton(g_Config.touchSpeed1Key, rectImage, ImageID("I_ARROW"))) {
+		speed1->SetAngle(170.0f, 180.0f);
+	}
+	if (auto *speed2 = addDragDropButton(g_Config.touchSpeed2Key, rectImage, ImageID("I_ARROW"))) {
+		speed2->SetAngle(190.0f, 180.0f);
+	}
+	if (auto *rapidFire = addDragDropButton(g_Config.touchRapidFireKey, rectImage, ImageID("I_ARROW"))) {
+		rapidFire->SetAngle(90.0f, 180.0f);
+	}
+	if (auto *analogRotationCW = addDragDropButton(g_Config.touchAnalogRotationCWKey, rectImage, ImageID("I_ARROW"))) {
+		analogRotationCW->SetAngle(190.0f, 180.0f);
+	}
+	if (auto *analogRotationCCW = addDragDropButton(g_Config.touchAnalogRotationCCWKey, rectImage, ImageID("I_ARROW"))) {
+		analogRotationCCW->SetAngle(350.0f, 180.0f);
+	}
+
+	addDragDropButton(g_Config.touchLKey, shoulderImage, ImageID("I_L"));
+	if (auto *rbutton = addDragDropButton(g_Config.touchRKey, shoulderImage, ImageID("I_R"))) {
+		rbutton->FlipImageH(true);
+	}
+
+	addDragDropButton(g_Config.touchAnalogStick, stickBg, stickImage);
+	addDragDropButton(g_Config.touchRightAnalogStick, stickBg, stickImage);
+	addDragDropButton(g_Config.touchCombo0, roundImage, comboKeyImages[0]);
+	addDragDropButton(g_Config.touchCombo1, roundImage, comboKeyImages[1]);
+	addDragDropButton(g_Config.touchCombo2, roundImage, comboKeyImages[2]);
+	addDragDropButton(g_Config.touchCombo3, roundImage, comboKeyImages[3]);
+	addDragDropButton(g_Config.touchCombo4, roundImage, comboKeyImages[4]);
+
+	for (size_t i = 0; i < controls_.size(); i++) {
+		Add(controls_[i]);
+	}
+
+	Add(new SnapGrid(0, bounds.w, 0, bounds.h, 0x3FFFFFFF));
+}
+
+// return the control which was picked up by the touchEvent. If a control
+// was already picked up, then it's being dragged around, so just return that instead
+DragDropButton *ControlLayoutView::getPickedControl(const int x, const int y) {
+	if (pickedControl_ != 0) {
+		return pickedControl_;
+	}
+
+	for (size_t i = 0; i < controls_.size(); i++) {
+		DragDropButton *control = controls_[i];
+		const Bounds &bounds = control->GetBounds();
+		const float thresholdFactor = 1.5f;
+
+		Bounds tolerantBounds(bounds.x, bounds.y, bounds.w * thresholdFactor, bounds.h * thresholdFactor);
+		if (tolerantBounds.Contains(x, y)) {
+			return control;
+		}
+	}
+
+	return 0;
+}
+
+TouchControlLayoutScreen::TouchControlLayoutScreen() {}
 
 void TouchControlLayoutScreen::resized() {
 	RecreateViews();
@@ -429,113 +532,4 @@ void TouchControlLayoutScreen::CreateViews() {
 		// Shouldn't even be able to get here as the way into this dialog should be closed.
 		return;
 	}
-}
-
-
-ControlLayoutView::ControlLayoutView(UI::LayoutParams *layoutParams)
-	: UI::AnchorLayout(layoutParams) {
-
-}
-
-void ControlLayoutView::CreateViews() {
-	const Bounds &bounds = GetBounds();
-	if (bounds.w == 0.0f || bounds.h == 0.0f) {
-		// Layout hasn't happened yet, return.
-		// See comment in TouchControlLayoutScreen::update().
-		return;
-	}
-
-	// Create all the views.
-
-	PSPActionButtons *actionButtons = new PSPActionButtons(g_Config.touchActionButtonCenter, g_Config.fActionButtonSpacing, bounds);
-	actionButtons->setCircleVisibility(g_Config.bShowTouchCircle);
-	actionButtons->setCrossVisibility(g_Config.bShowTouchCross);
-	actionButtons->setTriangleVisibility(g_Config.bShowTouchTriangle);
-	actionButtons->setSquareVisibility(g_Config.bShowTouchSquare);
-
-	controls_.push_back(actionButtons);
-
-	ImageID rectImage = g_Config.iTouchButtonStyle ? ImageID("I_RECT_LINE") : ImageID("I_RECT");
-	ImageID shoulderImage = g_Config.iTouchButtonStyle ? ImageID("I_SHOULDER_LINE") : ImageID("I_SHOULDER");
-	ImageID dirImage = g_Config.iTouchButtonStyle ? ImageID("I_DIR_LINE") : ImageID("I_DIR");
-	ImageID stickImage = g_Config.iTouchButtonStyle ? ImageID("I_STICK_LINE") : ImageID("I_STICK");
-	ImageID stickBg = g_Config.iTouchButtonStyle ? ImageID("I_STICK_BG_LINE") : ImageID("I_STICK_BG");
-	ImageID roundImage = g_Config.iTouchButtonStyle ? ImageID("I_ROUND_LINE") : ImageID("I_ROUND");
-
-	const ImageID comboKeyImages[5] = { ImageID("I_1"), ImageID("I_2"), ImageID("I_3"), ImageID("I_4"), ImageID("I_5") };
-
-	auto addDragDropButton = [&](ConfigTouchPos &pos, ImageID bgImg, ImageID img) {
-		DragDropButton *b = nullptr;
-		if (pos.show) {
-			b = new DragDropButton(pos, bgImg, img, bounds);
-			controls_.push_back(b);
-		}
-		return b;
-	};
-
-	if (g_Config.touchDpad.show) {
-		controls_.push_back(new PSPDPadButtons(g_Config.touchDpad, g_Config.fDpadSpacing, bounds));
-	}
-
-	addDragDropButton(g_Config.touchSelectKey, rectImage, ImageID("I_SELECT"));
-	addDragDropButton(g_Config.touchStartKey, rectImage, ImageID("I_START"));
-
-	if (auto *unthrottle = addDragDropButton(g_Config.touchUnthrottleKey, rectImage, ImageID("I_ARROW"))) {
-		unthrottle->SetAngle(180.0f);
-	}
-	if (auto *speed1 = addDragDropButton(g_Config.touchSpeed1Key, rectImage, ImageID("I_ARROW"))) {
-		speed1->SetAngle(170.0f, 180.0f);
-	}
-	if (auto *speed2 = addDragDropButton(g_Config.touchSpeed2Key, rectImage, ImageID("I_ARROW"))) {
-		speed2->SetAngle(190.0f, 180.0f);
-	}
-	if (auto *rapidFire = addDragDropButton(g_Config.touchRapidFireKey, rectImage, ImageID("I_ARROW"))) {
-		rapidFire->SetAngle(90.0f, 180.0f);
-	}
-	if (auto *analogRotationCW = addDragDropButton(g_Config.touchAnalogRotationCWKey, rectImage, ImageID("I_ARROW"))) {
-		analogRotationCW->SetAngle(190.0f, 180.0f);
-	}
-	if (auto *analogRotationCCW = addDragDropButton(g_Config.touchAnalogRotationCCWKey, rectImage, ImageID("I_ARROW"))) {
-		analogRotationCCW->SetAngle(350.0f, 180.0f);
-	}
-
-	addDragDropButton(g_Config.touchLKey, shoulderImage, ImageID("I_L"));
-	if (auto *rbutton = addDragDropButton(g_Config.touchRKey, shoulderImage, ImageID("I_R"))) {
-		rbutton->FlipImageH(true);
-	}
-
-	addDragDropButton(g_Config.touchAnalogStick, stickBg, stickImage);
-	addDragDropButton(g_Config.touchRightAnalogStick, stickBg, stickImage);
-	addDragDropButton(g_Config.touchCombo0, roundImage, comboKeyImages[0]);
-	addDragDropButton(g_Config.touchCombo1, roundImage, comboKeyImages[1]);
-	addDragDropButton(g_Config.touchCombo2, roundImage, comboKeyImages[2]);
-	addDragDropButton(g_Config.touchCombo3, roundImage, comboKeyImages[3]);
-	addDragDropButton(g_Config.touchCombo4, roundImage, comboKeyImages[4]);
-
-	for (size_t i = 0; i < controls_.size(); i++) {
-		Add(controls_[i]);
-	}
-
-	Add(new SnapGrid(0, bounds.w, 0, bounds.h, 0x3FFFFFFF));
-}
-
-// return the control which was picked up by the touchEvent. If a control
-// was already picked up, then it's being dragged around, so just return that instead
-DragDropButton *ControlLayoutView::getPickedControl(const int x, const int y) {
-	if (pickedControl_ != 0) {
-		return pickedControl_;
-	}
-
-	for (size_t i = 0; i < controls_.size(); i++) {
-		DragDropButton *control = controls_[i];
-		const Bounds &bounds = control->GetBounds();
-		const float thresholdFactor = 1.5f;
-
-		Bounds tolerantBounds(bounds.x, bounds.y, bounds.w * thresholdFactor, bounds.h * thresholdFactor);
-		if (tolerantBounds.Contains(x, y)) {
-			return control;
-		}
-	}
-
-	return 0;
 }
