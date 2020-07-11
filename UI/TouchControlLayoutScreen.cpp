@@ -31,8 +31,6 @@
 #include "UI/TouchControlLayoutScreen.h"
 #include "UI/TouchControlVisibilityScreen.h"
 
-static const int leftColumnWidth = 140;
-
 static u32 GetButtonColor() {
 	return g_Config.iTouchButtonStyle != 0 ? 0xFFFFFF : 0xc0b080;
 }
@@ -40,7 +38,7 @@ static u32 GetButtonColor() {
 class DragDropButton : public MultiTouchButton {
 public:
 	DragDropButton(ConfigTouchPos &pos, ImageID bgImg, ImageID img, const Bounds &screenBounds)
-	: MultiTouchButton(bgImg, bgImg, img, pos.scale, new UI::AnchorLayoutParams(fromFullscreenCoord(pos.x, screenBounds), pos.y * screenBounds.h, UI::NONE, UI::NONE, true)),
+	: MultiTouchButton(bgImg, bgImg, img, pos.scale, new UI::AnchorLayoutParams(pos.x * screenBounds.w, pos.y * screenBounds.h, UI::NONE, UI::NONE, true)),
 		x_(pos.x), y_(pos.y), theScale_(pos.scale), screenBounds_(screenBounds) {
 		scale_ = theScale_;
 	}
@@ -52,8 +50,8 @@ public:
 	};
 
 	virtual void SavePosition() {
-		x_ = toFullscreenCoord(bounds_.centerX());
-		y_ = bounds_.centerY() / screenBounds_.h;
+		x_ = (bounds_.centerX() - screenBounds_.x) / screenBounds_.w;
+		y_ = (bounds_.centerY() - screenBounds_.y) / screenBounds_.h;
 		scale_ = theScale_;
 	}
 
@@ -70,16 +68,6 @@ protected:
 	}
 
 private:
-	// convert from screen coordinates (leftColumnWidth to dp_xres) to actual fullscreen coordinates (0 to 1.0)
-	inline float toFullscreenCoord(int screenx) {
-		return  (float)(screenx - leftColumnWidth) / (screenBounds_.w - leftColumnWidth);
-	}
-
-	// convert from external fullscreen  coordinates(0 to 1.0)  to the current partial coordinates (leftColumnWidth to dp_xres)
-	inline int fromFullscreenCoord(float controllerX, const Bounds &screenBounds) {
-		return leftColumnWidth + (screenBounds.w - leftColumnWidth) * controllerX;
-	};
-
 	float &x_, &y_;
 	float &theScale_;
 	const Bounds &screenBounds_;
@@ -93,19 +81,19 @@ public:
 		roundId_ = g_Config.iTouchButtonStyle ? ImageID("I_ROUND_LINE") : ImageID("I_ROUND");
 	};
 
-	void setCircleVisibility(bool visible){
+	void setCircleVisibility(bool visible) {
 		circleVisible_ = visible;
 	}
 
-	void setCrossVisibility(bool visible){
+	void setCrossVisibility(bool visible) {
 		crossVisible_ = visible;
 	}
 
-	void setTriangleVisibility(bool visible){
+	void setTriangleVisibility(bool visible) {
 		triangleVisible_ = visible;
 	}
 
-	void setSquareVisibility(bool visible){
+	void setSquareVisibility(bool visible) {
 		squareVisible_ = visible;
 	}
 
@@ -221,10 +209,12 @@ public:
 		if (g_Config.bTouchSnapToGrid) {
 			dc.Flush();
 			dc.BeginNoTex();
+			float xOffset = bounds_.x;
+			float yOffset = bounds_.y;
 			for (int x = x1; x < x2; x += g_Config.iTouchSnapGridSize)
-				dc.Draw()->vLine(x, y1, y2, col);
+				dc.Draw()->vLine(x + xOffset, y1 + yOffset, y2 + yOffset, col);
 			for (int y = y1; y < y2; y += g_Config.iTouchSnapGridSize)
-				dc.Draw()->hLine(x1, y, x2, col);
+				dc.Draw()->hLine(x1 + xOffset, y + yOffset, x2 + xOffset, col);
 			dc.Flush();
 			dc.Begin();
 		}
@@ -236,41 +226,68 @@ private:
 };
 
 TouchControlLayoutScreen::TouchControlLayoutScreen() {
-	pickedControl_ = 0;
+};
+
+
+class DragDropButton;
+
+class ControlLayoutView : public UI::AnchorLayout {
+public:
+	ControlLayoutView(UI::LayoutParams *layoutParams);
+
+	void Touch(const TouchInput &input) override;
+	void CreateViews();
+	bool HasCreatedViews() const {
+		return !controls_.empty();
+	}
+
+	DragDropButton *pickedControl_ = nullptr;
+	DragDropButton *getPickedControl(const int x, const int y);
+	std::vector<DragDropButton *> controls_;
+
+	// Touch down state for drag to resize etc
+	float startX_ = -1.0f;
+	float startY_ = -1.0f;
+	float startScale_ = -1.0f;
+	float startSpacing_ = -1.0f;
+
+	int mode_ = 0;
 };
 
 static Point ClampTo(const Point &p, const Bounds &b) {
 	return Point(clamp_value(p.x, b.x, b.x + b.w), clamp_value(p.y, b.y, b.y + b.h));
 }
 
-bool TouchControlLayoutScreen::touch(const TouchInput &touch) {
-	UIScreen::touch(touch);
-
+void ControlLayoutView::Touch(const TouchInput &touch) {
 	using namespace UI;
 
 	if ((touch.flags & TOUCH_MOVE) && pickedControl_ != nullptr) {
-		int mode = mode_->GetSelection();
-		if (mode == 0) {
-			const Bounds &bounds = pickedControl_->GetBounds();
+		if (mode_ == 0) {
+			const Bounds &controlBounds = pickedControl_->GetBounds();
 			const auto &prevParams = pickedControl_->GetLayoutParams()->As<AnchorLayoutParams>();
 			Point newPos(prevParams->left, prevParams->top);
 
-			Bounds validRange = screenManager()->getUIContext()->GetBounds();
-			validRange.x += leftColumnWidth + bounds.w * 0.5f;
-			validRange.w -= leftColumnWidth + bounds.w;
-			validRange.y += bounds.h * 0.5f;
-			validRange.h -= bounds.h;
+			// Allow placing the control halfway outside the play area.
+			Bounds validRange = this->GetBounds();
+			// Control coordinates are relative inside the bounds.
+			validRange.x = 0.0f;
+			validRange.y = 0.0f;
 
-			newPos.x = touch.x;
-			newPos.y = touch.y;
+			validRange.x += controlBounds.w * 0.5f;
+			validRange.w -= controlBounds.w;
+			validRange.y += controlBounds.h * 0.5f;
+			validRange.h -= controlBounds.h;
+
+			newPos.x = touch.x - this->GetBounds().x;
+			newPos.y = touch.y - this->GetBounds().y;
 			if (g_Config.bTouchSnapToGrid) {
-				newPos.x -= (int)(newPos.x - bounds.w) % g_Config.iTouchSnapGridSize;
-				newPos.y -= (int)(newPos.y - bounds.h) % g_Config.iTouchSnapGridSize;
+				newPos.x -= (int)(newPos.x - controlBounds.w) % g_Config.iTouchSnapGridSize;
+				newPos.y -= (int)(newPos.y - controlBounds.h) % g_Config.iTouchSnapGridSize;
 			}
 
 			newPos = ClampTo(newPos, validRange);
 			pickedControl_->ReplaceLayoutParams(new AnchorLayoutParams(newPos.x, newPos.y, NONE, NONE, true));
-		} else if (mode == 1) {
+		} else if (mode_ == 1) {
 			// Resize. Vertical = scaling, horizontal = spacing;
 			// Up should be bigger so let's negate in that direction
 			float diffX = (touch.x - startX_);
@@ -305,7 +322,6 @@ bool TouchControlLayoutScreen::touch(const TouchInput &touch) {
 		pickedControl_->SavePosition();
 		pickedControl_ = 0;
 	}
-	return true;
 }
 
 void TouchControlLayoutScreen::resized() {
@@ -334,10 +350,32 @@ void TouchControlLayoutScreen::dialogFinished(const Screen *dialog, DialogResult
 	RecreateViews();
 }
 
+UI::EventReturn TouchControlLayoutScreen::OnMode(UI::EventParams &e) {
+	int mode = mode_->GetSelection();
+	if (layoutView_) {
+		layoutView_->mode_ = mode;
+	}
+	return UI::EVENT_DONE;
+}
+
+void TouchControlLayoutScreen::update() {
+	UIDialogScreenWithBackground::update();
+
+	// TODO: We really, really need a cleaner solution for creating sub-views
+	// of custom compound controls.
+	if (layoutView_) {
+		if (!layoutView_->HasCreatedViews()) {
+			layoutView_->CreateViews();
+		}
+	}
+}
+
 void TouchControlLayoutScreen::CreateViews() {
 	// setup g_Config for button layout
 	const Bounds &bounds = screenManager()->getUIContext()->GetBounds();
 	InitPadLayout(bounds.w, bounds.h);
+
+	const float leftColumnWidth = 140.0f;
 
 	using namespace UI;
 
@@ -360,6 +398,7 @@ void TouchControlLayoutScreen::CreateViews() {
 	mode_->AddChoice(di->T("Move"));
 	mode_->AddChoice(di->T("Resize"));
 	mode_->SetSelection(0);
+	mode_->OnChoice.Handle(this, &TouchControlLayoutScreen::OnMode);
 
 	reset->OnClick.Handle(this, &TouchControlLayoutScreen::OnReset);
 	back->OnClick.Handle<UIScreen>(this, &UIScreen::OnBack);
@@ -375,10 +414,12 @@ void TouchControlLayoutScreen::CreateViews() {
 	tabHolder->SetTag("TouchControlLayout");
 	root_->Add(tabHolder);
 
+	layoutView_ = root_->Add(new ControlLayoutView(new AnchorLayoutParams(leftColumnWidth + 10, 0.0f, 0.0f, 0.0f, false)));
+
 	// this is more for show than anything else. It's used to provide a boundary
 	// so that buttons like back can be placed within the boundary.
 	// serves no other purpose.
-	AnchorLayout *controlsHolder = new AnchorLayout(new LayoutParams(FILL_PARENT, FILL_PARENT));
+	// AnchorLayout *controlsHolder = new AnchorLayout(new LayoutParams(FILL_PARENT, FILL_PARENT));
 
 	auto ms = GetI18NCategory("MainSettings");
 
@@ -388,8 +429,23 @@ void TouchControlLayoutScreen::CreateViews() {
 		// Shouldn't even be able to get here as the way into this dialog should be closed.
 		return;
 	}
+}
 
-	controls_.clear();
+
+ControlLayoutView::ControlLayoutView(UI::LayoutParams *layoutParams)
+	: UI::AnchorLayout(layoutParams) {
+
+}
+
+void ControlLayoutView::CreateViews() {
+	const Bounds &bounds = GetBounds();
+	if (bounds.w == 0.0f || bounds.h == 0.0f) {
+		// Layout hasn't happened yet, return.
+		// See comment in TouchControlLayoutScreen::update().
+		return;
+	}
+
+	// Create all the views.
 
 	PSPActionButtons *actionButtons = new PSPActionButtons(g_Config.touchActionButtonCenter, g_Config.fActionButtonSpacing, bounds);
 	actionButtons->setCircleVisibility(g_Config.bShowTouchCircle);
@@ -457,15 +513,15 @@ void TouchControlLayoutScreen::CreateViews() {
 	addDragDropButton(g_Config.touchCombo4, roundImage, comboKeyImages[4]);
 
 	for (size_t i = 0; i < controls_.size(); i++) {
-		root_->Add(controls_[i]);
+		Add(controls_[i]);
 	}
 
-	root_->Add(new SnapGrid(leftColumnWidth+10, bounds.w, 0, bounds.h, 0x3FFFFFFF));
+	Add(new SnapGrid(0, bounds.w, 0, bounds.h, 0x3FFFFFFF));
 }
 
 // return the control which was picked up by the touchEvent. If a control
 // was already picked up, then it's being dragged around, so just return that instead
-DragDropButton *TouchControlLayoutScreen::getPickedControl(const int x, const int y) {
+DragDropButton *ControlLayoutView::getPickedControl(const int x, const int y) {
 	if (pickedControl_ != 0) {
 		return pickedControl_;
 	}
