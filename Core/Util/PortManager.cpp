@@ -26,6 +26,7 @@
 
 
 #include <string>
+#include <algorithm>
 #include <Core/System.h>
 #include <Core/Host.h>
 #include <Core/ELF/ParamSFO.h>

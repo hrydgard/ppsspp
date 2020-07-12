@@ -283,7 +283,7 @@ SceNetAdhocctlScanInfo * findGroup(SceNetEtherAddr * MAC) {
 	return group;
 }
 
-void freeGroupsRecursive(SceNetAdhocctlScanInfo *& node) {
+void freeGroupsRecursive(SceNetAdhocctlScanInfo * node) {
 	// End of List
 	if (node == NULL) return;
 
@@ -1095,7 +1095,7 @@ void notifyMatchingHandler(SceNetAdhocMatchingContext * context, ThreadMessage *
 	__UpdateMatchingHandler(argsNew);
 }
 
-void freeFriendsRecursive(SceNetAdhocctlPeerInfo *& node, int32_t* count) {
+void freeFriendsRecursive(SceNetAdhocctlPeerInfo * node, int32_t* count) {
 	// End of List
 	if (node == NULL) return;
 
@@ -1108,7 +1108,7 @@ void freeFriendsRecursive(SceNetAdhocctlPeerInfo *& node, int32_t* count) {
 	if (count != NULL) (*count)++;
 }
 
-void timeoutFriendsRecursive(SceNetAdhocctlPeerInfo *& node, int32_t* count) {
+void timeoutFriendsRecursive(SceNetAdhocctlPeerInfo * node, int32_t* count) {
 	// End of List
 	if (node == NULL) return;
 
