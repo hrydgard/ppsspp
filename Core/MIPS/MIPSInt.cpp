@@ -152,11 +152,7 @@ namespace MIPSInt
 	void Int_Break(MIPSOpcode op)
 	{
 		Reporting::ReportMessage("BREAK instruction hit");
-		ERROR_LOG(CPU, "BREAK!");
-		if (!g_Config.bIgnoreBadMemAccess) {
-			Core_EnableStepping(true);
-			host->SetDebugMode(true);
-		}
+		Core_Break();
 		PC += 4;
 	}
 

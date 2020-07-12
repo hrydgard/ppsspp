@@ -947,10 +947,7 @@ u32 IRInterpret(MIPSState *mips, const IRInst *inst, int count) {
 		}
 
 		case IROp::Break:
-			if (!g_Config.bIgnoreBadMemAccess) {
-				Core_EnableStepping(true);
-				host->SetDebugMode(true);
-			}
+			Core_Break();
 			return mips->pc + 4;
 
 		case IROp::SetCtrlVFPU:

@@ -1837,7 +1837,7 @@ int sceKernelLoadExec(const char *filename, u32 paramPtr)
 	std::string error_string;
 	if (!__KernelLoadExec(exec_filename.c_str(), paramPtr, &error_string)) {
 		ERROR_LOG(SCEMODULE, "sceKernelLoadExec failed: %s", error_string.c_str());
-		Core_UpdateState(CORE_ERROR);
+		Core_UpdateState(CORE_RUNTIME_ERROR);
 		return -1;
 	}
 	if (gpu) {

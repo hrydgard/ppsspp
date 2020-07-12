@@ -42,6 +42,7 @@
 #include "Core/CoreParameter.h"
 #include "Core/Host.h"
 #include "Core/Reporting.h"
+#include "Core/Core.h"
 #include "Core/System.h"
 #include "Core/HLE/HLE.h"
 #include "Core/HLE/FunctionWrappers.h"
@@ -791,8 +792,7 @@ void __DisplayFlip(int cyclesLate) {
 		const bool fbReallyDirty = gpu->FramebufferReallyDirty();
 		if (fbReallyDirty || noRecentFlip || postEffectRequiresFlip) {
 			// Check first though, might've just quit / been paused.
-			if (coreState == CORE_RUNNING) {
-				coreState = CORE_NEXTFRAME;
+			if (Core_NextFrame()) {
 				gpu->CopyDisplayToOutput(fbReallyDirty);
 				if (fbReallyDirty) {
 					actualFlips++;

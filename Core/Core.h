@@ -32,6 +32,8 @@ void Core_SetGraphicsContext(GraphicsContext *ctx);
 
 // called from gui
 void Core_EnableStepping(bool step);
+
+bool Core_NextFrame();
 void Core_DoSingleStep();
 void Core_UpdateSingleStep();
 void Core_ProcessStepping();
@@ -76,3 +78,35 @@ void Core_NotifyActivity();
 
 void Core_SetPowerSaving(bool mode);
 bool Core_GetPowerSaving();
+
+enum class MemoryExceptionType {
+	READ_WORD,
+	WRITE_WORD,
+	READ_BLOCK,
+	WRITE_BLOCK,
+};
+
+void Core_MemoryException(u32 address, u32 pc, MemoryExceptionType type);
+void Core_Break();
+
+enum class ExceptionType {
+	NONE,
+	MEMORY,
+	BREAK,
+	BAD_EXEC_ADDR,
+};
+
+struct ExceptionInfo {
+	ExceptionType type;
+	std::string info;
+
+	// Memory exception info
+	MemoryExceptionType memory_type;
+	uint32_t pc;
+	uint32_t address;
+};
+
+const ExceptionInfo &Core_GetExceptionInfo();
+
+const char *ExceptionTypeAsString(ExceptionType type);
+const char *MemoryExceptionTypeAsString(MemoryExceptionType type);

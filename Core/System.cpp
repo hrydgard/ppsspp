@@ -97,12 +97,18 @@ bool coreCollectDebugStatsForced = false;
 
 // This can be read and written from ANYWHERE.
 volatile CoreState coreState = CORE_STEPPING;
-// Note: intentionally not used for CORE_NEXTFRAME.
+// If true, core state has been changed, but JIT has probably not noticed yet.
 volatile bool coreStatePending = false;
+
 static volatile CPUThreadState cpuThreadState = CPU_THREAD_NOT_RUNNING;
 
 static GPUBackend gpuBackend;
 static std::string gpuBackendDevice;
+
+// Ugly!
+static bool pspIsInited = false;
+static bool pspIsIniting = false;
+static bool pspIsQuitting = false;
 
 void ResetUIState() {
 	globalUIState = UISTATE_MENU;
@@ -328,11 +334,6 @@ void Core_UpdateDebugStats(bool collectStats) {
 	gpuStats.ResetFrame();
 }
 
-// Ugly!
-static bool pspIsInited = false;
-static bool pspIsIniting = false;
-static bool pspIsQuitting = false;
-
 bool PSP_InitStart(const CoreParameter &coreParam, std::string *error_string) {
 	if (pspIsIniting || pspIsQuitting) {
 		return false;
@@ -433,7 +434,7 @@ void PSP_Shutdown() {
 	// Make sure things know right away that PSP memory, etc. is going away.
 	pspIsQuitting = true;
 	if (coreState == CORE_RUNNING)
-		Core_UpdateState(CORE_ERROR);
+		Core_UpdateState(CORE_POWERDOWN);
 
 #ifndef MOBILE_DEVICE
 	if (g_Config.bFuncHashMap) {
@@ -486,7 +487,7 @@ void PSP_RunLoopWhileState() {
 
 void PSP_RunLoopUntil(u64 globalticks) {
 	SaveState::Process();
-	if (coreState == CORE_POWERDOWN || coreState == CORE_ERROR) {
+	if (coreState == CORE_POWERDOWN || coreState == CORE_BOOT_ERROR || coreState == CORE_RUNTIME_ERROR) {
 		return;
 	} else if (coreState == CORE_STEPPING) {
 		Core_ProcessStepping();

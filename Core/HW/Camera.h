@@ -18,7 +18,6 @@
 #pragma once
 
 #include "ppsspp_config.h"
-#include "Core/Config.h"
 #include "Core/HLE/sceUsbCam.h"
 #include "Log.h"
 

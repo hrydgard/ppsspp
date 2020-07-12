@@ -24,7 +24,6 @@
 #include "net/resolve.h"
 #include "Common/ChunkFile.h"
 
-#include "Core/Config.h"
 #include "Core/CoreTiming.h"
 #include "Core/MemMap.h"
 #include "Core/HLE/HLE.h"
