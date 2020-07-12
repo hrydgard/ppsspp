@@ -95,7 +95,7 @@ ifeq ($(PLATFORM_EXT), android)
 		$(NATIVEDIR)/math/fast/fast_matrix.c
 endif
 
-SOURCES_C += $(EXTDIR)/glew/glew.c
+SOURCES_C += $(LIBRETRODIR)/ext/glew/glew.c
 
 SOURCES_C += \
 	$(EXTDIR)/libkirk/AES.c \
