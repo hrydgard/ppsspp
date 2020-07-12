@@ -242,6 +242,8 @@ static u32 sceNetAdhocctlInit(int stackSize, int prio, u32 productAddr) {
 		Memory::ReadStruct(productAddr, &product_code);
 	}
 
+	netAdhocctlInited = true; //needed for cleanup during AdhocctlTerm even when it failed to connect to Adhoc Server (since it's being faked as success)
+
 	// Create fake PSP Thread for callback
 	// TODO: Should use a separated threads for friendFinder, matchingEvent, and matchingInput and created on AdhocctlInit & AdhocMatchingStart instead of here
 	threadAdhocID = __KernelCreateThread("AdhocThread", __KernelGetCurThreadModuleId(), dummyThreadHackAddr, prio, stackSize, PSP_THREAD_ATTR_USER, 0, true);
@@ -254,8 +256,14 @@ static u32 sceNetAdhocctlInit(int stackSize, int prio, u32 productAddr) {
 		friendFinderRunning = true;
 		friendFinderThread = std::thread(friendFinder);
 	}
+	
+	// Need to make sure to be connected to adhoc server before returning to prevent GTA VCS failed to create/join a group and unable to see any game room
+	int cnt = 0;
+	while (g_Config.bEnableWlan && !networkInited && (cnt < adhocDefaultTimeout)) {
+		sleep_ms(1);
+		cnt++;
+	}
 
-	netAdhocctlInited = true; //needed for cleanup during AdhocctlTerm even when it failed to connect to Adhoc Server (since it's being faked as success)
 	//hleDelayResult(0, "give some time", adhocEventPollDelayMS * 1000); // Give a little time for friendFinder thread to be ready before the game use the next sceNet functions, should've checked for friendFinderRunning status instead of guessing the time?
 	return 0;
 }
