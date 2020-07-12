@@ -3100,6 +3100,7 @@ static bool __CanExecuteCallbackNow(PSPThread *thread) {
 	return currentCallbackThreadID == 0 && g_inCbCount == 0;
 }
 
+// Takes ownership of afterAction.
 void __KernelCallAddress(PSPThread *thread, u32 entryPoint, PSPAction *afterAction, const u32 args[], int numargs, bool reschedAfter, SceUID cbId) {
 	if (!thread || thread->isStopped()) {
 		WARN_LOG_REPORT(SCEKERNEL, "Running mipscall on dormant thread");
@@ -3244,11 +3245,11 @@ void __KernelReturnFromMipsCall()
 	u32 retVal = currentMIPS->r[MIPS_REG_V0];
 	DEBUG_LOG(SCEKERNEL, "__KernelReturnFromMipsCall(), returned %08x", retVal);
 
-	// Should also save/restore wait state here.
-	if (call->doAfter)
-	{
+	// TODO: Should also save/restore wait state here?
+	if (call->doAfter) {
 		call->doAfter->run(*call);
 		delete call->doAfter;
+		call->doAfter = nullptr;
 	}
 
 	u32 &sp = currentMIPS->r[MIPS_REG_SP];
