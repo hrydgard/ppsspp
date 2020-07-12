@@ -276,6 +276,7 @@ enum class GLRStepType : uint8_t {
 	BLIT,
 	READBACK,
 	READBACK_IMAGE,
+	RENDER_SKIP,
 };
 
 enum class GLRRenderPassAction {
@@ -372,7 +373,7 @@ private:
 	void InitCreateFramebuffer(const GLRInitStep &step);
 
 	void PerformBindFramebufferAsRenderTarget(const GLRStep &pass);
-	void PerformRenderPass(const GLRStep &pass);
+	void PerformRenderPass(const GLRStep &pass, bool first, bool last);
 	void PerformCopy(const GLRStep &pass);
 	void PerformBlit(const GLRStep &pass);
 	void PerformReadback(const GLRStep &pass);
@@ -420,4 +421,5 @@ private:
 	std::unordered_map<int, std::string> glStrings_;
 
 	bool sawOutOfMemory_ = false;
+	bool useDebugGroups_ = false;
 };
