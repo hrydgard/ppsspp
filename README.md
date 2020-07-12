@@ -27,7 +27,7 @@ For game compatibility, see [community compatibility feedback](https://report.pp
 
 What's new in 1.10.3
 --------------------
-* Fix for control layout editor (#13125)
+* Fix for control layout editor ([#13125](https://github.com/hrydgard/ppsspp/issues/13125))
 
 What's new in 1.10.2
 --------------------
