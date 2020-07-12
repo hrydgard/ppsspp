@@ -280,8 +280,8 @@ void ControlLayoutView::Touch(const TouchInput &touch) {
 			newPos.x = startObjectX_ + (touch.x - startDragX_);
 			newPos.y = startObjectY_ + (touch.y - startDragY_);
 			if (g_Config.bTouchSnapToGrid) {
-				newPos.x -= (int)(newPos.x - controlBounds.w) % g_Config.iTouchSnapGridSize;
-				newPos.y -= (int)(newPos.y - controlBounds.h) % g_Config.iTouchSnapGridSize;
+				newPos.x -= fmod(newPos.x - controlBounds.w, g_Config.iTouchSnapGridSize);
+				newPos.y -= fmod(newPos.y - controlBounds.h, g_Config.iTouchSnapGridSize);
 			}
 
 			newPos = ClampTo(newPos, validRange);
@@ -294,8 +294,8 @@ void ControlLayoutView::Touch(const TouchInput &touch) {
 
 			// Snap to grid
 			if (g_Config.bTouchSnapToGrid) {
-				diffX -= (int)(touch.x - startDragX_) % (g_Config.iTouchSnapGridSize/2);
-				diffY += (int)(touch.y - startDragY_) % (g_Config.iTouchSnapGridSize/2);
+				diffX -= fmod(touch.x - startDragX_, g_Config.iTouchSnapGridSize/2);
+				diffY += fmod(touch.y - startDragY_, g_Config.iTouchSnapGridSize/2);
 			}
 			float movementScale = 0.02f;
 			float newScale = startScale_ + diffY * movementScale; 
