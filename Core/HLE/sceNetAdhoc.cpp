@@ -1364,7 +1364,7 @@ static int sceNetAdhocctlGetNameByAddr(const char *mac, u32 nameAddr) {
 				// Write Data
 				*nickname = parameter.nickname;
 
-				DEBUG_LOG(SCENET, "sceNetAdhocctlGetNameByAddr - [PlayerName:%s]", nickname);
+				DEBUG_LOG(SCENET, "sceNetAdhocctlGetNameByAddr - [PlayerName:%s]", (char*)nickname);
 
 				// Return Success
 				return 0;
@@ -1388,7 +1388,7 @@ static int sceNetAdhocctlGetNameByAddr(const char *mac, u32 nameAddr) {
 					// Multithreading Unlock
 					peerlock.unlock(); 
 
-					DEBUG_LOG(SCENET, "sceNetAdhocctlGetNameByAddr - [PeerName:%s]", nickname);
+					DEBUG_LOG(SCENET, "sceNetAdhocctlGetNameByAddr - [PeerName:%s]", (char*)nickname);
 
 					// Return Success
 					return 0;
@@ -4161,7 +4161,7 @@ static int sceNetAdhocctlGetPeerList(u32 sizeAddr, u32 bufAddr) {
 							discovered++;
 
 							u32_le ipaddr = peer->ip_addr;
-							DEBUG_LOG(SCENET, "Peer [%s][%s][%s][%d]", mac2str(&peer->mac_addr), inet_ntoa(*(in_addr*)&ipaddr), (const char*)&peer->nickname.data, peer->last_recv);
+							DEBUG_LOG(SCENET, "Peer [%s][%s][%s][%llu]", mac2str(&peer->mac_addr), inet_ntoa(*(in_addr*)&ipaddr), (const char*)&peer->nickname.data, peer->last_recv);
 						}
 					}
 
