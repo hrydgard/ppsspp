@@ -21,64 +21,8 @@ download_extract_zip() {
     unzip $2 2>&1 | pv > /dev/null
 }
 
-brew_make_bottle() {
-    echo "Rebuilding $1 as bottle..."
-    brew uninstall -f --ignore-dependencies $1 && brew install --ignore-dependencies --build-bottle $1 || true
-    brew bottle $1 && brew postinstall $1 || true
-    rm $HOME/Library/Caches/Homebrew/$1-*.bottle.*.tar.gz || true
-    mv ./$1-*.bottle.*.tar.gz $HOME/Library/Caches/Homebrew/ || true
-}
-
 travis_before_install() {
     git submodule update --init --recursive
-
-    if [ "$TRAVIS_OS_NAME" = osx ]; then
-        # Depends on Python, wastes time updating...
-        brew uninstall -f mercurial || true
-
-        # To check version numbers, we want jq.  Try to cache this too.
-        for PKG in automake oniguruma; do
-            if ! brew info --json $PKG | grep built_as_bottle > /dev/null; then
-                if [ -f $HOME/Library/Caches/Homebrew/$PKG*.bottle.*.tar.gz ]; then
-                    brew install -f $HOME/Library/Caches/Homebrew/$PKG*.bottle.*.tar.gz || true
-                else
-                    brew_make_bottle $PKG
-                fi
-            fi
-        done
-        brew install jq || true
-
-        # Try to install as many at once as possible.
-        TO_UPGRADE=""
-        TO_UNINSTALL=""
-        for PKG in ccache openssl@1.1 pyenv pkg-config readline gdbm sqlite xz python sdl2; do
-            PKG_VER="`brew info $PKG --json | jq '.[0].versions.stable' | tr -d '"'`"
-            if [ -f $HOME/Library/Caches/Homebrew/$PKG--$PKG_VER*.bottle.*.tar.gz ]; then
-                TO_UPGRADE="$TO_UPGRADE $HOME/Library/Caches/Homebrew/$PKG--$PKG_VER*.bottle.*.tar.gz"
-                TO_UNINSTALL="$TO_UNINSTALL $PKG"
-            fi
-        done
-
-        for PKG in ccache openssl@1.1 pyenv pkg-config readline gdbm sqlite xz python sdl2; do
-            PKG_VER="`brew info $PKG --json | jq '.[0].versions.stable' | tr -d '"'`"
-            if [ ! -f $HOME/Library/Caches/Homebrew/$PKG--$PKG_VER*.bottle.*.tar.gz ]; then
-                brew_make_bottle $PKG
-            fi
-        done
-
-        if [ "$TO_UPGRADE" != "" ]; then
-            brew uninstall -f --ignore-dependencies $TO_UNINSTALL
-            brew install -f --ignore-dependencies $TO_UPGRADE || true
-        fi
-
-        # In case there were issues with all at once, now let's try installing any others from cache.
-        for PKG in ccache openssl@1.1 pyenv pkg-config readline gdbm sqlite xz python sdl2; do
-            PKG_VER="`brew info $PKG --json | jq '.[0].versions.stable' | tr -d '"'`"
-            if [ -f $HOME/Library/Caches/Homebrew/$PKG--$PKG_VER*.bottle.*.tar.gz ]; then
-                brew upgrade $HOME/Library/Caches/Homebrew/$PKG--$PKG_VER*.bottle.*.tar.gz || brew install -f $HOME/Library/Caches/Homebrew/$PKG-*.bottle.*.tar.gz || true
-            fi
-        done
-    fi
 }
 
 travis_install() {
