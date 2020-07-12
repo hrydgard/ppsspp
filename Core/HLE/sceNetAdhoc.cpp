@@ -57,7 +57,7 @@
 // TODO: Make accessor functions instead, and throw all this state in a struct.
 bool netAdhocInited;
 bool netAdhocctlInited;
-bool networkInited;
+bool networkInited = false;
 
 static bool netAdhocMatchingInited;
 int netAdhocMatchingStarted = 0;
@@ -238,34 +238,25 @@ static u32 sceNetAdhocctlInit(int stackSize, int prio, u32 productAddr) {
 	if (netAdhocctlInited)
 		return ERROR_NET_ADHOCCTL_ALREADY_INITIALIZED;
 
+	if (Memory::IsValidAddress(productAddr)) {
+		Memory::ReadStruct(productAddr, &product_code);
+	}
+
 	// Create fake PSP Thread for callback
 	// TODO: Should use a separated threads for friendFinder, matchingEvent, and matchingInput and created on AdhocctlInit & AdhocMatchingStart instead of here
 	threadAdhocID = __KernelCreateThread("AdhocThread", __KernelGetCurThreadModuleId(), dummyThreadHackAddr, prio, stackSize, PSP_THREAD_ATTR_USER, 0, true);
 	if (threadAdhocID > 0) {
 		__KernelStartThread(threadAdhocID, 0, 0);
 	}
-	
-	if(g_Config.bEnableWlan) {
-		SceNetAdhocctlAdhocId* product = NULL;
-		if (Memory::IsValidAddress(productAddr)) product = (SceNetAdhocctlAdhocId*)Memory::GetPointer(productAddr);
 
-		if (initNetwork(product) == 0) {
-			// TODO: Merging friendFinder (real) thread to AdhocThread (fake) thread on PSP side
-			if (!friendFinderRunning) {
-				friendFinderRunning = true;
-				friendFinderThread = std::thread(friendFinder);
-			}
-			networkInited = true;
-
-			sleep_ms(adhocEventPollDelayMS);
-			//hleDelayResult(0, "give some time", adhocEventPollDelayMS * 1000); // Give a little time for friendFinder thread to be ready before the game use the next sceNet functions, should've checked for friendFinderRunning status instead of guessing the time?
-		} else {
-			WARN_LOG(SCENET, "sceNetAdhocctlInit: Failed to init the network but faking success");
-			networkInited = false;  // TODO: What needs to check this? Pretty much everything? Maybe we should just set netAdhocctlInited to false..
-		}
+	// TODO: Merging friendFinder (real) thread to AdhocThread (fake) thread on PSP side
+	if (!friendFinderRunning) {
+		friendFinderRunning = true;
+		friendFinderThread = std::thread(friendFinder);
 	}
 
 	netAdhocctlInited = true; //needed for cleanup during AdhocctlTerm even when it failed to connect to Adhoc Server (since it's being faked as success)
+	//hleDelayResult(0, "give some time", adhocEventPollDelayMS * 1000); // Give a little time for friendFinder thread to be ready before the game use the next sceNet functions, should've checked for friendFinderRunning status instead of guessing the time?
 	return 0;
 }
 
@@ -1321,13 +1312,12 @@ int NetAdhocctl_Term() {
 		if (threadStatus != ADHOCCTL_STATE_DISCONNECTED) 
 			NetAdhocctl_Disconnect();
 
-		if (networkInited) {
-			// Terminate Adhoc Threads
-			friendFinderRunning = false;
-			if (friendFinderThread.joinable()) {
-				friendFinderThread.join();
-			}
+		// Terminate Adhoc Threads
+		friendFinderRunning = false;
+		if (friendFinderThread.joinable()) {
+			friendFinderThread.join();
 		}
+
 		// Clear Peer List
 		int32_t peercount = 0;
 		freeFriendsRecursive(friends, &peercount);
@@ -1337,6 +1327,8 @@ int NetAdhocctl_Term() {
 		//May also need to clear Handlers
 		adhocctlHandlers.clear();
 		// Free stuff here
+		networkInited = false;
+		shutdown(metasocket, SD_BOTH);
 		closesocket(metasocket);
 		metasocket = (int)INVALID_SOCKET;
 		// Delete fake PSP Thread
