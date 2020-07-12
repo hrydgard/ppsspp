@@ -25,6 +25,10 @@ If you want to download regularly updated builds for Android, Windows x86 and x6
 
 For game compatibility, see [community compatibility feedback](https://report.ppsspp.org/games).
 
+What's new in 1.10.3
+--------------------
+* Fix for control layout editor (#13125)
+
 What's new in 1.10.2
 --------------------
 * More crashfixes ([#13094](https://github.com/hrydgard/ppsspp/issues/13094), [#13093](https://github.com/hrydgard/ppsspp/issues/13093))
