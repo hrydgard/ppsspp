@@ -419,9 +419,11 @@ DragDropButton *ControlLayoutView::getPickedControl(const int x, const int y) {
 	for (size_t i = 0; i < controls_.size(); i++) {
 		DragDropButton *control = controls_[i];
 		const Bounds &bounds = control->GetBounds();
-		const float thresholdFactor = 1.5f;
+		const float thresholdFactor = 0.25f;
+		const float thresholdW = thresholdFactor * bounds.w;
+		const float thresholdH = thresholdFactor * bounds.h;
 
-		Bounds tolerantBounds(bounds.x, bounds.y, bounds.w * thresholdFactor, bounds.h * thresholdFactor);
+		Bounds tolerantBounds(bounds.x - thresholdW * 0.5, bounds.y - thresholdH * 0.5 , bounds.w + thresholdW, bounds.h + thresholdH);
 		if (tolerantBounds.Contains(x, y)) {
 			return control;
 		}
