@@ -85,14 +85,6 @@ jobs:
       compiler: "clang"
       env: PPSSPP_BUILD_TYPE=Linux
            LIBRETRO=TRUE
-    - os: osx
-      osx_image: xcode9
-      compiler: "clang"
-      env: PPSSPP_BUILD_TYPE=macOS
-    - os: osx
-      osx_image: xcode9
-      compiler: "clang"
-      env: PPSSPP_BUILD_TYPE=iOS
     - os: windows
       compiler: "msvc2017"
       env: PPSSPP_BUILD_TYPE=Windows
@@ -100,6 +92,14 @@ jobs:
       compiler: "msvc2017"
       env: PPSSPP_BUILD_TYPE=Windows
            UWP=TRUE
+#    - os: osx
+#      osx_image: xcode9
+#      compiler: "clang"
+#      env: PPSSPP_BUILD_TYPE=macOS
+#    - os: osx
+#      osx_image: xcode9
+#      compiler: "clang"
+#      env: PPSSPP_BUILD_TYPE=iOS
 
 before_install:
   - travis_retry bash .travis.sh travis_before_install
