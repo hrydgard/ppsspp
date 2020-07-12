@@ -48,9 +48,6 @@ travis_before_install() {
         done
         brew install jq || true
 
-        # Download sqlite from our host?!?
-        wget http://www.ppsspp.org/unofficial/sqlite-autoconf-3320300.tar.gz -O /Library/Caches/Homebrew/sqlite-autoconf-3320300.tar.gz
-
         # Try to install as many at once as possible.
         TO_UPGRADE=""
         TO_UNINSTALL=""
