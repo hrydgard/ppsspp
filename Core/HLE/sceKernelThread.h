@@ -155,6 +155,9 @@ void __KernelThreadingInit();
 void __KernelThreadingDoState(PointerWrap &p);
 void __KernelThreadingDoStateLate(PointerWrap &p);
 void __KernelThreadingShutdown();
+
+std::string __KernelThreadingSummary();
+
 KernelObject *__KernelThreadObject();
 KernelObject *__KernelCallbackObject();
 

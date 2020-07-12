@@ -372,6 +372,8 @@ public:
 
 class PSPThread : public KernelObject {
 public:
+	PSPThread() : debug(currentMIPS, context) {}
+
 	const char *GetName() override { return nt.name; }
 	const char *GetTypeName() override { return "Thread"; }
 	void GetQuickInfo(char *ptr, int size) override
@@ -491,10 +493,6 @@ public:
 		return true;
 	}
 
-	PSPThread() : debug(currentMIPS, context) {
-		currentStack.start = 0;
-	}
-
 	// Can't use a destructor since savestates will call that too.
 	void Cleanup()
 	{
@@ -573,14 +571,14 @@ public:
 		}
 	}
 
-	NativeThread nt;
+	NativeThread nt{};
 
-	ThreadWaitInfo waitInfo;
-	SceUID moduleId;
+	ThreadWaitInfo waitInfo{};
+	SceUID moduleId = -1;
 
-	bool isProcessingCallbacks;
-	u32 currentMipscallId;
-	SceUID currentCallbackId;
+	bool isProcessingCallbacks = false;
+	u32 currentMipscallId = -1;
+	SceUID currentCallbackId = -1;
 
 	PSPThreadContext context;
 	KernelThreadDebugInterface debug;
@@ -597,7 +595,7 @@ public:
 	// These are stacks that aren't "active" right now, but will pop off once the func returns.
 	std::vector<StackInfo> pushedStacks;
 
-	StackInfo currentStack;
+	StackInfo currentStack{};
 
 	// For thread end.
 	std::vector<SceUID> waitingThreads;
@@ -1182,6 +1180,10 @@ void __KernelThreadingShutdown() {
 	pausedDelays.clear();
 	threadEventHandlers.clear();
 	pendingDeleteThreads.clear();
+}
+
+std::string __KernelThreadingSummary() {
+	return StringFromFormat("Cur thread: %s", __GetCurrentThread()->GetName());
 }
 
 const char *__KernelGetThreadName(SceUID threadID)

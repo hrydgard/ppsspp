@@ -1273,34 +1273,43 @@ static void DrawCrashDump(DrawBuffer *draw2d) {
 	char versionString[256];
 	sprintf(versionString, "%s", PPSSPP_GIT_VERSION);
 	// TODO: Draw a lot more information. Full register set, and so on.
+
+#ifdef _DEBUG
+	char build[] = "Debug";
+#else
+	char build[] = "Release";
+#endif
 	snprintf(statbuf, sizeof(statbuf), R"(%s
-Game ID: %s
-Game Title: %s
-PPSSPP: %s
+Game ID (Title): %s (%s)
+PPSSPP build: %s (%s)
 )",
 		ExceptionTypeAsString(info.type),
 		g_paramSFO.GetDiscID().c_str(),
 		g_paramSFO.GetValueString("TITLE").c_str(),
-		versionString
+		versionString,
+		build
 	);
 
 	draw2d->SetFontScale(.7f, .7f);
 	int x = 20;
 	int y = 50;
 	draw2d->DrawTextShadow(ubuntu24, statbuf, x, y, 0xFFFFFFFF, FLAG_DYNAMIC_ASCII);
+	y += 100;
 
 	if (info.type == ExceptionType::MEMORY) {
 		snprintf(statbuf, sizeof(statbuf), R"(
-Access Type: % s
-Address: % 08x
-PC: % 08x)",
+Access: %s at %08x
+PC: %08x)",
 			MemoryExceptionTypeAsString(info.memory_type),
 			info.address,
 			info.pc);
-
-		y += 150;
 		draw2d->DrawTextShadow(ubuntu24, statbuf, x, y, 0xFFFFFFFF, FLAG_DYNAMIC_ASCII);
+		y += 120;
 	}
+
+	std::string kernelState = __KernelStateSummary();
+
+	draw2d->DrawTextShadow(ubuntu24, kernelState.c_str(), x, y, 0xFFFFFFFF, FLAG_DYNAMIC_ASCII);
 }
 
 static void DrawAudioDebugStats(DrawBuffer *draw2d, const Bounds &bounds) {

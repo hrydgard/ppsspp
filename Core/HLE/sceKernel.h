@@ -18,6 +18,7 @@
 #pragma once
 
 #include <map>
+#include <string>
 
 #include "Common/Common.h"
 #include "Common/Swap.h"
@@ -373,6 +374,9 @@ void __KernelShutdown();
 void __KernelDoState(PointerWrap &p);
 bool __KernelIsRunning();
 bool __KernelLoadExec(const char *filename, SceKernelLoadExecParam *param);
+
+// For crash reporting.
+std::string __KernelStateSummary();
 
 int sceKernelLoadExec(const char *filename, u32 paramPtr);
 

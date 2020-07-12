@@ -297,6 +297,12 @@ bool __KernelIsRunning() {
 	return kernelRunning;
 }
 
+std::string __KernelStateSummary() {
+	std::string threadSummary = __KernelThreadingSummary();
+	return StringFromFormat("%s", threadSummary.c_str());
+}
+
+
 void sceKernelExitGame()
 {
 	INFO_LOG(SCEKERNEL, "sceKernelExitGame");
