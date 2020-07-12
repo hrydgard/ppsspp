@@ -243,9 +243,11 @@ public:
 	DragDropButton *getPickedControl(const int x, const int y);
 	std::vector<DragDropButton *> controls_;
 
-	// Touch down state for drag to resize etc
-	float startX_ = -1.0f;
-	float startY_ = -1.0f;
+	// Touch down state for dragging
+	float startObjectX_ = -1.0f;
+	float startObjectY_ = -1.0f;
+	float startDragX_ = -1.0f;
+	float startDragY_ = -1.0f;
 	float startScale_ = -1.0f;
 	float startSpacing_ = -1.0f;
 
@@ -262,8 +264,6 @@ void ControlLayoutView::Touch(const TouchInput &touch) {
 	if ((touch.flags & TOUCH_MOVE) && pickedControl_ != nullptr) {
 		if (mode_ == 0) {
 			const Bounds &controlBounds = pickedControl_->GetBounds();
-			const auto &prevParams = pickedControl_->GetLayoutParams()->As<AnchorLayoutParams>();
-			Point newPos(prevParams->left, prevParams->top);
 
 			// Allow placing the control halfway outside the play area.
 			Bounds validRange = this->GetBounds();
@@ -276,8 +276,9 @@ void ControlLayoutView::Touch(const TouchInput &touch) {
 			validRange.y += controlBounds.h * 0.5f;
 			validRange.h -= controlBounds.h;
 
-			newPos.x = touch.x - this->GetBounds().x;
-			newPos.y = touch.y - this->GetBounds().y;
+			Point newPos;
+			newPos.x = startObjectX_ + (touch.x - startDragX_);
+			newPos.y = startObjectY_ + (touch.y - startDragY_);
 			if (g_Config.bTouchSnapToGrid) {
 				newPos.x -= (int)(newPos.x - controlBounds.w) % g_Config.iTouchSnapGridSize;
 				newPos.y -= (int)(newPos.y - controlBounds.h) % g_Config.iTouchSnapGridSize;
@@ -288,13 +289,13 @@ void ControlLayoutView::Touch(const TouchInput &touch) {
 		} else if (mode_ == 1) {
 			// Resize. Vertical = scaling, horizontal = spacing;
 			// Up should be bigger so let's negate in that direction
-			float diffX = (touch.x - startX_);
-			float diffY = -(touch.y - startY_);
+			float diffX = (touch.x - startDragX_);
+			float diffY = -(touch.y - startDragY_);
 
 			// Snap to grid
 			if (g_Config.bTouchSnapToGrid) {
-					diffX -= (int)(touch.x - startX_) % (g_Config.iTouchSnapGridSize/2);
-					diffY += (int)(touch.y - startY_) % (g_Config.iTouchSnapGridSize/2);
+				diffX -= (int)(touch.x - startDragX_) % (g_Config.iTouchSnapGridSize/2);
+				diffY += (int)(touch.y - startDragY_) % (g_Config.iTouchSnapGridSize/2);
 			}
 			float movementScale = 0.02f;
 			float newScale = startScale_ + diffY * movementScale; 
@@ -310,8 +311,12 @@ void ControlLayoutView::Touch(const TouchInput &touch) {
 	if ((touch.flags & TOUCH_DOWN) && pickedControl_ == 0) {
 		pickedControl_ = getPickedControl(touch.x, touch.y);
 		if (pickedControl_) {
-			startX_ = touch.x;
-			startY_ = touch.y;
+			startDragX_ = touch.x;
+			startDragY_ = touch.y;
+			const auto &prevParams = pickedControl_->GetLayoutParams()->As<AnchorLayoutParams>();
+			startObjectX_ = prevParams->left;
+			startObjectY_ = prevParams->top;
+
 			startSpacing_ = pickedControl_->GetSpacing();
 			startScale_ = pickedControl_->GetScale();
 		}
