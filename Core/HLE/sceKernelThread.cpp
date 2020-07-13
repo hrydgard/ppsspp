@@ -1468,11 +1468,9 @@ void __KernelLoadContext(PSPThreadContext *ctx, bool vfpuEnabled) {
 		memcpy(currentMIPS->vfpuCtrl, ctx->vfpuCtrl, sizeof(ctx->vfpuCtrl));
 	}
 
-#ifdef _DEBUG
 	if (!Memory::IsValidAddress(ctx->pc)) {
 		Core_ExecException(ctx->pc, currentMIPS->pc, ExecExceptionType::THREAD);
 	}
-#endif
 
 	memcpy(currentMIPS->other, ctx->other, sizeof(ctx->other));
 	if (MIPSComp::jit) {
