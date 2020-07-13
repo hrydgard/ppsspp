@@ -1293,7 +1293,7 @@ PPSSPP build: %s (%s)
 	draw2d->SetFontScale(.7f, .7f);
 	int x = 20;
 	int y = 50;
-	draw2d->DrawTextShadow(ubuntu24, statbuf, x, y, 0xFFFFFFFF, FLAG_DYNAMIC_ASCII);
+	draw2d->DrawTextShadow(ubuntu24, statbuf, x, y, 0xFFFFFFFF);
 	y += 100;
 
 	if (info.type == ExceptionType::MEMORY) {
@@ -1303,7 +1303,7 @@ PC: %08x)",
 			MemoryExceptionTypeAsString(info.memory_type),
 			info.address,
 			info.pc);
-		draw2d->DrawTextShadow(ubuntu24, statbuf, x, y, 0xFFFFFFFF, FLAG_DYNAMIC_ASCII);
+		draw2d->DrawTextShadow(ubuntu24, statbuf, x, y, 0xFFFFFFFF);
 		y += 120;
 	} else if (info.type == ExceptionType::BAD_EXEC_ADDR) {
 		snprintf(statbuf, sizeof(statbuf), R"(
@@ -1312,13 +1312,13 @@ PC: %08x)",
 			ExecExceptionTypeAsString(info.exec_type),
 			info.address,
 			info.pc);
-		draw2d->DrawTextShadow(ubuntu24, statbuf, x, y, 0xFFFFFFFF, FLAG_DYNAMIC_ASCII);
+		draw2d->DrawTextShadow(ubuntu24, statbuf, x, y, 0xFFFFFFFF);
 		y += 120;
 	}
 
 	std::string kernelState = __KernelStateSummary();
 
-	draw2d->DrawTextShadow(ubuntu24, kernelState.c_str(), x, y, 0xFFFFFFFF, FLAG_DYNAMIC_ASCII);
+	draw2d->DrawTextShadow(ubuntu24, kernelState.c_str(), x, y, 0xFFFFFFFF);
 }
 
 static void DrawAudioDebugStats(DrawBuffer *draw2d, const Bounds &bounds) {
