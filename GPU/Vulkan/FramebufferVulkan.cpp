@@ -170,12 +170,6 @@ void FramebufferManagerVulkan::NotifyClear(bool clearColor, bool clearAlpha, boo
 	}
 }
 
-void FramebufferManagerVulkan::Init() {
-	FramebufferManagerCommon::Init();
-	// Workaround for upscaling shaders where we force x1 resolution without saving it
-	Resized();
-}
-
 void FramebufferManagerVulkan::DrawActiveTexture(float x, float y, float w, float h, float destW, float destH, float u0, float v0, float u1, float v1, int uvRotation, int flags) {
 	float texCoords[8] = {
 		u0,v0,
