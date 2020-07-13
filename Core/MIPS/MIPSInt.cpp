@@ -54,6 +54,9 @@
 
 static inline void DelayBranchTo(u32 where)
 {
+	if (!Memory::IsValidAddress(where)) {
+		Core_ExecException(where, PC, ExecExceptionType::JUMP);
+	}
 	PC += 4;
 	mipsr4k.nextPC = where;
 	mipsr4k.inDelaySlot = true;

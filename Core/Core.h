@@ -85,8 +85,13 @@ enum class MemoryExceptionType {
 	READ_BLOCK,
 	WRITE_BLOCK,
 };
+enum class ExecExceptionType {
+	JUMP,
+	THREAD,
+};
 
 void Core_MemoryException(u32 address, u32 pc, MemoryExceptionType type);
+void Core_ExecException(u32 address, u32 pc, ExecExceptionType type);
 void Core_Break();
 
 enum class ExceptionType {
@@ -104,9 +109,13 @@ struct ExceptionInfo {
 	MemoryExceptionType memory_type;
 	uint32_t pc;
 	uint32_t address;
+
+	// Reuses pc and address from memory type, where address is the failed destination.
+	ExecExceptionType exec_type;
 };
 
 const ExceptionInfo &Core_GetExceptionInfo();
 
 const char *ExceptionTypeAsString(ExceptionType type);
 const char *MemoryExceptionTypeAsString(MemoryExceptionType type);
+const char *ExecExceptionTypeAsString(ExecExceptionType type);

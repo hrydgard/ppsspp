@@ -1305,6 +1305,15 @@ PC: %08x)",
 			info.pc);
 		draw2d->DrawTextShadow(ubuntu24, statbuf, x, y, 0xFFFFFFFF, FLAG_DYNAMIC_ASCII);
 		y += 120;
+	} else if (info.type == ExceptionType::BAD_EXEC_ADDR) {
+		snprintf(statbuf, sizeof(statbuf), R"(
+Destination: %s to %08x
+PC: %08x)",
+			ExecExceptionTypeAsString(info.exec_type),
+			info.address,
+			info.pc);
+		draw2d->DrawTextShadow(ubuntu24, statbuf, x, y, 0xFFFFFFFF, FLAG_DYNAMIC_ASCII);
+		y += 120;
 	}
 
 	std::string kernelState = __KernelStateSummary();
