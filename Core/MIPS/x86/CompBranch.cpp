@@ -617,7 +617,7 @@ void Jit::Comp_Jump(MIPSOpcode op) {
 		CompileDelaySlot(DELAYSLOT_NICE);
 		FlushAll();
 		MOV(32, MIPSSTATE_VAR(pc), Imm32(GetCompilerPC() + 8));
-		ABI_CallFunctionC((const void *)&HitInvalidJump, targetAddr);
+		ABI_CallFunctionC(&HitInvalidJump, targetAddr);
 		WriteSyscallExit();
 		return;
 	}

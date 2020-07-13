@@ -20,8 +20,9 @@
 
 #include "profiler/profiler.h"
 
-#include "Core/Reporting.h"
 #include "Core/Config.h"
+#include "Core/Core.h"
+#include "Core/Reporting.h"
 #include "Core/MemMap.h"
 #include "Core/HLE/HLE.h"
 #include "Core/HLE/HLETables.h"
@@ -461,6 +462,10 @@ void Arm64Jit::Comp_VBranch(MIPSOpcode op)
 	}
 }
 
+static void HitInvalidJump(uint32_t dest) {
+	Core_ExecException(dest, currentMIPS->pc - 8, ExecExceptionType::JUMP);
+}
+
 void Arm64Jit::Comp_Jump(MIPSOpcode op) {
 	if (js.inDelaySlot) {
 		ERROR_LOG_REPORT(JIT, "Branch in Jump delay slot at %08x in block starting at %08x", GetCompilerPC(), js.blockStart);
@@ -477,6 +482,13 @@ void Arm64Jit::Comp_Jump(MIPSOpcode op) {
 			js.compiling = false;
 		}
 		// TODO: Mark this block dirty or something?  May be indication it will be changed by imports.
+		CompileDelaySlot(DELAYSLOT_NICE);
+		FlushAll();
+		gpr.SetRegImm(SCRATCH1, GetCompilerPC() + 8);
+		MovToPC(SCRATCH1);
+		MOVI2R(W0, targetAddr);
+		QuickCallFunction(SCRATCH1, (const void *)&HitInvalidJump);
+		WriteSyscallExit();
 		return;
 	}
 
