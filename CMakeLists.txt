@@ -273,7 +273,6 @@ if(NOT MSVC)
 	add_definitions(-Wno-multichar)
 	add_definitions(-Wno-deprecated-register)
 	add_definitions(-Wno-tautological-pointer-compare)
-	add_definitions(-Wformat-overflow)
 
 	# Don't compile with strict aliasing, we're not 100% aliasing-safe
 	add_compile_options(-fno-strict-aliasing)
