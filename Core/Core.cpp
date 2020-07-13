@@ -94,6 +94,7 @@ void Core_ListenStopRequest(CoreStopRequestFunc func) {
 }
 
 void Core_Stop() {
+	g_exceptionInfo.type = ExceptionType::NONE;
 	Core_UpdateState(CORE_POWERDOWN);
 	for (auto func : stopFuncs) {
 		func();
@@ -264,6 +265,7 @@ void Core_UpdateSingleStep() {
 }
 
 void Core_SingleStep() {
+	g_exceptionInfo.type = ExceptionType::NONE;
 	currentMIPS->SingleStep();
 	if (coreState == CORE_STEPPING)
 		steppingCounter++;
@@ -361,6 +363,8 @@ void Core_EnableStepping(bool step) {
 		steppingCounter++;
 	} else {
 		host->SetDebugMode(false);
+		// Clear the exception if we resume.
+		g_exceptionInfo.type = ExceptionType::NONE;
 		coreState = CORE_RUNNING;
 		coreStatePending = false;
 		m_StepCond.notify_all();
