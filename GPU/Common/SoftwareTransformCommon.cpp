@@ -441,12 +441,17 @@ void SoftwareTransform::Decode(int prim, u32 vertType, const DecVtxFormat &decVt
 	// TODO: This bleeds outside the play area in non-buffered mode. Big deal? Probably not.
 	// TODO: Allow creating a depth clear and a color draw.
 	bool reallyAClear = false;
-	if (maxIndex > 1 && prim == GE_PRIM_RECTANGLES && gstate.isModeClear() && params_.allowClear) {
+	if (maxIndex > 1 && prim == GE_PRIM_RECTANGLES && gstate.isModeClear()) {
 		int scissorX2 = gstate.getScissorX2() + 1;
 		int scissorY2 = gstate.getScissorY2() + 1;
 		reallyAClear = IsReallyAClear(transformed, maxIndex, scissorX2, scissorY2);
+		if (reallyAClear && gstate.getColorMask() != 0 && gstate.getClearModeColorMask() != 0) {
+			result->setSafeSize = true;
+			result->safeWidth = scissorX2;
+			result->safeHeight = scissorY2;
+		}
 	}
-	if (reallyAClear && gl_extensions.gpuVendor != GPU_VENDOR_IMGTEC) {
+	if (params_.allowClear && reallyAClear && gl_extensions.gpuVendor != GPU_VENDOR_IMGTEC) {
 		// If alpha is not allowed to be separate, it must match for both depth/stencil and color.  Vulkan requires this.
 		bool alphaMatchesColor = gstate.isClearModeColorMask() == gstate.isClearModeAlphaMask();
 		bool depthMatchesStencil = gstate.isClearModeAlphaMask() == gstate.isClearModeDepthMask();
@@ -459,6 +464,22 @@ void SoftwareTransform::Decode(int prim, u32 vertType, const DecVtxFormat &decVt
 			result->action = SW_CLEAR;
 			gpuStats.numClears++;
 			return;
+		}
+	}
+
+	// Detect full screen "clears" that might not be so obvious, to set the safe size if possible.
+	if (!result->setSafeSize && prim == GE_PRIM_RECTANGLES && maxIndex == 2) {
+		bool clearingColor = gstate.isModeClear() && gstate.getClearModeColorMask() != 0;
+		bool writingColor = gstate.getColorMask() != 0;
+		bool startsZeroX = transformed[0].x <= 0.0f && transformed[1].x > transformed[0].x;
+		bool startsZeroY = transformed[0].y <= 0.0f && transformed[1].y > transformed[0].y;
+
+		if (startsZeroX && startsZeroY && (clearingColor || writingColor)) {
+			int scissorX2 = gstate.getScissorX2() + 1;
+			int scissorY2 = gstate.getScissorY2() + 1;
+			result->setSafeSize = true;
+			result->safeWidth = std::min(scissorX2, (int)transformed[1].x);
+			result->safeHeight = std::min(scissorY2, (int)transformed[1].y);
 		}
 	}
 }
