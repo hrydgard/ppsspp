@@ -55,6 +55,7 @@
 static inline void DelayBranchTo(u32 where)
 {
 	if (!Memory::IsValidAddress(where)) {
+		// TODO: What about misaligned?
 		Core_ExecException(where, PC, ExecExceptionType::JUMP);
 	}
 	PC += 4;
