@@ -148,8 +148,8 @@ void MainThreadFunc() {
 		Reporting::ReportMessage("Graphics init error: %s", "ALL");
 
 		auto err = GetI18NCategory("Error");
-		const char *defaultErrorAll = "Failed initializing any graphics. Try upgrading your graphics drivers.";
-		const char *genericError = err->T("GenericAllGraphicsError", defaultErrorAll);
+		const char *defaultErrorAll = "PPSSPP failed to startup with any graphics backend. Try upgrading your graphics and other drivers.";
+		const char *genericError = err->T("GenericAllStartupError", defaultErrorAll);
 		std::wstring title = ConvertUTF8ToWString(err->T("GenericGraphicsError", "Graphics Error"));
 		MessageBox(0, ConvertUTF8ToWString(genericError).c_str(), title.c_str(), MB_OK);
 
