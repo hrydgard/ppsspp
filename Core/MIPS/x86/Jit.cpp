@@ -656,11 +656,18 @@ void Jit::Comp_Generic(MIPSOpcode op) {
 	}
 }
 
+static void HitInvalidBranch(uint32_t dest) {
+	Core_ExecException(dest, currentMIPS->pc, ExecExceptionType::JUMP);
+}
+
 void Jit::WriteExit(u32 destination, int exit_num) {
 	_dbg_assert_msg_(JIT, exit_num < MAX_JIT_BLOCK_EXITS, "Expected a valid exit_num");
 
 	if (!Memory::IsValidAddress(destination)) {
 		ERROR_LOG_REPORT(JIT, "Trying to write block exit to illegal destination %08x: pc = %08x", destination, currentMIPS->pc);
+		MOV(32, MIPSSTATE_VAR(pc), Imm32(GetCompilerPC()));
+		ABI_CallFunctionC(&HitInvalidBranch, destination);
+		js.afterOp |= JitState::AFTER_CORE_STATE;
 	}
 	// If we need to verify coreState and rewind, we may not jump yet.
 	if (js.afterOp & (JitState::AFTER_CORE_STATE | JitState::AFTER_REWIND_PC_BAD_STATE)) {
@@ -705,6 +712,11 @@ void Jit::WriteExit(u32 destination, int exit_num) {
 	}
 }
 
+static void HitInvalidJumpReg(uint32_t source) {
+	Core_ExecException(currentMIPS->pc, source, ExecExceptionType::JUMP);
+	currentMIPS->pc = source + 8;
+}
+
 void Jit::WriteExitDestInReg(X64Reg reg) {
 	// If we need to verify coreState and rewind, we may not jump yet.
 	if (js.afterOp & (JitState::AFTER_CORE_STATE | JitState::AFTER_REWIND_PC_BAD_STATE)) {
@@ -741,15 +753,13 @@ void Jit::WriteExitDestInReg(X64Reg reg) {
 		SetJumpTarget(tooLow);
 		SetJumpTarget(tooHigh);
 
-		ABI_CallFunctionA((const void *)&Memory::GetPointer, R(reg));
+		ABI_CallFunctionA((const void *)&Memory::IsValidAddress, R(reg));
 
 		// If we're ignoring, coreState didn't trip - so trip it now.
-		if (g_Config.bIgnoreBadMemAccess) {
-			CMP(32, R(EAX), Imm32(0));
-			FixupBranch skip = J_CC(CC_NE);
-			ABI_CallFunctionA((const void *)&Core_UpdateState, Imm32(CORE_RUNTIME_ERROR));
-			SetJumpTarget(skip);
-		}
+		CMP(32, R(EAX), Imm32(0));
+		FixupBranch skip = J_CC(CC_NE);
+		ABI_CallFunctionC(&HitInvalidJumpReg, GetCompilerPC());
+		SetJumpTarget(skip);
 
 		SUB(32, MIPSSTATE_VAR(downcount), Imm8(0));
 		JMP(dispatcherCheckCoreState, true);

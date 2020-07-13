@@ -224,6 +224,10 @@ void IRJit::RunLoopUntil(u64 globalticks) {
 				u32 data = inst & 0xFFFFFF;
 				IRBlock *block = blocks_.GetBlock(data);
 				mips_->pc = IRInterpret(mips_, block->GetInstructions(), block->GetNumInstructions());
+				if (!Memory::IsValidAddress(mips_->pc)) {
+					Core_ExecException(mips_->pc, mips_->pc, ExecExceptionType::JUMP);
+					break;
+				}
 			} else {
 				// RestoreRoundingMode(true);
 				Compile(mips_->pc);

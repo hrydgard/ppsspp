@@ -300,9 +300,8 @@ void IRFrontend::Comp_Jump(MIPSOpcode op) {
 			js.cancel = true;
 		else
 			ERROR_LOG_REPORT(JIT, "Jump to invalid address: %08x", targetAddr);
-		js.compiling = false;
 		// TODO: Mark this block dirty or something?  May be indication it will be changed by imports.
-		return;
+		// Continue so the block gets completed and crashes properly.
 	}
 
 	switch (op >> 26) {

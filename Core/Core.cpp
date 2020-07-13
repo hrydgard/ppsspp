@@ -94,6 +94,7 @@ void Core_ListenStopRequest(CoreStopRequestFunc func) {
 }
 
 void Core_Stop() {
+	g_exceptionInfo.type = ExceptionType::NONE;
 	Core_UpdateState(CORE_POWERDOWN);
 	for (auto func : stopFuncs) {
 		func();
@@ -264,6 +265,7 @@ void Core_UpdateSingleStep() {
 }
 
 void Core_SingleStep() {
+	g_exceptionInfo.type = ExceptionType::NONE;
 	currentMIPS->SingleStep();
 	if (coreState == CORE_STEPPING)
 		steppingCounter++;
@@ -361,6 +363,8 @@ void Core_EnableStepping(bool step) {
 		steppingCounter++;
 	} else {
 		host->SetDebugMode(false);
+		// Clear the exception if we resume.
+		g_exceptionInfo.type = ExceptionType::NONE;
 		coreState = CORE_RUNNING;
 		coreStatePending = false;
 		m_StepCond.notify_all();
@@ -400,6 +404,15 @@ const char *MemoryExceptionTypeAsString(MemoryExceptionType type) {
 	}
 }
 
+const char *ExecExceptionTypeAsString(ExecExceptionType type) {
+	switch (type) {
+	case ExecExceptionType::JUMP: return "CPU Jump";
+	case ExecExceptionType::THREAD: return "Thread switch";
+	default:
+		return "N/A";
+	}
+}
+
 void Core_MemoryException(u32 address, u32 pc, MemoryExceptionType type) {
 	const char *desc = MemoryExceptionTypeAsString(type);
 	// In jit, we only flush PC when bIgnoreBadMemAccess is off.
@@ -415,6 +428,23 @@ void Core_MemoryException(u32 address, u32 pc, MemoryExceptionType type) {
 		e.type = ExceptionType::MEMORY;
 		e.info = "";
 		e.memory_type = type;
+		e.address = address;
+		e.pc = pc;
+		Core_EnableStepping(true);
+		host->SetDebugMode(true);
+	}
+}
+
+void Core_ExecException(u32 address, u32 pc, ExecExceptionType type) {
+	const char *desc = ExecExceptionTypeAsString(type);
+	WARN_LOG(MEMMAP, "%s: Invalid destination %08x PC %08x LR %08x", desc, address, currentMIPS->pc, currentMIPS->r[MIPS_REG_RA]);
+
+	if (!g_Config.bIgnoreBadMemAccess) {
+		ExceptionInfo &e = g_exceptionInfo;
+		e = {};
+		e.type = ExceptionType::BAD_EXEC_ADDR;
+		e.info = "";
+		e.exec_type = type;
 		e.address = address;
 		e.pc = pc;
 		Core_EnableStepping(true);

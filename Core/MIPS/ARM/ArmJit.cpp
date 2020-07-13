@@ -703,6 +703,7 @@ void ArmJit::UpdateRoundingMode(u32 fcr31) {
 // I don't think this gives us that much benefit.
 void ArmJit::WriteExit(u32 destination, int exit_num)
 {
+	// TODO: Check destination is valid and trigger exception.
 	WriteDownCount(); 
 	//If nobody has taken care of this yet (this can be removed when all branches are done)
 	JitBlock *b = js.curBlock;
@@ -723,6 +724,7 @@ void ArmJit::WriteExit(u32 destination, int exit_num)
 
 void ArmJit::WriteExitDestInR(ARMReg Reg) 
 {
+	// TODO: If not fast memory, check for invalid address in reg and trigger exception.
 	MovToPC(Reg);
 	WriteDownCount();
 	// TODO: shouldn't need an indirect branch here...

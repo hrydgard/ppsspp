@@ -31,6 +31,7 @@
 #include "Core/MIPS/MIPSCodeUtils.h"
 #include "Core/MIPS/MIPS.h"
 #include "Core/MIPS/MIPSDebugInterface.h"
+#include "Core/Core.h"
 #include "Core/CoreTiming.h"
 #include "Core/MemMapHelpers.h"
 #include "Core/MIPS/JitCommon/JitCommon.h"
@@ -1142,6 +1143,10 @@ bool __KernelSwitchToThread(SceUID threadID, const char *reason)
 		if (current && current->isRunning())
 			__KernelChangeReadyState(current, currentThread, true);
 
+		if (!Memory::IsValidAddress(t->context.pc)) {
+			Core_ExecException(t->context.pc, currentMIPS->pc, ExecExceptionType::THREAD);
+		}
+
 		__KernelSwitchContext(t, reason);
 		return true;
 	}
@@ -1183,7 +1188,8 @@ void __KernelThreadingShutdown() {
 }
 
 std::string __KernelThreadingSummary() {
-	return StringFromFormat("Cur thread: %s", __GetCurrentThread()->GetName());
+	PSPThread *t = __GetCurrentThread();
+	return StringFromFormat("Cur thread: %s (attr %08x)", t ? t->GetName() : "(null)", t ? t->nt.attr : 0);
 }
 
 const char *__KernelGetThreadName(SceUID threadID)
@@ -1460,6 +1466,10 @@ void __KernelLoadContext(PSPThreadContext *ctx, bool vfpuEnabled) {
 	if (vfpuEnabled) {
 		memcpy(currentMIPS->v, ctx->v, sizeof(ctx->v));
 		memcpy(currentMIPS->vfpuCtrl, ctx->vfpuCtrl, sizeof(ctx->vfpuCtrl));
+	}
+
+	if (!Memory::IsValidAddress(ctx->pc)) {
+		Core_ExecException(ctx->pc, currentMIPS->pc, ExecExceptionType::THREAD);
 	}
 
 	memcpy(currentMIPS->other, ctx->other, sizeof(ctx->other));
@@ -1911,6 +1921,10 @@ SceUID __KernelSetupRootThread(SceUID moduleID, int args, const char *argp, int 
 
 	strcpy(thread->nt.name, "root");
 
+	if (!Memory::IsValidAddress(thread->context.pc)) {
+		Core_ExecException(thread->context.pc, currentMIPS->pc, ExecExceptionType::THREAD);
+	}
+
 	__KernelLoadContext(&thread->context, (attr & PSP_THREAD_ATTR_VFPU) != 0);
 	currentMIPS->r[MIPS_REG_A0] = args;
 	currentMIPS->r[MIPS_REG_SP] -= (args + 0xf) & ~0xf;
@@ -2040,6 +2054,9 @@ int __KernelStartThread(SceUID threadToStartID, int argSize, u32 argBlockPtr, bo
 
 	// Smaller is better for priority.  Only switch if the new thread is better.
 	if (cur && cur->nt.currentPriority > startThread->nt.currentPriority) {
+		if (!Memory::IsValidAddress(startThread->context.pc)) {
+			Core_ExecException(startThread->context.pc, currentMIPS->pc, ExecExceptionType::THREAD);
+		}
 		__KernelChangeReadyState(cur, currentThread, true);
 		hleReSchedule("thread started");
 	}
@@ -2902,6 +2919,10 @@ u32 sceKernelExtendThreadStack(u32 size, u32 entryAddr, u32 entryParameter)
 	Memory::Write_U32(currentMIPS->r[MIPS_REG_SP], thread->currentStack.end - 8);
 	Memory::Write_U32(currentMIPS->pc, thread->currentStack.end - 12);
 
+	if (!Memory::IsValidAddress(entryAddr)) {
+		Core_ExecException(entryAddr, currentMIPS->pc, ExecExceptionType::THREAD);
+	}
+
 	currentMIPS->pc = entryAddr;
 	currentMIPS->r[MIPS_REG_A0] = entryParameter;
 	currentMIPS->r[MIPS_REG_RA] = extendReturnHackAddr;
@@ -2932,6 +2953,10 @@ void __KernelReturnFromExtendStack()
 	{
 		ERROR_LOG_REPORT(SCEKERNEL, "__KernelReturnFromExtendStack() - no stack to restore?");
 		return;
+	}
+
+	if (!Memory::IsValidAddress(restorePC)) {
+		Core_ExecException(restorePC, currentMIPS->pc, ExecExceptionType::THREAD);
 	}
 
 	DEBUG_LOG(SCEKERNEL, "__KernelReturnFromExtendStack()");
@@ -3214,6 +3239,10 @@ bool __KernelExecuteMipsCallOnCurrentThread(u32 callId, bool reschedAfter)
 	call->savedId = cur->currentMipscallId;
 	call->reschedAfter = reschedAfter;
 
+	if (!Memory::IsValidAddress(call->entryPoint)) {
+		Core_ExecException(call->entryPoint, currentMIPS->pc, ExecExceptionType::THREAD);
+	}
+
 	// Set up the new state
 	currentMIPS->pc = call->entryPoint;
 	currentMIPS->r[MIPS_REG_RA] = __KernelCallbackReturnAddress();
@@ -3262,6 +3291,10 @@ void __KernelReturnFromMipsCall()
 	currentMIPS->r[MIPS_REG_T9] = Memory::Read_U32(sp + MIPS_REG_T9 * 4);
 	currentMIPS->r[MIPS_REG_RA] = Memory::Read_U32(sp + MIPS_REG_RA * 4);
 	sp += 32 * 4;
+
+	if (!Memory::IsValidAddress(call->savedPc)) {
+		Core_ExecException(call->savedPc, currentMIPS->pc, ExecExceptionType::THREAD);
+	}
 
 	currentMIPS->pc = call->savedPc;
 	// This is how we set the return value.

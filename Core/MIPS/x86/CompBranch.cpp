@@ -20,8 +20,9 @@
 
 #include "profiler/profiler.h"
 
-#include "Core/Reporting.h"
 #include "Core/Config.h"
+#include "Core/Core.h"
+#include "Core/Reporting.h"
 #include "Core/HLE/HLE.h"
 #include "Core/HLE/HLETables.h"
 #include "Core/Host.h"
@@ -591,6 +592,10 @@ void Jit::Comp_VBranch(MIPSOpcode op)
 	}
 }
 
+static void HitInvalidJump(uint32_t dest) {
+	Core_ExecException(dest, currentMIPS->pc - 8, ExecExceptionType::JUMP);
+}
+
 void Jit::Comp_Jump(MIPSOpcode op) {
 	CONDITIONAL_LOG;
 	if (js.inDelaySlot) {
@@ -608,6 +613,12 @@ void Jit::Comp_Jump(MIPSOpcode op) {
 			js.compiling = false;
 		}
 		// TODO: Mark this block dirty or something?  May be indication it will be changed by imports.
+
+		CompileDelaySlot(DELAYSLOT_NICE);
+		FlushAll();
+		MOV(32, MIPSSTATE_VAR(pc), Imm32(GetCompilerPC() + 8));
+		ABI_CallFunctionC(&HitInvalidJump, targetAddr);
+		WriteSyscallExit();
 		return;
 	}
 
