@@ -133,7 +133,12 @@ VulkanRenderManager::VulkanRenderManager(VulkanContext *vulkan) : vulkan_(vulkan
 		cmd_alloc.commandPool = frameData_[i].cmdPoolMain;
 		res = vkAllocateCommandBuffers(vulkan_->GetDevice(), &cmd_alloc, &frameData_[i].mainCmd);
 		assert(res == VK_SUCCESS);
-		frameData_[i].fence = vulkan_->CreateFence(true);  // So it can be instantly waited on
+
+		// Creating the frame fence with true so they can be instantly waited on the first frame
+		frameData_[i].fence = vulkan_->CreateFence(true);
+
+		// This fence one is used for synchronizing readbacks. Does not need preinitialization.
+		frameData_[i].readbackFence = vulkan_->CreateFence(false);
 
 		VkQueryPoolCreateInfo query_ci{ VK_STRUCTURE_TYPE_QUERY_POOL_CREATE_INFO };
 		query_ci.queryCount = MAX_TIMESTAMP_QUERIES;
@@ -307,6 +312,7 @@ VulkanRenderManager::~VulkanRenderManager() {
 		vkDestroyCommandPool(device, frameData_[i].cmdPoolInit, nullptr);
 		vkDestroyCommandPool(device, frameData_[i].cmdPoolMain, nullptr);
 		vkDestroyFence(device, frameData_[i].fence, nullptr);
+		vkDestroyFence(device, frameData_[i].readbackFence, nullptr);
 		vkDestroyQueryPool(device, frameData_[i].profile.queryPool, nullptr);
 	}
 	queueRunner_.DestroyDeviceObjects();
@@ -379,6 +385,8 @@ void VulkanRenderManager::BeginFrame(bool enableProfiling) {
 	VLOG("PUSH: Fencing %d", curFrame);
 	vkWaitForFences(device, 1, &frameData.fence, true, UINT64_MAX);
 	vkResetFences(device, 1, &frameData.fence);
+
+	frameData.readbackFenceUsed = false;
 
 	uint64_t queryResults[MAX_TIMESTAMP_QUERIES];
 
@@ -1050,10 +1058,10 @@ void VulkanRenderManager::BeginSubmitFrame(int frame) {
 	}
 }
 
-void VulkanRenderManager::Submit(int frame, bool triggerFence) {
+void VulkanRenderManager::Submit(int frame, bool triggerFrameFence) {
 	FrameData &frameData = frameData_[frame];
 	if (frameData.hasInitCommands) {
-		if (frameData.profilingEnabled_ && triggerFence) {
+		if (frameData.profilingEnabled_ && triggerFrameFence) {
 			// Pre-allocated query ID 1.
 			vkCmdWriteTimestamp(frameData.initCmd, VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, frameData.profile.queryPool, 1);
 		}
@@ -1091,18 +1099,18 @@ void VulkanRenderManager::Submit(int frame, bool triggerFence) {
 
 	VkSubmitInfo submit_info{ VK_STRUCTURE_TYPE_SUBMIT_INFO };
 	VkPipelineStageFlags waitStage[1]{ VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT };
-	if (triggerFence && !frameData.skipSwap) {
+	if (triggerFrameFence && !frameData.skipSwap) {
 		submit_info.waitSemaphoreCount = 1;
 		submit_info.pWaitSemaphores = &acquireSemaphore_;
 		submit_info.pWaitDstStageMask = waitStage;
 	}
 	submit_info.commandBufferCount = (uint32_t)numCmdBufs;
 	submit_info.pCommandBuffers = cmdBufs;
-	if (triggerFence && !frameData.skipSwap) {
+	if (triggerFrameFence && !frameData.skipSwap) {
 		submit_info.signalSemaphoreCount = 1;
 		submit_info.pSignalSemaphores = &renderingCompleteSemaphore_;
 	}
-	res = vkQueueSubmit(vulkan_->GetGraphicsQueue(), 1, &submit_info, triggerFence ? frameData.fence : VK_NULL_HANDLE);
+	res = vkQueueSubmit(vulkan_->GetGraphicsQueue(), 1, &submit_info, triggerFrameFence ? frameData.fence : frameData.readbackFence);
 	if (res == VK_ERROR_DEVICE_LOST) {
 #ifdef _WIN32
 		_assert_msg_(G3D, false, "Lost the Vulkan device! If this happens again, switch Graphics Backend from Vulkan to Direct3D11");
@@ -1114,7 +1122,7 @@ void VulkanRenderManager::Submit(int frame, bool triggerFence) {
 	}
 
 	// When !triggerFence, we notify after syncing with Vulkan.
-	if (useThread_ && triggerFence) {
+	if (useThread_ && triggerFrameFence) {
 		VLOG("PULL: Frame %d.readyForFence = true", frame);
 		std::unique_lock<std::mutex> lock(frameData.push_mutex);
 		frameData.readyForFence = true;
@@ -1185,11 +1193,15 @@ void VulkanRenderManager::Run(int frame) {
 
 void VulkanRenderManager::EndSyncFrame(int frame) {
 	FrameData &frameData = frameData_[frame];
+
+	frameData.readbackFenceUsed = true;
+
+	// The submit will trigger the readbackFence.
 	Submit(frame, false);
 
-	// This is brutal! Should probably wait for a fence instead, not that it'll matter much since we'll
-	// still stall everything on our queue.
-	vkQueueWaitIdle(vulkan_->GetGraphicsQueue());
+	// Hard stall of the GPU, not ideal, but necessary so the CPU has the contents of the readback.
+	vkWaitForFences(vulkan_->GetDevice(), 1, &frameData.readbackFence, true, UINT64_MAX);
+	vkResetFences(vulkan_->GetDevice(), 1, &frameData.readbackFence);
 
 	// At this point we can resume filling the command buffers for the current frame since
 	// we know the device is idle - and thus all previously enqueued command buffers have been processed.
