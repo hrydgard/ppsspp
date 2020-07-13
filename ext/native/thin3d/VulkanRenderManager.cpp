@@ -1188,8 +1188,8 @@ void VulkanRenderManager::EndSyncFrame(int frame) {
 	Submit(frame, false);
 
 	// This is brutal! Should probably wait for a fence instead, not that it'll matter much since we'll
-	// still stall everything.
-	vkDeviceWaitIdle(vulkan_->GetDevice());
+	// still stall everything on our queue.
+	vkQueueWaitIdle(vulkan_->GetGraphicsQueue());
 
 	// At this point we can resume filling the command buffers for the current frame since
 	// we know the device is idle - and thus all previously enqueued command buffers have been processed.
