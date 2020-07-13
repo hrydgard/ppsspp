@@ -643,7 +643,7 @@ public:
 		BindTextures(stage, 1, textures);
 	}  // from sampler 0 and upwards
 
-	// Call this with 0 to signal that you have been drawing on your own, and need the state reset on the next pipeline bind.
+	// Call this with nullptr to signal that you're done with the stuff you've bound, like textures and samplers and stuff.
 	virtual void BindPipeline(Pipeline *pipeline) = 0;
 
 	virtual void Draw(int vertexCount, int offset) = 0;
@@ -652,7 +652,7 @@ public:
 	
 	// Frame management (for the purposes of sync and resource management, necessary with modern APIs). Default implementations here.
 	virtual void BeginFrame() {}
-	virtual void EndFrame() {}
+	virtual void EndFrame() = 0;
 	virtual void WipeQueue() {}
 
 	// This should be avoided as much as possible, in favor of clearing when binding a render target, which is native

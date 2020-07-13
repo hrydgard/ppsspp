@@ -406,8 +406,13 @@ public:
 
 	void BindSamplerStates(int start, int count, SamplerState **state) override;
 	void BindTextures(int start, int count, Texture **textures) override;
+
 	void BindPipeline(Pipeline *pipeline) override {
 		curPipeline_ = (VKPipeline *)pipeline;
+
+		if (!pipeline) {
+			UnbindBoundState();
+		}
 	}
 
 	// TODO: Make VKBuffers proper buffers, and do a proper binding model. This is just silly.
@@ -494,6 +499,8 @@ public:
 	}
 
 private:
+	void UnbindBoundState();
+
 	VulkanTexture *GetNullTexture();
 	VulkanContext *vulkan_ = nullptr;
 
@@ -913,6 +920,23 @@ void VKContext::EndFrame() {
 	renderManager_.Finish();
 
 	push_ = nullptr;
+
+	// Unbind stuff, to avoid accidentally relying on it across frames (and provide some protection against forgotten unbinds of deleted things).
+	UnbindBoundState();
+}
+
+void VKContext::UnbindBoundState() {
+	curPipeline_ = nullptr;
+
+	for (auto &view : boundImageView_) {
+		view = nullptr;
+	}
+	for (auto &sampler : boundSamplers_) {
+		sampler = nullptr;
+	}
+	for (auto &texture : boundTextures_) {
+		texture = nullptr;
+	}
 }
 
 void VKContext::WipeQueue() {

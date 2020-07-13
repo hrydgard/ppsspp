@@ -618,6 +618,15 @@ void OpenGLContext::EndFrame() {
 	FrameData &frameData = frameData_[renderManager_.GetCurFrame()];
 	renderManager_.EndPushBuffer(frameData.push);  // upload the data!
 	renderManager_.Finish();
+
+	// Unbind stuff.
+	for (auto &texture : boundTextures_) {
+		texture = nullptr;
+	}
+	for (auto &sampler : boundSamplers_) {
+		sampler = nullptr;
+	}
+	curPipeline_ = nullptr;
 }
 
 InputLayout *OpenGLContext::CreateInputLayout(const InputLayoutDesc &desc) {

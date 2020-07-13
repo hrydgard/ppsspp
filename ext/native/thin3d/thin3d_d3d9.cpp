@@ -559,6 +559,8 @@ public:
 		curPipeline_ = (D3D9Pipeline *)pipeline;
 	}
 
+	void EndFrame() override;
+
 	void UpdateDynamicUniformBuffer(const void *ub, size_t size) override;
 
 	// Raster state
@@ -800,6 +802,10 @@ void D3D9Context::BindTextures(int start, int count, Texture **textures) {
 			device_->SetTexture(i, nullptr);
 		}
 	}
+}
+
+void D3D9Context::EndFrame() {
+	curPipeline_ = nullptr;
 }
 
 static void SemanticToD3D9UsageAndIndex(int semantic, BYTE *usage, BYTE *index) {
