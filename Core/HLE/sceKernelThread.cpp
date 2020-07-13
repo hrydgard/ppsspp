@@ -1183,7 +1183,8 @@ void __KernelThreadingShutdown() {
 }
 
 std::string __KernelThreadingSummary() {
-	return StringFromFormat("Cur thread: %s", __GetCurrentThread()->GetName());
+	PSPThread *t = __GetCurrentThread();
+	return StringFromFormat("Cur thread: %s (attr %08x)", t ? t->GetName() : "(null)", t ? t->nt.attr : 0);
 }
 
 const char *__KernelGetThreadName(SceUID threadID)
