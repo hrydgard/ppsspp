@@ -232,7 +232,7 @@ GLRInputLayout *DrawEngineGLES::SetupDecFmtForDraw(LinkedShader *program, const 
 	return inputLayout;
 }
 
-void DrawEngineGLES::DecodeVertsToPushBuffer(GLPushBuffer *push, uint32_t *bindOffset, GLRBuffer **buf) {
+void *DrawEngineGLES::DecodeVertsToPushBuffer(GLPushBuffer *push, uint32_t *bindOffset, GLRBuffer **buf) {
 	u8 *dest = decoded;
 
 	// Figure out how much pushbuffer space we need to allocate.
@@ -241,6 +241,7 @@ void DrawEngineGLES::DecodeVertsToPushBuffer(GLPushBuffer *push, uint32_t *bindO
 		dest = (u8 *)push->Push(vertsToDecode * dec_->GetDecVtxFmt().stride, bindOffset, buf);
 	}
 	DecodeVerts(dest);
+	return dest;
 }
 
 void DrawEngineGLES::MarkUnreliable(VertexArrayInfo *vai) {
@@ -341,6 +342,8 @@ void DrawEngineGLES::DoFlush() {
 	if (vshader->UseHWTransform()) {
 		int vertexCount = 0;
 		bool useElements = true;
+		bool populateCache = false;
+		VertexArrayInfo *vai = nullptr;
 
 		// Cannot cache vertex data with morph enabled.
 		bool useCache = g_Config.bVertexCache && !(lastVType_ & GE_VTYPE_MORPHCOUNT_MASK);
@@ -353,7 +356,7 @@ void DrawEngineGLES::DoFlush() {
 
 		if (useCache) {
 			u32 id = dcid_ ^ gstate.getUVGenMode();  // This can have an effect on which UV decoder we need to use! And hence what the decoded data will look like. See #9263
-			VertexArrayInfo *vai = vai_.Get(id);
+			vai = vai_.Get(id);
 			if (!vai) {
 				vai = new VertexArrayInfo();
 				vai_.Insert(id, vai);
@@ -368,13 +371,8 @@ void DrawEngineGLES::DoFlush() {
 					vai->minihash = ComputeMiniHash();
 					vai->status = VertexArrayInfo::VAI_HASHING;
 					vai->drawsUntilNextFullHash = 0;
-					DecodeVerts(decoded); // writes to indexGen
-					vai->numVerts = indexGen.VertexCount();
-					vai->prim = indexGen.Prim();
-					vai->maxIndex = indexGen.MaxIndex();
-					vai->flags = gstate_c.vertexFullAlpha ? VAI_FLAG_VERTEXFULLALPHA : 0;
-
-					goto rotateVBO;
+					useCache = false;
+					break;
 				}
 
 				// Hashing - still gaining confidence about the buffer.
@@ -394,8 +392,8 @@ void DrawEngineGLES::DoFlush() {
 						}
 						if (newMiniHash != vai->minihash || newHash != vai->hash) {
 							MarkUnreliable(vai);
-							DecodeVerts(decoded);
-							goto rotateVBO;
+							useCache = false;
+							break;
 						}
 						if (vai->numVerts > 64) {
 							// exponential backoff up to 16 draws, then every 32
@@ -413,48 +411,27 @@ void DrawEngineGLES::DoFlush() {
 						u32 newMiniHash = ComputeMiniHash();
 						if (newMiniHash != vai->minihash) {
 							MarkUnreliable(vai);
-							DecodeVerts(decoded);
-							goto rotateVBO;
+							break;
 						}
 					}
 
-					if (vai->vbo == 0) {
-						DecodeVerts(decoded);
-						vai->numVerts = indexGen.VertexCount();
-						vai->prim = indexGen.Prim();
-						vai->maxIndex = indexGen.MaxIndex();
-						vai->flags = gstate_c.vertexFullAlpha ? VAI_FLAG_VERTEXFULLALPHA : 0;
-						useElements = !indexGen.SeenOnlyPurePrims();
-						if (!useElements && indexGen.PureCount()) {
-							vai->numVerts = indexGen.PureCount();
-						}
-
+					if (vai->vbo == nullptr) {
 						_dbg_assert_msg_(G3D, gstate_c.vertBounds.minV >= gstate_c.vertBounds.maxV, "Should not have checked UVs when caching.");
 
-						size_t vsz = dec_->GetDecVtxFmt().stride * indexGen.MaxIndex();
-						vai->vbo = render_->CreateBuffer(GL_ARRAY_BUFFER, vsz, GL_STATIC_DRAW);
-						render_->BufferSubdata(vai->vbo, 0, vsz, decoded);
-						// If there's only been one primitive type, and it's either TRIANGLES, LINES or POINTS,
-						// there is no need for the index buffer we built. We can then use glDrawArrays instead
-						// for a very minor speed boost.
-						if (useElements) {
-							size_t esz = sizeof(short) * indexGen.VertexCount();
-							vai->ebo = render_->CreateBuffer(GL_ELEMENT_ARRAY_BUFFER, esz, GL_STATIC_DRAW);
-							render_->BufferSubdata(vai->ebo, 0, esz, (uint8_t *)decIndex, false);
-						} else {
-							vai->ebo = 0;
-							render_->BindIndexBuffer(vai->ebo);
-						}
+						// We'll populate the cache this time around, use it next time.
+						populateCache = true;
+						useCache = false;
 					} else {
 						gpuStats.numCachedDrawCalls++;
 						useElements = vai->ebo ? true : false;
 						gpuStats.numCachedVertsDrawn += vai->numVerts;
 						gstate_c.vertexFullAlpha = vai->flags & VAI_FLAG_VERTEXFULLALPHA;
+
+						vertexBuffer = vai->vbo;
+						indexBuffer = vai->ebo;
+						vertexCount = vai->numVerts;
+						prim = static_cast<GEPrimitiveType>(vai->prim);
 					}
-					vertexBuffer = vai->vbo;
-					indexBuffer = vai->ebo;
-					vertexCount = vai->numVerts;
-					prim = static_cast<GEPrimitiveType>(vai->prim);
 					break;
 				}
 
@@ -482,13 +459,17 @@ void DrawEngineGLES::DoFlush() {
 					if (vai->lastFrame != gpuStats.numFlips) {
 						vai->numFrames++;
 					}
-					DecodeVerts(decoded);
-					goto rotateVBO;
+					useCache = false;
+					break;
 				}
 			}
 
-			vai->lastFrame = gpuStats.numFlips;
-		} else {
+			if (useCache) {
+				vai->lastFrame = gpuStats.numFlips;
+			}
+		}
+
+		if (!useCache) {
 			if (g_Config.bSoftwareSkinning && (lastVType_ & GE_VTYPE_WEIGHT_MASK)) {
 				// If software skinning, we've already predecoded into "decoded". So push that content.
 				size_t size = decodedVerts_ * dec_->GetDecVtxFmt().stride;
@@ -496,11 +477,25 @@ void DrawEngineGLES::DoFlush() {
 				memcpy(dest, decoded, size);
 			} else {
 				// Decode directly into the pushbuffer
-				DecodeVertsToPushBuffer(frameData.pushVertex, &vertexBufferOffset, &vertexBuffer);
+				u8 *dest = (u8 *)DecodeVertsToPushBuffer(frameData.pushVertex, &vertexBufferOffset, &vertexBuffer);
+				if (populateCache) {
+					size_t size = decodedVerts_ * dec_->GetDecVtxFmt().stride;
+					vai->vbo = render_->CreateBuffer(GL_ARRAY_BUFFER, size, GL_STATIC_DRAW);
+					render_->BufferSubdata(vai->vbo, 0, size, dest, false);
+				}
 			}
 
-rotateVBO:
+			if (populateCache || (vai && vai->status == VertexArrayInfo::VAI_NEW)) {
+				vai->numVerts = indexGen.VertexCount();
+				vai->prim = indexGen.Prim();
+				vai->maxIndex = indexGen.MaxIndex();
+				vai->flags = gstate_c.vertexFullAlpha ? VAI_FLAG_VERTEXFULLALPHA : 0;
+			}
+
 			gpuStats.numUncachedVertsDrawn += indexGen.VertexCount();
+			// If there's only been one primitive type, and it's either TRIANGLES, LINES or POINTS,
+			// there is no need for the index buffer we built. We can then use glDrawArrays instead
+			// for a very minor speed boost.
 			useElements = !indexGen.SeenOnlyPurePrims();
 			vertexCount = indexGen.VertexCount();
 			if (!useElements && indexGen.PureCount()) {
@@ -529,9 +524,16 @@ rotateVBO:
 		render_->BindVertexBuffer(inputLayout, vertexBuffer, vertexBufferOffset);
 		if (useElements) {
 			if (!indexBuffer) {
-				indexBufferOffset = (uint32_t)frameData.pushIndex->Push(decIndex, sizeof(uint16_t) * indexGen.VertexCount(), &indexBuffer);
-				render_->BindIndexBuffer(indexBuffer);
+				size_t esz = sizeof(uint16_t) * indexGen.VertexCount();
+				void *dest = frameData.pushIndex->Push(esz, &indexBufferOffset, &indexBuffer);
+				memcpy(dest, decIndex, esz);
+
+				if (populateCache) {
+					vai->ebo = render_->CreateBuffer(GL_ELEMENT_ARRAY_BUFFER, esz, GL_STATIC_DRAW);
+					render_->BufferSubdata(vai->ebo, 0, esz, (uint8_t *)dest, false);
+				}
 			}
+			render_->BindIndexBuffer(indexBuffer);
 			render_->DrawIndexed(glprim[prim], vertexCount, GL_UNSIGNED_SHORT, (GLvoid*)(intptr_t)indexBufferOffset);
 		} else {
 			render_->Draw(glprim[prim], 0, vertexCount);
