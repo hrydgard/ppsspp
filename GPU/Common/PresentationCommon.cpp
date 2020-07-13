@@ -748,6 +748,7 @@ void PresentationCommon::CopyToOutput(OutputFlags flags, int uvRotation, float u
 	DoRelease(srcFramebuffer_);
 	DoRelease(srcTexture_);
 
+	// Unbinds all textures and samplers too, needed since sometimes a MakePixelTexture is deleted etc.
 	draw_->BindPipeline(nullptr);
 }
 

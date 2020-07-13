@@ -100,6 +100,8 @@ public:
 		stencilRefDirty_ = true;
 	}
 
+	void EndFrame() override;
+
 	void Draw(int vertexCount, int offset) override;
 	void DrawIndexed(int vertexCount, int offset) override;
 	void DrawUP(const void *vdata, int vertexCount) override;
@@ -361,6 +363,10 @@ void D3D11DrawContext::HandleEvent(Event ev, int width, int height, void *param1
 		stepId_ = 0;
 		break;
 	}
+}
+
+void D3D11DrawContext::EndFrame() {
+	curPipeline_ = nullptr;
 }
 
 void D3D11DrawContext::SetViewports(int count, Viewport *viewports) {
