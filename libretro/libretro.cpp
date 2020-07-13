@@ -42,6 +42,8 @@
 
 #define SAMPLERATE 44100
 
+static bool libretro_supports_bitmasks = false;
+
 namespace Libretro {
 LibretroGraphicsContext *ctx;
 retro_environment_t environ_cb;
@@ -306,7 +308,8 @@ void retro_set_audio_sample(retro_audio_sample_t cb) { (void)cb; }
 void retro_set_input_poll(retro_input_poll_t cb) { input_poll_cb = cb; }
 void retro_set_input_state(retro_input_state_t cb) { input_state_cb = cb; }
 
-void retro_init(void) {
+void retro_init(void)
+{
 #if 0
 	g_Config.Load("");
 #endif
@@ -338,6 +341,9 @@ void retro_init(void) {
 		logman->SetAllLogLevels(LogTypes::LINFO);
 #endif
 	}
+
+   if (environ_cb(RETRO_ENVIRONMENT_GET_INPUT_BITMASKS, NULL))
+      libretro_supports_bitmasks = true;
 }
 
 void retro_deinit(void) {
@@ -348,6 +354,8 @@ void retro_deinit(void) {
 
 	delete host;
 	host = nullptr;
+
+   libretro_supports_bitmasks = false;
 }
 
 void retro_set_controller_port_device(unsigned port, unsigned device) {
@@ -636,10 +644,29 @@ static void retro_input(void) {
 
 	input_poll_cb();
 
-	for (int i = 0; i < sizeof(map) / sizeof(*map); i++) {
-		if (input_state_cb(0, RETRO_DEVICE_JOYPAD, 0, map[i].retro)) {
+   unsigned i;
+   int16_t ret = 0;
+   if (libretro_supports_bitmasks)
+   {
+      ret = input_state_cb(0, RETRO_DEVICE_JOYPAD, 0, RETRO_DEVICE_ID_JOYPAD_MASK);
+   }
+   else
+   {
+      for (i = RETRO_DEVICE_ID_JOYPAD_B; i <= RETRO_DEVICE_ID_JOYPAD_R; i++)
+         if (input_state_cb(0, RETRO_DEVICE_JOYPAD, 0, i))
+            ret |= (1 << i);
+   }
+
+	for (i = 0; i < sizeof(map) / sizeof(*map); i++)
+   {
+      bool pressed          = ret & (1 << map[i].retro);
+
+		if (pressed)
+      {
 			__CtrlButtonDown(map[i].sceCtrl);
-		} else {
+		}
+      else
+      {
 			__CtrlButtonUp(map[i].sceCtrl);
 		}
 	}
