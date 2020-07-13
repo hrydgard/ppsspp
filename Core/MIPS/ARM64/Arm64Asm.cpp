@@ -289,7 +289,7 @@ void Arm64Jit::GenerateFixedCode(const JitOptions &jo) {
 
 	crashHandler = GetCodePtr();
 	MOVP2R(SCRATCH1_64, &coreState);
-	MOVI2R(SCRATCH2, CORE_ERROR);
+	MOVI2R(SCRATCH2, CORE_RUNTIME_ERROR);
 	STR(INDEX_UNSIGNED, SCRATCH2, SCRATCH1_64, 0);
 	B(quitLoop);
 

@@ -265,17 +265,15 @@ static void BranchExceptionAndSystem(uint32_t w, uint64_t addr, Instruction *ins
 	}
 }
 
-void Arm64AnalyzeLoadStore(uint64_t addr, uint32_t w, Arm64LSInstructionInfo *info) {
+bool Arm64AnalyzeLoadStore(uint64_t addr, uint32_t w, Arm64LSInstructionInfo *info) {
 	*info = {};
 	info->instructionSize = 4;
 	int id = (w >> 25) & 0xF;
 	switch (id) {
 	case 4: case 6: case 0xC: case 0xE:
-		info->isLoadOrStore = true;
 		break;
 	default:
-		ERROR_LOG(CPU, "Tried to disassemble %08x at %p as a load/store instruction", w, (void *)addr);
-		return;  // not the expected instruction
+		return false;  // not the expected instruction
 	}
 
 	info->size = w >> 30;
@@ -298,6 +296,7 @@ void Arm64AnalyzeLoadStore(uint64_t addr, uint32_t w, Arm64LSInstructionInfo *in
 		info->isPairLoadStore = true;
 		// TODO
 	}
+	return true;
 }
 
 static void LoadStore(uint32_t w, uint64_t addr, Instruction *instr) {

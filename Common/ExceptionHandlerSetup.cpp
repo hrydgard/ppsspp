@@ -36,7 +36,8 @@
 
 static BadAccessHandler g_badAccessHandler;
 
-#ifdef _WIN32
+// We cannot handle exceptions in UWP builds. Bleh.
+#if PPSSPP_PLATFORM(WINDOWS) && !PPSSPP_PLATFORM(UWP)
 
 static PVOID g_vectoredExceptionHandle;
 

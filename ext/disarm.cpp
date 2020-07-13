@@ -760,11 +760,13 @@ static bool DisasmNeon(uint32_t op, char *text) {
 	return false;
 }
 
-void ArmAnalyzeLoadStore(uint32_t addr, uint32_t op, ArmLSInstructionInfo *info) {
+bool ArmAnalyzeLoadStore(uint32_t addr, uint32_t op, ArmLSInstructionInfo *info) {
 	*info = {};
 	info->instructionSize = 4;
 
 	// TODO
+
+	return false;
 }
 
 

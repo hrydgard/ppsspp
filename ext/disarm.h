@@ -47,4 +47,4 @@ struct ArmLSInstructionInfo {
 	// TODO: more.
 };
 
-void ArmAnalyzeLoadStore(uint32_t addr, uint32_t op, ArmLSInstructionInfo *info);
+bool ArmAnalyzeLoadStore(uint32_t addr, uint32_t op, ArmLSInstructionInfo *info);

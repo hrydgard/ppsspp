@@ -81,6 +81,7 @@ bool Core_GetPowerSaving();
 
 enum class MemoryExceptionType {
 	NONE,
+	UNKNOWN,
 	READ_WORD,
 	WRITE_WORD,
 	READ_BLOCK,

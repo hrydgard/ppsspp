@@ -542,6 +542,8 @@ bool HandleFault(uintptr_t hostAddress, void *ctx) {
 		} else {
 			type = MemoryExceptionType::READ_WORD;
 		}
+	} else {
+		type = MemoryExceptionType::UNKNOWN;
 	}
 
 	if (success && g_Config.bIgnoreBadMemAccess) {

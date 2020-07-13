@@ -254,7 +254,7 @@ void ArmJit::GenerateFixedCode() {
 
 	crashHandler = GetCodePtr();
 	MOVP2R(R0, &coreState);
-	MOVI2R(R1, CORE_ERROR);
+	MOVI2R(R1, CORE_RUNTIME_ERROR);
 	STR(R1, R0, 0);
 	B(quitLoop);
 

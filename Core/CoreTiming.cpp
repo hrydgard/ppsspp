@@ -97,6 +97,11 @@ void FireMhzChange() {
 }
 
 void SetClockFrequencyHz(int cpuHz) {
+	if (cpuHz <= 0) {
+		// Paranoid check, protecting against division by zero and similar nonsense.
+		return;
+	}
+
 	// When the mhz changes, we keep track of what "time" it was before hand.
 	// This way, time always moves forward, even if mhz is changed.
 	lastGlobalTimeUs = GetGlobalTimeUs();
