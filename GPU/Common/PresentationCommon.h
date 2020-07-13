@@ -17,6 +17,7 @@
 
 #pragma once
 
+#include "base/basictypes.h"
 #include "GPU/Common/ShaderCommon.h"
 
 struct CardboardSettings {
@@ -69,17 +70,7 @@ enum class OutputFlags {
 	POSITION_FLIPPED = 0x0008,
 	PILLARBOX = 0x0010,
 };
-
-inline OutputFlags operator | (const OutputFlags &lhs, const OutputFlags &rhs) {
-	return OutputFlags((int)lhs | (int)rhs);
-}
-inline OutputFlags operator |= (OutputFlags &lhs, const OutputFlags &rhs) {
-	lhs = lhs | rhs;
-	return lhs;
-}
-inline bool operator & (const OutputFlags &lhs, const OutputFlags &rhs) {
-	return ((int)lhs & (int)rhs) != 0;
-}
+ENUM_CLASS_BITOPS(OutputFlags);
 
 class PresentationCommon {
 public:

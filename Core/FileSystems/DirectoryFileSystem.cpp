@@ -150,7 +150,7 @@ bool FixPathCase(const std::string &basePath, std::string &path, FixPathCaseBeha
 
 #endif
 
-DirectoryFileSystem::DirectoryFileSystem(IHandleAllocator *_hAlloc, std::string _basePath, int _flags) : basePath(_basePath), flags(_flags) {
+DirectoryFileSystem::DirectoryFileSystem(IHandleAllocator *_hAlloc, std::string _basePath, FileSystemFlags _flags) : basePath(_basePath), flags(_flags) {
 	File::CreateFullPath(basePath);
 	hAlloc = _hAlloc;
 }
@@ -663,8 +663,8 @@ int DirectoryFileSystem::Ioctl(u32 handle, u32 cmd, u32 indataPtr, u32 inlen, u3
 	return SCE_KERNEL_ERROR_ERRNO_FUNCTION_NOT_SUPPORTED;
 }
 
-int DirectoryFileSystem::DevType(u32 handle) {
-	return PSP_DEV_TYPE_FILE;
+PSPDevType DirectoryFileSystem::DevType(u32 handle) {
+	return PSPDevType::FILE;
 }
 
 size_t DirectoryFileSystem::ReadFile(u32 handle, u8 *pointer, s64 size) {
@@ -742,11 +742,6 @@ PSPFileInfo DirectoryFileSystem::GetFileInfo(std::string filename) {
 		File::FileDetails details;
 		if (!File::GetFileDetails(fullName, &details)) {
 			ERROR_LOG(FILESYS, "DirectoryFileSystem::GetFileInfo: GetFileDetails failed: %s", fullName.c_str());
-			x.size = 0;
-			x.access = 0;
-			memset(&x.atime, 0, sizeof(x.atime));
-			memset(&x.ctime, 0, sizeof(x.ctime));
-			memset(&x.mtime, 0, sizeof(x.mtime));
 		} else {
 			x.size = details.size;
 			x.access = details.access;
@@ -874,7 +869,9 @@ std::vector<PSPFileInfo> DirectoryFileSystem::GetDirListing(std::string path) {
 			entry.size = 4096;
 		else
 			entry.size = findData.nFileSizeLow | ((u64)findData.nFileSizeHigh<<32);
-		entry.name = SimulateVFATBug(ConvertWStringToUTF8(findData.cFileName));
+		entry.name = ConvertWStringToUTF8(findData.cFileName);
+		if (Flags() & FileSystemFlags::SIMULATE_FAT32)
+			entry.name = SimulateVFATBug(entry.name);
 
 		bool hideFile = false;
 		if (hideISOFiles && (endsWithNoCase(entry.name, ".cso") || endsWithNoCase(entry.name, ".iso"))) {
@@ -921,7 +918,9 @@ std::vector<PSPFileInfo> DirectoryFileSystem::GetDirListing(std::string path) {
 		else
 			entry.type = FILETYPE_NORMAL;
 		entry.access = s.st_mode & 0x1FF;
-		entry.name = SimulateVFATBug(dirp->d_name);
+		entry.name = dirp->d_name;
+		if (Flags() & FileSystemFlags::SIMULATE_FAT32)
+			entry.name = SimulateVFATBug(entry.name);
 		entry.size = s.st_size;
 
 		bool hideFile = false;
@@ -1090,6 +1089,7 @@ PSPFileInfo VFSFileSystem::GetFileInfo(std::string filename) {
 		if (x.exists) {
 			x.size = fo.size;
 			x.type = fo.isDirectory ? FILETYPE_DIRECTORY : FILETYPE_NORMAL;
+			x.access = fo.isWritable ? 0666 : 0444;
 		}
 	} else {
 		x.exists = false;
@@ -1117,8 +1117,8 @@ int VFSFileSystem::Ioctl(u32 handle, u32 cmd, u32 indataPtr, u32 inlen, u32 outd
 	return SCE_KERNEL_ERROR_ERRNO_FUNCTION_NOT_SUPPORTED;
 }
 
-int VFSFileSystem::DevType(u32 handle) {
-	return PSP_DEV_TYPE_FILE;
+PSPDevType VFSFileSystem::DevType(u32 handle) {
+	return PSPDevType::FILE;
 }
 
 size_t VFSFileSystem::ReadFile(u32 handle, u8 *pointer, s64 size) {

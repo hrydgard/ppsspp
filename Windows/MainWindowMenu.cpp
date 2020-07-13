@@ -928,7 +928,7 @@ namespace MainWindow {
 				u32 handle = pspFileSystem.OpenFile(filename, FILEACCESS_READ, "");
 				// Note: len may be in blocks.
 				size_t len = pspFileSystem.SeekFile(handle, 0, FILEMOVE_END);
-				bool isBlockMode = pspFileSystem.DevType(handle) == PSP_DEV_TYPE_BLOCK;
+				bool isBlockMode = pspFileSystem.DevType(handle) & PSPDevType::BLOCK;
 
 				FILE *fp = File::OpenCFile(fn, "wb");
 				pspFileSystem.SeekFile(handle, 0, FILEMOVE_BEGIN);

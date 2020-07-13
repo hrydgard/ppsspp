@@ -340,10 +340,11 @@ bool Load_PSP_ELF_PBP(FileLoader *fileLoader, std::string *error_string) {
 		auto bd = constructBlockDevice(PSP_CoreParameter().mountIsoLoader);
 		if (bd != NULL) {
 			ISOFileSystem *umd2 = new ISOFileSystem(&pspFileSystem, bd);
+			ISOBlockSystem *blockSystem = new ISOBlockSystem(umd2);
 
-			pspFileSystem.Mount("umd1:", umd2);
+			pspFileSystem.Mount("umd1:", blockSystem);
 			pspFileSystem.Mount("disc0:", umd2);
-			pspFileSystem.Mount("umd:", umd2);
+			pspFileSystem.Mount("umd:", blockSystem);
 		}
 	}
 
@@ -386,7 +387,7 @@ bool Load_PSP_ELF_PBP(FileLoader *fileLoader, std::string *error_string) {
 		pspFileSystem.SetStartingDirectory(ms_path);
 	}
 
-	DirectoryFileSystem *fs = new DirectoryFileSystem(&pspFileSystem, path);
+	DirectoryFileSystem *fs = new DirectoryFileSystem(&pspFileSystem, path, FileSystemFlags::SIMULATE_FAT32 | FileSystemFlags::CARD);
 	pspFileSystem.Mount("umd0:", fs);
 
 	std::string finalName = ms_path + file + extension;

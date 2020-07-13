@@ -621,9 +621,9 @@ void __IoInit() {
 	asyncNotifyEvent = CoreTiming::RegisterEvent("IoAsyncNotify", __IoAsyncNotify);
 	syncNotifyEvent = CoreTiming::RegisterEvent("IoSyncNotify", __IoSyncNotify);
 
-	memstickSystem = new DirectoryFileSystem(&pspFileSystem, g_Config.memStickDirectory, FILESYSTEM_SIMULATE_FAT32);
+	memstickSystem = new DirectoryFileSystem(&pspFileSystem, g_Config.memStickDirectory, FileSystemFlags::SIMULATE_FAT32 | FileSystemFlags::CARD);
 #if defined(USING_WIN_UI) || defined(APPLE)
-	flash0System = new DirectoryFileSystem(&pspFileSystem, g_Config.flash0Directory);
+	flash0System = new DirectoryFileSystem(&pspFileSystem, g_Config.flash0Directory, FileSystemFlags::FLASH);
 #else
 	flash0System = new VFSFileSystem(&pspFileSystem, "flash0");
 #endif
@@ -637,7 +637,7 @@ void __IoInit() {
 		const std::string gameId = g_paramSFO.GetValueString("DISC_ID");
 		const std::string exdataPath = g_Config.memStickDirectory + "exdata/" + gameId + "/";
 		if (File::Exists(exdataPath)) {
-			exdataSystem = new DirectoryFileSystem(&pspFileSystem, exdataPath, FILESYSTEM_SIMULATE_FAT32);
+			exdataSystem = new DirectoryFileSystem(&pspFileSystem, exdataPath, FileSystemFlags::SIMULATE_FAT32 | FileSystemFlags::CARD);
 			pspFileSystem.Mount("exdata0:", exdataSystem);
 			INFO_LOG(SCEIO, "Mounted exdata/%s/ under memstick for exdata0:/", gameId.c_str());
 		} else {
@@ -1251,7 +1251,7 @@ static u32 sceIoWriteAsync(int id, u32 data_addr, int size) {
 static u32 sceIoGetDevType(int id) {
 	if (id == PSP_STDOUT || id == PSP_STDERR || id == PSP_STDIN) {
 		DEBUG_LOG(SCEIO, "sceIoGetDevType(%d)", id);
-		return PSP_DEV_TYPE_FILE;
+		return (u32)PSPDevType::FILE;
 	}
 
 	u32 error;
@@ -1260,7 +1260,7 @@ static u32 sceIoGetDevType(int id) {
 	if (f) {
 		// TODO: When would this return PSP_DEV_TYPE_ALIAS?
 		WARN_LOG(SCEIO, "sceIoGetDevType(%d - %s)", id, f->fullpath.c_str());
-		result = pspFileSystem.DevType(f->handle);
+		result = (u32)pspFileSystem.DevType(f->handle) & (u32)PSPDevType::EMU_MASK;
 	} else {
 		ERROR_LOG(SCEIO, "sceIoGetDevType: unknown id %d", id);
 		result = SCE_KERNEL_ERROR_BADF;
@@ -1429,8 +1429,7 @@ static u32 sceIoLseek32Async(int id, int offset, int whence) {
 	return 0;
 }
 
-static FileNode *__IoOpen(int &error, const char* filename, int flags, int mode) {
-	//memory stick filename
+static FileNode *__IoOpen(int &error, const char *filename, int flags, int mode) {
 	int access = FILEACCESS_NONE;
 	if (flags & PSP_O_RDONLY)
 		access |= FILEACCESS_READ;
@@ -1469,41 +1468,49 @@ static FileNode *__IoOpen(int &error, const char* filename, int flags, int mode)
 }
 
 static u32 sceIoOpen(const char *filename, int flags, int mode) {
-	if (!__KernelIsDispatchEnabled())
-		return -1;
+	hleEatCycles(18000);
+
+	if (!__KernelIsDispatchEnabled()) {
+		hleEatCycles(48000);
+		return hleLogError(SCEIO, SCE_KERNEL_ERROR_CAN_NOT_WAIT, "dispatch disabled");
+	}
 
 	int error;
 	FileNode *f = __IoOpen(error, filename, flags, mode);
-	if (f == NULL) 
-	{
-		// Timing is not accurate, aiming low for now.
-		if (error == (int)SCE_KERNEL_ERROR_NOCWD)
-		{
-			ERROR_LOG(SCEIO, "SCE_KERNEL_ERROR_NOCWD=sceIoOpen(%s, %08x, %08x) - no current working directory", filename, flags, mode);
-			return hleDelayResult(SCE_KERNEL_ERROR_NOCWD, "no cwd", 10000);
-		}
-		else if (error != 0)
-		{
-			ERROR_LOG(SCEIO, "%08x=sceIoOpen(%s, %08x, %08x)", error, filename, flags, mode);
-			return hleDelayResult(error, "file opened", 10000);
-		}
-		else
-		{
-			ERROR_LOG(SCEIO, "ERROR_ERRNO_FILE_NOT_FOUND=sceIoOpen(%s, %08x, %08x) - file not found", filename, flags, mode);
-			return hleDelayResult(SCE_KERNEL_ERROR_ERRNO_FILE_NOT_FOUND, "file opened", 10000);
+	if (!f) {
+		assert(error != 0);
+		if (error == (int)SCE_KERNEL_ERROR_NOCWD) {
+			// TODO: Timing is not accurate.
+			return hleLogError(SCEIO, hleDelayResult(error, "file opened", 10000), "no current working directory");
+		} else if (error == (int)SCE_KERNEL_ERROR_NODEV) {
+			return hleLogError(SCEIO, error, "device not found");
+		} else if (error == (int)SCE_KERNEL_ERROR_ERRNO_FILE_NOT_FOUND) {
+			// UMD: Varies between 5-10ms, could take longer if disc spins up.
+			//      TODO: Bad filename at root (disc0:/no.exist) should take ~200us.
+			// Card: Path depth matters, but typically between 10-13ms on a standard Pro Duo.
+			// TODO: If a UMD and spun down, this can easily take 1s+.
+			int delay = pspFileSystem.FlagsFromFilename(filename) & FileSystemFlags::UMD ? 6000 : 10000;
+			return hleLogWarning(SCEIO, hleDelayResult(error, "file opened", delay), "file not found");
+		} else {
+			return hleLogError(SCEIO, hleDelayResult(error, "file opened", 10000));
 		}
 	}
 
 	int id = __IoAllocFd(f);
 	if (id < 0) {
-		ERROR_LOG(SCEIO, "%08x=sceIoOpen(%s, %08x, %08x): out of fds", id, filename, flags, mode);
 		kernelObjects.Destroy<FileNode>(f->GetUID());
-		return id;
+		return hleLogError(SCEIO, hleDelayResult(id, "file opened", 1000), "out of fds");
 	} else {
-		DEBUG_LOG(SCEIO, "%i=sceIoOpen(%s, %08x, %08x)", id, filename, flags, mode);
 		asyncParams[id].priority = asyncDefaultPriority;
-		// Timing is not accurate, aiming low for now.
-		return hleDelayResult(id, "file opened", 100);
+		IFileSystem *sys = pspFileSystem.GetSystemFromFilename(filename);
+		if (sys && (sys->DevType(f->handle) & (PSPDevType::BLOCK | PSPDevType::EMU_LBN))) {
+			// These are fast to open, no delay or even rescheduling happens.
+			return hleLogSuccessI(SCEIO, id);
+		}
+		// UMD: Speed varies from 1-6ms.
+		// Card: Path depth matters, but typically between 10-13ms on a standard Pro Duo.
+		int delay = pspFileSystem.FlagsFromFilename(filename) & FileSystemFlags::UMD ? 4000 : 10000;
+		return hleLogSuccessI(SCEIO, hleDelayResult(id, "file opened", delay));
 	}
 }
 
@@ -2038,8 +2045,9 @@ static u32 sceIoSetAsyncCallback(int id, u32 clbckId, u32 clbckArg)
 	}
 }
 
-static u32 sceIoOpenAsync(const char *filename, int flags, int mode)
-{
+static u32 sceIoOpenAsync(const char *filename, int flags, int mode) {
+	hleEatCycles(18000);
+
 	// TOOD: Use an internal method so as not to pollute the log?
 	// Intentionally does not work when interrupts disabled.
 	if (!__KernelIsDispatchEnabled())
@@ -2050,8 +2058,9 @@ static u32 sceIoOpenAsync(const char *filename, int flags, int mode)
 
 	// We have to return an fd here, which may have been destroyed when we reach Wait if it failed.
 	if (f == nullptr) {
-		if (error == 0)
-			error = SCE_KERNEL_ERROR_ERRNO_FILE_NOT_FOUND;
+		assert(error != 0);
+		if (error == SCE_KERNEL_ERROR_NODEV)
+			return hleLogError(SCEIO, error, "device not found");
 
 		f = new FileNode();
 		f->handle = kernelObjects.Create(f);
@@ -2063,7 +2072,7 @@ static u32 sceIoOpenAsync(const char *filename, int flags, int mode)
 	int fd = __IoAllocFd(f);
 	if (fd < 0) {
 		kernelObjects.Destroy<FileNode>(f->GetUID());
-		return hleLogError(SCEIO, fd, "out of fds");
+		return hleLogError(SCEIO, hleDelayResult(fd, "file opened", 1000), "out of fds");
 	}
 
 	auto &params = asyncParams[fd];
@@ -2299,13 +2308,7 @@ static u32 sceIoDread(int id, u32 dirent_addr) {
 		strncpy(entry->d_name, info.name.c_str(), 256);
 		entry->d_name[255] = '\0';
 		
-		bool isFAT = false;
-		IFileSystem *sys = pspFileSystem.GetSystemFromFilename(dir->name);
-		if (sys && (sys->Flags() & FILESYSTEM_SIMULATE_FAT32))
-			isFAT = true;
-		else
-			isFAT = false;
-
+		bool isFAT = pspFileSystem.FlagsFromFilename(dir->name) & FileSystemFlags::SIMULATE_FAT32;
 		// Only write d_private for memory stick
 		if (isFAT) {
 			// write d_private for supporting Custom BGM
@@ -2718,10 +2721,24 @@ static int IoAsyncFinish(int id) {
 			break;
 
 		case IoAsyncOp::OPEN:
-			// TODO: Timing is very inconsistent.  From ms0, 10ms - 20ms depending on filesize/dir depth?  From umd, can take > 1s.
-			// For now let's aim low.
-			us = 100;
+		{
+			// See notes on timing in sceIoOpen.
+			const std::string filename = Memory::GetCharPointer(params.open.filenameAddr);
+			IFileSystem *sys = pspFileSystem.GetSystemFromFilename(filename);
+			if (sys) {
+				if (f->asyncResult == (int)SCE_KERNEL_ERROR_ERRNO_FILE_NOT_FOUND) {
+					us = sys->Flags() & FileSystemFlags::UMD ? 6000 : 10000;
+				} else if (sys->DevType(f->handle) & (PSPDevType::BLOCK | PSPDevType::EMU_LBN)) {
+					// These are fast to open, no delay or even rescheduling happens.
+					us = 80;
+				} else {
+					us = sys->Flags() & FileSystemFlags::UMD ? 4000 : 10000;
+				}
+			} else {
+				us = 80;
+			}
 			break;
+		}
 
 		case IoAsyncOp::CLOSE:
 			f->asyncResult = 0;

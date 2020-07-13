@@ -178,7 +178,7 @@ IFileSystem *MetaFileSystem::GetHandleOwner(u32 handle)
 
 int MetaFileSystem::MapFilePath(const std::string &_inpath, std::string &outpath, MountPoint **system)
 {
-	int error = -1;
+	int error = SCE_KERNEL_ERROR_ERRNO_FILE_NOT_FOUND;
 	std::lock_guard<std::recursive_mutex> guard(lock);
 	std::string realpath;
 
@@ -246,6 +246,8 @@ int MetaFileSystem::MapFilePath(const std::string &_inpath, std::string &outpath
 				return error == SCE_KERNEL_ERROR_NOCWD ? error : 0;
 			}
 		}
+
+		error = SCE_KERNEL_ERROR_NODEV;
 	}
 
 	DEBUG_LOG(FILESYS, "MapFilePath: failed mapping \"%s\", returning false", inpath.c_str());
@@ -256,8 +258,8 @@ std::string MetaFileSystem::NormalizePrefix(std::string prefix) const {
 	// Let's apply some mapping here since it won't break savestates.
 	if (prefix == "memstick:")
 		prefix = "ms0:";
-	// Seems like umd00: etc. work just fine...
-	if (startsWith(prefix, "umd"))
+	// Seems like umd00: etc. work just fine... avoid umd1/umd for tests.
+	if (startsWith(prefix, "umd") && prefix != "umd1:" && prefix != "umd:")
 		prefix = "umd0:";
 	// Seems like umd00: etc. work just fine...
 	if (startsWith(prefix, "host"))
@@ -353,7 +355,7 @@ int MetaFileSystem::OpenFile(std::string filename, FileAccess access, const char
 	if (error == 0)
 		return mount->system->OpenFile(of, access, mount->prefix.c_str());
 	else
-		return error == -1 ? SCE_KERNEL_ERROR_ERRNO_FILE_NOT_FOUND : error;
+		return error;
 }
 
 PSPFileInfo MetaFileSystem::GetFileInfo(std::string filename)
@@ -368,7 +370,7 @@ PSPFileInfo MetaFileSystem::GetFileInfo(std::string filename)
 	}
 	else
 	{
-		PSPFileInfo bogus; // TODO
+		PSPFileInfo bogus;
 		return bogus; 
 	}
 }
@@ -536,13 +538,13 @@ int MetaFileSystem::Ioctl(u32 handle, u32 cmd, u32 indataPtr, u32 inlen, u32 out
 	return SCE_KERNEL_ERROR_ERROR;
 }
 
-int MetaFileSystem::DevType(u32 handle)
+PSPDevType MetaFileSystem::DevType(u32 handle)
 {
 	std::lock_guard<std::recursive_mutex> guard(lock);
 	IFileSystem *sys = GetHandleOwner(handle);
 	if (sys)
 		return sys->DevType(handle);
-	return SCE_KERNEL_ERROR_ERROR;
+	return PSPDevType::INVALID;
 }
 
 void MetaFileSystem::CloseFile(u32 handle)

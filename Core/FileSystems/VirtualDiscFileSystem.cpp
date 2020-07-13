@@ -552,9 +552,12 @@ int VirtualDiscFileSystem::Ioctl(u32 handle, u32 cmd, u32 indataPtr, u32 inlen, 
 	return SCE_KERNEL_ERROR_ERRNO_FUNCTION_NOT_SUPPORTED;
 }
 
-int VirtualDiscFileSystem::DevType(u32 handle) {
+PSPDevType VirtualDiscFileSystem::DevType(u32 handle) {
 	EntryMap::iterator iter = entries.find(handle);
-	return iter->second.type == VFILETYPE_ISO ? PSP_DEV_TYPE_BLOCK : PSP_DEV_TYPE_FILE;
+	PSPDevType type = iter->second.type == VFILETYPE_ISO ? PSPDevType::BLOCK : PSPDevType::FILE;
+	if (iter->second.type == VFILETYPE_LBN)
+		type |= PSPDevType::EMU_LBN;
+	return type;
 }
 
 PSPFileInfo VirtualDiscFileSystem::GetFileInfo(std::string filename) {
@@ -569,7 +572,9 @@ PSPFileInfo VirtualDiscFileSystem::GetFileInfo(std::string filename) {
 		PSPFileInfo fileInfo;
 		fileInfo.name = filename;
 		fileInfo.exists = true;
+		fileInfo.type = FILETYPE_NORMAL;
 		fileInfo.size = readSize;
+		fileInfo.access = 0444;
 		fileInfo.startSector = sectorStart;
 		fileInfo.isOnSectorSystem = true;
 		fileInfo.numSectors = (readSize + 2047) / 2048;
@@ -581,6 +586,7 @@ PSPFileInfo VirtualDiscFileSystem::GetFileInfo(std::string filename) {
 		x.type = FILETYPE_NORMAL;
 		x.isOnSectorSystem = true;
 		x.startSector = fileList[fileIndex].firstBlock;
+		x.access = 0555;
 
 		HandlerFileHandle temp = fileList[fileIndex].handler;
 		if (temp.Open(basePath, filename, FILEACCESS_READ)) {
@@ -609,6 +615,7 @@ PSPFileInfo VirtualDiscFileSystem::GetFileInfo(std::string filename) {
 
 	x.type = File::IsDirectory(fullName) ? FILETYPE_DIRECTORY : FILETYPE_NORMAL;
 	x.exists = true;
+	x.access = 0555;
 	if (fileIndex != -1) {
 		x.isOnSectorSystem = true;
 		x.startSector = fileList[fileIndex].firstBlock;
@@ -620,12 +627,8 @@ PSPFileInfo VirtualDiscFileSystem::GetFileInfo(std::string filename) {
 			ERROR_LOG(FILESYS, "DirectoryFileSystem::GetFileInfo: GetFileDetails failed: %s", fullName.c_str());
 			x.size = 0;
 			x.access = 0;
-			memset(&x.atime, 0, sizeof(x.atime));
-			memset(&x.ctime, 0, sizeof(x.ctime));
-			memset(&x.mtime, 0, sizeof(x.mtime));
 		} else {
 			x.size = details.size;
-			x.access = details.access;
 			time_t atime = details.atime;
 			time_t ctime = details.ctime;
 			time_t mtime = details.mtime;
@@ -690,7 +693,7 @@ std::vector<PSPFileInfo> VirtualDiscFileSystem::GetDirListing(std::string path)
 			entry.type = FILETYPE_NORMAL;
 		}
 
-		entry.access = FILEACCESS_READ;
+		entry.access = 0555;
 		entry.size = findData.nFileSizeLow | ((u64)findData.nFileSizeHigh<<32);
 		entry.name = ConvertWStringToUTF8(findData.cFileName);
 		tmFromFiletime(entry.atime, findData.ftLastAccessTime);
@@ -736,7 +739,7 @@ std::vector<PSPFileInfo> VirtualDiscFileSystem::GetDirListing(std::string path)
 			entry.type = FILETYPE_DIRECTORY;
 		else
 			entry.type = FILETYPE_NORMAL;
-		entry.access = s.st_mode & 0x1FF;
+		entry.access = 0555;
 		entry.name = dirp->d_name;
 		entry.size = s.st_size;
 		localtime_r((time_t*)&s.st_atime,&entry.atime);
