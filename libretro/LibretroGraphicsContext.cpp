@@ -14,13 +14,20 @@
 
 retro_video_refresh_t LibretroGraphicsContext::video_cb;
 
+extern "C" {
+   retro_hw_get_proc_address_t libretro_get_proc_address;
+};
+
 void retro_set_video_refresh(retro_video_refresh_t cb) { LibretroGraphicsContext::video_cb = cb; }
 static void context_reset() { ((LibretroHWRenderContext *)Libretro::ctx)->ContextReset(); }
 static void context_destroy() { ((LibretroHWRenderContext *)Libretro::ctx)->ContextDestroy(); }
 
 bool LibretroHWRenderContext::Init(bool cache_context) {
 	hw_render_.cache_context = cache_context;
-	return Libretro::environ_cb(RETRO_ENVIRONMENT_SET_HW_RENDER, &hw_render_);
+	if (!Libretro::environ_cb(RETRO_ENVIRONMENT_SET_HW_RENDER, &hw_render_))
+      return false;
+   libretro_get_proc_address = hw_render_.get_proc_address;
+   return true;
 }
 
 LibretroHWRenderContext::LibretroHWRenderContext(retro_hw_context_type context_type, unsigned version_major, unsigned version_minor) {

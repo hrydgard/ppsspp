@@ -315,7 +315,7 @@ void CheckGLExtensions() {
 		ParseExtensionsString(g_all_gl_extensions, g_set_gl_extensions);
 	}
 
-#ifdef WIN32
+#if defined(WIN32) && !defined(__LIBRETRO__)
 	const char *wglString = 0;
 	if (wglGetExtensionsStringEXT)
 		wglString = wglGetExtensionsStringEXT();
