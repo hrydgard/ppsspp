@@ -19,22 +19,15 @@
 #include "Common/Log.h"
 #include "ext/native/thread/threadutil.h"
 
-#if PPSSPP_ARCH(X86) || PPSSPP_ARCH(AMD64)
 #include "Common/MachineContext.h"
-#endif
 
-#if PPSSPP_PLATFORM(IOS)
-#define USE_SIGACTION_ON_APPLE
-#endif
-
-#ifdef __FreeBSD__
-#include <signal.h>
-#endif
 #ifndef _WIN32
 #include <unistd.h>  // Needed for _POSIX_VERSION
 #endif
 
 static BadAccessHandler g_badAccessHandler;
+
+#ifdef MACHINE_CONTEXT_SUPPORTED
 
 // We cannot handle exceptions in UWP builds. Bleh.
 #if PPSSPP_PLATFORM(WINDOWS) && !PPSSPP_PLATFORM(UWP)
@@ -106,7 +99,7 @@ void UninstallExceptionHandler() {
 	INFO_LOG(SYSTEM, "Removed exception handler");
 }
 
-#elif defined(__APPLE__) && !defined(USE_SIGACTION_ON_APPLE)
+#elif defined(__APPLE__)
 
 static void CheckKR(const char* name, kern_return_t kr) {
 	if (kr) {
@@ -339,9 +332,15 @@ void UninstallExceptionHandler() {
 
 #else  // Unsupported platform. Could also #error
 
+#error Shouldn't get here
+
+#endif
+
+#else  // !MACHINE_CONTEXT_SUPPORTED
+
 void InstallExceptionHandler(BadAccessHandler badAccessHandler) {
 	ERROR_LOG(SYSTEM, "Exception handler not implemented on this platform, can't install");
 }
 void UninstallExceptionHandler() { }
 
-#endif
+#endif  // MACHINE_CONTEXT_SUPPORTED
