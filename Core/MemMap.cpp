@@ -489,6 +489,10 @@ void Memset(const u32 _Address, const u8 _iValue, const u32 _iLength) {
 	CBreakPoints::ExecMemCheck(_Address, true, _iLength, currentMIPS->pc);
 }
 
+// We do not support crash catching on UWP and iOS.
+// On iOS, the sigcontext struct seems to be missing??
+#if !PPSSPP_PLATFORM(IOS) && !PPSSPP_PLATFORM(UWP)
+
 bool HandleFault(uintptr_t hostAddress, void *ctx) {
 	SContext *context = (SContext *)ctx;
 	const uint8_t *codePtr = (uint8_t *)(context->CTX_PC);
@@ -574,5 +578,14 @@ bool HandleFault(uintptr_t hostAddress, void *ctx) {
 	}
 	return true;
 }
+
+#else
+
+bool HandleFault(uintptr_t hostAddress, void *ctx) {
+	ERROR_LOG(MEMMAP, "Exception handling not supported");
+	return false;
+}
+
+#endif
 
 } // namespace
