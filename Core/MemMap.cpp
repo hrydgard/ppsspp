@@ -39,7 +39,7 @@
 #if PPSSPP_ARCH(AMD64) || PPSSPP_ARCH(X86)
 #include "Common/MachineContext.h"
 #include "Common/x64Analyzer.h"
-#elif PPSSPP_ARCH(ARM64)
+#elif PPSSPP_ARCH(ARM64) && !PPSSPP_PLATFORM(IOS)
 #include "Core/Util/DisArm64.h"
 typedef sigcontext SContext;
 #define CTX_PC pc
