@@ -321,6 +321,9 @@ private:
 		VKRRunType type = VKRRunType::END;
 
 		VkFence fence;
+		VkFence readbackFence;  // Strictly speaking we might only need one of these.
+		bool readbackFenceUsed = false;
+
 		// These are on different threads so need separate pools.
 		VkCommandPool cmdPoolInit;
 		VkCommandPool cmdPoolMain;
