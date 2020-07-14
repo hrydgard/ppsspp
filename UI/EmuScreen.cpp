@@ -1158,7 +1158,7 @@ void EmuScreen::update() {
 	PSP_CoreParameter().pixelHeight = pixel_yres * bounds.h / dp_yres;
 #endif
 
-	if (!invalid_) {
+	if (!invalid_ && coreState != CORE_RUNTIME_ERROR) {
 		UpdateUIState(UISTATE_INGAME);
 	}
 
@@ -1271,7 +1271,8 @@ static void DrawCrashDump(DrawBuffer *draw2d) {
 	FontID ubuntu24("UBUNTU24");
 	char statbuf[4096];
 	char versionString[256];
-	sprintf(versionString, "%s", PPSSPP_GIT_VERSION);
+	snprintf(versionString, sizeof(versionString), "%s", PPSSPP_GIT_VERSION);
+
 	// TODO: Draw a lot more information. Full register set, and so on.
 
 #ifdef _DEBUG
@@ -1539,8 +1540,10 @@ bool EmuScreen::hasVisibleUI() {
 		return true;
 
 	// Exception information.
-	if (coreState == CORE_RUNTIME_ERROR || coreState == CORE_STEPPING)
+	if (coreState == CORE_RUNTIME_ERROR || coreState == CORE_STEPPING) {
 		return true;
+	}
+
 	return false;
 }
 

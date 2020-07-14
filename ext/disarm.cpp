@@ -72,6 +72,7 @@
 
 #include "base/basictypes.h"
 #include "Common/ArmEmitter.h"
+#include "ext/disarm.h"
 
 static const char *CCFlagsStr[] = {
 	"EQ", // Equal
@@ -759,30 +760,14 @@ static bool DisasmNeon(uint32_t op, char *text) {
 	return false;
 }
 
+bool ArmAnalyzeLoadStore(uint32_t addr, uint32_t op, ArmLSInstructionInfo *info) {
+	*info = {};
+	info->instructionSize = 4;
 
+	// TODO
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+	return false;
+}
 
 
 typedef unsigned int word;

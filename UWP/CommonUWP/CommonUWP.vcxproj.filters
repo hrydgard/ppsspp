@@ -16,6 +16,7 @@
     <ClCompile Include="..\..\Common\ColorConvNEON.cpp" />
     <ClCompile Include="..\..\Common\ConsoleListener.cpp" />
     <ClCompile Include="..\..\Common\CPUDetect.cpp" />
+    <ClCompile Include="..\..\Common\ExceptionHandlerSetup.cpp" />
     <ClCompile Include="..\..\Common\FileUtil.cpp" />
     <ClCompile Include="..\..\Common\KeyMap.cpp" />
     <ClCompile Include="..\..\Common\LogManager.cpp" />
@@ -65,6 +66,7 @@
     <ClInclude Include="..\..\Common\ConsoleListener.h" />
     <ClInclude Include="..\..\Common\CPUDetect.h" />
     <ClInclude Include="..\..\Common\DbgNew.h" />
+    <ClInclude Include="..\..\Common\ExceptionHandlerSetup.h" />
     <ClInclude Include="..\..\Common\FileUtil.h" />
     <ClInclude Include="..\..\Common\FixedSizeQueue.h" />
     <ClInclude Include="..\..\Common\GraphicsContext.h" />

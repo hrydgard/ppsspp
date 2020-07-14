@@ -74,6 +74,8 @@
     <ClInclude Include="Vulkan\VulkanDebug.h">
       <Filter>Vulkan</Filter>
     </ClInclude>
+    <ClInclude Include="ExceptionHandlerSetup.h" />
+    <ClInclude Include="MachineContext.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="stdafx.cpp" />
@@ -137,6 +139,7 @@
     <ClCompile Include="Vulkan\VulkanDebug.cpp">
       <Filter>Vulkan</Filter>
     </ClCompile>
+    <ClCompile Include="ExceptionHandlerSetup.cpp" />
   </ItemGroup>
   <ItemGroup>
     <Filter Include="Crypto">

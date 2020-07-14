@@ -17,6 +17,8 @@
 
 #pragma once
 
+#include "ppsspp_config.h"
+
 #include <cstddef>
 
 #include "util/random/rng.h"
@@ -148,7 +150,7 @@ extern u8 fromvoffset[128];
 
 enum class CPUCore;
 
-#if defined(PPSSPP_ARCH_X86) || defined(PPSSPP_ARCH_AMD64)
+#if PPSSPP_ARCH(X86) || PPSSPP_ARCH(AMD64)
 
 // Note that CTXREG is offset to point at the first floating point register, intentionally. This is so that a byte offset
 // can reach both GPR and FPR regs.
@@ -246,7 +248,7 @@ public:
 
 	static const u32 FCR0_VALUE = 0x00003351;
 
-#if defined(PPSSPP_ARCH_X86) || defined(PPSSPP_ARCH_AMD64)
+#if PPSSPP_ARCH(X86) || PPSSPP_ARCH(AMD64)
 	// FPU TEMP0, etc. are swapped in here if necessary (e.g. on x86.)
 	float tempValues[NUM_X86_FPU_TEMPS];
 #endif

@@ -395,6 +395,7 @@ const char *ExceptionTypeAsString(ExceptionType type) {
 
 const char *MemoryExceptionTypeAsString(MemoryExceptionType type) {
 	switch (type) {
+	case MemoryExceptionType::UNKNOWN: return "Unknown";
 	case MemoryExceptionType::READ_WORD: return "Read Word";
 	case MemoryExceptionType::WRITE_WORD: return "Write Word";
 	case MemoryExceptionType::READ_BLOCK: return "Read Block";

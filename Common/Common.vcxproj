@@ -368,6 +368,7 @@
     <ClInclude Include="Crypto\sha1.h" />
     <ClInclude Include="Crypto\sha256.h" />
     <ClInclude Include="DbgNew.h" />
+    <ClInclude Include="ExceptionHandlerSetup.h" />
     <ClInclude Include="FileUtil.h" />
     <ClInclude Include="FixedSizeQueue.h" />
     <ClInclude Include="GL\GLInterfaceBase.h" />
@@ -397,6 +398,7 @@
     <ClInclude Include="Log.h" />
     <ClInclude Include="LogManager.h" />
     <ClInclude Include="MakeUnique.h" />
+    <ClInclude Include="MachineContext.h" />
     <ClInclude Include="MathUtil.h" />
     <ClInclude Include="MemArena.h" />
     <ClInclude Include="MemoryUtil.h" />
@@ -449,6 +451,7 @@
     <ClCompile Include="Crypto\md5.cpp" />
     <ClCompile Include="Crypto\sha1.cpp" />
     <ClCompile Include="Crypto\sha256.cpp" />
+    <ClCompile Include="ExceptionHandlerSetup.cpp" />
     <ClCompile Include="FileUtil.cpp" />
     <ClCompile Include="GL\GLInterface\EGL.cpp">
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>

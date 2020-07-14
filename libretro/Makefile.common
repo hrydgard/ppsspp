@@ -143,6 +143,7 @@ SOURCES_CXX += \
 SOURCES_CXX += \
 	$(COMMONDIR)/ChunkFile.cpp \
 	$(COMMONDIR)/ConsoleListener.cpp \
+	$(COMMONDIR)/ExceptionHandlerSetup.cpp \
 	$(COMMONDIR)/FileUtil.cpp \
 	$(COMMONDIR)/KeyMap.cpp \
 	$(COMMONDIR)/LogManager.cpp \

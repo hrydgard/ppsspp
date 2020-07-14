@@ -206,10 +206,20 @@ void Jit::GenerateFixedCode(JitOptions &jo) {
 		}
 		J_CC(CC_Z, outerLoop, true);
 
+	const uint8_t *quitLoop = GetCodePtr();
 	SetJumpTarget(badCoreState);
 	RestoreRoundingMode(true);
 	ABI_PopAllCalleeSavedRegsAndAdjustStack();
 	RET();
+
+	crashHandler = GetCodePtr();
+	if (RipAccessible((const void *)&coreState)) {
+		MOV(32, M(&coreState), Imm32(CORE_RUNTIME_ERROR));
+	} else {
+		MOV(PTRBITS, R(RAX), ImmPtr((const void *)&coreState));
+		MOV(32, MatR(RAX), Imm32(CORE_RUNTIME_ERROR));
+	}
+	JMP(quitLoop, true);
 
 	// Let's spare the pre-generated code from unprotect-reprotect.
 	endOfPregeneratedCode = AlignCodePage();
