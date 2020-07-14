@@ -43,7 +43,7 @@
 #include "Core/Util/DisArm64.h"
 typedef sigcontext SContext;
 #define CTX_PC pc
-#elif PPSSPP_ARCH(ARM)
+#elif PPSSPP_ARCH(ARM) && !PPSSPP_PLATFORM(IOS)
 #include "ext/disarm.h"
 typedef sigcontext SContext;
 #define CTX_PC arm_pc
@@ -245,16 +245,22 @@ bool MemoryMap_Setup(u32 flags) {
 #if !PPSSPP_PLATFORM(ANDROID)
 	if (g_arena.NeedsProbing()) {
 		int base_attempts = 0;
-#if defined(_WIN32) && PPSSPP_ARCH(32BIT)
+#if PPSSPP_PLATFORM(WINDOWS) && PPSSPP_ARCH(32BIT)
 		// Try a whole range of possible bases. Return once we got a valid one.
 		uintptr_t max_base_addr = 0x7FFF0000 - 0x10000000;
 		uintptr_t min_base_addr = 0x01000000;
 		uintptr_t stride = 0x400000;
-#else
+#elif PPSSPP_ARCH(ARM64) && PPSSPP_PLATFORM(IOS)
 		// iOS
 		uintptr_t max_base_addr = 0x1FFFF0000ULL - 0x80000000ULL;
 		uintptr_t min_base_addr = 0x100000000ULL;
 		uintptr_t stride = 0x800000;
+#else
+		uintptr_t max_base_addr = 0;
+		uintptr_t min_base_addr = 0;
+		uintptr_t stride = 0;
+		ERROR_LOG(MEMMAP, "MemoryMap_Setup: Hit a wrong path, should not be needed on this platform.");
+		return false;
 #endif
 		for (uintptr_t base_addr = min_base_addr; base_addr < max_base_addr; base_addr += stride) {
 			base_attempts++;
