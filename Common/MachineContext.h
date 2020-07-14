@@ -56,6 +56,12 @@ typedef CONTEXT SContext;
 #define CTX_SP Sp
 #define CTX_PC Pc
 
+#elif PPSSPP_ARCH(ARM)
+
+//#define CTX_REG(x) R##x
+#define CTX_SP Sp
+#define CTX_PC Pc
+
 #endif
 
 #elif PPSSPP_PLATFORM(MACOS)
