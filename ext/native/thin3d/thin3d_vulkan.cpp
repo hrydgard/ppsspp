@@ -929,7 +929,7 @@ void VKContext::UnbindBoundState() {
 	curPipeline_ = nullptr;
 
 	for (auto &view : boundImageView_) {
-		view = nullptr;
+		view = VK_NULL_HANDLE;
 	}
 	for (auto &sampler : boundSamplers_) {
 		sampler = nullptr;
