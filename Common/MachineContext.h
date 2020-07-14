@@ -64,7 +64,7 @@ typedef CONTEXT SContext;
 
 #endif
 
-#elif PPSSPP_PLATFORM(MACOS)
+#elif PPSSPP_PLATFORM(MAC)
 
 // for modules:
 #define _XOPEN_SOURCE
