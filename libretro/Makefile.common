@@ -569,6 +569,7 @@ endif
       endif
 	   SOURCES_CXX += $(GPUDIR)/Software/SamplerX86.cpp
 	   SOURCES_CXX += $(COMMONDIR)/x64Emitter.cpp \
+						$(COMMONDIR)/x64Analyzer.cpp \
 						$(COMMONDIR)/ABI.cpp \
 						$(COMMONDIR)/Thunk.cpp \
 						$(COMMONDIR)/CPUDetect.cpp \
