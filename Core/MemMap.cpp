@@ -29,24 +29,14 @@
 #include "Common/MemArena.h"
 #include "Common/ChunkFile.h"
 
-#ifdef __FreeBSD__
-#include <signal.h>
-#endif
-#ifndef _WIN32
-#include <unistd.h>  // Needed for _POSIX_VERSION
-#endif
+#include "Common/MachineContext.h"
 
 #if PPSSPP_ARCH(AMD64) || PPSSPP_ARCH(X86)
-#include "Common/MachineContext.h"
 #include "Common/x64Analyzer.h"
-#elif PPSSPP_ARCH(ARM64) && !PPSSPP_PLATFORM(IOS)
+#elif PPSSPP_ARCH(ARM64)
 #include "Core/Util/DisArm64.h"
-typedef sigcontext SContext;
-#define CTX_PC pc
-#elif PPSSPP_ARCH(ARM) && !PPSSPP_PLATFORM(IOS)
+#elif PPSSPP_ARCH(ARM)
 #include "ext/disarm.h"
-typedef sigcontext SContext;
-#define CTX_PC arm_pc
 #endif
 
 #include "Core/MemMap.h"
@@ -489,9 +479,7 @@ void Memset(const u32 _Address, const u8 _iValue, const u32 _iLength) {
 	CBreakPoints::ExecMemCheck(_Address, true, _iLength, currentMIPS->pc);
 }
 
-// We do not support crash catching on UWP and iOS.
-// On iOS, the sigcontext struct seems to be missing??
-#if !PPSSPP_PLATFORM(IOS) && !PPSSPP_PLATFORM(UWP)
+#ifdef MACHINE_CONTEXT_SUPPORTED
 
 bool HandleFault(uintptr_t hostAddress, void *ctx) {
 	SContext *context = (SContext *)ctx;

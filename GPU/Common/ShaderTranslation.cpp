@@ -29,6 +29,11 @@
 #undef realloc
 #endif
 
+// Weird issue
+#if PPSSPP_PLATFORM(WINDOWS) && PPSSPP_ARCH(ARM)
+#undef free
+#endif
+
 #include "base/logging.h"
 #include "base/basictypes.h"
 #include "base/stringutil.h"

@@ -2,14 +2,22 @@
 // Licensed under GPLv2+
 // Refer to the license.txt file included.
 
+// Note: If MACHINE_CONTEXT_SUPPORTED is not set after including this,
+// there is no access to the context from exception handlers (and possibly no exception handling support).
+
 #pragma once
 
 #include "ppsspp_config.h"
 
-#if PPSSPP_PLATFORM(WINDOWS)
+#if PPSSPP_PLATFORM(WINDOWS) && !PPSSPP_PLATFORM(UWP)
+
 #include <windows.h>
 typedef CONTEXT SContext;
+
 #if PPSSPP_ARCH(AMD64)
+
+#define MACHINE_CONTEXT_SUPPORTED
+
 #define CTX_RAX Rax
 #define CTX_RBX Rbx
 #define CTX_RCX Rcx
@@ -27,7 +35,11 @@ typedef CONTEXT SContext;
 #define CTX_R14 R14
 #define CTX_R15 R15
 #define CTX_RIP Rip
-#else
+
+#elif PPSSPP_ARCH(X86)
+
+#define MACHINE_CONTEXT_SUPPORTED
+
 #define CTX_RAX Eax
 #define CTX_RBX Ebx
 #define CTX_RCX Ecx
@@ -38,15 +50,33 @@ typedef CONTEXT SContext;
 #define CTX_RSP Esp
 #define CTX_RIP Eip
 
+#elif PPSSPP_ARCH(ARM64)
+
+#define CTX_REG(x) X[x]
+#define CTX_SP Sp
+#define CTX_PC Pc
+
+#elif PPSSPP_ARCH(ARM)
+
+//#define CTX_REG(x) R##x
+#define CTX_SP Sp
+#define CTX_PC Pc
+
 #endif
-#elif defined(__APPLE__) && !defined(USE_SIGACTION_ON_APPLE)
+
+#elif PPSSPP_PLATFORM(MAC)
+
 // for modules:
 #define _XOPEN_SOURCE
 #include <ucontext.h>
 
 #include <mach/mach.h>
 #include <mach/message.h>
+
 #if PPSSPP_ARCH(AMD64)
+
+#define MACHINE_CONTEXT_SUPPORTED
+
 typedef x86_thread_state64_t SContext;
 #define CTX_RAX __rax
 #define CTX_RBX __rbx
@@ -65,36 +95,24 @@ typedef x86_thread_state64_t SContext;
 #define CTX_R14 __r14
 #define CTX_R15 __r15
 #define CTX_RIP __rip
+
 #else
-#error No context definition for architecture
+
+// No context definition for architecture
+
 #endif
-#elif defined(__APPLE__)
-#include <signal.h>
-typedef _STRUCT_MCONTEXT64 SContext;
-#define CTX_RAX __ss.__rax
-#define CTX_RBX __ss.__rbx
-#define CTX_RCX __ss.__rcx
-#define CTX_RDX __ss.__rdx
-#define CTX_RDI __ss.__rdi
-#define CTX_RSI __ss.__rsi
-#define CTX_RBP __ss.__rbp
-#define CTX_RSP __ss.__rsp
-#define CTX_R8 __ss.__r8
-#define CTX_R9 __ss.__r9
-#define CTX_R10 __ss.__r10
-#define CTX_R11 __ss.__r11
-#define CTX_R12 __ss.__r12
-#define CTX_R13 __ss.__r13
-#define CTX_R14 __ss.__r14
-#define CTX_R15 __ss.__r15
-#define CTX_RIP __ss.__rip
+
 #elif defined(__linux__)
+
 #include <signal.h>
+
+#if PPSSPP_ARCH(AMD64)
 
 #include <ucontext.h>
 typedef mcontext_t SContext;
 
-#if PPSSPP_ARCH(AMD64)
+#define MACHINE_CONTEXT_SUPPORTED
+
 #define CTX_RAX gregs[REG_RAX]
 #define CTX_RBX gregs[REG_RBX]
 #define CTX_RCX gregs[REG_RCX]
@@ -112,7 +130,14 @@ typedef mcontext_t SContext;
 #define CTX_R14 gregs[REG_R14]
 #define CTX_R15 gregs[REG_R15]
 #define CTX_RIP gregs[REG_RIP]
+
 #elif PPSSPP_ARCH(X86)
+
+#include <ucontext.h>
+typedef mcontext_t SContext;
+
+#define MACHINE_CONTEXT_SUPPORTED
+
 #define CTX_RAX gregs[REG_EAX]
 #define CTX_RBX gregs[REG_EBX]
 #define CTX_RCX gregs[REG_ECX]
@@ -122,13 +147,40 @@ typedef mcontext_t SContext;
 #define CTX_RBP gregs[REG_EBP]
 #define CTX_RSP gregs[REG_ESP]
 #define CTX_RIP gregs[REG_EIP]
+
+#elif PPSSPP_ARCH(ARM64)
+
+#define MACHINE_CONTEXT_SUPPORTED
+
+typedef sigcontext SContext;
+
+#define CTX_REG(x) regs[x]
+#define CTX_SP sp
+#define CTX_PC pc
+
+#elif PPSSPP_ARCH(ARM)
+
+#define MACHINE_CONTEXT_SUPPORTED
+
+typedef sigcontext SContext;
+#define CTX_PC arm_pc
+#define CTX_REG(x) regs[x]
+
 #else
-#error No context definition for architecture
+
+// No context definition for architecture
+
 #endif
+
 #elif defined(__OpenBSD__)
+
+#if PPSSPP_ARCH(AMD64)
+
 #include <signal.h>
 typedef ucontext_t SContext;
-#if PPSSPP_ARCH(AMD64)
+
+#define MACHINE_CONTEXT_SUPPORTED
+
 #define CTX_RAX sc_rax
 #define CTX_RBX sc_rbx
 #define CTX_RCX sc_rcx
@@ -146,13 +198,22 @@ typedef ucontext_t SContext;
 #define CTX_R14 sc_r14
 #define CTX_R15 sc_r15
 #define CTX_RIP sc_rip
+
 #else
-#error No context definition for architecture
+
+// No context definition for architecture
+
 #endif
+
 #elif defined(__NetBSD__)
+
+#if PPSSPP_ARCH(AMD64)
+
 #include <ucontext.h>
 typedef mcontext_t SContext;
-#if PPSSPP_ARCH(AMD64)
+
+#define MACHINE_CONTEXT_SUPPORTED
+
 #define CTX_RAX __gregs[_REG_RAX]
 #define CTX_RBX __gregs[_REG_RBX]
 #define CTX_RCX __gregs[_REG_RCX]
@@ -170,13 +231,22 @@ typedef mcontext_t SContext;
 #define CTX_R14 __gregs[_REG_R14]
 #define CTX_R15 __gregs[_REG_R15]
 #define CTX_RIP __gregs[_REG_RIP]
+
 #else
-#error No context definition for architecture
+
+// No context definition for architecture
+
 #endif
+
 #elif defined(__FreeBSD__)
+
+#if PPSSPP_ARCH(AMD64)
+
 #include <ucontext.h>
 typedef mcontext_t SContext;
-#if PPSSPP_ARCH(AMD64)
+
+#define MACHINE_CONTEXT_SUPPORTED
+
 #define CTX_RAX mc_rax
 #define CTX_RBX mc_rbx
 #define CTX_RCX mc_rcx
@@ -194,13 +264,22 @@ typedef mcontext_t SContext;
 #define CTX_R14 mc_r14
 #define CTX_R15 mc_r15
 #define CTX_RIP mc_rip
+
 #else
-#error No context definition for architecture
+
+// No context definition for architecture
+
 #endif
+
 #elif defined(__HAIKU__)
+
+#if PPSSPP_ARCH(AMD64)
+
 #include <signal.h>
 typedef mcontext_t SContext;
-#if PPSSPP_ARCH(AMD64)
+
+#define MACHINE_CONTEXT_SUPPORTED
+
 #define CTX_RAX rax
 #define CTX_RBX rbx
 #define CTX_RCX rcx
@@ -218,12 +297,20 @@ typedef mcontext_t SContext;
 #define CTX_R14 r14
 #define CTX_R15 r15
 #define CTX_RIP rip
+
 #else
-#error No context definition for machine
+
+// No context definition for machine
+
 #endif
+
 #else
-#error No context definition for OS
+
+// No context definition for OS
+
 #endif
+
+#ifdef MACHINE_CONTEXT_SUPPORTED
 
 #if PPSSPP_ARCH(AMD64)
 
@@ -254,4 +341,7 @@ static inline u32* ContextRN(SContext* ctx, int n)
 	  offsetof(SContext, CTX_RSI), offsetof(SContext, CTX_RDI)};
 	return (u32*)((char*)ctx + offsets[n]);
 }
-#endif
+
+#endif  // arch
+
+#endif  // MACHINE_CONTEXT_SUPPORTED
