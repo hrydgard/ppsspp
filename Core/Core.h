@@ -17,6 +17,8 @@
 
 #pragma once
 
+#include <string>
+
 #include "Core/System.h"
 #include "Core/CoreParameter.h"
 
@@ -92,7 +94,11 @@ enum class ExecExceptionType {
 	THREAD,
 };
 
+// Separate one for without info, to avoid having to allocate a string
 void Core_MemoryException(u32 address, u32 pc, MemoryExceptionType type);
+
+void Core_MemoryExceptionInfo(u32 address, u32 pc, MemoryExceptionType type, std::string additionalInfo);
+
 void Core_ExecException(u32 address, u32 pc, ExecExceptionType type);
 void Core_Break();
 

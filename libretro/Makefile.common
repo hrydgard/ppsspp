@@ -472,6 +472,7 @@ SOURCES_CXX += $(NATIVEDIR)/math/dataconv.cpp \
 	       $(COREDIR)/MIPS/MIPSIntVFPU.cpp \
 	       $(COREDIR)/MIPS/MIPSTables.cpp \
 	       $(COREDIR)/MIPS/MIPSVFPUUtils.cpp \
+	       $(COREDIR)/MemFault.cpp \
 	       $(COREDIR)/MemMap.cpp \
 	       $(COREDIR)/MemMapFunctions.cpp \
 	       $(COREDIR)/PSPLoaders.cpp \

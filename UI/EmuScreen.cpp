@@ -1283,12 +1283,14 @@ static void DrawCrashDump(DrawBuffer *draw2d) {
 	snprintf(statbuf, sizeof(statbuf), R"(%s
 Game ID (Title): %s (%s)
 PPSSPP build: %s (%s)
+ABI: %s
 )",
 		ExceptionTypeAsString(info.type),
 		g_paramSFO.GetDiscID().c_str(),
 		g_paramSFO.GetValueString("TITLE").c_str(),
 		versionString,
-		build
+		build,
+		GetCompilerABI()
 	);
 
 	draw2d->SetFontScale(.7f, .7f);
@@ -1300,12 +1302,14 @@ PPSSPP build: %s (%s)
 	if (info.type == ExceptionType::MEMORY) {
 		snprintf(statbuf, sizeof(statbuf), R"(
 Access: %s at %08x
-PC: %08x)",
+PC: %08x
+%s)",
 			MemoryExceptionTypeAsString(info.memory_type),
 			info.address,
-			info.pc);
+			info.pc,
+			info.info.c_str());
 		draw2d->DrawTextShadow(ubuntu24, statbuf, x, y, 0xFFFFFFFF);
-		y += 120;
+		y += 180;
 	} else if (info.type == ExceptionType::BAD_EXEC_ADDR) {
 		snprintf(statbuf, sizeof(statbuf), R"(
 Destination: %s to %08x

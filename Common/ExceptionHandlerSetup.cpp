@@ -21,10 +21,6 @@
 
 #include "Common/MachineContext.h"
 
-#ifndef _WIN32
-#include <unistd.h>  // Needed for _POSIX_VERSION
-#endif
-
 static BadAccessHandler g_badAccessHandler;
 
 #ifdef MACHINE_CONTEXT_SUPPORTED
@@ -225,7 +221,7 @@ void InstallExceptionHandler(BadAccessHandler badAccessHandler) {
 void UninstallExceptionHandler() {
 }
 
-#elif defined(_POSIX_VERSION)
+#else
 
 static struct sigaction old_sa_segv;
 static struct sigaction old_sa_bus;
@@ -329,10 +325,6 @@ void UninstallExceptionHandler() {
 	NOTICE_LOG(SYSTEM, "Uninstalled exception handler");
 	g_badAccessHandler = nullptr;
 }
-
-#else  // Unsupported platform. Could also #error
-
-#error Shouldn't get here
 
 #endif
 
