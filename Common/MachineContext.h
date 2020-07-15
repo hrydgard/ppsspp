@@ -315,6 +315,7 @@ typedef mcontext_t SContext;
 #if PPSSPP_ARCH(AMD64)
 
 #include <cstdint>
+#include <stddef.h>
 #define CTX_PC CTX_RIP
 static inline uint64_t *ContextRN(SContext* ctx, int n) {
 	static const uint8_t offsets[] = {
@@ -330,6 +331,7 @@ static inline uint64_t *ContextRN(SContext* ctx, int n) {
 #elif PPSSPP_ARCH(X86)
 
 #include <cstdint>
+#include <stddef.h>
 #define CTX_PC CTX_RIP
 
 static inline uint32_t *ContextRN(SContext* ctx, int n) {
