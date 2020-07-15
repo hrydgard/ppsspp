@@ -743,6 +743,9 @@
     <ClCompile Include="HLE\sceKernelHeap.cpp">
       <Filter>HLE\Kernel</Filter>
     </ClCompile>
+    <ClCompile Include="MemFault.cpp">
+      <Filter>Core</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="ELF\ElfReader.h">
@@ -1378,6 +1381,9 @@
     </ClInclude>
     <ClInclude Include="HLE\sceKernelHeap.h">
       <Filter>HLE\Kernel</Filter>
+    </ClInclude>
+    <ClInclude Include="MemFault.h">
+      <Filter>Core</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>

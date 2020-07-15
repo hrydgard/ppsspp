@@ -182,3 +182,4 @@ private:
 };
 
 void DrawProfile(UIContext &ui);
+const char *GetCompilerABI();

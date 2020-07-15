@@ -1283,12 +1283,14 @@ static void DrawCrashDump(DrawBuffer *draw2d) {
 	snprintf(statbuf, sizeof(statbuf), R"(%s
 Game ID (Title): %s (%s)
 PPSSPP build: %s (%s)
+ABI: %s
 )",
 		ExceptionTypeAsString(info.type),
 		g_paramSFO.GetDiscID().c_str(),
 		g_paramSFO.GetValueString("TITLE").c_str(),
 		versionString,
-		build
+		build,
+		GetCompilerABI()
 	);
 
 	draw2d->SetFontScale(.7f, .7f);

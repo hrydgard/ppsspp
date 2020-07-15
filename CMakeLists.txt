@@ -1740,6 +1740,8 @@ add_library(${CoreLibName} ${CoreLinkType}
 	Core/MIPS/MIPSVFPUUtils.h
 	Core/MIPS/MIPSAsm.cpp
 	Core/MIPS/MIPSAsm.h
+	Core/MemFault.cpp
+	Core/MemFault.h
 	Core/MemMap.cpp
 	Core/MemMap.h
 	Core/MemMapFunctions.cpp

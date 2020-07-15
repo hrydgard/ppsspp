@@ -314,32 +314,30 @@ typedef mcontext_t SContext;
 
 #if PPSSPP_ARCH(AMD64)
 
-#include <stddef.h>
+#include <cstdint>
 #define CTX_PC CTX_RIP
-static inline u64* ContextRN(SContext* ctx, int n)
-{
-	static const u8 offsets[] = {
+static inline uint64_t *ContextRN(SContext* ctx, int n) {
+	static const uint8_t offsets[] = {
 		offsetof(SContext, CTX_RAX), offsetof(SContext, CTX_RCX), offsetof(SContext, CTX_RDX),
 		offsetof(SContext, CTX_RBX), offsetof(SContext, CTX_RSP), offsetof(SContext, CTX_RBP),
 		offsetof(SContext, CTX_RSI), offsetof(SContext, CTX_RDI), offsetof(SContext, CTX_R8),
 		offsetof(SContext, CTX_R9),  offsetof(SContext, CTX_R10), offsetof(SContext, CTX_R11),
 		offsetof(SContext, CTX_R12), offsetof(SContext, CTX_R13), offsetof(SContext, CTX_R14),
 		offsetof(SContext, CTX_R15)};
-	return (u64*)((char*)ctx + offsets[n]);
+	return (uint64_t *)((char *)ctx + offsets[n]);
 }
 
 #elif PPSSPP_ARCH(X86)
 
-#include <stddef.h>
+#include <cstdint>
 #define CTX_PC CTX_RIP
 
-static inline u32* ContextRN(SContext* ctx, int n)
-{
-	static const u8 offsets[] = {
+static inline uint32_t *ContextRN(SContext* ctx, int n) {
+	static const uint8_t offsets[] = {
 	  offsetof(SContext, CTX_RAX), offsetof(SContext, CTX_RCX), offsetof(SContext, CTX_RDX),
 	  offsetof(SContext, CTX_RBX), offsetof(SContext, CTX_RSP), offsetof(SContext, CTX_RBP),
 	  offsetof(SContext, CTX_RSI), offsetof(SContext, CTX_RDI)};
-	return (u32*)((char*)ctx + offsets[n]);
+	return (uint32_t *)((char*)ctx + offsets[n]);
 }
 
 #endif  // arch

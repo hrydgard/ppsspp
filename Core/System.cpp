@@ -39,7 +39,7 @@
 #include "util/text/utf8.h"
 
 #include "Common/GraphicsContext.h"
-#include "Core/MemMap.h"
+#include "Core/MemFault.h"
 #include "Core/HDRemaster.h"
 #include "Core/MIPS/MIPS.h"
 #include "Core/MIPS/MIPSAnalyst.h"

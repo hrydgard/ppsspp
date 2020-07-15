@@ -300,6 +300,7 @@ EXEC_AND_LIB_FILES := \
   $(SRC)/Core/FileLoaders/LocalFileLoader.cpp \
   $(SRC)/Core/FileLoaders/RamCachingFileLoader.cpp \
   $(SRC)/Core/FileLoaders/RetryingFileLoader.cpp \
+  $(SRC)/Core/MemFault.cpp \
   $(SRC)/Core/MemMap.cpp \
   $(SRC)/Core/MemMapFunctions.cpp \
   $(SRC)/Core/Reporting.cpp \

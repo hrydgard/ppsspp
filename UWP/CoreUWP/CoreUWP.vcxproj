@@ -519,6 +519,7 @@
     <ClInclude Include="..\..\Core\HW\SimpleAudioDec.h" />
     <ClInclude Include="..\..\Core\HW\StereoResampler.h" />
     <ClInclude Include="..\..\Core\Loaders.h" />
+    <ClInclude Include="..\..\Core\MemFault.h" />
     <ClInclude Include="..\..\Core\MemMap.h" />
     <ClInclude Include="..\..\Core\MemMapHelpers.h" />
     <ClInclude Include="..\..\Core\MIPS\ARM64\Arm64Jit.h" />
@@ -730,6 +731,7 @@
     <ClCompile Include="..\..\Core\HW\SimpleAudioDec.cpp" />
     <ClCompile Include="..\..\Core\HW\StereoResampler.cpp" />
     <ClCompile Include="..\..\Core\Loaders.cpp" />
+    <ClCompile Include="..\..\Core\MemFault.cpp" />
     <ClCompile Include="..\..\Core\MemMap.cpp" />
     <ClCompile Include="..\..\Core\MemMapFunctions.cpp" />
     <ClCompile Include="..\..\Core\MIPS\ARM64\Arm64Asm.cpp" />
