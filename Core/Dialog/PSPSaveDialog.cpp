@@ -29,6 +29,7 @@
 #include "Core/FileSystems/MetaFileSystem.h"
 #include "Core/Util/PPGeDraw.h"
 #include "Core/HLE/sceCtrl.h"
+#include "Core/HLE/sceUtility.h"
 #include "Core/MemMapHelpers.h"
 #include "Core/Config.h"
 #include "Core/Reporting.h"
@@ -390,67 +391,66 @@ void PSPSaveDialog::DisplaySaveIcon(bool checkExists)
 	PPGeSetDefaultTexture();
 }
 
-void PSPSaveDialog::DisplaySaveDataInfo1()
-{
+static void FormatSaveHourMin(char *hour_time, size_t sz, const tm &t) {
+	const char *am_pm = "AM";
+	int hour = t.tm_hour;
+	switch (g_Config.iTimeFormat) {
+	case 1:
+		if (hour == 12) {
+			am_pm = "PM";
+		} else if (hour > 12) {
+			am_pm = "PM";
+			hour -= 12;
+		} else if (hour == 0) {
+			hour = 12;
+		}
+		snprintf(hour_time, sz, "%02d:%02d %s", hour, t.tm_min, am_pm);
+		break;
+	case 0:
+	default:
+		snprintf(hour_time, sz, "%02d:%02d", hour, t.tm_min);
+		break;
+	}
+}
+
+static void FormatSaveDate(char *date, size_t sz, const tm &t) {
+	int year = t.tm_year + 1900;
+	int month = t.tm_mon + 1;
+	switch (g_Config.iDateFormat) {
+	case 1:
+		snprintf(date, sz, "%02d/%02d/%04d", month, t.tm_mday, year);
+		break;
+	case 2:
+		snprintf(date, sz, "%02d/%02d/%04d", t.tm_mday, month, year);
+		break;
+	case 0:
+	default:
+		snprintf(date, sz, "%04d/%02d/%02d", year, month, t.tm_mday);
+		break;
+	}
+}
+
+void PSPSaveDialog::DisplaySaveDataInfo1() {
 	std::lock_guard<std::mutex> guard(paramLock);
-	if (param.GetFileInfo(currentSelectedSave).size == 0) {
+	const SaveFileInfo &saveInfo = param.GetFileInfo(currentSelectedSave);
+
+	if (saveInfo.size == 0) {
 		auto di = GetI18NCategory("Dialog");
 		PPGeDrawText(di->T("NEW DATA"), 180, 136, PPGeAlign::BOX_VCENTER, 0.6f, CalcFadedColor(0xFFFFFFFF));
 	} else {
-		char title[512];
-		char time[512];
-		char saveTitle[1024];
-		char saveDetail[1024];
-
-		char am_pm[] = "AM";
 		char hour_time[32];
-		int hour = param.GetFileInfo(currentSelectedSave).modif_time.tm_hour;
-		int min  = param.GetFileInfo(currentSelectedSave).modif_time.tm_min;
-		switch (g_Config.iTimeFormat) {
-		case 1:
-			if (hour > 12) {
-				strcpy(am_pm, "PM");
-				hour -= 12;
-			}
-			snprintf(hour_time, sizeof(hour_time), "%02d:%02d %s", hour, min, am_pm);
-			break;
-		case 2:
-			snprintf(hour_time, sizeof(hour_time), "%02d:%02d", hour, min);
-			break;
-		default:
-			if (hour > 12) {
-				strcpy(am_pm, "PM");
-				hour -= 12;
-			}
-			snprintf(hour_time, sizeof(hour_time), "%02d:%02d %s", hour, min, am_pm);
-		}
+		FormatSaveHourMin(hour_time, sizeof(hour_time), saveInfo.modif_time);
 
-		snprintf(title, sizeof(title), "%s", param.GetFileInfo(currentSelectedSave).title);
-		int day   = param.GetFileInfo(currentSelectedSave).modif_time.tm_mday;
-		int month = param.GetFileInfo(currentSelectedSave).modif_time.tm_mon + 1;
-		int year  = param.GetFileInfo(currentSelectedSave).modif_time.tm_year + 1900;
-		s64 sizeK = param.GetFileInfo(currentSelectedSave).size / 1024;
-		switch (g_Config.iDateFormat) {
-		case 1:
-			snprintf(time, sizeof(time), "%d/%02d/%02d   %s  %lld KB", year, month, day, hour_time, sizeK);
-			break;
-		case 2:
-			snprintf(time, sizeof(time), "%02d/%02d/%d   %s  %lld KB", month, day, year, hour_time, sizeK);
-			break;
-		case 3:
-			snprintf(time, sizeof(time), "%02d/%02d/%d   %s  %lld KB", day, month, year, hour_time, sizeK);
-			break;
-		default:
-			snprintf(time, sizeof(time), "%d/%02d/%02d   %s  %lld KB", year, month, day, hour_time, sizeK);
-		}
-		snprintf(saveTitle, sizeof(saveTitle), "%s", param.GetFileInfo(currentSelectedSave).saveTitle);
-		snprintf(saveDetail, sizeof(saveDetail), "%s", param.GetFileInfo(currentSelectedSave).saveDetail);
+		char date_year[32];
+		FormatSaveDate(date_year, sizeof(date_year), saveInfo.modif_time);
+
+		s64 sizeK = saveInfo.size / 1024;
 
 		PPGeDrawRect(180, 136, 480, 137, CalcFadedColor(0xFFFFFFFF));
-		std::string titleTxt = title;
-		std::string timeTxt = time;
-		std::string saveTitleTxt = saveTitle;
-		std::string saveDetailTxt = saveDetail;
+		std::string titleTxt = saveInfo.title;
+		std::string timeTxt = StringFromFormat("%s   %s  %lld KB", date_year, hour_time, sizeK);
+		std::string saveTitleTxt = saveInfo.saveTitle;
+		std::string saveDetailTxt = saveInfo.saveDetail;
 
 		PPGeDrawText(titleTxt.c_str(), 181, 138, PPGeAlign::BOX_BOTTOM, 0.6f, CalcFadedColor(0x80000000));
 		PPGeDrawText(titleTxt.c_str(), 180, 136, PPGeAlign::BOX_BOTTOM, 0.6f, CalcFadedColor(0xFFC0C0C0));
@@ -483,49 +483,15 @@ void PSPSaveDialog::DisplaySaveDataInfo2(bool showNewData) {
 		data_size = param.GetFileInfo(currentSelectedSave).size;
 	}
 
-	char date[256];
-	char am_pm[] = "AM";
 	char hour_time[32];
-	int hour = modif_time.tm_hour;
-	int min  = modif_time.tm_min;
-	switch (g_Config.iTimeFormat) {
-	case 1:
-		if (hour > 12) {
-			strcpy(am_pm, "PM");
-			hour -= 12;
-		}
-		snprintf(hour_time, sizeof(hour_time), "%02d:%02d %s", hour, min, am_pm);
-		break;
-	case 2:
-		snprintf(hour_time, sizeof(hour_time), "%02d:%02d", hour, min);
-		break;
-	default:
-		if (hour > 12) {
-			strcpy(am_pm, "PM");
-			hour -= 12;
-		}
-		snprintf(hour_time, sizeof(hour_time), "%02d:%02d %s", hour, min, am_pm);
-	}
+	FormatSaveHourMin(hour_time, sizeof(hour_time), modif_time);
 
-	int day   = modif_time.tm_mday;
-	int month = modif_time.tm_mon + 1;
-	int year  = modif_time.tm_year + 1900;
+	char date_year[32];
+	FormatSaveDate(date_year, sizeof(date_year), modif_time);
+
 	s64 sizeK = data_size / 1024;
-	switch (g_Config.iDateFormat) {
-	case 1:
-		snprintf(date, 256, "%d/%02d/%02d", year, month, day);
-		break;
-	case 2:
-		snprintf(date, 256, "%02d/%02d/%d", month, day, year);
-		break;
-	case 3:
-		snprintf(date, 256, "%02d/%02d/%d", day, month, year);
-		break;
-	default:
-		snprintf(date, 256, "%d/%02d/%02d", year, month, day);
-	}
 
-	std::string saveinfoTxt = StringFromFormat("%.128s\n%s  %s\n%lld KB", save_title, date, hour_time, sizeK);
+	std::string saveinfoTxt = StringFromFormat("%.128s\n%s  %s\n%lld KB", save_title, date_year, hour_time, sizeK);
 	PPGeDrawText(saveinfoTxt.c_str(), 9, 202, PPGeAlign::BOX_LEFT, 0.5f, CalcFadedColor(0x80000000));
 	PPGeDrawText(saveinfoTxt.c_str(), 8, 200, PPGeAlign::BOX_LEFT, 0.5f, CalcFadedColor(0xFFFFFFFF));
 }
