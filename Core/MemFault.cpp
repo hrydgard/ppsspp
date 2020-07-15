@@ -21,6 +21,7 @@
 
 #if PPSSPP_ARCH(AMD64) || PPSSPP_ARCH(X86)
 #include "Common/x64Analyzer.h"
+
 #elif PPSSPP_ARCH(ARM64)
 #include "Core/Util/DisArm64.h"
 #elif PPSSPP_ARCH(ARM)
@@ -41,6 +42,29 @@ void MemFault_Init() {
 }
 
 #ifdef MACHINE_CONTEXT_SUPPORTED
+
+static bool DisassembleNativeAt(const uint8_t *codePtr, int instructionSize, std::string *dest) {
+#if PPSSPP_ARCH(AMD64) || PPSSPP_ARCH(X86)
+	auto lines = DisassembleX86(codePtr, instructionSize);
+	if (!lines.empty()) {
+		*dest = lines[0];
+		return true;
+	}
+#elif PPSSPP_ARCH(ARM64)
+	auto lines = DisassembleArm64(codePtr, instructionSize);
+	if (!lines.empty()) {
+		*dest = lines[0];
+		return true;
+	}
+#elif PPSSPP_ARCH(ARM)
+	auto lines = DisassembleArm2(codePtr, instructionSize);
+	if (!lines.empty()) {
+		*dest = lines[0];
+		return true;
+	}
+#endif
+	return false;
+}
 
 bool HandleFault(uintptr_t hostAddress, void *ctx) {
 	SContext *context = (SContext *)ctx;
@@ -76,15 +100,23 @@ bool HandleFault(uintptr_t hostAddress, void *ctx) {
 
 	MemoryExceptionType type = MemoryExceptionType::NONE;
 
-	std::string disassembly;
+	std::string infoString = "";
 
+	if (MIPSComp::jit) {
+		std::string desc;
+		if (MIPSComp::jit->DescribeCodePtr(codePtr, desc)) {
+			infoString += desc + "\n";
+		}
+	}
+
+	int instructionSize = 4;
 #if PPSSPP_ARCH(AMD64) || PPSSPP_ARCH(X86)
 	// X86, X86-64. Variable instruction size so need to analyze the mov instruction in detail.
 
 	// To ignore the access, we need to disassemble the instruction and modify context->CTX_PC
 	LSInstructionInfo info;
 	success = X86AnalyzeMOV(codePtr, info);
-
+	instructionSize = info.instructionSize;
 #elif PPSSPP_ARCH(ARM64)
 	uint32_t word;
 	memcpy(&word, codePtr, 4);
@@ -98,6 +130,12 @@ bool HandleFault(uintptr_t hostAddress, void *ctx) {
 	ArmLSInstructionInfo info;
 	success = ArmAnalyzeLoadStore((uint32_t)codePtr, word, &info);
 #endif
+
+	std::string disassembly;
+	if (DisassembleNativeAt(codePtr, instructionSize, &disassembly)) {
+		infoString += disassembly + "\n";
+	}
+
 	if (success) {
 		if (info.isMemoryWrite) {
 			type = MemoryExceptionType::WRITE_WORD;
@@ -122,11 +160,11 @@ bool HandleFault(uintptr_t hostAddress, void *ctx) {
 	} else {
 		// Either bIgnoreBadMemAccess is off, or we failed recovery analysis.
 		uint32_t approximatePC = currentMIPS->pc;
-		Core_MemoryException(guestAddress, currentMIPS->pc, type);
+		Core_MemoryExceptionInfo(guestAddress, approximatePC, type, infoString);
 
-		// Redirect execution to a crash handler that will exit the game.
+		// Redirect execution to a crash handler that will exit the game immediately.
 		context->CTX_PC = (uintptr_t)MIPSComp::jit->GetCrashHandler();
-		ERROR_LOG(MEMMAP, "Bad memory access detected! %08x (%p) Stopping emulation.", guestAddress, (void *)hostAddress);
+		ERROR_LOG(MEMMAP, "Bad memory access detected! %08x (%p) Stopping emulation. Info:\n%s", guestAddress, (void *)hostAddress, infoString.c_str());
 	}
 	return true;
 }
