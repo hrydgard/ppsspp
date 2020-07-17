@@ -208,6 +208,9 @@ private:
 	UI::EventReturn OnPointClick(UI::EventParams &e);
 	UI::EventReturn OnDeleteClick(UI::EventParams &e);
 	UI::EventReturn OnDeleteAllClick(UI::EventParams &e);
+	UI::EventReturn OnEditClick(UI::EventParams& e);
+	UI::EventReturn OnShowIPListClick(UI::EventParams& e);
+	UI::EventReturn OnIPClick(UI::EventParams& e);
 
 	enum class ResolverState {
 		WAITING,
@@ -221,6 +224,7 @@ private:
 	UI::TextEdit *addrView_ = nullptr;
 	UI::TextView *errorView_ = nullptr;
 	UI::TextView *progressView_ = nullptr;
+	UI::LinearLayout *ipRows_ = nullptr;
 
 	std::thread resolver_;
 	ResolverState resolverState_ = ResolverState::WAITING;
