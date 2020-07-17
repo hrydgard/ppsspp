@@ -6,6 +6,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <string>
+#include <vector>
 
 
 #ifdef _WIN32
@@ -99,6 +100,105 @@ void DNSResolveFree(addrinfo *res)
 {
 	if (res != NULL)
 		freeaddrinfo(res);
+}
+
+bool GetIPList(std::vector<std::string>& IP4s) {
+	char ipstr[INET6_ADDRSTRLEN]; // We use IPv6 length since it's longer than IPv4
+#if defined(getifaddrs) // On Android: Requires __ANDROID_API__ >= 24
+	struct ifaddrs* ifAddrStruct = NULL;
+	struct ifaddrs* ifa = NULL;
+
+	getifaddrs(&ifAddrStruct);
+	if (ifAddrStruct != NULL) {
+		for (ifa = ifAddrStruct; ifa != NULL; ifa = ifa->ifa_next) {
+			if (!ifa->ifa_addr) {
+				continue;
+			}
+			if (ifa->ifa_addr->sa_family == AF_INET) {
+				// is a valid IP4 Address
+				if (inet_ntop(AF_INET, &((struct sockaddr_in*)ifa->ifa_addr)->sin_addr, ipstr, sizeof(ipstr)) != 0) {
+					IP4s.push_back(ipstr);
+				}
+			}
+			/*else if (ifa->ifa_addr->sa_family == AF_INET6) {
+				// is a valid IP6 Address
+				if (inet_ntop(AF_INET6, &((struct sockaddr_in6*)ifa->ifa_addr)->sin6_addr, ipstr, sizeof(ipstr)) != 0) {
+					IP6s.push_back(ipstr);
+				}
+			}*/
+		}
+		
+		freeifaddrs(ifAddrStruct);
+		return true;
+	}
+#elif defined(SIOCGIFCONF) // Better detection on Linux/UNIX/MacOS/some Android
+#include <linux/if.h>
+	static struct ifreq ifreqs[32];
+	struct ifconf ifconf;
+	memset(&ifconf, 0, sizeof(ifconf));
+	ifconf.ifc_req = ifreqs;
+	ifconf.ifc_len = sizeof(ifreqs);
+
+	int sd = socket(AF_INET, SOCK_DGRAM, 0);
+	if (sd < 0) return false;
+
+	int r = ioctl(sd, SIOCGIFCONF, (char*)&ifconf);
+	if (r != 0) return false;
+
+	for (int i = 0; i < ifconf.ifc_len / sizeof(struct ifreq); ++i)
+	{
+		if (ifreqs[i].ifr_addr.sa_family == AF_INET) {
+			// is a valid IP4 Address
+			if (inet_ntop(AF_INET, &((struct sockaddr_in*)&ifreqs[i].ifr_addr)->sin_addr, ipstr, sizeof(ipstr)) != 0) {
+				IP4s.push_back(ipstr);
+			}
+		}
+		/*else if (ifreqs[i].ifr_addr.sa_family == AF_INET6) {
+			// is a valid IP6 Address
+			if (inet_ntop(AF_INET6, &((struct sockaddr_in6*)&ifreqs[i].ifr_addr)->sin6_addr, ipstr, sizeof(ipstr)) != 0) {
+				IP6s.push_back(ipstr);
+			}
+		}*/
+	}
+
+	close(sd);
+	return true;
+#else // Fallback to POSIX/Cross-platform way but may not works well on Linux (ie. only shows 127.0.0.1)
+	struct addrinfo hints, * res, * p;
+	memset(&hints, 0, sizeof hints);
+	hints.ai_family = AF_UNSPEC; // AF_INET or AF_INET6 to force version
+	hints.ai_socktype = SOCK_DGRAM;
+
+	// Get local host name
+	char szHostName[256] = "";
+	if (::gethostname(szHostName, sizeof(szHostName))) {
+		// Error handling 
+	}
+
+	int status;
+	if ((status = getaddrinfo(szHostName, NULL, &hints, &res)) != 0) {
+		//fprintf(stderr, "getaddrinfo: %s\n", gai_strerror(status));
+		return false;
+	}
+	for (p = res; p != NULL; p = p->ai_next) {
+		if (p->ai_family == AF_INET) {
+			// is a valid IP4 Address
+			if (inet_ntop(p->ai_family, &(((struct sockaddr_in*)p->ai_addr)->sin_addr), ipstr, sizeof(ipstr)) != 0) {
+				IP4s.push_back(ipstr);
+			}
+		}
+		/*else if (p->ai_family == AF_INET6) {
+			// is a valid IP6 Address
+			if (inet_ntop(p->ai_family, &(((struct sockaddr_in6*)p->ai_addr)->sin6_addr), ipstr, sizeof(ipstr)) != 0) {
+				IP6s.push_back(ipstr);
+			}
+		}*/
+	}
+
+	freeaddrinfo(res); // free the linked list
+	return true;
+#endif
+	return false;
 }
 
 int inet_pton(int af, const char* src, void* dst)
