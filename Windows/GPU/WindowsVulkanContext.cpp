@@ -69,8 +69,6 @@ static const bool g_validate_ = true;
 static const bool g_validate_ = false;
 #endif
 
-static VulkanContext *g_Vulkan;
-
 static uint32_t FlagsFromConfig() {
 	uint32_t flags = 0;
 	flags = g_Config.bVSync ? VULKAN_FLAG_PRESENT_FIFO : VULKAN_FLAG_PRESENT_MAILBOX;
@@ -83,7 +81,7 @@ static uint32_t FlagsFromConfig() {
 bool WindowsVulkanContext::Init(HINSTANCE hInst, HWND hWnd, std::string *error_message) {
 	*error_message = "N/A";
 
-	if (g_Vulkan) {
+	if (vulkan_) {
 		*error_message = "Already initialized";
 		return false;
 	}
@@ -101,47 +99,47 @@ bool WindowsVulkanContext::Init(HINSTANCE hInst, HWND hWnd, std::string *error_m
 		return false;
 	}
 
-	g_Vulkan = new VulkanContext();
+	vulkan_ = new VulkanContext();
 
 	VulkanContext::CreateInfo info{};
 	info.app_name = "PPSSPP";
 	info.app_ver = gitVer.ToInteger();
 	info.flags = FlagsFromConfig();
-	if (VK_SUCCESS != g_Vulkan->CreateInstance(info)) {
-		*error_message = g_Vulkan->InitError();
-		delete g_Vulkan;
-		g_Vulkan = nullptr;
+	if (VK_SUCCESS != vulkan_->CreateInstance(info)) {
+		*error_message = vulkan_->InitError();
+		delete vulkan_;
+		vulkan_ = nullptr;
 		return false;
 	}
-	int deviceNum = g_Vulkan->GetPhysicalDeviceByName(g_Config.sVulkanDevice);
+	int deviceNum = vulkan_->GetPhysicalDeviceByName(g_Config.sVulkanDevice);
 	if (deviceNum < 0) {
-		deviceNum = g_Vulkan->GetBestPhysicalDevice();
+		deviceNum = vulkan_->GetBestPhysicalDevice();
 		if (!g_Config.sVulkanDevice.empty())
-			g_Config.sVulkanDevice = g_Vulkan->GetPhysicalDeviceProperties(deviceNum).properties.deviceName;
+			g_Config.sVulkanDevice = vulkan_->GetPhysicalDeviceProperties(deviceNum).properties.deviceName;
 	}
 
-	g_Vulkan->ChooseDevice(deviceNum);
-	if (g_Vulkan->CreateDevice() != VK_SUCCESS) {
-		*error_message = g_Vulkan->InitError();
-		delete g_Vulkan;
-		g_Vulkan = nullptr;
+	vulkan_->ChooseDevice(deviceNum);
+	if (vulkan_->CreateDevice() != VK_SUCCESS) {
+		*error_message = vulkan_->InitError();
+		delete vulkan_;
+		vulkan_ = nullptr;
 		return false;
 	}
 
-	g_Vulkan->InitSurface(WINDOWSYSTEM_WIN32, (void *)hInst, (void *)hWnd);
-	if (!g_Vulkan->InitSwapchain()) {
-		*error_message = g_Vulkan->InitError();
+	vulkan_->InitSurface(WINDOWSYSTEM_WIN32, (void *)hInst, (void *)hWnd);
+	if (!vulkan_->InitSwapchain()) {
+		*error_message = vulkan_->InitError();
 		Shutdown();
 		return false;
 	}
 
 	bool splitSubmit = g_Config.bGfxDebugSplitSubmit;
 
-	draw_ = Draw::T3DCreateVulkanContext(g_Vulkan, splitSubmit);
-	SetGPUBackend(GPUBackend::VULKAN, g_Vulkan->GetPhysicalDeviceProperties(deviceNum).properties.deviceName);
+	draw_ = Draw::T3DCreateVulkanContext(vulkan_, splitSubmit);
+	SetGPUBackend(GPUBackend::VULKAN, vulkan_->GetPhysicalDeviceProperties(deviceNum).properties.deviceName);
 	bool success = draw_->CreatePresets();
 	_assert_msg_(G3D, success, "Failed to compile preset shaders");
-	draw_->HandleEvent(Draw::Event::GOT_BACKBUFFER, g_Vulkan->GetBackbufferWidth(), g_Vulkan->GetBackbufferHeight());
+	draw_->HandleEvent(Draw::Event::GOT_BACKBUFFER, vulkan_->GetBackbufferWidth(), vulkan_->GetBackbufferHeight());
 
 	renderManager_ = (VulkanRenderManager *)draw_->GetNativeObject(Draw::NativeObject::RENDER_MANAGER);
 	renderManager_->SetInflightFrames(g_Config.iInflightFrames);
@@ -154,39 +152,39 @@ bool WindowsVulkanContext::Init(HINSTANCE hInst, HWND hWnd, std::string *error_m
 
 void WindowsVulkanContext::Shutdown() {
 	if (draw_)
-		draw_->HandleEvent(Draw::Event::LOST_BACKBUFFER, g_Vulkan->GetBackbufferWidth(), g_Vulkan->GetBackbufferHeight());
+		draw_->HandleEvent(Draw::Event::LOST_BACKBUFFER, vulkan_->GetBackbufferWidth(), vulkan_->GetBackbufferHeight());
 
 	delete draw_;
 	draw_ = nullptr;
 
-	g_Vulkan->WaitUntilQueueIdle();
-	g_Vulkan->DestroySwapchain();
-	g_Vulkan->DestroySurface();
-	g_Vulkan->DestroyDevice();
-	g_Vulkan->DestroyInstance();
+	vulkan_->WaitUntilQueueIdle();
+	vulkan_->DestroySwapchain();
+	vulkan_->DestroySurface();
+	vulkan_->DestroyDevice();
+	vulkan_->DestroyInstance();
 
-	delete g_Vulkan;
-	g_Vulkan = nullptr;
+	delete vulkan_;
+	vulkan_ = nullptr;
 	renderManager_ = nullptr;
 
 	finalize_glslang();
 }
 
 void WindowsVulkanContext::Resize() {
-	draw_->HandleEvent(Draw::Event::LOST_BACKBUFFER, g_Vulkan->GetBackbufferWidth(), g_Vulkan->GetBackbufferHeight());
-	g_Vulkan->DestroySwapchain();
-	g_Vulkan->UpdateFlags(FlagsFromConfig());
-	g_Vulkan->InitSwapchain();
-	draw_->HandleEvent(Draw::Event::GOT_BACKBUFFER, g_Vulkan->GetBackbufferWidth(), g_Vulkan->GetBackbufferHeight());
+	draw_->HandleEvent(Draw::Event::LOST_BACKBUFFER, vulkan_->GetBackbufferWidth(), vulkan_->GetBackbufferHeight());
+	vulkan_->DestroySwapchain();
+	vulkan_->UpdateFlags(FlagsFromConfig());
+	vulkan_->InitSwapchain();
+	draw_->HandleEvent(Draw::Event::GOT_BACKBUFFER, vulkan_->GetBackbufferWidth(), vulkan_->GetBackbufferHeight());
 }
 
 void WindowsVulkanContext::Poll() {
 	// Check for existing swapchain to avoid issues during shutdown.
-	if (g_Vulkan->GetSwapchain() && renderManager_->NeedsSwapchainRecreate()) {
+	if (vulkan_->GetSwapchain() && renderManager_->NeedsSwapchainRecreate()) {
 		Resize();
 	}
 }
 
 void *WindowsVulkanContext::GetAPIContext() {
-	return g_Vulkan;
+	return vulkan_;
 }
