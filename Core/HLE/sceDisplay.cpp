@@ -758,8 +758,14 @@ void __DisplayFlip(int cyclesLate) {
 
 	bool duplicateFrames = g_Config.bRenderDuplicateFrames && g_Config.iFrameSkip == 0;
 
+	bool unthrottleNeedsSkip = g_Config.bFrameSkipUnthrottle;
+	if (g_Config.bVSync && GetGPUBackend() == GPUBackend::VULKAN) {
+		// Vulkan doesn't support the interval setting, so we force frameskip.
+		unthrottleNeedsSkip = true;
+	}
+
 	// postEffectRequiresFlip is not compatible with frameskip unthrottling, see #12325.
-	if (g_Config.iRenderingMode != FB_NON_BUFFERED_MODE && !(g_Config.bFrameSkipUnthrottle && !FrameTimingThrottled())) {
+	if (g_Config.iRenderingMode != FB_NON_BUFFERED_MODE && !(unthrottleNeedsSkip && !FrameTimingThrottled())) {
 		if (shaderInfo) {
 			postEffectRequiresFlip = (shaderInfo->requires60fps || duplicateFrames);
 		} else {

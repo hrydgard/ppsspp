@@ -129,7 +129,7 @@ bool WindowsVulkanContext::Init(HINSTANCE hInst, HWND hWnd, std::string *error_m
 	}
 
 	g_Vulkan->InitSurface(WINDOWSYSTEM_WIN32, (void *)hInst, (void *)hWnd);
-	if (!g_Vulkan->InitObjects()) {
+	if (!g_Vulkan->InitSwapchain()) {
 		*error_message = g_Vulkan->InitError();
 		Shutdown();
 		return false;
@@ -160,7 +160,8 @@ void WindowsVulkanContext::Shutdown() {
 	draw_ = nullptr;
 
 	g_Vulkan->WaitUntilQueueIdle();
-	g_Vulkan->DestroyObjects();
+	g_Vulkan->DestroySwapchain();
+	g_Vulkan->DestroySurface();
 	g_Vulkan->DestroyDevice();
 	g_Vulkan->DestroyInstance();
 
@@ -174,6 +175,7 @@ void WindowsVulkanContext::Shutdown() {
 void WindowsVulkanContext::Resize() {
 	draw_->HandleEvent(Draw::Event::LOST_BACKBUFFER, g_Vulkan->GetBackbufferWidth(), g_Vulkan->GetBackbufferHeight());
 	g_Vulkan->DestroySwapchain();
+	g_Vulkan->DestroySurface();
 	g_Vulkan->UpdateFlags(FlagsFromConfig());
 	g_Vulkan->ReinitSurface();
 	g_Vulkan->InitSwapchain();
