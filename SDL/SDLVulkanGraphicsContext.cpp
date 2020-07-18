@@ -144,9 +144,7 @@ void SDLVulkanGraphicsContext::Shutdown() {
 void SDLVulkanGraphicsContext::Resize() {
 	draw_->HandleEvent(Draw::Event::LOST_BACKBUFFER, vulkan_->GetBackbufferWidth(), vulkan_->GetBackbufferHeight());
 	vulkan_->DestroySwapchain();
-	vulkan_->DestroySurface();
 	vulkan_->UpdateFlags(FlagsFromConfig());
-	vulkan_->ReinitSurface();
 	vulkan_->InitSwapchain();
 	draw_->HandleEvent(Draw::Event::GOT_BACKBUFFER, vulkan_->GetBackbufferWidth(), vulkan_->GetBackbufferHeight());
 }

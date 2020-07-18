@@ -1083,6 +1083,13 @@ void VulkanContext::PerformPendingDeletes() {
 }
 
 void VulkanContext::DestroyDevice() {
+	if (swapchain_) {
+		ELOG("DestroyDevice: Swapchain should have been destroyed.");
+	}
+	if (surface_) {
+		ELOG("DestroyDevice: Surface should have been destroyed.");
+	}
+
 	ILOG("VulkanContext::DestroyDevice (performing deletes)");
 	PerformPendingDeletes();
 
