@@ -33,11 +33,27 @@
 #include <string>
 #include <deque>
 
+#ifdef _MSC_VER
+#pragma pack(push,1)
+#endif
+typedef struct UPnPArgs {
+	int cmd;
+	std::string protocol;
+	unsigned short port;
+	unsigned short intport;
+} PACK;
+#ifdef _MSC_VER
+#pragma pack(pop)
+#endif
+
 #define IP_PROTOCOL_TCP	"TCP"
 #define IP_PROTOCOL_UDP	"UDP"
 #define UPNP_INITSTATE_NONE	0
 #define UPNP_INITSTATE_BUSY	1
 #define UPNP_INITSTATE_DONE	2
+
+#define UPNP_CMD_ADD	0
+#define UPNP_CMD_REMOVE	1
 
 struct UPNPUrls;
 struct IGDdatas;
@@ -98,3 +114,12 @@ protected:
 };
 
 extern PortManager g_PortManager;
+
+void __UPnPInit(const unsigned int timeout = 2000);
+void __UPnPShutdown();
+
+// Add a port & protocol (TCP, UDP or vendor-defined) to map for forwarding (intport = 0 : same as [external] port)
+void UPnP_Add(const char* protocol, unsigned short port, unsigned short intport = 0);
+
+// Remove a port mapping (external port)
+void UPnP_Remove(const char* protocol, unsigned short port);

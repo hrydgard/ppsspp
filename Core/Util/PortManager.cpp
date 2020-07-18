@@ -32,11 +32,18 @@
 #include <Core/ELF/ParamSFO.h>
 #include "Core/Util/PortManager.h"
 #include <Common/Log.h>
+#include <thread>
 #include "i18n/i18n.h"
 #include "net/resolve.h"
+#include "thread/threadutil.h"
+#include "base/timeutil.h"
 
 
 PortManager g_PortManager;
+bool upnpServiceRunning = false;
+std::thread upnpServiceThread;
+std::recursive_mutex upnpLock;
+std::deque<UPnPArgs> upnpReqs;
 
 PortManager::PortManager(): 
 	urls(0), 
@@ -170,7 +177,7 @@ bool PortManager::Initialize(const unsigned int timeout) {
 
 	ERROR_LOG(SCENET, "PortManager - upnpDiscover failed (error: %i) or No UPnP device detected", error);
 	auto n = GetI18NCategory("Networking");
-	host->NotifyUserMessage(n->T("Unable to find UPnP device"), 6.0f, 0x0000ff);
+	host->NotifyUserMessage(n->T("Unable to find UPnP device"), 2.0f, 0x0000ff);
 	m_InitState = UPNP_INITSTATE_NONE;
 	return false;
 }
@@ -216,7 +223,7 @@ bool PortManager::Add(const char* protocol, unsigned short port, unsigned short 
 			ERROR_LOG(SCENET, "PortManager - AddPortMapping failed (error: %i)", r);
 			if (r == UPNPCOMMAND_HTTP_ERROR) {
 				auto n = GetI18NCategory("Networking");
-				host->NotifyUserMessage(n->T("UPnP need to be reinitialized"), 6.0f, 0x0000ff);
+				host->NotifyUserMessage(n->T("UPnP need to be reinitialized"), 2.0f, 0x0000ff);
 				Terminate(); // Most of the time errors occurred because the router is no longer reachable (ie. changed networks) so we should invalidate the state to prevent further lags due to timeouts
 				return false;
 			}
@@ -244,7 +251,7 @@ bool PortManager::Remove(const char* protocol, unsigned short port) {
 		ERROR_LOG(SCENET, "PortManager - DeletePortMapping failed (error: %i)", r);
 		if (r == UPNPCOMMAND_HTTP_ERROR) {
 			auto n = GetI18NCategory("Networking");
-			host->NotifyUserMessage(n->T("UPnP need to be reinitialized"), 6.0f, 0x0000ff);
+			host->NotifyUserMessage(n->T("UPnP need to be reinitialized"), 2.0f, 0x0000ff);
 			Terminate(); // Most of the time errors occurred because the router is no longer reachable (ie. changed networks) so we should invalidate the state to prevent further lags due to timeouts
 			return false;
 		}
@@ -403,3 +410,87 @@ bool PortManager::RefreshPortList() {
 	} while (r == 0);
 	return true;
 }
+
+int upnpService(const unsigned int timeout)
+{
+	setCurrentThreadName("UPnPService");
+	INFO_LOG(SCENET, "UPnPService: Begin of UPnPService Thread");
+
+	// Service Loop
+	while (upnpServiceRunning && coreState != CORE_POWERDOWN) {
+		// Attempts to reconnect if not connected yet or got disconnected
+		if (g_Config.bEnableUPnP && g_PortManager.GetInitState() == UPNP_INITSTATE_NONE) {
+			g_PortManager.Initialize(timeout);
+		}
+
+		if (g_Config.bEnableUPnP && g_PortManager.GetInitState() == UPNP_INITSTATE_DONE && !upnpReqs.empty()) {
+			upnpLock.lock();
+			UPnPArgs arg = upnpReqs.front();
+			upnpLock.unlock();
+
+			bool ok = true;
+			switch (arg.cmd) {
+				case UPNP_CMD_ADD:
+					ok = g_PortManager.Add(arg.protocol.c_str(), arg.port, arg.intport);
+					break;
+				case UPNP_CMD_REMOVE:
+					ok = g_PortManager.Remove(arg.protocol.c_str(), arg.port);
+					break;
+				default:
+					break;
+			}
+
+            // It's only considered failed when disconnected (should be retried when reconnected)
+			if (ok) {
+                upnpLock.lock();
+                upnpReqs.pop_front();
+                upnpLock.unlock();
+            }
+		}
+
+		// Sleep for 1ms for faster response
+		sleep_ms(1);
+	}
+
+	// Cleaning up regardless of g_Config.bEnableUPnP to prevent lingering open ports on the router
+	if (g_PortManager.GetInitState() == UPNP_INITSTATE_DONE) {
+		g_PortManager.Clear();
+		g_PortManager.Restore();
+		g_PortManager.Terminate();
+	}
+
+	// Should we ingore any leftover UPnP requests? instead of processing it on the next game start
+	upnpLock.lock();
+	upnpReqs.clear();
+	upnpLock.unlock();
+
+	INFO_LOG(SCENET, "UPnPService: End of UPnPService Thread");
+	return 0;
+}
+
+void __UPnPInit(const unsigned int timeout) {
+	if (!upnpServiceRunning) {
+		upnpServiceRunning = true;
+		upnpServiceThread = std::thread(upnpService, timeout);
+	}
+}
+
+void __UPnPShutdown() {
+	if (upnpServiceRunning) {
+		upnpServiceRunning = false;
+		if (upnpServiceThread.joinable()) {
+			upnpServiceThread.join();
+		}
+	}
+}
+
+void UPnP_Add(const char* protocol, unsigned short port, unsigned short intport) {
+	std::lock_guard<std::recursive_mutex> upnpGuard(upnpLock);
+	upnpReqs.push_back({ UPNP_CMD_ADD, protocol, port, intport });
+}
+
+void UPnP_Remove(const char* protocol, unsigned short port) {
+	std::lock_guard<std::recursive_mutex> upnpGuard(upnpLock);
+	upnpReqs.push_back({ UPNP_CMD_REMOVE, protocol, port, port });
+}
+
