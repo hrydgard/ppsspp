@@ -116,7 +116,8 @@ bool AndroidVulkanContext::InitFromRenderThread(ANativeWindow *wnd, int desiredB
 
 	ILOG("AndroidVulkanContext::Init completed, %s", success ? "successfully" : "but failed");
 	if (!success) {
-		g_Vulkan->DestroyObjects();
+		g_Vulkan->DestroySwapchain();
+		g_Vulkan->DestroySurface();
 		g_Vulkan->DestroyDevice();
 		g_Vulkan->DestroyInstance();
 	}
@@ -130,7 +131,8 @@ void AndroidVulkanContext::ShutdownFromRenderThread() {
 	draw_ = nullptr;
 	g_Vulkan->WaitUntilQueueIdle();
 	g_Vulkan->PerformPendingDeletes();
-	g_Vulkan->DestroyObjects();  // Also destroys the surface, a bit asymmetric
+	g_Vulkan->DestroySwapchain();
+	g_Vulkan->DestroySurface();
 	ILOG("Done with ShutdownFromRenderThread");
 }
 
@@ -150,11 +152,12 @@ void AndroidVulkanContext::Resize() {
 	ILOG("AndroidVulkanContext::Resize begin (oldsize: %dx%d)", g_Vulkan->GetBackbufferWidth(), g_Vulkan->GetBackbufferHeight());
 
 	draw_->HandleEvent(Draw::Event::LOST_BACKBUFFER, g_Vulkan->GetBackbufferWidth(), g_Vulkan->GetBackbufferHeight());
-	g_Vulkan->DestroyObjects();
+	g_Vulkan->DestroySwapchain();
+	g_Vulkan->DestroySurface();
 
 	g_Vulkan->UpdateFlags(FlagsFromConfig());
 	g_Vulkan->ReinitSurface();
-	g_Vulkan->InitObjects();
+	g_Vulkan->InitSwapchain();
 	draw_->HandleEvent(Draw::Event::GOT_BACKBUFFER, g_Vulkan->GetBackbufferWidth(), g_Vulkan->GetBackbufferHeight());
 	ILOG("AndroidVulkanContext::Resize end (final size: %dx%d)", g_Vulkan->GetBackbufferWidth(), g_Vulkan->GetBackbufferHeight());
 }

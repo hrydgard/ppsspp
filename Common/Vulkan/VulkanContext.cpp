@@ -318,26 +318,18 @@ bool VulkanContext::MemoryTypeFromProperties(uint32_t typeBits, VkFlags requirem
 	return false;
 }
 
-bool VulkanContext::InitObjects() {
-	if (!InitQueue()) {
-		return false;
+void VulkanContext::DestroySwapchain() {
+	if (swapchain_ != VK_NULL_HANDLE) {
+		vkDestroySwapchainKHR(device_, swapchain_, nullptr);
+		swapchain_ = VK_NULL_HANDLE;
 	}
-
-	if (!InitSwapchain()) {
-		// Destroy queue?
-		return false;
-	}
-	return true;
 }
 
-void VulkanContext::DestroyObjects() {
-	ILOG("VulkanContext::DestroyObjects (including swapchain)");
-	if (swapchain_ != VK_NULL_HANDLE)
-		vkDestroySwapchainKHR(device_, swapchain_, nullptr);
-	swapchain_ = VK_NULL_HANDLE;
-
-	vkDestroySurfaceKHR(instance_, surface_, nullptr);
-	surface_ = VK_NULL_HANDLE;
+void VulkanContext::DestroySurface() {
+	if (surface_ != VK_NULL_HANDLE) {
+		vkDestroySurfaceKHR(instance_, surface_, nullptr);
+		surface_ = VK_NULL_HANDLE;
+	}
 }
 
 VkResult VulkanContext::GetInstanceLayerExtensionList(const char *layerName, std::vector<VkExtensionProperties> &extensions) {
@@ -716,7 +708,10 @@ VkResult VulkanContext::ReinitSurface() {
 		surface_ = VK_NULL_HANDLE;
 	}
 
-	ILOG("Creating Vulkan surface for window");
+	ILOG("Creating Vulkan surface for window (%p %p)", winsysData1_, winsysData2_);
+
+	VkResult retval = VK_SUCCESS;
+
 	switch (winsys_) {
 #ifdef _WIN32
 	case WINDOWSYSTEM_WIN32:
@@ -725,7 +720,8 @@ VkResult VulkanContext::ReinitSurface() {
 		win32.flags = 0;
 		win32.hwnd = (HWND)winsysData2_;
 		win32.hinstance = (HINSTANCE)winsysData1_;
-		return vkCreateWin32SurfaceKHR(instance_, &win32, nullptr, &surface_);
+		retval = vkCreateWin32SurfaceKHR(instance_, &win32, nullptr, &surface_);
+		break;
 	}
 #endif
 #if defined(__ANDROID__)
@@ -735,7 +731,8 @@ VkResult VulkanContext::ReinitSurface() {
 		VkAndroidSurfaceCreateInfoKHR android{ VK_STRUCTURE_TYPE_ANDROID_SURFACE_CREATE_INFO_KHR };
 		android.flags = 0;
 		android.window = wnd;
-		return vkCreateAndroidSurfaceKHR(instance_, &android, nullptr, &surface_);
+		retval = vkCreateAndroidSurfaceKHR(instance_, &android, nullptr, &surface_);
+		break;
 	}
 #endif
 #if defined(VK_USE_PLATFORM_METAL_EXT)
@@ -745,7 +742,8 @@ VkResult VulkanContext::ReinitSurface() {
 		metal.flags = 0;
 		metal.pLayer = winsysData1_;
 		metal.pNext = winsysData2_;
-		return vkCreateMetalSurfaceEXT(instance_, &metal, nullptr, &surface_);
+		retval = vkCreateMetalSurfaceEXT(instance_, &metal, nullptr, &surface_);
+		break;
 	}
 #endif
 #if defined(VK_USE_PLATFORM_XLIB_KHR)
@@ -755,7 +753,8 @@ VkResult VulkanContext::ReinitSurface() {
 		xlib.flags = 0;
 		xlib.dpy = (Display *)winsysData1_;
 		xlib.window = (Window)winsysData2_;
-		return vkCreateXlibSurfaceKHR(instance_, &xlib, nullptr, &surface_);
+		retval = vkCreateXlibSurfaceKHR(instance_, &xlib, nullptr, &surface_);
+		break;
 	}
 #endif
 #if defined(VK_USE_PLATFORM_XCB_KHR)
@@ -765,7 +764,8 @@ VkResult VulkanContext::ReinitSurface() {
 		xcb.flags = 0;
 		xcb.connection = (Connection *)winsysData1_;
 		xcb.window = (Window)(uintptr_t)winsysData2_;
-		return vkCreateXcbSurfaceKHR(instance_, &xcb, nullptr, &surface_);
+		retval = vkCreateXcbSurfaceKHR(instance_, &xcb, nullptr, &surface_);
+		break;
 	}
 #endif
 #if defined(VK_USE_PLATFORM_WAYLAND_KHR)
@@ -775,7 +775,8 @@ VkResult VulkanContext::ReinitSurface() {
 		wayland.flags = 0;
 		wayland.display = (wl_display *)winsysData1_;
 		wayland.surface = (wl_surface *)winsysData2_;
-		return vkCreateWaylandSurfaceKHR(instance_, &wayland, nullptr, &surface_);
+		retval = vkCreateWaylandSurfaceKHR(instance_, &wayland, nullptr, &surface_);
+		break;
 	}
 #endif
 
@@ -783,9 +784,19 @@ VkResult VulkanContext::ReinitSurface() {
 		_assert_msg_(G3D, false, "Vulkan support for chosen window system not implemented");
 		return VK_ERROR_INITIALIZATION_FAILED;
 	}
+
+	if (retval != VK_SUCCESS) {
+		return retval;
+	}
+
+	if (!ChooseQueue()) {
+		return VK_ERROR_INITIALIZATION_FAILED;
+	}
+
+	return VK_SUCCESS;
 }
 
-bool VulkanContext::InitQueue() {
+bool VulkanContext::ChooseQueue() {
 	// Iterate over each queue to learn whether it supports presenting:
 	VkBool32 *supportsPresent = new VkBool32[queue_count];
 	for (uint32_t i = 0; i < queue_count; i++) {
@@ -869,7 +880,6 @@ bool VulkanContext::InitQueue() {
 	}
 
 	vkGetDeviceQueue(device_, graphics_queue_family_index_, 0, &gfx_queue_);
-	ILOG("gfx_queue_: %p", gfx_queue_);
 	return true;
 }
 
@@ -906,21 +916,27 @@ bool VulkanContext::InitSwapchain() {
 	res = vkGetPhysicalDeviceSurfacePresentModesKHR(physical_devices_[physical_device_], surface_, &presentModeCount, presentModes);
 	assert(res == VK_SUCCESS);
 
-	ILOG("surfCapabilities_.currentExtent: %dx%d", surfCapabilities_.currentExtent.width, surfCapabilities_.currentExtent.height);
-	ILOG("surfCapabilities_.minImageExtent: %dx%d", surfCapabilities_.minImageExtent.width, surfCapabilities_.minImageExtent.height);
-	ILOG("surfCapabilities_.maxImageExtent: %dx%d", surfCapabilities_.maxImageExtent.width, surfCapabilities_.maxImageExtent.height);
 
 	swapChainExtent_.width = clamp(surfCapabilities_.currentExtent.width, surfCapabilities_.minImageExtent.width, surfCapabilities_.maxImageExtent.width);
 	swapChainExtent_.height = clamp(surfCapabilities_.currentExtent.height, surfCapabilities_.minImageExtent.height, surfCapabilities_.maxImageExtent.height);
 
-	ILOG("swapChainExtent: %dx%d", swapChainExtent_.width, swapChainExtent_.height);
+	ILOG("surfCapabilities_.current: %dx%d min: %dx%d max: %dx%d computed: %dx%d",
+		surfCapabilities_.currentExtent.width, surfCapabilities_.currentExtent.height,
+		surfCapabilities_.minImageExtent.width, surfCapabilities_.minImageExtent.height,
+		surfCapabilities_.maxImageExtent.width, surfCapabilities_.maxImageExtent.height,
+		swapChainExtent_.width, swapChainExtent_.height);
 
 	// TODO: Find a better way to specify the prioritized present mode while being able
 	// to fall back in a sensible way.
 	VkPresentModeKHR swapchainPresentMode = VK_PRESENT_MODE_MAX_ENUM_KHR;
+	std::string modes = "";
 	for (size_t i = 0; i < presentModeCount; i++) {
-		ILOG("Supported present mode: %d (%s)", presentModes[i], PresentModeString(presentModes[i]));
+		modes += PresentModeString(presentModes[i]);
+		if (i != presentModeCount - 1) {
+			modes += ", ";
+		}
 	}
+	ILOG("Supported present modes: %s", modes.c_str());
 	for (size_t i = 0; i < presentModeCount; i++) {
 		bool match = false;
 		match = match || ((flags_ & VULKAN_FLAG_PRESENT_MAILBOX) && presentModes[i] == VK_PRESENT_MODE_MAILBOX_KHR);
@@ -940,13 +956,11 @@ bool VulkanContext::InitSwapchain() {
 	// HACK
 	swapchainPresentMode = VK_PRESENT_MODE_FIFO_KHR;
 #endif
-	ILOG("Chosen present mode: %d (%s)", swapchainPresentMode, PresentModeString(swapchainPresentMode));
 	delete[] presentModes;
 	// Determine the number of VkImage's to use in the swap chain (we desire to
 	// own only 1 image at a time, besides the images being displayed and
 	// queued for display):
 	uint32_t desiredNumberOfSwapChainImages = surfCapabilities_.minImageCount + 1;
-	ILOG("numSwapChainImages: %d", desiredNumberOfSwapChainImages);
 	if ((surfCapabilities_.maxImageCount > 0) &&
 		(desiredNumberOfSwapChainImages > surfCapabilities_.maxImageCount))
 	{
@@ -954,14 +968,16 @@ bool VulkanContext::InitSwapchain() {
 		desiredNumberOfSwapChainImages = surfCapabilities_.maxImageCount;
 	}
 
+	ILOG("Chosen present mode: %d (%s). numSwapChainImages: %d/%d",
+		swapchainPresentMode, PresentModeString(swapchainPresentMode),
+		desiredNumberOfSwapChainImages, surfCapabilities_.maxImageCount);
+
 	// We mostly follow the practices from
 	// https://arm-software.github.io/vulkan_best_practice_for_mobile_developers/samples/surface_rotation/surface_rotation_tutorial.html
 	//
 	VkSurfaceTransformFlagBitsKHR preTransform;
 	std::string supportedTransforms = surface_transforms_to_string(surfCapabilities_.supportedTransforms);
 	std::string currentTransform = surface_transforms_to_string(surfCapabilities_.currentTransform);
-	ILOG("Supported transforms: %s", supportedTransforms.c_str());
-	ILOG("Current transform: %s", currentTransform.c_str());
 	g_display_rotation = DisplayRotation::ROTATE_0;
 	g_display_rot_matrix.setIdentity();
 	bool swapChainExtentSwap = false;
@@ -993,8 +1009,10 @@ bool VulkanContext::InitSwapchain() {
 		// Let the OS rotate the image (potentially slow on many Android devices)
 		preTransform = VK_SURFACE_TRANSFORM_IDENTITY_BIT_KHR;
 	}
+
 	std::string preTransformStr = surface_transforms_to_string(preTransform);
-	ILOG("Chosen pretransform transform: %s", preTransformStr.c_str());
+
+	ILOG("Transform supported: %s current: %s chosen: %s", supportedTransforms.c_str(), currentTransform.c_str(), preTransformStr.c_str());
 
 	if (physicalDeviceProperties_[physical_device_].properties.vendorID == VULKAN_VENDOR_IMGTEC) {
 		ILOG("Applying PowerVR hack (rounding off the width!)");
@@ -1017,6 +1035,7 @@ bool VulkanContext::InitSwapchain() {
 	swap_chain_info.oldSwapchain = VK_NULL_HANDLE;
 	swap_chain_info.clipped = true;
 	swap_chain_info.imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
+
 	// Don't ask for TRANSFER_DST for the swapchain image, we don't use that.
 	// if (surfCapabilities_.supportedUsageFlags & VK_IMAGE_USAGE_TRANSFER_DST_BIT)
 	//	swap_chain_info.imageUsage |= VK_IMAGE_USAGE_TRANSFER_DST_BIT;

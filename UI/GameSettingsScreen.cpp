@@ -350,13 +350,14 @@ void GameSettingsScreen::CreateViews() {
 	}
 #endif
 
-#ifdef _WIN32
+#if !PPSSPP_PLATFORM(ANDROID)
 	CheckBox *vSync = graphicsSettings->Add(new CheckBox(&g_Config.bVSync, gr->T("VSync")));
 	vSync->OnClick.Add([=](EventParams &e) {
 		NativeResized();
 		return UI::EVENT_CONTINUE;
 	});
 #endif
+
 	CheckBox *frameDuplication = graphicsSettings->Add(new CheckBox(&g_Config.bRenderDuplicateFrames, gr->T("Render duplicate frames to 60hz")));
 	frameDuplication->SetEnabledFunc([] {
 		return g_Config.iRenderingMode != FB_NON_BUFFERED_MODE || (g_Config.bSoftwareRendering && g_Config.iFrameSkip != 0);
