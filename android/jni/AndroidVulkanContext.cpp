@@ -156,6 +156,7 @@ void AndroidVulkanContext::Resize() {
 	g_Vulkan->DestroySurface();
 
 	g_Vulkan->UpdateFlags(FlagsFromConfig());
+
 	g_Vulkan->ReinitSurface();
 	g_Vulkan->InitSwapchain();
 	draw_->HandleEvent(Draw::Event::GOT_BACKBUFFER, g_Vulkan->GetBackbufferWidth(), g_Vulkan->GetBackbufferHeight());

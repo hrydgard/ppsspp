@@ -175,8 +175,8 @@ void WindowsVulkanContext::Resize() {
 	draw_->HandleEvent(Draw::Event::LOST_BACKBUFFER, g_Vulkan->GetBackbufferWidth(), g_Vulkan->GetBackbufferHeight());
 	g_Vulkan->DestroySwapchain();
 	g_Vulkan->UpdateFlags(FlagsFromConfig());
-	g_Vulkan_->ReinitSurface();
-	g_Vulkan_->InitSwapchain();
+	g_Vulkan->ReinitSurface();
+	g_Vulkan->InitSwapchain();
 	draw_->HandleEvent(Draw::Event::GOT_BACKBUFFER, g_Vulkan->GetBackbufferWidth(), g_Vulkan->GetBackbufferHeight());
 }
 
