@@ -147,12 +147,11 @@ public:
 	VkResult InitSurface(WindowSystem winsys, void *data1, void *data2);
 	VkResult ReinitSurface();
 
-	bool InitQueue();
-	bool InitObjects();
 	bool InitSwapchain();
 
-	// Also destroys the surface.
-	void DestroyObjects();
+	void DestroySwapchain();
+	void DestroySurface();
+
 	void DestroyDevice();
 
 	void PerformPendingDeletes();
@@ -273,6 +272,8 @@ public:
 	void GetImageMemoryRequirements(VkImage image, VkMemoryRequirements *mem_reqs, bool *dedicatedAllocation);
 
 private:
+	bool ChooseQueue();
+
 	VkResult InitDebugUtilsCallback();
 
 	// A layer can expose extensions, keep track of those extensions here.

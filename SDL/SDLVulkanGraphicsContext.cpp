@@ -20,6 +20,15 @@ static const bool g_Validate = true;
 static const bool g_Validate = false;
 #endif
 
+static uint32_t FlagsFromConfig() {
+	uint32_t flags = 0;
+	flags = g_Config.bVSync ? VULKAN_FLAG_PRESENT_FIFO : VULKAN_FLAG_PRESENT_MAILBOX;
+	if (g_Validate) {
+		flags |= VULKAN_FLAG_VALIDATE;
+	}
+	return flags;
+}
+
 bool SDLVulkanGraphicsContext::Init(SDL_Window *&window, int x, int y, int mode, std::string *error_message) {
 	window = SDL_CreateWindow("Initializing Vulkan...", x, y, pixel_xres, pixel_yres, mode);
 	if (!window) {
@@ -41,10 +50,7 @@ bool SDLVulkanGraphicsContext::Init(SDL_Window *&window, int x, int y, int mode,
 	}
 
 	vulkan_ = new VulkanContext();
-	int vulkanFlags = VULKAN_FLAG_PRESENT_MAILBOX;
-	if (g_Validate) {
-		vulkanFlags |= VULKAN_FLAG_VALIDATE;
-	}
+	int vulkanFlags = FlagsFromConfig();
 
 	VulkanContext::CreateInfo info{};
 	info.app_name = "PPSSPP";
@@ -102,7 +108,7 @@ bool SDLVulkanGraphicsContext::Init(SDL_Window *&window, int x, int y, int mode,
 		break;
 	}
 
-	if (!vulkan_->InitObjects()) {
+	if (!vulkan_->InitSwapchain()) {
 		*error_message = vulkan_->InitError();
 		Shutdown();
 		return false;
@@ -126,7 +132,8 @@ void SDLVulkanGraphicsContext::Shutdown() {
 	delete draw_;
 	draw_ = nullptr;
 	vulkan_->WaitUntilQueueIdle();
-	vulkan_->DestroyObjects();
+	vulkan_->DestroySwapchain();
+	vulkan_->DestroySurface();
 	vulkan_->DestroyDevice();
 	vulkan_->DestroyInstance();
 	delete vulkan_;
@@ -136,9 +143,9 @@ void SDLVulkanGraphicsContext::Shutdown() {
 
 void SDLVulkanGraphicsContext::Resize() {
 	draw_->HandleEvent(Draw::Event::LOST_BACKBUFFER, vulkan_->GetBackbufferWidth(), vulkan_->GetBackbufferHeight());
-	vulkan_->DestroyObjects();
-	vulkan_->ReinitSurface();
-	vulkan_->InitObjects();
+	vulkan_->DestroySwapchain();
+	vulkan_->UpdateFlags(FlagsFromConfig());
+	vulkan_->InitSwapchain();
 	draw_->HandleEvent(Draw::Event::GOT_BACKBUFFER, vulkan_->GetBackbufferWidth(), vulkan_->GetBackbufferHeight());
 }
 

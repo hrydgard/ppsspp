@@ -69,7 +69,7 @@ static bool create_device(retro_vulkan_context *context, VkInstance instance, Vk
 	vk->InitSurface(WINDOWSYSTEM_WAYLAND, nullptr, nullptr);
 #endif
 
-	if (!vk->InitQueue()) {
+	if (!vk->InitSwapchain()) {
 		return false;
 	}
 
@@ -116,7 +116,8 @@ void LibretroVulkanContext::Shutdown() {
 
 	vk->WaitUntilQueueIdle();
 
-	vk->DestroyObjects();
+	vk->DestroySwapchain();
+	vk->DestroySurface();
 	vk->DestroyDevice();
 	vk->DestroyInstance();
 	delete vk;

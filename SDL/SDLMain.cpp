@@ -114,11 +114,11 @@ static void InitSDLAudioDevice(const std::string &name = "") {
 		}
 	}
 	if (audioDev <= 0) {
-		ILOG("SDL: Trying a different device");
+		ILOG("SDL: Trying a different audio device");
 		audioDev = SDL_OpenAudioDevice(nullptr, 0, &fmt, &g_retFmt, SDL_AUDIO_ALLOW_FREQUENCY_CHANGE);
 	}
 	if (audioDev <= 0) {
-		ELOG("Failed to open audio: %s", SDL_GetError());
+		ELOG("Failed to open audio device: %s", SDL_GetError());
 	} else {
 		if (g_retFmt.samples != fmt.samples) // Notify, but still use it
 			ELOG("Output audio samples: %d (requested: %d)", g_retFmt.samples, fmt.samples);
