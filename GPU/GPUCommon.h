@@ -364,9 +364,7 @@ private:
 	double timeSteppingStarted_;
 	double timeSpentStepping_;
 
-#ifdef _WIN32
 	int lastVsync_ = -1;
-#endif
 };
 
 struct CommonCommandTableEntry {

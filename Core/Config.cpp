@@ -530,7 +530,7 @@ static int DefaultInternalResolution() {
 }
 
 static bool DefaultFrameskipUnthrottle() {
-#if !PPSSPP_PLATFORM(WINDOWS) || PPSSPP_PLATFORM(UWP)
+#if PPSSPP_PLATFORM(ANDROID) || defined(USING_QT_UI) || PPSSPP_PLATFORM(UWP) || PPSSPP_PLATFORM(IOS)
 	return true;
 #else
 	return false;

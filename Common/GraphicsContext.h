@@ -40,13 +40,3 @@ public:
 
 	virtual Draw::DrawContext *GetDrawContext() = 0;
 };
-
-class DummyGraphicsContext : public GraphicsContext {
-public:
-	void Shutdown() override {}
-	void SwapInterval(int interval) override {}
-	void SwapBuffers() override {}
-	void Resize() override {}
-
-	Draw::DrawContext *GetDrawContext() override { return nullptr; }
-};
