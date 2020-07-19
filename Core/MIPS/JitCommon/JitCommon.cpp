@@ -246,7 +246,12 @@ std::vector<std::string> DisassembleX86(const u8 *data, int size) {
 
 	int int3_count = 0;
 	while (ud_disassemble(&ud_obj) != 0) {
-		std::string str = ud_insn_asm(&ud_obj);
+		const char *buf = ud_insn_asm(&ud_obj);
+		if (!buf) {
+			lines.push_back("[bad]");
+			continue;
+		}
+		std::string str = buf;
 		if (str == "int3") {
 			int3_count++;
 		} else {

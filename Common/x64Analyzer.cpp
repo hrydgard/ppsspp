@@ -15,7 +15,8 @@
 // Official SVN repository and contact information can be found at
 // http://code.google.com/p/dolphin-emu/
 
-#include "x64Analyzer.h"
+#include "Common/Log.h"
+#include "Common/x64Analyzer.h"
 
 bool X86AnalyzeMOV(const unsigned char *codePtr, LSInstructionInfo &info)
 {
@@ -183,8 +184,11 @@ bool X86AnalyzeMOV(const unsigned char *codePtr, LSInstructionInfo &info)
 		case MOVE_REG_TO_MEM: //move reg to memory
 			break;
 
+		case MOVE_MEM_TO_REG:
+			break;
+
 		default:
-			PanicAlert("Unhandled disasm case in write handler!\n\nPlease implement or avoid.");
+			ERROR_LOG(CPU, "Unhandled disasm case in write handler!\n\nPlease implement or avoid.");
 			return false;
 		}
 	}
