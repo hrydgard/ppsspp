@@ -38,7 +38,7 @@
 #define IS_IPAD() ([UIDevice currentDevice].userInterfaceIdiom == UIUserInterfaceIdiomPad)
 #define IS_IPHONE() ([UIDevice currentDevice].userInterfaceIdiom == UIUserInterfaceIdiomPhone)
 
-class IOSGraphicsContext : public DummyGraphicsContext {
+class IOSGraphicsContext : public GraphicsContext {
 public:
 	IOSGraphicsContext() {
 		CheckGLExtensions();
@@ -55,6 +55,12 @@ public:
 	Draw::DrawContext *GetDrawContext() override {
 		return draw_;
 	}
+
+	void SwapInterval(int interval) override {}
+	void SwapBuffers() override {}
+	void Resize() override {}
+	void Shutdown() override {}
+
 	void ThreadStart() override {
 		renderManager_->ThreadStart(draw_);
 	}
@@ -71,6 +77,7 @@ public:
 		renderManager_->WaitUntilQueueIdle();
 		renderManager_->StopThread();
 	}
+
 private:
 	Draw::DrawContext *draw_;
 	GLRenderManager *renderManager_;

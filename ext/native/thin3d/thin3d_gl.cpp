@@ -297,7 +297,6 @@ public:
 	OpenGLPipeline(GLRenderManager *render) : render_(render) {
 	}
 	~OpenGLPipeline() {
-		DLOG("OpenGLPipeline released");
 		for (auto &iter : shaders) {
 			iter->Release();
 		}
@@ -979,7 +978,6 @@ Pipeline *OpenGLContext::CreateGraphicsPipeline(const PipelineDesc &desc) {
 		pipeline->dynamicUniforms = *desc.uniformDesc;
 		pipeline->dynamicUniformLocs_.resize(desc.uniformDesc->uniforms.size());
 	}
-	ILOG("Linking shaders.");
 	if (pipeline->LinkShaders()) {
 		// Build the rest of the virtual pipeline object.
 		pipeline->prim = primToGL[(int)desc.prim];

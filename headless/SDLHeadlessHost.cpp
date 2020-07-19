@@ -53,7 +53,7 @@ SDL_Window *CreateHiddenWindow() {
 	return SDL_CreateWindow("PPSSPPHeadless", 0, 0, WINDOW_WIDTH, WINDOW_HEIGHT, flags);
 }
 
-class GLDummyGraphicsContext : public DummyGraphicsContext {
+class GLDummyGraphicsContext : public GraphicsContext {
 public:
 	GLDummyGraphicsContext() {
 	}
@@ -92,6 +92,11 @@ public:
 		renderManager_->StopThread();
 	}
 
+	void Shutdown() override {}
+	void Resize() override {}
+	void SwapInterval(int interval) override {}
+	void SwapBuffers() override {}
+
 private:
 	Draw::DrawContext *draw_;
 	GLRenderManager *renderManager_ = nullptr;
@@ -124,7 +129,7 @@ bool GLDummyGraphicsContext::InitFromRenderThread(std::string *errorMessage) {
 	glContext_ = SDL_GL_CreateContext(screen_);
 
 	// Ensure that the swap interval is set after context creation (needed for kmsdrm)
-	SDL_GL_SetSwapInterval(1);
+	SDL_GL_SetSwapInterval(0);
 
 #ifndef USING_GLES2
 	// Some core profile drivers elide certain extensions from GL_EXTENSIONS/etc.
