@@ -62,7 +62,15 @@ bool SDLVulkanGraphicsContext::Init(SDL_Window *&window, int x, int y, int mode,
 		vulkan_ = nullptr;
 		return false;
 	}
-	vulkan_->ChooseDevice(vulkan_->GetBestPhysicalDevice());
+
+	int deviceNum = vulkan_->GetPhysicalDeviceByName(g_Config.sVulkanDevice);
+	if (deviceNum < 0) {
+		deviceNum = vulkan_->GetBestPhysicalDevice();
+		if (!g_Config.sVulkanDevice.empty())
+			g_Config.sVulkanDevice = vulkan_->GetPhysicalDeviceProperties(deviceNum).properties.deviceName;
+	}
+	vulkan_->ChooseDevice(deviceNum);
+
 	if (vulkan_->CreateDevice() != VK_SUCCESS) {
 		*error_message = vulkan_->InitError();
 		delete vulkan_;
@@ -71,7 +79,7 @@ bool SDLVulkanGraphicsContext::Init(SDL_Window *&window, int x, int y, int mode,
 	}
 
 	SDL_SysWMinfo sys_info{};
-	SDL_VERSION(&sys_info.version); //Set SDL version
+	SDL_VERSION(&sys_info.version);  // Set SDL version
 	if (!SDL_GetWindowWMInfo(window, &sys_info)) {
 		fprintf(stderr, "Error getting SDL window wm info: %s\n", SDL_GetError());
 		exit(1);

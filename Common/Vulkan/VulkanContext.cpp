@@ -611,7 +611,8 @@ bool VulkanContext::EnableDeviceExtension(const char *extension) {
 
 VkResult VulkanContext::CreateDevice() {
 	if (!init_error_.empty() || physical_device_ < 0) {
-		ELOG("Vulkan init failed: %s", init_error_.c_str());
+		// Forgot to call ChooseDevice?
+		ELOG("Vulkan init of physical device %d failed: %s", physical_device_, init_error_.c_str());
 		return VK_ERROR_INITIALIZATION_FAILED;
 	}
 

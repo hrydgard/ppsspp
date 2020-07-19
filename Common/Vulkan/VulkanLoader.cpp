@@ -413,6 +413,7 @@ bool VulkanMayBeAvailable() {
 		case VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU:
 		case VK_PHYSICAL_DEVICE_TYPE_INTEGRATED_GPU:
 		case VK_PHYSICAL_DEVICE_TYPE_VIRTUAL_GPU:
+			ILOG("VulkanMayBeAvailable: Found usable device: '%s'", props.deviceName);
 			anyGood = true;
 			break;
 		default:
