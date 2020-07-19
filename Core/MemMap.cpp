@@ -250,7 +250,6 @@ bool MemoryMap_Setup(u32 flags) {
 			}
 		}
 		ERROR_LOG(MEMMAP, "MemoryMap_Setup: Failed finding a memory base.");
-		PanicAlert("MemoryMap_Setup: Failed finding a memory base.");
 		return false;
 	}
 	else
@@ -281,7 +280,7 @@ void MemoryMap_Shutdown(u32 flags) {
 #endif
 }
 
-void Init() {
+bool Init() {
 	// On some 32 bit platforms, you can only map < 32 megs at a time.
 	// TODO: Wait, wtf? What platforms are those? This seems bad.
 	const static int MAX_MMAP_SIZE = 31 * 1024 * 1024;
@@ -294,13 +293,17 @@ void Init() {
 		if (views[i].flags & MV_IS_EXTRA2_RAM)
 			views[i].size = std::min(std::max((int)g_MemorySize - MAX_MMAP_SIZE * 2, 0), MAX_MMAP_SIZE);
 	}
+
 	int flags = 0;
-	MemoryMap_Setup(flags);
+	if (!MemoryMap_Setup(flags)) {
+		return false;
+	}
 
 	INFO_LOG(MEMMAP, "Memory system initialized. Base at %p (RAM at @ %p, uncached @ %p)",
 		base, m_pPhysicalRAM, m_pUncachedRAM);
 
 	MemFault_Init();
+	return true;
 }
 
 void Reinit() {

@@ -820,15 +820,13 @@ void XEmitter::BSR(int bits, X64Reg dest, OpArg src) {WriteBitSearchType(bits,de
 void XEmitter::TZCNT(int bits, X64Reg dest, OpArg src)
 {
 	CheckFlags();
-	if (!cpu_info.bBMI1)
-		PanicAlert("Trying to use BMI1 on a system that doesn't support it. Bad programmer.");
+	_assert_msg_(cpu_info.bBMI1, "Trying to use BMI1 on a system that doesn't support it.");
 	WriteBitSearchType(bits, dest, src, 0xBC, true);
 }
 void XEmitter::LZCNT(int bits, X64Reg dest, OpArg src)
 {
 	CheckFlags();
-	if (!cpu_info.bLZCNT)
-		PanicAlert("Trying to use LZCNT on a system that doesn't support it. Bad programmer.");
+	_assert_msg_(cpu_info.bLZCNT, "Trying to use LZCNT on a system that doesn't support it.");
 	WriteBitSearchType(bits, dest, src, 0xBD, true);
 }
 
@@ -1414,7 +1412,7 @@ static int GetVEXpp(u8 opPrefix)
 
 void XEmitter::WriteAVXOp(u8 opPrefix, u16 op, X64Reg regOp1, X64Reg regOp2, OpArg arg, int extrabytes)
 {
-	_assert_msg_(cpu_info.bAVX, "Trying to use AVX on a system that doesn't support it. Bad programmer.");
+	_assert_msg_(cpu_info.bAVX, "Trying to use AVX on a system that doesn't support it.");
 	int mmmmm = GetVEXmmmmm(op);
 	int pp = GetVEXpp(opPrefix);
 	// FIXME: we currently don't support 256-bit instructions, and "size" is not the vector size here
@@ -1426,8 +1424,7 @@ void XEmitter::WriteAVXOp(u8 opPrefix, u16 op, X64Reg regOp1, X64Reg regOp2, OpA
 // Like the above, but more general; covers GPR-based VEX operations, like BMI1/2
 void XEmitter::WriteVEXOp(int size, u8 opPrefix, u16 op, X64Reg regOp1, X64Reg regOp2, OpArg arg, int extrabytes)
 {
-	if (size != 32 && size != 64)
-		PanicAlert("VEX GPR instructions only support 32-bit and 64-bit modes!");
+	_assert_msg_(size == 32 || size == 64, "VEX GPR instructions only support 32-bit and 64-bit modes!");
 	int mmmmm = GetVEXmmmmm(op);
 	int pp = GetVEXpp(opPrefix);
 	arg.WriteVex(this, regOp1, regOp2, 0, pp, mmmmm, size == 64);
@@ -1438,14 +1435,14 @@ void XEmitter::WriteVEXOp(int size, u8 opPrefix, u16 op, X64Reg regOp1, X64Reg r
 void XEmitter::WriteBMI1Op(int size, u8 opPrefix, u16 op, X64Reg regOp1, X64Reg regOp2, OpArg arg, int extrabytes)
 {
 	CheckFlags();
-	_assert_msg_(cpu_info.bBMI1, "Trying to use BMI1 on a system that doesn't support it. Bad programmer.");
+	_assert_msg_(cpu_info.bBMI1, "Trying to use BMI1 on a system that doesn't support it.");
 	WriteVEXOp(size, opPrefix, op, regOp1, regOp2, arg, extrabytes);
 }
 
 void XEmitter::WriteBMI2Op(int size, u8 opPrefix, u16 op, X64Reg regOp1, X64Reg regOp2, OpArg arg, int extrabytes)
 {
 	CheckFlags();
-	_assert_msg_(cpu_info.bBMI2, "Trying to use BMI2 on a system that doesn't support it. Bad programmer.");
+	_assert_msg_(cpu_info.bBMI2, "Trying to use BMI2 on a system that doesn't support it.");
 	WriteVEXOp(size, opPrefix, op, regOp1, regOp2, arg, extrabytes);
 }
 
@@ -1739,13 +1736,13 @@ void XEmitter::PMULUDQ(X64Reg dest, const OpArg &arg) {WriteSSEOp(0x66, 0xF4, de
 
 void XEmitter::WriteSSSE3Op(u8 opPrefix, u16 op, X64Reg regOp, OpArg arg, int extrabytes)
 {
-	_assert_msg_(cpu_info.bSSSE3, "Trying to use SSSE3 on a system that doesn't support it. Bad programmer.");
+	_assert_msg_(cpu_info.bSSSE3, "Trying to use SSSE3 on a system that doesn't support it.");
 	WriteSSEOp(opPrefix, op, regOp, arg, extrabytes);
 }
 
 void XEmitter::WriteSSE41Op(u8 opPrefix, u16 op, X64Reg regOp, OpArg arg, int extrabytes)
 {
-	_assert_msg_(cpu_info.bSSE4_1, "Trying to use SSE4.1 on a system that doesn't support it. Bad programmer.");
+	_assert_msg_(cpu_info.bSSE4_1, "Trying to use SSE4.1 on a system that doesn't support it.");
 	WriteSSEOp(opPrefix, op, regOp, arg, extrabytes);
 }
 

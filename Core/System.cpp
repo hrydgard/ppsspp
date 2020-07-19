@@ -184,7 +184,7 @@ bool CPU_HasPendingAction() {
 
 void CPU_Shutdown();
 
-void CPU_Init() {
+bool CPU_Init() {
 	coreState = CORE_POWERUP;
 	currentMIPS = &mipsr4k;
 
@@ -243,7 +243,10 @@ void CPU_Init() {
 	std::string discID = g_paramSFO.GetDiscID();
 	coreParameter.compat.Load(discID);
 
-	Memory::Init();
+	if (!Memory::Init()) {
+		// We're screwed.
+		return false;
+	}
 	mipsr4k.Reset();
 
 	host->AttemptLoadSymbolMap();
@@ -264,7 +267,7 @@ void CPU_Init() {
 	if (!LoadFile(&loadedFile, &coreParameter.errorString)) {
 		CPU_Shutdown();
 		coreParameter.fileToStart = "";
-		return;
+		return false;
 	}
 
 	if (coreParameter.updateRecent) {
@@ -272,6 +275,7 @@ void CPU_Init() {
 	}
 
 	InstallExceptionHandler(&Memory::HandleFault);
+	return true;
 }
 
 PSP_LoadingLock::PSP_LoadingLock() {
@@ -361,7 +365,10 @@ bool PSP_InitStart(const CoreParameter &coreParam, std::string *error_string) {
 	pspIsIniting = true;
 	PSP_SetLoading("Loading game...");
 
-	CPU_Init();
+	if (!CPU_Init()) {
+		*error_string = "Failed initializing CPU/Memory";
+		return false;
+	}
 
 	// Compat flags get loaded in CPU_Init (which is a bit of a misnomer) so we check for SW renderer here.
 	if (g_Config.bSoftwareRendering || PSP_CoreParameter().compat.flags().ForceSoftwareRenderer) {

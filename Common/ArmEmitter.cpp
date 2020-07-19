@@ -905,12 +905,12 @@ void ARMXEmitter::WriteSignedMultiply(u32 Op, u32 Op2, u32 Op3, ARMReg dest, ARM
 }
 void ARMXEmitter::UDIV(ARMReg dest, ARMReg dividend, ARMReg divisor)
 {
-	_assert_(cpu_info.bIDIVa, "Trying to use integer divide on hardware that doesn't support it. Bad programmer.");
+	_assert_msg_(cpu_info.bIDIVa, "Trying to use integer divide on hardware that doesn't support it.");
 	WriteSignedMultiply(3, 0xF, 0, dest, divisor, dividend);
 }
 void ARMXEmitter::SDIV(ARMReg dest, ARMReg dividend, ARMReg divisor)
 {
-	_assert_(cpu_info.bIDIVa, "Trying to use integer divide on hardware that doesn't support it. Bad programmer.");
+	_assert_msg_(cpu_info.bIDIVa, "Trying to use integer divide on hardware that doesn't support it.");
 	WriteSignedMultiply(1, 0xF, 0, dest, divisor, dividend);
 }
 

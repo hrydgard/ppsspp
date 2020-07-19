@@ -111,15 +111,10 @@ void FPURegCache::ReduceSpillLockV(const u8 *vec, VectorSize sz) {
 
 void FPURegCache::FlushRemap(int oldreg, int newreg) {
 	OpArg oldLocation = regs[oldreg].location;
-	if (!oldLocation.IsSimpleReg()) {
-		PanicAlert("FlushRemap: Must already be in an x86 SSE register");
-	}
-	if (regs[oldreg].lane != 0) {
-		PanicAlert("FlushRemap only supports FPR registers");
-	}
+	_assert_msg_(oldLocation.IsSimpleReg(), "FlushRemap: Must already be in an x86 SSE register");
+	_assert_msg_(regs[oldreg].lane == 0, "FlushRemap only supports FPR registers");
 
 	X64Reg xr = oldLocation.GetSimpleReg();
-
 	if (oldreg == newreg) {
 		xregs[xr].dirty = true;
 		return;
@@ -642,7 +637,7 @@ static int MMShuffleSwapTo0(int lane) {
 	} else if (lane == 3) {
 		return _MM_SHUFFLE(0, 2, 1, 3);
 	} else {
-		PanicAlert("MMShuffleSwapTo0: Invalid lane %d", lane);
+		_assert_msg_(false, "MMShuffleSwapTo0: Invalid lane %d", lane);
 		return 0;
 	}
 }
@@ -868,9 +863,7 @@ void FPURegCache::Flush() {
 		return;
 	}
 	for (int i = 0; i < NUM_MIPS_FPRS; i++) {
-		if (regs[i].locked) {
-			PanicAlert("Somebody forgot to unlock MIPS reg %i.", i);
-		}
+		_assert_msg_(!regs[i].locked, "Somebody forgot to unlock MIPS reg %d.", i);
 		if (regs[i].away) {
 			if (regs[i].location.IsSimpleReg()) {
 				X64Reg xr = RX(i);
@@ -1093,7 +1086,7 @@ int FPURegCache::GetFreeXRegs(X64Reg *res, int n, bool spill) {
 
 void FPURegCache::FlushX(X64Reg reg) {
 	if (reg >= NUM_X_FPREGS) {
-		PanicAlert("Flushing non existent reg");
+		_assert_msg_(false, "Flushing non existent reg");
 	} else if (xregs[reg].mipsReg != -1) {
 		StoreFromRegister(xregs[reg].mipsReg);
 	}

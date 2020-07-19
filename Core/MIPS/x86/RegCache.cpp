@@ -115,9 +115,7 @@ void GPRRegCache::Lock(MIPSGPReg p1, MIPSGPReg p2, MIPSGPReg p3, MIPSGPReg p4) {
 
 // these are x64 reg indices
 void GPRRegCache::LockX(int x1, int x2, int x3, int x4) {
-	if (xregs[x1].allocLocked) {
-		PanicAlert("RegCache: x %i already locked!", x1);
-	}
+	_assert_msg_(!xregs[x1].allocLocked, "RegCache: x %d already locked!", x1);
 	xregs[x1].allocLocked = true;
 	if (x2 != 0xFF) xregs[x2].allocLocked = true;
 	if (x3 != 0xFF) xregs[x3].allocLocked = true;
@@ -197,24 +195,23 @@ X64Reg GPRRegCache::GetFreeXReg()
 		return bestToSpill;
 	}
 
-	//Still no dice? Die!
+	// Still no dice? Give up.
 	_assert_msg_(false, "Regcache ran out of regs");
-	return (X64Reg) -1;
+	return (X64Reg)-1;
 }
 
 void GPRRegCache::FlushR(X64Reg reg)
 {
-	if (reg >= NUM_X_REGS)
-		PanicAlert("Flushing non existent reg");
-	else if (!xregs[reg].free)
+	if (reg >= NUM_X_REGS) {
+		_assert_msg_(false, "Flushing non existent reg");
+	} else if (!xregs[reg].free) {
 		StoreFromRegister(xregs[reg].mipsReg);
+	}
 }
 
 void GPRRegCache::FlushRemap(MIPSGPReg oldreg, MIPSGPReg newreg) {
 	OpArg oldLocation = regs[oldreg].location;
-	if (!oldLocation.IsSimpleReg()) {
-		PanicAlert("FlushRemap: Must already be in an x86 register");
-	}
+	_assert_msg_(oldLocation.IsSimpleReg(), "FlushRemap: Must already be in an x86 register");
 
 	X64Reg xr = oldLocation.GetSimpleReg();
 
@@ -335,7 +332,7 @@ OpArg GPRRegCache::GetDefaultLocation(MIPSGPReg reg) const {
 	case MIPS_REG_VFPUCC:
 		return MIPSSTATE_VAR(vfpuCtrl[VFPU_CTRL_CC]);
 	default:
-		ERROR_LOG_REPORT(JIT, "bad mips register %i", reg);
+		ERROR_LOG_REPORT(JIT, "Bad mips register %d", reg);
 		return MIPSSTATE_VAR(r[0]);
 	}
 }
@@ -351,9 +348,9 @@ void GPRRegCache::KillImmediate(MIPSGPReg preg, bool doLoad, bool makeDirty) {
 }
 
 void GPRRegCache::MapReg(MIPSGPReg i, bool doLoad, bool makeDirty) {
-	if (!regs[i].away && regs[i].location.IsImm())
-		PanicAlert("Bad immediate");
-
+	if (!regs[i].away && regs[i].location.IsImm()) {
+		_assert_msg_(false, "Bad immediate");
+	}
 	if (!regs[i].away || (regs[i].away && regs[i].location.IsImm())) {
 		X64Reg xr = GetFreeXReg();
 		_assert_msg_(!xregs[xr].dirty, "Xreg already dirty");
@@ -381,9 +378,8 @@ void GPRRegCache::MapReg(MIPSGPReg i, bool doLoad, bool makeDirty) {
 		// and immediates are taken care of above.
 		xregs[RX(i)].dirty |= makeDirty;
 	}
-	if (xregs[RX(i)].allocLocked) {
-		PanicAlert("Seriously WTF, this reg should have been flushed");
-	}
+
+	_assert_msg_(!xregs[RX(i)].allocLocked, "This reg should have been flushed (r%d)", i);
 }
 
 void GPRRegCache::StoreFromRegister(MIPSGPReg i) {
@@ -410,12 +406,12 @@ void GPRRegCache::StoreFromRegister(MIPSGPReg i) {
 
 void GPRRegCache::Flush() {
 	for (int i = 0; i < NUM_X_REGS; i++) {
-		_assert_msg_(!xregs[i].allocLocked, "Someone forgot to unlock X64 reg %i.", i);
+		_assert_msg_(!xregs[i].allocLocked, "Someone forgot to unlock X64 reg %d.", i);
 	}
 	SetImm(MIPS_REG_ZERO, 0);
 	for (int i = 1; i < NUM_MIPS_GPRS; i++) {
 		const MIPSGPReg r = MIPSGPReg(i);
-		_assert_msg_(!regs[i].locked, "Somebody forgot to unlock MIPS reg %i.", i);
+		_assert_msg_(!regs[i].locked, "Somebody forgot to unlock MIPS reg %d.", i);
 		if (regs[i].away) {
 			if (regs[i].location.IsSimpleReg()) {
 				X64Reg xr = RX(r);
@@ -425,7 +421,7 @@ void GPRRegCache::Flush() {
 			else if (regs[i].location.IsImm()) {
 				StoreFromRegister(r);
 			} else {
-				_assert_msg_(false, "Jit64 - Flush unhandled case, reg %i PC: %08x", i, mips->pc);
+				_assert_msg_(false, "Jit64 - Flush unhandled case, reg %d PC: %08x", i, mips->pc);
 			}
 		}
 	}
