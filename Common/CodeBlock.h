@@ -85,11 +85,8 @@ public:
 	// If you don't specify a size and we later encounter an executable non-writable block, we're screwed.
 	// These CANNOT be nested. We rely on the memory protection starting at READ|WRITE after start and reset.
 	void BeginWrite(size_t sizeEstimate = 1) {
-#ifdef _DEBUG
-		if (writeStart_) {
-			PanicAlert("Can't nest BeginWrite calls");
-		}
-#endif
+		_dbg_assert_msg_(!writeStart_, "Can't nest BeginWrite calls");
+
 		// In case the last block made the current page exec/no-write, let's fix that.
 		if (PlatformIsWXExclusive()) {
 			writeStart_ = GetCodePtr();

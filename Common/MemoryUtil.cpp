@@ -292,8 +292,7 @@ bool ProtectMemoryPages(const void* ptr, size_t size, uint32_t memProtFlags) {
 
 	if (PlatformIsWXExclusive()) {
 		if ((memProtFlags & (MEM_PROT_WRITE | MEM_PROT_EXEC)) == (MEM_PROT_WRITE | MEM_PROT_EXEC)) {
-			ERROR_LOG(MEMMAP, "Bad memory protection %d!", memProtFlags);
-			PanicAlert("Bad memory protect : W^X is in effect, can't both write and exec");
+			_assert_msg_(false, "Bad memory protect flags %d: W^X is in effect, can't both write and exec", memProtFlags);
 		}
 	}
 	// Note - VirtualProtect will affect the full pages containing the requested range.

@@ -98,9 +98,7 @@ void UninstallExceptionHandler() {
 #elif defined(__APPLE__)
 
 static void CheckKR(const char* name, kern_return_t kr) {
-	if (kr) {
-		PanicAlert("%s failed: kr=%x", name, kr);
-	}
+	_assert_msg_(kr == 0, "%s failed: kr=%x", name, kr);
 }
 
 static void ExceptionThread(mach_port_t port) {
@@ -147,15 +145,8 @@ static void ExceptionThread(mach_port_t port) {
 			return;
 		}
 
-		if (msg_in.Head.msgh_id != 2406) {
-			PanicAlert("unknown message received");
-			return;
-		}
-
-		if (msg_in.flavor != x86_THREAD_STATE64) {
-			PanicAlert("unknown flavor %d (expected %d)", msg_in.flavor, x86_THREAD_STATE64);
-			return;
-		}
+		_assert_msg_(msg_in.Head.msgh_id == 2406, "unknown message received");
+		_assert_msg_(msg_in.flavor == x86_THREAD_STATE64, "unknown flavor %d (expected %d)", msg_in.flavor, x86_THREAD_STATE64);
 
 		x86_thread_state64_t* state = (x86_thread_state64_t*)msg_in.old_state;
 
@@ -299,8 +290,9 @@ void InstallExceptionHandler(BadAccessHandler badAccessHandler) {
 #endif
 	signal_stack.ss_size = SIGSTKSZ;
 	signal_stack.ss_flags = 0;
-	if (sigaltstack(&signal_stack, nullptr))
-		PanicAlert("sigaltstack failed");
+	if (sigaltstack(&signal_stack, nullptr)) {
+		_assert_msg_(false, "sigaltstack failed");
+	}
 	struct sigaction sa;
 	sa.sa_handler = nullptr;
 	sa.sa_sigaction = &sigsegv_handler;

@@ -156,10 +156,7 @@ u8* MemArena::Find4GBBase() {
 #else
 	// Address masking is used in 32-bit mode, so we can get away with less memory.
 	void* base = mmap(0, 0x10000000, PROT_READ | PROT_WRITE, MAP_ANON | MAP_SHARED, -1, 0);
-	if (base == MAP_FAILED) {
-		PanicAlert("Failed to map 256 MB of memory space: %s", strerror(errno));
-		return 0;
-	}
+	_assert_msg_(base != MAP_FAILED, "Failed to map 256 MB of memory space: %s", strerror(errno));
 	munmap(base, 0x10000000);
 	return static_cast<u8*>(base);
 #endif
