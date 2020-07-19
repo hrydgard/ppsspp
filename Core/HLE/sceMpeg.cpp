@@ -1951,8 +1951,16 @@ static u32 sceMpegAvcCsc(u32 mpeg, u32 sourceAddr, u32 rangeAddr, int frameWidth
 	int y = Memory::Read_U32(rangeAddr + 4);
 	int width = Memory::Read_U32(rangeAddr + 8);
 	int height = Memory::Read_U32(rangeAddr + 12);
-	int destSize = ctx->mediaengine->writeVideoImageWithRange(destAddr, frameWidth, ctx->videoPixelMode, x, y, width, height);
+	if (((x | y | width | height) & 0xF) != 0) {
+		WARN_LOG(ME, "sceMpegAvcCsc(%08x, %08x, %08x, %i, %08x) returning ERROR_MPEG_INVALID_VALUE", mpeg, sourceAddr, rangeAddr, frameWidth, destAddr);
+		return ERROR_MPEG_INVALID_VALUE;
+	}
+	if (x < 0 || y < 0 || width < 0 || height < 0) {
+		WARN_LOG(ME, "sceMpegAvcCsc(%08x, %08x, %08x, %i, %08x) returning ERROR_INVALID_VALUE", mpeg, sourceAddr, rangeAddr, frameWidth, destAddr);
+		return SCE_KERNEL_ERROR_INVALID_VALUE;
+	}
 
+	int destSize = ctx->mediaengine->writeVideoImageWithRange(destAddr, frameWidth, ctx->videoPixelMode, x, y, width, height);
 	gpu->NotifyVideoUpload(destAddr, destSize, frameWidth, ctx->videoPixelMode);
 
 	// Do not use avcDecodeDelayMs 's value
