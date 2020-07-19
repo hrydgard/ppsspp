@@ -241,6 +241,7 @@ typedef struct SceNetAdhocctlPeerInfo {
   SceNetAdhocctlNickname nickname;
   SceNetEtherAddr mac_addr;
   u32_le ip_addr;
+  uint16_t port;
   uint8_t padding[2];
   u64_le last_recv; // Need to use the same method with sceKernelGetSystemTimeWide (ie. CoreTiming::GetGlobalTimeUsScaled) to prevent timing issue (ie. in game timeout)
 } PACK SceNetAdhocctlPeerInfo;
@@ -716,6 +717,7 @@ typedef struct {
   SceNetAdhocctlNickname name;
   SceNetEtherAddr mac;
   uint32_t ip;
+  uint16_t port;
 } PACK SceNetAdhocctlConnectPacketS2C;
 
 // S2C Disconnect Packet

@@ -371,3 +371,103 @@ int proAdhocServerThread(int port); // (int argc, char * argv[])
 //extern int _status;
 extern bool adhocServerRunning;
 extern std::thread adhocServerThread;
+
+
+// tunnel function
+#define TCP_TUNNEL_BACKLOG 20
+extern bool tunnelRunning;
+extern bool tcpTunnelRunning;
+extern bool udpTunnelRunning;
+extern std::thread tcpTunnelThread;
+extern std::thread udpTunnelThread;
+
+#ifdef _MSC_VER 
+#pragma pack(push, 1)
+#endif
+
+int tcpTunnel(int port);
+void storeTcpGameSocket(int stream, uint32_t ip, uint16_t port);
+int tcpTunnelLoop(int tcptunnel);
+
+#define OPCODE_PTP_LOGIN 1
+#define OPCODE_PTP_OPEN 2
+#define OPCODE_PTP_SEND 3
+#define OPCODE_PTP_RECV 4
+
+#define RELAY_STATE_LOGIN 1;
+#define RELAY_STATE_CONNECTED 2;
+#define RELAY_STATE_DISCONNECTED 3;
+//double linked tcp stream local and relay stream
+typedef struct tcpGamePortWrapper {
+	int sourceStream; // incoming stream
+	uint32_t sip;
+	uint16_t sport;
+	uint8_t srx[16384];
+	uint32_t srxpos;
+	SceNetEtherAddr sMac;
+	int outStream; // outgoing to other tunneler or local gameport
+	uint32_t dip;
+	uint16_t dport;
+	uint8_t drx[16384];
+	uint32_t drxpos;
+	SceNetEtherAddr dMac;
+	struct tcpGamePortWrapper * next;
+	struct tcpGamePortWrapper * prev;
+} tcpGamePortWrapper;
+
+typedef struct {
+	uint8_t opcode;
+	uint16_t datalen;
+	uint32_t sip;
+	uint16_t sport;
+	SceNetEtherAddr sMac;
+	uint32_t dip;
+	uint16_t dport;
+	SceNetEtherAddr dMac;
+	char data[1];
+} PACK tcpTunnelData;
+
+typedef struct {
+	int connectStatus;
+	int error;
+	uint32_t daddr;
+} PACK tcpRelayStatus;
+
+#define UDP_TUNNEL_BUFFER_SIZE 65536 
+#define OPCODE_PDP_SEND 1
+#define OPCODE_PDP_RECV 2
+#define OPCODE_PDP_LOGIN 3
+
+//double linked udp address
+typedef struct udpGamePortWrapper {
+	uint32_t ip;
+	uint32_t port;
+	struct udpGamePortWrapper * next;
+	struct udpGamePortWrapper * prev;
+} udpGamePortWrapper;
+
+
+typedef struct {
+	uint8_t opcode;
+	uint16_t datalen;
+	uint32_t sourceIP;
+	uint16_t sourcePort;
+	SceNetEtherAddr sourceMac;
+	uint32_t destIP;
+	uint16_t destPort;
+	SceNetEtherAddr destMac;
+	char data[1];
+} PACK udpTunnelData;
+
+
+extern int utunnelsocket;
+void sendUdpPacket(udpTunnelData * data,int packetSize);
+void storeUdpGameSocket(uint32_t ip,uint16_t port,int packetlen);
+int udpTunnelLoop(int udptunnel);
+int udpTunnel(int port);
+
+#ifdef _MSC_VER 
+#pragma pack(pop)
+#endif
+
+

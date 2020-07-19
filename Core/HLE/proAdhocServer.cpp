@@ -2037,3 +2037,341 @@ int server_loop(int server)
 	// Return Success
 	return 0;
 }
+
+bool tunnelRunning = false;
+bool tcpTunnelRunning = false;
+bool udpTunnelRunning = false;
+int utunnelsocket = 0;
+tcpGamePortWrapper * db_tcp_tunnel = NULL;
+udpGamePortWrapper * db_udp_tunnel = NULL;
+uint32_t db_tcp_tunnel_count = 0;
+uint32_t db_udp_tunnel_count = 0;
+std::thread tcpTunnelThread;
+std::thread udpTunnelThread;
+
+int tcpTunnel(int port) {
+	int result = 0;
+	INFO_LOG(SCENET, "Tcp Tunnel: Begin of Tcp Tunnel Thread");
+
+	// Create Listening Socket
+	int tsocket = (int)socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
+
+	if (tsocket != -1)
+	{
+		// Enable Address Reuse
+		enable_address_reuse(tsocket);
+
+		// Make Socket Nonblocking
+		change_blocking_mode(tsocket, 1);
+
+		struct sockaddr_in addr;
+		memset(&addr, 0, sizeof(addr));
+		addr.sin_family = AF_INET;
+		addr.sin_addr.s_addr = INADDR_ANY;
+		addr.sin_port = htons(port);
+
+		// Bind Local Address to Socket
+		int bindresult = bind(tsocket, (struct sockaddr *)&addr, sizeof(addr));
+
+		// Bound Local Address to Socket
+		if (bindresult != -1)
+		{
+			// Switch Socket into Listening Mode
+			listen(tsocket, TCP_TUNNEL_BACKLOG);
+
+			// Notify User
+			INFO_LOG(SCENET, "TCP Tunnel : Tunnel Port Listening on TCP Port %u", port);
+		}
+		else ERROR_LOG(SCENET, "TCP tunnel: Bind returned %i (Socket error %d)", bindresult, errno);
+
+	}
+
+	if (tsocket != 1) {
+		//enter tunnel loop
+		result = tcpTunnelLoop(tsocket);
+	}
+
+	// Notify User
+	INFO_LOG(SCENET, "Tcp Tunnel: Tunnel Port shutdown complete");
+
+	tcpTunnelRunning = false;
+
+	INFO_LOG(SCENET, "Tcp Tunnel: End of Tunnel Tcp Thread");
+
+	// Return Result
+	return result;
+
+}
+
+void createTcpGameRelay(tcpGamePortWrapper * gameport, tcpTunnelData * loginData) {
+	gameport->outStream = INVALID_SOCKET;
+
+}
+
+void storeTcpGameSocket(int stream, uint32_t ip,uint16_t port) {
+	// Check IP Duplication
+	tcpGamePortWrapper * g = db_tcp_tunnel;
+	while (g != NULL && g->sip != ip && g->sport != port) g = g->next;
+
+	if (g != NULL) { // IP Already existed
+		uint8_t * ip4 = (uint8_t *)&g->sip;
+		INFO_LOG(SCENET, "Tcp Tunnel : Already Exist IP %u.%u.%u.%u\n", ip4[0], ip4[1], ip4[2], ip4[3]);
+	}
+
+	// Unique IP Address
+	else //if(u == NULL)
+	{
+		// Allocate Gameport Memory
+		tcpGamePortWrapper * gameport = (tcpGamePortWrapper *)malloc(sizeof(tcpGamePortWrapper));
+
+		if (gameport != NULL)
+		{
+			// Clear Memory
+			memset(gameport, 0, sizeof(tcpGamePortWrapper));
+
+			// Save Socket
+			gameport->sourceStream = stream;
+
+			// Save IP
+			gameport->sip = ip;
+
+			// Link into tunnel List
+			gameport->next = db_tcp_tunnel;
+			if (db_tcp_tunnel != NULL) db_tcp_tunnel->prev = gameport;
+			db_tcp_tunnel = gameport;
+
+
+			// LOG successful tunnel
+			uint8_t * ipa = (uint8_t *)&gameport->sip;
+			INFO_LOG(SCENET, "Tcp Tunnel : New Connection from %u.%u.%u.%u:%u", ipa[0], ipa[1], ipa[2], ipa[3],port);
+
+			// increase socket Counter
+			db_tcp_tunnel_count++;
+
+			// Exit Function
+			return;
+		}
+	}
+
+	//already exist or malloc failed;
+	closesocket(stream);
+}
+
+int tcpTunnelLoop(int tcptunnel) {
+
+	tcpTunnelRunning = true;
+	while (tcpTunnelRunning) {
+		// store connection block
+		{
+			int newStream = 0;
+			do 
+			{
+				struct sockaddr_in addr;
+				socklen_t addrlen = sizeof(addr);
+				memset(&addr, 0, sizeof(addr));
+
+				//accept new incoming connection
+				newStream = accept(tcptunnel, (struct sockaddr *)&addr, &addrlen);
+				if (newStream != -1)
+				{
+					// Switch Socket into Non-Blocking Mode
+					change_blocking_mode(newStream, 1);
+				}
+
+				// Login User (Stream)
+				if (newStream != -1) {
+					u32_le sip = addr.sin_addr.s_addr;
+					uint16_t sport = addr.sin_port;
+					storeTcpGameSocket(newStream, sip, sport);
+				}
+			} while (newStream != -1);
+		}
+
+		tcpGamePortWrapper * gport = db_tcp_tunnel;
+		while (gport != NULL) {
+			tcpGamePortWrapper * next = gport->next;
+
+			
+			gport = next;
+		}
+
+		// Prevent needless CPU Overload (1ms Sleep)
+		sleep_ms(1);
+
+		// Don't do anything if it's paused, otherwise the log will be flooded
+		while (tcpTunnelRunning && Core_IsStepping()) sleep_ms(1);
+	}
+	closesocket(tcptunnel);
+	return 0;
+}
+
+//send udp data to other tunneler or relay
+void sendUdpPacket(udpTunnelData * packet,int packetSize) {
+	if (packet != NULL && packet->opcode == OPCODE_PDP_SEND) {
+		//NOTICE_LOG(SCENET, "Packet SRC MAC [%02X:%02X:%02X:%02X:%02X:%02X]", packet->sourceMac.data[0], packet->sourceMac.data[1], packet->sourceMac.data[2], packet->sourceMac.data[3], packet->sourceMac.data[4], packet->sourceMac.data[5]);
+		//NOTICE_LOG(SCENET, "Packet DEST MAC [%02X:%02X:%02X:%02X:%02X:%02X]", packet->destMac.data[0], packet->destMac.data[1], packet->destMac.data[2], packet->destMac.data[3], packet->destMac.data[4], packet->destMac.data[5]);
+
+		uint8_t * sip = (uint8_t *)&packet->sourceIP;
+		uint8_t * dip = (uint8_t *)&packet->destIP;
+
+		struct sockaddr_in target;
+		memset(&target, 0, sizeof(target));
+		target.sin_family = AF_INET;
+		target.sin_addr.s_addr = packet->destIP;
+
+		if (isLocalMAC(&packet->destMac)) {
+			packet->opcode = OPCODE_PDP_RECV;
+			DEBUG_LOG(SCENET, "Local Tunnel UDP: From:%u.%u.%u.%u:%u TO:%u.%u.%u.%u:%u datalen:%u data:%s ", sip[0], sip[1], sip[2], sip[3], packet->sourcePort, dip[0], dip[1], dip[2], dip[3], packet->destPort, packet->datalen, packet->data);
+			DEBUG_LOG(SCENET, "Forwarding Packet to Local game port %u", packet->destPort);
+			target.sin_port = htons(packet->destPort);
+		}
+		else {
+			DEBUG_LOG(SCENET, "Outgoing Tunnel UDP: From:%u.%u.%u.%u:%u TO:%u.%u.%u.%u:%u datalen:%u data:%s ", sip[0], sip[1], sip[2], sip[3], packet->sourcePort, dip[0], dip[1], dip[2], dip[3], packet->destPort, packet->datalen, packet->data);
+			target.sin_port = htons(30000);
+		}
+
+		int sent = sendto(utunnelsocket, (const char *)packet, (int) packetSize, 0, (sockaddr *)&target, sizeof(target));
+
+		int error = errno;
+		if (sent == SOCKET_ERROR) {
+			uint8_t *dip = (uint8_t *)&target.sin_addr.s_addr;
+			ERROR_LOG(SCENET, "Socket Error (%i) on Forward Packet TO:%u.%u.%u.%u:%u (sent=%i,size=%i, datalen:%u)\n", error, dip[0], dip[1], dip[2], dip[3], ntohs(target.sin_port), sent, packetSize,packet->datalen);
+		}
+
+		if (sent == packetSize) {
+			uint8_t *dip = (uint8_t *)&target.sin_addr.s_addr;
+			DEBUG_LOG(SCENET, "Forward Packet TO:%u.%u.%u.%u:%u (sent=%i,size=%i,datalen:%u)\n", dip[0], dip[1], dip[2], dip[3], ntohs(target.sin_port), sent, packetSize,packet->datalen);
+		}
+	}
+}
+
+//this function is to store ip not used yet
+void storeUdpGameSocket(uint32_t ip, uint16_t port, int packetlen) {
+
+	// Check IP Duplication
+	/*udpGamePortWrapper * g = db_udp_tunnel;
+	while (g != NULL && g->ip != ip && g->port != port) g = g->next;
+
+	if (g == NULL) {
+		// Allocate gameport Memory
+		udpGamePortWrapper * gameport = (udpGamePortWrapper *)malloc(sizeof(udpGamePortWrapper));
+
+		if (gameport != NULL)
+		{
+			// Clear Memory
+			memset(gameport, 0, sizeof(udpGamePortWrapper));
+
+			// Save IP
+			gameport->ip = ip;
+			gameport->port = port;
+
+			// Link into tunnel List
+			gameport->next = db_udp_tunnel;
+			if (db_udp_tunnel != NULL) db_udp_tunnel->prev = gameport;
+			db_udp_tunnel = gameport;
+
+			// LOG successful tunnel
+			uint8_t * ipa = (uint8_t *)&gameport->ip;
+			INFO_LOG(SCENET, "Tunnel UDP: Store IP %u.%u.%u.%u:%u to db UDP", ipa[0], ipa[1], ipa[2], ipa[3], gameport->port);
+
+			// increase ip Counter
+			db_udp_tunnel_count++;
+		}
+	}*/
+}
+
+
+int udpTunnelLoop(int udptunnel) {
+
+	udpTunnelRunning = true;
+	char * udpTunnelBuffer = (char *)malloc(UDP_TUNNEL_BUFFER_SIZE);
+	udpTunnelData * header = (udpTunnelData *)malloc(sizeof(udpTunnelData));
+	int receive = 0;
+	while (udpTunnelRunning) {
+		sockaddr_in addr_in;
+		socklen_t addrlen = sizeof(addr_in);
+		int expsize = sizeof(udpTunnelData);
+		int ofs = 0;
+
+		if (udpTunnelBuffer != NULL) {
+			while (ofs < expsize && udpTunnelRunning) { 
+				receive = recvfrom(udptunnel, (udpTunnelBuffer + ofs), UDP_TUNNEL_BUFFER_SIZE - ofs, 0, (sockaddr *)&addr_in, &addrlen);
+				ofs += receive;
+			}
+			if (receive > 0) {
+				//INFO_LOG(SCENET, "Receive %u ,  Buffer %s", receive, udpTunnelBuffer);
+				if (header != NULL) {
+					if (ofs > sizeof(udpTunnelData)) {
+						memcpy(header, udpTunnelBuffer, sizeof(udpTunnelData) ); // cannot access the data without copying the buffer 
+						if (header->opcode == OPCODE_PDP_SEND && header->datalen > 0) expsize += header->datalen;
+
+						//handle chunck rarely reach this point
+						while (ofs < expsize && udpTunnelRunning) {
+							receive = recvfrom(udptunnel, (udpTunnelBuffer + ofs), UDP_TUNNEL_BUFFER_SIZE - ofs, 0, (sockaddr *)&addr_in, &addrlen);
+							ofs += receive;
+						}
+
+						//sometimes the data comming from uknown ip and the opcode is random
+						if (header->opcode == OPCODE_PDP_SEND && ofs == (expsize + 1)) {
+							udpTunnelData * packet = (udpTunnelData *) malloc(expsize + 1);
+							memset(packet, 0, expsize + 1);
+							if (packet != NULL) {
+								memcpy(packet, udpTunnelBuffer, expsize);
+								sendUdpPacket(packet, expsize + 1);
+								free(packet);
+							}
+						}
+
+						u32_le sip = addr_in.sin_addr.s_addr;
+						uint16_t sport = ntohs(addr_in.sin_port);
+						uint8_t * ip4 = (uint8_t *)&sip;
+						DEBUG_LOG(SCENET, "Tunnel UDP: Received %u bytes from %u.%u.%u.%u:%u opcode:%u datalen:%u data:%s ", ofs, ip4[0], ip4[1], ip4[2], ip4[3], sport, header->opcode, header->datalen);
+					}
+				}
+			}
+		}
+		//storeUdpGameSocket(sip, sport, receive);
+		// Prevent needless CPU Overload (1ms Sleep)
+		//sleep_ms(1); // there is no usleep equivalent on windows :(
+		while (udpTunnelRunning && Core_IsStepping()) sleep_ms(1);
+		// Don't do anything if it's paused, otherwise the log will be flooded
+	}
+	free(header);
+	free(udpTunnelBuffer);
+	closesocket(udptunnel);
+	return 0;
+}
+
+int udpTunnel(int port) {
+
+	int result = 0;
+	utunnelsocket = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
+	if (utunnelsocket != INVALID_SOCKET) {
+		int one = 1;
+		setsockopt(utunnelsocket, SOL_SOCKET, SO_REUSEADDR, (const char*)&one, sizeof(one));
+		setSockBufferSize(utunnelsocket, SO_RCVBUF, UDP_TUNNEL_BUFFER_SIZE);
+		setSockBufferSize(utunnelsocket, SO_SNDBUF, UDP_TUNNEL_BUFFER_SIZE);
+		//int timeout = 15;
+		//setsockopt(usocket, SOL_SOCKET, SO_RCVTIMEO, (const char*)&timeout, sizeof(timeout));
+		// Binding Information for tunnel Port
+		sockaddr_in addr;
+		addr.sin_family = AF_INET;
+		addr.sin_addr.s_addr = INADDR_ANY;
+		addr.sin_port = htons(port);
+		int ubind = bind(utunnelsocket, (sockaddr *)&addr, sizeof(addr));
+		if (ubind != -1) {
+			INFO_LOG(SCENET, "Tunnel UDP : Tunnel Port Listening on UDP Port %u", port);
+		}
+		else {
+			ERROR_LOG(SCENET, "Socket error (%i) when binding tunnel port %u", ntohs(addr.sin_port));
+		}
+	}
+
+	if (utunnelsocket != -1) {
+		result = udpTunnelLoop(utunnelsocket);
+	}
+
+	udpTunnelRunning = false;
+	INFO_LOG(SCENET, "Tunnel UDP : End of UDP Tunnel");
+	return result;
+}
