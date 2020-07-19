@@ -22,6 +22,7 @@
 #include "Common/Common.h"
 #include "Common/CommonTypes.h"
 #include "Common/Swap.h"
+#include "Core/Util/PPGeDraw.h"
 
 class PointerWrap;
 
@@ -83,6 +84,7 @@ public:
 	void StartDraw();
 	void EndDraw();
 protected:
+	PPGeStyle FadedStyle(PPGeAlign align, float scale);
 	void UpdateButtons();
 	bool IsButtonPressed(int checkButton);
 	bool IsButtonHeld(int checkButton, int &framesHeld, int framesHeldThreshold = 30, int framesHeldRepeatRate = 10);
