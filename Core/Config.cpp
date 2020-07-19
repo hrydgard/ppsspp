@@ -529,11 +529,11 @@ static int DefaultInternalResolution() {
 #endif
 }
 
-static bool DefaultFrameskipUnthrottle() {
+static int DefaultUnthrottleMode() {
 #if PPSSPP_PLATFORM(ANDROID) || defined(USING_QT_UI) || PPSSPP_PLATFORM(UWP) || PPSSPP_PLATFORM(IOS)
-	return true;
+	return (int)UnthrottleMode::SKIP_DRAW;
 #else
-	return false;
+	return (int)UnthrottleMode::CONTINUOUS;
 #endif
 }
 
@@ -705,6 +705,28 @@ struct ConfigTranslator {
 
 typedef ConfigTranslator<GPUBackend, GPUBackendToString, GPUBackendFromString> GPUBackendTranslator;
 
+static int UnthrottleModeFromString(const std::string &s) {
+	if (!strcasecmp(s.c_str(), "CONTINUOUS"))
+		return (int)UnthrottleMode::CONTINUOUS;
+	if (!strcasecmp(s.c_str(), "SKIP_DRAW"))
+		return (int)UnthrottleMode::SKIP_DRAW;
+	if (!strcasecmp(s.c_str(), "SKIP_FLIP"))
+		return (int)UnthrottleMode::SKIP_FLIP;
+	return DefaultUnthrottleMode();
+}
+
+std::string UnthrottleModeToString(int v) {
+	switch (UnthrottleMode(v)) {
+	case UnthrottleMode::CONTINUOUS:
+		return "CONTINUOUS";
+	case UnthrottleMode::SKIP_DRAW:
+		return "SKIP_DRAW";
+	case UnthrottleMode::SKIP_FLIP:
+		return "SKIP_FLIP";
+	}
+	return "CONTINUOUS";
+}
+
 static ConfigSetting graphicsSettings[] = {
 	ConfigSetting("EnableCardboardVR", &g_Config.bEnableCardboardVR, false, true, true),
 	ConfigSetting("CardboardScreenSize", &g_Config.iCardboardScreenSize, 50, true, true),
@@ -734,7 +756,7 @@ static ConfigSetting graphicsSettings[] = {
 	ReportedConfigSetting("AutoFrameSkip", &g_Config.bAutoFrameSkip, false, true, true),
 	ConfigSetting("FrameRate", &g_Config.iFpsLimit1, 0, true, true),
 	ConfigSetting("FrameRate2", &g_Config.iFpsLimit2, -1, true, true),
-	ConfigSetting("FrameSkipUnthrottle", &g_Config.bFrameSkipUnthrottle, &DefaultFrameskipUnthrottle, true, false),
+	ConfigSetting("UnthrottleMode", &g_Config.iUnthrottleMode, &DefaultUnthrottleMode, &UnthrottleModeToString, &UnthrottleModeFromString, true, true),
 #if defined(USING_WIN_UI)
 	ConfigSetting("RestartRequired", &g_Config.bRestartRequired, false, false),
 #endif
